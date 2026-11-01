@@ -11,6 +11,8 @@ import { gemme, useFiche } from './Boutique'
 import { ongletVise } from './Onglets'
 import { espacesFines, formatNumber } from '../format'
 import { cabinetIci } from '../maintenance'
+import { CARTES_PEINTES } from './cartes-peintes'
+import { IMAGES } from './legendaires-peints'
 import { NOM_RARETE, type Rarete } from '../../../shared/badges'
 import { NOM_PALIER, XP_PALIER, hautFaitDeSoiree } from '../../../shared/hautsfaits'
 import { lesPlusProches } from '../../../shared/proches'
@@ -56,6 +58,7 @@ const ICONE_DE_LA_PAGE: Record<PageDesTrophees, IconName> = {
   campagne: 'target',
   duels: 'swords',
   sentiers: 'mountain',
+  cabinet: 'landmark',
   partout: 'star',
 }
 
@@ -69,9 +72,11 @@ const majuscule = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 /** Ce que sa case dit à l'oreille : son nom, ce qu'il en a, sa rareté. */
 function ceQueDitLaCase(c: CaseDeTrophee): string {
   const rarete = c.rarete ? `, ${NOM_RARETE[c.rarete].toLowerCase()}` : ''
-  if (c.sorte === 'piste' || c.sorte === 'ecusson') {
+  if (c.sorte === 'piste' || c.sorte === 'ecusson' || c.sorte === 'defi') {
     const metaux = c.metaux ? NOM_PALIER.slice(0, c.metaux).join(', ').toLowerCase() : 'pas encore'
-    return `${c.titre}, ${c.compte ?? ''}, ${metaux}${rarete}`
+    // Le compte d'un défi est le nom de son rang, que ses métaux disent déjà — et pas encore tenu, il n'en a pas :
+    // « Le Trésorier, , pas encore » se lisait à l'oreille.
+    return c.sorte === 'defi' ? `${c.titre}, ${metaux}` : `${c.titre}, ${c.compte ?? ''}, ${metaux}${rarete}`
   }
   if (c.fois !== undefined) return `${c.titre}, ${c.fois > 0 ? `${c.fois} fois` : 'pas encore'}${rarete}`
   if (c.sorte === 'bordure' || c.sorte === 'maitre') return `${c.titre}, ${c.aLui ? 'à toi' : `${c.compte ?? 'pas encore'}`}`
@@ -141,7 +146,7 @@ function Piste({ piste, etapes, valeur }: { piste: string; etapes: readonly Etap
           </span>
           <span className="piste-texte">
             <b>
-              {seuilDeLEtape(piste, e.seuil)}
+              {e.dit ? espacesFines(e.dit) : seuilDeLEtape(piste, e.seuil)}
               {e.metal && (
                 <>
                   {' · '}
@@ -151,6 +156,7 @@ function Piste({ piste, etapes, valeur }: { piste: string; etapes: readonly Etap
               {e.atteinte && <span className="sr-only"> : atteinte</span>}
             </b>
             {e.recompenses.length > 0 && <span className="muted small">{espacesFines(e.recompenses.map(ditLaRecompense).join(' · '))}</span>}
+            {e.gain && <span className="muted small">{espacesFines(e.gain)}</span>}
             {e.prochaine && (
               <span className="album-progres">
                 <JaugeFine part={valeur / e.seuil} />
@@ -177,6 +183,9 @@ function phraseDeLXp(c: CaseDeTrophee): string | null {
   return hautFaitDeSoiree(c.cle)?.paieUneFois ? `+${c.xp} XP, la première fois.` : `+${c.xp} XP chaque fois.`
 }
 
+/** Un défi tenu, à son rang : « au Bronze », « à l’Argent », « à l’Or ». */
+const TENU_AU_RANG = ['', 'au Bronze', 'à l’Argent', 'à l’Or'] as const
+
 /** Ce que la fiche dit d'où il en est. */
 function ouEnEst(c: CaseDeTrophee): string | null {
   switch (c.sorte) {
@@ -192,6 +201,10 @@ function ouEnEst(c: CaseDeTrophee): string | null {
       return c.aLui ? 'Maître : son titre se porte sous ton prénom.' : `Palier ${c.valeur ?? 0} sur ${PALIER_DU_MAITRE}.`
     case 'ecusson':
       return `${c.compte ?? ''}, où que tu joues.`
+    case 'defi':
+      return c.metaux ? `Tenu ${TENU_AU_RANG[c.metaux]} : il ne se reprend jamais.` : 'Pas encore : il ne compte que si la carte est dans ta main.'
+    case 'maitrise':
+      return c.aLui ? 'Vaincu en maître : son légendaire est à toi.' : 'Pas encore.'
     default:
       return c.aLui ? 'À toi.' : 'Pas encore.'
   }
@@ -207,7 +220,7 @@ function ouEnEst(c: CaseDeTrophee): string | null {
  */
 export function FicheDuTrophee({ c, page, visuel, cabinet = cabinetIci() }: { c: CaseDeTrophee; page: PageDesTrophees; visuel: ReactNode; cabinet?: boolean }) {
   const xp = phraseDeLXp(c)
-  const fini = c.sorte === 'piste' || c.sorte === 'ecusson' ? (c.metaux ?? 0) >= 3 : c.aLui && c.sorte !== 'exploit' && c.sorte !== 'coup'
+  const fini = c.sorte === 'piste' || c.sorte === 'ecusson' || c.sorte === 'defi' ? (c.metaux ?? 0) >= 3 : c.aLui && c.sorte !== 'exploit' && c.sorte !== 'coup'
   const aller = fini ? null : c.sorte === 'maitre' && c.branche ? { nom: 'Aller au sentier', href: `/campagne#sentier-${c.branche}` } : ouJouer(c.cle, page, cabinet)
   return (
     <div className="galerie-detail detail-case album-detail trophee-fiche" style={gemmeDe(c)}>
@@ -230,7 +243,7 @@ export function FicheDuTrophee({ c, page, visuel, cabinet = cabinetIci() }: { c:
       {xp && <p className="muted small">{xp}</p>}
       {c.etapes && c.etapes.length > 0 && (
         <>
-          <span className="label album-etiquette">{c.sorte === 'piste' ? 'Ta piste' : 'Ses métaux'}</span>
+          <span className="label album-etiquette">{c.sorte === 'piste' ? 'Ta piste' : c.sorte === 'defi' ? 'Ses rangs' : 'Ses métaux'}</span>
           <Piste piste={c.cle} etapes={c.etapes} valeur={c.valeur ?? 0} />
         </>
       )}
@@ -241,7 +254,7 @@ export function FicheDuTrophee({ c, page, visuel, cabinet = cabinetIci() }: { c:
             {c.ouvre.map(o => (
               <li key={`${o.fois}-${o.recompense.cle}`} className={o.tenue ? 'tenue' : undefined}>
                 <Icon name={o.tenue ? 'check' : 'lock'} />
-                <span>{espacesFines(`${c.sorte === 'ligue' ? '' : `${o.fois} fois : `}${ditLaRecompense(o.recompense)}`)}</span>
+                <span>{espacesFines(`${c.sorte === 'ligue' || c.sorte === 'maitrise' ? '' : `${o.fois} fois : `}${ditLaRecompense(o.recompense)}`)}</span>
               </li>
             ))}
           </ul>
@@ -293,6 +306,11 @@ function Section({
         )
       case 'ecusson':
         return <Ecusson categorie={c.titre} palier={Math.max(0, Math.min(3, c.metaux ?? 0)) as 0 | 1 | 2 | 3} />
+      // Le Cabinet : la peinture de la carte au dos de laquelle est le défi, le médaillon du gardien d'une épreuve de maître.
+      case 'defi':
+        return CARTES_PEINTES[c.carte!] ? <img className="trophee-image" src={CARTES_PEINTES[c.carte!][1]} alt="" loading="lazy" /> : c.emoji
+      case 'maitrise':
+        return IMAGES[c.gardien!] ? <img className="trophee-image" src={IMAGES[c.gardien!].art[1]} alt="" loading="lazy" /> : c.emoji
       default:
         return c.aLui ? c.emoji : <span className="silhouette">{c.emoji}</span>
     }
@@ -343,7 +361,7 @@ function Section({
                 {visuel(c)}
                 {c.fois !== undefined && c.fois > 0 && <span className={'trophee-fois' + (c.sorte === 'coup' ? ' trophee-fois-ombre' : '')}>{`×${c.fois}`}</span>}
               </span>
-              {c.metaux !== undefined && c.sorte === 'piste' && <Metaux n={c.metaux} />}
+              {c.metaux !== undefined && (c.sorte === 'piste' || c.sorte === 'defi') && <Metaux n={c.metaux} />}
               {/* Un écusson écrit déjà sa catégorie sous son blason. */}
               {c.sorte !== 'ecusson' && (
                 <span className="trophee-nom" aria-hidden="true">

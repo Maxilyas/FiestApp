@@ -1996,6 +1996,15 @@ Le prix, que le propriétaire peut trancher autrement : la découverte. Le bon n
 
 *Fichiers : `shared/cabinet/{bareme,traversee,vues}.ts`, `server/src/core/cabinet/vue.ts`, `client/src/views/cabinet/Traversee.tsx`, `server/test/cabinet-traversee.test.ts`*
 
+### La page « Cabinet » de l'album, et L'Explorateur aux traversées gagnées
+**Contexte** : le soir du 1er novembre 2026, le propriétaire : « est-ce que l'on voit quelque part dans la collection, album des trophées, une section cabinets ? ». Non : les défis des cartes et les épreuves de maître ne se voyaient qu'au Cabinet, au choix des cartes et sous les gardiens ; et L'Explorateur, rangé en campagne, comptait les salles complètes d'un musée que la traversée avait remplacé — plus une salle ne se complétait, la piste ne montait plus.
+
+**Décision** : une page « Cabinet » dans l'album des trophées, entre les sentiers et « Partout » : L'Explorateur ; « Les défis de tes cartes », une case par carte — sa peinture, éteinte tant que le Bronze manque —, ses trois métaux, et dans sa fiche chaque rang, ce qu'il demande et ce qu'il rapporte ; « Les épreuves de maître », le médaillon de chaque gardien, acte par acte, la Citrouille avec l'acte I. L'Explorateur compte désormais les traversées gagnées, à 1, 5 et 15 — sa clé reste, ses paliers d'avant aussi (invariant 22). Son palier tombe au choix du légendaire qui gagne la traversée, rangé sous elle, par la porte de la campagne (`accorderLesPaliers`) : la campagne ne juge ses paliers qu'à la fin d'une partie, et la traversée finit hors de toute partie. La page lit ce que le profil tient dans sa page (`PublicProfileDetail.defisDuCabinet`, les clés de son étagère) et ses textes d'un module léger (`shared/cabinet/sceaux.ts`), pour que l'album ne tire pas la traversée.
+
+**Conséquence** : cinquante et un trophées de plus à gagner dans la collection — trente rangs de défis, vingt et une épreuves —, et la jauge de « Ma collection » recule d'autant. La page ne paraît que là où le Cabinet s'ouvre, ou à qui y a déjà gagné quelque chose : ailleurs, la collection ne compte pas ce qui ne s'y gagne pas. Le compte de L'Explorateur coûte un `COUNT` par l'index des traversées du profil, à la place des œuvres relues. Aux taux de la version 3, le moyen a le bronze vers sa quatrième traversée, l'argent vers la vingtième, l'or vers la soixantième.
+
+*Fichiers : `shared/{pagesDesTrophees,trophees,hautsfaits,profil}.ts`, `shared/cabinet/{sceaux,defis}.ts`, `server/src/core/{porteDeLaCampagne,campagne}.ts`, `server/src/core/cabinet/{magasin,tables}.ts`, `server/src/auth/profiles.ts`, `client/src/components/AlbumDesTrophees.tsx`, `server/test/{trophees,cabinet-defis,porte-de-la-campagne}.test.ts`*
+
 ## L'outillage
 
 Le détail : [les tests](../contribuer/tests.md).

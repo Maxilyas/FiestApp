@@ -88,6 +88,7 @@ Un gardien qu'on a déjà reste un gardien à battre — la traversée se joue p
 - **Sa mission du jour**, depuis le 1er novembre 2026, avec la même chance que les autres découvertes : jouer une épreuve, n'importe laquelle, gagnée ou non, dès sa première réponse ([les missions](les-missions.md)). Le bilan de chaque épreuve dit ce qu'elle a fait des missions du jour, comme la fin de chaque mode.
 - **L'or ne sert que dans la traversée** : au marchand. Il n'en sort jamais, ne s'achète pas, et une traversée perdue le perd avec elle.
 - **Les défis de tes cartes et les épreuves de maître** ([plus bas](#les-défis-de-tes-cartes)) : des confettis, un dos de carte doré, des titres, une gerbe, et des légendaires — le gardien vaincu en maître, le Djinn aux dix défis tenus à l'Or.
+- **L'Explorateur** 🎒, un trophée en trois métaux : une, cinq, puis quinze traversées gagnées. Son palier tombe au choix du légendaire qui la gagne.
 
 ## Les défis de tes cartes
 
@@ -114,6 +115,8 @@ Le 1er novembre 2026 : « comme c'est dur d'équilibrer les cartes, est-ce que l
 
 Tout se lit du journal de la traversée, rien ne s'écrit à côté : une épreuve conclue porte maintenant ce qui y a servi (un Coup d'œil, un Échange, le temps en plus), et ce qu'une traversée atteint se range sur ton profil, une fois pour toutes (l'invariant 22). **Les traversées jouées avant les défis se sont relues une fois**, au démarrage qui les a apportés : ce qu'elles avaient déjà tenu t'a été offert d'emblée — ce qui avait servi dans leurs épreuves repris de leurs parties. Les chiffres, et ce que le calibrage en dit : [les barèmes](../reference/baremes.md#les-défis-de-tes-cartes-et-les-épreuves-de-maître).
 
+**Ils ont leur page dans ta collection** — la page « Cabinet » de l'album des trophées, depuis le soir du 1er novembre 2026 (« est-ce que l'on voit quelque part dans la collection, album des trophées, une section cabinets ? », le propriétaire : défis et maîtres ne se voyaient qu'au Cabinet) : L'Explorateur ; le défi de chaque carte, sa peinture pour case, en couleur dès le Bronze, et dans sa fiche ses trois rangs, ce que chacun demande et rapporte ; les épreuves de maître, le médaillon de chaque gardien, acte par acte — ce que tu tiens en couleur, le reste éteint. Elle ne paraît que là où le Cabinet s'ouvre, ou à qui y a déjà gagné quelque chose.
+
 ## Les mots du Cabinet
 
 Les mots de l'écran. **Quatre notions** : les cœurs, l'or, tes cartes, la carte — validées sur la maquette jouée (`retours/2026-10-31/la-partie.md`). « La carte » est la carte de l'acte, ses chemins ; « tes cartes », les trois que tu as choisies : l'écran dit toujours l'une ou les autres, jamais « une carte » qui pourrait être l'une ou l'autre. L'Expédition avait rebaptisé « le plan » la carte d'un acte, que le même mot confondait avec les cartes de la main : la traversée n'a que trois cartes, toujours en vue, et un seul plan.
@@ -135,7 +138,7 @@ La page ne montre plus le musée, la tour, ses portes, la barre, la visite du jo
 
 - **un gardien réveillé l'est toujours** — son légendaire est sur l'étagère, et le reste ;
 - le serveur sert encore les routes du musée, ses tables et ses parties ; une partie du musée qui attendait encore se quitte d'elle-même à la première épreuve — une à la fois — ;
-- **L'Explorateur** 🎒 se lisait aux salles complètes : il garde ce qu'il a donné, et ne monte plus ; **la luciole**, qui rejoignait qui complétait sa première salle, s'achète en boutique depuis le 31 octobre 2026.
+- **L'Explorateur** 🎒 se lisait aux salles complètes : il garde ce qu'il a donné, et compte depuis le 1er novembre 2026 les traversées gagnées ([plus haut](#ce-quon-y-gagne)) ; **la luciole**, qui rejoignait qui complétait sa première salle, s'achète en boutique depuis le 31 octobre 2026.
 
 Effacer le code et les tables du musée, comme l'Expédition l'a été, reste un lot à part, à décider avec le propriétaire.
 

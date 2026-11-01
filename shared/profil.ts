@@ -18,6 +18,7 @@
 // performance.
 
 import type { QuestionAPoser } from './annonces'
+import type { DefisTenus } from './cabinet/sceaux'
 import type { AfficheDAccueil } from './affiches'
 import type { BadgePorte } from './badges'
 import type { HautFaitVu } from './hautsfaits'
@@ -478,18 +479,19 @@ export interface StatsDeCampagne {
   /** Les tampons de son passeport : les thèmes pointus de l'expédition trouvés, chacun une fois (`campagne_reponses.sujet`). */
   tampons: number
   /**
-   * Les salles complètes de son Cabinet de curiosités — toutes leurs œuvres à
-   * lui, celles de départ comprises —, que L'Explorateur compte. Le Cabinet les
-   * tire de ses œuvres dans le lot même de ces comptes (`statsEnPlus`, la porte
-   * de la campagne) ; 0 là où il est fermé, qui ne le branche pas : rien n'y
-   * tombe. Il comptait jusqu'au 26 octobre 2026 le niveau d'explorateur de
-   * l'Expédition, dont le départ se ferme : ses paliers rangés restent.
+   * Ses traversées gagnées au Cabinet de curiosités, que L'Explorateur compte
+   * (le 1er novembre 2026). Le Cabinet les lit de ses traversées dans le lot
+   * même de ces comptes (`statsEnPlus`, la porte de la campagne) ; 0 là où il
+   * est fermé, qui ne le branche pas : rien n'y tombe. Il a compté le niveau
+   * d'explorateur de l'Expédition, puis, du 26 octobre au 1er novembre 2026,
+   * les salles complètes du musée — que la traversée a remplacé, et qui ne se
+   * remplissait plus : ses paliers rangés restent.
    */
-  salles: number
+  traversees: number
 }
 
 /** Aucune campagne : un profil qui n'y a jamais joué, ou une carrière sans elle. */
-export const AUCUNE_CAMPAGNE: StatsDeCampagne = { record: 0, expertes: 0, justes: 0, paliersValides: 0, etoiles: 0, sentiersMenes: 0, tampons: 0, salles: 0 }
+export const AUCUNE_CAMPAGNE: StatsDeCampagne = { record: 0, expertes: 0, justes: 0, paliersValides: 0, etoiles: 0, sentiersMenes: 0, tampons: 0, traversees: 0 }
 
 /** Ce qu'un profil a accumulé sur toutes ses soirées : la fiche, et la base des hauts faits de carrière. */
 export interface Carriere {
@@ -1086,6 +1088,11 @@ export interface PublicProfileDetail extends PublicProfile {
   titresDates?: string[]
   /** Ses défis du Cabinet tenus à l'Or (`cabinet:defi:cagnotte:3`), dans l'ordre des cartes : leur nom se porte comme un titre. */
   titresDuCabinet?: string[]
+  /**
+   * Ce qu'il tient des défis de ses cartes et des épreuves de maître (`defisTenus`) : la page Cabinet de l'album des
+   * trophées les montre. Absent là où le Cabinet est fermé, et d'un serveur d'avant : la page s'en passe.
+   */
+  defisDuCabinet?: DefisTenus
   /**
    * Les bordures de ses ligues atteintes et leurs crans, relues dans ses
    * duels (`ReleveDesDuels.bordures`) : la loge les propose. Absentes d'un

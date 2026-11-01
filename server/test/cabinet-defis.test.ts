@@ -7,15 +7,19 @@
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { ecrire, inscrireProfil } from './banc'
-import { aLaMain, bancDuCabinet, commencer, enBase, fermerLesMagasins, jouer, lire, ok, type BancDuCabinet } from './cabinet-banc'
+import { aLaMain, bancDuCabinet, commencer, enBase, fermerLesMagasins, jouer, lire, ok, poster, type BancDuCabinet } from './cabinet-banc'
+import { cleDeSerie } from '../src/auth/profiles'
 import { RELECTURE_DES_DEFIS } from '../src/core/cabinet/magasin'
 import { clesARanger } from '../src/core/cabinet/gardiens'
 import * as B from '../../shared/cabinet/bareme'
 import { CONDITIONS_DE_MAITRISE, DEFIS, VERSION_DES_DEFIS, defiDeLaCarte, defisDeLaTraversee, maitriseCourte, maitriseDite, releverLaTraversee } from '../../shared/cabinet/defis'
-import { NOMS_DES_DEFIS, cleDeLaMaitrise, cleDuRang, confettisDesDefis, defisAuMoins, defisTenus, gerbeDesDefis, legendaireDesDefis, nomDuTitreDuDefi, titresDesDefis } from '../../shared/cabinet/sceaux'
+import { MAITRISES, NOMS_DES_CARTES, NOMS_DES_DEFIS, cleDeLaMaitrise, cleDuRang, confettisDesDefis, defisAuMoins, defisTenus, gerbeDesDefis, legendaireDesDefis, nomDuTitreDuDefi, titresDesDefis } from '../../shared/cabinet/sceaux'
 import {
+  CARTES,
   CLES_DES_CARTES,
+  GARDIENS_DES_ACTES,
   GARDIENS_DE_LA_TRAVERSEE,
+  GARDIEN_D_HALLOWEEN,
   VERSION_DE_LA_TRAVERSEE,
   etatDeLaTraversee,
   lireUnGesteDeLaTraversee,
@@ -114,6 +118,16 @@ test('le catalogue : un défi par carte, dans l’ordre des cartes, trois rangs 
   }
   assert.equal(maitriseCourte('lg:inconnu'), null)
   assert.equal(maitriseCourte('lg:dragon'), `${B.OR_D_UNE_MAITRISE[2]} pièces en poche`)
+  // Le module léger que lit l'album des trophées recopie ce qu'il dit de la traversée sans la tirer : le nom de chaque
+  // carte, et l'acte de chaque gardien — dont l'or d'une épreuve de maître dépend (`OR_D_UNE_MAITRISE[acte]`). L'album
+  // les montre dans cet ordre : les cartes comme au choix, les gardiens acte par acte, la Citrouille avec l'acte I.
+  assert.deepEqual(Object.entries(NOMS_DES_CARTES), CARTES.map(c => [c.cle, c.nom]), 'les noms des cartes, recopiés pour l’album')
+  assert.deepEqual([...MAITRISES.keys()], [...GARDIENS_DES_ACTES[0], GARDIEN_D_HALLOWEEN, ...GARDIENS_DES_ACTES[1], ...GARDIENS_DES_ACTES[2]], 'une épreuve par gardien, acte par acte')
+  assert.deepEqual([...MAITRISES.keys()].sort(), GARDIENS_DE_LA_TRAVERSEE.map(g => g.cle).sort(), 'aucun gardien de la traversée sans la sienne')
+  for (const [g, m] of MAITRISES) {
+    assert.equal(m.acte, g === GARDIEN_D_HALLOWEEN ? 0 : GARDIENS_DES_ACTES.findIndex(gs => gs.includes(g)), `${g} : l’acte de son cercle`)
+    assert.equal(typeof CONDITIONS_DE_MAITRISE[m.sorte], 'function', `${g} : sa condition`)
+  }
 })
 
 test('une traversée gagnée sans faute : les défis de ses cartes, les gardiens vaincus en maître, épreuve par épreuve', () => {
@@ -269,6 +283,32 @@ test('la page de la traversée range ce que ses épreuves ont tenu, et dit ce qu
   assert.equal(moi.profile.badges ?? 0, 0)
 })
 
+test('une traversée gagnée fait tomber L’Explorateur au choix de son légendaire, rangé sous elle ; la page du profil la compte', async () => {
+  // L'Explorateur compte les traversées gagnées depuis le 1er novembre 2026 — les salles complètes d'un musée que la
+  // traversée a remplacé, jusque-là. La traversée se gagne au choix du légendaire, après sa dernière épreuve : son
+  // palier tombe là, sans attendre la fin de la partie suivante.
+  const cookie = await unProfil()
+  const profil = await idDe(cookie)
+  type Vu = { key: string; fois: number; valeur: number; prochain: number | null }
+  const explorateur = async () => (ok(await lire(b, cookie, '/api/joueur/moi'), 'le profil').profile.hautsFaits as Vu[]).find(h => h.key === 'hf:explorateur')!
+  const avant = await explorateur()
+  assert.deepEqual([avant.fois, avant.valeur, avant.prochain], [0, 0, 1])
+  // Les trois gardiens vaincus, le légendaire à choisir : écrite derrière son dos, elle se relit au redémarrage.
+  const t = traversee({ cartes: ['cagnotte', 'panacee', 'pourboire'], gardiens: GARDIENS, arret: e => e.ou.sorte === 'legendaire' })
+  const id = `explorateur-de-${profil}`
+  enBaseALaMain(profil, id, t)
+  await b.banc.redemarrer()
+  const page = ok(await lire<PageDeLaTraversee>(b, cookie, '/api/cabinet/traversee'), 'la page')
+  assert.equal(page.traversee!.ou.sorte, 'legendaire')
+  assert.equal((await explorateur()).valeur, 0, 'pas encore gagnée')
+  ok(await poster(b, cookie, `/api/cabinet/traversee/${id}/geste`, { rang: page.traversee!.rang, geste: { quoi: 'legendaire', gardien: 'lg:renard' } }), 'le légendaire choisi')
+  // Rangé sous la traversée, comme un palier sous la partie qui le fait tomber — jamais sous `#cabinet`.
+  const sous = enBase(b.fichier, db => (db.prepare("SELECT soiree_id FROM profile_badges WHERE profile_id = ? AND badge = 'hf:explorateur:1'").all(profil) as { soiree_id: string }[]).map(r => r.soiree_id))
+  assert.deepEqual(sous, [cleDeSerie(id)])
+  const apres = await explorateur()
+  assert.deepEqual([apres.fois, apres.valeur, apres.prochain], [1, 1, 5])
+})
+
 test('au démarrage, les traversées d’avant se relisent une fois : ce qui a servi se reprend de leurs parties', async () => {
   const cookie = await unProfil()
   const profil = await idDe(cookie)
@@ -321,4 +361,42 @@ test('ce que les défis rapportent : les confettis au solde, le titre de l’Or 
   assert.ok(sousLeCabinet(profil).includes(cleDuCabinet(LEGENDAIRE_DES_DEFIS)), 'le Djinn')
   const page = ok(await lire<PageDeLaTraversee>(b, cookie, '/api/cabinet/traversee'), 'la page relue')
   assert.ok(page.possedes.includes(LEGENDAIRE_DES_DEFIS))
+})
+
+test('la page du profil dit à l’album ce qu’il tient : là où le Cabinet s’ouvre, et partout à qui en tient un', async () => {
+  // La page « Cabinet » de l'album des trophées lit ses défis et ses épreuves de maître dans la page du profil
+  // (`PublicProfileDetail.defisDuCabinet`). Là où le Cabinet s'ouvre, chacun la reçoit — tout à gagner d'abord.
+  const cookie = await unProfil()
+  const profil = await idDe(cookie)
+  const sesDefis = async (bc: BancDuCabinet, c: string) => ok(await lire(bc, c, '/api/joueur/moi'), 'le profil').profile.defisDuCabinet as { rangs: Record<string, number>; maitrises: string[] } | undefined
+  const neuf = await sesDefis(b, cookie)
+  assert.ok(neuf && Object.values(neuf.rangs).every(r => r === 0) && neuf.maitrises.length === 0, 'tout à gagner')
+  // Un rang tenu donne ceux d'en dessous : seul le plus haut se lit ; et le gardien vaincu en maître.
+  const tenir = (bc: BancDuCabinet, qui: string) =>
+    aLaMain(
+      bc.fichier,
+      [cleDuRang('cagnotte', 2), cleDeLaMaitrise('lg:dragon')]
+        .map(c => `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (${q(qui)}, ${q(c)}, '#cabinet', '', '🃏', 'défi', 1)`)
+        .join(';\n'),
+    )
+  tenir(b, profil)
+  await b.banc.redemarrer()
+  const tenus = await sesDefis(b, cookie)
+  assert.equal(tenus?.rangs.cagnotte, 2)
+  assert.equal(tenus?.rangs.parade, 0)
+  assert.deepEqual(tenus?.maitrises, ['lg:dragon'])
+
+  // Là où il est fermé, rien à qui n'y a rien gagné — sa collection ne compterait pas « 0 sur 51 » ce qui ne s'y gagne
+  // pas —, mais un rang tenu ne se perd jamais, ni de vue : à son détenteur, comme L'Explorateur.
+  const ferme = await bancDuCabinet({ cabinet: false })
+  try {
+    const sans = await inscrireProfil(ferme.banc.url, 'sans-defi', 'Sans')
+    const detenteur = await inscrireProfil(ferme.banc.url, 'detenteur-defi', 'Détenteur')
+    tenir(ferme, (await lire(ferme, detenteur, '/api/joueur/moi?leger')).corps.profile.id as string)
+    await ferme.banc.redemarrer()
+    assert.equal(await sesDefis(ferme, sans), undefined, 'tu à qui n’a rien')
+    assert.deepEqual((await sesDefis(ferme, detenteur))?.maitrises, ['lg:dragon'], 'dit à qui en tient un')
+  } finally {
+    await ferme.banc.close()
+  }
 })

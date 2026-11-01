@@ -21,14 +21,11 @@
 // (`bareme.ts`).
 
 import { ACTES_DES_RANGS, ACTES_D_UNE_TRAVERSEE, MISES_DU_FLAMBEUR, OR_DU_TRESORIER, OR_D_UNE_MAITRISE } from './bareme'
-import { NOMS_DES_DEFIS, RANGS, cleDeLaMaitrise, cleDuRang, type RangDUnDefi } from './sceaux'
+import { MAITRISES, NOMS_DES_DEFIS, PHRASES_DES_DEFIS, RANGS, cleDeLaMaitrise, cleDuRang, type RangDUnDefi, type SorteDeMaitrise } from './sceaux'
 import {
-  GARDIENS_DES_ACTES,
-  GARDIEN_D_HALLOWEEN,
   acteDe,
   carteDeLaTraversee,
   etatDuDepart,
-  gardienDeLaTraversee,
   jouerUnGesteDeLaTraversee,
   type Acte,
   type AidesDUneEpreuve,
@@ -207,11 +204,6 @@ export interface DefiDUneCarte {
   rang: (r: ReleveDeLaTraversee) => 0 | RangDUnDefi
 }
 
-const FINIS_DITS = ['Un acte fini', 'Deux actes finis'] as const
-const NOMBRES_DITS = ['Zéro', 'Un', 'Deux', 'Trois', 'Quatre', 'Cinq', 'Six', 'Sept', 'Huit', 'Neuf', 'Dix'] as const
-const nombreDit = (n: number) => NOMBRES_DITS[n] ?? String(n)
-const actesFinis = (n: number) => (n >= ACTES_D_UNE_TRAVERSEE ? 'La traversée gagnée' : (FINIS_DITS[n - 1] ?? `${n} actes finis`))
-
 /** Le plus haut rang dont la condition tient : chaque condition se lit seule, et un rang tenu donne ceux d'en dessous. */
 function plusHaut(tient: readonly [boolean, boolean, boolean]): 0 | RangDUnDefi {
   return tient[2] ? 3 : tient[1] ? 2 : tient[0] ? 1 : 0
@@ -224,8 +216,6 @@ function sansRien(sans: (a: ActeRelu) => boolean): (r: ReleveDeLaTraversee) => 0
     return plusHaut([n >= ACTES_DES_RANGS[0], n >= ACTES_DES_RANGS[1], n >= ACTES_DES_RANGS[2]])
   }
 }
-const phrasesSans = (fin: string): readonly [string, string, string] => [`${actesFinis(ACTES_DES_RANGS[0])} ${fin}`, `${actesFinis(ACTES_DES_RANGS[1])} ${fin}`, `${actesFinis(ACTES_DES_RANGS[2])} ${fin}`]
-
 /**
  * Les dix défis, un par carte, dans l'ordre des cartes. Six demandent d'avoir la carte et de s'en passer, acte
  * après acte ; le Trésorier, de l'or en poche ; le Flambeur, des mises gagnées ; l'Exécuteur, des gardiens abattus
@@ -236,50 +226,42 @@ export const DEFIS: readonly DefiDUneCarte[] = [
     carte: 'coup-d-oeil',
     nom: NOMS_DES_DEFIS['coup-d-oeil'],
     idee: 'Garder l’indice pour soi',
-    rangs: phrasesSans('sans un Coup d’œil'),
+    rangs: PHRASES_DES_DEFIS['coup-d-oeil'],
     rang: sansRien(a => a.aides !== null && a.aides.eclairer === 0),
   },
   {
     carte: 'echange',
     nom: NOMS_DES_DEFIS['echange'],
     idee: 'Jouer la manche qu’on te donne',
-    rangs: phrasesSans('sans un Échange'),
+    rangs: PHRASES_DES_DEFIS['echange'],
     rang: sansRien(a => a.aides !== null && a.aides.changer === 0),
   },
   {
     carte: 'quitte-ou-double',
     nom: NOMS_DES_DEFIS['quitte-ou-double'],
     idee: 'Miser, et gagner',
-    rangs: [
-      `${nombreDit(MISES_DU_FLAMBEUR.gagnees)} mises gagnées dans une traversée`,
-      `${nombreDit(MISES_DU_FLAMBEUR.daffilee[0])} mises gagnées d’affilée`,
-      `${nombreDit(MISES_DU_FLAMBEUR.daffilee[1])} mises gagnées d’affilée`,
-    ],
+    rangs: PHRASES_DES_DEFIS['quitte-ou-double'],
     rang: r => plusHaut([r.mises.gagnees >= MISES_DU_FLAMBEUR.gagnees, r.mises.daffilee >= MISES_DU_FLAMBEUR.daffilee[0], r.mises.daffilee >= MISES_DU_FLAMBEUR.daffilee[1]]),
   },
   {
     carte: 'concentration',
     nom: NOMS_DES_DEFIS['concentration'],
     idee: 'Répondre sans le temps offert',
-    rangs: phrasesSans('sans puiser dans le temps en plus'),
+    rangs: PHRASES_DES_DEFIS['concentration'],
     rang: sansRien(a => a.aides !== null && a.aides.temps === 0),
   },
   {
     carte: 'parade',
     nom: NOMS_DES_DEFIS['parade'],
     idee: 'Ne pas en avoir besoin',
-    rangs: phrasesSans('sans qu’une Parade serve'),
+    rangs: PHRASES_DES_DEFIS['parade'],
     rang: sansRien(a => a.parees === 0),
   },
   {
     carte: 'cagnotte',
     nom: NOMS_DES_DEFIS['cagnotte'],
     idee: 'De l’or en poche',
-    rangs: [
-      `${OR_DU_TRESORIER[0]} pièces en poche à la chute d’un gardien`,
-      `${OR_DU_TRESORIER[1]} pièces en poche à la chute d’un gardien`,
-      `${OR_DU_TRESORIER[2]} pièces en poche à la chute du dernier`,
-    ],
+    rangs: PHRASES_DES_DEFIS['cagnotte'],
     rang: r => {
       const finis = r.actes.filter(a => a.fini && a.orALaChute !== null)
       const dernier = r.actes[ACTES_D_UNE_TRAVERSEE - 1]
@@ -290,24 +272,21 @@ export const DEFIS: readonly DefiDUneCarte[] = [
     carte: 'panacee',
     nom: NOMS_DES_DEFIS['panacee'],
     idee: 'Garder tous ses cœurs',
-    rangs: phrasesSans('sans perdre un cœur'),
+    rangs: PHRASES_DES_DEFIS['panacee'],
     rang: sansRien(a => a.coeursPerdus === 0),
   },
   {
     carte: 'pourboire',
     nom: NOMS_DES_DEFIS['pourboire'],
     idee: 'Le marchand peut attendre',
-    rangs: phrasesSans('sans rien acheter'),
+    rangs: PHRASES_DES_DEFIS['pourboire'],
     rang: sansRien(a => a.achats === 0),
   },
   {
     carte: 'coup-de-grace',
     nom: NOMS_DES_DEFIS['coup-de-grace'],
     idee: 'Abattre d’un seul assaut',
-    // Un gardien de l'acte I tombe presque toujours au premier assaut — six fois sur sept chez le joueur moyen du
-    // calibrage — : le Bronze demande de l'abattre dès la deuxième manche ; ceux des actes II et III, eux, ont plus de
-    // points de vie qu'un assaut n'a d'étoiles, sans mise ni Coup de grâce ++.
-    rangs: ['Un gardien abattu dès la deuxième manche de ton premier assaut', 'Un gardien de l’acte II ou III vaincu au premier assaut', 'Le gardien de l’acte III vaincu au premier assaut'],
+    rangs: PHRASES_DES_DEFIS['coup-de-grace'],
     rang: r => {
       const premiers = r.actes.filter(a => a.fini && a.chute?.assaut === 1)
       return plusHaut([r.actes.some(a => a.fini && dEntree(a)), premiers.some(a => a.acte >= 1), premiers.some(a => a.acte === 2)])
@@ -317,7 +296,7 @@ export const DEFIS: readonly DefiDUneCarte[] = [
     carte: 'second-souffle',
     nom: NOMS_DES_DEFIS['second-souffle'],
     idee: 'Revenir de loin',
-    rangs: ['Ton Second souffle sert, et tu finis l’acte quand même', 'La traversée gagnée après ton Second souffle', 'Ton Second souffle sert avant l’acte III, et la traversée est gagnée'],
+    rangs: PHRASES_DES_DEFIS['second-souffle'],
     rang: r => {
       const ou = r.souffle === null ? null : r.actes[r.souffle]
       return plusHaut([!!ou?.fini, r.souffle !== null && r.gagnee, r.souffle !== null && r.souffle < ACTES_D_UNE_TRAVERSEE - 1 && r.gagnee])
@@ -347,89 +326,12 @@ const apresUnCoeurPerdu: Maitrise = a => a.chute !== null && a.contreLui.some(m 
 const apresLeSouffle: Maitrise = a => a.souffleContreLui
 
 /** Les conditions des épreuves de maître, une par sorte — exportées pour le calibrage et les épreuves, qui les mesurent une à une. */
-export const CONDITIONS_DE_MAITRISE = { unSeulAssaut, sansFaute, sansPerdreUnCoeur, toutesLesEtoiles, surUneMise, dEntree, orEnPoche, apresUnCoeurPerdu, apresLeSouffle } as const
+export const CONDITIONS_DE_MAITRISE = { unSeulAssaut, sansFaute, sansPerdreUnCoeur, toutesLesEtoiles, surUneMise, dEntree, orEnPoche, apresUnCoeurPerdu, apresLeSouffle } as const satisfies Record<SorteDeMaitrise, Maitrise>
 
-const DITS = {
-  unSeulAssaut: 'au premier assaut',
-  sansFaute: 'sans rater une manche contre lui',
-  sansPerdreUnCoeur: 'sans perdre un cœur contre lui',
-  toutesLesEtoiles: 'avec trois étoiles à chaque manche contre lui',
-  surUneMise: 'd’un coup porté sur une mise',
-  dEntree: 'dès la deuxième manche de ton premier assaut',
-  apresUnCoeurPerdu: 'dans l’assaut même où tu perds un cœur',
-  apresLeSouffle: 'après que ton Second souffle t’a relevé contre lui',
-} as const
-type SorteDeMaitrise = keyof typeof DITS | 'orEnPoche'
-const SORTES: Readonly<Record<SorteDeMaitrise, Maitrise>> = CONDITIONS_DE_MAITRISE
+// L'épreuve de chaque gardien, son acte et ce qu'elle se dit vivent dans `sceaux.ts` (`MAITRISES`, `maitriseDite`,
+// `maitriseCourte`) : l'album des trophées les lit sans la traversée. Ici, la règle qui la juge.
+export { maitriseCourte, maitriseDite } from './sceaux'
 
-/**
- * L'épreuve de maître de chaque gardien, dans l'esprit de sa devise : le Dragon garde son or, le Phénix renaît de
- * ses cendres, la Comète ne passe qu'une fois. On la lit dès l'écran des trois gardiens, avant de choisir ses
- * cartes : certaines s'y préparent — sur une mise, après le Second souffle.
- */
-const MAITRISES = new Map<string, SorteDeMaitrise>(
-  Object.entries({
-    // L'acte I : des gardiens doux — au calibrage, le joueur moyen qui les vainc les maîtrise une fois sur cinq à peu près.
-    'lg:renard': 'toutesLesEtoiles',
-    'lg:coq': 'dEntree',
-    'lg:chouette': 'toutesLesEtoiles',
-    'lg:tigre': 'dEntree',
-    'lg:chauve-souris': 'apresUnCoeurPerdu',
-    'lg:scarabee': 'orEnPoche',
-    'lg:citrouille': 'surUneMise',
-    // L'acte II : une fois sur cinq à dix ; le Lion, roi de sa carte, une fois sur vingt-cinq.
-    'lg:sphinx': 'sansFaute',
-    'lg:janus': 'surUneMise',
-    'lg:phenix': 'apresUnCoeurPerdu',
-    'lg:fantome': 'sansPerdreUnCoeur',
-    'lg:salamandre': 'orEnPoche',
-    'lg:lion': 'unSeulAssaut',
-    'lg:oracle': 'sansFaute',
-    'lg:serpent': 'sansPerdreUnCoeur',
-    // L'acte III : une fois sur dix à quatre ; la Comète, qui ne passe qu'une fois, presque jamais.
-    'lg:dragon': 'orEnPoche',
-    'lg:kraken': 'apresLeSouffle',
-    'lg:chimere': 'sansFaute',
-    'lg:ouroboros': 'apresUnCoeurPerdu',
-    'lg:trou-noir': 'sansPerdreUnCoeur',
-    'lg:comete': 'unSeulAssaut',
-  } satisfies Record<string, SorteDeMaitrise>),
-)
-
-/** L'acte où un gardien se rencontre : son cercle (`GARDIENS_DES_ACTES`), la Citrouille à l'acte I. */
-const acteDuGardien = (gardien: string): Acte => (gardien === GARDIEN_D_HALLOWEEN ? 0 : (Math.max(0, GARDIENS_DES_ACTES.findIndex(l => l.includes(gardien))) as Acte))
-
-/** L'épreuve de maître d'un gardien, en une phrase — « Le vaincre avec 300 pièces en poche » ; null : pas un gardien de la traversée. */
-export function maitriseDite(gardien: unknown): string | null {
-  const g = gardienDeLaTraversee(gardien)
-  const sorte = g ? MAITRISES.get(g.cle) : undefined
-  if (!g || !sorte) return null
-  const le = sorte === 'orEnPoche' ? `avec ${OR_D_UNE_MAITRISE[acteDuGardien(g.cle)]} pièces en poche` : DITS[sorte]
-  return `Le vaincre ${le}`
-}
-
-const COURTS = {
-  unSeulAssaut: 'Au premier assaut',
-  sansFaute: 'Sans rater une manche',
-  sansPerdreUnCoeur: 'Sans perdre un cœur',
-  toutesLesEtoiles: '★★★ à chaque manche',
-  surUneMise: 'Sur une mise',
-  dEntree: 'En deux manches',
-  apresUnCoeurPerdu: 'Après un cœur perdu',
-  apresLeSouffle: 'Après le Second souffle',
-} as const satisfies Record<keyof typeof DITS, string>
-
-/**
- * La même, en quelques mots, sous le médaillon du gardien (« Sans perdre un cœur ») : l'écran des trois gardiens en
- * disait la phrase entière de chacun, trois phrases sous trois médaillons — « trop de texte, pas assez visuel et
- * sobre » (le propriétaire, le 1er novembre 2026). L'annonce du gardien la redit en entier (`maitriseDite`).
- */
-export function maitriseCourte(gardien: unknown): string | null {
-  const g = gardienDeLaTraversee(gardien)
-  const sorte = g ? MAITRISES.get(g.cle) : undefined
-  if (!g || !sorte) return null
-  return sorte === 'orEnPoche' ? `${OR_D_UNE_MAITRISE[acteDuGardien(g.cle)]} pièces en poche` : COURTS[sorte]
-}
 
 // ── Ce qu'une traversée a atteint ─────────────────────────────────────────
 
@@ -449,8 +351,8 @@ function clesDuReleve(r: ReleveDeLaTraversee): string[] {
     for (const k of RANGS) if (k <= n) cles.push(cleDuRang(carte, k))
   }
   for (const a of r.actes) {
-    const sorte = a.fini ? MAITRISES.get(a.gardien) : undefined
-    if (sorte && SORTES[sorte](a)) cles.push(cleDeLaMaitrise(a.gardien))
+    const m = a.fini ? MAITRISES.get(a.gardien) : undefined
+    if (m && CONDITIONS_DE_MAITRISE[m.sorte](a)) cles.push(cleDeLaMaitrise(a.gardien))
   }
   return cles
 }

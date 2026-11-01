@@ -151,7 +151,7 @@ test('les trophées se comptent par la même règle que la collection : chaque p
   // Chaque onglet dit son compte, en chiffres : la couleur seule ne se lit pas.
   assert.deepEqual(
     onglets,
-    albumDesTrophees(LEA as any).map(p => `${p.page}${p.page === 'soiree' ? '*' : ''} ${{ soiree: 'Soirée', jour: 'Quiz du jour', campagne: 'Campagne', duels: 'Duels', sentiers: 'Sentiers', partout: 'Partout' }[p.page]}, ${p.acquis} sur ${p.total}`),
+    albumDesTrophees(LEA as any).map(p => `${p.page}${p.page === 'soiree' ? '*' : ''} ${{ soiree: 'Soirée', jour: 'Quiz du jour', campagne: 'Campagne', duels: 'Duels', sentiers: 'Sentiers', cabinet: 'Cabinet', partout: 'Partout' }[p.page]}, ${p.acquis} sur ${p.total}`),
   )
   const pages = albumDesTrophees(LEA as any)
   assert.deepEqual(

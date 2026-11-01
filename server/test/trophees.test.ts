@@ -19,6 +19,10 @@ import { THEMES, themeGagne } from '../../shared/themes'
 import { LEGENDAIRES, PREFIXES_DES_VOIES_RANGEES, estUneVoieRangee, partiesDe, voiesDe } from '../../shared/legendaires'
 import { HAUTS_FAITS_DE_CARRIERE, HAUTS_FAITS_REGAGNABLES, clePalier, hautFait, type HautFaitVu } from '../../shared/hautsfaits'
 import { SEUILS_DU_LAURIER } from '../../shared/jour'
+import { CONFETTIS_D_UN_RANG } from '../../shared/cabinet/bareme'
+import { MAITRISES, NOMS_DES_DEFIS, PHRASES_DES_DEFIS, cleDeLaMaitrise, maitriseDite } from '../../shared/cabinet/sceaux'
+import { CARTES_PEINTES } from '../../client/src/components/cartes-peintes'
+import { IMAGES } from '../../client/src/components/legendaires-peints'
 
 const lieu = { pathname: '/profil', search: '', hash: '', origin: 'http://banc' }
 Object.assign(globalThis, { React, window: { location: lieu }, location: lieu })
@@ -156,37 +160,41 @@ test('l’album compte tout ce qui se gagne par ce qu’on a fait : 197 trophée
   assert.deepEqual(
     pages.map(p => `${p.page} ${p.acquis}/${p.total}`),
     // La soirée : huit pistes de trois métaux, onze exploits, neuf coups du sort, vingt prix ;
-    // le quiz du jour : cinq pistes, six exploits, trois coups, douze pages ; la campagne : cinq pistes — le
-    // Globe-trotter, le passeport de l'expédition, depuis le 18 octobre 2026, et L'Explorateur, depuis le 19, aux
-    // salles complètes du Cabinet depuis le 26 —, cinq exploits ; les duels : six ligues, six bordures serties ; les
-    // sentiers : trois pistes, deux exploits, douze maîtres ; partout : douze écussons de trois métaux, le niveau et les Éclats.
-    ['soiree 0/64', 'jour 0/36', 'campagne 0/20', 'duels 0/12', 'sentiers 0/23', 'partout 0/42'],
+    // le quiz du jour : cinq pistes, six exploits, trois coups, douze pages ; la campagne : quatre pistes — le
+    // Globe-trotter, le passeport de l'expédition, depuis le 18 octobre 2026 —, cinq exploits ; les duels : six
+    // ligues, six bordures serties ; les sentiers : trois pistes, deux exploits, douze maîtres ; le Cabinet, depuis le
+    // 1er novembre 2026 : L'Explorateur, rangé en campagne jusque-là ; partout : douze écussons de trois métaux, le
+    // niveau et les Éclats.
+    ['soiree 0/64', 'jour 0/36', 'campagne 0/17', 'duels 0/12', 'sentiers 0/23', 'cabinet 0/3', 'partout 0/42'],
   )
   assert.deepEqual(compteDesTrophees(NEUF as any), { acquis: 0, total: 197 })
-  // L'Explorateur ne se compte que là où le serveur le cite — là où le Cabinet s'ouvre : la production le tait tant
-  // qu'il y est fermé, et sa collection ne compte pas trois trophées de salles qu'elle ne montre nulle part.
+  // L'Explorateur ne se compte que là où le serveur le cite — là où le Cabinet s'ouvre : un serveur où il est fermé le
+  // tait, et sa collection ne compte pas trois trophées qu'elle ne montre nulle part ; sans rien d'autre du Cabinet,
+  // sa page ne s'ouvre pas.
   const sansLui = { ...NEUF, hautsFaits: NEUF.hautsFaits.filter(h => h.key !== 'hf:explorateur') }
   assert.deepEqual(compteDesTrophees(sansLui as any), { acquis: 0, total: 194 })
   assert.ok(!albumDesTrophees(sansLui as any).some(p => p.sections.some(s => s.cases.some(c => c.cle === 'hf:explorateur'))))
-  // Cité, sa case compte des salles — « 0 salle » pour qui n'a pas encore complété la première : elles s'additionnent,
-  // comme les sentiers du Cartographe ; le niveau d'explorateur, qu'il comptait jusqu'au 26 octobre 2026, n'en avait pas
-  // de zéro, d'où son « 0 » à part.
-  const explorateur = (vus: typeof NEUF.hautsFaits) => albumDesTrophees({ ...NEUF, hautsFaits: vus } as any).find(p => p.page === 'campagne')!.sections[0].cases.find(c => c.cle === 'hf:explorateur')!
-  assert.equal(explorateur(NEUF.hautsFaits).compte, '0 salle')
+  assert.ok(!albumDesTrophees(sansLui as any).some(p => p.page === 'cabinet'), 'pas de page « Cabinet 0/0 »')
+  // Cité, sa case compte des traversées gagnées — « 0 traversée » pour qui n'a pas encore gagné la première : elles
+  // s'additionnent, comme les salles qu'il comptait du 26 octobre au 1er novembre 2026 ; le niveau d'explorateur,
+  // qu'il comptait avant, n'en avait pas de zéro, d'où son « 0 » à part.
+  const explorateur = (vus: typeof NEUF.hautsFaits) => albumDesTrophees({ ...NEUF, hautsFaits: vus } as any).find(p => p.page === 'cabinet')!.sections[0].cases.find(c => c.cle === 'hf:explorateur')!
+  assert.equal(explorateur(NEUF.hautsFaits).compte, '0 traversée')
   const parti = explorateur(NEUF.hautsFaits.map(h => (h.key === 'hf:explorateur' ? { ...h, fois: 1, valeur: 2 } : h)))
-  assert.deepEqual([parti.compte, parti.metaux, parti.prochain], ['2 salles', 1, 3])
-  assert.equal(seuilDeLEtape('hf:explorateur', 1), '1 salle')
-  assert.equal(seuilDeLEtape('hf:explorateur', 6), '6 salles')
-  // Un détenteur d'avant — l'argent gagné au niveau d'explorateur, aucune salle encore — le garde, et sa piste le dit :
-  // ses deux premières étapes atteintes, la prochaine celle de l'or. La jauge ne fait pas descendre ce qui est rangé.
-  const detenteur = explorateur(NEUF.hautsFaits.map(h => (h.key === 'hf:explorateur' ? { ...h, fois: 2, valeur: 0, prochain: 6 } : h)))
-  assert.deepEqual([detenteur.aLui, detenteur.metaux, detenteur.compte, detenteur.prochain], [true, 2, '0 salle', 6])
+  assert.deepEqual([parti.compte, parti.metaux, parti.prochain], ['2 traversées', 1, 5])
+  assert.equal(seuilDeLEtape('hf:explorateur', 1), '1 traversée')
+  assert.equal(seuilDeLEtape('hf:explorateur', 15), '15 traversées')
+  // Un détenteur d'avant — l'argent gagné au niveau d'explorateur ou aux salles, aucune traversée encore — le garde, et
+  // sa piste le dit : ses deux premières étapes atteintes, la prochaine celle de l'or. La jauge ne fait pas descendre
+  // ce qui est rangé.
+  const detenteur = explorateur(NEUF.hautsFaits.map(h => (h.key === 'hf:explorateur' ? { ...h, fois: 2, valeur: 0, prochain: 15 } : h)))
+  assert.deepEqual([detenteur.aLui, detenteur.metaux, detenteur.compte, detenteur.prochain], [true, 2, '0 traversée', 15])
   assert.deepEqual(
     detenteur.etapes!.map(e => [e.seuil, e.metal, e.atteinte, e.prochaine]),
     [
       [1, 1, true, false],
-      [3, 2, true, false],
-      [6, 3, false, true],
+      [5, 2, true, false],
+      [15, 3, false, true],
     ],
   )
   // Rien encore : le quiz du jour, ce qu'on joue le plus. Sinon, le mode où il a le plus.
@@ -212,7 +220,9 @@ test('chaque trophée a sa page : celle du mode où il se gagne', () => {
     ['heures:10', 'jour'],
     ['hf:funambule', 'campagne'],
     ['hf:marathonien:3', 'campagne'],
-    ['hf:explorateur:2', 'campagne'],
+    ['hf:explorateur:2', 'cabinet'],
+    ['cabinet:defi:parade:2', 'cabinet'],
+    ['cabinet:maitrise:phenix', 'cabinet'],
     ['ligue:or', 'duels'],
     ['maitre:foret', 'sentiers'],
     ['hf:randonneur:2', 'sentiers'],
@@ -224,6 +234,76 @@ test('chaque trophée a sa page : celle du mode où il se gagne', () => {
 })
 
 async function rendu(composant: string, props: object): Promise<string> {
+  return renduDe(composant, props)
+}
+
+test('la page du Cabinet : le défi de chaque carte en trois métaux, l’épreuve de maître de chaque gardien et son légendaire', async () => {
+  // « Est-ce que l'on voit quelque part dans la collection, album des trophées, une section cabinets ? » (le
+  // propriétaire, le 1er novembre 2026) : non, jusque-là — les défis et les épreuves de maître ne se voyaient qu'au Cabinet.
+  const rangs = Object.fromEntries(Object.keys(NOMS_DES_DEFIS).map(c => [c, 0]))
+  const tient = { ...NEUF, defisDuCabinet: { rangs: { ...rangs, parade: 2, cagnotte: 3 }, maitrises: ['lg:phenix'] } }
+  const page = albumDesTrophees(tient as any).find(p => p.page === 'cabinet')!
+  // L'Explorateur, ses dix défis à trois métaux, une épreuve par gardien de la traversée : cinquante et un de plus.
+  assert.deepEqual(page.sections.map(x => [x.cle, x.acquis, x.total]), [['pistes', 0, 3], ['defis', 5, 30], ['maitrises', 1, MAITRISES.size]])
+  assert.equal(MAITRISES.size, 21)
+  assert.deepEqual(compteDesTrophees(tient as any), { acquis: 6, total: 197 + 30 + MAITRISES.size })
+  // Les défis, dans l'ordre des cartes, ce qu'il tient d'abord : chacun sa carte, ses métaux, ce que chaque rang demande
+  // et rapporte — des confettis au bronze et à l'argent, et dès l'argent le dos doré de sa carte au choix des cartes
+  // (`.cab-tv-doree`), un titre à l'or.
+  const defis = page.sections[1].cases
+  assert.deepEqual(
+    defis.slice(0, 2).map(c => [c.cle, c.titre, c.metaux, c.compte, c.carte]),
+    [
+      ['cabinet:defi:parade', 'Sans filet', 2, 'Argent', 'parade'],
+      ['cabinet:defi:cagnotte', 'Le Trésorier', 3, 'Or', 'cagnotte'],
+    ],
+  )
+  const parade = defis[0]
+  assert.equal(parade.regle, 'Au dos de la carte Parade')
+  assert.deepEqual(
+    parade.etapes!.map(e => [e.metal, e.atteinte, e.prochaine, e.dit, e.gain]),
+    [
+      [1, true, false, PHRASES_DES_DEFIS.parade[0], `${CONFETTIS_D_UN_RANG[0]} confettis`],
+      [2, true, false, PHRASES_DES_DEFIS.parade[1], `${CONFETTIS_D_UN_RANG[1]} confettis, et son dos doré`],
+      [3, false, false, PHRASES_DES_DEFIS.parade[2], 'Le titre « Sans filet »'],
+    ],
+  )
+  // Les épreuves de maître : une par gardien, ce qu'elle demande, et le légendaire qu'elle donne aussitôt.
+  const phenix = page.sections[2].cases[0]
+  assert.deepEqual([phenix.cle, phenix.titre, phenix.aLui, phenix.gardien, phenix.regle], [cleDeLaMaitrise('lg:phenix'), 'Le Phénix', true, 'lg:phenix', maitriseDite('lg:phenix')])
+  assert.deepEqual(
+    phenix.ouvre?.map(o => [o.recompense.sorte, o.recompense.cle, o.tenue]),
+    [['legendaire', 'lg:phenix', true]],
+  )
+  // Leurs fiches : ses rangs, leurs phrases, ce qu'ils rapportent ; le chemin du Cabinet tant qu'il en reste.
+  const fiche = await rendu('FicheDuTrophee', { c: parade, page: 'cabinet', visuel: '', cabinet: true })
+  assert.match(fiche, /<span class="label album-etiquette">Ses rangs<\/span>/)
+  assert.match(fiche, /Un acte fini sans qu’une Parade serve/)
+  assert.match(fiche, /Le titre «\s?Sans filet\s?»/)
+  assert.match(fiche, /Tenu à l’Argent : il ne se reprend jamais\./)
+  assert.match(fiche, /href="\/cabinet">Aller au Cabinet<\/a>/)
+  assert.doesNotMatch(fiche, /XP/, 'un défi ne rapporte pas d’expérience')
+  const maitre = await rendu('FicheDuTrophee', { c: phenix, page: 'cabinet', visuel: '', cabinet: true })
+  assert.match(maitre, /Vaincu en maître : son légendaire est à toi\./)
+  assert.doesNotMatch(maitre, /1 fois :/)
+  assert.doesNotMatch(maitre, /album-aller/, 'faite, plus de chemin')
+  // La page rendue : chaque défi a la peinture de sa carte pour visuel, chaque épreuve le médaillon de son gardien — en
+  // couleur ce qu'il tient, éteint le reste (`.trophee-manque .trophee-image`).
+  const album = await rendu('AlbumDesTrophees', { profil: { ...tient, legendaires: [] }, page: 'cabinet', onPage: () => {} })
+  const caseDe = (cle: string) => album.match(new RegExp(`<button[^>]*class="trophee-case [^"]*"[^>]*>(?:(?!</button>).)*${cle}`, 's'))?.[0] ?? ''
+  assert.ok(album.includes(`src="${CARTES_PEINTES.parade[1]}"`), 'la peinture de la Parade')
+  assert.ok(album.includes(`src="${IMAGES['lg:phenix'].art[1]}"`), 'le médaillon du Phénix')
+  for (const carte of Object.keys(NOMS_DES_DEFIS) as (keyof typeof CARTES_PEINTES)[]) assert.ok(album.includes(`src="${CARTES_PEINTES[carte][1]}"`), carte)
+  for (const g of MAITRISES.keys()) assert.ok(album.includes(`src="${IMAGES[g].art[1]}"`), g)
+  assert.match(caseDe(CARTES_PEINTES.parade[1]), /class="trophee-case trophee-defi"/, 'tenu : en couleur')
+  assert.match(caseDe(CARTES_PEINTES['coup-d-oeil'][1]), /class="trophee-case trophee-defi trophee-manque"/, 'pas encore : éteint')
+  assert.match(album, /aria-label="Sans filet, bronze, argent"/, 'à l’oreille, ses métaux — rien de vide')
+  assert.match(album, /aria-label="L’Œil nu, pas encore"/)
+  // Le Cabinet fermé ici — le serveur ne dit rien de ses défis — : ni défis ni épreuves de maître.
+  assert.deepEqual(albumDesTrophees(NEUF as any).find(p => p.page === 'cabinet')!.sections.map(x => x.cle), ['pistes'])
+})
+
+async function renduDe(composant: string, props: object): Promise<string> {
   const module = await import(new URL('../../client/src/components/AlbumDesTrophees.tsx', import.meta.url).href)
   const { renderToStaticMarkup } = await import('react-dom/server')
   return renderToStaticMarkup(React.createElement(module[composant], props))
@@ -251,13 +331,13 @@ test('la fiche d’une piste : où il en est, ce qu’elle rapporte, chaque éta
   assert.doesNotMatch(html, /<button|Le porter/)
 })
 
-test('la fiche de L’Explorateur mène au Cabinet, où ses salles se complètent — pas à une série, que sa page de la campagne propose', async () => {
-  const profil = { ...NEUF, hautsFaits: NEUF.hautsFaits.map(h => (h.key === 'hf:explorateur' ? { ...h, fois: 1, valeur: 2, prochain: 3 } : h)) }
+test('la fiche de L’Explorateur mène au Cabinet, où se gagnent ses traversées — pas à une série, que propose la campagne', async () => {
+  const profil = { ...NEUF, hautsFaits: NEUF.hautsFaits.map(h => (h.key === 'hf:explorateur' ? { ...h, fois: 1, valeur: 2, prochain: 5 } : h)) }
   const c = albumDesTrophees(profil as any)
-    .find(p => p.page === 'campagne')!
+    .find(p => p.page === 'cabinet')!
     .sections[0].cases.find(x => x.cle === 'hf:explorateur')!
-  const html = await rendu('FicheDuTrophee', { c, page: 'campagne', visuel: c.emoji })
-  assert.match(html, /Tu en es à 2 salles complètes du Cabinet\./)
+  const html = await rendu('FicheDuTrophee', { c, page: 'cabinet', visuel: c.emoji })
+  assert.match(html, /Tu en es à 2 traversées gagnées au Cabinet\./)
   assert.match(html, /<a class="btn btn-small album-aller" href="\/cabinet">Aller au Cabinet<\/a>/)
   assert.doesNotMatch(html, /Jouer une série/)
   // Les autres pistes de la page mènent toujours à la série.
@@ -271,23 +351,25 @@ test('la fiche de L’Explorateur mène au Cabinet, où ses salles se complèten
 // pas, où ils l'ont gagné au niveau d'explorateur. Leur fiche dit où ils en sont, sans chemin : le Cabinet n'y répond
 // pas, et une série ne complète aucune salle. La page le sait du serveur (`cabinetIci`), jamais d'une constante.
 test('le Cabinet fermé ici, la fiche de L’Explorateur ne mène nulle part — ni au Cabinet, ni à une série — et son détenteur y lit son métal', async () => {
-  const detenteur = { ...NEUF, hautsFaits: NEUF.hautsFaits.map(h => (h.key === 'hf:explorateur' ? { ...h, fois: 2, valeur: 0, prochain: 6 } : h)) }
+  const detenteur = { ...NEUF, hautsFaits: NEUF.hautsFaits.map(h => (h.key === 'hf:explorateur' ? { ...h, fois: 2, valeur: 0, prochain: 15 } : h)) }
   const c = albumDesTrophees(detenteur as any)
-    .find(p => p.page === 'campagne')!
+    .find(p => p.page === 'cabinet')!
     .sections[0].cases.find(x => x.cle === 'hf:explorateur')!
-  const ferme = await rendu('FicheDuTrophee', { c, page: 'campagne', visuel: c.emoji, cabinet: false })
+  const ferme = await rendu('FicheDuTrophee', { c, page: 'cabinet', visuel: c.emoji, cabinet: false })
   assert.match(ferme, /<b class="galerie-detail-nom">L’Explorateur<\/b>/)
-  assert.match(ferme, /Tu en es à 0 salle complète du Cabinet\./)
+  assert.match(ferme, /Tu en es à 0 traversée gagnée au Cabinet\./)
   assert.doesNotMatch(ferme, /album-aller/, 'aucun chemin')
   // La même fiche, le Cabinet ouvert : son chemin.
-  assert.match(await rendu('FicheDuTrophee', { c, page: 'campagne', visuel: c.emoji, cabinet: true }), /href="\/cabinet">Aller au Cabinet<\/a>/)
+  assert.match(await rendu('FicheDuTrophee', { c, page: 'cabinet', visuel: c.emoji, cabinet: true }), /href="\/cabinet">Aller au Cabinet<\/a>/)
   // Les autres pistes de la page gardent le leur, le Cabinet fermé ou non.
   const alpiniste = albumDesTrophees(NEUF as any)
     .find(p => p.page === 'campagne')!
     .sections[0].cases.find(x => x.cle === 'hf:alpiniste')!
   assert.match(await rendu('FicheDuTrophee', { c: alpiniste, page: 'campagne', visuel: alpiniste.emoji, cabinet: false }), /href="\/campagne">Jouer une série<\/a>/)
   // La règle pure que la fiche lit : ouvert d'office, comme `cabinetIci` sans la balise de la page.
-  assert.equal(ouJouer('hf:explorateur', 'campagne', false), undefined)
-  assert.deepEqual(ouJouer('hf:explorateur', 'campagne'), { nom: 'Aller au Cabinet', href: '/cabinet' })
+  assert.equal(ouJouer('hf:explorateur', 'cabinet', false), undefined)
+  assert.deepEqual(ouJouer('hf:explorateur', 'cabinet'), { nom: 'Aller au Cabinet', href: '/cabinet' })
+  assert.equal(ouJouer('cabinet:defi:parade', 'cabinet', false), undefined, 'ni un défi')
+  assert.deepEqual(ouJouer('cabinet:defi:parade', 'cabinet'), { nom: 'Aller au Cabinet', href: '/cabinet' })
   assert.deepEqual(ouJouer('hf:alpiniste', 'campagne', false), { nom: 'Jouer une série', href: '/campagne' })
 })

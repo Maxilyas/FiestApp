@@ -11990,6 +11990,9 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .trophee-manque .av { filter: grayscale(1) brightness(0.75); opacity: 0.6; }
 .trophee-couronne { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; color: var(--lueur); }
 .trophee-couronne .icon { width: 26px; height: 26px; }
+/* La page Cabinet : la peinture de la carte d'un défi, le médaillon du gardien d'une épreuve de maître, dans le cercle de la case. */
+.trophee-image { display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.trophee-manque .trophee-image { filter: grayscale(1) brightness(0.7); opacity: 0.6; }
 .trophee-manque .trophee-couronne { color: rgba(var(--accent-rgb), 0.5); }
 .trophee-ecusson .trophee-medaillon { width: auto; height: auto; min-height: 56px; border-radius: 0; background: none; box-shadow: none; }
 .trophee-manque.trophee-ecusson .trophee-medaillon { background: none; box-shadow: none; }

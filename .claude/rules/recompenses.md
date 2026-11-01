@@ -94,18 +94,25 @@ paths:
   (`voiesMontrees`) ne suffit pas quand la préproduction doit le montrer :
   elle sert le même code — c'est le serveur qui sait (`cabinetOuvert`, posé
   au démarrage sur `ProfileStore.cabinet` ; le crochet `statsEnPlus` de la
-  porte de la campagne, qui compte les salles, n'est branché que là).
+  porte de la campagne, qui compte ses traversées gagnées, n'est branché que
+  là).
 - **Une piste qui change de mesure garde sa clé** (L'Explorateur, du niveau
-  d'explorateur aux salles complètes du Cabinet, le 26 octobre 2026) : ses
-  paliers rangés restent à leurs détenteurs (invariant 22), et l'album les
-  montre acquis au-dessus de la jauge (`etapesVues` lit les métaux rangés,
-  pas seulement la valeur). Ses salles se lisent de la base dans le lot de
-  `statsDe`, jamais de la mémoire du Cabinet : à la fin d'une partie, les
-  paliers se rangent avant que le musée gardé prenne l'œuvre écrite — et un
-  achat qui complète une salle attend la fin de la partie suivante. Ni
-  `VERSION_BAREME` ni `DURCISSEMENTS` : rien de soirée, ni légendaire ni
-  courbe. Sa fiche mène au Cabinet, pas à une série (`ouJouer`,
-  `PISTES_DU_CABINET`, `shared/trophees.ts`).
+  d'explorateur aux salles complètes du Cabinet, le 26 octobre 2026, puis
+  aux traversées gagnées, 1, 5 et 15, le 1er novembre 2026 : la traversée
+  avait remplacé le musée, et plus une salle ne se complétait) : ses paliers
+  rangés restent à leurs détenteurs (invariant 22), et l'album les montre
+  acquis au-dessus de la jauge (`etapesVues` lit les métaux rangés, pas
+  seulement la valeur). Ses traversées se lisent de la base dans le lot de
+  `statsDe` (`lectureDesTraverseesGagnees`), jamais de la mémoire du
+  Cabinet : l'autre serveur d'une mise en ligne a pu en finir une. Une
+  traversée se gagne au choix de son légendaire, hors de toute partie : son
+  palier tombe à ce geste, rangé sous elle (`porte.accorderLesPaliers`,
+  `cleDeSerie(<traversée>)`) — sans quoi il attendait la fin d'une partie
+  suivante ; raté, la fin d'une partie le rattrape. Ni `VERSION_BAREME` ni
+  `DURCISSEMENTS` : rien de soirée, ni légendaire ni courbe. Il vit sur la
+  page « Cabinet » de l'album, avec les défis des cartes et les épreuves de
+  maître (`PISTES_DU_CABINET`, `shared/pagesDesTrophees.ts`), et sa fiche
+  mène au Cabinet, pas à une série (`ouJouer`, `shared/trophees.ts`).
 - **Durcir la règle d'un haut fait de soirée, d'un prix ou d'un Divin, puis
   monter `VERSION_BAREME`, reprend le passé** : le recalcul remplace les
   lignes de chaque soirée (`remplacerRecompensesDeSoiree`), et ce que la
