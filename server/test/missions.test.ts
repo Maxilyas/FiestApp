@@ -29,7 +29,18 @@ import { ProfileStore } from '../src/auth/profiles'
 
 ProfileStore.tirageEclat = () => false
 
-const CONTEXTE: ContexteDuTirage = { quizDuJourJoue: false, joursDuJour: 0, decouvertesJouees: new Set(), defiFini: false, aRevoir: 0, hier: [] }
+// Ni Cabinet ni personne à défier : les découvertes d'avant le 1er novembre 2026 (`missions-decouvertes.test.ts` tire les autres).
+const CONTEXTE: ContexteDuTirage = {
+  quizDuJourJoue: false,
+  joursDuJour: 0,
+  decouvertesJouees: new Set(),
+  defiFini: false,
+  aRevoir: 0,
+  hier: [],
+  cabinet: false,
+  adversaires: false,
+  themes: [],
+}
 
 // ── Le tirage, pur ─────────────────────────────────────────────────────────
 
@@ -190,6 +201,7 @@ test('une lecture restée en route ne retient plus les suivantes du profil : ell
       semainesDesCoffres: async () => new Set<string>(),
       coffresOfferts: async () => [],
       soireesDepuis: async () => [],
+      aQuiDefier: async () => false,
     } as unknown as DepsDesMissions['profiles'],
     jour: { activiteDepuis: async () => ({ jour: [], jourParCategorie: [] }), coffresDuMois: async () => [] },
     campagne: { activiteDepuis: async () => ({ series: [], reponses: [] }), aRevoirDe: async () => 0 },

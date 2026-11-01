@@ -1285,8 +1285,16 @@ export async function createQuizServer(opts: QuizServerOptions) {
     jour,
     rappels,
     campagne,
-    // Les missions du jour et le coffre de la semaine lisent les trois magasins, à l'horloge du quiz du jour.
-    missions: new Missions({ profiles, jour, campagne, maintenant: maintenantDuJour, ...(opts.hasardDuCoffre && { hasard: opts.hasardDuCoffre }) }),
+    // Les missions du jour et le coffre de la semaine lisent les trois magasins, à l'horloge du quiz du jour. La mission du
+    // Cabinet ne se tire que là où il se joue, ce jour-là : ni fermé ici, ni en maintenance, ni bientôt disponible.
+    missions: new Missions({
+      profiles,
+      jour,
+      campagne,
+      maintenant: maintenantDuJour,
+      cabinetOuvert: () => cabinetEstOuvert && !maintenance.estFermee('cabinet'),
+      ...(opts.hasardDuCoffre && { hasard: opts.hasardDuCoffre }),
+    }),
     // Les soins de son compagnon, à la même horloge : ses envies sont celles du jour de Paris.
     soins: new Soins({ profiles, maintenant: maintenantDuJour, ...(opts.hasardDuCadeau && { hasard: opts.hasardDuCadeau }) }),
     maintenant: maintenantDuJour,

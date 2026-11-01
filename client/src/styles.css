@@ -11144,9 +11144,14 @@ html:has(.cab-partie .cab-titre-revele) { scroll-padding-bottom: var(--cab-pied,
 .cab-page .result-banner p { font-size: 1.0625rem; }
 .cab-page .anecdote { font-size: 1.0625rem; }
 .cab-page .small { font-size: 1.0625rem; }
-/* La carte d'une mission accomplie, au bilan (`MissionsAccomplies`) : de 11 à 14 px, la taille de l'accueil. */
+/* La carte d'une mission accomplie, au bilan (`MissionsAccomplies`) : de 11 à 14 px, la taille de l'accueil. Et au bilan d'une
+   épreuve de la traversée (`MissionsDeLEpreuve`, le 1er novembre 2026), qui vit sous `.cab-tv` et pas sous `.cab-page` : elle s'y
+   écrivait encore à la taille de l'accueil, et centrée comme le bilan — sa mission flottait loin de son icône. */
 .cab-page .mission-accomplie-gain, .cab-page .mission-accomplie-liste li, .cab-page .mission-accomplie-trois, .cab-page .mission-accomplie-lien,
-.cab-page .tampons-rang, .cab-page .tampon-jour, .cab-page .tampons-texte { font-size: 1.0625rem; }
+.cab-page .tampons-rang, .cab-page .tampon-jour, .cab-page .tampons-texte,
+.cab-tv .mission-accomplie-gain, .cab-tv .mission-accomplie-liste li, .cab-tv .mission-accomplie-trois, .cab-tv .mission-accomplie-lien,
+.cab-tv .tampons-rang, .cab-tv .tampon-jour, .cab-tv .tampons-texte { font-size: 1.0625rem; }
+.cab-tv .mission-accomplie { text-align: left; }
 .cab-page .corrige-texte { font-size: 1.0625rem; }
 .cab-page .corrige-legende { font-size: 1.0625rem; letter-spacing: 0.02em; text-transform: none; }
 /* « La bonne réponse · la tienne » se pose sur l'or pâle de sa case (`.corrige-bonne`) : l'or du texte y tenait 3,81:1 sous le Film

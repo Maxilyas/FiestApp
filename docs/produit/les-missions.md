@@ -11,10 +11,16 @@ Tirées pour chacun à sa première visite du jour, puis figées jusqu'à minuit
 | Famille | Ce qu'elle demande | Où |
 |---|---|---|
 | **Habitude** | Jouer le quiz du jour jusqu'au bout | le quiz du jour |
-| **Savoir** | Trouver 10, 15 ou 20 bonnes réponses, ou 5 dans une catégorie (« Trouve 5 bonnes réponses en Histoire ») | partout : soirées, quiz du jour, campagne — une catégorie, au quiz du jour et en campagne |
-| **Découverte** | Un mode, plutôt un qu'il n'a pas joué ces sept jours : enchaîner 5 ou 7 bonnes réponses dans une série, jouer un duel, tenter une épreuve d'un sentier, réussir une étape d'un parcours, relever le défi de la semaine, revoir des questions de son carnet | la campagne, les duels |
+| **Savoir** | Trouver 10, 15 ou 20 bonnes réponses, ou 5 dans une catégorie (« Trouve 5 bonnes réponses en Histoire ») | partout : soirées, quiz du jour, campagne, Cabinet — une catégorie, au quiz du jour et en campagne |
+| **Découverte** | Un mode, plutôt un qu'il n'a pas joué ces sept jours : enchaîner 5 ou 7 bonnes réponses dans une série, jouer un duel, tenter une épreuve sur le sentier d'une catégorie, réussir une étape d'un parcours, relever le défi de la semaine, revoir des questions de son carnet, jouer une épreuve au Cabinet de curiosités, défier quelqu'un sur un thème | la campagne, les duels, le Cabinet |
 
-La découverte d'hier ne revient pas le lendemain ; le défi ne se propose plus une fois relevé dans la semaine, ni la révision sans trois questions à revoir. Chaque mission dit où la faire, d'un toucher (« Jouer une série », « Y aller ») ; une mission de catégorie ouvre la campagne sur cette catégorie.
+Le 1er novembre 2026, le propriétaire : « chaque mode de jeu doit être représenté et permet d'explorer l'application via les missions du jour ». Depuis :
+
+- **L'épreuve d'un sentier vise une catégorie** (« Tente une épreuve en Histoire ») : son sentier — les mythologies pour l'Histoire —, à n'importe quel palier, validée ou ratée, pourvu qu'elle soit jouée jusqu'au bout — « ça incitera peut-être les gens à faire la campagne ». Une épreuve tirée avant, sans catégorie, se fait encore sur n'importe quel sentier.
+- **Le Cabinet de curiosités a la sienne**, avec la même chance que les autres découvertes (voulue plus rare d'abord, puis, le même soir, « la même chance que les autres ») : « Joue une épreuve au Cabinet de curiosités », une étape de sa traversée, n'importe quel jeu, gagnée ou non, dès sa première réponse. Elle ne se tire que là où le Cabinet se joue ce jour-là : ni en maintenance, ni bientôt disponible.
+- **Défier quelqu'un sur un thème** (la mission le nomme : « Les animaux », « Harry Potter »…) : un duel classé qu'il lance lui-même, contre qui il veut, sur ce thème — un thème ou un univers de la feuille du choix —, fait dès sa dernière réponse, quand le duel part à l'autre. Relever le duel d'un autre ne la fait pas, ni le dé contre Automate (« Joue un duel » les compte, elle). Elle ne se tire qu'à qui a quelqu'un à défier.
+
+Les soirées n'ont pas de mission : elles ne se jouent pas seul, et chaque mission doit pouvoir se faire le jour même. La découverte d'hier ne revient pas le lendemain ; le défi ne se propose plus une fois relevé dans la semaine, ni la révision sans trois questions à revoir. Chaque mission dit où la faire, d'un toucher (« Jouer une série », « Y aller ») ; une mission de catégorie ouvre la campagne sur cette catégorie, une épreuve son sentier, un duel à lancer la préparation du duel, son thème déjà choisi — il ne reste qu'à choisir contre qui.
 
 Rien ne se compte à côté : l'avancement se relit dans les journaux de chaque mode. Une mission faite le reste — ce qui est fait ne se reprend jamais —, et la semaine passée se juge encore le lundi : une mission faite dimanche à 23 h 50 remplit encore son coffre.
 
@@ -103,7 +109,7 @@ Leur place est gardée tant qu'ils arrivent : rien ne saute sous le doigt.
 
 ## À la fin de chaque partie
 
-Sous ce qu'elle a gagné, la fin d'une partie dit ce qu'elle a fait de ses missions — « Mission accomplie », les trois et leur tampon, la carte de la semaine — à la fin du quiz du jour, d'une série, d'un défi, d'un duel, d'une révision, d'une épreuve, d'une étape, et d'une soirée pour un profil. Rien si elle n'en a fait aucune.
+Sous ce qu'elle a gagné, la fin d'une partie dit ce qu'elle a fait de ses missions — « Mission accomplie », les trois et leur tampon, la carte de la semaine — à la fin du quiz du jour, d'une série, d'un défi, d'un duel, d'une révision, d'une épreuve, d'une étape, d'une épreuve du Cabinet (son bilan, depuis le 1er novembre 2026), et d'une soirée pour un profil. Rien si elle n'en a fait aucune.
 
 ## Voir aussi
 
