@@ -1095,7 +1095,7 @@ Les modes de jeu en panne, dits au téléphone de l'administrateur et pas encore
 
 Ce que l'administrateur pose au QG (`/admin#maintenance`) : le bandeau rouge, les pages en maintenance et celles bientôt disponibles — une ligne par chose posée, la table vide sinon.
 
-- **Colonnes clés** : `cle` (la clé : `bandeau`, ou la page fermée — `jour`, `campagne`, `defi`, `duels`, `expedition`, `cabinet`, `boutique`), `texte` (celui du bandeau ; pour une page, `bientot` si elle est bientôt disponible, vide en maintenance — ce qu'une version d'après y écrirait se lit fermé), `depuis`.
+- **Colonnes clés** : `cle` (la clé : `bandeau`, ou la page fermée — `jour`, `campagne`, `defi`, `duels`, `cabinet`, `boutique` ; une ligne `expedition` d'avant le 1er novembre 2026 se tait à la lecture, comme ses testeurs), `texte` (celui du bandeau ; pour une page, `bientot` si elle est bientôt disponible, vide en maintenance — ce qu'une version d'après y écrirait se lit fermé), `depuis`.
 - **Espace** : non — elles valent pour tout le serveur.
 - **Écrite par** : `Maintenance` (`server/src/core/maintenance.ts`), à chaque geste de la page du QG, l'un après l'autre.
 - **Lue par** : `Maintenance`, une fois au démarrage, puis tenue en mémoire : chaque page servie et chaque route qui commence une partie la lisent sans un aller-retour.

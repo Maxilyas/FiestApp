@@ -377,17 +377,11 @@ export function AccueilJouer({
             href="/duels"
           />
         )}
-        {/* Avec ses jokers (le brief du 17 octobre 2026, l'étape 2) ; le drapeau la referme, son bouton avec — et le QG l'annonce pour bientôt.
-            Remplacée, son départ fermé : le bouton s'en va, et le Cabinet, juste dessous, prend sa place. */}
+        {/* Avec ses jokers (le brief du 17 octobre 2026, l'étape 2) ; le drapeau la referme, son bouton avec.
+            Remplacée, son départ fermé : le bouton s'en va, et le Cabinet, juste dessous, prend sa place. Le QG ne la
+            ferme plus depuis le 1er novembre 2026 (`PAGES_EN_MAINTENANCE`) : il n'y a plus rien à fermer. */}
         {EXPEDITION_EN_PRODUCTION && !remplacee && (
-          <GrosBouton
-            icone={<Icon name="flag" />}
-            titre="L’Expédition"
-            detail={eteinte('expedition') ? pourquoi('expedition') : 'Trois gardiens à vaincre, un légendaire au bout'}
-            pastille={enAvantPremiere('expedition')}
-            ferme={eteinte('expedition')}
-            href="/expedition"
-          />
+          <GrosBouton icone={<Icon name="flag" />} titre="L’Expédition" detail="Trois gardiens à vaincre, un légendaire au bout" href="/expedition" />
         )}
         {/* Le musée à remplir, là où le serveur l'ouvre — la préproduction d'abord : une constante du code ne la
             distingue pas de la production. Il prend la place de l'Expédition quand elle cède la sienne (`remplacee`). */}

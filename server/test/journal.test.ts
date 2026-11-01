@@ -164,11 +164,11 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     ok(await faire(banc, admin, '/api/admin/maintenance/bandeau', { texte: null }, 'PUT'), 'retirer le bandeau')
     ok(await faire(banc, admin, '/api/admin/maintenance/pages/jour', { fermee: true }, 'PUT'), 'mettre en maintenance')
     ok(await faire(banc, admin, '/api/admin/maintenance/pages/jour', { fermee: false }, 'PUT'), 'rouvrir')
-    // L'Expédition annoncée pour bientôt, Max pour la tester — puis retiré, et elle ouverte à tous.
-    ok(await faire(banc, admin, '/api/admin/maintenance/pages/expedition', { etat: 'bientot' }, 'PUT'), 'annoncer pour bientôt')
-    ok(await faire(banc, admin, `/api/admin/maintenance/pages/expedition/testeurs/${idMax}`, {}, 'PUT'), 'ajouter un testeur')
-    ok(await faire(banc, admin, `/api/admin/maintenance/pages/expedition/testeurs/${idMax}`, {}, 'DELETE'), 'retirer un testeur')
-    ok(await faire(banc, admin, '/api/admin/maintenance/pages/expedition', { etat: 'ouverte' }, 'PUT'), 'ouvrir à tous')
+    // Le Cabinet annoncé pour bientôt, Max pour le tester — puis retiré, et lui ouvert à tous.
+    ok(await faire(banc, admin, '/api/admin/maintenance/pages/cabinet', { etat: 'bientot' }, 'PUT'), 'annoncer pour bientôt')
+    ok(await faire(banc, admin, `/api/admin/maintenance/pages/cabinet/testeurs/${idMax}`, {}, 'PUT'), 'ajouter un testeur')
+    ok(await faire(banc, admin, `/api/admin/maintenance/pages/cabinet/testeurs/${idMax}`, {}, 'DELETE'), 'retirer un testeur')
+    ok(await faire(banc, admin, '/api/admin/maintenance/pages/cabinet', { etat: 'ouverte' }, 'PUT'), 'ouvrir à tous')
     // La panne réglée, une annonce à tous et ses confettis — puis retirée.
     ok(await faire(banc, admin, '/api/admin/annonces', { id: 'annonce-du-journal', message: 'Le quiz du jour remarche : merci de votre patience !', confettis: 20 }), 'annoncer à tous')
     ok(await faire(banc, admin, '/api/admin/annonces/annonce-du-journal', undefined, 'DELETE'), 'retirer l’annonce')
@@ -260,10 +260,10 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       'Bandeau retiré : « Le quiz du jour revient ce soir »',
       'Page mise en maintenance : Le quiz du jour',
       'Page rouverte aux joueurs : Le quiz du jour',
-      'Page bientôt disponible, pour ses testeurs : L’Expédition',
-      'Testeur ajouté à « L’Expédition » : Max (@max)',
-      'Testeur retiré de « L’Expédition » : Max (@max)',
-      'Page ouverte à tous : L’Expédition',
+      'Page bientôt disponible, pour ses testeurs : Le Cabinet de curiosités',
+      'Testeur ajouté à « Le Cabinet de curiosités » : Max (@max)',
+      'Testeur retiré de « Le Cabinet de curiosités » : Max (@max)',
+      'Page ouverte à tous : Le Cabinet de curiosités',
       'Annonce retirée : « Le quiz du jour remarche : merci de votre patience ! » — ses confettis restent offerts',
       'Affiche posée : Le Cabinet de curiosités — « Le Cabinet ouvre ses portes », 14 jours — 20 confettis à la première visite',
       'Affiche retirée : Le Cabinet de curiosités — « Le Cabinet ouvre ses portes » — les confettis offerts restent',
@@ -298,7 +298,7 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     assert.equal(gestes.find(g => g.resume.startsWith('Soirée laissée en plan'))?.cible, enPlan)
     assert.deepEqual(
       gestes.filter(g => g.sorte === 'maintenance').map(g => g.cible),
-      [null, null, null, 'jour', 'jour', 'expedition', idMax, idMax, 'expedition'],
+      [null, null, null, 'jour', 'jour', 'cabinet', idMax, idMax, 'cabinet'],
       'une page fermée vise sa page ; un testeur, son profil, pour sa fiche ; le bandeau, rien',
     )
     assert.deepEqual(
