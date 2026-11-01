@@ -5,9 +5,20 @@
 
 import { hautFaitDeSoiree, origineDe, palierDe } from './hautsfaits'
 
-export type PageDesTrophees = 'soiree' | 'jour' | 'campagne' | 'duels' | 'sentiers' | 'partout'
+export type PageDesTrophees = 'soiree' | 'jour' | 'campagne' | 'duels' | 'sentiers' | 'cabinet' | 'partout'
 
-export const PAGES_DES_TROPHEES: readonly PageDesTrophees[] = ['soiree', 'jour', 'campagne', 'duels', 'sentiers', 'partout']
+/**
+ * Les sept pages, dans l'ordre des onglets. Le Cabinet de curiosités a la sienne depuis le 1er novembre 2026 (« est-ce
+ * que l'on voit quelque part dans la collection, album des trophées, une section cabinets ? », le propriétaire) : les
+ * défis de ses cartes, ses épreuves de maître, et L'Explorateur, rangé jusque-là en campagne.
+ */
+export const PAGES_DES_TROPHEES: readonly PageDesTrophees[] = ['soiree', 'jour', 'campagne', 'duels', 'sentiers', 'cabinet', 'partout']
+
+/**
+ * Les pistes qui se gagnent au Cabinet : leurs paliers tombent comme ceux de la campagne (`deCampagne`), mais ce
+ * qu'elles comptent se fait au Cabinet — leur page, et l'écran où aller les gagner (`ouJouer`).
+ */
+export const PISTES_DU_CABINET: ReadonlySet<string> = new Set(['hf:explorateur'])
 
 /** Le nom de chaque page, sur son onglet. */
 export const NOM_DE_LA_PAGE: Readonly<Record<PageDesTrophees, string>> = {
@@ -16,6 +27,7 @@ export const NOM_DE_LA_PAGE: Readonly<Record<PageDesTrophees, string>> = {
   campagne: 'Campagne',
   duels: 'Duels',
   sentiers: 'Sentiers',
+  cabinet: 'Cabinet',
   partout: 'Partout',
 }
 
@@ -30,10 +42,13 @@ export function pageDesTropheesNommee(mot: string): PageDesTrophees | null {
  * depuis la fin d'une partie.
  */
 export function pageDuTrophee(cle: string): PageDesTrophees {
+  // Un défi d'une carte, une épreuve de maître : leurs clés vivent sous le préfixe des voies du Cabinet.
+  if (cle.startsWith('cabinet:')) return 'cabinet'
   const p = palierDe(cle)
   if (p) {
     const h = p.hautFait
     if (h.key === 'hf:legende' || h.key === 'hf:eclats') return 'partout'
+    if (PISTES_DU_CABINET.has(h.key)) return 'cabinet'
     return origineDe(h) ?? 'soiree'
   }
   const h = hautFaitDeSoiree(cle)

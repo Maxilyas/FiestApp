@@ -77,7 +77,7 @@ import {
 } from '../../../shared/themes'
 import { cleDeSaison, saison, type Saison } from '../../../shared/saisons'
 import { etiquetteDuTimbre, timbreDe, timbresDe } from '../../../shared/timbres'
-import { NOMS_DES_DEFIS, PREFIXE_DES_DEFIS, RANGS_DITS, confettisDesDefis, defisTenus, gardienDeLaMaitrise, nomDuTitreDuDefi, rangDeLaCle, titresDesDefis } from '../../../shared/cabinet/sceaux'
+import { NOMS_DES_DEFIS, PREFIXE_DES_DEFIS, RANGS_DITS, confettisDesDefis, defisAuMoins, defisTenus, gardienDeLaMaitrise, nomDuTitreDuDefi, rangDeLaCle, titresDesDefis, type DefisTenus } from '../../../shared/cabinet/sceaux'
 import {
   LEGENDAIRE_DES_DEFIS,
   cibleEclat,
@@ -1071,8 +1071,8 @@ export class ProfileStore {
 
   /**
    * Le Cabinet de curiosités s'ouvre sur ce serveur (`cabinetOuvert`) : les
-   * trophées réservés à lui (`montreParLeServeur` — L'Explorateur, ses salles
-   * complètes) ne partent qu'alors dans la page du profil et la loge — sauf à
+   * trophées réservés à lui (`montreParLeServeur` — L'Explorateur, ses
+   * traversées gagnées) ne partent qu'alors dans la page du profil et la loge — sauf à
    * qui en a déjà un palier, partout (`hautsFaitsVus`). Posé au démarrage comme
    * `statsDeCampagne` ; un serveur qui ne le dit pas les tait. Il suivait les
    * rencontres de l'expédition jusqu'au 26 octobre 2026, quand L'Explorateur
@@ -3719,6 +3719,7 @@ export class ProfileStore {
       hautsFaits: await this.hautsFaitsVus(p.id, carriere, vitrine),
       fond: this.fondPorte(p, jour, maitres),
       ...this.ouvertsDe(p, jour, maitres),
+      ...this.defisVus(p.id),
       calendrier: {
         pages: pagesOuvertes(this.recompensesOf(p.id)),
         dorees: pagesDorees(this.recompensesOf(p.id)),
@@ -3743,6 +3744,20 @@ export class ProfileStore {
       titresDates: titresDeChampion(this.recompensesOf(p.id)),
       titresDuCabinet: titresDesDefis(defisTenus(this.recompensesOf(p.id).keys())),
     }
+  }
+
+  /**
+   * Les défis de ses cartes et ses épreuves de maître, que la page « Cabinet »
+   * de l'album montre (`PublicProfileDetail.defisDuCabinet`) : là où il
+   * s'ouvre — trente défis et vingt et une épreuves à gagner, comptés dans sa
+   * collection —, et partout à qui en tient un, comme L'Explorateur
+   * (`hautsFaitsVus`) : un rang tenu ne se perd jamais, ni de vue
+   * (invariant 22). Ailleurs, rien : une collection où le Cabinet est fermé ne
+   * compterait pas « 0 sur 51 » ce qui ne s'y gagne pas.
+   */
+  private defisVus(profileId: string): { defisDuCabinet?: DefisTenus } {
+    const tenus = defisTenus(this.recompensesOf(profileId).keys())
+    return this.cabinet || tenus.maitrises.length > 0 || defisAuMoins(tenus, 1) > 0 ? { defisDuCabinet: tenus } : {}
   }
 
   /**

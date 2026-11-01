@@ -5,9 +5,9 @@
 // fait et ce qu'il ouvre, figés au départ ; la carte de ses légendaires au
 // codex, et l'invité du jour qui prête la sienne ; le dos de son paquet, pris
 // au départ parmi les siens ; L'Explorateur, une piste de la campagne qui
-// comptait le niveau d'explorateur et compte depuis le 26 octobre 2026 les salles
-// complètes du Cabinet, tombée à la fin d'une expédition — jamais là où le Cabinet est fermé, qui ne la cite qu'à ses
-// détenteurs, la production telle que le code la démarre comprise ;
+// comptait le niveau d'explorateur, puis les salles complètes du Cabinet, et
+// depuis le 1er novembre 2026 ses traversées gagnées, tombée à la fin d'une expédition — jamais là où le Cabinet est
+// fermé, qui ne la cite qu'à ses détenteurs, la production telle que le code la démarre comprise ;
 // l'Ascension, ouverte par les victoires relues des bilans, son cran borné et
 // figé au départ, gardé par le bilan. Les règles et le pli : `codex.test.ts`.
 import { after, before, test } from 'node:test'
@@ -20,8 +20,6 @@ import { CATEGORIES, type Categorie } from '../../shared/categories'
 import { NIVEAUX, codexDuNiveau, ecrireLeBilan, lireLeBilan, type BilanDUneExpedition } from '../../shared/codex'
 import { paquetDesRencontres } from '../../shared/rencontres'
 import { cleDeLExpedition } from '../../shared/legendaires'
-import { OEUVRES_DE_DEPART, oeuvresDeLaSalle } from '../../shared/cabinet/oeuvres'
-import type { CleDeSalle } from '../../shared/cabinet/salles'
 import { CABINET_EN_PRODUCTION } from '../../shared/cabinet/ouverture'
 import type { DepartDExpedition, PageDeLExpedition, VueDeLExpedition } from '../../shared/expedition'
 
@@ -79,13 +77,16 @@ const bilanEnBase = (id: string, b: Banc = banc) => base(db => (db.prepare('SELE
 const ecrireLeBilanEnBase = (id: string, bilan: string | null, b: Banc = banc) => base(db => db.prepare('UPDATE campagne_series SET bilan = ? WHERE id = ?').run(bilan, id), true, b)
 const departDe = (id: string): DepartDExpedition => base(db => JSON.parse((db.prepare('SELECT expedition FROM campagne_series WHERE id = ?').get(id) as { expedition: string }).expedition))
 
-/** Une salle du Cabinet complète, posée en base derrière le dos du serveur : ses œuvres, sans les quatre de départ, qu'il a sans ligne. */
-const poserUneSalleComplete = (b: Banc, profil: string, salle: CleDeSalle) =>
+/**
+ * Une traversée du Cabinet gagnée, posée en base derrière le dos du serveur — ce que L'Explorateur compte depuis le
+ * 1er novembre 2026 (une salle complète du 26 octobre jusque-là) : son compte ne lit que son issue.
+ */
+const poserUneTraverseeGagnee = (b: Banc, profil: string) =>
   base(
-    db => {
-      const oeuvre = db.prepare(`INSERT INTO cabinet_oeuvres (profile_id, oeuvre, origine, gagnee_le) VALUES (?, ?, 'partie', 1)`)
-      for (const o of oeuvresDeLaSalle(salle)) if (!OEUVRES_DE_DEPART.includes(o.cle)) oeuvre.run(profil, o.cle)
-    },
+    db =>
+      db
+        .prepare(`INSERT INTO cabinet_traversees (id, profile_id, depart, commencee_le, finie_le, issue) VALUES (?, ?, '{}', 1, 2, 'gagnee')`)
+        .run(`gagnee-${profil}`, profil),
     true,
     b,
   )
@@ -241,10 +242,11 @@ test('ses légendaires ouvrent leur carte au codex ; plus d’équipe à choisir
 
 // L'épreuve d'avant le 26 octobre 2026 voyait L'Explorateur tomber au niveau 4 d'explorateur, et se taire sur un serveur
 // aux rencontres refermées. Le départ de l'Expédition fermé (`EXPEDITION_REMPLACEE`), sa renommée ne monterait plus : il
-// compte désormais les salles complètes du Cabinet (la conception du Cabinet, § 6.4). Réécrite à la règle neuve, elle
-// garde son intention : la piste se lit à la page du profil, son bronze tombe à la fin d'une partie de la campagne — ici
-// une expédition, comme avant —, et un serveur qui ne sert pas ce qu'il compte ne le cite ni ne le décerne.
-test('L’Explorateur, aux salles complètes du Cabinet : sa piste se lit à la page du profil — rien sans salle —, la renommée n’y compte plus, son bronze tombe à la fin de la partie qui suit la première salle, ce qu’il avait se garde ; un serveur où le Cabinet est fermé ne le cite ni ne le décerne', async () => {
+// a compté les salles complètes du Cabinet (la conception du Cabinet, § 6.4), puis, depuis le 1er novembre 2026, ses
+// traversées gagnées — le musée ne se remplissait plus. Réécrite à chaque règle neuve, elle garde son intention : la
+// piste se lit à la page du profil, son bronze tombe à la fin d'une partie de la campagne — ici une expédition, comme
+// avant —, et un serveur qui ne sert pas ce qu'il compte ne le cite ni ne le décerne.
+test('L’Explorateur, aux traversées gagnées du Cabinet : sa piste se lit à la page du profil — rien sans traversée —, la renommée n’y compte plus, son bronze tombe à la fin de la partie qui suit la première, ce qu’il avait se garde ; un serveur où le Cabinet est fermé ne le cite ni ne le décerne', async () => {
   const sien = (moi: any) => moi.profile.hautsFaits.find((h: any) => h.key === 'hf:explorateur')
   const piste = async (cookie: string, b: Banc = banc) =>
     sien(await fetch(`${b.url}/api/joueur/moi`, { headers: { Cookie: cookie } }).then(r => r.json() as Promise<any>))
@@ -255,15 +257,16 @@ test('L’Explorateur, aux salles complètes du Cabinet : sa piste se lit à la 
 
   // La renommée de ses expéditions — le codex entier — ne le fait plus monter.
   const premiere = await unPasPuisLaFin(c)
-  assert.ok(!premiere.recompenses.some(r => r.key.startsWith('hf:explorateur')), 'aucune salle : rien ne tombe')
+  assert.ok(!premiere.recompenses.some(r => r.key.startsWith('hf:explorateur')), 'aucune traversée : rien ne tombe')
   ecrireLeBilanEnBase(premiere.id, ecrireLeBilan({ ...UNE_ESCALE, escales: NIVEAUX[9] }))
   const seconde = await unPasPuisLaFin(c)
   assert.ok(!seconde.recompenses.some(r => r.key.startsWith('hf:explorateur')), 'le niveau d’explorateur ne compte plus')
   assert.equal((await piste(c)).valeur, 0)
 
-  // Une salle complète : la page du profil la compte aussitôt, et la fin de la partie suivante de la campagne fait tomber
-  // le bronze — sous cette partie, comme tout palier de la campagne.
-  poserUneSalleComplete(banc, id, 'rempart')
+  // Une traversée gagnée : la page du profil la compte aussitôt, et la fin de la partie suivante de la campagne fait
+  // tomber le bronze — sous cette partie, comme tout palier de la campagne. Gagnée au Cabinet, il tombe au choix du
+  // légendaire (`cabinet-defis.test.ts`) ; posée derrière son dos, à la fin suivante.
+  poserUneTraverseeGagnee(banc, id)
   assert.equal((await piste(c)).valeur, 1)
   const troisieme = await unPasPuisLaFin(c)
   assert.deepEqual(
@@ -271,29 +274,29 @@ test('L’Explorateur, aux salles complètes du Cabinet : sa piste se lit à la 
     ['hf:explorateur:1'],
   )
   const apres = await piste(c)
-  assert.deepEqual([apres.fois, apres.valeur, apres.prochain], [1, 1, 3])
+  assert.deepEqual([apres.fois, apres.valeur, apres.prochain], [1, 1, 5])
 
-  // Un détenteur d'avant : l'argent, gagné au niveau d'explorateur, rangé sous son expédition. Aucune salle complète, il
-  // le garde — la page le dit à l'argent, l'or à six salles —, et la fin d'une partie ne lui reprend rien.
+  // Un détenteur d'avant : l'argent, gagné au niveau d'explorateur, rangé sous son expédition. Aucune traversée gagnée,
+  // il le garde — la page le dit à l'argent, l'or à quinze traversées —, et la fin d'une partie ne lui reprend rien.
   const ancien = await inscrireProfil(banc.url, 'ancien-explorateur', 'Ancien')
   rangerLExplorateur(banc, (await lire(ancien, '/api/joueur/moi')).corps.profile.id as string, 2)
   // Relu au démarrage : le profil sait ce qu'il a.
   await banc.redemarrer()
   const garde = await piste(ancien)
-  assert.deepEqual([garde.fois, garde.valeur, garde.prochain], [2, 0, 6])
+  assert.deepEqual([garde.fois, garde.valeur, garde.prochain], [2, 0, 15])
   await unPasPuisLaFin(ancien)
   assert.equal((await piste(ancien)).fois, 2, 'rien ne se reprend')
 
   // La production telle qu'elle serait le jour où les deux drapeaux s'y refermeraient — les rencontres (le jeu depuis le
   // 19 octobre 2026) et le Cabinet (fermé tant qu'il n'y ouvre pas), forcés tous deux : le Cabinet ouvert en production,
-  // l'épreuve garderait son serveur fermé — : le départ reste celui des jokers, la même salle complète et la même renommée
+  // l'épreuve garderait son serveur fermé — : le départ reste celui des jokers, la même traversée gagnée et la même renommée
   // n'y font rien tomber, et la page du profil ne le cite pas à qui ne l'a pas — l'album ne lui fait pas de case
   // (`montreParLeServeur`). La production telle que le code la démarre, sans drapeau forcé : l'épreuve qui suit.
   const prod = await demarrer({ online: true, baseDeLaCampagne: BASE, rencontres: false, cabinet: false })
   try {
     const p = await inscrireProfil(prod.url, 'production', 'Production')
     const pId = ((await fetch(`${prod.url}/api/joueur/moi`, { headers: { Cookie: p } }).then(r => r.json())) as any).profile.id as string
-    poserUneSalleComplete(prod, pId, 'rempart')
+    poserUneTraverseeGagnee(prod, pId)
     const posterP = (chemin: string, corps: unknown = {}) => ecrire(prod.url, chemin, corps, p).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
     const finir = async () => {
       const parti = await posterP('/api/expedition', { rencontres: true })
@@ -317,12 +320,12 @@ test('L’Explorateur, aux salles complètes du Cabinet : sa piste se lit à la 
 
     // Un détenteur, lui, le garde cité même là : son argent, gagné quand le trophée comptait le niveau d'explorateur — la
     // production le montrait alors —, ne se cache pas avec le Cabinet fermé (invariant 22). Sa piste le dit à l'argent,
-    // sans une salle comptée : rien ne s'y lit ni ne s'y gagne.
+    // sans une traversée comptée : rien ne s'y lit ni ne s'y gagne.
     const detenteur = await inscrireProfil(prod.url, 'detenteur-production', 'Détenteur')
     rangerLExplorateur(prod, ((await lire(detenteur, '/api/joueur/moi', prod)).corps.profile.id as string), 2)
     await prod.redemarrer()
     const tenu = await piste(detenteur, prod)
-    assert.deepEqual([tenu?.fois, tenu?.valeur, tenu?.prochain], [2, 0, 6], 'cité à qui l’a, où que ce soit')
+    assert.deepEqual([tenu?.fois, tenu?.valeur, tenu?.prochain], [2, 0, 15], 'cité à qui l’a, où que ce soit')
     assert.equal(await piste(p, prod), undefined, 'et toujours tu à qui ne l’a pas')
   } finally {
     await prod.close()
@@ -342,12 +345,12 @@ test('en production, telle que le code la démarre : le détenteur de L’Explor
     const detenteur = await inscrireProfil(prod.url, 'detenteur', 'Détenteur')
     rangerLExplorateur(prod, (await lire(detenteur, '/api/joueur/moi', prod)).corps.profile.id as string, 2)
     const neuf = await inscrireProfil(prod.url, 'sans-explorateur', 'Sans')
-    poserUneSalleComplete(prod, (await lire(neuf, '/api/joueur/moi', prod)).corps.profile.id as string, 'rempart')
+    poserUneTraverseeGagnee(prod, (await lire(neuf, '/api/joueur/moi', prod)).corps.profile.id as string)
     // Relu au démarrage : le profil sait ce qu'il a.
     await prod.redemarrer()
     const garde = await sien(detenteur)
-    assert.deepEqual([garde?.fois, garde?.valeur, garde?.prochain], [2, 0, 6], 'son argent, où qu’en soit le Cabinet')
-    // Sa salle complète ne compte qu'avec le Cabinet ouvert : fermé, ni la page ni la fin d'une partie ne la lisent.
+    assert.deepEqual([garde?.fois, garde?.valeur, garde?.prochain], [2, 0, 15], 'son argent, où qu’en soit le Cabinet')
+    // Sa traversée gagnée ne compte qu'avec le Cabinet ouvert : fermé, ni la page ni la fin d'une partie ne la lisent.
     assert.equal((await sien(neuf)) !== undefined, CABINET_EN_PRODUCTION, 'cité avec le Cabinet seulement')
     const fin = await unPasPuisLaFin(neuf, prod)
     assert.equal(fin.recompenses.some(r => r.key === 'hf:explorateur:1'), CABINET_EN_PRODUCTION, 'décerné avec lui seulement')

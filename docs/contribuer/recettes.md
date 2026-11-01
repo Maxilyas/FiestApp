@@ -370,7 +370,7 @@ Les tests qui gardent la base :
 
 À ne pas oublier :
 - **Le tirage de l'Éclat** reste hors de `recompenserLaSerie`, que la relecture rejoue.
-- **Un palier de carrière de campagne** suit une autre voie : une entrée de `HAUTS_FAITS_DE_CARRIERE` avec `deCampagne`, dont la valeur se lit dans `statsDe`. Réservé aux serveurs où un mode s'ouvre, comme L'Explorateur au Cabinet de curiosités : `montreParLeServeur`, que `ProfileStore` lit de son drapeau (`cabinet`) — sauf pour qui en a déjà un palier, cité partout (`hautsFaitsVus`) —, et sa valeur à 0 ailleurs — le Cabinet compte ses salles par la porte de la campagne (`statsEnPlus`, `ChampsDuCabinet`), que le serveur ne branche que là où il s'ouvre.
+- **Un palier de carrière de campagne** suit une autre voie : une entrée de `HAUTS_FAITS_DE_CARRIERE` avec `deCampagne`, dont la valeur se lit dans `statsDe`. Réservé aux serveurs où un mode s'ouvre, comme L'Explorateur au Cabinet de curiosités : `montreParLeServeur`, que `ProfileStore` lit de son drapeau (`cabinet`) — sauf pour qui en a déjà un palier, cité partout (`hautsFaitsVus`) —, et sa valeur à 0 ailleurs — le Cabinet compte ses traversées gagnées par la porte de la campagne (`statsEnPlus`, `ChampsDuCabinet`), que le serveur ne branche que là où il s'ouvre. Ce qui se gagne hors d'une fin de partie — une traversée, au choix de son légendaire — juge ses paliers à ce geste-là, par la porte (`accorderLesPaliers`), rangés sous lui : la campagne ne les juge sinon qu'à la fin d'une partie.
 
 ## Les sentiers du savoir
 

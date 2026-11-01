@@ -22,7 +22,7 @@ import { lireLeDepartDeLaTraversee, lireUnGesteDeLaTraversee, type DepartDeLaTra
 import type { RecordDeLaTour } from '../../../../shared/cabinet/montee'
 import type { DepartDUnePartie, GesteEcrit, IssueDUnePartie, Manche, OrigineDUnePartie } from '../../../../shared/cabinet/partie'
 import { ISSUES } from '../../../../shared/cabinet/partie'
-import { museeDe, sallesCompletes, type CaseFigee, type LigneDOeuvre, type LigneDuProfil, type OrigineDUneOeuvre, type PartieDuJour, type VisiteFigee } from '../../../../shared/cabinet/musee'
+import { type CaseFigee, type LigneDOeuvre, type LigneDuProfil, type OrigineDUneOeuvre, type PartieDuJour, type VisiteFigee } from '../../../../shared/cabinet/musee'
 import { CLES_DES_JEUX, type CleDeJeu } from '../../../../shared/cabinet/jeux/regle'
 import { estUneOeuvre } from '../../../../shared/cabinet/oeuvres'
 import { GARDIENS_DE_SAISON, RANGEMENT_DU_CABINET, voieDuGardien } from '../../../../shared/cabinet/salles'
@@ -331,23 +331,24 @@ function laLigneDuProfil(r: Record<string, unknown> | undefined): LigneDuProfil 
 export const COLONNES_D_UNE_OEUVRE = 'oeuvre, origine, gagnee_le, saison, serie_id, prix, doree_le, dorure, prix_dorure, serie_doree'
 
 /**
- * Ses œuvres, par la clé du profil — 84 lignes au plus : le lot froid les lit,
- * et le lot des paliers de la campagne, pour les salles de L'Explorateur
- * (`sallesLues`). Une seule lecture, une seule façon de relire ses lignes.
+ * Ses œuvres, par la clé du profil — 84 lignes au plus : le lot froid les lit.
+ * Le lot des paliers de la campagne les lisait aussi, pour les salles de
+ * L'Explorateur, jusqu'au 1er novembre 2026 : il compte depuis les traversées
+ * gagnées (`lectureDesTraverseesGagnees`).
  */
 export function lectureDesOeuvres(profileId: string): InStatement {
   return { sql: `SELECT ${COLONNES_D_UNE_OEUVRE} FROM cabinet_oeuvres WHERE profile_id = ?`, args: [profileId] }
 }
 
 /**
- * Ses salles complètes, de ses œuvres relues (`lectureDesOeuvres`), par la
- * règle même du musée (`sallesCompletes`) : les quatre œuvres de départ, à lui
- * sans ligne, y comptent. Le jour n'y joue pas — une salle complète ne lit que
- * les œuvres.
+ * Ses traversées gagnées, que L'Explorateur compte (le 1er novembre 2026) : le
+ * lot des paliers de la campagne les lit (`statsEnPlus`), par l'index des
+ * traversées du profil — une poignée de lignes, jamais un parcours de la table.
  */
-export function sallesLues(oeuvres: ResultSet): number {
-  return sallesCompletes(museeDe({ jour: '', oeuvres: oeuvres.rows.flatMap(r => laLigneDOeuvre(r as Record<string, unknown>) ?? []) })).length
+export function lectureDesTraverseesGagnees(profileId: string): InStatement {
+  return { sql: "SELECT COUNT(*) AS n FROM cabinet_traversees WHERE profile_id = ? AND issue = 'gagnee'", args: [profileId] }
 }
+export const traverseesGagneesLues = (lu: ResultSet): number => Number(lu.rows[0]?.n ?? 0)
 
 export function laLigneDOeuvre(r: Record<string, unknown>): LigneDOeuvre | null {
   const origine = r.origine as OrigineDUneOeuvre

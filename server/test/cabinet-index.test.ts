@@ -87,7 +87,7 @@ test('le Cabinet ne lit rien qui grandisse avec l’histoire : chaque instructio
   await cabinet.echanger('qui', 1)
   assert.ok('cartel' in (await cabinet.cartel('qui', 'lancee')))
   assert.equal((await cabinet.partie('qui', libre.id))?.etat.fin?.pourquoi, 'quittee')
-  assert.equal((await campagne.statsDe('qui')).salles, 0)
+  assert.equal((await campagne.statsDe('qui')).traversees, 0)
 
   const db = new Database(fichier, { readonly: true })
   try {

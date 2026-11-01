@@ -373,9 +373,10 @@ campagne, le compagnon. Un geste qui ne tranche aucune pièce et ne finit
 rien — ouvrir une manche, Éclairer, une pause, un essai sans verdict —
 n'écrit aucune réponse : son lot part seul, par le client de la porte. La
 campagne ne connaît du Cabinet que trois crochets, déclarés dans le même fichier : ce qu'il
-ajoute à son réveil, à ses paliers (les salles complètes que L'Explorateur
+ajoute à son réveil, à ses paliers (les traversées gagnées que L'Explorateur
 compte, lues dans le lot de `statsDe`) et l'expédition qui part ou finit, en
-mémoire. `server/test/porte-de-la-campagne.test.ts` compte ce que chaque étape
+mémoire ; et la porte lui offre de juger ces paliers hors d'une fin de partie,
+au choix du légendaire qui gagne une traversée (`accorderLesPaliers`). `server/test/porte-de-la-campagne.test.ts` compte ce que chaque étape
 coûte.
 
 **Les lots gardés.** Deux onglets, ou deux serveurs pendant une mise en ligne,

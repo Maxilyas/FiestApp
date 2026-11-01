@@ -339,27 +339,25 @@ test('la salle complète en jouant réveille son gardien, sous #cabinet, annonc�
   assert.equal(rangeesDe(lea.id).length, 1)
 })
 
-test('la première salle complète fait tomber L’Explorateur · Bronze à la fin de sa partie, et la page du profil compte ses salles', async () => {
+test('la première salle complète ne fait plus tomber L’Explorateur : il compte les traversées gagnées, que la page du profil dit', async () => {
+  // Du 26 octobre au 1er novembre 2026, elle le faisait tomber à la fin de sa partie. Le musée, que la traversée a
+  // remplacé, ne se remplissait plus : L'Explorateur compte depuis les traversées gagnées (`cabinet-defis.test.ts`).
   const explorateur = async (cookie: string) =>
     ((await lire(b, cookie, '/api/joueur/moi')).corps.profile.hautsFaits as { key: string; fois: number; valeur: number; prochain: number | null }[]).find(h => h.key === 'hf:explorateur')!
   const eve = await joueuse('eve', REMPART_SANS_PANSEMENT)
-  // Le Cabinet ouvert, le serveur le cite : aucune salle encore, le bronze à la première.
+  // Le Cabinet ouvert, le serveur le cite : aucune traversée encore, le bronze à la première.
   const avant = await explorateur(eve.cookie)
   assert.deepEqual([avant.fois, avant.valeur, avant.prochain], [0, 0, 1])
   const fin = await gagnerPansement(eve.cookie)
-  // Lu dans le lot des paliers de la campagne, après celui qui a écrit l'œuvre : la salle qu'elle complète compte déjà.
   assert.deepEqual(
     (fin.bilan!.gains?.recompenses ?? []).filter(r => r.key.startsWith('hf:explorateur')).map(r => r.key),
-    ['hf:explorateur:1'],
+    [],
+    'sa salle complète ne compte plus',
   )
-  // Rangé sous la partie, comme tout palier de la campagne — jamais sous `#cabinet`, la clé des gardiens.
-  const sous = enBase(b.fichier, db => db.prepare(`SELECT soiree_id FROM profile_badges WHERE profile_id = ? AND badge = 'hf:explorateur:1'`).all(eve.id)) as { soiree_id: string }[]
-  assert.deepEqual(
-    sous.map(r => r.soiree_id),
-    [cleDeSerie(fin.id)],
-  )
+  const sous = enBase(b.fichier, db => db.prepare(`SELECT soiree_id FROM profile_badges WHERE profile_id = ? AND badge LIKE 'hf:explorateur:%'`).all(eve.id)) as { soiree_id: string }[]
+  assert.deepEqual(sous, [])
   const apres = await explorateur(eve.cookie)
-  assert.deepEqual([apres.fois, apres.valeur, apres.prochain], [1, 1, 3])
+  assert.deepEqual([apres.fois, apres.valeur, apres.prochain], [0, 0, 1])
 })
 
 test('déjà à lui par une autre voie : la salle complète le range sans le réannoncer — « il veillait déjà »', async () => {
@@ -541,12 +539,12 @@ test('l’étagère et le compte des badges taisent les voies rangées du Cabine
     ['cabinet:phenix'],
     'sa voie est en base',
   )
-  // Ses trophées, eux, comptent : le haut fait de soirée, et — depuis le 26 octobre 2026 — le bronze de L'Explorateur,
-  // que sa salle du Rempart complète a fait tomber à la fin de la partie.
+  // Ses trophées, eux, comptent : le haut fait de soirée — et seulement lui : sa salle du Rempart complète faisait
+  // tomber le bronze de L'Explorateur du 26 octobre au 1er novembre 2026, qui compte depuis les traversées gagnées.
   const trophees = enBase(b.fichier, db => db.prepare(`SELECT badge FROM profile_badges WHERE profile_id = ? AND soiree_id <> ? ORDER BY badge`).all(kim.id, RANGEMENT_DU_CABINET)) as { badge: string }[]
   assert.deepEqual(
     trophees.map(r => r.badge),
-    ['hf:explorateur:1', 'hf:phenix'],
+    ['hf:phenix'],
   )
   const moi = (await lire(b, kim.cookie, '/api/joueur/moi?leger')).corps.profile as { badges: number }
   // Ses trophées seuls : sa voie du Cabinet, rangée, ne compte pas.

@@ -1066,7 +1066,7 @@ export class CampagneStore {
   laurierChange?: (profileId: string) => void
   /**
    * Ce que le Cabinet de curiosités ajoute aux paliers de la campagne
-   * (`statsDe` : ses salles complètes, que L'Explorateur compte — branché là
+   * (`statsDe` : ses traversées gagnées, que L'Explorateur compte — branché là
    * seulement où il s'ouvre), et l'expédition qui part ou finit, qu'il dit sur sa page
    * (`expeditionChange`, en mémoire : rien ne s'en rapporte — la décision du
    * propriétaire du 25 octobre 2026) : deux des trois crochets de sa porte
@@ -2319,16 +2319,16 @@ export class CampagneStore {
    * épreuves des sentiers comprises pour ces deux-là —, et ce que ses
    * épreuves ont validé sur les sentiers (`statsDesSentiers`). Le niveau
    * d'une question est celui que la série lui donnait quand elle l'a posée.
-   * Et ce que le Cabinet y ajoute (`statsEnPlus` : ses salles complètes, pour
-   * L'Explorateur), lu dans le même lot : `statsDe` se lit à chaque fin de
-   * partie et à chaque page du profil. La renommée de l'Expédition n'y est
+   * Et ce que le Cabinet y ajoute (`statsEnPlus` : ses traversées gagnées,
+   * pour L'Explorateur), lu dans le même lot : `statsDe` se lit à chaque fin
+   * de partie et à chaque page du profil. La renommée de l'Expédition n'y est
    * plus lue depuis le 26 octobre 2026 : quatre lectures qui grandissaient
-   * avec ses expéditions, pour un trophée qui compte désormais des salles. Ses
+   * avec ses expéditions, pour un trophée qui compte désormais au Cabinet. Ses
    * champs s'étalent d'abord, nos comptes par-dessus : un compte de la
    * campagne qu'il rendrait par erreur — le typage le refuse déjà
    * (`StatsDuCabinet`) — ne remplace pas le nôtre. Un champ à lui prend son
    * défaut juste avant : sans Cabinet — un serveur où il est fermé ne le
-   * branche pas —, aucune salle, et rien ne tombe.
+   * branche pas —, aucune traversée, et rien ne tombe.
    */
   async statsDe(profileId: string): Promise<StatsDeCampagne> {
     const enPlus = this.statsEnPlus
@@ -2345,7 +2345,7 @@ export class CampagneStore {
       ...(enPlus?.lectures(profileId) ?? []),
     ])
     return {
-      salles: 0,
+      traversees: 0,
       ...(enPlus && enPlus.lire(duCabinet)),
       record: Number(record.rows[0]?.n ?? 0),
       // Toutes ses bonnes réponses, du journal : la somme des `justes` de ses
@@ -2983,6 +2983,7 @@ export class CampagneStore {
       lireAvecLeJournal: async lot => (lot.length === 0 ? { lus: [], journal: await this.rattraperLeJournal(this.derniereReponse) } : this.lireAvecLeJournal(lot)),
       ecrireDesReponses: (profileId, lot, fin) => this.ecrireDesReponses(profileId, lot, fin),
       compagnonDeLaNiche: profileId => this.compagnonDeLaNiche(profileId),
+      accorderLesPaliers: async (profileId, sous) => (this.recompenses ? this.recompenses.accorderPaliersDeCampagne(profileId, cleDeSerie(sous), await this.statsDe(profileId)) : []),
       prechauffer: () => this.prechauffer(),
       secretDuCabinet: () => {
         if (this.secretLu === null) throw new TypeError('le secret du Cabinet n’a pas été relu : la campagne s’est ouverte sans `REVEIL_DU_CABINET` (`CampagneStore.init`)')

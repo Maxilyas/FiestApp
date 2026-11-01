@@ -86,7 +86,7 @@ import {
   LECTURES_DE_TOUTES_LES_TRAVERSEES,
   laLigneDOeuvre,
   laTraverseeLue,
-  lectureDesOeuvres,
+  lectureDesTraverseesGagnees,
   lecturesDeLaPartie,
   lecturesDeLaTraversee,
   lecturesDesParties,
@@ -95,7 +95,7 @@ import {
   lecturesDuMusee,
   laPartieLue,
   lireLeMusee,
-  sallesLues,
+  traverseesGagneesLues,
   type PartieLueEnBase,
   type TraverseeLueEnBase,
 } from './tables'
@@ -558,18 +558,17 @@ export class CabinetStore {
 
   /**
    * Ce que le Cabinet ajoute aux paliers de la campagne (`statsDe`, le crochet
-   * `statsEnPlus` de sa porte) : ses salles complètes, que L'Explorateur
-   * compte. De la base, dans le lot même des paliers — jamais de la mémoire :
-   * à la fin d'une partie, la porte range les paliers avant que le musée gardé
-   * prenne l'œuvre que le lot vient d'écrire (`retenirLaFin`), et l'autre
-   * serveur d'une mise en ligne a pu en écrire une. Ses œuvres par la clé du
-   * profil, quatre-vingt-quatre lignes au plus, à la place des quatre lectures
-   * de la renommée de l'Expédition. `server.ts` ne le branche que là où le
-   * Cabinet s'ouvre : fermé, aucune salle, et L'Explorateur ne tombe pas.
+   * `statsEnPlus` de sa porte) : ses traversées gagnées, que L'Explorateur
+   * compte depuis le 1er novembre 2026 — ses salles complètes jusque-là, d'un
+   * musée que la traversée a remplacé. De la base, dans le lot même des
+   * paliers — jamais de la mémoire : l'autre serveur d'une mise en ligne a pu
+   * en finir une. Un compte par l'index des traversées du profil. `server.ts`
+   * ne le branche que là où le Cabinet s'ouvre : fermé, aucune traversée, et
+   * L'Explorateur ne tombe pas.
    */
   readonly statsEnPlus: StatsEnPlus = {
-    lectures: profileId => [lectureDesOeuvres(profileId)],
-    lire: ([oeuvres]) => ({ salles: sallesLues(oeuvres) }),
+    lectures: profileId => [lectureDesTraverseesGagnees(profileId)],
+    lire: ([gagnees]) => ({ traversees: traverseesGagneesLues(gagnees) }),
   }
 
   constructor(
@@ -1606,7 +1605,12 @@ export class CabinetStore {
     }
     const suite: TraverseeGardee = { ...tr, gestes: [...tr.gestes, { geste, faitLe: t }], etat: apres }
     this.garder(this.traversees, profileId, suite, MUSEES_GARDES)
-    if (fin?.legendaire) await this.rangerLeLegendaire(profileId, fin.legendaire, t)
+    if (fin?.legendaire) {
+      await this.rangerLeLegendaire(profileId, fin.legendaire, t)
+      // Une traversée gagnée : L'Explorateur la compte, et son palier tombe tout de suite, rangé sous elle — sans quoi il
+      // attendait la fin de la partie suivante. Raté, il se dit au journal : la fin d'une partie le rattrapera.
+      await this.porte.accorderLesPaliers(profileId, tr.id).catch(e => console.error(`[cabinet] les paliers de la traversée ${tr.id} ne se rangent pas`, e))
+    }
     // Seule une épreuve conclue fait tomber un défi ou une épreuve de maître (`defisDeLaTraversee`) : ils se rangent aussitôt.
     if (geste.quoi === 'conclure') await this.rangerLesDefis(profileId, suite, t)
     return { traversee: suite }
