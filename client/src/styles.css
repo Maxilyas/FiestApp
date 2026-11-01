@@ -6893,6 +6893,19 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .dq-faux .dq-points {
   color: var(--muted);
 }
+/* Une estimation : son nombre à la place du temps, et ni barre de temps ni gris de « faux » —
+   la plus loin a répondu, elle aussi ; seul le tiers le plus proche s'allume. */
+.dq-estimation .dq-ligne::before,
+.dq-estimation .dq-ligne::after {
+  content: none;
+}
+.dq-estimation .dq-temps {
+  color: var(--ink);
+}
+.dq-target .dq-icone {
+  background: var(--accent);
+  color: var(--bg);
+}
 .dq-trou {
   text-align: center;
   color: var(--muted);

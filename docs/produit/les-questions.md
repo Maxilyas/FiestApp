@@ -56,7 +56,7 @@ Un QCM dont les deux seules réponses sont « Vrai » et « Faux », dans un ord
 
 ## Plusieurs bonnes réponses
 
-**L'invité** coche, puis touche « Valider » (« Corriger ma réponse » ensuite) : cocher sans valider ne répond pas. **La salle** lit « Plusieurs bonnes réponses : trouvez-les toutes » ; à la révélation, toutes les bonnes s'allument, et chaque carte dit combien l'ont cochée. Le téléphone dit « Toutes trouvées, bien joué ! » ou « Raté… tu avais coché … », puis « Les bonnes réponses : … ».
+**L'invité** coche, puis touche « Valider » (« Corriger ma réponse » ensuite) ; ce qui est coché sans être validé part tout seul quand le temps s'écoule — mais pas quand l'animateur révèle avant. **La salle** lit « Plusieurs bonnes réponses : trouvez-les toutes » ; à la révélation, toutes les bonnes s'allument, et chaque carte dit combien l'ont cochée. Le téléphone dit « Toutes trouvées, bien joué ! » ou « Raté… tu avais coché … », puis « Les bonnes réponses : … ».
 
 **La note** : juste si les cases cochées sont **exactement** les bonnes — toutes, et elles seules ; payée alors comme un QCM, à l'heure du dernier envoi. À moitié juste, elle ne vaut rien.
 
@@ -64,7 +64,7 @@ Un QCM dont les deux seules réponses sont « Vrai » et « Faux », dans un ord
 
 Trois ou quatre éléments, écrits dans le bon ordre par l'animateur, que la partie montre **toujours mélangés** — jamais dans le bon ordre par hasard, quel que soit le réglage du quiz.
 
-**L'invité** touche les réponses dans l'ordre ; chacune prend son numéro sans bouger de sa place, et retoucher un numéro le retire. « Valider cet ordre » s'allume quand tout est numéroté. **La salle** lit « Remettez-les dans l'ordre sur votre téléphone » ; à la révélation, chaque carte reste en place et porte son rang, avec le nombre de joueurs qui l'ont mise à sa place. Le téléphone dit « Le bon ordre, bien joué ! » ou « Raté… tu avais mis A → B → C », puis le bon ordre.
+**L'invité** touche les réponses dans l'ordre ; chacune prend son numéro sans bouger de sa place, et retoucher un numéro le retire. « Valider cet ordre » s'allume quand tout est numéroté ; un ordre complet qu'on n'a pas validé part tout seul quand le temps s'écoule. **La salle** lit « Remettez-les dans l'ordre sur votre téléphone » ; à la révélation, chaque carte reste en place et porte son rang, avec le nombre de joueurs qui l'ont mise à sa place. Le téléphone dit « Le bon ordre, bien joué ! » ou « Raté… tu avais mis A → B → C », puis le bon ordre.
 
 **La note** : juste si l'ordre **entier** est le bon ; payée comme un QCM. À moitié juste, elle ne vaut rien.
 
@@ -78,7 +78,7 @@ Rien à écrire : les réponses sont **les invités**, figés quand la question 
 
 ## L'estimation
 
-**L'invité** tape un nombre dans « Ton estimation », écrit comme en France (« 35 000 », « 12,5 »), l'unité à côté, et touche « Valider » (« Corriger » ensuite). **La salle** lit « Tapez votre estimation sur votre téléphone (en ans) — le plus proche gagne ! ». À la révélation, l'écran montre la bonne valeur en très grand et les **huit propositions les plus proches**, une cible devant tous les plus proches ex æquo ; le téléphone dit « +194 pts », « Tu as dit 7,9 — à 0,1 près » (« pile-poil ! » à la valeur exacte), puis la bonne réponse.
+**L'invité** tape un nombre dans « Ton estimation », écrit comme en France (« 35 000 », « 12,5 »), l'unité à côté, et touche « Valider » (« Corriger » ensuite) ; un nombre tapé sans être validé part tout seul quand le temps s'écoule (le 31 octobre 2026, plus de la moitié de la salle n'avait pas validé). **La salle** lit « Tapez votre estimation sur votre téléphone (en ans) — le plus proche gagne ! ». À la révélation, l'écran montre la bonne valeur en très grand et les **huit propositions les plus proches**, une cible devant tous les plus proches ex æquo ; le téléphone dit « +194 pts », « Tu as dit 7,9 — à 0,1 près » (« pile-poil ! » à la valeur exacte), puis la bonne réponse, et la carte « Cette question » : les estimations de la plus proche à la plus loin, chacune avec son nombre et ses points, et une phrase — « L'estimation la plus proche » (« Devant Hugo »), « 3ᵉ plus proche sur 8 », « La plus proche : Hugo ».
 
 Une estimation n'est jamais « juste » ni « fausse » : chacun propose un chiffre et marque quelque chose.
 

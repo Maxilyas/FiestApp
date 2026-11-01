@@ -120,6 +120,39 @@ function useEchue(deadline: number | undefined, figee: boolean): boolean {
   return deadline !== undefined && !figee && serverNow() > deadline
 }
 
+/**
+ * Ce qui a été tapé ou coché sans être validé part tout seul quand le temps
+ * s'écoule : le serveur l'attend encore la marge de son échéance
+ * (`GRACE_MS`), le temps du trajet. Le 31 octobre 2026, à vingt invités, 95 %
+ * répondaient aux QCM — un toucher suffit — et 43 % aux estimations : les
+ * réponses arrivées venaient presque toutes des six dernières secondes, et
+ * celles tapées sans « Valider » s'étaient perdues. Une fois par question :
+ * le dernier envoi fait foi, et le même renvoyé est confirmé sans rien
+ * réécrire.
+ */
+function useEnvoiALEcheance(closes: boolean, envoyer: () => void) {
+  const dernier = useRef(envoyer)
+  dernier.current = envoyer
+  const etaitClose = useRef(closes)
+  useEffect(() => {
+    if (closes && !etaitClose.current) dernier.current()
+    etaitClose.current = closes
+  }, [closes])
+}
+
+/** Le brouillon d'une estimation qui partira à l'échéance : un nombre lisible, et autre que celui déjà enregistré. */
+export function brouillonAEnvoyer(texte: string, dejaEnregistree: number | null | undefined): number | null {
+  if (texte.trim() === '') return null
+  const valeur = lireNombre(texte)
+  return valeur !== null && valeur !== dejaEnregistree ? valeur : null
+}
+
+/** Des cases cochées qui partiront à l'échéance : au moins une, et autres que celles déjà enregistrées. */
+export function cochesAEnvoyer(coches: readonly number[], dejaEnregistrees: readonly number[] | null | undefined, toutes?: number): number[] | null {
+  if (coches.length === 0 || (toutes !== undefined && coches.length !== toutes)) return null
+  return memes(coches, dejaEnregistrees) ? null : [...coches]
+}
+
 /** Chaque réponse dit à quelle question elle répond : le serveur refuse celles qui arrivent après. */
 const visee = (v: QuizPlayerView) => ({ qIndex: v.qIndex, round: v.round })
 
@@ -154,6 +187,10 @@ function ChoixMultiples({ view: v, send, closes, enAttente, perdue }: PropsDeVar
   const [coches, setCoches] = useState<number[]>(() => v.yourChoices ?? [])
   // Une nouvelle question, ou la même reposée : rien de coché.
   useEffect(() => setCoches(v.yourChoices ?? []), [v.qIndex, v.round]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEnvoiALEcheance(closes, () => {
+    const choices = cochesAEnvoyer(coches, v.yourChoices)
+    if (choices) send({ type: 'answers', choices, ...visee(v) })
+  })
   const bloque = !!v.paused || closes
   return (
     <>
@@ -208,6 +245,11 @@ function OrdreARetrouver({ view: v, send, closes, enAttente, perdue }: PropsDeVa
   const [suite, setSuite] = useState<number[]>(() => v.yourChoices ?? [])
   useEffect(() => setSuite(v.yourChoices ?? []), [v.qIndex, v.round]) // eslint-disable-line react-hooks/exhaustive-deps
   const n = v.answers?.length ?? 0
+  // Un ordre ne part que complet : le serveur refuse une suite à moitié faite.
+  useEnvoiALEcheance(closes, () => {
+    const order = cochesAEnvoyer(suite, v.yourChoices, n)
+    if (order) send({ type: 'order', order, ...visee(v) })
+  })
   const bloque = !!v.paused || closes
   return (
     <>
@@ -325,6 +367,11 @@ function GuessForm({
     setText('')
     setIllisible(false)
   }, [view.qIndex])
+
+  useEnvoiALEcheance(closes, () => {
+    const value = brouillonAEnvoyer(text, view.yourGuess)
+    if (value !== null) send({ type: 'guess', value, ...visee(view) })
+  })
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -450,7 +497,7 @@ function BetweenQuestions({ view: v, salle: { teams, myTeamId, players, particip
       )}
       {/* La question vue par toute la salle : sous la sienne, jamais avant (invariant 1). */}
       {v.laQuestion && (
-        <CetteQuestion detail={v.laQuestion} players={players} moi={v.justArrived ? undefined : moi?.id} teams={teams} monEquipe={myTeamId} />
+        <CetteQuestion detail={v.laQuestion} players={players} moi={v.justArrived ? undefined : moi?.id} teams={teams} monEquipe={myTeamId} unite={v.unit} />
       )}
     </>
   )
@@ -506,9 +553,21 @@ export function phraseDeLaQuestion(
   d: DetailDeLaQuestion,
   moi: string | undefined,
   nomDe: (id: string) => string,
-): { titre: string; detail: string; icone: 'zap' | 'check' | 'x' | 'users' } {
+): { titre: string; detail: string; icone: 'zap' | 'check' | 'x' | 'users' | 'target' } {
   const { premier, second, trouvees, repondues } = d
   const ecart = (a: number, b: number) => secondes(Math.max(0, b - a))
+  // Une estimation se dit à sa distance, jamais à sa vitesse : « la plus proche ».
+  if (d.estimation) {
+    const r = d.rangDeLEstimation
+    if (r === 1) {
+      if (repondues === 1) return { titre: 'La seule estimation', detail: '', icone: 'target' }
+      // Sans suivante qui ne la partage pas, la première place se partage.
+      if (!second) return { titre: 'La plus proche, à égalité', detail: '', icone: 'target' }
+      return { titre: 'L’estimation la plus proche', detail: `Devant ${nomDe(second.id)}`, icone: 'target' }
+    }
+    if (r) return { titre: `${rang(r)} plus proche sur ${repondues}`, detail: premier ? `La plus proche : ${nomDe(premier.id)}` : '', icone: 'target' }
+    return { titre: premier ? `La plus proche : ${nomDe(premier.id)}` : 'Personne n’a répondu', detail: '', icone: 'target' }
+  }
   if (d.rangDesJustes === 1) {
     if (!second) return { titre: 'Personne d’autre n’a trouvé', detail: '', icone: 'zap' }
     return { titre: 'La réponse juste la plus rapide', detail: `${ecart(premier!.ms, second.ms)} devant ${nomDe(second.id)}`, icone: 'zap' }
@@ -542,12 +601,15 @@ function CetteQuestion({
   moi,
   teams = [],
   monEquipe = null,
+  unite,
 }: {
   detail: DetailDeLaQuestion
   players: readonly PublicPlayer[]
   moi: string | undefined
   teams?: readonly PublicTeam[]
   monEquipe?: string | null
+  /** L'unité d'une estimation, écrite après chaque nombre. */
+  unite?: string
 }) {
   const parId = new Map(players.map(p => [p.id, p]))
   const equipeDe = (id: string) => teams.find(t => t.id === parId.get(id)?.teamId)
@@ -558,7 +620,7 @@ function CetteQuestion({
   const { titre, detail, icone } = phraseDeLaQuestion(d, moi, nomDe)
   const plusLent = Math.max(1, ...d.lignes.map(l => l?.ms ?? 0))
   return (
-    <section className="card detail-question" aria-label="Cette question, pour toute la salle">
+    <section className={'card detail-question' + (d.estimation ? ' dq-estimation' : '')} aria-label="Cette question, pour toute la salle">
       <header className={'dq-tete dq-' + icone}>
         <span className="dq-icone">
           <Icon name={icone} />
@@ -567,8 +629,8 @@ function CetteQuestion({
           <b>{espacesFines(titre)}</b>
           {detail && <span>{espacesFines(detail)}</span>}
         </span>
-        {/* Le compte, quand la phrase ne le dit pas déjà. */}
-        {!titre.includes(' sur ') && (
+        {/* Le compte, quand la phrase ne le dit pas déjà — une estimation n'a rien de « trouvé ». */}
+        {!d.estimation && !titre.includes(' sur ') && (
           <span className="dq-compte" aria-label={`${d.trouvees} sur ${d.repondues} ont trouvé`}>
             <b>{d.trouvees}</b>/{d.repondues}
           </span>
@@ -593,11 +655,12 @@ function CetteQuestion({
               <span className="dq-nom">
                 <span className="dq-nom-texte">{nomDe(l.id)}</span>
                 <PastilleEquipe equipe={equipeDe(l.id)} avecMoi={!!monEquipe && equipeDe(l.id)?.id === monEquipe} />
-                {l.id === d.premier?.id && <Icon name="zap" className="dq-eclair" />}
+                {l.id === d.premier?.id && <Icon name={d.estimation ? 'target' : 'zap'} className="dq-eclair" />}
               </span>
               <span className="dq-temps">
                 {l.choix !== null && <Shape index={l.choix} inline />}
-                {secondes(l.ms)}
+                {/* Une estimation montre son nombre : c'est sa distance qui paie, pas son temps. */}
+                {l.valeur !== undefined ? `${formatNumber(l.valeur)}${unite ? ` ${unite}` : ''}` : secondes(l.ms)}
               </span>
               <span className="dq-points">{l.points > 0 ? `+${formatNumber(l.points)}` : '0'}</span>
             </li>
@@ -605,7 +668,7 @@ function CetteQuestion({
         })}
       </ol>
       {d.repondues > d.lignes.filter(Boolean).length && (
-        <p className="dq-pied">{espacesFines(`${d.repondues} réponses · les plus rapides${moi && d.lignes.some(l => l?.id === moi) ? ', et toi' : ''}`)}</p>
+        <p className="dq-pied">{espacesFines(`${d.repondues} réponses · les plus ${d.estimation ? 'proches' : 'rapides'}${moi && d.lignes.some(l => l?.id === moi) ? ', et toi' : ''}`)}</p>
       )}
     </section>
   )

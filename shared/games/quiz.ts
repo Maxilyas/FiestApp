@@ -137,6 +137,8 @@ export interface LigneDeLaQuestion {
   ms: number
   /** Ses points sur cette question, multiplicateur compris. */
   points: number
+  /** Le nombre proposé, pour une estimation. */
+  valeur?: number
 }
 
 /**
@@ -158,6 +160,14 @@ export interface DetailDeLaQuestion {
   rangDesJustes?: number
   /** Combien d'autres ont donné la même mauvaise réponse que lui. */
   memeChoix?: number
+  /**
+   * Une estimation : les lignes vont de la plus proche à la plus loin,
+   * `juste` n'allume que le tiers le plus proche, `premier` est la plus
+   * proche et `second` la suivante, si elle ne la partage pas.
+   */
+  estimation?: true
+  /** Le rang de la sienne parmi les estimations, partagé entre ex æquo (1 : la plus proche). */
+  rangDeLEstimation?: number
 }
 
 export interface QuizPlayerView {
