@@ -121,9 +121,16 @@ import { sansAccent } from '../../shared/homonymes'
  * relecture — des résumés d'épisodes faux, des leurres pas certainement
  * faux) : 26 862 ; puis une seconde vague sur ce qui en manquait — les
  * coulisses, des épisodes marquants, l'univers —, 33 rangées sur 35 (2
- * retirées à la relecture) : 26 895.
+ * retirées à la relecture) : 26 895. Puis, le même soir, deux séries de
+ * fans et un thème d'histoire : Kaamelott et Lost, écrits de la même façon
+ * à partir de faits relevés sur Wikipédia, 179 et 204 questions avec celles
+ * que la base posait déjà (la relecture a retiré près d'un quart des
+ * questions de Kaamelott, que les résumés de la série ne permettaient pas
+ * de confirmer) ; et la Seconde Guerre mondiale, posée sur 124 questions de
+ * la base et écrite là où elle vit (`preparer --sujet`), 144 rangées sur
+ * 150 : 27 405.
  */
-const AU_MOINS = 26895
+const AU_MOINS = 27405
 
 const { questions, refusees } = lireLaBase()
 
