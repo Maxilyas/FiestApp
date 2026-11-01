@@ -113,9 +113,15 @@ import { sansAccent } from '../../shared/homonymes'
  * (60), la littérature du monde (60), la littérature française, la peinture
  * et la musique classique (30 chacune), un lot par sous-thème et par vague ;
  * 295 rangées sur 300 (5 retirées à la relecture, dont deux faits posés
- * deux fois, au cinéma et en littérature) : 26 689.
+ * deux fois, au cinéma et en littérature) : 26 689. Le même jour,
+ * l'univers Stargate, que la base ne posait pas : des faits relevés sur
+ * Wikipédia, huit lots écrits à partir d'eux (le film, SG-1, Atlantis,
+ * Universe, les coulisses, les mots de la saga), 173 rangées sur 206
+ * (24 refusées comme un fait qu'un autre lot posait déjà, 9 retirées à la
+ * relecture — des résumés d'épisodes faux, des leurres pas certainement
+ * faux) : 26 862.
  */
-const AU_MOINS = 26689
+const AU_MOINS = 26862
 
 const { questions, refusees } = lireLaBase()
 
