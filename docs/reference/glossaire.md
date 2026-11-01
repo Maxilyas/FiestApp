@@ -40,7 +40,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Automate | L'adversaire simulé du dé, 🤖, qui joue comme le joueur d'après le modèle du savoir, son score tenu à 2 bonnes réponses de ce qu'on attend de lui | `AUTOMATE` |
 | Une autre | La voisine d'une question tirée de la base — même catégorie, même marche, même sorte —, qui la remplace sans rien écrire | `uneAutreQuestion` |
 | Avatar en grand | L'avatar d'une carte, touché : ouvert en grand, sa peinture, sa finition et son Éclat entiers | `AvatarEnGrand` |
-| Avatar légendaire | Un des trente et un avatars peints qu'ouvrent des hauts faits répétés, les étapes d'une piste, sur la durée, ou une fête ; il prend la place de l'emoji | `shared/legendaires.ts` |
+| Avatar légendaire | Un des trente-deux avatars peints qu'ouvrent des hauts faits répétés, les étapes d'une piste, sur la durée, ou une fête ; il prend la place de l'emoji | `shared/legendaires.ts` |
 | Avatar peint | Un avatar qui prend la place de l'emoji — légendaire, Divin, portrait du savoir ou forme de compagnon —, un seul à la fois | `legendairePorte` |
 
 ## B

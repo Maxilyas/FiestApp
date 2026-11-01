@@ -302,7 +302,7 @@ export function lignesDeLEssai(essai: Essai, profil: Pick<PublicProfileDetail, '
  */
 export type CeQueLaLogeLit = Pick<
   PublicProfileDetail,
-  'hautsFaits' | 'legendaires' | 'divins' | 'compagnons' | 'niveau' | 'ouvertes' | 'eclats' | 'bordures' | 'titresDates' | 'sentiers' | 'fonds' | 'gerbes'
+  'hautsFaits' | 'legendaires' | 'divins' | 'compagnons' | 'niveau' | 'ouvertes' | 'eclats' | 'bordures' | 'titresDates' | 'titresDuCabinet' | 'sentiers' | 'fonds' | 'gerbes'
 > & {
   vitrine: readonly Pick<PublicProfileDetail['vitrine'][number], 'key'>[]
   boutique?: Pick<NonNullable<PublicProfileDetail['boutique']>, 'possedes'>
@@ -332,7 +332,7 @@ export function ceQuIlAPorter(profil: CeQueLaLogeLit): Record<PieceDeLaLoge, str
       // Une ligue atteinte ouvre sa bordure ; au douzième cran, elle est sertie : deux nouveautés.
       ...(profil.bordures ?? []).flatMap(b => [`bordure:${b.ligue}`, ...(b.crans >= CRANS_D_UNE_BORDURE ? [`bordure:${b.ligue}:sertie`] : [])]),
     ],
-    titre: [...maitresDe(paliers).map(cleDeMaitre), ...(profil.titresDates ?? []), ...gagnes],
+    titre: [...maitresDe(paliers).map(cleDeMaitre), ...(profil.titresDates ?? []), ...(profil.titresDuCabinet ?? []), ...gagnes],
     // Ceux que « Ma vitrine » propose : gagnés, et rangés sur son étagère.
     vitrine: gagnes.filter(cle => {
       const rangee = cleRangee(cle, recompenses)

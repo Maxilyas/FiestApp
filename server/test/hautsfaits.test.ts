@@ -45,6 +45,7 @@ import {
   partiesDe,
   progresVers,
   voiesDe,
+  LEGENDAIRE_DES_DEFIS,
 } from '../../shared/legendaires'
 import { saison } from '../../shared/saisons'
 import { LEGENDAIRES_A_JOKER } from '../../shared/jokers'
@@ -354,8 +355,8 @@ test('un légendaire se débloque sur ses hauts faits, et se voit venir', () => 
 
 test('chaque légendaire a sa légende, et se gagne par un haut fait qui existe', () => {
   const cles = new Set([...HAUTS_FAITS_REGAGNABLES, ...HAUTS_FAITS_DE_CARRIERE].map(h => h.key))
-  // Vingt-six, puis les cinq des fêtes du 1er novembre 2026.
-  assert.equal(LEGENDAIRES.length, 31)
+  // Vingt-six, puis les cinq des fêtes du 1er novembre 2026, et le Djinn des défis du Cabinet, le même jour.
+  assert.equal(LEGENDAIRES.length, 32)
   for (const l of LEGENDAIRES) {
     assert.ok(l.nom && l.legende, `${l.key} a un nom et une légende`)
     // Un légendaire de saison se gagne par sa saison, et par elle seule : sa récompense de saison, ou l'expédition
@@ -376,9 +377,11 @@ test('chaque légendaire a sa légende, et se gagne par un haut fait qui existe'
     for (const voie of voiesDe(l).filter(v => !estUneVoieDExpedition(v) && !estUneVoieDuCabinet(v))) {
       for (const c of partiesDe(voie)) assert.ok(cles.has(c.hautFait), `${l.key} se gagne par ${c.hautFait}, qui existe`)
     }
-    // Un gardien du Cabinet qui n'est pas de saison en a une, la sienne, et une seule ; les autres légendaires, aucune.
+    // Un gardien du Cabinet qui n'est pas de saison en a une, la sienne, et une seule — et le Djinn, que les dix défis tenus à
+    // l'Or font ranger (`clesARanger`), sans être un gardien ; les autres légendaires, aucune.
     const auCabinet = voiesDe(l).filter(estUneVoieDuCabinet)
-    assert.deepEqual(auCabinet, LEGENDAIRES_DU_CABINET.includes(l.key) ? [{ hautFait: cleDuCabinet(l.key), fois: 1 }] : [], `${l.key} : sa voie du Cabinet`)
+    const duCabinet = LEGENDAIRES_DU_CABINET.includes(l.key) || l.key === LEGENDAIRE_DES_DEFIS
+    assert.deepEqual(auCabinet, duCabinet ? [{ hautFait: cleDuCabinet(l.key), fois: 1 }] : [], `${l.key} : sa voie du Cabinet`)
   }
   // Les ombres ont leurs légendaires aussi : la malchance assumée a son trophée.
   assert.ok(LEGENDAIRES.some(l => l.ton === 'ombre'))

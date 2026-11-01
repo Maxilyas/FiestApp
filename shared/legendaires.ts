@@ -144,6 +144,14 @@ export const LEGENDAIRES_DU_CABINET: readonly string[] = [
 /** La clé que le Cabinet range sur le profil quand ce gardien se réveille : `cabinet:phenix`. */
 export const cleDuCabinet = (legendaireCle: string) => `cabinet:${legendaireCle.replace(/^lg:/, '')}`
 
+/**
+ * Le légendaire des défis de tes cartes, au Cabinet de curiosités : les dix tenus à l'Or (`shared/cabinet/sceaux.ts`,
+ * le 1er novembre 2026). Pas un gardien — il ne garde aucun acte, ni n'est dans `LEGENDAIRES_DU_CABINET` : le Cabinet
+ * range sa voie (`cabinet:djinn`) quand le dixième Or tombe, comme celle d'un gardien. Un griffon d'abord, écarté le
+ * jour même : « Le griffon » est la forme ultime du sentier des contes (`br:griffon`), sur la même page de l'album.
+ */
+export const LEGENDAIRE_DES_DEFIS = 'lg:djinn'
+
 /** Une voie du Cabinet : réveiller ce gardien dans son musée, une fois. */
 export const estUneVoieDuCabinet = (c: Condition): boolean => !('toutes' in c) && c.hautFait.startsWith('cabinet:')
 
@@ -426,6 +434,14 @@ export const LEGENDAIRES: Legendaire[] = avecLeCabinet(avecLExpedition([
         { hautFait: 'hf:laurier', fois: 3 },
       ],
     },
+    ton: 'eclat',
+  },
+  {
+    // Le légendaire des défis de tes cartes (le 1er novembre 2026) : sa seule voie, le Cabinet la range au dixième Or.
+    key: LEGENDAIRE_DES_DEFIS,
+    nom: 'Le Djinn',
+    legende: 'Enfermé sous dix sceaux d’or au Cabinet : il ne sort de sa lampe que pour qui a tenu à l’Or le défi de chacune de ses cartes.',
+    condition: { hautFait: cleDuCabinet(LEGENDAIRE_DES_DEFIS), fois: 1 },
     ton: 'eclat',
   },
 ]))

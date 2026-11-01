@@ -720,6 +720,12 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // expédition au bout reçoit la luciole, une fois.
   const traversees = await campagne.rattraperLesPremieresTraversees()
   if (traversees) console.log(`[expedition] la luciole rejoint ${traversees} profil(s) qui avai(en)t déjà mené une expédition au bout`)
+  // Les défis de tes cartes (le 1er novembre 2026) : ce que les traversées du Cabinet avaient déjà tenu se range, une
+  // fois par version de leurs règles (`VERSION_DES_DEFIS`) — là où le Cabinet s'ouvre.
+  if (cabinetEstOuvert) {
+    const defis = await cabinet.relireLesDefis()
+    if (defis) console.log(`[cabinet] défis : ${defis.traversees} traversée(s) relue(s), ${defis.profils} profil(s) qui en tenai(en)t`)
+  }
   // Le barème du solo (le 6 octobre 2026) : ce qui s'est déjà joué au quiz
   // du jour et en campagne se recompte au barème du jour, une fois, et les
   // niveaux gelés de l'ancienne courbe se rattrapent (`core/baremeDuSolo.ts`).

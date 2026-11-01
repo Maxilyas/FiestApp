@@ -142,6 +142,22 @@ test('un légendaire est une carte peinte sous sa pellicule : l’image, l’arc
   assert.match(html, /stop-color="#2f8f68"/)
 })
 
+test('chaque légendaire se dessine, ordinaire comme éclaté : son image, et la couleur de son disque', async () => {
+  // Sans sa couleur (`FONDS`, `FONDS_ECLAT`, `Legendaire.tsx`), un légendaire ne se dessine pas du tout : le Djinn
+  // des défis du Cabinet, peint et livré le 1er novembre 2026, se rendait vide sur la planche — rien dans l'album,
+  // rien sur la carte de qui l'aurait gagné.
+  for (const l of LEGENDAIRES) {
+    const id = l.key.slice(3)
+    for (const [eclat, image] of [[false, 'art'], [true, 'rare']] as const) {
+      const html = await legendaire({ cle: l.key, eclat })
+      const dit = `${l.key}${eclat ? ', éclaté' : ''}`
+      assert.match(html, new RegExp(`<span class="lg lg-${l.ton} lg-${id}[ "]`), dit)
+      assert.match(html, new RegExp(`<img class="lg-art" src="/medaillons/${id}-${image}-256\\.[0-9a-f]{10}\\.webp"`), `${dit} : son image`)
+      assert.match(html, /stop-color="#[0-9a-f]{6}"/, `${dit} : la couleur de son disque`)
+    }
+  }
+})
+
 test('en grand, ses grands fichiers, et le reflet suit le doigt', async () => {
   const html = await legendaire({ cle: 'lg:dragon', grand: true })
   assert.match(html, /class="lg lg-eclat lg-dragon lg-touche-libre"/)

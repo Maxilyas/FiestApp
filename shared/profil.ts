@@ -1083,6 +1083,8 @@ export interface PublicProfileDetail extends PublicProfile {
   carnet?: { timbres: string[]; jour: string }
   /** Ses titres de champion du mois (`mois:2026-10`), du plus récent au plus ancien : ils se portent comme un titre. */
   titresDates?: string[]
+  /** Ses défis du Cabinet tenus à l'Or (`cabinet:defi:cagnotte:3`), dans l'ordre des cartes : leur nom se porte comme un titre. */
+  titresDuCabinet?: string[]
   /**
    * Les bordures de ses ligues atteintes et leurs crans, relues dans ses
    * duels (`ReleveDesDuels.bordures`) : la loge les propose. Absentes d'un

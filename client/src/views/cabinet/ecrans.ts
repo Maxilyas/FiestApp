@@ -147,8 +147,8 @@ export function quitterVersLeMusee(h: Historique, hash: string, vers = '') {
  * révélation (`Partie.tsx`) —, et `history.back()` ne recule qu'au tour
  * suivant : l'entrée lue au second appel était encore celle de l'épreuve, et
  * le second recul sortait du Cabinet, jusqu'à l'accueil (« quand j'ai vaincu
- * le boss ça m'a sortie et remise à l'accueil », la propriétaire, le
- * 1er novembre 2026).
+ * le boss ça m'a sortie et remis à l'accueil », le retour du 1er novembre
+ * 2026).
  */
 export function quitterLEpreuveFinie(h: Historique, hash: string, id: string | null, conclue: string | null): boolean {
   if (!id || id === conclue) return false

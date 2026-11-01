@@ -1,6 +1,6 @@
 # Les défis des cartes — proposition pour le Cabinet de curiosités
 
-*Le 1er novembre 2026, d'après le retour de la propriétaire : « comme c'est dur
+*Le 1er novembre 2026, d'après le retour du jour : « comme c'est dur
 d'équilibrer les cartes, est-ce qu'on ne pourrait pas avoir des choses à gagner
 en fonction des cartes que l'on a sur nous — des défis : avoir X d'or à la fin,
 battre sans parade… — des cosmétiques selon la difficulté, et même des
@@ -152,3 +152,27 @@ vu si les défis simples suffisent.
    (Ma recommandation : oui.)
 5. **Les traversées passées relues au lancement** (des défis offerts
    d'emblée) : oui ?
+
+## 9. Le premier lot, livré le 1er novembre 2026
+
+Les cinq choix validés (« oui aux 5 »), et ce qui a changé en route :
+
+- **Les dix défis et les vingt et une épreuves de maître** sont dans le jeu (`shared/cabinet/defis.ts`). Le calibrage a
+  durci ce qui tombait trop vite chez le joueur moyen : le Flambeur (5 mises gagnées, puis 6 et 8 d'affilée —
+  trois mises en tombaient trois traversées sur quatre), l'Exécuteur (au Bronze, un gardien abattu dès la deuxième
+  manche de ton premier assaut — un gardien de l'acte I tombe presque toujours au premier), le Revenant (ses rangs
+  se confondaient), et les épreuves de maître de l'acte I (le Renard sans rater une manche : 68 %). Les taux mesurés :
+  `docs/reference/baremes.md`.
+- **Une épreuve de maître donne le légendaire de son gardien**, aussitôt, quoi qu'il arrive ensuite. **La finition
+  du légendaire maîtrisé n'est pas dans ce lot** : les finitions sont aujourd'hui une seule pour tout le profil,
+  ouvertes au niveau (`shared/profil.ts`) — en donner une à un seul légendaire demande un mécanisme neuf (la règle
+  de la finition portée, la loge et son aperçu, la carte). À décider pour le lot suivant.
+- **Confettis** : 25 au Bronze, 75 à l'Argent, une source de plus au QG de l'économie (« Défis du Cabinet »).
+- **Le dos doré** dès l'Argent, au choix des cartes et dans « Tes cartes » ; **le titre** à l'Or, porté depuis la loge.
+- **La gerbe des cartes** (🃏 ♠️ ♥️ ♦️ ♣️) à cinq défis tenus à l'Argent ; **le Djinn**, peint pour l'occasion,
+  aux dix tenus à l'Or — enfermé sous dix sceaux d'or, il sort de sa lampe. Un griffon avait été peint d'abord
+  (0,21 $ en lot), puis écarté le même jour : « Le griffon » est déjà la forme ultime du sentier des contes, et les
+  deux se seraient suivis sur la page légendaire de l'album. Le Djinn a coûté 0,21 $ de plus, en lot.
+- **Les traversées passées se sont relues au démarrage** (`relireLesDefis`) : ce qu'elles tenaient est offert d'emblée,
+  ce qui avait servi dans leurs épreuves repris de leurs parties.
+- **Les sceaux de difficulté** (§ 6) restent pour plus tard.

@@ -109,7 +109,7 @@ test('le compte de la collection : trois familles, leurs lignes, un total — ce
     // depuis le 19 octobre 2026 ; les quatre de la luciole, et sa
     // luciole-aurore, depuis le 20 ; les cinq légendaires des fêtes du
     // printemps à la rentrée depuis le 1er novembre.
-    ['avatars', '9/146', ['avatars 9/146']],
+    ['avatars', '9/147', ['avatars 9/147']],
     // Les trophées aussi, en un album — une page par mode (la maquette 1, le
     // 13 octobre 2026) —, juste après les avatars, comptés par sa règle : en
     // soirée, L'Habitué à l'argent (deux métaux), le Phénix, la Lanterne
@@ -124,9 +124,9 @@ test('le compte de la collection : trois familles, leurs lignes, un total — ce
     // et les six gerbes du trésor du coffre de la semaine y comptent depuis
     // le 14 octobre 2026, les douze fonds des savoirs de la boutique depuis
     // le 15, les huit gerbes des fêtes depuis le 1er novembre.
-    ['style', '9/97', ['themes 3/35', 'fonds 1/25', 'gerbes 2/24', 'finitions 3/7', 'bordures 0/6']],
+    ['style', '9/98', ['themes 3/35', 'fonds 1/25', 'gerbes 2/25', 'finitions 3/7', 'bordures 0/6']],
   ])
-  assert.deepEqual(total, { acquis: 25, total: 389 })
+  assert.deepEqual(total, { acquis: 25, total: 391 })
   assert.deepEqual(
     compteDeLaCollection({ ...LEA, bordures: [{ ligue: 'bronze', crans: 12 }, { ligue: 'argent', crans: 3 }] } as any)
       .familles.find(f => f.famille === 'style')!
@@ -206,9 +206,9 @@ test('les trophées se rangent par où ils se gagnent : une page par mode, ses p
 test('la collection : son total, trois familles, une ligne par collection — repliées, sans rien à porter', async () => {
   lieu.hash = ''
   const html = await rendu('components/Collection', 'MaCollection', { profil: LEA })
-  assert.match(html, /<p class="collection-total"><b>25<\/b> sur 389<\/p>/)
+  assert.match(html, /<p class="collection-total"><b>25<\/b> sur 391<\/p>/)
   const familles = [...html.matchAll(/<h2 id="famille-\w+">([^<]+)<span class="collection-compte">([^<]+)<\/span><\/h2>/g)].map(m => `${m[1].trim()} ${m[2]}`)
-  assert.deepEqual(familles, ['Avatars 9 sur 146', 'Trophées 7 sur 146', 'Style 9 sur 97'])
+  assert.deepEqual(familles, ['Avatars 9 sur 147', 'Trophées 7 sur 146', 'Style 9 sur 98'])
   const lignes = [...html.matchAll(/<span class="trophee-texte"><b>([^<]+)<\/b>/g)].map(m => m[1])
   assert.deepEqual(lignes, [
     // Trois lignes — le savoir, les légendaires et les Divins, les emojis —
@@ -241,7 +241,7 @@ test('le carnet des fêtes : sa ligne avec les trophées, une page par année, c
     { partie: 'trophees', acquis: 7, total: 146 },
     { partie: 'timbres', acquis: 1, total: 10 },
   ])
-  assert.deepEqual(compteDeLaCollection(AVEC_LE_CARNET as any).total, { acquis: 26, total: 399 })
+  assert.deepEqual(compteDeLaCollection(AVEC_LE_CARNET as any).total, { acquis: 26, total: 401 })
 
   lieu.hash = '#collection-timbres'
   const html = await rendu('components/Collection', 'MaCollection', { profil: AVEC_LE_CARNET })
@@ -400,7 +400,7 @@ test('l’album des avatars : six gemmes et leur compte, ce qu’il a en couleur
     'peucommune Peu commune, 1 sur 18',
     'rare Rare, 0 sur 29',
     'epique Épique, 0 sur 17',
-    'legendaire* Légendaire, 1 sur 53',
+    'legendaire* Légendaire, 1 sur 54',
     'divin Divin, 1 sur 6',
   ])
   assert.match(html, /<div class="gemmes gemmes-album" role="tablist" aria-label="Les raretés">/)
@@ -410,7 +410,7 @@ test('l’album des avatars : six gemmes et leur compte, ce qu’il a en couleur
   // Ce que range la page, compté.
   assert.match(
     html,
-    /<p class="gemme-legende"[^>]*><b>Légendaire · 1 sur 53\.<\/b> Les légendaires des hauts faits, la forme ultime de chaque sentier, celle de chaque compagnon et sa métamorphose\.<\/p>/,
+    /<p class="gemme-legende"[^>]*><b>Légendaire · 1 sur 54\.<\/b> Les légendaires des hauts faits, la forme ultime de chaque sentier, celle de chaque compagnon et sa métamorphose\.<\/p>/,
   )
   // Cinquante-trois cases : le Phénix d'abord, porté — sa coche —, puis ce qui reste — les légendaires, les
   // formes ultimes des sentiers et des cinq compagnons, leurs cinq métamorphoses —, chacun dit où il se gagne.
@@ -433,7 +433,8 @@ test('l’album des avatars : six gemmes et leur compte, ce qu’il a en couleur
   ])
     assert.ok(cases.some(c => c.nom === nom), nom)
   // Une pastille sur chaque case qui reste, et leur légende sous la grille — plus d'expédition : la luciole a celle de la boutique.
-  assert.equal(html.match(/class="album-lieu"/g)?.length, cases.length - 1)
+  // Le Djinn n'a que sa voie du Cabinet, que l'album tait ici, rendu Cabinet fermé (`cabinet: false`) : sans pastille.
+  assert.equal(html.match(/class="album-lieu"/g)?.length, cases.length - 2)
   const legende = [...html.slice(html.indexOf('album-legende')).matchAll(/<\/svg>([^<]+)<\/span>/g)].map(m => m[1])
   assert.deepEqual(legende, ['en soirée', 'au quiz du jour', 'à sa saison', 'en campagne', 'sur les sentiers', 'en boutique'])
   // Aucune fiche avant le premier toucher ; rien ne s'y porte.

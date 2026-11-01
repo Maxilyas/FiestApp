@@ -570,8 +570,10 @@ export function MonTitre({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   // Les maîtres d'abord : un sentier gravi jusqu'au bout se dit en premier ;
   // puis les titres datés des champions du mois, du plus récent au plus ancien.
   const dates = profil.titresDates ?? []
-  const gagnes = [...maitresDe(profil.sentiers ?? {}).map(cleDeMaitre), ...dates, ...hautsFaitsGagnes(recompensesDe(profil.hautsFaits))]
-  const aGagner = profil.hautsFaits.length - (gagnes.length - maitresDe(profil.sentiers ?? {}).length - dates.length)
+  // Puis les défis du Cabinet tenus à l'Or, dans l'ordre des cartes : ni trophées ni maîtres, ils ne se comptent pas à gagner.
+  const duCabinet = profil.titresDuCabinet ?? []
+  const gagnes = [...maitresDe(profil.sentiers ?? {}).map(cleDeMaitre), ...dates, ...duCabinet, ...hautsFaitsGagnes(recompensesDe(profil.hautsFaits))]
+  const aGagner = profil.hautsFaits.length - (gagnes.length - maitresDe(profil.sentiers ?? {}).length - dates.length - duCabinet.length)
   const porte = profil.titre ?? null
   const montre = essai.titre !== undefined ? essai.titre : porte
   // Ce que chaque titre dit de lui, à l'oreille comme à l'œil : porté, à l'essai, nouveau.
@@ -589,7 +591,7 @@ export function MonTitre({ profil, essai, essayer, neufs }: PropsDUnePiece) {
         Mes titres {gagnes.length > 0 && <span className="muted small titre-compte">{`${gagnes.length} à toi`}</span>}
       </h3>
       {/* Où il s'écrit, la ligne de la pièce le dit ; ici, d'où viennent les autres. */}
-      <p className="muted small">Chaque trophée gagné ouvre le sien, chaque palier de maître des sentiers aussi.</p>
+      <p className="muted small">Chaque trophée gagné ouvre le sien, chaque palier de maître des sentiers aussi, et chaque défi du Cabinet tenu à l’Or.</p>
       <div className="titres" role="group" aria-label="Mon titre">
         <button type="button" className={'titre-choix' + classesDeLaCase(etat(null))} aria-pressed={montre === null} onClick={() => essayer({ titre: null })}>
           Aucun

@@ -2,7 +2,7 @@
 
 > Un mode pour les profils, qui a remplacé l'Expédition le 31 octobre 2026 : depuis le même soir, **une traversée en trois actes**. On choisit trois cartes parmi dix, on avance sur une carte en 3D d'épreuve en épreuve — dix petits jeux, sur des thèmes différents —, on gagne de l'or, on garde ses cœurs, on bat trois gardiens, et l'un d'eux devient son avatar légendaire. Comment on la joue, ses règles chiffrées, ce que le musée d'avant laisse, ce qui vient ensuite, puis comment c'est construit.
 
-**Dans cette page** : [En bref](#en-bref) · [La traversée](#la-traversée) · [Les dix cartes](#les-dix-cartes) · [Une épreuve](#une-épreuve) · [Les dix jeux](#les-dix-jeux) · [Les gardiens](#les-gardiens) · [Ce qu'on y gagne](#ce-quon-y-gagne) · [Les mots du Cabinet](#les-mots-du-cabinet) · [Ce que le musée laisse](#ce-que-le-musée-laisse) · [Ce que l'Expédition laisse](#ce-que-lexpédition-laisse) · [Ce qui vient ensuite](#ce-qui-vient-ensuite) · [Les règles chiffrées](#les-règles-chiffrées) · [Comment c'est construit](#comment-cest-construit)
+**Dans cette page** : [En bref](#en-bref) · [La traversée](#la-traversée) · [Les dix cartes](#les-dix-cartes) · [Une épreuve](#une-épreuve) · [Les dix jeux](#les-dix-jeux) · [Les gardiens](#les-gardiens) · [Ce qu'on y gagne](#ce-quon-y-gagne) · [Les défis de tes cartes](#les-défis-de-tes-cartes) · [Les mots du Cabinet](#les-mots-du-cabinet) · [Ce que le musée laisse](#ce-que-le-musée-laisse) · [Ce que l'Expédition laisse](#ce-que-lexpédition-laisse) · [Ce qui vient ensuite](#ce-qui-vient-ensuite) · [Les règles chiffrées](#les-règles-chiffrées) · [Comment c'est construit](#comment-cest-construit)
 
 > [!NOTE]
 > **Le Cabinet s'est cherché.** Le 24 octobre 2026, le propriétaire voulait refaire l'Expédition en « pleins de petits modes de jeu qui justement sont rigolos » : le Cabinet est né en musée à remplir — les 84 cartes peintes en œuvres, rangées en neuf salles, des gardiens légendaires à réveiller (`retours/2026-10-24/le-cabinet.md`) —, construit en préproduction du 25 au 30 octobre, joué par deux tablées d'agents (`retours/2026-10-25/synthese.md`, `retours/2026-10-26/synthese.md`), **ouvert en production le 31 octobre 2026** (`CABINET_EN_PRODUCTION`), l'Expédition effacée le même jour (`EXPEDITION_REMPLACEE`). Le même jour encore, une tour pour y entrer, puis une barre de quatre pièces. Et le soir : « ça fait plusieurs semaines que l'on est sur le Cabinet des curiosités / Expédition et que ça ne me convient pas » — « il faut que l'on revienne à quelque chose de très simple ». Un état des lieux, une maquette jouable validée (« Je trouve ça top »), et une seule correction : « il ne faut pas choisir de carte pendant le jeu, uniquement améliorer les cartes que l'on a choisies au début » (`retours/2026-10-31/la-partie.md`). Cette page dit le mode tel qu'il est construit depuis.
@@ -86,6 +86,32 @@ Un gardien qu'on a déjà reste un gardien à battre — la traversée se joue p
 - **Le légendaire**, au bout des trois actes : la seule chose qui sort du Cabinet, comme un gardien réveillé au musée.
 - **Chaque manche réussie est une bonne réponse de la campagne** — deux étoiles au moins, ou la bonne réponse au Pari : un confetti, l'expérience d'une bonne réponse, un pas pour le compagnon, les missions du jour. Comme partout en solo.
 - **L'or ne sert que dans la traversée** : au marchand. Il n'en sort jamais, ne s'achète pas, et une traversée perdue le perd avec elle.
+- **Les défis de tes cartes et les épreuves de maître** ([plus bas](#les-défis-de-tes-cartes)) : des confettis, un dos de carte doré, des titres, une gerbe, et des légendaires — le gardien vaincu en maître, le Djinn aux dix défis tenus à l'Or.
+
+## Les défis de tes cartes
+
+Le 1er novembre 2026 : « comme c'est dur d'équilibrer les cartes, est-ce que l'on pourrait pas avoir des choses à gagner en fonction des cartes que l'on a sur nous ». La proposition validée le même jour (`retours/2026-11-01/defis-des-cartes.md`) : **chaque carte porte un défi au dos, qui ne compte que si elle est dans ta main**. Une carte un peu faible devient intéressante pour ce qu'elle fait gagner, sans qu'on retouche ce qu'elle fait en jeu ; beaucoup demandent de l'avoir et de s'en passer. Rien de neuf dans la traversée — une cinquième notion n'y entre pas : le défi est écrit au dos de la carte, au choix des trois cartes et dans « Tes cartes ».
+
+**Trois rangs, Bronze, Argent, Or**, de plus en plus durs. Un rang tenu est à toi pour toujours, même si la traversée tombe ensuite ; tenir un rang donne ceux d'en dessous. Le bilan de l'épreuve qui le fait tomber le dit, la fin de la traversée aussi.
+
+| Carte | Le défi | Bronze | Argent | Or |
+|---|---|---|---|---|
+| Coup d'œil | **L'Œil nu** | un acte fini sans un Coup d'œil | deux actes | la traversée gagnée sans un Coup d'œil |
+| Échange | **L'Obstiné** | un acte fini sans un Échange | deux actes | la traversée gagnée sans un Échange |
+| Quitte ou double | **Le Flambeur** | cinq mises gagnées dans une traversée | six d'affilée | huit d'affilée |
+| Concentration | **Le Sang-Froid** | un acte fini sans puiser dans le temps en plus | deux actes | la traversée gagnée ainsi |
+| Parade | **Sans filet** | un acte fini sans qu'une Parade serve | deux actes | la traversée gagnée ainsi |
+| Cagnotte | **Le Trésorier** | 150 pièces en poche à la chute d'un gardien | 300 | 500 à la chute du dernier |
+| Panacée | **L'Increvable** | un acte fini sans perdre un cœur | deux actes | la traversée gagnée ainsi |
+| Pourboire | **L'Avare** | un acte fini sans rien acheter | deux actes | la traversée gagnée sans rien acheter |
+| Coup de grâce | **L'Exécuteur** | un gardien abattu dès la deuxième manche de ton premier assaut | un gardien de l'acte II ou III vaincu au premier assaut | celui de l'acte III au premier assaut |
+| Second souffle | **Le Revenant** | ton Second souffle sert, et tu finis l'acte | la traversée gagnée après lui | il sert avant l'acte III, et la traversée est gagnée |
+
+**Ce qu'ils rapportent**, une fois chacun : **25 confettis au Bronze, 75 à l'Argent** — et le dos de la carte doré au choix des cartes —, et à l'**Or, un titre** à porter sur ta carte, le nom du défi (« Le Trésorier »). Cinq défis tenus à l'Argent ouvrent **la gerbe des cartes** (🃏 ♠️ ♥️ ♦️ ♣️) ; les dix tenus à l'Or, **le Djinn**, un légendaire qui ne se gagne que là.
+
+**Les épreuves de maître** : chaque gardien a la sienne, dans l'esprit de sa devise, dite dès l'écran de ses trois gardiens — avant de choisir ses cartes : certaines s'y préparent — et dans son annonce. **Vaincu ainsi, il est à toi aussitôt**, quoi qu'il arrive ensuite, comme le légendaire choisi au bout : le Renard et la Chouette sans perdre une étoile contre eux, le Coq et le Tigre dès la deuxième manche de ton premier assaut, le Scarabée avec 120 pièces en poche, la Salamandre avec 250, le Dragon avec 350, la Citrouille et Janus d'un coup porté sur une mise, le Sphinx, l'Oracle et la Chimère sans rater une manche contre eux, la Chauve-souris, le Phénix et l'Ouroboros dans l'assaut même où tu perds un cœur, le Fantôme, le Serpent et le Trou noir sans perdre un cœur contre eux, le Kraken après que ton Second souffle t'a relevé contre lui, le Lion et la Comète au premier assaut.
+
+Tout se lit du journal de la traversée, rien ne s'écrit à côté : une épreuve conclue porte maintenant ce qui y a servi (un Coup d'œil, un Échange, le temps en plus), et ce qu'une traversée atteint se range sur ton profil, une fois pour toutes (l'invariant 22). **Les traversées jouées avant les défis se sont relues une fois**, au démarrage qui les a apportés : ce qu'elles avaient déjà tenu t'a été offert d'emblée — ce qui avait servi dans leurs épreuves repris de leurs parties. Les chiffres, et ce que le calibrage en dit : [les barèmes](../reference/baremes.md#les-défis-de-tes-cartes-et-les-épreuves-de-maître).
 
 ## Les mots du Cabinet
 

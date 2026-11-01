@@ -68,6 +68,7 @@ const ICONE_DU_LIEU: Record<LieuDuStyle, IconName> = {
   coffre: 'coffre',
   boutique: 'bag',
   fete: 'calendar',
+  cabinet: 'landmark',
 }
 
 /**
@@ -84,6 +85,8 @@ const OU_ALLER: Partial<Record<LieuDuStyle, { nom: string; href: string }>> = {
   // Une fête se gagne au quiz du jour — ou en soirée, qu'on rejoint par son code.
   fete: OU_JOUER.jour,
   boutique: { nom: 'La boutique', href: '/boutique#fonds' },
+  // Les défis de tes cartes se lisent au choix de tes trois cartes, au départ d'une traversée.
+  cabinet: { nom: 'Le Cabinet de curiosités', href: '/cabinet' },
 }
 
 /** Où aller pour l'avoir : un fond de la boutique ouvre sa propre fiche dans le rayon (`/boutique#fond-jazz`). */

@@ -861,6 +861,18 @@ export function etoilesDesManches(d: DepartDUnePartie, e: EtatDeLaPartie): Etoil
  */
 export const cadreDore = (naturel: readonly number[], aidee: boolean): boolean => naturel.length === MANCHES_PAR_PARTIE && naturel.every(n => n === 3) && !aidee
 
+/**
+ * Ce qui a servi dans une partie, compté : Éclairer, Changer, et les manches où un geste est arrivé dans le temps
+ * en plus. Une épreuve de traversée l'écrit au geste qui la conclut (`AidesDUneEpreuve`, `traversee.ts`) : les
+ * défis de tes cartes le lisent — « un acte sans un Coup d'œil » — sans rejouer la partie. Les mêmes faits que
+ * `aidee`, plus bas, qui n'en garde que l'existence.
+ */
+export const aidesDeLaPartie = (e: Pick<EtatDeLaPartie, 'servis' | 'manches'>): { eclairer: number; changer: number; temps: number } => ({
+  eclairer: e.servis.eclairer,
+  changer: e.servis.changer,
+  temps: e.manches.filter(m => m.etapes.some(x => x.tempsEnPlus)).length,
+})
+
 /** Ce que le pli sait d'une partie finie, avant le musée : l'issue et la poussière en dépendent (`bilanDe`). */
 export interface ResultatDUnePartie {
   etoiles: [number, number, number]

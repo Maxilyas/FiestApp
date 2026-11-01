@@ -491,6 +491,52 @@ export function laTraverseeLue(lus: readonly ResultSet[]): TraverseeLueEnBase | 
   return depart ? { id: ligne.id, depart, gestes, commenceeLe: nombre(ligne.commencee_le) } : 'illisible'
 }
 
+/**
+ * Toutes les traversées et leurs gestes, d'un lot : la relecture des défis de tes cartes, une fois par version
+ * (`CabinetStore.relireLesDefis`) — jamais une page. Une traversée que ce code ne relit pas se tait.
+ */
+export const LECTURES_DE_TOUTES_LES_TRAVERSEES: InStatement[] = [
+  'SELECT id, profile_id, depart, commencee_le FROM cabinet_traversees ORDER BY commencee_le',
+  'SELECT traversee_id, rang, geste, fait_le FROM cabinet_traversee_gestes ORDER BY traversee_id, rang',
+]
+
+/** Les traversées relues de ce lot, chacune avec son profil ; les illisibles écartées. */
+export function lesTraverseesLues(lus: readonly ResultSet[]): (TraverseeLueEnBase & { profileId: string })[] {
+  const gestes = new Map<string, Record<string, unknown>[]>()
+  for (const r of (lus[1]?.rows ?? []) as Record<string, unknown>[]) {
+    const id = String(r.traversee_id)
+    gestes.set(id, [...(gestes.get(id) ?? []), r])
+  }
+  return ((lus[0]?.rows ?? []) as Record<string, unknown>[]).flatMap(ligne => {
+    const lue = laTraverseeLue([{ rows: [ligne] } as unknown as ResultSet, { rows: gestes.get(String(ligne.id)) ?? [] } as unknown as ResultSet])
+    return lue && lue !== 'illisible' ? [{ ...lue, profileId: String(ligne.profile_id) }] : []
+  })
+}
+
+/** Des parties du Cabinet, de leurs clés : leur départ figé et leurs gestes, pour relire ce qui y a servi. */
+export function lecturesDesParties(series: readonly string[]): InStatement[] {
+  const places = series.map(() => '?').join(', ')
+  return [
+    { sql: `SELECT id, cabinet FROM campagne_series WHERE id IN (${places}) AND mode = 'cabinet'`, args: [...series] },
+    { sql: `SELECT serie_id, rang, geste, fait_le FROM cabinet_gestes WHERE serie_id IN (${places}) ORDER BY serie_id, rang`, args: [...series] },
+  ]
+}
+
+/** Les parties relues de ce lot : leur départ et leurs gestes, dans l'ordre ; une partie illisible se tait. */
+export function lesPartiesLues(lus: readonly ResultSet[]): Map<string, { depart: DepartDUnePartie; gestes: GesteEcrit[] }> {
+  const parties = new Map<string, { depart: DepartDUnePartie; gestes: GesteEcrit[] }>()
+  for (const r of (lus[0]?.rows ?? []) as Record<string, unknown>[]) {
+    const depart = lireLeDepart(r.cabinet)
+    if (depart) parties.set(String(r.id), { depart, gestes: [] })
+  }
+  for (const r of (lus[1]?.rows ?? []) as Record<string, unknown>[]) {
+    const p = parties.get(String(r.serie_id))
+    const geste = lireUnGeste(r.geste)
+    if (p && geste) p.gestes.push({ geste, faitLe: nombre(r.fait_le) })
+  }
+  return parties
+}
+
 /** La garde de chaque instruction d'un lot de la traversée après la première : son geste est en base, à son rang, avec l'`uid` de ce lot. */
 export function gesteDeTraverseeEcrit(id: string, rang: number, uid: string): { sql: string; args: [string, number, string] } {
   return { sql: 'EXISTS (SELECT 1 FROM cabinet_traversee_gestes WHERE traversee_id = ? AND rang = ? AND uid = ?)', args: [id, rang, uid] }

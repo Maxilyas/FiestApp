@@ -286,7 +286,7 @@ test('chaque pièce de la loge finit par le même lien : « N à gagner : où ? 
   assert.match(fond, /<a class="link-inline lien-boutique" href="\/boutique#fonds"><svg[^>]*>.*?<\/svg>12 autres à la boutique<\/a>/)
   const gerbe = await rendu('components/Apparence', 'MaGerbe', { profil: MAYA, ...loge })
   // Et les huit des fêtes, du 1er novembre 2026.
-  assert.match(gerbe, /<a class="loge-a-gagner" href="#collection-gerbes">22 gerbes à gagner\s:\soù\s\?<svg/)
+  assert.match(gerbe, /<a class="loge-a-gagner" href="#collection-gerbes">23 gerbes à gagner\s:\soù\s\?<svg/)
   const titre = await rendu('components/Apparence', 'MonTitre', { profil: MAYA, ...loge })
   // Un seul de ses quatre trophées lui reste : au singulier.
   assert.match(titre, /<a class="loge-a-gagner" href="#collection-trophees">1 titre à gagner\s:\soù\s\?<svg/)

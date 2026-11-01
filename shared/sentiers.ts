@@ -20,6 +20,7 @@
 // règlent aussi au QG, palier par palier (`MelangesRegles`), sur les vraies
 // épreuves — le seuil, jamais.
 
+import { nomDuTitreDuDefi } from './cabinet/sceaux'
 import { BRANCHES, branche, deLaBranche, type Branche, type CleDeBranche, type Paliers } from './branches'
 import { hautFait } from './hautsfaits'
 import { titreDuChampion } from './jour'
@@ -409,6 +410,9 @@ export function nomDuTitre(cle: string | null | undefined): string | null {
   if (h) return h.title
   const champion = titreDuChampion(cle)
   if (champion) return champion
+  // Un défi du Cabinet tenu à l'Or (`cabinet:defi:cagnotte:3`) : le nom du défi, « Le Trésorier ».
+  const defi = nomDuTitreDuDefi(cle)
+  if (defi) return defi
   const b = brancheDuMaitre(cle)
   return b ? titreDeMaitre(b) : null
 }

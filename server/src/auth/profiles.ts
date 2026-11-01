@@ -77,8 +77,11 @@ import {
 } from '../../../shared/themes'
 import { cleDeSaison, saison, type Saison } from '../../../shared/saisons'
 import { etiquetteDuTimbre, timbreDe, timbresDe } from '../../../shared/timbres'
+import { NOMS_DES_DEFIS, PREFIXE_DES_DEFIS, RANGS_DITS, confettisDesDefis, defisTenus, gardienDeLaMaitrise, nomDuTitreDuDefi, rangDeLaCle, titresDesDefis } from '../../../shared/cabinet/sceaux'
 import {
+  LEGENDAIRE_DES_DEFIS,
   cibleEclat,
+  cleDuCabinet,
   conditionTenue,
   estEnReserve,
   estUneVoieRangee,
@@ -716,6 +719,12 @@ export { RANGEMENT_DU_CABINET } from '../../../shared/cabinet/salles'
 /** Le rangement des récompenses d'un défi de la semaine, sous son lundi : la clôture y range son vainqueur. */
 export const cleDuDefi = (semaine: string) => `#defi:${semaine}`
 
+/**
+ * La plage des clés des défis du Cabinet dans l'index des récompenses (`cabinet:defi:` jusqu'au caractère qui suit
+ * le deux-points) : le QG les lit par elle, sans parcourir l'étagère de tout le serveur.
+ */
+const PLAGE_DES_DEFIS = [PREFIXE_DES_DEFIS, `${PREFIXE_DES_DEFIS.slice(0, -1)};`] as const
+
 /** L'étiquette d'une saison gagnée, d'où qu'elle vienne : son emoji, que rien n'affiche, et son nom. */
 const etiquetteDeSaison = (s: Saison) => ({ emoji: s.emoji, title: `Saison : ${s.nom}` })
 
@@ -739,6 +748,13 @@ function etiquetteDe(cle: string): { emoji: string; title: string } {
   if (l) return { emoji: '🧭', title: `L’Expédition : ${l.nom}` }
   const g = legendaireDuCabinet(cle)
   if (g) return { emoji: '🏛️', title: `Le Cabinet : ${g.nom}` }
+  // Un rang d'un défi de tes cartes, un gardien vaincu en maître, le légendaire des dix Or (`shared/cabinet/sceaux.ts`) :
+  // rangés sous le Cabinet, hors de l'étagère comme ses gardiens — leur ligne garde quand même un nom qui se lit.
+  const rang = rangDeLaCle(cle)
+  if (rang) return { emoji: '🃏', title: `Le Cabinet : ${NOMS_DES_DEFIS[rang.carte]} · ${RANGS_DITS[rang.rang]}` }
+  const maitre = gardienDeLaMaitrise(cle)
+  if (maitre) return { emoji: '👑', title: `Le Cabinet : ${legendaire(maitre)?.nom ?? maitre} vaincu en maître` }
+  if (cle === cleDuCabinet(LEGENDAIRE_DES_DEFIS)) return { emoji: '🏛️', title: `Le Cabinet : ${legendaire(LEGENDAIRE_DES_DEFIS)?.nom ?? 'les dix défis à l’Or'}` }
   // Une saison rangée hors du quiz du jour — le Cabinet, sa fête : la même étiquette qu'`accorderSaison` lui donne.
   const s = cle.startsWith('saison:') ? saison(cle) : undefined
   if (s) return etiquetteDeSaison(s)
@@ -1843,8 +1859,15 @@ export class ProfileStore {
       this.compagnonsDe(p, historique),
     ])
     const offerts = achats.dons.reduce((n, d) => n + d.confettis, 0)
+    // Les défis du Cabinet se lisent de l'étagère en mémoire (`confettisDesDefis`) : pas un aller-retour de plus.
     const gagnes =
-      lues.reduce((n, s) => n + confettisDeSoiree(s.gain, s.releve), 0) + duJour + deCampagne.confettis + offerts + achats.missions + achats.coffres
+      lues.reduce((n, s) => n + confettisDeSoiree(s.gain, s.releve), 0) +
+      duJour +
+      deCampagne.confettis +
+      offerts +
+      achats.missions +
+      achats.coffres +
+      confettisDesDefis(this.recompensesOf(p.id))
     const somme = (prix: Map<string, number>) => [...prix.values()].reduce((n, x) => n + x, 0)
     const depenses = somme(achats.themes) + achats.vies + achats.sabliers + achats.eclats + achats.compagnons + somme(achats.fonds)
     const fondsAchetes = FONDS_EN_BOUTIQUE.filter(f => achats.fonds.has(f.key)).map(f => f.key)
@@ -2866,13 +2889,14 @@ export class ProfileStore {
    */
   async economieDepuis(depuis: number): Promise<{
     soirees: Mouvement[]
+    defis: Mouvement[]
     dons: Mouvement[]
     missions: Mouvement[]
     coffres: Mouvement[]
     achats: Achat[]
     eclats: { quand: number; soiree: string }[]
   }> {
-    const [soirees, dons, themes, compagnons, fonds, vies, sabliers, eclats, missions, coffres, eclatsAchetes] = await this.client.batch(
+    const [soirees, dons, themes, compagnons, fonds, vies, sabliers, eclats, missions, coffres, eclatsAchetes, defis] = await this.client.batch(
       [
         // Une soirée se nomme d'abord par son jour (`archiveIdOf`) : lue par son nom, les lignes à part
         // (`#jour`…) n'en sont pas. La veille comprise : un premier quiz fini après minuit crédite le lendemain.
@@ -2892,6 +2916,8 @@ export class ProfileStore {
         { sql: 'SELECT rang, faite_le FROM profile_missions WHERE faite_le >= ?', args: [depuis] },
         { sql: 'SELECT confettis, ouvert_le FROM profile_coffres WHERE ouvert_le >= ? AND confettis > 0', args: [depuis] },
         { sql: 'SELECT prix, created_at FROM profile_eclats_achetes WHERE created_at >= ?', args: [depuis] },
+        // Les rangs des défis du Cabinet, par l'index des clés rangées : leur plage seule, jamais toute l'étagère.
+        { sql: 'SELECT badge, created_at FROM profile_badges WHERE badge >= ? AND badge < ? AND created_at >= ?', args: [...PLAGE_DES_DEFIS, depuis] },
       ],
       'read',
     )
@@ -2910,6 +2936,8 @@ export class ProfileStore {
         })
         .filter(m => m.confettis > 0),
       dons: dons.rows.map(r => ({ quand: Number(r.created_at), confettis: Number(r.confettis) })),
+      // Chaque rang paie le sien, à la ligne qui le range — aux règles du solde (`confettisDesDefis`).
+      defis: defis.rows.map(r => ({ quand: Number(r.created_at), confettis: confettisDesDefis(new Map([[String(r.badge), 1]])) })).filter(m => m.confettis > 0),
       // Chaque mission faite paie la sienne, la ligne des trois son bonus — aux règles du solde (`gainsDesMissions`).
       missions: missions.rows.map(r => ({
         quand: Number(r.faite_le),
@@ -2937,9 +2965,9 @@ export class ProfileStore {
    * jour (`/admin#economie`).
    */
   async partsDesSoldes(): Promise<
-    Map<string, { soirees: number; dons: number; missions: number; coffres: number; depenses: number; vuLe: number | null; suspendu: boolean }>
+    Map<string, { soirees: number; dons: number; missions: number; coffres: number; defis: number; depenses: number; vuLe: number | null; suspendu: boolean }>
   > {
-    const [profils, soirees, dons, missions, coffres, ...depenses] = await this.client.batch(
+    const [profils, soirees, dons, missions, coffres, defis, ...depenses] = await this.client.batch(
       [
         'SELECT id, last_seen_at, disabled_at FROM profiles',
         `SELECT profile_id, detail FROM profile_xp WHERE ${HORS_LIGNES_A_PART}`,
@@ -2949,6 +2977,7 @@ export class ProfileStore {
           args: [RANG_DES_TROIS, RANG_DES_TROIS],
         },
         'SELECT profile_id, SUM(confettis) AS n FROM profile_coffres GROUP BY profile_id',
+        { sql: 'SELECT DISTINCT profile_id, badge FROM profile_badges WHERE badge >= ? AND badge < ?', args: [...PLAGE_DES_DEFIS] },
         'SELECT profile_id, SUM(prix) AS n FROM profile_achats GROUP BY profile_id',
         'SELECT profile_id, SUM(prix) AS n FROM profile_vies GROUP BY profile_id',
         'SELECT profile_id, SUM(prix) AS n FROM profile_sabliers GROUP BY profile_id',
@@ -2961,7 +2990,7 @@ export class ProfileStore {
     const parts = new Map(
       profils.rows.map(r => [
         String(r.id),
-        { soirees: 0, dons: 0, missions: 0, coffres: 0, depenses: 0, vuLe: r.last_seen_at == null ? null : Number(r.last_seen_at), suspendu: r.disabled_at != null },
+        { soirees: 0, dons: 0, missions: 0, coffres: 0, defis: 0, depenses: 0, vuLe: r.last_seen_at == null ? null : Number(r.last_seen_at), suspendu: r.disabled_at != null },
       ]),
     )
     for (const r of missions.rows) {
@@ -2971,6 +3000,10 @@ export class ProfileStore {
     for (const r of coffres.rows) {
       const part = parts.get(String(r.profile_id))
       if (part) part.coffres += Number(r.n ?? 0)
+    }
+    for (const r of defis.rows) {
+      const part = parts.get(String(r.profile_id))
+      if (part) part.defis += confettisDesDefis(new Map([[String(r.badge), 1]]))
     }
     for (const r of soirees.rows) {
       const part = parts.get(String(r.profile_id))
@@ -3387,6 +3420,8 @@ export class ProfileStore {
     if (brancheDuMaitre(p.titre)) return p.titre
     const recompenses = this.recompensesOf(p.id)
     if (moisDuChampion(p.titre)) return (recompenses.get(p.titre) ?? 0) > 0 ? p.titre : null
+    // Un défi du Cabinet tenu à l'Or : rangé une fois pour toutes, il ne se reprend jamais.
+    if (nomDuTitreDuDefi(p.titre)) return (recompenses.get(p.titre) ?? 0) > 0 ? p.titre : null
     return hautsFaitsGagnes(recompenses).includes(p.titre) ? p.titre : null
   }
 
@@ -3560,6 +3595,7 @@ export class ProfileStore {
       fonds: this.fondsOuvertsDe(p, jour, maitres),
       gerbes: gerbesOuvertes(this.recompensesOf(p.id), this.tresorsOf(p.id)),
       titresDates: titresDeChampion(this.recompensesOf(p.id)),
+      titresDuCabinet: titresDesDefis(defisTenus(this.recompensesOf(p.id).keys())),
     }
   }
 
@@ -3947,6 +3983,7 @@ export class ProfileStore {
         champs.titre = String(patch.titre)
       } else if (hautsFaitsGagnes(this.recompensesOf(id)).includes(String(patch.titre))) champs.titre = String(patch.titre)
       else if (moisDuChampion(String(patch.titre)) && (this.recompensesOf(id).get(String(patch.titre)) ?? 0) > 0) champs.titre = String(patch.titre)
+      else if (nomDuTitreDuDefi(String(patch.titre)) && (this.recompensesOf(id).get(String(patch.titre)) ?? 0) > 0) champs.titre = String(patch.titre)
       else throw new Error('Ce titre se gagne d’abord : c’est le nom d’un de tes hauts faits')
     }
     if (patch.vitrine !== undefined) {

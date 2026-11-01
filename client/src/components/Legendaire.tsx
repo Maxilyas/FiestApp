@@ -6,13 +6,13 @@ import { Cercle, OR } from './Cercle'
 import { IMAGES } from './legendaires-peints'
 
 /**
- * Les avatars légendaires : trente et une cartes peintes, qui ne se gagnent que
+ * Les avatars légendaires : trente-deux cartes peintes, qui ne se gagnent que
  * par un haut fait (`shared/legendaires.ts`).
  *
  * Un emoji est à tout le monde ; un légendaire, non — et il doit se voir de
  * loin, au-dessus même de la forme ultime d'une branche. Chacun est une
  * illustration de carte légendaire, pleine page, peinte à la feuille d'or,
- * dans un seul style pour les trente et un — une collection —, sous une
+ * dans un seul style pour les trente-deux — une collection —, sous une
  * pellicule holographique : un arc-en-ciel qui glisse et un reflet qui passe,
  * et qui n'allument que ce qui est déjà clair, comme une vraie carte. En
  * grand, le reflet suit le doigt et la carte penche un peu ; ailleurs, la
@@ -79,6 +79,7 @@ const FONDS: Record<string, [string, string, string]> = {
   'lg:serpent': ['#f2dc8a', '#3f9a5c', '#0a2a1a'],
   'lg:chimere': ['#ffa64d', '#a82a18', '#2a0505'],
   'lg:janus': ['#f4dfa6', '#6a5fa8', '#121032'],
+  'lg:djinn': ['#58d0d8', '#1a4f9c', '#061030'],
 }
 
 /**
@@ -118,6 +119,7 @@ const FONDS_ECLAT: Record<string, [string, string, string]> = {
   'lg:serpent': ['#ffa36b', '#a3305f', '#2c0a24'],
   'lg:chimere': ['#9ccfff', '#2a56b0', '#071533'],
   'lg:janus': ['#dde8f8', '#6f86b0', '#18213a'],
+  'lg:djinn': ['#f0e6c6', '#7a8aa8', '#141b30'],
 }
 
 const OMBRE: [string, string, string] = ['#d9c9ff', '#6d4fb3', '#1d1233']

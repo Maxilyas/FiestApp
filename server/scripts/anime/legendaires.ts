@@ -66,7 +66,7 @@ function mettreDeCote(nom: string) {
 const liste = (nom: string) => (args.find(a => a.startsWith(`--${nom}=`))?.slice(nom.length + 3) ?? '').split(',').filter(Boolean)
 
 // ── Les consignes ─────────────────────────────────────────────────────────
-// En anglais, comme celles des portraits. Un seul style pour les trente et un :
+// En anglais, comme celles des portraits. Un seul style pour les trente-deux :
 // une collection, comme un set de cartes — et aucun des douze styles des
 // branches.
 
@@ -129,7 +129,7 @@ interface Travail {
 }
 
 /**
- * Les trente et un légendaires : chacun sa scène, qui raconte l'exploit qui le
+ * Les trente-deux légendaires : chacun sa scène, qui raconte l'exploit qui le
  * fait tomber (`shared/legendaires.ts`) ; sa version rare, dans les couleurs
  * de son Éclat (`FONDS_ECLAT`, `Legendaire.tsx`) ; ce que sa découpe garde et
  * retire.
@@ -524,6 +524,25 @@ export const LEGENDAIRES_PEINTS: LegendairePeint[] = [
     garde: 'the two-faced bust and its crown',
     retirer: 'the archway, the sky, the party lights, the fireworks, the sun and the background',
   },
+  {
+    // Le légendaire des défis de tes cartes, au Cabinet de curiosités (le 1er novembre 2026) : les dix tenus à l'Or.
+    // Un griffon d'abord, peint puis écarté le même jour : « Le griffon » est la forme ultime du sentier des contes
+    // (`br:griffon`), et les deux se seraient suivis sur la page légendaire de l'album. Le djinn, lui, tient à un
+    // sceau. Sa fumée est turquoise : sa découpe se fait sur le magenta, que la version rare, nacrée, n'emploie pas.
+    id: 'djinn',
+    sujet:
+      'the Djinn, bound under ten golden seals in the Cabinet of Curiosities — a colossal djinn, an original fantasy spirit, not a cartoon ' +
+      'genie, rising out of the spout of an ornate golden oil lamp that rests on a carved cabinet of curiosities: a powerful torso of glowing ' +
+      'sapphire-blue skin with golden armbands, a jeweled golden circlet on his brow and long hair of rippling blue flame, a noble ageless ' +
+      'face, well lit, with bright golden eyes; below the waist his body flows into a thick, dense swirl of luminous turquoise smoke that ' +
+      'pours from the lamp; between his raised hands floats a ring of ten glowing round golden wax seals, each stamped with a small ' +
+      'sunburst; the half-open drawers below spill curiosities — crystals, shells, a brass astrolabe — and gold-leaf sparks swirl in the ' +
+      'night of a grand museum hall. Palette: sapphire, turquoise and gold against deep midnight blue.',
+    rare: 'the Djinn becomes a djinn of white gold and pearl — skin of pearly white, hair and smoke of pale gold and ivory, the lamp of polished silver, the ten seals turned to glowing moonstones, the hall bathed in a silver-blue twilight.',
+    garde: 'the djinn — his head, his flaming hair, his arms, his torso and his whole smoky tail —, the golden lamp he rises from and the ring of seals between his hands',
+    retirer: 'the cabinet, the drawers, the curiosities, the sparks far from him, the hall and the background',
+    fond: 'magenta',
+  },
 ]
 
 /** Les six Divins : chacun sa silhouette de bijou. Rien de leurs règles, qui ne quittent jamais le serveur. */
@@ -905,7 +924,7 @@ function livrer(app: string) {
     `// garde l'ancien. Deux tailles, \`[grande, petite]\` : ${tailles}\n`
   writeFileSync(
     TABLES.legendaires,
-    entete('Les trente et un légendaires', '512 et 256 pixels pour\n// le disque (le médaillon en fait 90 % du côté).') +
+    entete('Les trente-deux légendaires', '512 et 256 pixels pour\n// le disque (le médaillon en fait 90 % du côté).') +
       `\nexport interface ImagesDeLegendaire {\n` +
       `  /** L'illustration, sur le carré du disque. */\n  art: [string, string]\n` +
       `  /** Sa version rare, éclatée : la même pose, ses couleurs rares. */\n  rare: [string, string]\n` +

@@ -9,8 +9,8 @@
 //
 // La rareté dit ce qu'il demande. Le visage d'un sentier et les emojis des
 // premiers niveaux sont communs ; plus haut sur le sentier, plus rare ; sa
-// forme ultime, au douzième palier, est légendaire — l'égale des trente et un
-// légendaires des hauts faits et des fêtes. Les compagnons de la boutique de même, forme
+// forme ultime, au douzième palier, est légendaire — l'égale des trente-deux
+// légendaires des hauts faits, des fêtes et du Cabinet. Les compagnons de la boutique de même, forme
 // par forme : celle qu'on achète est commune, la forme ultime légendaire — et
 // la métamorphose que l'Éclat lui ouvre, une forme de plus, aussi. La
 // luciole aussi, qui se gagnait en expédition (le 20 octobre 2026) : elle
@@ -37,6 +37,8 @@ import { COLLECTION, COLLECTION_HAUTE } from './avatars'
 import { DIVINS } from './divins'
 import {
   LEGENDAIRES,
+  LEGENDAIRE_DES_DEFIS,
+  cleDuCabinet,
   estUneVoieDExpedition,
   legendaire,
   legendaireDeLExpedition,
@@ -114,6 +116,8 @@ function lieuDuHautFait(cle: string): LieuDAvatar {
   if (saison(cle)) return 'saison'
   if (legendaireDeLExpedition(cle)) return 'expedition'
   if (legendaireDuCabinet(cle)) return 'cabinet'
+  // Le Djinn, que les dix défis tenus à l'Or font ranger au Cabinet : pas un gardien, mais sa voie est là.
+  if (cle === cleDuCabinet(LEGENDAIRE_DES_DEFIS)) return 'cabinet'
   const h = hautFait(cle)
   return (h && origineDe(h)) ?? 'soiree'
 }
@@ -413,7 +417,11 @@ function etapeDuHautFait(c: SimpleCondition, recompenses: ReadonlyMap<string, nu
     }
   }
   if (lieu === 'cabinet') {
-    // Pas de jauge non plus : l'album ne reçoit pas le musée — la page du Cabinet dit où en est chaque salle.
+    // Pas de jauge non plus : l'album ne reçoit pas le musée — la page du Cabinet dit où en est chaque salle. Le Djinn
+    // n'a pas de salle : ses dix défis, que la page de la traversée dit, carte par carte.
+    if (c.hautFait === cleDuCabinet(LEGENDAIRE_DES_DEFIS)) {
+      return { lieu, titre: `${OU.cabinet} : tenir les dix défis de tes cartes à l’Or`, regle: 'Le défi au dos de chacune des dix cartes, à son plus haut rang', tenue: tenu, progres: null }
+    }
     const demande = ceQueDemandeLeCabinet(legendaireDuCabinet(c.hautFait)!.key)
     return { lieu, titre: `${OU.cabinet} : ${demande?.quoi ?? 'le réveiller'}`, regle: demande?.regle ?? '', tenue: tenu, progres: null }
   }

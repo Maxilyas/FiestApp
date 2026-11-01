@@ -652,6 +652,19 @@ export interface MancheConclue {
 }
 
 /**
+ * Ce qui a servi dans une épreuve finie, tel que sa partie le sait (`EtatDeLaPartie.servis`, et ses étapes jouées
+ * dans le temps en plus) : les Coups d'œil, les Échanges, les manches où la Concentration a servi. La traversée
+ * n'en fait rien — l'or et les cœurs ne lisent que les étoiles —, les défis de tes cartes si
+ * (`shared/cabinet/defis.ts`). Écrit au geste `conclure` depuis le 1er novembre 2026 : une épreuve conclue avant
+ * n'en dit rien.
+ */
+export interface AidesDUneEpreuve {
+  eclairer: number
+  changer: number
+  temps: number
+}
+
+/**
  * Ce que la page envoie — `aller`, `ameliorer`, `acheter`, `legendaire`,
  * `abandonner` —, et les deux gestes que le serveur écrit seul : `epreuve`
  * (aller vers une épreuve ou un gardien commence sa partie) et `conclure` (la
@@ -664,7 +677,8 @@ export type GesteDeLaTraversee =
   | { quoi: 'aller'; etape: string; theme?: number }
   /** … que le serveur écrit avec la partie qu'il commence : la traversée relit le thème qui s'est joué. */
   | { quoi: 'epreuve'; etape: string; partie: string; theme?: number }
-  | { quoi: 'conclure'; partie: string; manches: readonly MancheConclue[] }
+  /** `aides` : ce qui a servi dans la partie, que les défis lisent — absent d'une épreuve conclue avant qu'on l'écrive. */
+  | { quoi: 'conclure'; partie: string; manches: readonly MancheConclue[]; aides?: AidesDUneEpreuve }
   | { quoi: 'ameliorer'; carte: CleDeCarte }
   | { quoi: 'acheter'; article: 'coeur' }
   | { quoi: 'acheter'; article: 'amelioration'; carte: CleDeCarte }
@@ -1331,6 +1345,10 @@ const lesManches = (x: unknown): MancheConclue[] | null => {
   return manches.every(m => m !== null) ? (manches as MancheConclue[]) : null
 }
 
+/** Ce qui a servi dans une épreuve, relu : trois entiers — une partie ne joue pas mille pouvoirs. Null : illisible. */
+const lesAides = (x: unknown): AidesDUneEpreuve | null =>
+  objet(x) && entier(x.eclairer, 0, 99) && entier(x.changer, 0, 99) && entier(x.temps, 0, MANCHES_PAR_PARTIE) ? { eclairer: x.eclairer, changer: x.changer, temps: x.temps } : null
+
 /**
  * Un geste relu : venu de la page (`duServeur` faux) — seulement ce qu'elle a
  * le droit d'envoyer —, ou écrit en base, ceux du serveur compris. Null :
@@ -1368,7 +1386,9 @@ export function lireUnGesteDeLaTraversee(brut: unknown, duServeur = false): Gest
     }
     case 'conclure': {
       const manches = duServeur && unId(g.partie) ? lesManches(g.manches) : null
-      return manches ? { quoi: 'conclure', partie: g.partie as string, manches } : null
+      // Ce qui a servi : absent d'un geste d'avant, il se tait ; présent mais abîmé, tout le geste se refuse, comme ailleurs.
+      const aides = g.aides === undefined ? undefined : lesAides(g.aides)
+      return manches && aides !== null ? { quoi: 'conclure', partie: g.partie as string, manches, ...(aides && { aides }) } : null
     }
   }
   return null
