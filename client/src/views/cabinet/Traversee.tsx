@@ -37,7 +37,7 @@ import {
   type ThemeAuChoix,
 } from '../../../../shared/cabinet/traversee'
 import type { PageDeLaTraversee, VueDeLaTraversee } from '../../../../shared/cabinet/vues'
-import { defiDeLaCarte, maitriseDite } from '../../../../shared/cabinet/defis'
+import { defiDeLaCarte, maitriseCourte, maitriseDite } from '../../../../shared/cabinet/defis'
 import { NOMS_DES_DEFIS, RANGS, RANGS_DITS, defisTenus, gardienDeLaMaitrise, rangDeLaCle, type DefisTenus, type RangDUnDefi } from '../../../../shared/cabinet/sceaux'
 import { Bourse, Coeurs, Piece, PointsDeVie } from './Monnaies'
 import type { EtapeDessinee, SceneDeLaTraversee } from './TraverseeEn3D'
@@ -158,6 +158,106 @@ function DosDeLaCarte({ cle, rang }: { cle: CleDeCarte; rang: 0 | RangDUnDefi })
       </span>
       <span className="cab-tv-defi-rang">{suivant ? espacesFines(`${RANGS_DITS[suivant]} : ${enMinuscule(x.rangs[suivant - 1])}`) : 'Les trois rangs sont à toi'}</span>
     </span>
+  )
+}
+
+/** Les trois sceaux d'un défi, tenus en couleur — Bronze, Argent, Or. */
+function Sceaux({ rang, className }: { rang: 0 | RangDUnDefi; className?: string }) {
+  return (
+    <span className={'cab-tv-sceaux' + (className ? ` ${className}` : '')} aria-hidden="true">
+      {RANGS.map(k => (
+        <span key={k} className={`cab-tv-sceau cab-tv-sceau-${k}${k <= rang ? ' cab-tv-sceau-tenu' : ''}`} />
+      ))}
+    </span>
+  )
+}
+
+/**
+ * Une carte au choix du départ, en tuile : sa peinture, son nom, les sceaux de son défi, et rien d'autre — chaque carte
+ * y disait sa règle et son défi en entier, dix murs de texte (« trop de texte, pas assez visuel et sobre », le
+ * propriétaire, le 1er novembre 2026). La toucher ouvre sa fiche, où elle se prend.
+ */
+function TuileDeCarte({ cle, prise, terne, rang, onOuvrir }: { cle: CleDeCarte; prise: boolean; terne: boolean; rang: 0 | RangDUnDefi; onOuvrir: () => void }) {
+  const c = carteDeLaTraversee(cle)
+  if (!c) return null
+  const x = defiDeLaCarte(cle)
+  const dit = [c.nom, prise ? 'prise' : null, x ? `défi ${x.nom}${rang ? ` tenu au ${RANGS_DITS[rang]}` : ''}` : null].filter(Boolean).join(', ')
+  const classe = 'cab-tv-carte cab-tv-tuile' + (prise ? ' cab-tv-prise' : '') + (terne ? ' cab-tv-terne' : '') + (rang >= 2 ? ' cab-tv-doree' : '')
+  return (
+    <button type="button" className={classe} aria-haspopup="dialog" aria-label={dit} {...toucher(onOuvrir)}>
+      <span className="cab-tv-peinture">
+        <img src={CARTES_PEINTES[cle]?.[1]} alt="" loading="lazy" />
+        {prise && (
+          <span className="cab-tv-coche" aria-hidden="true">
+            ✓
+          </span>
+        )}
+        {x && <Sceaux rang={rang} className="cab-tv-sceaux-tuile" />}
+      </span>
+      <span className="cab-tv-nom">{c.nom}</span>
+    </button>
+  )
+}
+
+/** Le défi d'une carte en entier, dans sa fiche : ses trois rangs, chacun ce qu'il demande, tenus en couleur. */
+function DefiEnEntier({ cle, rang }: { cle: CleDeCarte; rang: 0 | RangDUnDefi }) {
+  const x = defiDeLaCarte(cle)
+  if (!x) return null
+  return (
+    <section className="cab-tv-defi-entier">
+      <h3>{`Son défi · ${x.nom}`}</h3>
+      <ul>
+        {RANGS.map(k => (
+          <li key={k}>
+            <span className={`cab-tv-sceau cab-tv-sceau-${k}${k <= rang ? ' cab-tv-sceau-tenu' : ''}`} aria-hidden="true" />
+            <span>
+              <b>{RANGS_DITS[k]}</b>
+              {espacesFines(` : ${enMinuscule(x.rangs[k - 1])}${k <= rang ? ' — tenu' : ''}`)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+/** La fiche d'une carte au choix du départ : sa peinture en grand, ce qu'elle fait, son défi — et la prendre. */
+function FicheDeLaCarte({
+  cle,
+  v,
+  rang,
+  prise,
+  complet,
+  onPrendre,
+  onFermer,
+}: {
+  cle: CleDeCarte
+  v: VueDeLaTraversee['v']
+  rang: 0 | RangDUnDefi
+  prise: boolean
+  complet: boolean
+  onPrendre: () => void
+  onFermer: () => void
+}) {
+  const c = carteDeLaTraversee(cle)
+  if (!c) return null
+  const peut = prise || !complet
+  const pied = (
+    <button type="button" className={prise ? 'btn btn-block' : 'cab-tv-cta'} aria-disabled={!peut || undefined} {...toucher(() => peut && onPrendre())}>
+      {prise ? 'La reposer' : complet ? 'Tu as déjà tes trois cartes' : 'Prendre cette carte'}
+    </button>
+  )
+  return (
+    <Feuille titre={c.nom} className="cab-tv-feuille" onFermer={onFermer} pied={pied}>
+      <div className="cab-tv-fiche">
+        <span className="cab-tv-fiche-peinture">
+          <img src={CARTES_PEINTES[cle]?.[0]} alt="" />
+        </span>
+        <span className={`cab-tv-sorte cab-tv-sorte-${c.sorte}`}>{SORTES_DITES[c.sorte]}</span>
+        <p>{espacesFines(c.dit(1, v))}</p>
+        <DefiEnEntier cle={cle} rang={rang} />
+      </div>
+    </Feuille>
   )
 }
 
@@ -730,24 +830,34 @@ function LesGardiens({ t, possedes, maitrises, onChoisirLesCartes }: { t: VueDeL
       <div className="cab-tv-vide" />
       <div className="cab-tv-panneau">
         <section className="cab-tv-verre">
+          {/* Leur épreuve de maître en quelques mots, sous chaque médaillon, dite avant le choix des cartes : certaines s'y
+              préparent — une mise, le Second souffle. Trois phrases entières l'écrasaient (le propriétaire, le 1er novembre
+              2026) ; l'annonce du gardien la redit en entier. */}
           <ul className="cab-tv-trio">
-            {t.actes.map((a, k) => (
-              <li key={a.gardien}>
-                <img src={imageDuGardien(a.gardien)} alt="" />
-                <b>{nomDe(a.gardien)}</b>
-                <small>{possedes.includes(a.gardien) ? 'Déjà à toi' : ACTES[k].court}</small>
-              </li>
-            ))}
+            {t.actes.map((a, k) => {
+              const court = maitriseCourte(a.gardien)
+              const fait = maitrises.includes(a.gardien)
+              return (
+                <li key={a.gardien}>
+                  <img src={imageDuGardien(a.gardien)} alt="" />
+                  <b>{nomDe(a.gardien)}</b>
+                  <small>{possedes.includes(a.gardien) ? 'Déjà à toi' : ACTES[k].court}</small>
+                  {court && (
+                    <span className={'cab-tv-couronne' + (fait ? ' cab-tv-couronne-faite' : '')}>
+                      <span aria-hidden="true">👑</span>
+                      <span className="sr-only">Épreuve de maître : </span>
+                      {fait ? 'Déjà maître' : court}
+                    </span>
+                  )}
+                </li>
+              )
+            })}
           </ul>
-          <p className="cab-tv-pale">{espacesFines('Bats-les tous les trois : l’un d’eux sera à toi, un avatar légendaire.')}</p>
-          {/* Leurs épreuves de maître, dites avant le choix des cartes : certaines s'y préparent — une mise, le Second souffle. */}
-          <ul className="cab-tv-notes cab-tv-maitrises" aria-label="Leurs épreuves de maître">
-            {t.actes.map(a => (
-              <li key={a.gardien}>
-                <b>{nomDe(a.gardien)}</b> {espacesFines(maitrises.includes(a.gardien) ? 'déjà vaincu en maître' : `${(maitriseDite(a.gardien) ?? '').replace(/^Le vaincre/, 'à vaincre')} : il est à toi aussitôt`)}
-              </li>
-            ))}
-          </ul>
+          <p className="cab-tv-pale cab-tv-gardiens-dit">
+            {espacesFines('Bats-les tous : l’un d’eux sera à toi.')}
+            <br />
+            <span aria-hidden="true">👑</span> {espacesFines('Vaincu ainsi, il est à toi aussitôt.')}
+          </p>
           <button type="button" className="cab-tv-cta" {...toucher(onChoisirLesCartes)}>
             Choisir mes trois cartes
           </button>
@@ -775,6 +885,7 @@ function ChoixDesCartes({
   onPartir: () => void
 }) {
   const complet = choix.length === CARTES_D_UNE_TRAVERSEE
+  const [vue, setVue] = useState<CleDeCarte | null>(null)
   return (
     <div className="cab-tv-ecran">
       <div className="cab-tv-colonne">
@@ -782,24 +893,35 @@ function ChoixDesCartes({
         <header className="cab-tv-tete-ecran">
           <p className="cab-tv-sur">Avant de partir</p>
           <h2 tabIndex={-1}>Choisis trois cartes</h2>
-          <p className="cab-tv-pale">{espacesFines(`Ce sont les seules de ta traversée : ${quiAmeliore(v)}. Au dos de chacune, un défi : il ne compte que si elle est dans ta main.`)}</p>
+          <p className="cab-tv-pale">{espacesFines('Les seules de ta traversée : touche une carte pour la voir.')}</p>
         </header>
-        <div className="cab-tv-cartes">
+        <div className="cab-tv-cartes cab-tv-tuiles">
           {CARTES.map(c => (
-            <CarteDeLaTraversee
+            <TuileDeCarte
               key={c.cle}
               cle={c.cle}
-              niveau={1}
-              v={v}
               prise={choix.includes(c.cle)}
-              inerte={!choix.includes(c.cle) && complet}
-              action={() => onChoisir(c.cle)}
-              dos={<DosDeLaCarte cle={c.cle} rang={defis.rangs[c.cle]} />}
-              doree={defis.rangs[c.cle] >= 2}
+              terne={!choix.includes(c.cle) && complet}
+              rang={defis.rangs[c.cle]}
+              onOuvrir={() => setVue(c.cle)}
             />
           ))}
         </div>
       </div>
+      {vue && (
+        <FicheDeLaCarte
+          cle={vue}
+          v={v}
+          rang={defis.rangs[vue]}
+          prise={choix.includes(vue)}
+          complet={complet}
+          onPrendre={() => {
+            onChoisir(vue)
+            setVue(null)
+          }}
+          onFermer={() => setVue(null)}
+        />
+      )}
       <div className="cab-tv-pied">
         <button type="button" className="cab-tv-cta" aria-disabled={!complet || busy || undefined} {...toucher(() => complet && !busy && onPartir())}>
           {complet ? 'Partir' : `Encore ${CARTES_D_UNE_TRAVERSEE - choix.length} à choisir`}

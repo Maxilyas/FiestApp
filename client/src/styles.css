@@ -11404,10 +11404,32 @@ button.cab-tv-carte { cursor: pointer; }
 .cab-tv-trois .cab-tv-defi { grid-column: 2; margin: 0 0 10px; }
 /* Son défi tenu à l'Argent : la carte a son dos doré. */
 .cab-tv-carte.cab-tv-doree { border-color: #e9c46a; background: linear-gradient(165deg, rgba(233, 196, 106, 0.24), rgba(7, 5, 14, 0.62) 55%); }
-/* L'épreuve de maître d'un gardien, sous ses points de vie ; celles des trois, devant le choix des cartes. */
+/* Le choix des cartes en tuiles (`TuileDeCarte`) : la peinture, le nom, les sceaux du défi posés sur la peinture — sa fiche dit le reste. */
+.cab-tv-tuile { padding: 0 0 8px; }
+.cab-tv-tuile .cab-tv-nom { padding: 6px 10px 0; }
+.cab-tv-sceaux-tuile { position: absolute; left: 6px; bottom: 6px; padding: 5px 7px; border-radius: 999px; background: rgba(7, 5, 14, 0.78); }
+/* Ses trois cartes prises, les autres s'effacent un peu — elles s'ouvrent encore, leur fiche dit pourquoi elles ne se prennent plus. */
+.cab-tv-carte.cab-tv-terne { opacity: 0.55; }
+/* Sur un écran large, trois tuiles par rangée : la colonne en tient plus d'un coup d'œil. */
+@media (min-width: 600px) { .cab-tv-tuiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+/* La fiche d'une carte (`FicheDeLaCarte`) : sa peinture en grand, ce qu'elle fait, son défi en entier. */
+.cab-tv-fiche { display: grid; gap: 10px; justify-items: start; }
+.cab-tv-fiche-peinture { display: block; width: 100%; aspect-ratio: 4 / 3; max-height: 24vh; overflow: hidden; border-radius: 14px; border: 2px solid rgba(247, 220, 154, 0.35); background: #000; }
+.cab-tv-fiche-peinture img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.cab-tv-fiche > .cab-tv-sorte { margin: 0; }
+.cab-tv-fiche p { margin: 0; font-size: 1.0625rem; line-height: 1.35; color: var(--cab-tv-encre); }
+.cab-tv-defi-entier { width: 100%; padding: 10px 12px; border-radius: 12px; background: rgba(247, 220, 154, 0.07); border: 1px dashed rgba(247, 220, 154, 0.32); }
+.cab-tv-defi-entier h3 { margin: 0 0 6px; font-family: inherit; font-size: 1.0625rem; font-weight: 800; color: var(--cab-tv-or-clair); }
+.cab-tv-defi-entier ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.cab-tv-defi-entier li { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 8px; align-items: baseline; font-size: 1.0625rem; line-height: 1.3; color: var(--cab-tv-pale); }
+.cab-tv-defi-entier li b { color: var(--cab-tv-encre); }
+/* L'épreuve de maître d'un gardien, sous ses points de vie. */
 .cab-tv-maitrise { margin: 0; padding: 10px 12px; border-radius: 14px; text-align: left; background: rgba(247, 220, 154, 0.08); border: 1px solid rgba(247, 220, 154, 0.35); color: var(--cab-tv-pale); font-size: 1.0625rem; }
 .cab-tv-maitrise b { color: var(--cab-tv-or-clair); }
-.cab-tv-maitrises { font-size: 1.0625rem; }
+/* … et celles des trois, en quelques mots sous leurs médaillons, devant le choix des cartes (`maitriseCourte`). */
+.cab-tv-couronne { display: inline-flex; align-items: baseline; justify-content: center; flex-wrap: wrap; column-gap: 4px; padding: 3px 8px; border-radius: 10px; background: rgba(247, 220, 154, 0.1); color: var(--cab-tv-or-clair); font-size: 1.0625rem; line-height: 1.2; }
+.cab-tv-couronne-faite { color: var(--cab-tv-pale); }
+.cab-tv-gardiens-dit { margin: 4px 0 0; text-align: center; }
 /* Ce que les défis ont fait tomber : sous le bilan d'une épreuve, à la fin d'une traversée. */
 .cab-tv-tombes { display: grid; gap: 4px; text-align: left; }
 /* Trois cartes sur une colonne — la feuille, l'amélioration : la peinture à gauche, le texte à droite. */

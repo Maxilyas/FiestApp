@@ -408,6 +408,29 @@ export function maitriseDite(gardien: unknown): string | null {
   return `Le vaincre ${le}`
 }
 
+const COURTS = {
+  unSeulAssaut: 'Au premier assaut',
+  sansFaute: 'Sans rater une manche',
+  sansPerdreUnCoeur: 'Sans perdre un cœur',
+  toutesLesEtoiles: '★★★ à chaque manche',
+  surUneMise: 'Sur une mise',
+  dEntree: 'En deux manches',
+  apresUnCoeurPerdu: 'Après un cœur perdu',
+  apresLeSouffle: 'Après le Second souffle',
+} as const satisfies Record<keyof typeof DITS, string>
+
+/**
+ * La même, en quelques mots, sous le médaillon du gardien (« Sans perdre un cœur ») : l'écran des trois gardiens en
+ * disait la phrase entière de chacun, trois phrases sous trois médaillons — « trop de texte, pas assez visuel et
+ * sobre » (le propriétaire, le 1er novembre 2026). L'annonce du gardien la redit en entier (`maitriseDite`).
+ */
+export function maitriseCourte(gardien: unknown): string | null {
+  const g = gardienDeLaTraversee(gardien)
+  const sorte = g ? MAITRISES.get(g.cle) : undefined
+  if (!g || !sorte) return null
+  return sorte === 'orEnPoche' ? `${OR_D_UNE_MAITRISE[acteDuGardien(g.cle)]} pièces en poche` : COURTS[sorte]
+}
+
 // ── Ce qu'une traversée a atteint ─────────────────────────────────────────
 
 /** Ce qu'une traversée a atteint : ses clés, et ce que chaque épreuve conclue a fait tomber — son bilan le dit. */

@@ -11,7 +11,7 @@ import { aLaMain, bancDuCabinet, commencer, enBase, fermerLesMagasins, jouer, li
 import { RELECTURE_DES_DEFIS } from '../src/core/cabinet/magasin'
 import { clesARanger } from '../src/core/cabinet/gardiens'
 import * as B from '../../shared/cabinet/bareme'
-import { CONDITIONS_DE_MAITRISE, DEFIS, VERSION_DES_DEFIS, defiDeLaCarte, defisDeLaTraversee, maitriseDite, releverLaTraversee } from '../../shared/cabinet/defis'
+import { CONDITIONS_DE_MAITRISE, DEFIS, VERSION_DES_DEFIS, defiDeLaCarte, defisDeLaTraversee, maitriseCourte, maitriseDite, releverLaTraversee } from '../../shared/cabinet/defis'
 import { NOMS_DES_DEFIS, cleDeLaMaitrise, cleDuRang, confettisDesDefis, defisAuMoins, defisTenus, gerbeDesDefis, legendaireDesDefis, nomDuTitreDuDefi, titresDesDefis } from '../../shared/cabinet/sceaux'
 import {
   CLES_DES_CARTES,
@@ -105,6 +105,15 @@ test('le catalogue : un défi par carte, dans l’ordre des cartes, trois rangs 
   assert.equal(maitriseDite('lg:inconnu'), null)
   assert.equal(maitriseDite('lg:scarabee'), `Le vaincre avec ${B.OR_D_UNE_MAITRISE[0]} pièces en poche`)
   assert.equal(maitriseDite('lg:dragon'), `Le vaincre avec ${B.OR_D_UNE_MAITRISE[2]} pièces en poche`)
+  // Et en quelques mots, sous le médaillon de chaque gardien (« trop de texte », le propriétaire, le 1er novembre 2026) :
+  // tenus sur trois lignes dans le tiers d'un écran de 360, au barème pour l'or.
+  for (const g of GARDIENS_DE_LA_TRAVERSEE) {
+    const court = maitriseCourte(g.cle) ?? ''
+    assert.ok(court.length > 0 && court.length <= 24, `${g.cle} : « ${court} »`)
+    assert.match(court, /^[A-ZÀ-Ý0-9★]/, `${g.cle} : une majuscule, sous le médaillon`)
+  }
+  assert.equal(maitriseCourte('lg:inconnu'), null)
+  assert.equal(maitriseCourte('lg:dragon'), `${B.OR_D_UNE_MAITRISE[2]} pièces en poche`)
 })
 
 test('une traversée gagnée sans faute : les défis de ses cartes, les gardiens vaincus en maître, épreuve par épreuve', () => {
