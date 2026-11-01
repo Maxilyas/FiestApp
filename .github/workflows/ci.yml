@@ -6,6 +6,13 @@
 # profils. `npm test` lance les tests ciblés de `server/test/` : chacun sur son
 # propre serveur jetable, pour les pannes, les courses et les messages
 # malformés qu'une soirée rejouée d'un bout à l'autre ne provoque jamais.
+#
+# Tout ne tient plus sur une machine : le 1er novembre 2026, une seule
+# exécution prenait 14 min 46, dont 12 min 20 de tests. Les tests se répartissent
+# donc sur quatre machines à la fois, chaque fichier dans une tranche et une
+# seule (`scripts/tests.mjs --tranche`), pendant qu'une cinquième fait le
+# typecheck, le build et le smoke. Le dépôt est public : ces machines ne
+# coûtent rien.
 name: Vérification
 
 on:
@@ -25,13 +32,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verifier:
+  # Les tests ciblés : un serveur jetable par fichier, huit fichiers à la fois
+  # par machine. Une tranche qui échoue n'arrête pas les autres : chacune dit
+  # ses échecs.
+  tests:
+    name: tests ${{ matrix.tranche }}/4
     runs-on: ubuntu-latest
-    # Un filet contre l'exécution qui pend, pas une borne de la suite : `main`
-    # mettait déjà 14 min 46 le 1er novembre 2026 (12 min 20 de tests), et à
-    # quinze minutes, la PR des fêtes s'est fait couper au milieu du smoke, tous
-    # ses tests passés.
-    timeout-minutes: 25
+    # Un filet contre l'exécution qui pend : une tranche prend deux à trois minutes.
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        tranche: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
 
@@ -44,14 +56,26 @@ jobs:
       # le fichier de verrouillage décrit, et rien d'autre.
       - run: npm ci --no-audit --no-fund
 
+      - name: Tests (server/test), tranche ${{ matrix.tranche }} sur 4
+        working-directory: server
+        run: node scripts/tests.mjs --tranche=${{ matrix.tranche }}/4
+
+  bout-en-bout:
+    name: typecheck, build et smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
       - name: Typecheck (serveur + client)
         run: npm run check
-
-      # Les tests ciblés : un serveur jetable par fichier, lancés en parallèle.
-      # Ils passent avant le smoke parce qu'ils disent plus vite, et plus
-      # précisément, ce qui a cassé.
-      - name: Tests (server/test)
-        run: npm test
 
       - name: Build du client
         run: npm run build
@@ -60,3 +84,19 @@ jobs:
       # temporaire : aucun service à démarrer, aucun secret à fournir.
       - name: Test de bout en bout
         run: npm run smoke
+
+  # La vérification d'avant s'appelait `verifier` : elle garde son nom, et ne
+  # passe que si tout le reste est passé. `always()` la fait juger même quand
+  # une tranche échoue ou est annulée — sans lui, elle serait sautée, et une
+  # vérification sautée passe pour réussie aux yeux de GitHub.
+  verifier:
+    needs: [tests, bout-en-bout]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Les tests et le bout en bout, tous passés
+        run: |
+          echo "tests : ${{ needs.tests.result }} · typecheck, build et smoke : ${{ needs.bout-en-bout.result }}"
+          test "${{ needs.tests.result }}" = success
+          test "${{ needs.bout-en-bout.result }}" = success
