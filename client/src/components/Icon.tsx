@@ -107,7 +107,7 @@ export type IconName =
   | 'gateau'
   // Les pays de la campagne, tous du même repère.
   | 'repere'
-  // Les univers de la campagne : Disney, Harry Potter, James Bond, Marvel, le Seigneur des anneaux, Star Wars, Stargate.
+  // Les univers de la campagne : Disney, Harry Potter, James Bond, Marvel, le Seigneur des anneaux, Star Wars, Stargate, Kaamelott, Lost — et le casque de la Seconde Guerre mondiale.
   | 'chateau'
   | 'baguette'
   | 'noeud'
@@ -115,6 +115,9 @@ export type IconName =
   | 'anneau'
   | 'sabre'
   | 'porte'
+  | 'graal'
+  | 'trappe'
+  | 'casque'
   // Les fils rouges du 17 octobre 2026 au soir : Paris, la mer, l'outre-mer, les citations, le calcul mental.
   | 'tour-eiffel'
   | 'ancre'
@@ -823,6 +826,33 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
         <circle cx="12" cy="12" r="8.6" />
         <circle cx="12" cy="12" r="5.4" />
         <path d="M9.9 2.1 12 5.4l2.1-3.3M21.6 15.1l-3.9.2 1.8 3.5M4.5 18.8l1.8-3.5-3.9-.2" />
+      </>
+    ),
+  },
+  // Le 1er novembre 2026 encore : le Graal que cherche Kaamelott, l'octogone
+  // du projet Dharma, qu'un fan de Lost reconnaît de loin — une trappe et son
+  // volant faisaient une mire de viseur —, et le casque à jugulaire du soldat pour la Seconde Guerre mondiale.
+  graal: {
+    paths: (
+      <>
+        <path d="M6.5 6h11l-.7 4.5a4.8 4.8 0 0 1-9.6 0Z" />
+        <path d="M12 15v3.5M8.5 21h7M12 1.5v2M8.6 2.6l1 1.4M15.4 2.6l-1 1.4" />
+      </>
+    ),
+  },
+  trappe: {
+    paths: (
+      <>
+        <path d="M20.5 15.5L15.5 20.5L8.5 20.5L3.5 15.5L3.5 8.5L8.5 3.5L15.5 3.5L20.5 8.5Z" />
+        <circle cx="12" cy="12" r="3.6" />
+      </>
+    ),
+  },
+  casque: {
+    paths: (
+      <>
+        <path d="M4.5 13.5a7.5 7.5 0 0 1 15 0" />
+        <path d="M2.5 13.5h19M7 13.5l1.6 5.5h6.8l1.6-5.5" />
       </>
     ),
   },
