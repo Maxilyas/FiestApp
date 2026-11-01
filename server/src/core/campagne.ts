@@ -29,6 +29,7 @@ import {
 import { JournalDesDuels, type DuelsARelire, type LigneDuJournalDesDuels } from './journalDesDuels'
 import { DejaPrises } from './jumelles'
 import type { CeQueLeReveilAjoute, ExpeditionQuiChange, FinDUnePartie, PorteDeLaCampagne, ReponsesEcrites, StatsEnPlus } from './porteDeLaCampagne'
+import { seRange } from './rangDeLaBonne'
 import {
   EMPRUNTS,
   classeDeFraicheur,
@@ -179,6 +180,7 @@ import {
   niveauDeQuestion,
   semaineAvant,
   semaineDe,
+  seSaitParCoeur,
   ordreDeSerie,
   xpDeCampagne,
   xpDeLaBonneReponse,
@@ -1971,7 +1973,12 @@ export class CampagneStore {
       familles = base.questions.map(q => ({
         id: q.id,
         difficulte: q.meta.difficulte,
-        famille: familleDeQuestion({ categorie: q.meta.categorie, difficulte: q.meta.difficulte, forme: formeDeReponse({ reponses: q.reponses, bonne: q.bonne, valeur: q.meta.valeur }) }),
+        // Ses entités avec : une personne se mesure à part des autres mots (`FormeDeReponse`).
+        famille: familleDeQuestion({
+          categorie: q.meta.categorie,
+          difficulte: q.meta.difficulte,
+          forme: formeDeReponse({ reponses: q.reponses, bonne: q.bonne, valeur: q.meta.valeur, entites: q.meta.entites }),
+        }),
       }))
       this.famillesGardees.set(base, familles)
     }
@@ -10141,10 +10148,13 @@ const reponseNette = (r: string) => sansAccent(r).replace(/^(le|la|les|l'|l’|u
 /**
  * Les leurres qu'un six choix ajoute aux quatre réponses d'une question :
  * ceux qu'elle porte (`meta.leurres`, où ses mauvaises réponses sont toutes,
- * recopiées à l'identique) qui n'en redisent pas une.
+ * recopiées à l'identique) qui n'en redisent pas une. Les quatre que la
+ * partie a posées (`posees`), pas celles de la base : une question qui se
+ * range a tiré ses leurres parmi ceux-là (`reponsesAuRangTire`), et le six
+ * choix en aurait redit un.
  */
-function leurresDuSixChoix(q: QuestionDeLaBase): string[] {
-  const dites = new Set(q.reponses.map(reponseNette))
+function leurresDuSixChoix(q: QuestionDeLaBase, posees: readonly string[] = q.reponses): string[] {
+  const dites = new Set(posees.map(reponseNette))
   const leurres: string[] = []
   for (const l of q.meta.leurres ?? []) {
     const n = reponseNette(l)
@@ -10187,7 +10197,7 @@ function aSaForme(q: QuestionDeSerie, base: QuestionDeLaBase, forme: FormeDEscal
     return { ...sansNombre, forme, ...tuilesDe(g.lettres, Math.random) }
   }
   if (forme === 'six') {
-    const leurres = leurresDuSixChoix(base).slice(0, 2)
+    const leurres = leurresDuSixChoix(base, q.reponses).slice(0, 2)
     if (leurres.length < 2) return q
     const toutes = [...q.reponses, ...leurres]
     const ordre = melanger(toutes.map((_, i) => i))
@@ -10487,14 +10497,21 @@ function lireLaVersionJouee(brut: unknown): VersionJouee | null {
  * réponses — dans n'importe quel ordre, la série les mélange —, la même
  * bonne, la même anecdote. Posée à une autre forme en expédition, elle se
  * compare à ce que la forme en a pris : six choix, ses quatre réponses parmi
- * les six ; un vrai ou faux, la réponse proposée et ce qu'elle valait.
+ * les six ; un vrai ou faux, la réponse proposée et ce qu'elle valait. Une
+ * question qui se range a tiré ses leurres parmi tous les siens
+ * (`reponsesAuRangTire`) : ses mauvaises réponses viennent toutes de là — un
+ * leurre qu'une correction a ôté n'y est plus, et la version est d'avant.
  */
 function memeVersion(vue: VersionJouee, q: QuestionDeLaBase): boolean {
   if (vue.texte !== q.texte || vue.anecdote !== q.anecdote) return false
-  if (vue.proposee !== undefined) return q.reponses.includes(vue.proposee) && (vue.proposee === q.reponses[q.bonne]) === (vue.bonne === 0)
-  if (vue.forme === 'six') return q.reponses.every(r => vue.reponses.includes(r)) && vue.reponses[vue.bonne] === q.reponses[q.bonne]
+  const juste = q.reponses[q.bonne]
+  const tiree = seRange(q)
+  const admises = new Set(tiree ? [...q.reponses, ...q.meta.leurres] : q.reponses)
+  if (vue.proposee !== undefined) return admises.has(vue.proposee) && (vue.proposee === juste) === (vue.bonne === 0)
+  if (tiree) return vue.reponses.length === (vue.forme === 'six' ? 6 : 4) && vue.reponses.every(r => admises.has(r)) && vue.reponses[vue.bonne] === juste
+  if (vue.forme === 'six') return q.reponses.every(r => vue.reponses.includes(r)) && vue.reponses[vue.bonne] === juste
   const triees = (r: readonly string[]) => [...r].sort().join('\n')
-  return triees(vue.reponses) === triees(q.reponses) && vue.reponses[vue.bonne] === q.reponses[q.bonne]
+  return triees(vue.reponses) === triees(q.reponses) && vue.reponses[vue.bonne] === juste
 }
 
 /** Un identifiant neuf de huit caractères, comme ceux que le rangement du dépôt tire (`base-campagne.ts ranger`). */
@@ -11005,8 +11022,12 @@ export class PreparationDuTirage {
  * épuisée de jamais vues reste sa marche : emprunter au voisin changerait la
  * difficulté du palier, que ses mélanges ont mesurée. Pas de vrai ou faux là
  * où le palier n'en veut pas, ni deux questions jumelles quand la marche en a
- * d'autres aussi fraîches (`jumelles`). Dans le désordre : chaque question
- * peut être la difficile.
+ * d'autres aussi fraîches (`jumelles`). Ce qui s'apprend par cœur — une
+ * année, le réalisateur d'un film — au-delà de ce que le palier en pose
+ * (`parCoeurMax`), après les autres questions aussi fraîches, jamais devant
+ * le thème du chapitre : le cinéma du monde en est aux trois quarts, et ses
+ * deux paliers resteraient sans lui. Dans le désordre : chaque question peut
+ * être la difficile.
  */
 export function tirerUneEpreuve(
   jouables: readonly QuestionDeLaBase[],
@@ -11037,14 +11058,17 @@ export function tirerUneEpreuve(
   // « Comment appelle-t-on le petit de… », mêmes leurres, dans une épreuve de
   // la forêt — l'experte du jeu solo, le 11 octobre 2026), à fraîcheur et à
   // sous-thème égaux, jamais devant une jamais vue ; enfin la plus
-  // anciennement vue.
+  // anciennement vue. Une question par cœur de trop passe juste après la
+  // fraîcheur : une épreuve de cinéma posait six réalisateurs.
+  let parCoeurPris = 0
   const rang = (q: QuestionDeLaBase): number[] => {
     const servi = usage.get(q.meta.sousTheme) ?? 0
     const f = fraicheur(q.id)
     const jumelle = deja.jumelle(q) ? 1 : 0
-    if (regle.touteLaCategorie) return [f.recente, servi, f.vue, jumelle, f.le]
-    if (duChapitre.size > 0) return [f.recente, duChapitre.has(q.meta.sousTheme) ? 0 : 1, f.vue, servi, jumelle, f.le]
-    return [f.recente, f.vue, servi, jumelle, f.le]
+    const deTrop = regle.parCoeurMax !== undefined && parCoeurPris >= regle.parCoeurMax && parCoeur(q) ? 1 : 0
+    if (regle.touteLaCategorie) return [f.recente, servi, f.vue, deTrop, jumelle, f.le]
+    if (duChapitre.size > 0) return [f.recente, duChapitre.has(q.meta.sousTheme) ? 0 : 1, f.vue, deTrop, servi, jumelle, f.le]
+    return [f.recente, f.vue, deTrop, servi, jumelle, f.le]
   }
   const tirees: { question: QuestionDeLaBase; niveau: Niveau }[] = []
   for (const [niveau, combien] of Object.entries(regle.melange) as [Niveau, number][]) {
@@ -11066,6 +11090,7 @@ export function tirerUneEpreuve(
           prises.add(meilleure.id)
           deja.prendre(meilleure)
           usage.set(meilleure.meta.sousTheme, (usage.get(meilleure.meta.sousTheme) ?? 0) + 1)
+          if (regle.parCoeurMax !== undefined && parCoeur(meilleure)) parCoeurPris++
           tirees.push({ question: meilleure, niveau: n })
           break
         }
@@ -11073,6 +11098,21 @@ export function tirerUneEpreuve(
     }
   }
   return melanger(tirees)
+}
+
+/**
+ * Ce qui s'apprend par cœur (`seSaitParCoeur`), lu une fois par question de
+ * la base : une épreuve le relit pour chaque candidate de chaque place, des
+ * centaines de fois.
+ */
+const PAR_COEUR = new WeakMap<QuestionDeLaBase, boolean>()
+function parCoeur(q: QuestionDeLaBase): boolean {
+  let lu = PAR_COEUR.get(q)
+  if (lu === undefined) {
+    lu = seSaitParCoeur({ texte: q.texte, reponses: q.reponses, bonne: q.bonne, valeur: q.meta.valeur, categorie: q.meta.categorie, entites: q.meta.entites })
+    PAR_COEUR.set(q, lu)
+  }
+  return lu
 }
 
 /** Les sous-thèmes d'une catégorie, pour dire qu'une épreuve les couvre : le catalogue de l'étiquetage. */

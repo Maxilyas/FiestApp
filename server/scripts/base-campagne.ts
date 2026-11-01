@@ -28,6 +28,7 @@ import path from 'node:path'
 import { DOSSIER_DE_LA_BASE, entreeDeLaBase, fichierDeCategorie, lireLaBase, lireQuestionDeLaBase, souffleeParSaRacine, type QuestionDeLaBase } from '../src/core/baseCampagne'
 import { REPONSE_CONSEILLEE, TEXTE_CONSEILLE, consigneDEcriture, empreintesDesLivres } from '../src/core/consigneCampagne'
 import { lireLEstimation } from '../src/core/estimation'
+import { rangsPossibles } from '../src/core/rangDeLaBonne'
 import { IndexDesFaits, presquePareils, traitsDe, type TraitsDUnIntitule } from '../src/core/memeFait'
 import { couverture, inventairesDuTheme, lireLeSujet, repartirLesFamilles } from '../src/core/inventaires'
 import { CATEGORIES } from '../../shared/categories'
@@ -84,6 +85,16 @@ function verifier(fichiers: string[], { nombres = false } = {}): number {
       // question soufflée ne vient qu'en dernier recours au quiz tout prêt.
       const racines = souffleeParSaRacine(q)
       if (racines.length > 0) avertir(`la bonne réponse se lit dans l’intitulé par sa racine (${racines.join(', ')}) : reformule, ou garde-la si c’est voulu`)
+      // Une année, un nombre, un jour : le jeu tire la place de la bonne parmi ses leurres (`reponsesAuRangTire`) — s'ils ne
+      // l'entourent pas, elle ne peut pas être la plus petite, ou la plus grande, et sa place la trahit encore.
+      const rangs = rangsPossibles(q)
+      if (rangs && rangs.length < 4) {
+        const place =
+          rangs.length === 1 && (rangs[0] === 0 || rangs[0] === 3)
+            ? `sera toujours la plus ${rangs[0] === 0 ? 'petite' : 'grande'}`
+            : `ne sera jamais ${!rangs.includes(0) && !rangs.includes(3) ? 'la plus petite ni la plus grande' : !rangs.includes(0) ? 'la plus petite' : 'la plus grande'}`
+        avertir(`ses leurres n’entourent pas la bonne réponse : elle ${place} des quatre — trois leurres plus petits et trois plus grands, quand la grandeur le permet`)
+      }
       if (nombres) {
         const estimation = lireLEstimation(q)
         if ('refus' in estimation) avertir(`ne se jouera pas au plus près : ${estimation.refus}`)
