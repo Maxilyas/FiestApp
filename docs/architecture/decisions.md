@@ -2000,6 +2000,15 @@ Le détail : [les tests](../contribuer/tests.md).
 
 *Fichiers : `server/test/banc.ts`, `server/scripts/smoke.ts`, `server/scripts/tests.mjs`*
 
+### Huit fichiers à la fois, et la CI en quatre tranches
+**Contexte** : le 1er novembre 2026, une exécution de la CI prenait 14 min 46, dont 12 min 20 de tests, et sa borne de quinze minutes a coupé le smoke d'une PR qui ajoutait des tests. Le propriétaire demande de « réduire drastiquement le temps des tests tout en gardant l'entièreté ». Mesurée fichier par fichier sur quatre cœurs : 334 fichiers, 36 min de temps cumulé pour 21 min de processeur. Les 16 min restantes sont de l'attente : l'ouverture d'une question, le calme avant sa révélation, la grâce. Les fichiers des soirées attendent 80 à 87 % de leur temps (`cloture.test.ts` : 79 s, dont 10 s de calcul), et trois fichiers à la fois — le défaut de Node, un de moins que de cœurs — laissaient le processeur occupé à 43 %.
+
+**Décision** : `scripts/tests.mjs` lance deux fichiers à la fois par cœur, seize au plus — huit sur quatre cœurs : 6 min 21 au lieu de 12 min 05, tout passé, près du plancher de ce processeur. La CI répartit les fichiers sur quatre machines (`--tranche=2/4` : le fichier de rang i à la tranche i modulo 4, sans fichier de durées à tenir à jour) et fait le typecheck, le build et le smoke sur une cinquième. `verifier`, la vérification d'avant, garde son nom, attend les cinq et ne passe que s'ils sont tous passés. Un découpage équilibré par durée gagnait une demi-minute de plus, contre un fichier à tenir à jour : écarté. Raccourcir les délais du jeu au banc toucherait au code du serveur et aux tests qui les mesurent : écarté aussi.
+
+**Conséquence** : rien n'est retiré, ni une épreuve ni le smoke. `npm run verify` passe d'environ quatorze minutes et demie à neuf (8 min 51), et la CI de quinze à environ trois. `tranches-des-tests.test.ts` garde l'entièreté : chaque fichier dans une tranche et une seule, chaque tranche lancée, `verifier` rouge dès qu'une tranche l'est. Un fichier lent pèse sur sa seule tranche, et il a toujours deux minutes en tout — ce qui calcule seul ralentit quand le processeur se partage : le modèle du calibrage du Cabinet passait de 64 à 117 s, et s'est coupé en trois sur ses thèmes (`cabinet-calibrage-modele`, `-cartes`, `-parties`). Et `tests.mjs` ne sort plus par `process.exit()` : sous la charge, sa liste s'arrêtait au milieu.
+
+*Fichiers : `server/scripts/tests.mjs`, `.github/workflows/ci.yml`, `server/test/tranches-des-tests.test.ts`, `server/test/cabinet-calibrage-{modele,cartes,parties}.test.ts`*
+
 ### Compter plutôt que chronométrer
 **Contexte** : la suite tourne sur des machines partagées et chargées — trois fichiers à la fois chez soi, une CI plus lente — où un test qui mesure des millisecondes échouerait au hasard.
 

@@ -17,7 +17,7 @@ glossaire, la documentation) ? Consignes : `consignes-audit.md`.
 `server/scripts/calibrage-cabinet.ts` (les joueurs simulés : lance-le,
 `cd server && nice -n 10 npx tsx scripts/calibrage-cabinet.ts`, et ses
 essais), `server/test/cabinet-calibrage.test.ts` (ce qu'il joue du code) et
-`cabinet-calibrage-modele.test.ts` (son modèle des joueurs) ; `docs/reference/baremes.md`
+`cabinet-calibrage-modele.test.ts`, `-cartes` et `-parties` (son modèle des joueurs) ; `docs/reference/baremes.md`
 (la section du Cabinet, ses chiffres datés), `docs/architecture/decisions.md`
 (« Le Cabinet de curiosités », et le calibrage du 25 octobre 2026),
 `docs/produit/le-cabinet.md` ; la proposition validée

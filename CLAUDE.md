@@ -15,7 +15,7 @@ qui arrive d'elle-même quand tu ouvres un de ses fichiers.
 - **Lis le code avec l'outil Read, modifie-le avec Edit ou Write**, jamais par le shell (`cat`, `head`, `sed`, une redirection) : c'est Read qui charge la règle du domaine (son `paths:`), et par le shell elle n'arrive pas. Pour un domaine sans fichier ouvert, lis sa règle directement (la carte plus bas).
 - **La documentation se fouille** : Grep dans `docs/`, puis Read sur la section. Une route, un événement, une table, une variable d'environnement, une adresse ou un barème qui change met à jour `docs/reference/` dans le même commit (`documentation.test.ts`).
 - **Une recherche large passe par l'agent Explore** : il ne charge pas ce fichier et garde le contexte principal propre.
-- **`npm run verify` dure une dizaine de minutes** : lance-le en arrière-plan. Lancés par Claude Code (`CLAUDECODE=1`), les tests de `npm test` répondent en points (`dot`) et n'impriment en entier que les échecs ; pour les journaux d'un fichier en échec, relance-le seul : `cd server && node --import tsx --test --test-reporter=spec test/<fichier>.test.ts`.
+- **`npm run verify` dure environ neuf minutes** : lance-le en arrière-plan. Lancés par Claude Code (`CLAUDECODE=1`), les tests de `npm test` répondent en points (`dot`) et n'impriment en entier que les échecs ; pour les journaux d'un fichier en échec, relance-le seul : `cd server && node --import tsx --test --test-reporter=spec test/<fichier>.test.ts`.
 - **Regarde le rendu** : plusieurs bugs de cette base n'étaient visibles qu'à l'écran — la skill `regarder-le-rendu` dit les tailles et les scripts. Les autres procédures en plusieurs étapes sont aussi des skills : `peindre`, `base-campagne`, `tablee`.
 - **Une connaissance nouvelle va dans la règle de son domaine**, pas ici : ce fichier ne change que pour une commande, un invariant ou une convention de tout le dépôt — `notes-pour-claude.test.ts` le borne à 200 lignes et 24 000 caractères, et vérifie les règles, la carte et chaque fichier cité.
 
@@ -24,7 +24,7 @@ qui arrive d'elle-même quand tu ouvres un de ses fichiers.
 ```bash
 npm run verify     # check + test + build + smoke — À LANCER AVANT DE COMMITTER
 npm run dev        # serveur (port 3001) + client, http://localhost:5173
-npm test           # les tests de server/test/ (node:test, une douzaine de minutes sur la CI)
+npm test           # les tests de server/test/ (node:test, quatre tranches sur la CI)
 npm run smoke      # le test de bout en bout seul (~70 s)
 npm run check      # le typage seul, serveur et client
 npm run sauvegarde # la base permanente (QUIZ_DB_URL, ou l'adresse donnée) en SQL daté, dans export/sauvegardes/
