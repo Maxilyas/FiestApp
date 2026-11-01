@@ -22,7 +22,8 @@
 // représenté et permet d'explorer l'application via les missions du jour ».
 // L'épreuve d'un sentier vise une catégorie — « ça incitera peut-être les
 // gens à faire la campagne », validée ou non, à n'importe quel palier —, le
-// Cabinet de curiosités a sa mission, « plus rare », et l'on défie quelqu'un
+// Cabinet de curiosités a sa mission — voulue « plus rare », puis, le même
+// soir, avec « la même chance que les autres » —, et l'on défie quelqu'un
 // sur un thème précis. Les soirées n'en ont pas : elles ne se jouent pas
 // seul, et une mission doit pouvoir se faire le jour même, quoi qu'il arrive.
 
@@ -96,15 +97,6 @@ export const familleDe = (m: Mission): FamilleDeMission => FAMILLE[m.sorte]
 
 /** Les découvertes : un mode chacune, qu'on tire d'abord parmi ceux qu'il ne joue pas. */
 export const DECOUVERTES: readonly SorteDeMission[] = ['serie', 'duel', 'sentier', 'parcours', 'defi', 'revision', 'cabinet', 'defier']
-
-/**
- * Ce que pèse la mission du Cabinet de curiosités au tirage de la découverte,
- * face à une autre — une, d'office — : moitié moins (le souhait du
- * propriétaire du 1er novembre 2026 : « je veux que ce soit plus rare ») ; une
- * fois tous les quinze jours environ à qui ne le joue pas. Un choix de produit
- * (`docs/reference/baremes.md`), qui ne vaut que pour les tirages à venir.
- */
-export const POIDS_DU_CABINET = 0.5
 
 /**
  * Les familles de sujets dont un duel à lancer tire son thème : les thèmes
@@ -435,11 +427,12 @@ export function tirerLesMissions(graine: string, c: ContexteDuTirage): Mission[]
         }
       : { sorte: 'categorie', cible: 5, categorie: CATEGORIES[Math.floor(x() * CATEGORIES.length)] }
   // La découverte : un mode, trois fois plus souvent un qu'il n'a pas joué ces sept jours ; jamais celle d'hier. Le
-  // Cabinet, moitié moins (`POIDS_DU_CABINET`).
+  // Cabinet comme les autres : voulu moitié moins souvent, il a eu « la même chance que les autres » le soir même
+  // (le propriétaire, le 1er novembre 2026).
   const hier = new Set(c.hier.map(m => m.sorte))
   const possibles = DECOUVERTES.filter(s => !hier.has(s) && seProposeAujourdhui(s, c))
   const sorte = auPoids(
-    (possibles.length > 0 ? possibles : (['serie'] as const)).map(s => [s, (s === 'cabinet' ? POIDS_DU_CABINET : 1) * (c.decouvertesJouees.has(s) ? 1 : 3)] as const),
+    (possibles.length > 0 ? possibles : (['serie'] as const)).map(s => [s, c.decouvertesJouees.has(s) ? 1 : 3] as const),
     x(),
   )
   return [habitude, savoir, laDecouverte(sorte, c, x)]

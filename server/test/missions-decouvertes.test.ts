@@ -1,8 +1,9 @@
 // Les découvertes du 1er novembre 2026 (le propriétaire : « chaque mode de jeu
 // doit être représenté et permet d'explorer l'application via les missions du
 // jour ») : l'épreuve d'un sentier dans une catégorie — validée ou non, à
-// n'importe quel palier —, une épreuve du Cabinet de curiosités, « plus
-// rare », et un duel lancé à quelqu'un sur un thème précis. Le tirage, ce
+// n'importe quel palier —, une épreuve du Cabinet de curiosités, avec « la
+// même chance que les autres », et un duel lancé à quelqu'un sur un thème
+// précis. Le tirage, ce
 // qu'elles lisent de la journée, ce que la page en dit ; puis chacune faite
 // pour de vrai, par les routes de son mode.
 import { after, test } from 'node:test'
@@ -20,7 +21,6 @@ import {
   DECOUVERTES,
   FAMILLES_DES_DEFIS,
   lireLaMission,
-  POIDS_DU_CABINET,
   tirerLesMissions,
   vueDeLaMission,
   type ContexteDuTirage,
@@ -93,18 +93,19 @@ test('la découverte vise ce qui se joue : le sentier d’une catégorie, le Cab
   for (const [i, m] of tirages({}).entries()) assert.deepEqual(m.slice(0, 2), tirerLesMissions(`p${i}|2026-11-02`, avant).slice(0, 2))
 })
 
-test('le Cabinet sort moitié moins souvent qu’une autre découverte, et comme elles plus souvent à qui ne le joue pas', () => {
+test('le Cabinet sort aussi souvent qu’une autre découverte, et comme elles plus souvent à qui ne le joue pas', () => {
+  // Voulu « plus rare » d'abord, puis, le même soir, avec « la même chance que les autres » (le propriétaire, le 1er novembre 2026).
   const comptes = (c: Partial<ContexteDuTirage>) => {
     const n = new Map<SorteDeMission, number>()
     for (const m of decouvertes(c, 6000)) n.set(m.sorte, (n.get(m.sorte) ?? 0) + 1)
     return n
   }
-  // Rien de joué ces sept jours : chaque découverte pèse trois, le Cabinet la moitié.
+  // Rien de joué ces sept jours : chaque découverte pèse trois, le Cabinet aussi.
   const n = comptes({})
   const autres = [...n].filter(([s]) => s !== 'cabinet').map(([, k]) => k)
   const moyenne = autres.reduce((a, b) => a + b, 0) / autres.length
   const part = (n.get('cabinet') ?? 0) / moyenne
-  assert.ok(Math.abs(part - POIDS_DU_CABINET) < 0.12, `le Cabinet ${n.get('cabinet')} fois, ${part.toFixed(2)} d’une autre (${Math.round(moyenne)})`)
+  assert.ok(Math.abs(part - 1) < 0.12, `le Cabinet ${n.get('cabinet')} fois, ${part.toFixed(2)} d’une autre (${Math.round(moyenne)})`)
   // Le Cabinet joué cette semaine, le reste non : il ne sort presque plus.
   const habitue = comptes({ decouvertesJouees: new Set<SorteDeMission>(['cabinet']) })
   assert.ok((habitue.get('cabinet') ?? 0) < (n.get('cabinet') ?? 0) / 2, `${habitue.get('cabinet')} contre ${n.get('cabinet')}`)
