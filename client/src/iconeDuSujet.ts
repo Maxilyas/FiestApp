@@ -38,6 +38,7 @@ const ICONE_DU_SUJET: Record<string, IconName> = {
   marvel: 'bouclier',
   'seigneur-des-anneaux': 'anneau',
   'star-wars': 'sabre',
+  stargate: 'porte',
   france: 'flag',
   francophonie: 'globe',
   'outre-mer': 'palmier',

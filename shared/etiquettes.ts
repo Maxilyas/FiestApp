@@ -157,6 +157,10 @@ export const ETIQUETTES: readonly FamilleDEtiquettes[] = [
       { cle: "marvel", nom: "Marvel", definition: "ses super-héros en bande dessinée et au cinéma (les Avengers, Spider-Man, les X-Men). Pas DC (Batman, Superman), ni Thor le dieu nordique" },
       { cle: "seigneur-des-anneaux", nom: "Le Seigneur des anneaux", definition: "la Terre du Milieu de Tolkien — Le Hobbit compris — et ses films" },
       { cle: "star-wars", nom: "Star Wars", definition: "ses films, ses séries, ses personnages, ses planètes et ceux qui l'ont fait (George Lucas, la musique de John Williams pour la saga)" },
+      // Le 1er novembre 2026, à la demande du propriétaire : une saga de fans,
+      // écrite d'un bloc — la base n'en posait rien. La mythologie égyptienne
+      // n'en est pas : Râ et Anubis restent aux mythes, sauf en Goa'uld.
+      { cle: "stargate", nom: "Stargate", definition: "le film de 1994, les séries SG-1, Atlantis et Universe, leurs téléfilms, leurs personnages, leurs races et leurs planètes, ceux qui les jouent et les font. Pas les dieux égyptiens ni l'Atlantide des mythes, hors de la saga" },
     ],
   },
 ]
