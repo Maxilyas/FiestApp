@@ -852,7 +852,7 @@ test('« Cette question » se lit dans un rangement fait une fois pour toute la 
   assert.ok(octets <= 800, `${octets} octets au plus par téléphone : jamais la salle entière`)
 })
 
-test('ni pour une question annulée, ni pour un sondage, ni pour une estimation — ni sans une seule réponse', () => {
+test('ni pour une question annulée, ni pour un sondage — ni sans une seule réponse', () => {
   const annulee = partie(['Alice', 'Bruno'])
   annulee.repondre('Alice', 0, 3000)
   annulee.commande({ type: 'next' })
@@ -869,13 +869,102 @@ test('ni pour une question annulée, ni pour un sondage, ni pour une estimation 
   const e = partie(['Alice', 'Bruno'], [estimation])
   e.estimer('Alice', 9, 3000)
   e.commande({ type: 'next' })
-  assert.equal(e.vues().Alice.laQuestion, undefined, 'une estimation n’est jamais « juste »')
+  assert.ok(e.vues().Alice.laQuestion, 'une estimation révélée a son détail')
+  const est = e.sess.state
+  e.commande({ type: 'cancel', phase: est.phase, qIndex: est.qIndex, round: est.round })
+  assert.equal(e.vues().Alice.laQuestion, undefined, 'annulée, une estimation non plus')
 
   const sondage = { ...QUESTIONS[0], text: 'Qui chante le mieux ?', variante: 'sondage', answers: [] }
   const s = partie(['Alice', 'Bruno'], [sondage])
   s.repondre('Alice', 0, 3000)
   s.commande({ type: 'next' })
   assert.equal(s.vues().Alice.laQuestion, undefined, 'un sondage n’a rien de juste')
+})
+
+test('« Cette question » d’une estimation : de la plus proche à la plus loin, son nombre, ses points et son rang partagé', () => {
+  // Le 31 octobre 2026 : la carte manquait aux estimations, la salle ne voyait pas qui avait gagné quoi.
+  const estimation = { kind: 'number', text: 'En quelle année ?', target: 1997, unit: '', duration: 30, image: null, observeSeconds: null }
+  const p = partie(['Alice', 'Bruno', 'Chloé', 'David', 'Emma'], [estimation])
+  p.estimer('Alice', 2002, 2000)
+  p.estimer('Bruno', 1998, 9000)
+  p.estimer('Chloé', 1996, 5000)
+  p.estimer('David', 1997, 8000)
+  assert.ok(Object.values(p.vues()).every(v => v.laQuestion === undefined), 'rien pendant la question (invariant 1)')
+  p.commande({ type: 'next' })
+  const v = p.vues()
+  const d = v.Alice.laQuestion!
+  assert.equal(d.estimation, true)
+  assert.deepEqual(
+    d.lignes.map(l => l && [l.id, l.valeur]),
+    [
+      [p.id('David'), 1997],
+      [p.id('Chloé'), 1996],
+      [p.id('Bruno'), 1998],
+      [p.id('Alice'), 2002],
+    ],
+    'de la plus proche à la plus loin ; à égale distance, la plus rapide d’abord',
+  )
+  assert.deepEqual(
+    d.lignes.map(l => l!.points),
+    ['David', 'Chloé', 'Bruno', 'Alice'].map(n => p.sess.state.lastAwards[p.id(n)] ?? 0),
+    'les points du barème',
+  )
+  assert.ok(d.lignes.every(l => l!.points > 0), 'chacun a ses points, même sans réponse de l’animateur')
+  assert.equal(d.repondues, 4, 'Emma n’a pas répondu')
+  assert.deepEqual(d.premier, { id: p.id('David'), ms: 8000 })
+  assert.deepEqual(d.second, { id: p.id('Chloé'), ms: 5000 }, 'à égale distance de Bruno, Chloé a répondu avant lui')
+  const exAequo = partie(['Alice', 'Bruno'], [estimation])
+  exAequo.estimer('Alice', 1996, 2000)
+  exAequo.estimer('Bruno', 1998, 3000)
+  exAequo.commande({ type: 'next' })
+  assert.equal(exAequo.vues().Alice.laQuestion!.second, null, 'deux à égale distance : personne n’est « devant » l’autre')
+  assert.equal(v.David.laQuestion!.rangDeLEstimation, 1)
+  assert.equal(v.Chloé.laQuestion!.rangDeLEstimation, 2)
+  assert.equal(v.Bruno.laQuestion!.rangDeLEstimation, 2, 'à égale distance, le même rang')
+  assert.equal(v.Alice.laQuestion!.rangDeLEstimation, 4)
+  assert.equal(v.Emma.laQuestion!.rangDeLEstimation, undefined)
+  assert.deepEqual(v.Emma.laQuestion!.lignes, d.lignes, 'les mêmes lignes pour qui n’y est pas')
+  assert.deepEqual(d.lignes.map(l => l!.juste), [true, true, true, false], 'le tiers le plus proche s’allume, ex æquo compris')
+})
+
+test('la phrase d’une estimation dit sa distance, jamais sa vitesse', async () => {
+  const { phraseDeLaQuestion } = await import(new URL('../../client/src/games/quiz/PlayerView.tsx', import.meta.url).href)
+  const nomDe = (id: string) => NOMS[id] ?? id
+  const ligne = (id: string, valeur: number) => ({ id, juste: true, ms: 5000, choix: null, points: 100, valeur })
+  const base: DetailDeLaQuestion = {
+    lignes: [ligne('moi', 1997), ligne('h', 1999)],
+    trouvees: 1,
+    repondues: 2,
+    premier: { id: 'moi', ms: 5000 },
+    second: { id: 'h', ms: 5000 },
+    estimation: true,
+  }
+  const phrase = (d: Partial<DetailDeLaQuestion>, moi: string | undefined = 'moi') => phraseDeLaQuestion({ ...base, ...d }, moi, nomDe)
+  assert.deepEqual(phrase({ rangDeLEstimation: 1 }), { titre: 'L’estimation la plus proche', detail: 'Devant Hugo', icone: 'target' })
+  assert.equal(phrase({ rangDeLEstimation: 1, second: null }).titre, 'La plus proche, à égalité')
+  assert.equal(phrase({ rangDeLEstimation: 1, second: null, repondues: 1 }).titre, 'La seule estimation')
+  assert.deepEqual(phrase({ premier: { id: 'h', ms: 1 }, rangDeLEstimation: 3, repondues: 8 }), { titre: '3ᵉ plus proche sur 8', detail: 'La plus proche : Hugo', icone: 'target' })
+  assert.equal(phrase({ premier: { id: 'h', ms: 1 } }, undefined).titre, 'La plus proche : Hugo')
+})
+
+test('à l’échéance, ce qui est tapé ou coché sans être validé part — une fois, et seulement s’il change quelque chose', async () => {
+  // Le 31 octobre 2026 : 43 % de réponses aux estimations, 95 % aux QCM — celles tapées sans « Valider » se perdaient.
+  const { brouillonAEnvoyer, cochesAEnvoyer } = await import(new URL('../../client/src/games/quiz/PlayerView.tsx', import.meta.url).href)
+  assert.equal(brouillonAEnvoyer('35 000', null), 35000, 'tapé sans valider : il part')
+  assert.equal(brouillonAEnvoyer('12,5', undefined), 12.5)
+  assert.equal(brouillonAEnvoyer('  ', null), null, 'rien de tapé : rien ne part')
+  assert.equal(brouillonAEnvoyer('trente', null), null, 'illisible : rien ne part')
+  assert.equal(brouillonAEnvoyer('1997', 1997), null, 'déjà validé : rien à renvoyer')
+  assert.equal(brouillonAEnvoyer('1998', 1997), 1998, 'corrigé sans valider : la correction part')
+  assert.deepEqual(cochesAEnvoyer([0, 2], null), [0, 2])
+  assert.equal(cochesAEnvoyer([], null), null)
+  assert.equal(cochesAEnvoyer([0, 2], [0, 2]), null)
+  assert.equal(cochesAEnvoyer([1, 0], null, 4), null, 'un ordre à moitié fait ne part pas : le serveur le refuserait')
+  assert.deepEqual(cochesAEnvoyer([1, 0, 3, 2], null, 4), [1, 0, 3, 2])
+  // Branché aux trois formulaires, à l'échéance lue à l'heure du serveur.
+  const { readFileSync } = await import('node:fs')
+  const source = readFileSync(new URL('../../client/src/games/quiz/PlayerView.tsx', import.meta.url), 'utf8')
+  assert.equal([...source.matchAll(/useEnvoiALEcheance\(closes,/g)].length, 3, 'l’estimation, « plusieurs » et « ordre »')
 })
 
 test('sa phrase dit la plus belle chose vraie, sans jamais mettre personne au masculin', async () => {

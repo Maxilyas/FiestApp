@@ -842,6 +842,7 @@ function placeAuQuiz(
 function indexDeLaQuestion(sess: GameSessionRec<QuizState>, q: PlayableQuestion, vctx: ViewContext) {
   return vctx.memo('quiz:la-question', () => {
     const st = sess.state
+    if (q.kind === 'number') return indexDesEstimations(sess, q.target, vctx)
     const lignes: LigneDeLaQuestion[] = []
     const parChoix = new Map<number, number>()
     for (const [id, r] of Object.entries(st.responses)) {
@@ -856,8 +857,43 @@ function indexDeLaQuestion(sess: GameSessionRec<QuizState>, q: PlayableQuestion,
     lignes.sort((a, b) => Number(b.juste) - Number(a.juste) || a.ms - b.ms)
     let trouvees = 0
     while (trouvees < lignes.length && lignes[trouvees].juste) trouvees++
-    return { lignes, position: new Map(lignes.map((l, i) => [l.id, i])), parChoix, trouvees }
+    return { lignes, position: new Map(lignes.map((l, i) => [l.id, i])), parChoix, trouvees, rangs: undefined }
   })
+}
+
+/**
+ * « Cette question » pour une estimation : les propositions, de la plus
+ * proche à la plus loin (le même ordre que l'écran commun, `guessRows`), et
+ * le rang partagé de chacune — deux estimations à égale distance ne sont ni
+ * première ni deuxième. Rien n'y est « juste » au sens du journal : `juste`
+ * n'allume que le tiers le plus proche, celui que le téléphone félicite déjà
+ * (`prochesDeLaCible`). Le soir du 31 octobre 2026, la carte manquait aux
+ * estimations, et la salle ne voyait pas qui avait gagné quoi.
+ */
+function indexDesEstimations(sess: GameSessionRec<QuizState>, target: number, vctx: ViewContext) {
+  const proches = prochesDeLaCible(sess, target, vctx)
+  const propositions = Object.entries(sess.state.responses)
+    .filter(([, r]) => r.value !== null)
+    .map(([id, r]) => ({ id, r, ecart: ecartEstimation(r.value!, target) }))
+    .sort((a, b) => a.ecart - b.ecart || a.r.ms - b.r.ms)
+  // Déjà rangés du plus haut au plus bas : le rang partagé se lit par dichotomie.
+  const ecarts = propositions.map(p => -p.ecart)
+  const lignes: LigneDeLaQuestion[] = propositions.map(({ id, r }) => ({
+    id,
+    juste: proches.has(id),
+    choix: null,
+    ms: r.ms,
+    points: sess.state.lastAwards[id] ?? 0,
+    valeur: r.value!,
+  }))
+  const rangs = ecarts.map(e => rangDansLesTries(e, ecarts))
+  return {
+    lignes,
+    position: new Map(lignes.map((l, i) => [l.id, i])),
+    parChoix: new Map<number, number>(),
+    trouvees: lignes.filter(l => l.juste).length,
+    rangs,
+  }
 }
 
 /** Personne ne fait défiler une révélation : le haut, et soi avec ses voisins. */
@@ -865,8 +901,9 @@ const LIGNES_DE_LA_QUESTION = 6
 
 /**
  * « Cette question », pour un téléphone : à la révélation d'un QCM —
- * variantes comprises, sauf le sondage, qui n'a rien de juste —, tant que
- * ses points tiennent : une question annulée n'a plus de plus rapide.
+ * variantes comprises, sauf le sondage, qui n'a rien de juste — ou d'une
+ * estimation mesurée, tant que ses points tiennent : une question annulée
+ * n'a plus de plus rapide.
  */
 function laQuestion(
   sess: GameSessionRec<QuizState>,
@@ -874,8 +911,8 @@ function laQuestion(
   vctx: ViewContext,
   playerId: string,
 ): DetailDeLaQuestion | undefined {
-  if (q.kind !== 'choice' || q.variante === 'sondage' || sess.state.cancelled) return undefined
-  const { lignes, position, parChoix, trouvees } = indexDeLaQuestion(sess, q, vctx)
+  if ((q.kind === 'choice' && q.variante === 'sondage') || sess.state.cancelled || cibleInconnue(sess.state, q)) return undefined
+  const { lignes, position, parChoix, trouvees, rangs } = indexDeLaQuestion(sess, q, vctx)
   if (lignes.length === 0) return undefined
   const i = position.get(playerId)
   const n = LIGNES_DE_LA_QUESTION
@@ -885,6 +922,20 @@ function laQuestion(
       : [...lignes.slice(0, n / 2), null, ...lignes.slice(i - 1, i + 2)]
   const tete = (j: number) => (j < trouvees ? { id: lignes[j].id, ms: lignes[j].ms } : null)
   const sienne = i === undefined ? undefined : lignes[i]
+  if (rangs) {
+    // La plus proche, et la suivante seulement si elle ne la partage pas :
+    // « devant Hugo » serait faux pour un ex æquo.
+    const second = lignes.length > 1 && rangs[1] > 1 ? { id: lignes[1].id, ms: lignes[1].ms } : null
+    return {
+      lignes: montrees,
+      trouvees,
+      repondues: lignes.length,
+      premier: { id: lignes[0].id, ms: lignes[0].ms },
+      second,
+      estimation: true,
+      ...(i !== undefined && { rangDeLEstimation: rangs[i] }),
+    }
+  }
   return {
     lignes: montrees,
     trouvees,
