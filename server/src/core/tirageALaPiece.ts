@@ -59,9 +59,11 @@ export interface QuestionDeLaPartie {
  * « Vrai » et « Faux », qui restent dans cet ordre. Des années, des nombres,
  * des jours : le rang de la bonne parmi ses voisines se tire, et ses leurres
  * avec (`reponsesAuRangTire`) — écrite, elle était au milieu 97 fois sur cent.
+ * `telleQuEcrite` garde ses réponses écrites : l'Éclair du Cabinet n'en
+ * montre qu'une, et y cherche la mauvaise que la campagne choisit le plus.
  */
-export function versQuestionDeSerie(q: QuestionDeLaBase, niveau: Niveau): QuestionDeLaPartie {
-  const { reponses, bonne } = reponsesAuRangTire(q) ?? q
+export function versQuestionDeSerie(q: QuestionDeLaBase, niveau: Niveau, { telleQuEcrite = false }: { telleQuEcrite?: boolean } = {}): QuestionDeLaPartie {
+  const { reponses, bonne } = (!telleQuEcrite && reponsesAuRangTire(q)) || q
   const ordre = reponses.length === 2 ? [0, 1] : melanger(reponses.map((_, i) => i))
   return {
     id: q.id,

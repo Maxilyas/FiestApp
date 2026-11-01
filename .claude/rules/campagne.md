@@ -134,7 +134,9 @@ paths:
   dans le milieu » — rangées, la bonne était la deuxième ou la troisième 97
   fois sur cent pour les années, 91 pour les nombres, 84 pour les jours).
   `versQuestionDeSerie` — la série, l'épreuve, le défi, le duel, la
-  révision, l'Expédition, le Cabinet — et le quiz tout prêt (`versLeQuiz`,
+  révision, l'Expédition, le Cabinet, sauf l'Éclair, qui ne montre qu'une
+  réponse et y cherche la mauvaise la plus choisie parmi les écrites
+  (`telleQuEcrite`, `telleQuElleEstEcrite`) — et le quiz tout prêt (`versLeQuiz`,
   qui garde la version écrite quand le tirage laisserait la bonne seule dans
   l'époque du titre, `souffleeParLEpoque`) tirent le rang de la bonne
   (`POIDS_DES_RANGS`, qui compensent les leurres écrits autour d'elle) puis

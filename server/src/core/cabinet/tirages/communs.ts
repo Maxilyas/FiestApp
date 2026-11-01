@@ -140,3 +140,14 @@ export function uneQuestionDesCategories(
 
 /** La question telle que la partie la garde : ses réponses mélangées pour elle, sa marche mesurée. */
 export const commeLaPartieLaGarde = (t: { question: QuestionDeLaBase; niveau: Niveau }): QuestionTiree => versQuestionDeSerie(t.question, t.niveau)
+
+/**
+ * La question d'une affirmation de l'Éclair : ses réponses écrites, mélangées,
+ * jamais ses leurres tirés au rang (`reponsesAuRangTire`). L'Éclair n'en
+ * montre qu'une, vraie ou fausse — sa place parmi quatre n'y dit rien —, et
+ * la fausse est la mauvaise que la campagne choisit le plus parmi celles que
+ * la question pose (`affirmationDe`) : tirés au rang, ses leurres ne la
+ * portaient plus toujours (`cabinet-jeux-base.test.ts`, le 1er novembre 2026).
+ */
+export const telleQuElleEstEcrite = (t: { question: QuestionDeLaBase; niveau: Niveau }): QuestionTiree =>
+  versQuestionDeSerie(t.question, t.niveau, { telleQuEcrite: true })
