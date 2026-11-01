@@ -140,6 +140,23 @@ export function quitterVersLeMusee(h: Historique, hash: string, vers = '') {
 }
 
 /**
+ * Une épreuve finie quitte son entrée **une seule fois** : rend vrai si elle
+ * vient de le faire, faux si cette épreuve-là l'avait déjà fait (`conclue`).
+ * Le gardien à terre ou le dernier cœur avant la dernière manche, la partie
+ * l'annonce deux fois — « quitter » parti, puis la vue revenue quittée, sans
+ * révélation (`Partie.tsx`) —, et `history.back()` ne recule qu'au tour
+ * suivant : l'entrée lue au second appel était encore celle de l'épreuve, et
+ * le second recul sortait du Cabinet, jusqu'à l'accueil (« quand j'ai vaincu
+ * le boss ça m'a sortie et remise à l'accueil », la propriétaire, le
+ * 1er novembre 2026).
+ */
+export function quitterLEpreuveFinie(h: Historique, hash: string, id: string | null, conclue: string | null): boolean {
+  if (!id || id === conclue) return false
+  quitterVersLeMusee(h, hash, '')
+  return true
+}
+
+/**
  * Rechargée sur l'entrée d'une partie, la page n'en a plus d'ouverte : la
  * marque s'efface. Gardée, « ← Le Cabinet » aurait reculé sur l'entrée
  * d'avant le rechargement — peut-être hors du Cabinet.

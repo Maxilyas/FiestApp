@@ -640,6 +640,56 @@ test('une épreuve ouverte par-dessus la carte a son entrée d’historique : le
   assert.match(partie, /if \(finieSansRevelation\) finDeLEpreuve\(\)/)
 })
 
+test('le gardien à terre avant la dernière manche : l’épreuve finie ne recule qu’une fois, et la page reste au Cabinet', async () => {
+  const { poserLEntreeDeLaPartie, partieDansLEntree, quitterLEpreuveFinie } = await import(url('views/cabinet/ecrans.ts'))
+  // Un historique comme celui du navigateur : `back()` ne recule qu'au tour suivant, l'entrée lue entre-temps est encore l'ancienne.
+  const entrees: { url: string; etat: unknown }[] = [
+    { url: '/', etat: null },
+    { url: '/cabinet', etat: null },
+  ]
+  let i = 1
+  let reculs = 0
+  const h = {
+    get state() {
+      return entrees[i].etat
+    },
+    pushState(etat: unknown) {
+      entrees.splice(i + 1)
+      entrees.push({ url: entrees[i].url, etat })
+      i++
+    },
+    replaceState(etat: unknown) {
+      entrees[i] = { ...entrees[i], etat }
+    },
+    back() {
+      reculs++
+    },
+  }
+  const auTourSuivant = () => {
+    i = Math.max(0, i - reculs)
+    reculs = 0
+  }
+  poserLEntreeDeLaPartie(h)
+  assert.ok(partieDansLEntree(h.state))
+  // Le gardien tombe à la deuxième manche : « Suivante » envoie « quitter » puis dit la fin, et la vue revenue quittée, sans
+  // révélation, la dit encore (`Partie.tsx`). Le même tour : l'entrée n'a pas encore reculé.
+  assert.equal(quitterLEpreuveFinie(h, '', 'e1', null), true)
+  assert.equal(quitterLEpreuveFinie(h, '', 'e1', 'e1'), false)
+  auTourSuivant()
+  assert.equal(entrees[i].url, '/cabinet', 'la carte, jamais l’accueil')
+  assert.ok(!partieDansLEntree(h.state))
+  // L'épreuve suivante a la sienne, et sa fin recule à son tour.
+  poserLEntreeDeLaPartie(h)
+  assert.equal(quitterLEpreuveFinie(h, '', 'e2', 'e1'), true)
+  auTourSuivant()
+  assert.equal(entrees[i].url, '/cabinet')
+  // Sans épreuve montrée, rien.
+  assert.equal(quitterLEpreuveFinie(h, '', null, null), false)
+  // La page passe par elle, et retient l'épreuve conclue avant tout second appel.
+  const page_ = source('views/CabinetApp.tsx')
+  assert.match(page_, /if \(quitterLEpreuveFinie\(window\.history, window\.location\.hash, id, conclueRef\.current\)\) \{\s*conclueRef\.current = id/)
+})
+
 test('ce que le téléphone retient du Cabinet, il le retient profil par profil — et sans stockage, rien ne casse', async () => {
   const avant = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
   const memoire = new Map<string, string>()
