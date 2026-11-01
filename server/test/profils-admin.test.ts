@@ -150,8 +150,8 @@ test('supprimer un profil emporte tout ce qui n’était qu’à lui — son sal
     const [souvenir] = (await souvenirs()).archives
     assert.ok(souvenir, 'la soirée du salon est rangée')
     const bobAvant = (await lire(banc, bob, '/api/joueur/moi')).corps.profile
-    // Et elle teste l'Expédition, que l'administrateur garde pour bientôt (`/admin#maintenance`).
-    assert.equal((await ecrire(banc.url, `/api/admin/maintenance/pages/expedition/testeurs/${leaId}`, undefined, admin, 'PUT')).status, 200)
+    // Et elle teste le Cabinet, que l'administrateur garde pour bientôt (`/admin#maintenance`).
+    assert.equal((await ecrire(banc.url, `/api/admin/maintenance/pages/cabinet/testeurs/${leaId}`, undefined, admin, 'PUT')).status, 200)
     assert.ok(Object.keys(lignesDu(banc, leaId)).length >= 5, 'Léa a laissé des traces un peu partout')
 
     const fait = await supprimer(banc, admin, leaId)

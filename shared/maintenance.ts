@@ -22,8 +22,14 @@
 
 import type { Route } from './adresses'
 
-/** Les pages qui se mettent en maintenance, dans l'ordre où le QG les montre. */
-export const PAGES_EN_MAINTENANCE = ['jour', 'campagne', 'defi', 'duels', 'expedition', 'cabinet', 'boutique'] as const
+/**
+ * Les pages qui se mettent en maintenance, dans l'ordre où le QG les montre.
+ * L'Expédition en est sortie le 1er novembre 2026 : remplacée par le Cabinet de
+ * curiosités (`EXPEDITION_REMPLACEE`), son départ fermé partout, sa ligne au QG
+ * ne fermait plus rien. Une ligne `expedition` restée dans `qg_maintenance` ou
+ * `qg_testeurs` se tait à la lecture (`estUnePageEnMaintenance`).
+ */
+export const PAGES_EN_MAINTENANCE = ['jour', 'campagne', 'defi', 'duels', 'cabinet', 'boutique'] as const
 export type PageEnMaintenance = (typeof PAGES_EN_MAINTENANCE)[number]
 
 export const estUnePageEnMaintenance = (x: unknown): x is PageEnMaintenance => (PAGES_EN_MAINTENANCE as readonly unknown[]).includes(x)
@@ -65,7 +71,6 @@ export const PAGES_FERMABLES: Record<PageEnMaintenance, { nom: string; ferme: st
     titre: 'Les duels sont en maintenance',
     bientot: 'Les duels arrivent bientôt',
   },
-  expedition: { nom: 'L’Expédition', ferme: 'Sa page et le départ', titre: 'L’Expédition est en maintenance', bientot: 'L’Expédition arrive bientôt' },
   cabinet: {
     nom: 'Le Cabinet de curiosités',
     ferme: 'Sa page, le départ d’une partie, les achats et l’échange d’un jeu ; la partie en cours se finit',
@@ -126,7 +131,6 @@ export function pageDeLAdresse(route: Route): PageEnMaintenance | null {
     case 'jour':
     case 'campagne':
     case 'duels':
-    case 'expedition':
     case 'cabinet':
     case 'boutique':
       return route.page
