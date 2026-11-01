@@ -50,6 +50,7 @@ import {
   lireUnGesteDeLaTraversee,
   nomAuNiveau,
   offrables,
+  paradesDeLActe,
   PLUS_HAUT_CHEZ_LE_MARCHAND,
   prixAuMarchand,
   pvDuGardien,
@@ -332,15 +333,17 @@ test('les cartes de la traversée : Cagnotte, Parade, Quitte ou double, Second s
   t.epreuve([3, 0, 0], [true, false, true])
   assert.equal(t.etat.or - avant, (3 * B.OR_PAR_ETOILE + B.OR_DE_LA_CAGNOTTE[1]) * B.MULTIPLICATEUR_DE_LA_MISE[1])
   assert.equal(t.etat.coeurs, B.COEURS_DE_DEPART - 1 - B.COEURS_D_UNE_MISE_PERDUE)
-  // Le dernier cœur tombe : sans Second souffle, la traversée est perdue, et les manches d'après ne comptent plus.
+  // La Parade a paré ses deux manches de l'acte (`PARADES_PAR_ACTE`, depuis la version 3) : la ratée suivante coûte
+  // le dernier cœur — sans Second souffle, la traversée est perdue, et les manches d'après ne comptent plus.
+  assert.equal(t.etat.pareesDeLActe, B.PARADES_PAR_ACTE[1])
   t.epreuve([0, 0, 3], [false, true, false])
   assert.equal(t.etat.fin?.issue, 'perdue')
   assert.equal(t.etat.coeurs, 0)
   assert.deepEqual(
     t.etat.derniere?.manches.map(m => [m.paree, m.coeurs, m.comptee]),
     [
-      [true, 0, true],
-      [false, B.COEURS_D_UNE_MISE_PERDUE, true],
+      [false, 1, true],
+      [false, 0, false],
       [false, 0, false],
     ],
   )
@@ -532,12 +535,59 @@ test('la Parade de la version 2 ne pare les gardiens qu’à la Parade ++ ; cell
   // La version 1 garde la sienne : une manche à la Parade +, contre les gardiens aussi.
   assert.deepEqual(paree(1, 2, 'gardien', [0, 0, 1]), [true, false, false])
   assert.deepEqual(paree(1, 2, 'epreuve', [0, 0, 0]), [true, false, false])
-  assert.deepEqual(baremeDe({ v: VERSION_DE_LA_TRAVERSEE }).parade, { parees: B.ERREURS_PAREES, contreLesGardiens: B.PARADE_CONTRE_LES_GARDIENS })
+  assert.deepEqual(baremeDe({ v: VERSION_DE_LA_TRAVERSEE }).parade, { parees: B.ERREURS_PAREES, contreLesGardiens: B.PARADE_CONTRE_LES_GARDIENS, parActe: B.PARADES_PAR_ACTE })
   // Chaque carte dit sa phrase au barème de la version de sa traversée, celle du jour d'office.
   const parade = carteDeLaTraversee('parade')!
   assert.match(parade.dit(2), /^Tes 2 premières manches ratées de chaque épreuve ne coûtent pas de cœur \(pas contre les gardiens\)/)
   assert.match(parade.dit(3), /contre les gardiens aussi/)
   assert.match(parade.dit(2, 1), /^Ta première manche ratée de chaque épreuve ne coûte pas de cœur, contre les gardiens aussi/)
+})
+
+test('la Parade de la version 3 pare au plus tant de manches par acte, gardien compris, puis repart à l’acte suivant ; la 2 garde la sienne', () => {
+  // « J'aimerais que sur parade il y ait un maximum de parade sur l'ensemble d'un acte car sinon c'est trop fort » (le
+  // propriétaire, le 1er novembre 2026). Relue à ce plafond, une traversée de la 2 en route aurait perdu après coup les
+  // cœurs que sa Parade lui avait gardés : il ouvre la version 3.
+  const paree = (v: VersionDeLaTraversee, niveau: NiveauDeCarte, deja: number, sorte: 'epreuve' | 'gardien', etoiles: number[]) => {
+    const t = new Traversee(['parade', 'cagnotte', 'panacee'], 7, v)
+    const etape = sorte === 'gardien' ? idDEtape(0, RANGEE_DU_GARDIEN, 1) : t.vers('epreuve')
+    const cartes = t.etat.cartes.map(c => (c.cle === 'parade' ? { ...c, niveau } : c))
+    const e = { ...t.etat, cartes, ou: { sorte, etape, partie: 'x' }, assauts: sorte === 'gardien' ? 1 : 0, pareesDeLActe: deja }
+    const { etat, bilan } = consequencesDe(t.depart, e, { etape, partie: 'x', manches: manches(etoiles), enCours: false })
+    return { parees: bilan.manches.map(m => m.paree), apres: etat.pareesDeLActe }
+  }
+  const plafond = B.PARADES_PAR_ACTE[2]
+  // La Parade + pare deux manches ratées par épreuve, tant que l'acte en a encore à parer ; et ce qu'elle pare s'additionne.
+  assert.deepEqual(paree(3, 2, 0, 'epreuve', [0, 0, 0]), { parees: [true, true, false], apres: 2 })
+  assert.deepEqual(paree(3, 2, plafond - 1, 'epreuve', [0, 0, 0]), { parees: [true, false, false], apres: plafond })
+  assert.deepEqual(paree(3, 2, plafond, 'epreuve', [0, 0, 0]), { parees: [false, false, false], apres: plafond })
+  // La Parade ++ contre un gardien puise au même compte.
+  assert.deepEqual(paree(3, 3, B.PARADES_PAR_ACTE[3] - 1, 'gardien', [0, 0, 1]).parees, [true, false, false])
+  // La version 2 n'a pas de plafond : sa Parade repart à chaque épreuve, quoi qu'elle ait paré.
+  assert.deepEqual(paree(2, 2, 99, 'epreuve', [0, 0, 0]).parees, [true, true, false])
+  // Par le pli : deux épreuves à deux manches ratées — la seconde n'en pare qu'une —, puis le gardien vaincu, et l'acte II repart de zéro.
+  const t = new Traversee(['parade', 'cagnotte', 'panacee'], 7)
+  t.etat = { ...t.etat, cartes: t.etat.cartes.map(c => (c.cle === 'parade' ? { ...c, niveau: 2 as const } : c)) }
+  assert.deepEqual(paradesDeLActe(t.depart, t.etat), { restent: plafond, max: plafond })
+  t.epreuve([0, 0, 2])
+  t.epreuve([0, 0, 2])
+  assert.deepEqual(t.etat.derniere!.manches.map(m => m.paree), [true, false, false])
+  assert.equal(t.etat.pareesDeLActe, plafond)
+  assert.deepEqual(paradesDeLActe(t.depart, t.etat), { restent: 0, max: plafond })
+  jusquAuMarchand(t)
+  const gardien = t.vers('gardien')
+  while (t.etat.acte === 0) {
+    const partie = `g${++t.n}`
+    t.joue({ quoi: 'epreuve', etape: gardien, partie })
+    t.joue({ quoi: 'conclure', partie, manches: manches([3, 3, 3]) })
+  }
+  assert.equal(t.etat.pareesDeLActe, 0, 'un acte neuf, une Parade neuve')
+  assert.deepEqual(paradesDeLActe(t.depart, t.etat), { restent: plafond, max: plafond })
+  assert.equal(paradesDeLActe({ v: 2 }, t.etat), null, 'la version 2 ne compte rien')
+  assert.equal(paradesDeLActe(t.depart, { ...t.etat, cartes: [] }), null, 'sans Parade, rien à dire')
+  // Sa phrase le dit, à la version du jour ; celle de la 2 non.
+  const parade = carteDeLaTraversee('parade')!
+  assert.match(parade.dit(2), new RegExp(` Au plus ${plafond} manches parées par acte\\.$`))
+  assert.doesNotMatch(parade.dit(2, 2), /par acte/)
 })
 
 test('une épreuve en cours ne compte que ses manches jugées : la vue d’une manche dit ce que valent les précédentes', () => {

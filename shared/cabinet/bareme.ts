@@ -584,6 +584,13 @@ export const COEURS_D_UNE_MISE_PERDUE = 2
 export const ERREURS_PAREES: Readonly<Record<Force, number>> = { 1: 1, 2: 2, 3: 2 }
 /** … et le niveau dès lequel elle pare aussi contre les gardiens : la Parade ++, que le marchand seul vend (la Parade + à la version 1). */
 export const PARADE_CONTRE_LES_GARDIENS: Force = 3
+/**
+ * … et les manches qu'elle pare sur tout un acte, au plus, gardien compris — depuis la version 3 de la traversée. Sans
+ * plafond, elle repartait à chaque épreuve, et restait la carte la plus forte du calibrage : 49 traversées sur cent au
+ * joueur moyen qui l'emportait, 17 points de plus que toutes (« J'aimerais que sur parade il y ait un maximum de
+ * parade sur l'ensemble d'un acte car sinon c'est trop fort », le propriétaire, le 1er novembre 2026).
+ */
+export const PARADES_PAR_ACTE: Readonly<Record<Force, number>> = { 1: 2, 2: 3, 3: 4 }
 /** Cagnotte : l'or de plus à chaque manche gagnée. */
 export const OR_DE_LA_CAGNOTTE: Readonly<Record<Force, number>> = { 1: 5, 2: 10, 3: 15 }
 /** Panacée : les cœurs de plus au maximum. */

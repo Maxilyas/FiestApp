@@ -46,6 +46,7 @@ import {
   OR_PAR_ETOILE,
   OR_SANS_AMELIORATION,
   PARADE_CONTRE_LES_GARDIENS,
+  PARADES_PAR_ACTE,
   NIVEAU_OFFERT,
   PRIX_DU_MARCHAND,
   PRIX_MIN,
@@ -139,9 +140,10 @@ export const CARTES: readonly CarteDeLaTraversee[] = [
     sorte: 'toujours',
     pouvoir: null,
     dit: (n, v = VERSION_DE_LA_TRAVERSEE) => {
-      const { parees, contreLesGardiens } = baremeDe({ v }).parade
+      const { parees, contreLesGardiens, parActe } = baremeDe({ v }).parade
       const k = parees[n]
-      return `${k > 1 ? `Tes ${k} premières manches ratées` : 'Ta première manche ratée'} de chaque épreuve ${k > 1 ? 'ne coûtent' : 'ne coûte'} pas de cœur${n >= contreLesGardiens ? ', contre les gardiens aussi' : ' (pas contre les gardiens)'}.`
+      const plafond = parActe ? ` Au plus ${parActe[n]} manches parées par acte.` : ''
+      return `${k > 1 ? `Tes ${k} premières manches ratées` : 'Ta première manche ratée'} de chaque épreuve ${k > 1 ? 'ne coûtent' : 'ne coûte'} pas de cœur${n >= contreLesGardiens ? ', contre les gardiens aussi' : ' (pas contre les gardiens)'}.${plafond}`
     },
   },
   { cle: 'cagnotte', nom: 'Cagnotte', sorte: 'toujours', pouvoir: null, dit: n => `${OR_DE_LA_CAGNOTTE[n]} pièces de plus à chaque manche réussie.` },
@@ -572,7 +574,7 @@ export function tracerLaCarte(
  * traversée de la 1 en route aurait pu se perdre après coup, un cœur de moins
  * au départ, ou voir un achat d'hier refusé.
  */
-export const VERSIONS_DE_LA_TRAVERSEE = [1, 2] as const
+export const VERSIONS_DE_LA_TRAVERSEE = [1, 2, 3] as const
 export type VersionDeLaTraversee = (typeof VERSIONS_DE_LA_TRAVERSEE)[number]
 export const VERSION_DE_LA_TRAVERSEE: VersionDeLaTraversee = VERSIONS_DE_LA_TRAVERSEE[VERSIONS_DE_LA_TRAVERSEE.length - 1]
 
@@ -584,16 +586,22 @@ export interface BaremeDeLaTraversee {
   prix: Readonly<Record<'coeur' | 'amelioration' | 'auPlusHaut', number>>
   /** Ce qu'une amélioration offerte (le coffre, le gardien vaincu) donne au plus. */
   niveauOffert: NiveauDeCarte
-  /** La Parade : les manches ratées parées à chaque épreuve, niveau par niveau, et le niveau dès lequel elle pare contre les gardiens. */
-  parade: { parees: Readonly<Record<Force, number>>; contreLesGardiens: Force }
+  /**
+   * La Parade : les manches ratées parées à chaque épreuve, niveau par niveau, le niveau dès lequel elle pare contre
+   * les gardiens, et ce qu'elle pare sur tout un acte, au plus — null : sans plafond, jusqu'à la version 2.
+   */
+  parade: { parees: Readonly<Record<Force, number>>; contreLesGardiens: Force; parActe: Readonly<Record<Force, number>> | null }
 }
 
 /**
  * Le barème de chaque version : la 1 écrite en dur, telle qu'elle s'est jouée
  * du 31 octobre au 1er novembre 2026 — trop facile, ses cartes au plus haut
- * dès le deuxième gardien, la Parade souveraine ; la 2 lit `bareme.ts`. Une
- * version ne quitte jamais cette table : sans elle, ses traversées ne se
- * reliraient plus.
+ * dès le deuxième gardien, la Parade souveraine ; la 2 aussi, telle qu'elle
+ * s'est jouée le 1er novembre 2026 — sa Parade repartait à chaque épreuve,
+ * sans plafond sur l'acte ; la 3 lit `bareme.ts`. Une version ne quitte jamais
+ * cette table : sans elle, ses traversées ne se reliraient plus — et relue au
+ * plafond de la 3, une traversée de la 2 en route aurait perdu après coup les
+ * cœurs que sa Parade lui avait gardés.
  */
 const BAREMES_DES_VERSIONS: Readonly<Record<VersionDeLaTraversee, BaremeDeLaTraversee>> = {
   1: {
@@ -602,15 +610,23 @@ const BAREMES_DES_VERSIONS: Readonly<Record<VersionDeLaTraversee, BaremeDeLaTrav
     pvDesGardiens: [6, 8, 10],
     prix: { coeur: 25, amelioration: 45, auPlusHaut: 45 },
     niveauOffert: 3,
-    parade: { parees: { 1: 1, 2: 1, 3: 2 }, contreLesGardiens: 2 },
+    parade: { parees: { 1: 1, 2: 1, 3: 2 }, contreLesGardiens: 2, parActe: null },
   },
   2: {
+    coeursDeDepart: 4,
+    orParEtoile: 4,
+    pvDesGardiens: [6, 13, 20],
+    prix: { coeur: 25, amelioration: 45, auPlusHaut: 150 },
+    niveauOffert: 2,
+    parade: { parees: { 1: 1, 2: 2, 3: 2 }, contreLesGardiens: 3, parActe: null },
+  },
+  3: {
     coeursDeDepart: COEURS_DE_DEPART,
     orParEtoile: OR_PAR_ETOILE,
     pvDesGardiens: PV_DES_GARDIENS,
     prix: PRIX_DU_MARCHAND,
     niveauOffert: NIVEAU_OFFERT,
-    parade: { parees: ERREURS_PAREES, contreLesGardiens: PARADE_CONTRE_LES_GARDIENS },
+    parade: { parees: ERREURS_PAREES, contreLesGardiens: PARADE_CONTRE_LES_GARDIENS, parActe: PARADES_PAR_ACTE },
   },
 }
 
@@ -772,6 +788,8 @@ export interface EtatDeLaTraversee {
   ameliorations: number
   /** Le Second souffle a servi. */
   souffle: boolean
+  /** Les manches que la Parade a couvertes depuis le début de l'acte : la version 3 les plafonne (`PARADES_PAR_ACTE`). */
+  pareesDeLActe: number
   vaincus: readonly string[]
   /** Les épreuves conclues, et les manches réussies : le bilan de la traversée. */
   epreuves: number
@@ -790,6 +808,18 @@ const sous = <T>(table: Readonly<Record<Force, T>>, n: NiveauDeCarte | 0, sinon:
 
 /** Ce qui dit sous quelles règles se lit une traversée : sa version, que portent son départ et sa vue. */
 type SaVersion = Pick<DepartDeLaTraversee, 'v'>
+
+/**
+ * Ce que la Parade peut encore parer dans cet acte, au plafond de sa version (`PARADES_PAR_ACTE`) — la page le dit à
+ * l'annonce d'une épreuve ; null sans Parade en main, ou sous une version sans plafond. Montée chez le marchand en
+ * cours d'acte, elle prend le plafond de son nouveau niveau, moins ce qu'elle a déjà paré.
+ */
+export function paradesDeLActe(d: SaVersion, e: Pick<EtatDeLaTraversee, 'cartes' | 'pareesDeLActe'>): { restent: number; max: number } | null {
+  const n = niveauDe(e.cartes, 'parade')
+  const plafond = baremeDe(d).parade.parActe
+  if (n === 0 || !plafond) return null
+  return { restent: Math.max(0, plafond[n] - e.pareesDeLActe), max: plafond[n] }
+}
 
 export const coeursMax = (d: SaVersion, cartes: readonly CarteEnMain[]): number => baremeDe(d).coeursDeDepart + sous(COEURS_DE_LA_PANACEE, niveauDe(cartes, 'panacee'), 0)
 export const pvDuGardien = (d: SaVersion, acte: Acte, cartes: readonly CarteEnMain[]): number =>
@@ -876,6 +906,7 @@ export function etatDuDepart(d: DepartDeLaTraversee): EtatDeLaTraversee {
     assauts: 0,
     ameliorations: 0,
     souffle: false,
+    pareesDeLActe: 0,
     vaincus: [],
     epreuves: 0,
     reussies: 0,
@@ -1023,6 +1054,8 @@ export function consequencesDe(
   // La Parade de sa version : une traversée de la 1 garde la sienne, qui parait aussi chaque assaut dès la Parade +.
   const regleDeLaParade = baremeDe(d).parade
   const paresMax = parade !== 0 && (!gardien || parade >= regleDeLaParade.contreLesGardiens) ? regleDeLaParade.parees[parade] : 0
+  // Et ce qui reste à l'acte : depuis la version 3, elle ne repart plus à chaque épreuve sans compter.
+  const resteALActe = parade !== 0 && regleDeLaParade.parActe ? Math.max(0, regleDeLaParade.parActe[parade] - e.pareesDeLActe) : Infinity
   const qod = n('quitte-ou-double')
   const mult = qod === 0 ? 1 : MULTIPLICATEUR_DE_LA_MISE[qod]
   const cagnotte = sous(OR_DE_LA_CAGNOTTE, n('cagnotte'), 0)
@@ -1059,7 +1092,7 @@ export function consequencesDe(
       manches.push({ ...nulle, or: gain, coups, comptee: true })
       continue
     }
-    const paree = parees < paresMax
+    const paree = parees < paresMax && parees < resteALActe
     if (paree) parees++
     const perte = paree ? 0 : m.misee ? COEURS_D_UNE_MISE_PERDUE : 1
     coeurs -= perte
@@ -1077,7 +1110,7 @@ export function consequencesDe(
     manches.push({ ...nulle, coeurs: perte, paree, comptee: true })
   }
   const perdus = manches.reduce((s, m) => s + m.coeurs, 0)
-  let etat: EtatDeLaTraversee = { ...e, coeurs, or, souffle, reussies: e.reussies + reussies }
+  let etat: EtatDeLaTraversee = { ...e, coeurs, or, souffle, reussies: e.reussies + reussies, pareesDeLActe: e.pareesDeLActe + parees }
   let recompense: BilanDEpreuve['recompense']
   if (gardien && pv !== null && pvAvant !== null) etat = { ...etat, pv: { restent: pv, max: e.pv?.max ?? pvAvant } }
   if (vaincu && !perdue) {
@@ -1168,7 +1201,7 @@ export function jouerUnGesteDeLaTraversee(d: DepartDeLaTraversee, avant: EtatDeL
       // L'acte suivant s'ouvre aussitôt : l'amélioration du gardien se choisit devant sa carte, avant le premier pas.
       const acte = (e.acte + 1) as Acte
       const depart = departDeLActe(acte)
-      return suite({ ...apres, vaincus, acte, position: depart, visitees: [...apres.visitees, depart], pv: null, assauts: 0, ou: { sorte: 'carte' } })
+      return suite({ ...apres, vaincus, acte, position: depart, visitees: [...apres.visitees, depart], pv: null, assauts: 0, pareesDeLActe: 0, ou: { sorte: 'carte' } })
     }
     case 'ameliorer': {
       if (e.ameliorations <= 0) return RIEN_A_AMELIORER

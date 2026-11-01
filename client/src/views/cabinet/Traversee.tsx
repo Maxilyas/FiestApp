@@ -616,7 +616,7 @@ export function Traversee({ page, busy, onCommencer, onGeste, onRegles, onRepren
                 cle={c.cle}
                 niveau={c.niveau}
                 v={t.v}
-                etiquette={c.cle === 'second-souffle' && t.souffle ? 'Déjà servie' : undefined}
+                etiquette={c.cle === 'second-souffle' && t.souffle ? 'Déjà servie' : c.cle === 'parade' && t.parades ? sousLaParade(t.parades) : undefined}
                 dos={<DosDeLaCarte cle={c.cle} rang={defis.rangs[c.cle]} />}
                 doree={defis.rangs[c.cle] >= 2}
               />
@@ -946,16 +946,25 @@ function RegardSurLaCarte({ t, e, onRanger }: { t: VueDeLaTraversee; e: EtapeDeL
 // ── L'annonce d'une épreuve, d'un gardien ──
 
 /**
+ * Ce qui reste à la Parade dans l'acte (`VueDeLaTraversee.parades`, depuis la version 3) : sous sa carte, comme
+ * « Déjà servie » sous le Second souffle, et à l'annonce d'une épreuve — son plafond se compte d'une épreuve à
+ * l'autre, et une manche ratée qui coûte un cœur sous la Parade ne se comprendrait pas sans lui.
+ */
+const sousLaParade = (p: { restent: number }) => (p.restent === 0 ? 'Plus aucune dans l’acte' : `Encore ${p.restent} dans l’acte`)
+const resteDeLaParade = (p: { restent: number }) => (p.restent === 0 ? 'Il ne t’en reste plus dans cet acte.' : `Il t’en reste ${p.restent} dans cet acte.`)
+
+/**
  * Ce que tes cartes font à cette épreuve, une ligne chacune : celles qui y jouent — pas la Panacée ni le Pourboire, ni
  * ce qui ne vise qu'un gardien, ni la Parade contre un gardien sous le niveau où elle le pare (celui de sa version).
  */
-function ceQueFontTesCartes(t: Pick<VueDeLaTraversee, 'cartes' | 'v'>, gardien: boolean): { nom: string; dit: string }[] {
+function ceQueFontTesCartes(t: Pick<VueDeLaTraversee, 'cartes' | 'v' | 'parades'>, gardien: boolean): { nom: string; dit: string }[] {
   return t.cartes.flatMap(c => {
     const carte = carteDeLaTraversee(c.cle)
     if (!carte) return []
     if (c.cle === 'parade' && gardien && c.niveau < baremeDe(t).parade.contreLesGardiens) return []
     if (c.cle === 'pourboire' || c.cle === 'panacee' || (c.cle === 'coup-de-grace' && !gardien)) return []
-    return [{ nom: nomAuNiveau(carte, c.niveau), dit: carte.dit(c.niveau, t.v) }]
+    const dit = carte.dit(c.niveau, t.v)
+    return [{ nom: nomAuNiveau(carte, c.niveau), dit: c.cle === 'parade' && t.parades ? `${dit} ${resteDeLaParade(t.parades)}` : dit }]
   })
 }
 

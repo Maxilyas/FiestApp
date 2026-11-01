@@ -39,7 +39,7 @@ Trois à jouer d'un geste dans une manche, cinq toujours actives, une qui ne ser
 | **Échange** | à jouer : une autre manche du même jeu, avant de répondre (Changer) — jamais à la Frise | 1 · 2 · 3 fois par épreuve |
 | **Quitte ou double** | à jouer : mise sur une manche avant de la voir ; réussie, son or double ou triple ; ratée, elle coûte deux cœurs (Miser) | une fois ×2 · une fois ×3 · deux fois ×3 |
 | **Concentration** | toujours : du temps en plus à chaque manche (Prendre son temps) | +10 · +20 · +30 s |
-| **Parade** | toujours : les premières manches ratées de chaque épreuve ne coûtent pas de cœur — contre les gardiens, à la Parade ++ seulement (dès la Parade + jusqu'au 1er novembre 2026, quand elle écrasait les neuf autres) | 1 · 2 · 2 manches |
+| **Parade** | toujours : les premières manches ratées de chaque épreuve ne coûtent pas de cœur — contre les gardiens, à la Parade ++ seulement (dès la Parade + jusqu'au 1er novembre 2026, quand elle écrasait les neuf autres) ; sur tout un acte, gardien compris, elle en pare au plus 2, 3 ou 4 (depuis le soir du 1er novembre 2026), et ce qui lui reste se lit sous sa carte et à l'annonce de chaque épreuve | 1 · 2 · 2 manches par épreuve, 2 · 3 · 4 par acte |
 | **Cagnotte** | toujours : de l'or en plus à chaque manche réussie | +5 · +10 · +15 pièces |
 | **Panacée** | toujours : des cœurs de plus au maximum | +1 · +2 · +3 |
 | **Pourboire** | toujours : une remise chez le marchand, sur chaque achat | −10 · −20 · −30 pièces |
@@ -146,7 +146,7 @@ Le bouton dit la traversée en route — « Acte 2 sur 3 · 4 cœurs », « En r
 
 ## Ce qui vient ensuite
 
-- **Relire la traversée sur de vraies parties** : ses chiffres sont ceux du calibrage du 1er novembre 2026 (« Les cartes sont aussi très fortes », le propriétaire) — le moyen y gagne une traversée sur trois, le fort huit sur dix ([les barèmes](../reference/baremes.md#le-calibrage-du-cabinet)) —, sur un modèle de joueur que de vraies traversées corrigeront. **La Parade**, qui écrasait les autres cartes (le moyen qui l'emportait gagnait 77 traversées sur cent), ne pare plus les gardiens qu'à la Parade ++ (« Tu peux toucher la parade si tu le souhaites pour affaiblir un peu la carte », le propriétaire) : elle reste la meilleure défense, 20 points au-dessus de la moyenne chez le joueur moyen, la Panacée et le Second souffle à 10 ([les décisions](../architecture/decisions.md), « La traversée, version 2 »).
+- **Relire la traversée sur de vraies parties** : ses chiffres sont ceux du calibrage du 1er novembre 2026 (« Les cartes sont aussi très fortes », le propriétaire) — le moyen y gagne une traversée sur trois, le fort huit sur dix ([les barèmes](../reference/baremes.md#le-calibrage-du-cabinet)) —, sur un modèle de joueur que de vraies traversées corrigeront. **La Parade**, qui écrasait les autres cartes (le moyen qui l'emportait gagnait 77 traversées sur cent), ne pare plus les gardiens qu'à la Parade ++ (« Tu peux toucher la parade si tu le souhaites pour affaiblir un peu la carte », le propriétaire) : elle restait la meilleure défense, 20 points au-dessus de la moyenne chez le joueur moyen, la Panacée et le Second souffle à 10 ([les décisions](../architecture/decisions.md), « La traversée, version 2 »). Plafonnée par acte le soir même (« un maximum de parade sur l'ensemble d'un acte car sinon c'est trop fort », le propriétaire), elle n'en fait plus que 4, et le moyen gagne une traversée sur quatre ; des gardiens un peu moins solides lui rendraient la troisième (« La traversée, version 3 »).
 - **Effacer le musée** — son code, ses routes, ses tables —, s'il ne revient pas.
 - **Après la V1** : l'Épingle du monde ; le dévoilement, le rébus et les curiosités en jeux ; un dictionnaire pour le Mot mystère ; le signalement du contenu neuf ; une page du QG pour le Cabinet.
 
@@ -161,7 +161,8 @@ Le bouton dit la traversée en route — « Acte 2 sur 3 · 4 cœurs », « En r
 | Les améliorations | offertes (le coffre, le gardien vaincu) jusqu'à la carte + ; la carte ++ chez le marchand seulement |
 | Le marchand | un cœur 25, vers la carte + 45, vers la carte ++ 150, jamais moins de 5 |
 | Les gardiens | 6, 13, 20 points de vie ; assauts de 3 manches |
-| La Parade | 1, 2, 2 manches ratées parées par épreuve ; contre les gardiens à la Parade ++ |
+| La Parade | 1, 2, 2 manches ratées parées par épreuve ; contre les gardiens à la Parade ++ ; au plus 2, 3, 4 par acte, gardien compris |
+| Une traversée de la version 2, commencée avant la 3 | sa Parade sans plafond sur l'acte, jusqu'au bout |
 | Une traversée de la version 1, commencée avant la 2 | ses chiffres d'alors, jusqu'au bout : 5 cœurs, 5 pièces l'étoile, des gardiens à 6, 8, 10, la carte ++ offerte et à 45, la Parade à 1, 1, 2 et contre les gardiens dès la Parade + |
 | La difficulté | acte I facile, II moyen, III difficile ; un cran au-dessus contre les gardiens |
 | Une épreuve | 3 manches de 3 étoiles, une manche réussie à 2 étoiles naturelles |

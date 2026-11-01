@@ -502,6 +502,8 @@ export interface VueDeLaTraversee {
   prix: { coeur: number; cartes: Partial<Record<CleDeCarte, number>> }
   /** Les cartes qu'une amélioration offerte — le coffre, le gardien vaincu — peut prendre : la carte ++ ne s'offre pas. */
   offrables: CleDeCarte[]
+  /** Ce que la Parade peut encore parer dans cet acte (`paradesDeLActe`) ; null sans Parade, ou sans plafond (jusqu'à la version 2). */
+  parades: { restent: number; max: number } | null
   /**
    * Ce que cette traversée a fait tomber des défis de ses cartes et des épreuves de maître (`defisDeLaTraversee`,
    * `shared/cabinet/defis.ts`) : toutes ses clés, et celles de sa dernière épreuve conclue — son bilan les dit.
