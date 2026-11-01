@@ -75,6 +75,7 @@ import {
   type EtatDeLaTraversee,
   type GesteDeLaTraversee,
   type GesteDeLaTraverseeEcrit,
+  type ThemeDuQuiz,
 } from '../../../../shared/cabinet/traversee'
 import { fondreLesReveils, vuesDuCabinet, type ReveilDesGardiens } from '../../../../shared/cabinet/vues'
 import {
@@ -92,7 +93,7 @@ import {
 } from './tables'
 import { fichierDuCadrage } from '../details'
 import { contenuDuCabinet } from './contenu'
-import { preparerLesTas } from './tirages/tas'
+import { preparerLesTas, themesDuQuiz } from './tirages/tas'
 import { themeDuPlan, tirerLePlan } from './tirages/index'
 import { CHANGEMENTS_PAR_PARTIE, DEPARTS_PAR_HEURE, MANCHES_PAR_PARTIE } from '../../../../shared/cabinet/bareme'
 import { lireLeBilan, lireUnGeste } from '../../../../shared/cabinet/lecture'
@@ -1632,7 +1633,20 @@ export class CabinetStore {
       const tr = await this.traverseeDe(profileId)
       const id = tr ? partieEnCours(tr.etat) : null
       if (!tr || !id) return { traversee: tr, partie: null }
-      const p = await this.partieDe(profileId, id)
+      let p: PartieGardee | null = await this.partieDe(profileId, id)
+      // Le gardien à terre, ou le dernier cœur parti : les manches qui restent ne comptent plus (`EpreuveEnCours.fin`). La page le
+      // dit, et quitte d'elle-même ; un « quitter » qui ne partait pas — un autre geste encore en vol, le réseau, l'onglet fermé —
+      // laissait l'épreuve ouverte, et la carte proposait de reprendre une épreuve gagnée (le retour du propriétaire, le
+      // 1er novembre 2026). La lecture la quitte ici, comme la page l'aurait fait, puis la conclut.
+      if (p && !p.etat.fin && this.plusRienAJouer(tr, p)) {
+        const quittee = await this.ecrireUnGeste(profileId, p, { quoi: 'quitter' }, p.etat.rang, t)
+        if ('devance' in quittee) {
+          if (essai > 0) throw new Error(GESTE_CROISE)
+          continue
+        }
+        if ('partie' in quittee) p = quittee.partie
+        else console.error(`[cabinet] l’épreuve ${id} de la traversée ${tr.id} ne se quitte pas : ${quittee.refus}`)
+      }
       if (p && !p.etat.fin) return { traversee: tr, partie: p }
       if (!p) console.error(`[cabinet] l’épreuve ${id} de la traversée ${tr.id} ne se relit pas : elle se conclut sans étoiles`)
       const manches = p
@@ -1646,6 +1660,12 @@ export class CabinetStore {
       }
       if (essai > 0) throw new Error(GESTE_CROISE)
     }
+  }
+
+  /** L'épreuve n'a-t-elle plus rien à jouer — le gardien à terre, le dernier cœur parti — avant même sa dernière manche ? */
+  private plusRienAJouer(tr: TraverseeGardee, p: PartieGardee): boolean {
+    const manches = etoilesDesManches(p.depart, p.etat).map(m => ({ etoiles: m.naturel, misee: m.misee }))
+    return epreuveEnCours(tr.depart, tr.etat, p.id, manches, false)?.fin !== undefined
   }
 
   /** Une partie d'épreuve telle que la route la montre : ce qu'elle vaut déjà à sa traversée, si la traversée y joue encore. */
@@ -1685,6 +1705,8 @@ export class CabinetStore {
   async commencerUneTraversee(profileId: string): Promise<LectureDeLaTraversee> {
     const recueLe = this.maintenant()
     if (!this.departs.take(profileId)) throw new Error(TROP_DE_DEPARTS)
+    // Les thèmes que le Quiz peut promettre, lus avant le verrou : les tas d'une liste neuve se préparent sans le retenir.
+    const quiz = await this.themesPourLeQuiz()
     return this.porte.avecVerrou(profileId, async () => {
       for (let essai = 0; ; essai++) {
         const t = recueLe
@@ -1694,7 +1716,7 @@ export class CabinetStore {
         const halloween = this.reglages.calendrier.periodeDu(jour)?.saison.key === 'halloween'
         const gardiens = choisirLesGardiens(this.hasard, new Set(this.profils.legendairesOf(profileId)), halloween)
         const contenu = contenuDuCabinet()
-        const themes = { epingle: [...new Set(contenu.lieux.map(l => l.theme))], frise: [...new Set(contenu.frises.map(f => f.theme))] }
+        const themes = { epingle: [...new Set(contenu.lieux.map(l => l.theme))], frise: [...new Set(contenu.frises.map(f => f.theme))], quiz }
         const depart: DepartDeLaTraversee = { v: VERSION_DE_LA_TRAVERSEE, jour, actes: tracerLaCarte(this.hasard, gardiens, themes, JEUX_PRETS) }
         const id = randomUUID()
         let lus: ResultSet[]
@@ -1715,6 +1737,24 @@ export class CabinetStore {
         return this.lectureDeLaTraversee(profileId, tr, null, this.maintenant())
       }
     })
+  }
+
+  /**
+   * Les sujets et les rubriques de la base où le Quiz a de quoi jouer
+   * (`themesDuQuiz`), sur les tas prêts — la page du Cabinet les prépare en
+   * fond, le départ qui trouve une liste neuve les attend. Aucun si la base ne
+   * se lit pas : la carte ne promet alors au Quiz que des catégories, et la
+   * traversée part quand même.
+   */
+  private async themesPourLeQuiz(): Promise<ThemeDuQuiz[]> {
+    try {
+      const jouables = await this.porte.jouables()
+      await this.tasDe(jouables)
+      return themesDuQuiz(this.porte, jouables)
+    } catch (e) {
+      console.error('[cabinet] base de la campagne non lue, le Quiz ne promettra que des catégories :', e)
+      return []
+    }
   }
 
   /**
@@ -1793,7 +1833,7 @@ export class CabinetStore {
         hasard: this.hasard,
         enjeu: { marchesEnPlus: [], friseSerree: false, marches: visee.marches },
         leurres: journal.leurresChoisis(),
-        vise: { categorie: visee.categorie, theme: visee.theme },
+        vise: { categorie: visee.categorie, theme: visee.theme, sujet: visee.sujet },
       },
       rechanges,
     )

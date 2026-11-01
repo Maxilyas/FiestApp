@@ -296,6 +296,7 @@ export type ReponseDUnJeu =
   | { frise: { ordre: number[] } }
   | { epingle: { lat: number; lon: number } }
   | { replique: { qui: number } }
+  | { quiz: { choix: (number | null)[] } }
 
 /**
  * Ce que la page envoie, tel que `lireUnGeste` le relit, avec le rang qu'il

@@ -1,5 +1,5 @@
 // Des plans d'essai pour les règles pures du Cabinet : un contenu tiré de
-// chacun des neuf jeux, un départ, et de quoi jouer une partie geste à geste
+// chacun des dix jeux, un départ, et de quoi jouer une partie geste à geste
 // comme le serveur la jouera — l'heure d'arrivée de chaque geste à la main.
 // Les exemples sont fabriqués ici, petits et lisibles ; le contenu livré a son
 // juge et son test (`cabinet-contenu.test.ts`), le tirage du serveur les siens.
@@ -123,6 +123,9 @@ export function tirageDe(jeu: CleDeJeu, k: number): ContenuTire {
       return { jeu, fiche: fiche(k) }
     case 'replique':
       return repliqueTiree(replique(k), hasardDe(`replique:${k}`))
+    case 'quiz':
+      // Quatre questions, leurs bonnes réponses à des places différentes : 1, 0, 2, 3.
+      return { jeu, theme: 'Géographie', questions: [1, 0, 2, 3].map((bonne, i) => qcm(`q${k}${i}`, bonne)) }
   }
 }
 

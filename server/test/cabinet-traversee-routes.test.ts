@@ -9,7 +9,7 @@
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { inscrireProfil } from './banc'
-import { aLaMain, bancDuCabinet, enBase, fermerLesMagasins, jouer, lire, ok, poster, type BancDuCabinet } from './cabinet-banc'
+import { aLaMain, bancDuCabinet, enBase, fermerLesMagasins, jouer, jouerUnEclair, lire, ok, poster, type BancDuCabinet } from './cabinet-banc'
 import { CABINET_SANS_PROFIL } from '../src/cabinet'
 import { GESTE_PASSE_EN_ROUTE, TRAVERSEE_EN_ROUTE, TRAVERSEE_INTROUVABLE } from '../src/core/cabinet/magasin'
 import * as B from '../../shared/cabinet/bareme'
@@ -22,6 +22,7 @@ import {
   idDEtape,
   tracerLaCarte,
   type DepartDeLaTraversee,
+  type EtatDeLaTraversee,
   type GesteDeLaTraversee,
 } from '../../shared/cabinet/traversee'
 import type { PageDeLaTraversee, VueDeLaPartie, VueDeLaTraversee } from '../../shared/cabinet/vues'
@@ -44,6 +45,49 @@ const geste = (cookie: string, t: Pick<VueDeLaTraversee, 'id' | 'rang'>, g: Reco
 async function partir(cookie: string, cartes: string[]): Promise<PageDeLaTraversee> {
   const t = ok(await commencer(cookie), 'le départ').traversee!
   return ok(await geste(cookie, t, { quoi: 'cartes', cartes }), 'les cartes')
+}
+
+/**
+ * Une traversée écrite à la main jusqu'à ce que `arret` dise stop : ses gestes rejoués par le pli, comme le serveur les aurait
+ * écrits — ses épreuves conclues sans faute, chaque amélioration offerte à la première carte qui peut monter. Rend son départ.
+ */
+function traverseeALaMain(profil: string, gardiens: [string, string, string], arret: (e: EtatDeLaTraversee) => boolean): DepartDeLaTraversee {
+  let x = 1
+  const hasard = () => ((x = (x * 16807) % 2147483647) / 2147483647)
+  const depart: DepartDeLaTraversee = { v: 1, jour: '2026-10-24', actes: tracerLaCarte(hasard, gardiens, { epingle: ['Rome'], frise: ['Rome'] }) }
+  const gestes: GesteDeLaTraversee[] = [{ quoi: 'cartes', cartes: ['cagnotte', 'parade', 'panacee'] }]
+  const etat = () =>
+    etatDeLaTraversee(
+      depart,
+      gestes.map(geste => ({ geste, faitLe: 0 })),
+    )
+  let e = etat()
+  let p = 0
+  while (!arret(e)) {
+    if (e.ameliorations > 0) gestes.push({ quoi: 'ameliorer', carte: e.cartes.find(c => c.niveau < 3)!.cle })
+    else {
+      const ici = depart.actes[e.acte].etapes
+      const suivantes = e.ou.sorte === 'gardien' ? [e.ou.etape] : ici.find(s => s.id === e.position)!.suivantes
+      const etape = ici.find(s => s.id === (suivantes.find(id => ici.find(s => s.id === id)?.sorte === 'epreuve') ?? suivantes[0]))!
+      if (etape.sorte === 'coffre' || etape.sorte === 'marchand') gestes.push({ quoi: 'aller', etape: etape.id })
+      else {
+        const partie = `fausse-${profil}-${++p}`
+        gestes.push({ quoi: 'epreuve', etape: etape.id, partie }, { quoi: 'conclure', partie, manches: [3, 3, 3].map(etoiles => ({ etoiles, misee: false })) })
+      }
+    }
+    e = etat()
+  }
+  assert.equal(e.ignores, 0)
+  const id = `traversee-a-la-main-${profil}`
+  const q = (s: string) => `'${s.replace(/'/g, "''")}'`
+  aLaMain(
+    b.fichier,
+    [
+      `INSERT INTO cabinet_traversees (id, profile_id, depart, commencee_le) VALUES (${q(id)}, ${q(profil)}, ${q(JSON.stringify(depart))}, 1)`,
+      ...gestes.map((g, k) => `INSERT INTO cabinet_traversee_gestes (traversee_id, rang, geste, fait_le, uid) VALUES (${q(id)}, ${k + 1}, ${q(JSON.stringify(g))}, ${k + 2}, 'u${k}')`),
+    ].join(';\n'),
+  )
+  return depart
 }
 
 test('la traversée : un profil seulement, ses gardiens d’abord, trois cartes pour partir, une seule en route', async () => {
@@ -151,6 +195,35 @@ test('une traversée se cloisonne au profil, se relit après un redémarrage, et
   assert.equal(enBase(b.fichier, db => (db.prepare('SELECT issue FROM cabinet_traversees WHERE id = ?').get(t.id) as { issue: string }).issue), 'abandonnee')
   // Une autre peut commencer.
   await partir(cookie, ['parade', 'pourboire', 'coup-de-grace'])
+})
+
+test('le gardien à terre avant la dernière manche : l’épreuve se quitte et se conclut à la lecture suivante, même sans « Quitter » de la page', async () => {
+  // Le retour du propriétaire, le 1er novembre 2026 : « parfois, lorsque l'on réussit le défi, ça nous fait toujours “reprendre
+  // l'épreuve” ». Le gardien tombé, les manches qui restent ne comptent plus : la page envoie « quitter » d'elle-même (« Le gardien
+  // tombe ! ») — un autre geste encore en vol, le réseau, l'onglet fermé, et il ne partait pas : l'épreuve restait ouverte, et la
+  // carte la proposait à reprendre.
+  const cookie = await unProfil()
+  const depart = traverseeALaMain(await idDe(cookie), ['lg:renard', 'lg:sphinx', 'lg:dragon'], e => e.ou.sorte === 'marchand')
+  const gardien = depart.actes[0].etapes.find(s => s.sorte === 'gardien')!.id
+  const devant = ok(await laPage(cookie), 'la page').traversee!
+  assert.equal(devant.ou.sorte, 'marchand')
+  let partie = ok(await geste(cookie, devant, { quoi: 'aller', etape: gardien }), 'l’assaut').traversee!.partie! as VueDeLaPartie
+  assert.equal(partie.jeu, 'eclair', 'le premier assaut du Renard')
+  // Deux manches parfaites : six étoiles, les six points de vie du gardien de l'acte I.
+  partie = await jouerUnEclair(b, cookie, partie, 0)
+  partie = ok(await jouer(b, cookie, partie, { quoi: 'ouvrir', manche: 1 }), 'la deuxième manche')
+  partie = await jouerUnEclair(b, cookie, partie, 1)
+  assert.equal(partie.traversee?.fin, 'vaincu', 'la page le dit : « Le gardien tombe ! »')
+  assert.equal(partie.phase, 'revele', 'une manche reste, qui ne compte plus')
+  // La page ne quitte pas : la lecture suivante le fait pour elle, et conclut l'épreuve.
+  const apres = ok(await laPage(cookie), 'la page d’après').traversee!
+  assert.equal(apres.partie, undefined, 'plus d’épreuve à reprendre')
+  assert.notEqual(apres.ou.sorte, 'gardien')
+  assert.equal(apres.derniere?.vaincu, true)
+  assert.deepEqual(apres.vaincus, ['lg:renard'])
+  // Le « quitter » de la page, arrivé après : la partie est finie, il est passé — rien ne se joue deux fois.
+  const tardif = await jouer(b, cookie, partie, { quoi: 'quitter' })
+  assert.equal(tardif.status, 409)
 })
 
 test('au bout des trois actes, le légendaire choisi se range sur son étagère', async () => {

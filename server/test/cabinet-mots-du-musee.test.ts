@@ -26,6 +26,7 @@ import {
   jouerUneEpingle,
   jouerUneFrise,
   jouerUneReplique,
+  jouerUnQuiz,
   jouerUnFilet,
   jouerUnMot,
   jouerUnPari,
@@ -115,6 +116,7 @@ const SANS_FAUTE: Record<CleDeJeu, (cookie: string, v: VueDeLaPartie, k: number)
   epingle: (c, v, k) => jouerUneEpingle(b, c, v, k),
   indices: (c, v, k) => jouerDesIndices(b, c, v, k),
   replique: (c, v, k) => jouerUneReplique(b, c, v, k),
+  quiz: (c, v, k) => jouerUnQuiz(b, c, v, k),
 }
 
 /** L'œuvre qu'une partie de la visite a gagnée à un autre jeu que le sien, et ce que le serveur en dit. */

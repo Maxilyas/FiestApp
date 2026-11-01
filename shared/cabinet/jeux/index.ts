@@ -1,4 +1,4 @@
-// Le registre des neuf jeux du Cabinet : chaque règle sous sa clé, et les
+// Le registre des dix jeux du Cabinet : chaque règle sous sa clé, et les
 // types de ce que chacun tire, joue, montre et révèle. Exhaustif par le
 // typage — un jeu de plus que `CleDeJeu` nomme sans sa règle, ou une règle
 // sans l'un de ses types, ne compile pas (D12) ; un jeu de plus, c'est un
@@ -18,6 +18,7 @@ import { REGLE_DE_LA_FRISE, type EtatDeLaFrise, type FriseMontree, type FriseRev
 import { REGLE_DES_INDICES, type EtatDesIndices, type GesteDesIndices, type IndicesMontres, type IndicesReveles, type IndicesTires } from './indices'
 import { REGLE_DU_MOT, type EtatDuMot, type GesteDuMot, type MotMontre, type MotRevele, type MotTire } from './mot'
 import { REGLE_DU_PARI, type EtatDuPari, type GesteDuPari, type PariMontre, type PariRevele, type PariTire } from './pari'
+import { REGLE_DU_QUIZ, type EtatDuQuiz, type GesteDuQuiz, type QuizMontre, type QuizRevele, type QuizTire } from './quiz'
 import { REGLE_DE_LA_REPLIQUE, type EtatDeLaReplique, type GesteDeLaReplique, type RepliqueMontree, type RepliqueRevelee, type RepliqueTiree } from './replique'
 
 /** Ce que chaque jeu tire au départ, l'état d'une de ses manches, ses gestes, ce qu'il montre et ce qu'il révèle. */
@@ -31,12 +32,13 @@ export interface TypesDesJeux {
   eclair: { tiree: EclairTire; etat: EtatDeLEclair; geste: GesteDeLEclair; montree: EclairMontre; revelee: EclairRevele }
   indices: { tiree: IndicesTires; etat: EtatDesIndices; geste: GesteDesIndices; montree: IndicesMontres; revelee: IndicesReveles }
   replique: { tiree: RepliqueTiree; etat: EtatDeLaReplique; geste: GesteDeLaReplique; montree: RepliqueMontree; revelee: RepliqueRevelee }
+  quiz: { tiree: QuizTire; etat: EtatDuQuiz; geste: GesteDuQuiz; montree: QuizMontre; revelee: QuizRevele }
 }
 
 /** La règle d'un jeu, à ses types. */
 export type RegleDe<J extends CleDeJeu> = RegleDuJeu<TypesDesJeux[J]['tiree'], TypesDesJeux[J]['etat'], TypesDesJeux[J]['geste'], TypesDesJeux[J]['montree'], TypesDesJeux[J]['revelee']>
 
-/** Les neuf règles, chacune sous sa clé. */
+/** Les dix règles, chacune sous sa clé. */
 export const REGLES: { readonly [J in CleDeJeu]: RegleDe<J> } = {
   epingle: REGLE_DE_L_EPINGLE,
   frise: REGLE_DE_LA_FRISE,
@@ -47,15 +49,16 @@ export const REGLES: { readonly [J in CleDeJeu]: RegleDe<J> } = {
   eclair: REGLE_DE_L_ECLAIR,
   indices: REGLE_DES_INDICES,
   replique: REGLE_DE_LA_REPLIQUE,
+  quiz: REGLE_DU_QUIZ,
 }
 
 /**
- * Ce qu'un départ fige d'une manche ou d'une rechange : l'union des neuf
+ * Ce qu'un départ fige d'une manche ou d'une rechange : l'union des dix
  * tirages, chacun marqué de son jeu (`jeu`). Il garde la réponse : il ne part
  * jamais au téléphone.
  */
 export type ContenuTire = TypesDesJeux[CleDeJeu]['tiree']
-/** Ce que la page reçoit d'une manche en cours : l'union des neuf, sans la réponse. */
+/** Ce que la page reçoit d'une manche en cours : l'union des dix, sans la réponse. */
 export type MancheMontree = TypesDesJeux[CleDeJeu]['montree']
 /** Ce que la page reçoit d'une manche tranchée : la réponse entière et « Le savais-tu ? ». */
 export type RevelationDUneManche = TypesDesJeux[CleDeJeu]['revelee']

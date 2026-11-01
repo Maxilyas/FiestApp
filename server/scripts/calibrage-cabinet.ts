@@ -105,6 +105,7 @@ import type { FriseMontree, FriseTiree } from '../../shared/cabinet/jeux/frise'
 import type { DecalageDeLaZone, EpingleMontree, EpingleTiree } from '../../shared/cabinet/jeux/epingle'
 import type { IndicesMontres, IndicesTires } from '../../shared/cabinet/jeux/indices'
 import type { RepliqueMontreeAQui, RepliqueMontreeAuMot, RepliqueTiree } from '../../shared/cabinet/jeux/replique'
+import type { QuizMontre, QuizTire } from '../../shared/cabinet/jeux/quiz'
 import type { Point } from '../../shared/cabinet/france'
 import type { CleDePouvoir, Force } from '../../shared/cabinet/pouvoirs'
 import type { CleDOeuvre } from '../../shared/cabinet/oeuvres'
@@ -285,6 +286,7 @@ const {
   MARCHES_DU_FILET,
   MARCHES_DU_MOT,
   MARCHES_DU_PARI,
+  MARCHES_DU_QUIZ,
   PRIX_D_UNE_DORURE,
   PRIX_D_UNE_OEUVRE,
   RAYON_D_ECLAIRER_KM,
@@ -446,6 +448,8 @@ const SECONDES_D_UNE_REVELATION = 6
  */
 const SECONDES = {
   pariQuestion: SECONDES_PAR_QUESTION_DE_SERIE - SECONDES_D_UNE_REVELATION,
+  // Une question du Quiz se lit et se répond comme celle du Pari : un QCM de la base, l'anecdote à la révélation.
+  quizQuestion: SECONDES_PAR_QUESTION_DE_SERIE - SECONDES_D_UNE_REVELATION,
   pariChoix: 2,
   eclairAffirmation: 5,
   motEssai: 12,
@@ -615,6 +619,8 @@ function tirer(jeu: CleDeJeu, n: number, r: Hasard, anneeDuDepart: number, enjeu
       return distincts(FICHES, n, r).map((fiche): IndicesTires => ({ jeu, fiche }))
     case 'replique':
       return distincts(REPLIQUES, n, r).map(x => repliqueTiree(x, r))
+    case 'quiz':
+      return Array.from({ length: n }, (): QuizTire => ({ jeu, theme: null, questions: Array.from({ length: BAREME.QUESTIONS_DU_QUIZ }, () => question(uneMarche(aLEnjeu(MARCHES_DU_QUIZ), r), r)) }))
   }
 }
 
@@ -1142,6 +1148,26 @@ function mancheDeLEclair(p: Partie, m: Manche): void {
   })
 }
 
+/**
+ * Le Quiz : chaque question, il la sait ou la devine parmi celles qui restent ; il change à la troisième qu'il ignore,
+ * comme à l'Éclair — la lecture de celles d'avant se paie —, et éclaire celles qu'il ignore.
+ */
+function mancheDuQuiz(p: Partie, m: Manche): void {
+  const t = p.tiree<QuizTire>()
+  const s = p.savoir(p.manche.tirage, () => t.questions.map(q => p.oui(sait(p.j, q.niveau))))
+  const troisieme = s.map((x, i) => (x ? -1 : i)).filter(i => i >= 0)[2]
+  if (troisieme !== undefined && p.changer(m, true, SECONDES.quizQuestion * (troisieme + 1))) return mancheDuQuiz(p, m)
+  for (let i = 0; i < s.length; i++) if (!s[i] && p.peut('eclairer')) p.eclairer(m, i)
+  const effacees = p.vue<QuizMontre>().effacees
+  const choix = t.questions.map((q, i) => (s[i] ? q.bonne : auHasard(q.reponses.map((_, k) => k).filter(k => !(effacees[i] ?? []).includes(k)), p.r)))
+  const parQuestion = SECONDES.quizQuestion * p.j.vitesse * 1000
+  // À l'échéance, la page envoie celles qu'il a eu le temps de dire.
+  p.geste({ quoi: 'repondre', manche: m, reponse: { quiz: { choix } } }, SECONDES.quizQuestion * choix.length, echeance => {
+    const dites = Math.max(0, Math.min(choix.length, Math.floor((echeance - p.manche.etapes[0].ouverteLe) / parQuestion)))
+    return { quiz: { choix: choix.map((x, i) => (i < dites ? x : null)) } }
+  })
+}
+
 /** Le Mot mystère : le mot s'il le sait ; sinon des essais, et le mot trouvé aux couleurs, s'il le déduit. */
 function mancheDuMot(p: Partie, m: Manche): void {
   const t = p.tiree<MotTire>()
@@ -1403,6 +1429,7 @@ const MANCHES: { readonly [J in CleDeJeu]: { jouer: (p: Partie, m: Manche) => vo
   epingle: { jouer: mancheDeLEpingle, viseLeSeuil: false },
   indices: { jouer: mancheDesIndices, viseLeSeuil: false },
   replique: { jouer: mancheDeLaReplique, viseLeSeuil: false },
+  quiz: { jouer: mancheDuQuiz, viseLeSeuil: false },
 }
 
 /** Une partie jouée : son état final, ce qu'elle a duré, ses pièces justes. */

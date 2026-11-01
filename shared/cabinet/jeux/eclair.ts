@@ -15,9 +15,8 @@
 // avant sept jours (`deplier`).
 
 import { DUREES_DES_JEUX, JUSTES_DE_L_ECLAIR, PART_DES_VRAIES } from '../bareme'
-import type { Niveau } from '../../campagne'
 import { idDeLEclair } from '../pieces'
-import { GESTE_A_JUGER, auHasard, champsDuGeste, naturelDe, reponseEnvoyee, rienAEclairer, type QuestionTiree } from './outils'
+import { GESTE_A_JUGER, auHasard, champsDuGeste, etoilesAuxJustes, marcheLaPlusHaute, reponseEnvoyee, rienAEclairer, type QuestionTiree } from './outils'
 import { justeDeLaPiece, type RegleDuJeu, type VerdictDUneManche } from './regle'
 
 /** Une affirmation : une question de la base et la réponse qu'elle propose, un index de ses réponses. */
@@ -93,12 +92,6 @@ function lesPlusChoisies(mauvaises: readonly number[], reponses: readonly string
 const estVraie = (a: AffirmationTiree) => a.proposee === a.question.bonne
 const proposee = (a: AffirmationTiree) => a.question.reponses[a.proposee]
 
-/** Le barème : au moins tant de justes pour ★★★, ★★, ★ (`JUSTES_DE_L_ECLAIR`). */
-function etoilesDesJustes(justes: number): VerdictDUneManche['naturel'] {
-  const palier = JUSTES_DE_L_ECLAIR.findIndex(n => justes >= n)
-  return palier < 0 ? 0 : naturelDe(3 - palier)
-}
-
 /** « VFV.F » : ce qu'il a répondu à chacune — vraie, fausse, `.` pas répondue. Le journal le garde, la révélation le relit. */
 const composeeDe = (reponses: readonly (boolean | null)[]) => reponses.map(r => (r === null ? '.' : r ? 'V' : 'F')).join('')
 const lireLaComposee = (composee: string | null | undefined, n: number): (boolean | null)[] =>
@@ -116,10 +109,6 @@ function affirmationAApprendre(t: EclairTire, reponses: readonly (boolean | null
     .filter(({ a }) => a.question.anecdote)
     .sort((x, y) => sue(x.i) - sue(y.i) || x.i - y.i)[0]?.a
 }
-
-/** La marche la plus haute de ses affirmations : celle que sa pièce garde. */
-const RANG_DE_LA_MARCHE: Readonly<Record<Niveau, number>> = { facile: 0, moyen: 1, difficile: 2, expert: 3 }
-const plusHaute = (niveaux: readonly Niveau[]): Niveau => niveaux.reduce((a, b) => (RANG_DE_LA_MARCHE[b] > RANG_DE_LA_MARCHE[a] ? b : a), 'facile')
 
 export const REGLE_DE_L_ECLAIR: RegleDuJeu<EclairTire, EtatDeLEclair, GesteDeLEclair, EclairMontre, EclairRevele> = {
   cle: 'eclair',
@@ -147,7 +136,8 @@ export const REGLE_DE_L_ECLAIR: RegleDuJeu<EclairTire, EtatDeLEclair, GesteDeLEc
   juger(t, _e, reponse) {
     const reponses = typeof reponse === 'object' ? reponse.reponses : []
     const justes = t.affirmations.filter((a, i) => reponses[i] === estVraie(a)).length
-    const naturel = etoilesDesJustes(justes)
+    // Le barème : au moins tant de justes pour ★★★, ★★, ★ (`JUSTES_DE_L_ECLAIR`).
+    const naturel = etoilesAuxJustes(justes, JUSTES_DE_L_ECLAIR)
     if (!reponses.some(r => r !== null)) return { naturel, pieces: [{ juste: false, choix: null, composee: null }] }
     const juste = justeDeLaPiece(naturel, 'eclair') === true
     return { naturel, pieces: [{ juste, choix: juste ? 0 : -1, composee: composeeDe(t.affirmations.map((_, i) => reponses[i] ?? null)) }] }
@@ -202,7 +192,8 @@ export const REGLE_DE_L_ECLAIR: RegleDuJeu<EclairTire, EtatDeLEclair, GesteDeLEc
       bonne: 0,
       categorie: qs[0]?.categorie ?? null,
       anecdote: affirmationAApprendre(t, lireLaComposee(v.pieces[0]?.composee, qs.length))?.question.anecdote ?? null,
-      niveau: plusHaute(qs.map(q => q.niveau)),
+      // La marche la plus haute de ses affirmations : celle que sa pièce garde.
+      niveau: marcheLaPlusHaute(qs.map(q => q.niveau)),
       forme: 'eclair',
       cabinet: { jeu: 'eclair', manche: i.manche, tirage: i.tirage },
     }

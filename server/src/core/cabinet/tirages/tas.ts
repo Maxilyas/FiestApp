@@ -7,8 +7,9 @@
 // ce qui lui manquerait encore (une préparation ratée), il le fait d'un bloc,
 // deux mille questions par catégorie qu'il lit.
 //
-// Le Pari et l'Éclair puisent dans le même tas : des QCM de quatre réponses qui
-// se lisent en 360 pixels, chrono en marche, et ne se trahissent pas d'eux-mêmes.
+// Le Pari, l'Éclair et le Quiz puisent dans le même tas : des QCM de quatre
+// réponses qui se lisent en 360 pixels, chrono en marche, et ne se trahissent
+// pas d'eux-mêmes — le Quiz les lit aussi rangés par sujet (`qcmDuSujet`).
 // Le Mot mystère, dans les questions dont la bonne réponse est un mot à taper ;
 // le Filet, dans celles dont elle est une année ou un nombre à viser. Ce que
 // les trois cribles disent d'une question ne dépend que d'elle : leur verdict
@@ -23,13 +24,21 @@ import type { PorteDeLaCampagne } from '../../porteDeLaCampagne'
 import { QUESTIONS_PAR_TRANCHE, rendreLaMain } from '../../tourniquet'
 import { contenuDuCabinet, ecritDansLesMots } from '../contenu'
 import type { CeQueLesTireursLisent } from './communs'
-import { ECART_DES_ANNEES_DE_LA_FRISE, EVENEMENTS_D_UNE_FRISE_A_THEME, INTITULE_MAX_DU_QCM, MARCHES_DE_L_ECLAIR, REPONSE_MAX_DU_QCM } from '../../../../../shared/cabinet/bareme'
+import {
+  ECART_DES_ANNEES_DE_LA_FRISE,
+  EVENEMENTS_D_UNE_FRISE_A_THEME,
+  INTITULE_MAX_DU_QCM,
+  MARCHES_DE_L_ECLAIR,
+  QCM_D_UN_THEME_DU_QUIZ,
+  REPONSE_MAX_DU_QCM,
+} from '../../../../../shared/cabinet/bareme'
 import { motsDe } from '../../../../../shared/cabinet/jeux/indices'
 import { motDeLaQuestion } from '../../../../../shared/cabinet/jeux/mot'
+import { emojiDUnSujet, type ThemeDuQuiz } from '../../../../../shared/cabinet/traversee'
 import { formeDeReponse, niveauDeQuestion, type MesureDUneQuestion } from '../../../../../shared/campagne'
 import { CATEGORIES, type Categorie } from '../../../../../shared/categories'
 import { choisirLaFriseSansRepli, type EvenementDeLaFrise } from '../../../../../shared/frise'
-import { estRemplace, sujetParCle, sujetsDe } from '../../../../../shared/sujets'
+import { estRemplace, sujetParCle, sujetsDe, sujetsEtRubriqueDe } from '../../../../../shared/sujets'
 
 /** Les signes d'un texte, un emoji compté pour un : ce qu'on lit, pas ce que JavaScript compte. */
 const signes = (texte: string) => [...texte].length
@@ -192,6 +201,65 @@ export const motsDeLaCategorie = (porte: Pick<PorteDeLaCampagne, 'deLaCategorie'
 /** Les questions d'une catégorie qui se visent au Filet (`valeurDuFilet`). */
 export const valeursDeLaCategorie = (porte: Pick<PorteDeLaCampagne, 'deLaCategorie'>, jouables: readonly QuestionDeLaBase[], categorie: Categorie): readonly QuestionDeLaBase[] =>
   tasDeLaCategorie(porte, jouables, categorie).valeurs
+
+/**
+ * Les QCM du Cabinet de chaque sujet et de chaque rubrique de la base, pour le
+ * Quiz : rangés par les clés que la campagne lit sur la question
+ * (`sujetsEtRubriqueDe` — un thème, une époque, un pays, une rubrique…), une
+ * catégorie à la fois. Gardés par liste de jouables, comme les tas :
+ * `rangees` dit les catégories déjà passées, et le tireur qui arrive avant la
+ * fin de la préparation range lui-même celles qui manquent, d'un bloc.
+ */
+interface QcmDesSujets {
+  parSujet: Map<string, QuestionDeLaBase[]>
+  rangees: Set<Categorie>
+}
+const QCM_DES_SUJETS = new WeakMap<readonly QuestionDeLaBase[], QcmDesSujets>()
+
+function qcmDesSujetsDe(jouables: readonly QuestionDeLaBase[]): QcmDesSujets {
+  let faits = QCM_DES_SUJETS.get(jouables)
+  if (!faits) QCM_DES_SUJETS.set(jouables, (faits = { parSujet: new Map(), rangees: new Set() }))
+  return faits
+}
+
+/** Les QCM d'une catégorie rangés sous chacun de leurs sujets ; rien si elle l'est déjà. */
+function rangerLesSujets(porte: Pick<PorteDeLaCampagne, 'deLaCategorie'>, jouables: readonly QuestionDeLaBase[], categorie: Categorie): void {
+  const faits = qcmDesSujetsDe(jouables)
+  if (faits.rangees.has(categorie)) return
+  for (const q of qcmDeLaCategorie(porte, jouables, categorie)) {
+    for (const cle of sujetsEtRubriqueDe(q.meta)) {
+      let siens = faits.parSujet.get(cle)
+      if (!siens) faits.parSujet.set(cle, (siens = []))
+      siens.push(q)
+    }
+  }
+  faits.rangees.add(categorie)
+}
+
+/** Toutes les catégories rangées : ce que le tireur et la carte lisent. */
+function qcmParSujet(porte: Pick<PorteDeLaCampagne, 'deLaCategorie'>, jouables: readonly QuestionDeLaBase[]): ReadonlyMap<string, readonly QuestionDeLaBase[]> {
+  for (const c of CATEGORIES) rangerLesSujets(porte, jouables, c)
+  return qcmDesSujetsDe(jouables).parSujet
+}
+
+/** Les QCM du Cabinet d'un sujet ou d'une rubrique (`animaux`, `sport/football`), de cette liste de jouables ; aucun pour une clé inconnue. */
+export const qcmDuSujet = (porte: Pick<PorteDeLaCampagne, 'deLaCategorie'>, jouables: readonly QuestionDeLaBase[], sujet: string): readonly QuestionDeLaBase[] =>
+  qcmParSujet(porte, jouables).get(sujet) ?? []
+
+/**
+ * Les thèmes que le Quiz peut promettre sur la carte d'une traversée, au-delà
+ * des catégories : chaque sujet et chaque rubrique qui a ses QCM du Cabinet
+ * (`QCM_D_UN_THEME_DU_QUIZ`), sauf les époques redécoupées, qui ne se proposent
+ * plus nulle part (`estRemplace`). Son nom, sa famille et son emoji : la page
+ * n'importe pas les sujets pour les dire.
+ */
+export function themesDuQuiz(porte: Pick<PorteDeLaCampagne, 'deLaCategorie'>, jouables: readonly QuestionDeLaBase[]): ThemeDuQuiz[] {
+  return [...qcmParSujet(porte, jouables)].flatMap(([cle, qcm]): ThemeDuQuiz[] => {
+    const s = sujetParCle(cle)
+    if (!s || estRemplace(cle) || qcm.length < QCM_D_UN_THEME_DU_QUIZ) return []
+    return [{ cle, nom: s.nom, famille: s.famille, emoji: emojiDUnSujet(s) }]
+  })
+}
 
 /** Ce que la porte donne de la base au-delà des QCM : la question d'un tableau, les événements datés. */
 export type CeQueLaBaseDonne = Pick<PorteDeLaCampagne, 'parIdDe' | 'evenementsDe'>
@@ -371,8 +439,9 @@ export const LECTURES_DU_DISQUE: readonly (() => unknown)[] = [tableauxDuDetail,
  * Chaque étape relit ce qu'une autre a pu faire pendant qu'elle attendait —
  * le tireur d'un départ, qui juge d'un bloc ce qui lui manque.
  *
- * Après les catégories, l'Éclair à ses marches pour la mesure qu'il y a, une
- * catégorie par tour (`qcmDeLEclair`) ; puis ce que le Détail et la Frise
+ * Après les catégories, les QCM de chaque sujet pour le Quiz, une catégorie
+ * par tour (`qcmDuSujet`) ; l'Éclair à ses marches pour la mesure qu'il y a,
+ * une catégorie par tour (`qcmDeLEclair`) ; puis ce que le Détail et la Frise
  * lisent du disque (`lectures`, `LECTURES_DU_DISQUE`), chacun son tour ; puis
  * ce qu'ils lisent de cette base.
  */
@@ -397,6 +466,11 @@ export async function preparerLesTas(
     }
     // Tous ses verdicts tenus : ses tas ne sont plus qu'un filtre — sauf si le tireur les a faits pendant l'attente.
     if (!parCategorie.has(c)) parCategorie.set(c, tasDes(siennes))
+  }
+  // Les QCM de chaque sujet, pour le Quiz et la carte d'une traversée : une catégorie par tour.
+  for (const c of CATEGORIES) {
+    await rendreLaMain()
+    rangerLesSujets(porte, jouables, c)
   }
   // Une mesure illisible : le tireur fera l'Éclair d'un bloc, comme sans préparation.
   const mesures = await porte.mesures?.().catch(e => (console.warn('[cabinet] mesure illisible, l’Éclair se préparera au départ :', e instanceof Error ? e.message : e), null))

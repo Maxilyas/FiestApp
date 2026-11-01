@@ -1956,6 +1956,15 @@ Le prix, que le propriétaire peut trancher autrement : la découverte. Le bon n
 
 *Fichiers : `shared/cabinet/{traversee,partie,lecture,pouvoirs,bareme,vues}.ts`, `server/src/core/cabinet/{magasin,tables,ecriture,vue}.ts`, `server/src/cabinet.ts`, `client/src/views/cabinet/{Traversee.tsx,TraverseeEn3D.ts,Monnaies.tsx,Partie.tsx}`, `client/src/views/CabinetApp.tsx`, `server/test/cabinet-traversee.test.ts`, `server/test/cabinet-traversee-routes.test.ts`*
 
+### Le Quiz : des questions classiques, sur tous les thèmes de la base
+**Contexte** : le 1er novembre 2026, le lendemain de la traversée, le propriétaire : « j'aimerais aussi avoir des questions classiques sur des thèmes type QCM, mais avec tous les thèmes disponibles que l'on a — voir aussi les catégories etc. — pour donner de la diversité ». Les neuf jeux tiraient la base sur ses douze catégories ; ses sujets (les animaux, les années 80, Harry Potter, le Japon…) et ses rubriques (le football, les desserts) ne se jouaient qu'en campagne.
+
+**Décision** : un dixième jeu, le Quiz (`shared/cabinet/jeux/quiz.ts`) — quatre QCM d'un même thème par manche, quatre justes ★★★, trois ★★, deux ★, en 80 secondes —, qui joue comme l'Éclair : les questions arrivent ensemble, la page les envoie ensemble, et une seule pièce composée (`cab:quiz:…`) garde la manche, le pli n'en écrivant qu'une par verdict et par étape. Ses épreuves promettent une catégorie, un sujet ou une rubrique, tirés **famille par famille** (les catégories, les thèmes, les époques, les pays, les univers, les fêtes, les fils rouges, les rubriques) : d'un seul tas, la centaine de rubriques aurait fait presque toutes les épreuves. Seuls les sujets qui ont leurs QCM du Cabinet se promettent (`QCM_D_UN_THEME_DU_QUIZ`), lus par le serveur à chaque traversée qui commence (`themesDuQuiz`) ; l'étape garde la clé du sujet, que le tireur vise d'abord. Trois gardiens qui posent des questions le jouent aussi — la Chouette, le Sphinx, le Kraken —, sur les catégories : un assaut lit les jeux de son gardien à son heure, et une traversée en route y passe à l'assaut d'après.
+
+**Conséquence** : ses questions ne vont ni au carnet ni au signalement — l'écran le dit, comme à l'Éclair ; un jour, une pièce par question demanderait au pli de situer plusieurs pièces dans une même étape. Le musée qui dort n'a aucune œuvre au Quiz, et aucune n'a bougé pour lui. Une traversée commencée avant lui garde sa carte, sans Quiz.
+
+*Fichiers : `shared/cabinet/jeux/{quiz,regle,index,outils}.ts`, `shared/cabinet/{traversee,lecture,pieces,bareme,ouverture}.ts`, `server/src/core/cabinet/tirages/{quiz,tas,index,communs}.ts`, `server/src/core/cabinet/magasin.ts`, `client/src/views/cabinet/jeux/Quiz.tsx`, `server/test/cabinet-quiz.test.ts`*
+
 ## L'outillage
 
 Le détail : [les tests](../contribuer/tests.md).

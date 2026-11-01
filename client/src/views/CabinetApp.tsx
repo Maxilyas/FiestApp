@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ApiError, UnauthorizedError, api, motifDe } from '../api'
 import { resetClock } from '../clock'
 import { PieceTete, Sortie } from '../components/Pieces'
@@ -64,10 +64,20 @@ export function CabinetApp() {
   // L'épreuve quittée un instant — « ← Le Cabinet » entre deux manches, le retour du navigateur — : la carte la propose, « Reprendre »
   // la rouvre telle qu'elle est.
   const [masquee, setMasquee] = useState<string | null>(null)
+  // L'épreuve finie qui attend sa conclusion : elle reste à l'écran, jamais proposée à reprendre, jusqu'à la page qui ne l'a plus.
+  const [conclue, setConclue] = useState<string | null>(null)
+  const conclueRef = useRef<string | null>(null)
   const { toast } = useAppState()
   const page = etat.e === 'pret' ? etat.page : null
 
-  const recevoir = useCallback((p: PageDeLaTraversee) => setEtat({ e: 'pret', page: p }), [])
+  const recevoir = useCallback((p: PageDeLaTraversee) => {
+    // Conclue — la page ne la porte plus : plus rien à garder à l'écran.
+    if (conclueRef.current && p.traversee?.partie?.id !== conclueRef.current) {
+      conclueRef.current = null
+      setConclue(null)
+    }
+    setEtat({ e: 'pret', page: p })
+  }, [])
   /** La page lue, ou ce qu'en dit le refus : sans profil, fermé ici, ou une panne — une page déjà là reste. */
   const lirePage = useCallback(
     (lue: Promise<PageDeLaTraversee>) => {
@@ -139,12 +149,16 @@ export function CabinetApp() {
   }, [relire])
 
   const partie = page?.traversee?.partie ?? null
-  const montree = partie && partie.id !== masquee && ecranDuJeu(partie.jeu) ? partie : null
+  const montree = partie && (partie.id !== masquee || partie.id === conclue) && ecranDuJeu(partie.jeu) ? partie : null
 
   // Une épreuve montrée pose son entrée d'historique : le retour du navigateur la ferme entre deux manches — la carte la propose —,
-  // et pendant une manche sa garde demande « Quitter ? » (`Partie.tsx`).
+  // et pendant une manche sa garde demande « Quitter ? » (`Partie.tsx`). Avant la garde, d'un effet de mise en page : une
+  // épreuve s'ouvre sur sa première manche, et l'effet de `Partie` — un enfant, qui passe avant son parent — posait sa garde
+  // d'abord, l'entrée de l'épreuve par-dessus. La manche finie, la garde levée reculait d'une entrée et tombait sous celle de
+  // l'épreuve : la page la masquait, et la carte proposait « Reprendre l'épreuve » après chaque première manche (« lorsque l'on
+  // réussit le défi, ça nous fait toujours reprendre l'épreuve », le propriétaire, le 1er novembre 2026).
   const idMontree = montree?.id ?? null
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (idMontree) poserLEntreeDeLaPartie(window.history)
   }, [idMontree])
   const montreeRef = useRef(idMontree)
@@ -152,7 +166,8 @@ export function CabinetApp() {
   useEffect(() => {
     const suivre = () => {
       const id = montreeRef.current
-      if (id && !partieDansLEntree(window.history.state)) {
+      // Le recul d'une épreuve finie (`apresLEpreuve`) ne la masque pas : la carte la conclut.
+      if (id && id !== conclueRef.current && !partieDansLEntree(window.history.state)) {
         setMasquee(id)
         relire()
       }
@@ -212,9 +227,22 @@ export function CabinetApp() {
     }
   }
 
-  /** De l'épreuve à la carte : finie, la page relue la conclut et en dit le butin ; en route, la carte la propose. */
+  /** De l'épreuve mise de côté à la carte — « ← Le Cabinet » entre deux manches : la carte la propose, « Reprendre » la rouvre. */
   const versLaCarte = useCallback(() => {
     if (montreeRef.current) setMasquee(montreeRef.current)
+    quitterVersLeMusee(window.history, window.location.hash, '')
+    relire()
+  }, [relire])
+
+  /**
+   * L'épreuve finie — sa dernière manche, le gardien à terre, le dernier cœur — : la page relue la conclut et en dit le butin.
+   * Elle reste à l'écran le temps de l'aller-retour, sans se masquer : masquée tout de suite, la page qu'on tenait encore la disait
+   * en cours, et la carte proposait « Reprendre l'épreuve » d'une épreuve gagnée (le retour du propriétaire, le 1er novembre 2026).
+   */
+  const apresLEpreuve = useCallback(() => {
+    const id = montreeRef.current
+    conclueRef.current = id
+    setConclue(id)
     quitterVersLeMusee(window.history, window.location.hash, '')
     relire()
   }, [relire])
@@ -250,6 +278,7 @@ export function CabinetApp() {
         // La partie relue avec la page — au retour au premier plan, après un refus — : elle a pu continuer sans cet écran.
         relue={montree}
         onMusee={versLaCarte}
+        onEpreuveFinie={apresLEpreuve}
         onRelire={relire}
       />,
     )

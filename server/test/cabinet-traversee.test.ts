@@ -34,6 +34,7 @@ import {
   atteignables,
   carteDeLaTraversee,
   cartesDeLEpreuve,
+  cheminsVers,
   choisirLesGardiens,
   coeursMax,
   consequencesDe,
@@ -232,6 +233,34 @@ test('la carte : trois actes, trois chemins, un coffre, le marchand, le gardien 
   assert.deepEqual(tracerLaCarte(graine(9), GARDIENS, THEMES), tracerLaCarte(graine(9), GARDIENS, THEMES))
 })
 
+test('une étape lointaine touchée sur la carte : les chemins d’ici qui y mènent, jamais ceux d’un autre acte', () => {
+  for (let n = 1; n <= 20; n++) {
+    const d = departDeLaTraversee(n)
+    for (let a = 0; a < B.ACTES_D_UNE_TRAVERSEE; a++) {
+      const premiers = [0, 1, 2].map(c => idDEtape(a, 1, c))
+      const va = (de: string, vers: string) => etapeDe(d, de)!.suivantes.includes(vers)
+      for (let c = 0; c < 3; c++) {
+        // Sur la rangée d'à côté, seule l'étape elle-même y mène.
+        assert.deepEqual(cheminsVers(d, premiers, idDEtape(a, 1, c)), [idDEtape(a, 1, c)])
+        // Une rangée plus loin : tout droit, toujours, ou par une diagonale.
+        const r2 = idDEtape(a, 2, c)
+        assert.deepEqual(cheminsVers(d, premiers, r2), premiers.filter(p => va(p, r2)))
+        assert.ok(cheminsVers(d, premiers, r2).includes(idDEtape(a, 1, c)), 'tout droit, toujours')
+        // Deux rangées plus loin : par une étape d'entre les deux.
+        const r3 = idDEtape(a, 3, c)
+        assert.deepEqual(cheminsVers(d, premiers, r3), premiers.filter(p => etapeDe(d, p)!.suivantes.some(s => va(s, r3))))
+      }
+      // Le marchand et le gardien : tous les chemins y mènent.
+      assert.deepEqual(cheminsVers(d, premiers, idDEtape(a, RANGEE_DU_MARCHAND, 1)), premiers)
+      assert.deepEqual(cheminsVers(d, premiers, idDEtape(a, RANGEE_DU_GARDIEN, 1)), premiers)
+      // Derrière soi, ou dans l'acte suivant — le pont part du gardien : aucun.
+      assert.deepEqual(cheminsVers(d, [idDEtape(a, 2, 0), idDEtape(a, 2, 1)], idDEtape(a, 1, 1)), [])
+      if (a + 1 < B.ACTES_D_UNE_TRAVERSEE) assert.deepEqual(cheminsVers(d, premiers, idDEtape(a + 1, 1, 1)), [])
+    }
+    assert.deepEqual(cheminsVers(d, [idDEtape(0, 1, 0)], 'a9r9c9'), [], 'une étape qui n’est pas sur la carte')
+  }
+})
+
 test('ses trois cartes se choisissent devant ses gardiens, une fois : rien ne part avant elles', () => {
   const d = departDeLaTraversee()
   const e = etatDeLaTraversee(d, [])
@@ -352,7 +381,7 @@ test('le gardien : des assauts jusqu’à sa chute, ses jeux à tour de rôle, p
   const gardien = t.vers('gardien')
   const pv = pvDuGardien(0, t.etat.cartes)
   assert.equal(pv, B.PV_DES_GARDIENS[0] - B.PV_DU_COUP_DE_GRACE[1])
-  assert.deepEqual(viseeDeLEtape(t.depart, etapeDe(t.depart, gardien)!, 1), { jeu: jeuDeLAssaut(GARDIENS[0], 1), marches: B.MARCHES_DES_GARDIENS[0], categorie: null, theme: null })
+  assert.deepEqual(viseeDeLEtape(t.depart, etapeDe(t.depart, gardien)!, 1), { jeu: jeuDeLAssaut(GARDIENS[0], 1), marches: B.MARCHES_DES_GARDIENS[0], categorie: null, theme: null, sujet: null })
   const coeurs = t.etat.coeurs
   // Premier assaut : une étoile, une ratée, une étoile — le gardien tient.
   t.joue({ quoi: 'epreuve', etape: gardien, partie: 'g1' })

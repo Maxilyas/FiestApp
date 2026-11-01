@@ -82,17 +82,33 @@ import { JOUR, MIDI, Partie, S, carte, departDe, ouvrir, tirageDe } from './cabi
 
 // ── Le registre et ses outils ───────────────────────────────────────────
 
-test('le registre : les neuf règles, chacune sous sa clé, et un seul module d’outils', () => {
+test('le registre : les dix règles, chacune sous sa clé, et un seul module d’outils', () => {
   assert.deepEqual(Object.keys(REGLES).sort(), [...CLES_DES_JEUX].sort())
   for (const jeu of CLES_DES_JEUX) assert.equal(REGLES[jeu].cle, jeu, jeu)
   // Les trois lots des jeux avaient chacun leur copie des outils, mot pour mot : elles se sont fondues en une.
   const dossier = new URL('../../shared/cabinet/jeux/', import.meta.url)
   for (const f of ['deLaBase.ts', 'aides.ts', 'duContenu.ts']) assert.ok(!existsSync(new URL(f, dossier)), `${f} : fondu dans outils.ts`)
   const outils = Object.keys(Outils)
-  for (const nom of ['GESTE_A_JUGER', 'SANS_REPONSE', 'naturelDe', 'choixDe', 'auHasard', 'battre', 'rienAEclairer', 'eclairerSertEncore', 'champsDuGeste', 'reponseEnvoyee', 'estUnIndex', 'pieceDeLaQuestion', 'pieceDuContenu'])
-    assert.ok(outils.includes(nom), nom)
-  // Aucun jeu ne les redéfinit : une deuxième copie finirait par dire autre chose.
-  const redefini = /\b(?:const|function)\s+(GESTE_A_JUGER|SANS_REPONSE|champsDuGeste|reponseEnvoyee|rienAEclairer|eclairerSertEncore|battre|auHasard|naturelDe|choixDe|estUnIndex|pieceDeLaQuestion|pieceDuContenu)\b/
+  const partages = [
+    'GESTE_A_JUGER',
+    'SANS_REPONSE',
+    'naturelDe',
+    'etoilesAuxJustes',
+    'marcheLaPlusHaute',
+    'choixDe',
+    'auHasard',
+    'battre',
+    'rienAEclairer',
+    'eclairerSertEncore',
+    'champsDuGeste',
+    'reponseEnvoyee',
+    'estUnIndex',
+    'pieceDeLaQuestion',
+    'pieceDuContenu',
+  ]
+  for (const nom of partages) assert.ok(outils.includes(nom), nom)
+  // Aucun jeu ne les redéfinit : une deuxième copie finirait par dire autre chose — l'Éclair et le Quiz jugeaient chacun ses justes.
+  const redefini = new RegExp(`\\b(?:const|function)\\s+(${partages.join('|')}|etoilesDesJustes|plusHaute)\\b`)
   for (const f of readdirSync(dossier).filter(x => x.endsWith('.ts') && x !== 'outils.ts')) {
     const code = readFileSync(new URL(f, dossier), 'utf8')
     assert.doesNotMatch(code, redefini, `${f} recopie un outil`)
@@ -167,6 +183,9 @@ function scenario(jeu: CleDeJeu, d: DepartDUnePartie): GesteDuCabinet[] {
         repondre(2),
         repondre(2, { replique: { qui: (rep(2).bonneQui + 1) % 3 } }),
       ]
+    case 'quiz':
+      // Sans faute, puis une erreur (★★), puis rien d'envoyé.
+      return [ouvrir(0), repondre(0, { quiz: { choix: [1, 0, 2, 3] } }), ouvrir(1), repondre(1, { quiz: { choix: [1, 0, 2, 0] } }), ouvrir(2), repondre(2)]
   }
 }
 
@@ -182,6 +201,7 @@ const NATUREL_DU_SCENARIO: Record<CleDeJeu, [number, number, number]> = {
   epingle: [3, 2, 0],
   indices: [3, 2, 0],
   replique: [3, 1, 0],
+  quiz: [3, 2, 0],
 }
 
 function jouerLeScenario(jeu: CleDeJeu, d = departDe(jeu)): Partie {

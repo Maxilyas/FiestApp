@@ -170,6 +170,7 @@ const ECRANS: Partial<Record<CleDeJeu, ALaDemande<EcranEfface>>> = {
   epingle: aLaDemande(() => import('./jeux/Epingle').then(m => m.EPINGLE as unknown as EcranEfface)),
   indices: aLaDemande(() => import('./jeux/Indices').then(m => m.INDICES as unknown as EcranEfface)),
   replique: aLaDemande(() => import('./jeux/Replique').then(m => m.REPLIQUE as unknown as EcranEfface)),
+  quiz: aLaDemande(() => import('./jeux/Quiz').then(m => m.QUIZ as unknown as EcranEfface)),
 }
 
 export const ecranDuJeu = (jeu: CleDeJeu): ALaDemande<EcranEfface> | undefined => ECRANS[jeu]
@@ -485,9 +486,16 @@ function TeteDeLaPartie({ vue, chrono, onQuitter }: { vue: VueDeLaPartie; chrono
   const tv = vue.traversee
   return (
     <header className="cab-tete-partie">
-      {/* Une épreuve de traversée dit ce qu'elle vaut déjà : les cœurs et l'or qu'il lui reste, le gardien et ses points de vie. */}
+      {/* Une épreuve de traversée dit ce qu'elle vaut déjà : les cœurs et l'or qu'il lui reste, le gardien et ses points de vie.
+          Sa sortie est une croix ronde en tête de ligne, en haut à gauche comme toute sortie : en pilule au bout de la rangée des
+          manches, elle tombait au milieu de la tête, la niche posée (le retour du propriétaire, le 1er novembre 2026). */}
       {tv && (
         <div className="cab-tete-traversee">
+          {vue.phase !== 'finie' && (
+            <button type="button" className="cab-quitter-epreuve" aria-label="Quitter" {...toucher(onQuitter)}>
+              <Icon name="x" />
+            </button>
+          )}
           <Coeurs n={tv.coeurs} max={tv.coeursMax} />
           <Bourse or={tv.or} />
           {tv.gardien && <PointsDeVie pv={tv.gardien.pv} max={tv.gardien.pvMax} />}
@@ -516,7 +524,7 @@ function TeteDeLaPartie({ vue, chrono, onQuitter }: { vue: VueDeLaPartie; chrono
             {seuil !== null && <span className="cab-seuil-tete">{seuil}</span>}
           </span>
         )}
-        {vue.phase !== 'finie' && (
+        {!tv && vue.phase !== 'finie' && (
           <button type="button" className="btn cab-quitter" aria-label="Quitter" {...toucher(onQuitter)}>
             <Icon name="x" />
             <span className="cab-quitter-mot">Quitter</span>
@@ -943,7 +951,8 @@ export function EcranDeLaPartie(p: PropsDeLEcran) {
   const sansChrono = vue.phase === 'revele' || (vue.phase === 'avant' && !vue.chrono)
   return (
     <div ref={page} className="player-shell cab-page cab-partie">
-      {sansChrono && <Sortie vers="Le Cabinet" href="/cabinet" onClick={p.onMusee} />}
+      {/* Une épreuve se met de côté sur la carte de sa traversée : le même mot que ses écrans (« ← La carte »). */}
+      {sansChrono && <Sortie vers={vue.origine === 'traversee' ? 'La carte' : 'Le Cabinet'} href="/cabinet" onClick={p.onMusee} />}
       <TeteDeLaPartie vue={vue} chrono={p.chrono} onQuitter={p.onQuitter} />
       <div className="quiz-player cab-manche">{corps}</div>
       {pose && <div className="cab-pied-partie cab-pied-pose">{pose}</div>}
@@ -966,6 +975,7 @@ export function Partie({
   relue,
   cadreDejaDore = false,
   onMusee,
+  onEpreuveFinie,
   onRelire,
   onFinie,
   onRejouer,
@@ -975,7 +985,14 @@ export function Partie({
   relue: VueDeLaPartie | null
   /** L'œuvre à dorer a déjà son cadre (`dejaDoree`) : la vue ne le dit pas, la page le lit de ses salles. */
   cadreDejaDore?: boolean
+  /** Retour à la carte — ou au musée — la partie mise de côté : « ← Le Cabinet » entre deux manches, le bilan. */
   onMusee: () => void
+  /**
+   * Une épreuve qui n'a plus rien à jouer — sa dernière manche, le gardien à terre, le dernier cœur : la carte la conclut. Elle ne
+   * s'y masque pas comme une épreuve mise de côté : la page qu'on tenait la dirait encore en cours, et la carte proposerait de la
+   * reprendre le temps que la page relue arrive.
+   */
+  onEpreuveFinie?: () => void
   onRelire: () => void
   /** Elle vient de finir — sa dernière manche, « Quitter », ou relue finie d'un autre onglet : son œuvre a pu changer. */
   onFinie?: () => void
@@ -1193,14 +1210,18 @@ export function Partie({
   // la partie ouverte.
   useGardeRetour(vue.phase === 'jouer' || vue.phase === 'pause', demanderAQuitter)
 
+  // Une épreuve qui n'a plus rien à jouer retourne à la carte sans s'y masquer (`onEpreuveFinie`) ; sans lui, au musée.
+  const finDeLEpreuve = useCallback(() => (onEpreuveFinie ?? onMusee)(), [onEpreuveFinie, onMusee])
+
   const suivante = () => {
     if (!garde()) return
     if (vue.origine === 'traversee') {
       // Une épreuve finie rend son butin sur la carte ; une qui n'a plus rien à jouer — le gardien à terre, le dernier cœur — se
-      // clôt d'abord (« Quitter » : les manches à venir ne comptent plus), puis la carte la conclut.
-      if (vue.phase === 'finie') return onMusee()
+      // clôt d'abord (« Quitter » : les manches à venir ne comptent plus), puis la carte la conclut. Un « quitter » qui ne part
+      // pas, la lecture de la carte le fait pour elle (`aJour`, le serveur).
+      if (vue.phase === 'finie') return finDeLEpreuve()
       if (vue.traversee?.fin) {
-        void jouer({ quoi: 'quitter' }).then(() => onMusee())
+        void jouer({ quoi: 'quitter' }).then(finDeLEpreuve)
         return
       }
     }
@@ -1240,8 +1261,8 @@ export function Partie({
   const montrerLeBilan = !epreuve && vue.phase === 'finie' && (bilanOuvert || !vue.revelation || !!vue.bilan?.quittee || !!vue.bilan?.lendemain)
   const finieSansRevelation = epreuve && vue.phase === 'finie' && (!vue.revelation || !!vue.bilan?.quittee)
   useEffect(() => {
-    if (finieSansRevelation) onMusee()
-  }, [finieSansRevelation, onMusee])
+    if (finieSansRevelation) finDeLEpreuve()
+  }, [finieSansRevelation, finDeLEpreuve])
   // Le titre de l'onglet suit la manche, puis le bilan (`titreDeLaPartie`) : d'un onglet à l'autre, le lecteur d'écran ne disait
   // que « Le Cabinet de curiosités ». La page reprend le sien en revenant au musée (`CabinetApp.tsx`).
   useEffect(() => {

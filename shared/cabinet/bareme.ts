@@ -227,7 +227,10 @@ export const CHANGEMENTS_PAR_PARTIE: Readonly<Record<Force, number>> = { 1: 1, 2
  * L'Éclair, passé de 45 à 55 s au calibrage du 25 octobre 2026 : cinq
  * affirmations à lire, l'échéance prenait l'occasionnel de court à une manche
  * sur neuf (11,1 %), quand aucun autre jeu ne dépassait 1,1 % ; 2,9 % à 55 s,
- * sans rien changer à ses étoiles.
+ * sans rien changer à ses étoiles. Le Quiz, 80 s pour ses quatre questions :
+ * vingt secondes chacune — le calibrage en prête quatorze à une question du
+ * Pari au joueur moyen, et une minute aurait pris de court quiconque lit moins
+ * vite que lui.
  */
 export const DUREES_DES_JEUX: Readonly<Record<CleDeJeu, number>> = {
   epingle: 45,
@@ -239,6 +242,7 @@ export const DUREES_DES_JEUX: Readonly<Record<CleDeJeu, number>> = {
   eclair: 55,
   indices: 75,
   replique: 25,
+  quiz: 80,
 }
 /**
  * Le réseau d'un téléphone : un geste arrivé jusqu'à tant après l'échéance est
@@ -269,7 +273,7 @@ export const PAUSE_MAX_MS = 10_000
  */
 export const PAUSES_PAR_MANCHE = 3
 
-// ── Les neuf jeux ─────────────────────────────────────────────────────────
+// ── Les dix jeux ──────────────────────────────────────────────────────────
 // Chaque barème dit ce qui vaut ★★★, ★★ puis ★ ; en deçà, zéro.
 
 /** L'Épingle : à moins de 40 km ★★★, de 120 ★★, de 300 ★ — « l'Épingle plus tolérante » des tests. */
@@ -398,6 +402,27 @@ export const JUSTES_DE_L_ECLAIR: readonly [number, number, number] = [5, 4, 3]
 export const PART_DES_VRAIES = 0.5
 /** L'Éclair : la marche des questions qu'il récrit en affirmations, et ce que l'enjeu y ajoute (`MARCHES_DES_ENJEUX`). */
 export const MARCHES_DE_L_ECLAIR: readonly Niveau[] = ['facile', 'moyen']
+
+/**
+ * Le Quiz : les questions d'une manche, quatre réponses chacune, sur le thème
+ * de l'épreuve — une catégorie, un sujet, une rubrique. Le jeu des questions
+ * « classiques » que le propriétaire voulait sur tous les thèmes (le
+ * 1er novembre 2026) : quatre, pour qu'une manche répondue au hasard ne vaille
+ * ★★ qu'une fois sur vingt (5 %) — à trois questions, une fois sur six.
+ */
+export const QUESTIONS_DU_QUIZ = 4
+/** Le Quiz : au moins tant de justes pour ★★★, ★★, ★ — sans faute, une erreur, deux. Au hasard, ★ une manche sur quatre. */
+export const JUSTES_DU_QUIZ: readonly [number, number, number] = [4, 3, 2]
+/** Le Quiz : la marche de ses questions hors d'une traversée — dans une traversée, celle de l'acte (`MARCHES_DES_ACTES`). */
+export const MARCHES_DU_QUIZ: readonly Niveau[] = ['facile', 'moyen']
+/**
+ * Le Quiz : les QCM du Cabinet qu'un sujet ou une rubrique doit avoir, au
+ * moins, pour qu'une épreuve de la carte le promette — trois manches de quatre
+ * et leurs rechanges, sans reposer la semaine ce qu'il a déjà vu. Sous ce
+ * nombre, il n'est pas proposé : une épreuve promise qui joue un autre thème
+ * mentirait.
+ */
+export const QCM_D_UN_THEME_DU_QUIZ = 40
 
 /**
  * Les Indices : au plus tant d'indices comptés pour ★★★, puis ★★ ; au-delà, ★

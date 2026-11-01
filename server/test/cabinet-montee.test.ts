@@ -19,6 +19,7 @@ import {
   jouerUneEpingle,
   jouerUneFrise,
   jouerUneReplique,
+  jouerUnQuiz,
   jouerUnFilet,
   jouerUnMot,
   jouerUnPari,
@@ -227,6 +228,8 @@ function uneMancheParfaite(b: BancDuCabinet, cookie: string, vue: VueDeLaPartie,
       return jouerDesIndices(b, cookie, vue, k)
     case 'replique':
       return jouerUneReplique(b, cookie, vue, k)
+    case 'quiz':
+      return jouerUnQuiz(b, cookie, vue, k)
   }
 }
 

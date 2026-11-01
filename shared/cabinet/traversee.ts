@@ -10,7 +10,7 @@
 // garde-fou contre l'empilement qui a noyé l'Expédition puis le musée.
 //
 // Une étape de la carte est une partie ordinaire du Cabinet, trois manches
-// d'un des neuf jeux (`partie.ts`, l'origine `traversee`) : le pli, le chrono,
+// d'un des dix jeux (`partie.ts`, l'origine `traversee`) : le pli, le chrono,
 // les tireurs et la révélation n'apprennent rien. La traversée ne fait que
 // lire ses étoiles — chaque étoile vaut de l'or, chaque manche ratée coûte un
 // cœur, chaque étoile frappe le gardien — et ce que ses cartes y changent.
@@ -58,7 +58,8 @@ import {
 import type { Niveau } from '../campagne'
 import { CATEGORIES, type Categorie } from '../categories'
 import { jourValide } from '../jour'
-import { battre } from './jeux/outils'
+import type { Sujet } from '../sujets'
+import { auHasard, battre } from './jeux/outils'
 import { CLES_DES_JEUX, JEUX, type CleDeJeu } from './jeux/regle'
 import type { CarteDuDepart } from './partie'
 import type { CleDePouvoir, Force } from './pouvoirs'
@@ -181,12 +182,14 @@ export interface GardienDeLaTraversee {
 export const GARDIENS_DE_LA_TRAVERSEE: readonly GardienDeLaTraversee[] = [
   { cle: 'lg:renard', devise: 'Il ment avec aplomb. Démêle le vrai du faux.', jeux: ['eclair', 'pari', 'replique'] },
   { cle: 'lg:coq', devise: 'Premier levé, premier à répondre.', jeux: ['eclair', 'filet', 'pari'] },
-  { cle: 'lg:chouette', devise: 'Elle a tout lu, et elle s’en souvient.', jeux: ['mot', 'indices', 'pari'] },
+  // Le Quiz, venu le 1er novembre 2026, chez trois gardiens qui posent des questions : la Chouette, le Sphinx, le Kraken. Un
+  // assaut lit ses jeux à son heure : une traversée en route y passe à l'assaut d'après.
+  { cle: 'lg:chouette', devise: 'Elle a tout lu, et elle s’en souvient.', jeux: ['mot', 'indices', 'quiz'] },
   { cle: 'lg:tigre', devise: 'Il frappe vite. Ne traîne pas.', jeux: ['eclair', 'pari', 'filet'] },
   { cle: 'lg:chauve-souris', devise: 'Elle voit dans le noir ce que tu cherches.', jeux: ['detail', 'mot', 'eclair'] },
   { cle: 'lg:scarabee', devise: 'Il garde les lieux anciens.', jeux: ['epingle', 'detail', 'indices'] },
   { cle: 'lg:citrouille', devise: 'Ce soir, c’est sa fête.', jeux: ['mot', 'eclair', 'replique'] },
-  { cle: 'lg:sphinx', devise: 'Il ne laisse passer que ceux qui savent.', jeux: ['indices', 'mot', 'replique'] },
+  { cle: 'lg:sphinx', devise: 'Il ne laisse passer que ceux qui savent.', jeux: ['quiz', 'indices', 'mot'] },
   { cle: 'lg:janus', devise: 'Deux visages : l’un dit vrai, l’autre ment.', jeux: ['eclair', 'replique', 'indices'] },
   { cle: 'lg:phenix', devise: 'Il renaît de ses cendres. Toi, de tes erreurs.', jeux: ['pari', 'filet', 'detail'] },
   { cle: 'lg:fantome', devise: 'Il hante les tableaux et les vieux films.', jeux: ['detail', 'replique', 'indices'] },
@@ -195,7 +198,7 @@ export const GARDIENS_DE_LA_TRAVERSEE: readonly GardienDeLaTraversee[] = [
   { cle: 'lg:oracle', devise: 'Il connaît les dates avant qu’elles arrivent.', jeux: ['filet', 'eclair', 'indices'] },
   { cle: 'lg:serpent', devise: 'Il glisse un mot faux dans chaque phrase.', jeux: ['mot', 'eclair', 'pari'] },
   { cle: 'lg:dragon', devise: 'Il garde son or. Prends-le-lui.', jeux: ['pari', 'filet', 'epingle'] },
-  { cle: 'lg:kraken', devise: 'Il remonte des abysses avec ses questions.', jeux: ['epingle', 'filet', 'pari'] },
+  { cle: 'lg:kraken', devise: 'Il remonte des abysses avec ses questions.', jeux: ['epingle', 'filet', 'quiz'] },
   { cle: 'lg:chimere', devise: 'Trois têtes, trois jeux, aucune pitié.', jeux: ['detail', 'mot', 'epingle'] },
   { cle: 'lg:ouroboros', devise: 'Tout revient. Surtout les erreurs.', jeux: ['filet', 'eclair', 'replique'] },
   { cle: 'lg:trou-noir', devise: 'Rien ne lui échappe, pas même la lumière.', jeux: ['filet', 'detail', 'mot'] },
@@ -257,6 +260,7 @@ export const EMOJI_DES_JEUX: Readonly<Record<CleDeJeu, string>> = {
   epingle: '📍',
   indices: '🕵️',
   replique: '🎬',
+  quiz: '❓',
 }
 
 const EMOJI_DES_CATEGORIES: Readonly<Record<Categorie, string>> = {
@@ -274,12 +278,36 @@ const EMOJI_DES_CATEGORIES: Readonly<Record<Categorie, string>> = {
   'Autour de la fête': '🎉',
 }
 
-/** L'emoji d'un thème : sa catégorie, sinon celui de son jeu — une frise, un lieu, un tableau. */
-export function emojiDuTheme(jeu: CleDeJeu, theme: string): string {
+/**
+ * L'emoji d'un thème : sa catégorie ; celui que la carte a gardé pour un sujet
+ * du Quiz (`EtapeDeLaCarte.emoji`) ; sinon celui de son jeu — une frise, un
+ * lieu, un tableau.
+ */
+export function emojiDuTheme(jeu: CleDeJeu, theme: string, emoji?: string): string {
   const categorie = CATEGORIES.find(c => c === theme)
   if (categorie) return EMOJI_DES_CATEGORIES[categorie]
-  return jeu === 'indices' ? '👤' : jeu === 'replique' ? '💬' : jeu === 'detail' ? '🎨' : jeu === 'frise' ? '📜' : '🗺️'
+  if (emoji) return emoji
+  return jeu === 'indices' ? '👤' : jeu === 'replique' ? '💬' : jeu === 'detail' ? '🎨' : jeu === 'frise' ? '📜' : jeu === 'quiz' ? '❓' : '🗺️'
 }
+
+/** L'emoji d'une famille de sujets, sur la carte du Quiz : une fête, un thème, un univers, un pays, une époque, un fil rouge. */
+const EMOJI_DES_FAMILLES: Readonly<Partial<Record<Sujet['famille'], string>>> = {
+  fete: '🎉',
+  theme: '🧩',
+  univers: '🌌',
+  pays: '🧭',
+  epoque: '🕰️',
+  fil: '🧵',
+}
+
+/**
+ * L'emoji d'un sujet de la base que le Quiz promet : celui de sa famille, et
+ * celui de sa catégorie pour une rubrique — « 🍳 Techniques et vocabulaire » se
+ * lit en cuisine. Le serveur le pose sur la carte (`ThemeDuQuiz.emoji`) : la
+ * page n'importe pas les sujets pour un emoji.
+ */
+export const emojiDUnSujet = (s: Pick<Sujet, 'famille' | 'categorie'>): string =>
+  (s.famille === 'rubrique' && s.categorie ? EMOJI_DES_CATEGORIES[s.categorie] : EMOJI_DES_FAMILLES[s.famille]) ?? EMOJI_DES_JEUX.quiz
 
 /** La catégorie que vise une étape, si son thème en est une : le tireur la cherche d'abord. */
 export const categorieDuTheme = (theme: string | undefined): Categorie | null => CATEGORIES.find(c => c === theme) ?? null
@@ -301,6 +329,10 @@ export interface EtapeDeLaCarte {
   sorte: SorteDEtape
   jeu?: CleDeJeu
   theme?: string
+  /** Au Quiz, le sujet ou la rubrique de la base que le thème nomme (`animaux`, `sport/football`) : le tirage le vise. */
+  sujet?: string
+  /** … et son emoji, que le serveur a choisi (`emojiDUnSujet`). */
+  emoji?: string
   suivantes: readonly string[]
 }
 
@@ -317,10 +349,24 @@ export const departDeLActe = (acte: number) => idDEtape(acte, 0, MILIEU)
 /** L'acte d'une étape, lu dans son identifiant. */
 export const acteDe = (etape: string): Acte => Math.min(ACTES_D_UNE_TRAVERSEE - 1, Math.max(0, Number(etape[1]) || 0)) as Acte
 
-/** Ce que le contenu écrit à la main offre de thèmes : le serveur les lit au départ (`contenuDuCabinet`). */
+/** Un thème que le Quiz peut promettre, au-delà des catégories : un sujet ou une rubrique de la base, assez fourni. */
+export interface ThemeDuQuiz {
+  cle: string
+  nom: string
+  famille: Sujet['famille']
+  emoji: string
+}
+
+/**
+ * Ce que le contenu écrit à la main offre de thèmes : le serveur les lit au
+ * départ (`contenuDuCabinet`) ; et les sujets et les rubriques de la base où
+ * le Quiz a de quoi jouer (`themesDuQuiz`) — sans eux, il ne promet que des
+ * catégories.
+ */
 export interface ThemesDuContenu {
   epingle: readonly string[]
   frise: readonly string[]
+  quiz?: readonly ThemeDuQuiz[]
 }
 
 /** Ce qu'une traversée a déjà placé : les jeux les moins vus d'abord, et un thème du contenu jamais deux fois. */
@@ -341,24 +387,55 @@ function jeuxDUneRangee(n: number, usage: Usage, jeux: readonly CleDeJeu[], hasa
   return battre(pris, hasard)
 }
 
-/** Le thème d'une épreuve : celui de son jeu, un thème du contenu encore libre, ou une catégorie que ses voisines n'ont pas. */
-function themeDUneEpreuve(jeu: CleDeJeu, usage: Usage, voisins: readonly (string | undefined)[], contenu: ThemesDuContenu, hasard: () => number): string | undefined {
+/** Ce qu'une épreuve promet : son thème en mots, et au Quiz le sujet de la base qu'il nomme et son emoji. */
+type ThemeDUneEpreuve = Pick<EtapeDeLaCarte, 'theme' | 'sujet' | 'emoji'>
+
+/**
+ * Le thème d'une épreuve du Quiz : une famille d'abord — les catégories, puis
+ * chaque famille de sujets que le serveur a trouvée assez fournie (les thèmes,
+ * les époques, les pays, les univers, les fêtes, les fils rouges, les
+ * rubriques) —, puis l'un des siens, au hasard. Tirés d'un seul tas, les
+ * quelque cent rubriques auraient fait presque toutes les épreuves ; famille
+ * par famille, la carte varie (« pour donner de la diversité », le
+ * propriétaire, le 1er novembre 2026). Jamais deux fois le même dans une
+ * traversée, ni la catégorie d'une voisine.
+ */
+function themeDuQuiz(usage: Usage, voisins: readonly (string | undefined)[], contenu: ThemesDuContenu, hasard: () => number): ThemeDUneEpreuve {
+  const libre = (cle: string) => !usage.contenus.has(`quiz:${cle}`)
+  const familles = new Map<string, ThemeDuQuiz[]>()
+  for (const s of (contenu.quiz ?? []).filter(s => libre(s.cle))) familles.set(s.famille, [...(familles.get(s.famille) ?? []), s])
+  const categories = CATEGORIES.filter(c => !voisins.includes(c) && libre(c))
+  const famille = auHasard([...(categories.length > 0 ? ['categorie'] : []), ...familles.keys()], hasard)
+  const siens = famille === undefined ? undefined : familles.get(famille)
+  if (!siens) {
+    const c = auHasard(categories.length > 0 ? categories : CATEGORIES.filter(x => !voisins.includes(x)), hasard)
+    usage.contenus.add(`quiz:${c}`)
+    return { theme: c }
+  }
+  const s = auHasard(siens, hasard)
+  usage.contenus.add(`quiz:${s.cle}`)
+  return { theme: s.nom, sujet: s.cle, emoji: s.emoji }
+}
+
+/** Le thème d'une épreuve : celui de son jeu, un thème du contenu encore libre, celui du Quiz, ou une catégorie que ses voisines n'ont pas. */
+function themeDUneEpreuve(jeu: CleDeJeu, usage: Usage, voisins: readonly (string | undefined)[], contenu: ThemesDuContenu, hasard: () => number): ThemeDUneEpreuve {
   const fixe = THEMES_FIXES[jeu]
-  if (fixe) return fixe
+  if (fixe) return { theme: fixe }
   if (jeu === 'epingle' || jeu === 'frise') {
     const tous = contenu[jeu]
-    if (tous.length === 0) return undefined
+    if (tous.length === 0) return {}
     const libres = tous.filter(t => !usage.contenus.has(t))
     const t = battre(libres.length > 0 ? libres : tous, hasard)[0]
     usage.contenus.add(t)
-    return t
+    return { theme: t }
   }
-  if (!JEUX_DE_LA_BASE.includes(jeu)) return undefined
+  if (jeu === 'quiz') return themeDuQuiz(usage, voisins, contenu, hasard)
+  if (!JEUX_DE_LA_BASE.includes(jeu)) return {}
   const compte = (c: string) => usage.categories.get(c) ?? 0
   const libres = CATEGORIES.filter(c => !voisins.includes(c))
   const c = battre(libres, hasard).sort((a, b) => compte(a) - compte(b))[0]
   usage.categories.set(c, compte(c) + 1)
-  return c
+  return { theme: c }
 }
 
 /**
@@ -400,9 +477,19 @@ function tracerUnActe(acte: number, gardien: string, usage: Usage, contenu: Them
         continue
       }
       const jeu = sesJeux[k]
-      const theme = themeDUneEpreuve(jeu, usage, themes, contenu, hasard)
+      const { theme, sujet, emoji } = themeDUneEpreuve(jeu, usage, themes, contenu, hasard)
       themes.push(theme)
-      etapes.push({ id, rangee: r, colonne: c, sorte: 'epreuve', jeu, ...(theme !== undefined && { theme }), suivantes: suivantes.get(id) ?? [] })
+      etapes.push({
+        id,
+        rangee: r,
+        colonne: c,
+        sorte: 'epreuve',
+        jeu,
+        ...(theme !== undefined && { theme }),
+        ...(sujet !== undefined && { sujet }),
+        ...(emoji !== undefined && { emoji }),
+        suivantes: suivantes.get(id) ?? [],
+      })
     }
   }
   etapes.push({ id: marchand, rangee: RANGEE_DU_MARCHAND, colonne: MILIEU, sorte: 'marchand', suivantes: [auGardien] })
@@ -602,12 +689,13 @@ export const jeuDeLAssaut = (gardien: string, assaut: number): CleDeJeu | null =
   return g ? g.jeux[(Math.max(1, assaut) - 1) % g.jeux.length] : null
 }
 
-/** Ce qu'une étape demande au tirage : son jeu, ses marches, ce que son thème vise. */
+/** Ce qu'une étape demande au tirage : son jeu, ses marches, ce que son thème vise — au Quiz, un sujet de la base aussi. */
 export interface ViseeDUneEtape {
   jeu: CleDeJeu
   marches: readonly Niveau[]
   categorie: Categorie | null
   theme: string | null
+  sujet: string | null
 }
 
 /** La visée d'une épreuve, ou du prochain assaut de son gardien ; null : une étape qui ne se joue pas. */
@@ -615,10 +703,16 @@ export function viseeDeLEtape(d: DepartDeLaTraversee, etape: EtapeDeLaCarte, ass
   const acte = acteDe(etape.id)
   if (etape.sorte === 'gardien') {
     const jeu = jeuDeLAssaut(d.actes[acte].gardien, assaut)
-    return jeu ? { jeu, marches: MARCHES_DES_GARDIENS[acte], categorie: null, theme: null } : null
+    return jeu ? { jeu, marches: MARCHES_DES_GARDIENS[acte], categorie: null, theme: null, sujet: null } : null
   }
   if (etape.sorte !== 'epreuve' || !etape.jeu) return null
-  return { jeu: etape.jeu, marches: MARCHES_DES_ACTES[acte], categorie: categorieDuTheme(etape.theme), theme: THEMES_FIXES[etape.jeu] ? null : (etape.theme ?? null) }
+  return {
+    jeu: etape.jeu,
+    marches: MARCHES_DES_ACTES[acte],
+    categorie: categorieDuTheme(etape.theme),
+    theme: THEMES_FIXES[etape.jeu] ? null : (etape.theme ?? null),
+    sujet: etape.sujet ?? null,
+  }
 }
 
 /** L'état au départ : devant ses trois gardiens, ses cartes à choisir, les cœurs au complet. */
@@ -720,6 +814,33 @@ export function atteignables(d: DepartDeLaTraversee, e: EtatDeLaTraversee): stri
   if (e.ou.sorte === 'gardien') return e.ou.partie === null ? [e.ou.etape] : []
   if (e.ou.sorte === 'epreuve' || e.ou.sorte === 'legendaire' || e.ou.sorte === 'cartes') return []
   return [...(etapeDe(d, e.position)?.suivantes ?? [])]
+}
+
+/**
+ * Celles des étapes `depuis` d'où un chemin mène jusqu'à `cible`, dans son
+ * acte : la page le dit sous une étape lointaine touchée sur la carte (« Par le
+ * Pari ou le coffre »), pour choisir son chemin d'après ce qui l'attend plus
+ * loin — sans quoi seules les étapes d'à côté se lisaient (le retour du
+ * propriétaire, le 1er novembre 2026). Vide : aucune n'y mène, ou la cible est
+ * d'un autre acte — le pont part du gardien, pas des chemins d'un acte.
+ */
+export function cheminsVers(d: Pick<DepartDeLaTraversee, 'actes'>, depuis: readonly string[], cible: string): string[] {
+  const acte = d.actes[acteDe(cible)]
+  if (!acte) return []
+  const parId = new Map(acte.etapes.map(x => [x.id, x]))
+  if (!parId.has(cible)) return []
+  const mene = new Map<string, boolean>()
+  const yMene = (id: string): boolean => {
+    if (id === cible) return true
+    const su = mene.get(id)
+    if (su !== undefined) return su
+    // Posé faux d'abord : un chemin qui reviendrait sur lui-même — la carte n'en trace pas — ne tournerait pas sans fin.
+    mene.set(id, false)
+    const oui = (parId.get(id)?.suivantes ?? []).some(yMene)
+    mene.set(id, oui)
+    return oui
+  }
+  return depuis.filter(id => parId.has(id) && yMene(id))
 }
 
 // ── Une épreuve conclue ───────────────────────────────────────────────────
@@ -999,6 +1120,8 @@ function lEtape(x: unknown): EtapeDeLaCarte | null {
   if (!chaine(x.sorte) || !['depart', 'epreuve', 'coffre', 'marchand', 'gardien'].includes(x.sorte)) return null
   if (!Array.isArray(x.suivantes) || !x.suivantes.every(s => chaine(s) && ID_D_ETAPE.test(s))) return null
   if (!(x.jeu === undefined || unJeu(x.jeu)) || !(x.theme === undefined || chaine(x.theme))) return null
+  // Le sujet du Quiz et son emoji : leur forme seulement — un sujet retiré de la base depuis se tire encore, d'un autre thème.
+  if (!(x.sujet === undefined || unId(x.sujet)) || !(x.emoji === undefined || (chaine(x.emoji) && x.emoji.length <= 16))) return null
   if (x.sorte === 'epreuve' && x.jeu === undefined) return null
   return {
     id: x.id,
@@ -1007,6 +1130,8 @@ function lEtape(x: unknown): EtapeDeLaCarte | null {
     sorte: x.sorte as SorteDEtape,
     ...(x.jeu !== undefined && { jeu: x.jeu as CleDeJeu }),
     ...(x.theme !== undefined && { theme: x.theme as string }),
+    ...(x.sujet !== undefined && { sujet: x.sujet as string }),
+    ...(x.emoji !== undefined && { emoji: x.emoji as string }),
     suivantes: [...(x.suivantes as string[])],
   }
 }

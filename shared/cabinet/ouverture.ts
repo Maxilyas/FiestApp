@@ -30,7 +30,9 @@ export function cabinetOuvert({ online, env }: { online: boolean; env: string })
  * frises à thème et celles des sujets de la base ; puis le Mot mystère et le
  * Filet, qui y tirent un mot à taper et une valeur à viser ; enfin l'Épingle,
  * les Indices et la Réplique, du contenu écrit pour le Cabinet
- * (`server/content/cabinet/`) — les neuf. Un dixième jeu y entre de même,
- * et la page dit « bientôt » de ses œuvres tant qu'il n'y est pas.
+ * (`server/content/cabinet/`) — les neuf. Le dixième, le Quiz, y est entré
+ * le 1er novembre 2026 avec son tireur et son écran : des QCM de la base, sur
+ * le thème que la carte d'une traversée promet. Un jeu de plus y entre de
+ * même, et la page dit « bientôt » de ses œuvres tant qu'il n'y est pas.
  */
-export const JEUX_PRETS: readonly CleDeJeu[] = ['pari', 'eclair', 'detail', 'frise', 'mot', 'filet', 'epingle', 'indices', 'replique']
+export const JEUX_PRETS: readonly CleDeJeu[] = ['pari', 'eclair', 'detail', 'frise', 'mot', 'filet', 'epingle', 'indices', 'replique', 'quiz']

@@ -86,10 +86,18 @@ export const idDeLaReplique = (id: string) => `${PREFIXE_DU_CABINET}replique:${i
 export const idDuTableau = (qid: string) => `${PREFIXE_DU_CABINET}tableau:${qid}`
 
 const ECLAIR = `${PREFIXE_DU_CABINET}eclair:`
+const QUIZ = `${PREFIXE_DU_CABINET}quiz:`
 const FRISE_DE_SUJET = `${PREFIXE_DU_CABINET}frise:s:`
 
 /** Les cinq affirmations de l'Éclair, une pièce : cinq questions récrites, dont aucune n'est plus celle de la base. */
 export const idDeLEclair = (ids: readonly string[]) => ECLAIR + ids.join('+')
+/**
+ * Les questions d'une manche du Quiz, une pièce : une manche n'écrit qu'une
+ * pièce par verdict (le pli situe chacune par son étape, et le Quiz n'en a
+ * qu'une pour ses quatre questions), comme l'Éclair. Hors de la base, donc :
+ * ni carnet, ni mesure, ni signalement ; et dépliée pour la fraîcheur.
+ */
+export const idDuQuiz = (ids: readonly string[]) => QUIZ + ids.join('+')
 /**
  * Une manche d'une frise à thème : la frise et sa manche, pour que chaque
  * pièce reste unique dans sa partie — le signalement joint par (partie,
@@ -104,17 +112,18 @@ export const estDuCabinet = (id: string) => id.startsWith(PREFIXE_DU_CABINET)
 export const estUneFriseDeSujet = (id: string) => id.startsWith(FRISE_DE_SUJET)
 
 /**
- * Les questions de la base qu'une pièce a posées : un composé de l'Éclair ou
- * d'une frise de sujet se déplie en ses questions, tout autre identifiant
- * reste lui-même. Toute la campagne lit ses vues dépliées
+ * Les questions de la base qu'une pièce a posées : un composé de l'Éclair, du
+ * Quiz ou d'une frise de sujet se déplie en ses questions, tout autre
+ * identifiant reste lui-même. Toute la campagne lit ses vues dépliées
  * (`JournalDesReponses.vuesDe`, qui déplie aussi un tableau du Détail en les
  * questions qui le nomment, de la fiche du serveur, et chaque identifiant de
  * ce que la pièce a montré de plus, `cabinet.montre`) : une question vue à
- * l'Éclair ne revient pas au Pari avant sept jours, ni jamais vue en série ou
- * en duel — sa révélation avait dit la bonne réponse.
+ * l'Éclair ou au Quiz ne revient pas au Pari avant sept jours, ni jamais vue
+ * en série ou en duel — sa révélation avait dit la bonne réponse.
  */
 export function deplier(id: string): string[] {
   if (id.startsWith(ECLAIR)) return id.slice(ECLAIR.length).split('+')
+  if (id.startsWith(QUIZ)) return id.slice(QUIZ.length).split('+')
   if (id.startsWith(FRISE_DE_SUJET)) return id.slice(FRISE_DE_SUJET.length).split('+')
   return [id]
 }

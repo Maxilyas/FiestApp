@@ -25,6 +25,7 @@ import type { FiletTire, TailleDuFilet } from '../../shared/cabinet/jeux/filet'
 import { pointADistance, type EpingleTiree } from '../../shared/cabinet/jeux/epingle'
 import { dansLaFrance, type Point } from '../../shared/cabinet/france'
 import type { IndicesTires } from '../../shared/cabinet/jeux/indices'
+import type { QuizTire } from '../../shared/cabinet/jeux/quiz'
 import type { RepliqueTiree } from '../../shared/cabinet/jeux/replique'
 import type { PageDuCabinet, VueDeLaPartie } from '../../shared/cabinet/vues'
 import type { QuizServerOptions } from '../src/server'
@@ -319,6 +320,7 @@ export const filetDe = (b: BancDuCabinet, serie: string, tirage: number) => depa
 export const epingleDe = (b: BancDuCabinet, serie: string, tirage: number) => departEnBase(b.fichier, serie).tirages[tirage] as EpingleTiree
 export const ficheDe = (b: BancDuCabinet, serie: string, tirage: number) => departEnBase(b.fichier, serie).tirages[tirage] as IndicesTires
 export const repliqueDe = (b: BancDuCabinet, serie: string, tirage: number) => departEnBase(b.fichier, serie).tirages[tirage] as RepliqueTiree
+export const quizDe = (b: BancDuCabinet, serie: string, tirage: number) => departEnBase(b.fichier, serie).tirages[tirage] as QuizTire
 
 /** Un essai du Mot mystère de la bonne longueur qui n'est pas le mot : des X — aucun mot d'essai n'en a. */
 export const unEssaiFaux = (t: MotTire) => 'X'.repeat(t.lettres.length)
@@ -360,6 +362,13 @@ export async function jouerUnPari(b: BancDuCabinet, cookie: string, vue: VueDeLa
 export async function jouerUnEclair(b: BancDuCabinet, cookie: string, vue: VueDeLaPartie, k: number, juste = true): Promise<VueDeLaPartie> {
   const reponses = vraiesDe(eclairDe(b, vue.id, k)).map(v => (juste ? v : !v))
   return ok(await jouer(b, cookie, vue, { quoi: 'repondre', manche: k as 0 | 1 | 2, reponse: { eclair: { reponses } } }), 'l’Éclair')
+}
+
+/** Une manche du Quiz, ouverte : ses quatre questions, toutes justes ou toutes fausses — la réponse d'après la bonne. */
+export async function jouerUnQuiz(b: BancDuCabinet, cookie: string, vue: VueDeLaPartie, k: number, juste = true): Promise<VueDeLaPartie> {
+  const t = quizDe(b, vue.id, vue.tirage ?? k)
+  const choix = t.questions.map(q => (juste ? q.bonne : (q.bonne + 1) % q.reponses.length))
+  return ok(await jouer(b, cookie, vue, { quoi: 'repondre', manche: k as 0 | 1 | 2, reponse: { quiz: { choix } } }), 'le Quiz')
 }
 
 /** Une manche de la Frise, ouverte : rangée sans faute, ou rien de posé — les ancres seules, qui ne bougent pas. */
