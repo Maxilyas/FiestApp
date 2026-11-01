@@ -1457,6 +1457,14 @@ export async function createQuizServer(opts: QuizServerOptions) {
         const service = maintenance.pourLaPage(route, () => quiEstCe({ auth, profiles }, req))
         const ici = pageDeLAdresse(route)
         const fermee = !!service && !!ici && fermeePour(service, ici) !== null
+        // Une page ouverte à un profil : si une affiche la montre, sa nouveauté a servi — l'affiche et la pastille se
+        // taisent à son prochain accueil (`noterUneVisite`, `shared/affiches.ts`). D'où qu'il vienne : le lien de
+        // l'affiche, son gros bouton, un favori. Sa session se lit en mémoire, et la page n'attend rien.
+        if (ici && page.statut === 200 && !fermee && (ici !== 'cabinet' || cabinetEstOuvert)) {
+          const jeton = readPlayerToken(req.header('cookie'))
+          const profil = jeton ? profiles.sessionProfileId(jeton) : null
+          if (profil) profiles.noterUneVisite(profil, ici)
+        }
         // Ce que la page demandera dès son code arrivé part avec son script
         // (`shared/depart.ts`), et son attente est déjà écrite.
         if (page.statut === 200 && !fermee) html = prechargerDonnees(html, donneesDeDepart(route))

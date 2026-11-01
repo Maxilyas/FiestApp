@@ -320,6 +320,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/qg-economie.test.ts` — l'économie au QG : les confettis gagnés et dépensés source par source, ceux qui circulent — égaux aux soldes des profils, au confetti près —, les meilleures ventes, les Éclats et les légendaires portés.
 - `server/test/maintenance.test.ts` — le bandeau rouge et les pages fermées le temps d'une réparation, puis bientôt disponibles à leurs seuls testeurs ; chaque porte relue dans le routeur.
 - `server/test/annonces.test.ts` — les annonces à tous : un message lu une fois en haut de chaque accueil, des confettis pour chacun en un seul lot, une question à poser, une réponse par profil.
+- `server/test/affiches.test.ts` — l'affiche des nouveautés : posée au QG, une par page, montrée sur chaque accueil et « Nouveau » sur le bouton de sa page jusqu'à la visite — notée quand le serveur sert la page, ses confettis offerts une fois, même après un redémarrage —, « Plus tard » qui la range, sa fin, son retrait, une page fermée qui ne compte pas, le Cabinet là où il ne s'ouvre pas, un profil supprimé ; et l'affiche et les pastilles rendues.
 
 ### Les profils et la collection
 

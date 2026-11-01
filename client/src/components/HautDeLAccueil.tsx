@@ -13,7 +13,12 @@ import type { BoutiqueDuProfil } from '../../../shared/themes'
 /** L'adresse qui ouvre la feuille des missions : la fin d'une partie et la fiche d'un fond du trésor y mènent (`/#missions`). */
 const ADRESSE_DES_MISSIONS = '#missions'
 
-export function HautDeLAccueil({ boutique }: { boutique?: BoutiqueDuProfil }) {
+/**
+ * `aLaUne` faux : l'affiche d'une nouveauté se montre au-dessus (`AfficheDeLaNouveaute`) — elle prend la place de
+ * « À la une » le temps qu'il y aille ou la range. Deux affiches l'une sur l'autre poussaient les gros boutons sous la
+ * barre du menu, en 360 × 640 (`rendu-affiches.ts`) ; ce qui sort passe avant ce qui se vend.
+ */
+export function HautDeLAccueil({ boutique, aLaUne = true }: { boutique?: BoutiqueDuProfil; aLaUne?: boolean }) {
   const missions = useMissionsDuJour(true)
   const [feuille, setFeuille] = useState(() => window.location.hash === ADRESSE_DES_MISSIONS)
   useEffect(() => {
@@ -29,7 +34,7 @@ export function HautDeLAccueil({ boutique }: { boutique?: BoutiqueDuProfil }) {
   }, [])
   return (
     <div className="haut-accueil">
-      {boutique && <BandeauALaUne boutique={boutique} />}
+      {boutique && aLaUne && <BandeauALaUne boutique={boutique} />}
       <LigneDesMissions missions={missions} onOuvrir={() => setFeuille(true)} />
       {feuille && <FeuilleDesMissions missions={missions} onFermer={() => setFeuille(false)} />}
     </div>

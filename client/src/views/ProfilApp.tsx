@@ -33,6 +33,8 @@ import { abonnerNiche, nicheActuelle, porterNiche } from '../niche'
 import { laNiche } from '../components/NicheHost'
 import { relireLesMissions } from '../missions'
 import { boutonsDesPages, cabinetIci } from '../maintenance'
+import { AfficheDeLaNouveaute } from '../components/AfficheDeLaNouveaute'
+import { ceQueMontreLAccueil } from '../../../shared/affiches'
 
 const ETAPE_REJOINDRE = 'fiestappRejoindre'
 
@@ -117,6 +119,12 @@ export function ProfilApp() {
   const [console_, setConsole] = useState<PublicSpace | null>(null)
   /** Les soirées en cours où ce profil joue déjà : on y revient d'un toucher. */
   const [enCours, setEnCours] = useState<{ nom: string; slug: string }[]>([])
+  /**
+   * Les affiches rangées d'ici par « Plus tard », le temps de la page : elles
+   * se taisent tout de suite, sans attendre que le serveur l'ait écrit — ni
+   * le relu de l'accueil.
+   */
+  const [affichesRangees, setAffichesRangees] = useState<ReadonlySet<string>>(() => new Set())
   /** « Créer mon profil » depuis une fin de soirée : la création, préremplie. */
   const [creation] = useState(lireCreation)
   /** Où aller une fois connecté : le quiz du jour qu'un ami a envoyé (`?next=/jour`). */
@@ -562,6 +570,19 @@ export function ProfilApp() {
 
   // ── L'accueil : qui l'on est en une ligne, puis ce qu'on vient faire ──
   if (VUE === 'accueil') {
+    const etats = boutonsDesPages()
+    // Une affiche ne mène qu'à une page qui lui est ouverte : ni en maintenance, ni bientôt disponible sans qu'il l'essaie,
+    // ni le Cabinet là où il ne s'ouvre pas — son gros bouton y serait éteint, ou absent.
+    const { grande, nouvelles } = ceQueMontreLAccueil(
+      ('affiches' in profil ? profil.affiches : undefined) ?? [],
+      page => etats[page] !== 'maintenance' && etats[page] !== 'bientot' && (page !== 'cabinet' || cabinetIci()),
+      affichesRangees,
+    )
+    const rangerLAffiche = (id: string) => {
+      setAffichesRangees(r => new Set([...r, id]))
+      // Pas écrite — le réseau, un serveur qui redort —, elle reviendra au prochain accueil : rien d'autre ne se perd.
+      void api.joueur.rangerLAffiche(id).catch(() => {})
+    }
     return (
       // `player-shell` : la même mise en page que le téléphone d'un invité —
       // c'est le même écran, tenu dans la même main.
@@ -590,11 +611,14 @@ export function ProfilApp() {
           annonces={'annonces' in profil ? profil.annonces : undefined}
           onRepondu={() => void relire({ missionsDemandees: true }).catch(() => {})}
         />
+        {/* L'affiche d'une nouveauté, tant qu'il n'est pas allé sur sa page ni ne l'a rangée : au-dessus de « À la une »,
+            ce qui sort passe avant ce qui se vend (le souhait du propriétaire du 1er novembre 2026, le Cabinet en tête). */}
+        {grande && <AfficheDeLaNouveaute key={grande.id} affiche={grande} onRanger={() => rangerLAffiche(grande.id)} />}
         {/* « À la une » et les missions du jour, sous soi : un bandeau fin et une ligne, au-dessus des gros boutons (la maquette C). */}
         {leHaut === 'perdu' ? null : leHaut ? (
-          <leHaut.HautDeLAccueil boutique={'boutique' in profil ? profil.boutique : undefined} />
+          <leHaut.HautDeLAccueil boutique={'boutique' in profil ? profil.boutique : undefined} aLaUne={!grande} />
         ) : (
-          <div className="haut-en-chemin" aria-hidden="true" />
+          <div className={'haut-en-chemin' + (grande ? ' sans-une' : '')} aria-hidden="true" />
         )}
         <AccueilJouer
           enCours={enCours}
@@ -607,8 +631,9 @@ export function ProfilApp() {
           duels={'duels' in profil ? profil.duels : undefined}
           traversee={'cabinet' in profil ? profil.cabinet : undefined}
           fete={'fete' in profil ? profil.fete : undefined}
-          etats={boutonsDesPages()}
+          etats={etats}
           cabinet={cabinetIci()}
+          nouvelles={nouvelles}
         />
         {/* Sous ce qu'on vient faire : l'application à installer — et, installée, le rappel du soir. */}
         <Installer avecProfil />

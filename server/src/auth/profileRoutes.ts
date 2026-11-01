@@ -225,6 +225,8 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     // signalements qui ont servi, ses annonces à tous — dits une fois, son
     // téléphone retient le reste.
     const annonces = profiles.annoncesDe(rec, lue?.dons ?? [], Date.now(), mercis, lue?.aTous ?? [])
+    // Et les affiches des nouveautés dont il n'a pas encore ouvert la page, lues dans le même lot.
+    const affiches = profiles.affichesDAccueil(lue?.affiches ?? [])
     // Et sa traversée, de la mémoire du Cabinet — une traversée qu'il n'a pas encore lue ne dit rien. Ce qui y tomberait n'ôte
     // qu'elle. Le magasin la rend, la vue se bâtit ici, comme la page du Cabinet se bâtit dans sa route.
     let cabinet: CabinetDAccueil | null = null
@@ -251,6 +253,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       ...(cabinet && { cabinet }),
       ...(fete && { fete }),
       ...(annonces.length > 0 && { annonces }),
+      ...(affiches.length > 0 && { affiches }),
     }
   }
 
@@ -582,6 +585,21 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       if (rendu.etat === 'fermee') return res.status(409).json({ error: 'Cette question est close : merci quand même' })
       if (rendu.etat !== 'ok') return res.status(409).json({ error: 'Tu as déjà répondu : merci !' })
       res.json(rendu.accuse)
+    }),
+  )
+
+  // « Plus tard », sous l'affiche d'une nouveauté (`shared/affiches.ts`) : elle se range pour lui, sur tous ses
+  // appareils ; la pastille « Nouveau » de son bouton reste jusqu'à sa visite. Refait, rien ne change. 404 : elle
+  // n'existe pas — retirée, elle existe encore, et se range quand même.
+  app.post(
+    '/api/joueur/affiches/:id/ranger',
+    small,
+    wrap(async (req, res) => {
+      noStore(res)
+      const me = await current(req)
+      if (!me) return res.status(401).json({ error: 'Connexion requise' })
+      if (!(await profiles.rangerLAffiche(me.id, String(req.params.id)))) return res.status(404).json({ error: 'Cette affiche n’existe plus' })
+      res.json({})
     }),
   )
 
