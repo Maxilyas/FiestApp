@@ -345,6 +345,8 @@ export const SUJETS: readonly Sujet[] = [
   { cle: 'marvel', nom: 'Marvel', famille: 'univers', description: 'Les Avengers, Spider-Man et les X-Men, en BD et au cinéma', etiquettes: ['marvel'] },
   { cle: 'seigneur-des-anneaux', nom: 'Le Seigneur des anneaux', famille: 'univers', description: 'La Terre du Milieu, de Tolkien à Peter Jackson', etiquettes: ['seigneur-des-anneaux'] },
   { cle: 'star-wars', nom: 'Star Wars', famille: 'univers', description: 'Les Jedi, l’Empire et la Force, au cinéma et au-delà', etiquettes: ['star-wars'] },
+  // Le 1er novembre 2026 : la porte des étoiles, du film aux trois séries — ses deux cents questions écrites pour lui.
+  { cle: 'stargate', nom: 'Stargate', famille: 'univers', description: 'SG-1, Atlantis et Universe : la porte, les Goa’uld et les Wraith', etiquettes: ['stargate'] },
   // Les pays (le 17 octobre 2026, « apporter beaucoup de choix ») : une
   // étiquette chacun (`ETIQUETTES`, « Les pays »), posée sur les questions que
   // la base avait déjà, relues une à une — l'Italie de la pizza et de Fellini,

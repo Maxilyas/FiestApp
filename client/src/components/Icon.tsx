@@ -107,13 +107,14 @@ export type IconName =
   | 'gateau'
   // Les pays de la campagne, tous du même repère.
   | 'repere'
-  // Les univers de la campagne : Disney, Harry Potter, James Bond, Marvel, le Seigneur des anneaux, Star Wars.
+  // Les univers de la campagne : Disney, Harry Potter, James Bond, Marvel, le Seigneur des anneaux, Star Wars, Stargate.
   | 'chateau'
   | 'baguette'
   | 'noeud'
   | 'bouclier'
   | 'anneau'
   | 'sabre'
+  | 'porte'
   // Les fils rouges du 17 octobre 2026 au soir : Paris, la mer, l'outre-mer, les citations, le calcul mental.
   | 'tour-eiffel'
   | 'ancre'
@@ -810,6 +811,17 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
       <>
         <path d="M10.6 13.4 19.8 4.2M7.6 12.6l3.8 3.8" />
         <path d="M3.4 19.2 8.6 14l1.4 1.4-5.2 5.2Z" />
+      </>
+    ),
+  },
+  // Stargate (le 1er novembre 2026) : l'anneau de la porte des étoiles et
+  // ses chevrons, le seul objet que les trois séries partagent.
+  porte: {
+    paths: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <circle cx="12" cy="12" r="6" />
+        <path d="m10.6 2.6 1.4 1.8 1.4-1.8M3.9 7.6l2.2.7-.1-2.3M20.1 7.6l-2.2.7.1-2.3M5 18.2l1.6-1.6-2.2-.6M19 18.2l-1.6-1.6 2.2-.6" />
       </>
     ),
   },
