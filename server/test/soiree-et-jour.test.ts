@@ -125,9 +125,10 @@ test('à la fin du quiz du jour : le laurier en jeu, le rendez-vous, la montée 
   assert.match(jour, /Reste en tête jusqu’à minuit, et tu porteras le laurier demain/)
   assert.match(jour, /Demain, dix nouvelles questions dès minuit\./)
   assert.match(jour, /Tu portes le laurier aujourd’hui : la salle le verra à côté de ton prénom\./)
-  // La montée de niveau de la partie, sur l'écran de gains de tous les modes : la barre, et les emojis de collection à essayer.
+  // La montée de niveau de la partie, sur l'écran de gains de tous les modes : la barre, et les emojis de collection à essayer —
+  // après la gerbe de la fête dont elle vient d'ouvrir le légendaire (le 1er novembre 2026).
   assert.match(jour, /niveauDe\(profil, partie\.niveauAvant \?\? null\)/)
-  assert.match(jour, /<APorter objets=\{\[\.\.\.aPorterDesTrophees\(cles\), \.\.\.emojisAPorter\(niveau\)\]\} \/>/)
+  assert.match(jour, /<APorter objets=\{\[\.\.\.aPorterDesTrophees\(cles\), \.\.\.aPorterDesFetes\(partie\.legendaires \?\? \[\]\), \.\.\.emojisAPorter\(niveau\)\]\} \/>/)
   const carte = source('components/Jour.tsx')
   assert.match(carte, /!partie\.serieTenue && partie\.serie >= 2/)
   assert.match(carte, /tient jusqu’à minuit/)

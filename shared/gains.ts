@@ -14,6 +14,8 @@
 
 import { NOM_PALIER, PART_DES_JOUEURS, clePalier, hautFait, hautFaitDeSoiree, palierDe, regleDuPalier, titreDePalier, xpDe, type Ton } from './hautsfaits'
 import { ABSORBES, ceQuIlOuvre, rareteMesuree, type Recompense } from './pistes'
+import { SAISONS } from './saisons'
+import { GERBES } from './gerbes'
 import { pageDuTrophee, type PageDesTrophees } from './pagesDesTrophees'
 import type { Rarete } from './badges'
 
@@ -175,6 +177,21 @@ export function objetsAPorter(ouverts: readonly { recompense: Recompense; par: s
     objets.push({ piece, cle: r.cle, nom: r.nom, par })
   }
   return objets
+}
+
+/**
+ * Ce que des légendaires de fête tout juste ouverts font porter : la gerbe de
+ * leur fête (`par: { fete }`, `shared/gerbes.ts`), qui s'ouvre avec eux, par
+ * la même saison — neuve comme eux.
+ */
+export function aPorterDesFetes(legendaires: readonly string[]): ObjetAPorter[] {
+  return objetsAPorter(
+    legendaires.flatMap(cle => {
+      const s = SAISONS.find(x => x.legendaire === cle)
+      const g = s && GERBES.find(x => 'fete' in x.par && x.par.fete === s.key)
+      return s && g ? [{ recompense: { sorte: 'gerbe' as const, cle: g.key, nom: g.nom }, par: s.court }] : []
+    }),
+  )
 }
 
 /**

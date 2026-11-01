@@ -40,7 +40,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Automate | L'adversaire simulé du dé, 🤖, qui joue comme le joueur d'après le modèle du savoir, son score tenu à 2 bonnes réponses de ce qu'on attend de lui | `AUTOMATE` |
 | Une autre | La voisine d'une question tirée de la base — même catégorie, même marche, même sorte —, qui la remplace sans rien écrire | `uneAutreQuestion` |
 | Avatar en grand | L'avatar d'une carte, touché : ouvert en grand, sa peinture, sa finition et son Éclat entiers | `AvatarEnGrand` |
-| Avatar légendaire | Un des vingt-six avatars peints qu'ouvrent des hauts faits répétés ou les étapes d'une piste, sur la durée ; il prend la place de l'emoji | `shared/legendaires.ts` |
+| Avatar légendaire | Un des trente et un avatars peints qu'ouvrent des hauts faits répétés, les étapes d'une piste, sur la durée, ou une fête ; il prend la place de l'emoji | `shared/legendaires.ts` |
 | Avatar peint | Un avatar qui prend la place de l'emoji — légendaire, Divin, portrait du savoir ou forme de compagnon —, un seul à la fois | `legendairePorte` |
 
 ## B
@@ -78,6 +78,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Campagne | Le jeu solo des profils, sans chronomètre, à `/campagne` : la série, les sentiers, le défi de la semaine, le carnet, et les duels sur le même écran | `CampagneStore` |
 | Campement | L'une des deux escales du haut d'un plan de l'expédition, juste avant le gardien : une vie, jusqu'à trois — du courage en rencontres —, ou un joker retiré de son paquet, ou, au jeu complet, une carte améliorée | `sorte: 'campement'` (`shared/expedition.ts`), `{ quoi: 'camper' }` |
 | Carnet de révision | Ce qu'on a raté en campagne, qui revient à des rendez-vous espacés jusqu'à être appris | `shared/revision.ts` |
+| Carnet des fêtes | La ligne de « Ma collection » qui range les timbres, une page par année, une case par fête : gagné, en cours, à venir ou manqué | `carnetDesFetes` (`shared/timbres.ts`), `CarnetDesFetes` |
 | Carte-bonus | Une œuvre ou un gardien réveillé que le joueur emporte dans une partie du Cabinet pour son pouvoir : sa salle donne le pouvoir, sa rareté la force ; elle ne s'use jamais. Retenue sur le téléphone, l'annonce la propose d'abord | `pouvoirDe`, `forceDe` (`shared/cabinet/pouvoirs.ts`), `quizz.cabinet.carte` |
 | Carte à fond | Une carte qui porte un fond — sur la carte d'un joueur, ses deux faces : elle garde les couleurs du Velours sous tous les thèmes | `.carte-fond` |
 | Carte améliorée | Une carte des rencontres en mieux — moins d'énergie, de plus gros chiffres, ou qui ne quitte plus la rencontre —, un « + » à son nom et sur son dessin : améliorée au campement ou à l'échoppe, ou trouvée telle dans une offre des actes 2 et 3 (le jeu complet). Elle porte sa clé suivie de « + » dans tous les tas | `AMELIORATIONS`, `ameliorer`, `baseDe`, `parmi`, `refusDeLAmelioration` (`shared/rencontres.ts`) |
@@ -492,7 +493,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 |---|---|---|
 | Sa place dans la course | Les trois lignes du téléphone à chaque révélation : l'étiquette, la place, la cible nommée — les bonnes nouvelles seulement | `ligneDeCourse` |
 | Sablier | L'objet qui couvre un jour manqué au quiz du jour : la série tient, sans compter ce jour-là | `PRIX_D_UN_SABLIER` |
-| Saison | Halloween, Noël ou le Nouvel An : une période qui ouvre son légendaire, par quelques jours de quiz du jour, une soirée jouée ces jours-là, ou en le gardant au bout d'une expédition partie ces jours-là — sa fête y tient la moitié des thèmes pointus, son légendaire garde l'acte 3 | `shared/saisons.ts`, `calendrierDesExpeditions` |
+| Saison | L'une des huit fêtes — la Saint-Valentin, Pâques, la Fête de la musique, l'été, la rentrée (à partir de 2027), Halloween, Noël, le Nouvel An — : une période qui ouvre son légendaire et sa gerbe, par quelques jours de quiz du jour ou une soirée jouée ces jours-là ; pour les trois d'octobre 2026, aussi en le gardant au bout d'une expédition partie ces jours-là — sa fête y tient la moitié des thèmes pointus, son légendaire garde l'acte 3 | `shared/saisons.ts`, `calendrierDesExpeditions` |
 | Salle (du Cabinet) | Un mur du Cabinet de curiosités : les huit œuvres d'une famille et leurs deux gardiens, ou les vingt du Vestibule ; au musée, une porte en arche qui montre la plus rare de ses œuvres à soi | `SALLES` (`shared/cabinet/salles.ts`), `SalleVue` |
 | Salle des tests | Le moteur du quiz joué seul, sans serveur, sur une base en mémoire et une horloge qu'on avance à la main, pour viser un instant précis | `server/test/salle.ts` (`salle`, `horloge`) |
 | Salle du jour | Les joueurs d'un jour, masqués et suspendus écartés ; certains hauts faits demandent qu'ils soient huit au moins | `SALLE_DU_JOUR` |
@@ -541,6 +542,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Test de charge | Une salle entière simulée contre un serveur qui tourne, ses temps d'inscription, de diffusion et de révélation mesurés | `server/scripts/load-test.mjs` |
 | Thème | L'habillage de toutes les pages d'un profil — couleurs, polices, décor —, sur tout appareil où il est connecté ; jamais celui de l'écran commun | `shared/themes.ts` |
 | Thème de saison | Un thème en boutique pendant sa période seulement (Halloween, le Nouvel An…), gardé toute l'année une fois acheté | `enBoutique` |
+| Timbre | Ce qu'une fête donne chaque année, par les mêmes jours de quiz du jour ou la même soirée que son légendaire : dessiné, tamponné de son année dans le carnet des fêtes, rangé hors de l'étagère | `timbre:<fête>:<année>`, `shared/timbres.ts`, `Timbre.tsx` |
 | Thème gagné | L'un des cinq thèmes légendaires qui ne se vendent pas : un exploit les ouvre, et ils se relisent à chaque lecture | `themeGagne` |
 | Thème offert | Velours ou Ivoire, à tous les profils, sans rien payer | `THEMES_OFFERTS` |
 | Thème pointu | Une escale de l'expédition sur un sujet de l'onglet « Thèmes » de « Sur quoi ? » — un thème, une fête, un univers, un pays, une époque, un fil rouge —, plus étroite qu'une catégorie ; jamais une rubrique | `ThemeDEscale` (`sujet`), `PART_DES_THEMES_POINTUS` |

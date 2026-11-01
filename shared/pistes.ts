@@ -148,8 +148,8 @@ SEUILS_DU_LAURIER.forEach((seuil, i) => etapeDe('hf:champion-du-jour', seuil).re
 
 for (const g of GERBES) {
   const par = g.par
-  // Celle de tous, et celles du trésor, que seul un coffre donne : aucune piste ne les ouvre.
-  if ('profil' in par || 'tresor' in par) continue
+  // Celle de tous, celles du trésor, que seul un coffre donne, et celles des fêtes, qu'ouvre leur saison : aucune piste ne les ouvre.
+  if ('profil' in par || 'tresor' in par || 'fete' in par) continue
   const r: Recompense = { sorte: 'gerbe', cle: g.key, nom: g.nom }
   if ('palier' in par) ranger(destinationDe({ hautFait: par.palier, palier: par.au }), r)
   else ranger(destinationDe(par), r)

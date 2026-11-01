@@ -56,13 +56,17 @@ test('une soirée qui compte, jouée pendant la saison, l’ouvre à ses profils
     { profileId: 'seule', gain: gainVide() },
   ]
   const joue = (createdAt: number) => [{ answered: true, createdAt }]
+  // La saison, et le timbre de son année (`shared/timbres.ts`, le 1er novembre 2026).
   assert.deepEqual(
     laureatsDeSaison([...joue(soir + 60_000), ...joue(soir)], gains).map(l => [l.profileId, l.badge]),
-    [['alice', 'saison:halloween']],
+    [
+      ['alice', 'saison:halloween'],
+      ['alice', 'timbre:halloween:2026'],
+    ],
     'qui n’a rien joué à deux ne la gagne pas',
   )
   // Le 1er novembre à 23 h 50 : encore Halloween. Le 2 au matin : fini.
-  assert.equal(laureatsDeSaison(joue(Date.UTC(2026, 10, 1, 22, 50)), gains).length, 1)
+  assert.equal(laureatsDeSaison(joue(Date.UTC(2026, 10, 1, 22, 50)), gains).length, 2)
   assert.deepEqual(laureatsDeSaison(joue(Date.UTC(2026, 10, 2, 9, 0)), gains), [])
   assert.deepEqual(laureatsDeSaison([{ answered: false, createdAt: soir }], gains), [], 'rien de joué, rien de daté')
   assert.ok(legendairesDebloques(new Map([['saison:halloween', 1]])).includes('lg:citrouille'))
@@ -76,7 +80,7 @@ test('une soirée commencée le soir du 1er novembre et finie après minuit est 
     { answered: true, createdAt: Date.UTC(2026, 10, 1, 23, 20) },
     { answered: true, createdAt: Date.UTC(2026, 10, 1, 22, 50) },
   ]
-  assert.deepEqual(laureatsDeSaison(journal, gains).map(l => l.badge), ['saison:halloween'])
+  assert.deepEqual(laureatsDeSaison(journal, gains).map(l => l.badge), ['saison:halloween', 'timbre:halloween:2026'])
 })
 
 // ── Au quiz du jour ─────────────────────────────────────────────────────
@@ -113,11 +117,13 @@ test('trois jours de quiz du jour pendant Halloween ouvrent la Citrouille ; la p
     const alice = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
     const saisonVue = async () => (await lire(banc, alice, '/api/jour')).corps.saison
     assert.deepEqual(await saisonVue(), {
+      cle: 'halloween',
       nom: 'Halloween',
       legendaire: 'lg:citrouille',
       joues: 0,
       requis: 3,
       periode: 'du 25 octobre au 1er novembre',
+      millesime: 2026,
     })
     // Deux jours déjà joués dans la période, et un avant elle, qui ne compte pas.
     const id = base(banc, db => (db.prepare('SELECT id FROM profiles WHERE login = ?').get('alice') as { id: string }).id)
@@ -132,6 +138,7 @@ test('trois jours de quiz du jour pendant Halloween ouvrent la Citrouille ; la p
     // Le troisième : la fin de la partie fête la Citrouille, et elle se porte.
     const fin = await jouer(banc, alice)
     assert.deepEqual(fin.legendaires, ['lg:citrouille'])
+    assert.equal(fin.timbre, 'halloween:2026', 'et le timbre de l’année rejoint son carnet')
     assert.equal(fin.saison, undefined, 'gagnée, la saison ne s’annonce plus')
     assert.equal(fin.paliers, undefined, 'une saison n’est pas un palier')
     const porte = await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'lg:citrouille' }, alice, 'PUT')
@@ -139,7 +146,8 @@ test('trois jours de quiz du jour pendant Halloween ouvrent la Citrouille ; la p
     // Rien sur l'étagère : elle ne se montre que par son légendaire.
     const moi = (await lire(banc, alice, '/api/joueur/moi')).corps.profile
     assert.ok(moi.legendaires.includes('lg:citrouille'))
-    assert.ok(!moi.vitrine.some((b: any) => b.key.startsWith('saison:')))
+    assert.ok(!moi.vitrine.some((b: any) => b.key.startsWith('saison:') || b.key.startsWith('timbre:')))
+    assert.deepEqual(moi.carnet.timbres, ['halloween:2026'], 'son carnet a son timbre')
 
     // Le 3 novembre, Halloween est fini : rien ne s'annonce.
     horloge.t = Date.UTC(2026, 10, 3, 9, 0)
@@ -219,6 +227,9 @@ test('une soirée jouée le soir d’Halloween ouvre la Citrouille à ses profil
     const lignes = base(banc, d => d.prepare(`SELECT soiree_id FROM profile_badges WHERE badge = 'saison:halloween'`).all()) as { soiree_id: string }[]
     assert.equal(lignes.length, 1)
     assert.ok(!lignes[0].soiree_id.startsWith('#jour'))
+    // Le timbre de son année, sous la même soirée (`shared/timbres.ts`).
+    const timbres = base(banc, d => d.prepare(`SELECT soiree_id FROM profile_badges WHERE badge = 'timbre:halloween:2026'`).all()) as { soiree_id: string }[]
+    assert.deepEqual(timbres, lignes)
   } finally {
     await banc.close()
   }

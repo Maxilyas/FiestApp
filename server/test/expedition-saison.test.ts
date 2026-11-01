@@ -79,10 +79,24 @@ function base<T>(fn: (db: Database.Database) => T, ecriture = false): T {
 
 const departDe = (id: string): DepartDExpedition => base(db => JSON.parse((db.prepare('SELECT expedition FROM campagne_series WHERE id = ?').get(id) as { expedition: string }).expedition))
 
-test('chaque saison a sa fête parmi les sujets, et son légendaire son joker', () => {
-  for (const s of SAISONS) {
-    assert.equal(sujetParCle(s.key)?.famille, 'fete', s.key)
-    assert.ok(LEGENDAIRES_A_JOKER.includes(s.legendaire), s.legendaire)
+test('chaque saison de l’Expédition a sa fête parmi les sujets, et son légendaire son joker', () => {
+  // Les cinq fêtes du 1er novembre 2026 n'ont pas de joker : l'Expédition ne les fête pas (`saisonDuDepart`).
+  const deLExpedition = SAISONS.filter(s => LEGENDAIRES_A_JOKER.includes(s.legendaire))
+  assert.deepEqual(deLExpedition.map(s => s.key).sort(), ['halloween', 'noel', 'nouvel-an'])
+  for (const s of deLExpedition) assert.equal(sujetParCle(s.key)?.famille, 'fete', s.key)
+})
+
+test('à une fête sans joker, l’expédition part comme hors saison : ni sa fête, ni son légendaire à l’acte 3', async () => {
+  // Le samedi saint 2027 : Pâques tombe le 28 mars, sa fête court du vendredi saint au lundi.
+  maintenant = Date.UTC(2027, 2, 27, 10)
+  try {
+    assert.equal(periodeDu('2027-03-27')?.saison.key, 'paques')
+    const paul = await inscrireProfil(banc.url, 'paques', 'Paul')
+    const page = (await lire(paul, '/api/expedition')).corps
+    assert.equal(page.prochaine.saison, undefined)
+    assert.ok(!page.prochaine.gardiens.includes('lg:oeuf'), page.prochaine.gardiens.join(' '))
+  } finally {
+    maintenant = jour(10, 28)
   }
 })
 

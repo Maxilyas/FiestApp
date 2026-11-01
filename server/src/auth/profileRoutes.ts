@@ -27,6 +27,8 @@ import type { CabinetStore } from '../core/cabinet/magasin'
 import { accueilDuCabinet } from '../core/cabinet/vue'
 import type { CabinetDAccueil } from '../../../shared/cabinet/vues'
 import { jourDe } from '../../../shared/jour'
+import { millesimeDe, periodeDu } from '../../../shared/saisons'
+import { cleDuTimbre } from '../../../shared/timbres'
 import { lireEquipesPreparees, type EquipePreparee } from '../../../shared/teams'
 import { ceQuIlAPorter, nouveautes, retenirLesVus } from '../../../shared/loge'
 import { compteDesNouveautes, lireLesVus, type NouveautesDeLaLoge } from '../../../shared/piecesDeLaLoge'
@@ -232,6 +234,12 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     } catch (e) {
       console.error('[profil] traversée de l’accueil illisible :', e)
     }
+    // La fête du jour, et son timbre de l'année : de la mémoire de ses récompenses, comme le quiz du jour dit la sienne.
+    const periode = periodeDu(aujourdhui)
+    const fete = periode && {
+      cle: periode.saison.key,
+      timbre: profiles.recompensesOf(rec.id).has(cleDuTimbre(periode.saison.key, millesimeDe(periode.fin))),
+    }
     return {
       ...profiles.toPublic(rec),
       jour,
@@ -241,6 +249,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       ...(defi && { defi }),
       ...(duels && { duels }),
       ...(cabinet && { cabinet }),
+      ...(fete && { fete }),
       ...(annonces.length > 0 && { annonces }),
     }
   }

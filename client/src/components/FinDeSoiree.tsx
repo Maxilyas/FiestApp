@@ -7,7 +7,7 @@ import { divin } from '../../../shared/divins'
 import { hautFait, palierDe, titreDePalier } from '../../../shared/hautsfaits'
 import { collectionGagnee } from '../../../shared/avatars'
 import { phraseDesConfettis } from '../../../shared/themes'
-import { aPorterDesTrophees, partsDeLXp, tropheesTombes } from '../../../shared/gains'
+import { aPorterDesFetes, aPorterDesTrophees, partsDeLXp, tropheesTombes } from '../../../shared/gains'
 import { api } from '../api'
 import { spacePath } from '../routes'
 import { formatNumber, place, pourcent, pts, rang as rangEcrit } from '../format'
@@ -17,6 +17,7 @@ import { Avatar, Dessin } from './Avatar'
 import { perdus, sortesDe, useDessins } from './medaillons'
 import { Flamme, Icon } from './Icon'
 import { EclatTombe, Medaillon } from './Ouverts'
+import { TimbreGagne } from './Timbre'
 import { APorter, CeQueTuGagnes, MissionsAccomplies, NouveauxTrophees, emojisAPorter, useNiveauRelu, type NiveauDeLaFin } from './Gains'
 import { lienBilan } from './Lendemain'
 import { Feuille } from './Pieces'
@@ -206,6 +207,9 @@ export function FinDeSoiree({
         )
       })}
 
+      {/* Une soirée d'une fête : le timbre de son année, s'il est neuf — il rejoint son carnet. */}
+      {gain?.timbre && <TimbreGagne timbre={gain.timbre} />}
+
       {/* Ses trophées de la soirée — pistes, exploits, prix, puis coups du
           sort —, les plus rares d'abord : trois en vue, le reste d'un toucher.
           Avec un profil, chacun mène à sa page de l'album. */}
@@ -221,7 +225,7 @@ export function FinDeSoiree({
           )
         }
       />
-      {gain && <APorter objets={[...aPorterDesTrophees(paliers.map(p => p.key)), ...emojisAPorter(niveau)]} />}
+      {gain && <APorter objets={[...aPorterDesTrophees(paliers.map(p => p.key)), ...aPorterDesFetes(gain.legendaires), ...emojisAPorter(niveau)]} />}
       {/* Ses missions du jour, si la soirée en a fait — ses bonnes réponses comptent partout. */}
       <MissionsAccomplies profil={!!gain} />
 

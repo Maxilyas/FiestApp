@@ -6,13 +6,13 @@ import { Cercle, OR } from './Cercle'
 import { IMAGES } from './legendaires-peints'
 
 /**
- * Les avatars légendaires : vingt-six cartes peintes, qui ne se gagnent que
+ * Les avatars légendaires : trente et une cartes peintes, qui ne se gagnent que
  * par un haut fait (`shared/legendaires.ts`).
  *
  * Un emoji est à tout le monde ; un légendaire, non — et il doit se voir de
  * loin, au-dessus même de la forme ultime d'une branche. Chacun est une
  * illustration de carte légendaire, pleine page, peinte à la feuille d'or,
- * dans un seul style pour les vingt-six — une collection —, sous une
+ * dans un seul style pour les trente et un — une collection —, sous une
  * pellicule holographique : un arc-en-ciel qui glisse et un reflet qui passe,
  * et qui n'allument que ce qui est déjà clair, comme une vraie carte. En
  * grand, le reflet suit le doigt et la carte penche un peu ; ailleurs, la
@@ -64,6 +64,11 @@ const FONDS: Record<string, [string, string, string]> = {
   'lg:citrouille': ['#7b4bb8', '#2d1250', '#0b0416'],
   'lg:sapin': ['#3d63a8', '#142552', '#050b1c'],
   'lg:bouquet': ['#4a3598', '#1a0f47', '#06031a'],
+  'lg:rose': ['#b0365a', '#4c0f27', '#15040b'],
+  'lg:oeuf': ['#f0c96a', '#5f8a3c', '#152410'],
+  'lg:gramophone': ['#e0a64f', '#1f5f66', '#06191c'],
+  'lg:coquillage': ['#7fe0e0', '#1e8a9c', '#06262e'],
+  'lg:cartable': ['#ffc07a', '#b0502a', '#2e0f05'],
   'lg:aigle': ['#ffd88f', '#d0784a', '#3f1622'],
   'lg:ouroboros': ['#2f9a6e', '#0d3a3a', '#030a12'],
   'lg:scarabee': ['#ffcf8a', '#e0705a', '#4a1430'],
@@ -98,6 +103,11 @@ const FONDS_ECLAT: Record<string, [string, string, string]> = {
   'lg:citrouille': ['#2f9a70', '#0e3d2c', '#03120c'],
   'lg:sapin': ['#9cc4e0', '#34607c', '#0c1c29'],
   'lg:bouquet': ['#a32a66', '#3a0c27', '#10030b'],
+  'lg:rose': ['#5a86d8', '#1c3470', '#060f26'],
+  'lg:oeuf': ['#c8b0ec', '#5b3f8f', '#170d2b'],
+  'lg:gramophone': ['#b49ae6', '#4a2a8a', '#130828'],
+  'lg:coquillage': ['#7fd0b8', '#2a3f8a', '#070c26'],
+  'lg:cartable': ['#a9c0f0', '#2c3f8a', '#080e2a'],
   'lg:aigle': ['#c9a6f0', '#6a2fa3', '#1c0733'],
   'lg:ouroboros': ['#3fbf7f', '#0f4a2c', '#02100a'],
   'lg:scarabee': ['#a9c8ff', '#2a4fa8', '#081436'],

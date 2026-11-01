@@ -296,8 +296,18 @@ test('les vingt-trois gardiens sont les légendaires à joker : dix-huit des sal
   assert.equal(salleDuGardien('lg:scarabee'), undefined)
 })
 
-test('les trois gardiens de saison sont ceux des fêtes, et ne s’éveillent qu’à elles', () => {
-  assert.deepEqual([...GARDIENS_DE_SAISON].sort(), SAISONS.map(s => s.legendaire).sort())
+test('les trois gardiens de saison sont ceux des fêtes à joker, et ne s’éveillent qu’à elles', () => {
+  // Les gardiens sont exactement les légendaires à joker : une fête dont le légendaire a le sien a son gardien. Les cinq
+  // du 1er novembre 2026 — la Rose, l'Œuf d'or, le Gramophone, le Coquillage, le Cartable — n'en ont pas : ni gardien,
+  // ni carte-bonus, ni réveil à leur fête ; le quiz du jour et la soirée les ouvrent.
+  const fetesAJoker = SAISONS.filter(s => LEGENDAIRES_A_JOKER.includes(s.legendaire))
+  assert.deepEqual([...GARDIENS_DE_SAISON].sort(), fetesAJoker.map(s => s.legendaire).sort())
+  assert.deepEqual(fetesAJoker.map(s => s.key).sort(), ['halloween', 'noel', 'nouvel-an'])
+  for (const s of SAISONS.filter(x => !fetesAJoker.includes(x))) {
+    assert.ok(!GARDIENS.includes(s.legendaire), `${s.legendaire} ne garde rien`)
+    assert.equal(voieDuGardien(s.legendaire), null, s.legendaire)
+    assert.equal(pouvoirDe(s.legendaire), null, `${s.legendaire} : jamais une carte-bonus`)
+  }
   for (const a of AUTRES_GARDIENS) {
     if (!('saison' in a.reveil)) continue
     const s = SAISONS.find(x => x.key === (a.reveil as { saison: string }).saison)

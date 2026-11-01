@@ -128,6 +128,12 @@ export interface FinDeSoiree extends Distinctions {
      * sur quarante — tombé en silence, il passait inaperçu.
      */
     eclat?: string
+    /**
+     * Le timbre de la fête que cette soirée lui a donné, s'il est neuf
+     * (`paques:2027`, `shared/timbres.ts`) : il rejoint son carnet. Absent
+     * hors des fêtes, et d'une fin d'avant.
+     */
+    timbre?: string
     /** Les finitions débloquées ce soir. */
     finitions: Finition[]
     /**

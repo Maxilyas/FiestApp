@@ -1,4 +1,4 @@
-// Les vingt-six légendaires, peints : leurs fichiers, dans `client/public/medaillons`.
+// Les trente et un légendaires, peints : leurs fichiers, dans `client/public/medaillons`.
 //
 // Écrit par `server/scripts/anime/legendaires.ts --livrer` : on ne le retouche
 // pas à la main, on relance la chaîne. Chaque fichier est nommé par son
@@ -113,6 +113,36 @@ export const IMAGES: Record<string, ImagesDeLegendaire> = {
     rare: ['/medaillons/bouquet-rare-512.d62c59d7e6.webp', '/medaillons/bouquet-rare-256.f17f70c00f.webp'],
     perso: '/medaillons/bouquet-perso-256.3c96f2c985.webp',
     rarePerso: ['/medaillons/bouquet-rare-perso-512.d2362df665.webp', '/medaillons/bouquet-rare-perso-256.9f2bb27c25.webp'],
+  },
+  'lg:rose': {
+    art: ['/medaillons/rose-art-512.f18f540f1d.webp', '/medaillons/rose-art-256.37d19e5a6f.webp'],
+    rare: ['/medaillons/rose-rare-512.5b2647413d.webp', '/medaillons/rose-rare-256.2b1f4ed19f.webp'],
+    perso: '/medaillons/rose-perso-256.170416ea88.webp',
+    rarePerso: ['/medaillons/rose-rare-perso-512.35066b6894.webp', '/medaillons/rose-rare-perso-256.739a4a61f0.webp'],
+  },
+  'lg:oeuf': {
+    art: ['/medaillons/oeuf-art-512.f3ec99443f.webp', '/medaillons/oeuf-art-256.2105ed0f2c.webp'],
+    rare: ['/medaillons/oeuf-rare-512.e58d0dd6e3.webp', '/medaillons/oeuf-rare-256.d94fe5c630.webp'],
+    perso: '/medaillons/oeuf-perso-256.4c95a165cc.webp',
+    rarePerso: ['/medaillons/oeuf-rare-perso-512.ffb8a48475.webp', '/medaillons/oeuf-rare-perso-256.a9479bb594.webp'],
+  },
+  'lg:gramophone': {
+    art: ['/medaillons/gramophone-art-512.da1dd5e58f.webp', '/medaillons/gramophone-art-256.9bddddaf2e.webp'],
+    rare: ['/medaillons/gramophone-rare-512.413f178007.webp', '/medaillons/gramophone-rare-256.7dc892f706.webp'],
+    perso: '/medaillons/gramophone-perso-256.008c6607e6.webp',
+    rarePerso: ['/medaillons/gramophone-rare-perso-512.c9510a55ce.webp', '/medaillons/gramophone-rare-perso-256.4f7964e919.webp'],
+  },
+  'lg:coquillage': {
+    art: ['/medaillons/coquillage-art-512.89263987da.webp', '/medaillons/coquillage-art-256.967e2afe4e.webp'],
+    rare: ['/medaillons/coquillage-rare-512.d33453d41f.webp', '/medaillons/coquillage-rare-256.720426a5b5.webp'],
+    perso: '/medaillons/coquillage-perso-256.d04e2d5ad7.webp',
+    rarePerso: ['/medaillons/coquillage-rare-perso-512.1bc1d9d751.webp', '/medaillons/coquillage-rare-perso-256.86f96c823e.webp'],
+  },
+  'lg:cartable': {
+    art: ['/medaillons/cartable-art-512.e11300293b.webp', '/medaillons/cartable-art-256.fd2685c0fa.webp'],
+    rare: ['/medaillons/cartable-rare-512.1e74c7339b.webp', '/medaillons/cartable-rare-256.79b5844355.webp'],
+    perso: '/medaillons/cartable-perso-256.d3079285dc.webp',
+    rarePerso: ['/medaillons/cartable-rare-perso-512.e6c3a98759.webp', '/medaillons/cartable-rare-perso-256.2b6a7404aa.webp'],
   },
   'lg:aigle': {
     art: ['/medaillons/aigle-art-512.f6b481108b.webp', '/medaillons/aigle-art-256.97c138bb70.webp'],

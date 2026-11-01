@@ -606,6 +606,7 @@ export function ProfilApp() {
           defi={'defi' in profil ? profil.defi : undefined}
           duels={'duels' in profil ? profil.duels : undefined}
           traversee={'cabinet' in profil ? profil.cabinet : undefined}
+          fete={'fete' in profil ? profil.fete : undefined}
           etats={boutonsDesPages()}
           cabinet={cabinetIci()}
         />

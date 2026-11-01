@@ -27,7 +27,11 @@ concurrency:
 jobs:
   verifier:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Un filet contre l'exécution qui pend, pas une borne de la suite : `main`
+    # mettait déjà 14 min 46 le 1er novembre 2026 (12 min 20 de tests), et à
+    # quinze minutes, la PR des fêtes s'est fait couper au milieu du smoke, tous
+    # ses tests passés.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
 

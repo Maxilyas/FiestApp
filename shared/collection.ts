@@ -14,6 +14,7 @@ import { FONDS } from './fonds'
 import { GERBES } from './gerbes'
 import { FINITIONS, type PublicProfileDetail } from './profil'
 import { LIGUES } from './duels'
+import { compteDuCarnet } from './timbres'
 
 /**
  * Les trois familles, dans l'ordre de la page : deux albums — les avatars,
@@ -25,10 +26,11 @@ export type FamilleDeLaCollection = 'avatars' | 'trophees' | 'style'
 
 /**
  * Une ligne de la collection : les avatars en un album (`shared/album.ts`),
- * les trophées en un autre (`shared/trophees.ts`), le style en cinq — les
- * thèmes, puis ce que range `shared/style.ts`.
+ * les trophées en un autre (`shared/trophees.ts`) et le carnet des fêtes
+ * (`shared/timbres.ts`), le style en cinq — les thèmes, puis ce que range
+ * `shared/style.ts`.
  */
-export type PartieDeLaCollection = 'avatars' | 'trophees' | 'themes' | 'fonds' | 'gerbes' | 'finitions' | 'bordures'
+export type PartieDeLaCollection = 'avatars' | 'trophees' | 'timbres' | 'themes' | 'fonds' | 'gerbes' | 'finitions' | 'bordures'
 
 export interface Compte {
   acquis: number
@@ -45,7 +47,7 @@ export interface FamilleDuCompte extends Compte {
 }
 
 /** Ce que le compte lit d'un profil : sa page au complet, ou ce qu'il en faut. */
-export type ProfilDeLaCollection = Pick<PublicProfileDetail, 'niveau' | 'legendaires' | 'divins' | 'ouvertes' | 'fonds' | 'gerbes' | 'boutique' | 'sentiers'> &
+export type ProfilDeLaCollection = Pick<PublicProfileDetail, 'niveau' | 'legendaires' | 'divins' | 'ouvertes' | 'fonds' | 'gerbes' | 'boutique' | 'sentiers' | 'carnet'> &
   ProfilDeLAlbumDesTrophees
 
 const somme = (parties: LigneDuCompte[]): Compte => ({
@@ -62,7 +64,12 @@ export function compteDeLaCollection(p: ProfilDeLaCollection): { familles: Famil
   // Un album pour chacun : trois lignes d'avatars rendaient les gens
   // « confus », dix lignes de trophées aussi (le 13 octobre 2026).
   const avatars: LigneDuCompte[] = [{ partie: 'avatars', ...compteDeLAlbum(p) }]
-  const trophees: LigneDuCompte[] = [{ partie: 'trophees', ...compteDesTrophees(p) }]
+  // Le carnet des fêtes à côté des trophées (le 1er novembre 2026) : un timbre par fête et par an, compté sur les pages
+  // de son carnet — l'année en cours entière. Un serveur d'avant ne le dit pas : pas de ligne.
+  const trophees: LigneDuCompte[] = [
+    { partie: 'trophees', ...compteDesTrophees(p) },
+    ...(p.carnet ? [{ partie: 'timbres' as const, ...compteDuCarnet(p.carnet.timbres, p.carnet.jour) }] : []),
+  ]
   const style: LigneDuCompte[] = [
     ...(p.boutique ? [{ partie: 'themes' as const, acquis: p.boutique.possedes.length, total: THEMES.length }] : []),
     ...(p.fonds ? [{ partie: 'fonds' as const, acquis: p.fonds.length, total: FONDS.length }] : []),

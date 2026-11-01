@@ -238,7 +238,9 @@ et du compte des badges ; les gardiens réveillés au Cabinet de curiosités
 aussi (`cabinet:<légendaire>`, et `saison:<clé>` pour ceux de saison), rangés
 sous la clé fixe `#cabinet` (`RANGEMENT_DU_CABINET`) — jamais une soirée, que
 le remplacement des récompenses ou le retrait d'une soirée toucherait : la clé
-primaire rend chaque rangement idempotent, d'où qu'il vienne. Une voie rangée
+primaire rend chaque rangement idempotent, d'où qu'il vienne. Et les timbres
+du carnet des fêtes (`timbre:<fête>:<année>`, `shared/timbres.ts`), rangés
+avec leur saison — sous le jour qui l'ouvre ou sous la soirée. Une voie rangée
 se filtre par une seule liste (`PREFIXES_DES_VOIES_RANGEES`,
 `sqlHorsDesVoiesRangees`, `shared/legendaires.ts`).
 

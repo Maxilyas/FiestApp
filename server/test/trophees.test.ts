@@ -90,15 +90,16 @@ test('chaque thème qui se gagne, chaque gerbe et chaque légendaire sont sur la
     assert.ok(themeGagne(t, etat(seuil)), `${t.key} à ${seuil}`)
     assert.ok(!themeGagne(t, etat(seuil - 1)), `${t.key} pas avant ${seuil}`)
   }
-  // Les gerbes : chacune une fois, sur une étape de piste ou un trophée qui se regagne — celles du trésor nulle part : seul un coffre les donne.
+  // Les gerbes : chacune une fois, sur une étape de piste ou un trophée qui se regagne — celles du trésor nulle part :
+  // seul un coffre les donne ; celles des fêtes non plus : leur saison les ouvre, comme son légendaire, sans piste.
   for (const g of GERBES.filter(x => !('profil' in x.par))) {
     const surLesPistes = HAUTS_FAITS_DE_CARRIERE.flatMap(h => etapesDeLaPiste(h.key)).filter(e => e.recompenses.some(r => r.sorte === 'gerbe' && r.cle === g.key)).length
     const surLesTrophees = HAUTS_FAITS_REGAGNABLES.flatMap(h => ceQuOuvreLeTrophee(h.key)).filter(x => x.recompense.sorte === 'gerbe' && x.recompense.cle === g.key).length
-    assert.equal(surLesPistes + surLesTrophees, 'tresor' in g.par ? 0 : 1, g.key)
+    assert.equal(surLesPistes + surLesTrophees, 'tresor' in g.par || 'fete' in g.par ? 0 : 1, g.key)
   }
   // Les légendaires : chaque partie de chaque voie dit ce qu'elle ouvre — hors des voies rangées (les saisons,
-  // l'expédition, le Cabinet), qui n'ont pas de piste : on les a, ou non.
-  assert.deepEqual([...PREFIXES_DES_VOIES_RANGEES], ['saison:', 'expedition:', 'cabinet:'])
+  // l'expédition, le Cabinet, et le timbre d'une fête depuis le 1er novembre 2026), qui n'ont pas de piste : on les a, ou non.
+  assert.deepEqual([...PREFIXES_DES_VOIES_RANGEES], ['saison:', 'expedition:', 'cabinet:', 'timbre:'])
   for (const l of LEGENDAIRES) {
     for (const voie of voiesDe(l)) {
       for (const c of partiesDe(voie)) {

@@ -1,17 +1,19 @@
-// Les saisons côté serveur : Halloween, Noël, le Nouvel An (`shared/saisons.ts`),
-// lues par trois modes — les soirées, les expéditions, le Cabinet de
-// curiosités —, chacun par son calendrier : un test qui rouvre l'un ne doit
-// pas rouvrir les autres.
+// Les saisons côté serveur — les fêtes de `shared/saisons.ts` —, lues par
+// trois modes — les soirées, les expéditions, le Cabinet de curiosités —,
+// chacun par son calendrier : un test qui rouvre l'un ne doit pas rouvrir les
+// autres.
 //
 // Une soirée jouée pendant l'une d'elles ouvre son légendaire à chaque profil
 // qui y a joué — une soirée qui compte, à deux au moins (`soireeQuiCompte`) :
 // seul devant son téléphone, une question le soir d'Halloween suffisait
-// sinon. Dérivation pure, lue à la clôture et au recalcul de l'historique :
-// une soirée datée hors saison, ou retirée de l'historique, n'en range rien.
+// sinon —, et range le timbre de son année (`shared/timbres.ts`). Dérivation
+// pure, lue à la clôture et au recalcul de l'historique : une soirée datée
+// hors saison, ou retirée de l'historique, n'en range rien.
 
 import { jourDe } from '../../../shared/jour'
 import { soireeQuiCompte, type GainSoiree } from '../../../shared/profil'
-import { cleDeSaison, periodeDu } from '../../../shared/saisons'
+import { cleDeSaison, millesimeDe, periodeDu } from '../../../shared/saisons'
+import { etiquetteDuTimbre } from '../../../shared/timbres'
 import type { PrixDeSoiree } from '../auth/profiles'
 
 /**
@@ -53,9 +55,11 @@ export const calendrierDesExpeditions: { periodeDu: typeof periodeDu } = { perio
 export const calendrierDuCabinet: { periodeDu: typeof periodeDu } = { periodeDu }
 
 /**
- * Les récompenses de saison d'une soirée, profil par profil. Elle se date à
- * sa première question jouée, comme son nom (`soireeDesInvites`) : l'heure
- * de Paris, que le quiz du jour suit aussi.
+ * Les récompenses de saison d'une soirée, profil par profil : la saison, qui
+ * ouvre son légendaire, et le timbre de son année (`shared/timbres.ts`, le
+ * 1er novembre 2026), qui revient chaque année. Elle se date à sa première
+ * question jouée, comme son nom (`soireeDesInvites`) : l'heure de Paris, que
+ * le quiz du jour suit aussi.
  */
 export function laureatsDeSaison(
   answers: readonly { answered: boolean; createdAt: number }[],
@@ -69,7 +73,11 @@ export function laureatsDeSaison(
   const periode = calendrierDesSoirees.periodeDu(jourDe(premiere))
   if (!periode) return []
   const s = periode.saison
+  const timbre = etiquetteDuTimbre(s, millesimeDe(periode.fin))
   return gains
     .filter(g => soireeQuiCompte(g.gain))
-    .map(g => ({ profileId: g.profileId, badge: cleDeSaison(s), emoji: s.emoji, title: `Saison : ${s.nom}` }))
+    .flatMap(g => [
+      { profileId: g.profileId, badge: cleDeSaison(s), emoji: s.emoji, title: `Saison : ${s.nom}` },
+      { profileId: g.profileId, ...timbre },
+    ])
 }

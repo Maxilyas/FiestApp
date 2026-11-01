@@ -12,8 +12,14 @@
 // Six de plus, le 14 octobre 2026, qui ne se gagnent pas : elles sortent du
 // coffre de la semaine (`shared/coffre.ts`), chacune à sa rareté, et restent
 // à qui les a tirées (`profile_coffres`).
+//
+// Et une par fête, le 1er novembre 2026 (`shared/saisons.ts`) : gagner sa
+// fête — des jours de quiz du jour ou une soirée pendant elle — l'ouvre avec
+// son légendaire, par la même clé rangée (`saison:paques`). Une saison gagnée
+// avant elles ouvre la sienne d'un coup : ce qui est gagné reste gagné.
 
 import type { Rarete } from './badges'
+import type { CleDeSaison } from './saisons'
 
 /** La clé d'une gerbe, gardée dans son profil (`profiles.gerbe`). */
 export type CleDeGerbe =
@@ -33,13 +39,27 @@ export type CleDeGerbe =
   | 'filantes'
   | 'diamants'
   | 'tresor'
+  | 'citrouilles'
+  | 'cadeaux'
+  | 'fusees'
+  | 'roses'
+  | 'printemps'
+  | 'notes'
+  | 'vacances'
+  | 'ecole'
 
 /**
  * Ce qui ouvre une gerbe : un profil, tout simplement ; un haut fait gagné
- * tant de fois ; un palier atteint — ou un plus haut, qui le vaut ; ou un
- * coffre de la semaine, qui l'a donnée (sa rareté au coffre).
+ * tant de fois ; un palier atteint — ou un plus haut, qui le vaut ; un
+ * coffre de la semaine, qui l'a donnée (sa rareté au coffre) ; ou une fête
+ * gagnée (`saison:<clé>`).
  */
-export type CeQuiOuvreUneGerbe = { profil: true } | { hautFait: string; fois: number } | { palier: string; au: 1 | 2 | 3 } | { tresor: Rarete }
+export type CeQuiOuvreUneGerbe =
+  | { profil: true }
+  | { hautFait: string; fois: number }
+  | { palier: string; au: 1 | 2 | 3 }
+  | { tresor: Rarete }
+  | { fete: CleDeSaison }
 
 /**
  * L'allure d'une gerbe : combien de particules, de quelle taille, en combien
@@ -167,6 +187,79 @@ export const GERBES: readonly Gerbe[] = [
     mouvement: 'jaillit',
     allure: { nombre: 12, taille: [1.2, 1.8], duree: [1.5, 2.2] },
   },
+  // Les fêtes, dans l'ordre de l'année : chacune s'ouvre avec la sienne.
+  {
+    key: 'fusees',
+    nom: 'Les fusées',
+    regle: 'le Nouvel An, au quiz du jour ou en soirée',
+    par: { fete: 'nouvel-an' },
+    particules: ['🎆', '🎇', '✨'],
+    mouvement: 'monte',
+    allure: { nombre: 16, taille: [0.9, 1.6], duree: [1.6, 2.3] },
+  },
+  {
+    key: 'roses',
+    nom: 'Les roses',
+    regle: 'la Saint-Valentin, au quiz du jour ou en soirée',
+    par: { fete: 'saint-valentin' },
+    particules: ['🌹', '💌', '💕'],
+    mouvement: 'tombe',
+    allure: { nombre: 15, taille: [0.9, 1.5], duree: [2.3, 3.1] },
+  },
+  {
+    key: 'printemps',
+    nom: 'Le printemps',
+    regle: 'Pâques, au quiz du jour ou en soirée',
+    par: { fete: 'paques' },
+    particules: ['🐣', '🌷', '🥚', '🐰'],
+    mouvement: 'jaillit',
+    allure: { nombre: 18, taille: [0.9, 1.5], duree: [1.4, 2.1] },
+  },
+  {
+    key: 'notes',
+    nom: 'Les notes',
+    regle: 'la Fête de la musique, au quiz du jour ou en soirée',
+    par: { fete: 'musique' },
+    particules: ['🎵', '🎶', '🎸'],
+    mouvement: 'monte',
+    allure: { nombre: 16, taille: [0.9, 1.5], duree: [1.8, 2.6] },
+  },
+  {
+    key: 'vacances',
+    nom: 'Les vacances',
+    regle: 'l’été, au quiz du jour ou en soirée',
+    par: { fete: 'ete' },
+    particules: ['🌞', '🍉', '🌊', '🐚'],
+    mouvement: 'jaillit',
+    allure: { nombre: 20, taille: [0.8, 1.5], duree: [1.5, 2.2] },
+  },
+  {
+    key: 'ecole',
+    nom: 'L’école',
+    regle: 'la rentrée, au quiz du jour ou en soirée',
+    par: { fete: 'rentree' },
+    particules: ['✏️', '📚', '🍎'],
+    mouvement: 'jaillit',
+    allure: { nombre: 15, taille: [0.9, 1.4], duree: [1.3, 2] },
+  },
+  {
+    key: 'citrouilles',
+    nom: 'Les citrouilles',
+    regle: 'Halloween, au quiz du jour ou en soirée',
+    par: { fete: 'halloween' },
+    particules: ['🎃', '🦇', '👻'],
+    mouvement: 'monte',
+    allure: { nombre: 14, taille: [1, 1.6], duree: [2, 2.8] },
+  },
+  {
+    key: 'cadeaux',
+    nom: 'Les cadeaux',
+    regle: 'Noël, au quiz du jour ou en soirée',
+    par: { fete: 'noel' },
+    particules: ['🎁', '🎄', '⛄'],
+    mouvement: 'tombe',
+    allure: { nombre: 14, taille: [1, 1.6], duree: [2.2, 3] },
+  },
   // Le trésor du coffre de la semaine : de la plus douce à la plus folle.
   {
     key: 'flocons',
@@ -254,6 +347,8 @@ export function gerbeOuverte(g: Gerbe, recompenses: ReadonlyMap<string, number>,
   const par = g.par
   if ('profil' in par) return true
   if ('tresor' in par) return tresors?.has(`gerbe:${g.key}`) ?? false
+  // Sa fête gagnée, d'où qu'elle vienne — le quiz du jour, une soirée, le Cabinet : la clé même de son légendaire.
+  if ('fete' in par) return (recompenses.get(`saison:${par.fete}`) ?? 0) > 0
   if ('hautFait' in par) return (recompenses.get(par.hautFait) ?? 0) >= par.fois
   // Un palier plus haut vaut le sien : la soirée qui avait fait tomber le
   // bronze, retirée, laisse l'argent — et la gerbe avec.

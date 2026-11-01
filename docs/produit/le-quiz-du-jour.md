@@ -118,7 +118,7 @@ Ils se regagnent et rapportent leur expérience à chaque fois ; l'album les ran
 | Le Dernier Métro | la commencer à 23 h 30 passées (Paris) | 10 | au « Jouer » |
 | Le Mois complet | jouer chaque jour de quiz d'un mois qui en a eu 28 au moins | 250 | à la clôture du mois |
 
-Le quiz du jour ouvre aussi des légendaires — le Sphinx (L'Assidu ou Le Sans-Faute à l'or), l'Aigle, l'Ouroboros, le Scarabée, le Coq, la Chauve-souris, et des voies vers d'autres —, ceux des saisons (Halloween, Noël, le Nouvel An : quelques jours joués), des titres, des gerbes, des fonds et trois thèmes. **Chronos**, l'un des six Divins, peut descendre sur une partie : la fin de la partie te le révèle, à toi seul, avec son récit ; ses règles sont secrètes.
+Le quiz du jour ouvre aussi des légendaires — le Sphinx (L'Assidu ou Le Sans-Faute à l'or), l'Aigle, l'Ouroboros, le Scarabée, le Coq, la Chauve-souris, et des voies vers d'autres —, ceux des huit fêtes (la Saint-Valentin, Pâques, la Fête de la musique, l'été, la rentrée, Halloween, Noël, le Nouvel An : quelques jours joués dans la période), des titres, des gerbes, des fonds et trois thèmes. Pendant une fête, la page dit où tu en es — « 1 jour sur 2 » — et, le légendaire à toi, le timbre de l'année à gagner par les mêmes jours : un par fête et par an, rangé dans le carnet des fêtes de « Ma collection » ([les saisons](les-recompenses.md#les-saisons)). **Chronos**, l'un des six Divins, peut descendre sur une partie : la fin de la partie te le révèle, à toi seul, avec son récit ; ses règles sont secrètes.
 
 ## La réserve de questions
 

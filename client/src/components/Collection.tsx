@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import { AlbumDesAvatars, pageNommee } from './AlbumDesAvatars'
 import { AlbumDesTrophees } from './AlbumDesTrophees'
 import { AlbumDuStyle } from './AlbumDuStyle'
+import { CarnetDesFetes } from './CarnetDesFetes'
 import { JaugeFine, LigneDeCollection } from './LigneDeCollection'
 import { DetailTheme, etatDuTheme, gemme, nomDeLaCase, useFiche, type EtatDuTheme } from './Boutique'
 import { LILAS, OR } from './Atlas'
@@ -30,6 +31,7 @@ import type { PublicProfileDetail } from '../../../shared/profil'
 const LIGNES: Record<PartieDeLaCollection, { emoji: string; nom: string; detail: string; couleur: string }> = {
   avatars: { emoji: '🐉', nom: 'L’album des avatars', detail: 'Légendaires, portraits, compagnons, emojis : par rareté', couleur: OR },
   trophees: { emoji: '🏆', nom: 'L’album des trophées', detail: 'Ce que tu as réussi, mode par mode', couleur: OR },
+  timbres: { emoji: '📮', nom: 'Le carnet des fêtes', detail: 'Un timbre par fête, chaque année', couleur: '#e0935a' },
   themes: { emoji: '🎨', nom: 'Thèmes', detail: 'Ils habillent toutes tes pages', couleur: LILAS },
   fonds: { emoji: '🖼️', nom: 'Fonds de carte', detail: 'Derrière ta carte, quand on touche ton nom', couleur: '#5fa8ff' },
   gerbes: { emoji: '🎉', nom: 'Gerbes', detail: 'Ce qui éclate à chaque bonne réponse', couleur: '#ff9f5a' },
@@ -237,6 +239,8 @@ export function MaCollection({ profil }: { profil: PublicProfileDetail }) {
         </p>
       </>
     ),
+    // Le carnet des fêtes : une page par année, un timbre par fête — on n'y règle rien non plus.
+    timbres: <CarnetDesFetes profil={profil} />,
     themes: <ThemesDeLaCollection profil={profil} />,
     // Le reste du style, en albums comme les avatars et les trophées (`AlbumDuStyle`) :
     // trois listes cochées ne disaient ni où l'on en était, ni comment l'essayer.

@@ -107,8 +107,9 @@ test('le compte de la collection : trois familles, leurs lignes, un total — ce
     // du niveau 8 : un seul album (le 13 octobre 2026), compté par sa règle —
     // les douze formes des compagnons comprises, et leurs trois métamorphoses
     // depuis le 19 octobre 2026 ; les quatre de la luciole, et sa
-    // luciole-aurore, depuis le 20.
-    ['avatars', '9/141', ['avatars 9/141']],
+    // luciole-aurore, depuis le 20 ; les cinq légendaires des fêtes du
+    // printemps à la rentrée depuis le 1er novembre.
+    ['avatars', '9/146', ['avatars 9/146']],
     // Les trophées aussi, en un album — une page par mode (la maquette 1, le
     // 13 octobre 2026) —, juste après les avatars, comptés par sa règle : en
     // soirée, L'Habitué à l'argent (deux métaux), le Phénix, la Lanterne
@@ -122,10 +123,10 @@ test('le compte de la collection : trois familles, leurs lignes, un total — ce
     // classé, le serveur les tait : zéro sur six, pas absentes. Les six fonds
     // et les six gerbes du trésor du coffre de la semaine y comptent depuis
     // le 14 octobre 2026, les douze fonds des savoirs de la boutique depuis
-    // le 15.
-    ['style', '9/89', ['themes 3/35', 'fonds 1/25', 'gerbes 2/16', 'finitions 3/7', 'bordures 0/6']],
+    // le 15, les huit gerbes des fêtes depuis le 1er novembre.
+    ['style', '9/97', ['themes 3/35', 'fonds 1/25', 'gerbes 2/24', 'finitions 3/7', 'bordures 0/6']],
   ])
-  assert.deepEqual(total, { acquis: 25, total: 376 })
+  assert.deepEqual(total, { acquis: 25, total: 389 })
   assert.deepEqual(
     compteDeLaCollection({ ...LEA, bordures: [{ ligue: 'bronze', crans: 12 }, { ligue: 'argent', crans: 3 }] } as any)
       .familles.find(f => f.famille === 'style')!
@@ -205,9 +206,9 @@ test('les trophées se rangent par où ils se gagnent : une page par mode, ses p
 test('la collection : son total, trois familles, une ligne par collection — repliées, sans rien à porter', async () => {
   lieu.hash = ''
   const html = await rendu('components/Collection', 'MaCollection', { profil: LEA })
-  assert.match(html, /<p class="collection-total"><b>25<\/b> sur 376<\/p>/)
+  assert.match(html, /<p class="collection-total"><b>25<\/b> sur 389<\/p>/)
   const familles = [...html.matchAll(/<h2 id="famille-\w+">([^<]+)<span class="collection-compte">([^<]+)<\/span><\/h2>/g)].map(m => `${m[1].trim()} ${m[2]}`)
-  assert.deepEqual(familles, ['Avatars 9 sur 141', 'Trophées 7 sur 146', 'Style 9 sur 89'])
+  assert.deepEqual(familles, ['Avatars 9 sur 146', 'Trophées 7 sur 146', 'Style 9 sur 97'])
   const lignes = [...html.matchAll(/<span class="trophee-texte"><b>([^<]+)<\/b>/g)].map(m => m[1])
   assert.deepEqual(lignes, [
     // Trois lignes — le savoir, les légendaires et les Divins, les emojis —
@@ -228,6 +229,61 @@ test('la collection : son total, trois familles, une ligne par collection — re
   assert.doesNotMatch(page, /enregistrer|busy/)
   assert.doesNotMatch(source('client/src/components/AlbumDesAvatars.tsx'), /enregistrer|onPorter|onEclat|aria-pressed/)
   assert.doesNotMatch(html, /Le porter|<button[^>]*aria-pressed/)
+})
+
+// Le carnet des fêtes (le 1er novembre 2026) : un timbre par fête et par an,
+// à côté de l'album des trophées. Un serveur d'avant ne le dit pas : pas de ligne.
+test('le carnet des fêtes : sa ligne avec les trophées, une page par année, chaque timbre dit ce qu’il en est', async () => {
+  const AVEC_LE_CARNET = { ...LEA, carnet: { timbres: ['halloween:2026'], jour: '2026-12-31' } }
+  const trophees = compteDeLaCollection(AVEC_LE_CARNET as any).familles.find(f => f.famille === 'trophees')!
+  // 2026 : Halloween et Noël ; 2027, ouverte par le Nouvel An en cours : ses huit fêtes.
+  assert.deepEqual(trophees.parties, [
+    { partie: 'trophees', acquis: 7, total: 146 },
+    { partie: 'timbres', acquis: 1, total: 10 },
+  ])
+  assert.deepEqual(compteDeLaCollection(AVEC_LE_CARNET as any).total, { acquis: 26, total: 399 })
+
+  lieu.hash = '#collection-timbres'
+  const html = await rendu('components/Collection', 'MaCollection', { profil: AVEC_LE_CARNET })
+  lieu.hash = ''
+  assert.match(html, /<li id="collection-timbres" class="trophee trophee-ouvert"/)
+  assert.match(html, /<b>Le carnet des fêtes<\/b>/)
+  const ligne = html.slice(html.indexOf('id="collection-timbres"'))
+  // Ouvert sur l'année en cours, la dernière ; chaque année son bouton et son compte.
+  assert.deepEqual([...ligne.matchAll(/<button type="button" class="pill-btn( active)?" aria-pressed="(true|false)">([^<]+)<\/button>/g)].map(m => `${m[3]}${m[2] === 'true' ? '*' : ''}`), [
+    '2026 · 1/2',
+    '2027 · 0/8*',
+  ])
+  const timbres = [...ligne.matchAll(/<span class="timbre timbre-([a-z-]+)" role="img" aria-label="([^"]+)">/g)].map(m => `${m[1]} ${m[2]}`)
+  assert.deepEqual(timbres, [
+    'en-cours Timbre Nouvel An 2027, sa fête en cours',
+    'a-venir Timbre Saint-Valentin 2027, à venir',
+    'a-venir Timbre Pâques 2027, à venir',
+    'a-venir Timbre Fête de la musique 2027, à venir',
+    'a-venir Timbre L’été 2027, à venir',
+    'a-venir Timbre La rentrée 2027, à venir',
+    'a-venir Timbre Halloween 2027, à venir',
+    'a-venir Timbre Noël 2027, à venir',
+  ])
+  // Sous chacun, en mots : jusqu'à quand, ou ses dates — Pâques suit la lune, et la rentrée commence un 1er.
+  const legendes = [...ligne.matchAll(/<span class="timbres-legende timbres-legende-[a-z-]+">([^<]+)<\/span>/g)].map(m => m[1].replace(/ /g, ' '))
+  assert.deepEqual(legendes.slice(0, 3), ['En cours · jusqu’au 2 janvier', 'du 12 au 15 février', 'du 26 au 29 mars'])
+  assert.equal(legendes[5], 'du 1er au 7 septembre')
+  // Gagné, il porte son cachet ; ni le Nouvel An en cours ni ceux à venir.
+  assert.doesNotMatch(ligne, /timbre-cachet/)
+  const halloween = await rendu('components/Timbre', 'Timbre', { fete: 'halloween', millesime: 2026, etat: 'gagne' })
+  assert.match(halloween, /aria-label="Timbre Halloween 2026, gagné"/)
+  assert.match(halloween, /class="timbre-cachet"[\s\S]*GAGNÉ[\s\S]*2026/)
+  // La dentelure est un masque à lui : deux timbres d'une page ne partagent pas le même.
+  assert.match(halloween, /<mask id="timbre-trous-[\w-]+">/)
+  // Gagné à la fin d'une partie : sa carte, et le lien vers son carnet.
+  const gagne = await rendu('components/Timbre', 'TimbreGagne', { timbre: 'paques:2027' })
+  // Sa carte n'emprunte pas le nom d'un état (`timbre-${etat}`) : `.timbre-gagne` aurait fait de chaque timbre gagné du carnet une boîte souple.
+  assert.match(gagne, /^<section class="card timbre-tombe">/)
+  assert.doesNotMatch(source('client/src/styles.css'), /^\.timbre-(gagne|en-cours) \{/m)
+  assert.match(gagne, /<b>Ton timbre Pâques 2027<\/b>/)
+  assert.match(gagne, /<a class="link-inline" href="\/profil#collection-timbres">Ouvrir mon carnet<\/a>/)
+  assert.equal(await rendu('components/Timbre', 'TimbreGagne', { timbre: 'inconnue:2027' }), '')
 })
 
 // « Ma gerbe » ne montre que les siennes (le 11 octobre 2026) : c'est ici
@@ -344,7 +400,7 @@ test('l’album des avatars : six gemmes et leur compte, ce qu’il a en couleur
     'peucommune Peu commune, 1 sur 18',
     'rare Rare, 0 sur 29',
     'epique Épique, 0 sur 17',
-    'legendaire* Légendaire, 1 sur 48',
+    'legendaire* Légendaire, 1 sur 53',
     'divin Divin, 1 sur 6',
   ])
   assert.match(html, /<div class="gemmes gemmes-album" role="tablist" aria-label="Les raretés">/)
@@ -354,9 +410,9 @@ test('l’album des avatars : six gemmes et leur compte, ce qu’il a en couleur
   // Ce que range la page, compté.
   assert.match(
     html,
-    /<p class="gemme-legende"[^>]*><b>Légendaire · 1 sur 48\.<\/b> Les légendaires des hauts faits, la forme ultime de chaque sentier, celle de chaque compagnon et sa métamorphose\.<\/p>/,
+    /<p class="gemme-legende"[^>]*><b>Légendaire · 1 sur 53\.<\/b> Les légendaires des hauts faits, la forme ultime de chaque sentier, celle de chaque compagnon et sa métamorphose\.<\/p>/,
   )
-  // Quarante-huit cases : le Phénix d'abord, porté — sa coche —, puis ce qui reste — les légendaires, les
+  // Cinquante-trois cases : le Phénix d'abord, porté — sa coche —, puis ce qui reste — les légendaires, les
   // formes ultimes des sentiers et des cinq compagnons, leurs cinq métamorphoses —, chacun dit où il se gagne.
   const cases = [...html.matchAll(/<button type="button" class="album-case([^"]*)" aria-expanded="false" aria-label="([^"]+)"/g)].map(m => ({ classes: m[1], nom: m[2] }))
   assert.equal(cases.length, LEGENDAIRES.length + 12 + 5 + 5)

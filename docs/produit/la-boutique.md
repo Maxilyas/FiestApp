@@ -1,6 +1,6 @@
 # La boutique
 
-> Les confettis et ce qu'ils achètent, pour qui joue avec un profil : comment on les gagne et les dépense, le solde qui se relit, puis le catalogue — trente-cinq thèmes, vingt-cinq fonds de carte, seize gerbes, cinq compagnons — et l'identité visuelle de FiestApp.
+> Les confettis et ce qu'ils achètent, pour qui joue avec un profil : comment on les gagne et les dépense, le solde qui se relit, puis le catalogue — trente-cinq thèmes, vingt-cinq fonds de carte, vingt-quatre gerbes, cinq compagnons — et l'identité visuelle de FiestApp.
 
 **Dans cette page** : [gagner des confettis](#gagner-des-confettis) · [les dépenser](#les-dépenser) · [un solde qui se relit](#un-solde-qui-se-relit) · [la boutique et ses rayons](#la-boutique-et-ses-rayons) · [essayer et porter](#essayer-et-porter) · [les thèmes](#les-thèmes) · [les fonds de carte](#les-fonds-de-carte) · [les gerbes](#les-gerbes) · [les compagnons](#les-compagnons) · [l'identité visuelle](#lidentité-visuelle) · [comment c'est construit](#comment-cest-construit)
 
@@ -180,7 +180,7 @@ Sous tous les thèmes — le tien comme celui de qui regarde —, une carte à f
 
 Une gerbe éclate **sur ton téléphone, à chaque bonne réponse**, et sur le tien seulement : ni la salle ni l'écran commun n'en savent rien. En soirée : un QCM juste, « plusieurs » ou « ordre » trouvés en entier, une estimation pile-poil — pas une estimation seulement proche, qui paie pourtant son confetti. Puis au quiz du jour, en campagne — série, défi, duel —, aux épreuves des sentiers et aux parcours de thème. Elle se tait si ton téléphone demande moins de mouvement.
 
-Sans choix, ce sont les confettis ; « Aucune », dans la loge, les éteint. Neuf autres s'ouvrent par un haut fait ou l'étape d'une piste ([les récompenses](les-recompenses.md)) : une étape plus haute garde la gerbe de l'étape d'en dessous, et une gerbe choisie que tu ne mérites plus redevient les confettis. Les six du trésor, seul le coffre de la semaine les donne ([les missions](les-missions.md)). Chacune a son allure — un ballon flotte, une étincelle file.
+Sans choix, ce sont les confettis ; « Aucune », dans la loge, les éteint. Neuf autres s'ouvrent par un haut fait ou l'étape d'une piste ([les récompenses](les-recompenses.md)) : une étape plus haute garde la gerbe de l'étape d'en dessous, et une gerbe choisie que tu ne mérites plus redevient les confettis. Huit, une par fête, s'ouvrent avec le légendaire de sa saison — depuis le 1er novembre 2026, [les saisons](les-recompenses.md#les-saisons) — ; ni l'étagère ni les pistes ne les disent, la fin de la partie qui l'ouvre les propose à essayer. Les six du trésor, seul le coffre de la semaine les donne ([les missions](les-missions.md)). Chacune a son allure — un ballon flotte, une étincelle file.
 
 | Gerbe | Elle se gagne avec | Ses particules | Mouvement |
 |---|---|---|---|
@@ -194,6 +194,14 @@ Sans choix, ce sont les confettis ; « Aucune », dans la loge, les éteint. Neu
 | Les colombes | le Funambule, en campagne | 🕊️ | monte |
 | Les flammes | trente jours de série (L'Infatigable · Argent) | 🔥 | monte |
 | Les trophées | le défi de la semaine, gagné | 🏆 🥇 | jaillit |
+| Les fusées | le Nouvel An, au quiz du jour ou en soirée | 🎆 🎇 ✨ | monte |
+| Les roses | la Saint-Valentin, au quiz du jour ou en soirée | 🌹 💌 💕 | tombe |
+| Le printemps | Pâques, au quiz du jour ou en soirée | 🐣 🌷 🥚 🐰 | jaillit |
+| Les notes | la Fête de la musique, au quiz du jour ou en soirée | 🎵 🎶 🎸 | monte |
+| Les vacances | l'été, au quiz du jour ou en soirée | 🌞 🍉 🌊 🐚 | jaillit |
+| L'école | la rentrée, au quiz du jour ou en soirée | ✏️ 📚 🍎 | jaillit |
+| Les citrouilles | Halloween, au quiz du jour ou en soirée | 🎃 🦇 👻 | monte |
+| Les cadeaux | Noël, au quiz du jour ou en soirée | 🎁 🎄 ⛄ | tombe |
 | Les flocons | le coffre de la semaine — peu commune | ❄️ | tombe |
 | Les cœurs | le coffre de la semaine — peu commune | 💖 💗 💕 | monte |
 | Les papillons | le coffre de la semaine — rare | 🦋 | monte |
