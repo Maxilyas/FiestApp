@@ -108,8 +108,9 @@ test('le compte de la collection : trois familles, leurs lignes, un total — ce
     // les douze formes des compagnons comprises, et leurs trois métamorphoses
     // depuis le 19 octobre 2026 ; les quatre de la luciole, et sa
     // luciole-aurore, depuis le 20 ; les cinq légendaires des fêtes du
-    // printemps à la rentrée depuis le 1er novembre.
-    ['avatars', '9/147', ['avatars 9/147']],
+    // printemps à la rentrée depuis le 1er novembre, et les dix emojis des
+    // niveaux 18 à 29 le même jour.
+    ['avatars', '9/157', ['avatars 9/157']],
     // Les trophées aussi, en un album — une page par mode (la maquette 1, le
     // 13 octobre 2026) —, juste après les avatars, comptés par sa règle : en
     // soirée, L'Habitué à l'argent (deux métaux), le Phénix, la Lanterne
@@ -126,7 +127,7 @@ test('le compte de la collection : trois familles, leurs lignes, un total — ce
     // le 15, les huit gerbes des fêtes depuis le 1er novembre.
     ['style', '9/98', ['themes 3/35', 'fonds 1/25', 'gerbes 2/25', 'finitions 3/7', 'bordures 0/6']],
   ])
-  assert.deepEqual(total, { acquis: 25, total: 391 })
+  assert.deepEqual(total, { acquis: 25, total: 401 })
   assert.deepEqual(
     compteDeLaCollection({ ...LEA, bordures: [{ ligue: 'bronze', crans: 12 }, { ligue: 'argent', crans: 3 }] } as any)
       .familles.find(f => f.famille === 'style')!
@@ -206,9 +207,9 @@ test('les trophées se rangent par où ils se gagnent : une page par mode, ses p
 test('la collection : son total, trois familles, une ligne par collection — repliées, sans rien à porter', async () => {
   lieu.hash = ''
   const html = await rendu('components/Collection', 'MaCollection', { profil: LEA })
-  assert.match(html, /<p class="collection-total"><b>25<\/b> sur 391<\/p>/)
+  assert.match(html, /<p class="collection-total"><b>25<\/b> sur 401<\/p>/)
   const familles = [...html.matchAll(/<h2 id="famille-\w+">([^<]+)<span class="collection-compte">([^<]+)<\/span><\/h2>/g)].map(m => `${m[1].trim()} ${m[2]}`)
-  assert.deepEqual(familles, ['Avatars 9 sur 147', 'Trophées 7 sur 146', 'Style 9 sur 98'])
+  assert.deepEqual(familles, ['Avatars 9 sur 157', 'Trophées 7 sur 146', 'Style 9 sur 98'])
   const lignes = [...html.matchAll(/<span class="trophee-texte"><b>([^<]+)<\/b>/g)].map(m => m[1])
   assert.deepEqual(lignes, [
     // Trois lignes — le savoir, les légendaires et les Divins, les emojis —
@@ -241,7 +242,7 @@ test('le carnet des fêtes : sa ligne avec les trophées, une page par année, c
     { partie: 'trophees', acquis: 7, total: 146 },
     { partie: 'timbres', acquis: 1, total: 10 },
   ])
-  assert.deepEqual(compteDeLaCollection(AVEC_LE_CARNET as any).total, { acquis: 26, total: 401 })
+  assert.deepEqual(compteDeLaCollection(AVEC_LE_CARNET as any).total, { acquis: 26, total: 411 })
 
   lieu.hash = '#collection-timbres'
   const html = await rendu('components/Collection', 'MaCollection', { profil: AVEC_LE_CARNET })
@@ -397,7 +398,7 @@ test('l’album des avatars : six gemmes et leur compte, ce qu’il a en couleur
   // Les quatre formes de la luciole, une par page, et sa luciole-aurore, légendaire, depuis le 20 octobre 2026.
   assert.deepEqual(gemmes, [
     'commune Commune, 6 sur 23',
-    'peucommune Peu commune, 1 sur 18',
+    'peucommune Peu commune, 1 sur 28',
     'rare Rare, 0 sur 29',
     'epique Épique, 0 sur 17',
     'legendaire* Légendaire, 1 sur 54',

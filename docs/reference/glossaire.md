@@ -177,7 +177,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Écus | La monnaie de l'expédition : une escale trouvée en paie selon la chance qu'elle annonçait, l'échoppe les dépense ; ils meurent avec l'expédition, jamais un confetti, et ne s'écrivent nulle part — le pli les compte | `EtatDeLExpedition.ecus`, `ecusDeLaReponse`, `ECUS_DES_PISTES` |
 | Écusson de savoir | La maîtrise d'une des douze catégories : bronze, argent, or à 20, 75 et 200 bonnes réponses, tous modes confondus | `shared/ecussons.ts` |
 | Élite (d'une escale) | Une escale de l'expédition qui pose une question de la marche au-dessus : trouvée, un joker au choix parmi trois ; ratée, une vie | `sorte: 'elite'`, `MARCHES_DES_ACTES` |
-| Emoji de collection | Un des douze emojis réservés aux profils, chacun ouvert par un niveau qui n'ouvre pas de finition | `COLLECTION` |
+| Emoji de collection | Un des vingt-deux emojis réservés aux profils, chacun ouvert par un niveau qui n'ouvre pas de finition, jusqu'au 29 | `COLLECTION` |
 | Emoji récent | Un emoji d'Unicode 13 ou après, que l'écran commun sous Windows 10 dessine en carré vide | `emojisRecents` |
 | En ligne | Un ami réciproque passé ces 5 dernières minutes, tenu en mémoire seulement | `EN_LIGNE_MS` |
 | Enchaînement | La question suivante qui part seule après la révélation, au délai choisi (5, 10 ou 20 secondes) ; suspendu après une question sans une seule réponse | `autoNextSeconds`, `PALIERS_ENCHAINEMENT` |
@@ -399,6 +399,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Photo de la révélation | Une seconde photo, montrée à la révélation — « le bébé, puis l'adulte » | `imageRevelation` |
 | Pièce (d'une question) | Ce qu'une question garde à part, sous une adresse `/media/image/…` : sa photo, la photo de la révélation, l'extrait d'un blind test | `PIECES_DE_QUESTION` |
 | Pièce (de la loge) | Une des six choses qu'on porte : Avatar, Titre, Vitrine, Fond (ce que la salle voit), Thème, Gerbe (ce que soi seul voit) | `PIECES_DE_LA_LOGE` |
+| Pierre (du niveau) | La pierre que prennent la pastille de niveau et la gemme de la carte dès le niveau 30 : saphir, améthyste au 40, ambre au 50 | `PIERRES_DU_NIVEAU` (`shared/pierres.ts`) |
 | Pilote | La commande par laquelle un agent de la tablée fait un geste — voir, toucher, écrire, répondre —, un geste par commande | `server/scripts/tablee/pilote.mjs` |
 | Piste | Un trophée qui se cumule sur la carrière et monte en trois étapes — bronze, argent, or —, chacune disant ce qu'elle ouvre ; le code dit « haut fait de carrière » | `shared/pistes.ts` |
 | Piste (verte, bleue, rouge, noire) | La couleur d'un palier des sentiers pour un joueur, comme une piste de ski — sa chance de le valider du premier coup : verte dès 70 %, bleue dès 45 %, rouge dès 20 %, noire en deçà ; rien à voir avec la piste d'un trophée. Le code dit « couleur de piste », la page la dessine en balise | `couleurDePiste`, `COULEURS_DES_PISTES` |

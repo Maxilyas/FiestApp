@@ -100,7 +100,9 @@ Ta finition habille ton avatar, et la salle la voit. Chacune s'ouvre à un nivea
 |---|---|---|---|---|---|---|
 | niveau 1 | niveau 3 | niveau 6 | niveau 10 | niveau 15 | niveau 20 | niveau 25 |
 
-« Auto » porte la plus belle que tu as ; en choisir une l'épingle. Un Divin n'en prend aucune. Les niveaux ouvrent aussi douze emojis de collection, réservés aux profils. Leur allure — la lumière des trois dernières, le cercle d'un avatar peint — et où les choisir : [le profil](le-profil.md).
+« Auto » porte la plus belle que tu as ; en choisir une l'épingle. Un Divin n'en prend aucune. Les niveaux ouvrent aussi vingt-deux emojis de collection, réservés aux profils, un à chaque niveau sans finition jusqu'au 29.
+
+Dès le niveau 30, ta pastille de niveau — dans les classements, la salle d'attente, sur l'écran commun — et la gemme de ta carte prennent **la pierre de ta dizaine** : le saphir au 30, l'améthyste au 40, l'ambre au 50, les couleurs des raretés de l'album (`PIERRES_DU_NIVEAU`, `shared/pierres.ts`). Sur la carte, la pierre est sertie dans le métal de ton cadre. La fin de partie qui te fait passer une dizaine te la montre. Aucun thème ne la repeint, et un invité sans profil n'a toujours ni pastille ni pierre. Leur allure — la lumière des trois dernières, le cercle d'un avatar peint — et où les choisir : [le profil](le-profil.md).
 
 ## L'Éclat
 

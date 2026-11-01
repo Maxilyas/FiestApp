@@ -20,6 +20,7 @@ import { compagnonDe, formeDansLaNiche, formeDeCompagnon, nomDeLaForme, type Com
 import { titreDeLAmitie } from '../../../shared/ornements'
 import { laNiche } from './NicheHost'
 import { NOM_FINITION } from '../../../shared/profil'
+import { pierreDuNiveau } from '../../../shared/pierres'
 import { ceQuIlAFallu } from '../../../shared/hautsfaits'
 import { PALIERS_DU_SENTIER, nomDuTitre, titreDeMaitre } from '../../../shared/sentiers'
 import { NOM_DU_LAURIER, duMois } from '../../../shared/jour'
@@ -188,6 +189,7 @@ export function CarteJoueur({
   const aUnDos = !!p && !loupe
   const mots = carte && !loupe ? motsDeLaCarte(carte, avecDessins, !!fond) : []
   const titre = nomDuTitre(p?.titre)
+  const pierre = pierreDuNiveau(p?.niveau)
   // Son savoir et ses sentiers : deux faces de plus, chacune s'il a de quoi la remplir.
   const radar = useMemo(() => radarDuSavoir(p?.savoir, p?.moyennes), [p])
   const sentiers = useMemo(() => sentiersDeLaCarte(p?.sentiers), [p])
@@ -332,9 +334,10 @@ export function CarteJoueur({
                 {carte && !loupe && (
                   <>
                     <header className="carte-tete">
-                      {/* Son niveau en gemme, devant son nom, comme le coût d'une carte : le coin haut droit est à son compagnon. */}
+                      {/* Son niveau en gemme, devant son nom, comme le coût d'une carte : le coin haut droit est à son compagnon.
+                          Dès le 30, la pierre de sa dizaine, sertie dans le métal de son cadre (`pierreDuNiveau`). */}
                       {p && (
-                        <span className="carte-gemme" title={`Niveau ${p.niveau}`}>
+                        <span className={'carte-gemme' + (pierre ? ` carte-gemme-pierre carte-gemme-${pierre}` : '')} title={`Niveau ${p.niveau}`}>
                           <span className="carte-gemme-mot" aria-hidden="true">
                             niv.
                           </span>
