@@ -14246,6 +14246,8 @@ span.annonce-admin-merci { cursor: default; }
    doigt quand ils arrivent. */
 .haut-accueil { display: flex; flex-direction: column; gap: 10px; }
 .haut-en-chemin { height: calc(80px + 10px + 3.75rem); }
+/* L'affiche d'une nouveauté prend la place de « À la une » (`HautDeLAccueil`, `aLaUne`) : la ligne des missions seule. */
+.haut-en-chemin.sans-une { height: 3.75rem; }
 
 /* « À la une » (`ALaUne.tsx`) : une affiche à elle, nocturne quel que soit le
    thème — le dessin de l'objet y déborde par la gauche, sur sa couleur. Son
@@ -14330,6 +14332,179 @@ span.annonce-admin-merci { cursor: default; }
 @keyframes une-flotte {
   0%, 100% { transform: translateY(0) rotate(-2deg); }
   50% { transform: translateY(-5px) rotate(2deg); }
+}
+
+/* ── L'affiche d'une nouveauté (`AfficheDeLaNouveaute.tsx`, `shared/affiches.ts`) ──
+   Le souhait du propriétaire du 1er novembre 2026 : « un bandeau super joli »
+   pour ce qui sort, le Cabinet de curiosités en tête. Nocturne et dorée sous
+   tous les thèmes — comme « À la une », une affiche à elle : son encre et son
+   or s'écrivent en dur, le décor d'un thème ne les repeint pas. Rien n'en
+   déborde, même le temps d'une animation : son reflet et ses étoiles restent
+   dans son cadre (`overflow: hidden`, règle `css.md`), et sa scène garde sa
+   place tant que ses peintures n'arrivent pas — rien ne saute dessous. */
+.affiche {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 14px 14px;
+  border: 1px solid rgba(233, 196, 106, 0.55);
+  border-radius: 20px;
+  background: #1b1428;
+  background: radial-gradient(130% 85% at 50% 0%, #3b2b57 0%, #211833 48%, #130e1c 100%);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255, 235, 190, 0.08);
+  color: #f6ecd9;
+  text-align: center;
+  animation: affiche-entre 0.7s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+/* Son ciel : des étoiles qui scintillent doucement, derrière tout le reste. */
+.affiche::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    radial-gradient(1.5px 1.5px at 8% 20%, rgba(255, 240, 205, 0.9), transparent 70%),
+    radial-gradient(1px 1px at 22% 46%, rgba(255, 240, 205, 0.7), transparent 70%),
+    radial-gradient(1.5px 1.5px at 86% 12%, rgba(255, 240, 205, 0.85), transparent 70%),
+    radial-gradient(1px 1px at 74% 38%, rgba(255, 240, 205, 0.6), transparent 70%),
+    radial-gradient(1px 1px at 93% 54%, rgba(255, 240, 205, 0.7), transparent 70%),
+    radial-gradient(1.5px 1.5px at 12% 72%, rgba(255, 240, 205, 0.5), transparent 70%),
+    radial-gradient(1px 1px at 61% 7%, rgba(255, 240, 205, 0.8), transparent 70%),
+    radial-gradient(1px 1px at 37% 15%, rgba(255, 240, 205, 0.6), transparent 70%),
+    radial-gradient(1px 1px at 90% 84%, rgba(255, 240, 205, 0.45), transparent 70%);
+  animation: affiche-scintille 3.8s ease-in-out infinite alternate;
+}
+/* Un reflet passe une fois sur elle à son arrivée, comme sur une vitrine : il ne prend jamais le doigt. */
+.affiche::after {
+  content: '';
+  position: absolute;
+  top: -20%;
+  bottom: -20%;
+  left: 0;
+  z-index: 2;
+  width: 40%;
+  background: linear-gradient(100deg, transparent 0%, rgba(255, 236, 190, 0.16) 50%, transparent 100%);
+  transform: translateX(-130%) skewX(-14deg);
+  animation: affiche-reflet 1.8s ease-in-out 0.5s both;
+  pointer-events: none;
+}
+/* La scène : les gardiens peints du Cabinet sur leur halo d'or — ou le médaillon d'une page sans peinture à elle.
+   Serrée : l'affiche et « À la une » au-dessus d'eux, les gros boutons se montrent encore en 360 × 640 (`rendu-affiches.ts`). */
+.affiche-scene { position: relative; flex: none; width: 176px; height: 78px; }
+.affiche-scene::before {
+  content: '';
+  position: absolute;
+  inset: -10px -36px -16px;
+  background: radial-gradient(closest-side, rgba(233, 196, 106, 0.38), rgba(233, 196, 106, 0) 75%);
+}
+.affiche-medaillon {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 2px solid #e9c46a;
+  border-radius: 50%;
+  background: #1a1326;
+  box-shadow: 0 0 0 3px rgba(233, 196, 106, 0.16), 0 8px 18px rgba(0, 0, 0, 0.55);
+  animation: affiche-flotte 4.2s ease-in-out infinite;
+}
+.affiche-medaillon img { width: 100%; height: 100%; object-fit: cover; }
+.affiche-medaillon-1 { left: 6px; top: 24px; width: 50px; height: 50px; animation-delay: -1.4s; }
+.affiche-medaillon-2 { left: 53px; top: 2px; z-index: 1; width: 70px; height: 70px; border-color: #f3d488; }
+.affiche-medaillon-3 { right: 6px; top: 24px; width: 50px; height: 50px; animation-delay: -2.8s; }
+.affiche-medaillon-seul { left: 53px; top: 2px; width: 70px; height: 70px; background: radial-gradient(circle at 35% 30%, #4a3768, #1a1326 70%); color: #f3d488; }
+.affiche-medaillon-seul .icon { width: 34px; height: 34px; }
+/* « Nouveau », en or, au coin haut gauche : le coin d'en face est à la niche du compagnon (règle `profil.md`). */
+.affiche-sur {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  padding: 3px 10px 3px 8px;
+  border-radius: var(--radius-pill);
+  background: #e3b858;
+  background: linear-gradient(180deg, #f3d488, #d8a943);
+  color: #2a1d08;
+  font-size: var(--t-label);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+}
+.affiche-sur .icon { width: 12px; height: 12px; animation: affiche-etincelle 2.4s ease-in-out infinite; }
+.affiche-titre {
+  margin: 4px 0 0;
+  color: #fbe7b5;
+  font-family: var(--serif);
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.05;
+  font-variant-numeric: lining-nums;
+  text-shadow: 0 2px 14px rgba(233, 196, 106, 0.28);
+  text-wrap: balance;
+}
+.affiche-phrase { max-width: 34em; margin: 0; color: #dccfba; font-size: 0.875rem; line-height: 1.35; text-wrap: pretty; }
+.affiche-gestes { display: flex; align-items: center; justify-content: center; gap: 4px; width: 100%; margin-top: 6px; }
+.affiche-aller {
+  flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background: #e3b858;
+  background: linear-gradient(180deg, #f6dc94 0%, #d9a944 100%);
+  color: #2a1d08;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: 0 8px 18px rgba(217, 169, 68, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+.affiche-aller-texte { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; }
+.affiche-aller-ligne { display: inline-flex; align-items: center; gap: 6px; font-size: 0.95rem; line-height: 1.2; text-wrap: balance; }
+.affiche-aller .icon { flex: none; width: 16px; height: 16px; transition: translate 0.2s ease-out; }
+.affiche-aller:hover .icon { translate: 3px 0; }
+.affiche-aller:focus-visible { outline-offset: 3px; }
+/* Ce que la première visite rapporte, sous le geste qui la donne : l'encre brune du bouton, sur son or. */
+.affiche-cadeau { color: #5c3f0b; font-size: 0.75rem; font-weight: 700; line-height: 1.2; font-variant-numeric: lining-nums tabular-nums; }
+.affiche-plus-tard { flex: none; display: inline-flex; align-items: center; min-height: 48px; padding: 0 10px; border: 0; background: none; color: #cbbda6; font: inherit; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
+.affiche-plus-tard:hover { color: #f6ecd9; }
+/* Au QG, l'aperçu : la taille d'un téléphone, pas toute la largeur d'une carte d'ordinateur. */
+.affiche-apercu { max-width: 400px; margin: 4px 0 14px; }
+/* « Nouveau » sur le gros bouton d'une page à l'affiche : ses étincelles luisent ; le fond de la pastille reste celui du thème, où son texte se lit. */
+.pastille-nouveaute { display: inline-flex; align-items: center; gap: 4px; }
+.pastille-nouveaute .icon { width: 11px; height: 11px; animation: affiche-etincelle 2.4s ease-in-out infinite; }
+@keyframes affiche-entre { from { opacity: 0; transform: translateY(6px); } }
+@keyframes affiche-reflet {
+  from { transform: translateX(-130%) skewX(-14deg); }
+  to { transform: translateX(360%) skewX(-14deg); }
+}
+@keyframes affiche-scintille { from { opacity: 0.55; } to { opacity: 1; } }
+@keyframes affiche-flotte {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -4px; }
+}
+@keyframes affiche-etincelle {
+  0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
+  50% { opacity: 0.55; transform: scale(0.8) rotate(12deg); }
+}
+/* Moins de mouvement demandé : rien n'entre, ne passe, ne scintille ni ne flotte. */
+@media (prefers-reduced-motion: reduce) {
+  .affiche,
+  .affiche::before,
+  .affiche-medaillon,
+  .affiche-sur .icon,
+  .pastille-nouveaute .icon { animation: none; }
+  .affiche::after { display: none; }
 }
 
 /* La ligne des missions (`LigneDesMissions`) : ce qui reste à gagner

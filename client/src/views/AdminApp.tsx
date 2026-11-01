@@ -17,6 +17,7 @@ import { QgErreurs } from '../components/QgErreurs'
 import { QgActivite } from '../components/QgActivite'
 import { QgMaintenance } from '../components/QgMaintenance'
 import { QgAnnonces } from '../components/QgAnnonces'
+import { QgAffiches } from '../components/QgAffiches'
 import { MenuBarre, Sortie } from '../components/Pieces'
 import { useAppState } from '../state'
 import { useNouveautesDuMenu } from '../nouveautes'
@@ -66,7 +67,8 @@ type Ecran =
   | 'economie'
   | 'signalements'
   | 'annonces'
-const ECRANS: readonly Ecran[] = ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie', 'signalements', 'annonces']
+  | 'affiches'
+const ECRANS: readonly Ecran[] = ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie', 'signalements', 'annonces', 'affiches']
 /** Les ancres de la page d'avant, qu'un favori garde encore. */
 const ANCIENNES: Record<string, Ecran> = { 'les-profils': 'profils', 'quiz-du-jour': 'jour' }
 
@@ -91,12 +93,14 @@ const TITRE: Record<Ecran, string> = {
   economie: 'L’économie',
   signalements: 'Les signalements',
   annonces: 'Les annonces',
+  affiches: 'Les nouveautés',
 }
 
 /**
  * La barre de côté, par groupe ; la vue d'ensemble est `null`. Seules les
  * pages qui existent : « Animer » est venu avec les annonces (le 19 octobre
- * 2026), les événements et la mise en avant le rejoindront à leur tour.
+ * 2026), la mise en avant d'une nouveauté l'a rejoint (le 1er novembre 2026,
+ * `QgAffiches`), les événements le rejoindront à leur tour.
  * L'économie se range avec les joueurs, comme sur la maquette : leurs
  * confettis ; l'activité en tête des modes, qu'elle compare.
  */
@@ -139,7 +143,10 @@ const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; 
   },
   {
     groupe: 'Animer',
-    pages: [{ ecran: 'annonces', nom: 'Annonces', icone: 'megaphone' }],
+    pages: [
+      { ecran: 'annonces', nom: 'Annonces', icone: 'megaphone' },
+      { ecran: 'affiches', nom: 'Nouveautés', icone: 'sparkles' },
+    ],
   },
 ]
 
@@ -428,6 +435,7 @@ export function AdminApp() {
                 <Ligne icone="zap" nom="Le serveur" valeur={duServeur > 0 ? `${duServeur} à traiter` : 'Sept jours'} onClick={() => aller('serveur')} />
                 <Ligne icone="alert" nom="La maintenance" valeur={enMaintenance || 'Bandeau, pages fermées, testeurs'} onClick={() => aller('maintenance')} />
                 <Ligne icone="megaphone" nom="Les annonces" valeur="Un mot à tous, des confettis" onClick={() => aller('annonces')} />
+                <Ligne icone="sparkles" nom="Les nouveautés" valeur="Une affiche, « Nouveau » sur un bouton" onClick={() => aller('affiches')} />
               </ul>
             </nav>
           </>
@@ -439,6 +447,8 @@ export function AdminApp() {
         {/* Chaque geste rend l'état d'après : la barre de côté le compte aussitôt. La panne réglée, l'annonce qui le dit à tous. */}
         {ecran === 'maintenance' && <QgMaintenance onEtat={setMaintenance} versLesAnnonces={() => aller('annonces')} />}
         {ecran === 'annonces' && <QgAnnonces />}
+        {/* L'état de la maintenance : une page fermée, l'affiche le dit avant de la poser. */}
+        {ecran === 'affiches' && <QgAffiches maintenance={maintenance} />}
         {ecran === 'activite' && <QgActivite />}
         {/* Le direct de la page des soirées est celui du QG, relu toutes les dix secondes ; relu aussitôt après un geste. */}
         {ecran === 'soirees' && <QgSoirees direct={direct} apresUnGeste={relireLeDirect} />}

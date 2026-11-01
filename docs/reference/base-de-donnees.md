@@ -347,9 +347,9 @@ Les fonds des savoirs achetés en boutique (`shared/fonds.ts`), un par profil et
 
 Les confettis offerts par l'administrateur, avec leur mot — et ceux d'une annonce à tous, un don par profil.
 
-- **Colonnes clés** : `id` (celui d'un don d'annonce se déduit d'elle et du profil — `annonce:<annonce>:<profil>` ; celui d'une réponse à sa question, `annonce-reponse:<annonce>:<profil>` : rejoués, ils ne donnent pas deux fois, et l'accueil ne les redit pas en don), `profile_id`, `confettis`, `mot` (vide sous une annonce : son message vit dans `qg_annonces`), `created_at` (indexée : la page de l'économie du QG lit les dons par date).
+- **Colonnes clés** : `id` (celui d'un don d'annonce se déduit d'elle et du profil — `annonce:<annonce>:<profil>` ; celui d'une réponse à sa question, `annonce-reponse:<annonce>:<profil>` : rejoués, ils ne donnent pas deux fois, et l'accueil ne les redit pas en don ; celui de la première visite d'une page à l'affiche, `affiche:<affiche>:<profil>`, que l'accueil dit en don, avec son mot), `profile_id`, `confettis`, `mot` (vide sous une annonce : son message vit dans `qg_annonces` ; « Pour ta première visite au Cabinet de curiosités » sous une affiche), `created_at` (indexée : la page de l'économie du QG lit les dons par date).
 - **Espace** : non.
-- **Écrite par** : `ProfileStore` (`offrirDesConfettis`, depuis la fiche d'un joueur au QG ; `annoncerATous`, depuis la page des annonces, dans le lot de l'annonce ; `repondreALAnnonce`, dans le lot de la réponse), jamais modifiée.
+- **Écrite par** : `ProfileStore` (`offrirDesConfettis`, depuis la fiche d'un joueur au QG ; `annoncerATous`, depuis la page des annonces, dans le lot de l'annonce ; `repondreALAnnonce`, dans le lot de la réponse ; `noterUneVisite`, dans le lot de la visite d'une page à l'affiche), jamais modifiée.
 - **Lue par** : `ProfileStore` (le solde, l'annonce sur l'accueil) ; la page de l'économie du QG (`economieDepuis`, « Tes dons »).
 - **Effacée par** : la suppression du profil.
 
@@ -1139,6 +1139,26 @@ Les réponses des profils aux questions des annonces.
 - **Espace** : non.
 - **Écrite par** : `ProfileStore` (`repondreALAnnonce`), avec la récompense : un don de `profile_dons` d'identifiant `annonce-reponse:<annonce>:<profil>`, dans le même lot ; rejouée, elle ne donne pas deux fois. Jamais modifiée.
 - **Lue par** : `ProfileStore` — les résultats du QG (`questionsDuQg`), la carte de l'accueil (a-t-il répondu ?).
+- **Effacée par** : un profil supprimé emporte les siennes (`supprimer`).
+
+### `qg_affiches`
+
+Les affiches des nouveautés (`/admin#affiches`, `shared/affiches.ts`) : une page mise en avant en haut de l'accueil de chaque profil, et « Nouveau » sur son bouton, jusqu'à ce qu'il y aille.
+
+- **Colonnes clés** : `id` (tiré par la page qui la pose : le même envoi refait ne repart pas), `page` (`cabinet`, `campagne`, `jour`, `duels` ou `boutique`), `titre`, `phrase`, `confettis` (ce que la première visite rapporte à chaque profil ; 0, rien), `created_at`, `fin` (indexée : l'accueil lit celles en cours), `retiree_le`.
+- **Espace** : non — elle parle à tout le serveur.
+- **Écrite par** : `ProfileStore` (`mettreALAffiche` : une seule en cours par page, l'instruction le vérifie ; `retirerLAffiche`, qui pose `retiree_le`).
+- **Lue par** : `ProfileStore` — l'accueil de chaque profil, dans le lot de ses dons (`achatsDe`), celles en cours ; la visite d'une page, une fois par réveil puis en mémoire (`affichesALaVisite`) ; la page du QG (`affichesAuQg`).
+- **Effacée par** : rien — passée ou retirée, elle se tait ; ses confettis restent offerts.
+
+### `profile_affiches`
+
+Ce que chaque profil a fait d'une affiche : allé sur sa page — l'affiche et sa pastille se taisent —, ou rangée par « Plus tard » — l'affiche seule.
+
+- **Colonnes clés** : `affiche_id` et `profile_id` (clé primaire, l'affiche d'abord : le QG compte les siens, l'accueil lit la ligne d'un profil), `ouverte_le`, `rangee_le` ; `profile_id` indexé, pour la suppression d'un profil.
+- **Espace** : non.
+- **Écrite par** : `ProfileStore` — `noterUneVisite`, quand le serveur sert la page d'une affiche en cours à ce profil (`servirPage`, `server.ts`), dans le lot du don de sa première visite ; `rangerLAffiche` (`POST /api/joueur/affiches/:id/ranger`).
+- **Lue par** : `ProfileStore` — l'accueil, dans le lot de ses dons (`achatsDe`) ; la page du QG (`affichesAuQg` : `ouvertes`, `rangees`).
 - **Effacée par** : un profil supprimé emporte les siennes (`supprimer`).
 
 ## Pour aller plus loin

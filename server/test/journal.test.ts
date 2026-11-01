@@ -175,6 +175,12 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     // Une annonce qui pose une question, puis la question close.
     ok(await faire(banc, admin, '/api/admin/annonces', { id: 'annonce-a-question', message: 'Une note pour l’Expédition ?', question: { sorte: 'note', recompense: 5 } }), 'annoncer une question')
     ok(await faire(banc, admin, '/api/admin/annonces/annonce-a-question/cloturer', {}), 'clore la question')
+    // Une nouveauté à l'affiche — le Cabinet de curiosités —, puis retirée.
+    ok(
+      await faire(banc, admin, '/api/admin/affiches', { id: 'affiche-du-journal', page: 'cabinet', titre: 'Le Cabinet ouvre ses portes', phrase: 'Trois gardiens à vaincre.', jours: 14, confettis: 20 }),
+      'mettre à l’affiche',
+    )
+    ok(await faire(banc, admin, '/api/admin/affiches/affiche-du-journal', undefined, 'DELETE'), 'retirer l’affiche')
     // Les erreurs : une vraie, que la base refuse — un 500 ne se note pas —, réglée avec son mot ;
     // puis un téléphone prévenu des pannes, essayé — son service ne répond pas —, et retiré.
     const base = new Database(banc.quizDbUrl.replace(/^file:/, ''))
@@ -259,6 +265,8 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       'Testeur retiré de « L’Expédition » : Max (@max)',
       'Page ouverte à tous : L’Expédition',
       'Annonce retirée : « Le quiz du jour remarche : merci de votre patience ! » — ses confettis restent offerts',
+      'Affiche posée : Le Cabinet de curiosités — « Le Cabinet ouvre ses portes », 14 jours — 20 confettis à la première visite',
+      'Affiche retirée : Le Cabinet de curiosités — « Le Cabinet ouvre ses portes » — les confettis offerts restent',
       'Alertes de panne allumées sur un téléphone (un navigateur) — 1 téléphone prévenu',
       'Essai d’alerte : aucun téléphone n’a sonné (1 en échec)',
       'Alertes de panne coupées sur un téléphone — plus aucun téléphone prévenu',
@@ -295,8 +303,8 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     )
     assert.deepEqual(
       gestes.filter(g => g.sorte === 'annonce').map(g => g.cible),
-      ['annonce-du-journal', 'annonce-du-journal', 'annonce-a-question', 'annonce-a-question'],
-      'une annonce, faite puis retirée — ou sa question close —, se vise elle-même',
+      ['annonce-du-journal', 'annonce-du-journal', 'annonce-a-question', 'annonce-a-question', 'affiche-du-journal', 'affiche-du-journal'],
+      'une annonce, faite puis retirée — ou sa question close —, se vise elle-même ; une affiche aussi',
     )
     assert.deepEqual(
       gestes.filter(g => g.sorte === 'erreur').map(g => g.cible),

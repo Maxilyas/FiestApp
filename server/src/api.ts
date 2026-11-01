@@ -9,6 +9,7 @@ import { mountProfilsAdmin } from './profilsAdmin'
 import { mountQg, type QgDeps } from './qg'
 import { fermerLesPortes, mountMaintenance } from './maintenance'
 import { mountAnnonces } from './annonces'
+import { mountAffiches } from './affiches'
 import { mountErreurs, type ErreursDeps } from './erreursDuQg'
 import type { Maintenance } from './core/maintenance'
 import { journaliser, type JournalDesGestes } from './core/journalDesGestes'
@@ -239,6 +240,8 @@ export function mountApi(app: Express, deps: ApiDeps) {
   mountMaintenance(app, { maintenance: deps.maintenance, profiles: deps.profiles })
   // Les annonces à tous, et les confettis qu'elles offrent : l'administrateur seul.
   mountAnnonces(app, { profiles: deps.profiles })
+  // L'affiche d'une nouveauté, en haut de chaque accueil, et sa pastille « Nouveau » : l'administrateur seul.
+  mountAffiches(app, { profiles: deps.profiles, cabinet: deps.cabinet.ouvert })
   // Le tri des erreurs serveur, et les alertes de panne sur son téléphone : l'administrateur seul.
   mountErreurs(app, deps.erreurs)
 

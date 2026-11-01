@@ -178,6 +178,16 @@ import {
   type QuestionDAnnonce,
   type SorteDeQuestion,
 } from '../../../shared/annonces'
+import {
+  AFFICHES_MONTREES,
+  estUnePageALAffiche,
+  finDeLAffiche,
+  lireLAffiche,
+  motDeLaPremiereVisite,
+  type AfficheAuQg,
+  type AfficheDAccueil,
+  type PageALAffiche,
+} from '../../../shared/affiches'
 
 /** Chaque champ de `T` donné, même vide : un champ de plus dans `T` ne s'oublie pas en silence là où on le remplit. */
 type ToutDonne<T> = { [K in keyof Required<T>]: undefined extends T[K] ? T[K] | undefined : T[K] }
@@ -773,6 +783,51 @@ const estUnDonDAnnonce = (don: string) => don.startsWith('annonce:') || don.star
 /** L'identifiant d'une annonce, tiré par la page qui l'envoie : de quoi la reconnaître si elle repart. */
 const ID_D_ANNONCE = /^[0-9a-z-]{8,40}$/i
 
+/**
+ * Une affiche en cours, telle que l'accueil la lit (`qg_affiches`,
+ * `shared/affiches.ts`), et ce que ce profil en a fait : allé sur sa page
+ * depuis qu'elle est posée, ou rangée par « Plus tard ».
+ */
+export interface AfficheLue {
+  id: string
+  page: PageALAffiche
+  titre: string
+  phrase: string
+  confettis: number
+  fin: number
+  ouverte: boolean
+  rangee: boolean
+}
+
+/** Ce que le serveur garde d'une affiche en cours, pour noter une visite sans relire la base à chaque page servie. */
+interface AfficheEnMemoire {
+  id: string
+  page: PageALAffiche
+  confettis: number
+  fin: number
+}
+
+/**
+ * Le don de la première visite d'une page à l'affiche : son identifiant se
+ * déduit de l'affiche et du profil. Une visite notée deux fois — deux onglets,
+ * l'autre serveur d'une mise en ligne — ne donne qu'une fois, et l'accueil le
+ * dit avec son mot, comme un don de l'administrateur.
+ */
+const donDeLaVisite = (affiche: string, profil: string) => `affiche:${affiche}:${profil}`
+
+const COLONNES_D_UNE_AFFICHE = 'id, page, titre, phrase, confettis, created_at, fin, retiree_le'
+/** Une ligne de `qg_affiches`, telle que le QG la lit. Sa page est celle qu'elle a reçue : une page inconnue d'ici se dit telle quelle. */
+const afficheLue = (r: Row): Omit<AfficheAuQg, 'ouvertes' | 'rangees'> => ({
+  id: String(r.id),
+  page: String(r.page) as PageALAffiche,
+  titre: String(r.titre),
+  phrase: String(r.phrase),
+  confettis: Number(r.confettis),
+  le: Number(r.created_at),
+  fin: Number(r.fin),
+  retireeLe: r.retiree_le == null ? null : Number(r.retiree_le),
+})
+
 const COLONNES_D_UNE_ANNONCE = 'id, message, confettis, destinataires, created_at, retiree_le'
 const annonceDuQg = (r: Row, question: QuestionAuQg | null = null): AnnonceAuQg => ({
   id: String(r.id),
@@ -1054,6 +1109,24 @@ export class ProfileStore {
    */
   private achatsEnCours = new Map<string, Promise<unknown>>()
 
+  /**
+   * Les affiches en cours (`shared/affiches.ts`), pour noter la visite d'une
+   * page sans relire la base à chaque page servie : null tant que ce serveur ne
+   * les a pas lues — la première visite les lit, une fois (`affichesEnLecture`)
+   * —, puis tenues par chaque accueil, qui les lit dans le lot de ses dons, et
+   * par les gestes du QG. L'autre serveur d'une mise en ligne les apprend au
+   * premier accueil qui suit.
+   */
+  private affichesEnCours: AfficheEnMemoire[] | null = null
+  private affichesEnLecture: Promise<AfficheEnMemoire[]> | null = null
+  /**
+   * Les visites déjà notées, `affiche|profil` : une page servie dix fois n'écrit
+   * qu'une fois. L'accueil s'y fie aussi : une visite dont l'écriture est
+   * encore en route tait déjà l'affiche ici. Tombée, elle en sort — la page
+   * suivante la renote.
+   */
+  private visitesNotees = new Set<string>()
+
   constructor(url: string, authToken?: string) {
     this.client = clientDistant(url, authToken)
   }
@@ -1281,6 +1354,33 @@ export class ProfileStore {
         'CREATE INDEX IF NOT EXISTS idx_qg_annonce_reponses_profil ON qg_annonce_reponses(profile_id)',
         // Celles du dernier mois, lues avec les dons de chaque accueil : par leur date, sans parcourir la table.
         'CREATE INDEX IF NOT EXISTS idx_qg_annonces_quand ON qg_annonces(created_at)',
+        // Les affiches des nouveautés (`shared/affiches.ts`), une ligne chacune,
+        // jamais effacée : sa fin passée ou retirée, elle se tait. Les confettis de
+        // sa première visite sont des dons, un par profil (`noterUneVisite`).
+        `CREATE TABLE IF NOT EXISTS qg_affiches (
+           id         TEXT PRIMARY KEY,
+           page       TEXT NOT NULL,
+           titre      TEXT NOT NULL,
+           phrase     TEXT NOT NULL,
+           confettis  INTEGER NOT NULL,
+           created_at INTEGER NOT NULL,
+           fin        INTEGER NOT NULL,
+           retiree_le INTEGER
+         )`,
+        // Celles en cours, lues avec les dons de chaque accueil : par leur fin, sans parcourir la table.
+        'CREATE INDEX IF NOT EXISTS idx_qg_affiches_fin ON qg_affiches(fin)',
+        // Ce que chaque profil a fait d'une affiche : allé sur sa page (`ouverte_le`,
+        // l'affiche et sa pastille se taisent), ou rangée par « Plus tard »
+        // (`rangee_le`, l'affiche seule). La clé par l'affiche d'abord : le QG
+        // compte les siens, l'accueil lit la ligne d'un profil.
+        `CREATE TABLE IF NOT EXISTS profile_affiches (
+           affiche_id TEXT NOT NULL,
+           profile_id TEXT NOT NULL,
+           ouverte_le INTEGER,
+           rangee_le  INTEGER,
+           PRIMARY KEY (affiche_id, profile_id)
+         )`,
+        'CREATE INDEX IF NOT EXISTS idx_profile_affiches_profil ON profile_affiches(profile_id)',
         // Ce qu'il a déjà vu dans sa loge, pièce par pièce (`VusDeLaLoge`, en
         // JSON) : la pastille rouge de « Profil » compte ce qu'il a et qui n'y
         // est pas. Retenu sur le téléphone jusqu'au 14 octobre 2026, ce qu'on
@@ -1722,11 +1822,12 @@ export class ProfileStore {
    * lui ont coûté ses vies des sentiers, ses sabliers et ses compagnons, et
    * les confettis que l'administrateur lui a offerts : un seul aller-retour.
    * `annonces` : les annonces à tous faites depuis, et depuis son inscription,
-   * dans le même lot — l'accueil les dit sans un aller-retour de plus.
+   * dans le même lot — l'accueil les dit sans un aller-retour de plus ; et les
+   * affiches en cours à `maintenant`, avec ce qu'il en a fait.
    */
   private async achatsDe(
     profileId: string,
-    annonces?: { depuis: number; inscritLe: number },
+    annonces?: { depuis: number; inscritLe: number; maintenant: number },
   ): Promise<{
     themes: Map<string, number>
     vies: number
@@ -1739,8 +1840,9 @@ export class ProfileStore {
     missions: number
     coffres: number
     aTous: AnnonceATous[]
+    affiches: AfficheLue[]
   }> {
-    const [themes, vies, sabliers, eclats, compagnons, fonds, dons, missions, coffres, aTous] = await this.client.batch(
+    const [themes, vies, sabliers, eclats, compagnons, fonds, dons, missions, coffres, aTous, affiches] = await this.client.batch(
       [
         { sql: 'SELECT theme, prix FROM profile_achats WHERE profile_id = ?', args: [profileId] },
         { sql: 'SELECT COALESCE(SUM(prix), 0) AS prix FROM profile_vies WHERE profile_id = ?', args: [profileId] },
@@ -1768,6 +1870,15 @@ export class ProfileStore {
                       WHERE a.created_at >= ? AND a.created_at >= ? AND a.retiree_le IS NULL ORDER BY a.created_at DESC`,
                 args: [profileId, annonces.depuis, annonces.inscritLe],
               },
+              {
+                // Les affiches en cours, toutes — un profil né après l'une la voit aussi : elle pousse vers une page,
+                // elle ne raconte pas un fait d'avant lui —, et ce qu'il en a fait. Par leur fin, sans parcourir la table.
+                sql: `SELECT a.id, a.page, a.titre, a.phrase, a.confettis, a.fin, pa.ouverte_le, pa.rangee_le
+                      FROM qg_affiches a
+                      LEFT JOIN profile_affiches pa ON pa.affiche_id = a.id AND pa.profile_id = ?
+                      WHERE a.fin > ? AND a.retiree_le IS NULL ORDER BY a.created_at DESC`,
+                args: [profileId, annonces.maintenant],
+              },
             ]
           : []),
       ],
@@ -1792,6 +1903,23 @@ export class ProfileStore {
           question: { sorte: String(r.sorte) as SorteDeQuestion, choix: JSON.parse(String(r.choix)) as string[], recompense: Number(r.recompense) },
         }),
       })),
+      // Une page qu'un serveur d'après aurait ajoutée à la liste ne se montre pas ici : ce serveur ne saurait pas où elle mène.
+      affiches: (affiches?.rows ?? []).flatMap(r => {
+        const page = String(r.page)
+        if (!estUnePageALAffiche(page)) return []
+        return [
+          {
+            id: String(r.id),
+            page,
+            titre: String(r.titre),
+            phrase: String(r.phrase),
+            confettis: Number(r.confettis),
+            fin: Number(r.fin),
+            ouverte: r.ouverte_le != null,
+            rangee: r.rangee_le != null,
+          },
+        ]
+      }),
     }
   }
 
@@ -1824,7 +1952,8 @@ export class ProfileStore {
    * Sa boutique, et les dons de l'administrateur qu'elle a comptés, le plus
    * récent d'abord : l'accueil les annonce, la fiche du QG les additionne. Et
    * les annonces à tous de ce dernier mois (`ANNONCE_MS`), dans la même
-   * lecture : l'accueil les dit avec les dons qu'elles lui ont faits.
+   * lecture : l'accueil les dit avec les dons qu'elles lui ont faits ; et les
+   * affiches en cours, qu'il montre tant qu'il n'est pas allé sur leur page.
    * `campagne`, quand sa page l'a déjà demandée (`campagneDuProfil`).
    */
   async boutiqueEtDons(
@@ -1832,11 +1961,12 @@ export class ProfileStore {
     jour: string,
     soirees?: readonly { gain: GainSoiree; releve: ReleveSoiree }[],
     campagne?: Promise<CampagneDuProfil>,
-  ): Promise<{ boutique: BoutiqueDuProfil; dons: { id: string; confettis: number; mot: string | null; le: number }[]; aTous: AnnonceATous[] }> {
+  ): Promise<{ boutique: BoutiqueDuProfil; dons: { id: string; confettis: number; mot: string | null; le: number }[]; aTous: AnnonceATous[]; affiches: AfficheLue[] }> {
     const historique = soirees ?? this.historiqueOf(p.id)
+    const maintenant = Date.now()
     const [lues, achats, duJour, deCampagne, compagnons] = await Promise.all([
       historique,
-      this.achatsDe(p.id, { depuis: Date.now() - ANNONCE_MS, inscritLe: p.createdAt }),
+      this.achatsDe(p.id, { depuis: maintenant - ANNONCE_MS, inscritLe: p.createdAt, maintenant }),
       this.justesDuJour?.(p.id) ?? 0,
       // Ses confettis de campagne, et ses maîtres, qui ouvrent le thème qui se gagne : la même lecture.
       campagne ?? this.lectureDeCampagne(p.id),
@@ -1860,6 +1990,7 @@ export class ProfileStore {
       },
       dons: achats.dons,
       aTous: achats.aTous,
+      affiches: this.retenirLesAffiches(p.id, achats.affiches),
     }
   }
 
@@ -5400,6 +5531,185 @@ export class ProfileStore {
     return { etat: 'ok', accuse: { confettis: question.recompense } }
   }
 
+  // ── Les affiches des nouveautés ──────────────────────────────────────────
+
+  /**
+   * Retient les affiches en cours qu'une lecture de ses dons vient de rendre —
+   * toutes : la lecture n'en écarte aucune —, et rend ce qu'il en a fait, ses
+   * visites que ce serveur a notées comprises : en route vers la base, elles
+   * taisent déjà l'affiche.
+   */
+  private retenirLesAffiches(profileId: string, lues: readonly AfficheLue[]): AfficheLue[] {
+    this.affichesEnCours = lues.map(a => ({ id: a.id, page: a.page, confettis: a.confettis, fin: a.fin }))
+    return lues.map(a => (a.ouverte || !this.visitesNotees.has(`${a.id}|${profileId}`) ? a : { ...a, ouverte: true }))
+  }
+
+  /** Ce que son accueil montre des affiches lues : celles dont il n'a pas encore ouvert la page, la plus récente d'abord. */
+  affichesDAccueil(lues: readonly AfficheLue[]): AfficheDAccueil[] {
+    return lues.filter(a => !a.ouverte).map(({ id, page, titre, phrase, confettis, rangee }) => ({ id, page, titre, phrase, confettis, rangee }))
+  }
+
+  /** Les affiches en cours, lues une fois si ce serveur ne les tient pas encore — ni accueil ni geste du QG depuis son réveil. */
+  private affichesALaVisite(maintenant: number): Promise<readonly AfficheEnMemoire[]> {
+    if (this.affichesEnCours) return Promise.resolve(this.affichesEnCours)
+    return (this.affichesEnLecture ??= this.client
+      .execute({ sql: 'SELECT id, page, confettis, fin FROM qg_affiches WHERE fin > ? AND retiree_le IS NULL', args: [maintenant] })
+      .then(r => {
+        // Un accueil lu pendant l'aller-retour l'a déjà retenue, plus fraîche : elle reste.
+        this.affichesEnCours ??= r.rows.flatMap(l => {
+          const page = String(l.page)
+          return estUnePageALAffiche(page) ? [{ id: String(l.id), page, confettis: Number(l.confettis), fin: Number(l.fin) }] : []
+        })
+        return this.affichesEnCours
+      })
+      .finally(() => {
+        this.affichesEnLecture = null
+      }))
+  }
+
+  /**
+   * Il vient d'ouvrir une page (`servirPage`, `server.ts`) : si une affiche en
+   * cours la montre, sa visite se note — à son prochain accueil, l'affiche et
+   * la pastille de son bouton se taisent —, et sa première visite lui offre les
+   * confettis de l'affiche, un don par profil, dans le même lot. Jamais
+   * attendue par la page qu'on sert : une panne se dit au journal, et la visite
+   * se renote à la page suivante.
+   */
+  noterUneVisite(profileId: string, page: string, maintenant = Date.now()): void {
+    if (!estUnePageALAffiche(page)) return
+    this.affichesALaVisite(maintenant)
+      .then(affiches => this.ecrireLesVisites(profileId, page, affiches, maintenant))
+      .catch(e => console.error('[affiches] une visite ne se note pas :', e))
+  }
+
+  private async ecrireLesVisites(profileId: string, page: PageALAffiche, affiches: readonly AfficheEnMemoire[], maintenant: number): Promise<void> {
+    const aNoter = affiches.filter(a => a.page === page && a.fin > maintenant && !this.visitesNotees.has(`${a.id}|${profileId}`))
+    if (aNoter.length === 0) return
+    for (const a of aNoter) this.visitesNotees.add(`${a.id}|${profileId}`)
+    try {
+      await this.client.batch(
+        aNoter.flatMap(a => [
+          {
+            // La base fait foi, pas la mémoire : une affiche passée ou retirée entre-temps — par l'autre serveur d'une
+            // mise en ligne — ne note rien. Rangée avant d'y aller, sa ligne existe déjà : la visite la complète.
+            sql: `INSERT INTO profile_affiches (affiche_id, profile_id, ouverte_le)
+                  SELECT id, ?, ? FROM qg_affiches WHERE id = ? AND retiree_le IS NULL AND fin > ?
+                  ON CONFLICT(affiche_id, profile_id) DO UPDATE SET ouverte_le = excluded.ouverte_le WHERE profile_affiches.ouverte_le IS NULL`,
+            args: [profileId, maintenant, a.id, maintenant],
+          },
+          {
+            // Les confettis relus dans l'affiche même : retirée ou passée entre-temps, elle n'offre plus rien. Un don par
+            // profil et par affiche, par son identifiant — deux onglets, ou deux serveurs, ne donnent qu'une fois.
+            sql: `INSERT OR IGNORE INTO profile_dons (id, profile_id, confettis, mot, created_at)
+                  SELECT ?, ?, confettis, ?, ? FROM qg_affiches WHERE id = ? AND confettis > 0 AND retiree_le IS NULL AND fin > ?`,
+            args: [donDeLaVisite(a.id, profileId), profileId, motDeLaPremiereVisite(a.page), maintenant, a.id, maintenant],
+          },
+        ]),
+        'write',
+      )
+    } catch (e) {
+      // Pas écrite : la page suivante la renote.
+      for (const a of aNoter) this.visitesNotees.delete(`${a.id}|${profileId}`)
+      throw e
+    }
+  }
+
+  /**
+   * « Plus tard », sur l'accueil : l'affiche se range pour lui, sur tous ses
+   * appareils — la pastille de son bouton reste jusqu'à sa visite. Faux si
+   * l'affiche n'existe pas.
+   */
+  async rangerLAffiche(profileId: string, afficheId: string): Promise<boolean> {
+    const [, existe] = await this.client.batch(
+      [
+        {
+          sql: `INSERT INTO profile_affiches (affiche_id, profile_id, rangee_le) SELECT id, ?, ? FROM qg_affiches WHERE id = ?
+                ON CONFLICT(affiche_id, profile_id) DO UPDATE SET rangee_le = excluded.rangee_le WHERE profile_affiches.rangee_le IS NULL`,
+          args: [profileId, Date.now(), afficheId],
+        },
+        { sql: 'SELECT 1 AS ici FROM qg_affiches WHERE id = ?', args: [afficheId] },
+      ],
+      'write',
+    )
+    return existe.rows.length > 0
+  }
+
+  /**
+   * Pose une affiche (`/admin#affiches`). `id` vient de la page qui l'envoie, et
+   * ne change qu'une fois l'affiche posée : le même envoi refait la retrouve
+   * (`deja`) au lieu d'en poser une seconde. Une seule en cours par page
+   * (`occupee`, avec celle qui l'est) : deux affiches du même Cabinet se
+   * disputeraient l'accueil, et la visite de l'une compterait pour l'autre.
+   */
+  async mettreALAffiche(demande: unknown): Promise<{ etat: 'posee' | 'deja' | 'occupee'; affiche: Omit<AfficheAuQg, 'ouvertes' | 'rangees'> }> {
+    const lue = lireLAffiche(demande)
+    const brut = (demande && typeof demande === 'object' ? demande : {}) as { id?: unknown }
+    const id = typeof brut.id === 'string' && ID_D_ANNONCE.test(brut.id) ? brut.id : randomUUID()
+    const maintenant = Date.now()
+    const [posee, meme, enCours] = await this.client.batch(
+      [
+        {
+          sql: `INSERT OR IGNORE INTO qg_affiches (id, page, titre, phrase, confettis, created_at, fin)
+                SELECT ?, ?, ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM qg_affiches WHERE page = ? AND fin > ? AND retiree_le IS NULL)`,
+          args: [id, lue.page, lue.titre, lue.phrase, lue.confettis, maintenant, finDeLAffiche(maintenant, lue.jours), lue.page, maintenant],
+        },
+        { sql: `SELECT ${COLONNES_D_UNE_AFFICHE} FROM qg_affiches WHERE id = ?`, args: [id] },
+        {
+          sql: `SELECT ${COLONNES_D_UNE_AFFICHE} FROM qg_affiches WHERE page = ? AND fin > ? AND retiree_le IS NULL ORDER BY created_at DESC LIMIT 1`,
+          args: [lue.page, maintenant],
+        },
+      ],
+      'write',
+    )
+    const ligne = meme.rows[0]
+    if (!ligne) {
+      const autre = enCours.rows[0]
+      if (!autre) throw new Error('L’affiche n’a pas pu se poser : réessaie')
+      return { etat: 'occupee', affiche: afficheLue(autre) }
+    }
+    const affiche = afficheLue(ligne)
+    if (posee.rowsAffected > 0) {
+      // Tenue en mémoire si ce serveur en tient : la première visite la trouve sans relire la base.
+      this.affichesEnCours = this.affichesEnCours && [...this.affichesEnCours, { id: affiche.id, page: affiche.page, confettis: affiche.confettis, fin: affiche.fin }]
+    }
+    return { etat: posee.rowsAffected > 0 ? 'posee' : 'deja', affiche }
+  }
+
+  /** Les affiches posées, la plus récente d'abord, chacune avec ce qu'elle a fait : un aller-retour. */
+  async affichesAuQg(): Promise<AfficheAuQg[]> {
+    const lues = await this.client.execute({
+      sql: `SELECT a.id, a.page, a.titre, a.phrase, a.confettis, a.created_at, a.fin, a.retiree_le,
+                   COUNT(pa.ouverte_le) AS ouvertes,
+                   COUNT(CASE WHEN pa.ouverte_le IS NULL THEN pa.rangee_le END) AS rangees
+            FROM qg_affiches a
+            LEFT JOIN profile_affiches pa ON pa.affiche_id = a.id
+            GROUP BY a.id ORDER BY a.created_at DESC LIMIT ?`,
+      args: [AFFICHES_MONTREES],
+    })
+    return lues.rows.map(r => ({ ...afficheLue(r), ouvertes: Number(r.ouvertes), rangees: Number(r.rangees) }))
+  }
+
+  /**
+   * Retire une affiche avant sa fin : l'accueil la tait à tous, et sa pastille
+   * avec — une faute dans son titre, une page qu'on referme. Les confettis déjà
+   * offerts restent : un don ne se reprend pas. Null si elle n'existe pas.
+   */
+  async retirerLAffiche(id: string): Promise<Omit<AfficheAuQg, 'ouvertes' | 'rangees'> | null> {
+    const maintenant = Date.now()
+    const [retiree, lue] = await this.client.batch(
+      [
+        { sql: 'UPDATE qg_affiches SET retiree_le = ? WHERE id = ? AND retiree_le IS NULL AND fin > ?', args: [maintenant, id, maintenant] },
+        { sql: `SELECT ${COLONNES_D_UNE_AFFICHE} FROM qg_affiches WHERE id = ?`, args: [id] },
+      ],
+      'write',
+    )
+    const ligne = lue.rows[0]
+    if (!ligne) return null
+    if (retiree.rowsAffected === 0) throw new Error('Cette affiche ne se montre déjà plus : recharge le QG')
+    this.affichesEnCours = this.affichesEnCours && this.affichesEnCours.filter(a => a.id !== id)
+    return afficheLue(ligne)
+  }
+
   /**
    * Tire un code de secours neuf, que l'administrateur transmet au joueur qui
    * ne peut plus se connecter : il le tape dans « Mot de passe oublié ? », la
@@ -5497,6 +5807,7 @@ export class ProfileStore {
           'profile_fonds',
           'profile_dons',
           'qg_annonce_reponses',
+          'profile_affiches',
           'profile_loge_vus',
           'profile_missions',
           'profile_coffres',
@@ -5513,6 +5824,7 @@ export class ProfileStore {
       'write',
     )
     for (const s of [...this.sessions.values()]) if (s.profileId === profileId) this.sessions.delete(s.id)
+    for (const cle of [...this.visitesNotees]) if (cle.endsWith(`|${profileId}`)) this.visitesNotees.delete(cle)
     for (const carte of [
       this.profiles,
       this.justesDesSoireesGardees,
