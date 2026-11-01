@@ -515,10 +515,12 @@ export const LIEUX_VOISINS_KM = 2
 // des épreuves de trois manches, un coffre, un marchand, un gardien. Quatre
 // notions, pas une de plus — les cœurs, l'or, tes cartes, la carte. Ce qui se
 // joue se fige au départ de la traversée (la carte, ses jeux, ses thèmes, ses
-// gardiens) ; l'or et les cœurs se relisent de ses gestes au barème du code :
-// un chiffre changé vaut aussi pour la traversée en cours, qui ne dure qu'une
-// soirée — rien n'en sort que le légendaire choisi au bout, rangé une fois
-// pour toutes (invariant 22).
+// gardiens) ; l'or et les cœurs se relisent de ses gestes au barème de sa
+// version : un chiffre changé vaut aussi pour la traversée en cours, qui ne
+// dure qu'une soirée — sauf s'il pouvait la perdre après coup (un cœur de moins
+// au départ) ou refuser un achat déjà fait : il monte alors la version, et
+// celle d'avant garde ses chiffres (`traversee.ts`). Rien n'en sort que le
+// légendaire choisi au bout, rangé une fois pour toutes (invariant 22).
 
 /** Les actes d'une traversée : un gardien au bout de chacun. */
 export const ACTES_D_UNE_TRAVERSEE = 3
@@ -530,18 +532,32 @@ export const CHEMINS_D_UNE_RANGEE = 3
 export const RANGEE_DU_COFFRE = 2
 /** Les cartes choisies au départ parmi les dix : les seules de la traversée — on les améliore, on n'en gagne pas d'autre. */
 export const CARTES_D_UNE_TRAVERSEE = 3
-/** Les cœurs au départ, sans la Panacée : une manche ratée en coûte un. */
-export const COEURS_DE_DEPART = 5
-/** L'or de chaque étoile gagnée à une manche : quinze pièces pour une manche parfaite. */
-export const OR_PAR_ETOILE = 5
+// Le 1er novembre 2026, la traversée était trop facile — le joueur moyen du calibrage en gagnait quatre sur cinq, le fort
+// toutes, ses trois cartes au plus haut dès le deuxième gardien —, et « je ne veux pas qu'on rende les cartes inutiles ou
+// tous les mêmes » (le propriétaire) : la version 2 de la traversée (`VERSIONS_DE_LA_TRAVERSEE`) ne touche à aucune
+// carte. Un cœur de moins au départ, une étoile qui paie moins, les gardiens des actes II et III plus solides, et la
+// carte ++ qui ne s'achète que chez le marchand : le moyen en gagne une sur trois, le fort huit sur dix — la cible de
+// l'Expédition —, et toutes ses cartes au plus haut se méritent au dernier gardien (`calibrage-cabinet.ts --sections
+// traversee`, ses chiffres dans `baremes.md`). La version 1 garde les siens, écrits en dur dans `traversee.ts`.
+
+/** Les cœurs au départ, sans la Panacée : une manche ratée en coûte un. Cinq jusqu'à la version 2. */
+export const COEURS_DE_DEPART = 4
+/** L'or de chaque étoile gagnée à une manche : douze pièces pour une manche parfaite. Cinq par étoile jusqu'à la version 2. */
+export const OR_PAR_ETOILE = 4
 /** L'or d'un gardien vaincu, qui rend aussi les cœurs au complet et offre une amélioration. */
 export const OR_D_UN_GARDIEN = 30
-/** L'or d'une amélioration offerte (un coffre, un gardien) quand les trois cartes sont déjà au plus haut. */
+/** L'or d'une amélioration offerte (un coffre, un gardien) qu'aucune de ses cartes ne peut plus prendre. */
 export const OR_SANS_AMELIORATION = 40
-/** Les points de vie des trois gardiens, acte par acte : chaque étoile gagnée contre lui en retire un. */
-export const PV_DES_GARDIENS: readonly [number, number, number] = [6, 8, 10]
-/** Le marchand, avant chaque gardien : un cœur, une amélioration. */
-export const PRIX_DU_MARCHAND: Readonly<Record<'coeur' | 'amelioration', number>> = { coeur: 25, amelioration: 45 }
+/**
+ * Ce qu'une amélioration offerte — le coffre, le gardien vaincu — donne au plus : la carte +. La carte ++ ne
+ * s'achète que chez le marchand (`PRIX_DU_MARCHAND.auPlusHaut`) : offerte, elle montait les trois cartes au plus
+ * haut avant le dernier acte. Jusqu'à la version 2, une amélioration offerte allait jusqu'au plus haut.
+ */
+export const NIVEAU_OFFERT: Force = 2
+/** Les points de vie des trois gardiens, acte par acte : chaque étoile gagnée contre lui en retire un. 6, 8, 10 jusqu'à la version 2. */
+export const PV_DES_GARDIENS: readonly [number, number, number] = [6, 15, 22]
+/** Le marchand, avant chaque gardien : un cœur, une amélioration vers la carte +, et vers la carte ++ — 45 aussi jusqu'à la version 2. */
+export const PRIX_DU_MARCHAND: Readonly<Record<'coeur' | 'amelioration' | 'auPlusHaut', number>> = { coeur: 25, amelioration: 45, auPlusHaut: 150 }
 /** Un prix ne descend jamais sous tant de pièces, Pourboire compris. */
 export const PRIX_MIN = 5
 /** Les marches des épreuves, acte par acte : la première tire, les suivantes la valent (`tirerDesQuestions`). */
@@ -568,5 +584,10 @@ export const REMISE_DU_POURBOIRE: Readonly<Record<Force, number>> = { 1: 10, 2: 
 export const PV_DU_COUP_DE_GRACE: Readonly<Record<Force, number>> = { 1: 2, 2: 3, 3: 4 }
 /** Second souffle : les cœurs qu'on retrouve au dernier perdu, une fois par traversée ; null : tous. */
 export const COEURS_DU_SECOND_SOUFFLE: Readonly<Record<Force, number | null>> = { 1: 2, 2: 4, 3: null }
+/**
+ * Les thèmes qu'une épreuve du Quiz propose au choix, sur la carte — on en choisit un en y entrant (le propriétaire, le
+ * 1er novembre 2026 : « C'est possible que les QCM, ce soit des nodes où on doit choisir entre plusieurs thèmes ? »).
+ */
+export const THEMES_AU_CHOIX_DU_QUIZ = 3
 /** Ce qu'un jeu peut faire d'épreuves dans une traversée, au plus — le contenu écrit à la main ; les autres n'ont pas de plafond. */
 export const EPREUVES_D_UN_JEU_MAX: Readonly<Partial<Record<CleDeJeu, number>>> = { frise: 3, epingle: 4, detail: 3, indices: 3, replique: 3 }

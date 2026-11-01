@@ -30,10 +30,27 @@ export function Bourse({ or }: { or: number }) {
   )
 }
 
-/** Les points de vie d'un gardien, une barre chacun. */
+/** Au-delà de tant de points de vie, une jauge et ses chiffres plutôt qu'une barre chacun. */
+const PV_EN_BARRES = 10
+
+/**
+ * Les points de vie d'un gardien, une barre chacun — au-delà de dix, une jauge et ses chiffres : les gardiens des actes
+ * II et III en ont quinze et vingt-deux depuis la version 2 de la traversée, et leurs barres passaient sur trois lignes.
+ */
 export function PointsDeVie({ pv, max }: { pv: number; max: number }) {
+  const dit = `${pv} ${pv > 1 ? 'points' : 'point'} de vie sur ${max}`
+  if (max > PV_EN_BARRES) {
+    return (
+      <span className="cab-tv-pv cab-tv-pv-jauge" role="img" aria-label={dit}>
+        <span className="cab-tv-pv-barre" aria-hidden="true">
+          <span className="cab-tv-pv-niveau" style={{ width: `${(100 * Math.max(0, pv)) / max}%` }} />
+        </span>
+        <b aria-hidden="true">{`${pv} / ${max}`}</b>
+      </span>
+    )
+  }
   return (
-    <span className="cab-tv-pv" role="img" aria-label={`${pv} ${pv > 1 ? 'points' : 'point'} de vie sur ${max}`}>
+    <span className="cab-tv-pv" role="img" aria-label={dit}>
       {Array.from({ length: max }, (_, i) => (
         <i key={i} className={i < pv ? 'cab-tv-pv-plein' : undefined} />
       ))}

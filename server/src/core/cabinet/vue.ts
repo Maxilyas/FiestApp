@@ -72,7 +72,7 @@ import {
   type EtatDeLaPartie,
   type MancheDuPli,
 } from '../../../../shared/cabinet/partie'
-import { ameliorables, atteignables, carteDeLaTraversee, coeursMax, prixAuMarchand } from '../../../../shared/cabinet/traversee'
+import { ameliorables, atteignables, carteDeLaTraversee, coeursMax, offrables, prixAuMarchand } from '../../../../shared/cabinet/traversee'
 import { POUVOIRS, ceQueFaitLaCarte } from '../../../../shared/cabinet/pouvoirs'
 import { AUTRES_GARDIENS, GARDIENS, GARDIENS_DES_SALLES, GARDIENS_DE_SAISON, SALLES, conditionDuGardien, pouvoirDuGardien, salle, voieDuGardien } from '../../../../shared/cabinet/salles'
 import type {
@@ -468,6 +468,7 @@ export function vueDeLaTraversee(tr: TraverseeGardee, partie: PartieLue | null, 
   const { depart: d, etat: e } = tr
   return {
     id: tr.id,
+    v: d.v,
     rang: e.rang,
     maintenant,
     jour: d.jour,
@@ -478,7 +479,7 @@ export function vueDeLaTraversee(tr: TraverseeGardee, partie: PartieLue | null, 
     ou: e.ou,
     cartes: e.cartes,
     coeurs: e.coeurs,
-    coeursMax: coeursMax(e.cartes),
+    coeursMax: coeursMax(d, e.cartes),
     or: e.or,
     pv: e.pv,
     assauts: e.assauts,
@@ -490,8 +491,8 @@ export function vueDeLaTraversee(tr: TraverseeGardee, partie: PartieLue | null, 
     derniere: e.derniere,
     fin: e.fin,
     atteignables: atteignables(d, e),
-    prix: { coeur: prixAuMarchand('coeur', e.cartes), amelioration: prixAuMarchand('amelioration', e.cartes) },
-    ameliorables: ameliorables(e).map(c => c.cle),
+    prix: { coeur: prixAuMarchand(d, 'coeur', e.cartes), cartes: Object.fromEntries(ameliorables(e).map(c => [c.cle, prixAuMarchand(d, 'amelioration', e.cartes, c.cle)])) },
+    offrables: offrables(d, e).map(c => c.cle),
     ...(partie && { partie: vueDeLaPartie(partie) }),
   }
 }

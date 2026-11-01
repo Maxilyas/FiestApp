@@ -32,6 +32,7 @@ import {
   RANGEE_DU_GARDIEN,
   RANGEE_DU_MARCHAND,
   atteignables,
+  baremeDe,
   carteDeLaTraversee,
   cartesDeLEpreuve,
   cheminsVers,
@@ -48,15 +49,20 @@ import {
   lireLesCartesChoisies,
   lireUnGesteDeLaTraversee,
   nomAuNiveau,
+  offrables,
+  PLUS_HAUT_CHEZ_LE_MARCHAND,
   prixAuMarchand,
   pvDuGardien,
   tracerLaCarte,
+  VERSION_DE_LA_TRAVERSEE,
+  VERSIONS_DE_LA_TRAVERSEE,
   viseeDeLEtape,
   type CleDeCarte,
   type DepartDeLaTraversee,
   type EtatDeLaTraversee,
   type GesteDeLaTraversee,
   type MancheConclue,
+  type VersionDeLaTraversee,
 } from '../../shared/cabinet/traversee'
 import { JOUR, MIDI, S, departDe, ouvrir } from './cabinet-plans'
 
@@ -74,8 +80,9 @@ function graine(n: number): () => number {
 const THEMES = { epingle: ['Les grands sièges', 'La France sauvage', 'Terres d’écrivains', 'Savants et ingénieurs'], frise: ['L’aviation', 'Rome', 'La médecine'] }
 const GARDIENS: [string, string, string] = ['lg:renard', 'lg:sphinx', 'lg:dragon']
 
-function departDeLaTraversee(n = 7): DepartDeLaTraversee {
-  return { v: 1, jour: JOUR, actes: tracerLaCarte(graine(n), GARDIENS, THEMES) }
+/** Le départ d'une traversée, à la version qui se joue aujourd'hui — ou à une d'avant, qui se relit à ses chiffres. */
+function departDeLaTraversee(n = 7, v: VersionDeLaTraversee = VERSION_DE_LA_TRAVERSEE): DepartDeLaTraversee {
+  return { v, jour: JOUR, actes: tracerLaCarte(graine(n), GARDIENS, THEMES) }
 }
 
 /** Une traversée qu'on joue geste à geste : chaque geste accepté s'écrit, comme au serveur — ses cartes choisies d'abord. */
@@ -85,8 +92,8 @@ class Traversee {
   t = MIDI
   n = 0
   readonly depart: DepartDeLaTraversee
-  constructor(cartes: CleDeCarte[], n = 7) {
-    this.depart = departDeLaTraversee(n)
+  constructor(cartes: CleDeCarte[], n = 7, v: VersionDeLaTraversee = VERSION_DE_LA_TRAVERSEE) {
+    this.depart = departDeLaTraversee(n, v)
     this.etat = etatDeLaTraversee(this.depart, [])
     this.joue({ quoi: 'cartes', cartes })
   }
@@ -120,14 +127,14 @@ class Traversee {
 const manches = (etoiles: (number | null)[], misees: boolean[] = []): MancheConclue[] => etoiles.map((e, k) => ({ etoiles: e, misee: misees[k] === true }))
 
 /** Une épreuve de chaque rangée jusqu'au marchand, sans coffre si possible : la carte se traverse. */
-function jusquAuMarchand(t: Traversee) {
+function jusquAuMarchand(t: Traversee, etoiles = [2, 2, 2]) {
   while (etapeDe(t.depart, t.etat.position)!.rangee < B.RANGEES_D_UN_ACTE) {
     const ids = atteignables(t.depart, t.etat)
     const epreuve = ids.find(x => etapeDe(t.depart, x)?.sorte === 'epreuve')
-    if (epreuve) t.epreuve([2, 2, 2], [], epreuve)
+    if (epreuve) t.epreuve(etoiles, [], epreuve)
     else t.joue({ quoi: 'aller', etape: ids[0] })
-    // Un coffre ouvert attend son amélioration avant le pas suivant.
-    if (t.etat.ameliorations > 0) t.joue({ quoi: 'ameliorer', carte: t.etat.cartes.find(c => c.niveau < 3)!.cle })
+    // Un coffre ouvert attend son amélioration avant le pas suivant : sur une carte qui la prend.
+    if (t.etat.ameliorations > 0) t.joue({ quoi: 'ameliorer', carte: offrables(t.depart, t.etat)[0].cle })
   }
   t.joue({ quoi: 'aller', etape: t.vers('marchand') })
 }
@@ -207,10 +214,11 @@ test('la carte : trois actes, trois chemins, un coffre, le marchand, le gardien 
         const rangee = [0, 1, 2].map(c => ici(r, c)!)
         const jeux = rangee.filter(x => x.sorte === 'epreuve').map(x => x.jeu!)
         assert.equal(new Set(jeux).size, jeux.length, 'jamais deux fois le même jeu sur une rangée')
-        const categories = rangee.map(x => x.theme).filter(t => CATEGORIES.includes(t as never))
+        // Le thème de chaque étape — ou chacun de ses thèmes au choix, au Quiz.
+        const categories = rangee.flatMap(x => (x.choix ? x.choix.map(c => c.theme) : [x.theme])).filter(t => CATEGORIES.includes(t as never))
         assert.equal(new Set(categories).size, categories.length, 'deux voisines n’ont pas la même catégorie')
         for (const x of rangee) {
-          if (x.sorte === 'epreuve') assert.ok(x.theme, `${x.id} : un thème vu d'avance`)
+          if (x.sorte === 'epreuve') assert.ok(x.theme ?? x.choix?.length, `${x.id} : un thème vu d'avance, ou ses thèmes au choix`)
           if (x.jeu === 'epingle' || x.jeu === 'frise') themesDuContenu.set(x.theme!, (themesDuContenu.get(x.theme!) ?? 0) + 1)
           assert.ok(x.suivantes.includes(idDEtape(a, r + 1, x.colonne)) || r === B.RANGEES_D_UN_ACTE, 'chaque chemin file tout droit')
         }
@@ -294,9 +302,9 @@ test('une épreuve : chaque étoile rapporte de l’or, une manche ratée coûte
   assert.deepEqual(
     t.etat.derniere?.manches.map(m => [m.or, m.coeurs]),
     [
-      [15, 0],
+      [3 * B.OR_PAR_ETOILE, 0],
       [0, 1],
-      [5, 0],
+      [B.OR_PAR_ETOILE, 0],
     ],
   )
   assert.equal(t.etat.ou.sorte, 'carte')
@@ -339,11 +347,13 @@ test('les cartes de la traversée : Cagnotte, Parade, Quitte ou double, Second s
 
   const s = new Traversee(['second-souffle', 'panacee', 'pourboire'])
   assert.equal(s.etat.coeurs, B.COEURS_DE_DEPART + B.COEURS_DE_LA_PANACEE[1])
-  for (let k = 0; k < 2; k++) s.epreuve([0, 0, 0])
+  // Ses cœurs s'en vont d'une épreuve à l'autre ; au dernier, le Second souffle le relève, et les manches d'après comptent.
+  while (s.etat.coeurs > B.MANCHES_PAR_PARTIE) s.epreuve([0, 0, 0])
+  s.epreuve(Array.from({ length: B.MANCHES_PAR_PARTIE }, (_, k) => (k < s.etat.coeurs ? 0 : 2)))
   assert.equal(s.etat.fin?.issue, undefined, 'le Second souffle relève une fois')
   assert.equal(s.etat.souffle, true)
-  assert.equal(s.etat.coeurs, B.COEURS_DU_SECOND_SOUFFLE[1]! - 0)
-  s.epreuve([0, 0, 0])
+  assert.equal(s.etat.coeurs, B.COEURS_DU_SECOND_SOUFFLE[1])
+  while (!s.etat.fin) s.epreuve([0, 0, 0])
   assert.equal(s.etat.fin?.issue, 'perdue', 'pas deux fois')
 })
 
@@ -362,14 +372,20 @@ test('le coffre, le marchand : améliorer, acheter un cœur, le Pourboire', () =
   }
   jusquAuMarchand(t)
   assert.equal(t.etat.ou.sorte, 'marchand')
-  assert.equal(prixAuMarchand('coeur', t.etat.cartes), B.PRIX_DU_MARCHAND.coeur - B.REMISE_DU_POURBOIRE[1])
+  assert.equal(prixAuMarchand(t.depart, 'coeur', t.etat.cartes), B.PRIX_DU_MARCHAND.coeur - B.REMISE_DU_POURBOIRE[1])
   assert.equal(t.refuse({ quoi: 'acheter', article: 'coeur' }), COEURS_AU_COMPLET)
-  // Un cœur perdu se rachète ; une amélioration aussi, jusqu'au plus haut.
-  t.etat = { ...t.etat, coeurs: t.etat.coeurs - 1, or: 200 }
+  // Un cœur perdu se rachète ; une amélioration aussi, jusqu'au plus haut — la carte ++ au prix du plus haut niveau.
+  t.etat = { ...t.etat, coeurs: t.etat.coeurs - 1, or: 300 }
   t.joue({ quoi: 'acheter', article: 'coeur' })
-  assert.equal(t.etat.coeurs, coeursMax(t.etat.cartes))
+  assert.equal(t.etat.coeurs, coeursMax(t.depart, t.etat.cartes))
+  const remise = B.REMISE_DU_POURBOIRE[1]
+  assert.equal(prixAuMarchand(t.depart, 'amelioration', t.etat.cartes, 'coup-d-oeil'), B.PRIX_DU_MARCHAND.amelioration - remise)
+  let or = t.etat.or
   t.joue({ quoi: 'acheter', article: 'amelioration', carte: 'coup-d-oeil' })
+  assert.equal(or - t.etat.or, B.PRIX_DU_MARCHAND.amelioration - remise, 'vers la carte +')
+  or = t.etat.or
   t.joue({ quoi: 'acheter', article: 'amelioration', carte: 'coup-d-oeil' })
+  assert.equal(or - t.etat.or, B.PRIX_DU_MARCHAND.auPlusHaut - remise, 'vers la carte ++')
   assert.equal(t.refuse({ quoi: 'acheter', article: 'amelioration', carte: 'coup-d-oeil' }), CARTE_AU_PLUS_HAUT)
   t.etat = { ...t.etat, or: 0 }
   assert.equal(t.refuse({ quoi: 'acheter', article: 'amelioration', carte: 'pourboire' }), PAS_ASSEZ_D_OR)
@@ -379,7 +395,7 @@ test('le gardien : des assauts jusqu’à sa chute, ses jeux à tour de rôle, p
   const t = new Traversee(['coup-de-grace', 'quitte-ou-double', 'concentration'], 5)
   jusquAuMarchand(t)
   const gardien = t.vers('gardien')
-  const pv = pvDuGardien(0, t.etat.cartes)
+  const pv = pvDuGardien(t.depart, 0, t.etat.cartes)
   assert.equal(pv, B.PV_DES_GARDIENS[0] - B.PV_DU_COUP_DE_GRACE[1])
   assert.deepEqual(viseeDeLEtape(t.depart, etapeDe(t.depart, gardien)!, 1), { jeu: jeuDeLAssaut(GARDIENS[0], 1), marches: B.MARCHES_DES_GARDIENS[0], categorie: null, theme: null, sujet: null })
   const coeurs = t.etat.coeurs
@@ -405,11 +421,11 @@ test('le gardien : des assauts jusqu’à sa chute, ses jeux à tour de rôle, p
   assert.equal(b.recompense, 'amelioration')
   assert.equal(t.etat.acte, 1, 'l’acte suivant s’ouvre')
   assert.equal(t.etat.position, departDeLActe(1))
-  assert.equal(t.etat.coeurs, coeursMax(t.etat.cartes), 'les cœurs au complet')
+  assert.equal(t.etat.coeurs, coeursMax(t.depart, t.etat.cartes), 'les cœurs au complet')
   assert.deepEqual(t.etat.vaincus, [GARDIENS[0]])
   assert.equal(t.etat.ameliorations, 1)
   assert.deepEqual(atteignables(t.depart, t.etat), [], 'l’amélioration d’abord')
-  t.joue({ quoi: 'ameliorer', carte: 'coup-de-grace' })
+  t.joue({ quoi: 'ameliorer', carte: offrables(t.depart, t.etat)[0].cle })
   assert.equal(atteignables(t.depart, t.etat).length, 3)
 })
 
@@ -423,7 +439,7 @@ test('au bout des trois actes, le légendaire se choisit parmi les vaincus ; tou
       t.joue({ quoi: 'epreuve', etape: gardien, partie })
       t.joue({ quoi: 'conclure', partie, manches: manches([3, 3, 3]) })
     }
-    if (t.etat.ameliorations > 0) t.joue({ quoi: 'ameliorer', carte: t.etat.cartes.find(c => c.niveau < 3)!.cle })
+    if (t.etat.ameliorations > 0) t.joue({ quoi: 'ameliorer', carte: offrables(t.depart, t.etat)[0].cle })
   }
   assert.equal(t.etat.ou.sorte, 'legendaire')
   assert.deepEqual(t.etat.vaincus, GARDIENS)
@@ -438,6 +454,64 @@ test('au bout des trois actes, le légendaire se choisit parmi les vaincus ; tou
   assert.equal(r.etat.ameliorations, 0)
 })
 
+test('le coffre et le gardien vaincu montent une carte jusqu’à la carte + ; la carte ++ ne s’achète que chez le marchand', () => {
+  assert.equal(baremeDe(departDeLaTraversee()).niveauOffert, B.NIVEAU_OFFERT)
+  assert.ok(B.NIVEAU_OFFERT < 3, 'offerte, une amélioration ne mène plus au plus haut')
+  const t = new Traversee(['parade', 'cagnotte', 'panacee'], 11)
+  // Le coffre de l'acte, par l'étape de la première rangée qui y mène.
+  const acte = t.depart.actes[0].etapes
+  const coffre = acte.find(e => e.sorte === 'coffre')!
+  const avant = acte.find(e => e.rangee === 1 && e.suivantes.includes(coffre.id))!
+  t.etat = { ...t.etat, position: avant.id, cartes: [{ cle: 'parade', niveau: 2 }, { cle: 'cagnotte', niveau: 1 }, { cle: 'panacee', niveau: 3 }] }
+  assert.deepEqual(
+    offrables(t.depart, t.etat).map(c => c.cle),
+    ['cagnotte'],
+  )
+  t.joue({ quoi: 'aller', etape: coffre.id })
+  assert.deepEqual(t.etat.ou, { sorte: 'coffre', etape: coffre.id, recompense: 'amelioration' }, 'le coffre dit ce qu’il a donné')
+  assert.equal(t.refuse({ quoi: 'ameliorer', carte: 'parade' }), PLUS_HAUT_CHEZ_LE_MARCHAND)
+  assert.equal(t.refuse({ quoi: 'ameliorer', carte: 'panacee' }), CARTE_AU_PLUS_HAUT)
+  t.joue({ quoi: 'ameliorer', carte: 'cagnotte' })
+  assert.equal(t.etat.cartes.find(c => c.cle === 'cagnotte')?.niveau, 2)
+  // Plus aucune carte ne la prend : le gardien vaincu paie en or — la carte ++ attend le marchand.
+  const gardien = idDEtape(0, RANGEE_DU_GARDIEN, 1)
+  const r = consequencesDe(t.depart, { ...t.etat, ou: { sorte: 'gardien', etape: gardien, partie: 'x' } }, { etape: gardien, partie: 'x', manches: manches([3, 3, 3]), enCours: false })
+  assert.equal(r.bilan.vaincu, true)
+  assert.equal(r.bilan.recompense, 'or')
+  assert.equal(r.etat.ameliorations, 0)
+  assert.equal(r.bilan.or, r.bilan.manches.reduce((s, m) => s + m.or, 0) + B.OR_D_UN_GARDIEN + B.OR_SANS_AMELIORATION, 'ses manches, le gardien, et l’or de l’amélioration')
+  // … et un coffre aussi, et il le dit : déduit de ses cartes, un coffre qui venait de monter la dernière disait avoir payé en or.
+  const u = new Traversee(['parade', 'cagnotte', 'panacee'], 11)
+  u.etat = { ...u.etat, position: avant.id, cartes: u.etat.cartes.map(c => ({ ...c, niveau: 2 })) }
+  const or = u.etat.or
+  u.joue({ quoi: 'aller', etape: coffre.id })
+  assert.deepEqual(u.etat.ou, { sorte: 'coffre', etape: coffre.id, recompense: 'or' })
+  assert.equal(u.etat.or - or, B.OR_SANS_AMELIORATION)
+  assert.equal(u.etat.ameliorations, 0)
+})
+
+test('une traversée de la version 1 se relit à ses chiffres : relue à ceux d’aujourd’hui, elle ne serait plus celle qu’il a jouée', () => {
+  const t = new Traversee(['pourboire', 'panacee', 'coup-d-oeil'], 11, 1)
+  const v1 = baremeDe(t.depart)
+  assert.deepEqual(
+    [v1.coeursDeDepart, v1.orParEtoile, v1.pvDesGardiens, v1.niveauOffert],
+    [5, 5, [6, 8, 10], 3],
+    'écrits en dur, tels qu’ils se sont joués',
+  )
+  assert.equal(t.etat.coeurs, 5 + B.COEURS_DE_LA_PANACEE[1])
+  assert.equal(pvDuGardien(t.depart, 1, t.etat.cartes), 8)
+  jusquAuMarchand(t, [3, 3, 3])
+  // La carte ++ au prix de la carte + : c'était la règle.
+  const prix = 45 - B.REMISE_DU_POURBOIRE[1]
+  assert.equal(prixAuMarchand(t.depart, 'amelioration', [{ cle: 'pourboire', niveau: 1 }, { cle: 'coup-d-oeil', niveau: 2 }], 'coup-d-oeil'), prix)
+  if (t.etat.cartes.find(c => c.cle === 'coup-d-oeil')!.niveau < 2) t.joue({ quoi: 'acheter', article: 'amelioration', carte: 'coup-d-oeil' })
+  t.joue({ quoi: 'acheter', article: 'amelioration', carte: 'coup-d-oeil' })
+  assert.equal(t.etat.cartes.find(c => c.cle === 'coup-d-oeil')?.niveau, 3)
+  assert.deepEqual(etatDeLaTraversee(t.depart, t.gestes), t.etat, 'relue à sa version, telle qu’elle s’est jouée')
+  const commeAujourdhui = etatDeLaTraversee({ ...t.depart, v: VERSION_DE_LA_TRAVERSEE }, t.gestes)
+  assert.ok(commeAujourdhui.ignores > 0, 'aux chiffres d’aujourd’hui, son achat d’hier se refuserait')
+})
+
 test('une épreuve en cours ne compte que ses manches jugées : la vue d’une manche dit ce que valent les précédentes', () => {
   const t = new Traversee(['parade', 'cagnotte', 'panacee'])
   const etape = t.vers('epreuve')
@@ -450,7 +524,8 @@ test('une épreuve en cours ne compte que ses manches jugées : la vue d’une m
 test('le départ et les gestes se relisent à leur forme ; la page n’écrit ni `epreuve` ni `conclure`', () => {
   const d = departDeLaTraversee()
   assert.deepEqual(lireLeDepartDeLaTraversee(JSON.stringify(d)), d)
-  assert.equal(lireLeDepartDeLaTraversee({ ...d, v: 2 }), null, 'une version inconnue')
+  for (const v of VERSIONS_DE_LA_TRAVERSEE) assert.deepEqual(lireLeDepartDeLaTraversee({ ...d, v }), { ...d, v }, `la version ${v} se relit`)
+  assert.equal(lireLeDepartDeLaTraversee({ ...d, v: VERSION_DE_LA_TRAVERSEE + 1 }), null, 'une version inconnue')
   assert.equal(lireLeDepartDeLaTraversee({ ...d, actes: d.actes.slice(0, 2) }), null)
   assert.equal(lireLeDepartDeLaTraversee({ ...d, actes: [{ ...d.actes[0], gardien: 'lg:divin-x' }, d.actes[1], d.actes[2]] }), null)
   assert.equal(lireLeDepartDeLaTraversee('{pas du json'), null)

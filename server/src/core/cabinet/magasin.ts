@@ -67,6 +67,7 @@ import {
   lireUnGesteDeLaTraversee,
   partieEnCours,
   refusDAller,
+  refusDuTheme,
   tracerLaCarte,
   viseeDeLEtape,
   type DepartDeLaTraversee,
@@ -1782,9 +1783,11 @@ export class CabinetStore {
         if (!geste) throw new Error(ILLISIBLE_EN_ROUTE)
         const etape = geste.quoi === 'aller' ? etapeDe(tr.depart, geste.etape) : null
         if (etape && (etape.sorte === 'epreuve' || etape.sorte === 'gardien')) {
-          const refus = refusDAller(tr.depart, tr.etat, etape.id)
+          const theme = geste.quoi === 'aller' ? geste.theme : undefined
+          // Un Quiz à thèmes au choix ne s'ouvre que sur l'un d'eux, choisi à l'annonce : la seule règle, celle de la traversée.
+          const refus = refusDAller(tr.depart, tr.etat, etape.id) ?? refusDuTheme(etape, theme)
           if (refus) throw new Error(refus)
-          const entree = await this.entrerDansLEpreuve(profileId, tr, etape, t)
+          const entree = await this.entrerDansLEpreuve(profileId, tr, etape, t, etape.choix ? theme : undefined)
           if (entree) return { lecture: entree }
         } else {
           const issue = await this.ecrireUnGesteDeTraversee(profileId, tr, geste, t)
@@ -1805,9 +1808,9 @@ export class CabinetStore {
    * pour la finir — se quitte d'abord : une à la fois. Rien d'écrit : la
    * mémoire s'oublie, et l'appelant relit (null).
    */
-  private async entrerDansLEpreuve(profileId: string, tr: TraverseeGardee, etape: EtapeDeLaCarte, t: number): Promise<LectureDeLaTraversee | null> {
+  private async entrerDansLEpreuve(profileId: string, tr: TraverseeGardee, etape: EtapeDeLaCarte, t: number, choisi?: number): Promise<LectureDeLaTraversee | null> {
     const assaut = etape.sorte === 'gardien' ? tr.etat.assauts + 1 : 0
-    const visee = viseeDeLEtape(tr.depart, etape, assaut)
+    const visee = viseeDeLEtape(tr.depart, etape, assaut, choisi)
     if (!visee) throw new Error(ETAPE_INCONNUE)
     const garde = await this.museeDuJour(profileId, t)
     const autre = garde.enCours ? await this.partieDe(profileId, garde.enCours.id) : null
@@ -1858,7 +1861,7 @@ export class CabinetStore {
       ...(theme !== undefined && { theme }),
       tirages,
     }
-    const geste: GesteDeLaTraversee = { quoi: 'epreuve', etape: etape.id, partie: serie }
+    const geste: GesteDeLaTraversee = { quoi: 'epreuve', etape: etape.id, partie: serie, ...(choisi !== undefined && { theme: choisi }) }
     const apres = jouerUnGesteDeLaTraversee(tr.depart, tr.etat, geste, t)
     if (typeof apres === 'string') throw new Error(apres)
     // Sous Quitte ou double, la mise se décide avant de voir la première manche : la page l'ouvre elle-même.

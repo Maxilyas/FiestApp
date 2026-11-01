@@ -15,14 +15,23 @@ import { ENJEU_ORDINAIRE } from '../../shared/cabinet/partie'
 import { deplier, estDuCabinet } from '../../shared/cabinet/pieces'
 import { lireUnGeste } from '../../shared/cabinet/lecture'
 import {
+  CHOISIS_TON_THEME,
   EMOJI_DES_JEUX,
+  VERSION_DE_LA_TRAVERSEE,
   emojiDUnSujet,
   emojiDuTheme,
+  epreuveEnCours,
   etatDeLaTraversee,
+  jouerUnGesteDeLaTraversee,
   lireLeDepartDeLaTraversee,
+  lireUnGesteDeLaTraversee,
+  refusDuTheme,
+  themeDeLEtape,
   tracerLaCarte,
   viseeDeLEtape,
   type DepartDeLaTraversee,
+  type EtapeDeLaCarte,
+  type ThemeAuChoix,
   type ThemeDuQuiz,
 } from '../../shared/cabinet/traversee'
 import { CATEGORIES, type Categorie } from '../../shared/categories'
@@ -225,6 +234,9 @@ function graine(n: number): () => number {
   }
 }
 
+/** Une étape de la carte sans le thème de son jeu : faite Quiz, ses thèmes au choix font le sien. */
+const sansTheme = ({ theme: _t, sujet: _s, emoji: _e, ...e }: EtapeDeLaCarte): EtapeDeLaCarte => e
+
 const THEMES_DU_QUIZ: ThemeDuQuiz[] = [
   { cle: 'animaux', nom: 'Les animaux', famille: 'theme', emoji: '🧩' },
   { cle: 'dinosaures', nom: 'Les dinosaures', famille: 'theme', emoji: '🧩' },
@@ -234,43 +246,93 @@ const THEMES_DU_QUIZ: ThemeDuQuiz[] = [
   { cle: 'cuisine/desserts', nom: 'Les desserts', famille: 'rubrique', emoji: '🍳' },
 ]
 
-test('la carte promet au Quiz des catégories et des sujets, famille par famille, jamais deux fois le même', () => {
-  const vus = { categories: 0, sujets: 0, familles: new Set<string>() }
+test('la carte propose au Quiz trois thèmes au choix, chacun d’une autre famille, jamais deux fois le même', () => {
+  const vus = { categories: 0, sujets: 0, familles: new Set<string>(), etapes: 0, troisFamilles: 0 }
   for (let n = 1; n <= 60; n++) {
     const actes = tracerLaCarte(graine(n), ['lg:renard', 'lg:sphinx', 'lg:dragon'], { epingle: ['Rome'], frise: ['Rome'], quiz: THEMES_DU_QUIZ })
     const quiz = actes.flatMap(a => a.etapes).filter(e => e.jeu === 'quiz')
-    const themes = quiz.map(e => e.theme)
-    assert.equal(new Set(themes).size, themes.length, `carte ${n} : un thème du Quiz deux fois`)
+    const proposes = quiz.flatMap(e => e.choix ?? []).map(c => c.theme)
+    assert.equal(new Set(proposes).size, proposes.length, `carte ${n} : un thème du Quiz proposé deux fois`)
     for (const e of quiz) {
-      assert.ok(e.theme, `${e.id} : un thème vu d'avance`)
-      if (e.sujet) {
-        const promis = THEMES_DU_QUIZ.find(t => t.cle === e.sujet)!
-        assert.deepEqual([e.theme, e.emoji], [promis.nom, promis.emoji])
+      assert.equal(e.choix?.length, B.THEMES_AU_CHOIX_DU_QUIZ, `${e.id} : ses thèmes au choix`)
+      assert.deepEqual([e.theme, e.sujet, e.emoji], [undefined, undefined, undefined], `${e.id} : son thème est celui qu'on choisira`)
+      const familles = e.choix!.map(c => {
+        if (!c.sujet) {
+          assert.ok(CATEGORIES.includes(c.theme as Categorie), `${c.theme}`)
+          assert.equal(c.emoji, undefined)
+          vus.categories++
+          return 'categorie'
+        }
+        const promis = THEMES_DU_QUIZ.find(t => t.cle === c.sujet)!
+        assert.deepEqual([c.theme, c.emoji], [promis.nom, promis.emoji])
         vus.sujets++
         vus.familles.add(promis.famille)
-      } else {
-        assert.ok(CATEGORIES.includes(e.theme as Categorie), `${e.theme}`)
-        assert.equal(e.emoji, undefined)
-        vus.categories++
-      }
+        return promis.famille
+      })
+      vus.etapes++
+      if (new Set(familles).size === familles.length) vus.troisFamilles++
     }
-    // Le départ se relit avec ses sujets, et l'épreuve vise le sien.
-    const depart: DepartDeLaTraversee = { v: 1, jour: '2026-11-01', actes }
+    // Le départ se relit avec ses thèmes au choix, et l'épreuve vise celui qu'il choisit — le premier, s'il n'a rien choisi.
+    const depart: DepartDeLaTraversee = { v: VERSION_DE_LA_TRAVERSEE, jour: '2026-11-01', actes }
     assert.deepEqual(lireLeDepartDeLaTraversee(JSON.stringify(depart)), depart)
-    for (const e of quiz) assert.deepEqual(viseeDeLEtape(depart, e, 0)?.sujet ?? null, e.sujet ?? null)
+    for (const e of quiz) {
+      for (const [k, c] of e.choix!.entries()) {
+        const visee = viseeDeLEtape(depart, e, 0, k)!
+        assert.deepEqual([visee.theme, visee.sujet], [c.theme, c.sujet ?? null])
+        assert.deepEqual(themeDeLEtape(e, k), c)
+      }
+      assert.deepEqual(viseeDeLEtape(depart, e, 0)?.theme, e.choix![0].theme)
+    }
   }
   assert.ok(vus.categories > 0 && vus.sujets > 0, JSON.stringify({ ...vus, familles: [...vus.familles] }))
-  // Famille par famille : les rubriques, pourtant plus nombreuses ici que les univers, ne prennent pas tout.
+  // Famille par famille : les rubriques, pourtant plus nombreuses ici que les univers, ne prennent pas tout…
   assert.deepEqual([...vus.familles].sort(), ['epoque', 'rubrique', 'theme', 'univers'])
-  // Sans thèmes de la base — une base illisible au départ —, le Quiz ne promet que des catégories.
+  // … et une étape propose trois familles tant qu'il en reste : un choix entre trois rubriques n'en serait pas un.
+  assert.ok(vus.troisFamilles >= vus.etapes * 0.9, `${vus.troisFamilles} étapes sur ${vus.etapes} à trois familles`)
+  // Sans thèmes de la base — une base illisible au départ —, le Quiz ne propose que des catégories.
   const seules = tracerLaCarte(graine(3), ['lg:renard', 'lg:sphinx', 'lg:dragon'], { epingle: ['Rome'], frise: ['Rome'] })
-  for (const e of seules.flatMap(a => a.etapes).filter(x => x.jeu === 'quiz')) assert.ok(CATEGORIES.includes(e.theme as Categorie) && !e.sujet)
+  for (const e of seules.flatMap(a => a.etapes).filter(x => x.jeu === 'quiz')) assert.ok(e.choix!.every(c => CATEGORIES.includes(c.theme as Categorie) && !c.sujet))
   assert.equal(JEUX.quiz.nom, 'Le Quiz')
+})
+
+test('le thème d’un Quiz se choisit en y entrant : le pli le garde, le bilan le dit, la page qui n’en dit pas se refuse en mots', () => {
+  const actes = tracerLaCarte(graine(5), ['lg:renard', 'lg:sphinx', 'lg:dragon'], { epingle: ['Rome'], frise: ['Rome'], quiz: THEMES_DU_QUIZ })
+  const premiere = actes[0].etapes.find(e => e.id === 'a0r1c0')!
+  const choix: ThemeAuChoix[] = [{ theme: 'Histoire' }, { theme: 'Les animaux', sujet: 'animaux', emoji: '🧩' }, { theme: 'Sport' }]
+  const quiz = { ...sansTheme(premiere), sorte: 'epreuve' as const, jeu: 'quiz' as const, choix }
+  const depart: DepartDeLaTraversee = { v: VERSION_DE_LA_TRAVERSEE, jour: '2026-11-01', actes: [{ ...actes[0], etapes: actes[0].etapes.map(e => (e.id === premiere.id ? quiz : e)) }, actes[1], actes[2]] }
+  const partie = etatDeLaTraversee(depart, [{ geste: { quoi: 'cartes', cartes: ['cagnotte', 'parade', 'panacee'] }, faitLe: 0 }])
+  // La page doit en choisir un, parmi les siens ; une étape sans choix n'en demande pas.
+  assert.equal(refusDuTheme(quiz, undefined), CHOISIS_TON_THEME)
+  assert.equal(refusDuTheme(quiz, 3), CHOISIS_TON_THEME)
+  assert.equal(refusDuTheme(quiz, 1.5), CHOISIS_TON_THEME)
+  assert.equal(refusDuTheme(quiz, 2), null)
+  assert.equal(refusDuTheme(actes[0].etapes.find(e => e.sorte === 'epreuve' && !e.choix)!, undefined), null)
+  // Le serveur écrit le thème choisi avec la partie qu'il commence ; un rang hors des siens se refuse.
+  assert.equal(jouerUnGesteDeLaTraversee(depart, partie, { quoi: 'epreuve', etape: quiz.id, partie: 'p1', theme: 3 }, 1), CHOISIS_TON_THEME)
+  const dedans = jouerUnGesteDeLaTraversee(depart, partie, { quoi: 'epreuve', etape: quiz.id, partie: 'p1', theme: 1 }, 1)
+  assert.ok(typeof dedans !== 'string')
+  assert.deepEqual(dedans.ou, { sorte: 'epreuve', etape: quiz.id, partie: 'p1', theme: 1 })
+  assert.equal(epreuveEnCours(depart, dedans, 'p1', [], false)?.theme, 'Les animaux', 'la tête de l’épreuve dit le thème choisi')
+  const finie = jouerUnGesteDeLaTraversee(depart, dedans, { quoi: 'conclure', partie: 'p1', manches: [3, 3, 3].map(etoiles => ({ etoiles, misee: false })) }, 2)
+  assert.ok(typeof finie !== 'string')
+  assert.equal(finie.derniere?.theme, 'Les animaux', 'le bilan dit le thème qui s’est joué')
+  // Écrit, il se relit — et une page n'envoie qu'un rang.
+  assert.deepEqual(lireUnGesteDeLaTraversee(JSON.stringify({ quoi: 'epreuve', etape: quiz.id, partie: 'p1', theme: 1 }), true), { quoi: 'epreuve', etape: quiz.id, partie: 'p1', theme: 1 })
+  assert.deepEqual(lireUnGesteDeLaTraversee({ quoi: 'aller', etape: quiz.id, theme: 2 }), { quoi: 'aller', etape: quiz.id, theme: 2 })
+  assert.equal(lireUnGesteDeLaTraversee({ quoi: 'aller', etape: quiz.id, theme: 'Les animaux' }), null)
+  assert.equal(lireUnGesteDeLaTraversee({ quoi: 'aller', etape: quiz.id, theme: -1 }), null)
+  // Sans rang, le premier : une carte écrite à la main, ou une traversée d'avant les thèmes au choix.
+  const sansRang = jouerUnGesteDeLaTraversee(depart, partie, { quoi: 'epreuve', etape: quiz.id, partie: 'p1' }, 1)
+  assert.ok(typeof sansRang !== 'string')
+  assert.equal(epreuveEnCours(depart, sansRang, 'p1', [], false)?.theme, 'Histoire')
+  // Des thèmes au choix illisibles rendent le départ illisible.
+  assert.equal(lireLeDepartDeLaTraversee({ ...depart, actes: [{ ...depart.actes[0], etapes: depart.actes[0].etapes.map(e => (e.id === quiz.id ? { ...e, choix: [{ sujet: 'animaux' }] } : e)) }, depart.actes[1], depart.actes[2]] }), null)
 })
 
 // ── Une épreuve du Quiz, par les routes ───────────────────────────────────
 
-test('une épreuve du Quiz par les routes : le sujet promis dans ses trois manches, la bonne réponse jamais avant la révélation', async () => {
+test('une épreuve du Quiz par les routes : le thème choisi dans ses trois manches, la bonne réponse jamais avant la révélation', async () => {
   const b: BancDuCabinet = await bancDuCabinet({ baseDeLaCampagne: baseDuCabinet(16) })
   try {
     const cookie = await inscrireProfil(b.banc.url, 'quizeuse', 'Inès')
@@ -278,14 +340,19 @@ test('une épreuve du Quiz par les routes : le sujet promis dans ses trois manch
     const nature = baseDuCabinet(16).questions.find(q => q.meta.categorie === 'Nature')!
     const cle = sujetsEtRubriqueDe(nature.meta)[0]
     const sujet = sujetParCle(cle)!
-    // Une carte ordinaire — une rangée ne pose jamais deux fois le même jeu —, sa première étape faite Quiz et promise sur ce
-    // sujet ; la traversée écrite à la main, ses cartes choisies.
+    // Une carte ordinaire — une rangée ne pose jamais deux fois le même jeu —, sa première étape faite Quiz, ce sujet au choix
+    // parmi trois ; la traversée écrite à la main, ses cartes choisies.
     let x = 7
     const hasard = () => ((x = (x * 16807) % 2147483647) / 2147483647)
     const actes = tracerLaCarte(hasard, ['lg:renard', 'lg:sphinx', 'lg:dragon'], { epingle: ['Rome'], frise: ['Rome'] })
     const premiere = actes[0].etapes.find(e => e.id === 'a0r1c0')!
-    const promise = { ...premiere, sorte: 'epreuve' as const, jeu: 'quiz' as const, theme: sujet.nom, sujet: cle, emoji: '🌿' }
-    const depart: DepartDeLaTraversee = { v: 1, jour: '2026-10-24', actes: [{ ...actes[0], etapes: actes[0].etapes.map(e => (e.id === premiere.id ? promise : e)) }, actes[1], actes[2]] }
+    const choix: ThemeAuChoix[] = [{ theme: 'Histoire' }, { theme: sujet.nom, sujet: cle, emoji: '🌿' }, { theme: 'Sport' }]
+    const promise = { ...sansTheme(premiere), sorte: 'epreuve' as const, jeu: 'quiz' as const, choix }
+    const depart: DepartDeLaTraversee = {
+      v: VERSION_DE_LA_TRAVERSEE,
+      jour: '2026-10-24',
+      actes: [{ ...actes[0], etapes: actes[0].etapes.map(e => (e.id === premiere.id ? promise : e)) }, actes[1], actes[2]],
+    }
     assert.equal(etatDeLaTraversee(depart, [{ geste: { quoi: 'cartes', cartes: ['cagnotte', 'parade', 'panacee'] }, faitLe: 0 }]).ou.sorte, 'carte')
     const id = `traversee-du-quiz-${profil}`
     const q = (s: string) => `'${s.replace(/'/g, "''")}'`
@@ -299,11 +366,16 @@ test('une épreuve du Quiz par les routes : le sujet promis dans ses trois manch
     const t = ok(await lire<PageDeLaTraversee>(b, cookie, '/api/cabinet/traversee'), 'la page').traversee!
     assert.equal(t.id, id)
     const etape = t.actes[0].etapes.find(e => e.id === premiere.id)!
-    assert.deepEqual([etape.jeu, etape.theme, etape.sujet, etape.emoji], ['quiz', sujet.nom, cle, '🌿'], 'la vue porte ce que la carte promet')
-    const entree = ok(
-      await poster<PageDeLaTraversee>(b, cookie, `/api/cabinet/traversee/${t.id}/geste`, { rang: t.rang, geste: { quoi: 'aller', etape: premiere.id } }),
-      'l’entrée',
-    ).traversee as VueDeLaTraversee
+    assert.deepEqual([etape.jeu, etape.choix], ['quiz', choix], 'la vue porte ses thèmes au choix')
+    // Sans thème, ou un thème qui n'est pas des siens : refusé en mots, rien d'écrit.
+    const aller = (g: Record<string, unknown>) => poster<PageDeLaTraversee & { error?: string }>(b, cookie, `/api/cabinet/traversee/${t.id}/geste`, { rang: t.rang, geste: g })
+    for (const sans of [{ quoi: 'aller', etape: premiere.id }, { quoi: 'aller', etape: premiere.id, theme: 3 }]) {
+      const refus = await aller(sans)
+      assert.equal(refus.status, 400, JSON.stringify(sans))
+      assert.equal(refus.corps.error, CHOISIS_TON_THEME)
+    }
+    const entree = ok(await aller({ quoi: 'aller', etape: premiere.id, theme: 1 }), 'l’entrée').traversee as VueDeLaTraversee
+    assert.deepEqual(entree.ou, { sorte: 'epreuve', etape: premiere.id, partie: entree.partie!.id, theme: 1 }, 'la traversée garde le thème choisi')
     let v = entree.partie as VueDeLaPartie
     assert.equal(v.jeu, 'quiz')
     const siennes = new Set(qcmDuSujet(PORTE, baseDuCabinet(16).questions, cle).map(x => x.id))
@@ -329,6 +401,7 @@ test('une épreuve du Quiz par les routes : le sujet promis dans ses trois manch
       apres.derniere?.manches.map(m => m.etoiles),
       [3, 3, 3],
     )
+    assert.equal(apres.derniere?.theme, sujet.nom, 'le bilan dit le thème choisi')
     assert.ok(apres.or > 0)
   } finally {
     await b.banc.close()

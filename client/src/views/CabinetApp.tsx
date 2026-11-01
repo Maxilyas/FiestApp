@@ -250,7 +250,7 @@ export function CabinetApp() {
   const avecLeToast = (contenu: React.ReactNode) => (
     <>
       {contenu}
-      {regles && <ReglesDeLaTraversee onFermer={() => setRegles(false)} />}
+      {regles && <ReglesDeLaTraversee v={page?.traversee?.fin ? undefined : page?.traversee?.v} onFermer={() => setRegles(false)} />}
       {toast && (
         <div className={`toast toast-${toast.kind} cab-toast`} role={toast.kind === 'error' ? 'alert' : 'status'}>
           {espacesFines(toast.message)}

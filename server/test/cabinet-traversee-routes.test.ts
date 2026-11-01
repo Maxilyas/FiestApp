@@ -18,6 +18,7 @@ import {
   CHOISIS_TROIS_CARTES,
   EPREUVE_EN_COURS,
   PAS_PAR_LA,
+  VERSION_DE_LA_TRAVERSEE,
   etatDeLaTraversee,
   idDEtape,
   tracerLaCarte,
@@ -50,6 +51,7 @@ async function partir(cookie: string, cartes: string[]): Promise<PageDeLaTravers
 /**
  * Une traversée écrite à la main jusqu'à ce que `arret` dise stop : ses gestes rejoués par le pli, comme le serveur les aurait
  * écrits — ses épreuves conclues sans faute, chaque amélioration offerte à la première carte qui peut monter. Rend son départ.
+ * À la version 1, comme celle du légendaire plus bas : une traversée commencée avant la version 2 se sert encore, à ses chiffres.
  */
 function traverseeALaMain(profil: string, gardiens: [string, string, string], arret: (e: EtatDeLaTraversee) => boolean): DepartDeLaTraversee {
   let x = 1
@@ -123,6 +125,11 @@ test('la traversée : un profil seulement, ses gardiens d’abord, trois cartes 
   )
   assert.deepEqual(t.atteignables, [0, 1, 2].map(c => idDEtape(0, 1, c)))
   assert.ok(t.actes.every(a => a.gardien.startsWith('lg:')))
+  // Sa version — la page en lit le barème —, et le marchand d'avance : un cœur, chaque carte à son prix, vers la carte +.
+  assert.equal(t.v, VERSION_DE_LA_TRAVERSEE)
+  const versLePlus = B.PRIX_DU_MARCHAND.amelioration
+  assert.deepEqual(t.prix, { coeur: B.PRIX_DU_MARCHAND.coeur, cartes: { 'coup-d-oeil': versLePlus, cagnotte: versLePlus, panacee: versLePlus } })
+  assert.deepEqual(t.offrables, ['coup-d-oeil', 'cagnotte', 'panacee'], 'une amélioration offerte les prendrait toutes')
   // Une seule en route : la base le recompte.
   const encore = await commencer(cookie)
   assert.equal(encore.status, 400)
@@ -138,7 +145,8 @@ test('aller vers une épreuve y entre : sa partie, ses cartes, ce qu’elle vaut
   assert.equal(loin.status, 400)
   assert.equal(loin.corps.error, PAS_PAR_LA)
   const etape = t.actes[0].etapes.find(e => e.id === t.atteignables.find(id => t.actes[0].etapes.find(x => x.id === id)?.sorte === 'epreuve'))!
-  const entree = ok(await geste(cookie, t, { quoi: 'aller', etape: etape.id }), 'l’entrée').traversee!
+  // La carte se tire au hasard du serveur : un Quiz s'y ouvre sur l'un de ses thèmes au choix (`cabinet-quiz.test.ts`).
+  const entree = ok(await geste(cookie, t, { quoi: 'aller', etape: etape.id, ...(etape.choix && { theme: 0 }) }), 'l’entrée').traversee!
   assert.equal(entree.ou.sorte, 'epreuve')
   const partie = entree.partie!
   assert.ok(partie, 'la page d’après porte sa partie')

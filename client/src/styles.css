@@ -11204,6 +11204,11 @@ html:has(.cab-partie .cab-titre-revele) { scroll-padding-bottom: var(--cab-pied,
 .cab-tv-pv { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
 .cab-tv-pv i { width: 22px; height: 10px; border-radius: 3px; background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 140, 140, 0.35); }
 .cab-tv-pv i.cab-tv-pv-plein { background: linear-gradient(180deg, #ff9c8a, #e0473f); border-color: #ffb3a8; box-shadow: 0 0 8px rgba(255, 90, 80, 0.5); }
+/* Plus de dix points de vie : une jauge et ses chiffres, sur une ligne — quinze ou vingt-deux barres passaient sur trois. */
+.cab-tv-pv-jauge { flex-wrap: nowrap; align-items: center; gap: 8px; }
+.cab-tv-pv-barre { position: relative; flex: none; width: 112px; height: 10px; border-radius: 5px; background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 140, 140, 0.35); overflow: hidden; }
+.cab-tv-pv-niveau { position: absolute; inset: 0 auto 0 0; background: linear-gradient(180deg, #ff9c8a, #e0473f); box-shadow: 0 0 8px rgba(255, 90, 80, 0.5); }
+.cab-tv-pv-jauge b { color: #ffc9b8; font-weight: 800; font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
 .cab-tv-ressources { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
 
 /* La tête de la carte, le titre, le carton d'un acte. */
@@ -11238,6 +11243,9 @@ html:has(.cab-partie .cab-titre-revele) { scroll-padding-bottom: var(--cab-pied,
 .cab-tv-trio b { font-family: var(--font-display, Georgia, serif); font-weight: 400; line-height: 1.1; }
 .cab-tv-trio small { font-size: 1.0625rem; color: var(--cab-tv-acte); }
 .cab-tv-options { display: grid; gap: 8px; }
+/* Les thèmes au choix d'un Quiz, à son annonce : les options du panneau, sous le geste du jeu. */
+.cab-tv-themes { margin: 4px 0 8px; text-align: left; }
+.cab-tv-themes > .cab-tv-sur { text-align: center; }
 .cab-tv-option { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 60px; padding: 7px 12px 7px 7px; border-radius: 16px; background: rgba(7, 5, 14, 0.55); border: 1px solid rgba(247, 220, 154, 0.22); color: var(--cab-tv-encre); font: inherit; text-align: left; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
 .cab-tv-option .cab-tv-ic { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; font-size: 1.55rem; background: hsl(var(--cab-tv-teinte) 45% 22% / 0.8); }
 .cab-tv-option .cab-tv-ic img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid var(--cab-tv-or); }
@@ -11307,6 +11315,7 @@ html:has(.cab-partie .cab-titre-revele) { scroll-padding-bottom: var(--cab-pied,
 .cab-tv-devise { font-style: italic; color: var(--cab-tv-pale); font-size: 1.0625rem; }
 .cab-tv-regle-gardien { display: grid; gap: 4px; padding: 12px; border-radius: 16px; text-align: left; background: rgba(255, 93, 115, 0.08); border: 1px solid rgba(255, 138, 144, 0.3); }
 .cab-tv-ecran-gardien .cab-tv-pv i { width: 30px; height: 12px; }
+.cab-tv-ecran-gardien .cab-tv-pv-barre { width: 200px; height: 12px; }
 
 /* Le bilan d'une épreuve : un gain saute, une erreur tremble, un gardien vaincu s'éteint. */
 .cab-tv-bilan { align-items: stretch; justify-content: center; text-align: center; }
