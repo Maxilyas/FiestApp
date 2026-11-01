@@ -107,6 +107,25 @@ Pour agrandir la base (un lot, sa relecture, son rangement — ou des milliers d
   pour le pastis « 51 ») ou deux choix que l'intitulé élimine (« roi de
   Navarre », quand deux leurres ne l'étaient pas) — un coup d'œil sur les
   lots avant de ranger les attrape.
+- **Des questions sur les œuvres, sans date ni créateur** (le 1er novembre
+  2026, après le plafond des questions par cœur des sentiers, règle
+  `sentiers.md`) : le cinéma du monde n'avait plus que 14 % de questions qui
+  ne demandaient ni une date ni une personne, la littérature du monde 11 %.
+  Une section ajoutée au bout de la consigne de chaque lot (« CE LOT EN
+  PARTICULIER », qui l'emporte sur la répartition des difficultés) a
+  suffi : pas de date, pas de nombre, pas de cinéaste, d'auteur, de peintre
+  ni de compositeur en réponse — un nom peut se lire dans l'intitulé —, et
+  l'histoire, un personnage, un lieu, une réplique à la place ; dix lots
+  de trente l'ont tenue (deux réponses seulement étaient une personne,
+  Romy Schneider pour Sissi et Youssou N'Dour pour Kirikou). Un sous-thème
+  par lot et par vague, comme `generer-campagne.ts` : la consigne de la
+  vague suivante liste les lots en attente. Mais une même œuvre vit dans
+  deux catégories — le livre et le film —, et deux lots de deux catégories
+  posent alors le même fait (le crocodile de Peter Pan, Alceste du Petit
+  Nicolas) : `verifier` ne les voit pas, lot par lot ; `voisines` sur tous
+  les lots ensemble, si. Un rédacteur à qui l'on dicte la répartition des
+  difficultés y ajuste ses notes ; le relecteur, prévenu, n'en a trouvé
+  aucune à deux crans. 295 rangées sur 300.
 - **Une étiquette neuve se pose sur la base par des relecteurs, pas par des
   mots-clés** (les pays, le 17 octobre 2026) : les mots-clés d'un pays —
   ses noms, ses villes, ses spécialités, dans l'intitulé, la bonne réponse

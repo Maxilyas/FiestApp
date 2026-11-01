@@ -105,8 +105,17 @@ import { sansAccent } from '../../shared/homonymes'
  * (`retours/2026-10-19/les-curiosites.md`), un lot par région du monde et
  * un pour la France, 103 rangés sur 108 (5 retirés à la relecture : une de
  * leurs mauvaises réponses mangeait aussi le plat sous ce nom) : 26 394.
+ * Le 1er novembre 2026, des questions sur les œuvres elles-mêmes — ni une
+ * date, ni un nombre, ni le nom de qui les a faites — là où la base n'avait
+ * presque que cela, après le plafond des questions par cœur des sentiers
+ * (`seSaitParCoeur`) : le cinéma du monde (90 écrites, 14 % de ses
+ * questions ne demandaient ni une date ni une personne), le cinéma français
+ * (60), la littérature du monde (60), la littérature française, la peinture
+ * et la musique classique (30 chacune), un lot par sous-thème et par vague ;
+ * 295 rangées sur 300 (5 retirées à la relecture, dont deux faits posés
+ * deux fois, au cinéma et en littérature) : 26 689.
  */
-const AU_MOINS = 26394
+const AU_MOINS = 26689
 
 const { questions, refusees } = lireLaBase()
 
