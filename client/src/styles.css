@@ -7048,6 +7048,44 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .page-ouverte h2 { margin: 0; font-size: 1.6rem; }
 .page-ouverte p { margin: 0; }
 .page-ouverte .calendrier-page { animation: revelation 1.3s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+/* Le carnet des fêtes (`shared/timbres.ts`, le 1er novembre 2026) : un timbre
+   par fête et par an, dessiné (`Timbre.tsx`). Un objet imprimé : ses couleurs
+   sont en dur dans son dessin, aucun thème ne le repeint ; son ombre seule le
+   pose sur la page, et sa dentelure est un masque — de vrais trous, sur
+   n'importe quel fond. Ses textes vivent dans son SVG, à l'échelle du dessin. */
+.timbre { display: inline-block; width: 150px; max-width: 100%; aspect-ratio: 150 / 184; line-height: 0; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.28)); }
+.timbre svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.timbre text { font-family: var(--sans); }
+.timbre .timbre-marque { font-size: 8.5px; font-weight: 700; letter-spacing: 0.14em; font-variant-numeric: lining-nums tabular-nums; }
+.timbre .timbre-nom { font-family: var(--serif); font-weight: 700; }
+.timbre .timbre-cachet { opacity: 0.8; }
+.timbre .timbre-cachet-mot { font-size: 7.5px; font-weight: 700; letter-spacing: 0.06em; fill: #2a201b; }
+.timbre .timbre-cachet-annee { font-size: 9.5px; font-weight: 600; fill: #2a201b; font-variant-numeric: lining-nums tabular-nums; }
+/* À venir, éteint ; manqué, éteint aussi, un peu moins : sa fête a eu lieu. La forme dit l'état autant que la couleur : un
+   gagné porte son cachet. */
+.timbre-a-venir { filter: grayscale(1); opacity: 0.38; }
+.timbre-manque { filter: grayscale(1); opacity: 0.6; }
+/* La carte du quiz du jour pendant une fête : le timbre de l'année à la place du légendaire, à sa taille. */
+.jour-saison-medaillon .timbre { width: 46px; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3)); }
+/* Le timbre qu'une partie vient de faire tomber : à côté de ce qu'il dit, comme une carte postale. `timbre-tombe`, jamais
+   `timbre-gagne` : c'est l'état d'un timbre du carnet (`timbre-${etat}`), et la carte en aurait fait une boîte souple. */
+.timbre-tombe { display: flex; align-items: center; gap: 16px; border-color: var(--edge-strong); }
+.timbre-tombe .timbre { width: 96px; flex: none; animation: revelation 1.3s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.timbre-tombe-texte { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.timbre-tombe-texte b { font-family: var(--serif); font-size: 1.25rem; line-height: 1.15; }
+.timbre-tombe-texte .link-inline { align-self: flex-start; }
+/* Le carnet, dans « Ma collection » : les années en pastilles, puis la page — trois timbres par rangée au téléphone. */
+.timbres-annees { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
+.timbres-grille { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 16px 12px; }
+.timbres-case { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.timbres-case .timbre { width: 100%; max-width: 132px; }
+.timbres-legende { font-size: var(--t-label); font-weight: 600; letter-spacing: 0.02em; line-height: 1.25; color: var(--muted); }
+.timbres-legende-gagne { color: var(--accent-text); }
+.timbres-legende-en-cours { color: var(--ink); }
+@media (prefers-reduced-motion: reduce) {
+  .timbre-tombe .timbre { animation: none; }
+}
 .correction { list-style: none; margin: 10px 0 12px; padding: 0; display: flex; flex-direction: column; gap: 12px; }
 
 /* Le corrigé d'une question (`Corrige`) — au quiz du jour, en série, au défi,

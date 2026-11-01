@@ -228,9 +228,9 @@ Les pistes de la clôture ne comptent que des soirées closes qui comptent — p
 
 ## Les avatars légendaires
 
-![Le Phénix, l'un des vingt-six avatars légendaires peints](../vitrine/peintures/phenix.webp)
+![Le Phénix, l'un des trente et un avatars légendaires peints](../vitrine/peintures/phenix.webp)
 
-Vingt-six avatars peints, qui prennent la place de ton emoji partout où l'on te voit. Un légendaire s'ouvre dès que **l'une de ses voies** est tenue ; « × 8 », c'est le haut fait gagné à huit soirées, jours ou parties différents. Ils ne s'achètent pas, rien ne les accélère, et ceux des soirées se méritent sur la durée : une vingtaine de quiz, au premier de la bande, pour la plupart (mesuré par `server/scripts/calibrage.ts`).
+Trente et un avatars peints, qui prennent la place de ton emoji partout où l'on te voit. Un légendaire s'ouvre dès que **l'une de ses voies** est tenue ; « × 8 », c'est le haut fait gagné à huit soirées, jours ou parties différents. Ils ne s'achètent pas, rien ne les accélère, et ceux des soirées se méritent sur la durée : une vingtaine de quiz, au premier de la bande, pour la plupart (mesuré par `server/scripts/calibrage.ts`).
 
 | Légendaire | Une voie | Une autre voie |
 |---|---|---|
@@ -250,6 +250,11 @@ Vingt-six avatars peints, qui prennent la place de ton emoji partout où l'on te
 | La Citrouille | la saison d'Halloween — ou gardée au bout d'une expédition partie ces jours-là | — |
 | Le Sapin | la saison de Noël — ou gardé au bout d'une expédition partie ces jours-là | — |
 | Le Bouquet final | la saison du Nouvel An — ou gardé au bout d'une expédition partie ces jours-là | — |
+| La Rose | la Saint-Valentin, à partir de 2027 | — |
+| L'Œuf d'or | Pâques, à partir de 2027 | — |
+| Le Gramophone | la Fête de la musique, à partir de 2027 | — |
+| Le Coquillage | l'été, à partir de 2027 | — |
+| Le Cartable | la rentrée, à partir de 2027 | — |
 | L'Aigle aux lauriers | Le Laurier × 30 | — |
 | L'Ouroboros | L'Infatigable · Or | — |
 | Le Scarabée solaire | Le Mois complet × 1 | — |
@@ -263,7 +268,7 @@ Vingt-six avatars peints, qui prennent la place de ton emoji partout où l'on te
 
 Quatre sont de l'ombre — le Kraken, le Fantôme, le Trou Noir, la Chauve-souris : ils s'ouvrent par des coups du sort.
 
-**Une voie de plus, au bout de l'Expédition** : chacun des vingt-trois légendaires qui ont leur joker — tous sauf l'Aigle, la Licorne et l'Éléphant — se gagne aussi en le gardant au bout d'une [expédition](l-expedition.md), parmi ses trois gardiens vaincus — l'album le dit, « en expédition », depuis qu'elle est ouverte. Les trois de saison depuis le 18 octobre 2026, et à leur saison seulement : ils ne gardent l'acte 3 que d'une expédition partie ces jours-là. Cette voie ne reprend rien à personne.
+**Une voie de plus, au bout de l'Expédition** : chacun des vingt-trois légendaires qui ont leur joker — tous sauf l'Aigle, la Licorne, l'Éléphant et les cinq fêtes de 2027 — se gagne aussi en le gardant au bout d'une [expédition](l-expedition.md), parmi ses trois gardiens vaincus — l'album le dit, « en expédition », depuis qu'elle est ouverte. Les trois de saison depuis le 18 octobre 2026, et à leur saison seulement : ils ne gardent l'acte 3 que d'une expédition partie ces jours-là. Cette voie ne reprend rien à personne.
 
 **Et une au Cabinet de curiosités**, là où il est ouvert — la préproduction d'abord, fermé en production jusqu'à son ouverture : les mêmes vingt-trois sont les gardiens de ses salles ([le Cabinet](le-cabinet.md#les-gardiens)). Une salle complète réveille le premier de sa salle, toute dorée le second ; le Scarabée, trente jours d'affilée à répondre à une manche de visite ou de chasse ; le Trou Noir, le musée entier ; les trois de saison, la première œuvre gagnée en jouant pendant leur fête. Un gardien réveillé est le légendaire gagné, rangé sur l'étagère une fois dû (`cabinet:<clé>`, `saison:<clé>` pour ceux de saison, sous la clé fixe `#cabinet`) : il ne se dérive pas à la lecture, et ne se reprend jamais. Déjà à toi par une autre voie, il « veillait déjà », sans cérémonie. L'album n'en dira la voie qu'à l'ouverture du Cabinet en production.
 
@@ -274,15 +279,30 @@ Quatre sont de l'ombre — le Kraken, le Fantôme, le Trou Noir, la Chauve-souri
 
 ## Les saisons
 
-Trois périodes de l'année, à l'heure de Paris, ouvrent chacune un légendaire (`SAISONS`, `shared/saisons.ts`) :
+Huit fêtes de l'année, à l'heure de Paris, ouvrent chacune un légendaire et sa gerbe (`SAISONS`, `shared/saisons.ts`) — une tous les deux mois environ. Les trois premières depuis octobre 2026 ; les cinq autres, venues le 1er novembre 2026, à partir de 2027 seulement (`depuis`) : rien de ce qui s'est joué avant ne les ouvre, pas même un recalcul de l'historique.
 
-| Saison | Période, bornes comprises | Jours de quiz du jour | Légendaire |
-|---|---|---|---|
-| Halloween | du 25 octobre au 1er novembre | 3 | 🎃 La Citrouille |
-| Noël | du 20 au 26 décembre | 3 | 🎄 Le Sapin |
-| Le Nouvel An | du 30 décembre au 2 janvier | 2 | 🎆 Le Bouquet final |
+| Fête | Période, bornes comprises | Jours de quiz du jour | Légendaire | Gerbe |
+|---|---|---|---|---|
+| La Saint-Valentin | du 12 au 15 février | 2 | 💘 La Rose | Les roses |
+| Pâques | du vendredi saint au lundi de Pâques | 2 | 🐣 L'Œuf d'or | Le printemps |
+| La Fête de la musique | du 19 au 22 juin | 2 | 🎸 Le Gramophone | Les notes |
+| L'été | du 14 juillet au 15 août | 5 | 🌞 Le Coquillage | Les vacances |
+| La rentrée | du 1er au 7 septembre | 3 | 🎒 Le Cartable | L'école |
+| Halloween | du 25 octobre au 1er novembre | 3 | 🎃 La Citrouille | Les citrouilles |
+| Noël | du 20 au 26 décembre | 3 | 🎄 Le Sapin | Les cadeaux |
+| Le Nouvel An | du 30 décembre au 2 janvier | 2 | 🎆 Le Bouquet final | Les fusées |
 
-Quatre chemins, l'un ou l'autre : **le quiz du jour** — assez de jours joués dans la période, une partie commencée compte ; rangée sous ce jour, la saison ne se reprend jamais — ; **une soirée qui compte** jouée dans la période, datée à sa première question jouée : chaque profil pour qui elle compte ouvre la saison à la clôture, et la perd si la soirée est retirée ; ou, depuis le 18 octobre 2026, **une expédition partie dans la période** : le légendaire de la saison y garde l'acte 3, et se garde au bout comme les autres gardiens — même si la saison est passée entre-temps ; et, au Cabinet de curiosités là où il est ouvert, **la première œuvre gagnée en jouant pendant la fête**, au jour où sa partie a commencé — ni un achat ni une dorure. Une saison ne se montre que par son légendaire : ni ligne sur l'étagère, ni compte de trophées.
+Pâques suit la lune : son dimanche se calcule chaque année (`paquesDe`, le comput grégorien), et la fête va du vendredi d'avant au lundi d'après. Deux fêtes ne tombent jamais le même jour.
+
+Quatre chemins, l'un ou l'autre : **le quiz du jour** — assez de jours joués dans la période, une partie commencée compte ; rangée sous ce jour, la saison ne se reprend jamais — ; **une soirée qui compte** jouée dans la période, datée à sa première question jouée : chaque profil pour qui elle compte ouvre la saison à la clôture, et la perd si la soirée est retirée ; ou, depuis le 18 octobre 2026, **une expédition partie dans la période** : le légendaire de la saison y garde l'acte 3, et se garde au bout comme les autres gardiens — même si la saison est passée entre-temps ; et, au Cabinet de curiosités là où il est ouvert, **la première œuvre gagnée en jouant pendant la fête**, au jour où sa partie a commencé — ni un achat ni une dorure. Les deux derniers ne valent que pour Halloween, Noël et le Nouvel An : les cinq fêtes de 2027 n'ont ni joker ni gardien, le quiz du jour et la soirée les ouvrent seuls. Une saison ne se montre que par son légendaire, sa gerbe et ses timbres : ni ligne sur l'étagère, ni compte de trophées.
+
+### Le carnet des fêtes
+
+Chaque fête donne aussi **un timbre par an** — le timbre Pâques 2027, puis Pâques 2028 — par les mêmes chemins que son légendaire, le quiz du jour et la soirée : le légendaire se gagne une fois, le timbre revient chaque année (`shared/timbres.ts`). Il se range comme sa saison, `timbre:<fête>:<année>` sous son jour ou sous sa soirée, hors de l'étagère ; l'année d'un timbre est celle où sa fête finit — le réveillon de 2026 donne le Nouvel An 2027.
+
+« Ma collection » le range dans **le carnet des fêtes**, à côté de l'album des trophées : une page par année depuis Halloween 2026, la première fête du carnet ; chaque timbre gagné, tamponné de son année ; la fête en cours, en couleurs, et jusqu'à quand ; celles à venir, éteintes, avec leurs dates ; celles passées sans lui, « Manqué » — une fête manquée ne se rattrape pas, elle revient l'an d'après. La page de l'année suivante s'ouvre dès que sa première fête commence. Le carnet se compte sur ses pages, l'année en cours entière.
+
+Les timbres sont dessinés, pas peints : un seul dessin par fête, sans image à télécharger (`client/src/components/Timbre.tsx`). L'accueil le rappelle pendant une fête — « 🐣 Pâques : un timbre à gagner » sur le quiz du jour, tant que celui de l'année n'est pas gagné —, et la fin d'une partie ou d'une soirée qui le fait tomber le montre, avec le lien vers le carnet. Les timbres d'Halloween 2026 joués avant le carnet se sont rangés d'eux-mêmes, au démarrage qui l'a apporté (`VERSION_BAREME` 8, `VERSION_DES_JOURS` 2).
 
 ## Les écussons de savoir
 

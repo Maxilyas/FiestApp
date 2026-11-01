@@ -20,6 +20,7 @@
 
 import type { ApparenceDeLAvatar, Finition } from './profil'
 import type { BordureDeLigue } from './duels'
+import type { CleDeSaison } from './saisons'
 
 /** Le quiz d'un jour : dix questions — moins si la réserve est à sec. */
 export const QUESTIONS_PAR_JOUR = 10
@@ -560,6 +561,8 @@ export interface PartieDuJour {
   hautsFaits?: PalierTombe[]
   /** La page du calendrier qu'elle a ouverte, au vingtième jour joué du mois (« 10 » pour octobre). */
   page?: string
+  /** Le timbre de la fête qu'elle a fait tomber, sans préfixe (`paques:2027`) : il rejoint son carnet (`shared/timbres.ts`). */
+  timbre?: string
   /** Le Divin qui est descendu sur elle — à lui seul, avec son récit (invariant 21). */
   divins?: { key: string; legende: string; ton: 'eclat' | 'ombre' }[]
   /** Et le légendaire que l'un d'eux ouvre : le Sphinx, au centième jour ou au dixième sans-faute — ou celui de la saison. */
@@ -585,11 +588,22 @@ export interface PartieDuJour {
   niveauAvant?: number
   niveauApres?: number
   /**
-   * Pendant une saison (Halloween, Noël, le Nouvel An), tant que son
-   * légendaire n'est pas à lui : ses jours joués dans la période, et combien
-   * il en faut.
+   * Pendant une fête (`shared/saisons.ts`), tant que son légendaire n'est pas
+   * à lui — ou, s'il l'a déjà, le timbre de cette année (`millesime`) : ses
+   * jours joués dans la période, et combien il en faut. `cle` et `millesime`
+   * manquent à un serveur d'avant les timbres.
    */
-  saison?: { nom: string; legendaire: string; joues: number; requis: number; periode: string }
+  saison?: {
+    cle?: CleDeSaison
+    nom: string
+    legendaire: string
+    joues: number
+    requis: number
+    periode: string
+    millesime?: number
+    /** Son légendaire est déjà à lui : il ne joue plus que pour le timbre. */
+    aLeLegendaire?: true
+  }
 }
 
 // ── Le laurier qui grandit ────────────────────────────────────────────────

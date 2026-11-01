@@ -9,8 +9,8 @@
 //
 // La rareté dit ce qu'il demande. Le visage d'un sentier et les emojis des
 // premiers niveaux sont communs ; plus haut sur le sentier, plus rare ; sa
-// forme ultime, au douzième palier, est légendaire — l'égale des vingt-six
-// légendaires des hauts faits. Les compagnons de la boutique de même, forme
+// forme ultime, au douzième palier, est légendaire — l'égale des trente et un
+// légendaires des hauts faits et des fêtes. Les compagnons de la boutique de même, forme
 // par forme : celle qu'on achète est commune, la forme ultime légendaire — et
 // la métamorphose que l'Éclat lui ouvre, une forme de plus, aussi. La
 // luciole aussi, qui se gagnait en expédition (le 20 octobre 2026) : elle

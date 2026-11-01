@@ -661,6 +661,15 @@ Le détail : [les récompenses](../produit/les-recompenses.md).
 
 *Fichiers : `shared/pistes.ts`, `shared/trophees.ts`, `shared/gains.ts`, `client/src/components/Gains.tsx`*
 
+### Huit fêtes dans l'année, et un timbre par fête et par an
+**Contexte** : le 1er novembre 2026, le propriétaire choisit, parmi les pistes proposées pour les joueurs, d'approfondir les fêtes : trois seulement — Halloween, Noël, le Nouvel An, d'octobre à janvier —, et rien de février à septembre. Le budget de peinture est de 4,25 € : de quoi peindre cinq légendaires, pas un décor par fête. Une maquette (des timbres dessinés en SVG, le carnet, la fin qui les montre) est validée : « C'est validé, vas-y, code les fêtes et peins les légendaires. »
+
+**Décision** : cinq fêtes de plus, une tous les deux mois environ — la Saint-Valentin, Pâques (du vendredi saint au lundi, `paquesDe`), la Fête de la musique, l'été, la rentrée —, chacune son légendaire peint (la Rose, l'Œuf d'or, le Gramophone, le Coquillage, le Cartable) et sa gerbe, les trois d'avant aussi ; à partir de 2027 seulement (`depuis`), pour qu'aucun recalcul ne les ouvre aux soirées passées. Par les deux chemins qui ne coûtent rien de plus — quelques jours de quiz du jour, une soirée ces jours-là — : ni joker ni gardien, l'expédition et le Cabinet gardent les trois de leur saison. Et ce qui fait revenir chaque année, gratuit : **un timbre par fête et par an**, dessiné (`Timbre.tsx`), gagné par les mêmes chemins que le légendaire, rangé avec sa saison (`timbre:<fête>:<année>`), et le carnet des fêtes dans « Ma collection » (`shared/timbres.ts`).
+
+**Conséquence** : un légendaire de fête ne se gagne qu'une fois, son timbre chaque année — la seule récompense qui se perd si l'on manque la fête (« Manqué », sans rattrapage), et rien de plus que de l'affichage (invariant 8). La peinture a coûté environ 1,12 $ en lot (Gemini, à moitié prix). `VERSION_BAREME` 8 et `VERSION_DES_JOURS` 2 ont rangé les timbres d'Halloween 2026 des saisons déjà gagnées ; une fête de plus prendra son `depuis` à l'année qui vient.
+
+*Fichiers : `shared/saisons.ts`, `shared/timbres.ts`, `shared/legendaires.ts`, `shared/gerbes.ts`, `server/src/core/saisons.ts`, `server/src/core/jour.ts`, `server/src/auth/profiles.ts`, `client/src/components/{Timbre,CarnetDesFetes}.tsx`, `server/test/fetes.test.ts`*
+
 ## Le profil
 
 Le détail : [le profil](../produit/le-profil.md).

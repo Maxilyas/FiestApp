@@ -28,12 +28,15 @@
 // génie — le podium du jour ira toujours aux deux ou trois mêmes. Il a deux
 // voies, cent jours joués ou dix sans-faute, et l'une suffit.
 //
-// Les trois de saison — la Citrouille, le Sapin, le Bouquet final — ne se
-// gagnent qu'à leur période (`shared/saisons.ts`) : des jours joués au quiz
-// du jour, ou une soirée ces jours-là. Leur condition porte sur une
-// récompense de saison (`saison:halloween`), rangée comme les autres. Depuis
-// le 18 octobre 2026, une expédition partie ces jours-là aussi : le
-// légendaire de la saison y garde l'acte 3 (`avecLExpedition`).
+// Ceux de saison — la Citrouille, le Sapin, le Bouquet final, et depuis le
+// 1er novembre 2026 la Rose, l'Œuf d'or, le Gramophone, le Coquillage et le
+// Cartable — ne se gagnent qu'à leur période (`shared/saisons.ts`) : des
+// jours joués au quiz du jour, ou une soirée ces jours-là. Leur condition
+// porte sur une récompense de saison (`saison:halloween`), rangée comme les
+// autres. Depuis le 18 octobre 2026, une expédition partie ces jours-là
+// aussi, pour les trois premiers : le légendaire de la saison y garde
+// l'acte 3 (`avecLExpedition`). Les cinq derniers n'ont pas de joker : ni
+// l'Expédition ni le Cabinet ne les donnent.
 //
 // Depuis le 5 octobre 2026, le quiz du jour et la campagne ont les leurs —
 // l'Aigle, l'Ouroboros, la Salamandre… —, et neuf légendaires de soirée y
@@ -157,15 +160,16 @@ const avecLeCabinet = (legendaires: Legendaire[]): Legendaire[] =>
 
 /**
  * Les préfixes des voies rangées — une saison, un légendaire gardé au bout de
- * l'Expédition, un gardien réveillé au Cabinet : des lignes de l'étagère qui ne
- * sont pas des trophées. L'étagère et le compte des badges les taisent
- * (`ProfileStore`, `sqlHorsDesVoiesRangees`), les pistes et « le plus proche »
- * n'en font rien : on les a, ou non. Un préfixe de plus s'ajoute ici, et
- * partout il est écarté d'un coup.
+ * l'Expédition, un gardien réveillé au Cabinet, et depuis le 1er novembre 2026
+ * le timbre d'une fête (`shared/timbres.ts`), qui a son carnet : des lignes de
+ * l'étagère qui ne sont pas des trophées. L'étagère et le compte des badges
+ * les taisent (`ProfileStore`, `sqlHorsDesVoiesRangees`), les pistes et « le
+ * plus proche » n'en font rien : on les a, ou non. Un préfixe de plus s'ajoute
+ * ici, et partout il est écarté d'un coup.
  */
-export const PREFIXES_DES_VOIES_RANGEES = ['saison:', 'expedition:', 'cabinet:'] as const
+export const PREFIXES_DES_VOIES_RANGEES = ['saison:', 'expedition:', 'cabinet:', 'timbre:'] as const
 
-/** Une clé rangée qui n'est pas un trophée : une saison, une voie de l'Expédition ou du Cabinet. */
+/** Une clé rangée qui n'est pas un trophée : une saison, une voie de l'Expédition ou du Cabinet, un timbre. */
 export const estUneVoieRangee = (cle: string): boolean => PREFIXES_DES_VOIES_RANGEES.some(p => cle.startsWith(p))
 
 /** La même règle en SQL : `badge NOT LIKE 'saison:%' AND …`. */
@@ -296,6 +300,49 @@ export const LEGENDAIRES: Legendaire[] = avecLeCabinet(avecLExpedition([
     condition: { hautFait: 'saison:nouvel-an', fois: 1 },
     ton: 'eclat',
     saison: 'nouvel-an',
+  },
+  // Les cinq fêtes du 1er novembre 2026 (`shared/saisons.ts`), à partir de
+  // 2027 : ni joker, ni gardien au Cabinet — le quiz du jour et la soirée les
+  // ouvrent, rien d'autre.
+  {
+    key: 'lg:rose',
+    nom: 'La Rose',
+    legende: 'Offerte un 14 février, elle n’a jamais fané.',
+    condition: { hautFait: 'saison:saint-valentin', fois: 1 },
+    ton: 'eclat',
+    saison: 'saint-valentin',
+  },
+  {
+    key: 'lg:oeuf',
+    nom: 'L’Œuf d’or',
+    legende: 'Trouvé un matin de Pâques, il n’a jamais voulu éclore.',
+    condition: { hautFait: 'saison:paques', fois: 1 },
+    ton: 'eclat',
+    saison: 'paques',
+  },
+  {
+    key: 'lg:gramophone',
+    nom: 'Le Gramophone',
+    legende: 'Sorti dans la rue un 21 juin, il n’a plus jamais voulu se taire.',
+    condition: { hautFait: 'saison:musique', fois: 1 },
+    ton: 'eclat',
+    saison: 'musique',
+  },
+  {
+    key: 'lg:coquillage',
+    nom: 'Le Coquillage',
+    legende: 'Ramassé un 15 août, il chante encore la mer.',
+    condition: { hautFait: 'saison:ete', fois: 1 },
+    ton: 'eclat',
+    saison: 'ete',
+  },
+  {
+    key: 'lg:cartable',
+    nom: 'Le Cartable',
+    legende: 'Il sent encore la gomme neuve et le premier jour.',
+    condition: { hautFait: 'saison:rentree', fois: 1 },
+    ton: 'eclat',
+    saison: 'rentree',
   },
   // ── Le quiz du jour ──
   {

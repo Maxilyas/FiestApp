@@ -31,6 +31,7 @@ import type { BordureDeLigue, ChoixDeBordure, CleDeLigue, DuelsDAccueil } from '
 import type { VusDeLaLoge } from './piecesDeLaLoge'
 import type { ActiviteDUnJoueur } from './qgActivite'
 import type { CabinetDAccueil } from './cabinet/vues'
+import type { CleDeSaison } from './saisons'
 import { formeDeCompagnon, type CleDeCompagnon, type CompagnonPossede } from './compagnons'
 
 // ── Niveaux ───────────────────────────────────────────────────────────────
@@ -1074,6 +1075,12 @@ export interface PublicProfileDetail extends PublicProfile {
    * ce qui manque à sa page. Absent d'un serveur d'avant.
    */
   calendrier?: { pages: string[]; dorees: string[]; mois: string; joursCeMois: number }
+  /**
+   * Son carnet des fêtes (`shared/timbres.ts`) : ses timbres (`paques:2027`)
+   * et le jour du quiz du jour, qui dit les fêtes passées, en cours et à
+   * venir. Absent d'un serveur d'avant.
+   */
+  carnet?: { timbres: string[]; jour: string }
   /** Ses titres de champion du mois (`mois:2026-10`), du plus récent au plus ancien : ils se portent comme un titre. */
   titresDates?: string[]
   /**
@@ -1119,6 +1126,13 @@ export type ProfilDAccueil = PublicProfile &
      * son premier écran. Absent d'un serveur d'avant.
      */
     aujourdhui?: string
+    /**
+     * La fête du jour (`shared/saisons.ts`), le temps qu'elle dure, et si le
+     * timbre de son année est déjà à lui (`shared/timbres.ts`) : la tuile du
+     * quiz du jour l'annonce. Lue en mémoire, sans un aller-retour de plus ;
+     * absente hors des fêtes.
+     */
+    fete?: { cle: CleDeSaison; timbre: boolean }
     /** Ce que l'administrateur a fait pour lui ce dernier mois, à lui dire une fois. Absent s'il n'y a rien. */
     annonces?: AnnonceDeLAdministrateur[]
   }

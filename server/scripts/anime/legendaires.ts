@@ -66,7 +66,7 @@ function mettreDeCote(nom: string) {
 const liste = (nom: string) => (args.find(a => a.startsWith(`--${nom}=`))?.slice(nom.length + 3) ?? '').split(',').filter(Boolean)
 
 // ── Les consignes ─────────────────────────────────────────────────────────
-// En anglais, comme celles des portraits. Un seul style pour les vingt-six :
+// En anglais, comme celles des portraits. Un seul style pour les trente et un :
 // une collection, comme un set de cartes — et aucun des douze styles des
 // branches.
 
@@ -129,7 +129,7 @@ interface Travail {
 }
 
 /**
- * Les vingt-six légendaires : chacun sa scène, qui raconte l'exploit qui le
+ * Les trente et un légendaires : chacun sa scène, qui raconte l'exploit qui le
  * fait tomber (`shared/legendaires.ts`) ; sa version rare, dans les couleurs
  * de son Éclat (`FONDS_ECLAT`, `Legendaire.tsx`) ; ce que sa découpe garde et
  * retire.
@@ -317,6 +317,69 @@ export const LEGENDAIRES_PEINTS: LegendairePeint[] = [
     rare: 'the Grand Finale becomes silver and ice-blue fireworks on a purple night.',
     garde: 'the great firework burst and its radiant heart',
     retirer: 'the city, the clock tower, the river and the sky',
+  },
+  // Les cinq des fêtes ajoutées le 1er novembre 2026 (`shared/saisons.ts`) :
+  // des objets enchantés, comme la Citrouille et le Sapin, chacun sa
+  // silhouette à vingt pixels — la corolle de la rose, l'ovale de l'œuf, le
+  // pavillon du gramophone, la spirale du coquillage, le rabat du cartable.
+  // Les livres et les crayons du cartable ne portent ni titre ni lettre : le
+  // modèle en écrit sur ce qui ressemble à un livre.
+  {
+    id: 'rose',
+    sujet:
+      'the Rose, offered one Valentine’s Day, that has never wilted — a colossal enchanted crimson rose in full bloom rising from a tangle of ' +
+      'thorny vines at twilight, its velvet petals edged with gold leaf and glowing from within like a heart, dewdrops shining like rubies, a few ' +
+      'golden petals drifting, tiny floating sparks of rose light, a crescent moon behind it. Palette: crimson, rose pink and gold against a deep plum night.',
+    rare: 'the Rose becomes a rose of sapphire glass with silver-edged petals and silver thorns, sapphire dewdrops, a starry midnight-blue night.',
+    garde: 'the great rose — its bloom, its stem and its leaves',
+    retirer: 'the thorny vines around it, the drifting petals, the sparks of light, the moon and the sky',
+  },
+  {
+    id: 'oeuf',
+    sujet:
+      'the Golden Egg, found one Easter morning, that never wanted to hatch — a colossal egg of living gold covered in fine enamel patterns of ' +
+      'flowers, spirals and leaves in pastel pink, sky blue and spring green, a thin crack of warm light running across it, resting in a meadow ' +
+      'of tulips and daffodils at sunrise, ribbons of morning light, tiny birds and blossom petals swirling around it. Palette: gold, spring green ' +
+      'and pastel pink against a soft dawn sky.',
+    rare: 'the Golden Egg becomes an egg of white jade and pearl with silver and lilac enamel patterns, under a lavender twilight with the first stars.',
+    garde: 'the great egg with its enamel patterns and its crack of light',
+    retirer: 'the meadow, the tulips, the daffodils, the birds, the petals, the ribbons of light and the sky',
+  },
+  {
+    id: 'gramophone',
+    sujet:
+      'the Gramophone, carried out into the street one midsummer night of music, that has never stopped playing since — a colossal enchanted ' +
+      'gramophone with an immense flaring brass horn shaped like a blossoming flower, gold-leaf filigree on its carved wooden cabinet, a spinning ' +
+      'record of light, glowing musical notes and ribbons of melody pouring out of the horn and swirling into the night above an old festive ' +
+      'street strung with lanterns. Palette: brass gold, warm amber and deep teal against a midsummer night.',
+    rare: 'the Gramophone becomes a gramophone of silver and pearl with a horn of mother-of-pearl, the notes and ribbons turning violet and ice blue, under a violet night.',
+    garde: 'the gramophone — its flaring horn, its cabinet and its spinning record',
+    retirer: 'the musical notes, the ribbons of melody, the street, the lanterns, the houses and the sky',
+  },
+  {
+    id: 'coquillage',
+    sujet:
+      'the Seashell, picked up one summer day, that still sings of the sea — a colossal spiral conch shell of pearl and coral, its glowing rosy ' +
+      'mouth turned toward the viewer, gold-leaf ridges running along its spiral, resting on a golden beach while a great turquoise wave curls ' +
+      'behind it under a blazing summer sun, sea foam, starfish and droplets sparkling like gold. Palette: coral, pearl and turquoise against a sunlit sky.',
+    rare: 'the Seashell becomes a shell of black pearl and abalone with iridescent violet and emerald sheen, under a moonlit night sea.',
+    garde: 'the great conch shell',
+    retirer: 'the beach, the wave, the sea foam, the starfish, the droplets, the sun and the sky',
+  },
+  {
+    id: 'cartable',
+    sujet:
+      'the School Satchel, that still smells of new erasers and the first day of school — a colossal enchanted leather satchel with gilded ' +
+      'buckles, its flap thrown open like a mouth, a whirlwind of flying books, pencils, rulers and paper planes glowing with gold leaf pouring out ' +
+      'of it, standing on a hill above a village school on a golden autumn morning, red and amber leaves falling. The books and pencils show no ' +
+      'titles, no letters and no numbers. Palette: warm chestnut leather, red and gold against a clear morning sky.',
+    rare: 'the School Satchel becomes a satchel of midnight-blue leather with silver buckles, the books, pencils and paper planes glowing pale silver, under a starry night.',
+    // Son rabat se perd dans le tourbillon : prié de le garder, le modèle en
+    // a dessiné un, et la découpe ne retombait plus sur l'illustration.
+    garde: 'the leather satchel itself — its body, its buckles and its straps',
+    retirer:
+      'the whirlwind of flying books, pencils, rulers and paper planes and the light pouring out of the top of the satchel, the hill, the school, ' +
+      'the leaves and the sky; do not draw any flap that is not painted',
   },
   // Ceux du quiz du jour et de la campagne (le 5 octobre 2026), puis les deux
   // des trois mondes. Chacun garde sa silhouette à vingt pixels : l'aigle aux
@@ -842,7 +905,7 @@ function livrer(app: string) {
     `// garde l'ancien. Deux tailles, \`[grande, petite]\` : ${tailles}\n`
   writeFileSync(
     TABLES.legendaires,
-    entete('Les vingt-six légendaires', '512 et 256 pixels pour\n// le disque (le médaillon en fait 90 % du côté).') +
+    entete('Les trente et un légendaires', '512 et 256 pixels pour\n// le disque (le médaillon en fait 90 % du côté).') +
       `\nexport interface ImagesDeLegendaire {\n` +
       `  /** L'illustration, sur le carré du disque. */\n  art: [string, string]\n` +
       `  /** Sa version rare, éclatée : la même pose, ses couleurs rares. */\n  rare: [string, string]\n` +

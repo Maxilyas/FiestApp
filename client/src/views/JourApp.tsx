@@ -24,6 +24,7 @@ import { EclatTombe, LegendaireOuvert, Medaillon } from '../components/Ouverts'
 import { APorter, CeQueTuGagnes, LigneDeTrophee, MissionsAccomplies, NouveauxTrophees, emojisAPorter, niveauDe } from '../components/Gains'
 import { Etoiles } from '../components/Etoiles'
 import { PageOuverte } from '../components/Calendrier'
+import { Timbre, TimbreGagne } from '../components/Timbre'
 import { RappelDuJour } from '../components/RappelDuJour'
 import { GerbeDeJuste } from '../components/Gerbe'
 import { PucesDeSabliers, Sablier, adresseDeLObjet } from '../components/Objets'
@@ -52,7 +53,7 @@ import {
   type RevelationDuJour,
   type NiveauDeLaurier,
 } from '../../../shared/jour'
-import { aPorterDesTrophees, objetsAPorter, partsDeLXp, tropheesTombes, xpDesTrophees } from '../../../shared/gains'
+import { aPorterDesFetes, aPorterDesTrophees, objetsAPorter, partsDeLXp, tropheesTombes, xpDesTrophees } from '../../../shared/gains'
 import { DU_CHAMPION_DU_MOIS } from '../../../shared/pistes'
 import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
@@ -594,25 +595,28 @@ export function EchecDuChargement({ erreur, onReessayer }: { erreur: string; onR
 }
 
 /**
- * Pendant une saison — Halloween, Noël, le Nouvel An — son légendaire en
- * silhouette, et ce qui manque pour l'ouvrir : des jours joués au quiz du
- * jour, ou une soirée ces jours-là.
+ * Pendant une fête — Halloween, Noël, la Saint-Valentin, Pâques… — son
+ * légendaire en silhouette, et ce qui manque pour l'ouvrir : des jours joués
+ * au quiz du jour, ou une soirée ces jours-là. À qui l'a déjà, le timbre de
+ * l'année à la place (`shared/timbres.ts`) : la fête revient, le carnet se
+ * remplit.
  */
 function Saison({ saison }: { saison: NonNullable<PartieDuJour['saison']> }) {
   const l = legendaire(saison.legendaire)
   if (!l) return null
+  const jours = `${saison.joues} jour${saison.joues > 1 ? 's' : ''} sur ${saison.requis}`
+  const pourLeTimbre = saison.aLeLegendaire && saison.cle && saison.millesime
   return (
     <section className="card jour-saison">
       <span className="jour-saison-medaillon" aria-hidden="true">
-        <Dessin cle={saison.legendaire} verrouille />
+        {pourLeTimbre ? <Timbre fete={saison.cle!} millesime={saison.millesime!} etat="en-cours" /> : <Dessin cle={saison.legendaire} verrouille />}
       </span>
       <div>
         <span className="label">{capitale(saison.nom)}</span>
-        <b>
-          {l.nom} : {saison.joues} jour{saison.joues > 1 ? 's' : ''} sur {saison.requis}
-        </b>
+        <b>{pourLeTimbre ? `Ton timbre ${saison.millesime} : ${jours}` : `${l.nom} : ${jours}`}</b>
         <span className="muted small">
-          {capitale(saison.periode)}, {saison.requis} jours de quiz du jour l’ouvrent — ou une soirée ces jours-là.
+          {capitale(saison.periode)}, {saison.requis} jours de quiz du jour {pourLeTimbre ? 'le font tomber' : 'l’ouvrent, avec le timbre de l’année'} — ou une
+          soirée ces jours-là.
         </span>
       </div>
     </section>
@@ -811,9 +815,11 @@ export function Fin({
       {(partie.legendaires ?? []).map(cle => (
         <LegendaireOuvert key={cle} cle={cle} dejaPorte={profil.legendaire === cle} />
       ))}
+      {/* Le timbre de la fête, chaque année : il rejoint son carnet. */}
+      {partie.timbre && <TimbreGagne timbre={partie.timbre} />}
       {/* Les trophées, les plus rares d'abord, chacun menant à sa page de l'album ; et ce qu'ils ouvrent, à essayer. */}
       <NouveauxTrophees trophees={tropheesTombes(tombes)} lien />
-      <APorter objets={[...aPorterDesTrophees(cles), ...emojisAPorter(niveau)]} />
+      <APorter objets={[...aPorterDesTrophees(cles), ...aPorterDesFetes(partie.legendaires ?? []), ...emojisAPorter(niveau)]} />
       {/* Ses missions du jour, si la partie en a fait. */}
       <MissionsAccomplies profil />
       {partie.saison && <Saison saison={partie.saison} />}

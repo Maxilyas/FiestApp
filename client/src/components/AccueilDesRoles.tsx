@@ -16,7 +16,8 @@ import { DUELS_POUR_LA_RECOMPENSE, ligueParCle, type DuelsDAccueil } from '../..
 import type { CabinetDAccueil } from '../../../shared/cabinet/vues'
 // Il n'importe rien, et l'en-tête de l'accueil le tire déjà par `shared/legendaires.ts` (`Identite.tsx`).
 import { EXPEDITION_EN_PRODUCTION, EXPEDITION_REMPLACEE } from '../../../shared/jokers'
-import type { AnnonceDeLAdministrateur } from '../../../shared/profil'
+import type { AnnonceDeLAdministrateur, ProfilDAccueil } from '../../../shared/profil'
+import { saison } from '../../../shared/saisons'
 // Ses cartes n'importent que ce que l'accueil a déjà : l'en-tête tire `shared/profil.ts` (`Identite.tsx`).
 import { CarteDeLAdministrateur } from './CarteDeLAdministrateur'
 // Ils n'importent rien : le premier script de chaque page les lit déjà (`main.tsx`).
@@ -235,6 +236,7 @@ export function AccueilJouer({
   defi,
   duels,
   traversee,
+  fete,
   etats = RIEN_DE_FERME,
   cabinet = cabinetIci(),
   remplacee = EXPEDITION_REMPLACEE,
@@ -254,6 +256,8 @@ export function AccueilJouer({
   duels?: DuelsDAccueil
   /** Sa traversée du Cabinet, en route : son acte et ses cœurs — dite d'une traversée que le serveur a en mémoire. */
   traversee?: CabinetDAccueil
+  /** La fête du jour, et si son timbre de l'année est déjà à lui : la tuile du quiz du jour l'annonce tant qu'il lui manque. */
+  fete?: ProfilDAccueil['fete']
   /** Ce que dit le bouton de chaque page fermée, pour lui (`boutonsDesPages`, `client/src/maintenance.ts`). */
   etats?: Partial<Record<PageEnMaintenance, BoutonDeLaPage>>
   /** Le Cabinet de curiosités répond-il sur ce serveur ? Le serveur le dit dans la page (`cabinetIci`) ; fermé, pas de bouton. */
@@ -283,6 +287,10 @@ export function AccueilJouer({
   const leDefi = boutonDuDefi(defi)
   const lesDuels = boutonDesDuels(duels)
   const leCabinet = boutonDuCabinet(traversee)
+  // Une fête en cours, son timbre de l'année pas encore à lui : la tuile du quiz du jour l'annonce — c'est là qu'il se gagne,
+  // ses jours comptés. Gagné, elle redit sa phrase de toujours.
+  const laFete = fete && !fete.timbre ? saison(fete.cle) : undefined
+  const duJour = joueAujourdhui ? `Joué aujourd’hui${serie}` : laFete ? `${laFete.emoji} ${laFete.court} : un timbre à gagner${serie}` : `Dix questions, les mêmes pour tous${serie}`
   return (
     <div className="accueil-gestes">
       {/* Il joue déjà quelque part : on y revient d'un toucher, avant tout. */}
@@ -314,7 +322,7 @@ export function AccueilJouer({
             <GrosBouton
               icone={<Icon name="sun" />}
               titre="Le quiz du jour"
-              detail={eteinte('jour') ? pourquoi('jour') : joueAujourdhui ? `Joué aujourd’hui${serie}` : `Dix questions, les mêmes pour tous${serie}`}
+              detail={eteinte('jour') ? pourquoi('jour') : duJour}
               pastille={eteinte('jour') ? undefined : jour && !joueAujourdhui ? 'À jouer' : enAvantPremiere('jour')}
               ferme={eteinte('jour')}
               href="/jour"

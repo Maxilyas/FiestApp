@@ -89,7 +89,8 @@ import {
   type SerieDuJour,
 } from '../../../shared/jour'
 import { CHANCE_ECLAT_DU_JOUR, apparenceDeLAvatar, niveauDuProfil, type AnnonceDeLAdministrateur, type StatsDuJour } from '../../../shared/profil'
-import { periodeDu } from '../../../shared/saisons'
+import { millesimeDe, periodeDu } from '../../../shared/saisons'
+import { cleDuTimbre, timbreDe, timbreDit } from '../../../shared/timbres'
 import { savoirDesLignes, type Savoir } from '../../../shared/ecussons'
 import { SALLE_DU_JOUR, hautFait, palierDe, xpDe } from '../../../shared/hautsfaits'
 import { minuitDe } from '../../../shared/qg'
@@ -163,11 +164,12 @@ interface Joueur {
 /**
  * La version des règles du quiz du jour que la relecture a appliquées aux
  * jours passés (`relireLesJours`) : 1 depuis les hauts faits du jour, le
- * calendrier, le champion du mois et Chronos (le 5 octobre 2026). Une
- * règle de plus — un haut fait du jour, un seuil — la fait monter, et tous
- * les jours se relisent au démarrage suivant.
+ * calendrier, le champion du mois et Chronos (le 5 octobre 2026) ; 2 depuis
+ * les timbres des fêtes (le 1er novembre 2026) — les jours d'Halloween 2026
+ * rangent le leur. Une règle de plus — un haut fait du jour, un seuil — la
+ * fait monter, et tous les jours se relisent au démarrage suivant.
  */
-const VERSION_DES_JOURS = 1
+const VERSION_DES_JOURS = 2
 
 /**
  * Un mois ne compte pour le Mois complet que s'il a eu au moins autant de
@@ -1450,6 +1452,9 @@ export class JourStore {
       if (divins.length > 0) vue = { ...vue, divins }
       const page = duMois.find(t => moisDeLaPage(t.key) && partie && t.at >= partie.commenceeLe)
       if (page) vue = { ...vue, page: moisDeLaPage(page.key)! }
+      // Le timbre de la fête, que ce jour a fait tomber : il rejoint son carnet.
+      const timbre = tombees.map(t => timbreDe(t.key)).find(t => t !== null)
+      if (timbre) vue = { ...vue, timbre: timbreDit(timbre.saison.key, timbre.millesime) }
       // Le Sphinx, par ses paliers ; un légendaire de saison, par sa saison ;
       // le Coq au vingtième Lève-tôt ; et ce qu'ouvre la page du calendrier.
       const legendaires = this.deps.profiles.legendairesOuverts(profil.id, [...tombees.map(t => t.key), ...(page ? [page.key] : [])])
@@ -1476,18 +1481,26 @@ export class JourStore {
       const moisDernier = await this.moisDernierDe(profil, jour)
       if (moisDernier) vue = { ...vue, moisDernier }
     }
-    // Pendant une saison, ce qui manque encore à son légendaire.
+    // Pendant une fête, ce qui manque encore à son légendaire — ou, à qui l'a déjà, à son timbre de l'année.
     const periode = periodeDu(jour)
-    if (periode && !this.deps.profiles.legendairesOf(profil.id).includes(periode.saison.legendaire)) {
-      vue = {
-        ...vue,
-        saison: {
-          nom: periode.saison.nom,
-          legendaire: periode.saison.legendaire,
-          joues: await this.joursDeSaison(profil.id, periode),
-          requis: periode.saison.jours,
-          periode: periode.saison.periode,
-        },
+    if (periode) {
+      const millesime = millesimeDe(periode.fin)
+      const aLeLegendaire = this.deps.profiles.legendairesOf(profil.id).includes(periode.saison.legendaire)
+      const aSonTimbre = this.deps.profiles.recompensesOf(profil.id).has(cleDuTimbre(periode.saison.key, millesime))
+      if (!aLeLegendaire || !aSonTimbre) {
+        vue = {
+          ...vue,
+          saison: {
+            cle: periode.saison.key,
+            nom: periode.saison.nom,
+            legendaire: periode.saison.legendaire,
+            joues: await this.joursDeSaison(profil.id, periode, jour),
+            requis: periode.saison.jours,
+            periode: periode.saison.periode,
+            millesime,
+            ...(aLeLegendaire && { aLeLegendaire: true as const }),
+          },
+        }
       }
     }
     return vue
@@ -2252,23 +2265,29 @@ export class JourStore {
     ]
   }
 
-  /** Ses jours joués dans la période d'une saison — une partie commencée compte, comme pour la série. */
-  private async joursDeSaison(profileId: string, periode: { debut: string; fin: string }): Promise<number> {
+  /**
+   * Ses jours joués dans la période d'une saison, jusqu'à ce jour — une partie
+   * commencée compte, comme pour la série. Jusqu'à ce jour seulement : la
+   * relecture des jours passe aussi sur les premiers de la fête, et le timbre
+   * se range sous le jour qui l'a vraiment fait tomber.
+   */
+  private async joursDeSaison(profileId: string, periode: { debut: string }, jour: string): Promise<number> {
     const res = await this.client.execute({
       sql: 'SELECT COUNT(*) AS n FROM jour_parties WHERE profile_id = ? AND jour >= ? AND jour <= ?',
-      args: [profileId, periode.debut, periode.fin],
+      args: [profileId, periode.debut, jour],
     })
     return Number(res.rows[0]?.n ?? 0)
   }
 
   /**
-   * Halloween, Noël, le Nouvel An (`shared/saisons.ts`) : assez de jours joués
-   * dans la période ouvrent le légendaire de la saison, rangé sous ce jour.
+   * Les fêtes (`shared/saisons.ts`) : assez de jours joués dans la période
+   * ouvrent le légendaire de la saison, et chaque année le timbre de son
+   * millésime (`shared/timbres.ts`), rangés sous ce jour.
    */
   private async accorderSaison(profileId: string, jour: string) {
     const periode = periodeDu(jour)
-    if (!periode || (await this.joursDeSaison(profileId, periode)) < periode.saison.jours) return
-    await this.deps.profiles.accorderSaison(profileId, periode.saison, jour)
+    if (!periode || (await this.joursDeSaison(profileId, periode, jour)) < periode.saison.jours) return
+    await this.deps.profiles.accorderSaison(profileId, periode.saison, jour, millesimeDe(periode.fin))
   }
 
   // ── Ce que la partie, la nuit et le mois décernent ─────────────────────
@@ -2577,6 +2596,12 @@ export class JourStore {
       await this.avecVerrou(id, async () => {
         await this.decernerAuDebut(id, jour, Number(r.commencee_le))
         if (r.finie_le != null) await this.decernerALaFin(id, jour, Number(r.finie_le))
+        // Un jour de fête : sa saison et le timbre de son année (la version 2) — son profil lu d'abord, que la
+        // saison déjà rangée ne se range pas une seconde fois sous un autre jour.
+        if (periodeDu(jour)) {
+          await this.deps.profiles.byId(id)
+          await this.accorderSaison(id, jour)
+        }
       })
     }
     for (const id of profils) await this.avecVerrou(id, async () => this.deps.profiles.accorderPaliersDuJour(id, aujourdhui, await this.statsDuJour(id)))

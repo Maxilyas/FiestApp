@@ -7903,10 +7903,13 @@ export class CampagneStore {
    * La saison d'un départ, ce jour à Paris (le 18 octobre 2026) : sa fête
    * plus souvent sur les cartes, son légendaire en gardien de l'acte 3 — hors
    * saison, rien. La page l'annonce, le départ la retrouve
-   * (`calendrierDesExpeditions`, que le banc ferme).
+   * (`calendrierDesExpeditions`, que le banc ferme). Seules les fêtes dont le
+   * légendaire a son joker s'y fêtent : les cinq du 1er novembre 2026 n'en
+   * ont pas — mis en gardien, l'un d'eux n'aurait rien eu à donner en joker.
    */
   private saisonDuDepart(): Saison | null {
-    return calendrierDesExpeditions.periodeDu(jourDe(this.maintenant()))?.saison ?? null
+    const saison = calendrierDesExpeditions.periodeDu(jourDe(this.maintenant()))?.saison
+    return saison && LEGENDAIRES_A_JOKER.includes(saison.legendaire) ? saison : null
   }
 
   /**

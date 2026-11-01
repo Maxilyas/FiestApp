@@ -76,6 +76,7 @@ import {
   type ConfettisDeLaFin,
 } from '../../../shared/themes'
 import { cleDeSaison, saison, type Saison } from '../../../shared/saisons'
+import { etiquetteDuTimbre, timbreDe, timbresDe } from '../../../shared/timbres'
 import {
   cibleEclat,
   conditionTenue,
@@ -381,11 +382,15 @@ export const cleDuJour = (jour: string) => `${LIGNE_JOUR}:${jour}`
  * doivent se relire pour que la fiche le montre ; 7 depuis les saisons — une
  * soirée d'Halloween, de Noël ou du Nouvel An ouvre leur légendaire, et
  * celles rangées avant #59 ne l'auraient ouvert qu'au barème suivant, d'un
- * coup et sans que personne sache pourquoi.
+ * coup et sans que personne sache pourquoi ; 8 depuis les timbres des fêtes
+ * (le 1er novembre 2026) — une soirée d'une fête range aussi le timbre de son
+ * année, et celles d'Halloween 2026 doivent se relire pour que le carnet ait
+ * le sien. Les cinq fêtes venues le même jour ne s'ouvrent qu'à partir de
+ * 2027 (`depuis`) : aucune soirée d'avant n'en reçoit rien.
  * Une ligne d'une version d'avant se relit au démarrage (`recalcul.ts`) —
  * son format, lui, n'a pas changé depuis la 2.
  */
-export const VERSION_BAREME = 7
+export const VERSION_BAREME = 8
 
 /** La première version dont les lignes portent le relevé complet. */
 const VERSION_RELEVE_COMPLET = 2
@@ -737,6 +742,9 @@ function etiquetteDe(cle: string): { emoji: string; title: string } {
   // Une saison rangée hors du quiz du jour — le Cabinet, sa fête : la même étiquette qu'`accorderSaison` lui donne.
   const s = cle.startsWith('saison:') ? saison(cle) : undefined
   if (s) return etiquetteDeSaison(s)
+  // Le timbre d'une fête, de même (`shared/timbres.ts`).
+  const t = timbreDe(cle)
+  if (t) return etiquetteDuTimbre(t.saison, t.millesime)
   return { emoji: '✨', title: cle }
 }
 
@@ -1022,7 +1030,11 @@ export class ProfileStore {
    */
   connaitreSesBordures?: (profileId: string) => void
 
-  /** Le mois du quiz du jour (`2026-10`), à son horloge, et ses jours joués ce mois-ci : sa page du calendrier. */
+  /**
+   * Le jour du quiz du jour (`2026-10-31`), à son horloge — son mois et ses
+   * jours joués ce mois-ci font sa page du calendrier ; le carnet des fêtes
+   * s'y date (`carnet`).
+   */
   moisDuJour?: () => string
   joursDuMois?: (profileId: string) => Promise<number>
 
@@ -3532,6 +3544,8 @@ export class ProfileStore {
         mois: moisDuCalendrier,
         joursCeMois,
       },
+      // Son carnet des fêtes : ses timbres, de mémoire, et le jour du quiz du jour, qui dit les fêtes passées et à venir.
+      ...(this.moisDuJour && { carnet: { timbres: timbresDe(this.recompensesOf(p.id)), jour: this.moisDuJour() } }),
     }
   }
 
@@ -4851,20 +4865,30 @@ export class ProfileStore {
   /**
    * Une saison gagnée au quiz du jour (`shared/saisons.ts`), rangée sous le
    * jour qui l'a ouverte, comme ses paliers : aucune soirée ne la porte, et
-   * en retirer une ne la reprend pas. Rend vrai si elle est neuve.
+   * en retirer une ne la reprend pas — et le timbre de son année
+   * (`shared/timbres.ts`), d'un même lot : la saison ne se range qu'une fois,
+   * son timbre chaque année. Rend vrai si la saison est neuve.
    */
-  async accorderSaison(profileId: string, s: Saison, jour: string): Promise<boolean> {
-    const cle = cleDeSaison(s)
-    if (this.recompensesOf(profileId).has(cle)) return false
-    const { emoji, title } = etiquetteDeSaison(s)
-    await this.client.execute({
-      sql: `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at)
-            VALUES (?, ?, ?, '', ?, ?, ?) ON CONFLICT(profile_id, badge, soiree_id) DO NOTHING`,
-      args: [profileId, cle, cleDuJour(jour), emoji, title, Date.now()],
-    })
+  async accorderSaison(profileId: string, s: Saison, jour: string, millesime: number): Promise<boolean> {
+    const recompenses = this.recompensesOf(profileId)
+    const timbre = etiquetteDuTimbre(s, millesime)
+    const lignes = [
+      ...(recompenses.has(cleDeSaison(s)) ? [] : [{ badge: cleDeSaison(s), ...etiquetteDeSaison(s) }]),
+      ...(recompenses.has(timbre.badge) ? [] : [timbre]),
+    ]
+    if (lignes.length === 0) return false
+    const t = Date.now()
+    await this.client.batch(
+      lignes.map(l => ({
+        sql: `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at)
+              VALUES (?, ?, ?, '', ?, ?, ?) ON CONFLICT(profile_id, badge, soiree_id) DO NOTHING`,
+        args: [profileId, l.badge, cleDuJour(jour), l.emoji, l.title, t],
+      })),
+      'write',
+    )
     this.porteurs = null
     await this.recompterRecompenses([profileId])
-    return true
+    return lignes.some(l => l.badge === cleDeSaison(s))
   }
 
   /**

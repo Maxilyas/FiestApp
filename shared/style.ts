@@ -23,13 +23,14 @@ import { recompensesDe } from './proches'
 import { etapeDuFond } from './pistes'
 import { seuilDeLEtape } from './trophees'
 import { maitresDe } from './sentiers'
+import { saison } from './saisons'
 import { formatNumber } from './typographie'
 
 /** Les lignes du style qui se montrent en album ; les thèmes ont le leur. */
 export type PartieDuStyle = 'fonds' | 'gerbes' | 'finitions' | 'bordures'
 
 /** Où il se gagne — ou s'achète : l'icône de son étape, et l'écran où aller. */
-export type LieuDuStyle = 'soiree' | 'jour' | 'campagne' | 'sentiers' | 'duels' | 'niveau' | 'profil' | 'coffre' | 'boutique'
+export type LieuDuStyle = 'soiree' | 'jour' | 'campagne' | 'sentiers' | 'duels' | 'niveau' | 'profil' | 'coffre' | 'boutique' | 'fete'
 
 /** Ce qu'il faut pour l'avoir : une étape, comme celles des avatars de l'album. */
 export interface EtapeDuStyle {
@@ -72,6 +73,7 @@ const OU: Record<LieuDuStyle, string> = {
   profil: 'Avec un profil',
   coffre: 'Au coffre de la semaine',
   boutique: 'En boutique',
+  fete: 'À sa fête',
 }
 
 /**
@@ -162,6 +164,11 @@ function etapeDeLaGerbe(p: ProfilDuStyle, g: Gerbe): Pick<ObjetDuStyle, 'etape' 
   const par = g.par
   if ('profil' in par) return { etape: { lieu: 'profil', titre: 'Avec un profil', regle: 'Offerte à chaque profil', progres: null }, court: 'offerte' }
   if ('tresor' in par) return { etape: DU_COFFRE, court: 'coffre' }
+  if ('fete' in par) {
+    // Sa fête, comme son légendaire dans l'album : en dates, sans jauge — les jours de la fête ne se comptent qu'au quiz du jour.
+    const s = saison(par.fete)!
+    return { etape: { lieu: 'fete', titre: `Pour ${s.nom}, ${s.periode}`, regle: `${s.jours} jours de quiz du jour, ou une soirée ces jours-là`, progres: null }, court: s.court }
+  }
   if ('palier' in par) {
     const h = hautFait(par.palier)
     if (h?.famille === 'carriere') return { etape: etapeDeLaPiste(p, h, h.paliers[par.au - 1], regleDuPalier(h, par.au)), court: titreDePalier(h, par.au) }

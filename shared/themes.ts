@@ -117,9 +117,13 @@ export function themeGagne(t: Theme, c: CeQuOuvreUnTheme): boolean {
   return pagesOuvertes(c.recompenses).length >= par.pages
 }
 
-/** Les trois saisons des légendaires gardent leurs dates : un Noël, pas deux. */
+/**
+ * Les trois saisons des légendaires gardent leurs dates : un Noël, pas deux.
+ * Une saison à dates fixes seulement — la boutique ne suit pas la lune de Pâques.
+ */
 function saisonDe(cle: CleDeSaison): PeriodeDeBoutique {
   const s = SAISONS.find(x => x.key === cle)!
+  if (!('debut' in s)) throw new Error(`${cle} : une saison sans dates fixes ne tient pas une période de boutique`)
   return { debut: s.debut, fin: s.fin, periode: s.periode }
 }
 

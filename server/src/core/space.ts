@@ -47,6 +47,7 @@ import { defaultSettings, type PublicSpace } from '../../../shared/space'
 import { questionsDesEquipes, teamScores, type EquipePreparee } from '../../../shared/teams'
 import { confettisDeSoiree } from '../../../shared/themes'
 import { jourDe } from '../../../shared/jour'
+import { cleDuTimbre, timbreDe, timbreDit } from '../../../shared/timbres'
 
 export interface SpaceDeps {
   db: DB
@@ -916,7 +917,7 @@ export class SpaceRuntime {
     // bilan de chacun, qui voit aussi l'Arbre-Monde descendre avec son
     // douzième légendaire.
     laureats.push(...laureatsDivins(divinsDeSoiree(live), profilDuJoueur))
-    // Une soirée d'Halloween, de Noël ou du Nouvel An ouvre son légendaire.
+    // Une soirée d'une fête ouvre son légendaire, et range le timbre de son année.
     laureats.push(...laureatsDeSaison(live.answers, gains))
     const prixDe = new Map<string, PrixAnnonce[]>()
     for (const a of prix) {
@@ -1644,6 +1645,10 @@ export class SpaceRuntime {
       // Une base du jour qui se tait ôte la ligne du quiz du jour, pas la fin.
       const jour = await this.deps.jour?.pontDuJour(g.profileId).catch(() => null)
       const legendaires = this.deps.profiles.legendairesOf(g.profileId)
+      // Le timbre de la fête, s'il est neuf : rangé sous cette soirée seule — le quiz du jour ou une autre soirée de la fête
+      // le lui avaient déjà donné, sinon.
+      const timbre = deCeSoir.map(cle => timbreDe(cle)).find(t => t !== null)
+      const timbreNeuf = timbre && (this.deps.profiles.recompensesOf(g.profileId).get(cleDuTimbre(timbre.saison.key, timbre.millesime)) ?? 0) <= 1
       // Ses confettis de ce soir, son solde et le thème qu'il vise. Une
       // soirée qui n'en rapporte aucun — jouée seul — n'en dit rien, et une
       // base qui se tait ôte la ligne, pas la fin.
@@ -1669,6 +1674,7 @@ export class SpaceRuntime {
         divins: raconter(this.deps.profiles.divinsOf(g.profileId).filter(d => !avant.divins.includes(d))),
         finitions: finitionsOuvertes(niveauApres).filter(f => !finitionsOuvertes(niveauAvant).includes(f)) as Finition[],
         ...(eclat && { eclat }),
+        ...(timbre && timbreNeuf && { timbre: timbreDit(timbre.saison.key, timbre.millesime) }),
         ...(jour && { jour }),
         ...(confettis && { confettis }),
         ...(await this.objectifsDe(g, soireeId, credit, ailleurs, legendaires)),

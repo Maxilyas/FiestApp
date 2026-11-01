@@ -211,9 +211,10 @@ test('au démarrage, les jours d’avant se relisent une fois : la victoire d’
     })
     await banc.redemarrer()
     assert.deepEqual(rangesSous(banc, 'alice', cleDuJour('2026-09-20')), ['hf:laurier'])
+    // Le drapeau prend la version du jour (`VERSION_DES_JOURS`) : 2 depuis les timbres des fêtes (le 1er novembre 2026).
     assert.equal(
       base(banc, db => (db.prepare(`SELECT valeur FROM jour_meta WHERE cle = 'relecture_des_jours'`).get() as { valeur: string }).valeur),
-      '1',
+      '2',
       'une fois : le drapeau est posé',
     )
     assert.equal((await lire(banc, alice, '/api/joueur/moi')).status, 200)

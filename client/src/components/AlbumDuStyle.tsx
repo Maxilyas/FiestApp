@@ -67,6 +67,7 @@ const ICONE_DU_LIEU: Record<LieuDuStyle, IconName> = {
   profil: 'heart',
   coffre: 'coffre',
   boutique: 'bag',
+  fete: 'calendar',
 }
 
 /**
@@ -80,6 +81,8 @@ const OU_ALLER: Partial<Record<LieuDuStyle, { nom: string; href: string }>> = {
   duels: OU_JOUER.duels,
   // Le coffre se remplit de ses missions du jour : leur feuille s'ouvre sur l'accueil.
   coffre: { nom: 'Mes missions du jour', href: '/#missions' },
+  // Une fête se gagne au quiz du jour — ou en soirée, qu'on rejoint par son code.
+  fete: OU_JOUER.jour,
   boutique: { nom: 'La boutique', href: '/boutique#fonds' },
 }
 
