@@ -17,10 +17,20 @@
 // journaux de chaque mode, jour par jour (`activiteDesJours`). Seul s'écrit
 // ce qui est fait — une mission faite le reste (`profile_missions`) — et le
 // solde et l'expérience se relisent de ces lignes.
+//
+// Le 1er novembre 2026, le propriétaire : « chaque mode de jeu doit être
+// représenté et permet d'explorer l'application via les missions du jour ».
+// L'épreuve d'un sentier vise une catégorie — « ça incitera peut-être les
+// gens à faire la campagne », validée ou non, à n'importe quel palier —, le
+// Cabinet de curiosités a sa mission, « plus rare », et l'on défie quelqu'un
+// sur un thème précis. Les soirées n'en ont pas : elles ne se jouent pas
+// seul, et une mission doit pouvoir se faire le jour même, quoi qu'il arrive.
 
+import { BRANCHES, branche as laBranche } from './branches'
 import { CATEGORIES } from './categories'
 import type { CoffreEnAttente } from './coffre'
 import { jourAvant, jourDe } from './jour'
+import type { FamilleDeSujet } from './sujets'
 
 /** Trois par jour : une habitude, un savoir, une découverte. */
 export const MISSIONS_PAR_JOUR = 3
@@ -36,7 +46,19 @@ export const XP_DES_TROIS = 25
 /** Le rang de la ligne des trois, dans `profile_missions` : celle qui fait le tampon du jour. */
 export const RANG_DES_TROIS = MISSIONS_PAR_JOUR
 
-export type SorteDeMission = 'jour' | 'jour-etoiles' | 'justes' | 'categorie' | 'serie' | 'duel' | 'sentier' | 'parcours' | 'defi' | 'revision'
+export type SorteDeMission =
+  | 'jour'
+  | 'jour-etoiles'
+  | 'justes'
+  | 'categorie'
+  | 'serie'
+  | 'duel'
+  | 'sentier'
+  | 'parcours'
+  | 'defi'
+  | 'revision'
+  | 'cabinet'
+  | 'defier'
 
 export type FamilleDeMission = 'habitude' | 'savoir' | 'decouverte'
 
@@ -45,8 +67,12 @@ export interface Mission {
   sorte: SorteDeMission
   /** Ce qu'il faut atteindre : une partie, cinq bonnes réponses, deux étoiles. */
   cible: number
-  /** La catégorie d'une mission de savoir (« Histoire »). */
+  /** La catégorie d'une mission de savoir (« Histoire »), ou celle du sentier d'une épreuve — absente d'une épreuve tirée avant le 1er novembre 2026 : n'importe quel sentier. */
   categorie?: string
+  /** Le sujet d'un duel à lancer (« harry-potter », `shared/sujets.ts`)… */
+  sujet?: string
+  /** … et son nom, tel qu'il a été tiré : la page le dit sans lire le catalogue des sujets, que le Cabinet et l'accueil ne téléchargent pas. */
+  nomDuSujet?: string
 }
 
 const FAMILLE: Readonly<Record<SorteDeMission, FamilleDeMission>> = {
@@ -60,6 +86,8 @@ const FAMILLE: Readonly<Record<SorteDeMission, FamilleDeMission>> = {
   parcours: 'decouverte',
   defi: 'decouverte',
   revision: 'decouverte',
+  cabinet: 'decouverte',
+  defier: 'decouverte',
 }
 
 export const NOM_DE_LA_FAMILLE: Readonly<Record<FamilleDeMission, string>> = { habitude: 'Habitude', savoir: 'Savoir', decouverte: 'Découverte' }
@@ -67,16 +95,49 @@ export const NOM_DE_LA_FAMILLE: Readonly<Record<FamilleDeMission, string>> = { h
 export const familleDe = (m: Mission): FamilleDeMission => FAMILLE[m.sorte]
 
 /** Les découvertes : un mode chacune, qu'on tire d'abord parmi ceux qu'il ne joue pas. */
-export const DECOUVERTES: readonly SorteDeMission[] = ['serie', 'duel', 'sentier', 'parcours', 'defi', 'revision']
+export const DECOUVERTES: readonly SorteDeMission[] = ['serie', 'duel', 'sentier', 'parcours', 'defi', 'revision', 'cabinet', 'defier']
 
-/** Une mission relue de la base : refusée si elle ne se lit plus (une sorte retirée, une cible absurde). */
+/**
+ * Ce que pèse la mission du Cabinet de curiosités au tirage de la découverte,
+ * face à une autre — une, d'office — : moitié moins (le souhait du
+ * propriétaire du 1er novembre 2026 : « je veux que ce soit plus rare ») ; une
+ * fois tous les quinze jours environ à qui ne le joue pas. Un choix de produit
+ * (`docs/reference/baremes.md`), qui ne vaut que pour les tirages à venir.
+ */
+export const POIDS_DU_CABINET = 0.5
+
+/**
+ * Les familles de sujets dont un duel à lancer tire son thème : les thèmes
+ * et les univers (« Les animaux », « Harry Potter ») — ni une époque, ni un
+ * pays, ni un fil rouge, ni une fête, qui ne revient qu'à sa saison. Le
+ * serveur en lit le catalogue (`ContexteDuTirage.themes`).
+ */
+export const FAMILLES_DES_DEFIS: readonly FamilleDeSujet[] = ['theme', 'univers']
+
+/** Une clé de sujet telle que le catalogue les écrit (« harry-potter », « sport/football ») : ce qu'une ligne relue peut porter. */
+const CLE_DE_SUJET = /^[a-z0-9][a-z0-9/-]{0,63}$/
+
+/**
+ * Une mission relue de la base : refusée si elle ne se lit plus (une sorte
+ * retirée, une cible absurde). Une épreuve sans catégorie — ou d'une catégorie
+ * qui n'existe plus — se fait sur n'importe quel sentier ; un duel sans sujet,
+ * sur n'importe quel thème : chacune reste faisable le jour même.
+ */
 export function lireLaMission(brut: unknown): Mission | null {
   if (!brut || typeof brut !== 'object') return null
-  const { sorte, cible, categorie } = brut as Record<string, unknown>
+  const { sorte, cible, categorie, sujet, nomDuSujet } = brut as Record<string, unknown>
   if (typeof sorte !== 'string' || !(sorte in FAMILLE)) return null
   if (typeof cible !== 'number' || !Number.isInteger(cible) || cible < 1 || cible > 100) return null
-  if (sorte === 'categorie' && (typeof categorie !== 'string' || !(CATEGORIES as readonly string[]).includes(categorie))) return null
-  return { sorte: sorte as SorteDeMission, cible, ...(sorte === 'categorie' && { categorie: categorie as string }) }
+  const uneCategorie = typeof categorie === 'string' && (CATEGORIES as readonly string[]).includes(categorie)
+  if (sorte === 'categorie' && !uneCategorie) return null
+  const unSujet = sorte === 'defier' && typeof sujet === 'string' && CLE_DE_SUJET.test(sujet)
+  return {
+    sorte: sorte as SorteDeMission,
+    cible,
+    ...((sorte === 'categorie' || sorte === 'sentier') && uneCategorie && { categorie: categorie as string }),
+    ...(unSujet && { sujet: sujet as string }),
+    ...(unSujet && typeof nomDuSujet === 'string' && nomDuSujet.trim() !== '' && nomDuSujet.length <= 80 && { nomDuSujet }),
+  }
 }
 
 // ── Ce que les journaux disent d'un jour ─────────────────────────────────
@@ -93,14 +154,22 @@ export interface ActiviteDuJour {
   meilleureSerie: number
   /** Ses duels finis — contre quelqu'un, entre amis ou au dé. */
   duels: number
+  /** Ses duels classés lancés — contre quelqu'un, sa tentative jouée jusqu'au bout : il part alors à l'autre —, tous sujets confondus… */
+  duelsLances: number
+  /** … et par sujet (« harry-potter ») : ceux d'un thème précis. */
+  duelsLancesParSujet: Readonly<Record<string, number>>
   /** Ses épreuves de sentier jouées jusqu'au bout, validées ou ratées. */
   epreuves: number
+  /** Les mêmes, par la catégorie de leur sentier (« Histoire » : les mythologies). */
+  epreuvesParCategorie: Readonly<Record<string, number>>
   /** Ses étapes de parcours de thème réussies. */
   etapes: number
   /** Ses défis de la semaine finis. */
   defis: number
   /** Les questions de son carnet revues — juste ou non. */
   revues: number
+  /** Ses épreuves du Cabinet de curiosités où il a répondu à une manche au moins, gagnées ou non. */
+  cabinet: number
 }
 
 export const AUCUNE_ACTIVITE: ActiviteDuJour = {
@@ -109,10 +178,29 @@ export const AUCUNE_ACTIVITE: ActiviteDuJour = {
   parCategorie: {},
   meilleureSerie: 0,
   duels: 0,
+  duelsLances: 0,
+  duelsLancesParSujet: {},
   epreuves: 0,
+  epreuvesParCategorie: {},
   etapes: 0,
   defis: 0,
   revues: 0,
+  cabinet: 0,
+}
+
+/** Une partie de campagne, telle que les missions la lisent (`CampagneStore.activiteDepuis`). */
+export interface PartieQueLesMissionsLisent {
+  id: string
+  mode: string
+  issue: string | null
+  /** Nul : en cours. */
+  finieLe: number | null
+  /** Une épreuve : la branche de son sentier (« mythes »), qui dit sa catégorie. */
+  branche?: string | null
+  /** Une partie sur un sujet : sa clé (« harry-potter »). */
+  sujet?: string | null
+  /** Un duel classé qu'il a lancé lui-même, contre quelqu'un (`campagne_duels.auteur`, `adversaire`) — pas celui qu'il relève. */
+  lance?: boolean
 }
 
 /** Ce que les magasins lisent de ses journaux, depuis un jour : de quoi refaire chaque jour (`activiteDesJours`). */
@@ -122,7 +210,7 @@ export interface JournauxDesJours {
   /** Ses bonnes réponses du quiz du jour, par jour et par catégorie. */
   jourParCategorie: readonly { jour: string; categorie: string | null; n: number }[]
   /** Ses parties de campagne finies, ou en cours (`finieLe` nul) : leur mode et leur issue. */
-  series: readonly { id: string; mode: string; issue: string | null; finieLe: number | null }[]
+  series: readonly PartieQueLesMissionsLisent[]
   /** Ses réponses de campagne, une par question posée. */
   reponses: readonly { serie: string; mode: string; juste: boolean; le: number; categorie: string | null }[]
   /** Ses soirées qui comptent, à leur première ligne de crédit, et leurs confettis (`confettisDeSoiree`). */
@@ -137,7 +225,9 @@ export interface JournauxDesJours {
  * trois semaines, celles du Cabinet comprises, dix par jour, pour les jeter
  * (la revue de sobriété du 25 octobre 2026). Un mode qui compte de plus
  * rejoint la liste : `campagne-index.test.ts` la compare à ce que la règle
- * compte.
+ * compte. Le Cabinet de curiosités, qui a sa mission depuis le 1er novembre
+ * 2026, n'y entre pas : ses épreuves se comptent dans ses réponses, que la
+ * lecture apporte déjà.
  */
 export const MODES_QUE_LES_MISSIONS_COMPTENT = ['duel', 'rencontre', 'sentier', 'sujet', 'defi'] as const
 
@@ -147,11 +237,17 @@ export const MODES_QUE_LES_MISSIONS_COMPTENT = ['duel', 'rencontre', 'sentier', 
  * ce qui est déjà fait, que rien ne reprend.
  */
 export function activiteDesJours(j: JournauxDesJours): Map<string, ActiviteDuJour> {
-  const jours = new Map<string, ActiviteDuJour & { parCategorie: Record<string, number> }>()
+  const jours = new Map<
+    string,
+    ActiviteDuJour & { parCategorie: Record<string, number>; epreuvesParCategorie: Record<string, number>; duelsLancesParSujet: Record<string, number> }
+  >()
   const du = (jour: string) => {
     let a = jours.get(jour)
-    if (!a) jours.set(jour, (a = { ...AUCUNE_ACTIVITE, parCategorie: {} }))
+    if (!a) jours.set(jour, (a = { ...AUCUNE_ACTIVITE, parCategorie: {}, epreuvesParCategorie: {}, duelsLancesParSujet: {} }))
     return a
+  }
+  const plusUn = (compte: Record<string, number>, cle: string) => {
+    compte[cle] = (compte[cle] ?? 0) + 1
   }
   for (const p of j.jour) {
     const a = du(p.jour)
@@ -166,10 +262,19 @@ export function activiteDesJours(j: JournauxDesJours): Map<string, ActiviteDuJou
   for (const s of j.soirees) du(jourDe(s.le)).justes += s.confettis
   // Une série jouée sur deux jours compte ses bonnes réponses au jour de chacune.
   const parSerie = new Map<string, number>()
+  // Une épreuve du Cabinet se lit dans ses réponses, une fois par jour où il y a répondu : ses parties, dix par jour et
+  // par joueur, ne se relisent pas pour les missions (`MODES_QUE_LES_MISSIONS_COMPTENT`, la revue de sobriété du
+  // 25 octobre 2026), et ses réponses arrivent déjà, du journal en mémoire. Quittée avant sa première réponse, elle n'a
+  // pas été jouée ; gagnée ou perdue ensuite, si.
+  const auCabinet = new Set<string>()
   for (const r of j.reponses) {
     const jour = jourDe(r.le)
     const a = du(jour)
     if (r.mode === 'revision') a.revues++
+    if (r.mode === 'cabinet' && !auCabinet.has(`${r.serie}|${jour}`)) {
+      auCabinet.add(`${r.serie}|${jour}`)
+      a.cabinet++
+    }
     if (!r.juste) continue
     a.justes++
     // Le carnet repose ce qu'il a raté : ses bonnes réponses paient, mais ne disent rien de son savoir.
@@ -184,10 +289,20 @@ export function activiteDesJours(j: JournauxDesJours): Map<string, ActiviteDuJou
   for (const s of j.series) {
     if (s.finieLe === null) continue
     const a = du(jourDe(s.finieLe))
-    if (s.mode === 'duel' || s.mode === 'rencontre') a.duels++
-    // Un rejeu abandonné, une épreuve libérée par l'administrateur n'ont pas d'issue : ils n'ont pas été joués.
-    else if (s.mode === 'sentier' && s.issue !== null) a.epreuves++
-    else if (s.mode === 'sujet' && s.issue === 'validee') a.etapes++
+    if (s.mode === 'duel' || s.mode === 'rencontre') {
+      a.duels++
+      // Lancé par lui contre quelqu'un, sa tentative finie : le duel part à l'autre. Celui qu'il relève ne compte pas — c'est
+      // l'autre qui l'a défié —, ni le dé, contre Automate.
+      if (s.mode === 'duel' && s.lance) {
+        a.duelsLances++
+        if (s.sujet) plusUn(a.duelsLancesParSujet, s.sujet)
+      }
+    } else if (s.mode === 'sentier' && s.issue !== null) {
+      // Un rejeu abandonné, une épreuve libérée par l'administrateur n'ont pas d'issue : ils n'ont pas été joués.
+      a.epreuves++
+      const categorie = laBranche(s.branche)?.categorie
+      if (categorie) plusUn(a.epreuvesParCategorie, categorie)
+    } else if (s.mode === 'sujet' && s.issue === 'validee') a.etapes++
     else if (s.mode === 'defi') a.defis++
   }
   return jours
@@ -214,14 +329,20 @@ export function avancement(m: Mission, a: ActiviteDuJour): number {
         return a.meilleureSerie
       case 'duel':
         return a.duels
+      // Le sentier de sa catégorie, à n'importe quel palier, validée ou ratée ; tirée sans catégorie, n'importe lequel.
       case 'sentier':
-        return a.epreuves
+        return m.categorie ? (a.epreuvesParCategorie[m.categorie] ?? 0) : a.epreuves
       case 'parcours':
         return a.etapes
       case 'defi':
         return a.defis
       case 'revision':
         return a.revues
+      case 'cabinet':
+        return a.cabinet
+      // Sur son thème ; relu sans sujet, n'importe quel duel lancé contre quelqu'un.
+      case 'defier':
+        return m.sujet ? (a.duelsLancesParSujet[m.sujet] ?? 0) : a.duelsLances
     }
   })()
   return Math.min(m.cible, n)
@@ -243,6 +364,12 @@ export interface ContexteDuTirage {
   aRevoir: number
   /** Ses missions d'hier : on ne repose pas la même découverte deux jours de suite. */
   hier: readonly Mission[]
+  /** Le Cabinet de curiosités se joue ici, ni en maintenance ni bientôt disponible : sa mission se propose. */
+  cabinet: boolean
+  /** Un autre profil existe, qu'il peut défier : sans lui, un duel à lancer ne se ferait jamais. */
+  adversaires: boolean
+  /** Les thèmes qu'un duel à lancer peut viser (`FAMILLES_DES_DEFIS`), leur clé et leur nom : le serveur les lit du catalogue des sujets. */
+  themes: readonly { cle: string; nom: string }[]
 }
 
 /**
@@ -307,15 +434,54 @@ export function tirerLesMissions(graine: string, c: ContexteDuTirage): Mission[]
           ),
         }
       : { sorte: 'categorie', cible: 5, categorie: CATEGORIES[Math.floor(x() * CATEGORIES.length)] }
-  // La découverte : un mode, trois fois plus souvent un qu'il n'a pas joué ces sept jours ; jamais celle d'hier.
+  // La découverte : un mode, trois fois plus souvent un qu'il n'a pas joué ces sept jours ; jamais celle d'hier. Le
+  // Cabinet, moitié moins (`POIDS_DU_CABINET`).
   const hier = new Set(c.hier.map(m => m.sorte))
-  const possibles = DECOUVERTES.filter(s => !hier.has(s) && (s !== 'defi' || !c.defiFini) && (s !== 'revision' || c.aRevoir >= 3))
+  const possibles = DECOUVERTES.filter(s => !hier.has(s) && seProposeAujourdhui(s, c))
   const sorte = auPoids(
-    (possibles.length > 0 ? possibles : (['serie'] as const)).map(s => [s, c.decouvertesJouees.has(s) ? 1 : 3] as const),
+    (possibles.length > 0 ? possibles : (['serie'] as const)).map(s => [s, (s === 'cabinet' ? POIDS_DU_CABINET : 1) * (c.decouvertesJouees.has(s) ? 1 : 3)] as const),
     x(),
   )
-  const cible = sorte === 'serie' ? (x() < 0.6 ? 5 : 7) : sorte === 'revision' ? Math.min(5, c.aRevoir) : 1
-  return [habitude, savoir, { sorte, cible }]
+  return [habitude, savoir, laDecouverte(sorte, c, x)]
+}
+
+/**
+ * Une découverte qui peut se faire aujourd'hui, quoi qu'il arrive : le défi
+ * pas encore relevé, trois questions au carnet, le Cabinet ouvert, quelqu'un
+ * à défier et un thème pour le faire.
+ */
+function seProposeAujourdhui(s: SorteDeMission, c: ContexteDuTirage): boolean {
+  switch (s) {
+    case 'defi':
+      return !c.defiFini
+    case 'revision':
+      return c.aRevoir >= 3
+    case 'cabinet':
+      return c.cabinet
+    case 'defier':
+      return c.adversaires && c.themes.length > 0
+    default:
+      return true
+  }
+}
+
+/** La découverte tirée, sa cible et ce qu'elle vise. */
+function laDecouverte(sorte: SorteDeMission, c: ContexteDuTirage, x: () => number): Mission {
+  switch (sorte) {
+    case 'serie':
+      return { sorte, cible: x() < 0.6 ? 5 : 7 }
+    case 'revision':
+      return { sorte, cible: Math.min(5, c.aRevoir) }
+    // Un sentier, et pas n'importe lequel (le 1er novembre 2026) : la campagne se découvre catégorie par catégorie.
+    case 'sentier':
+      return { sorte, cible: 1, categorie: CATEGORIES[Math.floor(x() * CATEGORIES.length)] }
+    case 'defier': {
+      const theme = c.themes[Math.floor(x() * c.themes.length)]
+      return { sorte, cible: 1, sujet: theme.cle, nomDuSujet: theme.nom }
+    }
+    default:
+      return { sorte, cible: 1 }
+  }
 }
 
 // ── Ce que la page en dit ───────────────────────────────────────────────
@@ -337,15 +503,22 @@ export function titreDeLaMission(m: Mission): string {
     case 'duel':
       return 'Joue un duel'
     case 'sentier':
-      return 'Tente une épreuve d’un sentier'
+      return m.categorie ? `Tente une épreuve en ${m.categorie}` : 'Tente une épreuve d’un sentier'
     case 'parcours':
       return 'Réussis une étape d’un parcours'
     case 'defi':
       return 'Relève le défi de la semaine'
     case 'revision':
       return m.cible > 1 ? `Revois ${m.cible} questions de ton carnet` : 'Revois une question de ton carnet'
+    case 'cabinet':
+      return 'Joue une épreuve au Cabinet de curiosités'
+    case 'defier':
+      return m.nomDuSujet ? `Défie quelqu’un sur « ${m.nomDuSujet} »` : 'Défie quelqu’un en duel'
   }
 }
+
+/** Le sentier d'une catégorie (« Histoire » : les mythologies) : un par catégorie. */
+const sentierDe = (categorie: string | undefined) => (categorie ? BRANCHES.find(b => b.categorie === categorie) : undefined)
 
 /** Ce qui l'éclaire, sous son titre : où, et comment. */
 export function aideDeLaMission(m: Mission): string {
@@ -361,19 +534,29 @@ export function aideDeLaMission(m: Mission): string {
       return 'La campagne, trois vies : jusqu’où iras-tu ?'
     case 'duel':
       return 'Contre Automate au dé, ou contre qui tu veux.'
-    case 'sentier':
-      return 'Validée ou non, seul compte de l’avoir jouée jusqu’au bout.'
+    case 'sentier': {
+      const sentier = sentierDe(m.categorie)
+      return sentier
+        ? `Sur « ${sentier.nom} », à n’importe quel palier : validée ou non, il suffit de la jouer jusqu’au bout.`
+        : 'Validée ou non, seul compte de l’avoir jouée jusqu’au bout.'
+    }
     case 'parcours':
       return 'Sans vies : rate, rejoue, rien ne se perd.'
     case 'defi':
       return 'La même série pour tous, une seule tentative.'
     case 'revision':
       return 'Ce que tu as raté revient : retrouve-le.'
+    case 'cabinet':
+      return 'Une étape de ta traversée, n’importe quel jeu : gagnée ou non, elle compte dès ta première réponse.'
+    case 'defier':
+      return m.sujet
+        ? 'Un duel classé sur ce thème, contre qui tu veux : il lui part à ta dernière réponse.'
+        : 'Un duel classé, contre qui tu veux : il lui part à ta dernière réponse.'
   }
 }
 
-/** Où la faire, d'un toucher : son adresse et le mot du bouton. Une catégorie se retient avant d'y aller (`categorie`). */
-export function lienDeLaMission(m: Mission): { href: string; libelle: string; categorie?: string } {
+/** Où la faire, d'un toucher : son adresse et le mot du bouton. Une catégorie ou un sujet se retient avant d'y aller (`categorie`, `sujet`). */
+export function lienDeLaMission(m: Mission): LienDUneMission {
   switch (m.sorte) {
     case 'jour':
     case 'jour-etoiles':
@@ -385,14 +568,30 @@ export function lienDeLaMission(m: Mission): { href: string; libelle: string; ca
       return { href: '/campagne', libelle: 'Jouer', categorie: m.categorie }
     case 'duel':
       return { href: '/duels', libelle: 'Défier' }
-    case 'sentier':
-      return { href: '/campagne#sentiers', libelle: 'Les sentiers' }
+    // Son sentier, ouvert sur son palier à jouer (`/campagne#sentier-mythes`).
+    case 'sentier': {
+      const sentier = sentierDe(m.categorie)
+      return sentier ? { href: `/campagne#sentier-${sentier.key}`, libelle: 'Le sentier' } : { href: '/campagne#sentiers', libelle: 'Les sentiers' }
+    }
     case 'parcours':
     case 'revision':
       return { href: '/campagne#carnet', libelle: m.sorte === 'revision' ? 'Mon carnet' : 'Les parcours' }
     case 'defi':
       return { href: '/campagne#defi', libelle: 'Le défi' }
+    case 'cabinet':
+      return { href: '/cabinet', libelle: 'Le Cabinet' }
+    // La préparation d'un duel, son thème déjà choisi : il ne reste qu'à choisir contre qui.
+    case 'defier':
+      return { href: '/duels#defier', libelle: 'Défier', ...(m.sujet ? { sujet: m.sujet } : {}) }
   }
+}
+
+/** Le lien d'une mission : son adresse, le mot du bouton, et ce que la page retient avant d'y aller — sa catégorie, ou le sujet d'un duel. */
+export interface LienDUneMission {
+  href: string
+  libelle: string
+  categorie?: string
+  sujet?: string
 }
 
 /** Une mission telle que la page la montre. */
@@ -407,7 +606,7 @@ export interface MissionVue {
   /** Où il en est, de zéro à la cible. */
   avance: number
   faite: boolean
-  lien: { href: string; libelle: string; categorie?: string }
+  lien: LienDUneMission
 }
 
 /** La vue d'une mission, au vu de sa journée. */

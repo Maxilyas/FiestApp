@@ -86,8 +86,8 @@ function rechercheTriee(sql: string): string | null {
   return null
 }
 
-/** Ce que les missions lisent des parties d'un profil (`activiteDepuis`). */
-const LES_PARTIES_DES_MISSIONS = /SELECT id, mode, issue, finie_le FROM campagne_series/
+/** Ce que les missions lisent des parties d'un profil (`activiteDepuis`) — avec, depuis le 1er novembre 2026, la branche, le sujet et le duel lancé. */
+const LES_PARTIES_DES_MISSIONS = /SELECT id, mode, issue, finie_le, branche, sujet,[^]*?\bFROM campagne_series\s+WHERE profile_id = \?/
 
 /** Chaque lecture des séries, avec ses arguments : le plan se lit tel que le magasin l'a demandé. */
 const lectures = new Map<string, unknown[]>()

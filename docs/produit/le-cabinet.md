@@ -85,6 +85,7 @@ Un gardien qu'on a déjà reste un gardien à battre — la traversée se joue p
 
 - **Le légendaire**, au bout des trois actes : la seule chose qui sort du Cabinet, comme un gardien réveillé au musée.
 - **Chaque manche réussie est une bonne réponse de la campagne** — deux étoiles au moins, ou la bonne réponse au Pari : un confetti, l'expérience d'une bonne réponse, un pas pour le compagnon, les missions du jour. Comme partout en solo.
+- **Sa mission du jour**, depuis le 1er novembre 2026, plus rare que les autres : jouer une épreuve, n'importe laquelle, gagnée ou non, dès sa première réponse ([les missions](les-missions.md)). Le bilan de chaque épreuve dit ce qu'elle a fait des missions du jour, comme la fin de chaque mode.
 - **L'or ne sert que dans la traversée** : au marchand. Il n'en sort jamais, ne s'achète pas, et une traversée perdue le perd avec elle.
 - **Les défis de tes cartes et les épreuves de maître** ([plus bas](#les-défis-de-tes-cartes)) : des confettis, un dos de carte doré, des titres, une gerbe, et des légendaires — le gardien vaincu en maître, le Djinn aux dix défis tenus à l'Or.
 

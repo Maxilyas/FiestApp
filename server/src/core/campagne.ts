@@ -3168,22 +3168,32 @@ export class CampagneStore {
    * dix par jour, pour n'en rien compter — et `mode IN (…)` sans cet index
    * n'y changeait rien, l'index du profil lisant encore chaque ligne pour en
    * voir le mode (3 753 pas pour un fidèle, 126 avec lui : la revue de
-   * sobriété du 25 octobre 2026, `campagne-index.test.ts`).
+   * sobriété du 25 octobre 2026, `campagne-index.test.ts`). Avec chacune, ce
+   * que les missions du 1er novembre 2026 visent : la branche d'une épreuve —
+   * sa catégorie —, le sujet d'un duel, et s'il l'a lancé lui-même contre
+   * quelqu'un, lu de son duel par sa clé (une ligne par duel, rien pour les
+   * autres modes).
    */
   async activiteDepuis(profileId: string, depuis: number): Promise<Pick<JournauxDesJours, 'series' | 'reponses'>> {
     const commencees = depuis - MARGE_D_UNE_EPREUVE_MS
     const series: InStatement = {
-      sql: `SELECT id, mode, issue, finie_le FROM campagne_series
+      sql: `SELECT id, mode, issue, finie_le, branche, sujet,
+                   CASE WHEN mode = 'duel' THEN EXISTS (SELECT 1 FROM campagne_duels d
+                     WHERE d.code = campagne_series.duel AND d.auteur = campagne_series.profile_id AND d.adversaire IS NOT NULL) END AS lance
+            FROM campagne_series
             WHERE profile_id = ? AND mode IN (${MODES_QUE_LES_MISSIONS_COMPTENT.map(() => '?').join(', ')})
               AND commencee_le >= ? AND (finie_le IS NULL OR finie_le >= ?)`,
       args: [profileId, ...MODES_QUE_LES_MISSIONS_COMPTENT, commencees, depuis],
     }
-    const seriesLues = (lues: ResultSet) =>
+    const seriesLues = (lues: ResultSet): JournauxDesJours['series'] =>
       lues.rows.map(r => ({
         id: String(r.id),
         mode: String(r.mode ?? 'serie'),
         issue: r.issue == null ? null : String(r.issue),
         finieLe: r.finie_le == null ? null : Number(r.finie_le),
+        branche: r.branche == null ? null : String(r.branche),
+        sujet: r.sujet == null ? null : String(r.sujet),
+        lance: Number(r.lance ?? 0) === 1,
       }))
     // Ses réponses, du journal (`recentesDe`) : relues de la base, elles
     // parcouraient toutes celles des parties commencées depuis trois semaines

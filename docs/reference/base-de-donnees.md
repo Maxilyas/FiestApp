@@ -369,7 +369,7 @@ Les missions du jour de chaque profil (`shared/missions.ts`) : les trois
 tirées à sa première visite du jour, figées, et la ligne des trois — celle
 qui fait le tampon de la semaine.
 
-- **Colonnes clés** : `profile_id`, `jour` et `rang` (la clé à trois ; `rang` 0 à 2 pour les missions, 3 pour la ligne des trois), `mission` (JSON : `{ sorte, cible, categorie? }`, `{}` pour la ligne des trois), `tiree_le`, `faite_le` (indexée : la page de l'économie du QG lit les missions faites par date).
+- **Colonnes clés** : `profile_id`, `jour` et `rang` (la clé à trois ; `rang` 0 à 2 pour les missions, 3 pour la ligne des trois), `mission` (JSON : `{ sorte, cible, categorie?, sujet?, nomDuSujet? }` — la catégorie d'une mission de savoir ou du sentier d'une épreuve, le sujet d'un duel à lancer et son nom tel qu'il a été tiré ; `{}` pour la ligne des trois), `tiree_le`, `faite_le` (indexée : la page de l'économie du QG lit les missions faites par date).
 - **Espace** : non.
 - **Écrite par** : `ProfileStore` — `tirerLesMissions` à la première lecture du jour (`GET /api/joueur/missions`), `accomplirDesMissions` quand ses journaux disent une mission faite, jamais reprise.
 - **Lue par** : `ProfileStore` (le solde : quinze confettis par mission faite et par ligne des trois, `gainsDesMissions` ; la ligne d'expérience `#missions` ; les tampons et les coffres qui attendent) ; la page de l'économie du QG (`economieDepuis`, `partsDesSoldes`).

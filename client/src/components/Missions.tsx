@@ -2,7 +2,7 @@ import { useEffect, useId, useState, type CSSProperties } from 'react'
 import { Icon, type IconName } from './Icon'
 import { Feuille } from './Pieces'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
-import { relireLesMissions, viserLaCategorie } from '../missions'
+import { relireLesMissions, viserLaCategorie, viserLeSujet } from '../missions'
 import { COFFRES_PEINTS } from './coffres-peints'
 import { espacesFines, formatNumber } from '../format'
 import {
@@ -40,6 +40,9 @@ const ICONE: Readonly<Record<SorteDeMission, IconName>> = {
   parcours: 'book',
   defi: 'trophy',
   revision: 'rotate',
+  // Celle du gros bouton du Cabinet sur l'accueil, et les épées des duels : la mission se reconnaît à son mode.
+  cabinet: 'landmark',
+  defier: 'swords',
 }
 
 /** L'anneau d'une mission : plein et coché quand elle est faite, sa part d'or sinon. */
@@ -126,7 +129,14 @@ function CarteDeMission({ m }: { m: MissionVue }) {
               <span style={{ width: `${Math.round((m.avance / m.cible) * 100)}%` }} />
             </span>
             <span className="mission-compte">{`${m.avance} / ${m.cible}`}</span>
-            <a className="mission-aller" href={m.lien.href} onClick={() => m.lien.categorie && viserLaCategorie(m.lien.categorie)}>
+            <a
+              className="mission-aller"
+              href={m.lien.href}
+              onClick={() => {
+                if (m.lien.categorie) viserLaCategorie(m.lien.categorie)
+                if (m.lien.sujet) viserLeSujet(m.lien.sujet)
+              }}
+            >
               {m.lien.libelle}
               <Icon name="chevron-right" />
             </a>

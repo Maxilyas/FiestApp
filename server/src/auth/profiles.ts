@@ -2092,6 +2092,21 @@ export class ProfileStore {
   }
 
   /**
+   * A-t-il quelqu'un à défier — un autre profil, pas suspendu ? La mission
+   * d'un duel à lancer ne se tire qu'alors (`ContexteDuTirage.adversaires`) :
+   * seul sur son serveur, il ne la ferait jamais. Lue au seul tirage, une fois
+   * par jour et par profil ; `EXISTS` s'arrête au premier trouvé — une ligne
+   * ou deux au quota de Turso, pas la table.
+   */
+  async aQuiDefier(profileId: string): Promise<boolean> {
+    const res = await this.client.execute({
+      sql: 'SELECT EXISTS (SELECT 1 FROM profiles WHERE id <> ? AND disabled_at IS NULL) AS oui',
+      args: [profileId],
+    })
+    return Number(res.rows[0]?.oui ?? 0) === 1
+  }
+
+  /**
    * Retient ce qui vient d'être fait — jamais repris : une mission faite le
    * reste, même si un journal se corrige ensuite —, puis réécrit la ligne
    * d'expérience des missions sur toutes ses lignes faites, le total avec, et

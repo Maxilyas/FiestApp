@@ -777,17 +777,16 @@ export function CampagneApp() {
    * la préparation le relit en arrivant, sa propre cote avec.
    */
   // Sa cote avec son plancher — la ligue qu'il garde : sans lui, la préparation annonçait une perte qu'il empêche. Et le duel
-  // déjà ouvert contre celui qu'elle défie, lu avec (null : aucun).
+  // déjà ouvert contre celui qu'elle défie, lu avec (null : aucun). Ouverte à son adresse (`/duels#defier`), elle part aussi de ce
+  // qu'il a retenu, comme de « Défier » : le lien d'une mission du jour qui vise un thème le retient en partant (`viserLeSujet`),
+  // et la préparation s'ouvrait sur toutes les catégories.
   const [depart, setDepart] = useState<{
     categories: string[]
     sujet: string | null
     adversaire?: JoueurADefier
     moi?: { cote: number; joues: number; plancher?: number }
     enCours?: DuelOuvert | null
-  }>({
-    categories: [],
-    sujet: null,
-  })
+  }>(() => ({ categories, sujet }))
   const laPreparation = useALaDemande(lancement, mode === 'defier')
   useEffect(() => {
     if (mode !== 'defier' || choixPourLancer || ecran.e !== 'duels') return

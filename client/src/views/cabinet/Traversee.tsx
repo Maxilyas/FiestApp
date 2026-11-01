@@ -1267,6 +1267,7 @@ function BilanDEpreuve({ t, b, onContinuer }: { t: VueDeLaTraversee; b: BilanDEp
         {b.manches.some(m => m.misee && m.comptee && (m.etoiles ?? 0) === 0) && <p className="cab-tv-pale">{espacesFines(`Une mise perdue coûte ${coeursDits(COEURS_D_UNE_MISE_PERDUE)}.`)}</p>}
         {/* Ce que cette épreuve a fait tomber des défis de tes cartes : un défi tombe à la chute d'un gardien, une mise gagnée. */}
         <SceauxTombes cles={t.derniere?.partie === b.partie ? (t.sceaux?.derniers ?? []) : []} titre="Tes défis" />
+        <MissionsDeLEpreuve key={b.partie} />
       </div>
       <div className="cab-tv-pied">
         <div className="cab-tv-ressources">
@@ -1279,6 +1280,22 @@ function BilanDEpreuve({ t, b, onContinuer }: { t: VueDeLaTraversee; b: BilanDEp
       </div>
     </div>
   )
+}
+
+/**
+ * Le code des missions du jour (`Missions.tsx`), à la demande : ni lui, ni l'écran des gains (`Gains.tsx`) ne partent avec le
+ * Cabinet (`cabinet-ecran.test.ts`) — seul le bilan d'une épreuve le fait venir.
+ */
+const lesMissions = aLaDemande(() => import('../../components/Missions'))
+
+/**
+ * Ce que l'épreuve vient de faire de ses missions du jour — « Mission accomplie », les trois et leur tampon —, comme à la fin
+ * de chaque mode (`MissionsDeLaFin`) : depuis le 1er novembre 2026, le Cabinet a sa mission, et ses bonnes réponses comptaient
+ * déjà pour celles du savoir sans que rien ne le dise. Rien s'il n'en a fait aucune ; le Cabinet ne se joue qu'avec un profil.
+ */
+function MissionsDeLEpreuve() {
+  const module = useALaDemande(lesMissions)
+  return module && module !== 'perdu' ? <module.MissionsDeLaFin /> : null
 }
 
 // ── Le coffre, l'amélioration, le marchand ──
