@@ -814,14 +814,15 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
       </>
     ),
   },
-  // Stargate (le 1er novembre 2026) : l'anneau de la porte des étoiles et
-  // ses chevrons, le seul objet que les trois séries partagent.
+  // Stargate (le 1er novembre 2026) : l'anneau de la porte des étoiles, le
+  // seul objet que les trois séries partagent, et trois de ses chevrons —
+  // cinq, en 28 pixels, en faisaient une roue dentée.
   porte: {
     paths: (
       <>
-        <circle cx="12" cy="12" r="9" />
-        <circle cx="12" cy="12" r="6" />
-        <path d="m10.6 2.6 1.4 1.8 1.4-1.8M3.9 7.6l2.2.7-.1-2.3M20.1 7.6l-2.2.7.1-2.3M5 18.2l1.6-1.6-2.2-.6M19 18.2l-1.6-1.6 2.2-.6" />
+        <circle cx="12" cy="12" r="8.6" />
+        <circle cx="12" cy="12" r="5.4" />
+        <path d="M9.9 2.1 12 5.4l2.1-3.3M21.6 15.1l-3.9.2 1.8 3.5M4.5 18.8l1.8-3.5-3.9-.2" />
       </>
     ),
   },
