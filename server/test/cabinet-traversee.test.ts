@@ -62,6 +62,7 @@ import {
   type EtatDeLaTraversee,
   type GesteDeLaTraversee,
   type MancheConclue,
+  type NiveauDeCarte,
   type VersionDeLaTraversee,
 } from '../../shared/cabinet/traversee'
 import { JOUR, MIDI, S, departDe, ouvrir } from './cabinet-plans'
@@ -510,6 +511,33 @@ test('une traversée de la version 1 se relit à ses chiffres : relue à ceux d�
   assert.deepEqual(etatDeLaTraversee(t.depart, t.gestes), t.etat, 'relue à sa version, telle qu’elle s’est jouée')
   const commeAujourdhui = etatDeLaTraversee({ ...t.depart, v: VERSION_DE_LA_TRAVERSEE }, t.gestes)
   assert.ok(commeAujourdhui.ignores > 0, 'aux chiffres d’aujourd’hui, son achat d’hier se refuserait')
+})
+
+test('la Parade de la version 2 ne pare les gardiens qu’à la Parade ++ ; celle de la version 1, dès la Parade + — chacune dit la sienne', () => {
+  // « Tu peux toucher la parade si tu le souhaites pour affaiblir un peu la carte » (le propriétaire, le 1er novembre 2026).
+  const paree = (v: VersionDeLaTraversee, niveau: NiveauDeCarte, sorte: 'epreuve' | 'gardien', etoiles: number[]) => {
+    const t = new Traversee(['parade', 'cagnotte', 'panacee'], 7, v)
+    const etape = sorte === 'gardien' ? idDEtape(0, RANGEE_DU_GARDIEN, 1) : t.vers('epreuve')
+    const cartes = t.etat.cartes.map(c => (c.cle === 'parade' ? { ...c, niveau } : c))
+    const ou = sorte === 'gardien' ? { sorte, etape, partie: 'x' } : { sorte, etape, partie: 'x' }
+    const { bilan } = consequencesDe(t.depart, { ...t.etat, cartes, ou, assauts: sorte === 'gardien' ? 1 : 0 }, { etape, partie: 'x', manches: manches(etoiles), enCours: false })
+    return bilan.manches.map(m => m.paree)
+  }
+  // Contre un gardien : la Parade + ne pare plus rien, la ++ deux manches ratées.
+  assert.deepEqual(paree(2, 2, 'gardien', [0, 0, 1]), [false, false, false])
+  assert.deepEqual(paree(2, 3, 'gardien', [0, 0, 1]), [true, true, false])
+  // Dans une épreuve, la Parade + en pare deux — c'est ce que son niveau ajoute.
+  assert.deepEqual(paree(2, 1, 'epreuve', [0, 0, 0]), [true, false, false])
+  assert.deepEqual(paree(2, 2, 'epreuve', [0, 0, 0]), [true, true, false])
+  // La version 1 garde la sienne : une manche à la Parade +, contre les gardiens aussi.
+  assert.deepEqual(paree(1, 2, 'gardien', [0, 0, 1]), [true, false, false])
+  assert.deepEqual(paree(1, 2, 'epreuve', [0, 0, 0]), [true, false, false])
+  assert.deepEqual(baremeDe({ v: VERSION_DE_LA_TRAVERSEE }).parade, { parees: B.ERREURS_PAREES, contreLesGardiens: B.PARADE_CONTRE_LES_GARDIENS })
+  // Chaque carte dit sa phrase au barème de la version de sa traversée, celle du jour d'office.
+  const parade = carteDeLaTraversee('parade')!
+  assert.match(parade.dit(2), /^Tes 2 premières manches ratées de chaque épreuve ne coûtent pas de cœur \(pas contre les gardiens\)/)
+  assert.match(parade.dit(3), /contre les gardiens aussi/)
+  assert.match(parade.dit(2, 1), /^Ta première manche ratée de chaque épreuve ne coûte pas de cœur, contre les gardiens aussi/)
 })
 
 test('une épreuve en cours ne compte que ses manches jugées : la vue d’une manche dit ce que valent les précédentes', () => {

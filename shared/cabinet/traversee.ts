@@ -93,8 +93,11 @@ export interface CarteDeLaTraversee {
   sorte: SorteDeCarte
   /** Le pouvoir qu'elle joue dans une manche (`partie.ts`) ; null : elle agit sur la traversée — l'or, les cœurs, le gardien. */
   pouvoir: CleDePouvoir | null
-  /** Ce qu'elle fait à ce niveau, en une phrase : le choix du départ, l'amélioration, la partie la disent. */
-  dit: (niveau: NiveauDeCarte) => string
+  /**
+   * Ce qu'elle fait à ce niveau, en une phrase : le choix du départ, l'amélioration, la partie la disent — au barème de
+   * la version de la traversée (la Parade de la 1 n'est pas celle de la 2), celle du jour d'office.
+   */
+  dit: (niveau: NiveauDeCarte, v?: VersionDeLaTraversee) => string
 }
 
 const FOIS = ['', 'Une fois', 'Deux fois', 'Trois fois'] as const
@@ -135,8 +138,11 @@ export const CARTES: readonly CarteDeLaTraversee[] = [
     nom: 'Parade',
     sorte: 'toujours',
     pouvoir: null,
-    dit: n =>
-      `${ERREURS_PAREES[n] > 1 ? `Tes ${ERREURS_PAREES[n]} premières manches ratées` : 'Ta première manche ratée'} de chaque épreuve ${ERREURS_PAREES[n] > 1 ? 'ne coûtent' : 'ne coûte'} pas de cœur${n >= PARADE_CONTRE_LES_GARDIENS ? ', contre les gardiens aussi' : ' (pas contre les gardiens)'}.`,
+    dit: (n, v = VERSION_DE_LA_TRAVERSEE) => {
+      const { parees, contreLesGardiens } = baremeDe({ v }).parade
+      const k = parees[n]
+      return `${k > 1 ? `Tes ${k} premières manches ratées` : 'Ta première manche ratée'} de chaque épreuve ${k > 1 ? 'ne coûtent' : 'ne coûte'} pas de cœur${n >= contreLesGardiens ? ', contre les gardiens aussi' : ' (pas contre les gardiens)'}.`
+    },
   },
   { cle: 'cagnotte', nom: 'Cagnotte', sorte: 'toujours', pouvoir: null, dit: n => `${OR_DE_LA_CAGNOTTE[n]} pièces de plus à chaque manche réussie.` },
   { cle: 'panacee', nom: 'Panacée', sorte: 'toujours', pouvoir: null, dit: n => `${unOuDes(COEURS_DE_LA_PANACEE[n], 'cœur', 'cœurs')} de plus au maximum.` },
@@ -578,17 +584,34 @@ export interface BaremeDeLaTraversee {
   prix: Readonly<Record<'coeur' | 'amelioration' | 'auPlusHaut', number>>
   /** Ce qu'une amélioration offerte (le coffre, le gardien vaincu) donne au plus. */
   niveauOffert: NiveauDeCarte
+  /** La Parade : les manches ratées parées à chaque épreuve, niveau par niveau, et le niveau dès lequel elle pare contre les gardiens. */
+  parade: { parees: Readonly<Record<Force, number>>; contreLesGardiens: Force }
 }
 
 /**
  * Le barème de chaque version : la 1 écrite en dur, telle qu'elle s'est jouée
  * du 31 octobre au 1er novembre 2026 — trop facile, ses cartes au plus haut
- * dès le deuxième gardien ; la 2 lit `bareme.ts`. Une version ne quitte jamais
- * cette table : sans elle, ses traversées ne se reliraient plus.
+ * dès le deuxième gardien, la Parade souveraine ; la 2 lit `bareme.ts`. Une
+ * version ne quitte jamais cette table : sans elle, ses traversées ne se
+ * reliraient plus.
  */
 const BAREMES_DES_VERSIONS: Readonly<Record<VersionDeLaTraversee, BaremeDeLaTraversee>> = {
-  1: { coeursDeDepart: 5, orParEtoile: 5, pvDesGardiens: [6, 8, 10], prix: { coeur: 25, amelioration: 45, auPlusHaut: 45 }, niveauOffert: 3 },
-  2: { coeursDeDepart: COEURS_DE_DEPART, orParEtoile: OR_PAR_ETOILE, pvDesGardiens: PV_DES_GARDIENS, prix: PRIX_DU_MARCHAND, niveauOffert: NIVEAU_OFFERT },
+  1: {
+    coeursDeDepart: 5,
+    orParEtoile: 5,
+    pvDesGardiens: [6, 8, 10],
+    prix: { coeur: 25, amelioration: 45, auPlusHaut: 45 },
+    niveauOffert: 3,
+    parade: { parees: { 1: 1, 2: 1, 3: 2 }, contreLesGardiens: 2 },
+  },
+  2: {
+    coeursDeDepart: COEURS_DE_DEPART,
+    orParEtoile: OR_PAR_ETOILE,
+    pvDesGardiens: PV_DES_GARDIENS,
+    prix: PRIX_DU_MARCHAND,
+    niveauOffert: NIVEAU_OFFERT,
+    parade: { parees: ERREURS_PAREES, contreLesGardiens: PARADE_CONTRE_LES_GARDIENS },
+  },
 }
 
 /** Le barème que lit une traversée, celui de sa version : son départ, sa vue — la page en compose ses phrases. */
@@ -983,7 +1006,9 @@ export function consequencesDe(
   const gardien = etape?.sorte === 'gardien'
   const n = (cle: CleDeCarte) => niveauDe(e.cartes, cle)
   const parade = n('parade')
-  const paresMax = parade !== 0 && (!gardien || parade >= PARADE_CONTRE_LES_GARDIENS) ? ERREURS_PAREES[parade] : 0
+  // La Parade de sa version : une traversée de la 1 garde la sienne, qui parait aussi chaque assaut dès la Parade +.
+  const regleDeLaParade = baremeDe(d).parade
+  const paresMax = parade !== 0 && (!gardien || parade >= regleDeLaParade.contreLesGardiens) ? regleDeLaParade.parees[parade] : 0
   const qod = n('quitte-ou-double')
   const mult = qod === 0 ? 1 : MULTIPLICATEUR_DE_LA_MISE[qod]
   const cagnotte = sous(OR_DE_LA_CAGNOTTE, n('cagnotte'), 0)

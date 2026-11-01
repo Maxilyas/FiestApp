@@ -39,7 +39,7 @@ Trois à jouer d'un geste dans une manche, cinq toujours actives, une qui ne ser
 | **Échange** | à jouer : une autre manche du même jeu, avant de répondre (Changer) — jamais à la Frise | 1 · 2 · 3 fois par épreuve |
 | **Quitte ou double** | à jouer : mise sur une manche avant de la voir ; réussie, son or double ou triple ; ratée, elle coûte deux cœurs (Miser) | une fois ×2 · une fois ×3 · deux fois ×3 |
 | **Concentration** | toujours : du temps en plus à chaque manche (Prendre son temps) | +10 · +20 · +30 s |
-| **Parade** | toujours : les premières manches ratées de chaque épreuve ne coûtent pas de cœur — contre les gardiens, dès la Parade + | 1 · 1 · 2 manches |
+| **Parade** | toujours : les premières manches ratées de chaque épreuve ne coûtent pas de cœur — contre les gardiens, à la Parade ++ seulement (dès la Parade + jusqu'au 1er novembre 2026, quand elle écrasait les neuf autres) | 1 · 2 · 2 manches |
 | **Cagnotte** | toujours : de l'or en plus à chaque manche réussie | +5 · +10 · +15 pièces |
 | **Panacée** | toujours : des cœurs de plus au maximum | +1 · +2 · +3 |
 | **Pourboire** | toujours : une remise chez le marchand, sur chaque achat | −10 · −20 · −30 pièces |
@@ -77,7 +77,7 @@ Ce que les tests de la maquette du musée ont fait changer, et que la traversée
 
 ## Les gardiens
 
-Vingt-et-un légendaires, rangés en trois cercles — six pour l'acte I, du Renard Lunaire au Scarabée ; huit pour l'acte II, du Sphinx au Serpent à plumes ; six pour l'acte III, du Dragon d'Or à la Comète —, plus la Citrouille à Halloween. **Chacun a sa devise et ses trois jeux**, qui tournent d'un assaut à l'autre (« Il ment avec aplomb. Démêle le vrai du faux. » — l'Éclair, le Pari, la Réplique), jamais la Frise, qui se construit sur trois manches ; trois gardiens qui posent des questions jouent aussi le Quiz — la Chouette, le Sphinx, le Kraken. Leurs points de vie : 6, 15, puis 22 étoiles, moins le Coup de grâce — 6, 8 et 10 jusqu'au 1er novembre 2026, quand le joueur moyen du calibrage gagnait quatre traversées sur cinq.
+Vingt-et-un légendaires, rangés en trois cercles — six pour l'acte I, du Renard Lunaire au Scarabée ; huit pour l'acte II, du Sphinx au Serpent à plumes ; six pour l'acte III, du Dragon d'Or à la Comète —, plus la Citrouille à Halloween. **Chacun a sa devise et ses trois jeux**, qui tournent d'un assaut à l'autre (« Il ment avec aplomb. Démêle le vrai du faux. » — l'Éclair, le Pari, la Réplique), jamais la Frise, qui se construit sur trois manches ; trois gardiens qui posent des questions jouent aussi le Quiz — la Chouette, le Sphinx, le Kraken. Leurs points de vie : 6, 13, puis 20 étoiles, moins le Coup de grâce — 6, 8 et 10 jusqu'au 1er novembre 2026, quand le joueur moyen du calibrage gagnait quatre traversées sur cinq.
 
 Un gardien qu'on a déjà reste un gardien à battre — la traversée se joue pour elle-même —, mais ceux qu'on n'a pas passent devant. Au bout, **le légendaire choisi est à lui pour toujours**, rangé sous le Cabinet (l'invariant 22) : un avatar, avec sa finition et son Éclat comme les autres. Aucun Divin n'y garde quoi que ce soit (l'invariant 21).
 
@@ -120,7 +120,7 @@ Le bouton dit la traversée en route — « Acte 2 sur 3 · 4 cœurs », « En r
 
 ## Ce qui vient ensuite
 
-- **Relire la traversée sur de vraies parties** : ses chiffres sont ceux du calibrage du 1er novembre 2026 (« Les cartes sont aussi très fortes », le propriétaire) — le moyen y gagne une traversée sur trois, le fort huit sur dix ([les barèmes](../reference/baremes.md#le-calibrage-du-cabinet)) —, sur un modèle de joueur que de vraies traversées corrigeront. **La Parade** y domine — le moyen qui l'emporte gagne 77 traversées sur cent — : la ramener dans le rang toucherait une carte, un choix laissé au propriétaire ([les décisions](../architecture/decisions.md), « La traversée, version 2 »).
+- **Relire la traversée sur de vraies parties** : ses chiffres sont ceux du calibrage du 1er novembre 2026 (« Les cartes sont aussi très fortes », le propriétaire) — le moyen y gagne une traversée sur trois, le fort huit sur dix ([les barèmes](../reference/baremes.md#le-calibrage-du-cabinet)) —, sur un modèle de joueur que de vraies traversées corrigeront. **La Parade**, qui écrasait les autres cartes (le moyen qui l'emportait gagnait 77 traversées sur cent), ne pare plus les gardiens qu'à la Parade ++ (« Tu peux toucher la parade si tu le souhaites pour affaiblir un peu la carte », le propriétaire) : elle reste la meilleure défense, 20 points au-dessus de la moyenne chez le joueur moyen, la Panacée et le Second souffle à 10 ([les décisions](../architecture/decisions.md), « La traversée, version 2 »).
 - **Effacer le musée** — son code, ses routes, ses tables —, s'il ne revient pas.
 - **Après la V1** : l'Épingle du monde ; le dévoilement, le rébus et les curiosités en jeux ; un dictionnaire pour le Mot mystère ; le signalement du contenu neuf ; une page du QG pour le Cabinet.
 
@@ -134,8 +134,9 @@ Le bouton dit la traversée en route — « Acte 2 sur 3 · 4 cœurs », « En r
 | L'or | 4 par étoile, plus la Cagnotte ; un gardien vaincu 30 ; une amélioration offerte qu'aucune carte ne prend 40 |
 | Les améliorations | offertes (le coffre, le gardien vaincu) jusqu'à la carte + ; la carte ++ chez le marchand seulement |
 | Le marchand | un cœur 25, vers la carte + 45, vers la carte ++ 150, jamais moins de 5 |
-| Les gardiens | 6, 15, 22 points de vie ; assauts de 3 manches |
-| Une traversée de la version 1, commencée avant la 2 | ses chiffres d'alors, jusqu'au bout : 5 cœurs, 5 pièces l'étoile, des gardiens à 6, 8, 10, la carte ++ offerte et à 45 |
+| Les gardiens | 6, 13, 20 points de vie ; assauts de 3 manches |
+| La Parade | 1, 2, 2 manches ratées parées par épreuve ; contre les gardiens à la Parade ++ |
+| Une traversée de la version 1, commencée avant la 2 | ses chiffres d'alors, jusqu'au bout : 5 cœurs, 5 pièces l'étoile, des gardiens à 6, 8, 10, la carte ++ offerte et à 45, la Parade à 1, 1, 2 et contre les gardiens dès la Parade + |
 | La difficulté | acte I facile, II moyen, III difficile ; un cran au-dessus contre les gardiens |
 | Une épreuve | 3 manches de 3 étoiles, une manche réussie à 2 étoiles naturelles |
 | Les durées | l'Épingle 45 s, la Frise 60, le Mot mystère 120, le Détail 45, le Filet 45, le Pari 35 par étape, l'Éclair 55, les Indices 75, la Réplique 25 par étape |

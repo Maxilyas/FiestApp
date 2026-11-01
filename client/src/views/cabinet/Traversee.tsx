@@ -81,6 +81,7 @@ export function CarteDeLaTraversee({
   bas,
   inerte,
   etiquette,
+  v,
 }: {
   cle: CleDeCarte
   niveau: NiveauDeCarte
@@ -89,6 +90,8 @@ export function CarteDeLaTraversee({
   bas?: ReactNode
   inerte?: boolean
   etiquette?: string
+  /** La version de la traversée, dont la carte dit les chiffres : la Parade de la 1 n'est pas celle de la 2. */
+  v?: VueDeLaTraversee['v']
 }) {
   const c = carteDeLaTraversee(cle)
   if (!c) return null
@@ -108,7 +111,7 @@ export function CarteDeLaTraversee({
         {niveau > 1 && <span className="cab-tv-plus">{` ${SIGNE[niveau]}`}</span>}
       </span>
       <span className={`cab-tv-sorte cab-tv-sorte-${c.sorte}`}>{etiquette ?? SORTES_DITES[c.sorte]}</span>
-      <span className="cab-tv-dit">{espacesFines(c.dit(niveau))}</span>
+      <span className="cab-tv-dit">{espacesFines(c.dit(niveau, v))}</span>
       {bas && <span className="cab-tv-bas">{bas}</span>}
     </>
   )
@@ -537,7 +540,7 @@ export function Traversee({ page, busy, onCommencer, onGeste, onRegles, onRepren
         <Feuille titre="Tes cartes" className="cab-tv-feuille" onFermer={() => setFeuille(null)}>
           <div className="cab-tv-cartes cab-tv-trois">
             {t.cartes.map(c => (
-              <CarteDeLaTraversee key={c.cle} cle={c.cle} niveau={c.niveau} etiquette={c.cle === 'second-souffle' && t.souffle ? 'Déjà servie' : undefined} />
+              <CarteDeLaTraversee key={c.cle} cle={c.cle} niveau={c.niveau} v={t.v} etiquette={c.cle === 'second-souffle' && t.souffle ? 'Déjà servie' : undefined} />
             ))}
           </div>
         </Feuille>
@@ -694,7 +697,7 @@ function ChoixDesCartes({
         </header>
         <div className="cab-tv-cartes">
           {CARTES.map(c => (
-            <CarteDeLaTraversee key={c.cle} cle={c.cle} niveau={1} prise={choix.includes(c.cle)} inerte={!choix.includes(c.cle) && complet} action={() => onChoisir(c.cle)} />
+            <CarteDeLaTraversee key={c.cle} cle={c.cle} niveau={1} v={v} prise={choix.includes(c.cle)} inerte={!choix.includes(c.cle) && complet} action={() => onChoisir(c.cle)} />
           ))}
         </div>
       </div>
@@ -843,14 +846,17 @@ function RegardSurLaCarte({ t, e, onRanger }: { t: VueDeLaTraversee; e: EtapeDeL
 
 // ── L'annonce d'une épreuve, d'un gardien ──
 
-/** Ce que tes cartes font à cette épreuve, une ligne chacune : celles qui y jouent — pas la Panacée ni le Pourboire, ni ce qui ne vise qu'un gardien. */
-function ceQueFontTesCartes(cartes: readonly CarteEnMain[], gardien: boolean): { nom: string; dit: string }[] {
-  return cartes.flatMap(c => {
+/**
+ * Ce que tes cartes font à cette épreuve, une ligne chacune : celles qui y jouent — pas la Panacée ni le Pourboire, ni
+ * ce qui ne vise qu'un gardien, ni la Parade contre un gardien sous le niveau où elle le pare (celui de sa version).
+ */
+function ceQueFontTesCartes(t: Pick<VueDeLaTraversee, 'cartes' | 'v'>, gardien: boolean): { nom: string; dit: string }[] {
+  return t.cartes.flatMap(c => {
     const carte = carteDeLaTraversee(c.cle)
     if (!carte) return []
-    if (c.cle === 'parade' && gardien && c.niveau < 2) return []
+    if (c.cle === 'parade' && gardien && c.niveau < baremeDe(t).parade.contreLesGardiens) return []
     if (c.cle === 'pourboire' || c.cle === 'panacee' || (c.cle === 'coup-de-grace' && !gardien)) return []
-    return [{ nom: nomAuNiveau(carte, c.niveau), dit: carte.dit(c.niveau) }]
+    return [{ nom: nomAuNiveau(carte, c.niveau), dit: carte.dit(c.niveau, t.v) }]
   })
 }
 
@@ -887,7 +893,7 @@ function AnnonceDeLEpreuve({
 }) {
   const jeu = e.jeu ?? 'pari'
   const j = JEUX[jeu]
-  const cartes = ceQueFontTesCartes(t.cartes, false)
+  const cartes = ceQueFontTesCartes(t, false)
   const choix = e.choix && e.choix.length > 0 ? e.choix : null
   const [choisi, setChoisi] = useState<number | null>(null)
   const pret = !choix || choisi !== null
@@ -966,7 +972,7 @@ function AnnonceDuGardien({ t, etape, busy, onAffronter, onRetour }: { t: VueDeL
   const pv = t.pv ?? { restent: pvDuGardien(t, a, t.cartes), max: pvDuGardien(t, a, t.cartes) }
   const assaut = t.assauts + 1
   const jeu = jeuDeLAssaut(g, assaut) ?? 'pari'
-  const cartes = ceQueFontTesCartes(t.cartes, true)
+  const cartes = ceQueFontTesCartes(t, true)
   const mise = t.cartes.find(c => c.cle === 'quitte-ou-double')
   return (
     <div className="cab-tv-ecran cab-tv-ecran-gardien">
@@ -1193,6 +1199,7 @@ function Amelioration({ t, busy, onAmeliorer }: { t: VueDeLaTraversee; busy: boo
                 key={c.cle}
                 cle={c.cle}
                 niveau={peut ? suivant : c.niveau}
+                v={t.v}
                 prise={prise === c.cle}
                 inerte={!peut}
                 etiquette={!peut ? pourquoi : `Niveau ${c.niveau} → ${suivant}`}
@@ -1256,7 +1263,7 @@ function Marchand({ t, busy, onAcheter, onPartir }: { t: VueDeLaTraversee; busy:
                 <img src={CARTES_PEINTES[c.cle]?.[1]} alt="" />
                 <span className="cab-tv-txt">
                   <b>{carte ? nomAuNiveau(carte, prix !== undefined ? suivant : c.niveau) : c.cle}</b>
-                  <small>{prix !== undefined && carte ? espacesFines(carte.dit(suivant)) : c.niveau >= NIVEAU_MAX ? 'Au plus haut' : 'Déjà servie'}</small>
+                  <small>{prix !== undefined && carte ? espacesFines(carte.dit(suivant, t.v)) : c.niveau >= NIVEAU_MAX ? 'Au plus haut' : 'Déjà servie'}</small>
                 </span>
                 {prix !== undefined && (
                   <button type="button" className="cab-tv-achat" aria-disabled={!peut || busy || undefined} {...toucher(() => peut && !busy && onAcheter('amelioration', c.cle))}>

@@ -554,8 +554,12 @@ export const OR_SANS_AMELIORATION = 40
  * haut avant le dernier acte. Jusqu'à la version 2, une amélioration offerte allait jusqu'au plus haut.
  */
 export const NIVEAU_OFFERT: Force = 2
-/** Les points de vie des trois gardiens, acte par acte : chaque étoile gagnée contre lui en retire un. 6, 8, 10 jusqu'à la version 2. */
-export const PV_DES_GARDIENS: readonly [number, number, number] = [6, 15, 22]
+/**
+ * Les points de vie des trois gardiens, acte par acte : chaque étoile gagnée contre lui en retire un. 6, 8, 10 jusqu'à
+ * la version 2 ; 15 et 22 aux actes II et III tant que la Parade y parait chaque assaut dès la Parade +, ramenés à 13
+ * et 20 quand elle a cessé de le faire — le moyen revient à une traversée sur trois.
+ */
+export const PV_DES_GARDIENS: readonly [number, number, number] = [6, 13, 20]
 /** Le marchand, avant chaque gardien : un cœur, une amélioration vers la carte +, et vers la carte ++ — 45 aussi jusqu'à la version 2. */
 export const PRIX_DU_MARCHAND: Readonly<Record<'coeur' | 'amelioration' | 'auPlusHaut', number>> = { coeur: 25, amelioration: 45, auPlusHaut: 150 }
 /** Un prix ne descend jamais sous tant de pièces, Pourboire compris. */
@@ -570,10 +574,16 @@ export const MISES_PAR_EPREUVE: Readonly<Record<Force, number>> = { 1: 1, 2: 1, 
 export const MULTIPLICATEUR_DE_LA_MISE: Readonly<Record<Force, number>> = { 1: 2, 2: 3, 3: 3 }
 /** … et les cœurs qu'une mise perdue coûte. */
 export const COEURS_D_UNE_MISE_PERDUE = 2
-/** Parade : les manches ratées qui ne coûtent rien, à chaque épreuve… */
-export const ERREURS_PAREES: Readonly<Record<Force, number>> = { 1: 1, 2: 1, 3: 2 }
-/** … et le niveau dès lequel elle pare aussi contre les gardiens. */
-export const PARADE_CONTRE_LES_GARDIENS: Force = 2
+/**
+ * Parade : les manches ratées qui ne coûtent rien, à chaque épreuve… Une, une, deux jusqu'à la version 2 de la
+ * traversée (`BAREMES_DES_VERSIONS`), quand elle parait aussi chaque assaut d'un gardien dès la Parade + : la carte
+ * qui l'emportait faisait gagner au joueur moyen du calibrage 77 traversées sur cent, 41 points de plus que toutes —
+ * « Tu peux toucher la parade si tu le souhaites pour affaiblir un peu la carte » (le propriétaire, le 1er novembre
+ * 2026). La Parade + en pare deux, la ++ aussi, et contre les gardiens : elle reste la meilleure défense, sans les écraser.
+ */
+export const ERREURS_PAREES: Readonly<Record<Force, number>> = { 1: 1, 2: 2, 3: 2 }
+/** … et le niveau dès lequel elle pare aussi contre les gardiens : la Parade ++, que le marchand seul vend (la Parade + à la version 1). */
+export const PARADE_CONTRE_LES_GARDIENS: Force = 3
 /** Cagnotte : l'or de plus à chaque manche gagnée. */
 export const OR_DE_LA_CAGNOTTE: Readonly<Record<Force, number>> = { 1: 5, 2: 10, 3: 15 }
 /** Panacée : les cœurs de plus au maximum. */
