@@ -10,7 +10,7 @@ paths:
 
 ## Les fichiers
 
-- `server/scripts/tests.mjs` — `npm test` : tous les `test/*.test.ts` en un `node --test`, un fichier de moins à la fois que de cœurs (trois sur quatre), 120 s, `dot` sous Claude Code ; `node scripts/tests.mjs test/<fichier>.test.ts` (depuis `server/`) en lance un sous les mêmes délais — la commande `spec` de `CLAUDE.md` n'en a aucun. En CI (`CI` posé), le TAP, puis les épreuves en échec redites en entier après le décompte : GitHub ne rend que les cinq mille dernières lignes d'un journal, et l'échec était au milieu de quinze mille (`compte-rendu-des-tests.test.ts`)
+- `server/scripts/tests.mjs` — `npm test` : tous les `test/*.test.ts` en un `node --test`, deux fichiers à la fois par cœur, seize au plus (huit sur quatre cœurs, le 1er novembre 2026 : près de la moitié de la suite attend de vraies minuteries, et trois à la fois prenaient 12 min 05 contre 6 min 21), 120 s, `dot` sous Claude Code ; `node scripts/tests.mjs test/<fichier>.test.ts` (depuis `server/`) en lance un sous les mêmes délais — la commande `spec` de `CLAUDE.md` n'en a aucun. En CI (`CI` posé), le TAP, puis les épreuves en échec redites en entier après le décompte : GitHub ne rend que les cinq mille dernières lignes d'un journal, et l'échec était au milieu de quinze mille (`compte-rendu-des-tests.test.ts`). La CI les répartit sur quatre machines (`--tranche=2/4` : le fichier de rang i à la tranche i modulo 4 ; `--liste` les écrit sans les lancer), le typecheck, le build et le smoke sur une cinquième, et `verifier` attend tout (`.github/workflows/ci.yml`, `tranches-des-tests.test.ts`) : un job de plus entre dans ses `needs` et sa vérification, sinon il passerait sans la garder
 - `server/test/banc.ts` — un vrai serveur sur deux bases jetables, redémarrable sur disque effacé, et de quoi lui parler (les rendus et `mesure-pages.ts` s'en servent aussi) ; ce qu'il fait en fond après sa réponse — la mesure des difficultés, refaite derrière la requête qui l'a trouvée périmée et que personne n'attend (règle `campagne.md`) — se relit jusqu'à l'avoir (`relireJusqua`), jamais derrière une pause fixe · `salle.ts` — le moteur seul, horloge à la main · `relais.ts` — une liaison qu'on gèle · `teintes.ts` — les couleurs de chaque thème lues dans sa feuille, et le contraste WCAG qu'on en tire (`design.test.ts`, `cabinet-ecran.test.ts`)
 - `server/scripts/smoke.ts` — sections 0 à 35 (24 à 29 sont devenues des fichiers de `server/test/`) ; la première assertion fausse arrête tout
 - `server/scripts/load-test.mjs` · `fake-player.mjs` · `qa-host.mjs` — une salle, un invité, un écran commun simulés contre un serveur qui tourne ; l'animateur par `ADMIN_LOGIN` / `ADMIN_PASSWORD` (`login.mjs`, `antoine` / `demo` par défaut)
@@ -27,7 +27,15 @@ paths:
   CI est plus lente qu'ici. Dix-sept épreuves à serveur jetable dans
   `cloture.test.ts` l'ont dépassé (« test timed out after 120000ms » sur le
   fichier) : un fichier qui approche la minute et demie se coupe par thème
-  (`credits.test.ts`), sans rien changer à ses épreuves.
+  (`credits.test.ts`), sans rien changer à ses épreuves. Huit fichiers à la
+  fois sur quatre cœurs le ralentissent encore : c'est sur ce pied-là qu'il
+  se mesure.
+- **Un script qui écrit ne sort pas par `process.exit()`** : vers un tuyau,
+  ce qu'il venait d'écrire n'était pas toujours parti — sous la charge, la
+  liste de `tests.mjs --liste` s'arrêtait une fois sur trois au milieu, code
+  0 (le 1er novembre 2026), et le récapitulatif des échecs de la CI, écrit
+  juste avant de sortir, risquait le même sort. Il pose `process.exitCode`
+  et laisse Node finir (`tranches-des-tests.test.ts`).
 - **`npm test` passe avant le build** — dans `npm run verify` comme en CI :
   `client/dist` n'existe pas encore (CI) ou date d'avant (chez soi). Un test
   qui lit une page servie démarre son banc avec `clientDist`

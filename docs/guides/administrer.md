@@ -1,11 +1,11 @@
 # Administrer FiestApp
 
-> Le guide de l'administrateur du serveur : entrer au QG (`/admin`), puis, page par page, ce qu'on y trouve et ce qu'on y fait — surveiller le serveur, prévenir les joueurs d'un problème et fermer ce qui ne marche pas, leur annoncer qu'il est réglé, clore une soirée laissée en plan, aider un joueur ou le modérer, veiller sur les salons, relire le catalogue, tenir les réserves de questions, relire les questions signalées, annuler un duel que l'adversaire n'a pas commencé, suivre les confettis.
+> Le guide de l'administrateur du serveur : entrer au QG (`/admin`), puis, page par page, ce qu'on y trouve et ce qu'on y fait — surveiller le serveur, prévenir les joueurs d'un problème et fermer ce qui ne marche pas, leur annoncer qu'il est réglé, mettre une nouveauté à l'affiche, clore une soirée laissée en plan, aider un joueur ou le modérer, veiller sur les salons, relire le catalogue, tenir les réserves de questions, relire les questions signalées, annuler un duel que l'adversaire n'a pas commencé, suivre les confettis.
 
-**Dans cette page** : [Entrer au QG](#entrer-au-qg) · [La vue d'ensemble](#la-vue-densemble) · [Le journal](#le-journal-de-tes-gestes) · [Les erreurs](#les-erreurs-et-les-pannes) · [Le serveur](#la-santé-du-serveur) · [La maintenance](#la-maintenance) · [Les annonces](#les-annonces) · [Les soirées](#les-soirées) · [Les profils](#les-profils-et-la-fiche-dun-joueur) · [Les salons](#les-salons) · [Le catalogue](#le-catalogue) · [Les signalements](#les-signalements) · [Le quiz du jour](#le-quiz-du-jour) · [La campagne](#la-campagne-et-les-sentiers) · [Le Cabinet](#le-cabinet-de-curiosités) · [Les duels](#les-duels) · [L'économie](#léconomie) · [Les comptes d'avant](#les-comptes-davant)
+**Dans cette page** : [Entrer au QG](#entrer-au-qg) · [La vue d'ensemble](#la-vue-densemble) · [Le journal](#le-journal-de-tes-gestes) · [Les erreurs](#les-erreurs-et-les-pannes) · [Le serveur](#la-santé-du-serveur) · [La maintenance](#la-maintenance) · [Les annonces](#les-annonces) · [Les nouveautés](#les-nouveautés-laffiche-et-la-pastille) · [Les soirées](#les-soirées) · [Les profils](#les-profils-et-la-fiche-dun-joueur) · [Les salons](#les-salons) · [Le catalogue](#le-catalogue) · [Les signalements](#les-signalements) · [Le quiz du jour](#le-quiz-du-jour) · [La campagne](#la-campagne-et-les-sentiers) · [Le Cabinet](#le-cabinet-de-curiosités) · [Les duels](#les-duels) · [L'économie](#léconomie) · [Les comptes d'avant](#les-comptes-davant)
 
 > [!NOTE]
-> Le QG a grandi page après page : chaque mode de jeu y a la sienne — le quiz du jour, la campagne, les duels —, l'économie et les signalements aussi ; « Animer » a commencé par les annonces, les événements et la mise en avant viendront à leur tour. Ce guide dit ce que chaque page montre et permet ; la place exacte d'un chiffre peut bouger.
+> Le QG a grandi page après page : chaque mode de jeu y a la sienne — le quiz du jour, la campagne, les duels —, l'économie et les signalements aussi ; « Animer » a commencé par les annonces, puis la mise en avant des nouveautés ; les événements viendront à leur tour. Ce guide dit ce que chaque page montre et permet ; la place exacte d'un chiffre peut bouger.
 
 ## Entrer au QG
 
@@ -34,6 +34,7 @@ Un autre animateur lit « Cette page est réservée à l'administrateur. » ; un
 | Le catalogue | `/admin#catalogue` | les copies de quiz proposées à tous |
 | Les signalements | `/admin#signalements` | les questions que les joueurs signalent, au quiz du jour et en campagne, et celles relues ces trente jours |
 | Les annonces | `/admin#annonces` | un message à tous les profils, lu une fois en haut de leur accueil — une panne réglée, une nouveauté —, avec des confettis pour chacun si tu veux |
+| Les nouveautés | `/admin#affiches` | une page à faire connaître — le Cabinet de curiosités qui ouvre —, en affiche en haut de chaque accueil et « Nouveau » sur son bouton, jusqu'à ce que chacun y aille ; des confettis à la première visite si tu veux |
 
 Le QG se tient à jour seul — le direct toutes les dix secondes, la vue d'ensemble toutes les cinq minutes et chaque fois que tu y reviens — et ne relit rien tant que l'onglet est caché. En tête, « En direct » ; si le serveur se tait, « Dernier relevé à 21 h 40 » ou « Le serveur ne répond pas ».
 
@@ -153,6 +154,20 @@ Sous le message, « Une question aux joueurs ? » : l'annonce devient une demand
 Les joueurs la voient sur leur accueil avec leurs boutons. « Plus tard » la laisse revenir à leur prochaine visite, jusqu'à ce qu'ils répondent, que tu la closes ou qu'un mois passe. Un joueur ne répond qu'une fois, et un profil créé après l'envoi n'est pas questionné.
 
 Dans « Les annonces faites », chaque question montre ses réponses : un décompte par choix ou par note, la moyenne d'une note, les mots libres avec le prénom de qui les a écrits. « Clore la question » la retire de l'accueil sans rien reprendre : les résultats et les confettis donnés restent. Retirer l'annonce ferme aussi les réponses.
+
+## Les nouveautés, l'affiche et la pastille
+
+Sous « Animer », après les annonces : pour faire connaître une page — le Cabinet de curiosités qui ouvre à tous, du neuf en boutique —, une affiche en haut de l'accueil de chaque profil, et « Nouveau » sur le gros bouton de sa page. Une annonce se lit une fois et raconte ce qui s'est passé ; l'affiche, elle, pousse vers une page tant qu'on n'y est pas allé. Chaque geste va au journal (filtre « Annonces »).
+
+- **La page qu'elle montre** : le Cabinet de curiosités, la campagne, le quiz du jour, les duels ou la boutique — celles qui ont leur adresse : c'est en servant la page que le serveur sait qui y est allé. Le défi de la semaine, sans adresse à lui, n'en est pas. Une seule affiche à la fois par page ; une page fermée ([la maintenance](#la-maintenance)) ne se montre qu'à qui y entre, et la page le dit avant que tu poses l'affiche.
+- **Son titre et sa phrase** : proposés d'office pour chaque page, à réécrire — 48 et 140 caractères au plus. L'aperçu la montre telle que les joueurs la verront : la scène peinte (les trois gardiens pour le Cabinet), « Nouveau », le titre, la phrase, et les deux gestes.
+- **Combien de temps** : une, deux, trois ou quatre semaines (deux d'office). Passé ce temps, elle se tait d'elle-même, sa pastille avec.
+- **Des confettis à la première visite ?** De 0 à 500, offerts à chaque profil la première fois qu'il ouvre la page pendant que l'affiche se montre — un profil créé après la pose aussi. Il les retrouve sur son accueil suivant, avec ton mot : « Pour ta première visite au Cabinet de curiosités ». Un don par profil, qui ne se reprend pas, et que l'économie compte parmi « Tes dons ».
+- **« Mettre à l'affiche »**, confirmé : chaque accueil la montre dès sa prochaine ouverture.
+- **Ce que le joueur en voit** : l'affiche, nocturne et dorée sous tous les thèmes, au-dessus de « À la une », avec le bouton qui mène à la page (« Entrer dans le Cabinet ») et « Plus tard », qui la range sur tous ses appareils. « Nouveau » reste sur le gros bouton de la page jusqu'à ce qu'il y aille. Dès qu'il ouvre la page — par l'affiche, son bouton ou un favori —, l'une et l'autre se taisent. Les invités sans profil ne la voient pas.
+- **Les affiches posées** : chacune, la plus récente d'abord — sa page, son titre, jusqu'à quand, combien de profils y sont allés, combien l'ont rangée sans y aller, les confettis offerts. « Retirer », confirmé, la tait à tous, sa pastille avec ; les confettis déjà offerts restent.
+
+Une réponse perdue en route ne fait pas poser deux affiches : refait, le même envoi répond « Cette affiche est déjà posée : la voici dans la liste ».
 
 ## Les soirées
 

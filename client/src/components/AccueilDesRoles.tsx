@@ -25,6 +25,8 @@ import { BOUTON_BIENTOT, BOUTON_EN_MAINTENANCE, PASTILLE_AVANT_PREMIERE, type Bo
 import { boutonEteint, cabinetIci } from '../maintenance'
 import { BlasonDeLigue } from './Blason'
 import { JourEtDefi } from './JourEtDefi'
+import { PastilleNouveau } from './AfficheDeLaNouveaute'
+import type { PageALAffiche } from '../../../shared/affiches'
 
 // L'accueil, selon qui le tient.
 //
@@ -207,6 +209,8 @@ export function boutonDuCabinet(c: CabinetDAccueil | undefined): { detail: strin
 
 /** Rien de fermé, rien d'essayé avant tout le monde. */
 const RIEN_DE_FERME: Partial<Record<PageEnMaintenance, BoutonDeLaPage>> = {}
+/** Aucune page à l'affiche. */
+const RIEN_DE_NOUVEAU: readonly PageALAffiche[] = []
 
 /**
  * L'accueil d'un profil : ce qu'on vient faire, en gros boutons — une soirée
@@ -224,7 +228,9 @@ const RIEN_DE_FERME: Partial<Record<PageEnMaintenance, BoutonDeLaPage>> = {}
  * Une page fermée — en maintenance, ou bientôt disponible — éteint son
  * bouton, et sa ligne dit pourquoi : on ne l'apprenait qu'en touchant. Le
  * défi fermé seul éteint sa tuile, sous son onglet. Une page qu'il essaie
- * avant tout le monde le dit d'une pastille.
+ * avant tout le monde le dit d'une pastille. Une page à l'affiche
+ * (`shared/affiches.ts`) dit « Nouveau » tant qu'il n'y est pas allé — après
+ * ce qui l'attend déjà là : « À jouer », un résultat, une traversée en route.
  */
 export function AccueilJouer({
   enCours,
@@ -240,6 +246,7 @@ export function AccueilJouer({
   etats = RIEN_DE_FERME,
   cabinet = cabinetIci(),
   remplacee = EXPEDITION_REMPLACEE,
+  nouvelles = RIEN_DE_NOUVEAU,
 }: {
   enCours: { nom: string; slug: string }[]
   onRejoindre: () => void
@@ -268,6 +275,8 @@ export function AccueilJouer({
    * code le sait. Une épreuve le force, pour lire l'accueil tel qu'il sera.
    */
   remplacee?: boolean
+  /** Les pages à l'affiche où il n'est pas encore allé (`ceQueMontreLAccueil`) : « Nouveau » sur leur bouton. */
+  nouvelles?: readonly PageALAffiche[]
 }) {
   // Joué aujourd'hui (à l'heure de Paris) : le bouton le dit, sans pastille.
   // Le jour vient du serveur : calculé ici, son `Intl` chargeait les données
@@ -283,6 +292,8 @@ export function AccueilJouer({
   }
   const pourquoi = (page: PageEnMaintenance) => espacesFines(etats[page] === 'bientot' ? BOUTON_BIENTOT : BOUTON_EN_MAINTENANCE)
   const enAvantPremiere = (page: PageEnMaintenance) => (etats[page] === 'avant-premiere' ? PASTILLE_AVANT_PREMIERE : undefined)
+  // Ce qu'aucune autre pastille ne dit : « Nouveau », sur la page d'une affiche qu'il n'a pas encore ouverte.
+  const nouveau = (page: PageALAffiche) => (nouvelles.includes(page) ? <PastilleNouveau /> : undefined)
   const laCampagne = boutonDeLaCampagne(campagne)
   const leDefi = boutonDuDefi(defi)
   const lesDuels = boutonDesDuels(duels)
@@ -310,7 +321,7 @@ export function AccueilJouer({
             icone={<Icon name="target" />}
             titre="La campagne"
             detail={laCampagne.detail}
-            pastille={laCampagne.pastille ?? enAvantPremiere('campagne')}
+            pastille={laCampagne.pastille ?? enAvantPremiere('campagne') ?? nouveau('campagne')}
             href={laCampagne.href}
           />
         )}
@@ -323,7 +334,7 @@ export function AccueilJouer({
               icone={<Icon name="sun" />}
               titre="Le quiz du jour"
               detail={eteinte('jour') ? pourquoi('jour') : duJour}
-              pastille={eteinte('jour') ? undefined : jour && !joueAujourdhui ? 'À jouer' : enAvantPremiere('jour')}
+              pastille={eteinte('jour') ? undefined : jour && !joueAujourdhui ? 'À jouer' : (enAvantPremiere('jour') ?? nouveau('jour'))}
               ferme={eteinte('jour')}
               href="/jour"
             />
@@ -358,7 +369,7 @@ export function AccueilJouer({
                   Résultat
                 </span>
               ) : (
-                enAvantPremiere('duels')
+                (enAvantPremiere('duels') ?? nouveau('duels'))
               )
             }
             compteur={lesDuels.compteur}
@@ -385,7 +396,7 @@ export function AccueilJouer({
             icone={<Icon name="landmark" />}
             titre="Le Cabinet de curiosités"
             detail={eteinte('cabinet') ? pourquoi('cabinet') : leCabinet.detail}
-            pastille={eteinte('cabinet') ? undefined : (leCabinet.pastille ?? enAvantPremiere('cabinet'))}
+            pastille={eteinte('cabinet') ? undefined : (leCabinet.pastille ?? enAvantPremiere('cabinet') ?? nouveau('cabinet'))}
             ferme={eteinte('cabinet')}
             href="/cabinet"
           />

@@ -17,16 +17,23 @@ Aucune dépendance de plus (`node:test`, `node:assert`), ni linter, ni formateur
 
 ### `npm run verify`
 
-`npm run check && npm run test && npm run build && npm run smoke`, arrêté à la première étape qui échoue — **avant chaque commit**. Une dizaine de minutes : sur la CI, de 8 min (5 octobre 2026) à 9 min 40 (13 octobre), puis 14 min 46 (1er novembre), dont 6 min 30 à 12 min 20 de tests, 70 s de smoke, 20 à 45 s de typecheck, 5 à 15 s de build ; c'est `server/test/` qui grandit.
+`npm run check && npm run test && npm run build && npm run smoke`, arrêté à la première étape qui échoue — **avant chaque commit**. Environ neuf minutes sur quatre cœurs (8 min 51 le 1er novembre 2026), dont six et demie de tests, 70 s de smoke, 20 à 45 s de typecheck, 5 à 20 s de build ; c'est `server/test/` qui grandit. Il en prenait quatorze et demie, dont 12 min 05 de tests, avant que les tests passent à huit fichiers à la fois (le même jour).
 
-La CI (`.github/workflows/ci.yml`, « Vérification ») joue ces quatre étapes après un `npm ci`, sur Node 22, vingt-cinq minutes au plus — un filet contre l'exécution qui pend : à quinze, la suite de `main` ne laissait plus que quatorze secondes, et une PR qui ajoutait des tests se faisait couper au milieu du smoke (le 1er novembre 2026) : à chaque poussée sur `main`, à chaque PR, ou à la main. Une exécution plus récente de la même branche annule la précédente.
+La CI (`.github/workflows/ci.yml`, « Vérification ») ne tenait plus sur une machine : de 8 min (5 octobre 2026) à 14 min 46 (1er novembre), dont 12 min 20 de tests, et sa borne de quinze minutes a coupé le smoke d'une PR qui ajoutait des tests. Depuis le 1er novembre 2026, elle se répartit sur cinq machines à la fois, après un `npm ci`, sur Node 22 :
+
+- **quatre tranches de tests** (`tests 1/4` … `tests 4/4`, `node scripts/tests.mjs --tranche=2/4`), deux à trois minutes chacune : chaque fichier dans une tranche et une seule ; une tranche qui échoue laisse les autres finir ;
+- **le typecheck, le build et le smoke** à la suite sur la cinquième (`typecheck, build et smoke`) ;
+- **`verifier`**, la vérification d'avant, qui garde son nom : elle attend les cinq, et ne passe que s'ils sont tous passés — jugée même quand l'une échoue ou est annulée (`if: always()`), car une vérification sautée passe pour réussie aux yeux de GitHub (`server/test/tranches-des-tests.test.ts`).
+
+Chacune a quinze minutes au plus, un filet contre l'exécution qui pend. Elle tourne à chaque poussée sur `main`, à chaque PR, ou à la main, et une exécution plus récente de la même branche annule la précédente. Le dépôt est public : ces machines ne coûtent rien.
 
 ### `npm test`
 
 `server/scripts/tests.mjs`, lancé depuis `server/` :
 
 - **la liste** : tous les `test/*.test.ts`, triés par nom — faite par le script, car Node 20 ne développe pas le motif ;
-- **un seul `node --test`** (`--import tsx`) : chaque fichier dans son processus, un de moins à la fois que la machine n'a de cœurs ;
+- **un seul `node --test`** (`--import tsx`) : chaque fichier dans son processus, **deux à la fois par cœur**, seize au plus (`--test-concurrency`, depuis Node 20.10) — près de la moitié de la suite attend de vraies minuteries sans rien calculer (l'ouverture d'une question, le calme avant sa révélation, la grâce) : le 1er novembre 2026, sur quatre cœurs, trois fichiers à la fois (le défaut de Node, un de moins que de cœurs) prenaient 12 min 05 pour 21 min de processeur, huit à la fois 6 min 21, près du plancher de ce processeur ;
+- **`--tranche=2/4`** ne lance que la deuxième tranche sur quatre — le fichier de rang i, dans l'ordre des noms, va à la tranche i modulo 4 —, et **`--liste`** écrit les fichiers qu'il lancerait, sans en lancer aucun : la CI s'en sert ;
 - **120 s au plus par épreuve — et, en Node 22, par fichier entier** (`--test-timeout=120000`) : un fichier qui approche la minute et demie se coupe par thème, comme `server/test/credits.test.ts` est né de `server/test/cloture.test.ts` ;
 - **un point par épreuve** (`--test-reporter=dot`) quand `CLAUDECODE` est posé — Claude Code le pose, et d'une commande qui échoue il ne lit que 10 000 caractères des 30 000 premiers : le TAP de toute la suite faisait 500 Ko, l'épreuve en échec n'y était jamais. Un terminal et la CI gardent le compte rendu de Node ;
 - **en CI, les échecs redits à la fin** (`CI` posé) : le TAP reste, et un second compte rendu, en points, redit après le décompte chaque épreuve en échec, en entier — GitHub ne rend que les cinq mille dernières lignes d'un journal, et le TAP de la suite en fait quinze mille : le 17 octobre 2026, deux exécutions rouges n'ont pas pu dire quelle épreuve avait échoué (`server/test/compte-rendu-des-tests.test.ts`) ;
@@ -172,6 +179,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/documentation.test.ts` — `README.md` et `docs/` relus contre le code : fichiers cités, liens, sommaire, `npm run`, et la référence des routes, événements, variables, tables, adresses et barèmes.
 - `server/test/liste-des-tests.test.ts` — chaque fichier de `server/test/` a sa ligne ici, sous son thème, une seule ; seules les trois aides de tous s'en passent. Le 26 octobre 2026, quatre-vingt-dix-huit n'avaient pas la leur.
 - `server/test/compte-rendu-des-tests.test.ts` — le compte rendu de `npm test` en CI : le TAP tel quel, puis chaque épreuve en échec redite en entier après le décompte, là où GitHub la montre encore.
+- `server/test/tranches-des-tests.test.ts` — la CI en quatre tranches ne perd rien : chaque fichier de `server/test/` dans une tranche et une seule (`--tranche`, `--liste`), chaque tranche lancée par la CI, et `verifier` rouge dès qu'une tranche ou le bout en bout l'est.
 - `server/test/vitrine.test.ts` — la vitrine publiée telle quelle sur GitHub Pages : chaque image et chaque lien dans le site, et l'aperçu d'un lien partagé publié avec la page, à la taille dite, sous 300 Ko.
 - `server/test/calendrier.test.ts` — la suite ne dépend pas du jour où elle tourne : chaque calendrier de saison fermé au banc et au smoke, ouvert partout ailleurs.
 - `server/test/emojis.test.ts` — aucun emoji postérieur à Unicode 12 dans le client, `shared/`, `server/src/` et `server/content/`.
@@ -312,6 +320,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/qg-economie.test.ts` — l'économie au QG : les confettis gagnés et dépensés source par source, ceux qui circulent — égaux aux soldes des profils, au confetti près —, les meilleures ventes, les Éclats et les légendaires portés.
 - `server/test/maintenance.test.ts` — le bandeau rouge et les pages fermées le temps d'une réparation, puis bientôt disponibles à leurs seuls testeurs ; chaque porte relue dans le routeur.
 - `server/test/annonces.test.ts` — les annonces à tous : un message lu une fois en haut de chaque accueil, des confettis pour chacun en un seul lot, une question à poser, une réponse par profil.
+- `server/test/affiches.test.ts` — l'affiche des nouveautés : posée au QG, une par page, montrée sur chaque accueil et « Nouveau » sur le bouton de sa page jusqu'à la visite — notée quand le serveur sert la page, ses confettis offerts une fois, même après un redémarrage —, « Plus tard » qui la range, sa fin, son retrait, une page fermée qui ne compte pas, le Cabinet là où il ne s'ouvre pas, un profil supprimé ; et l'affiche et les pastilles rendues.
 
 ### Les profils et la collection
 
@@ -575,7 +584,9 @@ Une partie est une série de la campagne (`mode = 'cabinet'`), qui n'y touche qu
 - `server/test/cabinet-ecran-neufs.test.ts` — de même pour l'Épingle, les Indices et la Réplique : la carte de France, ses calculs et ses gestes, jamais le lieu hors du dessin ; les pas de l'Épingle retenus au profil ; le souffle des noms ; la Réplique quittée au bon mot ; tes murs, que leur route rend encore.
 - `server/test/cabinet-mots-du-musee.test.ts` — chaque phrase que la tablée du 26 octobre 2026 a lue de travers, rendue sur ce que le serveur rend : le cartel d'une œuvre gagnée à un autre jeu que le sien, et d'une doublée ; deux cadres vides qui ne portent plus le même nom à l'oreille ; le carnet de l'Éclair ; le Scarabée ; le musée qui ne promet plus deux minutes ; le titre de l'œuvre au bilan ; et les mots de la documentation.
 - `server/test/cabinet-calibrage.test.ts` — le calibrage (`server/scripts/calibrage-cabinet.ts`) joue les règles du code : ses planchers, une mesure stable, son plafond, et ce que fait un joueur au hasard au Filet, au Détail et au Mot.
-- `server/test/cabinet-calibrage-modele.test.ts` — le modèle du calibrage, corrigé après la tablée du 25 octobre 2026 : le rang selon la force, le Filet, les œuvres de départ, « Changer », la zone d'Éclairer, la Frise en années.
+- `server/test/cabinet-calibrage-modele.test.ts` — le modèle du calibrage, corrigé après la tablée du 25 octobre 2026 — ce que le joueur sait : le rang selon la force aux Indices, la marche au Filet, le temps du Pari, la zone d'Éclairer à l'Épingle, le joueur « tablée », la Frise en années.
+- `server/test/cabinet-calibrage-cartes.test.ts` — le même modèle, ses cartes-bonus : la mise au Détail sans rien savoir, Changer qui paie sa lecture et ne lit pas l'avenir, Miser jamais pire que sans carte.
+- `server/test/cabinet-calibrage-parties.test.ts` — le même modèle, ses parties et le musée : les quatre œuvres de départ au tableau des jeux, le chasseur qui éveille son gardien avant l'occasionnel, jamais plus de parties parfaites qu'à sept étoiles. Les trois se coupent sur leurs thèmes : en un seul fichier, 117 s à huit fichiers à la fois (le 1er novembre 2026).
 - `server/test/calibrage-du-cabinet.ts` — pas un fichier de tests : le calibrage lancé et lu comme ses deux fichiers d'épreuves le font — un seul en durait plus d'une minute.
 
 ## Pour aller plus loin

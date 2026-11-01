@@ -1096,6 +1096,7 @@ Toutes les sources et toutes les dépenses, avec leur valeur : la ligne de chaqu
 | Gain | Un don de l'administrateur, avec un mot facultatif, coupé à 140 caractères (`MOT_D_UN_DON_MAX`) | de 1 à 500 | `CONFETTIS_PAR_DON_MAX` (`shared/profil.ts`) ; `offrirDesConfettis` |
 | Gain | Une annonce de l'administrateur à tous : un don par profil d'alors, sans les suspendus | de 0 à 500 chacun | `CONFETTIS_PAR_DON_MAX` (`shared/profil.ts`) ; `annoncerATous`, `profile_dons` |
 | Gain | La réponse d'un profil à la question d'une annonce : un don par réponse, une fois | de 0 à 500 par réponse | `CONFETTIS_PAR_DON_MAX` (`shared/profil.ts`) ; `repondreALAnnonce`, `profile_dons` |
+| Gain | La première visite d'une page à l'affiche (`shared/affiches.ts`), pendant que l'affiche se montre : un don par profil et par affiche | de 0 à 500, au choix du QG | `CONFETTIS_PAR_DON_MAX` (`shared/profil.ts`) ; `noterUneVisite`, `profile_dons` |
 | Gain | Les missions du jour : chacune faite, et les trois le même jour | 15 chacune, 15 de plus pour les trois — 60 au plus par jour | `CONFETTIS_D_UNE_MISSION`, `CONFETTIS_DES_TROIS` (`shared/missions.ts`) ; `profile_missions` |
 | Gain | Le coffre de la semaine, à sa rareté commune (ou quand il a déjà tout le reste) | bois 60, argent 90, or 120, royal 150 | `CONFETTIS_DU_COFFRE` (`shared/coffre.ts`) ; `profile_coffres` |
 | Dépense | Un thème, une fois chacun | 150, 250, 400, 650 ou 1 000 | `PRIX_DES_THEMES` (`shared/themes.ts`) ; `profile_achats` |
@@ -1221,6 +1222,11 @@ Les sessions, les essais, les codes, et ce que le QG surveille : [administrer](.
 | `MOT_MAX` | 200 | `shared/annonces.ts` | Un mot libre en réponse, en caractères | Comme le message d'une annonce |
 | `MOTS_MONTRES` | 100 | `shared/annonces.ts` | Les mots libres que le QG lit par annonce, le plus récent d'abord | Affichage seul |
 | `MOT_D_UN_DON_MAX` | 140 | `shared/profil.ts` | Le mot d'un don, en caractères | Affiché sur l'accueil du joueur |
+| `TITRE_D_AFFICHE_MAX` | 48 | `shared/affiches.ts` | Le titre de l'affiche d'une nouveauté (`/admin#affiches`), en caractères | Deux lignes de la serif en 360 de large : plus long, l'affiche repousse les gros boutons sous le pli ; un titre trop long se refuse, il ne se coupe pas |
+| `PHRASE_D_AFFICHE_MAX` | 140 | `shared/affiches.ts` | La phrase sous son titre, en caractères | Trois lignes au téléphone ; refusée trop longue, jamais coupée |
+| `JOURS_A_L_AFFICHE` | 7 · 14 · 21 · 28 | `shared/affiches.ts` | Les durées qu'une affiche peut prendre, en jours, au choix du QG | Un choix de produit : assez pour que chacun repasse sur son accueil, pas au point qu'une nouveauté le reste des mois ; la pastille « Nouveau » vit autant que l'affiche |
+| `JOURS_D_OFFICE` | 14 | `shared/affiches.ts` | La durée que le QG propose d'office | Affichage seul : la page la propose, l'administrateur choisit |
+| `AFFICHES_MONTREES` | 50 | `shared/affiches.ts` | Les affiches que la page des nouveautés du QG liste, la plus récente d'abord | Affichage seul |
 | `BANDEAU_MAX` | 140 | `shared/maintenance.ts` | Le bandeau rouge de la page « Maintenance » du QG, en caractères | Il se lit au-dessus de chaque page hors d'une soirée : plus long, il repousse les gros boutons de l'accueil sous le pli d'un téléphone ; un texte trop long se refuse, il ne se coupe pas |
 | `SIGNALEMENTS_MONTRES_AU_QG` | 50 | `shared/qgSignalements.ts` | Les questions à relire que la page des signalements lit de chaque mode, les plus récemment signalées d'abord | Affichage seul : à ce compte, la page dit que d'autres attendent, et elles paraissent à mesure |
 | `JOURS_DES_RELUS` | 30 | `shared/qgSignalements.ts` | Les jours que l'onglet « Relues » de la page des signalements remonte | Affichage seul : chaque signalement garde son issue en base |

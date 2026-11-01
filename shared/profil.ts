@@ -18,6 +18,7 @@
 // performance.
 
 import type { QuestionAPoser } from './annonces'
+import type { AfficheDAccueil } from './affiches'
 import type { BadgePorte } from './badges'
 import type { HautFaitVu } from './hautsfaits'
 import type { DivinDescendu } from './divins'
@@ -1137,6 +1138,13 @@ export type ProfilDAccueil = PublicProfile &
     fete?: { cle: CleDeSaison; timbre: boolean }
     /** Ce que l'administrateur a fait pour lui ce dernier mois, à lui dire une fois. Absent s'il n'y a rien. */
     annonces?: AnnonceDeLAdministrateur[]
+    /**
+     * Les affiches en cours dont il n'a pas encore ouvert la page
+     * (`shared/affiches.ts`), la plus récente d'abord : l'accueil montre en
+     * grand la première qu'il n'a pas rangée, et « Nouveau » sur le bouton de
+     * chaque page. Lues dans le lot de ses dons. Absentes s'il n'y en a pas.
+     */
+    affiches?: AfficheDAccueil[]
   }
 
 /** Un prix de soirée dans la collection d'un profil : zéro fois, il manque encore. */
