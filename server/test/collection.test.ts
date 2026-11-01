@@ -45,17 +45,23 @@ function mettreAuNiveau(banc: Banc, login: string, niveau: number) {
   }
 }
 
-test('un emoji de collection à chaque niveau qui n’ouvre pas de finition, du 2 au 17 — aucun à l’inscription', () => {
-  const niveaux = [...COLLECTION.map(c => c.niveau), ...Object.values(NIVEAU_FINITION).filter(n => n <= 17)]
+test('un emoji de collection à chaque niveau qui n’ouvre pas de finition, du 2 au 29 — aucun à l’inscription', () => {
+  // Jusqu'au 29 : les plus assidus de la production y arrivent, et montaient
+  // du 18 au 29 sans rien recevoir.
+  const niveaux = [...COLLECTION.map(c => c.niveau), ...Object.values(NIVEAU_FINITION).filter(n => n <= 29)]
   assert.deepEqual(
     niveaux.sort((a, b) => a - b),
-    Array.from({ length: 17 }, (_, i) => i + 1),
-    'chaque niveau jusqu’au 17 ouvre une chose, et une seule',
+    Array.from({ length: 29 }, (_, i) => i + 1),
+    'chaque niveau jusqu’au 29 ouvre une chose, et une seule',
   )
+  assert.equal(new Set(COLLECTION.map(c => c.emoji)).size, COLLECTION.length, 'deux niveaux n’ouvrent jamais le même emoji')
   for (const c of COLLECTION) {
     assert.ok(!AVATARS.includes(c.emoji), `${c.emoji} ne se choisit pas à l’inscription`)
+    assert.notEqual(c.emoji, DEFAULT_AVATAR, `${c.emoji} n’est pas l’avatar par défaut`)
     assert.equal(Array.from(c.emoji).length, 1, `${c.emoji} tient en un seul point de code`)
   }
+  assert.equal(niveauRequis('🌋'), 29)
+  assert.deepEqual(collectionGagnee(17, 29), ['🦝', '🦑', '🦓', '🦒', '🦘', '🦢', '🦕', '🧜', '🧚', '🌋'], 'du 18 au 29, dix emojis, du plus bas au plus haut')
   assert.equal(niveauRequis('🦊'), 0)
   assert.equal(niveauRequis('🦔'), 7)
   assert.equal(niveauRequis(HERISSON_VARIANTE), 7, 'un sélecteur de variante ne le cache pas')

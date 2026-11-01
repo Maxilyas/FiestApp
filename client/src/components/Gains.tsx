@@ -11,6 +11,8 @@ import { espacesFines, formatNumber } from '../format'
 import { collectionGagnee, COLLECTION } from '../../../shared/avatars'
 import { GERBES } from '../../../shared/gerbes'
 import { NOM_FINITION, finitionsOuvertes, type Finition, type PublicProfile } from '../../../shared/profil'
+import { DE_LA_PIERRE, pierreGagnee } from '../../../shared/pierres'
+import { Niveau as Pastille } from './Niveau'
 import { TROPHEES_MONTRES, totalDeLXp, type ObjetAPorter, type PartDeLXp, type TropheeTombe } from '../../../shared/gains'
 
 // L'écran de gains, le même dans chaque mode (l'écran A, choisi par le
@@ -104,6 +106,7 @@ function Niveau({ n }: { n: NiveauDeLaFin }) {
   }, [])
   const monte = n.avant !== null && n.niveau > n.avant
   const finitions = finitionsNeuves(n)
+  const pierre = monte ? pierreGagnee(n.avant, n.niveau) : null
   const { acquis, requis } = n
   return (
     <div className="gains-niveau">
@@ -121,6 +124,12 @@ function Niveau({ n }: { n: NiveauDeLaFin }) {
       {finitions.length > 0 && (
         <p className="gains-finition">
           Nouvelle finition : <b>{finitions.map(f => NOM_FINITION[f]).join(', ')}</b>
+        </p>
+      )}
+      {/* Une dizaine passée, dès le 30 : la pastille que la salle voit change de pierre — elle se dit ici, montrée. */}
+      {pierre && (
+        <p className="gains-finition">
+          Ta pastille de niveau se pare <b>{DE_LA_PIERRE[pierre]}</b> <Pastille niveau={n.niveau} />
         </p>
       )}
     </div>

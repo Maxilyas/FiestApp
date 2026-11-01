@@ -18,11 +18,18 @@ export const MAX_NAME_LENGTH = 24
 
 /**
  * Les emojis de collection : un par niveau qui n'ouvre pas de finition, du 2
- * au 17 (`NIVEAU_FINITION`, `shared/profil.ts`, a les autres). On passait
+ * au 29 (`NIVEAU_FINITION`, `shared/profil.ts`, a les autres). On passait
  * sinon trois niveaux sans rien gagner entre deux finitions. Réservés aux
  * profils : l'écran d'inscription ne les propose pas, et le serveur ne les
  * rend qu'au profil qui a le niveau (`ProfileStore.avatarPorte`). Chacun est
  * un seul point de code, antérieur à Unicode 13 comme les autres.
+ *
+ * Ils s'arrêtaient au 17 : les plus assidus, bientôt au niveau 30 en
+ * production, montaient douze niveaux sans rien recevoir — le souhait du
+ * propriétaire du 1er novembre 2026 était de les récompenser. Ceux d'après le
+ * 29 attendent les finitions de prestige, dont les niveaux ne sont pas encore
+ * choisis : posé trop tôt, un emoji qu'il faudrait déplacer d'un niveau
+ * plus haut serait repris à qui l'a déjà.
  */
 export const COLLECTION: readonly { emoji: string; niveau: number }[] = [
   { emoji: '🦚', niveau: 2 },
@@ -37,6 +44,16 @@ export const COLLECTION: readonly { emoji: string; niveau: number }[] = [
   { emoji: '🦦', niveau: 14 },
   { emoji: '🐲', niveau: 16 },
   { emoji: '🪐', niveau: 17 },
+  { emoji: '🦝', niveau: 18 },
+  { emoji: '🦑', niveau: 19 },
+  { emoji: '🦓', niveau: 21 },
+  { emoji: '🦒', niveau: 22 },
+  { emoji: '🦘', niveau: 23 },
+  { emoji: '🦢', niveau: 24 },
+  { emoji: '🦕', niveau: 26 },
+  { emoji: '🧜', niveau: 27 },
+  { emoji: '🧚', niveau: 28 },
+  { emoji: '🌋', niveau: 29 },
 ]
 
 /**

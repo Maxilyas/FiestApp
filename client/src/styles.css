@@ -3906,6 +3906,30 @@ h3 > .icon {
 
 .niveau.big { font-size: 0.95rem; }
 
+/* ── La pierre du niveau ───────────────────────────────────────────────
+
+   Dès le niveau 30, la pastille prend la pierre de sa dizaine
+   (`pierreDuNiveau`, `shared/pierres.ts`) : le saphir, l'améthyste, puis
+   l'ambre au 50 — les couleurs des raretés de l'album, que chacun sait déjà
+   lire. Une convention, comme le rouge des messages : aucun thème ne la
+   repeint — `body` la fait passer devant leurs `:root[data-theme] .niveau`
+   (`pierres.test.ts`). Chaque teinte de son dégradé tient le chiffre à 4,5:1
+   au moins. La carte la sertit dans le métal de son cadre (`.carte-gemme-pierre`). */
+.pierre-saphir,
+.carte-gemme-saphir { --pierre-haut: #3a6fd0; --pierre-coeur: #2a5fc2; --pierre-bas: #1b438f; --pierre-bord: #163a85; --pierre-encre: #ffffff; --pierre-ombre: rgba(0, 0, 0, 0.3); }
+.pierre-amethyste,
+.carte-gemme-amethyste { --pierre-haut: #8a55e6; --pierre-coeur: #6c35cc; --pierre-bas: #4a2296; --pierre-bord: #3f1c80; --pierre-encre: #ffffff; --pierre-ombre: rgba(0, 0, 0, 0.3); }
+.pierre-ambre,
+.carte-gemme-ambre { --pierre-haut: #ffd978; --pierre-coeur: #f2b84b; --pierre-bas: #c98a1c; --pierre-bord: #a8701a; --pierre-encre: #3a2206; --pierre-ombre: rgba(255, 255, 255, 0.35); }
+:root body .niveau.pierre {
+  border: 1px solid var(--pierre-bord);
+  background: linear-gradient(180deg, var(--pierre-haut), var(--pierre-coeur) 55%, var(--pierre-bas));
+  color: var(--pierre-encre);
+  font-weight: 700;
+  text-shadow: 0 1px 0 var(--pierre-ombre);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
 /* ── Le laurier du vainqueur d'hier ────────────────────────────────────── */
 
 /* Doré, à la taille du texte qu'il suit — en `em` : il grandit avec la
@@ -6310,6 +6334,19 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
   box-shadow: inset 0 0 0 2px var(--gemme-filet), 0 2px 6px rgba(0, 0, 0, 0.35);
 }
 .carte-gemme-mot { font-size: var(--t-label); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+/* Dès le 30, la pierre de sa dizaine, taillée, sertie dans le métal de son
+   cadre — celui de sa ligue, ou le champagne de tous. Son reflet reste au
+   bord, hors du chiffre. */
+.carte-gemme.carte-gemme-pierre {
+  border: 3px solid transparent;
+  background:
+    radial-gradient(circle at 26% 22%, rgba(255, 255, 255, 0.7) 0 5%, rgba(255, 255, 255, 0) 12%) padding-box,
+    conic-gradient(from 200deg, var(--pierre-haut), var(--pierre-coeur) 25%, var(--pierre-bas) 50%, var(--pierre-coeur) 75%, var(--pierre-haut)) padding-box,
+    var(--cadre) border-box;
+  color: var(--pierre-encre);
+  text-shadow: 0 1px 0 var(--pierre-ombre);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
 /* L'illustration : son avatar en grand, dans un cadre du métal de la carte.
    Les deux faces ayant la taille de la plus grande, la place qui reste au
    recto va à elle. */

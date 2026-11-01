@@ -218,9 +218,9 @@ test('seulement ce qu’il a : ni cadenas ni fantômes — ce qui reste se compt
   ])
   // Ce qui reste sur sa page de l'album, compté, et son chemin — les espaces fines de `espacesFines` comprises —, les formes de la luciole avec.
   assert.match(commune, /href="#collection-avatars-commune">15 avatars communs à gagner\s:\soù\s\?/)
-  assert.match(await page('peucommune'), /href="#collection-avatars-peucommune">13 avatars peu communs à gagner\s:\soù\s\?/)
+  assert.match(await page('peucommune'), /href="#collection-avatars-peucommune">23 avatars peu communs à gagner\s:\soù\s\?/)
   // Les offerts mènent à tout l'album : ce qui reste de toutes ses pages.
-  assert.match(await page('offert'), /href="#collection-avatars">131 avatars à gagner\s:\soù\s\?/)
+  assert.match(await page('offert'), /href="#collection-avatars">141 avatars à gagner\s:\soù\s\?/)
   // Un Divin ne dit pas comment : rien à compter sous sa page (invariant 21).
   assert.doesNotMatch(await page('divin'), /loge-a-gagner/)
   // Les compagnons, à la rareté de leur forme : le louveteau commun, le jeune loup rare.
@@ -234,7 +234,7 @@ test('seulement ce qu’il a : ni cadenas ni fantômes — ce qui reste se compt
   assert.ok(!casesDe(await page('legendaire', { ...HABITUE, compagnons: [{ compagnon: 'loup', rang: 3 }] })).some(c => c.nom.startsWith('Le loup-tempête')), 'pas sans l’Éclat')
   // Le premier jour : les offerts seuls, et ce qui reste de tout l'album.
   assert.deepEqual((await sesPages(DEBUTANT)).map(p => p.page), ['offert'])
-  assert.match(await page('offert', DEBUTANT), /href="#collection-avatars">147 avatars à gagner\s:\soù\s\?/)
+  assert.match(await page('offert', DEBUTANT), /href="#collection-avatars">157 avatars à gagner\s:\soù\s\?/)
 })
 
 test('la carte montre une case — son halo d’or —, celle qu’il porte garde sa coche, et rien ne bouge sous le doigt', async () => {

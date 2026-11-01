@@ -361,6 +361,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/hautsfaits.test.ts` — hauts faits, paliers, légendaires.
 - `server/test/legendaires.test.ts` — durcir un légendaire ne reprend rien.
 - `server/test/niveaux.test.ts` — personne ne redescend de niveau.
+- `server/test/pierres.test.ts` — dès le niveau 30, la pastille et la gemme de la carte prennent la pierre de leur dizaine ; leur chiffre se lit, aucun thème ne la repeint.
 - `server/test/eclat.test.ts` — ce qui éclate.
 - `server/test/eclat-hors-soiree.test.ts` — l'Éclat au quiz du jour et au défi.
 - `server/test/eclat-reserve.test.ts` — l'Éclat tombé sur un avatar déjà éclaté attend en réserve, puis se dépense pour toujours sur un autre avatar à lui, jamais un Divin.
