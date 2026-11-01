@@ -571,12 +571,11 @@ export function ProfilApp() {
   // ── L'accueil : qui l'on est en une ligne, puis ce qu'on vient faire ──
   if (VUE === 'accueil') {
     const etats = boutonsDesPages()
-    const cabinet = cabinetIci()
     // Une affiche ne mène qu'à une page qui lui est ouverte : ni en maintenance, ni bientôt disponible sans qu'il l'essaie,
     // ni le Cabinet là où il ne s'ouvre pas — son gros bouton y serait éteint, ou absent.
     const { grande, nouvelles } = ceQueMontreLAccueil(
       ('affiches' in profil ? profil.affiches : undefined) ?? [],
-      page => etats[page] !== 'maintenance' && etats[page] !== 'bientot' && (page !== 'cabinet' || cabinet),
+      page => etats[page] !== 'maintenance' && etats[page] !== 'bientot' && (page !== 'cabinet' || cabinetIci()),
       affichesRangees,
     )
     const rangerLAffiche = (id: string) => {
@@ -633,7 +632,7 @@ export function ProfilApp() {
           traversee={'cabinet' in profil ? profil.cabinet : undefined}
           fete={'fete' in profil ? profil.fete : undefined}
           etats={etats}
-          cabinet={cabinet}
+          cabinet={cabinetIci()}
           nouvelles={nouvelles}
         />
         {/* Sous ce qu'on vient faire : l'application à installer — et, installée, le rappel du soir. */}
