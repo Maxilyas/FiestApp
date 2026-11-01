@@ -17,9 +17,9 @@ Aucune dépendance de plus (`node:test`, `node:assert`), ni linter, ni formateur
 
 ### `npm run verify`
 
-`npm run check && npm run test && npm run build && npm run smoke`, arrêté à la première étape qui échoue — **avant chaque commit**. Une dizaine de minutes : sur la CI, de 8 min (5 octobre 2026) à 9 min 40 (13 octobre), dont 6 min 30 à 8 min de tests, 70 s de smoke, 20 à 30 s de typecheck, 5 s de build ; c'est `server/test/` qui grandit.
+`npm run check && npm run test && npm run build && npm run smoke`, arrêté à la première étape qui échoue — **avant chaque commit**. Une dizaine de minutes : sur la CI, de 8 min (5 octobre 2026) à 9 min 40 (13 octobre), puis 14 min 46 (1er novembre), dont 6 min 30 à 12 min 20 de tests, 70 s de smoke, 20 à 45 s de typecheck, 5 à 15 s de build ; c'est `server/test/` qui grandit.
 
-La CI (`.github/workflows/ci.yml`, « Vérification ») joue ces quatre étapes après un `npm ci`, sur Node 22, quinze minutes au plus : à chaque poussée sur `main`, à chaque PR, ou à la main. Une exécution plus récente de la même branche annule la précédente.
+La CI (`.github/workflows/ci.yml`, « Vérification ») joue ces quatre étapes après un `npm ci`, sur Node 22, vingt-cinq minutes au plus — un filet contre l'exécution qui pend : à quinze, la suite de `main` ne laissait plus que quatorze secondes, et une PR qui ajoutait des tests se faisait couper au milieu du smoke (le 1er novembre 2026) : à chaque poussée sur `main`, à chaque PR, ou à la main. Une exécution plus récente de la même branche annule la précédente.
 
 ### `npm test`
 

@@ -24,7 +24,7 @@ qui arrive d'elle-même quand tu ouvres un de ses fichiers.
 ```bash
 npm run verify     # check + test + build + smoke — À LANCER AVANT DE COMMITTER
 npm run dev        # serveur (port 3001) + client, http://localhost:5173
-npm test           # les tests de server/test/ (node:test, sept à huit minutes sur la CI)
+npm test           # les tests de server/test/ (node:test, une douzaine de minutes sur la CI)
 npm run smoke      # le test de bout en bout seul (~70 s)
 npm run check      # le typage seul, serveur et client
 npm run sauvegarde # la base permanente (QUIZ_DB_URL, ou l'adresse donnée) en SQL daté, dans export/sauvegardes/
