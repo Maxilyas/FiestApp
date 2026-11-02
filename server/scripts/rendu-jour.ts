@@ -2,7 +2,7 @@
 // téléphone (360 × 640) sur un serveur jetable : l'accueil du jour avec une
 // série en cours et la veille à raconter, une partie jouée jusqu'à sa fin —
 // et l'Éclat qu'elle fait tomber, forcé —, le jour joué qu'on retrouve en
-// revenant, sa correction, et la boutique — ses objets, la
+// revenant et la plume qu'on y touche, sa correction, et la boutique — ses objets, la
 // fiche d'un objet touché — sous le thème qu'on veut (`THEME=ivoire`). Le
 // client construit d'abord (`npm run build -w client`).
 //
@@ -110,10 +110,16 @@ try {
   await page.waitForSelector('.fin-tete')
   await photo('3-fin', true)
 
-  // 3. Le jour joué, qu'on retrouve en revenant, puis sa correction.
+  // 3. Le jour joué, qu'on retrouve en revenant — la plume au pied du résultat, quel que soit le score, et la
+  // feuille qu'elle ouvre —, puis sa correction.
   await page.reload()
   await page.waitForSelector('.jour-joue')
   await photo('4-jour-joue', true)
+  await page.click('.jour-joue .plume')
+  await page.waitForSelector('.plume-feuille')
+  await photo('4-jour-joue-la-plume')
+  await page.click('.plume-feuille .carte-fermer')
+  await page.waitForTimeout(400)
   await page.click('text=Revoir mes réponses')
   await page.waitForSelector('ol.correction li')
   await photo('5-correction')

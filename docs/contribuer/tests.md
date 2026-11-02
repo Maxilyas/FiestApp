@@ -435,7 +435,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/jour-mois.test.ts` — la partie et le mois.
 - `server/test/jour-nuit.test.ts` — ce que la nuit décerne.
 - `server/test/jour-paliers.test.ts` — ses paliers.
-- `server/test/jour-telephone.test.ts` — quand le réseau, le doigt ou l'horloge trahissent.
+- `server/test/jour-telephone.test.ts` — quand le réseau, le doigt ou l'horloge trahissent ; et le jour joué, qu'on retrouve en revenant — sa place, ses bonnes réponses, la plume pour tous.
 - `server/test/jour-reserve.test.ts` — la réserve et sa porte.
 - `server/test/jour-propositions.test.ts` — les questions du public, de la plume au QG : la carte qui conseille ce que le serveur refuse, la moyenne de l'auteur en chiffres, proposer, accepter — dans la réserve, signée, à part des jours d'avance —, refuser et son motif, trois en relecture au plus, l'accueil qui le dit, un profil supprimé.
 - `server/test/jour-question-du-public.test.ts` — une question du public au quiz du jour : une par jour, la plus anciennement acceptée d'abord ; signée aux autres, sauf masqué ; montrée à son auteur sans se jouer, sa moyenne en points et en bonnes réponses, la correction, le sans-faute, les annulations qui la recomptent ; ce qu'elle lui rapporte — ses confettis, acceptée puis jouée, comptés par l'économie du QG, La Plume · Bronze, rien refusée ; annulée pour tous, ni ses confettis du jour ni La Plume, et l'accueil qui le dit — ; l'accueil qui dit qu'elle a été jouée.

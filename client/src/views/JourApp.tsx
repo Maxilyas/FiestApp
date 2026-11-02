@@ -479,7 +479,7 @@ export function JourApp() {
     return (
       <>
         {finieALArrivee ? (
-          <JourJoue partie={partie} onClassement={() => ouvrir('classement')} onCorrection={() => ouvrir('correction')} />
+          <JourJoue partie={partie} profil={profil} onClassement={() => ouvrir('classement')} onCorrection={() => ouvrir('correction')} />
         ) : (
           <Fin
             partie={partie}
@@ -915,10 +915,20 @@ const LIGNES_INCRUSTEES = 5
  * revues à chaque visite, elles cachaient ce qu'on vient chercher le soir —
  * sa place au classement, ses réponses — et « Reprendre » ne menait plus
  * qu'à elles (le propriétaire du dépôt, le 3 octobre 2026). Le résultat en
- * une carte, la correction d'un toucher, le classement du jour incrusté, et
- * le rendez-vous de demain.
+ * une carte, la correction d'un toucher, la plume au pied du résultat, le
+ * classement du jour incrusté, et le rendez-vous de demain.
  */
-export function JourJoue({ partie, onClassement, onCorrection }: { partie: PartieDuJour; onClassement: () => void; onCorrection: () => void }) {
+export function JourJoue({
+  partie,
+  profil,
+  onClassement,
+  onCorrection,
+}: {
+  partie: PartieDuJour
+  profil?: PublicProfile | null
+  onClassement: () => void
+  onCorrection: () => void
+}) {
   const [classement, setClassement] = useState<ClassementDuJour | null>(null)
   const [carte, setCarte] = useState<string | null>(null)
   const laCarte = useALaDemande(carteJoueur, !!carte)
@@ -979,6 +989,10 @@ export function JourJoue({ partie, onClassement, onCorrection }: { partie: Parti
           <Icon name="book" />
           Revoir mes réponses
         </button>
+        {/* La plume, à chaque retour et quel que soit le score : la fin ne la montrait qu'une fois, dès sept bonnes
+            réponses — un compliment au moment d'être fier —, et revenu ici, on ne savait plus où écrire sa question
+            (le propriétaire du dépôt, le 2 novembre 2026). Ici, elle ne juge pas la partie : c'est sa place. */}
+        <LaPlume accroche="Et si demain," appel="ta question ?" profil={profil} />
       </section>
 
       <section className="card jour-classement-incruste" aria-labelledby="classement-du-jour">

@@ -519,6 +519,36 @@ test('le jour joué dit sa place et ses bonnes réponses en toutes lettres : « 
   assert.match(douzieme, /7 bonnes réponses sur 10/)
 })
 
+test('revenu après sa partie, la plume l’attend au pied du résultat — quel que soit son score', async () => {
+  // Le propriétaire du dépôt, le 2 novembre 2026 : « J'aimerais pouvoir
+  // accéder aussi à l'ajout d'une question lorsque l'on a déjà réalisé le
+  // quiz du jour ». La plume ne paraissait qu'à la fin, vue une fois, et dès
+  // sept bonnes réponses : revenu à la page, on ne la retrouvait plus.
+  const partie = (justes: number) => ({
+    jour: '2026-11-02',
+    maintenant: 0,
+    total: 10,
+    categories: [],
+    etat: 'finie',
+    points: justes * 180,
+    justes,
+    xp: 10,
+    medaille: null,
+    rang: 0,
+    joueurs: 3,
+    pointsPossibles: 2000,
+    comptees: 10,
+    serie: 1,
+    vainqueursDHier: [],
+  })
+  for (const justes of [2, 9]) {
+    const html = await rendu('JourJoue', { partie: partie(justes), profil: null, onClassement: () => {}, onCorrection: () => {} })
+    const carte = html.slice(html.indexOf('jour-resultat'), html.indexOf('jour-classement-incruste'))
+    assert.match(carte, /<button type="button" class="plume" aria-haspopup="dialog">/, `${justes} bonnes réponses : la plume, dans la carte du résultat`)
+    assert.ok(carte.indexOf('Revoir mes réponses') < carte.indexOf('class="plume"'), `${justes} bonnes réponses : sous « Revoir mes réponses »`)
+  }
+})
+
 test('le lien vers tout le classement dit ce qu’il ouvre', async () => {
   // « Hier, le mois : tout le classement » ne se comprenait pas (le
   // propriétaire du dépôt, le 4 octobre 2026) ; hier et le mois sont des

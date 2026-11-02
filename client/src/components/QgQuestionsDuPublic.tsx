@@ -62,7 +62,7 @@ export function QuestionsDuPublicAuQg() {
             enAttente > 0 && `${enAttente} acceptée${enAttente > 1 ? 's' : ''} en attente de leur jour, une par jour`,
           ]
             .filter(Boolean)
-            .join(' · ') + '. Les joueurs les écrivent depuis la plume, au bout du quiz du jour et du défi.',
+            .join(' · ') + '. Les joueurs les écrivent depuis la plume, au quiz du jour et au bout du défi.',
         )}
       </p>
       {aRelire.map(p => (
