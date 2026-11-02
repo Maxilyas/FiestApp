@@ -135,7 +135,21 @@ test('le style se dit comme les albums : chaque objet, ce qu’il faut, où, et 
   const finitions = objetsDuStyle('finitions', p)
   // « Auto » porte la plus belle : c'est elle qu'on voit, cochée.
   assert.deepEqual(finitions.filter(o => o.porte).map(o => o.cle), ['holo'])
-  assert.deepEqual(finitions.map(o => `${o.cle}${o.aLui ? '' : ` ${o.court}`}`), ['mat', 'argent', 'or', 'holo', 'prisme niv. 15', 'aurore niv. 20', 'constellation niv. 25'])
+  // Les cinq de prestige à leur suite, du 30 au 50 (le 1er novembre 2026).
+  assert.deepEqual(finitions.map(o => `${o.cle}${o.aLui ? '' : ` ${o.court}`}`), [
+    'mat',
+    'argent',
+    'or',
+    'holo',
+    'prisme niv. 15',
+    'aurore niv. 20',
+    'constellation niv. 25',
+    'abysses niv. 30',
+    'orage niv. 35',
+    'envol niv. 40',
+    'disco niv. 45',
+    'singularite niv. 50',
+  ])
   assert.deepEqual(finitions.find(o => o.cle === 'prisme')!.etape.progres, { acquis: 12, requis: 15, dit: 'niveau 12 sur 15' })
   assert.deepEqual([finitions[0].etape.titre, finitions[0].etape.progres], ['Dès le niveau 1', null])
 
@@ -168,6 +182,11 @@ test('l’album du style : ce qu’il a en couleur, ce qui reste éteint — la 
     'Prisme, à gagner : niv. 15 (éteint)',
     'Aurore, à gagner : niv. 20 (éteint)',
     'Constellation, à gagner : niv. 25 (éteint)',
+    'Abysses, à gagner : niv. 30 (éteint)',
+    'Orage, à gagner : niv. 35 (éteint)',
+    'Envol, à gagner : niv. 40 (éteint)',
+    'Disco, à gagner : niv. 45 (éteint)',
+    'Singularité, à gagner : niv. 50 (éteint)',
   ])
   // Les cases de l'album des trophées : l'aperçu, son nom, ce qu'il faut dessous — rien ne s'y porte.
   assert.match(finitions, /<div class="trophees-grille style-grille style-finitions">/)

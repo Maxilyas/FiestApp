@@ -107,14 +107,14 @@ Chaque écran a son adresse et « ← », qui ramène d'où tu viens ; les adres
 - **Les trophées** : l'album des trophées, « Ce que tu as réussi, mode par mode », une page par mode — Soirée, Quiz du jour, Campagne, Duels, Sentiers, Partout — avec ses pistes — ce qui se cumule, en trois étapes, Bronze · Argent · Or, et ce que chaque étape ouvre —, les exploits, les coups du sort, le palmarès, le calendrier, les ligues, les maîtres, les écussons ; « Les plus proches » en tête, la rareté d'un trophée à la couleur de sa case. Leurs règles : [les récompenses](les-recompenses.md). Sous lui, depuis le 1er novembre 2026, **le carnet des fêtes** (`#collection-timbres`) : un timbre par fête et par an, une page par année — gagné et tamponné, la fête en cours et jusqu'à quand, celles à venir et leurs dates, « Manqué » pour une fête passée sans lui ([le carnet des fêtes](les-recompenses.md#le-carnet-des-fêtes)).
 - **Le style** : les thèmes en album par rareté (en couleur ce qui est à toi, en gris le reste) ; puis, en petits albums faits comme celui des trophées (`AlbumDuStyle`, `shared/style.ts`), les fonds de carte, les gerbes — qui éclatent au toucher, même à gagner —, les finitions et les bordures de ligue, une par ligue de duel, comptées même avant ton premier duel classé (zéro sur six). Une case chacun, en couleur s'il est à toi, éteinte sinon, ce qu'il faut sous sa case (« niv. 20 », « 30 jours », « 🎊 250 », « coffre ») — une bordure y dit ses crans (« 3/12 », « sertie »). Touchée, sa fiche dit ce qu'il habille, comment l'avoir et où tu en es, et le chemin de l'écran qui le donne, s'il en a un — un fond des savoirs, « Le voir en boutique », sa fiche dépliée dans le rayon ; un objet du trésor, sa rareté au coffre ; à toi et pas porté, « Essayer » : la loge s'ouvre, l'objet sur ta carte (`?essayer=finition:or#avatar`, que la loge lit en s'ouvrant : `essaiDemande`).
 
-**L'album des avatars** range les 157 avatars qui se gagnent — 32 légendaires, 72 portraits, 20 formes de compagnon et 5 métamorphoses, 22 emojis de collection, 6 Divins — en six pages, une par rareté (`RARETES_D_AVATAR`, `shared/album.ts`). Avec la galerie des compagnons, c'est le seul endroit où l'on voit la luciole avant de l'avoir : sa voie, « En expédition : la Première traversée ». Le Cabinet de curiosités ouvert en production, il dira « Au Cabinet : compléter une salle » d'abord, et chaque gardien sa voie du Cabinet (« Au Cabinet : compléter la salle du Rempart ») ; d'ici là, l'album s'en tait, même en préproduction.
+**L'album des avatars** range les 173 avatars qui se gagnent — 32 légendaires, 72 portraits, 20 formes de compagnon et 5 métamorphoses, 38 emojis de collection, 6 Divins — en six pages, une par rareté (`RARETES_D_AVATAR`, `shared/album.ts`). Avec la galerie des compagnons, c'est le seul endroit où l'on voit la luciole avant de l'avoir : sa voie, « En expédition : la Première traversée ». Le Cabinet de curiosités ouvert en production, il dira « Au Cabinet : compléter une salle » d'abord, et chaque gardien sa voie du Cabinet (« Au Cabinet : compléter la salle du Rempart ») ; d'ici là, l'album s'en tait, même en préproduction.
 
 | Page | Ce qu'elle range |
 |---|---|
 | Commune | le premier portrait de chaque sentier, chaque compagnon à sa première forme, les emojis de collection des niveaux 2 à 9 |
 | Peu commune | le deuxième portrait de chaque sentier, les emojis de collection des niveaux 11 à 29 |
-| Rare | les troisième et quatrième portraits, la deuxième forme de chaque compagnon |
-| Épique | le cinquième portrait, la troisième forme de chaque compagnon |
+| Rare | les troisième et quatrième portraits, la deuxième forme de chaque compagnon, les emojis de collection des niveaux 31 à 39 |
+| Épique | le cinquième portrait, la troisième forme de chaque compagnon, les emojis de collection des niveaux 41 à 49 |
 | Légendaire | les 32 légendaires, la forme ultime de chaque sentier et de chaque compagnon |
 | Divin | les 6 Divins |
 
@@ -157,7 +157,7 @@ Ton avatar se voit partout où l'on te voit : la salle d'attente, les classement
 
 ### Les emojis
 
-Les **24 de l'inscription** sont à tout le monde : 🦊 🐸 🦄 🐙 🐼 🐯 🦁 🐨 🐷 🐶 🐱 🐵 🦉 🦖 🍕 🌮 🍩 🎸 🚀 ⚽ 🎲 👑 🌵 🍉 (`AVATARS`, `shared/avatars.ts`) — tous antérieurs à Unicode 13, parce que l'écran commun tourne sous Windows 10 ; un emoji trop récent devient 🎉. Les **22 emojis de collection** sont réservés aux profils, un par niveau qui n'ouvre pas de finition, jusqu'au 29 (`COLLECTION`) :
+Les **24 de l'inscription** sont à tout le monde : 🦊 🐸 🦄 🐙 🐼 🐯 🦁 🐨 🐷 🐶 🐱 🐵 🦉 🦖 🍕 🌮 🍩 🎸 🚀 ⚽ 🎲 👑 🌵 🍉 (`AVATARS`, `shared/avatars.ts`) — tous antérieurs à Unicode 13, parce que l'écran commun tourne sous Windows 10 ; un emoji trop récent devient 🎉. Les **38 emojis de collection** sont réservés aux profils, un par niveau qui n'ouvre pas de finition, jusqu'au 49 (`COLLECTION`) :
 
 | Niveau | 2 | 4 | 5 | 7 | 8 | 9 | 11 | 12 | 13 | 14 | 16 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -167,9 +167,17 @@ Les **24 de l'inscription** sont à tout le monde : 🦊 🐸 🦄 🐙 🐼 �
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | Emoji | 🪐 | 🦝 | 🦑 | 🦓 | 🦒 | 🦘 | 🦢 | 🦕 | 🧜 | 🧚 | 🌋 |
 
-Ceux du 18 au 29 sont arrivés le 1er novembre 2026 : les plus assidus approchaient du niveau 30 et montaient depuis le 17 sans rien recevoir — qui avait déjà passé un de ces niveaux a eu son emoji d'un coup. Au-delà du 29, ils attendent les finitions de prestige, dont les niveaux ne sont pas encore choisis.
+| Niveau | 31 | 32 | 33 | 34 | 36 | 37 | 38 | 39 |
+|---|---|---|---|---|---|---|---|---|
+| Emoji | 🐬 | 🦞 | 🐡 | 🦀 | 🐆 | 🦏 | 🦍 | 🌈 |
 
-Le serveur n'en laisse porter un qu'au niveau qui l'ouvre, jamais à un anonyme. Un profil qui redescend en dessous — une soirée retirée — montre 🎉 à sa place, sans que rien ne soit réécrit, jusque dans la soirée en cours. Leur anneau est vert jusqu'au niveau 9, bleu dès le niveau 10 (`COLLECTION_HAUTE`).
+| Niveau | 41 | 42 | 43 | 44 | 46 | 47 | 48 | 49 |
+|---|---|---|---|---|---|---|---|---|
+| Emoji | 🪁 | 🪂 | 🧝 | 🧙 | 🎷 | 🎻 | 🪕 | 🛸 |
+
+Ceux du 18 au 49 sont arrivés le 1er novembre 2026 : les plus assidus approchaient du niveau 30 et montaient depuis le 17 sans rien recevoir — qui avait déjà passé un de ces niveaux a eu son emoji d'un coup. Au-delà du 30, chaque dizaine suit la finition qui l'ouvre : la mer après les Abysses, les grands animaux après l'Orage, l'air et la féerie après l'Envol, la musique après Disco, et la soucoupe volante qui mène à la Singularité.
+
+Le serveur n'en laisse porter un qu'au niveau qui l'ouvre, jamais à un anonyme. Un profil qui redescend en dessous — une soirée retirée — montre 🎉 à sa place, sans que rien ne soit réécrit, jusque dans la soirée en cours. Leur anneau est vert jusqu'au niveau 9, bleu dès le niveau 10 (`COLLECTION_HAUTE`) ; l'album les range rares du 31 au 39, épiques du 41 au 49 (`COLLECTION_RARE`, `COLLECTION_EPIQUE`), la couleur de la pierre de leur dizaine.
 
 ### Les avatars peints
 

@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react'
 import { inscrireDessin, type FinitionLumineuse } from './medaillons'
 
-// La lumière des trois dernières finitions — Prisme (15), Aurore (20),
-// Constellation (25) —, autour d'un emoji comme d'un médaillon.
+// La lumière des finitions lumineuses — Prisme (15), Aurore (20),
+// Constellation (25), puis Abysses (30), Orage (35), Envol (40), Disco (45)
+// et Singularité (50) —, autour d'un emoji comme d'un médaillon.
 //
 // Les halos d'avant tenaient dans 1,45 em : Prisme n'était qu'Holo avec une
 // étoile, Aurore un disque flou, et personne ne voyait qu'on avait monté de
@@ -10,6 +11,12 @@ import { inscrireDessin, type FinitionLumineuse } from './medaillons'
 // fond de la salle : le Diamant sertit l'avatar dans une bague de cristal,
 // les Voiles lèvent une aurore derrière sa tête, l'Astrolabe l'entoure d'or
 // et fait passer une étoile derrière lui, puis devant.
+//
+// Les cinq du 1er novembre 2026 — choisies par le propriétaire sur une
+// planche de douze (`retours/2026-11-01/finitions-de-prestige/`) — changent
+// chacune de matière : les grands fonds, l'orage, les ailes, la piste de
+// danse, le trou noir. Rien de commun avec celles d'avant, pour que la salle
+// voie d'un coup qu'on a encore monté.
 //
 // Chaque calque est un élément à part, qui ne bouge que par `rotate`,
 // `scale`, `translate` et `opacity` : le navigateur les compose sans
@@ -180,6 +187,228 @@ function gemmes(r = 72): string {
 const etincelle = (couleur: string) =>
   image(`<path d="M0,-96Q10,-10 96,0Q10,10 0,96Q-10,10 -96,0Q-10,-10 0,-96Z" fill="${couleur}"/>`)
 
+// ── Les Méduses (Abysses) ─────────────────────────────────────────────────
+
+/**
+ * Une méduse : sa cloche festonnée, deux bras qui ondulent, six tentacules
+ * fins, et sa lumière posée sur la nuit de l'eau — un halo flou de son bord.
+ */
+function meduse(cloche: readonly [string, string], bord: string): string {
+  let festons = ''
+  for (let i = 0; i < 7; i++) {
+    const xa = 46 - (92 * i) / 7
+    const xb = 46 - (92 * (i + 1)) / 7
+    festons += `Q${f((xa + xb) / 2)},10 ${f(xb)},0`
+  }
+  const corps = `M-46,0C-46,-62 46,-62 46,0${festons}Z`
+  let tentacules = ''
+  for (let k = 0; k < 6; k++) {
+    const x0 = -30 + k * 12
+    tentacules += `<path d="M${x0},4C${x0 - 8},30 ${x0 + 8},50 ${x0 - 4},74C${x0 - 10},86 ${x0 + 4},92 ${x0},98"/>`
+  }
+  const bras = [-9, 9].map(x0 => `<path d="M${x0},2C${x0 + 10},22 ${x0 - 10},38 ${x0 + 6},58"/>`).join('')
+  return (
+    `<defs><radialGradient id="c" gradientUnits="userSpaceOnUse" cx="0" cy="-40" r="70"><stop offset="0" stop-color="${cloche[0]}" stop-opacity=".95"/>` +
+    `<stop offset=".6" stop-color="${cloche[1]}" stop-opacity=".7"/><stop offset="1" stop-color="${cloche[1]}" stop-opacity=".25"/></radialGradient>` +
+    `<filter id="h" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="5"/></filter></defs>` +
+    `<path d="${corps}" fill="${bord}" opacity=".55" filter="url(#h)"/>` +
+    `<g fill="none" stroke="${bord}" stroke-linecap="round"><g stroke-width="1.8" stroke-opacity=".75">${tentacules}</g><g stroke-width="5" stroke-opacity=".55">${bras}</g></g>` +
+    `<path d="${corps}" fill="url(#c)" stroke="${bord}" stroke-width="2.2"/>` +
+    `<path d="M-30,-20C-22,-40 22,-40 30,-20" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2"/>`
+  )
+}
+
+/** Le plancton qui luit en cercle : un halo de couleur flou, un cœur presque blanc. */
+function plancton(graine: number, n: number, couleurs: readonly string[]): string {
+  const x = hasard(graine)
+  let halos = ''
+  let coeurs = ''
+  for (let i = 0; i < n; i++) {
+    const [px, py] = pt(60 + x() * 36, x() * 360)
+    const r = 1 + x() * 1.6
+    halos += `<circle cx="${f(px)}" cy="${f(py)}" r="${f(r * 2.6)}" fill="${couleurs[Math.floor(x() * couleurs.length)]}"/>`
+    coeurs += `<circle cx="${f(px)}" cy="${f(py)}" r="${f(r * 0.7)}" fill="#f2feff"/>`
+  }
+  return (
+    `<defs><filter id="b" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.2"/></filter></defs>` +
+    `<g filter="url(#b)" opacity=".85">${halos}</g>${coeurs}`
+  )
+}
+
+/** La lumière de la surface, qui descend en faisceaux depuis le haut. */
+function faisceaux(): string {
+  let s = ''
+  for (const [a, l] of [[-30, 14], [-14, 9], [0, 16], [16, 10], [32, 12]]) {
+    const r = (a * Math.PI) / 180
+    const bx = Math.sin(r) * 190
+    const by = -100 + Math.cos(r) * 190
+    const nx = Math.cos(r)
+    const ny = -Math.sin(r)
+    s += `<path d="M${f(-3 * nx)},${f(-100 - 3 * ny)}L${f(3 * nx)},${f(-100 + 3 * ny)}L${f(bx + l * nx)},${f(by + l * ny)}L${f(bx - l * nx)},${f(by - l * ny)}Z"/>`
+  }
+  return (
+    `<defs><linearGradient id="r" gradientUnits="userSpaceOnUse" x1="0" y1="-100" x2="0" y2="90"><stop offset="0" stop-color="#d8fbff" stop-opacity=".75"/>` +
+    `<stop offset=".6" stop-color="#9eefff" stop-opacity=".22"/><stop offset="1" stop-color="#9eefff" stop-opacity="0"/></linearGradient>` +
+    `<filter id="b" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3"/></filter></defs><g fill="url(#r)" filter="url(#b)">${s}</g>`
+  )
+}
+
+// ── La Foudre (Orage) ─────────────────────────────────────────────────────
+
+/** Un cercle brisé, en trois épaisseurs de lumière : la lueur, le fil, le cœur blanc. */
+function anneauElectrique(graine: number, r = 70, n = 52, amplitude = 6): string {
+  const x = hasard(graine)
+  const p = Array.from({ length: n }, (_, i) => xy(pt(r + (x() - 0.5) * 2 * amplitude, (i * 360) / n))).join(' ')
+  return (
+    `<polygon points="${p}" fill="none" stroke="#5fb4ff" stroke-width="10" stroke-opacity=".2" stroke-linejoin="round"/>` +
+    `<polygon points="${p}" fill="none" stroke="#bfe6ff" stroke-width="3.4" stroke-opacity=".7" stroke-linejoin="round"/>` +
+    `<polygon points="${p}" fill="none" stroke="#ffffff" stroke-width="1.3" stroke-linejoin="round"/>`
+  )
+}
+
+/**
+ * Un éclair qui part de l'anneau vers l'extérieur : des segments de
+ * longueurs inégales, des coudes francs, une branche, un trait qui s'amincit
+ * vers la pointe. Un zigzag régulier se lisait comme un ressort.
+ */
+function eclair(graine: number, angle: number): string {
+  const x = hasard(graine)
+  const [qx, qy] = pt(1, angle + 90)
+  const point = (rr: number, ecart: number): [number, number] => {
+    const [bx, by] = pt(rr, angle)
+    return [bx + qx * ecart, by + qy * ecart]
+  }
+  const ecarts = [0, 6, -3, 7, -6, 4, 10]
+  const pts = [52, 61, 65, 76, 81, 92, 99].map((r, i) => point(r + (x() - 0.5) * 3, ecarts[i] * (0.7 + x() * 0.6)))
+  const branche = [pts[3], point(85, ecarts[3] - 11 - x() * 4), point(94, ecarts[3] - 8 - x() * 3)]
+  const ligne = (ps: readonly [number, number][]) => ps.map(xy).join(' ')
+  return (
+    `<g fill="none" stroke-linejoin="miter" stroke-linecap="round">` +
+    `<polyline points="${ligne(pts)}" stroke="#6cc0ff" stroke-width="9" stroke-opacity=".26"/>` +
+    `<polyline points="${ligne(pts.slice(0, 4))}" stroke="#fff" stroke-width="3"/>` +
+    `<polyline points="${ligne(pts.slice(3))}" stroke="#fff" stroke-width="1.8"/>` +
+    `<polyline points="${ligne(branche)}" stroke="#d8f0ff" stroke-width="1.3" stroke-opacity=".9"/></g>`
+  )
+}
+
+// ── Les Ailes (Envol) ─────────────────────────────────────────────────────
+
+/**
+ * Une aile levée. Son bras part de l'épaule, s'arrondit vers l'extérieur et
+ * monte jusqu'au poignet ; les rémiges y sont attachées, pendantes près de
+ * l'épaule, dressées au bout ; les couvertures, plus courtes, par-dessus.
+ * Toutes en éventail depuis un seul point, elles faisaient un soleil, pas une
+ * aile. L'autre est son miroir. Le filet d'or se voit aussi sur la crème.
+ */
+function aile(cote: 1 | -1): string {
+  const S: [number, number] = [16, 4]
+  const C: [number, number] = [60, -6]
+  const W: [number, number] = [54, -50]
+  const bras = (t: number): [number, number] => [
+    (1 - t) ** 2 * S[0] + 2 * (1 - t) * t * C[0] + t * t * W[0],
+    (1 - t) ** 2 * S[1] + 2 * (1 - t) * t * C[1] + t * t * W[1],
+  ]
+  const plume = (R: [number, number], angle: number, L: number, w: number) => {
+    const a = (angle * Math.PI) / 180
+    const pointe: [number, number] = [R[0] + L * Math.sin(a), R[1] - L * Math.cos(a)]
+    const [nx, ny] = [Math.cos(a), Math.sin(a)]
+    const m = (s: number): [number, number] => [R[0] + (pointe[0] - R[0]) * 0.55 + nx * w * s, R[1] + (pointe[1] - R[1]) * 0.55 + ny * w * s]
+    return `<path d="M${xy(R)}Q${xy(m(1))} ${xy(pointe)}Q${xy(m(-1))} ${xy(R)}Z"/>`
+  }
+  let remiges = ''
+  let couvertures = ''
+  for (let i = 0; i < 11; i++) remiges += plume(bras(i / 10), 168 - (i / 10) * 130, 26 + (i / 10) * 24, 6.4)
+  for (let i = 0; i < 8; i++) {
+    const t = (i / 7) * 0.9
+    couvertures += plume(bras(t), 150 - t * 110, 16 + t * 10, 5.6)
+  }
+  return (
+    `<defs><radialGradient id="p" gradientUnits="userSpaceOnUse" cx="${S[0]}" cy="${S[1]}" r="120"><stop offset=".08" stop-color="#fff"/>` +
+    `<stop offset=".4" stop-color="#fff3cf" stop-opacity=".96"/><stop offset=".78" stop-color="#f1cf7a" stop-opacity=".7"/><stop offset="1" stop-color="#e2b04a" stop-opacity="0"/></radialGradient></defs>` +
+    `<g${cote < 0 ? ' transform="scale(-1 1)"' : ''}>` +
+    `<g fill="url(#p)" stroke="#c4953f" stroke-opacity=".75" stroke-width=".8">${remiges}</g>` +
+    `<g fill="url(#p)" stroke="#fff6dc" stroke-opacity=".8" stroke-width=".6">${couvertures}</g>` +
+    `<path d="M${xy(S)}Q${xy(C)} ${xy(W)}" fill="none" stroke="#fffaf0" stroke-opacity=".7" stroke-width="2" stroke-linecap="round"/></g>`
+  )
+}
+
+/** L'auréole, une ellipse d'or qui flotte au-dessus de la tête. */
+function aureole(): string {
+  return (
+    `<defs><linearGradient id="a" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c99a3c"/><stop offset=".5" stop-color="#fff4cf"/><stop offset="1" stop-color="#c99a3c"/></linearGradient></defs>` +
+    `<ellipse rx="78" ry="22" fill="none" stroke="#ffe9a8" stroke-width="18" stroke-opacity=".22"/>` +
+    `<ellipse rx="78" ry="22" fill="none" stroke="url(#a)" stroke-width="8"/>`
+  )
+}
+
+// ── La Boule à facettes (Disco) ───────────────────────────────────────────
+
+/**
+ * Une sphère de miroirs : ses rangées serrées vers les pôles et vers le bord,
+ * chaque facette éclairée d'en haut à gauche ; quelques-unes renvoient le
+ * blanc du projecteur, d'autres les couleurs de la piste.
+ */
+function bouleAFacettes(): string {
+  const R = 96
+  const x = hasard(53)
+  const lumiere = [-0.5, -0.62, 0.6]
+  const teintes = ['#ff6fbf', '#5fe6ff', '#ffe27a', '#b994ff']
+  const rad = (deg: number) => (deg * Math.PI) / 180
+  let tuiles = ''
+  const bandes = 14
+  for (let b = 0; b < bandes; b++) {
+    const la0 = -90 + (180 * b) / bandes
+    const la1 = -90 + (180 * (b + 1)) / bandes
+    const y0 = R * Math.sin(rad(la0))
+    const y1 = R * Math.sin(rad(la1))
+    const demi = R * Math.cos(rad((la0 + la1) / 2))
+    const n = Math.max(3, Math.round((Math.PI * demi) / 13))
+    for (let i = 0; i < n; i++) {
+      const xa = demi * Math.sin(rad(-90 + (180 * i) / n))
+      const xb = demi * Math.sin(rad(-90 + (180 * (i + 1)) / n))
+      const cx = (xa + xb) / 2 / R
+      const cy = (y0 + y1) / 2 / R
+      const cz = Math.sqrt(Math.max(0, 1 - cx * cx - cy * cy))
+      const eclaire = Math.max(0, cx * lumiere[0] + cy * lumiere[1] + cz * lumiere[2])
+      const t = x()
+      const couleur = t < 0.07 ? '#fff' : t < 0.17 ? teintes[Math.floor(x() * teintes.length)] : `hsl(228,10%,${f(Math.min(92, 16 + 64 * eclaire + (x() - 0.5) * 22))}%)`
+      if (xb - xa > 2 && y1 - y0 > 2) tuiles += `<rect x="${f(xa + 0.9)}" y="${f(y0 + 0.9)}" width="${f(xb - xa - 1.8)}" height="${f(y1 - y0 - 1.8)}" fill="${couleur}"/>`
+    }
+  }
+  return (
+    `<defs><radialGradient id="r" gradientUnits="userSpaceOnUse" cx="-36" cy="-42" r="70"><stop offset="0" stop-color="#fff" stop-opacity=".5"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>` +
+    `<radialGradient id="o" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="96"><stop offset=".68" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".5"/></radialGradient></defs>` +
+    `<circle r="96" fill="#17161d"/>${tuiles}<circle r="96" fill="url(#o)"/><circle r="96" fill="url(#r)"/>`
+  )
+}
+
+/** Les reflets de la boule sur les murs : des taches de couleur, floues. */
+function reflets(graine: number, n: number, couleurs: readonly string[]): string {
+  const x = hasard(graine)
+  let s = ''
+  for (let i = 0; i < n; i++) {
+    const [px, py] = pt(64 + x() * 32, (i * 360) / n + x() * 14)
+    s += `<circle cx="${f(px)}" cy="${f(py)}" r="${f(2.2 + x() * 2.6)}" fill="${couleurs[i % couleurs.length]}" fill-opacity="${f(0.55 + x() * 0.45)}"/>`
+  }
+  return `<defs><filter id="b" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.1"/></filter></defs><g filter="url(#b)">${s}</g>`
+}
+
+// ── Le Disque (Singularité) ───────────────────────────────────────────────
+
+/** La part du disque que le trou noir courbe par-dessus la tête : un arc brûlant, flou puis net. */
+function lentille(): string {
+  const a0 = pt(70, -80)
+  const a1 = pt(70, 80)
+  const arc = `M${xy(a0)}A70,70 0 0 1 ${xy(a1)}`
+  return (
+    `<defs><linearGradient id="a" gradientUnits="userSpaceOnUse" x1="-70" y1="0" x2="70" y2="0"><stop offset="0" stop-color="#ff8a2a" stop-opacity="0"/>` +
+    `<stop offset=".22" stop-color="#ffb54d"/><stop offset=".5" stop-color="#fff2cf"/><stop offset=".78" stop-color="#ffb54d"/><stop offset="1" stop-color="#ff8a2a" stop-opacity="0"/></linearGradient>` +
+    `<filter id="b" x="-20%" y="-30%" width="140%" height="160%"><feGaussianBlur stdDeviation="2.6"/></filter></defs>` +
+    `<path d="${arc}" fill="none" stroke="url(#a)" stroke-width="15" stroke-opacity=".55" filter="url(#b)" stroke-linecap="round"/>` +
+    `<path d="${arc}" fill="none" stroke="url(#a)" stroke-width="4.6" stroke-linecap="round"/>`
+  )
+}
+
 // Faits une fois : chaque avatar ne reçoit que leur adresse.
 const IMAGES = {
   cristal: image(cristal()),
@@ -192,6 +421,24 @@ const IMAGES = {
   gemmes: image(gemmes()),
   blanche: etincelle('#ffffff'),
   doree: etincelle('#fff4d0'),
+  meduseRose: image(meduse(['#ffd6f2', '#c56cff'], '#ff9ee6')),
+  meduseCyan: image(meduse(['#d8fffb', '#33c4d6'], '#7ff6ff')),
+  plancton1: image(plancton(37, 30, ['#39f0ff', '#2fd6b6', '#8f7bff'])),
+  plancton2: image(plancton(59, 22, ['#7ff6ff', '#b88bff', '#3be8c0'])),
+  faisceaux: image(faisceaux()),
+  foudre1: image(anneauElectrique(31)),
+  foudre2: image(anneauElectrique(47)),
+  eclair1: image(eclair(3, 38)),
+  eclair2: image(eclair(9, 148)),
+  eclair3: image(eclair(15, 232)),
+  eclair4: image(eclair(23, 312)),
+  aileDroite: image(aile(1)),
+  aileGauche: image(aile(-1)),
+  aureole: image(aureole()),
+  boule: image(bouleAFacettes()),
+  reflets1: image(reflets(7, 22, ['#ff6fbf', '#5fe6ff', '#ffe27a', '#ffffff', '#b994ff'])),
+  reflets2: image(reflets(19, 16, ['#5fe6ff', '#ffffff', '#ff6fbf', '#ffe27a'])),
+  lentille: image(lentille()),
 }
 
 // ── Les calques ───────────────────────────────────────────────────────────
@@ -232,7 +479,24 @@ function orbite(moitie: 'arriere' | 'avant') {
   )
 }
 
-const CALQUES: Record<FinitionLumineuse, { arriere: readonly Calque[]; avant: readonly Calque[]; orbite?: boolean }> = {
+/**
+ * Le disque de la Singularité, en deux moitiés comme l'orbite : sa moitié
+ * lointaine derrière l'avatar, la proche devant, sous le menton. Le plan
+ * l'écrase en ellipse ; le tourbillon tourne dedans.
+ */
+function disque(moitie: 'arriere' | 'avant') {
+  return (
+    <i key={`disque-${moitie}`} className={`lu-disque lu-disque-${moitie}`}>
+      <b className="lu-disque-plan">
+        <b className="lu-tourbillon" />
+      </b>
+    </i>
+  )
+}
+
+const range = (n: number, calque: (i: number) => Calque) => Array.from({ length: n }, (_, i) => calque(i + 1))
+
+const CALQUES: Record<FinitionLumineuse, { arriere: readonly Calque[]; avant: readonly Calque[]; orbite?: boolean; disque?: boolean }> = {
   // Le Diamant.
   prisme: {
     arriere: [
@@ -269,6 +533,67 @@ const CALQUES: Record<FinitionLumineuse, { arriere: readonly Calque[]; avant: re
     ],
     orbite: true,
   },
+  // Les Méduses : les grands fonds — la lumière de la surface en faisceaux,
+  // du plancton qui luit en cercle, deux méduses qui nagent, des bulles.
+  abysses: {
+    arriere: [
+      { classe: 'lu-eau' },
+      { classe: 'lu-faisceaux', src: IMAGES.faisceaux },
+      { classe: 'lu-plancton lu-plancton-2', src: IMAGES.plancton2 },
+      { classe: 'lu-plancton lu-plancton-1', src: IMAGES.plancton1 },
+      { classe: 'lu-meduse lu-meduse-1', src: IMAGES.meduseRose },
+      { classe: 'lu-meduse lu-meduse-2', src: IMAGES.meduseCyan },
+    ],
+    avant: range(4, i => ({ classe: `lu-bulle lu-bulle-${i}` })),
+  },
+  // La Foudre : un anneau électrique qui crépite, quatre éclairs qui frappent
+  // tour à tour vers l'extérieur, dans un nuage bleu.
+  orage: {
+    arriere: [
+      { classe: 'lu-nuage' },
+      ...[IMAGES.eclair1, IMAGES.eclair2, IMAGES.eclair3, IMAGES.eclair4].map((src, i) => ({ classe: `lu-zebrure lu-zebrure-${i + 1}`, src })),
+      { classe: 'lu-foudre lu-foudre-2', src: IMAGES.foudre2, emoji: true, anneau: true },
+      { classe: 'lu-foudre lu-foudre-1', src: IMAGES.foudre1, emoji: true, anneau: true },
+    ],
+    avant: range(3, i => ({ classe: `lu-crepitement lu-crepitement-${i}` })),
+  },
+  // Les Ailes : deux ailes de lumière qui battent depuis les épaules, une
+  // auréole qui flotte au-dessus de la tête, des plumes d'or qui tombent.
+  envol: {
+    arriere: [
+      { classe: 'lu-clarte' },
+      { classe: 'lu-aile lu-aile-gauche', src: IMAGES.aileGauche },
+      { classe: 'lu-aile lu-aile-droite', src: IMAGES.aileDroite },
+      { classe: 'lu-aureole', src: IMAGES.aureole },
+    ],
+    avant: range(3, i => ({ classe: `lu-plume lu-plume-${i}` })),
+  },
+  // La Boule à facettes : une boule de miroirs derrière la tête, ses reflets
+  // qui tournent autour comme sur les murs d'une piste, des éclats sur ses
+  // miroirs. Sous une bordure, la boule s'efface : la bordure en prend les
+  // miroirs, les reflets restent.
+  disco: {
+    arriere: [
+      { classe: 'lu-piste' },
+      { classe: 'lu-reflets lu-reflets-2', src: IMAGES.reflets2 },
+      { classe: 'lu-boule', src: IMAGES.boule, anneau: true },
+      { classe: 'lu-reflets lu-reflets-1', src: IMAGES.reflets1 },
+    ],
+    avant: range(3, i => ({ classe: `lu-miroite lu-miroite-${i}`, src: IMAGES.blanche })),
+  },
+  // Le Disque : un trou noir derrière l'avatar — son ombre, son anneau de
+  // photons, l'arc du disque courbé au-dessus de la tête, et le disque brûlant
+  // qui passe derrière lui puis sous son menton.
+  singularite: {
+    arriere: [
+      { classe: 'lu-accretion' },
+      { classe: 'lu-lentille', src: IMAGES.lentille },
+      { classe: 'lu-ombre', emoji: true },
+      { classe: 'lu-photons', emoji: true, anneau: true },
+    ],
+    avant: range(2, i => ({ classe: `lu-lointaine lu-lointaine-${i}`, src: IMAGES.doree })),
+    disque: true,
+  },
 }
 
 function calques(liste: readonly Calque[], medaillon: boolean, bordure: boolean) {
@@ -300,10 +625,12 @@ export function Lumiere({
       <span className="lu lu-arriere" aria-hidden="true">
         {calques(c.arriere, medaillon, bordure)}
         {c.orbite && orbite('arriere')}
+        {c.disque && disque('arriere')}
       </span>
       {children}
       <span className="lu lu-avant" aria-hidden="true">
         {c.orbite && orbite('avant')}
+        {c.disque && disque('avant')}
         {calques(c.avant, medaillon, bordure)}
       </span>
     </>

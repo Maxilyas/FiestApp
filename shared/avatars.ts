@@ -18,18 +18,21 @@ export const MAX_NAME_LENGTH = 24
 
 /**
  * Les emojis de collection : un par niveau qui n'ouvre pas de finition, du 2
- * au 29 (`NIVEAU_FINITION`, `shared/profil.ts`, a les autres). On passait
+ * au 49 (`NIVEAU_FINITION`, `shared/profil.ts`, a les autres). On passait
  * sinon trois niveaux sans rien gagner entre deux finitions. Réservés aux
  * profils : l'écran d'inscription ne les propose pas, et le serveur ne les
  * rend qu'au profil qui a le niveau (`ProfileStore.avatarPorte`). Chacun est
  * un seul point de code, antérieur à Unicode 13 comme les autres.
  *
  * Ils s'arrêtaient au 17 : les plus assidus, bientôt au niveau 30 en
- * production, montaient douze niveaux sans rien recevoir — le souhait du
- * propriétaire du 1er novembre 2026 était de les récompenser. Ceux d'après le
- * 29 attendent les finitions de prestige, dont les niveaux ne sont pas encore
- * choisis : posé trop tôt, un emoji qu'il faudrait déplacer d'un niveau
- * plus haut serait repris à qui l'a déjà.
+ * production, montaient douze niveaux sans rien recevoir (le souhait du
+ * propriétaire du 1er novembre 2026 : les récompenser). Ceux du 18 au 29 sont
+ * venus d'abord ; ceux du 31 au 49 avec les finitions de prestige, entre
+ * elles, chaque dizaine sur le thème de celle qui l'ouvre — la mer après les
+ * Abysses, les grands animaux après l'Orage, l'air et la féerie après
+ * l'Envol, la musique après Disco, et la soucoupe volante qui mène à la
+ * Singularité. Un emoji ne se déplace jamais vers un niveau plus haut : il
+ * serait repris à qui l'a déjà.
  */
 export const COLLECTION: readonly { emoji: string; niveau: number }[] = [
   { emoji: '🦚', niveau: 2 },
@@ -54,6 +57,22 @@ export const COLLECTION: readonly { emoji: string; niveau: number }[] = [
   { emoji: '🧜', niveau: 27 },
   { emoji: '🧚', niveau: 28 },
   { emoji: '🌋', niveau: 29 },
+  { emoji: '🐬', niveau: 31 },
+  { emoji: '🦞', niveau: 32 },
+  { emoji: '🐡', niveau: 33 },
+  { emoji: '🦀', niveau: 34 },
+  { emoji: '🐆', niveau: 36 },
+  { emoji: '🦏', niveau: 37 },
+  { emoji: '🦍', niveau: 38 },
+  { emoji: '🌈', niveau: 39 },
+  { emoji: '🪁', niveau: 41 },
+  { emoji: '🪂', niveau: 42 },
+  { emoji: '🧝', niveau: 43 },
+  { emoji: '🧙', niveau: 44 },
+  { emoji: '🎷', niveau: 46 },
+  { emoji: '🎻', niveau: 47 },
+  { emoji: '🪕', niveau: 48 },
+  { emoji: '🛸', niveau: 49 },
 ]
 
 /**
@@ -63,6 +82,23 @@ export const COLLECTION: readonly { emoji: string; niveau: number }[] = [
  * les range au même seuil, communs puis peu communs (`shared/album.ts`).
  */
 export const COLLECTION_HAUTE = 10
+
+/**
+ * Au-delà du 30, l'album les range plus haut encore : rares jusqu'au 39,
+ * épiques du 40 au 49 — la couleur de la pierre de leur dizaine
+ * (`shared/pierres.ts`), le saphir bleu des rares, l'améthyste violette des
+ * épiques. Rangés « peu communs », les emojis de deux ans de soirées auraient
+ * côtoyé ceux d'un mois.
+ */
+export const COLLECTION_RARE = 30
+export const COLLECTION_EPIQUE = 40
+
+/** La page de l'album d'un emoji de collection, d'après le niveau qui l'ouvre. */
+export function rareteDeLEmoji(niveau: number): 'commune' | 'peucommune' | 'rare' | 'epique' {
+  if (niveau < COLLECTION_HAUTE) return 'commune'
+  if (niveau < COLLECTION_RARE) return 'peucommune'
+  return niveau < COLLECTION_EPIQUE ? 'rare' : 'epique'
+}
 
 const NIVEAU_DE_COLLECTION = new Map(COLLECTION.map(c => [c.emoji, c.niveau]))
 

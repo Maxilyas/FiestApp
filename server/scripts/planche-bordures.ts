@@ -1,12 +1,12 @@
-// La planche des bordures de ligue : chaque alliage — six ligues, sept
+// La planche des bordures de ligue : chaque alliage — six ligues, douze
 // finitions —, rendu par les vrais composants (`Avatar.tsx`, `Bordure.tsx`,
 // `Lumiere.tsx`) sous la vraie feuille de style, puis photographié.
 //
 // En grand, comme sur la carte ; à la taille d'une ligne du classement des
 // duels et d'une pastille de la loge, où elle doit encore se reconnaître. Ses
 // crans, du premier au douzième. Et autour de ce qui déborde : un légendaire
-// éclaté, un portrait à sa forme ultime, sous la lumière des finitions 15, 20
-// et 25 — un Divin n'en prend aucune.
+// éclaté, un portrait à sa forme ultime, sous la lumière des finitions, du 15
+// au 50 — un Divin n'en prend aucune.
 //
 //   npx tsx scripts/planche-bordures.ts ../export/planches
 //
@@ -23,7 +23,7 @@ Object.assign(globalThis, { React })
 
 const { renderToStaticMarkup } = await import('react-dom/server')
 const { LIGUES, NOM_DE_LA_BORDURE } = await import('../../shared/duels')
-const { FINITIONS, NOM_FINITION } = await import('../../shared/profil')
+const { FINITIONS, NIVEAU_FINITION, NOM_FINITION } = await import('../../shared/profil')
 const { PORTRAITS } = await import('../../shared/branches')
 /** Un module du client, par son adresse : le serveur ne compile pas le JSX du client, tsx si. */
 const duClient = (fichier: string) => import(new URL(`../../client/src/${fichier}`, import.meta.url).href)
@@ -98,8 +98,8 @@ const debords = `<h2>Ce qui déborde passe par-dessus</h2><div class="ligne">
     ${case_({ legendaire: 'dv:seraphin', finition: 'constellation', bordure: { ligue: 'maitre', crans: 12 }, className: 'av-sujet' }, 64, 'Divin : aucune')}
   </div>
   <div class="ligne">
-    <div class="nom">Lumières<small>15, 20 et 25</small></div>
-    ${(['prisme', 'aurore', 'constellation'] as const)
+    <div class="nom">Lumières<small>du 15 au 50</small></div>
+    ${FINITIONS.filter(f => NIVEAU_FINITION[f] >= 15)
       .map(f => case_({ finition: f, bordure: { ligue: 'diamant', crans: 12 }, className: 'av-sujet' }, 64, `${NOM_FINITION[f]} · Couronne`))
       .join('')}
     ${case_({ finition: 'prisme', className: 'av-sujet' }, 64, 'Prisme, sans bordure')}
@@ -115,7 +115,7 @@ const listes = `<h2>En petit</h2><div class="ligne">
   </div>`
 
 const PLANCHES: [string, string][] = [
-  ['bordures', page('Les bordures de ligue', 'Six ligues, sept finitions : la ligue donne la forme et la pierre, la finition le métal', alliages + crans + debords + listes)],
+  ['bordures', page('Les bordures de ligue', 'Six ligues, douze finitions : la ligue donne la forme et la pierre, la finition le métal', alliages + crans + debords + listes)],
   ['bordures-ivoire', page('Les bordures de ligue, en Ivoire', 'Le thème clair', alliages + listes, 'ivoire')],
 ]
 
@@ -124,14 +124,15 @@ try {
   for (const [nom, html] of PLANCHES) {
     const fichier = path.join(sortie, `planche-${nom}.html`)
     writeFileSync(fichier, html)
-    const onglet = await navigateur.newPage({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 1 })
+    // Douze finitions par ligue depuis le 1er novembre 2026 : la ligne la plus large décide de la planche.
+    const onglet = await navigateur.newPage({ viewport: { width: 1760, height: 900 }, deviceScaleFactor: 1 })
     const erreurs: string[] = []
     onglet.on('pageerror', (e: Error) => erreurs.push(e.message))
     onglet.on('requestfailed', (r: any) => erreurs.push(`${r.url()} : ${r.failure()?.errorText}`))
     await onglet.goto('file://' + fichier)
     await onglet.waitForLoadState('networkidle')
     // Du code pour la page, en texte : le serveur se compile sans le DOM.
-    await onglet.setViewportSize({ width: 1280, height: await onglet.evaluate('document.body.scrollHeight') })
+    await onglet.setViewportSize({ width: 1760, height: await onglet.evaluate('document.body.scrollHeight') })
     await onglet.evaluate('Promise.all([...document.images].map(i => i.decode().catch(() => {})))')
     await onglet.waitForTimeout(600)
     await onglet.screenshot({ path: path.join(sortie, `planche-${nom}.png`), fullPage: true })

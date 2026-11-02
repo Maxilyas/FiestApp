@@ -3737,8 +3737,9 @@ h3 > .icon {
    rien à télécharger, et l'animal auquel la salle associe quelqu'un reste
    reconnaissable du fond de la pièce.
 
-   Les finitions se gagnent au niveau (3, 6, 10, 15, 20, 25) ; les trois
-   dernières ont en plus leur lumière (`Lumiere.tsx`, plus bas). L'Éclat,
+   Les finitions se gagnent au niveau (3, 6, 10, puis tous les cinq niveaux
+   jusqu'au 50) ; à partir du 15, elles ont en plus leur lumière
+   (`Lumiere.tsx`, plus bas). L'Éclat,
    lui, ne se gagne pas : une chance sur quarante par soirée jouée, et il
    change la palette de l'emoji — comme un shiny. On ne peut pas
    l'accélérer, seulement venir jouer — ou l'acheter très cher en boutique,
@@ -5022,6 +5023,11 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .lg-cercle-prisme .lg-cercle-tourne { animation-duration: 7s; }
 .lg-cercle-aurore .lg-cercle-tourne { animation-duration: 18s; }
 .lg-cercle-constellation .lg-cercle-tourne { animation-duration: 60s; }
+.lg-cercle-abysses .lg-cercle-tourne { animation-duration: 30s; }
+.lg-cercle-orage .lg-cercle-tourne { animation-duration: 10s; }
+.lg-cercle-disco .lg-cercle-tourne { animation-duration: 20s; }
+/* L'arc d'Orage palpite en tournant, comme celui d'un emoji : jamais un clignotement. */
+.lg-cercle-crepite { animation: lu-crepite 0.9s ease-in-out infinite; }
 .lg-cercle-lueur { transform-origin: 50px 50px; animation: lg-lueur 4s ease-in-out infinite; }
 
 @keyframes lg-tourne {
@@ -5235,14 +5241,39 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
   animation: av-tourne 50s linear infinite reverse;
 }
 
+/* Les cinq du 1er novembre 2026, en attendant leur lumière : chacune sa
+   couleur, pour qu'on la reconnaisse déjà — l'eau, l'orage, la clarté des
+   ailes, les reflets de la piste, la nuit cerclée de feu. */
+.av-abysses:not(.av-lumiere)::before {
+  background: radial-gradient(circle, rgba(127, 246, 255, 0.5), rgba(20, 150, 190, 0.32) 45%, rgba(10, 60, 110, 0) 72%);
+  animation: av-respire 4s ease-in-out infinite;
+}
+.av-orage:not(.av-lumiere)::before {
+  background: radial-gradient(circle, rgba(120, 170, 255, 0.5), rgba(60, 80, 200, 0.3) 48%, rgba(30, 30, 110, 0) 72%);
+  box-shadow: 0 0 0 1px rgba(191, 230, 255, 0.7);
+}
+.av-envol:not(.av-lumiere)::before {
+  background: radial-gradient(circle, rgba(255, 250, 232, 0.65), rgba(241, 207, 122, 0.3) 48%, rgba(241, 207, 122, 0) 72%);
+  box-shadow: 0 0 0 1px rgba(226, 189, 107, 0.6);
+}
+.av-disco:not(.av-lumiere)::before {
+  background: conic-gradient(rgba(255, 111, 191, 0.5), rgba(95, 230, 255, 0.5), rgba(255, 226, 122, 0.5), rgba(185, 148, 255, 0.5), rgba(255, 111, 191, 0.5));
+  filter: blur(4px);
+  animation: av-tourne 8s linear infinite;
+}
+.av-singularite:not(.av-lumiere)::before {
+  background: radial-gradient(circle, #050308 0 56%, rgba(255, 243, 214, 0.9) 60%, rgba(255, 154, 60, 0.6) 66%, rgba(255, 122, 31, 0) 74%);
+}
+
 @keyframes av-respire {
   0%, 100% { scale: 1; }
   50% { scale: 1.08; }
 }
 
-/* ── La lumière des finitions 15, 20 et 25 ────────────────────────────────
+/* ── La lumière des finitions, du 15 au 50 ────────────────────────────────
 
-   Le Diamant, les Voiles, l'Astrolabe (`Lumiere.tsx`) : des calques posés
+   Le Diamant, les Voiles, l'Astrolabe, puis les Méduses, la Foudre, les
+   Ailes, la Boule à facettes et le Disque (`Lumiere.tsx`) : des calques posés
    derrière l'emoji (`.lu-arriere`) et devant lui (`.lu-avant`), chacun
    centré sur l'avatar et dimensionné en `em` — ils grandissent avec lui,
    sur la scène comme au téléphone. Ils ne bougent que par `rotate`,
@@ -5447,6 +5478,149 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 }
 .lu-scintille-3 { --x: 0.8em; --y: 0.86em; --d: 0.24em; animation-delay: -1.7s; }
 
+/* Les Méduses (Abysses, 30) : les grands fonds — la lumière de la surface
+   qui descend en faisceaux et se balance, deux anneaux de plancton qui luisent
+   et tournent en sens contraire, deux méduses qui nagent, des bulles qui
+   montent devant le visage. */
+.lu-eau {
+  --d: 2.45em;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(20, 190, 210, 0.5), rgba(10, 80, 140, 0.3) 45%, rgba(5, 30, 80, 0) 70%);
+  animation: lu-souffle 4.4s ease-in-out infinite;
+}
+.lu-faisceaux { --d: 2.8em; transform-origin: 50% 0%; opacity: 0.55; animation: lu-balance 7s ease-in-out infinite; }
+.lu-plancton { --d: 2.6em; }
+.lu-plancton-1 { animation: lu-luit 3s ease-in-out infinite, av-tourne 40s linear infinite; }
+.lu-plancton-2 { --d: 2.3em; animation: lu-luit 3s ease-in-out -1.5s infinite, av-tourne 55s linear infinite reverse; }
+.lu-meduse { --d: 0.66em; transform-origin: 50% 30%; }
+.lu-meduse-1 { --x: -0.94em; --y: -0.5em; animation: lu-nage 3.6s ease-in-out infinite; }
+.lu-meduse-2 { --x: 1em; --y: 0.08em; --d: 0.5em; animation: lu-nage 4.2s ease-in-out -1.8s infinite; }
+.lu-bulle {
+  --d: 0.16em;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.95) 0 14%, rgba(255, 255, 255, 0) 26%),
+    radial-gradient(circle, rgba(150, 240, 255, 0) 52%, rgba(150, 240, 255, 0.8) 66%, rgba(150, 240, 255, 0) 74%);
+  opacity: 0;
+  animation: lu-bulle 3.4s ease-in infinite;
+}
+.lu-bulle-1 { --x: -0.5em; --y: 0.55em; }
+.lu-bulle-2 { --x: 0.46em; --y: 0.6em; --d: 0.12em; animation-duration: 2.8s; animation-delay: -1.1s; }
+.lu-bulle-3 { --x: -0.78em; --y: 0.2em; --d: 0.1em; animation-duration: 3.9s; animation-delay: -2.2s; }
+.lu-bulle-4 { --x: 0.2em; --y: 0.66em; --d: 0.13em; animation-duration: 3.1s; animation-delay: -0.6s; }
+
+/* La Foudre (Orage, 35) : un nuage bleu, un anneau électrique en deux fils
+   qui se relaient — une lueur qui palpite, jamais un clignotement —, quatre
+   éclairs qui frappent tour à tour, chacun une fois toutes les trois ou
+   quatre secondes. Au repos, le premier reste. */
+.lu-nuage {
+  --d: 2.35em;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(80, 130, 255, 0.55), rgba(55, 70, 190, 0.32) 42%, rgba(30, 30, 110, 0) 70%);
+  animation: lu-souffle 3.6s ease-in-out infinite;
+}
+.lu-foudre { --d: 2.1em; }
+.lu-foudre-1 { animation: lu-crepite 0.9s ease-in-out infinite, av-tourne 14s linear infinite; }
+.lu-foudre-2 { opacity: 0.35; animation: lu-crepite 0.9s ease-in-out -0.45s infinite, av-tourne 19s linear infinite reverse; }
+.lu-zebrure { --d: 2.8em; opacity: 0; animation: lu-frappe 3.4s linear infinite; }
+.lu-zebrure-1 { opacity: 0.9; animation-delay: -0.2s; }
+.lu-zebrure-2 { animation-duration: 4.1s; animation-delay: -1.7s; }
+.lu-zebrure-3 { animation-duration: 3.7s; animation-delay: -2.8s; }
+.lu-zebrure-4 { animation-duration: 4.6s; animation-delay: -3.5s; }
+.lu-crepitement { --d: 0.2em; border-radius: 50%; background: radial-gradient(circle, rgba(230, 245, 255, 0.95), rgba(120, 190, 255, 0) 62%); animation: lu-scintille 1.8s ease-in-out infinite; }
+.lu-crepitement-1 { --x: -0.7em; --y: -0.42em; }
+.lu-crepitement-2 { --x: 0.74em; --y: 0.3em; --d: 0.16em; animation-delay: -0.6s; }
+.lu-crepitement-3 { --x: 0.2em; --y: -0.82em; --d: 0.14em; animation-delay: -1.2s; }
+
+/* Les Ailes (Envol, 40) : deux ailes de lumière qui battent depuis les
+   épaules — chacune tourne autour de la sienne —, une auréole qui flotte, des
+   plumes d'or qui tombent lentement. */
+.lu-clarte {
+  --d: 2.2em;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 250, 232, 0.62), rgba(255, 226, 160, 0.25) 45%, rgba(255, 210, 130, 0) 70%);
+  animation: lu-souffle 4s ease-in-out infinite;
+}
+.lu-aile { --d: 2.8em; --y: -0.1em; }
+.lu-aile-droite { transform-origin: 58% 52%; animation: lu-bat-droite 3.4s ease-in-out infinite; }
+.lu-aile-gauche { transform-origin: 42% 52%; animation: lu-bat-gauche 3.4s ease-in-out infinite; }
+.lu-aureole { --d: 0.92em; --y: -0.72em; animation: lu-flotte 3.4s ease-in-out infinite; }
+.lu-plume { --d: 0.16em; border-radius: 50%; background: radial-gradient(circle, #fffdf2 0 26%, rgba(255, 226, 150, 0.9) 44%, rgba(255, 226, 150, 0) 72%); opacity: 0; animation: lu-tombe 4s ease-in-out infinite; }
+.lu-plume-1 { --x: -0.9em; --y: -0.3em; }
+.lu-plume-2 { --x: 0.94em; --y: -0.42em; animation-delay: -1.4s; animation-duration: 4.6s; }
+.lu-plume-3 { --x: -0.56em; --y: 0.2em; --d: 0.12em; animation-delay: -2.6s; animation-duration: 3.6s; }
+
+/* La Boule à facettes (Disco, 45) : une boule de miroirs derrière la tête,
+   ses reflets de couleur qui tournent autour comme sur les murs d'une piste —
+   deux rondes, en sens contraire —, des éclats sur ses miroirs. */
+.lu-piste {
+  --d: 2.4em;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 38% 40%, rgba(255, 111, 191, 0.45), rgba(255, 111, 191, 0) 52%),
+    radial-gradient(circle at 64% 62%, rgba(95, 230, 255, 0.4), rgba(95, 230, 255, 0) 52%);
+  animation: lu-souffle 3s ease-in-out infinite;
+}
+.lu-boule { --d: 1.8em; }
+.lu-reflets { --d: 2.75em; }
+.lu-reflets-1 { animation: av-tourne 16s linear infinite; }
+.lu-reflets-2 { --d: 2.45em; animation: av-tourne 24s linear infinite reverse; }
+.lu-miroite {
+  --d: 0.5em;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0) 60%);
+  scale: 0.6;
+  rotate: 45deg;
+  animation: lu-eclair 2.6s ease-in-out infinite;
+}
+.lu-miroite-1 { --x: -0.62em; --y: -0.6em; }
+.lu-miroite-2 { --x: 0.72em; --y: -0.34em; animation-delay: -0.9s; animation-duration: 3.1s; }
+.lu-miroite-3 { --x: -0.34em; --y: 0.78em; animation-delay: -1.7s; animation-duration: 2.9s; }
+
+/* Le Disque (Singularité, 50) : un trou noir derrière l'avatar — son ombre,
+   son anneau de photons qui palpite, l'arc du disque courbé par-dessus la
+   tête —, et le disque brûlant, en deux moitiés comme l'orbite de
+   l'Astrolabe : la lointaine derrière lui, la proche devant, sous le menton.
+   Le plan l'écrase en ellipse, le tourbillon tourne dedans. */
+.lu-accretion {
+  --d: 2.5em;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 150, 60, 0) 34%, rgba(255, 140, 50, 0.32) 48%, rgba(180, 60, 20, 0.14) 60%, rgba(120, 30, 10, 0) 72%);
+  animation: lu-souffle 3.4s ease-in-out infinite;
+}
+.lu-ombre { --d: 1.5em; border-radius: 50%; background: radial-gradient(circle, #000 0 60%, rgba(0, 0, 0, 0.8) 66%, rgba(0, 0, 0, 0) 72%); }
+.lu-photons {
+  --d: 1.64em;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, transparent 80%, #fff6dc 85%, rgba(255, 176, 80, 0.75) 89%, rgba(255, 120, 40, 0) 97%);
+  animation: lu-palpite 2.6s ease-in-out infinite;
+}
+.lu-lentille { --d: 2.25em; --y: -0.04em; animation: lu-palpite 3.2s ease-in-out -1s infinite; }
+.lu-disque { --d: 2.8em; --y: 0.2em; rotate: -12deg; }
+.lu-disque-arriere { clip-path: inset(-1em -1em 50% -1em); }
+.lu-disque-avant { clip-path: inset(50% -1em -1em -1em); }
+.lu-disque-plan,
+.lu-tourbillon { position: absolute; inset: 0; }
+.lu-disque-plan { scale: 1 0.24; }
+.lu-tourbillon {
+  border-radius: 50%;
+  background: conic-gradient(#fff6dc, #ffd06a 30deg, #ff8a26 90deg, #d2361a 150deg, #7a1408 180deg, #d2361a 210deg, #ff8a26 270deg, #ffd06a 330deg, #fff6dc);
+  -webkit-mask: radial-gradient(closest-side, transparent 50%, #000 56%, #000 74%, rgba(0, 0, 0, 0.45) 86%, transparent 97%);
+  mask: radial-gradient(closest-side, transparent 50%, #000 56%, #000 74%, rgba(0, 0, 0, 0.45) 86%, transparent 97%);
+  animation: av-tourne 3.2s linear infinite;
+}
+.lu-lointaine { --d: 0.3em; background: radial-gradient(circle, rgba(255, 240, 210, 0.9), rgba(255, 200, 120, 0) 60%); animation: lu-scintille 2.4s ease-in-out infinite; }
+.lu-lointaine-1 { --x: -1.02em; --y: -0.6em; }
+.lu-lointaine-2 { --x: 0.96em; --y: -0.78em; --d: 0.22em; animation-delay: -1.1s; }
+
+/* Autour d'un médaillon (1,12 em), la boule de Disco ne laisse voir que son
+   bord, le disque de la Singularité passe plus bas, l'auréole plus haut. */
+.av-legendaire .lu-boule,
+.av-portrait .lu-boule { --d: 1.62em; }
+.av-legendaire .lu-disque,
+.av-portrait .lu-disque { --d: 2.6em; --y: 0.28em; }
+.av-legendaire .lu-aureole,
+.av-portrait .lu-aureole { --y: -0.78em; }
+
 /* Autour d'un médaillon (1,12 em), la bague de cristal le sertit : son
    bord intérieur passe sous celui du médaillon. */
 .av-legendaire .lu-cristal,
@@ -5465,6 +5639,11 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
   background: radial-gradient(circle, #28318a, #1c2268 42%, rgba(28, 34, 104, 0.85) 56%, rgba(28, 34, 104, 0) 71%);
 }
 :root[data-theme='ivoire'] .lu-scintille:where(:not(.carte-fond, .carte-fond *)) { filter: brightness(0.6) sepia(1) saturate(2.5); }
+/* Sur la crème, l'arc électrique d'Orage et ses éclairs, blancs, ne se
+   voyaient plus : ils s'y foncent en bleu d'orage. Les ailes d'Envol s'y
+   dorent, et leurs plumes d'or ne se fondent plus dans le papier. */
+:root[data-theme='ivoire'] :is(.lu-foudre, .lu-zebrure, .lu-crepitement):where(:not(.carte-fond, .carte-fond *)) { filter: brightness(0.45) saturate(2.2); }
+:root[data-theme='ivoire'] :is(.lu-aile, .lu-aureole, .lu-plume):where(:not(.carte-fond, .carte-fond *)) { filter: sepia(0.7) saturate(2.2) brightness(0.85); }
 
 @keyframes lu-souffle {
   0%, 100% { scale: 0.9; opacity: 0.7; }
@@ -5493,6 +5672,58 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
   0% { translate: 0 0; opacity: 0; scale: 0.5; }
   15% { opacity: 1; }
   100% { translate: 0 -1.15em; opacity: 0; scale: 1; }
+}
+@keyframes lu-balance {
+  0%, 100% { rotate: -4deg; }
+  50% { rotate: 4deg; }
+}
+@keyframes lu-luit {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+@keyframes lu-nage {
+  0%, 100% { translate: 0 0.05em; scale: 1 1; }
+  40% { translate: 0 -0.07em; scale: 0.94 1.06; }
+  60% { scale: 1.04 0.95; }
+}
+@keyframes lu-bulle {
+  0% { translate: 0 0; opacity: 0; }
+  12% { opacity: 1; }
+  50% { translate: 0.05em -0.6em; }
+  100% { translate: -0.03em -1.3em; opacity: 0; }
+}
+/* Une lueur qui palpite, jamais un clignotement : moins de trois éclats par
+   seconde, et jamais du noir au blanc. */
+@keyframes lu-crepite {
+  0%, 100% { opacity: 1; }
+  45% { opacity: 0.3; }
+}
+@keyframes lu-frappe {
+  0%, 100% { opacity: 0; }
+  2% { opacity: 1; }
+  12% { opacity: 0.7; }
+  20% { opacity: 0; }
+}
+@keyframes lu-bat-droite {
+  0%, 100% { rotate: 0deg; }
+  50% { rotate: -10deg; }
+}
+@keyframes lu-bat-gauche {
+  0%, 100% { rotate: 0deg; }
+  50% { rotate: 10deg; }
+}
+@keyframes lu-flotte {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -0.05em; }
+}
+@keyframes lu-tombe {
+  0% { translate: 0 0; opacity: 0; }
+  20% { opacity: 1; }
+  100% { translate: 0.08em 0.7em; opacity: 0; }
+}
+@keyframes lu-palpite {
+  0%, 100% { opacity: 0.85; scale: 0.99; }
+  50% { opacity: 1; scale: 1.02; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -8573,6 +8804,10 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 /* Peu de pastilles — ses premiers niveaux, sa première ligue — : à gauche,
    au lieu de s'écarter d'un bord à l'autre. */
 .loge-finitions-rangee.rangee-courte { justify-content: flex-start; gap: 4px 14px; }
+/* Plus de huit — Auto et les douze finitions d'un profil au niveau 50 — : sur deux lignes en 360, alignées à gauche,
+   chacune à la largeur de son nom. Écartée d'un bord à l'autre, la seconde ligne laissait ses pastilles flotter loin les
+   unes des autres ; en grille, « Constellation » mordait sur « Abysses ». */
+.loge-finitions-rangee.rangee-longue { justify-content: flex-start; gap: 8px 6px; }
 /* Ce qui reste, compté au bout de la rangée : un cercle en pointillé, « +3 ». */
 .pastille-a-gagner { cursor: pointer; }
 .teinte-a-gagner { border: 1.5px dashed var(--edge-strong); box-shadow: none; color: var(--accent-text); font-style: normal; font-size: var(--t-label); font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
@@ -8589,6 +8824,16 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
     radial-gradient(circle at 58% 24%, #fff 0 1px, transparent 1.5px),
     #1b2357;
 }
+.teinte-abysses {
+  background:
+    radial-gradient(circle at 34% 32%, #7ff6ff 0 2px, transparent 3px),
+    radial-gradient(circle at 66% 64%, #c56cff 0 1.5px, transparent 2.5px),
+    linear-gradient(160deg, #1fb6c9, #0b4f6c 60%, #062a3d);
+}
+.teinte-orage { background: radial-gradient(circle, transparent 50%, #bfe6ff 55%, transparent 62%), linear-gradient(160deg, #3a63d8, #16235e); }
+.teinte-envol { background: radial-gradient(circle at 50% 40%, #ffffff, #f3e2b0 55%, #c79d4a); }
+.teinte-disco { background: conic-gradient(#e9edf5, #9aa3b5, #ff6fbf, #e9edf5, #5fe6ff, #9aa3b5, #ffe27a, #e9edf5); }
+.teinte-singularite { background: radial-gradient(circle, #050308 0 42%, #fff3d6 48%, #ff9a3c 56%, #5a1a08 72%); }
 /* La bordure de ligue, sous la finition : les mêmes pastilles, chacune son
    avatar dans la bordure, au métal de sa finition — on voit ce qu'on essaie. */
 .loge-bordures { display: flex; flex-direction: column; gap: 6px; }

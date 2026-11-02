@@ -125,7 +125,7 @@ export function progression(xp: number, gardes: readonly NiveauGarde[] = []): { 
 // finition — ce qui l'entoure. Aucun nouvel objet à dessiner, ça tient à
 // l'échelle du vidéoprojecteur, et l'identité de chacun est préservée.
 
-export const FINITIONS = ['mat', 'argent', 'or', 'holo', 'prisme', 'aurore', 'constellation'] as const
+export const FINITIONS = ['mat', 'argent', 'or', 'holo', 'prisme', 'aurore', 'constellation', 'abysses', 'orage', 'envol', 'disco', 'singularite'] as const
 export type Finition = (typeof FINITIONS)[number]
 
 /**
@@ -136,7 +136,15 @@ export type Finition = (typeof FINITIONS)[number]
  */
 export type FinitionChoisie = Finition | 'auto'
 
-/** Le niveau à partir duquel chaque finition se choisit. */
+/**
+ * Le niveau à partir duquel chaque finition se choisit.
+ *
+ * Elles s'arrêtaient au 25 : les plus assidus de la production, bientôt au
+ * niveau 30, n'avaient plus rien qui dise leur avance. Cinq de plus, au même
+ * pas de cinq niveaux, choisies par le propriétaire le 1er novembre 2026 sur
+ * une planche de douze, sa préférée la première, au 30 — les plus actifs
+ * l'ont dans quelques soirées (`retours/2026-11-01/finitions-de-prestige/`).
+ */
 export const NIVEAU_FINITION: Record<Finition, number> = {
   mat: 1,
   argent: 3,
@@ -145,9 +153,18 @@ export const NIVEAU_FINITION: Record<Finition, number> = {
   prisme: 15,
   aurore: 20,
   constellation: 25,
+  abysses: 30,
+  orage: 35,
+  envol: 40,
+  disco: 45,
+  singularite: 50,
 }
 
-/** Comment on annonce une finition à celui qui vient de la débloquer. */
+/**
+ * Comment on annonce une finition à celui qui vient de la débloquer. Ni
+ * « Séraphin » ni « Trou noir », les noms de la planche : l'un est un
+ * Divin, l'autre le légendaire du Cabinet entier.
+ */
 export const NOM_FINITION: Record<Finition, string> = {
   mat: 'Mat',
   argent: 'Argent',
@@ -156,6 +173,11 @@ export const NOM_FINITION: Record<Finition, string> = {
   prisme: 'Prisme',
   aurore: 'Aurore',
   constellation: 'Constellation',
+  abysses: 'Abysses',
+  orage: 'Orage',
+  envol: 'Envol',
+  disco: 'Disco',
+  singularite: 'Singularité',
 }
 
 /** Celles qu'on peut porter à ce niveau. */

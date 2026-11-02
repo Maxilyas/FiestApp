@@ -18,6 +18,7 @@ import { DIVINS } from '../../shared/divins'
 import { COMPAGNONS, COMPAGNONS_DE_LA_BOUTIQUE, METAMORPHOSES } from '../../shared/compagnons'
 import { GERBES } from '../../shared/gerbes'
 import { FINITIONS } from '../../shared/profil'
+import { COLLECTION } from '../../shared/avatars'
 
 Object.assign(globalThis, {
   React,
@@ -89,9 +90,9 @@ test('le savoir dans l’album : chaque portrait sur la page de sa rareté — t
     assert.deepEqual(cases[0], { aLui: true, nom: `${avancee.portraits[rang].nom}, ${{ commune: 'commune', peucommune: 'peu commune', rare: 'rare' }[page]}, à toi` }, page)
   }
   // Les autres portraits de sa branche attendent sur leurs pages, en silhouette, et disent où se gagner —
-  // à côté de la troisième forme de chaque compagnon.
+  // à côté de la troisième forme de chaque compagnon, et des emojis de collection du 41 au 49 (le 1er novembre 2026).
   const epique = casesDeLAlbum(await album('epique'))
-  assert.equal(epique.length, BRANCHES.length + COMPAGNONS.length)
+  assert.equal(epique.length, BRANCHES.length + COMPAGNONS.length + COLLECTION.filter(c => c.niveau >= 40).length)
   assert.equal(epique.filter(c => !c.aLui && c.nom.endsWith(', épique, à gagner sur les sentiers')).length, BRANCHES.length)
   // Chacun à son genre : « avec elle », pour la tortue.
   for (const c of COMPAGNONS_DE_LA_BOUTIQUE) {
@@ -105,7 +106,7 @@ test('le savoir dans l’album : chaque portrait sur la page de sa rareté — t
   // Les compagnons y ont aussi leur forme, une par page : quatre de plus — et
   // la métamorphose de chacun, légendaire.
   const html = await album('commune')
-  assert.match(html, /aria-label="Rare, 1 sur 29"/)
+  assert.match(html, /aria-label="Rare, 1 sur 37"/)
   assert.match(html, new RegExp(`aria-label="Légendaire, 1 sur ${LEGENDAIRES.length + BRANCHES.length + COMPAGNONS.length + METAMORPHOSES.length}"`))
   assert.equal(ouvertsDansLaBranche(avancee, paliers), 3)
 })
@@ -363,15 +364,18 @@ test('la loge, sur la gerbe : les siennes seulement, « Aucune » se demande —
   assert.doesNotMatch(avatar, /finition-fermee|Niv\. \d/)
   assert.match(
     avatar,
-    /<a class="finition-choix pastille-a-gagner" href="#collection-finitions" aria-label="6 finitions à gagner : où et comment, dans « Ma collection »"><i class="finition-teinte teinte-a-gagner" aria-hidden="true">\+6<\/i><span aria-hidden="true">à gagner<\/span><\/a>/,
+    /<a class="finition-choix pastille-a-gagner" href="#collection-finitions" aria-label="11 finitions à gagner : où et comment, dans « Ma collection »"><i class="finition-teinte teinte-a-gagner" aria-hidden="true">\+11<\/i><span aria-hidden="true">à gagner<\/span><\/a>/,
   )
   const auNiveau12 = await rendu('components/Apparence', 'MesFinitions', { profil: { ...complet, ouvertes: ['mat', 'argent', 'or', 'holo'], finition: 'holo' }, ...loge })
   assert.equal(auNiveau12.match(/<button type="button" class="finition-choix/g)?.length, 5, 'Auto, et les quatre qu’il a')
-  assert.match(auNiveau12, /aria-label="3 finitions à gagner[^"]*"><i class="finition-teinte teinte-a-gagner" aria-hidden="true">\+3<\/i>/)
+  assert.match(auNiveau12, /aria-label="8 finitions à gagner[^"]*"><i class="finition-teinte teinte-a-gagner" aria-hidden="true">\+8<\/i>/)
   const auSommet = await rendu('components/Apparence', 'MesFinitions', { profil: { ...complet, ouvertes: [...FINITIONS], finition: 'constellation' }, ...loge })
   assert.doesNotMatch(auSommet, /pastille-a-gagner/, 'toutes gagnées : rien à compter')
-  // Huit pastilles se serrent d'un bord à l'autre ; deux ou trois s'alignent à gauche.
-  assert.match(auSommet, /class="loge-finitions-rangee"/)
+  // Huit pastilles se serrent d'un bord à l'autre ; deux ou trois s'alignent à gauche ; au sommet — Auto et les
+  // douze finitions du niveau 50, depuis le 1er novembre 2026 —, elles se rangent en grille.
+  const auVingt = await rendu('components/Apparence', 'MesFinitions', { profil: { ...complet, ouvertes: FINITIONS.slice(0, 6), finition: 'aurore' }, ...loge })
+  assert.match(auVingt, /class="loge-finitions-rangee"/, 'Auto, ses six, et ce qui reste : huit')
+  assert.match(auSommet, /class="loge-finitions-rangee rangee-longue"/)
   assert.match(avatar, /class="loge-finitions-rangee rangee-courte"/)
   // Dans la collection, chaque gerbe se touche pour éclater, même à gagner (`AlbumDuStyle`).
   const STYLE = source('components/AlbumDuStyle.tsx')

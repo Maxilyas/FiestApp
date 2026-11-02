@@ -77,8 +77,8 @@ test('l’album : tous les avatars qui se gagnent, une fois chacun, rangés en s
   // Cinq compagnons, une forme sur chacune des pages commune, rare, épique et légendaire — et la métamorphose de
   // chacun, légendaire : la luciole a la sienne depuis le 20 octobre 2026, le panda roux la sienne le même jour. Les
   // cinq légendaires des fêtes du 1er novembre 2026, légendaires aussi, et le Djinn des défis du Cabinet, le même jour ;
-  // les dix emojis des niveaux 18 à 29, peu communs, le même jour encore.
-  assert.deepEqual(parPage, { commune: 23, peucommune: 28, rare: 29, epique: 17, legendaire: 54, divin: 6 })
+  // les dix emojis des niveaux 18 à 29, peu communs, le même jour encore ; et ceux du 31 au 49, huit rares, huit épiques.
+  assert.deepEqual(parPage, { commune: 23, peucommune: 28, rare: 37, epique: 25, legendaire: 54, divin: 6 })
 })
 
 test('la rareté dit ce qu’un avatar demande : plus haut sur le sentier, plus rare ; sa forme ultime, légendaire', () => {
@@ -101,6 +101,9 @@ test('la rareté dit ce qu’un avatar demande : plus haut sur le sentier, plus 
       '🦥 peucommune', '🐳 peucommune', '🦜 peucommune', '🦦 peucommune', '🐲 peucommune', '🪐 peucommune',
       '🦝 peucommune', '🦑 peucommune', '🦓 peucommune', '🦒 peucommune', '🦘 peucommune', '🦢 peucommune',
       '🦕 peucommune', '🧜 peucommune', '🧚 peucommune', '🌋 peucommune',
+      // Au-delà du 30, la couleur de la pierre de leur dizaine : rares, puis épiques.
+      '🐬 rare', '🦞 rare', '🐡 rare', '🦀 rare', '🐆 rare', '🦏 rare', '🦍 rare', '🌈 rare',
+      '🪁 epique', '🪂 epique', '🧝 epique', '🧙 epique', '🎷 epique', '🎻 epique', '🪕 epique', '🛸 epique',
     ],
   )
 })
@@ -193,7 +196,7 @@ test('une page par rareté : ce qu’on a d’abord, puis ce qui reste, chacun d
   assert.deepEqual(
     pages.map(p => `${p.rarete} ${p.acquis}/${p.total}`),
     // Le blaireau (palier 4) et l'écureuil (palier 2) ; cinq emojis jusqu'au niveau 8 ; le Phénix ; le Séraphin.
-    ['commune 6/23', 'peucommune 1/28', 'rare 0/29', 'epique 0/17', 'legendaire 1/54', 'divin 1/6'],
+    ['commune 6/23', 'peucommune 1/28', 'rare 0/37', 'epique 0/25', 'legendaire 1/54', 'divin 1/6'],
   )
   const commune = pages[0].avatars
   assert.deepEqual(
@@ -221,10 +224,10 @@ test('une page par rareté : ce qu’on a d’abord, puis ce qui reste, chacun d
   ])
   assert.deepEqual(legendaires.slice(44), COMPAGNONS.flatMap(c => [c.formes[3].key, ...(c.lumiere ? [c.lumiere.key] : [])]))
   // Une seule règle compte l'album, sa ligne de « Ma collection » et son total.
-  assert.deepEqual(compteDeLAlbum(LEA), { acquis: 9, total: 157 })
+  assert.deepEqual(compteDeLAlbum(LEA), { acquis: 9, total: 173 })
   assert.deepEqual(compteDeLAlbum(LEA), { acquis: pages.reduce((s, p) => s + p.acquis, 0), total: pages.reduce((s, p) => s + p.total, 0) })
   const avatars = compteDeLaCollection({ ...LEA, ouvertes: [], prix: [], ecussons: [] } as any).familles.find(f => f.famille === 'avatars')!
-  assert.deepEqual(avatars.parties, [{ partie: 'avatars', acquis: 9, total: 157 }])
+  assert.deepEqual(avatars.parties, [{ partie: 'avatars', acquis: 9, total: 173 }])
 })
 
 test('les compagnons dans l’album : chaque forme à sa page, achetées en boutique, puis grandies dans sa niche', () => {
@@ -242,7 +245,7 @@ test('les compagnons dans l’album : chaque forme à sa page, achetées en bout
     compagnons: [{ compagnon: 'loup' as const, rang: 1 }],
     boutique: { confettis: { gagnes: 0, depenses: 0, solde: 0 }, possedes: [], porte: null, jour: '2026-10-13', compagnons: [{ compagnon: 'loup' as const, rang: 1, justes: 162 }] },
   }
-  assert.deepEqual(compteDeLAlbum(AVEC_LE_LOUP), { acquis: 11, total: 157 })
+  assert.deepEqual(compteDeLAlbum(AVEC_LE_LOUP), { acquis: 11, total: 173 })
   assert.equal(pageDuDebut(AVEC_LE_LOUP), 'rare', 'il porte le jeune loup : la page rare')
   assert.equal(pageDuProchain(LEA, 'compagnon'), 'commune', 'aucun acheté : la première forme de chacun')
   assert.equal(pageDuProchain(AVEC_LE_LOUP, 'compagnon'), 'commune', 'le chat et la tortue restent à acheter')
@@ -286,13 +289,13 @@ test('les compagnons dans l’album : chaque forme à sa page, achetées en bout
   // L'Éclat tombé — sur le louveteau, il y a longtemps — : tenu ; sa métamorphose s'ouvre à sa forme ultime, et pas avant.
   const ECLATE = { ...AVEC_LE_LOUP, compagnons: [{ compagnon: 'loup' as const, rang: 1, eclat: true as const }] }
   assert.equal(voiesDeLAvatar('cp:loup-tempete', ECLATE, FERME)[0][2].tenue, true)
-  assert.deepEqual(compteDeLAlbum(ECLATE), { acquis: 11, total: 157 })
+  assert.deepEqual(compteDeLAlbum(ECLATE), { acquis: 11, total: 173 })
   const ULTIME = { ...ECLATE, compagnons: [{ compagnon: 'loup' as const, rang: 3, eclat: true as const }] }
-  assert.deepEqual(compteDeLAlbum(ULTIME), { acquis: 14, total: 157 }, 'ses quatre formes, et sa métamorphose')
+  assert.deepEqual(compteDeLAlbum(ULTIME), { acquis: 14, total: 173 }, 'ses quatre formes, et sa métamorphose')
   // La luciole éclatée à sa forme ultime : ses quatre formes, et sa luciole-aurore (le 20 octobre 2026) ; sans l'Éclat, les quatre seules.
   const LUCIOLE = { ...LEA, compagnons: [{ compagnon: 'luciole' as const, rang: 3, eclat: true as const }] }
-  assert.deepEqual(compteDeLAlbum(LUCIOLE), { acquis: 14, total: 157 })
-  assert.deepEqual(compteDeLAlbum({ ...LEA, compagnons: [{ compagnon: 'luciole' as const, rang: 3 }] }), { acquis: 13, total: 157 })
+  assert.deepEqual(compteDeLAlbum(LUCIOLE), { acquis: 14, total: 173 })
+  assert.deepEqual(compteDeLAlbum({ ...LEA, compagnons: [{ compagnon: 'luciole' as const, rang: 3 }] }), { acquis: 13, total: 173 })
   assert.ok(pagesDeLAlbum(ULTIME)[4].avatars.some(a => a.aLui && a.avatar.cle === 'cp:loup-tempete'))
   // Sa voie part de la boutique, comme ses formes : l'achat, sa forme ultime, puis l'Éclat.
   assert.deepEqual(
@@ -319,7 +322,10 @@ test('l’album s’ouvre sur la page de ce qu’il porte, sinon sur la premièr
   assert.equal(pageDuProchain(LEA, 'portrait'), 'commune')
   assert.equal(pageDuProchain(LEA, 'emoji'), 'commune')
   assert.equal(pageDuProchain({ ...LEA, niveau: 9 }, 'emoji'), 'peucommune')
-  assert.equal(pageDuProchain({ ...LEA, niveau: 30 }, 'emoji'), null)
+  // Au-delà du 30, le prochain est sur la page de la pierre de sa dizaine ; au 49, il n'en reste plus.
+  assert.equal(pageDuProchain({ ...LEA, niveau: 30 }, 'emoji'), 'rare')
+  assert.equal(pageDuProchain({ ...LEA, niveau: 40 }, 'emoji'), 'epique')
+  assert.equal(pageDuProchain({ ...LEA, niveau: 49 }, 'emoji'), null)
   assert.equal(pageDuProchain({ ...LEA, sentiers: Object.fromEntries(BRANCHES.map(b => [b.key, 6])) }, 'portrait'), 'rare')
 })
 

@@ -177,7 +177,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Écus | La monnaie de l'expédition : une escale trouvée en paie selon la chance qu'elle annonçait, l'échoppe les dépense ; ils meurent avec l'expédition, jamais un confetti, et ne s'écrivent nulle part — le pli les compte | `EtatDeLExpedition.ecus`, `ecusDeLaReponse`, `ECUS_DES_PISTES` |
 | Écusson de savoir | La maîtrise d'une des douze catégories : bronze, argent, or à 20, 75 et 200 bonnes réponses, tous modes confondus | `shared/ecussons.ts` |
 | Élite (d'une escale) | Une escale de l'expédition qui pose une question de la marche au-dessus : trouvée, un joker au choix parmi trois ; ratée, une vie | `sorte: 'elite'`, `MARCHES_DES_ACTES` |
-| Emoji de collection | Un des vingt-deux emojis réservés aux profils, chacun ouvert par un niveau qui n'ouvre pas de finition, jusqu'au 29 | `COLLECTION` |
+| Emoji de collection | Un des trente-huit emojis réservés aux profils, chacun ouvert par un niveau qui n'ouvre pas de finition, jusqu'au 49 | `COLLECTION` |
 | Emoji récent | Un emoji d'Unicode 13 ou après, que l'écran commun sous Windows 10 dessine en carré vide | `emojisRecents` |
 | En ligne | Un ami réciproque passé ces 5 dernières minutes, tenu en mémoire seulement | `EN_LIGNE_MS` |
 | Enchaînement | La question suivante qui part seule après la révélation, au délai choisi (5, 10 ou 20 secondes) ; suspendu après une question sans une seule réponse | `autoNextSeconds`, `PALIERS_ENCHAINEMENT` |
@@ -233,7 +233,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Filet (du serveur) | Ce qui consigne une exception échappée sans éteindre le serveur, posé une fois le serveur prêt | `poserLeFilet` |
 | Fin de soirée | Ce que chaque téléphone reçoit à la clôture : sa place, ses points, ce qu'il a gagné, ses liens | `soiree:fin`, `FinDeSoiree` (`shared/fin.ts`) |
 | Fin gardée | La fin de soirée rangée sur le téléphone : elle se rouvre quand on revient sur la page (douze heures), jamais quand on y arrive | `SoireeGardee` (`client/src/state.ts`), `estUnRetour` |
-| Finition | L'habillage de l'avatar d'un profil, de Mat à Constellation, ouvert par le niveau ; « Auto » porte la plus belle | `NIVEAU_FINITION` |
+| Finition | L'habillage de l'avatar d'un profil, de Mat (niveau 1) à Singularité (niveau 50), ouvert par le niveau ; « Auto » porte la plus belle | `NIVEAU_FINITION` |
 | Fiole | Ce qui ne sert qu'une fois en expédition, au codex dès le niveau 3 : du courage, de l'énergie pour la question, ou une mauvaise réponse effacée ; deux au plus, à boire de la barre quand on veut ; l'échoppe en vend, les coffres en cachent | `FIOLES`, `refusDeLaFiole`, `SesFioles` |
 | Fond de carte | Ce qu'on voit derrière la carte d'un joueur — ses deux faces — quand on touche son nom ; il se gagne, sort du coffre de la semaine (le trésor), ou s'achète — seuls les fonds des savoirs | `shared/fonds.ts` |
 | Fonds des savoirs | Les douze fonds de carte peints, un par catégorie de questions, les seuls que la boutique vend, tous au même prix | `FONDS_EN_BOUTIQUE`, `PRIX_D_UN_FOND` |
@@ -315,7 +315,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Lot (d'écritures) | Ce qu'un passage du moteur envoie au miroir en une seule transaction : gains, réponses, effacements et état de la partie | `ouvrirLot`, `fermerLot` |
 | Lot (de questions) | Un fichier de questions écrit par un agent, qui attend sa relecture et son rangement dans `.lots-campagne/` | `server/scripts/lots-campagne.ts` |
 | Luciole | Le compagnon de l'Expédition, qui ne s'achète pas : la Première traversée l'amène, et seule « Ma collection » la montre avant qu'on l'ait ; quatre formes, de la petite luciole à la luciole-constellation, et sa métamorphose, la luciole-aurore | `COMPAGNON_DE_L_EXPEDITION`, `Compagnon.gagne` |
-| Lumière | Ce qui déborde autour de l'avatar aux trois dernières finitions : le Diamant (Prisme), les Voiles (Aurore), l'Astrolabe (Constellation) | `client/src/components/Lumiere.tsx` |
+| Lumière | Ce qui déborde autour de l'avatar dès la finition du niveau 15 : le Diamant (Prisme), les Voiles (Aurore), l'Astrolabe (Constellation), les Méduses (Abysses), la Foudre (Orage), les Ailes (Envol), la Boule à facettes (Disco), le Disque (Singularité) | `client/src/components/Lumiere.tsx` |
 
 ## M
 

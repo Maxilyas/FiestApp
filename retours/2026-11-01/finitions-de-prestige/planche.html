@@ -1,0 +1,1361 @@
+<title>Finitions de prestige</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,500&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* La planche d'une loge : une colonne de pièces à juger, chacune sa scène
+   sombre ou claire, comme la salle les verra. Les couleurs reprennent les
+   deux thèmes de FiestApp — Ivoire pour le clair, Velours pour le sombre. */
+:root {
+  --bg: #f9f5ec;
+  --raised: #fffdf8;
+  --ink: #2a201b;
+  --muted: #6e5f4f;
+  --accent: #ac8536;
+  --accent-text: #836420;
+  --edge: rgba(172, 133, 54, 0.34);
+  --accent-soft: rgba(172, 133, 54, 0.12);
+  --serif: 'Cormorant Garamond', 'Iowan Old Style', Georgia, serif;
+  --sans: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Les deux salles, telles que l'application les peint. */
+  --velours-bg: #1a1412;
+  --velours-halo: #2b211b;
+  --velours-ink: #f3ece2;
+  --velours-muted: #a89b8a;
+  --velours-accent: #d9b56a;
+  --velours-soft: rgba(217, 181, 106, 0.12);
+  --velours-edge: rgba(217, 181, 106, 0.45);
+  --ivoire-bg: #f9f5ec;
+  --ivoire-halo: #fffdf8;
+  --ivoire-ink: #2a201b;
+  --ivoire-muted: #7a6b5a;
+  --ivoire-accent: #836420;
+  --ivoire-soft: rgba(172, 133, 54, 0.12);
+  --ivoire-edge: rgba(172, 133, 54, 0.45);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1a1412;
+    --raised: #241c18;
+    --ink: #f3ece2;
+    --muted: #a89b8a;
+    --accent: #d9b56a;
+    --accent-text: #d9b56a;
+    --edge: rgba(217, 181, 106, 0.24);
+    --accent-soft: rgba(217, 181, 106, 0.1);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1a1412;
+  --raised: #241c18;
+  --ink: #f3ece2;
+  --muted: #a89b8a;
+  --accent: #d9b56a;
+  --accent-text: #d9b56a;
+  --edge: rgba(217, 181, 106, 0.24);
+  --accent-soft: rgba(217, 181, 106, 0.1);
+  color-scheme: dark;
+}
+
+body { background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.5; }
+.planche {
+  max-width: 980px;
+  margin: 0 auto;
+  padding-block: 28px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+h1, h2, h3 { font-family: var(--serif); font-weight: 600; text-wrap: balance; margin: 0; line-height: 1.05; }
+h1 { font-size: clamp(2.4rem, 7vw, 3.6rem); }
+h2 { font-size: 1.9rem; }
+h3 { font-size: 1.7rem; }
+p { margin: 0; }
+.surtitre { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent-text); }
+.chapo { max-width: 62ch; color: var(--muted); font-size: 1.02rem; }
+.tete { display: flex; flex-direction: column; gap: 12px; }
+.section { display: flex; flex-direction: column; gap: 16px; }
+.section > p { max-width: 64ch; color: var(--muted); }
+
+/* Le réglage de la salle : un interrupteur à deux positions. */
+.reglage { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 0.9rem; color: var(--muted); }
+.bascule { display: inline-flex; padding: 3px; border: 1px solid var(--edge); border-radius: 999px; background: var(--raised); }
+.bascule button {
+  font: inherit; font-weight: 600; color: var(--muted); background: none; border: 0; border-radius: 999px;
+  padding: 6px 14px; cursor: pointer;
+}
+.bascule button[aria-pressed="true"] { background: var(--accent); color: #1a1412; }
+.bascule button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ── Les scènes ─────────────────────────────────────────────────────────── */
+.planche[data-salle="velours"] { --s-bg: var(--velours-bg); --s-halo: var(--velours-halo); --s-ink: var(--velours-ink); --s-muted: var(--velours-muted); --s-accent: var(--velours-accent); --s-soft: var(--velours-soft); --s-edge: var(--velours-edge); }
+.planche[data-salle="ivoire"] { --s-bg: var(--ivoire-bg); --s-halo: var(--ivoire-halo); --s-ink: var(--ivoire-ink); --s-muted: var(--ivoire-muted); --s-accent: var(--ivoire-accent); --s-soft: var(--ivoire-soft); --s-edge: var(--ivoire-edge); }
+.scene {
+  position: relative;
+  container-type: inline-size;
+  aspect-ratio: 1;
+  max-width: 100%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid var(--edge);
+  background: radial-gradient(circle at 50% 0%, var(--s-halo), var(--s-bg) 70%);
+}
+.scene .av { font-size: 29cqw; }
+.scene figcaption {
+  position: absolute; left: 10px; bottom: 8px;
+  font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--s-muted);
+}
+
+/* Aujourd'hui : trois scènes côte à côte. */
+.trio { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.trio .piece { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.trio .nom-piece { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
+.trio .nom-piece b { font-family: var(--serif); font-size: 1.35rem; font-weight: 600; }
+.trio .nom-piece span { font-size: 0.8rem; color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
+
+/* Une candidate : son nom, sa phrase, deux scènes, une ligne de classement. */
+.candidates { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 20px; }
+.candidate {
+  display: flex; flex-direction: column; gap: 14px; min-width: 0;
+  padding: 18px; border: 1px solid var(--edge); border-radius: 18px; background: var(--raised);
+}
+.candidate header { display: flex; flex-direction: column; gap: 6px; }
+.candidate .ligne-titre { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.candidate .phrase { color: var(--muted); max-width: 52ch; }
+.candidate .lumiere { font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 1.15rem; color: var(--accent-text); }
+.propose {
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 4px 10px; border-radius: 999px; border: 1px solid var(--edge); color: var(--muted); white-space: nowrap;
+}
+.propose.oui { background: var(--accent); border-color: var(--accent); color: #1a1412; }
+.duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+
+/* Une ligne de classement : la lumière s'y resserre et s'y fige, comme dans l'application. */
+.ligne {
+  display: flex; align-items: center; gap: 12px; min-width: 0;
+  padding: 10px 14px; border-radius: 12px; border: 1px solid var(--s-edge);
+  background: var(--s-bg); color: var(--s-ink);
+}
+.ligne .rang { font-family: var(--serif); font-size: 1.25rem; color: var(--s-accent); width: 1ch; font-variant-numeric: lining-nums; }
+.ligne .av { font-size: 26px; margin-inline: 0.42em; }
+.ligne .qui { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.ligne .pts { font-variant-numeric: lining-nums tabular-nums; font-weight: 700; }
+.ligne .lu { scale: 0.72; }
+.ligne .lu *, .ligne .lg * { animation: none !important; }
+
+/* ── La pastille de niveau, et son prestige ─────────────────────────────── */
+.niveau {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 1.5em; height: 1.5em; padding: 0 0.4em; border-radius: 999px;
+  border: 1px solid var(--s-edge); background: var(--s-soft); color: var(--s-accent);
+  font-size: 0.75rem; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; line-height: 1;
+}
+.niveau.prestige {
+  border-color: rgba(255, 255, 255, 0.4);
+  background: var(--pierre);
+  color: var(--pierre-encre);
+  font-weight: 700;
+  text-shadow: var(--pierre-ombre);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 0 0 1px var(--pierre-bord);
+}
+/* Les gemmes de l'album : bleue la rare, violette l'épique, ambrée la légendaire. */
+.p30 { --pierre: linear-gradient(165deg, #7db4ff 0%, #2f6bd0 42%, #1b3f8f 100%); --pierre-encre: #fff; --pierre-ombre: 0 1px 0 rgba(0, 0, 0, 0.35); --pierre-bord: rgba(27, 63, 143, 0.45); --pierre-coeur: #2f6bd0; --pierre-claire: #a9cdff; --pierre-sombre: #142f6e; }
+.p40 { --pierre: linear-gradient(165deg, #cfa5ff 0%, #8045e0 42%, #4b2196 100%); --pierre-encre: #fff; --pierre-ombre: 0 1px 0 rgba(0, 0, 0, 0.35); --pierre-bord: rgba(75, 33, 150, 0.45); --pierre-coeur: #8045e0; --pierre-claire: #e1c8ff; --pierre-sombre: #3a1878; }
+.p50 { --pierre: linear-gradient(165deg, #fff0bf 0%, #f2b84b 42%, #a86a14 100%); --pierre-encre: #2a1606; --pierre-ombre: 0 1px 0 rgba(255, 255, 255, 0.35); --pierre-bord: rgba(168, 106, 20, 0.5); --pierre-coeur: #f2b84b; --pierre-claire: #fff3cc; --pierre-sombre: #8a560f; }
+
+.gemmes-niveau { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 12px; }
+.mini {
+  display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 14px;
+  border: 1px solid var(--s-edge); background: var(--s-bg); color: var(--s-ink);
+}
+.mini .rang-niv { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--s-muted); }
+.mini .rang-niv .niveau { font-size: 0.85rem; }
+.carte-tete { display: flex; align-items: center; gap: 10px; }
+.carte-tete b { display: block; font-family: var(--serif); font-size: 1.4rem; line-height: 1.05; }
+.carte-tete small { color: var(--s-muted); font-size: 0.82rem; }
+.cadre-champagne { --cadre: linear-gradient(150deg, #e2c98e, #8f7a52 48%, #cdb27a); }
+.cadre-or { --cadre: linear-gradient(135deg, #fff0bf 0%, #b8892f 22%, #f6dd94 44%, #7d5416 64%, #fff0bf 82%, #8f6219 100%); }
+.cadre-diamant { --cadre: linear-gradient(135deg, #ffffff 0%, #b9daf3 22%, #f2faff 44%, #8fb6db 64%, #ffffff 82%, #9dc0e2 100%); }
+.gemme {
+  flex: none; display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 44px; height: 44px; border-radius: 50%;
+  background: var(--s-soft);
+  color: var(--s-accent);
+  font-size: 1.05rem; font-weight: 800; line-height: 1; font-variant-numeric: lining-nums tabular-nums;
+  box-shadow: inset 0 0 0 2px var(--s-edge), 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+.gemme i { font-style: normal; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.cadre-or.gemme:not(.prestige), .cadre-diamant.gemme:not(.prestige) { background: var(--cadre); color: #3a2508; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35); }
+/* Le prestige : la pierre de sa dizaine, sertie dans le métal de sa carte. */
+.gemme.prestige {
+  border: 3px solid transparent;
+  background:
+    radial-gradient(circle at 24% 22%, rgba(255, 255, 255, 0.8) 0 4%, rgba(255, 255, 255, 0) 11%) padding-box,
+    conic-gradient(from 210deg, var(--pierre-claire), var(--pierre-coeur) 25%, var(--pierre-sombre) 50%, var(--pierre-coeur) 75%, var(--pierre-claire)) padding-box,
+    var(--cadre) border-box;
+  color: var(--pierre-encre);
+  text-shadow: var(--pierre-ombre);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.proposition { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.proposition .piece { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.proposition .etiquette { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
+.proposition .etiquette b { font-family: var(--serif); font-size: 1.3rem; }
+.proposition .etiquette span { font-size: 0.8rem; color: var(--muted); font-variant-numeric: lining-nums; }
+@media (max-width: 620px) {
+  .proposition { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.reponse {
+  padding: 16px 18px; border-radius: 14px; border: 1px dashed var(--edge); background: var(--accent-soft);
+  max-width: 70ch;
+}
+.reponse code { font-family: var(--sans); font-weight: 700; color: var(--accent-text); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   L'AVATAR — recopié de l'application : `.av`, `.lu`, `.lg`
+   ═══════════════════════════════════════════════════════════════════════ */
+.av { position: relative; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+.av-emoji { position: relative; z-index: 1; line-height: 1; font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif; }
+.av-lumiere { isolation: isolate; }
+.av-legendaire .av-emoji { display: inline-flex; }
+.lg { position: relative; display: block; width: 1.12em; height: 1.12em; }
+.lg svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.lg-art { position: absolute; left: 5%; top: 5%; width: 90%; height: 90%; max-width: none; border-radius: 50%; clip-path: circle(50%); }
+.lg-tourne { transform-origin: 50px 50px; animation: lg-tourne 12s linear infinite; }
+@keyframes lg-tourne { to { transform: rotate(360deg); } }
+@keyframes lg-crepite { 0%, 100% { opacity: 1; } 45% { opacity: 0.35; } }
+
+.lu { position: absolute; top: 50%; left: 50%; width: 0; height: 0; pointer-events: none; }
+.lu-arriere { z-index: 0; }
+.lu-avant { z-index: 2; }
+.lu > * {
+  position: absolute; top: 0; left: 0; display: block;
+  width: var(--d); height: var(--d); max-width: none;
+  margin: calc(var(--y, 0em) - var(--d) / 2) 0 0 calc(var(--x, 0em) - var(--d) / 2);
+}
+
+@keyframes av-tourne { from { rotate: 0deg; } to { rotate: 360deg; } }
+@keyframes lu-souffle { 0%, 100% { scale: 0.9; opacity: 0.7; } 50% { scale: 1.06; opacity: 1; } }
+@keyframes lu-scintille { 0%, 100% { scale: 0.45; opacity: 0.45; } 50% { scale: 1; opacity: 1; } }
+@keyframes lu-eclair { 0%, 55%, 100% { scale: 0; rotate: 0deg; opacity: 0; } 68% { scale: 1; rotate: 45deg; opacity: 1; } 84% { scale: 0; rotate: 90deg; opacity: 0; } }
+@keyframes lu-balaye { 0% { rotate: -40deg; opacity: 0; } 12% { opacity: 1; } 55% { rotate: 320deg; opacity: 1; } 65%, 100% { rotate: 320deg; opacity: 0; } }
+@keyframes lu-ondule { 0%, 100% { transform: skewX(-6deg) scaleY(0.94); } 50% { transform: skewX(6deg) scaleY(1.05); } }
+@keyframes lu-monte { 0% { translate: 0 0; opacity: 0; scale: 0.5; } 15% { opacity: 1; } 100% { translate: 0 -1.15em; opacity: 0; scale: 1; } }
+
+/* — Prisme : le Diamant — */
+.lu-dispersion {
+  --d: 2.3em; border-radius: 50%;
+  background: conic-gradient(rgba(255,79,123,.85), rgba(255,174,61,.85), rgba(255,243,92,.85), rgba(84,255,155,.85), rgba(69,208,255,.85), rgba(139,108,255,.85), rgba(255,95,217,.85), rgba(255,79,123,.85));
+  -webkit-mask: radial-gradient(closest-side, transparent 50%, #000 66%, rgba(0,0,0,.3) 82%, transparent);
+  mask: radial-gradient(closest-side, transparent 50%, #000 66%, rgba(0,0,0,.3) 82%, transparent);
+  animation: av-tourne 9s linear infinite;
+}
+.lu-spectres { --d: 2.8em; animation: lu-scintille 2.8s ease-in-out infinite; }
+.lu-spectres-2 { animation-delay: -1.4s; }
+.lu-feux {
+  --d: 2.05em; border-radius: 50%;
+  background: conic-gradient(#ff4f7b, #ffae3d 40deg, #fff35c 75deg, rgba(255,243,92,0) 100deg, rgba(84,255,155,0) 165deg, #54ff9b 190deg, #45d0ff 225deg, #8b6cff 260deg, rgba(139,108,255,0) 290deg, rgba(255,79,123,0) 335deg, #ff4f7b);
+  -webkit-mask: radial-gradient(closest-side, transparent 61%, #000 63%, #000 86%, transparent 88%);
+  mask: radial-gradient(closest-side, transparent 61%, #000 63%, #000 86%, transparent 88%);
+  animation: av-tourne 6s linear infinite;
+}
+.lu-glace {
+  --d: 1.4em; border-radius: 50%;
+  background: conic-gradient(rgba(255,79,123,.5), rgba(255,243,92,.5), rgba(84,255,155,.5), rgba(69,208,255,.5), rgba(139,108,255,.5), rgba(255,79,123,.5));
+  -webkit-mask: radial-gradient(closest-side, #000 20%, transparent); mask: radial-gradient(closest-side, #000 20%, transparent);
+  animation: av-tourne 6s linear infinite reverse;
+}
+.lu-cristal { --d: 2.05em; }
+.lu-balayage {
+  --d: 2.05em; border-radius: 50%;
+  background: conic-gradient(rgba(255,255,255,0), rgba(255,255,255,.95) 16deg, rgba(255,255,255,0) 38deg);
+  -webkit-mask: radial-gradient(closest-side, transparent 60%, #000 62%, #000 85%, transparent 87%);
+  mask: radial-gradient(closest-side, transparent 60%, #000 62%, #000 85%, transparent 87%);
+  rotate: 20deg; opacity: 0.8; animation: lu-balaye 3.2s cubic-bezier(.5,0,.3,1) infinite;
+}
+.lu-etincelle {
+  --d: 0.62em; --x: 0.6em; --y: -0.6em;
+  background: radial-gradient(circle, rgba(255,255,255,.55), rgba(255,255,255,0) 60%);
+  scale: 0.6; rotate: 45deg; animation: lu-eclair 3.2s ease-in-out -0.4s infinite;
+}
+/* — Aurore : les Voiles — */
+.lu-lueur { --d: 1.8em; border-radius: 50%; background: radial-gradient(circle, rgba(90,255,190,.55), rgba(60,200,255,.25) 45%, rgba(60,200,255,0) 70%); animation: lu-souffle 3.4s ease-in-out infinite; }
+.lu-voile {
+  --d: 2.6em; --y: -0.3em; transform-origin: 50% 72%;
+  -webkit-mask: radial-gradient(ellipse 46% 62% at 50% 66%, #000 58%, transparent); mask: radial-gradient(ellipse 46% 62% at 50% 66%, #000 58%, transparent);
+  animation: lu-ondule 5s ease-in-out infinite;
+}
+.lu-voile-2 { --y: -0.42em; opacity: 0.8; animation: lu-ondule 7s ease-in-out -2s infinite reverse; }
+.lu-ion { --d: 0.16em; border-radius: 50%; background: radial-gradient(circle, #effff8 0 28%, rgba(90,255,190,.9) 42%, rgba(90,255,190,0) 72%); opacity: 0; animation: lu-monte 3.2s ease-out infinite; }
+.lu-ion-1 { --x: -0.62em; --y: 0.4em; }
+.lu-ion-2 { --x: 0.6em; --y: 0.46em; animation-duration: 2.7s; animation-delay: -0.8s; }
+.lu-ion-3 { --x: -0.28em; --y: 0.62em; --d: 0.12em; animation-duration: 3.6s; animation-delay: -1.9s; }
+.lu-ion-4 { --x: 0.34em; --y: 0.6em; --d: 0.11em; animation-duration: 3s; animation-delay: -2.4s; }
+.lu-ion-5 { --x: 0.8em; --y: 0.1em; --d: 0.12em; animation-duration: 3.4s; animation-delay: -1.2s; }
+/* — Constellation : l'Astrolabe — */
+.lu-nebuleuse { --d: 2.3em; border-radius: 50%; background: radial-gradient(circle, rgba(70,90,230,.8), rgba(60,50,170,.5) 38%, rgba(40,30,110,.25) 55%, rgba(30,20,90,0) 72%); animation: lu-souffle 4s ease-in-out infinite; }
+.lu-poussiere { --d: 2.7em; animation: av-tourne 90s linear infinite; }
+.lu-astrolabe { --d: 2.05em; animation: av-tourne 60s linear infinite; }
+.lu-gemmes { --d: 2.05em; animation: av-tourne 30s linear infinite reverse; }
+.lu-orbite { --d: 2.55em; rotate: -16deg; }
+.lu-orbite-arriere { clip-path: inset(-1em -1em 50% -1em); }
+.lu-orbite-avant { clip-path: inset(50% -1em -1em -1em); }
+.lu-plan, .lu-trace, .lu-bras { position: absolute; inset: 0; }
+.lu-plan { scale: 1 0.32; }
+.lu-trace { border-radius: 50%; border: solid rgba(246,216,140,.55); border-width: 0.075em 0.026em; }
+.lu-orbite-avant .lu-trace { border-color: rgba(246,216,140,.3); }
+.lu-bras { animation: av-tourne 6s linear infinite; }
+.lu-astre { position: absolute; top: 0; left: 50%; display: block; width: .36em; height: .36em; margin: -.18em 0 0 -.18em; background: radial-gradient(circle, rgba(255,236,170,.95), rgba(255,236,170,0) 62%); scale: 1 3.125; animation: av-tourne 6s linear infinite reverse; }
+.lu-scintille { --d: 0.36em; background: radial-gradient(circle, rgba(255,220,140,.6), rgba(255,220,140,0) 60%); animation: lu-scintille 2.6s ease-in-out infinite; }
+.lu-scintille-1 { --x: -0.95em; --y: -0.74em; }
+.lu-scintille-2 { --x: 0.98em; --y: -0.52em; --d: 0.28em; background: radial-gradient(circle, rgba(160,190,255,.6), rgba(160,190,255,0) 60%); animation-delay: -0.9s; }
+.lu-scintille-3 { --x: 0.8em; --y: 0.86em; --d: 0.24em; animation-delay: -1.7s; }
+.av-legendaire .lu-cristal, .av-legendaire .lu-feux, .av-legendaire .lu-balayage { --d: 1.84em; }
+.av-legendaire .lu-etincelle { --x: 0.56em; --y: -0.56em; }
+.planche[data-salle="ivoire"] .lu-nebuleuse { background: radial-gradient(circle, #28318a, #1c2268 42%, rgba(28,34,104,.85) 56%, rgba(28,34,104,0) 71%); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   LES CANDIDATES
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* — Brasier : une roue de flammes, des braises qui montent — */
+.br-lueur { --d: 2.25em; border-radius: 50%; background: radial-gradient(circle, rgba(255,160,60,.62), rgba(255,90,25,.3) 42%, rgba(200,30,10,0) 70%); animation: lu-souffle 2.4s ease-in-out infinite; }
+/* Trois feux qui se relaient, et un cœur plus clair : la forme des flammes
+   change d'un instant à l'autre, comme un vrai feu. Rien ne tourne. */
+.br-feu { --d: 2.72em; --y: -0.12em; transform-origin: 50% 62%; }
+.br-feu-1 { animation: br-vacille 1.5s ease-in-out infinite; }
+.br-feu-2 { animation: br-vacille 1.5s ease-in-out -0.5s infinite; }
+.br-feu-3 { animation: br-vacille 1.5s ease-in-out -1s infinite; }
+.br-coeur { animation: br-vacille 0.85s ease-in-out -0.3s infinite; }
+@keyframes br-vacille { 0%, 100% { opacity: 0.3; scale: 0.97 0.9; } 50% { opacity: 1; scale: 1.02 1.06; } }
+.br-anneau {
+  --d: 1.62em; border-radius: 50%;
+  background: conic-gradient(#ff3b1f, #ffb02e 60deg, #fff0a8 110deg, #ff7a1a 170deg, #c4161c 230deg, #ff9a2a 300deg, #ff3b1f);
+  -webkit-mask: radial-gradient(closest-side, transparent 74%, #000 80%, #000 89%, transparent 96%);
+  mask: radial-gradient(closest-side, transparent 74%, #000 80%, #000 89%, transparent 96%);
+  animation: av-tourne 5s linear infinite;
+}
+.br-tison { --d: 0.15em; border-radius: 50%; background: radial-gradient(circle, #fff6cf 0 25%, rgba(255,150,40,.95) 42%, rgba(255,90,20,0) 72%); opacity: 0; animation: br-monte 2.8s ease-out infinite; }
+.br-tison-1 { --x: -0.56em; --y: 0.42em; --dx: -0.12em; }
+.br-tison-2 { --x: 0.52em; --y: 0.48em; --dx: 0.16em; animation-duration: 2.3s; animation-delay: -0.9s; }
+.br-tison-3 { --x: -0.22em; --y: 0.62em; --dx: 0.05em; --d: 0.12em; animation-duration: 3.2s; animation-delay: -1.7s; }
+.br-tison-4 { --x: 0.28em; --y: 0.6em; --dx: -0.08em; --d: 0.11em; animation-duration: 2.6s; animation-delay: -2.2s; }
+.br-tison-5 { --x: 0.84em; --y: 0.12em; --dx: 0.1em; --d: 0.12em; animation-duration: 3s; animation-delay: -0.4s; }
+.br-tison-6 { --x: -0.86em; --y: 0.16em; --dx: -0.1em; --d: 0.13em; animation-duration: 2.5s; animation-delay: -1.3s; }
+@keyframes br-monte { 0% { translate: 0 0; opacity: 0; scale: 0.5; } 15% { opacity: 1; } 70% { opacity: 0.85; } 100% { translate: var(--dx, 0em) -1.25em; opacity: 0; scale: 1.1; } }
+
+/* — Orage : un anneau qui crépite, des éclairs qui frappent — */
+.og-nuage { --d: 2.35em; border-radius: 50%; background: radial-gradient(circle, rgba(80,130,255,.55), rgba(55,70,190,.32) 42%, rgba(30,30,110,0) 70%); animation: lu-souffle 3.6s ease-in-out infinite; }
+.og-anneau { --d: 2.1em; }
+.og-anneau-1 { animation: og-crepite 0.9s ease-in-out infinite, av-tourne 14s linear infinite; }
+.og-anneau-2 { opacity: 0.35; animation: og-crepite 0.9s ease-in-out -0.45s infinite, av-tourne 19s linear infinite reverse; }
+@keyframes og-crepite { 0%, 100% { opacity: 1; } 45% { opacity: 0.3; } }
+.og-eclair { --d: 2.8em; opacity: 0; animation: og-frappe 3.4s linear infinite; }
+.og-eclair-1 { opacity: 0.9; animation-delay: -0.2s; }
+.og-eclair-2 { animation-duration: 4.1s; animation-delay: -1.7s; }
+.og-eclair-3 { animation-duration: 3.7s; animation-delay: -2.8s; }
+.og-eclair-4 { animation-duration: 4.6s; animation-delay: -3.5s; }
+@keyframes og-frappe { 0%, 100% { opacity: 0; } 2% { opacity: 1; } 12% { opacity: 0.7; } 20% { opacity: 0; } }
+.og-etincelle { --d: 0.2em; border-radius: 50%; background: radial-gradient(circle, rgba(230,245,255,.95), rgba(120,190,255,0) 62%); animation: lu-scintille 1.8s ease-in-out infinite; }
+.og-etincelle-1 { --x: -0.7em; --y: -0.42em; }
+.og-etincelle-2 { --x: 0.74em; --y: 0.3em; --d: 0.16em; animation-delay: -0.6s; }
+.og-etincelle-3 { --x: 0.2em; --y: -0.82em; --d: 0.14em; animation-delay: -1.2s; }
+
+/* — Vitrail : une rosace, traversée de lumière — */
+.vi-lueur { --d: 2.3em; border-radius: 50%; background: radial-gradient(circle, rgba(255,240,200,.6), rgba(255,210,140,.22) 45%, rgba(255,200,120,0) 70%); animation: lu-souffle 4.2s ease-in-out infinite; }
+.vi-rosace { --d: 2.72em; animation: av-tourne 120s linear infinite; }
+.vi-couronne { --d: 1.78em; animation: av-tourne 70s linear infinite reverse; }
+.vi-reflet {
+  --d: 2.72em; border-radius: 50%;
+  background: conic-gradient(rgba(255,255,255,0), rgba(255,255,255,.75) 14deg, rgba(255,255,255,0) 34deg);
+  -webkit-mask: radial-gradient(closest-side, transparent 42%, #000 46%, #000 94%, transparent 98%);
+  mask: radial-gradient(closest-side, transparent 42%, #000 46%, #000 94%, transparent 98%);
+  rotate: 30deg; opacity: 0.5; animation: lu-balaye 5s cubic-bezier(.5,0,.3,1) infinite;
+}
+.vi-etincelle { --d: 0.5em; --x: -0.62em; --y: -0.66em; background: radial-gradient(circle, rgba(255,255,255,.55), rgba(255,255,255,0) 60%); scale: 0.6; rotate: 45deg; animation: lu-eclair 5s ease-in-out -1.2s infinite; }
+
+/* — Arcane : un cercle de runes et un sceau, en sens contraire — */
+.ar-lueur { --d: 2.3em; border-radius: 50%; background: radial-gradient(circle, rgba(170,110,255,.62), rgba(110,60,220,.3) 42%, rgba(60,20,150,0) 70%); animation: lu-souffle 3.8s ease-in-out infinite; }
+.ar-onde { --d: 2.1em; border-radius: 50%; background: radial-gradient(closest-side, transparent 80%, rgba(205,175,255,.85) 88%, transparent 96%); opacity: 0; animation: ar-onde 3.2s ease-out infinite; }
+@keyframes ar-onde { 0% { scale: 0.75; opacity: 0.9; } 100% { scale: 1.32; opacity: 0; } }
+.ar-cercle { --d: 2.72em; animation: av-tourne 50s linear infinite; }
+.ar-sceau { --d: 2.32em; animation: av-tourne 24s linear infinite reverse; }
+.ar-mote { --d: 0.15em; border-radius: 50%; background: radial-gradient(circle, #f6efff 0 26%, rgba(170,120,255,.95) 42%, rgba(120,220,255,0) 72%); opacity: 0; animation: lu-monte 3s ease-out infinite; }
+.ar-mote-1 { --x: -0.66em; --y: 0.36em; }
+.ar-mote-2 { --x: 0.62em; --y: 0.44em; animation-duration: 2.6s; animation-delay: -0.9s; background: radial-gradient(circle, #effcff 0 26%, rgba(110,220,255,.95) 42%, rgba(110,220,255,0) 72%); }
+.ar-mote-3 { --x: -0.3em; --y: 0.62em; --d: 0.11em; animation-duration: 3.5s; animation-delay: -1.8s; }
+.ar-mote-4 { --x: 0.32em; --y: 0.62em; --d: 0.12em; animation-duration: 2.9s; animation-delay: -2.3s; background: radial-gradient(circle, #effcff 0 26%, rgba(110,220,255,.95) 42%, rgba(110,220,255,0) 72%); }
+.ar-mote-5 { --x: 0.84em; --y: 0.06em; --d: 0.12em; animation-duration: 3.3s; animation-delay: -1.1s; }
+
+/* — Séraphin : des ailes de lumière, une auréole — */
+.se-lueur { --d: 2.2em; border-radius: 50%; background: radial-gradient(circle, rgba(255,250,232,.62), rgba(255,226,160,.25) 45%, rgba(255,210,130,0) 70%); animation: lu-souffle 4s ease-in-out infinite; }
+.se-aile { --d: 2.8em; --y: -0.1em; }
+.se-aile-d { transform-origin: 57% 56%; animation: se-bat-d 3.4s ease-in-out infinite; }
+.se-aile-g { transform-origin: 43% 56%; animation: se-bat-g 3.4s ease-in-out infinite; }
+@keyframes se-bat-d { 0%, 100% { rotate: 0deg; } 50% { rotate: -10deg; } }
+@keyframes se-bat-g { 0%, 100% { rotate: 0deg; } 50% { rotate: 10deg; } }
+.se-aureole { --d: 0.92em; --y: -0.72em; animation: se-flotte 3.4s ease-in-out infinite; }
+@keyframes se-flotte { 0%, 100% { translate: 0 0; } 50% { translate: 0 -0.05em; } }
+.se-plume { --d: 0.16em; border-radius: 50%; background: radial-gradient(circle, #fffdf2 0 26%, rgba(255,226,150,.9) 44%, rgba(255,226,150,0) 72%); opacity: 0; animation: se-tombe 4s ease-in-out infinite; }
+.se-plume-1 { --x: -0.9em; --y: -0.3em; }
+.se-plume-2 { --x: 0.94em; --y: -0.42em; animation-delay: -1.4s; animation-duration: 4.6s; }
+.se-plume-3 { --x: -0.56em; --y: 0.2em; --d: 0.12em; animation-delay: -2.6s; animation-duration: 3.6s; }
+@keyframes se-tombe { 0% { translate: 0 0; opacity: 0; } 20% { opacity: 1; } 100% { translate: 0.08em 0.7em; opacity: 0; } }
+.av-legendaire .se-aureole { --y: -0.78em; }
+/* Sur la crème, l'or des plumes se cerne d'un trait plus sombre. */
+.planche[data-salle="ivoire"] .se-aile, .planche[data-salle="ivoire"] .se-aureole { filter: drop-shadow(0 0 0.6px rgba(122, 84, 24, 0.85)); }
+
+/* — Singularité : un trou noir, son disque passe derrière la tête puis devant — */
+.si-lueur { --d: 2.5em; border-radius: 50%; background: radial-gradient(circle, rgba(255,150,60,0) 34%, rgba(255,140,50,.32) 48%, rgba(180,60,20,.14) 60%, rgba(120,30,10,0) 72%); animation: lu-souffle 3.4s ease-in-out infinite; }
+.si-ombre { --d: 1.5em; border-radius: 50%; background: radial-gradient(circle, #000 0 60%, rgba(0,0,0,.8) 66%, rgba(0,0,0,0) 72%); }
+.si-photon { --d: 1.64em; border-radius: 50%; background: radial-gradient(closest-side, transparent 80%, rgba(255,246,220,1) 85%, rgba(255,176,80,.75) 89%, rgba(255,120,40,0) 97%); animation: si-pulse 2.6s ease-in-out infinite; }
+@keyframes si-pulse { 0%, 100% { opacity: 0.85; scale: 0.99; } 50% { opacity: 1; scale: 1.02; } }
+.si-lentille { --d: 2.25em; --y: -0.04em; animation: si-pulse 3.2s ease-in-out -1s infinite; }
+.si-disque { --d: 2.8em; --y: 0.2em; rotate: -12deg; }
+.si-disque-arriere { clip-path: inset(-1em -1em 50% -1em); }
+.si-disque-avant { clip-path: inset(50% -1em -1em -1em); }
+.si-plan { position: absolute; inset: 0; scale: 1 0.24; }
+.si-tourbillon {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: conic-gradient(#fff6dc, #ffd06a 30deg, #ff8a26 90deg, #d2361a 150deg, #7a1408 180deg, #d2361a 210deg, #ff8a26 270deg, #ffd06a 330deg, #fff6dc);
+  -webkit-mask: radial-gradient(closest-side, transparent 50%, #000 56%, #000 74%, rgba(0,0,0,.45) 86%, transparent 97%);
+  mask: radial-gradient(closest-side, transparent 50%, #000 56%, #000 74%, rgba(0,0,0,.45) 86%, transparent 97%);
+  animation: av-tourne 3.2s linear infinite;
+}
+.si-astre { --d: 0.3em; background: radial-gradient(circle, rgba(255,240,210,.9), rgba(255,200,120,0) 60%); animation: lu-scintille 2.4s ease-in-out infinite; }
+.si-astre-1 { --x: -1.02em; --y: -0.6em; }
+.si-astre-2 { --x: 0.96em; --y: -0.78em; --d: 0.22em; animation-delay: -1.1s; }
+.av-legendaire .si-disque { --d: 2.6em; --y: 0.28em; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SIX AUTRES UNIVERS
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* — Disco : une boule à facettes derrière la tête, ses reflets qui tournent — */
+.di-lueur { --d: 2.4em; border-radius: 50%; background: radial-gradient(circle at 38% 40%, rgba(255,111,191,.45), rgba(255,111,191,0) 52%), radial-gradient(circle at 64% 62%, rgba(95,230,255,.4), rgba(95,230,255,0) 52%); animation: lu-souffle 3s ease-in-out infinite; }
+.di-boule { --d: 1.8em; }
+.di-reflets { --d: 2.75em; }
+.di-reflets-1 { animation: av-tourne 16s linear infinite; }
+.di-reflets-2 { --d: 2.45em; animation: av-tourne 24s linear infinite reverse; }
+.di-eclat { --d: 0.5em; background: radial-gradient(circle, rgba(255,255,255,.6), rgba(255,255,255,0) 60%); scale: 0.6; rotate: 45deg; animation: lu-eclair 2.6s ease-in-out infinite; }
+.di-eclat-1 { --x: -0.62em; --y: -0.6em; }
+.di-eclat-2 { --x: 0.72em; --y: -0.34em; animation-delay: -0.9s; animation-duration: 3.1s; }
+.di-eclat-3 { --x: -0.34em; --y: 0.78em; animation-delay: -1.7s; animation-duration: 2.9s; }
+.av-legendaire .di-boule { --d: 1.62em; }
+
+/* — Néon : un soleil rayé, deux tubes, une grille qui file à l'horizon — */
+.ne-lueur { --d: 2.4em; border-radius: 50%; background: radial-gradient(circle, rgba(255,63,207,.42), rgba(120,60,255,.22) 45%, rgba(60,20,150,0) 70%); animation: lu-souffle 3.2s ease-in-out infinite; }
+.ne-sol { --d: 2.7em; opacity: 0.75; }
+.ne-soleil { --d: 2.05em; --y: -0.06em; animation: ne-chaleur 4s ease-in-out infinite; }
+@keyframes ne-chaleur { 0%, 100% { scale: 1; } 50% { scale: 1.03; } }
+.ne-tube { --d: 2.2em; }
+.ne-tube-rose { animation: ne-pulse 2.4s ease-in-out infinite; }
+.ne-tube-cyan { animation: ne-gresille 4.2s linear infinite; }
+@keyframes ne-pulse { 0%, 100% { opacity: 0.88; } 50% { opacity: 1; } }
+@keyframes ne-gresille { 0%, 61%, 66%, 100% { opacity: 1; } 62% { opacity: 0.45; } 63% { opacity: 0.95; } 64% { opacity: 0.5; } }
+.ne-etoile { --d: 0.22em; border-radius: 50%; background: radial-gradient(circle, rgba(230,253,255,.95), rgba(57,232,255,0) 62%); animation: lu-scintille 2.2s ease-in-out infinite; }
+.ne-etoile-1 { --x: -0.98em; --y: -0.62em; }
+.ne-etoile-2 { --x: 0.9em; --y: -0.8em; --d: 0.16em; animation-delay: -0.8s; }
+.ne-etoile-3 { --x: 1.04em; --y: 0.1em; --d: 0.14em; animation-delay: -1.5s; }
+
+/* — Ensō : un cercle tracé d'un seul coup de pinceau, à l'or, et son sceau — */
+.en-lueur { --d: 2.3em; border-radius: 50%; background: radial-gradient(circle, rgba(255,226,160,.38), rgba(217,181,106,.15) 45%, rgba(217,181,106,0) 70%); animation: lu-souffle 5s ease-in-out infinite; }
+.en-trait, .en-sceau { --d: 2.55em; }
+.en-reflet {
+  --d: 2.55em; border-radius: 50%;
+  background: conic-gradient(rgba(255,255,255,0), rgba(255,250,230,.8) 6deg, rgba(255,255,255,0) 14deg);
+  -webkit-mask: radial-gradient(closest-side, transparent 68%, #000 70%, #000 79%, transparent 81%);
+  mask: radial-gradient(closest-side, transparent 68%, #000 70%, #000 79%, transparent 81%);
+  rotate: 60deg; opacity: 0.45; animation: lu-balaye 6s cubic-bezier(.5,0,.3,1) infinite;
+}
+.en-goutte { --d: 2.55em; animation: en-perle 4.8s ease-in-out infinite; }
+@keyframes en-perle { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+/* Sur la crème, l'or devient l'encre noire du calligraphe. */
+.planche[data-salle="ivoire"] .en-trait, .planche[data-salle="ivoire"] .en-goutte { filter: brightness(0.3) saturate(0.4); }
+
+/* — Abysses : des méduses, du plancton qui luit, des bulles, la lumière d'en haut — */
+.ab-lueur { --d: 2.45em; border-radius: 50%; background: radial-gradient(circle, rgba(20,190,210,.5), rgba(10,80,140,.3) 45%, rgba(5,30,80,0) 70%); animation: lu-souffle 4.4s ease-in-out infinite; }
+.ab-rayons { --d: 2.8em; transform-origin: 50% 0%; opacity: 0.55; animation: ab-balance 7s ease-in-out infinite; }
+@keyframes ab-balance { 0%, 100% { rotate: -4deg; } 50% { rotate: 4deg; } }
+.ab-plancton { --d: 2.6em; }
+.ab-plancton-1 { animation: ab-luit 3s ease-in-out infinite, av-tourne 40s linear infinite; }
+.ab-plancton-2 { --d: 2.3em; animation: ab-luit 3s ease-in-out -1.5s infinite, av-tourne 55s linear infinite reverse; }
+@keyframes ab-luit { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+.ab-meduse { --d: 0.66em; transform-origin: 50% 30%; }
+.ab-meduse-1 { --x: -0.94em; --y: -0.5em; animation: ab-nage 3.6s ease-in-out infinite; }
+.ab-meduse-2 { --x: 1em; --y: 0.08em; --d: 0.5em; animation: ab-nage 4.2s ease-in-out -1.8s infinite; }
+@keyframes ab-nage { 0%, 100% { translate: 0 0.05em; scale: 1 1; } 40% { translate: 0 -0.07em; scale: 0.94 1.06; } 60% { scale: 1.04 0.95; } }
+.ab-bulle { --d: 0.16em; border-radius: 50%; background: radial-gradient(circle at 34% 30%, rgba(255,255,255,.95) 0 14%, rgba(255,255,255,0) 26%), radial-gradient(circle, rgba(150,240,255,0) 52%, rgba(150,240,255,.8) 66%, rgba(150,240,255,0) 74%); opacity: 0; animation: ab-monte 3.4s ease-in infinite; }
+.ab-bulle-1 { --x: -0.5em; --y: 0.55em; }
+.ab-bulle-2 { --x: 0.46em; --y: 0.6em; --d: 0.12em; animation-duration: 2.8s; animation-delay: -1.1s; }
+.ab-bulle-3 { --x: -0.78em; --y: 0.2em; --d: 0.1em; animation-duration: 3.9s; animation-delay: -2.2s; }
+.ab-bulle-4 { --x: 0.2em; --y: 0.66em; --d: 0.13em; animation-duration: 3.1s; animation-delay: -0.6s; }
+@keyframes ab-monte { 0% { translate: 0 0; opacity: 0; } 12% { opacity: 1; } 50% { translate: 0.05em -0.6em; } 100% { translate: -0.03em -1.3em; opacity: 0; } }
+
+/* — Origami : un éventail de papier plié, trois grues qui tournent autour — */
+.ori-eventail { --d: 2.35em; --y: -0.04em; opacity: 0.94; animation: ori-souffle 6s ease-in-out infinite; }
+@keyframes ori-souffle { 0%, 100% { rotate: -2deg; } 50% { rotate: 2deg; } }
+.ori-orbite { --d: 2.75em; --y: 0.08em; rotate: -8deg; }
+.ori-orbite-arriere { clip-path: inset(-1em -1em 50% -1em); }
+.ori-orbite-avant { clip-path: inset(50% -1em -1em -1em); }
+.ori-plan, .ori-bras { position: absolute; inset: 0; }
+.ori-plan { scale: 1 0.36; }
+.ori-bras { animation: av-tourne 12s linear infinite; }
+.ori-grue { position: absolute; top: 0; left: 50%; display: block; width: 0.72em; height: 0.72em; max-width: none; margin: -0.36em 0 0 -0.36em; scale: 1 2.78; animation: av-tourne 12s linear infinite reverse; filter: drop-shadow(0 0.02em 0.03em rgba(0, 0, 0, 0.45)); }
+.ori-bras-2, .ori-bras-2 .ori-grue { animation-delay: -4s; }
+.ori-bras-3, .ori-bras-3 .ori-grue { animation-delay: -8s; }
+
+/* — Arcade : un anneau de pixels qui change de couleurs, trois cœurs, des pièces — */
+.px-anneau, .px-glitch { --d: 2.15em; }
+.px-anneau-b { opacity: 0; animation: px-cycle 1.2s steps(1, end) infinite; }
+@keyframes px-cycle { 0% { opacity: 0; } 50% { opacity: 1; } }
+.px-glitch { opacity: 0; animation: px-glitch 4.5s steps(1, end) infinite; }
+.px-glitch-r { --x: -0.05em; }
+.px-glitch-c { --x: 0.05em; }
+@keyframes px-glitch { 0%, 88%, 92%, 100% { opacity: 0; } 89% { opacity: 0.8; } 91% { opacity: 0.5; } }
+.px-coeurs { --d: 1.15em; --y: -1em; animation: px-saute 1s steps(1, end) infinite; }
+@keyframes px-saute { 0% { translate: 0 0; } 50% { translate: 0 -0.04em; } }
+.px-piece { --d: 0.34em; animation: px-tourne 0.8s steps(4, end) infinite alternate; }
+.px-piece-1 { --x: -1em; --y: 0.2em; }
+.px-piece-2 { --x: 1em; --y: -0.24em; animation-delay: -0.4s; }
+@keyframes px-tourne { from { scale: 1 1; } to { scale: 0.15 1; } }
+.px-etoile { --d: 0.3em; animation: px-clignote 1.4s steps(1, end) infinite; }
+.px-etoile-1 { --x: -0.84em; --y: -0.74em; }
+.px-etoile-2 { --x: 0.88em; --y: 0.62em; animation-delay: -0.7s; }
+.px-etoile-3 { --x: 0.68em; --y: -0.9em; --d: 0.22em; animation-delay: -0.35s; }
+@keyframes px-clignote { 0% { opacity: 1; } 50% { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .lu *, .lg * { animation: none !important; }
+}
+</style>
+
+<main class="planche" id="planche" data-salle="velours">
+  <header class="tete">
+    <p class="surtitre">FiestApp · la loge · au-delà du niveau 25</p>
+    <h1>Finitions de prestige</h1>
+    <p class="chapo">Douze lumières candidates pour les niveaux 30, 40 et 50, dessinées comme celles d'aujourd'hui : des calques qui tournent et respirent autour de l'avatar, et qui se figent dans une liste. Rien n'est codé dans l'application tant que tu n'as pas choisi.</p>
+    <div class="reglage" role="group" aria-labelledby="salle-label">
+      <span id="salle-label">Fond de la salle</span>
+      <span class="bascule">
+        <button type="button" id="salle-velours" data-salle="velours" aria-pressed="true">Velours</button>
+        <button type="button" id="salle-ivoire" data-salle="ivoire" aria-pressed="false">Ivoire</button>
+      </span>
+    </div>
+  </header>
+
+  <section class="section" aria-labelledby="titre-aujourdhui">
+    <h2 id="titre-aujourdhui">Aujourd'hui</h2>
+    <p>Les trois dernières finitions, pour juger la marche suivante. Après la Constellation, plus rien ne change à l'avatar.</p>
+    <div class="trio" id="trio"></div>
+  </section>
+
+  <section class="section" aria-labelledby="titre-candidates">
+    <h2 id="titre-candidates">Les six candidates</h2>
+    <p>Chacune autour de l'emoji, autour d'un légendaire porté (sa matière devient le cercle du médaillon), puis figée et resserrée dans une ligne de classement, comme sur l'écran commun.</p>
+    <div class="candidates" id="candidates"></div>
+  </section>
+
+  <section class="section" aria-labelledby="titre-autres">
+    <h2 id="titre-autres">Six autres univers</h2>
+    <p>Une seconde série, sans rien de commun avec la première : la fête, les années 80, l'encre japonaise, les grands fonds, le papier plié et le jeu vidéo.</p>
+    <div class="candidates" id="autres"></div>
+  </section>
+
+  <section class="section" aria-labelledby="titre-proposition">
+    <h2 id="titre-proposition">Ma proposition</h2>
+    <p>Une montée en trois marches, chacune d'une matière que les finitions d'avant n'ont pas : le feu, puis les ailes, puis le trou noir.</p>
+    <div class="proposition" id="proposition"></div>
+  </section>
+
+  <section class="section" aria-labelledby="titre-gemme">
+    <h2 id="titre-gemme">Le niveau en gemme</h2>
+    <p>Déjà en cours de code, montré ici pour avis : dès 30, la pastille de niveau prend la pierre de sa dizaine, aux couleurs des raretés de l'album (bleue, violette, puis ambrée). Sur la carte, la pierre se sertit dans le métal de la ligue.</p>
+    <div class="gemmes-niveau" id="gemmes"></div>
+  </section>
+
+  <section class="section" aria-labelledby="titre-reponse">
+    <h2 id="titre-reponse">Pour répondre</h2>
+    <p class="reponse">Donne-moi ton top parmi les douze, puis trois noms dans l'ordre, par exemple <code>30 Néon · 40 Séraphin · 50 Singularité</code>. Dis aussi ce que tu changerais à l'une d'elles : une couleur, un mouvement, un nom.</p>
+  </section>
+</main>
+
+<script>
+(() => {
+  const RENARD = 'data:image/webp;base64,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'
+
+  // ── Les outils de dessin, recopiés de `Lumiere.tsx` ───────────────────────
+  const f = n => String(Math.round(n * 100) / 100)
+  const pt = (r, deg) => { const a = (deg * Math.PI) / 180; return [r * Math.sin(a), -r * Math.cos(a)] }
+  const xy = p => `${f(p[0])},${f(p[1])}`
+  const hasard = g => () => { g = (g * 16807) % 2147483647; return (g - 1) / 2147483646 }
+  const image = d => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="-100 -100 200 200">${d}</svg>`)}`
+
+  // Prisme
+  function cristal(n = 16, rIn = 62, rOut = 86) {
+    const pas = 360 / n
+    const clarte = a => 0.5 + 0.5 * Math.cos(((a + 45) * Math.PI) / 180)
+    let facettes = '', arretes = ''
+    for (let i = 0; i < n; i++) {
+      const a0 = i * pas, am = a0 + pas / 2
+      const o0 = pt(rOut, a0), o1 = pt(rOut, a0 + pas), m = pt(rIn, am), avant = pt(rIn, am - pas)
+      facettes += `<path d="M${xy(o0)}L${xy(o1)}L${xy(m)}Z" fill="hsl(215,60%,${f(70 + 26 * clarte(am))}%)" fill-opacity="${f(0.35 + 0.45 * clarte(am))}"/>` +
+        `<path d="M${xy(avant)}L${xy(o0)}L${xy(m)}Z" fill="hsl(250,45%,${f(56 + 30 * clarte(a0 + 160))}%)" fill-opacity="${f(0.25 + 0.4 * clarte(a0 + 160))}"/>`
+      arretes += `M${xy(o0)}L${xy(m)}L${xy(o1)}`
+    }
+    const polygone = (r, decal) => Array.from({ length: n }, (_, i) => xy(pt(r, i * pas + decal))).join(' ')
+    return facettes + `<path d="${arretes}" fill="none" stroke="#fff" stroke-opacity=".85" stroke-linejoin="round"/>` +
+      `<polygon points="${polygone(rOut, 0)}" fill="none" stroke="#fff" stroke-width="1.8"/>` +
+      `<polygon points="${polygone(rIn, pas / 2)}" fill="none" stroke="#fff" stroke-width="1.1" stroke-opacity=".9"/>`
+  }
+  function spectres(graine, decal = 0, n = 6, r = 76, long = 20) {
+    const x = hasard(graine)
+    let traits = ''
+    for (let i = 0; i < n; i++) {
+      const a = decal + (i * 360) / n + x() * 22
+      traits += `<rect x="-2.3" y="${f(-(r - x() * 14) - long)}" width="4.6" height="${long}" rx="2.3" fill="url(#s)" transform="rotate(${f(a)})"/>`
+    }
+    return `<defs><linearGradient id="s" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#ff5c8a" stop-opacity="0"/><stop offset=".2" stop-color="#ff5c8a"/><stop offset=".4" stop-color="#ffd84d"/><stop offset=".6" stop-color="#5dff9e"/><stop offset=".8" stop-color="#58b8ff"/><stop offset="1" stop-color="#a070ff" stop-opacity="0"/></linearGradient></defs>` + traits
+  }
+  // Aurore
+  function voile(graine, teintes, largeur, n = 34) {
+    const x = hasard(graine)
+    let fils = ''
+    for (let i = 0; i < n; i++) {
+      const cx = -96 + (192 * (i + 0.5)) / n + (x() - 0.5) * 3
+      const pied = 58 + 14 * Math.sin(cx / 26 + 0.8) + 6 * Math.sin(cx / 11)
+      const hauteur = (45 + 85 * (0.55 + 0.45 * x())) * Math.cos((cx / 100) * 1.1)
+      const w = largeur * (0.6 + x() * 0.8)
+      fils += `<rect x="${f(cx - w / 2)}" y="${f(pied - hauteur)}" width="${f(w)}" height="${f(hauteur)}"/>`
+    }
+    const [lisiere, milieu, haut, sommet] = teintes
+    return `<defs><linearGradient id="v" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="${lisiere}" stop-opacity="0"/>` +
+      `<stop offset=".08" stop-color="${lisiere}" stop-opacity=".95"/><stop offset=".38" stop-color="${milieu}" stop-opacity=".75"/>` +
+      `<stop offset=".72" stop-color="${haut}" stop-opacity=".5"/><stop offset="1" stop-color="${sommet}" stop-opacity="0"/></linearGradient>` +
+      `<filter id="b" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.2"/></filter></defs>` +
+      `<g fill="url(#v)" filter="url(#b)">${fils}</g>`
+  }
+  // Constellation
+  function poussiere(graine, n = 34, rMin = 60, rMax = 96) {
+    const x = hasard(graine)
+    let etoiles = ''
+    for (let i = 0; i < n; i++) {
+      const [px, py] = pt(rMin + (rMax - rMin) * Math.sqrt(x()), x() * 360)
+      etoiles += `<circle cx="${f(px)}" cy="${f(py)}" r="${f(0.6 + x() * 1.6)}" fill-opacity="${f(0.35 + x() * 0.65)}"/>`
+    }
+    return `<g fill="#fff6dc">${etoiles}</g>`
+  }
+  const DEGRADE_OR = `<linearGradient id="o" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff2c4"/><stop offset=".5" stop-color="#e2bd6b"/><stop offset="1" stop-color="#9a7026"/></linearGradient>`
+  function astrolabe() {
+    const traits = (r, n, largeur, epaisseur, opacite) => {
+      const pas = (2 * Math.PI * r) / n
+      return `<circle r="${r}" stroke="#f3d68f" stroke-width="${epaisseur}" stroke-opacity="${opacite}" stroke-dasharray="${f(largeur)} ${f(pas - largeur)}" stroke-dashoffset="${f(largeur / 2)}"/>`
+    }
+    let points = ''
+    for (let i = 0; i < 12; i++) { const [x, y] = pt(90.5, i * 30 + 15); points += `<circle cx="${f(x)}" cy="${f(y)}" r="1.5"/>` }
+    return `<defs>${DEGRADE_OR}</defs><g fill="none"><circle r="95" stroke="url(#o)" stroke-width="2.2"/><circle r="86" stroke="url(#o)" stroke-opacity=".7"/>` +
+      traits(92.5, 72, 0.9, 5, 0.75) + traits(90.5, 12, 1.8, 9, 1) + `</g><g fill="#fff4cf">${points}</g>`
+  }
+  function gemmes(r = 72) {
+    let serti = ''
+    for (let i = 0; i < 4; i++) {
+      const [x, y] = pt(r, i * 90 + 45)
+      serti += `<g transform="translate(${f(x)} ${f(y)}) rotate(${i * 90 + 45})"><path d="M0,-9L6,0L0,9L-6,0Z" fill="url(#o)"/><path d="M0,-5L3,0L0,5L-3,0Z" fill="#7fb4ff"/></g>`
+    }
+    return `<defs>${DEGRADE_OR}</defs><circle r="${r}" fill="none" stroke="url(#o)" stroke-width="2"/><circle r="${r - 5}" fill="none" stroke="#f3d68f" stroke-opacity=".45" stroke-width=".8"/>${serti}`
+  }
+  const etincelle = couleur => image(`<path d="M0,-96Q10,-10 96,0Q10,10 0,96Q-10,10 -96,0Q-10,-10 0,-96Z" fill="${couleur}"/>`)
+
+  // ── Les dessins des candidates ───────────────────────────────────────────
+
+  // Brasier : un feu qui monte autour de la tête. Des langues posées sur un
+  // cercle, d'un flanc à l'autre en passant par le haut, toutes tournées
+  // vers le ciel et un peu vers l'extérieur, plus hautes sur les flancs ;
+  // chacune ondule, claire au pied, rouge puis transparente à la pointe.
+  function feu(graine, n, r0, coeur) {
+    const x = hasard(graine)
+    let s = ''
+    for (let i = 0; i < n; i++) {
+      const a = -112 + (224 * (i + 0.5)) / n + (x() - 0.5) * 8
+      const flanc = Math.abs(Math.sin((a * Math.PI) / 180))
+      const bas = Math.max(0, (Math.abs(a) - 80) / 32)
+      let L = (coeur ? 16 : 28) + (coeur ? 10 : 18) * flanc + x() * (coeur ? 8 : 14)
+      L *= 1 - 0.55 * bas
+      const w = (coeur ? 5 : 7.5) + x() * (coeur ? 2.5 : 4)
+      const [bx, by] = pt(r0, a)
+      const dehors = Math.sin((a * Math.PI) / 180) * (0.3 + x() * 0.14)
+      const norme = Math.hypot(dehors, 1)
+      const dx = dehors / norme, dy = -1 / norme
+      const px = -dy, py = dx
+      const ond = (x() - 0.5) * w * 1.6
+      const P = (k, cote) => [bx + dx * L * k + px * cote, by + dy * L * k + py * cote]
+      s += `<path d="M${xy(P(0, w))}C${xy(P(0.35, w * 1.1 + ond))} ${xy(P(0.72, w * 0.2 - ond))} ${xy(P(1, 0))}` +
+        `C${xy(P(0.66, -w * 0.5 - ond))} ${xy(P(0.3, -w * 1.1 + ond))} ${xy(P(0, -w))}Z"/>`
+    }
+    const stops = coeur
+      ? `<stop offset="0" stop-color="#fffbe8"/><stop offset=".45" stop-color="#ffe27a" stop-opacity=".95"/><stop offset="1" stop-color="#ffb02e" stop-opacity="0"/>`
+      : `<stop offset="0" stop-color="#ffe9a0"/><stop offset=".3" stop-color="#ffb72e"/><stop offset=".6" stop-color="#ff6a16" stop-opacity=".92"/><stop offset=".85" stop-color="#d32a12" stop-opacity=".6"/><stop offset="1" stop-color="#8f0d14" stop-opacity="0"/>`
+    return `<defs><linearGradient id="fe" x1="0" y1="1" x2="0" y2="0">${stops}</linearGradient>` +
+      `<filter id="fo" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="${coeur ? 0.7 : 1.2}"/></filter></defs>` +
+      `<g fill="url(#fe)" filter="url(#fo)">${s}</g>`
+  }
+
+  // Orage : un cercle brisé, en trois épaisseurs de lumière.
+  function anneauElectrique(graine, r = 70, n = 52, amp = 6) {
+    const x = hasard(graine)
+    const p = Array.from({ length: n }, (_, i) => xy(pt(r + (x() - 0.5) * 2 * amp, (i * 360) / n))).join(' ')
+    return `<polygon points="${p}" fill="none" stroke="#5fb4ff" stroke-width="10" stroke-opacity=".2" stroke-linejoin="round"/>` +
+      `<polygon points="${p}" fill="none" stroke="#bfe6ff" stroke-width="3.4" stroke-opacity=".7" stroke-linejoin="round"/>` +
+      `<polygon points="${p}" fill="none" stroke="#ffffff" stroke-width="1.3" stroke-linejoin="round"/>`
+  }
+  // Un éclair qui part de l'anneau vers l'extérieur : des segments de
+  // longueurs inégales, des coudes francs, une branche, un trait qui
+  // s'amincit vers la pointe.
+  function eclair(graine, angle) {
+    const x = hasard(graine)
+    const perp = pt(1, angle + 90)
+    const point = (rr, off) => { const b = pt(rr, angle); return [b[0] + perp[0] * off, b[1] + perp[1] * off] }
+    const rayons = [52, 61, 65, 76, 81, 92, 99]
+    const ecarts = [0, 6, -3, 7, -6, 4, 10]
+    const pts = rayons.map((r, i) => point(r + (x() - 0.5) * 3, i === 0 ? 0 : ecarts[i] * (0.7 + x() * 0.6)))
+    const branche = [pts[3], point(85, ecarts[3] - 11 - x() * 4), point(94, ecarts[3] - 8 - x() * 3)]
+    const ligne = ps => ps.map(xy).join(' ')
+    return `<g fill="none" stroke-linejoin="miter" stroke-linecap="round">` +
+      `<polyline points="${ligne(pts)}" stroke="#6cc0ff" stroke-width="9" stroke-opacity=".26"/>` +
+      `<polyline points="${ligne(pts.slice(0, 4))}" stroke="#ffffff" stroke-width="3"/>` +
+      `<polyline points="${ligne(pts.slice(3))}" stroke="#ffffff" stroke-width="1.8"/>` +
+      `<polyline points="${ligne(branche)}" stroke="#d8f0ff" stroke-width="1.3" stroke-opacity=".9"/></g>`
+  }
+
+  // Vitrail : douze lancettes de verre, des yeux ronds entre elles, le plomb
+  // sombre et un filet d'or sur chaque pièce.
+  const VERRES = ['#c41e3a', '#2457c5', '#e0a526', '#14885a']
+  function rosace() {
+    let verres = '', plomb = ''
+    for (let i = 0; i < 12; i++) {
+      const a = i * 30
+      const g = pt(60, a - 11), d = pt(60, a + 11), p = pt(95, a)
+      const cg = pt(87, a - 13), cd = pt(87, a + 13)
+      const lancette = `M${xy(g)}Q${xy(cg)} ${xy(p)}Q${xy(cd)} ${xy(d)}A60,60 0 0 0 ${xy(g)}Z`
+      verres += `<path d="${lancette}" fill="${VERRES[i % 4]}" fill-opacity=".88"/>`
+      plomb += `<path d="${lancette}"/><path d="M${xy(pt(61, a))}L${xy(pt(84, a))}"/>`
+      const o = pt(85, a + 15)
+      verres += `<circle cx="${f(o[0])}" cy="${f(o[1])}" r="5.6" fill="${VERRES[(i + 2) % 4]}" fill-opacity=".92"/>`
+      plomb += `<circle cx="${f(o[0])}" cy="${f(o[1])}" r="5.6"/>`
+    }
+    return `<defs><radialGradient id="jour" gradientUnits="userSpaceOnUse" cx="-34" cy="-46" r="150"><stop offset="0" stop-color="#fff" stop-opacity=".5"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>` +
+      verres + `<g fill="url(#jour)">${verres.replace(/fill="#[0-9a-f]+"/g, '')}</g>` +
+      `<g fill="none" stroke="#24170f" stroke-width="3.4" stroke-linejoin="round">${plomb}<circle r="60"/></g>` +
+      `<g fill="none" stroke="#f0cd7c" stroke-width="1" stroke-linejoin="round" stroke-opacity=".9">${plomb}<circle r="60"/></g>`
+  }
+  // La couronne de verre autour de la tête : seize pièces entre deux plombs.
+  function couronneDeVerre() {
+    let pieces = '', plomb = ''
+    const n = 16
+    for (let i = 0; i < n; i++) {
+      const a0 = (i * 360) / n, a1 = ((i + 1) * 360) / n
+      const d = `M${xy(pt(80, a0))}A80,80 0 0 1 ${xy(pt(80, a1))}L${xy(pt(64, a1))}A64,64 0 0 0 ${xy(pt(64, a0))}Z`
+      pieces += `<path d="${d}" fill="${VERRES[(i * 3) % 4]}" fill-opacity=".9"/>`
+      plomb += `<path d="M${xy(pt(64, a0))}L${xy(pt(80, a0))}"/>`
+    }
+    return pieces + `<g fill="none" stroke="#24170f" stroke-width="3">${plomb}<circle r="80"/><circle r="64"/></g>` +
+      `<g fill="none" stroke="#f0cd7c" stroke-width=".9">${plomb}<circle r="80"/><circle r="64"/></g>`
+  }
+
+  // Arcane : des signes inventés (aucune écriture réelle), un cercle de
+  // seize, et un sceau à huit pointes qui tourne à contresens.
+  function signe(x) {
+    const traits = ['M0,-7L0,7']
+    if (x() > 0.35) traits.push(x() > 0.5 ? 'M0,-7L5,-2' : 'M0,-7L-5,-2')
+    if (x() > 0.45) traits.push(x() > 0.5 ? 'M-4,1L4,5' : 'M4,1L-4,5')
+    if (x() > 0.55) traits.push('M-4,-3A4,4 0 0 1 4,-3')
+    if (x() > 0.65) traits.push('M-4,7L4,7')
+    return traits.join('')
+  }
+  function cercleDesRunes() {
+    const x = hasard(29)
+    let signes = '', points = ''
+    for (let i = 0; i < 16; i++) {
+      const a = i * 22.5
+      const [px, py] = pt(89, a)
+      signes += `<path d="${signe(x)}" transform="translate(${f(px)} ${f(py)}) rotate(${f(a)})"/>`
+      const [qx, qy] = pt(89, a + 11.25)
+      points += `<circle cx="${f(qx)}" cy="${f(qy)}" r="1.4"/>`
+    }
+    return `<g fill="none" stroke="#e7dbff" stroke-linecap="round" stroke-linejoin="round"><circle r="97" stroke-width="1.6"/><circle r="80" stroke-width="1.3"/><g stroke-width="1.8">${signes}</g></g><g fill="#e7dbff">${points}</g>`
+  }
+  function sceau() {
+    const carre = dec => [0, 90, 180, 270].map(a => xy(pt(80, a + dec))).join(' ')
+    let noeuds = ''
+    for (let i = 0; i < 8; i++) { const [px, py] = pt(80, i * 45); noeuds += `<circle cx="${f(px)}" cy="${f(py)}" r="4"/>` }
+    return `<g fill="none" stroke="#9eeaff" stroke-width="1.8" stroke-linejoin="round"><polygon points="${carre(0)}"/><polygon points="${carre(45)}"/><circle r="62" stroke-opacity=".7"/></g>` +
+      `<g fill="#1a0f3a" stroke="#9eeaff" stroke-width="1.5">${noeuds}</g>`
+  }
+
+  // Séraphin : une aile levée. Son bras part de l'épaule, s'arrondit vers
+  // l'extérieur et monte jusqu'au poignet ; les rémiges y sont attachées,
+  // pendantes près de l'épaule, dressées au bout ; les couvertures, plus
+  // courtes, par-dessus. L'autre aile en miroir.
+  function aile(cote) {
+    const S = [16, 4], C = [60, -6], W = [54, -50]
+    const bras = t => [(1 - t) ** 2 * S[0] + 2 * (1 - t) * t * C[0] + t * t * W[0], (1 - t) ** 2 * S[1] + 2 * (1 - t) * t * C[1] + t * t * W[1]]
+    const plume = (R, ang, L, w) => {
+      const r = (ang * Math.PI) / 180
+      const tip = [R[0] + L * Math.sin(r), R[1] - L * Math.cos(r)]
+      const nx = Math.cos(r), ny = Math.sin(r)
+      const m1 = [R[0] + (tip[0] - R[0]) * 0.55 + nx * w, R[1] + (tip[1] - R[1]) * 0.55 + ny * w]
+      const m2 = [R[0] + (tip[0] - R[0]) * 0.55 - nx * w, R[1] + (tip[1] - R[1]) * 0.55 - ny * w]
+      return `<path d="M${xy(R)}Q${xy(m1)} ${xy(tip)}Q${xy(m2)} ${xy(R)}Z"/>`
+    }
+    let remiges = '', couvertures = ''
+    for (let i = 0; i < 11; i++) { const t = i / 10; remiges += plume(bras(t), 168 - t * 130, 26 + t * 24, 6.4) }
+    for (let i = 0; i < 8; i++) { const t = (i / 7) * 0.9; couvertures += plume(bras(t), 150 - t * 110, 16 + t * 10, 5.6) }
+    return `<defs><radialGradient id="plume" gradientUnits="userSpaceOnUse" cx="${S[0]}" cy="${S[1]}" r="120">` +
+      `<stop offset=".08" stop-color="#ffffff"/><stop offset=".4" stop-color="#fff3cf" stop-opacity=".96"/>` +
+      `<stop offset=".78" stop-color="#f1cf7a" stop-opacity=".7"/><stop offset="1" stop-color="#e2b04a" stop-opacity="0"/></radialGradient></defs>` +
+      `<g${cote < 0 ? ' transform="scale(-1 1)"' : ''}>` +
+      `<g fill="url(#plume)" stroke="#d8ad55" stroke-opacity=".65" stroke-width=".8">${remiges}</g>` +
+      `<g fill="url(#plume)" stroke="#fff6dc" stroke-opacity=".8" stroke-width=".6">${couvertures}</g>` +
+      `<path d="M${xy(S)}Q${xy(C)} ${xy(W)}" fill="none" stroke="#fffaf0" stroke-opacity=".7" stroke-width="2" stroke-linecap="round"/></g>`
+  }
+  function aureole() {
+    return `<defs><linearGradient id="au" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c99a3c"/><stop offset=".5" stop-color="#fff4cf"/><stop offset="1" stop-color="#c99a3c"/></linearGradient></defs>` +
+      `<ellipse rx="78" ry="22" fill="none" stroke="#ffe9a8" stroke-width="18" stroke-opacity=".22"/>` +
+      `<ellipse rx="78" ry="22" fill="none" stroke="url(#au)" stroke-width="8"/>`
+  }
+
+  // Singularité : la part du disque que le trou noir courbe par-dessus la tête.
+  function lentille() {
+    const a0 = pt(70, -80), a1 = pt(70, 80)
+    return `<defs><linearGradient id="arc" gradientUnits="userSpaceOnUse" x1="-70" y1="0" x2="70" y2="0"><stop offset="0" stop-color="#ff8a2a" stop-opacity="0"/><stop offset=".22" stop-color="#ffb54d"/><stop offset=".5" stop-color="#fff2cf"/><stop offset=".78" stop-color="#ffb54d"/><stop offset="1" stop-color="#ff8a2a" stop-opacity="0"/></linearGradient>` +
+      `<filter id="flou" x="-20%" y="-30%" width="140%" height="160%"><feGaussianBlur stdDeviation="2.6"/></filter></defs>` +
+      `<path d="M${xy(a0)}A70,70 0 0 1 ${xy(a1)}" fill="none" stroke="url(#arc)" stroke-width="15" stroke-opacity=".55" filter="url(#flou)" stroke-linecap="round"/>` +
+      `<path d="M${xy(a0)}A70,70 0 0 1 ${xy(a1)}" fill="none" stroke="url(#arc)" stroke-width="4.6" stroke-linecap="round"/>`
+  }
+
+  // ── Les dessins des six autres univers ───────────────────────────────────
+
+  // Disco : une sphère de miroirs, ses rangées serrées vers les pôles et vers
+  // le bord, chaque facette éclairée d'en haut à gauche ; quelques-unes
+  // renvoient le blanc du projecteur, d'autres les couleurs de la piste.
+  function bouleAFacettes() {
+    const R = 96, x = hasard(53)
+    const L = [-0.5, -0.62, 0.6]
+    const TEINTES = ['#ff6fbf', '#5fe6ff', '#ffe27a', '#b994ff']
+    let tuiles = ''
+    const bandes = 14
+    for (let b = 0; b < bandes; b++) {
+      const la0 = -90 + (180 * b) / bandes, la1 = -90 + (180 * (b + 1)) / bandes
+      const y0 = R * Math.sin((la0 * Math.PI) / 180), y1 = R * Math.sin((la1 * Math.PI) / 180)
+      const demi = R * Math.cos((((la0 + la1) / 2) * Math.PI) / 180)
+      const n = Math.max(3, Math.round((Math.PI * demi) / 13))
+      for (let i = 0; i < n; i++) {
+        const xa = demi * Math.sin(((-90 + (180 * i) / n) * Math.PI) / 180)
+        const xb = demi * Math.sin(((-90 + (180 * (i + 1)) / n) * Math.PI) / 180)
+        const cx = (xa + xb) / 2 / R, cy = (y0 + y1) / 2 / R
+        const cz = Math.sqrt(Math.max(0, 1 - cx * cx - cy * cy))
+        const d = Math.max(0, cx * L[0] + cy * L[1] + cz * L[2])
+        const t = x()
+        const fill = t < 0.07 ? '#ffffff' : t < 0.17 ? TEINTES[Math.floor(x() * TEINTES.length)] : `hsl(228,10%,${f(Math.min(92, 16 + 64 * d + (x() - 0.5) * 22))}%)`
+        if (xb - xa > 2 && y1 - y0 > 2) tuiles += `<rect x="${f(xa + 0.9)}" y="${f(y0 + 0.9)}" width="${f(xb - xa - 1.8)}" height="${f(y1 - y0 - 1.8)}" fill="${fill}"/>`
+      }
+    }
+    return `<defs><radialGradient id="ref" gradientUnits="userSpaceOnUse" cx="-36" cy="-42" r="70"><stop offset="0" stop-color="#fff" stop-opacity=".5"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>` +
+      `<radialGradient id="omb" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="96"><stop offset=".68" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".5"/></radialGradient></defs>` +
+      `<circle r="96" fill="#17161d"/>${tuiles}<circle r="96" fill="url(#omb)"/><circle r="96" fill="url(#ref)"/>`
+  }
+  // Les reflets de la boule sur les murs : des taches de couleur, floues.
+  function reflets(graine, n, couleurs) {
+    const x = hasard(graine)
+    let s = ''
+    for (let i = 0; i < n; i++) {
+      const [px, py] = pt(64 + x() * 32, (i * 360) / n + x() * 14)
+      s += `<circle cx="${f(px)}" cy="${f(py)}" r="${f(2.2 + x() * 2.6)}" fill="${couleurs[i % couleurs.length]}" fill-opacity="${f(0.55 + x() * 0.45)}"/>`
+    }
+    return `<defs><filter id="b" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.1"/></filter></defs><g filter="url(#b)">${s}</g>`
+  }
+
+  // Néon : le soleil des années 80, rayé dans sa moitié basse.
+  function soleilRaye() {
+    const raies = [[6, 2.5], [15, 3.5], [24, 4.5], [33, 5.5], [42, 6.5], [51, 7.5]]
+      .map(([y, h]) => `<rect x="-100" y="${y}" width="200" height="${h}" fill="#000"/>`).join('')
+    return `<defs><linearGradient id="sol" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe66b"/><stop offset=".45" stop-color="#ff9a3c"/><stop offset=".75" stop-color="#ff3d8b"/><stop offset="1" stop-color="#b02bd0"/></linearGradient>` +
+      `<mask id="raies"><rect x="-100" y="-100" width="200" height="200" fill="#fff"/>${raies}</mask></defs>` +
+      `<circle cx="0" cy="-6" r="62" fill="url(#sol)" mask="url(#raies)"/>`
+  }
+  // La grille qui file vers l'horizon, sous le menton.
+  function grille() {
+    let l = ''
+    for (const y of [46, 51, 58, 67, 79, 94]) l += `<path d="M-98,${y}H98"/>`
+    for (let k = -7; k <= 7; k++) l += `<path d="M${k * 7},42L${k * 30},100"/>`
+    return `<defs><linearGradient id="g" gradientUnits="userSpaceOnUse" x1="0" y1="42" x2="0" y2="98"><stop offset="0" stop-color="#ff4fd8" stop-opacity="0"/><stop offset=".3" stop-color="#ff4fd8" stop-opacity=".95"/><stop offset="1" stop-color="#ff4fd8" stop-opacity="0"/></linearGradient>` +
+      `<clipPath id="c"><circle r="98"/></clipPath></defs><g stroke="url(#g)" stroke-width="1.6" fill="none" clip-path="url(#c)">${l}</g>`
+  }
+  // Un tube de néon : sa lueur floue, sa couleur, son cœur presque blanc.
+  // Le cyan a ses deux électrodes : un vrai tube, pas un anneau de lumière.
+  function tube(r, couleur, coeur, largeur, ouvert) {
+    const forme = ouvert
+      ? `<path d="M${xy(pt(r, 24))}A${r},${r} 0 1 1 ${xy(pt(r, -24))}"/>`
+      : `<circle r="${r}"/>`
+    const electrodes = ouvert
+      ? [24, -24].map(a => { const [ex, ey] = pt(r, a); return `<circle cx="${f(ex)}" cy="${f(ey)}" r="${f(largeur * 0.9)}" fill="#2b2533"/>` }).join('')
+      : ''
+    return `<defs><filter id="g" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3.4"/></filter></defs>` +
+      `<g fill="none" stroke-linecap="round"><g stroke="${couleur}" stroke-width="${largeur * 3}" stroke-opacity=".6" filter="url(#g)">${forme}</g>` +
+      `<g stroke="${couleur}" stroke-width="${largeur}">${forme}</g><g stroke="${coeur}" stroke-width="${f(largeur * 0.4)}">${forme}</g></g>${electrodes}`
+  }
+
+  // Ensō : le cercle zen, d'un seul geste. Fin au départ, plein au milieu,
+  // il s'effile à la fin, où le pinceau sec laisse des fils.
+  const OR_ENCRE = `<linearGradient id="encre" gradientUnits="userSpaceOnUse" x1="-80" y1="-80" x2="80" y2="80"><stop offset="0" stop-color="#fff1c4"/><stop offset=".45" stop-color="#e2bd6b"/><stop offset="1" stop-color="#8f6620"/></linearGradient>`
+  function enso() {
+    const r = 74, debut = 40, fin = 40 + 316, N = 140
+    const ext = [], int = []
+    for (let i = 0; i <= N; i++) {
+      const t = i / N
+      const a = debut + (fin - debut) * t
+      const ep = 2.5 + 15 * Math.min(1, t * 7) * (1 - 0.8 * t ** 3) + 1.6 * Math.sin(t * 19)
+      const rr = r + 2.6 * Math.sin(t * 4.2 + 0.6)
+      ext.push(xy(pt(rr + ep / 2, a)))
+      int.push(xy(pt(rr - ep / 2, a)))
+    }
+    const x = hasard(83)
+    let fils = ''
+    for (let k = 0; k < 6; k++) {
+      const o = -7 + k * 2.8
+      const a0 = fin - 60, a1 = fin + 2 - x() * 26
+      fils += `<path d="M${xy(pt(r + o, a0))}A${f(r + o)},${f(r + o)} 0 0 1 ${xy(pt(r + o, a1))}" stroke-width="${f(0.8 + x() * 0.9)}"/>`
+    }
+    return `<defs>${OR_ENCRE}</defs><path d="M${ext.join('L')}L${int.reverse().join('L')}Z" fill="url(#encre)"/>` +
+      `<g fill="none" stroke="url(#encre)" stroke-linecap="round">${fils}</g>`
+  }
+  function gouttes() {
+    const x = hasard(97)
+    let s = ''
+    for (let i = 0; i < 5; i++) { const [px, py] = pt(74 + (x() - 0.5) * 26, 10 + x() * 26); s += `<circle cx="${f(px)}" cy="${f(py)}" r="${f(1.2 + x() * 2.2)}"/>` }
+    return `<defs>${OR_ENCRE}</defs><g fill="url(#encre)">${s}</g>`
+  }
+  // Le sceau vermillon du calligraphe : un soleil, aucune écriture.
+  function sceauVermillon() {
+    return `<g transform="translate(62 60) rotate(-8)"><rect x="-12" y="-12" width="24" height="24" rx="3.5" fill="#c8341f"/>` +
+      `<rect x="-12" y="-12" width="24" height="24" rx="3.5" fill="none" stroke="#7d1d10" stroke-width="1"/>` +
+      `<circle r="6.4" fill="none" stroke="#fff1e0" stroke-width="2.2"/><circle r="1.9" fill="#fff1e0"/></g>`
+  }
+
+  // Abysses : une méduse — sa cloche festonnée, ses bras qui ondulent, ses
+  // tentacules fins —, sa lumière posée sur la nuit de l'eau.
+  function meduse(cloche, bord) {
+    let festons = ''
+    for (let i = 0; i < 7; i++) {
+      const xa = 46 - (92 * i) / 7, xb = 46 - (92 * (i + 1)) / 7
+      festons += `Q${f((xa + xb) / 2)},10 ${f(xb)},0`
+    }
+    const corps = `M-46,0C-46,-62 46,-62 46,0${festons}Z`
+    let tent = ''
+    for (let k = 0; k < 6; k++) { const x0 = -30 + k * 12; tent += `<path d="M${x0},4C${x0 - 8},30 ${x0 + 8},50 ${x0 - 4},74C${x0 - 10},86 ${x0 + 4},92 ${x0},98"/>` }
+    let bras = ''
+    for (const x0 of [-9, 9]) bras += `<path d="M${x0},2C${x0 + 10},22 ${x0 - 10},38 ${x0 + 6},58"/>`
+    return `<defs><radialGradient id="cl" gradientUnits="userSpaceOnUse" cx="0" cy="-40" r="70"><stop offset="0" stop-color="${cloche[0]}" stop-opacity=".95"/><stop offset=".6" stop-color="${cloche[1]}" stop-opacity=".7"/><stop offset="1" stop-color="${cloche[1]}" stop-opacity=".25"/></radialGradient>` +
+      `<filter id="h" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="5"/></filter></defs>` +
+      `<path d="${corps}" fill="${bord}" opacity=".55" filter="url(#h)"/>` +
+      `<g fill="none" stroke="${bord}" stroke-linecap="round"><g stroke-width="1.8" stroke-opacity=".75">${tent}</g><g stroke-width="5" stroke-opacity=".55">${bras}</g></g>` +
+      `<path d="${corps}" fill="url(#cl)" stroke="${bord}" stroke-width="2.2"/>` +
+      `<path d="M-30,-20C-22,-40 22,-40 30,-20" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="2"/>`
+  }
+  function plancton(graine, n, couleurs) {
+    const x = hasard(graine)
+    let halo = '', coeur = ''
+    for (let i = 0; i < n; i++) {
+      const [px, py] = pt(60 + x() * 36, x() * 360)
+      const r = 1 + x() * 1.6
+      halo += `<circle cx="${f(px)}" cy="${f(py)}" r="${f(r * 2.6)}" fill="${couleurs[Math.floor(x() * couleurs.length)]}"/>`
+      coeur += `<circle cx="${f(px)}" cy="${f(py)}" r="${f(r * 0.7)}" fill="#f2feff"/>`
+    }
+    return `<defs><filter id="b" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.2"/></filter></defs><g filter="url(#b)" opacity=".85">${halo}</g>${coeur}`
+  }
+  // La lumière de la surface, qui descend en faisceaux.
+  function faisceaux() {
+    let s = ''
+    for (const [a, l] of [[-30, 14], [-14, 9], [0, 16], [16, 10], [32, 12]]) {
+      const r = (a * Math.PI) / 180
+      const bx = Math.sin(r) * 190, by = -100 + Math.cos(r) * 190
+      const nx = Math.cos(r), ny = -Math.sin(r)
+      s += `<path d="M${f(-3 * nx)},${f(-100 - 3 * ny)}L${f(3 * nx)},${f(-100 + 3 * ny)}L${f(bx + l * nx)},${f(by + l * ny)}L${f(bx - l * nx)},${f(by - l * ny)}Z"/>`
+    }
+    return `<defs><linearGradient id="ry" gradientUnits="userSpaceOnUse" x1="0" y1="-100" x2="0" y2="90"><stop offset="0" stop-color="#d8fbff" stop-opacity=".75"/><stop offset=".6" stop-color="#9eefff" stop-opacity=".22"/><stop offset="1" stop-color="#9eefff" stop-opacity="0"/></linearGradient>` +
+      `<filter id="b" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3"/></filter></defs><g fill="url(#ry)" filter="url(#b)">${s}</g>`
+  }
+
+  // Origami : l'éventail de papier plié derrière la tête, pli clair, pli
+  // d'ombre, ses nervures, son liseré rouge et un soleil peint.
+  function eventail() {
+    const n = 14, a0 = -104, a1 = 104
+    let plis = '', nervures = ''
+    for (let i = 0; i < n; i++) {
+      const s0 = a0 + ((a1 - a0) * i) / n, s1 = a0 + ((a1 - a0) * (i + 1)) / n
+      plis += `<path d="M${xy(pt(48, s0))}L${xy(pt(96, s0))}A96,96 0 0 1 ${xy(pt(96, s1))}L${xy(pt(48, s1))}A48,48 0 0 0 ${xy(pt(48, s0))}Z" fill="${i % 2 ? '#e2d3b6' : '#f8f1e3'}"/>`
+      nervures += `<path d="M${xy(pt(48, s0))}L${xy(pt(96, s0))}"/>`
+    }
+    nervures += `<path d="M${xy(pt(48, a1))}L${xy(pt(96, a1))}"/>`
+    const [sx, sy] = pt(74, 0)
+    return plis + `<g stroke="#b89e74" stroke-width=".8">${nervures}</g>` +
+      `<path d="M${xy(pt(91, a0))}A91,91 0 1 1 ${xy(pt(91, a1))}" fill="none" stroke="#c8463a" stroke-width="6"/>` +
+      `<circle cx="${f(sx)}" cy="${f(sy)}" r="11" fill="#d24a3c" fill-opacity=".92"/>`
+  }
+  // Une grue de papier, de profil, ailes levées, tournée vers la gauche.
+  function grue(clair, sombre, pli) {
+    return `<g transform="translate(6 20)" stroke="${pli}" stroke-width="1.6" stroke-linejoin="round">` +
+      `<polygon points="-6,-2 22,-84 32,-4" fill="${sombre}"/>` +
+      `<polygon points="-26,8 2,-8 30,8 2,22" fill="${sombre}"/>` +
+      `<polygon points="-12,6 -62,-52 -4,12" fill="${clair}"/>` +
+      `<polygon points="-62,-52 -80,-44 -60,-41" fill="${sombre}"/>` +
+      `<polygon points="14,6 66,-46 8,12" fill="${clair}"/>` +
+      `<polygon points="-18,2 -6,-76 16,2" fill="${clair}"/>` +
+      `<path d="M-6,-76L-1,0" stroke-opacity=".6"/></g>`
+  }
+
+  // Arcade : du pixel. Chaque motif s'écrit en lignes de lettres, une lettre
+  // une couleur, et se pose sur une grille nette.
+  function pixels(motif, x0, y0, u, couleurs) {
+    let s = ''
+    motif.forEach((ligne, j) => [...ligne].forEach((c, i) => {
+      if (c !== '.') s += `<rect x="${f(x0 + i * u)}" y="${f(y0 + j * u)}" width="${f(u + 0.06)}" height="${f(u + 0.06)}" fill="${couleurs[c]}"/>`
+    }))
+    return `<g shape-rendering="crispEdges">${s}</g>`
+  }
+  const ARC_EN_CIEL = ['#ff3b6b', '#ff9f1c', '#ffe83d', '#3dff7a', '#3dd6ff', '#7a5cff', '#ff4fd8']
+  function anneauDePixels(phase, teinte) {
+    const u = 6.25
+    let s = ''
+    for (let j = 0; j < 32; j++) for (let i = 0; i < 32; i++) {
+      const cx = -100 + (i + 0.5) * u, cy = -100 + (j + 0.5) * u
+      const d = Math.hypot(cx, cy)
+      let c = null
+      if (d >= 70 && d <= 86) c = teinte || ARC_EN_CIEL[(Math.floor(((Math.atan2(cx, -cy) * 180) / Math.PI + 360) / (360 / 14)) + phase) % ARC_EN_CIEL.length]
+      else if (!teinte && ((d >= 64 && d < 70) || (d > 86 && d <= 92))) c = '#1a1035'
+      if (c) s += `<rect x="${f(cx - u / 2)}" y="${f(cy - u / 2)}" width="${f(u + 0.06)}" height="${f(u + 0.06)}" fill="${c}"/>`
+    }
+    return `<g shape-rendering="crispEdges">${s}</g>`
+  }
+  const COEUR = ['.kk.kk.', 'krrkrrk', 'krwrrrk', 'krrrrrk', '.krrrk.', '..krk..', '...k...']
+  const coeurs = () => [0, 1, 2].map(n => pixels(COEUR, -92 + n * 64, -28, 8, { k: '#2a0d1a', r: '#ff3355', w: '#ffd0da' })).join('')
+  const PIECE = ['..kkkk..', '.kyyyyk.', 'kywyyyok', 'kywyyyok', 'kyyyyyok', 'kyyyyyok', '.kyoook.', '..kkkk..']
+  const ETOILE = ['..w..', '..y..', 'wyWyw', '..y..', '..w..']
+
+  const I = {
+    cristal: image(cristal()), spectres1: image(spectres(3)), spectres2: image(spectres(8, 30)),
+    voile1: image(voile(7, ['#46ffb4', '#3fd6ff', '#9b6dff', '#ff7ad9'], 7)),
+    voile2: image(voile(21, ['#3fd6ff', '#8f6dff', '#ff7ad9', '#ffb0e6'], 9)),
+    poussiere: image(poussiere(13)), astrolabe: image(astrolabe()), gemmes: image(gemmes()),
+    blanche: etincelle('#ffffff'), doree: etincelle('#fff4d0'),
+    feu1: image(feu(5, 16, 56, false)), feu2: image(feu(17, 15, 58, false)), feu3: image(feu(29, 17, 55, false)),
+    coeur: image(feu(41, 14, 53, true)),
+    foudre1: image(anneauElectrique(31)), foudre2: image(anneauElectrique(47)),
+    eclair1: image(eclair(3, 38)), eclair2: image(eclair(9, 148)), eclair3: image(eclair(15, 232)), eclair4: image(eclair(23, 312)),
+    rosace: image(rosace()), couronne: image(couronneDeVerre()),
+    runes: image(cercleDesRunes()), sceau: image(sceau()),
+    aileD: image(aile(1)), aileG: image(aile(-1)), aureole: image(aureole()),
+    lentille: image(lentille()),
+    boule: image(bouleAFacettes()),
+    reflets1: image(reflets(7, 22, ['#ff6fbf', '#5fe6ff', '#ffe27a', '#ffffff', '#b994ff'])),
+    reflets2: image(reflets(19, 16, ['#5fe6ff', '#ffffff', '#ff6fbf', '#ffe27a'])),
+    soleil: image(soleilRaye()), grille: image(grille()),
+    tubeRose: image(tube(70, '#ff3fcf', '#ffd9f6', 4.6, false)),
+    tubeCyan: image(tube(84, '#39e8ff', '#e2fdff', 3.6, true)),
+    enso: image(enso()), gouttes: image(gouttes()), sceauVermillon: image(sceauVermillon()),
+    meduseRose: image(meduse(['#ffd6f2', '#c56cff'], '#ff9ee6')),
+    meduseCyan: image(meduse(['#d8fffb', '#33c4d6'], '#7ff6ff')),
+    plancton1: image(plancton(37, 30, ['#39f0ff', '#2fd6b6', '#8f7bff'])),
+    plancton2: image(plancton(59, 22, ['#7ff6ff', '#b88bff', '#3be8c0'])),
+    faisceaux: image(faisceaux()),
+    eventail: image(eventail()),
+    grueRouge: image(grue('#e05a4c', '#b33c30', '#7d231b')),
+    grueBlanche: image(grue('#fbf6ec', '#ddd0b8', '#9c8a6c')),
+    grueTurquoise: image(grue('#4fb3ab', '#2f8a83', '#1d5a55')),
+    pixelsA: image(anneauDePixels(0)), pixelsB: image(anneauDePixels(3)),
+    pixelsRouge: image(anneauDePixels(0, '#ff2a6d')), pixelsCyan: image(anneauDePixels(0, '#2af6ff')),
+    coeurs: image(coeurs()),
+    piece: image(pixels(PIECE, -96, -96, 24, { k: '#3a2208', y: '#ffd23f', o: '#c98a16', w: '#fff6c0' })),
+    etoile: image(pixels(ETOILE, -90, -90, 36, { w: '#fff7c2', y: '#ffe03d', W: '#ffffff' })),
+  }
+
+  // ── Les cercles des médaillons, recopiés de `Cercle.tsx` ─────────────────
+  const pol = (r, deg) => { const a = (deg * Math.PI) / 180; return `${(50 + r * Math.sin(a)).toFixed(2)},${(50 - r * Math.cos(a)).toFixed(2)}` }
+  const segments = n => Array.from({ length: n }, (_, i) => {
+    const a0 = (i * 360) / n - 0.8, a1 = ((i + 1) * 360) / n + 0.8
+    return `M${pol(49, a0)} A49,49 0 0 1 ${pol(49, a1)} L${pol(45, a1)} A45,45 0 0 0 ${pol(45, a0)} Z`
+  })
+  const SEG36 = segments(36)
+  function cyclique(couleurs, n = 36) {
+    const rgb = couleurs.map(c => [1, 3, 5].map(k => parseInt(c.slice(k, k + 2), 16)))
+    return Array.from({ length: n }, (_, i) => {
+      const x = (i / n) * rgb.length
+      const a = rgb[Math.floor(x) % rgb.length], b = rgb[(Math.floor(x) + 1) % rgb.length], t = x - Math.floor(x)
+      return '#' + a.map((v, k) => Math.round(v + (b[k] - v) * t).toString(16).padStart(2, '0')).join('')
+    })
+  }
+  const FEUX = cyclique(['#ff4f7b', '#ffae3d', '#fff35c', '#54ff9b', '#45d0ff', '#8b6cff'])
+  const FEUX_OP = Array.from({ length: 36 }, (_, i) => Math.max(0, Math.sin((i / 36) * 4 * Math.PI)) ** 1.5)
+  const graduations = (r, n, l) => { const pas = (2 * Math.PI * r) / n; return `r="${r}" stroke-dasharray="${l} ${(pas - l).toFixed(2)}" stroke-dashoffset="${l / 2}"` }
+  let uid = 0
+  const anneauTournant = (couleurs, duree, extra = '') =>
+    `<g class="lg-tourne" style="animation-duration:${duree}s">${SEG36.map((d, i) => `<path d="${d}" fill="${couleurs[i]}"${extra}/>`).join('')}</g>`
+
+  const CERCLES = {
+    prisme: id => `<defs><linearGradient id="${id}g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ffffff"/><stop offset="45%" stop-color="#cfd9ff"/><stop offset="100%" stop-color="#8f9bd0"/></linearGradient></defs>` +
+      `<circle cx="50" cy="50" r="47" fill="none" stroke="url(#${id}g)" stroke-width="4"/>` +
+      `<g class="lg-tourne" style="animation-duration:7s">${SEG36.map((d, i) => FEUX_OP[i] > 0.02 ? `<path d="${d}" fill="${FEUX[i]}" fill-opacity="${(0.8 * FEUX_OP[i]).toFixed(2)}"/>` : '').join('')}</g>` +
+      `<circle cx="50" cy="50" r="48.7" fill="none" stroke="#fff" stroke-width=".6"/><circle cx="50" cy="50" r="45.3" fill="none" stroke="#fff" stroke-opacity=".8" stroke-width=".5"/>`,
+    aurore: () => `<circle cx="50" cy="50" r="51.4" fill="none" stroke="#7dffd0" stroke-width="2.8" opacity=".32"/>` +
+      anneauTournant(cyclique(['#58e6b4', '#3fc9ff', '#7d8cff', '#c078ff', '#3fc9ff']), 18) +
+      `<circle cx="50" cy="50" r="48.7" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width=".5"/>`,
+    constellation: id => `<defs><linearGradient id="${id}n" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#34479e"/><stop offset="100%" stop-color="#0e1440"/></linearGradient></defs>` +
+      `<circle cx="50" cy="50" r="47" fill="none" stroke="url(#${id}n)" stroke-width="4.2"/>` +
+      `<g class="lg-tourne" style="animation-duration:60s" fill="none" stroke="#f3d68f"><circle cx="50" cy="50" ${graduations(47.9, 72, 0.5)} stroke-width="2.2" stroke-opacity=".8"/><circle cx="50" cy="50" ${graduations(47, 12, 1.1)} stroke-width="4"/></g>` +
+      `<circle cx="50" cy="50" r="49" fill="none" stroke="#d9b56a" stroke-width=".8"/><circle cx="50" cy="50" r="45.1" fill="none" stroke="#d9b56a" stroke-width=".6"/>`,
+    brasier: () => `<circle cx="50" cy="50" r="50.6" fill="none" stroke="#ff7a2a" stroke-width="2.8" opacity=".42"/>` +
+      anneauTournant(cyclique(['#ff3b1f', '#ff8a1e', '#ffd34d', '#ff6a1a', '#c4161c']), 6) +
+      `<circle cx="50" cy="50" r="45.3" fill="none" stroke="#ffe08a" stroke-width=".7"/>`,
+    orage: () => {
+      const x = hasard(61)
+      const p = Array.from({ length: 40 }, (_, i) => pol(47 + (x() - 0.5) * 3.2, i * 9)).join(' ')
+      return `<circle cx="50" cy="50" r="47" fill="none" stroke="#16235e" stroke-width="4.4"/>` +
+        `<g class="lg-tourne" style="animation: lg-tourne 10s linear infinite, lg-crepite .9s ease-in-out infinite"><polygon points="${p}" fill="none" stroke="#6cc0ff" stroke-width="4.4" stroke-opacity=".45" stroke-linejoin="round"/><polygon points="${p}" fill="none" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></g>` +
+        `<circle cx="50" cy="50" r="49.1" fill="none" stroke="#9fd8ff" stroke-width=".6"/>`
+    },
+    vitrail: () => {
+      const s24 = segments(24)
+      const plomb = Array.from({ length: 24 }, (_, i) => `M${pol(45, i * 15)}L${pol(49, i * 15)}`).join('')
+      return `<g class="lg-tourne" style="animation-duration:90s">${s24.map((d, i) => `<path d="${d}" fill="${VERRES[(i * 3) % 4]}" fill-opacity=".92"/>`).join('')}` +
+        `<path d="${plomb}" stroke="#24170f" stroke-width="1.2"/><path d="${plomb}" stroke="#f0cd7c" stroke-width=".4"/></g>` +
+        `<circle cx="50" cy="50" r="49" fill="none" stroke="#f0cd7c" stroke-width=".9"/><circle cx="50" cy="50" r="45.1" fill="none" stroke="#f0cd7c" stroke-width=".6"/>`
+    },
+    arcane: () => `<circle cx="50" cy="50" r="47" fill="none" stroke="#3a1f7a" stroke-width="4.4"/>` +
+      `<g class="lg-tourne" style="animation-duration:40s" fill="none" stroke="#e7dbff"><circle cx="50" cy="50" r="47" stroke-width="2.2" stroke-dasharray="2.4 1.2 .6 1.6 3.2 2.2 1 1.4" stroke-linecap="round"/></g>` +
+      `<circle cx="50" cy="50" r="49.1" fill="none" stroke="#c9b3ff" stroke-width=".8"/><circle cx="50" cy="50" r="45.2" fill="none" stroke="#9eeaff" stroke-width=".7"/>`,
+    seraphin: id => `<defs><linearGradient id="${id}p" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ffffff"/><stop offset="50%" stop-color="#f3e2b0"/><stop offset="100%" stop-color="#b28a3e"/></linearGradient></defs>` +
+      `<circle cx="50" cy="50" r="49" fill="url(#${id}p)"/><circle cx="50" cy="50" r="48.6" fill="none" stroke="#fff" stroke-opacity=".8" stroke-width=".5"/>`,
+    disco: () => {
+      const x = hasard(71)
+      const tuiles = Array.from({ length: 30 }, (_, i) => {
+        const a0 = i * 12 + 1, a1 = (i + 1) * 12 - 1
+        const t = x()
+        const fill = t < 0.12 ? '#ffffff' : t < 0.26 ? ['#ff6fbf', '#5fe6ff', '#ffe27a'][i % 3] : `hsl(228,10%,${f(32 + x() * 48)}%)`
+        return `<path d="M${pol(49, a0)} A49,49 0 0 1 ${pol(49, a1)} L${pol(45.4, a1)} A45.4,45.4 0 0 0 ${pol(45.4, a0)} Z" fill="${fill}"/>`
+      }).join('')
+      return `<circle cx="50" cy="50" r="49.4" fill="#17161d"/><g class="lg-tourne" style="animation-duration:20s">${tuiles}</g>` +
+        `<circle cx="50" cy="50" r="49.4" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width=".5"/>`
+    },
+    neon: () => `<circle cx="50" cy="50" r="47" fill="none" stroke="#2a0f33" stroke-width="4.6"/>` +
+      `<circle cx="50" cy="50" r="47" fill="none" stroke="#ff3fcf" stroke-width="5" opacity=".35"/>` +
+      `<circle cx="50" cy="50" r="47" fill="none" stroke="#ff3fcf" stroke-width="2"/><circle cx="50" cy="50" r="47" fill="none" stroke="#ffd9f6" stroke-width=".7"/>` +
+      `<circle cx="50" cy="50" r="49.5" fill="none" stroke="#39e8ff" stroke-width=".9"/>`,
+    enso: () => `<circle cx="50" cy="50" r="47" fill="none" stroke="#120b0a" stroke-width="4.6"/>` +
+      `<circle cx="50" cy="50" r="49.1" fill="none" stroke="#d9b56a" stroke-width=".9"/><circle cx="50" cy="50" r="45.2" fill="none" stroke="#d9b56a" stroke-width=".6"/>`,
+    abysses: () => `<circle cx="50" cy="50" r="47" fill="none" stroke="#062a3d" stroke-width="4.6"/>` +
+      `<g class="lg-tourne" style="animation-duration:30s"><circle cx="50" cy="50" r="47" fill="none" stroke="#7ff6ff" stroke-width="1.6" stroke-dasharray=".6 3.2" stroke-linecap="round"/></g>` +
+      `<circle cx="50" cy="50" r="49.1" fill="none" stroke="#2fd6b6" stroke-width=".7"/><circle cx="50" cy="50" r="45.2" fill="none" stroke="#33c4d6" stroke-width=".6"/>`,
+    origami: () => Array.from({ length: 24 }, (_, i) => {
+      const a0 = i * 15 - 0.4, a1 = (i + 1) * 15 + 0.4
+      return `<path d="M${pol(49, a0)} A49,49 0 0 1 ${pol(49, a1)} L${pol(45, a1)} A45,45 0 0 0 ${pol(45, a0)} Z" fill="${i % 2 ? '#e2d3b6' : '#f8f1e3'}"/>`
+    }).join('') + `<circle cx="50" cy="50" r="49" fill="none" stroke="#c8463a" stroke-width="1.3"/><circle cx="50" cy="50" r="45.2" fill="none" stroke="#b89e74" stroke-width=".5"/>`,
+    arcade: () => {
+      const u = 3.125
+      let s = ''
+      for (let j = 0; j < 34; j++) for (let i = 0; i < 34; i++) {
+        const cx = -3.125 + (i + 0.5) * u, cy = -3.125 + (j + 0.5) * u
+        const d = Math.hypot(cx - 50, cy - 50)
+        let c = null
+        if (d >= 45 && d <= 49.4) c = ARC_EN_CIEL[Math.floor(((Math.atan2(cx - 50, 50 - cy) * 180) / Math.PI + 360) / (360 / 14)) % ARC_EN_CIEL.length]
+        else if (d > 49.4 && d <= 52.4) c = '#1a1035'
+        if (c) s += `<rect x="${f(cx - u / 2)}" y="${f(cy - u / 2)}" width="${f(u + 0.05)}" height="${f(u + 0.05)}" fill="${c}"/>`
+      }
+      return `<g shape-rendering="crispEdges">${s}</g>`
+    },
+    singularite: () => `<circle cx="50" cy="50" r="49" fill="#050308"/>` +
+      `<circle cx="50" cy="50" r="47.3" fill="none" stroke="#ff9a3c" stroke-width="3.2" opacity=".55"/>` +
+      `<circle cx="50" cy="50" r="46.7" fill="none" stroke="#fff3d6" stroke-width="1.2"/>` +
+      `<circle cx="50" cy="50" r="49.2" fill="none" stroke="#ff7a1f" stroke-width=".7" opacity=".9"/>`,
+  }
+
+  // ── Les calques de chaque finition ────────────────────────────────────────
+  // `emoji` : remplacé par le cercle autour d'un médaillon, comme dans l'application.
+  const range = (n, fn) => Array.from({ length: n }, (_, i) => fn(i + 1))
+  const FINITIONS = {
+    prisme: {
+      arriere: [{ c: 'lu-dispersion' }, { c: 'lu-spectres lu-spectres-1', src: I.spectres1 }, { c: 'lu-spectres lu-spectres-2', src: I.spectres2 }, { c: 'lu-feux' }, { c: 'lu-glace', emoji: 1 }, { c: 'lu-cristal', src: I.cristal }],
+      avant: [{ c: 'lu-balayage' }, { c: 'lu-etincelle', src: I.blanche }],
+    },
+    aurore: {
+      arriere: [{ c: 'lu-lueur' }, { c: 'lu-voile lu-voile-2', src: I.voile2 }, { c: 'lu-voile lu-voile-1', src: I.voile1 }],
+      avant: range(5, i => ({ c: `lu-ion lu-ion-${i}` })),
+    },
+    constellation: {
+      arriere: [{ c: 'lu-nebuleuse' }, { c: 'lu-poussiere', src: I.poussiere }, { c: 'lu-astrolabe', src: I.astrolabe, emoji: 1 }, { c: 'lu-gemmes', src: I.gemmes, emoji: 1 }],
+      avant: [{ c: 'lu-scintille lu-scintille-1', src: I.doree }, { c: 'lu-scintille lu-scintille-2', src: I.blanche }, { c: 'lu-scintille lu-scintille-3', src: I.doree }],
+      orbite: true,
+    },
+    brasier: {
+      arriere: [{ c: 'br-lueur' }, ...range(3, i => ({ c: `br-feu br-feu-${i}`, src: I[`feu${i}`] })), { c: 'br-feu br-coeur', src: I.coeur }, { c: 'br-anneau', emoji: 1 }],
+      avant: range(6, i => ({ c: `br-tison br-tison-${i}` })),
+    },
+    orage: {
+      arriere: [{ c: 'og-nuage' }, ...range(4, i => ({ c: `og-eclair og-eclair-${i}`, src: I[`eclair${i}`] })), { c: 'og-anneau og-anneau-2', src: I.foudre2, emoji: 1 }, { c: 'og-anneau og-anneau-1', src: I.foudre1, emoji: 1 }],
+      avant: range(3, i => ({ c: `og-etincelle og-etincelle-${i}` })),
+    },
+    vitrail: {
+      arriere: [{ c: 'vi-lueur' }, { c: 'vi-rosace', src: I.rosace }, { c: 'vi-couronne', src: I.couronne, emoji: 1 }],
+      avant: [{ c: 'vi-etincelle', src: I.blanche }],
+    },
+    arcane: {
+      arriere: [{ c: 'ar-lueur' }, { c: 'ar-onde' }, { c: 'ar-cercle', src: I.runes }, { c: 'ar-sceau', src: I.sceau, emoji: 1 }],
+      avant: range(5, i => ({ c: `ar-mote ar-mote-${i}` })),
+    },
+    seraphin: {
+      arriere: [{ c: 'se-lueur' }, { c: 'se-aile se-aile-g', src: I.aileG }, { c: 'se-aile se-aile-d', src: I.aileD }, { c: 'se-aureole', src: I.aureole }],
+      avant: range(3, i => ({ c: `se-plume se-plume-${i}` })),
+    },
+    singularite: {
+      arriere: [{ c: 'si-lueur' }, { c: 'si-lentille', src: I.lentille }, { c: 'si-ombre', emoji: 1 }, { c: 'si-photon', emoji: 1 }],
+      avant: range(2, i => ({ c: `si-astre si-astre-${i}`, src: I.doree })),
+      disque: true,
+    },
+    disco: {
+      arriere: [{ c: 'di-lueur' }, { c: 'di-reflets di-reflets-2', src: I.reflets2 }, { c: 'di-boule', src: I.boule }, { c: 'di-reflets di-reflets-1', src: I.reflets1 }],
+      avant: range(3, i => ({ c: `di-eclat di-eclat-${i}`, src: I.blanche })),
+    },
+    neon: {
+      arriere: [{ c: 'ne-lueur' }, { c: 'ne-sol', src: I.grille }, { c: 'ne-soleil', src: I.soleil }, { c: 'ne-tube ne-tube-cyan', src: I.tubeCyan }, { c: 'ne-tube ne-tube-rose', src: I.tubeRose, emoji: 1 }],
+      avant: range(3, i => ({ c: `ne-etoile ne-etoile-${i}` })),
+    },
+    enso: {
+      arriere: [{ c: 'en-lueur' }, { c: 'en-trait', src: I.enso }, { c: 'en-goutte', src: I.gouttes }, { c: 'en-reflet' }, { c: 'en-sceau', src: I.sceauVermillon }],
+      avant: [],
+    },
+    abysses: {
+      arriere: [{ c: 'ab-lueur' }, { c: 'ab-rayons', src: I.faisceaux }, { c: 'ab-plancton ab-plancton-2', src: I.plancton2 }, { c: 'ab-plancton ab-plancton-1', src: I.plancton1 }, { c: 'ab-meduse ab-meduse-1', src: I.meduseRose }, { c: 'ab-meduse ab-meduse-2', src: I.meduseCyan }],
+      avant: range(4, i => ({ c: `ab-bulle ab-bulle-${i}` })),
+    },
+    origami: {
+      arriere: [{ c: 'ori-eventail', src: I.eventail }],
+      avant: [],
+      grues: true,
+    },
+    arcade: {
+      arriere: [{ c: 'px-glitch px-glitch-r', src: I.pixelsRouge, emoji: 1 }, { c: 'px-glitch px-glitch-c', src: I.pixelsCyan, emoji: 1 }, { c: 'px-anneau px-anneau-a', src: I.pixelsA, emoji: 1 }, { c: 'px-anneau px-anneau-b', src: I.pixelsB, emoji: 1 }, { c: 'px-coeurs', src: I.coeurs }],
+      avant: [{ c: 'px-piece px-piece-1', src: I.piece }, { c: 'px-piece px-piece-2', src: I.piece }, ...range(3, i => ({ c: `px-etoile px-etoile-${i}`, src: I.etoile }))],
+    },
+  }
+
+  const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e }
+  const calques = (liste, medaillon) => liste.filter(c => !(medaillon && c.emoji))
+    .map(c => (c.src ? `<img class="${c.c}" src="${c.src}" alt="" draggable="false">` : `<i class="${c.c}"></i>`)).join('')
+  const orbite = moitie => `<i class="lu-orbite lu-orbite-${moitie}"><b class="lu-plan"><b class="lu-trace"></b><b class="lu-bras"><img class="lu-astre" src="${I.blanche}" alt=""></b></b></i>`
+  const disque = moitie => `<i class="si-disque si-disque-${moitie}"><b class="si-plan"><b class="si-tourbillon"></b></b></i>`
+  const grues = moitie => `<i class="ori-orbite ori-orbite-${moitie}"><b class="ori-plan">` +
+    [I.grueRouge, I.grueBlanche, I.grueTurquoise].map((src, k) => `<b class="ori-bras ori-bras-${k + 1}"><img class="ori-grue" src="${src}" alt=""></b>`).join('') + `</b></i>`
+
+  /** L'avatar d'un joueur, dans la finition donnée : l'emoji, ou le légendaire du Renard. */
+  function avatar(nom, medaillon) {
+    const fin = FINITIONS[nom]
+    const dedans = medaillon
+      ? `<span class="lg"><svg viewBox="0 0 100 100" aria-hidden="true">${CERCLES[nom]('c' + ++uid)}<circle cx="50" cy="50" r="45" fill="#2a1d14"/></svg><img class="lg-art" src="${RENARD}" alt=""></span>`
+      : '🦊'
+    return `<span class="av av-lumiere${medaillon ? ' av-legendaire' : ''}" role="img" aria-label="${medaillon ? 'Le Renard légendaire' : 'Un renard'}, finition ${NOMS[nom]}">` +
+      `<span class="lu lu-arriere" aria-hidden="true">${calques(fin.arriere, medaillon)}${fin.orbite ? orbite('arriere') : ''}${fin.disque ? disque('arriere') : ''}${fin.grues ? grues('arriere') : ''}</span>` +
+      `<span class="av-emoji">${dedans}</span>` +
+      `<span class="lu lu-avant" aria-hidden="true">${fin.orbite ? orbite('avant') : ''}${fin.disque ? disque('avant') : ''}${fin.grues ? grues('avant') : ''}${calques(fin.avant, medaillon)}</span></span>`
+  }
+
+  const NOMS = {
+    prisme: 'Prisme', aurore: 'Aurore', constellation: 'Constellation', brasier: 'Brasier', orage: 'Orage', vitrail: 'Vitrail', arcane: 'Arcane', seraphin: 'Séraphin', singularite: 'Singularité',
+    disco: 'Disco', neon: 'Néon', enso: 'Ensō', abysses: 'Abysses', origami: 'Origami', arcade: 'Arcade',
+  }
+  const scene = (nom, medaillon, legende) => `<figure class="scene" style="margin:0">${avatar(nom, medaillon)}${legende ? `<figcaption>${legende}</figcaption>` : ''}</figure>`
+  const pastille = niv => `<span class="niveau${niv >= 30 ? ' prestige p' + Math.min(50, Math.floor(niv / 10) * 10) : ''}" title="Niveau ${niv}">${niv}</span>`
+
+  // Aujourd'hui.
+  const trio = document.getElementById('trio')
+  ;[['prisme', 15, 'le Diamant'], ['aurore', 20, 'les Voiles'], ['constellation', 25, 'l’Astrolabe']].forEach(([nom, niv, lumiere]) => {
+    const p = el('div', 'piece')
+    p.innerHTML = `<div class="nom-piece"><b>${NOMS[nom]}</b><span>niv. ${niv} · ${lumiere}</span></div>${scene(nom, false)}${scene(nom, true)}`
+    trio.append(p)
+  })
+
+  // Les candidates.
+  const CANDIDATES = [
+    { nom: 'brasier', lumiere: 'la Couronne de feu', propose: 30, phrase: 'Un feu qui monte autour de la tête et change de forme d’un instant à l’autre, un anneau de braise, des tisons qui montent devant le visage.', niveau: 31, qui: 'Camille' },
+    { nom: 'seraphin', lumiere: 'les Ailes', propose: 40, phrase: 'Deux ailes de lumière qui battent lentement depuis les épaules, une auréole qui flotte au-dessus, des plumes d’or qui tombent.', niveau: 42, qui: 'Hugo' },
+    { nom: 'singularite', lumiere: 'l’Horizon', propose: 50, phrase: 'Un trou noir derrière l’avatar : un anneau de photons, l’arc du disque courbé au-dessus de la tête, et le disque brûlant qui passe sous le menton.', niveau: 50, qui: 'Léa' },
+    { nom: 'orage', lumiere: 'la Foudre', propose: 0, phrase: 'Un anneau électrique qui crépite, quatre éclairs qui frappent tour à tour vers l’extérieur, dans un nuage bleu.', niveau: 33, qui: 'Inès' },
+    { nom: 'vitrail', lumiere: 'la Rosace', propose: 0, phrase: 'Une rosace de cathédrale derrière la tête, rubis, saphir, ambre et émeraude sertis de plomb, qu’un rayon de jour traverse.', niveau: 38, qui: 'Tom' },
+    { nom: 'arcane', lumiere: 'le Cercle des runes', propose: 0, phrase: 'Un cercle de signes inventés et un sceau à huit pointes qui tournent en sens contraire, une onde violette qui s’en échappe.', niveau: 45, qui: 'Zoé' },
+  ]
+  const AUTRES = [
+    { nom: 'disco', lumiere: 'la Boule à facettes', phrase: 'Une boule à facettes derrière la tête, ses reflets de couleur qui tournent autour comme sur les murs d’une piste, des éclats de lumière sur ses miroirs.', niveau: 34, qui: 'Malik' },
+    { nom: 'neon', lumiere: 'le Coucher de soleil', phrase: 'Le soleil rayé des années 80 derrière la tête, une grille qui file vers l’horizon sous le menton, deux tubes de néon, dont l’un grésille.', niveau: 36, qui: 'Jade' },
+    { nom: 'enso', lumiere: 'le Cercle d’encre', phrase: 'Un cercle zen tracé d’un seul coup de pinceau : à l’or sur le Velours, à l’encre noire sur l’Ivoire. Et le sceau vermillon du calligraphe.', niveau: 41, qui: 'Noé' },
+    { nom: 'abysses', lumiere: 'les Méduses', phrase: 'Les grands fonds : deux méduses qui nagent, du plancton qui luit en cercle, des bulles qui montent, la lumière de la surface qui descend en faisceaux.', niveau: 44, qui: 'Sacha' },
+    { nom: 'origami', lumiere: 'les Grues de papier', phrase: 'Un éventail de papier plié derrière la tête, et trois grues en papier qui tournent autour, en passant derrière lui puis devant.', niveau: 39, qui: 'Lina' },
+    { nom: 'arcade', lumiere: 'le Bonus', phrase: 'Le jeu vidéo d’autrefois : un anneau de pixels aux couleurs qui défilent, trois cœurs de vie au-dessus de la tête, des pièces qui tournent.', niveau: 47, qui: 'Enzo' },
+  ]
+  const carte = (c, i, etiquette) => {
+    const a = el('article', 'candidate')
+    a.id = c.nom
+    a.innerHTML =
+      `<header><div class="ligne-titre"><h3>${NOMS[c.nom]}</h3><span class="propose${c.propose ? ' oui' : ''}">${c.propose ? 'proposée au niveau ' + c.propose : etiquette}</span></div>` +
+      `<p class="lumiere">${c.lumiere}</p><p class="phrase">${c.phrase}</p></header>` +
+      `<div class="duo">${scene(c.nom, false, 'emoji')}${scene(c.nom, true, 'légendaire')}</div>` +
+      `<div class="ligne"><span class="rang">${i % 3 + 1}</span>${avatar(c.nom, false)}<span class="qui">${c.qui} ${pastille(c.niveau)}</span><span class="pts">${(2480 - i * 115).toLocaleString('fr-FR')}</span></div>`
+    return a
+  }
+  const liste = document.getElementById('candidates')
+  CANDIDATES.forEach((c, i) => liste.append(carte(c, i, 'autre choix')))
+  const autres = document.getElementById('autres')
+  AUTRES.forEach((c, i) => autres.append(carte(c, i, 'nouvelle piste')))
+
+  // La proposition, en escalier depuis la Constellation.
+  const prop = document.getElementById('proposition')
+  ;[['constellation', 25], ['brasier', 30], ['seraphin', 40], ['singularite', 50]].forEach(([nom, niv]) => {
+    const p = el('div', 'piece')
+    p.innerHTML = `<div class="etiquette"><b>${NOMS[nom]}</b><span>niv. ${niv}</span></div>${scene(nom, false)}`
+    prop.append(p)
+  })
+
+  // La gemme du niveau : la pastille, puis la tête de la carte.
+  const gem = document.getElementById('gemmes')
+  ;[
+    { niv: 29, cadre: 'champagne', titre: 'sans ligue', qui: 'Camille', haut: 'L’Alpiniste' },
+    { niv: 31, cadre: 'or', titre: 'ligue d’or', qui: 'Inès', haut: 'Le Sans-Faute' },
+    { niv: 42, cadre: 'champagne', titre: 'sans ligue', qui: 'Hugo', haut: 'L’Habitué' },
+    { niv: 50, cadre: 'diamant', titre: 'ligue de diamant', qui: 'Léa', haut: 'La Légende' },
+  ].forEach(g => {
+    const prestige = g.niv >= 30 ? ' prestige p' + Math.min(50, Math.floor(g.niv / 10) * 10) : ''
+    const m = el('div', 'mini')
+    m.innerHTML =
+      `<div class="rang-niv">${pastille(g.niv)}<span>${g.niv >= 30 ? 'dès le niveau ' + Math.min(50, Math.floor(g.niv / 10) * 10) : 'comme aujourd’hui'}</span></div>` +
+      `<div class="carte-tete"><span class="gemme cadre-${g.cadre}${prestige}" title="Niveau ${g.niv}"><i>niv.</i>${g.niv}</span><span><b>${g.qui}</b><small>${g.haut} · ${g.titre}</small></span></div>`
+    gem.append(m)
+  })
+
+  // Le fond de la salle : celui du thème de la page au départ, puis au choix.
+  const planche = document.getElementById('planche')
+  const boutons = [...document.querySelectorAll('.bascule button')]
+  const poser = salle => {
+    planche.dataset.salle = salle
+    boutons.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.salle === salle)))
+  }
+  const racine = document.documentElement.dataset.theme
+  const sombre = racine ? racine === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches
+  poser(sombre ? 'velours' : 'ivoire')
+  boutons.forEach(b => b.addEventListener('click', () => poser(b.dataset.salle)))
+})()
+</script>

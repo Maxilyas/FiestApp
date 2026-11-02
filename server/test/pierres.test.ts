@@ -34,8 +34,9 @@ test('la pierre de sa dizaine, dès le 30 — rien avant, et rien pour qui n’a
   assert.equal(pierreDuNiveau(40), 'amethyste')
   assert.equal(pierreDuNiveau(50), 'ambre')
   assert.equal(pierreDuNiveau(120), 'ambre', 'l’ambre est la dernière')
-  // Au-dessus de la dernière finition : la pierre ne double rien de ce qui s'ouvre déjà.
-  assert.ok(PIERRES_DU_NIVEAU[0].niveau > Math.max(...Object.values(NIVEAU_FINITION)))
+  // Chaque pierre arrive avec la finition de sa dizaine — les Abysses au 30, l'Envol au 40, la Singularité au 50 :
+  // le niveau qui change la pastille change aussi l'avatar.
+  for (const { niveau } of PIERRES_DU_NIVEAU) assert.ok(Object.values(NIVEAU_FINITION).includes(niveau), `une finition s'ouvre au ${niveau}`)
   // Une montée qui passe une dizaine l'annonce, une fois.
   assert.equal(pierreGagnee(29, 30), 'saphir')
   assert.equal(pierreGagnee(30, 31), null)
