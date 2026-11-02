@@ -8,8 +8,9 @@
 // client construit d'abord (`npm run build -w client`).
 //
 // Le circuit entier, par les vraies routes : Camille propose sa question — la
-// danse en file —, l'administrateur la relit au QG et l'accepte, retouchée
-// d'une anecdote ; elle passe au quiz du jour, que Léa joue, signée ; puis
+// danse en file, et son anecdote —, l'administrateur la relit au QG et
+// l'accepte, l'anecdote déjà dans son champ ; elle passe au quiz du jour, que
+// Léa joue, signée ; puis
 // Camille joue le sien jusqu'au bout : sa question se montre sans se jouer,
 // La Plume tombe à la fin, et son accueil lui dit qu'elle est au quiz du jour,
 // ses confettis avec ; enfin l'administrateur l'annule pour tous, et son
@@ -91,6 +92,8 @@ try {
     texte: 'Quelle danse de fête fait-on en file, chacun les mains sur les épaules de celui de devant ?',
     reponses: ['Le madison', 'La chenille', 'La farandole', 'La macarena'],
     bonne: 1,
+    // Son anecdote, avec sa coquille : le QG la reçoit telle quelle, et le signalement la corrigera dans le texte même.
+    anecdote: 'Elle a même sa chanson, « La Chenille », un tube de la Bande à Basille.',
   }
   const proposee = await ecrire(banc.url, '/api/jour/propositions', CHENILLE, camille)
   if (!proposee.ok) throw new Error(`proposition refusée (${proposee.status})`)
@@ -108,8 +111,8 @@ try {
   console.log(path.join(sortie, '00-qg-a-relire.png'))
   await qg.locator('article', { hasText: 'Question du public' }).locator('button', { hasText: 'Accepter' }).tap()
   await qg.locator('article select').selectOption('Autour de la fête')
-  // Une coquille dans l'anecdote, que le signalement corrigera dans le texte même.
-  await qg.locator('article textarea').nth(1).fill('Elle a même sa chanson, « La Chenille », un tube de la Bande à Basille.')
+  // L'anecdote de Camille est déjà dans son champ : l'administrateur la garde telle quelle.
+  if ((await qg.locator('article textarea').nth(1).inputValue()) !== CHENILLE.anecdote) console.warn('[qg] l’anecdote de Camille n’est pas dans « Accepter »')
   await qg.waitForTimeout(300)
   await qg.locator('article', { hasText: 'Question du public' }).screenshot({ path: path.join(sortie, '00-qg-accepter.png') })
   console.log(path.join(sortie, '00-qg-accepter.png'))
@@ -191,13 +194,14 @@ try {
   await page.waitForSelector('.plume-feuille')
   await photo('09-plume-carte-vide', { attente: 400 })
   await page.locator('.plume-carte-question').fill('Quel est le seul pays au monde dont le drapeau n’est pas un rectangle ?')
-  const champs = page.locator('.plume-carte-champ')
+  const champs = page.locator('.plume-carte-reponse .plume-carte-champ')
   await champs.nth(0).fill('Le Bhoutan')
   await champs.nth(1).fill('Le Népal')
   await photo('10-plume-carte-en-cours', { attente: 300 })
   await champs.nth(2).fill('La Suisse')
   await champs.nth(3).fill('Le Vatican')
   await page.locator('.plume-carte-forme').nth(1).click()
+  await page.locator('.plume-carte-anecdote textarea').fill('Deux triangles superposés, pour deux branches de sa dynastie.')
   await photo('11-plume-carte-prete', { attente: 500 })
   await page.locator('.plume-feuille .carte-fermer').click()
 

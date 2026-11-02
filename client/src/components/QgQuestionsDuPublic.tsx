@@ -106,7 +106,8 @@ function CarteDUneProposition({ p, relue }: { p: PropositionAuQg; relue: () => P
   const [reponses, setReponses] = useState(p.reponses)
   const [bonne, setBonne] = useState(p.bonne)
   const [categorie, setCategorie] = useState('')
-  const [anecdote, setAnecdote] = useState('')
+  // Celle du joueur d'abord, s'il en a écrit une : l'accepter la garde, la retouche ou l'efface.
+  const [anecdote, setAnecdote] = useState(p.anecdote ?? '')
   const [motif, setMotif] = useState('')
   const [occupe, setOccupe] = useState(false)
   const [erreur, setErreur] = useState('')
@@ -153,6 +154,8 @@ function CarteDUneProposition({ p, relue }: { p: PropositionAuQg; relue: () => P
           </li>
         ))}
       </ul>
+      {/* Son anecdote, sous ses réponses ; « Accepter » déplié, son champ la reprend. */}
+      {p.anecdote && geste !== 'accepter' && <p className="muted small">{espacesFines(`Le saviez-vous ? ${p.anecdote}`)}</p>}
       {geste === 'accepter' ? (
         <div className="qg-proposition-forme">
           <label className="label" htmlFor={`${id}-texte`}>

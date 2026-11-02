@@ -15,6 +15,14 @@ import { sansAccent } from './homonymes'
 /** Une question tient sur l'écran d'un téléphone ; une réponse, sur un bouton. */
 export const QUESTION_DU_PUBLIC_MAX = 200
 export const REPONSE_DU_PUBLIC_MAX = 60
+/**
+ * Son anecdote, « Le saviez-vous ? », facultative : la limite de toute
+ * anecdote (`MAX_ANECDOTE`, `shared/library.ts`, que l'acceptation relit),
+ * recopiée plutôt qu'importée — la bibliothèque des quiz serait venue avec,
+ * dans chaque page qui lit un profil ; `jour-propositions.test.ts` les tient
+ * ensemble.
+ */
+export const ANECDOTE_DU_PUBLIC_MAX = 280
 /** Une question du public a quatre réponses : les quatre formes du quiz. */
 export const REPONSES_DU_PUBLIC = 4
 /** En deçà, ce n'est pas encore une question : « Qui ? » ne se joue pas. */
@@ -74,11 +82,13 @@ export const MOTIFS_DE_REFUS = [
  */
 export type StatutDUneProposition = 'en-relecture' | 'acceptee' | 'refusee' | 'posee'
 
-/** Une question du public, telle que le joueur l'écrit : l'intitulé, quatre réponses, l'index de la bonne. */
+/** Une question du public, telle que le joueur l'écrit : l'intitulé, quatre réponses, l'index de la bonne — et son anecdote, s'il en écrit une. */
 export interface QuestionProposee {
   texte: string
   reponses: string[]
   bonne: number
+  /** « Le saviez-vous ? » : le QG la reçoit dans « Accepter », qui la garde, la retouche ou l'efface. */
+  anecdote?: string
 }
 
 /** Une proposition telle que son auteur la relit, sous sa carte à écrire (« Tes questions »). */
@@ -122,15 +132,15 @@ const net = (x: unknown) => (typeof x === 'string' ? x.trim().replace(/\s+/g, ' 
  * la question est prête. Le téléphone le dit comme le prochain geste
  * (« Encore 2 réponses. ») ; le serveur refuse avec la même phrase.
  */
-export function conseilDeLaProposition(texte: string, reponses: readonly string[], bonne: number | null): string | null {
+export function conseilDeLaProposition(texte: string, reponses: readonly string[], bonne: number | null, anecdote = ''): string | null {
   const t = texte.trim()
   const reps = reponses.map(r => r.trim())
   const manquent = reps.filter(r => !r).length
   if (!t) return 'Écris ta question, puis ses quatre réponses.'
   if (t.length < QUESTION_DU_PUBLIC_MIN) return 'Un peu courte : précise-la.'
   if (!t.endsWith('?')) return 'Finis-la par un point d’interrogation.'
-  // Les emojis récents s'affichent en carré vide sous Windows 10, où tourne l'écran commun.
-  if (/\p{Extended_Pictographic}/u.test(t + reps.join(''))) return 'Sans emoji : certains écrans ne l’affichent pas.'
+  // Les emojis récents s'affichent en carré vide sous Windows 10, où tourne l'écran commun — l'anecdote comprise.
+  if (/\p{Extended_Pictographic}/u.test(t + reps.join('') + anecdote)) return 'Sans emoji : certains écrans ne l’affichent pas.'
   if (manquent === reps.length) return 'À toi : ses quatre réponses.'
   if (manquent > 0) return manquent === 1 ? 'Encore une réponse.' : `Encore ${manquent} réponses.`
   if (new Set(reps.map(reconnaissable)).size < reps.length) return 'Deux réponses sont pareilles.'
@@ -153,9 +163,12 @@ export function lireLaProposition(brut: unknown): QuestionProposee | string {
   if (reponses.length !== REPONSES_DU_PUBLIC) return 'Une question du public a quatre réponses.'
   if (Array.from(texte).length > QUESTION_DU_PUBLIC_MAX) return `Trop longue : ${QUESTION_DU_PUBLIC_MAX} caractères au plus.`
   if (reponses.some(r => Array.from(r).length > REPONSE_DU_PUBLIC_MAX)) return `Une réponse tient en ${REPONSE_DU_PUBLIC_MAX} caractères.`
+  const anecdote = net(o.anecdote)
+  if (Array.from(anecdote).length > ANECDOTE_DU_PUBLIC_MAX) return `L’anecdote tient en ${ANECDOTE_DU_PUBLIC_MAX} caractères.`
   const bonne = typeof o.bonne === 'number' && Number.isInteger(o.bonne) && o.bonne >= 0 && o.bonne < REPONSES_DU_PUBLIC ? o.bonne : null
-  const conseil = conseilDeLaProposition(texte, reponses, bonne)
-  return conseil ?? { texte, reponses, bonne: bonne! }
+  const conseil = conseilDeLaProposition(texte, reponses, bonne, anecdote)
+  // Vide, elle n'existe pas : ni la carte du QG ni la réserve n'ont à la lire.
+  return conseil ?? { texte, reponses, bonne: bonne!, ...(anecdote && { anecdote }) }
 }
 
 /** Le motif d'un refus, relu : une phrase, ni vide ni trop longue — refusée trop longue, jamais coupée. */
