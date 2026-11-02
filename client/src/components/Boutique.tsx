@@ -20,6 +20,7 @@ import type { PublicProfileDetail } from '../../../shared/profil'
 import type { VieDesSentiers } from '../../../shared/sentiers'
 import { avatarDeLApercu } from '../../../shared/sonAvatar'
 import { SABLIERS_MAX } from '../../../shared/jour'
+import { formesDeLEclat } from '../../../shared/compagnons'
 import { OBJETS, type CleDObjet, type Objet } from './Objets'
 import { AGagner } from './LigneDeCollection'
 import { api, motifDe } from '../api'
@@ -597,6 +598,8 @@ export function RayonDesObjets({
   }
   // L'Éclat se montre sur ce qu'il porte, sauf un Divin, qui n'en prend pas : l'aperçu se tait (`avatarDeLApercu`).
   const lui = avatarDeLApercu(profil)
+  // Un compagnon éclaté ne change que de paillettes : sa version rare est sa métamorphose (`formesDeLEclat`).
+  const metamorphose = formesDeLEclat(lui.legendaire)
   const objet = OBJETS.find(o => o.cle === ouvert)
   return (
     <>
@@ -621,9 +624,9 @@ export function RayonDesObjets({
                 <span className="objet-prix">{enConfettis(o.prix)}</span>
                 {o.cle === 'eclat' && lui.avatar && (
                   <span className="comptoir-eclat" aria-hidden="true">
-                    <Avatar {...lui} eclat={false} finition={profil.finition} className="comptoir-eclat-avant" />
+                    <Avatar {...lui} {...(metamorphose && { legendaire: metamorphose.avant })} eclat={false} finition={profil.finition} className="comptoir-eclat-avant" />
                     <Icon name="arrow-right" />
-                    <Avatar {...lui} eclat finition={profil.finition} className="comptoir-eclat-apres" />
+                    <Avatar {...lui} {...(metamorphose && { legendaire: metamorphose.apres })} eclat finition={profil.finition} className="comptoir-eclat-apres" />
                   </span>
                 )}
               </button>
