@@ -284,9 +284,11 @@ export const CHAUDES_MS = 60_000
 /**
  * Les connexions gardées chaudes, au plus : une réponse en emprunte deux —
  * ses deux allers-retours enchaînés en ouvrent deux —, la campagne et les
- * duels quatre à six de front. L'accueil en lance treize, et attend la plus
- * lente : il en faudrait treize, deux fois plus de battements pour une page
- * — ou HTTP/2, une seule connexion pour toute la vague.
+ * duels quatre à six de front. L'accueil en lançait treize, et vingt et un
+ * avec ses missions : il en aurait fallu autant, deux fois plus de battements
+ * pour une page — ou HTTP/2, une seule connexion pour toute la vague. Il en
+ * lance six depuis le 2 novembre 2026, un lot par magasin pour chacune de ses
+ * deux routes (règle `profil.md`).
  */
 export const CHAUDES_AU_PLUS = 6
 

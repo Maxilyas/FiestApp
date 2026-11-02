@@ -127,7 +127,8 @@ test('la pastille de « Profil » se compte d’une seule vague, sans refaire la
   await lire('/api/joueur/nouveautes')
   const m = await mesurer(() => lire('/api/joueur/nouveautes'))
   assert.equal(m.enSerie, 1, `${m.enSerie} allers-retours l’un derrière l’autre :\n${enClair(m)}`)
-  assert.ok(m.appels <= 5, `${m.appels} allers-retours — la page entière en faisait seize :\n${enClair(m)}`)
+  // Ce qu'il a vu de sa loge part avec sa boutique : quatre allers-retours jusqu'au 2 novembre 2026.
+  assert.ok(m.appels <= 3, `${m.appels} allers-retours — la page entière en faisait seize :\n${enClair(m)}`)
 
   // Le même compte que la règle de la loge sur le détail de sa page.
   const detail = (await lire('/api/joueur/moi')).profile
@@ -172,12 +173,19 @@ test('ses paliers de campagne ne relisent plus la renommée de l’Expédition :
   assert.equal(m.resultat.profile.hautsFaits.find((h: { key: string }) => h.key === 'hf:explorateur')?.valeur, 0, 'L’Explorateur cité, aucune traversée')
 })
 
-test('l’accueil lit ses sentiers une fois pour son solde, et une fois pour son bouton', async () => {
+test('l’accueil se lit d’un lot par magasin — le profil, le quiz du jour, la campagne —, ses sentiers une fois', async () => {
+  // Treize allers-retours de front jusqu'au 2 novembre 2026 : la campagne en
+  // faisait cinq — son solde, son bouton, le défi, les duels, les mercis —, le
+  // quiz du jour trois et un derrière, le profil trois, et ses sentiers se
+  // lisaient deux fois. Chacun coûte au serveur une à deux millisecondes de
+  // processeur sur un vrai cœur, dix fois plus au dixième de cœur de
+  // l'hébergeur.
   await lire('/api/joueur/moi?accueil')
   const m = await mesurer(() => lire('/api/joueur/moi?accueil'))
   const sentiers = m.lectures.filter(l => /FROM sentier_acquis/.test(l.sql))
-  assert.ok(sentiers.length <= 2, `ses sentiers lus ${sentiers.length} fois :\n${enClair(m)}`)
+  assert.equal(sentiers.length, 1, `ses sentiers lus ${sentiers.length} fois :\n${enClair(m)}`)
   assert.equal(m.enSerie, 1, enClair(m))
+  assert.ok(m.appels <= 3, `${m.appels} allers-retours — treize avant :\n${enClair(m)}`)
 })
 
 // ── La page des duels ─────────────────────────────────────────────────────

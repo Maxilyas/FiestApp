@@ -52,7 +52,8 @@ jour a sa notification (règle `rappel-et-installation.md`).
   `choisirLesCroises`) ; le classement (`toutesLesCotes`,
   `classementDesDuels`, `rangsAuLundi`, `aSaPortee`, `rangAuxDuels`) ; la page
   et l'accueil (`etatDesDuels`, `duelsContre`, `bilanEtHistoire`,
-  `accueilDesDuels`) ; les bordures tenues en mémoire pour la salle
+  `duelsDAccueil`, ses trois lectures dans le lot de l'accueil de la campagne,
+  `lecturesDesDuelsDAccueil`) ; les bordures tenues en mémoire pour la salle
   (`borduresEnMemoire`, `connaitreLesBordures`) ; le journal des duels
   (`lesDuels`, `lireLesDuels`, `relireLesDuels`, plus bas) et ses lectures
   (`lectureDesDuels`, `lectureDesAdversaires`, `sesDuelsContre`,

@@ -195,15 +195,14 @@ test('une lecture restée en route ne retient plus les suivantes du profil : ell
   const missions = new Missions({
     profiles: {
       // La première ne revient jamais ; les suivantes, tout de suite.
-      lignesDesMissions: () => (++lectures === 1 ? new Promise(() => {}) : Promise.resolve(lignes)),
+      lecturesDesMissions: () =>
+        ++lectures === 1 ? new Promise(() => {}) : Promise.resolve({ lignes, soirees: [], auxTrois: [], ouverts: new Set<string>(), offerts: [] }),
       accomplirDesMissions: async () => [],
       joursAuxTrois: async () => [],
-      semainesDesCoffres: async () => new Set<string>(),
       coffresOfferts: async () => [],
-      soireesDepuis: async () => [],
       aQuiDefier: async () => false,
     } as unknown as DepsDesMissions['profiles'],
-    jour: { activiteDepuis: async () => ({ jour: [], jourParCategorie: [] }), coffresDuMois: async () => [] },
+    jour: { activiteDepuis: async () => ({ jour: [], jourParCategorie: [], coffresDuMois: [] }), coffresDuMois: async () => [] },
     campagne: { activiteDepuis: async () => ({ series: [], reponses: [] }), aRevoirDe: async () => 0 },
     maintenant: () => Date.UTC(2026, 9, 15, 8),
     dureeMaxMs: 150,
