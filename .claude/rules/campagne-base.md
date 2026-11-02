@@ -141,3 +141,16 @@ Pour agrandir la base (un lot, sa relecture, son rangement — ou des milliers d
   identifiant que ceux de son lot s'écarte avant `reclasser` (aucun ce
   jour-là), et une question qui a déjà trois étiquettes n'en reçoit pas de
   quatrième (onze).
+- **Un univers écrit pour lui reste centré sur lui** (Stargate, Kaamelott et
+  Lost, les 1er et 2 novembre 2026) : leurs lots de coulisses demandaient
+  « ce que les acteurs ont joué ailleurs », et les rédacteurs en ont fait
+  des questions dont la réponse est une autre œuvre — Khal Drogo, Kratos,
+  *Ratatouille*, *HPI* — ou la vie d'un acteur, sa ville natale, sa femme.
+  Le propriétaire : « je veux que ce soit centré sur Stargate ». Elles ont
+  perdu l'étiquette de l'univers (47 en tout, `reclasser` `etiquettes`),
+  pas leur place dans la base : justes, elles se jouent en cinéma. Une
+  question garde l'étiquette quand sa réponse est de l'univers — l'acteur
+  d'un rôle de la saga, même avec un indice venu d'ailleurs (« Quel
+  comédien, ensuite Khal Drogo, joue Ronon Dex ? »). La section « CE LOT
+  EN PARTICULIER » d'un prochain lot d'univers le dit d'emblée : la réponse
+  est de l'univers, toujours.

@@ -128,9 +128,10 @@ import { sansAccent } from '../../shared/homonymes'
  * questions de Kaamelott, que les résumés de la série ne permettaient pas
  * de confirmer) ; et la Seconde Guerre mondiale, posée sur 124 questions de
  * la base et écrite là où elle vit (`preparer --sujet`), 144 rangées sur
- * 150 : 27 405.
+ * 150 : 27 405. Le lendemain, une question de Stargate retirée — elle
+ * donnait Halla pour planète-mère des Asgard, qui est Othala — : 27 404.
  */
-const AU_MOINS = 27405
+const AU_MOINS = 27404
 
 const { questions, refusees } = lireLaBase()
 
