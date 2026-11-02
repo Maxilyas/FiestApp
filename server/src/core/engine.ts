@@ -9,6 +9,7 @@ import type { PartyMirror, SessionRow } from './backup'
 import type { SessionSummary } from '../../../shared/types'
 import type { ActionRefusal } from '../../../shared/events'
 import { pouls } from './pouls'
+import { commencer } from './gels'
 
 /**
  * Cadence du miroir distant de la partie, pour le simple va-et-vient des
@@ -47,8 +48,25 @@ function empreinte(sess: LiveSession): string {
 
 interface LiveSession extends GameSessionRec {
   createdAt: number
-  timers: Map<string, { deadline: number; handle: NodeJS.Timeout }>
+  /** Chaque chronomètre armé : son échéance, et de quoi l'éteindre — qu'il attende son heure ou son tour de boucle (`armTimer`). */
+  timers: Map<string, { deadline: number; annuler: () => void }>
 }
+
+/**
+ * Au-delà de ce retard, un chronomètre a sonné après un gel de la boucle — un
+ * calcul, ou le dixième de cœur de l'hébergeur épuisé —, et ce qui est arrivé
+ * pendant le gel attend encore d'être lu. Gelée dans une lecture (une requête,
+ * une réponse de la base) ou un `setImmediate` (une étape de fond), la boucle
+ * passe le chronomètre échu AVANT de lire les sockets : la question se fermait,
+ * et la réponse d'un invité partie à temps recevait « Trop tard » — la marge de
+ * la question (`GRACE_MS`, 1,5 s) ne couvre pas un gel de 2,9 s, celui d'une
+ * soirée de vingt invités en production, le 31 octobre 2026. Le chronomètre en
+ * retard passe donc un tour de boucle (`setImmediate`, après la lecture des
+ * sockets) : ce qui est arrivé pendant le gel compte d'abord. À l'heure, rien
+ * ne change — un chronomètre sonne d'ordinaire une ou deux millisecondes après
+ * son échéance.
+ */
+const RETARD_D_UN_GEL_MS = 10
 
 interface EngineDeps {
   db: DB
@@ -212,6 +230,15 @@ export class GameEngine {
   }
 
   /**
+   * Un chronomètre de la partie court : avec la phase, de quoi dire qu'une
+   * question attend ses réponses — en pause, ses chronomètres sont désarmés
+   * (`server.ts`, `campagne.salleEnJeu`).
+   */
+  chronometreArme(): boolean {
+    return (this.session?.timers.size ?? 0) > 0
+  }
+
+  /**
    * Où en est la partie en cours, sans rien de son contenu : sa phase, la
    * question (comptée depuis 0) et le nombre de questions. Ce que le QG dit
    * d'une soirée qui n'est pas la sienne — ni le quiz, ni la question.
@@ -277,7 +304,7 @@ export class GameEngine {
   endSession(sessionId: string) {
     const sess = this.session
     if (!sess || sess.id !== sessionId) return
-    for (const t of sess.timers.values()) clearTimeout(t.handle)
+    for (const t of sess.timers.values()) t.annuler()
     sess.timers.clear()
     if (this.hostTimer) clearTimeout(this.hostTimer)
     this.hostTimer = null
@@ -302,7 +329,7 @@ export class GameEngine {
    * c'est elle qui les réarme au redémarrage, et on ne vide donc pas la table.
    */
   stop() {
-    if (this.session) for (const t of this.session.timers.values()) clearTimeout(t.handle)
+    if (this.session) for (const t of this.session.timers.values()) t.annuler()
     if (this.hostTimer) clearTimeout(this.hostTimer)
     this.hostTimer = null
     // Une réponse retenue attend encore son écriture : elle part maintenant,
@@ -534,13 +561,10 @@ export class GameEngine {
   private armTimer(sess: LiveSession, timerId: string, ms: number) {
     this.disarmTimer(sess, timerId)
     const deadline = Date.now() + ms
-    const handle = setTimeout(() => {
+    const sonner = () => {
       sess.timers.delete(timerId)
-      // Le retard d'un chronomètre, c'est la révélation que la salle attend :
-      // la première chose que voit un serveur qui ne suit plus.
-      const retard = Date.now() - deadline
-      pouls.chronos.noter(retard)
-      if (retard > 1000) console.warn(`[partie] chronomètre « ${timerId} » en retard de ${retard} ms`)
+      // Ce qui tourne, pour les gels (`core/gels.ts`) : une révélation recalcule toutes les vues de la salle.
+      const fin = commencer(`chrono ${timerId}`)
       // Un chronomètre sonne hors de toute requête : une exception pendant la
       // révélation qu'il déclenche remontait jusqu'au processus, et emportait
       // les soirées de tous les espaces avec elle. Elle s'arrête ici, dans le
@@ -551,15 +575,32 @@ export class GameEngine {
         if (this.module.onTimer) this.run(sess, ctx => this.module.onTimer!(sess, timerId, ctx))
       } catch (e) {
         console.error(`[partie] le chronomètre « ${timerId} » a échoué :`, e)
+      } finally {
+        fin()
       }
+    }
+    const handle = setTimeout(() => {
+      // Le retard d'un chronomètre, c'est la révélation que la salle attend :
+      // la première chose que voit un serveur qui ne suit plus.
+      const retard = Date.now() - deadline
+      pouls.chronos.noter(retard)
+      if (retard > 1000) console.warn(`[partie] chronomètre « ${timerId} » en retard de ${retard} ms`)
+      if (retard < RETARD_D_UN_GEL_MS) return sonner()
+      // Après un gel, un tour de boucle d'abord : les réponses arrivées
+      // pendant le gel se lisent avant qu'il sonne (`RETARD_D_UN_GEL_MS`). Il
+      // reste armé ce tour-là — même échéance, même empreinte —, et ce qui le
+      // désarme ou le réarme entre-temps l'éteint : une pause de l'animateur,
+      // le souffle relancé, la partie finie.
+      const tour = setImmediate(sonner)
+      sess.timers.set(timerId, { deadline, annuler: () => clearImmediate(tour) })
     }, ms)
-    sess.timers.set(timerId, { deadline, handle })
+    sess.timers.set(timerId, { deadline, annuler: () => clearTimeout(handle) })
   }
 
   private disarmTimer(sess: LiveSession, timerId: string) {
     const existing = sess.timers.get(timerId)
     if (existing) {
-      clearTimeout(existing.handle)
+      existing.annuler()
       sess.timers.delete(timerId)
     }
   }

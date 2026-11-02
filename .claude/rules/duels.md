@@ -366,7 +366,11 @@ jour a sa notification (règle `rappel-et-installation.md`).
   vingt-six mille questions, une tranche durait cinq passes, 30 à 40 ms. Et
   chaque tranche, comme ses étapes d'avant — les questions du modèle, la
   préparation du tirage, la série de référence —, passe par le tourniquet
-  (`rendreLaMain`, règle `campagne.md`).
+  (`rendreLaMain`, règle `campagne.md`). Et chacune laisse passer la question
+  d'une soirée (`laisserPasserLaSalle`, `avantLaTranche`) : refait de zéro au
+  démarrage, il tenait 28,5 s le dixième de cœur (le 2 novembre 2026, à
+  `/healthz` : `campagne.savoir.dureeMs`), attente de la salle comprise
+  désormais.
 - **Le journal des duels se garde en mémoire, et se lit par différence**
   (`core/journalDesDuels.ts`, le 23 octobre 2026 : 13 % du quota de Turso —
   chaque dé, chaque page des duels, chaque solde relisait toute l'histoire

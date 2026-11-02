@@ -92,6 +92,60 @@ en ouvraient une neuve, poignée de main TLS comprise. Il en lance six ou sept.
 allers-retours de l'heure, la part de ceux qui ouvrent leur connexion, le gel
 de la boucle.
 
+## Les gels, le même jour
+
+« Par rapport au freeze du serveur, on peut y faire quelque chose ? » Le
+relevé de l'heure le dit : le gel suit l'activité — le plus long de chaque
+heure, en médiane des heures, 0,08 s sans un appel, 0,4 s de 1 à 20, ~1 s de
+21 à 100, ~1,5 s de 101 à 300, ~1,8 s au-delà. Le 31 octobre, pendant une
+soirée de vingt invités, 2,9 s dans l'heure de 22 h. Le relevé ne gardait que
+ce maximum : ni ce qui tournait, ni quand.
+
+**Une réponse partie à temps pouvait recevoir « Trop tard ».** Vérifié sur
+la boucle de Node (`reproductions/` n'en garde que le test,
+`server/test/gel-en-fin-de-question.test.ts`) : gelée dans une lecture —
+une requête, une réponse de la base — ou dans un `setImmediate` — une étape
+de fond —, la boucle passe ensuite les chronomètres échus, puis seulement
+les sockets. Une question a 1,5 s de marge (`GRACE_MS`) : au-delà, le
+chronomètre de la question sonnait avant que la réponse arrivée pendant le
+gel soit lue. Gelée dans un chronomètre, elle lit les sockets d'abord.
+
+Ce qui a été fait :
+
+1. **Un chronomètre de partie en retard passe un tour de boucle**
+   (`RETARD_D_UN_GEL_MS`, `core/engine.ts`) : les réponses arrivées pendant
+   le gel se lisent avant la révélation. Il reste armé ce tour-là : une pause
+   de l'animateur, le souffle relancé l'éteignent.
+2. **Le travail de fond laisse passer la question d'une soirée**
+   (`laisserPasserLaSalle`, `core/tourniquet.ts`) : le modèle du savoir —
+   28,5 s refait de zéro au démarrage du 2 novembre, 5,6 s le suivant, à
+   `/healthz` — et les tirages d'une mesure neuve ne commencent ni ne
+   reprennent tant qu'une question attend ses réponses, trois minutes au
+   plus.
+3. **Ce qui gèle se relève** (`core/gels.ts`) : chaque gel de plus d'une
+   demi-seconde, ce qui tournait pendant — la route sous son modèle, le
+   message du temps réel, le chronomètre, le travail de fond —, le
+   processeur pris et les pauses du ramasse-miettes, au relevé de l'heure,
+   et la page « Le serveur » du QG les dit (« Ce qui gèle »). La suite —
+   couper les plus gros blocs — se décidera sur ce que la production y
+   montrera : `reproductions/gels-de-la-production.ts` les lit en lecture
+   seule, heure par heure, avec les appels de chaque heure.
+4. **Le pire gel de l'heure se perdait** quand il couvrait l'échéance du
+   relevé de la charge, toutes les dix secondes : le relevé lisait puis
+   remettait à zéro l'histogramme avant qu'il ait noté le gel — un gel de
+   deux secondes une fois sur cinq, un de dix à chaque fois (reproduit trois
+   fois sur trois, `gels.test.ts`). Les chiffres plus haut sont donc des
+   minorants. Le relevé lit maintenant un tour de boucle plus tard.
+
+Au banc du gel bridé au dixième de cœur (`../2026-10-16/reproductions/banc-gel.ts`,
+compilé, qui imprime maintenant ce que la sonde relève), au volume du banc —
+deux fois et demie moins que la production —, le serveur ne gèle plus d'une
+demi-seconde qu'au préchauffage du réveil : trois gels de 0,5 à 0,6 s, le
+modèle du savoir et la préparation des tirages en cours. Un quatrième, de
+2,9 s, venait du banc lui-même — une lecture SQLite synchrone dans le même
+processus —, et la sonde l'a mis au compte de ce qui tournait : ce qui
+tournait n'est pas forcément ce qui gelait, la page le dit.
+
 ## Ce qui reste à décider
 
 - **Le processeur de l'hébergeur.** L'offre gratuite donne un dixième de

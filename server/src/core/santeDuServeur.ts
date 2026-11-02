@@ -17,9 +17,13 @@ import {
   pageDuServeur,
   quotaDuMois,
   type AlertesDuServeur,
+  type CeQuiGele,
+  type CeQuiTournait,
   type DemarrageDuServeur,
   type ErreurDeLaSemaine,
   type ErreurEnDetail,
+  type GelDeLaBoucle,
+  type GelsDeLHeure,
   type HeureDeSante,
   type LecturesDUneRequete,
   type PageDuServeur,
@@ -98,11 +102,37 @@ function quotaDuTexte(v: unknown): QuotaDeLHeure | null {
   }
 }
 
+/**
+ * Les gels d'une heure tels que la base les garde (`core/gels.ts`) ; absents
+ * d'une ligne d'avant leur relevé, ou qui ne se lisent plus : leur heure garde
+ * le reste.
+ */
+function gelsLus(v: unknown): GelsDeLHeure | undefined {
+  if (!v || typeof v !== 'object') return undefined
+  const g = v as Partial<GelsDeLHeure>
+  if (!Number.isFinite(g.n) || !Number.isFinite(g.totalMs)) return undefined
+  const ceQuiTournait = (c: unknown): c is CeQuiTournait => !!c && typeof (c as CeQuiTournait).quoi === 'string' && Number.isFinite((c as CeQuiTournait).n)
+  const plusLongs = (Array.isArray(g.plusLongs) ? g.plusLongs : [])
+    .filter((p): p is GelDeLaBoucle => !!p && Number.isFinite(p.a) && Number.isFinite(p.dureeMs))
+    .map(p => ({
+      a: p.a,
+      dureeMs: p.dureeMs,
+      processeurMs: Number(p.processeurMs) || 0,
+      ramasseMiettesMs: Number(p.ramasseMiettesMs) || 0,
+      enCours: Array.isArray(p.enCours) ? p.enCours.filter(ceQuiTournait) : [],
+    }))
+  const parCe = (Array.isArray(g.parCe) ? g.parCe : []).filter(
+    (c): c is CeQuiGele => !!c && typeof c.quoi === 'string' && Number.isFinite(c.n) && Number.isFinite(c.ms),
+  )
+  return { n: Number(g.n), totalMs: Number(g.totalMs), plusLongs, parCe, sansRien: Number(g.sansRien) || 0 }
+}
+
 /** Une ligne de `qg_sante` ; null si son relevé ne se lit plus — une ligne illisible ôte son heure, pas la page. */
 function lireHeure(r: Row): HeureDeSante | null {
   try {
     const releve = JSON.parse(String(r.releve)) as Partial<HeureDeSante>
     const enDetail = erreursLues(releve.erreursEnDetail)
+    const gels = gelsLus(releve.gels)
     return {
       heure: Number(r.heure),
       demarrage: String(r.demarrage),
@@ -116,6 +146,7 @@ function lireHeure(r: Row): HeureDeSante | null {
       connexions: releve.connexions ?? null,
       requetes: releve.requetes ?? null,
       quota: quotaLu(releve.quota),
+      ...(gels && { gels }),
     }
   } catch {
     return null

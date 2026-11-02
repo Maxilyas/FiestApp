@@ -440,12 +440,13 @@ les pièges du code : `.claude/rules/cabinet.md`.
 
 | Tâche | Où | Rythme | Ce qu'elle fait |
 |---|---|---|---|
-| Les chronomètres d'une partie | `GameEngine` | à l'échéance | échéances écrites avec la partie, réarmées au redémarrage |
+| Les chronomètres d'une partie | `GameEngine` | à l'échéance | échéances écrites avec la partie, réarmées au redémarrage ; un chronomètre qui sonne en retard — après un gel de la boucle — passe un tour de boucle : les réponses arrivées pendant le gel se lisent avant la révélation (`RETARD_D_UN_GEL_MS`) |
 | Les fenêtres d'une partie | `GameEngine` | 250 ms ; 2 s | la vue de l'écran commun pendant une question ; le va-et-vient recopié au miroir |
 | L'instantané | `SpaceRuntime.broadcastSnapshot` | 120 ms (+ 2 ms par invité aux téléphones) | une diffusion par fenêtre, dédoublonnée |
 | Le filet de l'instantané | `server/src/server.ts` | 5 min | renvoie tout, dédoublonnage ignoré : un client qui a manqué une diffusion se répare |
 | La file du miroir | `PartyBackup` | en continu | réessais de 250 ms à 15 s ; « en retard » à l'écran après 10 s ; resynchronisation au rétablissement |
-| La mesure de charge | `Charge` (`server/src/core/pouls.ts`) | 10 s | processeur, boucle (sonde à 100 ms), mémoire, invités connectés |
+| La mesure de charge | `Charge` (`server/src/core/pouls.ts`) | 10 s | processeur, boucle (sonde à 100 ms, lue un tour de boucle après l'échéance : lue avant, un gel qui la couvrait se perdait), mémoire, invités connectés |
+| Les gels de la boucle | `SondeDesGels` (`server/src/core/gels.ts`) | 100 ms | chaque gel de plus d'une demi-seconde (`SEUIL_D_UN_GEL_MS`), et ce qui tournait pendant — les routes sous leur modèle, les messages du temps réel, les chronomètres d'une partie, le travail de fond, qui se nomment en commençant (`commencer`, `suivre`, `enFond`) —, le processeur pris et les pauses du ramasse-miettes : au relevé de l'heure, et à la page « Le serveur » du QG (« Ce qui gèle ») |
 | La santé du serveur | `SanteDuServeur` | 10 min (`RELEVE_MS`) | le relevé de l'heure et un signe de vie, gardés huit jours |
 | Le rappel du soir | `RappelStore` | chaque minute | la tournée part dès 18 h, jamais à partir de 22 h |
 | La base de la campagne | `CampagneStore.prechauffer` | une fois : dès qu'un profil ouvre son accueil, l'expédition ou le Cabinet, sinon 20 s après l'ouverture | vérifiée au build et relue telle quelle par le paquet, par morceaux de 64 Ko (`lireLaBasePreparee`) — sous tsx, relue et vérifiée par tranches de 200 questions ; chaque tranche rend la main ; puis ses index, les sujets de chaque question, par tranches de mille, les familles de la mesure, la préparation des tirages (`preparerEnFond`) et le modèle du savoir, chaque étape à son tour de boucle (`rendreLaMain`, plus bas) : la première ouverture de la campagne et le premier tirage les trouvent faits |
@@ -467,6 +468,16 @@ qu'une par tour, dans l'ordre où elles l'ont demandé : les requêtes arrivées
 entre deux sont lues, et le plus long gel n'est plus que la plus longue étape
 — vingt à trente millisecondes : les index de la base, ou la première
 préparation d'un tirage (`travail-de-fond.test.ts`).
+
+**Le travail que personne n'attend laisse passer la salle**
+(`laisserPasserLaSalle`, le même fichier). Le modèle du savoir refait en fond
+— 28,5 s au démarrage du 2 novembre 2026, 5,6 s le suivant — et les tirages
+préparés derrière une mesure neuve prenaient le dixième de cœur à la soirée
+qui jouait : tant qu'une question attend ses réponses dans un espace (sa
+phase, et son chronomètre qui court — `campagne.salleEnJeu`, branché par
+`server.ts`), ils ne commencent ni ne reprennent, trois minutes au plus. En
+pause, ils ne comptent dans aucun gel de la salle (`suivre`, `core/gels.ts`).
+Jamais sur le chemin d'une requête : elle attendrait la fin de la question.
 
 **Rien ne tourne la nuit** : l'hébergeur gratuit dort. La journée d'hier du
 quiz du jour se clôt à la première demande d'aujourd'hui (`clorePasses`), les

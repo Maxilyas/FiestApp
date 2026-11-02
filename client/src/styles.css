@@ -14215,6 +14215,12 @@ html:has(> body.avec-panier) { scroll-padding-bottom: calc(72px + 76px + env(saf
 .qg-tuile-detail { display: block; min-width: 0; overflow-wrap: anywhere; }
 .qg-sources > li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; font-size: 0.85rem; }
 .qg-source { min-width: 0; overflow-wrap: anywhere; font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.8rem; }
+/* Les plus longs gels, en pile : leur heure et leur durée, le processeur, puis ce qui tournait — en deux colonnes, au téléphone, ses chiffres se coupaient sur six lignes et « ramasse-miettes » en deux. */
+.qg-gels > li { display: flex; flex-direction: column; gap: 2px; padding: 8px 0; font-size: 0.85rem; }
+.qg-gels p { margin: 0; }
+.qg-gel-tete { display: flex; justify-content: space-between; gap: 12px; font-weight: 600; }
+/* Ce qui a couvert le plus de gel : la durée et le compte d'un tenant, la route se coupe à côté. */
+.qg-ce-qui-gele .num { flex: none; white-space: nowrap; }
 /* Ce qui a échoué : le message sur deux lignes au plus dans la liste — un message de base de données en faisait six au téléphone —, entier dans sa fiche, et la pile en chasse fixe. */
 .qg-echec-message { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .qg-echec-entier { margin: 0; padding: 10px 12px; border: 1px solid var(--edge); border-radius: var(--radius-xs); font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.85rem; overflow-wrap: anywhere; }

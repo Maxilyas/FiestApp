@@ -49,14 +49,36 @@ import { PRIX_D_UN_COMPAGNON } from '../../shared/compagnons'
 import { gainVide, releveVide } from '../../shared/profil'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import type { PageDesSignalements } from '../../shared/qgSignalements'
-import type { ErreurEnDetail } from '../../shared/santeDuServeur'
+import type { ErreurEnDetail, GelDeLaBoucle, GelsDeLHeure } from '../../shared/santeDuServeur'
 import { veille } from '../src/core/veille'
+import { ReleveHoraire } from '../src/core/pouls'
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu-qg')
 mkdirSync(sortie, { recursive: true })
 const { chromium } = createRequire(path.join(spawnSync('npm', ['root', '-g'], { encoding: 'utf8' }).stdout.trim(), 'rendu.js'))('playwright')
 
 const H = 3_600_000
+
+/** Les gels d'une heure inventée, rangés comme le relevé de l'heure les range (`ReleveHoraire.gel`). */
+function gelsInventes(heure: number, reveil: boolean, soiree: boolean, invites: number): GelsDeLHeure | undefined {
+  const gels: GelDeLaBoucle[] = []
+  const gel = (minute: number, dureeMs: number, ramasseMiettesMs: number, ...enCours: [string, number][]) =>
+    gels.push({ a: heure + minute * 60_000, dureeMs, processeurMs: Math.round(dureeMs / 10), ramasseMiettesMs, enCours: enCours.map(([quoi, n]) => ({ quoi, n })) })
+  if (reveil) {
+    gel(2, 1_420, 260, ['fond · base de la campagne', 1], ['fond · journal des réponses', 1], ['GET /api/joueur/moi', 2])
+    gel(3, 780, 0, ['fond · sujets et tirages', 1], ['GET /api/joueur/missions', 1])
+  }
+  if (soiree) {
+    gel(17, 2_870, 120, ['soirée · rangement après le quiz', 1], ['chrono question', 1], ['socket player:action', Math.max(1, Math.round(invites / 3))])
+    gel(31, 1_150, 0, ['GET /api/joueur/moi', 4], ['GET /api/joueur/missions', 3])
+    if (invites > 20) gel(44, 640, 0)
+  } else if (invites >= 2) {
+    gel(26, 1_080, 0, ['GET /api/campagne/sentiers', 1], ['fond · modèle du savoir', 1])
+  }
+  const r = new ReleveHoraire(() => heure + 1)
+  for (const g of gels) r.gel(g)
+  return r.lignes('rendu')[0].gels
+}
 // Le lien vers les graphiques de Render, comme sur l'hébergeur : la page « Le serveur » le propose.
 const banc = await demarrer({ baseDeLaCampagne: baseDEssai(40), mesuresDeLHebergeur: 'https://dashboard.render.com/web/srv-rendu/metrics' })
 const navigateur = await chromium.launch({ headless: true })
@@ -377,6 +399,11 @@ try {
           annonceeMs: null,
           ...(chaudes && { chaudes: true, battements: soiree ? 40 : 260, battementsTombes: 0, ouvertesParUnBattement: soiree ? 0 : 3 }),
         }
+        // Ses gels, depuis la mise en ligne qui les relève (`core/gels.ts`) : au
+        // réveil, le préchauffage ; le jour, la page des sentiers et le modèle
+        // du savoir ; le soir, la salle — le rangement d'après un quiz, ses
+        // réponses —, et quelques accueils de front.
+        const gels = chaudes ? gelsInventes(heure, heure === Math.floor(debut / H) * H, soiree, invites) : undefined
         // Le trafic suit la salle aussi : chaque téléphone charge ses pages et tient sa connexion du temps réel.
         const servies = Math.round(soiree ? 700 + invites * 55 : 120 + invites * 40)
         const refusees = Math.round(servies * 0.02) + (heureDeParis === 21 ? 14 : 0)
@@ -409,6 +436,7 @@ try {
             },
             connexions,
             requetes: { reussies: servies - refusees - enErreur - redirigees, redirigees, refusees, enErreur },
+            ...(gels && { gels }),
           }),
           heure,
         )

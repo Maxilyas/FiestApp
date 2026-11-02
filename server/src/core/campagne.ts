@@ -12,7 +12,8 @@ import {
   partDeLaCategorie,
 } from './consigneCampagne'
 import { IndexDesFaits, indexSansBloquer, motifDuMemeFait } from './memeFait'
-import { rendreLaMain } from './tourniquet'
+import { laisserPasserLaSalle, rendreLaMain } from './tourniquet'
+import { enFond, suivre } from './gels'
 import {
   DECLENCHEURS_DES_TRANCHES,
   FENETRE_DES_RECENTES_MS,
@@ -1084,6 +1085,12 @@ export class CampagneStore {
   masque?: (profileId: string) => boolean
   laurierChange?: (profileId: string) => void
   /**
+   * Une question attend ses réponses dans une soirée de ce serveur : le
+   * travail de fond que personne n'attend la laisse passer
+   * (`laisserPasserLaSalle`). Branché au démarrage ; absent, rien n'attend.
+   */
+  salleEnJeu?: () => boolean
+  /**
    * Ce que le Cabinet de curiosités ajoute aux paliers de la campagne
    * (`statsDe` : ses traversées gagnées, que L'Explorateur compte — branché là
    * seulement où il s'ouvre), et l'expédition qui part ou finit, qu'il dit sur sa page
@@ -1680,7 +1687,7 @@ export class CampagneStore {
     const aRelire = !gardee || (age >= MESURES_GARDEES_MS - MESURE_EN_AVANCE_MS && this.maintenant() - this.mesureTenteeLe >= MESURE_RETENTEE_MS)
     if (aRelire && !this.mesuresEnRoute) {
       this.mesureTenteeLe = this.maintenant()
-      this.mesuresEnRoute = this.mesuresBrutes()
+      this.mesuresEnRoute = enFond('fond · mesure des difficultés', this.mesuresBrutes())
         .then(lues => {
           this.mesuresGardees = { a: this.maintenant(), ...lues, base: null, parQuestion: lues.brutes }
         })
@@ -1728,17 +1735,26 @@ export class CampagneStore {
    * relecture se retente au plus tôt `MESURE_RETENTEE_MS` après.
    */
   private relireLaMesureEnFond(enRoute: Promise<void>): void {
-    enRoute
-      .then(async () => {
-        if (this.ferme) return
+    const suite = enRoute.then(async () => {
+      // Ses familles et ses tirages laissent passer la question d'une
+      // soirée : la requête qui viendrait entre-temps les ferait elle-même.
+      await laisserPasserLaSalle(this.salleEnJeu, () => this.ferme)
+      if (this.ferme) return
+      // Ce qui tourne, pour les gels (`core/gels.ts`).
+      const tache = suivre('fond · tirages de la mesure neuve')
+      try {
         const [jouables, mesure] = await Promise.all([this.jouables(), this.mesures()])
         // Sa préparation à son tour de boucle, pas derrière les familles.
+        await laisserPasserLaSalle(this.salleEnJeu, () => this.ferme, tache)
         await rendreLaMain()
         if (!this.ferme) this.tirage(jouables, mesure)
-      })
-      .catch(e => {
-        if (!this.ferme) console.warn('[campagne] mesure non relue en fond — celle d’avant sert, la relecture se retentera :', e instanceof Error ? e.message : e)
-      })
+      } finally {
+        tache.finir()
+      }
+    })
+    suite.catch(e => {
+      if (!this.ferme) console.warn('[campagne] mesure non relue en fond — celle d’avant sert, la relecture se retentera :', e instanceof Error ? e.message : e)
+    })
   }
 
   /**
@@ -1795,6 +1811,8 @@ export class CampagneStore {
         journal.charge = true
         this.garderLesTranches(journal)
       })()
+      // Ce qui tourne, pour les gels (`core/gels.ts`) : toute l'histoire, décodée tranche par tranche.
+      enFond('fond · journal des réponses', lecture).catch(() => {})
       const enLecture = { journal, lecture }
       this.journalEnLecture = enLecture
       lecture.then(
@@ -2034,21 +2052,34 @@ export class CampagneStore {
    * la base — une question retirée depuis dit encore la force de qui l'a jouée.
    */
   private async ajusterLeSavoir(): Promise<void> {
-    const debut = performance.now()
-    const [base, jouables, mesure, journal] = await Promise.all([this.base(), this.jouables(), this.mesures(), this.rattraperLeJournal()])
-    const depart = this.savoir?.modele ?? null
-    const joueurs = await premieresDuJournal(journal)
-    // Chaque étape à son tour de boucle (`rendreLaMain`) — les questions du
-    // modèle, la préparation du tirage, la série de référence — : au réveil,
-    // elles suivaient d'un bloc les familles de la mesure.
-    await rendreLaMain()
-    const questions = new Map(base.questions.map(q => [q.id, q.meta]))
-    await rendreLaMain()
-    this.tirage(jouables, mesure)
-    await rendreLaMain()
-    const { forceDeDepart } = this.referencePour(jouables, mesure, depart)
-    const modele = await ajusterSansBloquer({ questions, joueurs, forceDeDepart, depart }, () => this.ferme)
-    if (modele) this.savoir = { a: this.maintenant(), modele, dureeMs: Math.round(performance.now() - debut) }
+    // Ce qui tourne, pour les gels (`core/gels.ts`) — en pause le temps qu'il attend la salle.
+    const tache = suivre('fond · modèle du savoir')
+    // Personne ne l'attend : il laisse passer la question d'une soirée, avant
+    // de commencer comme avant chaque étape et chaque tranche.
+    const laSalle = () => laisserPasserLaSalle(this.salleEnJeu, () => this.ferme, tache)
+    try {
+      await laSalle()
+      const debut = performance.now()
+      const [base, jouables, mesure, journal] = await Promise.all([this.base(), this.jouables(), this.mesures(), this.rattraperLeJournal()])
+      const depart = this.savoir?.modele ?? null
+      const joueurs = await premieresDuJournal(journal)
+      // Chaque étape à son tour de boucle (`rendreLaMain`) — les questions du
+      // modèle, la préparation du tirage, la série de référence — : au réveil,
+      // elles suivaient d'un bloc les familles de la mesure.
+      await laSalle()
+      await rendreLaMain()
+      const questions = new Map(base.questions.map(q => [q.id, q.meta]))
+      await laSalle()
+      await rendreLaMain()
+      this.tirage(jouables, mesure)
+      await laSalle()
+      await rendreLaMain()
+      const { forceDeDepart } = this.referencePour(jouables, mesure, depart)
+      const modele = await ajusterSansBloquer({ questions, joueurs, forceDeDepart, depart }, () => this.ferme, laSalle)
+      if (modele) this.savoir = { a: this.maintenant(), modele, dureeMs: Math.round(performance.now() - debut) }
+    } finally {
+      tache.finir()
+    }
   }
 
   /**
@@ -3124,12 +3155,17 @@ export class CampagneStore {
   prechauffer(): void {
     if (this.prechauffee) return
     this.prechauffee = true
-    this.base().catch(e => console.error('[campagne] base non lue en fond — la première série la relira :', e))
+    // Chacun sous son nom, pour les gels (`core/gels.ts`) : au réveil, le préchauffage sature le dixième de cœur.
+    enFond('fond · base de la campagne', this.base()).catch(e => console.error('[campagne] base non lue en fond — la première série la relira :', e))
     // Ses sujets et la préparation de ses tirages : la première ouverture de la campagne et le premier tirage les trouvent faits.
-    this.preparerEnFond().catch(e => console.warn('[campagne] sujets et tirages non préparés en fond — la première demande les fera :', e instanceof Error ? e.message : e))
+    enFond('fond · sujets et tirages', this.preparerEnFond()).catch(e =>
+      console.warn('[campagne] sujets et tirages non préparés en fond — la première demande les fera :', e instanceof Error ? e.message : e),
+    )
     // Les bordures de ligue de tous, d'une lecture : les classements du jour
     // et du défi les montrent sans rien attendre (`borduresEnMemoire`).
-    this.toutesLesCotes().catch(e => console.warn('[campagne] bordures de ligue non lues en fond — chacune se relira à la demande :', e instanceof Error ? e.message : e))
+    enFond('fond · bordures de ligue', this.toutesLesCotes()).catch(e =>
+      console.warn('[campagne] bordures de ligue non lues en fond — chacune se relira à la demande :', e instanceof Error ? e.message : e),
+    )
     // Le journal des réponses : la première page, la première bonne réponse le trouvent lu.
     this.chargerLeJournal().catch(e => console.warn('[campagne] journal des réponses non lu en fond — la première demande le lira :', e instanceof Error ? e.message : e))
     // Le modèle du savoir : le premier dé le trouve ajusté.
@@ -5473,6 +5509,8 @@ export class CampagneStore {
       }
       return this.journalDesDuels
     })()
+    // Ce qui tourne, pour les gels (`core/gels.ts`) : les duels classés de tout le monde, d'une lecture.
+    enFond('fond · journal des duels', lecture).catch(() => {})
     this.duelsEnLecture = lecture
     const fin = () => {
       if (this.duelsEnLecture !== lecture) return

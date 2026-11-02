@@ -13,6 +13,7 @@ import {
   enLignes,
   requetesServies,
   tempsDeReponse,
+  type CeQuiTournait,
   type ErreurDeLaSemaine,
   type EvenementDuServeur,
   type HeureDuServeur,
@@ -147,6 +148,7 @@ export function SanteDuServeurAuQg({ page, versLesErreurs }: { page: PageDuServe
       <Turso heures={page.heures} maintenant={maintenant} />
       <LeQuotaDeTurso page={page} />
       <LaCharge heures={page.heures} maintenant={maintenant} plafonds={page.plafonds} />
+      <CeQuiGele page={page} />
       <LeTrafic heures={page.heures} maintenant={maintenant} />
       <Heures
         id="serveur-erreurs"
@@ -665,6 +667,85 @@ function PileDeGraphes({
 
 const connexions = (v: number) => `${formatNumber(v)} connexion${v > 1 ? 's' : ''}`
 
+/** « 1 gel », « 12 gels ». */
+const gelsEcrits = (n: number) => `${formatNumber(n)} gel${n > 1 ? 's' : ''}`
+
+/**
+ * « GET /api/joueur/moi ×4, fond · modèle du savoir » : ce qui tournait pendant
+ * un gel ; rien de nommé, le ramasse-miettes ou ce que le serveur ne nomme pas.
+ * Le compte tient à son nom (une espace insécable) : au téléphone, « ×10 »
+ * restait seul sur sa ligne.
+ */
+const ceQuiTournaitEcrit = (enCours: readonly CeQuiTournait[]) =>
+  enCours.length === 0 ? 'rien de nommé' : enCours.map(c => (c.n > 1 ? `${c.quoi} ×${formatNumber(c.n)}` : c.quoi)).join(', ')
+
+/**
+ * Ce qui gèle (le 2 novembre 2026, « savoir ce qui gèle ») : chaque gel de la
+ * boucle de plus d'une demi-seconde, et ce qui tournait pendant — les routes,
+ * les messages du temps réel, les chronomètres d'une partie, le travail de
+ * fond (`core/gels.ts`). Le graphique de la charge disait le pire gel de
+ * chaque heure, pas sa cause : 2,9 s pendant une soirée de vingt invités, le
+ * 31 octobre 2026, sans rien pour dire si c'était l'une des mille requêtes
+ * de l'heure ou un calcul de fond. Ce qui tournait n'est pas un coupable :
+ * quatre accueils de front gèlent ensemble ; ce qui couvre le plus de gel est
+ * à regarder d'abord.
+ */
+function CeQuiGele({ page }: { page: PageDuServeur }) {
+  const g = page.gels
+  return (
+    <section className="qg-carte" aria-labelledby="serveur-gels">
+      <div className="qg-carte-tete">
+        <h2 id="serveur-gels">Ce qui gèle</h2>
+        {g && g.n > 0 && <span className="etiquette num">{gelsEcrits(g.n)}</span>}
+      </div>
+      {!g ? (
+        <p className="muted small">Rien de relevé encore : le serveur relève ses gels depuis cette version.</p>
+      ) : g.n === 0 ? (
+        <p className="muted small">Aucun gel de plus d’une demi-seconde depuis {quandDuServeur(g.depuis, page.maintenant)}.</p>
+      ) : (
+        <>
+          <p className="muted small">
+            Depuis {quandDuServeur(g.depuis, page.maintenant)} : {gelsEcrits(g.n)} de plus d’une demi-seconde, {tempsDeReponse(g.totalMs)} en tout, où toute la
+            salle attendait. Pendant eux, ce qui tournait — pas forcément ce qui gelait : ce qui couvre le plus de gel est à regarder d’abord.
+          </p>
+          <ul className="qg-liste qg-sources qg-ce-qui-gele">
+            {g.parCe.map(c => (
+              <li key={c.quoi}>
+                <span className="qg-source">{c.quoi}</span>
+                <span className="num">
+                  {tempsDeReponse(c.ms)} · {gelsEcrits(c.n)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {g.sansRien > 0 && (
+            <p className="muted small">
+              {gelsEcrits(g.sansRien)} sans rien de nommé en cours : le ramasse-miettes, ou ce que le serveur ne nomme pas encore.
+            </p>
+          )}
+          <h3 className="qg-sous-titre">Les plus longs</h3>
+          {/* En pile, pas en deux colonnes : au téléphone, ses chiffres s'y coupaient sur six lignes. */}
+          <ul className="qg-liste qg-gels">
+            {g.plusLongs.map(x => (
+              <li key={`${x.a}-${x.dureeMs}`}>
+                <p className="qg-gel-tete">
+                  <span>{quandDuServeur(x.a, page.maintenant)}</span>
+                  <span className="num">{tempsDeReponse(x.dureeMs)}</span>
+                </p>
+                <p className="muted small">
+                  processeur {tempsDeReponse(x.processeurMs)}
+                  {x.ramasseMiettesMs > 0 && ` · ramasse-miettes ${tempsDeReponse(x.ramasseMiettesMs)}`}
+                </p>
+                <p className="qg-source">{ceQuiTournaitEcrit(x.enCours)}</p>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </section>
+  )
+}
+
 /**
  * Les graphiques de la charge. Le gel de l'hébergeur sous le processeur (le
  * banc du 16 octobre 2026) : la boucle se figeait deux secondes chaque heure
@@ -683,7 +764,18 @@ function mesuresDeLaCharge(plafonds: PlafondsDuConteneur): MesureDeLaPile[] {
       plafond: plafonds.processeurPct ?? PROCESSEUR_DE_L_HEBERGEUR_PCT,
     },
     { cle: 'gele', nom: 'Gel de l’hébergeur', detail: 'la part de l’heure où le processeur manquait', valeur: h => h.gele, ecrire: pourcents },
-    { cle: 'boucle', nom: 'Boucle', detail: 'le pire gel de l’heure — toute la salle l’attend', valeur: h => h.boucle, ecrire: tempsDeReponse },
+    {
+      cle: 'boucle',
+      nom: 'Boucle',
+      detail: 'le pire gel de l’heure — toute la salle l’attend',
+      valeur: h => h.boucle,
+      ecrire: tempsDeReponse,
+      // Ce qui tournait pendant son plus long gel relevé (`core/gels.ts`) : le chiffre seul ne disait pas pourquoi.
+      legende: h =>
+        h.boucle === null
+          ? null
+          : `boucle ${tempsDeReponse(h.boucle)}` + (h.gels ? ` — ${gelsEcrits(h.gels.n)} ; pendant le plus long : ${ceQuiTournaitEcrit(h.gels.plusLong.enCours)}` : ''),
+    },
     { cle: 'memoire', nom: 'Mémoire', detail: 'le pic de l’heure', valeur: h => h.memoire, ecrire: megaOctets, plafond: plafonds.memoireMo ?? MEMOIRE_DE_L_HEBERGEUR_MO },
     {
       cle: 'invites',

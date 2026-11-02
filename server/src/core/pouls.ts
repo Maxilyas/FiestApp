@@ -5,13 +5,17 @@ import { monitorEventLoopDelay, performance, type IntervalHistogram } from 'node
 import { getHeapStatistics } from 'node:v8'
 import {
   APPELS_POUR_UNE_LENTE,
+  CE_QUI_GELE_PAR_HEURE,
   ERREURS_EN_DETAIL,
   GARDE_DE_NODE_MS,
+  GELS_EN_DETAIL,
   REQUETES_PAR_HEURE,
   cleDeLErreur,
   debutDeLHeure,
   type ChargeDeLHeure,
   type ErreurEnDetail,
+  type GelDeLaBoucle,
+  type GelsDeLHeure,
   type HeureDeSante,
   type PlafondsDuConteneur,
   type QuotaDeLHeure,
@@ -268,6 +272,9 @@ const SOURCES_SUIVIES = 20
 /** Les requêtes lourdes suivies dans une heure, au plus : au-delà, elles comptent sous `AUTRES_REQUETES`. L'heure n'en écrit que les plus gourmandes (`REQUETES_PAR_HEURE`). */
 const REQUETES_SUIVIES = 60
 const AUTRES_REQUETES = 'autres requêtes'
+/** Ce qui tournait pendant les gels, suivi dans une heure, au plus : au-delà, sous « autre chose ». L'heure n'en écrit que `CE_QUI_GELE_PAR_HEURE`. */
+const CE_QUI_GELE_SUIVI = 60
+const AUTRE_CHOSE = 'autre chose'
 
 /** Une grandeur sur une heure : combien, la pire, et un échantillon borné pour ses centiles. */
 class Mesure {
@@ -321,6 +328,7 @@ class Heure {
   }
   private requetes: RequetesDeLHeure = { reussies: 0, redirigees: 0, refusees: 0, enErreur: 0 }
   private quota = { appels: 0, lues: 0, ecrites: 0, lourdes: new Map<string, { n: number; lues: number }>() }
+  private gels = { n: 0, totalMs: 0, plusLongs: [] as GelDeLaBoucle[], parCe: new Map<string, { n: number; ms: number }>(), sansRien: 0 }
   private liaison = {
     ouvertes: 0,
     refermeesParLaBase: 0,
@@ -403,6 +411,39 @@ class Heure {
         avant.n++
         avant.lues += l.lues
       } else q.lourdes.set(cle, { n: 1, lues: l.lues })
+    }
+  }
+
+  /** Un gel de la boucle (`SondeDesGels`) : compté, gardé s'il est des plus longs, et ce qui tournait, chacun une fois. */
+  gel(g: GelDeLaBoucle) {
+    const k = this.gels
+    k.n++
+    k.totalMs += g.dureeMs
+    if (g.enCours.length === 0) k.sansRien++
+    for (const { quoi } of g.enCours) {
+      const cle = k.parCe.has(quoi) || k.parCe.size < CE_QUI_GELE_SUIVI ? quoi : AUTRE_CHOSE
+      const avant = k.parCe.get(cle)
+      if (avant) {
+        avant.n++
+        avant.ms += g.dureeMs
+      } else k.parCe.set(cle, { n: 1, ms: g.dureeMs })
+    }
+    k.plusLongs.push(g)
+    k.plusLongs.sort((a, b) => b.dureeMs - a.dureeMs || b.a - a.a)
+    if (k.plusLongs.length > GELS_EN_DETAIL) k.plusLongs.length = GELS_EN_DETAIL
+  }
+
+  private gelsLus(): GelsDeLHeure {
+    const k = this.gels
+    return {
+      n: k.n,
+      totalMs: Math.round(k.totalMs),
+      plusLongs: k.plusLongs.map(g => ({ ...g, enCours: g.enCours.map(c => ({ ...c })) })),
+      parCe: [...k.parCe]
+        .map(([quoi, c]) => ({ quoi, n: c.n, ms: Math.round(c.ms) }))
+        .sort((a, b) => b.ms - a.ms || b.n - a.n || (a.quoi < b.quoi ? -1 : 1))
+        .slice(0, CE_QUI_GELE_PAR_HEURE),
+      sansRien: k.sansRien,
     }
   }
 
@@ -492,6 +533,8 @@ class Heure {
       },
       requetes: { ...this.requetes },
       quota: this.quotaLu(),
+      // Toujours, même à zéro : une heure qui les relève sans en avoir eu se distingue d'une ligne d'avant.
+      gels: this.gelsLus(),
     }
   }
 }
@@ -585,6 +628,11 @@ export class ReleveHoraire {
 
   charge(c: ReleveDeCharge) {
     this.heure().noterCharge(c)
+  }
+
+  /** Un gel de la boucle de plus d'une demi-seconde, et ce qui tournait (`SondeDesGels`, `core/gels.ts`), dans l'heure où il a fini. */
+  gel(g: GelDeLaBoucle) {
+    this.heure().gel(g)
   }
 
   /** Une connexion ouverte vers la base, une qu'elle a refermée d'elle-même (à quel âge), un aller-retour tombé en route, le délai qu'elle annonce. */
@@ -899,9 +947,17 @@ export class Charge {
     this.reseauAvant = this.reseau?.() ?? null
     this.histogramme = monitorEventLoopDelay({ resolution: RESOLUTION_MS })
     this.histogramme.enable()
-    this.minuterie = setInterval(() => this.relever(), periodeMs)
+    // Le relevé lit l'histogramme puis le remet à zéro, et la remise à zéro
+    // oublie l'instant de son dernier réveil : échu pendant un gel, le relevé
+    // passait juste après lui, avant le réveil de l'histogramme — le gel ne
+    // comptait nulle part. Un gel de deux secondes s'y perdait une fois sur
+    // cinq, un de dix à chaque fois (le 2 novembre 2026, `gels.test.ts`). Un
+    // tour de boucle d'abord : l'histogramme, échu lui aussi, le note avant.
+    this.minuterie = setInterval(() => setImmediate(() => this.arrete || this.relever()), periodeMs)
     this.minuterie.unref()
   }
+
+  private arrete = false
 
   private relever() {
     const maintenant = performance.now()
@@ -983,6 +1039,7 @@ export class Charge {
   }
 
   arreter() {
+    this.arrete = true
     clearInterval(this.minuterie)
     this.histogramme.disable()
   }
