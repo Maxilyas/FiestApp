@@ -12098,15 +12098,12 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
   position: sticky;
   top: env(safe-area-inset-top, 0px);
   z-index: 5;
-  display: flex;
-  gap: 6px;
   margin-bottom: -14px;
   padding: 8px 0;
-  overflow-x: auto;
-  scrollbar-width: none;
   background: var(--bg);
 }
-.boutique-rayons::-webkit-scrollbar { display: none; }
+.boutique-rayons-defile { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.boutique-rayons-defile::-webkit-scrollbar { display: none; }
 .boutique-rayons a { flex: none; display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); color: var(--ink); font-size: 0.9rem; font-weight: 600; text-decoration: none; white-space: nowrap; }
 .boutique-rayons a[aria-current='true'] { border-color: var(--ink); background: var(--ink); color: var(--bg); }
 .rayon-tete { display: flex; flex-direction: column; gap: 4px; }
@@ -13738,8 +13735,11 @@ body.avec-niche .cab-page .cab-quitter { padding-left: 10px; padding-right: 10px
 body.avec-niche .jour-bandeau { flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 2px; padding-right: var(--niche-place); }
 /* Les rangées d'onglets passent sous elle, sans la toucher. */
 body.avec-niche .boutique-tete { min-height: 64px; }
-/* Les puces des rayons, collées en haut, s'arrêtent avant elle : repliée au défilement, elle se pose sur leur coin. */
-body.avec-niche .boutique-rayons { padding-right: var(--niche-place); }
+/* Les puces des rayons, collées en haut, s'arrêtent avant elle, boîte comprise : repliée au défilement, elle se pose au bout de
+   leur bande, sur son sol plein. Un `padding-right` sur la bande ne gardait que la fin de ce qui défile : les puces qui débordaient
+   passaient sous elle (« Fonds » et « Objets », le retour du propriétaire du 2 novembre 2026). Elle reste en vue — on y essaie un
+   compagnon : la boutique ne l'efface pas comme les pages à tête collée. */
+body.avec-niche .boutique-rayons-defile { margin-right: var(--niche-place); }
 body.avec-niche .onglets-campagne { margin-top: 10px; }
 /* En soirée, la question en tête : le chrono passe sous la niche. */
 body.avec-niche .player-shell > .quiz-player:first-child > .quiz-topbar:first-child { align-items: flex-start; min-height: 58px; padding-top: 6px; }

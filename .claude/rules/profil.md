@@ -46,7 +46,13 @@ paths:
   Un bouton s'arrête avant elle boîte comprise (`margin-right`, pas
   `padding-right`) : sa boîte passait dessous. Et une page qui colle sa tête
   en haut rejoint `body:has(.loge-collante, .sentier-tete)` : repliée, la
-  niche couvrait le coin de la carte de la loge. **Le script ne voit que ce
+  niche couvrait le coin de la carte de la loge — sauf la boutique, où l'on
+  essaie un compagnon dans la niche : elle y reste en vue, et ses puces
+  collées défilent dans un cadre qui s'arrête avant elle par sa marge
+  (`.boutique-rayons-defile`) ; un `padding-right` sur la bande ne gardait
+  que la fin de ce qui défile, et « Fonds », « Objets » passaient sous elle
+  (le retour du 2 novembre 2026). Le script ne mesure qu'en haut de page :
+  une tête collée se regarde aussi défilée. **Le script ne voit que ce
   qu'il visite** : un écran qu'on n'atteint qu'en jouant y entre avec sa
   photo. Les fins d'un duel n'y étaient pas, et la croix du verdict, posée en
   absolu au coin, dormait sous la niche — la toucher ouvrait « Ma niche » (un
