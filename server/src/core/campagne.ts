@@ -551,8 +551,14 @@ const HORS_DU_CARNET = "json_extract(s.questions, '$[' || r.position || '].carne
  * (`ANALYZE`) : départagés à l'aveugle, les deux index se valaient, et il
  * parcourait pour chaque duel toutes les tentatives de duel des deux joueurs
  * — 50 000 lignes au quota de Turso, trois fois à chaque ouverture de la
- * page des duels du plus fidèle (le 22 octobre 2026). `duels-index.test.ts`
- * lit le plan de chaque requête qui joint les tentatives d'un duel.
+ * page des duels du plus fidèle (le 22 octobre 2026). Le code peut venir d'un
+ * envoi (`s.duel = e.code`) : les défis reçus de l'accueil, ceux de la page
+ * des amis et les envois prévus cherchaient encore par le profil — l'index du
+ * profil et du mode, le dernier créé, l'emportait à l'aveugle —, 2 760 lignes
+ * par accueil d'un joueur aux 74 défis reçus, 7 % du quota de la semaine (le
+ * 2 novembre 2026). `duels-index.test.ts` lit le plan de chaque requête qui
+ * joint les tentatives d'un duel, sans statistiques et sous des statistiques
+ * qui égareraient.
  */
 const PAR_SON_CODE = '+'
 
@@ -4457,11 +4463,11 @@ export class CampagneStore {
             // dernière réponse de qui le relève (le souhait du propriétaire du
             // 12 octobre 2026 : on le voyait avant même de jouer).
             sql: `SELECT e.code, d.auteur, d.categories, d.sujet, d.ferme_le, d.adversaire,
-                         CASE WHEN d.adversaire IS NULL THEN (SELECT s.justes FROM campagne_series s WHERE s.mode = 'duel' AND s.duel = e.code AND s.profile_id = d.auteur AND s.finie_le IS NOT NULL) END AS score,
+                         CASE WHEN d.adversaire IS NULL THEN (SELECT s.justes FROM campagne_series s WHERE s.mode = 'duel' AND s.duel = e.code AND ${PAR_SON_CODE}s.profile_id = d.auteur AND s.finie_le IS NOT NULL) END AS score,
                          EXISTS (SELECT 1 FROM campagne_amis_retires r WHERE r.profile_id = e.profile_id AND r.ami = d.auteur) AS retire
                   FROM campagne_envois e JOIN campagne_duels d ON d.code = e.code
                   WHERE e.profile_id = ? AND d.ferme_le > ? AND ${DEFI_A_LUI}
-                    AND NOT EXISTS (SELECT 1 FROM campagne_series s WHERE s.profile_id = e.profile_id AND s.mode = 'duel' AND s.duel = e.code)
+                    AND NOT EXISTS (SELECT 1 FROM campagne_series s WHERE s.mode = 'duel' AND s.duel = e.code AND ${PAR_SON_CODE}s.profile_id = e.profile_id)
                     AND NOT EXISTS (SELECT 1 FROM campagne_amis_retires r WHERE r.profile_id = e.profile_id AND r.ami = d.auteur AND d.adversaire IS NOT NULL AND r.retire_le >= d.cree_le)
                   ORDER BY e.envoye_le DESC LIMIT ?`,
             args: [profileId, maintenant, DEFIS_RECUS_MONTRES],
@@ -4914,7 +4920,7 @@ export class CampagneStore {
    */
   private async envoyerLesPrevus(duel: Duel): Promise<string[]> {
     const prevus = await this.client.execute({
-      sql: `SELECT p.profile_id, EXISTS (SELECT 1 FROM campagne_series s WHERE s.profile_id = p.profile_id AND s.mode = 'duel' AND s.duel = p.code) AS joue
+      sql: `SELECT p.profile_id, EXISTS (SELECT 1 FROM campagne_series s WHERE s.mode = 'duel' AND s.duel = p.code AND ${PAR_SON_CODE}s.profile_id = p.profile_id) AS joue
             FROM campagne_envois_prevus p WHERE p.code = ?`,
       args: [duel.code],
     })
@@ -8830,8 +8836,10 @@ export function lectureDesDuels(qui: string | readonly string[] | null, maintena
     args.push(...(rencontre !== null ? [rencontre] : apres !== null ? [apres] : []), ...(ids ?? []))
   }
   if (rencontre === null) {
-    // Des duels par leur code : leurs tentatives s'y cherchent par lui (`PAR_SON_CODE`).
-    const parLeCode = codes || apres !== null ? PAR_SON_CODE : ''
+    // Les tentatives d'un duel s'y cherchent par son code (`PAR_SON_CODE`), toujours : lus tous, ses deux côtés se
+    // valent, et l'un mène la lecture, l'autre se cherche dans chaque duel. La production l'y trouvait déjà, mais par
+    // chance : l'`IN` à deux profils lui coûtait plus que l'égalité sur le duel. Ceux d'un joueur partent de ses
+    // tentatives par la condition du `WHERE`, que le `+` ne touche pas.
     const lesquels = codes
       ? ` AND d.code IN (${codes.map(() => '?').join(', ')})`
       : apres !== null
@@ -8842,8 +8850,8 @@ export function lectureDesDuels(qui: string | readonly string[] | null, maintena
                    CASE WHEN m.profile_id = d.auteur THEN d.cote_cachee_adversaire ELSE d.cote_cachee_auteur END AS cote_cachee_adverse,
                    CASE WHEN m.profile_id = d.auteur THEN 1 ELSE 0 END AS lance, d.code AS duel
             FROM campagne_duels d
-            JOIN campagne_series m ON m.mode = 'duel' AND m.duel = d.code AND ${parLeCode}m.profile_id IN (d.auteur, d.adversaire) AND (m.finie_le IS NOT NULL OR d.ferme_le <= ?)
-            JOIN campagne_series o ON o.mode = 'duel' AND o.duel = d.code AND ${parLeCode}o.profile_id IN (d.auteur, d.adversaire) AND o.profile_id <> m.profile_id
+            JOIN campagne_series m ON m.mode = 'duel' AND m.duel = d.code AND ${PAR_SON_CODE}m.profile_id IN (d.auteur, d.adversaire) AND (m.finie_le IS NOT NULL OR d.ferme_le <= ?)
+            JOIN campagne_series o ON o.mode = 'duel' AND o.duel = d.code AND ${PAR_SON_CODE}o.profile_id IN (d.auteur, d.adversaire) AND o.profile_id <> m.profile_id
                                   AND (o.finie_le IS NOT NULL OR d.ferme_le <= ?)
             WHERE d.adversaire IS NOT NULL${lesquels}${parmi ? ` AND m.profile_id ${parmi}` : ''}`)
     args.push(maintenant, maintenant, ...(codes ?? []), ...(apres !== null ? [apres] : []), ...(ids ?? []))
@@ -9983,7 +9991,7 @@ function lectureDesDefisRecus(profileId: string, maintenant: number): InStatemen
   return {
     sql: `SELECT d.auteur FROM campagne_envois e JOIN campagne_duels d ON d.code = e.code
           WHERE e.profile_id = ? AND d.ferme_le > ? AND ${DEFI_A_LUI}
-            AND NOT EXISTS (SELECT 1 FROM campagne_series s WHERE s.profile_id = e.profile_id AND s.mode = 'duel' AND s.duel = e.code)
+            AND NOT EXISTS (SELECT 1 FROM campagne_series s WHERE s.mode = 'duel' AND s.duel = e.code AND ${PAR_SON_CODE}s.profile_id = e.profile_id)
             AND NOT EXISTS (SELECT 1 FROM campagne_amis_retires r WHERE r.profile_id = e.profile_id AND r.ami = d.auteur)
           ORDER BY e.envoye_le DESC LIMIT ?`,
     args: [profileId, maintenant, DEFIS_RECUS_MONTRES],

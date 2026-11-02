@@ -312,11 +312,25 @@ jour a sa notification (règle `rappel-et-installation.md`).
   duels d'un seul joueur mènent la lecture : le cercle de ses amis
   (`cercleDe`, `lectureDesAmis`) partait de toutes les tentatives
   de duel du serveur (`mode = 'duel'`, 1 226 lignes) avant d'y chercher les
-  siennes ; `CROSS JOIN` garde ses défis dehors (279). `duels-index.test.ts`
+  siennes ; `CROSS JOIN` garde ses défis dehors (279). Le code peut venir
+  d'un envoi (`s.duel = e.code`, `p.code`) — les défis reçus de l'accueil
+  (`lectureDesDefisRecus`), ceux de la page des amis (`mesAmis`), les envois
+  prévus (`envoyerLesPrevus`) — : même `+`. Sans lui, la production
+  prenait l'index du profil et du mode, 2 760 lignes par accueil d'un
+  joueur aux 74 défis reçus, 7 % du quota de la semaine (le 2 novembre
+  2026). Les deux côtés d'un duel relu en entier (`lectureDesDuels`) le
+  portent aussi : l'un mène, l'autre se cherche dans chaque duel.
+  **Sans statistiques, le plan dépend de l'ordre où la base a créé ses
+  index** : à égalité, la production prenait l'index du profil et du mode,
+  le dernier qu'elle a reçu, quand la base neuve du banc prenait celui des
+  duels — le plan du banc passait, celui de la production lisait tout. Un
+  test de plan sans statistiques ne garde donc rien seul. `duels-index.test.ts`
   lit le plan de chaque requête qui joint les tentatives d'un duel, sur
-  chaque chemin qui en lance une, et de `tentativeDuDuel` — sans
-  statistiques, comme la production ; `campagne-index.test.ts` la relit
-  sous des statistiques qui feraient préférer le profil.
+  chaque chemin qui en lance une, et de `tentativeDuDuel`, puis le relit
+  sous des statistiques où un duel paraît moins sélectif que les tentatives
+  d'un joueur (`UN_DUEL_DE_CINQUANTE`, `test/statistiques.ts`) : seul le
+  `+` tient sous les deux ; `campagne-index.test.ts` fait de même pour les
+  recherches triées.
 - **Le dé demande avant de tirer, et ne se relance pas.** Sa feuille
   (`LeDe`, `FeuilleDuDe`) dit l'enjeu — à chances égales, lu de la seule
   cote qu'on voit (`enjeuDuDe`) — et sur quoi il jouera ; rien ne part au
