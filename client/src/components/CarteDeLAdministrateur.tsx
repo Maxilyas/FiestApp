@@ -138,7 +138,7 @@ export function CarteDeLAdministrateur({
       ? 'Avec plaisir'
       : a.sorte === 'annonce' && a.question && merci === null
         ? 'Plus tard'
-        : (a.sorte === 'annonce' && a.confettis === 0) || (a.sorte === 'proposition' && a.issue === 'refusee')
+        : (a.sorte === 'annonce' && a.confettis === 0) || (a.sorte === 'proposition' && (a.issue === 'refusee' || a.issue === 'annulee'))
           ? 'Compris'
           : a.sorte === 'proposition'
             ? 'Super'

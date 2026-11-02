@@ -155,24 +155,24 @@ const NEUF = {
   sentiers: {},
 }
 
-test('l’album compte tout ce qui se gagne par ce qu’on a fait : 197 trophées, une page par mode — et s’ouvre où l’on joue', () => {
+test('l’album compte tout ce qui se gagne par ce qu’on a fait : 200 trophées, une page par mode — et s’ouvre où l’on joue', () => {
   const pages = albumDesTrophees(NEUF as any)
   assert.deepEqual(
     pages.map(p => `${p.page} ${p.acquis}/${p.total}`),
     // La soirée : huit pistes de trois métaux, onze exploits, neuf coups du sort, vingt prix ;
-    // le quiz du jour : cinq pistes, six exploits, trois coups, douze pages ; la campagne : quatre pistes — le
+    // le quiz du jour : six pistes — La Plume depuis le 2 novembre 2026 —, six exploits, trois coups, douze pages ; la campagne : quatre pistes — le
     // Globe-trotter, le passeport de l'expédition, depuis le 18 octobre 2026 —, cinq exploits ; les duels : six
     // ligues, six bordures serties ; les sentiers : trois pistes, deux exploits, douze maîtres ; le Cabinet, depuis le
     // 1er novembre 2026 : L'Explorateur, rangé en campagne jusque-là ; partout : douze écussons de trois métaux, le
     // niveau et les Éclats.
-    ['soiree 0/64', 'jour 0/36', 'campagne 0/17', 'duels 0/12', 'sentiers 0/23', 'cabinet 0/3', 'partout 0/42'],
+    ['soiree 0/64', 'jour 0/39', 'campagne 0/17', 'duels 0/12', 'sentiers 0/23', 'cabinet 0/3', 'partout 0/42'],
   )
-  assert.deepEqual(compteDesTrophees(NEUF as any), { acquis: 0, total: 197 })
+  assert.deepEqual(compteDesTrophees(NEUF as any), { acquis: 0, total: 200 })
   // L'Explorateur ne se compte que là où le serveur le cite — là où le Cabinet s'ouvre : un serveur où il est fermé le
   // tait, et sa collection ne compte pas trois trophées qu'elle ne montre nulle part ; sans rien d'autre du Cabinet,
   // sa page ne s'ouvre pas.
   const sansLui = { ...NEUF, hautsFaits: NEUF.hautsFaits.filter(h => h.key !== 'hf:explorateur') }
-  assert.deepEqual(compteDesTrophees(sansLui as any), { acquis: 0, total: 194 })
+  assert.deepEqual(compteDesTrophees(sansLui as any), { acquis: 0, total: 197 })
   assert.ok(!albumDesTrophees(sansLui as any).some(p => p.sections.some(s => s.cases.some(c => c.cle === 'hf:explorateur'))))
   assert.ok(!albumDesTrophees(sansLui as any).some(p => p.page === 'cabinet'), 'pas de page « Cabinet 0/0 »')
   // Cité, sa case compte des traversées gagnées — « 0 traversée » pour qui n'a pas encore gagné la première : elles
@@ -246,7 +246,7 @@ test('la page du Cabinet : le défi de chaque carte en trois métaux, l’épreu
   // L'Explorateur, ses dix défis à trois métaux, une épreuve par gardien de la traversée : cinquante et un de plus.
   assert.deepEqual(page.sections.map(x => [x.cle, x.acquis, x.total]), [['pistes', 0, 3], ['defis', 5, 30], ['maitrises', 1, MAITRISES.size]])
   assert.equal(MAITRISES.size, 21)
-  assert.deepEqual(compteDesTrophees(tient as any), { acquis: 6, total: 197 + 30 + MAITRISES.size })
+  assert.deepEqual(compteDesTrophees(tient as any), { acquis: 6, total: 200 + 30 + MAITRISES.size })
   // Les défis, dans l'ordre des cartes, ce qu'il tient d'abord : chacun sa carte, ses métaux, ce que chaque rang demande
   // et rapporte — des confettis au bronze et à l'argent, et dès l'argent le dos doré de sa carte au choix des cartes
   // (`.cab-tv-doree`), un titre à l'or.

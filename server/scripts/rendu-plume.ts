@@ -10,8 +10,10 @@
 // Le circuit entier, par les vraies routes : Camille propose sa question — la
 // danse en file —, l'administrateur la relit au QG et l'accepte, retouchée
 // d'une anecdote ; elle passe au quiz du jour, que Léa joue, signée ; puis
-// Camille joue le sien : sa question se montre sans se jouer, et son accueil
-// lui dit qu'elle est au quiz du jour.
+// Camille joue le sien jusqu'au bout : sa question se montre sans se jouer,
+// La Plume tombe à la fin, et son accueil lui dit qu'elle est au quiz du jour,
+// ses confettis avec ; enfin l'administrateur l'annule pour tous, et son
+// accueil lui dit qu'elle ne compte plus.
 //
 //   [THEME=ivoire] npx tsx scripts/rendu-plume.ts [dossier]
 import { createRequire } from 'node:module'
@@ -120,10 +122,11 @@ try {
   await page.waitForSelector('.jour-heros')
   await page.locator('.jour-heros .btn-primary').click()
   await page.waitForSelector('.ans-btn')
-  const tirage = (() => {
+  const { jour, tirage } = (() => {
     const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
     try {
-      return JSON.parse((db.prepare('SELECT questions FROM jour_tirages ORDER BY jour DESC LIMIT 1').get() as { questions: string }).questions) as { bonne: number; auteur?: string }[]
+      const r = db.prepare('SELECT jour, questions FROM jour_tirages ORDER BY jour DESC LIMIT 1').get() as { jour: string; questions: string }
+      return { jour: r.jour, tirage: JSON.parse(r.questions) as { bonne: number; auteur?: string }[] }
     } finally {
       db.close()
     }
@@ -232,37 +235,48 @@ try {
   await photo('14-defi-fin-entiere', { pleine: true, attente: 200 })
   await largeur('la fin du défi')
 
-  // 4. Camille joue le sien : sa question se montre sans se jouer ; puis son accueil le lui dit.
+  // 4. Camille joue le sien jusqu'au bout : sa question se montre sans se jouer, La Plume tombe à la fin ; puis son accueil
+  // le lui dit, ses confettis avec — et, sa question annulée pour tous, qu'elle ne compte plus.
   const chezCamille = await navigateur.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2, hasTouch: true })
   const [nomC, valeurC] = camille.split('=')
   await chezCamille.addCookies([{ name: nomC, value: valeurC, url: banc.url }])
   const pc = await chezCamille.newPage()
   pc.on('pageerror', (e: Error) => console.error('[camille]', e.message))
+  const photoDeCamille = async (n: string, { pleine = false } = {}) => {
+    await pc.waitForTimeout(600)
+    await pc.screenshot({ path: path.join(sortie, `${n}.png`), fullPage: pleine })
+    console.log(path.join(sortie, `${n}.png`))
+  }
   await pc.goto(`${banc.url}/jour`)
   await pc.waitForSelector('.jour-heros')
   await pc.locator('.jour-heros .btn-primary').click()
-  for (let n = 0; n <= k; n++) {
+  for (let n = 0; n < tirage.length; n++) {
     await pc.waitForTimeout(700)
+    await pc.waitForSelector('.ans-btn, .plume-tienne-icone, .fin-tete', { timeout: 15000 })
+    if (await pc.locator('.fin-tete').count()) break
     if (await pc.locator('.plume-tienne-icone').count()) {
-      await pc.waitForTimeout(600)
-      await pc.screenshot({ path: path.join(sortie, '15-camille-ta-question.png') })
-      console.log(path.join(sortie, '15-camille-ta-question.png'))
-      break
+      await photoDeCamille('15-camille-ta-question')
+    } else {
+      // Une autre question : une réponse, la première venue, puis la suivante.
+      for (let essai = 0; essai < 30 && !(await pc.locator('.result-banner').count()); essai++) {
+        await pc.waitForTimeout(400)
+        await pc.locator('.ans-btn').first().click({ timeout: 2000 }).catch(() => {})
+      }
     }
-    // Une autre question : une réponse, la première venue, puis la suivante.
-    for (let essai = 0; essai < 30 && !(await pc.locator('.result-banner').count()); essai++) {
-      await pc.waitForTimeout(400)
-      await pc.locator('.ans-btn').first().click({ timeout: 2000 }).catch(() => {})
-    }
-    if (await pc.locator('.plume-tienne-icone').count()) continue
     await pc.waitForTimeout(500)
     await pc.locator('.btn-primary.btn-big').click()
   }
+  await pc.waitForSelector('.fin-tete', { timeout: 15000 })
+  await photoDeCamille('16-camille-fin-la-plume', { pleine: true })
   await pc.goto(`${banc.url}/`)
   await pc.waitForSelector('.annonce-admin', { timeout: 15000 })
-  await pc.waitForTimeout(600)
-  await pc.screenshot({ path: path.join(sortie, '16-camille-accueil.png') })
-  console.log(path.join(sortie, '16-camille-accueil.png'))
+  await photoDeCamille('17-camille-accueil')
+  // Fausse, l'administrateur l'annule pour tous : son accueil remplace « +25 confettis » par ce qu'elle ne rapporte plus.
+  const annulee = await ecrire(banc.url, '/api/admin/jour/annuler', { jour, index: k }, admin)
+  if (!annulee.ok) throw new Error(`annulation refusée (${annulee.status})`)
+  await pc.reload()
+  await pc.waitForSelector('.annonce-admin', { timeout: 15000 })
+  await photoDeCamille('18-camille-accueil-annulee')
   await chezCamille.close()
 } finally {
   await navigateur.close()

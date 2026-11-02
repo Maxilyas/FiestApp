@@ -59,6 +59,8 @@ import {
 import { preparerPartie, suiteFixe } from '../../../shared/hasard'
 import { CATEGORIES } from '../../../shared/categories'
 import {
+  CONFETTIS_D_UNE_QUESTION_ACCEPTEE,
+  CONFETTIS_D_UNE_QUESTION_JOUEE,
   PROPOSITIONS_EN_RELECTURE_MAX,
   QUESTIONS_DU_PUBLIC_PAR_JOUR,
   lireLaProposition,
@@ -195,9 +197,45 @@ function coffresDuMoisLus(rows: ResultSet['rows']): CoffreDuMoisLu[] {
   return rows.map(r => ({ mois: String(r.mois), place: Number(r.place) }))
 }
 
-/** Toutes ses bonnes réponses au quiz du jour (`justesDe`). */
+/**
+ * Sa question du public (`r`, sa ligne de la réserve) annulée pour tous le
+ * jour qui l'a jouée : son tirage à sa clé, puis ses dix questions. Une
+ * question annulée était fausse, et ne compte pour personne — son auteur non
+ * plus : ni les confettis de son jour, ni La Plume (`JOUEE_ET_COMPTEE`).
+ */
+const ANNULEE_POUR_TOUS = `EXISTS (SELECT 1 FROM jour_tirages t, json_each(t.questions) q, json_each(t.annulees) a
+  WHERE t.jour = r.posee_le AND json_extract(q.value, '$.reserveId') = r.id AND a.value = q.key)`
+
+/** Sa question du public jouée, et qui compte encore : ce qui la paie le jour où elle passe, et ce que La Plume compte. */
+const JOUEE_ET_COMPTEE = `(r.posee_le IS NOT NULL AND NOT ${ANNULEE_POUR_TOUS})`
+
+/**
+ * Ce que ses questions du public lui rapportent, en confettis, l'une après
+ * l'autre (`CONFETTIS_D_UNE_QUESTION_ACCEPTEE`, puis `…_JOUEE`) : la part
+ * de chacune, du profil et de l'instant qui la paient — son acceptation, le
+ * minuit du jour où elle est jouée. Une refusée ne rapporte rien ; une
+ * annulée pour tous, son acceptation seule.
+ */
+const CONFETTIS_DES_PROPOSITIONS = `
+  SELECT p.profile_id AS profile_id, ${CONFETTIS_D_UNE_QUESTION_ACCEPTEE} AS confettis, p.relue_le AS quand, NULL AS jour
+  FROM jour_propositions p WHERE p.statut = 'acceptee'
+  UNION ALL
+  SELECT p.profile_id, ${CONFETTIS_D_UNE_QUESTION_JOUEE}, NULL, r.posee_le
+  FROM jour_propositions p JOIN jour_reserve r ON r.id = p.reserve_id WHERE p.statut = 'acceptee' AND ${JOUEE_ET_COMPTEE}`
+
+/**
+ * Ses confettis du quiz du jour (`justesDe`) : toutes ses bonnes réponses —
+ * une question annulée pour tous déjà retirée de chaque partie (`recompter`)
+ * —, et ce que ses questions du public lui rapportent, acceptées puis jouées.
+ */
 function lectureDesJustes(profileId: string): InStatement {
-  return { sql: 'SELECT COALESCE(SUM(justes), 0) AS n FROM jour_parties WHERE profile_id = ?', args: [profileId] }
+  return {
+    sql: `SELECT (SELECT COALESCE(SUM(justes), 0) FROM jour_parties WHERE profile_id = ?)
+               + (SELECT COALESCE(SUM(? + CASE WHEN ${JOUEE_ET_COMPTEE} THEN ? ELSE 0 END), 0)
+                  FROM jour_propositions p LEFT JOIN jour_reserve r ON r.id = p.reserve_id
+                  WHERE p.profile_id = ? AND p.statut = 'acceptee') AS n`,
+    args: [profileId, CONFETTIS_D_UNE_QUESTION_ACCEPTEE, CONFETTIS_D_UNE_QUESTION_JOUEE, profileId],
+  }
 }
 
 /**
@@ -234,14 +272,14 @@ function mercisLus(res: ResultSet): AnnonceDeLAdministrateur[] {
  */
 function lectureDesPropositionsRelues(profileId: string, depuis: number): InStatement {
   return {
-    sql: `SELECT p.id, p.statut, p.motif, p.relue_le, json_extract(p.question, '$.texte') AS texte, r.posee_le
+    sql: `SELECT p.id, p.statut, p.motif, p.relue_le, json_extract(p.question, '$.texte') AS texte, r.posee_le, ${ANNULEE_POUR_TOUS} AS annulee
           FROM jour_propositions p LEFT JOIN jour_reserve r ON r.id = p.reserve_id
           WHERE p.profile_id = ? AND p.statut IN ('acceptee', 'refusee') AND (p.relue_le >= ? OR r.posee_le >= ?)`,
     args: [profileId, depuis, jourDe(depuis)],
   }
 }
 
-/** Ce que l'accueil lui dit de ses questions (`lectureDesPropositionsRelues`) : posée, acceptée — pas les deux —, ou refusée. */
+/** Ce que l'accueil lui dit de ses questions (`lectureDesPropositionsRelues`) : posée — ou annulée —, acceptée — pas les deux —, ou refusée. */
 function propositionsRelues(res: ResultSet): AnnonceDeLAdministrateur[] {
   return res.rows.flatMap((r): AnnonceDeLAdministrateur[] => {
     if (typeof r.texte !== 'string') return []
@@ -250,14 +288,20 @@ function propositionsRelues(res: ResultSet): AnnonceDeLAdministrateur[] {
     if (r.statut === 'refusee') {
       return [{ id: `proposition:${id}:refusee`, sorte: 'proposition', issue: 'refusee', question, motif: r.motif == null ? null : String(r.motif), le: Number(r.relue_le) }]
     }
-    // Posée, elle dit tout : l'acceptation d'avant ne se redit pas à côté. Son
-    // instant, le minuit de Paris de son jour (midi UTC y tombe toujours).
+    // Posée, elle dit tout : l'acceptation d'avant ne se redit pas à côté. Annulée ensuite, elle ne paie plus son
+    // jour : la carte qui le promettait se tait, et une autre le dit — sous son nom à elle, même déjà vue.
     if (typeof r.posee_le === 'string') {
-      const [annee, mois, jour] = r.posee_le.split('-').map(Number)
-      return [{ id: `proposition:${id}:posee`, sorte: 'proposition', issue: 'posee', question, motif: null, le: minuitDe(Date.UTC(annee, mois - 1, jour, 12)) }]
+      const issue = Number(r.annulee) ? 'annulee' : 'posee'
+      return [{ id: `proposition:${id}:${issue}`, sorte: 'proposition', issue, question, motif: null, le: minuitDuJour(r.posee_le) }]
     }
     return [{ id: `proposition:${id}:acceptee`, sorte: 'proposition', issue: 'acceptee', question, motif: null, le: Number(r.relue_le) }]
   })
+}
+
+/** Le minuit de Paris d'un jour (« 2026-11-02 ») : midi UTC y tombe toujours, et `minuitDe` sait les heures d'été. */
+function minuitDuJour(jour: string): number {
+  const [annee, mois, j] = jour.split('-').map(Number)
+  return minuitDe(Date.UTC(annee, mois - 1, j, 12))
 }
 
 /** Une proposition lue de sa colonne : la question telle que le joueur l'a écrite, ou null. */
@@ -2335,9 +2379,10 @@ export class JourStore {
   }
 
   /**
-   * Toutes ses bonnes réponses au quiz du jour, parties en cours comprises :
-   * ses confettis du quiz du jour (`shared/themes.ts`). Une question annulée
-   * pour tous est déjà retirée de chaque partie (`recompter`).
+   * Ses confettis du quiz du jour (`shared/themes.ts`) : toutes ses bonnes
+   * réponses, parties en cours comprises — une question annulée pour tous
+   * est déjà retirée de chaque partie (`recompter`) —, et ce que ses
+   * questions du public lui rapportent (`lectureDesJustes`).
    */
   async justesDe(profileId: string): Promise<number> {
     const res = await this.client.execute(lectureDesJustes(profileId))
@@ -2347,20 +2392,36 @@ export class JourStore {
   /**
    * Les confettis du quiz du jour depuis un instant, tous profils, partie par
    * partie — une bonne réponse, un confetti, ses questions annulées déjà
-   * retirées (`recompter`) —, au moment où elle a commencé : le QG,
-   * `/admin#economie`. Par le jour, qui a son index.
+   * retirées (`recompter`) —, au moment où elle a commencé ; et ceux des
+   * questions du public, à leur acceptation et au minuit du jour qui les a
+   * jouées : le QG, `/admin#economie`. Par le jour, qui a son index.
    */
   async confettisDepuis(depuis: number): Promise<Mouvement[]> {
-    const res = await this.client.execute({
-      sql: 'SELECT commencee_le, justes FROM jour_parties WHERE jour >= ? AND commencee_le >= ? AND justes > 0',
-      args: [jourDe(depuis), depuis],
-    })
-    return res.rows.map(r => ({ quand: Number(r.commencee_le), confettis: Number(r.justes) }))
+    const [parties, propositions] = await this.client.batch(
+      [
+        { sql: 'SELECT commencee_le, justes FROM jour_parties WHERE jour >= ? AND commencee_le >= ? AND justes > 0', args: [jourDe(depuis), depuis] },
+        { sql: `SELECT confettis, quand, jour FROM (${CONFETTIS_DES_PROPOSITIONS}) WHERE quand >= ? OR jour >= ?`, args: [depuis, jourDe(depuis)] },
+      ],
+      'read',
+    )
+    return [
+      ...parties.rows.map(r => ({ quand: Number(r.commencee_le), confettis: Number(r.justes) })),
+      ...propositions.rows.flatMap(r => {
+        const quand = typeof r.jour === 'string' ? minuitDuJour(r.jour) : Number(r.quand)
+        return quand >= depuis ? [{ quand, confettis: Number(r.confettis) }] : []
+      }),
+    ]
   }
 
-  /** Les bonnes réponses du quiz du jour de chaque profil, depuis toujours — sa part du solde (`justesDe`) : le QG les relit une fois par jour. */
+  /** Les confettis du quiz du jour de chaque profil, depuis toujours — sa part du solde (`justesDe`) : le QG les relit une fois par jour. */
   async justesDeTous(): Promise<Map<string, number>> {
-    const res = await this.client.execute('SELECT profile_id, SUM(justes) AS n FROM jour_parties GROUP BY profile_id')
+    const res = await this.client.execute(
+      `SELECT profile_id, SUM(n) AS n FROM (
+         SELECT profile_id, SUM(justes) AS n FROM jour_parties GROUP BY profile_id
+         UNION ALL
+         SELECT profile_id, SUM(confettis) FROM (${CONFETTIS_DES_PROPOSITIONS}) GROUP BY profile_id
+       ) GROUP BY profile_id`,
+    )
     return new Map(res.rows.map(r => [String(r.profile_id), Number(r.n ?? 0)]))
   }
 
@@ -4099,6 +4160,12 @@ function lecturesDesStats(profileId: string, depuis = ''): InStatement[] {
       args: [profileId, depuis, profileId, SALLE_DU_JOUR],
     },
     { sql: 'SELECT MAX(jour) AS jour FROM jour_clotures', args: [] },
+    // Ses questions du public jouées (La Plume), sans celles annulées pour tous : par l'index de ses propositions, puis la réserve à sa clé.
+    {
+      sql: `SELECT COUNT(*) AS n FROM jour_propositions p JOIN jour_reserve r ON r.id = p.reserve_id
+            WHERE p.profile_id = ? AND ${JOUEE_ET_COMPTEE}`,
+      args: [profileId],
+    },
     ...lecturesDeLaSerie(profileId),
   ]
 }
@@ -4133,11 +4200,11 @@ function seriesLues([jours, soirees, sabliers]: readonly ResultSet[]): Map<strin
 }
 
 /** Les lectures de `lecturesDesStats` qui précèdent celles de sa série. */
-const LECTURES_AVANT_LA_SERIE = 5
+const LECTURES_AVANT_LA_SERIE = 6
 
 /** Ses paliers du quiz du jour, de ce que `lecturesDesStats` a lu ; ses jours dans l'élite ajoutés à ceux qu'il avait comptés (`garde`), et jusqu'où ils le sont désormais. */
 function statsDe(lus: readonly ResultSet[], aujourdhui: string, garde: EliteGardee): { stats: StatsDuJour; elite: EliteGardee } {
-  const [joues, victoires, sansFautes, elite, nuit] = lus
+  const [joues, victoires, sansFautes, elite, nuit, questions] = lus
   const comptee = { version: garde.version, jusqua: nuit.rows[0]?.jour == null ? garde.jusqua : String(nuit.rows[0].jour), n: garde.n + Number(elite.rows[0]?.n ?? 0) }
   return {
     stats: {
@@ -4146,6 +4213,7 @@ function statsDe(lus: readonly ResultSet[], aujourdhui: string, garde: EliteGard
       sansFautes: Number(sansFautes.rows[0]?.n ?? 0),
       elite: comptee.n,
       serieRecord: serieLue(lus.slice(LECTURES_AVANT_LA_SERIE), aujourdhui).record,
+      questions: Number(questions.rows[0]?.n ?? 0),
     },
     elite: comptee,
   }

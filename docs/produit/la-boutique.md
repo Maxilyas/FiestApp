@@ -14,6 +14,7 @@ Ton solde se lit au bout de ta ligne d'expérience (« 🎊 820 »), sur l'accue
 |---|---|---|
 | Une soirée qui compte | chaque QCM juste — « plusieurs » et « ordre » trouvés en entier — et chaque estimation dans le tiers le plus proche de la salle | un confetti chacun, sans bonus de rapidité ni multiplicateur |
 | Le quiz du jour | chaque bonne réponse, partie en cours comprise | un confetti chacune |
+| Une question du public | ta question acceptée au QG, puis jouée au quiz du jour ([les questions du public](le-quiz-du-jour.md#les-questions-du-public)) | 25 à son acceptation, 25 de plus le jour où elle est jouée (`CONFETTIS_D_UNE_QUESTION_ACCEPTEE`, `CONFETTIS_D_UNE_QUESTION_JOUEE`) ; rien refusée, et rien de son jour annulée pour tous |
 | La campagne | chaque bonne réponse, dans tous ses modes : séries, épreuves des sentiers, parcours de thème, révisions du carnet, défi de la semaine, duels | un confetti chacune |
 | Les étoiles des sentiers | la meilleure note de chaque palier des douze sentiers (pas celles des parcours de thème) | deux étoiles 10, trois étoiles 25 (`CONFETTIS_DES_ETOILES`) ; une meilleure note paie la différence |
 | Les ligues des duels | chaque semaine close où tu as joué trois duels (`DUELS_POUR_LA_RECOMPENSE`) paie ta meilleure ligue de la semaine | bronze 10, argent 20, or 30, platine 40, diamant 50, maîtres 60 (`LIGUES`) ; la semaine en cours paie le lundi |

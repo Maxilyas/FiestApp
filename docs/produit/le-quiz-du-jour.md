@@ -89,7 +89,7 @@ Ce qui est commun à tous les modes — niveaux, Éclat, légendaires, Divins �
 
 ### Les pistes du quiz du jour
 
-Cinq pistes, chacune en trois étapes — bronze, argent, or —, qui rapportent 50, 100 puis 200 points d'expérience, une fois chacune (`XP_PALIER`). Dans « Ma collection », la page « Quiz du jour » de l'album des trophées les montre en échelle, chaque étape disant ce qu'elle ouvre ; la piste du Champion du jour y compte aussi Le Laurier, qui n'a plus de case à lui.
+Six pistes, chacune en trois étapes — bronze, argent, or —, qui rapportent 50, 100 puis 200 points d'expérience, une fois chacune (`XP_PALIER`). Dans « Ma collection », la page « Quiz du jour » de l'album des trophées les montre en échelle, chaque étape disant ce qu'elle ouvre ; la piste du Champion du jour y compte aussi Le Laurier, qui n'a plus de case à lui.
 
 | Piste | Ce qu'elle compte | Bronze · Argent · Or | Quand une étape tombe |
 |---|---|---|---|
@@ -98,6 +98,7 @@ Cinq pistes, chacune en trois étapes — bronze, argent, or —, qui rapportent
 | Le Sans-Faute | parties finies sans une faute | 1 · 3 · 10 | à la fin de la partie |
 | L'Élite | jours dans le premier quart d'une salle de 8 joueurs au moins | 10 · 50 · 150 | à la nuit |
 | L'Infatigable | la plus longue série, soirées et sabliers compris | 7 · 30 · 100 | au « Jouer » |
+| La Plume | ses questions du public jouées au quiz du jour | 1 · 5 · 20 | au « Jouer » de sa prochaine partie — le jour même, s'il joue le jour où elle passe |
 
 La Légende, qui suit le niveau, se juge aussi au quiz du jour.
 
@@ -129,6 +130,7 @@ Un joueur peut écrire sa question pour le quiz du jour (le choix du propriétai
 - **La relire** : à `/admin#jour`, « Les questions du public », chacune en carte : l'accepter — retouchée s'il le faut, sa catégorie et une anecdote données —, ou la refuser, d'un motif touché ou écrit. « À traiter » les compte. Acceptée, elle rejoint la réserve, signée ; son auteur l'apprend sur son accueil, une fois, puis le jour où elle est jouée — refusée, il y lit le motif.
 - **Au quiz du jour** : une par jour au plus, la plus anciennement acceptée d'abord, à la place d'une question de la réserve (`QUESTIONS_DU_PUBLIC_PAR_JOUR`) ; elles ne comptent pas dans les jours d'avance de la réserve. Les autres la jouent comme une autre, au même barème ; à sa révélation, « Question du public » dans la barre et « Signée Camille » au pied de l'anecdote, avec son visage tel qu'il le porte — rien quand son profil est masqué des classements, suspendu ou supprimé.
 - **Son auteur ne la joue pas** : il en connaît la réponse. Venue à son tour, elle se montre à lui comme une révélation (« Ta question est au quiz du jour ! »), sans chrono ni réponse, et lui compte **sa moyenne sur les autres questions qui comptent**, en points comme en bonnes réponses : 1 620 points sur ses neuf autres questions font une partie de 1 800 (`partDeLAuteur`). Elle ne le pousse ni ne le retient au classement, et le sans-faute reste possible. Une autre question annulée recompte sa moyenne ; la sienne annulée la lui retire, comme à tous. « Trouvée par » ne le compte pas, et sa correction la dit « Ta question ».
+- **Ce qu'elle lui rapporte** : 25 confettis à son acceptation, 25 de plus le jour où elle est jouée (`CONFETTIS_D_UNE_QUESTION_ACCEPTEE`, `CONFETTIS_D_UNE_QUESTION_JOUEE`) — son accueil le dit avec la nouvelle —, et la piste de La Plume (plus bas), une étape à 1, 5 puis 20 questions jouées. Rien pour une question refusée ; rien au classement, qui ne connaît que sa moyenne. Annulée pour tous le jour où elle passe, elle était fausse : elle ne compte pour personne, son auteur non plus — ni les 25 confettis de son jour, ni La Plume (une étape déjà tombée reste) ; l'acceptation reste payée, et son accueil le lui dit, « Ta question a été annulée ».
 
 ## La réserve de questions
 
