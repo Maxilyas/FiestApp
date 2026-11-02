@@ -13,10 +13,12 @@
 // (`jour_parties.question`) ; en campagne et en duel, celles de sa série
 // (`campagne_series.position`) — une expédition, ses réponses : sa position
 // saute les questions de reste d'un gardien vaincu, jamais posées
-// (`seriesDepuis`). Une partie : un quiz de soirée, une partie du
-// jour, une série de campagne, un duel — chaque côté d'un duel classé compte
-// le sien, comme les « Duels joués » de la vue d'ensemble. Une partie se date
-// à son début : celle qui court sur deux jours compte au premier.
+// (`seriesDepuis`) ; au Cabinet de curiosités, les pièces jugées de sa partie,
+// la même colonne. Une partie : un quiz de soirée, une partie du jour, une
+// série de campagne, une partie du Cabinet, un duel — chaque côté d'un duel
+// classé compte le sien, comme les « Duels joués » de la vue d'ensemble. Une
+// partie se date à son début : celle qui court sur deux jours compte au
+// premier.
 //
 // Des dérivations pures : le serveur les calcule sur les journaux que la vue
 // d'ensemble garde déjà (`lesTrenteJours`, `server/src/qg.ts`), les tests les
@@ -27,7 +29,7 @@ import { MODES_DU_QG, jourDeLInstant, joursDesMinuits, type ModeDuQg } from './q
 /** Un chiffre par mode. */
 export type ParMode = Record<ModeDuQg, number>
 
-export const parModeVide = (): ParMode => ({ soiree: 0, campagne: 0, jour: 0, duel: 0 })
+export const parModeVide = (): ParMode => ({ soiree: 0, campagne: 0, cabinet: 0, jour: 0, duel: 0 })
 
 /** Tous les modes ensemble. */
 export const totalDesModes = (p: ParMode) => MODES_DU_QG.reduce((n, m) => n + p[m], 0)
@@ -80,7 +82,7 @@ export interface PageDeLActivite {
 
 // ── Ce que les journaux en disent ────────────────────────────────────────
 
-/** Une partie jouée seul — du jour, de campagne, de duel — : qui, quand, combien de questions. */
+/** Une partie jouée seul — du jour, de campagne, du Cabinet, de duel — : qui, quand, combien de questions. */
 export interface PartieSeule {
   qui: string
   quand: number
@@ -140,7 +142,7 @@ export function totauxDeLActivite(
   const questions = parModeVide()
   const parties = parModeVide()
   const joueurs = parModeVide()
-  const personnes = { campagne: new Set<string>(), jour: new Set<string>(), duel: new Set<string>() }
+  const personnes = { campagne: new Set<string>(), cabinet: new Set<string>(), jour: new Set<string>(), duel: new Set<string>() }
   let n = 0
   for (const p of seules) {
     if (indiceDuJour(minuits, p.quand, maintenant) < 0) continue
@@ -155,7 +157,7 @@ export function totauxDeLActivite(
     joueurs.soiree += s.joueurs
     n++
   }
-  for (const m of ['campagne', 'jour', 'duel'] as const) joueurs[m] = personnes[m].size
+  for (const m of ['campagne', 'cabinet', 'jour', 'duel'] as const) joueurs[m] = personnes[m].size
   return { questions, parties, joueurs, soirees: n }
 }
 

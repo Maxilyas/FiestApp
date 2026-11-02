@@ -17,26 +17,32 @@ import type { CampagneDeLaVue } from './qgCampagne'
 import type { DuelsDeLaVue } from './qgDuels'
 
 /**
- * Les quatre modes de jeu, dans l'ordre de leur pile, du bas vers le haut :
- * l'or des soirées, le vert de la campagne, l'orange du quiz du jour, le bleu
- * des duels. Cet ordre est celui que la vérification des couleurs a validé —
- * voisins, deux d'entre eux restent distincts aux daltonismes — : il ne se
- * change pas sans la refaire (`.qg-ecran`, `styles.css`).
+ * Les cinq modes de jeu, dans l'ordre de leur pile, du bas vers le haut :
+ * l'or des soirées, le vert de la campagne, le violet du Cabinet de
+ * curiosités, l'orange du quiz du jour, le bleu des duels. Cet ordre est celui
+ * que la vérification des couleurs a validé — voisins, deux d'entre eux
+ * restent distincts aux daltonismes ; le violet loin du bleu, qu'il imite aux
+ * yeux qui confondent le rouge — : il ne se change pas sans la refaire
+ * (`.qg-ecran`, `styles.css`). Le Cabinet y est entré le 2 novembre 2026 (« il
+ * manque le cabinet des curiosités », le propriétaire) : ses parties se
+ * comptaient en campagne, sa série étant une série de campagne.
  */
-export const MODES_DU_QG = ['soiree', 'campagne', 'jour', 'duel'] as const
+export const MODES_DU_QG = ['soiree', 'campagne', 'cabinet', 'jour', 'duel'] as const
 export type ModeDuQg = (typeof MODES_DU_QG)[number]
 
-export const NOM_DU_MODE: Record<ModeDuQg, string> = { soiree: 'Soirées', campagne: 'Campagne', jour: 'Quiz du jour', duel: 'Duels' }
+export const NOM_DU_MODE: Record<ModeDuQg, string> = { soiree: 'Soirées', campagne: 'Campagne', cabinet: 'Cabinet', jour: 'Quiz du jour', duel: 'Duels' }
 
 /**
  * Les séries de la campagne qui se jouent en duel : contre quelqu'un, ou
- * contre Automate. Une seule table les range toutes (`campagne_series`) ; le
- * reste — série, sentier, parcours, révision, défi de la semaine, expédition,
- * partie du Cabinet de curiosités — est la campagne (`MODES_DE_SERIE`).
+ * contre Automate. Une seule table les range toutes (`campagne_series`) : une
+ * partie du Cabinet de curiosités (`mode = 'cabinet'`) est le Cabinet ; le
+ * reste — série, sentier, parcours, révision, défi de la semaine, expédition
+ * d'avant le Cabinet — est la campagne (`MODES_DE_SERIE`).
  */
 const MODES_DE_DUEL: readonly string[] = ['duel', 'rencontre']
 
-export function modeDeLaSerie(mode: string | null): 'campagne' | 'duel' {
+export function modeDeLaSerie(mode: string | null): 'campagne' | 'cabinet' | 'duel' {
+  if (mode === 'cabinet') return 'cabinet'
   return mode !== null && MODES_DE_DUEL.includes(mode) ? 'duel' : 'campagne'
 }
 
@@ -129,10 +135,31 @@ export const NOM_DE_LA_TUILE: Record<TuileDuQg, string> = {
   achats: 'Achats en boutique',
 }
 
-/** Les participations d'un jour, mode par mode : un joueur compte une fois par mode et par jour. */
+/**
+ * Un jour de la vue d'ensemble, de deux façons (le souhait du propriétaire du
+ * 2 novembre 2026 : « le nombre de personnes unique qui participent mais aussi
+ * pouvoir switcher sur la quantité peu importe l'utilisateur ») : qui a joué,
+ * et combien de fois.
+ */
 export interface ParticipationsDuJour {
   jour: string
+  /**
+   * Les personnes qui ont joué ce jour-là, tous modes confondus : un profil
+   * une fois, quoi qu'il ait joué ; un invité sans profil une fois par
+   * soirée — rien ne dit que c'est le même d'une soirée à l'autre.
+   */
+  joueurs: number
+  /**
+   * Les joueurs de chaque mode, comptés de même : qui joue à deux modes
+   * compte dans les deux, et ces chiffres ne s'additionnent pas.
+   */
   modes: Record<ModeDuQg, number>
+  /**
+   * Les participations, sans regarder qui : chaque partie jouée seul — du
+   * jour, de campagne, du Cabinet, un duel —, et en soirée chaque invité qui
+   * a joué. Trois séries de campagne le même soir en font trois.
+   */
+  parties: Record<ModeDuQg, number>
 }
 
 /** Ce qui attend un geste, en chiffres : `lesChosesATraiter` en fait la liste. */
@@ -249,33 +276,61 @@ export function joursDesMinuits(minuits: readonly number[]): string[] {
   return minuits.map(m => jourDe(m + 12 * 3_600_000))
 }
 
+/** Une soirée telle que la participation la compte : quand, ses invités qui ont joué, et les profils parmi eux. */
+export interface SoireeDesParticipations {
+  quand: number
+  joueurs: number
+  /**
+   * Les profils de ses invités qui ont joué : le même profil, en soirée puis
+   * en campagne, ne fait qu'un joueur du jour. Absent — une fiche d'avant le
+   * 14 octobre 2026, qui ne les dit pas —, chaque invité compte à part.
+   */
+  profils?: readonly string[]
+}
+
 /**
- * Les participations de chaque jour, mode par mode. Seul, un joueur compte
- * une fois par mode et par jour : trois séries de campagne le même soir font
- * une participation. En soirée, chaque invité qui a joué compte — avec ou
- * sans profil —, au jour où sa soirée a commencé.
+ * Chaque jour, qui a joué et combien de fois, mode par mode. Un profil compte
+ * une fois par jour parmi les joueurs, une fois par mode dans son mode ; un
+ * invité sans profil, une fois par soirée. Chaque partie jouée seul est une
+ * participation, et en soirée chaque invité qui a joué — avec ou sans profil
+ * —, au jour où sa soirée a commencé.
  */
 export function participationsParJour(
   solo: readonly { quand: number; qui: string; mode: Exclude<ModeDuQg, 'soiree'> }[],
-  soirees: readonly { quand: number; joueurs: number }[],
+  soirees: readonly SoireeDesParticipations[],
   minuits: readonly number[],
   maintenant: number,
 ): ParticipationsDuJour[] {
-  const jours = joursDesMinuits(minuits)
-  const personnes = minuits.map(() => ({ campagne: new Set<string>(), jour: new Set<string>(), duel: new Set<string>() }))
-  const enSoiree = minuits.map(() => 0)
+  const jours = minuits.map(() => ({
+    tous: new Set<string>(),
+    parMode: Object.fromEntries(MODES_DU_QG.map(m => [m, new Set<string>()])) as Record<ModeDuQg, Set<string>>,
+    anonymes: 0,
+    parties: Object.fromEntries(MODES_DU_QG.map(m => [m, 0])) as Record<ModeDuQg, number>,
+  }))
+  const indice = (quand: number) => (quand <= maintenant ? jourDeLInstant(minuits, quand) : -1)
   for (const e of solo) {
-    const i = e.quand <= maintenant ? jourDeLInstant(minuits, e.quand) : -1
-    if (i >= 0) personnes[i][e.mode].add(e.qui)
+    const j = jours[indice(e.quand)]
+    if (!j) continue
+    j.tous.add(e.qui)
+    j.parMode[e.mode].add(e.qui)
+    j.parties[e.mode]++
   }
   for (const s of soirees) {
-    const i = s.quand <= maintenant ? jourDeLInstant(minuits, s.quand) : -1
-    if (i >= 0) enSoiree[i] += s.joueurs
+    const j = jours[indice(s.quand)]
+    if (!j) continue
+    const profils = new Set(s.profils ?? [])
+    for (const p of profils) {
+      j.tous.add(p)
+      j.parMode.soiree.add(p)
+    }
+    j.anonymes += Math.max(0, s.joueurs - profils.size)
+    j.parties.soiree += s.joueurs
   }
-  return jours.map((jour, i) => ({
-    jour,
-    modes: { soiree: enSoiree[i], campagne: personnes[i].campagne.size, jour: personnes[i].jour.size, duel: personnes[i].duel.size },
-  }))
+  return joursDesMinuits(minuits).map((jour, i) => {
+    const j = jours[i]
+    const modes = Object.fromEntries(MODES_DU_QG.map(m => [m, j.parMode[m].size + (m === 'soiree' ? j.anonymes : 0)])) as Record<ModeDuQg, number>
+    return { jour, joueurs: j.tous.size + j.anonymes, modes, parties: j.parties }
+  })
 }
 
 // ── Ce qu'on lit ──────────────────────────────────────────────────────────

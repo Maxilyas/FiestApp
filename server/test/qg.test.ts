@@ -84,7 +84,10 @@ test('un chiffre du jour se compare à la même heure des sept jours d’avant, 
   assert.equal(compteDuJour([], minuits.slice(-1), maintenant).habituel, null)
 })
 
-test('les participations : seul, un joueur compte une fois par mode et par jour ; en soirée, chaque invité qui a joué', () => {
+test('les participations : un joueur compte une fois par jour, une fois par mode dans le sien ; chaque partie compte, qui que ce soit', () => {
+  // Le souhait du propriétaire du 2 novembre 2026 : « le nombre de personnes
+  // unique qui participent mais aussi pouvoir switcher sur la quantité peu
+  // importe l'utilisateur » — et le Cabinet, qui manquait.
   const maintenant = Date.UTC(2026, 9, 13, 19)
   const minuits = minuitsDeParis(maintenant, 3)
   const aujourdhui = minuits[2] + 10 * H
@@ -96,11 +99,17 @@ test('les participations : seul, un joueur compte une fois par mode et par jour 
       { quand: aujourdhui + 2 * H, qui: 'a', mode: 'campagne' },
       { quand: aujourdhui, qui: 'b', mode: 'campagne' },
       { quand: aujourdhui, qui: 'a', mode: 'duel' },
+      // Une partie du Cabinet : sa série est de campagne, son mode à lui.
+      { quand: aujourdhui + 3 * H, qui: 'b', mode: 'cabinet' },
       { quand: minuits[1] + H, qui: 'c', mode: 'duel' },
     ],
     [
-      { quand: aujourdhui, joueurs: 5 },
+      // a y vient avec son profil : il ne fait qu'un joueur du jour ; ses quatre voisins sans profil, un chacun.
+      { quand: aujourdhui, joueurs: 5, profils: ['a'] },
+      // Une fiche d'avant les profils : chaque invité compte à part.
       { quand: aujourdhui + H, joueurs: 3 },
+      // a revient dans une deuxième soirée, avec d : il ne compte pas deux fois.
+      { quand: aujourdhui + 2 * H, joueurs: 2, profils: ['a', 'd'] },
     ],
     minuits,
     maintenant,
@@ -109,8 +118,22 @@ test('les participations : seul, un joueur compte une fois par mode et par jour 
     parts.map(p => p.jour),
     ['2026-10-11', '2026-10-12', '2026-10-13'],
   )
-  assert.deepEqual(parts[2].modes, { soiree: 8, campagne: 2, jour: 1, duel: 1 })
-  assert.deepEqual(parts[1].modes, { soiree: 0, campagne: 0, jour: 0, duel: 1 })
+  assert.deepEqual(parts[2], {
+    jour: '2026-10-13',
+    // a, b, d, et sept invités sans profil.
+    joueurs: 10,
+    // Qui joue à deux modes compte dans les deux : ces chiffres ne s'additionnent pas.
+    modes: { soiree: 9, campagne: 2, cabinet: 1, jour: 1, duel: 1 },
+    // Chaque partie, et chaque invité de chaque soirée.
+    parties: { soiree: 10, campagne: 3, cabinet: 1, jour: 2, duel: 1 },
+  })
+  assert.deepEqual(parts[1], {
+    jour: '2026-10-12',
+    joueurs: 1,
+    modes: { soiree: 0, campagne: 0, cabinet: 0, jour: 0, duel: 1 },
+    parties: { soiree: 0, campagne: 0, cabinet: 0, jour: 0, duel: 1 },
+  })
+  assert.equal(parts[0].joueurs, 0)
 })
 
 // ── Ce qu'on lit ──────────────────────────────────────────────────────────
@@ -279,6 +302,10 @@ test('la vue d’ensemble : les chiffres du jour par mode, trente jours de parti
     const bobId = (await lire(banc, bob, '/api/joueur/moi')).corps.profile.id as string
     const base = new Database(banc.quizDbUrl.replace(/^file:/, ''))
     try {
+      // Une partie du Cabinet de Léa : une série de campagne, que le graphique range au Cabinet.
+      base
+        .prepare(`INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode) VALUES (?, ?, '[]', 6, 0, 0, ?, NULL, 'cabinet')`)
+        .run('partie-du-cabinet', leaId, Date.now())
       const signaler = base.prepare('INSERT INTO jour_signalements (jour, question, profile_id, texte, cree_le, traite_le) VALUES (?, ?, ?, ?, ?, ?)')
       signaler.run(avant.jour, 0, leaId, 'Le livre ou le film ?', Date.now(), null)
       signaler.run(avant.jour, 3, leaId, 'Deux bonnes réponses', Date.now(), null)
@@ -297,11 +324,18 @@ test('la vue d’ensemble : les chiffres du jour par mode, trente jours de parti
     const de = (t: keyof VueDEnsemble['aujourdhui']) => vue.aujourdhui[t].aujourdhui - avant.aujourdhui[t].aujourdhui
     assert.deepEqual(
       [de('nouveauxProfils'), de('partiesDuJour'), de('seriesDeCampagne'), de('duels'), de('profilsActifs'), de('achats')],
-      [2, 1, 1, 0, 2, 0],
+      // La tuile de la campagne compte aussi la partie du Cabinet : sa page le range parmi ses sous-modes.
+      [2, 1, 2, 0, 2, 0],
     )
     assert.equal(vue.participations.length, JOURS_DU_QG)
     assert.equal(vue.participations.at(-1)!.jour, vue.jour, 'aujourd’hui en dernier')
-    assert.deepEqual(vue.participations.at(-1)!.modes, { soiree: 0, campagne: 1, jour: 1, duel: 0 })
+    // Léa au quiz du jour et au Cabinet, Bob en campagne : deux joueurs, trois participations.
+    assert.deepEqual(vue.participations.at(-1), {
+      jour: vue.jour,
+      joueurs: 2,
+      modes: { soiree: 0, campagne: 1, cabinet: 1, jour: 1, duel: 0 },
+      parties: { soiree: 0, campagne: 1, cabinet: 1, jour: 1, duel: 0 },
+    })
     assert.equal(vue.aujourdhui.partiesDuJour.parJour.length, 12)
     assert.deepEqual(vue.aTraiter.signalementsDuJour, { questions: 2, joueurs: 1 })
     assert.deepEqual(vue.aTraiter.signalementsDeLaCampagne, { questions: 1, joueurs: 1 })
@@ -361,7 +395,13 @@ test('la vue d’ensemble se lit d’un coup d’œil : le direct, ce qui attend
     maintenant,
     jour: jours.at(-1)!,
     aujourdhui: Object.fromEntries(TUILES_DU_QG.map(t => [t, tuile])) as VueDEnsemble['aujourdhui'],
-    participations: jours.map((jour, i) => ({ jour, modes: { soiree: i % 7 === 0 ? 20 : 0, campagne: 70, jour: 110, duel: 35 } })),
+    participations: jours.map((jour, i) => ({
+      jour,
+      // Moins que la somme des modes : qui joue à deux modes ne compte qu'une fois.
+      joueurs: 180 + (i % 7 === 0 ? 20 : 0),
+      modes: { soiree: i % 7 === 0 ? 20 : 0, campagne: 70, cabinet: 15, jour: 110, duel: 35 },
+      parties: { soiree: i % 7 === 0 ? 20 : 0, campagne: 140, cabinet: 30, jour: 110, duel: 60 },
+    })),
     campagne: campagneDeLaVue([], minuitsDeParis(maintenant, JOURS_DU_QG), maintenant),
     duels: duelsDeLaVue([], minuitsDeParis(maintenant, JOURS_DU_QG), maintenant),
     aTraiter: {
@@ -422,11 +462,16 @@ test('la vue d’ensemble se lit d’un coup d’œil : le direct, ce qui attend
   ])
   // Les tuiles : le chiffre, l'écart qui se dit aussi au lecteur d'écran.
   assert.match(html, /5 %<span class="sr-only"> de plus que d’habitude<\/span>/)
-  // Trente jours, chacun son infobulle ; la légende dit les chiffres d'aujourd'hui.
+  // Trente jours, chacun son infobulle ; la légende dit les chiffres d'aujourd'hui. D'office, les joueurs :
+  // chacun une fois, en une seule série — empilés par mode, qui joue à deux modes aurait compté deux fois.
   const infobulles = [...html.matchAll(/<title>([^<]+)<\/title>/g)].map(m => m[1])
   assert.equal(infobulles.length, JOURS_DU_QG)
-  assert.equal(infobulles.at(-1), 'mardi 13 octobre : 215 participations — campagne 70, quiz du jour 110, duels 35')
-  assert.match(html, /Aujourd’hui · 215 participations/)
+  assert.equal(infobulles.at(-1), 'mardi 13 octobre : 180 joueurs — campagne 70, cabinet 15, quiz du jour 110, duels 35')
+  assert.match(html, /Aujourd’hui · 180 joueurs/)
+  assert.match(html, /Qui joue à plusieurs modes compte dans chacun, une fois dans le total/)
+  assert.match(html, /<button type="button" class="onglet actif" aria-pressed="true">Joueurs<\/button><button type="button" class="onglet" aria-pressed="false">Participations<\/button>/)
+  assert.match(html, /class="qg-joueurs"/)
+  assert.doesNotMatch(html, /qg-mode-/, 'une seule série : ni pile ni pastille de mode')
   // Les soirées : où elles en sont et combien elles comptent de monde, rien d'autre.
   assert.match(html, /Quiz 2 · question 7 sur 15 · depuis 1 h 12/)
   assert.match(html, /Entre deux quiz · 1 joué · sans un geste depuis 7 h 05/)
@@ -435,4 +480,20 @@ test('la vue d’ensemble se lit d’un coup d’œil : le direct, ce qui attend
   assert.match(html, /4 % d’un cœur/)
   assert.match(html, /<dt>Routine, quiz du jour<\/dt><dd>aujourd’hui à 7 h 04<\/dd>/)
   assert.match(html, /<dt>Routine, campagne<\/dt><dd>rien encore<\/dd>/)
+
+  // Les participations, sans regarder qui : elles s'additionnent, leur pile se lit mode par mode, le Cabinet entre la campagne et le quiz du jour.
+  const { Participations } = await import(new URL('../../client/src/components/QgVueDEnsemble.tsx', import.meta.url).href)
+  const pile = renderToStaticMarkup(React.createElement(Participations, { vue, enPanne: false, depart: 'participations' })).replace(/<!-- -->/g, '')
+  assert.doesNotMatch(pile, /undefined|NaN/)
+  const bulles = [...pile.matchAll(/<title>([^<]+)<\/title>/g)].map(m => m[1])
+  assert.equal(bulles.at(-1), 'mardi 13 octobre : 340 participations — campagne 140, cabinet 30, quiz du jour 110, duels 60')
+  assert.match(pile, /Aujourd’hui · 340 participations/)
+  assert.match(pile, /aria-pressed="true">Participations<\/button>/)
+  const debut = pile.lastIndexOf('<title>')
+  const aujourdhuiDansLaPile = pile.slice(debut, pile.indexOf('</g>', debut))
+  assert.deepEqual(
+    [...aujourdhuiDansLaPile.matchAll(/class="qg-mode-(\w+)"/g)].map(m => m[1]),
+    ['campagne', 'cabinet', 'jour', 'duel'],
+  )
+  assert.match(pile, /<i class="qg-pastille-mode qg-mode-cabinet" aria-hidden="true"><\/i>Cabinet <b class="num">30<\/b>/)
 })

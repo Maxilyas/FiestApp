@@ -232,8 +232,21 @@ try {
     const partie = permanente.prepare('INSERT OR IGNORE INTO jour_parties (profile_id, jour, commencee_le, question, finie_le) VALUES (?, ?, ?, 10, ?)')
     // Chaque série ses questions jouées, à la mesure de son mode : la page de l'activité les compte.
     const serie = permanente.prepare("INSERT INTO campagne_series (id, profile_id, questions, position, vies, commencee_le, mode) VALUES (?, ?, '[]', ?, 3, ?, ?)")
+    // Au Cabinet, les pièces jugées de ses trois manches.
     const questionsDuMode = (mode: string, k: number) =>
-      mode === 'sentier' ? 16 : mode === 'sujet' ? 10 : mode === 'revision' ? 5 + (k % 6) : mode === 'defi' ? 12 + (k % 8) : mode === 'duel' || mode === 'rencontre' ? 10 : 8 + (k % 15)
+      mode === 'sentier'
+        ? 16
+        : mode === 'sujet'
+          ? 10
+          : mode === 'revision'
+            ? 5 + (k % 6)
+            : mode === 'defi'
+              ? 12 + (k % 8)
+              : mode === 'duel' || mode === 'rencontre'
+                ? 10
+                : mode === 'cabinet'
+                  ? 6 + (k % 7)
+                  : 8 + (k % 15)
     const soiree = permanente.prepare("INSERT INTO soirees (space_id, id, title, held_at, archived_at, summary, data) VALUES (?, ?, 'Une soirée', ?, ?, ?, '{}')")
     const signalement = permanente.prepare('INSERT INTO jour_signalements (jour, question, profile_id, texte, cree_le, traite_le) VALUES (?, ?, ?, ?, ?, NULL)')
     let n = 0
@@ -247,7 +260,22 @@ try {
       const series = Math.round(120 * vague)
       for (let k = 0; k < series; k++) {
         const quand = a(k, series)
-        const mode = k % 4 === 0 ? 'duel' : k % 9 === 0 ? 'rencontre' : k % 5 === 0 ? 'sentier' : k % 7 === 0 ? 'sujet' : k % 11 === 0 ? 'revision' : k % 13 === 0 ? 'defi' : 'serie'
+        const mode =
+          k % 4 === 0
+            ? 'duel'
+            : k % 9 === 0
+              ? 'rencontre'
+              : k % 6 === 1
+                ? 'cabinet'
+                : k % 5 === 0
+                  ? 'sentier'
+                  : k % 7 === 0
+                    ? 'sujet'
+                    : k % 11 === 0
+                      ? 'revision'
+                      : k % 13 === 0
+                        ? 'defi'
+                        : 'serie'
         if (quand <= maintenant) serie.run(`s-${n++}`, `p-${(k * 7) % 80}`, questionsDuMode(mode, k), quand, mode)
       }
       // Les vingt-quatre joueurs nommés, chacun sa manie, en plus des duels
@@ -261,6 +289,8 @@ try {
         if ((manie === 1 || (manie === 3 && d % 3 === 0)) && quand(0) <= maintenant) partie.run(j.id, jourDe(minuit + 12 * H), quand(0), quand(0) + 5 * 60_000)
         const series = manie === 0 ? 2 + ((d + k) % 3) : manie === 3 ? d % 2 : 0
         for (let s = 0; s < series; s++) if (quand(1 + s) <= maintenant) serie.run(`j-${n++}`, j.id, questionsDuMode('serie', d + s + k), quand(1 + s), 'serie')
+        // Qui touche à tout passe aussi au Cabinet, un jour sur deux.
+        if (manie === 3 && d % 2 === 1 && quand(3) <= maintenant) serie.run(`j-${n++}`, j.id, questionsDuMode('cabinet', d + k), quand(3), 'cabinet')
       })
     })
     // Quatre-vingt-dix jours de soirées, chez l'administrateur et chez Tom :
@@ -652,7 +682,12 @@ try {
   }
   permanente.close()
 
-  const photographier = async (nom: string, largeur: number, hauteur: number, { pleine = true, theme, adresse = '/admin' }: { pleine?: boolean; theme?: string; adresse?: string } = {}) => {
+  const photographier = async (
+    nom: string,
+    largeur: number,
+    hauteur: number,
+    { pleine = true, theme, adresse = '/admin', participations = false }: { pleine?: boolean; theme?: string; adresse?: string; participations?: boolean } = {},
+  ) => {
     const contexte = await navigateur.newContext({ viewport: { width: largeur, height: hauteur }, deviceScaleFactor: largeur < 600 ? 2 : 1 })
     const [cle, valeur] = admin.split('=')
     await contexte.addCookies([{ name: cle, value: valeur, url: banc.url }])
@@ -686,6 +721,8 @@ try {
       await page.waitForSelector('.qg-multiple svg', { timeout: 15000 })
       await page.waitForSelector('.qg-assidu-barre', { timeout: 15000 })
     }
+    // « Jour par jour » compte d'office les joueurs ; ses participations, empilées par mode, d'un toucher.
+    if (participations) await page.click('.qg-participations button:has-text("Participations")')
     if (theme) await page.evaluate(`document.documentElement.setAttribute('data-theme', ${JSON.stringify(theme)})`)
     await page.waitForTimeout(800)
     // Rien ne dépasse en largeur : la page ne défile qu'en hauteur.
@@ -701,6 +738,8 @@ try {
   await photographier('3-ordinateur-1920', 1920, 1080)
   await photographier('4-ordinateur-ivoire', 1366, 768, { theme: 'ivoire' })
   await photographier('5-telephone-ivoire', 360, 640, { theme: 'ivoire' })
+  await photographier('5b-participations', 1366, 768, { participations: true })
+  await photographier('5c-participations-telephone', 360, 640, { participations: true })
   await photographier('6-page-du-jour', 1366, 768, { adresse: '/admin#jour' })
   await photographier('26-jour-1920', 1920, 1080, { adresse: '/admin#jour' })
   await photographier('27-jour-telephone', 360, 640, { adresse: '/admin#jour' })

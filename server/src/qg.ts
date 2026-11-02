@@ -119,6 +119,23 @@ function lignesDesSoirees(db: DB): LigneDeSoiree[] {
     .all() as LigneDeSoiree[]
 }
 
+/**
+ * Les profils des invités qui ont joué, soirée pas encore close par soirée :
+ * la vue d'ensemble compte une personne une fois par jour, d'un mode à
+ * l'autre. Lus à part de `lignesDesSoirees`, que le direct relit toutes les
+ * dix secondes sans en avoir besoin ; ils ne quittent pas le serveur.
+ */
+function profilsDesSoireesOuvertes(db: DB): Map<string, string[]> {
+  const lignes = db
+    .prepare(
+      `SELECT a.space_id AS space_id, json_group_array(DISTINCT p.profile_id) AS profils
+       FROM answer_log a JOIN players p ON p.id = a.player_id
+       WHERE a.space_id IS NOT NULL AND p.profile_id IS NOT NULL GROUP BY a.space_id`,
+    )
+    .all() as { space_id: string; profils: string }[]
+  return new Map(lignes.map(l => [l.space_id, JSON.parse(l.profils) as string[]]))
+}
+
 /** Les journaux qui grossissent chaque jour, tels que la vue d'ensemble les lit : qui, quand — et ce qu'il a joué, pour l'activité. */
 interface Journaux {
   parties: { qui: string; quand: number; questions: number }[]
@@ -293,10 +310,14 @@ export function mountQg(app: Express, deps: QgDeps) {
    * qu'elle a joué depuis, lu dans la base locale. `jouees` : les questions
    * que ses invités ont jouées, que seule l'activité demande — une fiche
    * d'avant les apprend alors de son archive (`ArchiveStore.soireesDepuis`).
+   * `profils` : ceux de ses invités qui ont joué, que la vue d'ensemble
+   * compte une fois par jour avec ceux des autres modes — la base locale les
+   * sait tous, la fiche ceux du dernier rangement.
    */
   const lesSoireesDepuis = async (depuis: number, { jouees = false }: { jouees?: boolean } = {}) => {
     const rangees = await deps.archives.soireesDepuis(depuis, { jouees })
     const soirees = new Map(rangees.map(r => [`${r.spaceId}|${r.id}`, { ...r, ouverte: false }]))
+    const profilsOuverts = profilsDesSoireesOuvertes(deps.db)
     for (const l of lignesDesSoirees(deps.db)) {
       if (l.held_at === null || l.soiree_id === null || l.held_at < depuis) continue
       const cle = `${l.space_id}|${l.soiree_id}`
@@ -309,6 +330,7 @@ export function mountQg(app: Express, deps: QgDeps) {
         quiz: Math.max(rangee?.quiz ?? 0, partiesJouees(l).length),
         questions: Math.max(rangee?.questions ?? 0, l.questions),
         jouees: Math.max(rangee?.jouees ?? 0, l.jouees),
+        profils: [...new Set([...(rangee?.profils ?? []), ...(profilsOuverts.get(l.space_id) ?? [])])],
         ouverte: true,
       })
     }
@@ -334,7 +356,10 @@ export function mountQg(app: Express, deps: QgDeps) {
       ...series.map(s => ({ quand: s.quand, qui: s.qui, mode: modeDeLaSerie(s.mode) })),
     ]
 
-    const campagne = series.filter(s => modeDeLaSerie(s.mode) === 'campagne')
+    // La tuile de la campagne compte aussi le Cabinet : sa page le range parmi
+    // ses sous-modes (`SOUS_MODES_DE_CAMPAGNE`), et elle y lit ses parties du
+    // jour. Le graphique, lui, les sépare.
+    const campagne = series.filter(s => modeDeLaSerie(s.mode) !== 'duel')
     const duels = series.filter(s => modeDeLaSerie(s.mode) === 'duel')
     const bilan = deps.rappels.bilan()
     return {

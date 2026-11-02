@@ -813,11 +813,16 @@ export class ArchiveStore {
    * 2026 ne les dit pas — elles se lisent alors une fois dans son archive
    * (`completerLesJouees`). La vue d'ensemble et le bilan ne les demandent
    * pas : ils ne font jamais attendre cette lecture.
+   *
+   * `profils` : ceux de ses invités qui ont joué, pour compter une personne
+   * une fois par jour d'un mode à l'autre — ils restent au serveur, la vue
+   * n'en envoie que le compte. Une fiche d'avant le 14 octobre 2026 ne les
+   * dit pas (`profils` absent) : `undefined`, chaque invité compte à part.
    */
   async soireesDepuis(
     depuis: number,
     { jouees = false }: { jouees?: boolean } = {},
-  ): Promise<{ spaceId: string; id: string; quand: number; joueurs: number; quiz: number; questions: number; jouees: number }[]> {
+  ): Promise<{ spaceId: string; id: string; quand: number; joueurs: number; quiz: number; questions: number; jouees: number; profils: string[] | undefined }[]> {
     const res = await this.client.execute({ sql: 'SELECT space_id, id, held_at, summary FROM soirees WHERE held_at >= ?', args: [depuis] })
     const lues = res.rows.map(r => ({ spaceId: String(r.space_id), id: String(r.id), quand: Number(r.held_at), stocke: String(r.summary), fiche: lireFiche(String(r.summary)) }))
     if (jouees) {
@@ -832,6 +837,7 @@ export class ArchiveStore {
       quiz: fiche?.quiz ?? 0,
       questions: fiche?.questions ?? 0,
       jouees: fiche?.jouees ?? 0,
+      profils: fiche?.profils ? fiche.invites.flatMap(i => (i.joue && i.profileId ? [i.profileId] : [])) : undefined,
     }))
   }
 

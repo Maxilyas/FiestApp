@@ -9,6 +9,7 @@ import Database from 'better-sqlite3'
 import {
   ADMIN,
   attendre,
+  baseDEssai,
   connexionAnimateur,
   creerQuiz,
   demarrer,
@@ -35,6 +36,7 @@ import {
   type JournalDuQg,
   type PageDesSoirees,
   type SoireeDuQg,
+  type VueDEnsemble,
 } from '../../shared/qg'
 import { ProfileStore } from '../src/auth/profiles'
 
@@ -134,6 +136,57 @@ test('clore une soirée laissée en plan : refusé tant qu’elle vit, puis rang
     )
     // Une seconde fois : il n'y a plus rien à clore.
     assert.equal((await faire(banc, admin, `/api/admin/soirees/${spaceId}/clore`)).status, 404)
+    host.disconnect()
+  } finally {
+    await banc.close()
+  }
+})
+
+test('la vue d’ensemble compte une personne une fois par jour — venue en soirée puis en campagne et au Cabinet — et chaque partie, qui que ce soit', async () => {
+  // Le souhait du propriétaire du 2 novembre 2026 : « le nombre de personnes
+  // unique qui participent », et « la quantité peu importe l'utilisateur ».
+  const banc = await demarrer({ baseDeLaCampagne: baseDEssai(40) })
+  try {
+    const admin = await connexionAnimateur(banc.url)
+    const quiz = await creerQuiz(banc.url, admin, [qcm('Une question du soir ?', ['Oui', 'Non'])], 'Le quiz du soir')
+    const host = await ecranCommun(banc.url, admin)
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const leaId = (await lire(banc, lea, '/api/joueur/moi')).corps.profile.id as string
+    const salle = [await invite(banc.url, 'Léa', '🦊', { cookie: lea }), await invite(banc.url, 'Bob', '🐻')]
+    await jouerUneQuestion(host, quiz, [
+      [salle[0], 0],
+      [salle[1], 1],
+    ])
+    // Léa joue ensuite seule : une série de campagne, et une partie du Cabinet.
+    const serie = await faire(banc, lea, '/api/campagne/serie')
+    assert.ok(serie.corps.id, serie.corps.error)
+    const base = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+    try {
+      base
+        .prepare(`INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode) VALUES (?, ?, '[]', 6, 0, 0, ?, NULL, 'cabinet')`)
+        .run('partie-du-cabinet', leaId, Date.now())
+    } finally {
+      base.close()
+    }
+
+    const attendu = {
+      // Léa, avec son profil, et Bob, sans : deux personnes, quoi que Léa ait joué.
+      joueurs: 2,
+      modes: { soiree: 2, campagne: 1, cabinet: 1, jour: 0, duel: 0 },
+      parties: { soiree: 2, campagne: 1, cabinet: 1, jour: 0, duel: 0 },
+    }
+    // Pas encore close : la base locale sait qui avait un profil.
+    const ouverte = (await lire<VueDEnsemble>(banc, admin, '/api/admin/qg')).corps
+    assert.deepEqual(ouverte.participations.at(-1), { jour: ouverte.jour, ...attendu })
+    // Des chiffres seulement : l'identifiant de Léa reste au serveur.
+    assert.ok(!JSON.stringify(ouverte).includes(leaId), 'aucun profil dans la vue')
+
+    // Close, la base locale vidée : la fiche de l'historique le sait encore.
+    const fin = attendre<any>(salle[0].socket, 'soiree:fin', () => true, 'la fin de soirée de Léa', 15_000)
+    ;(host as any).emit('host:closeParty', {})
+    await fin
+    const close = (await lire<VueDEnsemble>(banc, admin, '/api/admin/qg')).corps
+    assert.deepEqual(close.participations.at(-1), { jour: close.jour, ...attendu })
     host.disconnect()
   } finally {
     await banc.close()

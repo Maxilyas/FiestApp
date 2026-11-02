@@ -22,13 +22,16 @@ import {
 const pluriel = (n: number, mot: string, motPluriel = `${mot}s`) => `${formatNumber(n)} ${n > 1 ? motPluriel : mot}`
 const questions = (n: number) => pluriel(n, 'question')
 
-/** Ce qu'une partie s'appelle dans chaque mode : un quiz de soirée, une partie du jour, une partie de campagne, un duel. */
+/** Ce qu'une partie s'appelle dans chaque mode : un quiz de soirée, une partie du jour, de campagne ou du Cabinet, un duel. */
 export function parties(m: ModeDuQg, n: number): string {
   return m === 'soiree' ? `${formatNumber(n)} quiz` : m === 'duel' ? pluriel(n, 'duel') : pluriel(n, 'partie')
 }
 
 /** Le mode, dans une phrase : « surtout la campagne ». */
-const LE_MODE: Record<ModeDuQg, string> = { soiree: 'les soirées', campagne: 'la campagne', jour: 'le quiz du jour', duel: 'les duels' }
+const LE_MODE: Record<ModeDuQg, string> = { soiree: 'les soirées', campagne: 'la campagne', cabinet: 'le Cabinet', jour: 'le quiz du jour', duel: 'les duels' }
+
+/** Où l'on joue, dans une phrase : « personne n'a joué au Cabinet » — « à le quiz du jour » se lisait jusque-là. */
+const OU_L_ON_JOUE: Record<ModeDuQg, string> = { soiree: 'en soirée', campagne: 'à la campagne', cabinet: 'au Cabinet', jour: 'au quiz du jour', duel: 'aux duels' }
 
 /** Les joueurs qu'une vue montre d'abord ; « Et N de plus » montre le reste, jusqu'à cinquante. */
 const JOUEURS_D_ABORD = 10
@@ -59,7 +62,7 @@ export function ActiviteAuQg({ page, apresUnGeste }: { page: PageDeLActivite; ap
     <>
       <p className="muted small">
         Trente jours, mode par mode. Une question jouée est une question posée à un joueur, qu’il y ait répondu ou l’ait laissée au temps ; une partie, un quiz
-        de soirée, une partie du jour ou de campagne, un duel. La vue d’ensemble compte les joueurs, cette page ce qu’ils ont joué.
+        de soirée, une partie du jour, de campagne ou du Cabinet, un duel. La vue d’ensemble compte les joueurs, cette page ce qu’ils ont joué.
       </p>
       <CesTrenteJours totaux={page.totaux} />
       <JourParJour page={page} />
@@ -78,7 +81,7 @@ function CesTrenteJours({ totaux }: { totaux: PageDeLActivite['totaux'] }) {
         </h2>
         <span className="muted small">{questions(totalDesModes(totaux.questions))} jouées, tous modes confondus</span>
       </div>
-      <ul className="qg-tuiles qg-tuiles-quatre">
+      <ul className="qg-tuiles qg-tuiles-cinq">
         {MODES_DU_QG.map(m => (
           <Chiffre
             key={m}
@@ -210,7 +213,7 @@ function QuiJoueAQuoi({ page, apresUnGeste }: { page: PageDeLActivite; apresUnGe
       </div>
       <div className="qg-carte qg-ecran">
         {lignes.length === 0 ? (
-          <p className="muted small">{vue === 'tous' ? 'Aucun profil n’a joué ces trente jours.' : `Aucun profil n’a joué ${vue === 'soiree' ? 'en soirée' : `à ${LE_MODE[vue]}`} ces trente jours.`}</p>
+          <p className="muted small">{vue === 'tous' ? 'Aucun profil n’a joué ces trente jours.' : `Aucun profil n’a joué ${OU_L_ON_JOUE[vue]} ces trente jours.`}</p>
         ) : (
           <>
             {vue === 'tous' && (

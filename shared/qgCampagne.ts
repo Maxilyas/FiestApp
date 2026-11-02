@@ -11,9 +11,11 @@ import type { ApparenceDeLAvatar } from './profil'
 
 /**
  * Les parties de la campagne que le QG suit, sous-mode par sous-mode — les
- * duels ont leur page. Le Cabinet de curiosités en est un : il compte en
- * campagne (`modeDeLaSerie`), ses parties à part des séries, dès avant son
- * ouverture — une page du QG à lui n'est pas de sa première version.
+ * duels ont leur page. Le Cabinet de curiosités en est un, ses parties à part
+ * des séries, dès avant son ouverture — une page du QG à lui n'est pas de sa
+ * première version. Depuis le 2 novembre 2026, la vue d'ensemble et
+ * l'activité lui donnent aussi son mode à lui (`modeDeLaSerie`) ; cette page
+ * le garde parmi les siens, sa série étant une série de campagne.
  */
 export const SOUS_MODES_DE_CAMPAGNE = ['serie', 'sentier', 'sujet', 'revision', 'defi', 'cabinet'] as const
 export type SousModeDeCampagne = (typeof SOUS_MODES_DE_CAMPAGNE)[number]

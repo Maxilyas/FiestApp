@@ -12,6 +12,7 @@ import { readFileSync } from 'node:fs'
 import React from 'react'
 import { connexionAnimateur, demarrer, ecrire, inscrireProfil } from './banc'
 import type { EspaceDAdministration } from '../../shared/space'
+import { MODES_DU_QG } from '../../shared/qg'
 
 const source = (fichier: string) => readFileSync(new URL(`../../client/src/${fichier}`, import.meta.url), 'utf8')
 const lire = (url: string, cookie: string, chemin: string) =>
@@ -88,7 +89,9 @@ test('/admin : le QG — la vue d’ensemble d’abord, son journal et son serve
   assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{\s*\.admin-hud::after \{ animation: none; display: none; \}\s*\.admin-pouls \{ animation: none; \}/)
   // Les couleurs des modes ont été vérifiées sur l'écran nocturne, dans cet
   // ordre de pile : on ne les change pas sans refaire la vérification.
-  assert.match(css, /\.qg-ecran \{[^}]*--mode-soiree: #c98500;\s*--mode-campagne: #199e70;\s*--mode-jour: #d95926;\s*--mode-duel: #3987e5;/)
+  assert.match(css, /\.qg-ecran \{[^}]*--mode-soiree: #c98500;\s*--mode-campagne: #199e70;\s*--mode-cabinet: #9085e9;\s*--mode-jour: #d95926;\s*--mode-duel: #3987e5;/)
+  // La pile suit `MODES_DU_QG` : le violet du Cabinet loin du bleu des duels, qu'il imite aux yeux qui confondent le rouge.
+  assert.deepEqual(MODES_DU_QG, ['soiree', 'campagne', 'cabinet', 'jour', 'duel'])
   // Une ligne ouvre sa feuille : la corbeille au bout d'une ligne se touchait en faisant défiler.
   assert.doesNotMatch(source('components/AdminProfils.tsx'), /aria-label=\{`Supprimer le profil de/)
   assert.match(source('components/AdminProfils.tsx'), /<Feuille titre=\{ouvert\.nom\}/)
