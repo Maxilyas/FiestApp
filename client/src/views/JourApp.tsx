@@ -18,7 +18,8 @@ import { Onglets, type Onglet } from '../components/Onglets'
 import { Rank, Score, motPoints } from '../components/Rank'
 import { Shape } from '../components/Shape'
 import { Corrige, verdictDe } from '../components/Corrige'
-import { promptDialog } from '../components/Dialog'
+import { SignalerLaQuestion } from '../components/SignalerLaQuestion'
+import { JUSTES_POUR_LA_PLUME, LaPlume, SignatureDuPublic } from '../components/LaPlume'
 import { NoteDuJour, Serie, ontGagneHier } from '../components/Jour'
 import { EclatTombe, LegendaireOuvert, Medaillon } from '../components/Ouverts'
 import { APorter, CeQueTuGagnes, LigneDeTrophee, MissionsAccomplies, NouveauxTrophees, emojisAPorter, niveauDe } from '../components/Gains'
@@ -342,20 +343,17 @@ export function JourApp() {
     if (finie) api.joueur.moiLeger().then(({ profile }) => profile && setProfil(profile)).catch(() => {})
   }, [finie])
 
-  const signaler = async (r: RevelationDuJour) => {
-    const texte = await promptDialog({
-      title: 'Signaler une erreur',
-      message: 'Dis en une phrase ce qui ne va pas : l’administrateur relit chaque signalement, et peut annuler la question pour tous.',
-      input: { value: '', placeholder: 'La réponse B est juste aussi…', maxLength: 280 },
-      confirmLabel: 'Envoyer',
-    })
-    if (!texte) return
+  // La question qu'on signale : sa feuille s'ouvre sur elle, telle que la révélation l'a montrée.
+  const [aSignaler, setASignaler] = useState<RevelationDuJour | null>(null)
+  const signaler = async (r: RevelationDuJour, texte: string) => {
     try {
       await api.jour.signaler(r.jour, r.index, texte)
-      showToast({ kind: 'info', message: 'Merci : c’est envoyé' })
     } catch (e) {
-      showToast({ kind: 'error', message: motifDe(e) })
+      // Le motif se dit dans la feuille, qui reste ouverte avec ce qu'il a corrigé.
+      throw new Error(motifDe(e))
     }
+    setASignaler(null)
+    showToast({ kind: 'info', message: 'Merci : c’est envoyé' })
   }
 
   const toastVu = toast && (
@@ -438,9 +436,16 @@ export function JourApp() {
         >
           {revelation.derniere ? 'Voir mon résultat' : 'Question suivante'}
         </button>
-        <button className="lien-signaler link-inline small" onClick={() => void signaler(revelation)}>
+        <button className="lien-signaler link-inline small" aria-haspopup="dialog" onClick={() => setASignaler(revelation)}>
           Signaler une erreur dans cette question
         </button>
+        {aSignaler && (
+          <SignalerLaQuestion
+            question={{ texte: aSignaler.texte, reponses: aSignaler.reponses, bonne: aSignaler.bonne, anecdote: aSignaler.anecdote, categorie: null }}
+            onEnvoyer={texte => signaler(aSignaler, texte)}
+            onFermer={() => setASignaler(null)}
+          />
+        )}
         {toastVu}
       </div>
     )
@@ -673,6 +678,8 @@ function Revelation({ r }: { r: RevelationDuJour }) {
         <span className="label">
           Question {r.index + 1} / {r.total}
         </span>
+        {/* La question d'un joueur se dit dans la barre qui est déjà là : pas une ligne de plus. */}
+        {r.auteur && <span className="pill plume-du-public">Question du public</span>}
       </div>
       {/* La question, rappelée : « La bonne réponse : Faux » ne dit rien sans elle. */}
       <p className="jour-rappel">{espacesFines(r.texte)}</p>
@@ -724,13 +731,28 @@ function Revelation({ r }: { r: RevelationDuJour }) {
           </div>
         )}
       </div>
-      {r.anecdote && (
-        <p className="card anecdote">
-          <Icon name="message" />
-          <span>
-            <b>Le saviez-vous ?</b> {espacesFines(r.anecdote)}
-          </span>
-        </p>
+      {r.auteur ? (
+        // Signée au pied de son anecdote, dans la même carte : qui l'a écrite, et de quoi écrire la sienne.
+        <div className="card anecdote-du-public">
+          {r.anecdote && (
+            <p className="anecdote">
+              <Icon name="message" />
+              <span>
+                <b>Le saviez-vous ?</b> {espacesFines(r.anecdote)}
+              </span>
+            </p>
+          )}
+          <SignatureDuPublic prenom={r.auteur} />
+        </div>
+      ) : (
+        r.anecdote && (
+          <p className="card anecdote">
+            <Icon name="message" />
+            <span>
+              <b>Le saviez-vous ?</b> {espacesFines(r.anecdote)}
+            </span>
+          </p>
+        )
       )}
     </div>
   )
@@ -792,6 +814,8 @@ export function Fin({
           {formatNumber(partie.points)} sur {formatNumber(partie.pointsPossibles)}
         </p>
         {partie.serie > 0 && <SerieDuJour jours={partie.serie} sabliers={partie.sabliers ?? 0} forme="ligne" />}
+        {/* L'invitation à écrire une question, au moment où l'on est fier : une ligne au pied du résultat, pas une carte. */}
+        {partie.justes >= JUSTES_POUR_LA_PLUME && <LaPlume accroche="Et si demain," appel="ta question ?" />}
       </section>
       {/* Ce qu'elle rapporte, en un total : la partie à ses points, la série
           — c'est la régularité qui la paie —, les trophées, payés à part ; une

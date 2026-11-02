@@ -406,6 +406,12 @@ export interface RevelationDuJour {
   tropTard?: boolean
   /** C'était la dernière. */
   derniere: boolean
+  /**
+   * Le prénom du joueur qui l'a proposée, quand il l'a signée : la question
+   * du public se signe au pied de son anecdote (`SignatureDuPublic`). Le
+   * serveur ne le dit pas encore — les questions de joueurs arrivent.
+   */
+  auteur?: string
 }
 
 /** Une ligne du classement du jour, du mois : ce que la salle verrait d'un profil. */

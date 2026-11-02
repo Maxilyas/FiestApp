@@ -20,7 +20,10 @@ import { GerbeDeJuste } from '../components/Gerbe'
 import { EMBLEME } from '../components/Ecusson'
 import { FeuilleDuChoix, LigneDuChoix } from '../components/ChoixDuTheme'
 import { OR, lueur } from '../components/Atlas'
-import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
+import { choixDialog, confirmDialog } from '../components/Dialog'
+import { SignalerLaQuestion } from '../components/SignalerLaQuestion'
+import { JUSTES_POUR_LA_PLUME, LaPlume } from '../components/LaPlume'
+import type { QuestionSignalee } from '../../../shared/signalement'
 import { deNom, espacesFines } from '../format'
 import { showToast, useAppState } from '../state'
 import { porterTheme } from '../themeJoueur'
@@ -38,7 +41,6 @@ import {
   NOM_NIVEAU,
   QUESTIONS_POUR_JOUER,
   RECORD_DU_TOUR_DU_MONDE,
-  SIGNALEMENT_MAX,
   JUSTES_DOUBLEES_PAR_JOUR,
   VIES,
   XP_PAR_JUSTE,
@@ -209,6 +211,9 @@ const lancement = aLaDemande(() => import('./LancerUnDefi'))
  * à l'ouverture suivante.
  */
 let choixEnRoute: Promise<ChoixDeLaCampagne> | null = null
+/** La marche d'une question, accordée à « une question » : « trop dure pour une facile », « pour une experte ». */
+const QUESTION_A_LA_MARCHE: Record<Niveau, string> = { facile: 'facile', moyen: 'moyenne', difficile: 'difficile', expert: 'experte' }
+
 function lesChoix(): Promise<ChoixDeLaCampagne> {
   choixEnRoute ??= api.campagne.choix().catch(e => {
     choixEnRoute = null
@@ -907,24 +912,21 @@ export function CampagneApp() {
   }
 
   /**
-   * « Signaler une erreur » : après sa réponse, comme au quiz du jour. Une
-   * phrase, que l'administrateur relit (`/admin#campagne`) ; il peut retirer
-   * la question pour tous.
+   * « Signaler une erreur » : après sa réponse, comme au quiz du jour, en
+   * plusieurs points d'un coup (`SignalerLaQuestion`). L'administrateur relit
+   * chaque signalement (`/admin#signalements`) ; il peut corriger, reclasser
+   * ou retirer la question pour tous.
    */
-  const signaler = async (serie: string, index: number) => {
-    const texte = await promptDialog({
-      title: 'Signaler une erreur',
-      message: 'Dis en une phrase ce qui ne va pas : l’administrateur relit chaque signalement, et peut retirer la question de la campagne.',
-      input: { value: '', placeholder: 'La réponse B est juste aussi…', maxLength: SIGNALEMENT_MAX },
-      confirmLabel: 'Envoyer',
-    })
-    if (!texte) return
+  const [aSignaler, setASignaler] = useState<{ serie: string; index: number; question: QuestionSignalee } | null>(null)
+  const signaler = async (serie: string, index: number, texte: string) => {
     try {
       await api.campagne.signaler(serie, index, texte)
-      showToast({ kind: 'info', message: 'Merci : c’est envoyé' })
     } catch (e) {
-      showToast({ kind: 'error', message: motifDe(e) })
+      // Le motif se dit dans la feuille, qui reste ouverte avec ce qu'il a corrigé.
+      throw new Error(motifDe(e))
     }
+    setASignaler(null)
+    showToast({ kind: 'info', message: 'Merci : c’est envoyé' })
   }
 
   const toastVu = toast && (
@@ -1370,6 +1372,8 @@ export function CampagneApp() {
           ) : (
             !!ecran.recordAvant && <p className="muted small">Ton record : {ecran.recordAvant}</p>
           )}
+          {/* Au défi, l'invitation à écrire une question : une ligne au pied du résultat, pas une carte de plus. */}
+          {ecran.defi && !ecran.duel && ecran.justes >= JUSTES_POUR_LA_PLUME && <LaPlume accroche="À toi :" appel="pose une colle à tous" />}
         </section>
         {/* Ses erreurs ne sont pas perdues : le carnet les repose demain. Pas celles d'un défi, qui attendent sa clôture. */}
         {!ecran.defi && ecran.erreurs > 0 && (
@@ -1566,10 +1570,25 @@ export function CampagneApp() {
                       : 'Voir ma série'
                 : 'Question suivante'}
             </button>
-            <button type="button" className="lien-signaler link-inline small" onClick={() => void signaler(ecran.serie, q.index)}>
+            <button
+              type="button"
+              className="lien-signaler link-inline small"
+              aria-haspopup="dialog"
+              onClick={() =>
+                setASignaler({
+                  serie: ecran.serie,
+                  index: q.index,
+                  // Telle qu'il l'a lue : ses réponses dans l'ordre de sa série, la bonne que sa réponse a dite.
+                  question: { texte: q.texte, reponses: q.reponses, bonne: r.bonne, anecdote: r.anecdote, categorie: q.categorie, marche: QUESTION_A_LA_MARCHE[q.niveau] },
+                })
+              }
+            >
               Signaler une erreur dans cette question
             </button>
           </>
+        )}
+        {aSignaler && (
+          <SignalerLaQuestion question={aSignaler.question} onEnvoyer={texte => signaler(aSignaler.serie, aSignaler.index, texte)} onFermer={() => setASignaler(null)} />
         )}
         {erreur && (
           <p className="error" role="alert">

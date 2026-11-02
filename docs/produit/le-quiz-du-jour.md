@@ -21,7 +21,7 @@ En haut de `/jour` : « ← Accueil », la pastille de ta **série** (une flamme
 - Chaque question s'affiche comme en soirée. Le **chrono est celui du serveur** : recharger, changer de téléphone ou laisser sonner le sien ne rend pas une seconde. Une question montrée garde son échéance ; passée, elle compte « sans réponse ».
 - Ta réponse part une fois. Arrivée après l'échéance et sa marge : « Trop tard ! Ta réponse est arrivée après la fin. »
 - Puis la **révélation** : « +162 pts », « Bien joué ! » et ta gerbe, ou « Raté… », « Temps écoulé. », « Question annulée » ; la bonne réponse — jamais avant la tienne ; « Trouvée par 64 % des joueurs du jour » ; l'anecdote, « Le saviez-vous ? ».
-- « Question suivante » (« Voir mon résultat » après la dernière), et « Signaler une erreur dans cette question » : une phrase pour l'administrateur, qui peut la corriger — la même bonne réponse, et ta correction du jour la montre corrigée —, la reclasser, la retirer de la réserve, ou annuler ses points pour tous. Quand ta remarque a servi, ton accueil te remercie, une fois.
+- « Question suivante » (« Voir mon résultat » après la dernière), et « Signaler une erreur dans cette question » : une feuille où tu coches ce qui cloche — la bonne réponse, une faute, le classement — et le corriges à sa place, tout parti d'un seul envoi, comme en campagne ; l'administrateur peut la corriger — la même bonne réponse, et ta correction du jour la montre corrigée —, la reclasser, la retirer de la réserve, ou annuler ses points pour tous. Quand ta remarque a servi, ton accueil te remercie, une fois.
 - Une partie laissée en route se reprend où elle en était, sur n'importe quel téléphone du profil.
 
 ### La fin, puis le jour joué

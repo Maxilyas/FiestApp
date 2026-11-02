@@ -6987,6 +6987,104 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .jour-trouvee { display: flex; flex-direction: column; gap: 6px; width: 100%; margin-top: 6px; }
 .jour-rappel { margin: 0; font-family: var(--serif); font-size: 1.25rem; line-height: 1.25; text-wrap: balance; }
 .lien-signaler { align-self: center; background: none; border: 0; color: var(--muted); font-family: var(--sans); cursor: pointer; }
+
+/* ── La plume : proposer une question, en une ligne ──────────────────────
+   Une invitation qui attire l'œil sans prendre de place (`LaPlume.tsx`) :
+   pas de carte de plus, une ligne au pied d'une carte qui existe déjà — le
+   résultat du jour, la fin du défi —, ou au pied de l'anecdote d'une
+   question de joueur. Ce qui attire, c'est le geste, une fois : la plume se
+   trace à l'arrivée, puis l'encre souligne ce qu'elle propose. Rien d'autre
+   ne bouge, ni ne luit ; et rien du tout quand le système demande moins de
+   mouvement. */
+.plume {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 8px;
+  padding: 12px 4px 0;
+  border: 0;
+  border-top: 1px solid var(--edge);
+  background: none;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 0.95rem;
+  line-height: 1.3;
+  text-align: left;
+  cursor: pointer;
+}
+.plume-icone { width: 22px; height: 22px; flex: none; color: var(--accent-text); }
+/* Chaque tracé vaut 1 (`pathLength`) : la plume se dessine d'un seul pas. */
+.plume-icone path { stroke-dasharray: 1; stroke-dashoffset: 1; animation: plume-trace 0.9s ease-out 0.5s forwards; }
+/* L'encre : un filet de la couleur du texte, qui s'allonge sous l'appel. */
+.plume-appel {
+  padding-bottom: 2px;
+  color: var(--accent-text);
+  font-weight: 600;
+  background: linear-gradient(currentColor, currentColor) 0 100% / 0 1px no-repeat;
+  animation: plume-encre 0.5s ease-out 1.3s forwards;
+}
+.plume:hover .plume-appel { color: var(--accent-text-hover); }
+.plume .plume-chevron { width: 16px; height: 16px; flex: none; color: var(--accent-text); }
+@keyframes plume-trace { to { stroke-dashoffset: 0; } }
+@keyframes plume-encre { to { background-size: 100% 1px; } }
+@media (prefers-reduced-motion: reduce) {
+  .plume-icone path { animation: none; stroke-dashoffset: 0; }
+  .plume-appel { animation: none; background-size: 100% 1px; }
+}
+/* La question d'un joueur, au pied de son anecdote : qui l'a écrite, puis de quoi écrire la sienne. */
+/* Serrée : sa ligne ne doit pas pousser « Question suivante » sous le bord d'un téléphone de 640. */
+.anecdote-du-public { display: flex; flex-direction: column; gap: 2px; padding: 14px 18px 6px; }
+.plume-signature { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.plume-de { font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 1.15rem; line-height: 1.15; }
+/* Un lien du pied de carte, comme « Signaler une erreur » : moins haut qu'un bouton plein. */
+.plume-ecrire { display: inline-flex; align-items: center; gap: 6px; flex: none; min-height: 34px; padding: 0; border: 0; background: none; color: var(--accent-text); font-family: var(--sans); font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+.plume-ecrire .plume-icone { width: 20px; height: 20px; }
+.pill.plume-du-public { color: var(--accent-text); border-color: var(--edge-strong); }
+.plume-verifications { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: 0.9rem; }
+.plume-verifications li { display: flex; align-items: center; gap: 8px; }
+.plume-ok { color: var(--muted); }
+.plume-ok .icon { color: var(--accent-text); }
+.plume-ko { font-weight: 600; }
+.plume-ko .icon { color: var(--alert); }
+
+/* ── Signaler en plusieurs points ────────────────────────────────────────
+   On coche ce qui cloche, chaque point s'ouvre à sa place, et la feuille
+   tient le compte de ce qui change (`SignalerLaQuestion.tsx`). Sa hauteur
+   est fixe : les blocs qui s'ouvrent et se ferment sous le doigt ne la font
+   pas sauter. */
+.carte-feuille.signaler-feuille,
+.carte-feuille.plume-feuille { height: 88%; }
+.signaler-cases { display: flex; flex-direction: column; gap: 8px; }
+.signaler-case { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 10px 14px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.signaler-case[aria-checked='true'] { border-color: var(--accent); background: var(--accent-soft); }
+.signaler-coche { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; flex: none; border: 1.5px solid var(--edge-strong); border-radius: 6px; color: var(--on-accent); }
+.signaler-case[aria-checked='true'] .signaler-coche { border-color: var(--accent); background: var(--accent); }
+.signaler-coche .icon { width: 14px; height: 14px; }
+.signaler-case-texte { display: flex; flex-direction: column; gap: 1px; }
+.signaler-case-texte b { font-weight: 600; }
+.signaler-case-texte span { color: var(--muted); font-size: 0.82rem; }
+.signaler-retour { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; min-height: 36px; }
+.signaler-bloc { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface); }
+.signaler-bloc-tete { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.signaler-bloc-tete h3 { font-family: var(--sans); font-size: 0.95rem; font-weight: 700; }
+.signaler-retirer { min-height: 36px; padding: 0 0 0 12px; border: 0; background: none; color: var(--muted); font-family: var(--sans); font-size: 0.82rem; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.signaler-reponses { display: flex; flex-direction: column; gap: 6px; }
+.signaler-reponse { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid var(--edge); border-radius: var(--radius-xs); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.signaler-reponse[aria-checked='true'] { border-color: var(--accent); background: var(--accent-soft); }
+.signaler-reponse[aria-checked='true'] > .icon { color: var(--accent-text-hover); }
+.signaler-donnee { margin-left: auto; color: var(--muted); font-size: 0.82rem; }
+.signaler-crans { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.signaler-cran { min-height: 44px; padding: 4px; border: 1px solid var(--edge); border-radius: var(--radius-xs); background: transparent; color: inherit; font-family: var(--sans); font-size: 0.85rem; cursor: pointer; }
+.signaler-cran[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text-hover); font-weight: 600; }
+.signaler-ajouts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.signaler-ajout { min-height: 36px; padding: 0 14px; border: 1px dashed var(--edge-strong); border-radius: var(--radius-pill); background: none; color: var(--accent-text); font-family: var(--sans); font-size: 0.85rem; cursor: pointer; }
+.signaler-recap { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: var(--radius-sm); background: var(--surface-strong); }
+.signaler-recap p { font-size: 0.92rem; }
+.signaler-recap s { color: var(--alert); }
+.signaler-recap b { color: var(--accent-text); }
 .jour-ligne { display: flex; align-items: center; gap: 12px; }
 .jour-ligne > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .jour-ligne h2 { font-size: 1.8rem; margin: 0; font-variant-numeric: lining-nums; }
