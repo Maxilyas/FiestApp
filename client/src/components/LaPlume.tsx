@@ -16,8 +16,9 @@ import type { PublicProfile } from '../../../shared/profil'
 // Beaucoup ne jouent qu'au quiz du jour et au défi de la semaine : une
 // invitation rangée en fin de série de campagne ne les touchait jamais (la
 // remarque du propriétaire du 2 novembre 2026). Elle vient donc à eux, au
-// moment où l'on est fier — le résultat du jour, la fin du défi — et là où
-// une question de joueur se signe. Sans prendre de place : pas de carte de
+// moment où l'on est fier — le résultat du jour, la fin du défi —, là où
+// une question de joueur se signe, et sur le jour joué, qu'on retrouve en
+// revenant : la fin ne se voit qu'une fois. Sans prendre de place : pas de carte de
 // plus, une ligne au pied d'une carte qui existe déjà. Ce qui attire l'œil,
 // c'est le geste, une fois : la plume se trace à l'arrivée, puis l'encre
 // souligne ce qu'elle propose — le mouvement au bon moment, et rien si le

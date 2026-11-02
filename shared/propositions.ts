@@ -43,7 +43,9 @@ export const QUESTIONS_DU_PUBLIC_PAR_JOUR = 1
  * Les bonnes réponses qui font paraître la plume — l'invitation à proposer
  * sa question —, au bout du quiz du jour comme du défi : après un beau
  * résultat, « écris la tienne » se lit comme un compliment ; après un
- * mauvais, comme une leçon. Un choix de produit.
+ * mauvais, comme une leçon. Un choix de produit. À la fin seulement : le
+ * jour joué, la page qu'on retrouve en revenant, la montre à tous — elle n'y
+ * répond plus à la partie qu'on vient de finir.
  */
 export const JUSTES_POUR_LA_PLUME = 7
 
