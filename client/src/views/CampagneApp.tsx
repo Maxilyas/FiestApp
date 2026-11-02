@@ -1373,7 +1373,7 @@ export function CampagneApp() {
             !!ecran.recordAvant && <p className="muted small">Ton record : {ecran.recordAvant}</p>
           )}
           {/* Au défi, l'invitation à écrire une question : une ligne au pied du résultat, pas une carte de plus. */}
-          {ecran.defi && !ecran.duel && ecran.justes >= JUSTES_POUR_LA_PLUME && <LaPlume accroche="À toi :" appel="pose une colle à tous" />}
+          {ecran.defi && !ecran.duel && ecran.justes >= JUSTES_POUR_LA_PLUME && <LaPlume accroche="À toi :" appel="pose une colle à tous" profil={profil} />}
         </section>
         {/* Ses erreurs ne sont pas perdues : le carnet les repose demain. Pas celles d'un défi, qui attendent sa clôture. */}
         {!ecran.defi && ecran.erreurs > 0 && (
