@@ -691,9 +691,10 @@ export function Niche(vue: NicheVue) {
     return () => window.removeEventListener('scroll', suivre)
   }, [])
   // Sur l'accueil, le profil et la boutique, les premières fois : une bulle
-  // lui propose de la toucher, le temps que la page se pose.
+  // lui propose de la toucher, le temps que la page se pose — pas sur un
+  // compagnon qu'on essaie, qui n'a pas de fiche.
   useEffect(() => {
-    if (!prendreLAppel()) return
+    if (vue.essai || !prendreLAppel()) return
     const montre = setTimeout(() => setAppel(true), APPEL_APRES_MS)
     const cache = setTimeout(() => setAppel(false), APPEL_APRES_MS + APPEL_MS)
     return () => {
@@ -830,13 +831,16 @@ export function Niche(vue: NicheVue) {
           (humeur !== 'neutre' ? ` ${humeur}` : '') +
           (repas ? ' nourrie' : '') +
           (repas?.vue ? ' jauge-vue' : '') +
-          (dehors ? ' vide' : '')
+          (dehors ? ' vide' : '') +
+          (vue.essai ? ' niche-essai' : '')
         }
-        aria-label={`${nom ?? forme.nom}, dans ta niche : sa fiche`}
-        aria-haspopup="dialog"
+        aria-label={vue.essai ? `${forme.nom}, à l’essai dans ta niche` : `${nom ?? forme.nom}, dans ta niche : sa fiche`}
+        aria-haspopup={vue.essai ? undefined : 'dialog'}
         onClick={() => {
           setAppel(false)
-          setFiche(true)
+          // À l'essai, il n'est pas encore à lui : rien à gérer, il sautille.
+          if (vue.essai) setGeste(g => ({ sorte: 'saute', n: (g?.n ?? 0) + 1 }))
+          else setFiche(true)
         }}
       >
         <Arche

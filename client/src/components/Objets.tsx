@@ -79,6 +79,8 @@ export interface Objet {
   prix: number
   /** Ce qu'il fait, en une phrase. */
   dit: string
+  /** Ce qu'il change pour lui, en quelques mots : le comptoir de la boutique le met en avant. */
+  accroche: string
   dessin: () => ReactNode
   /** Au plus, d'un achat — ou ce qui reste de place, pour le sablier. */
   maximum: number
@@ -94,6 +96,7 @@ export const OBJETS: readonly Objet[] = [
     compte: n => `${n} vie${n > 1 ? 's' : ''}`,
     prix: PRIX_D_UNE_VIE,
     dit: 'Un palier raté coûte une vie. Celles-ci vont dans ta réserve : elles servent après celles du jour, et ne périment pas.',
+    accroche: 'Un palier raté ne t’arrête plus.',
     dessin: () => <CoeurDeVie />,
     maximum: VIES_PAR_ACHAT_MAX,
   },
@@ -104,6 +107,7 @@ export const OBJETS: readonly Objet[] = [
     compte: n => `${n} sablier${n > 1 ? 's' : ''}`,
     prix: PRIX_D_UN_SABLIER,
     dit: 'Un jour sans quiz du jour en prend un, et ta série tient — sans compter ce jour-là. Achète-le avant le jour manqué, ou ce jour-là avant minuit.',
+    accroche: 'Un jour manqué ne casse plus ta série.',
     dessin: () => <Sablier />,
     maximum: SABLIERS_MAX,
     plein: 'Tu as tes deux sabliers : un jour manqué en prendra un, et tu pourras le remplacer.',
@@ -115,6 +119,7 @@ export const OBJETS: readonly Objet[] = [
     compte: n => `${n} Éclat${n > 1 ? 's' : ''}`,
     prix: PRIX_D_UN_ECLAT,
     dit: 'Il attend dans ta loge, et tu choisis l’avatar qui éclate : il change de couleurs, pour toujours. Tu vois chacun éclaté avant de choisir.',
+    accroche: 'L’avatar de ton choix change de couleurs, pour toujours.',
     dessin: () => <GemmeDEclat />,
     // Un à la fois : il coûte cher, et se dépense d'abord.
     maximum: 1,
