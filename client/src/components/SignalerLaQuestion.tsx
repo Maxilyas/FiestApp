@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { Feuille } from './Pieces'
 import { Icon } from './Icon'
 import { Shape } from './Shape'
 import { EMBLEME } from './Ecusson'
 import { espacesFines } from '../format'
 import { CATEGORIES } from '../../../shared/categories'
-import { changementsProposes, decoupage, texteDuSignalement, type Proposition, type QuestionSignalee } from '../../../shared/signalement'
+import { SIGNALEMENT_MAX, changementsProposes, morceaux, texteDuSignalement, type Proposition, type QuestionSignalee } from '../../../shared/signalement'
 
 /**
  * Signaler une erreur, en touchant ce qui cloche (`shared/signalement.ts`).
@@ -87,7 +87,8 @@ export function SignalerLaQuestion({
           valeur={texte}
           enEdition={edition === 'texte'}
           onEditer={() => setEdition('texte')}
-          onFini={() => setEdition(null)}
+          // Fini plus tard (`RELIRE_APRES_MS`) : l'anecdote ouverte entre-temps reste ouverte.
+          onFini={() => setEdition(e => (e === 'texte' ? null : e))}
           onChange={setTexte}
           className="signaler-question"
         />
@@ -118,7 +119,7 @@ export function SignalerLaQuestion({
             valeur={anecdote}
             enEdition={edition === 'anecdote'}
             onEditer={() => setEdition('anecdote')}
-            onFini={() => setEdition(null)}
+            onFini={() => setEdition(e => (e === 'anecdote' ? null : e))}
             onChange={setAnecdote}
             className="signaler-anecdote"
             icone="message"
@@ -171,9 +172,28 @@ export function SignalerLaQuestion({
 }
 
 /**
+ * Quitté, un texte ne se relit corrigé qu'une fois le geste fini. Relu au
+ * blur — au `mousedown` que le doigt fait suivre —, il grandissait de ses
+ * mots barrés, et la réponse ou la pastille touchée glissait sous le doigt
+ * avant le `click`, qui se perdait : « La farandole », touchée par son bord
+ * haut juste après la question corrigée, était 38 px plus bas à son `click`
+ * (la sonde du 2 novembre 2026). Au doigt, `mousedown` et `click` partent
+ * d'un même coup ; à la souris, un clic tient dans ce délai.
+ */
+const RELIRE_APRES_MS = 300
+
+/**
+ * L'espace entre deux morceaux, telle que `espacesFines` la poserait dans la
+ * phrase entière — fine et insécable devant un point d'interrogation ou
+ * derrière un guillemet ouvrant —, sans quoi le point d'interrogation d'une
+ * question retouchée partait seul à la ligne.
+ */
+const espaceEntre = (gauche: string, droite: string) => espacesFines(`${gauche.slice(-1)} ${droite.charAt(0)}`).slice(1, -1)
+
+/**
  * Un texte de la question qui se corrige sur place : touché, il devient un
  * champ ; quitté, il se relit corrigé — ce qui part barré, ce qui vient en
- * or, au milieu de la phrase qui ne bouge pas.
+ * or, chaque retouche à sa place dans la phrase (`morceaux`).
  */
 function TexteATouche({
   nom,
@@ -201,25 +221,41 @@ function TexteATouche({
   useEffect(() => {
     if (enEdition) champ.current?.focus()
   }, [enEdition])
-  const d = decoupage(avant, valeur)
-  if (enEdition) {
-    return <textarea ref={champ} className={`input ${className} signaler-en-edition`} rows={3} value={valeur} aria-label={`Corriger ${nom}`} onChange={e => onChange(e.target.value)} onBlur={onFini} />
+  const relire = () => {
+    window.setTimeout(() => {
+      // Revenu dans le champ entre-temps, on y écrit encore.
+      if (document.activeElement !== champ.current) onFini()
+    }, RELIRE_APRES_MS)
   }
+  if (enEdition) {
+    return (
+      <textarea
+        ref={champ}
+        className={`input ${className} signaler-en-edition`}
+        rows={3}
+        // De quoi tout récrire, pas de quoi coller une page : la phrase envoyée n'en citerait que 280 caractères.
+        maxLength={avant.length + SIGNALEMENT_MAX}
+        value={valeur}
+        aria-label={`Corriger ${nom}`}
+        onChange={e => onChange(e.target.value)}
+        onBlur={relire}
+      />
+    )
+  }
+  // Mot à mot, une fois le champ quitté : pas à chaque frappe.
+  const m = morceaux(avant, valeur)
   return (
-    <button type="button" className={`${className} signaler-touchable` + (d ? ' signaler-corrige' : '')} aria-label={`Corriger ${nom}`} onClick={onEditer}>
+    <button type="button" className={`${className} signaler-touchable` + (m ? ' signaler-corrige' : '')} aria-label={`Corriger ${nom}`} onClick={onEditer}>
       {icone && <Icon name={icone} />}
       <span className="signaler-texte">
-        {d ? (
-          <>
-            {d.debut && `${espacesFines(d.debut)} `}
-            {d.enleve && <s>{espacesFines(d.enleve)}</s>}
-            {d.enleve && d.ajoute && ' '}
-            {d.ajoute && <b>{espacesFines(d.ajoute)}</b>}
-            {d.fin && ` ${espacesFines(d.fin)}`}
-          </>
-        ) : (
-          espacesFines(avant)
-        )}
+        {m
+          ? m.map((x, i) => (
+              <Fragment key={i}>
+                {i > 0 && espaceEntre(m[i - 1].mots, x.mots)}
+                {x.sort === 'part' ? <s>{espacesFines(x.mots)}</s> : x.sort === 'vient' ? <b>{espacesFines(x.mots)}</b> : espacesFines(x.mots)}
+              </Fragment>
+            ))
+          : espacesFines(avant)}
       </span>
       <Icon name="edit" className="signaler-crayon" />
     </button>

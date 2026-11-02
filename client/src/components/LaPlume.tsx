@@ -202,7 +202,8 @@ function CarteAEcrire({ profil, onFermer }: { profil?: PublicProfile | null; onF
       </div>
       <p className={'plume-conseil' + (prete ? ' plume-conseil-prete' : '')} aria-live="polite">
         <Icon name={prete ? 'check-circle' : 'edit'} />
-        {espacesFines(conseil ?? 'Prête : elle part en relecture, puis dans le jeu.')}
+        {/* Une ligne : sur deux, son dernier mot restait seul au milieu. */}
+        {espacesFines(conseil ?? 'Prête : elle part en relecture.')}
       </p>
     </Feuille>
   )

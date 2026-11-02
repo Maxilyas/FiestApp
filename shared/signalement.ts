@@ -66,16 +66,19 @@ export interface Changement {
   apres: string
 }
 
+/** Les mots d'un texte, aux espaces près. */
+const motsDe = (texte: string) => texte.trim().split(/\s+/).filter(Boolean)
+
 /**
  * Un texte récrit, découpé mot à mot : ce qui ne bouge pas devant et
- * derrière, et entre les deux ce qui part et ce qui vient. La feuille le
- * montre dans le texte même — « … en ~~Suise~~ **Suisse**, au glacier… » —
- * plutôt que deux phrases entières à comparer de l'œil. Null : rien n'a
- * changé, aux espaces près.
+ * derrière, et entre les deux ce qui part et ce qui vient — d'un seul bloc,
+ * de la première retouche à la dernière : c'est ce que la phrase envoyée en
+ * cite (`ecartDesMots`), et l'administrateur sait où le lire. Null : rien
+ * n'a changé, aux espaces près.
  */
 export function decoupage(avant: string, apres: string): { debut: string; enleve: string; ajoute: string; fin: string } | null {
-  const a = avant.trim().split(/\s+/).filter(Boolean)
-  const b = apres.trim().split(/\s+/).filter(Boolean)
+  const a = motsDe(avant)
+  const b = motsDe(apres)
   let debut = 0
   while (debut < a.length && debut < b.length && a[debut] === b[debut]) debut++
   let fin = 0
@@ -90,6 +93,56 @@ export function decoupage(avant: string, apres: string): { debut: string; enleve
 export function ecartDesMots(avant: string, apres: string): { enleve: string; ajoute: string } | null {
   const d = decoupage(avant, apres)
   return d && { enleve: d.enleve, ajoute: d.ajoute }
+}
+
+/** Un morceau d'un texte récrit : des mots qui restent, qui partent ou qui viennent. */
+export interface Morceau {
+  mots: string
+  sort: 'reste' | 'part' | 'vient'
+}
+
+/**
+ * Un texte récrit tel que la feuille le montre, dans le texte même : chaque
+ * retouche à sa place, ce qui part barré, ce qui vient en or —
+ * « … en ~~Suise~~ **Suisse**, au glacier… ». D'un seul bloc (`decoupage`),
+ * deux retouches éloignées — « en file » devenu « en file indienne », « celui
+ * de » devenu « celui qui est » — barraient toute la phrase entre elles, et
+ * deux mots corrigés se lisaient comme une question récrite en entier (la
+ * sonde du 2 novembre 2026). La plus longue suite de mots communs les
+ * sépare ; une question tient en quelques dizaines de mots. Null : rien n'a
+ * changé, aux espaces près.
+ */
+export function morceaux(avant: string, apres: string): Morceau[] | null {
+  const a = motsDe(avant)
+  const b = motsDe(apres)
+  // `communs[i][j]` : la plus longue suite de mots communs à a depuis i et à b depuis j.
+  const communs = Array.from({ length: a.length + 1 }, () => new Array<number>(b.length + 1).fill(0))
+  for (let i = a.length - 1; i >= 0; i--) {
+    for (let j = b.length - 1; j >= 0; j--) {
+      communs[i][j] = a[i] === b[j] ? communs[i + 1][j + 1] + 1 : Math.max(communs[i + 1][j], communs[i][j + 1])
+    }
+  }
+  const suite: Morceau[] = []
+  const poser = (mot: string, sort: Morceau['sort']) => {
+    const dernier = suite[suite.length - 1]
+    if (dernier?.sort === sort) dernier.mots += ` ${mot}`
+    else suite.push({ mots: mot, sort })
+  }
+  let i = 0
+  let j = 0
+  while (i < a.length || j < b.length) {
+    if (i < a.length && j < b.length && a[i] === b[j]) {
+      poser(a[i], 'reste')
+      i++
+      j++
+    } else if (i < a.length && (j === b.length || communs[i + 1][j] >= communs[i][j + 1])) {
+      // À égalité, ce qui part passe d'abord : barré, puis remplacé — « ~~Suise,~~ **Suisse,** ».
+      poser(a[i++], 'part')
+    } else {
+      poser(b[j++], 'vient')
+    }
+  }
+  return suite.some(m => m.sort !== 'reste') ? suite : null
 }
 
 /** Ce que la proposition change vraiment, point par point, dans l'ordre où le QG les relit. */

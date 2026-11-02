@@ -135,14 +135,22 @@ try {
       await page.click('text=Signaler une erreur dans cette question')
       await page.waitForSelector('.signaler-feuille')
       await photo('03-jour-signaler', { attente: 400 })
-      await page.locator('button.signaler-anecdote').click()
+      await page.locator('button.signaler-anecdote').tap()
       const anecdote = page.locator('textarea.signaler-anecdote')
       await anecdote.fill('Elle a même sa chanson, « La Chenille », un tube de la Bande à Basile.')
       await photo('04-jour-signaler-en-edition', { attente: 300 })
-      // Quitté, le champ se relit corrigé ; puis la difficulté.
-      await page.keyboard.press('Tab')
-      await page.locator('.signaler-pastille', { hasText: 'Trop facile' }).click()
-      await photo('05-jour-signaler-corrige', { attente: 300 })
+      // Puis la difficulté, touchée au doigt sans quitter le champ d'abord : le texte se relit corrigé, et grandit, après le
+      // geste (`RELIRE_APRES_MS`) — avant, la pastille glissait sous le doigt et le toucher se perdait.
+      const facile = page.locator('.signaler-pastille', { hasText: 'Trop facile' })
+      await facile.tap()
+      if ((await facile.getAttribute('aria-pressed')) !== 'true') console.warn('[signaler] « Trop facile », touchée au sortir du champ, ne s’est pas cochée')
+      await photo('05-jour-signaler-corrige', { attente: 400 })
+      // Deux retouches dans la question : chacune se lit à sa place, la phrase entre elles intacte (`morceaux`). Quittée d'un
+      // toucher dans la marge de la carte, hors de tout bouton.
+      await page.locator('button.signaler-question').tap()
+      await page.locator('textarea.signaler-question').fill('Quelle danse de fête fait-on en file indienne, chacun les mains sur les épaules de celui qui est devant ?')
+      await page.locator('.signaler-carte').tap({ position: { x: 6, y: 6 } })
+      await photo('06-jour-signaler-deux-retouches', { attente: 500 })
       await page.locator('.signaler-feuille .carte-fermer').click()
       await page.waitForTimeout(400)
     }
@@ -188,8 +196,8 @@ try {
       // Au défi : la coche se déplace sur une autre réponse, et la difficulté d'un toucher.
       await page.click('text=Signaler une erreur dans cette question')
       await page.waitForSelector('.signaler-feuille')
-      await page.locator('.signaler-reponse').nth(bonne === 0 ? 1 : 0).click()
-      await page.locator('.signaler-pastille', { hasText: 'Trop dure' }).click()
+      await page.locator('.signaler-reponse').nth(bonne === 0 ? 1 : 0).tap()
+      await page.locator('.signaler-pastille', { hasText: 'Trop dure' }).tap()
       await photo('12-defi-signaler', { attente: 400 })
       await page.locator('.signaler-feuille .carte-fermer').click()
       await page.waitForTimeout(300)
