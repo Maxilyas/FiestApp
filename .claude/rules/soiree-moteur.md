@@ -56,6 +56,20 @@ paths:
   moyenne d'une équipe. Les candidats d'un sondage, eux, ne passent que par
   `playFrom` (`startQuestion`) : le chef qui anime seulement et un
   téléphone qu'on n'attend plus y restent désignables.
+- **Un chronomètre en retard passe un tour de boucle avant de sonner**
+  (`RETARD_D_UN_GEL_MS`, `armTimer`) : en retard, il a sonné après un gel, et
+  la boucle passe les chronomètres échus avant de lire les sockets — la
+  réponse d'un invité partie à temps, arrivée pendant le gel, recevait
+  « Trop tard » quand le gel dépassait la marge (`GRACE_MS`, 1,5 s ; 2,9 s en
+  production pendant une soirée de vingt invités, le 31 octobre 2026). Il
+  reste armé ce tour-là — même échéance, même empreinte — : ce qui le
+  désarme ou le réarme entre-temps l'éteint (une pause, le souffle relancé,
+  la partie finie). Un chronomètre tient donc sa façon de s'éteindre
+  (`annuler`), jamais un `handle` qu'on passerait à `clearTimeout`
+  (`gel-en-fin-de-question.test.ts`). Chaque chronomètre qui sonne se nomme
+  pour les gels (`chrono question`, `core/gels.ts`, règle `exploitation.md`),
+  et `chronometreArme()` dit à la campagne qu'une question attend ses
+  réponses (`campagne.salleEnJeu`, règle `campagne.md`).
 - **Un geste qui fait avancer la partie porte sa visée** (invariant 12) :
   `perimee` ne juge que `next`, `cancel`, `replay` et `cible` ; les réponses
   portent `qIndex` et `round`, jamais la phase ; `host:scene` porte l'écran

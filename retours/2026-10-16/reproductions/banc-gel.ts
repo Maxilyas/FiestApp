@@ -20,7 +20,10 @@
 // Sous tsx, chaque fonction passe par `__name`, et la base de la campagne se
 // relit et se vérifie : compilé comme le paquet (`compiler.ts`), le banc
 // mesure ce que la production fait. `PROFILER=1` y dit aussi les plus longs
-// trous de la boucle, et ce qui tournait pendant chacun.
+// trous de la boucle, et ce qui tournait pendant chacun. Et, depuis le
+// 2 novembre 2026, à la fin : chaque gel que la sonde du serveur a relevé
+// (`core/gels.ts`), son étape, et ce qui tournait pendant — ce que la page
+// « Le serveur » du QG dira de la production.
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
@@ -29,7 +32,18 @@ import { Session } from 'node:inspector/promises'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { fauxTurso, attendre, DONNEES } from '../../2026-10-14/reproductions/outils.ts'
 import { demarrer, connexionAnimateur, inscrireProfil, ecrire } from '../../../server/test/banc.ts'
+import { releve } from '../../../server/src/core/pouls.ts'
+import type { GelDeLaBoucle } from '../../../shared/santeDuServeur.ts'
 const GEL = process.env.GEL === '1'
+
+// Chaque gel que la sonde du serveur relève, en entier : l'heure n'en garde que cinq en détail.
+const gelsReleves: GelDeLaBoucle[] = []
+const noterAuReleve = releve.gel.bind(releve)
+releve.gel = g => {
+  gelsReleves.push(g)
+  noterAuReleve(g)
+}
+const fenetres: { etape: string; debut: number; fin: number }[] = []
 const PROFILER = process.env.PROFILER === '1'
 const ATTENTE = GEL ? 4 : 1
 
@@ -332,8 +346,10 @@ async function mesurer(etape: string, f: () => Promise<number | void>, { profile
   }
   const cpu = process.cpuUsage()
   const debut = performance.now()
+  const debutALHorloge = Date.now()
   const octets = await f()
   const ms = performance.now() - debut
+  fenetres.push({ etape, debut: debutALHorloge, fin: Date.now() })
   const c = process.cpuUsage(cpu)
   h.disable()
   if (minuterie) clearInterval(minuterie)
@@ -404,6 +420,18 @@ await mesurer('vague de l’accueil, 4 joueurs de front', async () => (await Pro
 
 writeFileSync(path.join(DONNEES, `banc-gel${GEL ? '-dixieme' : ''}.json`), JSON.stringify(mesures, null, 1))
 console.log(`\n${erreurs.length} échec(s) au total`)
+
+// Ce que la sonde des gels a relevé, étape par étape — ce qui tournait n'est pas forcément ce qui gelait.
+console.log(`\n${gelsReleves.length} gel(s) de plus d’une demi-seconde relevés par la sonde du serveur :`)
+const etapeDe = (a: number) => fenetres.find(f => a >= f.debut && a <= f.fin + 400 * ATTENTE)?.etape ?? '(entre deux étapes)'
+for (const g of gelsReleves) {
+  const enCours = g.enCours.map(c => (c.n > 1 ? `${c.quoi} ×${c.n}` : c.quoi)).join(', ') || 'rien de nommé'
+  console.log(`  ${etapeDe(g.a).slice(0, 48).padEnd(48)} ${String(g.dureeMs).padStart(5)} ms  cpu ${String(g.processeurMs).padStart(4)}  gc ${String(g.ramasseMiettesMs).padStart(4)}  — ${enCours}`)
+}
+const parCe = new Map<string, { n: number; ms: number }>()
+for (const g of gelsReleves) for (const c of g.enCours) parCe.set(c.quoi, { n: (parCe.get(c.quoi)?.n ?? 0) + 1, ms: (parCe.get(c.quoi)?.ms ?? 0) + g.dureeMs })
+console.log('\nCe qui a couvert le plus de gel :')
+for (const [quoi, c] of [...parCe].sort((a, b) => b[1].ms - a[1].ms).slice(0, 15)) console.log(`  ${String(c.ms).padStart(6)} ms en ${c.n} gel(s)  ${quoi}`)
 await banc.close()
 faux.fermer()
 process.exit(0)

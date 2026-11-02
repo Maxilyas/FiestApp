@@ -42,6 +42,38 @@ export function rendreLaMain(): Promise<void> {
   })
 }
 
+/** Au plus, ce qu'une étape de fond attend la salle : une question laissée ouverte ne l'arrête pas pour la soirée. */
+export const SALLE_ATTENDUE_MAX_MS = 3 * 60_000
+/** Combien de fois par seconde elle regarde si la question est passée. */
+const SALLE_REGARDEE_MS = 250
+
+/**
+ * Le travail que personne n'attend — le modèle du savoir refait en fond, les
+ * tirages préparés derrière une mesure neuve — laisse passer une soirée : tant
+ * qu'une question attend ses réponses (`enJeu`), il ne reprend pas. Au dixième
+ * de cœur de l'hébergeur, il prenait le processeur dont la salle avait besoin
+ * — 28,5 s pour le modèle refait au démarrage du 2 novembre 2026, 5,6 s pour
+ * le suivant —, et la boucle qu'il fait tourner une tranche à la fois retarde
+ * d'autant chaque réponse et le chronomètre de la question. Il reprend à la
+ * révélation, et au plus tard au bout de `SALLE_ATTENDUE_MAX_MS`. Jamais sur le
+ * chemin d'une requête : elle attendrait la fin de la question.
+ */
+export async function laisserPasserLaSalle(
+  enJeu: (() => boolean) | undefined,
+  arrete: () => boolean = () => false,
+  /** La tâche qui attend, mise en pause le temps de la question : elle n'est d'aucun gel de la salle (`core/gels.ts`). */
+  tache?: { suspendre(): void; reprendre(): void },
+): Promise<void> {
+  if (!enJeu || !enJeu()) return
+  tache?.suspendre()
+  try {
+    const fin = Date.now() + SALLE_ATTENDUE_MAX_MS
+    while (enJeu() && !arrete() && Date.now() < fin) await new Promise(r => setTimeout(r, SALLE_REGARDEE_MS))
+  } finally {
+    tache?.reprendre()
+  }
+}
+
 /**
  * Ce que le serveur relit d'une traite avant de rendre la main, en questions
  * de la base : une dizaine de millisecondes — la lecture de la base

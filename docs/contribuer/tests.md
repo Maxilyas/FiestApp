@@ -206,6 +206,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 ### La salle : le temps réel, les invités, le chef
 
 - `server/test/protocole.test.ts` — les gestes disent ce qu'ils visent ; le coût des diffusions à trois cents invités.
+- `server/test/gel-en-fin-de-question.test.ts` — un gel de la boucle à la fin d'une question : la réponse partie à temps, arrivée pendant le gel, compte ; le chronomètre en retard passe un tour de boucle, et une pause arrivée pendant ce tour l'éteint.
 - `server/test/temps-reel.test.ts` — messages malformés, identité périmée, exclusion en pleine question, une salle derrière une box.
 - `server/test/garde-fous.test.ts` — aucune commande `host:*` d'un téléphone ou d'un autre espace ; chronomètres réarmés.
 - `server/test/poignee-de-main.test.ts` — un geste d'animateur relit la session de sa poignée de main.
@@ -265,6 +266,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/connexions-de-la-base.test.ts` — les connexions vers Turso comptées — ouvertes, refermées par la base, tombées en route —, l'entretien qui les garde chaudes (`QUIZ_DB_KEEPWARM`) et la garde à l'heure de Node après un gel de la boucle, par le `fetch` de Node.
 - `server/test/garde-des-connexions.ts` — pas un fichier de tests : ce que tout transport vers la base permanente doit tenir, déclaré pour un transport (`testerLesConnexions`), que le fichier précédent et le suivant jouent.
 - `server/test/transport-leger.test.ts` — le transport léger (`QUIZ_DB_TRANSPORT=leger`) : la garde des connexions entière, puis ce qui lui est propre.
+- `server/test/gels.test.ts` — ce qui gèle la boucle (`core/gels.ts`) : un gel provoqué se relève avec ce qui tournait pendant — ni ce qui avait fini, ni ce qui attendait en pause —, le relevé de l'heure les range, la page les dit sur la semaine, et chaque porte du serveur — une route, un message du temps réel, un chronomètre — se nomme sans un identifiant.
 
 ### L'exploitation
 
@@ -470,7 +472,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/statistiques.ts` — pas un fichier de tests : une base neuve au schéma du serveur sous des statistiques qui égareraient SQLite (`sousCesStatistiques`, `DE_LA_PRODUCTION`, `UN_DUEL_DE_CINQUANTE`), pour `server/test/campagne-index.test.ts` et `server/test/duels-index.test.ts`. Sans statistiques, son choix d'index tient à l'ordre où chaque base les a créés : un plan qui passe au banc peut tout relire en production (le 2 novembre 2026).
 - `server/test/campagne-mesure.test.ts` — la mesure des difficultés qui ne se fait jamais attendre, sa série de référence et son décodage comparés au code d'avant, gardé dans le test.
 - `server/test/tirage-prepare.test.ts` — le tirage d'une série préparé une fois par liste de jouables et par mesure, comparé question pour question au tirage d'avant, au même hasard.
-- `server/test/travail-de-fond.test.ts` — le travail de fond rend la main une étape à la fois : les tours de boucle comptés, jamais deux étapes lourdes dans le même.
+- `server/test/travail-de-fond.test.ts` — le travail de fond rend la main une étape à la fois : les tours de boucle comptés, jamais deux étapes lourdes dans le même ; il laisse passer la question d'une soirée — trois minutes au plus —, et se nomme pour les gels.
 - `server/test/campagne-base.test.ts` — la base livrée : rien de défectueux n'y entre, elle ne recule jamais.
 - `server/test/campagne-routine.test.ts` — le dépôt du matin, relu par le juge, plafonné.
 - `server/test/campagne-signalements.test.ts` — les signalements : garder, retirer, corriger.

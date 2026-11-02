@@ -372,6 +372,21 @@ paths:
   lourdes dans le même. Restent d'une traite, vingt à trente millisecondes
   chacune : les index d'une base (`BaseDeLaCampagne`) et la première
   préparation d'un tirage (`PreparationDuTirage`).
+- **Le travail que personne n'attend laisse passer la salle**
+  (`laisserPasserLaSalle`, `core/tourniquet.ts`, le 2 novembre 2026) : le
+  modèle du savoir refait en fond — 28,5 s au démarrage du jour, 5,6 s le
+  suivant — et les tirages préparés derrière une mesure neuve
+  (`relireLaMesureEnFond`) prenaient le dixième de cœur à la soirée qui
+  jouait. Tant qu'une question attend ses réponses dans un espace
+  (`salleEnJeu`, branché par `server.ts` : sa phase, et son chronomètre qui
+  court — en pause, il ne court plus), ils ne commencent ni ne reprennent,
+  avant chaque étape et chaque tranche (`ajusterSansBloquer`,
+  `avantLaTranche`), trois minutes au plus (`SALLE_ATTENDUE_MAX_MS`). **Jamais
+  sur le chemin d'une requête** : `mesures()`, `jouables()`, `base()`, que les
+  requêtes attendent, n'attendent pas la salle — seul ce qui n'est attendu de
+  personne. Chaque travail de fond se nomme pour les gels (« fond · modèle du
+  savoir », `enFond`, `suivre` — en pause, il n'est d'aucun gel :
+  `core/gels.ts`, règle `exploitation.md`) ; un travail de fond neuf aussi.
 - **L'en-tête d'une partie passe à la ligne au téléphone** : en 360 de
   large, à côté des cœurs, « Contre Automate · question 1 » laissait le
   « 1 » seul sur sa seconde ligne (contre Tom, il tenait sur une). « question

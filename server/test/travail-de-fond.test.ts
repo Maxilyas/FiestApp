@@ -8,14 +8,16 @@
 // l'hébergeur (le banc du gel, compilé comme en production, le 19 octobre
 // 2026). On compte les tours de boucle, on ne chronomètre pas : une étape
 // lourde par tour, jamais deux.
-import { test } from 'node:test'
+import { mock, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { MessageChannel } from 'node:worker_threads'
 import { baseDEssai } from './banc'
-import { rendreLaMain } from '../src/core/tourniquet'
+import { performance } from 'node:perf_hooks'
+import { SALLE_ATTENDUE_MAX_MS, laisserPasserLaSalle, rendreLaMain } from '../src/core/tourniquet'
+import { ceQuiTournait } from '../src/core/gels'
 import { CampagneStore, type PreparationDuTirage } from '../src/core/campagne'
 import type { BaseDeLaCampagne, QuestionDeLaBase } from '../src/core/baseCampagne'
 import type { MesureDUneQuestion } from '../../shared/campagne'
@@ -149,11 +151,72 @@ test('au réveil, la campagne prépare ses tirages et son modèle une étape lou
   const { campagne, etapes, fermer } = magasinObserve()
   try {
     await campagne.init()
+    const t0 = performance.now()
     campagne.prechauffer()
     await quand(() => campagne.santeDuSavoir().ajusteLe !== null, 'le modèle du savoir s’ajuste en fond')
     uneParTour(etapes, ['familles', 'en famille', 'préparation du tirage', 'série de référence'])
+    // Chacun sous son nom, pour les gels du serveur (`core/gels.ts`).
+    const noms = ceQuiTournait(t0, performance.now()).map(c => c.quoi)
+    for (const nom of ['fond · base de la campagne', 'fond · journal des réponses', 'fond · mesure des difficultés', 'fond · modèle du savoir']) {
+      assert.ok(noms.includes(nom), `${nom} : nommé (${noms.join(', ')})`)
+    }
   } finally {
     fermer()
+  }
+})
+
+// Le modèle du savoir refait en fond prenait le dixième de cœur de
+// l'hébergeur à la salle — 28,5 s au démarrage du 2 novembre 2026 : tant
+// qu'une question attend ses réponses, il ne commence ni ne reprend.
+test('le modèle du savoir laisse passer la question d’une soirée, puis s’ajuste', async () => {
+  const { campagne, fermer } = magasinObserve()
+  let enJeu = true
+  let regards = 0
+  campagne.salleEnJeu = () => {
+    regards++
+    return enJeu
+  }
+  try {
+    await campagne.init()
+    campagne.prechauffer()
+    // Il a regardé la salle quatre fois, à un quart de seconde d'écart : de quoi
+    // s'ajuster plusieurs fois sur cette base, une centaine de millisecondes.
+    await quand(() => regards >= 4, 'le travail de fond regarde la salle')
+    assert.equal(campagne.santeDuSavoir().ajusteLe, null, 'pas d’ajustement pendant la question')
+    const pendant = performance.now()
+    assert.ok(
+      !ceQuiTournait(pendant, pendant).some(c => c.quoi === 'fond · modèle du savoir'),
+      'en pause, il n’est d’aucun gel de la salle (`core/gels.ts`)',
+    )
+    enJeu = false
+    await quand(() => campagne.santeDuSavoir().ajusteLe !== null, 'la question passée, le modèle s’ajuste')
+    assert.ok(ceQuiTournait(pendant, performance.now()).some(c => c.quoi === 'fond · modèle du savoir'), 'reparti, il tourne de nouveau')
+  } finally {
+    fermer()
+  }
+})
+
+test('une question laissée ouverte n’arrête pas le travail de fond pour la soirée', async () => {
+  mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 0 })
+  try {
+    let passee = false
+    const attente = laisserPasserLaSalle(() => true).then(() => {
+      passee = true
+    })
+    // Le temps avance d'un quart de seconde à la fois ; entre deux, la boucle tourne pour de vrai.
+    const avancer = async (ms: number) => {
+      for (let t = 0; t < ms; t += 250) {
+        mock.timers.tick(250)
+        await new Promise(r => setImmediate(r))
+      }
+    }
+    await avancer(SALLE_ATTENDUE_MAX_MS - 1_000)
+    assert.equal(passee, false, 'la salle joue encore : il attend')
+    await avancer(2_000)
+    await attente
+    assert.equal(passee, true, `au bout de ${SALLE_ATTENDUE_MAX_MS / 60_000} minutes, il reprend`)
+  } finally {
+    mock.timers.reset()
   }
 })
 

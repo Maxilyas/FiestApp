@@ -407,13 +407,20 @@ export function ajusterLeModele(entree: EntreeDuModele): ModeleDuSavoir {
 /**
  * Le même, qui rend la main entre deux tranches : le serveur le refait en
  * fond, pendant que des soirées se jouent. `arrete` l'interrompt — le
- * serveur qui s'éteint ne finit pas un calcul que personne ne lira.
+ * serveur qui s'éteint ne finit pas un calcul que personne ne lira. Avant
+ * chaque tranche, `avantLaTranche` peut le faire attendre : le serveur y
+ * laisse passer la question d'une soirée (`laisserPasserLaSalle`).
  */
-export async function ajusterSansBloquer(entree: EntreeDuModele, arrete: () => boolean = () => false): Promise<ModeleDuSavoir | null> {
+export async function ajusterSansBloquer(
+  entree: EntreeDuModele,
+  arrete: () => boolean = () => false,
+  avantLaTranche?: () => Promise<void>,
+): Promise<ModeleDuSavoir | null> {
   const calcul = ajustement(entree)
   for (;;) {
     const pas = calcul.next()
     if (pas.done) return pas.value
+    await avantLaTranche?.()
     await rendreLaMain()
     if (arrete()) return null
   }

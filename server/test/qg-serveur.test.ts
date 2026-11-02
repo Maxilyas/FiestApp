@@ -580,6 +580,8 @@ test('sept jours heure par heure : les heures fondues, la nuit endormie, chaque 
     // Des lignes d'avant le compte du quota de Turso : rien n'en dit les lignes lues.
     lignesLues: null,
     lignesEcrites: null,
+    // Ni d'avant le relevé des gels (`core/gels.ts`).
+    gels: null,
   })
   // La nuit, l'hébergeur dort ; le matin, le réveil de 7 h 02 compte son heure.
   assert.equal(heure(a(0, 3)).eveille, false)
@@ -606,6 +608,7 @@ test('sept jours heure par heure : les heures fondues, la nuit endormie, chaque 
     recusMo: null,
     lignesLues: null,
     lignesEcrites: null,
+    gels: null,
   })
   // Une heure d'avant le compte des connexions : ni part, ni détail.
   assert.deepEqual([heure(a(3, 19)).connexionsNeuves, heure(a(3, 19)).connexions], [null, null])

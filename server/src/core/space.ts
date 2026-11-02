@@ -6,6 +6,7 @@ import { Teams } from './teams'
 import { ScoreLedger } from './scores'
 import { AnswerLog, type AnswerRow } from './answers'
 import { GameEngine } from './engine'
+import { commencer } from './gels'
 import { PlacesRendues } from './places'
 import type { PartyBackup, PartyMirror } from './backup'
 import type { ArchiveStore } from './archive'
@@ -300,21 +301,11 @@ export class SpaceRuntime {
         onScoresChanged: () => this.broadcastSnapshot(),
         onSessionChanged: () => this.broadcastSnapshot(),
         // Un quiz qui se termine range la soirée dans l'historique et
-        // crédite l'expérience du quiz. L'erreur s'arrête ici : une base
-        // distante qui ne répond pas ne doit pas emporter la soirée, et le
-        // prochain quiz — ou la clôture — réécrira exactement les mêmes lignes.
-        onSessionEnded: () => {
-          this.apresQuiz()
-            .catch(e => console.error('[soirée]', e))
-            .finally(() => this.considererCloture())
-        },
+        // crédite l'expérience du quiz (`rangerApresLeQuiz`).
+        onSessionEnded: () => this.rangerApresLeQuiz(),
         // Le podium à l'écran vaut une fin de quiz : le dernier podium de la
         // soirée reste souvent affiché sans que personne ne referme la partie.
-        onVerdict: () => {
-          this.apresQuiz()
-            .catch(e => console.error('[soirée]', e))
-            .finally(() => this.considererCloture())
-        },
+        onVerdict: () => this.rangerApresLeQuiz(),
       },
       quizModule,
     )
@@ -822,6 +813,23 @@ export class SpaceRuntime {
         finitions: finitionsOuvertes(niveauApres).filter(f => !finitionsOuvertes(niveauAvant).includes(f)),
       })
     }
+  }
+
+  /**
+   * Après un quiz, le rangement (`apresQuiz`), sous son nom pour les gels
+   * (`core/gels.ts`) dès sa partie qui ne rend pas la main — l'archive de toute
+   * la soirée, bâtie d'un tenant. L'erreur s'arrête ici : une base distante qui
+   * ne répond pas ne doit pas emporter la soirée, et le prochain quiz — ou la
+   * clôture — réécrira exactement les mêmes lignes.
+   */
+  private rangerApresLeQuiz() {
+    const fin = commencer('soirée · rangement après le quiz')
+    this.apresQuiz()
+      .catch(e => console.error('[soirée]', e))
+      .finally(() => {
+        fin()
+        this.considererCloture()
+      })
   }
 
   /**

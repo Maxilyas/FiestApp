@@ -269,6 +269,56 @@ export interface QuotaDeLHeure {
   lourdes: LecturesDUneRequete[]
 }
 
+/** Ce qui tournait pendant un gel : un modèle de route, un message du temps réel, un chronomètre de partie, une tâche de fond — et combien à la fois. */
+export interface CeQuiTournait {
+  quoi: string
+  n: number
+}
+
+/**
+ * Un gel de la boucle de plus d'une demi-seconde (`SondeDesGels`,
+ * `server/src/core/gels.ts`) : quand il a fini, combien il a duré, le
+ * processeur que le processus a pris pendant — au dixième de cœur de
+ * l'hébergeur, un dixième de sa durée : un calcul que l'hébergeur a fait
+ * attendre ; bien moins, le processus attendait autre chose —, ce que le
+ * ramasse-miettes en a pris, et ce qui tournait.
+ */
+export interface GelDeLaBoucle {
+  a: number
+  dureeMs: number
+  processeurMs: number
+  ramasseMiettesMs: number
+  enCours: CeQuiTournait[]
+}
+
+/** Chaque chose qui tournait pendant des gels : dans combien, et leur durée cumulée. */
+export interface CeQuiGele {
+  quoi: string
+  n: number
+  ms: number
+}
+
+/**
+ * Les gels d'une heure (le 2 novembre 2026, « savoir ce qui gèle ») :
+ * combien, leur durée cumulée, les plus longs en détail, ce qui tournait
+ * pendant — le plus souvent d'abord —, et ceux où rien de nommé ne tournait.
+ * Le graphique de la charge disait le pire gel de l'heure, pas sa cause.
+ */
+export interface GelsDeLHeure {
+  n: number
+  totalMs: number
+  plusLongs: GelDeLaBoucle[]
+  parCe: CeQuiGele[]
+  sansRien: number
+}
+
+/** Les gels qu'une heure garde en détail, et ce qui tournait qu'elle nomme, au plus. */
+export const GELS_EN_DETAIL = 5
+export const CE_QUI_GELE_PAR_HEURE = 12
+/** Ce que la page en montre sur la semaine. */
+export const GELS_MONTRES = 8
+export const CE_QUI_GELE_MONTRE = 12
+
 /** Une heure d'un démarrage, telle que la base la garde (`qg_sante`). */
 export interface HeureDeSante {
   heure: number
@@ -293,6 +343,8 @@ export interface HeureDeSante {
   requetes: RequetesDeLHeure | null
   /** Ce que Turso a compté au quota ; absent d'une ligne d'avant le 22 octobre 2026, null d'une heure sans aller-retour. */
   quota?: QuotaDeLHeure | null
+  /** Ses gels de plus d'une demi-seconde, et ce qui tournait ; absent d'une ligne d'avant le 2 novembre 2026 — après, une heure sans gel en compte zéro. */
+  gels?: GelsDeLHeure
 }
 
 /** Un démarrage du serveur, tel que la base le garde (`qg_demarrages`). */
@@ -360,6 +412,14 @@ export interface HeureDuServeur {
   /** Les lignes que Turso a comptées à ce serveur, lues et écrites ; null pour une heure d'avant leur compte, ou sans aller-retour. */
   lignesLues: number | null
   lignesEcrites: number | null
+  /** Ses gels de plus d'une demi-seconde, et le plus long, avec ce qui tournait ; null sans gel, ou pour une heure d'avant leur relevé. */
+  gels: { n: number; plusLong: GelDeLaBoucle } | null
+}
+
+/** Les gels de la semaine : ceux des heures qui les relèvent, fondus (`gelsDeLaSemaine`). */
+export interface GelsDeLaSemaine extends GelsDeLHeure {
+  /** La première heure qui les relève : avant, le serveur ne savait pas. */
+  depuis: number
 }
 
 /**
@@ -427,6 +487,8 @@ export interface PageDuServeur {
   erreursSansDetail: { source: string; n: number }[]
   /** Le quota de Turso, au rythme de la semaine ; null avant la première heure comptée. */
   quota: QuotaDuMois | null
+  /** Les gels de la semaine et ce qui tournait pendant ; null avant la première heure qui les relève. */
+  gels: GelsDeLaSemaine | null
 }
 
 /** Une erreur de la semaine : ses heures et ses versions, les mêmes de chaque heure fondues. */
@@ -539,6 +601,47 @@ export function fondreQuotas(a: QuotaDeLHeure | null, b: QuotaDeLHeure | null): 
   return { appels: a.appels + b.appels, lues: a.lues + b.lues, ecrites: a.ecrites + b.ecrites, lourdes: fondreLesLourdes([...a.lourdes, ...b.lourdes], REQUETES_PAR_HEURE) }
 }
 
+/** Ce qui tournait pendant des gels, fondu par son nom — les gels et leurs durées s'ajoutent —, ce qui a couvert le plus de gel d'abord, `auPlus`. */
+function fondreCeQuiGele(listes: readonly (readonly CeQuiGele[])[], auPlus: number): CeQuiGele[] {
+  const parNom = new Map<string, CeQuiGele>()
+  for (const liste of listes) {
+    for (const c of liste) {
+      const avant = parNom.get(c.quoi)
+      parNom.set(c.quoi, avant ? { quoi: c.quoi, n: avant.n + c.n, ms: avant.ms + c.ms } : { ...c })
+    }
+  }
+  return [...parNom.values()].sort((a, b) => b.ms - a.ms || b.n - a.n || (a.quoi < b.quoi ? -1 : 1)).slice(0, auPlus)
+}
+
+/**
+ * Les gels de deux démarrages dans la même heure — ou de toute une semaine,
+ * avec ce qu'elle en montre : les comptes s'ajoutent, les plus longs se
+ * rangent ensemble, ce qui tournait se fond par son nom.
+ */
+export function fondreGels(a: GelsDeLHeure | null, b: GelsDeLHeure | null, plusLongs = GELS_EN_DETAIL, nommes = CE_QUI_GELE_PAR_HEURE): GelsDeLHeure | null {
+  if (!a) return b
+  if (!b) return a
+  return {
+    n: a.n + b.n,
+    totalMs: a.totalMs + b.totalMs,
+    plusLongs: [...a.plusLongs, ...b.plusLongs].sort((x, y) => y.dureeMs - x.dureeMs || y.a - x.a).slice(0, plusLongs),
+    parCe: fondreCeQuiGele([a.parCe, b.parCe], nommes),
+    sansRien: a.sansRien + b.sansRien,
+  }
+}
+
+/** Les gels des heures qui les relèvent, fondus, depuis la première ; null si aucune ne les relève encore. */
+export function gelsDeLaSemaine(heures: readonly Pick<HeureDeSante, 'heure' | 'gels'>[]): GelsDeLaSemaine | null {
+  let gels: GelsDeLHeure | null = null
+  let depuis = Infinity
+  for (const h of heures) {
+    if (!h.gels) continue
+    depuis = Math.min(depuis, h.heure)
+    gels = fondreGels(gels, h.gels, GELS_MONTRES, CE_QUI_GELE_MONTRE)
+  }
+  return gels ? { ...gels, depuis } : null
+}
+
 /** Une part, en pour cent, au dixième. */
 const partDe = (n: number, sur: number) => (sur > 0 ? Math.round((n / sur) * 1000) / 10 : 0)
 
@@ -627,15 +730,17 @@ export function fondreLHeure(lignes: readonly HeureDeSante[]): Omit<HeureDeSante
   let connexions: ConnexionsDeLHeure | null = null
   let requetes: RequetesDeLHeure | null = null
   let quota: QuotaDeLHeure | null = null
+  let gels: GelsDeLHeure | null = null
   let miroir = 0
   for (const l of lignes) {
     base = fondreReleves(base, l.base)
     routes = fondreReleves(routes, l.routes)
-    // Une ligne d'avant la charge n'en porte pas, ni d'avant le compte des connexions, ni d'avant celui des requêtes, ni du quota.
+    // Une ligne d'avant la charge n'en porte pas, ni d'avant le compte des connexions, ni d'avant celui des requêtes, ni du quota, ni des gels.
     charge = fondreCharges(charge, l.charge ?? null)
     connexions = fondreConnexions(connexions, l.connexions ?? null)
     requetes = fondreRequetes(requetes, l.requetes ?? null)
     quota = fondreQuotas(quota, l.quota ?? null)
+    gels = fondreGels(gels, l.gels ?? null)
     miroir += l.miroir
     for (const [source, n] of Object.entries(l.erreurs)) erreurs[source] = (erreurs[source] ?? 0) + n
     for (const r of l.lentes) {
@@ -654,6 +759,7 @@ export function fondreLHeure(lignes: readonly HeureDeSante[]): Omit<HeureDeSante
     connexions,
     requetes,
     quota,
+    ...(gels && { gels }),
   }
 }
 
@@ -802,6 +908,7 @@ export function pageDuServeur(
       recusMo: enMo(h?.charge?.recusKo),
       lignesLues: h?.quota?.lues ?? null,
       lignesEcrites: h?.quota?.ecrites ?? null,
+      gels: h?.gels && h.gels.n > 0 && h.gels.plusLongs[0] ? { n: h.gels.n, plusLong: h.gels.plusLongs[0] } : null,
     })
   }
 
@@ -873,6 +980,7 @@ export function pageDuServeur(
       lignes.filter(l => l.heure >= debut && l.heure <= derniere),
       maintenant,
     ),
+    gels: gelsDeLaSemaine(fondues),
   }
 }
 

@@ -44,6 +44,7 @@ import { SpaceRegistry } from './core/space'
 import { PagesPubliques, type DemandeDePage } from './core/pages'
 import { servirPrecompresse } from './core/precompresse'
 import { Charge, compteurDeConnexions, plafondsDuConteneur, pouls, ramasseMiettes, releve } from './core/pouls'
+import { SondeDesGels, commencer } from './core/gels'
 import { connexionsGardeesChaudes, entretenirLesConnexions, gardeAnnoncee, noterUneDemande, type ReglagesDeLEntretien } from './core/connexions'
 import { clientDistant, transportDeLaBase } from './core/distante'
 import { GARDE_DE_NODE_MS } from '../../shared/santeDuServeur'
@@ -317,6 +318,18 @@ async function deFront(...travaux: Promise<unknown>[]): Promise<void> {
   if (panne) throw panne.reason
 }
 
+/**
+ * Une requête telle que les gels la nomment (`core/gels.ts`) : le modèle de
+ * sa route, comme le relevé de l'heure (`GET /api/campagne/sentiers`) ; une
+ * route d'API sans modèle, « hors route » ; une page ou un fichier sans le
+ * sien, sans son adresse — elle peut porter un salon, un code.
+ */
+function quoiDeLaRequete(req: Request): string {
+  const modele: unknown = req.route?.path
+  if (typeof modele === 'string') return `${req.method} ${modele}`
+  return req.path.startsWith('/api/') ? `${req.method} /api hors route` : `${req.method} page ou fichier`
+}
+
 export async function createQuizServer(opts: QuizServerOptions) {
   const debutDuDemarrage = Date.now()
   // Le relevé de l'heure part de zéro avec le serveur : un serveur d'avant,
@@ -347,6 +360,16 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // sondes noyaient les heures calmes.
   app.use((req, res, next) => {
     if (req.path !== '/healthz') res.on('finish', () => releve.requete(res.statusCode))
+    next()
+  })
+  // Ce qui tourne, pour les gels (`core/gels.ts`) : chaque requête sous le
+  // modèle de sa route, lu à sa fin — jamais son adresse, qui peut porter un
+  // identifiant —, de son arrivée à sa réponse partie ou abandonnée.
+  app.use((req, res, next) => {
+    if (req.path === '/healthz') return next()
+    const fin = commencer(() => quoiDeLaRequete(req))
+    res.once('finish', fin)
+    res.once('close', fin)
     next()
   })
   // Le temps de chaque route d'API, sous son modèle : ce qu'un joueur attend,
@@ -798,6 +821,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
   campagne.bordureChange = profileId => {
     for (const rt of registry.all()) if (rt.party.findByProfile(profileId)) rt.broadcastSnapshot()
   }
+  // Une question attend ses réponses, dans un espace ou un autre — son
+  // chronomètre court, il ne court plus en pause : le travail de fond de la
+  // campagne la laisse passer (`laisserPasserLaSalle`).
+  campagne.salleEnJeu = () => registry.all().some(rt => rt.engine.phase() === 'question' && rt.engine.chronometreArme())
   const woken = registry.wakeRunning()
   if (woken > 0) console.log(`[espaces] ${woken} partie${woken > 1 ? 's' : ''} en cours reprise${woken > 1 ? 's' : ''}`)
 
@@ -1539,6 +1566,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const battre = reglagesDesChaudes.battre ?? (clientDesBattements ? () => clientDesBattements.execute('SELECT 1') : null)
   const arreterLEntretien = entretenirLesConnexions(chaudes ? battre : null, reglagesDesChaudes)
 
+  // Chaque gel de la boucle de plus d'une demi-seconde, et ce qui tournait
+  // pendant (`core/gels.ts`), dès que les joueurs peuvent l'attendre : un
+  // démarrage qui échoue ne laisse pas sa sonde tourner.
+  const sondeDesGels = new SondeDesGels(g => releve.gel(g))
   await new Promise<void>(resolve => httpServer.listen(opts.port, resolve))
   const address = httpServer.address()
   const port = typeof address === 'object' && address ? address.port : opts.port
@@ -1597,6 +1628,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
         // Ni une panne : un serveur qui s'arrête fait échouer ce qui était en route.
         veille.arreter(direLaVeille)
         charge.arreter()
+        sondeDesGels.arreter()
         registry.stopAll()
         io.close(async () => {
           // La file du miroir se vide d'abord, dans le délai qu'on lui laisse :

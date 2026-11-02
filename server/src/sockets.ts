@@ -12,6 +12,7 @@ import { sansAccent } from '../../shared/homonymes'
 import { apparenceDeLAvatar } from '../../shared/profil'
 import { cleanAvatar, cleanName, tronquer } from '../../shared/avatars'
 import { pouls, releve } from './core/pouls'
+import { commencer } from './core/gels'
 import { veille } from './core/veille'
 
 interface SocketDeps {
@@ -249,12 +250,18 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         }
         // La veille des soirées : chaque message qui aboutit compte, comme chaque route (`core/veille.ts`).
         const abouti = () => veille.noter(`socket ${event}`, true)
+        // Ce qui tourne, pour les gels (`core/gels.ts`) : le message jusqu'à son issue.
+        const fin = commencer(`socket ${event}`)
         try {
           const suite = traiter(charge as Charge<E>, repondre as Accuse<E>)
-          if (suite instanceof Promise) suite.then(abouti, panne)
-          else abouti()
+          if (suite instanceof Promise) suite.then(abouti, panne).finally(fin)
+          else {
+            abouti()
+            fin()
+          }
         } catch (e) {
           panne(e)
+          fin()
         }
       })
     }
