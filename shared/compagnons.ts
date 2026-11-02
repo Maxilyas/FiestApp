@@ -374,6 +374,22 @@ export function prochaineForme(a: CompagnonAcquis): { forme: FormeDeCompagnon; e
 export const metamorphoseOuverte = (a: Pick<CompagnonPossede, 'compagnon' | 'rang' | 'eclat'>): boolean =>
   a.rang >= 3 && !!a.eclat && !!compagnon(a.compagnon)?.lumiere
 
+/**
+ * L'avant et l'après de l'Éclat, en aperçu, pour qui porte une forme de
+ * compagnon : sa version rare est sa métamorphose de lumière. Le comptoir de
+ * la boutique montrait la même forme des deux côtés, à quelques paillettes
+ * près — « on ne voit que la version normale » (un retour du 2 novembre
+ * 2026). Sa métamorphose portée, l'avant est sa forme ultime. Rien pour une
+ * autre clé, ni pour un compagnon sans métamorphose : ses paillettes seules
+ * disent son Éclat.
+ */
+export function formesDeLEclat(key: unknown): { avant: string; apres: string } | null {
+  const f = formeDeCompagnon(key)
+  const lumiere = f && compagnonDe(f).lumiere
+  if (!f || !lumiere) return null
+  return { avant: f.metamorphose ? compagnonDe(f).formes[f.rang].key : f.key, apres: lumiere.key }
+}
+
 /** Les clés des formes que ces compagnons laissent porter : chacun jusqu'à sa plus haute, et sa métamorphose si elle s'est ouverte. */
 export function formesOuvertes(possedes: readonly CompagnonPossede[]): string[] {
   return possedes.flatMap(a => {

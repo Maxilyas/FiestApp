@@ -41,6 +41,7 @@ import {
   compagnon,
   formeDansLaNiche,
   formeDeCompagnon,
+  formesDeLEclat,
   formesOuvertes,
   metamorphoseOuverte,
   nomDeLaForme,
@@ -158,6 +159,17 @@ test('chacun a sa métamorphose de lumière : une forme de plus, légendaire, qu
   )
   // Sa niche la montre au rang de plus (4), et seulement ouverte.
   assert.equal(MONTREE_DE_LA_METAMORPHOSE, 4)
+})
+
+test('au comptoir de la boutique, l’Éclat sur un compagnon porté montre sa version rare : sa métamorphose', () => {
+  // « on ne voit que la version normale » (le 2 novembre 2026) : l'après
+  // montrait la même forme, à quelques paillettes près.
+  assert.deepEqual(formesDeLEclat('cp:loup-jeune'), { avant: 'cp:loup-jeune', apres: 'cp:loup-tempete' })
+  assert.deepEqual(formesDeLEclat(COMPAGNONS[1].formes[3].key), { avant: COMPAGNONS[1].formes[3].key, apres: 'cp:chat-soleil' })
+  // Sa métamorphose portée : l'avant est sa forme ultime.
+  assert.deepEqual(formesDeLEclat('cp:luciole-aurore'), { avant: 'cp:luciole-constellation', apres: 'cp:luciole-aurore' })
+  // Rien pour un légendaire, un emoji ou rien.
+  for (const autre of ['phenix', '🦊', undefined, null]) assert.equal(formesDeLEclat(autre), null)
 })
 
 test('il grandit à 100, 300 et 500 bonnes réponses ; ce qui reste se compte', () => {
