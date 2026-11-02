@@ -47,6 +47,17 @@ export const QUESTIONS_DU_PUBLIC_PAR_JOUR = 1
  */
 export const JUSTES_POUR_LA_PLUME = 7
 
+/**
+ * Ce que sa question rapporte à son auteur, en confettis : à son
+ * acceptation, puis le jour où elle est jouée (le choix du 2 novembre 2026) —
+ * une question qui tient la relecture vaut une journée de missions. Comptés
+ * dans ses confettis du quiz du jour (`JourStore.justesDe`) : un solde se
+ * relit à chaque lecture, et une règle changée vaut pour tout le passé, d'un
+ * coup. Ni l'un ni l'autre pour une question refusée. Des choix de produit.
+ */
+export const CONFETTIS_D_UNE_QUESTION_ACCEPTEE = 25
+export const CONFETTIS_D_UNE_QUESTION_JOUEE = 25
+
 /** Les motifs d'un refus qui reviennent, proposés d'un toucher au QG — un autre s'écrit à la main. */
 export const MOTIFS_DE_REFUS = [
   'Elle est déjà dans le quiz du jour',

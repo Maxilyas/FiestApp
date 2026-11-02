@@ -35,6 +35,7 @@ import type { ActiviteDUnJoueur } from './qgActivite'
 import type { CabinetDAccueil } from './cabinet/vues'
 import type { CleDeSaison } from './saisons'
 import { formeDeCompagnon, type CleDeCompagnon, type CompagnonPossede } from './compagnons'
+import { CONFETTIS_D_UNE_QUESTION_ACCEPTEE, CONFETTIS_D_UNE_QUESTION_JOUEE } from './propositions'
 
 // ── Niveaux ───────────────────────────────────────────────────────────────
 
@@ -476,10 +477,12 @@ export interface StatsDuJour {
   sansFautes: number
   elite: number
   serieRecord: number
+  /** Ses questions du public jouées au quiz du jour : La Plume (`shared/propositions.ts`). */
+  questions: number
 }
 
 /** Aucun quiz du jour : un profil qui n'y a jamais joué, ou une carrière sans lui. */
-export const AUCUN_JOUR: StatsDuJour = { joues: 0, victoires: 0, sansFautes: 0, elite: 0, serieRecord: 0 }
+export const AUCUN_JOUR: StatsDuJour = { joues: 0, victoires: 0, sansFautes: 0, elite: 0, serieRecord: 0, questions: 0 }
 
 /**
  * Ce que la campagne compte pour ses paliers : le record d'une série à trois
@@ -1037,14 +1040,28 @@ export type AnnonceDeLAdministrateur =
 /**
  * Ce que le QG a fait d'une question qu'il a proposée au quiz du jour
  * (`shared/propositions.ts`), qu'on lui dit sur son accueil : acceptée, puis
- * posée — le jour où elle se joue —, ou pas retenue, et pourquoi.
+ * posée — le jour où elle se joue — et, fausse, annulée pour tous ce jour-là ;
+ * ou pas retenue, et pourquoi.
  */
-export type IssueDUneProposition = 'acceptee' | 'posee' | 'refusee'
+export type IssueDUneProposition = 'acceptee' | 'posee' | 'annulee' | 'refusee'
 
-/** La carte d'une question qu'il a proposée : un titre, puis la phrase, sous « Ta question ». */
+/**
+ * La carte d'une question qu'il a proposée : un titre — avec les confettis
+ * que ce moment lui rapporte (`CONFETTIS_D_UNE_QUESTION_ACCEPTEE`, `…_JOUEE`)
+ * —, puis la phrase. Annulée, elle dit ce qu'elle ne lui rapporte plus : ses
+ * confettis avaient paru au solde le matin.
+ */
 export function phraseDeLaProposition(a: { issue: IssueDUneProposition; question: string; motif: string | null }): { titre: string; phrase: string } {
-  if (a.issue === 'posee') return { titre: 'Ta question est au quiz du jour !', phrase: `« ${a.question} » se joue, signée de ton nom.` }
-  if (a.issue === 'acceptee') return { titre: 'Ta question est acceptée !', phrase: `« ${a.question} » passera bientôt au quiz du jour, signée de ton nom.` }
+  if (a.issue === 'posee') return { titre: `Ta question est au quiz du jour : +${CONFETTIS_D_UNE_QUESTION_JOUEE} confettis`, phrase: `« ${a.question} » se joue, signée de ton nom.` }
+  if (a.issue === 'acceptee') {
+    return { titre: `Ta question est acceptée : +${CONFETTIS_D_UNE_QUESTION_ACCEPTEE} confettis`, phrase: `« ${a.question} » passera bientôt au quiz du jour, signée de ton nom.` }
+  }
+  if (a.issue === 'annulee') {
+    return {
+      titre: 'Ta question a été annulée',
+      phrase: `« ${a.question} » ne compte pour personne, ses ${CONFETTIS_D_UNE_QUESTION_JOUEE} confettis du jour non plus. Tu peux en proposer une autre.`,
+    }
+  }
   return { titre: 'Ta question n’a pas été retenue', phrase: `« ${a.question} »${a.motif ? ` : ${a.motif.replace(/[.!]$/, '')}` : ''}. Tu peux en proposer une autre.` }
 }
 

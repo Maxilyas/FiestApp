@@ -11,7 +11,7 @@ import Database from 'better-sqlite3'
 import { connexionAnimateur, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { ProfileStore } from '../src/auth/profiles'
 import { XP_MAX_DU_JOUR } from '../../shared/jour'
-import { partDeLAuteur } from '../../shared/propositions'
+import { CONFETTIS_D_UNE_QUESTION_ACCEPTEE, CONFETTIS_D_UNE_QUESTION_JOUEE, partDeLAuteur } from '../../shared/propositions'
 import type { AnnonceDeLAdministrateur } from '../../shared/profil'
 
 ProfileStore.tirageEclat = () => false
@@ -201,6 +201,81 @@ test('neuf sur neuf : le sans-faute et le maximum ; une annulation recompte sa m
     assert.equal((await poster(banc, admin, '/api/admin/jour/annuler', { jour: JOUR, index: k })).status, 200)
     vue = (await lire(banc, lea.cookie, '/api/jour')).corps
     assert.deepEqual([vue.points, vue.justes, vue.pointsPossibles], [1600, 8, 1600])
+  }))
+
+test('ce que sa question lui rapporte : des confettis acceptée, puis jouée — et La Plume, le jour où il joue après elle', () =>
+  avecBanc(async banc => {
+    const admin = await connexionAnimateur(banc.url)
+    const lea = await profil(banc, 'lea', 'Léa', '🦊')
+    const accueil = async () => (await lire(banc, lea.cookie, '/api/joueur/moi?accueil')).corps.profile
+    const solde = async () => (await accueil()).boutique?.confettis.solde as number
+    const avant = await solde()
+
+    // Proposée, rien encore ; acceptée, les premiers — et son accueil le dit.
+    const { categorie, anecdote, ...sienne } = CHENILLE
+    assert.equal((await poster(banc, lea.cookie, '/api/jour/propositions', sienne)).status, 200)
+    assert.equal(await solde(), avant)
+    const id = (await lire(banc, admin, '/api/admin/jour/propositions')).corps.aRelire[0].id
+    assert.equal((await poster(banc, admin, `/api/admin/jour/propositions/${id}/accepter`, { question: { ...sienne, categorie, anecdote } })).status, 200)
+    assert.equal(await solde(), avant + CONFETTIS_D_UNE_QUESTION_ACCEPTEE)
+    const carte = ((await accueil()).annonces ?? []).find((a: AnnonceDeLAdministrateur) => a.sorte === 'proposition')
+    assert.equal(carte?.issue, 'acceptee')
+
+    // Jouée : le premier qui ouvre le quiz du jour la tire — Léa reçoit les seconds sans avoir joué.
+    const bob = await profil(banc, 'bob', 'Bob', '🐻')
+    await lire(banc, bob.cookie, '/api/jour')
+    assert.ok(tirage(banc).some(q => q.auteur === lea.id))
+    assert.equal(await solde(), avant + CONFETTIS_D_UNE_QUESTION_ACCEPTEE + CONFETTIS_D_UNE_QUESTION_JOUEE)
+    // Le QG les compte au quiz du jour, d'où ils viennent, et dans ce qui circule — au confetti près, les soldes de chacun.
+    const economie = (await lire(banc, admin, '/api/admin/economie')).corps
+    assert.equal(economie.sources.jour, CONFETTIS_D_UNE_QUESTION_ACCEPTEE + CONFETTIS_D_UNE_QUESTION_JOUEE)
+    const soldeDeBob = (await lire(banc, bob.cookie, '/api/joueur/moi?accueil')).corps.profile.boutique?.confettis.solde as number
+    assert.equal(economie.circulation?.total, (await solde()) + soldeDeBob)
+
+    // Sa partie du jour : La Plume · Bronze tombe dès le « Jouer », rangée sous le jour, et la fin l'annonce.
+    const { etat } = await jouer(banc, lea.cookie, () => true)
+    assert.ok(
+      (etat.paliers ?? []).some((p: any) => p.key === 'hf:plume:1'),
+      `La Plume · Bronze parmi ${JSON.stringify(etat.paliers)}`,
+    )
+    // Refusée, une question ne rapporte rien : ni confettis, ni étape.
+    const chloe = await profil(banc, 'chloe', 'Chloé', '🐼')
+    const soldeDeChloe = async () => (await lire(banc, chloe.cookie, '/api/joueur/moi?accueil')).corps.profile.boutique?.confettis.solde as number
+    const avantChloe = await soldeDeChloe()
+    const { categorie: _c, anecdote: _a, ...autre } = NEPAL
+    assert.equal((await poster(banc, chloe.cookie, '/api/jour/propositions', autre)).status, 200)
+    const idChloe = (await lire(banc, admin, '/api/admin/jour/propositions')).corps.aRelire[0].id
+    assert.equal((await poster(banc, admin, `/api/admin/jour/propositions/${idChloe}/refuser`, { motif: 'Elle est déjà dans le quiz du jour' })).status, 200)
+    assert.equal(await soldeDeChloe(), avantChloe)
+  }))
+
+test('annulée pour tous, elle ne paie plus son jour : ni ses confettis, ni La Plume — et son accueil le lui dit', () =>
+  avecBanc(async banc => {
+    const admin = await connexionAnimateur(banc.url)
+    const lea = await profil(banc, 'lea', 'Léa', '🦊')
+    const accueil = async () => (await lire(banc, lea.cookie, '/api/joueur/moi?accueil')).corps.profile
+    const avant = (await accueil()).boutique?.confettis.solde as number
+    await proposerEtAccepter(banc, lea.cookie, admin, CHENILLE)
+    await lire(banc, (await profil(banc, 'bob', 'Bob', '🐻')).cookie, '/api/jour')
+    const k = tirage(banc).findIndex(q => q.auteur === lea.id)
+    assert.equal((await accueil()).boutique?.confettis.solde, avant + CONFETTIS_D_UNE_QUESTION_ACCEPTEE + CONFETTIS_D_UNE_QUESTION_JOUEE)
+
+    // Fausse, l'administrateur l'annule pour tous : elle ne compte pour personne, son auteur non plus — l'acceptation reste payée.
+    assert.equal((await poster(banc, admin, '/api/admin/jour/annuler', { jour: JOUR, index: k })).status, 200)
+    const apres = await accueil()
+    assert.equal(apres.boutique?.confettis.solde, avant + CONFETTIS_D_UNE_QUESTION_ACCEPTEE)
+    assert.deepEqual(
+      (apres.annonces ?? []).filter((a: AnnonceDeLAdministrateur) => a.sorte === 'proposition').map((a: any) => a.issue),
+      ['annulee'],
+      'ni « au quiz du jour : +25 confettis », qui ne paie plus, ni l’acceptation d’avant',
+    )
+    // Ni La Plume : sa partie du jour commence sans elle.
+    const { etat } = await jouer(banc, lea.cookie, () => true)
+    assert.equal(
+      (etat.paliers ?? []).some((p: any) => p.key === 'hf:plume:1'),
+      false,
+      `pas de Plume parmi ${JSON.stringify(etat.paliers)}`,
+    )
   }))
 
 test('masqué des classements, il ne signe plus ; le lendemain, son accueil lui dit qu’elle a été jouée', () =>

@@ -219,6 +219,7 @@ Chaque étape tombe une fois dans ta carrière et rapporte 50, 100 puis 200 poin
 | 💯 Le Sans-Faute | parties du jour sans une faute | 1 · 3 · 10 | au quiz du jour |
 | 🏹 L'Élite | jours dans le premier quart d'une salle de huit | 10 · 50 · 150 | au quiz du jour |
 | 🏃 L'Infatigable | ta plus longue série de jours, soirées et sabliers compris | 7 · 30 · 100 | au quiz du jour |
+| 🖋️ La Plume | tes questions du public jouées au quiz du jour | 1 · 5 · 20 | au quiz du jour |
 | 🧗 L'Alpiniste | ton record d'une série de campagne | 10 · 15 · 20 | en campagne |
 | 🎓 L'Érudit | expertes trouvées en campagne, hors révisions | 25 · 100 · 300 | en campagne |
 | 👟 Le Marathonien | bonnes réponses en campagne, tous modes | 250 · 1 000 · 2 000 | en campagne |

@@ -686,6 +686,21 @@ export const HAUTS_FAITS_DE_CARRIERE: HautFaitDeCarriere[] = [
     valeur: c => c.jour.serieRecord,
     duJour: 'serieRecord',
   },
+  // Ce qu'on donne au quiz du jour, pas ce qu'on y gagne : ses questions du
+  // public jouées (`shared/propositions.ts`, le 2 novembre 2026). Jouées, pas
+  // acceptées : la file du public n'en pose qu'une par jour, et c'est la
+  // question jouée qui a servi.
+  {
+    key: 'hf:plume',
+    famille: 'carriere',
+    emoji: '🖋️',
+    title: 'La Plume',
+    mesure: 'questions du public jouées au quiz du jour',
+    mesureUne: 'question du public jouée au quiz du jour',
+    paliers: [1, 5, 20],
+    valeur: c => c.jour.questions,
+    duJour: 'questions',
+  },
   // La campagne, la série à trois vies : son record, ses expertes, ses
   // bonnes réponses — épreuves des sentiers comprises pour les deux derniers.
   {
@@ -1141,6 +1156,11 @@ export const PART_DES_JOUEURS: Readonly<Record<string, number>> = {
   'hf:infatigable:1': 0.3,
   'hf:infatigable:2': 0.08,
   'hf:infatigable:3': 0.01,
+  // La Plume (le 2 novembre 2026), estimée : un joueur sur vingt verra une
+  // question jouée, et la file du public n'en pose qu'une par jour.
+  'hf:plume:1': 0.05,
+  'hf:plume:2': 0.01,
+  'hf:plume:3': 0.002,
   'hf:alpiniste:1': 0.4,
   'hf:alpiniste:2': 0.12,
   'hf:alpiniste:3': 0.02,
