@@ -60,8 +60,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Bilan (d'une expédition) | Ce qu'une expédition finie a fait — ses escales, ses adversaires et ses élites tombés, ses gardiens, le bout, ses exploits —, écrit à sa fin, abandonnée aussi : la renommée en est la somme, ses exploits comptent dès lors. Un reflet du pli, refait une fois s'il manque ou s'il est d'une version d'avant | `campagne_series.bilan`, `bilanDuPli`, `VERSION_DU_BILAN` |
 | Bonus de série | L'expérience versée dès qu'une partie commence : dix par jour de série, cent au plus | `xpDeSerie` |
 | Bordure de ligue | L'anneau cranté autour de l'avatar d'un profil, une par ligue atteinte, porté d'office ou choisi dans la loge | `BordureDeLigue` |
-| Boutique | La page `/boutique`, où l'on dépense ses confettis, en quatre rayons : « Thèmes », « Compagnons », « Fonds », « Objets » | `PanneauBoutique` |
-| Branche | Une des douze familles de portraits, une par catégorie de questions, chacune son style peint | `BRANCHES` |
+| Boutique | La page `/boutique`, où l'on dépense ses confettis, d'un seul tenant : « À la une », puis quatre rayons à la suite — « Thèmes », « Compagnons », « Fonds », « Objets » (le comptoir) — ; ce qui s'y prête s'essaie avant de s'acheter, et le panier additionne l'essai | `PanneauBoutique` || Branche | Une des douze familles de portraits, une par catégorie de questions, chacune son style peint | `BRANCHES` |
 | Brouillon | Ce que l'éditeur garde dans le navigateur tant que le serveur n'a pas enregistré, relu comme le serveur relit | `shared/brouillon.ts` |
 
 ## C
@@ -383,6 +382,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Palier | Une marche d'un sentier, validée par une épreuve ; le douzième est le sommet, le treizième celui du maître | `PALIERS` |
 | Palier de maître | Le palier facultatif d'après le sommet : seize expertes, neuf pour valider, un titre au bout | `PALIER_DU_MAITRE` |
 | Palmarès | Les prix que les chiffres désignent, un lauréat chacun, remis ou non : vingt individuels, deux d'équipe | `computeStats`, `SPECS` (`server/src/core/stats.ts`) |
+| Panier (d'essai) | À la boutique, ce qu'on essaie — un thème sur toute la page, un fond sur sa carte, un compagnon dans sa niche — et qui s'achète encore, pris d'un geste ou ligne à ligne ; rien ne s'écrit avant « Prendre » | `lignesDuPanier` (`shared/panier.ts`), `FeuilleDuPanier` |
 | Paquet | Le serveur construit en un seul fichier, que Render démarre sans traduire de TypeScript | `server/scripts/empaqueter.ts` |
 | Paquet (de jokers) | Les jokers d'une expédition qu'on n'a pas encore tirés : Coup d'œil trois fois, Échange, ceux de l'équipe, puis ce qu'on prend en route ; on y pioche au hasard de la graine | `EtatDeLExpedition.paquet`, `PAQUET_DE_DEPART` |
 | Parcours de thème | Un sujet de la campagne monté en six étapes de dix questions, sans vies, dans l'onglet « Apprendre » ; un « sentier à thème » dans le code | `shared/sentiersDeSujets.ts` |
