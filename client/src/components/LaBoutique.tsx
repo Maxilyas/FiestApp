@@ -258,20 +258,23 @@ export function PanneauBoutique({
         onVoir={voir}
       />
       <nav className="boutique-rayons" aria-label="Les rayons de la boutique">
-        {RAYONS.map(r => (
-          <a
-            key={r.id}
-            href={r.id === 'themes' ? '#themes' : `#${r.id}`}
-            aria-current={ici === r.id || undefined}
-            onClick={e => {
-              if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
-              e.preventDefault()
-              aller(r.id)
-            }}
-          >
-            {r.nom}
-          </a>
-        ))}
+        {/* La bande colle en haut, de bord à bord ; ses puces défilent dans leur cadre, qui s'arrête avant la niche (`styles.css`). */}
+        <div className="boutique-rayons-defile">
+          {RAYONS.map(r => (
+            <a
+              key={r.id}
+              href={r.id === 'themes' ? '#themes' : `#${r.id}`}
+              aria-current={ici === r.id || undefined}
+              onClick={e => {
+                if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+                e.preventDefault()
+                aller(r.id)
+              }}
+            >
+              {r.nom}
+            </a>
+          ))}
+        </div>
       </nav>
       {RAYONS.map(r => (
         <section key={r.id} id={`rayon-${r.id}`} className="rayon-de-la-boutique" aria-labelledby={`titre-${r.id}`}>
