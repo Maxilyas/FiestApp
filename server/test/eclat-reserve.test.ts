@@ -50,8 +50,14 @@ async function dansUneBase(scenario: (profils: ProfileStore, id: string, ouvrir:
   }
 }
 
+/**
+ * Ses lignes, rangées par la soirée de chaque Éclat — jamais par l'heure :
+ * deux Éclats donnés coup sur coup tombent parfois dans la même milliseconde,
+ * et l'ordre se jouait alors sur l'emoji, 🐸 devant 🦊 (la CI de `main`, le
+ * 2 novembre 2026 ; une horloge figée le reproduisait à chaque fois).
+ */
 const lignes = (lire: <T>(fn: (db: Database.Database) => T) => T, id: string) =>
-  lire(db => db.prepare('SELECT avatar, soiree_id FROM profile_eclats WHERE profile_id = ? ORDER BY created_at, avatar').all(id)) as { avatar: string; soiree_id: string }[]
+  lire(db => db.prepare('SELECT avatar, soiree_id FROM profile_eclats WHERE profile_id = ? ORDER BY soiree_id, avatar').all(id)) as { avatar: string; soiree_id: string }[]
 
 test('un Éclat sur un avatar déjà éclaté attend en réserve, au lieu de se perdre', () =>
   dansUneBase(async (profils, id, _ouvrir, lire) => {
