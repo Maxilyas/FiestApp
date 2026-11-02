@@ -174,9 +174,13 @@ async function enEcoutantLeJournal<T>(travail: (dits: readonly string[]) => Prom
   }
 }
 
-/** Ce que le Cabinet tire de ses œuvres pour L'Explorateur : ses salles complètes, son seul champ (`ChampsDuCabinet`). */
-const sesSalles = (n: number): StatsDuCabinet => ({ salles: n })
-const sallesDe = (stats: StatsDeCampagne) => stats.salles
+/**
+ * Ce que le Cabinet tire de ses lectures pour L'Explorateur : ses traversées gagnées, son seul champ
+ * (`ChampsDuCabinet`) — ses salles complètes jusqu'au 1er novembre 2026. Le crochet d'essai compte ce qu'il veut :
+ * seul le chemin de ses lectures et de son champ s'éprouve ici.
+ */
+const sesTraversees = (n: number): StatsDuCabinet => ({ traversees: n })
+const traverseesDe = (stats: StatsDeCampagne) => stats.traversees
 
 // ── Le réveil ─────────────────────────────────────────────────────────────
 
@@ -326,7 +330,7 @@ test('une réponse écrite par la porte : l’expédition en route relit ce qu�
 /** L'étagère des profils, pour voir ce que la fin d'une partie y range — et dans quel ordre, avec ce qui s'y écrit d'autre (`ordre`). */
 function etagere(ordre: string[] = []) {
   const rangees: { sous: string; cles: string[]; quand: number | undefined }[] = []
-  const paliers: { sous: string; justes: number; tampons: number; salles: number | undefined }[] = []
+  const paliers: { sous: string; justes: number; tampons: number; traversees: number | undefined }[] = []
   const recompenses: RecompensesDeCampagne = {
     ranger: async (_id, sous, cles, quand) => {
       ordre.push('ranger')
@@ -336,7 +340,7 @@ function etagere(ordre: string[] = []) {
     recompensesOf: () => new Map(),
     accorderPaliersDeCampagne: async (_id, sous, stats) => {
       ordre.push('paliers')
-      paliers.push({ sous, justes: stats.justes, tampons: stats.tampons, salles: sallesDe(stats) })
+      paliers.push({ sous, justes: stats.justes, tampons: stats.tampons, traversees: traverseesDe(stats) })
       return ['hf:marathonien:1']
     },
     legendairesOuverts: () => [],
@@ -366,11 +370,11 @@ test('la fin d’une partie : son expérience créditée une fois, ses gardiens,
       grandis.push(id)
     },
   } as unknown as CampagneStore['profils']
-  // Ce que le Cabinet ajoute aux paliers, lu dans le lot de `statsDe` : ici ses œuvres, comptées en salles.
+  // Ce que le Cabinet ajoute aux paliers, lu dans le lot de `statsDe` : ici un compte de ses œuvres, rendu en traversées.
   let oeuvresLues: number | null = null
   fin.statsEnPlus = {
     lectures: id => [{ sql: 'SELECT COUNT(*) AS n FROM cabinet_oeuvres WHERE profile_id = ?', args: [id] }],
-    lire: ([oeuvres]) => sesSalles((oeuvresLues = Number(oeuvres.rows[0].n))),
+    lire: ([oeuvres]) => sesTraversees((oeuvresLues = Number(oeuvres.rows[0].n))),
   }
   // Les gardiens du Cabinet (§ 2.6 de sa conception) : entre l'expérience et les paliers, à chaque fin écrite.
   const avantLesPaliers = async () => void ordre.push('gardiens')
@@ -422,7 +426,7 @@ test('la fin d’une partie : son expérience créditée une fois, ses gardiens,
   // Ses paliers, rangés sous la partie, sur des stats qui comptent ses justes et ce que le Cabinet y ajoute.
   assert.deepEqual(rangees, [{ sous: cleDeSerie('partie-fin'), cles: [], quand: MAINTENANT }])
   assert.equal(oeuvresLues, 2, 'il lit ce que ses lectures ont rendu')
-  assert.deepEqual(paliers, [{ sous: cleDeSerie('partie-fin'), justes: 21, tampons: 0, salles: 2 }])
+  assert.deepEqual(paliers, [{ sous: cleDeSerie('partie-fin'), justes: 21, tampons: 0, traversees: 2 }])
   assert.deepEqual(
     ecrit.resultat.recompenses.recompenses?.map(r => r.key),
     ['hf:marathonien:1'],
@@ -558,17 +562,17 @@ test('ce que le Cabinet ajoute aux paliers part dans le lot de statsDe, sans un 
     lectures: id => [{ sql: 'SELECT COUNT(*) AS n FROM cabinet_oeuvres WHERE profile_id = ?', args: [id] }],
     lire: ([oeuvres]) => {
       lu = Number(oeuvres.rows[0].n)
-      return sesSalles(4)
+      return sesTraversees(4)
     },
   }
   const avec = await mesurer(() => stats.statsDe(QUI))
   assert.equal(avec.appels, sans.appels, `${avec.appels} allers-retours avec ce que le Cabinet ajoute, ${sans.appels} sans`)
   assert.equal(avec.appels, 1)
   assert.equal(lu, 0, 'il lit ce que ses lectures ont rendu')
-  // Sans le Cabinet — un serveur où il est fermé ne le branche pas —, aucune salle : le champ a son défaut, que
+  // Sans le Cabinet — un serveur où il est fermé ne le branche pas —, aucune traversée : le champ a son défaut, que
   // L'Explorateur lit sans rien faire tomber (il était absent tant que `ChampsDuCabinet` n'en comptait aucun).
-  assert.equal(sallesDe(sans.resultat), 0)
-  assert.equal(sallesDe(avec.resultat), 4, 'et ce qu’il en tire s’ajoute aux paliers')
+  assert.equal(traverseesDe(sans.resultat), 0)
+  assert.equal(traverseesDe(avec.resultat), 4, 'et ce qu’il en tire s’ajoute aux paliers')
 
   // Un compte de la campagne rendu par erreur — les tampons du Globe-trotter, les bonnes réponses du Marathonien —
   // changerait en silence les paliers de tout le monde. Le typage le refuse…
@@ -579,6 +583,28 @@ test('ce que le Cabinet ajoute aux paliers part dans le lot de statsDe, sans un 
   const triche = await stats.statsDe(QUI)
   assert.equal(triche.tampons, 0, 'les tampons restent ceux du passeport')
   assert.equal(triche.justes, 0, 'les bonnes réponses, celles du journal')
+})
+
+test('des paliers jugés hors d’une fin de partie : rangés sous ce qui les fait tomber, à la règle même d’une fin, ce que le Cabinet ajoute compris', async () => {
+  // Une traversée se gagne au choix de son légendaire, après sa dernière épreuve : aucune partie ne finit là, et
+  // L'Explorateur attendait la fin d'une partie suivante. La porte juge les paliers à ce geste (`accorderLesPaliers`).
+  const ordre: string[] = []
+  const { rangees, paliers, recompenses } = etagere(ordre)
+  const hors = magasin('hors.db', { recompenses })
+  await hors.init(REVEIL_DU_CABINET)
+  await hors.porte().lireAvecLeJournal([])
+  hors.statsEnPlus = { lectures: () => [], lire: () => sesTraversees(1) }
+  const { resultat: cles, appels } = await mesurer(() => hors.porte().accorderLesPaliers(QUI, 'traversee-gagnee'))
+  assert.deepEqual(cles, ['hf:marathonien:1'], 'il rend les clés neuves')
+  assert.deepEqual(paliers, [{ sous: cleDeSerie('traversee-gagnee'), justes: 0, tampons: 0, traversees: 1 }], 'sous la traversée, comme une partie sous sa série')
+  assert.deepEqual(ordre, ['paliers'], 'ses paliers seuls : ni expérience, ni gardiens, ni compagnon')
+  assert.deepEqual(rangees, [])
+  assert.equal(appels, 1, 'le lot de statsDe, et rien de plus')
+
+  // Sans étagère — un magasin qu'aucun profil ne relie —, rien ne tombe, et rien ne casse.
+  const seul = magasin('hors-seul.db')
+  await seul.init(REVEIL_DU_CABINET)
+  assert.deepEqual(await seul.porte().accorderLesPaliers(QUI, 'traversee-gagnee'), [])
 })
 
 test('la porte rend la base de la campagne telle qu’elle la garde, et son verrou', async () => {

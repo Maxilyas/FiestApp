@@ -10,6 +10,7 @@ import {
   activiteDesJours,
   AUCUNE_ACTIVITE,
   avancement,
+  FAMILLES_DES_DEFIS,
   joursDeLaSemaine,
   lundiDe,
   MISSIONS_PAR_JOUR,
@@ -21,6 +22,7 @@ import {
   type MissionsDuJour,
   type SorteDeMission,
 } from '../../../shared/missions'
+import { SUJETS, estRemplace } from '../../../shared/sujets'
 
 // Les missions du jour et le coffre de la semaine, côté serveur
 // (`shared/missions.ts`, `shared/coffre.ts`) : lire ce que ses journaux disent
@@ -41,9 +43,16 @@ export interface DepsDesMissions {
     | 'ouvrirUnCoffre'
     | 'soireesDepuis'
     | 'coffresOfferts'
+    | 'aQuiDefier'
   >
   jour: Pick<JourStore, 'activiteDepuis' | 'coffresDuMois'>
   campagne: Pick<CampagneStore, 'activiteDepuis' | 'aRevoirDe'>
+  /**
+   * Le Cabinet de curiosités se joue-t-il ici, en ce moment — ouvert sur ce
+   * serveur, ni en maintenance ni bientôt disponible ? Sa mission ne se tire
+   * qu'alors. Absent, jamais : un banc qui ne l'ouvre pas.
+   */
+  cabinetOuvert?: () => boolean
   /** L'horloge du quiz du jour, que les tests font passer minuit et lundi. */
   maintenant: () => number
   /** Le hasard du coffre, dans [0, 1[ : les tests le fixent. */
@@ -88,8 +97,22 @@ function decouvertesDe(a: ActiviteDuJour): SorteDeMission[] {
     ...(a.etapes > 0 ? (['parcours'] as const) : []),
     ...(a.defis > 0 ? (['defi'] as const) : []),
     ...(a.revues > 0 ? (['revision'] as const) : []),
+    ...(a.cabinet > 0 ? (['cabinet'] as const) : []),
+    ...(a.duelsLances > 0 ? (['defier'] as const) : []),
   ]
 }
+
+/**
+ * Les thèmes qu'un duel à lancer peut viser : le catalogue des sujets, ses
+ * familles choisies (`FAMILLES_DES_DEFIS`), sans ce qui s'est redécoupé —
+ * chacun a ses cent questions sur la base livrée (`campagne-sujets.test.ts`),
+ * de quoi tirer un duel. Lu ici, au serveur : le catalogue ne part ni avec
+ * l'accueil ni avec le Cabinet, qui lisent `shared/missions.ts`.
+ */
+export const THEMES_DES_DEFIS: readonly { cle: string; nom: string }[] = SUJETS.filter(s => FAMILLES_DES_DEFIS.includes(s.famille) && !estRemplace(s.cle)).map(s => ({
+  cle: s.cle,
+  nom: s.nom,
+}))
 
 /**
  * Ce qui est fait et pas encore retenu, jour par jour : chaque mission à sa
@@ -248,7 +271,8 @@ export class Missions {
       const lundi = lundiDe(aujourdhui)
       const depuis = jourAvant(lundi, 7)
       const debut = minuitDuJour(depuis)
-      const carnet = this.tireesLe.get(profileId) === aujourdhui ? null : this.aRevoirDe(profileId)
+      // Ce que seul le tirage lit — son carnet, quelqu'un à défier —, parti avec ses journaux tant qu'on ne sait pas ses missions tirées.
+      const tirage = this.tireesLe.get(profileId) === aujourdhui ? null : this.ceQueLeTirageLit(profileId)
       const [lignes, duJour, deCampagne, soirees, auxTrois, ouverts, deMois, offerts] = await Promise.all([
         profiles.lignesDesMissions(profileId, depuis),
         jour.activiteDepuis(profileId, depuis),
@@ -263,7 +287,7 @@ export class Missions {
       let siennes = lignes
       if (!lignes.some(l => l.jour === aujourdhui)) {
         etape('son carnet')
-        const contexte = this.contexte(aujourdhui, lundi, activites, lignes, deCampagne.series, await (carnet ?? this.aRevoirDe(profileId)))
+        const contexte = this.contexte(aujourdhui, lundi, activites, lignes, deCampagne.series, await (tirage ?? this.ceQueLeTirageLit(profileId)))
         etape('le tirage')
         const tirees = await profiles.tirerLesMissions(profileId, aujourdhui, tirerLesMissions(`${profileId}|${aujourdhui}`, contexte), maintenant)
         siennes = [...lignes, ...tirees]
@@ -292,22 +316,34 @@ export class Missions {
     })
   }
 
-  /** Les questions de son carnet à revoir aujourd'hui, pour le tirage : un carnet qui ne se lit pas ne propose pas de révision, le reste du tirage tient. */
-  private aRevoirDe(profileId: string): Promise<number> {
-    return this.deps.campagne.aRevoirDe(profileId).catch(e => {
-      console.error('[missions] carnet illisible :', e)
-      return 0
-    })
+  /**
+   * Ce que seul le tirage lit, de front : les questions de son carnet à revoir
+   * aujourd'hui, et s'il a quelqu'un à défier. Une lecture qui échoue ôte sa
+   * mission — ni révision, ni duel à lancer —, le reste du tirage tient.
+   */
+  private ceQueLeTirageLit(profileId: string): Promise<{ aRevoir: number; adversaires: boolean }> {
+    const sansPlanter = async <T>(quoi: string, lire: () => Promise<T>, sinon: T): Promise<T> => {
+      try {
+        return await lire()
+      } catch (e) {
+        console.error(`[missions] ${quoi} :`, e)
+        return sinon
+      }
+    }
+    return Promise.all([
+      sansPlanter('carnet illisible', () => this.deps.campagne.aRevoirDe(profileId), 0),
+      sansPlanter('adversaires illisibles', () => this.deps.profiles.aQuiDefier(profileId), false),
+    ]).then(([aRevoir, adversaires]) => ({ aRevoir, adversaires }))
   }
 
-  /** Ce que le tirage du jour sait de lui : ses sept derniers jours, son défi, son carnet, ses missions d'hier. */
+  /** Ce que le tirage du jour sait de lui : ses sept derniers jours, son défi, son carnet, ses missions d'hier, le Cabinet, qui défier. */
   private contexte(
     aujourdhui: string,
     lundi: string,
     activites: ReadonlyMap<string, ActiviteDuJour>,
     lignes: readonly LigneDeMission[],
     series: readonly { mode: string; finieLe: number | null }[],
-    aRevoir: number,
+    lu: { aRevoir: number; adversaires: boolean },
   ): ContexteDuTirage {
     const septJours = Array.from({ length: 7 }, (_, i) => activites.get(jourAvant(aujourdhui, i + 1)) ?? AUCUNE_ACTIVITE)
     const hier = jourAvant(aujourdhui, 1)
@@ -316,8 +352,11 @@ export class Missions {
       joursDuJour: septJours.filter(a => a.quizDuJour).length,
       decouvertesJouees: new Set(septJours.flatMap(decouvertesDe)),
       defiFini: series.some(s => s.mode === 'defi' && s.finieLe !== null && jourDe(s.finieLe) >= lundi),
-      aRevoir,
+      aRevoir: lu.aRevoir,
       hier: lignes.filter(l => l.jour === hier && l.mission).map(l => l.mission!),
+      cabinet: this.deps.cabinetOuvert?.() ?? false,
+      adversaires: lu.adversaires,
+      themes: THEMES_DES_DEFIS,
     }
   }
 

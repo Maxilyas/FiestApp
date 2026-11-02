@@ -350,7 +350,7 @@ Les quatre étapes du brief sont faites, et les rencontres, d'abord un prototype
 | Les vies | 3 au départ, 3 au plus ; −1 par question ratée et par piège, +1 par source retrouvée, par campement et par vie achetée |
 | La saison d'une fête | sa fête : la moitié des thèmes pointus ; son légendaire : le gardien de l'acte 3, s'il ne l'a pas |
 | Le Globe-trotter | 10, 40 et 92 tampons |
-| L'Explorateur | les niveaux d'explorateur 4, 7 et 10 — du 19 au 26 octobre 2026 ; depuis, les salles complètes du Cabinet, 1, 3 et 6 |
+| L'Explorateur | les niveaux d'explorateur 4, 7 et 10 — du 19 au 26 octobre 2026 ; puis les salles complètes du Cabinet, 1, 3 et 6 ; depuis le 1er novembre 2026, ses traversées gagnées, 1, 5 et 15 |
 | L'Ascension | cran 1 : +6 points à chaque adversaire · 2 : +3 à sa frappe · 3 : le campement et la source rendent moitié moins · 4 : une d'énergie de moins par question · 5 : les gardiens ×1,5 — chacun ouvert par une victoire au cran d'en dessous, en préproduction seulement |
 | La question au centre | en préproduction : l'adversaire en crans — escale 2, 2, 3 ; élite 3, 4, 4 ; gardien 4, 4, 4 —, une bonne réponse en prend un, deux à six choix ; une carte par question ; la main de l'acte, 3 à son ouverture, une après chaque question, 4 au plus |
 | Les familles | en version 14 : six styles, le Rempart au niveau 4 ; le second essai sous Parade, Second souffle, Bastion ou Cuirasse — jamais sur un vrai ou faux ; Fortune mise 10 écus |

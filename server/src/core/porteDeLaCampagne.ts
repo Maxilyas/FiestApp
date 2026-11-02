@@ -73,6 +73,15 @@ export interface PorteDeLaCampagne {
   ecrireDesReponses(profileId: string, lot: readonly InStatement[], fin?: FinDUnePartie): Promise<ReponsesEcrites>
   /** Le compagnon de sa niche, que la ligne d'une réponse retient (`campagne_reponses.compagnon`) ; null sans compagnon. */
   compagnonDeLaNiche(profileId: string): string | null
+  /**
+   * Les paliers de la campagne qu'il vient d'atteindre hors d'une fin de partie
+   * — une traversée gagnée, que L'Explorateur compte (le 1er novembre 2026) —,
+   * rangés sous elle (`cleDeSerie`) comme ceux d'une fin de partie, de la même
+   * règle (`statsDe`, ses champs du Cabinet compris). Rend les clés neuves.
+   * Sans elle, son palier attendait la fin de la partie suivante : la
+   * traversée se gagne au choix du légendaire, après sa dernière épreuve.
+   */
+  accorderLesPaliers(profileId: string, sous: string): Promise<string[]>
   /** La base, ses mesures, ses tirages et le journal lus en fond, une fois par processus : la page du Cabinet la lance comme l'accueil. */
   prechauffer(): void
   /**
@@ -157,11 +166,12 @@ export interface CeQueLeReveilAjoute {
 
 /**
  * Les champs de `StatsDeCampagne` que le Cabinet compte, et que la campagne ne
- * compte pas : ses salles complètes, que L'Explorateur lit (le 26 octobre
- * 2026). `statsDe` leur pose leur défaut avant de les étaler : un serveur où le
- * Cabinet est fermé ne branche pas le crochet, et n'en compte aucune.
+ * compte pas : ses traversées gagnées, que L'Explorateur lit depuis le
+ * 1er novembre 2026 (ses salles complètes, du 26 octobre jusque-là). `statsDe`
+ * leur pose leur défaut avant de les étaler : un serveur où le Cabinet est
+ * fermé ne branche pas le crochet, et n'en compte aucune.
  */
-export type ChampsDuCabinet = 'salles'
+export type ChampsDuCabinet = 'traversees'
 
 /**
  * Ce que le Cabinet tire de ses lectures pour les paliers : ses champs, jamais

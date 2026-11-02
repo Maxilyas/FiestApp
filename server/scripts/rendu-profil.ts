@@ -5,7 +5,8 @@
 // panneau ensuite —, sur chaque pièce — avatar, titre, vitrine, fond, thème,
 // gerbe —, un essai de trois pièces porté d'un coup, la pastille d'une
 // nouveauté — un thème, puis un avatar d'une autre rareté que celle qu'elle
-// porte, jusqu'à sa case —, « Ma collection », ses lignes dépliées, l'album des avatars — ses
+// porte, jusqu'à sa case —, « Ma collection », ses lignes dépliées, l'album des trophées — page
+// par page, celle du Cabinet comprise, et cinq fiches —, l'album des avatars — ses
 // six pages et trois fiches —, l'album des thèmes et la fiche de l'un d'eux,
 // et la boutique des thèmes, qui ne vend que ce qui s'achète.
 // Une joueuse en route : un légendaire porté,
@@ -63,6 +64,12 @@ try {
   for (const theme of ['neige', 'ocean']) achat.run(id, theme)
   // Son Phénix a éclaté : la carte de la loge propose sa version rare.
   db.prepare(`INSERT INTO profile_eclats (profile_id, avatar, soiree_id, created_at) VALUES (?, 'lg:phenix', 'une-soiree-d-avant', 1)`).run(id)
+  // Au Cabinet : une traversée gagnée — le bronze de L'Explorateur, rangé sous elle —, la Cagnotte à l'Argent, la Panacée
+  // à l'Or, le Renard et le Dragon vaincus en maître ; la page « Cabinet » de l'album les montre.
+  db.prepare(`INSERT INTO cabinet_traversees (id, profile_id, depart, commencee_le, finie_le, issue, legendaire) VALUES ('traversee-de-lea', ?, '{}', 1, 2, 'gagnee', 'lg:renard')`).run(id)
+  db.prepare(`INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, 'hf:explorateur:1', '#campagne:traversee-de-lea', '', '🎒', 'L’Explorateur', 1)`).run(id)
+  const sceau = db.prepare(`INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, ?, '#cabinet', '', '🃏', 'défi', 1)`)
+  for (const cle of ['cabinet:defi:cagnotte:1', 'cabinet:defi:cagnotte:2', 'cabinet:defi:panacee:1', 'cabinet:defi:panacee:2', 'cabinet:defi:panacee:3', 'cabinet:maitrise:renard', 'cabinet:maitrise:dragon']) sceau.run(id, cle)
   db.close()
   await banc.redemarrer()
   await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'lg:phenix', gerbe: 'etoiles', ...(ivoire && { theme: 'ivoire' }) }, cookie, 'PUT')
@@ -219,7 +226,7 @@ try {
   await photo('6-style-essayer-dans-la-loge')
   await page.click('.loge-barre .btn-ghost')
   // L'album des trophées, page par page — son adresse nomme la page —, puis trois fiches : une piste commencée et ce qu'ouvre chaque étape, une à gagner, un exploit.
-  for (const p of ['soiree', 'jour', 'campagne', 'duels', 'sentiers', 'partout']) {
+  for (const p of ['soiree', 'jour', 'campagne', 'duels', 'sentiers', 'cabinet', 'partout']) {
     await page.goto(`${banc.url}/profil#collection-trophees-${p}`)
     await page.waitForSelector(`#trophees-onglet-${p}[aria-selected="true"]`)
     await photo(`6-trophees-${p}`, true)
@@ -228,6 +235,9 @@ try {
     ['jour', 'Le Sans-Faute,', 'sans-faute'],
     ['jour', 'Le Champion du jour,', 'champion-du-jour'],
     ['soiree', 'Le Phénix,', 'phenix'],
+    // Au Cabinet : un défi tenu à l'Argent — ses trois rangs et ce que chacun rapporte —, une épreuve de maître à faire.
+    ['cabinet', 'Le Trésorier,', 'defi-tresorier'],
+    ['cabinet', 'Le Sphinx,', 'maitrise-sphinx'],
   ] as const) {
     await page.goto(`${banc.url}/profil#collection-trophees-${p}`)
     await page.waitForSelector('.trophees-grille')
@@ -305,7 +315,8 @@ try {
   // Le panda roux, le dernier de la vitrine (le 20 octobre 2026) : sa scène, puis sa forme ultime.
   await page.click('.vitrine-point[aria-label="Le Panda roux"]')
   await photo('10-boutique-compagnon-panda', false, 900)
-  await page.click('.compagnon-carte:nth-child(4) .compagnon-forme[aria-label^="Le panda des érables"]')
+  // Sa carte par sa forme, jamais par son rang : la luciole, en boutique depuis le 31 octobre 2026, l'a fait passer cinquième.
+  await page.click('.compagnon-carte .compagnon-forme[aria-label^="Le panda des érables"]')
   await photo('10-boutique-compagnon-panda-erable', false, 1200)
   // Le loup adopté, porté en avatar — l'adoption ne le fait pas : il se choisit, comme dans la loge —, puis la tortue, qui attend son tour.
   await ecrire(banc.url, '/api/joueur/compagnons', { compagnon: 'loup' }, cookie)

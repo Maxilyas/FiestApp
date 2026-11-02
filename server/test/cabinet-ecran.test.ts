@@ -1136,10 +1136,21 @@ test('la carte d’une mission accomplie, au bilan, se relève à dix-sept pixel
     .filter(([, , taille]) => enPixels(taille) < 17)
     .map(([, selecteur]) => selecteur)
   assert.ok(petits.length >= 5, `les petits textes de la carte sont bien trouvés (${petits.join(', ')})`)
-  for (const selecteur of petits) {
-    const releve = new RegExp(`\\.cab-page ${echapper(selecteur)}[,\\s][^{}]*\\{[^}]*font-size: 1\\.0625rem;`)
-    assert.match(section, releve, `${selecteur} se relève sous .cab-page`)
+  // Sous `.cab-page`, et sous `.cab-tv` : le bilan d'une épreuve de la traversée l'annonce aussi depuis le 1er novembre 2026, et la
+  // traversée ne vit pas sous `.cab-page` — le rendu l'a montré à 11 et 14 px, centrée.
+  for (const page of ['.cab-page', '.cab-tv']) {
+    for (const selecteur of petits) {
+      const releve = new RegExp(`${echapper(page)} ${echapper(selecteur)}[,\\s][^{}]*\\{[^}]*font-size: 1\\.0625rem;`)
+      assert.match(section, releve, `${selecteur} se relève sous ${page}`)
+    }
   }
+  assert.match(section, /(?:^|\n)\.cab-tv \.mission-accomplie \{ text-align: left; \}/, 'alignée à gauche, dans un bilan centré')
+  // Et le bilan d'une épreuve la pose, son code venu à la demande : ni `Missions.tsx` ni `Gains.tsx` ne partent avec le Cabinet.
+  const traversee = readFileSync(path.join(client, 'views/cabinet/Traversee.tsx'), 'utf8')
+  assert.match(traversee, /aLaDemande\(\(\) => import\('\.\.\/\.\.\/components\/Missions'\)\)/)
+  assert.match(traversee, /<MissionsDeLEpreuve key=\{b\.partie\} \/>/)
+  const chemin = importsStatiques(path.join(client, 'views/CabinetApp.tsx'))
+  assert.ok(!chemin.has(path.join(client, 'components/Missions.tsx')), 'Missions.tsx ne part pas avec le Cabinet')
 })
 
 test('sur une tablette ou un portable, la niche et sa fiche suivent la colonne élargie d’une question : son coin, pas celui des 560 pixels', () => {

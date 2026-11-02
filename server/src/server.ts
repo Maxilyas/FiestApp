@@ -116,7 +116,7 @@ export interface QuizServerOptions {
    * Le Cabinet de curiosités répond-il ici ? Absent : son drapeau le dit
    * (`cabinetOuvert`, `shared/cabinet/ouverture.ts`) — partout hors de la
    * production. Un test le ferme pour voir le serveur de la production : ni ses
-   * routes, ni L'Explorateur, qui compte ses salles.
+   * routes, ni L'Explorateur, qui compte ses traversées gagnées.
    */
   cabinet?: boolean
   /**
@@ -520,7 +520,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // L'expédition qui part ou finit, dite à la page du Cabinet (« Ton expédition t'attend ») : en mémoire, un crochet
   // de sa porte, comme ses paliers — sans lui, la ligne restait jusqu'au réveil suivant.
   campagne.expeditionChange = (profileId, enRoute) => cabinet.expeditionChange(profileId, enRoute)
-  // Ses salles complètes, que L'Explorateur compte, lues dans le lot des paliers de la campagne — là seulement où il
+  // Ses traversées gagnées, que L'Explorateur compte, lues dans le lot des paliers de la campagne — là seulement où il
   // s'ouvre : fermé, il n'en compte aucune, sans une lecture de plus, et rien ne tombe (`montreParLeServeur`).
   if (cabinetEstOuvert) campagne.statsEnPlus = cabinet.statsEnPlus
   // L'historique des soirées vit avec la bibliothèque : c'est l'autre chose
@@ -1285,8 +1285,16 @@ export async function createQuizServer(opts: QuizServerOptions) {
     jour,
     rappels,
     campagne,
-    // Les missions du jour et le coffre de la semaine lisent les trois magasins, à l'horloge du quiz du jour.
-    missions: new Missions({ profiles, jour, campagne, maintenant: maintenantDuJour, ...(opts.hasardDuCoffre && { hasard: opts.hasardDuCoffre }) }),
+    // Les missions du jour et le coffre de la semaine lisent les trois magasins, à l'horloge du quiz du jour. La mission du
+    // Cabinet ne se tire que là où il se joue, ce jour-là : ni fermé ici, ni en maintenance, ni bientôt disponible.
+    missions: new Missions({
+      profiles,
+      jour,
+      campagne,
+      maintenant: maintenantDuJour,
+      cabinetOuvert: () => cabinetEstOuvert && !maintenance.estFermee('cabinet'),
+      ...(opts.hasardDuCoffre && { hasard: opts.hasardDuCoffre }),
+    }),
     // Les soins de son compagnon, à la même horloge : ses envies sont celles du jour de Paris.
     soins: new Soins({ profiles, maintenant: maintenantDuJour, ...(opts.hasardDuCadeau && { hasard: opts.hasardDuCadeau }) }),
     maintenant: maintenantDuJour,

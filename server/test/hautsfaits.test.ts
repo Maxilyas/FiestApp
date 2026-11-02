@@ -16,7 +16,6 @@ import type { ScoreEntry } from '../src/core/scores'
 import type { PlayerRec } from '../src/core/party'
 import { estCosmique, hautsFaitsDeSoiree, xpDesHautsFaits } from '../src/core/hautsfaits'
 import { AUCUNE_CAMPAGNE, carriereDe, gainVide, releveVide, type ReleveSoiree } from '../../shared/profil'
-import { SALLES } from '../../shared/cabinet/salles'
 import { buildProgress } from '../src/core/progress'
 import {
   HAUTS_FAITS_DE_CARRIERE,
@@ -428,31 +427,31 @@ test('ses plus beaux hauts faits : les plus rares à décrocher, un palier par h
   assert.ok(PART_DES_JOUEURS['hf:oracle'] > PART_DES_JOUEURS['hf:grand-chelem'])
 })
 
-test('un palier se dit par ce qu’il demande — et La Légende par son niveau, L’Explorateur par ses salles', () => {
+test('un palier se dit par ce qu’il demande — et La Légende par son niveau, L’Explorateur par ses traversées', () => {
   const carriere = (key: string) => hautFait(key) as HautFaitDeCarriere
   assert.equal(regleDuPalier(carriere('hf:bavard'), 3), '2000 réponses envoyées')
   assert.equal(regleDuPalier(carriere('hf:eclats'), 1), '1 avatar éclaté')
   assert.equal(regleDuPalier(carriere('hf:legende'), 2), 'Niveau 20')
   // Il disait « Niveau 7 d'explorateur » — un niveau qu'on atteint, pas sept à gagner — tant qu'il comptait le niveau
-  // de l'Expédition. Depuis le 26 octobre 2026, il compte des salles, qui s'additionnent : la règle de toutes les pistes,
-  // au singulier sous deux.
-  assert.equal(regleDuPalier(carriere('hf:explorateur'), 1), '1 salle complète du Cabinet')
-  assert.equal(regleDuPalier(carriere('hf:explorateur'), 2), '3 salles complètes du Cabinet')
+  // de l'Expédition. Depuis le 26 octobre 2026, il compte ce qui s'additionne — des salles, puis, depuis le
+  // 1er novembre, des traversées gagnées : la règle de toutes les pistes, au singulier sous deux.
+  assert.equal(regleDuPalier(carriere('hf:explorateur'), 1), '1 traversée gagnée au Cabinet')
+  assert.equal(regleDuPalier(carriere('hf:explorateur'), 2), '5 traversées gagnées au Cabinet')
 })
 
-test('L’Explorateur compte les salles complètes du Cabinet — une, trois, six —, sous la clé de toujours, là seulement où le serveur le cite', () => {
+test('L’Explorateur compte les traversées gagnées au Cabinet — une, cinq, quinze —, sous la clé de toujours, là seulement où le serveur le cite', () => {
   const h = hautFait('hf:explorateur') as HautFaitDeCarriere
-  // Sa clé ne change pas : ses paliers rangés (`hf:explorateur:N`), gagnés au niveau d'explorateur, restent à leurs
-  // détenteurs (invariant 22 — un palier validé ne se perd jamais) ; seule sa mesure change.
-  assert.deepEqual([h.famille, h.deCampagne, h.montreParLeServeur, [...h.paliers]], ['carriere', 'salles', true, [1, 3, 6]])
-  assert.deepEqual([h.mesureUne, h.mesure], ['salle complète du Cabinet', 'salles complètes du Cabinet'])
-  // Sans Cabinet, aucune salle : un profil qui ne l'a jamais ouvert, ou un serveur où il est fermé, n'en tient aucune.
-  assert.equal(AUCUNE_CAMPAGNE.salles, 0)
-  const atteints = (salles: number) => paliersDeCampagneAtteints({ ...AUCUNE_CAMPAGNE, salles }).filter(c => c.startsWith('hf:explorateur'))
+  // Sa clé ne change pas : ses paliers rangés (`hf:explorateur:N`), gagnés au niveau d'explorateur puis aux salles
+  // complètes du musée, restent à leurs détenteurs (invariant 22 — un palier validé ne se perd jamais) ; seule sa
+  // mesure change. Le musée, que la traversée a remplacé, ne se remplissait plus : il ne montait plus pour personne.
+  assert.deepEqual([h.famille, h.deCampagne, h.montreParLeServeur, [...h.paliers]], ['carriere', 'traversees', true, [1, 5, 15]])
+  assert.deepEqual([h.mesureUne, h.mesure], ['traversée gagnée au Cabinet', 'traversées gagnées au Cabinet'])
+  // Sans Cabinet, aucune traversée : un profil qui ne l'a jamais ouvert, ou un serveur où il est fermé, n'en tient aucune.
+  assert.equal(AUCUNE_CAMPAGNE.traversees, 0)
+  assert.ok(!('salles' in AUCUNE_CAMPAGNE), 'les salles du musée ne se comptent plus')
+  const atteints = (traversees: number) => paliersDeCampagneAtteints({ ...AUCUNE_CAMPAGNE, traversees }).filter(c => c.startsWith('hf:explorateur'))
   assert.deepEqual(atteints(0), [])
   assert.deepEqual(atteints(1), ['hf:explorateur:1'])
   assert.deepEqual(atteints(5), ['hf:explorateur:1', 'hf:explorateur:2'])
-  assert.deepEqual(atteints(9), ['hf:explorateur:1', 'hf:explorateur:2', 'hf:explorateur:3'])
-  // Les neuf salles du Cabinet suffisent à l'or : le dernier palier se tient sans attendre une œuvre peinte de plus.
-  assert.ok(h.paliers[2] <= SALLES.length)
+  assert.deepEqual(atteints(15), ['hf:explorateur:1', 'hf:explorateur:2', 'hf:explorateur:3'])
 })

@@ -97,3 +97,19 @@ export function viserLaCategorie(categorie: string): void {
     // La campagne s'ouvrira sur son dernier choix : la mission se fait quand même.
   }
 }
+
+/**
+ * Un duel à lancer vise un thème : la préparation s'ouvre sur lui, comme si on
+ * venait de le choisir (`sujetRetenu`, `CampagneApp.tsx` — la même clé, qu'un
+ * sujet choisi garde pour la série aussi). Ses catégories restent retenues :
+ * un sujet passe devant elles sans les oublier. Sous try/catch : un stockage
+ * refusé ouvre la préparation sur le dernier choix, et le thème se choisit à
+ * la main.
+ */
+export function viserLeSujet(sujet: string): void {
+  try {
+    localStorage.setItem('quizz.campagne.sujet', sujet)
+  } catch {
+    // La préparation s'ouvrira sur son dernier choix : « Changer › » y mène au thème.
+  }
+}

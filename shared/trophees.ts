@@ -46,7 +46,11 @@ import { titreDuChampion } from './jour'
 import { formatNumber } from './typographie'
 import type { PublicProfileDetail } from './profil'
 
-import { PAGES_DES_TROPHEES, type PageDesTrophees } from './pagesDesTrophees'
+import { PAGES_DES_TROPHEES, PISTES_DU_CABINET, type PageDesTrophees } from './pagesDesTrophees'
+import { legendaire } from './legendaires'
+import { CONFETTIS_D_UN_RANG } from './cabinet/bareme'
+import { MAITRISES, NOMS_DES_CARTES, NOMS_DES_DEFIS, PHRASES_DES_DEFIS, RANGS, RANGS_DITS, cleDeLaMaitrise, maitriseDite, type DefisTenus, type RangDUnDefi } from './cabinet/sceaux'
+import type { CleDeCarte } from './cabinet/traversee'
 
 // Les pages elles-mêmes vivent à part, sans catalogue : la fin d'une partie
 // lit la page d'un trophée sans télécharger l'album.
@@ -59,6 +63,7 @@ export const OU_DE_LA_PAGE: Readonly<Record<PageDesTrophees, string>> = {
   campagne: 'En campagne',
   duels: 'Aux duels',
   sentiers: 'Sur les sentiers',
+  cabinet: 'Au Cabinet',
   partout: 'Partout',
 }
 
@@ -69,10 +74,11 @@ export const CE_QUE_RANGE_LA_PAGE: Readonly<Record<PageDesTrophees, string>> = {
   campagne: 'La série à trois vies, et le défi de la semaine.',
   duels: 'Ta cote, tes ligues et leurs bordures, duel après duel.',
   sentiers: 'Ce que tu valides en épreuve, et le maître de chaque sentier du savoir. Leurs portraits sont dans l’album des avatars.',
+  cabinet: 'Tes traversées, le défi au dos de chacune de tes cartes, et l’épreuve de maître de chaque gardien. Leurs légendaires sont dans l’album des avatars.',
   partout: 'Ce que tous les modes nourrissent : tes écussons, ton niveau, tes Éclats.',
 }
 
-export type SorteDeCase = 'piste' | 'exploit' | 'coup' | 'prix' | 'ecusson' | 'page' | 'ligue' | 'bordure' | 'maitre'
+export type SorteDeCase = 'piste' | 'exploit' | 'coup' | 'prix' | 'ecusson' | 'page' | 'ligue' | 'bordure' | 'maitre' | 'defi' | 'maitrise'
 
 /** Une étape d'une piste, telle que sa fiche la montre : atteinte ou non, et la prochaine. */
 export interface EtapeVue {
@@ -81,6 +87,10 @@ export interface EtapeVue {
   recompenses: readonly Recompense[]
   atteinte: boolean
   prochaine: boolean
+  /** Un rang d'un défi : ce qu'il demande, à la place de son seuil (« Un acte fini sans un Coup d'œil »)… */
+  dit?: string
+  /** … et ce qu'il rapporte, en clair (« 25 confettis », « Le titre « L'Œil nu » »). */
+  gain?: string
 }
 
 /** Une case de l'album : un trophée, ce qu'il en a, et ce qu'il ouvre. */
@@ -118,9 +128,13 @@ export interface CaseDeTrophee {
   branche?: CleDeBranche
   mois?: string
   doree?: boolean
+  /** Un défi : la carte au dos de laquelle il est — la page en montre la peinture. */
+  carte?: CleDeCarte
+  /** Une épreuve de maître : son gardien, un légendaire — la page en montre le médaillon. */
+  gardien?: string
 }
 
-export type CleDeSection = 'pistes' | 'exploits' | 'coups' | 'palmares' | 'calendrier' | 'ligues' | 'bordures' | 'maitres' | 'ecussons' | 'niveau'
+export type CleDeSection = 'pistes' | 'exploits' | 'coups' | 'palmares' | 'calendrier' | 'ligues' | 'bordures' | 'maitres' | 'ecussons' | 'niveau' | 'defis' | 'maitrises'
 
 export interface SectionDeLAlbum {
   cle: CleDeSection
@@ -143,7 +157,7 @@ export interface PageDeTrophees {
 }
 
 /** Ce que l'album lit d'un profil : sa page au complet, ou ce qu'il en faut. */
-export type ProfilDeLAlbumDesTrophees = Pick<PublicProfileDetail, 'hautsFaits' | 'prix' | 'ecussons' | 'calendrier' | 'titresDates' | 'sentiers' | 'bordures'>
+export type ProfilDeLAlbumDesTrophees = Pick<PublicProfileDetail, 'hautsFaits' | 'prix' | 'ecussons' | 'calendrier' | 'titresDates' | 'sentiers' | 'bordures' | 'defisDuCabinet'>
 
 /**
  * Le mot court de chaque piste, sous sa case : « 7 victoires », « 34 jours »
@@ -167,7 +181,7 @@ const COURT: Readonly<Record<string, readonly [string, string]>> = {
   'hf:infatigable': ['d’affilée', 'd’affilée'],
   'hf:erudit': ['experte', 'expertes'],
   'hf:marathonien': ['juste', 'justes'],
-  'hf:explorateur': ['salle', 'salles'],
+  'hf:explorateur': ['traversée', 'traversées'],
   'hf:randonneur': ['palier', 'paliers'],
   'hf:constellation': ['étoile', 'étoiles'],
   'hf:cartographe': ['sentier', 'sentiers'],
@@ -225,13 +239,7 @@ export const OU_JOUER: Readonly<Partial<Record<PageDesTrophees, { nom: string; h
   sentiers: { nom: 'Aller aux sentiers', href: '/campagne#sentiers' },
 }
 
-/**
- * Les pistes qui se gagnent au Cabinet de curiosités, loin de l'écran de leur
- * page : L'Explorateur se range en campagne — ses paliers tombent à la fin
- * d'une partie de la campagne —, mais ses salles se complètent au Cabinet, et
- * « Jouer une série » n'en complétait aucune.
- */
-const PISTES_DU_CABINET: ReadonlySet<string> = new Set(['hf:explorateur'])
+/** L'écran du Cabinet de curiosités : sa page, et ses pistes (`PISTES_DU_CABINET`), qu'une série n'avance pas. */
 const AU_CABINET = { nom: 'Aller au Cabinet', href: '/cabinet' }
 
 /**
@@ -242,7 +250,7 @@ const AU_CABINET = { nom: 'Aller au Cabinet', href: '/cabinet' }
  * (`montreParLeServeur`), et ni la page fermée, ni une série ne l'avancent.
  */
 export function ouJouer(cle: string, page: PageDesTrophees, cabinet = true): { nom: string; href: string } | undefined {
-  if (PISTES_DU_CABINET.has(cle)) return cabinet ? AU_CABINET : undefined
+  if (PISTES_DU_CABINET.has(cle) || page === 'cabinet') return cabinet ? AU_CABINET : undefined
   return OU_JOUER[page]
 }
 
@@ -325,20 +333,99 @@ function section(cle: CleDeSection, titre: string, aide: string, cases: CaseDeTr
 const exploits = (liste: readonly HautFaitDeSoiree[]) => liste.filter(h => h.ton === 'eclat' && !ABSORBES[h.key])
 const coups = (liste: readonly HautFaitDeSoiree[]) => liste.filter(h => h.ton === 'ombre')
 
-const PISTES_DE: Readonly<Record<'soiree' | 'jour' | 'campagne' | 'sentiers' | 'partout', readonly HautFaitDeCarriere[]>> = {
+const PISTES_DE: Readonly<Record<'soiree' | 'jour' | 'campagne' | 'sentiers' | 'cabinet' | 'partout', readonly HautFaitDeCarriere[]>> = {
   soiree: HAUTS_FAITS_DE_CARRIERE.filter(h => !origineDe(h) && h.key !== 'hf:legende' && h.key !== 'hf:eclats'),
   jour: HAUTS_FAITS_DE_CARRIERE.filter(h => origineDe(h) === 'jour'),
-  campagne: HAUTS_FAITS_DE_CARRIERE.filter(h => origineDe(h) === 'campagne'),
+  campagne: HAUTS_FAITS_DE_CARRIERE.filter(h => origineDe(h) === 'campagne' && !PISTES_DU_CABINET.has(h.key)),
+  // Ses paliers tombent comme ceux de la campagne, mais ce qu'il compte se fait au Cabinet : sa page.
+  cabinet: HAUTS_FAITS_DE_CARRIERE.filter(h => PISTES_DU_CABINET.has(h.key)),
   sentiers: HAUTS_FAITS_DE_CARRIERE.filter(h => origineDe(h) === 'sentiers'),
   partout: HAUTS_FAITS_DE_CARRIERE.filter(h => h.key === 'hf:legende' || h.key === 'hf:eclats'),
 }
 
 const AIDE_DES_PISTES = 'Elles montent : bronze, argent, or. Touche-les : chaque étape dit ce qu’elle ouvre.'
+
+/** Les cartes du Cabinet, dans leur ordre (`CARTES`, `traversee.ts`) : chacune porte un défi. */
+const CARTES_DES_DEFIS = Object.keys(NOMS_DES_DEFIS) as CleDeCarte[]
+
+/**
+ * La case du défi d'une carte : ses trois rangs comme les métaux d'une piste — Bronze, Argent, Or —, chacun ce qu'il
+ * demande et ce qu'il rapporte. Il ne se compte pas : un rang se tient d'une traversée, ou pas.
+ */
+function caseDuDefi(carte: CleDeCarte, rang: 0 | RangDUnDefi): CaseDeTrophee {
+  const nom = NOMS_DES_DEFIS[carte]
+  return {
+    cle: `cabinet:defi:${carte}`,
+    sorte: 'defi',
+    emoji: '🃏',
+    titre: nom,
+    regle: `Au dos de la carte ${NOMS_DES_CARTES[carte]}`,
+    aLui: rang > 0,
+    rarete: null,
+    metaux: rang,
+    ...(rang !== 0 && { compte: RANGS_DITS[rang] }),
+    carte,
+    etapes: RANGS.map(k => ({
+      seuil: k,
+      metal: k,
+      recompenses: [],
+      atteinte: k <= rang,
+      prochaine: false,
+      dit: PHRASES_DES_DEFIS[carte][k - 1],
+      gain: gainDuRang(k, nom),
+    })),
+  }
+}
+
+/**
+ * Ce qu'un rang rapporte, en clair : ses confettis (`CONFETTIS_D_UN_RANG`), le dos doré de sa carte au choix des cartes
+ * dès l'Argent (`.cab-tv-doree`, `Traversee.tsx`), le titre à l'Or — « 75 confettis, et son dos doré ».
+ */
+function gainDuRang(k: RangDUnDefi, nom: string): string {
+  const confettis = CONFETTIS_D_UN_RANG[k - 1] > 0 ? `${CONFETTIS_D_UN_RANG[k - 1]} confettis` : ''
+  const reste = k === 2 ? 'son dos doré' : k === 3 ? `le titre « ${nom} »` : ''
+  if (!confettis) return reste.charAt(0).toUpperCase() + reste.slice(1)
+  return reste ? `${confettis}, et ${reste}` : confettis
+}
+
+/** La case de l'épreuve de maître d'un gardien : ce qu'elle demande, et son légendaire, qu'elle donne aussitôt. */
+function caseDeLaMaitrise(gardien: string, faite: boolean): CaseDeTrophee {
+  const l = legendaire(gardien)
+  return {
+    cle: cleDeLaMaitrise(gardien),
+    sorte: 'maitrise',
+    emoji: '👑',
+    titre: l?.nom ?? gardien,
+    regle: maitriseDite(gardien) ?? '',
+    aLui: faite,
+    rarete: null,
+    gardien,
+    ...(l && { ouvre: [{ fois: 1, recompense: { sorte: 'legendaire' as const, cle: l.key, nom: l.nom }, tenue: faite }] }),
+  }
+}
+
+/** Les deux sections du Cabinet qu'il tient de ses traversées : les défis de ses cartes, puis ses épreuves de maître. */
+function sectionsDesDefis(t: DefisTenus): SectionDeLAlbum[] {
+  return [
+    section(
+      'defis',
+      'Les défis de tes cartes',
+      `Un défi au dos de chaque carte, qui ne compte que si elle est dans ta main : ${CONFETTIS_D_UN_RANG[0]} confettis au bronze, ${CONFETTIS_D_UN_RANG[1]} à l’argent, un titre à l’or.`,
+      CARTES_DES_DEFIS.map(c => caseDuDefi(c, t.rangs[c] ?? 0)),
+    ),
+    section(
+      'maitrises',
+      'Les épreuves de maître',
+      'Vaincs un gardien comme il le demande : son légendaire est à toi aussitôt.',
+      [...MAITRISES.keys()].map(g => caseDeLaMaitrise(g, t.maitrises.includes(g))),
+    ),
+  ]
+}
 const AIDE_DES_EXPLOITS = 'Ils se regagnent : le nombre dit combien de fois.'
 const AIDE_DES_COUPS = 'Pour en rire : ta carte ne les montre que si tu les choisis.'
 
 /**
- * Tout l'album : six pages, leurs sections et leurs comptes. Ce qu'un serveur
+ * Tout l'album : sept pages, leurs sections et leurs comptes — celle du Cabinet là où il s'ouvre. Ce qu'un serveur
  * d'avant ne dit pas (les prix, les écussons, le calendrier, les sentiers)
  * ne s'y montre pas et ne s'y compte pas : le total n'annonce jamais ce que
  * la page ne saurait montrer. Les bordures, si : le serveur les tait jusqu'au
@@ -438,6 +525,11 @@ export function albumDesTrophees(p: ProfilDeLAlbumDesTrophees): PageDeTrophees[]
         }),
       ),
     ],
+    cabinet: [
+      // L'Explorateur, là où le serveur le cite ; ses défis et ses épreuves de maître, là où il dit ce qu'il en tient.
+      ...(pistes('cabinet').length > 0 ? [section('pistes', 'Les pistes', AIDE_DES_PISTES, pistes('cabinet'))] : []),
+      ...(p.defisDuCabinet ? sectionsDesDefis(p.defisDuCabinet) : []),
+    ],
     sentiers: [
       section('pistes', 'Les pistes', AIDE_DES_PISTES, pistes('sentiers')),
       section('exploits', 'Les exploits', 'Une épreuve en jeu : ils se regagnent, le nombre dit combien de fois.', HAUTS_FAITS_DES_SENTIERS.map(h => caseDExploit(h, vus))),
@@ -495,7 +587,8 @@ export function albumDesTrophees(p: ProfilDeLAlbumDesTrophees): PageDeTrophees[]
       section('niveau', 'Ton niveau et tes Éclats', 'Ton niveau monte avec l’XP de tous les modes ; un Éclat tombe une fois sur quarante, une sur vingt au défi.', pistes('partout')),
     ],
   }
-  return PAGES_DES_TROPHEES.map(page => {
+  // Le Cabinet fermé ici — rien cité, rien de ses défis —, sa page ne s'ouvre pas : un onglet « 0/0 » n'y mènerait à rien.
+  return PAGES_DES_TROPHEES.filter(page => page !== 'cabinet' || sections.cabinet.length > 0).map(page => {
     const s = sections[page]
     return { page, acquis: s.reduce((n, x) => n + x.acquis, 0), total: s.reduce((n, x) => n + x.total, 0), sections: s }
   })

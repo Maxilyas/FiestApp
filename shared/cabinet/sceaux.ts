@@ -13,7 +13,7 @@
 // (`PREFIXES_DES_VOIES_RANGEES`) — ce n'est pas un trophée de soirée —, et la
 // ligne ne se reprend jamais (invariant 22).
 
-import { ARGENTS_POUR_LA_GERBE, CONFETTIS_D_UN_RANG, ORS_POUR_LE_LEGENDAIRE } from './bareme'
+import { ACTES_DES_RANGS, ACTES_D_UNE_TRAVERSEE, ARGENTS_POUR_LA_GERBE, CONFETTIS_D_UN_RANG, MISES_DU_FLAMBEUR, ORS_POUR_LE_LEGENDAIRE, OR_DU_TRESORIER, OR_D_UNE_MAITRISE } from './bareme'
 import type { CleDeCarte } from './traversee'
 
 /** Un rang : 1 le Bronze, 2 l'Argent, 3 l'Or. */
@@ -39,6 +39,130 @@ export const NOMS_DES_DEFIS: Readonly<Record<CleDeCarte, string>> = {
   'second-souffle': 'Le Revenant',
 }
 const CARTES_DES_DEFIS = Object.keys(NOMS_DES_DEFIS) as CleDeCarte[]
+
+/**
+ * Le nom de chaque carte, lu sans la traversée : l'album des trophées dit au dos de laquelle est chaque défi
+ * (`CARTES`, `traversee.ts` — `cabinet-defis.test.ts` les compare).
+ */
+export const NOMS_DES_CARTES: Readonly<Record<CleDeCarte, string>> = {
+  'coup-d-oeil': 'Coup d’œil',
+  echange: 'Échange',
+  'quitte-ou-double': 'Quitte ou double',
+  concentration: 'Concentration',
+  parade: 'Parade',
+  cagnotte: 'Cagnotte',
+  panacee: 'Panacée',
+  pourboire: 'Pourboire',
+  'coup-de-grace': 'Coup de grâce',
+  'second-souffle': 'Second souffle',
+}
+
+// ── Ce que chaque rang demande, en mots ───────────────────────────────────
+// Composé des chiffres du barème : la règle qui juge chaque rang vit dans `defis.ts` (`DEFIS`), qui lit ses phrases
+// ici — l'album des trophées les dit sans tirer la traversée.
+
+const FINIS_DITS = ['Un acte fini', 'Deux actes finis'] as const
+const NOMBRES_DITS = ['Zéro', 'Un', 'Deux', 'Trois', 'Quatre', 'Cinq', 'Six', 'Sept', 'Huit', 'Neuf', 'Dix'] as const
+const nombreDit = (n: number) => NOMBRES_DITS[n] ?? String(n)
+const actesFinis = (n: number) => (n >= ACTES_D_UNE_TRAVERSEE ? 'La traversée gagnée' : (FINIS_DITS[n - 1] ?? `${n} actes finis`))
+/** Les rangs d'un défi « sans » : un, deux, puis trois actes finis sans que ceci ait servi. */
+const phrasesSans = (fin: string): readonly [string, string, string] => [`${actesFinis(ACTES_DES_RANGS[0])} ${fin}`, `${actesFinis(ACTES_DES_RANGS[1])} ${fin}`, `${actesFinis(ACTES_DES_RANGS[2])} ${fin}`]
+
+/** Chaque rang de chaque défi en une phrase, Bronze, Argent, Or. */
+export const PHRASES_DES_DEFIS: Readonly<Record<CleDeCarte, readonly [string, string, string]>> = {
+  'coup-d-oeil': phrasesSans('sans un Coup d’œil'),
+  echange: phrasesSans('sans un Échange'),
+  'quitte-ou-double': [
+    `${nombreDit(MISES_DU_FLAMBEUR.gagnees)} mises gagnées dans une traversée`,
+    `${nombreDit(MISES_DU_FLAMBEUR.daffilee[0])} mises gagnées d’affilée`,
+    `${nombreDit(MISES_DU_FLAMBEUR.daffilee[1])} mises gagnées d’affilée`,
+  ],
+  concentration: phrasesSans('sans puiser dans le temps en plus'),
+  parade: phrasesSans('sans qu’une Parade serve'),
+  cagnotte: [
+    `${OR_DU_TRESORIER[0]} pièces en poche à la chute d’un gardien`,
+    `${OR_DU_TRESORIER[1]} pièces en poche à la chute d’un gardien`,
+    `${OR_DU_TRESORIER[2]} pièces en poche à la chute du dernier`,
+  ],
+  panacee: phrasesSans('sans perdre un cœur'),
+  pourboire: phrasesSans('sans rien acheter'),
+  // Un gardien de l'acte I tombe presque toujours au premier assaut — six fois sur sept chez le joueur moyen du
+  // calibrage — : le Bronze demande de l'abattre dès la deuxième manche ; ceux des actes II et III, eux, ont plus de
+  // points de vie qu'un assaut n'a d'étoiles, sans mise ni Coup de grâce ++.
+  'coup-de-grace': ['Un gardien abattu dès la deuxième manche de ton premier assaut', 'Un gardien de l’acte II ou III vaincu au premier assaut', 'Le gardien de l’acte III vaincu au premier assaut'],
+  'second-souffle': ['Ton Second souffle sert, et tu finis l’acte quand même', 'La traversée gagnée après ton Second souffle', 'Ton Second souffle sert avant l’acte III, et la traversée est gagnée'],
+}
+
+// ── Les épreuves de maître, en mots ───────────────────────────────────────
+
+/** Ce qu'une épreuve de maître demande : la règle de chacune vit dans `defis.ts` (`CONDITIONS_DE_MAITRISE`). */
+export type SorteDeMaitrise = 'unSeulAssaut' | 'sansFaute' | 'sansPerdreUnCoeur' | 'toutesLesEtoiles' | 'surUneMise' | 'dEntree' | 'orEnPoche' | 'apresUnCoeurPerdu' | 'apresLeSouffle'
+
+const DITS_DES_MAITRISES: Readonly<Record<Exclude<SorteDeMaitrise, 'orEnPoche'>, string>> = {
+  unSeulAssaut: 'au premier assaut',
+  sansFaute: 'sans rater une manche contre lui',
+  sansPerdreUnCoeur: 'sans perdre un cœur contre lui',
+  toutesLesEtoiles: 'avec trois étoiles à chaque manche contre lui',
+  surUneMise: 'd’un coup porté sur une mise',
+  dEntree: 'dès la deuxième manche de ton premier assaut',
+  apresUnCoeurPerdu: 'dans l’assaut même où tu perds un cœur',
+  apresLeSouffle: 'après que ton Second souffle t’a relevé contre lui',
+}
+
+const COURTS_DES_MAITRISES: Readonly<Record<Exclude<SorteDeMaitrise, 'orEnPoche'>, string>> = {
+  unSeulAssaut: 'Au premier assaut',
+  sansFaute: 'Sans rater une manche',
+  sansPerdreUnCoeur: 'Sans perdre un cœur',
+  toutesLesEtoiles: '★★★ à chaque manche',
+  surUneMise: 'Sur une mise',
+  dEntree: 'En deux manches',
+  apresUnCoeurPerdu: 'Après un cœur perdu',
+  apresLeSouffle: 'Après le Second souffle',
+}
+
+/** Un acte de la traversée : 0, 1, 2. */
+type ActeDuGardien = 0 | 1 | 2
+
+/**
+ * L'épreuve de maître de chaque gardien de la traversée, et l'acte où il se rencontre, dans l'ordre des actes — celui
+ * de leurs cercles (`GARDIENS_DES_ACTES`, `traversee.ts`, la Citrouille à l'acte I : `cabinet-defis.test.ts` les
+ * compare). Chacune dans l'esprit de sa devise : le Dragon garde son or, le Phénix renaît de ses cendres, la Comète ne
+ * passe qu'une fois. On la lit dès l'écran des trois gardiens, avant de choisir ses cartes : certaines s'y préparent
+ * — sur une mise, après le Second souffle.
+ */
+export const MAITRISES: ReadonlyMap<string, { acte: ActeDuGardien; sorte: SorteDeMaitrise }> = new Map(
+  (
+    [
+      // L'acte I : des gardiens doux — au calibrage, le joueur moyen qui les vainc les maîtrise une fois sur cinq à peu près.
+      [0, { 'lg:renard': 'toutesLesEtoiles', 'lg:coq': 'dEntree', 'lg:chouette': 'toutesLesEtoiles', 'lg:tigre': 'dEntree', 'lg:chauve-souris': 'apresUnCoeurPerdu', 'lg:scarabee': 'orEnPoche', 'lg:citrouille': 'surUneMise' }],
+      // L'acte II : une fois sur cinq à dix ; le Lion, roi de sa carte, une fois sur vingt-cinq.
+      [1, { 'lg:sphinx': 'sansFaute', 'lg:janus': 'surUneMise', 'lg:phenix': 'apresUnCoeurPerdu', 'lg:fantome': 'sansPerdreUnCoeur', 'lg:salamandre': 'orEnPoche', 'lg:lion': 'unSeulAssaut', 'lg:oracle': 'sansFaute', 'lg:serpent': 'sansPerdreUnCoeur' }],
+      // L'acte III : une fois sur dix à quatre ; la Comète, qui ne passe qu'une fois, presque jamais.
+      [2, { 'lg:dragon': 'orEnPoche', 'lg:kraken': 'apresLeSouffle', 'lg:chimere': 'sansFaute', 'lg:ouroboros': 'apresUnCoeurPerdu', 'lg:trou-noir': 'sansPerdreUnCoeur', 'lg:comete': 'unSeulAssaut' }],
+    ] as const satisfies readonly (readonly [ActeDuGardien, Readonly<Record<string, SorteDeMaitrise>>])[]
+  ).flatMap(([acte, gardiens]) => Object.entries(gardiens).map(([gardien, sorte]) => [gardien, { acte, sorte }] as const)),
+)
+
+/** Son épreuve, par la clé du gardien — une `Map`, jamais `TABLE[cle]`. */
+const maitriseDe = (gardien: unknown) => (typeof gardien === 'string' ? MAITRISES.get(gardien) : undefined)
+
+/** L'épreuve de maître d'un gardien, en une phrase — « Le vaincre avec 300 pièces en poche » ; null : pas un gardien de la traversée. */
+export function maitriseDite(gardien: unknown): string | null {
+  const m = maitriseDe(gardien)
+  if (!m) return null
+  return `Le vaincre ${m.sorte === 'orEnPoche' ? `avec ${OR_D_UNE_MAITRISE[m.acte]} pièces en poche` : DITS_DES_MAITRISES[m.sorte]}`
+}
+
+/**
+ * La même, en quelques mots, sous le médaillon du gardien (« Sans perdre un cœur ») : l'écran des trois gardiens en
+ * disait la phrase entière de chacun, trois phrases sous trois médaillons — « trop de texte, pas assez visuel et
+ * sobre » (le propriétaire, le 1er novembre 2026). L'annonce du gardien la redit en entier (`maitriseDite`).
+ */
+export function maitriseCourte(gardien: unknown): string | null {
+  const m = maitriseDe(gardien)
+  if (!m) return null
+  return m.sorte === 'orEnPoche' ? `${OR_D_UNE_MAITRISE[m.acte]} pièces en poche` : COURTS_DES_MAITRISES[m.sorte]
+}
 const estUneCarte = (x: string): x is CleDeCarte => (CARTES_DES_DEFIS as readonly string[]).includes(x)
 
 /** Les préfixes de ce qui se range : un rang d'un défi (`cabinet:defi:cagnotte:2`), une épreuve de maître (`cabinet:maitrise:dragon`). */
