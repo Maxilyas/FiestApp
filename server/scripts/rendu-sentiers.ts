@@ -201,14 +201,15 @@ try {
   await page.waitForSelector('.campagne-heros')
   await photo('11-serie')
 
-  // La boutique : deux rayons sous une barre fine — les thèmes, puis les
-  // objets, où se vend la vie des sentiers (`RayonDesObjets`).
+  // La boutique, d'un seul tenant : les thèmes en tête, puis, par sa puce, le
+  // comptoir des objets, où se vend la vie des sentiers (`RayonDesObjets`).
   await page.goto(`${banc.url}/boutique`)
-  await page.waitForSelector('.onglets-fins')
-  await page.waitForSelector('.gemmes')
+  await page.waitForSelector('.boutique-rayons')
+  await page.waitForSelector('.etagere .theme-vitrine')
   await photo('12-boutique-themes')
-  await page.click('.onglets-fins [role="tab"]:has-text("Objets")')
-  await page.waitForSelector('.rayon-objets')
+  await page.click('.boutique-rayons a:has-text("Objets")')
+  await page.waitForSelector('.comptoir .comptoir-objet')
+  await page.waitForTimeout(700)
   await photo('12-boutique-objets')
 
   // Les avatars du savoir, dans l'album de « Ma collection » : le visage de chaque sentier, sur la page commune.

@@ -235,7 +235,7 @@ const JEANNE = {
 }
 
 /** La boutique — ce qui reste à prendre — et « Mes thèmes », la pièce « Thème » de la loge : ce qu'on a. */
-const laBoutique = (profil: typeof JEANNE = JEANNE) => rendu('components/Boutique', 'RayonDesThemes', { profil, busy: false, acheter: async () => null })
+const laBoutique = (profil: typeof JEANNE = JEANNE) => rendu('components/Boutique', 'RayonDesThemes', { profil, onOuvrir: () => {} })
 const mesThemes = (profil: typeof JEANNE = JEANNE) => rendu('components/Boutique', 'MesThemes', { profil, essai: {}, essayer: () => {}, busy: false, enregistrer: () => {} })
 
 /** Les cartes d'une vitrine, et ce que chacune dit d'elle à l'oreille. */
@@ -249,17 +249,22 @@ test('dans la boutique, toucher un thème ouvre sa fiche : aucun ne se porte ni 
   // Un thème se portait d'un toucher, enregistré : le doigt qui voulait le
   // regarder habillait déjà toute la page, pour de bon. Le geste est celui de
   // « Mes avatars » — dans la loge, le toucher l'essaie aussi, sans rien
-  // enregistrer ; « Porter », dans sa barre, le garde.
-  for (const html of [await laBoutique(), await mesThemes()]) {
+  // enregistrer ; « Porter », dans sa barre, le garde. À la boutique, la
+  // carte ouvre sa fiche dans une feuille, où il s'essaie et s'achète.
+  for (const [html, ouvre] of [
+    [await laBoutique(), /aria-haspopup="dialog"/],
+    [await mesThemes(), /aria-expanded="false"/],
+  ] as const) {
     const cases = casesDe(html)
     assert.ok(cases.length > 0, 'une vitrine')
     for (const { balise } of cases) {
-      // Un bouton qui déplie, pas un interrupteur ; et un thème pas encore à
-      // lui se touche aussi : sa fiche dit ce qui manque.
-      assert.match(balise, /aria-expanded="false"/, balise)
+      // Un bouton qui ouvre — sa feuille, ou sa fiche dépliée —, pas un
+      // interrupteur ; et un thème pas encore à lui se touche aussi : sa fiche
+      // dit ce qui manque.
+      assert.match(balise, ouvre, balise)
       assert.doesNotMatch(balise, /aria-pressed|disabled/, balise)
     }
-    assert.doesNotMatch(html, /id="detail-theme"/, 'aucune fiche avant le premier toucher')
+    assert.doesNotMatch(html, /id="detail-theme"|role="dialog"/, 'aucune fiche avant le premier toucher')
   }
   // L'insécable de `espacesFines` devant les deux-points : ce qu'un toucher
   // fait, dans la loge — et plus l'ancien geste, qui renvoyait à la fiche.
@@ -273,17 +278,21 @@ test('dans la boutique, toucher un thème ouvre sa fiche : aucun ne se porte ni 
   const mes = source.slice(source.indexOf('export function MesThemes'), source.indexOf('export function DetailTheme'))
   assert.match(mes, /const toucher = \(cle: string\) => \{\s*setOuvert\(o => \(o === cle \? null : cle\)\)\s*essayer\(\{ theme: cle === 'velours' \? null : cle \}\)\s*\}/)
   assert.doesNotMatch(mes, /\benregistrer\(|onPorter=/)
-  const corps = source.slice(source.indexOf('function CarteDeTheme'), source.indexOf('export function DetailTheme'))
+  const carte = source.slice(source.indexOf('function CarteDeTheme'), source.indexOf('export function RayonDesThemes'))
   assert.deepEqual(
-    [...corps.matchAll(/onClick=\{([^}]*)\}/g)].map(m => m[1].trim()),
-    ['onToucher', '() => choisir(r)'],
+    [...carte.matchAll(/onClick=\{([^}]*)\}/g)].map(m => m[1].trim()),
+    ['onToucher'],
   )
+  const corps = source.slice(source.indexOf('export function RayonDesThemes'), source.indexOf('export function DetailTheme'))
   assert.deepEqual(
     [...corps.matchAll(/onToucher=\{([^}]*)\}/g)].map(m => m[1].trim()),
-    ['() => toucher(t.key)', '() => toucher(t.key)'],
+    ['() => onOuvrir(t.key)', '() => toucher(t.key)'],
   )
-  const rayon = corps.slice(corps.indexOf('export function RayonDesThemes'), corps.indexOf('export function MesThemes'))
-  assert.match(rayon, /onPorter=\{\(\) => \{\}\}/)
+  // Dans sa feuille, deux gestes : l'essayer — un interrupteur, toute la page le porte — et l'acheter, seulement à sa portée.
+  const fiche = source.slice(source.indexOf('export function FicheDuTheme'), source.indexOf('export function MesThemes'))
+  assert.match(fiche, /aria-pressed=\{essaye\} onClick=\{onEssayer\}/)
+  assert.match(fiche, /onClick=\{\(\) => etat === 'a-vendre' && onAcheter\(\)\}/)
+  assert.doesNotMatch(source.slice(source.indexOf('export function RayonDesThemes'), source.indexOf('export function MesThemes')), /\benregistrer\(/)
 })
 
 test('le thème porté se lit dans le profil que chaque enregistrement rend, pas dans la boutique lue avec la page', async () => {
@@ -292,11 +301,11 @@ test('le thème porté se lit dans le profil que chaque enregistrement rend, pas
   const noms = async (html: Promise<string>) => casesDe(await html).map(c => c.nom)
   assert.deepEqual(await noms(mesThemes()), ['Ivoire, porté', 'Velours, à toi', 'Neige, à toi'])
   assert.deepEqual(await noms(mesThemes({ ...JEANNE, theme: null })), ['Velours, porté', 'Ivoire, à toi', 'Neige, à toi'])
-  // La boutique ne vend que ce qu'elle n'a pas, et s'ouvre sur la plus
-  // belle rareté qu'elle peut déjà s'offrir : 420 confettis, les Rares.
+  // La boutique ne vend que ce qu'elle n'a pas — toutes les raretés à la
+  // suite —, et dit de chacun ce qui manque à ses 420 confettis.
   const enVente = await noms(laBoutique())
   assert.ok(enVente.length > 0)
-  for (const nom of enVente) assert.match(nom!, /, Rare, 400 confettis$/, nom)
+  for (const nom of enVente) assert.match(nom!, /, (Commune|Peu commune|Rare), \d+ confettis$|, (Épique|Légendaire), \d+ confettis, encore \d+$/, nom)
   for (const deja of ['Velours', 'Ivoire', 'Neige']) assert.ok(!enVente.some(n => n!.startsWith(`${deja},`)), deja)
   // Et ce qui n'est pas encore à portée se dit avec ce qui manque.
   const pauvre = { ...JEANNE, boutique: { ...JEANNE.boutique, confettis: { gagnes: 100, depenses: 0, solde: 100 } } }
@@ -345,17 +354,17 @@ test('la fiche d’un thème : « Le porter », « L’acheter », ou ce qui man
   assert.doesNotMatch(halloween, /<button/)
 })
 
-test('le rayon garde la rareté qu’on a choisie, et la quitte quand on vient d’en acheter le dernier thème', async () => {
-  const { rareteDuRayon } = await import(duClient('components/Boutique.tsx'))
-  const enRayon = (...cles: string[]) => cles.map(theme)
-  // Choisie à la main : on y reste, même au-dessus de ses moyens.
-  assert.equal(rareteDuRayon('rare', enRayon('cahier', 'ocean', 'licorne'), 150), 'rare')
-  // Sans choix : la plus belle à sa portée.
-  assert.equal(rareteDuRayon(null, enRayon('cahier', 'ocean', 'licorne'), 300), 'peucommune')
-  // Le dernier rare acheté : la page lisait le prix d'un thème qui n'était
-  // plus là, et tombait. Elle revient à la plus belle à sa portée.
-  assert.equal(rareteDuRayon('rare', enRayon('cahier', 'ocean'), 300), 'peucommune')
-  assert.equal(rareteDuRayon('rare', enRayon('cahier', 'ocean'), 0), 'commune', 'rien à sa portée : la première')
+test('le rayon montre toutes les raretés à la suite, du Commun au Légendaire, et une rareté toute achetée quitte la boutique', async () => {
+  // Une rareté à la fois, choisie sur une rangée de gemmes, cachait les quatre
+  // autres (la refonte du 1er novembre 2026) ; et son dernier thème acheté, la
+  // page lisait le prix d'un thème qui n'était plus là, et tombait.
+  const etageres = (html: string) => [...html.matchAll(/<h3 class="etagere-titre"><i aria-hidden="true"><\/i>([^<]+)</g)].map(m => m[1])
+  assert.deepEqual(etageres(await laBoutique()), ['Commune', 'Peu commune', 'Rare', 'Épique', 'Légendaire'])
+  const communes = THEMES.filter(t => t.rarete === 'commune').map(t => t.key)
+  const sansCommunes = { ...JEANNE, boutique: { ...JEANNE.boutique, possedes: [...JEANNE.boutique.possedes, ...communes] } }
+  assert.deepEqual(etageres(await laBoutique(sansCommunes)), ['Peu commune', 'Rare', 'Épique', 'Légendaire'])
+  // Un thème de saison n'y paraît que pendant la sienne ; ceux qui se gagnent, jamais.
+  assert.doesNotMatch(await laBoutique(), /aria-label="Halloween,|aria-label="Babel,/)
 })
 
 // ── Sur un serveur jetable ────────────────────────────────────────────────

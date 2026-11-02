@@ -215,20 +215,31 @@ test('la loge le dit : « Compagnon · Le Loup » à l’essai, « Tu portes le 
   assert.deepEqual(lignesDeLEssai({ legendaire: 'cp:loup-tempete' }, { niveau: 3 }), [{ piece: 'avatar', nom: 'Le loup-tempête', detail: 'Compagnon · Le Loup' }])
   assert.equal(annonceDuChoix({ legendaire: 'cp:tortue-fleurs' }), 'Tu portes l’île en fleurs.')
 })
-/** Le rayon des compagnons, rendu pour ce profil. */
+/**
+ * Le rayon des compagnons, rendu pour ce profil : son étagère, puis la fiche
+ * de chacun, telle que sa feuille l'ouvre — sa scène en grand.
+ */
 async function rayon(profil: object): Promise<string> {
   Object.assign(globalThis, { React })
   const module = await import(new URL('../../client/src/components/RayonDesCompagnons.tsx', import.meta.url).href)
   const { renderToStaticMarkup } = await import('react-dom/server')
-  return renderToStaticMarkup(React.createElement(module.RayonDesCompagnons, { profil, busy: false, acheter: async () => null }))
+  const etagere = renderToStaticMarkup(React.createElement(module.RayonDesCompagnons, { profil, onOuvrir: () => {} }))
+  const fiches = COMPAGNONS_DE_LA_BOUTIQUE.map(c =>
+    renderToStaticMarkup(
+      React.createElement(module.FicheDuCompagnon, { profil, cle: c.key, busy: false, essaye: false, onEssayer: () => {}, acheter: async () => null, onFermer: () => {} }),
+    ),
+  )
+  return etagere + fiches.join('')
 }
 
 test('la boutique : cinq compagnons, leurs quatre formes et ce qu’elles demandent — le prix, ou où il en est', async () => {
   const boutique = (solde: number, compagnons?: object[]) => ({ confettis: { gagnes: solde, depenses: 0, solde }, possedes: [], porte: null, jour: '2026-10-13', compagnons })
   const neuf = await rayon({ legendaire: null, boutique: boutique(1200) })
-  // Une vitrine : une scène par compagnon (le souhait du propriétaire du 14 octobre 2026 : « les
-  // mettre vraiment en avant, super mignon et avoir envie de les acheter »), qu'on caresse.
-  // La luciole y entre le 31 octobre 2026 : l'Expédition, qui l'amenait, est effacée (le choix du propriétaire).
+  // Une étagère, une carte chacun, qui ouvre sa fiche : une scène par compagnon (le souhait du
+  // propriétaire du 14 octobre 2026 : « les mettre vraiment en avant, super mignon et avoir envie
+  // de les acheter »), qu'on caresse. La luciole y entre le 31 octobre 2026 : l'Expédition, qui
+  // l'amenait, est effacée (le choix du propriétaire).
+  assert.equal(neuf.match(/<button type="button" class="compagnon-vitrine" style="[^"]*" aria-haspopup="dialog" aria-label="[^"]+, 1000 confettis">/g)?.length, 5)
   assert.equal(neuf.match(/<article class="compagnon-carte"/g)?.length, 5)
   assert.match(neuf, /aria-label="Caresser la luciole"/)
   assert.match(neuf, /<button type="button" class="compagnon-scene" aria-label="Caresser le loup">/)
@@ -242,14 +253,16 @@ test('la boutique : cinq compagnons, leurs quatre formes et ce qu’elles demand
   assert.match(neuf, /aria-pressed="true" aria-label="Le louveteau, commune, à l’adoption"/)
   assert.match(neuf, /aria-label="Le loup des étoiles, légendaire, à 500 bonnes réponses"/)
   assert.doesNotMatch(neuf, /pas encore à toi/, 'aucune silhouette : la boutique montre ce qu’il deviendra')
-  // Les points sous la vitrine : un par compagnon, le premier montré.
-  assert.equal(neuf.match(/class="vitrine-point"/g)?.length, 5)
-  assert.match(neuf, /<button type="button" class="vitrine-point" aria-label="Le Loup" aria-current="true">/)
+  // Pas encore à lui, il s'essaie dans sa niche — un interrupteur, au pied de sa fiche.
+  assert.equal(neuf.match(/<button type="button" class="btn btn-ghost btn-block" aria-pressed="false"><svg[^>]*>.*?<\/svg>L’essayer dans ma niche<\/button>/g)?.length, 5)
   // Le loup grandi d'une forme, porté ; trop peu de confettis pour les autres.
   const avecLeLoup = await rayon({ legendaire: 'cp:loup-jeune', boutique: boutique(50, [{ compagnon: 'loup', rang: 1, justes: 162 }]) })
   assert.match(avecLeLoup, /À toi · Le jeune loup, deuxième forme/)
   assert.match(avecLeLoup, /162 sur 300 bonnes réponses avec lui\s: le loup adulte/)
   assert.match(avecLeLoup, /<a class="link-inline" href="\/profil#avatar">Tu le portes en avatar · en changer<\/a>/)
+  // À lui : sa carte le dit, et sa fiche ne propose plus de l'essayer.
+  assert.match(avecLeLoup, /class="compagnon-vitrine compagnon-a-toi" style="[^"]*" aria-haspopup="dialog" aria-label="Le Loup, À toi"/)
+  assert.equal(avecLeLoup.match(/L’essayer dans ma niche/g)?.length, 4)
   // Ses formes atteintes cochées ; la sienne montrée en grand.
   assert.equal(avecLeLoup.match(/class="compagnon-forme compagnon-atteinte"/g)?.length, 2)
   assert.match(avecLeLoup, /aria-pressed="true" aria-label="Le jeune loup, rare, à toi"/)
