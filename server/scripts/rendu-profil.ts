@@ -279,10 +279,23 @@ try {
   await page.waitForSelector('.mes-themes')
   console.log('retour :', new URL(page.url()).hash)
 
-  // La boutique : ce qui s'achète, une rareté à la fois — ceux qui se gagnent n'y sont plus.
+  // La boutique, d'un seul tenant : « À la une », les puces, les quatre rayons à la suite — ceux qui se gagnent n'y sont plus.
   await page.goto(`${banc.url}/boutique`)
-  await page.waitForSelector('.vitrine-themes .theme-vitrine')
-  await photo('8-boutique', true)
+  await page.waitForSelector('.etagere .theme-vitrine')
+  await photo('8-boutique')
+  await photo('8-boutique-pleine', true)
+  // Un thème : sa fiche dans une feuille, puis « L'essayer » — toute la page le porte, la barre de l'essai au-dessus du menu —, puis le panier.
+  await page.click('.etagere-rarete:last-of-type .theme-vitrine')
+  await page.waitForSelector('.feuille-boutique .fiche-apercu')
+  await photo('8-boutique-fiche-theme', false, 600)
+  await page.click('.feuille-boutique .fiche-gestes .btn-ghost')
+  await page.waitForSelector('.boutique-panier')
+  await photo('8-boutique-essai-theme', false, 900)
+  await page.click('.boutique-panier .btn-primary')
+  await page.waitForSelector('.feuille-du-panier .panier-ligne')
+  await photo('8-boutique-panier', false, 600)
+  await page.click('.feuille-du-panier .carte-fermer')
+  await page.click('.boutique-panier-annuler')
 
   // La carte de la loge habillée : un titre porté, et sous la nuit étoilée —
   // posée à la main : ce fond se gagne en trente jours de quiz du jour.
@@ -302,22 +315,35 @@ try {
     .run(id)
   avecCompagnons.close()
   await page.goto(`${banc.url}/boutique#compagnons`)
-  await page.waitForSelector('.rayon-compagnons .compagnon-carte')
+  await page.waitForSelector('.etagere-compagnons .compagnon-vitrine')
   await photo('10-boutique-compagnons')
   await photo('10-boutique-compagnons-pleine', true)
-  // La vitrine : caressé, il bondit et des cœurs s'envolent ; sa forme ultime en grand ; la tortue, d'un point.
-  await page.click('.compagnon-carte:first-child .compagnon-scene')
+  /** La fiche d'un compagnon de l'étagère, dans sa feuille. */
+  const ficheDuCompagnon = async (nom: string) => {
+    if (await page.$('.feuille-boutique')) await page.click('.feuille-boutique .carte-fermer')
+    await page.click(`.compagnon-vitrine[aria-label^="${nom}"]`)
+    await page.waitForSelector('.feuille-boutique .compagnon-carte')
+  }
+  // Sa fiche : caressé, il bondit et des cœurs s'envolent ; sa forme ultime en grand ; la tortue.
+  await ficheDuCompagnon('Le Loup')
+  await page.click('.feuille-boutique .compagnon-scene')
   await photo('10-boutique-compagnon-caresse', false, 260)
-  await page.click('.compagnon-carte:first-child .compagnon-forme[aria-label^="Le loup des étoiles"]')
+  await page.click('.feuille-boutique .compagnon-forme[aria-label^="Le loup des étoiles"]')
   await photo('10-boutique-compagnon-ultime', false, 1200)
-  await page.click('.vitrine-point[aria-label="La Tortue-île"]')
+  // Essayé dans sa niche : elle l'accueille à sa première forme, la barre de l'essai au-dessus du menu.
+  await page.click('.feuille-boutique .carte-pied .btn')
+  await page.waitForSelector('.niche.niche-essai')
+  await photo('10-boutique-compagnon-essai', false, 900)
+  await page.click('.boutique-panier-annuler')
+  await ficheDuCompagnon('La Tortue-île')
   await photo('10-boutique-compagnon-tortue', false, 900)
-  // Le panda roux, le dernier de la vitrine (le 20 octobre 2026) : sa scène, puis sa forme ultime.
-  await page.click('.vitrine-point[aria-label="Le Panda roux"]')
+  // Le panda roux (le 20 octobre 2026) : sa scène, puis sa forme ultime.
+  await ficheDuCompagnon('Le Panda roux')
   await photo('10-boutique-compagnon-panda', false, 900)
   // Sa carte par sa forme, jamais par son rang : la luciole, en boutique depuis le 31 octobre 2026, l'a fait passer cinquième.
-  await page.click('.compagnon-carte .compagnon-forme[aria-label^="Le panda des érables"]')
+  await page.click('.feuille-boutique .compagnon-forme[aria-label^="Le panda des érables"]')
   await photo('10-boutique-compagnon-panda-erable', false, 1200)
+  await page.click('.feuille-boutique .carte-fermer')
   // Le loup adopté, porté en avatar — l'adoption ne le fait pas : il se choisit, comme dans la loge —, puis la tortue, qui attend son tour.
   await ecrire(banc.url, '/api/joueur/compagnons', { compagnon: 'loup' }, cookie)
   await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'cp:loup-louveteau' }, cookie, 'PUT')
@@ -335,9 +361,12 @@ try {
   // La même adresse ne recharge pas la page : elle relirait la boutique d'avant l'achat.
   await page.goto('about:blank')
   await page.goto(`${banc.url}/boutique#compagnons`)
-  await page.waitForSelector('.rayon-compagnons .compagnon-sien')
+  await page.waitForSelector('.compagnon-vitrine.compagnon-a-toi')
   await photo('10-boutique-compagnons-a-toi')
-  await photo('10-boutique-compagnons-a-toi-pleine', true)
+  await ficheDuCompagnon('Le Loup')
+  await page.waitForSelector('.feuille-boutique .compagnon-sien')
+  await photo('10-boutique-compagnon-a-toi', false, 900)
+  await page.click('.feuille-boutique .carte-fermer')
   await page.goto(`${banc.url}/profil#avatar`)
   await page.waitForSelector('.loge-panneau .loge-page-avatars')
   // Il porte le loup à sa forme ultime : la loge s'ouvre sur la page légendaire, ses formes d'avant aux leurs.
@@ -369,16 +398,16 @@ try {
   await page.waitForSelector('.carte-loupe')
   await photo('10-carte-loup-en-grand')
 
-  // Les fonds des savoirs : le rayon, sa carte posée sur chacun ; une fiche
-  // dépliée ; le vitrail acheté et porté, dans la loge ; puis la collection,
-  // ses vingt-cinq fonds — ceux de la boutique à leur prix.
+  // Les fonds des savoirs : le rayon, sa carte en grand et les douze décors ;
+  // le vitrail essayé sur sa carte ; acheté et porté, dans la loge ; puis la
+  // collection, ses vingt-cinq fonds — ceux de la boutique à leur prix.
   await page.goto(`${banc.url}/boutique#fonds`)
-  await page.waitForSelector('.vitrine-fonds .fond-vitrine')
+  await page.waitForSelector('.fonds-pastilles .fond-pastille')
   await photo('11-boutique-fonds', false, 1500)
   await photo('11-boutique-fonds-pleine', true)
-  await page.click('.fond-vitrine[aria-label^="Le Vitrail"]')
-  await page.waitForSelector('#detail-fond')
-  await photo('11-boutique-fond-fiche', false, 1200)
+  await page.click('.fond-pastille[aria-label^="Le Vitrail"]')
+  await page.waitForSelector('.cabine-des-fonds .fond-vitrail')
+  await photo('11-boutique-fond-essai', false, 1200)
   await ecrire(banc.url, '/api/joueur/fonds', { fond: 'vitrail' }, cookie)
   await page.goto(`${banc.url}/profil#fond`)
   await page.waitForSelector('.loge-carte')

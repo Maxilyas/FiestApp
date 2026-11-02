@@ -156,12 +156,18 @@ test('sa fiche sort de la niche : la niche passe au-dessus d’un voile léger, 
   assert.match(regle('.niche-fiche'), /background: [^;]*#1a1412;/, 'un sol plein, qu’aucun thème ne repeint')
 })
 
-/** Le rayon des compagnons, rendu pour ce profil. */
+/** Le rayon des compagnons, rendu pour ce profil : son étagère, puis la fiche de chacun, telle que sa feuille l'ouvre. */
 async function rayon(profil: object, installer?: (cle: string) => void): Promise<string> {
   Object.assign(globalThis, { React })
   const module = await import(new URL('../../client/src/components/RayonDesCompagnons.tsx', import.meta.url).href)
   const { renderToStaticMarkup } = await import('react-dom/server')
-  return renderToStaticMarkup(React.createElement(module.RayonDesCompagnons, { profil, busy: false, acheter: async () => null, installer }))
+  const etagere = renderToStaticMarkup(React.createElement(module.RayonDesCompagnons, { profil, onOuvrir: () => {} }))
+  const fiches = ['loup', 'tortue'].map(cle =>
+    renderToStaticMarkup(
+      React.createElement(module.FicheDuCompagnon, { profil, cle, busy: false, essaye: false, onEssayer: () => {}, acheter: async () => null, installer, onFermer: () => {} }),
+    ),
+  )
+  return etagere + fiches.join('')
 }
 
 test('la boutique dit qui vit dans sa niche, et installe les autres d’un toucher', async () => {
@@ -178,9 +184,55 @@ test('la boutique dit qui vit dans sa niche, et installe les autres d’un touch
   const html = await rayon({ legendaire: 'cp:tortue-bebe', niche: 'loup', boutique }, () => {})
   assert.equal(html.match(/Dans ta niche\s: c’est lui qui grandit/g)?.length, 1, 'le loup, et lui seul')
   assert.equal(html.match(/>L’installer dans ma niche<\/button>/g)?.length, 1, 'la tortue, adoptée : de quoi l’y installer')
-  assert.match(html, /Il vit dans ta niche, en haut de chaque page/)
+  // L'étagère le dit aussi, sur sa carte.
+  assert.match(html, /aria-label="Le Loup, Dans ta niche"/)
+  assert.match(html, /aria-label="La Tortue-île, À toi"/)
   // Une page qui ne sait pas l'enregistrer ne propose rien.
   assert.doesNotMatch(await rayon({ legendaire: null, niche: 'loup', boutique }), /L’installer dans ma niche/)
+})
+
+test('un compagnon s’essaie dans la niche, à la boutique : elle le montre à sa première forme, et rien ne s’en retient', async () => {
+  // Le souhait du propriétaire du 1er novembre 2026 : « pouvoir essayer sans acheter ». La niche montre l'essai
+  // (`nicheMontree`), la page lit toujours celle qu'il a (`nicheActuelle`) : l'adoption, qui le remplacerait, y lit qui grandit.
+  const classes = new Set<string>()
+  const retenu = new Map<string, string>()
+  Object.assign(globalThis, {
+    document: { body: { classList: { toggle: (c: string, oui: boolean) => (oui ? classes.add(c) : classes.delete(c), oui) } } },
+    localStorage: { getItem: (k: string) => retenu.get(k) ?? null, setItem: (k: string, v: string) => retenu.set(k, v), removeItem: (k: string) => retenu.delete(k) },
+  })
+  const page = await import(`${client('niche.ts')}?essai`)
+  let appels = 0
+  page.abonnerNiche(() => appels++)
+  // Sans compagnon : l'essai ouvre une niche, la page lui garde son coin, le temps de la visite.
+  page.essayerNiche('chat')
+  assert.deepEqual(page.nicheMontree(), { compagnon: 'chat', rang: 0, essai: true })
+  assert.equal(page.nicheActuelle(), null)
+  assert.ok(classes.has('avec-niche'))
+  assert.equal(retenu.size, 0, 'rien de retenu pour le prochain démarrage')
+  page.essayerNiche(null)
+  assert.equal(page.nicheMontree(), null)
+  assert.ok(!classes.has('avec-niche'), 'rendu : la ligne va de nouveau jusqu’au bord')
+  // Avec le sien : l'essai passe devant, son profil relu ne le chasse pas, et le rendre ramène le sien.
+  page.porterNiche({ niche: 'loup', compagnons: [{ compagnon: 'loup', rang: 2 }] })
+  page.essayerNiche('tortue')
+  page.porterNiche({ niche: 'loup', compagnons: [{ compagnon: 'loup', rang: 3 }] })
+  assert.deepEqual(page.nicheMontree(), { compagnon: 'tortue', rang: 0, essai: true })
+  assert.deepEqual(page.nicheActuelle(), { compagnon: 'loup', rang: 3 })
+  assert.equal(JSON.parse(retenu.get('quizz.niche')!).compagnon, 'loup', 'seul le sien se retient')
+  const avant = appels
+  page.essayerNiche('tortue')
+  assert.equal(appels, avant, 'le même essai ne refait rien')
+  page.essayerNiche(null)
+  assert.deepEqual(page.nicheMontree(), { compagnon: 'loup', rang: 3 })
+  assert.ok(classes.has('avec-niche'))
+  Reflect.deleteProperty(globalThis, 'document')
+  Reflect.deleteProperty(globalThis, 'localStorage')
+  // À l'essai, la niche n'ouvre pas de fiche — il n'est pas à lui : il sautille au toucher, et le dit à l'oreille.
+  const essaye = await niche('Niche', { compagnon: 'loup', rang: 0, essai: true })
+  assert.match(essaye, /<button type="button" class="niche niche-loup niche-essai" aria-label="Le louveteau, à l’essai dans ta niche">/)
+  assert.doesNotMatch(essaye, /aria-haspopup/)
+  // Et la niche du coin montre ce qu'elle montre : l'essai, sinon la sienne.
+  assert.match(readFileSync(new URL('../../client/src/components/NicheHost.tsx', import.meta.url), 'utf8'), /useSyncExternalStore\(abonnerNiche, nicheMontree, \(\) => null\)/)
 })
 
 // ── Sur un serveur jetable ────────────────────────────────────────────────

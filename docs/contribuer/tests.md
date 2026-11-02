@@ -388,7 +388,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 ### Les thèmes et la boutique
 
 - `server/test/a-la-une.test.ts` — « À la une » : un compagnon, un thème, un fond, et le bandeau qui se glisse.
-- `server/test/boutique.test.ts` — les quatre rayons de la boutique.
+- `server/test/boutique.test.ts` — la boutique d'un seul tenant : « À la une », les puces, les quatre rayons, leurs adresses, le comptoir des objets, et le panier d'essai (`shared/panier.ts`).
 - `server/test/decors-peints.test.ts` — les décors peints.
 - `server/test/fonds.test.ts` — les fonds de carte.
 - `server/test/fonds-des-savoirs.test.ts` — les fonds des savoirs : l'achat, ses refus, le QG, la suppression.

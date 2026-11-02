@@ -7209,7 +7209,8 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 }
 /* Le rayon montré garde l'espacement de la page : la vitrine en était un
    enfant direct. */
-.rayon-de-la-boutique { display: flex; flex-direction: column; gap: 18px; }
+/* Un rayon de la boutique : sa tête, son étagère ; descendu par sa puce, son titre s'arrête sous les puces collées. */
+.rayon-de-la-boutique { display: flex; flex-direction: column; gap: 14px; scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 64px); }
 /* Le panneau des onglets du classement du jour : l'espacement de la page. */
 .classement-periode { display: flex; flex-direction: column; gap: 18px; }
 
@@ -11764,10 +11765,13 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .soiree-carte .link-inline { font-size: 0.8rem; }
 .soiree-gain small { font-family: var(--sans); font-size: var(--t-label); color: var(--muted); }
 
-/* ── La boutique, sobre ──────────────────────────────────────────────────
-   Le titre et le solde sur une ligne, puis une rangée de gemmes : une
-   rareté à la fois, en grandes cartes — l'écran d'une question sous chaque
-   thème. « Mes thèmes » reprend les mêmes cartes. */
+/* ── La boutique, d'un seul tenant ───────────────────────────────────────
+   Le titre et le solde sur une ligne, « À la une » en grandes cartes qu'on
+   fait glisser, puis les quatre rayons à la suite, une rangée de puces collée
+   en haut qui y mène (la refonte du 1er novembre 2026). Les thèmes, une
+   étagère par rareté, en cartes — l'écran d'une question sous chaque thème ;
+   « Mes thèmes », dans la loge, reprend les mêmes cartes, en grille. Les
+   gemmes servent à la loge et aux albums. */
 .boutique-tete { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .boutique-tete h1 { margin: 0; font-size: 2rem; }
 .solde-puce { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); font-family: var(--serif); font-size: 1.2rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
@@ -11803,36 +11807,126 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .theme-achete { margin: 0; text-align: center; border-color: var(--accent); }
 .lien-boutique { align-self: center; display: inline-flex; align-items: center; gap: 6px; text-align: center; }
 .lien-boutique .icon { flex: none; width: 15px; height: 15px; }
+.la-boutique { display: flex; flex-direction: column; gap: 26px; }
+/* Les puces des rayons, collées en haut : des liens vers la suite de la
+   page, pas des onglets — rien ne se cache, on y descend. La puce du rayon
+   à l'écran se dit pleine, et par `aria-current`. Le sol plein : ce qui
+   défile passe dessous. */
+.boutique-rayons {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 5;
+  display: flex;
+  gap: 6px;
+  margin-bottom: -14px;
+  padding: 8px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: var(--bg);
+}
+.boutique-rayons::-webkit-scrollbar { display: none; }
+.boutique-rayons a { flex: none; display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); color: var(--ink); font-size: 0.9rem; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.boutique-rayons a[aria-current='true'] { border-color: var(--ink); background: var(--ink); color: var(--bg); }
+.rayon-tete { display: flex; flex-direction: column; gap: 4px; }
+.rayon-tete h2 { margin: 0; font-family: var(--serif); font-size: 1.75rem; font-weight: 600; line-height: 1.1; }
+.rayon-tete p { margin: 0; }
+/* « À la une » : de grandes cartes qu'on fait glisser, la suivante au bord.
+   Des objets peints, nocturnes sous tous les thèmes, comme la scène d'un
+   compagnon : leur nuit et leur or s'écrivent en dur. */
+.une-boutique { display: flex; gap: 12px; margin: 0; padding: 2px 2px 6px; list-style: none; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.une-boutique::-webkit-scrollbar { display: none; }
+.une-boutique-carte {
+  position: relative;
+  isolation: isolate;
+  flex: 0 0 86%;
+  min-height: 200px;
+  scroll-snap-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: radial-gradient(120% 90% at 85% 10%, #3a2b22, #120d0b 70%);
+  color: #f3ece2;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+}
+.une-boutique-carte:only-child { flex-basis: 100%; }
+.une-boutique-theme { background: radial-gradient(110% 90% at 90% 0%, color-mix(in srgb, var(--gemme) 45%, #1a1412), #110c0a 72%); }
+.une-boutique-compagnon {
+  background:
+    radial-gradient(46% 52% at 80% 40%, color-mix(in srgb, var(--aura) 42%, transparent), transparent 72%),
+    radial-gradient(130% 95% at 50% 0%, var(--scene), var(--nuit));
+}
+.une-boutique-visuel { position: absolute; z-index: -1; pointer-events: none; }
+.une-boutique-theme .une-boutique-visuel { top: 16px; right: 16px; }
+.une-boutique-theme .une-boutique-visuel img { display: block; width: 92px; height: 115px; object-fit: cover; object-position: top; border: 1px solid color-mix(in srgb, var(--gemme) 70%, transparent); border-radius: 10px; transform: rotate(6deg); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45); }
+.une-boutique-compagnon .une-boutique-visuel { top: 14px; right: 12px; font-size: 5.75rem; line-height: 0; }
+.une-boutique-fond .une-boutique-visuel { inset: 0; }
+.une-boutique-visuel .une-boutique-decor { position: absolute; inset: 0; display: block; }
+/* Le décor d'un fond tapisse toute la carte ; un voile monte sous le texte. */
+.une-boutique-fond::after { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(10, 6, 4, 0.05) 20%, rgba(10, 6, 4, 0.85) 78%); pointer-events: none; }
+.une-boutique-texte { display: flex; flex-direction: column; gap: 2px; max-width: 60%; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); }
+.une-boutique-fond .une-boutique-texte { max-width: none; }
+.une-boutique-sur { font-size: var(--t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #e6c47c; }
+.une-boutique-nom { font-family: var(--serif); font-size: 1.7rem; font-weight: 600; line-height: 1.05; }
+.une-boutique-detail { font-size: 0.85rem; color: #d8ccbd; font-variant-numeric: lining-nums tabular-nums; }
+.une-boutique-gestes { display: flex; flex-wrap: wrap; gap: 8px; }
+.une-boutique-gestes .btn { min-height: 44px; padding: 0 18px; }
+.une-boutique-gestes .btn-ghost { border: 1px solid rgba(255, 255, 255, 0.45); background: rgba(8, 6, 10, 0.35); color: #f3ece2; }
+/* Un interrupteur garde son nom (`aria-pressed`) : une coche le dit à l'œil. */
+.une-boutique-gestes .btn[aria-pressed='true']::before,
+.fiche-gestes .btn[aria-pressed='true']::before,
+.feuille-boutique .carte-pied > .btn[aria-pressed='true']::before { content: '✓'; margin-right: 6px; font-weight: 700; }
+/* Les étagères : une rangée qui glisse de côté dans son cadre, jamais la page. */
+.etagere-rarete { display: flex; flex-direction: column; gap: 8px; }
+.etagere-titre { display: flex; align-items: center; gap: 8px; margin: 0; font-family: var(--sans); font-size: 0.95rem; font-weight: 600; }
+.etagere-titre i { flex: none; width: 10px; height: 10px; transform: rotate(45deg); border-radius: 2px; background: linear-gradient(135deg, color-mix(in srgb, var(--gemme) 30%, white), var(--gemme) 55%, color-mix(in srgb, var(--gemme) 60%, black)); box-shadow: 0 0 8px var(--gemme); }
+.etagere-titre .muted { font-weight: 500; }
+.etagere { display: flex; gap: 10px; margin: 0; padding: 2px 2px 8px; list-style: none; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: none; }
+.etagere::-webkit-scrollbar { display: none; }
+.etagere > li { flex: none; display: flex; scroll-snap-align: start; }
+.etagere .theme-vitrine { width: 136px; }
+.etagere .theme-vitrine-pied b { font-size: 1rem; }
+/* La fiche d'un thème, d'un compagnon, d'un objet : dans une feuille, ses gestes au pied, sous le pouce. */
+.fiche-boutique { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.fiche-boutique p { margin: 0; }
+.fiche-apercu { display: block; width: min(200px, 60%); aspect-ratio: 4 / 5; overflow: hidden; border: 1px solid var(--gemme); border-radius: var(--radius); background: var(--bg); box-shadow: 0 0 0 1px color-mix(in srgb, var(--gemme) 40%, transparent), 0 12px 30px rgba(0, 0, 0, 0.35); }
+.fiche-apercu img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.fiche-achete { font-weight: 600; }
+.fiche-gestes { display: flex; gap: 8px; }
+.fiche-gestes .btn { flex: 1 1 0; min-width: 0; min-height: 48px; }
+/* L'essayer est un geste à part entière, pas un renoncement : il se lit à l'encre, dans son filet. */
+.fiche-gestes .btn-ghost,
+.feuille-boutique .carte-pied > .btn-ghost { border: 1px solid var(--edge-strong); color: var(--ink); }
+/* Un geste éteint — trop cher, rien de coché — se lit éteint : l'or plein promettait un achat. */
+.la-boutique .btn[aria-disabled='true'] { border-color: var(--edge); background: var(--surface-strong); color: var(--muted); cursor: default; }
+.feuille-boutique .compagnon-carte { border: 0; background: none; }
 
-/* Le rayon des fonds : les douze fonds des savoirs, chacun sa carte posée
-   dessus — l'avatar et le prénom de celui qui regarde, comme la salle les
-   voit quand elle touche son nom —, son nom et son prix dessous. La fiche
-   suit sa carte, de toute la largeur (`dense`, comme les thèmes), et montre
-   la carte en grand. Le savoir du fond, au pied de la carte, à l'or du
-   décor : il reste nocturne sous tous les thèmes. */
-.rayon-fonds { display: flex; flex-direction: column; gap: 12px; }
-.vitrine-fonds { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; grid-auto-flow: dense; }
-.fond-vitrine { position: relative; display: flex; flex-direction: column; padding: 0; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); color: inherit; font: inherit; text-align: left; overflow: hidden; cursor: pointer; transition: box-shadow 0.2s ease; }
-.fond-vitrine:hover, .fond-vitrine.ouverte { box-shadow: 0 0 0 1px var(--accent), 0 6px 22px rgba(var(--accent-rgb), 0.3); }
-.fond-porte { box-shadow: 0 0 0 2px var(--accent), 0 6px 22px rgba(var(--accent-rgb), 0.3); }
+/* Le rayon des fonds : sa carte en grand — l'avatar et le prénom de celui
+   qui regarde, comme la salle les voit quand elle touche son nom —, posée
+   sur le fond qu'il essaie, puis les douze décors en pastilles. Le savoir du
+   fond, au pied de la carte, à l'or du décor : il reste nocturne sous tous
+   les thèmes. */
+.rayon-fonds { display: flex; flex-direction: column; gap: 14px; }
+.cabine-des-fonds { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+.cabine-des-fonds p { margin: 0; }
+.cabine-texte { display: flex; flex-direction: column; gap: 2px; }
+.cabine-nom { font-family: var(--serif); font-size: 1.35rem; font-weight: 600; line-height: 1.15; }
 .fond-carte { display: flex; flex-direction: column; justify-content: space-between; aspect-ratio: 2 / 3; padding: 10px; }
 .fond-carte-tete { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .fond-carte-tete b { min-width: 0; font-family: var(--serif); font-size: 1rem; font-weight: 600; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fond-carte-tete .lb-avatar { flex: none; font-size: 1.45rem; }
 .fond-carte-savoir { align-self: flex-start; max-width: 100%; padding: 2px 8px; border: 1px solid rgba(var(--fond-or-rgb), 0.55); border-radius: var(--radius-pill); background: rgba(8, 6, 10, 0.6); color: var(--fond-or); font-size: var(--t-label); font-weight: 700; letter-spacing: 0.03em; text-shadow: none; overflow-wrap: anywhere; }
-.fond-vitrine-pied { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px 10px; }
-.fond-vitrine-pied b { font-family: var(--serif); font-size: 1.05rem; font-weight: 600; line-height: 1.15; }
-.fond-vitrine-prix { font-size: 0.85rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
-/* Trop cher : la carte s'éteint un peu, et ce qui manque se lit à la place du prix. */
-.fond-cher .fond-carte { filter: saturate(0.6) brightness(0.8); }
-.fond-cher .fond-vitrine-prix { color: var(--muted); }
-.fond-a-toi .fond-vitrine-prix,
-.fond-porte .fond-vitrine-prix { color: var(--ink); }
-.detail-fond { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
-.fond-carte-grande { width: min(240px, 72%); padding: 16px; border: 1px solid var(--fond-or); border-radius: var(--radius); box-shadow: var(--shadow-dialog); }
+.fond-carte-grande { width: min(220px, 62%); padding: 16px; border: 1px solid var(--fond-or); border-radius: var(--radius); box-shadow: var(--shadow-dialog); }
 .fond-carte-grande .fond-carte-tete { flex-direction: column; gap: 6px; }
 .fond-carte-grande .fond-carte-tete b { font-size: 1.35rem; white-space: normal; text-align: center; overflow-wrap: anywhere; }
 .fond-carte-avatar { font-size: 3rem; }
+.fonds-pastilles { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin: 0; padding: 0; list-style: none; }
+.fond-pastille { display: block; width: 100%; aspect-ratio: 3 / 4; padding: 0; border: 1px solid var(--edge); border-radius: var(--radius-xs); cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; }
+.fond-pastille[aria-pressed='true'] { box-shadow: 0 0 0 2px var(--accent); transform: translateY(-2px); }
+/* À lui : sa coche, sur le décor — en elle-même, pas dans un pseudo-élément : les siens peignent le décor. */
+.fond-pastille-coche { position: absolute; top: 2px; right: 3px; color: var(--fond-or); font-size: var(--t-label); font-weight: 700; line-height: 1; }
 /* « Ma collection » : les thèmes en album — une page par rareté, chaque
    thème en vignette, à sa place du catalogue : en couleur ceux qu'on a, en
    gris ceux qui restent, bordés de leur gemme. Huit par rangée au téléphone,
@@ -12091,29 +12185,38 @@ a.trophee-tombe:hover b { color: var(--accent-text-hover); }
 .fin-record { position: relative; z-index: 1; display: flex; align-items: flex-start; gap: 8px; margin: 0; font-size: 0.9rem; }
 .fin-record .icon { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--accent-text); }
 .fin-record b { font-weight: 600; }
-/* La vitrine des compagnons : une scène par compagnon, qu'on fait glisser —
-   la suivante dépasse au bord, pour qu'on devine qu'il y en a d'autres. La
-   scène est à ses couleurs (`teintesDuCompagnon` : le bleu de nuit du loup,
-   la prune du chat, le lagon de la tortue), nocturne sous tous les thèmes ;
-   il y flotte en grand, son monde vivant autour de lui, et sautille quand
-   on le touche — des cœurs s'envolent. Ses quatre formes dessous, chacune la
-   teinte de sa rareté et ce qu'elle demande, figées dans leur disque : en
-   toucher une la montre en grand. Adopté, la carte dit où il en est. */
-.rayon-compagnons { display: flex; flex-direction: column; gap: 12px; }
-.vitrine-compagnons {
-  position: relative;
-  display: flex;
-  gap: 12px;
-  padding: 4px 6% 10px;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
+/* Les compagnons de la boutique : une étagère de cartes, chacune la scène de
+   son compagnon en petit, son nom, ce qu'il est pour lui — puis sa fiche,
+   dans une feuille : sa scène en grand. La scène est à ses couleurs
+   (`teintesDuCompagnon` : le bleu de nuit du loup, la prune du chat, le lagon
+   de la tortue), nocturne sous tous les thèmes ; il y flotte en grand, son
+   monde vivant autour de lui, et sautille quand on le touche — des cœurs
+   s'envolent. Ses quatre formes dessous, chacune la teinte de sa rareté et ce
+   qu'elle demande, figées dans leur disque : en toucher une la montre en
+   grand. Adopté, la fiche dit où il en est. */
+.compagnon-vitrine { position: relative; display: flex; flex-direction: column; width: 160px; padding: 0; border: 1px solid color-mix(in srgb, var(--aura) 35%, var(--edge)); border-radius: var(--radius); background: var(--surface); color: inherit; font: inherit; text-align: left; overflow: hidden; cursor: pointer; transition: box-shadow 0.2s ease; }
+.compagnon-vitrine:hover { box-shadow: 0 0 0 1px var(--aura), 0 6px 22px color-mix(in srgb, var(--aura) 30%, transparent); }
+.compagnon-vitrine.compagnon-essaye { box-shadow: 0 0 0 2px var(--accent), 0 6px 22px rgba(var(--accent-rgb), 0.35); }
+.compagnon-vitrine-scene {
+  display: grid;
+  place-items: center;
+  height: 140px;
+  background:
+    radial-gradient(48% 40% at 50% 50%, color-mix(in srgb, var(--aura) 42%, transparent), transparent 72%),
+    radial-gradient(130% 95% at 50% 0%, var(--scene), var(--nuit));
+  font-size: 5.5rem;
+  line-height: 0;
 }
-.vitrine-compagnons::-webkit-scrollbar { display: none; }
+/* Dans l'étagère, il tient dans son disque et ne bouge pas : sa scène en grand est dans sa fiche. */
+.compagnon-vitrine-scene .pt-debord,
+.compagnon-vitrine-scene .pt-aura,
+.compagnon-vitrine-scene .pt-etoile { display: none; }
+.compagnon-vitrine-scene .pt * { animation: none; }
+.compagnon-vitrine-pied { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px 10px; }
+.compagnon-vitrine-pied b { font-family: var(--serif); font-size: 1.05rem; font-weight: 600; line-height: 1.15; }
+.compagnon-vitrine-prix { font-size: 0.85rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
+.compagnon-a-toi .compagnon-vitrine-prix { color: var(--ink); }
 .compagnon-carte {
-  flex: 0 0 88%;
-  scroll-snap-align: center;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -12190,12 +12293,6 @@ a.trophee-tombe:hover b { color: var(--accent-text-hover); }
 .compagnon-economies { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; max-width: 60%; }
 .compagnon-economies .jauge-fine { width: 100%; }
 .compagnon-astuce { margin: 0; padding: 0 16px; }
-/* Les points sous la vitrine : un par compagnon, le montré en long. Assez
-   grands pour un doigt, le point dessiné au milieu. */
-.vitrine-points { display: flex; justify-content: center; gap: 4px; margin-top: -4px; }
-.vitrine-point { display: grid; place-items: center; width: 32px; height: 28px; padding: 0; border: 0; background: none; cursor: pointer; }
-.vitrine-point::before { content: ''; width: 8px; height: 8px; border-radius: 4px; background: var(--edge-strong); }
-.vitrine-point[aria-current='true']::before { width: 22px; background: var(--accent); }
 @media (prefers-reduced-motion: reduce) {
   .compagnon-bete,
   .compagnon-bete.saute { animation: none; }
@@ -12234,6 +12331,8 @@ body { --coin-de-la-niche: max(16px, calc((100vw - 560px) / 2 + 16px)); }
   transition: transform 0.32s cubic-bezier(0.3, 0.7, 0.3, 1), opacity 0.25s ease, visibility 0.25s;
 }
 .niche.repliee { transform: scale(0.62) translateY(-10px); }
+/* Un compagnon qu'on essaie à la boutique (`essayerNiche`) : le pointillé d'or de l'essai, comme dans la loge. */
+.niche.niche-essai { outline: 1.5px dashed var(--accent); outline-offset: 3px; }
 /* Une page qui colle sa tête en haut — la carte de la loge, la tête d'un sentier, celle d'une partie du Cabinet — : repliée, elle
    s'efface plutôt que d'en couvrir le coin. */
 body:has(.loge-collante, .sentier-tete, .cab-tete-partie) .niche.repliee { opacity: 0; visibility: hidden; }
@@ -13357,6 +13456,8 @@ body.avec-niche .cab-page .cab-quitter { padding-left: 10px; padding-right: 10px
 body.avec-niche .jour-bandeau { flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 2px; padding-right: var(--niche-place); }
 /* Les rangées d'onglets passent sous elle, sans la toucher. */
 body.avec-niche .boutique-tete { min-height: 64px; }
+/* Les puces des rayons, collées en haut, s'arrêtent avant elle : repliée au défilement, elle se pose sur leur coin. */
+body.avec-niche .boutique-rayons { padding-right: var(--niche-place); }
 body.avec-niche .onglets-campagne { margin-top: 10px; }
 /* En soirée, la question en tête : le chrono passe sous la niche. */
 body.avec-niche .player-shell > .quiz-player:first-child > .quiz-topbar:first-child { align-items: flex-start; min-height: 58px; padding-top: 6px; }
@@ -13372,12 +13473,39 @@ body.avec-niche .player-shell.duels-envoye { padding-top: max(92px, calc(env(saf
 body.avec-niche .duels-defi > .duels-surtitre { margin-top: 30px; }
 /* La croix du verdict était sous elle : la toucher ouvrait « Ma niche ». Elle prend le coin d'en face, où les autres écrans d'un duel ont leur sortie (« ← Les duels ») : collée à sa gauche, on la prenait pour celle du compagnon. */
 body.avec-niche .duels-fermer { right: auto; left: 12px; }
-/* Le rayon des objets : une case par objet — son dessin dans un rond de sa
-   couleur, son nom, son prix, ce qu'on en a en pastille —, trois par rangée
-   au téléphone, de quoi en accueillir d'autres. La fiche de celui qu'on
-   touche se déplie dessous, l'allure de celles des avatars et des thèmes. */
-.rayon-objets { display: flex; flex-direction: column; gap: 12px; }
-.objets-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+/* Le comptoir des objets : une grande case par objet, à sa couleur — son
+   dessin dans un rond, ce qu'il change pour lui, ce qu'il en a, son prix ;
+   l'Éclat montre son avatar tel qu'il est, puis éclaté. La fiche de celui
+   qu'on touche monte dans une feuille. */
+.comptoir { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.comptoir-objet {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px 14px;
+  width: 100%;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--objet) 40%, var(--edge));
+  border-radius: var(--radius);
+  background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--objet) 16%, transparent), transparent 62%), var(--surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.comptoir-objet:hover { border-color: color-mix(in srgb, var(--objet) 70%, transparent); box-shadow: 0 6px 22px color-mix(in srgb, var(--objet) 22%, transparent); }
+.comptoir-objet .objet-dessin { width: 64px; height: 64px; margin: 0; }
+.comptoir-objet .objet-dessin svg { width: 36px; height: 36px; }
+.comptoir-texte { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.comptoir-pour { font-size: var(--t-label); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.comptoir-texte .objet-nom { font-family: var(--serif); font-size: 1.4rem; font-weight: 600; line-height: 1.1; }
+.comptoir-accroche { font-size: 0.9rem; line-height: 1.3; }
+.comptoir-a-toi { font-size: 0.8rem; color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
+.comptoir-objet .objet-prix { align-self: start; font-family: var(--serif); font-size: 1.15rem; white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
+.comptoir-eclat { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: 14px; padding-top: 4px; font-size: 2.6rem; }
+.comptoir-eclat > .icon { width: 20px; height: 20px; color: var(--muted); }
 .objet-vie { --objet: var(--alert); }
 .objet-sablier { --objet: var(--or-text); }
 /* L'Éclat : l'accent du thème, ses facettes en trois tons, deux étincelles. */
@@ -13385,15 +13513,12 @@ body.avec-niche .duels-fermer { right: auto; left: 12px; }
 .gemme-d-eclat .eclat-facette-a { fill: currentColor; opacity: 0.55; }
 .gemme-d-eclat .eclat-facette-b { fill: currentColor; opacity: 0.9; }
 .gemme-d-eclat .eclat-facette-c, .gemme-d-eclat .eclat-etincelle { fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
-.objet-case { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 6px 10px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); color: inherit; font: inherit; text-align: center; cursor: pointer; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
-.objet-case:hover, .objet-case.actif { border-color: color-mix(in srgb, var(--objet) 55%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--objet) 55%, transparent), 0 6px 22px color-mix(in srgb, var(--objet) 20%, transparent); }
 .objet-dessin { display: grid; place-items: center; flex: none; width: 56px; height: 56px; margin-bottom: 4px; border-radius: 50%; color: var(--objet); background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--objet) 26%, transparent), color-mix(in srgb, var(--objet) 6%, transparent) 72%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--objet) 30%, transparent); }
 .objet-dessin svg { width: 30px; height: 30px; }
 .objet-dessin .sablier-plein { color: inherit; }
 .coeur-de-vie { fill: currentColor; }
 .objet-nom { font-size: 0.9rem; font-weight: 700; line-height: 1.2; }
-.objet-prix { font-size: 0.82rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: tabular-nums; }
-.objet-compte { position: absolute; top: 6px; right: 6px; min-width: 22px; padding: 1px 7px; border-radius: var(--radius-pill); background: var(--surface-strong); color: var(--ink); font-size: var(--t-label); font-weight: 700; font-variant-numeric: tabular-nums; }
+.objet-prix { font-size: 0.82rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
 .fiche-objet { align-self: stretch; align-items: stretch; gap: 10px; margin: 0; }
 .fiche-objet-tete { display: flex; align-items: center; gap: 12px; }
 .fiche-objet-titre { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -13402,8 +13527,57 @@ body.avec-niche .duels-fermer { right: auto; left: 12px; }
 .fiche-objet-quantite { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 /* Un objet qui ne s'achète qu'à l'unité (l'Éclat) n'a pas de quantité à choisir. */
 .fiche-objet-quantite[hidden] { display: none; }
-@media (prefers-reduced-motion: reduce) { .objet-case { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .comptoir-objet, .compagnon-vitrine, .fond-pastille { transition: none; } }
 @media (prefers-reduced-motion: reduce) { .gemme i, .theme-vitrine { transition: none; } }
+
+/* La barre de l'essai, juste au-dessus du menu, tant qu'il y a de quoi
+   acheter : ce qu'on essaie, « Annuler », « Tout prendre ». Elle laisse le
+   menu en vue — on part de la boutique sans rien perdre que l'essai — et la
+   page ne passe jamais dessous (`avec-panier`). */
+.boutique-panier {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(66px + max(6px, env(safe-area-inset-bottom)));
+  z-index: 39;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: calc(100% - 20px);
+  max-width: 540px;
+  margin: 0 auto;
+  padding: 8px 8px 8px 14px;
+  border: 1px solid var(--edge-strong);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+  box-sizing: border-box;
+}
+.boutique-panier-annuler { flex: none; display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 1px solid var(--edge-strong); border-radius: 50%; background: none; color: var(--ink); cursor: pointer; }
+.boutique-panier-annuler .icon { width: 18px; height: 18px; }
+.boutique-panier-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.boutique-panier-texte b,
+.boutique-panier-texte .small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.boutique-panier-texte b { font-family: var(--serif); font-size: 1.1rem; font-weight: 600; line-height: 1.2; }
+.boutique-panier .btn { flex: none; min-height: 44px; padding: 0 14px; }
+body.avec-menu.avec-panier { padding-bottom: calc(72px + 76px + env(safe-area-inset-bottom)); }
+html:has(> body.avec-panier) { scroll-padding-bottom: calc(72px + 76px + env(safe-area-inset-bottom)); }
+/* Le panier : une ligne par article, sa vignette, sa case ; le total ; le porter tout de suite. */
+.panier-lignes { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.panier-ligne { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 8px 10px 8px 8px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface); cursor: pointer; }
+.panier-vignette { display: grid; place-items: center; width: 48px; height: 60px; overflow: hidden; border-radius: var(--radius-xs); background: var(--bg); }
+.panier-vignette img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.panier-vignette-compagnon { font-size: 2.6rem; line-height: 0; }
+.panier-vignette-compagnon .pt * { animation: none; }
+.panier-ligne-texte { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.panier-ligne-texte b { font-family: var(--serif); font-size: 1.1rem; font-weight: 600; line-height: 1.15; }
+.panier-ligne input,
+.panier-porter input { width: 22px; height: 22px; margin: 0; accent-color: var(--accent); }
+.panier-total { display: flex; align-items: baseline; justify-content: space-between; margin: 0; padding: 0 4px; }
+.panier-total b { font-family: var(--serif); font-size: 1.5rem; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
+.panier-porter { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--surface); cursor: pointer; }
+.panier-porter input { order: 2; }
+.panier-porter > span { display: flex; flex-direction: column; gap: 2px; }
 
 /* ── Le compte : quelques lignes, chacune sa feuille ─────────────────────
    Le titre et l'identifiant sur une ligne, « Mon salon » sur une trame

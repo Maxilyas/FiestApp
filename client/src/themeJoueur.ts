@@ -216,9 +216,9 @@ async function poser(cle: string | null): Promise<void> {
 }
 
 /**
- * Essayer un thème, dans la loge : la page entière le porte — rien n'est
- * enregistré ni retenu pour le prochain démarrage, et la carte, à fond,
- * garde ses couleurs (`fonds.ts`). `finirLEssai` rend le thème porté.
+ * Essayer un thème, dans la loge ou à la boutique : la page entière le porte
+ * — rien n'est enregistré ni retenu pour le prochain démarrage, et la carte,
+ * à fond, garde ses couleurs (`fonds.ts`). `finirLEssai` rend le thème porté.
  */
 export async function essayerTheme(cle: string | null): Promise<void> {
   const numero = ++essaiDemande

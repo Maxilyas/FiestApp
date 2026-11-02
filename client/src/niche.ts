@@ -29,6 +29,11 @@ export interface NicheVue {
   eclat?: true
   paliers?: number
   ornements?: Readonly<Partial<Record<string, string>>>
+  /**
+   * Il n'y vit pas : on l'essaie à la boutique (`essayerNiche`). Jamais lu
+   * du stockage ni d'un profil — seule la page qui l'essaie le pose.
+   */
+  essai?: true
 }
 
 const CLE = 'quizz.niche'
@@ -38,7 +43,18 @@ const CLASSE = 'avec-niche'
 const PALIERS_MAX = 4
 
 let actuelle: NicheVue | null = null
+/**
+ * Le compagnon qu'on essaie à la boutique, devant celui qui y vit : la niche
+ * le montre, rien ne s'en retient. `nicheActuelle` reste celle qu'il a — la
+ * boutique y lit qui grandit, l'adoption qui le remplacerait.
+ */
+let essai: NicheVue | null = null
 const abonnes = new Set<() => void>()
+
+/** La page garde le coin de ce que la niche montre : celle qu'il a, ou celle qu'il essaie. */
+function garderLeCoin(): void {
+  if (typeof document !== 'undefined') document.body.classList.toggle(CLASSE, !!(essai ?? actuelle))
+}
 
 /** Ce qu'il a réglé de ses ornements, s'il est lisible : des noms et des styles, rien d'autre. Leur sens, le composant le lit. */
 function ornementsLus(brut: unknown): Record<string, string> | null {
@@ -90,7 +106,7 @@ function poser(niche: NicheVue | null): void {
   const grandi =
     !!niche && !!actuelle && niche.compagnon === actuelle.compagnon && (niche.rang > actuelle.rang || (niche.paliers ?? 0) > (actuelle.paliers ?? 0))
   actuelle = niche
-  if (typeof document !== 'undefined') document.body.classList.toggle(CLASSE, !!niche)
+  garderLeCoin()
   if (!meme) for (const f of abonnes) f()
   if (grandi && enJeu) sortir()
 }
@@ -140,9 +156,27 @@ export function poserNicheRetenue(): void {
   poser(retenue)
 }
 
-/** Ce que la niche montre en ce moment ; null : pas de niche. */
+/** La niche qu'il a ; null : pas de niche. Un essai n'y change rien (`nicheMontree`). */
 export function nicheActuelle(): NicheVue | null {
   return actuelle
+}
+
+/** Ce que la niche montre en ce moment : le compagnon qu'on essaie, sinon le sien ; null : pas de niche. */
+export function nicheMontree(): NicheVue | null {
+  return essai ?? actuelle
+}
+
+/**
+ * Essayer un compagnon dans sa niche, à la boutique : il y paraît à sa
+ * première forme — celle qu'on adopte —, à la place de celui qui y vit, ou
+ * dans une niche qui n'existait pas encore. Rien n'est enregistré ni retenu
+ * pour le prochain démarrage ; null rend la niche qu'il a.
+ */
+export function essayerNiche(compagnon: string | null): void {
+  if ((essai?.compagnon ?? null) === compagnon) return
+  essai = compagnon ? { compagnon, rang: 0, essai: true } : null
+  garderLeCoin()
+  for (const f of abonnes) f()
 }
 
 /** S'abonne aux changements de la niche (`useSyncExternalStore`). */
