@@ -12090,10 +12090,15 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .lien-boutique { align-self: center; display: inline-flex; align-items: center; gap: 6px; text-align: center; }
 .lien-boutique .icon { flex: none; width: 15px; height: 15px; }
 .la-boutique { display: flex; flex-direction: column; gap: 26px; }
-/* Les puces des rayons, collées en haut : des liens vers la suite de la
-   page, pas des onglets — rien ne se cache, on y descend. La puce du rayon
-   à l'écran se dit pleine, et par `aria-current`. Le sol plein : ce qui
-   défile passe dessous. */
+/* Les rayons, collés en haut : un sélecteur segmenté — des liens vers la
+   suite de la page, pas des onglets : rien ne se cache, on y descend. Ses
+   quatre rayons tiennent en entier sur un téléphone de 360 de large, la niche
+   à côté (le retour du propriétaire du 2 novembre 2026 : « on ne voit plus la
+   barre » — en puces à l'unité, cerclées chacune, « Objets » passait hors de
+   l'écran, puis sous la niche, puis derrière la marge qui la gardait). Un
+   seul cadre, des segments qui se partagent sa largeur ; au texte agrandi,
+   ils défilent dans leur cadre. Le rayon à l'écran se dit plein, et par
+   `aria-current`. Le sol plein : ce qui défile passe dessous. */
 .boutique-rayons {
   position: sticky;
   top: env(safe-area-inset-top, 0px);
@@ -12102,10 +12107,18 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
   padding: 8px 0;
   background: var(--bg);
 }
-.boutique-rayons-defile { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.boutique-rayons-defile {
+  display: flex;
+  padding: 3px;
+  border: 1px solid var(--edge-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
 .boutique-rayons-defile::-webkit-scrollbar { display: none; }
-.boutique-rayons a { flex: none; display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); color: var(--ink); font-size: 0.9rem; font-weight: 600; text-decoration: none; white-space: nowrap; }
-.boutique-rayons a[aria-current='true'] { border-color: var(--ink); background: var(--ink); color: var(--bg); }
+.boutique-rayons a { flex: 1 0 auto; display: inline-flex; align-items: center; justify-content: center; min-height: 36px; padding: 0 8px; border-radius: var(--radius-pill); color: var(--ink); font-size: 0.8125rem; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.boutique-rayons a[aria-current='true'] { background: var(--ink); color: var(--bg); }
 .rayon-tete { display: flex; flex-direction: column; gap: 4px; }
 .rayon-tete h2 { margin: 0; font-family: var(--serif); font-size: 1.75rem; font-weight: 600; line-height: 1.1; }
 .rayon-tete p { margin: 0; }
@@ -13664,6 +13677,10 @@ a.chez-pastille.or:hover { color: #1a1412; }
    (invariant 8). Une tête de page de plus se range ici —
    `server/scripts/rendu-niche.ts` dit ce qui passe encore dessous. */
 body.avec-niche { --niche-place: 60px; }
+/* Repliée — la page a défilé —, elle ne couvre que 54 × 0,62 = 34 pixels, depuis 16 pixels du bord de la colonne : 30 pixels de
+   plus que le retrait de la page (20 pixels), et son pointillé d'essai. Une tête collée, qui ne la croise que repliée, lui garde
+   cela (40), pas la place de la niche dépliée (60) : ce sont vingt pixels de plus pour ce qu'elle montre. */
+body.avec-niche { --niche-repliee: 40px; }
 /* Un bouton s'arrête avant elle, sa boîte comprise : rien ne se touche sous la niche. */
 body.avec-niche .player-shell > .identite-ligne { width: auto; margin-right: var(--niche-place); }
 body.avec-niche .duels-barre-haut .jour-barre-fin { margin-right: 0; }
@@ -13735,11 +13752,13 @@ body.avec-niche .cab-page .cab-quitter { padding-left: 10px; padding-right: 10px
 body.avec-niche .jour-bandeau { flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 2px; padding-right: var(--niche-place); }
 /* Les rangées d'onglets passent sous elle, sans la toucher. */
 body.avec-niche .boutique-tete { min-height: 64px; }
-/* Les puces des rayons, collées en haut, s'arrêtent avant elle, boîte comprise : repliée au défilement, elle se pose au bout de
-   leur bande, sur son sol plein. Un `padding-right` sur la bande ne gardait que la fin de ce qui défile : les puces qui débordaient
-   passaient sous elle (« Fonds » et « Objets », le retour du propriétaire du 2 novembre 2026). Elle reste en vue — on y essaie un
-   compagnon : la boutique ne l'efface pas comme les pages à tête collée. */
-body.avec-niche .boutique-rayons-defile { margin-right: var(--niche-place); }
+/* Les rayons de la boutique, collés en haut, s'arrêtent avant elle, boîte comprise : repliée au défilement, elle se pose au bout
+   de leur bande, sur son sol plein. Un `padding-right` sur la bande ne gardait que la fin de ce qui défile : les puces qui
+   débordaient passaient sous elle (« Fonds » et « Objets », le retour du propriétaire du 2 novembre 2026) ; la place de la niche
+   dépliée (60) cachait ensuite « Objets » derrière la marge (« on ne voit plus la barre », le même jour). Collée, la bande ne la
+   croise que repliée : la place de la niche repliée lui suffit, et les quatre rayons tiennent à côté d'elle en 360 de large. Elle
+   reste en vue — on y essaie un compagnon : la boutique ne l'efface pas comme les pages à tête collée. */
+body.avec-niche .boutique-rayons-defile { margin-right: var(--niche-repliee); }
 body.avec-niche .onglets-campagne { margin-top: 10px; }
 /* En soirée, la question en tête : le chrono passe sous la niche. */
 body.avec-niche .player-shell > .quiz-player:first-child > .quiz-topbar:first-child { align-items: flex-start; min-height: 58px; padding-top: 6px; }

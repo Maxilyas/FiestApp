@@ -272,7 +272,7 @@ test('l’essai habille la page et la niche, et quitter la boutique rend tout', 
   assert.match(source, /if \(l\.sorte === 'theme'\) finirLEssai\(porter\)/)
 })
 
-test('les puces collées en haut s’arrêtent avant la niche, boîte comprise : rien ne passe sous elle quand la page défile', async () => {
+test('les rayons collés en haut tiennent en entier à côté de la niche, boîte comprise : rien ne passe sous elle quand la page défile', async () => {
   // Le retour du propriétaire du 2 novembre 2026 : « lorsque l'on scroll vers le bas, la barre thèmes / compagnons […] est
   // superposée avec la niche ». Un `padding-right` sur la bande ne gardait que la fin de ce qui défile : « Fonds » et « Objets »
   // passaient sous elle, repliée au coin. La bande colle de bord à bord, sur son sol plein ; ses puces défilent dans un cadre à
@@ -281,8 +281,13 @@ test('les puces collées en haut s’arrêtent avant la niche, boîte comprise :
   assert.match(html, /<nav class="boutique-rayons" aria-label="Les rayons de la boutique"><div class="boutique-rayons-defile"><a href="#themes"/)
   const css = readFileSync(new URL('../../client/src/styles.css', import.meta.url), 'utf8')
   const regle = (selecteur: string) => new RegExp(`(?:^|\\n)${selecteur.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{([^}]*)\\}`).exec(css)?.[1] ?? ''
-  assert.match(regle('body.avec-niche .boutique-rayons-defile'), /margin-right: var\(--niche-place\);/)
-  assert.match(regle('.boutique-rayons-defile'), /overflow-x: auto;/, 'ce qui défile, c’est le cadre des puces')
+  // Et la place qu'il lui garde est celle de la niche repliée, pas dépliée : avec ses 60 pixels, « Objets » passait derrière
+  // la marge (« on ne voit plus la barre », le même jour) ; un seul cadre, des segments qui se partagent sa largeur, tient les
+  // quatre rayons à côté d'elle en 360 de large — mesuré au navigateur, rien ne déborde.
+  assert.match(regle('body.avec-niche .boutique-rayons-defile'), /margin-right: var\(--niche-repliee\);/)
+  assert.match(css, /\nbody\.avec-niche \{ --niche-repliee: 40px; \}/)
+  assert.match(regle('.boutique-rayons a'), /flex: 1 0 auto;/, 'les segments se partagent la largeur')
+  assert.match(regle('.boutique-rayons-defile'), /overflow-x: auto;/, 'ce qui défile, au texte agrandi, c’est le cadre des rayons')
   assert.doesNotMatch(regle('.boutique-rayons'), /overflow/, 'pas la bande, qui garde sa largeur et son sol')
   assert.doesNotMatch(css, /body\.avec-niche \.boutique-rayons \{/, 'plus de retrait sur la bande elle-même')
   // Et la niche reste en vue sous les puces collées — on y essaie un compagnon : la boutique ne rejoint pas les pages à tête collée, qui l'effacent.
