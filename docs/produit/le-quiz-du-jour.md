@@ -2,7 +2,7 @@
 
 > Dix questions par jour, les mêmes pour tous les profils du serveur, à jouer seul sur son téléphone : ce que vit le joueur, les règles, la réserve, le rappel du soir et l'installation.
 
-**Dans cette page** : [une journée de quiz](#une-journée-de-quiz) · [les règles chiffrées](#les-règles-chiffrées) · [la réserve de questions](#la-réserve-de-questions) · [le rappel du soir](#le-rappel-du-soir) · [l'installation](#lapplication-sur-lécran-daccueil) · [comment c'est construit](#comment-cest-construit)
+**Dans cette page** : [une journée de quiz](#une-journée-de-quiz) · [les règles chiffrées](#les-règles-chiffrées) · [les questions du public](#les-questions-du-public) · [la réserve de questions](#la-réserve-de-questions) · [le rappel du soir](#le-rappel-du-soir) · [l'installation](#lapplication-sur-lécran-daccueil) · [comment c'est construit](#comment-cest-construit)
 
 Le quiz du jour est **réservé aux profils** : sans profil, `/jour` montre une invitation — « Créer mon profil et jouer », « J'ai déjà un profil » — et rien d'autre. L'invité anonyme ne voit nulle part ce qui lui manque, et les soirées restent ouvertes à tous, sans compte. Chaque valeur citée a sa ligne dans [les barèmes](../reference/baremes.md).
 
@@ -21,7 +21,7 @@ En haut de `/jour` : « ← Accueil », la pastille de ta **série** (une flamme
 - Chaque question s'affiche comme en soirée. Le **chrono est celui du serveur** : recharger, changer de téléphone ou laisser sonner le sien ne rend pas une seconde. Une question montrée garde son échéance ; passée, elle compte « sans réponse ».
 - Ta réponse part une fois. Arrivée après l'échéance et sa marge : « Trop tard ! Ta réponse est arrivée après la fin. »
 - Puis la **révélation** : « +162 pts », « Bien joué ! » et ta gerbe, ou « Raté… », « Temps écoulé. », « Question annulée » ; la bonne réponse — jamais avant la tienne ; « Trouvée par 64 % des joueurs du jour » ; l'anecdote, « Le saviez-vous ? ».
-- « Question suivante » (« Voir mon résultat » après la dernière), et « Signaler une erreur dans cette question » : une phrase pour l'administrateur, qui peut la corriger — la même bonne réponse, et ta correction du jour la montre corrigée —, la reclasser, la retirer de la réserve, ou annuler ses points pour tous. Quand ta remarque a servi, ton accueil te remercie, une fois.
+- « Question suivante » (« Voir mon résultat » après la dernière), et « Signaler une erreur dans cette question » : une feuille où tu coches ce qui cloche — la bonne réponse, une faute, le classement — et le corriges à sa place, tout parti d'un seul envoi, comme en campagne ; l'administrateur peut la corriger — la même bonne réponse, et ta correction du jour la montre corrigée —, la reclasser, la retirer de la réserve, ou annuler ses points pour tous. Quand ta remarque a servi, ton accueil te remercie, une fois.
 - Une partie laissée en route se reprend où elle en était, sur n'importe quel téléphone du profil.
 
 ### La fin, puis le jour joué
@@ -119,6 +119,16 @@ Ils se regagnent et rapportent leur expérience à chaque fois ; l'album les ran
 | Le Mois complet | jouer chaque jour de quiz d'un mois qui en a eu 28 au moins | 250 | à la clôture du mois |
 
 Le quiz du jour ouvre aussi des légendaires — le Sphinx (L'Assidu ou Le Sans-Faute à l'or), l'Aigle, l'Ouroboros, le Scarabée, le Coq, la Chauve-souris, et des voies vers d'autres —, ceux des huit fêtes (la Saint-Valentin, Pâques, la Fête de la musique, l'été, la rentrée, Halloween, Noël, le Nouvel An : quelques jours joués dans la période), des titres, des gerbes, des fonds et trois thèmes. Pendant une fête, la page dit où tu en es — « 1 jour sur 2 » — et, le légendaire à toi, le timbre de l'année à gagner par les mêmes jours : un par fête et par an, rangé dans le carnet des fêtes de « Ma collection » ([les saisons](les-recompenses.md#les-saisons)). **Chronos**, l'un des six Divins, peut descendre sur une partie : la fin de la partie te le révèle, à toi seul, avec son récit ; ses règles sont secrètes.
+
+## Les questions du public
+
+Un joueur peut écrire sa question pour le quiz du jour (le choix du propriétaire du 2 novembre 2026 ; le défi de la semaine attendra). Les règles pures vivent dans `shared/propositions.ts`.
+
+- **Où** : la plume, une ligne au pied du résultat du quiz du jour (« Et si demain, ta question ? ») et de la fin du défi de la semaine (« À toi : pose une colle à tous »), dès sept bonnes réponses (`JUSTES_POUR_LA_PLUME`) ; et « Écris la tienne », sous la signature d'une question du public qu'on vient de jouer.
+- **L'écrire** : « Ta question » s'écrit dans la carte même du jeu — l'intitulé, quatre réponses aux formes du quiz ; la forme touchée porte la coche de la bonne, et sa signature est dessous. Une ligne de conseil dit le prochain geste, et le serveur relit avec les mêmes règles : quinze caractères au moins, un point d'interrogation, quatre réponses différentes, sans emoji, la bonne réponse pas écrite dans la question. Trois en relecture à la fois au plus (`PROPOSITIONS_EN_RELECTURE_MAX`). Sous la carte, « Tes questions » : où en est chacune — en relecture, acceptée, pas retenue et pourquoi, jouée.
+- **La relire** : à `/admin#jour`, « Les questions du public », chacune en carte : l'accepter — retouchée s'il le faut, sa catégorie et une anecdote données —, ou la refuser, d'un motif touché ou écrit. « À traiter » les compte. Acceptée, elle rejoint la réserve, signée ; son auteur l'apprend sur son accueil, une fois, puis le jour où elle est jouée — refusée, il y lit le motif.
+- **Au quiz du jour** : une par jour au plus, la plus anciennement acceptée d'abord, à la place d'une question de la réserve (`QUESTIONS_DU_PUBLIC_PAR_JOUR`) ; elles ne comptent pas dans les jours d'avance de la réserve. Les autres la jouent comme une autre, au même barème ; à sa révélation, « Question du public » dans la barre et « Signée Camille » au pied de l'anecdote, avec son visage tel qu'il le porte — rien quand son profil est masqué des classements, suspendu ou supprimé.
+- **Son auteur ne la joue pas** : il en connaît la réponse. Venue à son tour, elle se montre à lui comme une révélation (« Ta question est au quiz du jour ! »), sans chrono ni réponse, et lui compte **sa moyenne sur les autres questions qui comptent**, en points comme en bonnes réponses : 1 620 points sur ses neuf autres questions font une partie de 1 800 (`partDeLAuteur`). Elle ne le pousse ni ne le retient au classement, et le sans-faute reste possible. Une autre question annulée recompte sa moyenne ; la sienne annulée la lui retire, comme à tous. « Trouvée par » ne le compte pas, et sa correction la dit « Ta question ».
 
 ## La réserve de questions
 

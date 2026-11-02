@@ -367,8 +367,8 @@ export interface QuestionContredite {
 /** Au plus, les questions contredites que le QG montre : les plus nettes d'abord. */
 export const CONTREDITES_MONTREES = 20
 
-/** Un signalement tient en une phrase : celle de l'écran, comme au quiz du jour. */
-export const SIGNALEMENT_MAX = 280
+/** Un signalement tient en une phrase : celle de l'écran, comme au quiz du jour (`shared/signalement.ts`). */
+export { SIGNALEMENT_MAX } from './signalement'
 
 /** Une réponse tient sur un bouton de téléphone : bien moins que les 120 caractères qu'accepte l'éditeur. */
 export const MAX_REPONSE = 70

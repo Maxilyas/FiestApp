@@ -159,7 +159,7 @@ Les épreuves des sentiers ont leurs propres trophées — Le Randonneur, La Con
 
 ## Signaler une erreur
 
-Après ta réponse, le lien « Signaler une erreur dans cette question » te laisse écrire une phrase de 280 caractères au plus (`SIGNALEMENT_MAX`). Tu as droit à un signalement par question : si tu en renvoies un, il remplace le précédent. Toutes les parties de campagne se signalent de cette façon, y compris les épreuves des sentiers et les parcours.
+Après ta réponse, le lien « Signaler une erreur dans cette question » ouvre une feuille : tu coches tout ce qui cloche — la bonne réponse, une faute, le classement, autre chose —, puis tu corriges chaque point à sa place, sur la même page — choisir la bonne réponse, récrire le mot fautif, dire « trop dure pour une facile » —, et la feuille compte ce qui change. Tout part d'un seul envoi, en une phrase de 280 caractères au plus (`SIGNALEMENT_MAX`), tes corrections d'abord. Ainsi en série, au défi et en duel ; les épreuves des sentiers, les parcours et le Cabinet demandent encore une phrase libre. Tu as droit à un signalement par question : si tu en renvoies un, il remplace le précédent.
 
 L'administrateur relit chaque signalement à `/admin#signalements`, avec ceux du quiz du jour, ce que le joueur a répondu et ce que disent toutes les réponses à la question. Il a ensuite quatre gestes :
 - « Garder » laisse la question en jeu et referme ses signalements.

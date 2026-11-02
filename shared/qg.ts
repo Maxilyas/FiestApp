@@ -169,6 +169,8 @@ export interface ATraiterDuQg {
   signalementsDeLaCampagne: { questions: number; joueurs: number }
   /** Les copies proposées au catalogue, à relire. */
   catalogue: number
+  /** Les questions que les joueurs proposent au quiz du jour, à relire (`shared/propositions.ts`) ; absent d'un serveur d'avant. */
+  propositions?: number
   /** La dernière tournée du rappel du soir, depuis le démarrage. */
   rappel: { jour: string; envoyes: number; echecs: number } | null
   /** Le dernier dépôt de la routine du matin, dans la réserve du jour et dans la base de la campagne. */
@@ -574,6 +576,16 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
         .filter(Boolean)
         .join(' · '),
       ecran: 'signalements',
+    })
+  }
+  // Une question du public attend sa relecture sur la page du quiz du jour : son auteur attend la réponse sur son accueil.
+  if (vue?.propositions) {
+    choses.push({
+      cle: 'propositions',
+      alerte: false,
+      titre: vue.propositions > 1 ? `${vue.propositions} questions du public à relire` : 'Une question du public à relire',
+      detail: 'proposée au quiz du jour',
+      ecran: 'jour',
     })
   }
   if (vue && vue.catalogue > 0) {

@@ -39,6 +39,7 @@ import type { FicheDuJoueur, FinitionChoisie, ProfilDAccueil, ProfilDAdministrat
 import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '../../shared/erreurs'
 import { enAttendantLeReveil, type Attente } from '../../shared/reveil'
 import type { ClassementDuJour, PartieDuJour, ReglagesDesNotifications, RevelationDuJour } from '../../shared/jour'
+import type { PropositionDuJoueur, PropositionsAuQg, QuestionProposee } from '../../shared/propositions'
 import type { BoutiqueDuProfil, SoldeDeConfettis } from '../../shared/themes'
 import type { NouveautesDeLaLoge, VusDeLaLoge } from '../../shared/piecesDeLaLoge'
 import type { MissionsDuJour } from '../../shared/missions'
@@ -785,6 +786,10 @@ export const api = {
     correction: (jour: string) => req<CorrectionDuJour>(`/api/jour/correction/${jour}`),
     signaler: (jour: string, index: number, texte: string) =>
       req<{ ok: true }>('/api/jour/signaler', { method: 'POST', body: JSON.stringify({ jour, index, texte }) }),
+    /** Ses questions proposées au quiz du jour, les plus récentes d'abord : où en est chacune (« Tes questions »). */
+    propositions: () => req<PropositionDuJoueur[]>('/api/jour/propositions'),
+    /** Propose une question au quiz du jour : le QG la relira. */
+    proposer: (question: QuestionProposee) => req<PropositionDuJoueur>('/api/jour/propositions', { method: 'POST', body: JSON.stringify(question) }),
     /** Des sabliers pour sa série, en confettis — deux au plus en tout : ceux qui l'attendent, et son solde. */
     sablier: (nombre = 1) => req<{ sabliers: number; confettis: SoldeDeConfettis }>('/api/jour/sablier', { method: 'POST', body: JSON.stringify({ nombre }) }),
     /**
@@ -948,6 +953,14 @@ export const api = {
     profilsDuJour: (q: string) => req<ProfilMasquable[]>(`/api/admin/jour/profils?q=${encodeURIComponent(q)}`),
     masquerDuJour: (profileId: string, masque: boolean) =>
       req<{ ok: true }>('/api/admin/jour/masquer', { method: 'POST', body: JSON.stringify({ profileId, masque }) }),
+    /** Les questions que les joueurs proposent au quiz du jour : à relire, relues ce mois-ci, et la file des acceptées. */
+    propositionsDuJour: () => req<PropositionsAuQg>('/api/admin/jour/propositions'),
+    /** L'accepter, telle qu'on l'a retouchée, sa catégorie et son anecdote données : elle rejoint la réserve, signée. */
+    accepterLaProposition: (id: string, question: QuestionProposee & { categorie: string; anecdote: string }) =>
+      req<{ ok: true }>(`/api/admin/jour/propositions/${encodeURIComponent(id)}/accepter`, { method: 'POST', body: JSON.stringify({ question }) }),
+    /** La refuser, en une phrase que le joueur lira sur son accueil. */
+    refuserLaProposition: (id: string, motif: string) =>
+      req<{ ok: true }>(`/api/admin/jour/propositions/${encodeURIComponent(id)}/refuser`, { method: 'POST', body: JSON.stringify({ motif }) }),
     /** La campagne : sa base, et les questions que les joueurs signalent. */
     campagne: () => req<AdminDeLaCampagne>('/api/admin/campagne'),
     garderDeLaCampagne: (questionId: string) => req<{ ok: true }>('/api/admin/campagne/garder', { method: 'POST', body: JSON.stringify({ questionId }) }),
@@ -1050,6 +1063,8 @@ export interface CorrectionDuJour {
     /** Sa réponse est arrivée après l'échéance : elle n'a pas compté. */
     tropTard?: boolean
     annulee?: boolean
+    /** Sa propre question, proposée par lui : il ne l'a pas jouée, elle lui a compté sa moyenne (`points`). */
+    tienne?: true
   }[]
 }
 

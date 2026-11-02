@@ -406,6 +406,21 @@ export interface RevelationDuJour {
   tropTard?: boolean
   /** C'était la dernière. */
   derniere: boolean
+  /**
+   * Le joueur qui l'a proposée (`shared/propositions.ts`) : son prénom et ce
+   * qu'il porte — la question du public se signe de son visage, au pied de
+   * son anecdote (`SignatureDuPublic`). Absent d'une question de la réserve,
+   * et quand son profil ne se montre plus — supprimé, suspendu, masqué des
+   * classements.
+   */
+  auteur?: { nom: string; avatar: string } & ApparenceDeLAvatar
+  /**
+   * Sa propre question : il ne l'a pas jouée, il en connaît la réponse. Elle
+   * lui compte à sa moyenne sur les autres (`partDeLAuteur`) — sans choix,
+   * sans points à elle ; la révélation la lui montre, telle que les autres la
+   * jouent.
+   */
+  tienne?: true
 }
 
 /** Une ligne du classement du jour, du mois : ce que la salle verrait d'un profil. */

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Icon, type IconName } from './Icon'
 import { espacesFines } from '../format'
 import { formatNumber } from '../../../shared/typographie'
-import { phraseDuMerci, type AnnonceDeLAdministrateur } from '../../../shared/profil'
+import { phraseDeLaProposition, phraseDuMerci, type AnnonceDeLAdministrateur } from '../../../shared/profil'
 import { MOT_MAX, NOTE_MAX, type QuestionDAnnonce } from '../../../shared/annonces'
 import { motifDe } from '../api'
 
@@ -11,6 +11,7 @@ const ICONE: Record<AnnonceDeLAdministrateur['sorte'], IconName> = {
   merci: 'heart',
   prenom: 'edit',
   annonce: 'megaphone',
+  proposition: 'edit',
 }
 
 const nConfettis = (n: number) => `+${formatNumber(n)} confetti${n > 1 ? 's' : ''}`
@@ -132,9 +133,22 @@ export function CarteDeLAdministrateur({
 }) {
   const [merci, setMerci] = useState<number | null>(null)
   // Une question qui attend sa réponse se range en « Plus tard » : elle reviendra à la prochaine visite.
-  const libelle = a.sorte === 'merci' ? 'Avec plaisir' : a.sorte === 'annonce' && a.question && merci === null ? 'Plus tard' : a.sorte === 'annonce' && a.confettis === 0 ? 'Compris' : 'Merci'
+  const libelle =
+    a.sorte === 'merci'
+      ? 'Avec plaisir'
+      : a.sorte === 'annonce' && a.question && merci === null
+        ? 'Plus tard'
+        : (a.sorte === 'annonce' && a.confettis === 0) || (a.sorte === 'proposition' && a.issue === 'refusee')
+          ? 'Compris'
+          : a.sorte === 'proposition'
+            ? 'Super'
+            : 'Merci'
   return (
-    <li className={'annonce-admin' + (a.sorte === 'annonce' && a.question ? ' annonce-admin-question' : a.sorte === 'merci' || a.sorte === 'annonce' ? ' annonce-admin-pile' : '')}>
+    <li
+      className={
+        'annonce-admin' + (a.sorte === 'annonce' && a.question ? ' annonce-admin-question' : a.sorte === 'merci' || a.sorte === 'annonce' || a.sorte === 'proposition' ? ' annonce-admin-pile' : '')
+      }
+    >
       <span className="annonce-admin-icone" aria-hidden="true">
         <Icon name={ICONE[a.sorte]} />
       </span>
@@ -150,6 +164,13 @@ export function CarteDeLAdministrateur({
             <b>{espacesFines(`Merci, ${prenom} !`)}</b>
             <span>{espacesFines(phraseDuMerci(a))}</span>
             <span className="muted small">— de l’administrateur</span>
+          </>
+        ) : a.sorte === 'proposition' ? (
+          <>
+            <b>{espacesFines(phraseDeLaProposition(a).titre)}</b>
+            <span>{espacesFines(phraseDeLaProposition(a).phrase)}</span>
+            {/* Jouée, elle est passée d'elle-même, à son tour : l'administrateur ne l'a qu'acceptée ou refusée. */}
+            {a.issue !== 'posee' && <span className="muted small">— de l’administrateur</span>}
           </>
         ) : a.sorte === 'annonce' ? (
           <>

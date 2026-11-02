@@ -437,6 +437,8 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/jour-paliers.test.ts` — ses paliers.
 - `server/test/jour-telephone.test.ts` — quand le réseau, le doigt ou l'horloge trahissent.
 - `server/test/jour-reserve.test.ts` — la réserve et sa porte.
+- `server/test/jour-propositions.test.ts` — les questions du public, de la plume au QG : la carte qui conseille ce que le serveur refuse, la moyenne de l'auteur en chiffres, proposer, accepter — dans la réserve, signée, à part des jours d'avance —, refuser et son motif, trois en relecture au plus, l'accueil qui le dit, un profil supprimé.
+- `server/test/jour-question-du-public.test.ts` — une question du public au quiz du jour : une par jour, la plus anciennement acceptée d'abord ; signée aux autres, sauf masqué ; montrée à son auteur sans se jouer, sa moyenne en points et en bonnes réponses, la correction, le sans-faute, les annulations qui la recomptent ; l'accueil qui dit qu'elle a été jouée.
 - `server/test/etiquetage.test.ts` — les métadonnées d'une question, sa difficulté mesurée.
 - `server/test/corrige.test.ts` — le corrigé d'une question.
 - `server/test/laurier.test.ts` — le laurier du vainqueur d'hier.
@@ -476,6 +478,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/campagne-base.test.ts` — la base livrée : rien de défectueux n'y entre, elle ne recule jamais.
 - `server/test/campagne-routine.test.ts` — le dépôt du matin, relu par le juge, plafonné.
 - `server/test/campagne-signalements.test.ts` — les signalements : garder, retirer, corriger.
+- `server/test/signalement-en-points.test.ts` — un signalement en plusieurs points, composé au téléphone : la phrase, l'ordre des points, la correction montrée dans le texte même — chaque retouche à sa place —, le texte relu après le geste, pas sous le doigt, rien quand rien ne change, la coupe à 280 caractères qui épargne les corrections.
 - `server/test/meme-fait.test.ts` — le même fait sous deux intitulés.
 - `server/test/generer-campagne.test.ts` — la génération en nombre : vagues, dédoublonnage, relecture rejouée.
 - `server/test/inventaires.test.ts` — les inventaires de la danse, de la santé, de la langue française, de l'anglais et de l'espagnol : la consigne qui les donne, la commande famille par famille, la couverture et ce qui reste sans question.

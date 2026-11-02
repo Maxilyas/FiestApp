@@ -5,6 +5,7 @@ import { Flamme, Icon } from './Icon'
 import { AujourdhuiDuJour, ClassementDuMoisAuQg, JoueursParJour, QuestionsDuJour, RappelDuSoirAuQg, SeriesDuJourAuQg } from './QgDuJour'
 import { confirmerLeMasque } from './QgModes'
 import { VersLesSignalements } from './QgSignalements'
+import { QuestionsDuPublicAuQg } from './QgQuestionsDuPublic'
 import { copierTexte } from '../copier'
 import { quand } from '../format'
 import { showToast } from '../state'
@@ -13,7 +14,7 @@ import type { SuiviDuJour } from '../../../shared/qgDuJour'
 // Le même seuil que « À traiter », à la vue d'ensemble du QG : écrit deux fois, il pouvait s'allumer ici et pas là.
 import { ALERTE_JOURS_D_AVANCE as ALERTE_JOURS, type VueDEnsemble } from '../../../shared/qg'
 
-const SOURCES: Record<string, string> = { livre: 'Quiz livrés', liste: 'Liste collée', ia: 'Écrite par l’IA' }
+const SOURCES: Record<string, string> = { livre: 'Quiz livrés', liste: 'Liste collée', ia: 'Écrite par l’IA', public: 'Question du public' }
 
 /**
  * Le quiz du jour, côté administrateur : les chiffres d'aujourd'hui, la
@@ -281,6 +282,9 @@ export function AdminDuJour({ vue, versLesSignalements }: { vue: VueDEnsemble | 
           </ol>
         )}
       </section>
+
+      {/* Les questions que les joueurs proposent : elles rejoignent la réserve, une par jour au quiz. */}
+      <QuestionsDuPublicAuQg />
 
       <QuestionsDuJour
         suivi={suivi}

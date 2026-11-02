@@ -6987,6 +6987,152 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .jour-trouvee { display: flex; flex-direction: column; gap: 6px; width: 100%; margin-top: 6px; }
 .jour-rappel { margin: 0; font-family: var(--serif); font-size: 1.25rem; line-height: 1.25; text-wrap: balance; }
 .lien-signaler { align-self: center; background: none; border: 0; color: var(--muted); font-family: var(--sans); cursor: pointer; }
+
+/* ── La plume : proposer une question, en une ligne ──────────────────────
+   Une invitation qui attire l'œil sans prendre de place (`LaPlume.tsx`) :
+   pas de carte de plus, une ligne au pied d'une carte qui existe déjà — le
+   résultat du jour, la fin du défi —, ou au pied de l'anecdote d'une
+   question de joueur. Ce qui attire, c'est le geste, une fois : la plume se
+   trace à l'arrivée, puis l'encre souligne ce qu'elle propose. Rien d'autre
+   ne bouge, ni ne luit ; et rien du tout quand le système demande moins de
+   mouvement. */
+.plume {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 8px;
+  padding: 12px 4px 0;
+  border: 0;
+  border-top: 1px solid var(--edge);
+  background: none;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 0.95rem;
+  line-height: 1.3;
+  text-align: left;
+  cursor: pointer;
+}
+.plume-icone { width: 22px; height: 22px; flex: none; color: var(--accent-text); }
+/* Chaque tracé vaut 1 (`pathLength`) : la plume se dessine d'un seul pas.
+   Invisible jusqu'à son premier trait : un tiret de longueur nulle garde ses
+   bouts ronds, et la plume attendait son tour en pointillé. */
+.plume-icone path { stroke-dasharray: 1; stroke-dashoffset: 1; opacity: 0; animation: plume-trace 0.9s ease-out 0.5s forwards; }
+/* L'encre : un filet de la couleur du texte, qui s'allonge sous l'appel. */
+.plume-appel {
+  padding-bottom: 2px;
+  color: var(--accent-text);
+  font-weight: 600;
+  background: linear-gradient(currentColor, currentColor) 0 100% / 0 1px no-repeat;
+  animation: plume-encre 0.5s ease-out 1.3s forwards;
+}
+.plume:hover .plume-appel { color: var(--accent-text-hover); }
+.plume .plume-chevron { width: 16px; height: 16px; flex: none; color: var(--accent-text); }
+@keyframes plume-trace { from { stroke-dashoffset: 0.98; opacity: 1; } to { stroke-dashoffset: 0; opacity: 1; } }
+@keyframes plume-encre { to { background-size: 100% 1px; } }
+@media (prefers-reduced-motion: reduce) {
+  .plume-icone path { animation: none; stroke-dashoffset: 0; opacity: 1; }
+  .plume-appel { animation: none; background-size: 100% 1px; }
+}
+/* La question d'un joueur, au pied de son anecdote : qui l'a écrite, puis de quoi écrire la sienne. */
+/* Serrée : sa ligne ne doit pas pousser « Question suivante » sous le bord d'un téléphone de 640. */
+.anecdote-du-public { display: flex; flex-direction: column; gap: 2px; padding: 14px 18px 6px; }
+.plume-signature { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.plume-de { display: inline-flex; align-items: center; gap: 8px; min-width: 0; font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 1.15rem; line-height: 1.15; }
+.plume-de .av { flex: none; font-size: 1.45rem; font-style: normal; }
+/* Un lien du pied de carte, comme « Signaler une erreur » : moins haut qu'un bouton plein. */
+.plume-ecrire { display: inline-flex; align-items: center; gap: 6px; flex: none; min-height: 34px; padding: 0; border: 0; background: none; color: var(--accent-text); font-family: var(--sans); font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+.plume-ecrire .plume-icone { width: 20px; height: 20px; }
+/* Dans un bouton, la plume prend sa couleur : en or sur l'or d'« Envoyer en relecture », elle disparaissait. */
+.btn .plume-icone { color: inherit; }
+.pill.plume-du-public { color: var(--accent-text); border-color: var(--edge-strong); }
+/* « Ta question » : la carte du jeu, à écrire (`CarteAEcrire`, `LaPlume.tsx`).
+   Sa place de question en serif, ses quatre réponses aux formes du quiz ; la
+   forme touchée porte la coche de la bonne, et la carte prend son filet d'or
+   quand elle est prête. Un conseil d'une ligne, rien d'autre à lire. */
+.plume-carte { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; padding: 16px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); transition: border-color 0.3s ease; }
+.plume-carte-prete { border-color: var(--accent); }
+.plume-carte-question { width: 100%; padding: 2px 0 8px; border: 0; border-bottom: 1px dashed var(--edge-strong); border-radius: 0; background: none; color: var(--ink); font-family: var(--serif); font-size: 1.55rem; font-weight: 600; line-height: 1.15; resize: none; }
+.plume-carte-question::placeholder { color: var(--muted); font-style: italic; font-weight: 500; opacity: 0.85; }
+.plume-carte-reponses { width: 100%; gap: 8px; }
+.plume-carte-reponse { min-height: 52px; gap: 6px; padding: 6px 8px 6px 5px; animation: none; cursor: text; }
+.plume-carte-forme { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; flex: none; padding: 0; border: 1.5px dashed var(--edge-strong); border-radius: 50%; background: none; cursor: pointer; }
+.plume-carte-forme[aria-pressed='true'] { border-style: solid; border-color: var(--accent); }
+.plume-carte-forme .ans-shape { width: 16px; height: 16px; }
+.plume-carte-coche { position: absolute; right: -4px; bottom: -4px; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--on-accent); animation: plume-coche 0.3s ease-out; }
+.plume-carte-coche .icon { width: 12px; height: 12px; }
+@keyframes plume-coche { from { transform: scale(0); } }
+/* Arrondi, l'anneau du focus suit la case au lieu d'y poser un rectangle. */
+.plume-carte-champ { flex: 1; min-width: 0; width: 100%; padding: 6px 2px; border: 0; border-radius: var(--radius-xs); background: none; color: var(--ink); font-family: var(--sans); font-size: 0.92rem; }
+.plume-carte-champ::placeholder { color: var(--muted); opacity: 0.85; }
+.plume-carte-signature { display: flex; align-items: center; gap: 8px; font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 1.1rem; color: var(--muted); }
+.plume-carte-signature .av { font-size: 1.5rem; }
+.plume-conseil { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0; color: var(--muted); font-size: 0.92rem; text-align: center; }
+.plume-conseil .icon { flex: none; color: var(--accent-text); }
+.plume-conseil-prete { color: var(--accent-text); font-weight: 600; }
+/* « Tes questions », sous la carte : une ligne chacune, sa pastille d'abord — où elle en est, d'un coup d'œil. */
+.plume-tes-questions { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.plume-tes-questions ul { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.plume-tienne { display: flex; align-items: baseline; gap: 8px; font-size: 0.9rem; line-height: 1.3; }
+.plume-tienne-texte { display: flex; flex-direction: column; min-width: 0; overflow-wrap: break-word; }
+.plume-tienne-texte small { color: var(--muted); font-size: 0.8rem; }
+.pill.plume-statut { flex: none; font-size: 0.72rem; }
+.pill.plume-statut-acceptee,
+.pill.plume-statut-posee { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text-hover); }
+.pill.plume-statut-refusee { color: var(--muted); }
+/* Sa propre question, à la révélation : la plume à la place du verdict. */
+.plume-tienne-icone { color: var(--accent-text); }
+.plume-tienne-icone .plume-icone { width: 34px; height: 34px; }
+
+/* ── Signaler : la question elle-même, à toucher ─────────────────────────
+   La feuille est la question telle qu'on vient de la jouer
+   (`SignalerLaQuestion.tsx`) : on touche la bonne réponse — la coche s'y
+   déplace —, on touche un texte — son pointillé dit qu'il se corrige — et la
+   correction se lit dans la phrase même, ce qui part barré, ce qui vient en
+   or ; la difficulté et la catégorie sont des pastilles. Sa hauteur est
+   fixe : ce qui s'ouvre sous le doigt ne la fait pas sauter. */
+.carte-feuille.signaler-feuille,
+.carte-feuille.plume-feuille { height: 88%; }
+.signaler-carte { display: flex; flex-direction: column; gap: 12px; padding: 14px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); }
+.signaler-touchable { display: flex; align-items: flex-start; gap: 8px; width: 100%; padding: 8px 10px; border: 1px dashed var(--edge); border-radius: var(--radius-xs); background: none; color: var(--ink); font-family: var(--sans); text-align: left; cursor: pointer; }
+.signaler-touchable:hover { border-color: var(--edge-strong); }
+.signaler-corrige { border-style: solid; border-color: var(--accent); }
+.signaler-texte { flex: 1; min-width: 0; }
+.signaler-question .signaler-texte,
+textarea.signaler-question { font-family: var(--serif); font-size: 1.35rem; font-weight: 600; line-height: 1.2; }
+.signaler-anecdote { font-size: 0.95rem; line-height: 1.35; }
+.signaler-anecdote > .icon:first-child { flex: none; margin-top: 2px; color: var(--accent-text); }
+textarea.signaler-anecdote { font-family: var(--sans); }
+.signaler-crayon { flex: none; width: 16px; height: 16px; margin-top: 3px; color: var(--muted); }
+.signaler-corrige .signaler-crayon { color: var(--accent-text); }
+.signaler-texte s { color: var(--alert); text-decoration-thickness: 2px; }
+.signaler-texte b { color: var(--accent-text); font-weight: 700; }
+/* Le champ prend la taille de son texte, là où le navigateur le sait. Relu corrigé, il grandit encore de ses mots barrés :
+   il ne se relit qu'une fois le geste fini (`RELIRE_APRES_MS`), sans quoi ce qu'on touchait dessous glissait sous le doigt. */
+.signaler-en-edition { border-color: var(--accent); field-sizing: content; }
+.signaler-reponses { gap: 8px; }
+.signaler-reponse { min-height: 52px; gap: 10px; padding: 8px 12px; overflow: visible; font-size: 0.95rem; animation: none; }
+.signaler-ancienne .ans-text { color: var(--muted); text-decoration: line-through; }
+/* La coche se pose sur le coin de la case, à cheval sur son filet : dans la ligne, elle prenait la place du texte, et « La farandole » s'y coupait en trois. */
+.signaler-coche { position: absolute; top: -7px; right: -7px; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: var(--on-accent); animation: plume-coche 0.3s ease-out; }
+.signaler-coche .icon { width: 13px; height: 13px; }
+.signaler-pastilles { display: flex; flex-wrap: wrap; gap: 8px; }
+.signaler-pastille { position: relative; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border: 1px solid var(--edge); border-radius: var(--radius-pill); background: var(--surface); color: var(--ink); font-family: var(--sans); font-size: 0.88rem; cursor: pointer; }
+.signaler-pastille .icon { width: 18px; height: 18px; color: var(--accent-text); }
+.signaler-pastille[aria-pressed='true'],
+.signaler-choisie { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text-hover); font-weight: 600; }
+.signaler-pastille[aria-pressed='true'] .icon,
+.signaler-choisie .icon { color: var(--accent-text-hover); }
+/* La liste de la catégorie, invisible, couvre sa pastille : le toucher ouvre celle du téléphone. */
+.signaler-categorie select { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; }
+.signaler-jauge rect { fill: none; stroke: currentColor; stroke-width: 1.6; }
+.signaler-jauge .signaler-barre-pleine { fill: currentColor; }
+@media (prefers-reduced-motion: reduce) {
+  .plume-carte-coche,
+  .signaler-coche { animation: none; }
+}
 .jour-ligne { display: flex; align-items: center; gap: 12px; }
 .jour-ligne > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .jour-ligne h2 { font-size: 1.8rem; margin: 0; font-variant-numeric: lining-nums; }
@@ -14469,6 +14615,11 @@ span.annonce-admin-merci { cursor: default; }
 .signalement-reponses .icon { flex: none; width: 14px; height: 14px; color: var(--accent-text); }
 .signalement-reponses .signalement-juste { border-color: color-mix(in srgb, var(--accent) 65%, transparent); font-weight: 600; }
 .signalement-marques { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+/* Une question du public à accepter ou à refuser (`QgQuestionsDuPublic.tsx`) : ses champs dépliés sous sa carte. */
+.qg-proposition-forme { display: flex; flex-direction: column; gap: 8px; }
+.qg-proposition-reponse { display: flex; align-items: center; gap: 10px; }
+.qg-proposition-reponse input[type='radio'] { flex: none; width: 20px; height: 20px; margin: 0; accent-color: var(--accent); }
+.qg-motifs { display: flex; flex-wrap: wrap; gap: 6px; }
 /* « Annuler aussi ses points pour tous », sous une correction du quiz du jour : la case à la taille d'un doigt, sa phrase à côté. */
 .correction-question > .correction-annuler { flex-direction: row; align-items: flex-start; gap: 10px; cursor: pointer; }
 .correction-annuler input { flex: none; width: 20px; height: 20px; margin: 1px 0 0; }

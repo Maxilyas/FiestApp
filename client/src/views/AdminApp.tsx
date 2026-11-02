@@ -313,6 +313,7 @@ export function AdminApp() {
   // Les questions à relire aux deux modes : la pastille de leur page les compte, pas la ligne qui les annonce.
   const signalees = vue ? vue.aTraiter.signalementsDuJour.questions + vue.aTraiter.signalementsDeLaCampagne.questions : 0
   const aRelire = vue?.aTraiter.catalogue ?? 0
+  const duPublic = vue?.aTraiter.propositions ?? 0
   const enCours = direct?.soirees.filter(s => s.etat === 'en-cours').length
   const enPlan = direct?.soirees.filter(s => s.etat === 'en-plan').length ?? 0
   const comptes: Partial<Record<Ecran, number>> = { soirees: enCours, profils, salons: espaces?.length }
@@ -415,7 +416,13 @@ export function AdminApp() {
                 <Ligne
                   icone="sun"
                   nom="Le quiz du jour"
-                  valeur={reserve ? `${reserve.joursDAvance} jour${reserve.joursDAvance > 1 ? 's' : ''} d’avance` : 'La réserve'}
+                  valeur={
+                    duPublic > 0
+                      ? `${duPublic} question${duPublic > 1 ? 's' : ''} du public à relire`
+                      : reserve
+                        ? `${reserve.joursDAvance} jour${reserve.joursDAvance > 1 ? 's' : ''} d’avance`
+                        : 'La réserve'
+                  }
                   onClick={() => aller('jour')}
                 />
                 <Ligne icone="target" nom="La campagne" valeur="Sentiers, défi" onClick={() => aller('campagne')} />

@@ -602,9 +602,9 @@ range par profil ou par jour (de Paris), sans espace.
 
 La réserve de questions du quiz du jour.
 
-- **Colonnes clés** : `id`, `question` (JSON), `empreinte` (unique : l'intitulé normalisé, contre les doublons), `categorie`, `source` (`livre`, `liste` ou `ia`), `ajoutee_le`, `posee_le` (le jour qui l'a tirée), `retiree_le`, `metadonnees` (JSON, l'étiquetage), `etiquetee_le`.
+- **Colonnes clés** : `id`, `question` (JSON), `empreinte` (unique : l'intitulé normalisé, contre les doublons), `categorie`, `source` (`livre`, `liste`, `ia` ou `public`), `ajoutee_le`, `posee_le` (le jour qui l'a tirée), `retiree_le`, `metadonnees` (JSON, l'étiquetage), `etiquetee_le`, `auteur` (le profil qui l'a proposée, pour une question du public ; vidé quand son profil est supprimé).
 - **Espace** : non.
-- **Écrite par** : `JourStore` — l'amorce des quiz livrés au premier démarrage, « Coller une liste » au QG, le dépôt de la routine, le tirage, un retrait, l'étiquetage ; « Corriger » et « Reclasser » à la page des signalements (la question, son empreinte, sa catégorie, ses métadonnées).
+- **Écrite par** : `JourStore` — l'amorce des quiz livrés au premier démarrage, « Coller une liste » au QG, le dépôt de la routine, une question du public acceptée, le tirage, un retrait, l'étiquetage ; « Corriger » et « Reclasser » à la page des signalements (la question, son empreinte, sa catégorie, ses métadonnées). Les questions du public ont leur file : le tirage en pose une par jour au plus, la plus anciennement acceptée d'abord, et elles ne comptent pas dans les jours d'avance.
 - **Lue par** : `JourStore` (le tirage, la consigne de la routine, le QG — la page des signalements lit la version d'une question signalée, et ses métadonnées) ; la campagne, qui écarte ses intitulés.
 - **Effacée par** : rien : une question retirée garde sa ligne (`retiree_le`).
 
@@ -687,6 +687,16 @@ Les questions du jour signalées par les joueurs.
 - **Espace** : non.
 - **Écrite par** : `JourStore` (le signalement ; au QG, chaque geste — garder, corriger, reclasser, retirer, annuler — dans son propre lot).
 - **Lue par** : `JourStore` (la page des signalements du QG, son historique de trente jours, le merci sur l'accueil du joueur).
+- **Effacée par** : la suppression du profil.
+
+### `jour_propositions`
+
+Les questions que les joueurs proposent au quiz du jour (`shared/propositions.ts`).
+
+- **Colonnes clés** : `id`, `profile_id` (son auteur), `question` (JSON : l'intitulé, les quatre réponses, l'index de la bonne, telles qu'il les a écrites), `proposee_le`, `statut` (`en-relecture`, `acceptee`, `refusee`), `motif` (le refus, en une phrase), `relue_le`, `reserve_id` (la question de la réserve qu'elle est devenue, acceptée). Index `(profile_id, proposee_le)` — « Tes questions », son accueil — et `(statut, proposee_le)` — le QG.
+- **Espace** : non.
+- **Écrite par** : `JourStore` — la proposition (trois en relecture au plus par profil, comptées dans l'instruction qui l'écrit), puis au QG l'acceptation, dans le lot qui l'ajoute à la réserve, ou le refus.
+- **Lue par** : `JourStore` (« Tes questions », la page du quiz du jour au QG et son « À traiter », l'accueil de son auteur, qui lui dit une fois ce qu'elle est devenue — acceptée, jouée, refusée).
 - **Effacée par** : la suppression du profil.
 
 ### `jour_masques`
