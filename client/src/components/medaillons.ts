@@ -34,7 +34,7 @@ import type { DessinDePortrait } from './portraits/outils'
  * branche : soixante-douze dessins, et une salle n'en porte que quelques-uns.
  * Qui porte le cerf fait venir la forêt, pas l'océan.
  *
- * La lumière des finitions 15, 20 et 25 (`Lumiere.tsx`) vient de même : il
+ * La lumière des finitions, du 15 au 50 (`Lumiere.tsx`), vient de même : il
  * faut des dizaines de soirées pour la porter, et une salle d'anonymes ne la
  * verra jamais. Les bordures de ligue (`Bordure.tsx`) aussi : seules les
  * pages où l'on en porte une — la loge, la carte, les duels — les font venir.
@@ -53,8 +53,13 @@ export type Sorte = 'legendaire' | 'divin' | 'lumiere' | 'bordure' | 'compagnon'
 const MEDAILLONS: readonly Sorte[] = ['legendaire', 'divin']
 const SORTES: readonly Sorte[] = [...MEDAILLONS, 'lumiere', 'bordure', 'compagnon', ...BRANCHES.map(b => `branche:${b.key}` as const)]
 
-/** Les finitions qui ont leur lumière : le Diamant, les Voiles, l'Astrolabe. */
-export const FINITIONS_LUMINEUSES = ['prisme', 'aurore', 'constellation'] as const
+/**
+ * Les finitions qui ont leur lumière : le Diamant, les Voiles, l'Astrolabe —
+ * puis, depuis le 1er novembre 2026, les Méduses (Abysses), la Foudre
+ * (Orage), les Ailes (Envol), la Boule à facettes (Disco) et le Disque
+ * (Singularité).
+ */
+export const FINITIONS_LUMINEUSES = ['prisme', 'aurore', 'constellation', 'abysses', 'orage', 'envol', 'disco', 'singularite'] as const
 export type FinitionLumineuse = (typeof FINITIONS_LUMINEUSES)[number]
 
 /** Cette finition a-t-elle sa lumière ? Laquelle, ou null. */
@@ -100,7 +105,7 @@ interface Dessins {
   /** Les compagnons de la boutique, venus avec leurs fichiers (`compagnons`). */
   Compagnon?: typeof Compagnon
   compagnons?: Readonly<Record<string, DessinDeCompagnon>>
-  /** La lumière des finitions 15, 20 et 25. */
+  /** La lumière des finitions, du 15 au 50. */
   Lumiere?: typeof Lumiere
   /** Les bordures de ligue des duels. */
   Bordure?: typeof Bordure

@@ -33,7 +33,7 @@
 
 import { NOM_RARETE, type Rarete } from './badges'
 import { PORTRAITS, brancheDe, deLaBranche, portrait, portraitsOuverts } from './branches'
-import { COLLECTION, COLLECTION_HAUTE } from './avatars'
+import { COLLECTION, rareteDeLEmoji } from './avatars'
 import { DIVINS } from './divins'
 import {
   LEGENDAIRES,
@@ -174,7 +174,7 @@ function lAlbum(cabinet: boolean): readonly AvatarDeLAlbum[] {
         ...(c.lumiere ? [avatar(c.lumiere.key, 'compagnon', c.lumiere.rarete, [...vient, 'niche', 'eclat'])] : []),
       ]
     }),
-    ...COLLECTION.map(c => avatar(c.emoji, 'emoji', c.niveau < COLLECTION_HAUTE ? 'commune' : 'peucommune', ['niveau'])),
+    ...COLLECTION.map(c => avatar(c.emoji, 'emoji', rareteDeLEmoji(c.niveau), ['niveau'])),
     ...DIVINS.map(d => avatar(d.key, 'divin', 'divin', [])),
   ]
 }

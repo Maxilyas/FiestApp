@@ -52,12 +52,47 @@ function cyclique(couleurs: string[]): string[] {
   })
 }
 
-/** Les cercles de métal, du clair au sombre : Mat est un bronze, l'Or reste l'or d'origine. */
+/**
+ * Les cercles de métal, du clair au sombre : Mat est un bronze, l'Or reste
+ * l'or d'origine ; Envol, une nacre dorée — l'or de ses plumes.
+ */
 const METAUX: Partial<Record<Finition, [string, string, string]>> = {
   mat: ['#dcbd93', '#9c7449', '#5a3d20'],
   argent: ['#ffffff', '#c3cbd8', '#6b7688'],
   or: OR,
+  envol: ['#ffffff', '#f3e2b0', '#b28a3e'],
 }
+
+/** Un hasard répétable : le même cercle chez tout le monde, à chaque rendu. */
+function hasard(graine: number): () => number {
+  return () => {
+    graine = (graine * 16807) % 2147483647
+    return (graine - 1) / 2147483646
+  }
+}
+
+/** L'arc électrique d'Orage : un cercle brisé, de quarante points. */
+const FOUDRE = (() => {
+  const x = hasard(61)
+  return Array.from({ length: 40 }, (_, i) => pol(47 + (x() - 0.5) * 3.2, i * 9)).join(' ')
+})()
+
+/**
+ * Les miroirs de Disco : trente tuiles autour du médaillon, quelques-unes
+ * blanches, d'autres aux couleurs de la piste, le reste en gris d'argent —
+ * des tuiles séparées, pas un anneau fondu.
+ */
+const MIROIRS = (() => {
+  const x = hasard(71)
+  const couleurs = ['#ff6fbf', '#5fe6ff', '#ffe27a']
+  return Array.from({ length: 30 }, (_, i) => {
+    const a0 = i * 12 + 1
+    const a1 = (i + 1) * 12 - 1
+    const t = x()
+    const fill = t < 0.12 ? '#ffffff' : t < 0.26 ? couleurs[i % 3] : `hsl(228,10%,${(32 + x() * 48).toFixed(1)}%)`
+    return { d: `M${pol(49, a0)} A49,49 0 0 1 ${pol(49, a1)} L${pol(45.4, a1)} A45.4,45.4 0 0 0 ${pol(45.4, a0)} Z`, fill }
+  })
+})()
 
 /** Les cercles qui tournent : les couleurs d'Holo et d'Aurore, là où elles faisaient un halo. */
 const IRISES: Partial<Record<Finition, string[]>> = {
@@ -148,6 +183,53 @@ export function Cercle({ finition, id }: { finition: Finition; id: (nom: string)
           </g>
           <circle cx="50" cy="50" r="49" fill="none" stroke="#d9b56a" strokeWidth="0.8" />
           <circle cx="50" cy="50" r="45.1" fill="none" stroke="#d9b56a" strokeWidth="0.6" />
+        </>
+      )}
+      {/* Abysses : l'eau profonde, et le plancton qui luit en pointillé. */}
+      {finition === 'abysses' && (
+        <>
+          <circle cx="50" cy="50" r="47" fill="none" stroke="#062a3d" strokeWidth="4.6" />
+          <g className="lg-cercle-tourne" fill="none">
+            <circle cx="50" cy="50" r="47" stroke="#7ff6ff" strokeWidth="1.6" strokeDasharray="0.6 3.2" strokeLinecap="round" />
+          </g>
+          <circle cx="50" cy="50" r="49.1" fill="none" stroke="#2fd6b6" strokeWidth="0.7" />
+          <circle cx="50" cy="50" r="45.2" fill="none" stroke="#33c4d6" strokeWidth="0.6" />
+        </>
+      )}
+      {/* Orage : un anneau de nuit traversé d'un arc électrique, qui crépite en tournant. */}
+      {finition === 'orage' && (
+        <>
+          <circle cx="50" cy="50" r="47" fill="none" stroke="#16235e" strokeWidth="4.4" />
+          <g className="lg-cercle-tourne">
+            <g className="lg-cercle-crepite" fill="none" strokeLinejoin="round">
+              <polygon points={FOUDRE} stroke="#6cc0ff" strokeWidth="4.4" strokeOpacity="0.45" />
+              <polygon points={FOUDRE} stroke="#ffffff" strokeWidth="1.5" />
+            </g>
+          </g>
+          <circle cx="50" cy="50" r="49.1" fill="none" stroke="#9fd8ff" strokeWidth="0.6" />
+        </>
+      )}
+      {/* Envol : la nacre de son métal, et un filet de lumière. */}
+      {finition === 'envol' && <circle cx="50" cy="50" r="48.6" fill="none" stroke="#ffffff" strokeOpacity="0.8" strokeWidth="0.5" />}
+      {/* Disco : des tuiles de miroir, qui tournent comme la boule. */}
+      {finition === 'disco' && (
+        <>
+          <circle cx="50" cy="50" r="49.4" fill="#17161d" />
+          <g className="lg-cercle-tourne">
+            {MIROIRS.map((m, i) => (
+              <path key={i} d={m.d} fill={m.fill} />
+            ))}
+          </g>
+          <circle cx="50" cy="50" r="49.4" fill="none" stroke="#ffffff" strokeOpacity="0.55" strokeWidth="0.5" />
+        </>
+      )}
+      {/* Singularité : la nuit d'un trou noir, cerclée de son anneau de photons. */}
+      {finition === 'singularite' && (
+        <>
+          <circle cx="50" cy="50" r="49" fill="#050308" />
+          <circle cx="50" cy="50" r="47.3" fill="none" stroke="#ff9a3c" strokeWidth="3.2" opacity="0.55" />
+          <circle cx="50" cy="50" r="46.7" fill="none" stroke="#fff3d6" strokeWidth="1.2" />
+          <circle cx="50" cy="50" r="49.2" fill="none" stroke="#ff7a1f" strokeWidth="0.7" opacity="0.9" />
         </>
       )}
     </g>

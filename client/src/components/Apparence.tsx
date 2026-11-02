@@ -413,9 +413,12 @@ function PastilleAGagner({ n, nom, href }: { n: number; nom: string; href: strin
 /**
  * Une rangée de pastilles : serrées d'un bord à l'autre quand elles sont
  * nombreuses — huit tiennent en 360 —, alignées à gauche quand elles sont
- * peu, au lieu de s'écarter d'un bord à l'autre.
+ * peu, au lieu de s'écarter d'un bord à l'autre. Au-delà de huit — Auto et
+ * les douze finitions d'un profil au niveau 50, depuis le 1er novembre
+ * 2026 —, sur deux lignes alignées à gauche : la seconde, écartée d'un bord
+ * à l'autre, laissait ses quelques pastilles flotter loin les unes des autres.
  */
-const rangee = (n: number) => 'loge-finitions-rangee' + (n < 6 ? ' rangee-courte' : '')
+const rangee = (n: number) => 'loge-finitions-rangee' + (n < 6 ? ' rangee-courte' : n > 8 ? ' rangee-longue' : '')
 
 /**
  * Sa finition, sur une rangée de pastilles (la maquette 3, que le

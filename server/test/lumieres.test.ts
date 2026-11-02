@@ -60,7 +60,7 @@ test('une salle sans niveau 15 ne télécharge pas la lumière ; un Divin ne la 
   const m: Medaillons = await import(url('components/medaillons.ts'))
   // Une salle d'anonymes, d'emojis, de finitions jusqu'à Holo : rien.
   assert.deepEqual(m.sortesDesAvatars([{}, { finition: 'mat' }, { finition: 'or' }, { finition: 'holo', legendaire: null }]), [])
-  for (const finition of ['prisme', 'aurore', 'constellation']) {
+  for (const finition of ['prisme', 'aurore', 'constellation', 'abysses', 'orage', 'envol', 'disco', 'singularite']) {
     assert.deepEqual(m.sortesDesAvatars([{ finition: 'holo' }, { finition }]), ['lumiere'], finition)
   }
   // Un légendaire porté en Constellation : son médaillon et sa lumière.
@@ -81,10 +81,14 @@ test('en attendant sa lumière, l’emoji garde son halo d’avant', async () =>
   // Et la feuille garde ce halo pour ce temps-là, et pour lui seulement :
   // une fois la lumière posée, l'Éclat retrouve ses paillettes — le halo
   // d'Aurore les remplaçait, une règle `::after` de même poids venue après.
-  const halos = REGLES.filter(r => /\.av-(prisme|aurore|constellation)[^,{]*::(before|after)/.test(r.sel))
-  assert.ok(halos.length >= 5, `les halos d'attente sont lus (${halos.length})`)
+  const halos = REGLES.filter(r => /\.av-(prisme|aurore|constellation|abysses|orage|envol|disco|singularite)[^,{]*::(before|after)/.test(r.sel))
+  assert.ok(halos.length >= 10, `les halos d'attente sont lus (${halos.length})`)
+  // Chacune des cinq du 1er novembre 2026 a le sien : sa couleur se voit avant sa lumière.
+  for (const f of ['abysses', 'orage', 'envol', 'disco', 'singularite']) {
+    assert.ok(halos.some(r => r.sel.includes(`.av-${f}:not(.av-lumiere)::before`)), `${f} a son halo d'attente`)
+  }
   for (const r of halos) {
-    for (const s of r.sel.split(',').filter(s => /\.av-(prisme|aurore|constellation)/.test(s))) {
+    for (const s of r.sel.split(',').filter(s => /\.av-(prisme|aurore|constellation|abysses|orage|envol|disco|singularite)/.test(s))) {
       assert.match(s, /:not\(\.av-lumiere\)/, `${s.trim()} s'efface quand la lumière est là`)
     }
   }
@@ -134,6 +138,51 @@ test('autour d’un médaillon, son cercle fait l’anneau ; un Divin garde la s
   const divin = await avatar({ legendaire: 'dv:lotus', finition: 'constellation' })
   assert.match(divin, /class="av av-divin"/)
   assert.doesNotMatch(divin, /class="lu |av-lumiere|av-constellation/)
+})
+
+test('les cinq de prestige, du 30 au 50 : chacune sa matière, autour de l’emoji comme du médaillon', async () => {
+  // Le choix du propriétaire du 1er novembre 2026, sur une planche de douze : les grands fonds, l'orage, les ailes,
+  // la piste de danse, le trou noir — rien de commun avec celles d'avant.
+  await charger('Lumiere', 'Legendaire', 'Divin')
+  const calques: Record<string, RegExp[]> = {
+    abysses: [/lu-eau/, /lu-faisceaux/, /lu-plancton lu-plancton-1/, /lu-meduse lu-meduse-1/, /lu-meduse lu-meduse-2/, /lu-bulle lu-bulle-1/],
+    orage: [/lu-nuage/, /lu-foudre lu-foudre-1/, /lu-foudre lu-foudre-2/, /lu-zebrure lu-zebrure-1/, /lu-zebrure lu-zebrure-4/, /lu-crepitement lu-crepitement-1/],
+    envol: [/lu-clarte/, /lu-aile lu-aile-gauche/, /lu-aile lu-aile-droite/, /lu-aureole/, /lu-plume lu-plume-1/],
+    disco: [/lu-piste/, /lu-boule/, /lu-reflets lu-reflets-1/, /lu-reflets lu-reflets-2/, /lu-miroite lu-miroite-1/],
+    singularite: [/lu-accretion/, /lu-lentille/, /lu-ombre/, /lu-photons/, /lu-disque lu-disque-arriere/, /lu-disque lu-disque-avant/, /lu-tourbillon/],
+  }
+  for (const [finition, attendus] of Object.entries(calques)) {
+    const html = await avatar({ finition })
+    assert.match(html, new RegExp(`class="av av-${finition} av-lumiere"`), finition)
+    for (const c of attendus) assert.match(html, c, `${finition} : ${c.source}`)
+    const [arriere, emoji, avant] = ['lu lu-arriere', '🦊', 'lu lu-avant'].map(t => html.indexOf(t))
+    assert.ok(arriere >= 0 && arriere < emoji && emoji < avant, `${finition} : l'emoji entre ses deux calques`)
+    assert.doesNotMatch(html, /<img(?![^>]*alt="")/, `${finition} : chaque image est décorative`)
+    // Autour d'un médaillon, son cercle dit la finition.
+    assert.match(await avatar({ legendaire: 'lg:phenix', finition }), new RegExp(`lg-cercle-${finition}`), `${finition} : le cercle du médaillon`)
+  }
+  // Le disque de la Singularité passe derrière la tête, puis devant : sa moitié proche après l'emoji.
+  const disque = await avatar({ finition: 'singularite' })
+  assert.ok(disque.indexOf('lu-disque-avant') > disque.indexOf('🦊') && disque.indexOf('lu-disque-arriere') < disque.indexOf('🦊'))
+  // Autour d'un médaillon, ce qui fait anneau autour d'un emoji laisse la place à son cercle : ni l'arc d'Orage, ni
+  // l'ombre et l'anneau de photons de la Singularité — son disque, lui, passe encore sous le menton.
+  const orage = await avatar({ legendaire: 'lg:phenix', finition: 'orage' })
+  assert.doesNotMatch(orage, /lu-foudre/)
+  assert.match(orage, /lu-zebrure-1/, 'ses éclairs frappent autour du médaillon')
+  const trouNoir = await avatar({ legendaire: 'lg:phenix', finition: 'singularite' })
+  assert.doesNotMatch(trouNoir, /lu-ombre|lu-photons/)
+  assert.match(trouNoir, /lu-disque-avant/)
+  // Sous une bordure de ligue, la boule de Disco s'efface — la bordure en prend les miroirs —, ses reflets restent.
+  const { Lumiere } = await import(url('components/Lumiere.tsx'))
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const React = (await import('react')).default
+  const sousBordure = renderToStaticMarkup(React.createElement(Lumiere, { finition: 'disco', bordure: true }, '🦊'))
+  assert.doesNotMatch(sousBordure, /lu-boule/)
+  assert.match(sousBordure, /lu-reflets-1/)
+  // Au repos, ce qui ne vit que par son mouvement se tait — une bulle figée serait une tache sur la joue —, et le
+  // premier éclair d'Orage reste, pour qu'on la reconnaisse dans une liste.
+  for (const sel of ['.lu-bulle', '.lu-plume', '.lu-zebrure']) assert.match(REGLES.find(r => r.sel === sel)?.corps ?? '', /opacity:\s*0;/, sel)
+  assert.match(REGLES.find(r => r.sel === '.lu-zebrure-1')?.corps ?? '', /opacity:\s*0\.9;/)
 })
 
 // ── 3. Ce que la salle paie ───────────────────────────────────────────────
