@@ -99,6 +99,9 @@ test('la ligne des missions se lit d’un aller-retour à la base — deux à la
   // et son carnet, que seul le tirage lit, ne se relit plus.
   const ensuite = await mesurer(() => lire(cookie, '/api/joueur/missions'))
   assert.equal(ensuite.enSerie, 1, `${ensuite.enSerie} allers-retours en série :\n${ensuite.sqls.join('\n')}`)
+  // Et un lot par magasin — le profil, le quiz du jour, la campagne — : huit de front jusqu'au 2 novembre 2026,
+  // chacun une à deux millisecondes de processeur sur un vrai cœur, dix fois plus au dixième de cœur de l'hébergeur.
+  assert.ok(ensuite.appels <= 3, `${ensuite.appels} allers-retours — huit avant :\n${ensuite.sqls.join('\n')}`)
   assert.ok(!ensuite.sqls.some(s => s.includes('WITH miennes')), `son carnet relu :\n${ensuite.sqls.join('\n')}`)
   assert.deepEqual(ensuite.resultat.missions, matin.resultat.missions, 'les mêmes missions, tirées une fois')
   assert.deepEqual([ensuite.resultat.coffres, ensuite.resultat.semaine.tampons], [[], [false, false, false, false, false, false, false]])

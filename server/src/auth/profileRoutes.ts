@@ -56,10 +56,12 @@ interface ProfileApiDeps {
   maintenant: () => number
   /**
    * Ses sentiers, pour le bouton de la campagne sur l'accueil : ses vies et
-   * celui qu'il avance ; ses duels, pour le leur ; les questions qu'il a
-   * signalées et dont sa remarque a servi, pour le remercier.
+   * celui qu'il avance ; le défi de la semaine ; ses duels, pour le leur ; les
+   * questions qu'il a signalées et dont sa remarque a servi, pour le
+   * remercier — d'un seul lot (`accueilDe`). Et sa page, son solde et ses
+   * paliers (`duProfil`).
    */
-  campagne: Pick<CampagneStore, 'accueilDesSentiers' | 'defiDAccueil' | 'accueilDesDuels' | 'duProfil' | 'mercisDe'>
+  campagne: Pick<CampagneStore, 'accueilDe' | 'duProfil'>
   /**
    * Sa traversée, pour le bouton du Cabinet sur l'accueil (`CabinetStore.accueil`,
    * puis `accueilDuCabinet`) : lue en mémoire seulement, sans un aller-retour.
@@ -187,32 +189,39 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     const rec = (await profiles.byId(me.id)) ?? me
     // À l'horloge des magasins, qui datent leurs relectures : les tests l'avancent.
     const depuis = deps.maintenant() - ANNONCE_MS
+    // Un lot par magasin, partis de front — sa boutique avec ses soirées et ses vies achetées, le quiz du jour, la
+    // campagne —, et chacun passe à l'autre ce qu'il a lu pour lui : treize allers-retours jusqu'au 2 novembre 2026, et
+    // un quatorzième derrière (`profil-charge.test.ts`). Chacun coûte au serveur dix à vingt millisecondes de
+    // processeur au dixième de cœur de l'hébergeur.
+    const achats = profiles.achatsDeLAccueil(rec)
+    const duJour = deps.jour.accueilDe(rec.id, depuis)
+    const deLaCampagne = deps.campagne.accueilDe(rec.id, depuis, achats.then(a => a.viesAchetees))
     const [jour, lue, campagne, defi, duels, mercis] = await Promise.all([
-      deps.jour.carriereDe(rec.id),
+      duJour.carriere,
       // Une base qui se tait ôte le solde, pas la page. Les dons de
       // l'administrateur viennent avec lui, dans la même lecture : l'accueil
       // les annonce sans un aller-retour de plus.
-      profiles.boutiqueEtDons(rec, aujourdhui).catch(e => {
+      profiles.boutiqueEtDons(rec, aujourdhui, { achats, campagne: deLaCampagne.campagne, justesDuJour: duJour.justes }).catch(e => {
         console.error('[profil] boutique illisible :', e)
         return undefined
       }),
       // Et les sentiers : le bouton de la campagne retrouve sa phrase de toujours.
-      deps.campagne.accueilDesSentiers(rec.id).catch(e => {
+      deLaCampagne.sentiers.catch(e => {
         console.error('[profil] sentiers illisibles :', e)
         return undefined
       }),
       // Et le défi de la semaine, pour son onglet à côté du quiz du jour : une base qui s'en tait n'ôte que lui.
-      deps.campagne.defiDAccueil(rec.id).catch(e => {
+      deLaCampagne.defi.catch(e => {
         console.error('[profil] défi de l’accueil illisible :', e)
         return undefined
       }),
       // Et les duels : leur bouton dit sa ligue — ou qui le défie.
-      deps.campagne.accueilDesDuels(rec.id).catch(e => {
+      deLaCampagne.duels.catch(e => {
         console.error('[profil] duels illisibles :', e)
         return undefined
       }),
       // Et les questions qu'il a signalées dont sa remarque a servi : un merci, en même temps que le reste.
-      Promise.all([deps.jour.mercisDe(rec.id, depuis), deps.campagne.mercisDe(rec.id, depuis)]).then(
+      Promise.all([duJour.mercis, deLaCampagne.mercis]).then(
         ([duJour, deCampagne]) => [...duJour, ...deCampagne],
         e => {
           console.error('[profil] mercis illisibles :', e)
@@ -534,13 +543,8 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       // La nuit d'abord, comme sa page : le podium d'hier peut lui ouvrir un titre.
       await deps.jour.clorePasses(jourDe(deps.maintenant()))
       const rec = (await profiles.byId(me.id)) ?? me
-      const [lit, vus] = await Promise.all([
-        profiles.ceQueLaLogeLit(rec),
-        profiles.vusDeLaLoge(rec.id).catch(e => {
-          console.error('[profil] loge illisible :', e)
-          return undefined
-        }),
-      ])
+      // Ce qu'il a vu de sa loge part avec sa boutique, dans le même lot : un aller-retour de moins (le 2 novembre 2026).
+      const { lit, vus } = await profiles.ceQueLaLogeLit(rec)
       // La base s'est tue sur ce qu'il a vu : rien de nouveau, plutôt que tout.
       if (vus === undefined) return res.json(rien)
       const a = ceQuIlAPorter(lit)

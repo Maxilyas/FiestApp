@@ -551,8 +551,14 @@ const HORS_DU_CARNET = "json_extract(s.questions, '$[' || r.position || '].carne
  * (`ANALYZE`) : départagés à l'aveugle, les deux index se valaient, et il
  * parcourait pour chaque duel toutes les tentatives de duel des deux joueurs
  * — 50 000 lignes au quota de Turso, trois fois à chaque ouverture de la
- * page des duels du plus fidèle (le 22 octobre 2026). `duels-index.test.ts`
- * lit le plan de chaque requête qui joint les tentatives d'un duel.
+ * page des duels du plus fidèle (le 22 octobre 2026). Le code peut venir d'un
+ * envoi (`s.duel = e.code`) : les défis reçus de l'accueil, ceux de la page
+ * des amis et les envois prévus cherchaient encore par le profil — l'index du
+ * profil et du mode, le dernier créé, l'emportait à l'aveugle —, 2 760 lignes
+ * par accueil d'un joueur aux 74 défis reçus, 7 % du quota de la semaine (le
+ * 2 novembre 2026). `duels-index.test.ts` lit le plan de chaque requête qui
+ * joint les tentatives d'un duel, sans statistiques et sous des statistiques
+ * qui égareraient.
  */
 const PAR_SON_CODE = '+'
 
@@ -882,6 +888,19 @@ export interface CampagneDuProfil {
   paliers: Paliers
   /** Null tant qu'il n'a fini aucun duel classé (`coteDe`). */
   duels: CoteDesDuels | null
+}
+
+/**
+ * Ce que l'accueil d'un profil lit de la campagne (`CampagneStore.accueilDe`) :
+ * chaque part à part, toutes d'un seul lot — une part qui tombe n'ôte qu'elle.
+ */
+export interface AccueilDeCampagne {
+  /** Son solde, ses paliers et sa cote, comme `duProfil` : la boutique les compte. */
+  campagne: Promise<CampagneDuProfil>
+  sentiers: Promise<SentiersDAccueil>
+  defi: Promise<DefiDAccueil>
+  duels: Promise<DuelsDAccueil>
+  mercis: Promise<AnnonceDeLAdministrateur[]>
 }
 
 /**
@@ -3146,13 +3165,60 @@ export class CampagneStore {
       },
       duels,
     ] = await Promise.all([this.lireAvecLeJournal(this.lecturesDesSentiers(profileId)), this.lesDuels()])
-    const sentiers = sentiersLus(acquis.rows, validees.rows)
+    return this.campagneLue(profileId, sentiersLus(acquis.rows, validees.rows), journal, duels, tour)
+  }
+
+  /** Son solde, ses paliers et sa cote (`duProfil`), de ses sentiers, du journal des réponses et de celui des duels. */
+  private campagneLue(profileId: string, sentiers: SentierDuJoueur[], journal: JournalDesReponses, duels: JournalDesDuels, tour: number): CampagneDuProfil {
     const releve = this.releveLu(profileId, duels.duelsDe(profileId), tour)
     const ligues = confettisDesLigues(releve, this.semaineDeLHeure().semaine)
     return {
       confettis: journal.justesDe(profileId) + confettisDesEtoiles(sentiers) + ligues,
       paliers: paliersCommences(sentiers),
       duels: coteDuReleve(releve),
+    }
+  }
+
+  /**
+   * Ce que l'accueil d'un profil demande à la campagne, d'un seul lot, le
+   * journal des réponses rattrapé au bout : son solde et ses paliers (ceux de
+   * `duProfil`), le bouton de la campagne, le défi de la semaine, le bouton des
+   * duels et les mercis de ses signalements. Lus chacun de son côté, c'étaient
+   * cinq allers-retours de front, et ses sentiers deux fois : chaque
+   * aller-retour coûte au serveur une à deux millisecondes de processeur sur un
+   * vrai cœur, dix fois plus au dixième de cœur de l'hébergeur (le banc du
+   * 2 novembre 2026, `profil-charge.test.ts`). Chaque part se rend à part : ce
+   * qui tombe en la lisant n'ôte qu'elle — un lot qui tombe les ôte toutes,
+   * comme une base qui se tait. `viesAchetees` vient de la lecture du profil,
+   * partie de front ; sans elle, ou ratée, le crochet la relit.
+   */
+  accueilDe(profileId: string, depuis: number, viesAchetees?: Promise<number>): AccueilDeCampagne {
+    const maintenant = this.maintenant()
+    const { semaine } = this.semaineDeLHeure()
+    const tour = ++this.tourDesBordures
+    // Le journal rattrapé au bout du lot : le carnet du bouton le lit ensuite, sans un aller-retour de plus.
+    const debut = this.lecturesDuJournal
+    const lecture = Promise.all([
+      this.lireAvecLeJournal([
+        ...this.lecturesDesSentiers(profileId),
+        this.lectureDesEchecs(profileId),
+        this.lectureDeLEpreuveOuverte(profileId),
+        lectureDuDefiDAccueil(profileId, semaine),
+        lectureDesMercis(profileId, depuis),
+        ...lecturesDesDuelsDAccueil(profileId, maintenant),
+      ]),
+      // Ses duels classés, de leur journal.
+      this.lesDuels(),
+    ])
+    const sentiers = lecture.then(([{ lus }]) => sentiersLus(lus[0].rows, lus[1].rows))
+    const relire = () => this.viesAchetees?.(profileId) ?? 0
+    const vies = viesAchetees ? viesAchetees.catch(relire) : Promise.resolve().then(relire)
+    return {
+      campagne: Promise.all([lecture, sentiers]).then(([[{ journal }, duels], lus]) => this.campagneLue(profileId, lus, journal, duels, tour)),
+      sentiers: Promise.all([lecture, sentiers, vies]).then(([[{ lus }], s, achetees]) => this.sentiersDAccueil(profileId, s, lus[2], lus[3], achetees, debut)),
+      defi: lecture.then(([{ lus }]) => this.defiDAccueil(profileId, lus[4])),
+      mercis: lecture.then(([{ lus }]) => this.mercisLus(lus[5])),
+      duels: lecture.then(([{ lus }, duels]) => this.duelsDAccueil(profileId, lus.slice(6, 9), duels)),
     }
   }
 
@@ -4457,11 +4523,11 @@ export class CampagneStore {
             // dernière réponse de qui le relève (le souhait du propriétaire du
             // 12 octobre 2026 : on le voyait avant même de jouer).
             sql: `SELECT e.code, d.auteur, d.categories, d.sujet, d.ferme_le, d.adversaire,
-                         CASE WHEN d.adversaire IS NULL THEN (SELECT s.justes FROM campagne_series s WHERE s.mode = 'duel' AND s.duel = e.code AND s.profile_id = d.auteur AND s.finie_le IS NOT NULL) END AS score,
+                         CASE WHEN d.adversaire IS NULL THEN (SELECT s.justes FROM campagne_series s WHERE s.mode = 'duel' AND s.duel = e.code AND ${PAR_SON_CODE}s.profile_id = d.auteur AND s.finie_le IS NOT NULL) END AS score,
                          EXISTS (SELECT 1 FROM campagne_amis_retires r WHERE r.profile_id = e.profile_id AND r.ami = d.auteur) AS retire
                   FROM campagne_envois e JOIN campagne_duels d ON d.code = e.code
                   WHERE e.profile_id = ? AND d.ferme_le > ? AND ${DEFI_A_LUI}
-                    AND NOT EXISTS (SELECT 1 FROM campagne_series s WHERE s.profile_id = e.profile_id AND s.mode = 'duel' AND s.duel = e.code)
+                    AND NOT EXISTS (SELECT 1 FROM campagne_series s WHERE s.mode = 'duel' AND s.duel = e.code AND ${PAR_SON_CODE}s.profile_id = e.profile_id)
                     AND NOT EXISTS (SELECT 1 FROM campagne_amis_retires r WHERE r.profile_id = e.profile_id AND r.ami = d.auteur AND d.adversaire IS NOT NULL AND r.retire_le >= d.cree_le)
                   ORDER BY e.envoye_le DESC LIMIT ?`,
             args: [profileId, maintenant, DEFIS_RECUS_MONTRES],
@@ -4914,7 +4980,7 @@ export class CampagneStore {
    */
   private async envoyerLesPrevus(duel: Duel): Promise<string[]> {
     const prevus = await this.client.execute({
-      sql: `SELECT p.profile_id, EXISTS (SELECT 1 FROM campagne_series s WHERE s.profile_id = p.profile_id AND s.mode = 'duel' AND s.duel = p.code) AS joue
+      sql: `SELECT p.profile_id, EXISTS (SELECT 1 FROM campagne_series s WHERE s.mode = 'duel' AND s.duel = p.code AND ${PAR_SON_CODE}s.profile_id = p.profile_id) AS joue
             FROM campagne_envois_prevus p WHERE p.code = ?`,
       args: [duel.code],
     })
@@ -5832,28 +5898,10 @@ export class CampagneStore {
   /**
    * Ce que le bouton des duels dit sur l'accueil : sa ligue, sa cote, sa
    * semaine — et, devant, un défi qu'un ami lui a envoyé ou son duel laissé en
-   * route. D'un aller-retour, lu de front avec ses sentiers.
+   * route. De ses trois lectures (`lecturesDesDuelsDAccueil`), parties dans le
+   * lot de l'accueil (`accueilDe`), et du journal des duels.
    */
-  async accueilDesDuels(profileId: string): Promise<DuelsDAccueil> {
-    const maintenant = this.maintenant()
-    const siens = sesDuelsContre(profileId, maintenant)
-    const [[recus, ouverte, resultats], duels] = await Promise.all([
-      this.client.batch(
-        [
-          lectureDesDefisRecus(profileId, maintenant),
-          { sql: `SELECT adversaire FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' AND finie_le IS NULL ${LA_PLUS_RECENTE}`, args: [profileId] },
-          // Ses duels joués des deux côtés dont il n'a pas vu le résultat — lus de la règle
-          // qui les montre sur la page (`lectureDesDuelsContre`) : compté ici, chacun y paraît.
-          {
-            sql: `${siens.sql} SELECT code, adversaire FROM campagne_duels WHERE code IN (${RESULTATS_A_VOIR}) ORDER BY cree_le DESC`,
-            args: [...siens.args, DUELS_MONTRES],
-          },
-        ],
-        'read',
-      ),
-      // Ses duels classés, de leur journal.
-      this.lesDuels(),
-    ])
+  private async duelsDAccueil(profileId: string, [recus, ouverte, resultats]: ResultSet[], duels: JournalDesDuels): Promise<DuelsDAccueil> {
     const releve = releverLesDuels(duels.duelsDe(profileId), semaineDeLInstant)
     const passee = releve.semaines.get(this.semaineDeLHeure().passee)
     const payee = recompenseDeLaSemaine(passee)
@@ -5988,20 +6036,19 @@ export class CampagneStore {
   /**
    * Tout ce que ses sentiers disent de lui — ses paliers, ses vies, l'épreuve
    * laissée — en un lot, à côté de ses vies achetées, qui sont chez le
-   * profil : deux allers-retours de front, l'accueil les attend. La page des
-   * sentiers y ajoute ses premières réponses (`avecSesPremieres`), du
-   * journal rattrapé dans le même lot : sa chance sur chaque sentier ne coûte
-   * pas un aller-retour — ni, au quota de Turso, toutes ses réponses.
+   * profil : deux allers-retours de front. La page des sentiers y ajoute ses
+   * premières réponses (`avecSesPremieres`), du journal rattrapé dans le même
+   * lot : sa chance sur chaque sentier ne coûte pas un aller-retour — ni, au
+   * quota de Turso, toutes ses réponses. L'accueil lit les mêmes lectures dans
+   * son propre lot (`accueilDe`).
    */
   private async lireLesSentiers(
     profileId: string,
     avecSesPremieres = false,
-    /** Le journal rattrapé dans le même lot : son carnet, lu ensuite, n'a plus d'aller-retour à faire (`accueilDesSentiers`). */
-    avecLeJournal = avecSesPremieres,
   ): Promise<{ sentiers: SentierDuJoueur[]; vies: VieDesSentiers; ouverte: Serie | null; premieres: Map<string, PremiereReponse> | null }> {
     const lectures = [...this.lecturesDesSentiers(profileId), this.lectureDesEchecs(profileId), this.lectureDeLEpreuveOuverte(profileId)]
     const [lus, achetees] = await Promise.all([
-      avecLeJournal ? this.lireAvecLeJournal(lectures) : this.client.batch(lectures, 'read').then(lus => ({ lus, journal: null })),
+      avecSesPremieres ? this.lireAvecLeJournal(lectures) : this.client.batch(lectures, 'read').then(lus => ({ lus, journal: null })),
       this.viesAchetees?.(profileId) ?? 0,
     ])
     const [acquis, validees, echecs, ouverte] = lus.lus
@@ -6198,15 +6245,24 @@ export class CampagneStore {
    * 11 octobre 2026). Compté sans la base, qu'un démarrage n'a peut-être pas
    * encore lue : seules les questions retirées en sortent. Le défi de la
    * semaine a son onglet à côté du quiz du jour (`defiDAccueil`), les défis
-   * des amis le bouton des duels (`accueilDesDuels`).
+   * des amis le bouton des duels (`duelsDAccueil`). Lu dans le lot de
+   * l'accueil (`accueilDe`) : ses sentiers, ses épreuves ratées et celle
+   * laissée en route, et le journal rattrapé au bout — après un réveil, le lot
+   * attend que le journal se charge, comme le solde l'attendait déjà, et le
+   * carnet se compte dessus sans relire la base.
    */
-  async accueilDesSentiers(profileId: string): Promise<SentiersDAccueil> {
-    // Le journal chargé, rattrapé dans le lot des sentiers : le carnet le lit ensuite, sans un aller-retour de plus.
-    const debut = this.lecturesDuJournal
-    const avecLeJournal = this.journal.charge
-    const [{ sentiers, vies, ouverte }, deLaBase] = await Promise.all([this.lireLesSentiers(profileId, false, avecLeJournal), avecLeJournal ? null : this.suivisDe(profileId)])
+  private async sentiersDAccueil(
+    profileId: string,
+    sentiers: SentierDuJoueur[],
+    echecs: ResultSet,
+    ouverteLue: ResultSet,
+    achetees: number,
+    debut: number,
+  ): Promise<SentiersDAccueil> {
+    const vies = this.viesLues(echecs.rows, achetees)
+    const ouverte = ouverteLue.rows[0] ? versSerie(ouverteLue.rows[0]) : null
     const laissee = ouverte?.branche && ouverte.palier ? { branche: ouverte.branche, palier: ouverte.palier } : null
-    const aRevoir = this.compterARevoir(deLaBase ?? (await this.suivisDe(profileId, debut)))
+    const aRevoir = this.compterARevoir(await this.suivisDe(profileId, debut))
     return { vies: vies.jour + vies.reserve, avance: sentierQuOnAvance(sentiers, laissee), ...(aRevoir > 0 && { aRevoir }) }
   }
 
@@ -6236,18 +6292,10 @@ export class CampagneStore {
    * que pour les nommer. Chacune ne se cherche parmi les profils actifs que
    * par sa clé (un `EXISTS` corrélé) : un `profile_id IN (SELECT id FROM
    * profiles …)` relisait toute la table des profils à chaque accueil de
-   * chacun. La sienne, par ses défis à lui (`SA_TENTATIVE_AU_DEFI`).
+   * chacun. La sienne, par ses défis à lui (`SA_TENTATIVE_AU_DEFI`). Sa
+   * lecture (`lectureDuDefiDAccueil`) part dans le lot de l'accueil (`accueilDe`).
    */
-  async defiDAccueil(profileId: string): Promise<DefiDAccueil> {
-    const { semaine } = this.semaineDeLHeure()
-    const res = await this.client.execute({
-      sql: `SELECT
-              (SELECT json_group_array(json_array(s.profile_id, s.justes)) FROM campagne_series s
-                WHERE s.mode = 'defi' AND s.semaine = ? AND s.position > 0
-                  AND EXISTS (SELECT 1 FROM profiles p WHERE p.id = s.profile_id AND p.disabled_at IS NULL)) AS tentatives,
-              (SELECT json_array(justes, finie_le IS NOT NULL) FROM campagne_series WHERE ${SA_TENTATIVE_AU_DEFI}) AS sienne`,
-      args: [semaine, profileId, semaine],
-    })
+  private defiDAccueil(profileId: string, res: ResultSet): DefiDAccueil {
     const r = res.rows[0]
     const justes = (JSON.parse(String(r?.tentatives ?? '[]')) as [string, number][]).filter(([id]) => id === profileId || !this.masque?.(id)).map(([, j]) => j)
     const joueurs = justes.length
@@ -7712,15 +7760,11 @@ export class CampagneStore {
    * Les questions de la campagne qu'il a signalées et dont sa remarque a
    * servi — corrigée, reclassée, retirée —, relues depuis `depuis` : son
    * accueil le remercie, une fois par téléphone. Une question gardée ne dit
-   * rien. Une requête par son index, dans le lot de l'accueil ; la base ne
-   * se lit que s'il y a de quoi remercier.
+   * rien. Sa lecture (`lectureDesMercis`) part dans le lot de l'accueil
+   * (`accueilDe`) ; la base de la campagne ne s'attend que s'il y a de quoi
+   * remercier.
    */
-  async mercisDe(profileId: string, depuis: number): Promise<AnnonceDeLAdministrateur[]> {
-    const res = await this.client.execute({
-      sql: `SELECT question_id, traite_le, issue FROM campagne_signalements
-            WHERE profile_id = ? AND traite_le >= ? AND issue IN (${ISSUES_QUI_SERVENT.map(() => '?').join(', ')})`,
-      args: [profileId, depuis, ...ISSUES_QUI_SERVENT],
-    })
+  private async mercisLus(res: ResultSet): Promise<AnnonceDeLAdministrateur[]> {
     if (res.rows.length === 0) return []
     const base = await this.base()
     return res.rows.flatMap((r): AnnonceDeLAdministrateur[] => {
@@ -8830,8 +8874,10 @@ export function lectureDesDuels(qui: string | readonly string[] | null, maintena
     args.push(...(rencontre !== null ? [rencontre] : apres !== null ? [apres] : []), ...(ids ?? []))
   }
   if (rencontre === null) {
-    // Des duels par leur code : leurs tentatives s'y cherchent par lui (`PAR_SON_CODE`).
-    const parLeCode = codes || apres !== null ? PAR_SON_CODE : ''
+    // Les tentatives d'un duel s'y cherchent par son code (`PAR_SON_CODE`), toujours : lus tous, ses deux côtés se
+    // valent, et l'un mène la lecture, l'autre se cherche dans chaque duel. La production l'y trouvait déjà, mais par
+    // chance : l'`IN` à deux profils lui coûtait plus que l'égalité sur le duel. Ceux d'un joueur partent de ses
+    // tentatives par la condition du `WHERE`, que le `+` ne touche pas.
     const lesquels = codes
       ? ` AND d.code IN (${codes.map(() => '?').join(', ')})`
       : apres !== null
@@ -8842,8 +8888,8 @@ export function lectureDesDuels(qui: string | readonly string[] | null, maintena
                    CASE WHEN m.profile_id = d.auteur THEN d.cote_cachee_adversaire ELSE d.cote_cachee_auteur END AS cote_cachee_adverse,
                    CASE WHEN m.profile_id = d.auteur THEN 1 ELSE 0 END AS lance, d.code AS duel
             FROM campagne_duels d
-            JOIN campagne_series m ON m.mode = 'duel' AND m.duel = d.code AND ${parLeCode}m.profile_id IN (d.auteur, d.adversaire) AND (m.finie_le IS NOT NULL OR d.ferme_le <= ?)
-            JOIN campagne_series o ON o.mode = 'duel' AND o.duel = d.code AND ${parLeCode}o.profile_id IN (d.auteur, d.adversaire) AND o.profile_id <> m.profile_id
+            JOIN campagne_series m ON m.mode = 'duel' AND m.duel = d.code AND ${PAR_SON_CODE}m.profile_id IN (d.auteur, d.adversaire) AND (m.finie_le IS NOT NULL OR d.ferme_le <= ?)
+            JOIN campagne_series o ON o.mode = 'duel' AND o.duel = d.code AND ${PAR_SON_CODE}o.profile_id IN (d.auteur, d.adversaire) AND o.profile_id <> m.profile_id
                                   AND (o.finie_le IS NOT NULL OR d.ferme_le <= ?)
             WHERE d.adversaire IS NOT NULL${lesquels}${parmi ? ` AND m.profile_id ${parmi}` : ''}`)
     args.push(maintenant, maintenant, ...(codes ?? []), ...(apres !== null ? [apres] : []), ...(ids ?? []))
@@ -9973,6 +10019,49 @@ function lectureDesAmis(profileId: string): InStatement[] {
 }
 
 /**
+ * Le défi de la semaine sur l'accueil (`defiDAccueil`) : les tentatives de la
+ * semaine d'un texte — celles des profils actifs, chacune cherchée par sa clé —,
+ * et la sienne.
+ */
+function lectureDuDefiDAccueil(profileId: string, semaine: string): InStatement {
+  return {
+    sql: `SELECT
+            (SELECT json_group_array(json_array(s.profile_id, s.justes)) FROM campagne_series s
+              WHERE s.mode = 'defi' AND s.semaine = ? AND s.position > 0
+                AND EXISTS (SELECT 1 FROM profiles p WHERE p.id = s.profile_id AND p.disabled_at IS NULL)) AS tentatives,
+            (SELECT json_array(justes, finie_le IS NOT NULL) FROM campagne_series WHERE ${SA_TENTATIVE_AU_DEFI}) AS sienne`,
+    args: [semaine, profileId, semaine],
+  }
+}
+
+/**
+ * Les questions de la campagne qu'il a signalées et dont sa remarque a servi
+ * depuis `depuis` (`mercisLus`) : par l'index de ses signalements.
+ */
+function lectureDesMercis(profileId: string, depuis: number): InStatement {
+  return {
+    sql: `SELECT question_id, traite_le, issue FROM campagne_signalements
+          WHERE profile_id = ? AND traite_le >= ? AND issue IN (${ISSUES_QUI_SERVENT.map(() => '?').join(', ')})`,
+    args: [profileId, depuis, ...ISSUES_QUI_SERVENT],
+  }
+}
+
+/**
+ * Ce que le bouton des duels lit sur l'accueil (`duelsDAccueil`) : les défis
+ * reçus, sa rencontre laissée en route, et ses duels joués des deux côtés dont
+ * il n'a pas vu le résultat — lus de la règle qui les montre sur la page
+ * (`lectureDesDuelsContre`) : compté ici, chacun y paraît.
+ */
+function lecturesDesDuelsDAccueil(profileId: string, maintenant: number): InStatement[] {
+  const siens = sesDuelsContre(profileId, maintenant)
+  return [
+    lectureDesDefisRecus(profileId, maintenant),
+    { sql: `SELECT adversaire FROM campagne_series WHERE profile_id = ? AND mode = 'rencontre' AND finie_le IS NULL ${LA_PLUS_RECENTE}`, args: [profileId] },
+    { sql: `${siens.sql} SELECT code, adversaire FROM campagne_duels WHERE code IN (${RESULTATS_A_VOIR}) ORDER BY cree_le DESC`, args: [...siens.args, DUELS_MONTRES] },
+  ]
+}
+
+/**
  * Les défis que ses amis lui ont envoyés et qu'il n'a pas relevés, les plus
  * récents d'abord : ni ceux d'un ami qu'il a retiré, ni ceux qui ont fermé.
  * Un duel classé n'est qu'à qui il défie (`DEFI_A_LUI`) : envoyé à un autre
@@ -9983,7 +10072,7 @@ function lectureDesDefisRecus(profileId: string, maintenant: number): InStatemen
   return {
     sql: `SELECT d.auteur FROM campagne_envois e JOIN campagne_duels d ON d.code = e.code
           WHERE e.profile_id = ? AND d.ferme_le > ? AND ${DEFI_A_LUI}
-            AND NOT EXISTS (SELECT 1 FROM campagne_series s WHERE s.profile_id = e.profile_id AND s.mode = 'duel' AND s.duel = e.code)
+            AND NOT EXISTS (SELECT 1 FROM campagne_series s WHERE s.mode = 'duel' AND s.duel = e.code AND ${PAR_SON_CODE}s.profile_id = e.profile_id)
             AND NOT EXISTS (SELECT 1 FROM campagne_amis_retires r WHERE r.profile_id = e.profile_id AND r.ami = d.auteur)
           ORDER BY e.envoye_le DESC LIMIT ?`,
     args: [profileId, maintenant, DEFIS_RECUS_MONTRES],

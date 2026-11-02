@@ -201,19 +201,17 @@ test('le tirage du serveur : le Cabinet tant qu’il se joue ici, un duel à lan
     const tirees: Mission[] = []
     const missions = new Missions({
       profiles: {
-        lignesDesMissions: async () => [],
+        lecturesDesMissions: async () => ({ lignes: [], soirees: [], auxTrois: [], ouverts: new Set<string>(), offerts: [] }),
         tirerLesMissions: async (_: string, jour: string, ms: readonly Mission[]): Promise<LigneDeMission[]> => {
           tirees.push(ms[2])
           return [...ms.map((mission, rang) => ({ jour, rang, mission, faiteLe: null })), { jour, rang: 3, mission: null, faiteLe: null }]
         },
         accomplirDesMissions: async () => [],
         joursAuxTrois: async () => [],
-        semainesDesCoffres: async () => new Set<string>(),
         coffresOfferts: async () => [],
-        soireesDepuis: async () => [],
         aQuiDefier: async () => adversaires,
       } as unknown as DepsDesMissions['profiles'],
-      jour: { activiteDepuis: async () => ({ jour: [], jourParCategorie: [] }), coffresDuMois: async () => [] },
+      jour: { activiteDepuis: async () => ({ jour: [], jourParCategorie: [], coffresDuMois: [] }), coffresDuMois: async () => [] },
       campagne: { activiteDepuis: async () => ({ series: [], reponses: [] }), aRevoirDe: async () => 0 },
       cabinetOuvert: () => cabinet,
       maintenant: () => Date.UTC(2026, 10, 2, 9),

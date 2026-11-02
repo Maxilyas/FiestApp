@@ -35,11 +35,11 @@ import path from 'node:path'
 import Database from 'better-sqlite3'
 import { Sqlite3Client } from '@libsql/client/sqlite3'
 import { baseDEssai, demarrer, ecrire, inscrireProfil } from './banc'
+import { DE_LA_PRODUCTION, RIEN, sousCesStatistiques, UN_DUEL_DE_CINQUANTE } from './statistiques'
 import { CATEGORIES } from '../../shared/categories'
 import { MODES_DE_SERIE } from '../../shared/campagne'
 import { activiteDesJours, MODES_QUE_LES_MISSIONS_COMPTENT } from '../../shared/missions'
-import { CampagneStore, type RecompensesDeCampagne } from '../src/core/campagne'
-import { REVEIL_DU_CABINET } from '../src/core/cabinet/tables'
+import { CampagneStore } from '../src/core/campagne'
 import { ProfileStore } from '../src/auth/profiles'
 
 ProfileStore.tirageEclat = () => false
@@ -112,15 +112,6 @@ for (const methode of ['execute', 'batch'] as const) {
     }
     return origine.apply(this, args)
   }
-}
-
-/** Rien à ranger : la relecture des séries n'a besoin que d'un magasin de récompenses pour partir. */
-const RIEN: RecompensesDeCampagne = {
-  ranger: async () => [],
-  recompensesOf: () => new Map(),
-  accorderPaliersDeCampagne: async () => [],
-  legendairesOuverts: () => [],
-  tirerUnEclat: async () => null,
 }
 
 /** Une ligne du plan (`EXPLAIN QUERY PLAN`). */
@@ -250,46 +241,6 @@ function cequeLePlanLit(plan: Etape[], sql: string): string | null {
   return null
 }
 
-/** Une base neuve, au schéma du serveur — la campagne, le Cabinet, les profils —, sous ces statistiques : ce que le planificateur ferait d'une production qui en aurait. */
-async function sousCesStatistiques(stats: Record<string, string>): Promise<{ db: Database.Database; fermer: () => void }> {
-  const dir = mkdtempSync(path.join(tmpdir(), 'quizz-statistiques-'))
-  const fichier = path.join(dir, 'permanente.db')
-  const url = `file:${fichier.replace(/\\/g, '/')}`
-  const profils = new ProfileStore(url)
-  await profils.init()
-  profils.close()
-  const campagne = new CampagneStore(url, undefined, { base: baseDEssai(1), recompenses: RIEN })
-  await campagne.init(REVEIL_DU_CABINET)
-  campagne.close()
-  const ecrite = new Database(fichier)
-  try {
-    ecrite.exec('ANALYZE')
-    ecrite.exec('DELETE FROM sqlite_stat1')
-    const stat = ecrite.prepare('INSERT INTO sqlite_stat1 (tbl, idx, stat) VALUES (?, ?, ?)')
-    stat.run('campagne_series', null, '100000')
-    for (const [idx, s] of Object.entries(stats)) stat.run('campagne_series', idx, s)
-  } finally {
-    ecrite.close()
-  }
-  // Les statistiques se lisent à l'ouverture.
-  const db = new Database(fichier, { readonly: true })
-  return { db, fermer: () => (db.close(), rmSync(dir, { recursive: true, force: true })) }
-}
-
-/**
- * Mille profils de cent parties, dix modes ; une partie d'un mode d'un profil
- * en compte dix, une semaine du défi trois, un duel deux : la production d'un
- * an de Cabinet, à peu près.
- */
-const DE_LA_PRODUCTION: Record<string, string> = {
-  idx_campagne_series_profil: '100000 100 1',
-  idx_campagne_series_commencee: '100000 1',
-  idx_campagne_series_sentiers: '100000 100 10 5 3',
-  idx_campagne_series_profil_mode: '100000 100 10 1',
-  idx_campagne_series_defi: '100000 10000 3',
-  idx_campagne_series_duel: '100000 10000 2',
-}
-
 const unPlan = (db: Database.Database, sql: string, args: readonly unknown[]) => db.prepare(`EXPLAIN QUERY PLAN ${sql}`).all(...args) as Etape[]
 const ditLePlan = (plan: Etape[], sql: string) => `${plan.map(e => `${e.id}<${e.parent} ${e.detail}`).join('\n')}\n— ${sql.replace(/\s+/g, ' ')}`
 
@@ -342,7 +293,7 @@ test('toute recherche d’une partie d’un profil et d’un mode, triée par sa
     // tentatives à lui —, et chaque piège en est un : sans son `+`, la recherche s'y égare.
     const pieges: [string, Record<string, string>, string][] = [
       ['une semaine du défi, trois tentatives', DE_LA_PRODUCTION, "SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'defi' AND semaine = ? ORDER BY +commencee_le LIMIT 1"],
-      ['un duel, cinquante tentatives', { ...DE_LA_PRODUCTION, idx_campagne_series_duel: '100000 10000 50' }, "SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'duel' AND duel = ? ORDER BY +commencee_le LIMIT 1"],
+      ['un duel, cinquante tentatives', UN_DUEL_DE_CINQUANTE, "SELECT * FROM campagne_series WHERE profile_id = ? AND mode = 'duel' AND duel = ? ORDER BY +commencee_le LIMIT 1"],
     ]
     for (const [quoi, stats, sansLePlus] of pieges) {
       const sous = await sousCesStatistiques(stats)

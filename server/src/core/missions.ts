@@ -34,16 +34,7 @@ import { SUJETS, estRemplace } from '../../../shared/sujets'
 export interface DepsDesMissions {
   profiles: Pick<
     ProfileStore,
-    | 'lignesDesMissions'
-    | 'tirerLesMissions'
-    | 'accomplirDesMissions'
-    | 'joursAuxTrois'
-    | 'semainesDesCoffres'
-    | 'coffreDe'
-    | 'ouvrirUnCoffre'
-    | 'soireesDepuis'
-    | 'coffresOfferts'
-    | 'aQuiDefier'
+    'lecturesDesMissions' | 'tirerLesMissions' | 'accomplirDesMissions' | 'joursAuxTrois' | 'coffreDe' | 'ouvrirUnCoffre' | 'coffresOfferts' | 'aQuiDefier'
   >
   jour: Pick<JourStore, 'activiteDepuis' | 'coffresDuMois'>
   campagne: Pick<CampagneStore, 'activiteDepuis' | 'aRevoirDe'>
@@ -260,7 +251,9 @@ export class Missions {
    * tirage s'écrit — et ce qui vient d'être fait s'écrit derrière : la ligne
    * de l'accueil attendait ses tampons et ses coffres derrière ses journaux,
    * et le tirage son carnet, quatre allers-retours l'un après l'autre le
-   * matin (le 15 octobre 2026 : « c'est le texte qui s'affiche après »).
+   * matin (le 15 octobre 2026 : « c'est le texte qui s'affiche après »). Et
+   * d'un lot par magasin — son profil, le quiz du jour, la campagne — : huit
+   * allers-retours de front jusqu'au 2 novembre 2026.
    */
   duJour(profileId: string): Promise<MissionsDuJour> {
     return this.unALaFois(profileId, async etape => {
@@ -273,15 +266,10 @@ export class Missions {
       const debut = minuitDuJour(depuis)
       // Ce que seul le tirage lit — son carnet, quelqu'un à défier —, parti avec ses journaux tant qu'on ne sait pas ses missions tirées.
       const tirage = this.tireesLe.get(profileId) === aujourdhui ? null : this.ceQueLeTirageLit(profileId)
-      const [lignes, duJour, deCampagne, soirees, auxTrois, ouverts, deMois, offerts] = await Promise.all([
-        profiles.lignesDesMissions(profileId, depuis),
+      const [{ lignes, soirees, auxTrois, ouverts, offerts }, { coffresDuMois: deMois, ...duJour }, deCampagne] = await Promise.all([
+        profiles.lecturesDesMissions(profileId, { depuis, debut, lundi }),
         jour.activiteDepuis(profileId, depuis),
         campagne.activiteDepuis(profileId, debut),
-        profiles.soireesDepuis(profileId, debut),
-        profiles.joursAuxTrois(profileId, lundi),
-        profiles.semainesDesCoffres(profileId),
-        jour.coffresDuMois(profileId),
-        profiles.coffresOfferts(profileId),
       ])
       const activites = activiteDesJours({ ...duJour, ...deCampagne, soirees })
       let siennes = lignes

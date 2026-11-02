@@ -487,6 +487,58 @@ function lireLigneDeMission(r: Record<string, unknown>): LigneDeMission {
   return { jour: String(r.jour), rang: Number(r.rang), mission, faiteLe: r.faite_le == null ? null : Number(r.faite_le) }
 }
 
+/** Un coffre qu'on lui a offert (`coffresOfferts`) : sa clé, son rang, le mot qui l'accompagne. */
+export interface CoffreOffertLu {
+  cle: string
+  rang: RangDuCoffre
+  mot: string | null
+}
+
+/** Ce que ses missions du jour lisent de son profil, d'un lot (`lecturesDesMissions`). */
+export interface LuPourLesMissions {
+  lignes: LigneDeMission[]
+  /** Ses parties de soirée créditées depuis un instant, et leurs confettis. */
+  soirees: { le: number; confettis: number }[]
+  /** Ses jours aux trois missions avant ce lundi : ses tampons d'avant. */
+  auxTrois: string[]
+  /** Les semaines — ou les clés — de ses coffres déjà ouverts. */
+  ouverts: Set<string>
+  offerts: CoffreOffertLu[]
+}
+
+/** Ses parties de soirée créditées depuis un instant : la mission des bonnes réponses compte leurs confettis. */
+function lectureDesSoireesDepuis(profileId: string, depuis: number): InStatement {
+  return { sql: `SELECT detail, created_at FROM profile_xp WHERE profile_id = ? AND created_at >= ? AND ${HORS_LIGNES_A_PART}`, args: [profileId, depuis] }
+}
+
+function soireesLues(rows: readonly Row[]): { le: number; confettis: number }[] {
+  return rows.map(r => {
+    const { gain, releve } = decodeDetail(String(r.detail))
+    return { le: Number(r.created_at), confettis: confettisDeSoiree(gain, releve) }
+  })
+}
+
+/** Les jours où ses trois missions sont faites, avant un jour (exclu) : ses tampons, semaine par semaine. */
+function lectureDesJoursAuxTrois(profileId: string, avant: string): InStatement {
+  return { sql: 'SELECT jour FROM profile_missions WHERE profile_id = ? AND rang = ? AND faite_le IS NOT NULL AND jour < ? ORDER BY jour', args: [profileId, RANG_DES_TROIS, avant] }
+}
+
+/** Les semaines de ses coffres déjà ouverts — ou la clé d'un coffre du mois, d'un coffre offert. */
+function lectureDesCoffresOuverts(profileId: string): InStatement {
+  return { sql: 'SELECT semaine FROM profile_coffres WHERE profile_id = ?', args: [profileId] }
+}
+
+/** Ses coffres offerts, ouverts ou non, le plus ancien d'abord. */
+function lectureDesCoffresOfferts(profileId: string): InStatement {
+  return { sql: 'SELECT cle, rang, mot FROM profile_coffres_offerts WHERE profile_id = ? ORDER BY offert_le, cle', args: [profileId] }
+}
+
+function coffresOffertsLus(rows: readonly Row[]): CoffreOffertLu[] {
+  return rows
+    .filter(r => rangValide(r.rang) && coffreOffertValide(r.cle))
+    .map(r => ({ cle: String(r.cle), rang: String(r.rang) as RangDuCoffre, mot: r.mot == null ? null : String(r.mot) }))
+}
+
 /**
  * Ce que la base garde de ses soins (`shared/soins.ts`), lu d'un aller-retour
  * pour sa page : `core/soins.ts` en dérive ses envies, sa complicité, ses
@@ -813,6 +865,78 @@ export interface AfficheLue {
   fin: number
   ouverte: boolean
   rangee: boolean
+}
+
+/** Une soirée de son historique (`historiqueOf`), la plus récente d'abord. */
+export interface SoireeDeLHistorique {
+  soireeId: string
+  spaceId: string
+  xp: number
+  gain: GainSoiree
+  releve: ReleveSoiree
+  at: number
+  joueurId: string | null
+}
+
+/** Ses soirées, de la plus récente à la plus ancienne : une ligne d'expérience chacune, hors des lignes à part. */
+function lectureDeLHistorique(profileId: string): InStatement {
+  return {
+    sql: `SELECT soiree_id, space_id, xp, detail, created_at, joueur_id FROM profile_xp
+          WHERE profile_id = ? AND ${HORS_LIGNES_A_PART} ORDER BY created_at DESC`,
+    args: [profileId],
+  }
+}
+
+function historiqueLu(rows: readonly Row[]): SoireeDeLHistorique[] {
+  return rows.map(r => {
+    const { gain, releve } = decodeDetail(String(r.detail))
+    return {
+      soireeId: String(r.soiree_id),
+      spaceId: String(r.space_id),
+      xp: Number(r.xp),
+      gain,
+      releve,
+      at: Number(r.created_at),
+      joueurId: r.joueur_id == null ? null : String(r.joueur_id),
+    }
+  })
+}
+
+/** Ce qu'il a déjà vu de chaque pièce de sa loge (`vusDeLaLoge`). */
+function lectureDesVus(profileId: string): InStatement {
+  return { sql: 'SELECT vus FROM profile_loge_vus WHERE profile_id = ?', args: [profileId] }
+}
+
+/** Sa ligne de `profile_loge_vus`, relue : absente, ou illisible, une loge jamais vue — la page la refait, plutôt que de crier « nouveau » sur tout ce qu'il a. */
+function vusDeLaLigne(brut: unknown): VusDeLaLoge | null {
+  if (brut == null) return null
+  try {
+    return lireLesVus(JSON.parse(String(brut)))
+  } catch {
+    return null
+  }
+}
+
+/** Ce qu'un lot de sa boutique a lu (`achatsDe`) : ses achats et ses dons, et ce qu'on lui a demandé de plus. */
+export interface AchatsLus {
+  themes: Map<string, number>
+  vies: number
+  /** Les vies qu'il a achetées, pas leur prix : le bouton de la campagne les compte (`viesAcheteesDe`). */
+  viesAchetees: number
+  sabliers: number
+  eclats: number
+  compagnons: number
+  fonds: Map<string, number>
+  dons: { id: string; confettis: number; mot: string | null; le: number }[]
+  /** Ce que ses missions faites et ses coffres lui ont donné en confettis. */
+  missions: number
+  coffres: number
+  aTous: AnnonceATous[]
+  affiches: AfficheLue[]
+  /** Ses soirées, quand on les a demandées (`historique`). */
+  historique?: SoireeDeLHistorique[]
+  /** Ce qu'il a vu de sa loge, quand on l'a demandé (`vus`) : null s'il n'y est jamais passé. */
+  vus?: VusDeLaLoge | null
 }
 
 /** Ce que le serveur garde d'une affiche en cours, pour noter une visite sans relire la base à chaque page servie. */
@@ -1839,29 +1963,22 @@ export class ProfileStore {
    * les confettis que l'administrateur lui a offerts : un seul aller-retour.
    * `annonces` : les annonces à tous faites depuis, et depuis son inscription,
    * dans le même lot — l'accueil les dit sans un aller-retour de plus ; et les
-   * affiches en cours à `maintenant`, avec ce qu'il en a fait.
+   * affiches en cours à `maintenant`, avec ce qu'il en a fait. `historique` :
+   * ses soirées (`historiqueOf`), que son solde compte ; `vus` : ce qu'il a
+   * déjà vu de sa loge (`vusDeLaLoge`), que la pastille de « Profil » compare
+   * — chacun son aller-retour jusqu'au 2 novembre 2026. Et toujours ses vies
+   * achetées (`viesAcheteesDe`), de la ligne même de leur prix : le bouton de
+   * la campagne les compte, à l'accueil.
    */
   private async achatsDe(
     profileId: string,
-    annonces?: { depuis: number; inscritLe: number; maintenant: number },
-  ): Promise<{
-    themes: Map<string, number>
-    vies: number
-    sabliers: number
-    eclats: number
-    compagnons: number
-    fonds: Map<string, number>
-    dons: { id: string; confettis: number; mot: string | null; le: number }[]
-    /** Ce que ses missions faites et ses coffres lui ont donné en confettis. */
-    missions: number
-    coffres: number
-    aTous: AnnonceATous[]
-    affiches: AfficheLue[]
-  }> {
-    const [themes, vies, sabliers, eclats, compagnons, fonds, dons, missions, coffres, aTous, affiches] = await this.client.batch(
+    lire: { annonces?: { depuis: number; inscritLe: number; maintenant: number }; historique?: boolean; vus?: boolean } = {},
+  ): Promise<AchatsLus> {
+    const { annonces, historique, vus } = lire
+    const lus = await this.client.batch(
       [
         { sql: 'SELECT theme, prix FROM profile_achats WHERE profile_id = ?', args: [profileId] },
-        { sql: 'SELECT COALESCE(SUM(prix), 0) AS prix FROM profile_vies WHERE profile_id = ?', args: [profileId] },
+        { sql: 'SELECT COALESCE(SUM(prix), 0) AS prix, COALESCE(SUM(nombre), 0) AS nombre FROM profile_vies WHERE profile_id = ?', args: [profileId] },
         { sql: 'SELECT COALESCE(SUM(prix), 0) AS prix FROM profile_sabliers WHERE profile_id = ?', args: [profileId] },
         { sql: 'SELECT COALESCE(SUM(prix), 0) AS prix FROM profile_eclats_achetes WHERE profile_id = ?', args: [profileId] },
         { sql: 'SELECT COALESCE(SUM(prix), 0) AS prix FROM profile_compagnons WHERE profile_id = ?', args: [profileId] },
@@ -1897,12 +2014,21 @@ export class ProfileStore {
               },
             ]
           : []),
+        ...(historique ? [lectureDeLHistorique(profileId)] : []),
+        ...(vus ? [lectureDesVus(profileId)] : []),
       ],
       'read',
     )
+    const [themes, vies, sabliers, eclats, compagnons, fonds, dons, missions, coffres] = lus
+    let suivante = 9
+    const aTous = annonces ? lus[suivante++] : undefined
+    const affiches = annonces ? lus[suivante++] : undefined
+    const soirees = historique ? lus[suivante++] : undefined
+    const vusLus = vus ? lus[suivante++] : undefined
     return {
       themes: new Map(themes.rows.map(r => [String(r.theme), Number(r.prix)])),
       vies: Number(vies.rows[0]?.prix ?? 0),
+      viesAchetees: Number(vies.rows[0]?.nombre ?? 0),
       sabliers: Number(sabliers.rows[0]?.prix ?? 0),
       eclats: Number(eclats.rows[0]?.prix ?? 0),
       compagnons: Number(compagnons.rows[0]?.prix ?? 0),
@@ -1936,7 +2062,21 @@ export class ProfileStore {
           },
         ]
       }),
+      ...(soirees && { historique: historiqueLu(soirees.rows) }),
+      ...(vusLus && { vus: vusDeLaLigne(vusLus.rows[0]?.vus) }),
     }
+  }
+
+  /**
+   * Ce que l'accueil d'un profil lit de sa boutique, d'un aller-retour : ses
+   * achats, ses dons, les annonces à tous de ce dernier mois et les affiches en
+   * cours, ses soirées, et ses vies achetées — que la route passe tout de suite
+   * à la campagne, partie de front (`CampagneStore.accueilDe`), puis à sa
+   * boutique (`boutiqueEtDons`, `deja.achats`).
+   */
+  achatsDeLAccueil(p: ProfileRec): Promise<AchatsLus> {
+    const maintenant = Date.now()
+    return this.achatsDe(p.id, { annonces: { depuis: maintenant - ANNONCE_MS, inscritLe: p.createdAt, maintenant }, historique: true })
   }
 
   /**
@@ -1961,7 +2101,7 @@ export class ProfileStore {
     soirees?: readonly { gain: GainSoiree; releve: ReleveSoiree }[],
     campagne?: Promise<CampagneDuProfil>,
   ): Promise<BoutiqueDuProfil> {
-    return (await this.boutiqueEtDons(p, jour, soirees, campagne)).boutique
+    return (await this.boutiqueEtDons(p, jour, { soirees, campagne })).boutique
   }
 
   /**
@@ -1970,22 +2110,30 @@ export class ProfileStore {
    * les annonces à tous de ce dernier mois (`ANNONCE_MS`), dans la même
    * lecture : l'accueil les dit avec les dons qu'elles lui ont faits ; et les
    * affiches en cours, qu'il montre tant qu'il n'est pas allé sur leur page.
-   * `campagne`, quand sa page l'a déjà demandée (`campagneDuProfil`).
+   * `deja`, ce que sa page a déjà lu ou lancé, qui ne se relit pas : ses
+   * soirées (`soirees`), sa campagne (`campagneDuProfil`), ses bonnes réponses
+   * du quiz du jour (`justesDuJour`), ses achats mêmes (`achatsDeLAccueil`).
+   * Sans ses soirées, elles partent dans le lot de ses achats.
    */
   async boutiqueEtDons(
     p: ProfileRec,
     jour: string,
-    soirees?: readonly { gain: GainSoiree; releve: ReleveSoiree }[],
-    campagne?: Promise<CampagneDuProfil>,
+    deja: {
+      soirees?: readonly { gain: GainSoiree; releve: ReleveSoiree }[]
+      campagne?: Promise<CampagneDuProfil>
+      justesDuJour?: Promise<number>
+      achats?: Promise<AchatsLus>
+    } = {},
   ): Promise<{ boutique: BoutiqueDuProfil; dons: { id: string; confettis: number; mot: string | null; le: number }[]; aTous: AnnonceATous[]; affiches: AfficheLue[] }> {
-    const historique = soirees ?? this.historiqueOf(p.id)
     const maintenant = Date.now()
+    const lus = deja.achats ?? this.achatsDe(p.id, { annonces: { depuis: maintenant - ANNONCE_MS, inscritLe: p.createdAt, maintenant }, historique: !deja.soirees })
+    const historique = deja.soirees ?? lus.then(a => a.historique ?? this.historiqueOf(p.id))
     const [lues, achats, duJour, deCampagne, compagnons] = await Promise.all([
       historique,
-      this.achatsDe(p.id, { depuis: maintenant - ANNONCE_MS, inscritLe: p.createdAt, maintenant }),
-      this.justesDuJour?.(p.id) ?? 0,
+      lus,
+      deja.justesDuJour ?? this.justesDuJour?.(p.id) ?? 0,
       // Ses confettis de campagne, et ses maîtres, qui ouvrent le thème qui se gagne : la même lecture.
-      campagne ?? this.lectureDeCampagne(p.id),
+      deja.campagne ?? this.lectureDeCampagne(p.id),
       this.compagnonsDe(p, historique),
     ])
     const offerts = achats.dons.reduce((n, d) => n + d.confettis, 0)
@@ -2033,14 +2181,7 @@ export class ProfileStore {
    * plutôt que de crier « nouveau » sur tout ce qu'il a.
    */
   async vusDeLaLoge(profileId: string): Promise<VusDeLaLoge | null> {
-    const res = await this.client.execute({ sql: 'SELECT vus FROM profile_loge_vus WHERE profile_id = ?', args: [profileId] })
-    const brut = res.rows[0]?.vus
-    if (brut == null) return null
-    try {
-      return lireLesVus(JSON.parse(String(brut)))
-    } catch {
-      return null
-    }
+    return vusDeLaLigne((await this.client.execute(lectureDesVus(profileId))).rows[0]?.vus)
   }
 
   /** Retient ce qu'il a vu, tel que la page le calcule (`retenirLesVus`, réduit par `lireLesVus`) : la ligne d'avant s'efface. */
@@ -2059,13 +2200,35 @@ export class ProfileStore {
   // mode, et l'orchestration — tirer, juger, ouvrir — vit dans
   // `core/missions.ts`, qui connaît le quiz du jour et la campagne.
 
-  /** Ses lignes de missions depuis un jour, dans l'ordre : chaque mission tirée (null si elle ne se lit plus), et ce qui est fait. */
-  async lignesDesMissions(profileId: string, depuis: string): Promise<LigneDeMission[]> {
-    const res = await this.client.execute({
-      sql: 'SELECT jour, rang, mission, faite_le FROM profile_missions WHERE profile_id = ? AND jour >= ? ORDER BY jour, rang',
-      args: [profileId, depuis],
-    })
-    return res.rows.map(lireLigneDeMission)
+  /**
+   * Ce que ses missions du jour lisent de son profil (`Missions.duJour`),
+   * d'un seul lot : ses lignes de missions depuis un jour, dans l'ordre —
+   * chaque mission tirée (null si elle ne se lit plus), et ce qui est fait —,
+   * ses soirées créditées depuis un instant et leurs confettis (la mission des
+   * bonnes réponses les compte aussi), ses jours aux trois missions avant ce
+   * lundi, ses coffres ouverts et ceux qu'on lui a offerts. Cinq
+   * allers-retours de front jusqu'au 2 novembre 2026 : chacun coûte au serveur
+   * une à deux millisecondes de processeur sur un vrai cœur, dix fois plus au
+   * dixième de cœur de l'hébergeur (`missions-charge.test.ts`).
+   */
+  async lecturesDesMissions(profileId: string, { depuis, debut, lundi }: { depuis: string; debut: number; lundi: string }): Promise<LuPourLesMissions> {
+    const [lignes, soirees, auxTrois, ouverts, offerts] = await this.client.batch(
+      [
+        { sql: 'SELECT jour, rang, mission, faite_le FROM profile_missions WHERE profile_id = ? AND jour >= ? ORDER BY jour, rang', args: [profileId, depuis] },
+        lectureDesSoireesDepuis(profileId, debut),
+        lectureDesJoursAuxTrois(profileId, lundi),
+        lectureDesCoffresOuverts(profileId),
+        lectureDesCoffresOfferts(profileId),
+      ],
+      'read',
+    )
+    return {
+      lignes: lignes.rows.map(lireLigneDeMission),
+      soirees: soireesLues(soirees.rows),
+      auxTrois: auxTrois.rows.map(r => String(r.jour)),
+      ouverts: new Set(ouverts.rows.map(r => String(r.semaine))),
+      offerts: coffresOffertsLus(offerts.rows),
+    }
   }
 
   /**
@@ -2153,17 +2316,8 @@ export class ProfileStore {
 
   /** Les jours où ses trois missions sont faites, avant un jour (exclu) : ses tampons, semaine par semaine. */
   async joursAuxTrois(profileId: string, avant: string): Promise<string[]> {
-    const res = await this.client.execute({
-      sql: 'SELECT jour FROM profile_missions WHERE profile_id = ? AND rang = ? AND faite_le IS NOT NULL AND jour < ? ORDER BY jour',
-      args: [profileId, RANG_DES_TROIS, avant],
-    })
+    const res = await this.client.execute(lectureDesJoursAuxTrois(profileId, avant))
     return res.rows.map(r => String(r.jour))
-  }
-
-  /** Les semaines de ses coffres déjà ouverts. */
-  async semainesDesCoffres(profileId: string): Promise<Set<string>> {
-    const res = await this.client.execute({ sql: 'SELECT semaine FROM profile_coffres WHERE profile_id = ?', args: [profileId] })
-    return new Set(res.rows.map(r => String(r.semaine)))
   }
 
   /** Le coffre d'une semaine, s'il est ouvert : ce qu'il a donné. */
@@ -2193,14 +2347,8 @@ export class ProfileStore {
   }
 
   /** Ses coffres offerts, ouverts ou non, le plus ancien d'abord : `Missions.duJour` écarte ceux qui sont ouverts. */
-  async coffresOfferts(profileId: string): Promise<{ cle: string; rang: RangDuCoffre; mot: string | null }[]> {
-    const res = await this.client.execute({
-      sql: 'SELECT cle, rang, mot FROM profile_coffres_offerts WHERE profile_id = ? ORDER BY offert_le, cle',
-      args: [profileId],
-    })
-    return res.rows
-      .filter(r => rangValide(r.rang) && coffreOffertValide(r.cle))
-      .map(r => ({ cle: String(r.cle), rang: String(r.rang) as RangDuCoffre, mot: r.mot == null ? null : String(r.mot) }))
+  async coffresOfferts(profileId: string): Promise<CoffreOffertLu[]> {
+    return coffresOffertsLus((await this.client.execute(lectureDesCoffresOfferts(profileId))).rows)
   }
 
   /**
@@ -2348,18 +2496,6 @@ export class ProfileStore {
         detail: phraseDeLObjet(objet),
         ouvertLe: quand,
       }
-    })
-  }
-
-  /** Ses parties de soirée créditées depuis un instant, et leurs confettis : la mission des bonnes réponses les compte aussi. */
-  async soireesDepuis(profileId: string, depuis: number): Promise<{ le: number; confettis: number }[]> {
-    const res = await this.client.execute({
-      sql: `SELECT detail, created_at FROM profile_xp WHERE profile_id = ? AND created_at >= ? AND ${HORS_LIGNES_A_PART}`,
-      args: [profileId, depuis],
-    })
-    return res.rows.map(r => {
-      const { gain, releve } = decodeDetail(String(r.detail))
-      return { le: Number(r.created_at), confettis: confettisDeSoiree(gain, releve) }
     })
   }
 
@@ -3771,15 +3907,17 @@ export class ProfileStore {
    * processeur). Chaque champ vient du même endroit que dans sa page —
    * `profil-charge.test.ts` compare les deux comptes —, et le type oblige à
    * les donner tous : un champ que la loge lirait de plus ne s'oublierait
-   * pas ici.
+   * pas ici. Et ce qu'il en a déjà vu (`vusDeLaLoge`), dans le lot de sa
+   * boutique : null s'il n'y est jamais passé, `undefined` si la base s'est
+   * tue — rien de nouveau alors, plutôt que tout.
    */
-  async ceQueLaLogeLit(p: ProfileRec): Promise<CeQueLaLogeLit> {
+  async ceQueLaLogeLit(p: ProfileRec): Promise<{ lit: CeQueLaLogeLit; vus: VusDeLaLoge | null | undefined }> {
     const [etagere, jour, achats, campagne] = await Promise.all([
       this.etagereDe(p.id),
       this.statsDuJourDe(p.id),
       // Une base qui se tait ôte ce qu'elle dit — ses thèmes, ses sentiers,
       // ses bordures —, comme à sa page, pas tout le compte.
-      this.achatsDe(p.id).catch(e => {
+      this.achatsDe(p.id, { vus: true }).catch(e => {
         console.error('[profil] boutique illisible pour sa loge :', e)
         return null
       }),
@@ -3804,7 +3942,7 @@ export class ProfileStore {
       boutique: achats ? { possedes: this.themesPossedes(p, achats.themes, maitres) } : undefined,
       ...this.ouvertsDe(p, jour, maitres),
     }
-    return lit
+    return { lit, vus: achats ? achats.vus : undefined }
   }
 
   /**
@@ -5916,34 +6054,8 @@ export class ProfileStore {
   // ── Carrière et historique ──────────────────────────────────────────────
 
   /** Toutes les soirées d'un profil, de la plus récente à la plus ancienne. */
-  async historiqueOf(profileId: string): Promise<
-    {
-      soireeId: string
-      spaceId: string
-      xp: number
-      gain: GainSoiree
-      releve: ReleveSoiree
-      at: number
-      joueurId: string | null
-    }[]
-  > {
-    const rows = await this.client.execute({
-      sql: `SELECT soiree_id, space_id, xp, detail, created_at, joueur_id FROM profile_xp
-            WHERE profile_id = ? AND ${HORS_LIGNES_A_PART} ORDER BY created_at DESC`,
-      args: [profileId],
-    })
-    return rows.rows.map(r => {
-      const { gain, releve } = decodeDetail(String(r.detail))
-      return {
-        soireeId: String(r.soiree_id),
-        spaceId: String(r.space_id),
-        xp: Number(r.xp),
-        gain,
-        releve,
-        at: Number(r.created_at),
-        joueurId: r.joueur_id == null ? null : String(r.joueur_id),
-      }
-    })
+  async historiqueOf(profileId: string): Promise<SoireeDeLHistorique[]> {
+    return historiqueLu((await this.client.execute(lectureDeLHistorique(profileId))).rows)
   }
 
   /**

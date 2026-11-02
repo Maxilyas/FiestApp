@@ -142,6 +142,71 @@ interface JourLu {
   annulees: number[]
 }
 
+/**
+ * Le lot de sa carrière (`lecturesDeLaCarriere`), et ce qu'on savait en le
+ * lançant : le jour, la révision de chaque jour et ceux dont la salle était
+ * déjà gardée — leurs points ne sont pas dans le lot.
+ */
+interface LectureDeLaCarriere {
+  lot: InStatement[]
+  aujourdhui: string
+  revisions: ReadonlyMap<string, number>
+  gardes: ReadonlySet<string>
+}
+
+/** Ce que l'accueil d'un profil lit du quiz du jour (`JourStore.accueilDe`) : chaque part à part, toutes d'un seul lot. */
+export interface AccueilDuJour {
+  carriere: Promise<CarriereDuJour>
+  /** Ses bonnes réponses, parties en cours comprises : ses confettis du quiz du jour (`justesDe`). */
+  justes: Promise<number>
+  mercis: Promise<AnnonceDeLAdministrateur[]>
+}
+
+/** Un coffre de mois qui l'attend : le mois clos où il était classé, et sa place, de quoi en tirer le rang du coffre. */
+export interface CoffreDuMoisLu {
+  mois: string
+  place: number
+}
+
+/** Ses coffres de mois (`coffresDuMois`), un par mois clos où il était classé. */
+function lectureDesCoffresDuMois(profileId: string): InStatement {
+  return { sql: 'SELECT mois, place FROM jour_coffres_du_mois WHERE profile_id = ? ORDER BY mois', args: [profileId] }
+}
+
+function coffresDuMoisLus(rows: ResultSet['rows']): CoffreDuMoisLu[] {
+  return rows.map(r => ({ mois: String(r.mois), place: Number(r.place) }))
+}
+
+/** Toutes ses bonnes réponses au quiz du jour (`justesDe`). */
+function lectureDesJustes(profileId: string): InStatement {
+  return { sql: 'SELECT COALESCE(SUM(justes), 0) AS n FROM jour_parties WHERE profile_id = ?', args: [profileId] }
+}
+
+/**
+ * Les questions du jour qu'il a signalées et dont sa remarque a servi —
+ * corrigée, reclassée, retirée, ses points annulés pour tous —, relues
+ * depuis `depuis` : son accueil le remercie, une fois par téléphone. Une
+ * question gardée ne dit rien. Par l'index de ses signalements, dans le lot
+ * de l'accueil (`accueilDe`).
+ */
+function lectureDesMercis(profileId: string, depuis: number): InStatement {
+  return {
+    sql: `SELECT s.jour, s.question, s.traite_le, s.issue, json_extract(t.questions, '$[' || s.question || '].texte') AS texte
+          FROM jour_signalements s LEFT JOIN jour_tirages t ON t.jour = s.jour
+          WHERE s.profile_id = ? AND s.traite_le >= ? AND s.issue IN (${ISSUES_QUI_SERVENT.map(() => '?').join(', ')})`,
+    args: [profileId, depuis, ...ISSUES_QUI_SERVENT],
+  }
+}
+
+/** Ses mercis, de leur lecture (`lectureDesMercis`). */
+function mercisLus(res: ResultSet): AnnonceDeLAdministrateur[] {
+  return res.rows.flatMap((r): AnnonceDeLAdministrateur[] => {
+    const issue = lireIssue(r.issue)
+    if (!issue || issue === 'gardee' || typeof r.texte !== 'string') return []
+    return [{ id: `merci:jour:${r.jour}#${r.question}:${r.traite_le}`, sorte: 'merci', mode: 'jour', issue, question: extrait(r.texte, QUESTION_DU_MERCI), le: Number(r.traite_le) }]
+  })
+}
+
 /** Une ligne de classement avec ce qu'il faut pour la trier et la nommer. */
 /** Ce que la vue d'une partie lit sans dépendre d'elle (`contexteDeVue`). */
 interface ContexteDeVue {
@@ -1891,10 +1956,13 @@ export class JourStore {
    * quoi juger ses missions du jour (`shared/missions.ts`). D'un aller-retour,
    * par la clé de ses parties et de ses réponses ; une question annulée pour
    * tous ne compte ni dans ses bonnes réponses ni dans les questions de sa
-   * partie, comme pour ses étoiles.
+   * partie, comme pour ses étoiles. Et ses coffres du mois (`coffresDuMois`)
+   * dans le même lot — deux allers-retours de front jusqu'au 2 novembre 2026 —,
+   * la nuit close d'abord, comme pour eux.
    */
-  async activiteDepuis(profileId: string, depuis: string): Promise<Pick<JournauxDesJours, 'jour' | 'jourParCategorie'>> {
-    const [parties, categories] = await this.client.batch(
+  async activiteDepuis(profileId: string, depuis: string): Promise<Pick<JournauxDesJours, 'jour' | 'jourParCategorie'> & { coffresDuMois: CoffreDuMoisLu[] }> {
+    await this.clorePasses(jourDe(this.maintenant()))
+    const [parties, categories, coffres] = await this.client.batch(
       [
         {
           sql: `SELECT p.jour AS jour, p.finie_le AS finie_le, p.justes AS justes,
@@ -1914,12 +1982,14 @@ export class JourStore {
                 GROUP BY jour, categorie`,
           args: [profileId, depuis],
         },
+        lectureDesCoffresDuMois(profileId),
       ],
       'read',
     )
     return {
       jour: parties.rows.map(r => ({ jour: String(r.jour), finie: r.finie_le != null, justes: Number(r.justes ?? 0), questions: Number(r.questions ?? 0) })),
       jourParCategorie: categories.rows.map(r => ({ jour: String(r.jour), categorie: r.categorie == null ? null : String(r.categorie), n: Number(r.n) })),
+      coffresDuMois: coffresDuMoisLus(coffres.rows),
     }
   }
 
@@ -1929,10 +1999,7 @@ export class JourStore {
    * pour tous est déjà retirée de chaque partie (`recompter`).
    */
   async justesDe(profileId: string): Promise<number> {
-    const res = await this.client.execute({
-      sql: 'SELECT COALESCE(SUM(justes), 0) AS n FROM jour_parties WHERE profile_id = ?',
-      args: [profileId],
-    })
+    const res = await this.client.execute(lectureDesJustes(profileId))
     return Number(res.rows[0]?.n ?? 0)
   }
 
@@ -2021,13 +2088,60 @@ export class JourStore {
   /**
    * Le quiz du jour d'un profil, pour sa page (`CarriereDuJour`) : ses
    * médailles, sa série et son record, ses podiums, et ses trente derniers
-   * jours. La nuit d'avant se clôt d'abord : son podium se compte.
+   * jours. La nuit d'avant se clôt d'abord : son podium se compte. D'un seul
+   * lot (`lecturesDeLaCarriere`).
    */
   async carriereDe(profileId: string): Promise<CarriereDuJour> {
+    await this.clorePasses(jourDe(this.maintenant()))
+    const lecture = this.lecturesDeLaCarriere(profileId)
+    return this.carriereLue(profileId, await this.client.batch(lecture.lot, 'read'), lecture)
+  }
+
+  /**
+   * Ce que l'accueil d'un profil demande au quiz du jour, d'un seul lot : sa
+   * carrière (`carriereDe`), ses bonnes réponses — ses confettis du quiz du
+   * jour (`justesDe`) — et les mercis de ses signalements. Lus chacun de son
+   * côté, c'étaient trois allers-retours de front, et un quatrième derrière
+   * pour ses trente derniers jours (le banc du 2 novembre 2026,
+   * `profil-charge.test.ts`). Chaque part se rend à part : ce qui tombe en la
+   * lisant n'ôte qu'elle.
+   */
+  accueilDe(profileId: string, depuis: number): AccueilDuJour {
+    const lu = this.clorePasses(jourDe(this.maintenant())).then(async () => {
+      const lecture = this.lecturesDeLaCarriere(profileId)
+      const lus = await this.client.batch([...lecture.lot, lectureDesJustes(profileId), lectureDesMercis(profileId, depuis)], 'read')
+      return { lecture, lus }
+    })
+    return {
+      carriere: lu.then(({ lecture, lus }) => this.carriereLue(profileId, lus.slice(0, lecture.lot.length), lecture)),
+      justes: lu.then(({ lus }) => Number(lus[lus.length - 2].rows[0]?.n ?? 0)),
+      mercis: lu.then(({ lus }) => mercisLus(lus[lus.length - 1])),
+    }
+  }
+
+  /**
+   * Ce que sa carrière lit, d'un lot : ses parties, ses podiums, ses soirées
+   * et ses sabliers — sa série —, puis, pour ses trente derniers jours joués
+   * (`JOURS_RELUS`), cherchés dans la base même, ses bonnes réponses et leur
+   * temps, et les points de leur salle — sauf ceux d'un jour déjà gardé
+   * (`pointsGardes`). Ces jours-là s'attendaient d'abord : un aller-retour de
+   * plus, l'un derrière l'autre, à chaque accueil (le 2 novembre 2026). La
+   * révision de chaque jour se lit avant le lot : une réponse écrite pendant
+   * l'aller-retour ne passe pas pour vue.
+   */
+  private lecturesDeLaCarriere(profileId: string): LectureDeLaCarriere {
     const aujourdhui = jourDe(this.maintenant())
-    await this.clorePasses(aujourdhui)
-    const [parties, podiums, soirees, sabliers] = await this.client.batch(
-      [
+    const revisions = new Map(this.revisions)
+    const gardes = new Set([...this.pointsGardes].filter(([jour, g]) => g.revision === (revisions.get(jour) ?? 0)).map(([jour]) => jour))
+    const derniers = `SELECT jour FROM jour_parties WHERE profile_id = ? ORDER BY jour DESC LIMIT ${JOURS_RELUS}`
+    // Les jours gardés s'écartent de ses trente derniers avant d'en chercher la salle : écartés après, chacun relirait
+    // tous ses joueurs pour les jeter, au quota de Turso.
+    const aLire = gardes.size > 0 ? `SELECT jour FROM (${derniers}) WHERE jour NOT IN (${[...gardes].map(() => '?').join(', ')})` : derniers
+    return {
+      aujourdhui,
+      revisions,
+      gardes,
+      lot: [
         {
           sql: `SELECT p.jour, p.points, p.justes, p.xp + p.xp_serie AS xp, t.annulees,
                        json_array_length(t.questions) - json_array_length(t.annulees) AS comptees
@@ -2038,9 +2152,19 @@ export class JourStore {
         { sql: 'SELECT jour, rang, xp FROM jour_podiums WHERE profile_id = ?', args: [profileId] },
         { sql: `SELECT created_at FROM profile_xp WHERE profile_id = ? AND ${HORS_LIGNES_A_PART}`, args: [profileId] },
         { sql: 'SELECT created_at FROM profile_sabliers WHERE profile_id = ?', args: [profileId] },
+        { sql: `SELECT jour, question, ms FROM jour_reponses WHERE profile_id = ? AND juste = 1 AND jour IN (${derniers})`, args: [profileId, profileId] },
+        {
+          sql: `SELECT jour, profile_id, points FROM jour_parties WHERE jour IN (${aLire})
+                AND profile_id IN (SELECT id FROM profiles WHERE disabled_at IS NULL)`,
+          args: [profileId, ...gardes],
+        },
       ],
-      'read',
-    )
+    }
+  }
+
+  /** Sa carrière (`carriereDe`), du lot de `lecturesDeLaCarriere`. */
+  private carriereLue(profileId: string, [parties, podiums, soirees, sabliers, reponses, salle]: ResultSet[], lecture: LectureDeLaCarriere): CarriereDuJour {
+    const { aujourdhui } = lecture
     const lues: JourLu[] = parties.rows.map(r => ({
       jour: String(r.jour),
       points: Number(r.points),
@@ -2070,50 +2194,37 @@ export class JourStore {
       meilleurScore: lues.reduce((m, p) => Math.max(m, p.points), 0),
       podiums: podiums.rows.length,
       victoires: podiums.rows.filter(r => Number(r.rang) === 1).length,
-      jours: await this.joursJoues(profileId, lues.slice(0, JOURS_RELUS), podiumDe),
+      jours: this.joursJoues(profileId, lues.slice(0, JOURS_RELUS), podiumDe, reponses, salle, lecture),
     }
   }
 
   /**
    * Ses derniers jours, chacun avec sa place telle que le classement de ce
    * jour-là la donnait : rang partagé (`rangDansLesTries`), sans les profils
-   * fermés ni les masqués — sauf lui, qui se voit toujours.
+   * fermés ni les masqués — sauf lui, qui se voit toujours. Les points de la
+   * salle des jours qui n'étaient pas gardés arrivent dans le lot
+   * (`lecturesDeLaCarriere`), et se gardent sous la révision lue avant lui.
    */
-  private async joursJoues(profileId: string, recents: readonly JourLu[], podiumDe: ReadonlyMap<string, number>): Promise<JourJoue[]> {
+  private joursJoues(
+    profileId: string,
+    recents: readonly JourLu[],
+    podiumDe: ReadonlyMap<string, number>,
+    reponses: ResultSet,
+    salle: ResultSet,
+    { revisions, gardes }: LectureDeLaCarriere,
+  ): JourJoue[] {
     if (recents.length === 0) return []
     const jours = recents.map(p => p.jour)
-    const marques = jours.map(() => '?').join(', ')
-    // La révision de chaque jour, lue avant la lecture : une réponse écrite
-    // pendant l'aller-retour ne passe pas pour vue.
-    const revisions = new Map(jours.map(j => [j, this.revisionDu(j)]))
-    const manquants = jours.filter(j => this.pointsGardes.get(j)?.revision !== revisions.get(j))
-    const lectures = await this.client.batch(
-      [
-        {
-          sql: `SELECT jour, question, ms FROM jour_reponses WHERE profile_id = ? AND juste = 1 AND jour IN (${marques})`,
-          args: [profileId, ...jours],
-        },
-        ...(manquants.length > 0
-          ? [
-              {
-                sql: `SELECT jour, profile_id, points FROM jour_parties WHERE jour IN (${manquants.map(() => '?').join(', ')})
-                      AND profile_id IN (SELECT id FROM profiles WHERE disabled_at IS NULL)`,
-                args: manquants,
-              },
-            ]
-          : []),
-      ],
-      'read',
-    )
-    const [reponses, salle] = lectures
-    if (salle) {
+    const revisionDe = (jour: string) => revisions.get(jour) ?? 0
+    const manquants = jours.filter(j => !gardes.has(j))
+    if (manquants.length > 0) {
       const lus = new Map<string, { id: string; points: number }[]>(manquants.map(j => [j, []]))
       for (const r of salle.rows) lus.get(String(r.jour))?.push({ id: String(r.profile_id), points: Number(r.points) })
       for (const [jour, points] of lus) {
         const garde = this.pointsGardes.get(jour)
-        if (garde && garde.revision > revisions.get(jour)!) continue
+        if (garde && garde.revision > revisionDe(jour)) continue
         this.pointsGardes.delete(jour)
-        this.pointsGardes.set(jour, { revision: revisions.get(jour)!, points })
+        this.pointsGardes.set(jour, { revision: revisionDe(jour), points })
       }
       while (this.pointsGardes.size > JOURS_GARDES) this.pointsGardes.delete(this.pointsGardes.keys().next().value!)
     }
@@ -2532,15 +2643,11 @@ export class JourStore {
   }
 
   /** Les coffres de mois qui l'attendent, un par mois clos où il était classé : sa place, de quoi en tirer le rang du coffre. */
-  async coffresDuMois(profileId: string): Promise<{ mois: string; place: number }[]> {
+  async coffresDuMois(profileId: string): Promise<CoffreDuMoisLu[]> {
     // Rien ne tourne à minuit : la ligne des missions est souvent la première
     // demande du 1er du mois, et le coffre du mois serait sinon pour la suivante.
     await this.clorePasses(jourDe(this.maintenant()))
-    const res = await this.client.execute({
-      sql: 'SELECT mois, place FROM jour_coffres_du_mois WHERE profile_id = ? ORDER BY mois',
-      args: [profileId],
-    })
-    return res.rows.map(r => ({ mois: String(r.mois), place: Number(r.place) }))
+    return coffresDuMoisLus((await this.client.execute(lectureDesCoffresDuMois(profileId))).rows)
   }
 
   /** Relit les champions d'un mois clos : ceux que l'écran commun salue tout le mois suivant. */
@@ -2887,27 +2994,6 @@ export class JourStore {
             },
           ],
     )
-  }
-
-  /**
-   * Les questions du jour qu'il a signalées et dont sa remarque a servi —
-   * corrigée, reclassée, retirée, ses points annulés pour tous —, relues
-   * depuis `depuis` : son accueil le remercie, une fois par téléphone. Une
-   * question gardée ne dit rien. Une requête par son index, dans le lot de
-   * l'accueil : rien n'attend derrière elle.
-   */
-  async mercisDe(profileId: string, depuis: number): Promise<AnnonceDeLAdministrateur[]> {
-    const res = await this.client.execute({
-      sql: `SELECT s.jour, s.question, s.traite_le, s.issue, json_extract(t.questions, '$[' || s.question || '].texte') AS texte
-            FROM jour_signalements s LEFT JOIN jour_tirages t ON t.jour = s.jour
-            WHERE s.profile_id = ? AND s.traite_le >= ? AND s.issue IN (${ISSUES_QUI_SERVENT.map(() => '?').join(', ')})`,
-      args: [profileId, depuis, ...ISSUES_QUI_SERVENT],
-    })
-    return res.rows.flatMap((r): AnnonceDeLAdministrateur[] => {
-      const issue = lireIssue(r.issue)
-      if (!issue || issue === 'gardee' || typeof r.texte !== 'string') return []
-      return [{ id: `merci:jour:${r.jour}#${r.question}:${r.traite_le}`, sorte: 'merci', mode: 'jour', issue, question: extrait(r.texte, QUESTION_DU_MERCI), le: Number(r.traite_le) }]
-    })
   }
 
   /** Les signalements à traiter, question par question : combien, et ce qu'ils disent. */
