@@ -14118,6 +14118,8 @@ html:has(> body.avec-panier) { scroll-padding-bottom: calc(72px + 76px + env(saf
 /* Des tuiles dans une carte — les duels en attente, la circulation, les Éclats — se partagent sa largeur : les six
    colonnes des grands écrans sont celles de la vue d'ensemble, et deux tuiles d'une demi-carte y tenaient un mot par ligne. */
 .qg-carte .qg-tuiles:not(.qg-tuiles-quatre) { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+/* Une tuile par mode, cinq depuis le Cabinet : au téléphone, la dernière prend la rangée plutôt que d'y rester seule à moitié. */
+.qg-tuiles-cinq > :last-child:nth-child(odd) { grid-column: 1 / -1; }
 .qg-tuile { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 12px; border: 1px solid var(--edge); border-radius: var(--radius-xs); background: var(--surface); }
 .qg-tuile-nom { font-size: 0.85rem; color: var(--muted); }
 .qg-tuile-valeur { font-family: var(--sans); font-size: 1.75rem; font-weight: 600; line-height: 1; font-variant-numeric: lining-nums tabular-nums; }
@@ -14129,12 +14131,14 @@ html:has(> body.avec-panier) { scroll-padding-bottom: calc(72px + 76px + env(saf
 .qg-etincelle { display: block; width: 100%; height: 30px; overflow: visible; }
 .qg-etincelle-ligne { fill: none; stroke: var(--muted); stroke-width: 1.5px; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .qg-etincelle-point { fill: none; stroke: color-mix(in srgb, var(--lueur) 80%, var(--ink)); stroke-width: 6px; stroke-linecap: round; vector-effect: non-scaling-stroke; }
-/* L'écran des participations, nocturne sous tous les thèmes : ses quatre
+/* L'écran des participations, nocturne sous tous les thèmes : ses cinq
    couleurs ont été vérifiées sur ce fond — voisines dans la pile, elles se
    distinguent encore aux trois daltonismes —, et les trente-quatre thèmes
    en ont de clairs, où elles ne tenaient plus. Ses jetons y redeviennent
    ceux du Velours. L'ordre de la pile est celui de `MODES_DU_QG` : il ne se
-   change pas sans refaire la vérification. */
+   change pas sans refaire la vérification. Le violet du Cabinet (le
+   2 novembre 2026) s'y pose entre le vert et l'orange : à côté du bleu des
+   duels, il s'y confondait aux yeux qui confondent le rouge. */
 .qg-ecran {
   --ink: #f3ece2;
   --muted: #a89b8a;
@@ -14143,8 +14147,11 @@ html:has(> body.avec-panier) { scroll-padding-bottom: calc(72px + 76px + env(saf
   --focus: #d9b56a;
   --mode-soiree: #c98500;
   --mode-campagne: #199e70;
+  --mode-cabinet: #9085e9;
   --mode-jour: #d95926;
   --mode-duel: #3987e5;
+  /* Les joueurs du jour, tous modes confondus : une seule série, dans l'or du Velours — une personne n'est pas un mode. */
+  --qg-joueurs: #d9b56a;
   /* La page « Le serveur » : ses temps de réponse dans l'or du Velours, ses erreurs dans son rouge — une série par graphique. */
   --qg-temps: #d9b56a;
   --qg-erreur: #e06c6c;
@@ -14168,12 +14175,14 @@ html:has(> body.avec-panier) { scroll-padding-bottom: calc(72px + 76px + env(saf
 .qg-graphe-choisi { fill: rgba(255, 255, 255, 0.06); }
 .qg-mode-soiree { fill: var(--mode-soiree); background: var(--mode-soiree); }
 .qg-mode-campagne { fill: var(--mode-campagne); background: var(--mode-campagne); }
+.qg-mode-cabinet { fill: var(--mode-cabinet); background: var(--mode-cabinet); }
 .qg-mode-jour { fill: var(--mode-jour); background: var(--mode-jour); }
 .qg-mode-duel { fill: var(--mode-duel); background: var(--mode-duel); }
 /* La santé du serveur, heure par heure : la nuit endormie hachurée en sourdine, un filet à chaque minuit. */
 .qg-serveur-temps { fill: var(--qg-temps); }
 .qg-serveur-erreur { fill: var(--qg-erreur); }
 .qg-confettis { fill: var(--qg-confettis); background: var(--qg-confettis); }
+.qg-joueurs { fill: var(--qg-joueurs); }
 .qg-endormi-trait { stroke: rgba(255, 255, 255, 0.07); stroke-width: 2px; }
 .qg-graphe-grille .qg-graphe-jour { stroke: rgba(255, 255, 255, 0.12); }
 /* La charge : quatre graphiques l'un sous l'autre, le même temps pour tous, et en pointillé les plafonds de l'hébergeur gratuit. */
@@ -14516,6 +14525,8 @@ span.annonce-admin-merci { cursor: default; }
   .qg-soiree > .qg-soiree-geste { grid-column: 4; }
   .qg-sommaire { display: none; }
   .qg-tuiles.qg-tuiles-quatre { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .qg-tuiles.qg-tuiles-cinq { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .qg-tuiles-cinq > :last-child:nth-child(odd) { grid-column: auto; }
   .qg-deux { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
   .qg-tableau .qg-colonne-large { display: table-cell; }
   .qg-question { grid-template-columns: 1.5rem minmax(0, 1.3fr) minmax(0, 1fr) 3.5rem 8.5rem; grid-template-areas: 'n texte piste part marques'; }

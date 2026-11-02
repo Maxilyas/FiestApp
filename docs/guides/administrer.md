@@ -61,15 +61,20 @@ Le QG se tient à jour seul — le direct toutes les dix secondes, la vue d'ense
 
 **Aujourd'hui** : Profils actifs, Quiz du jour, Séries de campagne, Duels joués, Nouveaux profils, Achats en boutique — chacun comparé à la même heure, en moyenne sur les sept jours d'avant (« 12 % » et sa flèche ; sous vingt d'habitude, « 7 d'habitude » ; ou « comme d'habitude »), avec le trait des douze derniers jours. Comparé à des journées entières, un soir à 21 h se lisait toujours en baisse.
 
-**Participations par jour** : trente jours, mode par mode — soirées, campagne, quiz du jour, duels. Un joueur compte une fois par mode et par jour ; en soirée, chaque invité qui a joué, au jour de la première question. « Les chiffres, jour par jour » déplie le tableau.
+**Jour par jour** : trente jours, de deux façons, qu'on choisit au-dessus du graphique.
+
+- **Joueurs** (d'office) : les personnes qui ont joué ce jour-là, chacune une fois, à quoi qu'elle ait joué — un profil venu en soirée puis en campagne ne compte qu'une fois ; un invité sans profil, une fois par soirée (rien ne dit que c'est le même d'une soirée à l'autre). Une seule barre par jour ; la légende dit les joueurs de chaque mode — soirées, campagne, Cabinet, quiz du jour, duels —, et qui joue à plusieurs modes compte dans chacun : ces chiffres ne s'additionnent pas.
+- **Participations** : la quantité, sans regarder qui — chaque partie jouée seul (du jour, de campagne, du Cabinet, un duel), et en soirée chaque invité qui a joué. Trois séries le même soir en font trois. Elles s'empilent par mode.
+
+Une soirée compte au jour de sa première question. « Les chiffres, jour par jour » déplie le tableau de la vue choisie.
 
 **Soirées en cours** : chaque soirée par son salon — où elle en est, depuis quand, combien de téléphones connectés sur combien d'inscrits, « aucun écran branché » s'il y a lieu, « sauvegardée » ou « sauvegarde en retard ». **Le serveur** : mémoire, processeur (en part d'un cœur), boucle occupée, Turso au 95ᵉ centile, connexions temps réel, et le dernier dépôt de la routine du matin dans la réserve du quiz du jour et dans la base de la campagne.
 
 ## L'activité
 
-Ce que les joueurs font, en quantité : la vue d'ensemble compte les joueurs, cette page ce qu'ils ont joué, sur trente jours. Une **question jouée** est une question posée à un joueur, qu'il y ait répondu ou l'ait laissée au temps — en soirée, une par invité et par question ; une **partie**, un quiz de soirée, une partie du quiz du jour ou de campagne, un duel (chaque côté d'un duel classé compte le sien). Une partie se date à son début.
+Ce que les joueurs font, en quantité : la vue d'ensemble compte les joueurs, cette page ce qu'ils ont joué, sur trente jours. Une **question jouée** est une question posée à un joueur, qu'il y ait répondu ou l'ait laissée au temps — en soirée, une par invité et par question ; une **partie**, un quiz de soirée, une partie du quiz du jour, de campagne ou du Cabinet, un duel (chaque côté d'un duel classé compte le sien). Au Cabinet, une question jouée est une pièce jugée de sa partie. Une partie se date à son début.
 
-- **Ces trente jours** : une tuile par mode — ses questions jouées en grand, ses parties et ses joueurs dessous (en soirée, les soirées et leurs invités qui ont joué).
+- **Ces trente jours** : une tuile par mode — soirées, campagne, Cabinet, quiz du jour, duels —, ses questions jouées en grand, ses parties et ses joueurs dessous (en soirée, les soirées et leurs invités qui ont joué).
 - **Jour par jour** : un petit graphique par mode, chacun à son échelle — les soirées montent d'un coup le samedi, la campagne tous les jours ; « Questions jouées » ou « Parties ». Le jour touché se lit sous chacun.
 - **Qui joue à quoi** : chaque profil, le plus assidu d'abord, et une barre — sa longueur dit combien il a joué, ses couleurs à quoi —, avec ses questions, ses jours et le mode où il joue le plus (« surtout la campagne, 82 % »). « Tous les modes », ou un seul : les plus assidus de ce mode. Dix d'abord, cinquante au plus ; une ligne ouvre sa fiche. Les invités sans profil n'y sont pas : ils ne comptent qu'au volume des soirées.
 
@@ -287,10 +292,10 @@ Les règles vivent dans [Le Cabinet de curiosités](../produit/le-cabinet.md). L
 - **Ouvert ou non** : il se construit en préproduction ; en production, tant que son ouverture n'est pas livrée, il répond à tous « Le Cabinet de curiosités ouvre bientôt : reviens dans quelques jours », toi compris, et l'accueil n'a pas son bouton. C'est le code qui le ferme, pas la maintenance : rien ne l'ouvre d'ici.
 - **[La maintenance](#la-maintenance)** : là où il répond, sa page se ferme comme les autres — sa page, le départ d'une partie, l'achat et la dorure d'une œuvre, l'échange d'un jeu de la visite —, ou s'annonce pour bientôt à ses testeurs ; une partie commencée se finit.
 - **[Les pannes](#les-erreurs-et-les-pannes)** : « le Cabinet de curiosités » a sa ligne parmi les modes surveillés — ses routes, `/api/cabinet`.
-- **Ce qu'on joue** : ses parties comptent en campagne, à la vue d'ensemble comme à l'activité ; la page de la campagne leur donne leur graphique, « Cabinet ».
+- **Ce qu'on joue** : depuis le 2 novembre 2026, il a son mode, sa couleur (violet) et sa ligne à la vue d'ensemble (« Jour par jour ») comme à l'activité — ses tuiles, ses graphiques, « Qui joue à quoi », la fiche d'un joueur. Une partie du Cabinet reste une série de campagne : la tuile « Séries de campagne » d'aujourd'hui la compte, et la page de la campagne lui donne son graphique, « Cabinet ».
 - **[Les signalements](#les-signalements)** : seules les questions de la base qu'il pose — au Pari, au Mot mystère, au Filet — se signalent, à leur place dans la partie, et leur carte dit « au Cabinet » ; elles se corrigent, se reclassent ou se retirent comme les autres. Le reste n'est pas une question de la base — un lieu de l'Épingle, une fiche des Indices, une réplique, un tableau du Détail, une frise, les affirmations récrites de l'Éclair — et répond « Ce jeu du Cabinet ne se signale pas : seules les questions de la campagne le peuvent » : son contenu neuf n'a pas encore de correction au QG, et une erreur s'y corrige dans le dépôt (`server/content/cabinet/`).
 - **[L'économie](#léconomie)** : ses manches réussies paient leur confetti comme toute bonne réponse de campagne, et se comptent sous la campagne ; la poussière d'or n'est pas un confetti, et ne s'y lit pas.
-- **La fiche d'un joueur** : rien du Cabinet — une partie y est courte, et rien n'y bloque personne ; une partie laissée la veille se clôt à sa page suivante. Supprimer un profil efface son musée avec lui.
+- **La fiche d'un joueur** : ses trente jours comptent ses parties du Cabinet, et rien d'autre du Cabinet — une partie y est courte, et rien n'y bloque personne ; une partie laissée la veille se clôt à sa page suivante. Supprimer un profil efface son musée avec lui.
 
 ## Les duels
 

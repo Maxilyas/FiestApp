@@ -237,29 +237,61 @@ function Etincelle({ valeurs }: { valeurs: readonly number[] }) {
   )
 }
 
-// ── Trente jours de participations ────────────────────────────────────────
+// ── Trente jours : qui joue, et combien ───────────────────────────────────
 
-const totalDe = (p: ParticipationsDuJour) => MODES_DU_QG.reduce((n, m) => n + p.modes[m], 0)
-const participations = (n: number) => `${formatNumber(n)} participation${n > 1 ? 's' : ''}`
+/**
+ * Ce que le graphique compte (le souhait du propriétaire du 2 novembre 2026 :
+ * « le nombre de personnes unique qui participent mais aussi pouvoir switcher
+ * sur la quantité peu importe l'utilisateur ») : les joueurs, chacun une fois
+ * par jour ; ou les participations, chaque partie jouée.
+ */
+export const COMPTES_DU_GRAPHE = ['joueurs', 'participations'] as const
+export type CompteDuGraphe = (typeof COMPTES_DU_GRAPHE)[number]
+
+const NOM_DU_COMPTE: Record<CompteDuGraphe, string> = { joueurs: 'Joueurs', participations: 'Participations' }
+const REGLE_DU_COMPTE: Record<CompteDuGraphe, string> = {
+  joueurs: 'Chaque personne compte une fois par jour, à quoi qu’elle joue',
+  participations: 'Chaque partie compte, qui que ce soit ; en soirée, chaque invité qui a joué',
+}
+
+/** Ce que chaque mode a mis dans un jour : ses joueurs, ou ses participations. */
+const parModeDe = (j: ParticipationsDuJour, quoi: CompteDuGraphe) => (quoi === 'joueurs' ? j.modes : j.parties)
+/** Les joueurs ne s'additionnent pas d'un mode à l'autre — qui joue à deux modes compte dans chacun : leur total est le leur. */
+const totalDe = (j: ParticipationsDuJour, quoi: CompteDuGraphe) => (quoi === 'joueurs' ? j.joueurs : MODES_DU_QG.reduce((n, m) => n + j.parties[m], 0))
+const dire = (n: number, quoi: CompteDuGraphe) => `${formatNumber(n)} ${quoi === 'joueurs' ? 'joueur' : 'participation'}${n > 1 ? 's' : ''}`
 
 /**
  * Le graphique tient dans un écran nocturne sous tous les thèmes (`.qg-ecran`) :
- * ses quatre couleurs ont été vérifiées sur ce fond-là — voisines dans la
+ * ses cinq couleurs ont été vérifiées sur ce fond-là — voisines dans la
  * pile, elles restent distinctes aux daltonismes —, pas sur les trente-quatre
- * fonds des thèmes, dont plusieurs sont clairs.
+ * fonds des thèmes, dont plusieurs sont clairs. Les joueurs s'y dressent en
+ * une seule série : empilés par mode, qui joue à deux modes aurait compté
+ * deux fois dans la hauteur ; leurs modes se lisent dans la légende. Les
+ * participations, elles, s'additionnent : leur pile se lit mode par mode.
  */
-function Participations({ vue, enPanne }: { vue: VueDEnsemble | null; enPanne: boolean }) {
+export function Participations({ vue, enPanne, depart = 'joueurs' }: { vue: VueDEnsemble | null; enPanne: boolean; depart?: CompteDuGraphe }) {
+  const [quoi, setQuoi] = useState<CompteDuGraphe>(depart)
   const [choisi, setChoisi] = useState<number | null>(null)
   const [tableau, setTableau] = useState(false)
   const jours = vue?.participations ?? []
   const lu = choisi !== null && jours[choisi] ? choisi : jours.length - 1
   const jour = jours[lu]
-  const vide = jours.every(j => totalDe(j) === 0)
+  const vide = jours.every(j => totalDe(j, 'participations') === 0)
+  const empile = quoi === 'participations'
   return (
     <section className="qg-carte qg-ecran qg-participations" aria-labelledby="qg-participations-titre">
       <div className="qg-carte-tete">
-        <h2 id="qg-participations-titre">Participations par jour</h2>
-        <span className="muted small">Un joueur compte une fois par mode et par jour · {jours.length || 30} jours</span>
+        <h2 id="qg-participations-titre">Jour par jour</h2>
+        <span className="muted small">
+          {REGLE_DU_COMPTE[quoi]} · {jours.length || 30} jours
+        </span>
+      </div>
+      <div className="onglets onglets-puces" role="group" aria-label="Ce que le graphique compte">
+        {COMPTES_DU_GRAPHE.map(q => (
+          <button key={q} type="button" className={'onglet' + (quoi === q ? ' actif' : '')} aria-pressed={quoi === q} onClick={() => setQuoi(q)}>
+            {NOM_DU_COMPTE[q]}
+          </button>
+        ))}
       </div>
       {!vue ? (
         <p className="serif-note">{enPanne ? 'La base permanente ne répond pas : la vue se relira toute seule.' : 'Chargement…'}</p>
@@ -267,20 +299,22 @@ function Participations({ vue, enPanne }: { vue: VueDEnsemble | null; enPanne: b
         <p className="muted small">Personne n’a joué ces trente derniers jours.</p>
       ) : (
         <>
-          <Graphe jours={jours} choisi={choisi} choisir={setChoisi} />
+          <Graphe jours={jours} quoi={quoi} choisi={choisi} choisir={setChoisi} />
           {jour && (
             <div className="qg-legende">
               <span className="qg-legende-jour">
-                {lu === jours.length - 1 ? 'Aujourd’hui' : jourEnToutesLettres(jour.jour)} · {participations(totalDe(jour))}
+                {lu === jours.length - 1 ? 'Aujourd’hui' : jourEnToutesLettres(jour.jour)} · {dire(totalDe(jour, quoi), quoi)}
               </span>
               <ul>
                 {MODES_DU_QG.map(m => (
                   <li key={m}>
-                    <i className={`qg-pastille-mode qg-mode-${m}`} aria-hidden="true" />
-                    {NOM_DU_MODE[m]} <b className="num">{formatNumber(jour.modes[m])}</b>
+                    {/* La pastille dit la couleur d'une pile : les joueurs n'en ont qu'une, la leur. */}
+                    {empile && <i className={`qg-pastille-mode qg-mode-${m}`} aria-hidden="true" />}
+                    {NOM_DU_MODE[m]} <b className="num">{formatNumber(parModeDe(jour, quoi)[m])}</b>
                   </li>
                 ))}
               </ul>
+              {!empile && <span className="muted small">Qui joue à plusieurs modes compte dans chacun, une fois dans le total.</span>}
             </div>
           )}
           {/* Rendu à l'ouverture seulement : replié, le tableau n'a pas à se construire. */}
@@ -288,6 +322,7 @@ function Participations({ vue, enPanne }: { vue: VueDEnsemble | null; enPanne: b
             <summary>Les chiffres, jour par jour</summary>
             {tableau && (
               <table>
+                <caption className="sr-only">{`${NOM_DU_COMPTE[quoi]} par jour et par mode`}</caption>
                 <thead>
                   <tr>
                     <th scope="col">Jour</th>
@@ -296,7 +331,7 @@ function Participations({ vue, enPanne }: { vue: VueDEnsemble | null; enPanne: b
                         {NOM_DU_MODE[m]}
                       </th>
                     ))}
-                    <th scope="col">Total</th>
+                    <th scope="col">Tous modes</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -305,10 +340,10 @@ function Participations({ vue, enPanne }: { vue: VueDEnsemble | null; enPanne: b
                       <th scope="row">{jourEnToutesLettres(j.jour)}</th>
                       {MODES_DU_QG.map(m => (
                         <td key={m} className="num">
-                          {formatNumber(j.modes[m])}
+                          {formatNumber(parModeDe(j, quoi)[m])}
                         </td>
                       ))}
-                      <td className="num">{formatNumber(totalDe(j))}</td>
+                      <td className="num">{formatNumber(totalDe(j, quoi))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -348,10 +383,20 @@ const MARGE = { gauche: 36, droite: 4, haut: 20, bas: 24 }
 /** Le filet du fond entre deux segments d'une barre : collées, deux couleurs voisines se fondaient. */
 const ECART = 2
 
-function Graphe({ jours, choisi, choisir }: { jours: ParticipationsDuJour[]; choisi: number | null; choisir: (i: number | null) => void }) {
+function Graphe({
+  jours,
+  quoi,
+  choisi,
+  choisir,
+}: {
+  jours: ParticipationsDuJour[]
+  quoi: CompteDuGraphe
+  choisi: number | null
+  choisir: (i: number | null) => void
+}) {
   const [boite, largeur] = useLargeur(640)
   const hauteur = Math.round(Math.min(240, Math.max(160, largeur * 0.3)))
-  const totaux = jours.map(totalDe)
+  const totaux = jours.map(j => totalDe(j, quoi))
   const crans = graduations(Math.max(...totaux))
   const sommet = crans[crans.length - 1] || 1
   const utile = { l: Math.max(1, largeur - MARGE.gauche - MARGE.droite), h: hauteur - MARGE.haut - MARGE.bas }
@@ -368,7 +413,7 @@ function Graphe({ jours, choisi, choisir }: { jours: ParticipationsDuJour[]; cho
   // Le total lu s'écrit au-dessus des barres qu'il enjambe : posé sur la sienne seule, il mordait sur une voisine plus haute.
   const enjambees = ancre(lu) === 'end' ? [lu - 2, lu - 1, lu] : ancre(lu) === 'start' ? [lu, lu + 1, lu + 2] : [lu - 1, lu, lu + 1]
   const dessusDuTotal = Math.max(...enjambees.map(i => totaux[i] ?? 0))
-  const resume = `Participations par jour et par mode, du ${jourEnToutesLettres(jours[0].jour, true)} à aujourd’hui : de ${formatNumber(Math.min(...totaux))} à ${formatNumber(Math.max(...totaux))} par jour, ${formatNumber(totaux[n - 1])} aujourd’hui.`
+  const resume = `${quoi === 'joueurs' ? 'Joueurs par jour, tous modes confondus' : 'Participations par jour et par mode'}, du ${jourEnToutesLettres(jours[0].jour, true)} à aujourd’hui : de ${formatNumber(Math.min(...totaux))} à ${formatNumber(Math.max(...totaux))} par jour, ${formatNumber(totaux[n - 1])} aujourd’hui.`
   return (
     <div ref={boite} className="qg-graphe">
       <svg viewBox={`0 0 ${largeur} ${hauteur}`} role="img" aria-label={resume} onPointerLeave={() => choisir(null)}>
@@ -394,19 +439,22 @@ function Graphe({ jours, choisi, choisir }: { jours: ParticipationsDuJour[]; cho
         </g>
         {jours.map((j, i) => {
           const x = xDe(i) + (pas - barre) / 2
-          const visibles = MODES_DU_QG.filter(m => j.modes[m] > 0)
-          const detail = visibles.map(m => `${NOM_DU_MODE[m].toLowerCase()} ${formatNumber(j.modes[m])}`).join(', ')
+          const parMode = parModeDe(j, quoi)
+          const visibles = MODES_DU_QG.filter(m => parMode[m] > 0)
+          const detail = visibles.map(m => `${NOM_DU_MODE[m].toLowerCase()} ${formatNumber(parMode[m])}`).join(', ')
+          // Les joueurs, une seule barre ; les participations, une pile par mode.
+          const segments = quoi === 'joueurs' ? (totaux[i] > 0 ? [{ cle: 'joueurs', classe: 'qg-joueurs', valeur: totaux[i] }] : []) : visibles.map(m => ({ cle: m, classe: `qg-mode-${m}`, valeur: parMode[m] }))
           let base = y(0)
           return (
             <g key={j.jour}>
-              <title>{`${jourEnToutesLettres(j.jour)} : ${participations(totaux[i])}${detail ? ` — ${detail}` : ''}`}</title>
-              {visibles.map((m, k) => {
-                const h = (j.modes[m] / sommet) * utile.h
+              <title>{`${jourEnToutesLettres(j.jour)} : ${dire(totaux[i], quoi)}${detail ? ` — ${detail}` : ''}`}</title>
+              {segments.map((s, k) => {
+                const h = (s.valeur / sommet) * utile.h
                 const haut = base - h
                 base = haut
-                if (k === visibles.length - 1) return <path key={m} className={`qg-mode-${m}`} d={barreArrondie(x, haut, barre, h)} />
+                if (k === segments.length - 1) return <path key={s.cle} className={s.classe} d={barreArrondie(x, haut, barre, h)} />
                 const visible = Math.max(0, h - ECART)
-                return <rect key={m} className={`qg-mode-${m}`} x={x} y={haut + h - visible} width={barre} height={visible} />
+                return <rect key={s.cle} className={s.classe} x={x} y={haut + h - visible} width={barre} height={visible} />
               })}
               {/* La cible du survol et du toucher : toute la hauteur, toute la largeur du jour. */}
               <rect className="qg-graphe-cible" x={xDe(i)} y={MARGE.haut} width={pas} height={utile.h} onPointerEnter={() => choisir(i)} onClick={() => choisir(i)} />

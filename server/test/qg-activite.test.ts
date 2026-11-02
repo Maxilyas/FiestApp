@@ -50,11 +50,13 @@ const maintenant = Date.UTC(2026, 9, 13, 19)
 const minuits = minuitsDeParis(maintenant, JOURS_DU_QG)
 const aujourdhui = minuits[minuits.length - 1] + 10 * H
 const hier = minuits[minuits.length - 2] + 10 * H
-// Léa ne fait que de la campagne, Zoé que le quiz du jour, Tom des duels et des soirées.
+// Léa ne fait que de la campagne, Zoé que le quiz du jour, Ana que le Cabinet, Tom des duels et des soirées.
 const SEULES: PartieSeule[] = [
   { qui: 'lea', quand: hier, mode: 'campagne', questions: 14 },
   { qui: 'lea', quand: aujourdhui, mode: 'campagne', questions: 9 },
   { qui: 'zoe', quand: aujourdhui, mode: 'jour', questions: 10 },
+  // Une partie du Cabinet : ses pièces jugées, sa série de campagne, mais son mode à lui (le 2 novembre 2026).
+  { qui: 'ana', quand: aujourdhui + 2 * H, mode: 'cabinet', questions: 6 },
   { qui: 'tom', quand: aujourdhui, mode: 'duel', questions: 12 },
   { qui: 'tom', quand: aujourdhui + H, mode: 'duel', questions: 8 },
   // Avant la période, et après maintenant : rien.
@@ -69,36 +71,46 @@ const DES_PROFILS: SoireeDUnProfil[] = [{ qui: 'tom', quand: hier + 11 * H, quiz
 test('les questions jouées et les parties, jour par jour et mode par mode, et ce que chaque profil a joué : des dérivations pures', () => {
   const parJour = activiteParJour(SEULES, SOIREES, minuits, maintenant)
   assert.equal(parJour.length, JOURS_DU_QG)
-  assert.deepEqual(parJour.at(-1), { jour: '2026-10-13', questions: { soiree: 0, campagne: 9, jour: 10, duel: 20 }, parties: { soiree: 0, campagne: 1, jour: 1, duel: 2 } })
+  assert.deepEqual(parJour.at(-1), {
+    jour: '2026-10-13',
+    questions: { soiree: 0, campagne: 9, cabinet: 6, jour: 10, duel: 20 },
+    parties: { soiree: 0, campagne: 1, cabinet: 1, jour: 1, duel: 2 },
+  })
   // La soirée compte ses quiz pour parties, et les questions de tous ses invités.
-  assert.deepEqual(parJour.at(-2), { jour: '2026-10-12', questions: { soiree: 180, campagne: 14, jour: 0, duel: 0 }, parties: { soiree: 2, campagne: 1, jour: 0, duel: 0 } })
+  assert.deepEqual(parJour.at(-2), {
+    jour: '2026-10-12',
+    questions: { soiree: 180, campagne: 14, cabinet: 0, jour: 0, duel: 0 },
+    parties: { soiree: 2, campagne: 1, cabinet: 0, jour: 0, duel: 0 },
+  })
   assert.deepEqual(parJour[0], { jour: '2026-09-14', questions: parModeVide(), parties: parModeVide() })
   // Les joueurs : des profils distincts seuls ; en soirée, chaque invité qui a joué, une fois par soirée.
   assert.deepEqual(totauxDeLActivite(SEULES, SOIREES, minuits, maintenant), {
-    questions: { soiree: 180, campagne: 23, jour: 10, duel: 20 },
-    parties: { soiree: 2, campagne: 2, jour: 1, duel: 2 },
-    joueurs: { soiree: 8, campagne: 1, jour: 1, duel: 1 },
+    questions: { soiree: 180, campagne: 23, cabinet: 6, jour: 10, duel: 20 },
+    parties: { soiree: 2, campagne: 2, cabinet: 1, jour: 1, duel: 2 },
+    joueurs: { soiree: 8, campagne: 1, cabinet: 1, jour: 1, duel: 1 },
     soirees: 1,
   })
 
   // Chaque profil, le plus assidu d'abord : Tom et ses quarante-quatre questions, ses soirées lues dans sa ligne d'expérience.
   const classes = activiteDesJoueurs(SEULES, DES_PROFILS, minuits, maintenant)
   assert.deepEqual(classes, [
-    { qui: 'tom', questions: { soiree: 24, campagne: 0, jour: 0, duel: 20 }, parties: { soiree: 2, campagne: 0, jour: 0, duel: 2 }, jours: 2 },
-    { qui: 'lea', questions: { soiree: 0, campagne: 23, jour: 0, duel: 0 }, parties: { soiree: 0, campagne: 2, jour: 0, duel: 0 }, jours: 2 },
-    { qui: 'zoe', questions: { soiree: 0, campagne: 0, jour: 10, duel: 0 }, parties: { soiree: 0, campagne: 0, jour: 1, duel: 0 }, jours: 1 },
+    { qui: 'tom', questions: { soiree: 24, campagne: 0, cabinet: 0, jour: 0, duel: 20 }, parties: { soiree: 2, campagne: 0, cabinet: 0, jour: 0, duel: 2 }, jours: 2 },
+    { qui: 'lea', questions: { soiree: 0, campagne: 23, cabinet: 0, jour: 0, duel: 0 }, parties: { soiree: 0, campagne: 2, cabinet: 0, jour: 0, duel: 0 }, jours: 2 },
+    { qui: 'zoe', questions: { soiree: 0, campagne: 0, cabinet: 0, jour: 10, duel: 0 }, parties: { soiree: 0, campagne: 0, cabinet: 0, jour: 1, duel: 0 }, jours: 1 },
+    { qui: 'ana', questions: { soiree: 0, campagne: 0, cabinet: 6, jour: 0, duel: 0 }, parties: { soiree: 0, campagne: 0, cabinet: 1, jour: 0, duel: 0 }, jours: 1 },
   ])
   // Sur quoi chacun s'acharne : le mode où il joue le plus, et sa part.
   assert.deepEqual(classes.map(modePrefere), [
     { mode: 'soiree', part: 55 },
     { mode: 'campagne', part: 100 },
     { mode: 'jour', part: 100 },
+    { mode: 'cabinet', part: 100 },
   ])
   assert.equal(modePrefere({ questions: parModeVide() }), null)
-  // Un seul par vue : le plus assidu de tous, puis le premier de chaque mode — Zoé n'est première qu'au quiz du jour, elle est là.
+  // Un seul par vue : le plus assidu de tous, puis le premier de chaque mode — Zoé n'est première qu'au quiz du jour, Ana qu'au Cabinet : elles sont là.
   assert.deepEqual(
     joueursAMontrer(classes, 1).map(a => a.qui),
-    ['tom', 'lea', 'zoe'],
+    ['tom', 'lea', 'zoe', 'ana'],
   )
   assert.deepEqual(
     joueursAMontrer(classes.slice(0, 2), 1).map(a => a.qui),
@@ -123,9 +135,10 @@ test('un vrai serveur : trente jours de questions jouées par mode, chaque profi
       const serie = db.prepare(
         `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode) VALUES (?, ?, '[]', ?, 0, 0, ?, NULL, ?)`,
       )
-      // Léa : une série et une épreuve hier, une partie du jour tantôt ; Tom : un duel contre Automate tantôt.
+      // Léa : une série et une épreuve hier, une partie du jour et une du Cabinet tantôt ; Tom : un duel contre Automate tantôt.
       serie.run(randomUUID(), lea, 14, veille, 'serie')
       serie.run(randomUUID(), lea, 16, veille + H, 'sentier')
+      serie.run(randomUUID(), lea, 6, tantot, 'cabinet')
       serie.run(randomUUID(), tom, 12, tantot, 'rencontre')
       db.prepare('INSERT INTO jour_parties (profile_id, jour, commencee_le, question, justes) VALUES (?, ?, ?, 10, 6)').run(lea, jourDe(tantot), tantot)
       // Une soirée d'hier soir, rangée avant le compte des questions jouées :
@@ -158,20 +171,20 @@ test('un vrai serveur : trente jours de questions jouées par mode, chaque profi
     const page = (await lire<PageDeLActivite>(banc, admin, '/api/admin/activite')).corps
     assert.equal(page.parJour.length, JOURS_DU_QG)
     assert.deepEqual(page.totaux, {
-      // Six questions posées en soirée : trois invités, deux chacun, une laissée au temps par chacun.
-      questions: { soiree: 6, campagne: 30, jour: 10, duel: 12 },
-      parties: { soiree: 1, campagne: 2, jour: 1, duel: 1 },
-      joueurs: { soiree: 3, campagne: 1, jour: 1, duel: 1 },
+      // Six questions posées en soirée : trois invités, deux chacun, une laissée au temps par chacun. La partie du Cabinet, à part de la campagne.
+      questions: { soiree: 6, campagne: 30, cabinet: 6, jour: 10, duel: 12 },
+      parties: { soiree: 1, campagne: 2, cabinet: 1, jour: 1, duel: 1 },
+      joueurs: { soiree: 3, campagne: 1, cabinet: 1, jour: 1, duel: 1 },
       soirees: 1,
     })
-    assert.deepEqual(page.parJour.at(-1)!.questions, { soiree: 0, campagne: 0, jour: 10, duel: 12 })
+    assert.deepEqual(page.parJour.at(-1)!.questions, { soiree: 0, campagne: 0, cabinet: 6, jour: 10, duel: 12 })
     // Chaque profil et ce qu'il a joué, le plus assidu d'abord ; Tom compte ses questions de la soirée.
     assert.equal(page.profilsActifs, 2)
     assert.deepEqual(
       page.joueurs.map(j => [j.nom, j.login, j.suspendu, j.questions, j.parties, j.jours]),
       [
-        ['Léa', 'lea', false, { soiree: 0, campagne: 30, jour: 10, duel: 0 }, { soiree: 0, campagne: 2, jour: 1, duel: 0 }, 2],
-        ['Tom', 'tom', false, { soiree: 2, campagne: 0, jour: 0, duel: 12 }, { soiree: 1, campagne: 0, jour: 0, duel: 1 }, 2],
+        ['Léa', 'lea', false, { soiree: 0, campagne: 30, cabinet: 6, jour: 10, duel: 0 }, { soiree: 0, campagne: 2, cabinet: 1, jour: 1, duel: 0 }, 2],
+        ['Tom', 'tom', false, { soiree: 2, campagne: 0, cabinet: 0, jour: 0, duel: 12 }, { soiree: 1, campagne: 0, cabinet: 0, jour: 0, duel: 1 }, 2],
       ],
     )
     // La fiche d'avant a appris ses questions jouées, une fois : la page suivante ne relit plus l'archive.
@@ -183,9 +196,13 @@ test('un vrai serveur : trente jours de questions jouées par mode, chaque profi
 
     // Sa fiche dit ses trente jours, mode par mode.
     const f = (await lire<FicheDuJoueur>(banc, admin, `/api/admin/profils/${lea}`)).corps
-    assert.deepEqual(f.activite, { questions: { soiree: 0, campagne: 30, jour: 10, duel: 0 }, parties: { soiree: 0, campagne: 2, jour: 1, duel: 0 }, jours: 2 })
+    assert.deepEqual(f.activite, {
+      questions: { soiree: 0, campagne: 30, cabinet: 6, jour: 10, duel: 0 },
+      parties: { soiree: 0, campagne: 2, cabinet: 1, jour: 1, duel: 0 },
+      jours: 2,
+    })
     const g = (await lire<FicheDuJoueur>(banc, admin, `/api/admin/profils/${tom}`)).corps
-    assert.deepEqual(g.activite?.questions, { soiree: 2, campagne: 0, jour: 0, duel: 12 })
+    assert.deepEqual(g.activite?.questions, { soiree: 2, campagne: 0, cabinet: 0, jour: 0, duel: 12 })
     // Réservée à l'administrateur.
     assert.equal((await fetch(`${banc.url}/api/admin/activite`)).status, 401)
   } finally {
@@ -198,29 +215,39 @@ test('la page de l’activité se lit d’un coup d’œil : trente jours en tou
   const { ActiviteAuQg } = await import(new URL('../../client/src/components/QgActivite.tsx', import.meta.url).href)
   const { renderToStaticMarkup } = await import('react-dom/server')
   const classes = activiteDesJoueurs(SEULES, DES_PROFILS, minuits, maintenant)
-  const noms: Record<string, string> = { tom: 'Tom', lea: 'Léa', zoe: 'Zoé' }
+  const noms: Record<string, string> = { tom: 'Tom', lea: 'Léa', zoe: 'Zoé', ana: 'Ana' }
   const page: PageDeLActivite = {
     maintenant,
     parJour: activiteParJour(SEULES, SOIREES, minuits, maintenant),
     totaux: totauxDeLActivite(SEULES, SOIREES, minuits, maintenant),
     joueurs: classes.map(a => ({ ...a, id: a.qui, nom: noms[a.qui], login: a.qui, suspendu: a.qui === 'zoe' })),
-    profilsActifs: 3,
+    profilsActifs: 4,
   }
   const html = sansInsecables(renderToStaticMarkup(React.createElement(ActiviteAuQg, { page })).replace(/<!-- -->/g, ''))
+  // Cinq modes, une tuile chacun, le Cabinet entre la campagne et le quiz du jour — l'ordre de leurs couleurs.
+  assert.deepEqual(
+    [...html.matchAll(/<b>(Soirées|Campagne|Cabinet|Quiz du jour|Duels)<\/b>/g)].map(m => m[1]),
+    ['Soirées', 'Campagne', 'Cabinet', 'Quiz du jour', 'Duels'],
+  )
   for (const attendu of [
     'Ces trente jours',
-    '233 questions jouées, tous modes confondus',
+    '239 questions jouées, tous modes confondus',
+    'qg-tuiles qg-tuiles-cinq',
     'questions · 2 quiz · 1 soirée, 8 invités',
     'questions · 2 parties · 1 joueur',
+    'questions · 1 partie · 1 joueur',
     'questions · 2 duels · 1 joueur',
     'Jour par jour',
     'Questions jouées',
     'Qui joue à quoi',
-    '3 profils actifs ces trente jours',
+    '4 profils actifs ces trente jours',
     // Tom : ses questions, ses jours, et sur quoi il s'acharne ; sa barre dit chaque mode au lecteur d'écran.
     '44 questions · 2 jours sur 30 · surtout les soirées, 55 %',
     'aria-label="Soirées : 24 questions, Duels : 20 questions"',
     '23 questions · 2 jours sur 30 · rien que la campagne',
+    // Ana ne joue qu'au Cabinet, sa barre à sa couleur.
+    '6 questions · 1 jour sur 30 · rien que le Cabinet',
+    'class="qg-mode-cabinet"',
     'suspendu',
   ]) {
     assert.ok(html.includes(attendu), `« ${attendu} » dans la page`)
