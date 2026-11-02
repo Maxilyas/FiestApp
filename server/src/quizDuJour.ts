@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 import express, { type Express, type NextFunction, type Request, type Response } from 'express'
-import type { JourStore } from './core/jour'
+import type { JourStore, PropositionLue } from './core/jour'
+import type { PropositionAuQg, PropositionsAuQg } from '../../shared/propositions'
 import type { RappelStore } from './core/rappels'
 import { idDeSession, type ProfileStore } from './auth/profiles'
 import { wrap } from './core/http'
@@ -184,6 +185,26 @@ export function mountJour(app: Express, deps: JourDeps & { rappels: RappelStore 
       const { jour, index, texte } = req.body ?? {}
       await deps.jour.signaler(profil, String(jour ?? ''), Number(index), texte)
       res.json({ ok: true })
+    }),
+  )
+
+  // Les questions du public (`shared/propositions.ts`) : où en sont les
+  // siennes (« Tes questions », sous la carte à écrire), et en proposer une
+  // au quiz du jour — le QG la relira.
+  app.get(
+    '/api/jour/propositions',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.jour.sesPropositions(profil.id))
+    }),
+  )
+
+  app.post(
+    '/api/jour/propositions',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.jour.proposer(profil, req.body))
     }),
   )
 }
@@ -462,6 +483,46 @@ export function mountJourAdmin(app: Express, deps: JourDeps & { rappels: Pick<Ra
       const { avant, apres } = await deps.jour.reclasser(String(req.body?.jour ?? ''), index, req.body?.classement)
       const q = await questionDuJour(req.body?.jour, index)
       noterLeGeste(res, { sorte: 'jour', resume: `Question du jour reclassée, ${classementAuJournal(avant, apres)} : ${q.cite}`, cible: q.reserveId })
+      res.json({ ok: true })
+    }),
+  )
+
+  // Les questions du public : celles à relire, celles relues ce mois-ci, la
+  // file des acceptées. Leurs auteurs nommés ici, d'un seul chargement,
+  // suspendus compris (`pourLAdministrateurDe`) ; un profil supprimé ne l'est plus.
+  app.get(
+    '/api/admin/jour/propositions',
+    requireAdmin,
+    wrap(async (_req, res) => {
+      const lues = await deps.jour.propositionsAuQg()
+      const profils = await deps.profiles.pourLAdministrateurDe([...new Set([...lues.aRelire, ...lues.relues].map(p => p.auteurId))])
+      const parId = new Map(profils.map(p => [p.id, { id: p.id, nom: p.name, login: p.login }]))
+      const nommer = ({ auteurId, ...p }: PropositionLue): PropositionAuQg => ({ ...p, auteur: parId.get(auteurId) ?? null })
+      const page: PropositionsAuQg = { aRelire: lues.aRelire.map(nommer), relues: lues.relues.map(nommer), enAttente: lues.enAttente }
+      res.json(page)
+    }),
+  )
+
+  // L'accepter — telle que l'administrateur l'a retouchée, sa catégorie et son anecdote données — : elle rejoint la réserve, signée.
+  app.post(
+    '/api/admin/jour/propositions/:id/accepter',
+    requireAdmin,
+    wrap(async (req, res) => {
+      const acceptee = await deps.jour.accepterLaProposition(req.params.id, req.body?.question)
+      if (!acceptee) return res.status(404).json({ error: 'Cette question proposée n’existe plus' })
+      noterLeGeste(res, { sorte: 'jour', resume: `Question du public acceptée au quiz du jour : « ${extrait(acceptee.texte)} »`, cible: acceptee.auteurId })
+      res.json({ ok: true })
+    }),
+  )
+
+  // La refuser, en disant pourquoi : le joueur le lit sur son accueil.
+  app.post(
+    '/api/admin/jour/propositions/:id/refuser',
+    requireAdmin,
+    wrap(async (req, res) => {
+      const refusee = await deps.jour.refuserLaProposition(req.params.id, req.body?.motif)
+      if (!refusee) return res.status(404).json({ error: 'Cette question proposée n’existe plus' })
+      noterLeGeste(res, { sorte: 'jour', resume: `Question du public refusée : « ${extrait(refusee.texte)} »`, cible: refusee.auteurId })
       res.json({ ok: true })
     }),
   )

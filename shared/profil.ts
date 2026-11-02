@@ -1032,6 +1032,21 @@ export type AnnonceDeLAdministrateur =
   | { id: string; sorte: 'prenom'; nom: string; le: number }
   | { id: string; sorte: 'merci'; mode: 'jour' | 'campagne'; issue: IssueQuiSert; question: string; le: number }
   | { id: string; sorte: 'annonce'; message: string; confettis: number; le: number; question?: QuestionAPoser }
+  | { id: string; sorte: 'proposition'; issue: IssueDUneProposition; question: string; motif: string | null; le: number }
+
+/**
+ * Ce que le QG a fait d'une question qu'il a proposée au quiz du jour
+ * (`shared/propositions.ts`), qu'on lui dit sur son accueil : acceptée, puis
+ * posée — le jour où elle se joue —, ou pas retenue, et pourquoi.
+ */
+export type IssueDUneProposition = 'acceptee' | 'posee' | 'refusee'
+
+/** La carte d'une question qu'il a proposée : un titre, puis la phrase, sous « Ta question ». */
+export function phraseDeLaProposition(a: { issue: IssueDUneProposition; question: string; motif: string | null }): { titre: string; phrase: string } {
+  if (a.issue === 'posee') return { titre: 'Ta question est au quiz du jour !', phrase: `« ${a.question} » se joue, signée de ton nom.` }
+  if (a.issue === 'acceptee') return { titre: 'Ta question est acceptée !', phrase: `« ${a.question} » passera bientôt au quiz du jour, signée de ton nom.` }
+  return { titre: 'Ta question n’a pas été retenue', phrase: `« ${a.question} »${a.motif ? ` : ${a.motif.replace(/[.!]$/, '')}` : ''}. Tu peux en proposer une autre.` }
+}
 
 /** Combien de temps une annonce attend sa prochaine visite : un mois, puis elle se tait. */
 export const ANNONCE_MS = 30 * 24 * 3_600_000

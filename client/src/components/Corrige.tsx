@@ -8,10 +8,12 @@ import { espacesFines } from '../format'
 // rien de lourd : le quiz du jour le charge.
 
 /** Ce qu'est devenue une question corrigée, en un mot : sa marque le dit au lecteur d'écran. */
-export type Verdict = 'Juste' | 'Faux' | 'Sans réponse' | 'Annulée'
+export type Verdict = 'Juste' | 'Faux' | 'Sans réponse' | 'Annulée' | 'Ta question'
 
-export function verdictDe(q: { juste: boolean; choix: number | null; annulee?: boolean }): Verdict {
+export function verdictDe(q: { juste: boolean; choix: number | null; annulee?: boolean; tienne?: true }): Verdict {
   if (q.annulee) return 'Annulée'
+  // Sa propre question, au quiz du jour : il ne l'a pas jouée, elle lui a compté sa moyenne — ni juste, ni sans réponse.
+  if (q.tienne) return 'Ta question'
   if (q.juste) return 'Juste'
   // Sans choix : la question laissée au temps, la réponse arrivée après la
   // fin, ou la partie arrêtée avant.
@@ -19,11 +21,12 @@ export function verdictDe(q: { juste: boolean; choix: number | null; annulee?: b
 }
 
 /** La marque de chaque verdict : sa couleur, son dessin — un tiret pour ce qui ne compte pas. */
-const MARQUES: Record<Verdict, { classe: string; icone: 'check' | 'x' | 'clock' | null }> = {
+const MARQUES: Record<Verdict, { classe: string; icone: 'check' | 'x' | 'clock' | 'edit' | null }> = {
   Juste: { classe: 'ok', icone: 'check' },
   Faux: { classe: 'ko', icone: 'x' },
   'Sans réponse': { classe: 'sans', icone: 'clock' },
   Annulée: { classe: 'annulee', icone: null },
+  'Ta question': { classe: 'ok', icone: 'edit' },
 }
 
 /**

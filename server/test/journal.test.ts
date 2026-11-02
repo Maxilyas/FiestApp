@@ -113,6 +113,13 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     ok(await faire(banc, admin, '/api/admin/jour/reclasser', { jour, index: 3, classement: { categorie: CATEGORIES.find(c => c !== categorie) } }), 'reclasser au quiz du jour')
     const prochaines = (await lire<{ id: string }[]>(banc, admin, '/api/admin/jour/prochaines')).corps
     ok(await faire(banc, admin, '/api/admin/jour/retirer', { reserveId: prochaines[0].id }), 'retirer du jour')
+    // Les questions du public : Léa en propose deux, l'une acceptée, l'autre refusée.
+    const duPublic = (n: number) => ({ texte: `Quelle est la question numéro ${n} du public ?`, reponses: [`A${n}`, `B${n}`, `C${n}`, `D${n}`], bonne: 0 })
+    ok(await faire(banc, lea, '/api/jour/propositions', duPublic(1)), 'proposer une question')
+    ok(await faire(banc, lea, '/api/jour/propositions', duPublic(2)), 'proposer une autre question')
+    const [premiere, seconde] = (await lire(banc, admin, '/api/admin/jour/propositions')).corps.aRelire as { id: string }[]
+    ok(await faire(banc, admin, `/api/admin/jour/propositions/${premiere.id}/accepter`, { question: { ...duPublic(1), categorie: 'Histoire', anecdote: '' } }), 'accepter une question du public')
+    ok(await faire(banc, admin, `/api/admin/jour/propositions/${seconde.id}/refuser`, { motif: 'Sa réponse se discute' }), 'refuser une question du public')
     ok(await faire(banc, admin, '/api/admin/jour/masquer', { profileId: idLea, masque: true }), 'masquer')
 
     // Les duels : Ana défie Max et finit son duel — il part à Max, qui ne le commence pas ; le QG l'annule.
@@ -283,6 +290,8 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       // L'anecdote seule : le jour qui l'a posée la prend aussi.
       /^Question du jour corrigée, le jour qui l’a posée compris : « .+ »$/,
       /^Question du jour reclassée, .+ → .+ : « .+ »$/,
+      /^Question du public acceptée au quiz du jour : « Quelle est la question numéro 1 du public \? »$/,
+      /^Question du public refusée : « Quelle est la question numéro 2 du public \? »$/,
       /^Question de la campagne reclassée, Histoire › .+ · difficulté 5 → Géographie › .+ · difficulté 2 : « Question d.essai numéro 4 : laquelle est la bonne \? »$/,
       /^Épreuve de sentier libérée, sans coûter de vie : Léa \(@lea\) — .+, palier 1$/,
       // À combien de profils : ceux du banc à cet instant, sans s'accorder à aucun prénom.

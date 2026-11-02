@@ -7072,6 +7072,19 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .plume-conseil { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0; color: var(--muted); font-size: 0.92rem; text-align: center; }
 .plume-conseil .icon { flex: none; color: var(--accent-text); }
 .plume-conseil-prete { color: var(--accent-text); font-weight: 600; }
+/* « Tes questions », sous la carte : une ligne chacune, sa pastille d'abord — où elle en est, d'un coup d'œil. */
+.plume-tes-questions { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.plume-tes-questions ul { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.plume-tienne { display: flex; align-items: baseline; gap: 8px; font-size: 0.9rem; line-height: 1.3; }
+.plume-tienne-texte { display: flex; flex-direction: column; min-width: 0; overflow-wrap: break-word; }
+.plume-tienne-texte small { color: var(--muted); font-size: 0.8rem; }
+.pill.plume-statut { flex: none; font-size: 0.72rem; }
+.pill.plume-statut-acceptee,
+.pill.plume-statut-posee { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text-hover); }
+.pill.plume-statut-refusee { color: var(--muted); }
+/* Sa propre question, à la révélation : la plume à la place du verdict. */
+.plume-tienne-icone { color: var(--accent-text); }
+.plume-tienne-icone .plume-icone { width: 34px; height: 34px; }
 
 /* ── Signaler : la question elle-même, à toucher ─────────────────────────
    La feuille est la question telle qu'on vient de la jouer
@@ -14602,6 +14615,11 @@ span.annonce-admin-merci { cursor: default; }
 .signalement-reponses .icon { flex: none; width: 14px; height: 14px; color: var(--accent-text); }
 .signalement-reponses .signalement-juste { border-color: color-mix(in srgb, var(--accent) 65%, transparent); font-weight: 600; }
 .signalement-marques { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+/* Une question du public à accepter ou à refuser (`QgQuestionsDuPublic.tsx`) : ses champs dépliés sous sa carte. */
+.qg-proposition-forme { display: flex; flex-direction: column; gap: 8px; }
+.qg-proposition-reponse { display: flex; align-items: center; gap: 10px; }
+.qg-proposition-reponse input[type='radio'] { flex: none; width: 20px; height: 20px; margin: 0; accent-color: var(--accent); }
+.qg-motifs { display: flex; flex-wrap: wrap; gap: 6px; }
 /* « Annuler aussi ses points pour tous », sous une correction du quiz du jour : la case à la taille d'un doigt, sa phrase à côté. */
 .correction-question > .correction-annuler { flex-direction: row; align-items: flex-start; gap: 10px; cursor: pointer; }
 .correction-annuler input { flex: none; width: 20px; height: 20px; margin: 1px 0 0; }

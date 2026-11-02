@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Feuille } from './Pieces'
 import { Icon } from './Icon'
@@ -6,7 +6,9 @@ import { Shape } from './Shape'
 import { Avatar, type AvatarAPlat } from './Avatar'
 import { espacesFines } from '../format'
 import { showToast } from '../state'
+import { api, motifDe } from '../api'
 import { sonAvatar } from '../../../shared/sonAvatar'
+import { QUESTION_DU_PUBLIC_MAX, REPONSE_DU_PUBLIC_MAX, conseilDeLaProposition, type PropositionDuJoueur, type StatutDUneProposition } from '../../../shared/propositions'
 import type { PublicProfile } from '../../../shared/profil'
 
 // La plume : l'invitation à proposer une question, là où l'on joue.
@@ -20,13 +22,6 @@ import type { PublicProfile } from '../../../shared/profil'
 // c'est le geste, une fois : la plume se trace à l'arrivée, puis l'encre
 // souligne ce qu'elle propose — le mouvement au bon moment, et rien si le
 // système en demande moins (`styles.css`, « La plume »).
-
-/**
- * Les bonnes réponses qui valent l'invitation, au quiz du jour comme au
- * défi : après un beau résultat, « écris la tienne » se lit comme un
- * compliment ; après un mauvais, comme une leçon. Un choix de produit.
- */
-export const JUSTES_POUR_LA_PLUME = 7
 
 /**
  * Au trait des icônes de l'application : une plume. Chaque tracé a la
@@ -97,32 +92,39 @@ function FeuilleDeLaPlume({ profil, onFermer }: { profil?: PublicProfile | null;
   return createPortal(<CarteAEcrire profil={profil} onFermer={onFermer} />, document.body)
 }
 
-/** Une question tient sur l'écran d'un téléphone ; une réponse, sur un bouton. */
-const QUESTION_MAX = 200
-const REPONSE_MAX = 60
-
-/** Sans article ni casse : « La Loire » et « loire » sont la même réponse. */
-const sansArticle = (x: string) => x.trim().toLowerCase().replace(/^(les |le |la |l’|l')/, '')
+/** Où en est chacune de ses questions, en un mot sur sa pastille. */
+const STATUT: Record<StatutDUneProposition, string> = {
+  'en-relecture': 'En relecture',
+  acceptee: 'Acceptée',
+  refusee: 'Pas retenue',
+  posee: 'Jouée',
+}
 
 /**
- * Ce qui manque encore, en une phrase — la première qui compte —, ou rien :
- * la carte se lit d'abord, le conseil ne dit que le prochain geste.
+ * Ses questions déjà proposées, sous la carte : une ligne chacune, sa
+ * pastille d'abord — on sait d'un coup d'œil où elles en sont, sans une page
+ * de plus. Le refus dit son motif dessous ; rien sans question proposée.
  */
-function conseilDeLaCarte(question: string, reponses: string[], bonne: number | null): string | null {
-  const t = question.trim()
-  const reps = reponses.map(r => r.trim())
-  const manquent = reps.filter(r => !r).length
-  if (!t) return 'Écris ta question, puis ses quatre réponses.'
-  if (t.length < 15) return 'Un peu courte : précise-la.'
-  if (!t.endsWith('?')) return 'Finis-la par un point d’interrogation.'
-  if (/\p{Extended_Pictographic}/u.test(t + reps.join(''))) return 'Sans emoji : certains écrans ne l’affichent pas.'
-  if (manquent === 4) return 'À toi : ses quatre réponses.'
-  if (manquent > 0) return manquent === 1 ? 'Encore une réponse.' : `Encore ${manquent} réponses.`
-  if (new Set(reps.map(sansArticle)).size < reps.length) return 'Deux réponses sont pareilles.'
-  if (bonne === null) return 'Touche une forme : c’est la bonne réponse.'
-  const juste = sansArticle(reps[bonne])
-  if (juste.length >= 3 && t.toLowerCase().includes(juste)) return 'Ta réponse se lit dans la question.'
-  return null
+function TesQuestions({ propositions }: { propositions: PropositionDuJoueur[] }) {
+  if (propositions.length === 0) return null
+  return (
+    <section className="plume-tes-questions" aria-labelledby="plume-tes-questions-titre">
+      <h3 className="label" id="plume-tes-questions-titre">
+        Tes questions
+      </h3>
+      <ul>
+        {propositions.map(p => (
+          <li key={p.id} className="plume-tienne">
+            <span className={`pill plume-statut plume-statut-${p.statut}`}>{STATUT[p.statut]}</span>
+            <span className="plume-tienne-texte">
+              {espacesFines(p.texte)}
+              {p.statut === 'refusee' && p.motif && <small>{espacesFines(p.motif)}</small>}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
 }
 
 /**
@@ -137,24 +139,43 @@ function CarteAEcrire({ profil, onFermer }: { profil?: PublicProfile | null; onF
   const [question, setQuestion] = useState('')
   const [reponses, setReponses] = useState(['', '', '', ''])
   const [bonne, setBonne] = useState<number | null>(null)
-  const conseil = conseilDeLaCarte(question, reponses, bonne)
+  const [envoi, setEnvoi] = useState(false)
+  const [erreur, setErreur] = useState<string | null>(null)
+  const [propositions, setPropositions] = useState<PropositionDuJoueur[]>([])
+  // Les siennes, lues à l'ouverture : la feuille s'ouvre sans les attendre, et une lecture ratée ne dit rien.
+  useEffect(() => {
+    let vivante = true
+    api.jour
+      .propositions()
+      .then(lues => vivante && setPropositions(lues))
+      .catch(() => {})
+    return () => {
+      vivante = false
+    }
+  }, [])
+  const conseil = conseilDeLaProposition(question, reponses, bonne)
   const prete = conseil === null
+  const envoyer = async () => {
+    if (!prete || bonne === null || envoi) return
+    setEnvoi(true)
+    setErreur(null)
+    try {
+      await api.jour.proposer({ texte: question, reponses, bonne })
+      showToast({ kind: 'info', message: 'Envoyée : ton accueil te dira la suite' })
+      onFermer()
+    } catch (e) {
+      // Le serveur relit avec les mêmes règles ; son refus se dit dans la feuille, qui reste ouverte.
+      setErreur(motifDe(e))
+      setEnvoi(false)
+    }
+  }
   return (
     <Feuille
       titre="Ta question"
       onFermer={onFermer}
       className="plume-feuille"
       pied={
-        <button
-          type="button"
-          className="btn btn-primary btn-block"
-          disabled={!prete}
-          onClick={() => {
-            // La relecture n'est pas encore branchée : la maquette s'arrête là.
-            showToast({ kind: 'info', message: 'Bientôt : l’envoi en relecture' })
-            onFermer()
-          }}
-        >
+        <button type="button" className="btn btn-primary btn-block" disabled={!prete || envoi} onClick={() => void envoyer()}>
           <IconePlume />
           Envoyer en relecture
         </button>
@@ -165,7 +186,7 @@ function CarteAEcrire({ profil, onFermer }: { profil?: PublicProfile | null; onF
         <textarea
           className="plume-carte-question"
           rows={3}
-          maxLength={QUESTION_MAX}
+          maxLength={QUESTION_DU_PUBLIC_MAX}
           value={question}
           placeholder="Écris ta question…"
           aria-label="Ta question"
@@ -185,7 +206,7 @@ function CarteAEcrire({ profil, onFermer }: { profil?: PublicProfile | null; onF
               <input
                 className="plume-carte-champ"
                 value={r}
-                maxLength={REPONSE_MAX}
+                maxLength={REPONSE_DU_PUBLIC_MAX}
                 placeholder={bonne === i ? 'La bonne' : 'Réponse'}
                 aria-label={`Réponse ${i + 1}`}
                 onChange={e => setReponses(rs => rs.map((x, j) => (j === i ? e.target.value : x)))}
@@ -205,6 +226,12 @@ function CarteAEcrire({ profil, onFermer }: { profil?: PublicProfile | null; onF
         {/* Une ligne : sur deux, son dernier mot restait seul au milieu. */}
         {espacesFines(conseil ?? 'Prête : elle part en relecture.')}
       </p>
+      {erreur && (
+        <p className="error" role="alert">
+          {erreur}
+        </p>
+      )}
+      <TesQuestions propositions={propositions} />
     </Feuille>
   )
 }

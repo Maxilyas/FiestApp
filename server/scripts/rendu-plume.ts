@@ -7,9 +7,11 @@
 // la plume au pied de sa fin. Sous le thème qu'on veut (`THEME=ivoire`). Le
 // client construit d'abord (`npm run build -w client`).
 //
-// Le serveur ne dit pas encore qui a écrit une question : le script glisse
-// l'auteur dans la révélation de la troisième, au passage (`page.route`),
-// avec la question de la maquette — la danse en file, de Camille.
+// Le circuit entier, par les vraies routes : Camille propose sa question — la
+// danse en file —, l'administrateur la relit au QG et l'accepte, retouchée
+// d'une anecdote ; elle passe au quiz du jour, que Léa joue, signée ; puis
+// Camille joue le sien : sa question se montre sans se jouer, et son accueil
+// lui dit qu'elle est au quiz du jour.
 //
 //   [THEME=ivoire] npx tsx scripts/rendu-plume.ts [dossier]
 import { createRequire } from 'node:module'
@@ -17,7 +19,7 @@ import { spawnSync } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 import path from 'node:path'
 import Database from 'better-sqlite3'
-import { baseDEssai, demarrer, ecrire, inscrireProfil } from '../test/banc'
+import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil } from '../test/banc'
 import { ProfileStore } from '../src/auth/profiles'
 import { CATEGORIES } from '../../shared/categories'
 
@@ -81,24 +83,37 @@ try {
     if (Number(l) > 360) console.warn(`[déborde] ${ou} : ${l} px de large`)
   }
 
-  // La révélation de la troisième question se signe : Camille l'a écrite.
-  await page.route('**/api/jour/repondre', async (route: any) => {
-    const reponse = await route.fetch()
-    const r = await reponse.json()
-    if (r.index === 2) {
-      Object.assign(r, {
-        auteur: { nom: 'Camille', avatar: '🦉' },
-        texte: 'Quelle danse de fête fait-on en file, chacun les mains sur les épaules de celui de devant ?',
-        reponses: ['Le madison', 'La chenille', 'La farandole', 'La macarena'],
-        bonne: 1,
-        choix: r.juste ? 1 : 0,
-        // Une coquille, que le signalement corrigera dans le texte même.
-        anecdote: 'Elle a même sa chanson, « La Chenille », un tube de la Bande à Basille.',
-        trouveePar: 0.72,
-      })
-    }
-    await route.fulfill({ response: reponse, json: r })
-  })
+  // 0. Camille propose sa question ; l'administrateur la relit au QG, au téléphone, et l'accepte.
+  const camille = await inscrireProfil(banc.url, 'camille', 'Camille', '🦉')
+  const CHENILLE = {
+    texte: 'Quelle danse de fête fait-on en file, chacun les mains sur les épaules de celui de devant ?',
+    reponses: ['Le madison', 'La chenille', 'La farandole', 'La macarena'],
+    bonne: 1,
+  }
+  const proposee = await ecrire(banc.url, '/api/jour/propositions', CHENILLE, camille)
+  if (!proposee.ok) throw new Error(`proposition refusée (${proposee.status})`)
+  const admin = await connexionAnimateur(banc.url)
+  const auQg = await navigateur.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2, hasTouch: true })
+  const [nomAdmin, valeurAdmin] = admin.split('=')
+  await auQg.addCookies([{ name: nomAdmin, value: valeurAdmin, url: banc.url }])
+  const qg = await auQg.newPage()
+  qg.on('pageerror', (e: Error) => console.error('[qg]', e.message))
+  await qg.goto(`${banc.url}/admin#jour`)
+  await qg.waitForSelector('text=Les questions du public')
+  await qg.locator('article', { hasText: 'Question du public' }).first().scrollIntoViewIfNeeded()
+  await qg.waitForTimeout(500)
+  await qg.screenshot({ path: path.join(sortie, '00-qg-a-relire.png') })
+  console.log(path.join(sortie, '00-qg-a-relire.png'))
+  await qg.locator('article', { hasText: 'Question du public' }).locator('button', { hasText: 'Accepter' }).tap()
+  await qg.locator('article select').selectOption('Autour de la fête')
+  // Une coquille dans l'anecdote, que le signalement corrigera dans le texte même.
+  await qg.locator('article textarea').nth(1).fill('Elle a même sa chanson, « La Chenille », un tube de la Bande à Basille.')
+  await qg.waitForTimeout(300)
+  await qg.locator('article', { hasText: 'Question du public' }).screenshot({ path: path.join(sortie, '00-qg-accepter.png') })
+  console.log(path.join(sortie, '00-qg-accepter.png'))
+  await qg.locator('button', { hasText: 'Ajouter au quiz du jour' }).tap()
+  await qg.waitForSelector('text=Rien à relire')
+  await auQg.close()
 
   // 1. Le quiz du jour : chaque question juste, sauf la cinquième — neuf sur dix.
   await page.goto(`${banc.url}/jour`)
@@ -108,11 +123,14 @@ try {
   const tirage = (() => {
     const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
     try {
-      return JSON.parse((db.prepare('SELECT questions FROM jour_tirages ORDER BY jour DESC LIMIT 1').get() as { questions: string }).questions) as { bonne: number }[]
+      return JSON.parse((db.prepare('SELECT questions FROM jour_tirages ORDER BY jour DESC LIMIT 1').get() as { questions: string }).questions) as { bonne: number; auteur?: string }[]
     } finally {
       db.close()
     }
   })()
+  // Sa place, tirée avec le jour : la question de Camille, mélangée parmi les autres.
+  const k = tirage.findIndex(q => q.auteur)
+  if (k < 0) throw new Error('la question de Camille n’est pas au quiz du jour')
   for (let i = 0; i < tirage.length; i++) {
     await page.waitForSelector('.ans-btn, .fin-tete', { timeout: 15000 })
     if (await page.locator('.fin-tete').count()) break
@@ -123,7 +141,7 @@ try {
       await page.locator('.ans-btn').nth(choix).click({ timeout: 2000 }).catch(() => {})
     }
     await page.waitForSelector('.result-banner')
-    if (i === 2) {
+    if (i === k) {
       // La question du public : sa signature, au pied de son anecdote.
       await photo('01-jour-question-du-public')
       await photo('02-jour-question-du-public-entiere', { pleine: true })
@@ -213,6 +231,39 @@ try {
   await photo('13-defi-fin', { attente: 200 })
   await photo('14-defi-fin-entiere', { pleine: true, attente: 200 })
   await largeur('la fin du défi')
+
+  // 4. Camille joue le sien : sa question se montre sans se jouer ; puis son accueil le lui dit.
+  const chezCamille = await navigateur.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2, hasTouch: true })
+  const [nomC, valeurC] = camille.split('=')
+  await chezCamille.addCookies([{ name: nomC, value: valeurC, url: banc.url }])
+  const pc = await chezCamille.newPage()
+  pc.on('pageerror', (e: Error) => console.error('[camille]', e.message))
+  await pc.goto(`${banc.url}/jour`)
+  await pc.waitForSelector('.jour-heros')
+  await pc.locator('.jour-heros .btn-primary').click()
+  for (let n = 0; n <= k; n++) {
+    await pc.waitForTimeout(700)
+    if (await pc.locator('.plume-tienne-icone').count()) {
+      await pc.waitForTimeout(600)
+      await pc.screenshot({ path: path.join(sortie, '15-camille-ta-question.png') })
+      console.log(path.join(sortie, '15-camille-ta-question.png'))
+      break
+    }
+    // Une autre question : une réponse, la première venue, puis la suivante.
+    for (let essai = 0; essai < 30 && !(await pc.locator('.result-banner').count()); essai++) {
+      await pc.waitForTimeout(400)
+      await pc.locator('.ans-btn').first().click({ timeout: 2000 }).catch(() => {})
+    }
+    if (await pc.locator('.plume-tienne-icone').count()) continue
+    await pc.waitForTimeout(500)
+    await pc.locator('.btn-primary.btn-big').click()
+  }
+  await pc.goto(`${banc.url}/`)
+  await pc.waitForSelector('.annonce-admin', { timeout: 15000 })
+  await pc.waitForTimeout(600)
+  await pc.screenshot({ path: path.join(sortie, '16-camille-accueil.png') })
+  console.log(path.join(sortie, '16-camille-accueil.png'))
+  await chezCamille.close()
 } finally {
   await navigateur.close()
   await banc.close()

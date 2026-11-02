@@ -19,7 +19,8 @@ import { Rank, Score, motPoints } from '../components/Rank'
 import { Shape } from '../components/Shape'
 import { Corrige, verdictDe } from '../components/Corrige'
 import { SignalerLaQuestion } from '../components/SignalerLaQuestion'
-import { JUSTES_POUR_LA_PLUME, LaPlume, SignatureDuPublic } from '../components/LaPlume'
+import { IconePlume, LaPlume, SignatureDuPublic } from '../components/LaPlume'
+import { JUSTES_POUR_LA_PLUME } from '../../../shared/propositions'
 import { NoteDuJour, Serie, ontGagneHier } from '../components/Jour'
 import { EclatTombe, LegendaireOuvert, Medaillon } from '../components/Ouverts'
 import { APorter, CeQueTuGagnes, LigneDeTrophee, MissionsAccomplies, NouveauxTrophees, emojisAPorter, niveauDe } from '../components/Gains'
@@ -436,9 +437,12 @@ export function JourApp() {
         >
           {revelation.derniere ? 'Voir mon résultat' : 'Question suivante'}
         </button>
-        <button className="lien-signaler link-inline small" aria-haspopup="dialog" onClick={() => setASignaler(revelation)}>
-          Signaler une erreur dans cette question
-        </button>
+        {/* Sa propre question ne se signale pas : il ne l'a pas jouée, et le serveur ne prend un signalement que d'une réponse. */}
+        {!revelation.tienne && (
+          <button className="lien-signaler link-inline small" aria-haspopup="dialog" onClick={() => setASignaler(revelation)}>
+            Signaler une erreur dans cette question
+          </button>
+        )}
         {aSignaler && (
           <SignalerLaQuestion
             question={{ texte: aSignaler.texte, reponses: aSignaler.reponses, bonne: aSignaler.bonne, anecdote: aSignaler.anecdote, categorie: null }}
@@ -679,7 +683,7 @@ function Revelation({ r, profil }: { r: RevelationDuJour; profil: PublicProfile 
           Question {r.index + 1} / {r.total}
         </span>
         {/* La question d'un joueur se dit dans la barre qui est déjà là : pas une ligne de plus. */}
-        {r.auteur && <span className="pill plume-du-public">Question du public</span>}
+        {(r.auteur || r.tienne) && <span className="pill plume-du-public">{r.tienne ? 'Ta question' : 'Question du public'}</span>}
       </div>
       {/* La question, rappelée : « La bonne réponse : Faux » ne dit rien sans elle. */}
       <p className="jour-rappel">{espacesFines(r.texte)}</p>
@@ -687,6 +691,15 @@ function Revelation({ r, profil }: { r: RevelationDuJour; profil: PublicProfile 
         <NicheALaRevelation cle={`jour:${r.index}`} reaction={reaction} />
         {r.annulee ? (
           <p>Question annulée : elle ne compte pour personne.</p>
+        ) : r.tienne ? (
+          // Sa propre question passe aujourd'hui : il ne la joue pas, il la voit telle que les autres la jouent.
+          <>
+            <span className="result-icon plume-tienne-icone">
+              <IconePlume />
+            </span>
+            <p>Ta question est au quiz du jour !</p>
+            <p className="muted small">Tu ne la joues pas : elle te compte ta moyenne sur les autres.</p>
+          </>
         ) : r.tropTard ? (
           <>
             <span className="result-icon">
@@ -1402,7 +1415,7 @@ export function QuestionsCorrigees({ questions }: { questions: CorrectionDuJour[
             key={i}
             verdict={verdict}
             tete={`Question ${i + 1}${q.categorie ? ` · ${q.categorie}` : ''}`}
-            points={verdict !== 'Annulée' && <span className="corrige-points">{verdict === 'Juste' ? `+${pts(q.points)}` : pts(q.points)}</span>}
+            points={verdict !== 'Annulée' && <span className="corrige-points">{verdict === 'Juste' || verdict === 'Ta question' ? `+${pts(q.points)}` : pts(q.points)}</span>}
             texte={q.texte}
             reponses={q.reponses}
             bonne={q.bonne}
@@ -1411,6 +1424,10 @@ export function QuestionsCorrigees({ questions }: { questions: CorrectionDuJour[
             <div className="corrige-pied muted small">
               {verdict === 'Annulée' ? (
                 <p>Annulée : elle ne compte pour personne.</p>
+              ) : verdict === 'Ta question' ? (
+                <p>
+                  <Icon name="edit" /> Ta question : elle t’a compté ta moyenne sur les autres
+                </p>
               ) : verdict === 'Sans réponse' ? (
                 // Une ligne sans choix : la question laissée au temps, ou la
                 // réponse arrivée après la fin ; pas de ligne : la partie

@@ -341,7 +341,7 @@ export function mountQg(app: Express, deps: QgDeps) {
     const maintenant = deps.maintenant()
     const minuits = minuitsDeParis(maintenant, JOURS_DU_QG)
     const depuis = minuits[0]
-    const [{ parties, series, activite }, soirees, reserve, signalementsDuJour, signalementsDeLaCampagne, aRelire, serveur] = await Promise.all([
+    const [{ parties, series, activite }, soirees, reserve, signalementsDuJour, signalementsDeLaCampagne, aRelire, serveur, propositions] = await Promise.all([
       lesTrenteJours(minuits),
       lesSoireesDepuis(depuis),
       deps.jour.avanceDeLaReserve(),
@@ -349,6 +349,7 @@ export function mountQg(app: Express, deps: QgDeps) {
       deps.campagne.signalementsATraiter(),
       deps.partages.catalogue('propose'),
       deps.sante.alertes(memoireDuProcessus()),
+      deps.jour.propositionsATraiter(),
     ])
 
     const solo: { quand: number; qui: string; mode: Exclude<ModeDuQg, 'soiree'> }[] = [
@@ -381,6 +382,7 @@ export function mountQg(app: Express, deps: QgDeps) {
         signalementsDuJour,
         signalementsDeLaCampagne,
         catalogue: aRelire.length,
+        propositions,
         rappel: bilan && { jour: bilan.jour, envoyes: bilan.envoyes, echecs: bilan.echecs },
         routine: { jour: reserve.dernierDepotIa, campagne: deps.campagne.santeDeLaBase().dernierApport },
         serveur,
