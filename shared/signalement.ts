@@ -67,11 +67,13 @@ export interface Changement {
 }
 
 /**
- * Ce qui change d'un texte à l'autre, mot à mot : le début et la fin
- * communs écartés, il reste le passage récrit. Une coquille corrigée se lit
- * « Suise → Suisse », pas comme deux phrases entières à comparer de l'œil.
+ * Un texte récrit, découpé mot à mot : ce qui ne bouge pas devant et
+ * derrière, et entre les deux ce qui part et ce qui vient. La feuille le
+ * montre dans le texte même — « … en ~~Suise~~ **Suisse**, au glacier… » —
+ * plutôt que deux phrases entières à comparer de l'œil. Null : rien n'a
+ * changé, aux espaces près.
  */
-export function ecartDesMots(avant: string, apres: string): { enleve: string; ajoute: string } | null {
+export function decoupage(avant: string, apres: string): { debut: string; enleve: string; ajoute: string; fin: string } | null {
   const a = avant.trim().split(/\s+/).filter(Boolean)
   const b = apres.trim().split(/\s+/).filter(Boolean)
   let debut = 0
@@ -80,7 +82,14 @@ export function ecartDesMots(avant: string, apres: string): { enleve: string; aj
   while (fin < a.length - debut && fin < b.length - debut && a[a.length - 1 - fin] === b[b.length - 1 - fin]) fin++
   const enleve = a.slice(debut, a.length - fin).join(' ')
   const ajoute = b.slice(debut, b.length - fin).join(' ')
-  return enleve || ajoute ? { enleve, ajoute } : null
+  if (!enleve && !ajoute) return null
+  return { debut: a.slice(0, debut).join(' '), enleve, ajoute, fin: a.slice(a.length - fin).join(' ') }
+}
+
+/** Ce qui change d'un texte à l'autre, mot à mot : « Suise → Suisse ». */
+export function ecartDesMots(avant: string, apres: string): { enleve: string; ajoute: string } | null {
+  const d = decoupage(avant, apres)
+  return d && { enleve: d.enleve, ajoute: d.ajoute }
 }
 
 /** Ce que la proposition change vraiment, point par point, dans l'ordre où le QG les relit. */

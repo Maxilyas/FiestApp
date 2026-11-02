@@ -407,11 +407,12 @@ export interface RevelationDuJour {
   /** C'était la dernière. */
   derniere: boolean
   /**
-   * Le prénom du joueur qui l'a proposée, quand il l'a signée : la question
-   * du public se signe au pied de son anecdote (`SignatureDuPublic`). Le
-   * serveur ne le dit pas encore — les questions de joueurs arrivent.
+   * Le joueur qui l'a proposée, quand il l'a signée : son prénom et ce qu'il
+   * porte — la question du public se signe de son visage, au pied de son
+   * anecdote (`SignatureDuPublic`). Le serveur ne le dit pas encore — les
+   * questions de joueurs arrivent.
    */
-  auteur?: string
+  auteur?: { nom: string; avatar: string } & ApparenceDeLAvatar
 }
 
 /** Une ligne du classement du jour, du mois : ce que la salle verrait d'un profil. */

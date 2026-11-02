@@ -7038,53 +7038,81 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 /* Serrée : sa ligne ne doit pas pousser « Question suivante » sous le bord d'un téléphone de 640. */
 .anecdote-du-public { display: flex; flex-direction: column; gap: 2px; padding: 14px 18px 6px; }
 .plume-signature { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.plume-de { font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 1.15rem; line-height: 1.15; }
+.plume-de { display: inline-flex; align-items: center; gap: 8px; min-width: 0; font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 1.15rem; line-height: 1.15; }
+.plume-de .av { flex: none; font-size: 1.45rem; font-style: normal; }
 /* Un lien du pied de carte, comme « Signaler une erreur » : moins haut qu'un bouton plein. */
 .plume-ecrire { display: inline-flex; align-items: center; gap: 6px; flex: none; min-height: 34px; padding: 0; border: 0; background: none; color: var(--accent-text); font-family: var(--sans); font-size: 0.9rem; font-weight: 600; cursor: pointer; }
 .plume-ecrire .plume-icone { width: 20px; height: 20px; }
 .pill.plume-du-public { color: var(--accent-text); border-color: var(--edge-strong); }
-.plume-verifications { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: 0.9rem; }
-.plume-verifications li { display: flex; align-items: center; gap: 8px; }
-.plume-ok { color: var(--muted); }
-.plume-ok .icon { color: var(--accent-text); }
-.plume-ko { font-weight: 600; }
-.plume-ko .icon { color: var(--alert); }
+/* « Ta question » : la carte du jeu, à écrire (`CarteAEcrire`, `LaPlume.tsx`).
+   Sa place de question en serif, ses quatre réponses aux formes du quiz ; la
+   forme touchée porte la coche de la bonne, et la carte prend son filet d'or
+   quand elle est prête. Un conseil d'une ligne, rien d'autre à lire. */
+.plume-carte { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; padding: 16px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); transition: border-color 0.3s ease; }
+.plume-carte-prete { border-color: var(--accent); }
+.plume-carte-question { width: 100%; padding: 2px 0 8px; border: 0; border-bottom: 1px dashed var(--edge-strong); border-radius: 0; background: none; color: var(--ink); font-family: var(--serif); font-size: 1.55rem; font-weight: 600; line-height: 1.15; resize: none; }
+.plume-carte-question::placeholder { color: var(--muted); font-style: italic; font-weight: 500; opacity: 0.85; }
+.plume-carte-reponses { width: 100%; gap: 8px; }
+.plume-carte-reponse { min-height: 52px; gap: 6px; padding: 6px 8px 6px 5px; animation: none; cursor: text; }
+.plume-carte-forme { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; flex: none; padding: 0; border: 1.5px dashed var(--edge-strong); border-radius: 50%; background: none; cursor: pointer; }
+.plume-carte-forme[aria-pressed='true'] { border-style: solid; border-color: var(--accent); }
+.plume-carte-forme .ans-shape { width: 16px; height: 16px; }
+.plume-carte-coche { position: absolute; right: -4px; bottom: -4px; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--on-accent); animation: plume-coche 0.3s ease-out; }
+.plume-carte-coche .icon { width: 12px; height: 12px; }
+@keyframes plume-coche { from { transform: scale(0); } }
+.plume-carte-champ { flex: 1; min-width: 0; width: 100%; padding: 6px 2px; border: 0; background: none; color: var(--ink); font-family: var(--sans); font-size: 0.92rem; }
+.plume-carte-champ::placeholder { color: var(--muted); opacity: 0.85; }
+.plume-carte-signature { display: flex; align-items: center; gap: 8px; font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 1.1rem; color: var(--muted); }
+.plume-carte-signature .av { font-size: 1.5rem; }
+.plume-conseil { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0; color: var(--muted); font-size: 0.92rem; text-align: center; }
+.plume-conseil .icon { flex: none; color: var(--accent-text); }
+.plume-conseil-prete { color: var(--accent-text); font-weight: 600; }
 
-/* ── Signaler en plusieurs points ────────────────────────────────────────
-   On coche ce qui cloche, chaque point s'ouvre à sa place, et la feuille
-   tient le compte de ce qui change (`SignalerLaQuestion.tsx`). Sa hauteur
-   est fixe : les blocs qui s'ouvrent et se ferment sous le doigt ne la font
-   pas sauter. */
+/* ── Signaler : la question elle-même, à toucher ─────────────────────────
+   La feuille est la question telle qu'on vient de la jouer
+   (`SignalerLaQuestion.tsx`) : on touche la bonne réponse — la coche s'y
+   déplace —, on touche un texte — son pointillé dit qu'il se corrige — et la
+   correction se lit dans la phrase même, ce qui part barré, ce qui vient en
+   or ; la difficulté et la catégorie sont des pastilles. Sa hauteur est
+   fixe : ce qui s'ouvre sous le doigt ne la fait pas sauter. */
 .carte-feuille.signaler-feuille,
 .carte-feuille.plume-feuille { height: 88%; }
-.signaler-cases { display: flex; flex-direction: column; gap: 8px; }
-.signaler-case { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 10px 14px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface); color: inherit; font: inherit; text-align: left; cursor: pointer; }
-.signaler-case[aria-checked='true'] { border-color: var(--accent); background: var(--accent-soft); }
-.signaler-coche { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; flex: none; border: 1.5px solid var(--edge-strong); border-radius: 6px; color: var(--on-accent); }
-.signaler-case[aria-checked='true'] .signaler-coche { border-color: var(--accent); background: var(--accent); }
-.signaler-coche .icon { width: 14px; height: 14px; }
-.signaler-case-texte { display: flex; flex-direction: column; gap: 1px; }
-.signaler-case-texte b { font-weight: 600; }
-.signaler-case-texte span { color: var(--muted); font-size: 0.82rem; }
-.signaler-retour { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; min-height: 36px; }
-.signaler-bloc { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface); }
-.signaler-bloc-tete { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.signaler-bloc-tete h3 { font-family: var(--sans); font-size: 0.95rem; font-weight: 700; }
-.signaler-retirer { min-height: 36px; padding: 0 0 0 12px; border: 0; background: none; color: var(--muted); font-family: var(--sans); font-size: 0.82rem; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
-.signaler-reponses { display: flex; flex-direction: column; gap: 6px; }
-.signaler-reponse { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid var(--edge); border-radius: var(--radius-xs); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-.signaler-reponse[aria-checked='true'] { border-color: var(--accent); background: var(--accent-soft); }
-.signaler-reponse[aria-checked='true'] > .icon { color: var(--accent-text-hover); }
-.signaler-donnee { margin-left: auto; color: var(--muted); font-size: 0.82rem; }
-.signaler-crans { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-.signaler-cran { min-height: 44px; padding: 4px; border: 1px solid var(--edge); border-radius: var(--radius-xs); background: transparent; color: inherit; font-family: var(--sans); font-size: 0.85rem; cursor: pointer; }
-.signaler-cran[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text-hover); font-weight: 600; }
-.signaler-ajouts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.signaler-ajout { min-height: 36px; padding: 0 14px; border: 1px dashed var(--edge-strong); border-radius: var(--radius-pill); background: none; color: var(--accent-text); font-family: var(--sans); font-size: 0.85rem; cursor: pointer; }
-.signaler-recap { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: var(--radius-sm); background: var(--surface-strong); }
-.signaler-recap p { font-size: 0.92rem; }
-.signaler-recap s { color: var(--alert); }
-.signaler-recap b { color: var(--accent-text); }
+.signaler-carte { display: flex; flex-direction: column; gap: 12px; padding: 14px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); }
+.signaler-touchable { display: flex; align-items: flex-start; gap: 8px; width: 100%; padding: 8px 10px; border: 1px dashed var(--edge); border-radius: var(--radius-xs); background: none; color: var(--ink); font-family: var(--sans); text-align: left; cursor: pointer; }
+.signaler-touchable:hover { border-color: var(--edge-strong); }
+.signaler-corrige { border-style: solid; border-color: var(--accent); }
+.signaler-texte { flex: 1; min-width: 0; }
+.signaler-question .signaler-texte,
+textarea.signaler-question { font-family: var(--serif); font-size: 1.35rem; font-weight: 600; line-height: 1.2; }
+.signaler-anecdote { font-size: 0.95rem; line-height: 1.35; }
+.signaler-anecdote > .icon:first-child { flex: none; margin-top: 2px; color: var(--accent-text); }
+textarea.signaler-anecdote { font-family: var(--sans); }
+.signaler-crayon { flex: none; width: 16px; height: 16px; margin-top: 3px; color: var(--muted); }
+.signaler-corrige .signaler-crayon { color: var(--accent-text); }
+.signaler-texte s { color: var(--alert); text-decoration-thickness: 2px; }
+.signaler-texte b { color: var(--accent-text); font-weight: 700; }
+/* Le champ prend la taille de son texte, là où le navigateur le sait : quitté, il redevient le texte corrigé sans que la pastille d'en dessous ne saute sous le doigt. */
+.signaler-en-edition { border-color: var(--accent); field-sizing: content; }
+.signaler-reponses { gap: 8px; }
+.signaler-reponse { min-height: 52px; gap: 10px; padding: 8px 12px; font-size: 0.95rem; animation: none; }
+.signaler-ancienne .ans-text { color: var(--muted); text-decoration: line-through; }
+.signaler-coche { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; flex: none; border-radius: 50%; background: var(--accent); color: var(--on-accent); animation: plume-coche 0.3s ease-out; }
+.signaler-coche .icon { width: 13px; height: 13px; }
+.signaler-pastilles { display: flex; flex-wrap: wrap; gap: 8px; }
+.signaler-pastille { position: relative; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border: 1px solid var(--edge); border-radius: var(--radius-pill); background: var(--surface); color: var(--ink); font-family: var(--sans); font-size: 0.88rem; cursor: pointer; }
+.signaler-pastille .icon { width: 18px; height: 18px; color: var(--accent-text); }
+.signaler-pastille[aria-pressed='true'],
+.signaler-choisie { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text-hover); font-weight: 600; }
+.signaler-pastille[aria-pressed='true'] .icon,
+.signaler-choisie .icon { color: var(--accent-text-hover); }
+/* La liste de la catégorie, invisible, couvre sa pastille : le toucher ouvre celle du téléphone. */
+.signaler-categorie select { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; }
+.signaler-jauge rect { fill: none; stroke: currentColor; stroke-width: 1.6; }
+.signaler-jauge .signaler-barre-pleine { fill: currentColor; }
+@media (prefers-reduced-motion: reduce) {
+  .plume-carte-coche,
+  .signaler-coche { animation: none; }
+}
 .jour-ligne { display: flex; align-items: center; gap: 12px; }
 .jour-ligne > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .jour-ligne h2 { font-size: 1.8rem; margin: 0; font-variant-numeric: lining-nums; }

@@ -1,34 +1,26 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Feuille } from './Pieces'
 import { Icon } from './Icon'
 import { Shape } from './Shape'
+import { EMBLEME } from './Ecusson'
 import { espacesFines } from '../format'
 import { CATEGORIES } from '../../../shared/categories'
-import { changementsProposes, texteDuSignalement, type Proposition, type QuestionSignalee } from '../../../shared/signalement'
-
-/** Ce qu'on peut cocher : chaque point ouvre son bloc, dans cet ordre — celui où le QG les relit. */
-type Point = 'bonne' | 'texte' | 'classement' | 'autre'
-
-const POINTS: { point: Point; titre: string; aide: string }[] = [
-  { point: 'bonne', titre: 'La bonne réponse est fausse', aide: 'Tu sais laquelle est juste' },
-  { point: 'texte', titre: 'Il y a une faute', aide: 'Dans la question ou l’anecdote' },
-  { point: 'classement', titre: 'Elle est mal classée', aide: 'Trop facile, trop dure, pas la bonne catégorie' },
-  { point: 'autre', titre: 'Autre chose', aide: 'Dis-le en une phrase' },
-]
-
-const NOM_DU_BLOC: Record<Point, string> = { bonne: 'La bonne réponse', texte: 'Le texte', classement: 'Le classement', autre: 'Autre chose' }
+import { changementsProposes, decoupage, texteDuSignalement, type Proposition, type QuestionSignalee } from '../../../shared/signalement'
 
 /**
- * Signaler une erreur, en plusieurs points d'un coup (`shared/signalement.ts`).
- * Une seule phrase libre ne disait qu'un défaut à la fois : on coche ce qui
- * cloche, chaque point s'ouvre à sa place — choisir la bonne réponse,
- * corriger le texte là où il est écrit, dire la difficulté —, la feuille
- * tient le compte de ce qui change, et tout part d'un seul envoi.
+ * Signaler une erreur, en touchant ce qui cloche (`shared/signalement.ts`).
+ * La feuille est la question elle-même, telle qu'on vient de la jouer : on
+ * touche la bonne réponse et la coche s'y déplace ; on touche le texte et on
+ * le corrige sur place — le mot fautif barré, le nouveau en or, dans la
+ * phrase ; la difficulté et la catégorie sont des pastilles. Ni case à
+ * cocher, ni formulaire à remplir : une liste de cases et ses explications
+ * faisaient un mur de texte (le retour du propriétaire du 2 novembre 2026 :
+ * « trop de texte, pas assez vivant, il faut que ce soit plus visuel »).
  *
- * Deux temps dans la même feuille, sa hauteur fixe : les blocs qui s'ouvrent
- * et se ferment sous le doigt ne la font pas sauter. Rien ne part tant que
- * rien ne change, et ce qui part se compose ici (`texteDuSignalement`) : le
- * serveur ne reçoit encore qu'une phrase.
+ * Tout part d'un seul envoi : ce qui part se compose ici
+ * (`texteDuSignalement`), le serveur ne reçoit encore qu'une phrase. La
+ * feuille garde sa hauteur : ce qui s'ouvre sous le doigt ne la fait pas
+ * sauter.
  */
 export function SignalerLaQuestion({
   question: q,
@@ -40,30 +32,29 @@ export function SignalerLaQuestion({
   onEnvoyer: (texte: string) => Promise<void>
   onFermer: () => void
 }) {
-  const [etape, setEtape] = useState<'quoi' | 'corriger'>('quoi')
-  const [coches, setCoches] = useState<Point[]>([])
   const [bonne, setBonne] = useState(q.bonne)
   const [texte, setTexte] = useState(q.texte)
   const [anecdote, setAnecdote] = useState(q.anecdote ?? '')
   const [difficulte, setDifficulte] = useState<Proposition['difficulte']>(undefined)
   const [categorie, setCategorie] = useState(q.categorie ?? '')
-  const [autre, setAutre] = useState('')
+  const [autre, setAutre] = useState<string | null>(null)
   const [preuve, setPreuve] = useState('')
+  const [edition, setEdition] = useState<'texte' | 'anecdote' | null>(null)
   const [envoi, setEnvoi] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
 
-  const coche = (p: Point) => coches.includes(p)
-  const basculer = (p: Point) => setCoches(cs => (cs.includes(p) ? cs.filter(c => c !== p) : POINTS.map(x => x.point).filter(x => x === p || cs.includes(x))))
-  // Seuls les blocs ouverts comptent : un bloc retiré garde ce qu'on y a écrit, sans l'envoyer.
   const proposition: Proposition = {
-    ...(coche('bonne') && { bonne }),
-    ...(coche('texte') && { texte, ...(q.anecdote !== null && { anecdote }) }),
-    ...(coche('classement') && { difficulte, ...(categorie && { categorie }) }),
-    ...(coche('autre') && { autre }),
+    bonne,
+    texte,
+    ...(q.anecdote !== null && { anecdote }),
+    difficulte,
+    ...(categorie && { categorie }),
+    ...(autre !== null && { autre }),
     preuve,
   }
-  const changements = changementsProposes(q, proposition)
-  const n = changements.length
+  const n = changementsProposes(q, proposition).length
+  // Une pastille de difficulté se touche une fois pour la choisir, une seconde pour la retirer.
+  const basculerDifficulte = (d: NonNullable<Proposition['difficulte']>) => setDifficulte(actuelle => (actuelle === d ? undefined : d))
 
   const envoyer = async () => {
     const phrase = texteDuSignalement(q, proposition)
@@ -78,176 +69,170 @@ export function SignalerLaQuestion({
     }
   }
 
-  if (etape === 'quoi') {
-    return (
-      <Feuille
-        titre="Signaler une erreur"
-        onFermer={onFermer}
-        className="signaler-feuille"
-        pied={
-          <button type="button" className="btn btn-primary btn-block" disabled={coches.length === 0} onClick={() => setEtape('corriger')}>
-            {coches.length === 0 ? 'Coche au moins une case' : coches.length === 1 ? 'Corriger ce point' : `Corriger ces ${coches.length} points`}
-          </button>
-        }
-      >
-        <p className="muted">{espacesFines('Coche tout ce qui cloche : tu corrigeras tout sur la même page. L’administrateur relit chaque signalement.')}</p>
-        <div className="signaler-cases" role="group" aria-label="Ce qui ne va pas">
-          {POINTS.map(({ point, titre, aide }) => (
-            <button key={point} type="button" role="checkbox" aria-checked={coche(point)} className="signaler-case" onClick={() => basculer(point)}>
-              <span className="signaler-coche" aria-hidden="true">
-                {coche(point) && <Icon name="check" />}
-              </span>
-              <span className="signaler-case-texte">
-                <b>{titre}</b>
-                <span>{aide}</span>
-              </span>
-            </button>
-          ))}
-        </div>
-      </Feuille>
-    )
-  }
-
-  const ajouts = POINTS.filter(p => !coche(p.point))
   return (
     <Feuille
-      titre="Corrige ce qui cloche"
+      titre="Qu’est-ce qui cloche ?"
       onFermer={onFermer}
       className="signaler-feuille"
       pied={
         <button type="button" className="btn btn-primary btn-block" disabled={n === 0 || envoi} onClick={() => void envoyer()}>
-          {n === 0 ? 'Rien ne change encore' : n === 1 ? 'Envoyer ma correction' : `Envoyer mes ${n} corrections`}
+          {n === 0 ? 'Touche ce qui ne va pas' : n === 1 ? 'Envoyer ma correction' : `Envoyer mes ${n} corrections`}
         </button>
       }
     >
-      <button type="button" className="link-inline signaler-retour" onClick={() => setEtape('quoi')}>
-        <Icon name="arrow-left" />
-        Ce qui ne va pas
-      </button>
-
-      {coche('bonne') && (
-        <section className="signaler-bloc" aria-labelledby="signaler-bonne">
-          <BlocTete id="signaler-bonne" nom={NOM_DU_BLOC.bonne} onRetirer={() => basculer('bonne')} />
-          <div role="radiogroup" aria-labelledby="signaler-bonne" className="signaler-reponses">
-            {q.reponses.map((r, i) => (
-              <button key={i} type="button" role="radio" aria-checked={bonne === i} className="signaler-reponse" onClick={() => setBonne(i)}>
-                <Shape index={i} inline />
-                <span>{espacesFines(r)}</span>
-                {i === q.bonne && <span className="signaler-donnee">donnée juste</span>}
-                {bonne === i && <Icon name="check" />}
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {coche('texte') && (
-        <section className="signaler-bloc" aria-labelledby="signaler-texte">
-          <BlocTete id="signaler-texte" nom={NOM_DU_BLOC.texte} onRetirer={() => basculer('texte')} />
-          <label className="field">
-            <span className="label">La question</span>
-            <textarea className="input" rows={2} value={texte} onChange={e => setTexte(e.target.value)} />
-          </label>
-          {q.anecdote !== null && (
-            <label className="field">
-              <span className="label">Le saviez-vous ?</span>
-              <textarea className="input" rows={3} value={anecdote} onChange={e => setAnecdote(e.target.value)} />
-            </label>
-          )}
-        </section>
-      )}
-
-      {coche('classement') && (
-        <section className="signaler-bloc" aria-labelledby="signaler-classement">
-          <BlocTete id="signaler-classement" nom={NOM_DU_BLOC.classement} onRetirer={() => basculer('classement')} />
-          {q.marche && <p className="muted small">{espacesFines(`Ici, elle compte pour une ${q.marche}.`)}</p>}
-          <div className="signaler-crans" role="group" aria-label="Sa difficulté, d’après toi">
-            {(
-              [
-                [undefined, 'Bien classée'],
-                ['trop-facile', 'Trop facile'],
-                ['trop-dure', 'Trop dure'],
-              ] as const
-            ).map(([d, nom]) => (
-              <button key={nom} type="button" className="signaler-cran" aria-pressed={difficulte === d} onClick={() => setDifficulte(d)}>
-                {nom}
-              </button>
-            ))}
-          </div>
-          <label className="field">
-            <span className="label">Sa catégorie</span>
-            <select className="input" value={categorie} onChange={e => setCategorie(e.target.value)}>
-              {!q.categorie && <option value="">Je ne sais pas</option>}
-              {CATEGORIES.map(c => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </label>
-        </section>
-      )}
-
-      {coche('autre') && (
-        <section className="signaler-bloc" aria-labelledby="signaler-autre">
-          <BlocTete id="signaler-autre" nom={NOM_DU_BLOC.autre} onRetirer={() => basculer('autre')} />
-          <textarea className="input" rows={2} value={autre} placeholder="Dis-le en une phrase" aria-label="Autre chose" onChange={e => setAutre(e.target.value)} />
-        </section>
-      )}
-
-      {ajouts.length > 0 && (
-        <div className="signaler-ajouts">
-          <span className="muted small">{espacesFines('Corriger aussi :')}</span>
-          {ajouts.map(p => (
-            <button key={p.point} type="button" className="signaler-ajout" onClick={() => basculer(p.point)}>
-              + {NOM_DU_BLOC[p.point]}
+      <div className="signaler-carte">
+        <TexteATouche
+          nom="la question"
+          avant={q.texte}
+          valeur={texte}
+          enEdition={edition === 'texte'}
+          onEditer={() => setEdition('texte')}
+          onFini={() => setEdition(null)}
+          onChange={setTexte}
+          className="signaler-question"
+        />
+        <div className="ans-grid signaler-reponses" role="radiogroup" aria-label="La bonne réponse">
+          {q.reponses.map((r, i) => (
+            <button
+              key={i}
+              type="button"
+              role="radio"
+              aria-checked={bonne === i}
+              className={'ans-btn signaler-reponse' + (bonne === i ? ' chosen' : '') + (i === q.bonne && bonne !== i ? ' signaler-ancienne' : '')}
+              onClick={() => setBonne(i)}
+            >
+              <Shape index={i} />
+              <span className="ans-text">{espacesFines(r)}</span>
+              {bonne === i && (
+                <span className="signaler-coche" aria-hidden="true">
+                  <Icon name="check" />
+                </span>
+              )}
             </button>
           ))}
         </div>
-      )}
-
-      <label className="field">
-        <span className="label">Comment le sais-tu ? (facultatif)</span>
-        <textarea className="input" rows={2} value={preuve} placeholder="Un lien, un livre, un souvenir précis…" onChange={e => setPreuve(e.target.value)} />
-      </label>
-
-      <div className="signaler-recap" role="status" aria-live="polite">
-        <span className="label">{n === 0 ? 'Ce qui change' : `Ce qui change · ${n}`}</span>
-        {n === 0 ? (
-          <p className="muted small">{espacesFines('Rien pour l’instant : corrige ce qui ne va pas au-dessus.')}</p>
-        ) : (
-          changements.map(c => (
-            <p key={c.ou}>
-              <span className="muted">{espacesFines(`${c.ou} :`)}</span>{' '}
-              {c.avant === null ? (
-                <b>{espacesFines(c.apres)}</b>
-              ) : (
-                <>
-                  {c.avant && <s>{espacesFines(c.avant)}</s>} → <b>{espacesFines(c.apres)}</b>
-                </>
-              )}
-            </p>
-          ))
+        {q.anecdote !== null && (
+          <TexteATouche
+            nom="l’anecdote"
+            avant={q.anecdote}
+            valeur={anecdote}
+            enEdition={edition === 'anecdote'}
+            onEditer={() => setEdition('anecdote')}
+            onFini={() => setEdition(null)}
+            onChange={setAnecdote}
+            className="signaler-anecdote"
+            icone="message"
+          />
         )}
       </div>
+
+      <div className="signaler-pastilles">
+        <button type="button" className="signaler-pastille" aria-pressed={difficulte === 'trop-facile'} onClick={() => basculerDifficulte('trop-facile')}>
+          <Jauge pleines={1} />
+          Trop facile
+        </button>
+        <button type="button" className="signaler-pastille" aria-pressed={difficulte === 'trop-dure'} onClick={() => basculerDifficulte('trop-dure')}>
+          <Jauge pleines={3} />
+          Trop dure
+        </button>
+        {/* La catégorie : la pastille montre la sienne, la liste du téléphone s'ouvre au toucher. */}
+        <label className={'signaler-pastille signaler-categorie' + (categorie && categorie !== q.categorie ? ' signaler-choisie' : '')}>
+          <Icon name={EMBLEME[categorie] ?? 'hash'} />
+          {categorie || 'Catégorie'}
+          <select value={categorie} aria-label="Sa catégorie" onChange={e => setCategorie(e.target.value)}>
+            {!q.categorie && <option value="">Je ne sais pas</option>}
+            {CATEGORIES.map(c => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="button" className="signaler-pastille" aria-pressed={autre !== null} onClick={() => setAutre(a => (a === null ? '' : null))}>
+          <Icon name="message" />
+          Autre
+        </button>
+      </div>
+
+      {autre !== null && (
+        <input className="input" value={autre} placeholder="Dis-le en une phrase" aria-label="Autre chose" onChange={e => setAutre(e.target.value)} />
+      )}
+      {/* La source ne se demande qu'une correction faite : avant, ce serait un champ de plus à lire. */}
+      {n > 0 && (
+        <input className="input" value={preuve} placeholder="Ta source ? Un lien, un livre… (facultatif)" aria-label="Ta source" onChange={e => setPreuve(e.target.value)} />
+      )}
       {erreur && (
         <p className="error" role="alert">
           {erreur}
         </p>
       )}
-      <p className="muted small center">Rien ne change avant la relecture.</p>
     </Feuille>
   )
 }
 
-/** La tête d'un bloc : ce qu'il corrige, et de quoi le retirer — il redevient une case à ajouter. */
-function BlocTete({ id, nom, onRetirer }: { id: string; nom: string; onRetirer: () => void }) {
+/**
+ * Un texte de la question qui se corrige sur place : touché, il devient un
+ * champ ; quitté, il se relit corrigé — ce qui part barré, ce qui vient en
+ * or, au milieu de la phrase qui ne bouge pas.
+ */
+function TexteATouche({
+  nom,
+  avant,
+  valeur,
+  enEdition,
+  onEditer,
+  onFini,
+  onChange,
+  className,
+  icone,
+}: {
+  nom: string
+  avant: string
+  valeur: string
+  enEdition: boolean
+  onEditer: () => void
+  onFini: () => void
+  onChange: (v: string) => void
+  className: string
+  icone?: 'message'
+}) {
+  const champ = useRef<HTMLTextAreaElement>(null)
+  // Le champ prend le doigt qui l'a ouvert : on corrige d'un seul toucher.
+  useEffect(() => {
+    if (enEdition) champ.current?.focus()
+  }, [enEdition])
+  const d = decoupage(avant, valeur)
+  if (enEdition) {
+    return <textarea ref={champ} className={`input ${className} signaler-en-edition`} rows={3} value={valeur} aria-label={`Corriger ${nom}`} onChange={e => onChange(e.target.value)} onBlur={onFini} />
+  }
   return (
-    <div className="signaler-bloc-tete">
-      <h3 id={id}>{nom}</h3>
-      <button type="button" className="signaler-retirer" onClick={onRetirer}>
-        Retirer
-      </button>
-    </div>
+    <button type="button" className={`${className} signaler-touchable` + (d ? ' signaler-corrige' : '')} aria-label={`Corriger ${nom}`} onClick={onEditer}>
+      {icone && <Icon name={icone} />}
+      <span className="signaler-texte">
+        {d ? (
+          <>
+            {d.debut && `${espacesFines(d.debut)} `}
+            {d.enleve && <s>{espacesFines(d.enleve)}</s>}
+            {d.enleve && d.ajoute && ' '}
+            {d.ajoute && <b>{espacesFines(d.ajoute)}</b>}
+            {d.fin && ` ${espacesFines(d.fin)}`}
+          </>
+        ) : (
+          espacesFines(avant)
+        )}
+      </span>
+      <Icon name="edit" className="signaler-crayon" />
+    </button>
+  )
+}
+
+/** Trois barres de difficulté, au trait des icônes : une pleine pour « facile », trois pour « dure ». */
+function Jauge({ pleines }: { pleines: number }) {
+  return (
+    <svg className="icon signaler-jauge" viewBox="0 0 24 24" aria-hidden="true">
+      {[0, 1, 2].map(i => (
+        <rect key={i} x={4 + i * 6} y={16 - i * 5} width={4} height={4 + i * 5} rx={1} className={i < pleines ? 'signaler-barre-pleine' : undefined} />
+      ))}
+    </svg>
   )
 }

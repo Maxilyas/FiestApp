@@ -424,7 +424,7 @@ export function JourApp() {
     return (
       <div className="player-shell">
         {bandeau(revelation.cumul)}
-        <Revelation r={revelation} />
+        <Revelation r={revelation} profil={profil} />
         <button
           className="btn btn-primary btn-big btn-block"
           disabled={occupe}
@@ -668,7 +668,7 @@ function vueDeQuestion(q: QuestionDuJour, envoi: Envoi | null): QuizPlayerView {
 }
 
 /** Ce que la réponse apprend : les points, la bonne réponse, la part de la salle, l'anecdote. */
-function Revelation({ r }: { r: RevelationDuJour }) {
+function Revelation({ r, profil }: { r: RevelationDuJour; profil: PublicProfile }) {
   const ton = r.annulee || r.choix === null ? '' : r.juste ? 'result-ok' : 'result-ko'
   // Sa niche : sans réponse, trop tard ou annulée, elle reste calme ; peu de joueurs du jour l'ont trouvée, des cœurs.
   const reaction = reactionDuSolo(r.annulee || r.tropTard || r.choix === null ? null : r.juste, rareAuQuizDuJour(r.trouveePar))
@@ -742,7 +742,7 @@ function Revelation({ r }: { r: RevelationDuJour }) {
               </span>
             </p>
           )}
-          <SignatureDuPublic prenom={r.auteur} />
+          <SignatureDuPublic auteur={r.auteur} profil={profil} />
         </div>
       ) : (
         r.anecdote && (
@@ -815,7 +815,7 @@ export function Fin({
         </p>
         {partie.serie > 0 && <SerieDuJour jours={partie.serie} sabliers={partie.sabliers ?? 0} forme="ligne" />}
         {/* L'invitation à écrire une question, au moment où l'on est fier : une ligne au pied du résultat, pas une carte. */}
-        {partie.justes >= JUSTES_POUR_LA_PLUME && <LaPlume accroche="Et si demain," appel="ta question ?" />}
+        {partie.justes >= JUSTES_POUR_LA_PLUME && <LaPlume accroche="Et si demain," appel="ta question ?" profil={profil} />}
       </section>
       {/* Ce qu'elle rapporte, en un total : la partie à ses points, la série
           — c'est la régularité qui la paie —, les trophées, payés à part ; une

@@ -6,7 +6,7 @@
 // preuve.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { SIGNALEMENT_MAX, changementsProposes, ecartDesMots, texteDuSignalement, type QuestionSignalee } from '../../shared/signalement'
+import { SIGNALEMENT_MAX, changementsProposes, decoupage, ecartDesMots, texteDuSignalement, type QuestionSignalee } from '../../shared/signalement'
 import { SIGNALEMENT_MAX as DE_LA_CAMPAGNE } from '../../shared/campagne'
 
 const FLEUVE: QuestionSignalee = {
@@ -22,6 +22,17 @@ test('une coquille se lit mot à mot, pas en deux phrases entières', () => {
   assert.deepEqual(ecartDesMots('Il prend sa source en Suise, au glacier.', 'Il prend sa source en Suisse, au glacier.'), { enleve: 'Suise,', ajoute: 'Suisse,' })
   assert.equal(ecartDesMots('Même phrase.', '  Même   phrase.  '), null)
   assert.deepEqual(ecartDesMots('', 'Ajoutée.'), { enleve: '', ajoute: 'Ajoutée.' })
+})
+
+test('la feuille montre la correction dans le texte même : ce qui reste autour, ce qui part, ce qui vient', () => {
+  assert.deepEqual(decoupage('Il prend sa source en Suise, au glacier.', 'Il prend sa source en Suisse, au glacier.'), {
+    debut: 'Il prend sa source en',
+    enleve: 'Suise,',
+    ajoute: 'Suisse,',
+    fin: 'au glacier.',
+  })
+  assert.deepEqual(decoupage('Un mot.', 'Un mot de plus.'), { debut: 'Un', enleve: 'mot.', ajoute: 'mot de plus.', fin: '' })
+  assert.equal(decoupage('Rien ne change.', ' Rien  ne change. '), null)
 })
 
 test('trois points corrigés d’un coup partent dans une seule phrase, dans l’ordre du QG', () => {

@@ -87,12 +87,13 @@ try {
     const r = await reponse.json()
     if (r.index === 2) {
       Object.assign(r, {
-        auteur: 'Camille',
+        auteur: { nom: 'Camille', avatar: '🦉' },
         texte: 'Quelle danse de fête fait-on en file, chacun les mains sur les épaules de celui de devant ?',
         reponses: ['Le madison', 'La chenille', 'La farandole', 'La macarena'],
         bonne: 1,
         choix: r.juste ? 1 : 0,
-        anecdote: 'Elle a même sa chanson, « La Chenille », un tube de la Bande à Basile.',
+        // Une coquille, que le signalement corrigera dans le texte même.
+        anecdote: 'Elle a même sa chanson, « La Chenille », un tube de la Bande à Basille.',
         trouveePar: 0.72,
       })
     }
@@ -130,23 +131,18 @@ try {
       // Sa signature ne doit pas pousser « Question suivante » sous le bord de l'écran.
       const bas = Number(await page.evaluate("document.querySelector('.btn-primary.btn-big').getBoundingClientRect().bottom"))
       console.log(`[question du public] « Question suivante » finit à ${Math.round(bas)} px${bas > 640 ? ' : sous le bord, en 360 × 640' : ', en vue'}`)
-      // La signaler : trois points cochés, puis corrigés sur la même page.
+      // La signaler : la feuille est la question même. La coquille de l'anecdote se corrige sur place, la difficulté d'un toucher.
       await page.click('text=Signaler une erreur dans cette question')
       await page.waitForSelector('.signaler-feuille')
-      await photo('03-jour-signaler-vide', { attente: 400 })
-      await page.click('text=La bonne réponse est fausse')
-      await page.click('text=Il y a une faute')
-      await page.click('text=Elle est mal classée')
-      await photo('04-jour-signaler-coche', { attente: 300 })
-      await page.click('.signaler-feuille .carte-pied .btn')
-      await page.waitForSelector('.signaler-bloc')
-      await page.locator('.signaler-reponse').nth(2).click()
-      const anecdote = page.locator('.signaler-bloc textarea').nth(1)
-      await anecdote.fill('Elle a même sa chanson, « La Chenille », un tube de la Bande à Basile, en 1984.')
-      await page.locator('.signaler-cran', { hasText: 'Trop facile' }).click()
-      await photo('05-jour-signaler-corriger', { attente: 300 })
-      await page.locator('.signaler-feuille .carte-corps').evaluate((e: any) => e.scrollTo(0, e.scrollHeight))
-      await photo('06-jour-signaler-ce-qui-change', { attente: 300 })
+      await photo('03-jour-signaler', { attente: 400 })
+      await page.locator('button.signaler-anecdote').click()
+      const anecdote = page.locator('textarea.signaler-anecdote')
+      await anecdote.fill('Elle a même sa chanson, « La Chenille », un tube de la Bande à Basile.')
+      await photo('04-jour-signaler-en-edition', { attente: 300 })
+      // Quitté, le champ se relit corrigé ; puis la difficulté.
+      await page.keyboard.press('Tab')
+      await page.locator('.signaler-pastille', { hasText: 'Trop facile' }).click()
+      await photo('05-jour-signaler-corrige', { attente: 300 })
       await page.locator('.signaler-feuille .carte-fermer').click()
       await page.waitForTimeout(400)
     }
@@ -161,12 +157,19 @@ try {
   await photo('07-jour-fin', { attente: 200 })
   await photo('08-jour-fin-entiere', { pleine: true, attente: 200 })
   await largeur('la fin du jour')
+  // La carte à écrire : vide, puis à moitié — le conseil dit le prochain geste —, puis prête, la bonne cochée.
   await page.click('.plume')
   await page.waitForSelector('.plume-feuille')
-  await page.locator('.plume-feuille textarea').fill('Quel est le seul pays au monde dont le drapeau')
-  await photo('09-plume-feuille-en-cours', { attente: 300 })
-  await page.locator('.plume-feuille textarea').fill('Quel est le seul pays au monde dont le drapeau n’est pas un rectangle ?')
-  await photo('10-plume-feuille-prete', { attente: 300 })
+  await photo('09-plume-carte-vide', { attente: 400 })
+  await page.locator('.plume-carte-question').fill('Quel est le seul pays au monde dont le drapeau n’est pas un rectangle ?')
+  const champs = page.locator('.plume-carte-champ')
+  await champs.nth(0).fill('Le Bhoutan')
+  await champs.nth(1).fill('Le Népal')
+  await photo('10-plume-carte-en-cours', { attente: 300 })
+  await champs.nth(2).fill('La Suisse')
+  await champs.nth(3).fill('Le Vatican')
+  await page.locator('.plume-carte-forme').nth(1).click()
+  await photo('11-plume-carte-prete', { attente: 500 })
   await page.locator('.plume-feuille .carte-fermer').click()
 
   // 3. Le défi de la semaine : une question signalée — la campagne sait sa marche —, puis sa fin, et la plume.
@@ -182,17 +185,12 @@ try {
     await page.locator('.ans-btn').nth(i < 9 ? bonne : (bonne + 1) % textes.length).click()
     await page.waitForSelector('.result-banner')
     if (i === 0) {
+      // Au défi : la coche se déplace sur une autre réponse, et la difficulté d'un toucher.
       await page.click('text=Signaler une erreur dans cette question')
       await page.waitForSelector('.signaler-feuille')
-      await page.click('text=La bonne réponse est fausse')
-      await page.click('text=Elle est mal classée')
-      await page.click('.signaler-feuille .carte-pied .btn')
-      await page.waitForSelector('.signaler-bloc')
-      await page.locator('.signaler-cran', { hasText: 'Trop dure' }).click()
       await page.locator('.signaler-reponse').nth(bonne === 0 ? 1 : 0).click()
-      await photo('11-defi-signaler-corriger', { attente: 300 })
-      await page.locator('.signaler-feuille .carte-corps').evaluate((e: any) => e.scrollTo(0, e.scrollHeight))
-      await photo('12-defi-signaler-ce-qui-change', { attente: 300 })
+      await page.locator('.signaler-pastille', { hasText: 'Trop dure' }).click()
+      await photo('12-defi-signaler', { attente: 400 })
       await page.locator('.signaler-feuille .carte-fermer').click()
       await page.waitForTimeout(300)
     }

@@ -2,7 +2,12 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Feuille } from './Pieces'
 import { Icon } from './Icon'
+import { Shape } from './Shape'
+import { Avatar, type AvatarAPlat } from './Avatar'
 import { espacesFines } from '../format'
+import { showToast } from '../state'
+import { sonAvatar } from '../../../shared/sonAvatar'
+import type { PublicProfile } from '../../../shared/profil'
 
 // La plume : l'invitation à proposer une question, là où l'on joue.
 //
@@ -41,9 +46,9 @@ export function IconePlume() {
 /**
  * La ligne : la plume, une accroche, et ce qu'elle propose, souligné à
  * l'encre — tout le reste de la page reste à sa place. Un bouton : elle
- * ouvre la feuille où l'on écrit sa question.
+ * ouvre la carte où l'on écrit sa question.
  */
-export function LaPlume({ accroche, appel }: { accroche: string; appel: string }) {
+export function LaPlume({ accroche, appel, profil }: { accroche: string; appel: string; profil?: PublicProfile | null }) {
   const [ouverte, setOuverte] = useState(false)
   return (
     <>
@@ -54,8 +59,32 @@ export function LaPlume({ accroche, appel }: { accroche: string; appel: string }
         </span>
         <Icon name="chevron-right" className="plume-chevron" />
       </button>
-      {ouverte && <FeuilleDeLaPlume onFermer={() => setOuverte(false)} />}
+      {ouverte && <FeuilleDeLaPlume profil={profil} onFermer={() => setOuverte(false)} />}
     </>
+  )
+}
+
+/**
+ * La signature d'une question de joueur, au pied de son anecdote : qui l'a
+ * écrite, et de quoi écrire la sienne — l'invitation la plus parlante est
+ * une question d'un autre joueur, qu'on vient de jouer.
+ */
+export function SignatureDuPublic({ auteur, profil }: { auteur: AvatarAPlat & { nom: string }; profil?: PublicProfile | null }) {
+  const [ouverte, setOuverte] = useState(false)
+  return (
+    <span className="plume-signature">
+      {/* Son visage, tel qu'il le porte : la question d'une personne, pas d'un pseudonyme. */}
+      <span className="plume-de">
+        <Avatar avatar={auteur.avatar} finition={auteur.finition} eclat={auteur.eclat} legendaire={auteur.legendaire} />
+        {/* « La question de Camille », à côté de son visage, passait sur deux lignes : la pastille du haut dit déjà d'où elle vient. */}
+        {espacesFines(`Signée ${auteur.nom}`)}
+      </span>
+      <button type="button" className="plume-ecrire" aria-haspopup="dialog" onClick={() => setOuverte(true)}>
+        <IconePlume />
+        Écris la tienne
+      </button>
+      {ouverte && <FeuilleDeLaPlume profil={profil} onFermer={() => setOuverte(false)} />}
+    </span>
   )
 }
 
@@ -64,74 +93,117 @@ export function LaPlume({ accroche, appel }: { accroche: string; appel: string }
  * bandeau du résultat, qui s'anime d'un `transform` —, son voile fixe se
  * serait tenu dans le bandeau, et son texte, centré comme lui.
  */
-function FeuilleDeLaPlume({ onFermer }: { onFermer: () => void }) {
-  return createPortal(<PropositionDeQuestion onFermer={onFermer} />, document.body)
+function FeuilleDeLaPlume({ profil, onFermer }: { profil?: PublicProfile | null; onFermer: () => void }) {
+  return createPortal(<CarteAEcrire profil={profil} onFermer={onFermer} />, document.body)
 }
 
-/**
- * La signature d'une question de joueur, au pied de son anecdote : qui l'a
- * écrite, et de quoi écrire la sienne — l'invitation la plus parlante est
- * une question d'un autre joueur, qu'on vient de jouer.
- */
-export function SignatureDuPublic({ prenom }: { prenom: string }) {
-  const [ouverte, setOuverte] = useState(false)
-  return (
-    <span className="plume-signature">
-      <span className="plume-de">{espacesFines(`La question de ${prenom}`)}</span>
-      <button type="button" className="plume-ecrire" aria-haspopup="dialog" onClick={() => setOuverte(true)}>
-        <IconePlume />
-        Écris la tienne
-      </button>
-      {ouverte && <FeuilleDeLaPlume onFermer={() => setOuverte(false)} />}
-    </span>
-  )
-}
-
-/** Une question tient sur l'écran d'un téléphone. */
+/** Une question tient sur l'écran d'un téléphone ; une réponse, sur un bouton. */
 const QUESTION_MAX = 200
+const REPONSE_MAX = 60
+
+/** Sans article ni casse : « La Loire » et « loire » sont la même réponse. */
+const sansArticle = (x: string) => x.trim().toLowerCase().replace(/^(les |le |la |l’|l')/, '')
 
 /**
- * La première étape de la proposition : la question, vérifiée pendant qu'on
- * l'écrit — ce que la base refuserait se dit avant l'envoi, pas après. Les
- * réponses, la catégorie et l'envoi en relecture viennent ensuite.
+ * Ce qui manque encore, en une phrase — la première qui compte —, ou rien :
+ * la carte se lit d'abord, le conseil ne dit que le prochain geste.
  */
-function PropositionDeQuestion({ onFermer }: { onFermer: () => void }) {
-  const [question, setQuestion] = useState('')
+function conseilDeLaCarte(question: string, reponses: string[], bonne: number | null): string | null {
   const t = question.trim()
-  const verifications: [boolean, string, string][] = [
-    [t.length >= 15, 'Assez longue pour être claire', 'Un peu courte : précise-la'],
-    [t.endsWith('?'), 'Elle finit par un point d’interrogation', 'Termine-la par un point d’interrogation'],
-    [!/\p{Extended_Pictographic}/u.test(t), 'Sans emoji', 'Enlève l’emoji : certains écrans ne l’affichent pas'],
-  ]
+  const reps = reponses.map(r => r.trim())
+  const manquent = reps.filter(r => !r).length
+  if (!t) return 'Écris ta question, puis ses quatre réponses.'
+  if (t.length < 15) return 'Un peu courte : précise-la.'
+  if (!t.endsWith('?')) return 'Finis-la par un point d’interrogation.'
+  if (/\p{Extended_Pictographic}/u.test(t + reps.join(''))) return 'Sans emoji : certains écrans ne l’affichent pas.'
+  if (manquent === 4) return 'À toi : ses quatre réponses.'
+  if (manquent > 0) return manquent === 1 ? 'Encore une réponse.' : `Encore ${manquent} réponses.`
+  if (new Set(reps.map(sansArticle)).size < reps.length) return 'Deux réponses sont pareilles.'
+  if (bonne === null) return 'Touche une forme : c’est la bonne réponse.'
+  const juste = sansArticle(reps[bonne])
+  if (juste.length >= 3 && t.toLowerCase().includes(juste)) return 'Ta réponse se lit dans la question.'
+  return null
+}
+
+/**
+ * On écrit sa question dans la carte même du jeu : sa place de question en
+ * serif, ses quatre réponses aux formes et aux couleurs du quiz, et la
+ * forme qu'on touche porte la coche de la bonne. Dessous, sa signature,
+ * telle que la salle la lira. Ce qu'on voit est ce que les autres joueront ;
+ * le conseil ne dit qu'une chose, le prochain geste (le retour du
+ * propriétaire du 2 novembre 2026 : « trop de texte, pas assez vivant »).
+ */
+function CarteAEcrire({ profil, onFermer }: { profil?: PublicProfile | null; onFermer: () => void }) {
+  const [question, setQuestion] = useState('')
+  const [reponses, setReponses] = useState(['', '', '', ''])
+  const [bonne, setBonne] = useState<number | null>(null)
+  const conseil = conseilDeLaCarte(question, reponses, bonne)
+  const prete = conseil === null
   return (
     <Feuille
-      titre="Proposer une question"
+      titre="Ta question"
       onFermer={onFermer}
       className="plume-feuille"
       pied={
-        <button type="button" className="btn btn-primary btn-block" disabled>
-          Suivant : les réponses
+        <button
+          type="button"
+          className="btn btn-primary btn-block"
+          disabled={!prete}
+          onClick={() => {
+            // La relecture n'est pas encore branchée : la maquette s'arrête là.
+            showToast({ kind: 'info', message: 'Bientôt : l’envoi en relecture' })
+            onFermer()
+          }}
+        >
+          <IconePlume />
+          Envoyer en relecture
         </button>
       }
     >
-      <p className="muted">
-        {espacesFines('Une question, une seule bonne réponse. Relue par l’administrateur, elle entre dans le jeu — signée de ton prénom, si tu veux.')}
-      </p>
-      <label className="field">
-        <span className="label">Ta question</span>
-        <textarea className="input" rows={3} maxLength={QUESTION_MAX} value={question} placeholder="Quel… ? Combien… ? Qui… ?" onChange={e => setQuestion(e.target.value)} />
-      </label>
-      {t && (
-        <ul className="plume-verifications" aria-live="polite">
-          {verifications.map(([ok, oui, non]) => (
-            <li key={oui} className={ok ? 'plume-ok' : 'plume-ko'}>
-              <Icon name={ok ? 'check-circle' : 'alert'} />
-              {espacesFines(ok ? oui : non)}
-            </li>
+      <div className={'plume-carte' + (prete ? ' plume-carte-prete' : '')}>
+        <span className="pill plume-du-public">Question du public</span>
+        <textarea
+          className="plume-carte-question"
+          rows={3}
+          maxLength={QUESTION_MAX}
+          value={question}
+          placeholder="Écris ta question…"
+          aria-label="Ta question"
+          onChange={e => setQuestion(e.target.value)}
+        />
+        <div className="ans-grid plume-carte-reponses">
+          {reponses.map((r, i) => (
+            <div key={i} className={'ans-btn plume-carte-reponse' + (bonne === i ? ' chosen' : '')}>
+              <button type="button" className="plume-carte-forme" aria-pressed={bonne === i} aria-label={`La réponse ${i + 1} est la bonne`} onClick={() => setBonne(i)}>
+                <Shape index={i} />
+                {bonne === i && (
+                  <span className="plume-carte-coche" aria-hidden="true">
+                    <Icon name="check" />
+                  </span>
+                )}
+              </button>
+              <input
+                className="plume-carte-champ"
+                value={r}
+                maxLength={REPONSE_MAX}
+                placeholder={bonne === i ? 'La bonne' : 'Réponse'}
+                aria-label={`Réponse ${i + 1}`}
+                onChange={e => setReponses(rs => rs.map((x, j) => (j === i ? e.target.value : x)))}
+              />
+            </div>
           ))}
-        </ul>
-      )}
-      <p className="muted small">{espacesFines('Ensuite : les réponses, la catégorie, puis l’envoi en relecture.')}</p>
+        </div>
+        {profil && (
+          <p className="plume-carte-signature">
+            <Avatar {...sonAvatar(profil)} finition={profil.finition} />
+            {espacesFines(`Signée ${profil.name}`)}
+          </p>
+        )}
+      </div>
+      <p className={'plume-conseil' + (prete ? ' plume-conseil-prete' : '')} aria-live="polite">
+        <Icon name={prete ? 'check-circle' : 'edit'} />
+        {espacesFines(conseil ?? 'Prête : elle part en relecture, puis dans le jeu.')}
+      </p>
     </Feuille>
   )
 }
