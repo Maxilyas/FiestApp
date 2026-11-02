@@ -12,7 +12,8 @@ import {
   partDeLaCategorie,
 } from './consigneCampagne'
 import { IndexDesFaits, indexSansBloquer, motifDuMemeFait } from './memeFait'
-import { laisserPasserLaSalle, rendreLaMain } from './tourniquet'
+import { enTranches, laisserPasserLaSalle, rendreLaMain } from './tourniquet'
+import { QUESTIONS_D_UNE_TRANCHE, dUneTraite, type CalculEnTranches } from '../../../shared/tranches'
 import { enFond, suivre } from './gels'
 import {
   DECLENCHEURS_DES_TRANCHES,
@@ -57,7 +58,7 @@ import {
   indiceDeCategorie,
   scoreAttendu,
   scoreDeReference,
-  serieDeReference,
+  serieDeReferenceEnTranches,
   type ForceDUnJoueur,
   type ModeleDuSavoir,
   type SerieDeReference,
@@ -175,7 +176,7 @@ import {
   formeDeReponse,
   issueDeRencontre,
   marcheContredite,
-  mesuresEnFamille,
+  mesuresEnFamilleEnTranches,
   minutesAvantLundi,
   modeDeSerieLu,
   niveauDeQuestion,
@@ -656,6 +657,68 @@ interface MesureGardee {
   premieres: Map<string, { justes: number; total: number }>
   base: BaseDeLaCampagne | null
   parQuestion: ReadonlyMap<string, MesureDUneQuestion>
+  /** Sa mise en famille en cours, en tranches (`mettreEnFamille`) : qui la demande pendant ce temps l'attend. */
+  enFamille?: { base: BaseDeLaCampagne; faite: Promise<void> }
+}
+
+/** Une série de référence qui se fait, pour ces jouables, cette mesure et ce modèle (`CampagneStore.referencePour`). */
+interface ReferenceEnRoute {
+  jouables: readonly QuestionDeLaBase[]
+  mesure: ReadonlyMap<string, MesureDUneQuestion>
+  modele: ModeleDuSavoir | null
+  reference: Promise<SerieDeReference>
+}
+
+/** La famille d'une question (`familleDeQuestion`), et ce que la mesure en lit. */
+interface FamilleDUneQuestion {
+  id: string
+  difficulte: number
+  famille: string | null
+}
+
+/**
+ * La famille de chaque question, gardée par la question même : elle ne
+ * dépend que d'elle — sa catégorie, sa difficulté, la forme de sa bonne
+ * réponse. Une base refaite — une correction du QG, un ajout de la routine —
+ * garde les mêmes objets pour tout ce qui n'a pas changé : des vingt-sept
+ * mille formes de réponse à reconnaître (`formeDeReponse`), quarante
+ * millisecondes sur un vrai cœur, seules les questions neuves se relisent.
+ */
+const FAMILLES = new WeakMap<QuestionDeLaBase, FamilleDUneQuestion>()
+
+/** Ce que le modèle du savoir lit de chaque question de la base, par son identifiant, en tranches (`CalculEnTranches`). */
+function* metasEnTranches(questions: readonly QuestionDeLaBase[], tranche: number): CalculEnTranches<Map<string, QuestionDeLaBase['meta']>> {
+  const metas = new Map<string, QuestionDeLaBase['meta']>()
+  for (let i = 0; i < questions.length; i++) {
+    if (i > 0 && i % tranche === 0) yield
+    metas.set(questions[i].id, questions[i].meta)
+  }
+  return metas
+}
+
+/** La famille de chaque question de la base, en tranches (`CalculEnTranches`) : celles déjà lues reprises telles quelles. */
+function* famillesEnTranches(questions: readonly QuestionDeLaBase[], tranche: number): CalculEnTranches<FamilleDUneQuestion[]> {
+  const familles: FamilleDUneQuestion[] = new Array(questions.length)
+  for (let i = 0; i < questions.length; i++) {
+    if (i > 0 && i % tranche === 0) yield
+    const q = questions[i]
+    let f = FAMILLES.get(q)
+    if (!f) {
+      f = {
+        id: q.id,
+        difficulte: q.meta.difficulte,
+        // Ses entités avec : une personne se mesure à part des autres mots (`FormeDeReponse`).
+        famille: familleDeQuestion({
+          categorie: q.meta.categorie,
+          difficulte: q.meta.difficulte,
+          forme: formeDeReponse({ reponses: q.reponses, bonne: q.bonne, valeur: q.meta.valeur, entites: q.meta.entites }),
+        }),
+      }
+      FAMILLES.set(q, f)
+    }
+    familles[i] = f
+  }
+  return familles
 }
 
 /** Un défi entre amis, tel que sa table le garde : son tirage figé, ce qu'il fait jouer, quand il ferme. */
@@ -946,6 +1009,8 @@ export class CampagneStore {
   private versionDesCorrections = 0
   /** Le dépôt, les ajouts et les corrections ensemble, refaits quand l'un d'eux change. */
   private fusion: { fichiers: BaseDeLaCampagne; ajouts: number; corrections: number; base: BaseDeLaCampagne } | null = null
+  /** La base fusionnée qui se refait, en tranches (`base`) : qui la demande pendant ce temps l'attend. */
+  private fusionEnRoute: { fichiers: BaseDeLaCampagne; ajouts: number; corrections: number; base: Promise<BaseDeLaCampagne> } | null = null
   /** Les intitulés des quiz livrés, lus au premier dépôt : la base ne les reprend pas. */
   private livres: Set<string> | null = null
   /**
@@ -1108,8 +1173,14 @@ export class CampagneStore {
   private mesuresGardees: MesureGardee | null = null
   /** La relecture des comptes en cours (`mesures`). */
   private mesuresEnRoute: Promise<void> | null = null
-  /** La famille de chaque question, par base (`famillesDe`). */
-  private famillesGardees = new WeakMap<BaseDeLaCampagne, readonly { id: string; difficulte: number; famille: string | null }[]>()
+  /** La famille de chaque question, par base (`famillesDe`), faite en tranches. */
+  private famillesGardees = new WeakMap<BaseDeLaCampagne, Promise<readonly FamilleDUneQuestion[]>>()
+  /**
+   * Combien de questions un calcul de fond passe d'une traite
+   * (`QUESTIONS_D_UNE_TRANCHE`) : le banc la réduit, pour voir les tranches sur
+   * une petite base.
+   */
+  private readonly tranche: number
   /**
    * Le modèle du savoir (`core/modeleDuSavoir.ts`) : les difficultés de la
    * base et la force de chacun, ajustées ensemble sur les premières réponses
@@ -1167,6 +1238,8 @@ export class CampagneStore {
     modele: ModeleDuSavoir | null
     reference: SerieDeReference
   } | null = null
+  /** La série de référence qui se fait, en tranches (`referencePour`) : qui la demande pendant ce temps l'attend. */
+  private referenceEnRoute: ReferenceEnRoute | null = null
   /** Les questions jouables, toutes catégories, et ce dont elles sont faites : la base, la réserve du jour, les retraits (`jouables`). */
   private jouablesGardees: { base: BaseDeLaCampagne; duJour: ReadonlySet<string>; retirees: number; questions: readonly QuestionDeLaBase[] } | null = null
   /** Les jouables de chaque choix de catégories, par liste de jouables (`jouables`). */
@@ -1183,6 +1256,8 @@ export class CampagneStore {
   private parIdGardes = new WeakMap<readonly QuestionDeLaBase[], ReadonlyMap<string, QuestionDeLaBase>>()
   /** Ce que le tirage d'une série relit de chaque liste de jouables, à sa mesure (`tirage`). */
   private preparations = new WeakMap<readonly QuestionDeLaBase[], PreparationDuTirage>()
+  /** Les préparations qui se font, en tranches (`tirage`) : qui la demande pendant ce temps l'attend. */
+  private preparationsEnRoute = new WeakMap<readonly QuestionDeLaBase[], { mesure: ReadonlyMap<string, MesureDUneQuestion>; preparee: Promise<PreparationDuTirage> }>()
 
   constructor(
     url: string,
@@ -1195,11 +1270,14 @@ export class CampagneStore {
       recompenses?: RecompensesDeCampagne
       /** Combien de temps le journal des duels se croit à jour de ce qui s'écrit sans ce serveur (`FRAICHEUR_DES_DUELS_MS`) ; le banc, 0. */
       fraicheurDesDuelsMs?: number
+      /** Combien de questions un calcul de fond passe d'une traite (`QUESTIONS_D_UNE_TRANCHE`) ; un test, moins. */
+      questionsParTranche?: number
     } = {},
   ) {
     this.client = clientDistant(url, authToken)
     this.recompenses = opts.recompenses ?? null
     this.fraicheurDesDuels = opts.fraicheurDesDuelsMs ?? FRAICHEUR_DES_DUELS_MS
+    this.tranche = opts.questionsParTranche ?? QUESTIONS_D_UNE_TRANCHE
     this.maintenant = opts.maintenant ?? Date.now
     const donnee = opts.base
     let lue: Promise<BaseDeLaCampagne> | null = null
@@ -1227,23 +1305,37 @@ export class CampagneStore {
   private async base(): Promise<BaseDeLaCampagne> {
     const fichiers = await this.fichiers()
     if (this.ajouts.length === 0 && this.corrections.size === 0) return fichiers
-    const faite = () => {
-      const f = this.fusion
-      return f && f.fichiers === fichiers && f.ajouts === this.ajouts.length && f.corrections === this.versionDesCorrections ? f.base : null
+    const cle = { fichiers, ajouts: this.ajouts.length, corrections: this.versionDesCorrections }
+    const pour = (f: { fichiers: BaseDeLaCampagne; ajouts: number; corrections: number } | null) =>
+      f !== null && f.fichiers === cle.fichiers && f.ajouts === cle.ajouts && f.corrections === cle.corrections
+    if (pour(this.fusion)) return this.fusion!.base
+    // Une seule à la fois pour ces fichiers, ces ajouts et ces corrections : qui la demande pendant ce temps l'attend.
+    if (pour(this.fusionEnRoute)) return this.fusionEnRoute!.base
+    // Refaite en tranches, une par tour de boucle (`enTranches`) : vingt
+    // millisecondes d'une traite sur toute la base, que le réveil faisait
+    // derrière la lecture des fichiers et chaque correction du QG avant la
+    // page qu'il relisait — une demi-seconde de gel au dixième de cœur (le
+    // 2 novembre 2026).
+    const enPlus = this.ajouts.map(a => a.question).filter(q => !fichiers.parId.has(q.id) && !fichiers.empreintes.has(q.empreinte))
+    const corrections = new Map(this.corrections)
+    const enRoute = {
+      ...cle,
+      base: enTranches(baseCorrigeeEnTranches(fichiers.questions, enPlus, corrections, this.tranche)).then(
+        base => {
+          if (this.fusionEnRoute === enRoute) {
+            this.fusion = { ...cle, base }
+            this.fusionEnRoute = null
+          }
+          return base
+        },
+        e => {
+          if (this.fusionEnRoute === enRoute) this.fusionEnRoute = null
+          throw e
+        },
+      ),
     }
-    const deja = faite()
-    if (deja) return deja
-    // Refaite à son tour de boucle (`rendreLaMain`) : vingt millisecondes sur
-    // toute la base, que le réveil faisait derrière la lecture des fichiers.
-    // Un autre l'a peut-être faite pendant qu'on attendait.
-    await rendreLaMain()
-    const entreTemps = faite()
-    if (entreTemps) return entreTemps
-    const ids = new Set(fichiers.parId.keys())
-    const enPlus = this.ajouts.map(a => a.question).filter(q => !ids.has(q.id) && !fichiers.empreintes.has(q.empreinte))
-    const base = new BaseDeLaCampagne(appliquerLesCorrections([...fichiers.questions, ...enPlus], this.corrections))
-    this.fusion = { fichiers, ajouts: this.ajouts.length, corrections: this.versionDesCorrections, base }
-    return base
+    this.fusionEnRoute = enRoute
+    return enRoute.base
   }
 
   /**
@@ -1710,29 +1802,45 @@ export class CampagneStore {
   }
 
   /**
-   * Les familles de la mesure (`mesuresEnFamille`) pour cette base, chacune de
-   * ses deux étapes à son tour de boucle (`rendreLaMain`) : la famille de
-   * chaque question, une fois par base, puis la part de chacune — sept et
-   * douze millisecondes sur toute la base, qui suivaient d'un bloc la lecture
-   * des comptes, la préparation des tirages et la série de référence derrière
-   * elles. Un autre les a peut-être faites pendant qu'on attendait.
+   * Les familles de la mesure (`mesuresEnFamille`) pour cette base, en
+   * tranches, une par tour de boucle (`enTranches`) : la famille de chaque
+   * question, une fois par base (`famillesDe`), puis la part de chacune. D'une
+   * traite, sept et douze millisecondes sur toute la base suivaient la lecture
+   * des comptes — des gels d'une demi-seconde au dixième de cœur de
+   * l'hébergeur, sous les départs du Cabinet (le 2 novembre 2026). Une seule
+   * à la fois pour cette mesure et cette base : qui arrive pendant l'attend.
    */
   private async mettreEnFamille(garde: MesureGardee, base: BaseDeLaCampagne): Promise<void> {
-    if (!this.famillesGardees.has(base)) {
-      await rendreLaMain()
-      this.famillesDe(base)
-    }
-    await rendreLaMain()
+    const familles = await this.famillesDe(base)
     if (garde.base === base) return
-    garde.parQuestion = mesuresEnFamille(this.famillesDe(base), garde.brutes, garde.premieres)
-    garde.base = base
+    if (garde.enFamille?.base !== base) {
+      const faite: Promise<void> = enTranches(mesuresEnFamilleEnTranches(familles, garde.brutes, garde.premieres, this.tranche)).then(
+        parQuestion => {
+          // Une base plus neuve demandée entre-temps l'emporte : celle-ci ne la recouvre pas.
+          if (garde.enFamille?.base !== base) return
+          garde.parQuestion = parQuestion
+          garde.base = base
+        },
+        e => {
+          // Ratée, elle se refait à la demande suivante.
+          if (garde.enFamille?.faite === faite) garde.enFamille = undefined
+          throw e
+        },
+      )
+      garde.enFamille = { base, faite }
+    }
+    await garde.enFamille.faite
   }
 
   /**
-   * La mesure relue en fond (`MESURE_EN_AVANCE_MS`), puis ses familles et la
-   * préparation des tirages de toutes les catégories : la requête suivante
-   * les trouve faits. Ratée, rien ne change — celle d'avant sert, et la
-   * relecture se retente au plus tôt `MESURE_RETENTEE_MS` après.
+   * La mesure relue en fond (`MESURE_EN_AVANCE_MS`), puis ses familles, la
+   * préparation des tirages de toutes les catégories et la série de
+   * référence, chacune en tranches : la requête suivante les trouve faites —
+   * la page des sentiers, le dé et le départ d'une épreuve refaisaient la
+   * série de référence d'une traite sur leur chemin, une seconde de gel au
+   * dixième de cœur (le 2 novembre 2026). Ratée, rien ne change — celle
+   * d'avant sert, et la relecture se retente au plus tôt `MESURE_RETENTEE_MS`
+   * après.
    */
   private relireLaMesureEnFond(enRoute: Promise<void>): void {
     const suite = enRoute.then(async () => {
@@ -1744,10 +1852,11 @@ export class CampagneStore {
       const tache = suivre('fond · tirages de la mesure neuve')
       try {
         const [jouables, mesure] = await Promise.all([this.jouables(), this.mesures()])
-        // Sa préparation à son tour de boucle, pas derrière les familles.
         await laisserPasserLaSalle(this.salleEnJeu, () => this.ferme, tache)
-        await rendreLaMain()
-        if (!this.ferme) this.tirage(jouables, mesure)
+        if (this.ferme) return
+        await this.tirage(jouables, mesure)
+        await laisserPasserLaSalle(this.salleEnJeu, () => this.ferme, tache)
+        if (!this.ferme) await this.referencePour(jouables, mesure, this.savoir?.modele ?? null)
       } finally {
         tache.finir()
       }
@@ -2002,23 +2111,19 @@ export class CampagneStore {
    * La famille de chaque question de la base (`familleDeQuestion`), lue une
    * fois par base : vingt-quatre mille formes de réponse à reconnaître toutes
    * les dix minutes, sur le chemin de la requête qui trouve la mesure
-   * périmée, c'était du temps pris à tout le serveur pour rien.
+   * périmée, c'était du temps pris à tout le serveur pour rien. En tranches
+   * (`famillesEnTranches`) : d'une traite, une base refaite au QG gelait la
+   * boucle une demi-seconde au dixième de cœur de l'hébergeur.
    */
-  private famillesDe(base: BaseDeLaCampagne): readonly { id: string; difficulte: number; famille: string | null }[] {
-    let familles = this.famillesGardees.get(base)
-    if (!familles) {
-      familles = base.questions.map(q => ({
-        id: q.id,
-        difficulte: q.meta.difficulte,
-        // Ses entités avec : une personne se mesure à part des autres mots (`FormeDeReponse`).
-        famille: familleDeQuestion({
-          categorie: q.meta.categorie,
-          difficulte: q.meta.difficulte,
-          forme: formeDeReponse({ reponses: q.reponses, bonne: q.bonne, valeur: q.meta.valeur, entites: q.meta.entites }),
-        }),
-      }))
-      this.famillesGardees.set(base, familles)
-    }
+  private famillesDe(base: BaseDeLaCampagne): Promise<readonly FamilleDUneQuestion[]> {
+    const gardees = this.famillesGardees.get(base)
+    if (gardees) return gardees
+    const familles = enTranches(famillesEnTranches(base.questions, this.tranche))
+    this.famillesGardees.set(base, familles)
+    // Ratées, elles se refont à la demande suivante : gardée, la promesse rejetée figerait la mesure.
+    familles.catch(() => {
+      if (this.famillesGardees.get(base) === familles) this.famillesGardees.delete(base)
+    })
     return familles
   }
 
@@ -2063,20 +2168,25 @@ export class CampagneStore {
       const [base, jouables, mesure, journal] = await Promise.all([this.base(), this.jouables(), this.mesures(), this.rattraperLeJournal()])
       const depart = this.savoir?.modele ?? null
       const joueurs = await premieresDuJournal(journal)
-      // Chaque étape à son tour de boucle (`rendreLaMain`) — les questions du
-      // modèle, la préparation du tirage, la série de référence — : au réveil,
-      // elles suivaient d'un bloc les familles de la mesure.
+      // Chaque étape en tranches, une par tour de boucle (`enTranches`) — les
+      // questions du modèle, la préparation du tirage, la série de référence — :
+      // au réveil, elles suivaient d'un bloc les familles de la mesure, et
+      // chacune d'une traite gelait encore la boucle au dixième de cœur.
       await laSalle()
-      await rendreLaMain()
-      const questions = new Map(base.questions.map(q => [q.id, q.meta]))
+      const questions = await enTranches(metasEnTranches(base.questions, this.tranche))
       await laSalle()
-      await rendreLaMain()
-      this.tirage(jouables, mesure)
+      await this.tirage(jouables, mesure)
       await laSalle()
-      await rendreLaMain()
-      const { forceDeDepart } = this.referencePour(jouables, mesure, depart)
+      const { forceDeDepart } = await this.referencePour(jouables, mesure, depart)
       const modele = await ajusterSansBloquer({ questions, joueurs, forceDeDepart, depart }, () => this.ferme, laSalle)
-      if (modele) this.savoir = { a: this.maintenant(), modele, dureeMs: Math.round(performance.now() - debut) }
+      if (!modele) return
+      this.savoir = { a: this.maintenant(), modele, dureeMs: Math.round(performance.now() - debut) }
+      // La série de référence du modèle neuf, en fond : la page des sentiers
+      // et le départ d'une épreuve qui suivent la trouvent prête — ils la
+      // refaisaient d'une traite, une seconde de gel au dixième de cœur.
+      await laSalle()
+      const [jouablesApres, mesureApres] = await Promise.all([this.jouables(), this.mesures()])
+      if (!this.ferme) await this.referencePour(jouablesApres, mesureApres, modele)
     } finally {
       tache.finir()
     }
@@ -2111,17 +2221,50 @@ export class CampagneStore {
     jouables: readonly QuestionDeLaBase[],
     mesure: ReadonlyMap<string, MesureDUneQuestion>,
     modele: ModeleDuSavoir | null,
-  ): SerieDeReference {
+  ): Promise<SerieDeReference> {
     const g = this.referenceGardee
-    if (g && g.jouables === jouables && g.mesure === mesure && g.modele === modele) return g.reference
-    const preparee = this.tirage(jouables, mesure)
-    const reference = serieDeReference(
+    if (g && g.jouables === jouables && g.mesure === mesure && g.modele === modele) return Promise.resolve(g.reference)
+    const r = this.referenceEnRoute
+    if (r && r.jouables === jouables && r.mesure === mesure && r.modele === modele) return r.reference
+    // En tranches, une par tour de boucle (`enTranches`), et une seule fois
+    // pour ceux qui la demandent ensemble : le fond derrière une mesure neuve
+    // ou un modèle neuf, la page des sentiers, le dé, le départ d'une épreuve.
+    // D'une traite sur leur chemin — deux passes sur toute la base —, elle
+    // gelait la boucle une seconde au dixième de cœur (le 2 novembre 2026).
+    const enRoute: ReferenceEnRoute = {
       jouables,
+      mesure,
+      modele,
+      reference: this.tirage(jouables, mesure)
+        .then(preparee => enTranches(this.referenceEnTranches(preparee, modele)))
+        .then(
+          reference => {
+            // Une autre, demandée pendant ce temps — un modèle plus neuf —, se gardera à sa place.
+            if (this.referenceEnRoute === enRoute) {
+              this.referenceEnRoute = null
+              this.referenceGardee = { jouables, mesure, modele, reference }
+            }
+            return reference
+          },
+          e => {
+            if (this.referenceEnRoute === enRoute) this.referenceEnRoute = null
+            throw e
+          },
+        ),
+    }
+    this.referenceEnRoute = enRoute
+    return enRoute.reference
+  }
+
+  /** La série de référence de cette préparation et de ce modèle, en tranches (`CalculEnTranches`). */
+  private referenceEnTranches(preparee: PreparationDuTirage, modele: ModeleDuSavoir | null): CalculEnTranches<SerieDeReference> {
+    const mesure = preparee.mesure
+    return serieDeReferenceEnTranches(
+      preparee.questions,
       (_, i) => preparee.marche(i),
       q => modele?.difficultes.get(q.id) ?? difficulteSansModele(q.meta.difficulte, mesure.get(q.id)),
+      this.tranche,
     )
-    this.referenceGardee = { jouables, mesure, modele, reference }
-    return reference
   }
 
   /** Les questions qu'il a vues — répondues, en série, en épreuve ou au défi —, et quand pour la dernière fois (`parFraicheur`), du journal. */
@@ -2251,10 +2394,32 @@ export class CampagneStore {
    * d'un sujet, se garde tant que la base, la réserve du jour et les retraits
    * ne changent pas, et la mesure dix minutes.
    */
-  private tirage(jouables: readonly QuestionDeLaBase[], mesure: ReadonlyMap<string, MesureDUneQuestion>): PreparationDuTirage {
-    let p = this.preparations.get(jouables)
-    if (!p || p.mesure !== mesure) this.preparations.set(jouables, (p = new PreparationDuTirage(jouables, mesure, p)))
-    return p
+  private tirage(jouables: readonly QuestionDeLaBase[], mesure: ReadonlyMap<string, MesureDUneQuestion>): Promise<PreparationDuTirage> {
+    const faite = this.preparations.get(jouables)
+    if (faite?.mesure === mesure) return Promise.resolve(faite)
+    const enRoute = this.preparationsEnRoute.get(jouables)
+    if (enRoute?.mesure === mesure) return enRoute.preparee
+    // En tranches, une par tour de boucle (`PreparationDuTirage.enTranches`),
+    // et une seule fois pour ceux qui la demandent ensemble — le fond derrière
+    // une mesure neuve, la série, le défi, le duel, le dé qui tombent dessus :
+    // d'une traite sur leur chemin, ses marches et ses files gelaient la boucle
+    // une demi-seconde au dixième de cœur (le 2 novembre 2026). Une plus
+    // neuve, demandée pendant ce temps, ne se laisse pas recouvrir.
+    const preparee: Promise<PreparationDuTirage> = enTranches(PreparationDuTirage.enTranches(jouables, mesure, faite, this.tranche)).then(
+      p => {
+        if (this.preparationsEnRoute.get(jouables)?.preparee === preparee) {
+          this.preparationsEnRoute.delete(jouables)
+          this.preparations.set(jouables, p)
+        }
+        return p
+      },
+      e => {
+        if (this.preparationsEnRoute.get(jouables)?.preparee === preparee) this.preparationsEnRoute.delete(jouables)
+        throw e
+      },
+    )
+    this.preparationsEnRoute.set(jouables, { mesure, preparee })
+    return preparee
   }
 
   /**
@@ -2282,18 +2447,35 @@ export class CampagneStore {
   private async preparerEnFond(): Promise<void> {
     const jouables = await this.jouables()
     // Chaque tranche à son tour de boucle (`rendreLaMain`), la première aussi :
-    // la base vient d'arriver, ses index derrière elle.
+    // la base vient d'arriver, ses index derrière elle. Les sujets et les
+    // catégories se comptent au passage : comptés ensuite d'une traite
+    // (`choixDe`), toute la base gelait encore le réveil au dixième de cœur
+    // (le banc bridé du 2 novembre 2026).
+    const sujets = new Map<string, number>()
+    const categories = new Map<string, number>()
     for (let debut = 0; debut < jouables.length && !this.ferme; debut += SUJETS_PAR_TRANCHE) {
       await rendreLaMain()
-      for (let i = debut; i < Math.min(debut + SUJETS_PAR_TRANCHE, jouables.length); i++) sujetsDeLaQuestion(jouables[i])
+      for (let i = debut; i < Math.min(debut + SUJETS_PAR_TRANCHE, jouables.length); i++) {
+        const q = jouables[i]
+        for (const s of sujetsDeLaQuestion(q)) sujets.set(s, (sujets.get(s) ?? 0) + 1)
+        categories.set(q.meta.categorie, (categories.get(q.meta.categorie) ?? 0) + 1)
+      }
     }
     if (this.ferme) return
     await rendreLaMain()
-    this.choixDe(jouables)
+    // Ce qu'en dirait `sujetsComptes` et `parCategorie`, s'ils ne l'ont pas déjà dit pendant ce temps.
+    if (!this.comptesDesSujets.has(jouables)) this.comptesDesSujets.set(jouables, sujets)
+    if (!this.choixGardes.has(jouables)) {
+      this.choixGardes.set(jouables, {
+        categories: CATEGORIES.filter(c => categories.has(c)).map(c => ({ categorie: c, questions: categories.get(c)! })),
+        sujets: this.sujetsJouables(jouables),
+      })
+    }
     const mesure = await this.mesures()
-    // Sa préparation à son tour de boucle (`rendreLaMain`), pas derrière les familles de la mesure.
-    await rendreLaMain()
-    if (!this.ferme) this.tirage(jouables, mesure)
+    // Sa préparation et la série de référence en tranches (`enTranches`), pas d'une traite derrière les familles de la mesure.
+    if (this.ferme) return
+    await this.tirage(jouables, mesure)
+    if (!this.ferme) await this.referencePour(jouables, mesure, this.savoir?.modele ?? null)
   }
 
   /**
@@ -2616,9 +2798,7 @@ export class CampagneStore {
         )
       }
       const maintenant = this.maintenant()
-      const questions = this.tirage(jouables, mesure)
-        .tirer(vues, maintenant)
-        .map(x => versQuestionDeSerie(x.question, x.niveau))
+      const questions = (await this.tirage(jouables, mesure)).tirer(vues, maintenant).map(x => versQuestionDeSerie(x.question, x.niveau))
       const serie: Serie = {
         id: randomUUID(),
         profileId,
@@ -3725,9 +3905,7 @@ export class CampagneStore {
       if (!questions) {
         const [jouables, mesure] = await Promise.all([this.jouables(), this.mesures()])
         if (jouables.length < QUESTIONS_POUR_JOUER) return []
-        const tirees = this.tirage(jouables, mesure)
-          .tirer()
-          .map(x => versQuestionDeSerie(x.question, x.niveau))
+        const tirees = (await this.tirage(jouables, mesure)).tirer().map(x => versQuestionDeSerie(x.question, x.niveau))
         await this.client.execute({
           sql: 'INSERT INTO campagne_defis (semaine, questions, tire_le) VALUES (?, ?, ?) ON CONFLICT(semaine) DO NOTHING',
           args: [semaine, JSON.stringify(tirees), this.maintenant()],
@@ -4229,9 +4407,7 @@ export class CampagneStore {
       if (jouables.length < QUESTIONS_POUR_JOUER) {
         throw new Error(suivi ? 'Pas assez de questions sur ce sujet pour l’instant : choisis-en un autre' : 'Pas assez de questions pour ce défi : choisis d’autres catégories')
       }
-      const questions = this.tirage(jouables, mesure)
-        .tirer(vues, maintenant)
-        .map(x => versQuestionDeSerie(x.question, x.niveau))
+      const questions = (await this.tirage(jouables, mesure)).tirer(vues, maintenant).map(x => versQuestionDeSerie(x.question, x.niveau))
       const retenues = suivi ? null : lireCategories(categoriesRetenues(categories))
       const duel: Duel = {
         code: nouveauCode(),
@@ -5127,17 +5303,17 @@ export class CampagneStore {
    * question, aux difficultés du modèle. Sans un seul ajustement encore, la
    * part de ceux qui ont trouvé chaque question en tient lieu.
    */
-  private automatePour(
+  private async automatePour(
     premieres: ReadonlyMap<string, boolean>,
     releve: ReleveDesDuels,
     questions: readonly QuestionDeLaBase[],
     base: BaseDeLaCampagne,
     jouables: readonly QuestionDeLaBase[],
     mesure: ReadonlyMap<string, MesureDUneQuestion>,
-  ): AutomateDuDe {
+  ): Promise<AutomateDuDe> {
     const modele = this.savoir?.modele ?? null
     const difficulteDe = (q: QuestionDeLaBase) => modele?.difficultes.get(q.id) ?? difficulteSansModele(q.meta.difficulte, mesure.get(q.id))
-    const reference = this.referencePour(jouables, mesure, modele)
+    const reference = await this.referencePour(jouables, mesure, modele)
     const lui = forceDuJoueur(
       premieres,
       id => {
@@ -5247,13 +5423,13 @@ export class CampagneStore {
         )
       }
       const { vues: sesVues, premieres } = journal.vuesDe(profileId)
-      const tirees = this.tirage(jouables, mesure).tirer(sesVues, maintenant)
+      const tirees = (await this.tirage(jouables, mesure)).tirer(sesVues, maintenant)
       // La série de référence d'Automate à son tour de boucle (`rendreLaMain`) :
-      // à une mesure neuve, elle se refait derrière la préparation du tirage.
+      // à une mesure neuve, elle se refait en tranches derrière la préparation du tirage.
       await rendreLaMain()
       // Placé, il affronte le niveau de sa cote ; avant, celui de ses réponses.
       // Sur un thème, ses écarts de catégorie y jouent : il rate où il rate.
-      const automate = this.automatePour(premieres, releve, tirees.map(x => x.question), base, toutes, mesure)
+      const automate = await this.automatePour(premieres, releve, tirees.map(x => x.question), base, toutes, mesure)
       const id = randomUUID()
       const adversaire: AdversaireGarde = { serie: id, profil: '', reponses: CampagneStore.reponsesDAutomate(automate), simule: true }
       const serie: Serie = {
@@ -6114,7 +6290,7 @@ export class CampagneStore {
     let pourToi: ChanceDuSentier[] | undefined
     if (modele && tirage && premieres) {
       try {
-        pourToi = this.chancesPourLui(profileId, sentiers, premieres, modele, ...(await tirage))
+        pourToi = await this.chancesPourLui(profileId, sentiers, premieres, modele, ...(await tirage))
       } catch (e) {
         // Sa chance n'est qu'un renseignement : la page s'ouvre sans elle.
         console.warn('[campagne] chance des sentiers non calculée :', e instanceof Error ? e.message : e)
@@ -6140,7 +6316,7 @@ export class CampagneStore {
    * dernière épreuve. Rien sous `PREMIERES_REPONSES_POUR_SA_CHANCE`
    * premières réponses : la page ne dirait que la chance d'un joueur moyen.
    */
-  private chancesPourLui(
+  private async chancesPourLui(
     profileId: string,
     sentiers: readonly SentierDuJoueur[],
     premieres: ReadonlyMap<string, PremiereReponse>,
@@ -6148,8 +6324,8 @@ export class CampagneStore {
     base: BaseDeLaCampagne,
     jouables: readonly QuestionDeLaBase[],
     mesure: ReadonlyMap<string, MesureDUneQuestion>,
-  ): ChanceDuSentier[] | undefined {
-    const { reference, forceDe } = this.forceSurLesSentiers(profileId, modele, base, jouables, mesure)
+  ): Promise<ChanceDuSentier[] | undefined> {
+    const { reference, forceDe } = await this.forceSurLesSentiers(profileId, modele, base, jouables, mesure)
     const depuis = this.maintenant() - JOURS_DE_SA_PROGRESSION * 24 * HEURE_MS
     const toutes = new Map<string, boolean>()
     const avant = new Map<string, boolean>()
@@ -6190,14 +6366,14 @@ export class CampagneStore {
    * épreuve (`chanceAuDepart`) la lisent par ici : Contre toute attente juge
    * l'épreuve à la chance même que la page annonçait.
    */
-  private forceSurLesSentiers(
+  private async forceSurLesSentiers(
     profileId: string,
     modele: ModeleDuSavoir,
     base: BaseDeLaCampagne,
     jouables: readonly QuestionDeLaBase[],
     mesure: ReadonlyMap<string, MesureDUneQuestion>,
-  ): { reference: SerieDeReference; forceDe: (premieres: ReadonlyMap<string, boolean>, depart?: ForceDUnJoueur) => ForceDUnJoueur } {
-    const reference = this.referencePour(jouables, mesure, modele)
+  ): Promise<{ reference: SerieDeReference; forceDe: (premieres: ReadonlyMap<string, boolean>, depart?: ForceDUnJoueur) => ForceDUnJoueur }> {
+    const reference = await this.referencePour(jouables, mesure, modele)
     const question = (id: string) => {
       const q = base.parId.get(id)
       return q && { categorie: q.meta.categorie, difficulte: modele.difficultes.get(id) ?? difficulteSansModele(q.meta.difficulte, mesure.get(id)) }
@@ -6226,7 +6402,7 @@ export class CampagneStore {
     if (!modele || c < 0) return null
     try {
       const [base, jouables] = await Promise.all([this.base(), this.jouables()])
-      const { reference, forceDe } = this.forceSurLesSentiers(profileId, modele, base, jouables, mesure)
+      const { reference, forceDe } = await this.forceSurLesSentiers(profileId, modele, base, jouables, mesure)
       const lui = forceDe(premieres)
       return lui.reponses < PREMIERES_REPONSES_POUR_SA_CHANCE ? null : saChanceSur(reference, c, lui, regle)
     } catch (e) {
@@ -6386,7 +6562,8 @@ export class CampagneStore {
       const [jouables, mesure, lues] = await Promise.all([this.jouables([b.categorie]), this.mesures(), this.rattraperLeJournal().then(j => j.vuesDe(profileId))])
       // Les huit premiers paliers posent le thème de leur chapitre (`shared/chapitres.ts`).
       const chapitre = chapitreDuPalier(b.key, regle.n)?.sousThemes ?? []
-      const questions = tirerUneEpreuve(jouables, regle, lues.vues, mesure, this.maintenant(), chapitre).map(x => versQuestionDeSerie(x.question, x.niveau))
+      const tirees = await enTranches(tirerUneEpreuveEnTranches(jouables, regle, lues.vues, mesure, this.maintenant(), chapitre))
+      const questions = tirees.map(x => versQuestionDeSerie(x.question, x.niveau))
       const chance = rejeu ? null : await this.chanceAuDepart(profileId, b.categorie, regle, lues.premieres, mesure)
       const e: Serie = {
         id: randomUUID(),
@@ -6662,7 +6839,8 @@ export class CampagneStore {
       }
       if (regle.n > sentier.paliers + 1) throw new Error(`Valide d’abord l’étape ${sentier.paliers + 1}`)
       const [jouables, mesure, vues] = await Promise.all([this.jouablesDuSujet(suivi.cle), this.mesures(), this.vuesPar(profileId)])
-      const questions = tirerUneEpreuve(jouables, regle, vues, mesure, this.maintenant()).map(x => versQuestionDeSerie(x.question, x.niveau))
+      const tirees = await enTranches(tirerUneEpreuveEnTranches(jouables, regle, vues, mesure, this.maintenant()))
+      const questions = tirees.map(x => versQuestionDeSerie(x.question, x.niveau))
       const e: Serie = {
         id: randomUUID(),
         profileId,
@@ -8183,7 +8361,7 @@ export class CampagneStore {
     if (modele) {
       try {
         const [base, mesure] = await Promise.all([this.base(), this.mesures()])
-        const { reference, forceDe } = this.forceSurLesSentiers(profileId, modele, base, jouables, mesure)
+        const { reference, forceDe } = await this.forceSurLesSentiers(profileId, modele, base, jouables, mesure)
         const lui = forceDe(premieres)
         if (lui.reponses >= PREMIERES_REPONSES_POUR_SA_CHANCE) sa = { reference, lui }
       } catch (e) {
@@ -10535,16 +10713,38 @@ function relireUneEntree(brut: unknown): { question: QuestionDeLaBase } | { refu
  * identifiant —, puis les corrections sur place, qui prennent la place de la
  * version d'avant. Une remplaçante se corrige donc comme les autres. Une
  * correction sur place dont la question a quitté la base ne la fait pas
- * revenir.
+ * revenir. En tranches de `tranche` questions (`CalculEnTranches`).
  */
-function appliquerLesCorrections(
+function* appliquerLesCorrections(
   questions: readonly QuestionDeLaBase[],
   corrections: ReadonlyMap<string, { question: QuestionDeLaBase }>,
-): QuestionDeLaBase[] {
-  const parId = new Map(questions.map(q => [q.id, q]))
+  tranche: number,
+): CalculEnTranches<QuestionDeLaBase[]> {
+  const parId = new Map<string, QuestionDeLaBase>()
+  for (let i = 0; i < questions.length; i++) {
+    if (i > 0 && i % tranche === 0) yield
+    parId.set(questions[i].id, questions[i])
+  }
   for (const [ancienne, c] of corrections) if (c.question.id !== ancienne && !parId.has(c.question.id)) parId.set(c.question.id, c.question)
   for (const [id, c] of corrections) if (c.question.id === id && parId.has(id)) parId.set(id, c.question)
+  yield
   return [...parId.values()]
+}
+
+/**
+ * La base qu'on joue — celle du dépôt, ce que la routine y a ajouté, ce que
+ * l'administrateur y a corrigé —, refaite en tranches : ses corrections
+ * appliquées, puis ses index (`BaseDeLaCampagne.enTranches`).
+ */
+function* baseCorrigeeEnTranches(
+  fichiers: readonly QuestionDeLaBase[],
+  enPlus: readonly QuestionDeLaBase[],
+  corrections: ReadonlyMap<string, { question: QuestionDeLaBase }>,
+  tranche: number,
+): CalculEnTranches<BaseDeLaCampagne> {
+  const questions = yield* appliquerLesCorrections(enPlus.length > 0 ? [...fichiers, ...enPlus] : fichiers, corrections, tranche)
+  yield
+  return yield* BaseDeLaCampagne.enTranches(questions, tranche)
 }
 
 /**
@@ -10987,6 +11187,66 @@ export function tirerUneSerie(
   return new PreparationDuTirage(jouables, mesure).tirer(vues, maintenant)
 }
 
+/** Ce que la préparation d'un tirage lit d'une liste de jouables, sans la mesure : ses files, ses identifiants. */
+interface FilesDuTirage {
+  files: Int32Array
+  categorieDeLaFile: number[]
+  nombreDeCategories: number
+  parId: Map<string, number> | null
+}
+
+/** Une préparation calculée : les marches à cette mesure, et les files de ces jouables. */
+interface PreparationFaite {
+  marches: Uint8Array
+  files: FilesDuTirage
+}
+
+/**
+ * Les marches de chaque question à cette mesure, puis ses files — reprises de
+ * la préparation des mêmes jouables à une autre mesure (`avant`) —, en
+ * tranches de `tranche` questions (`CalculEnTranches`).
+ */
+function* preparerLeTirage(
+  questions: readonly QuestionDeLaBase[],
+  mesure: ReadonlyMap<string, MesureDUneQuestion>,
+  avant: PreparationDuTirage | undefined,
+  tranche: number,
+): CalculEnTranches<PreparationFaite> {
+  const n = questions.length
+  const marches = new Uint8Array(n)
+  for (let i = 0; i < n; i++) {
+    if (i > 0 && i % tranche === 0) yield
+    marches[i] = NIVEAUX.indexOf(niveauDeQuestion(questions[i].meta.difficulte, mesure.get(questions[i].id)))
+  }
+  const reprises = PreparationDuTirage.filesPour(avant, questions)
+  if (reprises) return { marches, files: reprises }
+  const files = new Int32Array(n)
+  const categorieDeLaFile: number[] = []
+  const categories = new Map<string, number>()
+  const filesParCategorie = new Map<string, Map<string, number>>()
+  const parId = new Map<string, number>()
+  let doublon = false
+  for (let i = 0; i < n; i++) {
+    if (i % tranche === 0 && n > tranche) yield
+    const q = questions[i]
+    const { categorie, sousTheme } = q.meta
+    let parSousTheme = filesParCategorie.get(categorie)
+    if (!parSousTheme) {
+      filesParCategorie.set(categorie, (parSousTheme = new Map()))
+      categories.set(categorie, categories.size)
+    }
+    let f = parSousTheme.get(sousTheme)
+    if (f === undefined) {
+      parSousTheme.set(sousTheme, (f = categorieDeLaFile.length))
+      categorieDeLaFile.push(categories.get(categorie)!)
+    }
+    files[i] = f
+    if (parId.has(q.id)) doublon = true
+    else parId.set(q.id, i)
+  }
+  return { marches, files: { files, categorieDeLaFile, nombreDeCategories: categories.size, parId: doublon ? null : parId } }
+}
+
 /**
  * Ce qu'un tirage de série relit de chaque question jouable — sa marche, sa
  * catégorie et son sous-thème —, lu une fois par liste de jouables et par
@@ -11013,51 +11273,54 @@ export class PreparationDuTirage {
   /** La file de chaque question : sa catégorie et son sous-thème, un indice pour les deux. */
   private readonly files: Int32Array
   /** La catégorie de chaque file, par son indice. */
-  private readonly categorieDeLaFile: number[] = []
+  private readonly categorieDeLaFile: number[]
   private readonly nombreDeCategories: number
   /** Chaque question par son identifiant ; null quand deux le partagent — les vues se lisent alors question par question. */
   private readonly parId: Map<string, number> | null
 
-  /** `avant`, la préparation des mêmes jouables à une autre mesure : leurs files et leurs identifiants n'en dépendent pas. */
+  /**
+   * `avant`, la préparation des mêmes jouables à une autre mesure : leurs
+   * files et leurs identifiants n'en dépendent pas. D'une traite : un tirage
+   * qui ne la trouve pas prête la fait sur son chemin — en fond, elle se fait
+   * en tranches (`enTranches`).
+   */
   constructor(
     readonly questions: readonly QuestionDeLaBase[],
     readonly mesure: ReadonlyMap<string, MesureDUneQuestion>,
     avant?: PreparationDuTirage,
+    faite: PreparationFaite = dUneTraite(preparerLeTirage(questions, mesure, avant, Infinity)),
   ) {
-    const n = questions.length
-    this.marches = new Uint8Array(n)
-    for (let i = 0; i < n; i++) this.marches[i] = NIVEAUX.indexOf(niveauDeQuestion(questions[i].meta.difficulte, mesure.get(questions[i].id)))
-    if (avant?.questions === questions) {
-      this.files = avant.files
-      this.categorieDeLaFile = avant.categorieDeLaFile
-      this.nombreDeCategories = avant.nombreDeCategories
-      this.parId = avant.parId
-      return
-    }
-    this.files = new Int32Array(n)
-    const categories = new Map<string, number>()
-    const filesParCategorie = new Map<string, Map<string, number>>()
-    const parId = new Map<string, number>()
-    let doublon = false
-    for (let i = 0; i < n; i++) {
-      const q = questions[i]
-      const { categorie, sousTheme } = q.meta
-      let parSousTheme = filesParCategorie.get(categorie)
-      if (!parSousTheme) {
-        filesParCategorie.set(categorie, (parSousTheme = new Map()))
-        categories.set(categorie, categories.size)
-      }
-      let f = parSousTheme.get(sousTheme)
-      if (f === undefined) {
-        parSousTheme.set(sousTheme, (f = this.categorieDeLaFile.length))
-        this.categorieDeLaFile.push(categories.get(categorie)!)
-      }
-      this.files[i] = f
-      if (parId.has(q.id)) doublon = true
-      else parId.set(q.id, i)
-    }
-    this.nombreDeCategories = categories.size
-    this.parId = doublon ? null : parId
+    this.marches = faite.marches
+    this.files = faite.files.files
+    this.categorieDeLaFile = faite.files.categorieDeLaFile
+    this.nombreDeCategories = faite.files.nombreDeCategories
+    this.parId = faite.files.parId
+  }
+
+  /**
+   * La même préparation en tranches (`CalculEnTranches`) : les marches de
+   * toute la base passaient d'une traite derrière chaque mesure neuve, et ses
+   * files derrière chaque liste neuve — une demi-seconde de gel au dixième de
+   * cœur de l'hébergeur, sous un départ du Cabinet (le 2 novembre 2026). Le
+   * magasin la mène en fond, une tranche par tour de boucle (`enTranches`).
+   */
+  static *enTranches(
+    questions: readonly QuestionDeLaBase[],
+    mesure: ReadonlyMap<string, MesureDUneQuestion>,
+    avant?: PreparationDuTirage,
+    tranche = QUESTIONS_D_UNE_TRANCHE,
+  ): CalculEnTranches<PreparationDuTirage> {
+    return new PreparationDuTirage(questions, mesure, avant, yield* preparerLeTirage(questions, mesure, avant, tranche))
+  }
+
+  /** Ce que la préparation des mêmes jouables à une autre mesure prête à la suivante. */
+  private filesDuTirage(): FilesDuTirage {
+    return { files: this.files, categorieDeLaFile: this.categorieDeLaFile, nombreDeCategories: this.nombreDeCategories, parId: this.parId }
+  }
+
+  /** Ses files, si elle prépare ces jouables-là : `preparerLeTirage` ne les refait pas. */
+  static filesPour(avant: PreparationDuTirage | undefined, questions: readonly QuestionDeLaBase[]): FilesDuTirage | null {
+    return avant?.questions === questions ? avant.filesDuTirage() : null
   }
 
   /** La marche de la `i`-ième question, à cette mesure : la série de référence du dé la relit d'ici (`referencePour`). */
@@ -11179,6 +11442,24 @@ export function tirerUneEpreuve(
   /** Les sous-thèmes du chapitre de ce palier (`chapitreDuPalier`) ; vide : aucun chapitre. */
   chapitre: readonly string[] = [],
 ): { question: QuestionDeLaBase; niveau: Niveau }[] {
+  return dUneTraite(tirerUneEpreuveEnTranches(jouables, regle, vues, mesure, maintenant, chapitre))
+}
+
+/**
+ * Le même tirage, une place par tranche (`CalculEnTranches`) : chaque place
+ * repasse les questions de sa marche dans la catégorie, un rang chacune —
+ * seize places d'une traite gelaient la boucle plus d'une seconde au dixième
+ * de cœur de l'hébergeur, au départ d'une épreuve (le banc bridé du
+ * 2 novembre 2026). Le départ la mène en tranches (`enTranches`).
+ */
+export function* tirerUneEpreuveEnTranches(
+  jouables: readonly QuestionDeLaBase[],
+  regle: RegleDuPalier,
+  vues: ReadonlyMap<string, number>,
+  mesure: ReadonlyMap<string, MesureDUneQuestion>,
+  maintenant: number,
+  chapitre: readonly string[] = [],
+): CalculEnTranches<{ question: QuestionDeLaBase; niveau: Niveau }[]> {
   const pool = regle.sansVraiFaux ? jouables.filter(q => q.reponses.length !== 2) : jouables
   // Seize aux sentiers, dix à ceux d'un sujet (`shared/sentiersDeSujets.ts`) : son mélange le dit.
   const aTirer = Object.values(regle.melange).reduce((n, x) => n + (x ?? 0), 0)
@@ -11214,6 +11495,8 @@ export function tirerUneEpreuve(
   const tirees: { question: QuestionDeLaBase; niveau: Niveau }[] = []
   for (const [niveau, combien] of Object.entries(regle.melange) as [Niveau, number][]) {
     for (let i = 0; i < combien; i++) {
+      // Chaque place à sa tranche.
+      yield
       for (const n of EMPRUNTS[niveau]) {
         let meilleure: QuestionDeLaBase | null = null
         let sonRang: number[] | null = null

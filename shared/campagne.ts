@@ -19,6 +19,7 @@ import { sansAccent } from './homonymes'
 import type { EtatDuCarnet, SuiteDeLaRevision } from './revision'
 import type { BordureDeLigue, CleDeLigue, CoteApresLeDuel, EnjeuDuDuel, JoueurCroise, SemaineDesDuels } from './duels'
 import type { IssueDUnSignalement } from './qgSignalements'
+import { QUESTIONS_D_UNE_TRANCHE, dUneTraite, type CalculEnTranches } from './tranches'
 
 /** Les vies d'une série : la troisième erreur la termine. */
 export const VIES = 3
@@ -271,11 +272,29 @@ export function mesuresEnFamille(
   parQuestion: ReadonlyMap<string, { justes: number; total: number }>,
   premieres: ReadonlyMap<string, { justes: number; total: number }> = parQuestion,
 ): Map<string, MesureDUneQuestion> {
+  return dUneTraite(mesuresEnFamilleEnTranches(questions, parQuestion, premieres))
+}
+
+/**
+ * La même, en tranches (`CalculEnTranches`) : toute la base passait d'une
+ * traite à chaque mesure neuve — huit à treize millisecondes sur un vrai cœur,
+ * des gels d'une demi-seconde au dixième de cœur de l'hébergeur, sous un
+ * départ du Cabinet (le relevé des gels du 2 novembre 2026). Le serveur la
+ * mène en fond, une tranche par tour de boucle (`enTranches`).
+ */
+export function* mesuresEnFamilleEnTranches(
+  questions: Iterable<{ id: string; difficulte: number; famille: string | null }>,
+  parQuestion: ReadonlyMap<string, { justes: number; total: number }>,
+  premieres: ReadonlyMap<string, { justes: number; total: number }> = parQuestion,
+  tranche = QUESTIONS_D_UNE_TRANCHE,
+): CalculEnTranches<Map<string, MesureDUneQuestion>> {
   // Le poids d'une question dans sa famille : toutes ses réponses jusqu'à vingt, vingt au-delà.
   const poids = (m: { total: number } | undefined) => (!m || m.total <= 0 ? 0 : m.total <= REPONSES_FICTIVES ? 1 : REPONSES_FICTIVES / m.total)
   const sommes = new Map<string, { justes: number; total: number }>()
   const membres: { id: string; difficulte: number; famille: string }[] = []
+  let passees = 0
   for (const q of questions) {
+    if (++passees % tranche === 0) yield
     if (!q.famille) continue
     membres.push(q as { id: string; difficulte: number; famille: string })
     const m = premieres.get(q.id)
@@ -286,12 +305,15 @@ export function mesuresEnFamille(
     s.justes += m!.justes * k
     s.total += m!.total * k
   }
+  yield
   const mesures = new Map<string, MesureDUneQuestion>(parQuestion)
   // Une question jamais jouée part de toute sa famille : une seule ligne, la
   // même pour toutes — quatorze mille objets refaits toutes les dix minutes,
   // au dixième de cœur de l'hébergeur, pour dire treize fois la même chose.
   const jamaisJouees = new Map<string, MesureDUneQuestion>()
-  for (const q of membres) {
+  for (let i = 0; i < membres.length; i++) {
+    if (i > 0 && i % tranche === 0) yield
+    const q = membres[i]
     const s = sommes.get(q.famille)
     if (!s) continue
     const m = parQuestion.get(q.id)

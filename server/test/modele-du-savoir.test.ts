@@ -442,6 +442,37 @@ test('l’ajustement rend la main : le serveur répond pendant qu’il calcule, 
   assert.equal(await ajusterSansBloquer(entree, () => ++appels > 3), null)
 })
 
+// Chaque passe repasse toute la base — vingt-sept mille questions en
+// production — : d'une traite, avec peu de réponses, une passe était une
+// tranche, et le banc bridé au dixième de cœur gelait 0,6 à 0,9 s sous le
+// modèle refait au réveil (le 2 novembre 2026). Chaque passe en tranches de
+// deux mille questions au plus.
+test('l’ajustement passe la base en tranches à chaque passe, et rend le même modèle', async () => {
+  const h = hasardFixe(21)
+  const base = Array.from({ length: 10_000 }, (_, i) => ({ id: `q${i}`, meta: { categorie: CATEGORIES[i % CATEGORIES.length], difficulte: 1 + (i % 5) } }))
+  const joueurs = new Map<string, Map<string, boolean>>()
+  for (let p = 0; p < 10; p++) {
+    const siennes = new Map<string, boolean>()
+    for (let k = 0; k < 40; k++) siennes.set(base[Math.floor(h() * base.length)].id, h() < 0.6)
+    joueurs.set(`p${p}`, siennes)
+  }
+  const entree = { questions: new Map(base.map(q => [q.id, q.meta])), joueurs, forceDeDepart: 0.4 }
+  let tours = 0
+  let tourne = true
+  const tourner = () => {
+    tours++
+    if (tourne) setImmediate(tourner)
+  }
+  setImmediate(tourner)
+  const modele = await ajusterSansBloquer(entree)
+  tourne = false
+  assert.ok(modele)
+  assert.ok(tours >= modele.passes * 5, `${tours} tours de boucle pour ${modele.passes} passes sur dix mille questions : au moins cinq tranches par passe`)
+  const dUneTraite = ajusterLeModele(entree)
+  assert.equal(modele.passes, dUneTraite.passes)
+  for (const [id, d] of dUneTraite.difficultes) assert.equal(modele.difficultes.get(id), d)
+})
+
 // ── Au dé ────────────────────────────────────────────────────────────────
 
 const DEBUT = Date.UTC(2026, 9, 13, 8, 0)

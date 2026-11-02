@@ -360,13 +360,18 @@ jour a sa notification (règle `rappel-et-installation.md`).
 - **Le modèle du savoir se refait en fond, jamais sur le chemin du dé.** Le
   dé lit celui qu'il y a, et lance le suivant **avant** son `batch` s'il a
   vieilli : partie derrière, sa lecture serait un aller-retour de plus. Il
-  rend la main par tranches (`CHANCES_PAR_TRANCHE`) : d'un bloc, cent mille
-  réponses tiendraient le serveur une seconde. Les deux tours de toutes les
-  questions de chaque passe y comptent aussi : sur mille réponses et
-  vingt-six mille questions, une tranche durait cinq passes, 30 à 40 ms. Et
+  rend la main par tranches (`CHANCES_PAR_TRANCHE`, quatre mille) : d'un
+  bloc, cent mille réponses tiendraient le serveur une seconde. Les deux
+  tours de toutes les questions de chaque passe y comptent aussi : sur mille
+  réponses et vingt-six mille questions, une tranche durait cinq passes, 30
+  à 40 ms ; puis une passe, dix millisecondes tant que le code n'est pas
+  optimisé — et le banc bridé gelait 0,6 à 0,9 s sous chacune (le 2 novembre
+  2026) : chaque passe repasse la base deux mille questions à la fois. Et
   chaque tranche, comme ses étapes d'avant — les questions du modèle, la
-  préparation du tirage, la série de référence —, passe par le tourniquet
-  (`rendreLaMain`, règle `campagne.md`). Et chacune laisse passer la question
+  préparation du tirage, la série de référence, en tranches elles aussi —,
+  passe par le tourniquet (`rendreLaMain`, règle `campagne.md`) ; le modèle
+  neuf refait sa série de référence en fond, avant la page qui la lirait
+  (`referencePour`). Et chacune laisse passer la question
   d'une soirée (`laisserPasserLaSalle`, `avantLaTranche`) : refait de zéro au
   démarrage, il tenait 28,5 s le dixième de cœur (le 2 novembre 2026, à
   `/healthz` : `campagne.savoir.dureeMs`), attente de la salle comprise

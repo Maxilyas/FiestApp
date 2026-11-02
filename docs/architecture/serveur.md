@@ -449,11 +449,11 @@ les pièges du code : `.claude/rules/cabinet.md`.
 | Les gels de la boucle | `SondeDesGels` (`server/src/core/gels.ts`) | 100 ms | chaque gel de plus d'une demi-seconde (`SEUIL_D_UN_GEL_MS`), et ce qui tournait pendant — les routes sous leur modèle, les messages du temps réel, les chronomètres d'une partie, le travail de fond, qui se nomment en commençant (`commencer`, `suivre`, `enFond`) —, le processeur pris et les pauses du ramasse-miettes : au relevé de l'heure, et à la page « Le serveur » du QG (« Ce qui gèle ») |
 | La santé du serveur | `SanteDuServeur` | 10 min (`RELEVE_MS`) | le relevé de l'heure et un signe de vie, gardés huit jours |
 | Le rappel du soir | `RappelStore` | chaque minute | la tournée part dès 18 h, jamais à partir de 22 h |
-| La base de la campagne | `CampagneStore.prechauffer` | une fois : dès qu'un profil ouvre son accueil, l'expédition ou le Cabinet, sinon 20 s après l'ouverture | vérifiée au build et relue telle quelle par le paquet, par morceaux de 64 Ko (`lireLaBasePreparee`) — sous tsx, relue et vérifiée par tranches de 200 questions ; chaque tranche rend la main ; puis ses index, les sujets de chaque question, par tranches de mille, les familles de la mesure, la préparation des tirages (`preparerEnFond`) et le modèle du savoir, chaque étape à son tour de boucle (`rendreLaMain`, plus bas) : la première ouverture de la campagne et le premier tirage les trouvent faits |
+| La base de la campagne | `CampagneStore.prechauffer` | une fois : dès qu'un profil ouvre son accueil, l'expédition ou le Cabinet, sinon 20 s après l'ouverture | vérifiée au build et relue telle quelle par le paquet, par morceaux de 64 Ko (`lireLaBasePreparee`) — sous tsx, relue et vérifiée par tranches de cinquante questions ; chaque tranche rend la main ; puis ses index, les sujets de chaque question, par tranches de mille, les familles de la mesure, la préparation des tirages et la série de référence (`preparerEnFond`), puis le modèle du savoir, chacun en tranches, une par tour de boucle (`enTranches`, plus bas) : la première ouverture de la campagne et le premier tirage les trouvent faits |
 | Les tas du Cabinet | `CabinetStore.prechauffer`, `preparerLesTas` | derrière chaque page du Cabinet, quand la liste des questions jouables a changé — la réserve du jour, un retrait, une base relue | ce que chaque jeu peut poser de la base — les QCM du Pari et de l'Éclair, les mots du Mot mystère, les valeurs du Filet —, une tranche de questions par tour de boucle, le verdict de chaque crible gardé par question : une liste neuve des mêmes questions ne coûte qu'un filtre ; puis l'Éclair à ses marches, une catégorie par tour ; puis ce que le disque donne — les tableaux du Détail, le contenu neuf —, chacun son tour |
 | Le journal des réponses | `JournalDesReponses` (`server/src/core/journalDesReponses.ts`) | une fois au réveil, puis à chaque lecture qui en a besoin | toutes les réponses de campagne lues une fois, par tranches de deux mille, chacune à son tour de boucle — ses tranches gardées d'abord (`campagne_tranches`, une ligne chacune), puis la base pour ce qui les suit ; ensuite, seulement celles arrivées depuis le plus grand `rowid` lu, dans le lot de la requête qui en a besoin, et chaque fois qu'il a lu deux mille réponses de plus, une tranche de plus, écrite en fond par la base elle-même. Il tient ce que les requêtes d'avant relisaient de toute l'histoire à chaque page : la mesure, le modèle du savoir, l'expérience, ce que chacun a vu, ses premières réponses, ses écussons, ses missions, son carnet, ses compagnons, ses confettis, les épreuves des sentiers au QG |
 | Le journal des duels | `JournalDesDuels` (`server/src/core/journalDesDuels.ts`) | une fois au réveil, puis à chaque lecture qui en a besoin ; tout, trois minutes après la première lecture (`DUELS_RELUS_APRES_LE_DEMARRAGE_MS`), puis chaque heure (`JOURNAL_DES_DUELS_RELU_MS`) | les duels classés de tous lus une fois ; ensuite, par leur clé, ce qu'une réponse vient de finir (dans son lot), les duels qui ferment et ce qui a peut-être bougé sans être rangé (`duelsARelire`), et par différence les séries écrites ailleurs, trente secondes plus tard au pire (`FRAICHEUR_DES_DUELS_MS`). Les cotes, les ligues, les bordures et le classement s'en dérivent |
-| La mesure des difficultés | `CampagneStore.mesures` | dès ses deux dernières minutes (`MESURE_EN_AVANCE_MS`), au plus une tentative toutes les deux (`MESURE_RETENTEE_MS`) | la suivante relue en fond — du journal des réponses, rattrapé d'un aller-retour —, puis ses familles et la préparation des tirages (`relireLaMesureEnFond`), chacune à son tour de boucle ; qui la demande pendant ce temps reçoit celle qu'il y a, même périmée : seule la première, au réveil, s'attend |
+| La mesure des difficultés | `CampagneStore.mesures` | dès ses deux dernières minutes (`MESURE_EN_AVANCE_MS`), au plus une tentative toutes les deux (`MESURE_RETENTEE_MS`) | la suivante relue en fond — du journal des réponses, rattrapé d'un aller-retour —, puis ses familles, la préparation des tirages et la série de référence (`relireLaMesureEnFond`), chacune en tranches ; qui la demande pendant ce temps reçoit celle qu'il y a, même périmée : seule la première, au réveil, s'attend |
 | La réserve du jour pour `/healthz` | `server/src/server.ts` | 10 min au plus | relue en arrière-plan ; `/healthz` répond avec ce qu'il a |
 | La fin d'une télé branchée | `server/src/sockets.ts` | à l'heure dite | sa connexion tombe, même sans un geste |
 
@@ -466,8 +466,31 @@ et la série de référence faisaient un seul bloc de 130 ms, 1,3 s de serveur
 figé au dixième de cœur de l'hébergeur. Le tourniquet n'en laisse repartir
 qu'une par tour, dans l'ordre où elles l'ont demandé : les requêtes arrivées
 entre deux sont lues, et le plus long gel n'est plus que la plus longue étape
-— vingt à trente millisecondes : les index de la base, ou la première
-préparation d'un tirage (`travail-de-fond.test.ts`).
+(`travail-de-fond.test.ts`).
+
+**Une tranche par tour de boucle** (`enTranches`, le même fichier ;
+`CalculEnTranches`, `shared/tranches.ts`). Une étape d'une traite gelait
+encore : au dixième de cœur, un calcul coupé par la bride coûte plusieurs fois
+son prix, et la mise en famille de la mesure, la préparation d'un tirage, la
+série de référence, les index de la base refaite après une correction du QG —
+chacune sur vingt-sept mille questions — gelaient la production une
+demi-seconde à deux secondes, sous les départs du Cabinet, la page des
+sentiers, le départ d'une épreuve et les pages du QG (le relevé des gels du
+2 novembre 2026). Chacune est un générateur qui cède toutes les
+`QUESTIONS_D_UNE_TRANCHE` questions — deux à trois millisecondes sur un vrai
+cœur —, mené une tranche par tour en fond, d'une traite là où un chemin
+synchrone en a besoin : le même code, le même résultat
+(`calculs-en-tranches.test.ts`). La préparation du tirage et la série de
+référence ne se font plus jamais d'une traite sur le chemin d'une requête :
+elle attend leurs tranches, partagées avec le fond qui les a lancées
+(`tirage`, `referencePour`) ; la série de référence se refait en fond derrière
+chaque mesure neuve et chaque modèle neuf. La famille d'une question se garde
+par la question même : une base refaite ne relit que les questions neuves. Le
+modèle du savoir passe la base en tranches à chaque passe, quatre mille
+chances au plus par tranche (`CHANCES_PAR_TRANCHE`), et les tas du Cabinet
+cinquante questions (`QUESTIONS_PAR_TRANCHE`). Le banc qui le mesure, à
+l'échelle de la production et au dixième de cœur :
+`retours/2026-11-02/reproductions/gels-rejoues.ts`.
 
 **Le travail que personne n'attend laisse passer la salle**
 (`laisserPasserLaSalle`, le même fichier). Le modèle du savoir refait en fond

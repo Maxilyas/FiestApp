@@ -104,9 +104,19 @@ function expliquer(sql: string, args: unknown[] | Record<string, unknown>) {
 }
 
 function executer(stmt: Stmt, sqls: Map<number, string>): { cols: { name: string; decltype: string | null }[]; rows: Valeur[][]; affected_row_count: number; last_insert_rowid: string | null; _sql: string; _ms: number } {
-  const sql = stmt.sql ?? sqls.get(stmt.sql_id!)
+  let sql = stmt.sql ?? sqls.get(stmt.sql_id!)
   if (sql === undefined) throw Object.assign(new Error('sql_id inconnu'), { code: 'SQL_NOT_FOUND' })
   let args: unknown[] | Record<string, unknown> = (stmt.args ?? []).map(lireValeur)
+  // Les paramètres numérotés (`?1`, repris d'une instruction à l'autre — les
+  // lots du Cabinet) : Turso les lie par leur numéro, better-sqlite3 ne lit
+  // que des anonymes ou des nommés. Réécrits en anonymes, leurs valeurs dans
+  // l'ordre où l'instruction les lit, comme `cabinet-index.test.ts`.
+  if (/\?\d/.test(sql)) {
+    const positionnels = args as unknown[]
+    const lus: unknown[] = []
+    sql = sql.replace(/\?(\d+)/g, (_, n: string) => (lus.push(positionnels[Number(n) - 1]), '?'))
+    args = lus
+  }
   if (stmt.named_args && stmt.named_args.length > 0) {
     const nommes: Record<string, unknown> = {}
     for (const a of stmt.named_args) nommes[a.name.replace(/^[:@$]/, '')] = lireValeur(a.value)

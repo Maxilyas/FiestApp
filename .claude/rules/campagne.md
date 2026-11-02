@@ -122,7 +122,9 @@ paths:
   indices, ses vues marquées depuis ses vues, et une passe qui range les
   jamais vues dans leur file ; les vues ne se trient qu'à la marche qui en
   a besoin. 13 à 25 ms par tirage, 1,4 à 2,7 après (le banc du 16 octobre
-  2026, compilé comme en production) ; la préparation, 15 ms. Une retouche
+  2026, compilé comme en production) ; la préparation, 15 ms — en tranches
+  depuis le 2 novembre 2026, et partagée par qui l'attend (`tirage` rend une
+  promesse, plus bas). Une retouche
   du tirage se vérifie au même hasard contre l'ancien, question pour
   question : `tirage-prepare.test.ts` garde le tirage du 16 octobre 2026
   entier et le compare sur la vraie base — le battage tire le hasard comme
@@ -354,7 +356,10 @@ paths:
   référence du dé lit ses marches de la préparation du tirage
   (`referencePour`, `PreparationDuTirage.marche`) et trie ses groupes en
   tableaux de nombres (`serieDeReference`) — `campagne-mesure.test.ts` les
-  compare au code d'avant, gardé dans le test.
+  compare au code d'avant, gardé dans le test. Ses familles, sa préparation
+  et sa série de référence se font en tranches, la série de référence
+  comprise : la page des sentiers et le dé qui suivent la trouvent prête
+  (plus bas, « Un calcul sur toute la base »).
 - **Une étape de fond par tour de boucle** (`rendreLaMain`,
   `core/tourniquet.ts`) : rendre la main par `setImmediate` ne suffit pas.
   Plusieurs calculs qui attendent la même promesse — la base au réveil, une
@@ -369,9 +374,34 @@ paths:
   (`mesures`). Toute boucle de fond par tranches passe par lui : deux
   tranches de deux calculs dans le même tour, c'est encore un bloc.
   `travail-de-fond.test.ts` compte les tours de boucle — jamais deux étapes
-  lourdes dans le même. Restent d'une traite, vingt à trente millisecondes
-  chacune : les index d'une base (`BaseDeLaCampagne`) et la première
-  préparation d'un tirage (`PreparationDuTirage`).
+  lourdes dans le même.
+- **Un calcul sur toute la base se fait en tranches** (`CalculEnTranches`,
+  `shared/tranches.ts` ; `enTranches`, `core/tourniquet.ts` — le 2 novembre
+  2026) : une étape d'une traite gelait encore. Au dixième de cœur, un calcul
+  coupé par la bride coûte plusieurs fois son prix, et la production gelait
+  une demi-seconde à deux secondes sous les départs du Cabinet, la page des
+  sentiers, le départ d'une épreuve et les pages du QG (le relevé des gels ;
+  le banc bridé à l'échelle de la production,
+  `retours/2026-11-02/reproductions/gels-rejoues.ts`). La mise en famille de
+  la mesure (`mesuresEnFamilleEnTranches`), les familles d'une base
+  (`famillesEnTranches` — gardées par question, `FAMILLES` : une base refaite
+  au QG ne relit que les questions neuves), la préparation d'un tirage
+  (`PreparationDuTirage.enTranches`), la série de référence
+  (`serieDeReferenceEnTranches`), la base refaite et ses index
+  (`appliquerLesCorrections`, `BaseDeLaCampagne.enTranches`) et les questions
+  du modèle du savoir sont des générateurs qui cèdent toutes les
+  `QUESTIONS_D_UNE_TRANCHE` questions — deux à trois millisecondes sur un
+  vrai cœur —, menés une tranche par tour en fond, d'une traite par
+  `dUneTraite` là où un chemin synchrone en a besoin : un seul code
+  (`calculs-en-tranches.test.ts`). **Ni la préparation du tirage ni la série
+  de référence ne se font d'une traite sur le chemin d'une requête** : `tirage`
+  et `referencePour` rendent une promesse, faite en tranches et partagée avec
+  ceux qui l'attendent déjà — le fond derrière une mesure neuve
+  (`relireLaMesureEnFond`) ou un modèle neuf (`ajusterLeSavoir`) la prépare,
+  la série, le dé, la page des sentiers l'attendent si elle n'est pas prête.
+  Un calcul de plus sur toute la base se fait de même : `travail-de-fond.test.ts`
+  fait dire à chaque question le tour où on la lit, et jamais plus d'une
+  tranche par tour.
 - **Le travail que personne n'attend laisse passer la salle**
   (`laisserPasserLaSalle`, `core/tourniquet.ts`, le 2 novembre 2026) : le
   modèle du savoir refait en fond — 28,5 s au démarrage du jour, 5,6 s le
