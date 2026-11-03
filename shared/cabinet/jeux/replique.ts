@@ -88,6 +88,16 @@ export interface RepliqueRevelee {
   source: string
   /** « Tu avais répondu … » : ce qu'il avait choisi à chaque étape, par son texte. */
   repondu: { mot: string | null; qui: string | null }
+  /**
+   * Les propositions des deux étapes, dans l'ordre où la manche les a montrées, le rang des bonnes et de celles qu'il
+   * avait choisies : la révélation les corrige comme le quiz du jour et la campagne (`Corrige`) — la bonne encadrée, la
+   * sienne barrée dessous. Deux lignes « juste » ou « pas ça » ne se lisaient pas (le retour du 3 novembre 2026). Rien de
+   * secret : la manche est jugée.
+   */
+  mots: string[]
+  personnes: string[]
+  bonnes: { mot: number; qui: number }
+  choix: { mot: number | null; qui: number | null }
   /** « Le savais-tu ? » */
   savais: string
 }
@@ -237,6 +247,10 @@ export const REGLE_DE_LA_REPLIQUE: RegleQuiTranche<RepliqueTiree, EtatDeLaRepliq
       qui: r.qui,
       source: r.source,
       repondu: { mot: lu.mot === null ? null : (t.mots[lu.mot] ?? null), qui: lu.qui === null ? null : (t.personnes[lu.qui] ?? null) },
+      mots: [...t.mots],
+      personnes: [...t.personnes],
+      bonnes: { mot: t.bonMot, qui: t.bonneQui },
+      choix: { mot: lu.mot, qui: lu.qui },
       savais: r.savais,
     }
   },

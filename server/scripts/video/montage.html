@@ -1,0 +1,827 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>FiestApp — le montage de la vidéo</title>
+<!--
+  Le montage de la vidéo de promotion (`montage.ts` la photographie trente fois
+  par seconde). Rien n'y bouge de soi-même : ni animation CSS, ni minuterie.
+  Tout se pose par `rendre(t)`, une fonction pure du temps — la même seconde
+  donne toujours la même image, que la machine soit lente ou rapide, et une
+  image se refait seule (`--apercu`).
+
+  L'identité est celle de la vitrine (`docs/vitrine/index.html`) : « Velours »,
+  le noir chaud, le champagne pour ce qui compte, la serif pour ce qui se lit de
+  loin, et les quatre formes des réponses. Les écrans sont ceux du tournage
+  (`plans/`), posés tels quels dans une télé et un téléphone dessinés ici.
+
+  Deux formats, la même histoire : `paysage` (1920 × 1080) et `portrait`
+  (1080 × 1920), choisis par `DONNEES.format` ; seules les places changent.
+-->
+<style>
+@font-face { font-family: 'Cormorant Garamond'; font-weight: 600; src: url(public/fonts/cormorant-garamond-600.woff2) format('woff2'); }
+@font-face { font-family: 'Cormorant Garamond'; font-style: italic; font-weight: 500; src: url(public/fonts/cormorant-garamond-500-italic.woff2) format('woff2'); }
+@font-face { font-family: Figtree; font-weight: 300 900; src: url(public/fonts/figtree-variable.woff2) format('woff2'); }
+
+:root {
+  --fond: #1a1412;
+  --halo: #2b211b;
+  --encre: #f3ece2;
+  --doux: #b3a593;
+  --champagne: #d9b56a;
+  --cadre: #0d0a09;
+  --rose: #d98a9a;
+  --lavande: #a99ad6;
+  --sauge: #8fbfa8;
+  --affiche: 'Cormorant Garamond', Georgia, serif;
+  --texte: Figtree, 'Segoe UI', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: var(--fond); }
+body { position: relative; color: var(--encre); font-family: var(--texte); }
+.paysage body, body.paysage { width: 1920px; height: 1080px; }
+body.portrait { width: 1080px; height: 1920px; }
+img { display: block; }
+
+/* ── Le fond : le halo de la vitrine, deux lueurs qui changent de teinte d'un temps à l'autre ── */
+.fond { position: absolute; inset: 0; background: var(--fond); overflow: hidden; }
+.lueur { position: absolute; border-radius: 50%; filter: blur(10px); }
+/* Le projecteur : une lueur douce derrière le téléphone, qui le pose sur la scène au lieu de le laisser flotter dans le noir. */
+.projecteur { position: absolute; left: 0; top: 0; border-radius: 50%; pointer-events: none; }
+.forme-fond { position: absolute; width: 60px; height: 60px; }
+.forme-fond svg { width: 100%; height: 100%; display: block; }
+
+/* ── Les appareils ── */
+.appareil { position: absolute; left: 0; top: 0; transform-origin: 50% 50%; }
+.tel { border-radius: var(--r-ext); background: linear-gradient(145deg, #2a221d, #0d0a09 38%, #0d0a09 70%, #241c18); padding: var(--b); box-shadow: 0 0 0 1px rgba(217, 181, 106, 0.28), 0 50px 90px rgba(0, 0, 0, 0.6), 0 12px 30px rgba(0, 0, 0, 0.45); }
+.tel-ecran { position: relative; width: 100%; height: 100%; border-radius: var(--r-int); overflow: hidden; background: #000; }
+.tele { border-radius: 14px; background: linear-gradient(180deg, #1c1613, #0d0a09); padding: var(--b); box-shadow: 0 0 0 1px rgba(217, 181, 106, 0.22), 0 50px 90px rgba(0, 0, 0, 0.6); }
+.tele-ecran { position: relative; width: 100%; height: 100%; border-radius: 6px; overflow: hidden; background: #000; }
+.tele-pied { position: absolute; left: 50%; top: 100%; width: 26%; height: 34px; transform: translateX(-50%); }
+.tele-pied::before { content: ''; position: absolute; left: 50%; top: 0; width: 18%; height: 22px; transform: translateX(-50%); background: linear-gradient(90deg, #0d0a09, #2b211b, #0d0a09); }
+.tele-pied::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 12px; border-radius: 6px; background: linear-gradient(180deg, #2b211b, #0d0a09); box-shadow: 0 0 0 1px rgba(217, 181, 106, 0.18), 0 18px 30px rgba(0, 0, 0, 0.5); }
+.ecran-image { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; object-position: top center; display: none; }
+.ecran-voile { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; }
+/* Le doigt : un rond clair qui appuie, puis l'onde champagne du toucher. */
+/* Au-dessus des écrans, qui prennent un rang à chaque transition. */
+.doigt { position: absolute; left: 0; top: 0; z-index: 10; border-radius: 50%; background: rgba(255, 255, 255, 0.42); box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85), 0 6px 18px rgba(0, 0, 0, 0.35); opacity: 0; }
+.onde { position: absolute; left: 0; top: 0; z-index: 10; border-radius: 50%; border: 3px solid var(--champagne); opacity: 0; }
+
+/* ── Les légendes ── */
+.legende { position: absolute; opacity: 0; }
+.etiquette { font: 600 24px/1.2 var(--texte); letter-spacing: 0.24em; text-transform: uppercase; color: var(--champagne); display: flex; align-items: center; gap: 14px; }
+.etiquette svg { width: 22px; height: 22px; flex: none; }
+.titre { font-family: var(--affiche); font-weight: 600; line-height: 1.04; letter-spacing: -0.01em; text-wrap: balance; }
+.titre em { font-style: italic; font-weight: 500; color: var(--champagne); }
+.titre .morceau { display: inline-block; }
+.sous { font: 400 31px/1.42 var(--texte); color: #c2b4a1; text-wrap: pretty; }
+.paysage .legende.gauche { left: 150px; width: 640px; top: 50%; }
+.paysage .legende.gauche .titre { font-size: 96px; margin-top: 22px; }
+.paysage .legende.gauche .sous { margin-top: 28px; }
+.paysage .legende.haut { left: 170px; width: 1160px; top: 92px; }
+.paysage .legende.haut .titre { font-size: 62px; margin-top: 16px; }
+/*
+  En vertical, la vidéo passe sous l'interface de l'application qui la montre
+  (Reels, TikTok, les statuts) : son nom en haut, sa légende et ses boutons en
+  bas. La légende descend sous la bande du haut ; ce qui compte au téléphone
+  filmé se lit au-dessus de celle du bas.
+*/
+.portrait .legende.gauche { left: 70px; width: 940px; top: 150px; }
+.portrait .legende.gauche .titre { font-size: 92px; margin-top: 20px; }
+.portrait .legende.gauche .sous { margin-top: 22px; font-size: 33px; }
+.portrait .legende.haut { left: 70px; width: 940px; top: 140px; }
+.portrait .legende.haut .titre { font-size: 70px; margin-top: 16px; }
+.portrait .legende .etiquette { font-size: 26px; }
+
+/* ── L'ouverture et la fin ── */
+.ouverture, .fin { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; opacity: 0; }
+.formes { display: flex; gap: 26px; }
+.formes svg { width: 58px; height: 58px; display: block; }
+.marque { display: flex; align-items: center; gap: 30px; margin-top: 46px; }
+.marque img { width: 128px; height: 128px; }
+.marque span { font: 600 150px/1 var(--affiche); letter-spacing: -0.01em; }
+.devise { margin-top: 34px; font: 600 64px/1.1 var(--affiche); }
+.devise em { font-style: italic; font-weight: 500; color: var(--champagne); }
+.portrait .marque { flex-direction: column; gap: 22px; }
+.portrait .marque span { font-size: 140px; }
+.portrait .devise { font-size: 66px; padding: 0 70px; }
+.pastilles { display: flex; gap: 18px; margin-top: 44px; flex-wrap: wrap; justify-content: center; }
+.pastille { font: 600 28px/1 var(--texte); padding: 16px 28px; border-radius: 999px; border: 1.5px solid rgba(217, 181, 106, 0.55); color: var(--encre); }
+.pastille.pleine { background: var(--champagne); border-color: var(--champagne); color: #1a1412; }
+.adresse { margin-top: 40px; font: 500 34px/1 var(--texte); color: var(--doux); letter-spacing: 0.02em; }
+.adresse b { color: var(--encre); font-weight: 600; }
+.portrait .pastilles { padding: 0 60px; }
+
+/* ── Les légendaires, en médaillons ── */
+.medaillon { position: absolute; left: 0; top: 0; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 4px rgba(217, 181, 106, 0.9), 0 0 0 9px rgba(13, 10, 9, 0.9), 0 0 0 10px rgba(217, 181, 106, 0.35), 0 26px 50px rgba(0, 0, 0, 0.55); opacity: 0; }
+.medaillon img { width: 100%; height: 100%; object-fit: cover; }
+/* Un compagnon : son dessin détouré posé sur son décor, comme sa niche le montre. */
+.medaillon img.perso { position: absolute; left: 7%; top: 9%; width: 86%; height: 86%; object-fit: contain; filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.5)); }
+.medaillon.grand { box-shadow: 0 0 0 5px var(--champagne), 0 0 0 12px rgba(13, 10, 9, 0.92), 0 0 0 13px rgba(217, 181, 106, 0.45), 0 0 90px rgba(255, 150, 60, 0.45), 0 30px 60px rgba(0, 0, 0, 0.6); }
+.reflet { position: absolute; inset: -40%; background: linear-gradient(115deg, transparent 42%, rgba(255, 255, 255, 0.38) 50%, transparent 58%); }
+.nom-medaillon { position: absolute; left: 0; top: 0; font: italic 500 29px/1 var(--affiche); color: var(--encre); white-space: nowrap; opacity: 0; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8); }
+
+/* ── Les cartes du Cabinet ── */
+.carte-peinte { position: absolute; left: 0; top: 0; border-radius: 14px; overflow: hidden; opacity: 0; box-shadow: 0 0 0 3px rgba(217, 181, 106, 0.85), 0 0 0 7px rgba(13, 10, 9, 0.9), 0 30px 50px rgba(0, 0, 0, 0.6); background: #0d0a09; }
+.carte-peinte img { width: 100%; height: 78%; object-fit: cover; }
+.carte-peinte span { display: block; text-align: center; font: 600 26px/1 var(--affiche); padding-top: 12px; color: var(--encre); }
+
+/* ── Le nom du thème porté ── */
+.nom-du-theme { position: absolute; left: 0; top: 0; padding: 14px 26px 14px 20px; border-radius: 999px; background: rgba(13, 10, 9, 0.88); border: 1.5px solid rgba(217, 181, 106, 0.6); font: 600 30px/1 var(--texte); opacity: 0; white-space: nowrap; display: flex; align-items: center; gap: 12px; box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5); }
+.nom-du-theme small { font: 600 18px/1 var(--texte); letter-spacing: 0.2em; text-transform: uppercase; color: var(--champagne); }
+</style>
+</head>
+<body>
+<div class="fond" id="fond"></div>
+
+<div class="appareil tele" id="tele"><div class="tele-ecran" id="tele-ecran"><div class="ecran-voile"></div></div><div class="tele-pied"></div></div>
+<div class="appareil tel" id="tel"><div class="tel-ecran" id="tel-ecran"><div class="ecran-voile"></div><div class="doigt" id="doigt"></div><div class="onde" id="onde"></div></div></div>
+
+<div id="legendes"></div>
+<div id="galerie"></div>
+<div id="cartes"></div>
+<div class="nom-du-theme" id="nom-du-theme"><small>Thème</small><span></span></div>
+
+<section class="ouverture" id="ouverture">
+  <div class="formes" id="formes-ouverture"></div>
+  <div class="marque"><img id="icone-ouverture" alt=""><span>FiestApp</span></div>
+  <p class="devise">Le quiz de la soirée, <em>sur ton téléphone.</em></p>
+</section>
+
+<section class="fin" id="fin">
+  <div class="formes" id="formes-fin"></div>
+  <div class="marque"><img id="icone-fin" alt=""><span>FiestApp</span></div>
+  <p class="devise">Le quiz de la soirée, <em>sur ton téléphone.</em></p>
+  <div class="pastilles"><span class="pastille pleine">Gratuit</span><span class="pastille">Sans compte</span><span class="pastille">Rien à installer</span></div>
+  <p class="adresse" id="adresse"></p>
+</section>
+
+<script src="donnees.js"></script>
+<script>
+'use strict'
+const D = window.DONNEES
+const PAYSAGE = D.format === 'paysage'
+const W = PAYSAGE ? 1920 : 1080
+const H = PAYSAGE ? 1080 : 1920
+document.body.classList.add(D.format)
+
+// ── Le temps ───────────────────────────────────────────────────────────────
+
+const borne = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x))
+const avance = (t, a, b) => (b <= a ? (t >= a ? 1 : 0) : borne((t - a) / (b - a)))
+const lin = (a, b, p) => a + (b - a) * p
+const sortie = p => 1 - (1 - p) ** 3
+const douce = p => (p < 0.5 ? 4 * p ** 3 : 1 - (-2 * p + 2) ** 3 / 2)
+const rebond = p => {
+  const c = 1.55
+  return 1 + (c + 1) * (p - 1) ** 3 + c * (p - 1) ** 2
+}
+/** 0 avant `a`, monte jusqu'à `a + e`, tient, redescend de `b - e` à `b`. */
+const fenetre = (t, a, b, e = 0.45) => Math.min(sortie(avance(t, a, a + e)), 1 - douce(avance(t, b - e, b)))
+
+/** La durée de la vidéo, en secondes : la fin tient encore un instant après la dernière entrée. */
+const DUREE = 57.6
+
+// ── L'histoire, seconde par seconde ────────────────────────────────────────
+//
+// Chaque piste dit quel écran paraît à quel instant, et comment : `glisse`
+// (l'écran suivant arrive de la droite, comme une page qu'on ouvre), `retour`
+// (de la gauche, comme « ← Accueil »), `fondu` (le même écran qui change : une
+// réponse, un onglet). `toucher` est l'instant où le doigt appuie sur l'écran
+// d'avant, à l'endroit que le tournage a retenu.
+
+const PISTE_TEL = [
+  // La soirée : Nina arrive sans compte, répond, gagne. Son premier écran est là avant que le téléphone monte : vide,
+  // il passait une demi-seconde en noir.
+  { t: 2.9, plan: 'tel-entree' },
+  { t: 5.05, plan: 'tel-moi', par: 'glisse', toucher: 4.8 },
+  { t: 6.45, plan: 'tel-equipe', par: 'glisse', toucher: 6.2 },
+  { t: 7.35, plan: 'tel-attente', par: 'glisse', toucher: 7.1 },
+  { t: 8.15, plan: 'tel-question', par: 'fondu' },
+  { t: 9.45, plan: 'tel-repondu', par: 'fondu', toucher: 9.25, d: 0.2 },
+  { t: 10.75, plan: 'tel-revelation', par: 'fondu' },
+  { t: 13.0, plan: 'tel-cloture', par: 'fondu' },
+  // Entre deux soirées, Léa : le quiz du jour.
+  { t: 16.3, plan: 'accueil', par: 'fondu', d: 0.6 },
+  { t: 19.15, plan: 'jour', par: 'glisse', toucher: 18.9 },
+  { t: 20.65, plan: 'jour-question', par: 'glisse', toucher: 20.4 },
+  { t: 22.1, plan: 'jour-juste', par: 'fondu', toucher: 21.9, d: 0.15 },
+  { t: 22.9, plan: 'jour-juste-calme', par: 'fondu', d: 0.5 },
+  // Sa fin défile jusqu'à ce qu'elle rapporte : l'expérience, la mission du jour.
+  { t: 23.7, plan: 'jour-fin', par: 'glisse', defile: [24.6, 26.2, 300] },
+  // Le défi de la semaine.
+  { t: 26.75, plan: 'accueil-2', par: 'retour' },
+  { t: 27.55, plan: 'accueil-defi', par: 'fondu', toucher: 27.35, d: 0.25 },
+  { t: 28.4, plan: 'defi', par: 'glisse', toucher: 28.15 },
+  { t: 29.7, plan: 'defi-question', par: 'glisse', toucher: 29.45 },
+  { t: 30.6, plan: 'defi-juste', par: 'fondu', toucher: 30.4, d: 0.15 },
+  // « Niveau 23 ! », puis ses nouveaux trophées.
+  { t: 31.1, plan: 'defi-fin', par: 'glisse', defile: [31.5, 32.3, 400] },
+  // La campagne et ses sentiers.
+  { t: 32.35, plan: 'campagne', par: 'glisse' },
+  { t: 33.55, plan: 'campagne-question', par: 'glisse', toucher: 33.3 },
+  { t: 34.45, plan: 'campagne-juste', par: 'fondu', toucher: 34.25, d: 0.15 },
+  { t: 35.0, plan: 'campagne-juste-calme', par: 'fondu', d: 0.4 },
+  // Jusqu'aux douze sentiers et leurs portraits.
+  { t: 35.6, plan: 'sentiers', par: 'glisse', defile: [36.05, 37.25, 1] },
+  // Le Cabinet de curiosités.
+  { t: 37.35, plan: 'cabinet-titre', par: 'glisse' },
+  { t: 38.65, plan: 'cabinet-gardiens', par: 'glisse', toucher: 38.4 },
+  { t: 39.85, plan: 'cabinet-cartes', par: 'glisse', toucher: 39.6 },
+  { t: 40.95, plan: 'cabinet-carte', par: 'fondu', d: 0.55 },
+  // Ce qu'on porte : la loge, la carte, puis l'accueil sous ses thèmes.
+  { t: 46.2, plan: 'loge', par: 'coupe' },
+  { t: 48.35, plan: 'carte', par: 'fondu', d: 0.4 },
+  { t: 49.5, plan: 'accueil', par: 'fondu', d: 0.3 },
+  // Les thèmes du tournage se partagent ce qui reste avant que le téléphone s'en aille.
+  ...D.themes.map((plan, i) => ({ t: 49.95 + (i * (52.45 - 49.95)) / D.themes.length, plan, par: 'fondu', d: 0.2 })),
+]
+
+const PISTE_TELE = [
+  { t: 2.9, plan: 'tele-attente' },
+  { t: 8.05, plan: 'tele-question', par: 'fondu' },
+  { t: 10.65, plan: 'tele-revelation', par: 'fondu' },
+  { t: 12.95, plan: 'tele-cloture', par: 'fondu' },
+]
+
+// Où se tiennent les appareils : un centre, une hauteur d'écran (le téléphone) ou une largeur (la télé), un angle, une
+// opacité. Entre deux clés, l'appareil va d'une pose à l'autre en douceur.
+const POSES = PAYSAGE
+  ? {
+      tel: {
+        bas: { x: 1530, y: 1700, h: 800, r: 4, o: 1 },
+        soiree: { x: 1540, y: 575, h: 800, r: 0, o: 1 },
+        solo: { x: 1285, y: 548, h: 880, r: 0, o: 1 },
+        dehors: { x: 2360, y: 560, h: 880, r: 8, o: 1 },
+        sortie: { x: 1285, y: 1700, h: 880, r: -4, o: 1 },
+      },
+      tele: {
+        bas: { x: 730, y: 1500, w: 1120, r: 0, o: 0 },
+        soiree: { x: 730, y: 590, w: 1120, r: 0, o: 1 },
+        partie: { x: -760, y: 590, w: 1120, r: 0, o: 1 },
+      },
+    }
+  : {
+      tel: {
+        bas: { x: 540, y: 2700, h: 900, r: 4, o: 1 },
+        soiree: { x: 540, y: 1405, h: 850, r: 0, o: 1 },
+        // Plus grand que l'image ne le tient : il sort par le bas, là où l'application qui montre la vidéo pose sa
+        // propre légende, et ses écrans se lisent mieux au téléphone de qui la regarde.
+        solo: { x: 540, y: 1300, h: 1330, r: 0, o: 1 },
+        dehors: { x: 540, y: 2950, h: 1330, r: 6, o: 1 },
+        sortie: { x: 540, y: 2950, h: 1330, r: -4, o: 1 },
+      },
+      tele: {
+        bas: { x: 540, y: 1100, w: 980, r: 0, o: 0 },
+        soiree: { x: 540, y: 690, w: 980, r: 0, o: 1 },
+        partie: { x: -560, y: 690, w: 980, r: 0, o: 1 },
+      },
+    }
+
+const CLES_TEL = [
+  [0, 'bas'],
+  [3.0, 'bas'],
+  [3.9, 'soiree'],
+  [15.2, 'soiree'],
+  [16.5, 'solo'],
+  [42.5, 'solo'],
+  [43.3, 'dehors'],
+  // Il revient une fois la galerie partie : plus tôt, il passait sur ses médaillons.
+  [46.25, 'dehors'],
+  [47.15, 'solo'],
+  [52.6, 'solo'],
+  [53.4, 'sortie'],
+]
+const CLES_TELE = [
+  [0, 'bas'],
+  [3.0, 'bas'],
+  [3.85, 'soiree'],
+  [15.0, 'soiree'],
+  [16.1, 'partie'],
+]
+
+/** Les quatre formes des réponses, en SVG : le triangle rose, le losange champagne, le rond lavande, le carré sauge. */
+const FORMES = [
+  '<svg viewBox="0 0 24 24"><path d="M12 3 22 20H2Z" fill="#d98a9a"/></svg>',
+  '<svg viewBox="0 0 24 24"><path d="M12 2 22 12 12 22 2 12Z" fill="#d9b56a"/></svg>',
+  '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#a99ad6"/></svg>',
+  '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2.5" fill="#8fbfa8"/></svg>',
+]
+
+const LEGENDES = [
+  { a: 3.55, b: 7.75, pos: 'haut', forme: 0, etiquette: 'Sans compte', titre: 'On scanne, on choisit un prénom, <em>on joue.</em>' },
+  { a: 7.95, b: 11.35, pos: 'haut', forme: 1, etiquette: 'Ce soir, entre amis', titre: 'Un écran pour la salle, <em>un téléphone pour chacun.</em>' },
+  { a: 11.55, b: 15.15, pos: 'haut', forme: 2, etiquette: 'La révélation', titre: 'La bonne réponse en grand, <em>un podium pour finir.</em>' },
+  { a: 15.45, b: 17.75, pos: 'gauche', titre: 'Et entre deux soirées ? <em>Le jeu continue dans ta poche.</em>' },
+  {
+    a: 17.95,
+    b: 26.45,
+    pos: 'gauche',
+    forme: 3,
+    etiquette: 'Chaque jour',
+    titre: 'Le quiz <em>du jour</em>',
+    sous: 'Dix questions, les mêmes pour tous. Une série à tenir, un classement, un laurier pour le premier.',
+  },
+  {
+    a: 26.65,
+    b: 32.15,
+    pos: 'gauche',
+    forme: 0,
+    etiquette: 'Chaque semaine',
+    titre: 'Le défi <em>de la semaine</em>',
+    sous: 'La même série pour tous, jusqu’à dimanche. Une seule tentative pour la première place.',
+  },
+  {
+    a: 32.35,
+    b: 37.15,
+    pos: 'gauche',
+    forme: 3,
+    etiquette: 'À ton rythme',
+    titre: 'La <em>campagne</em>',
+    sous: 'Trois vies, sans chrono, aussi loin que tu tiens. Et douze sentiers du savoir à gravir.',
+  },
+  {
+    a: 37.35,
+    b: 42.65,
+    pos: 'gauche',
+    forme: 2,
+    etiquette: 'L’aventure',
+    titre: 'Le Cabinet <em>de curiosités</em>',
+    sous: 'Trois actes, trois gardiens, dix petits jeux. Et un légendaire au bout.',
+  },
+  {
+    a: 42.85,
+    b: 46.55,
+    pos: 'gauche',
+    forme: 1,
+    etiquette: 'À gagner',
+    titre: 'Des avatars <em>légendaires</em>',
+    sous: 'Peints un à un, gagnés en jouant : des légendaires, des portraits, des compagnons qui grandissent avec toi.',
+  },
+  {
+    a: 46.75,
+    b: 52.55,
+    pos: 'gauche',
+    forme: 2,
+    etiquette: 'À ton image',
+    titre: 'Ta carte, <em>tes thèmes.</em>',
+    sous: 'Finitions, bordures, fonds, gerbes… Que du style : rien ne donne un point d’avance.',
+  },
+]
+
+// Les teintes du fond, d'un temps à l'autre : deux lueurs sur le noir chaud de Velours.
+const TEINTES = [
+  [0, '#d9b56a', '#a99ad6'],
+  [15.4, '#d9b56a', '#d98a9a'],
+  [17.9, '#d9b56a', '#8fbfa8'],
+  [26.7, '#d98a9a', '#d9b56a'],
+  [32.4, '#8fbfa8', '#d9b56a'],
+  [37.4, '#7f8fe0', '#a99ad6'],
+  [42.9, '#e07a3c', '#d98a9a'],
+  [46.8, '#a99ad6', '#d9b56a'],
+  [52.6, '#d9b56a', '#a99ad6'],
+]
+
+// ── La construction de la page ─────────────────────────────────────────────
+
+const $ = id => document.getElementById(id)
+const creer = (tag, classe, parent) => {
+  const e = document.createElement(tag)
+  if (classe) e.className = classe
+  if (parent) parent.appendChild(e)
+  return e
+}
+
+// Le fond : deux lueurs, et les quatre formes semées très bas, qui dérivent lentement.
+const fond = $('fond')
+const lueurs = [creer('div', 'lueur', fond), creer('div', 'lueur', fond)]
+const projecteur = creer('div', 'projecteur', fond)
+const semis = Array.from({ length: 14 }, (_, i) => {
+  const e = creer('div', 'forme-fond', fond)
+  e.innerHTML = FORMES[i % 4]
+  // Une graine fixe : le semis est le même à chaque image.
+  const g = (i * 7919) % 1000 / 1000
+  const g2 = (i * 104729) % 1000 / 1000
+  return { e, x: g * W, y: g2 * H, v: 6 + ((i * 31) % 9), taille: 22 + ((i * 53) % 30), phase: i * 1.7 }
+})
+
+/** Les écrans d'une piste, une image chacun, posés dans l'écran de l'appareil. */
+function poserLesEcrans(piste, ecran) {
+  const images = new Map()
+  for (const e of piste) {
+    if (images.has(e.plan)) continue
+    const plan = D.plans[e.plan]
+    if (!plan) throw new Error(`la prise « ${e.plan} » manque au tournage (plans.json)`)
+    const img = creer('img', 'ecran-image')
+    img.src = plan.src
+    img.alt = ''
+    // La page entière garde ses proportions : plus haute que l'écran, elle y défile (`defile`).
+    if (plan.hauteurPleine) img.style.height = 'auto'
+    ecran.insertBefore(img, ecran.querySelector('.ecran-voile'))
+    images.set(e.plan, img)
+  }
+  return images
+}
+const imagesTel = poserLesEcrans(PISTE_TEL, $('tel-ecran'))
+const imagesTele = poserLesEcrans(PISTE_TELE, $('tele-ecran'))
+
+// Les légendes.
+const legendes = LEGENDES.map(l => {
+  const e = creer('div', `legende ${l.pos}`, $('legendes'))
+  let html = ''
+  if (l.etiquette) html += `<p class="etiquette">${l.forme !== undefined ? FORMES[l.forme] : ''}<span>${l.etiquette}</span></p>`
+  // Le titre en deux morceaux : ce qui précède l'italique, puis l'italique, qui arrive un temps après.
+  const [avant, apres] = l.titre.split('<em>')
+  html += `<h2 class="titre"><span class="morceau">${avant.trim()}</span>${apres ? ` <span class="morceau"><em>${apres.replace('</em>', '')}</em></span>` : ''}</h2>`
+  if (l.sous) html += `<p class="sous">${l.sous}</p>`
+  e.innerHTML = html
+  return { ...l, e, etiquetteE: e.querySelector('.etiquette'), morceaux: [...e.querySelectorAll('.morceau')], sousE: e.querySelector('.sous') }
+})
+
+// L'ouverture et la fin.
+for (const id of ['formes-ouverture', 'formes-fin']) $(id).innerHTML = FORMES.join('')
+$('icone-ouverture').src = D.icone
+$('icone-fin').src = D.icone
+$('adresse').innerHTML = D.adresse ? `<b>${D.adresse}</b>` : ''
+
+// La galerie : le Phénix au milieu, les autres légendaires en couronne, le loup des étoiles parmi eux — une forme
+// ultime de compagnon se porte comme un légendaire. Assez loin de la légende pour que leurs noms ne la touchent pas.
+const GALERIE = PAYSAGE
+  ? { cx: 1345, cy: 532, grand: 320, petit: 164, rx: 405, ry: 338 }
+  : { cx: 540, cy: 1290, grand: 360, petit: 188, rx: 372, ry: 450 }
+const autour = D.legendaires.slice(1)
+const medaillons = D.legendaires.map((l, i) => {
+  const e = creer('div', `medaillon${i === 0 ? ' grand' : ''}`, $('galerie'))
+  e.innerHTML = `<img src="${l.src}" alt="">${l.perso ? `<img class="perso" src="${l.perso}" alt="">` : ''}${i === 0 ? '<div class="reflet"></div>' : ''}`
+  const nom = creer('div', 'nom-medaillon', $('galerie'))
+  nom.textContent = l.nom
+  const angle = i === 0 ? 0 : -Math.PI / 2 + ((i - 1) / autour.length) * Math.PI * 2
+  return { e, nom, reflet: e.querySelector('.reflet'), i, angle }
+})
+
+// Les trois cartes choisies au départ d'une traversée.
+const cartes = D.cartes.map(c => {
+  const e = creer('div', 'carte-peinte', $('cartes'))
+  e.innerHTML = `<img src="${c.src}" alt=""><span>${c.nom}</span>`
+  return e
+})
+
+// ── Rendre une image ───────────────────────────────────────────────────────
+
+/** La pose d'un appareil à l'instant t, entre ses deux clés. */
+function poseA(t, cles, poses) {
+  let i = 0
+  while (i < cles.length - 1 && cles[i + 1][0] <= t) i++
+  const [ta, a] = cles[i]
+  const suivante = cles[i + 1]
+  if (!suivante || a === suivante[1]) return poses[a]
+  const p = douce(avance(t, ta, suivante[0]))
+  const A = poses[a]
+  const B = poses[suivante[1]]
+  const pose = {}
+  for (const k of Object.keys(A)) pose[k] = lin(A[k], B[k], p)
+  return pose
+}
+
+// Un appareil tenu ne reste pas de marbre : il flotte d'un rien — quelques pixels, un demi-degré —, sans quoi un écran
+// qui tient trois secondes se lisait comme une image arrêtée.
+const flotte = (t, phase, ampleur) => Math.sin(t * 0.85 + phase) * ampleur
+
+function placerTel(pose, t) {
+  const h = pose.h
+  const l = (h * 390) / 844
+  const b = h * 0.0145
+  const tel = $('tel')
+  tel.style.width = `${l + 2 * b}px`
+  tel.style.height = `${h + 2 * b}px`
+  tel.style.setProperty('--b', `${b}px`)
+  tel.style.setProperty('--r-ext', `${l * 0.135 + b}px`)
+  tel.style.setProperty('--r-int', `${l * 0.135}px`)
+  const y = pose.y + flotte(t, 0, 5)
+  tel.style.transform = `translate(${pose.x - l / 2 - b}px, ${y - h / 2 - b}px) rotate(${pose.r + flotte(t * 0.7, 1.3, 0.35)}deg)`
+  tel.style.opacity = pose.o
+  return { l, h, b }
+}
+
+function placerTele(pose, t) {
+  const w = pose.w
+  const b = w * 0.011
+  const tele = $('tele')
+  tele.style.width = `${w + 2 * b}px`
+  tele.style.height = `${(w * 9) / 16 + 2 * b}px`
+  tele.style.setProperty('--b', `${b}px`)
+  const y = pose.y + flotte(t, 2.1, 3)
+  tele.style.transform = `translate(${pose.x - w / 2 - b}px, ${y - (w * 9) / 32 - b}px) rotate(${pose.r}deg)`
+  tele.style.opacity = pose.o
+  return { w }
+}
+
+/**
+ * De combien une page entière a défilé dans l'écran à l'instant t, en pixels de la vidéo : `defile: [début, fin,
+ * jusqu'où]` — jusqu'où en part de ce qui dépasse (≤ 1), ou en pixels de la page.
+ */
+function defilement(e, t, echelle) {
+  const plan = D.plans[e.plan]
+  if (!plan.hauteurPleine || !e.defile) return 0
+  const [a, b, jusqua = 1] = e.defile
+  const reste = plan.hauteurPleine - plan.hauteur
+  const cible = jusqua > 1 ? Math.min(jusqua, reste) : reste * jusqua
+  return douce(avance(t, a, b)) * cible * echelle
+}
+
+/** Les écrans d'une piste à l'instant t : celui qui est là, et celui qu'il remplace le temps de la transition. */
+function rendreLaPiste(t, piste, images, ecran, echelle) {
+  for (const img of images.values()) img.style.display = 'none'
+  const voile = ecran.querySelector('.ecran-voile')
+  voile.style.opacity = 0
+  let i = -1
+  while (i < piste.length - 1 && piste[i + 1].t <= t) i++
+  if (i < 0) return null
+  const e = piste[i]
+  const img = images.get(e.plan)
+  const poser = (image, entree, decalageX, opacite, rang) => {
+    image.style.display = 'block'
+    image.style.opacity = opacite
+    image.style.zIndex = rang
+    image.style.transform = `translate(${decalageX}%, ${-defilement(entree, t, echelle)}px)`
+  }
+  poser(img, e, 0, 1, 2)
+  const avant = i > 0 ? piste[i - 1] : null
+  const d = e.d ?? (e.par === 'glisse' || e.par === 'retour' ? 0.5 : 0.35)
+  const p = avance(t, e.t, e.t + d)
+  if (avant && avant.plan !== e.plan && p < 1 && e.par && e.par !== 'coupe') {
+    const ancienne = images.get(avant.plan)
+    const q = douce(p)
+    if (e.par === 'glisse') {
+      poser(img, e, (1 - q) * 100, 1, 2)
+      poser(ancienne, avant, -28 * q, 1, 1)
+      voile.style.zIndex = 1
+      voile.style.opacity = 0.4 * q
+    } else if (e.par === 'retour') {
+      poser(ancienne, avant, q * 100, 1, 3)
+      poser(img, e, -28 * (1 - q), 1, 1)
+      voile.style.zIndex = 2
+      voile.style.opacity = 0.4 * (1 - q)
+    } else {
+      poser(ancienne, avant, 0, 1, 1)
+      poser(img, e, 0, sortie(p), 2)
+    }
+  }
+  return { e, i }
+}
+
+/** Le doigt : il arrive, appuie à l'instant du toucher, et son onde s'élargit. */
+function rendreLeDoigt(t, piste, ecranLargeur) {
+  const doigt = $('doigt')
+  const onde = $('onde')
+  doigt.style.opacity = 0
+  onde.style.opacity = 0
+  const k = ecranLargeur / 390
+  for (let i = 1; i < piste.length; i++) {
+    const e = piste[i]
+    if (e.toucher === undefined) continue
+    const boite = D.plans[piste[i - 1].plan].toucher
+    if (!boite || t < e.toucher - 0.45 || t > e.toucher + 0.6) continue
+    const cx = (boite.x + boite.l / 2) * k
+    const cy = (boite.y + boite.h / 2) * k
+    const r = 30 * k
+    const arrivee = sortie(avance(t, e.toucher - 0.45, e.toucher - 0.1))
+    const appui = avance(t, e.toucher - 0.1, e.toucher)
+    const depart = avance(t, e.toucher + 0.15, e.toucher + 0.45)
+    const echelle = lin(1.35, 1, arrivee) * lin(1, 0.82, sortie(appui)) * lin(1, 1.15, depart)
+    doigt.style.width = doigt.style.height = `${2 * r}px`
+    doigt.style.transform = `translate(${cx - r}px, ${cy - r}px) scale(${echelle})`
+    doigt.style.opacity = arrivee * (1 - depart)
+    const o = avance(t, e.toucher, e.toucher + 0.55)
+    if (o > 0 && o < 1) {
+      onde.style.width = onde.style.height = `${2 * r}px`
+      onde.style.transform = `translate(${cx - r}px, ${cy - r}px) scale(${lin(1, 2.6, sortie(o))})`
+      onde.style.opacity = 0.9 * (1 - o)
+    }
+  }
+}
+
+function couleur(hex) {
+  const n = parseInt(hex.slice(1), 16)
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+}
+function teinteA(t, k) {
+  let i = 0
+  while (i < TEINTES.length - 1 && TEINTES[i + 1][0] <= t) i++
+  const a = couleur(TEINTES[i][k])
+  const suivante = TEINTES[i + 1]
+  if (!suivante) return a
+  // La teinte change sur la seconde qui précède sa clé, en même temps que le reste.
+  const p = douce(avance(t, suivante[0] - 1.2, suivante[0]))
+  const b = couleur(suivante[k])
+  return a.map((v, j) => Math.round(lin(v, b[j], p)))
+}
+
+function rendreLeProjecteur(t, pose) {
+  const [r, v, b] = teinteA(t, 1)
+  const taille = pose.h * 1.5
+  projecteur.style.width = projecteur.style.height = `${taille}px`
+  projecteur.style.transform = `translate(${pose.x - taille / 2}px, ${pose.y - taille / 2}px)`
+  projecteur.style.background = `radial-gradient(circle, rgba(${r}, ${v}, ${b}, 0.16) 0%, rgba(${r}, ${v}, ${b}, 0.06) 40%, rgba(26, 20, 18, 0) 68%)`
+  projecteur.style.opacity = pose.o
+}
+
+function rendreLeFond(t) {
+  const [c1, c2] = [teinteA(t, 1), teinteA(t, 2)]
+  const taille = Math.max(W, H) * 1.05
+  const places = [
+    [W * 0.78 + Math.sin(t * 0.23) * 90, H * 0.12 + Math.cos(t * 0.17) * 70],
+    [W * 0.12 + Math.cos(t * 0.19) * 80, H * 0.9 + Math.sin(t * 0.21) * 70],
+  ]
+  lueurs.forEach((e, i) => {
+    const c = i === 0 ? c1 : c2
+    e.style.width = e.style.height = `${taille}px`
+    e.style.transform = `translate(${places[i][0] - taille / 2}px, ${places[i][1] - taille / 2}px)`
+    e.style.background = `radial-gradient(circle, rgba(${c.join(',')}, ${i === 0 ? 0.2 : 0.14}) 0%, rgba(${c.join(',')}, 0.05) 38%, rgba(26, 20, 18, 0) 62%)`
+  })
+  for (const s of semis) {
+    const y = ((s.y - t * s.v) % (H + 120) + H + 120) % (H + 120) - 60
+    s.e.style.width = s.e.style.height = `${s.taille}px`
+    s.e.style.transform = `translate(${s.x + Math.sin(t * 0.3 + s.phase) * 24}px, ${y}px) rotate(${t * 6 + s.phase * 40}deg)`
+    // À peine là : plus visibles, les ronds se lisaient comme des taches sur l'objectif.
+    s.e.style.opacity = 0.05
+  }
+}
+
+function rendreLesLegendes(t) {
+  for (const l of legendes) {
+    const o = fenetre(t, l.a, l.b, 0.5)
+    if (o <= 0) {
+      l.e.style.opacity = 0
+      continue
+    }
+    l.e.style.opacity = 1
+    const centre = l.pos === 'gauche' && PAYSAGE
+    const sortieP = douce(avance(t, l.b - 0.5, l.b))
+    l.e.style.transform = `${centre ? 'translateY(-50%) ' : ''}translateY(${-14 * sortieP}px)`
+    l.e.style.opacity = 1 - sortieP
+    const entree = (debut, d = 0.6) => sortie(avance(t, l.a + debut, l.a + debut + d))
+    if (l.etiquetteE) {
+      const p = entree(0)
+      l.etiquetteE.style.opacity = p
+      l.etiquetteE.style.transform = `translateY(${(1 - p) * 16}px)`
+    }
+    l.morceaux.forEach((m, j) => {
+      const p = entree(0.12 + j * 0.32, 0.75)
+      m.style.opacity = p
+      m.style.transform = `translateY(${(1 - p) * 34}px)`
+      m.style.filter = p < 1 ? `blur(${(1 - p) * 6}px)` : 'none'
+    })
+    if (l.sousE) {
+      const p = entree(0.75, 0.7)
+      l.sousE.style.opacity = p
+      l.sousE.style.transform = `translateY(${(1 - p) * 18}px)`
+    }
+  }
+}
+
+function rendreLOuverture(t) {
+  const o = $('ouverture')
+  const vue = 1 - douce(avance(t, 2.85, 3.45))
+  o.style.opacity = vue
+  if (vue <= 0) return
+  o.style.transform = `translateY(${-30 * douce(avance(t, 2.85, 3.45))}px)`
+  ;[...$('formes-ouverture').children].forEach((f, i) => {
+    const p = rebond(avance(t, 0.15 + i * 0.13, 0.75 + i * 0.13))
+    f.style.opacity = avance(t, 0.15 + i * 0.13, 0.4 + i * 0.13)
+    f.style.transform = `translateY(${(1 - p) * -60}px) scale(${lin(0.5, 1, p)}) rotate(${(1 - p) * -40}deg)`
+  })
+  const marque = o.querySelector('.marque')
+  const pm = sortie(avance(t, 0.75, 1.5))
+  marque.style.opacity = pm
+  marque.style.transform = `scale(${lin(0.9, 1, pm)})`
+  const devise = o.querySelector('.devise')
+  const pd = sortie(avance(t, 1.35, 2.1))
+  devise.style.opacity = pd
+  devise.style.transform = `translateY(${(1 - pd) * 24}px)`
+}
+
+function rendreLaFin(t) {
+  const f = $('fin')
+  const debut = 53.2
+  const vue = sortie(avance(t, debut, debut + 0.6))
+  f.style.opacity = vue
+  if (vue <= 0) return
+  ;[...$('formes-fin').children].forEach((e, i) => {
+    const p = rebond(avance(t, debut + i * 0.12, debut + 0.6 + i * 0.12))
+    e.style.opacity = avance(t, debut + i * 0.12, debut + 0.25 + i * 0.12)
+    e.style.transform = `translateY(${(1 - p) * -50}px) scale(${lin(0.5, 1, p)})`
+  })
+  const parts = [f.querySelector('.marque'), f.querySelector('.devise'), f.querySelector('.pastilles'), f.querySelector('.adresse')]
+  parts.forEach((e, i) => {
+    const p = sortie(avance(t, debut + 0.4 + i * 0.3, debut + 1.1 + i * 0.3))
+    e.style.opacity = p
+    e.style.transform = `translateY(${(1 - p) * 22}px)`
+  })
+}
+
+function rendreLaGalerie(t) {
+  const debut = 43.05
+  const fin = 46.1
+  const G = GALERIE
+  medaillons.forEach(m => {
+    const arrivee = debut + (m.i === 0 ? 0 : 0.25 + m.i * 0.11)
+    const p = rebond(avance(t, arrivee, arrivee + 0.7))
+    const depart = douce(avance(t, fin - 0.1 + m.i * 0.03, fin + 0.45 + m.i * 0.03))
+    const vu = avance(t, arrivee, arrivee + 0.25) * (1 - depart)
+    m.e.style.opacity = vu
+    m.nom.style.opacity = 0
+    if (vu <= 0) return
+    const d = m.i === 0 ? G.grand : G.petit
+    const flotte = Math.sin(t * 1.3 + m.i) * (m.i === 0 ? 6 : 10)
+    const x = m.i === 0 ? G.cx : G.cx + Math.cos(m.angle) * G.rx
+    const y = (m.i === 0 ? G.cy : G.cy + Math.sin(m.angle) * G.ry) + flotte
+    const echelle = lin(0.3, 1, p) * lin(1, 0.6, depart)
+    m.e.style.width = m.e.style.height = `${d}px`
+    m.e.style.transform = `translate(${x - d / 2}px, ${y - d / 2}px) scale(${echelle})`
+    if (m.reflet) m.reflet.style.transform = `translateX(${lin(-60, 60, avance(t, debut + 0.9, debut + 2.1))}%)`
+    // Le nom sous chaque médaillon, une fois posé.
+    const pn = sortie(avance(t, arrivee + 0.5, arrivee + 0.9)) * (1 - depart)
+    m.nom.style.opacity = pn
+    const largeurNom = m.nom.offsetWidth
+    m.nom.style.transform = `translate(${x - largeurNom / 2}px, ${y + d / 2 + 18 + (1 - pn) * 10}px)`
+  })
+}
+
+function rendreLesCartes(t, tel) {
+  const debut = 40.0
+  const fin = 42.55
+  cartes.forEach((e, i) => {
+    const p = rebond(avance(t, debut + i * 0.16, debut + 0.75 + i * 0.16))
+    const depart = douce(avance(t, fin - 0.2 + i * 0.05, fin + 0.3 + i * 0.05))
+    const vu = avance(t, debut + i * 0.16, debut + 0.2 + i * 0.16) * (1 - depart)
+    e.style.opacity = vu
+    if (vu <= 0) return
+    const l = PAYSAGE ? 290 : 250
+    const h = l * 0.75 / 0.78 + 46
+    e.style.width = `${l}px`
+    e.style.height = `${h}px`
+    // Elles sortent du téléphone et se posent à côté de lui, en éventail.
+    const ou = PAYSAGE
+      ? [
+          [1745, 255, -7],
+          [1720, 548, 4],
+          [1745, 840, -3],
+        ][i]
+      : [
+          [230, 1560, -10],
+          [540, 1640, 0],
+          [850, 1560, 10],
+        ][i]
+    const x = lin(tel.x, ou[0], p)
+    const y = lin(tel.y, ou[1], p)
+    e.style.transform = `translate(${x - l / 2}px, ${y - h / 2}px) rotate(${lin(0, ou[2], p)}deg) scale(${lin(0.4, 1, p) * lin(1, 0.7, depart)})`
+  })
+}
+
+function rendreLeNomDuTheme(t, piste, tel, pose) {
+  const n = $('nom-du-theme')
+  const a = 49.5
+  const b = 52.55
+  const o = fenetre(t, a, b, 0.35)
+  n.style.opacity = o
+  if (o <= 0) return
+  const courant = piste ? D.plans[piste.e.plan] : null
+  n.querySelector('span').textContent = courant?.legende ?? ''
+  const largeur = n.offsetWidth
+  const x = PAYSAGE ? pose.x - tel.l / 2 - largeur + 40 : pose.x - largeur / 2
+  const y = PAYSAGE ? pose.y + tel.h * 0.3 : pose.y - tel.h / 2 - 74
+  n.style.transform = `translate(${x}px, ${y + (1 - o) * 16}px)`
+}
+
+window.rendre = function rendre(t) {
+  rendreLeFond(t)
+  const poseTel = poseA(t, CLES_TEL, POSES.tel)
+  rendreLeProjecteur(t, poseTel)
+  const tel = placerTel(poseTel, t)
+  const tele = placerTele(poseA(t, CLES_TELE, POSES.tele), t)
+  const piste = rendreLaPiste(t, PISTE_TEL, imagesTel, $('tel-ecran'), tel.l / 390)
+  rendreLaPiste(t, PISTE_TELE, imagesTele, $('tele-ecran'), tele.w / 1920)
+  rendreLeDoigt(t, PISTE_TEL, tel.l)
+  rendreLesLegendes(t)
+  rendreLOuverture(t)
+  rendreLaFin(t)
+  rendreLaGalerie(t)
+  rendreLesCartes(t, poseTel)
+  rendreLeNomDuTheme(t, piste, tel, poseTel)
+}
+window.DUREE = DUREE
+
+// Prête quand chaque image est décodée et chaque police chargée : une image à moitié chargée se verrait sur une seule
+// image de la vidéo, et passerait inaperçue à l'aperçu.
+window.pret = (async () => {
+  await document.fonts.load('600 40px "Cormorant Garamond"')
+  await document.fonts.load('italic 500 40px "Cormorant Garamond"')
+  await document.fonts.load('600 20px Figtree')
+  await Promise.all([...document.images].map(i => i.decode()))
+  window.rendre(0)
+  return true
+})()
+</script>
+</body>
+</html>

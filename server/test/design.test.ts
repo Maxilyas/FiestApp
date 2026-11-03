@@ -669,3 +669,14 @@ test('A4 · chaque page d’animateur a son nom d’onglet', async () => {
   const racine = readFileSync(new URL('../../client/src/main.tsx', import.meta.url), 'utf8')
   assert.match(racine, /if \(route\.kind === 'account'\) document\.title = titreDePage\(route\.page\)/)
 })
+
+test('l’Éclat garde sa lumière dans sa carte : la bague du Diamant, à 170 pixels, ne fait pas déborder la page', () => {
+  // Le retour du 3 novembre 2026 : un Éclat en réserve au quiz du jour, sous Le Ciel du jour, et la niche du compagnon
+  // partait hors champ. L'avatar y paraît à 170 pixels (`.fin-apparition`), et la lumière d'une finition se mesure en `em`
+  // (`.lu-dispersion`, 2,3 em : 391 pixels) : en tournant, elle faisait la page large de 370 pixels sur 360 — mesuré au
+  // navigateur avant et après —, et tout ce qui est fixe au coin glissait avec elle.
+  const regle = CSS.match(/\n\.fin-eclat \{[^}]*\}/)?.[0] ?? ''
+  assert.match(regle, /overflow-x: clip;/, 'la carte de l’Éclat garde ce qui déborde de côté')
+  assert.match(CSS, /\.fin-apparition \{ font-size: 170px;/, 'si l’avatar rapetisse, la garde peut se relire')
+  assert.match(CSS, /\.lu-dispersion \{\n  --d: 2\.3em;/)
+})

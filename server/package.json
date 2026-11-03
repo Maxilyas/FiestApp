@@ -15,7 +15,8 @@
     "export": "tsx scripts/export-party.ts",
     "sauvegarde": "tsx scripts/sauvegarde.ts",
     "mesure": "tsx scripts/mesure-pages.ts",
-    "tablee": "tsx scripts/tablee/regie.ts"
+    "tablee": "tsx scripts/tablee/regie.ts",
+    "video": "tsx scripts/video-promo.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.4",

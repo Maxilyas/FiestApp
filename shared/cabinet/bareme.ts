@@ -437,6 +437,8 @@ export const QCM_D_UN_THEME_DU_QUIZ = 40
 export const INDICES_DES_ETOILES: readonly [number, number] = [2, 4]
 /** Les Indices : une faute de frappe se tolère dans un mot dès tant de lettres. */
 export const LETTRES_POUR_UNE_FAUTE = 5
+/** Les Indices : à l'oreille (`aLOreille`), deux fautes se tolèrent dans un mot dès tant de sons — « Chekspir » pour Shakespeare ; en deçà, il doit sonner pareil. */
+export const LETTRES_POUR_DEUX_FAUTES = 8
 /** Les Indices : une réponse tient en tant de mots au plus — la réponse fourre-tout reste fermée. */
 export const MOTS_D_UNE_IDENTITE_MAX = 4
 /**
@@ -568,6 +570,24 @@ export const PRIX_MIN = 5
 export const MARCHES_DES_ACTES: readonly (readonly Niveau[])[] = [['facile'], ['moyen'], ['difficile']]
 /** … et celles des gardiens, un cran au-dessus. */
 export const MARCHES_DES_GARDIENS: readonly (readonly Niveau[])[] = [['moyen'], ['difficile'], ['difficile', 'expert']]
+/**
+ * … sauf aux jeux qui posent une question sans ses réponses à côté — l'Éclair, qui n'en propose qu'une à juger vraie ou
+ * fausse, et le Filet, qui n'en propose aucune : un cran plus bas, la marche des épreuves de l'acte. Une question experte
+ * sans ses voisines n'était plus du savoir mais une pièce jetée (« les questions avec une réponse et tu dois dire vrai ou
+ * faux, c'est trop dur », le retour du 3 novembre 2026, au gardien de l'acte III). Le gardien reste redoutable par ses
+ * points de vie, que le propriétaire a gardés.
+ */
+export const MARCHES_DES_GARDIENS_SANS_CHOIX: readonly (readonly Niveau[])[] = [['facile'], ['moyen'], ['moyen', 'difficile']]
+/**
+ * Le Filet dans la traversée, un cran sous les autres jeux : aux épreuves, acte par acte… Une estimation se joue sans
+ * réponse à côté, sur un curseur où le petit filet ne couvre que 7 % de la piste — « Estimation de grandeur (filets),
+ * mettre des questions moins dures », le retour du 3 novembre 2026. Au départ facile, moyen, difficile, comme les autres.
+ */
+export const MARCHES_DU_FILET_AUX_EPREUVES: readonly (readonly Niveau[])[] = [['facile'], ['facile'], ['moyen']]
+/** … et contre un gardien : jamais plus facile que les épreuves de son acte, jamais difficile. */
+export const MARCHES_DU_FILET_AUX_GARDIENS: readonly (readonly Niveau[])[] = [['facile'], ['moyen'], ['moyen']]
+/** Les jeux qui tirent leurs marches de `MARCHES_DES_GARDIENS_SANS_CHOIX` contre un gardien. */
+export const JEUX_SANS_CHOIX: readonly ('eclair' | 'filet')[] = ['eclair', 'filet']
 /** Quitte ou double : les mises par épreuve, niveau par niveau… */
 export const MISES_PAR_EPREUVE: Readonly<Record<Force, number>> = { 1: 1, 2: 1, 3: 2 }
 /** … ce qu'une mise gagnée multiplie — l'or de sa manche, et ses coups contre un gardien… */

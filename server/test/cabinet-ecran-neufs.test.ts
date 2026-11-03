@@ -997,8 +997,21 @@ test('la révélation de la Réplique : la réplique entière, qui l’a dite et
   assert.match(html, /<h2 class="cab-titre-revele">Le bon mot<\/h2>/)
   assert.match(t, new RegExp(lu(`« ${r.entiere} »`)))
   assert.match(t, new RegExp(lu(`${r.qui} · ${r.source}`)))
-  assert.match(t, new RegExp(`Le mot : « ${lu(r.repondu.mot!)} », juste`))
-  assert.match(t, new RegExp(`Qui l’a dit : ${lu(r.repondu.qui!)}, juste`))
+  // Corrigée comme au quiz du jour et en campagne (le retour du 3 novembre 2026 : « on ne voit pas bien la bonne réponse /
+  // mauvaise ») : chaque étape sa marque, la bonne réponse encadrée, la sienne avec elle quand c'est la même.
+  assert.equal((html.match(/<li class="corrige ok">/g) ?? []).length, 2, 'deux étapes justes, chacune sa marque')
+  assert.match(t, new RegExp(`Étape 1 Le mot qui manque La bonne réponse · la tienne ${lu(r.repondu.mot!)}`))
+  assert.match(t, new RegExp(`Étape 2 Qui l’a dit \\? La bonne réponse · la tienne ${lu(r.repondu.qui!)}`))
+  assert.equal(r.mots[r.bonnes.mot], r.repondu.mot)
+  assert.equal(r.personnes[r.bonnes.qui], r.repondu.qui)
+  // Ratée : la bonne encadrée, la sienne barrée dessous.
+  const { replique: ECRAN } = await ecrans()
+  const { renderToStaticMarkup: rendre } = await import('react-dom/server')
+  const autre = (r.bonnes.qui + 1) % r.personnes.length
+  const ratee = rendre(React.createElement(ECRAN.Revelation as React.FC<Record<string, unknown>>, { corps: { ...r, bonneQui: false, choix: { ...r.choix, qui: autre } }, partie: v.id }))
+  assert.match(ratee, /<li class="corrige ko">/)
+  assert.match(texte(ratee), new RegExp(`Qui l’a dit \\? La bonne réponse ${lu(r.personnes[r.bonnes.qui])} Ta réponse ${lu(r.personnes[autre])}`))
+  assert.match(ratee, new RegExp(`<s>${lu(r.personnes[autre])}</s>`))
   assert.doesNotMatch(t, /quittée/i)
   sansJargon(html, 'la révélation de la Réplique', [r.entiere, r.source, r.qui, r.savais])
   // La partie relue — celle de « Mes réponses » —, quittée au bon mot : la troisième manche se titre « Le bon mot », et ne rapporte
@@ -1013,7 +1026,10 @@ test('la révélation de la Réplique : la réplique entière, qui l’a dite et
   const { renderToStaticMarkup } = await import('react-dom/server')
   const quittee = renderToStaticMarkup(React.createElement(REPLIQUE.Revelation as React.FC<Record<string, unknown>>, { corps: derniere.corps, fin: derniere.fin, partie: relue.id }))
   assert.match(texte(quittee), /Manche quittée avant « Qui l’a dit \? » : même le bon mot ne compte pas\./)
-  assert.match(texte(quittee), /Qui l’a dit : pas de réponse/)
+  // « Qui l'a dit ? » jamais répondu : sa marque le dit — l'horloge, « Sans réponse » au lecteur d'écran —, et la bonne seule.
+  assert.match(quittee, /<li class="corrige sans"><div class="corrige-tete"><span class="corrige-marque" role="img" aria-label="Sans réponse">/)
+  assert.match(texte(quittee), /Qui l’a dit \? La bonne réponse \S/)
+  assert.doesNotMatch(texte(quittee), /Ta réponse/)
   // Le cadre la lui passe : le bandeau et le corps le disent. (Une partie quittée s'ouvre sur son bilan : le cadre ne montre une
   // manche quittée qu'ici, rendu à la main.)
   const cadre = await rendu('views/cabinet/Partie', 'RevelationDeLaManche', { vue: relue, revelation: derniere, ecran: REPLIQUE, onSignaler: rien })

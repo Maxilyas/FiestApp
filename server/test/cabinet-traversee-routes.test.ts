@@ -56,7 +56,10 @@ async function partir(cookie: string, cartes: string[]): Promise<PageDeLaTravers
 function traverseeALaMain(profil: string, gardiens: [string, string, string], arret: (e: EtatDeLaTraversee) => boolean): DepartDeLaTraversee {
   let x = 1
   const hasard = () => ((x = (x * 16807) % 2147483647) / 2147483647)
-  const depart: DepartDeLaTraversee = { v: 1, jour: '2026-10-24', actes: tracerLaCarte(hasard, gardiens, { epingle: ['Rome'], frise: ['Rome'] }) }
+  // Tracée avant le 3 novembre 2026, comme sa version : sans assauts tirés, chaque gardien joue ses trois jeux d'avant
+  // (`jeuxDAvant`) — le Renard ouvre à l'Éclair, et la route sert encore ces traversées-là.
+  const actes = tracerLaCarte(hasard, gardiens, { epingle: ['Rome'], frise: ['Rome'] }).map(({ assauts: _, ...a }) => a)
+  const depart: DepartDeLaTraversee = { v: 1, jour: '2026-10-24', actes }
   const gestes: GesteDeLaTraversee[] = [{ quoi: 'cartes', cartes: ['cagnotte', 'parade', 'panacee'] }]
   const etat = () =>
     etatDeLaTraversee(
@@ -216,7 +219,7 @@ test('le gardien à terre avant la dernière manche : l’épreuve se quitte et 
   const devant = ok(await laPage(cookie), 'la page').traversee!
   assert.equal(devant.ou.sorte, 'marchand')
   let partie = ok(await geste(cookie, devant, { quoi: 'aller', etape: gardien }), 'l’assaut').traversee!.partie! as VueDeLaPartie
-  assert.equal(partie.jeu, 'eclair', 'le premier assaut du Renard')
+  assert.equal(partie.jeu, 'eclair', 'le premier assaut du Renard, d’une traversée d’avant')
   // Deux manches parfaites : six étoiles, les six points de vie du gardien de l'acte I.
   partie = await jouerUnEclair(b, cookie, partie, 0)
   partie = ok(await jouer(b, cookie, partie, { quoi: 'ouvrir', manche: 1 }), 'la deuxième manche')

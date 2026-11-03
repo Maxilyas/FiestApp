@@ -1,4 +1,4 @@
-import { Icon } from '../../../components/Icon'
+import { Corrige, verdictDe } from '../../../components/Corrige'
 import { Shape } from '../../../components/Shape'
 import { espacesFines } from '../../../format'
 import { answersSizeClass } from '../../../games/quiz/questionSize'
@@ -95,17 +95,6 @@ function MancheDeLaReplique({ montree: m, envoyer, garde, busy }: PropsDUneManch
   )
 }
 
-/** Ce qu'il avait répondu à une étape, en mots et d'une marque — jamais la couleur seule. Le mot entre guillemets, la personne sans. */
-function Repondu({ quoi, repondu, juste, cite = false }: { quoi: string; repondu: string | null; juste: boolean; cite?: boolean }) {
-  const dit = repondu === null ? 'pas de réponse' : juste ? 'juste' : 'pas ça'
-  return (
-    <li className={repondu !== null && juste ? 'cab-repondu-juste' : 'cab-repondu-faux'}>
-      <Icon name={repondu !== null && juste ? 'check' : 'x'} />
-      <span>{espacesFines(repondu === null ? `${quoi} : ${dit}` : `${quoi} : ${cite ? `« ${repondu} »` : repondu}, ${dit}`)}</span>
-    </li>
-  )
-}
-
 /**
  * La révélation : la réplique entière, qui l'a dite et d'où elle vient, ce
  * qu'il avait répondu à chaque étape. Quittée au bon mot, le titre dit « Le bon
@@ -119,10 +108,26 @@ function RevelationDeLaReplique({ corps: r, fin }: { corps: RepliqueRevelee; fin
     <section className="cab-replique-revelee" aria-label="La réplique">
       <blockquote className="cab-replique">{espacesFines(`« ${r.entiere} »`)}</blockquote>
       <p className="cab-ligne cab-qui">{espacesFines(`${r.qui} · ${r.source}`)}</p>
-      <ul className="cab-repondu">
-        <Repondu quoi="Le mot" repondu={r.repondu.mot} juste={r.bonMot} cite />
-        <Repondu quoi="Qui l’a dit" repondu={r.repondu.qui} juste={r.bonneQui} />
-      </ul>
+      {/* Corrigée comme au quiz du jour et en campagne (`Corrige`) : la bonne réponse encadrée, la sienne barrée dessous, une
+          marque et une légende à chacune — deux lignes « juste » ou « pas ça » ne se lisaient pas (le retour du 3 novembre 2026). */}
+      <ol className="campagne-correction cab-corrige">
+        <Corrige
+          verdict={verdictDe({ juste: r.bonMot, choix: r.choix.mot })}
+          tete="Étape 1"
+          texte="Le mot qui manque"
+          reponses={r.mots}
+          bonne={r.bonnes.mot}
+          choix={r.choix.mot}
+        />
+        <Corrige
+          verdict={verdictDe({ juste: r.bonneQui, choix: r.choix.qui })}
+          tete="Étape 2"
+          texte="Qui l’a dit ?"
+          reponses={r.personnes}
+          bonne={r.bonnes.qui}
+          choix={r.choix.qui}
+        />
+      </ol>
       {fin === 'quittee' && (
         <p className="cab-ligne cab-quittee">
           {espacesFines(r.bonMot ? 'Manche quittée avant « Qui l’a dit ? » : même le bon mot ne compte pas.' : 'Manche quittée : elle ne compte pas.')}

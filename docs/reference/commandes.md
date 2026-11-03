@@ -2,7 +2,7 @@
 
 > Chaque commande npm du dépôt — à la racine, dans `server/`, dans `client/` — et chaque script de `server/scripts/` : à quoi il sert, comment on le lance, ce qu'il lit dans l'environnement, ce qu'il produit. Les variables propres à un script vivent ici ; celles du serveur, dans [la configuration](configuration.md).
 
-**Dans cette page** : [les commandes npm](#les-commandes-npm) · [vérifier](#vérifier) · [lancer et empaqueter](#lancer-et-empaqueter) · [sauvegarder, exporter, migrer](#sauvegarder-exporter-migrer) · [simuler et mesurer](#simuler-des-invités-et-mesurer) · [photographier](#photographier-lapplication) · [la tablée](#la-tablée) · [la base de la campagne](#la-base-de-la-campagne) · [les calibrages](#les-calibrages) · [les images peintes](#les-images-peintes) · [les variables des scripts](#les-variables-denvironnement-des-scripts)
+**Dans cette page** : [les commandes npm](#les-commandes-npm) · [vérifier](#vérifier) · [lancer et empaqueter](#lancer-et-empaqueter) · [sauvegarder, exporter, migrer](#sauvegarder-exporter-migrer) · [simuler et mesurer](#simuler-des-invités-et-mesurer) · [photographier](#photographier-lapplication) · [la vidéo de promotion](#la-vidéo-de-promotion) · [la tablée](#la-tablée) · [la base de la campagne](#la-base-de-la-campagne) · [les calibrages](#les-calibrages) · [les images peintes](#les-images-peintes) · [les variables des scripts](#les-variables-denvironnement-des-scripts)
 
 ## Les commandes npm
 
@@ -25,8 +25,9 @@ Le dépôt a deux espaces de travail npm, `client` et `server` (`package.json`) 
 | `npm run sauvegarde -- …` | `server/scripts/sauvegarde.ts` | La base permanente dans un fichier SQL daté |
 | `npm run mesure -- …` | `server/scripts/mesure-pages.ts` | Ce que chaque page fait attendre à un téléphone |
 | `npm run tablee -- …` | `server/scripts/tablee/regie.ts` | Une soirée jouée par des agents |
+| `npm run video -- …` | `server/scripts/video-promo.ts` | La vidéo de promotion, tournée sur l'application réelle et montée image par image, en 16:9 et en 9:16 |
 
-Les six dernières passent leurs arguments au script (`npm run export -- --soiree 2026-09-19-k7x2q`) et tournent dans `server/` : un chemin relatif s'y lit — sauf pour `sauvegarde` et `tablee`, qui le lisent depuis le dossier où la commande a été tapée.
+Les sept dernières passent leurs arguments au script (`npm run export -- --soiree 2026-09-19-k7x2q`) et tournent dans `server/` : un chemin relatif s'y lit — sauf pour `sauvegarde`, `tablee` et `video`, qui le lisent depuis le dossier où la commande a été tapée.
 
 ### Dans `server/` ou `client/` seulement
 
@@ -115,6 +116,16 @@ Ces scripts ne sont pas des tests : ils montrent un écran tel que le verra un i
 | `server/scripts/planche-portraits.ts`, `server/scripts/planche-medaillons.ts`, `server/scripts/planche-bordures.ts` | Les dessins dans tous leurs états — en grand, dans une liste, verrouillés, éclatés, portés sous les finitions — rendus par les vrais composants de `client/src` sous leur feuille de style ; ni serveur ni client construit | `planche-portraits.ts <dossier> [branche…]` | `planches/` |
 | `server/scripts/duelsDEssai.ts` | Des duels écrits au journal pour mener un profil jusqu'à sa ligue (`ecrireDesDuels`) — un module des rendus | — | — |
 | `server/scripts/a-l-ecran.ts` | Ce qu'une photo ne dit pas d'elle-même, mesuré dans la page : ce qui élargit la page, et ce qui l'élargit, nommé (`CE_QUI_DEBORDE`), un texte qu'un cadre qui ne défile pas — ou le bord de l'écran — coupe (`CE_QUI_EST_COUPE`), un texte qui passe sous un bouton de sa rangée, sur le même plan (`CE_QUI_SE_CHEVAUCHE`), ce qui passe sous la niche (`SOUS_LA_NICHE`, rien sous un voile qui la recouvre), le contraste de chaque ligne entière à l'écran, derrière ses lettres, sur ce qui est vraiment peint, à la densité de l'écran (`contrasteDeLaPage`, `ContrasteDUneLigne`) — un module des rendus (`rendu-niche.ts`, `rendu-themes.ts`) | — | — |
+
+### La vidéo de promotion
+
+Une vidéo d'une minute à partager — la soirée sans compte, puis le quiz du jour, le défi de la semaine, la campagne, le Cabinet de curiosités, les avatars et les thèmes —, tournée sur l'application réelle comme les rendus, puis montée image par image. Elle ne contient aucun écran dessiné à la main : relancée après une retouche, elle montre l'application du jour. Comme les rendus, elle demande le client construit (`npm run build -w client`), Playwright parmi les modules globaux, et ffmpeg sur la machine.
+
+| Script | À quoi il sert | Comment le lancer | Ce qu'il lit, ce qu'il produit |
+|---|---|---|---|
+| `server/scripts/video-promo.ts` | Le tournage puis le montage, en une commande : environ quatre minutes de tournage, puis trois à quatre minutes d'encodage par format | `npm run video -- [dossier] [--sans-tournage] [--tournage-seul] [--formats=paysage,portrait] [--musique=<fichier>] [--apercu=<s>,<s>…] [--vitrine]` | `INIT_CWD` (les chemins relatifs se lisent depuis le dossier de la commande). Dans le dossier (`export/video-promo/` d'office, que git ignore) : `fiestapp-paysage.mp4` (1920 × 1080) et `fiestapp-portrait.mp4` (1080 × 1920), en H.264, 30 images par seconde, sans son — sauf `--musique`, une piste coupée à la longueur de la vidéo et fondue sur ses deux dernières secondes —, `plans.json` et les prises dans `plans/`. `--sans-tournage` remonte les prises du dossier ; `--apercu` écrit des images fixes du montage à ces instants (`apercus/`), sans vidéo. `--vitrine` réduit en plus chaque format pour la tête de la vitrine — 720 lignes, sans son, 5 Mo au plus, l'index en tête (`faststart`) — et en tire son affiche : `docs/vitrine/video/fiestapp-<format>.mp4` et `affiche-<format>.jpg`, qu'il réécrit et qui se committent |
+| `server/scripts/video/tournage.ts` · `server/scripts/video/plans.ts` | Les prises (un module, et ce qu'il écrit pour le montage — les types de `plans.json`, les thèmes filmés —, à part, sans banc) : deux serveurs jetables. La soirée — un quiz, dix amis, trois équipes, l'écran commun en 1920 × 1080 et le téléphone de Nina en 390 × 844, qui entre par « Jouer sans compte », son prénom, son équipe, répond et gagne. Puis Léa et son profil : l'accueil sous sept thèmes, dont deux peints, le quiz du jour joué jusqu'au bout, le défi de la semaine, la campagne, les sentiers, le Cabinet et sa carte en relief, la loge et sa carte de joueuse. Chaque photo retient où tombe le toucher suivant | — | `plans.json` : chaque prise, l'écran qu'elle montre, la boîte du toucher et la hauteur d'une page entière photographiée pour défiler |
+| `server/scripts/video/montage.ts` · `server/scripts/video/montage.html` | Le montage (un module et sa page) : la page pose la télé, le téléphone, le doigt, les légendes, les peintures des légendaires et des cartes, une fonction du temps (`rendre(t)`) sans animation ni minuterie ; le module la photographie à chaque image et la pousse dans ffmpeg | — | Les prises du dossier, les polices, l'icône et les peintures de `client/public/`, cherchées sans leur empreinte. La place de chaque prise dans l'histoire, ses légendes et leur instant vivent dans les pistes de `montage.html` |
 
 ### La tablée
 

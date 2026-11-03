@@ -60,6 +60,7 @@ import {
   GRACE_D_UNE_MANCHE_MS,
   INDICES_DES_ETOILES,
   KM_DE_L_EPINGLE,
+  LETTRES_POUR_DEUX_FAUTES,
   LETTRES_POUR_UNE_FAUTE,
   MOTS_D_UNE_IDENTITE_MAX,
   RAYON_D_ECLAIRER_KM,
@@ -439,6 +440,24 @@ test('les Indices : une bonne identité, sans casse ni accents, une faute de fra
   for (const ko of ['Hugi', 'Hgo', 'Hugoo', 'Victor Hugi']) assert.ok(!bonneIdentite(ko, HUGO), ko)
   // Et « Victir Hugo » : « victor » a six lettres, la faute passe.
   assert.ok(bonneIdentite('Victir Hugo', HUGO))
+})
+
+test('les Indices : à l’oreille — qui sait le nom sans savoir l’écrire le trouve, sans confondre deux personnes', () => {
+  // « J'avais la bonne réponse mais je savais pas écrire Shakespeare » (le retour du 3 novembre 2026) : une faute de frappe
+  // ne suffisait pas à qui écrit ce qu'il entend. Le mot se compare aussi tel qu'il se prononce (`aLOreille`) — sonner
+  // pareil, ou deux fautes dès huit sons —, jamais deux fautes à l'écrit brut.
+  const SHAKESPEARE: Fiche = { ...HUGO, id: 'lettres-shakespeare', reponse: 'William Shakespeare', cles: ['shakespeare'] }
+  const BRAILLE: Fiche = { ...HUGO, id: 'sciences-braille', reponse: 'Louis Braille', cles: ['braille'] }
+  const COUSTEAU: Fiche = { ...HUGO, id: 'sciences-cousteau', reponse: 'Jacques-Yves Cousteau', cles: ['cousteau'] }
+  const PICASSO: Fiche = { ...HUGO, id: 'arts-picasso', reponse: 'Pablo Picasso', cles: ['picasso'] }
+  assert.equal(LETTRES_POUR_DEUX_FAUTES, 8)
+  for (const ok of ['Shakespear', 'Shakspeare', 'Chekspir', 'Sheikspir', 'Chakespeare', 'William Shakespire']) assert.ok(bonneIdentite(ok, SHAKESPEARE), ok)
+  for (const ok of ['Pikasso', 'Picaso', 'Pablo Pikaso']) assert.ok(bonneIdentite(ok, PICASSO), ok)
+  for (const ok of ['Cousto', 'Koustau']) assert.ok(bonneIdentite(ok, COUSTEAU), ok)
+  // Deux personnes qui se ressemblent restent deux : « Rousseau » n'est pas Cousteau, ni « Brel » Braille.
+  assert.ok(!bonneIdentite('Rousseau', COUSTEAU), 'Rousseau')
+  assert.ok(!bonneIdentite('Brel', BRAILLE), 'Brel')
+  for (const ko of ['Hugi', 'Ugo', 'Volt']) assert.ok(!bonneIdentite(ko, ko === 'Volt' ? VOLTAIRE : HUGO), ko)
 })
 
 test('les Indices : les lettres que les accents ne décomposent pas s’ouvrent — une fiche accepte toujours sa propre réponse', () => {
