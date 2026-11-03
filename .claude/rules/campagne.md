@@ -220,7 +220,10 @@ paths:
   a remplacé (`ReponseDuJournal.montre`, le quatrième chemin du
   `json_extract` de la lecture, `cabinet.montre`) —, et le lieu d'une
   Épingle remplacée serait venu sur les murs, que rien ne lui avait
-  révélé) : une dérivation de plus s'y écrit, et se compare
+  révélé ; depuis le 3 novembre 2026, `justesDeTousDepuis`, les bonnes
+  réponses de tous heure par heure — l'économie du QG les cherchait dans la
+  base, et SQLite y parcourait toute la table à chaque ouverture, le
+  cinquième du quota lu ce jour-là) : une dérivation de plus s'y écrit, et se compare
   au SQL d'avant dans `journal-des-reponses.test.ts`, sur une base au hasard
   — sans SQL d'avant, comme les leurres, écrit dans le test à part. Les
   leurres lisent la mauvaise réponse en texte, telle que sa série l'a posée

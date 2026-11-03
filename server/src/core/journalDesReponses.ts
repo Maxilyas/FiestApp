@@ -418,6 +418,8 @@ export class JournalDesReponses {
   private readonly epreuves = new Map<string, { palier: number; branche: string | null; commencee: number; niveaux: Map<string, Compte> }>()
   /** Les mauvaises réponses choisies, question par question, et combien de fois (`leurresChoisis`). */
   private readonly leurres = new Map<string, Map<string, number>>()
+  /** Les bonnes réponses de tous, heure par heure : un confetti chacune (`justesDeTousDepuis`). */
+  private readonly justesDeTousParHeure = new Map<number, number>()
 
   constructor(private readonly maintenant: () => number = Date.now) {}
 
@@ -506,6 +508,7 @@ export class JournalDesReponses {
       d.justes++
       const heure = Math.floor(r.le / HEURE_MS)
       d.justesParHeure.set(heure, (d.justesParHeure.get(heure) ?? 0) + 1)
+      this.justesDeTousParHeure.set(heure, (this.justesDeTousParHeure.get(heure) ?? 0) + 1)
       // Ses compagnons : chaque bonne réponse fait grandir celui de sa niche, dans tous les modes.
       if (r.compagnon !== null) d.compagnons.set(r.compagnon, (d.compagnons.get(r.compagnon) ?? 0) + 1)
     }
@@ -710,6 +713,21 @@ export class JournalDesReponses {
   /** Ses bonnes réponses, heure par heure : son expérience de campagne (`justesParJourDesHeures`). */
   justesParHeureDe(qui: string): ReadonlyMap<number, number> {
     return this.dossiers.get(qui)?.justesParHeure ?? new Map()
+  }
+
+  /**
+   * Les bonnes réponses de tous depuis `depuis`, heure par heure, de la plus
+   * ancienne à la plus récente : ce que la campagne a payé, un confetti
+   * chacune (l'économie du QG, `CampagneStore.economieDepuis`) — celles d'une
+   * série, tous les modes, révisions comprises, comme `justesDe` au solde de
+   * chacun. Lues de la base, elles parcouraient toutes les réponses de la
+   * campagne à chaque ouverture de la page. Une heure ne compte qu'entière :
+   * `depuis` est un minuit de Paris, à l'heure pile — tombé au milieu d'une
+   * heure, celle-ci ne compterait pas.
+   */
+  justesDeTousDepuis(depuis: number): [heure: number, justes: number][] {
+    const premiere = Math.ceil(depuis / HEURE_MS)
+    return [...this.justesDeTousParHeure].filter(([heure]) => heure >= premiere).sort((a, b) => a[0] - b[0])
   }
 
   /** Ses écussons, comme les lignes que `savoirDesLignes` lit. */

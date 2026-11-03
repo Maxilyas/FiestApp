@@ -58,6 +58,8 @@ export function photosCitees(texte: string): string[] {
 export class QuizStore {
   private client: Client
   private imageCache = new Map<string, { mime: string; bytes: Buffer }>()
+  /** Le résumé de chaque quiz, sous sa version (`versionDe`) : « Mes quiz » ne relit que les questions de ceux qui ont changé (`list`). */
+  private readonly resumes = new Map<string, { version: string; resume: QuizSummary }>()
 
   constructor(url: string, authToken?: string) {
     this.client = clientDistant(url, authToken)
@@ -124,24 +126,70 @@ export class QuizStore {
    * La liste de « Mes quiz », chaque quiz résumé (`resumerQuiz`). Avec une
    * recherche, seulement ceux qui la contiennent — titre, intitulés,
    * réponses —, et l'intitulé qui les a fait trouver.
+   *
+   * Sans recherche, elle ne relit que la ligne de chaque quiz, sans ses
+   * questions, et les questions de ceux dont le résumé gardé n'est plus de
+   * leur version (`resumes`) : relues toutes à chaque ouverture, puis
+   * normalisées et résumées d'une traite, elles pesaient 420 Ko de JSON et
+   * 1 160 questions pour la plus grosse bibliothèque de la production — 25 ms
+   * de processeur au banc, deux à quatre fois plus à froid, et la sonde des
+   * gels relevait « Mes quiz » seul pendant des gels de 1,5 à 2,4 s, au
+   * dixième de cœur de l'hébergeur (le 3 novembre 2026). Chaque résumé se
+   * prend avec la ligne qui l'a lu : un quiz enregistré entre les deux
+   * lectures se dit tel que la seconde l'a trouvé, un quiz effacé entre-temps
+   * n'y est plus.
    */
   async list(spaceId: string, recherche?: string): Promise<QuizSummary[]> {
-    const res = await this.client.execute({
-      sql: 'SELECT id, title, questions, updated_at, archived_at, reglages FROM quizzes WHERE space_id = ? ORDER BY updated_at DESC',
-      args: [spaceId],
-    })
-    const resumes: QuizSummary[] = []
-    for (const row of res.rows) {
-      const quiz = rowToQuiz(row)
-      if (!recherche?.trim()) {
-        resumes.push(resumerQuiz(quiz))
-        continue
+    if (recherche?.trim()) {
+      const res = await this.client.execute({
+        sql: `SELECT id, title, questions, updated_at, archived_at, reglages, ${TAILLE} FROM quizzes WHERE space_id = ? ORDER BY updated_at DESC`,
+        args: [spaceId],
+      })
+      const resumes: QuizSummary[] = []
+      for (const row of res.rows) {
+        const quiz = rowToQuiz(row)
+        const trouve = rechercherDans(quiz, recherche)
+        if (trouve === null) continue
+        resumes.push({ ...this.resumer(row, quiz), ...(trouve !== true && { trouve }) })
       }
-      const trouve = rechercherDans(quiz, recherche)
-      if (trouve === null) continue
-      resumes.push({ ...resumerQuiz(quiz), ...(trouve !== true && { trouve }) })
+      return resumes
     }
-    return resumes
+    const lignes = (
+      await this.client.execute({
+        sql: `SELECT id, title, updated_at, archived_at, reglages, ${TAILLE} FROM quizzes WHERE space_id = ? ORDER BY updated_at DESC`,
+        args: [spaceId],
+      })
+    ).rows
+    const resumes = new Map<string, QuizSummary>()
+    const aRelire: string[] = []
+    for (const ligne of lignes) {
+      const garde = this.resumes.get(String(ligne.id))
+      if (garde?.version === versionDe(ligne)) resumes.set(String(ligne.id), resumeDeLaLigne(ligne, garde.resume))
+      else aRelire.push(String(ligne.id))
+    }
+    if (aRelire.length > 0) {
+      const res = await this.client.execute({
+        sql: `SELECT id, title, questions, updated_at, archived_at, reglages, ${TAILLE} FROM quizzes WHERE space_id = ? AND id IN (${aRelire.map(() => '?').join(', ')})`,
+        args: [spaceId, ...aRelire],
+      })
+      for (const row of res.rows) resumes.set(String(row.id), this.resumer(row, rowToQuiz(row)))
+    }
+    return lignes.flatMap(ligne => resumes.get(String(ligne.id)) ?? [])
+  }
+
+  /**
+   * Le résumé d'un quiz lu avec ses questions, gardé sous sa version : celui
+   * d'avant s'il n'a pas changé — `all` et `allBySpace` relisent toute la
+   * bibliothèque d'un espace à chaque écriture, et ne résument que ce qui a
+   * bougé.
+   */
+  private resumer(row: Record<string, unknown>, quiz: QuizDef): QuizSummary {
+    const version = versionDe(row)
+    const garde = this.resumes.get(quiz.id)
+    if (garde?.version === version) return resumeDeLaLigne(row, garde.resume)
+    const resume = resumerQuiz(quiz)
+    this.resumes.set(quiz.id, { version, resume })
+    return resume
   }
 
   /** Les identifiants des quiz d'un espace, sans rien lire d'autre : ce qu'un programme a le droit de nommer. */
@@ -159,25 +207,37 @@ export class QuizStore {
     return res.rowsAffected > 0
   }
 
-  /** Tous les quiz d'un espace, questions comprises — alimente le cache du module de jeu. */
+  /**
+   * Tous les quiz d'un espace, questions comprises — alimente le cache du
+   * module de jeu, relu après chaque écriture de l'espace. Leurs résumés se
+   * gardent au passage (`resumer`) : « Mes quiz » qui suit l'enregistrement ne
+   * relit pas ses questions.
+   */
   async all(spaceId: string): Promise<QuizDef[]> {
     const res = await this.client.execute({
-      sql: 'SELECT * FROM quizzes WHERE space_id = ? ORDER BY updated_at DESC',
+      sql: `SELECT *, ${TAILLE} FROM quizzes WHERE space_id = ? ORDER BY updated_at DESC`,
       args: [spaceId],
     })
-    return res.rows.map(rowToQuiz)
+    return res.rows.map(row => this.relue(row))
   }
 
-  /** Toutes les bibliothèques d'un coup, au démarrage : une par espace. */
+  /** Toutes les bibliothèques d'un coup, au démarrage : une par espace — leurs résumés gardés pour la première ouverture de « Mes quiz ». */
   async allBySpace(): Promise<Map<string, QuizDef[]>> {
-    const res = await this.client.execute('SELECT * FROM quizzes ORDER BY updated_at DESC')
+    const res = await this.client.execute(`SELECT *, ${TAILLE} FROM quizzes ORDER BY updated_at DESC`)
     const bySpace = new Map<string, QuizDef[]>()
     for (const row of res.rows) {
       const spaceId = String(row.space_id ?? '')
       if (!bySpace.has(spaceId)) bySpace.set(spaceId, [])
-      bySpace.get(spaceId)!.push(rowToQuiz(row))
+      bySpace.get(spaceId)!.push(this.relue(row))
     }
     return bySpace
+  }
+
+  /** Un quiz relu avec ses questions, son résumé gardé au passage. */
+  private relue(row: Record<string, unknown>): QuizDef {
+    const quiz = rowToQuiz(row)
+    this.resumer(row, quiz)
+    return quiz
   }
 
   async get(spaceId: string, id: string): Promise<QuizDef | null> {
@@ -290,6 +350,7 @@ export class QuizStore {
       ],
       'write',
     )
+    this.resumes.delete(id)
     return res.rowsAffected > 0
   }
 
@@ -387,14 +448,16 @@ export class QuizStore {
    */
   async removeSpace(spaceId: string): Promise<{ quizzes: number; images: number }> {
     const images = await this.client.execute({ sql: 'SELECT id FROM quiz_images WHERE space_id = ?', args: [spaceId] })
-    const [quizzes] = await this.client.batch(
+    const [siens, quizzes] = await this.client.batch(
       [
+        { sql: 'SELECT id FROM quizzes WHERE space_id = ?', args: [spaceId] },
         { sql: 'DELETE FROM quizzes WHERE space_id = ?', args: [spaceId] },
         { sql: 'DELETE FROM quiz_images WHERE space_id = ?', args: [spaceId] },
       ],
       'write',
     )
     for (const row of images.rows) this.imageCache.delete(String(row.id))
+    for (const row of siens.rows) this.resumes.delete(String(row.id))
     return { quizzes: quizzes.rowsAffected, images: images.rows.length }
   }
 
@@ -502,6 +565,28 @@ export class QuizStore {
   close() {
     this.client.close()
   }
+}
+
+/**
+ * La longueur des questions d'un quiz, que la base compte sans les envoyer :
+ * de quoi reconnaître sa version sans le relire (`versionDe`).
+ */
+const TAILLE = 'length(questions) AS taille'
+
+/**
+ * Ce qui dit qu'un quiz a changé depuis son résumé : sa date de modification,
+ * que chaque enregistrement avance — celui d'un autre serveur aussi —, la
+ * longueur de ses questions — deux enregistrements dans la même milliseconde,
+ * une ligne écrite à la main — et ses réglages, d'où se lit sa durée.
+ * L'archivage ne la change pas : il se lit sur la ligne (`resumeDeLaLigne`).
+ */
+function versionDe(row: Record<string, unknown>): string {
+  return `${String(row.updated_at)}|${String(row.taille)}|${String(row.reglages ?? '')}`
+}
+
+/** Le résumé gardé, avec ce que la ligne dit d'elle-même : son titre, et son archivage, qui ne change pas sa version. */
+function resumeDeLaLigne(row: Record<string, unknown>, resume: QuizSummary): QuizSummary {
+  return { ...resume, title: String(row.title), archivedAt: row.archived_at === null || row.archived_at === undefined ? null : Number(row.archived_at) }
 }
 
 function rowToQuiz(row: Record<string, unknown>): QuizDef {
