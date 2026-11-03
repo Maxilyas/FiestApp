@@ -156,6 +156,11 @@ export function cleanAvatar(raw: unknown): string {
  * borne — celle qui part à toute la salle à chaque diffusion.
  */
 export function tronquer(texte: string, max: number): string {
+  // Une unité UTF-16 ne porte jamais plus d'un point de code : sous la borne
+  // en unités, le texte y est — sans le découper. `normalizeQuestions` passe
+  // ici chaque champ de chaque question, et chaque relecture d'une
+  // bibliothèque découpait ainsi des milliers de textes déjà courts.
+  if (texte.length <= max) return texte
   const points = Array.from(texte)
   if (points.length <= max) return texte
   // Absent de quelques navigateurs anciens : on coupe alors par points de

@@ -904,8 +904,15 @@ export class ArchiveStore {
     return memoire
   }
 
-  /** La mémoire de tous les espaces, d'une seule lecture : au démarrage, pour le tirage des questions. */
+  /**
+   * La mémoire de tous les espaces, d'une seule lecture : au démarrage, pour
+   * le tirage des questions. Gardée au passage pour la première lecture de
+   * chaque espace (`memoire`), sous la révision d'avant la lecture — une
+   * écriture partie pendant qu'elle se fait la périme : la première ouverture
+   * de « Mes quiz » d'un réveil relisait et redérivait tout son historique.
+   */
   async memoiresDeTous(): Promise<Map<string, MemoireDesQuiz>> {
+    const revisions = new Map(this.revisions)
     const res = await this.client.execute('SELECT space_id, held_at, summary FROM soirees')
     const parEspace = new Map<string, { heldAt: number; jeux?: Jeu[] }[]>()
     for (const r of res.rows) {
@@ -914,7 +921,11 @@ export class ArchiveStore {
       soirees.push({ heldAt: Number(r.held_at), jeux: lireFiche(String(r.summary))?.jeux })
       parEspace.set(spaceId, soirees)
     }
-    return new Map([...parEspace].map(([spaceId, soirees]) => [spaceId, memoireDesSoirees(soirees)]))
+    const memoires = new Map([...parEspace].map(([spaceId, soirees]) => [spaceId, memoireDesSoirees(soirees)]))
+    for (const [spaceId, memoire] of memoires) {
+      if (!this.memoires.has(spaceId)) this.memoires.set(spaceId, { revision: revisions.get(spaceId) ?? 0, memoire: Promise.resolve(memoire) })
+    }
+    return memoires
   }
 
   /** Appelé après chaque écriture de l'historique d'un espace. */

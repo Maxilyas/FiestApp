@@ -18,6 +18,7 @@ import { baseDEssai, connexionAnimateur, cookieDe, creerQuiz, demarrer, ecrire, 
 import type { EspaceDAdministration } from '../../shared/space'
 import type { ProfilDAdministration } from '../../shared/profil'
 import type { VueDEnsemble } from '../../shared/qg'
+import type { PageDeLEconomie } from '../../shared/qgEconomie'
 import { jourDe } from '../../shared/jour'
 
 // ── Le compteur ───────────────────────────────────────────────────────────
@@ -162,4 +163,52 @@ test('la vue d’ensemble lit trente jours de séries et de parties du jour d’
   // Toutes comptées : chacune est une participation de son jour.
   const parties = vue.participations.reduce((n, j) => n + j.parties.campagne + j.parties.duel + j.parties.jour, 0)
   assert.equal(parties, SERIES + PARTIES)
+})
+
+// La page de l'économie comptait les bonnes réponses de la campagne heure par
+// heure, cherchées dans la base par leur série, une semaine de marge : sans
+// statistiques, SQLite y parcourait toutes les réponses de la campagne, puis
+// la série de chacune — 60 000 lignes au quota de Turso à chaque ouverture de
+// la page, le cinquième de ce que la production lisait le 3 novembre 2026.
+// Le journal des réponses les sait déjà : la page n'en relit que ce qui lui
+// est arrivé depuis sa dernière lecture.
+test('la page de l’économie ne relit pas les réponses de la campagne : elle les compte au journal des réponses', async () => {
+  const H = 3_600_000
+  const maintenant = Date.now()
+  const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+  try {
+    const profil = (db.prepare('SELECT id FROM profiles ORDER BY id LIMIT 1').get() as { id: string }).id
+    db.prepare(`INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode) VALUES ('qg-economie', ?, '[]', 4, 0, 3, ?, ?, 'serie')`).run(
+      profil,
+      maintenant - 30 * H,
+      maintenant - 29 * H,
+    )
+    // Trois bonnes réponses et une fausse, il y a un peu plus d'un jour : la page en compte trois confettis.
+    const reponse = db.prepare('INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le) VALUES (?, ?, ?, 0, ?, ?)')
+    for (let i = 0; i < 4; i++) reponse.run('qg-economie', i, `q${i}`, i < 3 ? 1 : 0, maintenant - 30 * H + i * 60_000)
+  } finally {
+    db.close()
+  }
+  // Au réveil, la première ouverture charge le journal — une fois, pour toute la campagne, par son `rowid` ; la suivante
+  // n'en relit que l'arrivé. Ce qui lit les réponses d'une partie par sa clé — les réponses d'une expédition, que la vue
+  // d'ensemble compte — ne parcourt rien non plus : seul un plan qui balaie la table la parcourt toute.
+  await banc.redemarrer()
+  for (const fois of ['au réveil', 'à l’ouverture suivante']) {
+    const { resultat: page } = await mesurer(() => lire<PageDeLEconomie>('/api/admin/economie'))
+    assert.equal(page.sources.campagne, 3, `${fois} : les trois bonnes réponses, un confetti chacune`)
+    const lecteur = new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: true })
+    try {
+      const parcourues = compte.instructions.filter(sql => {
+        if (!/\bcampagne_reponses\b/.test(sql)) return false
+        // Le plan ne dépend pas des valeurs : autant de nuls que de paramètres, `?1` compté une fois.
+        const numerotes = [...sql.matchAll(/\?(\d+)/g)].map(m => Number(m[1]))
+        const parametres = numerotes.length > 0 ? Math.max(...numerotes) : (sql.match(/\?/g) ?? []).length
+        const plan = lecteur.prepare(`EXPLAIN QUERY PLAN ${sql}`).all(...Array<null>(parametres).fill(null)) as { detail: string }[]
+        return plan.some(e => /^SCAN (r|campagne_reponses)\b/.test(e.detail))
+      })
+      assert.deepEqual(parcourues, [], `${fois} : la page parcourt toutes les réponses de la campagne`)
+    } finally {
+      lecteur.close()
+    }
+  }
 })

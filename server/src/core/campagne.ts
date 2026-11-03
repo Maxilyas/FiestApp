@@ -1546,6 +1546,13 @@ export class CampagneStore {
     const creees = await this.client.batch(
       [
         'CREATE INDEX IF NOT EXISTS idx_campagne_series_sentiers ON campagne_series(profile_id, mode, branche, palier)',
+        // Ses seules épreuves validées, et ce que ses lectures en prennent : ses paliers, que sa ligne d'expérience relit
+        // dans le lot de chaque bonne réponse (`lectureDesPaliersValides`), ses étoiles (`lectureDesValidees`). Par l'index
+        // des sentiers, chacune parcourait aussi ses épreuves ratées — 281 lignes au quota de Turso pour le plus assidu, dont
+        // 124 validées, à chaque bonne réponse (le 3 novembre 2026). Partiel, il ne sert que ce qui demande `mode =
+        // 'sentier' AND issue = 'validee'` ; couvrant, sans un aller dans la table. Sans statistiques, SQLite le préfère
+        // quel que soit l'ordre où la base a créé ses index (`campagne-index.test.ts`).
+        "CREATE INDEX IF NOT EXISTS idx_campagne_series_validees ON campagne_series(profile_id, branche, palier, justes, seuil) WHERE mode = 'sentier' AND issue = 'validee'",
         // Les parties d'un mode d'un profil, rangées par leur date : les missions y lisent celles des seuls modes qu'elles
         // comptent, depuis une date (`activiteDepuis`) — par l'index du profil, elles relisaient à chaque bilan et à chaque
         // accueil les parties du Cabinet, dix par jour —, et les dernières rencontres de la page des duels s'y arrêtent aux
@@ -7727,24 +7734,20 @@ export class CampagneStore {
    * `/admin#economie`) : ses bonnes réponses heure par heure — séries,
    * épreuves, parcours, révisions, défis, duels : un confetti chacune —,
    * les étoiles des sentiers à l'épreuve qui atteint la note, et les ligues
-   * des duels au lundi qui paie la semaine. Les réponses se cherchent par
-   * leur série, une semaine de marge (`MARGE_D_UNE_EPREUVE_MS`) : sans index
-   * sur `repondue_le`, la table entière.
+   * des duels au lundi qui paie la semaine. Les bonnes réponses viennent du
+   * journal des réponses (`justesDeTousDepuis`), rattrapé d'un aller-retour
+   * qui ne lit que les neuves : cherchées dans la base par leur série, une
+   * semaine de marge, elles faisaient parcourir à SQLite toutes les réponses
+   * de la campagne — la table entière, jointe à ses séries, à chaque
+   * ouverture de la page : 60 000 lignes au quota de Turso, le cinquième de ce
+   * que la production lisait le 3 novembre 2026. Et sans marge : une partie
+   * reprise plus d'une semaine après son début paie aussi.
    */
   async economieDepuis(depuis: number): Promise<{ justes: Mouvement[]; etoiles: Mouvement[]; ligues: Mouvement[] }> {
-    const [justes, payes] = await Promise.all([
-      this.client.execute({
-        sql: `SELECT r.repondue_le / ${HEURE_MS} AS heure, COUNT(*) AS n
-              FROM campagne_series s JOIN campagne_reponses r ON r.serie_id = s.id
-              WHERE s.commencee_le >= ? AND r.repondue_le >= ? AND r.juste = 1
-              GROUP BY heure`,
-        args: [depuis - MARGE_D_UNE_EPREUVE_MS, depuis],
-      }),
-      this.etoilesEtLigues(),
-    ])
+    const [journal, payes] = await Promise.all([this.rattraperLeJournal(), this.etoilesEtLigues()])
     const depuisLa = (m: readonly Mouvement[]) => m.filter(x => x.quand >= depuis)
     return {
-      justes: justes.rows.map(r => ({ quand: Number(r.heure) * HEURE_MS, confettis: Number(r.n) })),
+      justes: journal.justesDeTousDepuis(depuis).map(([heure, n]) => ({ quand: heure * HEURE_MS, confettis: n })),
       etoiles: depuisLa(payes.etoiles.mouvements),
       ligues: depuisLa(payes.ligues.mouvements),
     }

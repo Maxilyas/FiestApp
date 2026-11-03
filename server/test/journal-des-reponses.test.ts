@@ -125,6 +125,11 @@ const AVANT = {
               AND NOT (s.mode = 'expedition' AND json_extract(s.questions, '$[' || r.position || '].carnet') IS 1)
               AND ${sqlDansLaBase('r.reserve_id')}
             GROUP BY question, choisie HAVING typeof(choisie) = 'text'`,
+  // Celui-ci tel qu'il était le 3 novembre 2026, sans sa semaine de marge sur le début des parties, qui ne servait qu'un
+  // index : sans statistiques, il parcourait toutes les réponses — 60 000 lignes à chaque ouverture de l'économie du QG.
+  justesDeTous: `SELECT CAST(r.repondue_le / ${HEURE_MS} AS INTEGER) AS heure, COUNT(*) AS n
+                 FROM campagne_series s JOIN campagne_reponses r ON r.serie_id = s.id
+                 WHERE r.repondue_le >= ? AND r.juste = 1 GROUP BY heure ORDER BY heure`,
   // Et celui-ci tel qu'il était le 24 octobre 2026 : 150 000 lignes pour une page du QG.
   epreuves: (branche: boolean) => `SELECT s.palier AS palier, json_extract(q.value, '$.niveau') AS niveau, COUNT(*) AS n, SUM(r.juste) AS justes
              FROM campagne_series s CROSS JOIN json_each(s.questions) q
@@ -421,6 +426,14 @@ async function comparer(client: Client, journal: JournalDesReponses, profils: re
   }
   assert.ok(leurres.size > 0, `${nom} : des leurres à comparer`)
   assert.deepEqual(journal.leurresChoisis(), leurres, `${nom} : les leurres choisis`)
+  // Ce que la campagne a payé, tous profils, heure par heure (l'économie du QG) : depuis trente jours, treize, et deux heures.
+  let heuresPayees = 0
+  for (const depuis of [MAINTENANT - 30 * JOUR_MS, MAINTENANT - 13 * JOUR_MS, MAINTENANT - 2 * HEURE_MS]) {
+    const attendues = (await client.execute({ sql: AVANT.justesDeTous, args: [depuis] })).rows.map(r => [Number(r.heure), Number(r.n)])
+    heuresPayees += attendues.length
+    assert.deepEqual(journal.justesDeTousDepuis(depuis), attendues, `${nom} : les bonnes réponses de tous depuis ${new Date(depuis).toISOString()}`)
+  }
+  assert.ok(heuresPayees > 0, `${nom} : des heures payées à comparer`)
   // L'administration des sentiers : les réponses des épreuves de trois mois, ou des derniers jours, d'un sentier ou de tous.
   const ordre = (a: { palier: number; niveau: string }, b: { palier: number; niveau: string }) => a.palier - b.palier || a.niveau.localeCompare(b.niveau)
   for (const [depuis, branche] of [
@@ -708,6 +721,32 @@ test('ses réponses récentes ne remontent pas plus loin que la fenêtre des mis
   horloge.t += FENETRE_DES_RECENTES_MS - 2 * JOUR_MS
   assert.deepEqual(journal.recentesDe('p', 0, 0).map(r => r.le), [MAINTENANT], 'sortie de la fenêtre, elle s’oublie')
   assert.equal(journal.reponses, 3, 'mais le reste du journal la garde')
+})
+
+test('ce que la campagne a payé depuis un instant : une partie reprise longtemps après son début compte, ce qui précède l’instant non, ni une réponse sans partie', () => {
+  const journal = new JournalDesReponses(() => MAINTENANT)
+  const minuit = MAINTENANT - 12 * HEURE_MS
+  journal.appliquer({
+    reponses: [
+      // Une épreuve commencée dix jours plus tôt, reprise après minuit : la semaine de marge de la requête d'avant l'oubliait.
+      reponseDuJournal({ n: 1, question: 'a', juste: true, le: minuit + 30 * 60_000, commencee: minuit - 10 * JOUR_MS }),
+      reponseDuJournal({ n: 2, question: 'b', juste: true, le: minuit + 40 * 60_000 }),
+      reponseDuJournal({ n: 3, question: 'c', juste: false, le: minuit + 50 * 60_000 }),
+      reponseDuJournal({ n: 4, question: 'd', juste: true, le: minuit - 1 }),
+      // Sans partie — une réponse écrite à la main — : rien, comme la jointure d'avant ; d'un autre joueur, si.
+      reponseDuJournal({ n: 5, qui: null, question: 'e', juste: true, le: minuit + 3 * HEURE_MS }),
+      reponseDuJournal({ n: 6, qui: 'autre', question: 'f', juste: true, le: minuit + 3 * HEURE_MS }),
+    ],
+    jusqua: 6,
+    aSuivre: false,
+  })
+  const heure = minuit / HEURE_MS
+  assert.deepEqual(journal.justesDeTousDepuis(minuit), [
+    [heure, 2],
+    [heure + 3, 1],
+  ])
+  // Tombé au milieu d'une heure, l'instant la laisse de côté plutôt que d'y compter ce qui le précède.
+  assert.deepEqual(journal.justesDeTousDepuis(minuit + 1), [[heure + 3, 1]])
 })
 
 test('le carnet ne garde que ce qui suit la dernière erreur ; une réponse arrivée dans le désordre le fait relire de la base', () => {
