@@ -10,7 +10,7 @@
 // pièce que le journal garde — `cab:qui:<id>`, hors de la base. Le choix de la
 // fiche reste au serveur, qui lit le contenu et ce que le joueur a déjà vu.
 
-import { DUREES_DES_JEUX, INDICES_DES_ETOILES, LETTRES_POUR_UNE_FAUTE, MOTS_D_UNE_IDENTITE_MAX } from '../bareme'
+import { DUREES_DES_JEUX, INDICES_DES_ETOILES, LETTRES_POUR_DEUX_FAUTES, LETTRES_POUR_UNE_FAUTE, MOTS_D_UNE_IDENTITE_MAX } from '../bareme'
 import type { Fiche } from '../contenu'
 import { idDeLaFiche } from '../pieces'
 import { sansAccent } from '../../homonymes'
@@ -148,7 +148,54 @@ function uneFauteAuPlus(a: string, b: string): boolean {
  */
 export function proches(tape: string, attendu: string): boolean {
   if (tape === attendu) return true
-  return attendu.length >= LETTRES_POUR_UNE_FAUTE && uneFauteAuPlus(tape, attendu)
+  if (attendu.length < LETTRES_POUR_UNE_FAUTE) return false
+  if (uneFauteAuPlus(tape, attendu)) return true
+  // À l'oreille : « Chekspir » est Shakespeare pour qui ne l'a jamais vu écrit (« j'avais la bonne réponse mais je savais
+  // pas écrire Shakespeare », le retour du 3 novembre 2026). Les deux s'écrivent comme ils se prononcent : sous
+  // `LETTRES_POUR_DEUX_FAUTES` sons, ils doivent sonner pareil — ce que la prononciation replie (« aie » et « è ») cachait
+  // une faute de plus, et « Vltaier » passait pour Voltaire ; au-delà, deux fautes. Jamais deux fautes à l'écrit brut :
+  // « Rousseau » trouvait Cousteau.
+  const a = aLOreille(attendu)
+  const t = aLOreille(tape)
+  if (a === t) return true
+  // Sans les deux voisines inversées : une faute de doigt, pas de son, que l'écrit brut tolère déjà.
+  return a.length >= LETTRES_POUR_DEUX_FAUTES && fautesAuPlus(t, a, 2)
+}
+
+/**
+ * Un mot tel qu'un Français le prononce, à gros traits : ce qui sonne pareil s'écrit pareil — « ph » et « f », « sh »,
+ * « sch » et « ch », « c » dur, « k » et « qu », « eau » et « o », « ea » et « i », les lettres doubles, le « h » muet,
+ * le « e » final. « ill » à part (`j`) : sans lui, « Braille » sonnait « Brel ». Un mot comparable, pas une prononciation :
+ * il ne sert qu'à `proches`, et le juge des fiches le lit par lui — un indice qui sonnerait comme une clé la soufflerait.
+ * Les majuscules ne sont que des sons à part : la saisie arrive en minuscules (`motsDe`).
+ */
+export const aLOreille = (mot: string): string =>
+  mot
+    .replace(/x/g, 'ks')
+    .replace(/ill/g, 'j')
+    .replace(/ph/g, 'f')
+    .replace(/sch|sh|ch/g, 'X')
+    .replace(/th/g, 't')
+    .replace(/c(?=[eiy])/g, 's')
+    .replace(/ck|qu|q|c/g, 'k')
+    .replace(/w/g, 'v')
+    .replace(/y/g, 'i')
+    .replace(/z/g, 's')
+    .replace(/eau|au/g, 'o')
+    .replace(/ou|oo/g, 'u')
+    .replace(/ea|ee/g, 'i')
+    .replace(/ai|ei/g, 'e')
+    .replace(/h/g, '')
+    .replace(/(.)\1+/g, '$1')
+    .replace(/e$/, '')
+
+/** Au plus tant de fautes entre deux mots : une lettre changée, oubliée ou ajoutée. */
+function fautesAuPlus(a: string, b: string, max: number): boolean {
+  if (Math.abs(a.length - b.length) > max) return false
+  const d = Array.from({ length: a.length + 1 }, (_, i) => Array.from({ length: b.length + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0)))
+  for (let i = 1; i <= a.length; i++)
+    for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
+  return d[a.length][b.length] <= max
 }
 
 /**

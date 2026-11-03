@@ -437,6 +437,8 @@ export const QCM_D_UN_THEME_DU_QUIZ = 40
 export const INDICES_DES_ETOILES: readonly [number, number] = [2, 4]
 /** Les Indices : une faute de frappe se tolère dans un mot dès tant de lettres. */
 export const LETTRES_POUR_UNE_FAUTE = 5
+/** Les Indices : à l'oreille (`aLOreille`), deux fautes se tolèrent dans un mot dès tant de sons — « Chekspir » pour Shakespeare ; en deçà, il doit sonner pareil. */
+export const LETTRES_POUR_DEUX_FAUTES = 8
 /** Les Indices : une réponse tient en tant de mots au plus — la réponse fourre-tout reste fermée. */
 export const MOTS_D_UNE_IDENTITE_MAX = 4
 /**
