@@ -10,11 +10,11 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import Database from 'better-sqlite3'
-import { baseDEssai, demarrer, ecrire, inscrireProfil } from './banc'
+import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil } from './banc'
 import { CATEGORIES } from '../../shared/categories'
 import { NIVEAUX, VIES, niveauDeQuestion, type Niveau } from '../../shared/campagne'
 import { SCORE_DE_REFERENCE } from '../../shared/duels'
-import { CampagneStore, ECART_D_AUTOMATE, MODELE_GARDE_MS, partieDAutomate, type AutomateDuDe } from '../src/core/campagne'
+import { CLE_DU_MODELE, CampagneStore, ECART_D_AUTOMATE, MODELE_GARDE_MS, partieDAutomate, type AutomateDuDe } from '../src/core/campagne'
 import {
   AUCUN_ECART,
   ajusterLeModele,
@@ -26,6 +26,8 @@ import {
   forceDuJoueur,
   forcePourLeNiveau,
   indiceDeCategorie,
+  modeleEnTexte,
+  modeleRelu,
   scoreAttendu,
   scoreDeReference,
   serieDeReference,
@@ -603,6 +605,102 @@ test('en fond, le modèle s’ajuste sur la première réponse de chacun — et 
     for (const secret of [idLea, idTom, ids[0], 'Léa']) assert.ok(!brut.includes(secret), `« ${secret} » ne sort pas par /healthz`)
   } finally {
     CampagneStore.reponsesDAutomate = avant
+    await banc.close()
+  }
+})
+
+test('gardé en texte, le modèle se relit tel qu’il était, au bit près — et un texte d’un autre format ne se relit pas', () => {
+  const { base, premieres, modele } = salleSimulee(41, 20, 6)
+  const texte = modeleEnTexte({ a: 1_700_000_000_000, dureeMs: 1234, modele })
+  const relu = modeleRelu(texte)
+  assert.ok(relu)
+  assert.deepEqual(relu, { a: 1_700_000_000_000, dureeMs: 1234, modele })
+  // Un ajustement qui en repart s'arrête à sa première passe : rien n'a bougé depuis.
+  const forceDeDepart = serieDeReference(base, marcheDe, q => difficulteSansModele(q.meta.difficulte)).forceDeDepart
+  assert.equal(ajusterLeModele({ questions: new Map(base.map(q => [q.id, q.meta])), joueurs: premieres, forceDeDepart, depart: relu.modele }).passes, 1)
+
+  const brut = JSON.parse(texte)
+  for (const abime of [
+    { ...brut, v: 2 },
+    { ...brut, categories: CATEGORIES.length - 1 },
+    { ...brut, difficultes: brut.difficultes.slice(0, -8) },
+    { ...brut, joueurs: brut.joueurs.slice(1) },
+    { ...brut, decalages: [0, 0, 0] },
+  ]) {
+    assert.equal(modeleRelu(JSON.stringify(abime)), null)
+  }
+  assert.equal(modeleRelu('{pas du JSON'), null)
+  assert.equal(modeleRelu(null), null)
+})
+
+/** Le modèle que la base a gardé (`campagne_meta`), tel qu'il s'y relit — null s'il n'y est pas. */
+function modeleGardeDans(banc: { quizDbUrl: string }) {
+  const db = new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: true })
+  try {
+    const ligne = db.prepare('SELECT valeur FROM campagne_meta WHERE cle = ?').get(CLE_DU_MODELE) as { valeur: string } | undefined
+    return ligne ? modeleRelu(ligne.valeur) : null
+  } finally {
+    db.close()
+  }
+}
+
+test('le modèle ajusté se garde dans la base : un réveil le reprend sans rien refaire — vieilli, l’ajustement en repart ; un profil supprimé l’efface', async () => {
+  const base = baseDEssai(60, { categories: ['Sport', 'Histoire'] })
+  const ids = base.questions.map(q => q.id)
+  const horloge = { t: DEBUT }
+  const banc = await demarrer({ horlogeDuJour: () => horloge.t, baseDeLaCampagne: base, prechauffageCampagneMs: 3_600_000 })
+  try {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐻')
+    const [idLea, idTom] = [await idDuProfil(banc.url, lea), await idDuProfil(banc.url, tom)]
+    const hier = DEBUT - 86400_000
+    ecrireUnPasse(banc, idLea, ids.slice(0, 20).map((id, i): [string, boolean, number] => [id, i % 3 !== 0, hier + i * 10_000]))
+    ecrireUnPasse(banc, idTom, ids.slice(20, 30).map((id, i): [string, boolean, number] => [id, i % 2 === 0, hier + i * 10_000]))
+
+    /** Un dé lance l'ajustement en fond ; `/healthz` dit le modèle qu'il y a, une fois ajusté à `a`. */
+    const unDeEtSonModele = async (cookie: string, a: number) => {
+      const r = await ecrire(banc.url, '/api/campagne/rencontre', {}, cookie)
+      assert.equal(r.status, 200, ((await r.json()) as any).error)
+      let savoir: any = null
+      for (let essai = 0; essai < 200 && savoir?.ajusteLe !== a; essai++) {
+        await new Promise(rendre => setTimeout(rendre, 50))
+        savoir = ((await (await fetch(`${banc.url}/healthz`)).json()) as any).campagne?.savoir
+      }
+      assert.equal(savoir?.ajusteLe, a, JSON.stringify(savoir))
+      return savoir
+    }
+
+    // Le premier ajustement, de zéro : il se garde dans la base.
+    const premier = await unDeEtSonModele(lea, DEBUT)
+    assert.equal(premier.relu, false)
+    for (let essai = 0; essai < 200 && !modeleGardeDans(banc); essai++) await new Promise(rendre => setTimeout(rendre, 25))
+    const garde = modeleGardeDans(banc)
+    assert.ok(garde, 'gardé dans la base')
+    assert.equal(garde.a, DEBUT)
+    assert.deepEqual([garde.modele.forces.size, garde.modele.reponses, garde.modele.passes], [premier.joueurs, premier.reponses, premier.passes])
+
+    // Réveillé une heure plus tard, il le reprend tel quel : ni passe ni durée de plus.
+    horloge.t = DEBUT + 3600_000
+    await banc.redemarrer()
+    const repris = await unDeEtSonModele(lea, DEBUT)
+    assert.deepEqual(repris, { ...premier, relu: true })
+
+    // Réveillé au-delà de sa garde, il s'ajuste de nouveau, reparti de lui — comme le second ajustement d'un même
+    // processus : jamais plus de passes que de zéro (sur les mêmes réponses et le même départ, une seule, plus haut).
+    horloge.t = DEBUT + MODELE_GARDE_MS + 3600_000
+    await banc.redemarrer()
+    const reajuste = await unDeEtSonModele(lea, horloge.t)
+    assert.equal(reajuste.relu, false)
+    assert.ok(reajuste.passes <= premier.passes, `reparti du modèle gardé : ${reajuste.passes} passes, ${premier.passes} de zéro`)
+    for (let essai = 0; essai < 200 && modeleGardeDans(banc)?.a !== horloge.t; essai++) await new Promise(rendre => setTimeout(rendre, 25))
+    assert.equal(modeleGardeDans(banc)?.a, horloge.t, 'le nouveau gardé à sa place')
+
+    // Un profil supprimé : sa force y était, le modèle gardé s'efface.
+    const admin = await connexionAnimateur(banc.url)
+    const suppression = await fetch(`${banc.url}/api/admin/profils/${idTom}`, { method: 'DELETE', headers: { Cookie: admin, 'X-Requested-With': 'quizz' } })
+    assert.equal(suppression.status, 200)
+    assert.equal(modeleGardeDans(banc), null)
+  } finally {
     await banc.close()
   }
 })

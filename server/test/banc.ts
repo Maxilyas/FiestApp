@@ -111,11 +111,13 @@ export async function demarrer(opts: Partial<QuizServerOptions> = {}): Promise<B
   // Et le préchauffage au premier profil : parti en fond derrière un accueil, il lirait la base et ses mesures au
   // milieu des allers-retours qu'une épreuve compte (`campagne-charge.test.ts` le rouvre).
   // Et le journal des duels relu à chaque lecture : les épreuves écrivent des duels à la main, dans la base, entre deux requêtes.
+  // Ce que l'accueil garde d'un joueur aussi (`fraicheurDesLecturesMs`) : ses épreuves validées, ses bonnes réponses du jour.
   // Et le départ de l'Expédition ouvert, quoi que dise son drapeau (`EXPEDITION_REMPLACEE`) : le jour où le Cabinet prend sa
   // place, les fichiers qui partent en expédition ne tombent pas ; `cabinet-ouverture.test.ts` le ferme, et le rouvre au drapeau.
   let reglages = opts
   const lancer = () =>
-    createQuizServer({ port, dbPath, quizDbUrl, admin: ADMIN, questionAuCentre: false, expeditionRemplacee: false, prechauffageAuProfil: false, fraicheurDesDuelsMs: 0, ...reglages })
+    // Sur une ligne : `cabinet-ouverture.test.ts` lit cet appel tel quel.
+    createQuizServer({ port, dbPath, quizDbUrl, admin: ADMIN, questionAuCentre: false, expeditionRemplacee: false, prechauffageAuProfil: false, fraicheurDesDuelsMs: 0, fraicheurDesLecturesMs: 0, ...reglages })
   let server = await lancer()
   port = server.port
   const banc: Banc = {

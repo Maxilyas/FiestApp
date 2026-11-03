@@ -9,10 +9,14 @@ import { writeFileSync } from 'node:fs'
 import { Session } from 'node:inspector/promises'
 import { demarrer } from '../../../server/test/banc.ts'
 import { choisirLeTransport } from '../../../server/src/core/distante.ts'
+import { LECTURES_GARDEES_MS } from '../../../server/src/core/lecturesGardees.ts'
 
 // Le transport de la production (`/healthz` : `base.connexions.transport`, le 3 novembre 2026), sauf `TRANSPORT=fetch`.
 choisirLeTransport(process.env.TRANSPORT === 'fetch' ? 'fetch' : 'leger')
-const banc = await demarrer({ quizDbUrl: process.env.BASE_URL!, cabinet: true, expeditionRemplacee: true, prechauffageCampagneMs: 500 })
+// Ce que l'accueil, la carte et les missions gardent d'un joueur entre deux visites, comme en ligne — le banc n'en garde
+// rien ; `LECTURES_GARDEES=0` mesure sans, comme avant le 3 novembre 2026 au soir.
+const fraicheurDesLecturesMs = process.env.LECTURES_GARDEES === '0' ? 0 : LECTURES_GARDEES_MS
+const banc = await demarrer({ quizDbUrl: process.env.BASE_URL!, cabinet: true, expeditionRemplacee: true, prechauffageCampagneMs: 500, fraicheurDesLecturesMs })
 console.log(`PRET ${banc.url}`)
 
 // Un profil pris à la demande (`solo-charge.mjs --profil`) : SIGUSR2 le commence, le suivant l'écrit dans

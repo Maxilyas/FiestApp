@@ -77,8 +77,16 @@ jour a sa notification (règle `rappel-et-installation.md`).
   `ajusterSansBloquer`, `forceDuJoueur`, `serieDeReference`,
   `forcePourLeNiveau`, `chancesSurLaSerie`. Refait en fond par
   `CampagneStore.modeleDuSavoir` (`MODELE_GARDE_MS`), dit à `/healthz` sans un
-  nom (`santeDuSavoir`) ; `scripts/calibrage-automate.ts` le mesure sur des
-  joueurs simulés
+  nom (`santeDuSavoir`) ; gardé dans la base après chaque ajustement
+  (`campagne_meta`, `CLE_DU_MODELE`, `modeleEnTexte` : ses nombres en
+  flottants, relus au bit près — `modeleRelu`), d'où un réveil repart
+  (`reprendreLeModele`) : tel quel s'il a moins de `MODELE_GARDE_MS`
+  (`/healthz` : `relu`), sinon l'ajustement en part, une passe ou deux — de
+  zéro, il tenait le dixième de cœur 28,5 s à chaque démarrage. Gardé sans
+  un profil parti pendant son ajustement, effacé avec le premier profil
+  supprimé (`oublierProfil`) : sa force y serait. Un format qui change monte
+  `VERSION_DU_MODELE_GARDE`, et le premier réveil repart de zéro, une fois ;
+  `scripts/calibrage-automate.ts` le mesure sur des joueurs simulés
 - `server/src/campagne.ts` — les routes, toutes derrière une session de
   profil : `/api/duels` (la page), `/api/duels/historique`,
   `/api/duels/joueurs` (la recherche, et `/:id` — ce que la carte d'un joueur
@@ -375,7 +383,9 @@ jour a sa notification (règle `rappel-et-installation.md`).
   d'une soirée (`laisserPasserLaSalle`, `avantLaTranche`) : refait de zéro au
   démarrage, il tenait 28,5 s le dixième de cœur (le 2 novembre 2026, à
   `/healthz` : `campagne.savoir.dureeMs`), attente de la salle comprise
-  désormais.
+  désormais. Depuis le 3 novembre 2026, un réveil reprend celui que la base a
+  gardé (`reprendreLeModele`, plus haut) : de zéro, il ne s'ajuste plus qu'à
+  la toute première fois, ou après un profil supprimé.
 - **Le journal des duels se garde en mémoire, et se lit par différence**
   (`core/journalDesDuels.ts`, le 23 octobre 2026 : 13 % du quota de Turso —
   chaque dé, chaque page des duels, chaque solde relisait toute l'histoire

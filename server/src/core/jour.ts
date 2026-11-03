@@ -16,6 +16,7 @@
 import { randomUUID } from 'node:crypto'
 import type { InStatement, ResultSet } from '@libsql/client'
 import { ajouterColonne, clientDistant, type Client } from './distante'
+import { LECTURES_GARDEES_MS, LecturesGardees, type LectureDansUnLot } from './lecturesGardees'
 import { extrait } from './journalDesGestes'
 import { lireEtiquetage, type MetadonneesDeQuestion } from '../../../shared/etiquettes'
 import { bonneReponseChange, niveauMesure, type Niveau } from '../../../shared/campagne'
@@ -172,6 +173,15 @@ interface LectureDeLaCarriere {
   aujourdhui: string
   revisions: ReadonlyMap<string, number>
   gardes: ReadonlySet<string>
+  /** Ses bonnes réponses de ses trente derniers jours, à lire du lot — rien à y lire si on les tient (`justesGardees`). */
+  justes: LectureDansUnLot<readonly JusteDUnJour[]>
+}
+
+/** Une bonne réponse de ses derniers jours, telle que sa carrière la lit (`joursJoues`) : son jour, sa question, son temps. */
+interface JusteDUnJour {
+  jour: string
+  question: number
+  ms: number
 }
 
 /** Ce que l'accueil d'un profil lit du quiz du jour (`JourStore.accueilDe`) : chaque part à part, toutes d'un seul lot. */
@@ -472,6 +482,8 @@ export interface JourDeps {
   profiles: ProfileStore
   /** L'heure du serveur : les tests la font passer minuit. */
   maintenant?: () => number
+  /** Combien de temps ses bonnes réponses des trente derniers jours se gardent entre deux visites (`LECTURES_GARDEES_MS`) ; le banc, 0. */
+  fraicheurDesLecturesMs?: number
 }
 
 /** Personne n'a de laurier : la liste d'avant-hier, avant que la nuit soit close. */
@@ -605,6 +617,32 @@ export class JourStore {
   dansLaCampagne?: (empreinte: string) => Promise<boolean>
   /** Les intitulés de la réserve, pour la campagne qui les évite : relus au plus toutes les dix minutes, et après chaque apport. */
   private empreintesGardees: { a: number; empreintes: ReadonlySet<string> } | null = null
+  /**
+   * Ses bonnes réponses de ses trente derniers jours, gardées par profil
+   * entre deux visites (`lecturesDeLaCarriere`) : l'accueil et la page du
+   * profil les relisaient à chaque fois — 387 lignes au quota de Turso, la
+   * deuxième lecture de chaque accueil en production (le 3 novembre 2026).
+   * Seule sa réponse les change (`enregistrer`), et les oublie : une
+   * annulation se lit à part, sur ses parties relues (`joursJoues`), et un
+   * jour qui commence n'a pas encore de bonne réponse.
+   */
+  private readonly justesGardees: LecturesGardees<readonly JusteDUnJour[]>
+  /**
+   * Ce que le quiz du jour sait de lui, catégorie par catégorie (`savoirDe`),
+   * gardé de même : la page du profil et chaque carte qu'on ouvre de lui le
+   * relisaient — 1 079 lignes pour un fidèle, 4,7 % du quota de la version
+   * du 3 novembre 2026. Sa réponse l'oublie, et un tirage qui change pour
+   * tous — une question annulée, corrigée — oublie celui de chacun
+   * (`tirageChange`).
+   */
+  private readonly savoirsGardes: LecturesGardees<Savoir>
+  /**
+   * Ses bonnes réponses par jour et par catégorie depuis le lundi d'avant, que
+   * ses missions jugent (`activiteDepuis`), gardées de même — sous la semaine
+   * qu'elles lisent : l'accueil et chaque fin de partie les relisaient, 2,9 %
+   * du quota de la même version.
+   */
+  private readonly categoriesGardees: LecturesGardees<JournauxDesJours['jourParCategorie']>
 
   constructor(
     url: string,
@@ -613,6 +651,19 @@ export class JourStore {
   ) {
     this.client = clientDistant(url, authToken)
     this.maintenant = deps.maintenant ?? Date.now
+    const fraicheur = deps.fraicheurDesLecturesMs ?? LECTURES_GARDEES_MS
+    const maintenant = () => this.maintenant()
+    this.justesGardees = new LecturesGardees(fraicheur, maintenant, lignes => lignes.map(r => ({ jour: String(r.jour), question: Number(r.question), ms: Number(r.ms ?? 0) })))
+    this.savoirsGardes = new LecturesGardees(fraicheur, maintenant, savoirDesLignes)
+    this.categoriesGardees = new LecturesGardees(fraicheur, maintenant, lignes =>
+      lignes.map(r => ({ jour: String(r.jour), categorie: r.categorie == null ? null : String(r.categorie), n: Number(r.n) })),
+    )
+  }
+
+  /** Un tirage vient de changer pour tous — une question annulée, corrigée : ce que chacun en gardait se relit. */
+  private tirageChange(): void {
+    this.savoirsGardes.oublierTout()
+    this.categoriesGardees.oublierTout()
   }
 
   async init() {
@@ -1661,26 +1712,38 @@ export class JourStore {
     }
     const derniere = index + 1 >= tirage.questions.length
     const maintenant = this.maintenant()
-    const res = await this.client.batch(
-      [
-        tienne
-          ? // La place de la ligne qu'elle n'écrit pas : le lot se relit à la même place.
-            { sql: 'SELECT 0', args: [] }
-          : {
-              sql: `INSERT OR IGNORE INTO jour_reponses (profile_id, jour, question, choix, ms, juste, points, repondue_le, compagnon)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              args: [partie.profileId, partie.jour, index, choix, ms, juste ? 1 : 0, points, maintenant, compagnon],
-            },
-        {
-          sql: `UPDATE jour_parties SET question = ?, servie_le = NULL, points = ?, justes = ?, finie_le = ?, xp = ?
-                WHERE profile_id = ? AND jour = ? AND question = ?`,
-          args: [index + 1, total, justes, derniere ? maintenant : null, xpDuJour(total, possiblesDe(tirage)), partie.profileId, partie.jour, index],
-        },
-        ...this.lecturesDeLExperience(partie.profileId),
-        ...this.lecturesDeRevelation(partie.profileId, partie.jour, index),
-      ],
-      'write',
-    )
+    let res: ResultSet[]
+    try {
+      res = await this.client.batch(
+        [
+          tienne
+            ? // La place de la ligne qu'elle n'écrit pas : le lot se relit à la même place.
+              { sql: 'SELECT 0', args: [] }
+            : {
+                sql: `INSERT OR IGNORE INTO jour_reponses (profile_id, jour, question, choix, ms, juste, points, repondue_le, compagnon)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                args: [partie.profileId, partie.jour, index, choix, ms, juste ? 1 : 0, points, maintenant, compagnon],
+              },
+          {
+            sql: `UPDATE jour_parties SET question = ?, servie_le = NULL, points = ?, justes = ?, finie_le = ?, xp = ?
+                  WHERE profile_id = ? AND jour = ? AND question = ?`,
+            args: [index + 1, total, justes, derniere ? maintenant : null, xpDuJour(total, possiblesDe(tirage)), partie.profileId, partie.jour, index],
+          },
+          ...this.lecturesDeLExperience(partie.profileId),
+          ...this.lecturesDeRevelation(partie.profileId, partie.jour, index),
+        ],
+        'write',
+      )
+    } finally {
+      // Sa réponse rejoint ce qu'il sait, et une bonne réponse ses trente
+      // derniers jours et ses missions — ou peut-être, si le lot n'a pas
+      // répondu : ce qu'on en gardait se relit à la visite suivante.
+      this.savoirsGardes.oublier(partie.profileId)
+      if (juste) {
+        this.justesGardees.oublier(partie.profileId)
+        this.categoriesGardees.oublier(partie.profileId)
+      }
+    }
     const [ecrite, avance, parties, podiums, ...revelation] = res
     // Une bonne réponse avec son compagnon le fait grandir : ses comptes se relisent (`compagnonsDe`).
     if (ecrite.rowsAffected > 0 && juste && compagnon !== null && !annulee) this.oublierSesCompagnons(partie.profileId)
@@ -2261,18 +2324,22 @@ export class JourStore {
   async savoirDe(profileId: string): Promise<Savoir> {
     // La catégorie se lit dans la sous-requête, que `LIMIT -1` garde à part :
     // aplatie dans le regroupement, SQLite recopiait dans son tri le JSON du
-    // tirage pour chacune de ses réponses (`CampagneStore.savoirDe`).
-    const res = await this.client.execute({
-      sql: `SELECT categorie, COUNT(*) AS questions, COUNT(choix) AS repondues, SUM(juste) AS justes
-            FROM (SELECT json_extract(t.questions, '$[' || r.question || '].categorie') AS categorie, r.choix AS choix, r.juste AS juste
-                  FROM jour_reponses r JOIN jour_tirages t ON t.jour = r.jour
-                  WHERE r.profile_id = ?
-                    AND NOT EXISTS (SELECT 1 FROM json_each(t.annulees) a WHERE a.value = r.question)
-                  LIMIT -1)
-            GROUP BY categorie`,
-      args: [profileId],
-    })
-    return savoirDesLignes(res.rows)
+    // tirage pour chacune de ses réponses (`CampagneStore.savoirDe`). Tenu
+    // d'une visite à l'autre (`savoirsGardes`), il ne fait pas d'aller-retour.
+    return this.savoirsGardes.lire(
+      profileId,
+      {
+        sql: `SELECT categorie, COUNT(*) AS questions, COUNT(choix) AS repondues, SUM(juste) AS justes
+              FROM (SELECT json_extract(t.questions, '$[' || r.question || '].categorie') AS categorie, r.choix AS choix, r.juste AS juste
+                    FROM jour_reponses r JOIN jour_tirages t ON t.jour = r.jour
+                    WHERE r.profile_id = ?
+                      AND NOT EXISTS (SELECT 1 FROM json_each(t.annulees) a WHERE a.value = r.question)
+                    LIMIT -1)
+              GROUP BY categorie`,
+        args: [profileId],
+      },
+      lecture => this.client.execute(lecture),
+    )
   }
 
   /**
@@ -2348,7 +2415,24 @@ export class JourStore {
    */
   async activiteDepuis(profileId: string, depuis: string): Promise<Pick<JournauxDesJours, 'jour' | 'jourParCategorie'> & { coffresDuMois: CoffreDuMoisLu[] }> {
     await this.clorePasses(jourDe(this.maintenant()))
-    const [parties, categories, coffres] = await this.client.batch(
+    // Ses bonnes réponses par catégorie, tenues d'une visite à l'autre sous la semaine lue (`categoriesGardees`) :
+    // ses parties, une ligne par jour, se relisent — une partie qui commence n'y écrit rien qui l'oublie.
+    const categories = this.categoriesGardees.dans(
+      profileId,
+      {
+        // La catégorie se lit dans la sous-requête, que `LIMIT -1` garde à part (`savoirDe`).
+        sql: `SELECT jour, categorie, COUNT(*) AS n
+              FROM (SELECT r.jour AS jour, json_extract(t.questions, '$[' || r.question || '].categorie') AS categorie
+                    FROM jour_reponses r JOIN jour_tirages t ON t.jour = r.jour
+                    WHERE r.profile_id = ? AND r.jour >= ? AND r.juste = 1
+                      AND NOT EXISTS (SELECT 1 FROM json_each(t.annulees) a WHERE a.value = r.question)
+                    LIMIT -1)
+              GROUP BY jour, categorie`,
+        args: [profileId, depuis],
+      },
+      depuis,
+    )
+    const [parties, parCategorie, coffres] = await this.client.batch(
       [
         {
           sql: `SELECT p.jour AS jour, p.finie_le AS finie_le, p.justes AS justes,
@@ -2357,24 +2441,14 @@ export class JourStore {
                 WHERE p.profile_id = ? AND p.jour >= ?`,
           args: [profileId, depuis],
         },
-        {
-          // La catégorie se lit dans la sous-requête, que `LIMIT -1` garde à part (`savoirDe`).
-          sql: `SELECT jour, categorie, COUNT(*) AS n
-                FROM (SELECT r.jour AS jour, json_extract(t.questions, '$[' || r.question || '].categorie') AS categorie
-                      FROM jour_reponses r JOIN jour_tirages t ON t.jour = r.jour
-                      WHERE r.profile_id = ? AND r.jour >= ? AND r.juste = 1
-                        AND NOT EXISTS (SELECT 1 FROM json_each(t.annulees) a WHERE a.value = r.question)
-                      LIMIT -1)
-                GROUP BY jour, categorie`,
-          args: [profileId, depuis],
-        },
+        categories.instruction,
         lectureDesCoffresDuMois(profileId),
       ],
       'read',
     )
     return {
       jour: parties.rows.map(r => ({ jour: String(r.jour), finie: r.finie_le != null, justes: Number(r.justes ?? 0), questions: Number(r.questions ?? 0) })),
-      jourParCategorie: categories.rows.map(r => ({ jour: String(r.jour), categorie: r.categorie == null ? null : String(r.categorie), n: Number(r.n) })),
+      jourParCategorie: categories.lue(parCategorie),
       coffresDuMois: coffresDuMoisLus(coffres.rows),
     }
   }
@@ -2544,10 +2618,15 @@ export class JourStore {
     // Les jours gardés s'écartent de ses trente derniers avant d'en chercher la salle : écartés après, chacun relirait
     // tous ses joueurs pour les jeter, au quota de Turso.
     const aLire = gardes.size > 0 ? `SELECT jour FROM (${derniers}) WHERE jour NOT IN (${[...gardes].map(() => '?').join(', ')})` : derniers
+    const justes = this.justesGardees.dans(profileId, {
+      sql: `SELECT jour, question, ms FROM jour_reponses WHERE profile_id = ? AND juste = 1 AND jour IN (${derniers})`,
+      args: [profileId, profileId],
+    })
     return {
       aujourdhui,
       revisions,
       gardes,
+      justes,
       lot: [
         {
           sql: `SELECT p.jour, p.points, p.justes, p.xp + p.xp_serie AS xp, t.annulees,
@@ -2559,7 +2638,7 @@ export class JourStore {
         { sql: 'SELECT jour, rang, xp FROM jour_podiums WHERE profile_id = ?', args: [profileId] },
         { sql: `SELECT created_at FROM profile_xp WHERE profile_id = ? AND ${HORS_LIGNES_A_PART}`, args: [profileId] },
         { sql: 'SELECT created_at FROM profile_sabliers WHERE profile_id = ?', args: [profileId] },
-        { sql: `SELECT jour, question, ms FROM jour_reponses WHERE profile_id = ? AND juste = 1 AND jour IN (${derniers})`, args: [profileId, profileId] },
+        justes.instruction,
         {
           sql: `SELECT jour, profile_id, points FROM jour_parties WHERE jour IN (${aLire})
                 AND profile_id IN (SELECT id FROM profiles WHERE disabled_at IS NULL)`,
@@ -2601,7 +2680,7 @@ export class JourStore {
       meilleurScore: lues.reduce((m, p) => Math.max(m, p.points), 0),
       podiums: podiums.rows.length,
       victoires: podiums.rows.filter(r => Number(r.rang) === 1).length,
-      jours: this.joursJoues(profileId, lues.slice(0, JOURS_RELUS), podiumDe, reponses, salle, lecture),
+      jours: this.joursJoues(profileId, lues.slice(0, JOURS_RELUS), podiumDe, lecture.justes.lue(reponses), salle, lecture),
     }
   }
 
@@ -2616,7 +2695,7 @@ export class JourStore {
     profileId: string,
     recents: readonly JourLu[],
     podiumDe: ReadonlyMap<string, number>,
-    reponses: ResultSet,
+    justes: readonly JusteDUnJour[],
     salle: ResultSet,
     { revisions, gardes }: LectureDeLaCarriere,
   ): JourJoue[] {
@@ -2644,11 +2723,10 @@ export class JourStore {
     }
     const annuleesDu = new Map(recents.map(p => [p.jour, p.annulees]))
     const tempsDu = new Map<string, number>()
-    for (const r of reponses.rows) {
-      const jour = String(r.jour)
+    for (const r of justes) {
       // Une question annulée ne compte plus : ni sa bonne réponse, ni son temps.
-      if (annuleesDu.get(jour)?.includes(Number(r.question))) continue
-      tempsDu.set(jour, (tempsDu.get(jour) ?? 0) + Number(r.ms ?? 0))
+      if (annuleesDu.get(r.jour)?.includes(r.question)) continue
+      tempsDu.set(r.jour, (tempsDu.get(r.jour) ?? 0) + r.ms)
     }
     return recents.map(p => {
       const tries = (pointsDu.get(p.jour) ?? [p.points]).sort((a, b) => b - a)
@@ -3768,7 +3846,11 @@ export class JourStore {
         ],
         'write',
       )
-      if (questions) this.garderTirage({ ...tirage, questions })
+      if (questions) {
+        this.garderTirage({ ...tirage, questions })
+        // Sa catégorie a pu changer avec elle : ce que chacun sait du quiz du jour se relit.
+        this.tirageChange()
+      }
       if (empreinte !== String(ligne.empreinte)) this.empreintesGardees = null
       return { jourAussi: !!questions, nouvelle: autreReponse, annulee: annuleAussi }
     })
@@ -3847,8 +3929,9 @@ export class JourStore {
       // en base. Lui passer le tirage de cette annulation-ci laissait payée
       // la question d'une autre, annulée juste après.
       this.garderTirage({ ...tirage, annulees })
-      // Ses bonnes réponses ne font plus grandir personne.
+      // Ses bonnes réponses ne font plus grandir personne, ni ne comptent à son savoir ou à ses missions.
       this.oublierSesCompagnons(null)
+      this.tirageChange()
     })
     // Chacun se recompte sous son propre verrou. Recompté d'un seul coup pour
     // tout le jour, une réponse partie avant l'annulation et écrite après
@@ -4009,6 +4092,9 @@ export class JourStore {
       this.masques.delete(profileId)
       this.versionDesMasques++
       this.oublierSesCompagnons(profileId)
+      this.justesGardees.oublier(profileId)
+      this.savoirsGardes.oublier(profileId)
+      this.categoriesGardees.oublier(profileId)
     })
   }
 

@@ -25,8 +25,9 @@
 // (`chanceDeLEpreuve`, le 15 octobre 2026). Les marches des séries, des
 // sentiers et du quiz tout prêt, elles, gardent `tauxLisse`, sur laquelle
 // leurs mélanges et leurs seuils ont été calibrés — le choix du 13 octobre
-// 2026, à revoir après mesure. Rien ne s'écrit : tout se dérive du journal
-// des réponses, et se refait (`CampagneStore`).
+// 2026, à revoir après mesure. Tout se dérive du journal des réponses, et se
+// refait (`CampagneStore`) ; le dernier ajustement se garde seulement dans la
+// base, d'où un réveil repart au lieu de tout refaire (`ModeleGarde`).
 
 import { CATEGORIES } from '../../../shared/categories'
 import { NIVEAUX, QUESTIONS_PAR_MARCHE, QUESTIONS_PAR_SERIE, REPONSES_FICTIVES, TAUX_A_PRIORI, VIES, tauxLisse, type MesureDUneQuestion, type Niveau } from '../../../shared/campagne'
@@ -435,6 +436,102 @@ export async function ajusterSansBloquer(
     await avantLaTranche?.()
     await rendreLaMain()
     if (arrete()) return null
+  }
+}
+
+// ── Le modèle gardé dans la base ─────────────────────────────────────────
+
+/**
+ * Le modèle d'un ajustement, tel qu'il se garde dans la base permanente
+ * (`campagne_meta`, `CampagneStore.garderLeModele`) : un réveil de
+ * l'hébergeur le reprend au lieu de tout refaire — de zéro, l'ajustement
+ * tenait le dixième de cœur 28,5 s à chaque démarrage (le 2 novembre 2026,
+ * `/healthz` : `campagne.savoir.dureeMs`), quand reparti du modèle d'avant
+ * il en demande quelques passes. Les identifiants en texte, les nombres en
+ * tableaux de flottants : relu, il vaut exactement ce qu'il valait, et se lit
+ * en quelques millisecondes — un objet par question en aurait demandé dix
+ * fois plus, d'un bloc.
+ */
+export interface ModeleGarde {
+  /** Quand il s'est ajusté. */
+  a: number
+  /** Ce que l'ajustement a duré, pour `/healthz`. */
+  dureeMs: number
+  modele: ModeleDuSavoir
+}
+
+/** Le format du texte gardé : un autre se relit comme rien — l'ajustement repart de zéro, une fois. */
+const VERSION_DU_MODELE_GARDE = 1
+
+const enBase64 = (nombres: Float64Array) => Buffer.from(nombres.buffer, nombres.byteOffset, nombres.byteLength).toString('base64')
+
+function deBase64(texte: unknown, longueur: number): Float64Array | null {
+  if (typeof texte !== 'string') return null
+  const octets = Buffer.from(texte, 'base64')
+  if (octets.byteLength !== longueur * 8) return null
+  // Recopiés dans un tampon à eux : celui du décodage n'est pas forcément aligné sur huit octets.
+  const nombres = new Float64Array(longueur)
+  new Uint8Array(nombres.buffer).set(octets)
+  return nombres
+}
+
+/** Le modèle en texte, pour la base (`modeleRelu` le relit). */
+export function modeleEnTexte({ a, dureeMs, modele }: ModeleGarde): string {
+  const questions = [...modele.difficultes.keys()]
+  const joueurs = [...modele.forces.keys()]
+  const forces = new Float64Array(joueurs.length * (C + 1))
+  joueurs.forEach((joueur, p) => {
+    const f = modele.forces.get(joueur)!
+    forces[p * (C + 1)] = f.force
+    for (let c = 0; c < C; c++) forces[p * (C + 1) + 1 + c] = f.ecarts[c] ?? 0
+  })
+  return JSON.stringify({
+    v: VERSION_DU_MODELE_GARDE,
+    a,
+    dureeMs,
+    categories: C,
+    reponses: modele.reponses,
+    passes: modele.passes,
+    decalages: modele.decalages,
+    questions,
+    difficultes: enBase64(Float64Array.from(questions, id => modele.difficultes.get(id)!)),
+    joueurs,
+    forces: enBase64(forces),
+    reponsesDesJoueurs: joueurs.map(j => modele.forces.get(j)!.reponses),
+  })
+}
+
+/**
+ * Le modèle gardé, relu de son texte — null s'il ne se relit pas tel quel :
+ * un autre format, d'autres catégories, un texte abîmé. L'ajustement repart
+ * alors de zéro, comme avant qu'on le garde.
+ */
+export function modeleRelu(texte: unknown): ModeleGarde | null {
+  if (typeof texte !== 'string') return null
+  let lu: Record<string, unknown>
+  try {
+    lu = JSON.parse(texte)
+  } catch {
+    return null
+  }
+  const { questions, joueurs, decalages, reponsesDesJoueurs } = lu
+  if (lu.v !== VERSION_DU_MODELE_GARDE || lu.categories !== C || !Array.isArray(questions) || !Array.isArray(joueurs) || !Array.isArray(reponsesDesJoueurs)) return null
+  if (!Array.isArray(decalages) || decalages.length !== DIFFICULTES || !decalages.every(Number.isFinite)) return null
+  if (!questions.every(q => typeof q === 'string') || !joueurs.every(j => typeof j === 'string') || reponsesDesJoueurs.length !== joueurs.length) return null
+  const difficultes = deBase64(lu.difficultes, questions.length)
+  const forces = deBase64(lu.forces, joueurs.length * (C + 1))
+  if (!difficultes || !forces || typeof lu.a !== 'number' || typeof lu.dureeMs !== 'number' || typeof lu.reponses !== 'number' || typeof lu.passes !== 'number') return null
+  const parQuestion = new Map<string, number>()
+  questions.forEach((id, q) => parQuestion.set(id, difficultes[q]))
+  const parJoueur = new Map<string, ForceDUnJoueur>()
+  joueurs.forEach((joueur, p) => {
+    const o = p * (C + 1)
+    parJoueur.set(joueur, { force: forces[o], ecarts: Array.from(forces.subarray(o + 1, o + 1 + C)), reponses: Number(reponsesDesJoueurs[p]) })
+  })
+  return {
+    a: lu.a,
+    dureeMs: lu.dureeMs,
+    modele: { difficultes: parQuestion, forces: parJoueur, decalages: decalages as number[], reponses: lu.reponses, passes: lu.passes },
   }
 }
 

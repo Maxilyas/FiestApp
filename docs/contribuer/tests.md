@@ -275,7 +275,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/portes.test.ts` — le statut, l'aperçu et l'indexation d'une adresse.
 - `server/test/petites-portes.test.ts` — les petites portes du téléphone et de la console.
 - `server/test/ressenti.test.ts` — ce que `/healthz` dit du ressenti.
-- `server/test/base-preparee.test.ts` — la base de la campagne vérifiée une fois au build et relue telle quelle au réveil, le dossier relu quand elle ne le dit plus.
+- `server/test/base-preparee.test.ts` — la base de la campagne vérifiée une fois au build et relue telle quelle au réveil, le dossier relu quand elle ne le dit plus ; ce que le build a calculé de chaque question — ses sujets, sa famille, les cribles du Cabinet — relu avec elle, et repris par chaque lecteur au lieu d'être refait.
 - `server/test/ramasse-miettes.test.ts` — le ramasse-miettes réglé par la commande de démarrage, que `NODE_OPTIONS` refuse, et `/healthz` qui dit s'il a pris.
 
 ### Le client : chargement, entrée, navigation, mots
@@ -347,6 +347,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/compagnons.test.ts` — les compagnons de la boutique.
 - `server/test/nouveautes.test.ts` — la pastille rouge des nouveautés : ce que le serveur retient qu'un profil a vu dans sa loge, pour tous ses appareils, et chaque nouveauté de la pièce « Avatar » marquée jusqu'à sa case.
 - `server/test/profil-charge.test.ts` — ce que la page du profil, la pastille de « Profil » et la page des duels coûtent à la base permanente, allers-retours comptés.
+- `server/test/lectures-gardees.test.ts` — ce qu'une page garde d'un joueur entre deux visites : la règle seule, horloge à la main — sa fraîcheur, ce qu'une écriture oublie, une lecture partie avant elle, la borne —, puis le vrai serveur à la fraîcheur de la production : ses épreuves validées et ses bonnes réponses du jour lues une fois par l'accueil, son savoir du jour par sa carte, ses catégories du jour par ses missions, relus après sa réponse — et après une question annulée pour tous.
 - `server/test/style.test.ts` — le style de « Ma collection » en albums — fonds, gerbes, finitions, bordures —, et la loge qui ne montre que ce qu'on a.
 - `server/test/un-seul-avatar.test.ts` — un joueur n'a qu'un avatar : partout où il se montre, celui qu'il porte ; chaque composant relu.
 - `server/test/niche.test.ts` — la niche du compagnon en haut de chaque page du téléphone : c'est lui qui grandit, porté ou non ; la toucher ouvre sa fiche.
@@ -516,7 +517,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/amis.test.ts` — la feuille des amis, qui est en ligne.
 - `server/test/amis-feuille.test.ts` — la feuille des amis et la page des duels, rendues.
 - `server/test/joueurs-croises.test.ts` — les joueurs croisés, à défier ou à ajouter.
-- `server/test/modele-du-savoir.test.ts` — le modèle du savoir, qu'Automate et la page des sentiers lisent : ce que vaut chaque difficulté estimée, appris en bloc ; ajusté en fond, chaque passe sur la base en tranches, le même modèle qu'ajusté d'une traite.
+- `server/test/modele-du-savoir.test.ts` — le modèle du savoir, qu'Automate et la page des sentiers lisent : ce que vaut chaque difficulté estimée, appris en bloc ; ajusté en fond, chaque passe sur la base en tranches, le même modèle qu'ajusté d'une traite ; gardé dans la base au bit près, repris tel quel au réveil, réajusté de lui une fois vieilli, effacé avec un profil supprimé.
 - `server/test/duels-montee.test.ts` — la montée : deux cotes, la cachée qui règle Automate et celle qu'on voit, qui avance pour qui joue ; l'ELO dès la Platine, et l'adversaire sous ses ligues gardées compté à son plancher.
 - `server/test/duels-de.test.ts` — le dé à chances égales, sur ce qu'on a choisi : Automate compte comme un adversaire de sa cote.
 - `server/test/duels-enjeu.test.ts` — ce qu'un duel met en jeu, dit avant de le jouer, partout où l'on choisit un adversaire, et la feuille du dé qui s'ouvre avant de tirer.
