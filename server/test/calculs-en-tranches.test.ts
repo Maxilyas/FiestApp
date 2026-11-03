@@ -9,10 +9,12 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { baseDEssai } from './banc'
 import { enTranches } from '../src/core/tourniquet'
-import { PreparationDuTirage, tirerUneEpreuve, tirerUneEpreuveEnTranches } from '../src/core/campagne'
+import { CANDIDATES_PAR_TRANCHE, PreparationDuTirage, tirerUneEpreuve, tirerUneEpreuveEnTranches } from '../src/core/campagne'
 import { regleDuPalier } from '../../shared/sentiers'
 import { BaseDeLaCampagne } from '../src/core/baseCampagne'
 import { serieDeReference, serieDeReferenceEnTranches } from '../src/core/modeleDuSavoir'
+import { DOSSIER_DU_CONTENU, ENTREES_PAR_TRANCHE, lireLeContenu, lireLeContenuEnTranches } from '../src/core/cabinet/contenu'
+import { tableauxDuDetail, tableauxDuDetailEnTranches } from '../src/core/details'
 import { dUneTraite, type CalculEnTranches } from '../../shared/tranches'
 import { mesuresEnFamille, mesuresEnFamilleEnTranches, niveauDeQuestion, type MesureDUneQuestion } from '../../shared/campagne'
 
@@ -139,4 +141,51 @@ test('le tirage d’une épreuve, une place par tranche : le même qu’en un bl
   assert.deepEqual(ids(enUnPas), ids(dUnBloc))
   assert.equal(enUnPas.length, places)
   assert.ok(tranches >= places, `${tranches} tranches pour ${places} places`)
+})
+
+// Une place d'une traite gelait encore 0,6 s au banc bridé (le 3 novembre
+// 2026) : au premier tirage, chaque candidate lit sa forme pour les jumelles
+// et sa réponse pour le par-cœur. Une catégorie de mille questions, toutes
+// difficiles, un seul sous-thème : chaque place, après la première, repasse
+// toute la marche.
+test('le tirage d’une épreuve ne lit pas plus de `CANDIDATES_PAR_TRANCHE` candidates d’une traite', () => {
+  const essai = baseDEssai(1000, { categories: ['Histoire'], difficultes: [4] })
+  let lues = new Set<string>()
+  const questions = essai.questions.map(q => {
+    const copie = { ...q }
+    const meta = q.meta
+    Object.defineProperty(copie, 'meta', { enumerable: true, get: () => (lues.add(q.id), meta) })
+    return copie
+  })
+  const calcul = tirerUneEpreuveEnTranches(questions, regleDuPalier(9)!, new Map(), new Map(), Date.UTC(2026, 10, 3, 20))
+  const parTranche: number[] = []
+  for (;;) {
+    lues = new Set()
+    const r = calcul.next()
+    parTranche.push(lues.size)
+    if (r.done) break
+  }
+  // La première tranche range la catégorie par marche : une passe, sans rang.
+  const plus = Math.max(...parTranche.slice(1))
+  assert.ok(plus > 0, `les places lisent leurs candidates (${parTranche.join(', ')})`)
+  assert.ok(plus <= CANDIDATES_PAR_TRANCHE, `${plus} candidates lues d’une traite (au plus ${CANDIDATES_PAR_TRANCHE})`)
+})
+
+// Le contenu neuf du Cabinet — ses juges, et chaque entrée comparée à ses
+// voisines — et les cadrages des tableaux du Détail, vérifiés sur le disque :
+// d'une traite sous le premier départ d'un processus, plus d'une seconde de
+// gel au banc bridé (le 3 novembre 2026). Lus en tranches, les mêmes.
+test('le contenu neuf du Cabinet et les tableaux du Détail se lisent en tranches, les mêmes qu’en un bloc', async () => {
+  const dUnBloc = lireLeContenu(DOSSIER_DU_CONTENU)
+  const calcul = lireLeContenuEnTranches(DOSSIER_DU_CONTENU)
+  let tranches = 0
+  let r = calcul.next()
+  for (; !r.done; r = calcul.next()) tranches++
+  assert.deepEqual(r.value, dUnBloc)
+  const entrees = dUnBloc.lieux.length + dUnBloc.fiches.length + dUnBloc.repliques.length + dUnBloc.frises.length
+  assert.ok(entrees > 100, `${entrees} entrées livrées`)
+  assert.ok(tranches >= Math.floor(entrees / ENTREES_PAR_TRANCHE), `${tranches} tranches pour ${entrees} entrées`)
+  const tableaux = await tableauxDuDetailEnTranches()
+  assert.ok(tableaux.length >= 50, `${tableaux.length} tableaux livrés`)
+  assert.equal(tableauxDuDetail(), tableaux, 'lus une fois : le tireur les trouve lus')
 })

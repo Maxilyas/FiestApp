@@ -100,7 +100,7 @@ import {
   type TraverseeLueEnBase,
 } from './tables'
 import { fichierDuCadrage } from '../details'
-import { contenuDuCabinet } from './contenu'
+import { contenuDuCabinetEnTranches } from './contenu'
 import { preparerLesTas, themesDuQuiz } from './tirages/tas'
 import { themeDuPlan, tirerLePlan } from './tirages/index'
 import { CHANGEMENTS_PAR_PARTIE, DEPARTS_PAR_HEURE, MANCHES_PAR_PARTIE } from '../../../../shared/cabinet/bareme'
@@ -1486,9 +1486,8 @@ export class CabinetStore {
    * profil : ni sa partie ni son musée n'y sont touchés.
    */
   async murs(profileId: string): Promise<LectureDesMurs> {
-    const { journal } = await this.porte.lireAvecLeJournal([])
+    const [{ journal }, { lieux, frises }] = await Promise.all([this.porte.lireAvecLeJournal([]), contenuDuCabinetEnTranches()])
     const vues = journal.jugeesDe(profileId)
-    const { lieux, frises } = contenuDuCabinet()
     const datees = [...vues.keys()].some(id => estUneFriseDeSujet(id) || id.startsWith(PREFIXE_DE_LA_FRISE))
     return { vues, lieux, frises, evenements: datees ? this.evenementsParQuestion(await this.porte.jouables()) : new Map() }
   }
@@ -1806,7 +1805,8 @@ export class CabinetStore {
         const jour = jourDe(t)
         const halloween = this.reglages.calendrier.periodeDu(jour)?.saison.key === 'halloween'
         const gardiens = choisirLesGardiens(this.hasard, new Set(this.profils.legendairesOf(profileId)), halloween)
-        const contenu = contenuDuCabinet()
+        // Lu en tranches : les tas l'ont lu d'ordinaire, mais le premier départ d'un processus ne le lirait pas d'une traite.
+        const contenu = await contenuDuCabinetEnTranches()
         const themes = { epingle: [...new Set(contenu.lieux.map(l => l.theme))], frise: [...new Set(contenu.frises.map(f => f.theme))], quiz }
         const depart: DepartDeLaTraversee = { v: VERSION_DE_LA_TRAVERSEE, jour, actes: tracerLaCarte(this.hasard, gardiens, themes, JEUX_PRETS) }
         const id = randomUUID()

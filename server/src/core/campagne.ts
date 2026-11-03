@@ -7295,21 +7295,21 @@ export class CampagneStore {
    * jugées. `qui` : celles d'un seul profil, sa fiche au
    * QG — par l'index `(profile_id, commencee_le)`. Une expédition compte ses
    * réponses : sa position saute les questions de reste d'un gardien vaincu,
-   * tirées d'avance pour lui et jamais posées (`questionsDuGardien`).
+   * tirées d'avance pour lui et jamais posées (`questionsDuGardien`). En un
+   * seul texte JSON : trente jours de séries, 3 405 en production le
+   * 3 novembre 2026, se décodaient ligne à ligne à coups de `defineProperty`,
+   * une demi-seconde de gel au dixième de cœur à chaque réveil
+   * (`qg-charge.test.ts`).
    */
   async seriesDepuis(depuis: number, qui?: string): Promise<{ qui: string; quand: number; mode: string | null; questions: number }[]> {
     const res = await this.client.execute({
-      sql: `SELECT profile_id, commencee_le, mode,
-                   CASE WHEN mode = 'expedition' THEN (SELECT COUNT(*) FROM campagne_reponses r WHERE r.serie_id = campagne_series.id) ELSE position END AS position
+      sql: `SELECT json_group_array(json_array(profile_id, commencee_le, mode,
+                     CASE WHEN mode = 'expedition' THEN (SELECT COUNT(*) FROM campagne_reponses r WHERE r.serie_id = campagne_series.id) ELSE position END)) AS lignes
             FROM campagne_series WHERE commencee_le >= ?${qui === undefined ? '' : ' AND profile_id = ?'}`,
       args: qui === undefined ? [depuis] : [depuis, qui],
     })
-    return res.rows.map(r => ({
-      qui: String(r.profile_id),
-      quand: Number(r.commencee_le),
-      mode: r.mode === null ? null : String(r.mode),
-      questions: Number(r.position),
-    }))
+    const lignes = JSON.parse(String(res.rows[0]?.lignes ?? '[]')) as [string, number, string | null, number][]
+    return lignes.map(([qui, quand, mode, questions]) => ({ qui: String(qui), quand: Number(quand), mode: mode === null ? null : String(mode), questions: Number(questions) }))
   }
 
   /** Ce que le QG compte des signalements à relire : les questions, et les joueurs qui les signalent. */
@@ -11445,12 +11445,16 @@ export function tirerUneEpreuve(
   return dUneTraite(tirerUneEpreuveEnTranches(jouables, regle, vues, mesure, maintenant, chapitre))
 }
 
+/** Les candidates qu'un tirage d'épreuve examine d'une traite, au plus : une à trois millisecondes sur un vrai cœur, la première fois. */
+export const CANDIDATES_PAR_TRANCHE = 200
+
 /**
- * Le même tirage, une place par tranche (`CalculEnTranches`) : chaque place
- * repasse les questions de sa marche dans la catégorie, un rang chacune —
- * seize places d'une traite gelaient la boucle plus d'une seconde au dixième
- * de cœur de l'hébergeur, au départ d'une épreuve (le banc bridé du
- * 2 novembre 2026). Le départ la mène en tranches (`enTranches`).
+ * Le même tirage, une place par tranche (`CalculEnTranches`) — et, dans une
+ * place, `CANDIDATES_PAR_TRANCHE` candidates au plus : chaque place repasse
+ * les questions de sa marche dans la catégorie, un rang chacune — seize
+ * places d'une traite gelaient la boucle plus d'une seconde au dixième de
+ * cœur de l'hébergeur, au départ d'une épreuve (le banc bridé du 2 novembre
+ * 2026). Le départ la mène en tranches (`enTranches`).
  */
 export function* tirerUneEpreuveEnTranches(
   jouables: readonly QuestionDeLaBase[],
@@ -11493,6 +11497,7 @@ export function* tirerUneEpreuveEnTranches(
     return [f.recente, f.vue, deTrop, servi, jumelle, f.le]
   }
   const tirees: { question: QuestionDeLaBase; niveau: Niveau }[] = []
+  let examinees = 0
   for (const [niveau, combien] of Object.entries(regle.melange) as [Niveau, number][]) {
     for (let i = 0; i < combien; i++) {
       // Chaque place à sa tranche.
@@ -11502,6 +11507,11 @@ export function* tirerUneEpreuveEnTranches(
         let sonRang: number[] | null = null
         for (const q of parNiveau[n]) {
           if (prises.has(q.id)) continue
+          // Au premier tirage d'un processus, chaque candidate lit sa forme pour
+          // les jumelles et sa réponse pour le par-cœur : une place d'une
+          // traite gelait encore 0,6 s au dixième de cœur (le banc du
+          // 3 novembre 2026). Une tranche toutes les `CANDIDATES_PAR_TRANCHE`.
+          if (++examinees % CANDIDATES_PAR_TRANCHE === 0) yield
           const r = rang(q)
           if (!sonRang || passeAvant(r, sonRang)) {
             meilleure = q

@@ -388,7 +388,11 @@ paths:
   au QG ne relit que les questions neuves), la préparation d'un tirage
   (`PreparationDuTirage.enTranches`), la série de référence
   (`serieDeReferenceEnTranches`), la base refaite et ses index
-  (`appliquerLesCorrections`, `BaseDeLaCampagne.enTranches`) et les questions
+  (`appliquerLesCorrections`, `BaseDeLaCampagne.enTranches`), le tirage d'une
+  épreuve — une place par tranche, et `CANDIDATES_PAR_TRANCHE` candidates au
+  plus d'une traite : au premier tirage, chaque candidate lit sa forme pour
+  les jumelles et sa réponse pour le par-cœur, 0,6 s de gel au banc bridé du
+  3 novembre 2026 — et les questions
   du modèle du savoir sont des générateurs qui cèdent toutes les
   `QUESTIONS_D_UNE_TRANCHE` questions — deux à trois millisecondes sur un
   vrai cœur —, menés une tranche par tour en fond, d'une traite par

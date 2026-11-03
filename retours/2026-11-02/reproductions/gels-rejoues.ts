@@ -36,6 +36,12 @@
 // cœur pour eux : chaque étape dit ses gels comme la production les relève —
 // la sonde du serveur (`core/gels.ts`), au-delà d'une demi-seconde, avec ce
 // qui tournait pendant — et ceux d'au moins 150 ms, d'une sonde à elle.
+// `PROFIL=1` garde le profileur d'un bout à l'autre, un échantillon toutes les
+// dix millisecondes, et dit à la fin ce qui tournait pendant chaque retard de
+// 0,3 s et plus — il gonfle les pauses du ramasse-miettes : ses durées se
+// lisent entre elles, celles d'un passage sans lui font foi. Une scène seule :
+// `MODELE=1` (le modèle du savoir et le départ d'une épreuve), `QG=1` (la vue
+// d'ensemble à froid, chaude, au réveil), `REVEIL=1` (le réveil).
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
@@ -135,11 +141,14 @@ const ATTENTE = GEL ? 4 : 1
 await attendre(GEL ? 90_000 : 20_000)
 
 // ── Le profileur, et les trous de la boucle ───────────────────────────────
+// Au dixième de cœur, `PROFIL=1` le garde, à un échantillon toutes les dix
+// millisecondes : plus serré, il prendrait la bride pour lui.
+const PROFIL = !GEL || process.env.PROFIL === '1'
 const session = new Session()
-if (!GEL) {
+if (PROFIL) {
   session.connect()
   await session.post('Profiler.enable')
-  await session.post('Profiler.setSamplingInterval', { interval: 500 })
+  await session.post('Profiler.setSamplingInterval', { interval: GEL ? 10_000 : 500 })
 }
 // Compilé, le dépôt tient dans un seul fichier : le module d'une ligne se lit
 // dans le commentaire qu'esbuild pose en tête de chacun (comme `banc-gel.ts`).
@@ -190,6 +199,31 @@ function cleur(profile: any) {
   }
 }
 const trous: { a: number; b: number }[] = []
+/** Bridé sous le profileur : chaque retard de 0,3 s et plus du passage, et son étape. */
+const retardsDuPassage: { etape: string; a: number; b: number }[] = []
+if (GEL && PROFIL) await session.post('Profiler.start')
+
+/** Ce qui tournait pendant chaque retard du passage : bridé, chaque échantillon pèse le temps de mur jusqu'au suivant. */
+async function bilanDuProfil() {
+  if (!(GEL && PROFIL)) return
+  const { profile } = await session.post('Profiler.stop')
+  const cle = cleur(profile)
+  const instants: number[] = []
+  let t = profile.startTime
+  for (let i = 0; i < profile.samples.length; i++) instants.push((t += profile.timeDeltas[i] ?? 0))
+  console.log('\n── Ce qui tournait pendant chaque retard de 0,3 s et plus ──')
+  for (const trou of retardsDuPassage) {
+    const parCle = new Map<string, number>()
+    for (let i = 0; i < instants.length; i++) {
+      if (instants[i] < trou.a || instants[i] > trou.b) continue
+      const k = cle(profile.samples[i])
+      if (k) parCle.set(k, (parCle.get(k) ?? 0) + (profile.timeDeltas[i + 1] ?? 0) / 1000)
+    }
+    const qui = [...parCle].sort((x, y) => y[1] - x[1]).slice(0, 6)
+    console.log(`${trou.etape.trim().slice(0, 40).padEnd(40)} ${String(Math.round((trou.b - trou.a) / 1000) - 100).padStart(5)} ms : ${qui.map(([k, v]) => `${Math.round(v)} ${k}`).join(' · ') || '(rien du dépôt)'}`)
+  }
+}
+
 async function etape(nom: string, f: () => Promise<unknown>) {
   trous.length = 0
   const gelsAvant = gelsReleves.length
@@ -201,7 +235,7 @@ async function etape(nom: string, f: () => Promise<unknown>) {
     if (t - dernier > BigInt(GEL ? 150_000_000 + pas * 1_000_000 : 6_000_000)) trous.push({ a: Number(dernier / 1000n), b: Number(t / 1000n) })
     dernier = t
   }, pas)
-  if (!GEL) await session.post('Profiler.start')
+  if (PROFIL && !GEL) await session.post('Profiler.start')
   const cpu = process.cpuUsage()
   const debut = performance.now()
   let dit = ''
@@ -221,6 +255,8 @@ async function etape(nom: string, f: () => Promise<unknown>) {
       const noms = g.enCours.map(e => (e.n > 1 ? `${e.quoi} ×${e.n}` : e.quoi))
       console.log(`   gel ${String(g.dureeMs).padStart(5)} ms  processeur ${String(g.processeurMs).padStart(4)}  ramasse-miettes ${String(g.ramasseMiettesMs).padStart(4)}  — ${noms.join(', ') || 'rien de nommé'}`)
     }
+    // Bridé, le profileur court d'un bout à l'autre (`bilanDuProfil`) : arrêté et relancé à chaque étape, il gelait lui-même la boucle deux secondes.
+    if (PROFIL) for (const trou of trous) if (trou.b - trou.a >= 300_000 + pas * 1000) retardsDuPassage.push({ etape: nom, ...trou })
     await attendre(500)
     return
   }
@@ -284,6 +320,47 @@ async function uneEpreuve(): Promise<string> {
 }
 const fond = (s: number) => etape(`   … le fond qui suit (${s * ATTENTE} s)`, () => attendre(s * ATTENTE * 1000))
 
+// `MODELE=1` : le modèle du savoir seul — la page des sentiers le lance au
+// réveil, puis, l'horloge avancée de trente-trois minutes, la page suivante le
+// refait pendant le départ d'une épreuve.
+if (process.env.MODELE === '1') {
+  await etape('la page des sentiers, à froid', async () => (await lire(joueur, '/api/campagne/sentiers')).status)
+  await fond(5)
+  horloge.t += 33 * 60_000
+  await etape('la page des sentiers, le modèle vieilli', async () => (await lire(joueur, '/api/campagne/sentiers')).status)
+  await etape('une épreuve de sentier', async () => {
+    const e = await poster(joueur, '/api/campagne/sentiers/epreuve', { branche: 'monde', palier: 1 })
+    const id = e.corps?.epreuve?.id ?? e.corps?.id
+    if (id) await poster(joueur, `/api/campagne/epreuve/${id}/abandon`, {})
+    return `${e.status}${e.corps?.error ? ` ${e.corps.error}` : ''}`
+  })
+  await fond(5)
+  await bilanDuProfil()
+  await banc.close()
+  faux.fermer()
+  process.exit(0)
+}
+
+// `QG=1` : la vue d'ensemble du QG seule — à froid, ses trente jours lus,
+// puis chaude, aujourd'hui seulement —, puis au réveil.
+if (process.env.QG === '1') {
+  await etape('le QG : la vue d’ensemble, à froid', async () => (await lire(admin, '/api/admin/qg')).status)
+  await fond(3)
+  await etape('le QG : la vue d’ensemble, chaude', async () => (await lire(admin, '/api/admin/qg')).status)
+  await fond(3)
+  await etape('le QG : l’activité', async () => (await lire(admin, '/api/admin/activite')).status)
+  await fond(3)
+  await etape('le réveil', () => banc.redemarrer({ disqueEfface: true }))
+  admin = await connexionAnimateur(banc.url)
+  await fond(10)
+  await etape('le QG au réveil', async () => (await lire(admin, '/api/admin/qg')).status)
+  await fond(5)
+  await bilanDuProfil()
+  await banc.close()
+  faux.fermer()
+  process.exit(0)
+}
+
 // `REVEIL=1` : le réveil seul, sans les scènes de l'après-midi.
 if (process.env.REVEIL !== '1') {
 await etape('la page des sentiers, à froid', async () => (await lire(joueur, '/api/campagne/sentiers')).status)
@@ -344,6 +421,7 @@ await etape('l’accueil d’un profil au réveil', async () => {
 await fond(10)
 await etape('le QG au réveil', async () => (await lire(admin, '/api/admin/qg')).status)
 await fond(10)
+await bilanDuProfil()
 await banc.close()
 faux.fermer()
 process.exit(0)

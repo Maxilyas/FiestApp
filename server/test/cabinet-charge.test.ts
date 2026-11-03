@@ -78,12 +78,12 @@ import type { EclairTire } from '../../shared/cabinet/jeux/eclair'
 import { motDeLaQuestion } from '../../shared/cabinet/jeux/mot'
 import { PARTIES_GARDEES, type PartieLue } from '../src/core/cabinet/magasin'
 import { vueDeLaPartie } from '../src/core/cabinet/vue'
-import { contenuDuCabinet } from '../src/core/cabinet/contenu'
+import { contenuDuCabinet, contenuDuCabinetEnTranches } from '../src/core/cabinet/contenu'
 import { estUnQcmDuCabinet, LECTURES_DU_DISQUE, motsDeLaCategorie, preparerLesTas, qcmDeLaCategorie, valeurDuFilet, valeursDeLaCategorie } from '../src/core/cabinet/tirages/tas'
 import { tirerLePlan } from '../src/core/cabinet/tirages/index'
 import { ENJEU_ORDINAIRE } from '../../shared/cabinet/partie'
 import { BaseDeLaCampagne, lireLaBase, QUESTIONS_PAR_TRANCHE, type QuestionDeLaBase } from '../src/core/baseCampagne'
-import { tableauxDuDetail } from '../src/core/details'
+import { tableauxDuDetail, tableauxDuDetailEnTranches } from '../src/core/details'
 import { lignesDesFrises } from '../src/core/frises'
 import { ProfileStore } from '../src/auth/profiles'
 import { rendreLaMain } from '../src/core/tourniquet'
@@ -500,8 +500,9 @@ test('ce que le Détail et la Frise lisent du disque une fois par processus a ch
   assert.deepEqual(lues.map(([quoi]) => quoi), ['tableaux', 'contenu'])
   const [[, tableaux], [, contenu]] = lues
   assert.ok(tableaux > Math.max(...cribles) && contenu > tableaux, `les catégories aux tours ${cribles.join(', ')}, les tableaux au ${tableaux}, le contenu au ${contenu}`)
-  // Et ce sont celles que le magasin lui laisse : les tableaux du Détail, le contenu neuf.
-  assert.deepEqual(LECTURES_DU_DISQUE, [tableauxDuDetail, contenuDuCabinet])
+  // Et ce sont celles que le magasin lui laisse : les tableaux du Détail, le contenu neuf — chacun lu en tranches
+  // (`calculs-en-tranches.test.ts`) : d'une traite, ils gelaient encore le premier départ au dixième de cœur.
+  assert.deepEqual(LECTURES_DU_DISQUE, [tableauxDuDetailEnTranches, contenuDuCabinetEnTranches])
 })
 
 /** Ce que le joueur a vu, et chaque question que le tirage examine : `tirerPourUneEscale` demande sa fraîcheur à chacune. */
