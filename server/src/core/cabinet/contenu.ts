@@ -20,6 +20,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { SERVEUR } from '../../racine'
+import { enTranches } from '../tourniquet'
+import { dUneTraite, type CalculEnTranches } from '../../../../shared/tranches'
 import { CATEGORIES } from '../../../../shared/categories'
 import { refusDuLibelle } from '../../../../shared/frise'
 import { dansLaFrance, distanceKm } from '../../../../shared/cabinet/france'
@@ -419,6 +421,25 @@ export function trier<S extends SorteDuContenu>(
   entrees: readonly unknown[],
   deja: readonly EntreeDuContenu<S>[] = [],
 ): { gardees: EntreeDuContenu<S>[]; ecartees: EntreeEcartee[] } {
+  return dUneTraite(trierEnTranches(sorte, entrees, deja, Infinity))
+}
+
+/**
+ * Les entrées qu'un tri passe d'une traite : chacune son juge et ses voisines,
+ * une à deux millisecondes les dix sur un vrai cœur. D'une traite, le
+ * contenu entier — vingt-six à quarante-trois millisecondes — gelait la boucle
+ * plus d'une seconde au dixième de cœur, sous le premier départ d'un
+ * processus (le banc bridé du 3 novembre 2026).
+ */
+export const ENTREES_PAR_TRANCHE = 10
+
+/** Le même tri, en tranches de `tranche` entrées (`CalculEnTranches`). */
+export function* trierEnTranches<S extends SorteDuContenu>(
+  sorte: S,
+  entrees: readonly unknown[],
+  deja: readonly EntreeDuContenu<S>[] = [],
+  tranche = ENTREES_PAR_TRANCHE,
+): CalculEnTranches<{ gardees: EntreeDuContenu<S>[]; ecartees: EntreeEcartee[] }> {
   const s: SorteDeContenu<EntreeDuContenu<S>> = SORTES[sorte]
   const vues = new Map<string, string>()
   const posees: EntreeDuContenu<S>[] = []
@@ -429,7 +450,9 @@ export function trier<S extends SorteDuContenu>(
   for (const e of deja) poser(e)
   const gardees: EntreeDuContenu<S>[] = []
   const ecartees: EntreeEcartee[] = []
-  for (const brut of entrees) {
+  for (let i = 0; i < entrees.length; i++) {
+    if (i > 0 && i % tranche === 0) yield
+    const brut = entrees[i]
     const refus = s.refus(brut)
     if (refus) {
       ecartees.push({ entree: brut, motif: refus })
@@ -478,18 +501,46 @@ function lireLeFichier(dossier: string, fichier: string): unknown[] {
 
 /** Le contenu d'un dossier, chaque entrée jugée, aucune deux fois ; ce qui s'écarte se dit au journal, avec son motif. */
 export function lireLeContenu(dossier: string): ContenuDuCabinet {
-  const sorte = <S extends SorteDuContenu>(s: S): EntreeDuContenu<S>[] => {
-    const { gardees, ecartees } = trier(s, lireLeFichier(dossier, SORTES[s].fichier))
+  return dUneTraite(lireLeContenuEnTranches(dossier, Infinity))
+}
+
+/** Le même, en tranches (`CalculEnTranches`) : chaque sorte à son tour, ses entrées `tranche` à la fois. */
+export function* lireLeContenuEnTranches(dossier: string, tranche = ENTREES_PAR_TRANCHE): CalculEnTranches<ContenuDuCabinet> {
+  function* sorte<S extends SorteDuContenu>(s: S): CalculEnTranches<EntreeDuContenu<S>[]> {
+    yield
+    const { gardees, ecartees } = yield* trierEnTranches(s, lireLeFichier(dossier, SORTES[s].fichier), [], tranche)
     for (const { entree, motif } of ecartees) console.warn(`[cabinet] ${SORTES[s].nom} écarté (${(entree as { id?: unknown })?.id ?? '?'}) : ${motif}`)
     return gardees
   }
-  return { lieux: sorte('lieux'), fiches: sorte('fiches'), repliques: sorte('repliques'), frises: sorte('frises') }
+  const lieux = yield* sorte('lieux')
+  const fiches = yield* sorte('fiches')
+  const repliques = yield* sorte('repliques')
+  const frises = yield* sorte('frises')
+  return { lieux, fiches, repliques, frises }
 }
 
 let lu: ContenuDuCabinet | null = null
+let enLecture: Promise<ContenuDuCabinet> | null = null
 
 /** Le contenu livré, lu du disque la première fois qu'on le demande. */
 export function contenuDuCabinet(): ContenuDuCabinet {
   lu ??= lireLeContenu(DOSSIER_DU_CONTENU)
   return lu
+}
+
+/**
+ * Le même, lu en tranches, une par tour de boucle (`enTranches`) : la
+ * préparation des tas le lit ainsi (`preparerLesTas`), et le tireur qui le
+ * demande ensuite le trouve lu. Une seule lecture à la fois.
+ */
+export function contenuDuCabinetEnTranches(): Promise<ContenuDuCabinet> {
+  if (lu) return Promise.resolve(lu)
+  enLecture ??= enTranches(lireLeContenuEnTranches(DOSSIER_DU_CONTENU)).then(
+    c => (lu ??= c),
+    e => {
+      enLecture = null
+      throw e
+    },
+  )
+  return enLecture
 }

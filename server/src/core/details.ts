@@ -16,6 +16,8 @@ import { SERVEUR } from '../racine'
 import { CADRAGES_DU_DETAIL } from '../../../shared/expedition'
 import { sansAccent } from '../../../shared/homonymes'
 import type { QuestionDeLaBase } from './baseCampagne'
+import { enTranches } from './tourniquet'
+import { dUneTraite, type CalculEnTranches } from '../../../shared/tranches'
 
 const DOSSIER = path.join(SERVEUR, 'content/details')
 
@@ -37,7 +39,35 @@ export const fichierDuCadrage = (qid: string, cadrage: number) => path.join(DOSS
 
 /** Les tableaux de la fiche, lus du disque la première fois ; aucun si elle manque ou ne se lit pas — le journal le dit. */
 export function tableauxDuDetail(): readonly TableauDuDetail[] {
-  if (lus) return lus
+  lus ??= dUneTraite(lireLesTableaux(Infinity))
+  return lus
+}
+
+let enLecture: Promise<readonly TableauDuDetail[]> | null = null
+
+/**
+ * Les mêmes, lus en tranches, une par tour de boucle (`enTranches`) : chaque
+ * tableau vérifie ses quatre cadrages sur le disque, dix millisecondes d'une
+ * traite pour les cent — sous le premier départ du Cabinet d'un processus,
+ * au dixième de cœur de l'hébergeur (le banc bridé du 3 novembre 2026). La
+ * préparation des tas les lit ainsi (`preparerLesTas`).
+ */
+export function tableauxDuDetailEnTranches(): Promise<readonly TableauDuDetail[]> {
+  if (lus) return Promise.resolve(lus)
+  enLecture ??= enTranches(lireLesTableaux(TABLEAUX_PAR_TRANCHE)).then(
+    t => (lus ??= t),
+    e => {
+      enLecture = null
+      throw e
+    },
+  )
+  return enLecture
+}
+
+/** Les tableaux qu'une tranche vérifie d'une traite. */
+const TABLEAUX_PAR_TRANCHE = 20
+
+function* lireLesTableaux(tranche: number): CalculEnTranches<TableauDuDetail[]> {
   let brut: unknown = []
   try {
     brut = JSON.parse(fs.readFileSync(path.join(DOSSIER, 'tableaux.json'), 'utf8'))
@@ -45,8 +75,10 @@ export function tableauxDuDetail(): readonly TableauDuDetail[] {
     console.warn('[details] tableaux.json illisible : le détail s’en passera —', e instanceof Error ? e.message : e)
   }
   const tableaux: TableauDuDetail[] = []
-  for (const x of Array.isArray(brut) ? brut : []) {
-    const t = x as Partial<TableauDuDetail>
+  const lignes = Array.isArray(brut) ? brut : []
+  for (let i = 0; i < lignes.length; i++) {
+    if (i > 0 && i % tranche === 0) yield
+    const t = lignes[i] as Partial<TableauDuDetail>
     // Le QID nomme un fichier : rien d'autre qu'un Q et des chiffres n'y entre.
     const refus =
       typeof t?.qid !== 'string' || !/^Q\d+$/.test(t.qid)
@@ -59,8 +91,7 @@ export function tableauxDuDetail(): readonly TableauDuDetail[] {
     if (refus) console.warn(`[details] tableau écarté (${t?.qid ?? '?'}) : ${refus}`)
     else tableaux.push({ qid: t.qid!, titre: t.titre!, peintre: t.peintre!, annee: t.annee!, questions: t.questions!.map(String) })
   }
-  lus = tableaux
-  return lus
+  return tableaux
 }
 
 let questionsParTableau: ReadonlyMap<string, readonly string[]> | null = null

@@ -253,23 +253,33 @@ export function compteDuJour(
 ): CompteDuJour {
   const n = minuits.length
   const ecart = maintenant - minuits[n - 1]
-  const entiers = minuits.map(() => new Set<string>())
-  const memeHeure = minuits.map(() => new Set<string>())
-  let rang = 0
+  // Chaque fait sans personne à compter compte seul : un nombre de plus, pas
+  // une clé fabriquée dans un ensemble — trente jours de séries en faisaient
+  // trois mille, à chaque vue d'ensemble (le banc bridé du 3 novembre 2026).
+  const faits = minuits.map(() => 0)
+  const faitsALHeure = minuits.map(() => 0)
+  const personnes = distincts ? minuits.map(() => new Set<string>()) : null
+  const personnesALHeure = distincts ? minuits.map(() => new Set<string>()) : null
   for (const e of evenements) {
     if (e.quand > maintenant) continue
     const i = jourDeLInstant(minuits, e.quand)
     if (i < 0) continue
-    // Sans `qui`, chaque fait compte : il prend une clé à lui.
-    const cle = distincts && e.qui !== undefined ? e.qui : `#${rang++}`
-    entiers[i].add(cle)
-    if (e.quand - minuits[i] <= ecart) memeHeure[i].add(cle)
+    const aLHeure = e.quand - minuits[i] <= ecart
+    if (personnes && personnesALHeure && e.qui !== undefined) {
+      personnes[i].add(e.qui)
+      if (aLHeure) personnesALHeure[i].add(e.qui)
+    } else {
+      faits[i]++
+      if (aLHeure) faitsALHeure[i]++
+    }
   }
-  const avant = memeHeure.slice(Math.max(0, n - 1 - JOURS_DE_L_HABITUDE), n - 1)
+  const duJour = (i: number) => faits[i] + (personnes ? personnes[i].size : 0)
+  const aLaMemeHeure = (i: number) => faitsALHeure[i] + (personnesALHeure ? personnesALHeure[i].size : 0)
+  const avant = minuits.map((_, i) => i).slice(Math.max(0, n - 1 - JOURS_DE_L_HABITUDE), n - 1)
   return {
-    aujourdhui: entiers[n - 1].size,
-    habituel: avant.length > 0 ? Math.round(avant.reduce((s, x) => s + x.size, 0) / avant.length) : null,
-    parJour: entiers.slice(-JOURS_DES_TUILES).map(s => s.size),
+    aujourdhui: duJour(n - 1),
+    habituel: avant.length > 0 ? Math.round(avant.reduce((s, i) => s + aLaMemeHeure(i), 0) / avant.length) : null,
+    parJour: minuits.map((_, i) => duJour(i)).slice(-JOURS_DES_TUILES),
   }
 }
 

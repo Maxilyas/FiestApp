@@ -220,6 +220,83 @@ sur un vrai cœur — en production, sans doute aussi le paquet compilé au
 premier appel de chaque fonction ; le cache de compilation de Node
 (`module.enableCompileCache`) est une piste, à mesurer.
 
+### Le lendemain : ce qui restait
+
+Les mêmes scènes, le profileur gardé d'un bout à l'autre au dixième de cœur
+(`PROFIL=1`, un échantillon toutes les dix millisecondes, et ce qui tournait
+pendant chaque retard de 0,3 s et plus), plus trois scènes isolées
+(`MODELE=1`, `QG=1`, `REVEIL=1`) :
+
+- **Le modèle du savoir** ne gèle plus 0,3 s au profileur bridé. Le retard
+  de 0,6 s du départ d'une épreuve de sentier venait de son tirage : au
+  premier tirage, chaque candidate d'une place lit sa forme pour les jumelles
+  et sa réponse pour le par-cœur, et une place repasse toute sa marche. Une
+  place par tranche ne suffisait pas : deux cents candidates au plus d'une
+  traite (`CANDIDATES_PAR_TRANCHE`).
+- **La première traversée d'un processus** : le contenu neuf du Cabinet —
+  ses juges, et chaque entrée comparée à ses voisines, 26 à 43 ms sur un vrai
+  cœur — et les tableaux du Détail vérifiés sur le disque (10 ms) passaient
+  d'une traite. Lus en tranches, dix entrées et vingt tableaux par tour de
+  boucle (`contenuDuCabinetEnTranches`, `tableauxDuDetailEnTranches`), par
+  les tas du Cabinet, le départ d'une traversée et tes murs.
+- **La vue d'ensemble du QG** : deux blocs au premier appel d'un processus —
+  le décodage des trente jours de séries (3 129 au banc, 3 405 en production
+  ce jour-là), 54 ms sur un vrai cœur, le client de Turso décodant chaque
+  ligne à coups de `defineProperty` ; puis ses comptes, 30 ms. Les séries et
+  les parties du jour arrivent en un seul texte JSON (`seriesDepuis`,
+  `partiesDepuis`), et les comptes se font un par tour de boucle
+  (`chiffresDeLaVue`) ; `compteDuJour` ne fabrique plus une clé par fait.
+
+Le banc entier, bridé, sans profileur, contre le passage de la veille
+(`GEL=1`) :
+
+| Scène, au dixième de cœur | La veille | Ce jour |
+|---|---|---|
+| La première traversée, sur une liste de questions neuve | gel de 1,3 s, retards de 0,5 s | retards de 0,4 s au plus |
+| La vue d'ensemble du QG | 0,5 s | 0,4 s |
+| La vue d'ensemble du QG, au réveil | 0,4 s | aucun retard de 0,15 s |
+| Le fond qui suit le réveil | gels de 1,1 et 0,9 s | retards de 0,5 s au plus |
+| Le départ d'une épreuve de sentier | 0,7 et 0,5 s | 0,5 à 0,7 s |
+| La page des sentiers, après les mesures neuves | 0,2 s | 0,5 s |
+| Une traversée, après la correction d'une question | 0,2 s | un gel de 0,5 s, le ramasse-miettes aux quatre cinquièmes |
+
+Seule, la vue d'ensemble (`QG=1`) ne retarde plus la boucle que de 0,3 s à
+froid, et plus du tout chaude ni au réveil ; seul aussi, le départ d'une
+épreuve (`MODELE=1`, au profileur) ne la retarde plus que de 0,3 s. Dans le
+banc entier, il suit les épreuves du Cabinet et leurs mesures neuves : le
+modèle du savoir et les tirages tournent en fond à côté de lui, et ses gels
+les nomment ensemble. Les deux dernières lignes changent d'un passage à
+l'autre selon l'heure où le ramasse-miettes passe : un seul passage ne dit
+pas qu'elles ont reculé.
+
+Ce départ d'une épreuve, dans le banc entier, n'a plus de bloc du dépôt à
+couper : sur un vrai cœur, aucun trou de la boucle de plus de 6 ms pendant
+lui. Bridé, ses gels de 0,5 à 0,7 s prennent tout le dixième de cœur — 64 à
+87 ms de processeur chacun —, le modèle du savoir tournant en fond ; le
+profileur les met au compte du ramasse-miettes, mais la sonde, qui lit ses
+vraies pauses, n'y en trouve presque pas (0 à 3 ms sans profileur, 91 et
+196 ms avec). Une piste, non vérifiée : les fils de V8 — son compilateur, qui
+optimise les boucles chaudes du modèle — prennent le quota que la boucle
+attend. Le seul morceau du dépôt qui ressort d'un passage à l'autre est le
+crible des questions jouables (`jouables`, 27 000 questions, 6 ms sur un vrai
+cœur), refait quand la base, la réserve du jour ou les retraits changent :
+0,3 s bridé, sous le seuil d'un gel.
+
+**Le réveil**, lui, n'a pas de bloc du dépôt à couper : au profileur bridé,
+ses retards de 0,7 à 0,8 s sont du ramasse-miettes aux deux tiers, sous « fond
+· sujets et tirages » et « fond · modèle du savoir ». Sur un vrai cœur
+(`--trace-gc`), ce ne sont pas les grandes passes qui coûtent — 17 à 20 ms
+chacune, deux pendant le réveil — mais les petites : la base et le journal
+qu'on charge vivent longtemps, et chaque passe de la jeune génération en
+recopie 10 à 38 ms, dix fois plus au dixième de cœur. Plafonner la jeune
+génération pour raccourcir chaque passe (`--max-semi-space-size`), mesuré au
+même banc : pire. À 4 Mo, des gels de 0,9 et 0,6 s au réveil ; à 2 Mo, la
+vue d'ensemble qui suit gèle 1,4 et 1,2 s — ce qui survit est promu trop tôt,
+et les grandes passes s'alourdissent d'autant. La commande de démarrage
+reste celle d'aujourd'hui. Le profileur, enfin, gonfle ces pauses : sans lui,
+le même réveil isolé (`REVEIL=1`) ne retarde plus la boucle que de 0,3 s au
+plus.
+
 ## Ce qui reste à décider
 
 - **Le processeur de l'hébergeur.** L'offre gratuite donne un dixième de
@@ -230,3 +307,9 @@ premier appel de chaque fonction ; le cache de compilation de Node
   2 novembre, et elles grandiront avec l'historique.
 - **La mémoire après l'apport du matin** : à surveiller, `rssMo` à
   `/healthz`.
+- **Ce que la production dira de ces tranches** : elle tournait encore la
+  version 73cec7d, d'avant elles, le 3 novembre au matin. Ses gels de la
+  semaine qui suit la mise en ligne (`reproductions/gels-de-la-production.ts`)
+  diront ce qui reste — et si le départ d'une épreuve, le réveil et le modèle
+  du savoir y gèlent encore comme au banc, le levier n'est plus le code mais
+  le processeur (plus haut).

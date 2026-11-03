@@ -29,10 +29,13 @@ import {
   type DirectDuQg,
   type ModeDuQg,
   type PageDesSoirees,
+  type SoireeDesParticipations,
   type SoireeDuQg,
   type SorteDeGeste,
   type VueDEnsemble,
 } from '../../shared/qg'
+import { enTranches } from './core/tourniquet'
+import type { CalculEnTranches } from '../../shared/tranches'
 import { campagneDeLaVue } from '../../shared/qgCampagne'
 import { duelsDeLaVue } from '../../shared/qgDuels'
 import {
@@ -137,7 +140,7 @@ function profilsDesSoireesOuvertes(db: DB): Map<string, string[]> {
 }
 
 /** Les journaux qui grossissent chaque jour, tels que la vue d'ensemble les lit : qui, quand — et ce qu'il a joué, pour l'activité. */
-interface Journaux {
+export interface Journaux {
   parties: { qui: string; quand: number; questions: number }[]
   series: { qui: string; quand: number; mode: string | null; questions: number }[]
   activite: { inscriptions: number[]; achats: number[]; soirees: SoireeDUnProfil[] }
@@ -165,6 +168,55 @@ function boutABout(a: Journaux, b: Journaux): Journaux {
       achats: [...a.activite.achats, ...b.activite.achats],
       soirees: [...a.activite.soirees, ...b.activite.soirees],
     },
+  }
+}
+
+/** Ce que la vue d'ensemble compte de ses journaux et de ses soirées. */
+type ChiffresDeLaVue = Pick<VueDEnsemble, 'aujourdhui' | 'participations' | 'campagne' | 'duels'>
+
+/**
+ * Les chiffres de la vue d'ensemble, un compte par tranche — menés un par
+ * tour de boucle (`enTranches`) : trente jours de séries, plus de trois mille
+ * en production, passaient d'une traite dans chacun de ses comptes, une
+ * trentaine de millisecondes à froid sur un vrai cœur, une demi-seconde de gel
+ * au dixième de cœur de l'hébergeur à chaque réveil (le banc bridé du
+ * 3 novembre 2026, `retours/2026-11-02/reproductions/gels-rejoues.ts`). Le
+ * même calcul qu'en un bloc (`qg.test.ts`).
+ */
+export function* chiffresDeLaVue(
+  { parties, series, activite }: Journaux,
+  soirees: readonly SoireeDesParticipations[],
+  minuits: readonly number[],
+  maintenant: number,
+): CalculEnTranches<ChiffresDeLaVue> {
+  const solo: { quand: number; qui: string; mode: Exclude<ModeDuQg, 'soiree'> }[] = [
+    ...parties.map(p => ({ quand: p.quand, qui: p.qui, mode: 'jour' as const })),
+    ...series.map(s => ({ quand: s.quand, qui: s.qui, mode: modeDeLaSerie(s.mode) })),
+  ]
+  // La tuile de la campagne compte aussi le Cabinet : sa page le range parmi
+  // ses sous-modes (`SOUS_MODES_DE_CAMPAGNE`), et elle y lit ses parties du
+  // jour. Le graphique, lui, les sépare.
+  const campagne = series.filter(s => modeDeLaSerie(s.mode) !== 'duel')
+  const duels = series.filter(s => modeDeLaSerie(s.mode) === 'duel')
+  yield
+  const profilsActifs = compteDuJour([...solo, ...activite.soirees], minuits, maintenant, { distincts: true })
+  yield
+  const partiesDuJour = compteDuJour(parties, minuits, maintenant)
+  const seriesDeCampagne = compteDuJour(campagne, minuits, maintenant)
+  yield
+  const duelsDuJour = compteDuJour(duels, minuits, maintenant)
+  const nouveauxProfils = compteDuJour(activite.inscriptions.map(quand => ({ quand })), minuits, maintenant)
+  const achats = compteDuJour(activite.achats.map(quand => ({ quand })), minuits, maintenant)
+  yield
+  const participations = participationsParJour(solo, soirees, minuits, maintenant)
+  yield
+  const deLaCampagne = campagneDeLaVue(series, minuits, maintenant)
+  yield
+  return {
+    aujourdhui: { profilsActifs, partiesDuJour, seriesDeCampagne, duels: duelsDuJour, nouveauxProfils, achats },
+    participations,
+    campagne: deLaCampagne,
+    duels: duelsDeLaVue(series, minuits, maintenant),
   }
 }
 
@@ -341,7 +393,7 @@ export function mountQg(app: Express, deps: QgDeps) {
     const maintenant = deps.maintenant()
     const minuits = minuitsDeParis(maintenant, JOURS_DU_QG)
     const depuis = minuits[0]
-    const [{ parties, series, activite }, soirees, reserve, signalementsDuJour, signalementsDeLaCampagne, aRelire, serveur, propositions] = await Promise.all([
+    const [journaux, soirees, reserve, signalementsDuJour, signalementsDeLaCampagne, aRelire, serveur, propositions] = await Promise.all([
       lesTrenteJours(minuits),
       lesSoireesDepuis(depuis),
       deps.jour.avanceDeLaReserve(),
@@ -351,32 +403,12 @@ export function mountQg(app: Express, deps: QgDeps) {
       deps.sante.alertes(memoireDuProcessus()),
       deps.jour.propositionsATraiter(),
     ])
-
-    const solo: { quand: number; qui: string; mode: Exclude<ModeDuQg, 'soiree'> }[] = [
-      ...parties.map(p => ({ ...p, mode: 'jour' as const })),
-      ...series.map(s => ({ quand: s.quand, qui: s.qui, mode: modeDeLaSerie(s.mode) })),
-    ]
-
-    // La tuile de la campagne compte aussi le Cabinet : sa page le range parmi
-    // ses sous-modes (`SOUS_MODES_DE_CAMPAGNE`), et elle y lit ses parties du
-    // jour. Le graphique, lui, les sépare.
-    const campagne = series.filter(s => modeDeLaSerie(s.mode) !== 'duel')
-    const duels = series.filter(s => modeDeLaSerie(s.mode) === 'duel')
+    const chiffres = await enTranches(chiffresDeLaVue(journaux, soirees, minuits, maintenant))
     const bilan = deps.rappels.bilan()
     return {
       maintenant,
       jour: jourDe(maintenant),
-      aujourdhui: {
-        profilsActifs: compteDuJour([...solo, ...activite.soirees], minuits, maintenant, { distincts: true }),
-        partiesDuJour: compteDuJour(parties, minuits, maintenant),
-        seriesDeCampagne: compteDuJour(campagne, minuits, maintenant),
-        duels: compteDuJour(duels, minuits, maintenant),
-        nouveauxProfils: compteDuJour(activite.inscriptions.map(quand => ({ quand })), minuits, maintenant),
-        achats: compteDuJour(activite.achats.map(quand => ({ quand })), minuits, maintenant),
-      },
-      participations: participationsParJour(solo, soirees, minuits, maintenant),
-      campagne: campagneDeLaVue(series, minuits, maintenant),
-      duels: duelsDeLaVue(series, minuits, maintenant),
+      ...chiffres,
       aTraiter: {
         reserve: { joursDAvance: reserve.joursDAvance },
         signalementsDuJour,

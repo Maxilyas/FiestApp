@@ -26,6 +26,7 @@ import {
   lesChosesATraiter,
   minuitDe,
   minuitsDeParis,
+  modeDeLaSerie,
   ouEnEstLaSoiree,
   participationsParJour,
   quandEcrit,
@@ -37,7 +38,9 @@ import {
 import { jourDe } from '../../shared/jour'
 import { campagneDeLaVue } from '../../shared/qgCampagne'
 import { duelsDeLaVue } from '../../shared/qgDuels'
+import { dUneTraite } from '../../shared/tranches'
 import { ProfileStore } from '../src/auth/profiles'
+import { chiffresDeLaVue, type Journaux } from '../src/qg'
 
 ProfileStore.tirageEclat = () => false
 
@@ -134,6 +137,64 @@ test('les participations : un joueur compte une fois par jour, une fois par mode
     parties: { soiree: 0, campagne: 0, cabinet: 0, jour: 0, duel: 1 },
   })
   assert.equal(parts[0].joueurs, 0)
+})
+
+// La vue d'ensemble se compte un chiffre par tour de boucle (`enTranches`) :
+// trente jours de séries — plus de trois mille en production — passaient
+// d'une traite dans chacun de ses comptes, une demi-seconde de gel au dixième
+// de cœur à chaque réveil (le banc bridé du 3 novembre 2026). Les mêmes
+// chiffres qu'en un bloc, comptés comme la vue les comptait.
+test('les chiffres de la vue d’ensemble, un compte par tranche : les mêmes qu’en un bloc', () => {
+  const maintenant = Date.UTC(2026, 9, 13, 19)
+  const minuits = minuitsDeParis(maintenant, JOURS_DU_QG)
+  let graine = 11
+  const hasard = () => (graine = (graine * 16807) % 2147483647) / 2147483647
+  // Quelques faits avant le premier minuit ou après maintenant : ils ne comptent pas.
+  const quand = () => minuits[0] - 3 * H + Math.floor(hasard() * (maintenant - minuits[0] + 5 * H))
+  const qui = () => `p${Math.floor(hasard() * 40)}`
+  const modes = ['serie', 'sentier', 'duel', 'rencontre', 'revision', 'sujet', 'cabinet', 'defi', 'expedition', null]
+  const journaux: Journaux = {
+    parties: Array.from({ length: 300 }, () => ({ qui: qui(), quand: quand(), questions: 10 })),
+    series: Array.from({ length: 900 }, () => ({ qui: qui(), quand: quand(), mode: modes[Math.floor(hasard() * modes.length)], questions: 12 })),
+    activite: {
+      inscriptions: Array.from({ length: 30 }, quand),
+      achats: Array.from({ length: 50 }, quand),
+      soirees: Array.from({ length: 40 }, () => ({ qui: qui(), quand: quand(), quiz: 2, questions: 20 })),
+    },
+  }
+  const soirees = Array.from({ length: 25 }, (_, i) => ({ quand: quand(), joueurs: 6, ...(i % 3 > 0 && { profils: [qui(), qui()] }) }))
+
+  // Le bloc d'avant, recopié de la route : chaque compte sur les mêmes journaux.
+  const { parties, series, activite } = journaux
+  const solo = [
+    ...parties.map(p => ({ ...p, mode: 'jour' as const })),
+    ...series.map(s => ({ quand: s.quand, qui: s.qui, mode: modeDeLaSerie(s.mode) })),
+  ]
+  const campagne = series.filter(s => modeDeLaSerie(s.mode) !== 'duel')
+  const duels = series.filter(s => modeDeLaSerie(s.mode) === 'duel')
+  const dUnBloc = {
+    aujourdhui: {
+      profilsActifs: compteDuJour([...solo, ...activite.soirees], minuits, maintenant, { distincts: true }),
+      partiesDuJour: compteDuJour(parties, minuits, maintenant),
+      seriesDeCampagne: compteDuJour(campagne, minuits, maintenant),
+      duels: compteDuJour(duels, minuits, maintenant),
+      nouveauxProfils: compteDuJour(activite.inscriptions.map(quand => ({ quand })), minuits, maintenant),
+      achats: compteDuJour(activite.achats.map(quand => ({ quand })), minuits, maintenant),
+    },
+    participations: participationsParJour(solo, soirees, minuits, maintenant),
+    campagne: campagneDeLaVue(series, minuits, maintenant),
+    duels: duelsDeLaVue(series, minuits, maintenant),
+  }
+  assert.ok(dUnBloc.aujourdhui.profilsActifs.aujourdhui > 0 && dUnBloc.aujourdhui.seriesDeCampagne.habituel !== null, 'des chiffres à comparer')
+
+  let tranches = 0
+  const calcul = chiffresDeLaVue(journaux, soirees, minuits, maintenant)
+  let r = calcul.next()
+  for (; !r.done; r = calcul.next()) tranches++
+  assert.deepEqual(r.value, dUnBloc)
+  // Un compte par tranche : les séries ne se relisent jamais toutes deux fois dans le même tour.
+  assert.ok(tranches >= 6, `${tranches} tranches`)
+  assert.deepEqual(dUneTraite(chiffresDeLaVue(journaux, soirees, minuits, maintenant)), dUnBloc)
 })
 
 // ── Ce qu'on lit ──────────────────────────────────────────────────────────

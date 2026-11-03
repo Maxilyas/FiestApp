@@ -12,15 +12,22 @@
 // rien ne dépend de la charge de la machine.
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
+import Database from 'better-sqlite3'
 import { Sqlite3Client } from '@libsql/client/sqlite3'
 import { baseDEssai, connexionAnimateur, cookieDe, creerQuiz, demarrer, ecrire, inscrireProfil, qcm, type Banc } from './banc'
 import type { EspaceDAdministration } from '../../shared/space'
 import type { ProfilDAdministration } from '../../shared/profil'
+import type { VueDEnsemble } from '../../shared/qg'
+import { jourDe } from '../../shared/jour'
 
 // ── Le compteur ───────────────────────────────────────────────────────────
 
-/** Ce que la base permanente a servi pendant une mesure : un aller-retour par `execute` ou `batch`, et chacune de ses instructions. */
-const compte = { actif: false, allersRetours: 0, instructions: [] as string[] }
+/**
+ * Ce que la base permanente a servi pendant une mesure : un aller-retour par
+ * `execute` ou `batch`, chacune de ses instructions, et les lignes que chacune
+ * a rendues — le client de Turso les décode une à une.
+ */
+const compte = { actif: false, allersRetours: 0, instructions: [] as string[], lignes: [] as { sql: string; lignes: number }[] }
 
 const sqlDe = (s: unknown) => (typeof s === 'string' ? s : (s as { sql: string }).sql).replace(/\s+/g, ' ').trim()
 
@@ -28,16 +35,20 @@ const proto = Sqlite3Client.prototype as unknown as Record<'execute' | 'batch', 
 for (const methode of ['execute', 'batch'] as const) {
   const origine = proto[methode]
   proto[methode] = function (this: unknown, ...args: unknown[]) {
-    if (compte.actif) {
-      compte.allersRetours++
-      for (const s of methode === 'batch' ? (args[0] as unknown[]) : [args[0]]) compte.instructions.push(sqlDe(s))
-    }
-    return origine.apply(this, args)
+    if (!compte.actif) return origine.apply(this, args)
+    compte.allersRetours++
+    const sqls = (methode === 'batch' ? (args[0] as unknown[]) : [args[0]]).map(sqlDe)
+    compte.instructions.push(...sqls)
+    return origine.apply(this, args).then(r => {
+      const resultats = (methode === 'batch' ? r : [r]) as ({ rows?: unknown[] } | undefined)[]
+      resultats.forEach((x, i) => compte.lignes.push({ sql: sqls[i], lignes: x?.rows?.length ?? 0 }))
+      return r
+    })
   }
 }
 
 async function mesurer<T>(travail: () => Promise<T>): Promise<{ allersRetours: number; lecturesDesQuiz: number; resultat: T }> {
-  Object.assign(compte, { actif: true, allersRetours: 0, instructions: [] })
+  Object.assign(compte, { actif: true, allersRetours: 0, instructions: [], lignes: [] })
   try {
     const resultat = await travail()
     return { allersRetours: compte.allersRetours, lecturesDesQuiz: compte.instructions.filter(sql => /\bFROM quizzes\b/.test(sql)).length, resultat }
@@ -110,4 +121,45 @@ test('« Les profils » de même : les quiz de leurs salons, d’une seule lectu
   const premier = avecSalon.find(p => p.login === 'salon0')!
   const fiche = await lire<ProfilDAdministration>(`/api/admin/profils/${premier.id}`)
   assert.equal(fiche.salon?.quiz, 2, 'sa fiche compte ses deux quiz')
+})
+
+// La vue d'ensemble relit trente jours de séries et de parties du jour à
+// chaque réveil — 3 405 séries en production le 3 novembre 2026. Le client de
+// Turso décode chaque ligne à coups de `defineProperty` : 54 ms d'une traite
+// sur un vrai cœur, une demi-seconde de gel au banc bridé au dixième de cœur
+// (`retours/2026-11-02/reproductions/gels-rejoues.ts`). Elles arrivent en un
+// seul texte JSON, comme le journal des réponses : une ligne par lecture.
+test('la vue d’ensemble lit trente jours de séries et de parties du jour d’une ligne chacune, et les compte toutes', async () => {
+  const SERIES = 40
+  const PARTIES = 12
+  const H = 3_600_000
+  const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+  try {
+    const profils = (db.prepare('SELECT id FROM profiles ORDER BY id LIMIT 8').all() as { id: string }[]).map(p => p.id)
+    const maintenant = Date.now()
+    const serie = db.prepare(`INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode) VALUES (?, ?, '[]', 3, 0, 0, ?, NULL, ?)`)
+    // Des séries sur les trois dernières semaines, la plus récente il y a une heure au plus : toutes avant maintenant.
+    for (let i = 0; i < SERIES; i++) serie.run(`qg-charge-${i}`, profils[i % profils.length], maintenant - (i * 13 * H) / 2 - 60_000, i % 4 === 0 ? 'duel' : 'serie')
+    const partie = db.prepare('INSERT INTO jour_parties (profile_id, jour, commencee_le, question, justes) VALUES (?, ?, ?, 10, 6)')
+    for (let i = 0; i < PARTIES; i++) {
+      const quand = maintenant - i * 25 * H - 60_000
+      partie.run(profils[i % profils.length], jourDe(quand), quand)
+    }
+  } finally {
+    db.close()
+  }
+  // Au réveil : rien des trente jours n'est encore gardé.
+  await banc.redemarrer()
+  const { resultat: vue } = await mesurer(() => lire<VueDEnsemble>('/api/admin/qg'))
+  for (const [table, motif] of [
+    ['les séries', /\bFROM campagne_series WHERE commencee_le >= \?/],
+    ['les parties du jour', /\bFROM jour_parties WHERE jour >= \?/],
+  ] as const) {
+    const lectures = compte.lignes.filter(l => motif.test(l.sql))
+    assert.equal(lectures.length, 2, `${table} : les trente jours, puis aujourd’hui`)
+    for (const l of lectures) assert.ok(l.lignes <= 1, `${table} : ${l.lignes} lignes à décoder (${l.sql.slice(0, 80)}…)`)
+  }
+  // Toutes comptées : chacune est une participation de son jour.
+  const parties = vue.participations.reduce((n, j) => n + j.parties.campagne + j.parties.duel + j.parties.jour, 0)
+  assert.equal(parties, SERIES + PARTIES)
 })

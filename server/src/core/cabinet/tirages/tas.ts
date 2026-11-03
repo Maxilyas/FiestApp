@@ -18,11 +18,11 @@
 // Le Détail lit la question qui demande le peintre de chacun de ses tableaux,
 // pour son anecdote ; la Frise, les sujets de la base qui font une frise.
 import type { QuestionDeLaBase } from '../../baseCampagne'
-import { detailsDeLaBase, tableauxDuDetail } from '../../details'
+import { detailsDeLaBase, tableauxDuDetailEnTranches } from '../../details'
 import { cibleDeLEstimation, supposeDesChoix } from '../../estimation'
 import type { PorteDeLaCampagne } from '../../porteDeLaCampagne'
 import { QUESTIONS_PAR_TRANCHE, rendreLaMain } from '../../tourniquet'
-import { contenuDuCabinet, ecritDansLesMots } from '../contenu'
+import { contenuDuCabinetEnTranches, ecritDansLesMots } from '../contenu'
 import type { CeQueLesTireursLisent } from './communs'
 import {
   ECART_DES_ANNEES_DE_LA_FRISE,
@@ -418,11 +418,12 @@ export function qcmDeLEclair(porte: Pick<PorteDeLaCampagne, 'deLaCategorie'>, jo
 /**
  * Ce que le Détail et la Frise lisent du disque une fois par processus, dans
  * l'ordre : les tableaux, puis le contenu neuf — ses juges passent sur chaque
- * entrée, une quarantaine de millisecondes. Chacun son tour de boucle
- * (`preparerLesTas`) : à la suite, un bloc de plus sous le premier départ d'un
- * processus.
+ * entrée, une quarantaine de millisecondes. Chacun en tranches, une par tour
+ * de boucle (`preparerLesTas`) : d'une traite, ils gelaient encore le premier
+ * départ d'un processus plus d'une seconde au dixième de cœur (le banc bridé
+ * du 3 novembre 2026).
  */
-export const LECTURES_DU_DISQUE: readonly (() => unknown)[] = [tableauxDuDetail, contenuDuCabinet]
+export const LECTURES_DU_DISQUE: readonly (() => unknown)[] = [tableauxDuDetailEnTranches, contenuDuCabinetEnTranches]
 
 /**
  * Les tas d'une liste de jouables, une étape par tour de boucle : la page du
@@ -477,7 +478,7 @@ export async function preparerLesTas(
   if (mesures) await preparerLEclair(porte, jouables, mesures)
   for (const lire of lectures) {
     await rendreLaMain()
-    lire()
+    await lire()
   }
   if (!litLaBase(porte)) return
   await rendreLaMain()

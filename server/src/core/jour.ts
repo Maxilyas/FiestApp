@@ -3499,14 +3499,18 @@ export class JourStore {
    * activité. Trois colonnes seulement — une partie se lit ailleurs en
    * entier. Cherchées par leur jour, que l'index connaît, puis à l'instant
    * près : le QG les relit depuis minuit à chaque relecture. `qui` : celles
-   * d'un seul profil, sa fiche au QG — par sa clé, `(profile_id, jour)`.
+   * d'un seul profil, sa fiche au QG — par sa clé, `(profile_id, jour)`. En un
+   * seul texte JSON, comme les séries de la campagne (`seriesDepuis`) : le
+   * client de Turso décode chaque ligne à coups de `defineProperty`.
    */
   async partiesDepuis(depuis: number, qui?: string): Promise<{ qui: string; quand: number; questions: number }[]> {
     const res = await this.client.execute({
-      sql: `SELECT profile_id, commencee_le, question FROM jour_parties WHERE jour >= ? AND commencee_le >= ?${qui === undefined ? '' : ' AND profile_id = ?'}`,
+      sql: `SELECT json_group_array(json_array(profile_id, commencee_le, question)) AS lignes
+            FROM jour_parties WHERE jour >= ? AND commencee_le >= ?${qui === undefined ? '' : ' AND profile_id = ?'}`,
       args: qui === undefined ? [jourDe(depuis), depuis] : [jourDe(depuis), depuis, qui],
     })
-    return res.rows.map(r => ({ qui: String(r.profile_id), quand: Number(r.commencee_le), questions: Number(r.question) }))
+    const lignes = JSON.parse(String(res.rows[0]?.lignes ?? '[]')) as [string, number, number][]
+    return lignes.map(([qui, quand, questions]) => ({ qui: String(qui), quand: Number(quand), questions: Number(questions) }))
   }
 
   // ── Le suivi du QG ──────────────────────────────────────────────────────
