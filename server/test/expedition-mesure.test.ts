@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url'
 import Database from 'better-sqlite3'
 import { connexionAnimateur, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { BaseDeLaCampagne, lireQuestionDeLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
+import { MESURES_GARDEES_MS } from '../src/core/campagne'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import { CATEGORIES, type Categorie } from '../../shared/categories'
 import { jourDe } from '../../shared/jour'
@@ -191,9 +192,9 @@ test('un Coup d’œil efface une mauvaise réponse, jamais la bonne ; aidée, l
     assert.deepEqual(ligne, { joker: 'coup-d-oeil', juste: 1 })
     const apres = (await lire(banc, lea, '/api/joueur/moi')).corps.profile
     assert.deepEqual([apres.fiche.qcm, apres.fiche.justes], [avant.fiche.qcm, avant.fiche.justes], 'ni la précision ni les écussons ne la comptent')
-    // La mesure : relue au plus toutes les dix minutes, elle ne la compte pas.
+    // La mesure : relue au plus toutes les six heures, elle ne la compte pas.
     await poster(banc, lea, `/api/campagne/serie/${v.id}/signalement`, { index: position, texte: 'Pour relire sa mesure.' })
-    horloge.t += 11 * 60_000
+    horloge.t += MESURES_GARDEES_MS + 60_000
     const admin = await connexionAnimateur(banc.url)
     const signalee = (await lire(banc, admin, '/api/admin/campagne')).corps.signalements.find((s: any) => s.questionId === q.id)
     assert.ok(signalee, 'la question signalée se relit au QG')

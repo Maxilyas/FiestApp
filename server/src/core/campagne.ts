@@ -647,7 +647,7 @@ interface AdversaireGarde {
 
 /**
  * La mesure des difficultés : les comptes du journal, relus au plus toutes
- * les dix minutes (`brutes`, et `premieres` pour les familles), et ce que
+ * les six heures (`MESURES_GARDEES_MS` ; `brutes`, et `premieres` pour les familles), et ce que
  * les familles en font pour la base d'où elle a été tirée (`parQuestion`,
  * refait quand la base change).
  */
@@ -740,8 +740,19 @@ interface Duel {
   vuLe: number | null
 }
 
-/** La difficulté mesurée se relit au plus toutes les dix minutes : elle bouge lentement, et chaque série la lit. */
-const MESURES_GARDEES_MS = 10 * 60_000
+/**
+ * La difficulté mesurée se relit au plus toutes les six heures : elle bouge
+ * avec les jours, pas avec les clics — trente mille réponses, mille de plus par
+ * jour. Toutes les dix minutes jusqu'au 3 novembre 2026 : chaque relecture
+ * refait derrière elle ses familles, la préparation des tirages de toutes les
+ * catégories et la série de référence, en tranches — et au dixième de cœur de
+ * l'hébergeur, c'est la quantité de travail qui gèle, pas sa forme : 1 à 2 s
+ * de gel plusieurs fois par heure, les premiers du relevé de la production
+ * après le démarrage (« fond · mesure des difficultés », « fond · tirages de
+ * la mesure neuve »). Un réveil la relit de toute façon : la production dort
+ * chaque nuit.
+ */
+export const MESURES_GARDEES_MS = 6 * 60 * 60_000
 /**
  * Lue dès ses deux dernières minutes, elle se relit en fond (`mesures`), et
  * personne ne l'attend plus : la requête qui l'aurait trouvée périmée — un
@@ -749,16 +760,18 @@ const MESURES_GARDEES_MS = 10 * 60_000
  * son calcul, 1,2 à 1,4 s au dixième de cœur de l'hébergeur (le banc du
  * 16 octobre 2026), 2,9 s pour un duel en production (le 22 octobre).
  */
-const MESURE_EN_AVANCE_MS = 2 * 60_000
+export const MESURE_EN_AVANCE_MS = 2 * 60_000
 /** Une relecture de la mesure tentée — réussie ou ratée —, la suivante attend au moins ceci : une base muette ne se fait pas relire à chaque requête. */
 const MESURE_RETENTEE_MS = 2 * 60_000
 /**
- * Le modèle du savoir se refait au plus toutes les demi-heures, et seulement
+ * Le modèle du savoir se refait au plus toutes les six heures, et seulement
  * quand un dé le demande : il relit les réponses de tout le monde, et ses
  * difficultés bougent lentement — la force de qui lance le dé, elle, se
- * relit à chaque dé.
+ * relit à chaque dé. Toutes les demi-heures jusqu'au 3 novembre 2026 : un
+ * ajustement prend quatre secondes en production, et ses gels suivaient la
+ * mesure des difficultés au relevé de l'heure (« fond · modèle du savoir »).
  */
-const MODELE_GARDE_MS = 30 * 60_000
+export const MODELE_GARDE_MS = 6 * 60 * 60_000
 /** Un ajustement raté ne se retente pas avant une minute : une base muette ne se fait pas relire à chaque dé. */
 const MODELE_RETENTE_MS = 60_000
 /** Combien de séries en cours restent en mémoire (`enCours`) : celles qu'on joue, et de la marge pour celles qu'on a laissées. */
@@ -1185,7 +1198,7 @@ export class CampagneStore {
    * Le modèle du savoir (`core/modeleDuSavoir.ts`) : les difficultés de la
    * base et la force de chacun, ajustées ensemble sur les premières réponses
    * de tous. Refait en fond, à la demande du dé, au plus toutes les
-   * demi-heures (`MODELE_GARDE_MS`) — jamais sur son chemin : le dé lit celui
+   * six heures (`MODELE_GARDE_MS`) — jamais sur son chemin : le dé lit celui
    * qu'il y a, et avant le premier, la part de ceux qui ont trouvé chaque
    * question (`difficulteSansModele`).
    */
@@ -1758,7 +1771,7 @@ export class CampagneStore {
    * La part de joueurs qui ont trouvé chaque question de la base, en
    * campagne, et celle de sa famille (`mesuresEnFamille`) : ce qui corrige sa
    * difficulté estimée (`niveauDeQuestion`). Les réponses se relisent au plus
-   * toutes les dix minutes ; les familles, aussi quand la base change — un
+   * toutes les six heures (`MESURES_GARDEES_MS`) ; les familles, aussi quand la base change — un
    * reclassement du QG vaut dès le tirage suivant.
    */
   async mesures(): Promise<ReadonlyMap<string, MesureDUneQuestion>> {
@@ -2392,7 +2405,7 @@ export class CampagneStore {
    * Le tirage d'une série sur ces jouables, préparé une fois pour leur
    * mesure (`PreparationDuTirage`) : la liste de toutes les catégories, ou
    * d'un sujet, se garde tant que la base, la réserve du jour et les retraits
-   * ne changent pas, et la mesure dix minutes.
+   * ne changent pas, et la mesure six heures.
    */
   private tirage(jouables: readonly QuestionDeLaBase[], mesure: ReadonlyMap<string, MesureDUneQuestion>): Promise<PreparationDuTirage> {
     const faite = this.preparations.get(jouables)
@@ -11250,7 +11263,7 @@ function* preparerLeTirage(
 /**
  * Ce qu'un tirage de série relit de chaque question jouable — sa marche, sa
  * catégorie et son sous-thème —, lu une fois par liste de jouables et par
- * mesure des difficultés, qui ne change qu'au plus toutes les dix minutes
+ * mesure des difficultés, qui ne change qu'au plus toutes les six heures
  * (`CampagneStore.tirage`). Un tirage battait les vingt-quatre mille
  * questions, puis les repassait quatre fois — rangées par fraîcheur, par
  * marche, par classe, par file — pour en prendre soixante : 13 à 25 ms de

@@ -563,7 +563,7 @@ class MesureLue extends Map<string, MesureDUneQuestion> {
 
 test('l’Éclair à ses marches se prépare avec les tas, et une mesure neuve se refait en fond, une catégorie par tour : jamais sur le chemin d’un départ', async () => {
   // L'Éclair range ses catégories par ce qu'il leur reste de QCM jamais vus à ses marches, et la marche d'une question suit
-  // la mesure, relue toutes les dix minutes. Gardée par mesure, la passe sur les vingt-cinq mille QCM de la base se faisait
+  // la mesure, relue toutes les six heures (dix minutes jusqu'au 3 novembre 2026). Gardée par mesure, la passe sur les vingt-cinq mille QCM de la base se faisait
   // sur le chemin du premier départ qui trouvait la neuve, sous le verrou du profil — de l'ordre de 60 à 150 ms au dixième
   // de cœur de l'hébergeur (la relecture du lot, le 26 octobre 2026). On compte les mesures lues, jamais le temps.
   const { campagne } = await magasinDEssai(path.join(dossierDEssai(), 'eclair-mesure.db'), { t: DIX_HEURES }, baseLivree())
@@ -595,7 +595,7 @@ test('l’Éclair à ses marches se prépare avec les tas, et une mesure neuve s
     const pret = unDepart()
     assert.ok(pret <= 1_000, `prête, la passe de l’Éclair se refait sous le départ : ${pret} mesures lues`)
 
-    // La mesure des dix minutes suivantes : le départ prend la passe d'avant, la neuve se fait derrière lui.
+    // La mesure suivante : le départ prend la passe d'avant, la neuve se fait derrière lui.
     courante = new MesureLue(courante, compteur.tour)
     const sousLeDepart = unDepart()
     assert.ok(sousLeDepart <= 1_000, `une mesure neuve fait passer l’Éclair sur tous ses QCM sous le départ : ${sousLeDepart} mesures lues`)

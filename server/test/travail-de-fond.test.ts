@@ -18,7 +18,7 @@ import { baseDEssai } from './banc'
 import { performance } from 'node:perf_hooks'
 import { SALLE_ATTENDUE_MAX_MS, laisserPasserLaSalle, rendreLaMain } from '../src/core/tourniquet'
 import { ceQuiTournait } from '../src/core/gels'
-import { CampagneStore, type PreparationDuTirage } from '../src/core/campagne'
+import { CampagneStore, MESURE_EN_AVANCE_MS, MESURES_GARDEES_MS, type PreparationDuTirage } from '../src/core/campagne'
 import { BaseDeLaCampagne, type QuestionDeLaBase } from '../src/core/baseCampagne'
 
 test('rendre la main : une étape par tour de boucle, dans l’ordre où elles l’ont demandé, et ce qui arrive entre deux est lu', async () => {
@@ -247,7 +247,8 @@ test('la mesure relue en fond, dans ses deux dernières minutes : ses familles e
     const jouables = await prive.jouables()
     const premiere = await campagne.mesures()
     etapes.length = 0
-    horloge.t += 9 * 60_000
+    // Une minute dans ses deux dernières minutes : encore bonne, elle se relit déjà.
+    horloge.t += MESURES_GARDEES_MS - MESURE_EN_AVANCE_MS + 60_000
     assert.equal(await campagne.mesures(), premiere, 'qui la demande reçoit encore celle-ci')
     await quand(() => (prive.preparations.get(jouables)?.mesure ?? premiere) !== premiere, 'la mesure neuve, relue en fond, prépare ses tirages')
     uneParTour(etapes, ['en famille', 'préparation du tirage'])
@@ -263,8 +264,8 @@ test('un dé tombé sur une mesure périmée : son tirage et la série de réfé
     const jouables = await prive.jouables()
     const premiere = await campagne.mesures()
     etapes.length = 0
-    // Onze minutes sans personne : le dé joue sur la mesure qu'il y a, et la neuve se relit en fond — personne ne l'attend.
-    horloge.t += 11 * 60_000
+    // Périmée d'une minute, sans personne : le dé joue sur la mesure qu'il y a, et la neuve se relit en fond — personne ne l'attend.
+    horloge.t += MESURES_GARDEES_MS + 60_000
     await campagne.commencerUneRencontre('profil-du-de')
     await quand(() => (prive.preparations.get(jouables)?.mesure ?? premiere) !== premiere, 'la mesure neuve, relue en fond, prépare ses tirages')
     uneParTour(etapes, ['en famille', 'préparation du tirage', 'série de référence'])
@@ -297,7 +298,7 @@ test('la mesure neuve, sa préparation du tirage et sa série de référence se 
     const jouables = await prive.jouables()
     const premiere = await campagne.mesures()
     lectures.clear()
-    horloge.t += 9 * 60_000
+    horloge.t += MESURES_GARDEES_MS - MESURE_EN_AVANCE_MS + 60_000
     assert.equal(await campagne.mesures(), premiere, 'qui la demande reçoit encore celle-ci')
     await quand(() => {
       const preparee = prive.preparations.get(jouables)

@@ -14,6 +14,7 @@ import { DUREE_D_UN_DUEL_MS, VIES, xpDeLaBonneReponse } from '../../shared/campa
 import { INTERVALLES_DE_REVISION, QUESTIONS_PAR_REVISION, TOUT_LE_CARNET, partVisee, suiteDeLaRevision, suiviDeLaQuestion } from '../../shared/revision'
 import { rubriqueDe, sujetsDe } from '../../shared/sujets'
 import { ProfileStore } from '../src/auth/profiles'
+import { MESURES_GARDEES_MS } from '../src/core/campagne'
 
 ProfileStore.tirageEclat = () => false
 
@@ -383,8 +384,8 @@ test('dix questions au plus par révision, les plus en retard d’abord ; la dif
     const premiere = questions(banc, rev.id)[0]
     await repondre(banc, lea, rev.id, 0, true)
     await poster(banc, lea, `/api/campagne/serie/${rev.id}/signalement`, { index: 0, texte: 'Pour relire sa mesure.' })
-    // La mesure se relit au plus toutes les dix minutes : on les laisse passer.
-    horloge.t += 11 * 60_000
+    // La mesure se relit au plus toutes les six heures : on les laisse passer.
+    horloge.t += MESURES_GARDEES_MS + 60_000
     const admin = await connexionAnimateur(banc.url)
     const signalee = (await lire(banc, admin, '/api/admin/campagne')).corps.signalements.find((s: any) => s.questionId === premiere.id)
     assert.deepEqual(signalee.mesure, { justes: 0, total: 1 }, 'la seule réponse de la série')

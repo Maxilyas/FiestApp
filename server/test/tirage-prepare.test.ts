@@ -19,7 +19,7 @@ import Database from 'better-sqlite3'
 import { baseDEssai } from './banc'
 import { ProfileStore } from '../src/auth/profiles'
 import { lireLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
-import { CampagneStore, PreparationDuTirage, VUE_RECENTE_MS, sujetsDeLaQuestion, tirerUneSerie } from '../src/core/campagne'
+import { CampagneStore, MESURES_GARDEES_MS, PreparationDuTirage, VUE_RECENTE_MS, sujetsDeLaQuestion, tirerUneSerie } from '../src/core/campagne'
 import { JourStore } from '../src/core/jour'
 import { DejaPrises } from '../src/core/jumelles'
 import { NIVEAUX, QUESTIONS_PAR_MARCHE, QUESTIONS_PAR_SERIE, niveauDeQuestion, ordreDeSerie, type MesureDUneQuestion, type Niveau } from '../../shared/campagne'
@@ -330,7 +330,7 @@ test('préparé une fois, le tirage ne relit plus ni la mesure ni les vues quest
   assert.equal(mesure.lectures(), aLaPreparation, 'la mesure ne se relit pas à chaque tirage')
 })
 
-test('la mesure qui change, toutes les dix minutes, garde les files de ses jouables : la série reste celle d’avant', () => {
+test('la mesure qui change, toutes les six heures, garde les files de ses jouables : la série reste celle d’avant', () => {
   const joueurs = inventeur(31)
   const jouables = laBase().filter(q => q.meta.categorie === 'Sport')
   const premiere = new PreparationDuTirage(jouables, joueurs.mesure(jouables))
@@ -473,8 +473,8 @@ test('ceux qui trouvent la mesure périmée ensemble n’en relisent qu’une, e
     const [a, b, c] = await Promise.all([campagne.mesures(), campagne.mesures(), campagne.mesures()])
     assert.equal(relectures, 1, 'une seule relecture pour trois demandes')
     assert.ok(a === b && b === c, 'la même mesure pour tous')
-    assert.equal(await campagne.mesures(), a, 'gardée dix minutes')
-    horloge.t += 11 * 60_000
+    assert.equal(await campagne.mesures(), a, 'gardée six heures')
+    horloge.t += MESURES_GARDEES_MS + 60_000
     // Périmée, elle se relit en fond : qui la demande pendant ce temps reçoit celle qu'il y a.
     const [d, e] = await Promise.all([campagne.mesures(), campagne.mesures()])
     assert.equal(relectures, 2, 'périmée : une relecture de plus, une seule')

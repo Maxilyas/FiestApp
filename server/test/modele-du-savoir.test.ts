@@ -14,7 +14,7 @@ import { baseDEssai, demarrer, ecrire, inscrireProfil } from './banc'
 import { CATEGORIES } from '../../shared/categories'
 import { NIVEAUX, VIES, niveauDeQuestion, type Niveau } from '../../shared/campagne'
 import { SCORE_DE_REFERENCE } from '../../shared/duels'
-import { CampagneStore, ECART_D_AUTOMATE, partieDAutomate, type AutomateDuDe } from '../src/core/campagne'
+import { CampagneStore, ECART_D_AUTOMATE, MODELE_GARDE_MS, partieDAutomate, type AutomateDuDe } from '../src/core/campagne'
 import {
   AUCUN_ECART,
   ajusterLeModele,
@@ -636,7 +636,7 @@ test('le dé : sans une réponse, le score de référence ; ses réponses compte
       if (r.corps.finie) break
     }
     // Le dé suivant : ses réponses comptent déjà — quatre faciles, trois fautes : en dessous de la cote de départ.
-    horloge.t += 60 * 60_000
+    horloge.t += MODELE_GARDE_MS + 60_000
     const second = await poster('/api/campagne/rencontre')
     assert.equal(second.status, 200, second.corps.error)
     assert.ok(demandes.at(-1)!.niveau < SCORE_DE_REFERENCE, `ses réponses le disent : ${demandes.at(-1)!.niveau}`)

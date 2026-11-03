@@ -23,6 +23,7 @@ import {
 import type { Categorie } from '../../shared/categories'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import { BaseDeLaCampagne, lireQuestionDeLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
+import { MESURES_GARDEES_MS } from '../src/core/campagne'
 
 // ── Les règles pures ───────────────────────────────────────────────────────
 
@@ -163,8 +164,8 @@ test('une année jamais jouée part de ses sœurs, d’une autre catégorie : ra
     const ratee = db.prepare('INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le) VALUES (?, 0, ?, 1, 0, ?)')
     for (let i = 0; i < 6; i++) for (let k = 0; k < 5; k++) ratee.run(`ailleurs-${i}-${k}`, `annhis${String(i).padStart(2, '0')}`, DEBUT)
     db.close()
-    // La mesure se relit au plus toutes les dix minutes.
-    horloge.t += 11 * 60_000
+    // La mesure se relit au plus toutes les six heures.
+    horloge.t += MESURES_GARDEES_MS + 60_000
 
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa')
     const serie = (await ecrire(banc.url, '/api/campagne/serie', {}, lea).then(r => r.json())) as { id: string }

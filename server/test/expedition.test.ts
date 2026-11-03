@@ -9,6 +9,7 @@ import Database from 'better-sqlite3'
 import { connexionAnimateur, demarrer, ecrire, inscrireProfil, relireJusqua, type Banc } from './banc'
 import { BaseDeLaCampagne, lireQuestionDeLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
 import { expeditionOuverte } from '../src/expedition'
+import { MESURES_GARDEES_MS } from '../src/core/campagne'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import { CATEGORIES, type Categorie } from '../../shared/categories'
 import { xpDeLaBonneReponse } from '../../shared/campagne'
@@ -337,10 +338,10 @@ test('une source reprend une question du carnet : comme une révision, ni la pr�
     // Sa précision : les trois de la série et les escales d'avant posées nues, pas la question reprise.
     const fiche = (await lire(banc, lea, '/api/joueur/moi')).corps.profile.fiche
     assert.deepEqual([fiche.qcm, fiche.justes], [3 + nues, nues])
-    // Sa mesure : la seule réponse de la série — relue au plus toutes les dix minutes, en fond : la lecture qui
+    // Sa mesure : la seule réponse de la série — relue au plus toutes les six heures, en fond : la lecture qui
     // la trouve périmée reçoit celle qu'il y a, une suivante la neuve.
     await poster(banc, lea, `/api/campagne/serie/${v.id}/signalement`, { index: v.question!.index, texte: 'Pour relire sa mesure.' })
-    horloge.t += 11 * 60_000
+    horloge.t += MESURES_GARDEES_MS + 60_000
     const admin = await connexionAnimateur(banc.url)
     const signalee = await relireJusqua(
       async () => (await lire(banc, admin, '/api/admin/campagne')).corps.signalements.find((s: any) => s.questionId === reprise.id),
