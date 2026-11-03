@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { confirmDialog } from './Dialog'
 import { Icon } from './Icon'
-import { barreArrondie, useLargeur } from './QgVueDEnsemble'
+import { barreArrondie, useLargeur } from './QgGraphes'
 import { formatNumber } from '../../../shared/typographie'
 import { jourEnToutesLettres } from '../../../shared/jour'
 import { ecartALHabitude, graduations, jourAbrege, type CompteDuJour } from '../../../shared/qg'

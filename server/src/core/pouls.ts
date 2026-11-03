@@ -164,6 +164,12 @@ export class Pouls {
   readonly ouvertesParUnBattement: Fenetre
   /** Le temps de chaque route d'API, sous son modèle (`GET /api/jour`) — jamais l'adresse, qui peut porter un identifiant. */
   private routes = new Map<string, Fenetre>()
+  /**
+   * Toutes les routes d'API ensemble, sur la dernière minute : ce qu'un
+   * joueur attend à l'instant — le voyant du poste de commande du QG 2, quand
+   * la page « Le serveur » le dit heure par heure.
+   */
+  readonly toutesLesRoutes: Fenetre
 
   constructor(private readonly now: () => number = Date.now) {
     this.pagesCalculees = new Fenetre(now)
@@ -179,10 +185,12 @@ export class Pouls {
     this.battements = new Fenetre(now)
     this.battementsTombes = new Fenetre(now)
     this.ouvertesParUnBattement = new Fenetre(now)
+    this.toutesLesRoutes = new Fenetre(now)
     this.adressesDebut = now()
   }
 
   noterRoute(modele: string, ms: number) {
+    this.toutesLesRoutes.noter(ms)
     let fenetre = this.routes.get(modele)
     if (!fenetre) {
       if (this.routes.size >= ROUTES_SUIVIES) return

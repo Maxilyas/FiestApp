@@ -14337,104 +14337,415 @@ html:has(> body.avec-panier) { scroll-padding-bottom: calc(72px + 76px + env(saf
   .admin-pouls { animation: none; }
 }
 
-/* ── Le QG (`/admin`) ─────────────────────────────────────────────────────
-   La tour de contrôle des maquettes du 13 octobre 2026 : au téléphone, une
-   colonne — le direct, ce qui attend un geste, les chiffres du jour, les
-   participations, les soirées, le serveur, puis la liste des pages — et la
-   barre du menu ; à l'ordinateur, une barre de côté qui mène à chaque page,
-   et la vue d'ensemble en grille. */
-.qg-tete { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
-.qg-quand { font-size: 0.85rem; color: var(--muted); }
-.qg-titre { align-self: stretch; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
-.qg-titre h1 { margin: 0; font-size: 2rem; }
-.qg-a-l-ordinateur { display: none; }
-.qg-vif { display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--muted); }
-.qg-vif-point { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--en-ligne); box-shadow: 0 0 8px color-mix(in srgb, var(--en-ligne) 60%, transparent); }
-.qg-vif-perdu { color: var(--alert); }
-.qg-vif-perdu .qg-vif-point { background: var(--alert); box-shadow: none; }
-/* La barre de côté n'existe qu'à l'ordinateur ; au téléphone, la liste des pages la remplace. */
-.qg-cote { display: none; }
-.qg-marque { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 10px; }
-.qg-marque-nom { font-family: var(--serif); font-size: 1.9rem; font-weight: 600; line-height: 1; }
-.qg-groupe { display: flex; flex-direction: column; gap: 2px; }
-.qg-groupe-titre { padding: 0 10px 4px; font-size: var(--t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
-.qg-lien { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 10px; border-radius: var(--radius-xs); color: var(--ink); font-size: 0.95rem; text-decoration: none; }
-.qg-lien:hover { background: var(--surface-strong); }
-.qg-lien[aria-current='page'] { background: color-mix(in srgb, var(--lueur) 14%, transparent); font-weight: 600; }
-.qg-lien .icon { flex: none; width: 18px; height: 18px; color: color-mix(in srgb, var(--lueur) 70%, var(--ink)); }
-.qg-compte { margin-left: auto; font-size: 0.8rem; font-weight: 600; color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
-.qg-pastille { margin-left: auto; display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border: 1px solid color-mix(in srgb, var(--lueur) 55%, transparent); border-radius: var(--radius-pill); font-size: var(--t-label); font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
-.qg-pastille-alerte { border-color: var(--alert); background: var(--alert); color: var(--on-alert); }
-.qg-retour { margin-top: 8px; padding: 0 10px; }
-/* Le direct se lit, il ne s'ouvre pas : ses cadrans n'ont ni main ni survol. */
-.admin-cadran-fixe { cursor: default; }
-.admin-cadran-fixe:hover { border-color: color-mix(in srgb, var(--lueur) 20%, transparent); }
-.qg-vue { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
-.qg-carte { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 16px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); }
-.qg-carte-tete { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
-.qg-carte-tete h2 { margin: 0; font-size: 1.35rem; }
-.qg-jour { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.qg-section-tete { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
-.qg-section-tete .compte-groupe { margin: 0; }
-.qg-tuiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-/* Des tuiles dans une carte — les duels en attente, la circulation, les Éclats — se partagent sa largeur : les six
-   colonnes des grands écrans sont celles de la vue d'ensemble, et deux tuiles d'une demi-carte y tenaient un mot par ligne. */
-.qg-carte .qg-tuiles:not(.qg-tuiles-quatre) { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
-/* Une tuile par mode, cinq depuis le Cabinet : au téléphone, la dernière prend la rangée plutôt que d'y rester seule à moitié. */
-.qg-tuiles-cinq > :last-child:nth-child(odd) { grid-column: 1 / -1; }
-.qg-tuile { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 12px; border: 1px solid var(--edge); border-radius: var(--radius-xs); background: var(--surface); }
-.qg-tuile-nom { font-size: 0.85rem; color: var(--muted); }
-.qg-tuile-valeur { font-family: var(--sans); font-size: 1.75rem; font-weight: 600; line-height: 1; font-variant-numeric: lining-nums tabular-nums; }
-.qg-ecart { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; color: var(--muted); }
-.qg-ecart .icon { flex: none; width: 13px; height: 13px; }
-.qg-ecart-plus .icon { color: var(--en-ligne); }
-.qg-ecart-moins .icon { color: var(--alert); }
-/* Les douze derniers jours d'une tuile : le trait en sourdine, aujourd'hui en point de lueur. */
-.qg-etincelle { display: block; width: 100%; height: 30px; overflow: visible; }
-.qg-etincelle-ligne { fill: none; stroke: var(--muted); stroke-width: 1.5px; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
-.qg-etincelle-point { fill: none; stroke: color-mix(in srgb, var(--lueur) 80%, var(--ink)); stroke-width: 6px; stroke-linecap: round; vector-effect: non-scaling-stroke; }
-/* L'écran des participations, nocturne sous tous les thèmes : ses cinq
-   couleurs ont été vérifiées sur ce fond — voisines dans la pile, elles se
-   distinguent encore aux trois daltonismes —, et les trente-quatre thèmes
-   en ont de clairs, où elles ne tenaient plus. Ses jetons y redeviennent
-   ceux du Velours. L'ordre de la pile est celui de `MODES_DU_QG` : il ne se
-   change pas sans refaire la vérification. Le violet du Cabinet (le
+/* ── Le QG (`/admin`) : la salle de contrôle ──────────────────────────────
+   Le QG 2 (la proposition du 3 novembre 2026, `retours/2026-11-03/le-qg.md`,
+   que le propriétaire a faite sienne le 4) : une seule nuit sous tous les
+   thèmes — `main.tsx` n'y pose pas celui du profil —, ses jetons repris sur
+   toute la page tant qu'elle est là, ses feuilles et ses dialogues compris
+   (`:root:has(…)`) ; un rail à gauche, une barre de commande collée en haut,
+   puis des consoles. Au téléphone, une colonne, la barre resserrée, et la
+   barre du menu en bas.
+
+   Les cinq couleurs des modes ont été vérifiées sur ses consoles et sur son
+   fond (le validateur de la skill `dataviz`, `--mode dark --surface
+   "#0d121b"`, puis `"#06090f"`, le 4 novembre 2026) : voisines dans la pile,
+   elles se distinguent encore aux trois daltonismes — soirées et campagne,
+   ΔE 8,4, au plus serré. L'ordre de la pile est celui de `MODES_DU_QG` : il
+   ne se change pas sans refaire la vérification. Le violet du Cabinet (le
    2 novembre 2026) s'y pose entre le vert et l'orange : à côté du bleu des
-   duels, il s'y confondait aux yeux qui confondent le rouge. */
+   duels, il s'y confondait aux yeux qui confondent le rouge. `.qg-ecran`,
+   l'écran d'un graphique, garde les mêmes jetons : un composant du QG rendu
+   ailleurs, un test, les retrouve. */
+:root:has(.player-shell.qg),
 .qg-ecran {
-  --ink: #f3ece2;
-  --muted: #a89b8a;
-  --edge: rgba(217, 181, 106, 0.22);
+  --bg: #06090f;
+  --bg-halo: #0e1624;
+  --bg-raised: #121926;
+  --ink: #e8edf5;
+  --muted: #8f9bb0;
+  --accent: #d9b56a;
+  --accent-rgb: 217, 181, 106;
+  --accent-hover: #f0cd86;
   --accent-text: #d9b56a;
+  --accent-text-hover: #f0cd86;
   --focus: #d9b56a;
+  --on-accent: #1b1307;
+  --alert: #f06a6f;
+  --alert-rgb: 240, 106, 111;
+  --alert-hover: #f58a8e;
+  --on-alert: #12070a;
+  --surface: rgba(255, 255, 255, 0.03);
+  --surface-faint: rgba(255, 255, 255, 0.02);
+  --surface-strong: rgba(255, 255, 255, 0.06);
+  --track: rgba(255, 255, 255, 0.08);
+  --edge: rgba(148, 166, 196, 0.16);
+  --edge-strong: rgba(217, 181, 106, 0.5);
+  --accent-soft: rgba(217, 181, 106, 0.13);
+  --scroll-thumb: rgba(148, 166, 196, 0.28);
+  --backdrop: rgba(2, 4, 8, 0.72);
+  --en-ligne: #6fd08c;
   --mode-soiree: #c98500;
   --mode-campagne: #199e70;
   --mode-cabinet: #9085e9;
   --mode-jour: #d95926;
   --mode-duel: #3987e5;
-  /* Les joueurs du jour, tous modes confondus : une seule série, dans l'or du Velours — une personne n'est pas un mode. */
+  /* Les joueurs, tous modes confondus : une seule série, dans l'or — une personne n'est pas un mode. */
   --qg-joueurs: #d9b56a;
-  /* La page « Le serveur » : ses temps de réponse dans l'or du Velours, ses erreurs dans son rouge — une série par graphique. */
+  /* La page « Le serveur » : ses temps de réponse dans l'or, ses erreurs dans le rouge — une série par graphique. */
   --qg-temps: #d9b56a;
   --qg-erreur: #e06c6c;
   /* La page de l'économie : les confettis dans le même or, une seule couleur — une source n'est pas un mode. */
   --qg-confettis: #d9b56a;
-  /* Ce qu'une tuile ou un écart y prend aussi, ceux du Velours : sous l'Ivoire, la tuile du défi s'y peignait d'un gris clair, son texte clair dessus. */
-  --surface: rgba(255, 255, 255, 0.035);
-  --alert: #e06c6c;
-  --en-ligne: #6fd08c;
+  /* Les surfaces de la salle : la console, posée sur la nuit ; ses traits, bleutés, et l'or pour ce qui est choisi. */
+  --qg-console: #0d121b;
+  --qg-console-haute: #121926;
+  --qg-trait: rgba(148, 166, 196, 0.12);
+  --qg-trait-fort: rgba(148, 166, 196, 0.24);
+  --qg-grille: rgba(148, 166, 196, 0.07);
+  --qg-encre-2: #a9b5c7;
+  /* Les états d'un voyant : une forme et un mot avec, jamais la couleur seule. Le trait en vif, le texte plus clair. */
+  --qg-ok: #2fb34f;
+  --qg-ok-texte: #6fd08c;
+  --qg-veille: #fab219;
+  --qg-veille-texte: #ffd166;
+  --qg-serieux: #ec835a;
+  --qg-serieux-texte: #ffae8a;
+  --qg-critique: #e5484d;
+  --qg-critique-texte: #ff8a80;
+  --qg-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', Menlo, Consolas, monospace;
+  --qg-gouttiere: 16px;
   color-scheme: dark;
-  border-color: color-mix(in srgb, var(--lueur) 35%, transparent);
-  background: radial-gradient(120% 70% at 50% -10%, #2b211b 0%, #1a1412 65%);
+}
+/* La nuit de la salle : deux lueurs — l'or, le bleu des écrans — et la grille d'une salle de contrôle, qui s'efface au
+   premier écran. Posée sur le fond de la page, sans `fixed` : il coûte un repli à chaque défilement d'un téléphone. */
+body:has(.player-shell.qg) {
+  background-image:
+    radial-gradient(900px 520px at 8% -10%, rgba(217, 181, 106, 0.075), transparent 62%),
+    radial-gradient(760px 560px at 100% -6%, rgba(57, 135, 229, 0.06), transparent 58%),
+    linear-gradient(180deg, transparent 0%, var(--bg) 100%),
+    repeating-linear-gradient(0deg, var(--qg-grille) 0 1px, transparent 1px 34px),
+    repeating-linear-gradient(90deg, var(--qg-grille) 0 1px, transparent 1px 34px);
+  background-size: 100% 100vh;
+  background-repeat: no-repeat;
+}
+.player-shell.qg { --lueur: #b9c3cf; max-width: 860px; padding-top: 0; padding-inline: var(--qg-gouttiere); gap: 16px; }
+.qg-a-l-ordinateur { display: none; }
+/* Les chiffres de la salle en sans-serif, comme le texte qu'ils côtoient : en Cormorant (`.num`), un compte de
+   légende paraissait d'un autre corps que son nom. */
+.qg .num { font-family: var(--sans); }
+
+/* La barre de commande : où l'on est, la période de la page, l'état du service, « Aller à… ». Collée en haut,
+   l'encoche d'un téléphone comprise ; au téléphone, la période passe sur sa propre rangée. Pas `.qg-barre` : c'est
+   une barre du graphique des soirées, plus bas, dont la règle en faisait une colonne. */
+.qg-commande {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin-inline: calc(-1 * var(--qg-gouttiere));
+  padding: max(8px, env(safe-area-inset-top)) var(--qg-gouttiere) 8px;
+  border-bottom: 1px solid var(--qg-trait);
+  background: rgba(6, 9, 15, 0.86);
+  -webkit-backdrop-filter: saturate(140%) blur(14px);
+  backdrop-filter: saturate(140%) blur(14px);
+}
+.qg-bouton {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 11px;
+  border: 1px solid var(--qg-trait-fort);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--qg-encre-2);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.qg-bouton:hover { border-color: rgba(217, 181, 106, 0.45); color: var(--ink); }
+.qg-bouton .icon { width: 17px; height: 17px; }
+.qg-ariane { display: none; min-width: 0; font-size: 0.8125rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qg-ariane b { color: var(--ink); font-weight: 600; }
+.qg-periodes { order: 5; flex: 1 1 auto; display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--qg-trait-fort); border-radius: 10px; background: rgba(255, 255, 255, 0.03); }
+.qg-periodes button {
+  flex: 1 1 0;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--qg-encre-2);
+  font: 600 0.75rem/1 var(--qg-mono);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.qg-periodes button:hover { color: var(--ink); background: rgba(255, 255, 255, 0.05); }
+/* Sur l'or pâle, l'or du survol : celui du texte, fait pour la nuit nue, y perdait de son contraste (règle `css.md`). */
+.qg-periodes button[aria-pressed='true'] { background: var(--accent-soft); color: var(--accent-text-hover); box-shadow: inset 0 0 0 1px rgba(217, 181, 106, 0.3); }
+.qg-bascule {
+  order: 6;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 11px;
+  border: 1px solid var(--qg-trait-fort);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--qg-encre-2);
+  font: inherit;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+.qg-bascule[aria-pressed='true'] { border-color: rgba(217, 181, 106, 0.5); background: var(--accent-soft); color: var(--accent-text-hover); }
+.qg-interrupteur { position: relative; flex: none; width: 26px; height: 15px; border-radius: 8px; background: rgba(255, 255, 255, 0.14); transition: background 0.15s; }
+.qg-interrupteur::after { content: ''; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: var(--qg-encre-2); transition: transform 0.15s; }
+.qg-bascule[aria-pressed='true'] .qg-interrupteur { background: rgba(217, 181, 106, 0.55); }
+.qg-bascule[aria-pressed='true'] .qg-interrupteur::after { transform: translateX(11px); background: #fff; }
+.qg-commande-droite { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.qg-vif { display: inline-flex; align-items: center; gap: 8px; font: 500 0.75rem/1.2 var(--qg-mono); color: var(--muted); white-space: nowrap; }
+/* Le pouls du direct : un point, et l'onde qui en part — il vit tant que le serveur répond. */
+.qg-vif-point { position: relative; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--en-ligne); }
+.qg-vif-point::after { content: ''; position: absolute; inset: -4px; border: 1.5px solid var(--en-ligne); border-radius: 50%; animation: qg-onde 1.8s ease-out infinite; }
+@keyframes qg-onde {
+  from { transform: scale(0.55); opacity: 0.9; }
+  to { transform: scale(1.9); opacity: 0; }
+}
+.qg-vif-perdu { color: var(--qg-critique-texte); }
+.qg-vif-perdu .qg-vif-point { background: var(--qg-critique); }
+.qg-vif-perdu .qg-vif-point::after { display: none; }
+/* Au téléphone, le pouls se tait tant qu'il bat : l'état du service le dit à côté. Perdu, il se dit. */
+.qg-commande .qg-vif:not(.qg-vif-perdu) { display: none; }
+.qg-etat-pastille {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 11px;
+  border: 1px solid rgba(47, 179, 79, 0.45);
+  border-radius: 9px;
+  background: rgba(47, 179, 79, 0.1);
+  color: var(--qg-ok-texte);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.qg-etat-pastille-alerte { border-color: rgba(229, 72, 77, 0.5); background: rgba(229, 72, 77, 0.12); color: var(--qg-critique-texte); }
+.qg-commande kbd { margin-left: auto; padding: 3px 6px; border: 1px solid var(--qg-trait-fort); border-radius: 5px; background: rgba(255, 255, 255, 0.04); color: var(--qg-encre-2); font: 500 0.6875rem/1 var(--qg-mono); }
+
+/* Un voyant : un point allumé, qui clignote quand c'est grave. Son état se dit aussi en mots, à côté ou pour l'oreille. */
+.qg-voyant { flex: none; display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--qg-ok); box-shadow: 0 0 0 3px rgba(47, 179, 79, 0.16), 0 0 12px rgba(47, 179, 79, 0.5); }
+.qg-voyant-veille { background: var(--qg-veille); box-shadow: 0 0 0 3px rgba(250, 178, 25, 0.16), 0 0 12px rgba(250, 178, 25, 0.45); }
+.qg-voyant-serieux { background: var(--qg-serieux); box-shadow: 0 0 0 3px rgba(236, 131, 90, 0.16), 0 0 12px rgba(236, 131, 90, 0.45); }
+.qg-voyant-critique { background: var(--qg-critique); box-shadow: 0 0 0 3px rgba(229, 72, 77, 0.2), 0 0 14px rgba(229, 72, 77, 0.6); animation: qg-clignote 1.5s ease-in-out infinite; }
+.qg-voyant-inconnu { background: #3a4456; box-shadow: none; }
+@keyframes qg-clignote { 50% { opacity: 0.45; } }
+
+/* La tête de la page : d'où l'on vient au téléphone (« ← Le QG ») ou l'heure, puis le groupe et le titre. */
+.qg-tete { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.qg-quand { font: 500 0.75rem/1.3 var(--qg-mono); color: var(--muted); }
+.qg-titre { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.qg-surtitre { font: 600 0.6875rem/1 var(--qg-mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+.qg-titre h1 { margin: 0; font-family: var(--serif); font-size: 2.1rem; font-style: italic; font-weight: 500; line-height: 1.02; }
+
+/* Le rail n'existe qu'à l'ordinateur ; au téléphone, « Pages » et la liste sous le poste de commande le remplacent. */
+.qg-cote { display: none; }
+/* La marque : le sceau, le nom, et l'environnement dessous — à côté, « Production » ne tenait pas dans le rail. */
+.qg-marque { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 4px 8px 6px; }
+.qg-marque-logo {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: radial-gradient(circle at 32% 28%, #f6dc9f, #b08a3c 58%, #6d5220);
+  box-shadow: 0 0 0 1px rgba(240, 205, 134, 0.35), 0 0 22px rgba(217, 181, 106, 0.32);
+  color: #1b1307;
+  font: 700 0.75rem/1 var(--qg-mono);
+  letter-spacing: -0.02em;
+}
+.qg-marque-nom { display: flex; flex-direction: column; font-family: var(--serif); font-size: 1.45rem; font-style: italic; font-weight: 600; line-height: 1; }
+.qg-marque-nom small { margin-top: 4px; font: 600 0.6875rem/1.2 var(--qg-mono); font-style: normal; letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap; color: var(--muted); }
+.qg-env { margin-left: 42px; border-color: rgba(217, 181, 106, 0.45); background: rgba(217, 181, 106, 0.08); color: var(--accent-text-hover); font-family: var(--qg-mono); }
+.qg-groupe { display: flex; flex-direction: column; gap: 1px; }
+.qg-groupe-titre { padding: 0 10px 6px; font: 600 0.6875rem/1 var(--qg-mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+.qg-lien { display: flex; align-items: center; gap: 10px; min-height: 32px; padding: 4px 10px; border-radius: 8px; color: var(--qg-encre-2); font-size: 0.875rem; font-weight: 500; text-decoration: none; }
+.qg-lien:hover { background: rgba(255, 255, 255, 0.045); color: var(--ink); }
+.qg-lien[aria-current='page'] { background: var(--accent-soft); color: var(--accent-text-hover); box-shadow: inset 0 0 0 1px rgba(217, 181, 106, 0.22); }
+.qg-lien .icon { flex: none; width: 16px; height: 16px; }
+.qg-compte { margin-left: auto; font: 500 0.6875rem/1 var(--qg-mono); color: var(--muted); }
+.qg-pastille { margin-left: auto; display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border: 1px solid rgba(250, 178, 25, 0.4); border-radius: var(--radius-pill); background: rgba(250, 178, 25, 0.12); color: var(--qg-veille-texte); font: 700 0.6875rem/1 var(--qg-mono); }
+.qg-pastille-alerte { border-color: var(--qg-critique); background: #c2383d; color: #fff; }
+.qg-retour { margin-top: auto; padding: 14px 10px 0; border-top: 1px solid var(--qg-trait); }
+/* Le direct se lit, il ne s'ouvre pas : ses cadrans n'ont ni main ni survol. */
+.admin-cadran-fixe { cursor: default; }
+.admin-cadran-fixe:hover { border-color: color-mix(in srgb, var(--lueur) 20%, transparent); }
+
+/* Une console : une surface de la salle, posée sur la nuit — un liseré clair en haut, une ombre dessous. */
+.qg-console,
+.qg-carte {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px 18px 18px;
+  border: 1px solid var(--qg-trait);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0) 120px), var(--qg-console);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 18px 40px -28px rgba(0, 0, 0, 0.9);
+}
+/* Des coins de visée : l'or au repos, le rouge quand quelque chose ne va pas. */
+.qg-hud::before,
+.qg-hud::after,
+.qg-hud-alerte::before,
+.qg-hud-alerte::after { content: ''; position: absolute; width: 16px; height: 16px; border: 1.5px solid rgba(217, 181, 106, 0.65); pointer-events: none; }
+.qg-hud::before,
+.qg-hud-alerte::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; border-top-left-radius: var(--radius-sm); }
+.qg-hud::after,
+.qg-hud-alerte::after { right: -1px; bottom: -1px; border-left: 0; border-top: 0; border-bottom-right-radius: var(--radius-sm); }
+.qg-hud-alerte::before,
+.qg-hud-alerte::after { border-color: rgba(229, 72, 77, 0.75); }
+.qg-console-tete,
+.qg-carte-tete { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 6px 12px; }
+.qg-console-tete > div:not(.onglets) { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.qg-console h2,
+.qg-carte-tete h2 { margin: 0; font-family: var(--sans); font-size: 1.02rem; font-weight: 600; line-height: 1.3; }
+.qg-etiquette { display: inline-flex; align-items: center; gap: 7px; font: 600 0.6875rem/1.2 var(--qg-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.qg-section-tete { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
+.qg-section-tete .compte-groupe { margin: 0; }
+
+/* L'état du service : sa phrase, puis ses dix voyants, ce qui ne va pas d'abord. */
+.qg-etat-du-service .qg-console-tete { align-items: center; }
+.qg-etat-phrase { font-family: var(--sans); font-size: 1.15rem; font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; }
+.qg-voyants { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.qg-voyant-bloc { min-width: 0; }
+.qg-voyant-bloc > button,
+.qg-voyant-bloc > div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 3px 10px;
+  width: 100%;
+  height: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--qg-trait);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.qg-voyant-bloc > button { cursor: pointer; }
+.qg-voyant-bloc > button:hover { border-color: var(--qg-trait-fort); background: rgba(255, 255, 255, 0.035); }
+.qg-voyant-bloc b { min-width: 0; font-size: 0.8125rem; font-weight: 600; overflow-wrap: anywhere; }
+.qg-voyant-detail { grid-column: 2; min-width: 0; font: 500 0.75rem/1.35 var(--qg-mono); color: var(--muted); overflow-wrap: anywhere; }
+.qg-voyant-bloc-veille > * { border-color: rgba(250, 178, 25, 0.35); background: rgba(250, 178, 25, 0.06); }
+.qg-voyant-bloc-serieux > * { border-color: rgba(236, 131, 90, 0.4); background: rgba(236, 131, 90, 0.07); }
+.qg-voyant-bloc-critique > * { border-color: rgba(229, 72, 77, 0.5); background: rgba(229, 72, 77, 0.09); }
+.qg-voyant-bloc-veille .qg-voyant-detail { color: var(--qg-veille-texte); }
+.qg-voyant-bloc-serieux .qg-voyant-detail { color: var(--qg-serieux-texte); }
+.qg-voyant-bloc-critique .qg-voyant-detail { color: var(--qg-critique-texte); }
+/* Au téléphone, ceux au vert attendent « Voir les dix voyants » ; à l'ordinateur, le bouton n'existe pas. */
+.qg-etat-replie .qg-voyant-bloc-ok,
+.qg-etat-replie .qg-voyant-bloc-inconnu { display: none; }
+.qg-etat-deplier { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0; border: 0; background: none; font: inherit; font-size: 0.85rem; cursor: pointer; }
+.qg-etat-deplier .icon { width: 14px; height: 14px; transition: transform 0.15s; }
+.qg-etat-deplier[aria-expanded='true'] .icon { transform: rotate(180deg); }
+
+/* Le poste de commande : une colonne au téléphone — l'état, ce qui attend, les chiffres, le reste. */
+.qg-poste { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.qg-chiffres { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.qg-tuiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+/* Des tuiles dans une carte — les duels en attente, la circulation, les Éclats — se partagent sa largeur : les six
+   colonnes des grands écrans sont celles du poste de commande, et deux tuiles d'une demi-carte y tenaient un mot par ligne. */
+.qg-carte .qg-tuiles:not(.qg-tuiles-quatre) { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+/* Une tuile par mode, cinq depuis le Cabinet : au téléphone, la dernière prend la rangée plutôt que d'y rester seule à moitié. */
+.qg-tuiles-cinq > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+.qg-tuile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px 14px 10px;
+  border: 1px solid var(--qg-trait);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0) 70%), var(--qg-console);
+}
+/* Une tuile qui ouvre sa page : toute la tuile se touche. */
+.qg-tuile-ouvre { padding: 0; }
+.qg-tuile-ouvre > button { display: flex; flex-direction: column; gap: 4px; width: 100%; height: 100%; padding: 12px 14px 10px; border: 0; border-radius: inherit; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.qg-tuile-ouvre:hover { border-color: var(--qg-trait-fort); }
+.qg-tuile-nom { display: flex; align-items: center; gap: 7px; min-height: 18px; font-size: 0.8125rem; color: var(--qg-encre-2); }
+.qg-tuile-cle { flex: none; width: 8px; height: 8px; border-radius: 2px; }
+.qg-tuile-valeur { font-family: var(--sans); font-size: 1.75rem; font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
+.qg-ecart { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; font: 500 0.75rem/1.35 var(--qg-mono); color: var(--muted); }
+.qg-ecart .icon { flex: none; width: 13px; height: 13px; }
+.qg-ecart-plus .icon { color: var(--en-ligne); }
+.qg-ecart-moins .icon { color: var(--alert); }
+/* La courbe d'une tuile : le trait et son aire à la teinte du mode, sinon en sourdine ; le dernier seau en point. */
+.qg-etincelle { display: block; width: 100%; height: 30px; margin-top: 4px; overflow: visible; }
+.qg-etincelle-aire { fill: color-mix(in srgb, var(--teinte, var(--qg-encre-2)) 14%, transparent); stroke: none; }
+.qg-etincelle-ligne { fill: none; stroke: var(--teinte, var(--qg-encre-2)); stroke-width: 1.5px; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.qg-etincelle-point { fill: none; stroke: var(--teinte, var(--accent)); stroke-width: 6px; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+/* L'écran d'un graphique : une console, une lueur bleue de plus en haut. */
+.qg-ecran {
+  border-color: var(--qg-trait);
+  background: radial-gradient(120% 70% at 50% -10%, rgba(57, 135, 229, 0.06), transparent 60%), linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0) 120px), var(--qg-console);
   color: var(--ink);
 }
-.qg-graphe { min-width: 0; }
+.qg-graphe { position: relative; min-width: 0; border-radius: var(--radius-xs); outline-offset: 4px; }
 .qg-graphe svg { display: block; width: 100%; height: auto; overflow: visible; touch-action: pan-y; }
 .qg-graphe-grille line { stroke: rgba(255, 255, 255, 0.08); stroke-width: 1px; }
 .qg-graphe-axe text { fill: var(--muted); font-size: 0.75rem; font-variant-numeric: lining-nums tabular-nums; }
 .qg-graphe-total { fill: var(--ink); font-size: 0.8rem; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
 .qg-graphe-cible { fill: transparent; cursor: crosshair; }
 .qg-graphe-choisi { fill: rgba(255, 255, 255, 0.06); }
+/* La période d'avant, en filet pointillé par-dessus les barres : une autre période se compare, elle ne s'empile pas. */
+.qg-avant { fill: none; stroke: var(--qg-encre-2); stroke-width: 1.5px; stroke-dasharray: 4 3; stroke-linejoin: round; opacity: 0.9; pointer-events: none; }
+.qg-pastille-avant { flex: none; width: 14px; height: 2px; background: repeating-linear-gradient(90deg, var(--qg-encre-2) 0 4px, transparent 4px 7px); }
+/* L'infobulle : la valeur d'abord, le nom ensuite ; à côté du seau, jamais hors de la boîte. Au toucher, la lecture dessous. */
+.qg-bulle {
+  position: absolute;
+  top: 6px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 150px;
+  max-width: 260px;
+  padding: 9px 11px;
+  border: 1px solid var(--qg-trait-fort);
+  border-radius: 9px;
+  /* Pleine : à 97 %, les barres d'or passaient encore dessous, en ombres. */
+  background: #101622;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55);
+  color: var(--qg-encre-2);
+  font-size: 0.75rem;
+  pointer-events: none;
+}
+.qg-bulle-titre { margin-bottom: 3px; font: 600 0.6875rem/1.3 var(--qg-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.qg-bulle-ligne { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+.qg-bulle-ligne b { font: 600 0.8125rem/1.35 var(--qg-mono); color: var(--ink); }
+.qg-bulle-cle { flex: none; width: 9px; height: 9px; border-radius: 2px; }
+.qg-bulle-cle-avant { width: 12px; height: 2px; border-radius: 0; background: repeating-linear-gradient(90deg, var(--qg-encre-2) 0 4px, transparent 4px 7px); }
+.qg-bulle-avant { margin-top: 3px; padding-top: 5px; border-top: 1px solid var(--qg-trait); }
+/* Les joueurs de chaque mode, sous leur total : en retrait, sans pastille — ils ne s'empilent pas. */
+.qg-bulle-morceau { padding-left: 14px; }
+.qg-lecture { min-height: 1.4em; margin: 0; font: 500 0.75rem/1.4 var(--qg-mono); color: var(--qg-encre-2); }
+.qg-lecture b { font-weight: 600; color: var(--ink); }
 .qg-mode-soiree { fill: var(--mode-soiree); background: var(--mode-soiree); }
 .qg-mode-campagne { fill: var(--mode-campagne); background: var(--mode-campagne); }
 .qg-mode-cabinet { fill: var(--mode-cabinet); background: var(--mode-cabinet); }
@@ -14516,6 +14827,47 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
 .qg-etat-alerte { color: var(--alert); }
 .qg-sommaire { display: flex; flex-direction: column; gap: 14px; }
 .qg-sommaire .compte-groupe { margin: 6px 0 -4px; }
+/* Ce qui attend un geste : une bande à gauche, rouge pour une alerte, ambre pour le reste — avec son icône, jamais la couleur seule. */
+.qg-traiter .qg-ligne { position: relative; padding-left: 14px; }
+.qg-traiter .qg-ligne::before { content: ''; position: absolute; top: 10px; bottom: 10px; left: 0; width: 3px; border-radius: 0 3px 3px 0; background: var(--qg-veille); }
+.qg-traiter .qg-ligne-alerte::before { background: var(--qg-critique); }
+/* « Toutes les pages », au téléphone : le poste de commande en tête de la feuille, ce qui y attend au bout. */
+.qg-feuille-poste {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  margin-bottom: 10px;
+  padding: 0 14px;
+  border: 1px solid var(--edge-strong);
+  border-radius: var(--radius-xs);
+  background: var(--accent-soft);
+  color: var(--accent-text-hover);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.qg-feuille-poste .icon { flex: none; width: 18px; height: 18px; }
+/* La palette (⌘K) : un champ, puis ce qui y répond, groupé — les pages, la période, les profils. Au téléphone, une
+   feuille haute, pour la garder au-dessus du clavier ; à l'ordinateur, une fenêtre en haut de l'écran. */
+.carte-feuille.qg-palette { height: 88%; }
+.qg-palette-champ { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 12px; border: 1px solid var(--qg-trait-fort); border-radius: 10px; background: rgba(255, 255, 255, 0.03); }
+.qg-palette-champ:focus-within { border-color: rgba(217, 181, 106, 0.55); }
+.qg-palette-champ > .icon { flex: none; width: 18px; height: 18px; color: var(--accent-text); }
+/* Seize pixels au moins : en dessous, l'iPhone agrandit la page au toucher du champ. */
+.qg-palette-champ input { flex: 1; min-width: 0; border: 0; outline: none; background: none; color: var(--ink); font: inherit; font-size: 1rem; }
+.qg-palette-champ input::placeholder { color: var(--muted); }
+.qg-palette-liste { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.qg-palette-groupe { padding: 12px 10px 4px; font: 600 0.6875rem/1 var(--qg-mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.qg-palette-choix { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 10px; border-radius: 8px; color: var(--qg-encre-2); font-size: 0.9rem; cursor: pointer; }
+.qg-palette-choix > .icon { flex: none; width: 16px; height: 16px; }
+.qg-palette-choix[aria-selected='true'] { background: var(--accent-soft); color: var(--accent-text-hover); }
+.qg-palette-nom { min-width: 0; overflow-wrap: anywhere; }
+.qg-palette-detail { margin-left: auto; padding-left: 10px; color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
+.qg-palette-vide { padding: 20px 10px; text-align: center; color: var(--muted); }
+.qg-palette-pied { margin: 12px 0 0; }
 /* Le journal des gestes : un jour, puis ses gestes — la phrase d'abord, l'heure et la sorte dessous. */
 .qg-journal { display: flex; flex-direction: column; gap: 18px; }
 .qg-journal-jour { display: flex; flex-direction: column; gap: 2px; }
@@ -14746,52 +15098,90 @@ span.annonce-admin-merci { cursor: default; }
 .signalements-lien { padding: 10px 14px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); text-decoration: none; }
 .signalements-lien:hover .qg-chevron { color: var(--ink); }
 @media (min-width: 1101px) {
-  /* La barre de côté dans la première colonne, l'en-tête et la page dans la
-     seconde ; la barre du menu s'efface : « Mon compte » est au pied de la
-     barre de côté. */
+  /* Le rail dans la première colonne, toute la hauteur de l'écran ; la barre
+     de commande, la tête et la page dans la seconde. La barre du menu
+     s'efface : « Mon compte » est au pied du rail. */
   .player-shell.qg {
-    max-width: 1440px;
+    --qg-gouttiere: 28px;
+    max-width: none;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
     display: grid;
-    grid-template-columns: 232px minmax(0, 1fr);
-    grid-template-rows: auto auto 1fr;
+    grid-template-columns: 252px minmax(0, 1fr);
+    grid-template-rows: auto auto auto 1fr;
     align-items: start;
-    gap: 0 40px;
-    padding: 28px 32px 40px;
+    gap: 0;
   }
-  .qg > .qg-tete { grid-column: 2; grid-row: 1; margin-bottom: 20px; }
-  .qg > .nav-animateur { grid-column: 2; grid-row: 2; margin-bottom: 20px; }
+  .qg > .qg-commande { grid-column: 2; grid-row: 1; margin: 0; padding: 10px var(--qg-gouttiere); }
+  /* La page ne s'étale pas au-delà de 1720 pixels : sur un écran plus large, elle reste au milieu de sa colonne. */
+  .qg > .qg-tete,
+  .qg > .nav-animateur,
+  .qg > .page-corps { justify-self: center; width: 100%; max-width: 1720px; padding-inline: var(--qg-gouttiere); }
+  .qg > .qg-tete { grid-column: 2; grid-row: 2; padding-top: 22px; padding-bottom: 18px; }
+  .qg > .nav-animateur { grid-column: 2; grid-row: 3; margin-bottom: 18px; }
   /* Son écart à lui : il héritait de celui de la grille, nul entre les rangées, et ses sections se collaient. */
-  .qg > .page-corps { grid-column: 2; grid-row: 3; gap: 18px; }
+  .qg > .page-corps { grid-column: 2; grid-row: 4; gap: 16px; padding-bottom: 64px; }
   .qg > .qg-cote {
     grid-column: 1;
     grid-row: 1 / -1;
     position: sticky;
-    top: 28px;
+    top: 0;
     display: flex;
     flex-direction: column;
-    gap: 20px;
-    padding-right: 20px;
-    border-right: 1px solid color-mix(in srgb, var(--lueur) 18%, transparent);
+    gap: 12px;
+    height: 100vh;
+    height: 100dvh;
+    overflow-y: auto;
+    padding: 14px 12px 18px;
+    border-right: 1px solid var(--qg-trait);
+    background: linear-gradient(180deg, rgba(11, 15, 24, 0.97), rgba(6, 9, 15, 0.97));
+    scrollbar-width: thin;
   }
   .qg > .menu-barre { display: none; }
   body.avec-menu:has(.qg) { padding-bottom: 0; }
   .qg-tete > .jour-sortie { display: none; }
-  .qg-au-telephone { display: none; }
   .qg-a-l-ordinateur { display: inline; }
-  .qg-titre h1 { font-size: 2.4rem; }
-  .qg-vue {
-    grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
-    grid-template-areas: 'direct direct' 'jour jour' 'graphe traiter' 'soirees serveur';
-    gap: 20px;
+  .qg-pages { display: none; }
+  .qg-ariane { display: block; flex: 0 1 auto; }
+  .qg-periodes { order: 0; flex: none; }
+  .qg-periodes button { flex: none; }
+  .qg-bascule { order: 0; }
+  .qg-commande .qg-vif:not(.qg-vif-perdu) { display: inline-flex; }
+  /* L'heure à droite du titre, comme un cadran ; le titre en grand. */
+  .qg-tete { flex-direction: row-reverse; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px 24px; }
+  .qg-quand { padding: 8px 12px; border: 1px solid var(--qg-trait-fort); border-radius: 9px; background: rgba(255, 255, 255, 0.03); color: var(--qg-encre-2); }
+  .qg-titre h1 { font-size: 2.45rem; }
+  /* Le poste de commande : l'état et les chiffres sur toute la largeur, la participation à côté de ce qui attend un geste,
+     puis le direct, les soirées et le serveur côte à côte — la grille de la maquette du 3 novembre 2026. */
+  .qg-poste {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-areas: 'etat etat etat' 'chiffres chiffres chiffres' 'graphe graphe traiter' 'direct soirees serveur';
+    align-items: start;
   }
-  .qg-direct { grid-area: direct; }
-  .qg-jour { grid-area: jour; }
-  .qg-participations { grid-area: graphe; }
-  .qg-traiter { grid-area: traiter; }
-  .qg-soirees { grid-area: soirees; }
-  .qg-serveur { grid-area: serveur; }
+  .qg-etat-du-service { grid-area: etat; }
+  .qg-chiffres { grid-area: chiffres; }
+  .qg-participations { grid-area: graphe; align-self: stretch; }
+  .qg-traiter { grid-area: traiter; align-self: stretch; }
+  .qg-direct { grid-area: direct; align-self: stretch; }
+  .qg-soirees { grid-area: soirees; align-self: stretch; }
+  .qg-serveur { grid-area: serveur; align-self: stretch; }
+  .qg-voyants { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .qg-etat-phrase { font-size: 1.3rem; }
+  .qg-etat-replie .qg-voyant-bloc-ok,
+  .qg-etat-replie .qg-voyant-bloc-inconnu { display: block; }
+  .qg-etat-deplier { display: none; }
+  .qg-tuile-valeur { font-size: 1.9rem; }
+  /* Le direct dans un tiers de la largeur : ses quatre cadrans deux par deux. Une soirée en cours, sa sauvegarde sous
+     son texte, comme au téléphone : au bout de la ligne, elle serrait sa colonne sur cinq lignes. */
+  .qg-poste .qg-cadrans { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .qg-poste .qg-soiree { grid-template-columns: 36px minmax(0, 1fr); }
+  .qg-poste .qg-soiree > .qg-etat { grid-column: 2; }
   .qg-cadrans { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .qg-tuiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  /* La palette, une fenêtre en haut de l'écran, comme celles des outils qu'on ouvre au clavier. */
+  .carte-voile:has(> .qg-palette) { align-items: flex-start; padding-top: max(10vh, 56px); }
+  .carte-feuille.qg-palette { height: auto; max-height: min(72vh, 640px); max-width: 640px; border-bottom: 1px solid var(--edge-strong); border-radius: 14px; }
   .qg-soiree { grid-template-columns: 36px minmax(0, 1fr) auto; }
   .qg-soiree > .qg-etat { grid-column: 3; }
   .qg-soiree:has(> .qg-soiree-geste) { grid-template-columns: 36px minmax(0, 1fr) auto auto; }
@@ -14812,6 +15202,10 @@ span.annonce-admin-merci { cursor: default; }
   .signalement-quand { justify-self: end; }
   .signalement-qui { margin-left: auto; }
   .signalement-question { font-size: 1.65rem; }
+}
+@media (min-width: 1300px) {
+  /* Dix voyants, cinq par rangée dès qu'ils tiennent : deux rangées égales, plutôt que huit et deux. */
+  .qg-voyants { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
 @media (min-width: 1400px) {
   .qg-tuiles { grid-template-columns: repeat(6, minmax(0, 1fr)); }

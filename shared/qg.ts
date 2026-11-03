@@ -15,6 +15,7 @@ import { lesModes } from './pannes'
 // Des types seulement : `qgCampagne.ts` et `qgDuels.ts` lisent leurs jours ici, et rien ne tourne en rond à l'exécution.
 import type { CampagneDeLaVue } from './qgCampagne'
 import type { DuelsDeLaVue } from './qgDuels'
+import type { ActiviteDUnePeriode, PeriodeDuQg } from './qgPeriodes'
 
 /**
  * Les cinq modes de jeu, dans l'ordre de leur pile, du bas vers le haut :
@@ -109,6 +110,13 @@ export interface DirectDuQg {
     /** La part du temps où la boucle travaille : à cent, les réponses attendent leur tour. */
     bouclePct: number | null
     baseP95Ms: number | null
+    /**
+     * Ce qu'un joueur attend à l'instant : le 95ᵉ centile de toutes les routes
+     * d'API sur la dernière minute, et combien d'appels (`Pouls.toutesLesRoutes`)
+     * — le voyant du poste de commande. Absents d'un serveur d'avant.
+     */
+    routesP95Ms?: number | null
+    routesParMin?: number
     connexions: number | null
   }
 }
@@ -185,6 +193,13 @@ export interface VueDEnsemble {
   jour: string
   aujourdhui: Record<TuileDuQg, CompteDuJour>
   participations: ParticipationsDuJour[]
+  /**
+   * Les quatre périodes de la barre du QG 2 — la dernière heure, 24 heures,
+   * sept jours, trente —, chacune ses seaux, ses totaux et la période d'avant
+   * (`shared/qgPeriodes.ts`), tirées des mêmes journaux : la page change de
+   * période sans redemander. Absent d'un serveur d'avant.
+   */
+  periodes?: Record<PeriodeDuQg, ActiviteDUnePeriode>
   /** La campagne sous-mode par sous-mode, tirée des mêmes séries : la page de la campagne ne les relit pas. */
   campagne: CampagneDeLaVue
   /** Les duels contre Automate et contre un joueur, jour par jour, des mêmes séries. */
@@ -300,35 +315,53 @@ export interface SoireeDesParticipations {
   profils?: readonly string[]
 }
 
+/** Une partie jouée seul, telle que la participation la compte : quand, qui, à quel mode. */
+export interface PartieDesParticipations {
+  quand: number
+  qui: string
+  mode: Exclude<ModeDuQg, 'soiree'>
+}
+
+/** Ce qu'un seau de temps a vu : qui a joué, et combien de fois, mode par mode (`participationsParSeau`). */
+export interface SeauDeParticipations {
+  /** Le début du seau ; il finit au début du suivant — le dernier, à maintenant. */
+  debut: number
+  joueurs: number
+  modes: Record<ModeDuQg, number>
+  parties: Record<ModeDuQg, number>
+}
+
 /**
- * Chaque jour, qui a joué et combien de fois, mode par mode. Un profil compte
- * une fois par jour parmi les joueurs, une fois par mode dans son mode ; un
- * invité sans profil, une fois par soirée. Chaque partie jouée seul est une
- * participation, et en soirée chaque invité qui a joué — avec ou sans profil
- * —, au jour où sa soirée a commencé.
+ * Chaque seau de temps — un jour, une heure, cinq minutes —, qui a joué et
+ * combien de fois, mode par mode. Un profil compte une fois par seau parmi
+ * les joueurs, une fois par mode dans son mode ; un invité sans profil, une
+ * fois par soirée. Chaque partie jouée seul est une participation, et en
+ * soirée chaque invité qui a joué — avec ou sans profil —, au seau où sa
+ * soirée a commencé. `debuts`, croissants, bornent les seaux ; ce qui tombe
+ * avant le premier ou après maintenant ne compte pas.
  */
-export function participationsParJour(
-  solo: readonly { quand: number; qui: string; mode: Exclude<ModeDuQg, 'soiree'> }[],
+export function participationsParSeau(
+  solo: readonly PartieDesParticipations[],
   soirees: readonly SoireeDesParticipations[],
-  minuits: readonly number[],
+  debuts: readonly number[],
   maintenant: number,
-): ParticipationsDuJour[] {
-  const jours = minuits.map(() => ({
+): SeauDeParticipations[] {
+  const seaux = debuts.map(() => ({
     tous: new Set<string>(),
     parMode: Object.fromEntries(MODES_DU_QG.map(m => [m, new Set<string>()])) as Record<ModeDuQg, Set<string>>,
     anonymes: 0,
     parties: Object.fromEntries(MODES_DU_QG.map(m => [m, 0])) as Record<ModeDuQg, number>,
   }))
-  const indice = (quand: number) => (quand <= maintenant ? jourDeLInstant(minuits, quand) : -1)
+  const indice = (quand: number) => (quand <= maintenant ? jourDeLInstant(debuts, quand) : -1)
   for (const e of solo) {
-    const j = jours[indice(e.quand)]
+    const j = seaux[indice(e.quand)]
     if (!j) continue
     j.tous.add(e.qui)
     j.parMode[e.mode].add(e.qui)
     j.parties[e.mode]++
   }
   for (const s of soirees) {
-    const j = jours[indice(s.quand)]
+    const j = seaux[indice(s.quand)]
     if (!j) continue
     const profils = new Set(s.profils ?? [])
     for (const p of profils) {
@@ -338,11 +371,24 @@ export function participationsParJour(
     j.anonymes += Math.max(0, s.joueurs - profils.size)
     j.parties.soiree += s.joueurs
   }
-  return joursDesMinuits(minuits).map((jour, i) => {
-    const j = jours[i]
+  return seaux.map((j, i) => {
     const modes = Object.fromEntries(MODES_DU_QG.map(m => [m, j.parMode[m].size + (m === 'soiree' ? j.anonymes : 0)])) as Record<ModeDuQg, number>
-    return { jour, joueurs: j.tous.size + j.anonymes, modes, parties: j.parties }
+    return { debut: debuts[i], joueurs: j.tous.size + j.anonymes, modes, parties: j.parties }
   })
+}
+
+/**
+ * Chaque jour, qui a joué et combien de fois, mode par mode : les seaux d'un
+ * jour de Paris (`participationsParSeau`), nommés par leur jour.
+ */
+export function participationsParJour(
+  solo: readonly PartieDesParticipations[],
+  soirees: readonly SoireeDesParticipations[],
+  minuits: readonly number[],
+  maintenant: number,
+): ParticipationsDuJour[] {
+  const jours = joursDesMinuits(minuits)
+  return participationsParSeau(solo, soirees, minuits, maintenant).map((s, i) => ({ jour: jours[i], joueurs: s.joueurs, modes: s.modes, parties: s.parties }))
 }
 
 // ── Ce qu'on lit ──────────────────────────────────────────────────────────

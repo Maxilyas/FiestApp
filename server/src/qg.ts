@@ -34,6 +34,7 @@ import {
   type SorteDeGeste,
   type VueDEnsemble,
 } from '../../shared/qg'
+import { PERIODES_DU_QG, activiteDeLaPeriode, type ActiviteDUnePeriode, type PeriodeDuQg } from '../../shared/qgPeriodes'
 import { enTranches } from './core/tourniquet'
 import type { CalculEnTranches } from '../../shared/tranches'
 import { campagneDeLaVue } from '../../shared/qgCampagne'
@@ -172,7 +173,7 @@ function boutABout(a: Journaux, b: Journaux): Journaux {
 }
 
 /** Ce que la vue d'ensemble compte de ses journaux et de ses soirées. */
-type ChiffresDeLaVue = Pick<VueDEnsemble, 'aujourdhui' | 'participations' | 'campagne' | 'duels'>
+type ChiffresDeLaVue = Pick<VueDEnsemble, 'aujourdhui' | 'participations' | 'campagne' | 'duels' | 'periodes'>
 
 /**
  * Les chiffres de la vue d'ensemble, un compte par tranche — menés un par
@@ -212,11 +213,18 @@ export function* chiffresDeLaVue(
   yield
   const deLaCampagne = campagneDeLaVue(series, minuits, maintenant)
   yield
+  // Les quatre périodes de la barre du QG 2, une par tranche : chacune repasse les trente jours.
+  const periodes = {} as Record<PeriodeDuQg, ActiviteDUnePeriode>
+  for (const periode of PERIODES_DU_QG) {
+    periodes[periode] = activiteDeLaPeriode(periode, solo, soirees, activite, minuits, maintenant)
+    yield
+  }
   return {
     aujourdhui: { profilsActifs, partiesDuJour, seriesDeCampagne, duels: duelsDuJour, nouveauxProfils, achats },
     participations,
     campagne: deLaCampagne,
     duels: duelsDeLaVue(series, minuits, maintenant),
+    periodes,
   }
 }
 
@@ -300,6 +308,7 @@ export function mountQg(app: Express, deps: QgDeps) {
 
     const memoireMo = memoireDuProcessus()
     const base = pouls.base.lireAvecMediane()
+    const routes = pouls.toutesLesRoutes.lireAvecMediane()
     const sante = deps.backup.sante()
     const charge = deps.charge.lire()
     return {
@@ -316,6 +325,8 @@ export function mountQg(app: Express, deps: QgDeps) {
         cpuPct: charge.cpuPct,
         bouclePct: charge.boucleOccupeePct,
         baseP95Ms: base.n > 0 ? Math.round(base.p95) : null,
+        routesP95Ms: routes.n > 0 ? Math.round(routes.p95) : null,
+        routesParMin: routes.n,
         connexions: deps.io.engine.clientsCount,
       },
     }

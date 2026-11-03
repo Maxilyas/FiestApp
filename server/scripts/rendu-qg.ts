@@ -3,9 +3,12 @@
 // campagne, duels — et quatre-vingt-dix de soirées archivées, une vraie
 // soirée en cours avec deux invités, une autre laissée en plan, des
 // questions du jour signalées par des habitués qui y ont répondu, et la
-// première du défi de la semaine par deux de ses joueurs ; au téléphone
-// (360 × 640, la page entière), en 1366 × 768 et en 1920 × 1080, sous le
-// Velours et sous l'Ivoire, puis une page ouverte de la barre de côté, le
+// première du défi de la semaine par deux de ses joueurs ; le poste de
+// commande au téléphone (360 × 640, la page entière), en 1366 × 768 et en
+// 1920 × 1080 — sur une heure, sur sept jours, comparé à la période d'avant,
+// la palette ouverte (⌘K), « Pages » et les voyants dépliés au téléphone —, et
+// sous un profil qui porte l'Ivoire, que le QG ne prend pas (il dit s'il le
+// prenait), puis une page ouverte du rail, le
 // journal des gestes — quatre d'aujourd'hui par les vraies routes, deux
 // d'hier —, la page des soirées, et la soirée laissée en plan close d'un
 // clic ; la page « Le serveur » sur une semaine inventée — réveils, une mise
@@ -32,6 +35,7 @@
 // construit d'abord (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-qg.ts [dossier]
+//   SEULEMENT=poste,cabinet npx tsx scripts/rendu-qg.ts [dossier]   — ces pages-là, le temps d'une retouche
 import { createRequire } from 'node:module'
 import { spawnSync } from 'node:child_process'
 import { createECDH, randomBytes } from 'node:crypto'
@@ -55,6 +59,10 @@ import { ReleveHoraire } from '../src/core/pouls'
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu-qg')
 mkdirSync(sortie, { recursive: true })
+// `SEULEMENT=poste,serveur` : les pages du QG 2 nommées, chacune sous sa clé (`photo`), le temps d'une retouche — les
+// pages d'avant le QG 2 ne se photographient qu'avec tout le reste, sans elle. Toutes les données s'inventent quand même.
+const SEULEMENT = process.env.SEULEMENT?.split(',').map(s => s.trim()).filter(Boolean) ?? null
+const photo = (cle: string) => !SEULEMENT || SEULEMENT.includes(cle)
 const { chromium } = createRequire(path.join(spawnSync('npm', ['root', '-g'], { encoding: 'utf8' }).stdout.trim(), 'rendu.js'))('playwright')
 
 const H = 3_600_000
@@ -714,7 +722,13 @@ try {
     nom: string,
     largeur: number,
     hauteur: number,
-    { pleine = true, theme, adresse = '/admin', participations = false }: { pleine?: boolean; theme?: string; adresse?: string; participations?: boolean } = {},
+    {
+      pleine = true,
+      theme,
+      adresse = '/admin',
+      participations = false,
+      geste,
+    }: { pleine?: boolean; theme?: string; adresse?: string; participations?: boolean; geste?: (page: any) => Promise<void> } = {},
   ) => {
     const contexte = await navigateur.newContext({ viewport: { width: largeur, height: hauteur }, deviceScaleFactor: largeur < 600 ? 2 : 1 })
     const [cle, valeur] = admin.split('=')
@@ -723,6 +737,9 @@ try {
     // Sans écran, Chromium refuse les notifications quoi qu'on lui accorde : la page des erreurs dirait
     // « refusées ». Un téléphone neuf, lui, n'a encore rien répondu — c'est lui qu'on photographie.
     await page.addInitScript("try { Object.defineProperty(Notification, 'permission', { get: () => 'default' }) } catch {}")
+    // Le thème que porte le profil, retenu par ce navigateur comme après une visite de son accueil (`themeJoueur.ts`) :
+    // le QG, salle de contrôle nocturne, ne doit pas le prendre (le choix du 4 novembre 2026).
+    if (theme) await page.addInitScript(`try { localStorage.setItem('quizz.theme-joueur', ${JSON.stringify(theme)}) } catch {}`)
     page.on('pageerror', (e: Error) => console.error('[page]', e.message))
     await page.goto(`${banc.url}${adresse}`)
     await page.waitForSelector('.qg-tete')
@@ -749,10 +766,14 @@ try {
       await page.waitForSelector('.qg-multiple svg', { timeout: 15000 })
       await page.waitForSelector('.qg-assidu-barre', { timeout: 15000 })
     }
-    // « Jour par jour » compte d'office les joueurs ; ses participations, empilées par mode, d'un toucher.
+    // Le graphique compte d'office les joueurs ; ses participations, empilées par mode, d'un toucher.
     if (participations) await page.click('.qg-participations button:has-text("Participations")')
-    if (theme) await page.evaluate(`document.documentElement.setAttribute('data-theme', ${JSON.stringify(theme)})`)
+    if (geste) await geste(page)
     await page.waitForTimeout(800)
+    if (theme) {
+      const porte = (await page.evaluate('document.documentElement.dataset.theme ?? null')) as string | null
+      if (porte) console.error(`[${nom}] le QG porte le thème du profil (${porte}) : il devrait rester nocturne`)
+    }
     // Rien ne dépasse en largeur : la page ne défile qu'en hauteur.
     const deborde = (await page.evaluate('document.documentElement.scrollWidth - document.documentElement.clientWidth')) as number
     if (deborde > 0) console.error(`[${nom}] la page déborde de ${deborde} px en largeur`)
@@ -761,11 +782,40 @@ try {
     await contexte.close()
   }
 
+  if (photo('poste')) {
   await photographier('1-telephone', 360, 640)
+  // « Pages » ouvre la liste de toutes les pages ; les voyants au vert, repliés au téléphone, se déplient.
+  await photographier('1b-telephone-pages', 360, 640, { pleine: false, geste: page => page.click('.qg-pages') })
+  await photographier('1c-telephone-voyants', 360, 640, { geste: page => page.click('.qg-etat-deplier') })
+  await photographier('1d-telephone-sept-jours', 360, 640, { geste: page => page.click('.qg-periodes button:has-text("7 j")') })
   await photographier('2-ordinateur-1366', 1366, 768)
+  await photographier('2b-ordinateur-une-heure', 1366, 768, { geste: page => page.click('.qg-periodes button:has-text("1 h")') })
+  await photographier('2c-ordinateur-sept-jours-compare', 1366, 768, {
+    geste: async page => {
+      await page.click('.qg-periodes button:has-text("7 j")')
+      await page.click('.qg-bascule')
+      // Le dernier jour survolé : l'infobulle, la valeur d'abord, la période d'avant dessous.
+      const cibles = await page.$$('.qg-participations .qg-graphe-cible')
+      await cibles.at(-3)?.hover()
+    },
+  })
+  await photographier('2d-palette', 1366, 768, {
+    pleine: false,
+    geste: async page => {
+      await page.keyboard.press('Control+K')
+      await page.keyboard.type('eco')
+    },
+  })
   await photographier('3-ordinateur-1920', 1920, 1080)
-  await photographier('4-ordinateur-ivoire', 1366, 768, { theme: 'ivoire' })
-  await photographier('5-telephone-ivoire', 360, 640, { theme: 'ivoire' })
+  await photographier('3b-ordinateur-1920-trente-jours', 1920, 1080, { geste: page => page.click('.qg-periodes button:has-text("30 j")') })
+  await photographier('4-ordinateur-sous-ivoire', 1366, 768, { theme: 'ivoire' })
+  await photographier('5-telephone-sous-ivoire', 360, 640, { theme: 'ivoire' })
+  }
+  // Les pages du QG 2 qui suivront, chacune son bloc `if (photo('<clé>')) { … }`, ici.
+
+  // Les pages d'avant le QG 2 : seulement sans `SEULEMENT`.
+  lesAutresPages: {
+  if (SEULEMENT) break lesAutresPages
   await photographier('5b-participations', 1366, 768, { participations: true })
   await photographier('5c-participations-telephone', 360, 640, { participations: true })
   await photographier('6-page-du-jour', 1366, 768, { adresse: '/admin#jour' })
@@ -1097,6 +1147,7 @@ try {
     await page.screenshot({ path: path.join(sortie, '49-fiche-a-soi-fait.png') })
     console.log(path.join(sortie, '49-fiche-a-soi-fait.png'))
     await contexte.close()
+  }
   }
   host.disconnect()
 } finally {

@@ -416,6 +416,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Portrait (avatar du savoir) | Un des six avatars peints d'une branche, ouvert par un palier pair de son sentier | `PALIER_DU_PORTRAIT` |
 | Portrait du savoir | Un des soixante-douze avatars peints des sentiers du savoir, six par branche, un tous les deux paliers | `PORTRAITS` |
 | Posé (joker) | Un joker de l'expédition posé depuis la main : il agit jusqu'au bout de l'acte — Renaissance, L'aube, Le trésor… —, et ne prend pas la place du joker d'une question | `EtatDeLExpedition.poses`, `sorte: 'poser'` |
+| Poste de commande | La première page du QG (`/admin`) : l'état du service en voyants, ce qui attend un geste, la période choisie dans la barre — ses tuiles et sa participation seau par seau, comparées à la période d'avant —, le direct, les soirées en cours, le serveur | `VueDEnsembleDuQg`, `shared/qgPeriodes.ts` |
 | Pouls | Les mesures de la dernière minute que `/healthz` publie, agrégées et sans un nom | `pouls` |
 | Pour qui ? | Le geste qui remplit le prénom — ou les deux — et l'accord d'un modèle de fête en le copiant | `personnaliser` |
 | Poussière d'or | La monnaie du Cabinet de curiosités, qui n'en sort jamais : chaque visite ou chasse où il répond en rapporte, même ratée — quittée avant toute réponse, rien ; une partie libre, seulement parmi les premières du jour —, et elle achète une œuvre précise ou dore un cadre | `poussiereDeLaPartie` (`shared/cabinet/partie.ts`), `PageDuCabinet.poussiere` |
@@ -435,8 +436,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 
 | Terme | Ce que c'est | Dans le code |
 |---|---|---|
-| QG | La page de l'administrateur : la vue d'ensemble, le journal, la santé du serveur, une page par sujet | `client/src/views/AdminApp.tsx` |
-| Question prête | Une question que la partie jouera : un intitulé, ses réponses et sa bonne réponse, sa photo attendue jointe, ses temps dans les bornes | `toPlayable` |
+| QG | La page de l'administrateur, une salle de contrôle nocturne sous tous les thèmes : le poste de commande, le journal, la santé du serveur, une page par sujet, rangées dans un rail en six groupes | `client/src/views/AdminApp.tsx` || Question prête | Une question que la partie jouera : un intitulé, ses réponses et sa bonne réponse, sa photo attendue jointe, ses temps dans les bornes | `toPlayable` |
 | Question servie | La question montrée au joueur : son chronomètre part à cet instant, et passé l'échéance elle se compte sans réponse à la lecture suivante | `expirer` |
 | Qui dans la salle ? | Une question dont les réponses sont les invités : un vote, sans points ni ligne au journal | `sondage` |
 | Quiz du jour | Dix questions, les mêmes pour tout le serveur, à jouer une fois par jour de Paris avec son profil, chronométrées par le serveur | `server/src/core/jour.ts` |

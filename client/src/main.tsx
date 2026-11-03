@@ -162,8 +162,14 @@ const LISENT_LE_PROFIL = new Set<unknown>([PlayerApp, ProfilApp, JourApp, Campag
 // salon, la soirée, le quiz du jour, le souvenir et le bilan… — portent le
 // thème du profil connecté ici : celui qu'il portait la dernière fois, dès le
 // démarrage (`themeJoueur.ts`), puis celui que dit le serveur. Les fiches du
-// bilan s'impriment en Ivoire (`BilanApp`).
+// bilan s'impriment en Ivoire (`BilanApp`). Le QG, lui, est une salle de
+// contrôle nocturne sous tous les thèmes (le choix du 4 novembre 2026, la
+// proposition du 3 que le propriétaire a faite sienne) : les couleurs de ses
+// graphiques n'ont été vérifiées que sur sa nuit, et sous un thème clair un
+// voyant vert, un rouge, ne se lisaient plus — il garde le Velours, sans
+// rien poser.
 if (App === HostApp) applyTheme()
+else if (App === AdminApp) delete document.documentElement.dataset.theme
 else if (!(route.kind === 'public' && route.page === 'bilan/fiches')) {
   poserThemeRetenu()
   if (!LISENT_LE_PROFIL.has(App)) void confirmerTheme()

@@ -307,7 +307,8 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/profil-unique.test.ts` — un seul profil par personne.
 - `server/test/profils-admin.test.ts` — chercher, supprimer un profil.
 - `server/test/securite.test.ts` — retour après connexion, essais ratés, politique de contenu.
-- `server/test/qg.test.ts` — le direct et la vue d'ensemble du QG ; ses chiffres un compte par tranche, les mêmes qu'en un bloc (`chiffresDeLaVue`).
+- `server/test/qg.test.ts` — le direct et la vue d'ensemble du QG ; ses chiffres un compte par tranche, les mêmes qu'en un bloc (`chiffresDeLaVue`) ; l'état du service en voyants (`etatDuService`) ; le poste de commande rendu.
+- `server/test/qg-periodes.test.ts` — les périodes du poste de commande : leurs seaux — le jour de vingt-cinq heures compris —, leurs totaux, la période d'avant arrêtée au même instant, l'écart qui se dit en chiffre sous vingt.
 - `server/test/journal.test.ts` — le journal des gestes de l'administrateur.
 - `server/test/qg-soirees.test.ts` — les soirées au QG.
 - `server/test/qg-serveur.test.ts` — la santé du serveur sur sept jours.

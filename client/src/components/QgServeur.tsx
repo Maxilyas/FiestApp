@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { api, motifDe } from '../api'
 import { Icon, type IconName } from './Icon'
-import { barreArrondie, useLargeur } from './QgVueDEnsemble'
+import { barreArrondie, useLargeur } from './QgGraphes'
 import { formatNumber } from '../../../shared/typographie'
 import { jourAvant, jourDe } from '../../../shared/jour'
 import { JOURS_DE_LA_SEMAINE, dureeEcrite, graduations, heureEcrite, jourAbrege, jourDeLaSemaine, quandEcrit } from '../../../shared/qg'

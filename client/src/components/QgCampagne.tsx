@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { AvatarEnLigne } from './Avatar'
 import { Chiffre, GrapheDesJours, enPourcentsEcrits } from './QgModes'
-import { barreArrondie, useLargeur } from './QgVueDEnsemble'
+import { barreArrondie, useLargeur } from './QgGraphes'
 import { espacesFines } from '../format'
 import { formatNumber } from '../../../shared/typographie'
 import { jourEnToutesLettres } from '../../../shared/jour'

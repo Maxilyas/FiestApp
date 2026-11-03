@@ -6,7 +6,7 @@ import { AdminCampagne } from '../components/AdminCampagne'
 import { AdminDuels } from '../components/AdminDuels'
 import { AdminEconomie } from '../components/AdminEconomie'
 import { AdminDuJour } from '../components/AdminDuJour'
-import { AdminProfils } from '../components/AdminProfils'
+import { AdminProfils, supprimerLeProfil } from '../components/AdminProfils'
 import { AdminSalons } from '../components/AdminSalons'
 import { AdminSignalements } from '../components/AdminSignalements'
 import { VueDEnsembleDuQg } from '../components/QgVueDEnsemble'
@@ -18,31 +18,38 @@ import { QgActivite } from '../components/QgActivite'
 import { QgMaintenance } from '../components/QgMaintenance'
 import { QgAnnonces } from '../components/QgAnnonces'
 import { QgAffiches } from '../components/QgAffiches'
-import { MenuBarre, Sortie } from '../components/Pieces'
+import { FicheDuJoueurAuQg } from '../components/QgFicheJoueur'
+import { PaletteDuQg } from '../components/QgPalette'
+import { Feuille, MenuBarre, Sortie } from '../components/Pieces'
 import { useAppState } from '../state'
 import { useNouveautesDuMenu } from '../nouveautes'
+import { useComparaisonDuQg, usePeriodeDuQg } from '../qgPeriode'
 import { formatDay } from '../../../shared/archive'
 import { formatNumber } from '../../../shared/typographie'
 import { jourDe, jourEnToutesLettres } from '../../../shared/jour'
 import { heureEcrite, lesChosesATraiter, type DirectDuQg, type VueDEnsemble } from '../../../shared/qg'
+import { NOM_DE_LA_PERIODE, PERIODES_DU_QG, PERIODE_EN_TOUTES_LETTRES } from '../../../shared/qgPeriodes'
+import { etatDuService, phraseDeLEtat } from '../../../shared/qgEtat'
 import type { EspaceDAdministration } from '../../../shared/space'
 import { ceQuiEstPose, PAGES_EN_MAINTENANCE, type EtatDeLaMaintenance } from '../../../shared/maintenance'
 import type { EntreeDuCatalogue, StatutAuCatalogue } from '../../../shared/partage'
 import type { QuizQuestionDef } from '../../../shared/library'
+import type { ProfilDAdministration } from '../../../shared/profil'
 
 /**
  * Le QG de l'administrateur (`/admin`), pour lui seul — le souhait du
  * propriétaire du 13 octobre 2026 : « un vrai QG pour monitorer tous les
- * modes de jeu et avoir un vrai impact dessus ». La vue d'ensemble d'abord
- * (`QgVueDEnsemble.tsx`), le journal de ses gestes (`QgJournal.tsx`), les
- * erreurs à trier et les pannes (`QgErreurs.tsx`) et la santé du serveur
- * sur sept jours (`QgServeur.tsx`), puis
- * une page par sujet, chacune à son adresse (`/admin#jour`) : l'activité de
- * tous les modes (`QgActivite.tsx`), les soirées
- * (`QgSoirees.tsx`), le quiz du jour, la campagne, les profils, les salons,
- * le catalogue, les signalements (`AdminSignalements.tsx`). Au téléphone, la
- * liste des pages sous la vue d'ensemble et la barre du menu ; à
- * l'ordinateur, une barre de côté.
+ * modes de jeu et avoir un vrai impact dessus ». Depuis le 4 novembre 2026,
+ * le QG 2 (la proposition du 3, `retours/2026-11-03/le-qg.md`, que le
+ * propriétaire a faite sienne : « suis tes recommandations […] pratique sur
+ * mobile ») : une salle de contrôle nocturne sous tous les thèmes — elle ne
+ * porte pas celui du profil (`main.tsx`) —, un rail en six groupes, une barre
+ * de commande collée en haut qui dit où l'on est, la période de la page qui en
+ * lit une, l'état du service et la palette (⌘K) ; le poste de commande
+ * d'abord (`QgVueDEnsemble.tsx`), puis une page par sujet, chacune à son
+ * adresse (`/admin#jour`). Au téléphone, la barre se resserre — « Pages » ouvre
+ * la liste de toutes les pages, qui suit aussi le poste de commande — et la
+ * barre du menu reste en bas ; à l'ordinateur, le rail.
  *
  * Il remplace une page à la manière de « Mon compte » (le 3 octobre 2026) —
  * quatre cadrans et cinq lignes —, qui ne disait rien de ce qui se jouait.
@@ -97,27 +104,31 @@ const TITRE: Record<Ecran, string> = {
 }
 
 /**
- * La barre de côté, par groupe ; la vue d'ensemble est `null`. Seules les
- * pages qui existent : « Animer » est venu avec les annonces (le 19 octobre
- * 2026), la mise en avant d'une nouveauté l'a rejoint (le 1er novembre 2026,
- * `QgAffiches`), les événements le rejoindront à leur tour.
- * L'économie se range avec les joueurs, comme sur la maquette : leurs
- * confettis ; l'activité en tête des modes, qu'elle compare.
+ * Le rail, en six groupes — ceux de la proposition du 3 novembre 2026 : la
+ * commande, l'audience, les modes, le contenu, la technique, l'animation ; la
+ * vue d'ensemble, le poste de commande, est `null`. Seules les pages qui
+ * existent : une page rejoint le rail quand elle est là, jamais avant (règle
+ * `qg.md`) — le direct, les alertes, les joueurs, les questions, la base et le
+ * Cabinet y entreront avec la leur.
  */
 const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; icone: IconName }[] }[] = [
   {
-    groupe: 'Piloter',
+    groupe: 'Commande',
     pages: [
-      { ecran: null, nom: 'Vue d’ensemble', icone: 'bar-chart' },
+      { ecran: null, nom: 'Poste de commande', icone: 'bar-chart' },
       { ecran: 'journal', nom: 'Journal', icone: 'list' },
-      // Avant le serveur : on y agit — trier, être prévenu —, quand l'autre se lit.
-      { ecran: 'erreurs', nom: 'Erreurs', icone: 'x-circle' },
-      { ecran: 'serveur', nom: 'Serveur', icone: 'zap' },
-      { ecran: 'maintenance', nom: 'Maintenance', icone: 'alert' },
     ],
   },
   {
-    groupe: 'Les modes',
+    groupe: 'Audience',
+    pages: [
+      { ecran: 'profils', nom: 'Profils', icone: 'users' },
+      { ecran: 'salons', nom: 'Salons', icone: 'home' },
+      { ecran: 'economie', nom: 'Économie', icone: 'bag' },
+    ],
+  },
+  {
+    groupe: 'Modes',
     pages: [
       { ecran: 'activite', nom: 'Activité', icone: 'hash' },
       { ecran: 'soirees', nom: 'Soirées', icone: 'glass' },
@@ -127,18 +138,18 @@ const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; 
     ],
   },
   {
-    groupe: 'Les joueurs',
+    groupe: 'Contenu',
     pages: [
-      { ecran: 'profils', nom: 'Profils', icone: 'users' },
-      { ecran: 'salons', nom: 'Salons', icone: 'home' },
-      { ecran: 'economie', nom: 'Économie', icone: 'bag' },
+      { ecran: 'signalements', nom: 'Signalements', icone: 'flag' },
+      { ecran: 'catalogue', nom: 'Catalogue', icone: 'globe' },
     ],
   },
   {
-    groupe: 'Le contenu',
+    groupe: 'Technique',
     pages: [
-      { ecran: 'catalogue', nom: 'Catalogue', icone: 'globe' },
-      { ecran: 'signalements', nom: 'Signalements', icone: 'flag' },
+      // Avant le serveur : on y agit — trier, être prévenu —, quand l'autre se lit.
+      { ecran: 'erreurs', nom: 'Erreurs', icone: 'x-circle' },
+      { ecran: 'serveur', nom: 'Serveur', icone: 'zap' },
     ],
   },
   {
@@ -146,9 +157,14 @@ const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; 
     pages: [
       { ecran: 'annonces', nom: 'Annonces', icone: 'megaphone' },
       { ecran: 'affiches', nom: 'Nouveautés', icone: 'sparkles' },
+      // Ce qui se ferme et se rouvre : la maintenance dit aux joueurs ce qui ne marche pas, comme une annonce.
+      { ecran: 'maintenance', nom: 'Maintenance', icone: 'alert' },
     ],
   },
 ]
+
+/** Les pages qui lisent la période de la barre : le poste de commande, pour l'instant — le serveur viendra. */
+const LISENT_LA_PERIODE: readonly (Ecran | null)[] = [null]
 
 /**
  * Le direct se relit toutes les dix secondes — en mémoire et dans la base
@@ -171,8 +187,14 @@ export function AdminApp() {
   const [vueEnPanne, setVueEnPanne] = useState(false)
   const [profils, setProfils] = useState<number>()
   const [espaces, setEspaces] = useState<EspaceDAdministration[]>()
-  /** Le bandeau et les pages fermées : la barre de côté les rappelle, de toutes les pages — on ne laisse pas une page fermée sans le voir. */
+  /** Le bandeau et les pages fermées : le rail les rappelle, de toutes les pages — on ne laisse pas une page fermée sans le voir. */
   const [maintenance, setMaintenance] = useState<EtatDeLaMaintenance | null>(null)
+  const [periode, setPeriode] = usePeriodeDuQg()
+  const [comparer, setComparer] = useComparaisonDuQg()
+  /** Ce qui s'ouvre par-dessus la page : la liste des pages au téléphone, la palette, la fiche d'un joueur trouvé par la palette. */
+  const [toutes, setToutes] = useState(false)
+  const [palette, setPalette] = useState(false)
+  const [fiche, setFiche] = useState<Pick<ProfilDAdministration, 'id' | 'nom'> | null>(null)
   /** Ce que son propre profil a de neuf à porter : la pastille de « Profil », dans la barre du téléphone. */
   const nouveautes = useNouveautesDuMenu(true)
   // Une lecture à la fois : l'hébergeur qui se réveille tient une requête trente secondes.
@@ -209,7 +231,7 @@ export function AdminApp() {
       )
       .finally(() => (enVol.current.vue = false))
   }
-  /** Les comptes de la barre de côté et de la liste des pages, relus en revenant d'une page : on y a peut-être supprimé, rattaché. */
+  /** Les comptes du rail et de la liste des pages, relus en revenant d'une page : on y a peut-être supprimé, rattaché. */
   const relireLesComptes = () => {
     api.admin.profils('').then(l => setProfils(l.total), () => {})
     api.admin.espaces().then(setEspaces, () => {})
@@ -253,8 +275,24 @@ export function AdminApp() {
     }
   }, [estAdmin])
 
-  /** Une page du QG, à son adresse : la barre de côté y va de l'une à l'autre, le retour du navigateur revient. */
+  // La palette de partout : ⌘K, Ctrl+K, ou « / » hors d'un champ — jamais par-dessus une fenêtre déjà ouverte.
+  useEffect(() => {
+    if (!estAdmin) return
+    const touche = (e: KeyboardEvent) => {
+      const dansUnChamp = e.target instanceof HTMLElement && (e.target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))
+      const raccourci = (e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey)
+      if (!raccourci && !(e.key === '/' && !dansUnChamp && !e.metaKey && !e.ctrlKey && !e.altKey)) return
+      if (document.querySelector('.carte-voile, .dialog-backdrop')) return
+      e.preventDefault()
+      setPalette(true)
+    }
+    document.addEventListener('keydown', touche)
+    return () => document.removeEventListener('keydown', touche)
+  }, [estAdmin])
+
+  /** Une page du QG, à son adresse : le rail y va de l'une à l'autre, le retour du navigateur revient. */
   const aller = (e: Ecran | null) => {
+    setToutes(false)
     if (e === ecran) return
     history.pushState({ ...history.state, depuisAdmin: true }, '', e ? `/admin#${e}` : '/admin')
     setEcran(e)
@@ -329,9 +367,105 @@ export function AdminApp() {
   ]
     .filter(Boolean)
     .join(' · ')
+  // L'état du service, en un mot dans la barre : ce que les voyants du poste de commande disent en grand.
+  const etat = phraseDeLEtat(etatDuService(direct, vue?.aTraiter.serveur ?? null))
+  const lisLaPeriode = LISENT_LA_PERIODE.includes(ecran)
+  const groupeDeLEcran = PAGES_DU_QG.find(g => g.pages.some(p => p.ecran === ecran))?.groupe ?? 'Commande'
+  const nomDeLEcran = ecran ? TITRE[ecran] : 'Poste de commande'
+
+  /** La pastille d'une page : ce qui y attend un geste ; sinon, son compte. */
+  const pastilleDe = (e: Ecran | null) => {
+    const siennes = e === null ? choses : choses.filter(c => c.ecran === e)
+    const pastille = e === 'signalements' ? signalees : e === 'maintenance' ? posees : siennes.length
+    const compte = e ? comptes[e] : undefined
+    return pastille > 0 ? (
+      <span className={'qg-pastille' + (e === 'maintenance' || siennes.some(c => c.alerte) ? ' qg-pastille-alerte' : '')}>
+        {pastille}
+        <span className="sr-only">{e === 'signalements' ? ' à relire' : e === 'maintenance' ? ` : ${enMaintenance}` : ' à traiter'}</span>
+      </span>
+    ) : (
+      compte !== undefined && <span className="qg-compte">{formatNumber(compte)}</span>
+    )
+  }
+
+  /** Toutes les pages, chacune ce qu'on y trouve ou ce qui y attend : sous le poste de commande au téléphone, et dans sa feuille. */
+  const listeDesPages = (
+    <ul className="style-liste">
+      <Ligne icone="hash" nom="L’activité" valeur="Le volume des modes, qui joue à quoi" onClick={() => aller('activite')} />
+      <Ligne
+        icone="glass"
+        nom="Les soirées"
+        valeur={enPlan > 0 ? `${enPlan} laissée${enPlan > 1 ? 's' : ''} en plan` : enCours ? `${enCours} en cours` : 'Le bilan du mois'}
+        onClick={() => aller('soirees')}
+      />
+      <Ligne
+        icone="sun"
+        nom="Le quiz du jour"
+        valeur={
+          duPublic > 0
+            ? `${duPublic} question${duPublic > 1 ? 's' : ''} du public à relire`
+            : reserve
+              ? `${reserve.joursDAvance} jour${reserve.joursDAvance > 1 ? 's' : ''} d’avance`
+              : 'La réserve'
+        }
+        onClick={() => aller('jour')}
+      />
+      <Ligne icone="target" nom="La campagne" valeur="Sentiers, défi, Cabinet" onClick={() => aller('campagne')} />
+      <Ligne icone="swords" nom="Les duels" valeur="Ligues, classement, en attente" onClick={() => aller('duels')} />
+      <Ligne icone="users" nom="Les profils" valeur={profils === undefined ? 'Chercher, supprimer' : formatNumber(profils)} onClick={() => aller('profils')} />
+      <Ligne icone="home" nom="Les salons" valeur={espaces ? formatNumber(espaces.length) : 'Renommer, fermer'} onClick={() => aller('salons')} />
+      <Ligne icone="bag" nom="L’économie" valeur="Confettis, ventes, Éclats" onClick={() => aller('economie')} />
+      <Ligne icone="globe" nom="Le catalogue" valeur={aRelire > 0 ? `${aRelire} à relire` : 'Relire, publier'} onClick={() => aller('catalogue')} />
+      <Ligne icone="flag" nom="Les signalements" valeur={signalees > 0 ? `${signalees} à relire` : 'Corriger, reclasser'} onClick={() => aller('signalements')} />
+      <Ligne icone="list" nom="Le journal" valeur="Tes gestes" onClick={() => aller('journal')} />
+      <Ligne icone="x-circle" nom="Les erreurs" valeur={desErreurs > 0 ? `${desErreurs} à traiter` : 'Trier, être prévenu'} onClick={() => aller('erreurs')} />
+      <Ligne icone="zap" nom="Le serveur" valeur={duServeur > 0 ? `${duServeur} à traiter` : 'Sept jours'} onClick={() => aller('serveur')} />
+      <Ligne icone="alert" nom="La maintenance" valeur={enMaintenance || 'Bandeau, pages fermées, testeurs'} onClick={() => aller('maintenance')} />
+      <Ligne icone="megaphone" nom="Les annonces" valeur="Un mot à tous, des confettis" onClick={() => aller('annonces')} />
+      <Ligne icone="sparkles" nom="Les nouveautés" valeur="Une affiche, « Nouveau » sur un bouton" onClick={() => aller('affiches')} />
+    </ul>
+  )
 
   return (
     <div className="player-shell compte admin qg">
+      {/* La barre de commande, collée en haut : où l'on est, la période de la page, l'état du service, la palette. */}
+      <header className="qg-commande">
+        <button type="button" className="qg-bouton qg-pages" onClick={() => setToutes(true)} aria-label="Toutes les pages du QG">
+          <Icon name="list" />
+          <span>Pages</span>
+        </button>
+        <span className="qg-ariane">
+          {groupeDeLEcran} <span aria-hidden="true">›</span> <b>{nomDeLEcran}</b>
+        </span>
+        {lisLaPeriode && (
+          <div className="qg-periodes" role="group" aria-label="La période de la page">
+            {PERIODES_DU_QG.map(p => (
+              <button key={p} type="button" aria-pressed={periode === p} title={`Voir ${PERIODE_EN_TOUTES_LETTRES[p]}`} onClick={() => setPeriode(p)}>
+                {NOM_DE_LA_PERIODE[p]}
+              </button>
+            ))}
+          </div>
+        )}
+        {lisLaPeriode && (
+          <button type="button" className="qg-bascule" aria-pressed={comparer} onClick={() => setComparer(!comparer)} title="La période d’avant en filet sur le graphique">
+            <span className="qg-interrupteur" aria-hidden="true" />
+            Comparer
+          </button>
+        )}
+        <span className="qg-commande-droite">
+          <EnDirect direct={direct} enPanne={directEnPanne} />
+          <button type="button" className={'qg-etat-pastille' + (etat.aRegarder > 0 ? ' qg-etat-pastille-alerte' : '')} onClick={() => aller(null)}>
+            <i className={`qg-voyant qg-voyant-${etat.aRegarder > 0 ? 'critique' : direct ? 'ok' : 'inconnu'}`} aria-hidden="true" />
+            {etat.aRegarder > 0 ? `${etat.aRegarder} à regarder` : direct ? 'Au vert' : 'État…'}
+          </button>
+          <button type="button" className="qg-bouton qg-chercher" onClick={() => setPalette(true)} aria-label="Aller à… (⌘K)">
+            <Icon name="search" />
+            <span className="qg-a-l-ordinateur">Aller à…</span>
+            <kbd className="qg-a-l-ordinateur">⌘K</kbd>
+          </button>
+        </span>
+      </header>
+
       <header className="qg-tete">
         {ecran ? (
           <Sortie vers="Le QG" href="/admin" onClick={revenir} />
@@ -339,17 +473,8 @@ export function AdminApp() {
           <span className="qg-quand">{instant ? `${jourEnToutesLettres(jourDe(instant))} · ${heureEcrite(instant)}` : 'Toi seul'}</span>
         )}
         <div className="qg-titre">
-          <h1>
-            {ecran ? (
-              TITRE[ecran]
-            ) : (
-              <>
-                <span className="qg-au-telephone">Le QG</span>
-                <span className="qg-a-l-ordinateur">Vue d’ensemble</span>
-              </>
-            )}
-          </h1>
-          {!ecran && <EnDirect direct={direct} enPanne={directEnPanne} />}
+          <span className="qg-surtitre">{groupeDeLEcran}</span>
+          <h1>{nomDeLEcran}</h1>
         </div>
       </header>
 
@@ -357,31 +482,24 @@ export function AdminApp() {
       {!me.profil && <NavAnimateur ici="admin" slug={me.space.slug} admin />}
       <nav className="qg-cote" aria-label="Les pages du QG">
         <div className="qg-marque">
-          <span className="qg-marque-nom">Le QG</span>
-          {direct && <span className="etiquette">{direct.serveur.env === 'production' ? 'Production' : direct.serveur.env}</span>}
+          <span className="qg-marque-logo" aria-hidden="true">
+            QG
+          </span>
+          <span className="qg-marque-nom">
+            Le QG
+            <small>Salle de contrôle</small>
+          </span>
+          {direct && <span className="etiquette qg-env">{direct.serveur.env === 'production' ? 'Production' : direct.serveur.env}</span>}
         </div>
         {PAGES_DU_QG.map(({ groupe, pages }) => (
           <div key={groupe} className="qg-groupe">
             <span className="qg-groupe-titre">{groupe}</span>
-            {pages.map(p => {
-              // Ce qui attend un geste sur la page : tout, pour la vue d'ensemble.
-              const siennes = p.ecran === null ? choses : choses.filter(c => c.ecran === p.ecran)
-              const pastille = p.ecran === 'signalements' ? signalees : p.ecran === 'maintenance' ? posees : siennes.length
-              const compte = p.ecran ? comptes[p.ecran] : undefined
-              return (
-                <LienDuQg key={p.nom} ici={ecran === p.ecran} href={p.ecran ? `/admin#${p.ecran}` : '/admin'} icone={p.icone} onAller={() => aller(p.ecran)}>
-                  {p.nom}
-                  {pastille > 0 ? (
-                    <span className={'qg-pastille' + (p.ecran === 'maintenance' || siennes.some(c => c.alerte) ? ' qg-pastille-alerte' : '')}>
-                      {pastille}
-                      <span className="sr-only">{p.ecran === 'signalements' ? ' à relire' : p.ecran === 'maintenance' ? ` : ${enMaintenance}` : ' à traiter'}</span>
-                    </span>
-                  ) : (
-                    compte !== undefined && <span className="qg-compte">{formatNumber(compte)}</span>
-                  )}
-                </LienDuQg>
-              )
-            })}
+            {pages.map(p => (
+              <LienDuQg key={p.nom} ici={ecran === p.ecran} href={p.ecran ? `/admin#${p.ecran}` : '/admin'} icone={p.icone} onAller={() => aller(p.ecran)}>
+                {p.nom}
+                {pastilleDe(p.ecran)}
+              </LienDuQg>
+            ))}
           </div>
         ))}
         <a className="lien-discret qg-retour" href="/compte">
@@ -393,65 +511,21 @@ export function AdminApp() {
       <main className="page-corps">
         {ecran === null && (
           <>
-            <VueDEnsembleDuQg vue={vue} direct={direct} vueEnPanne={vueEnPanne} directEnPanne={directEnPanne} ouvrir={aller} />
-            {/* Au téléphone, les pages sous la vue d'ensemble ; à l'ordinateur, la barre de côté les tient. */}
+            <VueDEnsembleDuQg vue={vue} direct={direct} vueEnPanne={vueEnPanne} directEnPanne={directEnPanne} ouvrir={aller} periode={periode} comparer={comparer} />
+            {/* Au téléphone, les pages sous le poste de commande ; à l'ordinateur, le rail les tient. */}
             <nav className="qg-sommaire" aria-labelledby="qg-pages-titre">
               <h2 className="compte-groupe" id="qg-pages-titre">
                 Toutes les pages
               </h2>
-              <ul className="style-liste">
-                <Ligne icone="hash" nom="L’activité" valeur="Le volume des modes, qui joue à quoi" onClick={() => aller('activite')} />
-                <Ligne
-                  icone="glass"
-                  nom="Les soirées"
-                  valeur={
-                    enPlan > 0
-                      ? `${enPlan} laissée${enPlan > 1 ? 's' : ''} en plan`
-                      : enCours
-                        ? `${enCours} en cours`
-                        : 'Le bilan du mois'
-                  }
-                  onClick={() => aller('soirees')}
-                />
-                <Ligne
-                  icone="sun"
-                  nom="Le quiz du jour"
-                  valeur={
-                    duPublic > 0
-                      ? `${duPublic} question${duPublic > 1 ? 's' : ''} du public à relire`
-                      : reserve
-                        ? `${reserve.joursDAvance} jour${reserve.joursDAvance > 1 ? 's' : ''} d’avance`
-                        : 'La réserve'
-                  }
-                  onClick={() => aller('jour')}
-                />
-                <Ligne icone="target" nom="La campagne" valeur="Sentiers, défi" onClick={() => aller('campagne')} />
-                <Ligne icone="swords" nom="Les duels" valeur="Ligues, classement, en attente" onClick={() => aller('duels')} />
-                <Ligne icone="users" nom="Les profils" valeur={profils === undefined ? 'Chercher, supprimer' : formatNumber(profils)} onClick={() => aller('profils')} />
-                <Ligne icone="home" nom="Les salons" valeur={espaces ? formatNumber(espaces.length) : 'Renommer, fermer'} onClick={() => aller('salons')} />
-                <Ligne icone="bag" nom="L’économie" valeur="Confettis, ventes, Éclats" onClick={() => aller('economie')} />
-                <Ligne icone="globe" nom="Le catalogue" valeur={aRelire > 0 ? `${aRelire} à relire` : 'Relire, publier'} onClick={() => aller('catalogue')} />
-                <Ligne
-                  icone="flag"
-                  nom="Les signalements"
-                  valeur={signalees > 0 ? `${signalees} à relire` : 'Corriger, reclasser'}
-                  onClick={() => aller('signalements')}
-                />
-                <Ligne icone="list" nom="Le journal" valeur="Tes gestes" onClick={() => aller('journal')} />
-                <Ligne icone="x-circle" nom="Les erreurs" valeur={desErreurs > 0 ? `${desErreurs} à traiter` : 'Trier, être prévenu'} onClick={() => aller('erreurs')} />
-                <Ligne icone="zap" nom="Le serveur" valeur={duServeur > 0 ? `${duServeur} à traiter` : 'Sept jours'} onClick={() => aller('serveur')} />
-                <Ligne icone="alert" nom="La maintenance" valeur={enMaintenance || 'Bandeau, pages fermées, testeurs'} onClick={() => aller('maintenance')} />
-                <Ligne icone="megaphone" nom="Les annonces" valeur="Un mot à tous, des confettis" onClick={() => aller('annonces')} />
-                <Ligne icone="sparkles" nom="Les nouveautés" valeur="Une affiche, « Nouveau » sur un bouton" onClick={() => aller('affiches')} />
-              </ul>
+              {listeDesPages}
             </nav>
           </>
         )}
         {ecran === 'journal' && <QgJournal />}
-        {/* Un tri change ce qui sonne : la ligne de « À traiter », et la pastille de la barre de côté, se relisent. */}
+        {/* Un tri change ce qui sonne : la ligne de « À traiter », et la pastille du rail, se relisent. */}
         {ecran === 'erreurs' && <QgErreurs apresUnTri={relireLaVue} />}
         {ecran === 'serveur' && <QgServeur versLesErreurs={() => aller('erreurs')} />}
-        {/* Chaque geste rend l'état d'après : la barre de côté le compte aussitôt. La panne réglée, l'annonce qui le dit à tous. */}
+        {/* Chaque geste rend l'état d'après : le rail le compte aussitôt. La panne réglée, l'annonce qui le dit à tous. */}
         {ecran === 'maintenance' && <QgMaintenance onEtat={setMaintenance} versLesAnnonces={() => aller('annonces')} />}
         {ecran === 'annonces' && <QgAnnonces />}
         {/* L'état de la maintenance : une page fermée, l'affiche le dit avant de la poser. */}
@@ -466,12 +540,51 @@ export function AdminApp() {
         {ecran === 'campagne' && <AdminCampagne vue={vue} versLesSignalements={() => aller('signalements')} />}
         {ecran === 'duels' && <AdminDuels vue={vue} />}
         {ecran === 'economie' && <AdminEconomie />}
-        {/* Un geste referme des signalements : ce qui attend, et la pastille de la barre de côté, se relisent. */}
+        {/* Un geste referme des signalements : ce qui attend, et la pastille du rail, se relisent. */}
         {ecran === 'signalements' && <AdminSignalements apresUnGeste={relireLaVue} />}
 
         {toast && <div className={`toast toast-${toast.kind}`}>{toast.message}</div>}
       </main>
       <MenuBarre ici="compte" nouveautes={nouveautes} />
+
+      {toutes && (
+        <Feuille titre="Toutes les pages du QG" onFermer={() => setToutes(false)}>
+          <button type="button" className="qg-feuille-poste" onClick={() => aller(null)}>
+            <Icon name="bar-chart" />
+            Poste de commande
+            {pastilleDe(null)}
+          </button>
+          {listeDesPages}
+        </Feuille>
+      )}
+      {palette && (
+        <PaletteDuQg
+          pages={PAGES_DU_QG.flatMap(g => g.pages.map(p => ({ ...p, groupe: g.groupe })))}
+          aller={aller}
+          periode={lisLaPeriode ? periode : null}
+          changerDePeriode={setPeriode}
+          comparer={comparer}
+          changerLaComparaison={setComparer}
+          ouvrirLeProfil={setFiche}
+          onFermer={() => setPalette(false)}
+        />
+      )}
+      {fiche && (
+        <Feuille titre={fiche.nom} onFermer={() => setFiche(null)}>
+          <FicheDuJoueurAuQg
+            key={fiche.id}
+            profil={fiche}
+            onChange={f => setFiche({ id: f.id, nom: f.nom })}
+            onSupprimer={p => {
+              void supprimerLeProfil(p).then(fait => {
+                if (!fait) return
+                setFiche(null)
+                relireLesComptes()
+              })
+            }}
+          />
+        </Feuille>
+      )}
     </div>
   )
 }
@@ -487,7 +600,7 @@ function EnDirect({ direct, enPanne }: { direct: DirectDuQg | null; enPanne: boo
   )
 }
 
-/** Un lien de la barre de côté : une vraie adresse, pour l'onglet d'à côté ; un clic simple reste dans la page. */
+/** Un lien du rail : une vraie adresse, pour l'onglet d'à côté ; un clic simple reste dans la page. */
 function LienDuQg({ ici, href, icone, onAller, children }: { ici: boolean; href: string; icone: IconName; onAller: () => void; children: ReactNode }) {
   return (
     <a
