@@ -21,7 +21,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import React from 'react'
 import Database from 'better-sqlite3'
-import { ProfileStore } from '../src/auth/profiles'
+import { ProfileStore, cleDeSoiree } from '../src/auth/profiles'
 import {
   MATIERES,
   MATIERES_A_TAILLER,
@@ -33,7 +33,7 @@ import {
   peutSeTailler,
   tablesDeLaMatiere,
 } from '../../shared/matieres'
-import { apparenceDeLAvatar, distinctions, eclatChez } from '../../shared/profil'
+import { apparenceDeLAvatar, distinctions, eclatChez, gainVide, releveVide } from '../../shared/profil'
 
 // Le client compile son JSX pour un `React` global : posé avant tout import
 // d'un composant — et une page, que la fin d'une partie lit en s'important.
@@ -272,22 +272,39 @@ test('les quatre réunies ouvrent l’Opale ; une soirée retirée reprend sa ma
     assert.equal(profils.apparenceDe(apres).eclat, true)
   }))
 
-test('une matière ne compte pas pour La Pluie d’Éclats, qui compte les avatars éclatés', () =>
+test('une matière compte pour La Pluie d’Éclats comme un avatar qui éclate, rangée sous l’Éclat qui l’a taillée', () =>
+  // Le choix du propriétaire du 3 novembre 2026 : tailler une matière est un Éclat de plus sur ses avatars.
   dansUneBase(async (profils, id, _ouvrir, lire) => {
     ProfileStore.tirageEclat = () => true
+    const pluie = () => lire(db => db.prepare(`SELECT badge, soiree_id FROM profile_badges WHERE profile_id = ? AND badge LIKE 'hf:eclats:%' ORDER BY badge`).all(id))
     try {
+      // 🦊 éclate, puis deux Éclats tombent sur lui : ils attendent en réserve, et ne comptent pas encore.
       assert.equal((await profils.tirerUnEclat(id, 'jour:2026-11-01', 40))?.avatar, '🦊')
       await profils.tirerUnEclat(id, 'jour:2026-11-02', 40)
       await profils.tirerUnEclat(id, 'jour:2026-11-03', 40)
+      assert.deepEqual(pluie(), [{ badge: 'hf:eclats:1', soiree_id: 'jour:2026-11-01' }])
+      // Taillés en jade et en corail : trois Éclats sur ses avatars — l'argent tombe à la taille qui les fait trois, sous
+      // le jour de l'Éclat qui l'a taillée, comme un avatar qu'une réserve fait éclater.
       await profils.update(id, { matiereDeReserve: { cle: '🦊', matiere: 'jade' } })
+      assert.deepEqual(pluie(), [{ badge: 'hf:eclats:1', soiree_id: 'jour:2026-11-01' }], 'deux Éclats : pas encore l’argent')
       await profils.update(id, { matiereDeReserve: { cle: '🦊', matiere: 'corail' } })
-      assert.equal(profils.eclatsOf(id).length, 1)
-      const paliers = lire(db => db.prepare(`SELECT badge FROM profile_badges WHERE profile_id = ? AND badge LIKE 'hf:eclats:%' ORDER BY badge`).all(id)) as { badge: string }[]
-      assert.deepEqual(
-        paliers.map(p => p.badge),
-        ['hf:eclats:1'],
-        'trois Éclats, mais un seul avatar éclaté',
-      )
+      assert.deepEqual(pluie(), [
+        { badge: 'hf:eclats:1', soiree_id: 'jour:2026-11-01' },
+        { badge: 'hf:eclats:2', soiree_id: 'jour:2026-11-03' },
+      ])
+      assert.equal(profils.eclatsOf(id).length, 1, 'un seul avatar éclaté')
+      assert.equal(profils.eclatsPosesOf(id), 3)
+      // La carrière la compte aussi — sa jauge dans l'album, la clôture d'une soirée.
+      assert.equal((await profils.careerOf(id)).eclats, 3)
+
+      // Une matière taillée par l'Éclat d'une soirée qui se joue encore ne compte pas, comme son avatar ne compterait
+      // pas : la soirée, écartée, se compte en base (`eclatsHors`) — et l'Éclat de la réserve, lui, jamais.
+      await profils.creditSoiree({ profileId: id, soireeId: 'essai', spaceId: 'salon', gain: gainVide(), releve: releveVide(), xp: 0 })
+      await profils.donnerUnEclat(id, '🦊', 'essai')
+      assert.equal((await profils.careerOf(id, new Set([cleDeSoiree('salon', 'essai')]))).eclats, 3, 'en réserve, il ne compte nulle part')
+      await profils.update(id, { matiereDeReserve: { cle: '🦊', matiere: 'obsidienne' } })
+      assert.equal((await profils.careerOf(id)).eclats, 4)
+      assert.equal((await profils.careerOf(id, new Set([cleDeSoiree('salon', 'essai')]))).eclats, 3, 'l’essai écarté emporte sa matière')
     } finally {
       ProfileStore.tirageEclat = () => false
     }

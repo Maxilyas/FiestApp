@@ -610,8 +610,11 @@ export const HAUTS_FAITS_DE_CARRIERE: HautFaitDeCarriere[] = [
     famille: 'carriere',
     emoji: '✨',
     title: 'La Pluie d’Éclats',
-    mesure: 'avatars éclatés',
-    mesureUne: 'avatar éclaté',
+    // Depuis le 3 novembre 2026, une matière taillée compte comme un avatar
+    // qui éclate (le choix du propriétaire) : « avatars éclatés » mentait à
+    // qui en avait taillé.
+    mesure: 'Éclats sur tes avatars',
+    mesureUne: 'Éclat sur tes avatars',
     paliers: [1, 3, 6],
     valeur: c => c.eclats,
   },
@@ -895,7 +898,7 @@ export function xpDe(cle: string): number {
 
 /**
  * Ce qu'un palier demande, tel qu'on l'écrit sous son titre : « 2000 réponses
- * envoyées », « 1 avatar éclaté », « 3 salles complètes du Cabinet » — et
+ * envoyées », « 1 Éclat sur tes avatars », « 3 salles complètes du Cabinet » — et
  * « Niveau 20 » pour La Légende, qui ne se compte pas.
  */
 export function regleDuPalier(h: HautFaitDeCarriere, palier: number): string {
@@ -996,10 +999,11 @@ export function paliersDuNiveau(niveau: number): string[] {
 }
 
 /**
- * Les paliers de La Pluie d'Éclats qu'un compte d'avatars éclatés fait
- * atteindre. Elle se juge aussi là où l'Éclat se tire hors des soirées — le
- * quiz du jour, le défi de la semaine : qui n'y jouait qu'eux voyait sa
- * collection éclater sans jamais son palier.
+ * Les paliers de La Pluie d'Éclats qu'un compte d'Éclats sur ses avatars —
+ * les avatars éclatés et les matières taillées — fait atteindre. Elle se
+ * juge aussi là où l'Éclat se tire hors des soirées — le quiz du jour, le
+ * défi de la semaine : qui n'y jouait qu'eux voyait sa collection éclater
+ * sans jamais son palier —, et là où une réserve se dépense.
  */
 export function paliersDesEclats(eclats: number): string[] {
   const pluie = HAUTS_FAITS_DE_CARRIERE.find(h => h.key === 'hf:eclats')!

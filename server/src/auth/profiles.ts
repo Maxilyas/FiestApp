@@ -1933,6 +1933,19 @@ export class ProfileStore {
     return [...(this.eclats.get(id) ?? [])]
   }
 
+  /**
+   * Ce que La Pluie d'Éclats compte : chaque Éclat posé sur ses avatars —
+   * un avatar qui a éclaté, et chaque matière taillée dans l'un d'eux (le
+   * choix du propriétaire du 3 novembre 2026 : tailler une matière est un
+   * Éclat de plus, il compte comme les autres). La réserve n'y est pas : elle
+   * attend ; l'Opale non plus, que les quatre ouvrent sans Éclat de plus.
+   */
+  eclatsPosesOf(id: string): number {
+    let n = this.eclats.get(id)?.size ?? 0
+    for (const taillees of this.matieres.get(id)?.values() ?? []) n += taillees.size
+    return n
+  }
+
   /** Ceux qu'il a éteints pour porter leur version d'origine — toujours parmi les siens. */
   eteintsOf(id: string): string[] {
     const siens = this.eclats.get(id)
@@ -3955,7 +3968,7 @@ export class ProfileStore {
       this.savoirHorsSoirees(p.id),
     ])
     const carriere = carriereDe(soirees, {
-      eclats: this.eclatsOf(p.id).length,
+      eclats: this.eclatsPosesOf(p.id),
       niveau: this.niveauOf(p),
       jour,
       campagne,
@@ -5141,8 +5154,8 @@ export class ProfileStore {
       if (!(e instanceof Error && e.message === 'Cet Éclat n’est plus là')) reserve.add(uid)
       throw e
     }
-    // Une matière ne fait éclater aucun avatar : La Pluie d'Éclats, qui compte les avatars, n'a rien de neuf à compter.
-    if (!taillee) await this.accorderPaliersDesEclats(profileId, sous).catch(e => console.error('[éclat] paliers non rangés :', e))
+    // Un avatar qui éclate ou une matière taillée : un Éclat de plus sur ses avatars, que La Pluie d'Éclats compte.
+    await this.accorderPaliersDesEclats(profileId, sous).catch(e => console.error('[éclat] paliers non rangés :', e))
   }
 
   /**
@@ -5160,17 +5173,19 @@ export class ProfileStore {
   }
 
   /**
-   * Combien d'avatars ont éclaté pour lui, sans ceux des soirées écartées
-   * (leurs noms). Les Éclats ne portent que le nom de la soirée : un nom
-   * d'avant l'empreinte de l'espace partagé avec une soirée écartée l'écarte
-   * aussi — un palier qui attend, jamais un palier de trop.
+   * Combien d'Éclats il a posés sur ses avatars (`eclatsPosesOf`), sans ceux
+   * des soirées écartées (leurs noms). Les Éclats ne portent que le nom de la
+   * soirée : un nom d'avant l'empreinte de l'espace partagé avec une soirée
+   * écartée l'écarte aussi — un palier qui attend, jamais un palier de trop.
    */
   private async eclatsHors(profileId: string, noms: ReadonlySet<string>): Promise<number> {
-    if (noms.size === 0) return this.eclatsOf(profileId).length
+    if (noms.size === 0) return this.eclatsPosesOf(profileId)
     const res = await this.client.execute({ sql: 'SELECT soiree_id, avatar FROM profile_eclats WHERE profile_id = ?', args: [profileId] })
-    // Un Éclat en réserve n'a pas encore éclaté : il ne compte pas. Une
-    // matière taillée non plus — La Pluie d'Éclats compte les avatars éclatés.
-    return res.rows.filter(r => !estEnReserve(String(r.avatar)) && !estUneLigneDeMatiere(String(r.avatar)) && !noms.has(String(r.soiree_id))).length
+    // Un Éclat en réserve n'a pas encore été posé : il ne compte pas. Une
+    // matière taillée, si — sauf celle que le catalogue ne connaît plus, que
+    // la mémoire ne garde pas non plus (`lireUneLigneDEclat`).
+    const pose = (avatar: string) => !estEnReserve(avatar) && (!estUneLigneDeMatiere(avatar) || lireCleDeMatiere(avatar) !== null)
+    return res.rows.filter(r => pose(String(r.avatar)) && !noms.has(String(r.soiree_id))).length
   }
 
   // ── L'étagère ───────────────────────────────────────────────────────────
@@ -6264,7 +6279,7 @@ export class ProfileStore {
     const rec = await this.byId(profileId)
     const jour = await this.statsDuJourDe(profileId)
     if (soirees.length === toutes.length) {
-      return carriereDe(soirees, { eclats: this.eclatsOf(profileId).length, niveau: rec ? this.niveauOf(rec) : 1, jour })
+      return carriereDe(soirees, { eclats: this.eclatsPosesOf(profileId), niveau: rec ? this.niveauOf(rec) : 1, jour })
     }
     // Les soirées écartées ont aussi porté l'expérience du profil, et peut-
     // être un Éclat : les laisser dans le niveau ou le compte d'Éclats, c'était

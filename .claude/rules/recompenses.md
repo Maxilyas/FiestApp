@@ -74,10 +74,16 @@ paths:
   d'`eteint`, et ne se croit que tant qu'il l'a (`eclatChez`, la même règle au
   serveur et au client — sinon sa version rare). Un avatar éclaté seulement,
   chaque matière une fois, jamais un Divin ni un compagnon (`peutSeTailler` :
-  son Éclat ouvre sa métamorphose). Elle ne compte pas pour La Pluie
-  d'Éclats, qui compte des avatars éclatés (`eclatsOf`) — un choix à
-  reprendre avec le propriétaire —, et un champ qui lit `profile_eclats`
-  ligne à ligne écarte aussi `estUneLigneDeMatiere` (`eclatsHors`). L'Éclat
+  son Éclat ouvre sa métamorphose). Elle compte pour La Pluie d'Éclats comme
+  un avatar qui éclate (le choix du propriétaire, le même jour : sa mesure
+  dit « Éclats sur tes avatars ») — un seul compte, `eclatsPosesOf`, que la
+  carrière, la fiche du profil et `eclatsHors` (une soirée en cours écartée,
+  en base) lisent, et sa taille fait juger la piste comme un avatar qu'une
+  réserve fait éclater (`depenserUnEclat`) ; `eclats` (`eclatsOf`) reste la
+  liste des avatars éclatés, qu'elle ne rejoint pas — un champ qui lit
+  `profile_eclats` ligne à ligne pour les avatars écarte donc
+  `estUneLigneDeMatiere`, et l'Opale, qu'aucun Éclat ne paie, ne compte
+  jamais. L'Éclat
   d'un joueur voyage tel quel dans le champ `eclat` — `true` ou sa matière
   (`EclatPorte`) : un `{ eclat: true }` recopié la perdait en route
   (`matieres.test.ts` relit les sources).
