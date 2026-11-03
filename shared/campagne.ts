@@ -20,6 +20,7 @@ import type { EtatDuCarnet, SuiteDeLaRevision } from './revision'
 import type { BordureDeLigue, CleDeLigue, CoteApresLeDuel, EnjeuDuDuel, JoueurCroise, SemaineDesDuels } from './duels'
 import type { IssueDUnSignalement } from './qgSignalements'
 import { QUESTIONS_D_UNE_TRANCHE, dUneTraite, type CalculEnTranches } from './tranches'
+import type { EclatPorte } from './matieres'
 
 /** Les vies d'une série : la troisième erreur la termine. */
 export const VIES = 3
@@ -809,7 +810,7 @@ export interface LigneDuDefi {
   niveau: number
   finition?: Finition
   legendaire?: string
-  eclat?: true
+  eclat?: EclatPorte
   laurier?: LaurierPorte
   /** Sa bordure de ligue des duels, autour de son avatar (`ProfileStore.bordureDe`). */
   bordure?: BordureDeLigue
@@ -983,7 +984,8 @@ export const DEFIS_RECUS_MONTRES = 10
 export interface SonApparence {
   finition?: Finition
   legendaire?: string
-  eclat?: true
+  /** Sa version rare, ou la matière qu'il en porte : telle quelle (`EclatPorte`). */
+  eclat?: EclatPorte
   /** La bordure de ligue qu'il porte, là où ses duels sont lus avec lui (`bordurePortee`). */
   bordure?: BordureDeLigue
 }

@@ -4,6 +4,7 @@ import { portrait as portraitDe, type CleDeBranche } from '../../../shared/branc
 import { Cercle } from './Cercle'
 import { dessinDuPortrait, useDessins } from './medaillons'
 import type { ImageDePortrait } from './portraits/outils'
+import { MATRICE_DE_LA_LUMIERE, enMatiere, tablesDeLaMatiere, type Matiere } from '../../../shared/matieres'
 
 /**
  * Les portraits des branches : soixante-douze avatars peints, qui se
@@ -25,8 +26,12 @@ import type { ImageDePortrait } from './portraits/outils'
  *   par-dessus l'un comme l'autre ;
  * - **éclaté**, il passe sous le ciel rare de sa branche : le personnage
  *   garde ses couleurs — faire tourner les teintes comme celles d'un emoji
- *   rendait les visages verts —, c'est tout ce qui l'entoure qui change, et
- *   les paillettes de l'Éclat font le reste (`.av-eclat`) ;
+ *   rendait les visages verts —, c'est tout ce qui l'entoure qui change ;
+ *   dans une liste, où ce ciel ne se lit plus, la gemme de l'Éclat le dit
+ *   (`.av-eclat`) ;
+ * - **taillé** dans une matière (`shared/matieres.ts`), tout son tableau y
+ *   passe, le personnage compris — sa lumière devient la porcelaine, le
+ *   jade… : une matière est une figurine, d'une seule pierre ;
  * - **pas encore gagné**, il n'en reste que la forme, en silhouette dorée
  *   sur un disque sombre, comme un légendaire — qui déborde déjà : on sait
  *   ce qu'on veut avant de l'avoir.
@@ -105,6 +110,8 @@ interface EtatPeint {
   grand: boolean
   /** Le ciel rare de sa branche, pour l'Éclat. */
   rare: [string, string, string]
+  /** La matière que d'autres Éclats y ont taillée, qu'il porte : tout le tableau y passe. */
+  matiere: Matiere | null
 }
 
 const canal = (hex: string, k: number) => (parseInt(hex.slice(1 + 2 * k, 3 + 2 * k), 16) / 255).toFixed(3)
@@ -137,9 +144,20 @@ function peint(image: ImageDePortrait, palier: number, u: string, e: EtatPeint) 
       `<mask id="${u}_forme" ${grand} maskUnits="userSpaceOnUse"><g filter="url(#${u}_blanc)">${perso}</g></mask>`
   }
   let scene = `<rect ${grand} fill="url(#${u}_fond)"/>`
+  // Taillé, son tableau d'origine passe entier dans la matière — ce qui sort
+  // du disque aussi (plus bas) : le ciel rare et le personnage gardé en
+  // couleurs se fondraient dans la même pierre.
+  const dansLaMatiere = (morceau: string) => (e.matiere ? `<g filter="url(#${u}_matiere)">${morceau}</g>` : morceau)
+  if (e.matiere && !e.verrouille) {
+    const [r, g, b] = tablesDeLaMatiere(e.matiere)
+    defs +=
+      `<filter id="${u}_matiere" ${grand} filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">` +
+      `<feColorMatrix type="matrix" values="${MATRICE_DE_LA_LUMIERE}"/>` +
+      `<feComponentTransfer><feFuncR type="table" tableValues="${r}"/><feFuncG type="table" tableValues="${g}"/><feFuncB type="table" tableValues="${b}"/></feComponentTransfer></filter>`
+  }
   if (e.verrouille) scene += silhouette
   else if (!image.disque) scene += perso
-  else if (!e.eclate) scene += `<image href="${image.disque[taille]}" x="0" y="0" width="100" height="100"/>`
+  else if (!e.eclate || e.matiere) scene += `<image href="${image.disque[taille]}" x="0" y="0" width="100" height="100"/>`
   else {
     // Éclaté, le décor passe sous le ciel rare de sa branche — sa lumière
     // devient ses couleurs, du sombre au clair —, et le personnage, posé
@@ -175,10 +193,10 @@ function peint(image: ImageDePortrait, palier: number, u: string, e: EtatPeint) 
       `<filter id="${u}_fondu" ${grand} filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="3"/></filter>` +
       `<mask id="${u}_dehors" ${grand} maskUnits="userSpaceOnUse"><g filter="url(#${u}_fondu)"><rect x="${x}" y="${y}" width="${l}" height="${h}" fill="#fff"/></g>` +
       `<circle cx="50" cy="50" r="${rayon - 0.5}" fill="#000"/></mask>`
-    apres += `<g class="pt-debord" mask="url(#${u}_dehors)">${e.verrouille ? silhouette : perso}</g>`
+    apres += `<g class="pt-debord" mask="url(#${u}_dehors)">${e.verrouille ? silhouette : dansLaMatiere(perso)}</g>`
   }
   if (palier === 5 && !e.verrouille) apres += ETOILES.map(([x, y, r]) => etoile(x, y, r)).join('')
-  return { defs, avant, scene, apres, rayon }
+  return { defs, avant, scene: e.verrouille ? scene : dansLaMatiere(scene), apres, rayon }
 }
 
 interface Props {
@@ -188,8 +206,8 @@ interface Props {
   verrouille?: boolean
   /** La finition de celui qui le porte : elle devient son cercle. Absente, ou Mat, l'anneau de son palier — un simple filet aux trois premiers. */
   finition?: Finition
-  /** L'Éclat est tombé sur lui : il passe sous le ciel rare de sa branche. */
-  eclat?: boolean
+  /** L'Éclat est tombé sur lui : il passe sous le ciel rare de sa branche — ou dans la matière qu'il en porte. */
+  eclat?: boolean | Matiere
   /** Regardé en grand — la fin de soirée, la carte — : un portrait peint prend ses grands fichiers. */
   grand?: boolean
   className?: string
@@ -202,6 +220,7 @@ export function Portrait({ cle, verrouille, finition, eclat, grand, className }:
   const p = portraitDe(cle)
   // Verrouillé, il n'a ni version éclatée ni cercle : il n'est pas encore à lui.
   const eclate = !!eclat && !verrouille
+  const matiere = eclate && typeof eclat === 'string' ? eclat : null
   const cercle = !!finition && finition !== 'mat' && !verrouille
   // `useId` rend des deux-points, que `url(#…)` n'aime pas. La clé du
   // portrait et tout ce qui change ses définitions entrent dans le préfixe —
@@ -210,7 +229,7 @@ export function Portrait({ cle, verrouille, finition, eclat, grand, className }:
   // premier dégradé d'un nom gagne. Le cerf éclaté de l'une prenait le ciel
   // du cerf ordinaire de l'autre, et le classement en Argent d'une planche
   // l'or de la case d'avant.
-  const etat = (verrouille ? 'v' : eclate ? 'e' : 'n') + (cercle ? 'c' + finition : '') + (grand ? 'g' : '')
+  const etat = (verrouille ? 'v' : eclate ? 'e' : 'n') + (matiere ? 'm' + matiere : '') + (cercle ? 'c' + finition : '') + (grand ? 'g' : '')
   const u = `pt-${cle.slice(3)}-${etat}-${brut.replace(/[^a-zA-Z0-9-]/g, '')}-`
   // Des chaînes écrites dans ce fichier et dans `portraits/`, jamais une
   // donnée d'invité, posées d'un bloc — et peintes une fois par état : React
@@ -221,7 +240,7 @@ export function Portrait({ cle, verrouille, finition, eclat, grand, className }:
   // une soixantaine de portraits.
   const peinture = useMemo(() => {
     if (!p || !dessin) return null
-    const [a, b, c] = verrouille ? NUIT : eclate ? CIELS_RARES[p.branche] : dessin.fond
+    const [a, b, c] = verrouille ? NUIT : eclate && !matiere ? CIELS_RARES[p.branche] : dessin.fond
     const disque =
       `<radialGradient id="${u}_fond" cx="50%" cy="30%" r="80%"><stop offset="0" stop-color="${a}"/><stop offset=".55" stop-color="${b}"/><stop offset="1" stop-color="${c}"/></radialGradient>`
     const { defs, avant, scene, apres, rayon } = peint(dessin.image, p.rang, u, {
@@ -230,6 +249,7 @@ export function Portrait({ cle, verrouille, finition, eclat, grand, className }:
       cercle,
       grand: !!grand,
       rare: CIELS_RARES[p.branche],
+      matiere,
     })
     return {
       defs: { __html: disque + `<clipPath id="${u}_clip"><circle cx="50" cy="50" r="${rayon}"/></clipPath>` + defs },
@@ -237,14 +257,15 @@ export function Portrait({ cle, verrouille, finition, eclat, grand, className }:
       scene: { __html: scene },
       apres: apres ? { __html: apres } : null,
     }
-  }, [p, dessin, verrouille, eclate, cercle, grand, u])
+  }, [p, dessin, verrouille, eclate, matiere, cercle, grand, u])
   if (!p || !peinture) return null
   const classes = ['pt', `pt-${p.branche}`]
   if (verrouille) classes.push('pt-verrou')
   if (eclate) classes.push('pt-eclate')
+  if (matiere) classes.push('pt-matiere')
   if (className) classes.push(className)
   classes.push(`pt-palier-${p.rang + 1}`)
-  const titre = verrouille ? `${p.nom} — pas encore gagné` : eclate ? `${p.nom}, éclaté` : p.nom
+  const titre = verrouille ? `${p.nom} — pas encore gagné` : matiere ? `${p.nom}, ${enMatiere(matiere)}` : eclate ? `${p.nom}, éclaté` : p.nom
   return (
     <svg className={classes.join(' ')} viewBox="0 0 100 100" role="img" aria-label={titre}>
       <title>{titre}</title>

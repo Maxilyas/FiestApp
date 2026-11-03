@@ -28,7 +28,8 @@ import { avatarMontre, avatarsNeufs, avecLEssai, bordureNeuve, type Essai } from
 import { avatarDeLApercu } from '../../../shared/sonAvatar'
 import { GerbeDeJuste } from './Gerbe'
 import { cleDeMaitre, maitresDe, nomDuTitre } from '../../../shared/sentiers'
-import { FINITIONS, NOM_FINITION, brilleChez, clesQuiBrillent, meilleureFinition, type Finition, type FinitionChoisie, type PublicProfileDetail } from '../../../shared/profil'
+import { FINITIONS, NOM_FINITION, brilleChez, clesQuiBrillent, eclatChez, meilleureFinition, type Finition, type FinitionChoisie, type PublicProfileDetail } from '../../../shared/profil'
+import { NOM_DE_LA_MATIERE, enMatiere, matieresATailler, peutSeTailler, type Matiere, type MatiereTaillee } from '../../../shared/matieres'
 import type { PropsDUnePiece } from './choix'
 
 // Les pièces de la loge (« M'habiller », au profil), chacune dans son
@@ -168,7 +169,9 @@ export function MesAvatars(props: PropsDUnePiece) {
           <span className="loge-reserve-texte">
             <b>{reserve === 1 ? '✨ Un Éclat en réserve' : `✨ ${reserve} Éclats en réserve`}</b>
             <span className="muted small">
-              {choisit ? 'Chacun se montre éclaté : touche celui que tu veux voir en grand.' : 'Choisis l’avatar qui éclate : il change de couleurs, pour toujours.'}
+              {choisit
+                ? 'Chacun se montre éclaté — un avatar déjà éclaté, dans sa matière à tailler : touche celui que tu veux voir en grand.'
+                : 'Choisis l’avatar qui éclate — ou, déjà éclaté, la matière qu’il prend : pour toujours.'}
             </span>
           </span>
           {/* Un nom fixe, l'état par aria-pressed : « Annuler » à la place de « Choisir » se lisait comme un autre bouton. */}
@@ -195,7 +198,10 @@ export function MesAvatars(props: PropsDUnePiece) {
         className="gemmes-loge"
       />
       <div className="loge-page-avatars" role="tabpanel" id="loge-page-avatars" aria-labelledby={`loge-gemme-${page.page}`}>
-        {choisit && regarde && (
+        {choisit && regarde && regarde.restantes && (
+          <ApercuDeLaMatiere regarde={{ ...regarde, restantes: regarde.restantes }} tailler={props.tailler} onAutre={() => setRegarde(null)} onTaille={() => setChoisit(false)} />
+        )}
+        {choisit && regarde && !regarde.restantes && (
           <ApercuDeLEclat
             regarde={regarde}
             eclater={props.eclater}
@@ -209,11 +215,13 @@ export function MesAvatars(props: PropsDUnePiece) {
   )
 }
 
-/** Un avatar regardé avant l'Éclat : sa clé, son nom, et son dessin d'origine ou éclaté. */
+/** Un avatar regardé avant l'Éclat : sa clé, son nom, et son dessin d'origine, éclaté ou dans une matière. */
 export interface AvatarRegarde {
   cle: string
   nom: string
-  dessin: (eclat: boolean) => ReactNode
+  dessin: (eclat: boolean | Matiere) => ReactNode
+  /** Déjà éclaté : les matières qu'un Éclat peut encore y tailler (`shared/matieres.ts`) ; absent, il éclate. */
+  restantes?: MatiereTaillee[]
 }
 
 /**
@@ -277,6 +285,69 @@ function ApercuDeLEclat({
 }
 
 /**
+ * Un avatar déjà éclaté, et les matières qu'un Éclat peut encore y tailler
+ * (`shared/matieres.ts`), chacune dessinée en grand — puis « Tailler en
+ * jade » : la dépense, définitive, se fait à vue, comme celle de l'Éclat. La
+ * dernière ouvre l'Opale : elle le dit.
+ */
+function ApercuDeLaMatiere({
+  regarde,
+  tailler,
+  onAutre,
+  onTaille,
+}: {
+  regarde: AvatarRegarde & { restantes: MatiereTaillee[] }
+  tailler?: (cle: string, matiere: MatiereTaillee) => Promise<boolean>
+  onAutre: () => void
+  onTaille: () => void
+}) {
+  const apercu = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    apercu.current?.scrollIntoView?.({ block: 'nearest' })
+  }, [regarde.cle])
+  const [choisie, setChoisie] = useState<MatiereTaillee>(regarde.restantes[0])
+  // Un autre avatar regardé : sa première matière à tailler.
+  useEffect(() => {
+    setChoisie(regarde.restantes[0])
+  }, [regarde.cle])
+  const [enRoute, setEnRoute] = useState(false)
+  const faireTailler = async () => {
+    if (enRoute || !regarde.restantes.includes(choisie)) return
+    setEnRoute(true)
+    try {
+      if (await tailler?.(regarde.cle, choisie)) onTaille()
+    } finally {
+      setEnRoute(false)
+    }
+  }
+  const qui = regarde.nom === regarde.cle ? 'Cet avatar' : regarde.nom
+  const derniere = regarde.restantes.length === 1
+  return (
+    <div ref={apercu} className="loge-apercu-eclat loge-apercu-matiere" role="group" aria-label={`${regarde.nom}, ses matières à tailler`}>
+      <div className="loge-matieres" role="group" aria-label="La matière à tailler">
+        {regarde.restantes.map(m => (
+          <button key={m} type="button" className="loge-matiere-choix" aria-pressed={choisie === m} onClick={() => setChoisie(m)}>
+            <span className="loge-apercu-avatar">{regarde.dessin(m)}</span>
+            <span className="small">{NOM_DE_LA_MATIERE[m]}</span>
+          </button>
+        ))}
+      </div>
+      <p className="muted small" role="status">
+        {`${qui}, taillé ${enMatiere(choisie)}, pour toujours : ton Éclat en réserve y passe.${derniere ? ' C’est la dernière : avec elle, l’Opale s’ouvre.' : ''}`}
+      </p>
+      <div className="loge-apercu-gestes">
+        <button type="button" className="btn btn-primary" aria-disabled={enRoute || undefined} onClick={() => void faireTailler()}>
+          {`Tailler ${enMatiere(choisie)}`}
+        </button>
+        <button type="button" className="btn btn-ghost" onClick={onAutre}>
+          En regarder un autre
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/**
  * La grille d'une page, sans état : ses cases — chacune essaie son avatar —,
  * puis ce qui reste sur la même page de l'album, compté, et son chemin.
  * Chaque case est dessinée par `Avatar`, qui fait venir son dessin : un
@@ -305,6 +376,11 @@ export function PageDAvatars({
   const montre = avatarMontre(profil, essai)
   const tenue = avecLEssai(profil, essai)
   const brille = (cle: string) => brilleChez(tenue, cle)
+  // Ce que la case dessine : sa version rare, ou la matière qu'il en porte (`shared/matieres.ts`).
+  const version = (cle: string) => eclatChez(tenue, cle)
+  // Déjà éclaté, un avatar prend encore les matières qui lui manquent — ni un compagnon, ni un Divin.
+  const aTailler = (cle: string): MatiereTaillee[] | null =>
+    profil.eclats.includes(cle) && peutSeTailler(cle) ? matieresATailler(profil.matieres?.[cle] ?? []) : null
   // Neuve : arrivée depuis son dernier passage, ou qui vient d'éclater.
   const estNeuf = avatarsNeufs(neufs)
   const dessine = (cle: string): EtatDUneCase => ({ montre: montre.legendaire === cle, porte: profil.legendaire === cle, neuve: estNeuf(cle) })
@@ -315,27 +391,32 @@ export function PageDAvatars({
   })
   // Un Éclat en réserve se dépense sur un avatar à lui qui n'a pas éclaté (qu'il brille ou soit éteint) ; un Divin n'éclate jamais.
   const eclatable = (cle: string) => !divin(cle) && clesQuiBrillent(profil.eclats, cle).length === 0
-  const laCase = (cle: string, etat: EtatDUneCase, label: string, piece: Essai, dessin: (eclat: boolean) => ReactNode, anneau = '', nom = cle) => {
+  const laCase = (cle: string, etat: EtatDUneCase, label: string, piece: Essai, dessin: (eclat: boolean | Matiere) => ReactNode, anneau = '', nom = cle) => {
     // Le choix de l'Éclat est un autre mode de la grille : chaque case qui
     // peut éclater se montre déjà éclatée, et la toucher l'ouvre en grand,
     // avant et après ; les autres s'éteignent. Rien ne s'essaie.
     if (aEclater) {
       const peut = eclatable(cle)
+      // Déjà éclaté, il se taille dans une matière qui lui manque ; ses quatre taillées, il ne prend plus rien.
+      const restantes = peut ? null : aTailler(cle)
+      const taillable = !!restantes && restantes.length > 0
+      const vise = peut || taillable
       // Ce que la case est, pas un état qui bascule : elle peut éclater ou non, pour toute la visite.
-      const dit = `${label}, ${peut ? 'montré éclaté' : 'ne peut pas éclater'}`
+      const dit = `${label}, ${peut ? 'montré éclaté' : taillable ? 'à tailler dans une matière' : restantes ? 'ne peut plus rien prendre' : 'ne peut pas éclater'}`
       return (
         <button
           key={cle}
           type="button"
-          className={'loge-case case-avatar' + anneau + (peut ? ' eclatable' : ' hors-eclat') + (regarde === cle ? ' selected' : '')}
-          aria-disabled={peut ? undefined : true}
-          aria-pressed={peut ? regarde === cle : undefined}
+          className={'loge-case case-avatar' + anneau + (peut ? ' eclatable' : taillable ? ' taillable' : ' hors-eclat') + (regarde === cle ? ' selected' : '')}
+          aria-disabled={vise ? undefined : true}
+          aria-pressed={vise ? regarde === cle : undefined}
           aria-label={dit}
           onClick={() => {
             if (peut) onRegarder?.({ cle, nom, dessin })
+            else if (taillable) onRegarder?.({ cle, nom, dessin, restantes })
           }}
         >
-          {dessin(peut || brille(cle))}
+          {dessin(peut || version(cle))}
         </button>
       )
     }
@@ -348,13 +429,13 @@ export function PageDAvatars({
         aria-label={label + ceQueDitLaCase(etat)}
         onClick={() => essayer(piece)}
       >
-        {dessin(brille(cle))}
+        {dessin(version(cle))}
       </button>
     )
   }
   // Un médaillon dans sa case, sans finition ni emoji dessous : la finition se voit sur la carte.
-  const medaillon = (cle: string) => (eclat: boolean) => <Avatar avatar="" legendaire={cle} eclat={eclat} />
-  const unEmoji = (cle: string) => (eclat: boolean) => <Avatar avatar={cle} eclat={eclat} />
+  const medaillon = (cle: string) => (eclat: boolean | Matiere) => <Avatar avatar="" legendaire={cle} eclat={eclat} />
+  const unEmoji = (cle: string) => (eclat: boolean | Matiere) => <Avatar avatar={cle} eclat={eclat} />
   const eclate = (cle: string) => (brille(cle) ? ', éclaté' : '')
   /** La case d'un avatar : son dessin, ce qu'elle dit à l'oreille, son anneau, ce qu'elle essaie. */
   const uneCase = (cle: string) => {

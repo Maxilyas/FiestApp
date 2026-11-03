@@ -263,7 +263,10 @@ const source = (fichier: string) => readFileSync(new URL(`../../client/src/${fic
 test('l’éclat d’un avatar porté se calcule partout par cibleEclat, et s’éteint partout où il l’a éteint', () => {
   // La page du compte calculait l'Éclat sur l'emoji caché sous un légendaire.
   // Et un Éclat qu'il a éteint doit s'éteindre sur chaque page qui le montre :
-  // un `eclats.includes` direct l'y rallumerait (`brilleChez`).
+  // un `eclats.includes` direct l'y rallumerait (`brilleChez`). Depuis les
+  // matières (le 3 novembre 2026), il s'y montre aussi dans celle qu'il porte :
+  // `brilleChez` seul le rendait en version rare — la page « Compte » le
+  // faisait (`eclatChez`, qui lit `brilleChez` d'abord).
   const racine = new URL('../../client/src/', import.meta.url)
   const fautifs: string[] = []
   let vus = 0
@@ -272,9 +275,9 @@ test('l’éclat d’un avatar porté se calcule partout par cibleEclat, et s’
     const texte = readFileSync(new URL(f.replace(/\\/g, '/'), racine), 'utf8')
     for (const m of texte.matchAll(/<Avatar\b[^>]*?\/>/gs)) {
       const el = m[0]
-      if (!/legendaire=/.test(el) || !/eclats\.includes\(|brilleChez\(/.test(el)) continue
+      if (!/legendaire=/.test(el) || !/eclats\.includes\(|brilleChez\(|eclatChez\(/.test(el)) continue
       vus++
-      if (!/cibleEclat\(/.test(el) || !/brilleChez\(/.test(el)) fautifs.push(`client/src/${f}:${texte.slice(0, m.index).split('\n').length}`)
+      if (!/cibleEclat\(/.test(el) || !/eclatChez\(/.test(el)) fautifs.push(`client/src/${f}:${texte.slice(0, m.index).split('\n').length}`)
     }
   }
   assert.ok(vus >= 3, `la garde trouve les avatars portés (${vus})`)
@@ -293,13 +296,13 @@ test('ce que la salle voit, la page le montre : laurier, légendaire, surnom et 
   assert.match(apparence, /export function MesFinitions[\s\S]*?const vu = avecLEssai\(profil, essai\)[\s\S]*?const divinPorte = divin\(vu\.legendaire\)/)
   assert.match(
     source('components/LogeTete.tsx'),
-    /<Avatar\s+className="player-avatar big"\s+avatar=\{vu\.avatar\}\s+finition=\{vu\.finition\}\s+eclat=\{brilleChez\(vu, cibleEclat\(vu\.legendaire \?\? undefined, vu\.avatar\)\)\}\s+legendaire=\{vu\.legendaire \?\? undefined\}/,
+    /<Avatar\s+className="player-avatar big"\s+avatar=\{vu\.avatar\}\s+finition=\{vu\.finition\}\s+eclat=\{eclatChez\(vu, cibleEclat\(vu\.legendaire \?\? undefined, vu\.avatar\)\)\}\s+legendaire=\{vu\.legendaire \?\? undefined\}/,
   )
   assert.match(apparence, /a sa propre lumière/)
   // La marque « (2) » n'est pas un surnom.
   assert.match(source('components/CarteJoueur.tsx'), /p\.prenom !== partsDuNomAffiche\(carte\.nom\)\.prenom/)
   // Un légendaire verrouillé n'a rien qui éclate, ni version à choisir — ni un Divin, qui n'éclate pas, ni
-  // un compagnon, dont l'Éclat n'a pas de version rare : ses paillettes le disent, et sa métamorphose a sa case.
+  // un compagnon, dont l'Éclat n'a pas de version rare : sa gemme le dit, et sa métamorphose a sa case.
   const album = source('components/AlbumDesAvatars.tsx')
   assert.match(album, /const eclate = aLui && a\.sorte !== 'divin' && a\.sorte !== 'compagnon' && profil\.eclats\.includes\(a\.cle\)/)
   assert.match(album, /\{eclate && <ChoixDeLEclat /)

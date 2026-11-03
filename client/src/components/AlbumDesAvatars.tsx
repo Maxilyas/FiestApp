@@ -29,7 +29,7 @@ import { legendaire } from '../../../shared/legendaires'
 import { salleDuGardien } from '../../../shared/cabinet/salles'
 import { divin } from '../../../shared/divins'
 import { compagnonDe, formeDeCompagnon, nomDeLaForme } from '../../../shared/compagnons'
-import { brilleChez, type PublicProfileDetail } from '../../../shared/profil'
+import { brilleChez, eclatChez, type PublicProfileDetail } from '../../../shared/profil'
 
 // L'album « Mes avatars », dans « Ma collection » (la maquette 1, choisie le
 // 13 octobre 2026) : tous les avatars qui se gagnent, une page par rareté —
@@ -192,7 +192,7 @@ export function FicheDeLAvatar({
   const inconnu = a.sorte === 'divin' && !recit
   const aller = aLui ? null : ouAller(a.cle, voies)
   // Un Divin descendu n'éclate jamais ; un compagnon n'a pas de version rare
-  // à choisir — ses paillettes le suivent, et sa métamorphose a sa case — ;
+  // à choisir — sa gemme le suit, et sa métamorphose a sa case — ;
   // les autres, s'il est tombé sur eux.
   const eclate = aLui && a.sorte !== 'divin' && a.sorte !== 'compagnon' && profil.eclats.includes(a.cle)
   return (
@@ -242,7 +242,7 @@ export function FicheDeLAvatar({
           Essayer
         </a>
       )}
-      {eclate && <ChoixDeLEclat brille={brilleChez(profil, a.cle)} busy={false} />}
+      {eclate && <ChoixDeLEclat brille={brilleChez(profil, a.cle)} busy={false} matiere={profil.matieresPortees?.[a.cle] ?? null} taillees={profil.matieres?.[a.cle]} />}
       {voies.length > 0 && (
         <>
           <span className="label album-etiquette">{aLui ? 'Comment il se gagne' : 'Comment l’obtenir'}</span>
@@ -300,7 +300,8 @@ export function AlbumDesAvatars({
   const detail = useFiche(ouvert, porte)
   const dessins = useDessins(...SORTES, 'legendaire', 'divin', 'compagnon')
   const { Portrait, Compagnon } = dessins
-  const brille = (k: string) => brilleChez(profil, k)
+  // Ce qu'il porte de son Éclat : sa version rare, ou la matière qu'il a choisie.
+  const brille = (k: string) => eclatChez(profil, k)
   const choisie = pages.find(p => p.rarete === page) ?? pages[0]
   const choisir = (r: RareteDAvatar) => {
     setOuvert(null)

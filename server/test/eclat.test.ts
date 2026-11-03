@@ -11,6 +11,7 @@
 // soirée le dit, au téléphone comme à la salle. Chaque test échouait avant.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import {
   ADMIN,
   attendre,
@@ -82,7 +83,7 @@ test('un légendaire de l’ombre garde son filet violet sous le cercle de la fi
 
 // ── 2. La version rare ────────────────────────────────────────────────────
 
-test('un légendaire éclaté porte sa version rare, dessinée, avec les paillettes de l’Éclat', async () => {
+test('un légendaire éclaté porte sa version rare, dessinée : c’est elle qui dit l’Éclat', async () => {
   const normal = await avatar({ legendaire: 'lg:phenix', finition: 'or' })
   const eclate = await avatar({ legendaire: 'lg:phenix', finition: 'or', eclat: true })
   assert.ok(eclate.includes('lg-eclate') && eclate.includes('av-eclat'))
@@ -91,6 +92,47 @@ test('un légendaire éclaté porte sa version rare, dessinée, avec les paillet
   // Un Divin n'éclate pas, et ne prend pas de finition.
   const divin = await avatar({ legendaire: 'dv:helios', finition: 'holo', eclat: true })
   assert.ok(!divin.includes('av-eclat') && !divin.includes('av-holo') && !divin.includes('lg-cercle'))
+})
+
+test('la gemme de l’Éclat remplace ses quatre points : sur un emoji et un compagnon partout, sur un médaillon peint en liste seulement', async () => {
+  // Collés au cercle d'un légendaire, les quatre points n'y faisaient plus que
+  // des poussières, et sa peinture rare, sa gerbe, ce qui sort de son cadre
+  // disaient déjà l'Éclat (le retour du propriétaire du 3 novembre 2026). Un
+  // portrait éclaté de même, sous son ciel rare. Partout ailleurs, une gemme
+  // les a remplacés — celle de la boutique, aux couleurs de sa matière.
+  const CSS = readFileSync(new URL('../../client/src/styles.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+  const lues = [...CSS.matchAll(/([^{}]*)\{([^{}]*)\}/g)].map(m => ({ selecteurs: m[1].split(',').map(s => s.trim()), corps: m[2] }))
+  const regles = (selecteur: string) => lues.filter(r => r.selecteurs.includes(selecteur)).map(r => r.corps).join('\n')
+  assert.match(regles('.av-legendaire.av-eclat::after'), /display:\s*none/)
+  assert.match(regles('.av-portrait.av-eclat:not(:has(.cp))::after'), /display:\s*none/)
+  // Un emoji la porte, partout ; un compagnon aussi — l'Éclat ne change pas
+  // son dessin, elle est son seul signe : seul un médaillon la cache.
+  assert.match(regles('.av-eclat::after'), /mask:\s*url\("data:image\/svg\+xml,/)
+  assert.match(regles('.av-eclat::after'), /var\(--gemme-1/)
+  assert.doesNotMatch(regles('.av-eclat::after'), /radial-gradient|animation/, 'ni points, ni scintillement')
+  for (const r of lues) {
+    if (!/display:\s*none/.test(r.corps)) continue
+    for (const s of r.selecteurs.filter(s => /\.av-eclat[^\s]*::after$/.test(s))) {
+      assert.match(s, /\.av-legendaire|\.av-portrait\.av-eclat:not\(:has\(\.cp\)\)/, `${s} cacherait la gemme d’un emoji ou d’un compagnon`)
+    }
+  }
+  // La marque qui les sépare : un compagnon se dessine en `.cp`, un portrait jamais.
+  await import(new URL('../../client/src/components/compagnons-peints.ts', import.meta.url).href)
+  await import(new URL('../../client/src/components/portraits/foret.ts', import.meta.url).href)
+  const compagnon = await avatar({ legendaire: 'cp:loup-ultime', finition: 'mat', eclat: true })
+  const portrait = await avatar({ legendaire: 'br:cerf', finition: 'or', eclat: true })
+  assert.match(compagnon, /^<span class="av av-portrait av-eclat"><span class="av-emoji"><svg class="pt cp /)
+  assert.match(portrait, /^<span class="av av-portrait av-eclat">/)
+  assert.doesNotMatch(portrait, /class="[^"]*\bcp\b/)
+  // En liste, gerbe et débord cachés, la peinture rare ne se reconnaît plus
+  // qu'à qui connaît l'autre : sa gemme reparaît au coin, la même, fixe.
+  for (const liste of ['.av.lb-avatar:not(.av-sujet)', '.player-chip ']) {
+    for (const medaillon of ['.av-legendaire.av-eclat::after', '.av-portrait.av-eclat:not(:has(.cp))::after']) {
+      assert.match(regles(liste + medaillon), /display:\s*block/, liste + medaillon)
+    }
+  }
+  const liste = await avatar({ legendaire: 'lg:phenix', finition: 'argent', eclat: true, className: 'lb-avatar' })
+  assert.match(liste, /<span class="av lb-avatar av-legendaire av-eclat">/)
 })
 
 test('ce qui éclate, c’est ce qu’on porte : le légendaire, l’emoji sinon — jamais un Divin', () => {

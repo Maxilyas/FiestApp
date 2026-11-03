@@ -4141,7 +4141,7 @@ export class CampagneStore {
         niveau,
         finition,
         ...(legendaire && { legendaire }),
-        ...(eclat && { eclat: true as const }),
+        ...(eclat && { eclat }),
         ...(laurier && { laurier }),
         ...(bordure && { bordure }),
         justes: j.justes,
@@ -5958,7 +5958,7 @@ export class CampagneStore {
         niveau,
         finition,
         ...(legendaire && { legendaire }),
-        ...(eclat && { eclat: true as const }),
+        ...(eclat && { eclat }),
         ...(laurier && { laurier }),
         ...(bordure && { bordure }),
         cote: j.releve.cote,
@@ -10551,7 +10551,7 @@ function sonApparence(p: Pick<ProfileStore, 'apparenceDe'>, x: ProfileRec, relev
   // Divin, qui a sa propre lumière.
   const bordure = legendaire && divin(legendaire) ? null : bordurePortee(x.bordure, releve?.bordures)
   // Mat, c'est l'avatar sans rien autour : sa ligne n'a rien de plus à dire.
-  return { ...(finition !== 'mat' && { finition }), ...(legendaire && { legendaire }), ...(eclat && { eclat: true as const }), ...(bordure && { bordure }) }
+  return { ...(finition !== 'mat' && { finition }), ...(legendaire && { legendaire }), ...(eclat && { eclat }), ...(bordure && { bordure }) }
 }
 
 /** Les amis qu'une page désigne : des identifiants, pas plus qu'elle n'en montre — le reste ne désigne personne. */

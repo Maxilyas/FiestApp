@@ -167,7 +167,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Écart typique | La médiane des écarts de la salle à une estimation, bornée par deux crans et par la bonne réponse : la moitié de la proximité s'y gagne | `pointsDesEstimations` |
 | Échec passager | Un échec qui passe tout seul — le réseau qui revient, l'hébergeur qui se réveille — et qu'une écriture rejouable peut attendre | `statutPassager`, `echecPassager` (`shared/erreurs.ts`), `auReveil` (`client/src/api.ts`) |
 | Échoppe | Une escale de l'expédition — ou le marchand de l'inconnu — où les écus achètent une vie, l'un de ses trois jokers, son talisman ou un joker retiré de son paquet, chaque article une fois ; elle ne retient pas : le pas suivant la quitte | `sorte: 'echoppe'`, `{ quoi: 'acheter' }`, `PRIX_DE_L_ECHOPPE` |
-| Éclat | Un tirage — une chance sur quarante en soirée et au quiz du jour, sur vingt au défi de la semaine — qui change pour toujours les couleurs de l'avatar porté | `profile_eclats` |
+| Éclat | Un tirage — une chance sur quarante en soirée et au quiz du jour, sur vingt au défi de la semaine — qui change pour toujours les couleurs de l'avatar porté ; sa gemme, au coin de l'avatar, le dit | `profile_eclats` |
 | Économie (au QG) | La page « L'économie » de l'administrateur (`/admin#economie`), à lire, sans geste : les confettis gagnés et dépensés jour par jour, d'où ils viennent — « Tes dons » compris — et où ils partent, ce qui est en circulation, les meilleures ventes, les Éclats tombés et les légendaires portés | `PageDeLEconomie` (`shared/qgEconomie.ts`), `economieDuQg` (`server/src/economie.ts`) |
 | Écran commun | La page de l'animateur projetée à la salle, sa console en bas | `/host`, `client/src/views/HostApp.tsx` |
 | Écran d'animateur | Toute connexion présentée par une session d'animateur : écran commun, télécommande, télé branchée, liaison du chef | `host:hello`, `hosts:<espace>` |
@@ -327,6 +327,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Marge | Les 1,5 s pendant lesquelles une question reste ouverte après l'échéance affichée, pour les réponses en route | `GRACE_MS` |
 | Marque d'homonymie | « (2) », ajouté à l'affichage au second invité de même prénom et de même avatar qu'on voit — le dessin porté, sinon l'emoji —, jamais écrit en base | `nomsAffiches`, `visageDe` (`shared/homonymes.ts`), `nomAffiche` |
 | Masquer (un profil) | Retirer un profil des classements et des récompenses de la nuit du quiz du jour, sans qu'il en soit averti ; il se voit toujours | `jour_masques` |
+| Matière (de l'Éclat) | Porcelaine, corail, jade, obsidienne : ce qu'un Éclat de plus taille dans un avatar déjà éclaté — un emoji, un légendaire, un portrait —, qu'il porte à la place de sa version rare ; les quatre réunies ouvrent l'Opale | `shared/matieres.ts`, `matiereDeReserve` |
 | Meilleures ventes | Les thèmes et les compagnons les plus vendus, ces trente jours d'abord puis depuis toujours, sur la page de l'économie du QG — huit au plus ; un thème à prix nul n'est pas une vente | `meilleuresVentes` (`shared/qgEconomie.ts`) |
 | Mélange | La répartition des seize questions d'un palier entre faciles, moyennes, difficiles et expertes : celle du code, ou celle que l'administrateur règle au QG pour les douze sentiers | `Melange`, `PALIERS`, `sentier_melanges` |
 | Mélange (d'une escale) | Une escale de l'expédition qui mêle deux ou trois catégories : sa question vient de l'une d'elles | `ThemeDEscale`, `PART_DES_MELANGES` |
@@ -582,7 +583,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Velours | L'habit de FiestApp — un noir chaud, du champagne, une serif — : celui de l'écran commun, de l'invité sans profil et de toute page sans thème | `client/src/styles.css` |
 | Verify | La chaîne à lancer avant chaque commit — typecheck, tests, build, smoke —, arrêtée à la première étape qui échoue | `package.json` (`verify`) |
 | Verrou de connexion | Un secret fermé un quart d'heure après cinq échecs ; l'administrateur peut le lever | `ECHECS_AVANT_VERROU`, `rouvrir` |
-| Version rare | L'apparence d'un avatar éclaté ; on peut porter à la place sa version d'origine, l'Éclat restant compté | `brilleChez` |
+| Version rare | L'apparence d'un avatar éclaté ; on peut porter à la place sa version d'origine, ou une matière qu'un autre Éclat y a taillée, l'Éclat restant compté | `brilleChez`, `eclatChez` |
 | Vies du jour | Les douze vies que partagent tous les sentiers, rendues à minuit, heure de Paris | `VIES_PAR_JOUR` |
 | Visée | La phase, la question et le tour que porte un geste de l'animateur (la question et le tour pour une réponse) ; périmée, le geste est ignoré | `perimee` |
 | Visite du jour | Les parties que le Cabinet propose chaque jour, un jeu chacune : chacune peut faire gagner une œuvre, que la page ne reçoit pas tant qu'elle n'est pas gagnée ; un jeu s'y change une fois | `visiteDuJour` (`shared/cabinet/musee.ts`), `CaseVue` |

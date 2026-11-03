@@ -8,16 +8,18 @@
 
 import { divin } from './divins'
 import { cibleEclat } from './legendaires'
-import { brilleChez, type PublicProfile } from './profil'
+import { eclatChez, type PublicProfile } from './profil'
+import type { EclatPorte } from './matieres'
 
 /** Ce qu'il faut savoir d'un profil pour dessiner son avatar. */
-export type CeQuIlPorte = Pick<PublicProfile, 'avatar' | 'legendaire' | 'eclats' | 'eclatsEteints'>
+export type CeQuIlPorte = Pick<PublicProfile, 'avatar' | 'legendaire' | 'eclats' | 'eclatsEteints' | 'matieres' | 'matieresPortees'>
 
 /** Les propriétés de `Avatar` : l'emoji dessous, ce qui le remplace, son Éclat. */
 export interface SonAvatar {
   avatar: string
   legendaire?: string
-  eclat: boolean
+  /** Sa version rare, la matière qu'il en porte, ou rien. */
+  eclat: false | EclatPorte
 }
 
 /**
@@ -26,7 +28,7 @@ export interface SonAvatar {
  * sur lui (`cibleEclat` : sur ce qu'il porte, l'emoji sous un Divin).
  */
 export function sonAvatar(p: CeQuIlPorte): SonAvatar {
-  return { avatar: p.avatar, ...(p.legendaire && { legendaire: p.legendaire }), eclat: brilleChez(p, cibleEclat(p.legendaire, p.avatar)) }
+  return { avatar: p.avatar, ...(p.legendaire && { legendaire: p.legendaire }), eclat: eclatChez(p, cibleEclat(p.legendaire, p.avatar)) }
 }
 
 /**

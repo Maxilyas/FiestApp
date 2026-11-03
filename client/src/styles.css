@@ -3830,33 +3830,42 @@ h3 > .icon {
   filter: hue-rotate(150deg) saturate(1.45) drop-shadow(0 0 3px rgba(var(--accent-rgb), 0.8));
 }
 
-/* Ses paillettes : trois ou quatre points qui scintillent autour de l'emoji.
-   L'étoile ✧ d'avant ressemblait trop à celle de Prisme ✦ : on prenait l'un
-   pour l'autre, et l'Éclat — le plus rare des deux — passait inaperçu. */
+/* Taillé dans une matière (`shared/matieres.ts`), il ne tourne plus ses
+   couleurs : sa matière les tient — dessinée dans un SVG (`Avatar.tsx`), un
+   filtre posé sur du texte HTML ne tenant pas partout. */
+.av-matiere .av-emoji { filter: none; }
+.av-emoji-matiere { display: block; width: 1.16em; height: 1.16em; overflow: visible; }
+
+/* Sa gemme, au coin : celle de la boutique (`GemmeDEclat`, `Objets.tsx`), aux
+   couleurs de sa matière (`--gemme-1` à `3` ; d'office, celles de sa version
+   rare). Elle a pris la place de quatre points qui scintillaient autour —
+   collés au cercle d'un médaillon, ils ne faisaient plus que des poussières
+   (le retour du propriétaire du 3 novembre 2026) —, eux-mêmes venus après
+   l'étoile ✧, qu'on prenait pour celle de Prisme ✦. Fixe : un seul Éclat dans
+   la salle d'attente recalculait le style soixante fois par seconde. Sur un
+   médaillon peint, sa peinture rare le dit déjà : elle ne s'y pose qu'en
+   liste (plus bas). Ses facettes et son contour par-dessus le dégradé, sa
+   silhouette en masque. */
 .av-eclat::after {
   content: '';
   position: absolute;
-  top: 50%;
-  left: 50%;
-  right: auto;
-  width: 1.7em;
-  height: 1.7em;
-  margin: -0.85em 0 0 -0.85em;
-  font-size: inherit;
-  background:
-    radial-gradient(circle at 14% 22%, #fffbe6 0 0.05em, rgba(255, 251, 230, 0) 0.08em),
-    radial-gradient(circle at 88% 24%, #fff3b0 0 0.04em, rgba(255, 243, 176, 0) 0.07em),
-    radial-gradient(circle at 80% 88%, #fffbe6 0 0.045em, rgba(255, 251, 230, 0) 0.075em),
-    radial-gradient(circle at 10% 80%, #fff3b0 0 0.035em, rgba(255, 243, 176, 0) 0.06em);
+  right: -0.14em;
+  bottom: -0.06em;
+  width: 0.42em;
+  height: 0.42em;
   z-index: 2;
   pointer-events: none;
-  animation: av-paillettes 1.7s ease-in-out infinite;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3.5 9h17L12 20.5Z' fill='%23000' fill-opacity='0.16'/%3E%3Cpath d='M7 4.5 9.5 9 12 4.5 14.5 9 17 4.5' fill='none' stroke='%231a1020' stroke-opacity='0.45' stroke-width='1.1' stroke-linejoin='round'/%3E%3Cpath d='M7 4.5h10l3.5 4.5L12 20.5 3.5 9Z' fill='none' stroke='%231a1020' stroke-width='2.4' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat,
+    linear-gradient(135deg, var(--gemme-1, #f2fdff), var(--gemme-2, #f0c6ff) 50%, var(--gemme-3, #ffe39a));
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 4.5h10l3.5 4.5L12 20.5 3.5 9Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 4.5h10l3.5 4.5L12 20.5 3.5 9Z'/%3E%3C/svg%3E") center / contain no-repeat;
 }
-
-@keyframes av-paillettes {
-  0%, 100% { opacity: 0.35; scale: 0.9; }
-  50% { opacity: 1; scale: 1.06; }
-}
+.av-matiere-porcelaine { --gemme-1: #ffffff; --gemme-2: #bfe0ff; --gemme-3: #5b8fd0; }
+.av-matiere-corail { --gemme-1: #fff0e6; --gemme-2: #ff9a6b; --gemme-3: #d4472a; }
+.av-matiere-jade { --gemme-1: #f0fff7; --gemme-2: #97dcbc; --gemme-3: #1f7a55; }
+.av-matiere-obsidienne { --gemme-1: #f2eeff; --gemme-2: #a99ae0; --gemme-3: #2b1f52; }
+.av-matiere-opale { --gemme-1: #ffffff; --gemme-2: #a9d6ff; --gemme-3: #f3b6e8; }
 
 /* `rotate` plutôt que `transform: rotate()` : le halo, centré par des
    marges, n'a pas de `transform` à lui — mais une animation qui en poserait
@@ -4855,6 +4864,14 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
    double la lumière de ce qui en a, et laisse l'ombre dans l'ombre ; plus
    de 0,6, ou une pellicule plus opaque, et le noir recommence à virer.
 
+   Et elle vernit, rien de plus : à 62 % — 65 % éclatée, sous un second
+   arc-en-ciel et deux trames de paillettes —, elle délavait les peintures
+   qu'elle devait faire briller : le Phénix de glace en tache blanche, le
+   Dragon d'argent en arc-en-ciel, la Chouette et la Licorne au bleu-violet
+   (le retour du propriétaire du 3 novembre 2026 : « on ne profite pas en
+   fait de l'image »). Au cinquième, la carte reste holo et la peinture se
+   lit ; en grand, l'arc-en-ciel passe en bande (plus bas).
+
    Ses calques se placent dans le repère du médaillon, pas dans celui de
    leur cadre : le disque (90 % du médaillon) et ce qui en sort, éclaté
    (126 %), portent la même pellicule au même endroit, et l'aile qui passe le
@@ -4872,7 +4889,7 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .lg-feuille {
   background: repeating-linear-gradient(115deg, #8c2656 0%, #8c6a1c 6%, #1f7a58 12%, #2a6496 18%, #5e3a96 24%, #8c2656 30%);
   mix-blend-mode: color-dodge;
-  opacity: 0.62;
+  opacity: 0.2;
   transform: translate(calc((var(--px) - 0.5) * -38%), calc((var(--py) - 0.5) * -38%));
   animation: lg-glisse 7s ease-in-out infinite;
 }
@@ -4881,11 +4898,12 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
     repeating-linear-gradient(58deg, rgba(255, 255, 255, 0.16) 0 1px, transparent 1px 3px),
     repeating-linear-gradient(-32deg, rgba(255, 255, 255, 0.09) 0 1px, transparent 1px 4px);
   mix-blend-mode: overlay;
-  opacity: 0.45;
+  opacity: 0.15;
 }
 .lg-reflet {
   background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.22) 16%, transparent 36%);
   mix-blend-mode: soft-light;
+  opacity: 0.55;
   transform: translate(calc((var(--px) - 0.5) * 60%), calc((var(--py) - 0.5) * 60%));
   animation: lg-balaye 7s ease-in-out infinite;
 }
@@ -4905,34 +4923,30 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 /* Les légendes de l'ombre : une pellicule noire, aux reflets violets et verts. */
 .lg-ombre .lg-feuille {
   background: repeating-linear-gradient(115deg, #3a1b66 0%, #1f7a74 8%, #5a2a96 16%, #155a8a 24%, #3a1b66 32%);
-  opacity: 0.55;
+  opacity: 0.2;
 }
 .lg-ombre .lg-reflet { background: radial-gradient(circle at 50% 50%, rgba(200, 170, 255, 0.8), rgba(150, 120, 255, 0.2) 16%, transparent 36%); }
 
-/* Éclaté : la version rare, sous un prisme — deux arcs-en-ciel croisés —,
-   des paillettes, une gerbe de lumière derrière, et ce qui sort du cadre. */
+/* Éclaté : la version rare, sous un prisme, des paillettes fines, une gerbe
+   de lumière derrière, et ce qui sort du cadre. Un seul arc-en-ciel, une
+   seule trame de paillettes : le second, croisé, et la seconde trame
+   brûlaient les blancs des peintures rares — c'est la peinture qui dit
+   l'Éclat. */
 .lg-eclate .lg-feuille {
-  opacity: 0.65;
+  opacity: 0.26;
   background: repeating-linear-gradient(115deg, #9a1f5a 0%, #967a14 5%, #16885c 10%, #1f6a9a 15%, #662e9a 20%, #9a1f5a 25%);
-}
-.lg-eclate .lg-feuille-2 {
-  background: repeating-linear-gradient(25deg, #7a3a70 0%, #2f6f80 8%, #807a3a 16%, #7a3a70 24%);
-  opacity: 0.45;
-  transform: translate(calc((var(--px) - 0.5) * 30%), calc((var(--py) - 0.5) * -30%));
-  animation: lg-glisse-2 5.3s ease-in-out infinite;
 }
 /* Une légende de l'ombre éclatée garde sa nuit : un prisme sombre. La règle
    de l'éclaté, venue après celle de l'ombre, lui posait l'arc-en-ciel vif, et
    le Kraken rare disparaissait dessous. */
 .lg-ombre.lg-eclate .lg-feuille {
   background: repeating-linear-gradient(115deg, #4a1a80 0%, #127a6a 5%, #7a2a8a 10%, #1a5a9a 15%, #6a1a5a 20%, #4a1a80 25%);
-  opacity: 0.6;
-}
-.lg-ombre.lg-eclate .lg-feuille-2 {
-  background: repeating-linear-gradient(25deg, #4a2a70 0%, #1f5f60 8%, #603a70 16%, #4a2a70 24%);
+  opacity: 0.26;
 }
 /* Des paillettes fines, en trois trames aux pas qui ne se répondent pas :
-   deux trames régulières dessinaient une grille de pois. */
+   deux trames régulières dessinaient une grille de pois. Elles scintillent,
+   sans jamais dépasser le tiers : à 85 %, et doublées, elles poudraient
+   toute la peinture. */
 .lg-paillettes {
   background-image:
     radial-gradient(circle, #fff 0 0.004em, transparent 0.008em),
@@ -4944,25 +4958,18 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
   opacity: 0;
   animation: lg-paillettes 1.9s ease-in-out infinite;
 }
-.lg-paillettes-2 {
-  background-size: 0.139em 0.107em, 0.089em 0.191em, 0.211em 0.163em;
-  background-position: 0.061em 0.053em, 0.013em 0.089em, 0.119em 0.031em;
-  animation-duration: 2.6s;
-  animation-delay: -1.1s;
-}
-.lg-touche .lg-feuille-2 { animation: none; }
-.lg-touche .lg-paillettes { animation: none; opacity: 0.8; }
+.lg-touche .lg-paillettes { animation: none; opacity: 0.35; }
 .lg-gerbe {
   inset: -22%;
   border-radius: 50%;
-  background: repeating-conic-gradient(from 0deg, rgba(255, 236, 170, 0) 0deg 7deg, rgba(255, 236, 170, 0.34) 8.5deg, rgba(255, 236, 170, 0) 10deg 15deg);
+  background: repeating-conic-gradient(from 0deg, rgba(255, 236, 170, 0) 0deg 7deg, rgba(255, 236, 170, 0.17) 8.5deg, rgba(255, 236, 170, 0) 10deg 15deg);
   -webkit-mask: radial-gradient(circle, #000 34%, transparent 70%);
   mask: radial-gradient(circle, #000 34%, transparent 70%);
   animation: lg-tourne 60s linear infinite;
 }
 .lg-gerbe-2 {
   inset: -12%;
-  background: repeating-conic-gradient(from 4deg, rgba(160, 230, 255, 0) 0deg 10deg, rgba(160, 230, 255, 0.28) 11.5deg, rgba(160, 230, 255, 0) 13deg 20deg);
+  background: repeating-conic-gradient(from 4deg, rgba(160, 230, 255, 0) 0deg 10deg, rgba(160, 230, 255, 0.14) 11.5deg, rgba(160, 230, 255, 0) 13deg 20deg);
   animation-duration: 42s;
   animation-direction: reverse;
 }
@@ -4994,15 +5001,35 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
     linear-gradient(transparent 8%, #000 16%, #000 48%, transparent 62%) intersect,
     linear-gradient(90deg, transparent 8%, #000 16%, #000 84%, transparent 92%);
 }
-.lg-debord img { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; }
+.lg-debord img,
+.lg-debord > svg { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; }
 
-@keyframes lg-glisse-2 {
-  0%, 100% { transform: translate(-12%, 10%); }
-  50% { transform: translate(12%, -10%); }
-}
 @keyframes lg-paillettes {
-  0%, 100% { opacity: 0.05; }
-  50% { opacity: 0.85; }
+  0%, 100% { opacity: 0; }
+  50% { opacity: 0.35; }
+}
+
+/* En grand — là où la carte se prend en main (`.lg-touche-libre`) : sa
+   révélation, la carte d'un joueur, la clôture —, la peinture reste nette, et
+   l'arc-en-ciel la traverse de temps en temps, en une bande, comme une carte
+   qu'on incline sous la lampe : deux secondes de lumière, cinq de peinture.
+   La bande est un masque posé sur la pellicule, qui glisse avec elle : sous
+   le doigt, plus d'animation, elle suit sa position (`--px`, `--py`). Plus
+   fort que l'opacité d'une légende de l'ombre éclatée (`.lg.`), et après
+   elle. */
+.lg.lg-touche-libre .lg-feuille {
+  opacity: 0.75;
+  -webkit-mask-image: linear-gradient(115deg, transparent 36%, #000 46%, #000 54%, transparent 64%);
+  mask-image: linear-gradient(115deg, transparent 36%, #000 46%, #000 54%, transparent 64%);
+  animation: lg-passe 7s cubic-bezier(0.45, 0, 0.3, 1) infinite;
+}
+.lg.lg-touche-libre.lg-touche .lg-feuille { animation: none; }
+/* Sa trame fine griserait la peinture qu'on regarde en grand : la bande suffit. */
+.lg-touche-libre .lg-diffraction { display: none; }
+
+@keyframes lg-passe {
+  0% { transform: translate(34%, 32%); }
+  30%, 100% { transform: translate(-34%, -32%); }
 }
 
 /* Pas encore gagné : la forme seule, en silhouette dorée sur un disque
@@ -5041,6 +5068,9 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 
 @media (prefers-reduced-motion: reduce) {
   .lg * { animation: none !important; }
+  /* Arrêtée, la bande d'un grand barrerait la peinture en son milieu : elle
+     ne paraît plus que sous le doigt, qui la mène. */
+  .lg.lg-touche-libre:not(.lg-touche) .lg-feuille { opacity: 0; }
 }
 
 /* ── Les portraits des branches ────────────────────────────────────────────
@@ -5817,15 +5847,21 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .av-legendaire .lg { width: 1.12em; height: 1.12em; }
 
 /* Un portrait des branches, comme un légendaire : à sa place, rond, et
-   éclaté sous son ciel rare, avec les paillettes — les visages ne changent
-   pas de teinte. */
+   éclaté sous son ciel rare — les visages ne changent pas de teinte. */
 .av-portrait .av-emoji { display: inline-flex; }
 .av-portrait .pt { width: 1.12em; height: 1.12em; }
 .av-portrait.av-eclat .av-emoji { filter: none; }
 
-/* Un légendaire éclaté porte sa version rare, dessinée : on garde les
-   paillettes de l'Éclat autour, pas la rotation de teintes de l'emoji. */
+/* Un légendaire éclaté porte sa version rare, dessinée : ni la rotation de
+   teintes de l'emoji, ni sa gemme, hors d'une liste. Sa peinture rare, sa
+   gerbe et ce qui sort de son cadre disent l'Éclat ; collés à son cercle, les
+   points d'avant la gemme ne faisaient plus que des poussières (le retour du
+   propriétaire du 3 novembre 2026). Un portrait éclaté de même, sous son ciel
+   rare. Un compagnon (`.cp`) la garde : l'Éclat ne change pas son dessin, elle
+   est son seul signe — comme sur un emoji. */
 .av-legendaire.av-eclat .av-emoji { filter: none; }
+.av-legendaire.av-eclat::after { display: none; }
+.av-portrait.av-eclat:not(:has(.cp))::after { display: none; }
 
 /* Un Divin aussi, à la même taille : ses débords — rayons, ailes, lueur —
    mordent sur la marge comme le halo d'une finition, pas sur le nom. */
@@ -5843,10 +5879,10 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
    podium, les médaillons qu'on vient de gagner et les éclats (`av-sujet`) de
    la clôture, la carte, le profil, la fin de soirée, l'en-tête de son propre
    téléphone. Figé, il garde la pose que lui laisse « réduire les
-   animations ». Les halos des finitions et les paillettes de l'Éclat aussi :
-   un seul Éclat dans la salle d'attente recalculait le style soixante fois
-   par seconde, toute la soirée — l'arbitrage du 27 septembre 2026
-   [perf-client-7]. */
+   animations ». Les halos des finitions aussi, comme les paillettes de
+   l'Éclat avant sa gemme fixe : un seul Éclat dans la salle d'attente
+   recalculait le style soixante fois par seconde, toute la soirée —
+   l'arbitrage du 27 septembre 2026 [perf-client-7]. */
 .av.lb-avatar:not(.av-sujet) .lg *,
 .av.lb-avatar:not(.av-sujet) .dv *,
 .av.lb-avatar:not(.av-sujet) .pt *,
@@ -5880,6 +5916,16 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .player-chip .dv-rayons,
 .player-chip .dv-etincelles {
   display: none;
+}
+
+/* Sans gerbe ni débord, un médaillon éclaté ne se reconnaît plus qu'à sa
+   peinture rare — que seul distingue qui connaît l'autre : sa gemme se pose
+   à son coin, comme sur un emoji, aux couleurs de sa matière. */
+.av.lb-avatar:not(.av-sujet).av-legendaire.av-eclat::after,
+.av.lb-avatar:not(.av-sujet).av-portrait.av-eclat:not(:has(.cp))::after,
+.player-chip .av-legendaire.av-eclat::after,
+.player-chip .av-portrait.av-eclat:not(:has(.cp))::after {
+  display: block;
 }
 
 /* Dans une liste, un portrait peint tient dans son disque : ce qui en sort
@@ -6704,7 +6750,7 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 /* La case coupe ce qui la dépasse : les calques qui tournent sont des
    carrés, et leurs coins — transparents — en sortaient, si bien que la
    carte défilait en largeur au gré de leur rotation. Carrée : un cercle
-   rognerait les paillettes de l'Éclat, posées près des coins du leur. */
+   rognerait la gemme de l'Éclat, posée près d'un coin du leur. */
 .carte-loupe-bouton {
   flex: none;
   display: grid;
@@ -8931,6 +8977,8 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-reserve-texte { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 2px; }
 .loge-case.eclatable { border: 2px solid var(--accent); box-shadow: 0 0 16px rgba(var(--accent-rgb), 0.35); }
 .loge-case.hors-eclat { opacity: 0.4; cursor: default; }
+/* Déjà éclaté, il se taille dans une matière : le même appel que ce qui éclate, en pointillé. */
+.loge-case.taillable { border: 2px dashed var(--accent); }
 /* L'aperçu de l'Éclat : l'avatar d'aujourd'hui et sa version éclatée, côte à côte et en grand, avant de dépenser pour toujours. */
 .loge-apercu-eclat { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 12px; padding: 14px 12px; border: 1px solid var(--accent); border-radius: 14px; background: var(--accent-soft); text-align: center; scroll-margin: 12px; }
 .loge-apercu-paire { display: flex; align-items: center; justify-content: center; gap: 14px; }
@@ -8938,6 +8986,11 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-apercu-avatar { display: grid; place-items: center; width: 92px; height: 92px; border: 1px solid var(--edge); border-radius: 18px; background: var(--surface-faint); font-size: 3.2rem; }
 .loge-apercu-fleche { color: var(--muted); font-size: 1.4rem; }
 .loge-apercu-gestes { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+/* Les matières à tailler, côte à côte : quatre tiennent en 360 de large. */
+.loge-matieres { display: grid; grid-template-columns: repeat(auto-fit, minmax(68px, 1fr)); gap: 8px; width: 100%; }
+.loge-matiere-choix { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 6px 2px; border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; color: var(--ink); font: inherit; cursor: pointer; }
+.loge-matiere-choix .loge-apercu-avatar { width: 64px; height: 64px; font-size: 2.3rem; border-radius: 14px; }
+.loge-matiere-choix[aria-pressed='true'] { border-color: var(--accent); background: var(--surface); }
 /* Montrée par la carte : un cadre d'or ; à l'essai, son halo — pas le
    pointillé des autres pièces, que la case arrondie rendait brouillon. */
 .loge-case.selected { border: 2px solid var(--accent); background: var(--accent-soft); }
@@ -9003,6 +9056,14 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-version { position: absolute; right: 0; bottom: 0; z-index: 2; display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 10px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--bg) 70%, transparent); color: var(--muted); font: inherit; font-size: var(--t-label); font-weight: 600; cursor: pointer; }
 .loge-version .icon { width: 13px; height: 13px; }
 .loge-version[aria-pressed='true'] { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+/* Taillé : le bouton dit la version montrée, en or, et ouvre ses versions. */
+.loge-version-choix { border-color: var(--accent); color: var(--accent-text); }
+/* Ses versions, dans leur feuille : chacune dessinée, celle que la carte montre cerclée d'or. */
+.loge-versions { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 10px; }
+.loge-version-case { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px 8px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface-faint); color: var(--ink); font: inherit; cursor: pointer; }
+.loge-version-case[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: var(--surface); }
+.loge-version-dessin { display: grid; place-items: center; width: 64px; height: 64px; font-size: 2.6rem; }
+.loge-version-nom { font-size: var(--t-label); font-weight: 600; }
 
 /* ── La campagne solo : un héros, puis ce qu'on choisit ─────────────────
    Le défi, le record, l'échelle et les règles sur la trame de l'atlas

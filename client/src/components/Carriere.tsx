@@ -1,4 +1,6 @@
 import { coupDOeilMoyen, type Fiche, type ReleveSoiree } from '../../../shared/profil'
+import { MATIERES_A_TAILLER, enMatiere, type Matiere, type MatiereTaillee } from '../../../shared/matieres'
+import { enumerer } from '../../../shared/classement'
 import { estimations, formatNumber, pourcent, secondes, surQcm } from '../format'
 import { Chiffres, justesses, type Chiffre } from './Chiffres'
 
@@ -12,15 +14,38 @@ import { Chiffres, justesses, type Chiffre } from './Chiffres'
  * version d'origine, et changer d'avis. D'un toucher, comme une finition :
  * l'avatar, juste au-dessus dans sa case et dans sa fiche, change sous ses
  * yeux. Sans `onChoisir` — l'album de « Ma collection », qui ne fait que
- * montrer —, la phrase seule.
+ * montrer —, la phrase seule. Taillé dans une matière (`shared/matieres.ts`),
+ * elle dit celle qu'il porte et celles qu'il a : « ta version rare » mentait à
+ * qui le portait en jade.
  */
-export function ChoixDeLEclat({ brille, busy, onChoisir }: { brille: boolean; busy: boolean; onChoisir?: (brille: boolean) => void }) {
+export function ChoixDeLEclat({
+  brille,
+  busy,
+  onChoisir,
+  matiere = null,
+  taillees = [],
+}: {
+  brille: boolean
+  busy: boolean
+  onChoisir?: (brille: boolean) => void
+  matiere?: Matiere | null
+  taillees?: readonly MatiereTaillee[]
+}) {
+  const portee = brille && matiere
+  const sesMatieres =
+    taillees.length >= MATIERES_A_TAILLER.length
+      ? ' Taillé dans les quatre matières : l’Opale est à toi.'
+      : taillees.length > 0
+        ? ` Taillé ${enumerer(taillees.map(enMatiere))}.`
+        : ''
   return (
     <>
       <p className="small">
-        {brille
-          ? 'Il a éclaté : tu portes sa version rare, et personne d’autre ne l’a comme ça.'
-          : 'Il a éclaté : sa version rare est à toi, et tu portes pour l’instant sa version d’origine.'}
+        {(portee
+          ? `Il a éclaté : tu le portes ${enMatiere(portee)}, et personne d’autre ne l’a comme ça.`
+          : brille
+            ? 'Il a éclaté : tu portes sa version rare, et personne d’autre ne l’a comme ça.'
+            : 'Il a éclaté : sa version rare est à toi, et tu portes pour l’instant sa version d’origine.') + sesMatieres}
       </p>
       {onChoisir && (
         <div className="choix-eclat" role="group" aria-label="Sa version">

@@ -97,6 +97,21 @@ import {
   type Condition,
 } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
+import {
+  MATIERES_A_TAILLER,
+  OPALE,
+  cleDeMatiere,
+  enMatiere,
+  estUneLigneDeMatiere,
+  estUneMatiere,
+  estUneMatiereATailler,
+  lireCleDeMatiere,
+  matiereOuverte,
+  peutSeTailler,
+  type EclatPorte,
+  type Matiere,
+  type MatiereTaillee,
+} from '../../../shared/matieres'
 import { lireLesVus, type VusDeLaLoge } from '../../../shared/piecesDeLaLoge'
 import { gainsDesMissions, lireLaMission, RANG_DES_TROIS, type Mission } from '../../../shared/missions'
 import {
@@ -583,6 +598,48 @@ interface SienEnMemoire {
   ornements?: ReglageDesOrnements
 }
 
+/** Les lignes de `profile_eclats` d'un profil, rangées : ce qui a éclaté, ce qu'il a éteint, sa réserve, ses matières. */
+interface EclatsLus {
+  eclats: Set<string>
+  eteints: Set<string>
+  reserves: Set<string>
+  /** Les matières taillées, avatar par avatar. */
+  matieres: Map<string, Set<MatiereTaillee>>
+  /** La matière portée de chaque avatar éclaté. */
+  portees: Map<string, Matiere>
+}
+
+const lesEclatsVides = (): EclatsLus => ({ eclats: new Set(), eteints: new Set(), reserves: new Set(), matieres: new Map(), portees: new Map() })
+
+/**
+ * Une ligne de `profile_eclats`, rangée : un Éclat en réserve, une matière
+ * taillée (`matiere:jade:lg:phenix`), ou un avatar qui a éclaté — sa version
+ * d'origine s'il l'a éteint, et la matière qu'il en porte. Une matière que le
+ * catalogue ne connaît plus ne se garde pas.
+ */
+function lireUneLigneDEclat(lus: EclatsLus | undefined, r: Record<string, unknown>) {
+  if (!lus) return
+  const avatar = String(r.avatar)
+  if (estEnReserve(avatar)) {
+    lus.reserves.add(avatar)
+    return
+  }
+  const taillee = lireCleDeMatiere(avatar)
+  if (taillee) {
+    let siennes = lus.matieres.get(taillee.avatar)
+    if (!siennes) lus.matieres.set(taillee.avatar, (siennes = new Set()))
+    siennes.add(taillee.matiere)
+    return
+  }
+  if (estUneLigneDeMatiere(avatar)) return
+  lus.eclats.add(avatar)
+  if (Number(r.eteint) === 1) lus.eteints.add(avatar)
+  if (estUneMatiere(r.matiere)) lus.portees.set(avatar, r.matiere)
+}
+
+/** Ses matières taillées d'un avatar, dans l'ordre de la loge. */
+const matieresDansLOrdre = (taillees: ReadonlySet<MatiereTaillee>): MatiereTaillee[] => MATIERES_A_TAILLER.filter(m => taillees.has(m))
+
 /** Une ligne de `profile_compagnons`, rangée avec ses compagnons : un compagnon que le catalogue ne connaît plus ne se garde pas. */
 function lireCompagnon(siens: Map<CleDeCompagnon, SienEnMemoire> | undefined, r: Record<string, unknown>) {
   const c = compagnonDuCatalogue(String(r.compagnon))
@@ -1005,6 +1062,19 @@ export class ProfileStore {
    * Chargée avec eux ; une entrée absente vaut zéro.
    */
   private reserves = new Map<string, Set<string>>()
+  /**
+   * Ses matières taillées (`shared/matieres.ts`), avatar par avatar : chaque
+   * ligne `matiere:<m>:<avatar>` de `profile_eclats` — un Éclat de la réserve
+   * dépensé, qui garde sa soirée et suit son sort. Chargées avec les Éclats,
+   * tenues à part d'eux : `eclats` ne dit que ce qui a éclaté.
+   */
+  private matieres = new Map<string, Map<string, Set<MatiereTaillee>>>()
+  /**
+   * La matière qu'il porte de chaque avatar éclaté — la colonne `matiere` de
+   * sa ligne ; absente, sa version rare. Seule l'apparence la lit, et
+   * seulement tant qu'il a cette matière (`eclatChez`).
+   */
+  private matieresPortees = new Map<string, Map<string, Matiere>>()
   /**
    * Ses récompenses rangées, par profil : chaque clé d'étagère et le nombre de
    * soirées où elle est tombée. Chargées avec le profil, tenues à jour à
@@ -1658,6 +1728,9 @@ export class ProfileStore {
     await ajouterColonne(this.client, 'profiles', 'renomme_le', 'INTEGER')
     // L'Éclat qu'il a éteint, pour porter la version d'origine de son avatar.
     await ajouterColonne(this.client, 'profile_eclats', 'eteint', 'INTEGER')
+    // La matière qu'il porte d'un avatar éclaté, sur la ligne de son Éclat ;
+    // NULL, sa version rare (`shared/matieres.ts`).
+    await ajouterColonne(this.client, 'profile_eclats', 'matiere', 'TEXT')
     // Le joueur qu'on était ce soir-là, pour ouvrir SON bilan depuis « Mes
     // soirées » : sans lui, le bilan redemandait « Qui es-tu ? ». Une ligne
     // d'avant la colonne le retrouve dans l'archive (`retenirJoueur`).
@@ -1729,7 +1802,7 @@ export class ProfileStore {
       const [lignes, eclats, badges, compagnons, coffres, fonds] = await this.client.batch(
         [
           { sql: `SELECT * FROM profiles WHERE id IN (${marques})`, args: paquet },
-          { sql: `SELECT profile_id, avatar, eteint FROM profile_eclats WHERE profile_id IN (${marques})`, args: paquet },
+          { sql: `SELECT profile_id, avatar, eteint, matiere FROM profile_eclats WHERE profile_id IN (${marques})`, args: paquet },
           {
             sql: `SELECT profile_id, badge, COUNT(*) AS n FROM profile_badges WHERE profile_id IN (${marques}) GROUP BY profile_id, badge`,
             args: paquet,
@@ -1741,18 +1814,8 @@ export class ProfileStore {
         ],
         'read',
       )
-      const eclatsDe = new Map<string, Set<string>>(paquet.map(id => [id, new Set()]))
-      const eteintsDe = new Map<string, Set<string>>(paquet.map(id => [id, new Set()]))
-      const reservesDe = new Map<string, Set<string>>(paquet.map(id => [id, new Set()]))
-      for (const r of eclats.rows) {
-        const avatar = String(r.avatar)
-        if (estEnReserve(avatar)) {
-          reservesDe.get(String(r.profile_id))?.add(avatar)
-          continue
-        }
-        eclatsDe.get(String(r.profile_id))?.add(avatar)
-        if (Number(r.eteint) === 1) eteintsDe.get(String(r.profile_id))?.add(avatar)
-      }
+      const lus = new Map(paquet.map(id => [id, lesEclatsVides()]))
+      for (const r of eclats.rows) lireUneLigneDEclat(lus.get(String(r.profile_id)), r)
       const recompensesDe = new Map<string, Map<string, number>>(paquet.map(id => [id, new Map()]))
       for (const r of badges.rows) recompensesDe.get(String(r.profile_id))?.set(String(r.badge), Number(r.n))
       const compagnonsDe = new Map<string, Map<CleDeCompagnon, SienEnMemoire>>(paquet.map(id => [id, new Map()]))
@@ -1767,11 +1830,7 @@ export class ProfileStore {
         // il garde sa version : la ligne lue avant écraserait l'objet à jour.
         if (this.profiles.has(id)) continue
         this.profiles.set(id, this.lireLigne(r))
-        if (!this.eclats.has(id)) {
-          this.eclats.set(id, eclatsDe.get(id)!)
-          this.eteints.set(id, eteintsDe.get(id)!)
-          this.reserves.set(id, reservesDe.get(id)!)
-        }
+        if (!this.eclats.has(id)) this.retenirSesEclats(id, lus.get(id)!)
         if (!this.recompenses.has(id)) this.recompenses.set(id, recompensesDe.get(id)!)
         if (!this.compagnons.has(id)) this.compagnons.set(id, compagnonsDe.get(id)!)
         if (!this.tresors.has(id)) this.tresors.set(id, tresorsDe.get(id)!)
@@ -1883,6 +1942,56 @@ export class ProfileStore {
   /** Cet avatar brille-t-il sur lui ? Éclaté pour lui, et pas éteint — un compagnon, sous toutes ses formes (`clesQuiBrillent`). */
   brilleChez(id: string, cle: string): boolean {
     return clesQuiBrillent(this.eclats.get(id) ?? [], cle).some(k => !this.eteints.get(id)?.has(k))
+  }
+
+  /**
+   * Ce qui brille sur cet avatar, s'il brille : la matière qu'il en porte,
+   * tant qu'il l'a — une soirée retirée peut avoir repris l'une des quatre, et
+   * l'Opale avec —, sinon sa version rare. La même règle que la page
+   * (`eclatChez`, `shared/profil.ts`).
+   */
+  eclatChez(id: string, cle: string): false | EclatPorte {
+    if (!this.brilleChez(id, cle)) return false
+    const m = this.matieresPortees.get(id)?.get(cle)
+    return m && matiereOuverte(this.matieres.get(id)?.get(cle) ?? [], m) ? m : true
+  }
+
+  /** Ses matières taillées, avatar par avatar, dans l'ordre de la loge. */
+  matieresOf(id: string): Record<string, MatiereTaillee[]> {
+    const siennes: Record<string, MatiereTaillee[]> = {}
+    for (const [avatar, taillees] of this.matieres.get(id) ?? []) if (taillees.size > 0) siennes[avatar] = matieresDansLOrdre(taillees)
+    return siennes
+  }
+
+  /** La matière qu'il porte de chaque avatar, quand ce n'est pas sa version rare. */
+  matieresPorteesOf(id: string): Record<string, Matiere> {
+    return Object.fromEntries(this.matieresPortees.get(id) ?? [])
+  }
+
+  /** Range en mémoire les Éclats lus d'un profil (`lireUneLigneDEclat`). */
+  private retenirSesEclats(id: string, lus: EclatsLus): void {
+    this.eclats.set(id, lus.eclats)
+    this.eteints.set(id, lus.eteints)
+    this.reserves.set(id, lus.reserves)
+    this.matieres.set(id, lus.matieres)
+    this.matieresPortees.set(id, lus.portees)
+  }
+
+  /**
+   * Oublie la ligne d'un Éclat que la base vient d'effacer — une soirée
+   * retirée : l'avatar qu'elle avait fait éclater, sa réserve, ou la matière
+   * qu'elle avait taillée.
+   */
+  private oublierUneLigneDEclat(id: string, avatar: string): void {
+    const matiere = lireCleDeMatiere(avatar)
+    if (matiere) {
+      this.matieres.get(id)?.get(matiere.avatar)?.delete(matiere.matiere)
+      return
+    }
+    this.eclats.get(id)?.delete(avatar)
+    this.eteints.get(id)?.delete(avatar)
+    this.reserves.get(id)?.delete(avatar)
+    this.matieresPortees.get(id)?.delete(avatar)
   }
 
   /** Ses récompenses rangées : chaque clé d'étagère, et le nombre de soirées où elle est tombée. */
@@ -3767,6 +3876,9 @@ export class ProfileStore {
       eclatsEteints: this.eteintsOf(p.id),
       // Toujours dit, zéro compris : la page fond ce profil dans celui qu'elle tient, et un champ absent garderait la réserve d'avant.
       eclatsEnReserve: this.reserveOf(p.id),
+      // Toujours dits aussi, vides compris, pour la même raison.
+      matieres: this.matieresOf(p.id),
+      matieresPortees: this.matieresPorteesOf(p.id),
       // Un Divin ne se compte pas : un « 4 badges » devenu « 5 » sans rien
       // de neuf sur l'étagère dirait qu'il s'est passé quelque chose. Ni une
       // voie rangée — une saison, un légendaire gardé au bout de
@@ -4235,6 +4347,8 @@ export class ProfileStore {
       niche?: unknown
       /** L'avatar sur lequel il dépense un Éclat en réserve (`donnerUnEclat`) : définitif. */
       eclatDeReserve?: unknown
+      /** La matière qu'il taille avec un Éclat en réserve dans un avatar déjà éclaté (`{ cle, matiere }`, `shared/matieres.ts`) : définitif. */
+      matiereDeReserve?: unknown
     },
   ): Promise<ProfileRec> {
     const rec = await this.require(id)
@@ -4372,15 +4486,26 @@ export class ProfileStore {
     // Un Éclat se garde, qu'on le porte ou non : on peut préférer la version
     // d'origine de l'avatar qui a éclaté, et y revenir. Seulement sur ce qui a
     // éclaté pour lui ; le reste de la carrière n'en sait rien.
-    let eclat: { cle: string; eteint: boolean } | null = null
+    // Sa version rare peut céder la place à une matière qu'il a taillée
+    // (`matiere`, absente ou null : la version rare) — l'Opale, s'il a les
+    // quatre. La version d'origine n'en porte aucune.
+    let eclat: { cle: string; eteint: boolean; matiere: Matiere | null } | null = null
     if (patch.eclat !== undefined) {
-      const e = patch.eclat as { cle?: unknown; brille?: unknown } | null
+      const e = patch.eclat as { cle?: unknown; brille?: unknown; matiere?: unknown } | null
       const cle = typeof e?.cle === 'string' ? e.cle : ''
       if (!cle || !this.eclats.get(id)?.has(cle)) throw new Error('Cet avatar n’a pas éclaté pour toi')
       if (typeof e?.brille !== 'boolean') throw new Error('Choisis sa version rare ou sa version d’origine')
-      eclat = { cle, eteint: !e.brille }
+      const brute = e.matiere ?? null
+      if (brute !== null && !estUneMatiere(brute)) throw new Error('Cette matière n’existe pas')
+      const matiere = e.brille ? brute : null
+      if (matiere && !matiereOuverte(this.matieres.get(id)?.get(cle) ?? [], matiere)) {
+        throw new Error(matiere === OPALE ? 'L’Opale s’ouvre avec les quatre matières de cet avatar' : `Ton avatar n’est pas encore taillé ${enMatiere(matiere)}`)
+      }
+      eclat = { cle, eteint: !e.brille, matiere }
     }
     const aEclater = patch.eclatDeReserve !== undefined ? await this.verifierUnAvatarAEclater(rec, patch.eclatDeReserve) : null
+    const aTailler = patch.matiereDeReserve !== undefined ? await this.verifierUneMatiereATailler(rec, patch.matiereDeReserve) : null
+    if (aEclater && aTailler) throw new Error('Un seul Éclat à la fois')
     const colonnes = Object.keys(champs) as (keyof typeof champs)[]
     // Un prénom qu'il change lui-même tait l'annonce de celui que
     // l'administrateur avait changé : sur un autre téléphone, elle lui aurait
@@ -4398,15 +4523,20 @@ export class ProfileStore {
     }
     if (eclat) {
       await this.client.execute({
-        sql: 'UPDATE profile_eclats SET eteint = ? WHERE profile_id = ? AND avatar = ?',
-        args: [eclat.eteint ? 1 : null, id, eclat.cle],
+        sql: 'UPDATE profile_eclats SET eteint = ?, matiere = ? WHERE profile_id = ? AND avatar = ?',
+        args: [eclat.eteint ? 1 : null, eclat.matiere, id, eclat.cle],
       })
       let eteints = this.eteints.get(id)
       if (!eteints) this.eteints.set(id, (eteints = new Set()))
       if (eclat.eteint) eteints.add(eclat.cle)
       else eteints.delete(eclat.cle)
+      let portees = this.matieresPortees.get(id)
+      if (!portees) this.matieresPortees.set(id, (portees = new Map()))
+      if (eclat.matiere) portees.set(eclat.cle, eclat.matiere)
+      else portees.delete(eclat.cle)
     }
     if (aEclater) await this.depenserUnEclat(id, aEclater)
+    if (aTailler) await this.depenserUnEclat(id, cleDeMatiere(aTailler.matiere, aTailler.cle))
     return rec
   }
 
@@ -4686,11 +4816,7 @@ export class ProfileStore {
     } finally {
       this.oublierSesSoirees([profileId])
     }
-    for (const r of eclats.rows) {
-      this.eclats.get(profileId)?.delete(String(r.avatar))
-      this.eteints.get(profileId)?.delete(String(r.avatar))
-      this.reserves.get(profileId)?.delete(String(r.avatar))
-    }
+    for (const r of eclats.rows) this.oublierUneLigneDEclat(profileId, String(r.avatar))
     this.porteurs = null
     await this.ecrireXpDesPaliers(profileId)
     await this.recompterRecompenses([profileId])
@@ -4769,11 +4895,7 @@ export class ProfileStore {
     } finally {
       this.oublierSesSoirees(touches)
     }
-    for (const r of eclats.rows) {
-      this.eclats.get(String(r.profile_id))?.delete(String(r.avatar))
-      this.eteints.get(String(r.profile_id))?.delete(String(r.avatar))
-      this.reserves.get(String(r.profile_id))?.delete(String(r.avatar))
-    }
+    for (const r of eclats.rows) this.oublierUneLigneDEclat(String(r.profile_id), String(r.avatar))
     this.porteurs = null
     await this.recompterRecompenses(touches)
     if (touches.length > 0) {
@@ -4948,7 +5070,29 @@ export class ProfileStore {
   }
 
   /**
-   * Dépense un Éclat en réserve sur un avatar vérifié (`verifierUnAvatarAEclater`).
+   * Vérifie qu'un Éclat en réserve peut tailler cette matière dans cet
+   * avatar : il en a un, l'avatar a éclaté pour lui, c'est un avatar qui
+   * prend une matière (`peutSeTailler` : ni un compagnon, ni un Divin), et il
+   * n'a pas déjà cette matière. L'Opale ne se taille pas : les quatre
+   * l'ouvrent. Rend l'avatar et la matière.
+   */
+  private async verifierUneMatiereATailler(rec: ProfileRec, brute: unknown): Promise<{ cle: string; matiere: MatiereTaillee }> {
+    if (this.reserveOf(rec.id) === 0) throw new Error('Tu n’as aucun Éclat en réserve')
+    const demande = brute as { cle?: unknown; matiere?: unknown } | null
+    const cle = typeof demande?.cle === 'string' ? demande.cle : ''
+    const matiere = demande?.matiere
+    if (matiere === OPALE) throw new Error('L’Opale ne se taille pas : les quatre matières de cet avatar l’ouvrent')
+    if (!estUneMatiereATailler(matiere)) throw new Error('Cette matière n’existe pas')
+    if (!cle || !this.eclats.get(rec.id)?.has(cle)) throw new Error('Un avatar prend une matière une fois éclaté')
+    if (divin(cle)) throw new Error('Un Divin n’éclate jamais')
+    if (!peutSeTailler(cle)) throw new Error('Un compagnon ne prend pas de matière : l’Éclat lui ouvre sa métamorphose')
+    if (this.matieres.get(rec.id)?.get(cle)?.has(matiere)) throw new Error(`Ton avatar est déjà taillé ${enMatiere(matiere)}`)
+    return { cle, matiere }
+  }
+
+  /**
+   * Dépense un Éclat en réserve sur un avatar vérifié (`verifierUnAvatarAEclater`),
+   * ou sur une matière à tailler (`verifierUneMatiereATailler`, `cleDeMatiere`).
    * La ligne de la réserve devient celle de l'avatar : elle garde la soirée,
    * le jour ou la semaine où l'Éclat est tombé, et suit leur sort. La
    * mémoire change avant la base, d'un seul tenant : deux dépenses parties
@@ -4958,12 +5102,30 @@ export class ProfileStore {
   private async depenserUnEclat(profileId: string, cle: string): Promise<void> {
     const reserve = this.reserves.get(profileId)
     const uid = reserve && [...reserve][0]
-    let siens = this.eclats.get(profileId)
-    if (!siens) this.eclats.set(profileId, (siens = new Set()))
     if (!reserve || !uid) throw new Error('Tu n’as aucun Éclat en réserve')
-    if (clesQuiBrillent([...siens], cle).length > 0) throw new Error('Cet avatar a déjà éclaté')
+    // Ce qu'il devient : un avatar qui éclate, ou une matière taillée dans
+    // un avatar éclaté (`matiere:jade:lg:phenix`) — la même ligne, renommée,
+    // et la même garde : deux dépenses parties ensemble n'en prennent qu'une.
+    const taillee = lireCleDeMatiere(cle)
+    let siens: Set<string>
+    let prise: string
+    if (taillee) {
+      let parAvatar = this.matieres.get(profileId)
+      if (!parAvatar) this.matieres.set(profileId, (parAvatar = new Map()))
+      let siennes = parAvatar.get(taillee.avatar)
+      if (!siennes) parAvatar.set(taillee.avatar, (siennes = new Set()))
+      if (siennes.has(taillee.matiere)) throw new Error(`Ton avatar est déjà taillé ${enMatiere(taillee.matiere)}`)
+      siens = siennes
+      prise = taillee.matiere
+    } else {
+      let eclates = this.eclats.get(profileId)
+      if (!eclates) this.eclats.set(profileId, (eclates = new Set()))
+      if (clesQuiBrillent([...eclates], cle).length > 0) throw new Error('Cet avatar a déjà éclaté')
+      siens = eclates
+      prise = cle
+    }
     reserve.delete(uid)
-    siens.add(cle)
+    siens.add(prise)
     let sous: string
     try {
       const lue = await this.client.execute({ sql: 'SELECT soiree_id FROM profile_eclats WHERE profile_id = ? AND avatar = ?', args: [profileId, uid] })
@@ -4974,12 +5136,13 @@ export class ProfileStore {
       })
       if (!sous || res.rowsAffected === 0) throw new Error('Cet Éclat n’est plus là')
     } catch (e) {
-      siens.delete(cle)
+      siens.delete(prise)
       // Une soirée effacée pendant ce temps a repris sa ligne : l'Éclat n'existe plus.
       if (!(e instanceof Error && e.message === 'Cet Éclat n’est plus là')) reserve.add(uid)
       throw e
     }
-    await this.accorderPaliersDesEclats(profileId, sous).catch(e => console.error('[éclat] paliers non rangés :', e))
+    // Une matière ne fait éclater aucun avatar : La Pluie d'Éclats, qui compte les avatars, n'a rien de neuf à compter.
+    if (!taillee) await this.accorderPaliersDesEclats(profileId, sous).catch(e => console.error('[éclat] paliers non rangés :', e))
   }
 
   /**
@@ -5005,8 +5168,9 @@ export class ProfileStore {
   private async eclatsHors(profileId: string, noms: ReadonlySet<string>): Promise<number> {
     if (noms.size === 0) return this.eclatsOf(profileId).length
     const res = await this.client.execute({ sql: 'SELECT soiree_id, avatar FROM profile_eclats WHERE profile_id = ?', args: [profileId] })
-    // Un Éclat en réserve n'a pas encore éclaté : il ne compte pas.
-    return res.rows.filter(r => !estEnReserve(String(r.avatar)) && !noms.has(String(r.soiree_id))).length
+    // Un Éclat en réserve n'a pas encore éclaté : il ne compte pas. Une
+    // matière taillée non plus — La Pluie d'Éclats compte les avatars éclatés.
+    return res.rows.filter(r => !estEnReserve(String(r.avatar)) && !estUneLigneDeMatiere(String(r.avatar)) && !noms.has(String(r.soiree_id))).length
   }
 
   // ── L'étagère ───────────────────────────────────────────────────────────
@@ -6053,6 +6217,8 @@ export class ProfileStore {
       this.eclats,
       this.eteints,
       this.reserves,
+      this.matieres,
+      this.matieresPortees,
       this.recompenses,
       this.compagnons,
       this.tresors,
@@ -6249,7 +6415,7 @@ export class ProfileStore {
   apparenceDe(
     p: ProfileRec,
     avatar: string = this.avatarPorte(p),
-  ): { niveau: number; finition: Finition; eclat: boolean; legendaire?: string; laurier?: LaurierPorte; champion?: string } {
+  ): { niveau: number; finition: Finition; eclat: false | EclatPorte; legendaire?: string; laurier?: LaurierPorte; champion?: string } {
     const niveau = this.niveauOf(p)
     const legendaire = this.legendairePorte(p)
     const laurier = this.laurierPorte(p.id)
@@ -6257,8 +6423,8 @@ export class ProfileStore {
     return {
       niveau,
       finition: finitionPortee(p.finition, niveau),
-      // Éteint, un Éclat ne se voit plus : il porte la version d'origine.
-      eclat: this.brilleChez(p.id, cibleEclat(legendaire, avatar)),
+      // Éteint, un Éclat ne se voit plus : il porte la version d'origine. Taillé, sa matière.
+      eclat: this.eclatChez(p.id, cibleEclat(legendaire, avatar)),
       ...(legendaire && { legendaire }),
       ...(laurier && { laurier }),
       ...(champion && { champion }),
@@ -6330,11 +6496,10 @@ export class ProfileStore {
     // dans l'accusé d'inscription à une soirée, qui est synchrone, et dans
     // l'instantané de toute la salle.
     if (!this.eclats.has(rec.id)) {
-      const eclats = await this.client.execute({ sql: 'SELECT avatar, eteint FROM profile_eclats WHERE profile_id = ?', args: [rec.id] })
-      const eclates = eclats.rows.filter(e => !estEnReserve(String(e.avatar)))
-      this.eclats.set(rec.id, new Set(eclates.map(e => String(e.avatar))))
-      this.eteints.set(rec.id, new Set(eclates.filter(e => Number(e.eteint) === 1).map(e => String(e.avatar))))
-      this.reserves.set(rec.id, new Set(eclats.rows.map(e => String(e.avatar)).filter(estEnReserve)))
+      const eclats = await this.client.execute({ sql: 'SELECT avatar, eteint, matiere FROM profile_eclats WHERE profile_id = ?', args: [rec.id] })
+      const lus = lesEclatsVides()
+      for (const r of eclats.rows) lireUneLigneDEclat(lus, r)
+      this.retenirSesEclats(rec.id, lus)
       await this.recompterRecompenses([rec.id])
     }
     if (!this.compagnons.has(rec.id)) {

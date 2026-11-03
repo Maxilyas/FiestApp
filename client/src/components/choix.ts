@@ -10,6 +10,7 @@ import { theme } from '../../../shared/themes'
 import { AUCUNE_BORDURE, NOM_DE_LA_BORDURE, type ChoixDeBordure } from '../../../shared/duels'
 import type { Essai } from '../../../shared/loge'
 import type { PublicProfileDetail } from '../../../shared/profil'
+import { enMatiere, type Matiere, type MatiereTaillee } from '../../../shared/matieres'
 
 // Ce qu'un toucher du profil change, et ce que le lecteur d'écran en entend.
 // À part des onglets qui l'emploient : la page du profil l'annonce, et
@@ -31,10 +32,12 @@ export type ChoixDuProfil = {
   /** Le thème de ses pages, parmi ceux qu'il a ; null : Velours. */
   theme?: string | null
   vitrine?: string[] | null
-  /** Porter la version rare d'un avatar qui a éclaté, ou sa version d'origine. */
-  eclat?: { cle: string; brille: boolean }
+  /** Porter la version rare d'un avatar qui a éclaté — ou une matière qu'il y a taillée (`shared/matieres.ts`) —, ou sa version d'origine. */
+  eclat?: { cle: string; brille: boolean; matiere?: Matiere | null }
   /** Dépenser un Éclat en réserve pour faire éclater cet avatar, définitivement (jamais un essai : il s'envoie seul). */
   eclatDeReserve?: string
+  /** Dépenser un Éclat en réserve pour tailler une matière dans un avatar déjà éclaté, définitivement. */
+  matiereDeReserve?: { cle: string; matiere: MatiereTaillee }
   /** La bordure de ligue : `auto`, `aucune`, ou celle d'une ligue atteinte en duel. */
   bordure?: ChoixDeBordure
   /** Le compagnon de sa niche, parmi ceux qu'il a adoptés : c'est lui qui grandit. */
@@ -71,10 +74,12 @@ export interface PropsDUnePiece {
   neufs?: ReadonlySet<string>
   /** Dépenser un Éclat en réserve sur un avatar : vrai s'il a pris. Absent d'une page qui ne sait pas l'enregistrer. */
   eclater?: (cle: string) => Promise<boolean>
+  /** Dépenser un Éclat en réserve pour tailler une matière dans un avatar éclaté : vrai si elle a pris. */
+  tailler?: (cle: string, matiere: MatiereTaillee) => Promise<boolean>
 }
 
 /** Les champs d'un enregistrement, dans l'ordre où l'annonce les dit : celui de la rangée de la loge. */
-const CHAMPS = ['avatar', 'eclat', 'eclatDeReserve', 'legendaire', 'finition', 'bordure', 'titre', 'vitrine', 'fond', 'theme', 'gerbe', 'niche'] as const
+const CHAMPS = ['avatar', 'eclat', 'eclatDeReserve', 'matiereDeReserve', 'legendaire', 'finition', 'bordure', 'titre', 'vitrine', 'fond', 'theme', 'gerbe', 'niche'] as const
 
 /**
  * Ce qu'un choix enregistré a changé, une phrase par pièce, pour le lecteur
@@ -89,7 +94,11 @@ export function annonceDuChoix(choix: ChoixDuProfil): string {
 function annonceDUnChamp(choix: ChoixDuProfil): string {
   if (choix.avatar) return `Tu portes ${choix.avatar}.`
   if (choix.eclatDeReserve) return 'Ton Éclat en réserve a fait éclater cet avatar.'
-  if (choix.eclat) return choix.eclat.brille ? 'Tu portes sa version rare.' : 'Tu portes sa version d’origine.'
+  if (choix.matiereDeReserve) return `Ton Éclat en réserve a taillé cet avatar ${enMatiere(choix.matiereDeReserve.matiere)}.`
+  if (choix.eclat) {
+    if (!choix.eclat.brille) return 'Tu portes sa version d’origine.'
+    return choix.eclat.matiere ? `Tu portes sa version ${enMatiere(choix.eclat.matiere)}.` : 'Tu portes sa version rare.'
+  }
   if (choix.legendaire !== undefined) {
     const tete = portrait(choix.legendaire) ?? formeDeCompagnon(choix.legendaire)
     const nom = legendaire(choix.legendaire)?.nom ?? divin(choix.legendaire)?.nom ?? (tete && nomDansLaPhrase(tete.nom))

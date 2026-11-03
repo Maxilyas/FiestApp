@@ -34,7 +34,7 @@ import { answersSizeClass, questionSizeClass } from '../games/quiz/questionSize'
 import { toucher } from '../toucher'
 import { placeDuJour } from '../../../shared/course'
 import { versLesSentiers } from '../../../shared/depart'
-import { CHANCE_ECLAT_DU_DEFI, brilleChez, type PublicProfile } from '../../../shared/profil'
+import { CHANCE_ECLAT_DU_DEFI, eclatChez, type PublicProfile } from '../../../shared/profil'
 import { sonAvatar } from '../../../shared/sonAvatar'
 import { cibleEclat } from '../../../shared/legendaires'
 import { SUJETS_ET_RUBRIQUES, estRemplace, sujetParCle } from '../../../shared/sujets'
@@ -1236,13 +1236,14 @@ export function CampagneApp() {
   // Ce qu'une fin de duel fait tomber avec elle — trophées, légendaires, un niveau — : sous sa carte ou son cadran.
   const tombeAvecLeDuel = (f: Extract<Ecran, { e: 'fin' }>) => <GainsDeCampagne fin={f} profil={profil} duel />
 
-  // Ce qu'il porte, sur l'avatar d'une fin de duel : son légendaire, pas l'emoji d'en dessous.
+  // Ce qu'il porte, sur l'avatar d'une fin de duel : son légendaire, pas l'emoji d'en dessous — sa matière comprise.
+  const sonEclat = profil ? eclatChez(profil, cibleEclat(profil.legendaire, profil.avatar)) : false
   const monApparence =
     profil &&
     ceQuIlPorte({
       finition: profil.finition,
       ...(profil.legendaire && { legendaire: profil.legendaire }),
-      ...(brilleChez(profil, cibleEclat(profil.legendaire, profil.avatar)) && { eclat: true as const }),
+      ...(sonEclat && { eclat: sonEclat }),
     })
   // La page des duels, d'où il est parti : sans la recharger.
   const versMesDuels = () => {

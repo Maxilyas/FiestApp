@@ -944,7 +944,7 @@ const joueurDeLaLigne = (l: LigneDesDuels): JoueurADefier => ({
   avatar: l.avatar,
   ...(l.finition && l.finition !== 'mat' && { finition: l.finition }),
   ...(l.legendaire && { legendaire: l.legendaire }),
-  ...(l.eclat && { eclat: true as const }),
+  ...(l.eclat && { eclat: l.eclat }),
   ...(l.bordure && { bordure: l.bordure }),
   cote: l.cote,
   ligue: l.ligue,

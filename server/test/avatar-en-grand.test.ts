@@ -145,10 +145,11 @@ test('un doigt qui glisse sur l’avatar en grand fait suivre le reflet, il ne r
 test('la case de l’avatar en grand contient tout ce qui en déborde, et la carte ne défile pas en largeur', () => {
   const em = (corps: string, propriete: string) => Number(new RegExp(`(?:^|[;\\s])${propriete}:\\s*([\\d.]+)em`).exec(corps)?.[1])
   const diviseur = (selecteur: string) => Number(/font-size:\s*calc\(var\(--loupe\) \/ ([\d.]+)\)/.exec(regle(selecteur))?.[1])
-  // Un emoji : son halo, les paillettes de son Éclat.
+  // Un emoji : son halo, et la gemme de son Éclat — à son coin, elle dépasse
+  // de l'emoji de son décalage ; de chaque côté, au pire.
   const debords: [string, number][] = [
     ['le halo', em(regle('.av::before', /width/), 'width')],
-    ['les paillettes de l’Éclat', em(regle('.av-eclat::after', /width/), 'width')],
+    ['la gemme de l’Éclat', 1 + 2 * Number(/right:\s*-([\d.]+)em/.exec(regle('.av-eclat::after', /right:/))![1])],
   ]
   // Un médaillon, et ce qui le dépasse de son `inset` : la gerbe d'un légendaire éclaté, les rayons d'un Divin.
   const medaillon = em(regle('.av-legendaire .lg', /width/), 'width')

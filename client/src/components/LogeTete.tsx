@@ -8,7 +8,7 @@ import { ongletVise } from './Onglets'
 import { espacesFines } from '../format'
 import { cibleEclat } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
-import { NOM_FINITION, brilleChez, type PublicProfileDetail } from '../../../shared/profil'
+import { NOM_FINITION, eclatChez, type PublicProfileDetail } from '../../../shared/profil'
 import { nomDuTitre } from '../../../shared/sentiers'
 import { bordurePortee } from '../../../shared/duels'
 import { PIECES_DE_LA_LOGE, type PieceDeLaLoge } from '../../../shared/piecesDeLaLoge'
@@ -32,6 +32,9 @@ const ICONES: Record<PieceDeLaLoge, IconName> = { avatar: 'sparkles', titre: 'st
  *
  * L'avatar qu'elle montre a éclaté pour lui ? « Version rare » se touche
  * sur elle, à côté de lui : sa version rare ou celle d'origine s'essaie aussi.
+ * Taillé dans une matière (`shared/matieres.ts`), le bouton dit la version
+ * montrée et ouvre le choix de toutes (`versions`) : d'origine, rare, et
+ * chaque matière qu'il a.
  * Dans une fiche sous la case touchée, elle s'enregistrait d'un toucher ;
  * sous la grille, elle aurait fait sauter les cases sous le doigt.
  *
@@ -47,6 +50,7 @@ export function CarteDeLaLoge({
   apercu = false,
   essaye = {},
   version = null,
+  versions = null,
   onOuvrir,
 }: {
   /** Le profil tel que la carte le montre : ce qu'il porte, l'essai par-dessus (`avecLEssai`). */
@@ -59,6 +63,8 @@ export function CarteDeLaLoge({
   essaye?: { avatar?: boolean; titre?: boolean; vitrine?: boolean }
   /** La version de l'avatar montré, s'il a éclaté : rare ou d'origine, et de quoi l'essayer. */
   version?: { rare: boolean; essayee: boolean; basculer: () => void } | null
+  /** Taillé dans une matière : le nom de la version montrée, et le choix de toutes, à la place de la bascule. */
+  versions?: { nom: string; choisir: () => void } | null
   /** Sa carte entière, en grand. */
   onOuvrir?: () => void
 }) {
@@ -74,7 +80,7 @@ export function CarteDeLaLoge({
               className="player-avatar big"
               avatar={vu.avatar}
               finition={vu.finition}
-              eclat={brilleChez(vu, cibleEclat(vu.legendaire ?? undefined, vu.avatar))}
+              eclat={eclatChez(vu, cibleEclat(vu.legendaire ?? undefined, vu.avatar))}
               legendaire={vu.legendaire ?? undefined}
               bordure={bordurePortee(vu.bordureChoisie ?? 'auto', vu.bordures)}
             />
@@ -104,7 +110,13 @@ export function CarteDeLaLoge({
             )}
           </span>
           {apercu ? <span className="loge-apercu">Aperçu</span> : finition && <span className="loge-finition">{finition}</span>}
-          {version && (
+          {version && versions && (
+            <button type="button" className={'loge-version loge-version-choix' + (version.essayee ? ' loge-essaye' : '')} aria-haspopup="dialog" onClick={versions.choisir}>
+              <Icon name="sparkles" />
+              {versions.nom}
+            </button>
+          )}
+          {version && !versions && (
             <button type="button" className={'loge-version' + (version.essayee ? ' loge-essaye' : '')} aria-pressed={version.rare} onClick={version.basculer}>
               <Icon name="sparkles" />
               Version rare

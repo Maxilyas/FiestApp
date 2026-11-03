@@ -469,8 +469,8 @@ test('un portrait redessiné ne repose pas son SVG : jamais un `__html` neuf à 
   for (const fichier of tsx(client)) {
     assert.doesNotMatch(readFileSync(fichier, 'utf8'), /dangerouslySetInnerHTML=\{\{/, `${path.relative(client, fichier)} : un objet neuf à chaque rendu`)
   }
-  // Le portrait se peint une fois par état — son dessin, sa finition, sa taille.
+  // Le portrait se peint une fois par état — son dessin, sa finition, sa taille, la matière qu'il porte.
   const portrait = readFileSync(path.join(client, 'components/Portrait.tsx'), 'utf8')
-  assert.match(portrait, /const peinture = useMemo\(\(\) => \{[\s\S]*?\}, \[p, dessin, verrouille, eclate, cercle, grand, u\]\)/)
+  assert.match(portrait, /const peinture = useMemo\(\(\) => \{[\s\S]*?\}, \[p, dessin, verrouille, eclate, matiere, cercle, grand, u\]\)/)
   for (const morceau of ['defs', 'avant', 'scene', 'apres']) assert.match(portrait, new RegExp(`dangerouslySetInnerHTML=\\{peinture\\.${morceau}\\}`), morceau)
 })

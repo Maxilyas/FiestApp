@@ -19,7 +19,8 @@ import { fond } from './fonds'
 import { AUCUNE_GERBE, gerbe } from './gerbes'
 import { cleRangee, hautsFaitsGagnes } from './hautsfaits'
 import { cibleEclat, legendaire } from './legendaires'
-import { NOM_FINITION, brilleChez, clesQuiBrillent, meilleureFinition, type FinitionChoisie, type PublicProfileDetail } from './profil'
+import { NOM_FINITION, clesQuiBrillent, eclatChez, meilleureFinition, type FinitionChoisie, type PublicProfileDetail } from './profil'
+import { NOM_DE_LA_MATIERE, type Matiere } from './matieres'
 import { recompensesDe } from './proches'
 import { cleDeMaitre, maitresDe, nomDuTitre } from './sentiers'
 import { NOM_DE_RARETE, theme } from './themes'
@@ -49,8 +50,12 @@ export interface Essai {
   theme?: string | null
   /** `AUCUNE_GERBE` : aucune. */
   gerbe?: string | null
-  /** La version de l'avatar que la carte montre, s'il a éclaté pour lui : rare (`brille`) ou d'origine. */
-  eclat?: { cle: string; brille: boolean }
+  /**
+   * La version de l'avatar que la carte montre, s'il a éclaté pour lui : rare
+   * (`brille`) ou d'origine — et, rare, la matière qu'il y a taillée
+   * (`matiere`, `shared/matieres.ts` ; absente ou null, sa version rare).
+   */
+  eclat?: { cle: string; brille: boolean; matiere?: Matiere | null }
   /** La bordure de ligue : `auto`, `aucune`, ou celle d'une ligue atteinte. */
   bordure?: ChoixDeBordure
 }
@@ -60,7 +65,7 @@ export interface Essai {
  * qu'il a éteints : la version qu'il montre de chacun.
  */
 export type Tenue = Pick<PublicProfileDetail, 'avatar' | 'legendaire' | 'finitionChoisie' | 'titre' | 'vitrineChoisie' | 'fond' | 'theme' | 'gerbe' | 'bordureChoisie'> &
-  Partial<Pick<PublicProfileDetail, 'eclats' | 'eclatsEteints'>>
+  Partial<Pick<PublicProfileDetail, 'eclats' | 'eclatsEteints' | 'matieres' | 'matieresPortees'>>
 
 /** L'avatar que la carte montre : l'emoji essayé ôte le légendaire, comme au serveur. */
 export function avatarMontre(porte: Pick<Tenue, 'avatar' | 'legendaire'>, essai: Essai): { avatar: string; legendaire: string | null } {
@@ -71,8 +76,8 @@ export function avatarMontre(porte: Pick<Tenue, 'avatar' | 'legendaire'>, essai:
 /**
  * Ce qui peut avoir éclaté dans l'avatar montré : le légendaire ou le
  * portrait, sinon l'emoji (`cibleEclat`) — rien sous un Divin, qui n'éclate
- * pas et cache l'emoji, ni sous un compagnon : ses paillettes le suivent sous
- * toutes ses formes, et sa métamorphose, que l'Éclat ouvre à sa forme ultime,
+ * pas et cache l'emoji, ni sous un compagnon : sa gemme le suit sous toutes
+ * ses formes, et sa métamorphose, que l'Éclat ouvre à sa forme ultime,
  * se choisit comme une forme de plus, dans la grille.
  */
 export function cibleDeLEclat(montre: { avatar: string; legendaire: string | null }): string | null {
@@ -109,8 +114,11 @@ export function essayer(essai: Essai, piece: Essai, porte: Tenue): Essai {
   // qu'il montre déjà sort de l'essai.
   if (suivant.eclat) {
     const { cle, brille } = suivant.eclat
+    // Rare, la matière qu'il essaie ; d'origine, aucune.
+    const matiere = brille ? (suivant.eclat.matiere ?? null) : null
+    const montree = porte.eclats ? eclatChez({ eclats: porte.eclats, eclatsEteints: porte.eclatsEteints, matieres: porte.matieres, matieresPortees: porte.matieresPortees }, cle) : null
     if (cle !== cibleDeLEclat(avatarMontre(porte, suivant))) delete suivant.eclat
-    else if (porte.eclats && brille === brilleChez({ eclats: porte.eclats, eclatsEteints: porte.eclatsEteints }, cle)) delete suivant.eclat
+    else if (montree !== null && brille === !!montree && matiere === (typeof montree === 'string' ? montree : null)) delete suivant.eclat
   }
   return suivant
 }
@@ -169,6 +177,12 @@ export function avecLEssai<P extends Tenue & Pick<PublicProfileDetail, 'finition
     if (essai.eclat.brille) eteints.delete(essai.eclat.cle)
     else eteints.add(essai.eclat.cle)
     vu.eclatsEteints = [...eteints]
+    // La matière qu'il essaie devient celle qu'il porte de cet avatar ; sa version rare ou d'origine n'en porte aucune.
+    const portees = { ...profil.matieresPortees }
+    const matiere = essai.eclat.brille ? (essai.eclat.matiere ?? null) : null
+    if (matiere) portees[essai.eclat.cle] = matiere
+    else delete portees[essai.eclat.cle]
+    vu.matieresPortees = portees
   }
   return vu
 }
@@ -205,7 +219,9 @@ export function carteAvecLEssai(
     delete retouchee.eclat
     delete retouchee.legendaire
     delete retouchee.bordure
-    if (brilleChez(vu, cibleEclat(legendaire, vu.avatar))) retouchee.eclat = true
+    // Telle quelle : sa version rare, ou la matière qu'il essaie.
+    const eclat = eclatChez(vu, cibleEclat(legendaire, vu.avatar))
+    if (eclat) retouchee.eclat = eclat
     if (legendaire) retouchee.legendaire = legendaire
     if (bordure) retouchee.bordure = bordure
   }
@@ -260,7 +276,14 @@ export function lignesDeLEssai(essai: Essai, profil: Pick<PublicProfileDetail, '
               : { piece: 'avatar', nom: 'Ton emoji', detail: 'Avatar' },
     )
   }
-  if (essai.eclat) lignes.push({ piece: 'avatar', nom: essai.eclat.brille ? 'Version rare' : 'Version d’origine', detail: 'Éclat' })
+  if (essai.eclat) {
+    const matiere = essai.eclat.brille ? essai.eclat.matiere : null
+    lignes.push(
+      matiere
+        ? { piece: 'avatar', nom: NOM_DE_LA_MATIERE[matiere], detail: 'Matière' }
+        : { piece: 'avatar', nom: essai.eclat.brille ? 'Version rare' : 'Version d’origine', detail: 'Éclat' },
+    )
+  }
   if (essai.finition !== undefined) {
     const f = essai.finition
     lignes.push({ piece: 'avatar', nom: f === 'auto' ? `La plus belle · ${NOM_FINITION[meilleureFinition(profil.niveau)]}` : NOM_FINITION[f], detail: 'Finition' })

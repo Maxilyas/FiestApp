@@ -254,8 +254,9 @@ se filtre par une seule liste (`PREFIXES_DES_VOIES_RANGEES`,
 
 Les Éclats : la version rare d'un avatar, une ligne par profil et par avatar.
 
-- **Colonnes clés** : `profile_id` et `avatar` (la clé), `soiree_id` (la soirée, ou le jour, ou la semaine du défi, qui l'a fait tomber), `created_at` (indexée : le QG compte les Éclats tombés ces trente jours), `eteint` (porté dans sa version d'origine).
+- **Colonnes clés** : `profile_id` et `avatar` (la clé), `soiree_id` (la soirée, ou le jour, ou la semaine du défi, qui l'a fait tomber), `created_at` (indexée : le QG compte les Éclats tombés ces trente jours), `eteint` (porté dans sa version d'origine), `matiere` (la matière qu'il en porte, quand ce n'est pas sa version rare — `porcelaine`, `corail`, `jade`, `obsidienne` ou `opale` ; NULL, la version rare).
 - **Un Éclat en réserve** : tombé sur un avatar déjà éclaté, il se range ici sous la clé `reserve:<uuid>` (`PREFIXE_DE_LA_RESERVE`, `shared/legendaires.ts`) — ni compté, ni montré comme un avatar éclaté ; le dépenser remplace cette clé par l'avatar choisi, la ligne gardant sa soirée et sa date.
+- **Une matière taillée** (depuis le 3 novembre 2026, `shared/matieres.ts`) : un Éclat en réserve dépensé dans un avatar déjà éclaté ; sa ligne prend la clé `matiere:<matière>:<avatar>` (`cleDeMatiere`, `matiere:jade:lg:phenix`), garde sa soirée et sa date, et suit leur sort. Ni un avatar éclaté, ni compté pour La Pluie d'Éclats ; l'Opale ne s'y range jamais : les quatre la font.
 - **Espace** : non.
 - **Écrite par** : `ProfileStore` (le tirage, la loge).
 - **Lue par** : `ProfileStore` ; la page de l'économie du QG (`economieDepuis`).
