@@ -25,9 +25,12 @@ const ADMIN = { login: 'admin', password: 'perf-admin-1', slug: 'regie', name: '
 const serveur = await createQuizServer({
   port,
   dbPath: path.join(dossier, 'locale.db'),
-  quizDbUrl: `file:${path.join(dossier, 'permanente.db')}`,
+  // Le faux Turso, dehors, si le générateur en a lancé un (`--turso`) : comme en production, la base est distante.
+  quizDbUrl: process.env.BASE_URL ?? `file:${path.join(dossier, 'permanente.db')}`,
   admin: ADMIN,
   publicUrl: `http://localhost:${port}`,
+  // Le préchauffage de la campagne, 20 s après l'ouverture d'office ; repoussé (`--prechauffage`), la soirée se mesure seule.
+  prechauffageCampagneMs: Number(process.env.PRECHAUFFAGE_MS ?? 20_000),
 })
 
 // Résolution de 1 ms : le p50 au repos vaut donc ~1 ms, pas zéro.

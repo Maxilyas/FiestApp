@@ -37,7 +37,10 @@
   sur papier. Mise en page : le programme d'une soirée, lu dans l'ordre —
   Avant ▲, Pendant ◆, Après ●, Entre deux soirées ■ —, chaque temps marqué
   par l'une des quatre formes des réponses ; les écrans en grand, qui
-  débordent la colonne du texte.
+  débordent la colonne du texte. Les chiffres d'« À l'épreuve » et de la
+  bande du haut sont ceux de docs/exploitation/capacite.md, mesurés et
+  datés : l'un change, l'autre aussi — une vitrine qui promet plus que le
+  banc ne tient ferait mentir la page qui le mesure.
 */
 :root {
   --fond: #1a1412;
@@ -194,7 +197,8 @@ p { margin: 0; }
   background: var(--filet);
 }
 .chiffres div { background: var(--fond); padding: 1.6rem 1rem; text-align: center; }
-.chiffres b { display: block; font: 600 clamp(2rem, 4vw, 2.9rem)/1 var(--affiche); color: var(--champagne-texte); font-variant-numeric: lining-nums tabular-nums; }
+/* Des chiffres proportionnels : en grand et seuls, des chasses égales espaçaient « 27 404 » comme une colonne de tableau. */
+.chiffres b { display: block; font: 600 clamp(2rem, 4vw, 2.9rem)/1 var(--affiche); color: var(--champagne-texte); font-variant-numeric: lining-nums proportional-nums; }
 .chiffres span { display: block; margin-top: 0.5rem; color: var(--doux); font-size: 0.92rem; }
 
 /* ── Les quatre temps ─────────────────────────────────────────────────── */
@@ -215,8 +219,12 @@ p { margin: 0; }
 .points h3 { font-size: 1.55rem; }
 .points p { margin-top: 0.35rem; color: var(--doux); }
 .points p strong, .points p em { color: var(--encre); font-weight: 500; font-style: normal; }
+.points .vignettes { margin-bottom: 0.8rem; max-width: 22rem; }
 .duo { display: flex; gap: clamp(1rem, 3vw, 2rem); align-items: flex-end; justify-content: center; }
 .duo .telephone { width: clamp(9rem, 44%, 15rem); position: static; }
+.duo .carte { width: clamp(9rem, 44%, 15rem); margin: 0; }
+.carte img { width: 100%; border-radius: 14px; box-shadow: var(--ombre); }
+.duo .carte:nth-child(2) { margin-bottom: 2.5rem; }
 
 .sortes {
   margin-top: clamp(2.5rem, 5vw, 3.5rem);
@@ -226,6 +234,9 @@ p { margin: 0; }
 .sortes div { background: var(--fond); padding: 1.25rem 1.3rem; min-width: 0; }
 .sortes b { font: 600 1.3rem/1.2 var(--affiche); display: block; }
 .sortes span { color: var(--doux); font-size: 0.95rem; display: block; margin-top: 0.3rem; }
+/* Les dix jeux du Cabinet : deux rangées de cinq, aucun laissé seul au bout d'une rangée de trois. */
+.sortes.dix { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.sortes.dix div { padding: 1.1rem 1.15rem; }
 
 .rangee {
   margin-top: clamp(2.5rem, 5vw, 3.5rem);
@@ -237,6 +248,9 @@ p { margin: 0; }
 .rangee figcaption { margin-top: 1rem; }
 .rangee figcaption b { font: 600 1.35rem/1.2 var(--affiche); display: block; }
 .rangee figcaption span { color: var(--doux); font-size: 0.95rem; display: block; margin-top: 0.3rem; }
+/* Les écrans du Cabinet se montrent entiers : rognés au format des autres, la carte perdait ses chemins et le gardien son bouton. */
+.rangee.trois { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 54rem; }
+.rangee.trois .telephone img { aspect-ratio: 720 / 1558; }
 
 /* ── Ce qu'on gagne ───────────────────────────────────────────────────── */
 .galerie {
@@ -264,17 +278,31 @@ p { margin: 0; }
 .trio p { color: var(--doux); margin-top: 0.4rem; }
 .vignettes { display: flex; gap: 0.5rem; }
 .vignettes img { width: calc((100% - 2rem) / 5); border-radius: 50%; aspect-ratio: 1; object-fit: cover; box-shadow: 0 0 0 1px var(--filet-fort); }
-.vignettes.trois img { width: calc((100% - 2rem) / 5); }
-.paire { margin-top: clamp(2.5rem, 5vw, 3.5rem); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(1.5rem, 4vw, 3.5rem); }
-.paire > div { min-width: 0; }
-.paire h3 { font-size: 1.55rem; margin-top: 1rem; }
-.paire p { color: var(--doux); margin-top: 0.4rem; }
 
 /* ── Les partis pris ──────────────────────────────────────────────────── */
 .principes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(1.5rem, 3.5vw, 2.75rem) clamp(1.5rem, 4vw, 3.5rem); margin-top: clamp(2.5rem, 5vw, 3.5rem); }
 .principes div { border-top: 1px solid var(--filet-fort); padding-top: 1.1rem; min-width: 0; }
 .principes h3 { font-size: 1.6rem; }
 .principes p { color: var(--doux); margin-top: 0.5rem; }
+
+/* ── À l'épreuve ──────────────────────────────────────────────────────── */
+/*
+  Des tuiles, pas un graphique : chaque mesure est un nombre seul, et son
+  sens tient dans ce qu'elle mesure et dans quelles conditions — la valeur,
+  ce qu'elle compte, puis le banc. Pas de couleur de série : rien ne se
+  compare d'une tuile à l'autre.
+*/
+.mesures {
+  margin-top: clamp(2.5rem, 5vw, 3.5rem);
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px; background: var(--filet); border: 1px solid var(--filet); border-radius: var(--rayon); overflow: hidden;
+}
+.mesures > div { background: var(--fond); padding: clamp(1.3rem, 3vw, 1.9rem) clamp(1.1rem, 2.5vw, 1.6rem); min-width: 0; }
+.mesures b { display: block; font: 600 clamp(2.4rem, 4.8vw, 3.4rem)/1 var(--affiche); color: var(--champagne-texte); font-variant-numeric: lining-nums proportional-nums; }
+.mesures b small { font-size: 0.5em; font-weight: 500; margin-left: 0.12em; }
+.mesures .libelle { display: block; margin-top: 0.7rem; color: var(--encre); font-weight: 500; }
+.mesures .banc { display: block; margin-top: 0.35rem; color: var(--doux); font-size: 0.92rem; }
+.preuve { margin-top: 1.5rem; color: var(--doux); max-width: 48rem; }
 
 /* ── Sous le capot ────────────────────────────────────────────────────── */
 .capot { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: clamp(2rem, 5vw, 4rem); margin-top: clamp(2.5rem, 5vw, 3.5rem); }
@@ -304,15 +332,26 @@ footer { padding-block: 2rem 3rem; border-top: 1px solid var(--filet); color: va
   .ligne.inverse > figure { order: 0; }
   .chiffres { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .rangee { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rangee.trois { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .galerie { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .joyaux { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .principes, .trio, .paire { grid-template-columns: minmax(0, 1fr); }
-  .sortes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .principes, .trio { grid-template-columns: minmax(0, 1fr); }
+  .sortes, .sortes.dix, .mesures { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 480px) {
   .barre nav a.secondaire { display: none; }
-  .sortes { grid-template-columns: minmax(0, 1fr); }
+  .sortes, .sortes.dix, .mesures { grid-template-columns: minmax(0, 1fr); }
   .scene .telephone { width: 36%; right: -0.25rem; }
+  /*
+    Côte à côte, les trois écrans du Cabinet n'y feraient que cent pixels, la
+    carte illisible : ils défilent sous le doigt, chacun aux deux tiers de
+    l'écran, le suivant qui dépasse pour dire qu'il y en a d'autres.
+  */
+  .rangee.trois {
+    display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 0.9rem;
+    margin-inline: -1rem; padding: 0 1rem 0.75rem; scroll-padding-inline: 1rem;
+  }
+  .rangee.trois figure { flex: 0 0 64%; scroll-snap-align: start; }
 }
 </style>
 </head>
@@ -325,7 +364,8 @@ footer { padding-block: 2rem 3rem; border-top: 1px solid var(--filet); color: va
   </a>
   <nav aria-label="Liens">
     <a class="secondaire" href="#pendant">Le jeu</a>
-    <a class="secondaire" href="#entre">Entre deux soirées</a>
+    <a class="secondaire" href="#cabinet">Le Cabinet</a>
+    <a class="secondaire" href="#epreuve">À l'épreuve</a>
     <a href="https://github.com/Maxilyas/FiestApp/tree/main/docs">Documentation</a>
     <a href="https://github.com/Maxilyas/FiestApp">Code</a>
   </nav>
@@ -350,16 +390,16 @@ footer { padding-block: 2rem 3rem; border-top: 1px solid var(--filet); color: va
     </div>
   </div>
   <figure class="scene" style="margin:0">
-    <div class="ecran"><img src="captures/ecran-question.jpg" width="1600" height="900" alt="L'écran commun : « Quelle planète surnomme-t-on la planète rouge ? », une photo de Mars, quatre réponses marquées d'un triangle, d'un losange, d'un rond et d'un carré, le chronomètre à 30 et le code pour rejoindre."></div>
-    <div class="telephone"><img src="captures/telephone-repondu.jpg" width="720" height="1558" alt="Le téléphone de Nina : la même question, « Mars » cochée, et « Réponse enregistrée · tu peux encore changer, au prix du bonus de rapidité »."></div>
+    <div class="ecran"><img src="captures/ecran-question.jpg" width="1920" height="1080" alt="L'écran commun : « Quelle planète surnomme-t-on la planète rouge ? », une photo de Mars, quatre réponses marquées d'un triangle, d'un losange, d'un rond et d'un carré, le chronomètre à 29 et le code pour rejoindre."></div>
+    <div class="telephone"><img src="captures/telephone-repondu.jpg" width="780" height="1688" alt="Le téléphone de Nina : la même question, « Mars » cochée, et « Réponse enregistrée · tu peux encore changer, au prix du bonus de rapidité »."></div>
   </figure>
 </section>
 
 <section class="chiffres colonne" aria-label="En chiffres">
-  <div><b class="chiffre">0&nbsp;€</b><span>d'hébergement, sur des offres gratuites</span></div>
-  <div><b class="chiffre">26</b><span>avatars légendaires peints, à mériter</span></div>
-  <div><b class="chiffre">21&nbsp;887</b><span>questions relues, prêtes à jouer</span></div>
-  <div><b class="chiffre">0</b><span>compte demandé pour jouer</span></div>
+  <div><b>0&nbsp;€</b><span>d'hébergement, sur des offres gratuites</span></div>
+  <div><b>150</b><span>invités dans une même soirée, sur l'offre gratuite</span></div>
+  <div><b>27&nbsp;404</b><span>questions relues, prêtes à jouer</span></div>
+  <div><b>0</b><span>compte demandé pour jouer</span></div>
 </section>
 
 <section class="acte colonne" id="avant" aria-labelledby="titre-avant">
@@ -374,11 +414,11 @@ footer { padding-block: 2rem 3rem; border-top: 1px solid var(--filet); color: va
 
   <div class="ligne">
     <figure>
-      <div class="ecran"><img src="captures/ecran-attente.jpg" width="1600" height="900" alt="La salle d'attente à la télé : le code du salon en grand, le QR code à scanner, les invités rangés par équipe à gauche, les équipes et le classement de la soirée à droite."></div>
+      <div class="ecran"><img src="captures/ecran-attente.jpg" width="1920" height="1080" alt="La salle d'attente à la télé : le code du salon en grand, le QR code à scanner, les invités rangés par équipe à gauche, les équipes et le classement de la soirée à droite."></div>
       <figcaption class="legende">La salle d'attente : un code à six chiffres, un QR code, les invités qui arrivent dans leur équipe.</figcaption>
     </figure>
     <div class="points">
-      <div><h3>Un quiz tout prêt, d'un geste</h3><p>Choisis des catégories, une difficulté et un nombre de questions : FiestApp tire un quiz dans sa base de <strong>21&nbsp;887 questions relues</strong>, chacune avec son anecdote. Tu le retouches à ton goût, ou tu le lances tel quel.</p></div>
+      <div><h3>Un quiz tout prêt, d'un geste</h3><p>Choisis des catégories, une difficulté et un nombre de questions : FiestApp tire un quiz dans sa base de <strong>27&nbsp;404 questions relues</strong>, chacune avec son anecdote. Tu le retouches à ton goût, ou tu le lances tel quel.</p></div>
       <div><h3>Ou tes questions à toi</h3><p>L'éditeur garde tout ce que tu tapes, même si le serveur s'endort. Une photo, un extrait sonore, une anecdote pour la révélation, une note que toi seul lis à la télécommande.</p></div>
       <div><h3>Des quiz qui voyagent</h3><p>Des modèles pour un anniversaire, un mariage ou Noël en famille ; une liste à coller, écrite par un ami ou par une IA ; un fichier à exporter, un code pour partager une copie.</p></div>
     </div>
@@ -408,11 +448,11 @@ footer { padding-block: 2rem 3rem; border-top: 1px solid var(--filet); color: va
 
   <div class="ligne">
     <figure>
-      <div class="ecran"><img src="captures/ecran-revelation.jpg" width="1600" height="900" alt="La révélation : Mars en champagne, coché, avec huit réponses ; Jupiter en a deux ; « Julie — 0,4 s », la plus rapide ; dessous, le classement des équipes et les joueurs en tête du quiz, avec leur niveau."></div>
+      <div class="ecran"><img src="captures/ecran-revelation.jpg" width="1920" height="1080" alt="La révélation : Mars en champagne, coché, avec huit réponses ; Jupiter en a deux ; « Julie — 0,5 s », la plus rapide ; dessous, le classement des équipes et les joueurs en tête du quiz, avec leur niveau."></div>
       <figcaption class="legende">La révélation : ce que la salle a répondu, la main la plus rapide, les équipes et le classement en direct.</figcaption>
     </figure>
     <div class="duo">
-      <div class="telephone"><img src="captures/telephone-revelation.jpg" width="720" height="1558" alt="Le téléphone après la révélation : « +200 pts, Bien joué ! », la bonne réponse, sa place dans le quiz, le classement des équipes et la liste de ceux qui ont répondu juste, avec leur temps."></div>
+      <div class="telephone"><img src="captures/telephone-revelation.jpg" width="780" height="1688" alt="Le téléphone après la révélation : « +200 pts, Bien joué ! », la bonne réponse, sa place dans le quiz, le classement des équipes et la liste de ceux qui ont répondu juste, avec leur temps."></div>
     </div>
   </div>
 
@@ -430,7 +470,7 @@ footer { padding-block: 2rem 3rem; border-top: 1px solid var(--filet); color: va
 
   <div class="ligne inverse">
     <figure>
-      <div class="ecran"><img src="captures/ecran-estimation.jpg" width="1600" height="900" alt="La révélation d'une estimation : « Combien de pays compte l'Union européenne ? » ; la bonne réponse, 27, et chaque estimation classée, de 27 pays (+200) à 24 pays (+90)."></div>
+      <div class="ecran"><img src="captures/ecran-estimation.jpg" width="1920" height="1080" alt="La révélation d'une estimation : « Combien de pays compte l'Union européenne ? » ; la bonne réponse, 27, et chaque estimation classée, de 27 pays (+200) à 24 pays (+90)."></div>
       <figcaption class="legende">L'estimation paie la distance : 200 points en plein dans le mille, un peu moins à chaque pays d'écart, et jamais moins de 30 pour avoir tenté.</figcaption>
     </figure>
     <div class="points">
@@ -442,7 +482,7 @@ footer { padding-block: 2rem 3rem; border-top: 1px solid var(--filet); color: va
 
   <div class="ligne">
     <figure>
-      <div class="ecran"><img src="captures/ecran-revelation-ivoire.jpg" width="1600" height="900" alt="La même révélation en Ivoire : fond crème, encre sombre, Mars en or foncé."></div>
+      <div class="ecran"><img src="captures/ecran-revelation-ivoire.jpg" width="1920" height="1080" alt="La même révélation en Ivoire : fond crème, encre sombre, Mars en or foncé."></div>
       <figcaption class="legende">Ivoire, pour le vidéoprojecteur qui ne rend pas les noirs : les mêmes écrans, sur papier.</figcaption>
     </figure>
     <div class="points">
@@ -464,12 +504,12 @@ footer { padding-block: 2rem 3rem; border-top: 1px solid var(--filet); color: va
 
   <div class="ligne">
     <figure>
-      <div class="ecran"><img src="captures/ecran-cloture.jpg" width="1600" height="900" alt="La soirée close : le podium — Nina première avec 1 200 points, Julie et Léa deuxièmes ex æquo —, l'équipe qui l'emporte, le QR code du souvenir et les hauts faits de la soirée, La Foudre et La Lanterne Rouge."></div>
+      <div class="ecran"><img src="captures/ecran-cloture.jpg" width="1920" height="1080" alt="La soirée close : le podium — Nina première avec 1 200 points, Julie et Léa deuxièmes ex æquo —, l'équipe qui l'emporte, le QR code du souvenir et les hauts faits de la soirée, La Foudre et La Lanterne Rouge."></div>
       <figcaption class="legende">La clôture : le podium — des ex æquo partagent leur marche —, l'équipe qui l'emporte, les hauts faits et le QR du souvenir.</figcaption>
     </figure>
     <div class="duo">
       <div class="telephone"><img src="captures/telephone-cloture.jpg" width="780" height="1688" alt="La fin de soirée sur le téléphone de Nina : première sur dix, 1 200 points, « Nouveaux trophées » — trois prix du palmarès —, « Mon bilan », et l'invitation à créer un profil pour garder tout cela."></div>
-      <div class="telephone"><img src="captures/telephone-souvenir.jpg" width="720" height="1558" alt="Le souvenir de la soirée : son titre, sa date, le podium et les équipes."></div>
+      <div class="telephone"><img src="captures/telephone-souvenir.jpg" width="780" height="1688" alt="Le souvenir de la soirée : son titre, sa date, le podium et les équipes."></div>
     </div>
   </div>
 
@@ -486,15 +526,50 @@ footer { padding-block: 2rem 3rem; border-top: 1px solid var(--filet); color: va
     <div>
       <p class="etiquette">Entre deux soirées</p>
       <h2 id="titre-entre">Le jeu continue dans la poche</h2>
-      <p>Avec un profil, FiestApp se joue aussi seul, chaque jour, et contre ses amis. L'application s'installe sur l'écran d'accueil, sans passer par un store.</p>
+      <p>Avec un profil, FiestApp se joue aussi seul, chaque jour, et contre ses amis — l'accueil dit ce qui t'attend. L'application s'installe sur l'écran d'accueil, sans passer par un store.</p>
     </div>
   </div>
   <div class="rangee">
-    <figure><div class="telephone"><img src="captures/telephone-quiz-du-jour.jpg" width="720" height="1388" alt="Le quiz du jour : la date, dix questions de plusieurs catégories, le bouton « Jouer », la série de douze jours, et la place d'hier notée en étoiles."></div><figcaption><b>Le quiz du jour</b><span>Dix questions, les mêmes pour tous, un classement du jour et du mois, une série à tenir.</span></figcaption></figure>
-    <figure><div class="telephone"><img src="captures/telephone-campagne.jpg" width="720" height="1280" alt="La campagne solo : « Jusqu'où iras-tu ? », un record de 15, trois vies, sans chrono, un confetti par bonne réponse."></div><figcaption><b>La campagne</b><span>Des séries à trois vies, sans chronomètre, un carnet qui fait revenir ce qu'on rate, un défi chaque semaine.</span></figcaption></figure>
-    <figure><div class="telephone"><img src="captures/telephone-sentiers.jpg" width="720" height="1280" alt="Les sentiers du savoir : la Forêt, palier 8 sur 12, les portraits gagnés en chemin, dix bonnes sur seize pour valider un palier, et les vies du jour."></div><figcaption><b>Les sentiers du savoir</b><span>Douze branches, des paliers à valider, et des portraits peints à gagner en chemin.</span></figcaption></figure>
-    <figure><div class="telephone"><img src="captures/telephone-duels.jpg" width="720" height="1280" alt="Les duels : une cote de 1 000 sur sa jauge, la ligue de bronze, le bouton « Défier »."></div><figcaption><b>Les duels</b><span>Une cote, des ligues du bronze aux maîtres, des défis à envoyer à ses amis.</span></figcaption></figure>
+    <figure><div class="telephone"><img src="captures/telephone-accueil.jpg" width="720" height="1280" alt="L'accueil de Léa, niveau 13 : à la une, la Tortue-île, un compagnon qui grandit avec soi ; les missions du jour, 45 et 75 XP à gagner ; la campagne ; et le défi de la semaine, à relever jusqu'à dimanche, à côté du quiz du jour."></div><figcaption><b>L'accueil</b><span>Le quiz du jour, le défi de la semaine, trois missions par jour et un coffre le lundi.</span></figcaption></figure>
+    <figure><div class="telephone"><img src="captures/telephone-campagne.jpg" width="720" height="1280" alt="La campagne solo : les onglets Série, Sentiers et Apprendre ; « Jusqu'où iras-tu ? », un record de 15 en sept séries, trois vies, sans chrono, un confetti et 5 XP par bonne réponse, et le bouton « Commencer une série »."></div><figcaption><b>La campagne</b><span>Des séries à trois vies, sans chronomètre, sur tout ou sur un thème, et un carnet qui fait revenir ce qu'on rate.</span></figcaption></figure>
+    <figure><div class="telephone"><img src="captures/telephone-sentiers.jpg" width="720" height="1280" alt="Les sentiers du savoir : le stade au palier de maître — seize expertes et le titre « Maître du stade » —, « Pour toi : piste verte, 82 % de chances du premier coup », les portraits gagnés en chemin et les vies du jour."></div><figcaption><b>Les sentiers du savoir</b><span>Douze branches, des paliers à valider, et des portraits peints à gagner en chemin.</span></figcaption></figure>
+    <figure><div class="telephone"><img src="captures/telephone-duels.jpg" width="720" height="1280" alt="Le classement des duels : « Tu es 6ᵉ », cote 1 017, en bronze ; les joueurs rangés par ligue, des maîtres au bronze, Inès en tête avec 1 503."></div><figcaption><b>Les duels</b><span>Une cote, des ligues du bronze aux maîtres, des défis à envoyer à ses amis.</span></figcaption></figure>
   </div>
+  <div class="trio">
+    <div><h3>Le quiz du jour</h3><p>Dix questions, les mêmes pour tous, un classement du jour et du mois, une série à tenir — et un rappel le soir, si tu veux.</p></div>
+    <div><h3>Ta question, pour tout le monde</h3><p>Au pied de ton résultat, une plume : écris ta question et son anecdote. Relue puis acceptée, elle passe au quiz du jour, signée de ton prénom.</p></div>
+    <div><h3>Des duels, chacun à son heure</h3><p>Les mêmes questions pour deux, et le plus de bonnes réponses gagne : contre Automate, contre quelqu'un touché au classement, ou entre amis, par un lien.</p></div>
+  </div>
+</section>
+
+<section class="acte colonne" id="cabinet" aria-labelledby="titre-cabinet">
+  <div class="tete">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 14.2 9.8 22 12 14.2 14.2 12 22 9.8 14.2 2 12 9.8 9.8Z" fill="var(--lavande)"/></svg>
+    <div>
+      <p class="etiquette">Le Cabinet de curiosités</p>
+      <h2 id="titre-cabinet">Une traversée en trois actes</h2>
+      <p>Un voyage à faire seul, avec son profil, à son rythme : trois cartes choisies au départ parmi dix, une carte en relief d'épreuve en épreuve, dix petits jeux sur des thèmes différents, trois gardiens légendaires — et au bout, l'un d'eux devient ton avatar.</p>
+    </div>
+  </div>
+  <div class="rangee trois">
+    <figure><div class="telephone"><img src="captures/cabinet-cartes.jpg" width="720" height="1558" alt="Avant de partir : « Choisis trois cartes, les seules de ta traversée » — Coup d'œil, Échange, Quitte ou double, Concentration, Parade, Cagnotte, peintes chacune ; « Encore 3 à choisir »."></div><figcaption><b>Trois cartes parmi dix</b><span>Les seules du voyage : on les améliore en route, au coffre, chez le marchand, sur le gardien vaincu.</span></figcaption></figure>
+    <figure><div class="telephone"><img src="captures/cabinet-carte.jpg" width="720" height="1558" alt="L'acte I, la Serre aux merveilles : une carte en relief, trois chemins lumineux, et dessous « Choisis ton chemin » — le Pari en musique, l'Éclair en culture générale, la Frise sur l'Égypte et l'Antiquité."></div><figcaption><b>La carte de l'acte</b><span>Des chemins qui se croisent, un jeu et un thème à chaque étape, un coffre en route, le marchand avant le gardien.</span></figcaption></figure>
+    <figure><div class="telephone"><img src="captures/cabinet-gardien.jpg" width="720" height="1558" alt="Le gardien de l'acte I, le Scarabée solaire, « il garde les lieux anciens », ses points de vie en barres ; le combat se joue à l'Épingle : chaque étoile lui retire un point de vie, chaque manche ratée coûte un cœur ; « Affronter le Scarabée solaire »."></div><figcaption><b>Les gardiens</b><span>Chaque étoile gagnée leur retire un point de vie. Vaincus tous les trois, l'un d'eux est à toi.</span></figcaption></figure>
+  </div>
+
+  <div class="sortes dix" role="list" aria-label="Les dix jeux du Cabinet">
+    <div role="listitem"><b>L'Épingle</b><span>Un récit daté, puis «&nbsp;Où&nbsp;?&nbsp;» : plante l'épingle sur la carte de France.</span></div>
+    <div role="listitem"><b>La Frise</b><span>Trois événements, puis cinq, puis sept, du plus ancien au plus récent.</span></div>
+    <div role="listitem"><b>Le Mot mystère</b><span>Un mot à trouver en cinq essais, la question pour indice.</span></div>
+    <div role="listitem"><b>Le Détail</b><span>Un tableau de près ; reculer d'un pas en montre plus, et coûte une étoile.</span></div>
+    <div role="listitem"><b>Le Filet</b><span>Un curseur sur une piste, puis la taille du filet : petit, il rapporte plus.</span></div>
+    <div role="listitem"><b>Le Pari</b><span>Juste, tu gardes tes étoiles, ou tu les paries sur une question plus dure.</span></div>
+    <div role="listitem"><b>L'Éclair</b><span>Cinq affirmations, vraies ou fausses, en cinquante-cinq secondes.</span></div>
+    <div role="listitem"><b>Les Indices</b><span>«&nbsp;Qui suis-je&nbsp;?&nbsp;» : cinq indices, du plus obscur au plus évident.</span></div>
+    <div role="listitem"><b>La Réplique</b><span>Le mot qui manque d'une réplique culte, puis «&nbsp;Qui l'a dit&nbsp;?&nbsp;».</span></div>
+    <div role="listitem"><b>Le Quiz</b><span>Quatre questions classiques sur un thème, en quatre-vingts secondes.</span></div>
+  </div>
+  <p class="legende">Gratuit, sans classement : ce qu'on y gagne ne sert qu'au Cabinet, sauf l'avatar. Une traversée se reprend où on l'a laissée, même le lendemain sur un autre téléphone.</p>
 </section>
 
 <section class="acte colonne" id="ce-qu-on-gagne" aria-labelledby="titre-gagne">
@@ -503,21 +578,35 @@ footer { padding-block: 2rem 3rem; border-top: 1px solid var(--filet); color: va
     <div>
       <p class="etiquette">Ce qu'on gagne</p>
       <h2 id="titre-gagne">Un profil qui se porte</h2>
-      <p>Des niveaux, des finitions autour de l'avatar, des trophées, des médaillons peints. Rien de tout cela ne fait gagner un point : un profil raconte, il n'avantage pas.</p>
+      <p>Des niveaux, des finitions autour de l'avatar, des trophées, des médaillons peints, une carte à collectionner, un compagnon. Rien de tout cela ne fait gagner un point face aux autres : un profil raconte, il n'avantage pas.</p>
     </div>
   </div>
 
   <div class="ligne inverse">
     <figure>
       <div class="duo">
-        <div class="telephone"><img src="captures/telephone-profil.jpg" width="720" height="1280" alt="La page du profil de Léa, niveau 14 : « M'habiller », « Ma collection » (27 sur 373), « Mes soirées », « Ma carrière »."></div>
-        <div class="telephone"><img src="captures/telephone-album-des-trophees.jpg" width="720" height="1280" alt="L'album des trophées de Léa : 3 sur 180 ; « Les plus proches », L'Oracle, une fois sur huit ; une page par mode — la soirée, le quiz du jour, la campagne, les duels, les sentiers, partout — ; et les pistes, qui montent du bronze à l'or."></div>
+        <div class="telephone"><img src="captures/telephone-profil.jpg" width="720" height="1280" alt="La page du profil de Léa, niveau 14 : « M'habiller », « Ma collection » (35 sur 529), « Mes soirées », « Ma carrière »."></div>
+        <div class="telephone"><img src="captures/telephone-album-des-trophees.jpg" width="720" height="1280" alt="L'album des trophées de Léa : 11 sur 251 ; « Les plus proches », L'Explorateur d'argent — une traversée du Cabinet gagnée sur cinq — et L'Oracle ; une page par mode — la soirée, le quiz du jour, la campagne, les duels, les sentiers, le Cabinet, partout —, celle du Cabinet ouverte."></div>
       </div>
     </figure>
     <div class="points">
       <div><h3>Une expérience qui se mérite</h3><p>En soirée, rien pour la simple présence : tout se gagne dès deux joueurs, en répondant bien, et rien ne redescend en cours de route. Le quiz du jour et la campagne rapportent aussi.</p></div>
       <div><h3>La loge</h3><p>On essaie, on voit le résultat sur sa carte, puis on porte tout d'un coup : avatar, finition et bordure, titre, vitrine, fond, thème, gerbe.</p></div>
       <div><h3>Ma collection</h3><p>Tout ce qui se gagne au même endroit : les avatars, l'album des trophées — mode par mode, chaque piste du bronze à l'or et ce que chaque étape ouvre —, et le style en petits albums : fonds, gerbes, finitions, bordures de ligue. Ce qu'on a, ce qui reste, et où le gagner.</p></div>
+    </div>
+  </div>
+
+  <div class="ligne">
+    <figure>
+      <div class="duo">
+        <figure class="carte"><img src="captures/telephone-carte.jpg" width="644" height="966" alt="Le recto de la carte de Léa, niveau 23, « L'Oracle » : le Phénix pour avatar dans un cadre d'or, son loup perché au coin avec sa plaque, « Nox, Inséparables », et ses plus beaux hauts faits — Grand Chelem, Le Phénix deux fois, L'Oracle — avec ce qu'il a fallu faire."></figure>
+        <figure class="carte"><img src="captures/telephone-carte-savoir.jpg" width="644" height="966" alt="Son savoir, au dos : un radar de douze catégories, la moyenne des joueurs en pointillé ; le cinéma touché, 86 % sur 212 QCM, l'écusson d'argent, « Les joueurs : 63 % +23 » ; ses forces — cinéma, histoire, musique — et ce qui lui reste à conquérir, le sport et les arts."></figure>
+      </div>
+    </figure>
+    <div class="points">
+      <div><h3>La carte du joueur</h3><p>Une carte à collectionner, dans le cadre de sa ligue aux duels, qui s'incline sous le doigt et accroche la lumière. Au recto, qui il est ce soir ; on la retourne pour ses chiffres, ses écussons, sa collection.</p></div>
+      <div><h3>Son savoir, en radar</h3><p>Un rayon par catégorie, la moyenne des joueurs en pointillé : on voit d'un coup où il passe au-dessus, où en dessous. Puis ses forces, et ce qui lui reste à conquérir.</p></div>
+      <div><h3>Touche un nom</h3><p>En soirée, dans la salle d'attente, au classement du quiz du jour, dans les duels : un nom touché ouvre sa carte. Un invité sans profil n'y montre que ce qu'il fait ce soir.</p></div>
     </div>
   </div>
 
@@ -535,7 +624,7 @@ footer { padding-block: 2rem 3rem; border-top: 1px solid var(--filet); color: va
     <figure role="listitem"><img src="peintures/salamandre.webp" width="256" height="256" alt="La Salamandre."><figcaption>La Salamandre</figcaption></figure>
     <figure role="listitem"><img src="peintures/comete.webp" width="256" height="256" alt="La Comète."><figcaption>La Comète</figcaption></figure>
   </div>
-  <p class="legende" style="text-align:center">Douze des vingt-six avatars légendaires. Ils se méritent sur la durée, en soirée, au quiz du jour ou en campagne, et ce qui est gagné reste gagné.</p>
+  <p class="legende" style="text-align:center">Douze des trente-deux avatars légendaires. Ils se méritent sur la durée, en soirée, au quiz du jour ou en campagne, et ce qui est gagné reste gagné. Les gardiens du Cabinet s'y ajoutent, au bout des traversées.</p>
 
   <div class="divins">
     <div>
@@ -553,14 +642,22 @@ footer { padding-block: 2rem 3rem; border-top: 1px solid var(--filet); color: va
     </div>
   </div>
 
-  <div class="paire">
-    <div>
-      <div class="vignettes"><img src="peintures/portrait-anubis.webp" width="256" height="256" alt="Un portrait peint d'Anubis."><img src="peintures/portrait-archere.webp" width="256" height="256" alt="Un portrait peint d'archère."><img src="peintures/portrait-astronaute.webp" width="256" height="256" alt="Un portrait peint d'astronaute."><img src="peintures/portrait-arlequin.webp" width="256" height="256" alt="Un portrait peint d'Arlequin."><img src="peintures/portrait-astronome.webp" width="256" height="256" alt="Un portrait peint d'astronome."></div>
-      <h3>Soixante-douze portraits</h3><p>Les avatars du savoir, six par branche, se gagnent en avançant sur les sentiers.</p>
-    </div>
-    <div>
-      <div class="vignettes trois"><img src="peintures/compagnon-loup-ultime.webp" width="256" height="256" alt="Le Loup dans sa forme ultime."><img src="peintures/compagnon-chat-esprit.webp" width="256" height="256" alt="Le Chat des lanternes dans sa forme ultime."><img src="peintures/compagnon-tortue-ile.webp" width="256" height="256" alt="La Tortue-île dans sa forme ultime."></div>
-      <h3>Des compagnons qui grandissent</h3><p>Achetés en confettis, ils changent de forme au fil des bonnes réponses données en les portant. Une forme atteinte ne se perd jamais.</p>
+  <div class="ligne inverse">
+    <figure>
+      <div class="duo">
+        <div class="telephone"><img src="captures/telephone-compagnon.jpg" width="720" height="1558" alt="« Mon compagnon » : le loup adulte dans sa bulle, « Caresse-moi ! », « Lui donner un nom », « Décorer » ; ses envies du jour — goûter, câlin, jouer — et six jours de complicité ; son chemin, du louveteau au loup adulte, 350 bonnes réponses sur 500 vers la forme suivante."></div>
+      </div>
+    </figure>
+    <div class="points">
+      <div>
+        <div class="vignettes"><img src="peintures/compagnon-loup-ultime.webp" width="256" height="256" alt="Le Loup des étoiles, la forme ultime du loup."><img src="peintures/compagnon-chat-esprit.webp" width="256" height="256" alt="L'Esprit des lanternes, la forme ultime du chat."><img src="peintures/compagnon-tortue-ile.webp" width="256" height="256" alt="La Tortue-île, la forme ultime de la tortue."><img src="peintures/compagnon-panda-erable.webp" width="256" height="256" alt="Le Panda des érables, la forme ultime du panda roux."><img src="peintures/compagnon-luciole-constellation.webp" width="256" height="256" alt="La Luciole-constellation, la forme ultime de la luciole."></div>
+        <h3>Cinq compagnons qui grandissent</h3><p>Adoptés en confettis, ils changent de forme au fil des bonnes réponses données en les portant, jusqu'à la forme ultime. Une forme atteinte ne se perd jamais.</p>
+      </div>
+      <div><h3>Chez lui</h3><p>Sa niche, à toi de la décorer : on le caresse, on lui donne un nom, et chaque jour il a envie d'un goûter, d'un câlin, d'un jeu. Il se perche aussi au coin de ta carte.</p></div>
+      <div>
+        <div class="vignettes"><img src="peintures/portrait-anubis.webp" width="256" height="256" alt="Un portrait peint d'Anubis."><img src="peintures/portrait-archere.webp" width="256" height="256" alt="Un portrait peint d'archère."><img src="peintures/portrait-astronaute.webp" width="256" height="256" alt="Un portrait peint d'astronaute."><img src="peintures/portrait-arlequin.webp" width="256" height="256" alt="Un portrait peint d'Arlequin."><img src="peintures/portrait-astronome.webp" width="256" height="256" alt="Un portrait peint d'astronome."></div>
+        <h3>Soixante-douze portraits</h3><p>Les avatars du savoir, six par branche, se gagnent en avançant sur les sentiers.</p>
+      </div>
     </div>
   </div>
 </section>
@@ -582,6 +679,25 @@ footer { padding-block: 2rem 3rem; border-top: 1px solid var(--filet); color: va
   </div>
 </section>
 
+<section class="acte colonne" id="epreuve" aria-labelledby="titre-epreuve">
+  <div class="tete" style="grid-template-columns:minmax(0,1fr)">
+    <div>
+      <p class="etiquette">À l'épreuve</p>
+      <h2 id="titre-epreuve">Une salle comble, sur l'offre gratuite</h2>
+      <p>On a fait jouer des centaines d'invités simulés contre un vrai serveur, bridé comme celui de l'hébergeur gratuit — un dixième de cœur, 512 Mo — et sa base à trente millisecondes, comme en ligne. Voici ce qu'il tient.</p>
+    </div>
+  </div>
+  <div class="mesures" role="list" aria-label="Ce que le serveur tient, mesuré">
+    <div role="listitem"><b>150</b><span class="libelle">invités dans une même soirée</span><span class="banc">Le plafond réglé sur l'offre gratuite, tenu sans une erreur.</span></div>
+    <div role="listitem"><b>61<small>ms</small></b><span class="libelle">pour qu'une réponse soit reçue</span><span class="banc">95 réponses sur 100, à 150 invités. Une question laisse une seconde et demie de marge.</span></div>
+    <div role="listitem"><b>0,33<small>s</small></b><span class="libelle">au plus, de la dernière réponse à la révélation</span><span class="banc">À 150 invités : quand toute la salle a répondu, la révélation part d'elle-même.</span></div>
+    <div role="listitem"><b>500</b><span class="libelle">invités dans un seul salon, sur quatre cœurs</span><span class="banc">Le plafond du code : la question sur tous les téléphones en 16 ms, et un quart de cœur occupé pendant le jeu.</span></div>
+    <div role="listitem"><b>15</b><span class="libelle">joueurs en solo, en train de jouer en même temps</span><span class="banc">Campagne, sentiers, Cabinet, duels, quiz du jour, sur l'offre gratuite : sans une erreur, fluide jusqu'à huit.</span></div>
+    <div role="listitem"><b>0</b><span class="libelle">fuite d'un salon à l'autre</span><span class="banc">Pas une vue, pas un état de la partie passé chez le voisin, dans aucun essai.</span></div>
+  </div>
+  <p class="preuve">Mesuré le 3 novembre 2026 sur le code du jour. La production, elle, reste loin de son plafond : la semaine passée, sa plus grande soirée a réuni vingt invités, et une heure chargée lui prend moins d'un centième de cœur. <a href="https://github.com/Maxilyas/FiestApp/blob/main/docs/exploitation/capacite.md">La méthode, chaque chiffre et de quoi les refaire.</a></p>
+</section>
+
 <section class="acte colonne" aria-labelledby="titre-capot">
   <div class="tete" style="grid-template-columns:minmax(0,1fr)">
     <div>
@@ -596,8 +712,9 @@ footer { padding-block: 2rem 3rem; border-top: 1px solid var(--filet); color: va
       <p>À chaque proposition de modification, l'intégration continue vérifie les types, lance les tests, construit l'application et rejoue une soirée entière sur un vrai serveur.</p>
     </div>
     <dl>
-      <dt class="chiffre">200+</dt><dd>fichiers de tests, la plupart sur leur propre serveur jetable</dd>
-      <dt class="chiffre">160+</dt><dd>routes HTTP, chacune dans la documentation</dd>
+      <dt class="chiffre">350</dt><dd>fichiers de tests, la plupart sur leur propre serveur jetable</dd>
+      <dt class="chiffre">3&nbsp;100+</dt><dd>épreuves, toutes rejouées à chaque modification</dd>
+      <dt class="chiffre">230+</dt><dd>routes HTTP, chacune dans la documentation</dd>
       <dt class="chiffre">2</dt><dd>bases : une locale, jetable, pour la partie en cours ; une permanente pour tout ce qui doit durer</dd>
       <dt class="chiffre">1</dt><dd>soirée entière rejouée à chaque modification</dd>
     </dl>
@@ -620,7 +737,7 @@ footer { padding-block: 2rem 3rem; border-top: 1px solid var(--filet); color: va
 
 <footer class="colonne">
   <span>FiestApp · le quiz de la soirée, sur ton téléphone</span>
-  <span>Captures prises sur l'application réelle, par <code>server/scripts/rendu-vitrine.ts</code> et les scripts de rendu du dépôt.</span>
+  <span>Captures prises sur l'application réelle, par <code>server/scripts/rendu-vitrine.ts</code> et les scripts de rendu du dépôt ; chiffres mesurés, dans <code>docs/exploitation/capacite.md</code>.</span>
 </footer>
 
 </body>
