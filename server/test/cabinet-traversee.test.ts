@@ -758,4 +758,8 @@ test('chaque carte se dit en bref, sans un chiffre : le choix du départ, une li
   const ecran = readFileSync(new URL('../../client/src/views/cabinet/Traversee.tsx', import.meta.url), 'utf8')
   assert.match(ecran, /<small>\{espacesFines\(c\.enBref\)\}<\/small>/)
   assert.match(ecran, /aria-label=\{`Voir la carte \$\{c\.nom\}`\}/, '« Voir » ouvre sa fiche')
+  // Et sa peinture en fond, voilée côté texte : que du texte, « ça fait un peu triste » (le 3 novembre 2026).
+  assert.match(ecran, /<li className=\{classe\} style=\{\{ '--peinture': `url\(\$\{CARTES_PEINTES\[cle\]\?\.\[1\]/)
+  const css = readFileSync(new URL('../../client/src/styles.css', import.meta.url), 'utf8')
+  assert.match(css, /\.cab-tv-ligne \{[^}]*var\(--peinture, none\)/)
 })

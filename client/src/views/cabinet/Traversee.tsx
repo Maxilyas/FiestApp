@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { aLaDemande, useALaDemande } from '../../aLaDemande'
 import { confirmDialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
@@ -205,7 +205,9 @@ function CarteEnLigne({
   const defi = x ? `, défi ${x.nom}${rang ? ` tenu au ${RANGS_DITS[rang]}` : ''}` : ''
   const classe = 'cab-tv-ligne' + (prise ? ' cab-tv-prise' : '') + (fermee ? ' cab-tv-terne' : '') + (rang >= 2 ? ' cab-tv-ligne-doree' : '')
   return (
-    <li className={classe}>
+    // Sa peinture en fond, voilée côté texte (« ça fait un peu triste de cocher et d'avoir que du texte », le 3 novembre 2026) :
+    // la petite, celle des tuiles d'avant — dix lignes, dix images de 240 pixels.
+    <li className={classe} style={{ '--peinture': `url(${CARTES_PEINTES[cle]?.[1] ?? ''})` } as CSSProperties}>
       <button
         type="button"
         className="cab-tv-ligne-choix"
@@ -227,7 +229,7 @@ function CarteEnLigne({
         </span>
       </button>
       <button type="button" className="cab-tv-ligne-voir" aria-haspopup="dialog" aria-label={`Voir la carte ${c.nom}`} {...toucher(onOuvrir)}>
-        Voir
+        <span>Voir</span>
       </button>
     </li>
   )
