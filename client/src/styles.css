@@ -11545,11 +11545,6 @@ html:has(.cab-partie[data-arret='carte'] .cab-carte-jouable) { scroll-snap-type:
 .cab-temps-du-mot { color: var(--alert); font-weight: 700; }
 .cab-replique-revelee { display: flex; flex-direction: column; gap: 10px; }
 .cab-qui { color: var(--muted); font-weight: 600; }
-.cab-repondu { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
-.cab-repondu li { display: flex; align-items: flex-start; gap: 8px; }
-.cab-repondu .icon { flex: none; width: 20px; height: 20px; margin-top: 2px; }
-.cab-repondu-juste .icon { color: var(--accent-text); }
-.cab-repondu-faux .icon { color: var(--alert); }
 .cab-quittee { color: var(--alert); font-weight: 700; }
 
 /* La mise, avant une manche ; le voile de la pause, plein — la manche ne se lit pas au travers, sous aucun thème. */
