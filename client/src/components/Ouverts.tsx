@@ -1,5 +1,6 @@
 import { useState, useSyncExternalStore } from 'react'
 import type { Finition } from '../../../shared/profil'
+import type { SonAvatar } from '../../../shared/sonAvatar'
 import { estEnReserve, legendaire } from '../../../shared/legendaires'
 import { nomDansLaPhrase, portrait as portraitDe } from '../../../shared/branches'
 import { compagnon as leCompagnon, compagnonDe, formeDeCompagnon, type CleDeCompagnon, type FormeDeCompagnon } from '../../../shared/compagnons'
@@ -124,14 +125,16 @@ const EN_LETTRES: Record<number, string> = { 20: 'vingt', 40: 'quarante' }
  * silence, et sous un légendaire personne ne le voyait jamais. `avatar` tient
  * la place d'un légendaire ou d'un portrait le temps que son dessin arrive.
  */
-export function EclatTombe({ cle, avatar, finition, chance }: { cle: string; avatar: string; finition?: Finition; chance: number }) {
+export function EclatTombe({ cle, avatar, finition, chance, porte }: { cle: string; avatar: string; finition?: Finition; chance: number; porte?: SonAvatar }) {
   // Tombé sur un avatar qui avait déjà éclaté, il attend en réserve : rien n'a changé de couleurs, mais il n'est pas perdu.
+  // Il montre ce qu'il porte (`porte`, `sonAvatar`) : l'emoji seul y paraissait, en grand, sous un légendaire porté — « ce
+  // n'était pas mon avatar équipé », le retour du 3 novembre 2026.
   if (estEnReserve(cle)) {
     return (
       <section className="card fin-eclat">
         <span className="label">{`Une chance sur ${EN_LETTRES[chance] ?? chance}`}</span>
         <span className="fin-apparition">
-          <Avatar avatar={avatar} finition={finition} />
+          <Avatar {...(porte ?? { avatar })} finition={finition} />
         </span>
         <h2>Un Éclat en réserve !</h2>
         <p className="serif-note">Ton avatar avait déjà éclaté : choisis-en un autre, parmi ceux que tu as, pour le faire éclater.</p>

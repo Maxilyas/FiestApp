@@ -35,6 +35,7 @@ import { toucher } from '../toucher'
 import { placeDuJour } from '../../../shared/course'
 import { versLesSentiers } from '../../../shared/depart'
 import { CHANCE_ECLAT_DU_DEFI, brilleChez, type PublicProfile } from '../../../shared/profil'
+import { sonAvatar } from '../../../shared/sonAvatar'
 import { cibleEclat } from '../../../shared/legendaires'
 import { SUJETS_ET_RUBRIQUES, estRemplace, sujetParCle } from '../../../shared/sujets'
 import {
@@ -1642,7 +1643,7 @@ function GainsDeCampagne({ fin, profil, duel = false }: { fin: Extract<Ecran, { 
         />
       )}
       {/* L'Éclat du défi : une chance sur vingt, à sa tentative finie. */}
-      {fin.eclat && <EclatTombe cle={fin.eclat} avatar={profil?.avatar ?? ''} finition={profil?.finition} chance={CHANCE_ECLAT_DU_DEFI} />}
+      {fin.eclat && <EclatTombe cle={fin.eclat} avatar={profil?.avatar ?? ''} finition={profil?.finition} chance={CHANCE_ECLAT_DU_DEFI} porte={profil ? sonAvatar(profil) : undefined} />}
       {fin.legendaires.map(cle => (
         <LegendaireOuvert key={cle} cle={cle} dejaPorte={false} />
       ))}

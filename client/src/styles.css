@@ -6023,6 +6023,11 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
     radial-gradient(circle at 30% 25%, rgba(255, 190, 220, 0.16), rgba(255, 190, 220, 0) 55%),
     radial-gradient(circle at 70% 35%, rgba(150, 220, 255, 0.16), rgba(150, 220, 255, 0) 55%),
     var(--surface);
+  /* L'avatar y paraît à 170 pixels, et la lumière de sa finition se mesure en `em` : la bague du Diamant y fait 391
+     pixels, plus large qu'un téléphone. Elle élargissait la page le temps de tourner, et la niche, fixée au coin,
+     partait hors champ (le retour du 3 novembre 2026, sous Le Ciel du jour). Gardée dans la carte ; en hauteur, la
+     créature d'un légendaire éclaté en sort encore. */
+  overflow-x: clip;
 }
 
 .fin-eclat h2 { font-size: 1.9rem; }
@@ -11540,11 +11545,6 @@ html:has(.cab-partie[data-arret='carte'] .cab-carte-jouable) { scroll-snap-type:
 .cab-temps-du-mot { color: var(--alert); font-weight: 700; }
 .cab-replique-revelee { display: flex; flex-direction: column; gap: 10px; }
 .cab-qui { color: var(--muted); font-weight: 600; }
-.cab-repondu { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
-.cab-repondu li { display: flex; align-items: flex-start; gap: 8px; }
-.cab-repondu .icon { flex: none; width: 20px; height: 20px; margin-top: 2px; }
-.cab-repondu-juste .icon { color: var(--accent-text); }
-.cab-repondu-faux .icon { color: var(--alert); }
 .cab-quittee { color: var(--alert); font-weight: 700; }
 
 /* La mise, avant une manche ; le voile de la pause, plein — la manche ne se lit pas au travers, sous aucun thème. */
@@ -11842,14 +11842,42 @@ button.cab-tv-carte { cursor: pointer; }
 .cab-tv-trois .cab-tv-defi { grid-column: 2; margin: 0 0 10px; }
 /* Son défi tenu à l'Argent : la carte a son dos doré. */
 .cab-tv-carte.cab-tv-doree { border-color: #e9c46a; background: linear-gradient(165deg, rgba(233, 196, 106, 0.24), rgba(7, 5, 14, 0.62) 55%); }
-/* Le choix des cartes en tuiles (`TuileDeCarte`) : la peinture, le nom, les sceaux du défi posés sur la peinture — sa fiche dit le reste. */
-.cab-tv-tuile { padding: 0 0 8px; }
-.cab-tv-tuile .cab-tv-nom { padding: 6px 10px 0; }
-.cab-tv-sceaux-tuile { position: absolute; left: 6px; bottom: 6px; padding: 5px 7px; border-radius: 999px; background: rgba(7, 5, 14, 0.78); }
-/* Ses trois cartes prises, les autres s'effacent un peu — elles s'ouvrent encore, leur fiche dit pourquoi elles ne se prennent plus. */
-.cab-tv-carte.cab-tv-terne { opacity: 0.55; }
-/* Sur un écran large, trois tuiles par rangée : la colonne en tient plus d'un coup d'œil. */
-@media (min-width: 600px) { .cab-tv-tuiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+/* Le choix des cartes en lignes (`CarteEnLigne`) : sa case, son nom et ses sceaux, une phrase — elle se prend d'un toucher —, et
+   « Voir », qui ouvre sa fiche peinte. Rien d'image : dix lignes se parcourent d'un pouce. */
+.cab-tv-lignes { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+/* Sa peinture en fond (`--peinture`), voilée côté texte, à découvert sous « Voir » ; prise, le voile s'allège. */
+.cab-tv-ligne {
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid rgba(247, 220, 154, 0.22);
+  background:
+    linear-gradient(90deg, rgba(7, 5, 14, 0.95) 0%, rgba(7, 5, 14, 0.86) 52%, rgba(7, 5, 14, 0.3) 100%),
+    var(--peinture, none) 70% 40% / cover no-repeat,
+    rgba(7, 5, 14, 0.55);
+}
+.cab-tv-ligne.cab-tv-prise {
+  border-color: var(--cab-tv-or-clair);
+  box-shadow: 0 0 0 1px var(--cab-tv-or-clair), 0 0 22px -8px rgba(247, 220, 154, 0.7);
+  background:
+    linear-gradient(90deg, rgba(29, 18, 6, 0.92) 0%, rgba(29, 18, 6, 0.74) 52%, rgba(29, 18, 6, 0.05) 100%),
+    var(--peinture, none) 70% 40% / cover no-repeat,
+    rgba(7, 5, 14, 0.55);
+}
+/* « Voir » sur la peinture : une pastille, lisible sur n'importe quelle image. */
+.cab-tv-ligne-voir span { padding: 4px 10px; border-radius: 999px; background: rgba(7, 5, 14, 0.72); }
+/* Son défi tenu à l'Argent : son dos doré, ici son liseré. */
+.cab-tv-ligne.cab-tv-ligne-doree:not(.cab-tv-prise) { border-color: #e9c46a; }
+/* Ses trois cartes prises, les autres s'effacent un peu — « Voir » les ouvre encore, leur fiche dit pourquoi elles ne se prennent plus. */
+.cab-tv-ligne.cab-tv-terne .cab-tv-ligne-choix { opacity: 0.55; }
+.cab-tv-ligne-choix { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 0; background: none; color: var(--cab-tv-encre); font: inherit; text-align: left; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.cab-tv-case { flex: none; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; border: 2px solid rgba(247, 220, 154, 0.5); font-size: 1.0625rem; font-weight: 800; color: #1d1206; }
+.cab-tv-prise .cab-tv-case { background: var(--cab-tv-or-clair); border-color: var(--cab-tv-or-clair); }
+.cab-tv-ligne-texte { display: grid; gap: 2px; min-width: 0; }
+.cab-tv-ligne-texte b { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; font-family: var(--font-display, Georgia, serif); font-size: 1.125rem; font-weight: 700; line-height: 1.2; }
+.cab-tv-ligne-texte small { font-size: 1.0625rem; line-height: 1.3; color: var(--cab-tv-pale); }
+.cab-tv-ligne-voir { flex: none; min-width: 72px; padding: 0 10px; border: 0; border-radius: 0 14px 14px 0; background: none; color: var(--cab-tv-or-clair); font: inherit; font-size: 1.0625rem; font-weight: 700; cursor: pointer; touch-action: manipulation; }
 /* La fiche d'une carte (`FicheDeLaCarte`) : sa peinture en grand, ce qu'elle fait, son défi en entier. */
 .cab-tv-fiche { display: grid; gap: 10px; justify-items: start; }
 .cab-tv-fiche-peinture { display: block; width: 100%; aspect-ratio: 4 / 3; max-height: 24vh; overflow: hidden; border-radius: 14px; border: 2px solid rgba(247, 220, 154, 0.35); background: #000; }

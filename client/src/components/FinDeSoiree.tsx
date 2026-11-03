@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ligneDeRang, nJoueurs, type Approche, type FinDeSoiree as Fin, type GainAnnonce, type RecordBattu } from '../../../shared/fin'
 import type { PublicProfile } from '../../../shared/profil'
 import { CHANCE_ECLAT, NOM_FINITION, PITCH_PROFIL } from '../../../shared/profil'
+import { sonAvatar } from '../../../shared/sonAvatar'
 import { hautFaitPrincipal, legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { hautFait, palierDe, titreDePalier } from '../../../shared/hautsfaits'
@@ -185,7 +186,7 @@ export function FinDeSoiree({
 
       {/* L'Éclat : une chance sur quarante, qui tombait en silence — sous un
           légendaire, personne ne le voyait jamais. */}
-      {gain?.eclat && <EclatTombe cle={gain.eclat} avatar={fin.avatar} finition={fin.finition} chance={CHANCE_ECLAT} />}
+      {gain?.eclat && <EclatTombe cle={gain.eclat} avatar={fin.avatar} finition={fin.finition} chance={CHANCE_ECLAT} porte={profil ? sonAvatar(profil) : undefined} />}
 
       {gain?.legendaires.map(cle => {
         const l = legendaire(cle)

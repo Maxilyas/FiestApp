@@ -86,6 +86,11 @@ paths:
   (`overflow-x: clip`, qui laisse déborder en hauteur) ou dans les 20 pixels
   du bord de la page ; une sonde le mesure à chaque image
   (`document.documentElement.scrollWidth`, la boîte de `.menu-barre`).
+  La lumière d'une finition se mesure en `em` (`Lumiere.tsx`) : sous un
+  avatar en grand, elle dépasse l'écran — la bague du Diamant fait 391
+  pixels sous l'Éclat du quiz du jour (`.fin-apparition`, 170 px), et la
+  niche partait hors champ (le 3 novembre 2026) ; la carte qui pose un
+  avatar en grand garde la sienne (`.fin-eclat`, `design.test.ts`).
 - **Un voile ouvert fige la page de dessous, sans la toucher** — une feuille
   (`.carte-voile`, `Feuille`, vingt-six écrans), la carte d'un joueur ou un
   dialogue (`.dialog-backdrop`) : le voile ne laisse passer aucun geste
