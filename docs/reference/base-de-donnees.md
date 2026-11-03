@@ -693,7 +693,7 @@ Les questions du jour signalées par les joueurs.
 
 Les questions que les joueurs proposent au quiz du jour (`shared/propositions.ts`).
 
-- **Colonnes clés** : `id`, `profile_id` (son auteur), `question` (JSON : l'intitulé, les quatre réponses, l'index de la bonne, telles qu'il les a écrites), `proposee_le`, `statut` (`en-relecture`, `acceptee`, `refusee`), `motif` (le refus, en une phrase), `relue_le`, `reserve_id` (la question de la réserve qu'elle est devenue, acceptée). Index `(profile_id, proposee_le)` — « Tes questions », son accueil — et `(statut, proposee_le)` — le QG.
+- **Colonnes clés** : `id`, `profile_id` (son auteur), `question` (JSON : l'intitulé, les quatre réponses, l'index de la bonne, son anecdote s'il en a écrit une, telles qu'il les a écrites), `proposee_le`, `statut` (`en-relecture`, `acceptee`, `refusee`), `motif` (le refus, en une phrase), `relue_le`, `reserve_id` (la question de la réserve qu'elle est devenue, acceptée). Index `(profile_id, proposee_le)` — « Tes questions », son accueil — et `(statut, proposee_le)` — le QG.
 - **Espace** : non.
 - **Écrite par** : `JourStore` — la proposition (trois en relecture au plus par profil, comptées dans l'instruction qui l'écrit), puis au QG l'acceptation, dans le lot qui l'ajoute à la réserve, ou le refus.
 - **Lue par** : `JourStore` (« Tes questions », la page du quiz du jour au QG et son « À traiter », l'accueil de son auteur, qui lui dit une fois ce qu'elle est devenue — acceptée, jouée, refusée).

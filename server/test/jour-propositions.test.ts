@@ -8,7 +8,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
 import { connexionAnimateur, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
-import { PROPOSITIONS_EN_RELECTURE_MAX, conseilDeLaProposition, lireLaProposition, partDeLAuteur } from '../../shared/propositions'
+import { ANECDOTE_DU_PUBLIC_MAX, PROPOSITIONS_EN_RELECTURE_MAX, conseilDeLaProposition, lireLaProposition, partDeLAuteur } from '../../shared/propositions'
+import { MAX_ANECDOTE } from '../../shared/library'
 import type { AnnonceDeLAdministrateur } from '../../shared/profil'
 
 /** Lundi 2 novembre 2026, 10 h à Paris. */
@@ -62,6 +63,38 @@ test('la carte à écrire conseille ce que le serveur refuse : la même règle, 
   assert.match(String(lireLaProposition({ ...NEPAL, texte: `${'Une très longue question '.repeat(10)}?` })), /200 caractères au plus/)
   assert.equal(lireLaProposition({ ...NEPAL, bonne: 7 }), 'Touche une forme : c’est la bonne réponse.')
 })
+
+test('son anecdote, facultative, relue aux mêmes règles : nettoyée, sans emoji, refusée trop longue — jamais coupée', () => {
+  // Le propriétaire du dépôt, le 2 novembre 2026 : « On ne peut pas mettre
+  // d'anecdote pour la question ? » — seul le QG en écrivait une, en l'acceptant.
+  const anecdote = 'Deux triangles superposés, pour deux branches de sa dynastie.'
+  assert.deepEqual(lireLaProposition({ ...NEPAL, anecdote: `  Deux triangles  superposés, pour deux branches de sa dynastie. ` }), { ...NEPAL, anecdote })
+  assert.deepEqual(lireLaProposition({ ...NEPAL, anecdote: '   ' }), NEPAL, 'vide, elle n’existe pas')
+  assert.equal(conseilDeLaProposition(NEPAL.texte, NEPAL.reponses, 1, 'Un drapeau de dinosaure 🦖.'), 'Sans emoji : certains écrans ne l’affichent pas.')
+  assert.equal(lireLaProposition({ ...NEPAL, anecdote: 'Un drapeau de dinosaure 🦖.' }), 'Sans emoji : certains écrans ne l’affichent pas.')
+  assert.equal(lireLaProposition({ ...NEPAL, anecdote: 'x'.repeat(ANECDOTE_DU_PUBLIC_MAX + 1) }), `L’anecdote tient en ${ANECDOTE_DU_PUBLIC_MAX} caractères.`)
+  // Ce qu'il écrit passe tel quel à l'acceptation, qui relit toute anecdote à la limite des quiz.
+  assert.ok(ANECDOTE_DU_PUBLIC_MAX <= MAX_ANECDOTE, `${ANECDOTE_DU_PUBLIC_MAX} caractères au joueur, ${MAX_ANECDOTE} à l’acceptation`)
+})
+
+test('son anecdote va au QG, qui la lit sous les réponses et la garde — ou la retouche — en l’acceptant', () =>
+  avecBanc(async banc => {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const admin = await connexionAnimateur(banc.url)
+    const anecdote = 'Deux triangles superposés, pour deux branches de sa dynastie.'
+    const longue = await poster(banc, lea, '/api/jour/propositions', { ...NEPAL, anecdote: 'x'.repeat(ANECDOTE_DU_PUBLIC_MAX + 1) })
+    assert.equal(longue.status, 400)
+    assert.equal(longue.corps.error, `L’anecdote tient en ${ANECDOTE_DU_PUBLIC_MAX} caractères.`)
+    const proposee = await poster(banc, lea, '/api/jour/propositions', { ...NEPAL, anecdote })
+    assert.equal(proposee.status, 200, proposee.corps.error)
+    assert.equal(proposee.corps.anecdote, anecdote)
+    const p = (await lire(banc, admin, '/api/admin/jour/propositions')).corps.aRelire[0]
+    assert.equal(p.anecdote, anecdote, 'le QG la lit avec sa question')
+    // « Accepter » la reprend dans son champ : envoyée telle quelle, elle passe à la réserve.
+    const ok = await poster(banc, admin, `/api/admin/jour/propositions/${p.id}/accepter`, { question: { ...p, categorie: 'Géographie' } })
+    assert.equal(ok.status, 200, ok.corps.error)
+    assert.equal(dansLaReserve(banc, NEPAL.texte)?.question.anecdote, anecdote)
+  }))
 
 test('sa propre question lui compte sa moyenne sur les autres, en points comme en bonnes réponses', () => {
   // 1 620 points sur neuf questions : sa question en vaut 180, sa partie 1 800.

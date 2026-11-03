@@ -304,11 +304,12 @@ function minuitDuJour(jour: string): number {
   return minuitDe(Date.UTC(annee, mois - 1, j, 12))
 }
 
-/** Une proposition lue de sa colonne : la question telle que le joueur l'a écrite, ou null. */
+/** Une proposition lue de sa colonne : la question telle que le joueur l'a écrite — son anecdote s'il en a écrit une —, ou null. */
 function questionProposeeLue(brut: unknown): QuestionProposee | null {
   try {
     const q = JSON.parse(String(brut)) as Partial<QuestionProposee>
-    return typeof q.texte === 'string' && Array.isArray(q.reponses) && Number.isInteger(q.bonne) ? { texte: q.texte, reponses: q.reponses.map(String), bonne: q.bonne! } : null
+    if (typeof q.texte !== 'string' || !Array.isArray(q.reponses) || !Number.isInteger(q.bonne)) return null
+    return { texte: q.texte, reponses: q.reponses.map(String), bonne: q.bonne!, ...(typeof q.anecdote === 'string' && q.anecdote && { anecdote: q.anecdote }) }
   } catch {
     return null
   }

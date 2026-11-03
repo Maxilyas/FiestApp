@@ -8,7 +8,14 @@ import { espacesFines } from '../format'
 import { showToast } from '../state'
 import { api, motifDe } from '../api'
 import { sonAvatar } from '../../../shared/sonAvatar'
-import { QUESTION_DU_PUBLIC_MAX, REPONSE_DU_PUBLIC_MAX, conseilDeLaProposition, type PropositionDuJoueur, type StatutDUneProposition } from '../../../shared/propositions'
+import {
+  ANECDOTE_DU_PUBLIC_MAX,
+  QUESTION_DU_PUBLIC_MAX,
+  REPONSE_DU_PUBLIC_MAX,
+  conseilDeLaProposition,
+  type PropositionDuJoueur,
+  type StatutDUneProposition,
+} from '../../../shared/propositions'
 import type { PublicProfile } from '../../../shared/profil'
 
 // La plume : l'invitation à proposer une question, là où l'on joue.
@@ -140,6 +147,7 @@ function CarteAEcrire({ profil, onFermer }: { profil?: PublicProfile | null; onF
   const [question, setQuestion] = useState('')
   const [reponses, setReponses] = useState(['', '', '', ''])
   const [bonne, setBonne] = useState<number | null>(null)
+  const [anecdote, setAnecdote] = useState('')
   const [envoi, setEnvoi] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const [propositions, setPropositions] = useState<PropositionDuJoueur[]>([])
@@ -154,14 +162,14 @@ function CarteAEcrire({ profil, onFermer }: { profil?: PublicProfile | null; onF
       vivante = false
     }
   }, [])
-  const conseil = conseilDeLaProposition(question, reponses, bonne)
+  const conseil = conseilDeLaProposition(question, reponses, bonne, anecdote)
   const prete = conseil === null
   const envoyer = async () => {
     if (!prete || bonne === null || envoi) return
     setEnvoi(true)
     setErreur(null)
     try {
-      await api.jour.proposer({ texte: question, reponses, bonne })
+      await api.jour.proposer({ texte: question, reponses, bonne, anecdote })
       showToast({ kind: 'info', message: 'Envoyée : ton accueil te dira la suite' })
       onFermer()
     } catch (e) {
@@ -214,6 +222,20 @@ function CarteAEcrire({ profil, onFermer }: { profil?: PublicProfile | null; onF
               />
             </div>
           ))}
+        </div>
+        {/* Son anecdote, s'il en a une : là où la révélation la montrera, au-dessus de sa signature. Facultative —
+            le QG la reçoit dans « Accepter », et peut aussi en écrire une. */}
+        <div className="plume-carte-anecdote">
+          <Icon name="message" />
+          <textarea
+            className="plume-carte-champ"
+            rows={2}
+            maxLength={ANECDOTE_DU_PUBLIC_MAX}
+            value={anecdote}
+            placeholder="Le saviez-vous ? Une anecdote, si tu veux"
+            aria-label="Son anecdote, si tu veux"
+            onChange={e => setAnecdote(e.target.value)}
+          />
         </div>
         {profil && (
           <p className="plume-carte-signature">
