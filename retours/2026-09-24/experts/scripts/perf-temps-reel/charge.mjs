@@ -15,6 +15,11 @@
 //   · il vérifie qu'aucun téléphone ne reçoit jamais la vue ou l'instantané
 //     d'un autre espace.
 // Le résultat part en JSON dans export/evaluations/perf-temps-reel/.
+//
+// Comme sur Render gratuit (le 3 novembre 2026, `docs/exploitation/capacite.md`),
+// le vrai quota du conteneur, la base derrière un faux Turso, la soirée seule :
+//
+//   node --import tsx charge.mjs --espaces 150 --cgroup --turso 30 --prechauffage 3600 --attente 20
 import { spawn } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
@@ -46,15 +51,38 @@ const SETTLE_MS = 700 // le souffle avant une révélation (games/quiz.ts)
 // ── Le serveur, dans son processus ─────────────────────────────────────────
 mkdirSync(sortie, { recursive: true })
 const dossierServeur = path.join(sortie, `serveur-${etiquette}`)
+// `--cgroup` : le vrai quota du conteneur, plus fidèle que le rejeu de `--quota` (plus bas), et les drapeaux du
+// ramasse-miettes de la production — le 3 novembre 2026 (`docs/exploitation/capacite.md`).
+const cgroup = process.argv.includes('--cgroup')
+// `--turso <ms>` : la base permanente derrière le faux Turso, dans son propre processus, à tant de millisecondes l'aller-retour.
+const latenceTurso = arg('turso', null)
+let faux = null
+if (latenceTurso !== null) {
+  const { fauxTurso } = await import('../../../../2026-10-14/reproductions/outils.ts')
+  faux = await fauxTurso(path.join(sortie, `turso-${etiquette}.db`), { neuf: true })
+  await faux.latence(Number(latenceTurso))
+}
 const serveur = spawn(
   process.execPath,
   [
     ...(cpuProf ? ['--cpu-prof', '--cpu-prof-dir', path.join(sortie, 'profils', etiquette)] : []),
+    ...(cgroup ? ['--single-threaded-gc', '--no-memory-reducer', '--max-old-space-size=320'] : []),
     '--import',
     'tsx',
     path.join(ici, 'serveur.ts'),
   ],
-  { cwd: racine, env: { ...process.env, PORT: String(port), DOSSIER: dossierServeur }, stdio: ['ignore', 'pipe', 'pipe'] },
+  {
+    cwd: racine,
+    env: {
+      ...process.env,
+      PORT: String(port),
+      DOSSIER: dossierServeur,
+      ...(faux && { BASE_URL: faux.url }),
+      // `--prechauffage <s>` : le préchauffage de la campagne repoussé d'autant — la soirée se mesure seule.
+      ...(arg('prechauffage', null) !== null && { PRECHAUFFAGE_MS: String(Number(arg('prechauffage')) * 1000) }),
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  },
 )
 const journalServeur = []
 serveur.stderr.on('data', d => journalServeur.push(String(d)))
@@ -75,6 +103,15 @@ await new Promise((resolve, reject) => {
 // chaque période, SIGSTOP après `quota × 100` ms. Un processus arrêté ne
 // consomme rien : c'est un plafond, pas une moyenne (plus dur que CFS quand
 // le serveur n'a rien à faire, identique quand il est saturé).
+if (cgroup) {
+  // Dix millisecondes de processeur par période de cent (cgroup v1, root) — comme Render gratuit, au repos comme saturé.
+  mkdirSync('/sys/fs/cgroup/cpu/gel', { recursive: true })
+  writeFileSync('/sys/fs/cgroup/cpu/gel/cpu.cfs_quota_us', '10000')
+  writeFileSync('/sys/fs/cgroup/cpu/gel/cgroup.procs', String(serveur.pid))
+}
+// `--attente <s>` : le serveur fait son travail de fond d'après le démarrage avant la soirée.
+const attente = Number(arg('attente', 0))
+if (attente > 0) await new Promise(r => setTimeout(r, attente * 1000))
 const quota = Number(arg('quota', 0))
 if (quota > 0 && quota < 1) {
   const periode = 100
@@ -404,4 +441,5 @@ for (const e of espaces) {
 if (quota) process.kill(serveur.pid, 'SIGCONT')
 serveur.kill('SIGTERM')
 await new Promise(r => serveur.on('exit', r))
+faux?.fermer()
 process.exit(0)

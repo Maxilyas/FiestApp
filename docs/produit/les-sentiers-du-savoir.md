@@ -15,7 +15,7 @@
 
 Les sentiers, comme toute la campagne, se jouent avec un profil : ce que tu y gagnes y reste. Sans profil, la campagne propose de se connecter ou d'en créer un — une soirée, elle, se joue toujours sans compte.
 
-![Le haut des sentiers au téléphone : la forêt au palier 8, le loup à gagner, le chemin en lacet, les règles et les vies du jour](../vitrine/captures/telephone-sentiers.jpg)
+![Le haut des sentiers au téléphone : le stade au palier de maître, sa chance « Pour toi » en piste verte, le chemin en lacet et ses portraits gagnés, les vies du jour](../vitrine/captures/telephone-sentiers.jpg)
 
 ## Où les trouver
 

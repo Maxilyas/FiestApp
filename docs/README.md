@@ -1,6 +1,6 @@
 # La documentation de FiestApp
 
-> FiestApp est un quiz de soirée auto-hébergé : un écran commun pour la salle, le téléphone de chacun pour répondre, et rien à installer. Entre deux soirées, les joueurs qui ont un profil continuent au quiz du jour, en campagne, sur les sentiers du savoir et en duel. Cette documentation dit ce que fait l'application et comment elle est construite, telle qu'elle est dans le code aujourd'hui.
+> FiestApp est un quiz de soirée auto-hébergé : un écran commun pour la salle, le téléphone de chacun pour répondre, et rien à installer. Entre deux soirées, les joueurs qui ont un profil continuent au quiz du jour, en campagne, sur les sentiers du savoir, en duel et au Cabinet de curiosités. Cette documentation dit ce que fait l'application et comment elle est construite, telle qu'elle est dans le code aujourd'hui.
 
 Pour une présentation en images, ouvre [la vitrine](https://maxilyas.github.io/FiestApp/) : `docs/vitrine/`, publiée sur GitHub Pages à chaque fusion sur `main` qui la touche ([la mise en ligne](exploitation/mise-en-ligne.md#11-la-vitrine-sur-github-pages)).
 
@@ -13,6 +13,7 @@ Pour une présentation en images, ouvre [la vitrine](https://maxilyas.github.io/
 | Animer une vraie soirée | [Animer une soirée](guides/animer-une-soiree.md) |
 | Expliquer le jeu à tes invités | [Jouer](guides/jouer.md) |
 | Mettre FiestApp en ligne, gratuitement | [La mise en ligne](exploitation/mise-en-ligne.md) |
+| Savoir combien de joueurs un serveur tient | [La capacité](exploitation/capacite.md) |
 | Veiller sur le serveur et sur les joueurs | [Administrer](guides/administrer.md) · [Exploiter](exploitation/exploiter.md) |
 | Modifier le code | [Démarrer](contribuer/demarrer.md), puis [la vue d'ensemble de l'architecture](architecture/vue-d-ensemble.md) |
 | Retrouver une route, un événement, une table, une constante | [La référence](#la-référence) |
@@ -75,6 +76,7 @@ Exhaustive, et gardée pour l'essentiel par un test qui la relit contre le code.
 
 - [La mise en ligne](exploitation/mise-en-ligne.md) — Render et Turso, pas à pas : production, préproduction, veille, routine du matin
 - [Exploiter](exploitation/exploiter.md) — surveiller, sauvegarder, restaurer, dépanner, et le repli tout en local
+- [La capacité](exploitation/capacite.md) — ce qu'un serveur tient, mesuré et daté : les invités d'une soirée, les joueurs en solo au même instant, sur l'offre gratuite et au-delà, et de quoi refaire chaque mesure
 
 ## Contribuer
 

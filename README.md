@@ -20,15 +20,17 @@ Un écran pour la salle, un téléphone pour chacun, rien à installer. Gratuit 
 
 **Des questions de toutes les sortes.** QCM et vrai ou faux, estimations où le plus proche gagne, plusieurs bonnes réponses, réponses à remettre dans l'ordre, « Qui dans la salle ? », photo qui disparaît, blind test, et l'estimation en direct dont on tape la réponse à la révélation. → [Les questions](docs/produit/les-questions.md)
 
-**Des quiz prêts en un geste.** L'éditeur dans le navigateur, une liste à coller (écrite par un ami ou par une IA), des modèles pour un anniversaire ou un mariage, l'import et le partage — ou le quiz tout prêt, composé d'un toucher dans une base de 24 131 questions relues. → [Les quiz](docs/produit/les-quiz.md)
+**Des quiz prêts en un geste.** L'éditeur dans le navigateur, une liste à coller (écrite par un ami ou par une IA), des modèles pour un anniversaire ou un mariage, l'import et le partage — ou le quiz tout prêt, composé d'un toucher dans une base de 27 404 questions relues. → [Les quiz](docs/produit/les-quiz.md)
 
 **L'animateur aux commandes.** Une console pour révéler, mettre en pause, reposer, annuler des points ; une télécommande sur son téléphone ; une télé qui se branche par son code ; des équipes préparées avant d'ouvrir. → [Animer une soirée](docs/guides/animer-une-soiree.md)
 
 **Une fin qu'on garde.** Un podium, des prix calculés tout seuls, des hauts faits ; sur chaque téléphone, sa fin de soirée et ses nouveaux trophées ; un souvenir à partager, un bilan question par question, des fiches à imprimer et l'historique de toutes les soirées. → [Après la soirée](docs/produit/apres-la-soiree.md)
 
-**Le jeu continue entre deux soirées.** Avec un profil : le quiz du jour, la campagne et son défi de la semaine, les sentiers du savoir, les duels contre un autre joueur ou contre Automate, et l'Expédition, où les légendaires se gagnent au bout de trois cartes tirées au sort — et servent enfin, en jokers. → [Le quiz du jour](docs/produit/le-quiz-du-jour.md) · [La campagne](docs/produit/la-campagne.md) · [Les sentiers](docs/produit/les-sentiers-du-savoir.md) · [Les duels](docs/produit/les-duels.md) · [L'Expédition](docs/produit/l-expedition.md)
+**Le jeu continue entre deux soirées.** Avec un profil : trois missions par jour, le quiz du jour, la campagne et son défi de la semaine, les sentiers du savoir, les duels contre un autre joueur ou contre Automate, et le Cabinet de curiosités, une traversée en trois actes — trois cartes choisies parmi dix, dix petits jeux, trois gardiens légendaires, et l'un d'eux à gagner. → [Le quiz du jour](docs/produit/le-quiz-du-jour.md) · [La campagne](docs/produit/la-campagne.md) · [Les sentiers](docs/produit/les-sentiers-du-savoir.md) · [Les duels](docs/produit/les-duels.md) · [Le Cabinet](docs/produit/le-cabinet.md)
 
-**Un profil qui se porte.** Des niveaux, des finitions autour de l'avatar, des trophées que la collection range mode par mode, trente-deux avatars légendaires peints, huit fêtes et leur carnet de timbres, six Divins aux règles secrètes, une boutique de thèmes et de compagnons — et jamais un avantage face aux autres : ce qu'on a gagné ne sert qu'en expédition, qu'on joue seul. → [Le profil](docs/produit/le-profil.md) · [Les récompenses](docs/produit/les-recompenses.md) · [La boutique](docs/produit/la-boutique.md)
+**Un profil qui se porte.** Des niveaux, des finitions autour de l'avatar, des trophées que la collection range mode par mode, une carte à collectionner, trente-deux avatars légendaires peints, huit fêtes et leur carnet de timbres, six Divins aux règles secrètes, une boutique de thèmes et de compagnons qui grandissent — et jamais un avantage face aux autres : ce qu'on gagne au Cabinet, qu'on joue seul, ne sert qu'au Cabinet. → [Le profil](docs/produit/le-profil.md) · [Les récompenses](docs/produit/les-recompenses.md) · [La boutique](docs/produit/la-boutique.md)
+
+**Tenu à l'épreuve.** Sur l'offre gratuite de l'hébergeur — un dixième de cœur —, une soirée de 150 invités, chaque réponse reçue en 61 ms au 95ᵉ centile, et une quinzaine de joueurs en solo au même instant ; sur quatre cœurs, 500 invités dans un seul salon. Pas une vue passée d'un salon à l'autre, dans aucun essai. → [La capacité](docs/exploitation/capacite.md)
 
 <p align="center">
   <img src="docs/vitrine/captures/telephone-repondu.jpg" width="200" alt="Le téléphone d'une invitée pendant une question : la photo, quatre réponses, « Mars » cochée.">
@@ -75,7 +77,7 @@ Un monorepo npm : `client/` (React et Vite), `server/` (Node, Express et Socket.
 npm run verify   # typage, tests, construction, puis une soirée entière rejouée sur un vrai serveur
 ```
 
-C'est ce que fait l'intégration continue (`.github/workflows/ci.yml`) sur chaque proposition de modification. Les tests (`server/test/`, plus de deux cents fichiers) démarrent chacun leur serveur jetable quand il leur en faut un ; l'un d'eux relit cette documentation contre le code. → [Contribuer](docs/contribuer/demarrer.md) · [Les tests](docs/contribuer/tests.md)
+C'est ce que fait l'intégration continue (`.github/workflows/ci.yml`) sur chaque proposition de modification. Les tests (`server/test/`, trois cent cinquante fichiers) démarrent chacun leur serveur jetable quand il leur en faut un ; l'un d'eux relit cette documentation contre le code. → [Contribuer](docs/contribuer/demarrer.md) · [Les tests](docs/contribuer/tests.md)
 
 Le dépôt se travaille aussi avec Claude Code : `CLAUDE.md` et les règles de `.claude/rules/` lui donnent les invariants et les pièges de chaque domaine. → [Travailler avec Claude](docs/contribuer/outillage-claude.md)
 
@@ -87,5 +89,5 @@ Le dépôt se travaille aussi avec Claude Code : `CLAUDE.md` et les règles de `
 | [Les guides](docs/README.md#les-guides) | pas à pas : la première soirée, animer, jouer, administrer |
 | [L'architecture](docs/README.md#larchitecture) | comment c'est construit, et pourquoi |
 | [La référence](docs/README.md#la-référence) | chaque adresse, route, événement, table, variable et barème |
-| [L'exploitation](docs/README.md#lexploitation) | mettre en ligne, surveiller, sauvegarder, dépanner |
+| [L'exploitation](docs/README.md#lexploitation) | mettre en ligne, surveiller, sauvegarder, dépanner, ce qu'un serveur tient |
 | [Contribuer](docs/README.md#contribuer) | conventions, tests, recettes, historique |
