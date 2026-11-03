@@ -9,7 +9,8 @@ import { sansAccent } from '../../../shared/homonymes'
 // Partagée : l'écran de l'administrateur, qui corrige une question, borne ses champs à la même mesure.
 import { MAX_REPONSE } from '../../../shared/campagne'
 import { empreinteDe } from './jour'
-import { QUESTIONS_PAR_TRANCHE, rendreLaMain } from './tourniquet'
+import { QUESTIONS_PAR_TRANCHE, enTranches, rendreLaMain } from './tourniquet'
+import { QUESTIONS_D_UNE_TRANCHE, dUneTraite, type CalculEnTranches } from '../../../shared/tranches'
 
 /**
  * La base de la campagne : ses questions à elle, écrites et étiquetées
@@ -486,10 +487,20 @@ export class BaseDeLaCampagne {
   readonly parId: ReadonlyMap<string, QuestionDeLaBase>
   readonly empreintes: ReadonlySet<string>
 
-  constructor(questions: readonly QuestionDeLaBase[]) {
+  constructor(questions: readonly QuestionDeLaBase[], index: IndexDeLaBase = dUneTraite(indexDeLaBase(questions, Infinity))) {
     this.questions = questions
-    this.parId = new Map(questions.map(q => [q.id, q]))
-    this.empreintes = new Set(questions.map(q => q.empreinte))
+    this.parId = index.parId
+    this.empreintes = index.empreintes
+  }
+
+  /**
+   * La même, ses index faits en tranches (`CalculEnTranches`) : vingt
+   * millisecondes d'une traite sur un vrai cœur, au réveil et à chaque
+   * correction du QG — une demi-seconde de gel au dixième de cœur de
+   * l'hébergeur (le 2 novembre 2026).
+   */
+  static *enTranches(questions: readonly QuestionDeLaBase[], tranche = QUESTIONS_D_UNE_TRANCHE): CalculEnTranches<BaseDeLaCampagne> {
+    return new BaseDeLaCampagne(questions, yield* indexDeLaBase(questions, tranche))
   }
 
   /**
@@ -513,9 +524,26 @@ export class BaseDeLaCampagne {
       console.warn(`[campagne] ${refusees.length} question(s) de la base écartée(s) :`)
       for (const r of refusees.slice(0, 10)) console.warn(`  ${r.fichier} #${r.position} — ${r.motif}`)
     }
-    // Ses index, vingt millisecondes sur toute la base, à leur tour de boucle
-    // (`rendreLaMain`) : pas derrière le dernier morceau du fichier.
-    await rendreLaMain()
-    return new BaseDeLaCampagne(questions)
+    // Ses index, vingt millisecondes sur toute la base, en tranches, une par
+    // tour de boucle (`enTranches`) : pas derrière le dernier morceau du fichier.
+    return enTranches(BaseDeLaCampagne.enTranches(questions))
   }
+}
+
+/** Ce que la base indexe : chaque question par son identifiant, et les empreintes de leurs intitulés. */
+interface IndexDeLaBase {
+  parId: Map<string, QuestionDeLaBase>
+  empreintes: Set<string>
+}
+
+/** Les index de la base, en tranches de `tranche` questions : la dernière d'un identifiant l'emporte, à la place de la première. */
+function* indexDeLaBase(questions: readonly QuestionDeLaBase[], tranche: number): CalculEnTranches<IndexDeLaBase> {
+  const parId = new Map<string, QuestionDeLaBase>()
+  const empreintes = new Set<string>()
+  for (let i = 0; i < questions.length; i++) {
+    if (i > 0 && i % tranche === 0) yield
+    parId.set(questions[i].id, questions[i])
+    empreintes.add(questions[i].empreinte)
+  }
+  return { parId, empreintes }
 }

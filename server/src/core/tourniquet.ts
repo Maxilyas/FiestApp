@@ -19,6 +19,7 @@
  * au milieu : c'est là qu'elle relit ce qu'une autre a pu faire pendant
  * qu'elle attendait.
  */
+import type { CalculEnTranches } from '../../../shared/tranches'
 
 const enAttente: (() => void)[] = []
 let tourPose = false
@@ -40,6 +41,24 @@ export function rendreLaMain(): Promise<void> {
       setImmediate(tour)
     }
   })
+}
+
+/**
+ * Un calcul en tranches (`CalculEnTranches`, `shared/tranches.ts`) mené en
+ * fond : chaque tranche à son tour de boucle (`rendreLaMain`), la première
+ * aussi. Les étapes lourdes de la campagne passaient chacune d'une traite —
+ * les familles de la mesure, la préparation d'un tirage, la série de
+ * référence, huit à trente millisecondes sur un vrai cœur — : au dixième de
+ * cœur de l'hébergeur, le plus long gel restait la plus longue étape, une
+ * demi-seconde à deux secondes en production (le 2 novembre 2026). Il n'est
+ * plus que la plus longue tranche.
+ */
+export async function enTranches<T>(calcul: CalculEnTranches<T>): Promise<T> {
+  for (;;) {
+    await rendreLaMain()
+    const r = calcul.next()
+    if (r.done) return r.value
+  }
 }
 
 /** Au plus, ce qu'une étape de fond attend la salle : une question laissée ouverte ne l'arrête pas pour la soirée. */
@@ -76,9 +95,13 @@ export async function laisserPasserLaSalle(
 
 /**
  * Ce que le serveur relit d'une traite avant de rendre la main, en questions
- * de la base : une dizaine de millisecondes — la lecture de la base
- * (`baseCampagne.ts`), les jumelles (`memeFait.ts`), les tas du Cabinet. Ici,
- * à côté du tourniquet, plutôt qu'avec la base : le Cabinet le lit sans tirer
- * ce qu'elle tire, le quiz du jour compris (`cabinet-catalogue.test.ts`).
+ * de la base — la lecture de la base (`baseCampagne.ts`), les jumelles
+ * (`memeFait.ts`), les tas du Cabinet — : une à deux millisecondes sur un vrai
+ * cœur. Deux cents jusqu'au 2 novembre 2026, une dizaine de millisecondes : au
+ * banc bridé au dixième de cœur, la première préparation des tas du Cabinet
+ * gelait la boucle jusqu'à 0,8 s, un calcul coupé par la bride coûtant
+ * plusieurs fois son prix (`retours/2026-11-02/reproductions/gels-rejoues.ts`).
+ * Ici, à côté du tourniquet, plutôt qu'avec la base : le Cabinet le lit sans
+ * tirer ce qu'elle tire, le quiz du jour compris (`cabinet-catalogue.test.ts`).
  */
-export const QUESTIONS_PAR_TRANCHE = 200
+export const QUESTIONS_PAR_TRANCHE = 50

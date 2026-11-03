@@ -19,8 +19,7 @@ import { performance } from 'node:perf_hooks'
 import { SALLE_ATTENDUE_MAX_MS, laisserPasserLaSalle, rendreLaMain } from '../src/core/tourniquet'
 import { ceQuiTournait } from '../src/core/gels'
 import { CampagneStore, type PreparationDuTirage } from '../src/core/campagne'
-import type { BaseDeLaCampagne, QuestionDeLaBase } from '../src/core/baseCampagne'
-import type { MesureDUneQuestion } from '../../shared/campagne'
+import { BaseDeLaCampagne, type QuestionDeLaBase } from '../src/core/baseCampagne'
 
 test('rendre la main : une étape par tour de boucle, dans l’ordre où elles l’ont demandé, et ce qui arrive entre deux est lu', async () => {
   // Rendue par `setImmediate` seul, la main repassait aux trois étapes dans
@@ -48,29 +47,46 @@ const MAINTENANT = Date.UTC(2026, 9, 19, 9)
 /** Ce que l'épreuve relit du magasin : ses étapes lourdes, et les caches qu'elles remplissent. */
 type Prive = {
   famillesDe(base: BaseDeLaCampagne): unknown
-  tirage(jouables: readonly QuestionDeLaBase[], mesure: ReadonlyMap<string, MesureDUneQuestion>): PreparationDuTirage
-  referencePour(...args: unknown[]): unknown
   jouables(): Promise<readonly QuestionDeLaBase[]>
   famillesGardees: WeakMap<BaseDeLaCampagne, unknown>
   preparations: WeakMap<readonly QuestionDeLaBase[], PreparationDuTirage>
-  referenceGardee: unknown
+  referenceGardee: { mesure: unknown; modele: unknown } | null
 }
 
 /**
  * Un magasin de la campagne sur une base jetable, et le tour de boucle où
  * chacune de ses étapes lourdes a tourné : la famille de chaque question, la
- * part de chacune dans sa famille, la préparation du tirage, la série de
- * référence. Un tour se compte d'un `setImmediate` qui se repose à chaque
- * tour : deux étapes du même tour liraient le même compte.
+ * part de chacune dans sa famille, la préparation du tirage — gardée —, la
+ * série de référence — gardée. Un tour se compte d'un `setImmediate` qui se
+ * repose à chaque tour : deux étapes du même tour liraient le même compte.
+ * `observer`, et chaque question de la base dit le tour où on la lit — sa
+ * classification (`meta`) ou son empreinte, que lisent les calculs sur toute
+ * la base (`lectures`) ; `questionsParTranche` règle les tranches du magasin.
  */
-function magasinObserve() {
+function magasinObserve({ observer = false, questionsParTranche }: { observer?: boolean; questionsParTranche?: number } = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), 'quizz-fond-'))
   const horloge = { t: MAINTENANT }
-  const campagne = new CampagneStore(`file:${path.join(dir, 'permanente.db').replace(/\\/g, '/')}`, undefined, {
-    base: baseDEssai(300, { categories: ['Histoire', 'Sport', 'Nature'] }),
-    maintenant: () => horloge.t,
-  })
   let tour = 0
+  const lectures = new Map<number, Set<string>>()
+  const lue = (id: string) => (lectures.get(tour) ?? lectures.set(tour, new Set()).get(tour)!).add(id)
+  const essai = baseDEssai(300, { categories: ['Histoire', 'Sport', 'Nature'] })
+  const base = observer
+    ? new BaseDeLaCampagne(
+        essai.questions.map(q => {
+          const copie = { ...q }
+          for (const champ of ['meta', 'empreinte'] as const) {
+            const valeur = q[champ]
+            Object.defineProperty(copie, champ, { enumerable: true, get: () => (lue(q.id), valeur) })
+          }
+          return copie
+        }),
+      )
+    : essai
+  const campagne = new CampagneStore(`file:${path.join(dir, 'permanente.db').replace(/\\/g, '/')}`, undefined, {
+    base,
+    maintenant: () => horloge.t,
+    ...(questionsParTranche !== undefined && { questionsParTranche }),
+  })
   let tourne = true
   const tourner = () => {
     tour++
@@ -86,20 +102,23 @@ function magasinObserve() {
     if (neuves) etapes.push({ quoi: 'familles', tour })
     return familles
   }
-  const tirage = prive.tirage.bind(campagne)
-  prive.tirage = (jouables, mesure) => {
-    const avant = prive.preparations.get(jouables)
-    const preparee = tirage(jouables, mesure)
-    if (preparee !== avant) etapes.push({ quoi: 'préparation du tirage', tour })
-    return preparee
+  // La préparation du tirage et la série de référence, au tour où elles se gardent : d'une traite sur le chemin d'un
+  // tirage, ou au bout de leurs tranches en fond.
+  const preparations = prive.preparations
+  const garder = preparations.set.bind(preparations)
+  preparations.set = (jouables, preparee) => {
+    if (preparations.get(jouables) !== preparee) etapes.push({ quoi: 'préparation du tirage', tour })
+    return garder(jouables, preparee)
   }
-  const referencePour = prive.referencePour.bind(campagne)
-  prive.referencePour = (...args) => {
-    const avant = prive.referenceGardee
-    const reference = referencePour(...args)
-    if (prive.referenceGardee !== avant) etapes.push({ quoi: 'série de référence', tour })
-    return reference
-  }
+  let reference = prive.referenceGardee
+  Object.defineProperty(campagne, 'referenceGardee', {
+    configurable: true,
+    get: () => reference,
+    set: (v: Prive['referenceGardee']) => {
+      if (v !== reference) etapes.push({ quoi: 'série de référence', tour })
+      reference = v
+    },
+  })
   // La part de chaque question dans sa famille s'écrit dans la mesure gardée (`parQuestion`).
   let gardee: object | null = null
   Object.defineProperty(campagne, 'mesuresGardees', {
@@ -121,6 +140,7 @@ function magasinObserve() {
     prive,
     horloge,
     etapes,
+    lectures,
     fermer() {
       tourne = false
       campagne.close()
@@ -250,6 +270,65 @@ test('un dé tombé sur une mesure périmée : son tirage et la série de réfé
     uneParTour(etapes, ['en famille', 'préparation du tirage', 'série de référence'])
     // Son écriture, qui part derrière la réponse, avant de fermer la base : la rencontre n'entre en mémoire qu'écrite.
     await quand(() => (campagne as unknown as { enCours: Map<string, unknown> }).enCours.has('profil-du-de'), 'la rencontre s’écrit')
+  } finally {
+    fermer()
+  }
+})
+
+/** Le tour de boucle qui a lu le plus de questions, et combien. */
+function auPlusParTour(lectures: ReadonlyMap<number, ReadonlySet<string>>): { n: number; tour: number } {
+  let plus = { n: 0, tour: -1 }
+  for (const [tour, lues] of lectures) if (lues.size > plus.n) plus = { n: lues.size, tour }
+  return plus
+}
+
+// Une étape lourde par tour ne suffisait pas : au dixième de cœur de
+// l'hébergeur, chacune passait encore toute la base d'une traite — la mise en
+// famille, la préparation du tirage, la série de référence, vingt-sept mille
+// questions —, et la production gelait une demi-seconde à deux secondes sous
+// les départs du Cabinet, la page des sentiers et le départ d'une épreuve (le
+// relevé des gels du 2 novembre 2026). Chacune se fait en tranches : un tour
+// de boucle ne lit pas plus d'une tranche de la base.
+test('la mesure neuve, sa préparation du tirage et sa série de référence se font en tranches : un tour de boucle ne lit pas plus d’une tranche de la base', async () => {
+  const TRANCHE = 40
+  const { campagne, prive, horloge, lectures, fermer } = magasinObserve({ observer: true, questionsParTranche: TRANCHE })
+  try {
+    await campagne.init()
+    const jouables = await prive.jouables()
+    const premiere = await campagne.mesures()
+    lectures.clear()
+    horloge.t += 9 * 60_000
+    assert.equal(await campagne.mesures(), premiere, 'qui la demande reçoit encore celle-ci')
+    await quand(() => {
+      const preparee = prive.preparations.get(jouables)
+      return preparee !== undefined && preparee.mesure !== premiere && prive.referenceGardee?.mesure === preparee.mesure
+    }, 'la mesure neuve, relue en fond, prépare ses tirages et sa série de référence — la page qui suit la trouve prête')
+    const plus = auPlusParTour(lectures)
+    assert.ok(plus.n > 0, 'la base s’est relue')
+    assert.ok(plus.n <= TRANCHE, `${plus.n} questions lues dans un seul tour de boucle (au plus ${TRANCHE})`)
+  } finally {
+    fermer()
+  }
+})
+
+// Une correction au QG refait la base — les corrections appliquées, ses index — et les familles de la mesure : vingt et
+// quarante millisecondes d'une traite sur un vrai cœur, avant chaque page des signalements qui suivait (le 2 novembre
+// 2026, une demi-seconde de gel par geste au banc bridé).
+test('une question reclassée au QG refait la base et les familles de la mesure en tranches', async () => {
+  const TRANCHE = 40
+  const { campagne, prive, lectures, fermer } = magasinObserve({ observer: true, questionsParTranche: TRANCHE })
+  try {
+    await campagne.init()
+    const avant = await campagne.mesures()
+    const [q] = await prive.jouables()
+    const { categorie, sousTheme, difficulte } = q.meta
+    await campagne.reclasser(q.id, { categorie, sousTheme, difficulte: difficulte === 5 ? 4 : difficulte + 1 })
+    lectures.clear()
+    const apres = await campagne.mesures()
+    assert.notEqual(apres, avant, 'la mesure se remet en famille sur la base refaite')
+    const plus = auPlusParTour(lectures)
+    assert.ok(plus.n > 0, 'la base s’est refaite')
+    assert.ok(plus.n <= TRANCHE, `${plus.n} questions lues dans un seul tour de boucle (au plus ${TRANCHE})`)
   } finally {
     fermer()
   }

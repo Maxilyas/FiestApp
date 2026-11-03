@@ -474,7 +474,8 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/statistiques.ts` — pas un fichier de tests : une base neuve au schéma du serveur sous des statistiques qui égareraient SQLite (`sousCesStatistiques`, `DE_LA_PRODUCTION`, `UN_DUEL_DE_CINQUANTE`), pour `server/test/campagne-index.test.ts` et `server/test/duels-index.test.ts`. Sans statistiques, son choix d'index tient à l'ordre où chaque base les a créés : un plan qui passe au banc peut tout relire en production (le 2 novembre 2026).
 - `server/test/campagne-mesure.test.ts` — la mesure des difficultés qui ne se fait jamais attendre, sa série de référence et son décodage comparés au code d'avant, gardé dans le test.
 - `server/test/tirage-prepare.test.ts` — le tirage d'une série préparé une fois par liste de jouables et par mesure, comparé question pour question au tirage d'avant, au même hasard.
-- `server/test/travail-de-fond.test.ts` — le travail de fond rend la main une étape à la fois : les tours de boucle comptés, jamais deux étapes lourdes dans le même ; il laisse passer la question d'une soirée — trois minutes au plus —, et se nomme pour les gels.
+- `server/test/travail-de-fond.test.ts` — le travail de fond rend la main une étape à la fois : les tours de boucle comptés, jamais deux étapes lourdes dans le même ; chaque question de la base dit le tour où on la lit, et la mesure neuve, sa préparation du tirage, sa série de référence et la base refaite après un reclassement n'en lisent jamais plus d'une tranche par tour ; il laisse passer la question d'une soirée — trois minutes au plus —, et se nomme pour les gels.
+- `server/test/calculs-en-tranches.test.ts` — les calculs en tranches (`shared/tranches.ts`) : une tranche par tour de boucle, et menés en tranches ou d'une traite, la mesure en famille, la préparation du tirage, la série de référence et la base rendent ce qu'elles rendaient d'un bloc.
 - `server/test/campagne-base.test.ts` — la base livrée : rien de défectueux n'y entre, elle ne recule jamais.
 - `server/test/campagne-routine.test.ts` — le dépôt du matin, relu par le juge, plafonné.
 - `server/test/campagne-signalements.test.ts` — les signalements : garder, retirer, corriger.
@@ -514,7 +515,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/amis.test.ts` — la feuille des amis, qui est en ligne.
 - `server/test/amis-feuille.test.ts` — la feuille des amis et la page des duels, rendues.
 - `server/test/joueurs-croises.test.ts` — les joueurs croisés, à défier ou à ajouter.
-- `server/test/modele-du-savoir.test.ts` — le modèle du savoir, qu'Automate et la page des sentiers lisent : ce que vaut chaque difficulté estimée, appris en bloc.
+- `server/test/modele-du-savoir.test.ts` — le modèle du savoir, qu'Automate et la page des sentiers lisent : ce que vaut chaque difficulté estimée, appris en bloc ; ajusté en fond, chaque passe sur la base en tranches, le même modèle qu'ajusté d'une traite.
 - `server/test/duels-montee.test.ts` — la montée : deux cotes, la cachée qui règle Automate et celle qu'on voit, qui avance pour qui joue ; l'ELO dès la Platine, et l'adversaire sous ses ligues gardées compté à son plancher.
 - `server/test/duels-de.test.ts` — le dé à chances égales, sur ce qu'on a choisi : Automate compte comme un adversaire de sa cote.
 - `server/test/duels-enjeu.test.ts` — ce qu'un duel met en jeu, dit avant de le jouer, partout où l'on choisit un adversaire, et la feuille du dé qui s'ouvre avant de tirer.

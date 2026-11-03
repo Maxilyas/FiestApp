@@ -436,7 +436,7 @@ test('un choix de catégories garde sa liste de jouables, et la préparation de 
     await campagne.init()
     const prive = campagne as unknown as {
       jouables(categories?: readonly string[]): Promise<readonly QuestionDeLaBase[]>
-      tirage(jouables: readonly QuestionDeLaBase[], mesure: ReadonlyMap<string, unknown>): PreparationDuTirage
+      tirage(jouables: readonly QuestionDeLaBase[], mesure: ReadonlyMap<string, unknown>): Promise<PreparationDuTirage>
     }
     const histoire = await prive.jouables(['Histoire'])
     assert.equal(histoire.length, 300)
@@ -446,7 +446,7 @@ test('un choix de catégories garde sa liste de jouables, et la préparation de 
     assert.equal(await prive.jouables(['Histoire', 'Sport', 'Histoire']), deux, 'dans n’importe quel ordre, doublons compris')
     assert.deepEqual(deux, (await prive.jouables()).filter(q => q.meta.categorie !== 'Nature'), 'dans l’ordre de la base, comme filtrée à neuf')
     const mesure = await campagne.mesures()
-    assert.equal(prive.tirage(await prive.jouables(['Histoire']), mesure), prive.tirage(histoire, mesure), 'un seul tirage préparé pour ce choix')
+    assert.equal(await prive.tirage(await prive.jouables(['Histoire']), mesure), await prive.tirage(histoire, mesure), 'un seul tirage préparé pour ce choix')
   } finally {
     campagne.close()
     effacer()

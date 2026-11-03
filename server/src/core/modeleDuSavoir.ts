@@ -33,6 +33,7 @@ import { NIVEAUX, QUESTIONS_PAR_MARCHE, QUESTIONS_PAR_SERIE, REPONSES_FICTIVES, 
 import { SCORE_DE_REFERENCE } from '../../../shared/duels'
 import { chanceDeValider, type Melange } from '../../../shared/sentiers'
 import { rendreLaMain } from './tourniquet'
+import { QUESTIONS_D_UNE_TRANCHE, dUneTraite, type CalculEnTranches } from '../../../shared/tranches'
 
 /**
  * L'écart type des forces, en logit, autour de celle du joueur de la cote de
@@ -84,14 +85,18 @@ const PRECISION = 1e-3
 const PASSES_MAX = 60
 
 /**
- * Ce que l'ajustement calcule d'une traite avant de rendre la main : vingt
- * mille chances, une fraction de milliseconde ici, quelques-unes au dixième
- * de cœur de l'hébergeur — d'un bloc, cent mille réponses tiendraient le
- * serveur une seconde, et aucune soirée ne recevrait rien.
+ * Ce que l'ajustement calcule d'une traite avant de rendre la main : quatre
+ * mille chances — d'un bloc, cent mille réponses tiendraient le serveur une
+ * seconde, et aucune soirée ne recevrait rien. Vingt mille jusqu'au
+ * 2 novembre 2026 : dix millisecondes par tranche sur un vrai cœur, tant que
+ * le code n'est pas encore optimisé — et il ne l'est pas, refait toutes les
+ * demi-heures —, et 0,6 à 0,9 s de gel au dixième de cœur, un calcul coupé
+ * par la bride coûtant plusieurs fois son prix (le banc bridé,
+ * `retours/2026-11-02/reproductions/gels-rejoues.ts`).
  */
-export const CHANCES_PAR_TRANCHE = 20_000
+export const CHANCES_PAR_TRANCHE = 4_000
 
-/** Les questions qu'il range d'une traite avant de rendre la main : leur a priori, leur catégorie, leur place. */
+/** Les questions qu'il range ou ajuste d'une traite avant de rendre la main : leur a priori, leur catégorie, leur place, le pas de leur difficulté. */
 const QUESTIONS_PAR_TRANCHE = 2_000
 
 const C = CATEGORIES.length
@@ -346,7 +351,9 @@ export function* ajustement(entree: EntreeDuModele): Generator<void, ModeleDuSav
     // Chaque difficulté estimée, d'un pas de bloc : toutes ses questions et
     // son décalage ensemble, tirés vers zéro (`ECART_DES_ESTIMATIONS`). Les
     // jamais jouées suivent leurs semblables ; l'a priori de chaque question
-    // ne bouge pas avec, il n'y pèse rien.
+    // ne bouge pas avec, il n'y pèse rien. Les questions à leur tour, pas
+    // derrière la dernière tranche des joueurs.
+    yield
     pentesDesNiveaux.fill(0)
     courburesDesNiveaux.fill(0)
     for (let q = 0; q < Q; q++) {
@@ -361,6 +368,8 @@ export function* ajustement(entree: EntreeDuModele): Generator<void, ModeleDuSav
       plusGrand = Math.max(plusGrand, Math.abs(pasDesNiveaux[l]))
     }
     for (let q = 0; q < Q; q++) {
+      // Toute la base à chaque passe : en tranches elle aussi (le 2 novembre 2026).
+      if (q > 0 && q % QUESTIONS_PAR_TRANCHE === 0) yield
       const l = niveaux[q]
       const bloc = l >= 0 ? pasDesNiveaux[l] : 0
       if (bloc !== 0) {
@@ -387,7 +396,10 @@ export function* ajustement(entree: EntreeDuModele): Generator<void, ModeleDuSav
   }
 
   const difficultes = new Map<string, number>()
-  for (let q = 0; q < Q; q++) difficultes.set(ids[q], e.difficultes[q])
+  for (let q = 0; q < Q; q++) {
+    if (q % QUESTIONS_PAR_TRANCHE === 0) yield
+    difficultes.set(ids[q], e.difficultes[q])
+  }
   const forces = new Map<string, ForceDUnJoueur>()
   joueurs.forEach((joueur, p) => {
     forces.set(joueur, { force: e.forces[p], ecarts: Array.from(e.ecarts.subarray(p * C, (p + 1) * C)), reponses: e.debut[p + 1] - e.debut[p] })
@@ -533,6 +545,23 @@ export function serieDeReference<T extends { meta: { categorie: string } }>(
   marcheDe: (q: T, i: number) => Niveau,
   difficulteDe: (q: T, i: number) => number,
 ): SerieDeReference {
+  return dUneTraite(serieDeReferenceEnTranches(jouables, marcheDe, difficulteDe, Infinity))
+}
+
+/**
+ * La même, en tranches (`CalculEnTranches`) : ses deux passes sur toute la
+ * base, une quinzaine de millisecondes sur un vrai cœur, se refaisaient d'une
+ * traite sous la page des sentiers, le dé et le départ d'une épreuve, à
+ * chaque mesure neuve et chaque modèle neuf — une seconde de gel au dixième
+ * de cœur (le 2 novembre 2026). Le magasin la fait en fond
+ * (`CampagneStore.referenceEnFond`).
+ */
+export function* serieDeReferenceEnTranches<T extends { meta: { categorie: string } }>(
+  jouables: readonly T[],
+  marcheDe: (q: T, i: number) => Niveau,
+  difficulteDe: (q: T, i: number) => number,
+  tranche = QUESTIONS_D_UNE_TRANCHE,
+): CalculEnTranches<SerieDeReference> {
   // Chaque groupe — une marche, une catégorie — dans un tableau de nombres,
   // trié d'un coup : des listes triées par une fonction de comparaison
   // prenaient la moitié des 10 à 13 ms que la série de référence coûtait à
@@ -547,6 +576,7 @@ export function serieDeReference<T extends { meta: { categorie: string } }>(
   const tailles = new Int32Array(NIVEAUX.length * C)
   const categoriesDeLaMarche: number[][] = NIVEAUX.map(() => [])
   for (let i = 0; i < nombre; i++) {
+    if (i > 0 && i % tranche === 0) yield
     const q = jouables[i]
     const niveau = marcheDe(q, i)
     compte[niveau]++
@@ -561,11 +591,13 @@ export function serieDeReference<T extends { meta: { categorie: string } }>(
   const groupes: Float64Array[] = []
   const remplis = new Int32Array(NIVEAUX.length * C)
   for (let i = 0; i < nombre; i++) {
+    if (i % tranche === 0 && nombre > tranche) yield
     const c = categorieDeChaque[i]
     if (c < 0) continue
     const g = marcheDeChaque[i] * C + c
     ;(groupes[g] ??= new Float64Array(tailles[g]))[remplis[g]++] = difficulteDeChaque[i]
   }
+  yield
   const marches = {} as Record<Niveau, { categorie: number; difficultes: Float64Array }[]>
   NIVEAUX.forEach((niveau, m) => {
     marches[niveau] = categoriesDeLaMarche[m].map(categorie => {
@@ -586,6 +618,8 @@ export function serieDeReference<T extends { meta: { categorie: string } }>(
   for (const n of NIVEAUX) prendre(n, QUESTIONS_PAR_MARCHE)
   for (const n of [...NIVEAUX].reverse()) prendre(n, Infinity)
   const reference: SerieDeReference = { places, marches, forceDeDepart: 0 }
+  // Sa force de départ, à son tour : quelques millisecondes de calcul à elle seule.
+  yield
   return { ...reference, forceDeDepart: forcePourLeNiveau(SCORE_DE_REFERENCE, AUCUN_ECART, reference) }
 }
 

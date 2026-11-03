@@ -146,6 +146,80 @@ modèle du savoir et la préparation des tirages en cours. Un quatrième, de
 processus —, et la sonde l'a mis au compte de ce qui tournait : ce qui
 tournait n'est pas forcément ce qui gelait, la page le dit.
 
+## Ce qui gèle, d'après la production, et les blocs coupés
+
+La sonde a relevé, de 13 h à 23 h le 2 novembre (version 73cec7d), 55 gels
+d'une demi-seconde ou plus — `reproductions/gels-de-la-production.ts`, en
+lecture seule, sans un nom. Les plus longs, et ce qui tournait pendant :
+
+| Gel | Processeur | Ce qui tournait |
+|---|---|---|
+| 2,8 s | 433 ms | la page des sentiers, le modèle du savoir, les tirages d'une mesure neuve |
+| 2,4 s | 377 à 380 ms | la page des sentiers (deux fois), la campagne, le modèle, la mesure |
+| 2,3 s | 359 à 371 ms | un geste de la traversée du Cabinet, la mesure des difficultés, les tirages de la mesure neuve (quatre fois de 1,6 à 2,3 s) |
+| 2,2 s | 359 ms | la page des signalements du QG, seule — l'administrateur corrigeait des questions |
+| 1,5 s | 242 ms | la vue d'ensemble du QG |
+| 0,6 à 1,0 s | 105 à 166 ms | le réveil : la base, le modèle du savoir, les sujets et tirages |
+
+D'où l'ordre suivi : la mesure neuve et ses tirages sous les gestes du
+Cabinet, la page des sentiers et le départ d'une épreuve, le modèle du
+savoir, les pages du QG, le réveil. Chaque gel garde environ six fois son
+processeur en temps (le dixième de cœur, et un calcul coupé par la bride qui
+coûte plusieurs fois son prix).
+
+**Le banc à l'échelle de la production** (`reproductions/gels-rejoues.ts`) :
+la base du banc du gel grossie à 35 000 réponses, le faux Turso dehors —
+qui apprend au passage les paramètres numérotés du Cabinet (`?1`) —, les
+scènes de l'après-midi rejouées par les vraies routes : des épreuves du
+Cabinet entrées et quittées, l'horloge avancée de onze minutes une fois sur
+deux, la page des sentiers, une épreuve, les signalements avec une question
+reclassée puis une corrigée, le Cabinet après la correction, la vue
+d'ensemble, un réveil. Sur un vrai cœur, au profileur, les plus gros blocs
+d'un seul tenant : le départ d'une épreuve de sentier (60 ms — le tirage et la
+série de référence), les familles et les index d'une base refaite (23 à
+34 ms), la série de référence de la page des sentiers (25 ms), la mise en
+famille de la mesure (13 ms), sa préparation du tirage (7 ms), et une
+tranche du modèle du savoir (10 à 12 ms). Puis bridé au dixième de cœur
+(`GEL=1`, les drapeaux de la production), les gels mêmes que la production
+relevait :
+
+| Scène, au dixième de cœur | Avant | Après |
+|---|---|---|
+| La page des sentiers, à froid | gel de 0,7 s | aucun retard de 0,15 s |
+| La page des sentiers, après les mesures neuves | gels de 1,0 et 0,5 s | deux retards de 0,2 s |
+| Une épreuve du Cabinet, la mesure périmée | retards jusqu'à 0,4 s | aucun retard de 0,15 s |
+| Une question reclassée, la page des signalements qui suit | 0,5 s, 0,4 s | 0,2 s au plus |
+| Une traversée du Cabinet après la correction | gel de 1,7 s | retards de 0,2 s |
+| Le départ d'une épreuve de sentier | gel de 1,2 s, le départ seul | 0,7 et 0,5 s, le modèle du savoir refait en fond |
+
+Ce qui a été fait : **un calcul sur toute la base se fait en tranches**
+(`CalculEnTranches`, `shared/tranches.ts` ; `enTranches`,
+`core/tourniquet.ts`) — la mise en famille de la mesure, les familles d'une
+base (gardées par question : une base refaite ne relit que les neuves), la
+préparation d'un tirage, la série de référence, la base refaite et ses
+index, le comptage des sujets au réveil, chacun de deux mille cinq cents
+questions au plus par tour de boucle, deux à trois millisecondes sur un
+vrai cœur. La préparation du tirage et la série de référence ne se font plus
+jamais d'une traite sur le chemin d'une requête : la requête attend leurs
+tranches, partagées avec le fond, et la série de référence se refait en fond
+derrière chaque mesure neuve et chaque modèle neuf, avant la page qui la
+lit. Le départ d'une épreuve de sentier tire une place par tranche. Le
+modèle du savoir passe la base en tranches à chaque passe, quatre mille
+chances au plus — vingt mille gelaient le banc bridé 0,6 à 0,9 s —, et la
+première préparation des tas du Cabinet cinquante questions par tranche,
+plus deux cents.
+
+Ce qui reste, mesuré au même banc bridé : le modèle du savoir refait en
+fond (0,5 à 0,7 s, ses tranches resserrées n'ont pas suffi — à profiler
+bridé), la vue d'ensemble du QG (0,5 à 0,7 s — le décodage de trente jours
+de parties et ses comptes du jour), la première traversée lancée sur une
+liste de questions neuve (0,7 à 1,3 s — les thèmes du Quiz rangés d'un
+bloc), et le réveil (0,9 à 1,1 s sous « modèle du savoir » et « sujets et
+tirages ») : 60 ms qu'aucune fonction du dépôt ne revendique au profileur,
+sur un vrai cœur — en production, sans doute aussi le paquet compilé au
+premier appel de chaque fonction ; le cache de compilation de Node
+(`module.enableCompileCache`) est une piste, à mesurer.
+
 ## Ce qui reste à décider
 
 - **Le processeur de l'hébergeur.** L'offre gratuite donne un dixième de
