@@ -430,7 +430,9 @@ test('ses plus beaux hauts faits : les plus rares à décrocher, un palier par h
 test('un palier se dit par ce qu’il demande — et La Légende par son niveau, L’Explorateur par ses traversées', () => {
   const carriere = (key: string) => hautFait(key) as HautFaitDeCarriere
   assert.equal(regleDuPalier(carriere('hf:bavard'), 3), '2000 réponses envoyées')
-  assert.equal(regleDuPalier(carriere('hf:eclats'), 1), '1 avatar éclaté')
+  // Une matière taillée compte comme un avatar éclaté (le 3 novembre 2026) : « 1 avatar éclaté » ne disait plus ce qu'elle compte.
+  assert.equal(regleDuPalier(carriere('hf:eclats'), 1), '1 Éclat sur tes avatars')
+  assert.equal(regleDuPalier(carriere('hf:eclats'), 2), '3 Éclats sur tes avatars')
   assert.equal(regleDuPalier(carriere('hf:legende'), 2), 'Niveau 20')
   // Il disait « Niveau 7 d'explorateur » — un niveau qu'on atteint, pas sept à gagner — tant qu'il comptait le niveau
   // de l'Expédition. Depuis le 26 octobre 2026, il compte ce qui s'additionne — des salles, puis, depuis le

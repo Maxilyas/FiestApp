@@ -550,7 +550,7 @@ export interface Carriere {
   hotes: number
   /** Emojis différents joués. */
   avatars: number
-  /** Emojis éclatés. */
+  /** Les Éclats sur ses avatars, pour La Pluie d'Éclats : ses avatars éclatés et ses matières taillées. */
   eclats: number
   niveau: number
   categories: Record<string, { questions: number; justes: number }>
