@@ -76,12 +76,18 @@ export function avatarMontre(porte: Pick<Tenue, 'avatar' | 'legendaire'>, essai:
 /**
  * Ce qui peut avoir éclaté dans l'avatar montré : le légendaire ou le
  * portrait, sinon l'emoji (`cibleEclat`) — rien sous un Divin, qui n'éclate
- * pas et cache l'emoji, ni sous un compagnon : sa gemme le suit sous toutes
- * ses formes, et sa métamorphose, que l'Éclat ouvre à sa forme ultime,
- * se choisit comme une forme de plus, dans la grille.
+ * pas et cache l'emoji. Une forme de compagnon, depuis son ciel rare (le
+ * 3 novembre 2026) : sa version rare ou d'origine se choisit pour toutes ses
+ * formes, sur l'Éclat qui les fait briller — celui de la forme où il est
+ * tombé, parmi ses `eclats` (`clesQuiBrillent`) : c'est sa ligne que le
+ * serveur règle. Sa métamorphose non : elle n'a qu'une version, déjà rare,
+ * et se choisit comme une forme de plus, dans la grille.
  */
-export function cibleDeLEclat(montre: { avatar: string; legendaire: string | null }): string | null {
-  return divin(montre.legendaire) || formeDeCompagnon(montre.legendaire) ? null : cibleEclat(montre.legendaire, montre.avatar)
+export function cibleDeLEclat(montre: { avatar: string; legendaire: string | null }, eclats: readonly string[] = []): string | null {
+  if (divin(montre.legendaire)) return null
+  const forme = formeDeCompagnon(montre.legendaire)
+  if (forme) return forme.metamorphose ? null : (clesQuiBrillent(eclats, forme.key)[0] ?? forme.key)
+  return cibleEclat(montre.legendaire, montre.avatar)
 }
 
 const memeVitrine = (a: readonly string[] | null, b: readonly string[] | null) =>
@@ -117,7 +123,7 @@ export function essayer(essai: Essai, piece: Essai, porte: Tenue): Essai {
     // Rare, la matière qu'il essaie ; d'origine, aucune.
     const matiere = brille ? (suivant.eclat.matiere ?? null) : null
     const montree = porte.eclats ? eclatChez({ eclats: porte.eclats, eclatsEteints: porte.eclatsEteints, matieres: porte.matieres, matieresPortees: porte.matieresPortees }, cle) : null
-    if (cle !== cibleDeLEclat(avatarMontre(porte, suivant))) delete suivant.eclat
+    if (cle !== cibleDeLEclat(avatarMontre(porte, suivant), porte.eclats)) delete suivant.eclat
     else if (montree !== null && brille === !!montree && matiere === (typeof montree === 'string' ? montree : null)) delete suivant.eclat
   }
   return suivant

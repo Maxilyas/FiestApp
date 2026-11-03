@@ -301,10 +301,11 @@ test('ce que la salle voit, la page le montre : laurier, légendaire, surnom et 
   assert.match(apparence, /a sa propre lumière/)
   // La marque « (2) » n'est pas un surnom.
   assert.match(source('components/CarteJoueur.tsx'), /p\.prenom !== partsDuNomAffiche\(carte\.nom\)\.prenom/)
-  // Un légendaire verrouillé n'a rien qui éclate, ni version à choisir — ni un Divin, qui n'éclate pas, ni
-  // un compagnon, dont l'Éclat n'a pas de version rare : sa gemme le dit, et sa métamorphose a sa case.
+  // Un légendaire verrouillé n'a rien qui éclate, ni version à choisir — ni un Divin, qui n'éclate pas, ni la
+  // métamorphose d'un compagnon, qui n'a qu'une version ; ses autres formes, depuis leur ciel rare (le 3 novembre
+  // 2026), dès que l'Éclat est tombé sur l'une d'elles.
   const album = source('components/AlbumDesAvatars.tsx')
-  assert.match(album, /const eclate = aLui && a\.sorte !== 'divin' && a\.sorte !== 'compagnon' && profil\.eclats\.includes\(a\.cle\)/)
+  assert.match(album, /const eclate = aLui && a\.sorte !== 'divin' && !f\?\.metamorphose && aLEclat\(profil, a\.cle\)/)
   assert.match(album, /\{eclate && <ChoixDeLEclat /)
   // L'entrée d'un anonyme ne reprend pas l'emoji de collection d'un profil.
   assert.match(source('components/Entree.tsx'), /choix && AVATARS\.includes\(choix\.avatar\) \? choix\.avatar : tirage\(\)/)

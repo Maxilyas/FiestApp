@@ -29,7 +29,7 @@ import { legendaire } from '../../../shared/legendaires'
 import { salleDuGardien } from '../../../shared/cabinet/salles'
 import { divin } from '../../../shared/divins'
 import { compagnonDe, formeDeCompagnon, nomDeLaForme } from '../../../shared/compagnons'
-import { brilleChez, eclatChez, type PublicProfileDetail } from '../../../shared/profil'
+import { aLEclat, brilleChez, eclatChez, type PublicProfileDetail } from '../../../shared/profil'
 
 // L'album « Mes avatars », dans « Ma collection » (la maquette 1, choisie le
 // 13 octobre 2026) : tous les avatars qui se gagnent, une page par rareté —
@@ -191,10 +191,11 @@ export function FicheDeLAvatar({
   const recit = a.sorte === 'divin' ? (profil.divins ?? []).find(d => d.key === a.cle) : undefined
   const inconnu = a.sorte === 'divin' && !recit
   const aller = aLui ? null : ouAller(a.cle, voies)
-  // Un Divin descendu n'éclate jamais ; un compagnon n'a pas de version rare
-  // à choisir — sa gemme le suit, et sa métamorphose a sa case — ;
-  // les autres, s'il est tombé sur eux.
-  const eclate = aLui && a.sorte !== 'divin' && a.sorte !== 'compagnon' && profil.eclats.includes(a.cle)
+  // Un Divin descendu n'éclate jamais, ni la métamorphose d'un compagnon, qui
+  // n'a qu'une version ; ses autres formes, depuis leur ciel rare (le
+  // 3 novembre 2026), dès que l'Éclat est tombé sur l'une d'elles
+  // (`aLEclat`) ; les autres avatars, s'il est tombé sur eux.
+  const eclate = aLui && a.sorte !== 'divin' && !f?.metamorphose && aLEclat(profil, a.cle)
   return (
     <div className="galerie-detail detail-case album-detail" style={gemmeDAvatar(a.rarete)}>
       <div className="album-detail-tete">
@@ -317,7 +318,8 @@ export function AlbumDesAvatars({
       return Portrait && dessinDuPortrait(dessins, a.cle) ? <Portrait cle={a.cle} verrouille={!aLui} eclat={aLui && brille(a.cle)} grand={grand} /> : <span className="pt" aria-hidden="true" />
     }
     if (a.sorte === 'compagnon') {
-      return Compagnon && dessinDuCompagnon(dessins, a.cle) ? <Compagnon cle={a.cle} verrouille={!aLui} grand={grand} /> : <span className="pt" aria-hidden="true" />
+      // Sous son ciel rare s'il le porte, comme le légendaire et le portrait de l'album.
+      return Compagnon && dessinDuCompagnon(dessins, a.cle) ? <Compagnon cle={a.cle} verrouille={!aLui} grand={grand} eclat={aLui && !!brille(a.cle)} /> : <span className="pt" aria-hidden="true" />
     }
     return aLui ? <Avatar avatar={a.cle} eclat={brille(a.cle)} /> : <span className="silhouette">{a.cle}</span>
   }

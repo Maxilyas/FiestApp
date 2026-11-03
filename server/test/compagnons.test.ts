@@ -52,7 +52,7 @@ import {
 } from '../../shared/compagnons'
 import { CABINET_EN_PRODUCTION } from '../../shared/cabinet/ouverture'
 import { EXPEDITION_REMPLACEE } from '../../shared/jokers'
-import { brilleChez } from '../../shared/profil'
+import { aLEclat, brilleChez } from '../../shared/profil'
 import { cibleEclat } from '../../shared/legendaires'
 import { ceQuIlAPorter, cibleDeLEclat, lignesDeLEssai } from '../../shared/loge'
 import { CATEGORIES } from '../../shared/categories'
@@ -196,11 +196,19 @@ test('l’Éclat tombe sur le compagnon qu’il porte, et le suit sous toutes se
   assert.equal(brilleChez(profil, 'cp:loup-ultime'), true, 'le louveteau éclaté a grandi : il brille encore')
   assert.equal(brilleChez(profil, 'cp:chat-chaton'), false, 'un autre compagnon ne brille pas pour lui')
   assert.equal(brilleChez({ ...profil, eclatsEteints: ['cp:loup-louveteau'] }, 'cp:loup-adulte'), false, 'éteint, il est éteint partout')
-  // Sa métamorphose aussi : ses paillettes la suivent, et le tirage d'après tombe dans le vide (`cibleEclatDe`).
+  // Sa métamorphose aussi, et le tirage d'après tombe dans le vide (`cibleEclatDe`).
   assert.equal(brilleChez(profil, 'cp:loup-tempete'), true)
-  // Son Éclat n'a pas de version à choisir : la loge ne propose rien sous lui — sa métamorphose est une case de plus.
-  assert.equal(cibleDeLEclat({ avatar: '🦊', legendaire: 'cp:loup-jeune' }), null)
-  assert.equal(cibleDeLEclat({ avatar: '🦊', legendaire: 'cp:loup-tempete' }), null)
+  // Depuis son ciel rare (le 3 novembre 2026), ses formes se portent en version rare ou d'origine, toutes à la fois, sur
+  // l'Éclat de la forme où il est tombé : c'est sa ligne que le serveur règle. Sa métamorphose n'a qu'une version.
+  assert.equal(cibleDeLEclat({ avatar: '🦊', legendaire: 'cp:loup-jeune' }, profil.eclats), 'cp:loup-louveteau')
+  assert.equal(cibleDeLEclat({ avatar: '🦊', legendaire: 'cp:loup-ultime' }, profil.eclats), 'cp:loup-louveteau')
+  assert.equal(cibleDeLEclat({ avatar: '🦊', legendaire: 'cp:loup-jeune' }), 'cp:loup-jeune', 'sans Éclat, la forme même : rien à basculer')
+  assert.equal(cibleDeLEclat({ avatar: '🦊', legendaire: 'cp:loup-tempete' }, profil.eclats), null)
+  // Sa version d'origine ne referme pas sa métamorphose : elle n'a qu'une version, et c'est l'Éclat qu'il a qui l'ouvre.
+  const eteint = { ...profil, eclatsEteints: ['cp:loup-louveteau'] }
+  assert.equal(brilleChez(eteint, 'cp:loup-tempete'), true)
+  assert.equal(aLEclat(eteint, 'cp:loup-adulte'), true)
+  assert.equal(aLEclat(profil, 'cp:chat-chaton'), false)
 })
 
 test('la loge le dit : « Compagnon · Le Loup » à l’essai, « Tu portes le jeune loup » à l’oreille, et chaque forme atteinte est du nouveau', () => {
@@ -530,6 +538,38 @@ test('l’Éclat lui ouvre sa métamorphose à sa forme ultime : rien ne change 
     assert.equal(formeDansLaNiche(sans.compagnons[0])?.key, 'cp:loup-ultime', 'sa niche reprend sa forme ultime')
     assert.deepEqual(sans.compagnons[0], { compagnon: 'loup', rang: 3, montree: MONTREE_DE_LA_METAMORPHOSE }, 'son choix reste, pour quand l’Éclat reviendra')
     assert.deepEqual((await lireLaNiche(banc, cookie)).neuves, [])
+  }))
+
+test('éclaté, il se porte en version rare ou d’origine, toutes ses formes à la fois — et sa version d’origine ne referme pas sa métamorphose', () =>
+  // Depuis son ciel rare (le 3 novembre 2026), comme tout avatar éclaté : un
+  // choix de la loge, réglé sur l'Éclat de la forme où il est tombé.
+  avecBanc(async banc => {
+    const cookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    const alice = idDe(banc, 'alice')
+    confettis(banc, alice, '2026-09-20', 2000)
+    assert.equal((await acheter(banc, cookie, 'loup')).status, 200)
+    serieEnPortant(banc, alice, 's1', 520, 'loup')
+    // Tombé sur son louveteau : il a grandi depuis.
+    enBase(banc, db => db.prepare(`INSERT INTO profile_eclats (profile_id, avatar, soiree_id, created_at) VALUES (?, 'cp:loup-louveteau', 'une-soiree', 1)`).run(alice))
+    await banc.redemarrer()
+    assert.equal((await porter(banc, cookie, { legendaire: 'cp:loup-adulte' })).status, 200)
+    // Sa version d'origine, choisie sur la forme qu'il porte : le serveur la règle sur l'Éclat du louveteau.
+    const origine = await porter(banc, cookie, { eclat: { cle: 'cp:loup-adulte', brille: false } })
+    assert.equal(origine.status, 200, origine.corps.error)
+    assert.deepEqual(origine.corps.profile.eclatsEteints, ['cp:loup-louveteau'])
+    // Sa métamorphose reste ouverte : l'Éclat est toujours à lui — elle se porte, et sa niche le sait.
+    assert.deepEqual((await lire(banc, cookie)).compagnons[0], { compagnon: 'loup', rang: 3, eclat: true })
+    assert.equal((await lireLaNiche(banc, cookie)).niche.eclat, true)
+    const tempete = await porter(banc, cookie, { legendaire: 'cp:loup-tempete' })
+    assert.equal(tempete.status, 200, tempete.corps.error)
+    // Elle n'a qu'une version, déjà rare : rien à choisir sous elle.
+    const sousElle = await porter(banc, cookie, { eclat: { cle: 'cp:loup-tempete', brille: false } })
+    assert.equal(sousElle.corps.error, 'Sa métamorphose n’a qu’une version : elle est déjà rare')
+    // Et retour à sa version rare, depuis n'importe laquelle de ses formes ; un compagnon qui n'a pas éclaté, non.
+    const rare = await porter(banc, cookie, { eclat: { cle: 'cp:loup-jeune', brille: true } })
+    assert.equal(rare.status, 200, rare.corps.error)
+    assert.deepEqual(rare.corps.profile.eclatsEteints, [])
+    assert.equal((await porter(banc, cookie, { eclat: { cle: 'cp:chat-chaton', brille: false } })).corps.error, 'Cet avatar n’a pas éclaté pour toi')
   }))
 
 /** Les questions de sa série, lues en base : le téléphone ne voit jamais la bonne avant sa réponse. */

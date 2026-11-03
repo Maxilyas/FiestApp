@@ -919,10 +919,25 @@ export type ProfilDeLEspace = Pick<PublicProfile, 'login' | 'name' | 'avatar' | 
  * garder la version d'origine d'un avatar qui a éclaté. La même règle que le
  * serveur (`ProfileStore.brilleChez`), pour tout ce que sa page montre de
  * lui. Un compagnon brille sous toutes ses formes : l'Éclat tombé sur le
- * louveteau suit le loup qui grandit (`clesQuiBrillent`).
+ * louveteau suit le loup qui grandit (`clesQuiBrillent`) — et il en porte la
+ * version rare ou d'origine, pour toutes à la fois, depuis le 3 novembre 2026
+ * (son ciel rare, `Compagnon.tsx`). Sa métamorphose, elle, n'a qu'une
+ * version, déjà rare : elle brille tant qu'il a l'Éclat (`aLEclat`).
  */
 export function brilleChez(profil: Pick<PublicProfile, 'eclats' | 'eclatsEteints'>, cle: string): boolean {
-  return clesQuiBrillent(profil.eclats, cle).some(k => !(profil.eclatsEteints ?? []).includes(k))
+  const siens = clesQuiBrillent(profil.eclats, cle)
+  if (formeDeCompagnon(cle)?.metamorphose) return siens.length > 0
+  return siens.some(k => !(profil.eclatsEteints ?? []).includes(k))
+}
+
+/**
+ * L'Éclat est-il tombé sur cet avatar — sur l'une de ses formes, pour un
+ * compagnon —, qu'il en porte la version rare ou non ? C'est lui qui ouvre la
+ * métamorphose d'un compagnon : la version d'origine, choisie pour ses
+ * formes, ne la referme pas.
+ */
+export function aLEclat(profil: Pick<PublicProfile, 'eclats'>, cle: string): boolean {
+  return clesQuiBrillent(profil.eclats, cle).length > 0
 }
 
 /**

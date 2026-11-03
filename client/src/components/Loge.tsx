@@ -241,13 +241,13 @@ export function Loge({
     tailler: async (cle, matiere) => {
       const depense: ChoixDuProfil = { matiereDeReserve: { cle, matiere } }
       if (busy || !(await enregistrer(depense))) return false
-      if (cibleDeLEclat(avatarMontre(profil, essai)) === cle) essayer({ eclat: { cle, brille: true, matiere } })
+      if (cibleDeLEclat(avatarMontre(profil, essai), profil.eclats) === cle) essayer({ eclat: { cle, brille: true, matiere } })
       return true
     },
   }
   // La carte montre l'essai — et la version de l'avatar montré, s'il a éclaté pour lui.
   const vu = avecLEssai(profil, essai)
-  const cible = cibleDeLEclat(avatarMontre(profil, essai))
+  const cible = cibleDeLEclat(avatarMontre(profil, essai), profil.eclats)
   const rare = cible && profil.eclats.includes(cible) ? brilleChez(vu, cible) : null
   // Taillé : toutes ses versions se choisissent dans une feuille, au lieu de la bascule.
   const taillees = rare !== null && cible ? matieresOuvertes(profil.matieres?.[cible] ?? []) : []

@@ -32,10 +32,16 @@ import { dessinDuCompagnon, useDessins } from './medaillons'
  * propre décor, qui sort tout entier du disque, l'aura et l'anneau à sa
  * couleur — ni monde vivant, ni étoiles : son décor est le sien. Elle ne
  * remplace rien : on la choisit, en avatar comme dans la niche (le 19
- * octobre 2026, « je veux que ce soit un choix ») ; l'Éclat, lui, pose ses
- * paillettes sur toutes ses formes (`Avatar.tsx`). Peinte le 13 octobre,
+ * octobre 2026, « je veux que ce soit un choix »). Peinte le 13 octobre,
  * elle n'était pas livrée : un loup éclaté ne gagnait que ses quatre
  * paillettes, et l'on croyait que l'Éclat n'avait rien fait.
+ *
+ * Éclaté, ses formes passent sous son ciel rare (`CIELS_RARES`, le
+ * 3 novembre 2026) : son décor et son aura en prennent les couleurs, comme
+ * le ciel d'un portrait éclaté, et l'animal garde les siennes — sa version
+ * rare, qu'il porte ou non au choix, comme tout avatar éclaté. Il portait
+ * une gemme au coin, son seul signe : « pas très jolie », le propriétaire.
+ * Sa métamorphose garde son décor : elle est déjà sa version rare.
  */
 
 /** Ce qu'il montre à la révélation : ravi d'une bonne réponse, dépité avec toi d'une ratée, triomphant quand il sort de sa niche. */
@@ -139,6 +145,27 @@ const ALLURES: Record<CleDeCompagnon, Allure> = {
   },
 }
 
+/**
+ * Le ciel de l'Éclat, compagnon par compagnon, comme celui d'un portrait
+ * (`Portrait.tsx`) : la couleur que son monde n'a jamais — l'aube de braise
+ * pour la nuit bleue du loup, la nuit bleue pour le couchant du chat, la mer
+ * d'or pour la mer turquoise de la tortue (l'or des fleurs de son île en
+ * fleurs ; le rose corail de la maquette n'a pas plu au propriétaire, le
+ * 3 novembre 2026), le violet pour le pré de la luciole, le glacier pour la
+ * bambouseraie du panda. Du clair au sombre, la lumière du décor devient ses
+ * couleurs ; l'animal garde les siennes.
+ */
+const CIELS_RARES: Record<CleDeCompagnon, [string, string, string]> = {
+  loup: ['#ffd9a8', '#a8522e', '#2a0f12'],
+  chat: ['#b8d4ff', '#3b4fa8', '#0c1238'],
+  tortue: ['#fff0b3', '#b8892a', '#2a1c06'],
+  luciole: ['#f0b8ff', '#7a2fa8', '#1e0833'],
+  panda: ['#a8f0ff', '#1f7aa8', '#06223a'],
+}
+
+/** Une composante d'une couleur `#rrggbb`, de 0 à 1 : les tables d'un filtre. */
+const canal = (hex: string, k: number) => (parseInt(hex.slice(1 + 2 * k, 3 + 2 * k), 16) / 255).toFixed(3)
+
 /** Les teintes d'un compagnon — le disque de sa première forme, son aura — : la vitrine de la boutique en fait sa scène. */
 export function teintesDuCompagnon(c: CleDeCompagnon): { aura: string; fond: readonly [string, string, string] } {
   const { aura, fond } = ALLURES[c]
@@ -191,6 +218,8 @@ interface EtatPeint {
   /** Un cercle de finition le porte : il remplace l'anneau de la forme. */
   cercle: boolean
   grand: boolean
+  /** Éclaté : son monde passe sous son ciel rare, l'animal garde ses couleurs. */
+  eclate: boolean
 }
 
 /**
@@ -224,14 +253,27 @@ function peint(dessin: DessinDeCompagnon, forme: FormeDeCompagnon, allure: Allur
       `<filter id="${u}_blanc" ${grand} filterUnits="userSpaceOnUse"><feColorMatrix type="matrix" values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0"/></filter>` +
       `<mask id="${u}_forme" ${grand} maskUnits="userSpaceOnUse"><g filter="url(#${u}_blanc)">${perso}</g></mask>`
   }
-  const [a, b, c] = e.verrouille ? NUIT : allure.fond
+  // Éclaté, son monde passe sous son ciel rare — sa métamorphose garde le sien, qui est déjà sa version rare.
+  const ciel = e.eclate && !e.verrouille && !rare ? CIELS_RARES[forme.compagnon] : null
+  const [a, b, c] = e.verrouille ? NUIT : ciel ?? allure.fond
   defs += `<radialGradient id="${u}_fond" cx="50%" cy="40%" r="62%"><stop offset="0" stop-color="${a}"/><stop offset=".55" stop-color="${b}"/><stop offset="1" stop-color="${c}"/></radialGradient>`
+  let decor = ''
+  if (dessin.disque && ciel) {
+    // Sa lumière devient ses couleurs, du sombre au clair, comme le ciel d'un portrait éclaté.
+    const [clair, moyen, sombre] = ciel
+    const table = (k: number) => `tableValues="${canal(sombre, k)} ${canal(moyen, k)} ${canal(clair, k)}"`
+    defs +=
+      `<filter id="${u}_rare" x="0" y="0" width="100" height="100" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">` +
+      `<feColorMatrix type="matrix" values=".2126 .7152 .0722 0 0 .2126 .7152 .0722 0 0 .2126 .7152 .0722 0 0 0 0 0 1 0"/>` +
+      `<feComponentTransfer><feFuncR type="table" ${table(0)}/><feFuncG type="table" ${table(1)}/><feFuncB type="table" ${table(2)}/></feComponentTransfer></filter>`
+    decor = `<image href="${dessin.disque[taille]}" x="0" y="0" width="100" height="100" filter="url(#${u}_rare)"/>`
+  } else if (dessin.disque) decor = `<image href="${dessin.disque[taille]}" x="0" y="0" width="100" height="100"/>`
   let scene = `<rect ${grand} fill="url(#${u}_fond)"/>`
   if (e.verrouille) scene += silhouette
-  else scene += (dessin.disque ? `<image href="${dessin.disque[taille]}" x="0" y="0" width="100" height="100"/>` : '') + perso
+  else scene += decor + perso
   const ultime = rang === 3 && !e.verrouille
   if (ultime) {
-    const aura = rare ? (allure.lumiere ?? allure.aura) : allure.aura
+    const aura = rare ? (allure.lumiere ?? allure.aura) : ciel ? ciel[0] : allure.aura
     defs += `<radialGradient id="${u}_aura" gradientUnits="userSpaceOnUse" cx="50" cy="52" r="64"><stop offset=".58" stop-color="${aura}" stop-opacity=".5"/><stop offset="1" stop-color="${aura}" stop-opacity="0"/></radialGradient>`
     avant += `<circle class="pt-aura" cx="50" cy="52" r="64" fill="url(#${u}_aura)"/>`
   }
@@ -293,11 +335,13 @@ interface Props {
   finition?: Finition
   /** Regardé en grand — la carte, la fiche de l'album — : il prend ses grands fichiers. */
   grand?: boolean
+  /** L'Éclat brille sur lui : son monde passe sous son ciel rare. */
+  eclat?: boolean
   className?: string
 }
 
 /** Un compagnon, à la taille du texte qui l'entoure (1 em). Rien, tant que son dessin n'est pas arrivé. */
-export function Compagnon({ cle, verrouille, finition, grand, className }: Props) {
+export function Compagnon({ cle, verrouille, finition, grand, eclat, className }: Props) {
   const brut = useId()
   const dessin = dessinDuCompagnon(useDessins(), cle)
   const f = formeDeCompagnon(cle)
@@ -308,24 +352,25 @@ export function Compagnon({ cle, verrouille, finition, grand, className }: Props
   // pour un portrait : deux racines React numérotent chacune depuis zéro, et
   // le premier dégradé d'un nom gagne. Sur une planche, l'Or d'un compagnon
   // prenait le dégradé de l'Argent posé avant lui.
-  const etat = (verrouille ? 'v' : 'n') + (cercle ? 'c' + finition : '') + (grand ? 'g' : '')
+  const eclate = !!eclat && !verrouille
+  const etat = (verrouille ? 'v' : eclate ? 'e' : 'n') + (cercle ? 'c' + finition : '') + (grand ? 'g' : '')
   const u = `cp-${cle.slice(3)}-${etat}-${brut.replace(/[^a-zA-Z0-9-]/g, '')}-`
   // Peint une fois par état (`useMemo`) : React réécrit un `innerHTML` dès
   // que l'objet `__html` change, même à texte égal (`Portrait.tsx`).
   const peinture = useMemo(() => {
     if (!f || !dessin) return null
-    const { defs, avant, scene, apres, rayon } = peint(dessin, f, ALLURES[f.compagnon], u, { verrouille: !!verrouille, cercle, grand: !!grand })
+    const { defs, avant, scene, apres, rayon } = peint(dessin, f, ALLURES[f.compagnon], u, { verrouille: !!verrouille, cercle, grand: !!grand, eclate })
     return {
       defs: { __html: `<clipPath id="${u}_clip"><circle cx="50" cy="50" r="${rayon}"/></clipPath>` + defs },
       avant: avant ? { __html: avant } : null,
       scene: { __html: scene },
       apres: apres ? { __html: apres } : null,
     }
-  }, [f, dessin, verrouille, cercle, grand, u])
+  }, [f, dessin, verrouille, cercle, grand, eclate, u])
   if (!f || !peinture) return null
   const classes = ['pt', 'cp', `cp-${f.compagnon}`]
   if (className) classes.push(className)
-  const titre = verrouille ? `${f.nom} — pas encore à toi` : f.nom
+  const titre = verrouille ? `${f.nom} — pas encore à toi` : eclate && !f.metamorphose ? `${f.nom}, éclaté` : f.nom
   return (
     <svg className={classes.join(' ')} viewBox="0 0 100 100" role="img" aria-label={titre}>
       <title>{titre}</title>

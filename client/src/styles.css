@@ -3825,9 +3825,12 @@ h3 > .icon {
 }
 
 /* L'Éclat : la palette de l'emoji bascule. C'est un vrai changement de
-   couleurs sur le glyphe lui-même, pas un décor ajouté autour. */
+   couleurs sur le glyphe lui-même, pas un décor ajouté autour — et un halo
+   d'or, net, depuis que la gemme ne s'y pose plus (le 3 novembre 2026) : un
+   emoji presque sans couleur, le 🐼, le ⚽, ne change pas de teinte, et seul
+   ce halo dit son Éclat. En `em`, il suit l'avatar, d'une liste à la carte. */
 .av-eclat .av-emoji {
-  filter: hue-rotate(150deg) saturate(1.45) drop-shadow(0 0 3px rgba(var(--accent-rgb), 0.8));
+  filter: hue-rotate(150deg) saturate(1.45) drop-shadow(0 0 0.05em rgba(var(--accent-rgb), 0.9)) drop-shadow(0 0 0.16em rgba(var(--accent-rgb), 0.55));
 }
 
 /* Taillé dans une matière (`shared/matieres.ts`), il ne tourne plus ses
@@ -3842,12 +3845,16 @@ h3 > .icon {
    collés au cercle d'un médaillon, ils ne faisaient plus que des poussières
    (le retour du propriétaire du 3 novembre 2026) —, eux-mêmes venus après
    l'étoile ✧, qu'on prenait pour celle de Prisme ✦. Fixe : un seul Éclat dans
-   la salle d'attente recalculait le style soixante fois par seconde. Sur un
-   médaillon peint, sa peinture rare le dit déjà : elle ne s'y pose qu'en
-   liste (plus bas). Ses facettes et son contour par-dessus le dégradé, sa
-   silhouette en masque. */
+   la salle d'attente recalculait le style soixante fois par seconde. Elle ne
+   se pose plus qu'en liste, sur un médaillon peint (plus bas) : partout
+   ailleurs, son dessin dit l'Éclat — la peinture rare d'un légendaire, le
+   ciel rare d'un portrait ou d'un compagnon, les couleurs et le halo d'un
+   emoji —, et sur un emoji ou un compagnon, toujours là, elle n'était « pas
+   très jolie » (le propriétaire, le même jour). Ses facettes et son contour
+   par-dessus le dégradé, sa silhouette en masque. */
 .av-eclat::after {
   content: '';
+  display: none;
   position: absolute;
   right: -0.14em;
   bottom: -0.06em;
@@ -5853,15 +5860,10 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .av-portrait.av-eclat .av-emoji { filter: none; }
 
 /* Un légendaire éclaté porte sa version rare, dessinée : ni la rotation de
-   teintes de l'emoji, ni sa gemme, hors d'une liste. Sa peinture rare, sa
-   gerbe et ce qui sort de son cadre disent l'Éclat ; collés à son cercle, les
-   points d'avant la gemme ne faisaient plus que des poussières (le retour du
-   propriétaire du 3 novembre 2026). Un portrait éclaté de même, sous son ciel
-   rare. Un compagnon (`.cp`) la garde : l'Éclat ne change pas son dessin, elle
-   est son seul signe — comme sur un emoji. */
+   teintes de l'emoji, ni son halo. Sa peinture rare, sa gerbe et ce qui sort
+   de son cadre disent l'Éclat. Un portrait ou un compagnon éclaté de même,
+   sous son ciel rare (`.av-portrait`, plus haut). */
 .av-legendaire.av-eclat .av-emoji { filter: none; }
-.av-legendaire.av-eclat::after { display: none; }
-.av-portrait.av-eclat:not(:has(.cp))::after { display: none; }
 
 /* Un Divin aussi, à la même taille : ses débords — rayons, ailes, lueur —
    mordent sur la marge comme le halo d'une finition, pas sur le nom. */
@@ -5919,12 +5921,14 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 }
 
 /* Sans gerbe ni débord, un médaillon éclaté ne se reconnaît plus qu'à sa
-   peinture rare — que seul distingue qui connaît l'autre : sa gemme se pose
-   à son coin, comme sur un emoji, aux couleurs de sa matière. */
+   peinture rare, son ciel rare — que seul distingue qui connaît l'autre : sa
+   gemme se pose à son coin, aux couleurs de sa matière. Un légendaire, un
+   portrait, un compagnon (`.av-portrait` aussi) ; un emoji, non : ses
+   couleurs et son halo se lisent même à cette taille. */
 .av.lb-avatar:not(.av-sujet).av-legendaire.av-eclat::after,
-.av.lb-avatar:not(.av-sujet).av-portrait.av-eclat:not(:has(.cp))::after,
+.av.lb-avatar:not(.av-sujet).av-portrait.av-eclat::after,
 .player-chip .av-legendaire.av-eclat::after,
-.player-chip .av-portrait.av-eclat:not(:has(.cp))::after {
+.player-chip .av-portrait.av-eclat::after {
   display: block;
 }
 

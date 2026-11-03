@@ -47,8 +47,11 @@ interface Props {
  * devient son cercle — pas un halo de plus autour du sien. Si l'Éclat est
  * tombé sur ce légendaire-là, il porte sa version rare — ou la matière que
  * d'autres Éclats y ont taillée (`shared/matieres.ts`), sur un emoji comme sur
- * un médaillon. La gemme de l'Éclat se pose au coin d'un emoji et d'un
- * compagnon ; d'un médaillon peint, dans une liste seulement (`styles.css`).
+ * un médaillon. La gemme de l'Éclat ne se pose plus qu'au coin d'un médaillon
+ * peint, dans une liste, où sa peinture rare ne se lit plus (`styles.css`) :
+ * sur un emoji, qui change de couleurs et prend un halo, et sur un compagnon,
+ * qui change de ciel, elle n'était « pas très jolie » (le propriétaire, le
+ * 3 novembre 2026).
  *
  * Un Divin prend la place de l'emoji lui aussi, mais seul : ni finition, ni
  * Éclat. Il a sa propre lumière, et ses rayons, ses ailes débordent déjà du
@@ -56,9 +59,10 @@ interface Props {
  *
  * Un portrait des branches (`Portrait.tsx`) se porte comme un légendaire :
  * la finition devient son cercle, l'Éclat son ciel rare. Un compagnon de la
- * boutique (`Compagnon.tsx`) comme un portrait — l'Éclat n'y pose que sa
- * gemme, sous toutes ses formes, et aucune matière : la métamorphose qu'il
- * lui ouvre est une forme de plus, qu'on porte en la choisissant.
+ * boutique (`Compagnon.tsx`) comme un portrait — l'Éclat passe son monde sous
+ * son ciel rare, sous toutes ses formes, et n'y taille aucune matière : la
+ * métamorphose qu'il lui ouvre est une forme de plus, qu'on porte en la
+ * choisissant.
  *
  * Les trois dernières finitions — Prisme, Aurore, Constellation — ont en
  * plus leur lumière (`Lumiere.tsx`), autour de l'emoji comme du médaillon :
@@ -95,7 +99,7 @@ export function Avatar({ avatar, finition, eclat, legendaire, className, grand, 
   const lumiere = !divin && Lumiere ? lumineuse(finition) : null
   // Sa bordure de ligue, si elle est arrivée — jamais sous un Divin non plus.
   const cadre = !divin && Bordure && bordure ? bordure : null
-  // La matière qu'il porte : jamais sous un Divin, ni sous un compagnon, que l'Éclat ne recolore pas.
+  // La matière qu'il porte : jamais sous un Divin, ni sous un compagnon, que l'Éclat passe sous son ciel rare sans le tailler.
   const matiere = typeof eclat === 'string' && !divin && !compagnon ? eclat : null
   const classes = ['av']
   if (className) classes.push(className)
@@ -132,7 +136,7 @@ export function Avatar({ avatar, finition, eclat, legendaire, className, grand, 
         ) : portrait && Portrait ? (
           <Portrait cle={portrait} finition={finition} eclat={eclat} grand={grand} />
         ) : compagnon && Compagnon ? (
-          <Compagnon cle={compagnon} finition={finition} grand={grand} />
+          <Compagnon cle={compagnon} finition={finition} grand={grand} eclat={!!eclat} />
         ) : matiere ? (
           <EmojiEnMatiere avatar={avatar} matiere={matiere} />
         ) : (
