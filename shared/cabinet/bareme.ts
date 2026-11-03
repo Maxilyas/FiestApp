@@ -568,6 +568,16 @@ export const PRIX_MIN = 5
 export const MARCHES_DES_ACTES: readonly (readonly Niveau[])[] = [['facile'], ['moyen'], ['difficile']]
 /** … et celles des gardiens, un cran au-dessus. */
 export const MARCHES_DES_GARDIENS: readonly (readonly Niveau[])[] = [['moyen'], ['difficile'], ['difficile', 'expert']]
+/**
+ * … sauf aux jeux qui posent une question sans ses réponses à côté — l'Éclair, qui n'en propose qu'une à juger vraie ou
+ * fausse, et le Filet, qui n'en propose aucune : un cran plus bas, la marche des épreuves de l'acte. Une question experte
+ * sans ses voisines n'était plus du savoir mais une pièce jetée (« les questions avec une réponse et tu dois dire vrai ou
+ * faux, c'est trop dur », le retour du 3 novembre 2026, au gardien de l'acte III). Le gardien reste redoutable par ses
+ * points de vie, que le propriétaire a gardés.
+ */
+export const MARCHES_DES_GARDIENS_SANS_CHOIX: readonly (readonly Niveau[])[] = [['facile'], ['moyen'], ['moyen', 'difficile']]
+/** Les jeux qui tirent leurs marches de `MARCHES_DES_GARDIENS_SANS_CHOIX` contre un gardien. */
+export const JEUX_SANS_CHOIX: readonly ('eclair' | 'filet')[] = ['eclair', 'filet']
 /** Quitte ou double : les mises par épreuve, niveau par niveau… */
 export const MISES_PAR_EPREUVE: Readonly<Record<Force, number>> = { 1: 1, 2: 1, 3: 2 }
 /** … ce qu'une mise gagnée multiplie — l'or de sa manche, et ses coups contre un gardien… */

@@ -820,6 +820,8 @@ La page du Cabinet depuis le 31 octobre 2026 ([le produit](../produit/le-cabinet
 | `PRIX_MIN` | 5 | `shared/cabinet/bareme.ts` | Un prix ne descend jamais sous tant de pièces, Pourboire compris (pièces) | — |
 | `MARCHES_DES_ACTES` | facile ; moyen ; difficile | `shared/cabinet/bareme.ts` | La difficulté des questions de la base aux épreuves, acte par acte (marches) | Tirée à l'entrée de chaque épreuve, avec son plan : une épreuve commencée garde ses questions |
 | `MARCHES_DES_GARDIENS` | moyen ; difficile ; difficile ou experte | `shared/cabinet/bareme.ts` | … et contre les gardiens, un cran au-dessus (marches) | De même |
+| `MARCHES_DES_GARDIENS_SANS_CHOIX` | facile ; moyen ; moyen ou difficile | `shared/cabinet/bareme.ts` | … sauf aux jeux qui posent une question sans ses réponses à côté — l'Éclair, le Filet (`JEUX_SANS_CHOIX`) : la marche des épreuves de l'acte (marches) | Difficile ou experte, comme les autres jeux, jusqu'au 3 novembre 2026 : « vrai ou faux » sur une question experte se jouait à pile ou face. Lu à l'entrée de chaque assaut |
+| `JEUX_SANS_CHOIX` | l'Éclair, le Filet | `shared/cabinet/bareme.ts` | Les jeux qui, contre un gardien, tirent leurs marches de `MARCHES_DES_GARDIENS_SANS_CHOIX` (jeux) | — |
 | `MISES_PAR_EPREUVE` | 1, 1, 2 | `shared/cabinet/bareme.ts` | Quitte ou double : les mises par épreuve, niveau par niveau (mises) | Lu par le pli de l'épreuve (la version 3 du départ) |
 | `MULTIPLICATEUR_DE_LA_MISE` | ×2, ×3, ×3 | `shared/cabinet/bareme.ts` | Quitte ou double : ce qu'une mise gagnée multiplie — l'or de sa manche, ses coups contre un gardien | Relu des gestes |
 | `COEURS_D_UNE_MISE_PERDUE` | 2 | `shared/cabinet/bareme.ts` | Quitte ou double : les cœurs qu'une mise ratée coûte (cœurs) | Relu des gestes |

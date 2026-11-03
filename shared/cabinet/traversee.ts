@@ -38,7 +38,9 @@ import {
   ERREURS_PAREES,
   MANCHES_PAR_PARTIE,
   MARCHES_DES_ACTES,
+  JEUX_SANS_CHOIX,
   MARCHES_DES_GARDIENS,
+  MARCHES_DES_GARDIENS_SANS_CHOIX,
   MISES_PAR_EPREUVE,
   MULTIPLICATEUR_DE_LA_MISE,
   OR_DE_LA_CAGNOTTE,
@@ -865,6 +867,13 @@ export interface ViseeDUneEtape {
 }
 
 /**
+ * Les marches d'un assaut : un cran au-dessus de l'acte, sauf aux jeux sans choix (`JEUX_SANS_CHOIX`). Lues à l'entrée
+ * de chaque assaut : celui qui est en cours garde ses questions, le suivant d'une traversée en route descend déjà.
+ */
+export const marchesDuGardien = (jeu: CleDeJeu, acte: number): readonly Niveau[] =>
+  ((JEUX_SANS_CHOIX as readonly CleDeJeu[]).includes(jeu) ? MARCHES_DES_GARDIENS_SANS_CHOIX : MARCHES_DES_GARDIENS)[acte]
+
+/**
  * La visée d'une épreuve, ou du prochain assaut de son gardien ; null : une étape qui ne se joue pas. `choisi` : le
  * thème choisi parmi ses thèmes au choix (le Quiz).
  */
@@ -872,7 +881,7 @@ export function viseeDeLEtape(d: DepartDeLaTraversee, etape: EtapeDeLaCarte, ass
   const acte = acteDe(etape.id)
   if (etape.sorte === 'gardien') {
     const jeu = jeuDeLAssaut(d.actes[acte].gardien, assaut)
-    return jeu ? { jeu, marches: MARCHES_DES_GARDIENS[acte], categorie: null, theme: null, sujet: null } : null
+    return jeu ? { jeu, marches: marchesDuGardien(jeu, acte), categorie: null, theme: null, sujet: null } : null
   }
   if (etape.sorte !== 'epreuve' || !etape.jeu) return null
   const t = themeDeLEtape(etape, choisi)

@@ -44,6 +44,7 @@ import {
   etatDeLaTraversee,
   idDEtape,
   jeuDeLAssaut,
+  marchesDuGardien,
   jouerUnGesteDeLaTraversee,
   lireLeDepartDeLaTraversee,
   lireLesCartesChoisies,
@@ -401,7 +402,7 @@ test('le gardien : des assauts jusqu’à sa chute, ses jeux à tour de rôle, p
   const gardien = t.vers('gardien')
   const pv = pvDuGardien(t.depart, 0, t.etat.cartes)
   assert.equal(pv, B.PV_DES_GARDIENS[0] - B.PV_DU_COUP_DE_GRACE[1])
-  assert.deepEqual(viseeDeLEtape(t.depart, etapeDe(t.depart, gardien)!, 1), { jeu: jeuDeLAssaut(GARDIENS[0], 1), marches: B.MARCHES_DES_GARDIENS[0], categorie: null, theme: null, sujet: null })
+  assert.deepEqual(viseeDeLEtape(t.depart, etapeDe(t.depart, gardien)!, 1), { jeu: jeuDeLAssaut(GARDIENS[0], 1), marches: marchesDuGardien(jeuDeLAssaut(GARDIENS[0], 1)!, 0), categorie: null, theme: null, sujet: null })
   const coeurs = t.etat.coeurs
   // Premier assaut : une étoile, une ratée, une étoile — le gardien tient.
   t.joue({ quoi: 'epreuve', etape: gardien, partie: 'g1' })
@@ -660,4 +661,18 @@ test('l’épreuve d’une traversée, partie du Cabinet : ses cartes à la fois
   ])
   assert.equal(deuxMises.manches.filter(m => m.misee).length, 2)
   assert.equal(refusDuGeste(d1, deuxMises, ouvrir(2, true), MIDI + 401 * S), 'Tes 2 mises ont déjà servi')
+})
+
+test('contre un gardien, l’Éclair et le Filet descendent d’un cran : une question sans ses réponses à côté ne se joue pas à l’expert', () => {
+  // « Les questions avec une réponse et tu dois dire vrai ou faux, c'est trop dur » (le retour du 3 novembre 2026, au gardien
+  // de l'acte III) : l'Éclair y récrivait des questions difficiles ou expertes en affirmations, sans les autres réponses pour
+  // s'y retrouver. Les autres jeux gardent leur cran au-dessus ; les points de vie, eux, ne bougent pas.
+  for (let acte = 0; acte < 3; acte++) {
+    assert.deepEqual(marchesDuGardien('eclair', acte), B.MARCHES_DES_GARDIENS_SANS_CHOIX[acte])
+    assert.deepEqual(marchesDuGardien('filet', acte), B.MARCHES_DES_GARDIENS_SANS_CHOIX[acte])
+    assert.deepEqual(marchesDuGardien('quiz', acte), B.MARCHES_DES_GARDIENS[acte])
+    assert.ok(!B.MARCHES_DES_GARDIENS_SANS_CHOIX[acte].includes('expert'), 'jamais l’expert sans choix')
+  }
+  assert.deepEqual(B.MARCHES_DES_GARDIENS_SANS_CHOIX[2], ['moyen', 'difficile'])
+  assert.deepEqual(B.PV_DES_GARDIENS, [6, 13, 20])
 })
