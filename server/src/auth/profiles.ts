@@ -1952,9 +1952,26 @@ export class ProfileStore {
     return [...(this.eteints.get(id) ?? [])].filter(k => siens?.has(k))
   }
 
-  /** Cet avatar brille-t-il sur lui ? Éclaté pour lui, et pas éteint — un compagnon, sous toutes ses formes (`clesQuiBrillent`). */
+  /**
+   * Cet avatar brille-t-il sur lui ? Éclaté pour lui, et pas éteint — un
+   * compagnon, sous toutes ses formes (`clesQuiBrillent`) ; sa métamorphose,
+   * qui n'a qu'une version, tant qu'il a l'Éclat. La même règle que la page
+   * (`brilleChez`, `shared/profil.ts`).
+   */
   brilleChez(id: string, cle: string): boolean {
-    return clesQuiBrillent(this.eclats.get(id) ?? [], cle).some(k => !this.eteints.get(id)?.has(k))
+    const siens = clesQuiBrillent(this.eclats.get(id) ?? [], cle)
+    if (formeDeCompagnon(cle)?.metamorphose) return siens.length > 0
+    return siens.some(k => !this.eteints.get(id)?.has(k))
+  }
+
+  /**
+   * L'Éclat est-il tombé sur cet avatar — sur l'une de ses formes, pour un
+   * compagnon —, qu'il en porte la version rare ou non ? C'est lui qui ouvre
+   * la métamorphose : la version d'origine de ses formes, choisie dans la
+   * loge, ne la referme pas (`aLEclat`, `shared/profil.ts`).
+   */
+  aLEclat(id: string, cle: string): boolean {
+    return clesQuiBrillent(this.eclats.get(id) ?? [], cle).length > 0
   }
 
   /**
@@ -2686,7 +2703,8 @@ export class ProfileStore {
               rang: s.rang,
               ...(s.nom && { nom: s.nom }),
               ...(s.montree !== null && { montree: s.montree }),
-              ...(this.brilleChez(id, c.formes[0].key) && { eclat: true as const }),
+              // L'Éclat qu'il a, pas la version qu'il porte : sa version d'origine ne referme pas sa métamorphose.
+              ...(this.aLEclat(id, c.formes[0].key) && { eclat: true as const }),
               ...(s.paliers && { paliers: s.paliers }),
               ...(s.ornements && Object.keys(s.ornements).length > 0 && { ornements: { ...s.ornements } }),
             },
@@ -3628,8 +3646,9 @@ export class ProfileStore {
    * Un portrait, lui, s'est vérifié quand il l'a pris (`update`) : un palier
    * validé ne se reprend jamais — ni soirée retirée, ni épreuve effacée. Un
    * compagnon, s'il l'a acheté et a atteint sa forme — une forme atteinte ne
-   * se perd jamais ; sa métamorphose, tant que l'Éclat brille sur lui : la
-   * soirée retirée qui l'avait fait tomber la reprend.
+   * se perd jamais ; sa métamorphose, tant qu'il a l'Éclat — porté en
+   * version d'origine ou non : la soirée retirée qui l'avait fait tomber la
+   * reprend.
    */
   legendairePorte(p: ProfileRec): string | null {
     if (!p.legendaire) return null
@@ -3637,7 +3656,7 @@ export class ProfileStore {
     const forme = formeDeCompagnon(p.legendaire)
     if (forme) {
       const atteinte = (this.compagnons.get(p.id)?.get(forme.compagnon)?.rang ?? -1) >= forme.rang
-      return atteinte && (!forme.metamorphose || this.brilleChez(p.id, forme.key)) ? forme.key : null
+      return atteinte && (!forme.metamorphose || this.aLEclat(p.id, forme.key)) ? forme.key : null
     }
     const a = divin(p.legendaire) ? this.divinsOf(p.id) : this.legendairesOf(p.id)
     return a.includes(p.legendaire) ? p.legendaire : null
@@ -4502,10 +4521,16 @@ export class ProfileStore {
     // Sa version rare peut céder la place à une matière qu'il a taillée
     // (`matiere`, absente ou null : la version rare) — l'Opale, s'il a les
     // quatre. La version d'origine n'en porte aucune.
+    // Un compagnon (le 3 novembre 2026, son ciel rare) se règle sur l'Éclat de
+    // la forme où il est tombé, qui brille sur toutes : une autre de ses
+    // formes y mène ; sa métamorphose n'a qu'une version.
     let eclat: { cle: string; eteint: boolean; matiere: Matiere | null } | null = null
     if (patch.eclat !== undefined) {
       const e = patch.eclat as { cle?: unknown; brille?: unknown; matiere?: unknown } | null
-      const cle = typeof e?.cle === 'string' ? e.cle : ''
+      const demandee = typeof e?.cle === 'string' ? e.cle : ''
+      const forme = formeDeCompagnon(demandee)
+      if (forme?.metamorphose) throw new Error('Sa métamorphose n’a qu’une version : elle est déjà rare')
+      const cle = forme ? (clesQuiBrillent(this.eclats.get(id) ?? [], demandee)[0] ?? '') : demandee
       if (!cle || !this.eclats.get(id)?.has(cle)) throw new Error('Cet avatar n’a pas éclaté pour toi')
       if (typeof e?.brille !== 'boolean') throw new Error('Choisis sa version rare ou sa version d’origine')
       const brute = e.matiere ?? null

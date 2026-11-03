@@ -177,9 +177,11 @@ export function EclatTombe({ cle, avatar, finition, chance, porte }: { cle: stri
           {dessine ? <Avatar avatar={avatar} legendaire={cle} finition={finition} eclat /> : <Avatar avatar={cle} finition={finition} eclat />}
         </span>
         <h2>{dessine ? `${dessine.nom} a éclaté !` : `Ton ${cle} a éclaté !`}</h2>
-        {/* Un compagnon n'a pas de version rare : sa gemme le suit sous toutes ses formes (`clesQuiBrillent`), et sa forme ultime ouvre sa métamorphose. */}
+        {/* Un compagnon : son ciel rare le suit sous toutes ses formes (`clesQuiBrillent`, `Compagnon.tsx`), et sa forme ultime ouvre sa métamorphose. */}
         <p className="serif-note">
-          {compagnon ? 'Il brille, désormais, sous toutes ses formes — et personne d’autre ne l’a comme ça.' : 'Il a changé de couleurs, pour toujours — et personne d’autre ne l’a comme ça.'}
+          {compagnon
+            ? 'Son monde a changé de ciel, sous toutes ses formes — et personne d’autre ne l’a comme ça.'
+            : 'Il a changé de couleurs, pour toujours — et personne d’autre ne l’a comme ça.'}
         </p>
         {compagnon && lumiere && !ouverte && !compagnon.metamorphose && (
           <p className="muted small">{espacesFines(`Dès sa forme ultime, l’Éclat lui ouvre sa métamorphose : ${nomDansLaPhrase(lumiere.nom)}.`)}</p>

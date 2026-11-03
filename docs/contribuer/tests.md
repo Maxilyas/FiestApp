@@ -371,7 +371,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/eclat.test.ts` — ce qui éclate.
 - `server/test/eclat-hors-soiree.test.ts` — l'Éclat au quiz du jour et au défi.
 - `server/test/eclat-reserve.test.ts` — l'Éclat tombé sur un avatar déjà éclaté attend en réserve, puis se dépense pour toujours sur un autre avatar à lui, jamais un Divin.
-- `server/test/matieres.test.ts` — les matières de l'Éclat : un Éclat en réserve taille un avatar éclaté en porcelaine, corail, jade ou obsidienne, une fois chacune, jamais un Divin ni un compagnon ; les quatre ouvrent l'Opale, qu'une soirée retirée reprend ; chacune compte pour La Pluie d'Éclats comme un avatar qui éclate ; la matière portée se voit partout, sa gemme aussi, et s'essaie dans la loge.
+- `server/test/matieres.test.ts` — les matières de l'Éclat : un Éclat en réserve taille un avatar éclaté en porcelaine, corail, jade ou obsidienne, une fois chacune, jamais un Divin ni un compagnon ; les quatre ouvrent l'Opale, qu'une soirée retirée reprend ; chacune compte pour La Pluie d'Éclats comme un avatar qui éclate ; la matière portée se voit partout, sa gemme en liste, et s'essaie dans la loge.
 - `server/test/ecussons.test.ts` — les écussons de savoir.
 - `server/test/recalcul.test.ts` — relire l'historique une fois, jamais sur une base qui hoquette.
 - `server/test/saisons.test.ts` — les légendaires de saison.

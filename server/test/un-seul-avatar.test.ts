@@ -181,7 +181,8 @@ test('l’Éclat tombé sur un compagnon porté : son dessin et son nom — sa c
   const html = await rendu('components/Ouverts', 'EclatTombe', { cle: forme.key, avatar: '🦊', chance: 20 })
   assert.doesNotMatch(html, /cp:loup/)
   assert.match(html, new RegExp(`<h2>${forme.nom} a éclaté !</h2>`))
-  assert.match(html, /Il brille, désormais, sous toutes ses formes/)
+  // Il ne « brille » plus d'une gemme : son monde passe sous son ciel rare (le 3 novembre 2026).
+  assert.match(html, /Son monde a changé de ciel, sous toutes ses formes/)
   // À la clôture, sur l'écran commun, de même.
   assert.match(readFileSync(new URL('../../client/src/components/Cloture.tsx', import.meta.url), 'utf8'), /legendaire\(e\.eclate\) \|\| portrait\(e\.eclate\) \|\| formeDeCompagnon\(e\.eclate\)/)
 })

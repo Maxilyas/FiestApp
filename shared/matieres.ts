@@ -9,10 +9,10 @@
 // Rien à repeindre : une matière est une carte de couleurs posée sur le
 // dessin — sa lumière devient la matière, du sombre au clair, comme le ciel
 // rare d'un portrait (`Portrait.tsx`) —, la même pour un emoji, un
-// légendaire ou un portrait. Ni un compagnon, que l'Éclat ne recolore pas (sa
-// métamorphose se choisit comme une forme), ni un Divin, qui n'éclate jamais
-// (invariant 21) : les avatars qui ont une version rare à choisir
-// (`cibleDeLEclat`, `shared/loge.ts`).
+// légendaire ou un portrait. Ni un compagnon, dont l'Éclat passe le monde
+// sous son ciel rare et ouvre la métamorphose, une forme de plus
+// (`Compagnon.tsx`), ni un Divin, qui n'éclate jamais (invariant 21)
+// (`peutSeTailler`).
 //
 // Les noms sont pris ailleurs que dans l'application : « Givre » est la
 // bordure du platine, « Braises » un thème, le saphir, l'améthyste et l'ambre

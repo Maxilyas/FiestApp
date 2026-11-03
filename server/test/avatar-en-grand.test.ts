@@ -145,11 +145,14 @@ test('un doigt qui glisse sur l’avatar en grand fait suivre le reflet, il ne r
 test('la case de l’avatar en grand contient tout ce qui en déborde, et la carte ne défile pas en largeur', () => {
   const em = (corps: string, propriete: string) => Number(new RegExp(`(?:^|[;\\s])${propriete}:\\s*([\\d.]+)em`).exec(corps)?.[1])
   const diviseur = (selecteur: string) => Number(/font-size:\s*calc\(var\(--loupe\) \/ ([\d.]+)\)/.exec(regle(selecteur))?.[1])
-  // Un emoji : son halo, et la gemme de son Éclat — à son coin, elle dépasse
-  // de l'emoji de son décalage ; de chaque côté, au pire.
+  // Un emoji : son halo, et celui de son Éclat — deux ombres d'or, en `em`,
+  // depuis que sa gemme ne s'y pose plus (le 3 novembre 2026) : la plus large
+  // dépasse de l'emoji de son rayon, de chaque côté.
+  const ombres = [...regle('.av-eclat .av-emoji', /drop-shadow/).matchAll(/drop-shadow\(0 0 ([\d.]+)em/g)].map(m => Number(m[1]))
+  assert.ok(ombres.length > 0, 'le halo de l’Éclat se mesure en em')
   const debords: [string, number][] = [
     ['le halo', em(regle('.av::before', /width/), 'width')],
-    ['la gemme de l’Éclat', 1 + 2 * Number(/right:\s*-([\d.]+)em/.exec(regle('.av-eclat::after', /right:/))![1])],
+    ['le halo de l’Éclat', 1 + 2 * Math.max(...ombres)],
   ]
   // Un médaillon, et ce qui le dépasse de son `inset` : la gerbe d'un légendaire éclaté, les rayons d'un Divin.
   const medaillon = em(regle('.av-legendaire .lg', /width/), 'width')

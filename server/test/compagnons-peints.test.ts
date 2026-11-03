@@ -263,6 +263,50 @@ test('pas encore à lui : sa silhouette dorée sur un disque sombre — ni aura,
   assert.match(await compagnon({ cle: 'cp:chat-jeune', finition: 'mat' }), /stroke="#5fa8ff"/)
 })
 
+test('éclaté, son monde passe sous son ciel rare — le décor et l’aura en prennent les couleurs, l’animal garde les siennes —, et sa métamorphose garde son décor', async () => {
+  // La gemme au coin était son seul signe, « pas très jolie » (le propriétaire,
+  // le 3 novembre 2026) : comme un portrait éclaté, son monde change de ciel.
+  // La tortue sous la mer d'or — le rose corail de la maquette n'avait pas plu.
+  const { DESSINS } = await import(url('components/compagnons-peints.ts'))
+  // Sa première forme, sans décor : son disque teinté passe à l'or.
+  const bebe = await compagnon({ cle: 'cp:tortue-bebe' })
+  const bebeEclatee = await compagnon({ cle: 'cp:tortue-bebe', eclat: true })
+  assert.match(bebe, /stop-color="#9fe0d6"/)
+  assert.match(bebeEclatee, /stop-color="#fff0b3"/)
+  assert.doesNotMatch(bebeEclatee, /#9fe0d6/)
+  assert.match(bebeEclatee, /aria-label="La petite tortue, éclaté"/)
+  // Ses formes peintes dans un décor : le décor, et lui seul, passe sous le filtre de son ciel — la lumière en devient
+  // ses couleurs, du sombre au clair : #2a1c06, #b8892a, #fff0b3.
+  for (const cle of ['cp:tortue-jeune', 'cp:tortue-ile', 'cp:loup-adulte']) {
+    const html = await compagnon({ cle, eclat: true })
+    const d = DESSINS[cle]
+    assert.ok(new RegExp(`<image href="${d.disque[1]}"[^>]* filter="url\\(#[^)]+_rare\\)"/>`).test(html), `${cle} : son décor sous son ciel`)
+    assert.ok(!new RegExp(`<image href="${d.perso[1]}"[^>]* filter=`).test(html), `${cle} : l'animal garde ses couleurs`)
+    assert.ok(!(await compagnon({ cle })).includes('_rare'), `${cle} : pas éclaté, pas de ciel rare`)
+  }
+  const ile = await compagnon({ cle: 'cp:tortue-ile', eclat: true })
+  assert.match(ile, /<feFuncR type="table" tableValues="0\.165 0\.722 1\.000"\/>/, 'la mer d’or, du sombre au clair')
+  // Sa forme ultime : l'aura prend le clair de son ciel ; son monde vivant reste le sien.
+  assert.match(ile, /stop-color="#fff0b3" stop-opacity="\.5"/)
+  assert.match(ile, /cp-vivant cp-derive/)
+  // Chaque compagnon a le sien, que son monde n'a jamais.
+  const ciels = new Set<string>()
+  for (const c of COMPAGNONS) {
+    const html = await compagnon({ cle: c.formes[1].key, eclat: true })
+    const table = /<feFuncR type="table" tableValues="([^"]+)"\/><feFuncG type="table" tableValues="([^"]+)"\/>/.exec(html)
+    assert.ok(table, c.key)
+    ciels.add(table[1] + table[2])
+  }
+  assert.equal(ciels.size, COMPAGNONS.length, 'un ciel par compagnon')
+  // Sa métamorphose est déjà sa version rare : son décor ne change pas, ni son aura.
+  const tempete = await compagnon({ cle: 'cp:loup-tempete', eclat: true })
+  assert.doesNotMatch(tempete, /_rare/)
+  assert.match(tempete, /stop-color="#4fe3c1" stop-opacity="\.5"/)
+  assert.match(tempete, /aria-label="Le loup-tempête"/)
+  // Pas encore à lui, rien de l'Éclat : sa silhouette.
+  assert.doesNotMatch(await compagnon({ cle: 'cp:tortue-ile', eclat: true, verrouille: true }), /_rare|#fff0b3/)
+})
+
 test('porté sous l’Argent ou l’Or, on le voit encore : le cercle de la finition passe sous son disque, comme sous un portrait', async () => {
   // Le cercle d'un métal est un disque plein, dont le disque peint ne laisse
   // voir que le bord (`Cercle.tsx`). Posé par-dessus la scène, il cachait
@@ -285,8 +329,10 @@ test('porté sous l’Argent ou l’Or, on le voit encore : le cercle de la fini
 const definitions = (html: string) =>
   new Map([...html.matchAll(/<([a-zA-Z]+)\b[^>]*?\sid="([^"]*)"[^>]*?(?:\/>|>[\s\S]*?<\/\1>)/g)].map(m => [m[2], m[0]]))
 
-/** Tous les états d'une forme : chaque finition ou aucune, à lui ou non, en grand ou non. */
-const ETATS = [undefined, ...FINITIONS].flatMap(finition => [false, true].flatMap(verrouille => [false, true].map(grand => ({ finition, verrouille, grand }))))
+/** Tous les états d'une forme : chaque finition ou aucune, à lui ou non, en grand ou non, éclaté ou non — son ciel rare change son filtre et son aura. */
+const ETATS = [undefined, ...FINITIONS].flatMap(finition =>
+  [false, true].flatMap(verrouille => [false, true].flatMap(grand => [false, true].map(eclat => ({ finition, verrouille, grand, eclat })))),
+)
 
 test('rendus chacun dans sa racine, comme sur une planche, deux états d’un compagnon ne se prennent jamais un dégradé', async () => {
   // Deux racines React numérotent chacune `useId` depuis zéro, et le premier
@@ -307,12 +353,12 @@ test('rendus chacun dans sa racine, comme sur une planche, deux états d’un co
   }
 })
 
-test('porté, il prend la place de l’emoji comme un portrait — éclaté, ses paillettes sur la forme même —, et ce qui l’anime se fige s’il le faut', async () => {
+test('porté, il prend la place de l’emoji comme un portrait — éclaté, sous son ciel rare —, et ce qui l’anime se fige s’il le faut', async () => {
   await import(url('components/compagnons-peints.ts'))
   const avatar = await rendu('components/Avatar', 'Avatar', { avatar: '🦊', legendaire: 'cp:loup-jeune', finition: 'mat' })
   assert.match(avatar, /^<span class="av av-portrait"><span class="av-emoji"><svg class="pt cp cp-loup"/)
   assert.doesNotMatch(avatar, /🦊/, 'l’emoji ne se montre plus dessous')
-  // Éclatée, sa forme ultime reste la sienne, sous les paillettes de l'Éclat : sa
+  // Éclatée, sa forme ultime reste la sienne, sous son ciel rare : sa
   // métamorphose ne la remplace pas, elle se choisit (le 19 octobre 2026, « je
   // veux que ce soit un choix »). Plus jeune, de même.
   const { DESSINS } = await import(url('components/compagnons-peints.ts'))
@@ -320,12 +366,14 @@ test('porté, il prend la place de l’emoji comme un portrait — éclaté, ses
     const eclate = await rendu('components/Avatar', 'Avatar', { avatar: '🦊', legendaire: cle, finition: 'mat', eclat: true })
     assert.match(eclate, /^<span class="av av-portrait av-eclat"><span class="av-emoji"><svg class="pt cp cp-loup"/, cle)
     assert.ok(eclate.includes(DESSINS[cle].perso[1]), cle)
+    assert.match(eclate, /filter="url\(#[^)]+_rare\)"/, `${cle} : l'avatar lui passe son Éclat`)
     assert.ok(!eclate.includes(DESSINS['cp:loup-tempete'].perso[1]), `${cle} : rien du loup-tempête`)
   }
-  // Sa métamorphose portée prend la place de l'emoji comme ses formes ; l'Éclat qui la lui a ouverte y pose aussi ses paillettes.
+  // Sa métamorphose portée prend la place de l'emoji comme ses formes ; son décor reste le sien.
   const tempete = await rendu('components/Avatar', 'Avatar', { avatar: '🦊', legendaire: 'cp:loup-tempete', finition: 'mat', eclat: true })
   assert.match(tempete, /^<span class="av av-portrait av-eclat"><span class="av-emoji"><svg class="pt cp cp-loup"/)
   assert.ok(tempete.includes(DESSINS['cp:loup-tempete'].perso[1]))
+  assert.doesNotMatch(tempete, /_rare/)
   // Son monde vivant bouge par `transform` et `opacity`.
   for (const m of ['tourne', 'pulse', 'monte', 'derive', 'vole']) assert.match(CSS, new RegExp(`\\.cp \\.cp-${m} \\{[^}]*animation: cp-${m} `), m)
   // Le système demande moins de mouvement : tout ce qui est dans un portrait s'arrête, le compagnon compris.
