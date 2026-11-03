@@ -1088,6 +1088,14 @@ export class ProfileStore {
   suspensionChangee?: () => void
 
   /**
+   * Ses jours joués ou ses sabliers ont changé — une soirée créditée ou
+   * retirée, un sablier acheté : le quiz du jour, qui garde sa série entre
+   * deux questions, la relit (`JourStore.oublierLaSerie`, branché au
+   * démarrage comme `statsDuJour`).
+   */
+  serieChangee?: (profileId: string) => void
+
+  /**
    * A-t-il gagné le quiz du jour d'hier (`JourStore.laureats`) ? Branché au
    * démarrage, comme `statsDuJour`, et lu en mémoire : il sert à chaque
    * diffusion à toute la salle.
@@ -2656,7 +2664,11 @@ export class ProfileStore {
    * elle ne la sait pas.
    */
   private oublierSesSoirees(profileIds: Iterable<string>): void {
-    for (const id of profileIds) this.justesDesSoireesGardees.delete(id)
+    for (const id of profileIds) {
+      this.justesDesSoireesGardees.delete(id)
+      // Une soirée compte à sa série : le quiz du jour la relit.
+      this.serieChangee?.(id)
+    }
   }
 
   /**
@@ -3101,13 +3113,18 @@ export class ProfileStore {
       const manque = nombre * PRIX_D_UN_SABLIER - (await this.boutiqueDe(rec, jour)).confettis.solde
       if (manque > 0) throw new Error(`Il te manque ${nConfettis(manque)} pour ${nombre > 1 ? `${nombre} sabliers` : 'un sablier'}`)
       // Une ligne par sablier, dans un seul lot : la série en compte un par jour manqué.
-      await this.client.batch(
-        Array.from({ length: nombre }, () => ({
-          sql: 'INSERT INTO profile_sabliers (id, profile_id, prix, created_at) VALUES (?, ?, ?, ?)',
-          args: [randomUUID(), id, PRIX_D_UN_SABLIER, quand],
-        })),
-        'write',
-      )
+      try {
+        await this.client.batch(
+          Array.from({ length: nombre }, () => ({
+            sql: 'INSERT INTO profile_sabliers (id, profile_id, prix, created_at) VALUES (?, ?, ?, ?)',
+            args: [randomUUID(), id, PRIX_D_UN_SABLIER, quand],
+          })),
+          'write',
+        )
+      } finally {
+        // Sa série les compte : le quiz du jour la relit — même si le lot n'a pas répondu.
+        this.serieChangee?.(id)
+      }
       return enReserve(id)
     })
   }

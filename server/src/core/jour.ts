@@ -14,7 +14,7 @@
 // sont dans `shared/jour.ts`.
 
 import { randomUUID } from 'node:crypto'
-import type { InStatement, ResultSet } from '@libsql/client'
+import type { InStatement, ResultSet, Row } from '@libsql/client'
 import { ajouterColonne, clientDistant, type Client } from './distante'
 import { LECTURES_GARDEES_MS, LecturesGardees, type LectureDansUnLot } from './lecturesGardees'
 import { extrait } from './journalDesGestes'
@@ -643,6 +643,17 @@ export class JourStore {
    * du quota de la même version.
    */
   private readonly categoriesGardees: LecturesGardees<JournauxDesJours['jourParCategorie']>
+  /**
+   * Ses jours joués et ses sabliers des 400 derniers jours, de quoi compter sa
+   * série (`serieGardee`) : chaque « Question suivante » les relisait —
+   * jusqu'à 400 jours, ses soirées et ses sabliers, dix fois par partie
+   * (`contexteDeVue`). Ils ne bougent qu'avec lui : une partie qu'il commence
+   * (`commencer`), une soirée créditée ou retirée, un sablier acheté — que le
+   * magasin des profils dit (`ProfileStore.serieChangee`, branché par
+   * `server.ts`) —, et le jour qui change (sa variante). L'achat d'un sablier
+   * relit toujours la base (`sabliersDe`) : c'est une écriture, pas une vue.
+   */
+  private readonly joursDeSerieGardes: LecturesGardees<JoursDeLaSerie>
 
   constructor(
     url: string,
@@ -658,6 +669,12 @@ export class JourStore {
     this.categoriesGardees = new LecturesGardees(fraicheur, maintenant, lignes =>
       lignes.map(r => ({ jour: String(r.jour), categorie: r.categorie == null ? null : String(r.categorie), n: Number(r.n) })),
     )
+    this.joursDeSerieGardes = new LecturesGardees(fraicheur, maintenant, joursDeLaSerie)
+  }
+
+  /** Sa série a pu changer hors du quiz du jour — une soirée créditée ou retirée, un sablier acheté : sa vue suivante la relit. */
+  oublierLaSerie(profileId: string): void {
+    this.joursDeSerieGardes.oublier(profileId)
   }
 
   /** Un tirage vient de changer pour tous — une question annulée, corrigée : ce que chacun en gardait se relit. */
@@ -1511,19 +1528,27 @@ export class JourStore {
       // lot. Sa première question ne se sert qu'après eux (plus bas) : servie
       // ici, son chronomètre courait pendant les paliers et la vue.
       const elite = this.eliteGardee(profil.id)
-      const [res, lue, ...stats] = await this.client.batch(
-        [
-          {
-            sql: `INSERT OR IGNORE INTO jour_parties (profile_id, jour, commencee_le, question, servie_le) VALUES (?, ?, ?, 0, NULL)`,
-            args: [profil.id, jour, this.maintenant()],
-          },
-          { sql: 'SELECT * FROM jour_parties WHERE profile_id = ? AND jour = ?', args: [profil.id, jour] },
-          ...lecturesDesStats(profil.id, elite.jusqua),
-        ],
-        'write',
-      )
+      const commenceeLe = this.maintenant()
+      let lus: ResultSet[]
+      try {
+        lus = await this.client.batch(
+          [
+            {
+              sql: `INSERT OR IGNORE INTO jour_parties (profile_id, jour, commencee_le, question, servie_le) VALUES (?, ?, ?, 0, NULL)`,
+              args: [profil.id, jour, commenceeLe],
+            },
+            { sql: 'SELECT * FROM jour_parties WHERE profile_id = ? AND jour = ?', args: [profil.id, jour] },
+            ...lecturesDesStats(profil.id, elite.jusqua),
+          ],
+          'write',
+        )
+      } finally {
+        // Sa partie qui commence compte à sa série : sa vue suivante la relit — même si le lot n'a pas répondu.
+        this.joursDeSerieGardes.oublier(profil.id)
+      }
+      const [res, lue, ...stats] = lus
       if (res.rowsAffected > 0) {
-        this.reviser(jour)
+        this.suivreAuClassement(jour, profil, { points: 0, enCours: true, commenceeLe })
         // Son bonus de série d'abord : versé avant ses paliers, il compte
         // déjà dans le niveau que La Légende lit.
         await this.payerLaSerie(profil.id, jour, serieLue(stats.slice(LECTURES_AVANT_LA_SERIE), jour).serie)
@@ -1752,7 +1777,7 @@ export class JourStore {
       suite: lirePartie(partie.profileId, partie.jour, revelation[2].rows[0]),
     }
     if (avance.rowsAffected === 0) return lu
-    this.reviser(partie.jour)
+    this.suivreAuClassement(partie.jour, partie.profileId, { points: total, enCours: !derniere })
     // Ses paliers ne bougent qu'au début de la partie (un jour joué, voir
     // `commencer`) et à sa fin (un sans-faute) : les chercher à chaque
     // réponse coûtait un aller-retour de plus sous les doigts du joueur.
@@ -1865,7 +1890,7 @@ export class JourStore {
    */
   private async contexteDeVue(profil: ProfileRec, jour: string, tirage: Tirage | null): Promise<ContexteDeVue> {
     const [{ serie, tenue: serieTenue, sabliers }, vainqueursDHier, sonHier, joueurs] = await Promise.all([
-      this.serieDe(profil.id, jour),
+      this.serieGardee(profil.id, jour),
       this.vainqueursDe(jourAvant(jour)),
       this.sonJourGarde(profil, jourAvant(jour)),
       tirage ? this.joueursDu(jour, profil.id) : null,
@@ -2093,9 +2118,41 @@ export class JourStore {
     return lus
   }
 
-  /** Ce jour a bougé : une partie commencée, une réponse, une annulation — son classement gardé ne vaut plus. */
+  /** Ce jour a bougé : une annulation, une relecture, un profil parti — son classement gardé ne vaut plus. */
   private reviser(jour: string) {
     this.revisions.set(jour, this.revisionDu(jour) + 1)
+  }
+
+  /**
+   * Une partie vient de commencer, ou une réponse de changer les points d'un
+   * joueur : le jour bouge (`reviser`), et son classement gardé, s'il était à
+   * jour jusque-là, suit le changement en mémoire sous la révision neuve. Il se
+   * relisait en entier à la vue suivante de chacun — toutes les parties du
+   * jour, à chaque réponse de n'importe qui : à cent joueurs, quinze relectures
+   * de cent lignes par seconde, un tiers du quota quotidien de Turso en une
+   * heure. Ce qu'on écrit ici est ce que la base vient d'écrire — ses points,
+   * sa fin — : la relecture le rendrait tel quel. Un classement déjà en retard
+   * reste en retard, et se relit. Une lecture partie avant ne s'installe pas
+   * par-dessus (`classementDe` garde la révision la plus récente).
+   */
+  private suivreAuClassement(jour: string, joueur: ProfileRec | string, changement: { points: number; enCours: boolean; commenceeLe?: number }) {
+    const avant = this.revisionDu(jour)
+    this.reviser(jour)
+    const garde = this.classementsGardes.get(jour)
+    if (!garde || garde.revision !== avant) return
+    const id = typeof joueur === 'string' ? joueur : joueur.id
+    const i = garde.joueurs.findIndex(j => j.profil.id === id)
+    let joueurs: Joueur[]
+    if (i >= 0) {
+      joueurs = garde.joueurs.slice()
+      joueurs[i] = { ...joueurs[i], points: changement.points, enCours: changement.enCours }
+    } else if (typeof joueur !== 'string' && changement.commenceeLe !== undefined) {
+      // Un joueur qui arrive : comme la relecture le trouverait, sa partie à zéro, en cours.
+      joueurs = [...garde.joueurs, { profil: joueur, points: changement.points, enCours: changement.enCours, commenceeLe: changement.commenceeLe }]
+    } else {
+      return
+    }
+    this.classementsGardes.set(jour, { revision: avant + 1, joueurs })
   }
 
   private revisionDu(jour: string): number {
@@ -2312,6 +2369,10 @@ export class JourStore {
    */
   suspensionChangee(): void {
     this.versionDesSuspensions++
+    // Un suspendu sort des classements (`byIds` le tait), un réactivé y revient : ceux qu'on garde se relisent — les
+    // réponses les suivent en mémoire sans plus les relire (`suivreAuClassement`), et une lecture déjà en route ne
+    // s'installe pas par-dessus.
+    for (const jour of new Set([...this.classementsGardes.keys(), ...this.classementsEnRoute.keys()])) this.reviser(jour)
   }
 
   /**
@@ -2754,6 +2815,16 @@ export class JourStore {
    */
   private async serieDe(profileId: string, aujourdhui: string): Promise<SerieDuJour> {
     return serieLue(await this.client.batch(lecturesDeLaSerie(profileId, jourAvant(aujourdhui, 400)), 'read'), aujourdhui)
+  }
+
+  /**
+   * Sa série telle que sa vue la montre, de ses jours gardés (`joursDeSerieGardes`)
+   * : relue seulement quand l'un de ses gestes l'a changée, ou le jour avec.
+   */
+  private async serieGardee(profileId: string, aujourdhui: string): Promise<SerieDuJour> {
+    const lecture = lectureDeLaSerie(profileId, jourAvant(aujourdhui, 400))
+    const { joues, sabliers } = await this.joursDeSerieGardes.lire(profileId, lecture, l => this.client.execute(l), aujourdhui)
+    return serieAvecSabliers(new Set(joues), sabliers, aujourdhui)
   }
 
   /** Ses jours joués ce mois-ci (une partie commencée compte) : ce qui manque à sa page du calendrier. */
@@ -4095,6 +4166,7 @@ export class JourStore {
       this.justesGardees.oublier(profileId)
       this.savoirsGardes.oublier(profileId)
       this.categoriesGardees.oublier(profileId)
+      this.joursDeSerieGardes.oublier(profileId)
     })
   }
 
@@ -4262,13 +4334,48 @@ function lecturesDesStats(profileId: string, depuis = ''): InStatement[] {
 }
 
 /** Ce que sa série lit : ses jours de quiz du jour, ses soirées, ses sabliers. */
+/** L'instant d'un jour (`AAAA-MM-JJ`), à minuit UTC : ce que `lecturesDeLaSerie` compare aux `created_at`. */
+const instantDuJour = (jour: string | undefined) => (jour ? Date.UTC(Number(jour.slice(0, 4)), Number(jour.slice(5, 7)) - 1, Number(jour.slice(8, 10))) : 0)
+
 function lecturesDeLaSerie(profileId: string, depuis?: string): InStatement[] {
-  const apres = depuis ? Date.UTC(Number(depuis.slice(0, 4)), Number(depuis.slice(5, 7)) - 1, Number(depuis.slice(8, 10))) : 0
+  const apres = instantDuJour(depuis)
   return [
     { sql: 'SELECT jour FROM jour_parties WHERE profile_id = ? AND jour >= ?', args: [profileId, depuis ?? ''] },
     { sql: `SELECT created_at FROM profile_xp WHERE profile_id = ? AND ${HORS_LIGNES_A_PART} AND created_at >= ?`, args: [profileId, apres] },
     { sql: 'SELECT created_at FROM profile_sabliers WHERE profile_id = ? AND created_at >= ?', args: [profileId, apres] },
   ]
+}
+
+/** Ce qui compte une série, gardé par profil (`joursDeSerieGardes`) : ses jours joués — au quiz du jour ou en soirée — et ceux de ses sabliers. */
+interface JoursDeLaSerie {
+  joues: readonly string[]
+  sabliers: readonly string[]
+}
+
+/**
+ * Les trois lectures de `lecturesDeLaSerie` en une seule instruction, chaque
+ * ligne marquée de ce qu'elle est : une lecture gardée n'en tient qu'une.
+ */
+function lectureDeLaSerie(profileId: string, depuis: string): InStatement {
+  const apres = instantDuJour(depuis)
+  return {
+    sql: `SELECT 'partie' AS sorte, jour AS quand FROM jour_parties WHERE profile_id = ? AND jour >= ?
+          UNION ALL SELECT 'soiree', created_at FROM profile_xp WHERE profile_id = ? AND ${HORS_LIGNES_A_PART} AND created_at >= ?
+          UNION ALL SELECT 'sablier', created_at FROM profile_sabliers WHERE profile_id = ? AND created_at >= ?`,
+    args: [profileId, depuis, profileId, apres, profileId, apres],
+  }
+}
+
+/** Ce que `lectureDeLaSerie` rend, rangé comme `serieLue` le lit. */
+function joursDeLaSerie(lignes: readonly Row[]): JoursDeLaSerie {
+  const joues: string[] = []
+  const sabliers: string[] = []
+  for (const r of lignes) {
+    if (r.sorte === 'partie') joues.push(String(r.quand))
+    else if (r.sorte === 'soiree') joues.push(jourDe(Number(r.quand)))
+    else sabliers.push(jourDe(Number(r.quand)))
+  }
+  return { joues, sabliers }
 }
 
 /** Sa série, ses sabliers comptés, de ce que `lecturesDeLaSerie` a lu. */

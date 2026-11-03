@@ -47,8 +47,17 @@ export interface FauxTurso {
   corps: unknown[]
   /** Le plus d'allers-retours en vol en même temps. */
   enVolAuPlus(): number
+  /** Les allers-retours en vol en ce moment. */
+  enVol(): number
   /** Chaque réponse attend autant avant de partir. */
   retarder(ms: number): void
+  /**
+   * Les réponses attendent qu'on les relâche (la fonction rendue) : ce qui est
+   * en vol le reste, quelle que soit la charge de la machine — un délai fixe,
+   * sur une machine chargée, rendait les premières avant que les dernières
+   * soient parties.
+   */
+  retenir(): () => void
   fermer(): Promise<void>
 }
 
@@ -58,6 +67,7 @@ export async function fauxTursoHrana(fichier: string): Promise<FauxTurso> {
   let enVol = 0
   let auPlus = 0
   let retardMs = 0
+  let retenues: Promise<void> | null = null
 
   const executer = (stmt: Stmt, sqls: Map<number, string>) => {
     const sql = stmt.sql ?? sqls.get(stmt.sql_id!)
@@ -151,6 +161,7 @@ export async function fauxTursoHrana(fichier: string): Promise<FauxTurso> {
       auPlus = Math.max(auPlus, enVol)
       try {
         if (retardMs > 0) await new Promise(r => setTimeout(r, retardMs))
+        if (retenues) await retenues
         if (req.url !== '/v2/pipeline') {
           res.statusCode = 404
           res.setHeader('content-type', 'text/plain')
@@ -170,8 +181,17 @@ export async function fauxTursoHrana(fichier: string): Promise<FauxTurso> {
     adresse: `http://127.0.0.1:${(serveur.address() as AddressInfo).port}`,
     corps,
     enVolAuPlus: () => auPlus,
+    enVol: () => enVol,
     retarder: ms => {
       retardMs = ms
+    },
+    retenir: () => {
+      let relacher!: () => void
+      retenues = new Promise<void>(r => (relacher = r))
+      return () => {
+        retenues = null
+        relacher()
+      }
     },
     fermer: () =>
       new Promise<void>(r => {

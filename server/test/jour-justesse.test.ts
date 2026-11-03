@@ -116,9 +116,13 @@ test('la nuit paie le podium sur les vrais points, même quand une réponse croi
     }
     assert.equal(etat.points, 1400)
 
-    // Carole ouvre sa partie ; sa lecture du classement va chercher les
-    // profils de ses joueurs chez Turso, d'un coup (`byIds`) — retenue le
-    // temps qu'Alice réponde à la dernière.
+    // Le classement suit chaque partie et chaque réponse en mémoire
+    // (`suivreAuClassement`) : seule une vue qui ne le tient pas le relit —
+    // au réveil, la première de chacun. Le serveur se réveille ; Carole ouvre
+    // sa partie, et sa lecture du classement va chercher les profils de ses
+    // joueurs chez Turso, d'un coup (`byIds`) — retenue le temps qu'Alice
+    // réponde à la dernière.
+    await banc.redemarrer()
     const idBob = idDe(banc, 'bob')
     const proto = ProfileStore.prototype as any
     const byIds = proto.byIds

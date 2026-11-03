@@ -88,9 +88,14 @@ paths:
   de plus se comparent à libsql dans `client-minimal.test.ts`, jamais à la
   documentation de Hrana seule.
 - **Le quota se lit dans la réponse, sans rien décoder deux fois.**
-  `avecDelai` lit le corps de la requête une fois (`requete.text()`) et le
-  passe tel quel aux deux transports (`fetchLeger(…, dejaLu)`) : un
-  `Request` ne se lit qu'une fois. Il enveloppe le `json()` de la réponse
+  Le client libsql passe un `Request`, qu'`avecDelai` lit une fois — ses
+  en-têtes et son corps (`requete.text()`) — ; le client minimal passe sa
+  requête déjà prête, le corps en texte (`avecDelai(…).envoyer`,
+  `EnvoiALaBase`) : ni `Request` ni flux à relire — ils prenaient encore
+  7 % du processeur du serveur au profil du banc solo du 3 novembre 2026
+  (`client-minimal.test.ts` les compte). Les deux transports reçoivent la
+  même requête toute prête (`fetchLeger(envoi)`, son adresse lue une fois,
+  `adresseDe`). Il enveloppe le `json()` de la réponse
   (`compterLeQuota`) : ce que le client libsql décode, le relevé le compte
   au passage, sous son propre filet — un compte qui tombe se tait, la
   réponse part. Et un lot (`batch`) n'envoie son SQL qu'une fois : une

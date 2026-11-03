@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { createClient, type Client, type ResultSet } from '@libsql/client'
 import { clientMinimal } from '../src/core/clientMinimal'
-import { choisirLeClient, clientDemande, clientDistant } from '../src/core/distante'
+import { choisirLeClient, choisirLeTransport, clientDemande, clientDistant, transportDeLaBase } from '../src/core/distante'
 import { fauxTursoHrana, type FauxTurso } from './hrana'
 
 const dossier = mkdtempSync(path.join(tmpdir(), 'client-minimal-'))
@@ -23,7 +23,7 @@ let minimal: { turso: FauxTurso; client: Client }
 before(async () => {
   const [a, b] = await Promise.all([fauxTursoHrana(path.join(dossier, 'libsql.db')), fauxTursoHrana(path.join(dossier, 'minimal.db'))])
   deLibsql = { turso: a, client: createClient({ url: a.adresse }) }
-  minimal = { turso: b, client: clientMinimal(b.adresse, undefined, { fetch: r => fetch(r) }) }
+  minimal = { turso: b, client: clientMinimal(b.adresse, undefined, { envoyer: e => fetch(e.url, { method: e.method, headers: e.headers, body: e.corps }) }) }
   const schema = [
     'CREATE TABLE t (id INTEGER PRIMARY KEY, nom TEXT NOT NULL UNIQUE, n REAL, b BLOB, x)',
     "INSERT INTO t (id, nom, n) VALUES (1, 'un', 1.5)",
@@ -127,13 +127,56 @@ test('sur le fil : les mêmes instructions et les mêmes valeurs — un lot en t
 })
 
 test('au plus vingt allers-retours en vol, comme libsql', async () => {
-  minimal.turso.retarder(30)
+  // Les réponses retenues jusqu'à ce que vingt soient en vol : rendues après un délai fixe, sur une machine chargée,
+  // les premières revenaient avant que les dernières soient parties, et le compte s'arrêtait en deçà.
+  const relacher = minimal.turso.retenir()
+  const appels = Promise.all(Array.from({ length: 45 }, (_, i) => minimal.client.execute({ sql: 'SELECT ? AS i', args: [i] })))
   try {
-    await Promise.all(Array.from({ length: 45 }, (_, i) => minimal.client.execute({ sql: 'SELECT ? AS i', args: [i] })))
+    const limite = Date.now() + 10_000
+    while (minimal.turso.enVol() < 20 && Date.now() < limite) await new Promise(r => setTimeout(r, 10))
   } finally {
-    minimal.turso.retarder(0)
+    relacher()
   }
+  await appels
+  // Sans la limite, les quarante-cinq auraient été en vol ensemble, retenues.
   assert.equal(minimal.turso.enVolAuPlus(), 20)
+})
+
+test('par le chemin de la production — le transport léger —, sa requête part déjà prête : ni `Request`, ni flux à relire', async () => {
+  // Le profil du banc solo du 3 novembre 2026 : le `Request` qu'il fabriquait
+  // encore, et le flux de son corps qu'`avecDelai` relisait, prenaient 7 % du
+  // processeur du serveur. Le `Request` d'undici se compte à sa construction.
+  const descripteur = Object.getOwnPropertyDescriptor(globalThis, 'Request')!
+  const Origine = globalThis.Request
+  let fabriques = 0
+  Object.defineProperty(globalThis, 'Request', {
+    configurable: true,
+    writable: true,
+    value: class extends Origine {
+      constructor(...args: ConstructorParameters<typeof Request>) {
+        super(...args)
+        fabriques++
+      }
+    },
+  })
+  const transport = transportDeLaBase()
+  choisirLeClient('minimal')
+  choisirLeTransport('leger')
+  const avant = minimal.turso.corps.length
+  const borne = clientDistant(minimal.turso.adresse)
+  choisirLeClient('libsql')
+  choisirLeTransport(transport)
+  try {
+    const r = await borne.execute({ sql: 'SELECT ? AS v, ? AS w', args: [41, 'x'] })
+    assert.deepStrictEqual({ ...r.rows[0] }, { v: 41, w: 'x' })
+    const lots = await borne.batch([{ sql: 'SELECT ? AS v', args: [1] }, 'SELECT 2 AS v'], 'read')
+    assert.deepStrictEqual(lots.map(l => ({ ...l.rows[0] })), [{ v: 1 }, { v: 2 }])
+    assert.equal(minimal.turso.corps.length, avant + 2, 'deux allers-retours, partis')
+    assert.equal(fabriques, 0, 'aucun Request fabriqué')
+  } finally {
+    borne.close()
+    Object.defineProperty(globalThis, 'Request', descripteur)
+  }
 })
 
 test('QUIZ_DB_CLIENT : minimal, libsql ou rien ; autre chose se refuse en le disant — et un magasin l’ouvre à sa création', async () => {
