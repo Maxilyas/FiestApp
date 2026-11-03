@@ -2,6 +2,7 @@ import { createClient, LibsqlError, type Client, type InArgs, type InStatement, 
 import { tronquer } from '../../../shared/avatars'
 import { noterLaReponse, noterUnEchec, refermerLesAttardees, suivreLaBase, unAllerRetourPart } from './connexions'
 import { pouls, releve } from './pouls'
+import { clientMinimal } from './clientMinimal'
 import { coutDeLAllerRetour } from './quotaDeTurso'
 import { fetchLeger } from './transportLeger'
 
@@ -25,6 +26,39 @@ export function choisirLeTransport(choisi: TransportDeLaBase) {
 
 export function transportDeLaBase(): TransportDeLaBase {
   return transport
+}
+
+/**
+ * Le client qui parle à une base distante : celui de libsql, ou le client
+ * minimal (`core/clientMinimal.ts`) — le même protocole, sans les objets de
+ * la bibliothèque, un tiers de processeur de moins par requête au banc solo
+ * — `QUIZ_DB_CLIENT=minimal`, qui s'essaie en préproduction avant la
+ * production, comme le transport. Une base `file:` garde toujours celui de
+ * libsql : elle ne parle pas Hrana.
+ */
+export type ClientDeLaBase = 'libsql' | 'minimal'
+
+let clientChoisi: ClientDeLaBase = 'libsql'
+
+/** Le client des magasins qui s'ouvrent ensuite — ceux déjà ouverts gardent le leur. */
+export function choisirLeClient(choisi: ClientDeLaBase) {
+  clientChoisi = choisi
+}
+
+export function clientDeLaBase(): ClientDeLaBase {
+  return clientChoisi
+}
+
+/** Ce que demande `QUIZ_DB_CLIENT` : `minimal` le client minimal, `libsql` ou rien celui de libsql ; autre chose, un refus qui dit quoi écrire. */
+export function clientDemande(texte: string | undefined): { client: ClientDeLaBase } | { refus: string } {
+  const lu = texte?.trim().toLowerCase()
+  if (!lu || lu === 'libsql') return { client: 'libsql' }
+  if (lu === 'minimal') return { client: 'minimal' }
+  return {
+    refus:
+      `QUIZ_DB_CLIENT illisible (« ${texte!.trim()} ») : minimal pour le client minimal de la base, ` +
+      'un tiers de processeur de moins par requête ; libsql ou rien pour celui de libsql. La base se parle par libsql.',
+  }
 }
 
 /**
@@ -107,7 +141,10 @@ export function clientDistant(
   const delaiMs = reglages.delaiMs ?? DELAI_DISTANT_MS
   // Ses connexions se comptent par l'hôte de son adresse (`connexions.ts`).
   suivreLaBase(url)
-  const creer = () => createClient({ url, authToken, intMode: reglages.intMode, fetch: avecDelai(delaiMs, { battement: reglages.battement }) })
+  const fetch = avecDelai(delaiMs, { battement: reglages.battement })
+  // Le client choisi à l'ouverture du magasin, gardé par lui : celui qui remplace un appel resté en route est du même.
+  const minimal = clientChoisi === 'minimal' && !url.startsWith('file:')
+  const creer = () => (minimal ? clientMinimal(url, authToken, { intMode: reglages.intMode, fetch }) : createClient({ url, authToken, intMode: reglages.intMode, fetch }))
   return url.startsWith('file:') ? creer() : clientBorne(creer, delaiMs + MARGE_D_UN_APPEL_MS)
 }
 

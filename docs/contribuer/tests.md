@@ -267,6 +267,8 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/connexions-de-la-base.test.ts` — les connexions vers Turso comptées — ouvertes, refermées par la base, tombées en route —, l'entretien qui les garde chaudes (`QUIZ_DB_KEEPWARM`) et la garde à l'heure de Node après un gel de la boucle, par le `fetch` de Node.
 - `server/test/garde-des-connexions.ts` — pas un fichier de tests : ce que tout transport vers la base permanente doit tenir, déclaré pour un transport (`testerLesConnexions`), que le fichier précédent et le suivant jouent.
 - `server/test/transport-leger.test.ts` — le transport léger (`QUIZ_DB_TRANSPORT=leger`) : la garde des connexions entière, puis ce qui lui est propre.
+- `server/test/hrana.ts` — pas un fichier de tests : un faux Turso dans le processus du test, le protocole Hrana 2 en JSON adossé à un fichier SQLite — l'exécution, les lots et leurs conditions, le SQL rangé d'avance.
+- `server/test/client-minimal.test.ts` — le client minimal (`QUIZ_DB_CLIENT=minimal`) comparé à libsql, chacun sur son faux Turso : chaque sorte de valeur liée et relue, les erreurs de la base, les lots et leur rang qui échoue, ce qui part sur le fil, vingt allers-retours en vol au plus, et la variable qui le choisit.
 - `server/test/gels.test.ts` — ce qui gèle la boucle (`core/gels.ts`) : un gel provoqué se relève avec ce qui tournait pendant — ni ce qui avait fini, ni ce qui attendait en pause —, le relevé de l'heure les range, la page les dit sur la semaine, et chaque porte du serveur — une route, un message du temps réel, un chronomètre — se nomme sans un identifiant.
 
 ### L'exploitation

@@ -190,6 +190,13 @@ services:
       # production ensuite.
       - key: QUIZ_DB_TRANSPORT
         sync: false
+      # Le client minimal de la base (minimal ; le banc solo du 3 novembre
+      # 2026) : le même protocole que libsql, sans ses objets — un tiers du
+      # processeur d'une requête partait dans le client. À essayer ici
+      # d'abord, la page « Le serveur » du QG ouverte : aucune erreur de plus ;
+      # /healthz dit `base.connexions.client`. En production ensuite.
+      - key: QUIZ_DB_CLIENT
+        sync: false
       # Pour essayer la routine de la réserve avant la production : un jeton
       # à elle, jamais celui de la prod (docs/exploitation/mise-en-ligne.md, étape 9).
       - key: RESERVE_TOKEN

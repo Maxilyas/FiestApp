@@ -8,11 +8,13 @@
 import { writeFileSync } from 'node:fs'
 import { Session } from 'node:inspector/promises'
 import { demarrer } from '../../../server/test/banc.ts'
-import { choisirLeTransport } from '../../../server/src/core/distante.ts'
+import { choisirLeClient, choisirLeTransport } from '../../../server/src/core/distante.ts'
 import { LECTURES_GARDEES_MS } from '../../../server/src/core/lecturesGardees.ts'
 
 // Le transport de la production (`/healthz` : `base.connexions.transport`, le 3 novembre 2026), sauf `TRANSPORT=fetch`.
 choisirLeTransport(process.env.TRANSPORT === 'fetch' ? 'fetch' : 'leger')
+// Le client de la base : celui de libsql, comme la production d'aujourd'hui, ou le client minimal (`CLIENT=minimal`).
+choisirLeClient(process.env.CLIENT === 'minimal' ? 'minimal' : 'libsql')
 // Ce que l'accueil, la carte et les missions gardent d'un joueur entre deux visites, comme en ligne — le banc n'en garde
 // rien ; `LECTURES_GARDEES=0` mesure sans, comme avant le 3 novembre 2026 au soir.
 const fraicheurDesLecturesMs = process.env.LECTURES_GARDEES === '0' ? 0 : LECTURES_GARDEES_MS

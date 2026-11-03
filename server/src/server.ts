@@ -46,7 +46,7 @@ import { servirPrecompresse } from './core/precompresse'
 import { Charge, compteurDeConnexions, plafondsDuConteneur, pouls, ramasseMiettes, releve } from './core/pouls'
 import { SondeDesGels, commencer } from './core/gels'
 import { connexionsGardeesChaudes, entretenirLesConnexions, gardeAnnoncee, noterUneDemande, type ReglagesDeLEntretien } from './core/connexions'
-import { clientDistant, transportDeLaBase } from './core/distante'
+import { clientDeLaBase, clientDistant, transportDeLaBase } from './core/distante'
 import { GARDE_DE_NODE_MS } from '../../shared/santeDuServeur'
 import { AuthStore, type AccountRec } from './auth/store'
 import { ProfileStore, cleDeSoiree } from './auth/profiles'
@@ -1074,8 +1074,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
             echecsParMin: pouls.echecsDeLaBase.lire().n,
             gardeMs: GARDE_DE_NODE_MS,
             gardeAnnonceeMs: gardeAnnoncee(),
-            // Par où passent ses allers-retours (`QUIZ_DB_TRANSPORT`) : pour voir qu'il a pris.
+            // Par où passent ses allers-retours (`QUIZ_DB_TRANSPORT`), et qui les parle (`QUIZ_DB_CLIENT`) : pour voir qu'ils ont pris.
             transport: transportDeLaBase(),
+            client: clientDeLaBase(),
             chaudes: connexionsGardeesChaudes()
               ? {
                   battementsParMin: pouls.battements.lire().n,
