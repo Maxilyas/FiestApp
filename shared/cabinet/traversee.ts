@@ -41,6 +41,8 @@ import {
   JEUX_SANS_CHOIX,
   MARCHES_DES_GARDIENS,
   MARCHES_DES_GARDIENS_SANS_CHOIX,
+  MARCHES_DU_FILET_AUX_EPREUVES,
+  MARCHES_DU_FILET_AUX_GARDIENS,
   MISES_PAR_EPREUVE,
   MULTIPLICATEUR_DE_LA_MISE,
   OR_DE_LA_CAGNOTTE,
@@ -101,6 +103,12 @@ export interface CarteDeLaTraversee {
    * la version de la traversée (la Parade de la 1 n'est pas celle de la 2), celle du jour d'office.
    */
   dit: (niveau: NiveauDeCarte, v?: VersionDeLaTraversee) => string
+  /**
+   * Ce qu'elle fait, en quelques mots et sans un chiffre — le choix du départ la dit ainsi, une ligne par carte, et sa
+   * fiche en entier (« juste un descriptif très sommaire, et voir le détail si on l'affiche », le 3 novembre 2026).
+   * Sans chiffre : ils viennent du barème, et `dit` les compose.
+   */
+  enBref: string
 }
 
 const FOIS = ['', 'Une fois', 'Deux fois', 'Trois fois'] as const
@@ -118,6 +126,7 @@ export const CARTES: readonly CarteDeLaTraversee[] = [
     nom: 'Coup d’œil',
     sorte: 'a-jouer',
     pouvoir: 'eclairer',
+    enBref: 'Un indice sur la manche en cours.',
     dit: n => `${FOIS[ECLAIRAGES_PAR_PARTIE[n]] ?? `${ECLAIRAGES_PAR_PARTIE[n]} fois`} par épreuve : un indice sur la manche en cours.`,
   },
   {
@@ -125,6 +134,7 @@ export const CARTES: readonly CarteDeLaTraversee[] = [
     nom: 'Échange',
     sorte: 'a-jouer',
     pouvoir: 'changer',
+    enBref: 'Une autre manche, si celle-ci ne te va pas.',
     dit: n => `${FOIS[CHANGEMENTS_PAR_PARTIE[n]] ?? `${CHANGEMENTS_PAR_PARTIE[n]} fois`} par épreuve : une autre manche du même jeu, avant de répondre.`,
   },
   {
@@ -132,15 +142,17 @@ export const CARTES: readonly CarteDeLaTraversee[] = [
     nom: 'Quitte ou double',
     sorte: 'a-jouer',
     pouvoir: 'miser',
+    enBref: 'Mise sur une manche : plus d’or, ou des cœurs perdus.',
     dit: n =>
       `${FOIS[MISES_PAR_EPREUVE[n]]} par épreuve, mise sur une manche avant de la voir : réussie, son or ${MULTIPLICATEUR_DE_LA_MISE[n] === 2 ? 'double' : 'triple'} ; ratée, elle coûte ${COEURS_D_UNE_MISE_PERDUE} cœurs.`,
   },
-  { cle: 'concentration', nom: 'Concentration', sorte: 'toujours', pouvoir: 'temps', dit: n => `${SECONDES_PAR_FORCE * n} secondes de plus à chaque manche.` },
+  { cle: 'concentration', nom: 'Concentration', sorte: 'toujours', pouvoir: 'temps', enBref: 'Plus de temps à chaque manche.', dit: n => `${SECONDES_PAR_FORCE * n} secondes de plus à chaque manche.` },
   {
     cle: 'parade',
     nom: 'Parade',
     sorte: 'toujours',
     pouvoir: null,
+    enBref: 'Une manche ratée qui ne coûte pas de cœur.',
     dit: (n, v = VERSION_DE_LA_TRAVERSEE) => {
       const { parees, contreLesGardiens, parActe } = baremeDe({ v }).parade
       const k = parees[n]
@@ -148,15 +160,16 @@ export const CARTES: readonly CarteDeLaTraversee[] = [
       return `${k > 1 ? `Tes ${k} premières manches ratées` : 'Ta première manche ratée'} de chaque épreuve ${k > 1 ? 'ne coûtent' : 'ne coûte'} pas de cœur${n >= contreLesGardiens ? ', contre les gardiens aussi' : ' (pas contre les gardiens)'}.${plafond}`
     },
   },
-  { cle: 'cagnotte', nom: 'Cagnotte', sorte: 'toujours', pouvoir: null, dit: n => `${OR_DE_LA_CAGNOTTE[n]} pièces de plus à chaque manche réussie.` },
-  { cle: 'panacee', nom: 'Panacée', sorte: 'toujours', pouvoir: null, dit: n => `${unOuDes(COEURS_DE_LA_PANACEE[n], 'cœur', 'cœurs')} de plus au maximum.` },
-  { cle: 'pourboire', nom: 'Pourboire', sorte: 'toujours', pouvoir: null, dit: n => `Le marchand te fait ${REMISE_DU_POURBOIRE[n]} pièces de remise sur chaque achat.` },
-  { cle: 'coup-de-grace', nom: 'Coup de grâce', sorte: 'toujours', pouvoir: null, dit: n => `Chaque gardien commence avec ${PV_DU_COUP_DE_GRACE[n]} points de vie en moins.` },
+  { cle: 'cagnotte', nom: 'Cagnotte', sorte: 'toujours', pouvoir: null, enBref: 'Plus d’or à chaque manche réussie.', dit: n => `${OR_DE_LA_CAGNOTTE[n]} pièces de plus à chaque manche réussie.` },
+  { cle: 'panacee', nom: 'Panacée', sorte: 'toujours', pouvoir: null, enBref: 'Des cœurs de plus au maximum.', dit: n => `${unOuDes(COEURS_DE_LA_PANACEE[n], 'cœur', 'cœurs')} de plus au maximum.` },
+  { cle: 'pourboire', nom: 'Pourboire', sorte: 'toujours', pouvoir: null, enBref: 'Une remise chez le marchand.', dit: n => `Le marchand te fait ${REMISE_DU_POURBOIRE[n]} pièces de remise sur chaque achat.` },
+  { cle: 'coup-de-grace', nom: 'Coup de grâce', sorte: 'toujours', pouvoir: null, enBref: 'Les gardiens commencent affaiblis.', dit: n => `Chaque gardien commence avec ${PV_DU_COUP_DE_GRACE[n]} points de vie en moins.` },
   {
     cle: 'second-souffle',
     nom: 'Second souffle',
     sorte: 'une-fois',
     pouvoir: null,
+    enBref: 'Tu te relèves une fois, au dernier cœur perdu.',
     dit: n => {
       const c = COEURS_DU_SECOND_SOUFFLE[n]
       return `Une fois par traversée : à ton dernier cœur perdu, tu te relèves avec ${c === null ? 'tous tes cœurs' : unOuDes(c, 'cœur', 'cœurs')}.`
@@ -907,7 +920,10 @@ export interface ViseeDUneEtape {
  * de chaque assaut : celui qui est en cours garde ses questions, le suivant d'une traversée en route descend déjà.
  */
 export const marchesDuGardien = (jeu: CleDeJeu, acte: number): readonly Niveau[] =>
-  ((JEUX_SANS_CHOIX as readonly CleDeJeu[]).includes(jeu) ? MARCHES_DES_GARDIENS_SANS_CHOIX : MARCHES_DES_GARDIENS)[acte]
+  (jeu === 'filet' ? MARCHES_DU_FILET_AUX_GARDIENS : (JEUX_SANS_CHOIX as readonly CleDeJeu[]).includes(jeu) ? MARCHES_DES_GARDIENS_SANS_CHOIX : MARCHES_DES_GARDIENS)[acte]
+
+/** Les marches d'une épreuve : celles de l'acte, le Filet un cran dessous (`MARCHES_DU_FILET_AUX_EPREUVES`). Lues à son entrée. */
+export const marchesDeLEpreuve = (jeu: CleDeJeu, acte: number): readonly Niveau[] => (jeu === 'filet' ? MARCHES_DU_FILET_AUX_EPREUVES : MARCHES_DES_ACTES)[acte]
 
 /**
  * La visée d'une épreuve, ou du prochain assaut de son gardien ; null : une étape qui ne se joue pas. `choisi` : le
@@ -923,7 +939,7 @@ export function viseeDeLEtape(d: DepartDeLaTraversee, etape: EtapeDeLaCarte, ass
   const t = themeDeLEtape(etape, choisi)
   return {
     jeu: etape.jeu,
-    marches: MARCHES_DES_ACTES[acte],
+    marches: marchesDeLEpreuve(etape.jeu, acte),
     categorie: categorieDuTheme(t?.theme),
     theme: THEMES_FIXES[etape.jeu] ? null : (t?.theme ?? null),
     sujet: t?.sujet ?? null,

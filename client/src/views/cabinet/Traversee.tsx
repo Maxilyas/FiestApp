@@ -173,29 +173,63 @@ function Sceaux({ rang, className }: { rang: 0 | RangDUnDefi; className?: string
 }
 
 /**
- * Une carte au choix du départ, en tuile : sa peinture, son nom, les sceaux de son défi, et rien d'autre — chaque carte
- * y disait sa règle et son défi en entier, dix murs de texte (« trop de texte, pas assez visuel et sobre », le
- * propriétaire, le 1er novembre 2026). La toucher ouvre sa fiche, où elle se prend.
+ * Une carte au choix du départ, en une ligne : sa case, son nom et les sceaux de son défi, ce qu'elle fait en une
+ * phrase — elle se prend d'un toucher —, et « Voir », qui ouvre sa fiche : sa peinture, son défi en entier. Dix tuiles
+ * peintes ne se prenaient qu'en ouvrant chacune, la grille défilait mal sous le doigt, et un défilement arrêté ouvrait
+ * celle d'en dessous (« J'aimerais pouvoir sélectionner les cartes sans les voir, avec juste un descriptif très
+ * sommaire, et voir le détail si on l'affiche », le propriétaire, le 3 novembre 2026 ; les murs de texte d'avant les
+ * tuiles, le 1er novembre : une phrase, pas sa règle et son défi en entier).
  */
-function TuileDeCarte({ cle, prise, terne, rang, onOuvrir }: { cle: CleDeCarte; prise: boolean; terne: boolean; rang: 0 | RangDUnDefi; onOuvrir: () => void }) {
+function CarteEnLigne({
+  cle,
+  v,
+  prise,
+  complet,
+  rang,
+  onChoisir,
+  onOuvrir,
+}: {
+  cle: CleDeCarte
+  v: VueDeLaTraversee['v']
+  prise: boolean
+  complet: boolean
+  rang: 0 | RangDUnDefi
+  onChoisir: () => void
+  onOuvrir: () => void
+}) {
   const c = carteDeLaTraversee(cle)
   if (!c) return null
   const x = defiDeLaCarte(cle)
-  const dit = [c.nom, prise ? 'prise' : null, x ? `défi ${x.nom}${rang ? ` tenu au ${RANGS_DITS[rang]}` : ''}` : null].filter(Boolean).join(', ')
-  const classe = 'cab-tv-carte cab-tv-tuile' + (prise ? ' cab-tv-prise' : '') + (terne ? ' cab-tv-terne' : '') + (rang >= 2 ? ' cab-tv-doree' : '')
+  // Trois déjà prises : les autres ne se prennent plus — leur fiche s'ouvre encore, et dit pourquoi.
+  const fermee = !prise && complet
+  const defi = x ? `, défi ${x.nom}${rang ? ` tenu au ${RANGS_DITS[rang]}` : ''}` : ''
+  const classe = 'cab-tv-ligne' + (prise ? ' cab-tv-prise' : '') + (fermee ? ' cab-tv-terne' : '') + (rang >= 2 ? ' cab-tv-ligne-doree' : '')
   return (
-    <button type="button" className={classe} aria-haspopup="dialog" aria-label={dit} {...toucher(onOuvrir)}>
-      <span className="cab-tv-peinture">
-        <img src={CARTES_PEINTES[cle]?.[1]} alt="" loading="lazy" />
-        {prise && (
-          <span className="cab-tv-coche" aria-hidden="true">
-            ✓
-          </span>
-        )}
-        {x && <Sceaux rang={rang} className="cab-tv-sceaux-tuile" />}
-      </span>
-      <span className="cab-tv-nom">{c.nom}</span>
-    </button>
+    <li className={classe}>
+      <button
+        type="button"
+        className="cab-tv-ligne-choix"
+        aria-pressed={prise}
+        aria-disabled={fermee || undefined}
+        aria-label={`${c.nom}${defi} : ${c.dit(1, v)}`}
+        {...toucher(() => !fermee && onChoisir())}
+      >
+        <span className="cab-tv-case" aria-hidden="true">
+          {prise ? '✓' : ''}
+        </span>
+        <span className="cab-tv-ligne-texte">
+          <b>
+            {c.nom}
+            {x && <Sceaux rang={rang} />}
+          </b>
+          {/* En bref, sans chiffre : la phrase entière, composée du barème, est dans sa fiche — et dite au lecteur d'écran. */}
+          <small>{espacesFines(c.enBref)}</small>
+        </span>
+      </button>
+      <button type="button" className="cab-tv-ligne-voir" aria-haspopup="dialog" aria-label={`Voir la carte ${c.nom}`} {...toucher(onOuvrir)}>
+        Voir
+      </button>
+    </li>
   )
 }
 
@@ -893,20 +927,22 @@ function ChoixDesCartes({
         <header className="cab-tv-tete-ecran">
           <p className="cab-tv-sur">Avant de partir</p>
           <h2 tabIndex={-1}>Choisis trois cartes</h2>
-          <p className="cab-tv-pale">{espacesFines('Les seules de ta traversée : touche une carte pour la voir.')}</p>
+          <p className="cab-tv-pale">{espacesFines('Les seules de ta traversée : touche une carte pour la prendre, « Voir » pour sa fiche.')}</p>
         </header>
-        <div className="cab-tv-cartes cab-tv-tuiles">
+        <ul className="cab-tv-lignes">
           {CARTES.map(c => (
-            <TuileDeCarte
+            <CarteEnLigne
               key={c.cle}
               cle={c.cle}
+              v={v}
               prise={choix.includes(c.cle)}
-              terne={!choix.includes(c.cle) && complet}
+              complet={complet}
               rang={defis.rangs[c.cle]}
+              onChoisir={() => onChoisir(c.cle)}
               onOuvrir={() => setVue(c.cle)}
             />
           ))}
-        </div>
+        </ul>
       </div>
       {vue && (
         <FicheDeLaCarte

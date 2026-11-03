@@ -6,6 +6,7 @@
 // partie du Cabinet (`cabinet-regles.test.ts`) : ici, ses étoiles seulement.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import * as B from '../../shared/cabinet/bareme'
 import { legendaire } from '../../shared/legendaires'
 import { voieDuGardien } from '../../shared/cabinet/salles'
@@ -46,6 +47,7 @@ import {
   idDEtape,
   jeuDeLAssaut,
   JEUX_SANS_GARDIEN,
+  marchesDeLEpreuve,
   marchesDuGardien,
   jouerUnGesteDeLaTraversee,
   lireLeDepartDeLaTraversee,
@@ -715,10 +717,45 @@ test('contre un gardien, l’Éclair et le Filet descendent d’un cran : une qu
   // s'y retrouver. Les autres jeux gardent leur cran au-dessus ; les points de vie, eux, ne bougent pas.
   for (let acte = 0; acte < 3; acte++) {
     assert.deepEqual(marchesDuGardien('eclair', acte), B.MARCHES_DES_GARDIENS_SANS_CHOIX[acte])
-    assert.deepEqual(marchesDuGardien('filet', acte), B.MARCHES_DES_GARDIENS_SANS_CHOIX[acte])
+    // Le Filet descend plus bas encore (plus loin : le Filet dans la traversée).
+    assert.deepEqual(marchesDuGardien('filet', acte), B.MARCHES_DU_FILET_AUX_GARDIENS[acte])
     assert.deepEqual(marchesDuGardien('quiz', acte), B.MARCHES_DES_GARDIENS[acte])
     assert.ok(!B.MARCHES_DES_GARDIENS_SANS_CHOIX[acte].includes('expert'), 'jamais l’expert sans choix')
   }
   assert.deepEqual(B.MARCHES_DES_GARDIENS_SANS_CHOIX[2], ['moyen', 'difficile'])
   assert.deepEqual(B.PV_DES_GARDIENS, [6, 13, 20])
+})
+
+test('le Filet dans la traversée : un cran sous les autres jeux aux épreuves, et son gardien jamais plus facile qu’elles', () => {
+  // « Estimation de grandeur (filets), mettre des questions moins dures » (le retour du 3 novembre 2026) : une épreuve lit
+  // les marches de son acte, pas celles du jeu — le Filet y posait des estimations difficiles à l'acte III.
+  assert.deepEqual(B.MARCHES_DU_FILET_AUX_EPREUVES, [['facile'], ['facile'], ['moyen']])
+  assert.deepEqual(B.MARCHES_DU_FILET_AUX_GARDIENS, [['facile'], ['moyen'], ['moyen']])
+  const RANG = { facile: 0, moyen: 1, difficile: 2, expert: 3 } as const
+  for (let acte = 0; acte < 3; acte++) {
+    assert.deepEqual(marchesDeLEpreuve('filet', acte), B.MARCHES_DU_FILET_AUX_EPREUVES[acte])
+    assert.deepEqual(marchesDeLEpreuve('quiz', acte), B.MARCHES_DES_ACTES[acte], 'les autres jeux gardent celles de l’acte')
+    assert.ok(RANG[marchesDuGardien('filet', acte)[0]] >= RANG[marchesDeLEpreuve('filet', acte)[0]], 'le gardien n’est pas plus facile que ses épreuves')
+    assert.ok(!marchesDuGardien('filet', acte).includes('difficile') && !marchesDeLEpreuve('filet', acte).includes('difficile'))
+  }
+  // La visée d'une épreuve du Filet le porte au tirage.
+  const actes = tracerLaCarte(graine(4), ['lg:renard', 'lg:sphinx', 'lg:dragon'], { epingle: ['Rome'], frise: ['Rome'] })
+  const d: DepartDeLaTraversee = { v: VERSION_DE_LA_TRAVERSEE, jour: '2026-11-03', actes }
+  const filets = actes.flatMap(a => a.etapes).filter(e => e.sorte === 'epreuve' && e.jeu === 'filet')
+  assert.ok(filets.length > 0, 'la carte pose des Filets')
+  for (const e of filets) assert.deepEqual(viseeDeLEtape(d, e, 1)?.marches, B.MARCHES_DU_FILET_AUX_EPREUVES[Number(e.id[1])])
+})
+
+test('chaque carte se dit en bref, sans un chiffre : le choix du départ, une ligne par carte — le détail dans sa fiche', () => {
+  // « J'aimerais pouvoir sélectionner les cartes sans les voir, avec juste un descriptif très sommaire » (le 3 novembre 2026).
+  // Sans chiffre : ils viennent du barème, que `dit` compose — écrit à la main, un chiffre y mentirait au premier calibrage.
+  for (const c of CARTES) {
+    assert.ok(c.enBref.length > 0 && c.enBref.length <= 60, `${c.cle} : « ${c.enBref} »`)
+    assert.doesNotMatch(c.enBref, /\d/, c.cle)
+    assert.match(c.enBref, /\.$/, c.cle)
+  }
+  assert.equal(new Set(CARTES.map(c => c.enBref)).size, CARTES.length, 'chacune la sienne')
+  const ecran = readFileSync(new URL('../../client/src/views/cabinet/Traversee.tsx', import.meta.url), 'utf8')
+  assert.match(ecran, /<small>\{espacesFines\(c\.enBref\)\}<\/small>/)
+  assert.match(ecran, /aria-label=\{`Voir la carte \$\{c\.nom\}`\}/, '« Voir » ouvre sa fiche')
 })

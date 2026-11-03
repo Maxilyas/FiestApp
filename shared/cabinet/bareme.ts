@@ -578,6 +578,14 @@ export const MARCHES_DES_GARDIENS: readonly (readonly Niveau[])[] = [['moyen'], 
  * points de vie, que le propriétaire a gardés.
  */
 export const MARCHES_DES_GARDIENS_SANS_CHOIX: readonly (readonly Niveau[])[] = [['facile'], ['moyen'], ['moyen', 'difficile']]
+/**
+ * Le Filet dans la traversée, un cran sous les autres jeux : aux épreuves, acte par acte… Une estimation se joue sans
+ * réponse à côté, sur un curseur où le petit filet ne couvre que 7 % de la piste — « Estimation de grandeur (filets),
+ * mettre des questions moins dures », le retour du 3 novembre 2026. Au départ facile, moyen, difficile, comme les autres.
+ */
+export const MARCHES_DU_FILET_AUX_EPREUVES: readonly (readonly Niveau[])[] = [['facile'], ['facile'], ['moyen']]
+/** … et contre un gardien : jamais plus facile que les épreuves de son acte, jamais difficile. */
+export const MARCHES_DU_FILET_AUX_GARDIENS: readonly (readonly Niveau[])[] = [['facile'], ['moyen'], ['moyen']]
 /** Les jeux qui tirent leurs marches de `MARCHES_DES_GARDIENS_SANS_CHOIX` contre un gardien. */
 export const JEUX_SANS_CHOIX: readonly ('eclair' | 'filet')[] = ['eclair', 'filet']
 /** Quitte ou double : les mises par épreuve, niveau par niveau… */

@@ -175,12 +175,11 @@ await etape('gardiens', async () => {
 await etape('cartes', async () => {
   await toucher('Choisir mes trois cartes')
   await photo('choix-des-cartes')
-  // Une carte se touche pour ouvrir sa fiche, et s'y prend.
-  for (const [k, c] of [/Coup d’œil/, /Quitte ou double/, /Cagnotte/].entries()) {
-    await toucher(c)
-    if (k === 0) await photo('fiche-d-une-carte')
-    await toucher('Prendre cette carte')
-  }
+  // « Voir » ouvre la fiche d'une carte, où elle se prend ; les autres se prennent d'un toucher sur leur ligne.
+  await toucher('Voir la carte Coup d’œil')
+  await photo('fiche-d-une-carte')
+  await toucher('Prendre cette carte')
+  for (const c of [/^Quitte ou double/, /^Cagnotte/]) await toucher(c)
   await page.evaluate(() => (globalThis as any).document.querySelector('.cab-tv-ecran')?.scrollTo(0, 99999))
   await photo('cartes-choisies')
 })
