@@ -317,7 +317,7 @@ for (const palier of PALIERS) {
   for (const x of r.routes.slice(0, 6)) console.log(`   ${x.route.padEnd(42)} n ${String(x.n).padStart(4)}  p50 ${String(x.p50).padStart(5)}  p95 ${String(x.p95).padStart(5)}  max ${String(x.max).padStart(5)} ms`)
   if (r.couts) {
     // Les allers-retours vers la base que chaque route a causés, lus au faux Turso (son étiquette, posée avant l'appel).
-    const { allers } = await faux.releve()
+    const { allers, plans } = await faux.releve()
     const parEtiquette = new Map()
     for (const a of allers) {
       const x = parEtiquette.get(a.etiquette) ?? { allers: 0, instructions: 0, octets: 0 }
@@ -331,6 +331,18 @@ for (const palier of PALIERS) {
       const b = parEtiquette.get(x.route)
       const base = b ? `${(b.allers / x.n).toFixed(1).padStart(5)} ${(b.instructions / x.n).toFixed(1).padStart(6)} ${(b.octets / x.n / 1024).toFixed(1).padStart(7)}` : '    —'
       console.log(`   ${x.route.padEnd(42)} n ${String(x.n).padStart(4)}  ${String(x.moyenneMs).padStart(6)}  ${String(x.p50).padStart(6)}  ${String(x.max).padStart(7)} ms  │ ${base}`)
+    }
+    // Ce qui pèse dans les Ko des routes les plus lourdes : chaque requête, ce qu'elle a rendu par appel (`--detail`).
+    if (process.argv.includes('--detail')) {
+      for (const x of r.couts.filter(c => (parEtiquette.get(c.route)?.octets ?? 0) / c.n > 8 * 1024)) {
+        console.log(`\n   ${x.route} — ce que chaque requête rend, par appel :`)
+        const lourdes = plans
+          .map(p => ({ sql: p.sql.replace(/\s+/g, ' ').slice(0, 150), o: (p.octetsPar?.[x.route] ?? 0) / x.n }))
+          .filter(p => p.o > 256)
+          .sort((a, b) => b.o - a.o)
+          .slice(0, 10)
+        for (const p of lourdes) console.log(`   ${(p.o / 1024).toFixed(1).padStart(7)} Ko  ${p.sql}`)
+      }
     }
   }
 }
