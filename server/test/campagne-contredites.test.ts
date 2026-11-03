@@ -8,9 +8,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
-import { baseDEssai, connexionAnimateur, demarrer, ecrire, type Banc } from './banc'
-import { CONTREDITES_MONTREES, difficultePourLaPart, marcheContredite, type AdminDeLaCampagne } from '../../shared/campagne'
-import { MESURES_GARDEES_MS } from '../src/core/campagne'
+import { baseDEssai, connexionAnimateur, demarrer, ecrire, relireJusqua, type Banc } from './banc'
+import { CONTREDITES_MONTREES, difficultePourLaPart, marcheContredite, type AdminDeLaCampagne, type MesureDUneQuestion } from '../../shared/campagne'
+import { CATEGORIES } from '../../shared/categories'
+import { lireLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
+import { MESURES_GARDEES_MS, tableauDeLaBase } from '../src/core/campagne'
 
 // ── Les règles pures ───────────────────────────────────────────────────────
 
@@ -30,6 +32,46 @@ test('une question contredite : assez jouée, sa part dit une autre marche que l
 
 test('la difficulté proposée est celle de la marche que disent ses réponses', () => {
   assert.deepEqual([0.95, 0.75, 0.5, 0.3, 0.05].map(difficultePourLaPart), [1, 2, 3, 4, 5])
+})
+
+/** La page d'avant le 3 novembre 2026, gardée ici : une passe par catégorie, et deux de plus, à chaque ouverture. */
+function tableauDAvant(jouables: readonly QuestionDeLaBase[], mesure: ReadonlyMap<string, MesureDUneQuestion>) {
+  const contredites = jouables
+    .flatMap(q => {
+      const c = marcheContredite(q.meta.difficulte, mesure.get(q.id))
+      return c ? [{ q, c, m: mesure.get(q.id)! }] : []
+    })
+    .sort((a, b) => b.c.force - a.c.force)
+  const compte = new Map<string, number>()
+  for (const q of jouables) compte.set(q.meta.categorie, (compte.get(q.meta.categorie) ?? 0) + 1)
+  return {
+    contredites,
+    parCategorie: CATEGORIES.filter(c => compte.has(c)).map(c => ({ categorie: c, questions: compte.get(c)! })),
+    parDifficulte: CATEGORIES.map(categorie => {
+      const difficultes = [0, 0, 0, 0, 0]
+      for (const q of jouables) if (q.meta.categorie === categorie) difficultes[q.meta.difficulte - 1]++
+      return { categorie, difficultes }
+    }),
+  }
+}
+
+test('la page du QG compte la base d’une seule passe, comme les quatorze d’avant, sur la vraie base', () => {
+  const { questions } = lireLaBase()
+  // Une mesure au hasard, la même à chaque fois : des questions jamais jouées, d'autres assez pour se
+  // contredire, des forces égales — l'ordre des ex æquo compte aussi.
+  let graine = 7
+  // Park et Miller : le produit tient dans un flottant, chaque tirage est exact.
+  const hasard = () => (graine = (graine * 48271) % 2147483647) / 2147483647
+  const mesure = new Map<string, MesureDUneQuestion>()
+  for (const q of questions) {
+    if (hasard() < 0.4) continue
+    const total = Math.floor(hasard() * 12)
+    mesure.set(q.id, { justes: Math.floor(hasard() * (total + 1)), total, ...(hasard() < 0.5 && { depart: 0.2 + hasard() * 0.6 }) })
+  }
+  const avant = tableauDAvant(questions, mesure)
+  assert.ok(avant.contredites.length > 1000, `${avant.contredites.length} contredites, pour que l’épreuve dise quelque chose`)
+  assert.ok(new Set(avant.contredites.map(c => c.c.force)).size < avant.contredites.length, 'des forces égales')
+  assert.deepStrictEqual(tableauDeLaBase(questions, mesure), avant)
 })
 
 // ── Sur un vrai serveur ────────────────────────────────────────────────────
@@ -85,6 +127,17 @@ test('le QG liste ce que les réponses contredisent, et une question reclassée 
       apres.contredites.map(q => q.questionId),
       [tous.id],
     )
+
+    // Ce que la page tire de la base se garde tant que les jouables et la mesure restent les mêmes : une
+    // mesure relue le refait, les jouables inchangés — gardé sur les seules jouables, il resterait d'avant.
+    const troisieme = base.questions[2]
+    const ecriture = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+    const encore = ecriture.prepare('INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le) VALUES (?, 0, ?, 1, 0, ?)')
+    for (let i = 0; i < 6; i++) encore.run(`ailleurs-c-${i}`, troisieme.id, horloge.t)
+    ecriture.close()
+    horloge.t += MESURES_GARDEES_MS + 60_000
+    const relue = await relireJusqua(lire, a => a.contreditesEnTout === 2)
+    assert.deepEqual(new Set(relue.contredites.map(q => q.questionId)), new Set([troisieme.id, tous.id]), 'la mesure relue, la page refaite')
   } finally {
     await banc.close()
   }

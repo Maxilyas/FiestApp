@@ -8,6 +8,7 @@
 // leurres (l'experte du jeu solo, le 11 octobre 2026) ; dans une série du
 // petit écran, cinq « Qui a créé la série… » sur vingt questions.
 import { sansAccent } from '../../../shared/homonymes'
+import { preparationDe } from './preparees'
 
 /** Les mots qui ne disent rien de la forme d'un intitulé. */
 const MOTS_VIDES = new Set(['le', 'la', 'les', 'l', 'de', 'du', 'des', 'd', 'un', 'une', 'a', 'au', 'aux', 'en', 'et', 's', 'est', 'ce', 'cet', 'cette', 'qu', 'que'])
@@ -39,9 +40,47 @@ type Signe = { forme: string; reponses: string[] } | null
 const signesGardes = new WeakMap<Intitule, Signe>()
 
 /** Ce qui fait la jumelle d'une question : sa forme, ses réponses nettes — rien pour un vrai ou faux, un genre et pas une redite. */
-function signeDe(q: Intitule): Signe {
+function signeCalcule(q: Intitule): Signe {
+  return q.reponses.length < 3 ? null : { forme: gabaritDe(q.texte), reponses: [...new Set(q.reponses.map(reponseNette))] }
+}
+
+/** Entre deux réponses nettes, dans le texte que le build range : aucune réponse de la base n'a de caractère de contrôle. */
+const ENTRE_DEUX_REPONSES = '\u001f'
+
+/** Ses réponses en minuscules, sans doublon : ses réponses nettes, pour près de la moitié de la base. */
+const enMinuscules = (reponses: readonly string[]) => [...new Set(reponses.map(r => r.trim().toLowerCase()))]
+
+/**
+ * Sa signature telle que le build la range à côté d'elle (`preparationDeLaQuestion`) :
+ * sa forme, et ses réponses nettes en un texte — null quand ses réponses en
+ * minuscules les disent déjà. Chaque processus la calculait au premier tirage
+ * de chaque catégorie : sans accent, mot par mot, la moitié du départ d'une
+ * épreuve à froid (le banc du 3 novembre 2026). Rien — elle se calcule alors à
+ * chaque processus — pour une réponse qui porterait le séparateur.
+ */
+export function signeAPreparer(q: Intitule): { forme: string | null; nettes: string | null } | undefined {
+  const s = signeCalcule(q)
+  if (!s) return { forme: null, nettes: null }
+  if (s.reponses.some(r => r.includes(ENTRE_DEUX_REPONSES))) return undefined
+  const minuscules = enMinuscules(q.reponses)
+  const memes = minuscules.length === s.reponses.length && minuscules.every((r, i) => r === s.reponses[i])
+  return { forme: s.forme, nettes: memes ? null : s.reponses.join(ENTRE_DEUX_REPONSES) }
+}
+
+/**
+ * Sa signature : celle que le build a rangée (`preparationDe`), sinon calculée
+ * — une fois chacune, puis gardée. Exportée pour `base-preparee.test.ts`, qui
+ * la compare, question par question, à celle que le serveur calcule.
+ */
+export function signeDe(q: Intitule): Signe {
   if (signesGardes.has(q)) return signesGardes.get(q)!
-  const signe = q.reponses.length < 3 ? null : { forme: gabaritDe(q.texte), reponses: [...new Set(q.reponses.map(reponseNette))] }
+  const prepare = preparationDe(q)
+  const signe =
+    prepare?.forme === undefined
+      ? signeCalcule(q)
+      : prepare.forme === null
+        ? null
+        : { forme: prepare.forme, reponses: prepare.nettes == null ? enMinuscules(q.reponses) : prepare.nettes.split(ENTRE_DEUX_REPONSES) }
   signesGardes.set(q, signe)
   return signe
 }

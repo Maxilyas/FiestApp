@@ -7,7 +7,10 @@
 // réveil de l'hébergeur, ils tenaient le dixième de cœur : les cribles du
 // Cabinet, 50 à 110 ms par catégorie sur un vrai cœur — une seconde en tout,
 // dix au dixième de cœur —, les sujets et les familles des vingt-sept mille
-// questions derrière eux.
+// questions derrière eux. De même, depuis le 3 novembre 2026 au soir, la signature de
+// ses jumelles et ce qui s'apprend par cœur, que chaque processus calculait au
+// premier tirage de chaque catégorie — la moitié du départ d'une épreuve à
+// froid, 260 ms sur un vrai cœur pour toute la base.
 //
 // Gardés par la question même (`WeakMap`) : une question corrigée au QG, un
 // ajout de la routine sont des objets neufs, sans préparation — chaque lecteur
@@ -23,6 +26,18 @@ export interface PreparationDUneQuestion {
   famille: string | null
   /** Les cribles du Cabinet (`verdictDe`) : 1, un QCM du Pari et de l'Éclair ; 2, un mot du Mot mystère ; 4, une valeur du Filet. */
   cabinet: number
+  /**
+   * La forme de son intitulé, pour reconnaître ses jumelles (`gabaritDe`,
+   * `signeAPreparer`) ; null : elle n'en a pas (un vrai ou faux). Absente :
+   * pas préparée, chaque tirage la calcule comme avant. À plat, comme ses
+   * réponses nettes : vingt-sept mille objets de plus au réveil, le
+   * ramasse-miettes les aurait recopiés.
+   */
+  forme?: string | null
+  /** Ses réponses nettes, en un texte (`signeAPreparer`) ; null : ses réponses en minuscules les disent déjà. */
+  nettes?: string | null
+  /** Ce qui s'apprend par cœur (`seSaitParCoeur`) : les épreuves des sentiers en posent peu. Absent : pas préparé. */
+  parCoeur?: boolean
 }
 
 const PREPAREES = new WeakMap<object, PreparationDUneQuestion>()
