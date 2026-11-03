@@ -14,8 +14,11 @@ import { IMAGES } from './legendaires-peints'
  * illustration de carte légendaire, pleine page, peinte à la feuille d'or,
  * dans un seul style pour les trente-deux — une collection —, sous une
  * pellicule holographique : un arc-en-ciel qui glisse et un reflet qui passe,
- * et qui n'allument que ce qui est déjà clair, comme une vraie carte. En
- * grand, le reflet suit le doigt et la carte penche un peu ; ailleurs, la
+ * et qui n'allument que ce qui est déjà clair, comme une vraie carte. Un
+ * vernis, pas un filtre : c'est la peinture qu'on regarde. En grand, la
+ * peinture reste nette et l'arc-en-ciel la traverse de temps en temps, en une
+ * bande, comme une carte qu'on incline sous la lampe — sous le doigt, la
+ * bande et le reflet le suivent, et la carte penche un peu ; ailleurs, la
  * lumière passe seule ; dans une liste, tout s'arrête (`styles.css`).
  *
  * Les quatre légendes de l'ombre (le Kraken, le Fantôme et le Trou Noir, qui
@@ -24,10 +27,14 @@ import { IMAGES } from './legendaires-peints'
  * d'ombre.
  *
  * Éclaté, il porte sa version rare — la même pose repeinte dans ses couleurs
- * rares, le Phénix de glace, le Dragon d'argent — sous un prisme de deux
- * arcs-en-ciel croisés, avec des paillettes, une gerbe de lumière derrière,
- * et la créature qui sort de son cadre, par-dessus l'anneau — holo jusqu'au
- * bout des ailes : la pellicule la suit hors du disque.
+ * rares, le Phénix de glace, le Dragon d'argent —, avec des paillettes fines,
+ * une gerbe de lumière derrière, et la créature qui sort de son cadre,
+ * par-dessus l'anneau — holo jusqu'au bout des ailes : la pellicule la suit
+ * hors du disque. C'est sa peinture qui dit l'Éclat : un second arc-en-ciel
+ * croisé, une seconde trame de paillettes et une pellicule aux deux tiers
+ * délavaient le Phénix de glace en tache blanche et faisaient du Dragon
+ * d'argent un arc-en-ciel (le retour du propriétaire du 3 novembre 2026 :
+ * « on ne profite pas en fait de l'image »).
  *
  * Pas encore gagné, il n'en reste que la forme, en silhouette dorée sur un
  * disque sombre : on sait ce qu'on veut avant de l'avoir.
@@ -133,30 +140,24 @@ interface Props {
   finition?: Finition
   /** L'Éclat est tombé sur lui : il porte sa version rare. */
   eclat?: boolean
-  /** Regardé en grand — sa révélation, la clôture — : ses grands fichiers, et le reflet qui suit le doigt. */
+  /** Regardé en grand — sa révélation, la clôture — : ses grands fichiers, l'arc-en-ciel qui passe en bande, et la lumière qui suit le doigt. */
   grand?: boolean
   className?: string
 }
 
 /**
- * La pellicule : l'arc-en-ciel, la diffraction, le reflet — et, éclaté, le
- * second arc-en-ciel et les paillettes. La même sur le disque et sur ce qui
- * en sort : ses calques se placent dans le repère du médaillon, pas dans
- * celui de leur cadre (`styles.css`), et l'aile qui passe le bord du cercle
- * reste holo sans raccord.
+ * La pellicule : l'arc-en-ciel, la diffraction, le reflet — et, éclaté, les
+ * paillettes. La même sur le disque et sur ce qui en sort : ses calques se
+ * placent dans le repère du médaillon, pas dans celui de leur cadre
+ * (`styles.css`), et l'aile qui passe le bord du cercle reste holo sans
+ * raccord.
  */
 function Pellicule({ eclate }: { eclate: boolean }) {
   return (
     <>
       <span className="lg-feuille" />
-      {eclate && <span className="lg-feuille lg-feuille-2" />}
       <span className="lg-diffraction" />
-      {eclate && (
-        <>
-          <span className="lg-paillettes" />
-          <span className="lg-paillettes lg-paillettes-2" />
-        </>
-      )}
+      {eclate && <span className="lg-paillettes" />}
       <span className="lg-reflet" />
     </>
   )

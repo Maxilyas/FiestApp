@@ -172,7 +172,11 @@ test('éclaté : sa version rare sous le prisme, ses paillettes, sa gerbe — et
   assert.match(html, /<img class="lg-art" src="\/medaillons\/renard-rare-256\./)
   assert.doesNotMatch(html, /renard-art-/)
   assert.equal((html.match(/class="lg-gerbe( lg-gerbe-2)?"/g) ?? []).length, 2, 'deux gerbes croisées, derrière')
-  assert.match(html, /class="lg-feuille lg-feuille-2"/)
+  assert.match(html, /class="lg-paillettes"/)
+  // Un seul arc-en-ciel, une seule trame de paillettes : c'est la peinture
+  // rare qui dit l'Éclat — le second arc-en-ciel, croisé, et la seconde trame
+  // délavaient le Phénix de glace en tache blanche (le 3 novembre 2026).
+  assert.doesNotMatch(html, /lg-feuille-2|lg-paillettes-2/)
   // Ce qui sort du cadre vient après le disque et son anneau : il passe par-dessus.
   assert.match(
     html,
@@ -192,7 +196,7 @@ test('éclaté, ce qui sort du cercle porte la même pellicule que le disque : l
   const html = await legendaire({ cle: 'lg:phenix', eclat: true, grand: true })
   const disque = pellicule(html, 'class="lg-disque"', 'class="lg-debord"')
   const debord = pellicule(html, 'class="lg-debord"')
-  assert.deepEqual(disque, ['lg-feuille', 'lg-feuille lg-feuille-2', 'lg-diffraction', 'lg-paillettes', 'lg-paillettes lg-paillettes-2', 'lg-reflet'])
+  assert.deepEqual(disque, ['lg-feuille', 'lg-diffraction', 'lg-paillettes', 'lg-reflet'])
   assert.deepEqual(debord, disque)
   // Au même endroit : chaque calque se pose dans le repère du médaillon, que
   // le disque (90 %) et ce qui en sort (126 %) convertissent chacun pour soi —
@@ -226,6 +230,58 @@ test('la pellicule n’a aucun canal plein : elle éclaire ce qui est clair sans
     const canaux = [0, 2, 4].map(k => parseInt(c.slice(k, k + 2), 16))
     assert.ok(Math.max(...canaux) <= 160, `#${c} : un canal à ${Math.max(...canaux)}`)
   }
+})
+
+/** Toutes les règles de la feuille qui nomment ce sélecteur, mises bout à bout. */
+const regles = (selecteur: string) =>
+  [...CSS.matchAll(/([^{}]*)\{([^{}]*)\}/g)]
+    .filter(m => m[1].split(',').map(s => s.trim()).includes(selecteur))
+    .map(m => m[2])
+    .join('\n')
+
+test('la pellicule vernit la peinture sans la délaver : au cinquième, au quart éclatée, et des paillettes sous le tiers', () => {
+  // À 62 % — 65 % éclatée, sous un second arc-en-ciel et deux trames de
+  // paillettes à 85 % —, elle délavait le Phénix de glace en tache blanche et
+  // faisait un arc-en-ciel du Dragon d'argent (le retour du propriétaire du
+  // 3 novembre 2026 : « on ne profite pas en fait de l'image »).
+  const opacite = (selecteur: string) => {
+    const m = /(?:^|[;\s])opacity:\s*([\d.]+)/.exec(regles(selecteur))
+    assert.ok(m, `${selecteur} : son opacité`)
+    return Number(m[1])
+  }
+  for (const s of ['.lg-feuille', '.lg-ombre .lg-feuille', '.lg-eclate .lg-feuille', '.lg-ombre.lg-eclate .lg-feuille']) {
+    assert.ok(opacite(s) <= 0.3, `${s} : ${opacite(s)}`)
+  }
+  assert.ok(opacite('.lg-diffraction') <= 0.2)
+  assert.ok(opacite('.lg-reflet') <= 0.6)
+  const pics = [...keyframes('lg-paillettes').matchAll(/opacity:\s*([\d.]+)/g)].map(m => Number(m[1]))
+  assert.ok(pics.length && Math.max(...pics) <= 0.35, `les paillettes scintillent jusqu’à ${Math.max(...pics)}`)
+  assert.ok(opacite('.lg-touche .lg-paillettes') <= 0.35, 'sous le doigt aussi')
+  // La gerbe, derrière, à mi-voix.
+  for (const s of ['.lg-gerbe', '.lg-gerbe-2']) {
+    const alphas = [...regles(s).matchAll(/rgba\([^)]*,\s*([\d.]+)\)/g)].map(m => Number(m[1]))
+    assert.ok(alphas.length && Math.max(...alphas) <= 0.2, `${s} : ${alphas}`)
+  }
+})
+
+test('en grand, la peinture reste nette et l’arc-en-ciel la traverse en bande, que le doigt mène', () => {
+  // Là où la carte se prend en main — sa révélation, la carte, la clôture —,
+  // une bande qui passe deux secondes sur sept, comme une carte qu'on incline
+  // sous la lampe ; plus forte qu'une légende de l'ombre éclatée.
+  const bande = regles('.lg.lg-touche-libre .lg-feuille')
+  assert.match(bande, /(?:^|[;\s])mask-image:\s*linear-gradient\(115deg, transparent 36%, #000 46%, #000 54%, transparent 64%\)/)
+  assert.match(bande, /animation:\s*lg-passe 7s /)
+  assert.ok(Number(/opacity:\s*([\d.]+)/.exec(bande)?.[1]) > 0.5, 'la bande se voit')
+  assert.ok(CSS.indexOf('.lg.lg-touche-libre .lg-feuille {') > CSS.indexOf('.lg-ombre.lg-eclate .lg-feuille {'), 'après l’opacité de l’ombre éclatée, qui a sa force')
+  assert.match(keyframes('lg-passe'), /30%, 100% \{ transform: translate\(-34%, -32%\); \}/)
+  // Sous le doigt, elle le suit : plus d'animation, la position du doigt.
+  assert.match(regles('.lg.lg-touche-libre.lg-touche .lg-feuille'), /animation:\s*none/)
+  assert.match(regles('.lg-feuille'), /transform:\s*translate\(calc\(\(var\(--px\) - 0\.5\) \* -38%\)/)
+  // Sa trame fine griserait la peinture.
+  assert.match(regles('.lg-touche-libre .lg-diffraction'), /display:\s*none/)
+  // Arrêtée, elle barrerait la peinture en son milieu : elle ne paraît que sous le doigt.
+  const reduits = [...CSS.matchAll(/@media \(prefers-reduced-motion: reduce\) \{([^{}]*\{[^{}]*\}\s*)+\}/g)].map(m => m[0])
+  assert.ok(reduits.some(bloc => bloc.includes('.lg.lg-touche-libre:not(.lg-touche) .lg-feuille { opacity: 0; }')))
 })
 
 test('une légende de l’ombre garde sa pellicule noire et son anneau d’ombre', async () => {
