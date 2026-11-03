@@ -12,6 +12,7 @@
 //   --formats=paysage,portrait   16:9 (1920 × 1080) et 9:16 (1080 × 1920) ; les deux d'office
 //   --musique=<fichier>    une piste audio sous la vidéo, coupée à sa longueur et fondue à la fin
 //   --apercu=<s>[,<s>…]    des images fixes du montage à ces instants, sans vidéo
+//   --vitrine              la vidéo montée, réduite pour la vitrine, et son affiche, dans docs/vitrine/video/
 //
 // Le client se construit d'abord (`npm run build -w client`) : le banc sert
 // `client/dist` tel qu'il est. Playwright vient des modules globaux, ffmpeg du
@@ -19,7 +20,8 @@
 import path from 'node:path'
 import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { tourner, type Plans } from './video/tournage'
+import { tourner } from './video/tournage'
+import type { Plans } from './video/plans'
 
 const ici = path.dirname(fileURLToPath(import.meta.url))
 const args = process.argv.slice(2)
@@ -44,11 +46,14 @@ if (drapeau('sans-tournage')) {
   console.log(`Tournage fini : ${Object.keys(plans).length} prises en ${Math.round((Date.now() - debut) / 1000)} s`)
 }
 if (!drapeau('tournage-seul')) {
-  const { monter } = await import('./video/montage')
+  const { monter, pourLaVitrine } = await import('./video/montage')
+  const formats = (option('formats') ?? 'paysage,portrait').split(',') as ('paysage' | 'portrait')[]
+  const apercu = option('apercu')?.split(',').map(Number)
   await monter(dossier, plans, {
-    formats: (option('formats') ?? 'paysage,portrait').split(',') as ('paysage' | 'portrait')[],
+    formats,
     musique: option('musique') ? path.resolve(depuis, option('musique')!) : undefined,
-    apercu: option('apercu')?.split(',').map(Number),
+    apercu,
   })
+  if (drapeau('vitrine') && !apercu) pourLaVitrine(dossier, formats)
 }
 console.log(`Fini en ${Math.round((Date.now() - debut) / 1000)} s`)

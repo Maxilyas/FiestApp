@@ -12,7 +12,10 @@
   Seules les balises d'aperçu portent l'adresse complète : WhatsApp,
   Messenger, Signal ou LinkedIn n'en lisent pas d'autre. Leur image,
   apercu.jpg, se compose par server/scripts/rendu-apercu-vitrine.ts ;
-  server/test/vitrine.test.ts garde les deux.
+  server/test/vitrine.test.ts garde les deux. La vidéo de la tête et ses
+  affiches (video/) sortent de server/scripts/video-promo.ts, réduites pour
+  un téléphone (« npm run video -- --vitrine ») : le même test garde leur
+  poids, et que chacune se lise avant d'être toute téléchargée.
 -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="FiestApp">
@@ -171,7 +174,19 @@ p { margin: 0; }
   .formes svg { animation: poser 0.9s cubic-bezier(.2, .8, .2, 1.2) both; animation-delay: calc(var(--i) * 0.12s + 0.15s); }
   @keyframes poser { from { transform: translateY(-0.9rem) scale(0.6); } to { transform: none; } }
 }
-.scene { position: relative; padding-bottom: 3.5rem; }
+/*
+  La vidéo de la tête, filmée sur l'application réelle (server/scripts/video-promo.ts,
+  « npm run video -- --vitrine ») : l'horizontale sur un écran large, la verticale
+  au téléphone — réduite à la colonne, l'horizontale y écrivait ses légendes en
+  onze pixels. Une seule des deux se charge : l'autre, cachée, n'est jamais à
+  l'écran, et rien ne la lance (le script en bas de page).
+*/
+.film { margin: 0; min-width: 0; }
+.cadre-film { border-radius: var(--rayon); overflow: hidden; border: 1px solid var(--filet); box-shadow: var(--ombre); background: var(--cadre); }
+.cadre-film video { display: block; width: 100%; height: auto; background: var(--cadre); }
+.film-large video { aspect-ratio: 16 / 9; }
+.film-haut { display: none; }
+.film-haut video { aspect-ratio: 9 / 16; }
 .ecran {
   border-radius: 12px; overflow: hidden;
   border: 1px solid var(--filet);
@@ -187,7 +202,6 @@ p { margin: 0; }
   background: var(--cadre);
 }
 .telephone img { width: 100%; }
-.scene .telephone { position: absolute; right: -0.5rem; bottom: 0; }
 .legende { margin-top: 0.9rem; color: var(--doux); font-size: 0.9rem; }
 
 /* ── Les chiffres ─────────────────────────────────────────────────────── */
@@ -338,10 +352,13 @@ footer { padding-block: 2rem 3rem; border-top: 1px solid var(--filet); color: va
   .principes, .trio { grid-template-columns: minmax(0, 1fr); }
   .sortes, .sortes.dix, .mesures { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+@media (max-width: 600px) {
+  .film-large { display: none; }
+  .film-haut { display: block; max-width: 24rem; margin-inline: auto; }
+}
 @media (max-width: 480px) {
   .barre nav a.secondaire { display: none; }
   .sortes, .sortes.dix, .mesures { grid-template-columns: minmax(0, 1fr); }
-  .scene .telephone { width: 36%; right: -0.25rem; }
   /*
     Côte à côte, les trois écrans du Cabinet n'y feraient que cent pixels, la
     carte illisible : ils défilent sous le doigt, chacun aux deux tiers de
@@ -389,9 +406,18 @@ footer { padding-block: 2rem 3rem; border-top: 1px solid var(--filet); color: va
       <a class="bouton" href="https://github.com/Maxilyas/FiestApp/tree/main/docs">Lire la documentation</a>
     </div>
   </div>
-  <figure class="scene" style="margin:0">
-    <div class="ecran"><img src="captures/ecran-question.jpg" width="1920" height="1080" alt="L'écran commun : « Quelle planète surnomme-t-on la planète rouge ? », une photo de Mars, quatre réponses marquées d'un triangle, d'un losange, d'un rond et d'un carré, le chronomètre à 29 et le code pour rejoindre."></div>
-    <div class="telephone"><img src="captures/telephone-repondu.jpg" width="780" height="1688" alt="Le téléphone de Nina : la même question, « Mars » cochée, et « Réponse enregistrée · tu peux encore changer, au prix du bonus de rapidité »."></div>
+  <figure class="film">
+    <div class="cadre-film film-large">
+      <video controls muted loop playsinline preload="none" width="1280" height="720" poster="video/affiche-paysage.jpg" aria-label="La vidéo de FiestApp" aria-describedby="legende-du-film">
+        <source src="video/fiestapp-paysage.mp4" type="video/mp4">
+      </video>
+    </div>
+    <div class="cadre-film film-haut">
+      <video controls muted loop playsinline preload="none" width="720" height="1280" poster="video/affiche-portrait.jpg" aria-label="La vidéo de FiestApp" aria-describedby="legende-du-film">
+        <source src="video/fiestapp-portrait.mp4" type="video/mp4">
+      </video>
+    </div>
+    <figcaption class="legende" id="legende-du-film">Une minute, filmée sur l'application réelle : la soirée sans compte, puis le quiz du jour, le défi de la semaine, la campagne, le Cabinet et ce qu'on y gagne.</figcaption>
   </figure>
 </section>
 
@@ -737,8 +763,40 @@ footer { padding-block: 2rem 3rem; border-top: 1px solid var(--filet); color: va
 
 <footer class="colonne">
   <span>FiestApp · le quiz de la soirée, sur ton téléphone</span>
-  <span>Captures prises sur l'application réelle, par <code>server/scripts/rendu-vitrine.ts</code> et les scripts de rendu du dépôt ; chiffres mesurés, dans <code>docs/exploitation/capacite.md</code>.</span>
+  <span>Captures prises sur l'application réelle, par <code>server/scripts/rendu-vitrine.ts</code> et les scripts de rendu du dépôt ; la vidéo, par <code>server/scripts/video-promo.ts</code> ; chiffres mesurés, dans <code>docs/exploitation/capacite.md</code>.</span>
 </footer>
+
+<script>
+/*
+  La vidéo de la tête se lance d'elle-même, muette — elle n'a pas de son —,
+  quand elle est à l'écran, et s'arrête quand on la quitte : rien ne se
+  télécharge tant qu'elle n'y est pas (preload="none"), ni jamais pour celle
+  que la largeur cache. Elle attend son bouton chez qui demande moins de
+  mouvement ou économise ses données, et sans ce script. Mise en pause par le
+  visiteur, elle ne repart plus seule en revenant à l'écran.
+*/
+(() => {
+  const calme = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  const econome = navigator.connection?.saveData
+  if (calme || econome || !('IntersectionObserver' in window)) return
+  const enVue = new WeakMap()
+  const observateur = new IntersectionObserver(entrees => {
+    for (const e of entrees) {
+      const video = e.target
+      enVue.set(video, e.isIntersecting)
+      if (e.isIntersecting && !video.dataset.arretee) video.play().catch(() => {})
+      else if (!e.isIntersecting && !video.paused) video.pause()
+    }
+  }, { threshold: 0.4 })
+  for (const video of document.querySelectorAll('.film video')) {
+    video.addEventListener('pause', () => {
+      if (enVue.get(video)) video.dataset.arretee = 'oui'
+    })
+    video.addEventListener('play', () => delete video.dataset.arretee)
+    observateur.observe(video)
+  }
+})()
+</script>
 
 </body>
 </html>

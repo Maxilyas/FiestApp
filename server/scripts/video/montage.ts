@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url'
 import { legendaire } from '../../../shared/legendaires'
 import { COMPAGNONS } from '../../../shared/compagnons'
 import { CARTES } from '../../../shared/cabinet/traversee'
-import { THEMES_FILMES, type Plans } from './tournage'
+import { THEMES_FILMES, type Plans } from './plans'
 
 const ici = path.dirname(fileURLToPath(import.meta.url))
 const racine = path.resolve(ici, '../../..')
@@ -188,4 +188,58 @@ async function encoder(page: any, dossier: string, format: Format, musique?: str
   if (code !== 0) throw new Error(`ffmpeg a échoué (code ${code}) en encodant ${sortie}`)
   console.log(`  ${sortie} — ${duree} s, ${Math.round(statSync(sortie).size / 1024 / 1024 * 10) / 10} Mo, en ${Math.round((Date.now() - debut) / 1000)} s`)
   return sortie
+}
+
+// ── La vidéo de la vitrine ─────────────────────────────────────────────────
+
+/** Où la vitrine prend sa vidéo : publiée avec elle sur GitHub Pages (`docs/vitrine/`, des chemins relatifs). */
+export const DOSSIER_DE_LA_VITRINE = path.join(racine, 'docs/vitrine/video')
+
+/**
+ * Le poids au-dessus duquel la vitrine refuse une vidéo : elle se lance seule
+ * en tête de page, et un téléphone en 4G la charge avant d'avoir vu le reste.
+ * `server/test/vitrine.test.ts` relit la même borne.
+ */
+export const POIDS_MAX_DE_LA_VITRINE = 5 * 1024 * 1024
+
+/**
+ * L'instant de l'affiche, l'image que la page montre avant la vidéo : « Un écran
+ * pour la salle, un téléphone pour chacun » posé en entier, la question à la
+ * télé, « Mars » coché au téléphone, le doigt reparti (`LEGENDES` et
+ * `PISTE_TEL` de `montage.html`). Plus tôt, la fin de la légende arrivait
+ * encore, floue.
+ */
+export const INSTANT_DE_L_AFFICHE = 10.3
+
+/**
+ * Chaque format monté, réduit pour la vitrine — 720 lignes, sans son (elle se
+ * lance muette) —, et son affiche : `fiestapp-<format>.mp4` et
+ * `affiche-<format>.jpg` dans `docs/vitrine/video/`. La vidéo pleine taille
+ * pèse huit fois plus, pour des écrans de téléphone qui n'en montrent pas tant.
+ */
+export function pourLaVitrine(dossier: string, formats: Format[]): string[] {
+  mkdirSync(DOSSIER_DE_LA_VITRINE, { recursive: true })
+  const ecrits: string[] = []
+  for (const format of formats) {
+    const source = path.join(dossier, `fiestapp-${format}.mp4`)
+    if (!existsSync(source)) throw new Error(`${source} n'existe pas : la vitrine reprend la vidéo montée, monte-la d'abord.`)
+    const { width, height } = TAILLES[format]
+    const video = path.join(DOSSIER_DE_LA_VITRINE, `fiestapp-${format}.mp4`)
+    const affiche = path.join(DOSSIER_DE_LA_VITRINE, `affiche-${format}.jpg`)
+    const echelle = `scale=${(width * 2) / 3}:${(height * 2) / 3}:flags=lanczos`
+    const lancer = (args: string[]) => {
+      const r = spawnSync('ffmpeg', ['-y', '-loglevel', 'error', ...args], { stdio: 'inherit' })
+      if (r.status !== 0) throw new Error(`ffmpeg a échoué (code ${r.status}) pour la vitrine`)
+    }
+    // `faststart` d'abord : sans lui, le navigateur télécharge tout le fichier avant de montrer la première image.
+    lancer(['-i', source, '-vf', echelle, '-c:v', 'libx264', '-preset', 'slow', '-crf', '28', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an', video])
+    lancer(['-ss', String(INSTANT_DE_L_AFFICHE), '-i', source, '-frames:v', '1', '-vf', echelle, '-q:v', '3', affiche])
+    const poids = statSync(video).size
+    if (poids > POIDS_MAX_DE_LA_VITRINE) {
+      throw new Error(`${video} pèse ${Math.round(poids / 1024 / 1024 * 10) / 10} Mo : la vitrine la refuse au-delà de 5 Mo. Monte une vidéo plus courte, ou relève le -crf.`)
+    }
+    console.log(`  ${video} — ${Math.round(poids / 1024 / 1024 * 10) / 10} Mo, et ${path.basename(affiche)}`)
+    ecrits.push(video, affiche)
+  }
+  return ecrits
 }
