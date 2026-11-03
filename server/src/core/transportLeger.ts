@@ -38,6 +38,21 @@ import { connexionEmpruntee, connexionOuverte, connexionRefermeeParNous, connexi
  */
 export const CONNEXIONS_AU_PLUS = 8
 
+/**
+ * Un aller-retour tel qu'il part : son adresse, sa méthode, ses en-têtes et
+ * son corps, déjà en texte — ni `Request` ni flux. Le client minimal le
+ * prépare ainsi (`EnvoiALaBase`, `distante.ts`) ; celui de libsql passe un
+ * `Request`, qu'`avecDelai` lit une fois. Le profil du banc solo du
+ * 3 novembre 2026 : le `Request` que le client minimal fabriquait encore, et
+ * le flux de son corps, prenaient 7 % du processeur du serveur à eux seuls.
+ */
+export interface EnvoiLeger {
+  url: string
+  method: string
+  headers: Record<string, string>
+  corps: string
+}
+
 /** Ce que le client libsql lit d'une réponse : ni flux, ni objet du web — le corps est déjà là. */
 export interface ReponseLegere {
   ok: boolean
@@ -80,6 +95,33 @@ function garderSelonLaBase<A extends http.Agent>(agent: A): A {
 const agents = {
   'http:': garderSelonLaBase(new http.Agent({ keepAlive: true, maxSockets: CONNEXIONS_AU_PLUS, scheduling: 'lifo' })),
   'https:': garderSelonLaBase(new https.Agent({ keepAlive: true, maxSockets: CONNEXIONS_AU_PLUS, scheduling: 'lifo' })),
+}
+
+/**
+ * Ce que `http.request` tire d'une adresse, tiré une fois par adresse : une
+ * base n'en a qu'une, et `new URL` puis `urlToHttpOptions` la relisaient à
+ * chaque aller-retour (1 % du processeur au même profil).
+ */
+interface Adresse {
+  protocole: 'http:' | 'https:'
+  hote: string
+  hoteSansCrochets: string
+  port: string
+  chemin: string
+}
+const adresses = new Map<string, Adresse>()
+
+function adresseDe(url: string): Adresse {
+  let a = adresses.get(url)
+  if (!a) {
+    const u = new URL(url)
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new TypeError(`transport léger : adresse en ${u.protocol} — seules http: et https: passent par le réseau`)
+    a = { protocole: u.protocol, hote: u.hostname, hoteSansCrochets: u.hostname.replace(/^\[(.*)\]$/, '$1'), port: u.port, chemin: u.pathname + u.search }
+    // Quelques adresses par processus, jamais plus : une base, ses tests.
+    if (adresses.size >= 16) adresses.clear()
+    adresses.set(url, a)
+  }
+  return a
 }
 
 /**
@@ -133,24 +175,27 @@ function reponseDe(statut: number, entetes: ReponseLegere['headers'], corps: Buf
  * `quandLesEntetes` : ses en-têtes, dès qu'ils arrivent — le `fetch` de Node
  * rend sa réponse à ce moment-là, et `avecDelai` y lit le délai que la base
  * annonce et le temps de l'aller-retour ; ce transport, qui rend la réponse
- * une fois lue, les lui dit en route. `dejaLu` : son corps, quand `avecDelai`
- * l'a lu avant — on ne lit un corps qu'une fois.
+ * une fois lue, les lui dit en route. La requête arrive déjà prête
+ * (`EnvoiLeger`) : ni `Request` à relire, ni adresse à reparser.
  */
 export async function fetchLeger(
-  requete: Request,
+  envoi: EnvoiLeger,
   delaiMs: number,
   quandLesEntetes?: (entetes: ReponseLegere['headers']) => void,
-  dejaLu?: string | null,
 ): Promise<ReponseLegere> {
-  const url = new URL(requete.url)
-  const agent = url.protocol === 'https:' ? agents['https:'] : url.protocol === 'http:' ? agents['http:'] : null
-  if (!agent) throw new TypeError(`transport léger : adresse en ${url.protocol} — seules http: et https: passent par le réseau`)
-  const corps = typeof dejaLu === 'string' ? Buffer.from(dejaLu, 'utf8') : Buffer.from(await requete.arrayBuffer())
-  const entetes: Record<string, string> = {}
-  requete.headers.forEach((valeur, nom) => {
-    entetes[nom] = valeur
-  })
-  entetes['content-length'] = String(corps.length)
+  const adresse = adresseDe(envoi.url)
+  const agent = agents[adresse.protocole]
+  const corps = Buffer.from(envoi.corps, 'utf8')
+  const entetes: Record<string, string> = { ...envoi.headers, 'content-length': String(corps.length) }
+  const options: http.RequestOptions = {
+    protocol: adresse.protocole,
+    hostname: adresse.hoteSansCrochets,
+    port: adresse.port || undefined,
+    path: adresse.chemin,
+    method: envoi.method,
+    headers: entetes,
+    agent,
+  }
   return new Promise<ReponseLegere>((rendre, refuser) => {
     let socket: Socket | undefined
     let fini = false
@@ -163,7 +208,7 @@ export async function fetchLeger(
       if (reponse) rendre(reponse)
       else refuser(erreur)
     }
-    const req = (url.protocol === 'https:' ? https : http).request(url, { method: requete.method, headers: entetes, agent }, res => {
+    const req = (adresse.protocole === 'https:' ? https : http).request(options, res => {
       const lues = lecteurDEntetes(res.headers)
       try {
         quandLesEntetes?.(lues)
@@ -195,7 +240,7 @@ export async function fetchLeger(
         // Libre, l'agent la détruit sans sa fin quand la base la ferme
         // (Node 22.23, `connexions.ts`) — et à sa garde écoulée, que seule
         // une connexion libre attend : celle-là, c'est nous qui la refermons.
-        connexionOuverte(s, url.hostname, { finPeutManquer: true })
+        connexionOuverte(s, adresse.hote, { finPeutManquer: true })
         s.on('timeout', () => connexionRefermeeParNous(s))
       }
       connexionEmpruntee(s)

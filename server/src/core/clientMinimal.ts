@@ -23,8 +23,28 @@
 // énumérables, sont celles de libsql, la première l'emportant sur un doublon.
 // Le reste du `Client` — transaction, synchronisation — n'est pas servi : le
 // serveur n'en ouvre aucune (`clientBorne`). Les requêtes passent par le même
-// `fetch` (`avecDelai`) : délai, connexions, quota et transport léger compris.
+// chemin (`avecDelai`) : délai, connexions, quota et transport léger compris —
+// déjà prêtes (`EnvoiALaBase`) : ni `Request` ni flux, que libsql fabrique et
+// qui prenaient encore 7 % du processeur du serveur au banc.
 import { LibsqlBatchError, LibsqlError, type Client, type InArgs, type InStatement, type InValue, type IntMode, type ResultSet, type Row, type TransactionMode, type Value } from '@libsql/client'
+
+/** Un aller-retour tel que le client le prépare : son corps déjà en texte, ses en-têtes en objet simple (`avecDelai(…).envoyer`). */
+export interface EnvoiALaBase {
+  url: string
+  method: string
+  headers: Record<string, string>
+  corps: string
+}
+
+/** Ce qu'il lit d'une réponse : la `Response` du `fetch` de Node, ou la réponse du transport léger. */
+export interface ReponseDeLaBase {
+  ok: boolean
+  status: number
+  headers: { get(nom: string): string | null }
+  json(): Promise<unknown>
+  text(): Promise<string>
+  body?: { cancel(): Promise<void> } | null
+}
 
 type ValeurHrana = { type: 'null' } | { type: 'integer'; value: string } | { type: 'float'; value: number } | { type: 'text'; value: string } | { type: 'blob'; base64: string }
 interface InstructionHrana {
@@ -164,10 +184,13 @@ function adresseDuPipeline(url: string): string {
   return new URL('v2/pipeline', u).toString()
 }
 
-export function clientMinimal(url: string, authToken: string | undefined, reglages: { intMode?: IntMode; fetch: (requete: Request) => Promise<Response> }): Client {
+export function clientMinimal(url: string, authToken: string | undefined, reglages: { intMode?: IntMode; envoyer: (envoi: EnvoiALaBase) => Promise<ReponseDeLaBase> }): Client {
   const intMode = reglages.intMode ?? 'number'
   const pipeline = adresseDuPipeline(url)
-  const envoyer = reglages.fetch
+  const envoyer = reglages.envoyer
+  // Les mêmes en-têtes à chaque aller-retour : posés une fois.
+  const entetes: Record<string, string> = { 'content-type': 'application/json' }
+  if (authToken !== undefined) entetes.authorization = `Bearer ${authToken}`
   let ferme = false
   let enVol = 0
   const enAttente: (() => void)[] = []
@@ -187,10 +210,8 @@ export function clientMinimal(url: string, authToken: string | undefined, reglag
   /** Un aller-retour : les requêtes, puis la fermeture du flux, d'une seule requête HTTP. */
   async function allerRetour(requetes: unknown[]): Promise<ReponseHrana[]> {
     if (ferme) throw new LibsqlError('The client is closed', 'CLIENT_CLOSED')
-    const entetes: Record<string, string> = { 'content-type': 'application/json' }
-    if (authToken !== undefined) entetes.authorization = `Bearer ${authToken}`
     // Un flux neuf à chaque aller-retour, sans `baton`, comme libsql : il s'ouvre et se referme dans la même requête.
-    const reponse = await envoyer(new Request(pipeline, { method: 'POST', headers: entetes, body: JSON.stringify({ requests: [...requetes, { type: 'close' }] }) }))
+    const reponse = await envoyer({ url: pipeline, method: 'POST', headers: entetes, corps: JSON.stringify({ requests: [...requetes, { type: 'close' }] }) })
     if (!reponse.ok) {
       // Comme libsql (`errorFromResponse`) : un message de la base, ou le statut et le texte rendu.
       const sorte = reponse.headers.get('content-type') ?? 'text/plain'

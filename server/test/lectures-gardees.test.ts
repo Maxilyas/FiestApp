@@ -5,12 +5,16 @@
 // demande à la base, et ce qu'une réponse lui fait relire.
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import Database from 'better-sqlite3'
 import type { InStatement, ResultSet } from '@libsql/client'
 import { Sqlite3Client } from '@libsql/client/sqlite3'
 import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { LECTURES_GARDEES_MS, LecturesGardees } from '../src/core/lecturesGardees'
 import { ProfileStore } from '../src/auth/profiles'
+import { gainVide, releveVide } from '../../shared/profil'
 
 ProfileStore.tirageEclat = () => false
 
@@ -246,4 +250,89 @@ test('ses missions gardent ses bonnes réponses du jour par catégorie, et les r
 
   await uneBonneReponseDuJour(max, true)
   assert.equal(combien(await missions(), SES_CATEGORIES_DU_JOUR), 1, 'pas relues après sa bonne réponse')
+})
+
+// ── Le quiz du jour, d'une question à l'autre ────────────────────────────
+
+/** Sa série, telle que sa vue la lit : ses sabliers en sont, d'une instruction à part ou dans l'union (`lectureDeLaSerie`). */
+const SA_SERIE = /FROM profile_sabliers WHERE profile_id = \? AND created_at >= \?/
+/** Le classement du jour, relu en entier (`lireClassement`). */
+const LE_CLASSEMENT = /^SELECT profile_id, points, finie_le, commencee_le FROM jour_parties WHERE jour = \?$/
+
+test('« Question suivante » ne relit pas sa série : elle se garde, jusqu’au sablier qu’il achète', async () => {
+  // Chaque question relisait ses 400 derniers jours, ses soirées et ses sabliers (`contexteDeVue`), dix fois par partie.
+  const ana = await inscrireProfil(banc.url, 'ana', 'Ana')
+  const id = (await lire(ana, '/api/joueur/moi?leger')).profile.id as string
+  const debut = await poster(ana, '/api/jour/commencer')
+  await poster(ana, '/api/jour/repondre', { jour: debut.jour, index: debut.question.index, choix: bonnesDuJour(debut.jour)[debut.question.index] })
+  const suivante = await mesurer(() => poster(ana, '/api/jour/suivante'))
+  assert.equal(combien(suivante, SA_SERIE), 0, `relue à la question suivante :\n${suivante.sql.join('\n')}`)
+  // Elle dit ce qu'elle disait au début de sa partie, lue alors après l'avoir commencée.
+  assert.deepEqual([suivante.resultat.serie, suivante.resultat.serieTenue, suivante.resultat.sabliers], [debut.serie, debut.serieTenue, debut.sabliers])
+
+  // Un sablier acheté compte à sa série : sa vue suivante la relit, avec lui.
+  const admin = await connexionAnimateur(banc.url)
+  assert.equal((await ecrire(banc.url, `/api/admin/profils/${id}/confettis`, { confettis: 100 }, admin)).status, 200)
+  await poster(ana, '/api/jour/sablier', { nombre: 1 })
+  const apres = await mesurer(() => lire(ana, '/api/jour'))
+  assert.equal(combien(apres, SA_SERIE), 1, `pas relue après le sablier :\n${apres.sql.join('\n')}`)
+  assert.equal(apres.resultat.sabliers, 1)
+})
+
+test('chaque soirée créditée, remise au barème ou retirée le dit au quiz du jour, qui relit sa série gardée', async () => {
+  // Une soirée compte à sa série comme une partie du jour : gardée par-dessus, la vue dirait « en danger » le soir même.
+  const dossier = mkdtempSync(path.join(tmpdir(), 'serie-du-jour-'))
+  const profils = new ProfileStore(`file:${path.join(dossier, 'profils.db')}`)
+  await profils.init()
+  const dits: string[] = []
+  profils.serieChangee = profileId => dits.push(profileId)
+  try {
+    const { profile } = await profils.register({ login: 'eli', password: 'motdepasse1', name: 'Éli', avatar: '🦊' })
+    const soiree = { spaceId: 'salon', gain: gainVide(), releve: releveVide(), xp: 10 }
+    const gestes: [string, () => Promise<unknown>][] = [
+      ['une soirée créditée', () => profils.creditSoiree({ profileId: profile.id, soireeId: 's1', ...soiree })],
+      ['une soirée close d’un lot', () => profils.crediterSoireeEntiere('s2', 'salon', [{ profileId: profile.id, ...soiree }])],
+      ['une soirée remise au barème', () => profils.remettreAuBareme(profile.id, 's1')],
+      ['une soirée retirée', () => profils.retirerSoiree(profile.id, 's2')],
+      ['une soirée effacée', () => profils.retirerSoireeEntiere('s1', 'salon')],
+    ]
+    for (const [quoi, geste] of gestes) {
+      dits.length = 0
+      await geste()
+      assert.ok(dits.includes(profile.id), `${quoi} : le quiz du jour n’en sait rien`)
+    }
+  } finally {
+    profils.close()
+    rmSync(dossier, { recursive: true, force: true })
+  }
+})
+
+test('le classement du jour suit en mémoire chaque partie et chaque réponse : la vue suivante des autres ne relit pas toutes les parties du jour', async () => {
+  // Chaque réponse de n'importe qui le faisait relire en entier à la vue suivante de chacun : à cent joueurs, quinze
+  // relectures de cent lignes par seconde.
+  const eva = await inscrireProfil(banc.url, 'eva', 'Éva')
+  const noe = await inscrireProfil(banc.url, 'noe', 'Noé')
+  const evaId = (await lire(eva, '/api/joueur/moi?leger')).profile.id as string
+  const { jour } = await uneBonneReponseDuJour(eva)
+  // Noé arrive, puis répond : chaque fois, le jour bouge.
+  await uneBonneReponseDuJour(noe)
+  const vue = await mesurer(() => poster(eva, '/api/jour/suivante'))
+  assert.equal(combien(vue, LE_CLASSEMENT), 0, `relu après l’arrivée et la réponse de Noé :\n${vue.sql.join('\n')}`)
+
+  // Ce qu'elle en voit est ce que la base dit : sa place, le nombre de joueurs, l'écart avec qui la précède.
+  const parties = enBase(db => db.prepare('SELECT profile_id AS id, points FROM jour_parties WHERE jour = ?').all(jour) as { id: string; points: number }[])
+  const siens = parties.find(p => p.id === evaId)!.points
+  const devant = parties.filter(p => p.points > siens).map(p => p.points)
+  assert.equal(vue.resultat.joueurs, parties.length)
+  assert.equal(vue.resultat.rang, 1 + devant.length)
+  assert.equal(vue.resultat.devant?.ecart, devant.length > 0 ? Math.min(...devant) - siens : undefined)
+
+  // Gardé d'une réponse à l'autre, il ne se relit plus de lui-même : un profil suspendu le quitte quand même, à la vue
+  // suivante — la base le tait (`byIds`), le classement gardé aussi —, et y revient réactivé.
+  const admin = await connexionAnimateur(banc.url)
+  const noeId = (await lire(noe, '/api/joueur/moi?leger')).profile.id as string
+  assert.equal((await ecrire(banc.url, `/api/admin/profils/${noeId}/suspendre`, {}, admin)).status, 200)
+  assert.equal((await lire(eva, '/api/jour')).joueurs, parties.length - 1, 'le suspendu compte encore au classement gardé')
+  assert.equal((await ecrire(banc.url, `/api/admin/profils/${noeId}/reactiver`, {}, admin)).status, 200)
+  assert.equal((await lire(eva, '/api/jour')).joueurs, parties.length, 'le réactivé ne revient pas au classement gardé')
 })

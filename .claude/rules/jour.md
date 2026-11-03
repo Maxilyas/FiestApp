@@ -80,7 +80,19 @@ paths:
   d'un coup (`ProfileStore.byIds`), et les points des jours se gardent sous
   la révision de leur jour (`pointsGardes`, comme les classements) : une
   écriture de `jour_parties` qui contournerait `reviser` laisserait les
-  places en retard. Son hier aussi, par profil (`sonsHier`), sous la révision de
+  places en retard. Une partie qui commence et une réponse ne font pas
+  relire le classement du jour : il les suit en mémoire, sous la révision
+  neuve, s'il était à jour jusque-là (`suivreAuClassement`, le 3 novembre
+  2026 — chaque réponse de n'importe qui le faisait relire en entier à la vue
+  suivante de chacun : à cent joueurs, quinze relectures de cent lignes par
+  seconde) ; ce qu'il y écrit est ce que la base vient d'écrire — les
+  points, la fin. Une écriture de plus qui touche aux points d'un joueur
+  passe par lui, ou par `reviser` qui fait tout relire ; une annulation, une
+  relecture des jours, un profil parti passent par `reviser`, et une
+  suspension ou une réactivation fait relire chaque classement gardé
+  (`suspensionChangee`) : il ne se relit plus de lui-même à la réponse
+  suivante, et le suspendu y serait resté (`lectures-gardees.test.ts`
+  compare la place, le nombre de joueurs et l'écart à la base). Son hier aussi, par profil (`sonsHier`), sous la révision de
   ce jour et la version des masquages (`versionDesMasques`) — un masquage
   qui ne la monterait pas le laisserait en retard —, et les vainqueurs
   d'hier se lisent dans les lauriers. « Question suivante » lit sa vue
@@ -145,6 +157,19 @@ paths:
   les questions et les annulées de `jour_tirages` oublie ce qui en dépend,
   ou la page montrerait l'état d'avant jusqu'à dix minutes
   (`lectures-gardees.test.ts`).
+- **Sa série se garde d'une question à l'autre** (`joursDeSerieGardes`,
+  `serieGardee`, le 3 novembre 2026) : chaque vue (`contexteDeVue`) relisait
+  ses jours joués des 400 derniers jours, ses soirées et ses sabliers — dix
+  fois par partie. Ils ne bougent qu'avec lui : la partie qu'il commence
+  (`commencer`, après son lot, même s'il échoue), une soirée créditée,
+  remise au barème ou retirée (`ProfileStore.oublierSesSoirees`), un sablier
+  acheté (`acheterSablier`) — le magasin des profils le dit par
+  `serieChangee`, que `server.ts` branche sur `oublierLaSerie` —, et le jour
+  qui change (sa variante). Une écriture de plus dans `profile_sabliers`, une
+  ligne de soirée de plus dans `profile_xp` le dit aussi, ou la vue
+  montrerait la série d'avant jusqu'à dix minutes. L'achat d'un sablier,
+  lui, relit toujours la base (`sabliersDe`, `serieDe`) : c'est une écriture,
+  pas une vue.
 - **Ses bonnes réponses avec chaque compagnon se gardent**
   (`compagnonsGardes`, `JourStore.compagnonsDe`, le 23 octobre 2026 : relues
   de la base à chaque fin de partie, chaque boutique, chaque niche, 2,4 % du

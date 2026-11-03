@@ -502,11 +502,15 @@ changent (`LecturesGardees`, `server/src/core/lecturesGardees.ts`, le
 3 novembre 2026 : 22 % de ce que la production lisait au quota de Turso) :
 ses épreuves de sentier validées, ses bonnes réponses du quiz du jour sur
 trente jours, ce que le quiz du jour sait de lui et ses bonnes réponses du
-jour par catégorie. L'écriture qui les change les oublie — une réponse
-d'épreuve, une réponse du jour ; une question du jour annulée ou corrigée,
-celles de tous —, et rien ne se croit à jour plus de dix minutes
+jour par catégorie — et, d'une question du jour à l'autre, ses jours joués et
+ses sabliers, de quoi compter sa série. L'écriture qui les change les oublie
+— une réponse d'épreuve, une réponse du jour, une partie qui commence, une
+soirée créditée ou retirée, un sablier acheté ; une question du jour annulée
+ou corrigée, celles de tous —, et rien ne se croit à jour plus de dix minutes
 (`LECTURES_GARDEES_MS`) : l'autre serveur d'une mise en ligne écrit sans
-prévenir celui-ci. Le navigateur, lui, garde ce qui est à lui — le jeton d'un
+prévenir celui-ci. Le classement du jour, lui, suit chaque partie qui
+commence et chaque réponse en mémoire (`suivreAuClassement`) : il se relisait
+en entier à la vue suivante de chacun. Le navigateur, lui, garde ce qui est à lui — le jeton d'un
 invité, sa dernière soirée — sous l'origine de la page : changer d'adresse le
 perd.
 

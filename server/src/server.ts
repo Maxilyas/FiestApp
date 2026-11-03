@@ -646,6 +646,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // quiz du jour dépend des profils, et se branche donc sur eux après coup.
   profiles.statsDuJour = id => jour.statsDuJour(id)
   profiles.suspensionChangee = () => jour.suspensionChangee()
+  // Une soirée créditée ou retirée, un sablier acheté : sa série gardée se relit.
+  profiles.serieChangee = id => jour.oublierLaSerie(id)
   // Le laurier du vainqueur d'hier, lu en mémoire à chaque diffusion — et le
   // champion du mois dernier, que l'écran commun salue à son entrée.
   profiles.laurierDe = id => jour.laureats().has(id)

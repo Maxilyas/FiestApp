@@ -2,7 +2,7 @@ import { createClient, LibsqlError, type Client, type InArgs, type InStatement, 
 import { tronquer } from '../../../shared/avatars'
 import { noterLaReponse, noterUnEchec, refermerLesAttardees, suivreLaBase, unAllerRetourPart } from './connexions'
 import { pouls, releve } from './pouls'
-import { clientMinimal } from './clientMinimal'
+import { clientMinimal, type EnvoiALaBase, type ReponseDeLaBase } from './clientMinimal'
 import { coutDeLAllerRetour } from './quotaDeTurso'
 import { fetchLeger } from './transportLeger'
 
@@ -141,10 +141,13 @@ export function clientDistant(
   const delaiMs = reglages.delaiMs ?? DELAI_DISTANT_MS
   // Ses connexions se comptent par l'hôte de son adresse (`connexions.ts`).
   suivreLaBase(url)
-  const fetch = avecDelai(delaiMs, { battement: reglages.battement })
+  const envoyeur = avecDelai(delaiMs, { battement: reglages.battement })
   // Le client choisi à l'ouverture du magasin, gardé par lui : celui qui remplace un appel resté en route est du même.
   const minimal = clientChoisi === 'minimal' && !url.startsWith('file:')
-  const creer = () => (minimal ? clientMinimal(url, authToken, { intMode: reglages.intMode, fetch }) : createClient({ url, authToken, intMode: reglages.intMode, fetch }))
+  const creer = () =>
+    minimal
+      ? clientMinimal(url, authToken, { intMode: reglages.intMode, envoyer: envoyeur.envoyer })
+      : createClient({ url, authToken, intMode: reglages.intMode, fetch: envoyeur })
   return url.startsWith('file:') ? creer() : clientBorne(creer, delaiMs + MARGE_D_UN_APPEL_MS)
 }
 
@@ -335,15 +338,26 @@ function compterLeQuota<R extends { json(): Promise<unknown> }>(reponse: R, corp
   return reponse
 }
 
-export function avecDelai(delaiMs: number, reglages: { battement?: boolean } = {}) {
-  return async (requete: Request): Promise<Response> => {
+/**
+ * Ce qui part vers la base, des deux clients : celui de libsql passe un
+ * `Request` — son corps lu une fois, ici —, le client minimal sa requête
+ * déjà prête (`envoyer`), sans `Request` ni flux à relire (le profil du banc
+ * solo du 3 novembre 2026 : 7 % du processeur du serveur partaient dans eux).
+ */
+export interface Envoyeur {
+  (requete: Request): Promise<Response>
+  envoyer(envoi: EnvoiALaBase): Promise<ReponseDeLaBase>
+}
+
+export function avecDelai(delaiMs: number, reglages: { battement?: boolean } = {}): Envoyeur {
+  const envoyer = async (envoi: EnvoiALaBase): Promise<ReponseDeLaBase> => {
     // Une connexion que la boucle gelée a gardée au-delà de la garde de Node
     // ne porte plus rien : Turso l'a peut-être fermée pendant le gel
     // (`connexions.ts`).
     refermerLesAttardees()
-    // Son corps, lu une fois : la requête part avec, et le relevé du quota y
-    // lit le texte d'une instruction lourde (`compterLeQuota`).
-    const corps = requete.body ? await requete.text() : null
+    // Son corps part tel quel, et le relevé du quota y lit le texte d'une
+    // instruction lourde (`compterLeQuota`).
+    const corps = envoi.corps === '' ? null : envoi.corps
     const debut = performance.now()
     // Un battement de l'entretien (`connexions.ts`) n'est pas un aller-retour
     // qu'on attend : ses trente millisecondes feraient passer Turso pour plus
@@ -363,13 +377,10 @@ export function avecDelai(delaiMs: number, reglages: { battement?: boolean } = {
       noterLaReponse(lues)
     }
     try {
-      // Le transport léger rend ce que le client libsql lit d'une réponse, sans
-      // ses objets du web : c'est tout ce qu'il en lit (`ReponseLegere`).
-      if (transport === 'leger') return compterLeQuota(await fetchLeger(requete, delaiMs, entetes, corps), corps) as unknown as Response
-      const reponse =
-        corps === null
-          ? await fetch(requete, { signal: AbortSignal.timeout(delaiMs) })
-          : await fetch(requete.url, { method: requete.method, headers: requete.headers, body: corps, signal: AbortSignal.timeout(delaiMs) })
+      // Le transport léger rend ce que les clients lisent d'une réponse, sans
+      // ses objets du web : c'est tout ce qu'ils en lisent (`ReponseLegere`).
+      if (transport === 'leger') return compterLeQuota(await fetchLeger(envoi, delaiMs, entetes), corps)
+      const reponse = await fetch(envoi.url, { method: envoi.method, headers: envoi.headers, body: corps ?? undefined, signal: AbortSignal.timeout(delaiMs) })
       entetes(reponse.headers)
       return compterLeQuota(reponse, corps)
     } catch (e) {
@@ -384,6 +395,16 @@ export function avecDelai(delaiMs: number, reglages: { battement?: boolean } = {
       arrive?.()
     }
   }
+  // Le client libsql passe un `Request` : ses en-têtes et son corps se lisent une fois, ici.
+  const parRequete = async (requete: Request): Promise<Response> => {
+    const headers: Record<string, string> = {}
+    requete.headers.forEach((valeur, nom) => {
+      headers[nom] = valeur
+    })
+    const corps = requete.body ? await requete.text() : ''
+    return (await envoyer({ url: requete.url, method: requete.method, headers, corps })) as unknown as Response
+  }
+  return Object.assign(parRequete, { envoyer })
 }
 
 /**
