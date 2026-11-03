@@ -12,7 +12,11 @@ import assert from 'node:assert/strict'
 import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { BaseDeLaCampagne, DOSSIER_DE_LA_BASE, lireLaBase, lireLaBasePreparee, preparerLaBase } from '../src/core/baseCampagne'
+import { BaseDeLaCampagne, DOSSIER_DE_LA_BASE, lireLaBase, lireLaBasePreparee, preparerLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
+import { sujetsDeLaQuestion } from '../src/core/campagne'
+import { motsDeLaCategorie, qcmDeLaCategorie, verdictCalcule } from '../src/core/cabinet/tirages/tas'
+import { preparationDeLaQuestion } from '../src/core/preparationDeLaBase'
+import { QCM_DU_CABINET, preparationDe } from '../src/core/preparees'
 
 /** Un dossier jetable : une base d'une seule catégorie, les trente premières questions de l'histoire, une par ligne comme le dépôt les range. */
 function petiteBase(): { dossier: string; preparee: string; effacer: () => void } {
@@ -80,8 +84,10 @@ test('une base préparée qui ne dit plus le dossier s’écarte, et le serveur 
     assert.ok('lue' in (await lireLaBasePreparee(preparee, dossier)))
     // Un autre format : un paquet d'avant, ou d'après.
     const texte = readFileSync(preparee, 'utf8')
-    writeFileSync(preparee, texte.replace('{"version":1,', '{"version":0,'))
+    writeFileSync(preparee, texte.replace(/^\{"version":\d+,/, '{"version":0,'))
     assert.deepEqual(await lireLaBasePreparee(preparee, dossier), { motif: 'format 0' })
+    writeFileSync(preparee, texte.replace(/^\{"version":\d+,/, '{"version":1,'))
+    assert.deepEqual(await lireLaBasePreparee(preparee, dossier), { motif: 'format 1' }, 'une ligne par question nue, d’avant ce que le build en calcule')
     writeFileSync(preparee, `${texte.split('\n')[0]}\n{"id":`)
     const illisible = await lireLaBasePreparee(preparee, dossier)
     assert.ok('motif' in illisible && illisible.motif.startsWith('illisible'), JSON.stringify(illisible))
@@ -99,6 +105,37 @@ test('une base préparée qui ne dit plus le dossier s’écarte, et le serveur 
     assert.ok(avertissements.some(a => /base préparée écartée \(le dossier a changé depuis le build\)/.test(a)), avertissements.join('\n'))
   } finally {
     console.warn = warn
+    effacer()
+  }
+})
+
+// Ses sujets, sa famille et les cribles du Cabinet ne dépendent que de la
+// question et du code : le build les calcule une fois (`preparationDeLaQuestion`),
+// et un réveil les reprend — les cribles seuls tenaient le dixième de cœur dix
+// secondes à chaque réveil (le 3 novembre 2026).
+test('ce que le build calcule de chaque question se relit avec elle, et chaque lecteur le reprend au lieu de le refaire', async () => {
+  const { dossier, preparee, effacer } = petiteBase()
+  try {
+    preparerLaBase(preparee, dossier, preparationDeLaQuestion)
+    const relue = await lireLaBasePreparee(preparee, dossier)
+    assert.ok('lue' in relue, 'motif' in relue ? relue.motif : '')
+    for (const q of relue.lue.questions) assert.deepEqual(preparationDe(q), preparationDeLaQuestion(q), q.id)
+    // Les questions du dossier relues par le juge, comme une correction du QG : des objets neufs, sans préparation.
+    assert.ok(lireLaBase(dossier).questions.every(q => preparationDe(q) === undefined))
+
+    // Ce que les lecteurs lisent est bien ce qui s'est rangé à côté de la question, pas un calcul refait : une
+    // préparation inventée, qu'aucune règle ne donnerait, se lit telle quelle.
+    preparerLaBase(preparee, dossier, () => ({ sujets: ['sujet-du-build'], famille: 'famille-du-build', cabinet: QCM_DU_CABINET }))
+    const inventee = await lireLaBasePreparee(preparee, dossier)
+    assert.ok('lue' in inventee)
+    const questions = inventee.lue.questions
+    assert.ok(questions.every(q => sujetsDeLaQuestion(q)[0] === 'sujet-du-build'))
+    const porte = { deLaCategorie: (jouables: readonly QuestionDeLaBase[], c: string) => jouables.filter(q => q.meta.categorie === c) }
+    // Toutes au Pari et à l'Éclair, même celles que le crible écarterait (un vrai ou faux, un intitulé trop long) ; aucune au Mot.
+    assert.equal(qcmDeLaCategorie(porte, questions, 'Histoire').length, questions.length)
+    assert.ok(questions.some(q => !verdictCalcule(q).qcm), 'au moins une que le crible écarte, pour que l’épreuve dise quelque chose')
+    assert.equal(motsDeLaCategorie(porte, questions, 'Histoire').length, 0)
+  } finally {
     effacer()
   }
 })

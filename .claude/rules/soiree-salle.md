@@ -1,12 +1,12 @@
 ---
 paths:
-  - "server/src/core/{space,party,salons,places}.ts"
+  - "server/src/core/{space,party,salons,places,salleDesTelephones}.ts"
   - "server/src/sockets.ts"
-  - "shared/{events,homonymes,clock,space,console}.ts"
+  - "shared/{events,homonymes,clock,space,console,salle}.ts"
   - "client/src/{socket,socketDuChef,chef,telecommande,remise,clock,decompte,veille}.ts"
   - "client/src/views/{PlayerApp,SalonApp}.tsx"
   - "client/src/components/{BarreDuChef,FeuilleDEquipe,Liaison,Absents,Reprendre,TeamPicker,Rejoindre}.tsx"
-  - "server/test/{protocole,poignee-de-main,salle-attente,salle-vide,salons,barre-du-chef,chef-entree,fin-de-quiz-chef,equipes-du-chef,telephone-perdu,reprise-rafale,temps-reel,au-geste,grande-salle,liaison-morte,garde-fous,remise,tele-salle,equipes-preparees}.test.ts"
+  - "server/test/{protocole,poignee-de-main,salle-attente,salle-vide,salons,barre-du-chef,chef-entree,fin-de-quiz-chef,equipes-du-chef,telephone-perdu,reprise-rafale,temps-reel,au-geste,grande-salle,liaison-morte,garde-fous,remise,tele-salle,equipes-preparees,salle-des-telephones}.test.ts"
 ---
 
 # La salle : la liaison temps réel, les invités, les salons, la barre du chef
@@ -20,8 +20,9 @@ paths:
 - `client/src/views/SalonApp.tsx` · `chef.ts` — « Créer un salon » (`/salon`) : les quiz de ce soir (le programme), où l'on voit les questions — une télé se branche par son code (`/tele`), « Une autre télé ? » rouvre le champ (la télé rechargée entre-temps montre un code neuf) ; branchée, la télé n'est qu'un écran de salle, dès son branchement et quand le téléphone du chef se verrouille (`ecranDeSalle`, règle `ecran-commun.md`) —, si le chef joue ou anime seulement — anime seulement, il suit la soirée sur la même interface, sa barre en bas, et répond sans que rien de lui ne compte : ni points, ni journal, ni attente, ni classement (`LancementDeQuiz.horsClassement`, `joueurs()` dans `games/quiz.ts`, redit à chaque `player:join` par son seul téléphone, écouté de lui seul, pris au lancement du quiz suivant) —, les équipes de ce soir, préparées avant d'ouvrir, hors des réglages (le souhait du propriétaire du 12 octobre 2026 : deux proposées, `EQUIPES_PROPOSEES`, renommées d'un toucher dans `FeuilleDEquipe`, la suivante par `equipeSuivante` ; posées par « Ouvrir le salon » avant le premier invité, jamais par-dessus celles d'une soirée qui en a, `lireEquipesPreparees`, `SpaceRuntime.ouvrirSalon` ; retenues sur le téléphone, `ReglagesDuChef.equipesPreparees` ; le chef qui joue choisit la sienne en entrant — `equipes-preparees.test.ts`), et repliés dans « Réglages », le rythme et les points. « Ouvrir le salon » le fait entrer dans sa soirée sans « Entrer dans la soirée » (`demanderEntree`, une fois), et une soirée effacée — un essai, ou une clôture sans rien de joué — le ramène à l'accueil, pas à l'entrée (`party:reset`, `client/src/socket.ts` ; `chef-entree.test.ts`)
 - `components/BarreDuChef.tsx` · `socketDuChef.ts` — la barre du chef, en bas de son téléphone de joueur une fois entré, chargée à la demande sur le seul téléphone qui a ouvert le salon (`chefIci`) : le code et son QR, le quiz lancé au programme, la pause, révéler, la suite, et à l'écart, dans « ⋯ », ce qui défait quelque chose — et les équipes : celles préparées en créant le salon, sinon deux d'office (une page d'avant), un toucher en renomme une, « Ajouter une équipe » en crée une (`FeuilleDEquipe`, son nom et son emoji). Ses gestes passent par une seconde liaison, celle de l'animateur (`socketDuChef`) — une seule ne tient pas les deux rôles —, qui se dit télécommande à chaque connexion (`host:telecommande` : la télé garde ses coulisses pour lui, et ne propose pas de se piloter tant qu'il est là). De la vue d'animateur, la barre ne lit rien de la question — ni texte, ni réponses, ni note (`barre-du-chef.test.ts`) : sa phase, son tour, le compte des réponses, le programme, et si le quiz est le dernier (`dernierDuProgramme` : « Terminer le quiz » le dit avant de clore la soirée — `cloture-auto.test.ts`). Le dernier quiz joué, sa barre dit « Terminer la soirée », et le podium reste jusqu'à ce geste — rien ne se décompte. Sous sa fin de soirée, une ligne « Ton salon » ouvre sa feuille : « Encore un quiz, avec eux », « C'était un essai » — un seul « Accueil » sur la page
 - `sockets.ts` — tout le protocole temps réel — chaque message passe par `ecouter()`, et chaque geste d'animateur relit la session de sa poignée de main (`requireHost`). Une nouvelle fiche passe ses garde-fous : le plafond de l'espace (`maxPlayers`, borné par `MAX_PLAYERS`), le prénom avant la réserve d'inscriptions (`core/inscriptions.ts`, règle `auth-et-admin.md`), trois identités par connexion (`JOINS_PER_SOCKET`) ; cinq présentations d'écran refusées coupent la connexion (`HELLO_MAX_FAILURES`)
-- `shared/events.ts` — le contrat socket, typé des deux côtés : 27 messages du client, 11 du serveur, `toast` compris
-- `shared/homonymes.ts` — « Camille (2) » : la dérivation pure qui distingue deux invités identiques — le même prénom sans casse ni accents, et le même avatar qu'on voit : le dessin porté, sinon l'emoji (`visageDe`, la décision du 14 octobre 2026) — deux Camille sous le même Phénix se ressemblent, quels que soient leurs emojis ; ni la finition, ni l'Éclat, ni la bordure ne comptent. La soirée, le souvenir et l'historique, le quiz du jour, la campagne et les duels la lisent tous ainsi (`homonymes.test.ts`) ; l'export garde l'emoji, que ses fichiers écrivent
+- `shared/events.ts` — le contrat socket, typé des deux côtés : 27 messages du client, 12 du serveur, `toast` compris
+- `core/salleDesTelephones.ts` · `shared/salle.ts` — ce que tiennent les téléphones, pour ne leur envoyer que ce qui change (`party:salle`, le 3 novembre 2026 : la liste entière repartait à chacun à chaque arrivée et à chaque révélation, 44 Ko vers chacun de 300 téléphones, 95 % de ce que le serveur envoyait en soirée). `SalleDesTelephones` garde chaque ligne du dernier envoi à la salle telle qu'elle s'écrit, et ce que chaque instantané envoyé depuis à un seul téléphone avait d'autre (`envoyeAUnSeul`) ; l'envoi suivant (`versLaSalle`) rend rien, le changement — les invités arrivés ou changés, entiers ; les seuls points de ceux dont rien d'autre n'a bougé (`points` : au podium d'un quiz, toute la salle — leurs lignes pesaient six fois plus) ; les partis ; les équipes et le reste (la partie, le code, les titres), entiers — s'il refait la salle à l'identique sur chaque téléphone, ordre compris, et pèse moins qu'elle, sinon l'instantané entier. Le téléphone l'applique à ce qu'il tient (`appliquerLeChangement`, `client/src/socket.ts`) ; `salle-des-telephones.test.ts` rejoue trois cents soirées au hasard et vérifie chaque téléphone après chaque envoi
+- `shared/homonymes.ts` — « Camille (2) » : la dérivation pure qui distingue deux invités identiques — le même prénom sans casse ni accents, et le même avatar qu'on voit : le dessin porté, sinon l'emoji (`visageDe`, la décision du 14 octobre 2026) — deux Camille sous le même Phénix se ressemblent, quels que soient leurs emojis ; ni la finition, ni l'Éclat, ni la bordure ne comptent. La soirée, le souvenir et l'historique, le quiz du jour, la campagne et les duels la lisent tous ainsi (`homonymes.test.ts`) ; l'export garde l'emoji, que ses fichiers écrivent. Une soirée refait ses marques à chaque arrivée, sur toute la salle : les prénoms rendus comparables se gardent (`prenomComparable`, des prénoms seulement — `sansAccent` lit aussi les intitulés de la campagne)
 - `client/src/components/Liaison.tsx` — ce que voit l'invité quand la liaison tombe
 - `client/src/components/Absents.tsx` · `Reprendre.tsx` — le téléphone perdu : « Qui manque ? » à la console (ne plus l'attendre, rendre sa place), le code tapé par l'invité, et l'avis « Un « Rachid » est hors ligne », que le serveur ne dit qu'au téléphone qui le demande (`player:horsLigne`) : l'instantané des téléphones ne dit pas qui est connecté
 
@@ -67,6 +68,26 @@ paths:
   redémarrage — : l'instantané, qui lit déjà le profil de chacun, compare
   ce que chaque ligne montre à ce que les marques ont comparé
   (`revoirLesVisages`), sans lecture de plus.
+- **L'instantané d'un seul téléphone passe par `instantanePourUnTelephone`**
+  (`core/space.ts`), jamais par `buildSnapshot(false)` : il note ce que ce
+  téléphone tiendra de plus que la salle, et le changement suivant le couvre
+  — un invité arrivé puis exclu dans la même fenêtre, une équipe choisie puis
+  quittée ne restent pas sur son écran. Envoyé à côté, il laisserait ce
+  téléphone sur une salle que plus rien ne corrige jusqu'au filet des cinq
+  minutes. L'entrée préchargée (`entree.json`) n'y passe pas : la liaison
+  la remplace avant tout changement. Et **ce qui écoute un téléphone suit
+  aussi `party:salle`** : le banc (`instantane`, `connecter`, `arrivePar`), le
+  smoke (`salleDuTelephone`) — un `party:snapshot` attendu sur un téléphone
+  n'arrive plus qu'aux présentations, aux changements de la partie et au
+  filet.
+- **Pendant un quiz, les téléphones gardent les points de la soirée**
+  d'avant son lancement, jusqu'à son podium (`pointsDuQuiz`, `pointsFiges`) :
+  un téléphone en partie lit sa place, ses voisins et leurs points dans sa
+  vue, et ne lit les points de la salle qu'au podium — chaque révélation les
+  changeait tous, et la salle entière repartait. Le verdict renvoie la salle
+  sur-le-champ (`onVerdict`), derrière la vue du podium. Les équipes suivent
+  à chaque révélation. Un écran de téléphone qui montrerait les points de la
+  soirée en pleine partie les lirait figés.
 - **Un `player:join` qui porte une équipe la pose, même en plein quiz** :
   seul `player:setTeam` refuse pendant une partie. L'entrée d'un profil déjà
   présent ce soir passe par le choix d'équipe, et déplace sa fiche.
@@ -86,11 +107,14 @@ paths:
    et la fin en route (`enPlusPourLesEcrans`) — la salle ne reçoit rien
    quand seule la scène change —, et celle des téléphones, **sans
    `connected`** (`pourLesTelephones`) — une veille d'écran ne repart qu'à
-   l'écran commun. Le regroupement des téléphones grandit avec la salle
+   l'écran commun —, ses points de la soirée figés pendant un quiz, et dont
+   ne part que ce qui a changé quand cela suffit (`party:salle`,
+   `SalleDesTelephones`). Le regroupement des téléphones grandit avec la salle
    (120 ms + 2 ms par invité), celui des écrans communs reste à 120 ms ; et
    qui se présente ou fait le geste (`party:watch`, `host:hello`, `join`,
    `reprendre`, `setTeam`) reçoit le sien sur-le-champ — au `join` et au
-   `reprendre`, une fois compté dans la partie et avant sa première vue.
+   `reprendre`, une fois compté dans la partie et avant sa première vue —,
+   entier, et noté (`instantanePourUnTelephone`).
    `sendSnapshot` envoie les deux versions sans regroupement — la scène, la
    télécommande, une fin en route, le code du salon — et annule ce qui
    attendait ; toutes les cinq minutes, le filet de `server.ts` les force,

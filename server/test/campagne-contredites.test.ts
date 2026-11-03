@@ -10,6 +10,7 @@ import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
 import { baseDEssai, connexionAnimateur, demarrer, ecrire, type Banc } from './banc'
 import { CONTREDITES_MONTREES, difficultePourLaPart, marcheContredite, type AdminDeLaCampagne } from '../../shared/campagne'
+import { MESURES_GARDEES_MS } from '../src/core/campagne'
 
 // ── Les règles pures ───────────────────────────────────────────────────────
 
@@ -50,7 +51,8 @@ test('le QG liste ce que les réponses contredisent, et une question reclassée 
       reponse.run(`ailleurs-b-${i}`, tous.id, 1, DEBUT)
     }
     db.close()
-    horloge.t += 11 * 60_000
+    // Écrites derrière le dos du serveur : la mesure gardée ne les lirait qu'à sa relecture, au plus toutes les six heures.
+    horloge.t += MESURES_GARDEES_MS + 60_000
     const admin = await connexionAnimateur(banc.url)
     const lire = async () => (await (await fetch(`${banc.url}/api/admin/campagne`, { headers: { Cookie: admin } })).json()) as AdminDeLaCampagne
 

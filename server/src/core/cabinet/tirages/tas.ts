@@ -18,6 +18,7 @@
 // Le Détail lit la question qui demande le peintre de chacun de ses tableaux,
 // pour son anecdote ; la Frise, les sujets de la base qui font une frise.
 import type { QuestionDeLaBase } from '../../baseCampagne'
+import { MOT_DU_CABINET, QCM_DU_CABINET, VALEUR_DU_CABINET, preparationDe } from '../../preparees'
 import { detailsDeLaBase, tableauxDuDetailEnTranches } from '../../details'
 import { cibleDeLEstimation, supposeDesChoix } from '../../estimation'
 import type { PorteDeLaCampagne } from '../../porteDeLaCampagne'
@@ -135,11 +136,26 @@ interface TasDeLaCategorie {
 }
 
 /** Ce que les trois cribles disent d'une question : se pose-t-elle au Pari et à l'Éclair, au Mot mystère, au Filet ? */
-interface VerdictDesCribles {
+export interface VerdictDesCribles {
   qcm: boolean
   mot: boolean
   valeur: boolean
 }
+
+/** Les trois cribles passés sur une question : la règle même, que le build fait une fois pour toute la base (`core/preparationDeLaBase.ts`). */
+export function verdictCalcule(q: QuestionDeLaBase): VerdictDesCribles {
+  return { qcm: estUnQcmDuCabinet(q), mot: motDeLaQuestion(q) !== null, valeur: valeurDuFilet(q) !== null }
+}
+
+/** Un verdict en un nombre, tel que le build le range (`PreparationDUneQuestion.cabinet`). */
+export const masqueDuVerdict = (v: VerdictDesCribles): number => (v.qcm ? QCM_DU_CABINET : 0) | (v.mot ? MOT_DU_CABINET : 0) | (v.valeur ? VALEUR_DU_CABINET : 0)
+
+/** Les huit verdicts possibles, chacun une fois : une question préparée au build lit le sien sans rien allouer. */
+const VERDICTS_DES_MASQUES: readonly VerdictDesCribles[] = Array.from({ length: 8 }, (_, m) => ({
+  qcm: (m & QCM_DU_CABINET) !== 0,
+  mot: (m & MOT_DU_CABINET) !== 0,
+  valeur: (m & VALEUR_DU_CABINET) !== 0,
+}))
 
 /**
  * Le verdict de chaque question, gardé par la question même : il ne dépend
@@ -153,9 +169,12 @@ interface VerdictDesCribles {
  */
 const VERDICTS = new WeakMap<QuestionDeLaBase, VerdictDesCribles>()
 
+/** Son verdict : celui que le build a calculé (`preparationDe`), sinon les cribles passés ici une fois. */
 function verdictDe(q: QuestionDeLaBase): VerdictDesCribles {
+  const prepare = preparationDe(q)
+  if (prepare) return VERDICTS_DES_MASQUES[prepare.cabinet & 7]
   let v = VERDICTS.get(q)
-  if (!v) VERDICTS.set(q, (v = { qcm: estUnQcmDuCabinet(q), mot: motDeLaQuestion(q) !== null, valeur: valeurDuFilet(q) !== null }))
+  if (!v) VERDICTS.set(q, (v = verdictCalcule(q)))
   return v
 }
 
@@ -227,7 +246,8 @@ function rangerLesSujets(porte: Pick<PorteDeLaCampagne, 'deLaCategorie'>, jouabl
   const faits = qcmDesSujetsDe(jouables)
   if (faits.rangees.has(categorie)) return
   for (const q of qcmDeLaCategorie(porte, jouables, categorie)) {
-    for (const cle of sujetsEtRubriqueDe(q.meta)) {
+    // Ses sujets tels que le build les a lus (`preparationDe`), sinon relus ici.
+    for (const cle of preparationDe(q)?.sujets ?? sujetsEtRubriqueDe(q.meta)) {
       let siens = faits.parSujet.get(cle)
       if (!siens) faits.parSujet.set(cle, (siens = []))
       siens.push(q)
@@ -459,7 +479,8 @@ export async function preparerLesTas(
     for (let debut = 0; debut < siennes.length; debut += QUESTIONS_PAR_TRANCHE) {
       const fin = Math.min(debut + QUESTIONS_PAR_TRANCHE, siennes.length)
       let aJuger = false
-      for (let i = debut; i < fin && !aJuger; i++) aJuger = !VERDICTS.has(siennes[i])
+      // Préparée au build, une question n'a plus qu'à être lue : rien à juger.
+      for (let i = debut; i < fin && !aJuger; i++) aJuger = !VERDICTS.has(siennes[i]) && !preparationDe(siennes[i])
       if (!aJuger) continue
       // La première tranche partage le tour de la catégorie : rien d'autre n'y a été jugé.
       if (debut > 0) await rendreLaMain()

@@ -41,6 +41,7 @@ import { hautFaitDeSoiree, palierDe, titreDePalier, XP_PALIER } from '../../../s
 import type { ClotureDeSoiree, Figure, FinDeSoiree, HautFaitAnnonce, PrixAnnonce, SoireeClose } from '../../../shared/fin'
 import type { EcranDeScene, OngletDePodium, PartySnapshot, PublicPlayer, Recap, Scene } from '../../../shared/types'
 import type { PlaceRendue } from '../../../shared/events'
+import { SalleDesTelephones } from './salleDesTelephones'
 import type { Review } from '../../../shared/review'
 import type { LancementDeQuiz } from '../../../shared/games/quiz'
 import type { ArchiveList, ArchiveSummary, DerniereSoiree } from '../../../shared/archive'
@@ -226,8 +227,22 @@ export class SpaceRuntime {
   //   et les écrans communs ont chacun le leur : qui dort et qui veille ne
   //   regarde que l'écran commun, et une veille ne doit plus repartir à
   //   toute la salle.
-  private lastSnapshot = ''
+  // · Les téléphones ne reçoivent que ce qui a changé (`party:salle`), quand
+  //   cela refait leur salle à l'identique : `SalleDesTelephones` sait ce que
+  //   chacun tient, et dédoublonne aussi leur version.
   private lastEcrans = ''
+  private salleDesTelephones = new SalleDesTelephones()
+  /**
+   * Pendant un quiz, les points de la soirée tels qu'au premier instantané
+   * de ce quiz : la version des téléphones les garde jusqu'à son podium. Un
+   * téléphone en partie ne lit les points de la salle qu'au podium — sa
+   * place, ses voisins et leurs points viennent de sa vue —, et chaque
+   * révélation les changeait tous : la liste entière repartait à chacun, 44 Ko
+   * vers chacun de 300 téléphones, à chaque question (le banc du 3 novembre
+   * 2026). Les équipes, elles, suivent : le téléphone les montre entre deux
+   * questions.
+   */
+  private pointsFiges: { session: string; points: ReadonlyMap<string, number> } | null = null
   /** La diffusion regroupée des téléphones, et celle des écrans communs — voir `broadcastSnapshot`. */
   private pending: ReturnType<typeof setTimeout> | null = null
   private pendingEcrans: ReturnType<typeof setTimeout> | null = null
@@ -305,7 +320,13 @@ export class SpaceRuntime {
         onSessionEnded: () => this.rangerApresLeQuiz(),
         // Le podium à l'écran vaut une fin de quiz : le dernier podium de la
         // soirée reste souvent affiché sans que personne ne referme la partie.
-        onVerdict: () => this.rangerApresLeQuiz(),
+        // Les points que les téléphones gardaient pendant le quiz repartent
+        // aussitôt, juste derrière la vue du podium, qui les lit
+        // (`pointsDuQuiz`).
+        onVerdict: () => {
+          this.sendSnapshot()
+          this.rangerApresLeQuiz()
+        },
       },
       quizModule,
     )
@@ -1221,7 +1242,19 @@ export class SpaceRuntime {
    * l'entrée pour compter les présents : elle compte désormais les inscrits.
    */
   private pourLesTelephones(snapshot: PartySnapshot): PartySnapshot {
-    return { ...snapshot, players: snapshot.players.map(({ connected: _connected, ...p }) => p) }
+    const figes = this.pointsDuQuiz(snapshot)
+    return {
+      ...snapshot,
+      players: snapshot.players.map(({ connected: _connected, ...p }) => (figes ? { ...p, score: figes.get(p.id) ?? 0 } : p)),
+    }
+  }
+
+  /** Les points que la version des téléphones garde pendant le quiz en cours — null hors d'un quiz, et dès son podium. */
+  private pointsDuQuiz(snapshot: PartySnapshot): ReadonlyMap<string, number> | null {
+    const session = this.engine.activeSessionId
+    if (!session || this.engine.phase() === 'finished') return (this.pointsFiges = null)
+    if (this.pointsFiges?.session !== session) this.pointsFiges = { session, points: new Map(snapshot.players.map(p => [p.id, p.score])) }
+    return this.pointsFiges.points
   }
 
   /** Ce que l'écran commun reçoit en plus de la salle. */
@@ -1313,10 +1346,22 @@ export class SpaceRuntime {
     if (this.pending) clearTimeout(this.pending)
     this.pending = null
     const telephones = this.pourLesTelephones(complet)
-    const json = JSON.stringify(telephones)
-    if (!force && json === this.lastSnapshot) return
-    this.lastSnapshot = json
-    this.deps.io.to(`space:${this.spaceId}`).except(`hosts:${this.spaceId}`).emit('party:snapshot', telephones)
+    const envoi = this.salleDesTelephones.versLaSalle(telephones, force)
+    if (envoi.quoi === 'rien') return
+    const salle = this.deps.io.to(`space:${this.spaceId}`).except(`hosts:${this.spaceId}`)
+    if (envoi.quoi === 'changement') salle.emit('party:salle', envoi.changement)
+    else salle.emit('party:snapshot', telephones)
+  }
+
+  /**
+   * L'instantané d'un seul téléphone — celui qui se présente ou fait le
+   * geste, qui le reçoit sur-le-champ (invariant 4). Ce qu'il tiendra de plus
+   * que la salle, le prochain envoi à la salle le couvre.
+   */
+  instantanePourUnTelephone(): PartySnapshot {
+    const s = this.buildSnapshot(false)
+    this.salleDesTelephones.envoyeAUnSeul(s)
+    return s
   }
 
   private envoyerAuxEcrans(complet: PartySnapshot, force = false) {

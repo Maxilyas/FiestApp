@@ -5,10 +5,41 @@
 //
 //   cd server && node --import tsx ../retours/2026-10-16/reproductions/compiler.ts \
 //     ../retours/2026-11-03/reproductions/solo-serveur.ts ../export/banc/solo-serveur.mjs
+import { writeFileSync } from 'node:fs'
+import { Session } from 'node:inspector/promises'
 import { demarrer } from '../../../server/test/banc.ts'
+import { choisirLeClient, choisirLeTransport } from '../../../server/src/core/distante.ts'
+import { LECTURES_GARDEES_MS } from '../../../server/src/core/lecturesGardees.ts'
 
-const banc = await demarrer({ quizDbUrl: process.env.BASE_URL!, cabinet: true, expeditionRemplacee: true, prechauffageCampagneMs: 500 })
+// Le transport de la production (`/healthz` : `base.connexions.transport`, le 3 novembre 2026), sauf `TRANSPORT=fetch`.
+choisirLeTransport(process.env.TRANSPORT === 'fetch' ? 'fetch' : 'leger')
+// Le client de la base : celui de libsql, comme la production d'aujourd'hui, ou le client minimal (`CLIENT=minimal`).
+choisirLeClient(process.env.CLIENT === 'minimal' ? 'minimal' : 'libsql')
+// Ce que l'accueil, la carte et les missions gardent d'un joueur entre deux visites, comme en ligne — le banc n'en garde
+// rien ; `LECTURES_GARDEES=0` mesure sans, comme avant le 3 novembre 2026 au soir.
+const fraicheurDesLecturesMs = process.env.LECTURES_GARDEES === '0' ? 0 : LECTURES_GARDEES_MS
+const banc = await demarrer({ quizDbUrl: process.env.BASE_URL!, cabinet: true, expeditionRemplacee: true, prechauffageCampagneMs: 500, fraicheurDesLecturesMs })
 console.log(`PRET ${banc.url}`)
+
+// Un profil pris à la demande (`solo-charge.mjs --profil`) : SIGUSR2 le commence, le suivant l'écrit dans
+// PROFIL_FICHIER — `--cpu-prof` aurait mêlé le démarrage et le préchauffage à la charge qu'on mesure.
+let session: Session | null = null
+process.on('SIGUSR2', async () => {
+  if (!session) {
+    session = new Session()
+    session.connect()
+    await session.post('Profiler.enable')
+    await session.post('Profiler.setSamplingInterval', { interval: 500 })
+    await session.post('Profiler.start')
+    console.log('PROFIL commencé')
+    return
+  }
+  const { profile } = await session.post('Profiler.stop')
+  writeFileSync(process.env.PROFIL_FICHIER!, JSON.stringify(profile))
+  session.disconnect()
+  session = null
+  console.log('PROFIL écrit')
+})
 process.on('SIGTERM', () => {
   banc.close().finally(() => process.exit(0))
 })

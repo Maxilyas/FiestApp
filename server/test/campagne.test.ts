@@ -33,6 +33,7 @@ import {
 } from '../../shared/campagne'
 import { XP_PALIER } from '../../shared/hautsfaits'
 import { empreinteDe } from '../src/core/jour'
+import { MESURES_GARDEES_MS } from '../src/core/campagne'
 
 // ── Les règles pures ───────────────────────────────────────────────────────
 
@@ -235,9 +236,9 @@ test('la série monte de marche en marche, sur la difficulté estimée à l’é
     const ratee = db.prepare('INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le) VALUES (?, 0, ?, 1, 0, ?)')
     for (let i = 0; i < 40; i++) ratee.run(`ailleurs-${i}`, cible.id, DEBUT)
     db.close()
-    // La mesure se relit au plus toutes les dix minutes, en fond : la série qui la trouve périmée joue sur
+    // La mesure se relit au plus toutes les six heures, en fond : la série qui la trouve périmée joue sur
     // celle qu'il y a — personne ne l'attend —, une suivante sur la neuve.
-    horloge.t += 11 * 60_000
+    horloge.t += MESURES_GARDEES_MS + 60_000
     const niveauDeLaCible = async () => questionsDe(banc, (await poster(banc, lea, '/api/campagne/serie')).corps.id).find(q => q.id === cible.id)?.niveau
     assert.equal(await niveauDeLaCible(), 'facile', 'la série qui la trouve périmée joue sur celle qu’il y a')
     assert.equal(await relireJusqua(niveauDeLaCible, niveau => niveau === 'difficile'), 'difficile')

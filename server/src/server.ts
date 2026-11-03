@@ -46,7 +46,7 @@ import { servirPrecompresse } from './core/precompresse'
 import { Charge, compteurDeConnexions, plafondsDuConteneur, pouls, ramasseMiettes, releve } from './core/pouls'
 import { SondeDesGels, commencer } from './core/gels'
 import { connexionsGardeesChaudes, entretenirLesConnexions, gardeAnnoncee, noterUneDemande, type ReglagesDeLEntretien } from './core/connexions'
-import { clientDistant, transportDeLaBase } from './core/distante'
+import { clientDeLaBase, clientDistant, transportDeLaBase } from './core/distante'
 import { GARDE_DE_NODE_MS } from '../../shared/santeDuServeur'
 import { AuthStore, type AccountRec } from './auth/store'
 import { ProfileStore, cleDeSoiree } from './auth/profiles'
@@ -165,6 +165,13 @@ export interface QuizServerOptions {
    * met à 0 : ses épreuves écrivent des duels à la main, dans la base.
    */
   fraicheurDesDuelsMs?: number
+  /**
+   * Combien de temps ce qu'un accueil relit d'un joueur — ses épreuves
+   * validées, ses bonnes réponses du quiz du jour — se garde entre deux
+   * visites (`LECTURES_GARDEES_MS`, dix minutes d'office). Le banc le met à 0
+   * : ses épreuves écrivent des séries et des réponses à la main, dans la base.
+   */
+  fraicheurDesLecturesMs?: number
   /**
    * Le rappel du soir du quiz du jour (`core/rappels.ts`) : les tests
    * regardent l'heure plus souvent, et ouvrent leur propre service de push,
@@ -485,7 +492,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const profiles = new ProfileStore(opts.quizDbUrl, opts.quizDbToken)
   // Le quiz du jour, pour les profils : sa réserve, ses parties, ses nuits.
   const maintenantDuJour = opts.horlogeDuJour ?? Date.now
-  const jour = new JourStore(opts.quizDbUrl, opts.quizDbToken, { profiles, maintenant: maintenantDuJour })
+  const jour = new JourStore(opts.quizDbUrl, opts.quizDbToken, {
+    profiles,
+    maintenant: maintenantDuJour,
+    ...(opts.fraicheurDesLecturesMs !== undefined && { fraicheurDesLecturesMs: opts.fraicheurDesLecturesMs }),
+  })
   // Le bandeau rouge, les pages en maintenance et celles bientôt disponibles,
   // posés au QG : chaque page servie et chaque route qui commence une partie
   // les lisent en mémoire, testeurs compris.
@@ -535,6 +546,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     ecrireXp: (profileId, xp, jours) => profiles.ecrireXpDeCampagne(profileId, xp, jours),
     recompenses: profiles,
     ...(opts.fraicheurDesDuelsMs !== undefined && { fraicheurDesDuelsMs: opts.fraicheurDesDuelsMs }),
+    ...(opts.fraicheurDesLecturesMs !== undefined && { fraicheurDesLecturesMs: opts.fraicheurDesLecturesMs }),
   })
   // Le Cabinet de curiosités : il ne connaît la campagne que par sa porte, ses tables naissent dans son premier lot
   // (`REVEIL_DU_CABINET`) — pas d'`init` à lui —, et il lit l'heure de la campagne et le calendrier de ses fêtes.
@@ -1062,8 +1074,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
             echecsParMin: pouls.echecsDeLaBase.lire().n,
             gardeMs: GARDE_DE_NODE_MS,
             gardeAnnonceeMs: gardeAnnoncee(),
-            // Par où passent ses allers-retours (`QUIZ_DB_TRANSPORT`) : pour voir qu'il a pris.
+            // Par où passent ses allers-retours (`QUIZ_DB_TRANSPORT`), et qui les parle (`QUIZ_DB_CLIENT`) : pour voir qu'ils ont pris.
             transport: transportDeLaBase(),
+            client: clientDeLaBase(),
             chaudes: connexionsGardeesChaudes()
               ? {
                   battementsParMin: pouls.battements.lire().n,

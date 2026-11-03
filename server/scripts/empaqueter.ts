@@ -29,6 +29,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
 import { preparerLaBase } from '../src/core/baseCampagne'
+import { preparationDeLaQuestion } from '../src/core/preparationDeLaBase'
 
 const SERVEUR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -48,8 +49,9 @@ export async function empaqueter(sortie = path.join(SERVEUR, 'dist/index.mjs')):
     logLevel: 'warning',
     define: { __BASE_PREPAREE__: JSON.stringify(path.basename(base)) },
   })
-  const { questions, refusees } = preparerLaBase(base)
-  console.log(`[build] base de la campagne vérifiée : ${questions.length} questions${refusees.length > 0 ? `, ${refusees.length} écartée(s)` : ''}`)
+  // Et, à côté de chaque question, ce qu'un réveil n'a plus à refaire : ses sujets, sa famille, les cribles du Cabinet.
+  const { questions, refusees } = preparerLaBase(base, undefined, preparationDeLaQuestion)
+  console.log(`[build] base de la campagne vérifiée et préparée : ${questions.length} questions${refusees.length > 0 ? `, ${refusees.length} écartée(s)` : ''}`)
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await empaqueter()

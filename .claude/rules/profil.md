@@ -140,6 +140,13 @@ paths:
   campagne et ses bonnes réponses du jour à la boutique (`boutiqueEtDons`
   `deja`). Une lecture de plus pour l'accueil rejoint le lot de son magasin,
   jamais un aller-retour à côté (`profil-charge.test.ts` en compte trois).
+  Ses deux plus grosses lectures — ses épreuves validées, ses bonnes
+  réponses du quiz du jour sur trente jours, 14 % de ce que la production
+  lisait au quota de Turso le 3 novembre 2026 — se gardent d'une visite à
+  l'autre, jusqu'à la réponse qui les change (`core/lecturesGardees.ts`,
+  règles `sentiers.md` et `jour.md`) : tenues, elles cèdent leur place dans
+  le lot à une instruction qui ne lit rien (`SELECT 1 WHERE 0`), et ses
+  voisines gardent leur rang.
   Chaque part se rend à part, et la route rattrape chacune : ce qui tombe en
   la lisant n'ôte qu'elle ; un lot qui tombe les ôte toutes, comme une base
   qui se tait. Les missions de même, un lot par magasin

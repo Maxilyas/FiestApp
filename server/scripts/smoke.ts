@@ -18,6 +18,7 @@ import { XP, finitionsOuvertes, niveauPour, progression, xpDuNiveau } from '../.
 import { reviewFromDatabase, reviewFromServer, writeExport } from '../src/core/export'
 import { ProfileStore } from '../src/auth/profiles'
 import { calendrierDesExpeditions, calendrierDesSoirees, calendrierDuCabinet } from '../src/core/saisons'
+import { appliquerLeChangement, type ChangementDeLaSalle } from '../../shared/salle'
 
 // L'Éclat se tire une chance sur quarante par soirée, et le premier fait
 // tomber un palier de carrière — cinquante points de plus à la clôture. Le smoke
@@ -61,6 +62,42 @@ function waitFor<T>(socket: Socket, event: string, pred: (p: T) => boolean, labe
     }
     socket.on(event, handler as any)
   })
+}
+
+/**
+ * La salle telle qu'un téléphone la tient : l'instantané entier, puis chaque
+ * changement appliqué (`party:salle`), comme la page. Un téléphone ne reçoit
+ * souvent que ce qui a changé : attendre un `party:snapshot` le raterait.
+ */
+function salleDuTelephone(socket: Socket) {
+  let tenu: any = null
+  const attentes = new Set<(s: any) => void>()
+  const tenir = (s: any) => {
+    tenu = s
+    for (const attente of [...attentes]) attente(s)
+  }
+  socket.on('party:snapshot', tenir)
+  socket.on('party:salle', (c: ChangementDeLaSalle) => {
+    if (tenu) tenir(appliquerLeChangement(tenu, c))
+  })
+  return {
+    attendre(pred: (s: any) => boolean, label: string): Promise<any> {
+      if (tenu && pred(tenu)) return Promise.resolve(tenu)
+      return new Promise((resolve, reject) => {
+        const to = setTimeout(() => {
+          attentes.delete(attente)
+          reject(new Error(`timeout en attendant : ${label}`))
+        }, 8000)
+        const attente = (s: any) => {
+          if (!pred(s)) return
+          clearTimeout(to)
+          attentes.delete(attente)
+          resolve(s)
+        }
+        attentes.add(attente)
+      })
+    },
+  }
 }
 
 const tmpDir = mkdtempSync(path.join(tmpdir(), 'quizz-smoke-'))
@@ -282,8 +319,10 @@ try {
   const aliceReveal = waitFor<any>(alice, 'session:view', p => p.view.phase === 'reveal', 'reveal joueur')
   const hostReveal = waitFor<any>(host, 'session:view', p => p.view.phase === 'reveal', 'reveal host')
   // Le classement est diffusé au moment de la révélation : on écoute AVANT de répondre.
+  // L'écran commun le reçoit tout de suite ; les téléphones gardent les points
+  // de la soirée jusqu'au podium du quiz (`pointsDuQuiz`, `core/space.ts`).
   const scoreSeen = waitFor<any>(
-    bob,
+    host,
     'party:snapshot',
     s => (s.players.find((p: any) => p.id === aliceAck.playerId)?.score ?? 0) > 0,
     'score d’Alice dans le classement de la soirée',
@@ -1620,6 +1659,7 @@ try {
     quizDbUrl,
   })
   const probe = clientIo(`http://localhost:${server2.port}`, { transports: ['websocket'] })
+  const salleDeLaSonde = salleDuTelephone(probe)
   const after2 = await watch(probe, SLUG)
   assert(after2.players.length > 0, 'soirée rechargée')
   const aliceAfter = after2.players.find((p: any) => p.id === aliceAck.playerId)
@@ -1741,7 +1781,7 @@ try {
   assert(renamedSoiree.ok, 'renommer une soirée avec sa session')
 
   // « Nouvelle soirée » : la même soirée est mise à jour, son titre reste, le direct est vide.
-  const wiped = waitFor<any>(probe, 'party:snapshot', s => s.players.length === 0, 'soirée vierge')
+  const wiped = salleDeLaSonde.attendre(s => s.players.length === 0, 'soirée vierge')
   ;(host2 as any).emit('host:resetParty')
   await wiped
   const afterReset = (await (await fetch(`${url2}/s/${SLUG}/soirees.json`)).json()) as any

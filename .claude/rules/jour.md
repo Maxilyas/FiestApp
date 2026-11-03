@@ -127,6 +127,24 @@ paths:
   jour clos — rouvrir une nuit, recompter ses points — monte l'une
   d'elles, ou L'Élite de chacun resterait à l'ancien compte
   (`jour-nuit.test.ts`).
+- **Ce que ses pages relisaient de lui se garde, et sa réponse l'oublie**
+  (`LecturesGardees`, `core/lecturesGardees.ts`, le 3 novembre 2026 : 13 %
+  de ce que la production lisait au quota de Turso) : ses bonnes réponses
+  de ses trente derniers jours, que sa carrière lit à chaque accueil
+  (`justesGardees`), ce que le quiz du jour sait de lui, que sa carte et sa
+  page lisent (`savoirsGardes`, `savoirDe`), et ses bonnes réponses par
+  catégorie depuis le lundi d'avant, que ses missions jugent
+  (`categoriesGardees`, sous la semaine lue). `enregistrer` les oublie
+  après son lot, même s'il échoue — son savoir à chaque réponse, les deux
+  autres à une bonne —, un tirage qui change pour tous les oublie pour
+  chacun (`tirageChange` : `annuler`, `corriger` quand il touche le jour),
+  et `oublierProfil` ; rien ne se croit à jour plus de dix minutes
+  (`LECTURES_GARDEES_MS`). Une annulation se lit encore de ses parties,
+  relues à chaque fois (`joursJoues`), et une partie qui commence n'écrit
+  aucune bonne réponse. Une écriture de plus dans `jour_reponses` ou dans
+  les questions et les annulées de `jour_tirages` oublie ce qui en dépend,
+  ou la page montrerait l'état d'avant jusqu'à dix minutes
+  (`lectures-gardees.test.ts`).
 - **Ses bonnes réponses avec chaque compagnon se gardent**
   (`compagnonsGardes`, `JourStore.compagnonsDe`, le 23 octobre 2026 : relues
   de la base à chaque fin de partie, chaque boutique, chaque niche, 2,4 % du

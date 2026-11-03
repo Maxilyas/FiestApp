@@ -133,7 +133,7 @@ sequenceDiagram
   M-->>T: session:view — sa vue, si elle a changé
   M-->>E: session:view — le compteur, quatre fois par seconde au plus
   S-->>T: accusé — ok, ou un motif et son message
-  M->>L: sessions — l'état, à la fin du tour de boucle
+  M->>L: sessions — l'état, au plus une fois par seconde
   M->>F: l'état de la partie, au plus toutes les 2 s
   Note over Q: La dernière réponse attendue arme « settle » (0,7 s) et prend le chemin complet
   M->>Q: onTimer('settle') — la révélation
@@ -145,7 +145,7 @@ sequenceDiagram
   F->>F: batch(…, 'write') vers Turso, réessayé jusqu'au succès
   M->>R: onScoresChanged()
   R-->>E: party:snapshot — regroupé, 120 ms
-  R-->>T: party:snapshot — regroupé, 120 ms + 2 ms par invité
+  R-->>T: party:salle — les équipes seules, regroupé, 120 ms + 2 ms par invité
 ```
 
 - **`ecouter()`** (`server/src/sockets.ts`) rend toute charge objet et tout
@@ -302,7 +302,9 @@ d'animateur (wifi, santé du miroir, scène, télécommande, fin en route en plu
 téléphones (sans `connected`) —, chacune envoyée seulement si elle change :
 120 ms pour les écrans, 120 ms plus 2 ms par invité pour les téléphones, et
 l'auteur d'un geste reçoit la sienne aussitôt. Chaque veille d'écran renvoyait
-la salle à chacun : un gigaoctet pour trois cents arrivées.
+la salle à chacun : un gigaoctet pour trois cents arrivées. Aux téléphones ne
+part souvent que ce qui a changé (`party:salle`), et pendant un quiz les points
+de la soirée attendent son podium.
 → [Le temps réel](./temps-reel.md)
 
 **5. Les chronomètres sont persistés.** Leurs échéances s'écrivent avec la

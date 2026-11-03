@@ -371,6 +371,47 @@ export function testerLesConnexions(transport: TransportDeLaBase, coupee: (e: un
     }
   })
 
+  test(`${transport} · l’entretien ne garde chaudes que les connexions que la dernière fenêtre a demandées de front`, async () => {
+    // Toutes les connexions libres gardées, un battement chacune toutes les trois secondes :
+    // 138 par minute en production le 3 novembre 2026, pour des joueurs qui répondaient une
+    // question à la fois.
+    const turso = await fauxTurso()
+    let enVol = 0
+    let plusFort = 0
+    const battre = async () => {
+      enVol++
+      plusFort = Math.max(plusFort, enVol)
+      try {
+        await allerRetour(turso.adresse, { battement: true })
+      } finally {
+        enVol--
+      }
+    }
+    const arreter = entretenirLesConnexions(battre, { battementMs: 300, chaudesMs: 2_000 })
+    try {
+      noterUneDemande()
+      // Une page qui lance trois lectures de front : il garde ses trois connexions.
+      const avant = comptes()
+      await Promise.all([allerRetour(turso.adresse), allerRetour(turso.adresse), allerRetour(turso.adresse)])
+      await quand(() => comptes().battements - avant.battements >= 3, 'des battements après le calme')
+      assert.equal(plusFort, 3, 'les trois connexions de la page, gardées de front')
+      // Puis une réponse à la fois, plus longtemps que la fenêtre : la page est loin, il n'en garde plus qu'une.
+      const fin = performance.now() + 2_600
+      while (performance.now() < fin) {
+        noterUneDemande()
+        await allerRetour(turso.adresse)
+        await attendre(100)
+      }
+      plusFort = 0
+      const ensuite = comptes().battements
+      await quand(() => comptes().battements - ensuite >= 2, 'des battements, une réponse à la fois')
+      assert.equal(plusFort, 1, 'une seule gardée chaude : rien ne demande plus les deux autres')
+    } finally {
+      arreter()
+      await turso.fermer()
+    }
+  })
+
   test(`${transport} · un battement ne compte ni dans le temps de Turso, ni dans ses échecs, ni parmi les connexions qu’un joueur a payées`, async () => {
     const turso = await fauxTurso()
     const coupe = await fauxTurso({ coupe: true })

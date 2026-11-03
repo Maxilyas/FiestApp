@@ -93,7 +93,13 @@ paths:
   journal des réponses. Un test qui compte les allers-retours démarre le
   sien à la fraîcheur de la production (`fraicheurDesDuelsMs: 3_600_000`,
   `duels-attente.test.ts`, `profil-charge.test.ts`), sinon chaque lecture
-  des duels en compte un de plus. Ce qu'un test efface ou modifie derrière
+  des duels en compte un de plus. Ce que l'accueil, la carte et les
+  missions gardent d'un joueur entre deux visites aussi
+  (`fraicheurDesLecturesMs: 0` au banc, `core/lecturesGardees.ts`) : une
+  épreuve validée ou une réponse du jour écrite à la main paraît à la
+  lecture suivante ; `lectures-gardees.test.ts` démarre le sien à la
+  fraîcheur de la production (`LECTURES_GARDEES_MS`). Un magasin construit
+  à la main garde, lui, comme en ligne. Ce qu'un test efface ou modifie derrière
   le dos du serveur — une réponse, une série — ne se voit qu'après
   `banc.redemarrer()` ; au réveil, les tranches gardées du journal des
   réponses se sont effacées d'elles-mêmes, par leurs déclencheurs (règle

@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { createQuizServer, DemarrageRefuse, MOT_DE_PASSE_PAR_DEFAUT } from './server'
 import { chaudesDemandees } from './core/connexions'
-import { choisirLeTransport, DELAI_DISTANT_MS, pourquoiInjoignable, transportDemande } from './core/distante'
+import { choisirLeClient, choisirLeTransport, clientDemande, DELAI_DISTANT_MS, pourquoiInjoignable, transportDemande } from './core/distante'
 import { ramasseMiettes, releve } from './core/pouls'
 import { SERVEUR } from './racine'
 
@@ -66,6 +66,15 @@ if ('refus' in transport) console.warn(`[base] ${transport.refus}`)
 else {
   choisirLeTransport(transport.transport)
   if (transport.transport === 'leger') console.log('[base] allers-retours vers la base par le transport léger (QUIZ_DB_TRANSPORT=leger)')
+}
+// Le client minimal de la base (le banc solo du 3 novembre 2026) : le même
+// protocole que libsql, sans ses objets — un tiers du processeur d'une requête
+// partait dans le client. Il s'essaie en préproduction, comme le transport.
+const client = clientDemande(process.env.QUIZ_DB_CLIENT)
+if ('refus' in client) console.warn(`[base] ${client.refus}`)
+else {
+  choisirLeClient(client.client)
+  if (client.client === 'minimal') console.log('[base] la base se parle par le client minimal (QUIZ_DB_CLIENT=minimal)')
 }
 // Le ramasse-miettes, réglé par la commande de démarrage (le banc du 19
 // octobre 2026) : en parallèle et avec son réducteur de mémoire, il figeait

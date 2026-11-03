@@ -20,8 +20,14 @@
 // `retours/2026-11-02/reproductions/gels-rejoues.ts` fabrique à son premier
 // passage. Les joueurs se connectent avant la bride : la réserve d'essais
 // de connexion en laisse passer vingt d'un coup par adresse, puis attend.
+//
+// Pour savoir où part le processeur, sans la bride (`--libre`) :
+//   --paliers 1 --couts   un seul joueur : le processeur de chaque requête, lu au fil près
+//                         (`/proc/<pid>/task/*/schedstat`), moyenné par route ;
+//   --profil <fichier>    le profil du serveur pendant la mesure du premier palier seulement
+//                         (SIGUSR2, `solo-serveur.ts`), sans le démarrage ni le préchauffage.
 import { spawn } from 'node:child_process'
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { performance } from 'node:perf_hooks'
@@ -40,6 +46,11 @@ const DUREE = Number(arg('duree', 90)) * 1000
 const ATTENTE = Number(arg('attente', 150)) * 1000
 const [REFLEXION_MIN, REFLEXION_MAX] = String(arg('reflexion', '4,9')).split(',').map(Number)
 const BRIDE = !process.argv.includes('--libre')
+const COUTS = process.argv.includes('--couts')
+// `--chaud` : le Cabinet préparé avant la mesure, comme la production le prépare dès que la page d'un profil
+// s'ouvre (`prechauffageAuProfil`, que le banc ferme) — sinon le premier départ le prépare lui-même, 2 s de processeur.
+const CHAUD = process.argv.includes('--chaud')
+const PROFIL = arg('profil', null)
 
 // ── La base, le faux Turso, le serveur ─────────────────────────────────────
 const source = path.join(racine, 'export/perf-turso/permanente-gel-35k.db')
@@ -52,8 +63,23 @@ await faux.latence(30)
 const serveur = spawn(
   process.execPath,
   ['--single-threaded-gc', '--no-memory-reducer', '--max-old-space-size=320', path.join(racine, 'export/banc/solo-serveur.mjs')],
-  { cwd: path.join(racine, 'server'), env: { ...process.env, BASE_URL: faux.url }, stdio: ['ignore', 'pipe', 'pipe'] },
+  {
+    cwd: path.join(racine, 'server'),
+    env: { ...process.env, BASE_URL: faux.url, ...(PROFIL && { PROFIL_FICHIER: path.resolve(PROFIL) }) },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  },
 )
+// Le processeur du serveur, en millisecondes, tous ses fils : le planificateur le compte à la nanoseconde
+// (`schedstat`), quand `/proc/<pid>/stat` ne le dit qu'au centième de seconde.
+const processeurDuServeur = () => {
+  let ns = 0
+  for (const fil of readdirSync(`/proc/${serveur.pid}/task`)) {
+    try {
+      ns += Number(readFileSync(`/proc/${serveur.pid}/task/${fil}/schedstat`, 'utf8').split(' ')[0])
+    } catch {}
+  }
+  return ns / 1e6
+}
 const journalServeur = []
 serveur.stderr.on('data', d => journalServeur.push(String(d)))
 let url = null
@@ -74,7 +100,10 @@ await new Promise((ok, ko) => {
 // ── Les appels, mesurés ────────────────────────────────────────────────────
 let mesures = null
 async function appel(cookie, methode, chemin, corps, route) {
+  // Un seul joueur à la fois (`--couts`) : le faux Turso range chaque aller-retour sous la route qui le cause.
+  if (COUTS && mesures) await faux.etiquette(route ?? `${methode} ${chemin}`)
   const t0 = performance.now()
+  const cpu0 = COUTS ? processeurDuServeur() : 0
   let status = -1
   let json = null
   try {
@@ -88,7 +117,7 @@ async function appel(cookie, methode, chemin, corps, route) {
   } catch {
     status = -1
   }
-  mesures?.push({ route: route ?? `${methode} ${chemin}`, ms: performance.now() - t0, status })
+  mesures?.push({ route: route ?? `${methode} ${chemin}`, ms: performance.now() - t0, status, ...(COUTS && { cpu: processeurDuServeur() - cpu0 }) })
   return { status, json }
 }
 
@@ -120,6 +149,12 @@ if (BRIDE) {
 console.log(`⚡ joueurs en solo ${BRIDE ? 'au dixième de cœur' : 'sur un vrai cœur'}, paliers ${PALIERS.join(' → ')}, ${DUREE / 1000} s chacun — ${journalServeur.length} lignes au démarrage`)
 // Le préchauffage d'après le démarrage — la base, le journal des réponses, le modèle du savoir —, bridé lui aussi.
 await new Promise(r => setTimeout(r, ATTENTE))
+if (CHAUD) {
+  // Une traversée partie puis abandonnée par le dernier joueur : le contenu du Cabinet est prêt pour tous.
+  const dernier = joueurs[joueurs.length - 1]
+  const t = (await appel(dernier.cookie, 'POST', '/api/cabinet/traversee', {})).json?.traversee
+  if (t) await appel(dernier.cookie, 'POST', `/api/cabinet/traversee/${t.id}/geste`, { rang: t.rang, geste: { quoi: 'abandonner' } })
+}
 
 // ── Ce qu'un joueur fait ───────────────────────────────────────────────────
 const dormir = ms => new Promise(r => setTimeout(r, ms))
@@ -194,6 +229,11 @@ async function jouer(j) {
   // Puis la campagne et le Cabinet, au hasard.
   while (!fini) {
     await dormir(1000 + Math.random() * 3000)
+    // `--couts` : l'accueil entre deux parties, pour en mesurer le prix avec le reste.
+    if (COUTS) {
+      await appel(j.cookie, 'GET', '/api/joueur/moi?accueil', undefined, 'GET accueil')
+      await appel(j.cookie, 'GET', '/api/joueur/missions', undefined, 'GET missions')
+    }
     const x = Math.random()
     if (x < 0.45) {
       await appel(j.cookie, 'GET', '/api/campagne', undefined, 'GET campagne')
@@ -228,9 +268,18 @@ for (const palier of PALIERS) {
   await dormir(15_000)
   mesures = []
   const t0 = Date.now()
+  const cpuDebut = processeurDuServeur()
+  const profiler = PROFIL && palier === PALIERS[0]
+  if (profiler) serveur.kill('SIGUSR2')
   await dormir(DUREE)
   const lues = mesures
   mesures = null
+  const processeurMs = processeurDuServeur() - cpuDebut
+  if (profiler) {
+    const avant = journalServeur.length
+    serveur.kill('SIGUSR2')
+    while (!journalServeur.slice(avant).join('').includes('PROFIL écrit')) await dormir(200)
+  }
   const sante = await (await fetch(`${url}/healthz`)).json().catch(() => null)
   const ms = lues.map(m => m.ms)
   const erreurs = lues.filter(m => m.status >= 500 || m.status < 0).length
@@ -248,12 +297,54 @@ for (const palier of PALIERS) {
     erreurs,
     refus,
     charge: sante?.charge ?? null,
+    // Le processeur du serveur pendant la mesure, et ce qu'il fait par requête servie — le travail de fond compris.
+    processeurMs: Math.round(processeurMs),
+    processeurParRequeteMs: +(processeurMs / Math.max(1, lues.length)).toFixed(1),
     routes: [...parRoute].map(([route, v]) => ({ route, n: v.length, p50: Math.round(pc(v, 0.5)), p95: Math.round(pc(v, 0.95)), max: Math.round(Math.max(...v)) })).sort((a, b) => b.p95 - a.p95),
+    ...(COUTS && {
+      couts: [...new Set(lues.map(m => m.route))]
+        .map(route => {
+          const v = lues.filter(m => m.route === route).map(m => m.cpu)
+          return { route, n: v.length, moyenneMs: +(v.reduce((a, b) => a + b, 0) / v.length).toFixed(1), p50: +pc(v, 0.5).toFixed(1), max: +Math.max(...v).toFixed(1) }
+        })
+        .sort((a, b) => b.moyenneMs * b.n - a.moyenneMs * a.n),
+    }),
   }
   resultats.push(r)
   console.log(`\n${palier} joueurs : ${r.requetes} requêtes (${r.parSeconde}/s) — attente p50 ${r.p50} ms, p95 ${r.p95} ms, max ${r.max} ms ; ${r.plusDe2s} au-delà de 2 s ; ${r.erreurs} erreurs, ${r.refus} refus`)
   if (r.charge) console.log(`   serveur : processeur ${r.charge.cpuPct} %, gelé ${r.charge.geleePct} % (pire ${r.charge.geleeMaxPct} %), boucle p99 ${r.charge.retardBoucleP99Ms} ms, max ${r.charge.retardBoucleMaxMs} ms`)
+  console.log(`   processeur du serveur : ${r.processeurMs} ms en ${DUREE / 1000} s, ${r.processeurParRequeteMs} ms par requête servie`)
   for (const x of r.routes.slice(0, 6)) console.log(`   ${x.route.padEnd(42)} n ${String(x.n).padStart(4)}  p50 ${String(x.p50).padStart(5)}  p95 ${String(x.p95).padStart(5)}  max ${String(x.max).padStart(5)} ms`)
+  if (r.couts) {
+    // Les allers-retours vers la base que chaque route a causés, lus au faux Turso (son étiquette, posée avant l'appel).
+    const { allers, plans } = await faux.releve()
+    const parEtiquette = new Map()
+    for (const a of allers) {
+      const x = parEtiquette.get(a.etiquette) ?? { allers: 0, instructions: 0, octets: 0 }
+      x.allers++
+      x.instructions += a.instructions
+      x.octets += a.octets
+      parEtiquette.set(a.etiquette, x)
+    }
+    console.log('   le processeur de chaque requête (moyenne, médiane, pire) et ses allers-retours vers la base (par appel : allers, instructions, Ko) :')
+    for (const x of r.couts) {
+      const b = parEtiquette.get(x.route)
+      const base = b ? `${(b.allers / x.n).toFixed(1).padStart(5)} ${(b.instructions / x.n).toFixed(1).padStart(6)} ${(b.octets / x.n / 1024).toFixed(1).padStart(7)}` : '    —'
+      console.log(`   ${x.route.padEnd(42)} n ${String(x.n).padStart(4)}  ${String(x.moyenneMs).padStart(6)}  ${String(x.p50).padStart(6)}  ${String(x.max).padStart(7)} ms  │ ${base}`)
+    }
+    // Ce qui pèse dans les Ko des routes les plus lourdes : chaque requête, ce qu'elle a rendu par appel (`--detail`).
+    if (process.argv.includes('--detail')) {
+      for (const x of r.couts.filter(c => (parEtiquette.get(c.route)?.octets ?? 0) / c.n > 8 * 1024)) {
+        console.log(`\n   ${x.route} — ce que chaque requête rend, par appel :`)
+        const lourdes = plans
+          .map(p => ({ sql: p.sql.replace(/\s+/g, ' ').slice(0, 150), o: (p.octetsPar?.[x.route] ?? 0) / x.n }))
+          .filter(p => p.o > 256)
+          .sort((a, b) => b.o - a.o)
+          .slice(0, 10)
+        for (const p of lourdes) console.log(`   ${(p.o / 1024).toFixed(1).padStart(7)} Ko  ${p.sql}`)
+      }
+    }
+  }
 }
 fini = true
 const sortie = path.join(racine, 'export/evaluations/solo')

@@ -49,7 +49,8 @@ const minuteries = new WeakMap<object, ReturnType<typeof setTimeout>>()
 
 interface Aller { etiquette: string; t: number; ms: number; sqliteMs: number; instructions: number; sqls: string[]; octets: number }
 let allers: Aller[] = []
-interface Plan { sql: string; plan: string[]; scans: string[]; n: number; ms: number; lignes: number; etiquettes: Set<string> }
+// `octetsPar` : ce que chaque requête a rendu, étiquette par étiquette — ce qui pèse dans les Ko d'une route (le 3 novembre 2026).
+interface Plan { sql: string; plan: string[]; scans: string[]; n: number; ms: number; lignes: number; etiquettes: Set<string>; octets: number; octetsPar: Map<string, number> }
 const plans = new Map<string, Plan>()
 
 const prepares = new Map<string, any>()
@@ -97,7 +98,7 @@ function expliquer(sql: string, args: unknown[] | Record<string, unknown>) {
       }
     }
     const scans = plan.filter(d => /^SCAN /.test(d) && !/^SCAN CONSTANT ROW/.test(d))
-    p = { sql, plan, scans, n: 0, ms: 0, lignes: 0, etiquettes: new Set() }
+    p = { sql, plan, scans, n: 0, ms: 0, lignes: 0, etiquettes: new Set(), octets: 0, octetsPar: new Map() }
     plans.set(sql, p)
   }
   return p
@@ -139,6 +140,9 @@ function executer(stmt: Stmt, sqls: Map<number, string>): { cols: { name: string
   p.ms += ms
   p.lignes += resultat.rows.length
   p.etiquettes.add(etiquette)
+  const octets = JSON.stringify(resultat.rows).length
+  p.octets += octets
+  p.octetsPar.set(etiquette, (p.octetsPar.get(etiquette) ?? 0) + octets)
   return { ...resultat, _sql: sql, _ms: ms }
 }
 
@@ -255,7 +259,7 @@ const serveur = createServer(async (req, res) => {
   if (req.method === 'POST' && url === '/__remise') {
     allers = []
     connexions = 0
-    for (const p of plans.values()) { p.n = 0; p.ms = 0; p.lignes = 0; p.etiquettes.clear() }
+    for (const p of plans.values()) { p.n = 0; p.ms = 0; p.lignes = 0; p.etiquettes.clear(); p.octets = 0; p.octetsPar.clear() }
     return json(res, 200, { ok: true })
   }
   if (req.method === 'POST' && url === '/__connexions') {
@@ -270,7 +274,7 @@ const serveur = createServer(async (req, res) => {
     return json(res, 200, {
       allers,
       connexions,
-      plans: [...plans.values()].map(p => ({ ...p, etiquettes: [...p.etiquettes] })),
+      plans: [...plans.values()].map(p => ({ ...p, etiquettes: [...p.etiquettes], octetsPar: Object.fromEntries(p.octetsPar) })),
     })
   }
   if (req.method === 'POST' && (url === '/v2/pipeline' || url.endsWith('/v2/pipeline'))) {

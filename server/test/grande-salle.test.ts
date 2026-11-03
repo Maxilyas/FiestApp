@@ -29,11 +29,12 @@ import { initDb, type DB } from '../src/core/db'
 import { Party } from '../src/core/party'
 import { ScoreLedger } from '../src/core/scores'
 import { AnswerLog } from '../src/core/answers'
-import { GameEngine } from '../src/core/engine'
+import { ETAT_ECRIT_TOUTES_LES_MS, GameEngine } from '../src/core/engine'
 import { quizModule, setQuizLibrary } from '../src/games/quiz'
 import type { GameModule } from '../src/core/types'
 import { ProfileStore } from '../src/auth/profiles'
 import { enParallele } from '../src/core/space'
+import type { ChangementDeLaSalle } from '../../shared/salle'
 
 // ── Le moteur seul, sur une vraie base et un faux `io` qui écoute ─────────
 
@@ -271,16 +272,20 @@ test('l’écran commun reçoit le compteur de réponses quatre fois par seconde
   }
 })
 
-test('les réponses lues dans le même tour s’écrivent une fois, et l’arrêt n’en perd aucune', () => {
+test('les réponses d’une même seconde s’écrivent une fois, et l’arrêt n’en perd aucune', () => {
   mock.timers.enable({ apis: ['setTimeout', 'setImmediate', 'Date'], now: 1_000_000 })
   const s = salle(30)
   ouvrir()
   try {
     const avant = s.ecritures()
-    for (let i = 0; i < 20; i++) s.engine.handlePlayerAction(s.sid, s.ids[i], { type: 'answer', choice: 1 })
-    mock.timers.tick(0)
-    // Mesuré avant : vingt écritures de l'état entier de la partie.
-    assert.equal(s.ecritures() - avant, 1, 'une écriture pour la rafale')
+    // Vingt réponses, chacune dans son tour de boucle, une toutes les 45 ms.
+    for (let i = 0; i < 20; i++) {
+      s.engine.handlePlayerAction(s.sid, s.ids[i], { type: 'answer', choice: 1 })
+      mock.timers.tick(45)
+    }
+    mock.timers.tick(ETAT_ECRIT_TOUTES_LES_MS)
+    // Mesuré avant : une écriture de l'état entier de la partie par tour — vingt (le 3 novembre 2026).
+    assert.equal(s.ecritures() - avant, 1, 'une écriture pour la seconde')
     const etat = () => {
       const row = s.db.prepare('SELECT state FROM sessions WHERE id = ?').get(s.sid) as { state: string }
       return JSON.parse(row.state)
@@ -317,12 +322,14 @@ test('une panne dans l’écriture regroupée ou dans la vue de l’écran commu
       throw new Error('disque plein')
     }
     s.engine.handlePlayerAction(s.sid, s.ids[0], { type: 'answer', choice: 0 })
-    assert.doesNotThrow(() => mock.timers.tick(0), 'l’écriture en panne ne remonte pas')
+    assert.doesNotThrow(() => mock.timers.tick(ETAT_ECRIT_TOUTES_LES_MS), 'l’écriture en panne ne remonte pas')
     assert.equal(erreurs.mock.callCount(), 1, 'elle est journalisée')
     delete (s.engine as any).persist
 
-    // La vue de l'écran commun, à la fin de sa fenêtre.
+    // La vue de l'écran commun, à la fin de sa fenêtre : la seconde écoulée
+    // pour l'écriture l'a refermée — une réponse la rouvre, la suivante y attend.
     s.engine.handlePlayerAction(s.sid, s.ids[1], { type: 'answer', choice: 0 })
+    s.engine.handlePlayerAction(s.sid, s.ids[2], { type: 'answer', choice: 0 })
     casse = true
     assert.doesNotThrow(() => mock.timers.tick(250), 'la vue en panne ne remonte pas')
     assert.equal(erreurs.mock.callCount(), 2, 'elle est journalisée')
@@ -529,7 +536,10 @@ test('la veille d’un téléphone ne repart qu’à l’écran commun', async (
   await Promise.all(invites.map(i => instantane<any>(i.socket, s => s.players.length >= 6, 'la salle au complet')))
   let recus = 0
   const compter = () => recus++
-  for (const inv of invites.slice(0, 5)) inv.socket.on('party:snapshot', compter)
+  for (const inv of invites.slice(0, 5)) {
+    inv.socket.on('party:snapshot', compter)
+    inv.socket.on('party:salle', compter)
+  }
   const dormeur = invites[5]
   dormeur.socket.close()
   await instantane<any>(
@@ -551,10 +561,21 @@ test('la veille d’un téléphone ne repart qu’à l’écran commun', async (
   await patienter(150)
   assert.equal(recus, 0, 'et son retour ne repart pas non plus aux autres')
 
-  // Une arrivée, elle, change la salle de tout le monde.
+  // Une arrivée, elle, change la salle de tout le monde — et ne part qu'elle :
+  // une ligne, pas la salle entière à chacun.
+  const arrivee = attendre<ChangementDeLaSalle>(tel, 'party:salle', c => !!c.joueurs?.some(p => p.name === 'Nouvelle'), 'l’arrivée, seule')
   const nouvelle = await invite(banc.url, 'Nouvelle', '🐸')
   ouverts.push(nouvelle.socket)
-  await attendre<any>(tel, 'party:snapshot', s => s.players.length === 7, 'l’arrivée vue des téléphones')
+  const changement = await arrivee
+  assert.deepEqual(changement.joueurs!.map(p => p.id), [nouvelle.playerId], 'la seule arrivée')
+  assert.equal(changement.partis, undefined)
+  const vue = await instantane<any>(tel, s => s.players.length === 7, 'l’arrivée vue des téléphones')
+  assert.equal(vue.players.at(-1).id, nouvelle.playerId, 'au bout de la salle, comme chez l’écran commun')
+  assert.deepEqual(
+    vue.players.map((p: any) => p.id),
+    (await instantane<any>(host, s => s.players.length === 7)).players.map((p: any) => p.id),
+    'la même salle que celle de l’écran commun',
+  )
 })
 
 test('un téléphone qui rejoint reçoit l’instantané de la salle, même sans l’avoir suivie', async () => {

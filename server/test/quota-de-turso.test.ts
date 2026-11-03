@@ -9,7 +9,7 @@ import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import React from 'react'
-import { choisirLeTransport, clientDistant, type TransportDeLaBase } from '../src/core/distante'
+import { choisirLeClient, choisirLeTransport, clientDistant, type ClientDeLaBase, type TransportDeLaBase } from '../src/core/distante'
 import { ReleveHoraire, releve } from '../src/core/pouls'
 import { LIGNES_D_UNE_LOURDE, coutDeLAllerRetour, familleDeLaRequete } from '../src/core/quotaDeTurso'
 import {
@@ -293,12 +293,19 @@ async function fauxTursoQuiCompte() {
   }
 }
 
-for (const transport of ['fetch', 'leger'] as TransportDeLaBase[]) {
-  test(`par le transport ${transport === 'fetch' ? 'du fetch de Node' : 'léger'}, chaque aller-retour compte ses lignes au relevé de l’heure — la requête partie entière`, async () => {
+// Et par chaque client : libsql range le SQL d'un lot d'avance (`store_sql`), le client minimal l'écrit à sa place.
+for (const [transport, laBase] of [
+  ['fetch', 'libsql'],
+  ['leger', 'libsql'],
+  ['leger', 'minimal'],
+] as [TransportDeLaBase, ClientDeLaBase][]) {
+  test(`par le transport ${transport === 'fetch' ? 'du fetch de Node' : 'léger'} et le client ${laBase}, chaque aller-retour compte ses lignes au relevé de l’heure — la requête partie entière`, async () => {
     const turso = await fauxTursoQuiCompte()
     choisirLeTransport(transport)
+    choisirLeClient(laBase)
     releve.remettreAZero()
     const client = clientDistant(turso.adresse)
+    choisirLeClient('libsql')
     try {
       await client.execute({ sql: 'SELECT * FROM lourde WHERE id = ?', args: ['un'] })
       // Les étapes d'un lot citent leur texte par son numéro : le relevé le retrouve.

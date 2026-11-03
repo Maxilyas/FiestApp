@@ -13,6 +13,8 @@ import {
 } from './consigneCampagne'
 import { IndexDesFaits, indexSansBloquer, motifDuMemeFait } from './memeFait'
 import { enTranches, laisserPasserLaSalle, rendreLaMain } from './tourniquet'
+import { LECTURES_GARDEES_MS, LecturesGardees, type LectureDansUnLot } from './lecturesGardees'
+import { preparationDe } from './preparees'
 import { QUESTIONS_D_UNE_TRANCHE, dUneTraite, type CalculEnTranches } from '../../../shared/tranches'
 import { enFond, suivre } from './gels'
 import {
@@ -56,11 +58,14 @@ import {
   forceDuJoueur,
   forcePourLeNiveau,
   indiceDeCategorie,
+  modeleEnTexte,
+  modeleRelu,
   scoreAttendu,
   scoreDeReference,
   serieDeReferenceEnTranches,
   type ForceDUnJoueur,
   type ModeleDuSavoir,
+  type ModeleGarde,
   type SerieDeReference,
 } from './modeleDuSavoir'
 import { jourAvant, jourDe, minutesAvantMinuit, type PalierTombe } from '../../../shared/jour'
@@ -647,7 +652,7 @@ interface AdversaireGarde {
 
 /**
  * La mesure des difficultés : les comptes du journal, relus au plus toutes
- * les dix minutes (`brutes`, et `premieres` pour les familles), et ce que
+ * les six heures (`MESURES_GARDEES_MS` ; `brutes`, et `premieres` pour les familles), et ce que
  * les familles en font pour la base d'où elle a été tirée (`parQuestion`,
  * refait quand la base change).
  */
@@ -696,7 +701,21 @@ function* metasEnTranches(questions: readonly QuestionDeLaBase[], tranche: numbe
   return metas
 }
 
-/** La famille de chaque question de la base, en tranches (`CalculEnTranches`) : celles déjà lues reprises telles quelles. */
+/** La famille d'une question, calculée : la règle même, que le build fait une fois pour toute la base (`core/preparationDeLaBase.ts`). */
+export function familleCalculee(q: QuestionDeLaBase): string | null {
+  return familleDeQuestion({
+    categorie: q.meta.categorie,
+    difficulte: q.meta.difficulte,
+    // Ses entités avec : une personne se mesure à part des autres mots (`FormeDeReponse`).
+    forme: formeDeReponse({ reponses: q.reponses, bonne: q.bonne, valeur: q.meta.valeur, entites: q.meta.entites }),
+  })
+}
+
+/**
+ * La famille de chaque question de la base, en tranches (`CalculEnTranches`) :
+ * celles déjà lues reprises telles quelles, celles que le build a lues
+ * (`preparationDe`) aussi.
+ */
 function* famillesEnTranches(questions: readonly QuestionDeLaBase[], tranche: number): CalculEnTranches<FamilleDUneQuestion[]> {
   const familles: FamilleDUneQuestion[] = new Array(questions.length)
   for (let i = 0; i < questions.length; i++) {
@@ -704,16 +723,8 @@ function* famillesEnTranches(questions: readonly QuestionDeLaBase[], tranche: nu
     const q = questions[i]
     let f = FAMILLES.get(q)
     if (!f) {
-      f = {
-        id: q.id,
-        difficulte: q.meta.difficulte,
-        // Ses entités avec : une personne se mesure à part des autres mots (`FormeDeReponse`).
-        famille: familleDeQuestion({
-          categorie: q.meta.categorie,
-          difficulte: q.meta.difficulte,
-          forme: formeDeReponse({ reponses: q.reponses, bonne: q.bonne, valeur: q.meta.valeur, entites: q.meta.entites }),
-        }),
-      }
+      const prepare = preparationDe(q)
+      f = { id: q.id, difficulte: q.meta.difficulte, famille: prepare ? prepare.famille : familleCalculee(q) }
       FAMILLES.set(q, f)
     }
     familles[i] = f
@@ -740,8 +751,19 @@ interface Duel {
   vuLe: number | null
 }
 
-/** La difficulté mesurée se relit au plus toutes les dix minutes : elle bouge lentement, et chaque série la lit. */
-const MESURES_GARDEES_MS = 10 * 60_000
+/**
+ * La difficulté mesurée se relit au plus toutes les six heures : elle bouge
+ * avec les jours, pas avec les clics — trente mille réponses, mille de plus par
+ * jour. Toutes les dix minutes jusqu'au 3 novembre 2026 : chaque relecture
+ * refait derrière elle ses familles, la préparation des tirages de toutes les
+ * catégories et la série de référence, en tranches — et au dixième de cœur de
+ * l'hébergeur, c'est la quantité de travail qui gèle, pas sa forme : 1 à 2 s
+ * de gel plusieurs fois par heure, les premiers du relevé de la production
+ * après le démarrage (« fond · mesure des difficultés », « fond · tirages de
+ * la mesure neuve »). Un réveil la relit de toute façon : la production dort
+ * chaque nuit.
+ */
+export const MESURES_GARDEES_MS = 6 * 60 * 60_000
 /**
  * Lue dès ses deux dernières minutes, elle se relit en fond (`mesures`), et
  * personne ne l'attend plus : la requête qui l'aurait trouvée périmée — un
@@ -749,18 +771,22 @@ const MESURES_GARDEES_MS = 10 * 60_000
  * son calcul, 1,2 à 1,4 s au dixième de cœur de l'hébergeur (le banc du
  * 16 octobre 2026), 2,9 s pour un duel en production (le 22 octobre).
  */
-const MESURE_EN_AVANCE_MS = 2 * 60_000
+export const MESURE_EN_AVANCE_MS = 2 * 60_000
 /** Une relecture de la mesure tentée — réussie ou ratée —, la suivante attend au moins ceci : une base muette ne se fait pas relire à chaque requête. */
 const MESURE_RETENTEE_MS = 2 * 60_000
 /**
- * Le modèle du savoir se refait au plus toutes les demi-heures, et seulement
+ * Le modèle du savoir se refait au plus toutes les six heures, et seulement
  * quand un dé le demande : il relit les réponses de tout le monde, et ses
  * difficultés bougent lentement — la force de qui lance le dé, elle, se
- * relit à chaque dé.
+ * relit à chaque dé. Toutes les demi-heures jusqu'au 3 novembre 2026 : un
+ * ajustement prend quatre secondes en production, et ses gels suivaient la
+ * mesure des difficultés au relevé de l'heure (« fond · modèle du savoir »).
  */
-const MODELE_GARDE_MS = 30 * 60_000
+export const MODELE_GARDE_MS = 6 * 60 * 60_000
 /** Un ajustement raté ne se retente pas avant une minute : une base muette ne se fait pas relire à chaque dé. */
 const MODELE_RETENTE_MS = 60_000
+/** Sa clé dans `campagne_meta`, où se garde le dernier ajustement (`ModeleGarde`) : un réveil en repart. */
+export const CLE_DU_MODELE = 'modele_du_savoir'
 /** Combien de séries en cours restent en mémoire (`enCours`) : celles qu'on joue, et de la marge pour celles qu'on a laissées. */
 const SERIES_GARDEES = 500
 /**
@@ -1185,13 +1211,15 @@ export class CampagneStore {
    * Le modèle du savoir (`core/modeleDuSavoir.ts`) : les difficultés de la
    * base et la force de chacun, ajustées ensemble sur les premières réponses
    * de tous. Refait en fond, à la demande du dé, au plus toutes les
-   * demi-heures (`MODELE_GARDE_MS`) — jamais sur son chemin : le dé lit celui
+   * six heures (`MODELE_GARDE_MS`) — jamais sur son chemin : le dé lit celui
    * qu'il y a, et avant le premier, la part de ceux qui ont trouvé chaque
    * question (`difficulteSansModele`).
    */
-  private savoir: { a: number; modele: ModeleDuSavoir; dureeMs: number } | null = null
+  private savoir: (ModeleGarde & { relu?: boolean }) | null = null
   private savoirEnRoute: Promise<void> | null = null
   private savoirRateLe = Number.NEGATIVE_INFINITY
+  /** Le modèle gardé dans la base a déjà été cherché (`reprendreLeModele`) : une fois par processus, au premier ajustement. */
+  private modeleRepris = false
   /**
    * Le journal des réponses (`core/journalDesReponses.ts`) : lu en entier une
    * fois, puis seulement ce qui lui est arrivé depuis, dans le lot de la
@@ -1258,6 +1286,14 @@ export class CampagneStore {
   private preparations = new WeakMap<readonly QuestionDeLaBase[], PreparationDuTirage>()
   /** Les préparations qui se font, en tranches (`tirage`) : qui la demande pendant ce temps l'attend. */
   private preparationsEnRoute = new WeakMap<readonly QuestionDeLaBase[], { mesure: ReadonlyMap<string, MesureDUneQuestion>; preparee: Promise<PreparationDuTirage> }>()
+  /**
+   * Ses épreuves de sentier validées, gardées par profil entre deux visites
+   * (`lectureDesValidees`) : l'accueil, la page des sentiers, son solde et ses
+   * paliers les relisaient à chaque fois — 186 lignes, la plus grosse lecture
+   * de chaque accueil en production (le 3 novembre 2026). Seule une réponse
+   * d'épreuve les change (`repondreEpreuve`), et les oublie.
+   */
+  private readonly validees: LecturesGardees<readonly ValideeLue[]>
 
   constructor(
     url: string,
@@ -1270,6 +1306,8 @@ export class CampagneStore {
       recompenses?: RecompensesDeCampagne
       /** Combien de temps le journal des duels se croit à jour de ce qui s'écrit sans ce serveur (`FRAICHEUR_DES_DUELS_MS`) ; le banc, 0. */
       fraicheurDesDuelsMs?: number
+      /** Combien de temps ses épreuves validées se gardent entre deux visites (`LECTURES_GARDEES_MS`) ; le banc, 0. */
+      fraicheurDesLecturesMs?: number
       /** Combien de questions un calcul de fond passe d'une traite (`QUESTIONS_D_UNE_TRANCHE`) ; un test, moins. */
       questionsParTranche?: number
     } = {},
@@ -1279,6 +1317,9 @@ export class CampagneStore {
     this.fraicheurDesDuels = opts.fraicheurDesDuelsMs ?? FRAICHEUR_DES_DUELS_MS
     this.tranche = opts.questionsParTranche ?? QUESTIONS_D_UNE_TRANCHE
     this.maintenant = opts.maintenant ?? Date.now
+    this.validees = new LecturesGardees(opts.fraicheurDesLecturesMs ?? LECTURES_GARDEES_MS, () => this.maintenant(), lignes =>
+      lignes.map(r => ({ branche: String(r.branche), palier: Number(r.palier), justes: Number(r.justes), seuil: r.seuil == null ? null : Number(r.seuil) })),
+    )
     const donnee = opts.base
     let lue: Promise<BaseDeLaCampagne> | null = null
     this.fichiers =
@@ -1758,7 +1799,7 @@ export class CampagneStore {
    * La part de joueurs qui ont trouvé chaque question de la base, en
    * campagne, et celle de sa famille (`mesuresEnFamille`) : ce qui corrige sa
    * difficulté estimée (`niveauDeQuestion`). Les réponses se relisent au plus
-   * toutes les dix minutes ; les familles, aussi quand la base change — un
+   * toutes les six heures (`MESURES_GARDEES_MS`) ; les familles, aussi quand la base change — un
    * reclassement du QG vaut dès le tirage suivant.
    */
   async mesures(): Promise<ReadonlyMap<string, MesureDUneQuestion>> {
@@ -2163,33 +2204,75 @@ export class CampagneStore {
     // de commencer comme avant chaque étape et chaque tranche.
     const laSalle = () => laisserPasserLaSalle(this.salleEnJeu, () => this.ferme, tache)
     try {
-      await laSalle()
-      const debut = performance.now()
-      const [base, jouables, mesure, journal] = await Promise.all([this.base(), this.jouables(), this.mesures(), this.rattraperLeJournal()])
-      const depart = this.savoir?.modele ?? null
-      const joueurs = await premieresDuJournal(journal)
-      // Chaque étape en tranches, une par tour de boucle (`enTranches`) — les
-      // questions du modèle, la préparation du tirage, la série de référence — :
-      // au réveil, elles suivaient d'un bloc les familles de la mesure, et
-      // chacune d'une traite gelait encore la boucle au dixième de cœur.
-      await laSalle()
-      const questions = await enTranches(metasEnTranches(base.questions, this.tranche))
-      await laSalle()
-      await this.tirage(jouables, mesure)
-      await laSalle()
-      const { forceDeDepart } = await this.referencePour(jouables, mesure, depart)
-      const modele = await ajusterSansBloquer({ questions, joueurs, forceDeDepart, depart }, () => this.ferme, laSalle)
-      if (!modele) return
-      this.savoir = { a: this.maintenant(), modele, dureeMs: Math.round(performance.now() - debut) }
+      // Au réveil, le dernier ajustement que la base a gardé : assez jeune, il
+      // sert tel quel, comme s'il n'y avait pas eu de réveil ; plus vieux,
+      // l'ajustement en repart, et ne demande que quelques passes.
+      const garde = this.savoir ? null : await this.reprendreLeModele()
+      if (garde && this.maintenant() - garde.a < MODELE_GARDE_MS) this.savoir = { ...garde, relu: true }
+      else {
+        await laSalle()
+        const debut = performance.now()
+        const [base, jouables, mesure, journal] = await Promise.all([this.base(), this.jouables(), this.mesures(), this.rattraperLeJournal()])
+        const depart = this.savoir?.modele ?? garde?.modele ?? null
+        const joueurs = await premieresDuJournal(journal)
+        // Chaque étape en tranches, une par tour de boucle (`enTranches`) — les
+        // questions du modèle, la préparation du tirage, la série de référence — :
+        // au réveil, elles suivaient d'un bloc les familles de la mesure, et
+        // chacune d'une traite gelait encore la boucle au dixième de cœur.
+        await laSalle()
+        const questions = await enTranches(metasEnTranches(base.questions, this.tranche))
+        await laSalle()
+        await this.tirage(jouables, mesure)
+        await laSalle()
+        const { forceDeDepart } = await this.referencePour(jouables, mesure, depart)
+        const modele = await ajusterSansBloquer({ questions, joueurs, forceDeDepart, depart }, () => this.ferme, laSalle)
+        if (!modele) return
+        this.savoir = { a: this.maintenant(), modele, dureeMs: Math.round(performance.now() - debut) }
+        // Gardé pour le réveil suivant — sauf si un profil est parti pendant
+        // l'ajustement (`oublierProfil` refait le journal) : sa force y serait.
+        await laSalle()
+        if (journal === this.journal && !this.ferme) this.garderLeModele(this.savoir)
+      }
       // La série de référence du modèle neuf, en fond : la page des sentiers
       // et le départ d'une épreuve qui suivent la trouvent prête — ils la
       // refaisaient d'une traite, une seconde de gel au dixième de cœur.
       await laSalle()
       const [jouablesApres, mesureApres] = await Promise.all([this.jouables(), this.mesures()])
-      if (!this.ferme) await this.referencePour(jouablesApres, mesureApres, modele)
+      if (!this.ferme && this.savoir) await this.referencePour(jouablesApres, mesureApres, this.savoir.modele)
     } finally {
       tache.finir()
     }
+  }
+
+  /**
+   * Le dernier ajustement que la base a gardé (`garderLeModele`), cherché une
+   * fois par processus, au premier ajustement : null s'il n'y en a pas, ou
+   * s'il ne se relit pas tel quel (`modeleRelu`) — l'ajustement repart alors
+   * de zéro, comme avant qu'on le garde. Une lecture qui tombe ne fait pas
+   * tomber l'ajustement.
+   */
+  private async reprendreLeModele(): Promise<ModeleGarde | null> {
+    if (this.modeleRepris) return null
+    this.modeleRepris = true
+    try {
+      const lu = await this.client.execute({ sql: 'SELECT valeur FROM campagne_meta WHERE cle = ?', args: [CLE_DU_MODELE] })
+      return modeleRelu(lu.rows[0]?.valeur)
+    } catch (e) {
+      if (!this.ferme) console.warn('[campagne] le modèle du savoir gardé ne se relit pas — l’ajustement repart de zéro :', e instanceof Error ? e.message : e)
+      return null
+    }
+  }
+
+  /** Le modèle neuf, gardé dans la base pour le réveil suivant (`reprendreLeModele`), en fond : raté, il se tait — le suivant le gardera. */
+  private garderLeModele(garde: ModeleGarde): void {
+    this.client
+      .execute({
+        sql: 'INSERT INTO campagne_meta (cle, valeur) VALUES (?, ?) ON CONFLICT (cle) DO UPDATE SET valeur = excluded.valeur',
+        args: [CLE_DU_MODELE, modeleEnTexte(garde)],
+      })
+      .catch(e => {
+        if (!this.ferme) console.warn('[campagne] le modèle du savoir ne s’est pas gardé — le prochain réveil le refera :', e instanceof Error ? e.message : e)
+      })
   }
 
   /**
@@ -2197,7 +2280,7 @@ export class CampagneStore {
    * s'est ajusté, sur combien, et ce que ça a duré, rendu de main compris —
    * au dixième de cœur de l'hébergeur, c'est lui qu'on surveille.
    */
-  santeDuSavoir(): { ajusteLe: number | null; joueurs: number; reponses: number; passes: number; dureeMs: number | null; rateLe: number | null } {
+  santeDuSavoir(): { ajusteLe: number | null; joueurs: number; reponses: number; passes: number; dureeMs: number | null; rateLe: number | null; relu: boolean } {
     const s = this.savoir
     return {
       ajusteLe: s && Number.isFinite(s.a) ? s.a : null,
@@ -2206,6 +2289,8 @@ export class CampagneStore {
       passes: s?.modele.passes ?? 0,
       dureeMs: s?.dureeMs ?? null,
       rateLe: Number.isFinite(this.savoirRateLe) ? this.savoirRateLe : null,
+      // Repris de la base au réveil, sans rien refaire (`reprendreLeModele`) : son ajustement et sa durée sont ceux d'avant.
+      relu: s?.relu === true,
     }
   }
 
@@ -2392,7 +2477,7 @@ export class CampagneStore {
    * Le tirage d'une série sur ces jouables, préparé une fois pour leur
    * mesure (`PreparationDuTirage`) : la liste de toutes les catégories, ou
    * d'un sujet, se garde tant que la base, la réserve du jour et les retraits
-   * ne changent pas, et la mesure dix minutes.
+   * ne changent pas, et la mesure six heures.
    */
   private tirage(jouables: readonly QuestionDeLaBase[], mesure: ReadonlyMap<string, MesureDUneQuestion>): Promise<PreparationDuTirage> {
     const faite = this.preparations.get(jouables)
@@ -2564,6 +2649,7 @@ export class CampagneStore {
    */
   async statsDe(profileId: string): Promise<StatsDeCampagne> {
     const enPlus = this.statsEnPlus
+    const desValidees = this.lectureDesValidees(profileId)
     const {
       lus: [record, validees, passeport, ...duCabinet],
       journal,
@@ -2572,7 +2658,7 @@ export class CampagneStore {
         sql: `SELECT COALESCE(MAX(justes), 0) AS n FROM campagne_series WHERE profile_id = ? AND finie_le IS NOT NULL AND ${SERIES}`,
         args: [profileId],
       },
-      this.lectureDesValidees(profileId),
+      desValidees.instruction,
       lectureDuPasseport(profileId),
       ...(enPlus?.lectures(profileId) ?? []),
     ])
@@ -2589,7 +2675,7 @@ export class CampagneStore {
       // Ni trouvée par un joker.
       expertes: journal.expertesDe(profileId),
       // Ses épreuves seules : un palier repris des portraits d'avant n'a pas d'étoile.
-      ...statsDesSentiers(sentiersLus([], validees.rows)),
+      ...statsDesSentiers(sentiersLus([], desValidees.lue(validees))),
       // Les tampons de son passeport : un thème pointu trouvé en expédition, une fois chacun. Le Globe-trotter reste
       // montré, figé avec le départ de l'Expédition : ce que les expéditions en route trouvent encore y compte.
       tampons: passeport.rows.length,
@@ -3374,14 +3460,15 @@ export class CampagneStore {
     const tour = ++this.tourDesBordures
     // Ses bonnes réponses — un confetti chacune — du journal des réponses,
     // rattrapé dans le lot ; ses duels, du journal des duels.
+    const sentiers = this.lecturesDesSentiers(profileId)
     const [
       {
         lus: [acquis, validees],
         journal,
       },
       duels,
-    ] = await Promise.all([this.lireAvecLeJournal(this.lecturesDesSentiers(profileId)), this.lesDuels()])
-    return this.campagneLue(profileId, sentiersLus(acquis.rows, validees.rows), journal, duels, tour)
+    ] = await Promise.all([this.lireAvecLeJournal(sentiers.lot), this.lesDuels()])
+    return this.campagneLue(profileId, sentiers.lire(acquis, validees), journal, duels, tour)
   }
 
   /** Son solde, ses paliers et sa cote (`duProfil`), de ses sentiers, du journal des réponses et de celui des duels. */
@@ -3414,9 +3501,10 @@ export class CampagneStore {
     const tour = ++this.tourDesBordures
     // Le journal rattrapé au bout du lot : le carnet du bouton le lit ensuite, sans un aller-retour de plus.
     const debut = this.lecturesDuJournal
+    const desSentiers = this.lecturesDesSentiers(profileId)
     const lecture = Promise.all([
       this.lireAvecLeJournal([
-        ...this.lecturesDesSentiers(profileId),
+        ...desSentiers.lot,
         this.lectureDesEchecs(profileId),
         this.lectureDeLEpreuveOuverte(profileId),
         lectureDuDefiDAccueil(profileId, semaine),
@@ -3426,7 +3514,7 @@ export class CampagneStore {
       // Ses duels classés, de leur journal.
       this.lesDuels(),
     ])
-    const sentiers = lecture.then(([{ lus }]) => sentiersLus(lus[0].rows, lus[1].rows))
+    const sentiers = lecture.then(([{ lus }]) => desSentiers.lire(lus[0], lus[1]))
     const relire = () => this.viesAchetees?.(profileId) ?? 0
     const vies = viesAchetees ? viesAchetees.catch(relire) : Promise.resolve().then(relire)
     return {
@@ -6186,17 +6274,25 @@ export class CampagneStore {
   /** Les achats de vies depuis un instant, un par ligne, avec leur prix : le QG les dit jour par jour (`ProfileStore.achatsDeViesDepuis`). */
   achatsDeViesDepuis?: (depuis: number) => Promise<{ quand: number; nombre: number; prix: number }[]>
 
-  /** Ce qu'il tenait d'avant les sentiers, et ses épreuves validées : les deux lectures de ses sentiers. */
-  private lecturesDesSentiers(profileId: string): InStatement[] {
-    return [{ sql: 'SELECT branche, paliers FROM sentier_acquis WHERE profile_id = ?', args: [profileId] }, this.lectureDesValidees(profileId)]
+  /**
+   * Ce qu'il tenait d'avant les sentiers, et ses épreuves validées : les deux
+   * lectures de ses sentiers, à mettre dans un lot (`lot`), puis ses sentiers
+   * lus de ce qu'elles rendent (`lire`).
+   */
+  private lecturesDesSentiers(profileId: string): { lot: InStatement[]; lire: (acquis: ResultSet, validees: ResultSet) => SentierDuJoueur[] } {
+    const validees = this.lectureDesValidees(profileId)
+    return {
+      lot: [{ sql: 'SELECT branche, paliers FROM sentier_acquis WHERE profile_id = ?', args: [profileId] }, validees.instruction],
+      lire: (acquis, lues) => sentiersLus(acquis.rows, validees.lue(lues)),
+    }
   }
 
-  /** Ses épreuves validées, rejeux compris : ses paliers et leurs étoiles (`sentiersLus`). */
-  private lectureDesValidees(profileId: string): InStatement {
-    return {
+  /** Ses épreuves validées, rejeux compris : ses paliers et leurs étoiles (`sentiersLus`) — rien à lire si on les tient (`validees`). */
+  private lectureDesValidees(profileId: string): LectureDansUnLot<readonly ValideeLue[]> {
+    return this.validees.dans(profileId, {
       sql: `SELECT branche, palier, justes, seuil FROM campagne_series WHERE profile_id = ? AND mode = 'sentier' AND issue = 'validee'`,
       args: [profileId],
-    }
+    })
   }
 
   /**
@@ -6205,8 +6301,9 @@ export class CampagneStore {
    * sentier pas encore commencé n'y paraît pas.
    */
   async paliersDe(profileId: string): Promise<Paliers> {
-    const [acquis, validees] = await this.client.batch(this.lecturesDesSentiers(profileId), 'read')
-    return paliersCommences(sentiersLus(acquis.rows, validees.rows))
+    const sentiers = this.lecturesDesSentiers(profileId)
+    const [acquis, validees] = await this.client.batch(sentiers.lot, 'read')
+    return paliersCommences(sentiers.lire(acquis, validees))
   }
 
   /** Ses épreuves ratées, chacune au jour où elle l'a été : ce qui a coûté ses vies. */
@@ -6260,14 +6357,15 @@ export class CampagneStore {
     profileId: string,
     avecSesPremieres = false,
   ): Promise<{ sentiers: SentierDuJoueur[]; vies: VieDesSentiers; ouverte: Serie | null; premieres: Map<string, PremiereReponse> | null }> {
-    const lectures = [...this.lecturesDesSentiers(profileId), this.lectureDesEchecs(profileId), this.lectureDeLEpreuveOuverte(profileId)]
+    const sentiers = this.lecturesDesSentiers(profileId)
+    const lectures = [...sentiers.lot, this.lectureDesEchecs(profileId), this.lectureDeLEpreuveOuverte(profileId)]
     const [lus, achetees] = await Promise.all([
       avecSesPremieres ? this.lireAvecLeJournal(lectures) : this.client.batch(lectures, 'read').then(lus => ({ lus, journal: null })),
       this.viesAchetees?.(profileId) ?? 0,
     ])
     const [acquis, validees, echecs, ouverte] = lus.lus
     return {
-      sentiers: sentiersLus(acquis.rows, validees.rows),
+      sentiers: sentiers.lire(acquis, validees),
       vies: this.viesLues(echecs.rows, achetees),
       ouverte: ouverte.rows[0] ? versSerie(ouverte.rows[0]) : null,
       premieres: avecSesPremieres && lus.journal ? lus.journal.premieresDe(profileId) : null,
@@ -6651,6 +6749,11 @@ export class CampagneStore {
       } catch (err) {
         this.enCours.delete(profileId)
         throw err
+      } finally {
+        // Ses bonnes réponses et son issue viennent de changer — ou peut-être,
+        // si le lot n'a pas répondu : ses épreuves validées se relisent, avant
+        // les paliers que `recompenser` lit plus bas.
+        this.validees.oublier(profileId)
       }
       const apres: Serie = { ...e, index: position, justes, issue, finieLe: finie ? maintenant : null }
       if (finie) this.enCours.delete(profileId)
@@ -8985,9 +9088,12 @@ export class CampagneStore {
           { sql: 'DELETE FROM campagne_envois_prevus WHERE profile_id = ? OR code IN (SELECT code FROM campagne_duels WHERE auteur = ?)', args: [profileId, profileId] },
           { sql: 'DELETE FROM campagne_amis_retires WHERE profile_id = ? OR ami = ?', args: [profileId, profileId] },
           { sql: 'DELETE FROM campagne_amis_ajoutes WHERE profile_id = ? OR ami = ?', args: [profileId, profileId] },
+          // Le modèle du savoir gardé dit encore sa force : le prochain réveil le refera sans lui.
+          { sql: 'DELETE FROM campagne_meta WHERE cle = ?', args: [CLE_DU_MODELE] },
         ],
         'write',
       )
+      this.validees.oublier(profileId)
       // Ses duels sont partis avec ses séries, et ceux qu'il a joués contre
       // d'autres ne comptent plus pour eux : le journal des duels se relit en
       // entier — une lecture partie avant ne s'installe pas —, le classement
@@ -9006,7 +9112,7 @@ export class CampagneStore {
       if (this.savoir) {
         const forces = new Map(this.savoir.modele.forces)
         forces.delete(profileId)
-        this.savoir = { ...this.savoir, a: Number.NEGATIVE_INFINITY, modele: { ...this.savoir.modele, forces } }
+        this.savoir = { ...this.savoir, a: Number.NEGATIVE_INFINITY, relu: false, modele: { ...this.savoir.modele, forces } }
       }
     })
   }
@@ -10426,6 +10532,9 @@ const SUJETS_PAR_TRANCHE = 1000
  */
 const SUJETS_LUS = new WeakMap<QuestionDeLaBase, readonly string[]>()
 export function sujetsDeLaQuestion(q: QuestionDeLaBase): readonly string[] {
+  // Ceux que le build a lus (`preparationDe`), sinon lus ici une fois.
+  const prepare = preparationDe(q)
+  if (prepare) return prepare.sujets
   let lus = SUJETS_LUS.get(q)
   if (!lus) SUJETS_LUS.set(q, (lus = sujetsEtRubriqueDe(q.meta)))
   return lus
@@ -10936,6 +11045,15 @@ function finDeLEpreuveValidee(
  * validées — elles se suivent : valider le septième, c'est avoir les six
  * d'avant —, et la meilleure note de chaque palier en étoiles.
  */
+/** Une épreuve validée telle que ses sentiers la lisent (`sentiersLus`), et telle qu'elle se garde entre deux visites (`validees`). */
+type ValideeLue = {
+  branche: string
+  palier: number
+  justes: number
+  /** Le seuil figé à son départ ; null pour une épreuve d'avant la colonne, qui lit celui de son palier. */
+  seuil: number | null
+}
+
 function sentiersLus(acquis: readonly Record<string, unknown>[], validees: readonly Record<string, unknown>[]): SentierDuJoueur[] {
   const parBranche = new Map(BRANCHES.map(b => [b.key, { acquis: 0, haut: 0, etoiles: PALIERS.map(() => 0) }]))
   for (const r of acquis) {
@@ -11250,7 +11368,7 @@ function* preparerLeTirage(
 /**
  * Ce qu'un tirage de série relit de chaque question jouable — sa marche, sa
  * catégorie et son sous-thème —, lu une fois par liste de jouables et par
- * mesure des difficultés, qui ne change qu'au plus toutes les dix minutes
+ * mesure des difficultés, qui ne change qu'au plus toutes les six heures
  * (`CampagneStore.tirage`). Un tirage battait les vingt-quatre mille
  * questions, puis les repassait quatre fois — rangées par fraîcheur, par
  * marche, par classe, par file — pour en prendre soixante : 13 à 25 ms de

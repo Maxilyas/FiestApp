@@ -1,4 +1,5 @@
-// La mesure des difficultés, relue toutes les dix minutes d'activité (le banc
+// La mesure des difficultés, relue toutes les six heures d'activité — dix
+// minutes jusqu'au 3 novembre 2026, `MESURES_GARDEES_MS` — (le banc
 // du 17 octobre 2026, `retours/2026-10-16/`) : la requête qui la trouvait
 // périmée — un tirage, un dé — attendait l'aller-retour de toute la mesure,
 // son décodage, ses familles, puis le dé sa série de référence : 45 à 70 ms de
@@ -14,7 +15,7 @@ import path from 'node:path'
 import Database from 'better-sqlite3'
 import { baseDEssai } from './banc'
 import { lireLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
-import { CampagneStore, PreparationDuTirage } from '../src/core/campagne'
+import { CampagneStore, MESURE_EN_AVANCE_MS, MESURES_GARDEES_MS, MODELE_GARDE_MS, PreparationDuTirage } from '../src/core/campagne'
 import {
   AUCUN_ECART,
   difficulteSansModele,
@@ -276,32 +277,68 @@ test('dès ses deux dernières minutes, la mesure se relit en fond, et personne 
     const jouables = await prive.jouables()
     const premiere = await campagne.mesures()
     assert.equal(compte.relectures, 1)
-    // À la septième minute, rien : elle sert telle quelle.
-    horloge.t += 7 * 60_000
+    // Une minute avant ses deux dernières, rien : elle sert telle quelle.
+    horloge.t += MESURES_GARDEES_MS - MESURE_EN_AVANCE_MS - 60_000
     assert.equal(await campagne.mesures(), premiere)
     assert.equal(compte.relectures, 1, 'rien à relire avant ses deux dernières minutes')
-    // À la neuvième : celle-ci tout de suite, la suivante en fond — une seule, même demandée deux fois.
-    horloge.t += 2 * 60_000
+    // Dans ses deux dernières : celle-ci tout de suite, la suivante en fond — une seule, même demandée deux fois.
+    horloge.t += 90_000
     const [a, b] = await Promise.all([campagne.mesures(), campagne.mesures()])
     assert.ok(a === premiere && b === premiere, 'qui la demande reçoit encore celle-ci, sans attendre la relecture')
     for (let tour = 0; tour < 500 && prive.preparations.get(jouables)?.mesure === undefined; tour++) await new Promise(rendre => setTimeout(rendre, 2))
     assert.equal(compte.relectures, 2, 'relue une fois, en fond')
     const preparee = prive.preparations.get(jouables)
     assert.ok(preparee && preparee.mesure !== premiere, 'le tirage de toutes les catégories préparé à la mesure neuve')
-    // À la onzième minute de la première : la neuve, sans un aller-retour de plus.
-    horloge.t += 2 * 60_000
+    // Passé l'heure de la première : la neuve, sans un aller-retour de plus.
+    horloge.t += MESURE_EN_AVANCE_MS
     const neuve = await campagne.mesures()
     assert.equal(compte.relectures, 2, 'la requête qui l’aurait trouvée périmée ne la relit pas')
     assert.equal(neuve, preparee.mesure, 'la mesure que ses tirages ont préparée')
     // Et la suivante, si personne ne l'a demandée avant son heure : celle
     // qu'il y a d'abord, même périmée — la neuve se relit en fond, pour la
     // requête d'après.
-    horloge.t += 11 * 60_000
+    horloge.t += MESURES_GARDEES_MS + 60_000
     assert.equal(await campagne.mesures(), neuve, 'personne n’attend la relecture : la mesure qu’il y a, même périmée')
     await relectureFinie(prive)
     assert.equal(compte.relectures, 3)
     assert.notEqual(await campagne.mesures(), neuve, 'la requête d’après lit la neuve')
     assert.equal(compte.relectures, 3)
+  } finally {
+    campagne.close()
+    effacer()
+  }
+})
+
+test('le modèle du savoir se refait au plus toutes les six heures : une demi-heure après, le dé lit encore le même', async () => {
+  // Toutes les demi-heures jusqu'au 3 novembre 2026 : quatre secondes d'ajustement en production, et ses gels
+  // au relevé de l'heure, pour des difficultés qui bougent avec les jours.
+  const { url, effacer } = basePermanente()
+  const horloge = { t: MAINTENANT }
+  const campagne = new CampagneStore(url, undefined, { base: baseDEssai(60), maintenant: () => horloge.t })
+  try {
+    await campagne.init()
+    const prive = campagne as unknown as {
+      modeleDuSavoir(): unknown
+      ajusterLeSavoir(): Promise<void>
+      savoirEnRoute: Promise<void> | null
+      savoir: { a: number; modele: unknown; dureeMs: number } | null
+    }
+    let ajustements = 0
+    // L'ajustement se mesure ailleurs (`modele-du-savoir.test.ts`) : ici, seulement quand il part.
+    prive.ajusterLeSavoir = async () => {
+      ajustements++
+      prive.savoir = { a: horloge.t, modele: {}, dureeMs: 0 }
+    }
+    prive.modeleDuSavoir()
+    await prive.savoirEnRoute
+    assert.equal(ajustements, 1, 'le premier, à la première demande')
+    horloge.t += 31 * 60_000
+    prive.modeleDuSavoir()
+    assert.equal(ajustements, 1, 'une demi-heure plus tard, rien ne se refait')
+    horloge.t += MODELE_GARDE_MS
+    prive.modeleDuSavoir()
+    await prive.savoirEnRoute
+    assert.equal(ajustements, 2, 'passé son heure, il se refait en fond')
   } finally {
     campagne.close()
     effacer()
@@ -320,7 +357,7 @@ test('une relecture en fond qui échoue ne change rien : la mesure d’avant ser
     const prive = campagne as unknown as Prive
     const compte = compterLesRelectures(campagne)
     const premiere = await campagne.mesures()
-    horloge.t += 9 * 60_000
+    horloge.t += MESURES_GARDEES_MS - MESURE_EN_AVANCE_MS + 60_000
     compte.echouer = true
     assert.equal(await campagne.mesures(), premiere)
     await relectureFinie(prive)

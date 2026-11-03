@@ -12,7 +12,7 @@ Le serveur décide de tout. Les clients lui envoient des **gestes** — une insc
 
 | Ce qui part | Message | À qui | Quand |
 |---|---|---|---|
-| **L'instantané** : la salle — invités, équipes, prix, partie en cours, code du salon | `party:snapshot` | en deux versions, aux téléphones et aux écrans d'animateur | quand la salle change, regroupé |
+| **L'instantané** : la salle — invités, équipes, prix, partie en cours, code du salon | `party:snapshot`, et aux téléphones `party:salle` — ce qui a changé, quand cela suffit | en deux versions, aux téléphones et aux écrans d'animateur | quand la salle change, regroupé |
 | **Les vues** : la partie, calculée pour chacun | `session:view` | chaque participant, sa vue ; les écrans, la vue d'animateur | à chaque passage du moteur, si elle a changé |
 | Les nouvelles d'une personne | `player:profil`, `player:gain`, `soiree:fin`, `toast` | un invité, ou la connexion qui a fait le geste | au crédit d'un quiz, à la clôture, en réponse à un geste |
 | Les nouvelles de la soirée | `session:ended`, `soiree:progres`, `soiree:cloture`, `party:reset`, `player:removed` | l'espace, les écrans, les téléphones concernés | une partie qui finit, des niveaux gagnés, une clôture, une exclusion |
@@ -65,7 +65,7 @@ sequenceDiagram
   S-->>T: party:snapshot — à lui, une fois compté dans la partie en cours
   S-->>T: session:view — sa vue, si une partie est ouverte
   R-->>E: party:snapshot — version des écrans, regroupée en 120 ms
-  R-->>T: party:snapshot — à toute la salle, regroupé en 120 ms plus 2 ms par inscrit
+  R-->>T: party:salle — à toute la salle, l'arrivée seule, regroupée en 120 ms plus 2 ms par inscrit
 ```
 
 ### Rester en vie : le battement de cœur et la sonde
@@ -183,12 +183,16 @@ L'instantané (`PartySnapshot`, `shared/types.ts`) dit la salle : les invités e
 
 | Version | Salle | Ce qu'elle a de plus, ou de moins |
 |---|---|---|
-| Les téléphones (`pourLesTelephones`) | `space:<espace>`, écrans exclus | les invités **sans** `connected`, et pas de wifi |
+| Les téléphones (`pourLesTelephones`) | `space:<espace>`, écrans exclus | les invités **sans** `connected`, et pas de wifi ; pendant un quiz, les points de la soirée d'avant son lancement, jusqu'à son podium |
 | Les écrans d'animateur (`pourLesEcrans`) | `hosts:<espace>` | `connected` pour chaque invité, et ce que `enPlusPourLesEcrans` ajoute : le wifi, la santé du miroir, la scène, la télécommande, la fin en route |
 
 Chaque veille d'écran basculait un `connected` et renvoyait la salle entière à chacun — à 300 invités, un gigaoctet pour une vague d'arrivées une par une. Aucun téléphone ne le lisait : l'entrée compte désormais les inscrits, et un invité hors ligne du même prénom se demande au serveur (`player:horsLigne`). Le mot de passe du wifi et la santé de la sauvegarde ne regardent que l'animateur.
 
-**Dédoublonné.** Chaque version garde le dernier JSON qu'elle a envoyé et ne repart pas à l'identique (`lastSnapshot`, `lastEcrans`) : une veille de téléphone ne change que la version des écrans.
+Un téléphone en partie lit sa place, ses voisins et leurs points dans sa vue ; il ne lit les points de la salle qu'au podium. Chaque révélation les changeait pourtant tous, et la salle entière repartait à chacun à chaque question : la version des téléphones les garde tels qu'au lancement du quiz (`pointsDuQuiz`), et son verdict la renvoie sur-le-champ, derrière la vue du podium. Les équipes, elles, suivent.
+
+**Dédoublonné.** Chaque version ne repart pas à l'identique : celle des écrans garde le dernier JSON qu'elle a envoyé (`lastEcrans`), celle des téléphones chaque ligne de son dernier envoi (`SalleDesTelephones`) — une veille de téléphone ne change que la version des écrans.
+
+**Ce qui change, pas la salle entière.** Aux téléphones, un envoi ne porte souvent que ce qui a changé : `party:salle`, les invités arrivés ou changés, les seuls points de ceux dont rien d'autre n'a bougé, les partis, les équipes, le reste — la partie, le code, les titres —, que la page applique à ce qu'elle tient (`appliquerLeChangement`, `shared/salle.ts`). La liste entière repartait à chacun à chaque arrivée et à chaque révélation — 44 Ko vers chacun de 300 téléphones, 95 % de ce que le serveur envoyait pendant une soirée (le banc du 3 novembre 2026, [La capacité](../exploitation/capacite.md)). Le serveur ne l'envoie que s'il refait la version des téléphones à l'identique sur chaque téléphone, ordre compris, et pèse moins qu'elle (`server/src/core/salleDesTelephones.ts`) : chaque téléphone tient le dernier envoi à la salle, sauf celui qui a reçu le sien en se présentant depuis — `instantanePourUnTelephone` note ce qu'il avait d'autre, et le changement suivant le couvre aussi. L'instantané entier part encore au premier envoi, au filet, et quand le changement pèserait autant que lui — une salle vidée d'un coup.
 
 **Regroupé.** `broadcastSnapshot` attend avant d'envoyer, et ce qui change entre-temps part en un seul envoi : 120 ms pour les écrans, 120 ms plus 2 ms par inscrit pour les téléphones — une demi-seconde passé cent quatre-vingt-dix invités. Chaque envoi aux téléphones coûte à proportion de la salle, sa liste à chacun de ses téléphones, et une vague d'arrivées en faisait autant de diffusions ; les écrans restent à 120 ms parce que l'animateur y attend son quiz après « Lancer » — la console ne l'ouvre qu'avec la partie de l'instantané.
 
@@ -196,7 +200,7 @@ Chaque veille d'écran basculait un `connected` et renvoyait la salle entière �
 
 **Sur-le-champ, pour tous.** `sendSnapshot()` envoie les deux versions sans attendre, et annule les envois regroupés qui attendaient : la scène, la télécommande, une fin de soirée en route, le code du salon qui change, la fin du programme d'un salon, l'annonce de clôture, la salle vidée à la fin d'une soirée. Quand le miroir passe en retard ou s'en remet, seule la version des écrans part.
 
-**Le filet.** Toutes les cinq minutes, les deux versions de chaque espace en mémoire repartent, forcées, dédoublonnage ignoré (`server/src/server.ts`) : un client qui aurait manqué une diffusion se répare.
+**Le filet.** Toutes les cinq minutes, les deux versions de chaque espace en mémoire repartent, forcées et entières, dédoublonnage ignoré (`server/src/server.ts`) : un client qui aurait manqué une diffusion se répare.
 
 > [!IMPORTANT]
 > N'y mets jamais un champ qui change à chaque tick : il partirait à toute la salle (invariant 4). Ce qui ne regarde que l'animateur va dans `enPlusPourLesEcrans` ; un champ rare y est absent quand il ne dit rien, pour que l'instantané dédoublonné n'en porte pas le poids. Et `sendSnapshot()` à chaque geste rendrait la salle bavarde : c'est `broadcastSnapshot()` qui regroupe.

@@ -176,6 +176,7 @@ subscribe('undici:client:connected', message => {
  */
 export function unAllerRetourPart(): () => void {
   enVol++
+  entretien?.noterLeVol(enVol)
   let fini = false
   return () => {
     if (fini) return
@@ -288,7 +289,8 @@ export const CHAUDES_MS = 60_000
  * avec ses missions : il en aurait fallu autant, deux fois plus de battements
  * pour une page — ou HTTP/2, une seule connexion pour toute la vague. Il en
  * lance six depuis le 2 novembre 2026, un lot par magasin pour chacune de ses
- * deux routes (règle `profil.md`).
+ * deux routes (règle `profil.md`). En deçà, l'entretien n'en garde que ce que
+ * la dernière minute a demandé de front (`Entretien.aGarder`).
  */
 export const CHAUDES_AU_PLUS = 6
 
@@ -308,6 +310,16 @@ class Entretien {
   private minuterie: ReturnType<typeof setTimeout> | null = null
   /** Les battements en vol. */
   private enCours = 0
+  /**
+   * Les vrais allers-retours en vol au plus fort, ces dernières `chaudesMs` —
+   * une file des plus forts (chaque relevé ôte derrière lui ceux qu'il égale) :
+   * sa tête est le plus fort de la fenêtre. Six connexions gardées chaudes,
+   * toutes les trois secondes, faisaient 138 battements par minute en
+   * production le 3 novembre 2026, pour des joueurs qui répondaient une
+   * question à la fois — chacun un aller-retour, du processeur pris au
+   * dixième de cœur de l'hébergeur pour une connexion que rien ne demandait.
+   */
+  private pics: { t: number; n: number }[] = []
   private arrete = false
   private readonly battementMs: number
   private readonly chaudesMs: number
@@ -342,6 +354,23 @@ class Entretien {
     this.planifier()
   }
 
+  /** Un vrai aller-retour part : `n` en vol avec lui. */
+  noterLeVol(n: number) {
+    while (this.pics.length > 0 && this.pics[this.pics.length - 1].n <= n) this.pics.pop()
+    this.pics.push({ t: performance.now(), n })
+  }
+
+  /**
+   * Combien en garder chaudes : autant que d'allers-retours en vol au plus
+   * fort de la dernière fenêtre — la page qui en a lancé trois de front garde
+   * ses trois tant que son joueur peut revenir à elle —, une au moins, et
+   * jamais plus de `auPlus`.
+   */
+  private aGarder(t: number): number {
+    while (this.pics.length > 0 && t - this.pics[0].t > this.chaudesMs) this.pics.shift()
+    return Math.min(this.auPlus, Math.max(1, this.pics[0]?.n ?? 1))
+  }
+
   /**
    * Quand le prochain tour doit partir : quand la plus anciennement servie
    * des connexions qu'il garde — les plus récemment servies, `auPlus` au
@@ -357,7 +386,7 @@ class Entretien {
       if (servie?.libre) libres.push(servie.rendue)
     }
     libres.sort((a, b) => b - a)
-    const gardees = libres.slice(0, this.auPlus)
+    const gardees = libres.slice(0, this.aGarder(performance.now()))
     const depuis = gardees.length > 0 ? gardees[gardees.length - 1] : this.repere
     return Math.max(depuis + this.battementMs, this.dernierTour + this.battementMs / 2)
   }
@@ -377,11 +406,12 @@ class Entretien {
     if (this.arrete || t >= this.jusqua) return
     // Une connexion a servi depuis : son calme repart.
     if (t < this.echeance() - 1) return this.planifier()
-    // Un battement par connexion libre — le `fetch` donne à chacun la
-    // première libre : les toucher toutes, c'est toucher celle qui vieillit —,
-    // une au moins : un joueur là dont les connexions sont déjà tombées en
-    // retrouve une pour sa prochaine réponse.
-    const n = Math.min(this.auPlus, Math.max(1, ouvertes.size - enVol))
+    // Un battement par connexion libre que la dernière fenêtre a demandée — le
+    // `fetch` donne à chacun la première libre : les toucher toutes, c'est
+    // toucher celle qui vieillit ; les autres se referment, à la garde de
+    // Node —, une au moins : un joueur là dont les connexions sont déjà
+    // tombées en retrouve une pour sa prochaine réponse.
+    const n = Math.min(this.aGarder(t), Math.max(1, ouvertes.size - enVol))
     this.dernierTour = t
     this.enCours = n
     for (let i = 0; i < n; i++) pouls.battements.noter()
