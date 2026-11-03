@@ -10,6 +10,7 @@ import * as B from '../../shared/cabinet/bareme'
 import { legendaire } from '../../shared/legendaires'
 import { voieDuGardien } from '../../shared/cabinet/salles'
 import { CATEGORIES } from '../../shared/categories'
+import { CLES_DES_JEUX } from '../../shared/cabinet/jeux/regle'
 import { lireLeDepart } from '../../shared/cabinet/lecture'
 import { chronoDuDepart, etoilesDesManches, pliDeLaPartie, refusDuGeste, type DepartDUnePartie } from '../../shared/cabinet/partie'
 import {
@@ -44,6 +45,7 @@ import {
   etatDeLaTraversee,
   idDEtape,
   jeuDeLAssaut,
+  JEUX_SANS_GARDIEN,
   marchesDuGardien,
   jouerUnGesteDeLaTraversee,
   lireLeDepartDeLaTraversee,
@@ -55,6 +57,7 @@ import {
   PLUS_HAUT_CHEZ_LE_MARCHAND,
   prixAuMarchand,
   pvDuGardien,
+  tirerLesAssauts,
   tracerLaCarte,
   VERSION_DE_LA_TRAVERSEE,
   VERSIONS_DE_LA_TRAVERSEE,
@@ -180,8 +183,8 @@ test('les gardiens : des légendaires du Cabinet, rangeables, jamais la Frise ni
     const l = legendaire(g.cle)
     assert.ok(l, `${g.cle} : un légendaire`)
     assert.ok(voieDuGardien(g.cle), `${g.cle} : une voie où le ranger`)
-    assert.ok(!g.jeux.includes('frise'), `${g.cle} : la Frise ne se joue pas contre un gardien`)
-    assert.equal(new Set(g.jeux).size, 3)
+    assert.ok(!g.jeuxDAvant.includes('frise'), `${g.cle} : la Frise ne se jouait pas contre un gardien`)
+    assert.equal(new Set(g.jeuxDAvant).size, 3)
     assert.doesNotMatch(g.cle, /divin/)
   }
   for (const acte of GARDIENS_DES_ACTES) for (const g of acte) assert.ok(GARDIENS_DE_LA_TRAVERSEE.some(x => x.cle === g), g)
@@ -194,9 +197,52 @@ test('les gardiens : des légendaires du Cabinet, rangeables, jamais la Frise ni
   const citrouilles = Array.from({ length: 200 }, (_, n) => choisirLesGardiens(graine(n + 1), new Set(), true)[0]).filter(g => g === GARDIEN_D_HALLOWEEN).length
   assert.ok(citrouilles > 60 && citrouilles < 140, `${citrouilles} sur 200`)
   assert.ok(!choisirLesGardiens(graine(5), new Set(), false).includes(GARDIEN_D_HALLOWEEN))
-  assert.equal(jeuDeLAssaut('lg:renard', 1), 'eclair')
-  assert.equal(jeuDeLAssaut('lg:renard', 4), 'eclair', 'à tour de rôle')
-  assert.equal(jeuDeLAssaut('lg:renard', 3), 'replique')
+  // Une traversée tracée avant le 3 novembre 2026 n'a pas d'assauts tirés : elle garde les trois jeux de son gardien.
+  assert.equal(jeuDeLAssaut({ gardien: 'lg:renard' }, 1), 'eclair')
+  assert.equal(jeuDeLAssaut({ gardien: 'lg:renard' }, 4), 'eclair', 'à tour de rôle')
+  assert.equal(jeuDeLAssaut({ gardien: 'lg:renard' }, 3), 'replique')
+})
+
+test('les assauts : tous les jeux sauf la Frise, à tirage égal, jamais deux fois dans un combat, jamais le même premier jeu', () => {
+  // « Sur les boss, on me dit que y'a jamais la peinture ou presque » (le retour du 3 novembre 2026) : trois jeux fixes par
+  // gardien, et le premier décidait presque tout — le Détail n'ouvrait que chez trois gardiens sur vingt et un. Les jeux se
+  // tirent au départ parmi tous ; la Frise reste à part, qui se construit sur trois manches.
+  const jeux = CLES_DES_JEUX.filter(j => !JEUX_SANS_GARDIEN.includes(j))
+  assert.deepEqual(JEUX_SANS_GARDIEN, ['frise'])
+  const premiers = new Map<string, number>()
+  const N = 3000
+  for (let n = 1; n <= N; n++) {
+    const assauts = tirerLesAssauts(graine(n))
+    assert.equal(assauts.length, 3)
+    for (const a of assauts) assert.deepEqual([...a].sort(), [...jeux].sort(), 'chaque jeu une fois, la Frise jamais')
+    assert.equal(new Set(assauts.map(a => a[0])).size, 3, 'trois premiers jeux différents')
+    for (const a of assauts) premiers.set(a[0], (premiers.get(a[0]) ?? 0) + 1)
+  }
+  // Tirage égal : chaque jeu ouvre un combat une fois sur neuf, à peu près.
+  for (const j of jeux) {
+    const part = (premiers.get(j) ?? 0) / (3 * N)
+    assert.ok(part > 0.09 && part < 0.135, `${j} ouvre ${(part * 100).toFixed(1)} % des combats`)
+  }
+  // Les jeux livrés seulement, et la carte les porte : relue, elle les garde ; un acte d'avant se relit sans eux.
+  assert.ok(tirerLesAssauts(graine(7), ['pari', 'frise', 'mot']).every(a => a.length === 2 && !a.includes('frise')))
+  const actes = tracerLaCarte(graine(11), ['lg:renard', 'lg:sphinx', 'lg:dragon'], { epingle: ['Rome'], frise: ['Rome'] })
+  const d: DepartDeLaTraversee = { v: VERSION_DE_LA_TRAVERSEE, jour: '2026-11-03', actes }
+  const relu = lireLeDepartDeLaTraversee(JSON.stringify(d))!
+  for (let a = 0; a < 3; a++) {
+    assert.equal(relu.actes[a].assauts?.length, jeux.length)
+    for (let n = 1; n <= jeux.length; n++) assert.equal(jeuDeLAssaut(relu.actes[a], n), actes[a].assauts![n - 1])
+  }
+  const dAvant = { ...d, actes: d.actes.map(({ assauts: _, ...a }) => a) }
+  assert.equal(lireLeDepartDeLaTraversee(JSON.stringify(dAvant))?.actes[0].assauts, undefined)
+  for (const casse of [[], ['pari', 'pari'], ['bowling'], 'pari']) {
+    const x = { ...d, actes: d.actes.map((a, i) => (i === 0 ? { ...a, assauts: casse } : a)) }
+    assert.equal(lireLeDepartDeLaTraversee(JSON.stringify(x)), null, JSON.stringify(casse))
+  }
+})
+
+test('les devises disent le caractère du gardien, jamais un jeu : ses jeux changent d’une traversée à l’autre', () => {
+  const MOTS_D_UN_JEU = /vrai du faux|carte de France|tableaux|films|chiffres|dates|mot faux|trois jeux|Quiz|Frise|Épingle|peinture/i
+  for (const g of GARDIENS_DE_LA_TRAVERSEE) assert.doesNotMatch(g.devise, MOTS_D_UN_JEU, g.cle)
 })
 
 test('la carte : trois actes, trois chemins, un coffre, le marchand, le gardien — des diagonales qui ne se croisent jamais', () => {
@@ -402,7 +448,7 @@ test('le gardien : des assauts jusqu’à sa chute, ses jeux à tour de rôle, p
   const gardien = t.vers('gardien')
   const pv = pvDuGardien(t.depart, 0, t.etat.cartes)
   assert.equal(pv, B.PV_DES_GARDIENS[0] - B.PV_DU_COUP_DE_GRACE[1])
-  assert.deepEqual(viseeDeLEtape(t.depart, etapeDe(t.depart, gardien)!, 1), { jeu: jeuDeLAssaut(GARDIENS[0], 1), marches: marchesDuGardien(jeuDeLAssaut(GARDIENS[0], 1)!, 0), categorie: null, theme: null, sujet: null })
+  assert.deepEqual(viseeDeLEtape(t.depart, etapeDe(t.depart, gardien)!, 1), { jeu: jeuDeLAssaut(t.depart.actes[0], 1), marches: marchesDuGardien(jeuDeLAssaut(t.depart.actes[0], 1)!, 0), categorie: null, theme: null, sujet: null })
   const coeurs = t.etat.coeurs
   // Premier assaut : une étoile, une ratée, une étoile — le gardien tient.
   t.joue({ quoi: 'epreuve', etape: gardien, partie: 'g1' })

@@ -1215,7 +1215,7 @@ function AnnonceDuGardien({
   const fiche = gardienDeLaTraversee(g)
   const pv = t.pv ?? { restent: pvDuGardien(t, a, t.cartes), max: pvDuGardien(t, a, t.cartes) }
   const assaut = t.assauts + 1
-  const jeu = jeuDeLAssaut(g, assaut) ?? 'pari'
+  const jeu = jeuDeLAssaut(t.actes[a], assaut) ?? 'pari'
   const cartes = ceQueFontTesCartes(t, true)
   const mise = t.cartes.find(c => c.cle === 'quitte-ou-double')
   return (

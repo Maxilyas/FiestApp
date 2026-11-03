@@ -1996,6 +1996,15 @@ Le prix, que le propriétaire peut trancher autrement : la découverte. Le bon n
 
 *Fichiers : `shared/cabinet/{bareme,traversee,vues}.ts`, `server/src/core/cabinet/vue.ts`, `client/src/views/cabinet/Traversee.tsx`, `server/test/cabinet-traversee.test.ts`*
 
+### Les gardiens : tous les jeux, tirés au départ
+**Contexte** : le 3 novembre 2026, les retours de l'ouverture : « sur les boss, comment sont pris les mini-jeux ? On me dit que y'a jamais la peinture ou presque ». Chaque gardien avait trois jeux fixes, joués à tour de rôle ; le Détail n'était dans la liste que de six gardiens sur vingt et un, en tête chez trois — et le premier assaut décide presque tout : le gardien de l'acte I tombe au premier six fois sur sept. Le propriétaire : « est-ce que l'on ne mettrait pas tous les jeux ? » — tirage égal, devises réécrites.
+
+**Décision** : au départ, chaque traversée bat pour chaque acte tous les jeux livrés, sauf la Frise (`JEUX_SANS_GARDIEN` : elle se construit sur trois manches, et c'est le jeu le plus généreux du calibrage), et les fige sur la carte (`tirerLesAssauts`, `ActeDeLaCarte.assauts`) : un jeu par assaut, aucun deux fois avant que tous soient passés, jamais le même premier jeu chez deux gardiens. Les devises disent le caractère du gardien, jamais un jeu (« Il ment avec aplomb. Ne le crois pas sur parole. »).
+
+**Conséquence** : chaque jeu ouvre un combat une fois sur neuf ; un gardien n'a plus de jeux à lui, et l'écran du gardien dit toujours celui qui vient. Pas de version de plus : le tirage est un champ du départ, absent d'une traversée tracée avant, qui garde les trois jeux de ses gardiens (`jeuxDAvant`) jusqu'au bout. Le hasard des assauts se tire après celui des étapes : une carte d'essai garde son dessin.
+
+*Fichiers : `shared/cabinet/traversee.ts`, `client/src/views/cabinet/Traversee.tsx`, `server/test/cabinet-traversee.test.ts`, `cabinet-traversee-routes.test.ts`*
+
 ### La page « Cabinet » de l'album, et L'Explorateur aux traversées gagnées
 **Contexte** : le soir du 1er novembre 2026, le propriétaire : « est-ce que l'on voit quelque part dans la collection, album des trophées, une section cabinets ? ». Non : les défis des cartes et les épreuves de maître ne se voyaient qu'au Cabinet, au choix des cartes et sous les gardiens ; et L'Explorateur, rangé en campagne, comptait les salles complètes d'un musée que la traversée avait remplacé — plus une salle ne se complétait, la piste ne montait plus.
 

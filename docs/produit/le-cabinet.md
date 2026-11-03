@@ -24,7 +24,7 @@
 4. **Une épreuve** : une partie de trois manches du jeu de l'étape ([plus bas](#une-épreuve)). Finie, son bilan dit ce qu'elle a rapporté et coûté, manche par manche.
 5. **Le coffre** : une amélioration offerte, sur la carte de ton choix, jusqu'à la carte + — toutes déjà améliorées, de l'or ; l'écran dit lequel.
 6. **Le marchand**, avant chaque gardien : un cœur, et l'amélioration de chaque carte à son prix — la carte ++, qu'il est seul à vendre, bien plus chère ; le Pourboire en retire.
-7. **Le gardien** : des assauts de trois manches, à ses trois jeux, jusqu'à sa chute ou la tienne ; chaque étoile lui retire un point de vie, ses points de vie au-dessus de lui — en barres, en jauge au-delà de dix. Vaincu, il rend tes cœurs au complet, donne de l'or et une amélioration jusqu'à la carte +, et l'acte suivant s'ouvre.
+7. **Le gardien** : des assauts de trois manches, chacun à un jeu tiré au départ de la traversée, jusqu'à sa chute ou la tienne ; chaque étoile lui retire un point de vie, ses points de vie au-dessus de lui — en barres, en jauge au-delà de dix. Vaincu, il rend tes cœurs au complet, donne de l'or et une amélioration jusqu'à la carte +, et l'acte suivant s'ouvre.
 8. **Au bout des trois actes**, les trois gardiens vaincus : l'un d'eux sera à toi, à choisir. Il devient un avatar légendaire, rangé sur ton étagère comme un gardien réveillé.
 
 **Plus de cœur, la traversée s'arrête** : la suivante repart de l'acte I, avec des gardiens neufs, une carte neuve et trois cartes à choisir. On peut aussi l'abandonner. Une seule traversée en route à la fois ; recharger, changer de téléphone ou revenir le lendemain la reprend telle qu'elle est, une épreuve commencée comprise.
@@ -77,7 +77,7 @@ Ce que les tests de la maquette du musée ont fait changer, et que la traversée
 
 ## Les gardiens
 
-Vingt-et-un légendaires, rangés en trois cercles — six pour l'acte I, du Renard Lunaire au Scarabée ; huit pour l'acte II, du Sphinx au Serpent à plumes ; six pour l'acte III, du Dragon d'Or à la Comète —, plus la Citrouille à Halloween. **Chacun a sa devise et ses trois jeux**, qui tournent d'un assaut à l'autre (« Il ment avec aplomb. Démêle le vrai du faux. » — l'Éclair, le Pari, la Réplique), jamais la Frise, qui se construit sur trois manches ; trois gardiens qui posent des questions jouent aussi le Quiz — la Chouette, le Sphinx, le Kraken. Leurs points de vie : 6, 13, puis 20 étoiles, moins le Coup de grâce — 6, 8 et 10 jusqu'au 1er novembre 2026, quand le joueur moyen du calibrage gagnait quatre traversées sur cinq.
+Vingt-et-un légendaires, rangés en trois cercles — six pour l'acte I, du Renard Lunaire au Scarabée ; huit pour l'acte II, du Sphinx au Serpent à plumes ; six pour l'acte III, du Dragon d'Or à la Comète —, plus la Citrouille à Halloween. **Chacun a sa devise**, qui dit son caractère (« Il ment avec aplomb. Ne le crois pas sur parole. »). Ses jeux, depuis le 3 novembre 2026, ne sont plus à lui : au départ, chaque traversée bat pour chaque gardien tous les jeux, sauf la Frise, qui se construit sur trois manches — un nouveau jeu à chaque assaut, aucun deux fois avant que tous soient passés, et jamais le même premier jeu chez deux gardiens d'une traversée. Avec trois jeux fixes, le premier décidait presque tout, et la peinture n'ouvrait que chez trois gardiens sur vingt et un (« sur les boss, y'a jamais la peinture ou presque »). Une traversée tracée avant garde les trois jeux de ses gardiens. Leurs points de vie : 6, 13, puis 20 étoiles, moins le Coup de grâce — 6, 8 et 10 jusqu'au 1er novembre 2026, quand le joueur moyen du calibrage gagnait quatre traversées sur cinq.
 
 Un gardien qu'on a déjà reste un gardien à battre — la traversée se joue pour elle-même —, mais ceux qu'on n'a pas passent devant. Au bout, **le légendaire choisi est à lui pour toujours**, rangé sous le Cabinet (l'invariant 22) : un avatar, avec sa finition et son Éclat comme les autres. Aucun Divin n'y garde quoi que ce soit (l'invariant 21).
 
@@ -130,7 +130,7 @@ Les mots de l'écran. **Quatre notions** : les cœurs, l'or, tes cartes, la cart
 | **Tes cartes** | les trois choisies au départ parmi dix, et leur niveau |
 | **Les cœurs** | ce qu'une manche ratée coûte ; zéro arrête la traversée |
 | **L'or** | ce que rapportent les étoiles, à dépenser chez le marchand |
-| **Un gardien** | le légendaire au bout d'un acte, ses points de vie, ses trois jeux |
+| **Un gardien** | le légendaire au bout d'un acte, ses points de vie, les jeux de ses assauts, tirés au départ |
 
 ## Ce que le musée laisse
 

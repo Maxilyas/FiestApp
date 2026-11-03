@@ -179,42 +179,46 @@ export const nomAuNiveau = (c: Pick<CarteDeLaTraversee, 'nom'>, niveau: NiveauDe
 // ── Les gardiens ──────────────────────────────────────────────────────────
 
 /**
- * Un gardien : un légendaire, sa devise, et ses trois jeux, joués à tour de
- * rôle d'un assaut à l'autre. Jamais la Frise : elle se construit sur trois
- * manches, et un assaut s'arrête à la chute du gardien. Aucun Divin
- * (invariant 21). Son nom vient de son légendaire (`legendaire()`,
- * `shared/legendaires.ts`) : la page le lit là, une seule copie.
+ * Un gardien : un légendaire et sa devise. Aucun Divin (invariant 21). Son nom
+ * vient de son légendaire (`legendaire()`, `shared/legendaires.ts`) : la page
+ * le lit là, une seule copie.
+ *
+ * Ses jeux ne sont plus à lui depuis le 3 novembre 2026 : chaque traversée les
+ * tire au départ parmi tous (`tirerLesAssauts`, `ActeDeLaCarte.assauts`) — avec
+ * trois jeux fixes, le premier décidait presque tout (l'acte I tombe au premier
+ * assaut six fois sur sept), et la peinture n'ouvrait que chez trois gardiens
+ * sur vingt et un (« on me dit que y'a jamais la peinture ou presque »). Sa
+ * devise dit donc son caractère, jamais un jeu. `jeuxDAvant` : les trois jeux
+ * qu'il jouait à tour de rôle, que relit seule une traversée tracée avant.
  */
 export interface GardienDeLaTraversee {
   cle: string
   devise: string
-  jeux: readonly [CleDeJeu, CleDeJeu, CleDeJeu]
+  jeuxDAvant: readonly [CleDeJeu, CleDeJeu, CleDeJeu]
 }
 
 export const GARDIENS_DE_LA_TRAVERSEE: readonly GardienDeLaTraversee[] = [
-  { cle: 'lg:renard', devise: 'Il ment avec aplomb. Démêle le vrai du faux.', jeux: ['eclair', 'pari', 'replique'] },
-  { cle: 'lg:coq', devise: 'Premier levé, premier à répondre.', jeux: ['eclair', 'filet', 'pari'] },
-  // Le Quiz, venu le 1er novembre 2026, chez trois gardiens qui posent des questions : la Chouette, le Sphinx, le Kraken. Un
-  // assaut lit ses jeux à son heure : une traversée en route y passe à l'assaut d'après.
-  { cle: 'lg:chouette', devise: 'Elle a tout lu, et elle s’en souvient.', jeux: ['mot', 'indices', 'quiz'] },
-  { cle: 'lg:tigre', devise: 'Il frappe vite. Ne traîne pas.', jeux: ['eclair', 'pari', 'filet'] },
-  { cle: 'lg:chauve-souris', devise: 'Elle voit dans le noir ce que tu cherches.', jeux: ['detail', 'mot', 'eclair'] },
-  { cle: 'lg:scarabee', devise: 'Il garde les lieux anciens.', jeux: ['epingle', 'detail', 'indices'] },
-  { cle: 'lg:citrouille', devise: 'Ce soir, c’est sa fête.', jeux: ['mot', 'eclair', 'replique'] },
-  { cle: 'lg:sphinx', devise: 'Il ne laisse passer que ceux qui savent.', jeux: ['quiz', 'indices', 'mot'] },
-  { cle: 'lg:janus', devise: 'Deux visages : l’un dit vrai, l’autre ment.', jeux: ['eclair', 'replique', 'indices'] },
-  { cle: 'lg:phenix', devise: 'Il renaît de ses cendres. Toi, de tes erreurs.', jeux: ['pari', 'filet', 'detail'] },
-  { cle: 'lg:fantome', devise: 'Il hante les tableaux et les vieux films.', jeux: ['detail', 'replique', 'indices'] },
-  { cle: 'lg:salamandre', devise: 'Elle joue avec le feu, et avec les chiffres.', jeux: ['filet', 'pari', 'eclair'] },
-  { cle: 'lg:lion', devise: 'Il règne sur la carte de France.', jeux: ['epingle', 'pari', 'indices'] },
-  { cle: 'lg:oracle', devise: 'Il connaît les dates avant qu’elles arrivent.', jeux: ['filet', 'eclair', 'indices'] },
-  { cle: 'lg:serpent', devise: 'Il glisse un mot faux dans chaque phrase.', jeux: ['mot', 'eclair', 'pari'] },
-  { cle: 'lg:dragon', devise: 'Il garde son or. Prends-le-lui.', jeux: ['pari', 'filet', 'epingle'] },
-  { cle: 'lg:kraken', devise: 'Il remonte des abysses avec ses questions.', jeux: ['epingle', 'filet', 'quiz'] },
-  { cle: 'lg:chimere', devise: 'Trois têtes, trois jeux, aucune pitié.', jeux: ['detail', 'mot', 'epingle'] },
-  { cle: 'lg:ouroboros', devise: 'Tout revient. Surtout les erreurs.', jeux: ['filet', 'eclair', 'replique'] },
-  { cle: 'lg:trou-noir', devise: 'Rien ne lui échappe, pas même la lumière.', jeux: ['filet', 'detail', 'mot'] },
-  { cle: 'lg:comete', devise: 'Elle ne passe qu’une fois. Ne la rate pas.', jeux: ['epingle', 'filet', 'eclair'] },
+  { cle: 'lg:renard', devise: 'Il ment avec aplomb. Ne le crois pas sur parole.', jeuxDAvant: ['eclair', 'pari', 'replique'] },
+  { cle: 'lg:coq', devise: 'Premier levé, premier à répondre.', jeuxDAvant: ['eclair', 'filet', 'pari'] },
+  { cle: 'lg:chouette', devise: 'Elle a tout lu, et elle s’en souvient.', jeuxDAvant: ['mot', 'indices', 'quiz'] },
+  { cle: 'lg:tigre', devise: 'Il frappe vite. Ne traîne pas.', jeuxDAvant: ['eclair', 'pari', 'filet'] },
+  { cle: 'lg:chauve-souris', devise: 'Elle voit dans le noir ce que tu cherches.', jeuxDAvant: ['detail', 'mot', 'eclair'] },
+  { cle: 'lg:scarabee', devise: 'Il garde des secrets enfouis depuis des millénaires.', jeuxDAvant: ['epingle', 'detail', 'indices'] },
+  { cle: 'lg:citrouille', devise: 'Ce soir, c’est sa fête.', jeuxDAvant: ['mot', 'eclair', 'replique'] },
+  { cle: 'lg:sphinx', devise: 'Il ne laisse passer que ceux qui savent.', jeuxDAvant: ['quiz', 'indices', 'mot'] },
+  { cle: 'lg:janus', devise: 'Deux visages : l’un dit vrai, l’autre ment.', jeuxDAvant: ['eclair', 'replique', 'indices'] },
+  { cle: 'lg:phenix', devise: 'Il renaît de ses cendres. Toi, de tes erreurs.', jeuxDAvant: ['pari', 'filet', 'detail'] },
+  { cle: 'lg:fantome', devise: 'Il hante les couloirs du Cabinet depuis toujours.', jeuxDAvant: ['detail', 'replique', 'indices'] },
+  { cle: 'lg:salamandre', devise: 'Elle joue avec le feu. Ne te brûle pas.', jeuxDAvant: ['filet', 'pari', 'eclair'] },
+  { cle: 'lg:lion', devise: 'Il rugit, et tout le Cabinet se tait.', jeuxDAvant: ['epingle', 'pari', 'indices'] },
+  { cle: 'lg:oracle', devise: 'Il sait déjà comment tout cela finira.', jeuxDAvant: ['filet', 'eclair', 'indices'] },
+  { cle: 'lg:serpent', devise: 'Il ondule, il siffle, et te prend de court.', jeuxDAvant: ['mot', 'eclair', 'pari'] },
+  { cle: 'lg:dragon', devise: 'Il garde son or. Prends-le-lui.', jeuxDAvant: ['pari', 'filet', 'epingle'] },
+  { cle: 'lg:kraken', devise: 'Il remonte des abysses avec ses questions.', jeuxDAvant: ['epingle', 'filet', 'quiz'] },
+  { cle: 'lg:chimere', devise: 'Trois têtes, aucune pitié.', jeuxDAvant: ['detail', 'mot', 'epingle'] },
+  { cle: 'lg:ouroboros', devise: 'Tout revient. Surtout les erreurs.', jeuxDAvant: ['filet', 'eclair', 'replique'] },
+  { cle: 'lg:trou-noir', devise: 'Rien ne lui échappe, pas même la lumière.', jeuxDAvant: ['filet', 'detail', 'mot'] },
+  { cle: 'lg:comete', devise: 'Elle ne passe qu’une fois. Ne la rate pas.', jeuxDAvant: ['epingle', 'filet', 'eclair'] },
 ]
 
 const GARDIEN_PAR_CLE = new Map(GARDIENS_DE_LA_TRAVERSEE.map(g => [g.cle, g]))
@@ -373,6 +377,12 @@ export function themeDeLEtape(e: Pick<EtapeDeLaCarte, 'theme' | 'sujet' | 'emoji
 export interface ActeDeLaCarte {
   gardien: string
   etapes: readonly EtapeDeLaCarte[]
+  /**
+   * Les jeux de ses assauts, dans l'ordre, tirés au départ (`tirerLesAssauts`) et figés avec lui : le même après un
+   * redémarrage, et l'écran du gardien dit d'avance celui qui vient. Absent d'une traversée tracée avant le 3 novembre
+   * 2026, qui garde les trois jeux de son gardien (`jeuxDAvant`).
+   */
+  assauts?: readonly CleDeJeu[]
 }
 
 export const RANGEE_DU_MARCHAND = RANGEES_D_UN_ACTE + 1
@@ -564,7 +574,33 @@ export function tracerLaCarte(
   jeux: readonly CleDeJeu[] = CLES_DES_JEUX,
 ): ActeDeLaCarte[] {
   const usage: Usage = { jeux: new Map(), categories: new Map(), contenus: new Set() }
-  return gardiens.map((g, a) => tracerUnActe(a, g, usage, contenu, jeux, hasard))
+  const actes = gardiens.map((g, a) => tracerUnActe(a, g, usage, contenu, jeux, hasard))
+  // Après les actes : le hasard de leurs étapes reste celui d'avant, et une carte d'essai garde son dessin.
+  const assauts = tirerLesAssauts(hasard, jeux)
+  return actes.map((acte, a) => ({ ...acte, assauts: assauts[a] }))
+}
+
+/**
+ * Jamais la Frise contre un gardien : elle se construit sur trois manches qui grandissent, quand un assaut s'arrête à
+ * la chute du gardien — et c'est le jeu le plus généreux du calibrage (85 % à l'occasionnel).
+ */
+export const JEUX_SANS_GARDIEN: readonly CleDeJeu[] = ['frise']
+
+/**
+ * Les jeux des assauts de chaque acte : tous les jeux livrés, sauf `JEUX_SANS_GARDIEN`, battus à part pour chacun —
+ * tirage égal, aucun jeu deux fois dans un combat avant que tous soient passés, et jamais le même premier jeu chez deux
+ * gardiens d'une traversée : le premier assaut est celui qui décide presque toujours.
+ */
+export function tirerLesAssauts(hasard: () => number, jeux: readonly CleDeJeu[] = CLES_DES_JEUX): CleDeJeu[][] {
+  const tas = jeux.filter(j => !JEUX_SANS_GARDIEN.includes(j))
+  const premiers = new Set<CleDeJeu>()
+  return Array.from({ length: ACTES_D_UNE_TRAVERSEE }, () => {
+    const battus = battre(tas, hasard)
+    const i = battus.findIndex(j => !premiers.has(j))
+    if (i > 0) [battus[0], battus[i]] = [battus[i], battus[0]]
+    if (battus.length > 0) premiers.add(battus[0])
+    return battus
+  })
 }
 
 // ── Le départ ─────────────────────────────────────────────────────────────
@@ -851,10 +887,10 @@ export const cartesDeLEpreuve = (cartes: readonly CarteEnMain[]): CarteDuDepart[
 
 export const etapeDe = (d: Pick<DepartDeLaTraversee, 'actes'>, id: string): EtapeDeLaCarte | null => d.actes[acteDe(id)]?.etapes.find(x => x.id === id) ?? null
 
-/** Le jeu d'un assaut contre un gardien : ses trois jeux, à tour de rôle. */
-export const jeuDeLAssaut = (gardien: string, assaut: number): CleDeJeu | null => {
-  const g = gardienDeLaTraversee(gardien)
-  return g ? g.jeux[(Math.max(1, assaut) - 1) % g.jeux.length] : null
+/** Le jeu d'un assaut contre un gardien : ceux que la traversée a tirés pour cet acte, dans l'ordre — d'avant le 3 novembre 2026, les trois de son gardien, à tour de rôle. */
+export const jeuDeLAssaut = (acte: Pick<ActeDeLaCarte, 'gardien' | 'assauts'>, assaut: number): CleDeJeu | null => {
+  const jeux = acte.assauts && acte.assauts.length > 0 ? acte.assauts : gardienDeLaTraversee(acte.gardien)?.jeuxDAvant
+  return jeux ? jeux[(Math.max(1, assaut) - 1) % jeux.length] : null
 }
 
 /** Ce qu'une étape demande au tirage : son jeu, ses marches, ce que son thème vise — au Quiz, un sujet de la base aussi. */
@@ -880,7 +916,7 @@ export const marchesDuGardien = (jeu: CleDeJeu, acte: number): readonly Niveau[]
 export function viseeDeLEtape(d: DepartDeLaTraversee, etape: EtapeDeLaCarte, assaut: number, choisi?: number): ViseeDUneEtape | null {
   const acte = acteDe(etape.id)
   if (etape.sorte === 'gardien') {
-    const jeu = jeuDeLAssaut(d.actes[acte].gardien, assaut)
+    const jeu = jeuDeLAssaut(d.actes[acte], assaut)
     return jeu ? { jeu, marches: marchesDuGardien(jeu, acte), categorie: null, theme: null, sujet: null } : null
   }
   if (etape.sorte !== 'epreuve' || !etape.jeu) return null
@@ -1348,6 +1384,14 @@ function lEtape(x: unknown): EtapeDeLaCarte | null {
   }
 }
 
+/** Les jeux des assauts d'un acte, relus : absents (une traversée d'avant), ou des jeux connus, chacun une fois ; null : illisibles. */
+function lesAssauts(x: unknown): CleDeJeu[] | undefined | null {
+  if (x === undefined) return undefined
+  if (!Array.isArray(x) || x.length === 0 || x.length > CLES_DES_JEUX.length) return null
+  if (!x.every(j => (CLES_DES_JEUX as readonly unknown[]).includes(j)) || new Set(x).size !== x.length) return null
+  return x as CleDeJeu[]
+}
+
 /** Les thèmes au choix d'une étape, relus à leur forme — un thème, et au besoin un sujet et un emoji ; null : illisibles. */
 function lesThemesAuChoix(x: unknown): ThemeAuChoix[] | null {
   if (!Array.isArray(x) || x.length === 0 || x.length > 9) return null
@@ -1376,7 +1420,9 @@ export function lireLeDepartDeLaTraversee(brut: unknown): DepartDeLaTraversee | 
     if (!objet(a) || !gardienDeLaTraversee(a.gardien) || !Array.isArray(a.etapes)) return null
     const etapes = a.etapes.map(lEtape)
     if (etapes.some(x => x === null)) return null
-    actes.push({ gardien: a.gardien as string, etapes: etapes as EtapeDeLaCarte[] })
+    const assauts = lesAssauts(a.assauts)
+    if (assauts === null) return null
+    actes.push({ gardien: a.gardien as string, etapes: etapes as EtapeDeLaCarte[], ...(assauts && { assauts }) })
   }
   return { v: d.v as VersionDeLaTraversee, jour: d.jour as string, actes }
 }
