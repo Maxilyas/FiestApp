@@ -31,6 +31,7 @@ import {
   type Socket,
 } from './banc'
 import { ProfileStore } from '../src/auth/profiles'
+import { appliquerLeChangement, type ChangementDeLaSalle } from '../../shared/salle'
 
 let banc: Banc
 let cookie: string
@@ -59,9 +60,14 @@ async function telephone() {
   let dernier: any = null
   let accuse = false
   const apresAccuse: any[] = []
-  socket.on('party:snapshot', (s: any) => {
+  const tenir = (s: any) => {
     dernier = s
     if (accuse) apresAccuse.push(s)
+  }
+  socket.on('party:snapshot', tenir)
+  // Ce qui a changé dans la salle, appliqué comme la page l'applique.
+  socket.on('party:salle', (c: ChangementDeLaSalle) => {
+    if (dernier) tenir(appliquerLeChangement(dernier, c))
   })
   const aPremiereVue = new Promise<any>(resolve => socket.once('session:view', () => resolve(dernier)))
   /** Rejoint ; l'accusé est noté à sa réception, avant tout message qui le suit. */

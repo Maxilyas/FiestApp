@@ -330,7 +330,12 @@ await new Promise(r => setTimeout(r, 1500)) // les instantanés regroupés
 const serveurJoin = await statsServeur(true)
 const generateurJoin = statsGenerateur(true)
 const octetsJoin = espaces.map(e => {
-  const snap = e.joueurs.map(j => j.parEvenement['party:snapshot'] ?? { n: 0, octets: 0, max: 0 })
+  // La salle entière, ou ce qui en a changé (`party:salle`, le 3 novembre 2026) : les deux disent la salle au téléphone.
+  const snap = e.joueurs.map(j => {
+    const entiers = j.parEvenement['party:snapshot'] ?? { n: 0, octets: 0, max: 0 }
+    const changements = j.parEvenement['party:salle'] ?? { n: 0, octets: 0, max: 0 }
+    return { n: entiers.n + changements.n, octets: entiers.octets + changements.octets, max: Math.max(entiers.max, changements.max) }
+  })
   return {
     instantanesParTelephone: +(snap.reduce((a, s) => a + s.n, 0) / e.taille).toFixed(1),
     koParTelephone: +(snap.reduce((a, s) => a + s.octets, 0) / e.taille / 1024).toFixed(1),

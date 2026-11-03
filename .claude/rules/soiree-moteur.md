@@ -31,8 +31,12 @@ paths:
   d'un autre en pleine question doit retirer cette promesse.
 - **Le va-et-vient d'une question attend** : l'écran commun reçoit le
   compteur de réponses quatre fois par seconde au plus (le dernier compte
-  toujours), et l'état d'une simple réponse s'écrit à la fin du tour de
-  boucle (`persistBientot`) — `stop()` écrit celui qui attendait. Les
+  toujours), et l'état d'une simple réponse s'écrit au plus une fois par
+  seconde (`persistBientot`, `ETAT_ECRIT_TOUTES_LES_MS` : à chaque tour de
+  boucle, il réécrivait 53 Ko à 300 invités, seize mégaoctets par question)
+  — `stop()` écrit celui qui attendait, et tout ce qui change la phase, un
+  chronomètre ou le journal l'écrit sur-le-champ. Un test qui lit l'état
+  écrit d'une réponse avance l'horloge d'autant. Les
   téléphones qui tombent et reviennent passent par la même fenêtre
   (`rafraichirAnimateur`), qui compte depuis le dernier calcul, parti ou
   non : une vague de reconnexions à la révélation recalculait sinon la vue

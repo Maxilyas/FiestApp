@@ -24,6 +24,19 @@ import { commencer } from './gels'
 const MIRROR_INTERVAL_MS = 2000
 
 /**
+ * L'écriture locale d'une simple réponse attend jusqu'à une seconde : une pour
+ * toutes celles qui arrivent d'ici là (`persistBientot`). Remise à la fin du
+ * tour de boucle seulement, elle réécrivait l'état entier de la partie — 53 Ko
+ * à 300 invités, dont les réponses de chacun — presque à chaque réponse :
+ * 16 Mo de JSON et de SQLite par question, pour des réponses d'une centaine
+ * d'octets (le banc du 3 novembre 2026, `docs/exploitation/capacite.md`).
+ * L'arrêt écrit ce qui attendait (`stop()`) ; un SIGKILL peut en emporter une
+ * seconde — le miroir, lui, en perd déjà deux (`MIRROR_INTERVAL_MS`), et c'est
+ * lui que relit un réveil de l'hébergeur, sur disque effacé.
+ */
+export const ETAT_ECRIT_TOUTES_LES_MS = 1000
+
+/**
  * Pendant une question, l'écran commun ne reçoit pas plus de quatre vues par
  * seconde pour un compteur « 12 / 50 ont répondu » qui monte. Chaque réponse
  * lui renvoyait sa vue entière, et il se redessinait tout entier : 23 fois
@@ -120,22 +133,23 @@ export class GameEngine {
   private lastRow: SessionRow | null = null
 
   /**
-   * L'écriture locale d'une simple réponse, remise à la fin du tour de
-   * boucle. Deux cents réponses lues dans le même tour réécrivaient deux
-   * cents fois l'état entier de la partie (86 Ko à 500 invités) : une seule
-   * suffit, celle du dernier état. Une phase, un chronomètre armé ou
-   * désarmé, des gains ou des réponses au journal s'écrivent sur-le-champ,
-   * dans le même lot que le reste (voir `run()`).
+   * L'écriture locale d'une simple réponse, remise d'au plus une seconde
+   * (`ETAT_ECRIT_TOUTES_LES_MS`). Deux cents réponses lues dans le même tour
+   * réécrivaient deux cents fois l'état entier de la partie (86 Ko à 500
+   * invités) : une seule suffit, celle du dernier état. Une phase, un
+   * chronomètre armé ou désarmé, des gains ou des réponses au journal
+   * s'écrivent sur-le-champ, dans le même lot que le reste (voir `run()`).
    *
-   * La fenêtre ouverte entre l'accusé et l'écriture est de l'ordre de la
-   * milliseconde — quelques dizaines sous une rafale au dixième de cœur :
-   * c'est ce qu'un SIGKILL peut emporter, et seulement la réponse elle-même.
-   * Un chronomètre RÉARMÉ sous la même clé (le souffle qu'un invité qui se
-   * ravise relance, `quiz.ts`) ne change pas l'`empreinte` : sa nouvelle
-   * échéance attend, elle aussi, la fin du tour. Au pire, un réveil
-   * reprend l'ancienne, un souffle plus tôt.
+   * La fenêtre ouverte entre l'accusé et l'écriture est d'au plus une
+   * seconde : c'est ce qu'un SIGKILL peut emporter, et seulement les
+   * réponses elles-mêmes. Un chronomètre RÉARMÉ sous la même clé (le souffle
+   * qu'un invité qui se ravise relance, `quiz.ts`) ne change pas
+   * l'`empreinte` : sa nouvelle échéance attend, elle aussi. Au pire, un
+   * réveil reprend l'ancienne, un souffle plus tôt.
    */
-  private persistEnAttente: ReturnType<typeof setImmediate> | null = null
+  private persistEnAttente: ReturnType<typeof setTimeout> | null = null
+  /** L'instruction qui écrit la partie, préparée une fois : la préparer à chaque écriture coûtait autant que de la jouer. */
+  private ecritureDeLaPartie: ReturnType<EngineDeps['db']['prepare']> | null = null
 
   /**
    * La vue de l'écran commun en attente de sa fenêtre, et l'heure de son
@@ -335,7 +349,7 @@ export class GameEngine {
     // Une réponse retenue attend encore son écriture : elle part maintenant,
     // en local comme au miroir — la base locale est encore ouverte.
     if (this.persistEnAttente && this.session?.status === 'running') this.persist(this.session)
-    if (this.persistEnAttente) clearImmediate(this.persistEnAttente)
+    if (this.persistEnAttente) clearTimeout(this.persistEnAttente)
     this.persistEnAttente = null
     if (this.mirrorTimer) clearTimeout(this.mirrorTimer)
     this.mirrorTimer = null
@@ -697,10 +711,10 @@ export class GameEngine {
     return true
   }
 
-  /** Écrit la partie à la fin du tour de boucle — une fois pour toutes les réponses lues pendant ce tour. */
+  /** Écrit la partie dans au plus une seconde — une fois pour toutes les réponses lues d'ici là. */
   private persistBientot(sess: LiveSession) {
     if (this.persistEnAttente) return
-    this.persistEnAttente = setImmediate(() => {
+    this.persistEnAttente = setTimeout(() => {
       this.persistEnAttente = null
       // Hors de tout `ecouter()`, comme un chronomètre : une erreur SQLite ne
       // donne plus d'accusé d'erreur à personne, elle se journalise.
@@ -709,13 +723,13 @@ export class GameEngine {
       } catch (e) {
         console.error('[partie] écriture regroupée', e)
       }
-    })
+    }, ETAT_ECRIT_TOUTES_LES_MS)
   }
 
   /** Écrit la partie en local, puis la recopie — tout de suite si `urgent`, à la cadence du va-et-vient sinon. */
   private persist(sess: LiveSession, urgent = false) {
     // L'état écrit ici est le dernier : celui qui attendait n'a plus rien à dire.
-    if (this.persistEnAttente) clearImmediate(this.persistEnAttente)
+    if (this.persistEnAttente) clearTimeout(this.persistEnAttente)
     this.persistEnAttente = null
     const timers: Record<string, number> = {}
     for (const [id, t] of sess.timers) timers[id] = t.deadline
@@ -729,14 +743,13 @@ export class GameEngine {
       createdAt: sess.createdAt,
       updatedAt: Date.now(),
     }
-    this.deps.db
-      .prepare(
-        `INSERT INTO sessions (id, status, participant_ids, state, timers, created_at, updated_at, space_id)
-         VALUES (@id, @status, @participantIds, @state, @timers, @createdAt, @updatedAt, @spaceId)
-         ON CONFLICT(id) DO UPDATE SET status = @status, participant_ids = @participantIds,
-           state = @state, timers = @timers, updated_at = @updatedAt`,
-      )
-      .run(row)
+    this.ecritureDeLaPartie ??= this.deps.db.prepare(
+      `INSERT INTO sessions (id, status, participant_ids, state, timers, created_at, updated_at, space_id)
+       VALUES (@id, @status, @participantIds, @state, @timers, @createdAt, @updatedAt, @spaceId)
+       ON CONFLICT(id) DO UPDATE SET status = @status, participant_ids = @participantIds,
+         state = @state, timers = @timers, updated_at = @updatedAt`,
+    )
+    this.ecritureDeLaPartie.run(row)
     this.lastRow = sess.status === 'running' ? row : null
     this.mirror(sess, row, urgent)
   }

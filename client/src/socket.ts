@@ -10,6 +10,7 @@ import type {
 } from '../../shared/events'
 import type { PublicProfile } from '../../shared/profil'
 import { MOTIFS } from '../../shared/erreurs'
+import { appliquerLeChangement } from '../../shared/salle'
 import { forgetMe, garderFin, getState, oublierIdentite, oublierJeton, setState, showToast } from './state'
 import { applySample, resetClock, serverNow } from './clock'
 import { currentSlug } from './routes'
@@ -58,6 +59,11 @@ socket.on('connect', () => {
 })
 socket.on('disconnect', () => setState({ connected: false }))
 socket.on('party:snapshot', snapshot => setState({ snapshot }))
+// Ce qui a changé dans la salle : sans instantané encore, rien à quoi l'appliquer — celui de la présentation arrive.
+socket.on('party:salle', changement => {
+  const tenu = getState().snapshot
+  if (tenu) setState({ snapshot: appliquerLeChangement(tenu, changement) })
+})
 socket.on('session:view', payload =>
   setState({ views: { ...getState().views, [payload.sessionId]: payload } }),
 )

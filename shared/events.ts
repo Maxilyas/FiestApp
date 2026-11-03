@@ -2,6 +2,7 @@
 import type { EcranDeScene, OngletDePodium, PartySnapshot } from './types'
 import type { ApparenceDeLAvatar, PublicProfile } from './profil'
 import type { ClotureDeSoiree, FinDeSoiree, GainAnnonce, ProgresDeQuiz, SoireeClose } from './fin'
+import type { ChangementDeLaSalle } from './salle'
 
 /**
  * Pourquoi un `player:join` est refusé, quand le téléphone doit faire autre
@@ -279,6 +280,14 @@ export interface ClientToServerEvents {
 
 export interface ServerToClientEvents {
   'party:snapshot': (snapshot: PartySnapshot) => void
+  /**
+   * Aux téléphones seulement : ce qui a changé dans la salle depuis le
+   * dernier instantané parti à tous — des joueurs arrivés ou changés, des
+   * partis, les équipes —, que le téléphone applique à celui qu'il tient
+   * (`appliquerLeChangement`, `shared/salle.ts`). Le serveur ne l'envoie que
+   * s'il refait l'instantané à l'identique ; sinon, l'instantané entier part.
+   */
+  'party:salle': (changement: ChangementDeLaSalle) => void
   /** Vue filtrée de la partie : chaque joueur reçoit SA vue, l'écran commun la sienne. */
   'session:view': (payload: { sessionId: string; view: unknown }) => void
   'session:ended': (payload: { sessionId: string }) => void

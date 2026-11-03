@@ -9,6 +9,27 @@ export function sansAccent(texte: string): string {
   return texte.trim().toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
 }
 
+/**
+ * Les prénoms déjà rendus comparables, pour les marques : une soirée les
+ * refait sur toute la salle à chaque arrivée, et la normalisation de chaque
+ * prénom en faisait l'essentiel — 66 ms sur les 1,25 s de processeur d'une
+ * salle de 300 arrivée d'un coup (le banc du 3 novembre 2026). Des prénoms
+ * seulement : `sansAccent` lit aussi les intitulés de la campagne, qu'un
+ * cache garderait par milliers.
+ */
+const prenomsComparables = new Map<string, string>()
+const PRENOMS_GARDES = 2_000
+
+function prenomComparable(prenom: string): string {
+  let comparable = prenomsComparables.get(prenom)
+  if (comparable === undefined) {
+    if (prenomsComparables.size >= PRENOMS_GARDES) prenomsComparables.clear()
+    comparable = sansAccent(prenom)
+    prenomsComparables.set(prenom, comparable)
+  }
+  return comparable
+}
+
 /** Le minimum pour distinguer une ligne d'écran d'une autre. */
 export interface Homonymable {
   id: string
@@ -61,7 +82,7 @@ export function nomsAffiches(joueurs: readonly Homonymable[]): Map<string, strin
   for (const joueur of joueurs) {
     // Le caractère nul sépare les deux parts : sans lui, « ab » + « c » et
     // « a » + « bc » feraient la même clé.
-    const cle = `${sansAccent(joueur.name)}\u0000${visageDe(joueur)}`
+    const cle = `${prenomComparable(joueur.name)}\u0000${visageDe(joueur)}`
     const rang = (rangs.get(cle) ?? 0) + 1
     rangs.set(cle, rang)
     // La table ne porte que ce qui change : le premier n'y est pas, et

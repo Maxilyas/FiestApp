@@ -14,6 +14,7 @@ import { createQuizServer, type QuizServerOptions } from '../src/server'
 import { calendrierDesExpeditions, calendrierDesSoirees, calendrierDuCabinet } from '../src/core/saisons'
 import { BaseDeLaCampagne, lireQuestionDeLaBase } from '../src/core/baseCampagne'
 import { SOUS_THEMES } from '../../shared/etiquettes'
+import { appliquerLeChangement, type ChangementDeLaSalle } from '../../shared/salle'
 import type { Categorie } from '../../shared/categories'
 import type { QuizQuestionDef } from '../../shared/library'
 
@@ -156,8 +157,14 @@ export async function demarrer(opts: Partial<QuizServerOptions> = {}): Promise<B
 /** Toutes les connexions ouvertes par le banc, pour les refermer quoi qu'il arrive. */
 const ouverts = new Set<Socket>()
 
-/** Le dernier instantané reçu par chaque connexion. */
-const derniers = new WeakMap<Socket, { snapshot?: any }>()
+/** Le dernier instantané tenu par chaque connexion, et qui attend le suivant. */
+interface Tenu {
+  snapshot?: any
+  /** Ce qu'il est arrivé : un instantané entier, ou un changement de la salle (`party:salle`). */
+  par?: 'party:snapshot' | 'party:salle'
+  attentes: Set<(s: any) => void>
+}
+const derniers = new WeakMap<Socket, Tenu>()
 
 /** Une connexion temps réel, avec le cookie qu'un navigateur joindrait à la poignée de main. */
 export function connecter(url: string, cookie?: string): Socket {
@@ -171,23 +178,54 @@ export function connecter(url: string, cookie?: string): Socket {
   // de `party:watch`, souvent dans le même paquet réseau : un écouteur posé
   // après avoir attendu l'accusé arrive trop tard. On retient donc toujours le
   // dernier, dès la connexion.
-  const etat: { snapshot?: any } = {}
+  const etat: Tenu = { attentes: new Set() }
   derniers.set(socket, etat)
-  socket.on('party:snapshot', (s: unknown) => {
+  const tenir = (s: unknown, par: Tenu['par']) => {
     etat.snapshot = s
+    etat.par = par
+    for (const attente of [...etat.attentes]) attente(s)
+  }
+  socket.on('party:snapshot', (s: unknown) => tenir(s, 'party:snapshot'))
+  // Un téléphone ne reçoit souvent que ce qui a changé : le banc l'applique
+  // à ce qu'il tient, comme la page (`client/src/socket.ts`).
+  socket.on('party:salle', (c: ChangementDeLaSalle) => {
+    if (etat.snapshot) tenir(appliquerLeChangement(etat.snapshot, c), 'party:salle')
   })
   return socket
 }
 
-/** Le dernier instantané reçu qui satisfait le prédicat — ou le prochain. */
+/** Comment est arrivé le dernier instantané que tient la connexion : entier, ou par un changement de la salle. */
+export function arrivePar(socket: Socket): Tenu['par'] {
+  return derniers.get(socket)?.par
+}
+
+/**
+ * Le dernier instantané tenu qui satisfait le prédicat — ou le prochain,
+ * entier ou refait d'un changement de la salle.
+ */
 export function instantane<T = any>(
   socket: Socket,
   pred: (s: T) => boolean = () => true,
   label = 'un instantané',
+  timeoutMs = 8000,
 ): Promise<T> {
-  const deja = derniers.get(socket)?.snapshot
+  const etat = derniers.get(socket)
+  const deja = etat?.snapshot
   if (deja && pred(deja)) return Promise.resolve(deja)
-  return attendre<T>(socket, 'party:snapshot', pred, label)
+  if (!etat) return attendre<T>(socket, 'party:snapshot', pred, label, timeoutMs)
+  return new Promise((resolve, reject) => {
+    const to = setTimeout(() => {
+      etat.attentes.delete(attente)
+      reject(new Error(`délai dépassé en attendant : ${label}`))
+    }, timeoutMs)
+    const attente = (s: T) => {
+      if (!pred(s)) return
+      clearTimeout(to)
+      etat.attentes.delete(attente)
+      resolve(s)
+    }
+    etat.attentes.add(attente)
+  })
 }
 
 /** Émet et attend l'accusé. Un accusé qui ne vient pas est une erreur, pas une attente infinie. */

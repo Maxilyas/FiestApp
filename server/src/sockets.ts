@@ -334,7 +334,7 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         // rejoigne — c'est là qu'on lui dit son niveau.
         const profile = await profileOfSocket().catch(() => null)
         repondre({ ok: true, ...(profile && { profile: deps.profiles.toPublic(profile) }) })
-        socket.emit('party:snapshot', rt.buildSnapshot(false))
+        socket.emit('party:snapshot', rt.instantanePourUnTelephone())
       },
       { ok: false, error: SERVER_ERROR },
     )
@@ -508,7 +508,7 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         // dort et qui veille n'y figure plus) : le regroupement ne lui
         // renverrait rien du tout. L'instantané part une fois l'invité
         // compté dans la partie, et avant sa première vue.
-        rt.engine.joinLate(res.id, () => socket.emit('party:snapshot', rt.buildSnapshot(false)))
+        rt.engine.joinLate(res.id, () => socket.emit('party:snapshot', rt.instantanePourUnTelephone()))
         rt.broadcastSnapshot()
         rt.engine.resendViews(res.id)
       },
@@ -660,7 +660,7 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         // arrivait après elle — 120 ms plus 2 ms par invité —, et la page d'une
         // fiche qui n'était pas de la partie (téléphone mort avant le
         // lancement) lisait « tu entres à la prochaine question » en pleine question.
-        rt.engine.joinLate(res.id, () => socket.emit('party:snapshot', rt.buildSnapshot(false)))
+        rt.engine.joinLate(res.id, () => socket.emit('party:snapshot', rt.instantanePourUnTelephone()))
         rt.broadcastSnapshot()
         rt.engine.resendViews(res.id)
         // Le téléphone de l'animateur le dit à la salle mieux qu'un toast :
@@ -736,7 +736,7 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         rt.party.assign(playerId, validTeam(rt, texte(charge.teamId)))
         // Sa nouvelle équipe, à lui d'abord et avant l'accusé : la page qui
         // le reçoit relit son en-tête dans l'instantané, pas dans l'accusé.
-        socket.emit('party:snapshot', rt.buildSnapshot(false))
+        socket.emit('party:snapshot', rt.instantanePourUnTelephone())
         rt.broadcastSnapshot()
         repondre({ ok: true })
       },

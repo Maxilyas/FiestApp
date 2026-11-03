@@ -6,7 +6,7 @@
 
 ## Les conventions
 
-Le contrat tient dans `shared/events.ts` : `ClientToServerEvents` (27 messages) et `ServerToClientEvents` (11), typés des deux côtés. `server/test/documentation.test.ts` vérifie que chacun a sa section ici, et qu'aucune section ne survit à son message.
+Le contrat tient dans `shared/events.ts` : `ClientToServerEvents` (27 messages) et `ServerToClientEvents` (12), typés des deux côtés. `server/test/documentation.test.ts` vérifie que chacun a sa section ici, et qu'aucune section ne survit à son message.
 
 - **Tout message d'un client passe par `ecouter()`** (`server/src/sockets.ts`, invariant 7). La charge devient toujours un objet — absente, `null` ou un tableau, elle vaut `{}` —, chaque champ se relit à son type (un texte attendu qui n'en est pas un vaut « absent »), l'accusé est toujours une fonction (vide si le client n'en a pas donné), et une exception, synchrone ou dans la promesse du gestionnaire, part au journal (`[socket] « … » a échoué`) et au relevé des erreurs (`server/src/core/pouls.ts`). Quand le message a un accusé, le client reçoit alors la **réponse de panne** que donne sa fiche.
 - **Les salles.** `space:<espace>` réunit toute connexion rattachée à un espace — qui suit, qui joue, les écrans ; `hosts:<espace>` les écrans d'animateur (console, télécommande, télé branchée, liaison du chef) ; `player:<invité>` les connexions qui incarnent un invité. `<espace>` est l'identifiant du compte. Le serveur n'émet jamais à tout le monde : les espaces ne se voient pas.
@@ -304,13 +304,13 @@ Aucun n'a d'accusé ni de refus. Chaque fiche dit d'où il part, à qui, ce qu'i
 
 ### `party:snapshot`
 
-- **Qui l'émet** : `server/src/core/space.ts` — `broadcastSnapshot`, regroupé, et `sendSnapshot`, sur-le-champ et dans ses deux versions ; et `server/src/sockets.ts`, à la seule connexion qui se présente ou fait le geste (`party:watch`, `player:join`, `player:reprendre`, `player:setTeam`, `host:hello`).
-- **À qui** : la version des téléphones à `space:<espace>` sauf `hosts:<espace>` ; la version des écrans à `hosts:<espace>`.
+- **Qui l'émet** : `server/src/core/space.ts` — `broadcastSnapshot`, regroupé, et `sendSnapshot`, sur-le-champ et dans ses deux versions ; et `server/src/sockets.ts`, à la seule connexion qui se présente ou fait le geste (`party:watch`, `player:join`, `player:reprendre`, `player:setTeam` — `instantanePourUnTelephone` — et `host:hello`).
+- **À qui** : la version des téléphones à `space:<espace>` sauf `hosts:<espace>`, entière seulement quand un changement ne suffit pas (`party:salle`, plus bas) ; la version des écrans à `hosts:<espace>`, toujours entière.
 - **Charge** : `PartySnapshot` (`shared/types.ts`).
 
   | Champ | Versions | Ce qu'il porte |
   |---|---|---|
-  | `players` | les deux | chaque invité (`PublicPlayer`) : identifiant, prénom, avatar, score de la soirée, équipe ; `nomAffiche` quand une marque d'homonymie le distingue ; `horsClassement` pour le chef qui anime seulement ; ce qu'ajoute un profil (niveau, finition, légendaire, laurier…), absent sans profil ; `connected`, aux écrans seulement |
+  | `players` | les deux | chaque invité (`PublicPlayer`) : identifiant, prénom, avatar, score de la soirée, équipe ; `nomAffiche` quand une marque d'homonymie le distingue ; `horsClassement` pour le chef qui anime seulement ; ce qu'ajoute un profil (niveau, finition, légendaire, laurier…), absent sans profil ; `connected`, aux écrans seulement. Pendant un quiz, la version des téléphones garde le score de la soirée tel qu'au lancement, jusqu'au podium du quiz (`pointsDuQuiz`) : un téléphone en partie lit sa place dans sa vue |
   | `teams` | les deux | chaque équipe : effectif, total, moyenne, prix |
   | `bonuses` | les deux | les prix remis |
   | `session` | les deux | la partie en cours (`id`, `participantIds`), ou `null` |
@@ -324,8 +324,16 @@ Aucun n'a d'accusé ni de refus. Chaque fiche dit d'où il part, à qui, ce qu'i
   | `telecommande` | les écrans | un écran de l'espace se tient en télécommande |
   | `finEnRoute` | les écrans | `close` ou `discard` : une fin de soirée est en cours |
 
-- **Effet** : le client remplace son instantané. Chaque version ne part que si elle a changé ; toutes les cinq minutes, les deux repartent, forcées. Quand la base permanente passe en retard ou s'en remet, seule la version des écrans part.
+- **Effet** : le client remplace son instantané. Chaque version ne part que si elle a changé ; toutes les cinq minutes, les deux repartent, forcées et entières. Quand la base permanente passe en retard ou s'en remet, seule la version des écrans part.
 - **Écouté par** : `client/src/socket.ts`, `client/src/socketDuChef.ts`.
+
+### `party:salle`
+
+- **Qui l'émet** : `server/src/core/space.ts` (`envoyerAuxTelephones`), à la place de la version des téléphones de `party:snapshot`, quand ce qui a changé suffit (`SalleDesTelephones`, `server/src/core/salleDesTelephones.ts`).
+- **À qui** : `space:<espace>` sauf `hosts:<espace>` — les écrans d'animateur reçoivent toujours l'instantané entier.
+- **Charge** : `ChangementDeLaSalle` (`shared/salle.ts`) : `joueurs`, les invités arrivés ou changés, entiers, dans l'ordre de la salle ; `points`, les points de la soirée de ceux dont rien d'autre n'a changé (au podium d'un quiz, toute la salle) ; `partis`, les identifiants de ceux qui sont partis ; `equipes`, toutes les équipes, quand elles ont changé ; `reste`, tout ce qui n'est ni un invité ni une équipe — la partie, le code, les titres, les prix —, entier, quand il a changé. Un champ absent n'a pas changé.
+- **Effet** : le client l'applique à l'instantané qu'il tient (`appliquerLeChangement`) — les partis ôtés, les points posés, chaque invité reçu remplacé à sa place ou ajouté au bout, les équipes et le reste remplacés ; sans instantané encore, il l'ignore : celui de la présentation arrive. Le serveur ne l'envoie que s'il refait la version des téléphones à l'identique sur chaque téléphone, ordre compris — même sur celui qui a reçu la sienne en se présentant depuis le dernier envoi à la salle, dont il couvre aussi ce qui a changé et rechangé entre-temps —, et s'il pèse moins qu'elle ; sinon, l'instantané entier part.
+- **Écouté par** : `client/src/socket.ts`.
 
 ### `session:view`
 
