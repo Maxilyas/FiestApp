@@ -6023,6 +6023,11 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
     radial-gradient(circle at 30% 25%, rgba(255, 190, 220, 0.16), rgba(255, 190, 220, 0) 55%),
     radial-gradient(circle at 70% 35%, rgba(150, 220, 255, 0.16), rgba(150, 220, 255, 0) 55%),
     var(--surface);
+  /* L'avatar y paraît à 170 pixels, et la lumière de sa finition se mesure en `em` : la bague du Diamant y fait 391
+     pixels, plus large qu'un téléphone. Elle élargissait la page le temps de tourner, et la niche, fixée au coin,
+     partait hors champ (le retour du 3 novembre 2026, sous Le Ciel du jour). Gardée dans la carte ; en hauteur, la
+     créature d'un légendaire éclaté en sort encore. */
+  overflow-x: clip;
 }
 
 .fin-eclat h2 { font-size: 1.9rem; }
