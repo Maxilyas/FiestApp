@@ -269,6 +269,19 @@ les nomment ensemble. Les deux dernières lignes changent d'un passage à
 l'autre selon l'heure où le ramasse-miettes passe : un seul passage ne dit
 pas qu'elles ont reculé.
 
+Ce départ d'une épreuve, dans le banc entier, n'a plus de bloc du dépôt à
+couper : sur un vrai cœur, aucun trou de la boucle de plus de 6 ms pendant
+lui. Bridé, ses gels de 0,5 à 0,7 s prennent tout le dixième de cœur — 64 à
+87 ms de processeur chacun —, le modèle du savoir tournant en fond ; le
+profileur les met au compte du ramasse-miettes, mais la sonde, qui lit ses
+vraies pauses, n'y en trouve presque pas (0 à 3 ms sans profileur, 91 et
+196 ms avec). Une piste, non vérifiée : les fils de V8 — son compilateur, qui
+optimise les boucles chaudes du modèle — prennent le quota que la boucle
+attend. Le seul morceau du dépôt qui ressort d'un passage à l'autre est le
+crible des questions jouables (`jouables`, 27 000 questions, 6 ms sur un vrai
+cœur), refait quand la base, la réserve du jour ou les retraits changent :
+0,3 s bridé, sous le seuil d'un gel.
+
 **Le réveil**, lui, n'a pas de bloc du dépôt à couper : au profileur bridé,
 ses retards de 0,7 à 0,8 s sont du ramasse-miettes aux deux tiers, sous « fond
 · sujets et tirages » et « fond · modèle du savoir ». Sur un vrai cœur
@@ -294,3 +307,9 @@ plus.
   2 novembre, et elles grandiront avec l'historique.
 - **La mémoire après l'apport du matin** : à surveiller, `rssMo` à
   `/healthz`.
+- **Ce que la production dira de ces tranches** : elle tournait encore la
+  version 73cec7d, d'avant elles, le 3 novembre au matin. Ses gels de la
+  semaine qui suit la mise en ligne (`reproductions/gels-de-la-production.ts`)
+  diront ce qui reste — et si le départ d'une épreuve, le réveil et le modèle
+  du savoir y gèlent encore comme au banc, le levier n'est plus le code mais
+  le processeur (plus haut).
