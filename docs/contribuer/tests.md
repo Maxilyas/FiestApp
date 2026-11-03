@@ -212,6 +212,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/poignee-de-main.test.ts` — un geste d'animateur relit la session de sa poignée de main.
 - `server/test/grande-salle.test.ts` — le coût d'une réponse, d'une veille, d'une arrivée, compté.
 - `server/test/au-geste.test.ts` — qui fait le geste se voit tout de suite.
+- `server/test/salle-des-telephones.test.ts` — les téléphones ne reçoivent que ce qui change de la salle, et chacun retombe exactement sur celle de l'écran commun, même celui qui vient de recevoir la sienne ; pendant un quiz, les points de la soirée attendent son podium.
 - `server/test/liaison-morte.test.ts` — un geste dans une liaison morte : sonde, réouverture, renvoi.
 - `server/test/rafales.test.ts` — les verrous des portes de connexion sous une rafale d'essais.
 - `server/test/remise.test.ts` — un prix remis une fois, même cliqué deux fois.
