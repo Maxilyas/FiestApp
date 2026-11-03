@@ -145,8 +145,8 @@ dépôt.
 | `MAX_PLAYERS` | `150` | `150` |
 | `APP_ENV` | absente | `preprod` |
 | `QUIZ_DB_URL`, `QUIZ_DB_TOKEN` | à saisir : la base Turso de production | à saisir : **sa base à elle**, jamais celle de la production |
-| `QUIZ_DB_TRANSPORT` | absente tant que la préproduction ne l'a pas lue, puis `leger` | `leger`, pour l'essayer d'abord |
-| `QUIZ_DB_CLIENT` | absente tant que la préproduction ne l'a pas lue, puis `minimal` | `minimal`, pour l'essayer d'abord |
+| `QUIZ_DB_TRANSPORT` | `leger`, posée après la préproduction | `leger` |
+| `QUIZ_DB_CLIENT` | `minimal`, posée après la préproduction, le 3 novembre 2026 | `minimal` |
 | `ADMIN_LOGIN`, `ADMIN_SLUG` | à saisir | à saisir |
 | `ADMIN_PASSWORD` | à saisir, le temps du premier démarrage | à saisir, différent de celui de la production |
 | `RESERVE_TOKEN` | à saisir, avec le bouton « Generate » | à saisir, un autre |
