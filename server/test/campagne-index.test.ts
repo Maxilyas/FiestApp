@@ -97,6 +97,11 @@ const enCours = new Map<string, unknown[]>()
 const triees = new Map<string, unknown[]>()
 /** La lecture des missions, de même. */
 const missions = new Map<string, unknown[]>()
+/** Les lectures de ses épreuves validées — ses paliers, ses étoiles —, de même. */
+const validees = new Map<string, unknown[]>()
+
+/** Les épreuves validées d'un profil : son profil, le mode des sentiers et l'issue validée, dans un même `WHERE`. */
+const SES_VALIDEES = /\bFROM campagne_series WHERE profile_id = \? AND mode = 'sentier' AND issue = 'validee'$/
 
 const proto = Sqlite3Client.prototype as unknown as Record<'execute' | 'batch', (...args: unknown[]) => Promise<unknown>>
 for (const methode of ['execute', 'batch'] as const) {
@@ -109,6 +114,7 @@ for (const methode of ['execute', 'batch'] as const) {
       if (modeCherche(sql)) enCours.set(sql, Array.isArray(valeurs) ? valeurs : [])
       if (rechercheTriee(sql)) triees.set(sql, Array.isArray(valeurs) ? valeurs : [])
       if (LES_PARTIES_DES_MISSIONS.test(sql)) missions.set(sql, Array.isArray(valeurs) ? valeurs : [])
+      if (SES_VALIDEES.test(sql.replace(/\s+/g, ' ').trim())) validees.set(sql, Array.isArray(valeurs) ? valeurs : [])
     }
     return origine.apply(this, args)
   }
@@ -371,5 +377,70 @@ test('les missions ne relisent que les parties des modes qu’elles comptent : j
     }
   } finally {
     await banc.close()
+  }
+})
+
+// Ses paliers validés, que sa ligne d'expérience relit dans le lot de chaque
+// bonne réponse de campagne (`lectureDesPaliersValides`), et ses étoiles
+// (`lectureDesValidees`) : par l'index des sentiers, elles parcouraient
+// toutes ses épreuves, ratées comprises — 281 lignes au quota de Turso à
+// chaque bonne réponse du plus assidu, pour 124 validées (le 3 novembre 2026).
+// L'index partiel de ses seules épreuves validées (`idx_campagne_series_validees`)
+// les sert sans aller dans la table — sans statistiques, quel que soit l'ordre
+// où la base a créé ses index, et sous celles d'une production.
+test('ses épreuves validées se lisent par leur index à elles, sans ses épreuves ratées — ses paliers à chaque bonne réponse, ses étoiles', async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'quizz-validees-'))
+  const fichier = path.join(dir, 'permanente.db')
+  const campagne = new CampagneStore(`file:${fichier.replace(/\\/g, '/')}`, undefined, { base: baseDEssai(30), recompenses: RIEN })
+  validees.clear()
+  try {
+    await campagne.init()
+    // Une bonne réponse en série — sa ligne d'expérience relit ses paliers dans son lot —, puis ses paliers et ses étoiles.
+    const lea = 'profil-lea'
+    const serie = await campagne.commencer(lea)
+    const question = serie.question!
+    await campagne.repondre(lea, serie.id, question.index, question.reponses.findIndex(x => x.startsWith('Bonne')))
+    await campagne.statsDe(lea)
+    assert.equal(validees.size, 2, `ses paliers et ses étoiles :\n${[...validees.keys()].join('\n')}`)
+
+    const PAR_SES_VALIDEES = /^SEARCH campagne_series USING COVERING INDEX idx_campagne_series_validees \(profile_id=\?\)$/
+    const lirePlans = (db: Database.Database, quand: string) => {
+      for (const [sql, args] of validees) {
+        const plan = unPlan(db, sql, args)
+        assert.deepEqual(
+          plan.filter(e => /\bcampagne_series\b/.test(e.detail)).map(e => PAR_SES_VALIDEES.test(e.detail)),
+          [true],
+          `${quand} :\n${ditLePlan(plan, sql)}`,
+        )
+      }
+    }
+    const db = new Database(fichier)
+    try {
+      lirePlans(db, 'sans statistiques')
+      // L'index partiel le plus ancien de la base, comme en production — il y arrive après les autres, une base neuve aussi : le même plan.
+      for (const index of ['idx_campagne_series_sentiers', 'idx_campagne_series_profil_mode']) {
+        const { sql } = db.prepare('SELECT sql FROM sqlite_master WHERE name = ?').get(index) as { sql: string }
+        db.exec(`DROP INDEX ${index}`)
+        db.exec(sql)
+      }
+      lirePlans(db, 'les autres index créés après lui')
+      // Sans lui, elles partent de l'index des sentiers ou du mode, et lisent aussi ses épreuves ratées.
+      db.exec('DROP INDEX idx_campagne_series_validees')
+      for (const [sql, args] of validees) {
+        const plan = unPlan(db, sql, args)
+        assert.ok(plan.some(e => PAR_LE_PROFIL_ET_LE_MODE.test(e.detail)), `sans l’index partiel :\n${ditLePlan(plan, sql)}`)
+      }
+    } finally {
+      db.close()
+    }
+    const sous = await sousCesStatistiques(DE_LA_PRODUCTION)
+    try {
+      lirePlans(sous.db, 'sous les statistiques d’une production')
+    } finally {
+      sous.fermer()
+    }
+  } finally {
+    campagne.close()
+    rmSync(dir, { recursive: true, force: true })
   }
 })

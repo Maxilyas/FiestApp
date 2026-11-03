@@ -64,6 +64,8 @@ export const DE_LA_PRODUCTION: Record<string, string> = {
   idx_campagne_series_profil_mode: '100000 100 10 1',
   idx_campagne_series_defi: '100000 10000 3',
   idx_campagne_series_duel: '100000 10000 2',
+  // Ses épreuves validées seules : la moitié de ses dix épreuves de sentier, sur trois sentiers, une par palier.
+  idx_campagne_series_validees: '5000 5 2 1 1 1',
 }
 
 /** Un duel qui paraît moins sélectif que les tentatives de duel d'un joueur : sans son `+`, la recherche des tentatives d'un duel part du profil. */

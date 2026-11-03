@@ -3,7 +3,10 @@
 // le ranger à l'écart sans le perdre, et tout emporter d'un seul fichier.
 import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
-import { dureeEstimeeS, normalizeQuestions, pourChercher, rechercherDans, resumerQuiz, type QuizDef } from '../../shared/library'
+import Database from 'better-sqlite3'
+import { Sqlite3Client } from '@libsql/client/sqlite3'
+import { dureeEstimeeS, normalizeQuestions, pourChercher, rechercherDans, resumerQuiz, type QuizDef, type QuizSummary } from '../../shared/library'
+import { tronquer } from '../../shared/avatars'
 import { FORMAT_BIBLIOTHEQUE, emporterBibliotheque, importerFichier, nomDeBibliotheque } from '../../shared/echange'
 import {
   attendre,
@@ -194,4 +197,152 @@ test('chercher et archiver : chez soi seulement, et un quiz archivé ne se propo
   ;(host2 as any).emit('host:launch')
   assert.ok((await choix2).view.packs.some((p: any) => p.id === annees90), 'ressorti, il se propose de nouveau')
   host2.close()
+})
+
+// ── Ce que « Mes quiz » relit ───────────────────────────────────────────────
+
+/** Ce que la base permanente a rendu pendant une mesure : chaque instruction, ses colonnes et ses lignes. */
+const espion = { actif: false, lus: [] as { sql: string; colonnes: string[]; lignes: number }[] }
+const proto = Sqlite3Client.prototype as unknown as Record<'execute' | 'batch', (...args: unknown[]) => Promise<unknown>>
+for (const methode of ['execute', 'batch'] as const) {
+  const origine = proto[methode]
+  proto[methode] = function (this: unknown, ...args: unknown[]) {
+    if (!espion.actif) return origine.apply(this, args)
+    const sqls = (methode === 'batch' ? (args[0] as unknown[]) : [args[0]]).map(s => (typeof s === 'string' ? s : (s as { sql: string }).sql).replace(/\s+/g, ' ').trim())
+    return origine.apply(this, args).then(r => {
+      const resultats = (methode === 'batch' ? r : [r]) as ({ columns?: string[]; rows?: unknown[] } | undefined)[]
+      resultats.forEach((x, i) => espion.lus.push({ sql: sqls[i], colonnes: x?.columns ?? [], lignes: x?.rows?.length ?? 0 }))
+      return r
+    })
+  }
+}
+
+// « Mes quiz » relisait toutes les questions de la bibliothèque à chaque
+// ouverture, puis les normalisait et les résumait d'une traite : 420 Ko et
+// 1 160 questions pour la plus grosse de la production, et la sonde des gels
+// relevait la page seule pendant des gels de 1,5 à 2,4 s, au dixième de cœur
+// de l'hébergeur (le 3 novembre 2026). Le résumé de chaque quiz se garde sous
+// sa version : seules se relisent les questions de ceux qui ont changé — ici,
+// ou sur l'autre serveur d'une mise en ligne.
+test('« Mes quiz » ne relit les questions que des quiz qui ont changé, et dit chacun tel qu’il est', async () => {
+  const banc = await demarrer()
+  bancs.push(banc)
+  const cookie = await connexionAnimateur(banc.url)
+  const lire = async (chemin: string) => (await fetch(`${banc.url}${chemin}`, { headers: { Cookie: cookie } })).json() as Promise<any>
+  const ids: string[] = []
+  for (let i = 0; i < 4; i++) ids.push(await creerQuiz(banc.url, cookie, [qcm(`Question ${i} ?`, ['Oui', 'Non']), estimation(`Combien ${i} ?`, 40 + i)], `Quiz ${i}`))
+  /** La liste, et ce que sa lecture a relu des questions : les quiz dont elle a rendu la colonne. */
+  const laListe = async () => {
+    Object.assign(espion, { actif: true, lus: [] })
+    try {
+      const liste = (await lire('/api/quizzes')) as (QuizSummary & { id: string })[]
+      const questionsRelues = espion.lus.filter(l => l.colonnes.includes('questions')).reduce((n, l) => n + l.lignes, 0)
+      const soireesRelues = espion.lus.filter(l => /\bFROM soirees\b/.test(l.sql)).length
+      return { liste, questionsRelues, soireesRelues }
+    } finally {
+      espion.actif = false
+    }
+  }
+  /** La liste sans ce que l'historique en dit (`joue`) : ce que le résumé seul doit dire. */
+  const sansLaMemoire = (liste: (QuizSummary & { id: string })[]) => new Map(liste.map(({ joue: _joue, ...q }) => [q.id, q]))
+  /** Chaque quiz tel qu'il est, résumé de zéro : ce que la liste doit dire. */
+  const attendus = async () => {
+    const resumes = new Map<string, QuizSummary>()
+    for (const q of (await lire('/api/quizzes')) as { id: string }[]) resumes.set(q.id, resumerQuiz(await lire(`/api/quizzes/${q.id}`)))
+    return resumes
+  }
+
+  // Une soirée d'hier, qui a joué le premier : son historique le dit « joué une fois ».
+  const hier = Date.now() - 86_400_000
+  const ecrite = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+  try {
+    const { space_id: espace } = ecrite.prepare('SELECT space_id FROM quizzes WHERE id = ?').get(ids[0]) as { space_id: string }
+    ecrite
+      .prepare('INSERT INTO soirees (space_id, id, title, held_at, archived_at, summary, data) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(espace, 'soiree-d-hier', 'Hier', hier, hier, JSON.stringify({ v: 3, invites: [], jeux: [{ quizId: ids[0], questions: [] }] }), '{}')
+  } finally {
+    ecrite.close()
+  }
+
+  // Au réveil, la bibliothèque relue au démarrage pour la console a résumé chaque quiz au passage, et l'historique
+  // relu pour le tirage des questions a gardé la mémoire de chaque espace : la première ouverture ne relit ni l'un ni l'autre.
+  await banc.redemarrer()
+  const auReveil = await laListe()
+  assert.equal(auReveil.questionsRelues, 0, 'la première ouverture d’un réveil ne relit aucune question')
+  assert.deepEqual(auReveil.soireesRelues, 0, 'ni son historique')
+  assert.deepEqual(auReveil.liste.find(q => q.id === ids[0])?.joue, { fois: 1, dernier: hier }, 'ce que l’historique en sait')
+  const resumes = await attendus()
+  assert.ok(resumes.size >= 4, 'les quatre quiz, et ceux que la bibliothèque reçoit à sa naissance')
+  assert.deepEqual(sansLaMemoire(auReveil.liste), resumes, 'chacun résumé comme de zéro')
+
+  // Enregistré ici : l'enregistrement relit la bibliothèque pour la console, et la liste qui suit ne relit rien.
+  const modifie = await lire(`/api/quizzes/${ids[0]}`)
+  const enregistre = await ecrire(banc.url, `/api/quizzes/${ids[0]}`, { title: 'Quiz zéro', questions: [...modifie.questions, qcm('Une de plus ?')], base: modifie.updatedAt }, cookie, 'PUT')
+  assert.equal(enregistre.status, 200)
+  const apresEnregistrement = await laListe()
+  assert.equal(apresEnregistrement.questionsRelues, 0, 'l’enregistrement a déjà résumé le quiz')
+  assert.deepEqual(
+    [apresEnregistrement.liste[0].id, apresEnregistrement.liste[0].title, apresEnregistrement.liste[0].questionCount],
+    [ids[0], 'Quiz zéro', 3],
+    'remonté en tête, son nouveau titre et sa question de plus',
+  )
+
+  // Archivé : sa version ne bouge pas, et la liste le dit pourtant archivé.
+  assert.equal((await ecrire(banc.url, `/api/quizzes/${ids[1]}/archive`, { archive: true }, cookie)).status, 200)
+  const archive = await laListe()
+  assert.equal(archive.questionsRelues, 0)
+  assert.ok((archive.liste.find(q => q.id === ids[1])?.archivedAt ?? 0) > 0, 'archivé, sans relire ses questions')
+
+  // Enregistré par l'autre serveur d'une mise en ligne, sans que celui-ci le sache : seules ses questions se relisent.
+  const autre = await lire(`/api/quizzes/${ids[2]}`)
+  const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+  try {
+    db.prepare('UPDATE quizzes SET title = ?, questions = ?, updated_at = ? WHERE id = ?').run(
+      'Quiz deux, d’ailleurs',
+      JSON.stringify(normalizeQuestions([...autre.questions, qcm('Ailleurs ?'), qcm('Encore ?')])),
+      autre.updatedAt + 1,
+      ids[2],
+    )
+  } finally {
+    db.close()
+  }
+  const ailleurs = await laListe()
+  assert.equal(ailleurs.questionsRelues, 1, 'les questions du seul quiz qui a changé')
+  assert.deepEqual(sansLaMemoire(ailleurs.liste), await attendus(), 'chacun tel qu’il est, le quiz changé ailleurs compris')
+  assert.equal(ailleurs.liste.find(q => q.id === ids[2])?.questionCount, 4)
+
+  // Effacé : il quitte la liste.
+  assert.equal((await ecrire(banc.url, `/api/quizzes/${ids[3]}`, {}, cookie, 'DELETE')).status, 200)
+  assert.ok(!(await laListe()).liste.some(q => q.id === ids[3]))
+})
+
+// `normalizeQuestions` passe chaque champ de chaque question par `tronquer`, à
+// chaque relecture d'une bibliothèque — au démarrage, après chaque écriture :
+// découper en points de code des milliers de textes déjà courts en prenait la
+// moitié. Sous la borne en unités UTF-16, le texte y est en points de code :
+// il se rend tel quel. La coupe, elle, ne change pas — comparée ici à
+// `tronquer` d'avant, recopiée telle qu'elle était, sur des textes au hasard.
+test('tronquer rend ce qu’il rendait, sans découper un texte déjà court', () => {
+  const avant = (texte: string, max: number): string => {
+    const points = Array.from(texte)
+    if (points.length <= max) return texte
+    if (typeof Intl.Segmenter !== 'function') return points.slice(0, max).join('')
+    let garde = ''
+    let compte = 0
+    for (const { segment } of new Intl.Segmenter('fr', { granularity: 'grapheme' }).segment(texte)) {
+      const n = Array.from(segment).length
+      if (compte + n > max) break
+      garde += segment
+      compte += n
+    }
+    return garde || points.slice(0, max).join('')
+  }
+  const MORCEAUX = ['a', 'é', 'e\u0301', ' ', '中', '🎉', '👍🏽', '🇫🇷', '👨‍👩‍👧', 'x\u0301\u0302\u0303']
+  let g = 7
+  const hasard = () => (g = (g * 16807) % 2147483647) / 2147483647
+  for (let k = 0; k < 4000; k++) {
+    const texte = Array.from({ length: Math.floor(hasard() * 30) }, () => MORCEAUX[Math.floor(hasard() * MORCEAUX.length)]).join('')
+    const max = Math.floor(hasard() * 40)
+    assert.equal(tronquer(texte, max), avant(texte, max), `${JSON.stringify(texte)} coupé à ${max}`)
+  }
 })

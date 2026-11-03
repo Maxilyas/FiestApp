@@ -55,6 +55,26 @@ paths:
   silence ; `PUT` avec `base` refuse aussi un temps, une observation ou une
   cible hors bornes (`horsBornesALEnvoi`) — sans `base` (une page d'avant),
   il borne et coupe sans rien dire.
+- **« Mes quiz » ne relit que les quiz qui ont changé** (`QuizStore.list`,
+  le 3 novembre 2026) : la ligne de chaque quiz, sans ses questions, et le
+  résumé gardé sous sa version (`resumes`, `versionDe` : `updated_at`, la
+  longueur de ses questions comptée par la base, ses réglages) — les
+  questions des seuls quiz dont la version a bougé. Elle relisait toute la
+  bibliothèque à chaque ouverture, la normalisait et la résumait d'une
+  traite : 420 Ko et 1 160 questions pour la plus grosse de la production,
+  25 ms de processeur au banc, deux à quatre fois plus à froid — une route
+  rare l'est presque toujours —, et la sonde des gels relevait « Mes quiz »
+  seul pendant des gels de 1,5 à 2,4 s, au dixième de cœur de l'hébergeur
+  (`retours/2026-11-03/reproductions/liste-des-quiz.ts`). La bibliothèque
+  relue au démarrage et après chaque écriture d'un espace (`allBySpace`,
+  `all`) les résume au passage, et la mémoire des quiz relue au démarrage
+  pour le tirage se garde pour la première lecture de chaque espace
+  (`ArchiveStore.memoiresDeTous`) : la première ouverture d'un réveil ne
+  relit ni l'une ni l'autre. Le titre et l'archivage se lisent sur la ligne
+  — archiver n'avance pas `updated_at`. **Une écriture de plus dans
+  `quizzes.questions` avance `updated_at`**, comme `create` et `save` : sans,
+  et à longueur égale, la liste garderait le résumé d'avant
+  (`bibliotheque.test.ts`).
 - **Un réglage de plus à la liste collée** se lit dans
   `parseImportedQuestions`, s'annonce dans `FORMAT_DE_LISTE` et paraît dans
   son exemple, que `liste.test.ts` relit : le format copié pour une IA ne
