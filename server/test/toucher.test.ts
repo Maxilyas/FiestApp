@@ -191,3 +191,32 @@ test('chaque case de réponse du téléphone passe par toucher, et arrive sur pl
   assert.match(regle, /animation-delay: 0s/, 'et toutes ensemble')
   assert.doesNotMatch(css.match(/@keyframes ans-fondu \{[^}]*\}/)?.[0] ?? 'absente', /transform|translate/, 'sans bouger')
 })
+
+test('un doigt qui défile ne choisit rien : ni le glissé, ni le doigt qui arrête une liste lancée', async () => {
+  // Les cartes de la traversée (le retour du 3 novembre 2026 : « le défilement bug et sélectionne une carte ») : le navigateur
+  // envoie pointercancel quand il prend le défilement, mais pas au petit glissé sous son seuil, ni au doigt posé pour arrêter la
+  // liste qui file encore — celui-là se lève sans bouger, et la tuile sous lui s'ouvrait. Le click natif ne le suit jamais.
+  const { noterUnDefilement } = (await import(client('toucher.ts').href)) as typeof import('../../client/src/toucher')
+  let n = 0
+  const p = toucher(() => n++)
+  const avec = (t: number, x: number, y: number, id: number) => ({ ...(doigt(t, x, y) as object), pointerId: id }) as never
+  // Glissé de 30 px, levé dans la case : rien.
+  p.onPointerDown(avec(70_000, 50, 5, 1))
+  p.onPointerUp(avec(70_200, 50, 35, 1))
+  assert.equal(n, 0, 'le glissé ne choisit pas')
+  // La liste file encore quand le doigt se pose : il l'arrête, il ne choisit pas.
+  noterUnDefilement(80_950)
+  p.onPointerDown(avec(81_000, 50, 25, 2))
+  p.onPointerUp(avec(81_090, 50, 25, 2))
+  assert.equal(n, 0, 'le doigt qui arrête la liste ne choisit pas')
+  // La page immobile, un toucher franc choisit — même tremblant de quelques pixels.
+  p.onPointerDown(avec(90_000, 50, 25, 3))
+  p.onPointerUp(avec(90_080, 54, 28, 3))
+  assert.equal(n, 1, 'un toucher franc choisit')
+})
+
+test('chaque bouton qui passe par toucher reçoit aussi le doigt posé : sans lui, rien ne sait qu’il a glissé', () => {
+  const src = readFileSync(client('toucher.ts'), 'utf8')
+  assert.match(src, /onPointerDown: \(e: PointerEvent<HTMLElement>\) => \{/)
+  assert.match(src, /if \(doigtQuiDefilait\(e\)\) return\n\s+prendreLeDoigt\(e\)/)
+})
