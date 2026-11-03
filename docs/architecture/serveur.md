@@ -517,7 +517,8 @@ dernier ajustement du modèle du savoir se garde dans la base
 (`campagne_meta`, `modele_du_savoir`) : un réveil le reprend tel quel s'il a
 moins de six heures, sinon l'ajustement en repart — de zéro, il tenait le
 dixième de cœur 28,5 s à chaque démarrage. Et ce qui ne dépend que d'une
-question et du code — ses sujets, sa famille, les cribles du Cabinet —, le
+question et du code — ses sujets, sa famille, les cribles du Cabinet, la
+signature de ses jumelles, ce qui s'apprend par cœur —, le
 build le calcule une fois et le range avec la base préparée
 (`core/preparationDeLaBase.ts`, `core/preparees.ts`) : les cribles seuls
 coûtaient 0,8 s de vrai cœur à chaque réveil où le Cabinet se préparait.

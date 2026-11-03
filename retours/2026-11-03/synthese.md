@@ -93,3 +93,91 @@ suivantes ne gèlent plus.
 - **À relire après la mise en ligne** : `reproductions/ce-qui-lit-le-plus.ts`
   sur la version qui portera ces trois changements — l'économie ne doit plus
   paraître, ni « Mes quiz » parmi les gels.
+
+## Puis : les routes qui gèlent d'elles-mêmes
+
+Le même soir, le propriétaire : « On va laisser 6 h pour le recalcul,
+j'aimerais que tu fasses uniquement le point 4 » — corriger une à une les
+pages que la sonde relevait avec le seul fond qu'elles attendent, mesurées
+au banc comme « Mes quiz ». Les cadences du fond (`MESURES_GARDEES_MS`,
+`MODELE_GARDE_MS`) restent à six heures.
+
+`reproductions/routes-qui-gelent.ts` mesure chacune sur la base du banc
+grossie au volume de la production (35 000 réponses, rangées dans l'ordre
+du temps comme en production : recopiées en arrière, elles rendaient le
+carnet du joueur incertain, relu de la base à chaque lecture), derrière le
+faux Turso, pour le joueur qui a le plus joué (3 268 réponses), le code
+compilé comme le paquet : la première fois qu'un processus la sert — le
+code jamais compilé, comme une route rare en production —, puis cinq fois.
+Le processeur, sur un vrai cœur, avant les deux changements plus bas — un
+passage ; à froid, une route varie d'un passage à l'autre du simple au
+double, le compilateur de V8 travaillant à côté :
+
+| Route | À froid | Chaud |
+|---|---|---|
+| L'accueil (en-tête, missions, nouveautés) | 37 ms | 27 ms |
+| La page des sentiers | 14 | 17 |
+| La campagne (campagne, carnet, sujets de front) | 33 | 24 |
+| Une série neuve | 29 | 15 |
+| Le départ d'une épreuve | 234 | 17 |
+| L'abandon d'une épreuve | 11 | 8 |
+| Le QG, vue d'ensemble | 45 | 20 |
+| Le QG, la page de la campagne | 41 | 28 |
+| Le QG, les sentiers palier par palier | 24 | 14 |
+| Le QG, l'activité | 19 | 15 |
+
+La page des sentiers est légère en elle-même : ses gels de production
+viennent de ce qui tourne avec elle — le fond, les autres routes — et du
+code froid d'un réveil. Deux routes avaient un bloc à elles :
+
+4. **Le départ d'une épreuve à froid** passait la moitié de son processeur
+   à calculer, pour chaque candidate, la signature de ses jumelles — sa
+   forme, sans accent, mot par mot, et ses réponses nettes — et ce qui
+   s'apprend par cœur : 202 et 61 ms sur toute la base, une fois par
+   processus, au premier tirage de chaque catégorie, série et défi compris.
+   Le build les range désormais dans la base préparée (format 3,
+   `signeAPreparer`, `parCoeurCalcule`) : les formes une fois chacune
+   (14 653 pour 27 404 questions), les réponses nettes des seules questions
+   où elles ne sont pas les réponses en minuscules (15 960), le par-cœur en
+   un chiffre. Les colonnes se coupent en une ligne par bloc de deux mille
+   questions : d'une seule ligne, elles pesaient 2,2 Mo, un `JSON.parse` de
+   13 ms d'un bloc sur un vrai cœur, une centaine au dixième de cœur. La
+   base grossit de 1,6 Mo, sa lecture d'une trentaine de millisecondes.
+   `base-preparee.test.ts` compare, question par question, ce que le tirage
+   lit à ce que le serveur calcule.
+5. **La page de la campagne du QG** repassait quatorze fois les vingt-sept
+   mille questions à chaque ouverture — une pour les contredites, une pour
+   les catégories, une par catégorie pour les difficultés. Elle les compte
+   d'une passe (`tableauDeLaBase`), et garde le tableau tant que les
+   jouables et la mesure restent les mêmes (`tableauxDuQg`, sous la mesure :
+   relue toutes les six heures, elle l'emporte). `campagne-contredites.test.ts`
+   le compare au code d'avant sur la vraie base, et relit la page derrière
+   une mesure neuve.
+
+Au même banc, le même code, la base préparée avec et sans les signatures
+— sans, le serveur les calcule comme avant —, quatre passages de chaque :
+
+| | Avant | Après |
+|---|---|---|
+| Le départ d'une épreuve, à froid | 95 à 234 ms de processeur, 62 à 115 ms d'attente | 61 à 69 ms, 42 à 49 ms |
+| Une série neuve, à froid | 29 à 32 ms | 30 à 58 ms : elle ne lit que quelques dizaines de candidates, rien ne se voit sous le bruit |
+| La page de la campagne du QG, à froid | 41 ms | 27 à 29 ms |
+| La même, ensuite | 28 ms | 5 à 6 ms |
+
+Au dixième de cœur, chaque milliseconde en dure dix : le premier départ
+d'une épreuve d'un réveil tenait le serveur d'une à plus de deux secondes,
+en tranches ; six à sept dixièmes désormais. Les autres routes ne bougent
+pas.
+
+## Ce qui reste, après le point 4
+
+- **L'accueil et la page de la campagne** coûtent 30 à 40 ms à froid, 20 à
+  25 ensuite, sans bloc à eux : un coût émietté — les allers-retours vers la
+  base en font un dixième. Ce sont les routes de toutes les heures ; leurs
+  gels de production sont ceux du fond qui tourne avec elles.
+- **La vue d'ensemble du QG** (45 à 60 ms à froid) compte déjà ses trente
+  jours en tranches, un chiffre par tour de boucle ; son premier appel paie
+  surtout le code froid.
+- **À relire après la mise en ligne** : la page « Le serveur » du QG — le
+  départ d'une épreuve et la page de la campagne ne doivent plus paraître
+  seuls parmi les gels.
