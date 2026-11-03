@@ -32,6 +32,7 @@ import { GerbeDeJuste } from '../components/Gerbe'
 import { PucesDeSabliers, Sablier, adresseDeLObjet } from '../components/Objets'
 import { createPortal } from 'react-dom'
 import { CHANCE_ECLAT_DU_JOUR, type PublicProfile } from '../../../shared/profil'
+import { sonAvatar } from '../../../shared/sonAvatar'
 import type { QuizAction, QuizPlayerView } from '../../../shared/games/quiz'
 import {
   ETOILES_DE_LA_MEDAILLE,
@@ -847,7 +848,7 @@ export function Fin({
         <DivinDescendu key={d.key} cle={d.key} legende={d.legende} ton={d.ton} dejaPorte={profil.legendaire === d.key} />
       ))}
       {/* Puis l'Éclat, comme en fin de soirée : une chance sur quarante par partie finie. */}
-      {partie.eclat && <EclatTombe cle={partie.eclat} avatar={profil.avatar} finition={profil.finition} chance={CHANCE_ECLAT_DU_JOUR} />}
+      {partie.eclat && <EclatTombe cle={partie.eclat} avatar={profil.avatar} finition={profil.finition} chance={CHANCE_ECLAT_DU_JOUR} porte={sonAvatar(profil)} />}
       {partie.page && <PageOuverte mois={partie.page} />}
       {(partie.legendaires ?? []).map(cle => (
         <LegendaireOuvert key={cle} cle={cle} dejaPorte={profil.legendaire === cle} />

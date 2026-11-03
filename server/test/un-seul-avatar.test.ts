@@ -413,3 +413,18 @@ test('aucun écran ne dessine plus un joueur par son seul emoji', () => {
   }
   assert.deepEqual(fautes, [])
 })
+
+test('l’Éclat en réserve montre ce qu’il porte, pas l’emoji d’en dessous — au quiz du jour, au défi, à la fin d’une soirée', async () => {
+  // Le retour du 3 novembre 2026 : un Éclat tombé sur un avatar déjà éclaté, et la carte montrait en grand la planète de
+  // son emoji — « ce n'était pas mon avatar équipé ». Elle reçoit ce qu'il porte (`sonAvatar`).
+  await dessins()
+  const html = await rendu('components/Ouverts', 'EclatTombe', { cle: 'reserve:abc', avatar: '🪐', chance: 40, porte: { avatar: '🪐', legendaire: 'lg:phenix', eclat: true } })
+  assert.match(html, /Un Éclat en réserve !/)
+  assert.match(html, /<span class="fin-apparition"><span class="av av-legendaire/, 'le légendaire porté, en grand')
+  // Sans ce qu'il porte (une page d'avant), l'emoji reste : rien ne casse.
+  assert.match(await rendu('components/Ouverts', 'EclatTombe', { cle: 'reserve:abc', avatar: '🪐', chance: 40 }), /🪐/)
+  // Les trois écrans qui le posent le lui donnent.
+  for (const f of ['views/JourApp.tsx', 'views/CampagneApp.tsx', 'components/FinDeSoiree.tsx']) {
+    assert.match(readFileSync(new URL(`../../client/src/${f}`, import.meta.url), 'utf8'), /<EclatTombe [^>]*porte=\{[^}]*sonAvatar\(profil\)/, f)
+  }
+})
