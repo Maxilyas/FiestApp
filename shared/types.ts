@@ -4,6 +4,7 @@ import type { PublicSpace } from './space'
 import type { ApparenceDeLAvatar, Finition } from './profil'
 import type { LaurierPorte } from './jour'
 import type { BordureDeLigue } from './duels'
+import type { EclatPorte } from './matieres'
 
 /** Joueur tel que visible par tout le monde. */
 export interface PublicPlayer {
@@ -31,8 +32,8 @@ export interface PublicPlayer {
    */
   niveau?: number
   finition?: Finition
-  /** Son avatar a éclaté : il brille, et lui seul. */
-  eclat?: boolean
+  /** Son avatar a éclaté : il brille, et lui seul — dans sa version rare (`true`) ou la matière qu'il en porte. */
+  eclat?: false | EclatPorte
   /** L'avatar dessiné qu'il porte — légendaire ou Divin : il remplace l'emoji à l'écran. */
   legendaire?: string
   /** Il a gagné le quiz du jour d'hier : un laurier suit son prénom (`Distinctions.laurier`), à l'allure de ses victoires — ou le défi de la semaine passée, en argent. */

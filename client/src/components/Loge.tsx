@@ -4,12 +4,15 @@ import { MaGerbe, MesAvatars, MesBordures, MesFinitions, MonFond, MonTitre } fro
 import { MaVitrine } from './Trophees'
 import { MesThemes } from './Boutique'
 import { choixDialog } from './Dialog'
+import { Feuille } from './Pieces'
+import { Avatar } from './Avatar'
 import type { ChoixDuProfil, GardeDeLaLoge, PropsDUnePiece } from './choix'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { rendreLeFocus } from '../focus'
 import { essayerTheme, finirLEssai } from '../themeJoueur'
 import { api } from '../api'
-import { brilleChez, type PublicProfileDetail } from '../../../shared/profil'
+import { brilleChez, eclatChez, type PublicProfileDetail } from '../../../shared/profil'
+import { NOM_DE_LA_MATIERE, matieresOuvertes, type Matiere } from '../../../shared/matieres'
 import { compteDesNouveautes, type NouveautesDeLaLoge } from '../../../shared/piecesDeLaLoge'
 import {
   PIECES_DE_LA_LOGE,
@@ -219,6 +222,8 @@ export function Loge({
 
   // Sa carte, touchée : en grand, telle que la salle la verrait s'il portait l'essai.
   const [enGrand, setEnGrand] = useState(false)
+  // Ses versions d'un avatar taillé (`shared/matieres.ts`), dans une feuille : d'origine, rare, chaque matière.
+  const [versionsOuvertes, setVersionsOuvertes] = useState(false)
   const laCarte = useALaDemande(carteJoueur, enGrand)
   const props: PropsDUnePiece = {
     profil,
@@ -231,11 +236,23 @@ export function Loge({
       const depense: ChoixDuProfil = { eclatDeReserve: cle }
       return !busy && (await enregistrer(depense))
     },
+    // Définitif aussi. Taillée, la matière s'essaie aussitôt sur la carte, si
+    // c'est lui qu'elle montre : « Porter » la garde.
+    tailler: async (cle, matiere) => {
+      const depense: ChoixDuProfil = { matiereDeReserve: { cle, matiere } }
+      if (busy || !(await enregistrer(depense))) return false
+      if (cibleDeLEclat(avatarMontre(profil, essai)) === cle) essayer({ eclat: { cle, brille: true, matiere } })
+      return true
+    },
   }
   // La carte montre l'essai — et la version de l'avatar montré, s'il a éclaté pour lui.
   const vu = avecLEssai(profil, essai)
   const cible = cibleDeLEclat(avatarMontre(profil, essai))
   const rare = cible && profil.eclats.includes(cible) ? brilleChez(vu, cible) : null
+  // Taillé : toutes ses versions se choisissent dans une feuille, au lieu de la bascule.
+  const taillees = rare !== null && cible ? matieresOuvertes(profil.matieres?.[cible] ?? []) : []
+  const montree = cible ? eclatChez(vu, cible) : false
+  const nomDeLaVersion = montree === false ? 'Version d’origine' : montree === true ? 'Version rare' : NOM_DE_LA_MATIERE[montree]
   // Quelque chose de ce que la salle voit est à l'essai : la carte le montre, « Aperçu ».
   const apercu = (['avatar', 'legendaire', 'finition', 'bordure', 'titre', 'vitrine', 'fond', 'eclat'] as const).some(k => essai[k] !== undefined)
   return (
@@ -250,8 +267,22 @@ export function Loge({
           vitrine: essai.vitrine !== undefined,
         }}
         version={rare !== null && cible ? { rare, essayee: !!essai.eclat, basculer: () => essayer({ eclat: { cle: cible, brille: !rare } }) } : null}
+        versions={taillees.length > 0 ? { nom: nomDeLaVersion, choisir: () => setVersionsOuvertes(true) } : null}
         onOuvrir={() => setEnGrand(true)}
       />
+      {versionsOuvertes && cible && (
+        <VersionsDeLAvatar
+          cle={cible}
+          montre={{ avatar: vu.avatar, legendaire: vu.legendaire ?? undefined }}
+          montree={montree}
+          taillees={taillees}
+          onChoisir={v => {
+            essayer({ eclat: { cle: cible, brille: v !== false, matiere: typeof v === 'string' ? v : null } })
+            setVersionsOuvertes(false)
+          }}
+          onFermer={() => setVersionsOuvertes(false)}
+        />
+      )}
       {enGrand && laCarte && laCarte !== 'perdu' && (
         <laCarte.CarteJoueur
           adresse="/api/joueur/carte"
@@ -384,5 +415,50 @@ export function BarreDEssai({
         Porter
       </button>
     </div>
+  )
+}
+
+/**
+ * Les versions d'un avatar éclaté et taillé (`shared/matieres.ts`), chacune
+ * dessinée : d'origine, rare, puis chaque matière qu'il a — l'Opale quand les
+ * quatre y sont. Un toucher l'essaie sur la carte, comme le reste de la loge ;
+ * « Porter » la garde. Seulement ce qu'il a : les matières à tailler se
+ * choisissent avec un Éclat en réserve, sous la grille.
+ */
+function VersionsDeLAvatar({
+  montre,
+  montree,
+  taillees,
+  onChoisir,
+  onFermer,
+}: {
+  cle: string
+  /** L'avatar que la carte montre, pour dessiner chaque version. */
+  montre: { avatar: string; legendaire?: string }
+  /** La version que la carte montre : d'origine (`false`), rare (`true`), ou une matière. */
+  montree: false | true | Matiere
+  taillees: readonly Matiere[]
+  onChoisir: (v: false | true | Matiere) => void
+  onFermer: () => void
+}) {
+  const versions: { v: false | true | Matiere; nom: string }[] = [
+    { v: false, nom: 'D’origine' },
+    { v: true, nom: 'Rare' },
+    ...taillees.map(m => ({ v: m, nom: NOM_DE_LA_MATIERE[m] })),
+  ]
+  return (
+    <Feuille titre="Sa version" onFermer={onFermer}>
+      <div className="loge-versions" role="group" aria-label="Ses versions">
+        {versions.map(({ v, nom }) => (
+          <button key={String(v)} type="button" className="loge-version-case" aria-pressed={montree === v} onClick={() => onChoisir(v)}>
+            <span className="loge-version-dessin">
+              <Avatar avatar={montre.avatar} legendaire={montre.legendaire} eclat={v} />
+            </span>
+            <span className="loge-version-nom">{nom}</span>
+          </button>
+        ))}
+      </div>
+      <p className="muted small center">Un toucher l’essaie sur ta carte, « Porter » la garde. Chaque Éclat de plus sur cet avatar en taille une autre.</p>
+    </Feuille>
   )
 }

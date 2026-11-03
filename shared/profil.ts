@@ -35,6 +35,7 @@ import type { ActiviteDUnJoueur } from './qgActivite'
 import type { CabinetDAccueil } from './cabinet/vues'
 import type { CleDeSaison } from './saisons'
 import { formeDeCompagnon, type CleDeCompagnon, type CompagnonPossede } from './compagnons'
+import { matiereOuverte, type EclatPorte, type Matiere, type MatiereTaillee } from './matieres'
 import { CONFETTIS_D_UNE_QUESTION_ACCEPTEE, CONFETTIS_D_UNE_QUESTION_JOUEE } from './propositions'
 
 // ── Niveaux ───────────────────────────────────────────────────────────────
@@ -738,7 +739,8 @@ export function ficheDe(c: Carriere, ailleurs: { qcm: number; justes: number } =
 export interface Distinctions {
   niveau?: number
   finition?: Finition
-  eclat?: boolean
+  /** L'Éclat qui brille sur ce qu'il porte : sa version rare (`true`), ou la matière qu'il en porte (`shared/matieres.ts`). */
+  eclat?: false | EclatPorte
   /**
    * L'avatar dessiné qu'il porte — il remplace l'emoji à l'écran : un
    * légendaire (`lg:…`) ou un Divin (`dv:…`).
@@ -776,7 +778,8 @@ export function distinctions(source: Distinctions | undefined | null): Distincti
   return {
     ...(source.niveau !== undefined && { niveau: source.niveau }),
     ...(source.finition && { finition: source.finition }),
-    ...(source.eclat && { eclat: true }),
+    // Telle quelle : `true` lui ôterait sa matière.
+    ...(source.eclat && { eclat: source.eclat }),
     ...(source.legendaire && { legendaire: source.legendaire }),
     ...(source.laurier && { laurier: source.laurier }),
     ...(source.champion && { champion: source.champion }),
@@ -802,7 +805,7 @@ export function apparenceDeLAvatar(source: Distinctions | undefined | null): App
   if (!source) return {}
   return {
     ...(source.finition && (source.finition !== 'mat' || source.legendaire) && { finition: source.finition }),
-    ...(source.eclat && { eclat: true }),
+    ...(source.eclat && { eclat: source.eclat }),
     ...(source.legendaire && { legendaire: source.legendaire }),
   }
 }
@@ -849,6 +852,14 @@ export interface PublicProfile {
    * attendent qu'il en choisisse un autre (`eclatDeReserve`). Absent d'un serveur d'avant.
    */
   eclatsEnReserve?: number
+  /**
+   * Les matières que ses Éclats ont taillées, avatar par avatar
+   * (`shared/matieres.ts`) — l'Opale ne s'y range pas : les quatre la font.
+   * Absent d'un serveur d'avant, ou sans matière.
+   */
+  matieres?: Record<string, MatiereTaillee[]>
+  /** La matière qu'il porte de chaque avatar éclaté, quand il ne porte pas sa version rare. Absent : la version rare partout. */
+  matieresPortees?: Record<string, Matiere>
   /** Combien de badges il porte — le détail se demande à part. */
   badges: number
   /** L'avatar dessiné qu'il porte, s'il en porte un : un légendaire ou un Divin. */
@@ -901,7 +912,7 @@ export interface PublicProfile {
  * tiers comprise, et le profil au complet y portait le récit de ses Divins
  * (invariant 21).
  */
-export type ProfilDeLEspace = Pick<PublicProfile, 'login' | 'name' | 'avatar' | 'finition' | 'eclats' | 'eclatsEteints' | 'legendaire' | 'niveau'>
+export type ProfilDeLEspace = Pick<PublicProfile, 'login' | 'name' | 'avatar' | 'finition' | 'eclats' | 'eclatsEteints' | 'matieres' | 'matieresPortees' | 'legendaire' | 'niveau'>
 
 /**
  * Cet avatar brille-t-il sur lui ? Éclaté pour lui, et pas éteint : il peut
@@ -912,6 +923,18 @@ export type ProfilDeLEspace = Pick<PublicProfile, 'login' | 'name' | 'avatar' | 
  */
 export function brilleChez(profil: Pick<PublicProfile, 'eclats' | 'eclatsEteints'>, cle: string): boolean {
   return clesQuiBrillent(profil.eclats, cle).some(k => !(profil.eclatsEteints ?? []).includes(k))
+}
+
+/**
+ * Ce qui brille sur cet avatar, s'il brille (`brilleChez`) : la matière
+ * qu'il en porte — tant qu'il l'a, l'Opale tant qu'il a les quatre —, sinon
+ * sa version rare (`true`). La même règle que le serveur
+ * (`ProfileStore.eclatChez`) : c'est elle qui part dans `eclat`.
+ */
+export function eclatChez(profil: Pick<PublicProfile, 'eclats' | 'eclatsEteints' | 'matieres' | 'matieresPortees'>, cle: string): false | EclatPorte {
+  if (!brilleChez(profil, cle)) return false
+  const m = profil.matieresPortees?.[cle]
+  return m && matiereOuverte(profil.matieres?.[cle] ?? [], m) ? m : true
 }
 
 /**

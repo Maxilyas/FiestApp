@@ -94,23 +94,26 @@ test('un légendaire éclaté porte sa version rare, dessinée : c’est elle qu
   assert.ok(!divin.includes('av-eclat') && !divin.includes('av-holo') && !divin.includes('lg-cercle'))
 })
 
-test('un médaillon peint éclaté n’a plus les quatre points de l’Éclat — en liste, une gemme à son coin ; un emoji et un compagnon les gardent', async () => {
+test('la gemme de l’Éclat remplace ses quatre points : sur un emoji et un compagnon partout, sur un médaillon peint en liste seulement', async () => {
   // Collés au cercle d'un légendaire, les quatre points n'y faisaient plus que
   // des poussières, et sa peinture rare, sa gerbe, ce qui sort de son cadre
   // disaient déjà l'Éclat (le retour du propriétaire du 3 novembre 2026). Un
-  // portrait éclaté de même, sous son ciel rare.
+  // portrait éclaté de même, sous son ciel rare. Partout ailleurs, une gemme
+  // les a remplacés — celle de la boutique, aux couleurs de sa matière.
   const CSS = readFileSync(new URL('../../client/src/styles.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
   const lues = [...CSS.matchAll(/([^{}]*)\{([^{}]*)\}/g)].map(m => ({ selecteurs: m[1].split(',').map(s => s.trim()), corps: m[2] }))
   const regles = (selecteur: string) => lues.filter(r => r.selecteurs.includes(selecteur)).map(r => r.corps).join('\n')
   assert.match(regles('.av-legendaire.av-eclat::after'), /display:\s*none/)
   assert.match(regles('.av-portrait.av-eclat:not(:has(.cp))::after'), /display:\s*none/)
-  // Un emoji les garde, partout ; un compagnon aussi — l'Éclat ne change pas
-  // son dessin, ses points sont son seul signe : seul un médaillon les cache.
-  assert.match(regles('.av-eclat::after'), /radial-gradient/)
+  // Un emoji la porte, partout ; un compagnon aussi — l'Éclat ne change pas
+  // son dessin, elle est son seul signe : seul un médaillon la cache.
+  assert.match(regles('.av-eclat::after'), /mask:\s*url\("data:image\/svg\+xml,/)
+  assert.match(regles('.av-eclat::after'), /var\(--gemme-1/)
+  assert.doesNotMatch(regles('.av-eclat::after'), /radial-gradient|animation/, 'ni points, ni scintillement')
   for (const r of lues) {
     if (!/display:\s*none/.test(r.corps)) continue
     for (const s of r.selecteurs.filter(s => /\.av-eclat[^\s]*::after$/.test(s))) {
-      assert.match(s, /\.av-legendaire|\.av-portrait\.av-eclat:not\(:has\(\.cp\)\)/, `${s} cacherait les points d’un emoji ou d’un compagnon`)
+      assert.match(s, /\.av-legendaire|\.av-portrait\.av-eclat:not\(:has\(\.cp\)\)/, `${s} cacherait la gemme d’un emoji ou d’un compagnon`)
     }
   }
   // La marque qui les sépare : un compagnon se dessine en `.cp`, un portrait jamais.
@@ -122,13 +125,10 @@ test('un médaillon peint éclaté n’a plus les quatre points de l’Éclat �
   assert.match(portrait, /^<span class="av av-portrait av-eclat">/)
   assert.doesNotMatch(portrait, /class="[^"]*\bcp\b/)
   // En liste, gerbe et débord cachés, la peinture rare ne se reconnaît plus
-  // qu'à qui connaît l'autre : la gemme de l'Éclat se pose au coin, fixe.
+  // qu'à qui connaît l'autre : sa gemme reparaît au coin, la même, fixe.
   for (const liste of ['.av.lb-avatar:not(.av-sujet)', '.player-chip ']) {
     for (const medaillon of ['.av-legendaire.av-eclat::after', '.av-portrait.av-eclat:not(:has(.cp))::after']) {
-      const corps = regles(liste + medaillon)
-      assert.match(corps, /display:\s*block/, liste + medaillon)
-      assert.match(corps, /background:\s*url\("data:image\/svg\+xml,/, liste + medaillon)
-      assert.match(corps, /animation:\s*none/, liste + medaillon)
+      assert.match(regles(liste + medaillon), /display:\s*block/, liste + medaillon)
     }
   }
   const liste = await avatar({ legendaire: 'lg:phenix', finition: 'argent', eclat: true, className: 'lb-avatar' })

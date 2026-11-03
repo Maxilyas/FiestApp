@@ -117,7 +117,7 @@ export interface Compagnon {
    * la loge, dans sa niche depuis « Décorer », chez lui —, ouverte à sa forme ultime
    * quand l'Éclat brille sur lui (`metamorphoseOuverte`). Facultative : un
    * compagnon livré sans elle n'en promet aucune, et l'Éclat ne lui pose que
-   * ses paillettes — la luciole, jusqu'à sa luciole-aurore (le 20 octobre 2026).
+   * sa gemme — la luciole, jusqu'à sa luciole-aurore (le 20 octobre 2026).
    */
   lumiere?: FormeDeCompagnon
   /**
@@ -369,7 +369,7 @@ export function prochaineForme(a: CompagnonAcquis): { forme: FormeDeCompagnon; e
  * Sa métamorphose s'ouvre-t-elle à lui ? Sa forme ultime atteinte, et l'Éclat
  * sur lui — tombé avant ou après, sur n'importe laquelle de ses formes : il
  * suit le compagnon qui grandit (`clesQuiBrillent`). Jamais pour un compagnon
- * qui n'en a pas : éclaté, il garde ses paillettes, rien de plus.
+ * qui n'en a pas : éclaté, il garde sa gemme, rien de plus.
  */
 export const metamorphoseOuverte = (a: Pick<CompagnonPossede, 'compagnon' | 'rang' | 'eclat'>): boolean =>
   a.rang >= 3 && !!a.eclat && !!compagnon(a.compagnon)?.lumiere
@@ -380,8 +380,8 @@ export const metamorphoseOuverte = (a: Pick<CompagnonPossede, 'compagnon' | 'ran
  * la boutique montrait la même forme des deux côtés, à quelques paillettes
  * près — « on ne voit que la version normale » (un retour du 2 novembre
  * 2026). Sa métamorphose portée, l'avant est sa forme ultime. Rien pour une
- * autre clé, ni pour un compagnon sans métamorphose : ses paillettes seules
- * disent son Éclat.
+ * autre clé, ni pour un compagnon sans métamorphose : sa gemme seule dit son
+ * Éclat.
  */
 export function formesDeLEclat(key: unknown): { avant: string; apres: string } | null {
   const f = formeDeCompagnon(key)

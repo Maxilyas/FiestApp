@@ -21,6 +21,7 @@
 import type { ApparenceDeLAvatar, Finition } from './profil'
 import type { BordureDeLigue } from './duels'
 import type { CleDeSaison } from './saisons'
+import type { EclatPorte } from './matieres'
 
 /** Le quiz d'un jour : dix questions — moins si la réserve est à sec. */
 export const QUESTIONS_PAR_JOUR = 10
@@ -432,7 +433,7 @@ export interface LigneDuJour {
   niveau: number
   finition?: Finition
   legendaire?: string
-  eclat?: true
+  eclat?: EclatPorte
   /** Il a gagné le quiz du jour d'hier : l'allure de son laurier (`niveauDuLaurier`) — ou l'argent du défi de la semaine. */
   laurier?: LaurierPorte
   /** Sa bordure de ligue des duels, autour de son avatar (`ProfileStore.bordureDe`). */

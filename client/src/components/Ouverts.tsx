@@ -8,6 +8,7 @@ import { espacesFines } from '../format'
 import { abonnerNiche, nicheActuelle } from '../niche'
 import { showToast } from '../state'
 import { Avatar, Dessin } from './Avatar'
+import { enMatiere, lireCleDeMatiere } from '../../../shared/matieres'
 import { perdus, sortesDe, useDessins } from './medaillons'
 
 // Ce qu'une partie vient d'ouvrir de grand, qu'on porte d'ici — un
@@ -134,10 +135,27 @@ export function EclatTombe({ cle, avatar, finition, chance }: { cle: string; ava
           <Avatar avatar={avatar} finition={finition} />
         </span>
         <h2>Un Éclat en réserve !</h2>
-        <p className="serif-note">Ton avatar avait déjà éclaté : choisis-en un autre, parmi ceux que tu as, pour le faire éclater.</p>
+        <p className="serif-note">Ton avatar avait déjà éclaté : fais-en éclater un autre, parmi ceux que tu as — ou taille-le dans une matière.</p>
         <a className="btn btn-primary" href="/profil#avatar">
           Choisir mon avatar
         </a>
+      </section>
+    )
+  }
+  // Dépensé depuis, cet Éclat a taillé une matière (`shared/matieres.ts`) : la page relue le dit.
+  const taillee = lireCleDeMatiere(cle)
+  if (taillee) {
+    // Taillé dans un médaillon, ou dans l'emoji même — sa clé est l'emoji.
+    const quoi = taillee.avatar
+    const lui = legendaire(quoi) ?? portraitDe(quoi)
+    return (
+      <section className="card fin-eclat">
+        <span className="label">{`Une chance sur ${EN_LETTRES[chance] ?? chance}`}</span>
+        <span className="fin-apparition">
+          <Avatar avatar={lui ? avatar : quoi} legendaire={lui ? quoi : undefined} finition={finition} eclat={taillee.matiere} />
+        </span>
+        <h2>{espacesFines(`${lui ? lui.nom : `Ton ${quoi}`}, taillé ${enMatiere(taillee.matiere)} !`)}</h2>
+        <p className="serif-note">Ton Éclat est devenu sa matière, pour toujours : tu la portes depuis ta loge.</p>
       </section>
     )
   }
@@ -156,7 +174,7 @@ export function EclatTombe({ cle, avatar, finition, chance }: { cle: string; ava
           {dessine ? <Avatar avatar={avatar} legendaire={cle} finition={finition} eclat /> : <Avatar avatar={cle} finition={finition} eclat />}
         </span>
         <h2>{dessine ? `${dessine.nom} a éclaté !` : `Ton ${cle} a éclaté !`}</h2>
-        {/* Un compagnon n'a pas de version rare : ses paillettes le suivent sous toutes ses formes (`clesQuiBrillent`), et sa forme ultime ouvre sa métamorphose. */}
+        {/* Un compagnon n'a pas de version rare : sa gemme le suit sous toutes ses formes (`clesQuiBrillent`), et sa forme ultime ouvre sa métamorphose. */}
         <p className="serif-note">
           {compagnon ? 'Il brille, désormais, sous toutes ses formes — et personne d’autre ne l’a comme ça.' : 'Il a changé de couleurs, pour toujours — et personne d’autre ne l’a comme ça.'}
         </p>

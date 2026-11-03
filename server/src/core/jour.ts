@@ -2200,7 +2200,7 @@ export class JourStore {
         niveau,
         finition,
         ...(legendaire && { legendaire }),
-        ...(eclat && { eclat: true as const }),
+        ...(eclat && { eclat }),
         ...(laurier && { laurier }),
         ...(bordure && { bordure }),
         points: j.points,

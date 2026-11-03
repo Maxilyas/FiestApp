@@ -4,6 +4,7 @@ import { legendaire as legendaireDe } from '../../../shared/legendaires'
 import { inscrireDessin } from './medaillons'
 import { Cercle, OR } from './Cercle'
 import { IMAGES } from './legendaires-peints'
+import { MATRICE_DE_LA_LUMIERE, enMatiere, tablesDeLaMatiere, type Matiere } from '../../../shared/matieres'
 
 /**
  * Les avatars légendaires : trente-deux cartes peintes, qui ne se gagnent que
@@ -35,6 +36,11 @@ import { IMAGES } from './legendaires-peints'
  * délavaient le Phénix de glace en tache blanche et faisaient du Dragon
  * d'argent un arc-en-ciel (le retour du propriétaire du 3 novembre 2026 :
  * « on ne profite pas en fait de l'image »).
+ *
+ * Taillé dans une matière par d'autres Éclats (`shared/matieres.ts`), sa
+ * version rare passe dans la matière — sa lumière devient la porcelaine, le
+ * jade… — sous son seul reflet : ni arc-en-ciel, ni paillettes. Une matière
+ * est un objet, pas une carte.
  *
  * Pas encore gagné, il n'en reste que la forme, en silhouette dorée sur un
  * disque sombre : on sait ce qu'on veut avant de l'avoir.
@@ -138,8 +144,8 @@ interface Props {
   verrouille?: boolean
   /** La finition de celui qui le porte : elle devient son cercle. Absente, l'or (ou le violet de l'ombre) d'origine. */
   finition?: Finition
-  /** L'Éclat est tombé sur lui : il porte sa version rare. */
-  eclat?: boolean
+  /** L'Éclat est tombé sur lui : il porte sa version rare — ou la matière qu'il en porte. */
+  eclat?: boolean | Matiere
   /** Regardé en grand — sa révélation, la clôture — : ses grands fichiers, l'arc-en-ciel qui passe en bande, et la lumière qui suit le doigt. */
   grand?: boolean
   className?: string
@@ -152,7 +158,9 @@ interface Props {
  * (`styles.css`), et l'aile qui passe le bord du cercle reste holo sans
  * raccord.
  */
-function Pellicule({ eclate }: { eclate: boolean }) {
+function Pellicule({ eclate, matiere }: { eclate: boolean; matiere: boolean }) {
+  // Taillé, il n'est plus une carte : son reflet seul passe sur la matière.
+  if (matiere) return <span className="lg-reflet" />
   return (
     <>
       <span className="lg-feuille" />
@@ -160,6 +168,30 @@ function Pellicule({ eclate }: { eclate: boolean }) {
       {eclate && <span className="lg-paillettes" />}
       <span className="lg-reflet" />
     </>
+  )
+}
+
+/**
+ * Une image peinte dans sa matière : sa lumière devient la matière, du sombre
+ * au clair (`tablesDeLaMatiere`). Un SVG à la place de l'`<img>`, posé au même
+ * endroit : un filtre SVG ne se pose que sur du SVG, partout.
+ */
+function EnMatiere({ src, matiere, id, className }: { src: string; matiere: Matiere; id: string; className?: string }) {
+  const [r, g, b] = tablesDeLaMatiere(matiere)
+  return (
+    <svg className={className} viewBox="0 0 100 100" aria-hidden="true">
+      <defs>
+        <filter id={id} x="0" y="0" width="100" height="100" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+          <feColorMatrix type="matrix" values={MATRICE_DE_LA_LUMIERE} />
+          <feComponentTransfer>
+            <feFuncR type="table" tableValues={r} />
+            <feFuncG type="table" tableValues={g} />
+            <feFuncB type="table" tableValues={b} />
+          </feComponentTransfer>
+        </filter>
+      </defs>
+      <image href={src} x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid slice" filter={`url(#${id})`} />
+    </svg>
   )
 }
 
@@ -171,6 +203,7 @@ export function Legendaire({ cle, verrouille, finition, eclat, grand, className 
   const images = IMAGES[cle]
   // Verrouillé, il n'a ni version éclatée ni cercle : il n'est pas encore à lui.
   const eclate = !!eclat && !verrouille
+  const matiere = eclate && typeof eclat === 'string' ? eclat : null
   const cercle = !!finition && !verrouille
   const fond = (eclate ? FONDS_ECLAT : FONDS)[cle]
   if (!l || !images || !fond) return null
@@ -180,7 +213,7 @@ export function Legendaire({ cle, verrouille, finition, eclat, grand, className 
   // numérotent chacune depuis zéro, et le premier dégradé d'un nom gagne.
   // Sans eux, l'Argent d'une planche prenait l'Or posé avant lui, et
   // l'éclaté le disque de l'ordinaire.
-  const etat = (eclate ? 'e' : 'n') + (cercle ? 'c' + finition : '')
+  const etat = (eclate ? 'e' : 'n') + (matiere ? 'm' + matiere : '') + (cercle ? 'c' + finition : '')
   const base = `${cle.replace(':', '-')}-${etat}${brut.replace(/[^a-zA-Z0-9_-]/g, '')}`
   const id = (nom: string) => `${base}-${nom}`
   const bord = l.ton === 'ombre' ? OMBRE : OR
@@ -188,9 +221,10 @@ export function Legendaire({ cle, verrouille, finition, eclat, grand, className 
   const classes = ['lg', `lg-${l.ton}`, `lg-${cle.slice(3)}`]
   if (verrouille) classes.push('lg-verrou')
   if (eclate) classes.push('lg-eclate')
+  if (matiere) classes.push('lg-matiere')
   if (grand && !verrouille) classes.push('lg-touche-libre')
   if (className) classes.push(className)
-  const titre = verrouille ? `${l.nom} — pas encore gagné` : eclate ? `${l.nom}, éclaté` : l.nom
+  const titre = verrouille ? `${l.nom} — pas encore gagné` : matiere ? `${l.nom}, ${enMatiere(matiere)}` : eclate ? `${l.nom}, éclaté` : l.nom
 
   // Le reflet suit le doigt — ou la souris —, en grand seulement : la
   // position, de 0 à 1, part en variables CSS, sans un rendu React.
@@ -280,8 +314,12 @@ export function Legendaire({ cle, verrouille, finition, eclat, grand, className 
             <span className="lg-silhouette" style={silhouette} />
           ) : (
             <>
-              <img className="lg-art" src={art} alt="" decoding="async" draggable={false} />
-              <Pellicule eclate={eclate} />
+              {matiere ? (
+                <EnMatiere className="lg-art" src={art} matiere={matiere} id={id('matiere')} />
+              ) : (
+                <img className="lg-art" src={art} alt="" decoding="async" draggable={false} />
+              )}
+              <Pellicule eclate={eclate} matiere={!!matiere} />
             </>
           )}
         </span>
@@ -289,8 +327,12 @@ export function Legendaire({ cle, verrouille, finition, eclat, grand, className 
           // La créature détourée donne sa forme au cadre (`--lg-forme`) : la
           // pellicule, posée par-dessus, ne se voit que sur elle.
           <span className="lg-debord" style={{ '--lg-forme': `url(${images.rarePerso[taille]})` } as CSSProperties}>
-            <img src={images.rarePerso[taille]} alt="" decoding="async" draggable={false} />
-            <Pellicule eclate />
+            {matiere ? (
+              <EnMatiere src={images.rarePerso[taille]} matiere={matiere} id={id('matiere-debord')} />
+            ) : (
+              <img src={images.rarePerso[taille]} alt="" decoding="async" draggable={false} />
+            )}
+            <Pellicule eclate matiere={!!matiere} />
           </span>
         )}
       </span>

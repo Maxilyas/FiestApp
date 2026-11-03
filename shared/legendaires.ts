@@ -569,8 +569,8 @@ export function legendairesOuvertsPar(
 /**
  * Ce qui éclate quand l'Éclat tombe sur un profil : le légendaire ou le
  * portrait d'une branche qu'il porte, s'il en porte un — il prend sa version
- * rare —, ou la forme de compagnon qu'il porte — ses paillettes l'annoncent,
- * à toutes ses formes (`clesQuiBrillent`) —, son emoji sinon. Un Divin
+ * rare —, ou la forme de compagnon qu'il porte — sa gemme l'annonce, à
+ * toutes ses formes (`clesQuiBrillent`) —, son emoji sinon. Un Divin
  * n'éclate jamais : sous un Divin, c'est l'emoji qui éclate. Le serveur tire
  * l'Éclat sur cette cible, et chaque écran demande si c'est elle qui brille.
  */

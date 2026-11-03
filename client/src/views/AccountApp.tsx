@@ -9,7 +9,7 @@ import { NavAnimateur } from '../components/NavAnimateur'
 import { ChampNombre } from '../components/ChampNombre'
 import { showToast, useAppState } from '../state'
 import type { SpaceSettings } from '../../../shared/space'
-import { brilleChez, type ProfilDeLEspace } from '../../../shared/profil'
+import { eclatChez, type ProfilDeLEspace } from '../../../shared/profil'
 import { Avatar } from '../components/Avatar'
 import { cibleEclat } from '../../../shared/legendaires'
 import { Niveau } from '../components/Niveau'
@@ -362,7 +362,7 @@ function ProfilLie({ profil, onChange }: { profil: ProfilDeLEspace | null; onCha
     return (
       <section className="feuille-section">
         <div className="row profil-lie">
-          <Avatar avatar={profil.avatar} finition={profil.finition} eclat={brilleChez(profil, cibleEclat(profil.legendaire, profil.avatar))} legendaire={profil.legendaire ?? undefined} />
+          <Avatar avatar={profil.avatar} finition={profil.finition} eclat={eclatChez(profil, cibleEclat(profil.legendaire, profil.avatar))} legendaire={profil.legendaire ?? undefined} />
           <div>
             <strong>{profil.name}</strong>
             <Niveau niveau={profil.niveau} />

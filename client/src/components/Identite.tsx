@@ -3,7 +3,7 @@ import { Niveau } from './Niveau'
 import { Laurier } from './Laurier'
 import { Icon } from './Icon'
 import { formatNumber } from '../format'
-import { brilleChez, type ProfilDAccueil, type PublicProfileDetail } from '../../../shared/profil'
+import { eclatChez, type ProfilDAccueil, type PublicProfileDetail } from '../../../shared/profil'
 import { cibleEclat } from '../../../shared/legendaires'
 import { bordurePortee } from '../../../shared/duels'
 
@@ -41,7 +41,7 @@ export function IdentiteLigne({
         className="player-avatar big"
         avatar={profil.avatar}
         finition={profil.finition}
-        eclat={brilleChez(profil, cibleEclat(profil.legendaire, profil.avatar))}
+        eclat={eclatChez(profil, cibleEclat(profil.legendaire, profil.avatar))}
         legendaire={profil.legendaire ?? undefined}
         bordure={saBordure(profil)}
       />

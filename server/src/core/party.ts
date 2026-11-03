@@ -7,6 +7,7 @@ import type { LaurierPorte } from '../../../shared/jour'
 import type { BordureDeLigue } from '../../../shared/duels'
 import { DEFAULT_AVATAR, cleanAvatar, cleanName, niveauRequis } from '../../../shared/avatars'
 import { nomsAffiches, visageDe } from '../../../shared/homonymes'
+import type { EclatPorte } from '../../../shared/matieres'
 
 export interface PlayerRec {
   id: string
@@ -23,8 +24,8 @@ export interface PlayerRec {
 export interface ProfileBadge {
   niveau: number
   finition: Finition
-  /** Cet emoji-là a éclaté pour lui. */
-  eclat: boolean
+  /** Ce qu'il porte a éclaté pour lui : sa version rare (`true`), ou la matière qu'il en porte. */
+  eclat: false | EclatPorte
   /** L'avatar dessiné qu'il porte — légendaire ou Divin : il remplace l'emoji à l'écran. */
   legendaire?: string
   /** Il a gagné le quiz du jour d'hier : l'allure de son laurier, qui grandit avec ses victoires — ou l'argent du défi de la semaine. */
@@ -458,7 +459,8 @@ export class Party {
       // Rien du tout pour un invité anonyme : ces champs sont absents, pas à
       // zéro, et l'instantané qui part à toute la salle n'en porte pas le poids.
       ...(badge && { niveau: badge.niveau, finition: badge.finition }),
-      ...(badge?.eclat && { eclat: true }),
+      // Telle quelle : `true` lui ôterait sa matière.
+      ...(badge?.eclat && { eclat: badge.eclat }),
       ...(badge?.legendaire && { legendaire: badge.legendaire }),
       ...(badge?.laurier && { laurier: badge.laurier }),
       ...(badge?.champion && { champion: badge.champion }),

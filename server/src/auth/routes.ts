@@ -56,8 +56,8 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
    * que l'invariant 21 réserve à leur seul porteur.
    */
   const profilDeLEspace = (p: Parameters<ProfileStore['toPublic']>[0]): ProfilDeLEspace => {
-    const { login, name, avatar, finition, eclats, eclatsEteints, legendaire, niveau } = deps.profiles.toPublic(p)
-    return { login, name, avatar, finition, eclats, eclatsEteints, legendaire, niveau }
+    const { login, name, avatar, finition, eclats, eclatsEteints, matieres, matieresPortees, legendaire, niveau } = deps.profiles.toPublic(p)
+    return { login, name, avatar, finition, eclats, eclatsEteints, matieres, matieresPortees, legendaire, niveau }
   }
 
   /**

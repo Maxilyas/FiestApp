@@ -1,4 +1,4 @@
-import { Fragment } from 'react'
+import { Fragment, useId } from 'react'
 import type { ApparenceDeLAvatar, Finition } from '../../../shared/profil'
 import type { BordureDeLigue } from '../../../shared/duels'
 import type { SonApparence } from '../../../shared/campagne'
@@ -6,6 +6,7 @@ import { legendaire as legendaireDe } from '../../../shared/legendaires'
 import { divin as divinDe } from '../../../shared/divins'
 import { portrait as portraitDe } from '../../../shared/branches'
 import { formeDeCompagnon } from '../../../shared/compagnons'
+import { MATRICE_DE_LA_LUMIERE, enMatiere, tablesDeLaMatiere, type Matiere } from '../../../shared/matieres'
 import { dessinDuCompagnon, dessinDuPortrait, lumineuse, sortesDe, sortesDesAvatars, useDessins } from './medaillons'
 
 interface Props {
@@ -13,8 +14,12 @@ interface Props {
   avatar: string
   /** Sa finition, s'il joue avec un profil. Absente = l'emoji nu, comme avant. */
   finition?: Finition
-  /** Ce qu'il porte a éclaté pour lui — l'emoji, ou le légendaire : il brille, et lui seul. */
-  eclat?: boolean
+  /**
+   * Ce qu'il porte a éclaté pour lui — l'emoji, ou le légendaire : il brille,
+   * et lui seul. Sa version rare (`true`), ou la matière qu'il en porte
+   * (`shared/matieres.ts`).
+   */
+  eclat?: boolean | Matiere
   /** L'avatar dessiné qu'il porte à la place de l'emoji : un légendaire, un Divin, un portrait des branches. */
   legendaire?: string
   /** La classe de taille du contexte (`lb-avatar`, `podium-avatar`…). */
@@ -40,7 +45,10 @@ interface Props {
  * Sauf pour qui a gagné un avatar légendaire et choisi de le porter : un
  * médaillon dessiné, à la taille de l'emoji, prend sa place, et la finition
  * devient son cercle — pas un halo de plus autour du sien. Si l'Éclat est
- * tombé sur ce légendaire-là, il porte sa version rare, et ses paillettes.
+ * tombé sur ce légendaire-là, il porte sa version rare — ou la matière que
+ * d'autres Éclats y ont taillée (`shared/matieres.ts`), sur un emoji comme sur
+ * un médaillon. La gemme de l'Éclat se pose au coin d'un emoji et d'un
+ * compagnon ; d'un médaillon peint, dans une liste seulement (`styles.css`).
  *
  * Un Divin prend la place de l'emoji lui aussi, mais seul : ni finition, ni
  * Éclat. Il a sa propre lumière, et ses rayons, ses ailes débordent déjà du
@@ -48,9 +56,9 @@ interface Props {
  *
  * Un portrait des branches (`Portrait.tsx`) se porte comme un légendaire :
  * la finition devient son cercle, l'Éclat son ciel rare. Un compagnon de la
- * boutique (`Compagnon.tsx`) comme un portrait — l'Éclat n'y pose que ses
- * paillettes, sous toutes ses formes : la métamorphose qu'il lui ouvre est
- * une forme de plus, qu'on porte en la choisissant.
+ * boutique (`Compagnon.tsx`) comme un portrait — l'Éclat n'y pose que sa
+ * gemme, sous toutes ses formes, et aucune matière : la métamorphose qu'il
+ * lui ouvre est une forme de plus, qu'on porte en la choisissant.
  *
  * Les trois dernières finitions — Prisme, Aurore, Constellation — ont en
  * plus leur lumière (`Lumiere.tsx`), autour de l'emoji comme du médaillon :
@@ -87,21 +95,28 @@ export function Avatar({ avatar, finition, eclat, legendaire, className, grand, 
   const lumiere = !divin && Lumiere ? lumineuse(finition) : null
   // Sa bordure de ligue, si elle est arrivée — jamais sous un Divin non plus.
   const cadre = !divin && Bordure && bordure ? bordure : null
+  // La matière qu'il porte : jamais sous un Divin, ni sous un compagnon, que l'Éclat ne recolore pas.
+  const matiere = typeof eclat === 'string' && !divin && !compagnon ? eclat : null
   const classes = ['av']
   if (className) classes.push(className)
+  const eclate = () => {
+    if (!eclat) return
+    classes.push('av-eclat')
+    if (matiere) classes.push('av-matiere', `av-matiere-${matiere}`)
+  }
   if (divin) {
     // En attendant son dessin, un Divin reste un emoji nu : ni finition, ni Éclat.
     if (Divin) classes.push('av-divin')
   } else if (porte && Legendaire) {
     classes.push('av-legendaire')
-    if (eclat) classes.push('av-eclat')
+    eclate()
   } else if (portrait || compagnon) {
     // Un compagnon se tient comme un portrait : un disque peint, à sa place.
     classes.push('av-portrait')
-    if (eclat) classes.push('av-eclat')
+    eclate()
   } else {
     if (finition && finition !== 'mat') classes.push(`av-${finition}`)
-    if (eclat) classes.push('av-eclat')
+    eclate()
   }
   if (lumiere) classes.push('av-lumiere')
   if (cadre) classes.push('av-bordure')
@@ -118,6 +133,8 @@ export function Avatar({ avatar, finition, eclat, legendaire, className, grand, 
           <Portrait cle={portrait} finition={finition} eclat={eclat} grand={grand} />
         ) : compagnon && Compagnon ? (
           <Compagnon cle={compagnon} finition={finition} grand={grand} />
+        ) : matiere ? (
+          <EmojiEnMatiere avatar={avatar} matiere={matiere} />
         ) : (
           avatar
         )}
@@ -134,6 +151,33 @@ export function Avatar({ avatar, finition, eclat, legendaire, className, grand, 
         dedans
       )}
     </span>
+  )
+}
+
+/**
+ * Un emoji taillé dans une matière : sa lumière devient la matière, du sombre
+ * au clair (`tablesDeLaMatiere`), comme le décor d'un portrait éclaté prend
+ * son ciel rare. Dans un SVG, à la taille de l'emoji qu'il remplace : un
+ * filtre posé sur du texte HTML ne tient pas sur tous les téléphones. Le nom
+ * de son filtre est le sien seul — le premier d'un nom gagnait la page.
+ */
+function EmojiEnMatiere({ avatar, matiere }: { avatar: string; matiere: Matiere }) {
+  const id = `av-matiere-${matiere}-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
+  const [r, g, b] = tablesDeLaMatiere(matiere)
+  return (
+    <svg className="av-emoji-matiere" viewBox="0 0 100 100" role="img" aria-label={`${avatar} ${enMatiere(matiere)}`}>
+      <filter id={id} colorInterpolationFilters="sRGB">
+        <feColorMatrix type="matrix" values={MATRICE_DE_LA_LUMIERE} />
+        <feComponentTransfer>
+          <feFuncR type="table" tableValues={r} />
+          <feFuncG type="table" tableValues={g} />
+          <feFuncB type="table" tableValues={b} />
+        </feComponentTransfer>
+      </filter>
+      <text x="50" y="50" dominantBaseline="central" textAnchor="middle" fontSize="86" filter={`url(#${id})`}>
+        {avatar}
+      </text>
+    </svg>
   )
 }
 

@@ -44,6 +44,7 @@
 import type { Adversaire, ResumeDeRencontre, RencontreDeCampagne, SonApparence } from './campagne'
 import type { Finition } from './profil'
 import type { LaurierPorte } from './jour'
+import type { EclatPorte } from './matieres'
 
 /** La cote de tout le monde au premier duel : celle d'un joueur qui finit sa série vers sept bonnes réponses. */
 export const COTE_DE_DEPART = 1000
@@ -764,7 +765,7 @@ export interface LigneDesDuels {
   niveau: number
   finition?: Finition
   legendaire?: string
-  eclat?: true
+  eclat?: EclatPorte
   laurier?: LaurierPorte
   /** La bordure de ligue qu'il porte, s'il en porte une (`bordurePortee`). */
   bordure?: BordureDeLigue

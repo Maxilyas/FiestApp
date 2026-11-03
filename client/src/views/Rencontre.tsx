@@ -108,7 +108,7 @@ export function ceQuIlPorte(x: SonApparence | null | undefined): SonApparence | 
   const porte: SonApparence = {
     ...(x.finition && x.finition !== 'mat' && { finition: x.finition }),
     ...(x.legendaire && { legendaire: x.legendaire }),
-    ...(x.eclat && { eclat: true as const }),
+    ...(x.eclat && { eclat: x.eclat }),
   }
   return Object.keys(porte).length > 0 ? porte : undefined
 }

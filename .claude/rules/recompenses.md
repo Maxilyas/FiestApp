@@ -63,6 +63,24 @@ paths:
   (`PRIX_D_UN_ECLAT`, `acheterUnEclat`), en réserve sous `#achat:`, que
   l'économie du QG écarte des Éclats tirés comme `#don:`. Un champ qui lit
   `profile_eclats` ligne à ligne doit écarter `estEnReserve`.
+- **Une réserve se dépense aussi en matière** (le 3 novembre 2026, la maquette
+  « Les matières de l'Éclat » : porcelaine, corail, jade, obsidienne,
+  `MATIERES_A_TAILLER`, `shared/matieres.ts` ; les quatre réunies sur un
+  avatar ouvrent l'Opale, `matieresOuvertes`, qui ne se taille pas).
+  `PUT /api/joueur/moi` `matiereDeReserve` renomme la ligne de la réserve en
+  `matiere:<matière>:<avatar>` (`cleDeMatiere`), qui garde sa soirée : un
+  essai effacé la reprend, l'Opale avec si c'était la quatrième. La matière
+  portée vit dans la colonne `matiere` de la ligne de l'avatar éclaté, à côté
+  d'`eteint`, et ne se croit que tant qu'il l'a (`eclatChez`, la même règle au
+  serveur et au client — sinon sa version rare). Un avatar éclaté seulement,
+  chaque matière une fois, jamais un Divin ni un compagnon (`peutSeTailler` :
+  son Éclat ouvre sa métamorphose). Elle ne compte pas pour La Pluie
+  d'Éclats, qui compte des avatars éclatés (`eclatsOf`) — un choix à
+  reprendre avec le propriétaire —, et un champ qui lit `profile_eclats`
+  ligne à ligne écarte aussi `estUneLigneDeMatiere` (`eclatsHors`). L'Éclat
+  d'un joueur voyage tel quel dans le champ `eclat` — `true` ou sa matière
+  (`EclatPorte`) : un `{ eclat: true }` recopié la perdait en route
+  (`matieres.test.ts` relit les sources).
 - **Une voie rangée n'est pas un trophée, et se filtre par une seule liste**
   (`PREFIXES_DES_VOIES_RANGEES` — `saison:`, `expedition:`, `cabinet:`, et
   `timbre:` depuis le 1er novembre 2026 —, `estUneVoieRangee`,
