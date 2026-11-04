@@ -15695,10 +15695,11 @@ span.annonce-admin-merci { cursor: default; }
   .qg-titre h1 { font-size: 2.45rem; }
   /* Le poste de commande : la veille en bandeau (« Hier, en bref »), puis ce qui attend un geste en colonne de droite,
      à côté de l'état et des chiffres — il tombait sous la ligne de flottaison en 1366 × 768 (la revue d'ergonomie du
-     4 novembre 2026) —, puis la participation de toute la largeur, et le direct, les soirées et le serveur côte à côte. */
+     4 novembre 2026) —, puis la participation de toute la largeur, et le direct à côté des soirées en cours, qui prennent
+     la place de la carte du serveur (elle redisait les voyants et le direct). */
   .qg-poste {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-template-areas: 'hier hier hier' 'etat etat traiter' 'chiffres chiffres traiter' 'graphe graphe graphe' 'direct soirees serveur';
+    grid-template-areas: 'hier hier hier' 'etat etat traiter' 'chiffres chiffres traiter' 'graphe graphe graphe' 'direct soirees soirees';
     align-items: start;
   }
   .qg-hier { grid-area: hier; }
@@ -15708,7 +15709,6 @@ span.annonce-admin-merci { cursor: default; }
   .qg-traiter { grid-area: traiter; align-self: stretch; }
   .qg-direct { grid-area: direct; align-self: stretch; }
   .qg-soirees { grid-area: soirees; align-self: stretch; }
-  .qg-serveur { grid-area: serveur; align-self: stretch; }
   /* « Hier, en bref » tout dehors : sa phrase et ses lignes à gauche, ses quatre tuiles à droite, la semaine dessous. */
   .qg-hier-corps { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); align-items: start; gap: 12px 20px; }
   .qg-hier-semaine { grid-column: 1 / -1; }
@@ -15719,11 +15719,9 @@ span.annonce-admin-merci { cursor: default; }
   .qg-voyants { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .qg-etat-phrase { font-size: 1.3rem; }
   .qg-tuile-valeur { font-size: 1.9rem; }
-  /* Le direct dans un tiers de la largeur : ses quatre cadrans deux par deux. Une soirée en cours, sa sauvegarde sous
-     son texte, comme au téléphone : au bout de la ligne, elle serrait sa colonne sur cinq lignes. */
+  /* Le direct dans un tiers de la largeur : ses quatre cadrans deux par deux. Les soirées en cours en ont deux : chacune
+     sa sauvegarde au bout de sa ligne, comme sur la page des soirées. */
   .qg-poste .qg-cadrans { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .qg-poste .qg-soiree { grid-template-columns: 36px minmax(0, 1fr); }
-  .qg-poste .qg-soiree > .qg-etat { grid-column: 2; }
   .qg-cadrans { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .qg-tuiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .qg-table .qg-colonne-detail { display: table-cell; }

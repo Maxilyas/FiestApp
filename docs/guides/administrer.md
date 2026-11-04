@@ -18,7 +18,7 @@ Un autre animateur lit « Cette page est réservée à l'administrateur. » ; un
 
 | Page | Adresse | Ce que tu y trouves |
 |---|---|---|
-| Le poste de commande | `/admin` | hier en bref, l'état du service, ce qui attend un geste, la période choisie en chiffres et heure par heure, l'instant, les soirées en cours, le serveur |
+| Le poste de commande | `/admin` | hier en bref, l'état du service, ce qui attend un geste, la période choisie en chiffres et heure par heure, l'instant, les soirées en cours |
 | Alertes et incidents | `/admin#alertes` | les seize règles qui sonnent, leurs seuils à régler, où elles sonnent ; les incidents des trois dernières semaines, chacun sa cause et un mot ; le point du matin, son heure et sa notification |
 | En direct | `/admin#direct` | la seconde du serveur : qui est là, ce qu'il sert et en combien de temps, qui joue à quoi, quinze minutes au pas de dix secondes, le fil de ce qui arrive, les routes de la minute |
 | Journal et repères | `/admin#journal` | tes gestes, les mises en ligne et les incidents au même fil, du plus récent au plus ancien ; « Avant / après » d'un repère, quatorze jours de chaque côté |
@@ -78,6 +78,7 @@ Chaque tableau a son « Copier » : le tableau tel que la page le montre — tri
 | « 2 questions du public à relire » | des questions que les joueurs proposent au quiz du jour | Le quiz du jour |
 | « Une copie à relire » | des copies proposées au catalogue | Le catalogue |
 | « Une soirée laissée en plan » | six heures sans un signe de vie | Les soirées |
+| « La routine du matin se tait » | deux jours sans un dépôt dans la réserve du quiz du jour ou dans la base de la campagne — un matin manqué arrive, l'hébergeur dormait ; deux de suite, elle ne passe plus. Une routine jamais venue ne se dit pas | Les réserves et la base : ses dépôts jour par jour, et de quoi remplir à la main |
 
 **Sur la période** : quatre tuiles — les personnes (chaque profil une fois, chaque invité sans profil une fois par soirée : « invités compris », quand la page des joueurs ne compte que des profils), les participations, les nouveaux profils, les achats en boutique —, puis une par mode — soirées, campagne, Cabinet, quiz du jour, duels : ses participations et ses joueurs ; la toucher ouvre la page du mode. Chaque tuile se compare à la période d'avant, arrêtée au même instant — hier à la même heure pour 24 heures, la semaine d'avant au même moment pour sept jours (« 12 % » et sa flèche ; sous vingt, « 7 avant » ; ou « comme avant ») —, et dessine sa courbe sur la période. Trente jours n'ont pas de période d'avant : le QG n'en garde que trente.
 
@@ -90,7 +91,7 @@ Survole ou touche un seau : l'infobulle dit sa valeur d'abord, puis ses modes, e
 
 **En ce moment** : les soirées en cours (« et 1 laissée en plan »), les invités connectés sur ceux inscrits ce soir, les profils passés ces cinq dernières minutes, et les écritures qui attendent le miroir Turso — « miroir à jour », ou « Turso en échec depuis 21 h 05 », « 2 salons en retard ».
 
-**Soirées en cours** : chaque soirée par son salon — où elle en est, depuis quand, combien de téléphones connectés sur combien d'inscrits, « aucun écran branché » s'il y a lieu, « sauvegardée » ou « sauvegarde en retard ». **Le serveur** : mémoire, processeur (en part d'un cœur), serveur occupé, Turso pour dix-neuf allers-retours sur vingt, connexions temps réel, et le dernier dépôt de la routine du matin dans la réserve du quiz du jour et dans la base de la campagne.
+**Soirées en cours** : chaque soirée par son salon — où elle en est, depuis quand, combien de téléphones connectés sur combien d'inscrits, « aucun écran branché » s'il y a lieu, « sauvegardée » ou « sauvegarde en retard ». La carte du serveur, qui redisait les voyants et le direct, s'en est allée le 4 novembre 2026 : la mémoire, le processeur et Turso se lisent dans les voyants ; la routine du matin, dans « À traiter » quand elle se tait.
 
 ## En direct
 

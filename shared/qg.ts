@@ -600,6 +600,13 @@ export interface ChoseATraiter {
 const pluriel = (n: number, mot: string, motPluriel = `${mot}s`) => `${n} ${n > 1 ? motPluriel : mot}`
 
 /**
+ * La routine du matin dépose chaque jour, dans la réserve du quiz du jour et
+ * dans la base de la campagne : un matin sans rien arrive — l'hébergeur
+ * dormait —, deux de suite, c'est qu'elle ne passe plus.
+ */
+export const ROUTINE_MUETTE_MS = 2 * 24 * 3_600_000
+
+/**
  * La liste de ce qui attend un geste, la plus pressée d'abord — critique,
  * sérieuse, à surveiller, puis ce qui est à faire, chacune dans l'ordre où
  * elle s'écrit : un mode de jeu en panne, les soirées qui ne se sauvegardent
@@ -737,6 +744,25 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
       detail: vue.catalogue > 1 ? 'proposées au catalogue' : 'proposée au catalogue',
       ecran: 'catalogue',
     })
+  }
+  // La routine du matin qui se tait : le poste la disait dans la carte du serveur, qu'il fallait relire chaque jour pour
+  // s'en apercevoir (la revue d'expert du 4 novembre 2026, section 3). Jamais venue — un serveur sans routine —, rien.
+  const routine = vue?.routine
+  if (routine && maintenant !== undefined) {
+    const muettes = (['jour', 'campagne'] as const).flatMap(r => {
+      const dernier = routine[r]
+      return dernier !== null && maintenant - dernier > ROUTINE_MUETTE_MS ? [{ r, dernier }] : []
+    })
+    if (muettes.length > 0) {
+      choses.push({
+        cle: 'routine',
+        gravite: 'a-faire',
+        titre: 'La routine du matin se tait',
+        detail: muettes.map(m => `${m.r === 'jour' ? 'quiz du jour' : 'campagne'} : dernier dépôt ${quandEcrit(m.dernier, maintenant)}`).join(' · '),
+        // Ses dépôts, jour par jour, et de quoi remplir à la main.
+        ecran: 'reserves',
+      })
+    }
   }
   for (const s of direct?.soirees ?? []) {
     if (s.etat !== 'en-plan') continue

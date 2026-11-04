@@ -292,6 +292,21 @@ test('ce qui attend un geste : le plus pressé d’abord, et rien qui n’attend
   assert.equal(lesChosesATraiter({ ...calme, catalogue: 1 }, null)[0].detail, 'proposée au catalogue')
   const uneSeule = lesChosesATraiter({ ...calme, signalementsDeLaCampagne: { questions: 1, joueurs: 1 } }, null)
   assert.deepEqual([uneSeule[0].titre, uneSeule[0].detail], ['Une question signalée', '1 en campagne (1 joueur)'])
+  // La routine du matin qui se tait (la revue d'expert du 4 novembre 2026 : la carte du serveur la disait, qu'il fallait
+  // relire chaque jour). Un matin manqué arrive ; deux jours sans un dépôt, elle ne passe plus. Jamais venue, rien.
+  const mercredi = Date.UTC(2026, 10, 4, 20, 0)
+  const routine = (jour: number | null, campagne: number | null) => lesChosesATraiter({ ...calme, routine: { jour, campagne } }, null, mercredi)
+  assert.deepEqual(routine(null, null), [])
+  assert.deepEqual(routine(mercredi - 30 * H, mercredi - 30 * H), [], 'un matin manqué')
+  const muette = routine(mercredi - 3 * 24 * H, mercredi - 20 * H)
+  assert.deepEqual(
+    muette.map(c => [c.cle, c.gravite, c.titre, c.ecran]),
+    [['routine', 'a-faire', 'La routine du matin se tait', 'reserves']],
+  )
+  assert.equal(muette[0].detail, 'quiz du jour : dernier dépôt le 1er novembre')
+  assert.equal(routine(mercredi - 3 * 24 * H, mercredi - 3 * 24 * H)[0].detail, 'quiz du jour : dernier dépôt le 1er novembre · campagne : dernier dépôt le 1er novembre')
+  // Sans l'heure, rien ne se juge : la ligne ne se devine pas.
+  assert.deepEqual(lesChosesATraiter({ ...calme, routine: { jour: 0, campagne: 0 } }, null), [])
 })
 
 test('l’écart à l’habitude : en pour cent au-delà de vingt, en chiffre en deçà — trois contre deux ne font pas « 50 % de plus »', () => {
@@ -690,10 +705,11 @@ test('le poste de commande se lit d’un coup d’œil : l’état du service, c
   assert.match(html, /Quiz 2 · question 7 sur 15 · depuis 1 h 12/)
   assert.match(html, /Entre deux quiz · 1 joué · sans un geste depuis 7 h 05/)
   assert.match(html, /14 sur 15 connectés/)
-  // Le serveur, et la routine du matin passée à 7 h 04 dans la réserve du jour — pas dans la campagne.
-  assert.match(html, /4 % d’un cœur/)
-  assert.match(html, /<dt>Routine, quiz du jour<\/dt><dd>aujourd’hui à 7 h 04<\/dd>/)
-  assert.match(html, /<dt>Routine, campagne<\/dt><dd>rien encore<\/dd>/)
+  // La carte du serveur s'en est allée (la revue d'expert du 4 novembre 2026) : la mémoire, le processeur, Turso se lisent
+  // dans les voyants et le direct ; la routine du matin passée à 7 h 04 n'attend aucun geste — elle ne parle qu'en se
+  // taisant, dans « À traiter » (`ROUTINE_MUETTE_MS`).
+  assert.doesNotMatch(html, /qg-serveur-titre|Routine, quiz du jour|Les sept derniers jours/)
+  assert.doesNotMatch(html, /La routine du matin se tait/)
 
   // Les participations, sans regarder qui : elles s'additionnent, leur pile se lit mode par mode, le Cabinet entre la
   // campagne et le quiz du jour ; comparées, la période d'avant passe en filet, et se dit à la lecture.

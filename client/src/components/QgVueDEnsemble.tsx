@@ -35,7 +35,10 @@ type Ouvrir = (e: EcranATraiter, onglet?: string) => void
  * que le propriétaire a faite sienne le 4 : « suis tes recommandations ») :
  * l'état du service en voyants, les chiffres de la période que la barre du
  * haut a choisie, la participation seau par seau, ce qui attend un geste, le
- * direct, les soirées en cours, le serveur. Il remplace la vue d'ensemble
+ * direct, les soirées en cours. La carte du serveur, qui redisait les voyants
+ * et le direct, s'en est allée (la revue d'expert du 4 novembre 2026) ; la
+ * routine du matin qu'elle disait seule parle dans « À traiter » quand elle se
+ * tait (`ROUTINE_MUETTE_MS`). Il remplace la vue d'ensemble
  * des maquettes du 13 octobre 2026, qui ne regardait que trente jours et
  * « aujourd'hui à la même heure ». Des soirées des autres, rien que des
  * chiffres : où elles en sont, combien d'invités, jamais un prénom ni un quiz
@@ -81,7 +84,6 @@ export function VueDEnsembleDuQg({
       <Participations vue={vue} enPanne={vueEnPanne} periode={periode} comparer={comparer} />
       <EnCeMoment direct={direct} enPanne={directEnPanne} />
       <SoireesEnCours direct={direct} ouvrir={() => ouvrir('soirees')} />
-      <LeServeur direct={direct} vue={vue} ouvrir={() => ouvrir('serveur')} />
     </div>
   )
 }
@@ -575,63 +577,3 @@ export function LigneDeSoiree({ s, maintenant, children }: { s: SoireeDuQg; main
   )
 }
 
-// ── Le serveur ────────────────────────────────────────────────────────────
-
-const pourcents = (n: number | null) => (n === null ? '–' : `${formatNumber(n)} %`)
-
-function LeServeur({ direct, vue, ouvrir }: { direct: DirectDuQg | null; vue: VueDEnsemble | null; ouvrir: () => void }) {
-  const s = direct?.serveur
-  const routine = vue?.aTraiter.routine
-  const maintenant = vue?.maintenant ?? direct?.maintenant ?? 0
-  const depot = (t: number | null | undefined) => (t == null ? 'rien encore' : quandEcrit(t, maintenant))
-  return (
-    <section className="qg-console qg-serveur" aria-labelledby="qg-serveur-titre">
-      <div className="qg-console-tete">
-        <h2 id="qg-serveur-titre">Le serveur</h2>
-        {s && (
-          <span className="muted small">
-            {s.env === 'production' ? 'Production' : s.env}
-            {s.version && ` · version ${s.version.slice(0, 7)}`} · en marche depuis {dureeEcrite(s.enMarcheDepuisS * 1000)}
-          </span>
-        )}
-      </div>
-      <dl className="admin-fiche">
-        <div>
-          <dt>Mémoire</dt>
-          <dd className="num">{s?.memoireMo == null ? '–' : `${formatNumber(s.memoireMo)} Mo`}</dd>
-        </div>
-        <div>
-          <dt>Processeur</dt>
-          <dd className="num">{s ? `${pourcents(s.cpuPct)} d’un cœur` : '–'}</dd>
-        </div>
-        {/* Les mots de l'administrateur, pas ceux de l'ingénieur : « Boucle occupée », « 95ᵉ centile » ne se lisaient pas. */}
-        <div>
-          <dt>Serveur occupé</dt>
-          <dd className="num">{s ? pourcents(s.bouclePct) : '–'}</dd>
-        </div>
-        <div>
-          <dt>Turso, 19 allers-retours sur 20</dt>
-          <dd className="num">{s?.baseP95Ms == null ? '–' : `${formatNumber(s.baseP95Ms)} ms`}</dd>
-        </div>
-        <div>
-          <dt>Connexions temps réel</dt>
-          <dd className="num">{s?.connexions == null ? '–' : formatNumber(s.connexions)}</dd>
-        </div>
-        {/* Le dernier dépôt de la routine du matin, dans chaque réserve : celle qui se tait ne prévient pas. */}
-        <div>
-          <dt>Routine, quiz du jour</dt>
-          <dd>{routine ? depot(routine.jour) : '–'}</dd>
-        </div>
-        <div>
-          <dt>Routine, campagne</dt>
-          <dd>{routine ? depot(routine.campagne) : '–'}</dd>
-        </div>
-      </dl>
-      {/* L'instant ici ; la semaine — les temps de réponse, les réveils, les erreurs — sur sa page. */}
-      <button type="button" className="lien-discret qg-suite" onClick={ouvrir}>
-        Les sept derniers jours
-        <Icon name="chevron-right" />
-      </button>
-    </section>
-  )
-}
