@@ -44,7 +44,7 @@ import {
   type LectureDuJournal,
   type ReponseDuJournal,
 } from '../src/core/journalDesReponses'
-import { semaineDe } from '../../shared/campagne'
+import { MODES_DE_SERIE, semaineDe } from '../../shared/campagne'
 import { idDeLEclair, idDeLaFiche, idDeLaFriseATheme, idDeLaFriseDeSujet, idDeLaReplique, idDuLieu, idDuTableau } from '../../shared/cabinet/pieces'
 import { PREFIXES_HORS_DE_LA_BASE, horsDeLaBase, sqlDansLaBase } from '../../shared/horsDeLaBase'
 import { jourDe } from '../../shared/jour'
@@ -125,6 +125,13 @@ const AVANT = {
               AND NOT (s.mode = 'expedition' AND json_extract(s.questions, '$[' || r.position || '].carnet') IS 1)
               AND ${sqlDansLaBase('r.reserve_id')}
             GROUP BY question, choisie HAVING typeof(choisie) = 'text'`,
+  // Les questions de la base posées, chacune sa dernière fois et ses modes, nées au journal le 4 novembre 2026 pour la page
+  // des questions du QG (`questionsJouees`) — sans SQL d'avant, écrites ici à part : toute réponse compte, une révision
+  // aussi, et une réponse sans série se lit en série, comme le mode de toute ligne.
+  jouees: `SELECT r.reserve_id AS question, MAX(r.repondue_le) AS derniere, json_group_array(DISTINCT COALESCE(s.mode, 'serie')) AS modes
+           FROM campagne_reponses r LEFT JOIN campagne_series s ON s.id = r.serie_id
+           WHERE ${sqlDansLaBase('r.reserve_id')}
+           GROUP BY r.reserve_id`,
   // Celui-ci tel qu'il était le 3 novembre 2026, sans sa semaine de marge sur le début des parties, qui ne servait qu'un
   // index : sans statistiques, il parcourait toutes les réponses — 60 000 lignes à chaque ouverture de l'économie du QG.
   justesDeTous: `SELECT CAST(r.repondue_le / ${HEURE_MS} AS INTEGER) AS heure, COUNT(*) AS n
@@ -417,6 +424,19 @@ async function comparer(client: Client, journal: JournalDesReponses, profils: re
   const mesures = journal.mesures()
   assert.deepEqual(mesures.brutes, comptesLus(brutes.rows[0]?.mesures), `${nom} : la mesure, réponse par réponse`)
   assert.deepEqual(mesures.premieres, comptesLus(premieres.rows[0]?.mesures), `${nom} : la mesure, première réponse par première réponse`)
+  // La page des questions du QG : ce que la mesure compte de chaque question, lu sans la recopier toute (`compteDe`)…
+  for (const [question, c] of comptesLus(brutes.rows[0]?.mesures)) assert.deepEqual(journal.compteDe(question), c, `${nom} : ce que la mesure compte de ${question}`)
+  assert.equal(journal.compteDe('jamais-posee'), undefined, `${nom} : une question jamais posée n'a rien compté`)
+  // … et chaque question posée, sa dernière fois et ses modes, un bit chacun dans l'ordre de la liste — un mode inconnu en série.
+  const bit = (mode: string) => 1 << Math.max(0, (MODES_DE_SERIE as readonly string[]).indexOf(mode))
+  const jouees = new Map(
+    (await client.execute(AVANT.jouees)).rows.map(r => [
+      String(r.question),
+      { derniere: Number(r.derniere), modes: (JSON.parse(String(r.modes)) as string[]).reduce((b, m) => b | bit(m), 0) },
+    ]),
+  )
+  assert.ok(jouees.size > 0, `${nom} : des questions posées à comparer`)
+  assert.deepEqual(new Map([...journal.questionsJouees()].map(([q, j]) => [q, { ...j }])), jouees, `${nom} : les questions posées, leur dernière fois et leurs modes`)
   // Les leurres que la campagne choisit, question par question.
   const leurres = new Map<string, Map<string, number>>()
   for (const r of (await client.execute(AVANT.leurres)).rows) {

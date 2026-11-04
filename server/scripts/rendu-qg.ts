@@ -171,11 +171,14 @@ async function uneFoisDePlus<T>(f: () => Promise<T>): Promise<T> {
 
 // Les règles des alertes se jugent toutes les cinq secondes : la page des alertes se photographie avec ce qui s'y ouvre.
 // Elles lisent la page du serveur dès le démarrage : relue à chaque fois (`santeGardeeMs`), elle voit la semaine inventée plus bas.
+// Le jeton de la réserve, comme en production : la routine du matin y dépose par sa porte (la page « Réserves et base »).
+const JETON_DE_LA_RESERVE = `rendu-${'r'.repeat(40)}`
 const banc = await demarrer({
   baseDeLaCampagne: baseDEssai(40),
   mesuresDeLHebergeur: 'https://dashboard.render.com/web/srv-rendu/metrics',
   reglesDuQgMs: 5_000,
   santeGardeeMs: 0,
+  jetonDeLaReserve: JETON_DE_LA_RESERVE,
 })
 const navigateur = await chromium.launch({ headless: true })
 try {
@@ -1396,6 +1399,162 @@ try {
     }
     await photographier('65-cabinet-fiche-telephone', 360, 640, { ...cabinet, pleine: false, geste: laFiche })
     await photographier('66-cabinet-fiche', 1366, 768, { ...cabinet, pleine: false, geste: laFiche })
+  }
+
+  // Le contenu (`/admin#questions`, `/admin#reserves`, le QG 2, lot 7) : la routine du matin par ses vraies routes, sous
+  // son jeton — quatorze questions dans la réserve du quiz du jour, en six catégories, et cinq dans la base de la
+  // campagne —, et ses deux semaines de dépôts d'avant au journal de la réserve, un matin sans rien (l'hébergeur dormait) ;
+  // puis les questions jouées aux trois tailles, les pièges au téléphone, la feuille d'une question du jour, celle d'une
+  // contredite et « Reclasser » ouvert ; les réserves et la base aux trois tailles, la carte sur ses contredites.
+  if (photo('contenu')) {
+    const routine = (chemin: string, corps: unknown) =>
+      uneFoisDePlus(() =>
+        fetch(`${banc.url}${chemin}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'quizz', Authorization: `Bearer ${JETON_DE_LA_RESERVE}` },
+          body: JSON.stringify(corps),
+        }),
+      )
+    const liste = [
+      '# Histoire',
+      'En quelle année la Bastille a-t-elle été prise ?\n*1789\n1792\n1776\n1804',
+      'Quel roi a fait de Versailles le château qu’on visite aujourd’hui ?\n*Louis XIV\nLouis XIII\nFrançois Ier\nHenri IV',
+      'Qui fut le premier président de la Ve République ?\n*Charles de Gaulle\nGeorges Pompidou\nRené Coty\nVincent Auriol',
+      '# Géographie',
+      'Quel est le plus long fleuve de France ?\n*La Loire\nLa Seine\nLe Rhône\nLa Garonne',
+      'Quelle est la capitale du Canada ?\n*Ottawa\nToronto\nMontréal\nVancouver',
+      'Quel océan borde la côte ouest des États-Unis ?\n*Le Pacifique\nL’Atlantique\nL’Arctique\nL’océan Indien',
+      '# Sciences',
+      'Quel est le symbole chimique de l’or ?\n*Au\nAg\nOr\nFe',
+      'Combien de chromosomes compte une cellule humaine ordinaire ?\n*46\n23\n48\n44',
+      '# Cinéma & séries',
+      'Qui a réalisé « Le Fabuleux Destin d’Amélie Poulain » ?\n*Jean-Pierre Jeunet\nLuc Besson\nJacques Audiard\nMichel Gondry',
+      'Dans quelle série suit-on la famille Stark ?\n*Game of Thrones\nThe Crown\nVikings\nThe Witcher',
+      '# Musique',
+      'De quel instrument jouait Django Reinhardt ?\n*La guitare\nLe violon\nLe piano\nLa trompette',
+      'Qui a composé « Les Quatre Saisons » ?\n*Antonio Vivaldi\nWolfgang Amadeus Mozart\nJean-Sébastien Bach\nJoseph Haydn',
+      '# Sport',
+      'Combien de joueurs une équipe de volley-ball aligne-t-elle sur le terrain ?\n*6\n5\n7\n9',
+      'Quel pays a remporté la Coupe du monde de football 2018 ?\n*La France\nLa Croatie\nLa Belgique\nLe Brésil',
+    ].join('\n\n')
+    const duJour = await routine('/api/jour/reserve', { liste })
+    if (duJour.status !== 200) console.error(`[contenu] la réserve du jour refuse la routine : ${duJour.status} ${await duJour.text()}`)
+    // La base de la campagne : chaque entrée comme la routine l'écrit, ses métadonnées au format de l'étiquetage.
+    const entree = (categorie: string, texte: string, reponses: string[], autres: string[], anecdote: string, sousTheme: string, difficulte: number) => ({
+      texte,
+      reponses,
+      bonne: 0,
+      anecdote,
+      categorie,
+      sousTheme,
+      etiquettes: [],
+      difficulte,
+      ageMin: 10,
+      date: null,
+      entites: [],
+      portee: 'monde',
+      valeur: null,
+      leurres: [...reponses.slice(1), ...autres],
+      dureeDeVie: 'stable',
+      explication: '',
+      source: null,
+      confiance: 3,
+      aRelire: [],
+    })
+    const geographie = SOUS_THEMES.Géographie[0].cle
+    const histoire = SOUS_THEMES.Histoire[0].cle
+    for (const [categorie, entrees] of [
+      [
+        'Géographie',
+        [
+          entree('Géographie', 'Quelle est la plus haute montagne d’Afrique ?', ['Le Kilimandjaro', 'Le mont Kenya', 'Le Ruwenzori', 'Le mont Cameroun'], ['Le Toubkal', 'Le mont Elgon', 'Le Ras Dashan'], 'Ses neiges reculent depuis un siècle.', geographie, 2),
+          entree('Géographie', 'Quel désert couvre une grande partie de la Mongolie ?', ['Le désert de Gobi', 'Le Taklamakan', 'Le Kalahari', 'Le désert d’Atacama'], ['Le Karakoum', 'Le Thar', 'Le désert de Syrie'], 'Il s’étend aussi sur la Chine.', geographie, 3),
+          entree('Géographie', 'Quel passage sépare l’Europe de l’Afrique ?', ['Le détroit de Gibraltar', 'Le détroit de Messine', 'Le Bosphore', 'Le pas de Calais'], ['Le détroit d’Ormuz', 'Le détroit de Béring', 'Le détroit de Malacca'], 'Quatorze kilomètres au plus étroit.', geographie, 1),
+        ],
+      ],
+      [
+        'Histoire',
+        [
+          entree('Histoire', 'Quel navigateur lança le premier tour du monde, achevé par son équipage ?', ['Fernand de Magellan', 'Christophe Colomb', 'Vasco de Gama', 'James Cook'], ['Jacques Cartier', 'Amerigo Vespucci', 'Francis Drake'], 'Il mourut aux Philippines en 1521.', histoire, 3),
+          entree('Histoire', 'Quelle reine d’Égypte s’allia à Jules César puis à Marc Antoine ?', ['Cléopâtre', 'Néfertiti', 'Hatchepsout', 'Néfertari'], ['Bérénice', 'Arsinoé', 'Tiyi'], 'La dernière souveraine de la dynastie des Ptolémées.', histoire, 2),
+        ],
+      ],
+    ] as const) {
+      const r = await routine('/api/campagne/base', { categorie, entrees })
+      const fait = (await r.json()) as { ajoutees?: number; ecartees?: { motif: string }[]; error?: string }
+      if (r.status !== 200 || fait.ecartees?.length) console.error(`[contenu] la base refuse la routine (${categorie}) : ${r.status} ${fait.error ?? fait.ecartees?.map(e => e.motif).join(' · ')}`)
+    }
+    // Les deux semaines d'avant au journal de la réserve : la routine chaque matin, sauf il y a quatre jours — l'hébergeur
+    // dormait encore à 6 h 55 —, une liste collée à la main, et ce qu'elle a écarté un matin.
+    {
+      const permanente = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+      const apport = permanente.prepare('INSERT INTO jour_apports (id, quand, source, ajoutees, ecartees) VALUES (?, ?, ?, ?, ?)')
+      // Les minuits de Paris des quatorze derniers jours, le plus ancien d'abord : la routine passe vers 7 h.
+      const minuits = minuitsDeParis(Date.now(), 14)
+      for (let k = 13; k >= 1; k--) {
+        if (k === 4) continue
+        const matin = minuits[13 - k] + 7 * H + 2 * 60_000
+        const ecartees = k === 9 ? [{ texte: 'Combien mesure la tour Eiffel ?', raison: 'une estimation' }, { texte: 'Qui voit-on sur cette photo ?', raison: 'une photo' }] : []
+        apport.run(`rendu-ia-${k}`, matin, 'ia', k % 3 === 0 ? 10 : 20, JSON.stringify(ecartees))
+        if (k === 6) apport.run(`rendu-liste-${k}`, matin + 9 * H, 'liste', 5, '[]')
+      }
+      permanente.close()
+    }
+    const questions = (geste?: (page: any) => Promise<void>) => ({
+      adresse: '/admin#questions',
+      geste: async (page: any) => {
+        await page.waitForSelector('.qg-jouees-table', { timeout: 30000 })
+        await geste?.(page)
+      },
+    })
+    await photographier('90-questions', 1366, 768, questions())
+    await photographier('91-questions-1920', 1920, 1080, questions())
+    await photographier('92-questions-telephone', 360, 640, questions())
+    const lesPieges = async (page: any) => {
+      await page.getByRole('button', { name: 'Pièges', exact: true }).click()
+      await page.waitForTimeout(600)
+    }
+    await photographier('93-questions-pieges-telephone', 360, 640, questions(lesPieges))
+    // La plus jouée — une question du jour, cent réponses — ouverte : ce que chaque réponse a recueilli, ses gestes.
+    const laPremiere = async (page: any) => {
+      await page.locator('.qg-jouee').first().click()
+      await page.waitForSelector('.qg-recueil')
+    }
+    await photographier('94-question-feuille', 1366, 768, { ...questions(laPremiere), pleine: false })
+    // Une contredite, au téléphone : sa marche en une phrase, et « Reclasser » qui la proposera.
+    const uneContredite = async (page: any) => {
+      await page.getByRole('button', { name: 'Contredites', exact: true }).click()
+      await page.waitForTimeout(600)
+      await page.locator('.qg-jouee').first().click()
+      await page.waitForSelector('.qg-fiche .admin-gestes')
+      await page.locator('.qg-fiche .admin-gestes').scrollIntoViewIfNeeded()
+    }
+    await photographier('95-question-contredite-telephone', 360, 640, { ...questions(uneContredite), pleine: false })
+    await photographier('96-question-reclasser', 1366, 768, {
+      ...questions(async page => {
+        await uneContredite(page)
+        await page.locator('.qg-fiche .admin-gestes button', { hasText: 'Reclasser' }).click()
+        await page.locator('.qg-fiche .admin-gestes, .qg-fiche form, .qg-fiche .correction-question').last().scrollIntoViewIfNeeded()
+      }),
+      pleine: false,
+    })
+    const reserves = (geste?: (page: any) => Promise<void>) => ({
+      adresse: '/admin#reserves',
+      geste: async (page: any) => {
+        await page.waitForSelector('.qg-chaleur', { timeout: 30000 })
+        await geste?.(page)
+      },
+    })
+    await photographier('97-reserves', 1366, 768, reserves())
+    await photographier('98-reserves-1920', 1920, 1080, reserves())
+    await photographier('99-reserves-telephone', 360, 640, reserves())
+    await photographier('99b-reserves-contredites', 1366, 768, {
+      ...reserves(async page => {
+        await page.getByRole('button', { name: 'Contredites', exact: true }).click()
+        await page.locator('.qg-chaleur').scrollIntoViewIfNeeded()
+      }),
+      pleine: false,
+    })
   }
 
   // Les pages d'avant le QG 2 : seulement sans `SEULEMENT`.
