@@ -1,4 +1,5 @@
 import { clientDistant, type Client } from './distante'
+import { commencer } from './gels'
 import {
   CALME_POUR_CLORE_MS,
   CLES_DES_REGLES,
@@ -236,6 +237,8 @@ export class ReglesDuQg {
   async tour(): Promise<void> {
     if (this.enRoute) return
     this.enRoute = true
+    // Nommé pour la sonde des gels (`core/gels.ts`) : un gel pendant un tour se rangeait sous la requête qui passait.
+    const fin = commencer('fond · règles des alertes')
     try {
       const releve = await this.deps.lire()
       const maintenant = releve.maintenant
@@ -275,6 +278,7 @@ export class ReglesDuQg {
     } catch (e) {
       console.warn('[alertes] les règles ne se jugent pas :', e instanceof Error ? e.message : e)
     } finally {
+      fin()
       this.enRoute = false
     }
   }
@@ -409,18 +413,29 @@ export class ReglesDuQg {
 const VERSIONS_GARDEES_MS = 3_600_000
 
 /**
- * Ce qu'une lecture à l'heure garde : sa valeur, et quand. Une lecture qui
- * échoue garde la précédente et se refait au tour suivant — sans quoi un
- * hoquet de Turso aurait refermé l'incident d'une sauvegarde ancienne.
+ * La réserve du quiz du jour ne se relit qu'au plus toutes les dix minutes,
+ * comme `/healthz` la relit : ses jours d'avance bougent une fois par jour, à
+ * l'apport du matin. Relue chaque minute, c'était 1 440 lectures par jour,
+ * chacune comptant au quota de Turso toutes les questions prêtes et tous les
+ * apports (le 4 novembre 2026, `retours/2026-11-04/performance-du-qg.md`) ;
+ * « Réserve basse » s'ouvre au pire dix minutes plus tard.
  */
-function alHeure<T>(lire: () => Promise<T>): (maintenant: number) => Promise<T | undefined> {
+const RESERVE_GARDEE_MS = 10 * 60_000
+
+/**
+ * Ce qu'une lecture espacée garde : sa valeur, et quand — une heure d'office.
+ * Une lecture qui échoue garde la précédente et se refait au tour suivant —
+ * sans quoi un hoquet de Turso aurait refermé l'incident d'une sauvegarde
+ * ancienne.
+ */
+function alHeure<T>(lire: () => Promise<T>, gardeeMs = VERSIONS_GARDEES_MS): (maintenant: number) => Promise<T | undefined> {
   let gardee: { le: number; valeur: T } | null = null
   return async maintenant => {
-    if (gardee && maintenant - gardee.le <= VERSIONS_GARDEES_MS) return gardee.valeur
+    if (gardee && maintenant - gardee.le <= gardeeMs) return gardee.valeur
     try {
       gardee = { le: maintenant, valeur: await lire() }
     } catch (e) {
-      console.warn('[alertes] une lecture à l’heure ne se fait pas :', e instanceof Error ? e.message : e)
+      console.warn('[alertes] une lecture espacée ne se fait pas :', e instanceof Error ? e.message : e)
     }
     return gardee?.valeur
   }
@@ -432,10 +447,11 @@ function alHeure<T>(lire: () => Promise<T>): (maintenant: number) => Promise<T |
  * l'heure), le direct en mémoire (le ressenti sur dix minutes, les requêtes
  * sur un quart d'heure, le pire gel de la minute, ce qui s'est joué le soir),
  * le miroir, la réserve du quiz du jour (une lecture par ses questions
- * prêtes), la dernière tournée du rappel ; et une fois l'heure, la dernière
- * sauvegarde (une ligne, par son index) et les heures de l'hébergeur (les
- * démarrages des huit jours gardés, et les jours plus anciens du mois que la
- * mémoire du QG sait). Rien d'autre vers Turso.
+ * prêtes, au plus toutes les dix minutes : `RESERVE_GARDEE_MS`), la dernière
+ * tournée du rappel ; et une fois l'heure, la dernière sauvegarde (une ligne,
+ * par son index) et les heures de l'hébergeur (les démarrages des huit jours
+ * gardés, et les jours plus anciens du mois que la mémoire du QG sait). Rien
+ * d'autre vers Turso.
  */
 export function lecteurDesAlertes(d: {
   alertes: (memoireMo: number | null) => Promise<AlertesDuServeur>
@@ -455,6 +471,7 @@ export function lecteurDesAlertes(d: {
   let versions: { le: number; ralenties: ReleveDesAlertes['ralenties'] } | null = null
   const sauvegarde = d.sauvegarde && alHeure(d.sauvegarde)
   const hebergeur = d.hebergeur && alHeure(d.hebergeur)
+  const reserveGardee = alHeure(d.reserve, RESERVE_GARDEE_MS)
   return async () => {
     const maintenant = (d.maintenant ?? Date.now)()
     const memoireMo = d.memoireMo()
@@ -464,7 +481,7 @@ export function lecteurDesAlertes(d: {
       versions = { le: maintenant, ralenties: lues[0] && d.version && lues[0].version === d.version ? lues[0].ralenties : [] }
     }
     const [derniereSauvegarde, heures] = await Promise.all([sauvegarde?.(maintenant), hebergeur?.(maintenant)])
-    const [a, reserve] = await Promise.all([d.alertes(memoireMo), d.reserve().catch(() => null)])
+    const [a, reserve] = await Promise.all([d.alertes(memoireMo), reserveGardee(maintenant)])
     const { points, enCours } = d.direct.lire()
     const tous = [...points, enCours]
     const dixMinutes = tous.slice(-60)

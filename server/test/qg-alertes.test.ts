@@ -10,8 +10,10 @@ import assert from 'node:assert/strict'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { performance } from 'node:perf_hooks'
 import Database from 'better-sqlite3'
 import { connexionAnimateur, demarrer, ecrire, patienter } from './banc'
+import { ceQuiTournait } from '../src/core/gels'
 import { DirectDuServeur } from '../src/core/pouls'
 import { ReglesDuQg, heuresDeLHebergeur, lecteurDesAlertes } from '../src/core/regles'
 import {
@@ -270,6 +272,65 @@ test('ce que les règles lisent : la dernière sauvegarde et les heures de l’h
   // Jamais lue — la base muette dès le premier tour — : rien ne se juge.
   const muet = lecteurDesAlertes({ ...deps, sauvegarde: async () => Promise.reject(new Error('Turso se tait')) })
   assert.equal((await muet()).sauvegarde, undefined)
+})
+
+test('ce que les règles lisent : la réserve du quiz du jour au plus toutes les dix minutes — une lecture qui tombe garde la précédente', async () => {
+  // Relue chaque minute, elle comptait au quota de Turso toutes les questions prêtes, 1 440 fois par jour (le 4 novembre 2026).
+  let t = Date.UTC(2026, 10, 4, 10)
+  let lectures = 0
+  let panne = false
+  const lire = lecteurDesAlertes({
+    alertes: async memoireMo => ({ pannes: [], arretNet: null, erreurs: null, tursoLent: null, memoireMo, quota: null }),
+    versions: async () => [],
+    direct: new DirectDuServeur(() => t),
+    miroir: () => null,
+    reserve: async () => {
+      lectures++
+      if (panne) throw new Error('Turso se tait')
+      return { joursDAvance: 12 + lectures }
+    },
+    rappel: () => null,
+    memoireMo: () => null,
+    version: null,
+    maintenant: () => t,
+  })
+  assert.equal((await lire()).reserveJours, 13)
+  for (let i = 0; i < 10; i++) {
+    t += MINUTE
+    assert.equal((await lire()).reserveJours, 13)
+  }
+  assert.equal(lectures, 1, 'une lecture en dix minutes, pas dix')
+  t += MINUTE
+  assert.equal((await lire()).reserveJours, 14, 'relue passé dix minutes')
+  t += 11 * MINUTE
+  panne = true
+  assert.equal((await lire()).reserveJours, 14, 'la lecture tombée garde la précédente')
+  t += MINUTE
+  await lire()
+  assert.equal(lectures, 4, 'et se refait au tour suivant')
+})
+
+test('un tour des règles se nomme pour la sonde des gels, du début à la fin', async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'quizz-regles-'))
+  let lacher: (r: ReleveDesAlertes) => void = () => {}
+  const regles = new ReglesDuQg(`file:${path.join(dir, 'permanente.db')}`, undefined, {
+    lire: () => new Promise(r => (lacher = r)),
+    prevenir: () => {},
+  })
+  await regles.init()
+  try {
+    const nomme = (debut: number, fin: number) => ceQuiTournait(debut, fin).some(c => c.quoi === 'fond · règles des alertes')
+    const debut = performance.now()
+    const tour = regles.tour()
+    // Un gel pendant un tour se rangeait sous la requête qui passait par là, ou « sans rien de nommé ».
+    assert.ok(nomme(debut, performance.now()), 'le tour se nomme dès son début')
+    lacher(calme())
+    await tour
+    const apres = performance.now()
+    assert.ok(!nomme(apres, apres + 1), 'et se tait avec sa fin')
+  } finally {
+    regles.close()
+  }
 })
 
 test('les chiffres des trente jours : la médiane du retour au calme, et la part du temps où aucun mode n’était en panne', () => {

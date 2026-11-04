@@ -1655,13 +1655,31 @@ export function pageDuServeur(
     // Les téléphones, sur les heures de la période — sur une heure, celle en cours et la précédente, comme les routes.
     telephones: telephonesDeLaPeriode(lignes.filter(l => l.heure >= debut && l.heure <= derniere).map(l => l.telephones)),
     ...(tempsReel && { tempsReel }),
-    versions: versionsDuServeur(
-      lignes.filter(l => l.heure >= debutDeLaSemaine && l.heure <= derniere),
-      tous,
-      maintenant,
-      courant.id,
-    ),
+    versions: versionsDeLaSemaine(lignes, demarrages, { maintenant, courant }),
   }
+}
+
+/**
+ * Les versions de la semaine telles que la page les montre (`versionsDuServeur`
+ * sur les sept jours, le démarrage qui répond compris) : les règles des alertes
+ * n'ont besoin que d'elles, une fois l'heure, et calculaient toute la page pour
+ * les avoir (le 4 novembre 2026, `retours/2026-11-04/performance-du-qg.md`). Un
+ * seul chemin pour les deux : la règle juge les ralenties que la page montre.
+ */
+export function versionsDeLaSemaine(
+  lignes: readonly HeureDeSante[],
+  demarrages: readonly DemarrageDuServeur[],
+  { maintenant, courant }: { maintenant: number; courant: DemarrageDuServeur },
+): VersionDuServeur[] {
+  const derniere = debutDeLHeure(maintenant)
+  const debutDeLaSemaine = derniere - (HEURES_DE_SANTE - 1) * HEURE_MS
+  const tous = [...demarrages.filter(d => d.id !== courant.id), courant].sort((a, b) => a.demarreLe - b.demarreLe)
+  return versionsDuServeur(
+    lignes.filter(l => l.heure >= debutDeLaSemaine && l.heure <= derniere),
+    tous,
+    maintenant,
+    courant.id,
+  )
 }
 
 /**
