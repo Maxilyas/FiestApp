@@ -7,7 +7,7 @@ import { AdminDuels } from '../components/AdminDuels'
 import { AdminEconomie } from '../components/AdminEconomie'
 import { AdminDuJour } from '../components/AdminDuJour'
 import { AdminProfils, supprimerLeProfil } from '../components/AdminProfils'
-import { AdminSalons } from '../components/AdminSalons'
+import { QgAnimateurs } from '../components/QgAnimateurs'
 import { AdminSignalements } from '../components/AdminSignalements'
 import { VueDEnsembleDuQg } from '../components/QgVueDEnsemble'
 import { QgJournal } from '../components/QgJournal'
@@ -45,7 +45,7 @@ import { ceQuiEstPose, PAGES_EN_MAINTENANCE, type EtatDeLaMaintenance } from '..
 import type { EntreeDuCatalogue, StatutAuCatalogue } from '../../../shared/partage'
 import type { QuizQuestionDef } from '../../../shared/library'
 import type { ProfilDAdministration } from '../../../shared/profil'
-import type { SegmentDuQg } from '../../../shared/qgJoueurs'
+import type { SegmentDesAnnonces } from '../../../shared/qgAnimateurs'
 import type { EtatDesQuestions } from '../../../shared/qgContenu'
 
 /**
@@ -78,7 +78,7 @@ type Ecran =
   | 'activite'
   | 'soirees'
   | 'profils'
-  | 'salons'
+  | 'animateurs'
   | 'catalogue'
   | 'jour'
   | 'campagne'
@@ -95,9 +95,9 @@ type Ecran =
   | 'telephones'
   | 'questions'
   | 'reserves'
-const ECRANS: readonly Ecran[] = ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'cabinet', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes', 'joueurs', 'telephones', 'questions', 'reserves']
-/** Les ancres de la page d'avant, qu'un favori garde encore. */
-const ANCIENNES: Record<string, Ecran> = { 'les-profils': 'profils', 'quiz-du-jour': 'jour' }
+const ECRANS: readonly Ecran[] = ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'animateurs', 'catalogue', 'jour', 'campagne', 'cabinet', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes', 'joueurs', 'telephones', 'questions', 'reserves']
+/** Les ancres de la page d'avant, qu'un favori garde encore — « Les salons », devenus l'onglet des animateurs, qui s'y ouvre. */
+const ANCIENNES: Record<string, Ecran> = { 'les-profils': 'profils', 'quiz-du-jour': 'jour', salons: 'animateurs' }
 
 function lireEcran(): Ecran | null {
   const h = window.location.hash.slice(1)
@@ -113,7 +113,7 @@ const TITRE: Record<Ecran, string> = {
   activite: 'Les modes côte à côte',
   soirees: 'Les soirées',
   profils: 'Les profils',
-  salons: 'Les salons',
+  animateurs: 'Les animateurs',
   catalogue: 'Le catalogue',
   jour: 'Le quiz du jour',
   campagne: 'La campagne',
@@ -156,7 +156,8 @@ const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; 
       // En tête : combien jouent, combien reviennent, qui décroche — puis chacun, dans « Profils ».
       { ecran: 'joueurs', nom: 'Joueurs', icone: 'eye' },
       { ecran: 'profils', nom: 'Profils', icone: 'users' },
-      { ecran: 'salons', nom: 'Salons', icone: 'home' },
+      // Le carnet de chaque salon, à la place de « Salons » (le 4 novembre 2026) : leur liste et leurs gestes en sont l'onglet.
+      { ecran: 'animateurs', nom: 'Animateurs', icone: 'monitor' },
       { ecran: 'economie', nom: 'Économie', icone: 'bag' },
     ],
   },
@@ -254,8 +255,8 @@ export function AdminApp() {
   const [toutes, setToutes] = useState(false)
   const [palette, setPalette] = useState(false)
   const [fiche, setFiche] = useState<Pick<ProfilDAdministration, 'id' | 'nom'> | null>(null)
-  /** Le segment des joueurs à qui la page des annonces s'ouvre pour écrire (« Leur écrire ») ; null, à tous. */
-  const [segmentDesAnnonces, setSegmentDesAnnonces] = useState<SegmentDuQg | null>(null)
+  /** Le segment des joueurs — ou des animateurs — à qui la page des annonces s'ouvre pour écrire (« Leur écrire ») ; null, à tous. */
+  const [segmentDesAnnonces, setSegmentDesAnnonces] = useState<SegmentDesAnnonces | null>(null)
   /** Les questions que la page des questions montre, retenues d'une page à l'autre : la campagne et les réserves l'ouvrent sur les contredites. */
   const [questionsSur, setQuestionsSur] = useState<EtatDesQuestions>('toutes')
   /** Ce que son propre profil a de neuf à porter : la pastille de « Profil », dans la barre du téléphone. */
@@ -430,7 +431,7 @@ export function AdminApp() {
   const duPublic = vue?.aTraiter.propositions ?? 0
   const enCours = direct?.soirees.filter(s => s.etat === 'en-cours').length
   const enPlan = direct?.soirees.filter(s => s.etat === 'en-plan').length ?? 0
-  const comptes: Partial<Record<Ecran, number>> = { soirees: enCours, profils, salons: espaces?.length }
+  const comptes: Partial<Record<Ecran, number>> = { soirees: enCours, profils, animateurs: espaces?.length }
   // Ce qui est posé — le bandeau, les pages fermées — se compte en rouge : rien ne se rouvre de lui-même. Une page
   // bientôt disponible se dit sans rouge : elle attend son heure, rien n'y est cassé.
   const posees = maintenance ? ceQuiEstPose(maintenance) : 0
@@ -500,7 +501,7 @@ export function AdminApp() {
       <Ligne icone="swords" nom="Les duels" valeur="Ligues, classement, en attente" onClick={() => aller('duels')} />
       <Ligne icone="eye" nom="Les joueurs" valeur="Fidélité, cohortes, segments" onClick={() => aller('joueurs')} />
       <Ligne icone="users" nom="Les profils" valeur={profils === undefined ? 'Chercher, supprimer' : formatNumber(profils)} onClick={() => aller('profils')} />
-      <Ligne icone="home" nom="Les salons" valeur={espaces ? formatNumber(espaces.length) : 'Renommer, fermer'} onClick={() => aller('salons')} />
+      <Ligne icone="monitor" nom="Les animateurs" valeur="Rythme, retard, les salons" onClick={() => aller('animateurs')} />
       <Ligne icone="bag" nom="L’économie" valeur="Confettis, ventes, Éclats" onClick={() => aller('economie')} />
       <Ligne icone="globe" nom="Le catalogue" valeur={aRelire > 0 ? `${aRelire} à relire` : 'Relire, publier'} onClick={() => aller('catalogue')} />
       <Ligne icone="bulb" nom="Les questions" valeur="Jouées, contredites, pièges" onClick={() => aller('questions')} />
@@ -648,7 +649,17 @@ export function AdminApp() {
         {/* Le direct de la page des soirées est celui du QG, relu toutes les dix secondes ; relu aussitôt après un geste. */}
         {ecran === 'soirees' && <QgSoirees direct={direct} apresUnGeste={relireLeDirect} vue={vue} periode={periodeDeLaPage} comparer={comparer} />}
         {ecran === 'profils' && <AdminProfils />}
-        {ecran === 'salons' && <AdminSalons espaces={espaces} onChange={relireLesComptes} />}
+        {/* Le carnet de chaque salon, et « Les salons » en onglet ; « Leur écrire » ouvre les annonces sur un état. */}
+        {ecran === 'animateurs' && (
+          <QgAnimateurs
+            espaces={espaces}
+            apresUnGesteSurLesSalons={relireLesComptes}
+            versLesAnnonces={segment => {
+              setSegmentDesAnnonces(segment)
+              aller('annonces')
+            }}
+          />
+        )}
         {ecran === 'catalogue' && <Catalogue />}
         {ecran === 'jour' && (
           <AdminDuJour

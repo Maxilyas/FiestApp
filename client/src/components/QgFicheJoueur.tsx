@@ -12,6 +12,7 @@ import { LIGUES } from '../../../shared/duels'
 import { MODES_DU_QG, NOM_DU_MODE, heureEcrite, quandEcrit, type GesteDuQg } from '../../../shared/qg'
 import { totalDesModes, type ActiviteDUnJoueur } from '../../../shared/qgActivite'
 import { etatDeLaTraverseeEnRoute, peutSeRendre, type TraverseeEnRouteAuQg } from '../../../shared/qgCabinet'
+import { ETAT_D_UN_SALON } from '../../../shared/qgAnimateurs'
 import { CONFETTIS_PAR_DON_MAX, MOT_D_UN_DON_MAX, type FicheDuJoueur, type ProfilDAdministration } from '../../../shared/profil'
 import { MOT_D_UN_COFFRE_OFFERT_MAX, NOM_DU_COFFRE, RANGS_DU_COFFRE, type RangDuCoffre } from '../../../shared/coffre'
 
@@ -316,6 +317,12 @@ export function FicheDuJoueurAuQg({
           {f.confettis ? `${formatNumber(f.confettis.solde)}${f.confettis.offerts > 0 ? ` · dont ${pluriel(f.confettis.offerts, 'offert')}` : ''}` : '–'}
         </Ligne>
         <Ligne nom="Espace">{f.salon ? `${f.salon.propre ? 'Son salon' : 'Le compte d’animateur'} /${f.salon.slug} · ${f.salon.quiz} quiz` : 'Aucun'}</Ligne>
+        {/* Le salon qu'il tient, tel que le carnet des animateurs le juge : sa dernière soirée, pas sa dernière console ouverte. */}
+        {f.animateur && (
+          <Ligne nom="Au carnet">
+            {`${ETAT_D_UN_SALON[f.animateur.etat]} · ${f.animateur.derniere === null ? 'pas encore de soirée' : `dernière soirée ${quandEcrit(f.animateur.derniere, maintenant)}`}`}
+          </Ligne>
+        )}
         <Ligne nom="Connexion">{fermee ? `fermée jusqu’à ${heureEcrite(f.connexion.fermeeJusquA!)}` : 'ouverte'}</Ligne>
       </dl>
 

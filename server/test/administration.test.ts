@@ -59,17 +59,18 @@ test('/admin : le QG — la vue d’ensemble d’abord, son journal et son serve
   // incidents (`qg-alertes.test.ts`), les joueurs, en tête de l'audience (`qg-joueurs.test.ts`), les téléphones
   // (`qg-telephones.test.ts`), et le Cabinet de curiosités, après la campagne (`qg-cabinet.test.ts`) ; l'activité devenue
   // les modes côte à côte au lot 5, à la même adresse (`qg-modes.test.ts`) ; les questions jouées et les réserves, sous
-  // « Contenu », avant les signalements (`qg-contenu.test.ts`) ; les ancres d'avant y mènent encore.
+  // « Contenu », avant les signalements (`qg-contenu.test.ts`) ; les animateurs à la place des salons, sous « Audience » — les
+  // salons en sont l'onglet (`qg-animateurs.test.ts`) ; les ancres d'avant y mènent encore, `#salons` compris.
   assert.match(
     page,
-    /const ECRANS: readonly Ecran\[\] = \['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'cabinet', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes', 'joueurs', 'telephones', 'questions', 'reserves'\]/,
+    /const ECRANS: readonly Ecran\[\] = \['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'animateurs', 'catalogue', 'jour', 'campagne', 'cabinet', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes', 'joueurs', 'telephones', 'questions', 'reserves'\]/,
   )
-  assert.match(page, /const ANCIENNES: Record<string, Ecran> = \{ 'les-profils': 'profils', 'quiz-du-jour': 'jour' \}/)
+  assert.match(page, /const ANCIENNES: Record<string, Ecran> = \{ 'les-profils': 'profils', 'quiz-du-jour': 'jour', salons: 'animateurs' \}/)
   assert.match(page, /history\.pushState\(\{ \.\.\.history\.state, depuisAdmin: true \}, '', e \? `\/admin#\$\{e\}` : '\/admin'\)/)
   // À l'ordinateur, la barre de côté mène à chaque écran ; au téléphone, la
   // liste des pages, qui dit ce qu'on y trouve — les signalements y comptent
   // leurs questions à relire, aux deux modes (le 14 octobre 2026).
-  for (const e of ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'cabinet', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes', 'joueurs', 'telephones', 'questions', 'reserves']) {
+  for (const e of ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'animateurs', 'catalogue', 'jour', 'campagne', 'cabinet', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes', 'joueurs', 'telephones', 'questions', 'reserves']) {
     assert.match(page, new RegExp(`\\{ ecran: '${e}', nom: '[^']+', icone: '[a-z-]+' \\}`), e)
   }
   assert.match(page, /<Ligne icone="eye" nom="Les joueurs"/)
@@ -89,7 +90,7 @@ test('/admin : le QG — la vue d’ensemble d’abord, son journal et son serve
   assert.match(page, /<Ligne icone="megaphone" nom="Les annonces"/)
   assert.match(page, /<Ligne icone="sparkles" nom="Les nouveautés"/)
   assert.match(page, /<Ligne icone="x-circle" nom="Les erreurs"/)
-  for (const nom of ['Le journal', 'Le serveur', 'Les soirées', 'Les profils', 'Les salons', 'Le catalogue', 'Le quiz du jour', 'Les signalements']) {
+  for (const nom of ['Le journal', 'Le serveur', 'Les soirées', 'Les profils', 'Les animateurs', 'Le catalogue', 'Le quiz du jour', 'Les signalements']) {
     assert.match(page, new RegExp(`<Ligne\\s+icone="[a-z]+"\\s+nom="${nom}"`), nom)
   }
   assert.match(page, /<Ligne\s+icone="target"\s+nom="La campagne"/)

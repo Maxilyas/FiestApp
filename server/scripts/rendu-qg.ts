@@ -38,7 +38,11 @@
 // Cabinet de curiosités — trente jours de traversées des vingt-quatre joueurs,
 // jouées au pli, une rendue par la vraie route —, « Rendre » ouvert, et la fiche
 // d'un joueur en route. Et les modes : côte à côte, puis le gabarit en tête de
-// chaque page de mode (`SEULEMENT=modes`). Le client construit d'abord (`npm run build -w client`).
+// chaque page de mode (`SEULEMENT=modes`). Et, en dernier, les animateurs
+// (`SEULEMENT=animateurs`) : dix salons de plus et leurs trois mois de
+// soirées, un de chaque état, le carnet, « Les salons », la fiche d'une
+// titulaire et les premiers pas des profils — après un redémarrage, que les
+// comptes relisent leur ouverture. Le client construit d'abord (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-qg.ts [dossier]
 //   SEULEMENT=poste,cabinet npx tsx scripts/rendu-qg.ts [dossier]   — ces pages-là, le temps d'une retouche
@@ -59,6 +63,7 @@ import { PRIX_DES_THEMES, THEMES } from '../../shared/themes'
 import { PRIX_D_UN_COMPAGNON } from '../../shared/compagnons'
 import { gainVide, releveVide } from '../../shared/profil'
 import { SOUS_THEMES } from '../../shared/etiquettes'
+import type { OrigineDUnQuiz } from '../../shared/library'
 import type { PageDesSignalements } from '../../shared/qgSignalements'
 import type { ErreurEnDetail, GelDeLaBoucle, GelsDeLHeure } from '../../shared/santeDuServeur'
 import {
@@ -1945,6 +1950,177 @@ try {
     console.log(path.join(sortie, '49-fiche-a-soi-fait.png'))
     await contexte.close()
   }
+  }
+
+  // Les animateurs (`/admin#animateurs`, sous « Audience » — la revue d'analyse du 4 novembre 2026, P1.1 et P1.2) : dix
+  // salons de plus, ouverts par leur profil aux vraies routes, et un compte d'avant sans profil ; leurs soirées écrites
+  // dans l'historique — chacune ses habitués venus avec leur profil, ses profils nés à l'entrée ou pendant elle, et à sa
+  // fin, que la page ne rattache à aucune ; certains rejouent seuls dans la semaine —, et leurs quiz, chacun d'où il
+  // vient. Bérénice chaque samedi et Corentin un dimanche sur deux, fidèles ; Delphine en retard sur son rythme, Étienne
+  // jamais revenu, Paulette — un compte d'avant — qui ne vient plus ; Fleur partie depuis trois mois, Lucas parti sans
+  // avoir joué ; Grégoire — un quiz tout prêt — et Hortense à lancer ; Isidore qui vient d'ouvrir, Josiane à ses deux
+  // premières soirées. Les comptes vivent en mémoire : leur ouverture réécrite se relit au redémarrage, et la mémoire du
+  // QG, effacée, se refait de ces journaux. D'où ce bloc en dernier : le redémarrage oublie ce que les pages d'avant
+  // montrent de la mémoire du serveur — le relevé de l'heure, les invités connectés. Puis le carnet aux trois tailles —
+  // en cartes au téléphone —, les retards choisis et « Leur écrire », « Les salons » à l'adresse d'avant (`#salons`), la
+  // fiche d'une titulaire, et « Premiers pas » sur la page des joueurs.
+  if (photo('animateurs')) {
+    const maintenant = Date.now()
+    const aujourdhui = jourDe(maintenant)
+    /** Il y a `n` jours, à telle heure de Paris. */
+    const ilYa = (n: number, heure = 21) => minuitDuJour(jourAvant(aujourdhui, n)) + heure * H
+    /** De `debut` à `fin` jours en arrière, tous les `pas` jours. */
+    const tousLes = (pas: number, debut: number, fin: number) => Array.from({ length: Math.floor((fin - debut) / pas) + 1 }, (_, k) => debut + k * pas)
+    const ANIMATEURS: { login: string; nom: string; avatar: string; ouvert: number; soirees: number[]; salle: number; habitues: number; quiz: (OrigineDUnQuiz | null)[] }[] = [
+      { login: 'anim-berenice', nom: 'Bérénice', avatar: '🌻', ouvert: 104, soirees: tousLes(7, 4, 95), salle: 14, habitues: 4, quiz: ['tout-pret', 'tout-pret', 'editeur', 'editeur', 'liste', null] },
+      { login: 'anim-corentin', nom: 'Corentin', avatar: '🎸', ouvert: 130, soirees: tousLes(14, 10, 122), salle: 9, habitues: 2, quiz: ['import', 'modele', null] },
+      { login: 'anim-delphine', nom: 'Delphine', avatar: '🐝', ouvert: 75, soirees: tousLes(7, 26, 68), salle: 12, habitues: 3, quiz: ['tout-pret', 'editeur'] },
+      { login: 'anim-etienne', nom: 'Étienne', avatar: '🍒', ouvert: 60, soirees: [45], salle: 6, habitues: 1, quiz: ['modele'] },
+      { login: 'anim-fleur', nom: 'Fleur', avatar: '🐬', ouvert: 160, soirees: tousLes(14, 95, 137), salle: 8, habitues: 1, quiz: [null, null] },
+      { login: 'anim-gregoire', nom: 'Grégoire', avatar: '🦋', ouvert: 20, soirees: [], salle: 0, habitues: 0, quiz: ['tout-pret'] },
+      { login: 'anim-hortense', nom: 'Hortense', avatar: '🌙', ouvert: 12, soirees: [], salle: 0, habitues: 0, quiz: [] },
+      { login: 'anim-isidore', nom: 'Isidore', avatar: '🍀', ouvert: 2, soirees: [], salle: 0, habitues: 0, quiz: [] },
+      { login: 'anim-josiane', nom: 'Josiane', avatar: '🎈', ouvert: 25, soirees: [12, 5], salle: 11, habitues: 1, quiz: ['tout-pret', 'liste'] },
+      { login: 'anim-lucas', nom: 'Lucas', avatar: '🐧', ouvert: 120, soirees: [], salle: 0, habitues: 0, quiz: [] },
+    ]
+    for (const a of ANIMATEURS) {
+      const cookie = await uneFoisDePlus(() => inscrireProfil(banc.url, a.login, a.nom, a.avatar))
+      await uneFoisDePlus(() => ecrire(banc.url, '/api/joueur/espace', {}, cookie))
+    }
+    await uneFoisDePlus(() => ecrire(banc.url, '/api/admin/accounts', { login: 'paulette', name: 'Chez Paulette', slug: 'chez-paulette' }, admin))
+    const lesEspaces = (await (await uneFoisDePlus(() => fetch(`${banc.url}/api/admin/espaces`, { headers: { Cookie: admin } }))).json()) as { id: string; login: string; toi: boolean; titulaire: { nom: string } | null }[]
+    const base = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+    const ouverture = base.prepare('UPDATE accounts SET created_at = ? WHERE id = ?')
+    // L'espace de l'administrateur et le salon de Tom, nés au démarrage du banc : ouverts avant leurs quatre-vingt-dix jours de soirées.
+    for (const e of lesEspaces.filter(e => e.toi || e.titulaire?.nom === 'Tom')) ouverture.run(ilYa(100, 18), e.id)
+    const naissance = base.prepare('UPDATE profiles SET created_at = ?, origine = ? WHERE login = ?')
+    const unQuiz = base.prepare('INSERT INTO quizzes (id, title, questions, created_at, updated_at, space_id, origine) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    const uneSoiree = base.prepare("INSERT INTO soirees (space_id, id, title, held_at, archived_at, summary, data) VALUES (?, ?, 'Une soirée', ?, ?, ?, '{}')")
+    const unNe = base.prepare("INSERT INTO profiles (id, login, name, avatar, password_hash, recovery_hash, created_at, origine) VALUES (?, ?, ?, ?, 'rendu', 'rendu', ?, ?)")
+    const sonQuizDuJour = base.prepare('INSERT OR IGNORE INTO jour_parties (profile_id, jour, commencee_le, question, finie_le) VALUES (?, ?, ?, 10, ?)')
+    const saSerie = base.prepare("INSERT INTO campagne_series (id, profile_id, questions, position, vies, commencee_le, mode) VALUES (?, ?, '[]', 8, 3, ?, 'serie')")
+    const PRENOMS_DES_NES = ['Aurore', 'Bruno', 'Cyril', 'Daphné', 'Edgar', 'Félix', 'Gaëlle', 'Henri', 'Ingrid', 'Jordan', 'Kévin', 'Laure', 'Mathis', 'Nora', 'Oscar', 'Perrine', 'Rémi', 'Sixtine', 'Timothée', 'Ursule']
+    const VISAGES_DES_NES = ['🦊', '🐸', '🦄', '🐙', '🐼', '🐯', '🦁', '🐨', '🐢', '🐬', '🦋', '🐝']
+    const pret = JSON.stringify([qcm('Quelle est la capitale de l’Australie ?', ['Sydney', 'Canberra', 'Melbourne'], 1), qcm('Combien de pattes a une araignée ?', ['Six', 'Huit', 'Dix'], 1)])
+    // Un modèle à trous qu'on n'a pas fini : il compte au total, pas parmi les prêts.
+    const aCompleter = JSON.stringify([{ kind: 'choice', text: 'Où [Prénom] est-il né ?', answers: ['Ville A ✏️', 'Ville B ✏️'], correct: -1, duration: 20, image: null }])
+    let nes = 0
+    let quiz = 0
+    let series = 0
+    /** Un profil qui naît ce soir-là : la page des joueurs le suit sa première semaine — un sur deux rejoue seul, le pont. */
+    const naitre = (quand: number, origine: 'entree' | 'soiree' | 'fin-de-soiree'): string => {
+      const id = `carnet-ne-${nes}`
+      unNe.run(id, `carnetne${nes}`, PRENOMS_DES_NES[nes % PRENOMS_DES_NES.length], VISAGES_DES_NES[nes % VISAGES_DES_NES.length], quand, origine)
+      const rejoue = (jours: number, heure: number) => {
+        const instant = minuitDuJour(jourAvant(jourDe(quand), -jours)) + heure * H
+        return instant < maintenant - 60_000 ? instant : null
+      }
+      const leJour = nes % 2 === 0 ? rejoue(2, 12.5) : null
+      if (leJour) sonQuizDuJour.run(id, jourDe(leJour), leJour, leJour + 4 * 60_000)
+      const enCampagne = nes % 3 === 0 ? rejoue(5, 20) : null
+      if (enCampagne) saSerie.run(`carnet-serie-${series++}`, id, enCampagne)
+      const leLendemain = nes % 5 === 1 ? rejoue(1, 19) : null
+      if (leLendemain) saSerie.run(`carnet-serie-${series++}`, id, leLendemain)
+      nes++
+      return id
+    }
+    /** Les soirées d'un salon : ses habitués, pas tous chaque fois ; ces neuf semaines, des profils qui naissent chez lui. */
+    const sesSoirees = (spaceId: string, k: number, soirees: readonly number[], salle: number, habitues: readonly string[]) => {
+      for (const n of soirees) {
+        const quand = ilYa(n, 20.5 + (k % 3) * 0.25)
+        const joueurs = Math.max(3, salle + ((n * 5 + k) % 7) - 3)
+        // Une fiche d'avant ces neuf semaines ne dit pas ses profils, comme celles d'avant le 14 octobre 2026.
+        const recente = n <= 63
+        const profils = habitues.filter((_, h) => (n + h) % 4 !== 0)
+        if (recente && (n + k) % 3 !== 0) {
+          profils.push(naitre(quand - 20 * 60_000, 'entree'))
+          if ((n + k) % 2 === 0) profils.push(naitre(quand + 50 * 60_000, 'soiree'))
+        }
+        // À la fin, un invité qui a joué sans profil en crée un : la page ne devine pas sa soirée.
+        if (recente && (n + k) % 4 === 1) naitre(quand + 150 * 60_000, 'fin-de-soiree')
+        const invites = Array.from({ length: Math.max(joueurs, profils.length) }, (_, i) => ({ id: `i-${i}`, joue: true, ...(recente && profils[i] && { profileId: profils[i] }) }))
+        const fiche = { v: 3, invites, ...(recente && { profils: true }), quiz: 2, questions: 24, jouees: invites.length * 24 }
+        uneSoiree.run(spaceId, `carnet-${n}-${k}`, quand, quand + 150 * 60_000, JSON.stringify(fiche))
+      }
+    }
+    const sesQuiz = (spaceId: string, origines: readonly (OrigineDUnQuiz | null)[], le: number) => {
+      for (const origine of origines) unQuiz.run(`carnet-quiz-${quiz}`, `Un quiz ${quiz++}`, pret, le, le, spaceId, origine)
+    }
+    ANIMATEURS.forEach((a, k) => {
+      const espace = lesEspaces.find(e => e.titulaire?.nom === a.nom)
+      if (!espace) return console.error(`[animateurs] le salon de ${a.nom} n’est pas ouvert`)
+      ouverture.run(ilYa(a.ouvert, 18), espace.id)
+      // Le titulaire s'est inscrit quelques jours avant d'ouvrir son salon ; d'avant le 4 novembre 2026, sans origine.
+      naissance.run(ilYa(a.ouvert + 3, 19), a.ouvert + 3 > 21 ? null : 'salon', a.login)
+      sesQuiz(espace.id, a.quiz, ilYa(Math.max(0, a.ouvert - 1), 19))
+      sesSoirees(
+        espace.id,
+        k,
+        a.soirees,
+        a.salle,
+        joueurs.slice((k * 2) % 20, (k * 2) % 20 + a.habitues).map(j => j.id),
+      )
+    })
+    const berenice = lesEspaces.find(e => e.titulaire?.nom === 'Bérénice')
+    if (berenice) unQuiz.run('carnet-quiz-a-completer', 'Qui le connaît ?', aCompleter, ilYa(60, 19), ilYa(60, 19), berenice.id, 'modele')
+    const paulette = lesEspaces.find(e => e.login === 'paulette')
+    if (paulette) {
+      ouverture.run(ilYa(210, 18), paulette.id)
+      sesQuiz(paulette.id, [null, null, null], ilYa(200, 19))
+      sesSoirees(paulette.id, ANIMATEURS.length, tousLes(7, 40, 96), 7, [])
+    }
+    // La mémoire du QG s'est écrite avant ces journaux : effacée, elle se refait d'eux au premier passage de la page des joueurs.
+    base.prepare('DELETE FROM qg_presences').run()
+    base.prepare('DELETE FROM qg_jours').run()
+    base.close()
+    await banc.redemarrer()
+
+    const leCarnet = (geste?: (page: any) => Promise<void>, pleine = true) => ({
+      adresse: '/admin#animateurs',
+      pleine,
+      geste: async (page: any) => {
+        await page.waitForSelector('.qg-animateurs-carnet', { timeout: 30000 })
+        await geste?.(page)
+      },
+    })
+    await photographier('120-animateurs', 1366, 768, leCarnet())
+    await photographier('121-animateurs-1920', 1920, 1080, leCarnet())
+    await photographier('122-animateurs-telephone', 360, 640, leCarnet())
+    // Les retards choisis : le carnet filtré, puis « Leur écrire », qui ouvre les annonces sur eux, un message en route.
+    const lesRetards = (page: any) => page.locator('.qg-animateurs-etats .qg-joueurs-segment', { hasText: 'En retard' }).click()
+    await photographier('123-animateurs-en-retard', 1366, 768, leCarnet(lesRetards))
+    const leurEcrire = async (page: any) => {
+      await lesRetards(page)
+      await page.getByRole('button', { name: 'Leur écrire' }).click()
+      await page.waitForSelector('.annonce-sortes [aria-checked="true"]', { timeout: 15000 })
+      await page.locator('#annonce-message').fill('Une soirée ce week-end ? Le quiz tout prêt se compose en une minute, et vos invités vous attendent.')
+    }
+    await photographier('124-animateurs-leur-ecrire', 1366, 768, leCarnet(leurEcrire))
+    await photographier('125-animateurs-leur-ecrire-telephone', 360, 640, leCarnet(leurEcrire))
+    // « Les salons », l'onglet du carnet, à l'adresse d'avant : la liste et ses gestes, la dernière soirée de chacun.
+    const lesSalons = { adresse: '/admin#salons', geste: (page: any) => page.waitForSelector('#animateurs-panneau-salons button', { timeout: 15000 }) }
+    await photographier('126-animateurs-salons', 1366, 768, lesSalons)
+    await photographier('127-animateurs-salons-telephone', 360, 640, lesSalons)
+    // La fiche de Delphine, ouverte de sa ligne : son salon au carnet, en retard.
+    const laFiche = async (page: any) => {
+      await page.locator('.qg-animateurs-fiche:visible', { hasText: 'Delphine' }).first().click()
+      await page.waitForSelector('.qg-fiche dl', { timeout: 15000 })
+      await page.locator('.qg-fiche dt', { hasText: 'Au carnet' }).scrollIntoViewIfNeeded()
+    }
+    await photographier('128-animateurs-fiche', 1366, 768, leCarnet(laFiche, false))
+    await photographier('129-animateurs-fiche-telephone', 360, 640, leCarnet(laFiche, false))
+    // « Premiers pas », sur la page des joueurs : la page entière, puis la section, la barre de commande collée au-dessus ;
+    // au téléphone, sa tête, ses cartes des semaines, puis le pont et les soirées une par une.
+    const aux = (selecteur: string) => async (page: any) => {
+      await page.waitForSelector('.qg-joueurs-premiers-pas', { timeout: 60000 })
+      await page.evaluate(`(() => { const s = document.querySelector(${JSON.stringify(selecteur)}); window.scrollTo(0, window.scrollY + s.getBoundingClientRect().top - 72) })()`)
+    }
+    await photographier('130-joueurs-premiers-pas', 1366, 768, { adresse: '/admin#joueurs' })
+    await photographier('131-premiers-pas', 1366, 768, { adresse: '/admin#joueurs', pleine: false, geste: aux('.qg-joueurs-premiers-pas') })
+    await photographier('132-premiers-pas-1920', 1920, 1080, { adresse: '/admin#joueurs', pleine: false, geste: aux('.qg-joueurs-premiers-pas') })
+    await photographier('133-premiers-pas-telephone', 360, 640, { adresse: '/admin#joueurs', pleine: false, geste: aux('.qg-joueurs-premiers-pas') })
+    await photographier('134-premiers-pas-semaines-telephone', 360, 640, { adresse: '/admin#joueurs', pleine: false, geste: aux('.qg-joueurs-premiers-pas .qg-cote-cartes') })
+    await photographier('135-premiers-pas-soirees-telephone', 360, 640, { adresse: '/admin#joueurs', pleine: false, geste: aux('.qg-joueurs-pont') })
   }
   host.disconnect()
 } finally {

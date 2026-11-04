@@ -62,7 +62,8 @@ import type { SuiviDesDuels } from '../../shared/qgDuels'
 import type { PageDeLEconomie } from '../../shared/qgEconomie'
 import type { PageDuCabinetAuQg } from '../../shared/qgCabinet'
 import type { PageDeLActivite } from '../../shared/qgActivite'
-import type { ComptesDesSegments, PageDesJoueurs, SegmentDuQg } from '../../shared/qgJoueurs'
+import type { ComptesDesSegments, PageDesJoueurs } from '../../shared/qgJoueurs'
+import type { CarnetDesAnimateurs, ComptesDesAnimateurs, SegmentDesAnnonces } from '../../shared/qgAnimateurs'
 import type { OrigineDUnProfil } from '../../shared/origines'
 import type { Classement, PageDesSignalements } from '../../shared/qgSignalements'
 import type { FiltreDesQuestions, PageDesQuestions, PageDesReserves } from '../../shared/qgContenu'
@@ -322,8 +323,9 @@ export const api = {
   get: (id: string) => req<QuizDef>(`/api/quizzes/${id}`),
   /** Ce que l'historique sait du quiz et de chacune de ses questions : « réussie par 23 % le 14 mars ». */
   memoire: (id: string) => req<MemoireDuQuiz>(`/api/quizzes/${id}/memoire`),
-  create: (title: string, questions?: unknown[], reglages?: ReglagesDuQuiz) =>
-    req<QuizDef>('/api/quizzes', { method: 'POST', body: JSON.stringify({ title, questions, reglages }) }),
+  /** `origine` : par où il naît — l'éditeur vide, « Coller une liste », un fichier importé (le carnet des animateurs du QG). */
+  create: (title: string, questions: unknown[] | undefined, reglages: ReglagesDuQuiz | undefined, origine: 'editeur' | 'liste' | 'import') =>
+    req<QuizDef>('/api/quizzes', { method: 'POST', body: JSON.stringify({ title, questions, reglages, origine }) }),
   /**
    * `base` : la version d'où partent les modifications — le serveur refuse
    * (`ConflitError`) si le quiz a été enregistré ailleurs depuis. `jeton` :
@@ -871,12 +873,16 @@ export const api = {
      * Une annonce à tous — ou aux seuls profils d'un segment des joueurs —, et ses confettis pour chacun ; `id`, celui de
      * l'envoi : refait, il ne part pas deux fois. Rend la page d'après.
      */
-    annoncer: (id: string, message: string, confettis: number, question?: QuestionDAnnonce, segment?: SegmentDuQg | null) =>
+    annoncer: (id: string, message: string, confettis: number, question?: QuestionDAnnonce, segment?: SegmentDesAnnonces | null) =>
       req<PageDesAnnonces>('/api/admin/annonces', { method: 'POST', body: JSON.stringify({ id, message, confettis, ...(question && { question }), ...(segment && { segment }) }) }),
     /** Les joueurs : combien jouent, combien reviennent, les cohortes, les segments, quand on joue, d'où viennent les profils. */
     joueurs: () => req<PageDesJoueurs>('/api/admin/joueurs'),
     /** Combien chaque segment compte de profils : ce que la page des annonces propose. */
     segmentsDesJoueurs: () => req<ComptesDesSegments>('/api/admin/joueurs/segments'),
+    /** Le carnet des animateurs : chaque salon ouvert, ses soirées, son rythme, son état ; l'entonnoir d'un nouvel animateur. */
+    animateurs: () => req<CarnetDesAnimateurs>('/api/admin/animateurs'),
+    /** Combien chaque état du carnet toucherait de titulaires : ce que la page des annonces propose. */
+    segmentsDesAnimateurs: () => req<ComptesDesAnimateurs>('/api/admin/animateurs/segments'),
     /** Clore la question d'une annonce : les joueurs ne la voient plus, les résultats restent. Rend la page d'après. */
     cloreLaQuestion: (id: string) => req<PageDesAnnonces>(`/api/admin/annonces/${encodeURIComponent(id)}/cloturer`, { method: 'POST', body: '{}' }),
     /** Retirer une annonce : l'accueil la tait, ses confettis restent offerts. Rend la page d'après. */

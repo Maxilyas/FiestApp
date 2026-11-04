@@ -19,11 +19,15 @@ import {
   SEMAINES_DE_RETOUR,
   joursEntre,
   nomDeLaCombinaison,
+  partEcrite,
   type MembreMontre,
   type PageDesJoueurs,
+  type PasDesNes,
+  type PremiersPas,
   type SegmentDuQg,
   type SegmentMontre,
 } from '../../../shared/qgJoueurs'
+import type { OrigineLue } from '../../../shared/origines'
 
 /** « 1 profil », « 0 profil », « 12 profils » : zéro s'écrit au singulier. */
 const pluriel = (n: number, mot: string, motPluriel = `${mot}s`) => `${formatNumber(n)} ${n > 1 ? motPluriel : mot}`
@@ -80,6 +84,8 @@ export function JoueursAuQg({ page, versLesAnnonces, apresUnGeste }: { page: Pag
       <LesActifs page={page} />
       <LesSegments page={page} choisi={segment} choisir={setSegment} />
       {choisi && <LeSegment s={choisi} maintenant={page.maintenant} versLesAnnonces={versLesAnnonces} apresUnGeste={apresUnGeste} />}
+      {/* Entre les segments et les cohortes (la revue d'analyse du 4 novembre 2026, P1.2) : la première semaine d'un profil, et la soirée qui en fait naître. */}
+      {page.premiersPas && <LesPremiersPas premiersPas={page.premiersPas} />}
       <LesCohortes page={page} />
       <QuandOnJoue page={page} />
       <QuiJoueAQuoi page={page} />
@@ -111,8 +117,9 @@ function LesChiffres({ page }: { page: PageDesJoueurs }) {
         Les chiffres
       </h2>
       <ul className="qg-tuiles qg-joueurs-tuiles">
+        {/* Des profils, pas des personnes : le poste de commande, lui, compte aussi chaque invité sans profil — ses « Personnes ». */}
         <TuileDuQg
-          nom="Joueurs du jour"
+          nom="Profils actifs du jour"
           valeur={a.jour.valeur}
           ecart={ecartALHabitude({ aujourdhui: a.jour.valeur, habituel: a.jour.avant, parJour: [] })}
           etincelle={derniers.map(j => j.profils)}
@@ -127,7 +134,13 @@ function LesChiffres({ page }: { page: PageDesJoueurs }) {
         <TuileDuQg nom="Du mois" valeur={a.mois.valeur} ecart={ecartALaPeriodeDAvant(a.mois.valeur, a.mois.avant)} detail="ces trente jours" etincelle={derniers.map(j => j.mois)} />
         <TuileDuQg nom="Fidélité" valeur={a.fidelite.valeur} unite=" %" ecart={ecartEnPoints(a.fidelite.valeur, a.fidelite.avant)} detail="un jour moyen, sur ceux du mois" />
         <TuileDuQg nom="Nouveaux profils" valeur={page.nouveaux.valeur} ecart={ecartALaPeriodeDAvant(page.nouveaux.valeur, page.nouveaux.avant)} detail="ces trente jours" />
-        <TuileDuQg nom="Invités sans profil" valeur={page.invites.valeur} ecart={ecartALaPeriodeDAvant(page.invites.valeur, page.invites.avant)} detail="venus en soirée, ces trente jours" />
+        {/* Des passages, pas des gens : un invité sans profil compte une fois par soirée, et ne se suit pas d'un soir à l'autre. */}
+        <TuileDuQg
+          nom="Passages d’invités"
+          valeur={page.invites.valeur}
+          ecart={ecartALaPeriodeDAvant(page.invites.valeur, page.invites.avant)}
+          detail="sans profil, une fois par soirée · ces trente jours"
+        />
       </ul>
     </section>
   )
@@ -150,7 +163,7 @@ function LesActifs({ page }: { page: PageDesJoueurs }) {
       <div className="qg-console-tete">
         <div>
           <span className="qg-etiquette">Actifs</span>
-          <h2 id="joueurs-actifs">Joueurs du jour, de la semaine, du mois</h2>
+          <h2 id="joueurs-actifs">Profils actifs du jour, de la semaine, du mois</h2>
           <span className="muted small">
             {`Jour par jour, ${pluriel(jours.length, 'jour')} : les barres disent les profils du jour, les traits ceux des sept et des trente jours qui finissent ce jour-là.`}
           </span>
@@ -165,8 +178,8 @@ function LesActifs({ page }: { page: PageDesJoueurs }) {
           { cle: 'mois', nom: 'du mois', valeurs: page.parJour.map(j => j.mois), classe: 'qg-joueurs-mois' },
         ]}
         empile={false}
-        nomDuTotal="joueur"
-        resume={`Les joueurs, jour par jour sur ${pluriel(jours.length, 'jour')} : ${pluriel(page.actifs.jour.valeur, 'profil')} aujourd’hui, ${formatNumber(page.actifs.semaine.valeur)} ces sept jours, ${formatNumber(page.actifs.mois.valeur)} ces trente jours.`}
+        nomDuTotal="profil"
+        resume={`Les profils actifs, jour par jour sur ${pluriel(jours.length, 'jour')} : ${pluriel(page.actifs.jour.valeur, 'profil')} aujourd’hui, ${formatNumber(page.actifs.semaine.valeur)} ces sept jours, ${formatNumber(page.actifs.mois.valeur)} ces trente jours.`}
       />
       <div className="qg-legende">
         <ul>
@@ -316,6 +329,173 @@ function LeSegment({ s, maintenant, versLesAnnonces, apresUnGeste }: { s: Segmen
           />
         </Feuille>
       )}
+    </section>
+  )
+}
+
+// ── Les premiers pas ────────────────────────────────────────────────────────
+
+/** Les pas d'une première semaine, dans l'ordre où ils se font. */
+const PAS: { cle: Exclude<keyof PasDesNes, 'nes'>; nom: string; titre: string }[] = [
+  { cle: 'jourMeme', nom: 'Le jour même', titre: 'Ont joué le jour de leur naissance — sur ceux nés avant aujourd’hui' },
+  { cle: 'lendemain', nom: 'Le lendemain', titre: 'Ont joué le lendemain de leur naissance — sur ceux dont le lendemain est fini' },
+  { cle: 'deuxJours', nom: '2 jours ou plus', titre: 'Ont joué deux jours ou plus leur première semaine — sur ceux dont la semaine est finie' },
+  { cle: 'secondMode', nom: '2 modes ou plus', titre: 'Ont joué à deux modes ou plus leur première semaine — sur ceux dont la semaine est finie' },
+  { cle: 'jamais', nom: 'Jamais joué', titre: 'N’ont pas joué une seule fois depuis leur naissance — sur ceux nés avant aujourd’hui' },
+]
+
+/** Les soirées closes qu'on lit d'abord ; « Et N de plus » montre le reste. */
+const SOIREES_D_ABORD = 8
+
+/** Le nom d'un écran de naissance, dans les puces : « Tous les écrans », « Pendant une soirée », « D'avant le 4 novembre 2026 ». */
+const nomDeLEcran = (o: OrigineLue | null | 'tous') => (o === 'tous' ? 'Tous les écrans' : o === null ? PROFILS_D_AVANT_L_ORIGINE : NOM_DE_L_ORIGINE[o])
+
+/**
+ * Les premiers pas des profils nés ces neuf semaines — le jour même, le
+ * lendemain, leur première semaine —, par écran de naissance ; le pont des nés
+ * en soirée vers le jeu seul ; puis ce que chaque soirée close de ces trente
+ * jours a fait naître. Sous vingt, « 4 sur 9 ».
+ */
+function LesPremiersPas({ premiersPas: pp }: { premiersPas: PremiersPas }) {
+  const [ecran, setEcran] = useState<OrigineLue | null | 'tous'>('tous')
+  const [toutes, setToutes] = useState(false)
+  const choisi = pp.ecrans.find(e => e.origine === ecran) ?? pp.ecrans[0]
+  // Les semaines où personne n'est né ne disent rien : la plus récente reste, même vide.
+  const lignes = pp.semaines.map((semaine, i) => ({ semaine, pas: choisi?.parSemaine[i] })).filter((l, i) => i === 0 || (l.pas?.nes ?? 0) > 0)
+  const soirees = toutes ? pp.soirees : pp.soirees.slice(0, SOIREES_D_ABORD)
+  const semaineDe = (lundi: string, i: number) => (i === 0 && lundi === pp.semaines[0] ? 'Cette semaine' : `Sem. du ${jourAbrege(lundi)}`)
+  return (
+    <section className="qg-console qg-joueurs-premiers-pas" aria-labelledby="joueurs-premiers-pas">
+      <div className="qg-console-tete">
+        <div>
+          <span className="qg-etiquette">Premiers pas</span>
+          <h2 id="joueurs-premiers-pas">La première semaine d’un profil</h2>
+          <span className="muted small">
+            {espacesFines(
+              'Chaque semaine de naissance, du lundi au dimanche, et ce que ses profils ont fait. Chaque part ne compte que ceux dont le délai est passé : un profil né ce matin n’a encore rien manqué.',
+            )}
+          </span>
+        </div>
+      </div>
+      {pp.ecrans.length > 1 && (
+        <div className="onglets onglets-puces" role="group" aria-label="L’écran où ils sont nés">
+          {pp.ecrans.map(e => (
+            <button key={e.origine ?? 'avant'} type="button" className={'onglet' + (e.origine === ecran ? ' actif' : '')} aria-pressed={e.origine === ecran} onClick={() => setEcran(e.origine)}>
+              {espacesFines(nomDeLEcran(e.origine))} <span className="rayon-compte">{formatNumber(e.total.nes)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {!choisi || choisi.total.nes === 0 ? (
+        <p className="muted small">Aucun profil né ces neuf semaines.</p>
+      ) : (
+        <>
+          <div className="qg-table-cadre qg-cote-table">
+            <table className="qg-table">
+              <caption className="sr-only">{`Les premiers pas des profils nés ces neuf semaines — ${nomDeLEcran(choisi.origine).toLowerCase()}`}</caption>
+              <thead>
+                <tr>
+                  <th scope="col">
+                    <span className="qg-tri">Semaine</span>
+                  </th>
+                  <th scope="col" className="qg-nombre">
+                    <span className="qg-tri">Nés</span>
+                  </th>
+                  {PAS.map(p => (
+                    <th key={p.cle} scope="col" className="qg-nombre">
+                      <span className="qg-tri" title={p.titre}>
+                        {p.nom}
+                      </span>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {lignes.map((l, i) => (
+                  <tr key={l.semaine}>
+                    <th scope="row">{semaineDe(l.semaine, i)}</th>
+                    <td className="qg-nombre">{formatNumber(l.pas?.nes ?? 0)}</td>
+                    {PAS.map(p => (
+                      <td key={p.cle} className="qg-nombre">
+                        {l.pas ? partEcrite(l.pas[p.cle].n, l.pas[p.cle].sur) : '–'}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+                <tr className="qg-joueurs-total">
+                  <th scope="row">Neuf semaines</th>
+                  <td className="qg-nombre">{formatNumber(choisi.total.nes)}</td>
+                  {PAS.map(p => (
+                    <td key={p.cle} className="qg-nombre">
+                      {partEcrite(choisi.total[p.cle].n, choisi.total[p.cle].sur)}
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          {/* Au téléphone, une carte par semaine : sept colonnes ne tiennent pas sans défiler de côté. */}
+          <ul className="qg-liste qg-cote-cartes">
+            {[...lignes.map((l, i) => ({ nom: semaineDe(l.semaine, i), pas: l.pas })), { nom: 'Neuf semaines', pas: choisi.total }].map(l => (
+              <li key={l.nom} className="qg-cote-carte">
+                <b>{`${l.nom} · ${pluriel(l.pas?.nes ?? 0, 'né', 'nés')}`}</b>
+                <dl className="qg-cote-chiffres">
+                  {PAS.map(p => (
+                    <div key={p.cle}>
+                      <dt>{p.nom}</dt>
+                      <dd className="num">{l.pas ? partEcrite(l.pas[p.cle].n, l.pas[p.cle].sur) : '–'}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <p className="small qg-joueurs-pont">
+        {espacesFines(
+          pp.pont.sur === 0
+            ? 'Le pont : aucun profil né en soirée n’a encore fini sa première semaine.'
+            : `Le pont : ${partEcrite(pp.pont.n, pp.pont.sur)} des profils nés en soirée — à son entrée, pendant elle, à sa fin — ont joué seuls leur première semaine : le quiz du jour, la campagne, le Cabinet ou un duel.`,
+        )}
+      </p>
+      <h3 className="label">Soirée par soirée</h3>
+      {soirees.length === 0 ? (
+        <p className="muted small">Aucune soirée close ces trente jours.</p>
+      ) : (
+        <>
+          <ul className="qg-liste">
+            {soirees.map(s => (
+              <li key={s.quand} className="qg-ligne">
+                <span className="qg-ligne-texte">
+                  <span>{`${jourEnToutesLettres(jourDe(s.quand), true)} · ${pluriel(s.invites, 'invité')}`}</span>
+                  <span className="muted small">
+                    {espacesFines(
+                      // Les deux chiffres en clair : « 2 sur 10 venus sans profil » se lisait de travers, « 20 % venus sans profil » aussi.
+                      `${pluriel(s.avecUnProfil, 'venu', 'venus')} avec un profil · ${
+                        s.sansProfil === 0
+                          ? 'personne sans profil'
+                          : `${pluriel(s.sansProfil, 'venu', 'venus')} sans, dont ${s.nes === 0 ? 'aucun n’a' : `${formatNumber(s.nes)} ${s.nes > 1 ? 'ont' : 'a'}`} créé le sien`
+                      }`,
+                    )}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+          {!toutes && pp.soirees.length > SOIREES_D_ABORD && (
+            <button type="button" className="lien-discret qg-suite" onClick={() => setToutes(true)}>
+              Et {formatNumber(pp.soirees.length - SOIREES_D_ABORD)} de plus
+              <Icon name="chevron-down" />
+            </button>
+          )}
+        </>
+      )}
+      <p className="muted small">
+        {espacesFines(
+          'Un profil né à l’entrée d’une soirée ou pendant elle se compte à la soirée qui le compte parmi ses joueurs ; né à sa fin, il passe par l’accueil, et la page ne devine pas sa soirée. Les invités sans profil se comptent soirée par soirée : ils ne se suivent pas d’un soir à l’autre.',
+        )}
+      </p>
     </section>
   )
 }

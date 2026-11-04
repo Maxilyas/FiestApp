@@ -1,11 +1,12 @@
 import type { Express } from 'express'
 import type { ProfileStore } from './auth/profiles'
 import type { AudienceDuQg } from './joueursDuQg'
+import type { AnimateursDuQg } from './animateursDuQg'
 import { wrap } from './core/http'
 import { extrait, noterLeGeste } from './core/journalDesGestes'
 import { formatNumber } from '../../shared/typographie'
 import { nConfettis } from '../../shared/themes'
-import { AUX_PROFILS_DU_SEGMENT, lireLeSegment } from '../../shared/qgJoueurs'
+import { auxProfilsDe, estUnSegmentDesAnimateurs, lireLeSegmentDesAnnonces } from '../../shared/qgAnimateurs'
 import type { AnnonceAuQg, PageDesAnnonces, SorteDeQuestion } from '../../shared/annonces'
 
 /** « 128 profils », « 1 profil », « aucun profil » : la phrase du journal parle des profils, jamais d'un prénom. */
@@ -13,10 +14,11 @@ const deProfils = (n: number) => (n === 0 ? 'aucun profil' : `${formatNumber(n)}
 
 /**
  * Ce que le journal dit d'une annonce partie : à combien de profils — et à
- * quel segment, écrite à un segment —, ce qu'elle dit, ce qu'elle offre à chacun.
+ * quel segment, écrite à un segment des joueurs ou des animateurs —, ce
+ * qu'elle dit, ce qu'elle offre à chacun.
  */
 export const phraseDeLAnnonce = (a: AnnonceAuQg) =>
-  `${a.segment ? `Annonce ${AUX_PROFILS_DU_SEGMENT[a.segment]} (${deProfils(a.destinataires)})` : `Annonce à ${deProfils(a.destinataires)}`} : « ${a.message} »${
+  `${a.segment ? `Annonce ${auxProfilsDe(a.segment)} (${deProfils(a.destinataires)})` : `Annonce à ${deProfils(a.destinataires)}`} : « ${a.message} »${
     a.confettis > 0 ? ` — ${nConfettis(a.confettis)} chacun` : ''
   }${phraseDeLaQuestion(a)}`
 
@@ -30,7 +32,10 @@ const phraseDeLaQuestion = (a: AnnonceAuQg) =>
  * `/api/admin`, gardées d'un bloc (`api.ts`). Chaque geste dit sa phrase au
  * journal et rend la page d'après, que le QG montre sans relire.
  */
-export function mountAnnonces(app: Express, deps: { profiles: ProfileStore; audience: Pick<AudienceDuQg, 'profilsDuSegment'> }) {
+export function mountAnnonces(
+  app: Express,
+  deps: { profiles: ProfileStore; audience: Pick<AudienceDuQg, 'profilsDuSegment'>; animateurs: Pick<AnimateursDuQg, 'titulairesDuSegment'> },
+) {
   const page = async (): Promise<PageDesAnnonces> => ({ maintenant: Date.now(), ...(await deps.profiles.annoncesAuQg()) })
 
   app.get(
@@ -44,12 +49,17 @@ export function mountAnnonces(app: Express, deps: { profiles: ProfileStore; audi
   // du même geste — sa réponse perdue en route — un refus, pas une seconde annonce :
   // multipliée par tous les profils, elle aurait offert deux fois à chacun.
   // `segment` (le lot 6 du QG 2) : écrite aux seuls profils d'un segment de la page des joueurs, comptés à l'instant ;
-  // un segment vide se refuse — l'annonce ne parlerait à personne.
+  // un segment vide se refuse — l'annonce ne parlerait à personne. Ou aux titulaires des salons d'un état du carnet des
+  // animateurs (`animateurs:en-retard`, « Leur écrire » du carnet), comptés de même.
   app.post(
     '/api/admin/annonces',
     wrap(async (req, res) => {
-      const segment = lireLeSegment(req.body?.segment)
-      const destinataires = segment ? await deps.audience.profilsDuSegment(segment) : undefined
+      const segment = lireLeSegmentDesAnnonces(req.body?.segment)
+      const destinataires = segment
+        ? estUnSegmentDesAnimateurs(segment)
+          ? await deps.animateurs.titulairesDuSegment(segment)
+          : await deps.audience.profilsDuSegment(segment)
+        : undefined
       if (destinataires && destinataires.length === 0) return res.status(400).json({ error: 'Personne n’est dans ce segment aujourd’hui : choisis-en un autre' })
       const { annonce, nouvelle } = await deps.profiles.annoncerATous({
         id: req.body?.id,

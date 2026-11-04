@@ -158,7 +158,8 @@ function ChiffresDeLaPeriode({ vue, periode, ouvrir }: { vue: VueDEnsemble | nul
         <span className="muted small">{a?.avant ? 'comparé à la période d’avant, arrêtée au même instant' : periode === '30j' ? 'le mois d’avant n’est pas gardé' : ''}</span>
       </div>
       <ul className="qg-tuiles qg-tuiles-quatre">
-        <TuileDuQg nom="Joueurs" valeur={t?.joueurs} ecart={t && ecartALaPeriodeDAvant(t.joueurs, avant?.joueurs)} etincelle={a?.seaux.map(s => s.joueurs)} />
+        {/* Des personnes, pas des profils : chaque invité sans profil y compte une fois par soirée — la page des joueurs, elle, ne compte que des profils. */}
+        <TuileDuQg nom="Personnes" valeur={t?.joueurs} ecart={t && ecartALaPeriodeDAvant(t.joueurs, avant?.joueurs)} detail="invités compris" etincelle={a?.seaux.map(s => s.joueurs)} />
         <TuileDuQg nom="Participations" valeur={t && somme(t.parties)} ecart={t && ecartALaPeriodeDAvant(somme(t.parties), avant && somme(avant.parties))} etincelle={a?.seaux.map(s => somme(s.parties))} />
         <TuileDuQg nom="Nouveaux profils" valeur={t?.nouveauxProfils} ecart={t && ecartALaPeriodeDAvant(t.nouveauxProfils, avant?.nouveauxProfils)} />
         <TuileDuQg nom="Achats en boutique" valeur={t?.achats} ecart={t && ecartALaPeriodeDAvant(t.achats, avant?.achats)} />

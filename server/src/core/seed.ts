@@ -73,7 +73,8 @@ export async function seedLibrary(store: QuizStore, spaceId: string): Promise<nu
   let imported = 0
   for (const modele of lireModeles().filter(m => m.amorce)) {
     try {
-      await store.create(spaceId, modele.title, modele.questions as any[], modele.id)
+      // Un quiz d'amorce est un modèle livré : le carnet des animateurs du QG le range avec eux.
+      await store.create(spaceId, modele.title, modele.questions as any[], modele.id, undefined, 'modele')
       imported++
     } catch (e) {
       console.warn(`[quiz] import de ${modele.id} impossible : ${(e as Error).message}`)

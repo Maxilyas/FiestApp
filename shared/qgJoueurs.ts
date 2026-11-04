@@ -23,6 +23,7 @@
 
 import { MODES_DU_QG, jourDeLInstant, joursDesMinuits, minuitDe, participationsParSeau, type ModeDuQg, type PartieDesParticipations, type SoireeDesParticipations } from './qg'
 import { jourAvant, jourDe, minutesDeParis } from './jour'
+import { formatNumber } from './typographie'
 import type { CalculEnTranches } from './tranches'
 import type { OrigineLue } from './origines'
 
@@ -524,6 +525,223 @@ export function cohortesDesProfils(
   return cohortes
 }
 
+// ── Les premiers pas d'un profil ────────────────────────────────────────────
+//
+// La revue d'analyse du 4 novembre 2026 (P1.2) : « le premier jour d'un
+// profil, l'invité qui devient profil, la soirée qui nourrit le jeu seul ».
+// Rien de neuf à lire : la feuille de présence, les profils et leur écran de
+// naissance, et les fiches des soirées que le carnet des animateurs garde
+// déjà (`animateursDuQg.ts`).
+
+/** Les écrans d'une soirée où un profil naît : à son entrée, entre deux quiz, à sa fin. */
+export const ORIGINES_EN_SOIREE: readonly OrigineLue[] = ['entree', 'soiree', 'fin-de-soiree']
+
+/**
+ * Ceux dont la soirée se sait : né à l'entrée ou entre deux quiz, un profil
+ * joue la soirée même, et sa fiche le compte. Né à la fin, il l'a jouée sans
+ * profil — sa fin l'envoie à l'accueil (`?creer=1`) — : elle ne le compte pas,
+ * et la page ne la devine pas.
+ */
+export const ORIGINES_D_UNE_SOIREE: readonly OrigineLue[] = ['entree', 'soiree']
+
+/**
+ * L'écart d'une naissance à la soirée qui la compte : né à l'entrée, un profil
+ * attend la première question, qui date la soirée ; né entre deux quiz, il la
+ * suit de quelques heures. Au-delà, c'est une autre soirée.
+ */
+export const ECART_D_UNE_NAISSANCE_MS = 12 * 3_600_000
+
+/** Les soirées closes que les premiers pas détaillent, une par une : celles de ces trente jours. */
+export const JOURS_DES_SOIREES_QUI_CONVERTISSENT = 30
+
+/** Les modes qu'on joue seul : tous sauf la soirée, en bits (`BIT_DU_MODE`). */
+const MODES_SEULS = BIT_DU_MODE.campagne | BIT_DU_MODE.cabinet | BIT_DU_MODE.jour | BIT_DU_MODE.duel
+
+/** Une soirée telle que les premiers pas la lisent : celle de la participation, et si elle se joue encore. */
+export interface SoireeDesPremiersPas extends SoireeDesParticipations {
+  ouverte?: boolean
+}
+
+/**
+ * Où est né chaque profil né pendant une soirée (`ORIGINES_D_UNE_SOIREE`) : la
+ * première soirée, dans l'ordre du temps, qui le compte parmi ses joueurs à
+ * `ECART_D_UNE_NAISSANCE_MS` au plus de sa naissance. Rend les profils nés
+ * pendant chaque soirée. Un profil né à l'entrée qui n'a pas joué une question
+ * n'est d'aucune : la fiche ne compte que ceux qui ont joué.
+ */
+export function naissancesEnSoiree<S extends Pick<SoireeDesParticipations, 'quand' | 'profils'>>(
+  soirees: readonly S[],
+  profils: readonly Pick<ProfilDeLAudience, 'id' | 'cree' | 'origine'>[],
+): Map<S, string[]> {
+  const nes = new Map(profils.filter(p => p.origine !== null && ORIGINES_D_UNE_SOIREE.includes(p.origine)).map(p => [p.id, p.cree] as const))
+  const nees = new Map<S, string[]>()
+  if (nes.size === 0) return nees
+  const places = new Set<string>()
+  for (const s of [...soirees].sort((a, b) => a.quand - b.quand)) {
+    for (const qui of new Set(s.profils ?? [])) {
+      const cree = nes.get(qui)
+      if (cree === undefined || places.has(qui) || Math.abs(s.quand - cree) > ECART_D_UNE_NAISSANCE_MS) continue
+      places.add(qui)
+      const siens = nees.get(s)
+      if (siens) siens.push(qui)
+      else nees.set(s, [qui])
+    }
+  }
+  return nees
+}
+
+/** Combien, sur combien : sous vingt, la page dit « 4 sur 9 », jamais un pourcentage. */
+export interface PartDesNes {
+  n: number
+  sur: number
+}
+
+/** Une part se dit en pour cent dès vingt : en deçà, trois sur cinq feraient « 60 % » d'une poignée. */
+export const PART_EN_POURCENTS_DES = 20
+
+/** « 4 sur 9 », « 45 % » dès vingt, « – » sur personne : une part du QG, écrite comme elle se lit. */
+export function partEcrite(n: number, sur: number): string {
+  if (sur === 0) return '–'
+  // L'espace insécable du QG (`enPourcentsEcrits`) : « 45 » ne finit pas une ligne dont « % » ouvrirait la suivante.
+  return sur < PART_EN_POURCENTS_DES ? `${formatNumber(n)} sur ${formatNumber(sur)}` : `${formatNumber(Math.round((n / sur) * 100))} %`
+}
+
+/**
+ * Les premiers pas de profils nés ensemble — une semaine, un écran. Chaque
+ * part ne compte que ceux dont le délai est passé : nés avant aujourd'hui pour
+ * le jour même et « jamais », avant hier pour le lendemain, il y a sept jours
+ * pour la première semaine — un profil né ce matin n'a encore rien manqué.
+ */
+export interface PasDesNes {
+  nes: number
+  jourMeme: PartDesNes
+  lendemain: PartDesNes
+  /** Deux jours de jeu ou plus leur première semaine — le jour de leur naissance et les six suivants. */
+  deuxJours: PartDesNes
+  /** Deux modes ou plus leur première semaine. */
+  secondMode: PartDesNes
+  /** Pas une partie depuis leur naissance. */
+  jamais: PartDesNes
+}
+
+/** Ce qu'une soirée close a converti : ses invités, ceux venus avec un profil, ceux nés pendant elle, et ceux venus sans. */
+export interface SoireeQuiConvertit {
+  quand: number
+  /** Ses invités qui ont joué. */
+  invites: number
+  /** Venus avec un profil qu'ils avaient déjà. */
+  avecUnProfil: number
+  /** Nés pendant elle — à son entrée, entre deux quiz. */
+  nes: number
+  /** Venus sans profil : ceux nés pendant elle, et ceux restés sans. */
+  sansProfil: number
+}
+
+export interface PremiersPas {
+  /** Les semaines de naissance — leur lundi —, la plus récente d'abord, celle en cours comprise. */
+  semaines: string[]
+  /** Tous les écrans d'abord (`tous`), puis chaque écran qui a des nés, le plus fréquent d'abord, ceux d'avant l'origine en dernier. */
+  ecrans: { origine: OrigineLue | null | 'tous'; total: PasDesNes; parSemaine: PasDesNes[] }[]
+  /** Le pont : les nés en soirée qui ont joué seuls — le quiz du jour, la campagne, le Cabinet, un duel — leur première semaine. */
+  pont: PartDesNes
+  /** Les soirées closes de ces trente jours, la plus récente d'abord. Une fiche qui ne dit pas ses profils n'y est pas. */
+  soirees: SoireeQuiConvertit[]
+}
+
+const partVide = (): PartDesNes => ({ n: 0, sur: 0 })
+const pasVides = (): PasDesNes => ({ nes: 0, jourMeme: partVide(), lendemain: partVide(), deuxJours: partVide(), secondMode: partVide(), jamais: partVide() })
+/** Un « oui » ou un « non » de plus à une part : `null`, son délai n'est pas passé, elle ne compte pas. */
+const compter = (part: PartDesNes, oui: boolean | null) => {
+  if (oui === null) return
+  part.sur++
+  if (oui) part.n++
+}
+const nombreDeModes = (masque: number) => modesDuMasque(masque).length
+
+/**
+ * Les premiers pas des profils nés ces neuf semaines — celle en cours et les
+ * huit d'avant, celles des cohortes —, semaine par semaine et écran par écran,
+ * lus sur la feuille de présence ; le pont des nés en soirée ; et les soirées
+ * closes de ces trente jours, soirée par soirée. Les suspendus restent : ce
+ * qu'ils sont devenus n'efface pas leurs premiers pas.
+ */
+export function premiersPasDesProfils(
+  profils: readonly ProfilDeLAudience[],
+  presences: ReadonlyMap<string, readonly Presence[]>,
+  soirees: readonly SoireeDesPremiersPas[],
+  aujourdhui: string,
+  maintenant: number,
+): PremiersPas {
+  const cetteSemaine = lundiDe(aujourdhui)
+  const semaines = Array.from({ length: COHORTES_MONTREES + 1 }, (_, k) => jourAvant(cetteSemaine, 7 * k))
+  const premiere = semaines[semaines.length - 1]
+  const nes = profils.filter(p => p.cree <= maintenant && jourDe(p.cree) >= premiere)
+  // Les jours de chacun, et leurs modes : la feuille ne garde que ceux où il a joué.
+  const siens = new Set(nes.map(p => p.id))
+  const joues = new Map<string, Map<string, number>>()
+  for (const [jour, lignes] of presences) {
+    for (const p of lignes) {
+      if (!siens.has(p.qui)) continue
+      let jours = joues.get(p.qui)
+      if (!jours) joues.set(p.qui, (jours = new Map()))
+      jours.set(jour, (jours.get(jour) ?? 0) | p.modes)
+    }
+  }
+  const parEcran = new Map<OrigineLue | null | 'tous', { total: PasDesNes; parSemaine: PasDesNes[] }>()
+  const pasDe = (origine: OrigineLue | null | 'tous') => {
+    let e = parEcran.get(origine)
+    if (!e) parEcran.set(origine, (e = { total: pasVides(), parSemaine: semaines.map(pasVides) }))
+    return e
+  }
+  pasDe('tous')
+  const pont = partVide()
+  for (const p of nes) {
+    const j0 = jourDe(p.cree)
+    const jours = joues.get(p.id) ?? new Map<string, number>()
+    const premiereSemaine = Array.from({ length: 7 }, (_, k) => jourAvant(j0, -k))
+    const modesDeLaSemaine = premiereSemaine.reduce((m, j) => m | (jours.get(j) ?? 0), 0)
+    const semaineFinie = jourAvant(j0, -6) < aujourdhui
+    // Chaque pas, oui ou non — null, son délai n'est pas passé.
+    const reponses: Record<Exclude<keyof PasDesNes, 'nes'>, boolean | null> = {
+      jourMeme: j0 < aujourdhui ? jours.has(j0) : null,
+      lendemain: jourAvant(j0, -1) < aujourdhui ? jours.has(jourAvant(j0, -1)) : null,
+      deuxJours: semaineFinie ? premiereSemaine.filter(j => jours.has(j)).length >= 2 : null,
+      secondMode: semaineFinie ? nombreDeModes(modesDeLaSemaine) >= 2 : null,
+      jamais: j0 < aujourdhui ? jours.size === 0 : null,
+    }
+    const semaine = semaines.indexOf(lundiDe(j0))
+    for (const origine of ['tous', p.origine] as const) {
+      const e = pasDe(origine)
+      for (const pas of [e.total, e.parSemaine[semaine]]) {
+        pas.nes++
+        for (const cle of Object.keys(reponses) as (keyof typeof reponses)[]) compter(pas[cle], reponses[cle])
+      }
+    }
+    if (p.origine !== null && ORIGINES_EN_SOIREE.includes(p.origine) && semaineFinie) compter(pont, (modesDeLaSemaine & MODES_SEULS) !== 0)
+  }
+  const ecrans = [...parEcran]
+    .map(([origine, e]) => ({ origine, ...e }))
+    .sort(
+      (a, b) =>
+        Number(b.origine === 'tous') - Number(a.origine === 'tous') ||
+        Number(a.origine === null) - Number(b.origine === null) ||
+        b.total.nes - a.total.nes ||
+        String(a.origine).localeCompare(String(b.origine)),
+    )
+  // Soirée par soirée : les closes de ces trente jours, chacune ce qu'elle a converti.
+  const depuis = minuitDuJour(jourAvant(aujourdhui, JOURS_DES_SOIREES_QUI_CONVERTISSENT - 1))
+  const nees = naissancesEnSoiree(soirees, profils)
+  const closes = soirees
+    .filter(s => !s.ouverte && s.profils !== undefined && s.quand >= depuis && s.quand <= maintenant)
+    .sort((a, b) => b.quand - a.quand)
+    .map(s => {
+      const avec = new Set(s.profils).size
+      const nesIci = nees.get(s)?.length ?? 0
+      return { quand: s.quand, invites: s.joueurs, avecUnProfil: avec - nesIci, nes: nesIci, sansProfil: nesIci + Math.max(0, s.joueurs - avec) }
+    })
+  return { semaines, ecrans, pont, soirees: closes }
+}
+
 // ── Quand on joue, qui joue à quoi, d'où viennent les profils ────────────────
 
 /** Le jour de la semaine d'un jour de Paris, du lundi (0) au dimanche (6). */
@@ -653,6 +871,8 @@ export interface PageDesJoueurs {
   /** Les profils actifs ces trente jours : ce que les combinaisons se partagent. */
   profilsActifs: number
   origines: { origine: OrigineLue | null; profils: number }[]
+  /** Leurs premiers pas, semaine par semaine et écran par écran, le pont des nés en soirée, et ce que chaque soirée close a converti. */
+  premiersPas: PremiersPas
 }
 
 /** Les segments, comptés seulement : ce que la page des annonces propose, à côté de « tous ». */
@@ -676,6 +896,8 @@ export interface DonneesDeLaPage {
   profils: readonly ProfilDeLAudience[]
   /** Les invités sans profil venus en soirée aujourd'hui. */
   invitesDuJour: number
+  /** Les soirées des premiers pas — celles que le carnet des animateurs garde —, sans leur espace : la page n'en nomme aucun. */
+  soirees?: readonly SoireeDesPremiersPas[]
 }
 
 /**
@@ -726,6 +948,8 @@ export function* calculDeLaPage(d: DonneesDeLaPage): CalculEnTranches<PageDesJou
   yield
   const cohortes = cohortesDesProfils(d.profils, d.presences, aujourdhui)
   yield
+  const premiersPas = premiersPasDesProfils(d.profils, d.presences, d.soirees ?? [], aujourdhui, d.maintenant)
+  yield
   return {
     maintenant: d.maintenant,
     depuis: d.depuis,
@@ -739,5 +963,6 @@ export function* calculDeLaPage(d: DonneesDeLaPage): CalculEnTranches<PageDesJou
     combinaisons: combinaisonsDesModes(traces),
     profilsActifs: traces.size,
     origines: originesDesProfils(d.profils, debutDuMois),
+    premiersPas,
   }
 }
