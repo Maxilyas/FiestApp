@@ -58,6 +58,7 @@ import { mountApi } from './api'
 import { lesSoireesDepuis } from './qg'
 import { audienceDuQg } from './joueursDuQg'
 import { mouvementsEntre } from './economie'
+import { LePointDuMatin } from './core/pointDuMatin'
 import { MemoireDuQg } from './core/memoireDuQg'
 import { questionAuCentreOuverte, rencontresOuvertes } from './expedition'
 import { JourStore } from './core/jour'
@@ -96,6 +97,11 @@ export interface QuizServerOptions {
   fluxDuQgMs?: number
   /** Le pas des règles des alertes (`TOUR_DES_REGLES_MS`, une minute) : les tests le pressent. */
   reglesDuQgMs?: number
+  /**
+   * Le pas du point du matin (`TOUR_DU_POINT_MS`, une minute) ; null, il ne tourne pas : le banc ne le lance que pour
+   * qui le demande — passé 8 h 40, il aurait écrit la mémoire du QG en fond au milieu des lectures qu'une épreuve compte.
+   */
+  pointDuMatinMs?: number | null
   /**
    * La page « Le serveur » relit la base au plus une fois la minute : les règles des alertes la lisent dès le
    * démarrage, et un rendu qui écrit sa semaine inventée ensuite la photographiait sans elle. Zéro : toujours relue.
@@ -659,6 +665,19 @@ export async function createQuizServer(opts: QuizServerOptions) {
     demarrages: async () => ({ demarrages: await sante.demarragesGardes(), maintenant: Date.now(), courant: sante.id }),
     maintenant: maintenantDuJour,
   })
+  // Le point du matin (la revue d'expert du 4 novembre 2026, P1.4) : son passage écrit la mémoire de la veille, puis la
+  // dit aux téléphones de l'administrateur, une fois par jour ; « Hier, en bref » au poste de commande la lit là.
+  const pointDuMatin = new LePointDuMatin(opts.quizDbUrl, opts.quizDbToken, {
+    reglage: () => regles.pointDuMatin(),
+    dOffice: () => regles.pointDOffice,
+    aJour: () => audience.aJour(),
+    memoireAJour: () => audience.estAJour(),
+    jours: async de => (await memoireDuQg.joursDepuis(de)).jours,
+    incidents: (debut, fin) => regles.incidentsEntre(debut, fin),
+    prevenir: m => alertes.prevenir(m),
+    maintenant: maintenantDuJour,
+    tourMs: opts.pointDuMatinMs,
+  })
 
   /**
    * Deux écritures du même espace lancent deux relectures, qui reviennent
@@ -721,6 +740,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     gestes.init(),
     sante.init(),
     memoireDuQg.init(),
+    pointDuMatin.init(),
     // Les pannes qu'un serveur d'avant n'a pas vues se rétablir : la veille dira leur retour.
     alertes.init().then(heritees => veille.heriter(heritees)),
     // Les réglages des alertes et les incidents laissés ouverts par le serveur d'avant.
@@ -1457,6 +1477,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
       flux: fluxDuQg,
       regles,
       telephonesDuQg: async () => (await alertes.telephones()).length,
+      point: pointDuMatin,
     },
     gestes,
     maintenance,
@@ -1730,6 +1751,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
   veille.demarrer(direLaVeille)
   // Chaque minute, les règles des alertes se jugent : le serveur est ouvert, tout ce qu'elles lisent est né.
   regles.demarrer()
+  // Et le point du matin regarde l'heure.
+  pointDuMatin.demarrer()
 
   return {
     httpServer,
@@ -1752,8 +1775,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
         veille.arreter(direLaVeille)
         // Les pages du QG qui écoutent le direct : ouvertes, elles retiendraient la fermeture du serveur.
         fluxDuQg.fermer()
-        // Plus une règle ne se juge : ce qui tombe pendant l'extinction n'est pas un incident.
+        // Plus une règle ne se juge : ce qui tombe pendant l'extinction n'est pas un incident. Ni un point du matin.
         regles.arreter()
+        pointDuMatin.arreter()
         charge.arreter()
         sondeDesGels.arreter()
         registry.stopAll()
@@ -1775,6 +1799,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
           rappels.close()
           alertes.close()
           regles.close()
+          pointDuMatin.close()
           maintenance.close()
           // Les profils en dernier : un crédit d'expérience parti avec la fin
           // du dernier quiz garde ainsi le plus long sursis pour aboutir. On ne

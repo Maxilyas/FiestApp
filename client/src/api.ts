@@ -53,6 +53,7 @@ import type { AccuseDeReponse, PageDesAnnonces, QuestionDAnnonce } from '../../s
 import type { DemandeDAffiche, PageDesAffiches } from '../../shared/affiches'
 import type { BaseDuQg, PageDuServeur, PeriodeDuServeur } from '../../shared/santeDuServeur'
 import type { CleDeRegle, IncidentDuQg, PageDesAlertes } from '../../shared/qgAlertes'
+import type { HierDuQg } from '../../shared/pointDuMatin'
 import type { EtatDUneErreur, PageDesErreurs } from '../../shared/triDesErreurs'
 import type { BilanDUneAlerte } from '../../shared/pannes'
 import type { EtatDUnePage, EtatDeLaMaintenance, PageEnMaintenance } from '../../shared/maintenance'
@@ -848,6 +849,10 @@ export const api = {
     reglerUneRegle: (cle: CleDeRegle, reglage: { seuil?: number; telephone?: boolean }) =>
       req<PageDesAlertes>(`/api/admin/regles/${cle}`, { method: 'PUT', body: JSON.stringify(reglage) }),
     motDUnIncident: (id: number, mot: string) => req<IncidentDuQg>(`/api/admin/incidents/${id}/mot`, { method: 'POST', body: JSON.stringify({ mot }) }),
+    /** Le point du matin : son heure (en minutes depuis minuit, à Paris), sa notification ; rend la page des alertes d'après. */
+    reglerLePoint: (reglage: { actif?: boolean; minutes?: number }) => req<PageDesAlertes>('/api/admin/point-du-matin', { method: 'PUT', body: JSON.stringify(reglage) }),
+    /** « Hier, en bref » : la veille que la mémoire sait, gardée au serveur jusqu'à minuit. */
+    hier: () => req<HierDuQg>('/api/admin/qg/hier'),
     /** L'activité : trente jours de questions jouées et de parties, mode par mode, et ce que chaque profil a joué. */
     activite: () => req<PageDeLActivite>('/api/admin/activite'),
     /** Clore une soirée laissée en plan, comme son animateur l'aurait close : rangée, ses invités crédités. */

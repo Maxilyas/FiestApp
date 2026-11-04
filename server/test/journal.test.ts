@@ -210,6 +210,8 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     // Les alertes (le QG 2, lot 8) : un seuil réglé, une règle qui sonne au téléphone, un mot sur un incident.
     ok(await faire(banc, admin, '/api/admin/regles/ressenti', { seuil: 900 }, 'PUT'), 'régler un seuil')
     ok(await faire(banc, admin, '/api/admin/regles/gel-long', { telephone: true }, 'PUT'), 'faire sonner une règle')
+    // Le point du matin, à une autre heure.
+    ok(await faire(banc, admin, '/api/admin/point-du-matin', { minutes: 555 }, 'PUT'), 'régler le point du matin')
     const desIncidents = new Database(banc.quizDbUrl.replace(/^file:/, ''))
     const incident = desIncidents
       .prepare("INSERT INTO qg_incidents (regle, gravite, debut, fin, cause) VALUES ('turso-lent', 'veille', ?, ?, '1,2 s au 95ᵉ centile')")
@@ -293,6 +295,7 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       'Alertes de panne coupées sur un téléphone — plus aucun téléphone prévenu',
       'Alerte réglée : Ressenti dégradé — seuil 900 ms (avant 800 ms)',
       'Alerte réglée : Gel long — sonne au téléphone',
+      'Point du matin réglé : à 9 h 15 (avant 8 h 40)',
       'Mot sur un incident : « Un hoquet de Turso »',
     ]) {
       assert.ok(resumes.includes(attendu), `« ${attendu} » parmi :\n${resumes.join('\n')}`)
@@ -334,8 +337,8 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     )
     assert.deepEqual(
       gestes.filter(g => g.sorte === 'erreur').map(g => g.cible),
-      ['POST /api/admin/profils/:id/confettis', null, null, null, 'ressenti', 'gel-long', String(incident)],
-      'une erreur vise sa source ; un téléphone, rien — son adresse ne s’écrit nulle part ; une règle des alertes, sa clé ; un incident, son numéro',
+      ['POST /api/admin/profils/:id/confettis', null, null, null, 'ressenti', 'gel-long', 'point-du-matin', String(incident)],
+      'une erreur vise sa source ; un téléphone, rien — son adresse ne s’écrit nulle part ; une règle des alertes, sa clé ; le point du matin, le sien ; un incident, son numéro',
     )
 
     // La page le lit, du plus récent au plus ancien ; filtré par sorte.

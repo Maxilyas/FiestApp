@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Icon, type IconName } from './Icon'
 import { GrapheDuTemps, TuileDuQg, type SerieDuGraphe } from './QgGraphes'
+import { HierEnBref } from './QgHier'
 import { formatNumber } from '../../../shared/typographie'
 import { jourDe, jourEnToutesLettres, minutesDeParis } from '../../../shared/jour'
 import {
@@ -69,6 +70,9 @@ export function VueDEnsembleDuQg({
   return (
     <div className="qg-poste">
       {choses.length > 0 && aTraiter}
+      {/* La veille, en tête et sur toute la largeur à l'ordinateur (la revue d'expert du 4 novembre 2026, P1.4) ;
+          au téléphone repliée en une ligne, sous ce qui attend un geste — lui passe toujours devant. */}
+      <HierEnBref jour={vue?.jour ?? null} aTraiter={vue ? choses.length : null} />
       <EtatDuService direct={direct} vue={vue} enPanne={directEnPanne} ouvrir={ouvrir} />
       {choses.length === 0 && aTraiter}
       <ChiffresDeLaPeriode vue={vue} periode={periode} ouvrir={ouvrir} />

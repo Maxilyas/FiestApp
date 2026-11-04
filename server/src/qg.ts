@@ -16,7 +16,9 @@ import type { SanteDuServeur } from './core/santeDuServeur'
 import { periodeDuServeur, type BaseDuQg } from '../../shared/santeDuServeur'
 import type { FluxDuQg } from './qgFlux'
 import { ReglesDuQg } from './core/regles'
+import type { LePointDuMatin } from './core/pointDuMatin'
 import { estUneRegle } from '../../shared/qgAlertes'
+import { phraseDuReglageDuPoint } from '../../shared/pointDuMatin'
 import { wrap } from './core/http'
 import { nomDeLEspace } from '../../shared/space'
 import { tronquer } from '../../shared/avatars'
@@ -27,9 +29,11 @@ import {
   bilanDesSoirees,
   compteDuJour,
   etatDeLaSoiree,
+  lesChosesATraiter,
   minuitsDeParis,
   modeDeLaSerie,
   participationsParJour,
+  type ATraiterDuQg,
   type DirectDuQg,
   type ModeDuQg,
   type PageDesSoirees,
@@ -82,6 +86,8 @@ export interface QgDeps {
   regles?: ReglesDuQg
   /** Combien de téléphones les alertes font sonner. */
   telephonesDuQg?: () => Promise<number>
+  /** Le point du matin (`core/pointDuMatin.ts`) : « Hier, en bref » au poste de commande, son réglage sous les alertes. */
+  point?: LePointDuMatin
 }
 
 /** Une soirée pas encore close, telle que la base locale la garde. */
@@ -417,13 +423,9 @@ export function mountQg(app: Express, deps: QgDeps) {
     return boutABout(jusquHier, aujourdhui)
   }
 
-  const vueDEnsemble = async (): Promise<VueDEnsemble> => {
-    const maintenant = deps.maintenant()
-    const minuits = minuitsDeParis(maintenant, JOURS_DU_QG)
-    const depuis = minuits[0]
-    const [journaux, soirees, reserve, signalementsDuJour, signalementsDeLaCampagne, aRelire, serveur, propositions] = await Promise.all([
-      lesTrenteJours(minuits),
-      lesSoireesDepuis(deps, depuis),
+  /** Ce qui attend un geste, en chiffres : la vue d'ensemble le porte, et le point du matin en compte les lignes. */
+  const aTraiterDuQg = async (): Promise<ATraiterDuQg> => {
+    const [reserve, signalementsDuJour, signalementsDeLaCampagne, aRelire, serveur, propositions] = await Promise.all([
       deps.jour.avanceDeLaReserve(),
       deps.jour.signalementsATraiter(),
       deps.campagne.signalementsATraiter(),
@@ -431,26 +433,38 @@ export function mountQg(app: Express, deps: QgDeps) {
       deps.sante.alertes(memoireDuProcessus()),
       deps.jour.propositionsATraiter(),
     ])
-    const chiffres = await enTranches(chiffresDeLaVue(journaux, soirees, minuits, maintenant))
     const bilan = deps.rappels.bilan()
     return {
-      maintenant,
-      jour: jourDe(maintenant),
-      ...chiffres,
-      aTraiter: {
-        reserve: { joursDAvance: reserve.joursDAvance },
-        signalementsDuJour,
-        signalementsDeLaCampagne,
-        catalogue: aRelire.length,
-        propositions,
-        rappel: bilan && { jour: bilan.jour, envoyes: bilan.envoyes, echecs: bilan.echecs },
-        routine: { jour: reserve.dernierDepotIa, campagne: deps.campagne.santeDeLaBase().dernierApport },
-        serveur,
-        // Les règles neuves ouvertes, lues en mémoire, et le seuil de la réserve tel qu'on l'a réglé.
-        ...(deps.regles && { alertes: deps.regles.aTraiter(), seuilDeLaReserve: deps.regles.seuilDeLaReserve() }),
-      },
+      reserve: { joursDAvance: reserve.joursDAvance },
+      signalementsDuJour,
+      signalementsDeLaCampagne,
+      catalogue: aRelire.length,
+      propositions,
+      rappel: bilan && { jour: bilan.jour, envoyes: bilan.envoyes, echecs: bilan.echecs },
+      routine: { jour: reserve.dernierDepotIa, campagne: deps.campagne.santeDeLaBase().dernierApport },
+      serveur,
+      // Les règles neuves ouvertes, lues en mémoire, et le seuil de la réserve tel qu'on l'a réglé.
+      ...(deps.regles && { alertes: deps.regles.aTraiter(), seuilDeLaReserve: deps.regles.seuilDeLaReserve() }),
     }
   }
+
+  const vueDEnsemble = async (): Promise<VueDEnsemble> => {
+    const maintenant = deps.maintenant()
+    const minuits = minuitsDeParis(maintenant, JOURS_DU_QG)
+    const depuis = minuits[0]
+    const [journaux, soirees, aTraiter] = await Promise.all([lesTrenteJours(minuits), lesSoireesDepuis(deps, depuis), aTraiterDuQg()])
+    const chiffres = await enTranches(chiffresDeLaVue(journaux, soirees, minuits, maintenant))
+    return { maintenant, jour: jourDe(maintenant), ...chiffres, aTraiter }
+  }
+
+  // Le point du matin compte ce qui attend comme le poste de commande le liste, et nomme les salons comme lui.
+  deps.point?.brancher({
+    choses: async () => {
+      const [aTraiter, leDirect] = await Promise.all([aTraiterDuQg(), direct()])
+      return lesChosesATraiter(aTraiter, leDirect, leDirect.maintenant).length
+    },
+    salons: async ids => new Map([...(await lesSalons(ids))].map(([id, salon]) => [id, salon.nom])),
+  })
 
   /**
    * La page des soirées : les trente derniers jours en chiffres, quand on joue
@@ -549,13 +563,17 @@ export function mountQg(app: Express, deps: QgDeps) {
     else res.status(404).json({ error: 'Le direct ne passe pas par un flux ici.' })
   })
 
-  // Les alertes et les incidents (le QG 2, lot 8) : chaque règle, son seuil et son téléphone, les incidents des trente jours.
+  // Les alertes et les incidents (le QG 2, lot 8) : chaque règle, son seuil et son téléphone, les incidents des trente jours —
+  // et le point du matin, son heure et sa notification, à côté des téléphones.
+  const pageDesAlertes = async (regles: ReglesDuQg) => {
+    const [telephones, point] = await Promise.all([deps.telephonesDuQg ? deps.telephonesDuQg().catch(() => 0) : 0, deps.point?.etat()])
+    return { ...(await regles.page(telephones)), ...(point && { point }) }
+  }
   app.get(
     '/api/admin/regles',
     wrap(async (_req, res) => {
       if (!deps.regles) return void res.status(404).json({ error: 'Les règles des alertes ne tournent pas ici.' })
-      const telephones = deps.telephonesDuQg ? await deps.telephonesDuQg().catch(() => 0) : 0
-      res.json(await deps.regles.page(telephones))
+      res.json(await pageDesAlertes(deps.regles))
     }),
   )
   // Régler une règle : son seuil — un réglage d'exploitation, jamais un barème du jeu —, son téléphone. Au journal.
@@ -566,7 +584,26 @@ export function mountQg(app: Express, deps: QgDeps) {
       if (!deps.regles || !estUneRegle(cle)) return void res.status(404).json({ error: 'Règle introuvable.' })
       const { avant, apres } = await deps.regles.regler(cle, req.body)
       noterLeGeste(res, { sorte: 'erreur', resume: ReglesDuQg.phraseDuReglage(cle, avant, apres, deps.regles.defauts), cible: cle })
-      res.json(await deps.regles.page(deps.telephonesDuQg ? await deps.telephonesDuQg().catch(() => 0) : 0))
+      res.json(await pageDesAlertes(deps.regles))
+    }),
+  )
+  // Régler le point du matin (la revue d'expert du 4 novembre 2026, P1.4) : son heure, sa notification — un réglage de
+  // `qg_reglages`, comme un seuil. Au journal.
+  app.put(
+    '/api/admin/point-du-matin',
+    wrap(async (req, res) => {
+      if (!deps.regles || !deps.point) return void res.status(404).json({ error: 'Le point du matin ne tourne pas ici.' })
+      const { avant, apres } = await deps.regles.reglerLePoint(req.body)
+      noterLeGeste(res, { sorte: 'erreur', resume: phraseDuReglageDuPoint(avant, apres), cible: 'point-du-matin' })
+      res.json(await pageDesAlertes(deps.regles))
+    }),
+  )
+  // « Hier, en bref », en tête du poste de commande : la veille, lue de la mémoire une fois et gardée jusqu'à minuit.
+  app.get(
+    '/api/admin/qg/hier',
+    wrap(async (_req, res) => {
+      if (!deps.point) return void res.status(404).json({ error: 'Le point du matin ne tourne pas ici.' })
+      res.json(await deps.point.hier())
     }),
   )
   // Un mot sur un incident : sa cause vue d'ici, comme le mot d'une erreur triée.

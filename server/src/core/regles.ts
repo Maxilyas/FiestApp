@@ -35,6 +35,7 @@ import {
   type SeuilsDuServeur,
 } from '../../../shared/santeDuServeur'
 import type { MessageDuQg } from '../../../shared/pannes'
+import { CLE_DU_POINT, lireLeReglageDuPoint, pointDOffice, pointRegle, type PointRegle, type ReglageDuPoint } from '../../../shared/pointDuMatin'
 import { espacesFines } from '../../../shared/typographie'
 import { jourAvant, jourDe, minutesDeParis } from '../../../shared/jour'
 import { minuitDuJour } from '../../../shared/qgJoueurs'
@@ -42,6 +43,9 @@ import type { DirectDuServeur } from './pouls'
 
 /** Chaque règle se juge une fois la minute. */
 export const TOUR_DES_REGLES_MS = 60_000
+
+/** Un incident qui dure plus d'une semaine ne se cherche pas parmi ceux d'une journée : leur index lit leur début. */
+const INCIDENT_LE_PLUS_LONG_MS = 7 * 86_400_000
 
 /** Une règle ouverte, et l'incident qui la raconte. */
 interface Ouverte {
@@ -88,6 +92,10 @@ export class ReglesDuQg {
   private file: Promise<unknown> = Promise.resolve()
   /** Ce qui vaut d'office sur ce serveur : hors de la production, la part de la préproduction des heures de l'hébergeur. */
   readonly defauts: DefautsDesSeuils
+  /** Le point du matin tel qu'on l'a réglé (`CLE_DU_POINT`, une ligne de `qg_reglages` comme les seuils) : ce qui vaut d'office n'y est pas. */
+  private point: ReglageDuPoint = {}
+  /** Ce qui vaut d'office pour le point du matin : sa notification ne part d'office qu'en production. */
+  readonly pointDOffice: PointRegle
 
   constructor(
     url: string,
@@ -103,6 +111,7 @@ export class ReglesDuQg {
   ) {
     this.client = clientDistant(url, authToken)
     this.defauts = defautsDesSeuils(deps.production ?? true)
+    this.pointDOffice = pointDOffice(deps.production ?? true)
   }
 
   private now() {
@@ -142,6 +151,15 @@ export class ReglesDuQg {
     )
     for (const r of lus.rows) {
       const cle = String(r.cle)
+      if (cle === CLE_DU_POINT) {
+        // Relu par sa règle, comme un seuil : illisible, ou hors des bornes du jour, il reprend ce qui vaut d'office.
+        try {
+          this.point = lireLeReglageDuPoint(JSON.parse(String(r.valeur)), {}, this.pointDOffice)
+        } catch {
+          this.point = {}
+        }
+        continue
+      }
       if (!estUneRegle(cle)) continue
       // Relu par la même règle qu'à l'écriture : un seuil que le code a resserré depuis se tait, la règle reprend son défaut.
       try {
@@ -281,6 +299,47 @@ export class ReglesDuQg {
       else this.reglages[cle] = apres
       return { avant, apres }
     })
+  }
+
+  /** Le point du matin tel qu'il vaut : son heure, et sa notification. */
+  pointDuMatin(): PointRegle {
+    return pointRegle(this.point, this.pointDOffice)
+  }
+
+  /**
+   * Régler le point du matin, comme une règle (`regler`) : relu par sa règle
+   * (`lireLeReglageDuPoint`), refusé s'il ne change rien, écrit, puis tenu en
+   * mémoire. Rend ce qu'il valait et ce qu'il vaut, pour la phrase du journal.
+   */
+  async reglerLePoint(brut: unknown): Promise<{ avant: PointRegle; apres: PointRegle }> {
+    return this.enFile(async () => {
+      const avant = this.pointDuMatin()
+      const reglage = lireLeReglageDuPoint(brut, this.point, this.pointDOffice)
+      const apres = pointRegle(reglage, this.pointDOffice)
+      if (avant.actif === apres.actif && avant.minutes === apres.minutes) throw new Error('Ce réglage est déjà celui-là.')
+      if (Object.keys(reglage).length === 0) await this.client.execute({ sql: 'DELETE FROM qg_reglages WHERE cle = ?', args: [CLE_DU_POINT] })
+      else
+        await this.client.execute({
+          sql: 'INSERT INTO qg_reglages (cle, valeur, maj_le) VALUES (?, ?, ?) ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur, maj_le = excluded.maj_le',
+          args: [CLE_DU_POINT, JSON.stringify(reglage), this.now()],
+        })
+      this.point = reglage
+      return { avant, apres }
+    })
+  }
+
+  /**
+   * Les incidents qui ont couru entre deux instants — nés avant la fin, pas
+   * refermés avant le début —, par l'index de leur début : ceux nés plus d'une
+   * semaine avant ne se cherchent pas (`INCIDENT_LE_PLUS_LONG_MS`). Le point du
+   * matin y lit la veille.
+   */
+  async incidentsEntre(debut: number, fin: number): Promise<IncidentDuQg[]> {
+    const r = await this.client.execute({
+      sql: 'SELECT id, regle, gravite, debut, fin, cause, mot FROM qg_incidents WHERE debut >= ? AND debut < ? AND (fin IS NULL OR fin >= ?) ORDER BY debut',
+      args: [debut - INCIDENT_LE_PLUS_LONG_MS, fin, debut],
+    })
+    return r.rows.map(incidentLu).filter((i): i is IncidentDuQg => i !== null)
   }
 
   /** Le mot d'un incident, comme celui d'une erreur triée : 120 caractères au plus, refusé plus long — jamais coupé. Vide, il s'efface. */

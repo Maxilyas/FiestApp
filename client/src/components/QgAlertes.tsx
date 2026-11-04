@@ -4,8 +4,9 @@ import { Icon } from './Icon'
 import { useLargeur } from './QgGraphes'
 import { espacesFines, formatNumber } from '../../../shared/typographie'
 import { dureeEcrite, heureEcrite, jourAbrege, quandEcrit } from '../../../shared/qg'
-import { jourDe } from '../../../shared/jour'
+import { jourAvant, jourDe, jourEnToutesLettres } from '../../../shared/jour'
 import { lireNombre } from '../../../shared/nombres'
+import { HEURE_DU_POINT_MAX, HEURE_DU_POINT_MIN, heureDuPointEcrite, type EtatDuPoint } from '../../../shared/pointDuMatin'
 import {
   GRAVITES,
   JOURS_DE_LA_FRISE,
@@ -119,8 +120,114 @@ export function QgAlertes({ ouvrir }: { ouvrir: (e: PageDUneRegle | 'erreurs', o
           </button>
         </div>
       </section>
+      {page.point && <PointDuMatinAuxAlertes point={page.point} telephones={page.telephones} maintenant={page.maintenant} onPage={setPage} />}
     </>
   )
+}
+
+/**
+ * Le point du matin (la revue d'expert du 4 novembre 2026, P1.4), à côté des
+ * téléphones qu'il fait sonner : son heure — un bouton qui l'ouvre à la saisie,
+ * comme un seuil —, sa notification d'un interrupteur, et le dernier passé.
+ * Un réglage de `qg_reglages`, au journal comme un seuil.
+ */
+function PointDuMatinAuxAlertes({ point, telephones, maintenant, onPage }: { point: EtatDuPoint; telephones: number; maintenant: number; onPage: (p: PageDesAlertes) => void }) {
+  const [saisie, setSaisie] = useState<string | null>(null)
+  const [occupe, setOccupe] = useState(false)
+  const [erreur, setErreur] = useState('')
+  const regler = async (reglage: { actif?: boolean; minutes?: number }) => {
+    setOccupe(true)
+    setErreur('')
+    try {
+      onPage(await api.admin.reglerLePoint(reglage))
+      return true
+    } catch (e) {
+      setErreur(motifDe(e))
+      return false
+    } finally {
+      setOccupe(false)
+    }
+  }
+  // « 08:40 », la valeur d'un champ d'heure, et retour : le champ garde ce qu'on tape, seul l'envoi le lit.
+  const enChamp = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+  const lu = saisie && /^\d{2}:\d{2}$/.test(saisie) ? Number(saisie.slice(0, 2)) * 60 + Number(saisie.slice(3)) : null
+  const d = point.dernier
+  return (
+    <section className="qg-console" aria-labelledby="alertes-point">
+      <div className="qg-console-tete">
+        <div>
+          <span className="qg-etiquette">Chaque matin</span>
+          <h2 id="alertes-point">Le point du matin</h2>
+          <span className="muted small">
+            la veille en nombres sur les téléphones prévenus — jamais un prénom ni un salon —, le lundi la semaine face aux quatre d’avant ; son passage écrit aussi la
+            mémoire de la veille, que « Hier, en bref » montre en tête du poste de commande
+          </span>
+        </div>
+        <button
+          type="button"
+          className="qg-bascule qg-regle-tel"
+          aria-pressed={point.actif}
+          disabled={occupe}
+          onClick={() => void regler({ actif: !point.actif })}
+          title="Faire sonner les téléphones prévenus chaque matin"
+        >
+          <span className="qg-interrupteur" aria-hidden="true" />
+          Notification
+        </button>
+      </div>
+      <div className="qg-regle-reglages">
+        {saisie === null ? (
+          <button type="button" className="qg-seuil" onClick={() => setSaisie(enChamp(point.minutes))} title="Régler l’heure du point">
+            <Icon name="edit" />
+            {heureDuPointEcrite(point.minutes)}
+          </button>
+        ) : (
+          <form
+            className="qg-seuil-saisie"
+            onSubmit={async e => {
+              e.preventDefault()
+              if (lu === null) return
+              if (await regler({ minutes: lu })) setSaisie(null)
+            }}
+          >
+            <label>
+              <span className="sr-only">L’heure du point du matin, à Paris</span>
+              <input type="time" min="06:00" max="11:00" step={300} value={saisie} onChange={e => setSaisie(e.target.value)} aria-describedby="point-heure" />
+            </label>
+            <span id="point-heure" className="muted small">
+              de {heureDuPointEcrite(HEURE_DU_POINT_MIN)} à {heureDuPointEcrite(HEURE_DU_POINT_MAX)}, de cinq en cinq minutes, d’office {heureDuPointEcrite(point.dOffice.minutes)}
+            </span>
+            <button type="submit" className="qg-bouton" disabled={occupe || lu === null}>
+              Régler
+            </button>
+            <button type="button" className="qg-bouton" onClick={() => setSaisie(null)}>
+              Annuler
+            </button>
+          </form>
+        )}
+        <span className="qg-regle-derniere small">
+          {d === null
+            ? 'pas encore passé'
+            : `le dernier : ${jourDuDernier(d.jour, maintenant)}${
+                d.envoyeLe === null ? ', sans notification' : `, à ${heureEcrite(d.envoyeLe)} — ${d.telephones === 1 ? 'un téléphone' : `${formatNumber(d.telephones ?? 0)} téléphones`}`
+              }`}
+        </span>
+        {telephones === 0 && point.actif && <span className="qg-regle-derniere small">{espacesFines('aucun téléphone prévenu : il ne sonne chez personne')}</span>}
+      </div>
+      {erreur && (
+        <p className="error small" role="alert">
+          {erreur}
+        </p>
+      )}
+    </section>
+  )
+}
+
+/** Le jour du dernier point : « ce matin », « hier », « le 2 novembre ». */
+function jourDuDernier(jour: string, maintenant: number): string {
+  const aujourdhui = jourDe(maintenant)
+  if (jour === aujourdhui) return 'ce matin'
+  return jour === jourAvant(aujourdhui) ? 'hier' : `le ${jourEnToutesLettres(jour, true)}`
 }
 
 /** Les règles ouvertes d'abord, la plus grave en tête ; les autres dans l'ordre du catalogue. */
