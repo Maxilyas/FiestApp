@@ -90,6 +90,18 @@ paths:
   qu'elle a lu (`derniereRelecture`) — sinon la plus ancienne, revenue la
   dernière, remettait la version d'avant la correction. Le programme et la
   mémoire des quiz passent par la même.
+- **Un quiz naît avec son origine** (`quizzes.origine`, le 4 novembre 2026 :
+  le carnet des animateurs du QG compte d'où viennent les quiz prêts de
+  chaque salon, règle `qg.md`) : la page envoie son chemin à
+  `POST /api/quizzes` — `editeur` (« Un quiz vide »), `liste` (« Coller une
+  liste »), `import` (un fichier) ; `lireLOrigineDuQuiz` lit tout le reste
+  `inconnue` —, la route décide le sien (`modele`, `tout-pret`, `partage`,
+  `catalogue` ; l'amorce, des modèles). « Dupliquer » et le rattachement
+  d'un espace gardent celle de l'original. Une création de plus passe la
+  sienne à `QuizStore.create` — sans elle, `null`, un quiz « d'avant » —, et
+  ce qui crée ou retire un quiz passe par `QuizStore`, qui en tient le
+  registre en mémoire (`quizDesEspaces`) : une écriture à côté laisserait le
+  carnet compter un quiz effacé jusqu'au redémarrage.
 - **Les identifiants des questions portent la mémoire** : « Dupliquer » les
   garde (la copie partage les « Posée le … » de l'original, et le tirage la
   croit déjà posée) ; un fichier importé et une question dupliquée dans

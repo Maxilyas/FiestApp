@@ -19,6 +19,7 @@ import { activiteDesJoueurs, parModeVide, type ActiviteDUnJoueur, type PartieSeu
 import { ouElleEnEst, traverseeEnRoute } from '../../shared/qgCabinet'
 import type { EspaceDAdministration } from '../../shared/space'
 import { titreLibre } from '../../shared/library'
+import type { AnimateursDuQg } from './animateursDuQg'
 
 interface ProfilsAdminDeps {
   profiles: ProfileStore
@@ -36,6 +37,8 @@ interface ProfilsAdminDeps {
   onLibraryChanged: (spaceId: string) => Promise<void>
   /** L'heure du serveur — celle du quiz du jour, que les tests avancent. */
   maintenant: () => number
+  /** Le carnet des animateurs : l'état du salon qu'il tient, et sa dernière soirée, sur sa fiche. */
+  animateurs?: Pick<AnimateursDuQg, 'duSalon'>
 }
 
 /**
@@ -131,7 +134,8 @@ export function mountProfilsAdmin(app: Express, deps: ProfilsAdminDeps) {
     wrap(async (req, res) => {
       const p = await leProfil(req, res)
       if (!p) return
-      const [soirees, jour, campagne, duels, boutique, epreuve, traversee, activite, quiz] = await Promise.all([
+      const sonEspace = deps.auth.byProfile(p.id)
+      const [soirees, jour, campagne, duels, boutique, epreuve, traversee, activite, quiz, animateur] = await Promise.all([
         deps.profiles.soireesDe([p.id]).then(n => n.get(p.id) ?? 0),
         deps.jour.resumeDe(p.id).catch(() => null),
         deps.profiles.statsDeCampagne?.(p.id).catch(() => null) ?? null,
@@ -144,6 +148,8 @@ export function mountProfilsAdmin(app: Express, deps: ProfilsAdminDeps) {
           .catch(() => null),
         sesTrenteJours(p.id).catch(() => null),
         deps.store.countBySpace(),
+        // Le salon qu'il tient, tel que le carnet le juge : seulement s'il en tient un, et une base qui se tait ôte la ligne.
+        sonEspace && deps.animateurs ? deps.animateurs.duSalon(sonEspace.id).catch(() => null) : null,
       ])
       const fiche: FicheDuJoueur = {
         ...ligne(accountOf(res), { profil: p, niveau: deps.profiles.niveauOf(p), soirees }, quiz),
@@ -159,6 +165,7 @@ export function mountProfilsAdmin(app: Express, deps: ProfilsAdminDeps) {
         epreuve,
         ...(deps.cabinet && { traversee: traversee ?? null }),
         activite,
+        ...(animateur && { animateur }),
       }
       res.json(fiche)
     }),
@@ -393,13 +400,15 @@ export function mountProfilsAdmin(app: Express, deps: ProfilsAdminDeps) {
       let recopies = 0
       if (ancien) {
         const titres = (await deps.store.list(cible.id)).map(q => q.title)
+        // Chaque copie garde l'origine de son quiz : le carnet des animateurs dit encore d'où ils venaient.
+        const origines = await deps.store.originesDe(ancien.id)
         for (const resume of await deps.store.list(ancien.id)) {
           const quiz = await deps.store.get(ancien.id, resume.id)
           if (!quiz) continue
           const questions = await deps.store.copierPhotos(cible.id, quiz.questions)
           const titre = titreLibre(quiz.title, titres)
           titres.push(titre)
-          await deps.store.create(cible.id, titre, questions, undefined, quiz.reglages)
+          await deps.store.create(cible.id, titre, questions, undefined, quiz.reglages, origines.get(quiz.id) ?? null)
           recopies++
         }
         await deps.auth.linkProfile(ancien.id, null)

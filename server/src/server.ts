@@ -11,7 +11,7 @@ import { PartyBackup, type ReglagesMiroir } from './core/backup'
 import { photosCitees, QuizStore } from './core/quizStore'
 import { seedLibrary } from './core/seed'
 import { INTROUVABLE, ROBOTS_TXT, decrirePage, habillerPage } from './core/apercus'
-import { clearQuizLibrary, setProgramme, setQuestionsPosees, setQuizLibrary } from './games/quiz'
+import { clearQuizLibrary, quizLibrary, setProgramme, setQuestionsPosees, setQuizLibrary } from './games/quiz'
 import { dernieresFois } from './core/memoire'
 import { ProgrammeStore } from './core/programmes'
 import { SalonStore } from './core/salons'
@@ -59,6 +59,7 @@ import { lesSoireesDepuis } from './qg'
 import { audienceDuQg } from './joueursDuQg'
 import { mouvementsEntre } from './economie'
 import { LePointDuMatin } from './core/pointDuMatin'
+import { animateursDuQg } from './animateursDuQg'
 import { MemoireDuQg } from './core/memoireDuQg'
 import { questionAuCentreOuverte, rencontresOuvertes } from './expedition'
 import { JourStore } from './core/jour'
@@ -677,6 +678,16 @@ export async function createQuizServer(opts: QuizServerOptions) {
     prevenir: m => alertes.prevenir(m),
     maintenant: maintenantDuJour,
     tourMs: opts.pointDuMatinMs,
+  })
+
+  // Le carnet des animateurs : les comptes et les quiz en mémoire, les soirées et les profils que l'audience garde.
+  const animateurs = animateursDuQg({
+    auth,
+    audience,
+    profiles,
+    quizDesEspaces: () => store.quizDesEspaces(),
+    quizPrets: spaceId => quizLibrary(spaceId).map(p => p.id),
+    maintenant: maintenantDuJour,
   })
 
   /**
@@ -1483,6 +1494,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     maintenance,
     erreurs: { sante, alertes, rappels, veille },
     audience,
+    animateurs,
     online: !!opts.online,
     publicOrigin: allowedOrigin,
     onLibraryChanged: refreshLibrary,

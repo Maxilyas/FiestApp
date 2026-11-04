@@ -32,6 +32,14 @@ import {
   type SegmentDuQg,
 } from '../../shared/qgJoueurs'
 
+/** Une soirée telle que `lesSoireesDepuis` la rend : celle de la participation, son salon, et si elle se joue encore. */
+export interface SoireeLueParLeQg extends SoireeDesParticipations {
+  spaceId: string
+  /** Ses questions jouées, quand le rattrapage de la mémoire les demande (`jouees`) ; zéro sinon. */
+  jouees: number
+  ouverte?: boolean
+}
+
 export interface AudienceDeps {
   memoire: MemoireDuQg
   profiles: Pick<ProfileStore, 'activiteEntre' | 'profilsPourLAudience' | 'nomsPourLeQg' | 'naissancesEtMissionsEntre'>
@@ -39,11 +47,12 @@ export interface AudienceDeps {
   campagne: Pick<CampagneStore, 'seriesEntre'>
   /**
    * Les soirées commencées entre deux instants : celles de l'historique, et
-   * celles pas encore closes (`lesSoireesDepuis`, `qg.ts`) — leur salon, et
-   * leurs questions jouées quand le rattrapage les demande (`jouees`) : une
-   * fiche d'avant les apprend alors, une fois, de son archive.
+   * celles pas encore closes (`lesSoireesDepuis`, `qg.ts`) — leur salon, si
+   * elles se jouent encore, et leurs questions jouées quand le rattrapage les
+   * demande (`jouees`) : une fiche d'avant les apprend alors, une fois, de son
+   * archive.
    */
-  soireesEntre: (debut: number, fin: number, options?: { jouees?: boolean }) => Promise<(SoireeDesParticipations & { spaceId: string; jouees: number })[]>
+  soireesEntre: (debut: number, fin: number, options?: { jouees?: boolean }) => Promise<SoireeLueParLeQg[]>
   /** La première soirée de l'historique de quelques salons (`ArchiveStore.premieresSoirees`) : un nouvel animateur. */
   premieresSoirees: (spaceIds: readonly string[]) => Promise<Map<string, number>>
   /** Les mouvements de confettis d'une plage de jours finis, aux règles de l'économie (`mouvementsEntre`, `economie.ts`). */
@@ -172,6 +181,35 @@ export function audienceDuQg(deps: AudienceDeps) {
     return profils
   }
 
+  /**
+   * Les soirées commencées avant aujourd'hui, toutes, leurs fiches relues une
+   * fois par jour et gardées jusqu'à minuit (le carnet des animateurs, les
+   * premiers pas des profils) : quelques centaines de lignes, par l'index de
+   * leur date — jamais toutes les fiches à chaque ouverture. Une lecture
+   * partagée par qui la demande pendant qu'elle se fait ; échouée, elle ne se
+   * garde pas. Une soirée d'hier rangée de nouveau ce matin garde jusqu'à
+   * minuit les chiffres de sa première lecture.
+   */
+  let finies: { aujourdhui: string; lu: number; soirees: SoireeLueParLeQg[] } | null = null
+  let finiesEnLecture: { pour: string; promesse: Promise<{ lu: number; soirees: SoireeLueParLeQg[] }> } | null = null
+  const lesSoireesFinies = (aujourdhui: string, minuit: number): Promise<{ lu: number; soirees: SoireeLueParLeQg[] }> => {
+    if (finies?.aujourdhui === aujourdhui) return Promise.resolve(finies)
+    if (finiesEnLecture?.pour !== aujourdhui) {
+      const promesse = deps.soireesEntre(0, minuit).then(soirees => {
+        const lues = { aujourdhui, lu: deps.maintenant(), soirees }
+        // Partie avant minuit et revenue après la lecture du lendemain, elle ne remplace pas la plus fraîche.
+        if (!finies || finies.aujourdhui <= aujourdhui) finies = lues
+        return lues
+      })
+      const lecture = { pour: aujourdhui, promesse }
+      finiesEnLecture = lecture
+      promesse.catch(() => {
+        if (finiesEnLecture === lecture) finiesEnLecture = null
+      })
+    }
+    return finiesEnLecture!.promesse
+  }
+
   // ── Le rattrapage ────────────────────────────────────────────────────────
 
   /**
@@ -268,16 +306,25 @@ export function audienceDuQg(deps: AudienceDeps) {
     const maintenant = deps.maintenant()
     const aujourdhui = jourDe(maintenant)
     const minuit = minuitDe(maintenant)
-    const [parJour, memoire, profilsAnciens, duJour, profilsDuJour] = await Promise.all([
+    const [parJour, memoire, profilsAnciens, duJour, profilsDuJour, soireesFinies] = await Promise.all([
       lesFeuilles(aujourdhui),
       laMemoireLongue(aujourdhui),
       lesAnciensProfils(aujourdhui, minuit),
       lirePlage(minuit, maintenant + 1),
       deps.profiles.profilsPourLAudience(minuit, Number.MAX_SAFE_INTEGER),
+      lesSoireesFinies(aujourdhui, minuit),
     ])
     const presences = new Map(parJour)
     presences.set(aujourdhui, presencesDAujourdhui(duJour, minuit, maintenant))
-    return { maintenant, aujourdhui, presences, memoire, profils: [...profilsAnciens, ...profilsDuJour], duJour }
+    // Les soirées des premiers pas, sans leur salon : la page des joueurs n'en nomme aucun. Celles d'aujourd'hui viennent
+    // des journaux que la page relit déjà.
+    const soirees = [...soireesFinies.soirees, ...(duJour.soirees as readonly SoireeLueParLeQg[])].map(s => ({
+      quand: s.quand,
+      joueurs: s.joueurs,
+      ...(s.profils && { profils: s.profils }),
+      ...(s.ouverte && { ouverte: true }),
+    }))
+    return { maintenant, aujourdhui, presences, memoire, profils: [...profilsAnciens, ...profilsDuJour], duJour, soirees }
   }
 
   const lesSegments = async () => {
@@ -302,6 +349,7 @@ export function audienceDuQg(deps: AudienceDeps) {
           depuis: e.memoire.premier,
           profils: e.profils,
           invitesDuJour: e.duJour.soirees.reduce((t, s) => t + invitesSansProfil(s), 0),
+          soirees: e.soirees,
         }),
       )
       const noms = await deps.profiles.nomsPourLeQg(calcul.segments.flatMap(s => s.montres.map(m => m.id)))
@@ -321,6 +369,27 @@ export function audienceDuQg(deps: AudienceDeps) {
     /** Les profils d'un segment à l'instant, tous : les destinataires d'une annonce qui lui est écrite. */
     async profilsDuSegment(segment: SegmentDuQg): Promise<string[]> {
       return (await lesSegments()).parSegment[segment].map(m => m.id)
+    },
+
+    /**
+     * Toutes les soirées — celles des jours finis, gardées jusqu'à minuit, et
+     * celles d'aujourd'hui, relues par l'index de leur date — et l'heure de la
+     * lecture gardée : le carnet des animateurs. La mémoire n'a pas à être à
+     * jour pour elles : rien ne s'y rattrape.
+     */
+    async lesSoirees(): Promise<{ lu: number; soirees: SoireeLueParLeQg[] }> {
+      const maintenant = deps.maintenant()
+      const minuit = minuitDe(maintenant)
+      const [gardees, duJour] = await Promise.all([lesSoireesFinies(jourDe(maintenant), minuit), deps.soireesEntre(minuit, maintenant + 1)])
+      return { lu: gardees.lu, soirees: [...gardees.soirees, ...duJour] }
+    },
+
+    /** Tous les profils, ceux nés avant aujourd'hui gardés jusqu'à minuit : le carnet des animateurs, sans rattraper la mémoire. */
+    async lesProfils(): Promise<ProfilDeLAudience[]> {
+      const maintenant = deps.maintenant()
+      const minuit = minuitDe(maintenant)
+      const [avant, duJour] = await Promise.all([lesAnciensProfils(jourDe(maintenant), minuit), deps.profiles.profilsPourLAudience(minuit, Number.MAX_SAFE_INTEGER)])
+      return [...avant, ...duJour]
     },
 
     /** Un profil supprimé (`supprimerProfil`, `server.ts`) : il quitte ce qui est gardé, sa feuille de présence avec lui. */

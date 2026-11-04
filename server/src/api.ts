@@ -12,6 +12,7 @@ import { ContenuDuQg, mountContenuDuQg, oublierApresUnGeste } from './qgContenu'
 import { fermerLesPortes, mountMaintenance } from './maintenance'
 import { mountAnnonces } from './annonces'
 import { mountJoueurs, type AudienceDuQg } from './joueursDuQg'
+import { mountAnimateurs, type AnimateursDuQg } from './animateursDuQg'
 import { mountAffiches } from './affiches'
 import { mountErreurs, type ErreursDeps } from './erreursDuQg'
 import type { Maintenance } from './core/maintenance'
@@ -29,7 +30,7 @@ import type { AuthStore } from './auth/store'
 import type { ProfileStore } from './auth/profiles'
 import { wrap } from './core/http'
 import { tronquer } from '../../shared/avatars'
-import { MAX_QUESTIONS, horsBornesALEnvoi, normalizeQuestions, playableQuestions, titreLibre, tropDeQuestions, type MemoireDuQuiz } from '../../shared/library'
+import { MAX_QUESTIONS, horsBornesALEnvoi, lireLOrigineDuQuiz, normalizeQuestions, playableQuestions, titreLibre, tropDeQuestions, type MemoireDuQuiz } from '../../shared/library'
 import { accountOf, csrfGuard, refuserLesTeles, requireAccount, requireAdmin } from './auth/http'
 import { mountAuthApi } from './auth/routes'
 import { mountAppairage } from './auth/appairage'
@@ -118,6 +119,8 @@ interface ApiDeps {
   erreurs: ErreursDeps
   /** L'audience du QG : la page des joueurs, ses segments — et les destinataires d'une annonce écrite à l'un d'eux. */
   audience: AudienceDuQg
+  /** Le carnet des animateurs : chaque salon, son rythme et son état — et les titulaires d'une annonce écrite à un état. */
+  animateurs: AnimateursDuQg
 }
 
 /**
@@ -246,6 +249,8 @@ export function mountApi(app: Express, deps: ApiDeps) {
     supprimerProfil: deps.supprimerProfil,
     onLibraryChanged: deps.onLibraryChanged,
     maintenant: deps.maintenant,
+    // La fiche d'un joueur qui tient un salon dit son état au carnet et sa dernière soirée.
+    animateurs: deps.animateurs,
   })
   // Le QG : le direct de toutes les soirées et la vue d'ensemble des modes — l'administrateur seul.
   mountQg(app, {
@@ -268,8 +273,10 @@ export function mountApi(app: Express, deps: ApiDeps) {
   mountMaintenance(app, { maintenance: deps.maintenance, profiles: deps.profiles })
   // Les joueurs : combien jouent, combien reviennent, qui décroche — l'administrateur seul.
   mountJoueurs(app, deps.audience)
-  // Les annonces à tous — ou à un segment des joueurs —, et les confettis qu'elles offrent : l'administrateur seul.
-  mountAnnonces(app, { profiles: deps.profiles, audience: deps.audience })
+  // Le carnet des animateurs : chaque salon, ses soirées, son rythme, son état — l'administrateur seul.
+  mountAnimateurs(app, deps.animateurs)
+  // Les annonces à tous — ou à un segment des joueurs, ou aux animateurs d'un état —, et les confettis qu'elles offrent : l'administrateur seul.
+  mountAnnonces(app, { profiles: deps.profiles, audience: deps.audience, animateurs: deps.animateurs })
   // L'affiche d'une nouveauté, en haut de chaque accueil, et sa pastille « Nouveau » : l'administrateur seul.
   mountAffiches(app, { profiles: deps.profiles, cabinet: deps.cabinet.ouvert })
   // Le tri des erreurs serveur, et les alertes de panne sur son téléphone : l'administrateur seul.
@@ -320,7 +327,8 @@ export function mountApi(app: Express, deps: ApiDeps) {
       // dernières en silence : l'avis comptait 120, le quiz en gardait 100.
       const trop = tropDeQuestions(req.body?.questions)
       if (trop) return res.status(400).json({ error: trop })
-      const quiz = await deps.store.create(spaceId, req.body?.title ?? 'Nouveau quiz', req.body?.questions ?? [], undefined, req.body?.reglages)
+      // D'où il vient — l'éditeur vide, une liste collée, un fichier —, que la page dit (le carnet des animateurs du QG).
+      const quiz = await deps.store.create(spaceId, req.body?.title ?? 'Nouveau quiz', req.body?.questions ?? [], undefined, req.body?.reglages, lireLOrigineDuQuiz(req.body?.origine))
       await deps.onLibraryChanged(spaceId)
       res.status(201).json(quiz)
     }),
@@ -592,7 +600,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
       }
       // Une copie de modèle mélange ses réponses : on écrit la bonne d'abord,
       // et la salle finirait par le voir.
-      const quiz = await deps.store.create(spaceId, title, questions, undefined, { melangerReponses: true })
+      const quiz = await deps.store.create(spaceId, title, questions, undefined, { melangerReponses: true }, 'modele')
       await deps.onLibraryChanged(spaceId)
       res.status(201).json(quiz)
     }),
@@ -665,7 +673,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
       }
       const titre = titreLibre(titreDuQuizToutPret(choix, tirees.length), bibliotheque.map(q => q.title))
       // Ses réponses se mélangent à chaque partie, comme celles d'un modèle : la base les range comme elle veut.
-      const quiz = await deps.store.create(spaceId, titre, tirees, undefined, { melangerReponses: true })
+      const quiz = await deps.store.create(spaceId, titre, tirees, undefined, { melangerReponses: true }, 'tout-pret')
       await deps.onLibraryChanged(spaceId)
       res.status(201).json(quiz)
     }),

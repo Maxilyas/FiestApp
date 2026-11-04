@@ -659,8 +659,10 @@ test('le poste de commande se lit d’un coup d’œil : l’état du service, c
   // lecteur d'écran. Vingt-quatre joueurs, chacun une fois — les deux profils de la soirée et les dix-huit invités
   // sans profil, les six profils qui ont joué seuls —, contre vingt la veille.
   assert.match(html, /Sur les dernières 24 heures/)
-  assert.match(html, /<span class="qg-tuile-nom">Joueurs<\/span><span class="qg-tuile-valeur num">24<\/span>/)
-  assert.match(html, /20 %<span class="sr-only"> de plus que la période d’avant<\/span>/)
+  // Des personnes, invités sans profil compris — la page des joueurs, elle, ne compte que des profils : deux mots pour deux
+  // populations (la revue d'analyse du 4 novembre 2026).
+  assert.match(html, /<span class="qg-tuile-nom">Personnes<\/span><span class="qg-tuile-valeur num">24<\/span>/)
+  assert.match(html, /20 %<span class="sr-only"> de plus que la période d’avant<\/span><span aria-hidden="true"> · <\/span>invités compris/)
   // Chaque mode, ses participations et ses joueurs : un toucher ouvre sa page.
   assert.match(html, /<li class="qg-tuile qg-tuile-ouvre" style="--teinte:var\(--mode-cabinet\)"><button type="button"><span class="qg-tuile-nom"><i class="qg-tuile-cle qg-mode-cabinet" aria-hidden="true"><\/i>Cabinet<\/span><span class="qg-tuile-valeur num">1<\/span>/)
   assert.match(html, /1 joueur<\/span>/)

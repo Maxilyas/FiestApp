@@ -736,6 +736,39 @@ export function playableQuestions(quiz: QuizDef): PlayableQuestion[] {
   return quiz.questions.map(toPlayable).filter((q): q is PlayableQuestion => q !== null)
 }
 
+// ── D'où vient un quiz ───────────────────────────────────────────────────
+//
+// Le carnet des animateurs du QG (le 4 novembre 2026, la revue d'analyse,
+// P1.1 : « quiz prêts par origine ») dit comment chacun remplit sa
+// bibliothèque — à la main, d'une liste, d'un modèle, du quiz tout prêt… Le
+// serveur le note à la création (`quizzes.origine`) ; les quiz d'avant la
+// colonne n'en disent rien (NULL : « d'avant »), et rien ne le devine.
+
+/**
+ * Les chemins par où un quiz naît : l'éditeur vide, « Coller une liste », un
+ * fichier importé — que la page dit en créant (`POST /api/quizzes`) —, un
+ * modèle (et les quiz d'amorce), un quiz tout prêt, un code reçu, le
+ * catalogue — que chaque route sait d'elle-même. `inconnue` : une page
+ * d'avant, qui ne le disait pas. Une copie (« Dupliquer », le rattachement
+ * d'un espace) garde l'origine de l'original.
+ */
+export const ORIGINES_D_UN_QUIZ = ['editeur', 'liste', 'import', 'modele', 'tout-pret', 'partage', 'catalogue', 'inconnue'] as const
+export type OrigineDUnQuiz = (typeof ORIGINES_D_UN_QUIZ)[number]
+
+/** Ce que la page dit en créant un quiz par `POST /api/quizzes` : les seuls chemins qui y passent. */
+const ORIGINES_DE_LA_PAGE: readonly OrigineDUnQuiz[] = ['editeur', 'liste', 'import']
+
+/** L'origine que la page envoie, telle que le serveur la garde : un des trois chemins, sinon `inconnue` — jamais devinée. */
+export function lireLOrigineDuQuiz(brut: unknown): OrigineDUnQuiz {
+  return ORIGINES_DE_LA_PAGE.find(o => o === brut) ?? 'inconnue'
+}
+
+/** L'origine relue en base : null, un quiz d'avant la colonne. */
+export function origineDuQuizLue(brut: unknown): OrigineDUnQuiz | null {
+  if (brut === null || brut === undefined) return null
+  return ORIGINES_D_UN_QUIZ.find(o => o === brut) ?? 'inconnue'
+}
+
 // ── Ce qui arrive du navigateur ──────────────────────────────────────────
 //
 // Le serveur borne ainsi tout ce qu'il enregistre, et l'éditeur un brouillon

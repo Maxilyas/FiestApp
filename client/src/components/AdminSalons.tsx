@@ -4,9 +4,10 @@ import { Icon } from './Icon'
 import { Feuille } from './Pieces'
 import { choixDialog, confirmDialog, promptDialog } from './Dialog'
 import { showToast } from '../state'
-import { deNom, espacesFines, quand } from '../format'
+import { deNom, espacesFines } from '../format'
 import { copierTexte } from '../copier'
 import { nomDeLEspace as nomDe, normalizeSlug, type EspaceDAdministration } from '../../../shared/space'
+import { quandEcrit } from '../../../shared/qg'
 
 type Filtre = 'tous' | 'orphelins' | 'fermes'
 const FILTRES: [Filtre, string][] = [
@@ -18,19 +19,32 @@ const garder = (f: Filtre) => (e: EspaceDAdministration) =>
   f === 'tous' ? true : f === 'orphelins' ? e.salon && !e.titulaire : e.status === 'disabled'
 
 /**
- * « Les salons », à `/admin#salons` : tous les espaces du serveur — les
- * salons que les profils ouvrent, et les comptes d'animateur d'avant, à mot
- * de passe. Une ligne chacun, qui ouvre sa feuille : le renommer, le fermer
- * (désactiver), le rouvrir, le supprimer une fois fermé. Un salon dont le
- * profil a été supprimé reste, sans titulaire, pour que les souvenirs de ses
- * soirées s'ouvrent toujours : c'est ici qu'on le supprime, quand on veut.
+ * « Les salons » : tous les espaces du serveur — les salons que les profils
+ * ouvrent, et les comptes d'animateur d'avant, à mot de passe. Une ligne
+ * chacun, qui ouvre sa feuille : le renommer, le fermer (désactiver), le
+ * rouvrir, le supprimer une fois fermé. Un salon dont le profil a été
+ * supprimé reste, sans titulaire, pour que les souvenirs de ses soirées
+ * s'ouvrent toujours : c'est ici qu'on le supprime, quand on veut. Depuis le
+ * 4 novembre 2026, l'onglet « Les salons » de la page des animateurs, qui
+ * garde son adresse (`/admin#salons`).
+ *
+ * `dernieres` : la dernière soirée de chaque salon ouvert, que le carnet a
+ * lue — la ligne disait « vu », l'ouverture d'une console (`last_login_at`),
+ * qu'on lisait pour une soirée animée (la revue d'analyse du 4 novembre 2026).
  */
-export function AdminSalons({ espaces, onChange }: { espaces?: EspaceDAdministration[]; onChange: () => void }) {
+export function AdminSalons({ espaces, dernieres, onChange }: { espaces?: EspaceDAdministration[]; dernieres?: ReadonlyMap<string, number | null>; onChange: () => void }) {
   const [filtre, setFiltre] = useState<Filtre>('tous')
   const [ouvert, setOuvert] = useState<string | null>(null)
   if (!espaces) return <p className="serif-note">Chargement…</p>
   const liste = espaces.filter(garder(filtre))
   const fiche = espaces.find(e => e.id === ouvert)
+  /** Sa dernière soirée, si le carnet la dit : « dernière soirée le 31 octobre », « pas encore de soirée ». */
+  const soiree = (e: EspaceDAdministration) => {
+    if (!dernieres?.has(e.id)) return null
+    const derniere = dernieres.get(e.id)
+    // À l'heure de Paris, comme tout le QG (`quandEcrit`).
+    return derniere === null || derniere === undefined ? 'pas encore de soirée' : `dernière soirée ${quandEcrit(derniere, Date.now())}`
+  }
   return (
     <>
       <nav className="rayons-texte" aria-label="Montrer">
@@ -51,7 +65,7 @@ export function AdminSalons({ espaces, onChange }: { espaces?: EspaceDAdministra
               <span className="admin-espace-texte">
                 <b>{espacesFines(nomDe(e))}</b>
                 <span className="muted small">
-                  /{e.slug} · {e.quiz} quiz{e.lastLoginAt ? ` · vu ${quand(e.lastLoginAt)}` : ''}
+                  /{e.slug} · {e.quiz} quiz{soiree(e) ? ` · ${soiree(e)}` : ''}
                 </span>
               </span>
               <Etat espace={e} />
@@ -63,6 +77,7 @@ export function AdminSalons({ espaces, onChange }: { espaces?: EspaceDAdministra
       {fiche && (
         <FicheDEspace
           espace={fiche}
+          soiree={soiree(fiche)}
           onFermer={() => setOuvert(null)}
           onChange={() => {
             setOuvert(null)
@@ -89,7 +104,7 @@ function Etat({ espace: e }: { espace: EspaceDAdministration }) {
  * pas, son profil est sa porte —, et jamais pour le sien : son mot de passe
  * se change dans « Mon compte », en donnant l'actuel.
  */
-function FicheDEspace({ espace: e, onFermer, onChange }: { espace: EspaceDAdministration; onFermer: () => void; onChange: () => void }) {
+function FicheDEspace({ espace: e, soiree, onFermer, onChange }: { espace: EspaceDAdministration; soiree: string | null; onFermer: () => void; onChange: () => void }) {
   const [occupe, setOccupe] = useState(false)
   const faire = async (geste: () => Promise<unknown>, merci?: string) => {
     setOccupe(true)
@@ -213,9 +228,16 @@ function FicheDEspace({ espace: e, onFermer, onChange }: { espace: EspaceDAdmini
           <dt>Quiz</dt>
           <dd>{e.quiz}</dd>
         </div>
+        {soiree && (
+          <div>
+            <dt>Soirées</dt>
+            <dd>{soiree.charAt(0).toUpperCase() + soiree.slice(1)}</dd>
+          </div>
+        )}
+        {/* L'ouverture d'une console, pas une soirée animée : « Vu » se lisait pour l'une, et ne disait que l'autre. */}
         <div>
-          <dt>Vu</dt>
-          <dd>{e.lastLoginAt ? quand(e.lastLoginAt) : 'jamais'}</dd>
+          <dt>Console ouverte</dt>
+          <dd>{e.lastLoginAt ? quandEcrit(e.lastLoginAt, Date.now()) : 'jamais'}</dd>
         </div>
       </dl>
       <div className="admin-gestes">

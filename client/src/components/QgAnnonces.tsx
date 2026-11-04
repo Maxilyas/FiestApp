@@ -9,7 +9,16 @@ import { espacesFines } from '../format'
 import { formatNumber } from '../../../shared/typographie'
 import { quandEcrit } from '../../../shared/qg'
 import { ANNONCE_MS, CONFETTIS_PAR_DON_MAX } from '../../../shared/profil'
-import { AUX_PROFILS_DU_SEGMENT, NOM_DU_SEGMENT, REGLE_DU_SEGMENT, SEGMENTS, type ComptesDesSegments, type SegmentDuQg } from '../../../shared/qgJoueurs'
+import { SEGMENTS, type ComptesDesSegments } from '../../../shared/qgJoueurs'
+import {
+  SEGMENTS_DES_ANIMATEURS,
+  auxProfilsDe,
+  estUnSegmentDesAnimateurs,
+  nomDuSegmentDesAnnonces,
+  regleDuSegmentDesAnnonces,
+  type ComptesDesAnimateurs,
+  type SegmentDesAnnonces,
+} from '../../../shared/qgAnimateurs'
 import {
   ANNONCE_MAX,
   CHOIX_LONGUEUR_MAX,
@@ -90,14 +99,18 @@ function ResultatsDeLaQuestion({ question: q }: { question: QuestionAuQg }) {
  * Depuis le 4 novembre 2026 (le lot 6 du QG 2), à tous d'office ou aux seuls
  * profils d'un segment de la page des joueurs — les nouveaux, les endormis… —,
  * chacun compté avant d'écrire ; « Leur écrire », sur la page des joueurs,
- * l'ouvre sur le sien (`segment`).
+ * l'ouvre sur le sien (`segment`). Le même jour, aux animateurs aussi — les
+ * titulaires des salons ouverts, tous ou ceux d'un état du carnet —, que
+ * « Leur écrire », sur la page des animateurs, ouvre de même.
  */
-export function QgAnnonces({ segment: depart = null }: { segment?: SegmentDuQg | null } = {}) {
+export function QgAnnonces({ segment: depart = null }: { segment?: SegmentDesAnnonces | null } = {}) {
   const [page, setPage] = useState<PageDesAnnonces | null>(null)
-  /** À qui elle part : null, tous les profils ; sinon un segment des joueurs, ses membres comptés à l'envoi. */
-  const [pourQui, setPourQui] = useState<SegmentDuQg | null>(depart)
+  /** À qui elle part : null, tous les profils ; sinon un segment des joueurs ou des animateurs, ses membres comptés à l'envoi. */
+  const [pourQui, setPourQui] = useState<SegmentDesAnnonces | null>(depart)
   /** Combien chaque segment compte de profils ; null tant qu'ils ne sont pas lus, ou s'ils ne se lisent pas. */
   const [comptes, setComptes] = useState<ComptesDesSegments | null>(null)
+  /** Combien chaque segment des animateurs toucherait de titulaires, lu à part : le carnet a ses propres lectures. */
+  const [animateurs, setAnimateurs] = useState<ComptesDesAnimateurs | null>(null)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [confettis, setConfettis] = useState(0)
@@ -115,11 +128,14 @@ export function QgAnnonces({ segment: depart = null }: { segment?: SegmentDuQg |
       },
       e => setError(motifDe(e)),
     )
-  const relireLesComptes = () => api.admin.segmentsDesJoueurs().then(setComptes, () => setComptes(null))
+  const relireLesComptes = () => {
+    void api.admin.segmentsDesJoueurs().then(setComptes, () => setComptes(null))
+    void api.admin.segmentsDesAnimateurs().then(setAnimateurs, () => setAnimateurs(null))
+  }
   useEffect(() => {
     void relire()
     // À côté, sans faire attendre la page : la mémoire du QG peut avoir un jour à rattraper.
-    void relireLesComptes()
+    relireLesComptes()
   }, [])
 
   if (error) return <p className="error">{error}</p>
@@ -127,11 +143,13 @@ export function QgAnnonces({ segment: depart = null }: { segment?: SegmentDuQg |
 
   const ecrit = messageNet(message)
   const longueur = Array.from(ecrit).length
-  /** Les profils qu'elle toucherait : tous ceux d'aujourd'hui, ou ceux du segment — inconnus tant que les comptes ne sont pas lus. */
-  const touches = pourQui === null ? page.profils : (comptes?.comptes[pourQui] ?? null)
+  /** Ce qu'un segment compte : ses profils, ou les titulaires de ses salons — inconnus tant que les comptes ne sont pas lus. */
+  const compteDe = (s: SegmentDesAnnonces): number | undefined => (estUnSegmentDesAnimateurs(s) ? animateurs?.comptes[s] : comptes?.comptes[s])
+  /** Les profils qu'elle toucherait : tous ceux d'aujourd'hui, ou ceux du segment. */
+  const touches = pourQui === null ? page.profils : (compteDe(pourQui) ?? null)
   const pour = touches === null ? 'les profils de ce segment' : deProfils(touches)
-  /** « Annoncer à 128 profils », « Annoncer aux endormis » : à qui, dans le bouton et la confirmation. */
-  const aQui = pourQui === null ? `à ${pour}` : AUX_PROFILS_DU_SEGMENT[pourQui]
+  /** « Annoncer à 128 profils », « Annoncer aux endormis », « aux animateurs en retard » : à qui, dans le bouton et la confirmation. */
+  const aQui = pourQui === null ? `à ${pour}` : auxProfilsDe(pourQui)
   /** Le formulaire repart à zéro, l'annonce partie : le prochain envoi est un autre. */
   const repartir = () => {
     setMessage('')
@@ -153,7 +171,8 @@ export function QgAnnonces({ segment: depart = null }: { segment?: SegmentDuQg |
       title: pourQui === null ? `Annoncer à ${pour} ?` : `Annoncer ${aQui}${touches === null ? '' : ` (${pour})`} ?`,
       message: espacesFines(
         [
-          pourQui !== null && `Ses destinataires se comptent à l’envoi : ceux qui suivent la règle à cet instant — ${REGLE_DU_SEGMENT[pourQui].toLowerCase()}. Elle ne leur dit pas pourquoi eux.`,
+          pourQui !== null &&
+            `Ses destinataires se comptent à l’envoi : ceux qui suivent la règle à cet instant — ${regleDuSegmentDesAnnonces(pourQui).toLowerCase()}. Elle ne leur dit pas pourquoi eux.`,
           confettis > 0
             ? `Chacun la lira une fois, en haut de son accueil, avec ${nConfettis(confettis)}${touches === null ? '' : ` — ${nConfettis(confettis * touches)} en tout`}. Un don ne se reprend pas : retirer l’annonce les laissera à chacun.`
             : 'Chacun la lira une fois, en haut de son accueil.',
@@ -244,12 +263,13 @@ export function QgAnnonces({ segment: depart = null }: { segment?: SegmentDuQg |
         {/* À qui : tous d'office, ou un segment de la page des joueurs — chacun son compte, sa règle dessous. */}
         <fieldset className="annonce-question-form">
           <legend className="label">À qui ?</legend>
+          {/* Tous et les segments des joueurs, puis les animateurs — les titulaires des salons —, tous ou d'un état du carnet. */}
           <div className="annonce-sortes" role="radiogroup" aria-label="À qui l’annonce part">
-            {([null, ...SEGMENTS] as (SegmentDuQg | null)[]).map(s => {
-              const n = s === null ? page.profils : comptes?.comptes[s]
+            {([null, ...SEGMENTS, ...SEGMENTS_DES_ANIMATEURS] as (SegmentDesAnnonces | null)[]).map(s => {
+              const n = s === null ? page.profils : compteDe(s)
               return (
                 <button key={s ?? 'tous'} type="button" role="radio" aria-checked={pourQui === s} className={'annonce-sorte' + (pourQui === s ? ' actif' : '')} onClick={() => setPourQui(s)}>
-                  {s === null ? 'Tous' : NOM_DU_SEGMENT[s]}
+                  {s === null ? 'Tous' : nomDuSegmentDesAnnonces(s)}
                   {n !== undefined && <span className="rayon-compte">{formatNumber(n)}</span>}
                 </button>
               )
@@ -259,7 +279,9 @@ export function QgAnnonces({ segment: depart = null }: { segment?: SegmentDuQg |
             {espacesFines(
               pourQui === null
                 ? 'Tous les profils d’aujourd’hui, sans les suspendus.'
-                : `${REGLE_DU_SEGMENT[pourQui]} — la règle de la page des joueurs, sans les suspendus. L’annonce ne dit pas le segment à qui la lit : « Pour toi », sur son accueil.`,
+                : `${regleDuSegmentDesAnnonces(pourQui)} — ${
+                    estUnSegmentDesAnimateurs(pourQui) ? 'la règle du carnet des animateurs : leurs titulaires, sans les salons détachés ni les profils suspendus' : 'la règle de la page des joueurs, sans les suspendus'
+                  }. L’annonce ne dit pas le segment à qui la lit : « Pour toi », sur son accueil.`,
             )}
           </p>
         </fieldset>
@@ -365,7 +387,7 @@ export function QgAnnonces({ segment: depart = null }: { segment?: SegmentDuQg |
                     <span className="muted small">
                       {[
                         a.confettis > 0 ? `${nConfettis(a.confettis)} à ${deProfils(a.destinataires)}` : `Pour ${deProfils(a.destinataires)}`,
-                        a.segment && NOM_DU_SEGMENT[a.segment],
+                        a.segment && nomDuSegmentDesAnnonces(a.segment),
                         quandEcrit(a.le, page.maintenant),
                       ]
                         .filter(Boolean)

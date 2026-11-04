@@ -32,6 +32,7 @@ import type { DefiDAccueil } from './campagne'
 import type { BordureDeLigue, ChoixDeBordure, CleDeLigue, DuelsDAccueil } from './duels'
 import type { VusDeLaLoge } from './piecesDeLaLoge'
 import type { ActiviteDUnJoueur } from './qgActivite'
+import type { EtatDUnSalon } from './qgAnimateurs'
 import type { TraverseeEnRouteAuQg } from './qgCabinet'
 import type { CabinetDAccueil } from './cabinet/vues'
 import type { CleDeSaison } from './saisons'
@@ -1055,6 +1056,12 @@ export interface FicheDuJoueur extends ProfilDAdministration {
    * s'acharne. Null si la base s'est tue.
    */
   activite: ActiviteDUnJoueur | null
+  /**
+   * Le salon qu'il tient, tel que le carnet des animateurs le juge : son état
+   * et sa dernière soirée (le 4 novembre 2026). Absent : il n'en tient pas,
+   * l'espace est désactivé, ou la base s'est tue.
+   */
+  animateur?: { etat: EtatDUnSalon; derniere: number | null }
 }
 
 /** Ce qu'un don de l'administrateur offre au plus : un geste pour quelqu'un, pas une économie à côté. */

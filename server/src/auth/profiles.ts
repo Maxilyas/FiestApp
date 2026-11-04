@@ -78,7 +78,7 @@ import {
 import { cleDeSaison, saison, type Saison } from '../../../shared/saisons'
 import { etiquetteDuTimbre, timbreDe, timbresDe } from '../../../shared/timbres'
 import { lireLOrigine, type OrigineLue } from '../../../shared/origines'
-import type { SegmentDuQg } from '../../../shared/qgJoueurs'
+import type { SegmentDesAnnonces } from '../../../shared/qgAnimateurs'
 import { NOMS_DES_DEFIS, PREFIXE_DES_DEFIS, RANGS_DITS, confettisDesDefis, defisAuMoins, defisTenus, gardienDeLaMaitrise, nomDuTitreDuDefi, rangDeLaCle, titresDesDefis, type DefisTenus } from '../../../shared/cabinet/sceaux'
 import {
   LEGENDAIRE_DES_DEFIS,
@@ -1056,7 +1056,7 @@ const annonceDuQg = (r: Row, question: QuestionAuQg | null = null): AnnonceAuQg 
   destinataires: Number(r.destinataires),
   le: Number(r.created_at),
   retireeLe: r.retiree_le == null ? null : Number(r.retiree_le),
-  segment: r.segment == null ? null : (String(r.segment) as SegmentDuQg),
+  segment: r.segment == null ? null : (String(r.segment) as SegmentDesAnnonces),
 })
 
 export class ProfileStore {
@@ -5993,7 +5993,7 @@ export class ProfileStore {
     message: unknown
     confettis: unknown
     question?: unknown
-    segment?: SegmentDuQg | null
+    segment?: SegmentDesAnnonces | null
     destinataires?: readonly string[]
   }): Promise<{ annonce: AnnonceAuQg; nouvelle: boolean }> {
     const message = lireLeMessage(demande.message)

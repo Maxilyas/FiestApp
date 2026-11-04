@@ -59,19 +59,22 @@ test('/admin : le QG — la vue d’ensemble d’abord, son journal et son serve
   // incidents (`qg-alertes.test.ts`), les joueurs, en tête de l'audience (`qg-joueurs.test.ts`), les téléphones
   // (`qg-telephones.test.ts`), et le Cabinet de curiosités, après la campagne (`qg-cabinet.test.ts`) ; l'activité devenue
   // les modes côte à côte au lot 5, à la même adresse (`qg-modes.test.ts`) ; les questions jouées et les réserves, sous
-  // « Contenu », avant les signalements (`qg-contenu.test.ts`) ; les ancres d'avant y mènent encore.
+  // « Contenu », avant les signalements (`qg-contenu.test.ts`) ; les animateurs à la place des salons, sous « Audience » — les
+  // salons en sont l'onglet (`qg-animateurs.test.ts`) ; les ancres d'avant y mènent encore, `#salons` compris.
   assert.match(
     page,
-    /const ECRANS: readonly Ecran\[\] = \['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'cabinet', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes', 'joueurs', 'telephones', 'questions', 'reserves'\]/,
+    /const ECRANS: readonly Ecran\[\] = \['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'animateurs', 'catalogue', 'jour', 'campagne', 'cabinet', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes', 'joueurs', 'telephones', 'questions', 'reserves'\]/,
   )
   assert.match(page, /const ANCIENNES: Record<string, Ecran> = \{ 'les-profils': 'profils', 'quiz-du-jour': 'jour' \}/)
+  // « Les salons » est devenu l'onglet des animateurs : son adresse d'avant ouvre cet onglet, pas le carnet.
+  assert.match(page, /const ONGLETS_D_AVANT: Record<string, \{ ecran: Ecran; onglet: string \}> = \{ salons: \{ ecran: 'animateurs', onglet: 'salons' \} \}/)
   // L'onglet ouvert est dans l'adresse (`/admin#serveur/gels`) : le retour du navigateur et un lien partagé le gardent.
   assert.match(page, /history\.pushState\(\{ \.\.\.history\.state, depuisAdmin: true \}, '', adresseDe\(e, o\)\)/)
   assert.match(page, /const adresseDe = \(e: Ecran \| null, onglet\?: string \| null\) => \(e \? `\/admin#\$\{e\}\$\{onglet \? `\/\$\{onglet\}` : ''\}` : '\/admin'\)/)
   // À l'ordinateur, le rail mène à chaque écran ; au téléphone, la feuille « Pages », tirée du même rail — mêmes groupes,
   // mêmes noms, même ordre, ses pastilles — : écrite à la main à côté, elle ne lui ressemblait plus (la revue
   // d'ergonomie du 4 novembre 2026). Chaque page dit ce qu'on y trouve, que la palette cherche aussi.
-  for (const e of ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'cabinet', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes', 'joueurs', 'telephones', 'questions', 'reserves']) {
+  for (const e of ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'animateurs', 'catalogue', 'jour', 'campagne', 'cabinet', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes', 'joueurs', 'telephones', 'questions', 'reserves']) {
     assert.match(page, new RegExp(`\\{ ecran: '${e}', nom: '[^']+', icone: '[a-z-]+', description: '[^']+'`), e)
   }
   assert.doesNotMatch(page, /<Ligne\s/, 'plus de liste des pages écrite à la main')

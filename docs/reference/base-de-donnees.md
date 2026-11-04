@@ -509,10 +509,10 @@ programmes et leurs partages.
 
 Les quiz de chaque espace, brouillons compris.
 
-- **Colonnes clés** : `id`, `title`, `questions` (JSON), `created_at`, `updated_at`, `space_id`, `reglages` (JSON : réponses mélangées, ordre, tirage), `archived_at`.
+- **Colonnes clés** : `id`, `title`, `questions` (JSON), `created_at`, `updated_at`, `space_id`, `reglages` (JSON : réponses mélangées, ordre, tirage), `archived_at`, `origine` (d'où il est né, écrit à sa création et jamais ensuite : `editeur`, `liste`, `import` — ce que la page dit —, `modele`, `tout-pret`, `partage`, `catalogue` — ce que la route sait —, `inconnue` pour une page d'avant qui ne dit rien ; une copie et un quiz rattaché d'un espace à l'autre gardent celle de l'original ; nulle avant le 4 novembre 2026, ajoutée par `ajouterColonne`).
 - **Espace** : oui.
-- **Écrite par** : `QuizStore` (`server/src/core/quizStore.ts`) — l'éditeur, les imports, les modèles, la copie des quiz d'amorce au premier démarrage (`seedLibrary`, `server/src/core/seed.ts`) ; `npm run migrate`.
-- **Lue par** : `QuizStore`, qui recharge la bibliothèque jouable d'un espace après chaque écriture ; les routes de l'éditeur.
+- **Écrite par** : `QuizStore` (`server/src/core/quizStore.ts`) — l'éditeur, les imports, les modèles, la copie des quiz d'amorce au premier démarrage (`seedLibrary`, `server/src/core/seed.ts`, des modèles) ; `npm run migrate`, qui n'emporte pas l'origine.
+- **Lue par** : `QuizStore`, qui recharge la bibliothèque jouable d'un espace après chaque écriture, et garde en mémoire l'origine et la naissance de chaque quiz (`quizDesEspaces`) — le carnet des animateurs du QG les compte sans rien relire ; les routes de l'éditeur.
 - **Effacée par** : la suppression d'un quiz ; la suppression de l'espace.
 
 ### `quiz_images`
@@ -1194,9 +1194,9 @@ Les réponses des profils aux questions des annonces.
 
 ### `qg_annonce_segments`
 
-Le segment de la page des joueurs auquel une annonce a été écrite (`/admin#annonces`, le 4 novembre 2026) : une ligne par annonce qui ne parle pas à tous.
+Le segment de la page des joueurs — ou des animateurs — auquel une annonce a été écrite (`/admin#annonces`, le 4 novembre 2026) : une ligne par annonce qui ne parle pas à tous.
 
-- **Colonnes clés** : `annonce_id` (clé primaire), `segment` (`nouveaux`, `reguliers`, `occasionnels`, `a-risque`, `endormis` ou `perdus` — `SEGMENTS`, `shared/qgJoueurs.ts`).
+- **Colonnes clés** : `annonce_id` (clé primaire), `segment` (`nouveaux`, `reguliers`, `occasionnels`, `a-risque`, `endormis` ou `perdus` — `SEGMENTS`, `shared/qgJoueurs.ts` — ; ou `animateurs`, les titulaires de tous les salons ouverts, et `animateurs:a-lancer`, `animateurs:nouveau`, `animateurs:fidele`, `animateurs:en-retard`, `animateurs:parti`, ceux d'un état du carnet — `SEGMENTS_DES_ANIMATEURS`, `shared/qgAnimateurs.ts`).
 - **Espace** : non — comme l'annonce.
 - **Écrite par** : `ProfileStore` (`annoncerATous`, dans le lot de l'annonce, et seulement pour l'annonce née dans ce lot : rejouée, une annonce à tous ne devient pas celle d'un segment). Une table à part plutôt qu'une colonne de `qg_annonces` : chaque réveil y aurait relu le schéma de la table pour l'ajouter.
 - **Lue par** : `ProfileStore` — la page du QG (le nom du segment, `COLONNES_D_UNE_ANNONCE`), l'accueil (`achatsDe` : une annonce à un segment ne se lit que par ses destinataires), ses dons et sa question.
@@ -1208,7 +1208,7 @@ Les profils d'un segment à l'envoi de son annonce : eux seuls la lisent, reçoi
 
 - **Colonnes clés** : `annonce_id` et `profile_id` (clé primaire) ; `profile_id` indexé, pour l'accueil et la suppression d'un profil.
 - **Espace** : non.
-- **Écrite par** : `ProfileStore` (`annoncerATous`), dans le même lot que l'annonce et ses dons — les membres du segment comptés à l'instant par la page des joueurs (`profilsDuSegment`, `server/src/joueursDuQg.ts`), sans les suspendus. Jamais modifiée.
+- **Écrite par** : `ProfileStore` (`annoncerATous`), dans le même lot que l'annonce et ses dons — les membres du segment comptés à l'instant par la page des joueurs (`profilsDuSegment`, `server/src/joueursDuQg.ts`), ou les titulaires d'un état du carnet des animateurs (`titulairesDuSegment`, `server/src/animateursDuQg.ts`), sans les suspendus. Jamais modifiée.
 - **Lue par** : `ProfileStore` — l'accueil de chaque profil, dans le lot de ses dons (`achatsDe`) ; l'instruction même des dons de l'annonce ; la réponse à sa question (`repondreALAnnonce` : 404 à qui n'en est pas).
 - **Effacée par** : un profil supprimé emporte les siennes (`supprimer`).
 

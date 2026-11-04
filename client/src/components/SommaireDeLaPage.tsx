@@ -1,4 +1,4 @@
-import { useEffect, useState, type RefObject } from 'react'
+import { useEffect, useState } from 'react'
 import { Icon } from './Icon'
 
 /** Un titre de section de la page : son ancre et ce qu'il dit. */
@@ -14,12 +14,15 @@ const SECTIONS_POUR_UN_SOMMAIRE = 4
  * Les titres de la page ouverte, lus dans la page elle-même : chaque section
  * du QG titre sa console d'un `h2` à ancre (`aria-labelledby`), et une section
  * de plus entre dans le sommaire sans rien déclarer. Relus quand la page
- * change — ses données arrivent après elle.
+ * change — ses données arrivent après elle. La page se trouve par un
+ * sélecteur, pas par une `ref` : posée sur le repère (`main.page-corps`), elle
+ * le faisait sortir de la forme que la garde des repères relit
+ * (`design.test.ts`).
  */
-export function useSommaire(corps: RefObject<HTMLElement | null>, cle: unknown): TitreDeSection[] {
+export function useSommaire(selecteur: string, cle: unknown): TitreDeSection[] {
   const [titres, setTitres] = useState<TitreDeSection[]>([])
   useEffect(() => {
-    const racine = corps.current
+    const racine = document.querySelector<HTMLElement>(selecteur)
     if (!racine) return
     let image = 0
     const lire = () => {
@@ -39,7 +42,7 @@ export function useSommaire(corps: RefObject<HTMLElement | null>, cle: unknown):
       veille.disconnect()
       if (image) cancelAnimationFrame(image)
     }
-  }, [corps, cle])
+  }, [selecteur, cle])
   return titres
 }
 

@@ -7,7 +7,7 @@ import { AdminDuels } from '../components/AdminDuels'
 import { AdminEconomie } from '../components/AdminEconomie'
 import { AdminDuJour } from '../components/AdminDuJour'
 import { AdminProfils, supprimerLeProfil } from '../components/AdminProfils'
-import { AdminSalons } from '../components/AdminSalons'
+import { QgAnimateurs } from '../components/QgAnimateurs'
 import { AdminSignalements } from '../components/AdminSignalements'
 import { ListeATraiter, VueDEnsembleDuQg } from '../components/QgVueDEnsemble'
 import { QgJournal } from '../components/QgJournal'
@@ -45,7 +45,7 @@ import { ceQuiEstPose, PAGES_EN_MAINTENANCE, type EtatDeLaMaintenance } from '..
 import type { EntreeDuCatalogue, StatutAuCatalogue } from '../../../shared/partage'
 import type { QuizQuestionDef } from '../../../shared/library'
 import type { ProfilDAdministration } from '../../../shared/profil'
-import type { SegmentDuQg } from '../../../shared/qgJoueurs'
+import type { SegmentDesAnnonces } from '../../../shared/qgAnimateurs'
 import type { EtatDesQuestions } from '../../../shared/qgContenu'
 
 /**
@@ -85,7 +85,7 @@ type Ecran =
   | 'activite'
   | 'soirees'
   | 'profils'
-  | 'salons'
+  | 'animateurs'
   | 'catalogue'
   | 'jour'
   | 'campagne'
@@ -102,9 +102,11 @@ type Ecran =
   | 'telephones'
   | 'questions'
   | 'reserves'
-const ECRANS: readonly Ecran[] = ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'cabinet', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes', 'joueurs', 'telephones', 'questions', 'reserves']
+const ECRANS: readonly Ecran[] = ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'animateurs', 'catalogue', 'jour', 'campagne', 'cabinet', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes', 'joueurs', 'telephones', 'questions', 'reserves']
 /** Les ancres de la page d'avant, qu'un favori garde encore. */
 const ANCIENNES: Record<string, Ecran> = { 'les-profils': 'profils', 'quiz-du-jour': 'jour' }
+/** Une page d'avant devenue l'onglet d'une autre : « Les salons », l'onglet des animateurs depuis le 4 novembre 2026, s'y ouvre. */
+const ONGLETS_D_AVANT: Record<string, { ecran: Ecran; onglet: string }> = { salons: { ecran: 'animateurs', onglet: 'salons' } }
 
 /**
  * L'adresse d'une page : son écran, et l'onglet qu'on y a ouvert
@@ -114,6 +116,7 @@ const ANCIENNES: Record<string, Ecran> = { 'les-profils': 'profils', 'quiz-du-jo
  */
 function lireAdresse(): { ecran: Ecran | null; onglet: string | null } {
   const [h, onglet] = window.location.hash.slice(1).split('/')
+  if (Object.hasOwn(ONGLETS_D_AVANT, h)) return ONGLETS_D_AVANT[h]
   const ecran = (ECRANS as readonly string[]).includes(h) ? (h as Ecran) : (ANCIENNES[h] ?? null)
   return { ecran, onglet: ecran && onglet ? onglet : null }
 }
@@ -130,7 +133,7 @@ const TITRE: Record<Ecran, string> = {
   soirees: 'Les soirées',
   // « Les profils » et « Les joueurs » se ressemblaient : pour trouver Léa, lequel ? Celle-ci cherche quelqu'un ; l'adresse reste.
   profils: 'Chercher un joueur',
-  salons: 'Les salons',
+  animateurs: 'Les animateurs',
   catalogue: 'Le catalogue',
   jour: 'Le quiz du jour',
   campagne: 'La campagne',
@@ -189,9 +192,11 @@ const PAGES_DU_QG: { groupe: string; pages: PageDuRail[] }[] = [
     groupe: 'Audience',
     pages: [
       // En tête : combien jouent, combien reviennent, qui décroche — puis chacun, qu'on cherche par son nom.
-      { ecran: 'joueurs', nom: 'Joueurs', icone: 'users', description: 'Fidélité, cohortes, segments', mots: 'audience rétention actifs reviennent' },
+      { ecran: 'joueurs', nom: 'Joueurs', icone: 'users', description: 'Fidélité, cohortes, segments, premiers pas', mots: 'audience rétention actifs reviennent nouveaux' },
       { ecran: 'profils', nom: 'Chercher un joueur', icone: 'search', description: 'Sa fiche : offrir, débloquer, suspendre', mots: 'profil profils fiche confettis code secours' },
-      { ecran: 'salons', nom: 'Salons', icone: 'home', description: 'Les espaces des animateurs : renommer, fermer', mots: 'animateurs espaces' },
+      // Le carnet de chaque salon, à la place de « Salons » (le 4 novembre 2026, la revue d'expert, P1.1) : leur liste et
+      // leurs gestes en sont l'onglet (`#animateurs/salons`).
+      { ecran: 'animateurs', nom: 'Animateurs', icone: 'monitor', description: 'Le carnet des salons : rythme, retard, les salons', mots: 'salons espaces carnet rythme retard renommer fermer animateur' },
     ],
   },
   {
@@ -314,16 +319,15 @@ export function AdminApp() {
   const [periodesOuvertes, setPeriodesOuvertes] = useState(false)
   const [palette, setPalette] = useState(false)
   const [fiche, setFiche] = useState<Pick<ProfilDAdministration, 'id' | 'nom'> | null>(null)
-  /** Le segment des joueurs à qui la page des annonces s'ouvre pour écrire (« Leur écrire ») ; null, à tous. */
-  const [segmentDesAnnonces, setSegmentDesAnnonces] = useState<SegmentDuQg | null>(null)
+  /** Le segment des joueurs — ou des animateurs — à qui la page des annonces s'ouvre pour écrire (« Leur écrire ») ; null, à tous. */
+  const [segmentDesAnnonces, setSegmentDesAnnonces] = useState<SegmentDesAnnonces | null>(null)
   /** Les questions que la page des questions montre, retenues d'une page à l'autre : la campagne et les réserves l'ouvrent sur les contredites. */
   const [questionsSur, setQuestionsSur] = useState<EtatDesQuestions>('toutes')
   const [groupes, setGroupes] = useState<Record<string, boolean>>(lireLesGroupes)
   const titre = useRef<HTMLHeadingElement>(null)
-  const corps = useRef<HTMLElement>(null)
   const premierRendu = useRef(true)
   // Les sections de la page ouverte, lues dans la page : son sommaire, sur une longue page.
-  const sections = useSommaire(corps, `${ecran}|${onglet}|${!!me}`)
+  const sections = useSommaire('.player-shell.qg > main.page-corps', `${ecran}|${onglet}|${!!me}`)
   // Une lecture à la fois : l'hébergeur qui se réveille tient une requête trente secondes.
   const enVol = useRef({ direct: false, vue: false })
   const derniereVue = useRef(0)
@@ -742,7 +746,7 @@ export function AdminApp() {
         <div className="qg-cote-pied">{sortir}</div>
       </nav>
 
-      <main className="page-corps" ref={corps}>
+      <main className="page-corps">
         {/* Une longue page a son sommaire ; le poste de commande se lit d'un coup d'œil. */}
         {ecran !== null && <SommaireDeLaPage titres={sections} />}
         {ecran === null && (
@@ -781,7 +785,19 @@ export function AdminApp() {
         {/* Le direct de la page des soirées est celui du QG, relu toutes les dix secondes ; relu aussitôt après un geste. */}
         {ecran === 'soirees' && <QgSoirees direct={direct} apresUnGeste={relireLeDirect} vue={vue} periode={periodeDeLaPage} comparer={comparer} />}
         {ecran === 'profils' && <AdminProfils />}
-        {ecran === 'salons' && <AdminSalons espaces={espaces} onChange={relireLesComptes} />}
+        {/* Le carnet de chaque salon, et « Les salons » en onglet ; « Leur écrire » ouvre les annonces sur un état. */}
+        {ecran === 'animateurs' && (
+          <QgAnimateurs
+            espaces={espaces}
+            apresUnGesteSurLesSalons={relireLesComptes}
+            versLesAnnonces={segment => {
+              setSegmentDesAnnonces(segment)
+              aller('annonces')
+            }}
+            onglet={onglet}
+            changerDOnglet={changerDOnglet}
+          />
+        )}
         {ecran === 'catalogue' && <Catalogue />}
         {ecran === 'jour' && (
           <AdminDuJour

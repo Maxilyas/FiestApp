@@ -15558,6 +15558,22 @@ span.annonce-admin-merci { cursor: default; }
 .qg-recueil .qg-piste-nom .icon { color: var(--teinte, var(--mode-jour)); }
 /* Une carte du QG titrée d'un h3 — les sortes du contenu du Cabinet, sous la console qui les porte. */
 .qg-carte-tete h3 { margin: 0; font-family: var(--sans); font-size: 0.95rem; font-weight: 600; line-height: 1.3; }
+/* Les animateurs (`QgAnimateurs.tsx`) : l'entonnoir, les états, le carnet — une table à l'ordinateur, une carte par
+   salon au téléphone (`.qg-cote-table`, `.qg-cote-cartes`). Le nom d'un salon ouvre la fiche de son titulaire : un
+   bouton qui se lit comme un nom, souligné au survol, haut de 44 pixels au doigt dans sa carte. */
+.qg-animateurs-page { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; }
+.qg-animateurs-chapo { margin: 0; }
+.qg-animateurs-nom { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+.qg-animateurs-fiche { padding: 0; border: 0; background: none; color: var(--ink); font: 600 0.95rem/1.3 var(--sans); text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.qg-animateurs-fiche:hover { color: var(--accent-text-hover); text-decoration: underline; }
+.qg-cote-carte .qg-animateurs-fiche { min-height: 44px; }
+.qg-animateurs-sous { display: block; margin-top: 2px; color: var(--qg-encre-2); font: 400 var(--t-label)/1.3 var(--sans); white-space: nowrap; }
+/* La colonne du salon se plie — un nom long passe à la ligne — : onze colonnes tiennent en 1366 × 768 sans défiler de côté. */
+.qg-animateurs-table th[scope='row'] { min-width: 10em; font-family: var(--sans); font-weight: 500; white-space: normal; }
+.qg-animateurs-tete { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 10px; }
+/* Les premiers pas des profils (`QgJoueurs.tsx`) : leur ligne des neuf semaines, et le pont. */
+.qg-joueurs-total > * { border-top: 1px solid var(--qg-trait-fort); font-weight: 600; }
+.qg-joueurs-pont { margin: 0; padding: 10px 12px; border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; background: rgba(255, 255, 255, 0.03); }
 @media (min-width: 1101px) {
   /* Le rail dans la première colonne, toute la hauteur de l'écran ; la barre de commande, la tête et la page dans la
      seconde. La barre du QG du téléphone s'efface : le rail la remplace, l'accueil et son compte à son pied. */
@@ -15708,6 +15724,14 @@ span.annonce-admin-merci { cursor: default; }
   .qg-jouee-sous { display: none; }
   .qg-jouees-trier { display: none; }
   .qg-jouees-table td.qg-jouees-plie { min-width: 6rem; white-space: normal; }
+  /* Les animateurs : l'entonnoir à côté des états, le carnet et sa lecture sur toute la largeur. */
+  .qg-animateurs-page { grid-template-columns: repeat(12, minmax(0, 1fr)); align-items: start; }
+  .qg-animateurs-chapo,
+  .qg-animateurs-carnet,
+  .qg-animateurs-notes { grid-column: 1 / -1; }
+  .qg-animateurs-entonnoir { grid-column: span 5; align-self: stretch; }
+  .qg-animateurs-etats { grid-column: span 7; align-self: stretch; }
+  .qg-joueurs-premiers-pas { grid-column: 1 / -1; }
 }
 @media (min-width: 1600px) {
   /* Dix voyants dépliés, cinq par rangée dès qu'ils tiennent dans les deux tiers de la page : deux rangées égales,
