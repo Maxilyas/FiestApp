@@ -124,6 +124,22 @@ export class MemoireDuQg {
   }
 
   /**
+   * Les heures éveillées du serveur des jours finis depuis `de` — un mois en a
+   * trente et une lignes au plus : les heures de l'hébergeur, une fois
+   * l'heure, pour les jours que les démarrages gardés ne couvrent plus. Null, le
+   * jour ne le sait pas — une ligne d'avant, ou un jour plus vieux que les
+   * démarrages quand il s'est écrit.
+   */
+  async heuresDesJours(de: string): Promise<Map<string, number | null>> {
+    const res = await this.client.execute({
+      sql: `SELECT json_group_array(json_array(jour, json_extract(chiffres, '$.serveur.heures'))) AS lignes FROM qg_jours WHERE jour >= ? AND json_valid(chiffres)`,
+      args: [de],
+    })
+    const lignes = JSON.parse(String(res.rows[0]?.lignes ?? '[]')) as [string, number | null][]
+    return new Map(lignes.map(([jour, heures]) => [String(jour), typeof heures === 'number' && Number.isFinite(heures) ? heures : null]))
+  }
+
+  /**
    * Écrit des jours finis, d'un seul lot : la feuille de chacun remplacée
    * entière, ses chiffres aussi — deux serveurs d'une mise en ligne qui
    * rattrapent le même jour écrivent la même chose, l'un après l'autre. Et ce

@@ -728,6 +728,8 @@ export interface BaseDuQg {
   maintenant: number
   miroir: VoieDuMiroir[]
   sauvegardes: SauvegardeDeLaBase[]
+  /** L'âge qui la dit ancienne : le seuil de la règle « Sauvegarde ancienne », tel qu'il est réglé ; absent, `SAUVEGARDE_ANCIENNE_MS`. */
+  ancienneApresMs?: number
 }
 
 /** Une erreur de la semaine : ses heures et ses versions, les mêmes de chaque heure fondues. */
@@ -1089,7 +1091,82 @@ export function sorteDuDemarrage(d: DemarrageDuServeur, avant: DemarrageDuServeu
 }
 
 /** Jusqu'où un démarrage a vécu : son extinction, sinon maintenant s'il répond, sinon son dernier signe. */
-const finDe = (d: DemarrageDuServeur, maintenant: number, courant: string) => d.arreteLe ?? (d.id === courant ? maintenant : d.vuLe)
+export const finDe = (d: DemarrageDuServeur, maintenant: number, courant: string) => d.arreteLe ?? (d.id === courant ? maintenant : d.vuLe)
+
+/**
+ * Le temps éveillé entre deux instants, en millisecondes : la réunion des vies
+ * des démarrages — de leur départ à leur fin (`finDe`) —, deux vies qui se
+ * chevauchent comptées une fois : à une mise en ligne, l'ancien serveur vit
+ * encore un instant à côté du nouveau, et l'hébergeur ne facture qu'un service.
+ */
+export function eveilleEntre(demarrages: readonly DemarrageDuServeur[], debut: number, fin: number, maintenant: number, courant: string): number {
+  const vies = demarrages
+    .map(d => [Math.max(debut, d.demarreLe), Math.min(fin, finDe(d, maintenant, courant))] as const)
+    .filter(([de, a]) => a > de)
+    .sort((x, y) => x[0] - y[0])
+  let total = 0
+  let jusqua = -Infinity
+  for (const [de, a] of vies) {
+    if (a <= jusqua) continue
+    total += a - Math.max(de, jusqua)
+    jusqua = a
+  }
+  return total
+}
+
+/** Le rythme des heures de l'hébergeur : les sept derniers jours, que les démarrages gardés couvrent tout entiers. */
+export const JOURS_DU_RYTHME = 7
+
+/** Les heures éveillées d'un service ce mois-ci : faites, et projetées à la fin du mois au rythme de la semaine. */
+export interface HeuresDeLHebergeur {
+  faites: number
+  projetees: number
+  /** Les heures d'un jour moyen des sept derniers. */
+  rythme: number
+}
+
+/**
+ * Les heures que ce service aura passées éveillé ce mois-ci, au rythme des
+ * sept derniers jours (la revue d'expert du 4 novembre 2026, P1.5) : celles
+ * déjà faites, puis le reste du mois à ce rythme. Les jours que les
+ * démarrages gardés couvrent (`SANTE_GARDEE_MS` : un démarrage vivant pendant
+ * l'un d'eux a donné signe de vie depuis) se comptent sur eux ; les plus
+ * anciens, sur la mémoire du QG (`qg_jours`) ; un jour qu'elle ne sait pas se
+ * compte au rythme. `jours` : les jours du mois jusqu'à aujourd'hui, chacun
+ * ses bornes et ce que la mémoire en sait. Le mois est celui de Paris : celui
+ * de l'hébergeur part à une heure ou deux près, sur sept cent cinquante.
+ */
+export function heuresDuMois({
+  demarrages,
+  maintenant,
+  courant,
+  finDuMois,
+  jours,
+}: {
+  demarrages: readonly DemarrageDuServeur[]
+  maintenant: number
+  courant: string
+  finDuMois: number
+  jours: readonly { debut: number; fin: number; heures: number | null }[]
+}): HeuresDeLHebergeur {
+  const couvertDepuis = maintenant - SANTE_GARDEE_MS
+  let faites = 0
+  let inconnu = 0
+  for (const j of jours) {
+    const fin = Math.min(j.fin, maintenant)
+    if (fin <= j.debut) continue
+    if (j.debut >= couvertDepuis) faites += eveilleEntre(demarrages, j.debut, fin, maintenant, courant)
+    else if (j.heures !== null) faites += j.heures * HEURE_MS
+    else inconnu += fin - j.debut
+  }
+  const semaine = JOURS_DU_RYTHME * 24 * HEURE_MS
+  const part = eveilleEntre(demarrages, maintenant - semaine, maintenant, maintenant, courant) / semaine
+  return {
+    faites: faites / HEURE_MS,
+    projetees: (faites + (inconnu + Math.max(0, finDuMois - maintenant)) * part) / HEURE_MS,
+    rythme: part * 24,
+  }
+}
 
 /** Une machine qui ne dit pas ses plafonds. */
 export const PLAFONDS_INCONNUS: PlafondsDuConteneur = { processeurPct: null, memoireMo: null }
