@@ -181,6 +181,31 @@ export interface ConnexionsDeLHeure {
   battements?: number
   battementsTombes?: number
   ouvertesParUnBattement?: number
+  /**
+   * La patience des connexions cette heure-là (`QUIZ_DB_PATIENCE_MS`, le
+   * transport léger seul ; zéro sans elle) : les allers-retours qui ont
+   * attendu qu'une connexion gardée se libère plutôt que d'en ouvrir une, ceux
+   * que la patience passée a lassés — ils en ont ouvert une —, et le temps
+   * qu'ils ont attendu en tout. `/healthz` ne les dit que sur la minute :
+   * sans l'heure, deux jours de patience ne se jugeaient pas. Absents des
+   * lignes d'avant leur relevé (le 4 novembre 2026).
+   */
+  patienceMs?: number
+  attentes?: number
+  lassees?: number
+  attenteMs?: number
+}
+
+/**
+ * Les connexions vers Turso de cinq minutes : celles ouvertes pour un joueur,
+ * et les attentes de la patience — l'heure seule ne disait pas laquelle de
+ * ses minutes avait payé ses poignées de main, ni donc quel geste lent les
+ * avait payées (le 4 novembre 2026, `retours/2026-11-04/`).
+ */
+export interface ConnexionsDUneTranche {
+  ouvertes: number
+  attentes: number
+  lassees: number
 }
 
 /**
@@ -429,6 +454,8 @@ export interface TrancheDeSante {
   /** Null sans un relevé de charge dans la tranche (il en part un toutes les dix secondes) ; `n`, leur nombre. */
   charge: { n: number; processeur: number; boucleMaxMs: number; memoireMaxMo: number; invitesMax: number } | null
   gels: { n: number; maxMs: number }
+  /** Ses connexions vers Turso ; absent d'une ligne d'avant leur relevé (le 4 novembre 2026). */
+  connexions?: ConnexionsDUneTranche
 }
 
 /** Une heure d'un démarrage, telle que la base la garde (`qg_sante`). */
@@ -932,7 +959,8 @@ export function fondreConnexions(a: ConnexionsDeLHeure | null, b: ConnexionsDeLH
   const ages = [a.plusJeuneRefermeeMs, b.plusJeuneRefermeeMs].filter((ms): ms is number => ms !== null)
   const annonces = [a.annonceeMs, b.annonceeMs].filter((ms): ms is number => typeof ms === 'number')
   const entretien = a.chaudes !== undefined || b.chaudes !== undefined
-  const somme = (cle: 'battements' | 'battementsTombes' | 'ouvertesParUnBattement') => (a[cle] ?? 0) + (b[cle] ?? 0)
+  const patience = a.patienceMs !== undefined || b.patienceMs !== undefined
+  const somme = (cle: 'battements' | 'battementsTombes' | 'ouvertesParUnBattement' | 'attentes' | 'lassees' | 'attenteMs') => (a[cle] ?? 0) + (b[cle] ?? 0)
   return {
     ouvertes: a.ouvertes + b.ouvertes,
     refermeesParLaBase: a.refermeesParLaBase + b.refermeesParLaBase,
@@ -946,7 +974,21 @@ export function fondreConnexions(a: ConnexionsDeLHeure | null, b: ConnexionsDeLH
       battementsTombes: somme('battementsTombes'),
       ouvertesParUnBattement: somme('ouvertesParUnBattement'),
     }),
+    // La patience la plus longue des deux : une mise en ligne qui la pose passe l'heure avec l'ancien serveur sans elle.
+    ...(patience && {
+      patienceMs: Math.max(a.patienceMs ?? 0, b.patienceMs ?? 0),
+      attentes: somme('attentes'),
+      lassees: somme('lassees'),
+      attenteMs: somme('attenteMs'),
+    }),
   }
+}
+
+/** Les connexions de deux démarrages dans les mêmes cinq minutes : les comptes s'ajoutent ; une tranche d'avant leur relevé n'en dit rien. */
+export function fondreConnexionsDesTranches(a: ConnexionsDUneTranche | undefined, b: ConnexionsDUneTranche | undefined): ConnexionsDUneTranche | undefined {
+  if (!a) return b && { ...b }
+  if (!b) return { ...a }
+  return { ouvertes: a.ouvertes + b.ouvertes, attentes: a.attentes + b.attentes, lassees: a.lassees + b.lassees }
 }
 
 /**
@@ -1444,9 +1486,11 @@ export function tranchesFondues(lignes: readonly Pick<HeureDeSante, 'tranches'>[
     for (const t of l.tranches ?? []) {
       const a = fondues.get(t.debut)
       if (!a) {
-        fondues.set(t.debut, { ...t, requetes: { ...t.requetes }, charge: t.charge && { ...t.charge }, gels: { ...t.gels } })
+        const connexions = fondreConnexionsDesTranches(t.connexions, undefined)
+        fondues.set(t.debut, { ...t, requetes: { ...t.requetes }, charge: t.charge && { ...t.charge }, gels: { ...t.gels }, ...(connexions && { connexions }) })
         continue
       }
+      const connexions = fondreConnexionsDesTranches(a.connexions, t.connexions)
       // Deux démarrages dans les mêmes cinq minutes — une mise en ligne : la moyenne se pondère, les pics gardent le pire.
       const ca = a.charge
       const cb = t.charge
@@ -1467,6 +1511,7 @@ export function tranchesFondues(lignes: readonly Pick<HeureDeSante, 'tranches'>[
               }
             : (ca ?? cb),
         gels: { n: a.gels.n + t.gels.n, maxMs: Math.max(a.gels.maxMs, t.gels.maxMs) },
+        ...(connexions && { connexions }),
       })
     }
   }
@@ -1545,7 +1590,8 @@ export function pageDuServeur(
     })
   }
   // Une heure en cinq minutes : ce que les tranches relèvent — ce qu'un joueur attend, Turso, les requêtes, les erreurs,
-  // la charge. Ni les connexions, ni le quota, ni le réseau, ni le détail des gels : l'heure seule les garde.
+  // la charge. Ni le quota, ni le réseau, ni le détail des gels : l'heure seule les garde ; ni les connexions, que les
+  // tranches gardent depuis le 4 novembre 2026 (`TrancheDeSante.connexions`) sans que la page les montre encore.
   if (tranches) {
     for (let t = premierSeau; t <= debutDeLaTranche(maintenant); t += TRANCHE_MS) {
       const tr = tranches.get(t)

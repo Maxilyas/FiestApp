@@ -14,6 +14,7 @@ import {
   debutDeLHeure,
   debutDeLaTranche,
   type ChargeDeLHeure,
+  type ConnexionsDUneTranche,
   type ErreurEnDetail,
   type GelDeLaBoucle,
   type GelsDeLHeure,
@@ -358,14 +359,16 @@ function compterLeStatut(r: RequetesDeLHeure, statut: number) {
 /**
  * Cinq minutes de l'heure (`TrancheDeSante`) : ce qu'un joueur attend, Turso,
  * les requêtes, les erreurs, la charge, les gels — ce que la page « Le
- * serveur » montre sur une heure. Ni les routes une à une, ni le quota, ni le
- * détail des gels : l'heure les garde, et douze tranches de cent vingt routes
- * auraient fait de chaque ligne un petit livre.
+ * serveur » montre sur une heure —, et les connexions neuves vers Turso, pour
+ * relier une poignée de main au geste lent qui l'a payée. Ni les routes une à
+ * une, ni le quota, ni le détail des gels : l'heure les garde, et douze
+ * tranches de cent vingt routes auraient fait de chaque ligne un petit livre.
  */
 class Tranche {
   readonly routes = new Mesure(ECHANTILLON_D_UNE_TRANCHE)
   readonly base = new Mesure(ECHANTILLON_D_UNE_TRANCHE)
   readonly requetes: RequetesDeLHeure = { reussies: 0, redirigees: 0, refusees: 0, enErreur: 0 }
+  readonly connexions: ConnexionsDUneTranche = { ouvertes: 0, attentes: 0, lassees: 0 }
   erreurs = 0
   private charge = { n: 0, processeur: 0, boucleMaxMs: 0, memoireMaxMo: 0, invitesMax: 0 }
   private gels = { n: 0, maxMs: 0 }
@@ -405,6 +408,8 @@ class Tranche {
               invitesMax: k.invitesMax,
             },
       gels: { n: this.gels.n, maxMs: Math.round(this.gels.maxMs) },
+      // Toujours, même à zéro : cinq minutes sans connexion neuve se distinguent d'une tranche d'avant leur relevé.
+      connexions: { ...this.connexions },
     }
   }
 }
@@ -455,6 +460,9 @@ class Heure {
     battements: 0,
     battementsTombes: 0,
     ouvertesParUnBattement: 0,
+    attentes: 0,
+    lassees: 0,
+    attenteMs: 0,
   }
 
   constructor(readonly debut: number) {}
@@ -467,8 +475,22 @@ class Heure {
     return t
   }
 
-  connexion() {
+  connexion(quand: number) {
     this.liaison.ouvertes++
+    this.tranche(quand).connexions.ouvertes++
+  }
+
+  /** Un aller-retour qui a attendu une connexion gardée (`placeSurUneGardee`) : combien de temps, et s'il l'a eue. */
+  attente(ms: number, lassee: boolean, quand: number) {
+    const l = this.liaison
+    const t = this.tranche(quand).connexions
+    l.attentes++
+    t.attentes++
+    l.attenteMs += ms
+    if (lassee) {
+      l.lassees++
+      t.lassees++
+    }
   }
 
   connexionParUnBattement() {
@@ -685,7 +707,7 @@ class Heure {
     }
   }
 
-  ligne(demarrage: string, chaudes: boolean): HeureDeSante {
+  ligne(demarrage: string, chaudes: boolean, patienceMs: number): HeureDeSante {
     const l = this.liaison
     // Chaque route de l'heure, la plus coûteuse au serveur d'abord : la page « Le serveur » les trie et les compare.
     const parRoute: RouteDeLHeure[] = [...this.parRoute]
@@ -719,6 +741,11 @@ class Heure {
         battements: l.battements,
         battementsTombes: l.battementsTombes,
         ouvertesParUnBattement: l.ouvertesParUnBattement,
+        // Toujours, même sans patience (zéro) : une heure qui les relève se distingue d'une ligne d'avant.
+        patienceMs,
+        attentes: l.attentes,
+        lassees: l.lassees,
+        attenteMs: Math.round(l.attenteMs),
       },
       requetes: { ...this.requetes },
       quota: this.quotaLu(),
@@ -1043,6 +1070,8 @@ export class ReleveHoraire {
   private precedente: Heure | null = null
   /** Les connexions vers la base gardées chaudes, réglé une fois pour le processus (`connexions.ts`) : chaque heure l'écrit à côté de ses comptes. */
   private gardeesChaudes = false
+  /** La patience des connexions en vigueur (`QUIZ_DB_PATIENCE_MS` sous le transport léger, `distante.ts`), zéro sans elle : chaque heure l'écrit de même. */
+  private patienceMs = 0
   /** Le direct du QG : ce que le relevé reçoit, au pas de dix secondes, en mémoire seulement. */
   readonly direct: DirectDuServeur
 
@@ -1142,7 +1171,16 @@ export class ReleveHoraire {
 
   /** Une connexion ouverte vers la base, une qu'elle a refermée d'elle-même (à quel âge), un aller-retour tombé en route, le délai qu'elle annonce. */
   connexion() {
-    this.heure().connexion()
+    this.heure().connexion(this.now())
+  }
+
+  /** Un aller-retour qui a attendu une connexion gardée (`placeSurUneGardee`), compté à son issue : combien de temps, et lassé ou non. */
+  attenteDUneConnexion(ms: number, lassee: boolean) {
+    this.heure().attente(ms, lassee, this.now())
+  }
+
+  patience(ms: number) {
+    this.patienceMs = ms
   }
 
   /** L'entretien des connexions : ses battements, ceux qui sont tombés, les connexions qu'ils ont ouvertes. */
@@ -1178,7 +1216,8 @@ export class ReleveHoraire {
   lignes(demarrage: string): HeureDeSante[] {
     const courante = this.heure()
     const c = this.gardeesChaudes
-    return this.precedente ? [this.precedente.ligne(demarrage, c), courante.ligne(demarrage, c)] : [courante.ligne(demarrage, c)]
+    const p = this.patienceMs
+    return this.precedente ? [this.precedente.ligne(demarrage, c, p), courante.ligne(demarrage, c, p)] : [courante.ligne(demarrage, c, p)]
   }
 
   /** Un serveur neuf part de zéro : celui d'avant, dans le même processus — les tests —, n'a rien à lui léguer. */

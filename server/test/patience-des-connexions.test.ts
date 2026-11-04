@@ -12,7 +12,7 @@ import assert from 'node:assert/strict'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { avecDelai, choisirLaPatience, choisirLeTransport, clientDistant, patienceDemandee, PATIENCE_AU_PLUS_MS } from '../src/core/distante'
-import { pouls } from '../src/core/pouls'
+import { pouls, releve } from '../src/core/pouls'
 import { demarrer } from './banc'
 
 choisirLeTransport('leger')
@@ -114,6 +114,62 @@ test('deux attentes au plus par connexion qui sert : la troisième ouvre la sien
     assert.equal(pouls.attentesDUneConnexion.lire().n - attentes, 2)
     assert.equal(base.connexions(), 3)
   } finally {
+    choisirLaPatience(0)
+    await base.fermer()
+  }
+})
+
+/**
+ * Ce que le relevé de l'heure garde des connexions : ses comptes et ceux de
+ * ses tranches de cinq minutes, sur toutes les heures qu'il tient encore — une
+ * heure qui tourne pendant l'épreuve garde la précédente à côté.
+ */
+function ceQueLHeureGarde() {
+  const lignes = releve.lignes('banc')
+  const deLHeure = (cle: 'ouvertes' | 'attentes' | 'lassees') => lignes.reduce((n, l) => n + (l.connexions?.[cle] ?? 0), 0)
+  const deSesTranches = (cle: 'ouvertes' | 'attentes' | 'lassees') =>
+    lignes.reduce((n, l) => n + (l.tranches ?? []).reduce((m, t) => m + (t.connexions?.[cle] ?? 0), 0), 0)
+  return {
+    patienceMs: lignes.at(-1)?.connexions?.patienceMs,
+    attenteMs: lignes.reduce((n, l) => n + (l.connexions?.attenteMs ?? 0), 0),
+    heure: { ouvertes: deLHeure('ouvertes'), attentes: deLHeure('attentes'), lassees: deLHeure('lassees') },
+    tranches: { ouvertes: deSesTranches('ouvertes'), attentes: deSesTranches('attentes'), lassees: deSesTranches('lassees') },
+  }
+}
+
+test('le relevé de l’heure garde la patience qui vaut, ses attentes et ses lassées, et ses cinq minutes les connexions neuves : deux jours se jugent après coup', async () => {
+  const base = await uneBase({ lenteMs: 1_500 })
+  try {
+    // Sous le `fetch` de Node, la patience posée ne vaut rien : l'heure écrit zéro.
+    choisirLeTransport('fetch')
+    choisirLaPatience(150)
+    assert.equal(ceQueLHeureGarde().patienceMs, 0)
+    choisirLeTransport('leger')
+    assert.equal(ceQueLHeureGarde().patienceMs, 150)
+
+    // Large, pour qu'une machine chargée ne lasse pas ceux qui attendent un aller-retour de trente millisecondes.
+    choisirLaPatience(400)
+    const avant = ceQueLHeureGarde()
+    await allerRetour(base.adresse)
+    // Deux l'attendent et l'ont ; puis une lente l'occupe, et le suivant se lasse avant d'ouvrir la sienne.
+    await deFront(base.adresse, 3)
+    const lente = allerRetour(base.adresse, '/lente')
+    await new Promise(r => setTimeout(r, 20))
+    await allerRetour(base.adresse)
+    await lente
+    const apres = ceQueLHeureGarde()
+    const ecart = (de: 'heure' | 'tranches') => ({
+      ouvertes: apres[de].ouvertes - avant[de].ouvertes,
+      attentes: apres[de].attentes - avant[de].attentes,
+      lassees: apres[de].lassees - avant[de].lassees,
+    })
+    assert.equal(base.connexions(), 2, 'la gardée, puis celle du lassé')
+    assert.deepEqual(ecart('heure'), { ouvertes: 2, attentes: 3, lassees: 1 })
+    assert.deepEqual(ecart('tranches'), ecart('heure'), 'ses cinq minutes disent les mêmes')
+    // Ce qu'elles ont attendu : la patience entière du lassé au moins — les deux autres, le temps d'un aller-retour.
+    assert.ok(apres.attenteMs - avant.attenteMs >= 390, `${apres.attenteMs - avant.attenteMs} ms attendues`)
+  } finally {
+    choisirLeTransport('leger')
     choisirLaPatience(0)
     await base.fermer()
   }
