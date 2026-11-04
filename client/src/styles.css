@@ -14291,6 +14291,12 @@ html:has(> body.avec-panier) { scroll-padding-bottom: calc(72px + 76px + env(saf
 .admin-fiche dt { flex: none; color: var(--muted); }
 .admin-fiche dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
 .admin-gestes { position: relative; z-index: 1; display: flex; flex-wrap: wrap; gap: 8px; }
+/* Un prénom de joueur au QG : un lien vers sa fiche, gras comme le prénom qu'il était, souligné au survol. */
+.qg-prenom { display: inline; padding: 2px 0; border: 0; background: none; color: var(--ink); font: inherit; font-weight: 600; text-align: left; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--accent) 45%, transparent); text-underline-offset: 3px; cursor: pointer; }
+.qg-prenom:hover { color: var(--accent-text-hover); text-decoration-color: currentColor; }
+/* Le geste sans retour — effacer des points pour tous —, au bout de la rangée, séparé d'un filet : il ouvrait la rangée,
+   rouge, sous le doigt qui venait corriger (la revue d'ergonomie du 4 novembre 2026). */
+.admin-gestes-a-part { display: inline-flex; margin-left: 4px; padding-left: 12px; border-left: 1px solid var(--edge); }
 .admin-gestes .salon-geste:disabled { opacity: 0.5; cursor: default; }
 .admin-geste-oui { border-color: color-mix(in srgb, var(--lueur) 60%, transparent); }
 /* Le rang du coffre à offrir : celui qu'on a choisi se voit d'un coup d'œil, l'état se dit par aria-pressed. */
@@ -14992,6 +14998,8 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
   .qg-fil-liste { max-height: none; overflow: visible; }
 }
 .qg-panneau { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+/* Les signaux du serveur : une colonne au téléphone, deux à l'ordinateur (le bloc de 1101 pixels). */
+.qg-signaux { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
 /* La table des routes : un filtre et les méthodes au-dessus ; la table défile de côté dans son cadre, jamais la page. */
 .qg-outils { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .qg-filtre { flex: 1 1 220px; display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 10px; border: 1px solid var(--qg-trait-fort); border-radius: 9px; background: rgba(255, 255, 255, 0.025); }
@@ -15036,8 +15044,11 @@ button.qg-route:hover .qg-route-chemin { text-decoration: underline; }
 .qg-table-mieux { color: var(--qg-ok-texte); }
 .qg-table-courbe { width: 84px; }
 .qg-table-courbe .qg-etincelle { width: 72px; height: 22px; margin: 0; }
-/* Au téléphone, la route, ses appels, son 95ᵉ centile, ses erreurs et sa part : le détail à l'ordinateur. */
+/* Au téléphone, la route, ses appels, ses 19 sur 20, ses erreurs et sa part : le détail à l'ordinateur. Une table qui
+   détaille plusieurs mesures en garde une colonne qui dit la pire, au téléphone seulement (`.qg-colonne-resume`) : la
+   table des téléphones coupait trois colonnes en silence. */
 .qg-table .qg-colonne-detail { display: none; }
+.qg-table .qg-colonne-resume { display: table-cell; min-width: 6.5rem; font-family: var(--sans); white-space: normal; }
 /* Les versions, l'une sous l'autre, la plus récente d'abord. */
 .qg-versions { display: flex; flex-direction: column; gap: 16px; }
 .qg-console h2.qg-version-nom { font-family: var(--qg-mono); letter-spacing: 0.02em; }
@@ -15302,7 +15313,14 @@ button.qg-route:hover .qg-route-chemin { text-decoration: underline; }
    s'encadre en pointillé : il ne sera plus affiché. */
 .qg-fiche { display: flex; flex-direction: column; gap: 14px; }
 .qg-fiche-tete { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-.qg-fiche-note { display: flex; align-items: flex-start; gap: 8px; margin: 0; font-size: 0.9rem; }
+.qg-fiche-note { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; margin: 0; font-size: 0.9rem; }
+.qg-fiche-note > span { flex: 1 1 220px; min-width: 0; }
+/* Le geste d'un fait, à côté de lui : « fermée jusqu'à 3 h 01 · Rouvrir ». */
+.qg-fiche-a-cote { min-height: 32px; padding: 0 4px; border: 0; background: none; color: var(--accent-text); font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.qg-fiche-a-cote:hover { color: var(--accent-text-hover); }
+.qg-fiche-offrir { padding-left: 12px; border-left: 2px solid var(--accent-soft); }
+/* « Supprimer le profil », seul au bout de la fiche, sous un filet. */
+.qg-fiche-supprimer { margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--edge); }
 .qg-fiche-note .icon { flex: none; width: 16px; height: 16px; margin-top: 2px; color: color-mix(in srgb, var(--lueur) 70%, var(--ink)); }
 .qg-fiche-code { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px; border: 1px dashed color-mix(in srgb, var(--lueur) 55%, transparent); border-radius: var(--radius-xs); }
 .qg-fiche-code .code-secours { align-self: stretch; }
@@ -15592,6 +15610,8 @@ span.annonce-admin-merci { cursor: default; }
   .qg-cadrans { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .qg-tuiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .qg-table .qg-colonne-detail { display: table-cell; }
+  .qg-table .qg-colonne-resume { display: none; }
+  .qg-signaux { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .qg-versions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
   /* Une demi-largeur, quatre tuiles : deux par deux, sans quoi « Ce qu'un joueur attend » tenait sur trois lignes. */
   .qg-versions .qg-tuiles.qg-tuiles-quatre { grid-template-columns: repeat(2, minmax(0, 1fr)); }

@@ -5,6 +5,7 @@ import { Icon } from './Icon'
 import { AujourdhuiDeLaCampagne, CeQuOnJoue, DefiDeLaSemaineAuQg, ParcoursDeThemeAuQg, ViesDesSentiersAuQg } from './QgCampagne'
 import { Chiffre, GabaritDUnMode, TuileParJoueur, enPourcentsEcrits } from './QgModes'
 import { VersLesSignalements } from './QgSignalements'
+import { PrenomDuJoueur } from './PrenomDuJoueur'
 import { VersUnePageDuContenu } from './QgReserves'
 import { enPourcents } from '../../../shared/qgDuJour'
 import { entonnoirDuSolo } from '../../../shared/qgModes'
@@ -448,7 +449,8 @@ function AdminSentiers() {
                   const b = BRANCHES.find(c => c.key === x.branche)
                   return (
                     <li key={`${x.profileId}|${x.branche}`}>
-                      <b>{x.prenom ?? 'Profil supprimé'}</b>
+                      {/* Son prénom ouvre sa fiche, où « Libérer l'épreuve » l'attend. */}
+                      <PrenomDuJoueur id={x.prenom ? x.profileId : null} nom={x.prenom ?? 'Profil supprimé'} />
                       <span className="muted">{`${b?.nom ?? x.branche} · P${x.palier} · ${pluriel(x.echecs, 'échec')} · dernier échec ${quand(x.dernier)}`}</span>
                     </li>
                   )

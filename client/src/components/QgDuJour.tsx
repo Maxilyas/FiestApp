@@ -2,6 +2,7 @@ import { Fragment, useState } from 'react'
 import { Icon } from './Icon'
 import { Avatar, AvatarEnLigne } from './Avatar'
 import { Chiffre, GrapheDesJours, enPourcentsEcrits } from './QgModes'
+import { PrenomDuJoueur } from './PrenomDuJoueur'
 import { formatNumber } from '../../../shared/typographie'
 import { jourAvant, jourEnToutesLettres, moisEnToutesLettres, type LigneDuJour } from '../../../shared/jour'
 import type { VueDEnsemble } from '../../../shared/qg'
@@ -167,15 +168,18 @@ export function QuestionsDuJour({
                         )
                       })}
                     </ul>
+                    {/* Le geste sans retour en dernier, à part, comme sur la page des signalements. */}
                     <div className="admin-gestes">
-                      {!q.annulee && (
-                        <button type="button" className="btn btn-small btn-danger" disabled={occupe} onClick={() => annuler(q)}>
-                          Annuler ses points pour tous
-                        </button>
-                      )}
                       <button type="button" className="btn btn-small" disabled={occupe} onClick={() => retirer(q)}>
                         Retirer de la réserve
                       </button>
+                      {!q.annulee && (
+                        <span className="admin-gestes-a-part">
+                          <button type="button" className="btn btn-small btn-danger" disabled={occupe} onClick={() => annuler(q)}>
+                            Effacer ses points pour tous
+                          </button>
+                        </span>
+                      )}
                     </div>
                   </div>
                 )}
@@ -231,8 +235,9 @@ export function ClassementDuMoisAuQg({ suivi, occupe, masquer }: { suivi: SuiviD
               <span className="qg-avatar" aria-hidden="true">
                 <Avatar avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} eclat={l.eclat} />
               </span>
+              {/* Son prénom ouvre sa fiche : la revue d'ergonomie du 4 novembre 2026 cherchait le joueur ailleurs. */}
               <span className="qg-ligne-texte">
-                <b>{l.nom}</b>
+                <PrenomDuJoueur id={l.profileId} nom={l.nom} />
               </span>
               <span className="qg-rang-points num">{pluriel(l.points, 'pt')}</span>
               <button type="button" className="salon-geste" disabled={occupe} onClick={() => masquer(l)}>

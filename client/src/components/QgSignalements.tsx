@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { api } from '../api'
 import { Icon, type IconName } from './Icon'
 import { Chiffre } from './QgModes'
+import { PrenomDuJoueur } from './PrenomDuJoueur'
 import { espacesFines } from '../format'
 import { formatNumber } from '../../../shared/typographie'
 import { jourAvant, jourDe, jourEnToutesLettres } from '../../../shared/jour'
@@ -169,12 +170,24 @@ function Reponses({ reponses, bonne, parts }: { reponses: readonly string[]; bon
   )
 }
 
-/** Un joueur qui la signale : qui, où, ce qu'il a répondu, quand — puis ce qu'il en dit. */
-function LigneDuRapport({ prenom, login, details, texte }: { prenom: string | null; login: string | null; details: (string | false | null | undefined)[]; texte: string }) {
+/** Un joueur qui la signale : qui — son prénom ouvre sa fiche —, où, ce qu'il a répondu, quand — puis ce qu'il en dit. */
+function LigneDuRapport({
+  profileId,
+  prenom,
+  login,
+  details,
+  texte,
+}: {
+  profileId: string
+  prenom: string | null
+  login: string | null
+  details: (string | false | null | undefined)[]
+  texte: string
+}) {
   return (
     <>
       <span>
-        <b>{prenom ?? 'Profil supprimé'}</b>
+        <PrenomDuJoueur id={prenom ? profileId : null} nom={prenom ?? 'Profil supprimé'} />
         {login && <span className="muted small"> @{login}</span>}
       </span>
       <span className="muted small">{espacesFines(details.filter(Boolean).join(' · '))}</span>
@@ -284,7 +297,9 @@ export function CarteDuJour({
       )}
       <Rapports
         rapports={s.rapports}
-        ligne={r => <LigneDuRapport prenom={r.prenom} login={r.login} texte={r.texte} details={[saReponseDuJour(r), quandDuRapport(r, maintenant)]} />}
+        ligne={r => (
+          <LigneDuRapport profileId={r.profileId} prenom={r.prenom} login={r.login} texte={r.texte} details={[saReponseDuJour(r), quandDuRapport(r, maintenant)]} />
+        )}
       />
       <GestesDUneQuestionDuJour q={s} maintenant={maintenant} occupe={occupe} faire={faire} annuler={() => annuler(s)} garder />
     </article>
@@ -381,6 +396,7 @@ export function CarteDeCampagne({ s, maintenant, occupe, faire }: { s: Signaleme
         rapports={s.rapports}
         ligne={r => (
           <LigneDuRapport
+            profileId={r.profileId}
             prenom={r.prenom}
             login={r.login}
             texte={r.texte}
@@ -473,9 +489,9 @@ export function GestesDUneQuestionDuJour({
   const annulable = q.annulable && !q.annulee
   // Retirée, son jour clos, et rien à refermer : plus un geste ne vaut.
   if (!annulable && !vivante && !garder) return null
+  // Le geste sans retour en dernier, à part : il ouvrait la rangée, rouge, sous le doigt qui venait corriger.
   return (
     <div className="admin-gestes">
-      {annulable && <Geste nom="Annuler ses points pour tous" question={q.texte} genre="alerte" occupe={occupe} onClick={annuler} />}
       {vivante && (
         <>
           <Geste icone="edit" nom="Corriger" question={q.texte} genre="oui" occupe={occupe} onClick={() => setOuvert('corriger')} />
@@ -497,6 +513,11 @@ export function GestesDUneQuestionDuJour({
           occupe={occupe}
           onClick={() => void faire(() => api.admin.garderDuJour(q.jour, q.index), vivante ? 'Gardée' : 'Refermé')}
         />
+      )}
+      {annulable && (
+        <span className="admin-gestes-a-part">
+          <Geste nom="Effacer ses points pour tous" question={q.texte} genre="alerte" occupe={occupe} onClick={annuler} />
+        </span>
       )}
     </div>
   )
@@ -686,16 +707,17 @@ export function CorrigerLaQuestion({
       {annulable && (
         <label className="correction-annuler small">
           <input type="checkbox" checked={annulerAussi} onChange={e => setAnnuler(e.target.checked)} />
-          <span>Annuler aussi ses points pour tous : ceux qui l’ont jouée aujourd’hui la perdent du classement, l’expérience de chacun suit.</span>
+          <span>Effacer aussi ses points pour tous : ceux qui l’ont jouée aujourd’hui la perdent du classement, l’expérience de chacun suit.</span>
         </label>
       )}
+      {/* « Fermer », comme « Régler » : « Annuler », juste sous la case qui annule les points, se lisait comme elle. */}
       <div className="admin-gestes">
         <button type="submit" className="salon-geste admin-geste-oui" disabled={occupe || memeLecture(version, correction)}>
           <Icon name="check" />
           Enregistrer la correction
         </button>
         <button type="button" className="salon-geste" disabled={occupe} onClick={onAnnuler}>
-          Annuler
+          Fermer
         </button>
       </div>
     </form>
@@ -810,7 +832,7 @@ export function ReclasserLaQuestion({
           Reclasser
         </button>
         <button type="button" className="salon-geste" disabled={occupe} onClick={onAnnuler}>
-          Annuler
+          Fermer
         </button>
       </div>
     </form>

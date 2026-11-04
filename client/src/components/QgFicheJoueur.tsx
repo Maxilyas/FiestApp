@@ -84,6 +84,8 @@ export function FicheDuJoueurAuQg({
   const [don, setDon] = useState<{ confettis: number; mot: string } | null>(null)
   // Un coffre à offrir : son rang, et un mot que la scène de l'ouverture dit.
   const [coffre, setCoffre] = useState<{ rang: RangDuCoffre; mot: string } | null>(null)
+  // « Offrir… » déplié : ses trois dons, confettis, Éclat, coffre.
+  const [offrirOuvert, setOffrirOuvert] = useState(false)
   // Le code de secours tiré : montré ici une seule fois, jamais relu.
   const [code, setCode] = useState<{ code: string; login: string } | null>(null)
 
@@ -202,21 +204,16 @@ export function FicheDuJoueurAuQg({
   // Ce qui l'aide, d'un côté, ce qui le modère, de l'autre : un coup de main
   // se donne sans y penser, une suspension se pèse — mêlés en une seule
   // rangée, « Suspendre » et « Supprimer le profil » suivaient les coups de main.
+  // Ce qui répond à un fait de la fiche — rouvrir sa connexion, libérer son
+  // épreuve, rendre sa traversée — se fait à côté de lui : « fermée jusqu'à
+  // 3 h 01 » était à vingt lignes de « Lever le verrou », perdu parmi dix
+  // boutons (la revue d'ergonomie du 4 novembre 2026). Les dons, sous un seul
+  // « Offrir… ».
   const aider = [
     // Sur son propre profil aussi : c'est son serveur (le 14 octobre 2026).
-    !f.suspendu && !don && (
-      <Geste key="don" icone="sparkles" onClick={() => setDon({ confettis: 50, mot: '' })}>
-        {f.toi ? 'T’offrir des confettis' : 'Offrir des confettis'}
-      </Geste>
-    ),
-    !f.suspendu && (
-      <Geste key="eclat" icone="star" occupe={occupe} onClick={() => void offrirUnEclat()}>
-        {f.toi ? 'T’offrir un Éclat' : 'Offrir un Éclat'}
-      </Geste>
-    ),
-    !f.suspendu && !coffre && (
-      <Geste key="coffre" icone="coffre" onClick={() => setCoffre({ rang: 'or', mot: '' })}>
-        {f.toi ? 'T’offrir un coffre' : 'Offrir un coffre'}
+    !f.suspendu && !don && !coffre && (
+      <Geste key="offrir" icone="sparkles" ouvert={offrirOuvert} onClick={() => setOffrirOuvert(o => !o)}>
+        {f.toi ? 'T’offrir…' : 'Offrir…'}
       </Geste>
     ),
     !f.suspendu && (
@@ -224,22 +221,39 @@ export function FicheDuJoueurAuQg({
         Tirer un code de secours
       </Geste>
     ),
-    fermee && (
-      <Geste key="verrou" icone="clock" occupe={occupe} onClick={() => void geste(() => api.admin.rouvrirLaConnexion(f.id), 'Connexion rouverte')}>
-        Lever le verrou de connexion
-      </Geste>
-    ),
-    f.epreuve && (
-      <Geste key="epreuve" icone="target" occupe={occupe} onClick={() => void geste(() => api.admin.libererLEpreuve(f.id), 'Épreuve libérée, sans lui coûter de vie')}>
-        Libérer l’épreuve
-      </Geste>
-    ),
-    f.traversee && peutSeRendre(f.traversee) && (
-      <Geste key="traversee" icone="landmark" occupe={occupe} onClick={() => void rendre(f.traversee!)}>
-        Rendre la traversée
-      </Geste>
-    ),
   ].filter(Boolean)
+  const lesDons = offrirOuvert && !f.suspendu && !don && !coffre && (
+    <div className="admin-gestes qg-fiche-offrir" role="group" aria-label={f.toi ? 'Ce que tu peux t’offrir' : 'Ce que tu peux lui offrir'}>
+      <Geste
+        icone="sparkles"
+        onClick={() => {
+          setOffrirOuvert(false)
+          setDon({ confettis: 50, mot: '' })
+        }}
+      >
+        {f.toi ? 'T’offrir des confettis' : 'Offrir des confettis'}
+      </Geste>
+      <Geste
+        icone="star"
+        occupe={occupe}
+        onClick={() => {
+          setOffrirOuvert(false)
+          void offrirUnEclat()
+        }}
+      >
+        {f.toi ? 'T’offrir un Éclat' : 'Offrir un Éclat'}
+      </Geste>
+      <Geste
+        icone="coffre"
+        onClick={() => {
+          setOffrirOuvert(false)
+          setCoffre({ rang: 'or', mot: '' })
+        }}
+      >
+        {f.toi ? 'T’offrir un coffre' : 'Offrir un coffre'}
+      </Geste>
+    </div>
+  )
   // Le masque se pose depuis les classements — du quiz du jour, des duels —,
   // et se lève aussi d'ici, où la fiche dit « hors classement » : il ne se
   // levait qu'en bas de la page du quiz du jour (« Je ne peux pas annuler
@@ -266,11 +280,6 @@ export function FicheDuJoueurAuQg({
           Suspendre
         </Geste>
       )),
-    !f.toi && (
-      <Geste key="supprimer" icone="trash" danger occupe={occupe} onClick={() => onSupprimer(f)}>
-        Supprimer le profil
-      </Geste>
-    ),
   ].filter(Boolean)
   return (
     <div className="qg-fiche">
@@ -316,31 +325,50 @@ export function FicheDuJoueurAuQg({
           {f.confettis ? `${formatNumber(f.confettis.solde)}${f.confettis.offerts > 0 ? ` · dont ${pluriel(f.confettis.offerts, 'offert')}` : ''}` : '–'}
         </Ligne>
         <Ligne nom="Espace">{f.salon ? `${f.salon.propre ? 'Son salon' : 'Le compte d’animateur'} /${f.salon.slug} · ${f.salon.quiz} quiz` : 'Aucun'}</Ligne>
-        <Ligne nom="Connexion">{fermee ? `fermée jusqu’à ${heureEcrite(f.connexion.fermeeJusquA!)}` : 'ouverte'}</Ligne>
+        <Ligne nom="Connexion">
+          {fermee ? (
+            <>
+              fermée jusqu’à {heureEcrite(f.connexion.fermeeJusquA!)}{' '}
+              <button type="button" className="qg-fiche-a-cote" aria-disabled={occupe || undefined} onClick={() => void geste(() => api.admin.rouvrirLaConnexion(f.id), 'Connexion rouverte')}>
+                Rouvrir
+              </button>
+            </>
+          ) : (
+            'ouverte'
+          )}
+        </Ligne>
       </dl>
 
       {f.epreuve && (
-        <p className="qg-fiche-note">
+        <div className="qg-fiche-note">
           <Icon name="target" />
           <span>
             Une épreuve l’attend : {f.epreuve.sentier}, palier {f.epreuve.palier}, commencée {quandEcrit(f.epreuve.depuis, maintenant)}
             {f.epreuve.vieEnJeu ? ' · une vie en jeu' : ''}. Tant qu’elle attend, aucune autre ne commence.
           </span>
-        </p>
+          <Geste icone="target" occupe={occupe} onClick={() => void geste(() => api.admin.libererLEpreuve(f.id), 'Épreuve libérée, sans lui coûter de vie')}>
+            Libérer l’épreuve
+          </Geste>
+        </div>
       )}
 
       {f.traversee && (
-        <p className="qg-fiche-note">
+        <div className="qg-fiche-note">
           <Icon name="landmark" />
           <span>
             Une traversée du Cabinet en route : {etatDeLaTraverseeEnRoute(f.traversee)}. Commencée {quandEcrit(f.traversee.commenceeLe, maintenant)}
             {f.traversee.dernier !== null ? `, dernier geste ${quandEcrit(f.traversee.dernier, maintenant)}` : ''}.{' '}
             {peutSeRendre(f.traversee) ? 'Tant qu’elle est en route, aucune autre ne commence.' : 'Rien n’y bloque : son légendaire attend d’être choisi.'}
           </span>
-        </p>
+          {peutSeRendre(f.traversee) && (
+            <Geste icone="landmark" occupe={occupe} onClick={() => void rendre(f.traversee!)}>
+              Rendre la traversée
+            </Geste>
+          )}
+        </div>
       )}
 
-      {(aider.length > 0 || code || don) && (
+      {(aider.length > 0 || code || don || coffre) && (
         <section className="qg-fiche-groupe" aria-labelledby="fiche-aider">
           <h3 className="label" id="fiche-aider">
             {f.toi ? 'Pour toi' : 'L’aider'}
@@ -395,7 +423,7 @@ export function FicheDuJoueurAuQg({
                   {f.toi ? 'T’offrir' : 'Offrir'} {nConfettis(Math.min(CONFETTIS_PAR_DON_MAX, Math.max(1, don.confettis)))}
                 </button>
                 <button type="button" className="salon-geste" onClick={() => setDon(null)}>
-                  Annuler
+                  Fermer
                 </button>
               </div>
             </div>
@@ -430,12 +458,13 @@ export function FicheDuJoueurAuQg({
                   {f.toi ? 'T’offrir' : 'Offrir'} {NOM_DU_COFFRE[coffre.rang].toLowerCase()}
                 </button>
                 <button type="button" className="salon-geste" onClick={() => setCoffre(null)}>
-                  Annuler
+                  Fermer
                 </button>
               </div>
             </div>
           )}
           {aider.length > 0 && <div className="admin-gestes">{aider}</div>}
+          {lesDons}
         </section>
       )}
 
@@ -468,6 +497,15 @@ export function FicheDuJoueurAuQg({
           </ul>
         )}
       </section>
+
+      {/* Seul en bas, sous un filet : il touchait « Suspendre » (la revue d'ergonomie du 4 novembre 2026). */}
+      {!f.toi && (
+        <div className="qg-fiche-supprimer">
+          <Geste icone="trash" danger occupe={occupe} onClick={() => onSupprimer(f)}>
+            Supprimer le profil
+          </Geste>
+        </div>
+      )}
     </div>
   )
 }
@@ -481,9 +519,30 @@ function Ligne({ nom, children }: { nom: string; children: ReactNode }) {
   )
 }
 
-function Geste({ icone, danger, occupe, onClick, children }: { icone: IconName; danger?: boolean; occupe?: boolean; onClick: () => void; children: ReactNode }) {
+function Geste({
+  icone,
+  danger,
+  occupe,
+  ouvert,
+  onClick,
+  children,
+}: {
+  icone: IconName
+  danger?: boolean
+  occupe?: boolean
+  /** Un geste qui déplie ses choix (« Offrir… ») : son état pour l'oreille. */
+  ouvert?: boolean
+  onClick: () => void
+  children: ReactNode
+}) {
   return (
-    <button type="button" className={'salon-geste' + (danger ? ' admin-geste-danger' : '')} aria-disabled={occupe || undefined} onClick={onClick}>
+    <button
+      type="button"
+      className={'salon-geste' + (danger ? ' admin-geste-danger' : '')}
+      aria-disabled={occupe || undefined}
+      aria-expanded={ouvert}
+      onClick={onClick}
+    >
       <Icon name={icone} />
       {children}
     </button>

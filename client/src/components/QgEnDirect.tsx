@@ -266,7 +266,7 @@ function Courbes({ points, plafondProcesseur }: { points: PointDuDirect[]; plafo
   // Une heure sous l'axe toutes les cinq minutes, et celle d'à présent au bout.
   const axe = (i: number) => (i === points.length - 1 ? 'maintenant' : points[i].a % 300_000 === 0 && points.length - 1 - i > 6 ? heureEcrite(points[i].a) : null)
   const graphes: { cle: string; nom: string; detail: string; valeurs: number[]; lire: (v: number) => string; nomDuTotal: string }[] = [
-    { cle: 'attend', nom: 'Ce qu’un joueur attend', detail: 'le 95ᵉ centile des routes d’API', valeurs: points.map(p => p.routes?.p95 ?? 0), lire: tempsDeReponse, nomDuTotal: 'ms' },
+    { cle: 'attend', nom: 'Ce qu’un joueur attend', detail: 'ce que 19 appels sur 20 ne dépassent pas', valeurs: points.map(p => p.routes?.p95 ?? 0), lire: tempsDeReponse, nomDuTotal: 'ms' },
     { cle: 'requetes', nom: 'Requêtes', detail: 'les pages, les fichiers, l’API', valeurs: points.map(p => p.requetes), lire: v => `${formatNumber(v)} requête${v > 1 ? 's' : ''}`, nomDuTotal: 'requête' },
     { cle: 'erreurs', nom: 'Erreurs serveur', detail: 'les routes, les sockets, les exceptions', valeurs: points.map(p => p.erreurs), lire: v => `${formatNumber(v)} erreur${v > 1 ? 's' : ''}`, nomDuTotal: 'erreur' },
     {

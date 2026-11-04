@@ -1,6 +1,7 @@
 import { Icon } from './Icon'
 import { Avatar, AvatarEnLigne } from './Avatar'
 import { Chiffre, GrapheDesJours } from './QgModes'
+import { PrenomDuJoueur } from './PrenomDuJoueur'
 import { formatNumber } from '../../../shared/typographie'
 import { dureeEcrite, type VueDEnsemble } from '../../../shared/qg'
 import { LIGUES, ligueParCle, type LigneDesDuels } from '../../../shared/duels'
@@ -172,7 +173,7 @@ export function ClassementDesDuelsAuQg({
                 <Avatar avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} eclat={l.eclat} />
               </span>
               <span className="qg-ligne-texte">
-                <b>{l.nom}</b>
+                <PrenomDuJoueur id={l.profileId} nom={l.nom} />
                 <span className="muted small">{`${ligueParCle(l.ligue).court} · ${pluriel(l.duels, 'duel')}`}</span>
               </span>
               <span className="qg-rang-points num">{formatNumber(l.cote)}</span>
@@ -200,7 +201,7 @@ export function ClassementDesDuelsAuQg({
             {masques.map(p => (
               <li key={p.id} className="qg-rang">
                 <span className="qg-ligne-texte">
-                  <b>{p.nom}</b>
+                  <PrenomDuJoueur id={p.id} nom={p.nom} />
                   <span className="muted small">@{p.login}</span>
                 </span>
                 <button type="button" className="salon-geste" disabled={occupe} onClick={() => remettre(p)}>
@@ -240,7 +241,8 @@ export function DuelsEnAttente({ suivi, occupe, annuler }: { suivi: SuiviDesDuel
                 <li key={d.code} className="qg-ligne qg-attente">
                   <span className="qg-ligne-texte">
                     <b>
-                      <AvatarEnLigne de={d.auteur} /> {d.auteur.nom} <Icon name="chevron-right" /> <AvatarEnLigne de={d.adversaire} /> {d.adversaire.nom}
+                      <AvatarEnLigne de={d.auteur} /> <PrenomDuJoueur id={d.auteur.id} nom={d.auteur.nom} /> <Icon name="chevron-right" />{' '}
+                      <AvatarEnLigne de={d.adversaire} /> <PrenomDuJoueur id={d.adversaire.id} nom={d.adversaire.nom} />
                     </b>
                     <span className="muted small">{`${depuisQuand(d.envoyeLe, suivi.maintenant)}\u00a0· expire\u00a0dans\u00a0${dureeEcrite(d.fermeLe - suivi.maintenant)}`}</span>
                   </span>

@@ -1871,6 +1871,8 @@ try {
     await page.waitForSelector('.qg-fiche dl')
     if (theme) await page.evaluate(`document.documentElement.setAttribute('data-theme', ${JSON.stringify(theme)})`)
     if (geste === 'don') {
+      // Les dons sous un seul « Offrir… » (la revue d'ergonomie du 4 novembre 2026).
+      await page.getByRole('button', { name: 'Offrir…' }).click()
       await page.getByRole('button', { name: 'Offrir des confettis' }).click()
       await page.waitForSelector('.qg-fiche-don')
     }
@@ -1952,6 +1954,7 @@ try {
     await page.getByRole('searchbox', { name: 'Chercher un profil' }).fill('antoine')
     await page.getByRole('button', { name: /Antoine/ }).first().click()
     await page.waitForSelector('.qg-fiche dl')
+    await page.getByRole('button', { name: 'T’offrir…' }).click()
     await page.getByRole('button', { name: 'T’offrir des confettis' }).click()
     await page.waitForSelector('.qg-fiche-don')
     await page.waitForTimeout(400)

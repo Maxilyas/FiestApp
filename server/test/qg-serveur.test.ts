@@ -1066,7 +1066,7 @@ test('la page « Le serveur » se lit d’un coup d’œil : quatre chiffres, la
     'ven. 9 oct., 14 h : 125 requêtes — 100 réussies, 20 redirigées, 3 refusées, 2 en erreur · 2 Mo envoyés · 512 Ko reçus',
     // Turso et ses connexions : deux graphiques, et l'heure lue dans les deux — la garde, ce que la base a refermé, ce qui est tombé.
     'Connexions neuves',
-    'aujourd’hui, 21 h : 95ᵉ centile 110 ms · 100 % de connexions neuves · gardées 30 s · Turso annonce 20 s · 2 refermées par Turso, la plus jeune à 31 s · 1 aller-retour tombé en route',
+    'aujourd’hui, 21 h : 110 ms pour 19 sur 20 · 100 % de connexions neuves · gardées 30 s · Turso annonce 20 s · 2 refermées par Turso, la plus jeune à 31 s · 1 aller-retour tombé en route',
   ]) {
     assert.ok(html.includes(attendu), `« ${attendu} » dans la page`)
   }
@@ -1099,6 +1099,6 @@ test('gardées chaudes, l’heure dit ses battements ; deux démarrages de la m�
   const html = sansInsecables(
     renderToStaticMarkup(React.createElement(BaseEtMiroirAuQg, { page: pageDuServeur(lignes, SEMAINE, { maintenant, courant: COURANT }), base: null })).replace(/<!-- -->/g, ''),
   )
-  const attendu = 'aujourd’hui, 21 h : 95ᵉ centile 110 ms · 20 % de connexions neuves · gardées chaudes par 40 battements · 1 rouverte par un battement'
+  const attendu = 'aujourd’hui, 21 h : 110 ms pour 19 sur 20 · 20 % de connexions neuves · gardées chaudes par 40 battements · 1 rouverte par un battement'
   assert.ok(html.includes(attendu), `« ${attendu} » dans la page`)
 })

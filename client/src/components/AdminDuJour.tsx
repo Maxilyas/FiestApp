@@ -88,16 +88,16 @@ export function AdminDuJour({
     }
   }
 
-  /** Annuler une question d'aujourd'hui pour tous, signalée ou non : ses points repartent, rien ne la rend. */
+  /** Effacer les points d'une question d'aujourd'hui pour tous, signalée ou non : ils repartent, rien ne les rend. */
   const annuler = async (jour: string, index: number) => {
     const ok = await confirmDialog({
-      title: `Annuler la question ${index + 1} pour tous ?`,
+      title: `Effacer les points de la question ${index + 1} pour tous ?`,
       message:
         'Ses points s’effacent pour tous ceux qui l’ont jouée aujourd’hui, du classement du jour comme de celui du mois, et l’expérience de chacun suit. Elle reste dans le tirage, annulée : on ne peut pas revenir en arrière.',
-      confirmLabel: 'Annuler ses points',
+      confirmLabel: 'Effacer ses points',
       danger: true,
     })
-    if (ok) await faire(() => api.admin.annulerDuJour(jour, index), 'Points annulés pour tous')
+    if (ok) await faire(() => api.admin.annulerDuJour(jour, index), 'Points effacés pour tous')
   }
 
   useEffect(() => {

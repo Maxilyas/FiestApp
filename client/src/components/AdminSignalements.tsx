@@ -74,16 +74,19 @@ export function AdminSignalements({ apresUnGeste }: { apresUnGeste: () => void }
     }
   }
 
-  /** Annuler une question d'aujourd'hui pour tous : ses points repartent, rien ne la rend. */
+  /**
+   * Effacer les points d'une question d'aujourd'hui pour tous : ils repartent, rien ne les rend. « Effacer », pas
+   * « Annuler » : le même mot fermait un formulaire et renonçait à un geste (la revue d'ergonomie du 4 novembre 2026).
+   */
   const annuler = async (s: SignalementDuJour) => {
     const ok = await confirmDialog({
-      title: `Annuler la question ${s.index + 1} pour tous ?`,
+      title: `Effacer les points de la question ${s.index + 1} pour tous ?`,
       message:
         'Ses points s’effacent pour tous ceux qui l’ont jouée aujourd’hui, du classement du jour comme de celui du mois, et l’expérience de chacun suit. Elle reste dans le tirage, annulée : on ne peut pas revenir en arrière.',
-      confirmLabel: 'Annuler ses points',
+      confirmLabel: 'Effacer ses points',
       danger: true,
     })
-    if (ok) await faire(() => api.admin.annulerDuJour(s.jour, s.index), 'Points annulés pour tous')
+    if (ok) await faire(() => api.admin.annulerDuJour(s.jour, s.index), 'Points effacés pour tous')
   }
 
   if (erreur && !page) return <p className="error">{erreur}</p>

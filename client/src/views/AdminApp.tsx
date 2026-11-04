@@ -28,6 +28,7 @@ import { QgAffiches } from '../components/QgAffiches'
 import { QgQuestions } from '../components/QgQuestions'
 import { QgReserves } from '../components/QgReserves'
 import { FicheDuJoueurAuQg } from '../components/QgFicheJoueur'
+import { OuvrirLaFiche } from '../components/PrenomDuJoueur'
 import { PaletteDuQg } from '../components/QgPalette'
 import { Feuille } from '../components/Pieces'
 import { useAppState } from '../state'
@@ -616,6 +617,8 @@ export function AdminApp() {
   )
 
   return (
+    // Un prénom de joueur, sur n'importe quelle page du QG, ouvre sa fiche ici (`PrenomDuJoueur`).
+    <OuvrirLaFiche.Provider value={setFiche}>
     <div className="player-shell compte admin qg">
       {/* La barre de commande, collée en haut : où l'on est, la période de la page, le direct, ce qui attend, la palette. */}
       <header className="qg-commande">
@@ -910,6 +913,7 @@ export function AdminApp() {
         </Feuille>
       )}
     </div>
+    </OuvrirLaFiche.Provider>
   )
 }
 

@@ -222,13 +222,15 @@ function Signaux({ page, versLesErreurs }: { page: PageDuServeur; versLesErreurs
             valeur={formatNumber(c.erreurs.n)}
             detail={c.erreurs.derniere === null ? `aucune sur ${sur.titre}` : `la dernière : ${heureDuReleve(c.erreurs.derniere, maintenant)}`}
           />
+          {/* « 95ᵉ centile » ne se lisait que d'un ingénieur (la revue d'ergonomie du 4 novembre 2026) : ce que dix-neuf
+              appels sur vingt ne dépassent pas, dit une fois par page, plus bas, en toutes lettres. */}
           <Tuile
-            nom="Turso, 95ᵉ centile"
+            nom="Turso, 19 fois sur 20"
             valeur={c.base.derniere === null ? '–' : tempsDeReponse(c.base.derniere)}
             detail={c.base.habituelle === null ? 'la dernière heure mesurée' : `${tempsDeReponse(c.base.habituelle)} d’habitude`}
           />
           <Tuile
-            nom="Routes, 95ᵉ centile"
+            nom="Routes, 19 fois sur 20"
             valeur={c.routes.derniere === null ? '–' : tempsDeReponse(c.routes.derniere)}
             detail={
               c.routes.plusLente
@@ -241,29 +243,34 @@ function Signaux({ page, versLesErreurs }: { page: PageDuServeur; versLesErreurs
         </ul>
       </section>
 
-      <Heures
-        id="serveur-routes"
-        titre="Ce qu’un joueur attend"
-        sousTitre={`le 95ᵉ centile des routes d’API, ${sur.pas}`}
-        heures={page.heures}
-        valeur={h => h.routes}
-        ecrire={tempsDeReponse}
-        classe="qg-serveur-temps"
-        maintenant={maintenant}
-      />
-      <LaCharge heures={page.heures} maintenant={maintenant} plafonds={page.plafonds} />
-      <LeTrafic heures={page.heures} maintenant={maintenant} />
-      <Heures
-        id="serveur-erreurs"
-        titre="Les erreurs serveur"
-        sousTitre={`les routes et les sockets en erreur, et les exceptions échappées, ${sur.pas}`}
-        heures={page.heures}
-        valeur={h => (h.eveille ? h.erreurs : null)}
-        ecrire={erreurs}
-        legende={erreursDeLHeure}
-        classe="qg-serveur-erreur"
-        maintenant={maintenant}
-      />
+      {/* Les graphiques côte à côte à l'ordinateur, deux par rangée, le même temps pour tous : l'un sous l'autre, ils
+          faisaient trois mille pixels même en 1920 (la revue d'ergonomie du 4 novembre 2026). Ce qu'un joueur attend à
+          côté des erreurs — ce qu'il vit —, puis la charge à côté du trafic. */}
+      <div className="qg-signaux">
+        <Heures
+          id="serveur-routes"
+          titre="Ce qu’un joueur attend"
+          sousTitre={`ce que dix-neuf appels d’API sur vingt ne dépassent pas, ${sur.pas}`}
+          heures={page.heures}
+          valeur={h => h.routes}
+          ecrire={tempsDeReponse}
+          classe="qg-serveur-temps"
+          maintenant={maintenant}
+        />
+        <Heures
+          id="serveur-erreurs"
+          titre="Les erreurs serveur"
+          sousTitre={`les routes et les sockets en erreur, et les exceptions échappées, ${sur.pas}`}
+          heures={page.heures}
+          valeur={h => (h.eveille ? h.erreurs : null)}
+          ecrire={erreurs}
+          legende={erreursDeLHeure}
+          classe="qg-serveur-erreur"
+          maintenant={maintenant}
+        />
+        <LaCharge heures={page.heures} maintenant={maintenant} plafonds={page.plafonds} />
+        <LeTrafic heures={page.heures} maintenant={maintenant} />
+      </div>
       <CeQuiAEchoue page={page} versLesErreurs={versLesErreurs} />
 
       <Evenements evenements={page.evenements} maintenant={maintenant} />
@@ -642,7 +649,7 @@ export function Turso({ heures, maintenant }: { heures: HeureDuServeur[]; mainte
       </div>
       <div className="qg-charge">
         <span className="qg-charge-nom">
-          <b>Temps</b> · le 95ᵉ centile d’un aller-retour
+          <b>Temps</b> · ce que 19 allers-retours sur 20 ne dépassent pas
         </span>
         <GrapheDesHeures
           id="serveur-turso-temps"
@@ -677,7 +684,7 @@ export function Turso({ heures, maintenant }: { heures: HeureDuServeur[]; mainte
       </div>
       <p className="qg-legende-jour" aria-live="polite">
         {heureDuReleve(h.heure, maintenant)} :{' '}
-        {!h.eveille ? 'endormi' : h.base === null ? 'rien de mesuré' : [`95ᵉ centile ${tempsDeReponse(h.base)}`, ...connexionsDeLHeure(h)].join(' · ')}
+        {!h.eveille ? 'endormi' : h.base === null ? 'rien de mesuré' : [`${tempsDeReponse(h.base)} pour 19 sur 20`, ...connexionsDeLHeure(h)].join(' · ')}
       </p>
     </section>
   )
@@ -964,7 +971,7 @@ const MESURES_DU_TRAFIC: MesureDeLaPile[] = [
   {
     cle: 'refusees',
     nom: 'Refusées',
-    detail: 'les 4xx : une page introuvable, une session expirée, une inscription refusée',
+    detail: 'une page introuvable, une session expirée, une inscription refusée',
     valeur: h => h.requetes?.refusees ?? null,
     ecrire: requetes,
     ecrireAxe: formatNumber,
@@ -1291,18 +1298,22 @@ const COLONNES: { cle: CleDeTri; nom: string; titre: string; large?: true }[] = 
   { cle: 'route', nom: 'Route', titre: 'Son modèle : la méthode, puis le chemin' },
   { cle: 'n', nom: 'Appels', titre: 'Ses réponses sur la période' },
   { cle: 'p50', nom: 'Médiane', titre: 'La médiane de ses heures, pondérée par leurs appels', large: true },
-  { cle: 'p95', nom: '95ᵉ centile', titre: 'Le 95ᵉ centile de ses heures, pondéré par leurs appels' },
+  // Les mots de l'administrateur (la revue d'ergonomie du 4 novembre 2026) : « 4XX », « 5XX », « 95ᵉ centile » ne se
+  // lisaient que d'un ingénieur. Le titre de chaque colonne le redit au survol.
+  { cle: 'p95', nom: '19 sur 20', titre: 'Ce que 19 appels sur 20 ne dépassent pas, ses heures pondérées par leurs appels' },
   { cle: 'max', nom: 'Pire', titre: 'Sa réponse la plus lente', large: true },
-  { cle: 'refusees', nom: '4xx', titre: 'Ses réponses refusées', large: true },
-  { cle: 'enErreur', nom: '5xx', titre: 'Ses réponses en erreur serveur' },
+  { cle: 'refusees', nom: 'Refus', titre: 'Ses réponses refusées : une page introuvable, une session expirée', large: true },
+  { cle: 'enErreur', nom: 'Erreurs', titre: 'Ses réponses en erreur serveur' },
   { cle: 'part', nom: 'Part du temps', titre: 'Sa part du temps que les routes ont pris au serveur : ses appels fois son temps' },
-  { cle: 'ecart', nom: 'Écart', titre: 'Son 95ᵉ centile face à la période d’avant', large: true },
+  { cle: 'ecart', nom: 'Écart', titre: 'Ses 19 appels sur 20 face à la période d’avant', large: true },
 ]
 
 /** L'écart d'une route à la période d'avant, en pour cent ; null sans elle. */
 const ecartDe = (r: RouteDeLaPeriode) => (r.avant && r.avant.p95 > 0 ? Math.round(((r.p95 - r.avant.p95) / r.avant.p95) * 100) : null)
 /** « +12 % », « −8 % » : le signe moins, pas le trait d'union de `formatNumber`. */
 const pourcentSigne = (p: number) => `${p > 0 ? '+' : p < 0 ? '−' : ''}${formatNumber(Math.abs(p))} %`
+/** « 1 pour 10 000 » : des erreurs pour mille, dites sur dix mille requêtes — un nombre qu'on lit, pas un signe qu'on devine. */
+const pourDixMille = (pourMille: number) => `${formatNumber(Math.round(pourMille * 100) / 10)} pour 10 000`
 
 function valeurDeTri(r: RouteDeLaPeriode, cle: CleDeTri): number | string {
   if (cle === 'route') return r.route
@@ -1469,7 +1480,7 @@ function FeuilleDUneRoute({ route: r, page, onFermer }: { route: RouteDeLaPeriod
         <ul className="qg-tuiles qg-tuiles-quatre">
           <Tuile nom="Appels" valeur={formatNumber(r.n)} detail={r.avant ? `${formatNumber(r.avant.n)} la période d’avant` : `sur ${sur.titre}`} />
           <Tuile
-            nom="95ᵉ centile"
+            nom="19 fois sur 20"
             valeur={tempsDeReponse(r.p95)}
             detail={r.avant ? `${tempsDeReponse(r.avant.p95)} la période d’avant (${pourcentSigne(ecart ?? 0)})` : `médiane ${tempsDeReponse(r.p50)}`}
           />
@@ -1482,8 +1493,8 @@ function FeuilleDUneRoute({ route: r, page, onFermer }: { route: RouteDeLaPeriod
           />
         </ul>
         <p className="muted small">
-          {formatNumber(r.refusees)} réponse{r.refusees > 1 ? 's' : ''} refusée{r.refusees > 1 ? 's' : ''} (4xx) — un mot de passe faux, une partie déjà finie —, et{' '}
-          {formatNumber(r.enErreur)} en erreur serveur (5xx), que la page des erreurs détaille.
+          {formatNumber(r.refusees)} réponse{r.refusees > 1 ? 's' : ''} refusée{r.refusees > 1 ? 's' : ''} — un mot de passe faux, une partie déjà finie —, et{' '}
+          {formatNumber(r.enErreur)} en erreur serveur, que la page des erreurs détaille.
         </p>
         {r.parHeure.length > 1 && heures.length === r.parHeure.length && (
           <section className="qg-carte qg-ecran" aria-labelledby="serveur-route-heures">
@@ -1548,12 +1559,12 @@ const COLONNES_DES_MESSAGES: typeof COLONNES = [
   { cle: 'route', nom: 'Message', titre: 'Son nom dans le contrat du temps réel, et ce qu’il fait' },
   { cle: 'n', nom: 'Reçus', titre: 'Ses arrivées sur la période' },
   { cle: 'p50', nom: 'Médiane', titre: 'Jusqu’à son accusé : la médiane de ses heures, pondérée par leurs arrivées', large: true },
-  { cle: 'p95', nom: '95ᵉ centile', titre: 'Jusqu’à son accusé : le 95ᵉ centile de ses heures, pondéré par leurs arrivées' },
+  { cle: 'p95', nom: '19 sur 20', titre: 'Jusqu’à son accusé : ce que 19 arrivées sur 20 ne dépassent pas, ses heures pondérées par leurs arrivées' },
   { cle: 'max', nom: 'Pire', titre: 'Son accusé le plus lent', large: true },
   { cle: 'refusees', nom: 'Refus', titre: 'Ses accusés « non » : trop tard, en pause, inconnu…', large: true },
   { cle: 'enErreur', nom: 'Pannes', titre: 'Ses exceptions, que le serveur a rattrapées' },
   { cle: 'part', nom: 'Part du temps', titre: 'Sa part du temps que les messages ont pris au serveur : ses arrivées fois son temps' },
-  { cle: 'ecart', nom: 'Écart', titre: 'Son 95ᵉ centile face à la période d’avant', large: true },
+  { cle: 'ecart', nom: 'Écart', titre: 'Ses 19 arrivées sur 20 face à la période d’avant', large: true },
 ]
 
 /** Ce que fait un message, en mots ; rien pour un nom que le contrat ne connaît plus. */
@@ -1737,7 +1748,7 @@ function FeuilleDUnMessage({ message: m, page, onFermer }: { message: RouteDeLaP
           <Tuile
             nom="Jusqu’à l’accusé"
             valeur={tempsDeReponse(m.p95)}
-            detail={m.avant ? `au 95ᵉ centile ; ${tempsDeReponse(m.avant.p95)} la période d’avant (${pourcentSigne(ecart ?? 0)})` : `au 95ᵉ centile ; médiane ${tempsDeReponse(m.p50)}`}
+            detail={m.avant ? `19 fois sur 20 ; ${tempsDeReponse(m.avant.p95)} la période d’avant (${pourcentSigne(ecart ?? 0)})` : `19 fois sur 20 ; médiane ${tempsDeReponse(m.p50)}`}
           />
           <Tuile nom="Le plus lent" valeur={tempsDeReponse(m.max)} detail={`médiane ${tempsDeReponse(m.p50)}`} />
           <Tuile
@@ -1812,10 +1823,11 @@ function LesVersions({ page }: { page: PageDuServeur }) {
                 valeur={v.routes ? tempsDeReponse(v.routes.p95) : '–'}
                 detail={avant?.routes ? `contre ${tempsDeReponse(avant.routes.p95)} avant` : v.routes ? `médiane ${tempsDeReponse(v.routes.p50)}` : 'rien de mesuré'}
               />
+              {/* « 0,1 ‰ », en petite chasse, se lisait « % » : une erreur pour dix mille requêtes, en toutes lettres. */}
               <Tuile
-                nom="Erreurs pour mille"
-                valeur={v.erreursPourMille === null ? '–' : `${formatNumber(v.erreursPourMille)} ‰`}
-                detail={avant?.erreursPourMille != null ? `contre ${formatNumber(avant.erreursPourMille)} ‰ avant` : `${formatNumber(v.requetes)} requêtes`}
+                nom="Erreurs"
+                valeur={v.erreursPourMille === null ? '–' : pourDixMille(v.erreursPourMille)}
+                detail={avant?.erreursPourMille != null ? `contre ${pourDixMille(avant.erreursPourMille)} avant` : `${formatNumber(v.requetes)} requêtes`}
               />
               <Tuile
                 nom="Processeur"
@@ -1840,7 +1852,7 @@ function LesVersions({ page }: { page: PageDuServeur }) {
                         <NomDeLaRoute route={r.route} />
                       </b>
                       <span className="muted small">
-                        {tempsDeReponse(r.avant)} → {tempsDeReponse(r.apres)} au 95ᵉ centile ({pourcentSigne(Math.round(((r.apres - r.avant) / r.avant) * 100))}) face à la version d’avant
+                        {tempsDeReponse(r.avant)} → {tempsDeReponse(r.apres)} pour 19 appels sur 20 ({pourcentSigne(Math.round(((r.apres - r.avant) / r.avant) * 100))}) face à la version d’avant
                       </span>
                     </span>
                   </li>
