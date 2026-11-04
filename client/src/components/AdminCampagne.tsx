@@ -3,15 +3,20 @@ import { api, motifDe } from '../api'
 import { confirmDialog } from './Dialog'
 import { Icon } from './Icon'
 import { AujourdhuiDeLaCampagne, CeQuOnJoue, DefiDeLaSemaineAuQg, ParcoursDeThemeAuQg, ViesDesSentiersAuQg } from './QgCampagne'
-import { ReclasserLaQuestion, VersLesSignalements } from './QgSignalements'
+import { Chiffre, GabaritDUnMode, TuileParJoueur, enPourcentsEcrits } from './QgModes'
+import { VersLesSignalements } from './QgSignalements'
+import { PrenomDuJoueur } from './PrenomDuJoueur'
+import { VersUnePageDuContenu } from './QgReserves'
+import { enPourcents } from '../../../shared/qgDuJour'
+import { entonnoirDuSolo } from '../../../shared/qgModes'
+import type { PeriodeDuQg } from '../../../shared/qgPeriodes'
 import { espacesFines, quand } from '../format'
 import { showToast } from '../state'
 import { formatNumber } from '../../../shared/typographie'
 import { jourDe, jourEnToutesLettres } from '../../../shared/jour'
 import type { VueDEnsemble } from '../../../shared/qg'
 import type { SuiviDeLaCampagne } from '../../../shared/qgCampagne'
-import { nomDuSousTheme } from '../../../shared/qgSignalements'
-import { NIVEAUX, type AdminDeLaCampagne, type AjoutsDeLaRoutine as Ajouts, type Niveau } from '../../../shared/campagne'
+import { NIVEAUX, type AdminDeLaCampagne, type Niveau } from '../../../shared/campagne'
 import { BRANCHES } from '../../../shared/branches'
 import {
   ESSAIS_POUR_CROIRE,
@@ -39,18 +44,36 @@ import { texteDuMelangeCourt } from './melanges'
  * La campagne, côté administrateur (`/admin#campagne`) : les chiffres
  * d'aujourd'hui, ce qu'on joue sous-mode par sous-mode, le défi de la
  * semaine, les parcours de thème, les vies (`QgCampagne.tsx`) ; les sentiers
- * palier par palier, et le mélange de chacun à régler ; sa base — combien
- * de questions, par catégorie —, la routine du matin, et la ligne qui mène
- * aux questions que les joueurs signalent : elles se relisent sur leur page,
- * avec celles du quiz du jour (`AdminSignalements.tsx`). La vue d'ensemble
- * du QG lui prête ses trente jours : déjà lus, ils ne se relisent pas ici.
+ * palier par palier, et le mélange de chacun à régler ; puis les lignes qui
+ * mènent à ce qui a déménagé au QG 2, lot 7 — sa base et la routine du matin
+ * (« Réserves et base », `QgReserves.tsx`), les questions que leurs réponses
+ * contredisent (« Questions », `QgQuestions.tsx`) — et aux questions que les
+ * joueurs signalent : elles se relisent sur leur page, avec celles du quiz du
+ * jour (`AdminSignalements.tsx`). La vue d'ensemble du QG lui prête ses trente
+ * jours : déjà lus, ils ne se relisent pas ici — et, depuis le QG 2 (lot 5),
+ * ses périodes, que le gabarit des modes pose en tête (`GabaritDUnMode`). Le
+ * Cabinet de curiosités a sa page : la campagne le garde parmi ses
+ * sous-modes, pas dans son gabarit.
  */
-export function AdminCampagne({ vue, versLesSignalements }: { vue: VueDEnsemble | null; versLesSignalements: () => void }) {
+export function AdminCampagne({
+  vue,
+  versLesSignalements,
+  versLesReserves,
+  versLesContredites,
+  periode = '24h',
+  comparer = false,
+}: {
+  vue: VueDEnsemble | null
+  versLesSignalements: () => void
+  versLesReserves: () => void
+  versLesContredites: () => void
+  periode?: PeriodeDuQg
+  comparer?: boolean
+}) {
   const [etat, setEtat] = useState<AdminDeLaCampagne | null>(null)
   const [erreur, setErreur] = useState('')
   const [suivi, setSuivi] = useState<SuiviDeLaCampagne | null>(null)
   const [suiviEnPanne, setSuiviEnPanne] = useState(false)
-  const [occupe, setOccupe] = useState(false)
 
   const charger = () =>
     api.admin
@@ -71,21 +94,36 @@ export function AdminCampagne({ vue, versLesSignalements }: { vue: VueDEnsemble 
     void chargerLeSuivi()
   }, [])
 
-  const faire = async (appel: () => Promise<unknown>, merci: string) => {
-    setOccupe(true)
-    try {
-      await appel()
-      showToast({ kind: 'info', message: merci })
-      await charger()
-    } catch (e) {
-      showToast({ kind: 'error', message: motifDe(e) })
-    } finally {
-      setOccupe(false)
-    }
-  }
-
+  const totaux = vue?.periodes?.[periode]?.totaux
+  const finies = totaux?.finies ? enPourcents({ justes: totaux.finies.campagne, sur: totaux.parties.campagne }) : null
+  const etapes = totaux && entonnoirDuSolo(totaux, 'campagne')
   return (
     <>
+      <GabaritDUnMode
+        mode="campagne"
+        vue={vue}
+        periode={periode}
+        comparer={comparer}
+        tuiles={
+          <>
+            <Chiffre
+              nom="Parties finies"
+              valeur={enPourcentsEcrits(finies)}
+              detail={totaux?.finies ? `${formatNumber(totaux.finies.campagne)} sur ${formatNumber(totaux.parties.campagne)} commencées` : undefined}
+            />
+            <TuileParJoueur mode="campagne" vue={vue} periode={periode} detail="en moyenne" />
+          </>
+        }
+        entonnoir={
+          etapes
+            ? {
+                titre: 'D’une partie commencée à sa fin',
+                etapes,
+                note: 'Toutes ses sortes ensemble — séries, épreuves des sentiers, parcours, révisions, défi —, sans le Cabinet, qui a sa page. Une partie laissée se reprend, et se finit plus tard.',
+              }
+            : null
+        }
+      />
       <AujourdhuiDeLaCampagne vue={vue} suivi={suivi} />
       {suiviEnPanne && <p className="serif-note">La base permanente ne répond pas : le défi, les parcours et les vies reviendront en rouvrant la page.</p>}
       <CeQuOnJoue vue={vue} />
@@ -102,197 +140,60 @@ export function AdminCampagne({ vue, versLesSignalements }: { vue: VueDEnsemble 
       ) : !etat ? (
         <p className="serif-note">Chargement…</p>
       ) : (
-        <BaseDeLaCampagne etat={etat} occupe={occupe} faire={faire} versLesSignalements={versLesSignalements} />
+        <LignesDeLaBase etat={etat} versLesReserves={versLesReserves} versLesContredites={versLesContredites} versLesSignalements={versLesSignalements} />
       )}
     </>
   )
 }
-
-/** La base de la campagne, la routine du matin qui l'agrandit, et la ligne des questions signalées. */
-function BaseDeLaCampagne({ etat, occupe, faire, versLesSignalements }: { etat: AdminDeLaCampagne; occupe: boolean; faire: Faire; versLesSignalements: () => void }) {
-  return (
-    <>
-      <section className="admin-groupe" aria-labelledby="campagne-base-titre">
-        <h2 className="compte-groupe" id="campagne-base-titre">
-          La base
-        </h2>
-        <p className="muted small">
-          {formatNumber(etat.questions)} questions écrites et étiquetées d’avance, rien qu’à la campagne : {formatNumber(etat.jouables)} à jouer
-          {etat.retirees > 0 && `, ${formatNumber(etat.retirees)} retirée${etat.retirees > 1 ? 's' : ''}`}. Celles que la réserve du quiz du jour
-          contient aussi ne sortent pas ici.
-        </p>
-        <ul className="campagne-admin-categories">
-          {etat.parCategorie.map(c => (
-            <li key={c.categorie}>
-              <span>{c.categorie}</span>
-              <b className="num">{formatNumber(c.questions)}</b>
-            </li>
-          ))}
-        </ul>
-        {/* Par difficulté estimée, de 1 à 5 : ce que la routine rattrape chaque matin. */}
-        <details className="campagne-admin-difficultes">
-          <summary className="muted small">Par difficulté, de 1 (presque tout le monde) à 5 (un passionné)</summary>
-          <table className="small">
-            <thead>
-              <tr>
-                <th scope="col">Catégorie</th>
-                {[1, 2, 3, 4, 5].map(d => (
-                  <th key={d} scope="col" className="num">
-                    {d}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {etat.parDifficulte.map(c => (
-                <tr key={c.categorie}>
-                  <th scope="row">{c.categorie}</th>
-                  {c.difficultes.map((n, i) => (
-                    <td key={i} className="num">
-                      {formatNumber(n)}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </details>
-      </section>
-
-      <QuestionsContredites etat={etat} occupe={occupe} faire={faire} />
-
-      <section className="admin-groupe" aria-labelledby="campagne-routine-titre">
-        <h2 className="compte-groupe" id="campagne-routine-titre">
-          La routine du matin
-        </h2>
-        <AjoutsDeLaRoutine ajouts={etat.ajouts} occupe={occupe} faire={faire} />
-      </section>
-
-      {/* Les signalements se relisent sur leur page, avec ceux du quiz du jour (le choix du 14 octobre 2026). */}
-      <VersLesSignalements questions={etat.signalements.length} ouvrir={versLesSignalements} />
-    </>
-  )
-}
-
-/** Un geste de l'écran : l'appel, puis le merci — la liste se relit. */
-type Faire = (appel: () => Promise<unknown>, merci: string) => Promise<void>
-
-/** Une question au singulier, comme les marches des sentiers : « une question moyenne ». */
-const QUESTION_DE_NIVEAU: Record<Niveau, string> = { facile: 'facile', moyen: 'moyenne', difficile: 'difficile', expert: 'experte' }
 
 /**
- * Les questions que leurs réponses contredisent (le choix du 15 octobre
- * 2026 : « les moyennes que personne ne trouve ») : jouées cinq fois au
- * moins, leur part de bonnes réponses dit une autre marche que la leur. Les
- * familles en reclassent la plupart d'elles-mêmes — une date ratée part déjà
- * difficile — : restent celles qui font exception à leurs voisines, les plus
- * nettes d'abord. « Reclasser » propose la difficulté que disent ses réponses.
+ * Ce qui a déménagé au QG 2, lot 7, en une ligne chacun : la base et la
+ * routine du matin vivent sur « Réserves et base », ce que les réponses
+ * contredisent (le souhait du propriétaire du 15 octobre 2026, « la liste des
+ * moyennes que personne ne trouve ») sur « Questions », les plus nettes
+ * d'abord, « Reclasser » la difficulté qu'elles disent déjà choisie ; puis la
+ * ligne des questions signalées.
  */
-function QuestionsContredites({ etat, occupe, faire }: { etat: AdminDeLaCampagne; occupe: boolean; faire: Faire }) {
-  const [ouverte, setOuverte] = useState<string | null>(null)
-  const { contredites, contreditesEnTout } = etat
+function LignesDeLaBase({
+  etat,
+  versLesReserves,
+  versLesContredites,
+  versLesSignalements,
+}: {
+  etat: AdminDeLaCampagne
+  versLesReserves: () => void
+  versLesContredites: () => void
+  versLesSignalements: () => void
+}) {
+  const ajoutees = etat.ajouts.septJours
   return (
-    <section className="admin-groupe" aria-labelledby="campagne-contredites-titre">
-      <h2 className="compte-groupe" id="campagne-contredites-titre">
-        Ce que les réponses contredisent
-      </h2>
-      <p className="muted small">
-        {espacesFines(
-          'Les questions jouées cinq fois au moins dont la part de bonnes réponses dit une autre marche que la leur, les plus nettes d’abord. Leur famille — les questions de leur catégorie et de leur difficulté, ou les dates entre elles — corrige déjà ce qui leur ressemble : celles-ci font exception.',
-        )}
-      </p>
-      {contredites.length === 0 ? (
-        <p className="muted small">Aucune pour l’instant : les réponses des joueurs s’accordent avec les marches.</p>
-      ) : (
-        <>
-          <ul className="campagne-contredites">
-            {contredites.map(q => (
-              <li key={q.questionId}>
-                <p>
-                  <b>« {q.texte} »</b>{' '}
-                  <span className="muted">
-                    · {q.categorie} › {nomDuSousTheme(q.categorie, q.sousTheme)} · difficulté {q.difficulte}
-                  </span>
-                </p>
-                <p className="small">
-                  {espacesFines(
-                    // Une espace fine insécable avant « % » : au téléphone, « (100 » finissait une ligne et « %) » ouvrait la suivante.
-                    `${q.reponses[q.bonne]} · trouvée ${q.mesure.justes} fois sur ${q.mesure.total} (${Math.round((100 * q.mesure.justes) / q.mesure.total)}\u202f%) : tirée ${QUESTION_DE_NIVEAU[q.niveau]}, ses réponses la disent ${QUESTION_DE_NIVEAU[q.niveauMesure]}.`,
-                  )}
-                </p>
-                {ouverte === q.questionId ? (
-                  <ReclasserLaQuestion
-                    avant={{ categorie: q.categorie, sousTheme: q.sousTheme, difficulte: q.difficulte }}
-                    avecMeta
-                    occupe={occupe}
-                    difficulteAvant={`Estimée ${q.difficulte} à l’écriture, en pointillé ; ses réponses proposent ${q.difficulteProposee}.`}
-                    difficulteProposee={q.difficulteProposee}
-                    note="Elle change de marche dès le prochain tirage, et sa famille avec elle. Les réponses déjà données gardent la leur : les écussons de chacun ne bougent pas."
-                    onEnregistrer={classement => void faire(() => api.admin.reclasserDansLaCampagne(q.questionId, classement), 'Reclassée')}
-                    onAnnuler={() => setOuverte(null)}
-                  />
-                ) : (
-                  <button className="btn btn-small btn-ghost" disabled={occupe} onClick={() => setOuverte(q.questionId)}>
-                    Reclasser
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-          {contreditesEnTout > contredites.length && (
-            <p className="muted small">
-              {espacesFines(`Et ${formatNumber(contreditesEnTout - contredites.length)} autre${contreditesEnTout - contredites.length > 1 ? 's' : ''}, moins nettes : elles paraîtront ici une fois celles-ci relues.`)}
-            </p>
-          )}
-        </>
-      )}
+    <section className="admin-groupe" aria-label="La base de la campagne">
+      <VersUnePageDuContenu
+        icone="book"
+        href="/admin#reserves"
+        titre={`La base : ${formatNumber(etat.jouables)} questions à jouer`}
+        detail={`sur ${formatNumber(etat.questions)} · ${ajoutees > 0 ? `${formatNumber(ajoutees)} ajoutée${ajoutees > 1 ? 's' : ''} par la routine ces sept jours` : 'rien d’ajouté par la routine ces sept jours'} · catégorie par marche, la routine du matin : Réserves et base`}
+        ouvrir={versLesReserves}
+      />
+      <VersUnePageDuContenu
+        icone="bulb"
+        href="/admin#questions"
+        titre={
+          etat.contreditesEnTout > 0
+            ? `${formatNumber(etat.contreditesEnTout)} question${etat.contreditesEnTout > 1 ? 's' : ''} que leurs réponses contredisent`
+            : 'Aucune question que ses réponses contredisent'
+        }
+        detail="jouées cinq fois au moins, leur part de bonnes réponses dit une autre marche que la leur : les relire et les reclasser, sur Questions"
+        ouvrir={versLesContredites}
+      />
+      {/* Les signalements se relisent sur leur page, avec ceux du quiz du jour (le choix du 14 octobre 2026). */}
+      <VersLesSignalements questions={etat.signalements.length} ouvrir={versLesSignalements} />
     </section>
   )
 }
 
-/**
- * Ce que la routine du matin a déposé dans la base (`/api/campagne/base`) :
- * de quoi voir qu'elle tourne, et relire ses dernières questions — c'est la
- * première fois qu'un humain les lit. « Retirer » les sort de la campagne
- * pour tous, comme une question signalée.
- */
-function AjoutsDeLaRoutine({ ajouts, occupe, faire }: { ajouts: Ajouts; occupe: boolean; faire: Faire }) {
-  if (ajouts.total === 0) {
-    return (
-      <p className="muted small">
-        Rien de déposé pour l’instant. La routine de la réserve du quiz du jour agrandit aussi la base, chaque matin, une fois son étape « base de la
-        campagne » ajoutée (docs/exploitation/mise-en-ligne.md, étape 9).
-      </p>
-    )
-  }
-  return (
-    <>
-      <p className="muted small">
-        {formatNumber(ajouts.aujourdhui)} question{ajouts.aujourdhui > 1 ? 's' : ''} aujourd’hui · {formatNumber(ajouts.septJours)} ces sept derniers jours ·{' '}
-        {formatNumber(ajouts.total)} en tout{ajouts.dernierLe !== null && <> · dernier dépôt {quand(ajouts.dernierLe)}</>}
-      </p>
-      <ul className="campagne-ajouts">
-        {ajouts.derniers.map(a => (
-          <li key={a.id} className={a.retiree ? 'campagne-ajout-retire' : undefined}>
-            <p>
-              <b>« {a.texte} »</b>{' '}
-              <span className="muted">
-                · {a.categorie} › {nomDuSousTheme(a.categorie, a.sousTheme)} · difficulté {a.difficulte} · {quand(a.ajouteeLe)}
-              </span>
-            </p>
-            {a.retiree ? (
-              <p className="muted small">{a.remplacee ? 'Corrigée : une nouvelle version se joue à sa place.' : 'Retirée de la campagne.'}</p>
-            ) : (
-              <button className="btn btn-small btn-ghost" disabled={occupe} onClick={() => void faire(() => api.admin.retirerDeLaCampagne(a.id), 'Retirée de la campagne')}>
-                Retirer
-              </button>
-            )}
-          </li>
-        ))}
-      </ul>
-    </>
-  )
-}
+/** Une question au singulier, comme les marches des sentiers : « une question moyenne ». */
+const QUESTION_DE_NIVEAU: Record<Niveau, string> = { facile: 'facile', moyen: 'moyenne', difficile: 'difficile', expert: 'experte' }
 
 /** « 1,4 » : un chiffre après la virgule, à la française — et « 3 » quand il n'y en a pas. */
 const dec = (x: number) => (Number.isInteger(x) ? formatNumber(x) : x.toFixed(1).replace('.', ','))
@@ -548,7 +449,8 @@ function AdminSentiers() {
                   const b = BRANCHES.find(c => c.key === x.branche)
                   return (
                     <li key={`${x.profileId}|${x.branche}`}>
-                      <b>{x.prenom ?? 'Profil supprimé'}</b>
+                      {/* Son prénom ouvre sa fiche, où « Libérer l'épreuve » l'attend. */}
+                      <PrenomDuJoueur id={x.prenom ? x.profileId : null} nom={x.prenom ?? 'Profil supprimé'} />
                       <span className="muted">{`${b?.nom ?? x.branche} · P${x.palier} · ${pluriel(x.echecs, 'échec')} · dernier échec ${quand(x.dernier)}`}</span>
                     </li>
                   )

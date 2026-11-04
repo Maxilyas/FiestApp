@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { api } from '../api'
 import { Icon, type IconName } from './Icon'
 import { Chiffre } from './QgModes'
+import { PrenomDuJoueur } from './PrenomDuJoueur'
 import { espacesFines } from '../format'
 import { formatNumber } from '../../../shared/typographie'
 import { jourAvant, jourDe, jourEnToutesLettres } from '../../../shared/jour'
@@ -169,12 +170,24 @@ function Reponses({ reponses, bonne, parts }: { reponses: readonly string[]; bon
   )
 }
 
-/** Un joueur qui la signale : qui, où, ce qu'il a répondu, quand — puis ce qu'il en dit. */
-function LigneDuRapport({ prenom, login, details, texte }: { prenom: string | null; login: string | null; details: (string | false | null | undefined)[]; texte: string }) {
+/** Un joueur qui la signale : qui — son prénom ouvre sa fiche —, où, ce qu'il a répondu, quand — puis ce qu'il en dit. */
+function LigneDuRapport({
+  profileId,
+  prenom,
+  login,
+  details,
+  texte,
+}: {
+  profileId: string
+  prenom: string | null
+  login: string | null
+  details: (string | false | null | undefined)[]
+  texte: string
+}) {
   return (
     <>
       <span>
-        <b>{prenom ?? 'Profil supprimé'}</b>
+        <PrenomDuJoueur id={prenom ? profileId : null} nom={prenom ?? 'Profil supprimé'} />
         {login && <span className="muted small"> @{login}</span>}
       </span>
       <span className="muted small">{espacesFines(details.filter(Boolean).join(' · '))}</span>
@@ -243,7 +256,6 @@ export function CarteDuJour({
   faire: Faire
   annuler: (s: SignalementDuJour) => void
 }) {
-  const [ouvert, setOuvert] = useState<'corriger' | 'reclasser' | null>(null)
   const total = s.parReponse.reduce((n, x) => n + x, 0) + s.sansReponse
   const parts = total > 0 ? s.parReponse.map(n => Math.round((n / total) * 100)) : undefined
   const reserve = s.reserve
@@ -285,70 +297,11 @@ export function CarteDuJour({
       )}
       <Rapports
         rapports={s.rapports}
-        ligne={r => <LigneDuRapport prenom={r.prenom} login={r.login} texte={r.texte} details={[saReponseDuJour(r), quandDuRapport(r, maintenant)]} />}
+        ligne={r => (
+          <LigneDuRapport profileId={r.profileId} prenom={r.prenom} login={r.login} texte={r.texte} details={[saReponseDuJour(r), quandDuRapport(r, maintenant)]} />
+        )}
       />
-      {ouvert === 'corriger' && reserve ? (
-        <CorrigerLaQuestion
-          version={reserve}
-          cle={`${s.jour}-${s.index}`}
-          maxReponse={MAX_ANSWER_TEXT}
-          occupe={occupe}
-          annulable={s.annulable && !s.annulee}
-          avertissement={(correction, nouvelle) =>
-            nouvelle
-              ? 'La bonne réponse change : la correction vaut pour ses prochains tirages, le jour qui l’a posée garde la sienne.'
-              : corrigeAussiLeJour(s, reserve, correction)
-                ? `Même bonne réponse : le jour qui l’a posée la prend aussi — l’écran de correction de chacun${auJour ? ', et ceux qui la jouent encore aujourd’hui' : ''}.`
-                : 'Pour ses prochains tirages seulement : le jour qui l’a posée garde la sienne — ses joueurs ont répondu par la place de chaque réponse.'
-          }
-          onEnregistrer={(correction, nouvelle, annulerAussi) =>
-            void faire(
-              () => api.admin.corrigerDuJour(s.jour, s.index, correction, annulerAussi),
-              annulerAussi ? 'Corrigée, ses points annulés pour tous' : nouvelle ? 'Corrigée pour ses prochains tirages' : 'Corrigée',
-            )
-          }
-          onAnnuler={() => setOuvert(null)}
-        />
-      ) : ouvert === 'reclasser' && reserve ? (
-        <ReclasserLaQuestion
-          avant={{ categorie: reserve.categorie ?? '', sousTheme: reserve.sousTheme, difficulte: reserve.difficulte }}
-          // Sans métadonnées — la routine ne l'a pas encore décrite —, seule sa catégorie se reclasse.
-          avecMeta={reserve.difficulte !== null}
-          occupe={occupe}
-          difficulteAvant={reserve.difficulte !== null ? `Estimée ${reserve.difficulte} par la routine qui l’a décrite, en pointillé.` : null}
-          note={
-            reserve.difficulte !== null
-              ? 'Pour ses prochains tirages : le jour qui l’a posée garde sa catégorie, et les écussons de chacun ne bougent pas.'
-              : 'La routine ne l’a pas encore décrite : seule sa catégorie se reclasse, pour ses prochains tirages. Le jour qui l’a posée garde la sienne.'
-          }
-          onEnregistrer={classement => void faire(() => api.admin.reclasserDuJour(s.jour, s.index, classement), 'Reclassée')}
-          onAnnuler={() => setOuvert(null)}
-        />
-      ) : (
-        <div className="admin-gestes">
-          {s.annulable && !s.annulee && <Geste nom="Annuler ses points pour tous" question={s.texte} genre="alerte" occupe={occupe} onClick={() => annuler(s)} />}
-          {vivante && (
-            <>
-              <Geste icone="edit" nom="Corriger" question={s.texte} genre="oui" occupe={occupe} onClick={() => setOuvert('corriger')} />
-              <Geste icone="tag" nom="Reclasser" question={s.texte} occupe={occupe} onClick={() => setOuvert('reclasser')} />
-              <Geste
-                icone="trash"
-                nom="Retirer de la réserve"
-                question={s.texte}
-                occupe={occupe}
-                onClick={() => void faire(() => api.admin.retirerDuJour(s.reserveId, s.jour, s.index), 'Retirée de la réserve')}
-              />
-            </>
-          )}
-          <Geste
-            icone="check"
-            nom={vivante ? 'Garder' : 'Refermer'}
-            question={s.texte}
-            occupe={occupe}
-            onClick={() => void faire(() => api.admin.garderDuJour(s.jour, s.index), vivante ? 'Gardée' : 'Refermé')}
-          />
-        </div>
-      )}
+      <GestesDUneQuestionDuJour q={s} maintenant={maintenant} occupe={occupe} faire={faire} annuler={() => annuler(s)} garder />
     </article>
   )
 }
@@ -356,7 +309,7 @@ export function CarteDuJour({
 // ── La campagne ─────────────────────────────────────────────────────────────
 
 /** Une question au singulier, comme les marches des sentiers : « une question moyenne à l'usage ». */
-const QUESTION_DE_NIVEAU: Record<Niveau, string> = { facile: 'facile', moyen: 'moyenne', difficile: 'difficile', expert: 'experte' }
+export const QUESTION_DE_NIVEAU: Record<Niveau, string> = { facile: 'facile', moyen: 'moyenne', difficile: 'difficile', expert: 'experte' }
 const ORIGINES: Record<SignalementDeCampagne['origine'], string> = { depot: 'base du dépôt', routine: 'routine du matin', correction: 'née d’une correction' }
 
 /**
@@ -420,7 +373,6 @@ function saReponse(r: RapportDeSignalement): string | null {
  * la corriger, la reclasser, la retirer de la campagne, la garder.
  */
 export function CarteDeCampagne({ s, maintenant, occupe, faire }: { s: SignalementDeCampagne; maintenant: number; occupe: boolean; faire: Faire }) {
-  const [ouvert, setOuvert] = useState<'corriger' | 'reclasser' | null>(null)
   const lieux = [...new Set(s.rapports.filter(r => r.traiteLe === null).map(r => LIEUX[r.ou]))]
   return (
     <article className="qg-carte signalement-carte" aria-label={`Campagne : « ${s.texte} »`}>
@@ -444,6 +396,7 @@ export function CarteDeCampagne({ s, maintenant, occupe, faire }: { s: Signaleme
         rapports={s.rapports}
         ligne={r => (
           <LigneDuRapport
+            profileId={r.profileId}
             prenom={r.prenom}
             login={r.login}
             texte={r.texte}
@@ -451,56 +404,223 @@ export function CarteDeCampagne({ s, maintenant, occupe, faire }: { s: Signaleme
           />
         )}
       />
-      {ouvert === 'corriger' ? (
-        <CorrigerLaQuestion
-          version={s}
-          cle={s.questionId}
-          maxReponse={MAX_REPONSE}
-          // Un vrai ou faux garde ses deux réponses : seule la bonne se coche.
-          reponsesFixes={s.reponses.length === 2}
-          occupe={occupe}
-          annulable={false}
-          avertissement={(_correction, nouvelle) =>
-            `${
-              nouvelle
-                ? 'La bonne réponse change : la question repartira sous un nouvel identifiant, sans les mesures de l’ancienne, qui sera retirée.'
-                : 'Même bonne réponse : la question garde son identifiant, ses réponses passées et sa difficulté mesurée.'
-            } Les séries déjà tirées gardent la version qu’elles ont lue.`
-          }
-          onEnregistrer={(correction, nouvelle) =>
-            void faire(() => api.admin.corrigerDansLaCampagne(s.questionId, correction), nouvelle ? 'Corrigée, sous un nouvel identifiant' : 'Corrigée')
-          }
-          onAnnuler={() => setOuvert(null)}
-        />
-      ) : ouvert === 'reclasser' ? (
-        <ReclasserLaQuestion
-          avant={{ categorie: s.categorie, sousTheme: s.sousTheme, difficulte: s.difficulte }}
-          avecMeta
-          occupe={occupe}
-          difficulteAvant={`Estimée ${s.difficulte} à l’écriture, en pointillé${s.mesure.total > 0 ? ` ; ses ${pluriel(s.mesure.total, 'réponse')} la placent déjà « ${QUESTION_DE_NIVEAU[s.niveau]} »` : ''}. L’estimation compte d’abord pour une question jeune.`}
-          note="Elle rejoint les séries, les sentiers et le défi de sa nouvelle catégorie dès le prochain tirage. Les réponses déjà données gardent la leur : les écussons de chacun ne bougent pas."
-          onEnregistrer={classement => void faire(() => api.admin.reclasserDansLaCampagne(s.questionId, classement), 'Reclassée')}
-          onAnnuler={() => setOuvert(null)}
-        />
-      ) : s.retiree ? (
-        <div className="admin-gestes">
-          <Geste icone="check" nom="Refermer" question={s.texte} occupe={occupe} onClick={() => void faire(() => api.admin.garderDeLaCampagne(s.questionId), 'Refermé')} />
-        </div>
-      ) : (
-        <div className="admin-gestes">
-          <Geste icone="edit" nom="Corriger" question={s.texte} genre="oui" occupe={occupe} onClick={() => setOuvert('corriger')} />
-          <Geste icone="tag" nom="Reclasser" question={s.texte} occupe={occupe} onClick={() => setOuvert('reclasser')} />
+      <GestesDUneQuestionDeCampagne q={s} occupe={occupe} faire={faire} garder />
+    </article>
+  )
+}
+
+// ── Les gestes d'une question ───────────────────────────────────────────────
+
+/** Ce que les gestes d'une question du jour lisent : son signalement, ou sa ligne de la page des questions — le jour qui l'a posée en dernier. */
+export type QuestionDuJourAuGeste = Pick<SignalementDuJour, 'jour' | 'index' | 'reserveId' | 'texte' | 'reponses' | 'bonne' | 'reserve' | 'annulee' | 'annulable'>
+
+/**
+ * Les gestes sur une question du jour, ceux de sa carte comme de sa feuille
+ * à la page des questions (`QgQuestions.tsx`, le QG 2, lot 7 : les mêmes
+ * gestes, aucun d'écrit pour elle) : annuler ses points pour tous tant que
+ * son jour court, la corriger, la reclasser, la retirer de la réserve ; et,
+ * où l'on relit ses signalements (`garder`), la garder — ou refermer ce
+ * qu'on en dit, une fois retirée. Corriger et reclasser s'ouvrent à leur
+ * place.
+ */
+export function GestesDUneQuestionDuJour({
+  q,
+  maintenant,
+  occupe,
+  faire,
+  annuler,
+  garder = false,
+}: {
+  q: QuestionDuJourAuGeste
+  maintenant: number
+  occupe: boolean
+  faire: Faire
+  annuler: () => void
+  /** Ses signalements se relisent ici : « Garder », ou « Refermer » une question qui n'est plus dans la réserve. */
+  garder?: boolean
+}) {
+  const [ouvert, setOuvert] = useState<'corriger' | 'reclasser' | null>(null)
+  const reserve = q.reserve
+  const vivante = reserve !== null && !reserve.retiree
+  const auJour = q.jour === jourDe(maintenant)
+  if (ouvert === 'corriger' && reserve) {
+    return (
+      <CorrigerLaQuestion
+        version={reserve}
+        cle={`${q.jour}-${q.index}`}
+        maxReponse={MAX_ANSWER_TEXT}
+        occupe={occupe}
+        annulable={q.annulable && !q.annulee}
+        avertissement={(correction, nouvelle) =>
+          nouvelle
+            ? 'La bonne réponse change : la correction vaut pour ses prochains tirages, le jour qui l’a posée garde la sienne.'
+            : corrigeAussiLeJour(q, reserve, correction)
+              ? `Même bonne réponse : le jour qui l’a posée la prend aussi — l’écran de correction de chacun${auJour ? ', et ceux qui la jouent encore aujourd’hui' : ''}.`
+              : 'Pour ses prochains tirages seulement : le jour qui l’a posée garde la sienne — ses joueurs ont répondu par la place de chaque réponse.'
+        }
+        onEnregistrer={(correction, nouvelle, annulerAussi) =>
+          void faire(
+            () => api.admin.corrigerDuJour(q.jour, q.index, correction, annulerAussi),
+            annulerAussi ? 'Corrigée, ses points annulés pour tous' : nouvelle ? 'Corrigée pour ses prochains tirages' : 'Corrigée',
+          )
+        }
+        onAnnuler={() => setOuvert(null)}
+      />
+    )
+  }
+  if (ouvert === 'reclasser' && reserve) {
+    return (
+      <ReclasserLaQuestion
+        avant={{ categorie: reserve.categorie ?? '', sousTheme: reserve.sousTheme, difficulte: reserve.difficulte }}
+        // Sans métadonnées — la routine ne l'a pas encore décrite —, seule sa catégorie se reclasse.
+        avecMeta={reserve.difficulte !== null}
+        occupe={occupe}
+        difficulteAvant={reserve.difficulte !== null ? `Estimée ${reserve.difficulte} par la routine qui l’a décrite, en pointillé.` : null}
+        note={
+          reserve.difficulte !== null
+            ? 'Pour ses prochains tirages : le jour qui l’a posée garde sa catégorie, et les écussons de chacun ne bougent pas.'
+            : 'La routine ne l’a pas encore décrite : seule sa catégorie se reclasse, pour ses prochains tirages. Le jour qui l’a posée garde la sienne.'
+        }
+        onEnregistrer={classement => void faire(() => api.admin.reclasserDuJour(q.jour, q.index, classement), 'Reclassée')}
+        onAnnuler={() => setOuvert(null)}
+      />
+    )
+  }
+  const annulable = q.annulable && !q.annulee
+  // Retirée, son jour clos, et rien à refermer : plus un geste ne vaut.
+  if (!annulable && !vivante && !garder) return null
+  // Le geste sans retour en dernier, à part : il ouvrait la rangée, rouge, sous le doigt qui venait corriger.
+  return (
+    <div className="admin-gestes">
+      {vivante && (
+        <>
+          <Geste icone="edit" nom="Corriger" question={q.texte} genre="oui" occupe={occupe} onClick={() => setOuvert('corriger')} />
+          <Geste icone="tag" nom="Reclasser" question={q.texte} occupe={occupe} onClick={() => setOuvert('reclasser')} />
           <Geste
             icone="trash"
-            nom="Retirer de la campagne"
-            question={s.texte}
+            nom="Retirer de la réserve"
+            question={q.texte}
             occupe={occupe}
-            onClick={() => void faire(() => api.admin.retirerDeLaCampagne(s.questionId), 'Retirée de la campagne')}
+            onClick={() => void faire(() => api.admin.retirerDuJour(q.reserveId, q.jour, q.index), 'Retirée de la réserve')}
           />
-          <Geste icone="check" nom="Garder" question={s.texte} occupe={occupe} onClick={() => void faire(() => api.admin.garderDeLaCampagne(s.questionId), 'Gardée')} />
-        </div>
+        </>
       )}
-    </article>
+      {garder && (
+        <Geste
+          icone="check"
+          nom={vivante ? 'Garder' : 'Refermer'}
+          question={q.texte}
+          occupe={occupe}
+          onClick={() => void faire(() => api.admin.garderDuJour(q.jour, q.index), vivante ? 'Gardée' : 'Refermé')}
+        />
+      )}
+      {annulable && (
+        <span className="admin-gestes-a-part">
+          <Geste nom="Effacer ses points pour tous" question={q.texte} genre="alerte" occupe={occupe} onClick={annuler} />
+        </span>
+      )}
+    </div>
+  )
+}
+
+/** Ce que les gestes d'une question de la campagne lisent : son signalement, ou sa ligne de la page des questions. */
+export type QuestionDeCampagneAuGeste = Pick<
+  SignalementDeCampagne,
+  'questionId' | 'texte' | 'reponses' | 'bonne' | 'anecdote' | 'categorie' | 'sousTheme' | 'difficulte' | 'niveau' | 'mesure' | 'retiree'
+>
+
+/**
+ * Les gestes sur une question de la campagne, ceux de sa carte comme de sa
+ * feuille à la page des questions : la corriger, la reclasser, la retirer de
+ * la campagne ; et, où l'on relit ses signalements (`garder`), la garder —
+ * ou refermer ce qu'on en dit, une fois retirée. Quand ses réponses la
+ * contredisent (`difficulteProposee`), « Reclasser » s'ouvre sur la
+ * difficulté qu'elles disent, comme la liste de la campagne le faisait (le
+ * souhait du propriétaire du 15 octobre 2026).
+ */
+export function GestesDUneQuestionDeCampagne({
+  q,
+  occupe,
+  faire,
+  garder = false,
+  difficulteProposee,
+}: {
+  q: QuestionDeCampagneAuGeste
+  occupe: boolean
+  faire: Faire
+  /** Ses signalements se relisent ici : « Garder », ou « Refermer » une question déjà retirée. */
+  garder?: boolean
+  difficulteProposee?: number
+}) {
+  const [ouvert, setOuvert] = useState<'corriger' | 'reclasser' | null>(null)
+  if (ouvert === 'corriger') {
+    return (
+      <CorrigerLaQuestion
+        version={q}
+        cle={q.questionId}
+        maxReponse={MAX_REPONSE}
+        // Un vrai ou faux garde ses deux réponses : seule la bonne se coche.
+        reponsesFixes={q.reponses.length === 2}
+        occupe={occupe}
+        annulable={false}
+        avertissement={(_correction, nouvelle) =>
+          `${
+            nouvelle
+              ? 'La bonne réponse change : la question repartira sous un nouvel identifiant, sans les mesures de l’ancienne, qui sera retirée.'
+              : 'Même bonne réponse : la question garde son identifiant, ses réponses passées et sa difficulté mesurée.'
+          } Les séries déjà tirées gardent la version qu’elles ont lue.`
+        }
+        onEnregistrer={(correction, nouvelle) =>
+          void faire(() => api.admin.corrigerDansLaCampagne(q.questionId, correction), nouvelle ? 'Corrigée, sous un nouvel identifiant' : 'Corrigée')
+        }
+        onAnnuler={() => setOuvert(null)}
+      />
+    )
+  }
+  if (ouvert === 'reclasser') {
+    return (
+      <ReclasserLaQuestion
+        avant={{ categorie: q.categorie, sousTheme: q.sousTheme, difficulte: q.difficulte }}
+        avecMeta
+        occupe={occupe}
+        difficulteAvant={
+          difficulteProposee !== undefined
+            ? `Estimée ${q.difficulte} à l’écriture, en pointillé ; ses réponses proposent ${difficulteProposee}.`
+            : `Estimée ${q.difficulte} à l’écriture, en pointillé${q.mesure.total > 0 ? ` ; ses ${pluriel(q.mesure.total, 'réponse')} la placent déjà « ${QUESTION_DE_NIVEAU[q.niveau]} »` : ''}. L’estimation compte d’abord pour une question jeune.`
+        }
+        difficulteProposee={difficulteProposee}
+        note={
+          difficulteProposee !== undefined
+            ? 'Elle change de marche dès le prochain tirage, et sa famille avec elle. Les réponses déjà données gardent la leur : les écussons de chacun ne bougent pas.'
+            : 'Elle rejoint les séries, les sentiers et le défi de sa nouvelle catégorie dès le prochain tirage. Les réponses déjà données gardent la leur : les écussons de chacun ne bougent pas.'
+        }
+        onEnregistrer={classement => void faire(() => api.admin.reclasserDansLaCampagne(q.questionId, classement), 'Reclassée')}
+        onAnnuler={() => setOuvert(null)}
+      />
+    )
+  }
+  if (q.retiree) {
+    return garder ? (
+      <div className="admin-gestes">
+        <Geste icone="check" nom="Refermer" question={q.texte} occupe={occupe} onClick={() => void faire(() => api.admin.garderDeLaCampagne(q.questionId), 'Refermé')} />
+      </div>
+    ) : null
+  }
+  return (
+    <div className="admin-gestes">
+      <Geste icone="edit" nom="Corriger" question={q.texte} genre="oui" occupe={occupe} onClick={() => setOuvert('corriger')} />
+      <Geste icone="tag" nom="Reclasser" question={q.texte} occupe={occupe} onClick={() => setOuvert('reclasser')} />
+      <Geste
+        icone="trash"
+        nom="Retirer de la campagne"
+        question={q.texte}
+        occupe={occupe}
+        onClick={() => void faire(() => api.admin.retirerDeLaCampagne(q.questionId), 'Retirée de la campagne')}
+      />
+      {garder && (
+        <Geste icone="check" nom="Garder" question={q.texte} occupe={occupe} onClick={() => void faire(() => api.admin.garderDeLaCampagne(q.questionId), 'Gardée')} />
+      )}
+    </div>
   )
 }
 
@@ -587,16 +707,17 @@ export function CorrigerLaQuestion({
       {annulable && (
         <label className="correction-annuler small">
           <input type="checkbox" checked={annulerAussi} onChange={e => setAnnuler(e.target.checked)} />
-          <span>Annuler aussi ses points pour tous : ceux qui l’ont jouée aujourd’hui la perdent du classement, l’expérience de chacun suit.</span>
+          <span>Effacer aussi ses points pour tous : ceux qui l’ont jouée aujourd’hui la perdent du classement, l’expérience de chacun suit.</span>
         </label>
       )}
+      {/* « Fermer », comme « Régler » : « Annuler », juste sous la case qui annule les points, se lisait comme elle. */}
       <div className="admin-gestes">
         <button type="submit" className="salon-geste admin-geste-oui" disabled={occupe || memeLecture(version, correction)}>
           <Icon name="check" />
           Enregistrer la correction
         </button>
         <button type="button" className="salon-geste" disabled={occupe} onClick={onAnnuler}>
-          Annuler
+          Fermer
         </button>
       </div>
     </form>
@@ -711,7 +832,7 @@ export function ReclasserLaQuestion({
           Reclasser
         </button>
         <button type="button" className="salon-geste" disabled={occupe} onClick={onAnnuler}>
-          Annuler
+          Fermer
         </button>
       </div>
     </form>

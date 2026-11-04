@@ -33,6 +33,41 @@ interface Lus {
   eclats: { quand: number; soiree: string }[]
 }
 
+/** Ce que les mouvements demandent aux magasins : le mouvement de chaque source, et chaque achat. */
+export type MagasinsDeLEconomie = Pick<DepsDeLEconomie, 'profiles' | 'jour' | 'campagne'>
+
+/**
+ * Les mouvements de confettis d'une période — chaque source à ses règles, et
+ * les Éclats tombés —, des trois magasins de front. `jusqua` : avant cet
+ * instant seulement, sinon jusqu'à maintenant — la page lit ses trente jours
+ * jusqu'à maintenant, la mémoire du QG une plage de jours finis
+ * (`joueursDuQg.ts`), qui ne relit pas l'année derrière elle.
+ */
+export async function mouvementsEntre(deps: MagasinsDeLEconomie, depuis: number, jusqua?: number): Promise<Lus> {
+  const [profils, jour, campagne] = await Promise.all([
+    deps.profiles.economieDepuis(depuis, jusqua),
+    deps.jour.confettisDepuis(depuis, jusqua),
+    deps.campagne.economieDepuis(depuis, jusqua),
+  ])
+  return {
+    mouvements: {
+      gagnes: {
+        campagne: campagne.justes,
+        jour,
+        soirees: profils.soirees,
+        ligues: campagne.ligues,
+        etoiles: campagne.etoiles,
+        defis: profils.defis,
+        missions: profils.missions,
+        coffres: profils.coffres,
+        dons: profils.dons,
+      },
+      achats: profils.achats,
+    },
+    eclats: profils.eclats,
+  }
+}
+
 /**
  * La page de l'économie du QG (`/admin#economie`, le choix du 13 octobre
  * 2026) : les confettis gagnés et dépensés, source par source et jour par
@@ -41,30 +76,7 @@ interface Lus {
  * (`shared/qgEconomie.ts`).
  */
 export function economieDuQg(deps: DepsDeLEconomie) {
-  const lire = async (depuis: number): Promise<Lus> => {
-    const [profils, jour, campagne] = await Promise.all([
-      deps.profiles.economieDepuis(depuis),
-      deps.jour.confettisDepuis(depuis),
-      deps.campagne.economieDepuis(depuis),
-    ])
-    return {
-      mouvements: {
-        gagnes: {
-          campagne: campagne.justes,
-          jour,
-          soirees: profils.soirees,
-          ligues: campagne.ligues,
-          etoiles: campagne.etoiles,
-          defis: profils.defis,
-          missions: profils.missions,
-          coffres: profils.coffres,
-          dons: profils.dons,
-        },
-        achats: profils.achats,
-      },
-      eclats: profils.eclats,
-    }
-  }
+  const lire = (depuis: number): Promise<Lus> => mouvementsEntre(deps, depuis)
 
   // Les jours finis ne bougent plus : lus une fois par jour, gardés jusqu'à
   // minuit, et seul aujourd'hui se relit — comme la vue d'ensemble

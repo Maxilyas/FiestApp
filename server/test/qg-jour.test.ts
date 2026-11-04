@@ -213,7 +213,8 @@ test('le rappel du soir se garde soir par soir : un redémarrage ne l’efface p
 
     horloge.t = aParis(26, 18, 5)
     await tournee('2026-09-26')
-    const ceSoir = { jour: '2026-09-26', envoyes: 1, finis: 1, retires: 0, echecs: 0 }
+    // « Joué après » attend le soir fini, avant la tournée du lendemain (`qg-effets.test.ts`) : ce soir, il ne se sait pas.
+    const ceSoir = { jour: '2026-09-26', envoyes: 1, finis: 1, retires: 0, echecs: 0, ouverts: 0, joues: null }
     // L'écriture du bilan suit la tournée : on la laisse arriver.
     for (let essai = 0; essai < 100 && (await suiviDe(banc, admin)).rappel.tournees.length === 0; essai++) await patienter(20)
     suivi = await suiviDe(banc, admin)
@@ -227,6 +228,9 @@ test('le rappel du soir se garde soir par soir : un redémarrage ne l’efface p
     const admin2 = await connexionAnimateur(banc.url)
     assert.deepEqual((await suiviDe(banc, admin2)).rappel.tournees, [ceSoir], 'ni effacé par le réveil, ni compté deux fois')
     assert.deepEqual(recus, ['/push/lea'])
+    // Léa touche son rappel : le QG le compte à son soir — une fois, il n'en est parti qu'un.
+    for (let i = 0; i < 2; i++) assert.equal((await ecrire(banc.url, '/api/jour/rappel/ouvert', { jour: '2026-09-26' })).status, 204)
+    assert.deepEqual((await suiviDe(banc, admin2)).rappel.tournees, [{ ...ceSoir, ouverts: 1 }])
   } finally {
     await banc.close()
     await new Promise<void>(resolve => service.close(() => resolve()))
@@ -275,8 +279,8 @@ test('la page lit le tirage, le classement, les séries et le rappel sans rien l
       telephones: 96,
       profils: 81,
       tournees: [
-        { jour: '2026-09-13', envoyes: 87, finis: 6, retires: 2, echecs: 3 },
-        { jour: '2026-09-12', envoyes: 84, finis: 9, retires: 0, echecs: 2 },
+        { jour: '2026-09-13', envoyes: 87, finis: 6, retires: 2, echecs: 3, ouverts: 29 },
+        { jour: '2026-09-12', envoyes: 84, finis: 9, retires: 0, echecs: 2, ouverts: 21 },
       ],
     },
   }
@@ -291,7 +295,10 @@ test('la page lit le tirage, le classement, les séries et le rappel sans rien l
     '109 finies',
     '600 sur 1000 questions posées · hier 58 %',
     'la plus longue : 141 jours',
-    'ce soir : 87 envoyés, 3 échecs',
+    // Les rappels touchés (le QG 2) : leur nombre, leur part des envoyés, celle de la veille.
+    'ce soir : 87 envoyés, 29 ouverts, 3 échecs',
+    '33 % des envoyés · la veille 25 %',
+    '29 · 33 %',
     'Quelle est la capitale de l’Australie ?',
     '81 %',
     '38 %',

@@ -41,6 +41,9 @@ import { duelsDeLaVue } from '../../shared/qgDuels'
 import { dUneTraite } from '../../shared/tranches'
 import { ProfileStore } from '../src/auth/profiles'
 import { chiffresDeLaVue, type Journaux } from '../src/qg'
+import { PERIODES_DU_QG, activiteDeLaPeriode } from '../../shared/qgPeriodes'
+import { etatDuService, phraseDeLEtat } from '../../shared/qgEtat'
+import type { AlertesDuServeur } from '../../shared/santeDuServeur'
 
 ProfileStore.tirageEclat = () => false
 
@@ -153,9 +156,17 @@ test('les chiffres de la vue d’ensemble, un compte par tranche : les mêmes qu
   const quand = () => minuits[0] - 3 * H + Math.floor(hasard() * (maintenant - minuits[0] + 5 * H))
   const qui = () => `p${Math.floor(hasard() * 40)}`
   const modes = ['serie', 'sentier', 'duel', 'rencontre', 'revision', 'sujet', 'cabinet', 'defi', 'expedition', null]
+  // Une partie sur cinq laissée en route ; les autres finies quelques minutes après leur début — parfois après maintenant.
+  const finDe = (debut: number) => (hasard() < 0.2 ? null : debut + Math.floor(hasard() * 40) * 60_000)
   const journaux: Journaux = {
-    parties: Array.from({ length: 300 }, () => ({ qui: qui(), quand: quand(), questions: 10 })),
-    series: Array.from({ length: 900 }, () => ({ qui: qui(), quand: quand(), mode: modes[Math.floor(hasard() * modes.length)], questions: 12 })),
+    parties: Array.from({ length: 300 }, () => {
+      const debut = quand()
+      return { qui: qui(), quand: debut, questions: 10, fin: finDe(debut), justes: 6, comptees: 10 }
+    }),
+    series: Array.from({ length: 900 }, () => {
+      const debut = quand()
+      return { qui: qui(), quand: debut, mode: modes[Math.floor(hasard() * modes.length)], questions: 12, fin: finDe(debut), justes: 7 }
+    }),
     activite: {
       inscriptions: Array.from({ length: 30 }, quand),
       achats: Array.from({ length: 50 }, quand),
@@ -164,11 +175,12 @@ test('les chiffres de la vue d’ensemble, un compte par tranche : les mêmes qu
   }
   const soirees = Array.from({ length: 25 }, (_, i) => ({ quand: quand(), joueurs: 6, ...(i % 3 > 0 && { profils: [qui(), qui()] }) }))
 
-  // Le bloc d'avant, recopié de la route : chaque compte sur les mêmes journaux.
+  // Le bloc d'avant, recopié de la route : chaque compte sur les mêmes journaux — la fin de chaque partie comprise,
+  // que les périodes comptent pour l'entonnoir d'un mode.
   const { parties, series, activite } = journaux
   const solo = [
     ...parties.map(p => ({ ...p, mode: 'jour' as const })),
-    ...series.map(s => ({ quand: s.quand, qui: s.qui, mode: modeDeLaSerie(s.mode) })),
+    ...series.map(s => ({ quand: s.quand, qui: s.qui, mode: modeDeLaSerie(s.mode), fin: s.fin })),
   ]
   const campagne = series.filter(s => modeDeLaSerie(s.mode) !== 'duel')
   const duels = series.filter(s => modeDeLaSerie(s.mode) === 'duel')
@@ -184,16 +196,21 @@ test('les chiffres de la vue d’ensemble, un compte par tranche : les mêmes qu
     participations: participationsParJour(solo, soirees, minuits, maintenant),
     campagne: campagneDeLaVue(series, minuits, maintenant),
     duels: duelsDeLaVue(series, minuits, maintenant),
+    // Les quatre périodes de la barre du QG 2, chacune sur les mêmes journaux.
+    periodes: Object.fromEntries(PERIODES_DU_QG.map(p => [p, activiteDeLaPeriode(p, solo, soirees, activite, minuits, maintenant)])),
   }
   assert.ok(dUnBloc.aujourdhui.profilsActifs.aujourdhui > 0 && dUnBloc.aujourdhui.seriesDeCampagne.habituel !== null, 'des chiffres à comparer')
+  // Des parties finies à compter, et moins que de commencées : la vue les tient de la fin de chacune.
+  const surTrente = dUnBloc.periodes['30j'].totaux
+  assert.ok(surTrente.finies && surTrente.finies.campagne > 0 && surTrente.finies.campagne < surTrente.parties.campagne, 'des parties finies à compter')
 
   let tranches = 0
   const calcul = chiffresDeLaVue(journaux, soirees, minuits, maintenant)
   let r = calcul.next()
   for (; !r.done; r = calcul.next()) tranches++
   assert.deepEqual(r.value, dUnBloc)
-  // Un compte par tranche : les séries ne se relisent jamais toutes deux fois dans le même tour.
-  assert.ok(tranches >= 6, `${tranches} tranches`)
+  // Un compte par tranche, une période par tranche : les séries ne se relisent jamais toutes deux fois dans le même tour.
+  assert.ok(tranches >= 6 + PERIODES_DU_QG.length, `${tranches} tranches`)
   assert.deepEqual(dUneTraite(chiffresDeLaVue(journaux, soirees, minuits, maintenant)), dUnBloc)
 })
 
@@ -230,41 +247,76 @@ test('ce qui attend un geste : le plus pressé d’abord, et rien qui n’attend
       signalementsDuJour: { questions: 1, joueurs: 3 },
       signalementsDeLaCampagne: { questions: 2, joueurs: 4 },
       catalogue: 2,
-      rappel: { jour: '2026-10-12', envoyes: 87, echecs: 3 },
+      rappel: { jour: '2026-10-12', envoyes: 78, echecs: 12 },
     },
     { soirees: [enPlan], miroir: { enAttente: 12, echecsConsecutifs: 4, enEchecDepuis: '2026-10-13T19:00:00.000Z', espacesEnRetard: 1 } },
   )
   // Les signalements des deux modes se relisent sur une seule page depuis le
   // 14 octobre 2026 (« Une page qui remplace les sections ») : une seule
   // ligne, qui dit d'où viennent ses questions — deux lignes menaient à deux
-  // pages qui ne les montrent plus.
+  // pages qui ne les montrent plus. Chaque ligne à la gravité de sa règle, la
+  // plus grave d'abord (la revue d'ergonomie du 4 novembre 2026 : la réserve
+  // était rouge ici, « à surveiller » sur la page des alertes) ; ce qui
+  // attend sans rien casser — relire, clore — après.
   assert.deepEqual(
-    choses.map(c => c.cle),
-    ['miroir', 'reserve', 'signalements', 'catalogue', 'en-plan-tom', 'rappel'],
-  )
-  assert.deepEqual(
-    choses.filter(c => c.alerte).map(c => c.cle),
-    ['miroir', 'reserve'],
+    choses.map(c => [c.cle, c.gravite]),
+    [
+      ['miroir', 'critique'],
+      ['reserve', 'veille'],
+      ['rappel', 'veille'],
+      ['signalements', 'a-faire'],
+      ['catalogue', 'a-faire'],
+      ['en-plan-tom', 'a-faire'],
+    ],
   )
   assert.equal(choses[1].detail, '6 jours d’avance, l’alerte est à 7')
   assert.deepEqual(
-    [choses[2].titre, choses[2].detail, choses[2].ecran],
+    [choses[3].titre, choses[3].detail, choses[3].ecran],
     ['3 questions signalées', '1 au quiz du jour (3 joueurs) · 2 en campagne (4 joueurs)', 'signalements'],
     'les joueurs se comptent par mode : le même signale peut-être aux deux',
   )
-  assert.equal(choses[3].titre, '2 copies à relire')
-  assert.equal(choses[4].detail, 'Le salon de Tom, 9 invités')
-  assert.equal(choses[5].detail, '3 envois en échec sur 90')
+  assert.equal(choses[4].titre, '2 copies à relire')
+  assert.equal(choses[5].detail, 'Le salon de Tom, 9 invités')
+  // Le rappel du soir, jugé comme sa règle : 12 échecs sur 90 passent les dix pour cent, et la ligne mène à sa page.
+  assert.deepEqual([choses[2].detail, choses[2].ecran], ['12 envois en échec sur 90', 'jour'])
+  // Les soirées qui ne se sauvegardent plus mènent à « Base et miroir », qui montre chaque salon : la ligne n'ouvrait rien.
+  assert.deepEqual([choses[0].titre, choses[0].ecran], ['Les soirées ne se sauvegardent plus', 'base'])
+  // Trois échecs sur quatre-vingt-dix ne sont pas une panne : sa règle se tait, la ligne aussi — elle le disait.
+  const peu = { ...calme, rappel: { jour: '2026-10-12', envoyes: 87, echecs: 3 } }
+  assert.deepEqual(lesChosesATraiter(peu, null), [])
+  // Un seuil réglé vaut ici comme sur la page des alertes : à deux pour cent, les trois échecs se disent.
+  assert.deepEqual(
+    lesChosesATraiter(peu, { soirees: [], miroir: null, seuils: { rappel: 2 } }).map(c => c.cle),
+    ['rappel'],
+  )
   assert.equal(lesChosesATraiter({ ...calme, catalogue: 1 }, null)[0].detail, 'proposée au catalogue')
   const uneSeule = lesChosesATraiter({ ...calme, signalementsDeLaCampagne: { questions: 1, joueurs: 1 } }, null)
   assert.deepEqual([uneSeule[0].titre, uneSeule[0].detail], ['Une question signalée', '1 en campagne (1 joueur)'])
+  // La routine du matin qui se tait (la revue d'expert du 4 novembre 2026 : la carte du serveur la disait, qu'il fallait
+  // relire chaque jour). Un matin manqué arrive ; deux jours sans un dépôt, elle ne passe plus. Jamais venue, rien.
+  const mercredi = Date.UTC(2026, 10, 4, 20, 0)
+  const routine = (jour: number | null, campagne: number | null) => lesChosesATraiter({ ...calme, routine: { jour, campagne } }, null, mercredi)
+  assert.deepEqual(routine(null, null), [])
+  assert.deepEqual(routine(mercredi - 30 * H, mercredi - 30 * H), [], 'un matin manqué')
+  const muette = routine(mercredi - 3 * 24 * H, mercredi - 20 * H)
+  assert.deepEqual(
+    muette.map(c => [c.cle, c.gravite, c.titre, c.ecran]),
+    [['routine', 'a-faire', 'La routine du matin se tait', 'reserves']],
+  )
+  assert.equal(muette[0].detail, 'quiz du jour : dernier dépôt le 1er novembre')
+  assert.equal(routine(mercredi - 3 * 24 * H, mercredi - 3 * 24 * H)[0].detail, 'quiz du jour : dernier dépôt le 1er novembre · campagne : dernier dépôt le 1er novembre')
+  // Sans l'heure, rien ne se juge : la ligne ne se devine pas.
+  assert.deepEqual(lesChosesATraiter({ ...calme, routine: { jour: 0, campagne: 0 } }, null), [])
 })
 
 test('l’écart à l’habitude : en pour cent au-delà de vingt, en chiffre en deçà — trois contre deux ne font pas « 50 % de plus »', () => {
   const c = (aujourdhui: number, habituel: number | null) => ecartALHabitude({ aujourdhui, habituel, parJour: [] })
   assert.equal(c(3, null), null, 'le premier jour n’a rien à quoi se comparer')
-  assert.deepEqual(c(163, 155), { sens: 'plus', texte: '5 %', suite: ' de plus que d’habitude' })
-  assert.deepEqual(c(220, 229), { sens: 'moins', texte: '4 %', suite: ' de moins que d’habitude' })
+  // Sous ±10 %, l'écart se dit faible : sa flèche reste grise (la revue d'ergonomie du 4 novembre 2026, M3).
+  assert.deepEqual(c(163, 155), { sens: 'plus', texte: '5 %', suite: ' de plus que d’habitude', faible: true })
+  assert.deepEqual(c(220, 229), { sens: 'moins', texte: '4 %', suite: ' de moins que d’habitude', faible: true })
+  assert.deepEqual(c(200, 160), { sens: 'plus', texte: '25 %', suite: ' de plus que d’habitude' })
+  assert.deepEqual(c(144, 160), { sens: 'moins', texte: '10 %', suite: ' de moins que d’habitude' }, 'dix pour cent tout juste se colorent')
   assert.deepEqual(c(70, 70), { sens: null, texte: 'comme d’habitude', suite: '' })
   assert.deepEqual(c(400, 399), { sens: null, texte: 'comme d’habitude', suite: '' }, 'un quart de pour cent s’arrondit à rien')
   assert.deepEqual(c(3, 2), { sens: null, texte: '2 d’habitude', suite: '' })
@@ -442,15 +494,108 @@ test('la vue d’ensemble ne relit les jours finis qu’une fois par jour : la p
   }
 })
 
+test('l’état du service : ce qui ne va pas d’abord, d’un mot et d’un chiffre — et rien d’alarmant tant que le serveur n’a pas répondu', () => {
+  const maintenant = Date.UTC(2026, 10, 4, 20, 0)
+  const direct: Pick<DirectDuQg, 'serveur' | 'miroir' | 'maintenant'> = {
+    maintenant,
+    miroir: { enAttente: 3, echecsConsecutifs: 0, enEchecDepuis: null, espacesEnRetard: 0 },
+    serveur: { env: 'production', version: 'a41c9e2ff', enMarcheDepuisS: 3600, memoireMo: 236, cpuPct: 4, bouclePct: 2, baseP95Ms: 61, connexions: 13, routesP95Ms: 238, routesParMin: 1280 },
+  }
+  const auVert: AlertesDuServeur = { pannes: [], arretNet: null, erreurs: null, tursoLent: null, memoireMo: null }
+  // Rien encore : chaque voyant attend, sans un mot de panne.
+  const attente = etatDuService(null, null)
+  assert.ok(attente.every(v => v.etat === 'inconnu'))
+  assert.deepEqual(phraseDeLEtat(attente), { aRegarder: 0, phrase: 'Le serveur répond…' })
+  // Tout au vert, dans l'ordre des organes : les modes, ce qu'un joueur attend, les erreurs, l'arrêt net, Turso…
+  const vert = etatDuService(direct, auVert)
+  assert.deepEqual(vert.map(v => v.cle), ['modes', 'ressenti', 'erreurs', 'arret', 'base', 'memoire', 'processeur', 'miroir', 'quota', 'version'])
+  assert.ok(vert.every(v => v.etat === 'ok'))
+  assert.deepEqual(phraseDeLEtat(vert), { aRegarder: 0, phrase: 'Tout est au vert' })
+  assert.equal(vert[1].detail.replace(/[  ]/g, ' '), '238 ms pour 19 appels sur 20 · 1280 cette minute')
+  assert.deepEqual([vert[7].nom, vert[7].detail, vert[7].ecran], ['Sauvegarde des soirées', '3 écritures en attente', 'base'])
+  assert.equal(vert[9].nom, 'Version a41c9e2')
+  // Turso et son quota mènent à « Base et miroir », qui les montre : ils ouvraient « Le serveur », qui ne les montre plus.
+  assert.deepEqual(
+    vert.filter(v => v.cle === 'base' || v.cle === 'quota').map(v => v.ecran),
+    ['base', 'base'],
+  )
+  // Des erreurs à regarder, la mémoire au plafond, un ressenti lent : chacun à la gravité de sa règle — les erreurs et
+  // la mémoire sérieuses, comme sur la page des alertes —, le plus grave d'abord, dans l'ordre des organes, puis ce qui
+  // est à surveiller : le regard tombe sur le rouge, pas sur la sixième case.
+  const mal = etatDuService(
+    { ...direct, serveur: { ...direct.serveur, memoireMo: 470, routesP95Ms: 950 } },
+    { ...auVert, erreurs: { n: 2, depuis: maintenant - H, source: 'GET /api/jour' } },
+  )
+  assert.deepEqual(
+    mal.slice(0, 3).map(v => [v.cle, v.etat]),
+    [
+      ['erreurs', 'serieux'],
+      ['memoire', 'serieux'],
+      ['ressenti', 'veille'],
+    ],
+  )
+  assert.equal(mal[0].ecran, 'erreurs')
+  assert.deepEqual(phraseDeLEtat(mal), { aRegarder: 3, phrase: 'Trois points à regarder' })
+  // Les seuils réglés valent ici comme pour les règles : 950 ms sous un ressenti réglé à une seconde, 470 Mo sous une
+  // mémoire réglée à 480, sont au vert.
+  const regles = etatDuService(
+    { ...direct, serveur: { ...direct.serveur, memoireMo: 470, routesP95Ms: 950 }, seuils: { ressenti: 1000, memoire: 480 } },
+    auVert,
+  )
+  assert.deepEqual(
+    regles.filter(v => v.cle === 'ressenti' || v.cle === 'memoire').map(v => [v.cle, v.etat]),
+    [
+      ['ressenti', 'ok'],
+      ['memoire', 'ok'],
+    ],
+  )
+  // Et une minute de trois appels ne juge pas ce qu'un joueur attend : sa règle en veut vingt.
+  assert.equal(etatDuService({ ...direct, serveur: { ...direct.serveur, routesP95Ms: 4000, routesParMin: 3 } }, auVert).find(v => v.cle === 'ressenti')?.etat, 'ok')
+  // Un mode en panne se nomme ; un miroir en échec aussi, à son heure.
+  const panne = etatDuService(
+    { ...direct, miroir: { enAttente: 40, echecsConsecutifs: 6, enEchecDepuis: new Date(maintenant - 10 * 60_000).toISOString(), espacesEnRetard: 2 } },
+    { ...auVert, pannes: [{ mode: 'jour', depuis: maintenant - 5 * 60_000, echecs: 4, dernierEchec: maintenant - 60_000, source: 'GET /api/jour' }] },
+  )
+  assert.deepEqual(
+    panne.slice(0, 2).map(v => [v.cle, v.etat]),
+    [
+      ['modes', 'critique'],
+      ['miroir', 'critique'],
+    ],
+  )
+  assert.equal(panne[0].detail, 'Le quiz du jour en panne')
+  assert.equal(panne[1].detail.replace(/[  ]/g, ' '), 'Turso en échec depuis 20 h 50')
+})
+
 // ── La page ───────────────────────────────────────────────────────────────
 
-test('la vue d’ensemble se lit d’un coup d’œil : le direct, ce qui attend un geste, trente jours en barres, les soirées en chiffres', async () => {
+test('le poste de commande se lit d’un coup d’œil : l’état du service, ce qui attend un geste, la période en tuiles et en barres, les soirées en chiffres', async () => {
   Object.assign(globalThis, { React })
   const { VueDEnsembleDuQg } = await import(new URL('../../client/src/components/QgVueDEnsemble.tsx', import.meta.url).href)
   const { renderToStaticMarkup } = await import('react-dom/server')
+  // Lu sans les séparateurs de React ni les espaces insécables des heures et des durées.
+  const lisible = (html: string) => html.replace(/<!-- -->/g, '').replace(/[  ]/g, ' ')
   // Mardi 13 octobre 2026, 21 h 04 à Paris.
   const maintenant = Date.UTC(2026, 9, 13, 19, 4)
-  const jours = joursDesMinuits(minuitsDeParis(maintenant, JOURS_DU_QG))
+  const minuits = minuitsDeParis(maintenant, JOURS_DU_QG)
+  const jours = joursDesMinuits(minuits)
+  // Les dernières vingt-quatre heures : depuis 21 h — le seau en cours —, trois joueurs du jour — l'un aussi en
+  // campagne —, une traversée du Cabinet et un duel ; un duel cet après-midi ; une soirée de vingt, dont deux
+  // profils. La veille, une soirée de vingt invités sans profil.
+  const solo = [
+    ...['p1', 'p2', 'p3'].map(qui => ({ quand: maintenant - 3 * 60_000, qui, mode: 'jour' as const })),
+    { quand: maintenant - 2 * 60_000, qui: 'p1', mode: 'campagne' as const },
+    { quand: maintenant - 60_000, qui: 'p6', mode: 'cabinet' as const },
+    { quand: maintenant - 2 * 60_000, qui: 'p4', mode: 'duel' as const },
+    { quand: maintenant - 5 * H, qui: 'p4', mode: 'duel' as const },
+  ]
+  const soireesDuJour = [
+    { quand: maintenant - 3 * H, joueurs: 20, profils: ['p4', 'p5'] },
+    { quand: maintenant - 27 * H, joueurs: 20 },
+  ]
+  const periodes = Object.fromEntries(
+    PERIODES_DU_QG.map(p => [p, activiteDeLaPeriode(p, solo, soireesDuJour, { inscriptions: [maintenant - 2 * H], achats: [] }, minuits, maintenant)]),
+  ) as VueDEnsemble['periodes']
   const tuile = { aujourdhui: 163, habituel: 155, parJour: [140, 150, 0, 160, 150, 155, 150, 150, 158, 149, 150, 163] }
   const vue: VueDEnsemble = {
     maintenant,
@@ -465,6 +610,7 @@ test('la vue d’ensemble se lit d’un coup d’œil : le direct, ce qui attend
     })),
     campagne: campagneDeLaVue([], minuitsDeParis(maintenant, JOURS_DU_QG), maintenant),
     duels: duelsDeLaVue([], minuitsDeParis(maintenant, JOURS_DU_QG), maintenant),
+    periodes,
     aTraiter: {
       reserve: { joursDAvance: 6 },
       signalementsDuJour: { questions: 1, joueurs: 3 },
@@ -500,61 +646,87 @@ test('la vue d’ensemble se lit d’un coup d’œil : le direct, ce qui attend
     miroir: { enAttente: 0, echecsConsecutifs: 0, enEchecDepuis: null, espacesEnRetard: 0 },
     serveur: { env: 'production', version: 'a1b2c3d4e5', enMarcheDepuisS: 13_200, memoireMo: 212, cpuPct: 4, bouclePct: 2, baseP95Ms: 84, connexions: 22 },
   }
-  // Lu sans les séparateurs de React ni les espaces insécables des durées.
-  const html = renderToStaticMarkup(
-    React.createElement(VueDEnsembleDuQg, { vue, direct, vueEnPanne: false, directEnPanne: false, ouvrir: () => {} }),
-  )
-    .replace(/<!-- -->/g, '')
+  const html = lisible(renderToStaticMarkup(React.createElement(VueDEnsembleDuQg, { vue, direct, vueEnPanne: false, directEnPanne: false, ouvrir: () => {} })))
     .replace(/ /g, ' ')
   assert.doesNotMatch(html, /undefined|NaN/)
 
-  // Le direct : une soirée en cours, l'autre laissée en plan ; le miroir à jour.
+  // Le direct : une soirée en cours, l'autre laissée en plan ; la sauvegarde des soirées à jour.
   assert.match(html, /<span class="admin-cadran-chiffre num">1<\/span><span class="admin-cadran-nom">soirée en cours<\/span><span class="admin-cadran-detail">et 1 laissée en plan<\/span>/)
-  assert.match(html, /miroir à jour · Turso 84 ms/)
-  // Ce qui attend un geste, le plus pressé d'abord ; ce qui a sa page s'ouvre d'un toucher, le reste se lit
-  // — la soirée laissée en plan, sur la page des soirées qui la clôt.
-  const lignes = [...html.matchAll(/<(button type="button"|div) class="qg-ligne">.*?<b>([^<]+)<\/b>/g)].map(m => [m[1] === 'div' ? 'lu' : 'ouvre', m[2]])
-  assert.deepEqual(lignes, [
-    ['ouvre', 'La réserve du quiz du jour'],
-    // Une ligne pour les deux modes, qui ouvre leur page (le 14 octobre 2026).
-    ['ouvre', 'Une question signalée'],
-    ['ouvre', 'Une copie à relire'],
-    ['ouvre', 'Une soirée laissée en plan'],
+  assert.match(html, /sauvegarde à jour · Turso 84 ms/)
+  // L'état du service : la phrase, puis les dix voyants — tout au vert ici, chacun son chiffre.
+  assert.match(html, /<span class="qg-etat-phrase">Tout est au vert<\/span>/)
+  assert.equal([...html.matchAll(/<li class="qg-voyant-bloc /g)].length, 10)
+  assert.match(html, /<b>Mémoire<\/b><span class="qg-voyant-detail">212 sur 512 Mo<span class="sr-only"> — au vert<\/span><\/span>/)
+  // Ce qui attend un geste, le plus pressé d'abord, chaque ligne à la gravité de sa règle ; ce qui a sa page s'ouvre
+  // d'un toucher, le reste se lit — la soirée laissée en plan, sur la page des soirées qui la clôt.
+  const lignes = [...html.matchAll(/<(button type="button"|div) class="qg-ligne qg-ligne-([a-z-]+)">.*?<b>([^<]+)<\/b>/g)].map(m => [
+    m[1] === 'div' ? 'lu' : 'ouvre',
+    m[3],
+    m[2],
   ])
-  // Les tuiles : le chiffre, l'écart qui se dit aussi au lecteur d'écran.
-  assert.match(html, /5 %<span class="sr-only"> de plus que d’habitude<\/span>/)
-  // Trente jours, chacun son infobulle ; la légende dit les chiffres d'aujourd'hui. D'office, les joueurs :
-  // chacun une fois, en une seule série — empilés par mode, qui joue à deux modes aurait compté deux fois.
-  const infobulles = [...html.matchAll(/<title>([^<]+)<\/title>/g)].map(m => m[1])
-  assert.equal(infobulles.length, JOURS_DU_QG)
-  assert.equal(infobulles.at(-1), 'mardi 13 octobre : 180 joueurs — campagne 70, cabinet 15, quiz du jour 110, duels 35')
-  assert.match(html, /Aujourd’hui · 180 joueurs/)
-  assert.match(html, /Qui joue à plusieurs modes compte dans chacun, une fois dans le total/)
-  assert.match(html, /<button type="button" class="onglet actif" aria-pressed="true">Joueurs<\/button><button type="button" class="onglet" aria-pressed="false">Participations<\/button>/)
-  assert.match(html, /class="qg-joueurs"/)
-  assert.doesNotMatch(html, /qg-mode-/, 'une seule série : ni pile ni pastille de mode')
+  assert.deepEqual(lignes, [
+    ['ouvre', 'La réserve du quiz du jour', 'veille'],
+    // Une ligne pour les deux modes, qui ouvre leur page (le 14 octobre 2026).
+    ['ouvre', 'Une question signalée', 'a-faire'],
+    ['ouvre', 'Une copie à relire', 'a-faire'],
+    ['ouvre', 'Une soirée laissée en plan', 'a-faire'],
+  ])
+  // Elle n'est pas vide : au téléphone, elle passe avant l'état du service (la revue d'ergonomie du 4 novembre 2026).
+  assert.ok(html.indexOf('qg-traiter') < html.indexOf('qg-etat-du-service'), '« À traiter » d’abord quand quelque chose attend')
+  // Les tuiles de la période — la journée, d'office : le chiffre, l'écart à la période d'avant, qui se dit aussi au
+  // lecteur d'écran. Vingt-quatre joueurs, chacun une fois — les deux profils de la soirée et les dix-huit invités
+  // sans profil, les six profils qui ont joué seuls —, contre vingt la veille.
+  assert.match(html, /Sur les dernières 24 heures/)
+  // Des personnes, invités sans profil compris — la page des joueurs, elle, ne compte que des profils : deux mots pour deux
+  // populations (la revue d'analyse du 4 novembre 2026).
+  assert.match(html, /<span class="qg-tuile-nom">Personnes<\/span><span class="qg-tuile-valeur num">24<\/span>/)
+  assert.match(html, /20 %<span class="sr-only"> de plus que la période d’avant<\/span><span aria-hidden="true"> · <\/span>invités compris/)
+  // Chaque mode, ses participations et ses joueurs : un toucher ouvre sa page.
+  assert.match(html, /<li class="qg-tuile qg-tuile-ouvre" style="--teinte:var\(--mode-cabinet\)"><button type="button"><span class="qg-tuile-nom"><i class="qg-tuile-cle qg-mode-cabinet" aria-hidden="true"><\/i>Cabinet<\/span><span class="qg-tuile-valeur num">1<\/span>/)
+  assert.match(html, /1 joueur<\/span>/)
+  // Vingt-quatre heures, chacune son infobulle ; la lecture dit l'heure en cours. D'office, les joueurs : chacun
+  // une fois, en une seule série — empilés par mode, qui joue à deux modes aurait compté deux fois ; ses modes se
+  // disent dans l'infobulle.
+  const graphe = html.slice(html.indexOf('<section class="qg-console qg-participations"'), html.indexOf('</section>', html.indexOf('qg-participations')))
+  const infobulles = [...graphe.matchAll(/<title>([^<]+)<\/title>/g)].map(m => m[1])
+  assert.equal(infobulles.length, 24)
+  assert.equal(infobulles.at(-1), '21 h 00 → 21 h 04 : 5 joueurs — campagne 1, cabinet 1, quiz du jour 3, duels 1')
+  // La lecture dit l'heure en cours sans la redire au lecteur d'écran : sa région vivante ne se remplit qu'au choix d'un
+  // seau (la revue d'ergonomie du 4 novembre 2026, M7). Le résumé se porte une fois, sur le groupe : le dessin se tait.
+  assert.match(graphe, /<p class="qg-lecture"><span><span>21 h 00 → 21 h 04 · <\/span><b class="num">5 joueurs<\/b><\/span><span aria-live="polite"><\/span><\/p>/)
+  assert.match(graphe, /<div class="qg-graphe" tabindex="0" aria-label="[^"]+" role="group"><svg viewBox="[^"]+" aria-hidden="true">/)
+  assert.doesNotMatch(graphe, /role="img"/)
+  assert.match(graphe, /Qui joue à plusieurs modes compte dans chacun, une fois dans le total/)
+  assert.match(graphe, /<button type="button" class="onglet actif" aria-pressed="true">Joueurs<\/button><button type="button" class="onglet" aria-pressed="false">Participations<\/button>/)
+  assert.match(graphe, /class="qg-joueurs"/)
+  assert.doesNotMatch(graphe, /qg-mode-/, 'une seule série : ni pile ni pastille de mode')
+  assert.doesNotMatch(graphe, /qg-avant/, 'la période d’avant ne se pose qu’à la demande')
   // Les soirées : où elles en sont et combien elles comptent de monde, rien d'autre.
   assert.match(html, /Quiz 2 · question 7 sur 15 · depuis 1 h 12/)
   assert.match(html, /Entre deux quiz · 1 joué · sans un geste depuis 7 h 05/)
   assert.match(html, /14 sur 15 connectés/)
-  // Le serveur, et la routine du matin passée à 7 h 04 dans la réserve du jour — pas dans la campagne.
-  assert.match(html, /4 % d’un cœur/)
-  assert.match(html, /<dt>Routine, quiz du jour<\/dt><dd>aujourd’hui à 7 h 04<\/dd>/)
-  assert.match(html, /<dt>Routine, campagne<\/dt><dd>rien encore<\/dd>/)
+  // La carte du serveur s'en est allée (la revue d'expert du 4 novembre 2026) : la mémoire, le processeur, Turso se lisent
+  // dans les voyants et le direct ; la routine du matin passée à 7 h 04 n'attend aucun geste — elle ne parle qu'en se
+  // taisant, dans « À traiter » (`ROUTINE_MUETTE_MS`).
+  assert.doesNotMatch(html, /qg-serveur-titre|Routine, quiz du jour|Les sept derniers jours/)
+  assert.doesNotMatch(html, /La routine du matin se tait/)
 
-  // Les participations, sans regarder qui : elles s'additionnent, leur pile se lit mode par mode, le Cabinet entre la campagne et le quiz du jour.
+  // Les participations, sans regarder qui : elles s'additionnent, leur pile se lit mode par mode, le Cabinet entre la
+  // campagne et le quiz du jour ; comparées, la période d'avant passe en filet, et se dit à la lecture.
   const { Participations } = await import(new URL('../../client/src/components/QgVueDEnsemble.tsx', import.meta.url).href)
-  const pile = renderToStaticMarkup(React.createElement(Participations, { vue, enPanne: false, depart: 'participations' })).replace(/<!-- -->/g, '')
+  const pile = lisible(renderToStaticMarkup(React.createElement(Participations, { vue, enPanne: false, depart: 'participations', comparer: true })))
   assert.doesNotMatch(pile, /undefined|NaN/)
   const bulles = [...pile.matchAll(/<title>([^<]+)<\/title>/g)].map(m => m[1])
-  assert.equal(bulles.at(-1), 'mardi 13 octobre : 340 participations — campagne 140, cabinet 30, quiz du jour 110, duels 60')
-  assert.match(pile, /Aujourd’hui · 340 participations/)
+  assert.equal(bulles.at(-1), '21 h 00 → 21 h 04 : 6 participations — campagne 1, cabinet 1, quiz du jour 3, duels 1')
+  assert.match(pile, /<b class="num">6 participations<\/b><span class="muted"> · 0 la période d’avant<\/span>/)
   assert.match(pile, /aria-pressed="true">Participations<\/button>/)
+  assert.match(pile, /<path class="qg-avant" d="M/)
   const debut = pile.lastIndexOf('<title>')
   const aujourdhuiDansLaPile = pile.slice(debut, pile.indexOf('</g>', debut))
   assert.deepEqual(
     [...aujourdhuiDansLaPile.matchAll(/class="qg-mode-(\w+)"/g)].map(m => m[1]),
     ['campagne', 'cabinet', 'jour', 'duel'],
   )
-  assert.match(pile, /<i class="qg-pastille-mode qg-mode-cabinet" aria-hidden="true"><\/i>Cabinet <b class="num">30<\/b>/)
+  assert.match(pile, /<i class="qg-pastille-mode qg-mode-cabinet" aria-hidden="true"><\/i>Cabinet <b class="num">1<\/b>/)
+  assert.match(pile, /<i class="qg-pastille-avant" aria-hidden="true"><\/i>La période d’avant/)
 })

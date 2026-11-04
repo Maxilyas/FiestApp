@@ -203,12 +203,13 @@ test('le mois se projette au rythme des heures comptées — les heures endormie
     routine: { jour: null, campagne: null },
     serveur: alertes,
   }
+  // À surveiller, comme sa règle, et il mène à « Base et miroir », où le quota se lit depuis le QG 2.
   const [chose] = lesChosesATraiter(aTraiter, null, MAINTENANT)
-  assert.deepEqual([chose.cle, chose.alerte, chose.ecran], ['quota', false, 'serveur'])
+  assert.deepEqual([chose.cle, chose.gravite, chose.ecran], ['quota', 'veille', 'base'])
   assert.match(sansInsecables(chose.detail), /^[\d,]+ millions de lignes lues en trente jours à ce rythme : [\d,]+ % du quota$/)
-  // Au-delà des quatre cinquièmes, en rouge.
+  // Au-delà des quatre cinquièmes, critique : la base s'arrêterait bientôt pour tous.
   const rouge = alertesDuServeur({ recentes: [], demarrages: [], memoireMo: null, maintenant: MAINTENANT, courant: 'c', quota: { ...quota, part: 85 } })
-  assert.equal(lesChosesATraiter({ ...aTraiter, serveur: rouge }, null, MAINTENANT)[0].alerte, true)
+  assert.equal(lesChosesATraiter({ ...aTraiter, serveur: rouge }, null, MAINTENANT)[0].gravite, 'critique')
   // Sous la moitié, rien ; et un rythme de moins d'un jour ne se juge pas : un réveil relit tout le journal d'un coup.
   assert.equal(alertesDuServeur({ recentes: [], demarrages: [], memoireMo: null, maintenant: MAINTENANT, courant: 'c', quota: { ...quota, part: 40 } }).quota, null)
   const unReveil = quotaDuMois([ligne(debutDeLHeure(MAINTENANT), 'c', { appels: 30, lues: 2_000_000, ecrites: 0, lourdes: [] })], MAINTENANT)!
@@ -216,7 +217,9 @@ test('le mois se projette au rythme des heures comptées — les heures endormie
   assert.equal(alertesDuServeur({ recentes: [], demarrages: [], memoireMo: null, maintenant: MAINTENANT, courant: 'c', quota: unReveil }).quota, null)
 })
 
-test('la page « Le serveur » dit le quota : ses lignes heure par heure, le mois à ce rythme, et ce qui lit le plus', async () => {
+// Le quota a quitté la page « Le serveur » pour « La base et le miroir » (le QG 2, le 4 novembre 2026) : les mêmes
+// chiffres, sur la même page lue (`PageDuServeur`), rendus à côté du miroir et des sauvegardes.
+test('la page « La base et le miroir » dit le quota : ses lignes heure par heure, le mois à ce rythme, et ce qui lit le plus', async () => {
   const page = pageDuServeur(deuxJoursComptes(), [COURANT], { maintenant: MAINTENANT, courant: COURANT })
   assert.equal(page.quota?.lues, 20_000_000)
   const comptee = page.heures.find(h => h.lignesLues !== null)!
@@ -224,9 +227,9 @@ test('la page « Le serveur » dit le quota : ses lignes heure par heure, le moi
   assert.equal(page.heures.filter(h => h.lignesLues !== null).length, 20)
 
   Object.assign(globalThis, { React, window: { location: { pathname: '/admin', search: '', hash: '#serveur', origin: 'http://banc' } } })
-  const { SanteDuServeurAuQg } = await import(new URL('../../client/src/components/QgServeur.tsx', import.meta.url).href)
+  const { BaseEtMiroirAuQg } = await import(new URL('../../client/src/components/QgBase.tsx', import.meta.url).href)
   const { renderToStaticMarkup } = await import('react-dom/server')
-  const rendre = (p: PageDuServeur) => sansInsecables(renderToStaticMarkup(React.createElement(SanteDuServeurAuQg, { page: p })).replace(/<!-- -->/g, ''))
+  const rendre = (p: PageDuServeur) => sansInsecables(renderToStaticMarkup(React.createElement(BaseEtMiroirAuQg, { page: p, base: null })).replace(/<!-- -->/g, ''))
   const html = rendre(page)
   for (const attendu of [
     'Le quota de Turso',

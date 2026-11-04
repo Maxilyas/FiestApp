@@ -32,6 +32,8 @@ import type { DefiDAccueil } from './campagne'
 import type { BordureDeLigue, ChoixDeBordure, CleDeLigue, DuelsDAccueil } from './duels'
 import type { VusDeLaLoge } from './piecesDeLaLoge'
 import type { ActiviteDUnJoueur } from './qgActivite'
+import type { EtatDUnSalon } from './qgAnimateurs'
+import type { TraverseeEnRouteAuQg } from './qgCabinet'
 import type { CabinetDAccueil } from './cabinet/vues'
 import type { CleDeSaison } from './saisons'
 import { formeDeCompagnon, type CleDeCompagnon, type CompagnonPossede } from './compagnons'
@@ -1042,11 +1044,24 @@ export interface FicheDuJoueur extends ProfilDAdministration {
   /** L'épreuve de sentier qui l'attend : une seule à la fois, et il ne peut en commencer aucune autre. */
   epreuve: { sentier: string; palier: number; depuis: number; vieEnJeu: boolean } | null
   /**
+   * Sa traversée du Cabinet en route — une seule à la fois, et il n'en commence aucune autre tant qu'elle l'est : où elle
+   * en est, ses cœurs, son or, son dernier geste (`ou` null : son pli ne se relit pas sur ce code, elle bloque sûrement).
+   * « Rendre la traversée » la referme (le 4 novembre 2026). Null : aucune en route, ou la base s'est tue. Absente d'un
+   * serveur où le Cabinet ne s'ouvre pas.
+   */
+  traversee?: Omit<TraverseeEnRouteAuQg, 'profil'> | null
+  /**
    * Ses trente derniers jours, mode par mode : les questions jouées, les
    * parties, les jours où il a joué (`shared/qgActivite.ts`) — sur quoi il
    * s'acharne. Null si la base s'est tue.
    */
   activite: ActiviteDUnJoueur | null
+  /**
+   * Le salon qu'il tient, tel que le carnet des animateurs le juge : son état
+   * et sa dernière soirée (le 4 novembre 2026). Absent : il n'en tient pas,
+   * l'espace est désactivé, ou la base s'est tue.
+   */
+  animateur?: { etat: EtatDUnSalon; derniere: number | null }
 }
 
 /** Ce qu'un don de l'administrateur offre au plus : un geste pour quelqu'un, pas une économie à côté. */
@@ -1066,13 +1081,16 @@ export type IssueQuiSert = 'corrigee' | 'reclassee' | 'retiree' | 'annulee'
  * question qu'il a signalée et dont sa remarque a servi — et ce qu'il a dit à
  * tous, une annonce (`shared/annonces.ts`), avec les confettis qu'elle lui a
  * offerts. Retenu sur son téléphone une fois montré
- * (`AnnoncesDeLAdministrateur`).
+ * (`AnnoncesDeLAdministrateur`). Une annonce écrite à un segment de la page
+ * des joueurs du QG (`aQuelquesUns`) ne se dit pas « à tous les joueurs » — ni
+ * le nom de son segment : il n'a pas à savoir qu'on le range parmi les
+ * endormis.
  */
 export type AnnonceDeLAdministrateur =
   | { id: string; sorte: 'confettis'; confettis: number; mot: string | null; le: number }
   | { id: string; sorte: 'prenom'; nom: string; le: number }
   | { id: string; sorte: 'merci'; mode: 'jour' | 'campagne'; issue: IssueQuiSert; question: string; le: number }
-  | { id: string; sorte: 'annonce'; message: string; confettis: number; le: number; question?: QuestionAPoser }
+  | { id: string; sorte: 'annonce'; message: string; confettis: number; le: number; question?: QuestionAPoser; aQuelquesUns?: true }
   | { id: string; sorte: 'proposition'; issue: IssueDUneProposition; question: string; motif: string | null; le: number }
 
 /**

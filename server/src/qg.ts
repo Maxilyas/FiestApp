@@ -13,6 +13,12 @@ import type { PartyBackup } from './core/backup'
 import { pouls, type Charge } from './core/pouls'
 import { noterLeGeste, type JournalDesGestes } from './core/journalDesGestes'
 import type { SanteDuServeur } from './core/santeDuServeur'
+import { periodeDuServeur, type BaseDuQg } from '../../shared/santeDuServeur'
+import type { FluxDuQg } from './qgFlux'
+import { ReglesDuQg } from './core/regles'
+import type { LePointDuMatin } from './core/pointDuMatin'
+import { estUneRegle } from '../../shared/qgAlertes'
+import { phraseDuReglageDuPoint } from '../../shared/pointDuMatin'
 import { wrap } from './core/http'
 import { nomDeLEspace } from '../../shared/space'
 import { tronquer } from '../../shared/avatars'
@@ -23,9 +29,11 @@ import {
   bilanDesSoirees,
   compteDuJour,
   etatDeLaSoiree,
+  lesChosesATraiter,
   minuitsDeParis,
   modeDeLaSerie,
   participationsParJour,
+  type ATraiterDuQg,
   type DirectDuQg,
   type ModeDuQg,
   type PageDesSoirees,
@@ -34,19 +42,13 @@ import {
   type SorteDeGeste,
   type VueDEnsemble,
 } from '../../shared/qg'
+import { PERIODES_DU_QG, activiteDeLaPeriode, type ActiviteDUnePeriode, type PeriodeDuQg } from '../../shared/qgPeriodes'
 import { enTranches } from './core/tourniquet'
 import type { CalculEnTranches } from '../../shared/tranches'
 import { campagneDeLaVue } from '../../shared/qgCampagne'
 import { duelsDeLaVue } from '../../shared/qgDuels'
-import {
-  activiteDesJoueurs,
-  activiteParJour,
-  joueursAMontrer,
-  totauxDeLActivite,
-  type PageDeLActivite,
-  type PartieSeule,
-  type SoireeDUnProfil,
-} from '../../shared/qgActivite'
+import { activiteDesJoueurs, activiteParJour, joueursAMontrer, totauxDeLActivite, type PageDeLActivite, type SoireeDUnProfil } from '../../shared/qgActivite'
+import { modesCoteACote, seJoueEnQcm, type PartieDesModes } from '../../shared/qgModes'
 import { economieDuQg } from './economie'
 import { jourDe } from '../../shared/jour'
 import { JOURS_DES_RELUS, RELUS_MONTRES, type PageDesSignalements } from '../../shared/qgSignalements'
@@ -66,7 +68,7 @@ export interface QgDeps {
   backup: PartyBackup
   charge: Charge
   /** La santé du serveur sur sept jours, dans la base permanente : la page « Le serveur » et ses alertes. */
-  sante: Pick<SanteDuServeur, 'page' | 'alertes'>
+  sante: Pick<SanteDuServeur, 'page' | 'alertes' | 'sauvegardes'>
   gestes: JournalDesGestes
   /**
    * Clôt la soirée d'un espace comme son écran commun l'aurait close, et en
@@ -78,6 +80,14 @@ export interface QgDeps {
   maintenant: () => number
   env: string
   version: string | null
+  /** Le flux du direct (`GET /api/admin/flux`), que le serveur referme à sa fermeture ; sans lui, la route répond 404 et la page relit le direct. */
+  flux?: FluxDuQg
+  /** Les règles des alertes et leurs incidents (`core/regles.ts`) : la page des alertes, et ce qu'« À traiter » en dit. */
+  regles?: ReglesDuQg
+  /** Combien de téléphones les alertes font sonner. */
+  telephonesDuQg?: () => Promise<number>
+  /** Le point du matin (`core/pointDuMatin.ts`) : « Hier, en bref » au poste de commande, son réglage sous les alertes. */
+  point?: LePointDuMatin
 }
 
 /** Une soirée pas encore close, telle que la base locale la garde. */
@@ -139,10 +149,15 @@ function profilsDesSoireesOuvertes(db: DB): Map<string, string[]> {
   return new Map(lignes.map(l => [l.space_id, JSON.parse(l.profils) as string[]]))
 }
 
-/** Les journaux qui grossissent chaque jour, tels que la vue d'ensemble les lit : qui, quand — et ce qu'il a joué, pour l'activité. */
+/**
+ * Les journaux qui grossissent chaque jour, tels que la vue d'ensemble les lit :
+ * qui, quand — et ce qu'il a joué, pour l'activité ; sa fin et ses bonnes
+ * réponses, pour les modes côte à côte et l'entonnoir d'un mode (le QG 2,
+ * lot 5) — des colonnes des mêmes lignes.
+ */
 export interface Journaux {
-  parties: { qui: string; quand: number; questions: number }[]
-  series: { qui: string; quand: number; mode: string | null; questions: number }[]
+  parties: { qui: string; quand: number; questions: number; fin: number | null; justes: number; comptees: number }[]
+  series: { qui: string; quand: number; mode: string | null; questions: number; fin: number | null; justes: number }[]
   activite: { inscriptions: number[]; achats: number[]; soirees: SoireeDUnProfil[] }
 }
 
@@ -172,7 +187,7 @@ function boutABout(a: Journaux, b: Journaux): Journaux {
 }
 
 /** Ce que la vue d'ensemble compte de ses journaux et de ses soirées. */
-type ChiffresDeLaVue = Pick<VueDEnsemble, 'aujourdhui' | 'participations' | 'campagne' | 'duels'>
+type ChiffresDeLaVue = Pick<VueDEnsemble, 'aujourdhui' | 'participations' | 'campagne' | 'duels' | 'periodes'>
 
 /**
  * Les chiffres de la vue d'ensemble, un compte par tranche — menés un par
@@ -189,9 +204,10 @@ export function* chiffresDeLaVue(
   minuits: readonly number[],
   maintenant: number,
 ): CalculEnTranches<ChiffresDeLaVue> {
-  const solo: { quand: number; qui: string; mode: Exclude<ModeDuQg, 'soiree'> }[] = [
-    ...parties.map(p => ({ quand: p.quand, qui: p.qui, mode: 'jour' as const })),
-    ...series.map(s => ({ quand: s.quand, qui: s.qui, mode: modeDeLaSerie(s.mode) })),
+  // Leur fin aussi : chaque période compte ses parties finies, l'entonnoir d'une page de mode.
+  const solo: { quand: number; qui: string; mode: Exclude<ModeDuQg, 'soiree'>; fin: number | null }[] = [
+    ...parties.map(p => ({ quand: p.quand, qui: p.qui, mode: 'jour' as const, fin: p.fin })),
+    ...series.map(s => ({ quand: s.quand, qui: s.qui, mode: modeDeLaSerie(s.mode), fin: s.fin })),
   ]
   // La tuile de la campagne compte aussi le Cabinet : sa page le range parmi
   // ses sous-modes (`SOUS_MODES_DE_CAMPAGNE`), et elle y lit ses parties du
@@ -212,16 +228,63 @@ export function* chiffresDeLaVue(
   yield
   const deLaCampagne = campagneDeLaVue(series, minuits, maintenant)
   yield
+  // Les quatre périodes de la barre du QG 2, une par tranche : chacune repasse les trente jours.
+  const periodes = {} as Record<PeriodeDuQg, ActiviteDUnePeriode>
+  for (const periode of PERIODES_DU_QG) {
+    periodes[periode] = activiteDeLaPeriode(periode, solo, soirees, activite, minuits, maintenant)
+    yield
+  }
   return {
     aujourdhui: { profilsActifs, partiesDuJour, seriesDeCampagne, duels: duelsDuJour, nouveauxProfils, achats },
     participations,
     campagne: deLaCampagne,
     duels: duelsDeLaVue(series, minuits, maintenant),
+    periodes,
   }
 }
 
 /** Les parties d'une soirée pas encore close dont une question a été jouée. */
 const partiesJouees = (l: LigneDeSoiree) => (l.parties ?? '').split(',').filter(Boolean)
+
+/**
+ * Les soirées commencées depuis un instant : celles de l'historique, et
+ * celles pas encore closes. Une soirée se range après chaque quiz : celle
+ * qui se joue encore a déjà sa fiche, un quiz en retard — elle compte ce
+ * qu'elle a joué depuis, lu dans la base locale. `jouees` : les questions
+ * que ses invités ont jouées, que seule l'activité demande — une fiche
+ * d'avant les apprend alors de son archive (`ArchiveStore.soireesDepuis`).
+ * `profils` : ceux de ses invités qui ont joué, que la vue d'ensemble
+ * compte une fois par jour avec ceux des autres modes — la base locale les
+ * sait tous, la fiche ceux du dernier rangement. `jusqua` : celles
+ * commencées avant cet instant seulement — la mémoire du QG rattrape ses
+ * jours finis un mois à la fois (`joueursDuQg.ts`).
+ */
+export async function lesSoireesDepuis(
+  deps: Pick<QgDeps, 'archives' | 'db'>,
+  depuis: number,
+  { jouees = false, jusqua }: { jouees?: boolean; jusqua?: number } = {},
+) {
+  const rangees = await deps.archives.soireesDepuis(depuis, { jouees, ...(jusqua !== undefined && { jusqua }) })
+  const soirees = new Map(rangees.map(r => [`${r.spaceId}|${r.id}`, { ...r, ouverte: false }]))
+  const profilsOuverts = profilsDesSoireesOuvertes(deps.db)
+  for (const l of lignesDesSoirees(deps.db)) {
+    if (l.held_at === null || l.soiree_id === null || l.held_at < depuis || (jusqua !== undefined && l.held_at >= jusqua)) continue
+    const cle = `${l.space_id}|${l.soiree_id}`
+    const rangee = soirees.get(cle)
+    soirees.set(cle, {
+      spaceId: l.space_id,
+      id: l.soiree_id,
+      quand: l.held_at,
+      joueurs: Math.max(rangee?.joueurs ?? 0, l.joueurs),
+      quiz: Math.max(rangee?.quiz ?? 0, partiesJouees(l).length),
+      questions: Math.max(rangee?.questions ?? 0, l.questions),
+      jouees: Math.max(rangee?.jouees ?? 0, l.jouees),
+      profils: [...new Set([...(rangee?.profils ?? []), ...(profilsOuverts.get(l.space_id) ?? [])])],
+      ouverte: true,
+    })
+  }
+  return [...soirees.values()]
+}
 
 /** La mémoire du processus, en Mo ; null si la mesure échoue. */
 function memoireDuProcessus(): number | null {
@@ -300,6 +363,7 @@ export function mountQg(app: Express, deps: QgDeps) {
 
     const memoireMo = memoireDuProcessus()
     const base = pouls.base.lireAvecMediane()
+    const routes = pouls.toutesLesRoutes.lireAvecMediane()
     const sante = deps.backup.sante()
     const charge = deps.charge.lire()
     return {
@@ -316,8 +380,12 @@ export function mountQg(app: Express, deps: QgDeps) {
         cpuPct: charge.cpuPct,
         bouclePct: charge.boucleOccupeePct,
         baseP95Ms: base.n > 0 ? Math.round(base.p95) : null,
+        routesP95Ms: routes.n > 0 ? Math.round(routes.p95) : null,
+        routesParMin: routes.n,
         connexions: deps.io.engine.clientsCount,
       },
+      // Les seuils réglés des alertes : le poste de commande et le direct y jugent leurs voyants et leurs compteurs.
+      ...(deps.regles && { seuils: deps.regles.seuils() }),
     }
   }
 
@@ -355,47 +423,9 @@ export function mountQg(app: Express, deps: QgDeps) {
     return boutABout(jusquHier, aujourdhui)
   }
 
-  /**
-   * Les soirées commencées depuis un instant : celles de l'historique, et
-   * celles pas encore closes. Une soirée se range après chaque quiz : celle
-   * qui se joue encore a déjà sa fiche, un quiz en retard — elle compte ce
-   * qu'elle a joué depuis, lu dans la base locale. `jouees` : les questions
-   * que ses invités ont jouées, que seule l'activité demande — une fiche
-   * d'avant les apprend alors de son archive (`ArchiveStore.soireesDepuis`).
-   * `profils` : ceux de ses invités qui ont joué, que la vue d'ensemble
-   * compte une fois par jour avec ceux des autres modes — la base locale les
-   * sait tous, la fiche ceux du dernier rangement.
-   */
-  const lesSoireesDepuis = async (depuis: number, { jouees = false }: { jouees?: boolean } = {}) => {
-    const rangees = await deps.archives.soireesDepuis(depuis, { jouees })
-    const soirees = new Map(rangees.map(r => [`${r.spaceId}|${r.id}`, { ...r, ouverte: false }]))
-    const profilsOuverts = profilsDesSoireesOuvertes(deps.db)
-    for (const l of lignesDesSoirees(deps.db)) {
-      if (l.held_at === null || l.soiree_id === null || l.held_at < depuis) continue
-      const cle = `${l.space_id}|${l.soiree_id}`
-      const rangee = soirees.get(cle)
-      soirees.set(cle, {
-        spaceId: l.space_id,
-        id: l.soiree_id,
-        quand: l.held_at,
-        joueurs: Math.max(rangee?.joueurs ?? 0, l.joueurs),
-        quiz: Math.max(rangee?.quiz ?? 0, partiesJouees(l).length),
-        questions: Math.max(rangee?.questions ?? 0, l.questions),
-        jouees: Math.max(rangee?.jouees ?? 0, l.jouees),
-        profils: [...new Set([...(rangee?.profils ?? []), ...(profilsOuverts.get(l.space_id) ?? [])])],
-        ouverte: true,
-      })
-    }
-    return [...soirees.values()]
-  }
-
-  const vueDEnsemble = async (): Promise<VueDEnsemble> => {
-    const maintenant = deps.maintenant()
-    const minuits = minuitsDeParis(maintenant, JOURS_DU_QG)
-    const depuis = minuits[0]
-    const [journaux, soirees, reserve, signalementsDuJour, signalementsDeLaCampagne, aRelire, serveur, propositions] = await Promise.all([
-      lesTrenteJours(minuits),
-      lesSoireesDepuis(depuis),
+  /** Ce qui attend un geste, en chiffres : la vue d'ensemble le porte, et le point du matin en compte les lignes. */
+  const aTraiterDuQg = async (): Promise<ATraiterDuQg> => {
+    const [reserve, signalementsDuJour, signalementsDeLaCampagne, aRelire, serveur, propositions] = await Promise.all([
       deps.jour.avanceDeLaReserve(),
       deps.jour.signalementsATraiter(),
       deps.campagne.signalementsATraiter(),
@@ -403,24 +433,38 @@ export function mountQg(app: Express, deps: QgDeps) {
       deps.sante.alertes(memoireDuProcessus()),
       deps.jour.propositionsATraiter(),
     ])
-    const chiffres = await enTranches(chiffresDeLaVue(journaux, soirees, minuits, maintenant))
     const bilan = deps.rappels.bilan()
     return {
-      maintenant,
-      jour: jourDe(maintenant),
-      ...chiffres,
-      aTraiter: {
-        reserve: { joursDAvance: reserve.joursDAvance },
-        signalementsDuJour,
-        signalementsDeLaCampagne,
-        catalogue: aRelire.length,
-        propositions,
-        rappel: bilan && { jour: bilan.jour, envoyes: bilan.envoyes, echecs: bilan.echecs },
-        routine: { jour: reserve.dernierDepotIa, campagne: deps.campagne.santeDeLaBase().dernierApport },
-        serveur,
-      },
+      reserve: { joursDAvance: reserve.joursDAvance },
+      signalementsDuJour,
+      signalementsDeLaCampagne,
+      catalogue: aRelire.length,
+      propositions,
+      rappel: bilan && { jour: bilan.jour, envoyes: bilan.envoyes, echecs: bilan.echecs },
+      routine: { jour: reserve.dernierDepotIa, campagne: deps.campagne.santeDeLaBase().dernierApport },
+      serveur,
+      // Les règles neuves ouvertes, lues en mémoire, et le seuil de la réserve tel qu'on l'a réglé.
+      ...(deps.regles && { alertes: deps.regles.aTraiter(), seuilDeLaReserve: deps.regles.seuilDeLaReserve() }),
     }
   }
+
+  const vueDEnsemble = async (): Promise<VueDEnsemble> => {
+    const maintenant = deps.maintenant()
+    const minuits = minuitsDeParis(maintenant, JOURS_DU_QG)
+    const depuis = minuits[0]
+    const [journaux, soirees, aTraiter] = await Promise.all([lesTrenteJours(minuits), lesSoireesDepuis(deps, depuis), aTraiterDuQg()])
+    const chiffres = await enTranches(chiffresDeLaVue(journaux, soirees, minuits, maintenant))
+    return { maintenant, jour: jourDe(maintenant), ...chiffres, aTraiter }
+  }
+
+  // Le point du matin compte ce qui attend comme le poste de commande le liste, et nomme les salons comme lui.
+  deps.point?.brancher({
+    choses: async () => {
+      const [aTraiter, leDirect] = await Promise.all([aTraiterDuQg(), direct()])
+      return lesChosesATraiter(aTraiter, leDirect, leDirect.maintenant).length
+    },
+    salons: async ids => new Map([...(await lesSalons(ids))].map(([id, salon]) => [id, salon.nom])),
+  })
 
   /**
    * La page des soirées : les trente derniers jours en chiffres, quand on joue
@@ -431,7 +475,7 @@ export function mountQg(app: Express, deps: QgDeps) {
   const pageDesSoirees = async (): Promise<PageDesSoirees> => {
     const maintenant = deps.maintenant()
     const minuits = minuitsDeParis(maintenant, JOURS_DES_SOIREES)
-    const soirees = await lesSoireesDepuis(minuits[0])
+    const soirees = await lesSoireesDepuis(deps, minuits[0])
     const debutDuMois = minuits[minuits.length - JOURS_DU_QG]
     const duMois = soirees.filter(s => s.quand >= debutDuMois && s.quand <= maintenant).sort((a, b) => b.quand - a.quand)
     const salons = await lesSalons(duMois.map(s => s.spaceId))
@@ -459,18 +503,36 @@ export function mountQg(app: Express, deps: QgDeps) {
    * avec les questions de leurs invités ; seuls les profils montrés se
    * nomment. Des soirées des autres, rien que des chiffres : ni un prénom
    * d'invité, ni un titre, ni un espace.
+   *
+   * Et, depuis le QG 2 (lot 5), les modes côte à côte sur chaque période de
+   * la barre — la réussite, la durée d'une partie — et leur retour à J+7, des
+   * mêmes journaux : leur fin et leurs bonnes réponses viennent avec eux.
    */
   const pageDeLActivite = async (): Promise<PageDeLActivite> => {
     const maintenant = deps.maintenant()
     const minuits = minuitsDeParis(maintenant, JOURS_DU_QG)
-    const [{ parties, series, activite }, soirees] = await Promise.all([lesTrenteJours(minuits), lesSoireesDepuis(minuits[0], { jouees: true })])
-    const seules: PartieSeule[] = [
-      ...parties.map(p => ({ qui: p.qui, quand: p.quand, mode: 'jour' as const, questions: p.questions })),
-      ...series.map(s => ({ qui: s.qui, quand: s.quand, mode: modeDeLaSerie(s.mode), questions: s.questions })),
+    const [{ parties, series, activite }, soirees] = await Promise.all([lesTrenteJours(minuits), lesSoireesDepuis(deps, minuits[0], { jouees: true })])
+    const seules: PartieDesModes[] = [
+      // Au quiz du jour, ses questions à choix qui comptent : les posées, sans les annulées pour tous.
+      ...parties.map(p => ({ qui: p.qui, quand: p.quand, mode: 'jour' as const, questions: p.questions, fin: p.fin, justes: p.justes, qcm: p.comptees })),
+      ...series.map(s => ({
+        qui: s.qui,
+        quand: s.quand,
+        mode: modeDeLaSerie(s.mode),
+        questions: s.questions,
+        fin: s.fin,
+        justes: s.justes,
+        // Le Cabinet et l'expédition d'avant lui ne posent pas que des QCM : leur réussite ne se compte pas.
+        qcm: seJoueEnQcm(s.mode) ? s.questions : null,
+      })),
     ]
     const classes = activiteDesJoueurs(seules, activite.soirees, minuits, maintenant)
     const montres = joueursAMontrer(classes)
-    const profils = new Map((await deps.profiles.pourLAdministrateurDe(montres.map(a => a.qui))).map(p => [p.id, p]))
+    const [profilsMontres, modes] = await Promise.all([
+      deps.profiles.pourLAdministrateurDe(montres.map(a => a.qui)),
+      enTranches(modesCoteACote(seules, soirees, activite.soirees, minuits, maintenant)),
+    ])
+    const profils = new Map(profilsMontres.map(p => [p.id, p]))
     return {
       maintenant,
       parJour: activiteParJour(seules, soirees, minuits, maintenant),
@@ -481,6 +543,7 @@ export function mountQg(app: Express, deps: QgDeps) {
         return p ? [{ id: p.id, nom: p.name, login: p.login, suspendu: p.disabledAt !== null, ...a }] : []
       }),
       profilsActifs: classes.length,
+      modes,
     }
   }
 
@@ -488,6 +551,71 @@ export function mountQg(app: Express, deps: QgDeps) {
     '/api/admin/qg/direct',
     wrap(async (_req, res) => {
       res.json(await direct())
+    }),
+  )
+  // Le même direct, poussé toutes les deux secondes avec les pas de dix secondes, la présence des modes et le fil
+  // (`qgFlux.ts`) : la page l'écoute tant qu'elle est visible, et relit `/qg/direct` s'il se tait.
+  deps.flux?.brancher(direct)
+  // En toutes lettres, comme toute route : la référence de l'API les lit dans le code (`documentation.test.ts`) ;
+  // `CHEMIN_DU_FLUX`, que la page ouvre, est le même (`qg-direct.test.ts`).
+  app.get('/api/admin/flux', (req, res) => {
+    if (deps.flux) deps.flux.ouvrir(req, res)
+    else res.status(404).json({ error: 'Le direct ne passe pas par un flux ici.' })
+  })
+
+  // Les alertes et les incidents (le QG 2, lot 8) : chaque règle, son seuil et son téléphone, les incidents des trente jours —
+  // et le point du matin, son heure et sa notification, à côté des téléphones.
+  const pageDesAlertes = async (regles: ReglesDuQg) => {
+    const [telephones, point] = await Promise.all([deps.telephonesDuQg ? deps.telephonesDuQg().catch(() => 0) : 0, deps.point?.etat()])
+    return { ...(await regles.page(telephones)), ...(point && { point }) }
+  }
+  app.get(
+    '/api/admin/regles',
+    wrap(async (_req, res) => {
+      if (!deps.regles) return void res.status(404).json({ error: 'Les règles des alertes ne tournent pas ici.' })
+      res.json(await pageDesAlertes(deps.regles))
+    }),
+  )
+  // Régler une règle : son seuil — un réglage d'exploitation, jamais un barème du jeu —, son téléphone. Au journal.
+  app.put(
+    '/api/admin/regles/:cle',
+    wrap(async (req, res) => {
+      const cle = req.params.cle
+      if (!deps.regles || !estUneRegle(cle)) return void res.status(404).json({ error: 'Règle introuvable.' })
+      const { avant, apres } = await deps.regles.regler(cle, req.body)
+      noterLeGeste(res, { sorte: 'erreur', resume: ReglesDuQg.phraseDuReglage(cle, avant, apres, deps.regles.defauts), cible: cle })
+      res.json(await pageDesAlertes(deps.regles))
+    }),
+  )
+  // Régler le point du matin (la revue d'expert du 4 novembre 2026, P1.4) : son heure, sa notification — un réglage de
+  // `qg_reglages`, comme un seuil. Au journal.
+  app.put(
+    '/api/admin/point-du-matin',
+    wrap(async (req, res) => {
+      if (!deps.regles || !deps.point) return void res.status(404).json({ error: 'Le point du matin ne tourne pas ici.' })
+      const { avant, apres } = await deps.regles.reglerLePoint(req.body)
+      noterLeGeste(res, { sorte: 'erreur', resume: phraseDuReglageDuPoint(avant, apres), cible: 'point-du-matin' })
+      res.json(await pageDesAlertes(deps.regles))
+    }),
+  )
+  // « Hier, en bref », en tête du poste de commande : la veille, lue de la mémoire une fois et gardée jusqu'à minuit.
+  app.get(
+    '/api/admin/qg/hier',
+    wrap(async (_req, res) => {
+      if (!deps.point) return void res.status(404).json({ error: 'Le point du matin ne tourne pas ici.' })
+      res.json(await deps.point.hier())
+    }),
+  )
+  // Un mot sur un incident : sa cause vue d'ici, comme le mot d'une erreur triée.
+  app.post(
+    '/api/admin/incidents/:id/mot',
+    wrap(async (req, res) => {
+      const id = Number(req.params.id)
+      if (!deps.regles || !Number.isInteger(id)) return void res.status(404).json({ error: 'Incident introuvable.' })
+      const incident = await deps.regles.noterUnMot(id, req.body?.mot)
+      if (!incident) return void res.status(404).json({ error: 'Incident introuvable.' })
+      noterLeGeste(res, { sorte: 'erreur', resume: incident.mot ? `Mot sur un incident : « ${incident.mot} »` : 'Mot d’un incident effacé', cible: String(id) })
+      res.json(incident)
     }),
   )
   app.get(
@@ -564,8 +692,29 @@ export function mountQg(app: Express, deps: QgDeps) {
   // La santé du serveur sur sept jours : relue au plus une fois la minute, à l'ouverture de sa page.
   app.get(
     '/api/admin/serveur',
+    wrap(async (req, res) => {
+      // La période de la barre du QG : une heure, une journée, une semaine — trente jours, le relevé ne les garde pas.
+      res.json(await deps.sante.page(periodeDuServeur(req.query.periode)))
+    }),
+  )
+  // La page « Base et miroir » : la file du miroir de chaque salon — lue en mémoire —, et les dernières
+  // sauvegardes de la base permanente — dix lignes. Des salons, rien que des chiffres.
+  app.get(
+    '/api/admin/base',
     wrap(async (_req, res) => {
-      res.json(await deps.sante.page())
+      const voies = deps.backup.filesDuQg()
+      const [salons, sauvegardes] = await Promise.all([lesSalons(voies.map(v => v.spaceId)), deps.sante.sauvegardes()])
+      const base: BaseDuQg = {
+        maintenant: deps.maintenant(),
+        // Ce qui attend d'abord, puis ce qui a échoué ; les files vides et à jour, derrière.
+        miroir: voies
+          .map(v => ({ ...v, salon: salons.get(v.spaceId) ?? ESPACE_SUPPRIME }))
+          .sort((a, b) => Number(b.enRetard) - Number(a.enRetard) || b.echecs - a.echecs || b.enAttente - a.enAttente || (b.dernierSucces ?? 0) - (a.dernierSucces ?? 0)),
+        sauvegardes,
+        // Le seuil de la règle « Sauvegarde ancienne », tel qu'il est réglé : la page la peint en rouge au même âge.
+        ...(deps.regles && { ancienneApresMs: deps.regles.joursDUneSauvegarde() * 86_400_000 }),
+      }
+      res.json(base)
     }),
   )
   // Le seul geste du QG sur la soirée d'un autre (le choix du 13 octobre

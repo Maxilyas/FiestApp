@@ -5,10 +5,12 @@ import {
   MAX_SON_OCTETS,
   MAX_TITRE,
   normalizeQuestions,
+  origineDuQuizLue,
   PIECES_DE_QUESTION,
   rechercherDans,
   resumerQuiz,
   SON_MIMES,
+  type OrigineDUnQuiz,
   type PieceDeQuestion,
   type QuizDef,
   type QuizQuestionDef,
@@ -26,6 +28,12 @@ const IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp']
  * le recompresser : sa borne est en octets, en-tête du base64 compris.
  */
 const MAX_SON_DATAURL = Math.ceil(MAX_SON_OCTETS / 3) * 4 + 40
+/** Ce que le carnet des animateurs lit d'un quiz, sans ses questions : d'où il vient, quand il est né. */
+export interface QuizDuCarnet {
+  origine: OrigineDUnQuiz | null
+  creeLe: number
+}
+
 /** Délai avant qu'une photo sans quiz soit considérée comme abandonnée. */
 const IMAGE_GRACE_MS = 60 * 60 * 1000
 /**
@@ -60,6 +68,26 @@ export class QuizStore {
   private imageCache = new Map<string, { mime: string; bytes: Buffer }>()
   /** Le résumé de chaque quiz, sous sa version (`versionDe`) : « Mes quiz » ne relit que les questions de ceux qui ont changé (`list`). */
   private readonly resumes = new Map<string, { version: string; resume: QuizSummary }>()
+  /**
+   * L'origine et la naissance de chaque quiz, espace par espace, que le carnet
+   * des animateurs du QG lit sans aller à la base : la bibliothèque se relit
+   * entière au démarrage et après chaque écriture d'un espace (`allBySpace`,
+   * `all`, que `refreshLibrary` appelle), et ses lignes portent ces deux
+   * colonnes — les tenir ici ne coûte aucun aller-retour.
+   */
+  private readonly registre = new Map<string, Map<string, QuizDuCarnet>>()
+  /**
+   * Le tour de chaque espace : une relecture ne pose son registre que si rien
+   * n'a bougé depuis son départ — deux relectures reviennent de Turso à leur
+   * rythme, et la plus ancienne, arrivée la dernière, aurait rendu un quiz
+   * effacé entre-temps (le piège de `refreshLibrary`, `derniereRelecture`).
+   */
+  private readonly toursDuRegistre = new Map<string, number>()
+  private nouveauTour(spaceId: string): number {
+    const tour = (this.toursDuRegistre.get(spaceId) ?? 0) + 1
+    this.toursDuRegistre.set(spaceId, tour)
+    return tour
+  }
 
   constructor(url: string, authToken?: string) {
     this.client = clientDistant(url, authToken)
@@ -106,6 +134,9 @@ export class QuizStore {
     await ajouterColonne(this.client, 'quizzes', 'reglages', 'TEXT')
     // Un quiz archivé sort de la liste et du choix de la soirée, sans disparaître.
     await ajouterColonne(this.client, 'quizzes', 'archived_at', 'INTEGER')
+    // D'où il vient (`ORIGINES_D_UN_QUIZ`, le carnet des animateurs du QG) : NULL, un quiz d'avant la colonne. Le schéma
+    // de la table est déjà lu pour les trois d'avant : pas un aller-retour de plus au réveil.
+    await ajouterColonne(this.client, 'quizzes', 'origine', 'TEXT')
     // Depuis quand une photo n'est plus citée par le quiz qui la portait : le
     // délai de grâce du ménage en part (`pruneImages`).
     await ajouterColonne(this.client, 'quiz_images', 'orpheline_depuis', 'INTEGER')
@@ -214,10 +245,13 @@ export class QuizStore {
    * relit pas ses questions.
    */
   async all(spaceId: string): Promise<QuizDef[]> {
+    const tour = this.nouveauTour(spaceId)
     const res = await this.client.execute({
       sql: `SELECT *, ${TAILLE} FROM quizzes WHERE space_id = ? ORDER BY updated_at DESC`,
       args: [spaceId],
     })
+    // L'espace relu entier : son registre aussi — un quiz effacé ailleurs n'y reste pas —, si rien n'a bougé depuis.
+    if (this.toursDuRegistre.get(spaceId) === tour) this.registre.set(spaceId, new Map(res.rows.map(row => [String(row.id), quizDuCarnet(row)])))
     return res.rows.map(row => this.relue(row))
   }
 
@@ -225,12 +259,33 @@ export class QuizStore {
   async allBySpace(): Promise<Map<string, QuizDef[]>> {
     const res = await this.client.execute(`SELECT *, ${TAILLE} FROM quizzes ORDER BY updated_at DESC`)
     const bySpace = new Map<string, QuizDef[]>()
+    const registre = new Map<string, Map<string, QuizDuCarnet>>()
     for (const row of res.rows) {
       const spaceId = String(row.space_id ?? '')
       if (!bySpace.has(spaceId)) bySpace.set(spaceId, [])
       bySpace.get(spaceId)!.push(this.relue(row))
+      if (!registre.has(spaceId)) registre.set(spaceId, new Map())
+      registre.get(spaceId)!.set(String(row.id), quizDuCarnet(row))
     }
+    // Le démarrage relit tout, avant que le port ne s'ouvre : rien d'autre ne lit ni n'écrit en même temps.
+    this.registre.clear()
+    for (const [spaceId, siens] of registre) this.registre.set(spaceId, siens)
     return bySpace
+  }
+
+  /**
+   * Les quiz de chaque espace tels que le carnet des animateurs les lit — leur
+   * origine, leur naissance —, en mémoire : tenus à jour par chaque relecture
+   * de la bibliothèque, chaque création et chaque suppression de ce serveur.
+   */
+  quizDesEspaces(): ReadonlyMap<string, ReadonlyMap<string, QuizDuCarnet>> {
+    return this.registre
+  }
+
+  /** L'origine des quiz d'un espace, d'une lecture : ce que le rattachement d'un espace recopie avec eux. */
+  async originesDe(spaceId: string): Promise<Map<string, OrigineDUnQuiz | null>> {
+    const res = await this.client.execute({ sql: 'SELECT id, origine FROM quizzes WHERE space_id = ?', args: [spaceId] })
+    return new Map(res.rows.map(r => [String(r.id), origineDuQuizLue(r.origine)]))
   }
 
   /** Un quiz relu avec ses questions, son résumé gardé au passage. */
@@ -248,12 +303,17 @@ export class QuizStore {
     return res.rows[0] ? rowToQuiz(res.rows[0]) : null
   }
 
+  /**
+   * `origine` : d'où il vient (`ORIGINES_D_UN_QUIZ`) — la route qui le crée le
+   * sait ; null, il ne le dit pas, comme un quiz d'avant la colonne.
+   */
   async create(
     spaceId: string,
     title: unknown,
     questions: unknown = [],
     id: string = randomUUID(),
     reglages?: unknown,
+    origine: OrigineDUnQuiz | null = null,
   ): Promise<QuizDef> {
     const now = Date.now()
     const quiz: QuizDef = {
@@ -264,9 +324,13 @@ export class QuizStore {
       reglages: normaliserReglages(reglages),
     }
     await this.client.execute({
-      sql: 'INSERT INTO quizzes (id, title, questions, created_at, updated_at, space_id, reglages) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      args: [quiz.id, quiz.title, JSON.stringify(quiz.questions), now, now, spaceId, JSON.stringify(quiz.reglages)],
+      sql: 'INSERT INTO quizzes (id, title, questions, created_at, updated_at, space_id, reglages, origine) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      args: [quiz.id, quiz.title, JSON.stringify(quiz.questions), now, now, spaceId, JSON.stringify(quiz.reglages), origine],
     })
+    // Une relecture partie avant cette écriture ne le savait pas : son tour est passé.
+    this.nouveauTour(spaceId)
+    if (!this.registre.has(spaceId)) this.registre.set(spaceId, new Map())
+    this.registre.get(spaceId)!.set(quiz.id, { origine, creeLe: now })
     return quiz
   }
 
@@ -351,16 +415,21 @@ export class QuizStore {
       'write',
     )
     this.resumes.delete(id)
+    this.nouveauTour(spaceId)
+    this.registre.get(spaceId)?.delete(id)
     return res.rowsAffected > 0
   }
 
   async duplicate(spaceId: string, id: string): Promise<QuizDef | null> {
-    const source = await this.get(spaceId, id)
-    if (!source) return null
+    const res = await this.client.execute({ sql: 'SELECT * FROM quizzes WHERE id = ? AND space_id = ?', args: [id, spaceId] })
+    const ligne = res.rows[0]
+    if (!ligne) return null
+    const source = rowToQuiz(ligne)
     // Coupé à la longueur d'un titre, « (copie) » tombait d'un titre long :
     // deux lignes de « Mes quiz » portaient le même nom. On coupe l'original.
     const copie = ' (copie)'
-    return this.create(spaceId, `${tronquer(source.title, MAX_TITRE - copie.length).trim()}${copie}`, source.questions, undefined, source.reglages)
+    // La copie garde l'origine de l'original : un quiz tout prêt dupliqué reste ce que la base a composé.
+    return this.create(spaceId, `${tronquer(source.title, MAX_TITRE - copie.length).trim()}${copie}`, source.questions, undefined, source.reglages, origineDuQuizLue(ligne.origine))
   }
 
   /**
@@ -458,6 +527,8 @@ export class QuizStore {
     )
     for (const row of images.rows) this.imageCache.delete(String(row.id))
     for (const row of siens.rows) this.resumes.delete(String(row.id))
+    this.nouveauTour(spaceId)
+    this.registre.delete(spaceId)
     return { quizzes: quizzes.rowsAffected, images: images.rows.length }
   }
 
@@ -587,6 +658,11 @@ function versionDe(row: Record<string, unknown>): string {
 /** Le résumé gardé, avec ce que la ligne dit d'elle-même : son titre, et son archivage, qui ne change pas sa version. */
 function resumeDeLaLigne(row: Record<string, unknown>, resume: QuizSummary): QuizSummary {
   return { ...resume, title: String(row.title), archivedAt: row.archived_at === null || row.archived_at === undefined ? null : Number(row.archived_at) }
+}
+
+/** Ce que le carnet des animateurs garde d'une ligne de `quizzes` : son origine — null, d'avant la colonne —, sa naissance. */
+function quizDuCarnet(row: Record<string, unknown>): QuizDuCarnet {
+  return { origine: origineDuQuizLue(row.origine), creeLe: Number(row.created_at) }
 }
 
 function rowToQuiz(row: Record<string, unknown>): QuizDef {

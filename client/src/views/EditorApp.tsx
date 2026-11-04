@@ -385,7 +385,7 @@ export function EditorApp() {
       // Un quiz exporté, ou toute une bibliothèque (« Exporter tous mes quiz »).
       const fait = await importerFichier(brut, {
         envoyerPhoto: async enClair => (await api.uploadImage(enClair)).url,
-        creer: (titre, questions, reglages) => api.create(titre, questions, reglages),
+        creer: (titre, questions, reglages) => api.create(titre, questions, reglages, 'import'),
         titresPris: list?.map(q => q.title) ?? [],
       })
       const quoi =
@@ -437,7 +437,8 @@ export function EditorApp() {
     try {
       // Un quiz neuf mélange ses réponses à chaque partie : on écrit la bonne
       // d'abord, et la salle finissait par répondre ▲ sans lire.
-      const quiz = await api.create(TITRE_PAR_DEFAUT, [], { melangerReponses: true })
+      // D'où il vient, que le carnet des animateurs du QG compte : un quiz vide, ou une liste à coller.
+      const quiz = await api.create(TITRE_PAR_DEFAUT, [], { melangerReponses: true }, avecListe ? 'liste' : 'editeur')
       creeIci.current.add(quiz.id)
       if (avecListe) setOuvrirListe(true)
       setEditingId(quiz.id)

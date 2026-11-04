@@ -43,6 +43,7 @@ import {
   lotDeLEpreuve,
   lotDeLOubli,
   lotDeLaTraverseeQuiCommence,
+  lotDeLaTraverseeRendue,
   lotDuDepart,
   lotDuGeste,
   lotDuGesteDeTraversee,
@@ -54,7 +55,9 @@ import { clesARanger, reconcilier, type EtagereDuCabinet } from './gardiens'
 import { VERSION_DES_DEFIS, defisDeLaTraversee } from '../../../../shared/cabinet/defis'
 import { defisTenus, type DefisTenus } from '../../../../shared/cabinet/sceaux'
 import { GARDIENS_DU_CABINET, RANGEMENT_DU_CABINET, voieDuGardien } from '../../../../shared/cabinet/salles'
+import { lireLeResume, resumeDeLaTraversee, type ResumeDeLaTraversee } from '../../../../shared/cabinet/resume'
 import {
+  DUREE_D_UNE_MANCHE_MAX_MS,
   ETAPE_INCONNUE,
   ILLISIBLE_EN_ROUTE,
   TRAVERSEE_FINIE,
@@ -65,6 +68,7 @@ import {
   etapeDe,
   etatDeLaTraversee,
   etatDuDepart,
+  jeuDeLAssaut,
   jouerUnGesteDeLaTraversee,
   lireUnGesteDeLaTraversee,
   partieEnCours,
@@ -84,21 +88,35 @@ import {
 import { fondreLesReveils, vuesDuCabinet, type ReveilDesGardiens } from '../../../../shared/cabinet/vues'
 import {
   LECTURES_DE_TOUTES_LES_TRAVERSEES,
+  ecritureDuResume,
   laLigneDOeuvre,
+  laTraverseeEnRouteLue,
   laTraverseeLue,
+  lectureDesPiecesDesParties,
+  lectureDesSignalementsDesJeux,
+  lectureDesTraverseesFinies,
   lectureDesTraverseesGagnees,
   lecturesDeLaPartie,
   lecturesDeLaTraversee,
+  lecturesDeLaTraverseeEnRoute,
   lecturesDesParties,
+  lecturesDesTraversees,
+  lecturesDesTraverseesVivantes,
+  lesLignesAuQg,
   lesPartiesLues,
+  lesPiecesLues,
   lesTraverseesLues,
   lecturesDuMusee,
   laPartieLue,
   lireLeMusee,
   traverseesGagneesLues,
+  type LigneDeTraverseeAuQg,
   type PartieLueEnBase,
   type TraverseeLueEnBase,
 } from './tables'
+import { enTranches } from '../tourniquet'
+import type { CalculEnTranches } from '../../../../shared/tranches'
+import type { PieceAuQg, TraverseeAuQg } from '../../../../shared/qgCabinet'
 import { fichierDuCadrage } from '../details'
 import { contenuDuCabinetEnTranches } from './contenu'
 import { preparerLesTas, themesDuQuiz } from './tirages/tas'
@@ -141,6 +159,7 @@ import {
   aidesDeLaPartie,
   bilanDe,
   chronoDuDepart,
+  dureesDesManches,
   enjeuDuTirage,
   estDUnJourDAvant,
   estUneEpreuve,
@@ -338,6 +357,43 @@ export type IssueDeTraversee =
   | { introuvable: true }
   /** Un rang qui n'est plus le suivant, ou une traversée finie : la vue d'à présent, que la page reprend. */
   | { passe: LectureDeLaTraversee; pourquoi: string }
+
+/** Ce que « Rendre » a refermé : de quoi dire le geste au journal du QG. */
+export interface TraverseeRendue {
+  id: string
+  /** Son pli se relisait : sinon, rien de plus ne se dit d'elle. */
+  lisible: boolean
+  acte: 0 | 1 | 2 | null
+  ou: EtatDeLaTraversee['ou']['sorte'] | null
+  /** Le jeu de l'épreuve où elle s'est arrêtée, s'il y en avait une. */
+  enJeu: CleDeJeu | null
+  /** La partie de cette épreuve, refermée avec elle. */
+  epreuveFermee: boolean
+}
+
+export const UNE_AUTRE_TRAVERSEE = 'Cette traversée est déjà finie : recharge la page'
+export const SON_LEGENDAIRE_L_ATTEND = 'Ses trois gardiens sont vaincus : son légendaire l’attend, rien n’est bloqué'
+export const TRAVERSEE_CROISEE = 'Cette traversée a bougé en même temps : recharge la page'
+
+/** Les résumés de traversées repliées, une par tour de boucle ; null : rien à replier. */
+function* resumesEnTranches(traversees: readonly (TraverseeLueEnBase | null)[]): CalculEnTranches<(ResumeDeLaTraversee | null)[]> {
+  const resumes: (ResumeDeLaTraversee | null)[] = []
+  for (const tr of traversees) {
+    resumes.push(tr ? resumeDeLaTraversee(tr.depart, tr.gestes) : null)
+    yield
+  }
+  return resumes
+}
+
+/** Les résumés de leur colonne, relus cinquante par tour de boucle. */
+function* resumesRelusEnTranches(lignes: readonly LigneDeTraverseeAuQg[]): CalculEnTranches<(ResumeDeLaTraversee | null)[]> {
+  const resumes: (ResumeDeLaTraversee | null)[] = []
+  for (const l of lignes) {
+    resumes.push(lireLeResume(l.resume))
+    if (resumes.length % 50 === 0) yield
+  }
+  return resumes
+}
 
 export const TRAVERSEE_INTROUVABLE = 'Cette traversée est introuvable : recharge la page'
 export const TRAVERSEE_EN_ROUTE = 'Une traversée est déjà en route : reprends-la'
@@ -1591,9 +1647,12 @@ export class CabinetStore {
     const apres = jouerUnGesteDeLaTraversee(tr.depart, tr.etat, geste, t)
     if (typeof apres === 'string') return { refus: apres }
     const fin = apres.fin && !tr.etat.fin ? apres.fin : null
+    const gestes = [...tr.gestes, { geste, faitLe: t }]
+    // Le résumé que la fin laisse, dans son lot (`cabinet_traversees.resume`) : la page du Cabinet au QG ne relit que lui.
+    const resume = fin ? resumeDeLaTraversee(tr.depart, gestes) : null
     let lus: ResultSet[]
     try {
-      lus = await this.porte.client.batch(lotDuGesteDeTraversee({ id: tr.id, rang: tr.etat.rang, geste, faitLe: t, uid: randomUUID(), fin }), 'write')
+      lus = await this.porte.client.batch(lotDuGesteDeTraversee({ id: tr.id, rang: tr.etat.rang, geste, faitLe: t, uid: randomUUID(), fin, resume }), 'write')
     } catch (e) {
       this.traversees.delete(profileId)
       throw e
@@ -1602,7 +1661,7 @@ export class CabinetStore {
       this.traversees.delete(profileId)
       return { devance: true }
     }
-    const suite: TraverseeGardee = { ...tr, gestes: [...tr.gestes, { geste, faitLe: t }], etat: apres }
+    const suite: TraverseeGardee = { ...tr, gestes, etat: apres }
     this.garder(this.traversees, profileId, suite, MUSEES_GARDES)
     if (fin?.legendaire) {
       await this.rangerLeLegendaire(profileId, fin.legendaire, t)
@@ -1728,11 +1787,26 @@ export class CabinetStore {
       }
       if (p && !p.etat.fin) return { traversee: tr, partie: p }
       if (!p) console.error(`[cabinet] l’épreuve ${id} de la traversée ${tr.id} ne se relit pas : elle se conclut sans étoiles`)
-      const manches = p
-        ? etoilesDesManches(p.depart, p.etat).map(m => ({ etoiles: m.naturel, misee: m.misee }))
+      const lesManches = p ? etoilesDesManches(p.depart, p.etat) : null
+      const manches = lesManches
+        ? lesManches.map(m => ({ etoiles: m.naturel, misee: m.misee }))
         : Array.from({ length: MANCHES_PAR_PARTIE }, () => ({ etoiles: null, misee: false }))
-      // Ce qui a servi dans la partie, que les défis de tes cartes lisent (`aidesDeLaPartie`) ; introuvable, rien ne le dit.
-      const geste: GesteDeLaTraversee = { quoi: 'conclure', partie: id, manches, ...(p && { aides: aidesDeLaPartie(p.etat) }) }
+      // Le « Quitter ? » du joueur, pour la page du Cabinet au QG : quittée quand rien ne l'arrêtait encore, comptée sans
+      // la manche qu'il quittait. Le gardien à terre ou le dernier cœur parti, la page et la lecture la quittent d'elles-mêmes.
+      const quittee =
+        p?.etat.fin?.pourquoi === 'quittee' &&
+        lesManches !== null &&
+        epreuveEnCours(tr.depart, tr.etat, id, lesManches.map(m => ({ etoiles: m.fin === 'quittee' ? null : m.naturel, misee: m.misee })), false)?.fin === undefined
+      // Ce qui a servi dans la partie, que les défis de tes cartes lisent (`aidesDeLaPartie`), et le temps de chacune de ses
+      // manches, que la page du QG lit jeu par jeu (`dureesDesManches`, coupé à ce que la relecture admet) ; introuvable,
+      // rien ne le dit.
+      const geste: GesteDeLaTraversee = {
+        quoi: 'conclure',
+        partie: id,
+        manches,
+        ...(p && { aides: aidesDeLaPartie(p.etat), durees: dureesDesManches(p.etat).map(d => (d === null ? null : Math.min(DUREE_D_UNE_MANCHE_MAX_MS, d))) }),
+        ...(quittee && { quittee: true as const }),
+      }
       const issue = await this.ecrireUnGesteDeTraversee(profileId, tr, geste, t)
       if ('traversee' in issue) return { traversee: issue.traversee, partie: null }
       if ('refus' in issue) {
@@ -1985,6 +2059,158 @@ export class CabinetStore {
     const suite: TraverseeGardee = { ...tr, gestes: [...tr.gestes, { geste, faitLe: t }], etat: apres }
     this.garder(this.traversees, profileId, suite, MUSEES_GARDES)
     return this.lectureDeLaTraversee(profileId, suite, partie, this.maintenant())
+  }
+
+  // ── Le QG ─────────────────────────────────────────────────────────────
+  //
+  // La page du Cabinet au QG (`/admin#cabinet`, `server/src/cabinetDuQg.ts`) :
+  // les traversées de tout le serveur, une ligne et un résumé chacune — celles
+  // finies, de leur colonne (`cabinet_traversees.resume`) ; celles en route,
+  // repliées ici et gardées tant que leur dernier geste ne change pas. Et le
+  // geste « Rendre une traversée bloquée ».
+
+  /**
+   * Les traversées en route que la page du QG a déjà repliées, par leur clé et le rang de leur dernier geste : une
+   * traversée qui ne bouge plus ne se relit pas — un joueur parti depuis une semaine laisse la sienne en route, et la
+   * page se rouvre à chaque passage. Un geste de plus change son rang : la page suivante la relit. Une traversée que ce
+   * code ne relit pas s'y garde aussi, sans résumé.
+   */
+  private readonly replieesAuQg = new Map<string, { rangs: number; resume: ResumeDeLaTraversee | null }>()
+
+  /** Les traversées finies entre deux instants, commencées depuis le premier : leur ligne et leur résumé. */
+  async traverseesFiniesAuQg(depuis: number, jusqua: number): Promise<TraverseeAuQg[]> {
+    const [lu] = await this.porte.client.batch([lectureDesTraverseesFinies(depuis, jusqua)], 'read')
+    return this.avecLeurResume(lesLignesAuQg(lu))
+  }
+
+  /**
+   * Ce qui bouge encore, relu à chaque page : les traversées en route, de tout âge, et celles finies depuis un instant —
+   * le dernier minuit. Celles en route qui ont bougé depuis la page d'avant se replient de leur départ et de leurs
+   * gestes, cent par lot, leur résumé fait en tranches (une étape par tour de boucle : trois cents traversées de quinze
+   * gestes au dixième de cœur, c'étaient des centaines de millisecondes d'une traite).
+   */
+  async traverseesVivantesAuQg(depuis: number): Promise<{ enRoute: TraverseeAuQg[]; finies: TraverseeAuQg[] }> {
+    const [enRouteLues, finiesLues] = await this.porte.client.batch(lecturesDesTraverseesVivantes(depuis), 'read')
+    const lignes = lesLignesAuQg(enRouteLues, true)
+    const vues = new Set(lignes.map(l => l.id))
+    for (const id of this.replieesAuQg.keys()) if (!vues.has(id)) this.replieesAuQg.delete(id)
+    const aRelire = lignes.filter(l => this.replieesAuQg.get(l.id)?.rangs !== l.rangs)
+    for (let k = 0; k < aRelire.length; k += PARTIES_PAR_LECTURE) {
+      const paquet = aRelire.slice(k, k + PARTIES_PAR_LECTURE)
+      const lues = new Map(lesTraverseesLues(await this.porte.client.batch(lecturesDesTraversees(paquet.map(l => l.id)), 'read')).map(tr => [tr.id, tr]))
+      const resumes = await enTranches(resumesEnTranches(paquet.map(l => lues.get(l.id) ?? null)))
+      paquet.forEach((l, i) => this.replieesAuQg.set(l.id, { rangs: l.rangs ?? 0, resume: resumes[i] }))
+    }
+    return {
+      enRoute: lignes.map(l => ({ id: l.id, profileId: l.profileId, commenceeLe: l.commenceeLe, finieLe: null, issue: null, legendaire: null, resume: this.replieesAuQg.get(l.id)?.resume ?? null })),
+      finies: await this.avecLeurResume(lesLignesAuQg(finiesLues)),
+    }
+  }
+
+  /**
+   * Des lignes de traversées finies et leur résumé : relu de sa colonne, ou refait de son pli — une traversée finie avant
+   * la colonne, ou sous une autre version du résumé — et gardé, une fois (`ecritureDuResume`). Une traversée que ce code
+   * ne relit pas reste sans résumé : la page la compte à sa ligne seule.
+   */
+  private async avecLeurResume(lignes: readonly LigneDeTraverseeAuQg[]): Promise<TraverseeAuQg[]> {
+    const resumes = await enTranches(resumesRelusEnTranches(lignes))
+    const aFaire = lignes.flatMap((l, i) => (resumes[i] === null ? [{ l, i }] : []))
+    for (let k = 0; k < aFaire.length; k += PARTIES_PAR_LECTURE) {
+      const paquet = aFaire.slice(k, k + PARTIES_PAR_LECTURE)
+      const lues = new Map(lesTraverseesLues(await this.porte.client.batch(lecturesDesTraversees(paquet.map(x => x.l.id)), 'read')).map(tr => [tr.id, tr]))
+      const faits = await enTranches(resumesEnTranches(paquet.map(x => lues.get(x.l.id) ?? null)))
+      const ecrits = paquet.flatMap((x, j) => {
+        const fait = faits[j]
+        return fait ? [ecritureDuResume(x.l.id, fait)] : []
+      })
+      // Gardé pour la page suivante ; une écriture qui échoue se refera à la prochaine lecture — la page, elle, a son résumé.
+      if (ecrits.length > 0) await this.porte.client.batch(ecrits, 'write').catch(e => console.error('[cabinet] les résumés des traversées ne se gardent pas', e))
+      paquet.forEach((x, j) => (resumes[x.i] = faits[j]))
+    }
+    return lignes.map((l, i) => ({
+      id: l.id,
+      profileId: l.profileId,
+      commenceeLe: l.commenceeLe,
+      finieLe: l.finieLe,
+      // Finie, l'issue vide : rendue par l'administrateur.
+      issue: l.finieLe !== null ? (l.issue ?? 'rendue') : null,
+      legendaire: l.legendaire,
+      resume: resumes[i],
+    }))
+  }
+
+  /** Les signalements de chaque jeu depuis un instant : les questions de la base qu'un jeu du Cabinet a posées. */
+  async signalementsDesJeux(depuis: number): Promise<Map<CleDeJeu, number>> {
+    const lu = await this.porte.client.execute(lectureDesSignalementsDesJeux(depuis))
+    return new Map(lu.rows.flatMap(r => ((CLES_DES_JEUX as readonly unknown[]).includes(r.jeu) ? [[r.jeu as CleDeJeu, Number(r.n)] as const] : [])))
+  }
+
+  /** Ce que les manches de ces parties ont posé — chaque pièce, juste ou non, et ce qu'elle a fait —, cent parties par lot. */
+  async piecesDesEpreuves(parties: readonly string[]): Promise<PieceAuQg[]> {
+    const pieces: PieceAuQg[] = []
+    for (let k = 0; k < parties.length; k += PARTIES_PAR_LECTURE) {
+      const [lu] = await this.porte.client.batch([lectureDesPiecesDesParties(parties.slice(k, k + PARTIES_PAR_LECTURE))], 'read')
+      pieces.push(...lesPiecesLues(lu))
+    }
+    return pieces
+  }
+
+  /**
+   * Sa traversée en route, pour la fiche d'un joueur au QG : de la mémoire quand elle y est en route, sinon de la base —
+   * même illisible pour ce code, c'est peut-être pour elle qu'on ouvre la fiche. Rien ne se garde : la fiche ne joue pas.
+   */
+  async traverseeEnRouteAuQg(profileId: string): Promise<TraverseeAuQg | null> {
+    const gardee = this.traversees.get(profileId)
+    if (gardee && !gardee.etat.fin) return { ...this.enRouteAuQg(gardee.id, profileId, gardee.commenceeLe), resume: resumeDeLaTraversee(gardee.depart, gardee.gestes) }
+    const lue = laTraverseeEnRouteLue(await this.porte.client.batch(lecturesDeLaTraverseeEnRoute(profileId), 'read'))
+    if (!lue) return null
+    return { ...this.enRouteAuQg(lue.id, profileId, lue.commenceeLe), resume: lue.lue ? resumeDeLaTraversee(lue.lue.depart, lue.lue.gestes) : null }
+  }
+
+  private enRouteAuQg(id: string, profileId: string, commenceeLe: number): Omit<TraverseeAuQg, 'resume'> {
+    return { id, profileId, commenceeLe, finieLe: null, issue: null, legendaire: null }
+  }
+
+  /**
+   * « Rendre une traversée bloquée » (le QG, le 4 novembre 2026 — le pendant de « Libérer une épreuve » des sentiers) :
+   * sa traversée en route se referme là où elle en est, rendue — ni gagnée, ni perdue, ni abandonnée —, son épreuve en
+   * cours refermée sans rien conclure (`lotDeLaTraverseeRendue`). Rien ne s'y paie ni ne s'y reprend : ce qu'elle a déjà
+   * rangé — les rangs des défis de ses cartes, ses épreuves de maître, l'expérience et les confettis de ses parties —
+   * reste à lui, rien ne s'y ajoute, et une traversée ne coûte rien pour partir : il n'y a rien à lui rendre. Il en
+   * commence une neuve quand il veut. Sous le verrou du profil, la base relue — la mémoire de ce serveur n'est pas la plus
+   * fraîche quand l'autre d'une mise en ligne a joué —, et une traversée que ce code ne relit pas se rend aussi :
+   * c'est elle qui bloque le plus sûrement, la base refusant d'en commencer une autre. `attendue` : celle que la page a
+   * montrée. Null : rien en route.
+   */
+  async rendreLaTraversee(profileId: string, attendue: string): Promise<TraverseeRendue | null> {
+    return this.porte.avecVerrou(profileId, async () => {
+      const t = this.maintenant()
+      const lue = laTraverseeEnRouteLue(await this.porte.client.batch(lecturesDeLaTraverseeEnRoute(profileId), 'read'))
+      if (!lue) return null
+      if (lue.id !== attendue) throw new Error(UNE_AUTRE_TRAVERSEE)
+      const tr = lue.lue
+      const etat = tr ? etatDeLaTraversee(tr.depart, tr.gestes) : null
+      // Ses trois gardiens à terre, il ne lui reste qu'à choisir son légendaire : rien n'est bloqué, et la rendre le lui prendrait.
+      if (etat?.ou.sorte === 'legendaire') throw new Error(SON_LEGENDAIRE_L_ATTEND)
+      const resume = tr ? resumeDeLaTraversee(tr.depart, [...tr.gestes, { geste: { quoi: 'rendre' }, faitLe: t }]) : null
+      let lus: ResultSet[]
+      try {
+        lus = await this.porte.client.batch(lotDeLaTraverseeRendue({ id: lue.id, profileId, t, uid: randomUUID(), resume }), 'write')
+      } finally {
+        // Écrite ou non, la base fait foi : la page suivante du joueur relit sa traversée, et la partie de l'épreuve.
+        this.traversees.delete(profileId)
+        this.oublier(profileId)
+        this.replieesAuQg.delete(lue.id)
+      }
+      if (lus[0].rowsAffected !== 1) throw new Error(TRAVERSEE_CROISEE)
+      // Ce qui se jouait quand elle s'est arrêtée : le journal des gestes le dit (« en pleine épreuve, l'Épingle »).
+      const ou = etat?.ou
+      const enJeu =
+        tr && etat && ou && (ou.sorte === 'epreuve' || ou.sorte === 'gardien') && ou.partie
+          ? ((ou.sorte === 'gardien' ? jeuDeLAssaut(tr.depart.actes[etat.acte], etat.assauts) : etapeDe(tr.depart, ou.etape)?.jeu) ?? null)
+          : null
+      return { id: lue.id, lisible: tr !== null, acte: etat?.acte ?? null, ou: ou?.sorte ?? null, enJeu, epreuveFermee: lus[2].rowsAffected === 1 }
+    })
   }
 
   /**

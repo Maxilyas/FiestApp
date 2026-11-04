@@ -11,6 +11,7 @@ import { tronquer } from '../../../shared/avatars'
 import { nomsAffiches } from '../../../shared/homonymes'
 import { rang } from '../../../shared/typographie'
 import { classer } from '../../../shared/classement'
+import { FORMULE } from '../../../shared/tableur'
 import {
   answerLabel,
   bonneReponseEnMots,
@@ -170,16 +171,10 @@ async function resolveSpace(client: Client, slug?: string): Promise<string> {
 // ── CSV ──────────────────────────────────────────────────────────────────
 
 /**
- * Ce par quoi Excel reconnaît une formule. Un invité prénommé
- * « =HYPERLINK(…) » glissait un lien piégé dans le tableau de l'animateur,
- * qui l'ouvre en confiance : c'est lui qui l'a exporté.
- */
-const FORMULE = /^[=+\-@\t\r]/
-
-/**
  * Point-virgule et BOM : ce qu'Excel en français ouvre sans rien demander.
- * Une cellule qui commence comme une formule prend une apostrophe devant, et
- * reste du texte. Les nombres restent des nombres : −40 n'est pas une formule.
+ * Une cellule qui commence comme une formule (`FORMULE`, `shared/tableur.ts`,
+ * que « Copier » au QG lit aussi) prend une apostrophe devant, et reste du
+ * texte. Les nombres restent des nombres : −40 n'est pas une formule.
  */
 export function toCsv(rows: unknown[][]): string {
   const cell = (v: unknown) => {

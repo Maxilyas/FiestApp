@@ -10,11 +10,13 @@
 
 import { jourAvant, jourDe, jourEnToutesLettres, minutesDeParis } from './jour'
 import { espacesFines, formatNumber } from './typographie'
-import { MEMOIRE_DE_L_HEBERGEUR_MO, PART_DU_QUOTA_EN_ROUGE, enLignes, tempsDeReponse, type AlertesDuServeur } from './santeDuServeur'
+import { MEMOIRE_DE_L_HEBERGEUR_MO, enLignes, tempsDeReponse, type AlertesDuServeur } from './santeDuServeur'
 import { lesModes } from './pannes'
+import { REGLE, RANG_DE_LA_GRAVITE, graviteOuverte, rappelEnEchec, type AlerteATraiter, type Gravite, type SeuilsDesRegles } from './qgAlertes'
 // Des types seulement : `qgCampagne.ts` et `qgDuels.ts` lisent leurs jours ici, et rien ne tourne en rond à l'exécution.
 import type { CampagneDeLaVue } from './qgCampagne'
 import type { DuelsDeLaVue } from './qgDuels'
+import type { ActiviteDUnePeriode, PeriodeDuQg } from './qgPeriodes'
 
 /**
  * Les cinq modes de jeu, dans l'ordre de leur pile, du bas vers le haut :
@@ -109,8 +111,22 @@ export interface DirectDuQg {
     /** La part du temps où la boucle travaille : à cent, les réponses attendent leur tour. */
     bouclePct: number | null
     baseP95Ms: number | null
+    /**
+     * Ce qu'un joueur attend à l'instant : le 95ᵉ centile de toutes les routes
+     * d'API sur la dernière minute, et combien d'appels (`Pouls.toutesLesRoutes`)
+     * — le voyant du poste de commande. Absents d'un serveur d'avant.
+     */
+    routesP95Ms?: number | null
+    routesParMin?: number
     connexions: number | null
   }
+  /**
+   * Les seuils des règles des alertes, tels que l'administrateur les a réglés
+   * (`core/regles.ts`) : les voyants, les compteurs du direct et « À traiter »
+   * s'y jugent, comme les règles — plus un seuil écrit dans le client. Absents
+   * d'un serveur sans règles : ceux d'office.
+   */
+  seuils?: SeuilsDesRegles
 }
 
 /** Un chiffre d'aujourd'hui, et ce qu'il valait d'habitude à la même heure. */
@@ -177,6 +193,15 @@ export interface ATraiterDuQg {
   routine: { jour: number | null; campagne: number | null }
   /** Le serveur : un arrêt net, des erreurs, Turso lent, la mémoire près du plafond (`shared/santeDuServeur.ts`). */
   serveur: AlertesDuServeur
+  /**
+   * Les règles des alertes qu'« À traiter » ne disait pas encore — le ressenti,
+   * le taux d'erreur, un gel long, une version qui ralentit, le silence d'un
+   * soir —, ouvertes à l'instant (`ReglesDuQg`, `shared/qgAlertes.ts`). Absent
+   * d'un serveur d'avant.
+   */
+  alertes?: AlerteATraiter[]
+  /** Le seuil de la réserve du quiz du jour, tel qu'on l'a réglé ; absent, celui du code (`ALERTE_JOURS_D_AVANCE`). */
+  seuilDeLaReserve?: number
 }
 
 export interface VueDEnsemble {
@@ -185,6 +210,13 @@ export interface VueDEnsemble {
   jour: string
   aujourdhui: Record<TuileDuQg, CompteDuJour>
   participations: ParticipationsDuJour[]
+  /**
+   * Les quatre périodes de la barre du QG 2 — la dernière heure, 24 heures,
+   * sept jours, trente —, chacune ses seaux, ses totaux et la période d'avant
+   * (`shared/qgPeriodes.ts`), tirées des mêmes journaux : la page change de
+   * période sans redemander. Absent d'un serveur d'avant.
+   */
+  periodes?: Record<PeriodeDuQg, ActiviteDUnePeriode>
   /** La campagne sous-mode par sous-mode, tirée des mêmes séries : la page de la campagne ne les relit pas. */
   campagne: CampagneDeLaVue
   /** Les duels contre Automate et contre un joueur, jour par jour, des mêmes séries. */
@@ -300,35 +332,59 @@ export interface SoireeDesParticipations {
   profils?: readonly string[]
 }
 
+/** Une partie jouée seul, telle que la participation la compte : quand, qui, à quel mode. */
+export interface PartieDesParticipations {
+  quand: number
+  qui: string
+  mode: Exclude<ModeDuQg, 'soiree'>
+  /**
+   * Sa fin, quand le journal la date — null tant qu'elle court, ou laissée en
+   * route : l'entonnoir d'un mode compte les finies (`TotauxDUnePeriode.finies`,
+   * le QG 2, lot 5). La participation ne la lit pas.
+   */
+  fin?: number | null
+}
+
+/** Ce qu'un seau de temps a vu : qui a joué, et combien de fois, mode par mode (`participationsParSeau`). */
+export interface SeauDeParticipations {
+  /** Le début du seau ; il finit au début du suivant — le dernier, à maintenant. */
+  debut: number
+  joueurs: number
+  modes: Record<ModeDuQg, number>
+  parties: Record<ModeDuQg, number>
+}
+
 /**
- * Chaque jour, qui a joué et combien de fois, mode par mode. Un profil compte
- * une fois par jour parmi les joueurs, une fois par mode dans son mode ; un
- * invité sans profil, une fois par soirée. Chaque partie jouée seul est une
- * participation, et en soirée chaque invité qui a joué — avec ou sans profil
- * —, au jour où sa soirée a commencé.
+ * Chaque seau de temps — un jour, une heure, cinq minutes —, qui a joué et
+ * combien de fois, mode par mode. Un profil compte une fois par seau parmi
+ * les joueurs, une fois par mode dans son mode ; un invité sans profil, une
+ * fois par soirée. Chaque partie jouée seul est une participation, et en
+ * soirée chaque invité qui a joué — avec ou sans profil —, au seau où sa
+ * soirée a commencé. `debuts`, croissants, bornent les seaux ; ce qui tombe
+ * avant le premier ou après maintenant ne compte pas.
  */
-export function participationsParJour(
-  solo: readonly { quand: number; qui: string; mode: Exclude<ModeDuQg, 'soiree'> }[],
+export function participationsParSeau(
+  solo: readonly PartieDesParticipations[],
   soirees: readonly SoireeDesParticipations[],
-  minuits: readonly number[],
+  debuts: readonly number[],
   maintenant: number,
-): ParticipationsDuJour[] {
-  const jours = minuits.map(() => ({
+): SeauDeParticipations[] {
+  const seaux = debuts.map(() => ({
     tous: new Set<string>(),
     parMode: Object.fromEntries(MODES_DU_QG.map(m => [m, new Set<string>()])) as Record<ModeDuQg, Set<string>>,
     anonymes: 0,
     parties: Object.fromEntries(MODES_DU_QG.map(m => [m, 0])) as Record<ModeDuQg, number>,
   }))
-  const indice = (quand: number) => (quand <= maintenant ? jourDeLInstant(minuits, quand) : -1)
+  const indice = (quand: number) => (quand <= maintenant ? jourDeLInstant(debuts, quand) : -1)
   for (const e of solo) {
-    const j = jours[indice(e.quand)]
+    const j = seaux[indice(e.quand)]
     if (!j) continue
     j.tous.add(e.qui)
     j.parMode[e.mode].add(e.qui)
     j.parties[e.mode]++
   }
   for (const s of soirees) {
-    const j = jours[indice(s.quand)]
+    const j = seaux[indice(s.quand)]
     if (!j) continue
     const profils = new Set(s.profils ?? [])
     for (const p of profils) {
@@ -338,11 +394,24 @@ export function participationsParJour(
     j.anonymes += Math.max(0, s.joueurs - profils.size)
     j.parties.soiree += s.joueurs
   }
-  return joursDesMinuits(minuits).map((jour, i) => {
-    const j = jours[i]
+  return seaux.map((j, i) => {
     const modes = Object.fromEntries(MODES_DU_QG.map(m => [m, j.parMode[m].size + (m === 'soiree' ? j.anonymes : 0)])) as Record<ModeDuQg, number>
-    return { jour, joueurs: j.tous.size + j.anonymes, modes, parties: j.parties }
+    return { debut: debuts[i], joueurs: j.tous.size + j.anonymes, modes, parties: j.parties }
   })
+}
+
+/**
+ * Chaque jour, qui a joué et combien de fois, mode par mode : les seaux d'un
+ * jour de Paris (`participationsParSeau`), nommés par leur jour.
+ */
+export function participationsParJour(
+  solo: readonly PartieDesParticipations[],
+  soirees: readonly SoireeDesParticipations[],
+  minuits: readonly number[],
+  maintenant: number,
+): ParticipationsDuJour[] {
+  const jours = joursDesMinuits(minuits)
+  return participationsParSeau(solo, soirees, minuits, maintenant).map((s, i) => ({ jour: jours[i], joueurs: s.joueurs, modes: s.modes, parties: s.parties }))
 }
 
 // ── Ce qu'on lit ──────────────────────────────────────────────────────────
@@ -401,6 +470,17 @@ export function dureeEcrite(ms: number): string {
   return `${Math.floor(heures / 24)}${INSECABLE}j`
 }
 
+/**
+ * Une durée de quelques secondes : « 42 s », « 1 min 12 s » — le temps d'une manche du Cabinet, que `dureeEcrite`
+ * dirait « moins d'une minute ». Arrondie à la seconde ; au-delà d'une heure, `dureeEcrite`.
+ */
+export function dureeCourteEcrite(ms: number): string {
+  const secondes = Math.round(Math.max(0, ms) / 1000)
+  if (secondes < 60) return `${secondes}${INSECABLE}s`
+  if (secondes < 3600) return `${Math.floor(secondes / 60)}${INSECABLE}min${secondes % 60 ? `${INSECABLE}${secondes % 60}${INSECABLE}s` : ''}`
+  return dureeEcrite(ms)
+}
+
 const MOIS_ABREGES = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.']
 
 /** « 14 sept. », « 1er oct. » : sous l'axe d'un graphique, où « septembre » ne tient pas trois fois au téléphone. */
@@ -430,12 +510,31 @@ export function quandEcrit(instant: number, maintenant: number): string {
  */
 export const HABITUDE_EN_POURCENTS = 20
 
+/**
+ * En deçà, un écart se dit sans couleur : −4 % d'un jour à l'autre est le
+ * bruit d'une semaine, et sa flèche rouge se lisait comme une alerte (la revue
+ * d'ergonomie du 4 novembre 2026, M3). La flèche reste, grise.
+ */
+export const ECART_FAIBLE_EN_POURCENTS = 10
+
 export interface EcartALHabitude {
   sens: 'plus' | 'moins' | null
   /** Ce qu'on lit sous le chiffre : « 5 % », « 7 d’habitude », « comme d’habitude ». */
   texte: string
   /** Ce que le lecteur d'écran lit après, la flèche ne se lisant pas : « de plus que d’habitude ». */
   suite: string
+  /** Moins de `ECART_FAIBLE_EN_POURCENTS` dans un sens ou dans l'autre : sa flèche ne se colore pas. */
+  faible?: true
+}
+
+/** Un écart en pour cent, dit : son sens, son chiffre, ce que le lecteur d'écran lit après, et s'il est faible. */
+export function ecartEnPourcents(pourcents: number, deQuoi: string): EcartALHabitude {
+  return {
+    sens: pourcents > 0 ? 'plus' : 'moins',
+    texte: `${formatNumber(Math.abs(pourcents))} %`,
+    suite: pourcents > 0 ? ` de plus ${deQuoi}` : ` de moins ${deQuoi}`,
+    ...(Math.abs(pourcents) < ECART_FAIBLE_EN_POURCENTS && { faible: true as const }),
+  }
 }
 
 /** Aujourd'hui comparé à la même heure des sept jours d'avant ; rien sans jour d'avant à comparer. */
@@ -445,11 +544,7 @@ export function ecartALHabitude(c: CompteDuJour): EcartALHabitude | null {
   if (c.habituel < HABITUDE_EN_POURCENTS) return c.aujourdhui === c.habituel ? pareil : { sens: null, texte: `${formatNumber(c.habituel)} d’habitude`, suite: '' }
   const pourcents = Math.round(((c.aujourdhui - c.habituel) / c.habituel) * 100)
   if (pourcents === 0) return pareil
-  return {
-    sens: pourcents > 0 ? 'plus' : 'moins',
-    texte: `${formatNumber(Math.abs(pourcents))} %`,
-    suite: pourcents > 0 ? ' de plus que d’habitude' : ' de moins que d’habitude',
-  }
+  return ecartEnPourcents(pourcents, 'que d’habitude')
 }
 
 /**
@@ -465,28 +560,66 @@ export function graduations(max: number): number[] {
   return Array.from({ length: Math.ceil(max / pas) + 1 }, (_, i) => i * pas)
 }
 
-/** Une chose qui attend un geste : ce qu'on lit, et l'écran qui la montre. */
+/**
+ * La gravité d'une chose à traiter : celle de la règle des alertes qui la juge
+ * (`REGLES_DU_QG`) — la même sur la page des alertes, dans « À traiter », sur
+ * le rail et dans la barre ; « à faire », une tâche qui attend sans que rien ne
+ * casse — relire, clore. La revue d'ergonomie du 4 novembre 2026 : la même
+ * réserve à deux jours était rouge ici, « à surveiller » sur la page des
+ * alertes.
+ */
+export type GraviteDUneChose = Gravite | 'a-faire'
+
+const RANG_D_UNE_CHOSE: Record<GraviteDUneChose, number> = { ...RANG_DE_LA_GRAVITE, 'a-faire': 3 }
+
+/** Rouge : critique ou sérieuse — ce qui casse déjà. « À surveiller » est ambre, une tâche neutre. */
+export const estRouge = (g: GraviteDUneChose | null | undefined): boolean => g === 'critique' || g === 'serieux'
+
+/** La pire gravité d'une liste ; null si elle est vide. La pastille de la barre et celle d'une page en prennent la couleur. */
+export function pireGravite(choses: readonly { gravite: GraviteDUneChose }[]): GraviteDUneChose | null {
+  let pire: GraviteDUneChose | null = null
+  for (const c of choses) if (pire === null || RANG_D_UNE_CHOSE[c.gravite] < RANG_D_UNE_CHOSE[pire]) pire = c.gravite
+  return pire
+}
+
+/** Les écrans du QG qu'une chose à traiter ouvre : celui où l'on agit. */
+export type EcranDUneChose = 'soirees' | 'jour' | 'signalements' | 'catalogue' | 'serveur' | 'erreurs' | 'alertes' | 'reserves' | 'base' | 'direct'
+
+/** Une chose qui attend un geste : ce qu'on lit, sa gravité, et l'écran où l'on agit. */
 export interface ChoseATraiter {
   cle: string
-  /** Allumée en rouge : elle presse. */
-  alerte: boolean
+  gravite: GraviteDUneChose
   titre: string
   detail: string
-  /** L'écran du QG qui la montre ; null, rien encore à ouvrir — la ligne suffit. */
-  ecran: 'soirees' | 'jour' | 'signalements' | 'catalogue' | 'serveur' | 'erreurs' | null
+  /** L'écran du QG où l'on agit ; null, rien encore à ouvrir — la ligne suffit. */
+  ecran: EcranDUneChose | null
+  /** L'onglet de cet écran : « Ce qui gèle », pour un gel long. */
+  onglet?: string
 }
 
 const pluriel = (n: number, mot: string, motPluriel = `${mot}s`) => `${n} ${n > 1 ? motPluriel : mot}`
 
 /**
- * La liste de ce qui attend un geste, la plus pressée d'abord : un mode de jeu
- * en panne, le miroir en panne, le serveur arrêté net ou en erreur, la réserve
- * qui baisse s'allument, le reste s'aligne. Rien qui n'attende pas : une liste
- * qui dit toujours quelque chose ne se lit plus. `maintenant` date un arrêt
- * net (« hier à 23 h 10 ») ; sans lui, l'heure seule.
+ * La routine du matin dépose chaque jour, dans la réserve du quiz du jour et
+ * dans la base de la campagne : un matin sans rien arrive — l'hébergeur
+ * dormait —, deux de suite, c'est qu'elle ne passe plus.
  */
-export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectDuQg, 'soirees' | 'miroir'> | null, maintenant?: number): ChoseATraiter[] {
+export const ROUTINE_MUETTE_MS = 2 * 24 * 3_600_000
+
+/**
+ * La liste de ce qui attend un geste, la plus pressée d'abord — critique,
+ * sérieuse, à surveiller, puis ce qui est à faire, chacune dans l'ordre où
+ * elle s'écrit : un mode de jeu en panne, les soirées qui ne se sauvegardent
+ * plus, le serveur arrêté net ou en erreur, la réserve qui baisse… Rien qui
+ * n'attende pas : une liste qui dit toujours quelque chose ne se lit plus.
+ * Chaque ligne mène où l'on agit — Turso, son quota et la sauvegarde à « Base
+ * et miroir », un gel long à « Ce qui gèle ». `maintenant` date un arrêt net
+ * (« hier à 23 h 10 ») ; sans lui, l'heure seule. Les seuils, ceux que le
+ * direct prête (`DirectDuQg.seuils`) ; sans lui, ceux d'office.
+ */
+export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectDuQg, 'soirees' | 'miroir' | 'seuils'> | null, maintenant?: number): ChoseATraiter[] {
   const choses: ChoseATraiter[] = []
+  const seuils = direct?.seuils ?? {}
   // Un mode de jeu que la veille du serveur voit tomber (`core/veille.ts`) : le téléphone de l'administrateur l'a sonné, s'il l'a allumé.
   const pannes = vue?.serveur.pannes ?? []
   if (pannes.length > 0) {
@@ -494,7 +627,7 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
     const premiere = Math.min(...pannes.map(p => p.depuis))
     choses.push({
       cle: 'panne',
-      alerte: true,
+      gravite: REGLE.panne.gravite,
       titre: espacesFines(`Panne : ${lesModes(pannes.map(p => p.mode))}`),
       detail: `depuis ${heureEcrite(premiere)} · ${pluriel(echecs, 'échec')}, le dernier à ${heureEcrite(Math.max(...pannes.map(p => p.dernierEchec)))}`,
       ecran: 'erreurs',
@@ -504,10 +637,12 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
   if (miroir && (miroir.enEchecDepuis !== null || miroir.espacesEnRetard > 0)) {
     choses.push({
       cle: 'miroir',
-      alerte: true,
-      titre: 'Le miroir Turso est en panne',
+      gravite: REGLE.miroir.gravite,
+      // « Le miroir » ne disait rien à qui ne l'a pas écrit : ce qui casse, ce sont les soirées qui ne se gardent plus.
+      titre: 'Les soirées ne se sauvegardent plus',
       detail: `${pluriel(miroir.enAttente, 'écriture')} en attente${miroir.espacesEnRetard > 0 ? `, ${pluriel(miroir.espacesEnRetard, 'salon')} en retard` : ''}`,
-      ecran: null,
+      // La page qui montre la sauvegarde de chaque salon : avant elle, la ligne n'ouvrait rien.
+      ecran: 'base',
     })
   }
   const serveur = vue?.serveur
@@ -515,7 +650,7 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
     const vers = serveur.arretNet.vers
     choses.push({
       cle: 'arret-net',
-      alerte: true,
+      gravite: REGLE['arret-net'].gravite,
       titre: 'Le serveur s’est arrêté net',
       detail: `${maintenant === undefined ? `vers ${heureEcrite(vers)}` : quandEcrit(vers, maintenant)}, sans s’éteindre proprement`,
       ecran: 'serveur',
@@ -525,7 +660,7 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
     const e = serveur.erreurs
     choses.push({
       cle: 'erreurs',
-      alerte: true,
+      gravite: REGLE.erreurs.gravite,
       // Les seules à regarder : réglées ou ignorées, elles ne sonnent plus (`/admin#erreurs`).
       titre: e.n > 1 ? `${formatNumber(e.n)} erreurs serveur à regarder` : 'Une erreur serveur à regarder',
       detail: `depuis ${heureEcrite(e.depuis)} · ${e.source}`,
@@ -535,38 +670,41 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
   if (serveur?.memoireMo) {
     choses.push({
       cle: 'memoire',
-      alerte: true,
+      gravite: REGLE.memoire.gravite,
       titre: 'La mémoire approche du plafond',
       detail: `${formatNumber(serveur.memoireMo)} Mo sur ${MEMOIRE_DE_L_HEBERGEUR_MO} : au-delà, l’hébergeur arrête le serveur`,
       ecran: 'serveur',
     })
   }
-  // Le quota de Turso, au rythme de la semaine : un mois qui le dépasse arrête la base de tous — la page « Le serveur » dit quelles requêtes le prennent.
+  // Le quota de Turso, au rythme de la semaine : un mois qui le dépasse arrête la base de tous — « Base et miroir » dit quelles requêtes le prennent.
   if (serveur?.quota) {
     choses.push({
       cle: 'quota',
-      alerte: serveur.quota.part >= PART_DU_QUOTA_EN_ROUGE,
+      // Le serveur l'a jugé passé son seuil : la règle dit sa gravité, critique aux quatre cinquièmes du mois.
+      gravite: graviteOuverte('quota', serveur.quota.part),
       titre: 'Le quota de Turso',
       detail: `${enLignes(serveur.quota.luesSurTrenteJours)} lues en trente jours à ce rythme : ${formatNumber(serveur.quota.part)} % du quota`,
-      ecran: 'serveur',
+      ecran: 'base',
     })
   }
   if (serveur?.tursoLent) {
     choses.push({
       cle: 'turso-lent',
-      alerte: false,
+      gravite: REGLE['turso-lent'].gravite,
       titre: 'Turso répond lentement',
-      detail: `${tempsDeReponse(serveur.tursoLent.p95)} au 95ᵉ centile depuis ${heureEcrite(serveur.tursoLent.depuis)}`,
-      ecran: 'serveur',
+      detail: `${tempsDeReponse(serveur.tursoLent.p95)} pour 19 allers-retours sur 20, depuis ${heureEcrite(serveur.tursoLent.depuis)}`,
+      ecran: 'base',
     })
   }
-  if (vue?.reserve && vue.reserve.joursDAvance < ALERTE_JOURS_D_AVANCE) {
+  const seuilDeLaReserve = vue?.seuilDeLaReserve ?? seuils.reserve ?? ALERTE_JOURS_D_AVANCE
+  if (vue?.reserve && vue.reserve.joursDAvance < seuilDeLaReserve) {
     choses.push({
       cle: 'reserve',
-      alerte: true,
+      gravite: REGLE.reserve.gravite,
       titre: 'La réserve du quiz du jour',
-      detail: `${pluriel(vue.reserve.joursDAvance, 'jour')} d’avance, l’alerte est à ${ALERTE_JOURS_D_AVANCE}`,
-      ecran: 'jour',
+      detail: `${pluriel(vue.reserve.joursDAvance, 'jour')} d’avance, l’alerte est à ${seuilDeLaReserve}`,
+      // La réserve vit sur la page « Réserves et base » depuis le QG 2, lot 7 : la page du quiz du jour n'en garde qu'une ligne qui y mène.
+      ecran: 'reserves',
     })
   }
   // Les deux modes se relisent sur une seule page (le choix du 14 octobre
@@ -577,7 +715,7 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
     const { signalementsDuJour: j, signalementsDeLaCampagne: c } = vue
     choses.push({
       cle: 'signalements',
-      alerte: false,
+      gravite: 'a-faire',
       titre: signalees > 1 ? `${signalees} questions signalées` : 'Une question signalée',
       detail: [
         j.questions > 0 && `${j.questions} au quiz du jour (${pluriel(j.joueurs, 'joueur')})`,
@@ -592,7 +730,7 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
   if (vue?.propositions) {
     choses.push({
       cle: 'propositions',
-      alerte: false,
+      gravite: 'a-faire',
       titre: vue.propositions > 1 ? `${vue.propositions} questions du public à relire` : 'Une question du public à relire',
       detail: 'proposée au quiz du jour',
       ecran: 'jour',
@@ -601,33 +739,69 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
   if (vue && vue.catalogue > 0) {
     choses.push({
       cle: 'catalogue',
-      alerte: false,
+      gravite: 'a-faire',
       titre: vue.catalogue > 1 ? `${vue.catalogue} copies à relire` : 'Une copie à relire',
       detail: vue.catalogue > 1 ? 'proposées au catalogue' : 'proposée au catalogue',
       ecran: 'catalogue',
     })
   }
+  // La routine du matin qui se tait : le poste la disait dans la carte du serveur, qu'il fallait relire chaque jour pour
+  // s'en apercevoir (la revue d'expert du 4 novembre 2026, section 3). Jamais venue — un serveur sans routine —, rien.
+  const routine = vue?.routine
+  if (routine && maintenant !== undefined) {
+    const muettes = (['jour', 'campagne'] as const).flatMap(r => {
+      const dernier = routine[r]
+      return dernier !== null && maintenant - dernier > ROUTINE_MUETTE_MS ? [{ r, dernier }] : []
+    })
+    if (muettes.length > 0) {
+      choses.push({
+        cle: 'routine',
+        gravite: 'a-faire',
+        titre: 'La routine du matin se tait',
+        detail: muettes.map(m => `${m.r === 'jour' ? 'quiz du jour' : 'campagne'} : dernier dépôt ${quandEcrit(m.dernier, maintenant)}`).join(' · '),
+        // Ses dépôts, jour par jour, et de quoi remplir à la main.
+        ecran: 'reserves',
+      })
+    }
+  }
   for (const s of direct?.soirees ?? []) {
     if (s.etat !== 'en-plan') continue
     choses.push({
       cle: `en-plan-${s.spaceId}`,
-      alerte: false,
+      gravite: 'a-faire',
       titre: 'Une soirée laissée en plan',
       detail: `${s.salon.nom}, ${pluriel(s.inscrits, 'invité')}`,
       // La page des soirées la clôt.
       ecran: 'soirees',
     })
   }
-  if (vue?.rappel && vue.rappel.echecs > 0) {
+  // Le rappel du soir, jugé comme sa règle — sur cinq envois au moins, une part d'échecs passé son seuil : un échec sur
+  // quatre-vingt-dix n'est pas une panne, et la ligne le disait, quand la page des alertes s'en taisait.
+  if (vue?.rappel && rappelEnEchec(vue.rappel, seuils)) {
     choses.push({
       cle: 'rappel',
-      alerte: false,
+      gravite: REGLE.rappel.gravite,
       titre: 'Le rappel du soir',
       detail: `${pluriel(vue.rappel.echecs, 'envoi')} en échec sur ${vue.rappel.envoyes + vue.rappel.echecs}`,
-      ecran: null,
+      // Sa page dit chaque tournée : envoyés, ouverts, échecs.
+      ecran: 'jour',
     })
   }
-  return choses
+  // Les règles venues avec la page des alertes, à leur gravité : chacune mène où l'on agit — l'onglet compris —, la page
+  // des alertes ne dit que la règle et son seuil.
+  for (const a of vue?.alertes ?? []) {
+    const regle = REGLE[a.cle]
+    choses.push({
+      cle: `alerte:${a.cle}`,
+      gravite: regle.gravite,
+      titre: regle.nom,
+      detail: `${a.cause} · depuis ${heureEcrite(a.depuis)}`,
+      ecran: regle.page,
+      ...(regle.onglet && { onglet: regle.onglet }),
+    })
+  }
+  // La plus pressée d'abord, chacune à son rang dans l'ordre où elle s'est écrite.
+  return choses.map((c, i) => [c, i] as const).sort(([a, i], [b, j]) => RANG_D_UNE_CHOSE[a.gravite] - RANG_D_UNE_CHOSE[b.gravite] || i - j).map(([c]) => c)
 }
 
 // ── La page des soirées ───────────────────────────────────────────────────

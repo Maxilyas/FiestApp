@@ -11,6 +11,7 @@ import { identifiantPour, refusDeLIdentifiant, refusDuMotDePasse, tirage } from 
 import { IdentifiantDiscret, inscrireAvecRepli } from './IdentifiantDiscret'
 import { Sortie } from './Pieces'
 import { LOGIN } from '../../../shared/space'
+import type { OrigineDUnProfil } from '../../../shared/origines'
 
 interface Props {
   /** Le prénom et l'emoji déjà choisis sur l'écran d'inscription, s'il y en a. */
@@ -76,6 +77,12 @@ interface Props {
    * revenant d'un autre onglet.
    */
   ongletParEcran?: boolean
+  /**
+   * L'écran où le profil naît, s'il naît ici (`shared/origines.ts`) : la page
+   * des joueurs du QG compte d'où viennent les profils — la salle d'attente,
+   * l'accueil, ou la page d'où l'on y est venu.
+   */
+  origine: OrigineDUnProfil
 }
 
 /** Les écrans du formulaire, le code de secours compris — celui de l'inscription, ou le neuf d'un secours. */
@@ -136,7 +143,7 @@ export function champsAuChangement(vers: 'choix' | 'connexion' | 'inscription', 
  * reste, ne se comprenaient pas d'un coup d'œil (la remarque du
  * propriétaire du 4 octobre 2026).
  */
-export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque, aideErreur, bandeau, onEnvoi, pied, titreDeLaPage, ongletParEcran }: Props) {
+export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque, aideErreur, bandeau, onEnvoi, pied, titreDeLaPage, ongletParEcran, origine }: Props) {
   const [mode, setMode] = useState<'choix' | 'connexion' | 'inscription' | 'secours'>(creer ? 'inscription' : echappee ? 'choix' : 'connexion')
   /** Le champ de l'identifiant, ouvert à la demande ou sur un refus du serveur. */
   const [loginOuvert, setLoginOuvert] = useState(false)
@@ -247,7 +254,7 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
         const { profile } = await api.joueur.connexion(login, password)
         onDone(profile)
       } else {
-        const res = await inscrireAvecRepli({ login, password, name: name.trim(), avatar }, !loginTouche)
+        const res = await inscrireAvecRepli({ login, password, name: name.trim(), avatar, origine }, !loginTouche)
         setLogin(res.login)
         setRecovery({ code: res.recovery, profile: res.profile })
       }

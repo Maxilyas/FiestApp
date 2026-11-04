@@ -73,6 +73,13 @@ export interface SuiviDesDuels {
   /** Les duels classés lancés chaque jour, et, sur les trente jours, ceux joués des deux côtés. */
   lances: number[]
   jouesDesDeuxCotes: number
+  /**
+   * Les mêmes, chacun à son heure de lancement, et s'il a été joué des deux
+   * côtés : l'entonnoir de la page se lit sur la période de la barre, une
+   * heure comprise (`entonnoirDesDuels`, `shared/qgModes.ts`). Tirés des mêmes
+   * lignes, pas une de plus. Absent d'un serveur d'avant le QG 2, lot 5.
+   */
+  lancesDuMois?: { quand: number; joue: boolean }[]
   /** Ceux qui ont fini un duel classé ces quatre dernières semaines, par ligue, des bronzes aux maîtres — comme le classement : ni les masqués ni les suspendus. */
   ligues: { cle: CleDeLigue; joueurs: number }[]
   /** La semaine dernière : ceux que leurs duels ont payés en confettis de ligue, et combien. */

@@ -733,9 +733,10 @@ export interface AidesDUneEpreuve {
 
 /**
  * Ce que la page envoie — `aller`, `ameliorer`, `acheter`, `legendaire`,
- * `abandonner` —, et les deux gestes que le serveur écrit seul : `epreuve`
- * (aller vers une épreuve ou un gardien commence sa partie) et `conclure` (la
- * partie finie rend ses étoiles).
+ * `abandonner` —, et les trois gestes que le serveur écrit seul : `epreuve`
+ * (aller vers une épreuve ou un gardien commence sa partie), `conclure` (la
+ * partie finie rend ses étoiles) et `rendre` (l'administrateur referme une
+ * traversée bloquée, depuis le QG).
  */
 export type GesteDeLaTraversee =
   /** Ses trois cartes, telles que la page les nomme : le pli les relit, et refuse en mots ce qui n'en fait pas trois (`lireLesCartesChoisies`). */
@@ -744,13 +745,23 @@ export type GesteDeLaTraversee =
   | { quoi: 'aller'; etape: string; theme?: number }
   /** … que le serveur écrit avec la partie qu'il commence : la traversée relit le thème qui s'est joué. */
   | { quoi: 'epreuve'; etape: string; partie: string; theme?: number }
-  /** `aides` : ce qui a servi dans la partie, que les défis lisent — absent d'une épreuve conclue avant qu'on l'écrive. */
-  | { quoi: 'conclure'; partie: string; manches: readonly MancheConclue[]; aides?: AidesDUneEpreuve }
+  /**
+   * `aides` : ce qui a servi dans la partie, que les défis lisent — absent d'une épreuve conclue avant qu'on l'écrive.
+   * `durees` et `quittee`, depuis le 4 novembre 2026 (la page du Cabinet au QG) : le temps de jeu de chaque manche, de
+   * son ouverture à son verdict — null pour une manche jamais tranchée —, et le « Quitter ? » du joueur. Des faits de la
+   * partie, comme ses étoiles : la traversée n'en fait rien, le QG les lit sans rouvrir vingt parties.
+   */
+  | { quoi: 'conclure'; partie: string; manches: readonly MancheConclue[]; aides?: AidesDUneEpreuve; durees?: readonly (number | null)[]; quittee?: true }
   | { quoi: 'ameliorer'; carte: CleDeCarte }
   | { quoi: 'acheter'; article: 'coeur' }
   | { quoi: 'acheter'; article: 'amelioration'; carte: CleDeCarte }
   | { quoi: 'legendaire'; gardien: string }
   | { quoi: 'abandonner' }
+  /**
+   * Rendue par l'administrateur (« Rendre une traversée bloquée », le pendant de « Libérer une épreuve » des sentiers) :
+   * elle s'arrête là où elle en est, l'épreuve en cours comprise, sans rien conclure — ni or, ni cœurs, ni défi de plus.
+   */
+  | { quoi: 'rendre' }
 
 export interface GesteDeLaTraverseeEcrit {
   geste: GesteDeLaTraversee
@@ -813,7 +824,11 @@ export interface BilanDEpreuve {
   recompense?: 'amelioration' | 'or'
 }
 
-export type IssueDeLaTraversee = 'gagnee' | 'perdue' | 'abandonnee'
+/**
+ * Comment elle a fini. `rendue` : refermée par l'administrateur (le geste `rendre`) — ni gagnée, ni perdue, ni
+ * abandonnée par lui ; sa ligne de `cabinet_traversees` garde son issue vide, comme une épreuve de sentier libérée.
+ */
+export type IssueDeLaTraversee = 'gagnee' | 'perdue' | 'abandonnee' | 'rendue'
 export interface FinDeLaTraversee {
   issue: IssueDeLaTraversee
   le: number
@@ -1212,6 +1227,10 @@ export function jouerUnGesteDeLaTraversee(d: DepartDeLaTraversee, avant: EtatDeL
   if (avant.fin) return TRAVERSEE_FINIE
   const suite = (e: EtatDeLaTraversee): EtatDeLaTraversee => ({ ...e, rang: avant.rang + 1 })
   const e = avant
+  // Rendue au QG : partout, même avant ses cartes ou en pleine épreuve — c'est quand elle ne bouge plus qu'on la rend.
+  // Elle quitte l'étape où elle se tenait (`ou`) : une épreuve qui l'attendait ne se conclura jamais, et la lecture
+  // suivante ne doit plus la chercher (`partieEnCours`).
+  if (g.quoi === 'rendre') return suite({ ...e, ou: { sorte: 'carte' }, fin: { issue: 'rendue', le: t } })
   // Ses trois cartes, devant ses gardiens : le premier geste, et rien avant lui — sauf renoncer.
   if (g.quoi === 'cartes') {
     if (e.ou.sorte !== 'cartes') return CARTES_DEJA_CHOISIES
@@ -1454,6 +1473,17 @@ const lesAides = (x: unknown): AidesDUneEpreuve | null =>
   objet(x) && entier(x.eclairer, 0, 99) && entier(x.changer, 0, 99) && entier(x.temps, 0, MANCHES_PAR_PARTIE) ? { eclairer: x.eclairer, changer: x.changer, temps: x.temps } : null
 
 /**
+ * Le temps de jeu d'une manche que la relecture admet, au plus : une heure — un chrono et la pause de « Quitter ? » sont
+ * bornés à quelques minutes. Le serveur y coupe ce qu'il écrit (`aJour`) : au-delà, le geste illisible arrêterait la
+ * relecture de toute la traversée.
+ */
+export const DUREE_D_UNE_MANCHE_MAX_MS = 3_600_000
+
+/** Le temps de jeu de chaque manche, relu : trois durées en millisecondes, ou null. Null : illisible. */
+const lesDurees = (x: unknown): (number | null)[] | null =>
+  Array.isArray(x) && x.length === MANCHES_PAR_PARTIE && x.every(d => d === null || entier(d, 0, DUREE_D_UNE_MANCHE_MAX_MS)) ? [...(x as (number | null)[])] : null
+
+/**
  * Un geste relu : venu de la page (`duServeur` faux) — seulement ce qu'elle a
  * le droit d'envoyer —, ou écrit en base, ceux du serveur compris. Null :
  * illisible.
@@ -1490,10 +1520,16 @@ export function lireUnGesteDeLaTraversee(brut: unknown, duServeur = false): Gest
     }
     case 'conclure': {
       const manches = duServeur && unId(g.partie) ? lesManches(g.manches) : null
-      // Ce qui a servi : absent d'un geste d'avant, il se tait ; présent mais abîmé, tout le geste se refuse, comme ailleurs.
+      // Ce qui a servi, le temps de chaque manche : absents d'un geste d'avant, ils se taisent ; présents mais abîmés, tout le
+      // geste se refuse, comme ailleurs.
       const aides = g.aides === undefined ? undefined : lesAides(g.aides)
-      return manches && aides !== null ? { quoi: 'conclure', partie: g.partie as string, manches, ...(aides && { aides }) } : null
+      const durees = g.durees === undefined ? undefined : lesDurees(g.durees)
+      if (!manches || aides === null || durees === null || !(g.quittee === undefined || g.quittee === true)) return null
+      return { quoi: 'conclure', partie: g.partie as string, manches, ...(aides && { aides }), ...(durees && { durees }), ...(g.quittee === true && { quittee: true as const }) }
     }
+    // Le serveur seul la rend, au geste de l'administrateur : jamais de la page.
+    case 'rendre':
+      return duServeur ? { quoi: 'rendre' } : null
   }
   return null
 }

@@ -846,8 +846,12 @@ test('les alertes du serveur : un arrêt net du jour, les erreurs depuis l’heu
     quota: null,
   })
 
-  // Dans « À traiter » : après le miroir, avant la réserve — trois en rouge, Turso lent en sourdine. Les
-  // erreurs mènent à leur page, où elles se trient (le 19 octobre 2026) : les autres, à la page du serveur.
+  // Dans « À traiter » : après le miroir, chacune à la gravité de sa règle — l'arrêt net critique, les erreurs et la
+  // mémoire sérieuses, Turso lent et la réserve à surveiller —, la plus grave d'abord ; et chacune mène où l'on agit :
+  // les erreurs à leur page, où elles se trient (le 19 octobre 2026), l'arrêt net et la mémoire à la page du serveur,
+  // Turso à « Base et miroir », qui le montre depuis le QG 2, la réserve à « Réserves et base », où elle vit depuis le
+  // lot 7. La revue d'ergonomie du 4 novembre 2026 : la réserve rouge ici était « à surveiller » sur la page des
+  // alertes, et Turso ouvrait une page qui ne le montrait plus.
   const calme: ATraiterDuQg = {
     reserve: { joursDAvance: 6 },
     signalementsDuJour: { questions: 0, joueurs: 0 },
@@ -859,13 +863,13 @@ test('les alertes du serveur : un arrêt net du jour, les erreurs depuis l’heu
   }
   const choses = lesChosesATraiter(calme, null, maintenant)
   assert.deepEqual(
-    choses.map(c => [c.cle, c.alerte, c.ecran]),
+    choses.map(c => [c.cle, c.gravite, c.ecran]),
     [
-      ['arret-net', true, 'serveur'],
-      ['erreurs', true, 'erreurs'],
-      ['memoire', true, 'serveur'],
-      ['turso-lent', false, 'serveur'],
-      ['reserve', true, 'jour'],
+      ['arret-net', 'critique', 'serveur'],
+      ['erreurs', 'serieux', 'erreurs'],
+      ['memoire', 'serieux', 'serveur'],
+      ['turso-lent', 'veille', 'base'],
+      ['reserve', 'veille', 'reserves'],
     ],
   )
   assert.deepEqual(
@@ -874,7 +878,7 @@ test('les alertes du serveur : un arrêt net du jour, les erreurs depuis l’heu
       'Le serveur s’est arrêté net — aujourd’hui à 19 h 04, sans s’éteindre proprement',
       '4 erreurs serveur à regarder — depuis 20 h 00 · POST /api/x',
       'La mémoire approche du plafond — 462 Mo sur 512 : au-delà, l’hébergeur arrête le serveur',
-      'Turso répond lentement — 1,4 s au 95ᵉ centile depuis 20 h 00',
+      'Turso répond lentement — 1,4 s pour 19 allers-retours sur 20, depuis 20 h 00',
     ],
   )
   // Sans l'heure qu'il est, l'arrêt net garde la sienne.
@@ -1019,12 +1023,19 @@ test('la page « Le serveur » trace les plafonds lus dans le conteneur, et mèn
   assert.ok(ailleurs.includes('les plafonds de l’hébergeur gratuit'))
 })
 
-test('la page « Le serveur » se lit d’un coup d’œil : quatre chiffres, la nuit hachurée, chaque réveil et sa raison', async () => {
+test('la page « Le serveur » se lit d’un coup d’œil : quatre chiffres, la nuit hachurée, chaque réveil et sa raison — et Turso sur la page de la base', async () => {
   Object.assign(globalThis, { React, window: { location: { pathname: '/admin', search: '', hash: '#serveur', origin: 'http://banc' } } })
   const { SanteDuServeurAuQg } = await import(new URL('../../client/src/components/QgServeur.tsx', import.meta.url).href)
+  // Turso et ses connexions ont quitté la page du serveur pour « Base et miroir » (le QG 2, le 4 novembre 2026).
+  const { BaseEtMiroirAuQg } = await import(new URL('../../client/src/components/QgBase.tsx', import.meta.url).href)
   const { renderToStaticMarkup } = await import('react-dom/server')
   const page = pageDuServeur(LIGNES, SEMAINE, { maintenant, courant: COURANT })
-  const html = sansInsecables(renderToStaticMarkup(React.createElement(SanteDuServeurAuQg, { page })).replace(/<!-- -->/g, ''))
+  const html = sansInsecables(
+    (renderToStaticMarkup(React.createElement(SanteDuServeurAuQg, { page })) + renderToStaticMarkup(React.createElement(BaseEtMiroirAuQg, { page, base: null }))).replace(
+      /<!-- -->/g,
+      '',
+    ),
+  )
   for (const attendu of [
     'version bbbbbbb · en marche depuis 14 h 02',
     'le plus long : prêt en 4,1 s',
@@ -1055,7 +1066,7 @@ test('la page « Le serveur » se lit d’un coup d’œil : quatre chiffres, la
     'ven. 9 oct., 14 h : 125 requêtes — 100 réussies, 20 redirigées, 3 refusées, 2 en erreur · 2 Mo envoyés · 512 Ko reçus',
     // Turso et ses connexions : deux graphiques, et l'heure lue dans les deux — la garde, ce que la base a refermé, ce qui est tombé.
     'Connexions neuves',
-    'aujourd’hui, 21 h : 95ᵉ centile 110 ms · 100 % de connexions neuves · gardées 30 s · Turso annonce 20 s · 2 refermées par Turso, la plus jeune à 31 s · 1 aller-retour tombé en route',
+    'aujourd’hui, 21 h : 110 ms pour 19 sur 20 · 100 % de connexions neuves · gardées 30 s · Turso annonce 20 s · 2 refermées par Turso, la plus jeune à 31 s · 1 aller-retour tombé en route',
   ]) {
     assert.ok(html.includes(attendu), `« ${attendu} » dans la page`)
   }
@@ -1079,12 +1090,15 @@ test('gardées chaudes, l’heure dit ses battements ; deux démarrages de la m�
   })
   assert.deepEqual(fondreConnexions(davant, davant), { ...davant, ouvertes: 10, refermeesParLaBase: 4, echecs: 2 }, 'des lignes d’avant l’entretien restent sans lui')
 
-  Object.assign(globalThis, { React, window: { location: { pathname: '/admin', search: '', hash: '#serveur', origin: 'http://banc' } } })
-  const { SanteDuServeurAuQg } = await import(new URL('../../client/src/components/QgServeur.tsx', import.meta.url).href)
+  Object.assign(globalThis, { React, window: { location: { pathname: '/admin#base', search: '', hash: '#base', origin: 'http://banc' } } })
+  // Turso et ses connexions vivent sur la page « Base et miroir » depuis le QG 2 (le 4 novembre 2026).
+  const { BaseEtMiroirAuQg } = await import(new URL('../../client/src/components/QgBase.tsx', import.meta.url).href)
   const { renderToStaticMarkup } = await import('react-dom/server')
   // La dernière heure gardée chaude : une connexion neuve pour cinq allers-retours, quarante battements, une rouverte par l'un d'eux.
   const lignes = LIGNES.map(l => (l.heure === a(0, 21) ? { ...l, connexions: chaude } : l))
-  const html = sansInsecables(renderToStaticMarkup(React.createElement(SanteDuServeurAuQg, { page: pageDuServeur(lignes, SEMAINE, { maintenant, courant: COURANT }) })).replace(/<!-- -->/g, ''))
-  const attendu = 'aujourd’hui, 21 h : 95ᵉ centile 110 ms · 20 % de connexions neuves · gardées chaudes par 40 battements · 1 rouverte par un battement'
+  const html = sansInsecables(
+    renderToStaticMarkup(React.createElement(BaseEtMiroirAuQg, { page: pageDuServeur(lignes, SEMAINE, { maintenant, courant: COURANT }), base: null })).replace(/<!-- -->/g, ''),
+  )
+  const attendu = 'aujourd’hui, 21 h : 110 ms pour 19 sur 20 · 20 % de connexions neuves · gardées chaudes par 40 battements · 1 rouverte par un battement'
   assert.ok(html.includes(attendu), `« ${attendu} » dans la page`)
 })

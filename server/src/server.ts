@@ -11,7 +11,7 @@ import { PartyBackup, type ReglagesMiroir } from './core/backup'
 import { photosCitees, QuizStore } from './core/quizStore'
 import { seedLibrary } from './core/seed'
 import { INTROUVABLE, ROBOTS_TXT, decrirePage, habillerPage } from './core/apercus'
-import { clearQuizLibrary, setProgramme, setQuestionsPosees, setQuizLibrary } from './games/quiz'
+import { clearQuizLibrary, quizLibrary, setProgramme, setQuestionsPosees, setQuizLibrary } from './games/quiz'
 import { dernieresFois } from './core/memoire'
 import { ProgrammeStore } from './core/programmes'
 import { SalonStore } from './core/salons'
@@ -44,6 +44,10 @@ import { SpaceRegistry } from './core/space'
 import { PagesPubliques, type DemandeDePage } from './core/pages'
 import { servirPrecompresse } from './core/precompresse'
 import { Charge, compteurDeConnexions, plafondsDuConteneur, pouls, ramasseMiettes, releve } from './core/pouls'
+import { CHEMIN_DU_FLUX, ENVOI_DU_FLUX_MS, modeDuDirect } from '../../shared/qgDirect'
+import { formatNumber } from '../../shared/typographie'
+import { FluxDuQg } from './qgFlux'
+import { ReglesDuQg, heuresDeLHebergeur, lecteurDesAlertes } from './core/regles'
 import { SondeDesGels, commencer } from './core/gels'
 import { connexionsGardeesChaudes, entretenirLesConnexions, gardeAnnoncee, noterUneDemande, type ReglagesDeLEntretien } from './core/connexions'
 import { clientDeLaBase, clientDistant, transportDeLaBase } from './core/distante'
@@ -51,6 +55,13 @@ import { GARDE_DE_NODE_MS } from '../../shared/santeDuServeur'
 import { AuthStore, type AccountRec } from './auth/store'
 import { ProfileStore, cleDeSoiree } from './auth/profiles'
 import { mountApi } from './api'
+import { lesSoireesDepuis } from './qg'
+import { audienceDuQg } from './joueursDuQg'
+import { mouvementsEntre } from './economie'
+import { LePointDuMatin } from './core/pointDuMatin'
+import { animateursDuQg } from './animateursDuQg'
+import { MemoireDuQg } from './core/memoireDuQg'
+import { EffetsDuQg } from './effetsDuQg'
 import { questionAuCentreOuverte, rencontresOuvertes } from './expedition'
 import { JourStore } from './core/jour'
 import { RappelStore } from './core/rappels'
@@ -84,6 +95,20 @@ export interface QuizServerOptions {
   /** Bibliothèque de quiz : fichier local (`file:...`) ou base Turso (`libsql://...`). */
   quizDbUrl: string
   quizDbToken?: string
+  /** Le rythme du flux du QG (`ENVOI_DU_FLUX_MS`, deux secondes) : les tests le pressent. */
+  fluxDuQgMs?: number
+  /** Le pas des règles des alertes (`TOUR_DES_REGLES_MS`, une minute) : les tests le pressent. */
+  reglesDuQgMs?: number
+  /**
+   * Le pas du point du matin (`TOUR_DU_POINT_MS`, une minute) ; null, il ne tourne pas : le banc ne le lance que pour
+   * qui le demande — passé 8 h 40, il aurait écrit la mémoire du QG en fond au milieu des lectures qu'une épreuve compte.
+   */
+  pointDuMatinMs?: number | null
+  /**
+   * La page « Le serveur » relit la base au plus une fois la minute : les règles des alertes la lisent dès le
+   * démarrage, et un rendu qui écrit sa semaine inventée ensuite la photographiait sans elle. Zéro : toujours relue.
+   */
+  santeGardeeMs?: number
   /** URL publique à mettre dans le QR code (prioritaire sur l'IP locale). */
   publicUrl?: string
   /**
@@ -373,7 +398,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // modèle de sa route, lu à sa fin — jamais son adresse, qui peut porter un
   // identifiant —, de son arrivée à sa réponse partie ou abandonnée.
   app.use((req, res, next) => {
-    if (req.path === '/healthz') return next()
+    // Ni le flux du QG : ouvert des heures, il serait de chaque gel, sans y être pour rien — il n'écrit que toutes les deux secondes.
+    if (req.path === '/healthz' || req.path === CHEMIN_DU_FLUX) return next()
     const fin = commencer(() => quoiDeLaRequete(req))
     res.once('finish', fin)
     res.once('close', fin)
@@ -383,6 +409,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // mesuré là où Turso est vraiment loin — `/healthz` le dit (`core/pouls.ts`).
   app.use((req, res, next) => {
     if (!req.path.startsWith('/api/')) return next()
+    // La mesure d'un téléphone (`POST /api/mesures`, le QG 2, lot 9) part quand sa page se cache : personne ne
+    // l'attend, et elle ne lit rien de la base. Ni le ressenti des joueurs — ses quelques millisecondes y feraient
+    // passer les vraies routes pour plus rapides —, ni l'entretien : chaque page quittée aurait gardé Turso chaud une minute.
+    if (req.path === '/api/mesures') return next()
     // Un joueur est là : ses connexions vers la base restent chaudes une
     // minute (`core/connexions.ts`). Pas l'administrateur : un QG ouvert toute
     // la journée relit son direct toutes les dix secondes, sans Turso.
@@ -393,12 +423,20 @@ export async function createQuizServer(opts: QuizServerOptions) {
       if (typeof modele !== 'string') return
       // La veille des modes de jeu : un 5xx la fait guetter une panne, le reste — un refus compris — est une réponse (`core/veille.ts`).
       veille.noter(`${req.method} ${modele}`, res.statusCode < 500)
-      // Une réponse qui s'écrit au fil du temps — le dévoilement de l'expédition — dure ce qu'elle raconte : ce n'est pas une attente.
+      // Qui joue à quoi, pour le direct du QG : un profil servi sur une route d'un mode y compte cinq minutes. Sa
+      // session se lit en mémoire, sans rien glisser — la route l'a déjà fait ; seul leur nombre sort du relevé.
+      const mode = res.statusCode < 400 ? modeDuDirect(`${req.method} ${modele}`) : null
+      if (mode) {
+        const jeton = readPlayerToken(req.header('cookie'))
+        const profil = jeton ? profiles.profilDuJeton(jeton) : null
+        if (profil) releve.direct.joueur(mode, profil)
+      }
+      // Une réponse qui s'écrit au fil du temps — le dévoilement de l'expédition, le flux du QG — dure ce qu'elle raconte : ce n'est pas une attente.
       if (res.locals.auFilDuTemps) return
       const ms = performance.now() - debut
       pouls.noterRoute(`${req.method} ${modele}`, ms)
-      // Et heure par heure, pour la page « Le serveur » du QG.
-      releve.route(`${req.method} ${modele}`, ms)
+      // Et heure par heure, pour la page « Le serveur » du QG — son statut avec : la table des routes compte leurs refus et leurs erreurs.
+      releve.route(`${req.method} ${modele}`, ms, res.statusCode)
     })
     next()
   })
@@ -566,10 +604,95 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const gestes = new JournalDesGestes(opts.quizDbUrl, opts.quizDbToken, { maintenant: maintenantDuJour })
   // La santé du serveur sur sept jours, que la page « Le serveur » du QG relit :
   // dans la base permanente, la seule qui survive à un réveil.
+  const plafonds = plafondsDuConteneur()
   const sante = new SanteDuServeur(opts.quizDbUrl, opts.quizDbToken, {
-    plafonds: plafondsDuConteneur(),
+    plafonds,
     mesuresDeLHebergeur: opts.mesuresDeLHebergeur ?? null,
+    ...(opts.santeGardeeMs !== undefined && { pageGardeeMs: opts.santeGardeeMs }),
   })
+  // Le direct du QG, poussé toutes les deux secondes aux pages qui l'écoutent : en mémoire, rien vers Turso.
+  const fluxDuQg = new FluxDuQg({ envoiMs: opts.fluxDuQgMs ?? ENVOI_DU_FLUX_MS, plafonds })
+  // La mémoire du QG — la feuille de présence, les chiffres de chaque jour fini —, que la page des joueurs relit : dans
+  // la base permanente, un reflet des journaux qui s'écrit une fois par jour fini. Les règles y lisent les heures
+  // éveillées des jours que les démarrages gardés ne couvrent plus.
+  const memoireDuQg = new MemoireDuQg(opts.quizDbUrl, opts.quizDbToken)
+  // Les règles des alertes du QG (le QG 2, lot 8) : leurs réglages et leurs incidents dans la base permanente, jugées
+  // chaque minute sur ce que le serveur sait déjà. Ce qu'elles lisent naît plus bas : elles ne lisent qu'une fois
+  // le serveur ouvert (`regles.demarrer`). Hors de la production, la préproduction prend sa part des heures de
+  // l'hébergeur d'office (`defautsDesSeuils`).
+  const regles = new ReglesDuQg(opts.quizDbUrl, opts.quizDbToken, {
+    tourMs: opts.reglesDuQgMs,
+    production: (opts.appEnv ?? 'production') === 'production',
+    prevenir: m => {
+      alertes.prevenir(m).catch(err => console.warn('[alertes] les téléphones du QG ne se lisent pas :', err instanceof Error ? err.message : err))
+    },
+    lire: lecteurDesAlertes({
+      alertes: memoireMo => sante.alertes(memoireMo),
+      versions: async () => (await sante.page('7j')).versions,
+      direct: releve.direct,
+      miroir: () => backup.sante(),
+      reserve: () => jour.avanceDeLaReserve(),
+      rappel: () => rappels.bilan(),
+      memoireMo: () => {
+        try {
+          return Math.round(process.memoryUsage().rss / 1024 / 1024)
+        } catch {
+          return null
+        }
+      },
+      version: opts.version ?? null,
+      // Une fois l'heure : la dernière sauvegarde, une ligne ; les heures de l'hébergeur, les démarrages gardés et le mois de la mémoire.
+      sauvegarde: () => sante.derniereSauvegarde(),
+      hebergeur: () =>
+        heuresDeLHebergeur({
+          demarrages: () => sante.demarragesGardes(),
+          heuresDesJours: depuis => memoireDuQg.heuresDesJours(depuis),
+          courant: sante.id,
+          maintenant: Date.now(),
+        }),
+    }),
+  })
+  sante.reglerLesSeuils(() => regles.seuilsDuServeur())
+  // L'audience qui tient la mémoire à jour, sur les mêmes journaux que la vue d'ensemble, à la même horloge — et, pour
+  // chaque jour fini, ce que l'économie, l'historique et les démarrages en savent (la mémoire v2).
+  const audience = audienceDuQg({
+    memoire: memoireDuQg,
+    profiles,
+    jour,
+    campagne,
+    soireesEntre: (debut, fin, { jouees = false } = {}) => lesSoireesDepuis({ archives, db }, debut, { jusqua: fin, jouees }),
+    premieresSoirees: ids => archives.premieresSoirees(ids),
+    confettisEntre: async (debut, fin) => (await mouvementsEntre({ profiles, jour, campagne }, debut, fin)).mouvements,
+    // Les démarrages se datent à l'horloge de la machine, celle de la santé du serveur.
+    demarrages: async () => ({ demarrages: await sante.demarragesGardes(), maintenant: Date.now(), courant: sante.id }),
+    maintenant: maintenantDuJour,
+  })
+  // Le point du matin (la revue d'expert du 4 novembre 2026, P1.4) : son passage écrit la mémoire de la veille, puis la
+  // dit aux téléphones de l'administrateur, une fois par jour ; « Hier, en bref » au poste de commande la lit là.
+  const pointDuMatin = new LePointDuMatin(opts.quizDbUrl, opts.quizDbToken, {
+    reglage: () => regles.pointDuMatin(),
+    dOffice: () => regles.pointDOffice,
+    aJour: () => audience.aJour(),
+    memoireAJour: () => audience.estAJour(),
+    jours: async de => (await memoireDuQg.joursDepuis(de)).jours,
+    incidents: (debut, fin) => regles.incidentsEntre(debut, fin),
+    prevenir: m => alertes.prevenir(m),
+    maintenant: maintenantDuJour,
+    tourMs: opts.pointDuMatinMs,
+  })
+
+  // Le carnet des animateurs : les comptes et les quiz en mémoire, les soirées et les profils que l'audience garde.
+  const animateurs = animateursDuQg({
+    auth,
+    audience,
+    profiles,
+    quizDesEspaces: () => store.quizDesEspaces(),
+    quizPrets: spaceId => quizLibrary(spaceId).map(p => p.id),
+    maintenant: maintenantDuJour,
+  })
+  // L'effet de ce que le QG envoie — une annonce, une affiche — et les repères de ses courbes : lus de la mémoire du QG,
+  // du journal des gestes et des démarrages, une fois par jour pour ce qui est fini (`effetsDuQg.ts`).
+  const effetsDuQg = new EffetsDuQg(opts.quizDbUrl, opts.quizDbToken, { memoire: memoireDuQg, audience, profiles, gestes, sante, maintenant: maintenantDuJour })
 
   /**
    * Deux écritures du même espace lancent deux relectures, qui reviennent
@@ -631,8 +754,12 @@ export async function createQuizServer(opts: QuizServerOptions) {
     campagne.init(REVEIL_DU_CABINET),
     gestes.init(),
     sante.init(),
+    memoireDuQg.init(),
+    pointDuMatin.init(),
     // Les pannes qu'un serveur d'avant n'a pas vues se rétablir : la veille dira leur retour.
     alertes.init().then(heritees => veille.heriter(heritees)),
+    // Les réglages des alertes et les incidents laissés ouverts par le serveur d'avant.
+    regles.init(),
     maintenance.init(),
     (async () => {
       await archives.init(defaultSpace)
@@ -645,7 +772,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // La carrière d'un profil compte son quiz du jour, pour ses paliers : le
   // quiz du jour dépend des profils, et se branche donc sur eux après coup.
   profiles.statsDuJour = id => jour.statsDuJour(id)
-  profiles.suspensionChangee = () => jour.suspensionChangee()
+  // Les segments de la page des joueurs aussi : un suspendu n'en est d'aucun, une annonce ne le touche pas.
+  profiles.suspensionChangee = () => {
+    jour.suspensionChangee()
+    audience.oublierLesProfils()
+  }
   // Une soirée créditée ou retirée, un sablier acheté : sa série gardée se relit.
   profiles.serieChangee = id => jour.oublierLaSerie(id)
   // Le laurier du vainqueur d'hier, lu en mémoire à chaque diffusion — et le
@@ -908,6 +1039,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     await campagne.oublierProfil(profileId)
     // Les pages bientôt disponibles qu'il testait (`core/maintenance.ts`).
     await maintenance.oublierProfil(profileId)
+    // Sa feuille de présence au QG (`qg_presences`) : les chiffres des jours, sans un nom, restent.
+    await audience.oublierProfil(profileId)
     await profiles.supprimer(profileId)
     console.log(`[profils] profil « ${login} » supprimé` + (salon ? `, détaché de « ${salon.login} »` : ''))
     return { salon: salon ? 'detache' : null }
@@ -1356,10 +1489,17 @@ export async function createQuizServer(opts: QuizServerOptions) {
       version: opts.version ?? null,
       // Clore d'ici une soirée laissée en plan tient les mêmes comptes que son écran commun.
       clore: rt => cloreLaSoiree(rt, { auth, inscriptions }),
+      flux: fluxDuQg,
+      regles,
+      telephonesDuQg: async () => (await alertes.telephones()).length,
+      point: pointDuMatin,
     },
     gestes,
     maintenance,
     erreurs: { sante, alertes, rappels, veille },
+    audience,
+    animateurs,
+    effets: effetsDuQg,
     online: !!opts.online,
     publicOrigin: allowedOrigin,
     onLibraryChanged: refreshLibrary,
@@ -1599,6 +1739,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
   )
   // Le démarrage s'écrit une fois le port ouvert : un réveil n'attend pas un aller-retour de plus.
   sante.demarrer({ demarreLe: debutDuDemarrage, pretEnMs, version: opts.version ?? null, env: opts.appEnv ?? 'production' })
+  releve.direct.evenement({ sorte: 'serveur', mode: null, texte: `Le serveur démarre${opts.version ? ` · version ${opts.version}` : ''} · prêt en ${formatNumber(Math.round(pretEnMs))} ms` })
   // La base de la campagne, en fond et par tranches qui rendent la main
   // (`lireLaBaseSansBloquer`) : personne ne l'attend plus à sa première série.
   const prechauffage = setTimeout(() => campagne.prechauffer(), opts.prechauffageCampagneMs ?? PRECHAUFFAGE_CAMPAGNE_MS)
@@ -1612,8 +1753,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const direLaVeille = (e: EvenementDeLaVeille) => {
     const message = e.sorte === 'panne' ? messageDePanne(e.pannes) : messageDeRetour(e.modes)
     console.warn(`[veille] ${message.titre} — ${message.corps}`)
+    releve.direct.evenement({ sorte: 'serveur', mode: null, texte: message.titre })
     const garder = e.sorte === 'panne' ? alertes.garderLesPannes(e.pannes) : alertes.oublierLesPannes(e.modes)
     garder.catch(err => console.warn('[veille] les pannes ne se gardent pas :', err instanceof Error ? err.message : err))
+    // La page des alertes peut faire taire le téléphone pour la panne d'un mode : elle reste dite au QG.
+    if (!regles.sonne('panne')) return
     alertes.prevenir(message).then(
       b => {
         if (b.envoyes + b.echecs + b.retires > 0) console.log(`[alertes] ${message.titre} : ${b.envoyes} téléphone(s) prévenu(s), ${b.echecs} échec(s), ${b.retires} oublié(s)`)
@@ -1622,6 +1766,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
     )
   }
   veille.demarrer(direLaVeille)
+  // Chaque minute, les règles des alertes se jugent : le serveur est ouvert, tout ce qu'elles lisent est né.
+  regles.demarrer()
+  // Et le point du matin regarde l'heure.
+  pointDuMatin.demarrer()
 
   return {
     httpServer,
@@ -1642,6 +1790,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
         rappels.arreter()
         // Ni une panne : un serveur qui s'arrête fait échouer ce qui était en route.
         veille.arreter(direLaVeille)
+        // Les pages du QG qui écoutent le direct : ouvertes, elles retiendraient la fermeture du serveur.
+        fluxDuQg.fermer()
+        // Plus une règle ne se juge : ce qui tombe pendant l'extinction n'est pas un incident. Ni un point du matin.
+        regles.arreter()
+        pointDuMatin.arreter()
         charge.arreter()
         sondeDesGels.arreter()
         registry.stopAll()
@@ -1649,7 +1802,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
           // La file du miroir se vide d'abord, dans le délai qu'on lui laisse :
           // la base locale doit rester ouverte d'ici là — une resynchronisation
           // en attente la relit.
-          await Promise.all([backup.close(), santeArretee])
+          // Les passages des profils notés depuis le dernier lot, avec : « dernier passage » au QG ne recule pas d'un réveil.
+          await Promise.all([backup.close(), santeArretee, profiles.ecrireLesPassages().catch(() => {})])
           db.close()
           store.close()
           programmes.close()
@@ -1661,6 +1815,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
           jour.close()
           rappels.close()
           alertes.close()
+          regles.close()
+          pointDuMatin.close()
+          effetsDuQg.close()
           maintenance.close()
           // Les profils en dernier : un crédit d'expérience parti avec la fin
           // du dernier quiz garde ainsi le plus long sursis pour aboutir. On ne

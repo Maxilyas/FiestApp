@@ -818,12 +818,19 @@ export class ArchiveStore {
    * une fois par jour d'un mode à l'autre — ils restent au serveur, la vue
    * n'en envoie que le compte. Une fiche d'avant le 14 octobre 2026 ne les
    * dit pas (`profils` absent) : `undefined`, chaque invité compte à part.
+   *
+   * `jusqua` : celles commencées avant cet instant seulement — la mémoire du
+   * QG rattrape ses jours finis un mois à la fois (`joueursDuQg.ts`).
    */
   async soireesDepuis(
     depuis: number,
-    { jouees = false }: { jouees?: boolean } = {},
+    { jouees = false, jusqua }: { jouees?: boolean; jusqua?: number } = {},
   ): Promise<{ spaceId: string; id: string; quand: number; joueurs: number; quiz: number; questions: number; jouees: number; profils: string[] | undefined }[]> {
-    const res = await this.client.execute({ sql: 'SELECT space_id, id, held_at, summary FROM soirees WHERE held_at >= ?', args: [depuis] })
+    const res = await this.client.execute(
+      jusqua === undefined
+        ? { sql: 'SELECT space_id, id, held_at, summary FROM soirees WHERE held_at >= ?', args: [depuis] }
+        : { sql: 'SELECT space_id, id, held_at, summary FROM soirees WHERE held_at >= ? AND held_at < ?', args: [depuis, jusqua] },
+    )
     const lues = res.rows.map(r => ({ spaceId: String(r.space_id), id: String(r.id), quand: Number(r.held_at), stocke: String(r.summary), fiche: lireFiche(String(r.summary)) }))
     if (jouees) {
       const sansJouees = lues.filter((l): l is (typeof lues)[number] & { fiche: FicheSoiree } => l.fiche !== null && l.fiche.jouees === undefined)
@@ -839,6 +846,22 @@ export class ArchiveStore {
       jouees: fiche?.jouees ?? 0,
       profils: fiche?.profils ? fiche.invites.flatMap(i => (i.joue && i.profileId ? [i.profileId] : [])) : undefined,
     }))
+  }
+
+  /**
+   * La première soirée de l'historique de quelques espaces — l'instant de sa
+   * première question —, d'une lecture, par la clé de la table (`space_id`
+   * d'abord) : la mémoire du QG y lit qu'un salon a joué ce jour-là sa toute
+   * première soirée, un nouvel animateur. Un espace sans soirée manque.
+   */
+  async premieresSoirees(spaceIds: readonly string[]): Promise<Map<string, number>> {
+    if (spaceIds.length === 0) return new Map()
+    const res = await this.client.execute({
+      sql: 'SELECT json_group_array(json_array(space_id, premiere)) AS lignes FROM (SELECT space_id, MIN(held_at) AS premiere FROM soirees WHERE space_id IN (SELECT value FROM json_each(?)) GROUP BY space_id)',
+      args: [JSON.stringify([...new Set(spaceIds)])],
+    })
+    const lignes = JSON.parse(String(res.rows[0]?.lignes ?? '[]')) as [string, number][]
+    return new Map(lignes.map(([espace, premiere]) => [String(espace), Number(premiere)]))
   }
 
   /**

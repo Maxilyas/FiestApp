@@ -51,7 +51,10 @@ import type { EnjeuDuDuel, EtatDesDuels, FaceAFace, JoueurADefier, JoueurCroise,
 import type { DirectDuQg, JournalDuQg, PageDesSoirees, SorteDeGeste, VueDEnsemble } from '../../shared/qg'
 import type { AccuseDeReponse, PageDesAnnonces, QuestionDAnnonce } from '../../shared/annonces'
 import type { DemandeDAffiche, PageDesAffiches } from '../../shared/affiches'
-import type { PageDuServeur } from '../../shared/santeDuServeur'
+import type { EffetsDesAffiches, EffetsDesAnnonces, JoursDeLAvantApres, ReperesDuQg } from '../../shared/qgEffets'
+import type { BaseDuQg, PageDuServeur, PeriodeDuServeur } from '../../shared/santeDuServeur'
+import type { CleDeRegle, IncidentDuQg, PageDesAlertes } from '../../shared/qgAlertes'
+import type { HierDuQg } from '../../shared/pointDuMatin'
 import type { EtatDUneErreur, PageDesErreurs } from '../../shared/triDesErreurs'
 import type { BilanDUneAlerte } from '../../shared/pannes'
 import type { EtatDUnePage, EtatDeLaMaintenance, PageEnMaintenance } from '../../shared/maintenance'
@@ -59,8 +62,13 @@ import type { SuiviDuJour } from '../../shared/qgDuJour'
 import type { SuiviDeLaCampagne } from '../../shared/qgCampagne'
 import type { SuiviDesDuels } from '../../shared/qgDuels'
 import type { PageDeLEconomie } from '../../shared/qgEconomie'
+import type { PageDuCabinetAuQg } from '../../shared/qgCabinet'
 import type { PageDeLActivite } from '../../shared/qgActivite'
+import type { ComptesDesSegments, PageDesJoueurs } from '../../shared/qgJoueurs'
+import type { CarnetDesAnimateurs, ComptesDesAnimateurs, SegmentDesAnnonces } from '../../shared/qgAnimateurs'
+import type { OrigineDUnProfil } from '../../shared/origines'
 import type { Classement, PageDesSignalements } from '../../shared/qgSignalements'
+import type { FiltreDesQuestions, PageDesQuestions, PageDesReserves } from '../../shared/qgContenu'
 import { applySample, mesureDeLaReponse, tempsDuPrechargement } from './clock'
 import { DEPART } from '../../shared/depart'
 
@@ -317,8 +325,9 @@ export const api = {
   get: (id: string) => req<QuizDef>(`/api/quizzes/${id}`),
   /** Ce que l'historique sait du quiz et de chacune de ses questions : « réussie par 23 % le 14 mars ». */
   memoire: (id: string) => req<MemoireDuQuiz>(`/api/quizzes/${id}/memoire`),
-  create: (title: string, questions?: unknown[], reglages?: ReglagesDuQuiz) =>
-    req<QuizDef>('/api/quizzes', { method: 'POST', body: JSON.stringify({ title, questions, reglages }) }),
+  /** `origine` : par où il naît — l'éditeur vide, « Coller une liste », un fichier importé (le carnet des animateurs du QG). */
+  create: (title: string, questions: unknown[] | undefined, reglages: ReglagesDuQuiz | undefined, origine: 'editeur' | 'liste' | 'import') =>
+    req<QuizDef>('/api/quizzes', { method: 'POST', body: JSON.stringify({ title, questions, reglages, origine }) }),
   /**
    * `base` : la version d'où partent les modifications — le serveur refuse
    * (`ConflitError`) si le quiz a été enregistré ailleurs depuis. `jeton` :
@@ -455,8 +464,8 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ login, password }),
       }),
-    /** Rend le code de secours — la seule fois où il existe en clair. */
-    inscription: (input: { login: string; password: string; name: string; avatar: string }) =>
+    /** Rend le code de secours — la seule fois où il existe en clair. `origine` : l'écran où il naît, que le QG compte. */
+    inscription: (input: { login: string; password: string; name: string; avatar: string; origine: OrigineDUnProfil }) =>
       req<{ profile: PublicProfile; espace: PublicSpace | null; recovery: string }>('/api/joueur/inscription', {
         method: 'POST',
         body: JSON.stringify(input),
@@ -834,8 +843,19 @@ export const api = {
     },
     /** Le bilan des soirées : trente jours en chiffres, quand on joue, la taille des salles, l'historique du mois. */
     soirees: () => req<PageDesSoirees>('/api/admin/soirees'),
-    /** La santé du serveur sur sept jours : les temps de réponse, les réveils et les arrêts, les erreurs. */
-    serveur: () => req<PageDuServeur>('/api/admin/serveur'),
+    /** La santé du serveur sur sa période — une heure, une journée, une semaine : ses signaux, ses routes, ses gels, ses versions. */
+    serveur: (periode?: PeriodeDuServeur) => req<PageDuServeur>(`/api/admin/serveur${periode ? `?periode=${periode}` : ''}`),
+    /** La base et le miroir : la file du miroir de chaque salon, les dernières sauvegardes. */
+    base: () => req<BaseDuQg>('/api/admin/base'),
+    /** Les alertes et les incidents : chaque règle, son réglage et son état, les incidents des trente jours. */
+    regles: () => req<PageDesAlertes>('/api/admin/regles'),
+    reglerUneRegle: (cle: CleDeRegle, reglage: { seuil?: number; telephone?: boolean }) =>
+      req<PageDesAlertes>(`/api/admin/regles/${cle}`, { method: 'PUT', body: JSON.stringify(reglage) }),
+    motDUnIncident: (id: number, mot: string) => req<IncidentDuQg>(`/api/admin/incidents/${id}/mot`, { method: 'POST', body: JSON.stringify({ mot }) }),
+    /** Le point du matin : son heure (en minutes depuis minuit, à Paris), sa notification ; rend la page des alertes d'après. */
+    reglerLePoint: (reglage: { actif?: boolean; minutes?: number }) => req<PageDesAlertes>('/api/admin/point-du-matin', { method: 'PUT', body: JSON.stringify(reglage) }),
+    /** « Hier, en bref » : la veille que la mémoire sait, gardée au serveur jusqu'à minuit. */
+    hier: () => req<HierDuQg>('/api/admin/qg/hier'),
     /** L'activité : trente jours de questions jouées et de parties, mode par mode, et ce que chaque profil a joué. */
     activite: () => req<PageDeLActivite>('/api/admin/activite'),
     /** Clore une soirée laissée en plan, comme son animateur l'aurait close : rangée, ses invités crédités. */
@@ -855,9 +875,20 @@ export const api = {
       req<EtatDeLaMaintenance>(`/api/admin/maintenance/pages/${page}/testeurs/${encodeURIComponent(profileId)}`, { method: 'DELETE' }),
     /** Les annonces à tous, et combien de profils recevraient la prochaine. */
     annonces: () => req<PageDesAnnonces>('/api/admin/annonces'),
-    /** Une annonce à tous, et ses confettis pour chacun ; `id`, celui de l'envoi : refait, il ne part pas deux fois. Rend la page d'après. */
-    annoncer: (id: string, message: string, confettis: number, question?: QuestionDAnnonce) =>
-      req<PageDesAnnonces>('/api/admin/annonces', { method: 'POST', body: JSON.stringify({ id, message, confettis, ...(question && { question }) }) }),
+    /**
+     * Une annonce à tous — ou aux seuls profils d'un segment des joueurs —, et ses confettis pour chacun ; `id`, celui de
+     * l'envoi : refait, il ne part pas deux fois. Rend la page d'après.
+     */
+    annoncer: (id: string, message: string, confettis: number, question?: QuestionDAnnonce, segment?: SegmentDesAnnonces | null) =>
+      req<PageDesAnnonces>('/api/admin/annonces', { method: 'POST', body: JSON.stringify({ id, message, confettis, ...(question && { question }), ...(segment && { segment }) }) }),
+    /** Les joueurs : combien jouent, combien reviennent, les cohortes, les segments, quand on joue, d'où viennent les profils. */
+    joueurs: () => req<PageDesJoueurs>('/api/admin/joueurs'),
+    /** Combien chaque segment compte de profils : ce que la page des annonces propose. */
+    segmentsDesJoueurs: () => req<ComptesDesSegments>('/api/admin/joueurs/segments'),
+    /** Le carnet des animateurs : chaque salon ouvert, ses soirées, son rythme, son état ; l'entonnoir d'un nouvel animateur. */
+    animateurs: () => req<CarnetDesAnimateurs>('/api/admin/animateurs'),
+    /** Combien chaque état du carnet toucherait de titulaires : ce que la page des annonces propose. */
+    segmentsDesAnimateurs: () => req<ComptesDesAnimateurs>('/api/admin/animateurs/segments'),
     /** Clore la question d'une annonce : les joueurs ne la voient plus, les résultats restent. Rend la page d'après. */
     cloreLaQuestion: (id: string) => req<PageDesAnnonces>(`/api/admin/annonces/${encodeURIComponent(id)}/cloturer`, { method: 'POST', body: '{}' }),
     /** Retirer une annonce : l'accueil la tait, ses confettis restent offerts. Rend la page d'après. */
@@ -868,6 +899,14 @@ export const api = {
     mettreALAffiche: (id: string, affiche: DemandeDAffiche) => req<PageDesAffiches>('/api/admin/affiches', { method: 'POST', body: JSON.stringify({ id, ...affiche }) }),
     /** La retirer avant sa fin : l'accueil la tait à tous, sa pastille avec. Rend la page d'après. */
     retirerLAffiche: (id: string) => req<PageDesAffiches>(`/api/admin/affiches/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    /** Ce que chaque annonce a changé : ses destinataires revenus jouer dans les sept jours, face à l'habitude. Lu une fois par jour au serveur. */
+    effetsDesAnnonces: () => req<EffetsDesAnnonces>('/api/admin/annonces/effets'),
+    /** Ce que chaque affiche a changé : les joueurs de sa page quatorze jours avant et après, ses visiteurs revenus. */
+    effetsDesAffiches: () => req<EffetsDesAffiches>('/api/admin/affiches/effets'),
+    /** Les repères des courbes : mises en ligne, arrêts nets, pages fermées ou rouvertes, affiches, annonces, réglages — `jours` en arrière. */
+    reperes: (jours?: number) => req<ReperesDuQg>(`/api/admin/reperes${jours ? `?jours=${jours}` : ''}`),
+    /** Les jours de la mémoire autour d'un repère : quatorze de chaque côté de son jour. */
+    joursAutourDUnRepere: (jour: string) => req<JoursDeLAvantApres>(`/api/admin/reperes/avant-apres?jour=${encodeURIComponent(jour)}`),
     /** Les erreurs de la semaine, chacune sous son tri, les modes en panne, et les téléphones que la panne fait sonner. */
     erreurs: () => req<PageDesErreurs>('/api/admin/erreurs'),
     /** Une erreur réglée — avec son mot —, ignorée, ou remise à regarder. Rend la page d'après. */
@@ -925,6 +964,9 @@ export const api = {
     rouvrirLaConnexion: (id: string) => req<{ ok: true }>(`/api/admin/profils/${encodeURIComponent(id)}/connexion`, { method: 'POST', body: '{}' }),
     libererLEpreuve: (id: string) =>
       req<{ ok: true; sentier: string; palier: number }>(`/api/admin/profils/${encodeURIComponent(id)}/epreuve`, { method: 'POST', body: '{}' }),
+    /** Rendre sa traversée du Cabinet bloquée — celle que la page a montrée, et pas une autre : refermée sans rien lui coûter. */
+    rendreLaTraversee: (id: string, traversee: string) =>
+      req<{ ok: true; id: string }>(`/api/admin/profils/${encodeURIComponent(id)}/traversee`, { method: 'POST', body: JSON.stringify({ traversee }) }),
     /** Le catalogue du serveur, toutes les copies : proposées, publiées, refusées, retirées. */
     catalogue: () => req<EntreeDuCatalogue[]>('/api/admin/catalogue'),
     /** Une copie proposée, questions comprises, pour la relire. */
@@ -973,6 +1015,22 @@ export const api = {
       req<{ ok: true }>('/api/admin/campagne/reclasser', { method: 'POST', body: JSON.stringify({ questionId, classement }) }),
     /** Les signalements : à relire, au quiz du jour et en campagne, et ce qui a été fait des questions relues ces trente jours. */
     signalements: () => req<PageDesSignalements>('/api/admin/signalements'),
+    /** Les questions jouées, de la campagne et du quiz du jour : les tuiles, et une page de celles que le filtre retient, dans son ordre. */
+    questions: (f: FiltreDesQuestions) => {
+      const q = new URLSearchParams()
+      if (f.mode) q.set('mode', f.mode)
+      if (f.etat !== 'toutes') q.set('etat', f.etat)
+      if (f.mot) q.set('mot', f.mot)
+      if (f.tri) {
+        q.set('tri', f.tri)
+        q.set('sens', f.sens)
+      }
+      if (f.page > 0) q.set('page', String(f.page))
+      const s = q.toString()
+      return req<PageDesQuestions>(`/api/admin/questions${s ? `?${s}` : ''}`)
+    },
+    /** La réserve du quiz du jour, la base de la campagne catégorie par marche, le contenu neuf du Cabinet. */
+    reserves: () => req<PageDesReserves>('/api/admin/reserves'),
     /**
      * Corriger une question du jour signalée : sa version de la réserve, et le
      * jour qui l'a posée quand la bonne réponse ne change pas ; `annuler`
@@ -1002,6 +1060,8 @@ export const api = {
     annulerUnDuel: (code: string) => req<{ ok: true; code: string }>(`/api/admin/duels/${encodeURIComponent(code)}/annuler`, { method: 'POST', body: '{}' }),
     /** L'économie : les confettis gagnés et dépensés, ceux qui circulent, les meilleures ventes, les Éclats et les légendaires. */
     economie: () => req<PageDeLEconomie>('/api/admin/economie'),
+    /** Le Cabinet de curiosités : ses traversées sur trente jours, ses jeux, ses cartes, ses gardiens, son contenu, ses joueurs. */
+    cabinet: () => req<PageDuCabinetAuQg>('/api/admin/cabinet'),
   },
 }
 

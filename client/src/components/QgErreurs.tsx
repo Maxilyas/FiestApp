@@ -11,6 +11,8 @@ import { FicheDeLErreur, erreurs, fois, quandDuServeur, texteDeLErreur } from '.
 import { formatNumber } from '../../../shared/typographie'
 import { quandEcrit } from '../../../shared/qg'
 import { NOM_DU_MODE_SURVEILLE, TELEPHONES_PREVENUS_MAX, capitale, type PanneDUnMode } from '../../../shared/pannes'
+import { PAGES_FERMABLES, estUnePageEnMaintenance, type PageEnMaintenance } from '../../../shared/maintenance'
+import { confirmDialog } from './Dialog'
 import {
   ETATS_DU_TRI,
   NOM_DE_L_ETAT,
@@ -56,7 +58,7 @@ function triEcrit(tri: TriLu, maintenant: number): string {
  * jeu en panne, que la veille du serveur voit tomber ; en bas, les téléphones
  * qu'une panne fait sonner. Chaque geste va au journal, sous « Erreurs ».
  */
-export function QgErreurs({ apresUnTri }: { apresUnTri?: () => void }) {
+export function QgErreurs({ apresUnTri, versLaMaintenance }: { apresUnTri?: () => void; versLaMaintenance?: () => void }) {
   const [page, setPage] = useState<PageDesErreurs | null>(null)
   const [error, setError] = useState('')
   useEffect(() => {
@@ -73,8 +75,33 @@ export function QgErreurs({ apresUnTri }: { apresUnTri?: () => void }) {
         apresUnTri?.()
       }}
       onAlertes={alertes => setPage(p => p && { ...p, alertes })}
+      versLaMaintenance={versLaMaintenance}
     />
   )
+}
+
+/**
+ * Fermer aux joueurs la page d'un mode en panne, d'ici : le geste de la maintenance, confirmé de même. La carte de la
+ * panne ne proposait rien, et la page qui ferme était au dernier lien du rail (la revue d'ergonomie du 4 novembre 2026).
+ */
+async function fermerAuxJoueurs(page: PageEnMaintenance): Promise<boolean> {
+  const { nom, ferme } = PAGES_FERMABLES[page]
+  const oui = await confirmDialog({
+    title: `${nom} en maintenance ?`,
+    message: espacesFines(
+      `${ferme}. Les joueurs liront qu’une réparation est en cours, et rien n’y commencera plus ; une partie déjà à l’écran se finit. Tu la rouvres depuis « Maintenance ».`,
+    ),
+    confirmLabel: 'Mettre en maintenance',
+  })
+  if (!oui) return false
+  try {
+    await api.admin.changerLaPage(page, 'maintenance')
+    showToast({ kind: 'info', message: `Page en maintenance : ${nom}` })
+    return true
+  } catch (e) {
+    showToast({ kind: 'error', message: motifDe(e) })
+    return false
+  }
 }
 
 /** La page lue : les pannes en cours, les erreurs onglet par onglet, celles sans détail, les téléphones prévenus. */
@@ -82,11 +109,14 @@ export function ErreursAuQg({
   page,
   trier,
   onAlertes,
+  versLaMaintenance,
 }: {
   page: PageDesErreurs
   /** Rend la main une fois la page d'après posée ; lève le refus du serveur. */
   trier?: (cle: string, etat: EtatDUneErreur, note: string | null) => Promise<void>
   onAlertes?: (alertes: PageDesErreurs['alertes']) => void
+  /** La page de la maintenance, pour le bandeau d'une panne : son texte s'écrit là-bas. */
+  versLaMaintenance?: () => void
 }) {
   const [onglet, setOnglet] = useState<EtatDUneErreur>('a-regarder')
   const [ouverte, setOuverte] = useState<string | null>(null)
@@ -103,7 +133,7 @@ export function ErreursAuQg({
         )}
       </p>
 
-      {page.pannes.length > 0 && <EnPanne pannes={page.pannes} maintenant={maintenant} />}
+      {page.pannes.length > 0 && <EnPanne pannes={page.pannes} maintenant={maintenant} versLaMaintenance={versLaMaintenance} />}
 
       <section className="qg-carte" aria-labelledby="erreurs-semaine">
         <div className="qg-carte-tete">
@@ -186,31 +216,56 @@ export function ErreursAuQg({
 
 /**
  * Les modes en panne à l'instant : depuis quand, combien d'échecs, la route
- * qui les a fait tomber. Ce que la notification a dit, et ce qui la fera
+ * qui les a fait tomber — et, à côté, ce qu'on y fait : fermer sa page aux
+ * joueurs, poser un bandeau. Ce que la notification a dit, et ce qui la fera
  * dire « Rétabli ».
  */
-function EnPanne({ pannes, maintenant }: { pannes: PanneDUnMode[]; maintenant: number }) {
+function EnPanne({ pannes, maintenant, versLaMaintenance }: { pannes: PanneDUnMode[]; maintenant: number; versLaMaintenance?: () => void }) {
+  const [fermees, setFermees] = useState<PageEnMaintenance[]>([])
   return (
     <section className="qg-carte qg-erreurs-panne" aria-labelledby="erreurs-pannes">
       <div className="qg-carte-tete">
         <h2 id="erreurs-pannes">En panne maintenant</h2>
       </div>
       <ul className="qg-liste">
-        {pannes.map(p => (
-          <li key={p.mode} className="qg-ligne">
-            <span className="qg-rond qg-rond-alerte" aria-hidden="true">
-              <Icon name="alert" />
-            </span>
-            <span className="qg-ligne-texte">
-              <b>{capitale(NOM_DU_MODE_SURVEILLE[p.mode])}</b>
-              <span className="muted small">
-                {`Depuis ${quandEcrit(p.depuis, maintenant)} · ${formatNumber(p.echecs)} échec${p.echecs > 1 ? 's' : ''}, le dernier ${quandEcrit(p.dernierEchec, maintenant)}`}
+        {pannes.map(p => {
+          // Les modes qui ont une page à fermer : l'accueil, les soirées et l'Expédition n'en ont pas.
+          const page = estUnePageEnMaintenance(p.mode) ? p.mode : null
+          return (
+            <li key={p.mode} className="qg-ligne qg-panne">
+              <span className="qg-rond qg-rond-critique" aria-hidden="true">
+                <Icon name="alert" />
               </span>
-              <span className="qg-source">{p.source}</span>
-            </span>
-          </li>
-        ))}
+              <span className="qg-ligne-texte">
+                <b>{capitale(NOM_DU_MODE_SURVEILLE[p.mode])}</b>
+                <span className="muted small">
+                  {`Depuis ${quandEcrit(p.depuis, maintenant)} · ${formatNumber(p.echecs)} échec${p.echecs > 1 ? 's' : ''}, le dernier ${quandEcrit(p.dernierEchec, maintenant)}`}
+                </span>
+                <span className="qg-source">{p.source}</span>
+                {page &&
+                  (fermees.includes(page) ? (
+                    <span className="small">Fermée aux joueurs : rouvre-la depuis « Maintenance » une fois réparée.</span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="qg-bouton qg-panne-geste"
+                      onClick={() => void fermerAuxJoueurs(page).then(fait => fait && setFermees(f => [...f, page]))}
+                    >
+                      <Icon name="lock" />
+                      Fermer {NOM_DU_MODE_SURVEILLE[p.mode]} aux joueurs…
+                    </button>
+                  ))}
+              </span>
+            </li>
+          )
+        })}
       </ul>
+      {versLaMaintenance && (
+        <button type="button" className="qg-bouton qg-panne-geste" onClick={versLaMaintenance}>
+          <Icon name="alert" />
+          Afficher un bandeau aux joueurs…
+        </button>
+      )}
       <p className="muted small">
         {espacesFines(
           'Rétabli quand chaque route tombée aura réussi de nouveau, sans un échec pendant un quart d’heure : les téléphones prévenus le diront.',

@@ -364,6 +364,8 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
         password: req.body.password,
         name: req.body?.name,
         avatar: req.body?.avatar,
+        // L'écran où il naît, que la page des joueurs du QG compte (`shared/origines.ts`) : relu, jamais cru tel quel.
+        origine: req.body?.origine,
       })
       await openSession(req, res, profile.id)
       // Le code de secours ne repassera jamais par ici : c'est la seule fois

@@ -5,8 +5,9 @@ import { estSalonDuProfil, estUnSalon } from './auth/store'
 import type { QuizStore } from './core/quizStore'
 import type { JourStore } from './core/jour'
 import type { CampagneStore } from './core/campagne'
+import { TRAVERSEE_CROISEE, UNE_AUTRE_TRAVERSEE, type CabinetStore, type TraverseeRendue } from './core/cabinet/magasin'
 import { accountOf, loginBudgetOf } from './auth/http'
-import { wrap } from './core/http'
+import { erreurMontrable, wrap } from './core/http'
 import { noterLeGeste } from './core/journalDesGestes'
 import { tronquer } from '../../shared/avatars'
 import { deNom } from '../../shared/typographie'
@@ -15,8 +16,10 @@ import { NOM_DU_COFFRE, type RangDuCoffre } from '../../shared/coffre'
 import type { FicheDuJoueur, ProfilDAdministration } from '../../shared/profil'
 import { JOURS_DU_QG, minuitsDeParis, modeDeLaSerie } from '../../shared/qg'
 import { activiteDesJoueurs, parModeVide, type ActiviteDUnJoueur, type PartieSeule } from '../../shared/qgActivite'
+import { ouElleEnEst, traverseeEnRoute } from '../../shared/qgCabinet'
 import type { EspaceDAdministration } from '../../shared/space'
 import { titreLibre } from '../../shared/library'
+import type { AnimateursDuQg } from './animateursDuQg'
 
 interface ProfilsAdminDeps {
   profiles: ProfileStore
@@ -24,6 +27,8 @@ interface ProfilsAdminDeps {
   store: QuizStore
   jour: Pick<JourStore, 'resumeDe' | 'estMasque' | 'partiesDepuis'>
   campagne: Pick<CampagneStore, 'epreuveLaissee' | 'libererEpreuve' | 'seriesDepuis'>
+  /** Le Cabinet de curiosités, là où il s'ouvre : sa traversée en route sur la fiche, et « Rendre la traversée ». */
+  cabinet?: Pick<CabinetStore, 'traverseeEnRouteAuQg' | 'rendreLaTraversee'>
   /** Les espaces dont une soirée pas encore close compte ce profil parmi ses invités — actives ou laissées en plan. */
   soireesPasCloses: (profileId: string) => string[]
   /** Supprime le profil et ce qui n'était qu'à lui — composé dans `createQuizServer`, où tout est à portée. */
@@ -32,6 +37,8 @@ interface ProfilsAdminDeps {
   onLibraryChanged: (spaceId: string) => Promise<void>
   /** L'heure du serveur — celle du quiz du jour, que les tests avancent. */
   maintenant: () => number
+  /** Le carnet des animateurs : l'état du salon qu'il tient, et sa dernière soirée, sur sa fiche. */
+  animateurs?: Pick<AnimateursDuQg, 'duSalon'>
 }
 
 /**
@@ -103,6 +110,9 @@ export function mountProfilsAdmin(app: Express, deps: ProfilsAdminDeps) {
   const estLeSien = (res: Response, p: ProfileRec) => deps.auth.byProfile(p.id)?.id === accountOf(res).id
   /** Comment la phrase du journal nomme un profil : son prénom et son identifiant, sans jamais s'accorder à lui. */
   const nomme = (p: ProfileRec) => `${p.name} (@${p.login})`
+  /** Où une traversée rendue en était, pour le journal : l'acte, et l'étape — le jeu d'une épreuve qui se jouait. */
+  const ouElleEnEtait = (r: TraverseeRendue): string =>
+    r.lisible && r.acte !== null && r.ou !== null ? ouElleEnEst({ acte: r.acte, sorte: r.ou, enJeu: r.enJeu }) : 'illisible sur ce serveur'
 
   app.get(
     '/api/admin/profils',
@@ -124,15 +134,22 @@ export function mountProfilsAdmin(app: Express, deps: ProfilsAdminDeps) {
     wrap(async (req, res) => {
       const p = await leProfil(req, res)
       if (!p) return
-      const [soirees, jour, campagne, duels, boutique, epreuve, activite, quiz] = await Promise.all([
+      const sonEspace = deps.auth.byProfile(p.id)
+      const [soirees, jour, campagne, duels, boutique, epreuve, traversee, activite, quiz, animateur] = await Promise.all([
         deps.profiles.soireesDe([p.id]).then(n => n.get(p.id) ?? 0),
         deps.jour.resumeDe(p.id).catch(() => null),
         deps.profiles.statsDeCampagne?.(p.id).catch(() => null) ?? null,
         deps.profiles.duelsDe?.(p.id).catch(() => null) ?? null,
         deps.profiles.boutiqueEtDons(p, jourDe(deps.maintenant())).catch(() => null),
         deps.campagne.epreuveLaissee(p.id).catch(() => null),
+        deps.cabinet
+          ?.traverseeEnRouteAuQg(p.id)
+          .then(t => (t ? traverseeEnRoute(t) : null))
+          .catch(() => null),
         sesTrenteJours(p.id).catch(() => null),
         deps.store.countBySpace(),
+        // Le salon qu'il tient, tel que le carnet le juge : seulement s'il en tient un, et une base qui se tait ôte la ligne.
+        sonEspace && deps.animateurs ? deps.animateurs.duSalon(sonEspace.id).catch(() => null) : null,
       ])
       const fiche: FicheDuJoueur = {
         ...ligne(accountOf(res), { profil: p, niveau: deps.profiles.niveauOf(p), soirees }, quiz),
@@ -146,7 +163,9 @@ export function mountProfilsAdmin(app: Express, deps: ProfilsAdminDeps) {
         confettis: boutique ? { solde: boutique.boutique.confettis.solde, offerts: boutique.dons.reduce((n, d) => n + d.confettis, 0) } : null,
         connexion: { fermeeJusquA: fermeeJusquA(p.login) },
         epreuve,
+        ...(deps.cabinet && { traversee: traversee ?? null }),
         activite,
+        ...(animateur && { animateur }),
       }
       res.json(fiche)
     }),
@@ -304,6 +323,31 @@ export function mountProfilsAdmin(app: Express, deps: ProfilsAdminDeps) {
     }),
   )
 
+  // Rendre une traversée bloquée (le 4 novembre 2026, le pendant de « Libérer l'épreuve ») : une seule en route à la
+  // fois, et tant qu'elle l'est, il n'en commence aucune autre. Refermée là où elle en est, rendue, sans rien lui coûter
+  // ni lui donner (`CabinetStore.rendreLaTraversee`). La page dit celle qu'elle a montrée : une autre, commencée depuis,
+  // ne se rend pas à l'aveugle — ni celle que le joueur fait bouger au même instant.
+  app.post(
+    '/api/admin/profils/:id/traversee',
+    wrap(async (req, res) => {
+      const p = await leProfil(req, res)
+      if (!p) return
+      if (!deps.cabinet) return res.status(404).json({ error: 'Le Cabinet de curiosités ne s’ouvre pas sur ce serveur' })
+      const attendue = typeof req.body?.traversee === 'string' ? req.body.traversee : ''
+      if (!attendue) return res.status(400).json({ error: 'Recharge la fiche : elle ne dit pas quelle traversée rendre' })
+      let rendue: TraverseeRendue | null
+      try {
+        rendue = await deps.cabinet.rendreLaTraversee(p.id, attendue)
+      } catch (e) {
+        if (erreurMontrable(e) && (e.message === UNE_AUTRE_TRAVERSEE || e.message === TRAVERSEE_CROISEE)) return res.status(409).json({ error: e.message })
+        throw e
+      }
+      if (!rendue) return res.status(404).json({ error: 'Aucune traversée en route' })
+      noterLeGeste(res, { sorte: 'profil', resume: `Traversée du Cabinet rendue, sans rien coûter : ${nomme(p)} — ${ouElleEnEtait(rendue)}`, cible: p.id })
+      res.json({ ok: true, ...rendue })
+    }),
+  )
+
   // « Les salons » : tous les espaces, chacun avec son titulaire et ses quiz —
   // les profils d'un aller-retour (`byIds`), les quiz d'un autre
   // (`countBySpace`), partis ensemble. Les quiz se comptaient espace par
@@ -356,13 +400,15 @@ export function mountProfilsAdmin(app: Express, deps: ProfilsAdminDeps) {
       let recopies = 0
       if (ancien) {
         const titres = (await deps.store.list(cible.id)).map(q => q.title)
+        // Chaque copie garde l'origine de son quiz : le carnet des animateurs dit encore d'où ils venaient.
+        const origines = await deps.store.originesDe(ancien.id)
         for (const resume of await deps.store.list(ancien.id)) {
           const quiz = await deps.store.get(ancien.id, resume.id)
           if (!quiz) continue
           const questions = await deps.store.copierPhotos(cible.id, quiz.questions)
           const titre = titreLibre(quiz.title, titres)
           titres.push(titre)
-          await deps.store.create(cible.id, titre, questions, undefined, quiz.reglages)
+          await deps.store.create(cible.id, titre, questions, undefined, quiz.reglages, origines.get(quiz.id) ?? null)
           recopies++
         }
         await deps.auth.linkProfile(ancien.id, null)

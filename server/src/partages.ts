@@ -49,11 +49,11 @@ export function mountPartages(app: Express, deps: PartagesDeps) {
     return quiz && { titre: quiz.title, questions: quiz.questions, reglages: quiz.reglages ?? {} }
   }
 
-  /** Une copie reçue — d'un code, du catalogue — rangée dans l'espace, photos recopiées. */
-  const recevoirDans = async (spaceId: string, instantane: Instantane) => {
+  /** Une copie reçue — d'un code, du catalogue — rangée dans l'espace, photos recopiées, et d'où elle vient (le carnet des animateurs du QG). */
+  const recevoirDans = async (spaceId: string, instantane: Instantane, origine: 'partage' | 'catalogue') => {
     const questions = await deps.store.copierPhotos(spaceId, instantane.questions)
     const titres = (await deps.store.list(spaceId)).map(q => q.title)
-    const quiz = await deps.store.create(spaceId, titreLibre(instantane.titre, titres), questions, undefined, instantane.reglages)
+    const quiz = await deps.store.create(spaceId, titreLibre(instantane.titre, titres), questions, undefined, instantane.reglages, origine)
     await deps.onLibraryChanged(spaceId)
     return quiz
   }
@@ -111,7 +111,7 @@ export function mountPartages(app: Express, deps: PartagesDeps) {
       const manques = manquesRecents(spaceId)
       const i = manques.indexOf(essai)
       if (i >= 0) manques.splice(i, 1)
-      res.status(201).json(await recevoirDans(spaceId, recu))
+      res.status(201).json(await recevoirDans(spaceId, recu, 'partage'))
     }),
   )
 
@@ -143,7 +143,7 @@ export function mountPartages(app: Express, deps: PartagesDeps) {
       const trouve = await deps.partages.entree(req.params.id)
       // Une copie qui n'est pas publiée n'existe pas pour les animateurs.
       if (!trouve || trouve.entree.statut !== 'publie') return res.status(404).json({ error: 'Quiz introuvable au catalogue' })
-      res.status(201).json(await recevoirDans(spaceOf(res), trouve.instantane))
+      res.status(201).json(await recevoirDans(spaceOf(res), trouve.instantane, 'catalogue'))
     }),
   )
 

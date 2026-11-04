@@ -26,6 +26,8 @@ import {
   type SoireeDUnProfil,
   type SoireeJouee,
 } from '../../shared/qgActivite'
+import { modesCoteACote, type PartieDesModes } from '../../shared/qgModes'
+import { dUneTraite } from '../../shared/tranches'
 
 const H = 3_600_000
 const MINUTE = 60_000
@@ -210,36 +212,52 @@ test('un vrai serveur : trente jours de questions jouées par mode, chaque profi
   }
 })
 
-test('la page de l’activité se lit d’un coup d’œil : trente jours en tout, jour par jour, et qui joue à quoi', async () => {
+test('la page de l’activité — les modes côte à côte — se lit d’un coup d’œil : chaque mode sur la période, jour par jour, et qui joue à quoi', async () => {
   Object.assign(globalThis, { React, window: { location: { pathname: '/admin', search: '', hash: '#activite', origin: 'http://banc' } } })
   const { ActiviteAuQg } = await import(new URL('../../client/src/components/QgActivite.tsx', import.meta.url).href)
   const { renderToStaticMarkup } = await import('react-dom/server')
   const classes = activiteDesJoueurs(SEULES, DES_PROFILS, minuits, maintenant)
   const noms: Record<string, string> = { tom: 'Tom', lea: 'Léa', zoe: 'Zoé', ana: 'Ana' }
+  // Les mêmes parties, finies cinq minutes après leur début, la moitié de leurs questions justes ; le Cabinet sans QCM.
+  const desModes: PartieDesModes[] = SEULES.map(p => ({ ...p, fin: p.quand + 5 * MINUTE, justes: Math.floor(p.questions / 2), qcm: p.mode === 'cabinet' ? null : p.questions }))
   const page: PageDeLActivite = {
     maintenant,
     parJour: activiteParJour(SEULES, SOIREES, minuits, maintenant),
     totaux: totauxDeLActivite(SEULES, SOIREES, minuits, maintenant),
     joueurs: classes.map(a => ({ ...a, id: a.qui, nom: noms[a.qui], login: a.qui, suspendu: a.qui === 'zoe' })),
     profilsActifs: 4,
+    modes: dUneTraite(modesCoteACote(desModes, SOIREES, DES_PROFILS.map(s => ({ ...s, qcm: 20, justes: 12 })), minuits, maintenant)),
   }
-  const html = sansInsecables(renderToStaticMarkup(React.createElement(ActiviteAuQg, { page })).replace(/<!-- -->/g, ''))
-  // Cinq modes, une tuile chacun, le Cabinet entre la campagne et le quiz du jour — l'ordre de leurs couleurs.
-  assert.deepEqual(
-    [...html.matchAll(/<b>(Soirées|Campagne|Cabinet|Quiz du jour|Duels)<\/b>/g)].map(m => m[1]),
-    ['Soirées', 'Campagne', 'Cabinet', 'Quiz du jour', 'Duels'],
-  )
+  const html = sansInsecables(renderToStaticMarkup(React.createElement(ActiviteAuQg, { page, periode: '30j' })).replace(/<!-- -->/g, ''))
+  // Cinq modes, une ligne chacun à la table, une carte chacun au téléphone, puis un petit graphique chacun jour par jour, le
+  // Cabinet entre la campagne et le quiz du jour — l'ordre de leurs couleurs.
+  const cinq = ['Soirées', 'Campagne', 'Cabinet', 'Quiz du jour', 'Duels']
+  assert.deepEqual([...html.matchAll(/<b>(Soirées|Campagne|Cabinet|Quiz du jour|Duels)<\/b>/g)].map(m => m[1]), [...cinq, ...cinq, ...cinq])
+  // Chaque mode, ses joueurs, ses parties — chacune sous le nom de son mode — et ses questions jouées : la soirée, ses huit
+  // invités, ses deux quiz, ses cent quatre-vingts questions.
+  const carte = (mode: string, joueurs: string, nomDesParties: string, parties: string, questions: string) =>
+    `<b>${mode}</b></span><dl class="qg-cote-chiffres"><div><dt>Joueurs</dt><dd class="num">${joueurs}</dd></div><div><dt>${nomDesParties}</dt><dd class="num">${parties}</dd></div><div><dt>Questions</dt><dd class="num">${questions}</dd></div>`
   for (const attendu of [
-    'Ces trente jours',
+    carte('Soirées', '8', 'Quiz', '2', '180'),
+    carte('Campagne', '1', 'Parties', '2', '23'),
+    // Au Cabinet, une partie est une épreuve de sa traversée : sa page compte les traversées à part.
+    carte('Cabinet', '1', 'Épreuves', '1', '6'),
+    carte('Quiz du jour', '1', 'Parties', '1', '10'),
+    carte('Duels', '1', 'Duels', '2', '20'),
+    'Sur les trente derniers jours',
     '239 questions jouées, tous modes confondus',
-    'qg-tuiles qg-tuiles-cinq',
-    'questions · 2 quiz · 1 soirée, 8 invités',
-    'questions · 2 parties · 1 joueur',
-    'questions · 1 partie · 1 joueur',
-    'questions · 2 duels · 1 joueur',
+    // La table, triée d'office dans l'ordre des modes ; la réussite aux QCM, la médiane d'une partie, le retour.
+    'class="qg-table-cadre qg-cote-table"',
+    'aria-sort="ascending"',
+    '11 bonnes sur 23 QCM',
+    '48 %',
+    'pas des QCM',
+    'pas datée',
+    '5 min',
+    'sur les 22 jours de ces trente qui ont leurs sept jours derrière eux',
     'Jour par jour',
     'Questions jouées',
-    'Qui joue à quoi',
+    'Les plus assidus',
     '4 profils actifs ces trente jours',
     // Tom : ses questions, ses jours, et sur quoi il s'acharne ; sa barre dit chaque mode au lecteur d'écran.
     '44 questions · 2 jours sur 30 · surtout les soirées, 55 %',

@@ -154,6 +154,10 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     ok(await faire(banc, admin, `/api/admin/profils/${idLea}/connexion`), 'verrou')
     ok(await faire(banc, lea, '/api/campagne/sentiers/epreuve', { branche: 'mythes', palier: 1 }), 'épreuve')
     ok(await faire(banc, admin, `/api/admin/profils/${idLea}/epreuve`), 'libérer l’épreuve')
+    // …sa traversée du Cabinet, partie puis rendue : celle que la fiche a montrée.
+    ok(await faire(banc, lea, '/api/cabinet/traversee'), 'partir en traversée')
+    const traversee = (await lire(banc, admin, `/api/admin/profils/${idLea}`)).corps.traversee.id as string
+    ok(await faire(banc, admin, `/api/admin/profils/${idLea}/traversee`, { traversee }), 'rendre la traversée')
     ok(await faire(banc, admin, `/api/admin/profils/${idLea}/suspendre`), 'suspendre')
     ok(await faire(banc, admin, `/api/admin/profils/${idLea}/reactiver`), 'réactiver')
     ok(await faire(banc, admin, `/api/admin/profils/${idLea}/prenom`, { nom: 'Léa B.' }), 'renommer')
@@ -203,6 +207,17 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     ok(await faire(banc, admin, '/api/admin/alertes/telephones', { abonnement: telephone }), 'prévenir un téléphone')
     ok(await faire(banc, admin, '/api/admin/alertes/essai'), 'essayer')
     ok(await faire(banc, admin, `/api/admin/alertes/telephones/${createHash('sha256').update(telephone.endpoint).digest('hex').slice(0, 16)}`, undefined, 'DELETE'), 'ne plus prévenir')
+    // Les alertes (le QG 2, lot 8) : un seuil réglé, une règle qui sonne au téléphone, un mot sur un incident.
+    ok(await faire(banc, admin, '/api/admin/regles/ressenti', { seuil: 900 }, 'PUT'), 'régler un seuil')
+    ok(await faire(banc, admin, '/api/admin/regles/gel-long', { telephone: true }, 'PUT'), 'faire sonner une règle')
+    // Le point du matin, à une autre heure.
+    ok(await faire(banc, admin, '/api/admin/point-du-matin', { minutes: 555 }, 'PUT'), 'régler le point du matin')
+    const desIncidents = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+    const incident = desIncidents
+      .prepare("INSERT INTO qg_incidents (regle, gravite, debut, fin, cause) VALUES ('turso-lent', 'veille', ?, ?, '1,2 s au 95ᵉ centile')")
+      .run(Date.now() - 2 * H, Date.now() - H).lastInsertRowid
+    desIncidents.close()
+    ok(await faire(banc, admin, `/api/admin/incidents/${incident}/mot`, { mot: 'Un hoquet de Turso' }), 'un mot sur un incident')
 
     // La campagne : régler le mélange d'un palier, puis garder, retirer, corriger.
     ok(await faire(banc, admin, '/api/admin/campagne/paliers/2/melange', { melange: { facile: 12, moyen: 4 } }), 'régler un mélange')
@@ -257,6 +272,7 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       'Le coffre d’or offert : Léa (@lea)',
       'Code de secours neuf tiré : Léa (@lea)',
       'Verrou de connexion levé : Léa (@lea)',
+      'Traversée du Cabinet rendue, sans rien coûter : Léa (@lea) — au choix de ses cartes',
       'Profil suspendu : Léa (@lea)',
       'Profil réactivé : Léa (@lea)',
       'Profil renommé : « Léa » devient « Léa B. » (@lea)',
@@ -277,6 +293,10 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       'Alertes de panne allumées sur un téléphone (un navigateur) — 1 téléphone prévenu',
       'Essai d’alerte : aucun téléphone n’a sonné (1 en échec)',
       'Alertes de panne coupées sur un téléphone — plus aucun téléphone prévenu',
+      'Alerte réglée : Ressenti dégradé — seuil 900 ms (avant 800 ms)',
+      'Alerte réglée : Gel long — sonne au téléphone',
+      'Point du matin réglé : à 9 h 15 (avant 8 h 40)',
+      'Mot sur un incident : « Un hoquet de Turso »',
     ]) {
       assert.ok(resumes.includes(attendu), `« ${attendu} » parmi :\n${resumes.join('\n')}`)
     }
@@ -317,8 +337,8 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     )
     assert.deepEqual(
       gestes.filter(g => g.sorte === 'erreur').map(g => g.cible),
-      ['POST /api/admin/profils/:id/confettis', null, null, null],
-      'une erreur vise sa source ; un téléphone, rien — son adresse ne s’écrit nulle part',
+      ['POST /api/admin/profils/:id/confettis', null, null, null, 'ressenti', 'gel-long', 'point-du-matin', String(incident)],
+      'une erreur vise sa source ; un téléphone, rien — son adresse ne s’écrit nulle part ; une règle des alertes, sa clé ; le point du matin, le sien ; un incident, son numéro',
     )
 
     // La page le lit, du plus récent au plus ancien ; filtré par sorte.
@@ -338,6 +358,7 @@ test('chaque route de l’administration qui change quelque chose se note avec s
         'Profil renommé : « Léa » devient « Léa B. » (@lea)',
         'Profil réactivé : Léa (@lea)',
         'Profil suspendu : Léa (@lea)',
+        'Traversée du Cabinet rendue, sans rien coûter : Léa (@lea) — au choix de ses cartes',
         'Épreuve de sentier libérée, sans coûter de vie : Léa (@lea) — …',
         'Verrou de connexion levé : Léa (@lea)',
         'Code de secours neuf tiré : Léa (@lea)',

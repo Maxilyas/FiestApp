@@ -145,6 +145,12 @@ test('le suivi des duels : les lancés, les ligues et le classement des joueurs,
     assert.equal(suivi.jours.length, JOURS_DU_QG)
     assert.equal(suivi.lances.at(-1), 2)
     assert.equal(suivi.jouesDesDeuxCotes, 1)
+    // Les mêmes, chacun à son heure — celui de Léa joué des deux côtés, celui de Hugo pas encore : l'entonnoir de la page s'y lit.
+    assert.deepEqual(
+      [...(suivi.lancesDuMois ?? [])].sort((a, b) => a.quand - b.quand).map(d => d.joue),
+      [true, false],
+    )
+    assert.ok(suivi.lancesDuMois!.every(d => d.quand >= MARDI && d.quand <= horloge.t), 'lancés aujourd’hui, à l’heure de l’horloge')
     // Les ligues et le classement : ceux qui ont fini un duel classé ces quatre semaines — pas Inès.
     const cotes: Record<string, number> = Object.fromEntries(
       await Promise.all([

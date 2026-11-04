@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ApiError, api } from '../api'
+import type { OrigineDUnProfil } from '../../../shared/origines'
 
 /**
  * L'identifiant d'un profil qui naît, en une ligne : « Pour te reconnecter :
@@ -63,7 +64,8 @@ type Inscrit = Awaited<ReturnType<typeof api.joueur.inscription>> & { login: str
  * jamais en silence : le refus remonte, avec sa proposition.
  */
 export async function inscrireAvecRepli(
-  champs: { login: string; password: string; name: string; avatar: string },
+  /** `origine` : l'écran où il naît (`shared/origines.ts`), que la page des joueurs du QG compte. */
+  champs: { login: string; password: string; name: string; avatar: string; origine: OrigineDUnProfil },
   devine: boolean,
 ): Promise<Inscrit> {
   try {

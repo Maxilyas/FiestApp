@@ -7,9 +7,14 @@ import { mountCabinet } from './cabinet'
 import type { CabinetStore } from './core/cabinet/magasin'
 import { mountProfilsAdmin } from './profilsAdmin'
 import { mountQg, type QgDeps } from './qg'
+import { mountCabinetDuQg } from './cabinetDuQg'
+import { ContenuDuQg, mountContenuDuQg, oublierApresUnGeste } from './qgContenu'
 import { fermerLesPortes, mountMaintenance } from './maintenance'
 import { mountAnnonces } from './annonces'
+import { mountJoueurs, type AudienceDuQg } from './joueursDuQg'
+import { mountAnimateurs, type AnimateursDuQg } from './animateursDuQg'
 import { mountAffiches } from './affiches'
+import { mountEffetsDuQg, type EffetsDuQg } from './effetsDuQg'
 import { mountErreurs, type ErreursDeps } from './erreursDuQg'
 import type { Maintenance } from './core/maintenance'
 import { journaliser, type JournalDesGestes } from './core/journalDesGestes'
@@ -26,7 +31,7 @@ import type { AuthStore } from './auth/store'
 import type { ProfileStore } from './auth/profiles'
 import { wrap } from './core/http'
 import { tronquer } from '../../shared/avatars'
-import { MAX_QUESTIONS, horsBornesALEnvoi, normalizeQuestions, playableQuestions, titreLibre, tropDeQuestions, type MemoireDuQuiz } from '../../shared/library'
+import { MAX_QUESTIONS, horsBornesALEnvoi, lireLOrigineDuQuiz, normalizeQuestions, playableQuestions, titreLibre, tropDeQuestions, type MemoireDuQuiz } from '../../shared/library'
 import { accountOf, csrfGuard, refuserLesTeles, requireAccount, requireAdmin } from './auth/http'
 import { mountAuthApi } from './auth/routes'
 import { mountAppairage } from './auth/appairage'
@@ -40,6 +45,8 @@ import type { JourStore } from './core/jour'
 import type { RappelStore } from './core/rappels'
 import { lireModeles } from './core/seed'
 import { lirePourQui, personnaliser } from '../../shared/modeles'
+import { releve } from './core/pouls'
+import { lireUneMesure } from '../../shared/telephones'
 
 interface ApiDeps {
   store: QuizStore
@@ -104,13 +111,19 @@ interface ApiDeps {
   /** Le jeton de la routine qui remplit la réserve du quiz du jour ; null, la porte n'existe pas. */
   jetonDeLaReserve: string | null
   /** Ce que le QG lit de plus que les autres routes : la soirée de chaque espace, le miroir, la charge — et de quoi clore une soirée laissée en plan. */
-  qg: Pick<QgDeps, 'db' | 'registry' | 'io' | 'backup' | 'charge' | 'sante' | 'env' | 'version' | 'clore'>
+  qg: Pick<QgDeps, 'db' | 'registry' | 'io' | 'backup' | 'charge' | 'sante' | 'env' | 'version' | 'clore' | 'flux' | 'regles' | 'telephonesDuQg' | 'point'>
   /** Le journal des gestes de l'administrateur : chaque route de `/api/admin` qui change quelque chose s'y note. */
   gestes: JournalDesGestes
   /** Le bandeau rouge et les pages en maintenance : le QG les pose, et une page fermée ferme ses portes. */
   maintenance: Maintenance
   /** La page des erreurs du QG, et les téléphones que la panne d'un mode fait sonner. */
   erreurs: ErreursDeps
+  /** L'audience du QG : la page des joueurs, ses segments — et les destinataires d'une annonce écrite à l'un d'eux. */
+  audience: AudienceDuQg
+  /** Le carnet des animateurs : chaque salon, son rythme et son état — et les titulaires d'une annonce écrite à un état. */
+  animateurs: AnimateursDuQg
+  /** L'effet des annonces et des affiches, et les repères des courbes du QG. */
+  effets: EffetsDuQg
 }
 
 /**
@@ -135,6 +148,10 @@ export function mountApi(app: Express, deps: ApiDeps) {
   // Derrière la porte, avant toute route : chaque geste qui change quelque
   // chose se note au journal du QG, celui d'une route à venir compris.
   app.use('/api/admin', journaliser(deps.gestes))
+  // Les questions et les réserves du QG gardent leur lecture une minute : tout
+  // geste de l'administrateur la fait oublier — avant toute route, lui aussi.
+  const contenu = new ContenuDuQg({ jour: deps.jour, campagne: deps.campagne, maintenant: deps.maintenant, reserveAutomatique: deps.jetonDeLaReserve !== null })
+  app.use('/api/admin', oublierApresUnGeste(contenu))
   // Devant les routes des joueurs : une page en maintenance, ou bientôt
   // disponible, ferme celles qui y commencent une partie, un départ, un achat
   // (`PORTES_DES_PAGES`) — à tous sauf à l'administrateur et à ses testeurs.
@@ -186,6 +203,16 @@ export function mountApi(app: Express, deps: ApiDeps) {
   mountReserve(app, { jour: deps.jour, jeton: deps.jetonDeLaReserve })
   // La base de la campagne aussi, par la même routine et le même jeton.
   mountBaseDeLaCampagne(app, { campagne: deps.campagne, jeton: deps.jetonDeLaReserve })
+  // Ce que vit le téléphone d'un joueur (le QG 2, lot 9) : une page mesurée, envoyée quand elle se cache. Sans session —
+  // l'invité anonyme compte aussi, d'où sa place avant la porte —, relue et bornée (`lireUneMesure` : la page se lit au
+  // serveur dans son adresse, un salon se dit « une soirée »), agrégée à l'heure en mémoire (`releve.telephone`) : pas
+  // une écriture par visite. Son corps tient en quelques centaines d'octets. Ce qui ne se lit pas s'ignore, sans le
+  // dire : 204 dans tous les cas.
+  app.post('/api/mesures', express.json({ limit: '2kb', strict: false }), (req, res) => {
+    const mesure = lireUneMesure(req.body)
+    if (mesure) releve.telephone(mesure)
+    res.status(204).end()
+  })
   app.use('/api', requireAccount(deps.auth))
 
   // Les photos arrivent en dataURL dans le corps JSON. Une lecture (GET, HEAD)
@@ -198,6 +225,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
 
   /** L'espace de l'animateur connecté : celui de sa session, et pas un autre. */
   const spaceOf = (res: express.Response) => accountOf(res).id
+
 
   // Partager : un code à quelqu'un, une copie au catalogue (`partages.ts`).
   mountPartages(app, { store: deps.store, partages: deps.partages, onLibraryChanged: deps.onLibraryChanged })
@@ -218,10 +246,14 @@ export function mountApi(app: Express, deps: ApiDeps) {
     store: deps.store,
     jour: deps.jour,
     campagne: deps.campagne,
+    // Sa traversée en route, et « Rendre la traversée », là où le Cabinet répond : ailleurs, la fiche n'en dit rien.
+    ...(deps.cabinet.ouvert && { cabinet: deps.cabinet.magasin }),
     soireesPasCloses: deps.soireesPasCloses,
     supprimerProfil: deps.supprimerProfil,
     onLibraryChanged: deps.onLibraryChanged,
     maintenant: deps.maintenant,
+    // La fiche d'un joueur qui tient un salon dit son état au carnet et sa dernière soirée.
+    animateurs: deps.animateurs,
   })
   // Le QG : le direct de toutes les soirées et la vue d'ensemble des modes — l'administrateur seul.
   mountQg(app, {
@@ -236,12 +268,22 @@ export function mountApi(app: Express, deps: ApiDeps) {
     rappels: deps.rappels,
     maintenant: deps.maintenant,
   })
+  // Le Cabinet de curiosités au QG : ses traversées, ses jeux, ses cartes, ses gardiens, son contenu — l'administrateur seul.
+  mountCabinetDuQg(app, { cabinet: deps.cabinet.magasin, profiles: deps.profiles, maintenant: deps.maintenant })
+  // Les questions jouées de la campagne et du quiz du jour, la réserve, la base et le contenu du Cabinet : l'administrateur seul.
+  mountContenuDuQg(app, contenu)
   // Le bandeau rouge, les pages fermées et leurs testeurs : l'administrateur seul.
   mountMaintenance(app, { maintenance: deps.maintenance, profiles: deps.profiles })
-  // Les annonces à tous, et les confettis qu'elles offrent : l'administrateur seul.
-  mountAnnonces(app, { profiles: deps.profiles })
+  // Les joueurs : combien jouent, combien reviennent, qui décroche — l'administrateur seul.
+  mountJoueurs(app, deps.audience)
+  // Le carnet des animateurs : chaque salon, ses soirées, son rythme, son état — l'administrateur seul.
+  mountAnimateurs(app, deps.animateurs)
+  // Les annonces à tous — ou à un segment des joueurs, ou aux animateurs d'un état —, et les confettis qu'elles offrent : l'administrateur seul.
+  mountAnnonces(app, { profiles: deps.profiles, audience: deps.audience, animateurs: deps.animateurs })
   // L'affiche d'une nouveauté, en haut de chaque accueil, et sa pastille « Nouveau » : l'administrateur seul.
   mountAffiches(app, { profiles: deps.profiles, cabinet: deps.cabinet.ouvert })
+  // Ce que les annonces et les affiches ont changé, et les repères des courbes du QG : l'administrateur seul.
+  mountEffetsDuQg(app, deps.effets)
   // Le tri des erreurs serveur, et les alertes de panne sur son téléphone : l'administrateur seul.
   mountErreurs(app, deps.erreurs)
 
@@ -290,7 +332,8 @@ export function mountApi(app: Express, deps: ApiDeps) {
       // dernières en silence : l'avis comptait 120, le quiz en gardait 100.
       const trop = tropDeQuestions(req.body?.questions)
       if (trop) return res.status(400).json({ error: trop })
-      const quiz = await deps.store.create(spaceId, req.body?.title ?? 'Nouveau quiz', req.body?.questions ?? [], undefined, req.body?.reglages)
+      // D'où il vient — l'éditeur vide, une liste collée, un fichier —, que la page dit (le carnet des animateurs du QG).
+      const quiz = await deps.store.create(spaceId, req.body?.title ?? 'Nouveau quiz', req.body?.questions ?? [], undefined, req.body?.reglages, lireLOrigineDuQuiz(req.body?.origine))
       await deps.onLibraryChanged(spaceId)
       res.status(201).json(quiz)
     }),
@@ -562,7 +605,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
       }
       // Une copie de modèle mélange ses réponses : on écrit la bonne d'abord,
       // et la salle finirait par le voir.
-      const quiz = await deps.store.create(spaceId, title, questions, undefined, { melangerReponses: true })
+      const quiz = await deps.store.create(spaceId, title, questions, undefined, { melangerReponses: true }, 'modele')
       await deps.onLibraryChanged(spaceId)
       res.status(201).json(quiz)
     }),
@@ -635,7 +678,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
       }
       const titre = titreLibre(titreDuQuizToutPret(choix, tirees.length), bibliotheque.map(q => q.title))
       // Ses réponses se mélangent à chaque partie, comme celles d'un modèle : la base les range comme elle veut.
-      const quiz = await deps.store.create(spaceId, titre, tirees, undefined, { melangerReponses: true })
+      const quiz = await deps.store.create(spaceId, titre, tirees, undefined, { melangerReponses: true }, 'tout-pret')
       await deps.onLibraryChanged(spaceId)
       res.status(201).json(quiz)
     }),

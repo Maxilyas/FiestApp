@@ -276,6 +276,7 @@ import {
 } from '../../../shared/sentiersDeSujets'
 import { JOURS_DU_QG, jourDeLInstant, joursDesMinuits, minuitsDeParis } from '../../../shared/qg'
 import { DUELS_EN_ATTENTE_MONTRES, LIGNES_DU_CLASSEMENT_AU_QG, joueursParLigue, type JoueurDuDuel, type SuiviDesDuels } from '../../../shared/qgDuels'
+import { carteDeLaBaseEnTranches, questionsDeLaCampagneEnTranches, type BaseDeLaCampagneAuQg, type QuestionAuQg } from '../../../shared/qgContenu'
 import { etoilesDansLeTemps, liguesDansLeTemps, type EpreuveValidee, type Mouvement } from '../../../shared/qgEconomie'
 import { hasardDe, MODES_QUE_LES_MISSIONS_COMPTENT, type JournauxDesJours } from '../../../shared/missions'
 import {
@@ -841,6 +842,14 @@ const SERIES = "mode = 'serie'"
  */
 const LA_PLUS_RECENTE = 'ORDER BY +commencee_le DESC LIMIT 1'
 /**
+ * Les questions jouées d'une partie, comme le QG les compte — l'activité
+ * (`seriesDepuis`) et la mémoire de chaque jour (`seriesEntre`) : sa
+ * position, qui avance à chaque réponse ; une expédition, ses réponses — sa
+ * position saute les questions de reste d'un gardien vaincu, jamais posées.
+ * Une seule écriture : deux copies auraient compté deux choses différentes.
+ */
+const QUESTIONS_JOUEES_D_UNE_SERIE = "CASE WHEN mode = 'expedition' THEN (SELECT COUNT(*) FROM campagne_reponses r WHERE r.serie_id = campagne_series.id) ELSE position END"
+/**
  * Sa tentative au défi d'une semaine (le profil, puis la semaine) : par ses
  * défis à lui, un par semaine au plus — l'index du profil et du mode. Sans
  * ses deux `+`, sans statistiques, SQLite partait de l'index du profil pour
@@ -1161,7 +1170,7 @@ export class CampagneStore {
   /** Les trente jours des parcours et des vies au QG, gardés dix minutes (`TRENTE_JOURS_GARDES_MS`). */
   private trenteJoursGardes: { minuit: number; jusqua: number; lus: Promise<Pick<SuiviDeLaCampagne, 'parcours' | 'vies'>> } | null = null
   /** Les duels classés lancés sur trente jours, au QG : gardés de même. */
-  private lancesGardes: { minuit: number; jusqua: number; lus: Promise<Pick<SuiviDesDuels, 'lances' | 'jouesDesDeuxCotes'>> } | null = null
+  private lancesGardes: { minuit: number; jusqua: number; lus: Promise<Pick<SuiviDesDuels, 'lances' | 'jouesDesDeuxCotes' | 'lancesDuMois'>> } | null = null
   private ferme = false
   /** Le préchauffage est parti (`prechauffer`) : le délai du démarrage, ou le premier profil venu. */
   private prechauffee = false
@@ -1409,6 +1418,8 @@ export class CampagneStore {
    */
   async init(enPlus: CeQueLeReveilAjoute = {}) {
     const secret = enPlus.secret
+    // Le schéma des tables du Cabinet qui ont gagné une colonne depuis leur naissance, lu dans ce lot : une par table.
+    const sesTables = [...new Set((enPlus.colonnesDeSesTables ?? []).map(([table]) => table))]
     const resultats = await this.client.batch(
       [
         `CREATE TABLE IF NOT EXISTS campagne_series (
@@ -1487,6 +1498,8 @@ export class CampagneStore {
         // Chaque réveil en propose un neuf ; la base ne le prend que si elle n'en a pas : deux serveurs pendant une
         // mise en ligne, un redémarrage relisent le même — jamais un secret neuf au réveil (règle `cabinet.md`).
         ...(secret ? [{ sql: 'INSERT INTO campagne_meta (cle, valeur) VALUES (?, ?) ON CONFLICT (cle) DO NOTHING', args: [secret, randomBytes(32).toString('hex')] }] : []),
+        // Créées plus haut dans ce lot s'il le fallait : leur schéma se lit après elles.
+        ...sesTables.map(table => ({ sql: 'SELECT name FROM pragma_table_info(?)', args: [table] })),
         // Dans le même aller-retour : un réveil de l'hébergeur n'en paie pas un de plus.
         'SELECT question_id FROM campagne_retraits',
         'SELECT entree, ajoutee_le FROM campagne_ajouts ORDER BY ajoutee_le',
@@ -1498,6 +1511,13 @@ export class CampagneStore {
     )
     const [retraits, ajouts, corrections, melanges, secretLu] = resultats.slice(secret ? -5 : -4)
     if (secret) this.secretLu = typeof secretLu.rows[0]?.valeur === 'string' ? secretLu.rows[0].valeur : null
+    // Une colonne qui manque à sa table — une base née avant elle — s'ajoute ici, une fois : `ajouterColonne` relit le
+    // schéma et lève toute autre panne, qui arrête le démarrage.
+    const schemas = resultats.slice(secret ? -5 - sesTables.length : -4 - sesTables.length, secret ? -5 : -4)
+    for (const [table, colonne, type] of enPlus.colonnesDeSesTables ?? []) {
+      const lues = schemas[sesTables.indexOf(table)]?.rows.map(r => String(r.name)) ?? []
+      if (!lues.includes(colonne)) await ajouterColonne(this.client, table, colonne, type)
+    }
     for (const r of retraits.rows) this.retirees.add(String(r.question_id))
     // Un mélange que les règles du jour refusent — une marche de plus, un palier de moins — se tait : le palier reprend celui du code.
     for (const r of melanges.rows) {
@@ -7420,14 +7440,42 @@ export class CampagneStore {
    * seul texte JSON : trente jours de séries, 3 405 en production le
    * 3 novembre 2026, se décodaient ligne à ligne à coups de `defineProperty`,
    * une demi-seconde de gel au dixième de cœur à chaque réveil
-   * (`qg-charge.test.ts`).
+   * (`qg-charge.test.ts`). Et sa fin et ses bonnes réponses, deux colonnes
+   * des mêmes lignes : la durée d'une partie et la réussite des modes côte à
+   * côte (le QG 2, lot 5), pas une ligne de plus au quota.
    */
-  async seriesDepuis(depuis: number, qui?: string): Promise<{ qui: string; quand: number; mode: string | null; questions: number }[]> {
+  async seriesDepuis(
+    depuis: number,
+    qui?: string,
+  ): Promise<{ qui: string; quand: number; mode: string | null; questions: number; fin: number | null; justes: number }[]> {
     const res = await this.client.execute({
-      sql: `SELECT json_group_array(json_array(profile_id, commencee_le, mode,
-                     CASE WHEN mode = 'expedition' THEN (SELECT COUNT(*) FROM campagne_reponses r WHERE r.serie_id = campagne_series.id) ELSE position END)) AS lignes
+      sql: `SELECT json_group_array(json_array(profile_id, commencee_le, mode, ${QUESTIONS_JOUEES_D_UNE_SERIE}, finie_le, justes)) AS lignes
             FROM campagne_series WHERE commencee_le >= ?${qui === undefined ? '' : ' AND profile_id = ?'}`,
       args: qui === undefined ? [depuis] : [depuis, qui],
+    })
+    const lignes = JSON.parse(String(res.rows[0]?.lignes ?? '[]')) as [string, number, string | null, number, number | null, number][]
+    return lignes.map(([qui, quand, mode, questions, fin, justes]) => ({
+      qui: String(qui),
+      quand: Number(quand),
+      mode: mode === null ? null : String(mode),
+      questions: Number(questions),
+      fin: fin === null ? null : Number(fin),
+      justes: Number(justes),
+    }))
+  }
+
+  /**
+   * Les séries commencées entre deux instants — qui, quand, dans quel mode, et
+   * leurs questions jouées, comptées comme l'activité les compte
+   * (`QUESTIONS_JOUEES_D_UNE_SERIE`) —, pour la mémoire du QG
+   * (`server/src/joueursDuQg.ts`), qui écrit chaque jour fini une fois : par
+   * l'index de leur date, en un seul texte JSON comme `seriesDepuis`.
+   */
+  async seriesEntre(debut: number, fin: number): Promise<{ qui: string; quand: number; mode: string | null; questions: number }[]> {
+    const res = await this.client.execute({
+      sql: `SELECT json_group_array(json_array(profile_id, commencee_le, mode, ${QUESTIONS_JOUEES_D_UNE_SERIE})) AS lignes
+            FROM campagne_series WHERE commencee_le >= ? AND commencee_le < ?`,
+      args: [debut, fin],
     })
     const lignes = JSON.parse(String(res.rows[0]?.lignes ?? '[]')) as [string, number, string | null, number][]
     return lignes.map(([qui, quand, mode, questions]) => ({ qui: String(qui), quand: Number(quand), mode: mode === null ? null : String(mode), questions: Number(questions) }))
@@ -7640,8 +7688,12 @@ export class CampagneStore {
     }
   }
 
-  /** Les duels classés lancés chaque jour sur trente jours, et ceux joués des deux côtés : gardés dix minutes, comme les vies. */
-  private duelsLancesAuQg(minuits: readonly number[]): Promise<Pick<SuiviDesDuels, 'lances' | 'jouesDesDeuxCotes'>> {
+  /**
+   * Les duels classés lancés chaque jour sur trente jours, et ceux joués des
+   * deux côtés : gardés dix minutes, comme les vies. Chacun aussi à son heure
+   * (`lancesDuMois`) : l'entonnoir de la page se lit sur la période de la barre.
+   */
+  private duelsLancesAuQg(minuits: readonly number[]): Promise<Pick<SuiviDesDuels, 'lances' | 'jouesDesDeuxCotes' | 'lancesDuMois'>> {
     const maintenant = this.maintenant()
     const minuit = minuits[minuits.length - 1]
     const garde = this.lancesGardes
@@ -7655,14 +7707,19 @@ export class CampagneStore {
         args: [minuits[0]],
       })
       const lances = minuits.map(() => 0)
+      const lancesDuMois: { quand: number; joue: boolean }[] = []
       let joues = 0
       for (const r of res.rows) {
         const quand = Number(r.quand)
+        const joue = Number(r.joue) === 1
         const i = quand <= maintenant ? jourDeLInstant(minuits, quand) : -1
-        if (i >= 0) lances[i]++
-        if (Number(r.joue) === 1) joues++
+        if (i >= 0) {
+          lances[i]++
+          lancesDuMois.push({ quand, joue })
+        }
+        if (joue) joues++
       }
-      return { lances, jouesDesDeuxCotes: joues }
+      return { lances, jouesDesDeuxCotes: joues, lancesDuMois }
     })()
     this.lancesGardes = { minuit, jusqua: maintenant + TRENTE_JOURS_GARDES_MS, lus }
     lus.catch(() => {
@@ -7752,15 +7809,18 @@ export class CampagneStore {
    * de la campagne — la table entière, jointe à ses séries, à chaque
    * ouverture de la page : 60 000 lignes au quota de Turso, le cinquième de ce
    * que la production lisait le 3 novembre 2026. Et sans marge : une partie
-   * reprise plus d'une semaine après son début paie aussi.
+   * reprise plus d'une semaine après son début paie aussi. `jusqua` : avant
+   * cet instant seulement — la mémoire du QG compte ses jours finis une plage
+   * à la fois ; tout se lit pareil, en mémoire ou par l'index des épreuves
+   * validées, puis se borne ici.
    */
-  async economieDepuis(depuis: number): Promise<{ justes: Mouvement[]; etoiles: Mouvement[]; ligues: Mouvement[] }> {
+  async economieDepuis(depuis: number, jusqua = Infinity): Promise<{ justes: Mouvement[]; etoiles: Mouvement[]; ligues: Mouvement[] }> {
     const [journal, payes] = await Promise.all([this.rattraperLeJournal(), this.etoilesEtLigues()])
-    const depuisLa = (m: readonly Mouvement[]) => m.filter(x => x.quand >= depuis)
+    const dedans = (m: readonly Mouvement[]) => m.filter(x => x.quand >= depuis && x.quand < jusqua)
     return {
-      justes: journal.justesDeTousDepuis(depuis).map(([heure, n]) => ({ quand: heure * HEURE_MS, confettis: n })),
-      etoiles: depuisLa(payes.etoiles.mouvements),
-      ligues: depuisLa(payes.ligues.mouvements),
+      justes: dedans(journal.justesDeTousDepuis(depuis).map(([heure, n]) => ({ quand: heure * HEURE_MS, confettis: n }))),
+      etoiles: dedans(payes.etoiles.mouvements),
+      ligues: dedans(payes.ligues.mouvements),
     }
   }
 
@@ -8139,6 +8199,65 @@ export class CampagneStore {
       ajouts: this.ajoutsDeLaRoutine(base),
       signalements,
     }
+  }
+
+  /**
+   * Les questions jouées de la campagne, pour la page des questions du QG
+   * (`/admin#questions`, le QG 2) : chaque jouable qu'une partie a posée —
+   * série, épreuve, parcours, révision, défi, duel, et le Cabinet quand il pose
+   * une question de la base —, où et quand pour la dernière fois, ce que ses
+   * réponses ont recueilli, ses signalements ouverts ; sa marche, celle où la
+   * campagne la tire (la préparation du tirage), et ce que ses réponses en
+   * contredisent, la règle de la page de la campagne (`marcheContredite`, sur
+   * la même mesure). Rien ne se relit d'une réponse : la base, la mesure, la
+   * préparation et le journal sont en mémoire — un seul aller-retour, les
+   * signalements ouverts et ce qui est arrivé au journal au bout du même lot
+   * (`lireAvecLeJournal`) —, et toute la base passe une tranche à la fois.
+   */
+  async questionsAuQg(): Promise<QuestionAuQg[]> {
+    const [
+      jouables,
+      mesure,
+      {
+        lus: [signales],
+        journal,
+      },
+    ] = await Promise.all([
+      this.jouables(),
+      this.mesures(),
+      this.lireAvecLeJournal(['SELECT question_id, COUNT(*) AS n FROM campagne_signalements WHERE traite_le IS NULL GROUP BY question_id']),
+    ])
+    // La préparation de ces jouables à cette mesure, déjà faite derrière la mesure neuve, le plus souvent : ses marches.
+    const preparation = await this.tirage(jouables, mesure)
+    return enTranches(
+      questionsDeLaCampagneEnTranches(
+        {
+          jouables,
+          marche: i => preparation.marche(i),
+          mesure,
+          jouees: journal.questionsJouees(),
+          compte: id => journal.compteDe(id),
+          leurres: journal.leurresChoisis(),
+          signalements: new Map(signales.rows.map(r => [String(r.question_id), Number(r.n)])),
+        },
+        this.tranche,
+      ),
+    )
+  }
+
+  /**
+   * La base pour la page « Réserves et base » du QG (`/admin#reserves`) : ce
+   * qu'elle a, ce que la campagne peut en poser, et ses jouables catégorie par
+   * marche — la marche où la campagne tire chacune, et celles que leurs
+   * réponses contredisent —, une tranche à la fois ; puis ce que la routine du
+   * matin y a déposé. Là où une case pâlit, les sentiers et le Quiz du Cabinet
+   * tirent toujours les mêmes.
+   */
+  async baseAuQg(): Promise<BaseDeLaCampagneAuQg> {
+    const [jouables, mesure, base] = await Promise.all([this.jouables(), this.mesures(), this.base()])
+    const preparation = await this.tirage(jouables, mesure)
+    const carte = await enTranches(carteDeLaBaseEnTranches(jouables, i => preparation.marche(i), mesure, CATEGORIES, this.tranche))
+    return { questions: base.questions.length, jouables: jouables.length, retirees: this.retirees.size, carte, ajouts: this.ajoutsDeLaRoutine(base) }
   }
 
   // ── L'Expédition ────────────────────────────────────────────────────────

@@ -1,41 +1,55 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Icon, type IconName } from './Icon'
+import { GrapheDuTemps, TuileDuQg, type SerieDuGraphe } from './QgGraphes'
+import { HierEnBref } from './QgHier'
+import { CopierLeTableau } from './CopierLeTableau'
+import { reperesDeLaCourbe, useReperesDuQg } from '../qgReperes'
 import { formatNumber } from '../../../shared/typographie'
-import { jourEnToutesLettres } from '../../../shared/jour'
+import { jourDe, jourEnToutesLettres, minutesDeParis } from '../../../shared/jour'
 import {
   MODES_DU_QG,
-  NOM_DE_LA_TUILE,
   NOM_DU_MODE,
-  TUILES_DU_QG,
   dureeEcrite,
-  ecartALHabitude,
-  graduations,
   heureEcrite,
   jourAbrege,
   lesChosesATraiter,
   ouEnEstLaSoiree,
   quandEcrit,
   type ChoseATraiter,
-  type CompteDuJour,
   type DirectDuQg,
-  type ParticipationsDuJour,
+  type ModeDuQg,
   type SoireeDuQg,
   type VueDEnsemble,
 } from '../../../shared/qg'
+import { PAS_EN_MOTS, PERIODE_EN_TOUTES_LETTRES, ecartALaPeriodeDAvant, type ActiviteDUnePeriode, type PeriodeDuQg } from '../../../shared/qgPeriodes'
+import { etatDuService, phraseDeLEtat, type VoyantDuService } from '../../../shared/qgEtat'
 
-/** Les écrans du QG qu'une chose à traiter ouvre. */
-type EcranATraiter = NonNullable<ChoseATraiter['ecran']>
+/** Les écrans du QG qu'une chose à traiter, un voyant ou une tuile ouvrent — la tuile d'un mode, sa page. */
+type EcranATraiter = NonNullable<ChoseATraiter['ecran'] | VoyantDuService['ecran']> | 'campagne' | 'cabinet' | 'duels'
+
+/** Ouvrir un écran du QG, à l'onglet où l'on agit s'il y en a un : « Ce qui gèle », pour un gel long. */
+type Ouvrir = (e: EcranATraiter, onglet?: string) => void
 
 /**
- * La vue d'ensemble du QG (`/admin`) : ce qui se passe en ce moment, ce qu'on
- * joue aujourd'hui comparé à la même heure, trente jours de participations
- * mode par mode, ce qui attend un geste, les soirées en cours, le serveur.
- * La tour de contrôle des maquettes du 13 octobre 2026 — des chiffres
- * d'abord. Des soirées des autres, rien que des chiffres : où elles en sont,
- * combien d'invités, jamais un prénom ni un quiz (`server/src/qg.ts`).
+ * Le poste de commande du QG 2 (`/admin`, la proposition du 3 novembre 2026
+ * que le propriétaire a faite sienne le 4 : « suis tes recommandations ») :
+ * l'état du service en voyants, les chiffres de la période que la barre du
+ * haut a choisie, la participation seau par seau, ce qui attend un geste, le
+ * direct, les soirées en cours. La carte du serveur, qui redisait les voyants
+ * et le direct, s'en est allée (la revue d'expert du 4 novembre 2026) ; la
+ * routine du matin qu'elle disait seule parle dans « À traiter » quand elle se
+ * tait (`ROUTINE_MUETTE_MS`). Il remplace la vue d'ensemble
+ * des maquettes du 13 octobre 2026, qui ne regardait que trente jours et
+ * « aujourd'hui à la même heure ». Des soirées des autres, rien que des
+ * chiffres : où elles en sont, combien d'invités, jamais un prénom ni un quiz
+ * (`server/src/qg.ts`).
  *
- * Au téléphone, une colonne : le direct, ce qui attend un geste, puis le
- * reste. À l'ordinateur, la grille des maquettes (`.qg-vue`, `styles.css`).
+ * Ce qui attend un geste se lit au premier écran (la revue d'ergonomie du
+ * 4 novembre 2026 : il tombait sous la ligne de flottaison, en 1366 × 768
+ * comme au téléphone) : au téléphone, avant l'état dès qu'il n'est pas vide ;
+ * à l'ordinateur, en colonne de droite dès la première rangée, à côté de
+ * l'état et des chiffres (`.qg-poste`). Les voyants au vert se replient
+ * partout : ce qui ne va pas reste dehors.
  */
 export function VueDEnsembleDuQg({
   vue,
@@ -43,24 +57,329 @@ export function VueDEnsembleDuQg({
   vueEnPanne,
   directEnPanne,
   ouvrir,
+  periode = '24h',
+  comparer = false,
 }: {
   vue: VueDEnsemble | null
   direct: DirectDuQg | null
   /** La dernière lecture a échoué : on montre la précédente, et on le dit. */
   vueEnPanne: boolean
   directEnPanne: boolean
-  ouvrir: (e: EcranATraiter) => void
+  ouvrir: Ouvrir
+  periode?: PeriodeDuQg
+  /** La période d'avant en filet sur le graphique — l'écart des tuiles se dit toujours. */
+  comparer?: boolean
 }) {
   const choses = lesChosesATraiter(vue?.aTraiter ?? null, direct, direct?.maintenant ?? vue?.maintenant)
+  const aTraiter = <ATraiter choses={choses} chargement={!vue && !direct && !vueEnPanne} ouvrir={ouvrir} />
   return (
-    <div className="qg-vue">
+    <div className="qg-poste">
+      {choses.length > 0 && aTraiter}
+      {/* La veille, en tête et sur toute la largeur à l'ordinateur (la revue d'expert du 4 novembre 2026, P1.4) ;
+          au téléphone repliée en une ligne, sous ce qui attend un geste — lui passe toujours devant. */}
+      <HierEnBref jour={vue?.jour ?? null} aTraiter={vue ? choses.length : null} />
+      <EtatDuService direct={direct} vue={vue} enPanne={directEnPanne} ouvrir={ouvrir} />
+      {choses.length === 0 && aTraiter}
+      <ChiffresDeLaPeriode vue={vue} periode={periode} ouvrir={ouvrir} />
+      <Participations vue={vue} enPanne={vueEnPanne} periode={periode} comparer={comparer} />
       <EnCeMoment direct={direct} enPanne={directEnPanne} />
-      <ATraiter choses={choses} chargement={!vue && !direct && !vueEnPanne} ouvrir={ouvrir} />
-      <Aujourdhui vue={vue} />
-      <Participations vue={vue} enPanne={vueEnPanne} />
       <SoireesEnCours direct={direct} ouvrir={() => ouvrir('soirees')} />
-      <LeServeur direct={direct} vue={vue} ouvrir={() => ouvrir('serveur')} />
     </div>
+  )
+}
+
+// ── L'état du service ─────────────────────────────────────────────────────
+
+const ETAT_DIT: Record<VoyantDuService['etat'], string> = { ok: 'au vert', veille: 'à surveiller', serieux: 'sérieux', critique: 'critique', inconnu: 'en attente' }
+
+/**
+ * Les voyants du serveur, ce qui ne va pas d'abord (`etatDuService`) : un mot
+ * et un chiffre chacun, et la page où l'on agit. Ceux au vert se replient
+ * derrière « Voir les dix voyants » : dix cases sur cinq rangées repoussaient
+ * « À traiter » sous le pli au téléphone, et à l'ordinateur deux rangées de
+ * vert prenaient la place de ce qui attend ; ce qui ne va pas reste toujours
+ * dehors (`.qg-etat-replie`).
+ */
+function EtatDuService({ direct, vue, enPanne, ouvrir }: { direct: DirectDuQg | null; vue: VueDEnsemble | null; enPanne: boolean; ouvrir: Ouvrir }) {
+  const [tout, setTout] = useState(false)
+  const voyants = etatDuService(direct, vue?.aTraiter.serveur ?? null)
+  const { aRegarder, phrase } = phraseDeLEtat(voyants)
+  const replies = voyants.length - aRegarder
+  return (
+    <section
+      className={'qg-console qg-etat-du-service' + (aRegarder > 0 || enPanne ? ' qg-hud-alerte' : ' qg-hud') + (tout ? '' : ' qg-etat-replie')}
+      aria-labelledby="qg-etat-titre"
+    >
+      <div className="qg-console-tete">
+        <span className="qg-etiquette" id="qg-etat-titre">
+          <span className="admin-pouls" aria-hidden="true" />
+          État du service
+        </span>
+        <span className="qg-etat-phrase">
+          {enPanne ? 'Le serveur ne répond plus' : phrase}
+          {aRegarder > 0 && !enPanne && <span className="muted"> · le reste est au vert</span>}
+        </span>
+      </div>
+      <ul className="qg-voyants">
+        {voyants.map(v => {
+          const contenu = (
+            <>
+              <i className={`qg-voyant qg-voyant-${v.etat}`} aria-hidden="true" />
+              <b>{v.nom}</b>
+              <span className="qg-voyant-detail">
+                {v.detail}
+                <span className="sr-only"> — {ETAT_DIT[v.etat]}</span>
+              </span>
+            </>
+          )
+          const ecran = v.ecran
+          return (
+            <li key={v.cle} className={`qg-voyant-bloc qg-voyant-bloc-${v.etat}`}>
+              {ecran ? (
+                <button type="button" onClick={() => ouvrir(ecran)}>
+                  {contenu}
+                </button>
+              ) : (
+                <div>{contenu}</div>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+      {replies > 0 && (
+        <button type="button" className="lien-discret qg-etat-deplier" aria-expanded={tout} onClick={() => setTout(!tout)}>
+          {tout ? 'Replier ceux au vert' : aRegarder > 0 ? `Voir les ${formatNumber(replies)} autres voyants` : `Voir les ${formatNumber(replies)} voyants`}
+          <Icon name="chevron-down" />
+        </button>
+      )}
+    </section>
+  )
+}
+
+// ── Les chiffres de la période ─────────────────────────────────────────────
+
+/** La page de chaque mode : le Cabinet a la sienne depuis le 4 novembre 2026 — la campagne le garde encore parmi ses sous-modes. */
+const PAGE_DU_MODE: Record<ModeDuQg, EcranATraiter> = { soiree: 'soirees', campagne: 'campagne', cabinet: 'cabinet', jour: 'jour', duel: 'duels' }
+
+const somme = (parties: Record<ModeDuQg, number>) => MODES_DU_QG.reduce((n, m) => n + parties[m], 0)
+
+function ChiffresDeLaPeriode({ vue, periode, ouvrir }: { vue: VueDEnsemble | null; periode: PeriodeDuQg; ouvrir: Ouvrir }) {
+  const a: ActiviteDUnePeriode | undefined = vue?.periodes?.[periode]
+  const avant = a?.avant?.totaux
+  const t = a?.totaux
+  return (
+    <section className="qg-chiffres" aria-labelledby="qg-chiffres-titre">
+      <div className="qg-section-tete">
+        <h2 className="compte-groupe" id="qg-chiffres-titre">
+          Sur {PERIODE_EN_TOUTES_LETTRES[periode]}
+        </h2>
+        <span className="muted small">{a?.avant ? 'comparé à la période d’avant, arrêtée au même instant' : periode === '30j' ? 'le mois d’avant n’est pas gardé' : ''}</span>
+      </div>
+      <ul className="qg-tuiles qg-tuiles-quatre">
+        {/* Des personnes, pas des profils : chaque invité sans profil y compte une fois par soirée — la page des joueurs, elle, ne compte que des profils. */}
+        <TuileDuQg nom="Personnes" valeur={t?.joueurs} ecart={t && ecartALaPeriodeDAvant(t.joueurs, avant?.joueurs)} detail="invités compris" etincelle={a?.seaux.map(s => s.joueurs)} />
+        <TuileDuQg nom="Participations" valeur={t && somme(t.parties)} ecart={t && ecartALaPeriodeDAvant(somme(t.parties), avant && somme(avant.parties))} etincelle={a?.seaux.map(s => somme(s.parties))} />
+        <TuileDuQg nom="Nouveaux profils" valeur={t?.nouveauxProfils} ecart={t && ecartALaPeriodeDAvant(t.nouveauxProfils, avant?.nouveauxProfils)} />
+        <TuileDuQg nom="Achats en boutique" valeur={t?.achats} ecart={t && ecartALaPeriodeDAvant(t.achats, avant?.achats)} />
+      </ul>
+      {/* Mode par mode, ses participations ; un toucher ouvre sa page. */}
+      <ul className="qg-tuiles qg-tuiles-cinq qg-modes">
+        {MODES_DU_QG.map(m => (
+          <TuileDuQg
+            key={m}
+            nom={NOM_DU_MODE[m]}
+            mode={m}
+            valeur={t?.parties[m]}
+            ecart={t && ecartALaPeriodeDAvant(t.parties[m], avant?.parties[m])}
+            detail={t ? `${formatNumber(t.modes[m])} joueur${t.modes[m] > 1 ? 's' : ''}` : undefined}
+            etincelle={a?.seaux.map(s => s.parties[m])}
+            onOuvrir={() => ouvrir(PAGE_DU_MODE[m])}
+          />
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+// ── La participation, seau par seau ───────────────────────────────────────
+
+/**
+ * Ce que le graphique compte (le souhait du propriétaire du 2 novembre 2026 :
+ * « le nombre de personnes unique qui participent mais aussi pouvoir switcher
+ * sur la quantité peu importe l'utilisateur ») : les joueurs, chacun une fois
+ * par seau ; ou les participations, chaque partie jouée.
+ */
+export const COMPTES_DU_GRAPHE = ['joueurs', 'participations'] as const
+export type CompteDuGraphe = (typeof COMPTES_DU_GRAPHE)[number]
+
+const NOM_DU_COMPTE: Record<CompteDuGraphe, string> = { joueurs: 'Joueurs', participations: 'Participations' }
+const REGLE_DU_COMPTE: Record<CompteDuGraphe, (periode: PeriodeDuQg) => string> = {
+  joueurs: periode => `Chaque personne compte une fois ${PAS_EN_MOTS[periode].par}, à quoi qu’elle joue`,
+  participations: () => 'Chaque partie compte, qui que ce soit ; en soirée, chaque invité qui a joué',
+}
+
+const HEURE = 3_600_000
+
+/** Le nom d'un seau dans l'infobulle et la lecture : « mardi 3 novembre », « mardi 3 novembre, 18 h 00 → 21 h 00 », « 21 h 00 → 22 h 00 ». */
+export function nomDuSeau(debut: number, pas: number, fin: number): string {
+  const jusqua = Math.min(debut + pas, fin)
+  if (pas >= 20 * HEURE) return jourEnToutesLettres(jourDe(debut + 12 * HEURE))
+  if (pas >= 3 * HEURE) return `${jourEnToutesLettres(jourDe(debut))}, ${heureEcrite(debut)} → ${heureEcrite(jusqua)}`
+  return `${heureEcrite(debut)} → ${heureEcrite(jusqua)}`
+}
+
+/**
+ * Les étiquettes sous l'axe, comptées depuis le dernier seau : une heure,
+ * un jour — à minuit, pour une semaine en seaux de trois heures —, autant
+ * qu'il en tient, jamais l'une sur l'autre.
+ */
+export function etiquetteDeLAxe(debuts: readonly number[], pas: number, i: number, largeur: number): string | null {
+  const n = debuts.length
+  const tiennent = Math.max(2, Math.floor((largeur - 40) / 72))
+  if (pas >= 3 * HEURE && pas < 20 * HEURE) {
+    const minuits = debuts.map((d, k) => (minutesDeParis(d) === 0 ? k : -1)).filter(k => k >= 0)
+    const rang = minuits.indexOf(i)
+    if (rang < 0) return null
+    const saut = Math.ceil(minuits.length / tiennent)
+    return (minuits.length - 1 - rang) % saut === 0 ? jourAbrege(jourDe(debuts[i])) : null
+  }
+  const saut = Math.ceil(n / tiennent)
+  if ((n - 1 - i) % saut !== 0) return null
+  if (pas >= 20 * HEURE) return i === n - 1 ? 'aujourd’hui' : jourAbrege(jourDe(debuts[i] + 12 * HEURE))
+  return heureEcrite(debuts[i])
+}
+
+/**
+ * Le graphique vit dans l'écran nocturne du QG (`.qg`) : ses cinq couleurs y
+ * ont été vérifiées — voisines dans la pile, elles restent distinctes aux
+ * daltonismes. Les joueurs s'y dressent en une seule série : empilés par
+ * mode, qui joue à deux modes aurait compté deux fois dans la hauteur ; leurs
+ * modes se lisent dans la légende. Les participations, elles, s'additionnent :
+ * leur pile se lit mode par mode. La période d'avant, quand on compare, se
+ * pose en filet.
+ */
+export function Participations({
+  vue,
+  enPanne,
+  periode = '24h',
+  comparer = false,
+  depart = 'joueurs',
+}: {
+  vue: VueDEnsemble | null
+  enPanne: boolean
+  periode?: PeriodeDuQg
+  comparer?: boolean
+  depart?: CompteDuGraphe
+}) {
+  const [quoi, setQuoi] = useState<CompteDuGraphe>(depart)
+  const [tableau, setTableau] = useState(false)
+  const a = vue?.periodes?.[periode]
+  const seaux = a?.seaux ?? []
+  const fin = vue?.maintenant ?? 0
+  const debuts = seaux.map(s => s.debut)
+  // Ce qui s'est passé seau par seau — une mise en ligne, une affiche, une annonce… (la revue du 4 novembre 2026, P2.2).
+  const reperes = reperesDeLaCourbe(useReperesDuQg(), debuts.map((d, i) => [d, debuts[i + 1] ?? fin + 1] as const))
+  const etiquettes = seaux.map(s => nomDuSeau(s.debut, a?.pas ?? HEURE, fin))
+  const empile = quoi === 'participations'
+  const series: SerieDuGraphe[] = empile
+    ? MODES_DU_QG.map(m => ({ cle: m, nom: NOM_DU_MODE[m], valeurs: seaux.map(s => s.parties[m]), classe: `qg-mode-${m}` }))
+    : [{ cle: 'joueurs', nom: 'Joueurs', valeurs: seaux.map(s => s.joueurs), classe: 'qg-joueurs' }]
+  const avant = comparer && a?.avant ? a.avant.seaux.map(s => (empile ? somme(s.parties) : s.joueurs)) : null
+  const totaux = seaux.map(s => (empile ? somme(s.parties) : s.joueurs))
+  const vide = totaux.every(v => v === 0)
+  const dernier = seaux.at(-1)
+  return (
+    <section className="qg-console qg-participations" aria-labelledby="qg-participations-titre">
+      <div className="qg-console-tete">
+        <div>
+          <span className="qg-etiquette">{NOM_DU_COMPTE[quoi]}</span>
+          <h2 id="qg-participations-titre">
+            {PAS_EN_MOTS[periode].titre}, sur {PERIODE_EN_TOUTES_LETTRES[periode]}
+          </h2>
+          <span className="muted small">{REGLE_DU_COMPTE[quoi](periode)}</span>
+        </div>
+        <div className="onglets onglets-puces" role="group" aria-label="Ce que le graphique compte">
+          {COMPTES_DU_GRAPHE.map(q => (
+            <button key={q} type="button" className={'onglet' + (quoi === q ? ' actif' : '')} aria-pressed={quoi === q} onClick={() => setQuoi(q)}>
+              {NOM_DU_COMPTE[q]}
+            </button>
+          ))}
+        </div>
+      </div>
+      {!a ? (
+        <p className="serif-note">{enPanne ? 'La base permanente ne répond pas : la vue se relira toute seule.' : 'Chargement…'}</p>
+      ) : vide ? (
+        <p className="muted small">Personne n’a joué sur {PERIODE_EN_TOUTES_LETTRES[periode]}.</p>
+      ) : (
+        <>
+          <GrapheDuTemps
+            etiquettes={etiquettes}
+            axe={(i, largeur) => etiquetteDeLAxe(debuts, a.pas, i, largeur)}
+            series={series}
+            empile={empile}
+            avant={avant}
+            repartition={empile ? undefined : seaux.map(s => MODES_DU_QG.map(m => ({ nom: NOM_DU_MODE[m], valeur: s.modes[m] })))}
+            reperes={reperes}
+            nomDuTotal={empile ? 'participation' : 'joueur'}
+            resume={`${empile ? 'Participations par mode' : 'Joueurs, tous modes confondus'}, sur ${PERIODE_EN_TOUTES_LETTRES[periode]} : de ${formatNumber(Math.min(...totaux))} à ${formatNumber(Math.max(...totaux))} par seau, ${formatNumber(totaux.at(-1) ?? 0)} dans le dernier.`}
+          />
+          {dernier && (
+            <div className="qg-legende">
+              <ul>
+                {MODES_DU_QG.map(m => (
+                  <li key={m}>
+                    {/* La pastille dit la couleur d'une pile : les joueurs n'en ont qu'une, la leur. */}
+                    {empile && <i className={`qg-pastille-mode qg-mode-${m}`} aria-hidden="true" />}
+                    {NOM_DU_MODE[m]} <b className="num">{formatNumber(empile ? a.totaux.parties[m] : a.totaux.modes[m])}</b>
+                  </li>
+                ))}
+                {avant && (
+                  <li>
+                    <i className="qg-pastille-avant" aria-hidden="true" />
+                    La période d’avant
+                  </li>
+                )}
+              </ul>
+              {!empile && <span className="muted small">Qui joue à plusieurs modes compte dans chacun, une fois dans le total.</span>}
+            </div>
+          )}
+          {/* Rendu à l'ouverture seulement : replié, le tableau n'a pas à se construire. */}
+          <details className="qg-tableau" onToggle={e => setTableau(e.currentTarget.open)}>
+            <summary>Les chiffres, en tableau</summary>
+            {tableau && <CopierLeTableau nom="les chiffres de la période" />}
+            {tableau && (
+              <table>
+                <caption className="sr-only">{`${NOM_DU_COMPTE[quoi]} ${PAS_EN_MOTS[periode].par} et par mode`}</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Quand</th>
+                    {MODES_DU_QG.map(m => (
+                      <th key={m} scope="col">
+                        {NOM_DU_MODE[m]}
+                      </th>
+                    ))}
+                    <th scope="col">Tous modes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...seaux].reverse().map((s, k) => (
+                    <tr key={s.debut}>
+                      <th scope="row">{etiquettes[seaux.length - 1 - k]}</th>
+                      {MODES_DU_QG.map(m => (
+                        <td key={m} className="num">
+                          {formatNumber(empile ? s.parties[m] : s.modes[m])}
+                        </td>
+                      ))}
+                      <td className="num">{formatNumber(empile ? somme(s.parties) : s.joueurs)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </details>
+        </>
+      )}
+    </section>
   )
 }
 
@@ -103,7 +422,7 @@ function EnCeMoment({ direct, enPanne }: { direct: DirectDuQg | null; enPanne: b
                 ? `Turso en échec depuis ${heureEcrite(Date.parse(miroir.enEchecDepuis))}`
                 : miroir.espacesEnRetard > 0
                   ? `${miroir.espacesEnRetard} salon${miroir.espacesEnRetard > 1 ? 's' : ''} en retard`
-                  : `miroir à jour${typeof base === 'number' ? ` · Turso ${formatNumber(base)} ms` : ''}`
+                  : `sauvegarde à jour${typeof base === 'number' ? ` · Turso ${formatNumber(base)} ms` : ''}`
           }
         />
       </div>
@@ -125,347 +444,68 @@ function Cadran({ chiffre, nom, detail, alerte }: { chiffre?: number; nom: strin
 // ── À traiter ─────────────────────────────────────────────────────────────
 
 function iconeDe(c: ChoseATraiter): IconName {
-  if (c.alerte) return 'alert'
+  if (c.gravite !== 'a-faire') return 'alert'
   if (c.cle.startsWith('signalements')) return 'flag'
   if (c.cle === 'catalogue') return 'globe'
   if (c.cle.startsWith('en-plan')) return 'clock'
   return 'bell'
 }
 
-function ATraiter({ choses, chargement, ouvrir }: { choses: ChoseATraiter[]; chargement: boolean; ouvrir: (e: EcranATraiter) => void }) {
+/** Ce que la gravité d'une ligne dit à l'oreille, l'icône et la couleur ne se lisant pas. */
+const GRAVITE_DITE: Record<ChoseATraiter['gravite'], string> = { critique: 'critique', serieux: 'sérieux', veille: 'à surveiller', 'a-faire': 'à faire' }
+
+function ATraiter({ choses, chargement, ouvrir }: { choses: ChoseATraiter[]; chargement: boolean; ouvrir: Ouvrir }) {
   return (
-    <section className="qg-carte qg-traiter" aria-labelledby="qg-traiter-titre">
-      <div className="qg-carte-tete">
+    <section className="qg-console qg-traiter" aria-labelledby="qg-traiter-titre">
+      <div className="qg-console-tete">
         <h2 id="qg-traiter-titre">À traiter</h2>
         {choses.length > 0 && <span className="etiquette num">{choses.length}</span>}
       </div>
-      {chargement ? (
-        <p className="serif-note">Chargement…</p>
-      ) : choses.length === 0 ? (
-        <p className="muted small">Rien n’attend de geste : la réserve tient, personne ne signale rien.</p>
-      ) : (
-        <ul className="qg-liste">
-          {choses.map(c => {
-            const ecran = c.ecran
-            const contenu = (
-              <>
-                <span className={'qg-rond' + (c.alerte ? ' qg-rond-alerte' : '')}>
-                  <Icon name={iconeDe(c)} />
-                </span>
-                <span className="qg-ligne-texte">
-                  <b>{c.titre}</b>
-                  <span className="muted small">{c.detail}</span>
-                </span>
-                {ecran && <Icon name="chevron-right" className="qg-chevron" />}
-              </>
-            )
-            return (
-              <li key={c.cle}>
-                {ecran ? (
-                  <button type="button" className="qg-ligne" onClick={() => ouvrir(ecran)}>
-                    {contenu}
-                  </button>
-                ) : (
-                  <div className="qg-ligne">{contenu}</div>
-                )}
-              </li>
-            )
-          })}
-        </ul>
-      )}
+      <ListeATraiter choses={choses} chargement={chargement} ouvrir={ouvrir} />
     </section>
   )
 }
 
-// ── Aujourd'hui ───────────────────────────────────────────────────────────
-
-function Aujourdhui({ vue }: { vue: VueDEnsemble | null }) {
-  return (
-    <section className="qg-jour" aria-labelledby="qg-jour-titre">
-      <div className="qg-section-tete">
-        <h2 className="compte-groupe" id="qg-jour-titre">
-          Aujourd’hui
-        </h2>
-        <span className="muted small">comparé à la même heure, en moyenne sur les sept jours d’avant</span>
-      </div>
-      <ul className="qg-tuiles">
-        {TUILES_DU_QG.map(t => (
-          <Tuile key={t} nom={NOM_DE_LA_TUILE[t]} compte={vue?.aujourdhui[t]} />
-        ))}
-      </ul>
-    </section>
-  )
-}
-
-function Tuile({ nom, compte }: { nom: string; compte?: CompteDuJour }) {
-  const ecart = compte ? ecartALHabitude(compte) : null
-  return (
-    <li className="qg-tuile">
-      <span className="qg-tuile-nom">{nom}</span>
-      <span className="qg-tuile-valeur num">{compte ? formatNumber(compte.aujourdhui) : '–'}</span>
-      {ecart && (
-        <span
-          className={'qg-ecart' + (ecart.sens ? ` qg-ecart-${ecart.sens}` : '')}
-          title={compte?.habituel != null ? `D’habitude à cette heure : ${formatNumber(compte.habituel)}` : undefined}
-        >
-          {ecart.sens && <Icon name={ecart.sens === 'plus' ? 'arrow-up' : 'arrow-down'} />}
-          {ecart.texte}
-          {ecart.suite && <span className="sr-only">{ecart.suite}</span>}
-        </span>
-      )}
-      {compte && <Etincelle valeurs={compte.parJour} />}
-    </li>
-  )
-}
-
 /**
- * Les douze derniers jours d'un chiffre, en un trait : depuis zéro, pour
- * qu'une journée à trois ne paraisse pas une chute, et aujourd'hui en point
- * — à l'heure qu'il est, il n'est pas fini. Le point reste rond quelle que
- * soit la largeur de la tuile : un trait de longueur nulle, aux bouts ronds.
+ * Ce qui attend un geste, la plus pressée d'abord, chaque ligne à la gravité de
+ * sa règle et menant où l'on agit — au poste de commande, et dans la feuille
+ * que la pastille de la barre ouvre de n'importe quelle page.
  */
-function Etincelle({ valeurs }: { valeurs: readonly number[] }) {
-  const max = Math.max(0, ...valeurs)
-  const n = valeurs.length
-  const points = valeurs.map((v, i) => [n > 1 ? (i / (n - 1)) * 100 : 100, max > 0 ? 28 - (v / max) * 24 : 28] as const)
-  const [dx, dy] = points[n - 1] ?? [100, 28]
+export function ListeATraiter({ choses, chargement, ouvrir }: { choses: ChoseATraiter[]; chargement: boolean; ouvrir: Ouvrir }) {
+  if (chargement) return <p className="serif-note">Chargement…</p>
+  if (choses.length === 0) return <p className="muted small">Rien n’attend de geste : la réserve tient, personne ne signale rien.</p>
   return (
-    <svg className="qg-etincelle" viewBox="0 0 100 32" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-      <path className="qg-etincelle-ligne" d={points.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join('')} />
-      <path className="qg-etincelle-point" d={`M${dx.toFixed(1)} ${dy.toFixed(1)}h0`} />
-    </svg>
-  )
-}
-
-// ── Trente jours : qui joue, et combien ───────────────────────────────────
-
-/**
- * Ce que le graphique compte (le souhait du propriétaire du 2 novembre 2026 :
- * « le nombre de personnes unique qui participent mais aussi pouvoir switcher
- * sur la quantité peu importe l'utilisateur ») : les joueurs, chacun une fois
- * par jour ; ou les participations, chaque partie jouée.
- */
-export const COMPTES_DU_GRAPHE = ['joueurs', 'participations'] as const
-export type CompteDuGraphe = (typeof COMPTES_DU_GRAPHE)[number]
-
-const NOM_DU_COMPTE: Record<CompteDuGraphe, string> = { joueurs: 'Joueurs', participations: 'Participations' }
-const REGLE_DU_COMPTE: Record<CompteDuGraphe, string> = {
-  joueurs: 'Chaque personne compte une fois par jour, à quoi qu’elle joue',
-  participations: 'Chaque partie compte, qui que ce soit ; en soirée, chaque invité qui a joué',
-}
-
-/** Ce que chaque mode a mis dans un jour : ses joueurs, ou ses participations. */
-const parModeDe = (j: ParticipationsDuJour, quoi: CompteDuGraphe) => (quoi === 'joueurs' ? j.modes : j.parties)
-/** Les joueurs ne s'additionnent pas d'un mode à l'autre — qui joue à deux modes compte dans chacun : leur total est le leur. */
-const totalDe = (j: ParticipationsDuJour, quoi: CompteDuGraphe) => (quoi === 'joueurs' ? j.joueurs : MODES_DU_QG.reduce((n, m) => n + j.parties[m], 0))
-const dire = (n: number, quoi: CompteDuGraphe) => `${formatNumber(n)} ${quoi === 'joueurs' ? 'joueur' : 'participation'}${n > 1 ? 's' : ''}`
-
-/**
- * Le graphique tient dans un écran nocturne sous tous les thèmes (`.qg-ecran`) :
- * ses cinq couleurs ont été vérifiées sur ce fond-là — voisines dans la
- * pile, elles restent distinctes aux daltonismes —, pas sur les trente-quatre
- * fonds des thèmes, dont plusieurs sont clairs. Les joueurs s'y dressent en
- * une seule série : empilés par mode, qui joue à deux modes aurait compté
- * deux fois dans la hauteur ; leurs modes se lisent dans la légende. Les
- * participations, elles, s'additionnent : leur pile se lit mode par mode.
- */
-export function Participations({ vue, enPanne, depart = 'joueurs' }: { vue: VueDEnsemble | null; enPanne: boolean; depart?: CompteDuGraphe }) {
-  const [quoi, setQuoi] = useState<CompteDuGraphe>(depart)
-  const [choisi, setChoisi] = useState<number | null>(null)
-  const [tableau, setTableau] = useState(false)
-  const jours = vue?.participations ?? []
-  const lu = choisi !== null && jours[choisi] ? choisi : jours.length - 1
-  const jour = jours[lu]
-  const vide = jours.every(j => totalDe(j, 'participations') === 0)
-  const empile = quoi === 'participations'
-  return (
-    <section className="qg-carte qg-ecran qg-participations" aria-labelledby="qg-participations-titre">
-      <div className="qg-carte-tete">
-        <h2 id="qg-participations-titre">Jour par jour</h2>
-        <span className="muted small">
-          {REGLE_DU_COMPTE[quoi]} · {jours.length || 30} jours
-        </span>
-      </div>
-      <div className="onglets onglets-puces" role="group" aria-label="Ce que le graphique compte">
-        {COMPTES_DU_GRAPHE.map(q => (
-          <button key={q} type="button" className={'onglet' + (quoi === q ? ' actif' : '')} aria-pressed={quoi === q} onClick={() => setQuoi(q)}>
-            {NOM_DU_COMPTE[q]}
-          </button>
-        ))}
-      </div>
-      {!vue ? (
-        <p className="serif-note">{enPanne ? 'La base permanente ne répond pas : la vue se relira toute seule.' : 'Chargement…'}</p>
-      ) : vide ? (
-        <p className="muted small">Personne n’a joué ces trente derniers jours.</p>
-      ) : (
-        <>
-          <Graphe jours={jours} quoi={quoi} choisi={choisi} choisir={setChoisi} />
-          {jour && (
-            <div className="qg-legende">
-              <span className="qg-legende-jour">
-                {lu === jours.length - 1 ? 'Aujourd’hui' : jourEnToutesLettres(jour.jour)} · {dire(totalDe(jour, quoi), quoi)}
+    <ul className="qg-liste qg-a-traiter">
+      {choses.map(c => {
+        const ecran = c.ecran
+        const contenu = (
+          <>
+            <span className={`qg-rond qg-rond-${c.gravite}`}>
+              <Icon name={iconeDe(c)} />
+            </span>
+            <span className="qg-ligne-texte">
+              <b>{c.titre}</b>
+              <span className="muted small">
+                <span className="sr-only">{GRAVITE_DITE[c.gravite]} : </span>
+                {c.detail}
               </span>
-              <ul>
-                {MODES_DU_QG.map(m => (
-                  <li key={m}>
-                    {/* La pastille dit la couleur d'une pile : les joueurs n'en ont qu'une, la leur. */}
-                    {empile && <i className={`qg-pastille-mode qg-mode-${m}`} aria-hidden="true" />}
-                    {NOM_DU_MODE[m]} <b className="num">{formatNumber(parModeDe(jour, quoi)[m])}</b>
-                  </li>
-                ))}
-              </ul>
-              {!empile && <span className="muted small">Qui joue à plusieurs modes compte dans chacun, une fois dans le total.</span>}
-            </div>
-          )}
-          {/* Rendu à l'ouverture seulement : replié, le tableau n'a pas à se construire. */}
-          <details className="qg-tableau" onToggle={e => setTableau(e.currentTarget.open)}>
-            <summary>Les chiffres, jour par jour</summary>
-            {tableau && (
-              <table>
-                <caption className="sr-only">{`${NOM_DU_COMPTE[quoi]} par jour et par mode`}</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Jour</th>
-                    {MODES_DU_QG.map(m => (
-                      <th key={m} scope="col">
-                        {NOM_DU_MODE[m]}
-                      </th>
-                    ))}
-                    <th scope="col">Tous modes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[...jours].reverse().map(j => (
-                    <tr key={j.jour}>
-                      <th scope="row">{jourEnToutesLettres(j.jour)}</th>
-                      {MODES_DU_QG.map(m => (
-                        <td key={m} className="num">
-                          {formatNumber(parModeDe(j, quoi)[m])}
-                        </td>
-                      ))}
-                      <td className="num">{formatNumber(totalDe(j, quoi))}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            </span>
+            {ecran && <Icon name="chevron-right" className="qg-chevron" />}
+          </>
+        )
+        return (
+          <li key={c.cle}>
+            {ecran ? (
+              <button type="button" className={`qg-ligne qg-ligne-${c.gravite}`} onClick={() => ouvrir(ecran, c.onglet)}>
+                {contenu}
+              </button>
+            ) : (
+              <div className={`qg-ligne qg-ligne-${c.gravite}`}>{contenu}</div>
             )}
-          </details>
-        </>
-      )}
-    </section>
-  )
-}
-
-/** La largeur d'une boîte, suivie : le graphique se dessine au pixel près, ses textes à leur taille. */
-export function useLargeur(defaut: number) {
-  const boite = useRef<HTMLDivElement>(null)
-  const [largeur, setLargeur] = useState(defaut)
-  useEffect(() => {
-    const el = boite.current
-    if (!el || typeof ResizeObserver === 'undefined') return
-    const suivi = new ResizeObserver(([e]) => {
-      const l = Math.round(e.contentRect.width)
-      if (l > 0) setLargeur(l)
-    })
-    suivi.observe(el)
-    return () => suivi.disconnect()
-  }, [])
-  return [boite, largeur] as const
-}
-
-/** Une barre arrondie en haut — le bout de la donnée —, carrée sur sa base. */
-export function barreArrondie(x: number, y: number, l: number, h: number): string {
-  const r = Math.min(4, l / 2, h)
-  return `M${x} ${y + h}V${y + r}Q${x} ${y} ${x + r} ${y}H${x + l - r}Q${x + l} ${y} ${x + l} ${y + r}V${y + h}Z`
-}
-
-const MARGE = { gauche: 36, droite: 4, haut: 20, bas: 24 }
-/** Le filet du fond entre deux segments d'une barre : collées, deux couleurs voisines se fondaient. */
-const ECART = 2
-
-function Graphe({
-  jours,
-  quoi,
-  choisi,
-  choisir,
-}: {
-  jours: ParticipationsDuJour[]
-  quoi: CompteDuGraphe
-  choisi: number | null
-  choisir: (i: number | null) => void
-}) {
-  const [boite, largeur] = useLargeur(640)
-  const hauteur = Math.round(Math.min(240, Math.max(160, largeur * 0.3)))
-  const totaux = jours.map(j => totalDe(j, quoi))
-  const crans = graduations(Math.max(...totaux))
-  const sommet = crans[crans.length - 1] || 1
-  const utile = { l: Math.max(1, largeur - MARGE.gauche - MARGE.droite), h: hauteur - MARGE.haut - MARGE.bas }
-  const pas = utile.l / jours.length
-  const barre = Math.min(24, Math.max(3, pas * 0.66))
-  const y = (v: number) => MARGE.haut + utile.h - (v / sommet) * utile.h
-  const n = jours.length
-  // Au téléphone, trois dates sous l'axe ; à l'ordinateur, une par semaine, comptée depuis aujourd'hui.
-  const etiquettes = largeur < 480 ? [0, Math.floor((n - 1) / 2), n - 1] : jours.map((_, i) => i).filter(i => (n - 1 - i) % 7 === 0)
-  const lu = choisi ?? n - 1
-  const xDe = (i: number) => MARGE.gauche + i * pas
-  const ancre = (i: number) => (i >= n - 2 ? 'end' : i <= 1 ? 'start' : 'middle')
-  const xTexte = (i: number) => (ancre(i) === 'end' ? xDe(i) + pas : ancre(i) === 'start' ? xDe(i) : xDe(i) + pas / 2)
-  // Le total lu s'écrit au-dessus des barres qu'il enjambe : posé sur la sienne seule, il mordait sur une voisine plus haute.
-  const enjambees = ancre(lu) === 'end' ? [lu - 2, lu - 1, lu] : ancre(lu) === 'start' ? [lu, lu + 1, lu + 2] : [lu - 1, lu, lu + 1]
-  const dessusDuTotal = Math.max(...enjambees.map(i => totaux[i] ?? 0))
-  const resume = `${quoi === 'joueurs' ? 'Joueurs par jour, tous modes confondus' : 'Participations par jour et par mode'}, du ${jourEnToutesLettres(jours[0].jour, true)} à aujourd’hui : de ${formatNumber(Math.min(...totaux))} à ${formatNumber(Math.max(...totaux))} par jour, ${formatNumber(totaux[n - 1])} aujourd’hui.`
-  return (
-    <div ref={boite} className="qg-graphe">
-      <svg viewBox={`0 0 ${largeur} ${hauteur}`} role="img" aria-label={resume} onPointerLeave={() => choisir(null)}>
-        {choisi !== null && <rect className="qg-graphe-choisi" x={xDe(choisi)} y={MARGE.haut} width={pas} height={utile.h} rx={4} />}
-        <g className="qg-graphe-grille">
-          {crans.map(c => (
-            <line key={c} x1={MARGE.gauche} x2={largeur - MARGE.droite} y1={y(c)} y2={y(c)} />
-          ))}
-        </g>
-        <g className="qg-graphe-axe" textAnchor="end">
-          {crans.map(c => (
-            <text key={c} x={MARGE.gauche - 8} y={y(c) + 4}>
-              {formatNumber(c)}
-            </text>
-          ))}
-        </g>
-        <g className="qg-graphe-axe">
-          {etiquettes.map(i => (
-            <text key={i} x={xTexte(i)} y={hauteur - 6} textAnchor={ancre(i)}>
-              {i === n - 1 ? 'aujourd’hui' : jourAbrege(jours[i].jour)}
-            </text>
-          ))}
-        </g>
-        {jours.map((j, i) => {
-          const x = xDe(i) + (pas - barre) / 2
-          const parMode = parModeDe(j, quoi)
-          const visibles = MODES_DU_QG.filter(m => parMode[m] > 0)
-          const detail = visibles.map(m => `${NOM_DU_MODE[m].toLowerCase()} ${formatNumber(parMode[m])}`).join(', ')
-          // Les joueurs, une seule barre ; les participations, une pile par mode.
-          const segments = quoi === 'joueurs' ? (totaux[i] > 0 ? [{ cle: 'joueurs', classe: 'qg-joueurs', valeur: totaux[i] }] : []) : visibles.map(m => ({ cle: m, classe: `qg-mode-${m}`, valeur: parMode[m] }))
-          let base = y(0)
-          return (
-            <g key={j.jour}>
-              <title>{`${jourEnToutesLettres(j.jour)} : ${dire(totaux[i], quoi)}${detail ? ` — ${detail}` : ''}`}</title>
-              {segments.map((s, k) => {
-                const h = (s.valeur / sommet) * utile.h
-                const haut = base - h
-                base = haut
-                if (k === segments.length - 1) return <path key={s.cle} className={s.classe} d={barreArrondie(x, haut, barre, h)} />
-                const visible = Math.max(0, h - ECART)
-                return <rect key={s.cle} className={s.classe} x={x} y={haut + h - visible} width={barre} height={visible} />
-              })}
-              {/* La cible du survol et du toucher : toute la hauteur, toute la largeur du jour. */}
-              <rect className="qg-graphe-cible" x={xDe(i)} y={MARGE.haut} width={pas} height={utile.h} onPointerEnter={() => choisir(i)} onClick={() => choisir(i)} />
-            </g>
-          )
-        })}
-        <text className="qg-graphe-total" x={xTexte(lu)} y={Math.max(12, y(dessusDuTotal) - 6)} textAnchor={ancre(lu)}>
-          {formatNumber(totaux[lu])}
-        </text>
-      </svg>
-    </div>
+          </li>
+        )
+      })}
+    </ul>
   )
 }
 
@@ -474,8 +514,8 @@ function Graphe({
 function SoireesEnCours({ direct, ouvrir }: { direct: DirectDuQg | null; ouvrir: () => void }) {
   const soirees = direct?.soirees ?? []
   return (
-    <section className="qg-carte qg-soirees" aria-labelledby="qg-soirees-titre">
-      <div className="qg-carte-tete">
+    <section className="qg-console qg-soirees" aria-labelledby="qg-soirees-titre">
+      <div className="qg-console-tete">
         <h2 id="qg-soirees-titre">Soirées en cours</h2>
         {soirees.length > 0 && <span className="etiquette num">{soirees.length}</span>}
       </div>
@@ -537,62 +577,3 @@ export function LigneDeSoiree({ s, maintenant, children }: { s: SoireeDuQg; main
   )
 }
 
-// ── Le serveur ────────────────────────────────────────────────────────────
-
-const pourcents = (n: number | null) => (n === null ? '–' : `${formatNumber(n)} %`)
-
-function LeServeur({ direct, vue, ouvrir }: { direct: DirectDuQg | null; vue: VueDEnsemble | null; ouvrir: () => void }) {
-  const s = direct?.serveur
-  const routine = vue?.aTraiter.routine
-  const maintenant = vue?.maintenant ?? direct?.maintenant ?? 0
-  const depot = (t: number | null | undefined) => (t == null ? 'rien encore' : quandEcrit(t, maintenant))
-  return (
-    <section className="qg-carte qg-serveur" aria-labelledby="qg-serveur-titre">
-      <div className="qg-carte-tete">
-        <h2 id="qg-serveur-titre">Le serveur</h2>
-        {s && (
-          <span className="muted small">
-            {s.env === 'production' ? 'Production' : s.env}
-            {s.version && ` · version ${s.version.slice(0, 7)}`} · en marche depuis {dureeEcrite(s.enMarcheDepuisS * 1000)}
-          </span>
-        )}
-      </div>
-      <dl className="admin-fiche">
-        <div>
-          <dt>Mémoire</dt>
-          <dd className="num">{s?.memoireMo == null ? '–' : `${formatNumber(s.memoireMo)} Mo`}</dd>
-        </div>
-        <div>
-          <dt>Processeur</dt>
-          <dd className="num">{s ? `${pourcents(s.cpuPct)} d’un cœur` : '–'}</dd>
-        </div>
-        <div>
-          <dt>Boucle occupée</dt>
-          <dd className="num">{s ? pourcents(s.bouclePct) : '–'}</dd>
-        </div>
-        <div>
-          <dt>Turso, 95ᵉ centile</dt>
-          <dd className="num">{s?.baseP95Ms == null ? '–' : `${formatNumber(s.baseP95Ms)} ms`}</dd>
-        </div>
-        <div>
-          <dt>Connexions temps réel</dt>
-          <dd className="num">{s?.connexions == null ? '–' : formatNumber(s.connexions)}</dd>
-        </div>
-        {/* Le dernier dépôt de la routine du matin, dans chaque réserve : celle qui se tait ne prévient pas. */}
-        <div>
-          <dt>Routine, quiz du jour</dt>
-          <dd>{routine ? depot(routine.jour) : '–'}</dd>
-        </div>
-        <div>
-          <dt>Routine, campagne</dt>
-          <dd>{routine ? depot(routine.campagne) : '–'}</dd>
-        </div>
-      </dl>
-      {/* L'instant ici ; la semaine — les temps de réponse, les réveils, les erreurs — sur sa page. */}
-      <button type="button" className="lien-discret qg-suite" onClick={ouvrir}>
-        Les sept derniers jours
-        <Icon name="chevron-right" />
-      </button>
-    </section>
-  )
-}

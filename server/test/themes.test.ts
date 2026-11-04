@@ -163,16 +163,22 @@ test('chaque thème a son aperçu dans la boutique, et aucun aperçu n’est orp
   }
 })
 
-test('le thème suit la personne : toutes ses pages le portent, jamais l’écran commun', () => {
+test('le thème suit la personne : toutes ses pages le portent, jamais l’écran commun ni le QG', () => {
   // « Mes quiz », « Compte », « Créer un salon », le bilan d'une soirée
   // restaient en Velours sous un profil qui portait la Licorne : les pièces
   // du menu changeaient d'habit d'un toucher à l'autre (le choix du 4
   // octobre 2026). L'écran commun, lui, se projette à la salle : l'animateur
-  // y anime en Velours ou en Ivoire, jamais sous ses goûts.
+  // y anime en Velours ou en Ivoire, jamais sous ses goûts. Le QG non plus
+  // (le choix du 4 novembre 2026) : une salle de contrôle nocturne, dont les
+  // couleurs des graphiques et des voyants n'ont été vérifiées que sur sa nuit.
   const client = new URL('../../client/src/', import.meta.url)
   const lire = (fichier: string) => readFileSync(new URL(fichier, client), 'utf8')
   const racine = lire('main.tsx')
-  assert.match(racine, /if \(App === HostApp\) applyTheme\(\)\nelse if \(!\(route\.kind === 'public' && route\.page === 'bilan\/fiches'\)\) \{\n  poserThemeRetenu\(\)\n  if \(!LISENT_LE_PROFIL\.has\(App\)\) void confirmerTheme\(\)\n\}/)
+  assert.match(
+    racine,
+    /if \(App === HostApp\) applyTheme\(\)\nelse if \(App === AdminApp\) delete document\.documentElement\.dataset\.theme\nelse if \(!\(route\.kind === 'public' && route\.page === 'bilan\/fiches'\)\) \{\n  poserThemeRetenu\(\)\n  if \(!LISENT_LE_PROFIL\.has\(App\)\) void confirmerTheme\(\)\n\}/,
+  )
+  assert.doesNotMatch(lire('views/AdminApp.tsx'), /themeJoueur|porterTheme/)
   // La télé ouvre la même page que l'écran commun.
   assert.match(racine, /tele: HostApp,/)
   // Les pages qui lisent le profil en portent le thème elles-mêmes, et

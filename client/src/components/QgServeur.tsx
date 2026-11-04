@@ -1,11 +1,15 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api, motifDe } from '../api'
 import { Icon, type IconName } from './Icon'
-import { barreArrondie, useLargeur } from './QgVueDEnsemble'
+import { Onglets, type Onglet } from './Onglets'
+import { Feuille } from './Pieces'
+import { Etincelle, barreArrondie, useLargeur } from './QgGraphes'
+import { CopierLeTableau } from './CopierLeTableau'
 import { formatNumber } from '../../../shared/typographie'
 import { jourAvant, jourDe } from '../../../shared/jour'
 import { JOURS_DE_LA_SEMAINE, dureeEcrite, graduations, heureEcrite, jourAbrege, jourDeLaSemaine, quandEcrit } from '../../../shared/qg'
 import {
+  CE_QUE_FAIT_LE_MESSAGE,
   MEMOIRE_DE_L_HEBERGEUR_MO,
   PART_DU_QUOTA_EN_ALERTE,
   PROCESSEUR_DE_L_HEBERGEUR_PCT,
@@ -18,7 +22,9 @@ import {
   type EvenementDuServeur,
   type HeureDuServeur,
   type PageDuServeur,
+  type PeriodeDuServeur,
   type PlafondsDuConteneur,
+  type RouteDeLaPeriode,
 } from '../../../shared/santeDuServeur'
 
 /** Une semaine de réveils en compte une quinzaine : les douze derniers d'emblée, le reste sur demande. */
@@ -59,32 +65,133 @@ const erreursDeLHeure = (h: HeureDuServeur) =>
   h.erreurs === 0 ? null : `${erreurs(h.erreurs)} : ${h.erreursParSource.map(s => `${s.source} (${formatNumber(s.n)})`).join(', ')}`
 
 /**
- * La santé du serveur au QG (`/admin#serveur`, les choix du 13 octobre 2026) :
- * sept jours heure par heure, gardés dans la base permanente — ce que les
- * joueurs attendent, la charge à côté des invités connectés, les erreurs,
- * les réveils et les arrêts. La page se lit à son ouverture ; le serveur ne
- * relit la base qu'une fois la minute.
+ * La santé du serveur au QG (`/admin#serveur`, les choix du 13 octobre 2026 ;
+ * le QG 2, le 4 novembre) : sur la période de la barre — une heure en tranches
+ * de cinq minutes, une journée ou une semaine heure par heure —, gardée dans la
+ * base permanente, en quatre onglets : les signaux (ce que les joueurs
+ * attendent, la charge à côté des invités connectés, le trafic, les erreurs,
+ * les réveils et les arrêts), chaque route triable, ce qui gèle, les versions
+ * comparées. La page se relit à chaque période ; le serveur ne relit la base
+ * qu'une fois la minute. Turso et son quota ont leur page, « Base et miroir ».
  */
-export function QgServeur({ versLesErreurs }: { versLesErreurs?: () => void }) {
+export function QgServeur({
+  periode = '7j',
+  versLesErreurs,
+  onglet: ongletDeLAdresse,
+  changerDOnglet,
+}: {
+  periode?: PeriodeDuServeur
+  versLesErreurs?: () => void
+  /** L'onglet de l'adresse (`/admin#serveur/gels`), quand le QG la tient : une alerte « Gel long » ouvre « Ce qui gèle ». */
+  onglet?: string | null
+  changerDOnglet?: (o: OngletDuServeur) => void
+}) {
   const [page, setPage] = useState<PageDuServeur | null>(null)
   const [error, setError] = useState('')
+  const [ongletLocal, setOngletLocal] = useState<OngletDuServeur>('signaux')
+  const onglet: OngletDuServeur = changerDOnglet ? (estUnOngletDuServeur(ongletDeLAdresse) ? ongletDeLAdresse : 'signaux') : ongletLocal
+  const setOnglet = changerDOnglet ?? setOngletLocal
+  const [relue, setRelue] = useState(false)
   useEffect(() => {
-    api.admin.serveur().then(setPage, e => setError(motifDe(e)))
-  }, [])
+    // Une période changée en route : la réponse de la précédente, arrivée après, ne la remplace pas.
+    let perimee = false
+    setRelue(true)
+    api.admin
+      .serveur(periode)
+      .then(
+        p => {
+          if (perimee) return
+          setPage(p)
+          setError('')
+        },
+        e => !perimee && setError(motifDe(e)),
+      )
+      .finally(() => !perimee && setRelue(false))
+    return () => {
+      perimee = true
+    }
+  }, [periode])
 
-  if (error) return <p className="error">{error}</p>
+  if (error && !page) return <p className="error">{error}</p>
   if (!page) return <p className="serif-note">Chargement…</p>
-  return <SanteDuServeurAuQg page={page} versLesErreurs={versLesErreurs} />
+  return (
+    <div className={relue ? 'qg-recharge' : undefined} aria-busy={relue}>
+      {error && <p className="error">{error}</p>}
+      <SanteDuServeurAuQg page={page} versLesErreurs={versLesErreurs} onglet={onglet} onOnglet={setOnglet} />
+    </div>
+  )
 }
 
-/** La page lue : quatre chiffres, les temps de réponse, la charge, les erreurs, les réveils et les arrêts, le tableau. */
-export function SanteDuServeurAuQg({ page, versLesErreurs }: { page: PageDuServeur; versLesErreurs?: () => void }) {
+/** Les onglets de la page : les signaux d'abord — ce qui s'y voit en premier, c'est ce qu'un joueur vit. */
+export const ONGLETS_DU_SERVEUR = ['signaux', 'routes', 'temps-reel', 'gels', 'versions'] as const
+export type OngletDuServeur = (typeof ONGLETS_DU_SERVEUR)[number]
+const estUnOngletDuServeur = (o: unknown): o is OngletDuServeur => (ONGLETS_DU_SERVEUR as readonly unknown[]).includes(o)
+
+/** « sur la dernière heure, cinq minutes par cinq minutes » : ce que les graphiques montrent. */
+const SUR_LA_PERIODE: Record<PeriodeDuServeur, { titre: string; pas: string }> = {
+  '1h': { titre: 'la dernière heure', pas: 'cinq minutes par cinq minutes' },
+  '24h': { titre: 'les dernières 24 heures', pas: 'heure par heure' },
+  '7j': { titre: 'les sept derniers jours', pas: 'heure par heure' },
+}
+
+/** La page lue : ses onglets, et celui qui est ouvert — les signaux d'office. */
+export function SanteDuServeurAuQg({
+  page,
+  versLesErreurs,
+  onglet = 'signaux',
+  onOnglet,
+}: {
+  page: PageDuServeur
+  versLesErreurs?: () => void
+  onglet?: OngletDuServeur
+  onOnglet?: (o: OngletDuServeur) => void
+}) {
+  const ralenties = page.versions[0]?.ralenties.length ?? 0
+  const onglets: Onglet<OngletDuServeur>[] = [
+    { id: 'signaux', nom: 'Signaux', icone: 'bar-chart' },
+    { id: 'routes', nom: 'Routes', icone: 'list' },
+    {
+      id: 'temps-reel',
+      nom: 'Temps réel',
+      icone: 'zap',
+      ...(page.tempsReel && page.tempsReel.enPanne > 0 && {
+        pastille: { n: page.tempsReel.enPanne, label: `${page.tempsReel.enPanne} message${page.tempsReel.enPanne > 1 ? 's' : ''} en panne` },
+      }),
+    },
+    { id: 'gels', nom: 'Ce qui gèle', court: 'Gels', icone: 'clock' },
+    { id: 'versions', nom: 'Versions', icone: 'hash', ...(ralenties > 0 && { pastille: { n: ralenties, label: `${ralenties} route${ralenties > 1 ? 's' : ''} ralentie${ralenties > 1 ? 's' : ''} par la dernière version` } }) },
+  ]
+  return (
+    <>
+      <Onglets
+        onglets={onglets}
+        actif={onglet}
+        onChoisir={o => onOnglet?.(o)}
+        label="Ce que la page du serveur montre"
+        idOnglet={o => `serveur-onglet-${o}`}
+        idPanneau={o => `serveur-panneau-${o}`}
+        className="onglets-puces qg-onglets"
+      />
+      <div className="qg-panneau" role="tabpanel" id={`serveur-panneau-${onglet}`} aria-labelledby={`serveur-onglet-${onglet}`}>
+        {onglet === 'signaux' && <Signaux page={page} versLesErreurs={versLesErreurs} />}
+        {onglet === 'routes' && <LesRoutes page={page} />}
+        {onglet === 'temps-reel' && <LeTempsReel page={page} />}
+        {onglet === 'gels' && <CeQuiGele page={page} />}
+        {onglet === 'versions' && <LesVersions page={page} />}
+      </div>
+    </>
+  )
+}
+
+/** Les signaux : quatre chiffres, ce qu'un joueur attend, la charge, le trafic, les erreurs, les réveils et les arrêts, le tableau. */
+function Signaux({ page, versLesErreurs }: { page: PageDuServeur; versLesErreurs?: () => void }) {
   const { chiffres: c, enMarche, maintenant } = page
+  const sur = SUR_LA_PERIODE[page.periode]
   return (
     <>
       <p className="muted small">
         {enMarche.env === 'production' || enMarche.env === null ? 'Production' : enMarche.env}
-        {enMarche.version && ` · version ${enMarche.version}`} · en marche depuis {dureeEcrite(maintenant - enMarche.depuis)}. Sept jours heure par heure ;
+        {enMarche.version && ` · version ${enMarche.version}`} · en marche depuis {dureeEcrite(maintenant - enMarche.depuis)}. Sur {sur.titre}, {sur.pas} ;
         la nuit, l’hébergeur endort le serveur : ses heures sont hachurées.
         {page.mesuresDeLHebergeur && (
           <>
@@ -98,10 +205,10 @@ export function SanteDuServeurAuQg({ page, versLesErreurs }: { page: PageDuServe
         )}
       </p>
 
-      <section className="qg-jour" aria-labelledby="serveur-semaine">
+      <section className="qg-chiffres" aria-labelledby="serveur-semaine">
         <div className="qg-section-tete">
           <h2 className="compte-groupe" id="serveur-semaine">
-            Cette semaine
+            Sur {sur.titre}
           </h2>
         </div>
         <ul className="qg-tuiles qg-tuiles-quatre">
@@ -114,15 +221,17 @@ export function SanteDuServeurAuQg({ page, versLesErreurs }: { page: PageDuServe
           <Tuile
             nom="Erreurs serveur"
             valeur={formatNumber(c.erreurs.n)}
-            detail={c.erreurs.derniere === null ? 'aucune cette semaine' : `la dernière : ${heureDuReleve(c.erreurs.derniere, maintenant)}`}
+            detail={c.erreurs.derniere === null ? `aucune sur ${sur.titre}` : `la dernière : ${heureDuReleve(c.erreurs.derniere, maintenant)}`}
           />
+          {/* « 95ᵉ centile » ne se lisait que d'un ingénieur (la revue d'ergonomie du 4 novembre 2026) : ce que dix-neuf
+              appels sur vingt ne dépassent pas, dit une fois par page, plus bas, en toutes lettres. */}
           <Tuile
-            nom="Turso, 95ᵉ centile"
+            nom="Turso, 19 fois sur 20"
             valeur={c.base.derniere === null ? '–' : tempsDeReponse(c.base.derniere)}
             detail={c.base.habituelle === null ? 'la dernière heure mesurée' : `${tempsDeReponse(c.base.habituelle)} d’habitude`}
           />
           <Tuile
-            nom="Routes, 95ᵉ centile"
+            nom="Routes, 19 fois sur 20"
             valeur={c.routes.derniere === null ? '–' : tempsDeReponse(c.routes.derniere)}
             detail={
               c.routes.plusLente
@@ -135,32 +244,34 @@ export function SanteDuServeurAuQg({ page, versLesErreurs }: { page: PageDuServe
         </ul>
       </section>
 
-      <Heures
-        id="serveur-routes"
-        titre="Ce qu’un joueur attend"
-        sousTitre="le 95ᵉ centile des routes d’API, heure par heure"
-        heures={page.heures}
-        valeur={h => h.routes}
-        ecrire={tempsDeReponse}
-        classe="qg-serveur-temps"
-        maintenant={maintenant}
-      />
-      <Turso heures={page.heures} maintenant={maintenant} />
-      <LeQuotaDeTurso page={page} />
-      <LaCharge heures={page.heures} maintenant={maintenant} plafonds={page.plafonds} />
-      <CeQuiGele page={page} />
-      <LeTrafic heures={page.heures} maintenant={maintenant} />
-      <Heures
-        id="serveur-erreurs"
-        titre="Les erreurs serveur"
-        sousTitre="les routes et les sockets en erreur, et les exceptions échappées, heure par heure"
-        heures={page.heures}
-        valeur={h => (h.eveille ? h.erreurs : null)}
-        ecrire={erreurs}
-        legende={erreursDeLHeure}
-        classe="qg-serveur-erreur"
-        maintenant={maintenant}
-      />
+      {/* Les graphiques côte à côte à l'ordinateur, deux par rangée, le même temps pour tous : l'un sous l'autre, ils
+          faisaient trois mille pixels même en 1920 (la revue d'ergonomie du 4 novembre 2026). Ce qu'un joueur attend à
+          côté des erreurs — ce qu'il vit —, puis la charge à côté du trafic. */}
+      <div className="qg-signaux">
+        <Heures
+          id="serveur-routes"
+          titre="Ce qu’un joueur attend"
+          sousTitre={`ce que dix-neuf appels d’API sur vingt ne dépassent pas, ${sur.pas}`}
+          heures={page.heures}
+          valeur={h => h.routes}
+          ecrire={tempsDeReponse}
+          classe="qg-serveur-temps"
+          maintenant={maintenant}
+        />
+        <Heures
+          id="serveur-erreurs"
+          titre="Les erreurs serveur"
+          sousTitre={`les routes et les sockets en erreur, et les exceptions échappées, ${sur.pas}`}
+          heures={page.heures}
+          valeur={h => (h.eveille ? h.erreurs : null)}
+          ecrire={erreurs}
+          legende={erreursDeLHeure}
+          classe="qg-serveur-erreur"
+          maintenant={maintenant}
+        />
+        <LaCharge heures={page.heures} maintenant={maintenant} plafonds={page.plafonds} />
+        <LeTrafic heures={page.heures} maintenant={maintenant} />
+      </div>
       <CeQuiAEchoue page={page} versLesErreurs={versLesErreurs} />
 
       <Evenements evenements={page.evenements} maintenant={maintenant} />
@@ -208,6 +319,7 @@ function Heures({
   legende,
   classe,
   maintenant,
+  vide,
 }: {
   id: string
   titre: string
@@ -221,10 +333,23 @@ function Heures({
   legende?: (h: HeureDuServeur) => string | null
   classe: string
   maintenant: number
+  /** Ce qu'il dit quand rien n'est mesuré sur la période : un cadre vide ne disait rien (la revue d'ergonomie du 4 novembre 2026). */
+  vide?: string
 }) {
   const [choisie, setChoisie] = useState<number | null>(null)
   const h = heures[choisie ?? derniereMesuree(heures.map(valeur))]
   const v = valeur(h)
+  if (heures.every(x => valeur(x) === null)) {
+    return (
+      <section className="qg-carte qg-ecran" aria-labelledby={id}>
+        <div className="qg-carte-tete qg-carte-tete-pile">
+          <h2 id={id}>{titre}</h2>
+          <span className="muted small">{sousTitre}</span>
+        </div>
+        <p className="muted small">{vide ?? 'Rien de mesuré sur la période.'}</p>
+      </section>
+    )
+  }
   return (
     <section className="qg-carte qg-ecran" aria-labelledby={id}>
       <div className="qg-carte-tete qg-carte-tete-pile">
@@ -269,7 +394,7 @@ const lignesDeLHeure = (h: HeureDuServeur) =>
  * Ce serveur seul : la préproduction, les sauvegardes et les scripts lisent
  * au même quota.
  */
-function LeQuotaDeTurso({ page }: { page: PageDuServeur }) {
+export function LeQuotaDeTurso({ page }: { page: PageDuServeur }) {
   const q = page.quota
   const nommees = q ? q.lourdes.reduce((s, l) => s + l.part, 0) : 0
   return (
@@ -285,6 +410,7 @@ function LeQuotaDeTurso({ page }: { page: PageDuServeur }) {
         legende={lignesDeLHeure}
         classe="qg-serveur-temps"
         maintenant={page.maintenant}
+        vide="Rien de lu sur la période : le serveur compte ce qu’il lit depuis cette version."
       />
       <section className="qg-carte" aria-labelledby="serveur-ce-qui-lit">
         <div className="qg-carte-tete">
@@ -528,7 +654,7 @@ function connexionsDeLHeure(h: HeureDuServeur): string[] {
  * faisait voir : des connexions qu'il referme, des allers-retours tombés en
  * route — c'est ainsi qu'on a lu ses 5 s.
  */
-function Turso({ heures, maintenant }: { heures: HeureDuServeur[]; maintenant: number }) {
+export function Turso({ heures, maintenant }: { heures: HeureDuServeur[]; maintenant: number }) {
   const [choisie, setChoisie] = useState<number | null>(null)
   const h = heures[choisie ?? derniereMesuree(heures.map(x => x.base))]
   return (
@@ -539,7 +665,7 @@ function Turso({ heures, maintenant }: { heures: HeureDuServeur[]; maintenant: n
       </div>
       <div className="qg-charge">
         <span className="qg-charge-nom">
-          <b>Temps</b> · le 95ᵉ centile d’un aller-retour
+          <b>Temps</b> · ce que 19 allers-retours sur 20 ne dépassent pas
         </span>
         <GrapheDesHeures
           id="serveur-turso-temps"
@@ -574,7 +700,7 @@ function Turso({ heures, maintenant }: { heures: HeureDuServeur[]; maintenant: n
       </div>
       <p className="qg-legende-jour" aria-live="polite">
         {heureDuReleve(h.heure, maintenant)} :{' '}
-        {!h.eveille ? 'endormi' : h.base === null ? 'rien de mesuré' : [`95ᵉ centile ${tempsDeReponse(h.base)}`, ...connexionsDeLHeure(h)].join(' · ')}
+        {!h.eveille ? 'endormi' : h.base === null ? 'rien de mesuré' : [`${tempsDeReponse(h.base)} pour 19 sur 20`, ...connexionsDeLHeure(h)].join(' · ')}
       </p>
     </section>
   )
@@ -861,7 +987,7 @@ const MESURES_DU_TRAFIC: MesureDeLaPile[] = [
   {
     cle: 'refusees',
     nom: 'Refusées',
-    detail: 'les 4xx : une page introuvable, une session expirée, une inscription refusée',
+    detail: 'une page introuvable, une session expirée, une inscription refusée',
     valeur: h => h.requetes?.refusees ?? null,
     ecrire: requetes,
     ecrireAxe: formatNumber,
@@ -972,9 +1098,14 @@ function GrapheDesHeures({
   })
 
   const mesurees = valeurs.filter((x): x is number => x !== null)
+  // Une semaine se lit par ses jours ; une journée ou une heure, par ses heures — un seul jour sous l'axe n'y disait rien.
+  const courte = n <= 48
+  const surQuoi = n > 48 ? 'sept jours' : n > 12 ? 'vingt-quatre heures' : 'une heure'
   const resume = mesurees.length
-    ? `${nom}, sept jours : de ${ecrire(Math.min(...mesurees))} à ${ecrire(Math.max(...mesurees))} selon l’heure.`
-    : `${nom}, sept jours : rien de mesuré.`
+    ? `${nom}, ${surQuoi} : de ${ecrire(Math.min(...mesurees))} à ${ecrire(Math.max(...mesurees))} selon le moment.`
+    : `${nom}, ${surQuoi} : rien de mesuré.`
+  const tiennent = Math.max(2, Math.floor((largeur - marge.gauche) / 64))
+  const saut = Math.max(1, Math.ceil(n / tiennent))
 
   return (
     <div ref={boite} className="qg-graphe">
@@ -1003,7 +1134,19 @@ function GrapheDesHeures({
             </text>
           ))}
         </g>
-        {!sansJours && (
+        {!sansJours && courte && (
+          <g className="qg-graphe-axe" textAnchor="middle">
+            {heures.map((h, i) =>
+              // Comptées depuis la dernière : l'heure qu'il est porte toujours la sienne.
+              (n - 1 - i) % saut === 0 ? (
+                <text key={h.heure} x={Math.min(largeur - 22, Math.max(marge.gauche + 18, xDe(i) + pas / 2))} y={hauteur - 6}>
+                  {heureEcrite(h.heure).replace(/ 00$/, '')}
+                </text>
+              ) : null,
+            )}
+          </g>
+        )}
+        {!sansJours && !courte && (
           <g className="qg-graphe-axe" textAnchor="middle">
             {jours.map(j => {
               const large = (j.fin - j.debut + 1) * pas
@@ -1111,6 +1254,7 @@ function TableauDesHeures({ heures, maintenant }: { heures: HeureDuServeur[]; ma
       </div>
       <details className="qg-tableau" onToggle={e => setOuvert((e.target as HTMLDetailsElement).open)}>
         <summary>Les chiffres des {formatNumber(eveillees.length)} heures éveillées</summary>
+        {ouvert && <CopierLeTableau nom="les chiffres heure par heure" />}
         {ouvert && (
           <table>
             <thead>
@@ -1160,5 +1304,585 @@ function TableauDesHeures({ heures, maintenant }: { heures: HeureDuServeur[]; ma
         )}
       </details>
     </section>
+  )
+}
+
+// ── Les routes (le QG 2) ──────────────────────────────────────────────────
+
+/** Une colonne de la table des routes : ce qu'on trie, son nom, et si elle se cache au téléphone. */
+type CleDeTri = 'route' | 'n' | 'p50' | 'p95' | 'max' | 'refusees' | 'enErreur' | 'part' | 'ecart'
+const COLONNES: { cle: CleDeTri; nom: string; titre: string; large?: true }[] = [
+  { cle: 'route', nom: 'Route', titre: 'Son modèle : la méthode, puis le chemin' },
+  { cle: 'n', nom: 'Appels', titre: 'Ses réponses sur la période' },
+  { cle: 'p50', nom: 'Médiane', titre: 'La médiane de ses heures, pondérée par leurs appels', large: true },
+  // Les mots de l'administrateur (la revue d'ergonomie du 4 novembre 2026) : « 4XX », « 5XX », « 95ᵉ centile » ne se
+  // lisaient que d'un ingénieur. Le titre de chaque colonne le redit au survol.
+  { cle: 'p95', nom: '19 sur 20', titre: 'Ce que 19 appels sur 20 ne dépassent pas, ses heures pondérées par leurs appels' },
+  { cle: 'max', nom: 'Pire', titre: 'Sa réponse la plus lente', large: true },
+  { cle: 'refusees', nom: 'Refus', titre: 'Ses réponses refusées : une page introuvable, une session expirée', large: true },
+  { cle: 'enErreur', nom: 'Erreurs', titre: 'Ses réponses en erreur serveur' },
+  { cle: 'part', nom: 'Part du temps', titre: 'Sa part du temps que les routes ont pris au serveur : ses appels fois son temps' },
+  { cle: 'ecart', nom: 'Écart', titre: 'Ses 19 appels sur 20 face à la période d’avant', large: true },
+]
+
+/** L'écart d'une route à la période d'avant, en pour cent ; null sans elle. */
+const ecartDe = (r: RouteDeLaPeriode) => (r.avant && r.avant.p95 > 0 ? Math.round(((r.p95 - r.avant.p95) / r.avant.p95) * 100) : null)
+/** « +12 % », « −8 % » : le signe moins, pas le trait d'union de `formatNumber`. */
+const pourcentSigne = (p: number) => `${p > 0 ? '+' : p < 0 ? '−' : ''}${formatNumber(Math.abs(p))} %`
+/** « 1 pour 10 000 » : des erreurs pour mille, dites sur dix mille requêtes — un nombre qu'on lit, pas un signe qu'on devine. */
+const pourDixMille = (pourMille: number) => `${formatNumber(Math.round(pourMille * 100) / 10)} pour 10 000`
+
+function valeurDeTri(r: RouteDeLaPeriode, cle: CleDeTri): number | string {
+  if (cle === 'route') return r.route
+  if (cle === 'ecart') return ecartDe(r) ?? Number.NEGATIVE_INFINITY
+  return r[cle]
+}
+
+/** La méthode d'une route, en pastille (« GET », « POST »), et son chemin — la page du direct la montre de même. */
+export function NomDeLaRoute({ route }: { route: string }) {
+  const [methode, ...chemin] = route.split(' ')
+  return (
+    <>
+      <span className={`qg-verbe qg-verbe-${methode.toLowerCase()}`}>{methode}</span>
+      <span className="qg-route-chemin">{chemin.join(' ')}</span>
+    </>
+  )
+}
+
+/**
+ * Chaque route d'API sur la période, la plus coûteuse au serveur d'abord —
+ * ses appels fois son temps : ce qui mérite d'être optimisé en premier —,
+ * triable sur chaque colonne, filtrée par sa méthode ou un mot ; une ligne
+ * ouvre sa feuille. Au téléphone, les colonnes de détail se cachent : la
+ * route, ses appels, son 95ᵉ centile, ses erreurs et sa part tiennent.
+ */
+function LesRoutes({ page }: { page: PageDuServeur }) {
+  const [tri, setTri] = useState<{ cle: CleDeTri; sens: 'monte' | 'descend' }>({ cle: 'part', sens: 'descend' })
+  const [mot, setMot] = useState('')
+  const [methode, setMethode] = useState<string | null>(null)
+  const [ouverte, setOuverte] = useState<RouteDeLaPeriode | null>(null)
+  const methodes = useMemo(() => [...new Set(page.routes.map(r => r.route.split(' ')[0]))].sort(), [page.routes])
+  const visibles = useMemo(() => {
+    const cherche = mot.trim().toLowerCase()
+    return page.routes
+      .filter(r => (!methode || r.route.startsWith(`${methode} `)) && (!cherche || r.route.toLowerCase().includes(cherche)))
+      .sort((a, b) => {
+        const va = valeurDeTri(a, tri.cle)
+        const vb = valeurDeTri(b, tri.cle)
+        const c = typeof va === 'string' && typeof vb === 'string' ? va.localeCompare(vb) : Number(va) - Number(vb)
+        return tri.sens === 'monte' ? c : -c
+      })
+  }, [page.routes, mot, methode, tri])
+  const trier = (cle: CleDeTri) => setTri(t => (t.cle === cle ? { cle, sens: t.sens === 'monte' ? 'descend' : 'monte' } : { cle, sens: cle === 'route' ? 'monte' : 'descend' }))
+  const sur = SUR_LA_PERIODE[page.periode]
+
+  if (page.routes.length === 0) {
+    return (
+      <section className="qg-console" aria-labelledby="serveur-routes-titre">
+        <div className="qg-console-tete">
+          <div>
+            <span className="qg-etiquette">Les routes</span>
+            <h2 id="serveur-routes-titre">Chaque route d’API, sur {sur.titre}</h2>
+          </div>
+        </div>
+        <p className="muted small">
+          {page.routesDepuis === null
+            ? 'Le serveur relève chaque route depuis le 4 novembre 2026 : rien encore de mesuré.'
+            : `Aucune route servie sur ${sur.titre}.`}
+        </p>
+      </section>
+    )
+  }
+  return (
+    <section className="qg-console qg-routes" aria-labelledby="serveur-routes-titre">
+      <div className="qg-console-tete">
+        <div>
+          <span className="qg-etiquette">Les routes</span>
+          <h2 id="serveur-routes-titre">Chaque route d’API, sur {sur.titre}</h2>
+          <span className="muted small">
+            {page.periode === '1h' ? 'l’heure en cours et la précédente — une route n’a pas de tranches ; ' : ''}la plus coûteuse au serveur d’abord : ses appels
+            fois son temps
+          </span>
+        </div>
+        <span className="etiquette num">{formatNumber(visibles.length)}</span>
+      </div>
+      <div className="qg-outils">
+        <label className="qg-filtre">
+          <Icon name="search" />
+          <span className="sr-only">Filtrer les routes</span>
+          <input type="search" value={mot} placeholder="Un mot du chemin : jour, cabinet…" onChange={e => setMot(e.target.value)} />
+        </label>
+        <div className="onglets onglets-puces" role="group" aria-label="La méthode">
+          {[null, ...methodes].map(m => (
+            <button key={m ?? 'toutes'} type="button" className={'onglet' + (methode === m ? ' actif' : '')} aria-pressed={methode === m} onClick={() => setMethode(m)}>
+              {m ?? 'Toutes'}
+            </button>
+          ))}
+        </div>
+        <CopierLeTableau nom="la table des routes" />
+      </div>
+      <div className="qg-table-cadre">
+        <table className="qg-table">
+          <caption className="sr-only">{`Les routes d’API sur ${sur.titre}, triées par ${COLONNES.find(c => c.cle === tri.cle)?.nom.toLowerCase()}`}</caption>
+          <thead>
+            <tr>
+              {COLONNES.map(c => (
+                <th
+                  key={c.cle}
+                  scope="col"
+                  className={(c.cle === 'route' ? '' : 'qg-nombre') + (c.large ? ' qg-colonne-detail' : '')}
+                  aria-sort={tri.cle === c.cle ? (tri.sens === 'monte' ? 'ascending' : 'descending') : undefined}
+                >
+                  <button type="button" className="qg-tri" title={c.titre} onClick={() => trier(c.cle)}>
+                    {c.nom}
+                    {tri.cle === c.cle && <Icon name={tri.sens === 'monte' ? 'arrow-up' : 'arrow-down'} />}
+                  </button>
+                </th>
+              ))}
+              <th scope="col" className="qg-colonne-detail">
+                <span className="qg-tri">Courbe</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {visibles.map(r => {
+              const ecart = ecartDe(r)
+              return (
+                <tr key={r.route}>
+                  <th scope="row">
+                    <button type="button" className="qg-route" onClick={() => setOuverte(r)}>
+                      <NomDeLaRoute route={r.route} />
+                    </button>
+                  </th>
+                  <td className="qg-nombre">{formatNumber(r.n)}</td>
+                  <td className="qg-nombre qg-colonne-detail">{tempsDeReponse(r.p50)}</td>
+                  <td className="qg-nombre">{tempsDeReponse(r.p95)}</td>
+                  <td className="qg-nombre qg-colonne-detail">{tempsDeReponse(r.max)}</td>
+                  <td className="qg-nombre qg-colonne-detail">{formatNumber(r.refusees)}</td>
+                  <td className={'qg-nombre' + (r.enErreur > 0 ? ' qg-table-alerte' : '')}>{formatNumber(r.enErreur)}</td>
+                  <td className="qg-nombre">
+                    <span className="qg-part">
+                      <span className="qg-part-piste" aria-hidden="true">
+                        <i style={{ width: `${Math.min(100, r.part)}%` }} />
+                      </span>
+                      {formatNumber(r.part)} %
+                    </span>
+                  </td>
+                  <td className={'qg-nombre qg-colonne-detail' + (ecart !== null && ecart >= 33 ? ' qg-table-alerte' : ecart !== null && ecart <= -10 ? ' qg-table-mieux' : '')}>
+                    {ecart === null ? '–' : pourcentSigne(ecart)}
+                  </td>
+                  <td className="qg-colonne-detail qg-table-courbe">{r.parHeure.length > 1 && <Etincelle valeurs={r.parHeure} />}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+      {visibles.length === 0 && <p className="muted small">Aucune route ne correspond.</p>}
+      {ouverte && <FeuilleDUneRoute route={ouverte} page={page} onFermer={() => setOuverte(null)} />}
+    </section>
+  )
+}
+
+/** Une route en grand : ses chiffres, ses appels heure par heure, ses refus et ses erreurs, la période d'avant. */
+function FeuilleDUneRoute({ route: r, page, onFermer }: { route: RouteDeLaPeriode; page: PageDuServeur; onFermer: () => void }) {
+  const ecart = ecartDe(r)
+  const sur = SUR_LA_PERIODE[page.periode]
+  const heures = page.periode === '1h' ? [] : page.heures
+  return (
+    <Feuille titre={r.route} onFermer={onFermer}>
+      <div className="qg-fiche">
+        <p className="qg-route qg-route-titre">
+          <NomDeLaRoute route={r.route} />
+        </p>
+        <ul className="qg-tuiles qg-tuiles-quatre">
+          <Tuile nom="Appels" valeur={formatNumber(r.n)} detail={r.avant ? `${formatNumber(r.avant.n)} la période d’avant` : `sur ${sur.titre}`} />
+          <Tuile
+            nom="19 fois sur 20"
+            valeur={tempsDeReponse(r.p95)}
+            detail={r.avant ? `${tempsDeReponse(r.avant.p95)} la période d’avant (${pourcentSigne(ecart ?? 0)})` : `médiane ${tempsDeReponse(r.p50)}`}
+          />
+          <Tuile nom="Pire réponse" valeur={tempsDeReponse(r.max)} detail={`médiane ${tempsDeReponse(r.p50)}`} />
+          <Tuile
+            nom="Part du temps"
+            valeur={`${formatNumber(r.part)} %`}
+            detail={`${dureeEcrite(r.totalMs)} de serveur`}
+            alerte={r.enErreur > 0 ? `${formatNumber(r.enErreur)} en erreur serveur` : null}
+          />
+        </ul>
+        <p className="muted small">
+          {formatNumber(r.refusees)} réponse{r.refusees > 1 ? 's' : ''} refusée{r.refusees > 1 ? 's' : ''} — un mot de passe faux, une partie déjà finie —, et{' '}
+          {formatNumber(r.enErreur)} en erreur serveur, que la page des erreurs détaille.
+        </p>
+        {r.parHeure.length > 1 && heures.length === r.parHeure.length && (
+          <section className="qg-carte qg-ecran" aria-labelledby="serveur-route-heures">
+            <div className="qg-carte-tete qg-carte-tete-pile">
+              <h2 id="serveur-route-heures">Ses appels, heure par heure</h2>
+              <span className="muted small">sur {sur.titre}</span>
+            </div>
+            <AppelsParHeure route={r} heures={heures} maintenant={page.maintenant} />
+          </section>
+        )}
+      </div>
+    </Feuille>
+  )
+}
+
+/**
+ * Les appels d'une route — ou les arrivées d'un message (`unite`) —, dans le
+ * graphique des heures de la page : la nuit hachurée, l'heure touchée dite
+ * dessous.
+ */
+function AppelsParHeure({
+  route,
+  heures,
+  maintenant,
+  unite = 'appel',
+}: {
+  route: RouteDeLaPeriode
+  heures: HeureDuServeur[]
+  maintenant: number
+  unite?: 'appel' | 'message'
+}) {
+  const [choisie, setChoisie] = useState<number | null>(null)
+  const i = choisie ?? route.parHeure.length - 1
+  const parIndice = new Map(heures.map((h, k) => [h.heure, k]))
+  const appels = (h: HeureDuServeur) => route.parHeure[parIndice.get(h.heure) ?? -1] ?? 0
+  const compte = (v: number) => `${formatNumber(v)} ${unite}${v > 1 ? 's' : ''}`
+  return (
+    <>
+      <GrapheDesHeures
+        id="serveur-route-appels"
+        nom={`${unite === 'appel' ? 'Les appels' : 'Les arrivées'} de ${route.route}`}
+        heures={heures}
+        valeur={h => (h.eveille ? appels(h) : null)}
+        ecrire={compte}
+        classe="qg-serveur-temps"
+        maintenant={maintenant}
+        choisie={choisie}
+        choisir={setChoisie}
+        compact
+      />
+      <p className="qg-legende-jour" aria-live="polite">
+        {heureDuReleve(heures[i].heure, maintenant)} : {compte(route.parHeure[i])}
+      </p>
+    </>
+  )
+}
+
+// ── Le temps réel (le QG 2) ───────────────────────────────────────────────
+
+/** Les colonnes de la table des messages : celles des routes, sous les mots du temps réel. */
+const COLONNES_DES_MESSAGES: typeof COLONNES = [
+  { cle: 'route', nom: 'Message', titre: 'Son nom dans le contrat du temps réel, et ce qu’il fait' },
+  { cle: 'n', nom: 'Reçus', titre: 'Ses arrivées sur la période' },
+  { cle: 'p50', nom: 'Médiane', titre: 'Jusqu’à son accusé : la médiane de ses heures, pondérée par leurs arrivées', large: true },
+  { cle: 'p95', nom: '19 sur 20', titre: 'Jusqu’à son accusé : ce que 19 arrivées sur 20 ne dépassent pas, ses heures pondérées par leurs arrivées' },
+  { cle: 'max', nom: 'Pire', titre: 'Son accusé le plus lent', large: true },
+  { cle: 'refusees', nom: 'Refus', titre: 'Ses accusés « non » : trop tard, en pause, inconnu…', large: true },
+  { cle: 'enErreur', nom: 'Pannes', titre: 'Ses exceptions, que le serveur a rattrapées' },
+  { cle: 'part', nom: 'Part du temps', titre: 'Sa part du temps que les messages ont pris au serveur : ses arrivées fois son temps' },
+  { cle: 'ecart', nom: 'Écart', titre: 'Ses 19 arrivées sur 20 face à la période d’avant', large: true },
+]
+
+/** Ce que fait un message, en mots ; rien pour un nom que le contrat ne connaît plus. */
+const ceQueFait = (nom: string): string | null => (CE_QUE_FAIT_LE_MESSAGE as Record<string, string>)[nom] ?? null
+
+type FamilleDeMessages = 'tous' | 'player' | 'host'
+const FAMILLES_DE_MESSAGES: { id: FamilleDeMessages; nom: string }[] = [
+  { id: 'tous', nom: 'Tous' },
+  { id: 'player', nom: 'Des invités' },
+  { id: 'host', nom: 'De l’animateur' },
+]
+
+/**
+ * Le temps réel (le QG 2 : « Signaux · Routes · Temps réel · Ce qui gèle ·
+ * Versions ») : une soirée vit dans la liaison, pas dans les routes. Ce que
+ * les téléphones et les écrans ont envoyé sur la période — chaque message
+ * jusqu'à son accusé, ses refus, ses pannes —, les « trop tard », les liaisons
+ * ouvertes face aux clients connectés (un wifi qui flanche les multiplie), et
+ * les chronomètres des parties : une révélation qui sonne en retard, c'est la
+ * salle qui attend.
+ */
+function LeTempsReel({ page }: { page: PageDuServeur }) {
+  const t = page.tempsReel
+  const [tri, setTri] = useState<{ cle: CleDeTri; sens: 'monte' | 'descend' }>({ cle: 'part', sens: 'descend' })
+  const [famille, setFamille] = useState<FamilleDeMessages>('tous')
+  const [ouvert, setOuvert] = useState<RouteDeLaPeriode | null>(null)
+  const visibles = useMemo(
+    () =>
+      (t?.messages ?? [])
+        .filter(m => famille === 'tous' || m.route.startsWith(`${famille}:`))
+        .sort((a, b) => {
+          const va = valeurDeTri(a, tri.cle)
+          const vb = valeurDeTri(b, tri.cle)
+          const c = typeof va === 'string' && typeof vb === 'string' ? va.localeCompare(vb) : Number(va) - Number(vb)
+          return tri.sens === 'monte' ? c : -c
+        }),
+    [t, famille, tri],
+  )
+  const trier = (cle: CleDeTri) => setTri(x => (x.cle === cle ? { cle, sens: x.sens === 'monte' ? 'descend' : 'monte' } : { cle, sens: cle === 'route' ? 'monte' : 'descend' }))
+  const sur = SUR_LA_PERIODE[page.periode]
+  const titre = (
+    <div className="qg-console-tete">
+      <div>
+        <span className="qg-etiquette">Le temps réel</span>
+        <h2 id="serveur-temps-reel-titre">Ce que la liaison a porté, sur {sur.titre}</h2>
+        <span className="muted small">
+          {page.periode === '1h' ? 'l’heure en cours et la précédente — un message n’a pas de tranches ; ' : ''}chaque message des téléphones et des écrans,
+          jusqu’à son accusé
+        </span>
+      </div>
+    </div>
+  )
+  if (!t) {
+    return (
+      <section className="qg-console" aria-labelledby="serveur-temps-reel-titre">
+        {titre}
+        <p className="muted small">Le serveur relève le temps réel depuis le 4 novembre 2026 : rien encore de mesuré.</p>
+      </section>
+    )
+  }
+  const liaisons = `${formatNumber(t.connexions)} liaison${t.connexions > 1 ? 's' : ''} ouverte${t.connexions > 1 ? 's' : ''}`
+  return (
+    <section className="qg-console qg-routes" aria-labelledby="serveur-temps-reel-titre">
+      {titre}
+      <ul className="qg-tuiles qg-tuiles-quatre">
+        <Tuile
+          nom="Messages reçus"
+          valeur={formatNumber(t.recus)}
+          detail={t.clientsMax === null ? liaisons : `${liaisons} · ${formatNumber(t.clientsMax)} client${t.clientsMax > 1 ? 's' : ''} au plus`}
+        />
+        <Tuile nom="Refusés" valeur={formatNumber(t.refuses)} detail={`dont ${formatNumber(t.tropTard)} réponse${t.tropTard > 1 ? 's' : ''} « trop tard »`} />
+        <Tuile
+          nom="En panne"
+          valeur={formatNumber(t.enPanne)}
+          detail="une exception, rattrapée : la page des erreurs la détaille"
+          alerte={t.enPanne > 0 ? `${formatNumber(t.enPanne)} à regarder` : null}
+        />
+        <Tuile
+          nom="Chronomètres en retard"
+          valeur={formatNumber(t.chronos.enRetard)}
+          detail={
+            t.chronos.n === 0
+              ? 'aucun n’a sonné'
+              : `sur ${formatNumber(t.chronos.n)} · le pire, ${tempsDeReponse(t.chronos.maxMs)} après son échéance`
+          }
+          alerte={t.chronos.enRetard > 0 ? `plus d’une seconde : la salle a attendu` : null}
+        />
+      </ul>
+      {t.messages.length === 0 ? (
+        <p className="muted small">Aucun message sur {sur.titre} : pas de soirée, ni d’écran ouvert.</p>
+      ) : (
+        <>
+          <div className="qg-outils">
+            <div className="onglets onglets-puces" role="group" aria-label="D’où viennent les messages">
+              {FAMILLES_DE_MESSAGES.map(f => (
+                <button key={f.id} type="button" className={'onglet' + (famille === f.id ? ' actif' : '')} aria-pressed={famille === f.id} onClick={() => setFamille(f.id)}>
+                  {f.nom}
+                </button>
+              ))}
+            </div>
+            <CopierLeTableau nom="la table des messages" />
+          </div>
+          <div className="qg-table-cadre">
+            <table className="qg-table">
+              <caption className="sr-only">{`Les messages du temps réel sur ${sur.titre}, triés par ${COLONNES_DES_MESSAGES.find(c => c.cle === tri.cle)?.nom.toLowerCase()}`}</caption>
+              <thead>
+                <tr>
+                  {COLONNES_DES_MESSAGES.map(c => (
+                    <th
+                      key={c.cle}
+                      scope="col"
+                      className={(c.cle === 'route' ? '' : 'qg-nombre') + (c.large ? ' qg-colonne-detail' : '')}
+                      aria-sort={tri.cle === c.cle ? (tri.sens === 'monte' ? 'ascending' : 'descending') : undefined}
+                    >
+                      <button type="button" className="qg-tri" title={c.titre} onClick={() => trier(c.cle)}>
+                        {c.nom}
+                        {tri.cle === c.cle && <Icon name={tri.sens === 'monte' ? 'arrow-up' : 'arrow-down'} />}
+                      </button>
+                    </th>
+                  ))}
+                  <th scope="col" className="qg-colonne-detail">
+                    <span className="qg-tri">Courbe</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibles.map(m => {
+                  const ecart = ecartDe(m)
+                  const fait = ceQueFait(m.route)
+                  return (
+                    <tr key={m.route}>
+                      <th scope="row">
+                        <button type="button" className="qg-route qg-message" onClick={() => setOuvert(m)}>
+                          <span className="qg-route-chemin">{m.route}</span>
+                          {fait && <span className="qg-message-fait">{fait}</span>}
+                        </button>
+                      </th>
+                      <td className="qg-nombre">{formatNumber(m.n)}</td>
+                      <td className="qg-nombre qg-colonne-detail">{tempsDeReponse(m.p50)}</td>
+                      <td className="qg-nombre">{tempsDeReponse(m.p95)}</td>
+                      <td className="qg-nombre qg-colonne-detail">{tempsDeReponse(m.max)}</td>
+                      <td className="qg-nombre qg-colonne-detail">{formatNumber(m.refusees)}</td>
+                      <td className={'qg-nombre' + (m.enErreur > 0 ? ' qg-table-alerte' : '')}>{formatNumber(m.enErreur)}</td>
+                      <td className="qg-nombre">
+                        <span className="qg-part">
+                          <span className="qg-part-piste" aria-hidden="true">
+                            <i style={{ width: `${Math.min(100, m.part)}%` }} />
+                          </span>
+                          {formatNumber(m.part)} %
+                        </span>
+                      </td>
+                      <td className={'qg-nombre qg-colonne-detail' + (ecart !== null && ecart >= 33 ? ' qg-table-alerte' : ecart !== null && ecart <= -10 ? ' qg-table-mieux' : '')}>
+                        {ecart === null ? '–' : pourcentSigne(ecart)}
+                      </td>
+                      <td className="qg-colonne-detail qg-table-courbe">{m.parHeure.length > 1 && <Etincelle valeurs={m.parHeure} />}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          {visibles.length === 0 && <p className="muted small">Aucun message de cette famille sur {sur.titre}.</p>}
+        </>
+      )}
+      {ouvert && <FeuilleDUnMessage message={ouvert} page={page} onFermer={() => setOuvert(null)} />}
+    </section>
+  )
+}
+
+/** Un message en grand : ce qu'il fait, ses chiffres jusqu'à l'accusé, ses refus et ses pannes, ses arrivées heure par heure. */
+function FeuilleDUnMessage({ message: m, page, onFermer }: { message: RouteDeLaPeriode; page: PageDuServeur; onFermer: () => void }) {
+  const ecart = ecartDe(m)
+  const sur = SUR_LA_PERIODE[page.periode]
+  const heures = page.periode === '1h' ? [] : page.heures
+  const fait = ceQueFait(m.route)
+  return (
+    <Feuille titre={m.route} onFermer={onFermer}>
+      <div className="qg-fiche">
+        {fait && <p className="muted">{fait}</p>}
+        <ul className="qg-tuiles qg-tuiles-quatre">
+          <Tuile nom="Reçus" valeur={formatNumber(m.n)} detail={m.avant ? `${formatNumber(m.avant.n)} la période d’avant` : `sur ${sur.titre}`} />
+          <Tuile
+            nom="Jusqu’à l’accusé"
+            valeur={tempsDeReponse(m.p95)}
+            detail={m.avant ? `19 fois sur 20 ; ${tempsDeReponse(m.avant.p95)} la période d’avant (${pourcentSigne(ecart ?? 0)})` : `19 fois sur 20 ; médiane ${tempsDeReponse(m.p50)}`}
+          />
+          <Tuile nom="Le plus lent" valeur={tempsDeReponse(m.max)} detail={`médiane ${tempsDeReponse(m.p50)}`} />
+          <Tuile
+            nom="Part du temps"
+            valeur={`${formatNumber(m.part)} %`}
+            detail={`${dureeEcrite(m.totalMs)} de serveur`}
+            alerte={m.enErreur > 0 ? `${formatNumber(m.enErreur)} en panne` : null}
+          />
+        </ul>
+        <p className="muted small">
+          {formatNumber(m.refusees)} accusé{m.refusees > 1 ? 's' : ''} « non » — une réponse arrivée trop tard, une partie en pause, un jeton
+          inconnu —, et {formatNumber(m.enErreur)} panne{m.enErreur > 1 ? 's' : ''}, que la page des erreurs détaille sous « socket {m.route} ».
+        </p>
+        {m.parHeure.length > 1 && heures.length === m.parHeure.length && (
+          <section className="qg-carte qg-ecran" aria-labelledby="serveur-route-heures">
+            <div className="qg-carte-tete qg-carte-tete-pile">
+              <h2 id="serveur-route-heures">Ses arrivées, heure par heure</h2>
+              <span className="muted small">sur {sur.titre}</span>
+            </div>
+            <AppelsParHeure route={m} heures={heures} maintenant={page.maintenant} unite="message" />
+          </section>
+        )}
+      </div>
+    </Feuille>
+  )
+}
+
+// ── Les versions (le QG 2) ────────────────────────────────────────────────
+
+/**
+ * Chaque version de la semaine face à celle d'avant (`versionsDuServeur`) :
+ * ce qu'un joueur a attendu sous elle, ses erreurs pour mille requêtes, son
+ * processeur, sa mémoire — et les routes qu'elle a ralenties d'un tiers et
+ * plus, signalées d'elles-mêmes : une mise en ligne qui ralentit le Cabinet se
+ * voit avant que les joueurs ne s'en plaignent.
+ */
+function LesVersions({ page }: { page: PageDuServeur }) {
+  if (page.versions.length === 0) {
+    return (
+      <section className="qg-console" aria-labelledby="serveur-versions-titre">
+        <div className="qg-console-tete">
+          <div>
+            <span className="qg-etiquette">Les versions</span>
+            <h2 id="serveur-versions-titre">Chaque mise en ligne, comparée</h2>
+          </div>
+        </div>
+        <p className="muted small">Hors de l’hébergeur, un démarrage n’a pas de version : rien à comparer.</p>
+      </section>
+    )
+  }
+  return (
+    <div className="qg-versions">
+      {page.versions.map((v, i) => {
+        const avant = page.versions[i + 1] ?? null
+        const enLigne = v.version === page.enMarche.version
+        return (
+          <section key={v.version} className={'qg-console' + (v.ralenties.length > 0 ? ' qg-hud-alerte' : '')} aria-labelledby={`version-${v.version}`}>
+            <div className="qg-console-tete">
+              <div>
+                <span className="qg-etiquette">{enLigne ? 'En ligne' : 'Remplacée'}</span>
+                <h2 id={`version-${v.version}`} className="qg-version-nom">
+                  Version {v.version}
+                </h2>
+                <span className="muted small">
+                  depuis {quandDuServeur(v.depuis, page.maintenant)} · {formatNumber(v.heures)} heure{v.heures > 1 ? 's' : ''} éveillée{v.heures > 1 ? 's' : ''}
+                </span>
+              </div>
+            </div>
+            <ul className="qg-tuiles qg-tuiles-quatre">
+              <Tuile
+                nom="Ce qu’un joueur attend"
+                valeur={v.routes ? tempsDeReponse(v.routes.p95) : '–'}
+                detail={avant?.routes ? `contre ${tempsDeReponse(avant.routes.p95)} avant` : v.routes ? `médiane ${tempsDeReponse(v.routes.p50)}` : 'rien de mesuré'}
+              />
+              {/* « 0,1 ‰ », en petite chasse, se lisait « % » : une erreur pour dix mille requêtes, en toutes lettres. */}
+              <Tuile
+                nom="Erreurs"
+                valeur={v.erreursPourMille === null ? '–' : pourDixMille(v.erreursPourMille)}
+                detail={avant?.erreursPourMille != null ? `contre ${pourDixMille(avant.erreursPourMille)} avant` : `${formatNumber(v.requetes)} requêtes`}
+              />
+              <Tuile
+                nom="Processeur"
+                valeur={v.processeur === null ? '–' : pourcentsDUnCoeur(v.processeur)}
+                detail={avant?.processeur != null ? `contre ${pourcentsDUnCoeur(avant.processeur)} avant` : 'en moyenne, d’un cœur'}
+              />
+              <Tuile
+                nom="Mémoire, au plus"
+                valeur={v.memoireMaxMo === null ? '–' : megaOctets(v.memoireMaxMo)}
+                detail={avant?.memoireMaxMo != null ? `contre ${megaOctets(avant.memoireMaxMo)} avant` : 'le pic de ses heures'}
+              />
+            </ul>
+            {v.ralenties.length > 0 ? (
+              <ul className="qg-liste">
+                {v.ralenties.map(r => (
+                  <li key={r.route} className="qg-ligne">
+                    <span className="qg-rond qg-rond-alerte">
+                      <Icon name="alert" />
+                    </span>
+                    <span className="qg-ligne-texte">
+                      <b className="qg-route">
+                        <NomDeLaRoute route={r.route} />
+                      </b>
+                      <span className="muted small">
+                        {tempsDeReponse(r.avant)} → {tempsDeReponse(r.apres)} pour 19 appels sur 20 ({pourcentSigne(Math.round(((r.apres - r.avant) / r.avant) * 100))}) face à la version d’avant
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              avant && <p className="muted small">Aucune route ralentie d’un tiers face à la version {avant.version}.</p>
+            )}
+          </section>
+        )
+      })}
+    </div>
   )
 }

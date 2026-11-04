@@ -620,7 +620,9 @@ test('la page : chaque carte dit d’où vient sa question, qui la signale, et n
   assert.match(html, /<b>Léa<\/b><span class="muted small"> @lea<\/span>/)
   assert.match(html, /a répondu « 1998 » · il y a 20 min/)
   assert.match(html, /<b>Profil supprimé<\/b>/, 'un profil parti')
-  assert.deepEqual(gestes(html), ['Annuler ses points pour tous', 'Corriger', 'Reclasser', 'Retirer de la réserve', 'Garder'])
+  // Le geste sans retour en dernier, à part, et « Effacer » : il ouvrait la rangée, rouge, sous le doigt qui venait
+  // corriger, et « Annuler » fermait aussi les formulaires (la revue d'ergonomie du 4 novembre 2026).
+  assert.deepEqual(gestes(html), ['Corriger', 'Reclasser', 'Retirer de la réserve', 'Garder', 'Effacer ses points pour tous'])
   // Son jour clos : plus d'annulation. Retirée de la réserve : il ne reste qu'à refermer.
   assert.deepEqual(gestes(rendre({ ...s, annulable: false })), ['Corriger', 'Reclasser', 'Retirer de la réserve', 'Garder'])
   const retiree = rendre({ ...s, annulable: false, reserve: { ...reserve, retiree: true } })

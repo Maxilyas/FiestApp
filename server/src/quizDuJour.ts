@@ -83,6 +83,18 @@ export function mountJour(app: Express, deps: JourDeps & { rappels: RappelStore 
     }),
   )
 
+  // Un rappel du soir touché (le QG 2) : le service worker le dit en ouvrant la page, avec le soir qu'il portait.
+  // Sans profil — la session a pu se fermer depuis 18 h —, sans rien dire : 204 dans tous les cas, et le compte
+  // ne dépasse jamais les rappels envoyés ce soir-là (`RappelStore.ouvert`).
+  app.post(
+    '/api/jour/rappel/ouvert',
+    petit,
+    wrap(async (req, res) => {
+      await deps.rappels.ouvert(req.body?.jour)
+      res.status(204).end()
+    }),
+  )
+
   app.delete(
     '/api/jour/rappel',
     petit,

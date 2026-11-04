@@ -19,9 +19,12 @@ paths:
 ## Les pièges
 
 - **Le service worker (`client/public/sw.js`) ne fait que la
-  notification** — l'afficher, ouvrir sa page au toucher, et rendre au
-  serveur l'abonnement que son service renouvelle (`pushsubscriptionchange`,
-  avec `ancien` : il en garde le réglage) : ni cache, ni `fetch`. Enregistré
+  notification** — l'afficher, ouvrir sa page au toucher, dire au serveur
+  qu'un rappel du soir a été touché (son soir, que le message porte :
+  `POST /api/jour/rappel/ouvert`, le compte des ouverts du QG — jamais pour
+  une notification du QG), et rendre au serveur l'abonnement que son
+  service renouvelle (`pushsubscriptionchange`, avec `ancien` : il en garde
+  le réglage) : ni cache, ni écouteur de `fetch`. Enregistré
   une seconde fois sous `/admin`, il est celui des alertes du QG : sa portée
   lui dit son texte par défaut, sa page et sa route (`DU_QG`), et le bac à
   sable de `rappel.test.ts` lui donne la sienne (`scope`), comme un

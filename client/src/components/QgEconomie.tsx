@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Chiffre, GrapheDesJours } from './QgModes'
+import { CopierLeTableau } from './CopierLeTableau'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { formatNumber } from '../../../shared/typographie'
 import { NOM_DU_COFFRE, RANGS_DU_COFFRE, TAMPONS_DU_RANG, type RangDuCoffre } from '../../../shared/coffre'
@@ -201,6 +202,10 @@ export function MeilleuresVentes({ page }: { page: PageDeLEconomie | null }) {
       ) : page.ventes.length === 0 ? (
         <p className="muted small">Rien ne s’est encore vendu en boutique.</p>
       ) : (
+        <>
+        <div className="qg-outils">
+          <CopierLeTableau nom="les meilleures ventes" />
+        </div>
         <div className="qg-tableau">
           <table>
             <thead>
@@ -225,6 +230,7 @@ export function MeilleuresVentes({ page }: { page: PageDeLEconomie | null }) {
             </tbody>
           </table>
         </div>
+        </>
       )}
       <p className="muted small">Les vies, les sabliers et les Éclats se comptent dans « Où ils partent ».</p>
     </section>

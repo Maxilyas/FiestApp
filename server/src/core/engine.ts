@@ -8,7 +8,7 @@ import type { AnswerLog } from './answers'
 import type { PartyMirror, SessionRow } from './backup'
 import type { SessionSummary } from '../../../shared/types'
 import type { ActionRefusal } from '../../../shared/events'
-import { pouls } from './pouls'
+import { pouls, releve } from './pouls'
 import { commencer } from './gels'
 
 /**
@@ -598,6 +598,8 @@ export class GameEngine {
       // la première chose que voit un serveur qui ne suit plus.
       const retard = Date.now() - deadline
       pouls.chronos.noter(retard)
+      // Et à l'heure, pour l'onglet « Temps réel » du QG : combien ont sonné, combien en retard, le pire.
+      releve.chrono(retard)
       if (retard > 1000) console.warn(`[partie] chronomètre « ${timerId} » en retard de ${retard} ms`)
       if (retard < RETARD_D_UN_GEL_MS) return sonner()
       // Après un gel, un tour de boucle d'abord : les réponses arrivées

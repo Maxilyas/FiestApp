@@ -14,6 +14,7 @@ import { donneesDuFragment } from '../../shared/depart'
 import { pageDeLAdresse } from '../../shared/maintenance'
 import { fermeePourMoi } from './maintenance'
 import { titreDePage } from './titres'
+import { PART_DES_TELEPHONES_MESURES } from '../../shared/telephones'
 import './styles.css'
 
 // Les adresses (client/src/routes.ts) :
@@ -162,8 +163,14 @@ const LISENT_LE_PROFIL = new Set<unknown>([PlayerApp, ProfilApp, JourApp, Campag
 // salon, la soirée, le quiz du jour, le souvenir et le bilan… — portent le
 // thème du profil connecté ici : celui qu'il portait la dernière fois, dès le
 // démarrage (`themeJoueur.ts`), puis celui que dit le serveur. Les fiches du
-// bilan s'impriment en Ivoire (`BilanApp`).
+// bilan s'impriment en Ivoire (`BilanApp`). Le QG, lui, est une salle de
+// contrôle nocturne sous tous les thèmes (le choix du 4 novembre 2026, la
+// proposition du 3 que le propriétaire a faite sienne) : les couleurs de ses
+// graphiques n'ont été vérifiées que sur sa nuit, et sous un thème clair un
+// voyant vert, un rouge, ne se lisaient plus — il garde le Velours, sans
+// rien poser.
 if (App === HostApp) applyTheme()
+else if (App === AdminApp) delete document.documentElement.dataset.theme
 else if (!(route.kind === 'public' && route.page === 'bilan/fiches')) {
   poserThemeRetenu()
   if (!LISENT_LE_PROFIL.has(App)) void confirmerTheme()
@@ -287,3 +294,11 @@ code.then(
   Vue => rendre(<Page Vue={Vue} />),
   (erreur: unknown) => rendre(<Perdu erreur={erreur} />),
 )
+// Un téléphone sur quatre mesure ce qu'il vit (le QG 2, lot 9 : `PART_DES_TELEPHONES_MESURES`) ; son code ne vient qu'à
+// lui, une fois la page partie. Pas le QG : l'administrateur n'est pas un joueur.
+if (Math.random() < PART_DES_TELEPHONES_MESURES && !window.location.pathname.startsWith('/admin')) {
+  code.then(() => import('./mesures')).then(
+    m => m.mesurerCettePage(),
+    () => {},
+  )
+}

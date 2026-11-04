@@ -3,9 +3,12 @@
 // campagne, duels — et quatre-vingt-dix de soirées archivées, une vraie
 // soirée en cours avec deux invités, une autre laissée en plan, des
 // questions du jour signalées par des habitués qui y ont répondu, et la
-// première du défi de la semaine par deux de ses joueurs ; au téléphone
-// (360 × 640, la page entière), en 1366 × 768 et en 1920 × 1080, sous le
-// Velours et sous l'Ivoire, puis une page ouverte de la barre de côté, le
+// première du défi de la semaine par deux de ses joueurs ; le poste de
+// commande au téléphone (360 × 640, la page entière), en 1366 × 768 et en
+// 1920 × 1080 — sur une heure, sur sept jours, comparé à la période d'avant,
+// la palette ouverte (⌘K), « Pages » et les voyants dépliés au téléphone —, et
+// sous un profil qui porte l'Ivoire, que le QG ne prend pas (il dit s'il le
+// prenait), puis une page ouverte du rail, le
 // journal des gestes — quatre d'aujourd'hui par les vraies routes, deux
 // d'hier —, la page des soirées, et la soirée laissée en plan close d'un
 // clic ; la page « Le serveur » sur une semaine inventée — réveils, une mise
@@ -21,17 +24,33 @@
 // Automate et de duels classés, six lancés aujourd'hui par les vraies routes,
 // ceux qui attendent leur adversaire — et l'un d'eux annulé ; la page de
 // l'économie — trente jours de thèmes, de compagnons et de soirées, des Éclats,
-// dix-sept légendaires portés — ; puis la fiche d'une joueuse — une épreuve en route, des confettis
+// dix-sept légendaires portés — ; la page des joueurs — soixante-dix profils
+// nés sur dix semaines et revenus plus ou moins souvent, les habitués et les
+// joueurs nommés d'avant eux —, une cohorte lue au clavier, un endormi ouvert,
+// et « Leur écrire » : les annonces, le segment choisi ; puis la fiche d'une joueuse — une épreuve en route, des confettis
 // offerts, sa connexion fermée, masquée du classement —, le don qu'on prépare, le code de secours
 // tiré pour elle, et son accueil qui annonce le don — et le merci d'une
 // question qu'elle avait signalée —, une fois ; elle, remise au classement
 // depuis la page des duels ; la fiche de l'administrateur, qui s'offre des
 // confettis ; enfin la page des signalements — trois questions à relire,
 // quatre relues par les vraies routes —, « Corriger » ouvert sur la question
-// piège, « Reclasser » sur celle du défi, et l'onglet des relues. Le client
-// construit d'abord (`npm run build -w client`).
+// piège, « Reclasser » sur celle du défi, et l'onglet des relues. Et la page du
+// Cabinet de curiosités — trente jours de traversées des vingt-quatre joueurs,
+// jouées au pli, une rendue par la vraie route —, « Rendre » ouvert, et la fiche
+// d'un joueur en route. Et les modes : côte à côte, puis le gabarit en tête de
+// chaque page de mode (`SEULEMENT=modes`). Et la mémoire de chaque jour, écrite,
+// puis « Hier, en bref » au poste et le point du matin sous « Alertes »
+// (`SEULEMENT=memoire`). Et l'effet de ce que le QG envoie
+// (`SEULEMENT=effets`) : trois annonces, deux affiches et leurs visiteurs, les
+// soirs du rappel et « Joué après », « Journal et repères » et son « Avant /
+// après », le poste sur sept jours et ses repères. Et, en dernier, les animateurs
+// (`SEULEMENT=animateurs`) : dix salons de plus et leurs trois mois de
+// soirées, un de chaque état, le carnet, « Les salons », la fiche d'une
+// titulaire et les premiers pas des profils — après un redémarrage, que les
+// comptes relisent leur ouverture. Le client construit d'abord (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-qg.ts [dossier]
+//   SEULEMENT=poste,cabinet npx tsx scripts/rendu-qg.ts [dossier]   — ces pages-là, le temps d'une retouche
 import { createRequire } from 'node:module'
 import { spawnSync } from 'node:child_process'
 import { createECDH, randomBytes } from 'node:crypto'
@@ -39,22 +58,91 @@ import { mkdirSync } from 'node:fs'
 import path from 'node:path'
 import Database from 'better-sqlite3'
 import { baseDEssai, connexionAnimateur, creerQuiz, demarrer, ecranCommun, ecrire, inscrireProfil, invite, lancerQuiz, qcm } from '../test/banc'
-import { jourDe, minutesDeParis } from '../../shared/jour'
+import { jourAvant, jourDe, minutesDeParis } from '../../shared/jour'
 import { minuitsDeParis } from '../../shared/qg'
+import { lundiDe, minuitDuJour } from '../../shared/qgJoueurs'
 import { DUREE_D_UN_DUEL_MS, LETTRES_D_UN_CODE, LONGUEUR_D_UN_CODE, VIES, semaineAvant, semaineDe } from '../../shared/campagne'
 import { coteDuScore } from '../../shared/duels'
 import { regleDuPalier } from '../../shared/sentiers'
 import { PRIX_DES_THEMES, THEMES } from '../../shared/themes'
 import { PRIX_D_UN_COMPAGNON } from '../../shared/compagnons'
 import { gainVide, releveVide } from '../../shared/profil'
+import { DESTINATIONS } from '../../shared/affiches'
 import { SOUS_THEMES } from '../../shared/etiquettes'
+import type { OrigineDUnQuiz } from '../../shared/library'
 import type { PageDesSignalements } from '../../shared/qgSignalements'
 import type { ErreurEnDetail, GelDeLaBoucle, GelsDeLHeure } from '../../shared/santeDuServeur'
+import {
+  CARTES,
+  VERSION_DE_LA_TRAVERSEE,
+  atteignables,
+  choisirLesGardiens,
+  etapeDe,
+  etatDeLaTraversee,
+  jeuDeLAssaut,
+  jouerUnGesteDeLaTraversee,
+  offrables,
+  tracerLaCarte,
+  type DepartDeLaTraversee,
+  type EtatDeLaTraversee,
+  type GesteDeLaTraversee,
+  type GesteDeLaTraverseeEcrit,
+} from '../../shared/cabinet/traversee'
+import { resumeDeLaTraversee } from '../../shared/cabinet/resume'
+import { idDeLaFiche, idDeLaReplique, idDuLieu } from '../../shared/cabinet/pieces'
+import { contenuDuCabinetEnTranches } from '../src/core/cabinet/contenu'
 import { veille } from '../src/core/veille'
 import { ReleveHoraire } from '../src/core/pouls'
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu-qg')
 mkdirSync(sortie, { recursive: true })
+// `SEULEMENT=poste,serveur` : les pages du QG 2 nommées, chacune sous sa clé (`photo`), le temps d'une retouche — les
+// pages d'avant le QG 2 ne se photographient qu'avec tout le reste, sans elle. Toutes les données s'inventent quand même.
+const SEULEMENT = process.env.SEULEMENT?.split(',').map(s => s.trim()).filter(Boolean) ?? null
+const photo = (cle: string) => !SEULEMENT || SEULEMENT.includes(cle)
+
+/**
+ * Ce qui élargit la page : les éléments les plus profonds qui passent le bord droit, sans qu'un cadre qui
+ * défile ou qui coupe les retienne — leur balise, leurs classes, leur bord. En texte : une fonction passée à la
+ * page y arriverait avec les `__name` de tsx, qu'elle ne connaît pas.
+ */
+const CE_QUI_DEBORDE = `(() => {
+  const bord = document.documentElement.clientWidth + 0.5
+  const retenu = el => {
+    for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) if (getComputedStyle(p).overflowX !== 'visible') return true
+    return false
+  }
+  // Une boîte qui passe le bord, ou un texte qui sort de la sienne sans la pousser — un mot trop long.
+  const passent = [...document.querySelectorAll('body *')].filter(el => {
+    const r = el.getBoundingClientRect()
+    if (r.width === 0 || retenu(el)) return false
+    return r.right > bord || (el.scrollWidth > el.clientWidth + 1 && el.clientWidth > 0 && getComputedStyle(el).overflowX === 'visible' && r.left + el.scrollWidth > bord)
+  })
+  const nom = el => el.tagName.toLowerCase() + (typeof el.className === 'string' && el.className.trim() ? '.' + el.className.trim().split(/\\s+/).join('.') : '')
+  // Les plus profonds : un parent qui passe le bord n'est souvent poussé que par son enfant.
+  const profonds = passent.filter(el => !passent.some(autre => autre !== el && el.contains(autre)))
+  if (profonds.length) return profonds.slice(0, 6).map(el => nom(el) + ' → ' + Math.round(el.getBoundingClientRect().right))
+  // Rien ne se voit passer — un pseudo-élément, une marge négative : on cache, branche par branche, ce dont
+  // l'absence rend la page à sa largeur, jusqu'au plus profond.
+  const trop = () => document.documentElement.scrollWidth > document.documentElement.clientWidth
+  const chemin = []
+  for (let el = document.body; el; ) {
+    let fautif = null
+    for (const enfant of el.children) {
+      const avant = enfant.style.display
+      enfant.style.display = 'none'
+      const regle = !trop()
+      enfant.style.display = avant
+      if (regle) {
+        fautif = enfant
+        break
+      }
+    }
+    if (fautif) chemin.push(nom(fautif))
+    el = fautif
+  }
+  return chemin.length ? ['(caché, la page tient) ' + chemin.slice(-3).join(' › ')] : []
+})()`
 const { chromium } = createRequire(path.join(spawnSync('npm', ['root', '-g'], { encoding: 'utf8' }).stdout.trim(), 'rendu.js'))('playwright')
 
 const H = 3_600_000
@@ -80,7 +168,30 @@ function gelsInventes(heure: number, reveil: boolean, soiree: boolean, invites: 
   return r.lignes('rendu')[0].gels
 }
 // Le lien vers les graphiques de Render, comme sur l'hébergeur : la page « Le serveur » le propose.
-const banc = await demarrer({ baseDeLaCampagne: baseDEssai(40), mesuresDeLHebergeur: 'https://dashboard.render.com/web/srv-rendu/metrics' })
+/**
+ * Le serveur redémarre pendant l'amorce : la première requête d'après peut partir sur une connexion d'avant, que le
+ * client de Node croit encore vivante (« ECONNRESET ») — elle se refait une fois.
+ */
+async function uneFoisDePlus<T>(f: () => Promise<T>): Promise<T> {
+  try {
+    return await f()
+  } catch {
+    await new Promise(r => setTimeout(r, 100))
+    return f()
+  }
+}
+
+// Les règles des alertes se jugent toutes les cinq secondes : la page des alertes se photographie avec ce qui s'y ouvre.
+// Elles lisent la page du serveur dès le démarrage : relue à chaque fois (`santeGardeeMs`), elle voit la semaine inventée plus bas.
+// Le jeton de la réserve, comme en production : la routine du matin y dépose par sa porte (la page « Réserves et base »).
+const JETON_DE_LA_RESERVE = `rendu-${'r'.repeat(40)}`
+const banc = await demarrer({
+  baseDeLaCampagne: baseDEssai(40),
+  mesuresDeLHebergeur: 'https://dashboard.render.com/web/srv-rendu/metrics',
+  reglesDuQgMs: 5_000,
+  santeGardeeMs: 0,
+  jetonDeLaReserve: JETON_DE_LA_RESERVE,
+})
 const navigateur = await chromium.launch({ headless: true })
 try {
   // Ce que les réponses contredisent, à la page de la campagne : une moyenne
@@ -250,6 +361,8 @@ try {
   const maintenant = Date.now()
   const minuits = minuitsDeParis(maintenant, 30)
   const permanente = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+  /** La traversée de Lina, en route depuis douze jours : la page du Cabinet la rend par la vraie route. */
+  let traverseeBloquee: { id: string; profil: string } | null = null
   {
     const partie = permanente.prepare('INSERT OR IGNORE INTO jour_parties (profile_id, jour, commencee_le, question, finie_le) VALUES (?, ?, ?, 10, ?)')
     // Chaque série ses questions jouées, à la mesure de son mode : la page de l'activité les compte.
@@ -340,6 +453,87 @@ try {
     const releveDe = (heure: number, soiree: boolean) => {
       const vague = 1 + 0.35 * Math.sin(heure / H / 2.7)
       return { base: Math.round((soiree ? 95 : 62) * vague), routes: Math.round((soiree ? 330 : 190) * vague) }
+    }
+    // Les routes de chaque heure (le QG 2) : leur part des appels et leur temps d'habitude ; la mise en ligne
+    // `e4f5a6b` ralentit le geste du Cabinet, que l'onglet des versions doit dire.
+    const ROUTES_INVENTEES: [string, number, number][] = [
+      ['POST /api/campagne/serie/:id/reponse', 0.22, 140],
+      ['GET /api/joueur/accueil', 0.12, 210],
+      ['POST /api/jour/reponse', 0.1, 120],
+      ['GET /api/jour', 0.08, 90],
+      ['POST /api/cabinet/traversee/:id/geste', 0.08, 260],
+      ['GET /api/campagne/sentiers', 0.06, 380],
+      ['GET /api/joueur/missions', 0.06, 70],
+      ['POST /api/duels/:code/reponse', 0.05, 110],
+      ['GET /api/profil/carte/:id', 0.05, 160],
+      ['GET /api/admin/qg/direct', 0.05, 35],
+      ['GET /api/boutique', 0.03, 150],
+      ['POST /api/joueur/connexion', 0.02, 520],
+    ]
+    const routesDeLHeure = (heure: number, version: string, soiree: boolean, erreurs: Record<string, number>) =>
+      ROUTES_INVENTEES.map(([route, part, ms], i) => {
+        const vague = 1 + 0.3 * Math.sin(heure / H / 1.9 + i)
+        const ralentie = version !== 'a1b2c3d' && route === 'POST /api/cabinet/traversee/:id/geste' ? 1.7 : 1
+        const p95 = Math.round(ms * vague * (soiree ? 1.35 : 1) * ralentie)
+        const n = Math.max(1, Math.round(260 * part * (soiree ? 2.2 : 1)))
+        const p50 = Math.round(p95 * 0.42)
+        return {
+          route,
+          n,
+          p50,
+          p95,
+          max: Math.round(p95 * 2.6),
+          totalMs: Math.round(n * p50 * 1.25),
+          refusees: route === 'POST /api/joueur/connexion' ? Math.max(1, Math.round(n * 0.15)) : 0,
+          enErreur: erreurs[route] ?? 0,
+        }
+      }).sort((a, b) => b.totalMs - a.totalMs)
+    // Ses douze tranches de cinq minutes, de quoi lire une heure : la même allure, un peu de bruit.
+    const tranchesDeLHeure = (heure: number, routes: number, base: number, invites: number, erreurs: number) =>
+      Array.from({ length: 12 }, (_, k) => {
+        const bruit = 0.8 + 0.4 * Math.abs(Math.sin(heure / 997 + k * 1.7))
+        return {
+          debut: heure + k * 5 * 60_000,
+          routes: { n: 22, p50: Math.round(routes * 0.4 * bruit), p95: Math.round(routes * bruit), max: Math.round(routes * 2.4 * bruit) },
+          base: { n: 12, p50: Math.round(base * 0.45 * bruit), p95: Math.round(base * bruit), max: Math.round(base * 2 * bruit) },
+          requetes: { reussies: Math.round(40 * bruit), redirigees: 4, refusees: 1, enErreur: k === 7 ? erreurs : 0 },
+          erreurs: k === 7 ? erreurs : 0,
+          charge: { n: 30, processeur: Math.round((1.2 + invites * 0.27 * bruit) * 10) / 10, boucleMaxMs: Math.round(18 + invites * 6 * bruit), memoireMaxMo: Math.round(150 + invites * 3.4), invitesMax: invites },
+          gels: { n: 0, maxMs: 0 },
+        }
+      })
+    // Le temps réel de chaque heure (l'onglet « Temps réel ») : le soir, la salle — ses réponses, ses gestes, ses
+    // téléphones qui se reconnectent, un chronomètre en retard à 21 h —, le jour, quelques écrans et l'heure qu'ils
+    // demandent.
+    const tempsReelDeLHeure = (heure: number, soiree: boolean, invites: number, heureDeParis: number) => {
+      const vague = 1 + 0.25 * Math.sin(heure / H / 1.3)
+      const message = (route: string, n: number, p95: number, refusees = 0, enErreur = 0) => {
+        const p50 = Math.round(p95 * 0.45)
+        return { route, n, p50, p95, max: Math.round(p95 * 3), totalMs: Math.round(n * p50 * 1.2), refusees, enErreur }
+      }
+      const parMessage = soiree
+        ? [
+            message('player:action', invites * 24, Math.round(14 * vague), Math.round(invites * 0.6)),
+            message('time:sync', invites * 9 + 12, 3),
+            message('player:join', Math.round(invites * 1.6), Math.round(42 * vague), 1),
+            message('party:watch', Math.round(invites * 1.8), Math.round(18 * vague)),
+            message('host:command', 70, Math.round(9 * vague)),
+            message('host:launch', 3, Math.round(120 * vague)),
+            message('host:endSession', 3, Math.round(260 * vague)),
+            message('host:scene', 6, 7),
+            message('host:hello', 4, Math.round(60 * vague)),
+            message('player:setTeam', Math.round(invites * 0.4), 11),
+            message('host:awardTeam', 2, 15),
+          ]
+        : invites > 0
+          ? [message('time:sync', 8, 3), message('party:watch', 3, 16)]
+          : []
+      return {
+        parMessage: parMessage.filter(m => m.n > 0).sort((a, b) => b.totalMs - a.totalMs),
+        tropTard: soiree ? Math.round(invites * 0.5) : 0,
+        connexions: soiree ? Math.round(invites * 1.7 + 4) : invites,
+        chronos: soiree ? { n: 60, enRetard: heureDeParis === 21 ? 2 : 0, maxMs: heureDeParis === 21 ? 1650 : Math.round(30 * vague) } : { n: 0, enRetard: 0, maxMs: 0 },
+      }
     }
     const vie = (id: string, debut: number, fin: number, version: string, pretEnMs: number, propre: boolean) => {
       unDemarrage.run(id, debut, pretEnMs, version, 'production', fin, propre ? fin : null)
@@ -437,6 +631,9 @@ try {
             connexions,
             requetes: { reussies: servies - refusees - enErreur - redirigees, redirigees, refusees, enErreur },
             ...(gels && { gels }),
+            parRoute: routesDeLHeure(heure, version, soiree, erreurs),
+            tranches: tranchesDeLHeure(heure, r.routes, base, invites, enErreur),
+            tempsReel: tempsReelDeLHeure(heure, soiree, invites, heureDeParis),
           }),
           heure,
         )
@@ -454,6 +651,11 @@ try {
     vie('hier-matin', a(6, 7, 2), arretNet, 'e4f5a6b', 1180, false)
     vie('hier-soir', arretNet + 15 * 60_000, a(6, 23, 59), 'e4f5a6b', 3920, true)
     vie('ce-matin', a(7, 7, 2), maintenant - 5 * 60_000, 'e4f5a6b', 1090, true)
+    // Trois sauvegardes de la base, une par semaine, la dernière avant-hier (la page « Base et miroir »).
+    const sauvegarde = permanente.prepare('INSERT INTO qg_sauvegardes (faite_le, tables, lignes, octets, duree_ms) VALUES (?, ?, ?, ?, ?)')
+    sauvegarde.run(maintenant - 2 * 24 * H - 3 * H, 63, 184_520, 41_200_000, 38_400)
+    sauvegarde.run(maintenant - 9 * 24 * H, 61, 171_904, 38_600_000, 35_100)
+    sauvegarde.run(maintenant - 16 * 24 * H, 60, 160_118, 35_900_000, 33_800)
     // Le quiz du jour en détail : les séries et les points des habitués, les
     // réponses d'aujourd'hui question par question — la quatrième, piège, où
     // une mauvaise réponse l'emporte —, des sabliers, le rappel du soir.
@@ -489,19 +691,21 @@ try {
       // soir : la tournée du banc, s'il tourne à 18 h, n'y touche pas.
       const telephone = permanente.prepare('INSERT INTO jour_rappels (endpoint, profile_id, session_id, p256dh, auth, vu_le, dernier_jour, soir) VALUES (?, ?, ?, ?, ?, ?, ?, 1)')
       for (let k = 0; k < 96; k++) telephone.run(`https://push.exemple/${k}`, `p-${k < 81 ? k : k - 15}`, `session-${k}`, 'cle', 'secret', maintenant, aujourdhui)
-      const tournee = permanente.prepare('INSERT INTO jour_rappels_tournees (jour, envoyes, finis, retires, echecs, faite_le) VALUES (?, ?, ?, ?, ?, ?)')
+      // Chaque soir, ses rappels touchés et ceux qui ont joué après lui (la revue du 4 novembre 2026, P2.1) : comptés,
+      // comme le serveur les compte le soir fini.
+      const tournee = permanente.prepare('INSERT INTO jour_rappels_tournees (jour, envoyes, finis, retires, echecs, ouverts, joues, faite_le) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
       const soirs = [
-        [87, 6, 2, 3],
-        [84, 9, 0, 2],
-        [80, 11, 1, 0],
-        [82, 7, 0, 1],
-        [79, 10, 2, 0],
-        [77, 12, 0, 0],
-        [75, 8, 1, 1],
+        [87, 6, 2, 3, 29, 31],
+        [84, 9, 0, 2, 21, 27],
+        [80, 11, 1, 0, 26, 30],
+        [82, 7, 0, 1, 19, 24],
+        [79, 10, 2, 0, 24, 26],
+        [77, 12, 0, 0, 22, 25],
+        [75, 8, 1, 1, 17, 21],
       ]
-      soirs.forEach(([envoyes, finis, retires, echecs], d) => {
+      soirs.forEach(([envoyes, finis, retires, echecs, ouverts, joues], d) => {
         const minuit = minuits[minuits.length - 2 - d]
-        tournee.run(jourDe(minuit + 12 * H), envoyes, finis, retires, echecs, minuit + 18 * H)
+        tournee.run(jourDe(minuit + 12 * H), envoyes, finis, retires, echecs, ouverts, joues, minuit + 18 * H)
       })
       // Les signalements d'aujourd'hui, par des habitués qui y ont répondu
       // (la page des signalements, le 14 octobre 2026) : la question piège —
@@ -703,10 +907,342 @@ try {
         }
       }
     }
+    // La page des joueurs (`/admin#joueurs`, le lot 6 du QG 2) : une audience
+    // qui a une histoire. Les habitués du quiz du jour sont là depuis cinq mois,
+    // les vingt-quatre joueurs nommés et les porteurs de légendaires depuis plus
+    // de trois — avant les cohortes, que leurs trente jours tous joués
+    // écraseraient ; Léa et Tom naissent aujourd'hui, chacun de sa page. Puis
+    // soixante-dix profils nés sur dix semaines : chaque semaine ses fidèles,
+    // ses curieux et ses passants d'un soir, revenus plus ou moins souvent
+    // ensuite — au quiz du jour et en campagne surtout, le soir et le week-end,
+    // les nés en soirée crédités de la leur —, chacun l'écran de sa naissance,
+    // sauf ceux d'avant le 4 novembre 2026, qui ne le disent pas. Les profils
+    // fantômes des trente jours (`p-…`) comptent aux joueurs, jamais aux
+    // segments ni aux cohortes : ils n'ont pas de fiche — et leurs trente jours
+    // font la marche du graphique des actifs.
+    {
+      const J = 24 * H
+      const nee = permanente.prepare('UPDATE profiles SET created_at = ? WHERE id = ?')
+      idsDesHabitues.forEach((id, i) => nee.run(maintenant - (150 + i * 3) * J, id))
+      joueurs.forEach((j, k) => nee.run(maintenant - (95 + k) * J, j.id))
+      permanente.prepare("UPDATE profiles SET created_at = ? WHERE id LIKE 'porteur-%'").run(maintenant - 100 * J)
+      permanente.prepare("UPDATE profiles SET origine = 'jour' WHERE login = 'lea'").run()
+      permanente.prepare("UPDATE profiles SET origine = 'salon' WHERE login = 'tom'").run()
+      const PRENOMS = [
+        'Agathe', 'Bastien', 'Céleste', 'Dorian', 'Elsa', 'Fabien', 'Garance', 'Hector', 'Irène', 'Joachim', 'Katia', 'Lucien', 'Margaux', 'Nils',
+        'Octave', 'Pauline', 'Quentin', 'Romane', 'Simon', 'Tess', 'Ulysse', 'Valentine', 'William', 'Yasmine', 'Zacharie', 'Apolline', 'Benoît',
+        'Clémence', 'Damien', 'Éloïse', 'Florent', 'Gwen', 'Hugues', 'Iris', 'Jérôme', 'Klara', 'Lazare', 'Maëlle', 'Noah', 'Ophélie', 'Pierre',
+        'Rachel', 'Solène', 'Théo', 'Ugo', 'Vianney', 'Wendy', 'Xavier', 'Yanis', 'Zélie', 'Anouk', 'Baptiste', 'Capucine', 'Diane', 'Émile',
+        'Fanny', 'Gilles', 'Héloïse', 'Ilan', 'Juliette', 'Kenza', 'Léon', 'Maxime', 'Nina', 'Olivier', 'Prune', 'Raphaël', 'Sarah', 'Tristan', 'Vera',
+      ]
+      const VISAGES = ['🦊', '🐸', '🦄', '🐙', '🐼', '🐯', '🦁', '🐨', '🐷', '🐶', '🐱', '🐵', '🦉', '🐢', '🐬', '🦋', '🐝', '🌻', '🍀', '🌙', '⭐', '🍒', '🍋', '🎈']
+      // L'écran de naissance, au poids d'une vraie semaine : l'entrée et la fin d'une soirée d'abord.
+      const ORIGINES = ['entree', 'entree', 'entree', 'fin-de-soiree', 'fin-de-soiree', 'soiree', 'accueil', 'accueil', 'jour', 'jour', 'campagne', 'cabinet', 'duels', 'salon']
+      const NEES_PAR_SEMAINE = [3, 6, 8, 7, 9, 6, 8, 7, 5, 11]
+      const profil = permanente.prepare("INSERT INTO profiles (id, login, name, avatar, password_hash, recovery_hash, created_at, origine) VALUES (?, ?, ?, ?, 'rendu', 'rendu', ?, ?)")
+      const sonQuiz = permanente.prepare('INSERT OR IGNORE INTO jour_parties (profile_id, jour, commencee_le, question, finie_le) VALUES (?, ?, ?, 10, ?)')
+      const saSerie = permanente.prepare("INSERT INTO campagne_series (id, profile_id, questions, position, vies, commencee_le, mode) VALUES (?, ?, '[]', 8, 3, ?, ?)")
+      const saSoiree = permanente.prepare("INSERT OR IGNORE INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at) VALUES (?, ?, 'rendu', 60, ?, ?)")
+      const detailDUneSoiree = JSON.stringify({ v: 3, gain: gainVide(), releve: { ...releveVide(), questions: 12, quizJoues: 1 } })
+      const lundi = lundiDe(jourDe(maintenant))
+      /** L'heure d'une partie : le soir surtout, le midi parfois, le week-end aussi l'après-midi. */
+      const heureDeJeu = (finDeSemaine: boolean) => {
+        const r = hasard()
+        if (r < 0.15) return 12 + hasard()
+        if (finDeSemaine && r < 0.45) return 14 + hasard() * 4
+        if (r < 0.25) return 8 + hasard() * 2
+        return 18 + hasard() * 5
+      }
+      let c = 0
+      let numero = 0
+      for (let semaine = 0; semaine < NEES_PAR_SEMAINE.length; semaine++) {
+        const debut = jourAvant(lundi, 7 * semaine)
+        // Les semaines récentes retiennent un peu mieux : la proposition d'il y a deux mois a servi.
+        const qualite = 0.7 + 0.035 * (NEES_PAR_SEMAINE.length - 1 - semaine)
+        for (let i = 0; i < NEES_PAR_SEMAINE[semaine]; i++, c++) {
+          const sorte = hasard()
+          const fidele = sorte < 0.25
+          const passant = sorte >= 0.7
+          // Le goût de chacun : le quiz du jour, la campagne, ou un peu des deux et du Cabinet.
+          const gout = hasard()
+          const modeDUnePartie = () => {
+            const r = hasard()
+            if (gout < 0.4) return r < 0.8 ? 'jour' : 'serie'
+            if (gout < 0.75) return r < 0.7 ? 'serie' : r < 0.85 ? 'cabinet' : 'jour'
+            return r < 0.4 ? 'jour' : r < 0.75 ? 'serie' : 'cabinet'
+          }
+          const origine = ORIGINES[Math.floor(hasard() * ORIGINES.length)]
+          const enSoiree = origine === 'entree' || origine === 'soiree' || origine === 'fin-de-soiree'
+          // Né en soirée : un vendredi ou un samedi soir ; sinon n'importe quel jour, à une heure de jeu.
+          let jourDeNaissance = enSoiree ? 4 + Math.floor(hasard() * 2) : Math.floor(hasard() * 7)
+          let quand = minuitDuJour(jourAvant(debut, -jourDeNaissance)) + (enSoiree ? 21 + hasard() * 1.5 : heureDeJeu(jourDeNaissance >= 5)) * H
+          // Cette semaine, personne ne naît demain : le jour de naissance recule jusqu'à aujourd'hui, ou plus tôt.
+          while (quand > maintenant - 30 * 60_000 && jourDeNaissance > 0) {
+            jourDeNaissance--
+            quand = minuitDuJour(jourAvant(debut, -jourDeNaissance)) + 9 * H
+          }
+          if (quand > maintenant - 30 * 60_000) continue
+          const id = `cohorte-${c}`
+          // Ceux d'avant le 4 novembre 2026 ne disent pas d'où ils viennent — ici, ceux d'il y a plus de trois semaines.
+          profil.run(id, `cohorte${c}`, PRENOMS[c % PRENOMS.length], VISAGES[(c * 7) % VISAGES.length], quand, quand < maintenant - 21 * J ? null : origine)
+          const jouer = (instant: number) => {
+            if (instant > maintenant - 60_000) return
+            const mode = modeDUnePartie()
+            if (mode === 'jour') sonQuiz.run(id, jourDe(instant), instant, instant + 4 * 60_000)
+            else saSerie.run(`cohorte-partie-${numero++}`, id, instant, mode)
+          }
+          // Le soir de sa naissance : sa soirée, ou sa première partie.
+          if (enSoiree) saSoiree.run(id, `${jourDe(quand)}-rendu`, detailDUneSoiree, Math.min(quand + 90 * 60_000, maintenant - 60_000))
+          else if (hasard() < 0.9) jouer(quand + 5 * 60_000)
+          // Puis chaque semaine qui suit, revenu ou non, plus souvent s'il est fidèle.
+          for (let apres = 0; apres <= semaine; apres++) {
+            const chance = apres === 0 ? (fidele ? 0.9 : passant ? 0.1 : 0.5) : qualite * (fidele ? 0.88 : passant ? 0.14 * 0.7 ** (apres - 1) : 0.55 * 0.78 ** (apres - 1))
+            if (hasard() >= chance) continue
+            const lundiDeLaSemaine = jourAvant(debut, -7 * apres)
+            const jours = fidele ? 2 + Math.floor(hasard() * 4) : passant ? 1 : 1 + Math.floor(hasard() * 2)
+            for (let k = 0; k < jours; k++) {
+              const jourDeLaSemaine = Math.floor(hasard() * 7)
+              const instant = minuitDuJour(jourAvant(lundiDeLaSemaine, -jourDeLaSemaine)) + heureDeJeu(jourDeLaSemaine >= 5) * H
+              if (instant > quand) jouer(instant)
+            }
+          }
+        }
+      }
+    }
+    // Le Cabinet de curiosités : trente jours de traversées — gagnées, perdues, abandonnées, en route —, écrites comme
+    // le serveur les écrit : leur départ tracé, leurs gestes joués au pli, chaque épreuve conclue à ses étoiles — tirées
+    // de la force du joueur, de l'acte et du contenu —, au temps de ses manches et à son « Quitter ? » ; le résumé que
+    // le lot de leur fin écrit, sauf les plus vieilles, d'avant la colonne, que la page résume elle-même ; leurs parties
+    // et les pièces de leurs Épingles, de leurs Indices et de leurs Répliques, sur le vrai contenu. Une seule en route par
+    // joueur : celle de quatre d'entre eux, une en pleine épreuve, une bloquée depuis douze jours — rendue plus bas par la
+    // vraie route —, et une que ce code ne relit pas.
+    {
+      const ecrite = permanente.prepare('INSERT INTO cabinet_traversees (id, profile_id, depart, commencee_le, finie_le, issue, legendaire, resume) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      const sonGeste = permanente.prepare('INSERT INTO cabinet_traversee_gestes (traversee_id, rang, geste, fait_le, uid) VALUES (?, ?, ?, ?, ?)')
+      const saPartie = permanente.prepare("INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode) VALUES (?, ?, '[]', ?, 0, ?, ?, ?, 'cabinet')")
+      const saPiece = permanente.prepare('INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, composee) VALUES (?, ?, ?, 0, ?, ?, ?)')
+      const contenu = await contenuDuCabinetEnTranches()
+      // Douze de chaque, chacun sa difficulté : les lieux les plus durs à placer se lisent en tête de leur liste.
+      const parJeu = {
+        epingle: contenu.lieux.slice(0, 12).map(l => idDuLieu(l.id)),
+        indices: contenu.fiches.slice(0, 12).map(f => idDeLaFiche(f.id)),
+        replique: contenu.repliques.slice(0, 12).map(r => idDeLaReplique(r.id)),
+      } as const
+      const difficulte = (k: number) => ((k * 7) % 12) / 6 - 0.8
+      const logit = (p: number) => Math.log(p / (1 - p))
+      const sigmoide = (x: number) => 1 / (1 + Math.exp(-x))
+      const battre = <T>(xs: T[]): T[] => xs.map(x => [hasard(), x] as const).sort((a, b) => a[0] - b[0]).map(([, x]) => x)
+      let parties = 0
+      const inventer = (
+        id: string,
+        profil: string,
+        force: number,
+        debut: number,
+        { enRoute = false, arret = 0, avantLaColonne = false }: { enRoute?: boolean; arret?: number; avantLaColonne?: boolean } = {},
+      ) => {
+        const depart: DepartDeLaTraversee = { v: VERSION_DE_LA_TRAVERSEE, jour: jourDe(debut), actes: tracerLaCarte(hasard, choisirLesGardiens(hasard, new Set(), false), { epingle: ['Rome'], frise: ['Rome'] }) }
+        const ecrits: GesteDeLaTraverseeEcrit[] = []
+        let e: EtatDeLaTraversee = etatDeLaTraversee(depart, [])
+        let t = debut
+        const jouer = (g: GesteDeLaTraversee): boolean => {
+          const apres = jouerUnGesteDeLaTraversee(depart, e, g, t)
+          if (typeof apres === 'string') return false
+          ecrits.push({ geste: g, faitLe: t })
+          e = apres
+          // Une traversée se reprend : parfois le lendemain.
+          t += hasard() < 0.012 ? 20 * H : 40_000 + Math.floor(hasard() * 90_000)
+          return true
+        }
+        const cartes = battre(CARTES.map(c => c.cle)).slice(0, 3)
+        jouer({ quoi: 'cartes', cartes })
+        let enCours: string | null = null
+        for (let pas = 0; pas < 90 && !e.fin && t < maintenant - 60_000; pas++) {
+          if (enRoute && pas >= arret) break
+          if (!enRoute && hasard() < (force < 0 ? 0.012 : 0.004)) {
+            jouer({ quoi: 'abandonner' })
+            break
+          }
+          if (e.ameliorations > 0) {
+            const carte = offrables(depart, e)[0]
+            if (!carte || !jouer({ quoi: 'ameliorer', carte: carte.cle })) break
+            continue
+          }
+          if (e.ou.sorte === 'legendaire') {
+            jouer({ quoi: 'legendaire', gardien: e.vaincus[Math.floor(hasard() * e.vaincus.length)] })
+            break
+          }
+          const ici = atteignables(depart, e).map(x => etapeDe(depart, x)!)
+          if (ici.length === 0) break
+          const etape = ici.find(x => x.sorte === 'epreuve' && hasard() < 0.75) ?? ici[Math.floor(hasard() * ici.length)]
+          if (etape.sorte === 'coffre' || etape.sorte === 'marchand' || etape.sorte === 'depart') {
+            if (!jouer({ quoi: 'aller', etape: etape.id })) break
+            // Chez le marchand, un cœur quand il en manque et que l'or suffit — refusé, il repart sans.
+            if (etape.sorte === 'marchand' && e.coeurs < 3) jouer({ quoi: 'acheter', article: 'coeur' })
+            continue
+          }
+          const partie = `${id}-p${++parties}`
+          if (!jouer({ quoi: 'epreuve', etape: etape.id, partie, ...(etape.choix && { theme: 0 }) })) break
+          const jeu = (etape.sorte === 'gardien' ? jeuDeLAssaut(depart.actes[e.acte], e.assauts) : etape.jeu) ?? 'pari'
+          const commencee = t
+          // La dernière d'une traversée en route peut rester en pleine épreuve.
+          if (enRoute && pas >= arret - 1 && hasard() < 0.6) {
+            saPartie.run(partie, profil, 1, 0, commencee, null)
+            enCours = partie
+            break
+          }
+          const quittee = etape.sorte === 'epreuve' && hasard() < 0.07
+          const manches = [0, 1, 2].map(k => {
+            if (quittee && k > 0) return { etoiles: null, misee: false }
+            const pool = (parJeu as Record<string, readonly string[]>)[jeu]
+            const contenuJoue = pool ? Math.floor(hasard() * pool.length) : -1
+            const reussie = hasard() < sigmoide(logit(0.84) + 0.8 * force - 0.25 * e.acte - (etape.sorte === 'gardien' ? 0.2 : 0) - (contenuJoue >= 0 ? 0.6 * difficulte(contenuJoue) : 0))
+            const etoiles = reussie ? 1 + (hasard() < 0.6 ? 1 : 0) + (hasard() < 0.35 ? 1 : 0) : 0
+            if (pool) {
+              const juste = etoiles >= 2
+              const composee =
+                jeu === 'epingle' ? `46.2,2.2|${Math.round(juste ? 15 + hasard() * 60 : 140 + hasard() * 380)}` : jeu === 'indices' ? `${juste ? 1 + Math.floor(hasard() * 3) : 5}|${Math.floor(hasard() * 3)}` : null
+              saPiece.run(partie, k, pool[contenuJoue], juste ? 1 : 0, commencee + (k + 1) * 30_000, composee)
+            }
+            return { etoiles, misee: false }
+          })
+          const jouees = manches.filter(m => m.etoiles !== null).length
+          const durees = manches.map(m => (m.etoiles === null ? null : 12_000 + Math.floor(hasard() * 55_000)))
+          const aides = { eclairer: cartes.includes('coup-d-oeil') && hasard() < 0.5 ? 1 : 0, changer: cartes.includes('echange') && hasard() < 0.3 ? 1 : 0, temps: cartes.includes('concentration') ? jouees : 0 }
+          saPartie.run(partie, profil, jouees, manches.filter(m => (m.etoiles ?? 0) >= 2).length, commencee, commencee + jouees * 50_000)
+          if (!jouer({ quoi: 'conclure', partie, manches, aides, durees, ...(quittee && { quittee: true as const }) })) break
+        }
+        // Une traversée finie va au bout : laissée sans fin passé le temps du rendu, elle s'abandonne — jamais dans le futur.
+        t = Math.min(t, maintenant - 30_000)
+        if (!enRoute && !e.fin) jouer({ quoi: 'abandonner' })
+        const fin = e.fin
+        const issue = fin && fin.issue !== 'rendue' ? fin.issue : null
+        ecrite.run(
+          id,
+          profil,
+          JSON.stringify(depart),
+          debut,
+          fin ? fin.le : null,
+          issue,
+          fin?.legendaire ?? null,
+          fin && !avantLaColonne ? JSON.stringify(resumeDeLaTraversee(depart, ecrits)) : null,
+        )
+        ecrits.forEach((g, k) => sonGeste.run(id, k + 1, JSON.stringify(g.geste), g.faitLe, `rendu-${id}-${k}`))
+        return { id, profil, enCours }
+      }
+      for (const [k, j] of joueurs.entries()) {
+        const combien = 1 + ((k * 7) % 5)
+        for (let i = 0; i < combien; i++) {
+          const derniere = i === combien - 1
+          // Une en route pour quatre joueurs : la dernière, et leurs autres traversées finies avant qu'elle parte — une à la
+          // fois ; Lina (k = 7) s'est arrêtée il y a douze jours, et n'a rien commencé depuis.
+          const enRoute = derniere && k % 6 === 1
+          const jour = k === 7 ? (derniere ? 17 : 2 + i * 4) : Math.min(k % 6 === 1 ? 26 : 28, (k * 3 + i * 6) % 29)
+          const debut = enRoute && k !== 7 ? maintenant - (2 + k) * H : minuits[jour] + (9 + ((k + i) % 12)) * H
+          const lue = inventer(`tr-${k}-${i}`, j.id, j.force, debut, { enRoute, arret: k === 7 ? 4 : 3 + (k % 8), avantLaColonne: jour < 8 })
+          if (k === 7 && derniere) traverseeBloquee = lue
+        }
+      }
+      // Une traversée qu'un serveur d'une version à venir a commencée : ce code ne la relit pas.
+      ecrite.run('tr-illisible', joueurs[5].id, JSON.stringify({ v: 99 }), maintenant - 26 * H, null, null, null, null)
+      sonGeste.run('tr-illisible', 1, JSON.stringify({ quoi: 'cartes', cartes: ['parade', 'cagnotte', 'panacee'] }), maintenant - 26 * H, 'rendu-illisible')
+    }
     // Le journal d'hier : deux gestes, pour voir les jours se ranger.
     const geste = permanente.prepare("INSERT INTO qg_gestes (id, quand, qui, sorte, route, resume, cible) VALUES (?, ?, 'banc', ?, 'POST /api/admin/x', ?, NULL)")
     geste.run('hier-1', minuits[minuits.length - 1] - 3 * H, 'salon', 'Espace « Chez Bob » renommé « Chez Robert », adresse /chez-bob → /chez-robert')
     geste.run('hier-2', minuits[minuits.length - 1] - 2 * H, 'catalogue', 'Copie publiée au catalogue : « Les années 80 en chansons », de Nadia')
+    // L'effet de ce que le QG envoie et les repères des courbes (la revue du 4 novembre 2026, P2.1 et P2.2 ;
+    // `SEULEMENT=effets`) : une annonce à tous il y a douze jours — sa semaine finie, un vote —, une aux endormis il y a
+    // quatre jours, en cours, et une ce matin ; une affiche du Cabinet il y a seize jours, finie, une de la campagne il y
+    // a cinq jours, retirée depuis — l'accueil des autres photos ne la montre pas —, et leurs visiteurs ; la page du quiz
+    // du jour fermée puis rouverte pendant la panne d'il y a quinze jours. Chacun au journal sous sa vraie route, comme
+    // ses gestes l'y écrivent ; la mémoire les lit au premier passage de la page qui les montre.
+    {
+      const J = 24 * H
+      const auJournal = permanente.prepare("INSERT INTO qg_gestes (id, quand, qui, sorte, route, resume, cible) VALUES (?, ?, 'banc', ?, ?, ?, ?)")
+      const profilsLe = (le: number) => (permanente.prepare('SELECT COUNT(*) AS n FROM profiles WHERE created_at <= ? AND disabled_at IS NULL').get(le) as { n: number }).n
+      const annonce = permanente.prepare('INSERT INTO qg_annonces (id, message, confettis, destinataires, created_at) VALUES (?, ?, ?, ?, ?)')
+      const aTous = minuits[minuits.length - 13] + 11 * H
+      const duCabinet = 'Le Cabinet de curiosités est ouvert à tous ! Qu’y préférez-vous ?'
+      annonce.run('annonce-cabinet', duCabinet, 50, profilsLe(aTous), aTous)
+      permanente
+        .prepare("INSERT INTO qg_annonce_questions (annonce_id, sorte, choix, recompense, close_le) VALUES (?, 'vote', ?, 10, NULL)")
+        .run('annonce-cabinet', JSON.stringify(['Les épreuves', 'Les cartes', 'Les gardiens']))
+      const vote = permanente.prepare('INSERT INTO qg_annonce_reponses (annonce_id, profile_id, reponse, created_at) VALUES (?, ?, ?, ?)')
+      joueurs.slice(0, 17).forEach((j, k) => vote.run('annonce-cabinet', j.id, String(k % 4 === 3 ? 0 : k % 3), aTous + (k + 1) * 47 * 60_000))
+      auJournal.run('repere-annonce-cabinet', aTous, 'annonce', 'POST /api/admin/annonces', `Annonce à ${profilsLe(aTous)} profils : « ${duCabinet} » — 50 confettis chacun — avec un vote, 10 confettis par réponse`, 'annonce-cabinet')
+      // Aux endormis, il y a quatre jours : les profils dont la dernière partie datait de deux à quatre semaines ; un sur
+      // trois revient dans les trois jours finis qui suivent.
+      const auxEndormis = minuits[minuits.length - 5] + 10 * H
+      const endormis = (
+        permanente
+          .prepare(
+            `SELECT id FROM profiles p WHERE p.created_at < ? AND p.disabled_at IS NULL AND (
+               SELECT MAX(t) FROM (
+                 SELECT MAX(commencee_le) AS t FROM jour_parties WHERE profile_id = p.id AND commencee_le < ?
+                 UNION ALL SELECT MAX(commencee_le) FROM campagne_series WHERE profile_id = p.id AND commencee_le < ?
+               )
+             ) BETWEEN ? AND ?`,
+          )
+          .all(auxEndormis - 7 * J, auxEndormis, auxEndormis, auxEndormis - 29 * J, auxEndormis - 14 * J) as { id: string }[]
+      ).map(r => r.id)
+      if (endormis.length > 0) {
+        const message = 'Tu nous manques ! Une nouvelle saison de la campagne t’attend.'
+        annonce.run('annonce-endormis', message, 0, endormis.length, auxEndormis)
+        permanente.prepare("INSERT INTO qg_annonce_segments (annonce_id, segment) VALUES (?, 'endormis')").run('annonce-endormis')
+        const destinataire = permanente.prepare('INSERT INTO qg_annonce_destinataires (annonce_id, profile_id) VALUES (?, ?)')
+        const revient = permanente.prepare('INSERT OR IGNORE INTO jour_parties (profile_id, jour, commencee_le, question, finie_le) VALUES (?, ?, ?, 10, ?)')
+        endormis.forEach((id, k) => {
+          destinataire.run('annonce-endormis', id)
+          if (k % 3 !== 0) return
+          const quand = minuits[minuits.length - 4 + (Math.floor(k / 3) % 3)] + 19 * H
+          revient.run(id, jourDe(quand), quand, quand + 4 * 60_000)
+        })
+        auJournal.run('repere-annonce-endormis', auxEndormis, 'annonce', 'POST /api/admin/annonces', `Annonce aux endormis (${endormis.length} profils) : « ${message} »`, 'annonce-endormis')
+      }
+      const ceMatin = Math.min(maintenant - 2 * H, minuits[minuits.length - 1] + 9 * H)
+      const merci = 'Merci d’avoir été si nombreux au quiz du jour hier soir !'
+      annonce.run('annonce-du-jour', merci, 0, profilsLe(ceMatin), ceMatin)
+      auJournal.run('repere-annonce-du-jour', ceMatin, 'annonce', 'POST /api/admin/annonces', `Annonce à ${profilsLe(ceMatin)} profils : « ${merci} »`, 'annonce-du-jour')
+      const affiche = permanente.prepare('INSERT INTO qg_affiches (id, page, titre, phrase, confettis, created_at, fin, retiree_le) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      const visite = permanente.prepare('INSERT INTO profile_affiches (affiche_id, profile_id, ouverte_le) VALUES (?, ?, ?)')
+      const cabinetPose = minuits[minuits.length - 17] + 12 * H
+      affiche.run('affiche-cabinet', 'cabinet', DESTINATIONS.cabinet.titre, DESTINATIONS.cabinet.phrase, 20, cabinetPose, cabinetPose + 14 * J, null)
+      joueurs.slice(4, 20).forEach((j, k) => visite.run('affiche-cabinet', j.id, cabinetPose + (2 + k * 9) * H))
+      auJournal.run(
+        'repere-affiche-cabinet',
+        cabinetPose,
+        'annonce',
+        'POST /api/admin/affiches',
+        `Affiche posée : ${DESTINATIONS.cabinet.nom} — « ${DESTINATIONS.cabinet.titre} », 14 jours — 20 confettis à la première visite`,
+        'affiche-cabinet',
+      )
+      const campagnePose = minuits[minuits.length - 6] + 9 * H
+      affiche.run('affiche-campagne', 'campagne', DESTINATIONS.campagne.titre, DESTINATIONS.campagne.phrase, 0, campagnePose, campagnePose + 14 * J, campagnePose + 3 * J)
+      joueurs.slice(0, 9).forEach((j, k) => visite.run('affiche-campagne', j.id, campagnePose + (1 + k * 7) * H))
+      auJournal.run('repere-affiche-campagne', campagnePose, 'annonce', 'POST /api/admin/affiches', `Affiche posée : ${DESTINATIONS.campagne.nom} — « ${DESTINATIONS.campagne.titre} », 14 jours`, 'affiche-campagne')
+      const pendantLaPanne = maintenant - 15 * J - 2 * H
+      auJournal.run('repere-maintenance', pendantLaPanne + 20 * 60_000, 'maintenance', 'PUT /api/admin/maintenance/pages/:page', 'Page mise en maintenance : Le quiz du jour', 'jour')
+      auJournal.run('repere-reouverture', pendantLaPanne + 130 * 60_000, 'maintenance', 'PUT /api/admin/maintenance/pages/:page', 'Page rouverte aux joueurs : Le quiz du jour', 'jour')
+    }
+    // Les modes côte à côte (le QG 2, lot 5) : ce que la réussite et la durée d'une partie lisent des parties inventées —
+    // leurs bonnes réponses, de la moitié aux quatre cinquièmes, et leur fin, trois à neuf minutes après leur début, une
+    // sur dix laissée en route ; les QCM répondus du relevé des soirées, dix, de quatre à neuf justes. Ni les duels ni
+    // les épreuves des sentiers, que leurs pages lisent à leur façon : les leurs ont déjà ce qu'il faut, ou s'en passent.
+    permanente
+      .prepare(
+        `UPDATE campagne_series SET justes = position * (5 + rowid % 4) / 10,
+           finie_le = CASE WHEN rowid % 10 = 0 THEN NULL ELSE min(commencee_le + (3 + rowid % 7) * 60000, ?) END
+         WHERE (id LIKE 's-%' OR id LIKE 'j-%') AND mode NOT IN ('duel', 'rencontre', 'sentier')`,
+      )
+      .run(maintenant - 60_000)
+    permanente.prepare('UPDATE jour_parties SET justes = min(question, 4 + rowid % 6) WHERE justes = 0').run()
+    permanente.prepare(`UPDATE profile_xp SET detail = json_set(detail, '$.releve.qcm', 10, '$.releve.justes', 4 + rowid % 6) WHERE space_id = 'rendu'`).run()
+    // La réussite d'une soirée se compte avec elle, sur les lignes de ses profils (`lignesDesModes`) : celles des joueurs
+    // inventés rejoignent la soirée archivée de leur jour, quand il y en a une — sans quoi elles ne disent celle d'aucune.
+    const rejoindre = permanente.prepare("UPDATE OR IGNORE profile_xp SET space_id = ?, soiree_id = ? WHERE space_id = 'rendu' AND soiree_id = ?")
+    for (const s of permanente.prepare('SELECT space_id, id, held_at FROM soirees').all() as { space_id: string; id: string; held_at: number }[]) {
+      rejoindre.run(s.space_id, s.id, `${jourDe(s.held_at)}-rendu`)
+    }
   }
   permanente.close()
 
@@ -714,7 +1250,13 @@ try {
     nom: string,
     largeur: number,
     hauteur: number,
-    { pleine = true, theme, adresse = '/admin', participations = false }: { pleine?: boolean; theme?: string; adresse?: string; participations?: boolean } = {},
+    {
+      pleine = true,
+      theme,
+      adresse = '/admin',
+      participations = false,
+      geste,
+    }: { pleine?: boolean; theme?: string; adresse?: string; participations?: boolean; geste?: (page: any) => Promise<void> } = {},
   ) => {
     const contexte = await navigateur.newContext({ viewport: { width: largeur, height: hauteur }, deviceScaleFactor: largeur < 600 ? 2 : 1 })
     const [cle, valeur] = admin.split('=')
@@ -723,12 +1265,25 @@ try {
     // Sans écran, Chromium refuse les notifications quoi qu'on lui accorde : la page des erreurs dirait
     // « refusées ». Un téléphone neuf, lui, n'a encore rien répondu — c'est lui qu'on photographie.
     await page.addInitScript("try { Object.defineProperty(Notification, 'permission', { get: () => 'default' }) } catch {}")
+    // Le thème que porte le profil, retenu par ce navigateur comme après une visite de son accueil (`themeJoueur.ts`) :
+    // le QG, salle de contrôle nocturne, ne doit pas le prendre (le choix du 4 novembre 2026).
+    if (theme) await page.addInitScript(`try { localStorage.setItem('quizz.theme-joueur', ${JSON.stringify(theme)}) } catch {}`)
     page.on('pageerror', (e: Error) => console.error('[page]', e.message))
     await page.goto(`${banc.url}${adresse}`)
     await page.waitForSelector('.qg-tete')
     if (adresse === '/admin') await page.waitForSelector('.qg-graphe svg, .qg-participations .muted', { timeout: 15000 })
     if (adresse === '/admin#soirees') await page.waitForSelector('.qg-barres', { timeout: 15000 })
     if (adresse === '/admin#serveur') await page.waitForSelector('.qg-graphe svg', { timeout: 15000 })
+    // Un onglet dans l'adresse (`/admin#serveur/gels`) : la page s'ouvre sur lui.
+    if (adresse.startsWith('/admin#serveur/')) await page.waitForSelector('.qg-panneau', { timeout: 15000 })
+    if (adresse === '/admin#base') await page.waitForSelector('#base-sauvegardes', { timeout: 15000 })
+    if (adresse === '/admin#alertes') await page.waitForSelector('#alertes-incidents', { timeout: 15000 })
+    if (adresse === '/admin#telephones') await page.waitForSelector('#telephones-pages', { timeout: 15000 })
+    // Le direct : ses courbes, puis deux messages du flux — le premier porte tout, le suivant ce qui a bougé.
+    if (adresse === '/admin#direct') {
+      await page.waitForSelector('.qg-direct-graphes svg', { timeout: 15000 })
+      await page.waitForTimeout(2500)
+    }
     if (adresse === '/admin#erreurs') await page.waitForSelector('section[aria-labelledby="erreurs-telephone"] .admin-gestes, section[aria-labelledby="erreurs-telephone"] .qg-erreurs-etat', { timeout: 15000 })
     if (adresse === '/admin#jour') await page.waitForSelector('.qg-question', { timeout: 15000 })
     if (adresse === '/admin#campagne') {
@@ -745,27 +1300,507 @@ try {
       await page.waitForSelector('section[aria-labelledby="economie-circulation"] .qg-pistes', { timeout: 15000 })
     }
     if (adresse === '/admin#signalements') await page.waitForSelector('.signalement-carte', { timeout: 15000 })
+    // Son premier passage écrit d'abord la mémoire, aussi loin que les journaux remontent : un peu plus long.
+    if (adresse === '/admin#joueurs') await page.waitForSelector('.qg-joueurs-page', { timeout: 60000 })
+    if (adresse === '/admin#cabinet') await page.waitForSelector('section[aria-labelledby="cabinet-par-jour"] .qg-graphe svg', { timeout: 30000 })
     if (adresse === '/admin#activite') {
       await page.waitForSelector('.qg-multiple svg', { timeout: 15000 })
       await page.waitForSelector('.qg-assidu-barre', { timeout: 15000 })
     }
-    // « Jour par jour » compte d'office les joueurs ; ses participations, empilées par mode, d'un toucher.
+    // Le graphique compte d'office les joueurs ; ses participations, empilées par mode, d'un toucher.
     if (participations) await page.click('.qg-participations button:has-text("Participations")')
-    if (theme) await page.evaluate(`document.documentElement.setAttribute('data-theme', ${JSON.stringify(theme)})`)
+    if (geste) await geste(page)
     await page.waitForTimeout(800)
-    // Rien ne dépasse en largeur : la page ne défile qu'en hauteur.
+    if (theme) {
+      const porte = (await page.evaluate('document.documentElement.dataset.theme ?? null')) as string | null
+      if (porte) console.error(`[${nom}] le QG porte le thème du profil (${porte}) : il devrait rester nocturne`)
+    }
+    // Rien ne dépasse en largeur : la page ne défile qu'en hauteur. Si elle déborde, ce qui la pousse — les
+    // éléments les plus profonds qui passent le bord sans qu'un cadre qui défile les retienne.
     const deborde = (await page.evaluate('document.documentElement.scrollWidth - document.documentElement.clientWidth')) as number
-    if (deborde > 0) console.error(`[${nom}] la page déborde de ${deborde} px en largeur`)
+    if (deborde > 0) console.error(`[${nom}] la page déborde de ${deborde} px en largeur : ${(await page.evaluate(CE_QUI_DEBORDE)).join(' · ')}`)
     await page.screenshot({ path: path.join(sortie, `${nom}.png`), fullPage: pleine })
     console.log(path.join(sortie, `${nom}.png`))
     await contexte.close()
   }
 
+  if (photo('poste')) {
   await photographier('1-telephone', 360, 640)
+  // Le premier écran, tel qu'il s'ouvre : « À traiter » avant l'état, la barre du QG en bas.
+  await photographier('1a-telephone-premier-ecran', 360, 640, { pleine: false })
+  // « Pages », dans la barre du bas, ouvre la feuille tirée du rail ; les voyants au vert, repliés, se déplient.
+  await photographier('1b-telephone-pages', 360, 640, { pleine: false, geste: page => page.click('.qg-pages') })
+  await photographier('1c-telephone-voyants', 360, 640, { geste: page => page.click('.qg-etat-deplier') })
+  // La période, dans son bouton : sa feuille, puis sept jours.
+  await photographier('1d-telephone-sept-jours', 360, 640, {
+    geste: async page => {
+      await page.click('.qg-periode-courte')
+      await page.click('.qg-periodes-feuille button:has-text("Les sept derniers jours")')
+    },
+  })
+  await photographier('1e-telephone-periode', 360, 640, { pleine: false, geste: page => page.click('.qg-periode-courte') })
+  // « À traiter », de la barre du bas : la liste, de n'importe quelle page.
+  await photographier('1f-telephone-a-traiter', 360, 640, { pleine: false, adresse: '/admin#serveur', geste: page => page.click('.qg-bas button:has-text("À traiter")') })
   await photographier('2-ordinateur-1366', 1366, 768)
+  // Le premier écran du portable : ce qui attend un geste en colonne de droite, sans défiler.
+  await photographier('2a-ordinateur-1366-premier-ecran', 1366, 768, { pleine: false })
+  // La pastille de la barre ouvre « À traiter » de n'importe quelle page ; le rail replié tient dans l'écran.
+  await photographier('2e-ordinateur-a-traiter', 1366, 768, { pleine: false, adresse: '/admin#telephones', geste: page => page.click('.qg-commande .qg-etat-pastille') })
+  await photographier('2b-ordinateur-une-heure', 1366, 768, { geste: page => page.click('.qg-periodes button:has-text("1 h")') })
+  await photographier('2c-ordinateur-sept-jours-compare', 1366, 768, {
+    geste: async page => {
+      await page.click('.qg-periodes button:has-text("7 j")')
+      await page.click('.qg-bascule')
+      // Le dernier jour survolé : l'infobulle, la valeur d'abord, la période d'avant dessous.
+      const cibles = await page.$$('.qg-participations .qg-graphe-cible')
+      await cibles.at(-3)?.hover()
+    },
+  })
+  await photographier('2d-palette', 1366, 768, {
+    pleine: false,
+    geste: async page => {
+      await page.keyboard.press('Control+K')
+      await page.keyboard.type('eco')
+    },
+  })
   await photographier('3-ordinateur-1920', 1920, 1080)
-  await photographier('4-ordinateur-ivoire', 1366, 768, { theme: 'ivoire' })
-  await photographier('5-telephone-ivoire', 360, 640, { theme: 'ivoire' })
+  await photographier('3b-ordinateur-1920-trente-jours', 1920, 1080, { geste: page => page.click('.qg-periodes button:has-text("30 j")') })
+  await photographier('4-ordinateur-sous-ivoire', 1366, 768, { theme: 'ivoire' })
+  await photographier('5-telephone-sous-ivoire', 360, 640, { theme: 'ivoire' })
+  }
+  // « Le serveur » du QG 2 : ses quatre onglets sur la période de la barre — les signaux sur une heure, la table des
+  // routes et la feuille de la plus coûteuse, les versions (la mise en ligne qui ralentit le Cabinet), ce qui gèle.
+  if (photo('serveur')) {
+    const surLeServeur = (geste?: (page: any) => Promise<void>) => ({ adresse: '/admin#serveur', geste })
+    await photographier('70-serveur-signaux', 1366, 768, surLeServeur())
+    await photographier('71-serveur-une-heure', 1366, 768, surLeServeur(page => page.click('.qg-periodes button:has-text("1 h")')))
+    await photographier('72-serveur-routes', 1366, 768, surLeServeur(page => page.click('#serveur-onglet-routes')))
+    await photographier('73-serveur-route-feuille', 1366, 768, {
+      ...surLeServeur(async page => {
+        await page.click('#serveur-onglet-routes')
+        await page.click('.qg-table tbody tr:first-child .qg-route')
+      }),
+      pleine: false,
+    })
+    await photographier(
+      '74-serveur-versions',
+      1366,
+      768,
+      surLeServeur(async page => {
+        await page.click('.qg-periodes button:has-text("7 j")')
+        await page.waitForTimeout(600)
+        await page.click('#serveur-onglet-versions')
+      }),
+    )
+    await photographier('75-serveur-gels', 1366, 768, surLeServeur(page => page.click('#serveur-onglet-gels')))
+    // Le temps réel : la soirée en cours du script a fait parler ses téléphones et son écran.
+    await photographier('75b-serveur-temps-reel', 1366, 768, surLeServeur(page => page.click('#serveur-onglet-temps-reel')))
+    await photographier('75c-serveur-temps-reel-telephone', 360, 640, surLeServeur(page => page.click('#serveur-onglet-temps-reel')))
+    // L'onglet dans l'adresse : une alerte « Gel long » ouvre « Ce qui gèle », pas les Signaux.
+    await photographier('75d-serveur-gels-par-l-adresse', 1366, 768, { adresse: '/admin#serveur/gels', pleine: false })
+    await photographier('76-serveur-routes-1920', 1920, 1080, surLeServeur(page => page.click('#serveur-onglet-routes')))
+    await photographier('77-serveur-routes-telephone', 360, 640, surLeServeur(page => page.click('#serveur-onglet-routes')))
+    await photographier('78-serveur-signaux-telephone', 360, 640, surLeServeur())
+  }
+  // « Base et miroir » : Turso et son quota, le miroir de chaque salon, les sauvegardes.
+  if (photo('base')) {
+    await photographier('80-base', 1366, 768, { adresse: '/admin#base' })
+    await photographier('81-base-telephone', 360, 640, { adresse: '/admin#base' })
+  }
+  // « En direct » : la seconde du serveur, après une rafale par les vraies routes — trois profils qui naissent et
+  // passent par la campagne, le quiz du jour et les duels —, au fil, dans « Qui joue » et sur les courbes.
+  if (photo('direct')) {
+    for (const [login, nom] of [['ines', 'Inès'], ['hugo', 'Hugo'], ['sacha', 'Sacha']]) {
+      const cookie = await uneFoisDePlus(() => inscrireProfil(banc.url, `direct-${login}`, nom))
+      for (const chemin of ['/api/campagne/sentiers', '/api/jour', '/api/duels']) await uneFoisDePlus(() => fetch(`${banc.url}${chemin}`, { headers: { Cookie: cookie } }))
+    }
+    await photographier('82-direct', 1366, 768, { adresse: '/admin#direct' })
+    await photographier('83-direct-1920', 1920, 1080, { adresse: '/admin#direct' })
+    await photographier('84-direct-telephone', 360, 640, { adresse: '/admin#direct' })
+  }
+  // « Alertes et incidents » : trois semaines d'incidents écrits à la main — une panne du quiz du jour réparée, Turso
+  // lent et le taux d'erreur qui le suit, la mémoire puis un arrêt net —, un seuil réglé par la vraie route, et la
+  // réserve du banc, trop courte, que la première minute du serveur a déjà ouverte.
+  if (photo('alertes')) {
+    const base = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+    const t = Date.now()
+    const J = 24 * H
+    const incident = base.prepare('INSERT INTO qg_incidents (regle, gravite, debut, fin, cause, mot) VALUES (?, ?, ?, ?, ?, ?)')
+    incident.run('panne', 'critique', t - 15 * J - 2 * H, t - 15 * J, 'jour : 14 échecs', 'Le quiz du jour et les défis ne s’ouvraient plus · réparé par 3b8f1c2')
+    incident.run('turso-lent', 'veille', t - 6 * J, t - 6 * J + 42 * 60_000, '1,4 s au 95ᵉ centile', null)
+    incident.run('taux-d-erreur', 'serieux', t - 6 * J + 10 * 60_000, t - 6 * J + 35 * 60_000, '2,4 % des requêtes en erreur (31 sur 1290)', 'ECONNRESET sous Turso lent')
+    incident.run('memoire', 'serieux', t - 2 * J, t - 2 * J + 22 * 60_000, '470 Mo', null)
+    incident.run('arret-net', 'critique', t - 2 * J + 22 * 60_000, t - 2 * J + 24 * 60_000, 'un démarrage s’est arrêté sans s’éteindre', 'Redémarré en deux minutes, aucune soirée perdue')
+    base.close()
+    const admin = await uneFoisDePlus(() => connexionAnimateur(banc.url))
+    await uneFoisDePlus(() => ecrire(banc.url, '/api/admin/regles/ressenti', { seuil: 900 }, admin, 'PUT'))
+    await photographier('85-alertes', 1366, 768, { adresse: '/admin#alertes' })
+    await photographier('86-alertes-1920', 1920, 1080, { adresse: '/admin#alertes' })
+    await photographier('87-alertes-telephone', 360, 640, { adresse: '/admin#alertes' })
+  }
+  // « Les téléphones » : une heure de mesures envoyées par la vraie route, sans cookie — des soirées au doigt de plus
+  // en plus lent, le quiz du jour sur un vieil Android, l'écran commun qui saute, des iPhone qui ne mesurent rien, un
+  // profil qui plante —, sur la période de la barre.
+  if (photo('telephones')) {
+    const mesures = [
+      ...Array.from({ length: 14 }, (_, i) => ({
+        chemin: '/chez-nadia',
+        lcp: 1400 + i * 120,
+        inp: 90 + i * 15,
+        cls: 0.02 + i * 0.004,
+        erreurs: i % 7 === 0 ? 1 : 0,
+        appareil: i % 3 === 0 ? 'iphone' : 'android',
+        installee: false,
+      })),
+      ...Array.from({ length: 9 }, (_, i) => ({ chemin: '/jour', lcp: 2200 + i * 260, inp: 140 + i * 20, cls: 0.01, erreurs: 0, appareil: 'android', installee: i % 2 === 0 })),
+      ...Array.from({ length: 5 }, (_, i) => ({ chemin: '/host', lcp: 900 + i * 80, inp: 40, cls: 0.18 + i * 0.02, erreurs: 0, appareil: 'ordinateur', installee: false })),
+      ...Array.from({ length: 4 }, () => ({ chemin: '/cabinet', lcp: null, inp: null, cls: null, erreurs: 0, appareil: 'iphone', installee: true })),
+      { chemin: '/profil', lcp: 1900, inp: 110, cls: 0.05, erreurs: 2, appareil: 'android', installee: true },
+    ]
+    for (const m of mesures) await uneFoisDePlus(() => ecrire(banc.url, '/api/mesures', m))
+    await photographier('88-telephones', 1366, 768, { adresse: '/admin#telephones' })
+    await photographier('89-telephones-telephone', 360, 640, { adresse: '/admin#telephones' })
+  }
+  // Les pages du QG 2 qui suivront, chacune son bloc `if (photo('<clé>')) { … }`, ici.
+  // L'effet de ce que le QG envoie et les repères (la revue du 4 novembre 2026, P2.1 et P2.2) : les annonces et les
+  // affiches et ce qu'elles ont changé, le rappel du soir et « Joué après », « Journal et repères » et la carte
+  // « Avant / après » ouverte sur l'affiche du Cabinet — aux trois tailles —, puis le poste sur sept jours, un seau à
+  // repères survolé à l'ordinateur, touché au téléphone.
+  if (photo('effets')) {
+    // Le premier passage écrit d'abord la mémoire du QG, aussi loin que les journaux remontent : un peu plus long.
+    const effets = async (page: any) => {
+      await page.waitForSelector('.qg-effet', { timeout: 60000 })
+    }
+    const avantApres = async (page: any) => {
+      await page.waitForSelector('.qg-comparer', { timeout: 60000 })
+      await page.locator('li.qg-geste', { hasText: 'Affiche posée : Le Cabinet' }).locator('.qg-comparer').click()
+      await page.waitForSelector('.qg-avant-apres table', { timeout: 60000 })
+    }
+    for (const [suffixe, largeur, hauteur] of [
+      ['', 1366, 768],
+      ['-1920', 1920, 1080],
+      ['-telephone', 360, 640],
+    ] as const) {
+      await photographier(`110-effets-annonces${suffixe}`, largeur, hauteur, { adresse: '/admin#annonces', geste: effets })
+      await photographier(`111-effets-affiches${suffixe}`, largeur, hauteur, { adresse: '/admin#affiches', geste: effets })
+      await photographier(`112-effets-rappel${suffixe}`, largeur, hauteur, { adresse: '/admin#jour', geste: page => page.waitForSelector('section[aria-labelledby="jour-rappel"] table', { timeout: 15000 }) })
+      // Le fil entier, la carte repliée ; puis l'écran tel qu'on le voit après « Avant / après » — la carte collée à droite
+      // à l'ordinateur, remontée en tête au téléphone : une photo de toute la page poserait ce qui colle à l'endroit du
+      // défilement.
+      await photographier(`113-effets-journal${suffixe}`, largeur, hauteur, { adresse: '/admin#journal', geste: page => page.waitForSelector('.qg-comparer', { timeout: 60000 }) })
+      await photographier(`113b-effets-avant-apres${suffixe}`, largeur, hauteur, { adresse: '/admin#journal', pleine: false, geste: avantApres })
+    }
+    /** Le poste sur sept jours : le seau d'un repère survolé — ou touché, au téléphone, le graphique sous les yeux. */
+    const surUnRepere = (toucher: boolean) => async (page: any) => {
+      await page.click('.qg-periodes button:has-text("7 j")')
+      // La courbe de sept jours redessinée — celle de la journée avait déjà ses repères.
+      await page.waitForTimeout(800)
+      await page.waitForSelector('.qg-participations .qg-reperes > g', { timeout: 15000 })
+      // En texte, comme `CE_QUI_DEBORDE` : une fonction y arriverait avec les `__name` de tsx. La photo est celle de
+      // l'écran, le graphique au milieu : une photo de toute la page agrandit la fenêtre, et la souris la quitte.
+      await page.evaluate("document.querySelector('.qg-participations .qg-graphe').scrollIntoView({ block: 'center' })")
+      const marques = await page.$$('.qg-participations .qg-reperes > g')
+      const marque = await marques[Math.max(0, marques.length - 3)].boundingBox()
+      const dessin = await (await page.$('.qg-participations .qg-graphe svg')).boundingBox()
+      if (!marque || !dessin) return console.error('[effets] le repère du poste ne se trouve pas')
+      const [x, y] = [marque.x + marque.width / 2, dessin.y + dessin.height * 0.6]
+      if (toucher) await page.mouse.click(x, y)
+      else await page.mouse.move(x, y)
+    }
+    await photographier('114-effets-poste', 1366, 768, { pleine: false, geste: surUnRepere(false) })
+    await photographier('115-effets-poste-1920', 1920, 1080, { pleine: false, geste: surUnRepere(false) })
+    await photographier('116-effets-poste-telephone', 360, 640, { pleine: false, geste: surUnRepere(true) })
+  }
+  // Les modes (le QG 2, lot 5) : côte à côte — sur 24 heures, triée sur la réussite, sur trente jours, au téléphone —,
+  // puis chaque page de mode et son gabarit en tête : ses tuiles, sa courbe, « En ce moment » une fois le flux arrivé, son
+  // entonnoir ; le Cabinet, sa courbe et « En ce moment » au-dessus de ses trente jours.
+  if (photo('modes')) {
+    const avecLeFlux = (avant?: (page: any) => Promise<void>) => async (page: any) => {
+      if (avant) await avant(page)
+      await page.waitForSelector('.qg-gabarit', { timeout: 15000 })
+      await page.waitForTimeout(2500)
+    }
+    await photographier('90-modes-cote-a-cote', 1366, 768, { adresse: '/admin#activite' })
+    await photographier('90b-modes-cote-a-cote-reussite', 1366, 768, { adresse: '/admin#activite', pleine: false, geste: page => page.click('.qg-cote-table .qg-tri:has-text("Réussite")') })
+    await photographier('91-modes-cote-a-cote-trente-jours', 1366, 768, { adresse: '/admin#activite', geste: page => page.click('.qg-periodes button:has-text("30 j")') })
+    await photographier('92-modes-cote-a-cote-1920', 1920, 1080, { adresse: '/admin#activite' })
+    await photographier('93-modes-cote-a-cote-telephone', 360, 640, { adresse: '/admin#activite' })
+    await photographier('94-modes-soirees', 1366, 768, { adresse: '/admin#soirees', geste: avecLeFlux(page => page.click('.qg-periodes button:has-text("7 j")')) })
+    await photographier('95-modes-soirees-telephone', 360, 640, { adresse: '/admin#soirees', geste: avecLeFlux() })
+    await photographier('96-modes-jour', 1366, 768, { adresse: '/admin#jour', geste: avecLeFlux() })
+    await photographier('97-modes-jour-1920-compare', 1920, 1080, {
+      adresse: '/admin#jour',
+      geste: avecLeFlux(async page => {
+        await page.click('.qg-periodes button:has-text("7 j")')
+        await page.click('.qg-bascule')
+      }),
+    })
+    await photographier('98-modes-jour-telephone', 360, 640, { adresse: '/admin#jour', geste: avecLeFlux() })
+    await photographier('99-modes-campagne', 1366, 768, { adresse: '/admin#campagne', geste: avecLeFlux() })
+    await photographier('100-modes-campagne-telephone', 360, 640, { adresse: '/admin#campagne', geste: avecLeFlux() })
+    await photographier('101-modes-duels', 1366, 768, { adresse: '/admin#duels', geste: avecLeFlux(page => page.click('.qg-periodes button:has-text("30 j")')) })
+    await photographier('102-modes-duels-1920', 1920, 1080, { adresse: '/admin#duels', geste: avecLeFlux() })
+    await photographier('103-modes-duels-telephone', 360, 640, { adresse: '/admin#duels', geste: avecLeFlux() })
+    await photographier('104-modes-cabinet', 1366, 768, { adresse: '/admin#cabinet', geste: avecLeFlux(page => page.click('.qg-periodes button:has-text("7 j")')) })
+    await photographier('105-modes-cabinet-telephone', 360, 640, { adresse: '/admin#cabinet', pleine: false, geste: avecLeFlux() })
+  }
+
+  // Les joueurs (`/admin#joueurs`) : la page aux trois tailles et sous l'Ivoire ; une cohorte lue au clavier ; un
+  // endormi touché au téléphone, sa fiche ouverte ; puis « Leur écrire » — les annonces, le segment choisi, un message en route.
+  if (photo('joueurs')) {
+    await photographier('70-joueurs', 1366, 768, { adresse: '/admin#joueurs' })
+    await photographier('71-joueurs-1920', 1920, 1080, { adresse: '/admin#joueurs' })
+    await photographier('72-joueurs-telephone', 360, 640, { adresse: '/admin#joueurs' })
+    await photographier('73-joueurs-ivoire', 360, 640, { adresse: '/admin#joueurs', theme: 'ivoire' })
+    await photographier('74-joueurs-cohorte-lue', 1366, 768, {
+      pleine: false,
+      adresse: '/admin#joueurs',
+      geste: async page => {
+        await page.locator('.qg-joueurs-cohortes .qg-chaleur-cadre').focus()
+        for (const touche of ['ArrowRight', 'ArrowRight', 'ArrowDown', 'ArrowDown']) await page.keyboard.press(touche)
+        await page.locator('.qg-joueurs-cohortes').scrollIntoViewIfNeeded()
+      },
+    })
+    await photographier('75-joueurs-fiche-telephone', 360, 640, {
+      pleine: false,
+      adresse: '/admin#joueurs',
+      geste: async page => {
+        await page.getByRole('button', { name: /^Endormis/ }).click()
+        await page.locator('.qg-joueurs-membres .qg-ligne').first().click()
+        await page.waitForSelector('.qg-fiche dl', { timeout: 15000 })
+      },
+    })
+    const versLesEndormis = async (page: any) => {
+      await page.getByRole('button', { name: /^Endormis/ }).click()
+      await page.getByRole('button', { name: 'Leur écrire' }).click()
+      await page.waitForSelector('.annonce-sortes [aria-checked="true"]', { timeout: 15000 })
+      await page.locator('#annonce-message').fill('Tu nous manques ! Le Cabinet de curiosités a ouvert ses portes : viens voir ses trois gardiens.')
+    }
+    await photographier('76-annonces-segment', 1366, 768, { adresse: '/admin#joueurs', geste: versLesEndormis })
+    await photographier('77-annonces-segment-telephone', 360, 640, { adresse: '/admin#joueurs', geste: versLesEndormis })
+  }
+
+  // Le Cabinet de curiosités (`/admin#cabinet`) : la traversée de Lina, bloquée depuis douze jours, rendue d'abord par la
+  // vraie route — la page la compte « rendue », la pile dit « En route ou rendues » ; puis la page aux trois tailles,
+  // « Rendre » ouvert sur la première traversée en route — celle que ce code ne relit pas —, au téléphone aussi, et la
+  // fiche d'un joueur ouverte de la liste, sa traversée en pleine route et son geste.
+  if (photo('cabinet')) {
+    if (traverseeBloquee) {
+      const r = await ecrire(banc.url, `/api/admin/profils/${traverseeBloquee.profil}/traversee`, { traversee: traverseeBloquee.id }, admin)
+      if (r.status !== 200) console.error(`[cabinet] la traversée de Lina ne se rend pas : ${r.status} ${await r.text()}`)
+    }
+    const cabinet = { adresse: '/admin#cabinet' }
+    await photographier('60-cabinet', 1366, 768, cabinet)
+    await photographier('61-cabinet-1920', 1920, 1080, cabinet)
+    await photographier('62-cabinet-telephone', 360, 640, cabinet)
+    const rendre = async (page: any) => {
+      await page.click('.qg-cabinet-route .salon-geste')
+      await page.waitForSelector('.dialog')
+    }
+    await photographier('63-cabinet-rendre', 1366, 768, { ...cabinet, pleine: false, geste: rendre })
+    await photographier('64-cabinet-rendre-telephone', 360, 640, { ...cabinet, pleine: false, geste: rendre })
+    // La fiche ouverte de la liste, sa traversée en vue : la note et ses gestes, que la feuille montre sous les chiffres.
+    const laFiche = async (page: any) => {
+      await page.locator('.qg-cabinet-route .qg-ligne').nth(1).click()
+      await page.waitForSelector('.qg-fiche-note')
+      await page.locator('.qg-fiche-note').last().scrollIntoViewIfNeeded()
+    }
+    await photographier('65-cabinet-fiche-telephone', 360, 640, { ...cabinet, pleine: false, geste: laFiche })
+    await photographier('66-cabinet-fiche', 1366, 768, { ...cabinet, pleine: false, geste: laFiche })
+  }
+
+  // Le contenu (`/admin#questions`, `/admin#reserves`, le QG 2, lot 7) : la routine du matin par ses vraies routes, sous
+  // son jeton — quatorze questions dans la réserve du quiz du jour, en six catégories, et cinq dans la base de la
+  // campagne —, et ses deux semaines de dépôts d'avant au journal de la réserve, un matin sans rien (l'hébergeur dormait) ;
+  // puis les questions jouées aux trois tailles, les pièges au téléphone, la feuille d'une question du jour, celle d'une
+  // contredite et « Reclasser » ouvert ; les réserves et la base aux trois tailles, la carte sur ses contredites.
+  if (photo('contenu')) {
+    const routine = (chemin: string, corps: unknown) =>
+      uneFoisDePlus(() =>
+        fetch(`${banc.url}${chemin}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'quizz', Authorization: `Bearer ${JETON_DE_LA_RESERVE}` },
+          body: JSON.stringify(corps),
+        }),
+      )
+    const liste = [
+      '# Histoire',
+      'En quelle année la Bastille a-t-elle été prise ?\n*1789\n1792\n1776\n1804',
+      'Quel roi a fait de Versailles le château qu’on visite aujourd’hui ?\n*Louis XIV\nLouis XIII\nFrançois Ier\nHenri IV',
+      'Qui fut le premier président de la Ve République ?\n*Charles de Gaulle\nGeorges Pompidou\nRené Coty\nVincent Auriol',
+      '# Géographie',
+      'Quel est le plus long fleuve de France ?\n*La Loire\nLa Seine\nLe Rhône\nLa Garonne',
+      'Quelle est la capitale du Canada ?\n*Ottawa\nToronto\nMontréal\nVancouver',
+      'Quel océan borde la côte ouest des États-Unis ?\n*Le Pacifique\nL’Atlantique\nL’Arctique\nL’océan Indien',
+      '# Sciences',
+      'Quel est le symbole chimique de l’or ?\n*Au\nAg\nOr\nFe',
+      'Combien de chromosomes compte une cellule humaine ordinaire ?\n*46\n23\n48\n44',
+      '# Cinéma & séries',
+      'Qui a réalisé « Le Fabuleux Destin d’Amélie Poulain » ?\n*Jean-Pierre Jeunet\nLuc Besson\nJacques Audiard\nMichel Gondry',
+      'Dans quelle série suit-on la famille Stark ?\n*Game of Thrones\nThe Crown\nVikings\nThe Witcher',
+      '# Musique',
+      'De quel instrument jouait Django Reinhardt ?\n*La guitare\nLe violon\nLe piano\nLa trompette',
+      'Qui a composé « Les Quatre Saisons » ?\n*Antonio Vivaldi\nWolfgang Amadeus Mozart\nJean-Sébastien Bach\nJoseph Haydn',
+      '# Sport',
+      'Combien de joueurs une équipe de volley-ball aligne-t-elle sur le terrain ?\n*6\n5\n7\n9',
+      'Quel pays a remporté la Coupe du monde de football 2018 ?\n*La France\nLa Croatie\nLa Belgique\nLe Brésil',
+    ].join('\n\n')
+    const duJour = await routine('/api/jour/reserve', { liste })
+    if (duJour.status !== 200) console.error(`[contenu] la réserve du jour refuse la routine : ${duJour.status} ${await duJour.text()}`)
+    // La base de la campagne : chaque entrée comme la routine l'écrit, ses métadonnées au format de l'étiquetage.
+    const entree = (categorie: string, texte: string, reponses: string[], autres: string[], anecdote: string, sousTheme: string, difficulte: number) => ({
+      texte,
+      reponses,
+      bonne: 0,
+      anecdote,
+      categorie,
+      sousTheme,
+      etiquettes: [],
+      difficulte,
+      ageMin: 10,
+      date: null,
+      entites: [],
+      portee: 'monde',
+      valeur: null,
+      leurres: [...reponses.slice(1), ...autres],
+      dureeDeVie: 'stable',
+      explication: '',
+      source: null,
+      confiance: 3,
+      aRelire: [],
+    })
+    const geographie = SOUS_THEMES.Géographie[0].cle
+    const histoire = SOUS_THEMES.Histoire[0].cle
+    for (const [categorie, entrees] of [
+      [
+        'Géographie',
+        [
+          entree('Géographie', 'Quelle est la plus haute montagne d’Afrique ?', ['Le Kilimandjaro', 'Le mont Kenya', 'Le Ruwenzori', 'Le mont Cameroun'], ['Le Toubkal', 'Le mont Elgon', 'Le Ras Dashan'], 'Ses neiges reculent depuis un siècle.', geographie, 2),
+          entree('Géographie', 'Quel désert couvre une grande partie de la Mongolie ?', ['Le désert de Gobi', 'Le Taklamakan', 'Le Kalahari', 'Le désert d’Atacama'], ['Le Karakoum', 'Le Thar', 'Le désert de Syrie'], 'Il s’étend aussi sur la Chine.', geographie, 3),
+          entree('Géographie', 'Quel passage sépare l’Europe de l’Afrique ?', ['Le détroit de Gibraltar', 'Le détroit de Messine', 'Le Bosphore', 'Le pas de Calais'], ['Le détroit d’Ormuz', 'Le détroit de Béring', 'Le détroit de Malacca'], 'Quatorze kilomètres au plus étroit.', geographie, 1),
+        ],
+      ],
+      [
+        'Histoire',
+        [
+          entree('Histoire', 'Quel navigateur lança le premier tour du monde, achevé par son équipage ?', ['Fernand de Magellan', 'Christophe Colomb', 'Vasco de Gama', 'James Cook'], ['Jacques Cartier', 'Amerigo Vespucci', 'Francis Drake'], 'Il mourut aux Philippines en 1521.', histoire, 3),
+          entree('Histoire', 'Quelle reine d’Égypte s’allia à Jules César puis à Marc Antoine ?', ['Cléopâtre', 'Néfertiti', 'Hatchepsout', 'Néfertari'], ['Bérénice', 'Arsinoé', 'Tiyi'], 'La dernière souveraine de la dynastie des Ptolémées.', histoire, 2),
+        ],
+      ],
+    ] as const) {
+      const r = await routine('/api/campagne/base', { categorie, entrees })
+      const fait = (await r.json()) as { ajoutees?: number; ecartees?: { motif: string }[]; error?: string }
+      if (r.status !== 200 || fait.ecartees?.length) console.error(`[contenu] la base refuse la routine (${categorie}) : ${r.status} ${fait.error ?? fait.ecartees?.map(e => e.motif).join(' · ')}`)
+    }
+    // Les deux semaines d'avant au journal de la réserve : la routine chaque matin, sauf il y a quatre jours — l'hébergeur
+    // dormait encore à 6 h 55 —, une liste collée à la main, et ce qu'elle a écarté un matin.
+    {
+      const permanente = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+      const apport = permanente.prepare('INSERT INTO jour_apports (id, quand, source, ajoutees, ecartees) VALUES (?, ?, ?, ?, ?)')
+      // Les minuits de Paris des quatorze derniers jours, le plus ancien d'abord : la routine passe vers 7 h.
+      const minuits = minuitsDeParis(Date.now(), 14)
+      for (let k = 13; k >= 1; k--) {
+        if (k === 4) continue
+        const matin = minuits[13 - k] + 7 * H + 2 * 60_000
+        const ecartees = k === 9 ? [{ texte: 'Combien mesure la tour Eiffel ?', raison: 'une estimation' }, { texte: 'Qui voit-on sur cette photo ?', raison: 'une photo' }] : []
+        apport.run(`rendu-ia-${k}`, matin, 'ia', k % 3 === 0 ? 10 : 20, JSON.stringify(ecartees))
+        if (k === 6) apport.run(`rendu-liste-${k}`, matin + 9 * H, 'liste', 5, '[]')
+      }
+      permanente.close()
+    }
+    const questions = (geste?: (page: any) => Promise<void>) => ({
+      adresse: '/admin#questions',
+      geste: async (page: any) => {
+        await page.waitForSelector('.qg-jouees-table', { timeout: 30000 })
+        await geste?.(page)
+      },
+    })
+    await photographier('90-questions', 1366, 768, questions())
+    await photographier('91-questions-1920', 1920, 1080, questions())
+    await photographier('92-questions-telephone', 360, 640, questions())
+    const lesPieges = async (page: any) => {
+      await page.getByRole('button', { name: 'Pièges', exact: true }).click()
+      await page.waitForTimeout(600)
+    }
+    await photographier('93-questions-pieges-telephone', 360, 640, questions(lesPieges))
+    // La plus jouée — une question du jour, cent réponses — ouverte : ce que chaque réponse a recueilli, ses gestes.
+    const laPremiere = async (page: any) => {
+      await page.locator('.qg-jouee').first().click()
+      await page.waitForSelector('.qg-recueil')
+    }
+    await photographier('94-question-feuille', 1366, 768, { ...questions(laPremiere), pleine: false })
+    // Une contredite, au téléphone : sa marche en une phrase, et « Reclasser » qui la proposera.
+    const uneContredite = async (page: any) => {
+      await page.getByRole('button', { name: 'Contredites', exact: true }).click()
+      await page.waitForTimeout(600)
+      await page.locator('.qg-jouee').first().click()
+      await page.waitForSelector('.qg-fiche .admin-gestes')
+      await page.locator('.qg-fiche .admin-gestes').scrollIntoViewIfNeeded()
+    }
+    await photographier('95-question-contredite-telephone', 360, 640, { ...questions(uneContredite), pleine: false })
+    await photographier('96-question-reclasser', 1366, 768, {
+      ...questions(async page => {
+        await uneContredite(page)
+        await page.locator('.qg-fiche .admin-gestes button', { hasText: 'Reclasser' }).click()
+        await page.locator('.qg-fiche .admin-gestes, .qg-fiche form, .qg-fiche .correction-question').last().scrollIntoViewIfNeeded()
+      }),
+      pleine: false,
+    })
+    const reserves = (geste?: (page: any) => Promise<void>) => ({
+      adresse: '/admin#reserves',
+      geste: async (page: any) => {
+        await page.waitForSelector('.qg-chaleur', { timeout: 30000 })
+        await geste?.(page)
+      },
+    })
+    await photographier('97-reserves', 1366, 768, reserves())
+    await photographier('98-reserves-1920', 1920, 1080, reserves())
+    await photographier('99-reserves-telephone', 360, 640, reserves())
+    await photographier('99b-reserves-contredites', 1366, 768, {
+      ...reserves(async page => {
+        await page.getByRole('button', { name: 'Contredites', exact: true }).click()
+        await page.locator('.qg-chaleur').scrollIntoViewIfNeeded()
+      }),
+      pleine: false,
+    })
+  }
+
+  // La mémoire de chaque jour et le point du matin (la revue d'expert du 4 novembre 2026, P1.3 à P1.5) : la mémoire
+  // écrite d'abord — le passage de la page des joueurs, comme celui du point —, puis « Hier, en bref » en tête du poste
+  // aux trois tailles, replié au téléphone puis déplié, et ouvert par la notification (`#hier`) ; les deux règles neuves
+  // et le point du matin sous « Alertes », son heure ouverte à la saisie.
+  if (photo('memoire')) {
+    const joueurs = await uneFoisDePlus(() => fetch(`${banc.url}/api/admin/joueurs`, { headers: { Cookie: admin } }))
+    if (joueurs.status !== 200) console.error(`[memoire] la mémoire ne s’écrit pas : ${joueurs.status}`)
+    const leBandeau = (avant?: (page: any) => Promise<void>) => async (page: any) => {
+      await page.waitForSelector('.qg-hier', { timeout: 15000 })
+      if (avant) await avant(page)
+    }
+    await photographier('110-hier-en-bref', 1366, 768, { pleine: false, geste: leBandeau() })
+    await photographier('111-hier-en-bref-1920', 1920, 1080, { pleine: false, geste: leBandeau() })
+    await photographier('112-hier-en-bref-telephone', 360, 640, { pleine: false, geste: leBandeau() })
+    await photographier('113-hier-en-bref-telephone-deplie', 360, 640, { geste: leBandeau(page => page.click('.qg-hier-deplier')) })
+    await photographier('114-hier-en-bref-notification', 360, 640, { pleine: false, adresse: '/admin#hier', geste: leBandeau() })
+    const auPoint = async (page: any) => {
+      await page.waitForSelector('#alertes-point', { timeout: 15000 })
+      await page.locator('#alertes-point').scrollIntoViewIfNeeded()
+    }
+    await photographier('115-alertes-point-du-matin', 1366, 768, { adresse: '/admin#alertes', geste: auPoint })
+    await photographier('116-alertes-point-du-matin-1920', 1920, 1080, { adresse: '/admin#alertes', geste: auPoint })
+    await photographier('117-alertes-point-du-matin-telephone', 360, 640, {
+      adresse: '/admin#alertes',
+      pleine: false,
+      geste: async page => {
+        await auPoint(page)
+        await page.click('section[aria-labelledby="alertes-point"] .qg-seuil')
+        await page.locator('section[aria-labelledby="alertes-point"]').scrollIntoViewIfNeeded()
+      },
+    })
+  }
+
+  // Les pages d'avant le QG 2 : seulement sans `SEULEMENT`.
+  lesAutresPages: {
+  if (SEULEMENT) break lesAutresPages
   await photographier('5b-participations', 1366, 768, { participations: true })
   await photographier('5c-participations-telephone', 360, 640, { participations: true })
   await photographier('6-page-du-jour', 1366, 768, { adresse: '/admin#jour' })
@@ -1005,6 +2040,8 @@ try {
     await page.waitForSelector('.qg-fiche dl')
     if (theme) await page.evaluate(`document.documentElement.setAttribute('data-theme', ${JSON.stringify(theme)})`)
     if (geste === 'don') {
+      // Les dons sous un seul « Offrir… » (la revue d'ergonomie du 4 novembre 2026).
+      await page.getByRole('button', { name: 'Offrir…' }).click()
       await page.getByRole('button', { name: 'Offrir des confettis' }).click()
       await page.waitForSelector('.qg-fiche-don')
     }
@@ -1086,6 +2123,7 @@ try {
     await page.getByRole('searchbox', { name: 'Chercher un profil' }).fill('antoine')
     await page.getByRole('button', { name: /Antoine/ }).first().click()
     await page.waitForSelector('.qg-fiche dl')
+    await page.getByRole('button', { name: 'T’offrir…' }).click()
     await page.getByRole('button', { name: 'T’offrir des confettis' }).click()
     await page.waitForSelector('.qg-fiche-don')
     await page.waitForTimeout(400)
@@ -1097,6 +2135,178 @@ try {
     await page.screenshot({ path: path.join(sortie, '49-fiche-a-soi-fait.png') })
     console.log(path.join(sortie, '49-fiche-a-soi-fait.png'))
     await contexte.close()
+  }
+  }
+
+  // Les animateurs (`/admin#animateurs`, sous « Audience » — la revue d'analyse du 4 novembre 2026, P1.1 et P1.2) : dix
+  // salons de plus, ouverts par leur profil aux vraies routes, et un compte d'avant sans profil ; leurs soirées écrites
+  // dans l'historique — chacune ses habitués venus avec leur profil, ses profils nés à l'entrée ou pendant elle, et à sa
+  // fin, que la page ne rattache à aucune ; certains rejouent seuls dans la semaine —, et leurs quiz, chacun d'où il
+  // vient. Bérénice chaque samedi et Corentin un dimanche sur deux, fidèles ; Delphine en retard sur son rythme, Étienne
+  // jamais revenu, Paulette — un compte d'avant — qui ne vient plus ; Fleur partie depuis trois mois, Lucas parti sans
+  // avoir joué ; Grégoire — un quiz tout prêt — et Hortense à lancer ; Isidore qui vient d'ouvrir, Josiane à ses deux
+  // premières soirées. Les comptes vivent en mémoire : leur ouverture réécrite se relit au redémarrage, et la mémoire du
+  // QG, effacée, se refait de ces journaux. D'où ce bloc en dernier : le redémarrage oublie ce que les pages d'avant
+  // montrent de la mémoire du serveur — le relevé de l'heure, les invités connectés. Puis le carnet aux trois tailles —
+  // en cartes au téléphone —, les retards choisis et « Leur écrire », « Les salons » à l'adresse d'avant (`#salons`), la
+  // fiche d'une titulaire, et « Premiers pas » sur la page des joueurs.
+  if (photo('animateurs')) {
+    const maintenant = Date.now()
+    const aujourdhui = jourDe(maintenant)
+    /** Il y a `n` jours, à telle heure de Paris. */
+    const ilYa = (n: number, heure = 21) => minuitDuJour(jourAvant(aujourdhui, n)) + heure * H
+    /** De `debut` à `fin` jours en arrière, tous les `pas` jours. */
+    const tousLes = (pas: number, debut: number, fin: number) => Array.from({ length: Math.floor((fin - debut) / pas) + 1 }, (_, k) => debut + k * pas)
+    const ANIMATEURS: { login: string; nom: string; avatar: string; ouvert: number; soirees: number[]; salle: number; habitues: number; quiz: (OrigineDUnQuiz | null)[] }[] = [
+      { login: 'anim-berenice', nom: 'Bérénice', avatar: '🌻', ouvert: 104, soirees: tousLes(7, 4, 95), salle: 14, habitues: 4, quiz: ['tout-pret', 'tout-pret', 'editeur', 'editeur', 'liste', null] },
+      { login: 'anim-corentin', nom: 'Corentin', avatar: '🎸', ouvert: 130, soirees: tousLes(14, 10, 122), salle: 9, habitues: 2, quiz: ['import', 'modele', null] },
+      { login: 'anim-delphine', nom: 'Delphine', avatar: '🐝', ouvert: 75, soirees: tousLes(7, 26, 68), salle: 12, habitues: 3, quiz: ['tout-pret', 'editeur'] },
+      { login: 'anim-etienne', nom: 'Étienne', avatar: '🍒', ouvert: 60, soirees: [45], salle: 6, habitues: 1, quiz: ['modele'] },
+      { login: 'anim-fleur', nom: 'Fleur', avatar: '🐬', ouvert: 160, soirees: tousLes(14, 95, 137), salle: 8, habitues: 1, quiz: [null, null] },
+      { login: 'anim-gregoire', nom: 'Grégoire', avatar: '🦋', ouvert: 20, soirees: [], salle: 0, habitues: 0, quiz: ['tout-pret'] },
+      { login: 'anim-hortense', nom: 'Hortense', avatar: '🌙', ouvert: 12, soirees: [], salle: 0, habitues: 0, quiz: [] },
+      { login: 'anim-isidore', nom: 'Isidore', avatar: '🍀', ouvert: 2, soirees: [], salle: 0, habitues: 0, quiz: [] },
+      { login: 'anim-josiane', nom: 'Josiane', avatar: '🎈', ouvert: 25, soirees: [12, 5], salle: 11, habitues: 1, quiz: ['tout-pret', 'liste'] },
+      { login: 'anim-lucas', nom: 'Lucas', avatar: '🐧', ouvert: 120, soirees: [], salle: 0, habitues: 0, quiz: [] },
+    ]
+    for (const a of ANIMATEURS) {
+      const cookie = await uneFoisDePlus(() => inscrireProfil(banc.url, a.login, a.nom, a.avatar))
+      await uneFoisDePlus(() => ecrire(banc.url, '/api/joueur/espace', {}, cookie))
+    }
+    await uneFoisDePlus(() => ecrire(banc.url, '/api/admin/accounts', { login: 'paulette', name: 'Chez Paulette', slug: 'chez-paulette' }, admin))
+    const lesEspaces = (await (await uneFoisDePlus(() => fetch(`${banc.url}/api/admin/espaces`, { headers: { Cookie: admin } }))).json()) as { id: string; login: string; toi: boolean; titulaire: { nom: string } | null }[]
+    const base = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+    const ouverture = base.prepare('UPDATE accounts SET created_at = ? WHERE id = ?')
+    // L'espace de l'administrateur et le salon de Tom, nés au démarrage du banc : ouverts avant leurs quatre-vingt-dix jours de soirées.
+    for (const e of lesEspaces.filter(e => e.toi || e.titulaire?.nom === 'Tom')) ouverture.run(ilYa(100, 18), e.id)
+    const naissance = base.prepare('UPDATE profiles SET created_at = ?, origine = ? WHERE login = ?')
+    const unQuiz = base.prepare('INSERT INTO quizzes (id, title, questions, created_at, updated_at, space_id, origine) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    const uneSoiree = base.prepare("INSERT INTO soirees (space_id, id, title, held_at, archived_at, summary, data) VALUES (?, ?, 'Une soirée', ?, ?, ?, '{}')")
+    const unNe = base.prepare("INSERT INTO profiles (id, login, name, avatar, password_hash, recovery_hash, created_at, origine) VALUES (?, ?, ?, ?, 'rendu', 'rendu', ?, ?)")
+    const sonQuizDuJour = base.prepare('INSERT OR IGNORE INTO jour_parties (profile_id, jour, commencee_le, question, finie_le) VALUES (?, ?, ?, 10, ?)')
+    const saSerie = base.prepare("INSERT INTO campagne_series (id, profile_id, questions, position, vies, commencee_le, mode) VALUES (?, ?, '[]', 8, 3, ?, 'serie')")
+    const PRENOMS_DES_NES = ['Aurore', 'Bruno', 'Cyril', 'Daphné', 'Edgar', 'Félix', 'Gaëlle', 'Henri', 'Ingrid', 'Jordan', 'Kévin', 'Laure', 'Mathis', 'Nora', 'Oscar', 'Perrine', 'Rémi', 'Sixtine', 'Timothée', 'Ursule']
+    const VISAGES_DES_NES = ['🦊', '🐸', '🦄', '🐙', '🐼', '🐯', '🦁', '🐨', '🐢', '🐬', '🦋', '🐝']
+    const pret = JSON.stringify([qcm('Quelle est la capitale de l’Australie ?', ['Sydney', 'Canberra', 'Melbourne'], 1), qcm('Combien de pattes a une araignée ?', ['Six', 'Huit', 'Dix'], 1)])
+    // Un modèle à trous qu'on n'a pas fini : il compte au total, pas parmi les prêts.
+    const aCompleter = JSON.stringify([{ kind: 'choice', text: 'Où [Prénom] est-il né ?', answers: ['Ville A ✏️', 'Ville B ✏️'], correct: -1, duration: 20, image: null }])
+    let nes = 0
+    let quiz = 0
+    let series = 0
+    /** Un profil qui naît ce soir-là : la page des joueurs le suit sa première semaine — un sur deux rejoue seul, le pont. */
+    const naitre = (quand: number, origine: 'entree' | 'soiree' | 'fin-de-soiree'): string => {
+      const id = `carnet-ne-${nes}`
+      unNe.run(id, `carnetne${nes}`, PRENOMS_DES_NES[nes % PRENOMS_DES_NES.length], VISAGES_DES_NES[nes % VISAGES_DES_NES.length], quand, origine)
+      const rejoue = (jours: number, heure: number) => {
+        const instant = minuitDuJour(jourAvant(jourDe(quand), -jours)) + heure * H
+        return instant < maintenant - 60_000 ? instant : null
+      }
+      const leJour = nes % 2 === 0 ? rejoue(2, 12.5) : null
+      if (leJour) sonQuizDuJour.run(id, jourDe(leJour), leJour, leJour + 4 * 60_000)
+      const enCampagne = nes % 3 === 0 ? rejoue(5, 20) : null
+      if (enCampagne) saSerie.run(`carnet-serie-${series++}`, id, enCampagne)
+      const leLendemain = nes % 5 === 1 ? rejoue(1, 19) : null
+      if (leLendemain) saSerie.run(`carnet-serie-${series++}`, id, leLendemain)
+      nes++
+      return id
+    }
+    /** Les soirées d'un salon : ses habitués, pas tous chaque fois ; ces neuf semaines, des profils qui naissent chez lui. */
+    const sesSoirees = (spaceId: string, k: number, soirees: readonly number[], salle: number, habitues: readonly string[]) => {
+      for (const n of soirees) {
+        const quand = ilYa(n, 20.5 + (k % 3) * 0.25)
+        const joueurs = Math.max(3, salle + ((n * 5 + k) % 7) - 3)
+        // Une fiche d'avant ces neuf semaines ne dit pas ses profils, comme celles d'avant le 14 octobre 2026.
+        const recente = n <= 63
+        const profils = habitues.filter((_, h) => (n + h) % 4 !== 0)
+        if (recente && (n + k) % 3 !== 0) {
+          profils.push(naitre(quand - 20 * 60_000, 'entree'))
+          if ((n + k) % 2 === 0) profils.push(naitre(quand + 50 * 60_000, 'soiree'))
+        }
+        // À la fin, un invité qui a joué sans profil en crée un : la page ne devine pas sa soirée.
+        if (recente && (n + k) % 4 === 1) naitre(quand + 150 * 60_000, 'fin-de-soiree')
+        const invites = Array.from({ length: Math.max(joueurs, profils.length) }, (_, i) => ({ id: `i-${i}`, joue: true, ...(recente && profils[i] && { profileId: profils[i] }) }))
+        const fiche = { v: 3, invites, ...(recente && { profils: true }), quiz: 2, questions: 24, jouees: invites.length * 24 }
+        uneSoiree.run(spaceId, `carnet-${n}-${k}`, quand, quand + 150 * 60_000, JSON.stringify(fiche))
+      }
+    }
+    const sesQuiz = (spaceId: string, origines: readonly (OrigineDUnQuiz | null)[], le: number) => {
+      for (const origine of origines) unQuiz.run(`carnet-quiz-${quiz}`, `Un quiz ${quiz++}`, pret, le, le, spaceId, origine)
+    }
+    ANIMATEURS.forEach((a, k) => {
+      const espace = lesEspaces.find(e => e.titulaire?.nom === a.nom)
+      if (!espace) return console.error(`[animateurs] le salon de ${a.nom} n’est pas ouvert`)
+      ouverture.run(ilYa(a.ouvert, 18), espace.id)
+      // Le titulaire s'est inscrit quelques jours avant d'ouvrir son salon ; d'avant le 4 novembre 2026, sans origine.
+      naissance.run(ilYa(a.ouvert + 3, 19), a.ouvert + 3 > 21 ? null : 'salon', a.login)
+      sesQuiz(espace.id, a.quiz, ilYa(Math.max(0, a.ouvert - 1), 19))
+      sesSoirees(
+        espace.id,
+        k,
+        a.soirees,
+        a.salle,
+        joueurs.slice((k * 2) % 20, (k * 2) % 20 + a.habitues).map(j => j.id),
+      )
+    })
+    const berenice = lesEspaces.find(e => e.titulaire?.nom === 'Bérénice')
+    if (berenice) unQuiz.run('carnet-quiz-a-completer', 'Qui le connaît ?', aCompleter, ilYa(60, 19), ilYa(60, 19), berenice.id, 'modele')
+    const paulette = lesEspaces.find(e => e.login === 'paulette')
+    if (paulette) {
+      ouverture.run(ilYa(210, 18), paulette.id)
+      sesQuiz(paulette.id, [null, null, null], ilYa(200, 19))
+      sesSoirees(paulette.id, ANIMATEURS.length, tousLes(7, 40, 96), 7, [])
+    }
+    // La mémoire du QG s'est écrite avant ces journaux : effacée, elle se refait d'eux au premier passage de la page des joueurs.
+    base.prepare('DELETE FROM qg_presences').run()
+    base.prepare('DELETE FROM qg_jours').run()
+    base.close()
+    await banc.redemarrer()
+
+    const leCarnet = (geste?: (page: any) => Promise<void>, pleine = true) => ({
+      adresse: '/admin#animateurs',
+      pleine,
+      geste: async (page: any) => {
+        await page.waitForSelector('.qg-animateurs-carnet', { timeout: 30000 })
+        await geste?.(page)
+      },
+    })
+    await photographier('120-animateurs', 1366, 768, leCarnet())
+    await photographier('121-animateurs-1920', 1920, 1080, leCarnet())
+    await photographier('122-animateurs-telephone', 360, 640, leCarnet())
+    // Les retards choisis : le carnet filtré, puis « Leur écrire », qui ouvre les annonces sur eux, un message en route.
+    const lesRetards = (page: any) => page.locator('.qg-animateurs-etats .qg-joueurs-segment', { hasText: 'En retard' }).click()
+    await photographier('123-animateurs-en-retard', 1366, 768, leCarnet(lesRetards))
+    const leurEcrire = async (page: any) => {
+      await lesRetards(page)
+      await page.getByRole('button', { name: 'Leur écrire' }).click()
+      await page.waitForSelector('.annonce-sortes [aria-checked="true"]', { timeout: 15000 })
+      await page.locator('#annonce-message').fill('Une soirée ce week-end ? Le quiz tout prêt se compose en une minute, et vos invités vous attendent.')
+    }
+    await photographier('124-animateurs-leur-ecrire', 1366, 768, leCarnet(leurEcrire))
+    await photographier('125-animateurs-leur-ecrire-telephone', 360, 640, leCarnet(leurEcrire))
+    // « Les salons », l'onglet du carnet, à l'adresse d'avant : la liste et ses gestes, la dernière soirée de chacun.
+    const lesSalons = { adresse: '/admin#salons', geste: (page: any) => page.waitForSelector('#animateurs-panneau-salons button', { timeout: 15000 }) }
+    await photographier('126-animateurs-salons', 1366, 768, lesSalons)
+    await photographier('127-animateurs-salons-telephone', 360, 640, lesSalons)
+    // La fiche de Delphine, ouverte de sa ligne : son salon au carnet, en retard.
+    const laFiche = async (page: any) => {
+      await page.locator('.qg-animateurs-fiche:visible', { hasText: 'Delphine' }).first().click()
+      await page.waitForSelector('.qg-fiche dl', { timeout: 15000 })
+      await page.locator('.qg-fiche dt', { hasText: 'Au carnet' }).scrollIntoViewIfNeeded()
+    }
+    await photographier('128-animateurs-fiche', 1366, 768, leCarnet(laFiche, false))
+    await photographier('129-animateurs-fiche-telephone', 360, 640, leCarnet(laFiche, false))
+    // « Premiers pas », sur la page des joueurs : la page entière, puis la section, la barre de commande collée au-dessus ;
+    // au téléphone, sa tête, ses cartes des semaines, puis le pont et les soirées une par une.
+    const aux = (selecteur: string) => async (page: any) => {
+      await page.waitForSelector('.qg-joueurs-premiers-pas', { timeout: 60000 })
+      await page.evaluate(`(() => { const s = document.querySelector(${JSON.stringify(selecteur)}); window.scrollTo(0, window.scrollY + s.getBoundingClientRect().top - 72) })()`)
+    }
+    await photographier('130-joueurs-premiers-pas', 1366, 768, { adresse: '/admin#joueurs' })
+    await photographier('131-premiers-pas', 1366, 768, { adresse: '/admin#joueurs', pleine: false, geste: aux('.qg-joueurs-premiers-pas') })
+    await photographier('132-premiers-pas-1920', 1920, 1080, { adresse: '/admin#joueurs', pleine: false, geste: aux('.qg-joueurs-premiers-pas') })
+    await photographier('133-premiers-pas-telephone', 360, 640, { adresse: '/admin#joueurs', pleine: false, geste: aux('.qg-joueurs-premiers-pas') })
+    await photographier('134-premiers-pas-semaines-telephone', 360, 640, { adresse: '/admin#joueurs', pleine: false, geste: aux('.qg-joueurs-premiers-pas .qg-cote-cartes') })
+    await photographier('135-premiers-pas-soirees-telephone', 360, 640, { adresse: '/admin#joueurs', pleine: false, geste: aux('.qg-joueurs-pont') })
   }
   host.disconnect()
 } finally {
