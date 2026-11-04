@@ -67,7 +67,7 @@ export function AujourdhuiDuJour({ suivi, vue }: { suivi: SuiviDuJour | null; vu
           detail={
             suivi
               ? derniere
-                ? `${derniere.jour === suivi.jour ? 'ce soir' : derniere.jour === jourAvant(suivi.jour) ? 'hier' : jourEnToutesLettres(derniere.jour, true)} : ${pluriel(derniere.envoyes, 'envoyé')}${derniere.echecs > 0 ? `, ${pluriel(derniere.echecs, 'échec')}` : ''}`
+                ? `${derniere.jour === suivi.jour ? 'ce soir' : derniere.jour === jourAvant(suivi.jour) ? 'hier' : jourEnToutesLettres(derniere.jour, true)} : ${pluriel(derniere.envoyes, 'envoyé')}${derniere.ouverts > 0 ? `, ${pluriel(derniere.ouverts, 'ouvert')}` : ''}${derniere.echecs > 0 ? `, ${pluriel(derniere.echecs, 'échec')}` : ''}`
                 : 'aucune tournée encore'
               : undefined
           }
@@ -308,7 +308,10 @@ export function SeriesDuJourAuQg({ suivi }: { suivi: SuiviDuJour | null }) {
   )
 }
 
-/** Le rappel du soir : les téléphones abonnés, et ce que chaque tournée a fait. */
+/** « 34 % » : la part des rappels envoyés qu'on a touchés, un soir. */
+const partOuverte = (t: { envoyes: number; ouverts: number }) => `${formatNumber(Math.round((t.ouverts / t.envoyes) * 100))} %`
+
+/** Le rappel du soir : les téléphones abonnés, et ce que chaque tournée a fait — jusqu'aux rappels touchés. */
 export function RappelDuSoirAuQg({ suivi }: { suivi: SuiviDuJour | null }) {
   const r = suivi?.rappel
   const derniere = r?.tournees[0]
@@ -328,9 +331,17 @@ export function RappelDuSoirAuQg({ suivi }: { suivi: SuiviDuJour | null }) {
             <Chiffre
               nom="Dernier soir"
               valeur={derniere ? formatNumber(derniere.envoyes) : '–'}
-              detail={derniere ? `envoyés · ${jourEnToutesLettres(derniere.jour)}` : 'aucune tournée encore'}
+              detail={derniere ? `envoyés · ${jourEnToutesLettres(derniere.jour)} · ${formatNumber(derniere.finis)} avaient déjà joué` : 'aucune tournée encore'}
             />
-            <Chiffre nom="Déjà joué" valeur={derniere ? formatNumber(derniere.finis) : '–'} detail="rien à leur rappeler" />
+            <Chiffre
+              nom="Ouverts"
+              valeur={derniere ? formatNumber(derniere.ouverts) : '–'}
+              detail={
+                derniere && derniere.envoyes > 0
+                  ? `${partOuverte(derniere)} des envoyés${veille && veille.envoyes > 0 ? ` · la veille ${partOuverte(veille)}` : ''}`
+                  : 'touchés sur le téléphone'
+              }
+            />
             <Chiffre
               nom="Échecs"
               valeur={derniere ? formatNumber(derniere.echecs) : '–'}
@@ -344,6 +355,7 @@ export function RappelDuSoirAuQg({ suivi }: { suivi: SuiviDuJour | null }) {
                   <tr>
                     <th scope="col">Soir</th>
                     <th scope="col">Envoyés</th>
+                    <th scope="col">Ouverts</th>
                     <th scope="col">Déjà joué</th>
                     <th scope="col">Échecs</th>
                     <th scope="col">Partis</th>
@@ -354,6 +366,7 @@ export function RappelDuSoirAuQg({ suivi }: { suivi: SuiviDuJour | null }) {
                     <tr key={t.jour}>
                       <th scope="row">{jourEnToutesLettres(t.jour, true)}</th>
                       <td className="num">{formatNumber(t.envoyes)}</td>
+                      <td className="num">{t.envoyes > 0 ? `${formatNumber(t.ouverts)} · ${partOuverte(t)}` : formatNumber(t.ouverts)}</td>
                       <td className="num">{formatNumber(t.finis)}</td>
                       <td className="num">{formatNumber(t.echecs)}</td>
                       <td className="num">{formatNumber(t.retires)}</td>
@@ -365,7 +378,10 @@ export function RappelDuSoirAuQg({ suivi }: { suivi: SuiviDuJour | null }) {
           ) : (
             <p className="muted small">Aucune tournée gardée pour l’instant : la première s’écrira à 18 h.</p>
           )}
-          <p className="muted small">« Partis » : des abonnements défaits — une session close, ou un téléphone que son service dit désabonné.</p>
+          <p className="muted small">
+            « Ouverts » : les rappels touchés sur le téléphone, que la page du jour a ouverts — comptés depuis le 4 novembre 2026. « Partis » : des
+            abonnements défaits — une session close, ou un téléphone que son service dit désabonné.
+          </p>
         </>
       )}
     </section>

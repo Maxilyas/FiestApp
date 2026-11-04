@@ -170,6 +170,16 @@ function abonnes(banc: Banc): string[] {
   }
 }
 
+/** Les rappels touchés de chaque soir, tels que la base permanente les garde. */
+function ouvertsDe(banc: Banc): [string, number][] {
+  const db = new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: true })
+  try {
+    return (db.prepare('SELECT jour, ouverts FROM jour_rappels_tournees ORDER BY jour').all() as { jour: string; ouverts: number }[]).map(r => [r.jour, r.ouverts])
+  } finally {
+    db.close()
+  }
+}
+
 /** Paris, l'heure qu'on veut : septembre, UTC+2. */
 const aParis = (jour: number, heure: number, minute = 0) => Date.UTC(2026, 8, jour, heure - 2, minute)
 
@@ -220,6 +230,8 @@ test('à 18 h, une notification — une seule — à qui n’a pas fini sa parti
       titre: 'Le quiz du jour t’attend',
       corps: `${total} questions, les mêmes pour tout le monde, jusqu’à minuit.`,
       url: '/jour',
+      // Son soir voyage avec lui : touché après minuit, il se compte encore à ce soir-là.
+      rappel: '2026-09-26',
     })
     const pourCleo = dechiffrer(push.recus.find(r => r.nom === 'cleo')!.corps, telephones.cleo)
     assert.equal(pourCleo.titre, 'Ta partie du jour n’est pas finie')
@@ -235,6 +247,14 @@ test('à 18 h, une notification — une seule — à qui n’a pas fini sa parti
     await banc.redemarrer()
     assert.deepEqual(await tournee(banc, '2026-09-26'), { jour: '2026-09-26', envoyes: 0, finis: 1, retires: 0, echecs: 0 })
     assert.equal(push.recus.length, 3, 'rien de plus après le redémarrage')
+
+    // Touchés sur le téléphone (le QG 2) : le service worker le dit, avec le soir du rappel — sans profil, la session
+    // a pu se fermer depuis —, et jamais plus d'ouverts que d'envoyés, même sous une rafale ; un soir trop vieux, ou
+    // illisible, ne s'écrit pas.
+    for (const jour of ['2026-09-26', '2026-09-26', '2026-09-26', '2026-09-20', 42]) {
+      assert.equal((await ecrire(banc.url, '/api/jour/rappel/ouvert', { jour })).status, 204, String(jour))
+    }
+    assert.deepEqual(ouvertsDe(banc), [['2026-09-26', 2]], 'deux envoyés, deux ouverts au plus')
 
     // Léa se déconnecte : son téléphone ne sonnera plus pour elle.
     assert.equal((await ecrire(banc.url, '/api/joueur/deconnexion', {}, lea)).status, 200)
@@ -585,6 +605,27 @@ test('le service worker montre le rappel — une seule notification à la fois �
   const deja = serviceWorker(['/chez-nadia', '/jour'])
   await deja.declencher('notificationclick', { notification: { data: { url: '/jour' }, close: () => {} } })
   assert.deepEqual([deja.ouvertes, deja.focalisees], [[], ['/jour']])
+  assert.deepEqual([sw.requetes, deja.requetes], [[], []], 'sans son soir, un rappel touché ne se dit pas')
+})
+
+// Le rappel ouvert (le QG 2) : le soir du rappel voyage avec lui, et le toucher le dit au serveur — ce soir-là,
+// rien d'autre ; le QG compte les rappels ouverts face aux envoyés.
+test('un rappel du soir touché se dit au serveur, avec son soir — jamais une notification du QG', async () => {
+  const sw = serviceWorker()
+  await sw.declencher('push', { data: { json: () => ({ titre: 'Le quiz du jour t’attend', corps: '10 questions.', url: '/jour', rappel: '2026-09-26' }) } })
+  assert.deepEqual(JSON.parse(JSON.stringify(sw.notifications[0].options.data)), { url: '/jour', rappel: '2026-09-26' })
+  await sw.declencher('notificationclick', { notification: { data: sw.notifications[0].options.data, close: () => {} } })
+  assert.deepEqual(sw.ouvertes, ['https://fiestapp.example/jour'], 'la page s’ouvre')
+  assert.deepEqual(
+    sw.requetes.map(r => [r.url, r.init.method, r.init.headers['X-Requested-With'], JSON.parse(r.init.body)]),
+    [['/api/jour/rappel/ouvert', 'POST', 'quizz', { jour: '2026-09-26' }]],
+  )
+  // Sous `/admin`, un message qui porterait un soir n'est pas un rappel : rien ne se garde, rien ne part.
+  const qg = serviceWorker([], '/admin')
+  await qg.declencher('push', { data: { json: () => ({ titre: 'Panne', corps: '…', url: '/admin#erreurs', rappel: '2026-09-26' }) } })
+  assert.deepEqual(JSON.parse(JSON.stringify(qg.notifications[0].options.data)), { url: '/admin#erreurs' })
+  await qg.declencher('notificationclick', { notification: { data: qg.notifications[0].options.data, close: () => {} } })
+  assert.deepEqual(qg.requetes, [])
 })
 
 // Les défis d'amis sonnaient avec leur étiquette, jusqu'au 13 octobre 2026 :

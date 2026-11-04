@@ -42,6 +42,11 @@ export interface TourneeDuRappel {
   /** Les abonnements défaits : session close, ou le service les dit morts. */
   retires: number
   echecs: number
+  /**
+   * Les rappels touchés — la notification ouverte (`POST /api/jour/rappel/ouvert`, que le service worker envoie) :
+   * jamais plus que les envoyés. Zéro pour un soir d'avant leur compte, le 4 novembre 2026.
+   */
+  ouverts: number
 }
 
 /**

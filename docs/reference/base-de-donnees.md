@@ -747,9 +747,9 @@ secret, que la sauvegarde emporte.
 
 Le bilan de chaque soir de rappel : des nombres, jamais un nom.
 
-- **Colonnes clés** : `jour` (la clé), `envoyes`, `finis` (ceux qui avaient déjà joué), `retires` (abonnements défaits), `echecs`, `faite_le`. Une seconde tournée le même soir — un redémarrage, un second serveur — s'y ajoute ; `finis` garde le plus grand des deux comptes.
+- **Colonnes clés** : `jour` (la clé), `envoyes`, `finis` (ceux qui avaient déjà joué), `retires` (abonnements défaits), `echecs`, `ouverts` (les rappels touchés sur le téléphone, depuis le 4 novembre 2026 ; jamais plus que `envoyes`), `faite_le`. Une seconde tournée le même soir — un redémarrage, un second serveur — s'y ajoute ; `finis` garde le plus grand des deux comptes.
 - **Espace** : non.
-- **Écrite par** : `RappelStore`, à la fin de chaque tournée qui avait quelqu'un à prévenir.
+- **Écrite par** : `RappelStore`, à la fin de chaque tournée qui avait quelqu'un à prévenir ; `ouverts`, à chaque rappel touché (`RappelStore.ouvert`, `POST /api/jour/rappel/ouvert`, que le service worker envoie).
 - **Lue par** : `RappelStore.suivi`, pour la page du quiz du jour au QG (les sept derniers soirs).
 - **Effacée par** : rien.
 

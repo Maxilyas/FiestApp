@@ -34,7 +34,7 @@ import { ajouterColonne, clientDistant, type Client } from './distante'
 import { lireAbonnement, nouvellesCles, pousser, type Abonnement, type ClesVapid } from './pousser'
 import type { ProfileStore } from '../auth/profiles'
 import type { JourStore } from './jour'
-import { FIN_DU_RAPPEL, HEURE_DU_RAPPEL, heureDeParis, jourDe, minutesAvantMinuit, type ReglagesDesNotifications } from '../../../shared/jour'
+import { FIN_DU_RAPPEL, HEURE_DU_RAPPEL, heureDeParis, jourAvant, jourDe, minutesAvantMinuit, type ReglagesDesNotifications } from '../../../shared/jour'
 import { espacesFines } from '../../../shared/typographie'
 import type { TourneeDuRappel } from '../../../shared/qgDuJour'
 
@@ -62,8 +62,8 @@ function reglagesDe(r: Record<string, unknown> | undefined): ReglagesDesNotifica
   return { soir: !!r && Number(r.soir) === 1 }
 }
 
-/** Ce que la dernière tournée a fait, pour `/healthz` et le QG : des nombres, jamais un nom. */
-export type BilanDeTournee = TourneeDuRappel
+/** Ce que la dernière tournée a fait, pour `/healthz` et le QG : des nombres, jamais un nom — ses ouverts viennent après elle. */
+export type BilanDeTournee = Omit<TourneeDuRappel, 'ouverts'>
 
 /** Ce que la notification dit, en un titre et une phrase. */
 export interface MessageDuRappel {
@@ -189,6 +189,28 @@ export class RappelStore {
     this.cles = { publique: String(cles.publique), privee: String(cles.privee) }
     // Sa cloche, sur une table d'avant elle : abonné pour le soir, il le reste.
     await ajouterColonne(this.client, 'jour_rappels', 'soir', 'INTEGER NOT NULL DEFAULT 1')
+    // Les rappels touchés (le QG 2, le 4 novembre 2026) : un soir d'avant leur compte en dit zéro.
+    await ajouterColonne(this.client, 'jour_rappels_tournees', 'ouverts', 'INTEGER NOT NULL DEFAULT 0')
+  }
+
+  /** Les soirs dont tous les rappels envoyés se sont dits ouverts : un toucher de plus ne réécrit rien. */
+  private soirsPleins = new Set<string>()
+
+  /**
+   * Un rappel touché sur un téléphone — le service worker le dit en ouvrant la page (`sw.js`) : une écriture par
+   * ouverture, jamais plus d'ouverts que d'envoyés (la ligne du soir le garde), et seulement pour aujourd'hui et
+   * hier — un rappel de 18 h se touche parfois après minuit. La route est ouverte à tout le monde, comme le
+   * toucher : une rafale forgée ne gonfle rien au-delà des envoyés, et un soir plein ne s'écrit plus.
+   */
+  async ouvert(jour: unknown): Promise<void> {
+    if (typeof jour !== 'string' || this.soirsPleins.has(jour)) return
+    const aujourdhui = jourDe(this.deps.maintenant())
+    if (jour !== aujourdhui && jour !== jourAvant(aujourdhui)) return
+    const r = await this.client.execute({
+      sql: 'UPDATE jour_rappels_tournees SET ouverts = ouverts + 1 WHERE jour = ? AND ouverts < envoyes',
+      args: [jour],
+    })
+    if (r.rowsAffected === 0) this.soirsPleins.add(jour)
   }
 
   /** La clé publique du serveur, que le téléphone donne à son service de push en s'abonnant. */
@@ -318,7 +340,7 @@ export class RappelStore {
     const [abonnes, tournees] = await this.client.batch(
       [
         'SELECT COUNT(*) AS telephones, COUNT(DISTINCT profile_id) AS profils FROM jour_rappels WHERE soir = 1',
-        { sql: 'SELECT jour, envoyes, finis, retires, echecs FROM jour_rappels_tournees ORDER BY jour DESC LIMIT ?', args: [soirs] },
+        { sql: 'SELECT jour, envoyes, finis, retires, echecs, ouverts FROM jour_rappels_tournees ORDER BY jour DESC LIMIT ?', args: [soirs] },
       ],
       'read',
     )
@@ -331,6 +353,7 @@ export class RappelStore {
         finis: Number(r.finis),
         retires: Number(r.retires),
         echecs: Number(r.echecs),
+        ouverts: Number(r.ouverts ?? 0),
       })),
     }
   }
@@ -422,7 +445,8 @@ export class RappelStore {
         args: [jour, abonnement.endpoint, jour],
       })
       if (reserve.rowsAffected === 0 || this.ferme) return
-      const { statut, motif } = await pousser(abonnement, messageDuRappel(situation), {
+      // Le soir du rappel voyage avec lui : touché après minuit, il se compte encore à son soir (`ouvert`, `sw.js`).
+      const { statut, motif } = await pousser(abonnement, { ...messageDuRappel(situation), rappel: jour }, {
         cles: this.cles!,
         sujet: this.deps.sujet,
         // Gardé jusqu'à minuit pour un téléphone éteint : après, c'est un autre quiz.

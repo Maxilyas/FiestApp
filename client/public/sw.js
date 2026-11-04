@@ -2,7 +2,8 @@
 // notifications : le rappel du soir du quiz du jour (`server/src/core/rappels.ts`)
 // et, enregistré une seconde fois sous `/admin`, les pannes que le QG dit au
 // téléphone de l'administrateur (`server/src/core/alertes.ts`). Il montre ce
-// que le serveur envoie, et ouvre sa page quand on la touche.
+// que le serveur envoie, et ouvre sa page quand on la touche — un rappel du
+// soir touché, il le dit au serveur, qui compte les rappels ouverts.
 //
 // Il ne garde rien en cache et n'intercepte aucune requête : l'application
 // reste celle que le serveur sert, à jour à chaque ouverture. Écrit à la
@@ -41,16 +42,33 @@ self.addEventListener('push', evenement => {
       // partie le 13 octobre 2026, ceux encore en route chez le service de
       // push, gardés une semaine au plus, arrivent tels quels.
       tag: typeof message.tag === 'string' && message.tag ? message.tag : 'quiz-du-jour',
-      data: { url: message.url },
+      // Le soir du rappel, que le serveur y glisse : touché, il se compte à ce soir-là, même après minuit.
+      data: { url: message.url, ...(!DU_QG && typeof message.rappel === 'string' && { rappel: message.rappel }) },
     }),
   )
 })
 
 self.addEventListener('notificationclick', evenement => {
   evenement.notification.close()
-  const url = new URL((evenement.notification.data && evenement.notification.data.url) || PAR_DEFAUT.url, self.location.origin)
-  evenement.waitUntil(ouvrir(url))
+  const donnees = evenement.notification.data || {}
+  const url = new URL(donnees.url || PAR_DEFAUT.url, self.location.origin)
+  evenement.waitUntil(Promise.all([ouvrir(url), direQuOnLOuvre(donnees.rappel)]))
 })
+
+/**
+ * Un rappel du soir touché, dit au serveur pour le QG (le compte des rappels
+ * ouverts, `POST /api/jour/rappel/ouvert`) : son soir, rien d'autre. Sans
+ * réseau, il se perd — la page s'ouvre quand même, c'est elle qui compte.
+ */
+function direQuOnLOuvre(rappel) {
+  if (typeof rappel !== 'string') return Promise.resolve()
+  return fetch('/api/jour/rappel/ouvert', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'quizz' },
+    body: JSON.stringify({ jour: rappel }),
+  }).catch(() => {})
+}
 
 /**
  * La page de la notification si elle est déjà ouverte — menée à son adresse
