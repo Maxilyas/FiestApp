@@ -6,11 +6,12 @@ potentiellement geler le serveur pour les autres joueurs ? » — la consommatio
 de Turso, les gels, le temps de réponse des routes.
 
 **En bref** : Turso, oui — le QG pèse très peu au quota. Les gels, presque :
-une seule chose gèle, et pour tout le monde — **la relecture de la semaine du
+une seule chose gelait, et pour tout le monde — **la relecture de la semaine du
 serveur, 2,6 s de gel au dixième de cœur**, que les règles des alertes
-déclenchent **chaque heure, QG fermé**. La production tournait encore sur
-`89cf01b` (le 3 novembre au soir), d'avant le QG 2 : à corriger avant de l'y
-déployer.
+déclenchaient **chaque heure, QG fermé**. La production tournait encore sur
+`89cf01b` (le 3 novembre au soir), d'avant le QG 2. Corrigé le même jour
+(plus bas, « Ce qui a été fait ») : la même page répond en 0,4 à 0,5 s, sans
+un gel.
 
 ## Le banc
 
@@ -106,24 +107,53 @@ tel quel y ajouterait de l'ordre de 45 s par jour.
 - Un QG visible garde le service éveillé (il se relit toutes les cinq
   minutes) : ce sont les heures de l'hébergeur. Caché, il se tait.
 
-## Ce qui est proposé
+## Ce qui a été fait, le même jour
 
-1. **La semaine gardée, lue** : une heure finie ne change plus — seule celle
-   du démarrage bouge, et le relevé la tient déjà en mémoire. La lire une fois,
-   jour par jour en rendant la main, puis seulement les lignes neuves
-   (`maj_le`). Attendu : de ~290 ms de processeur d'un seul bloc à quelques
-   dizaines, plus de gel ni chaque heure ni à l'ouverture des pages, quelques
-   mégaoctets de mémoire de plus (à mesurer), autant de lignes au quota.
-2. **Les règles sans la page** : `versionsDuServeur` seul, sur les heures
-   gardées.
-3. **La réserve relue toutes les dix minutes** par les règles, comme
-   `/healthz` le fait déjà (`RESERVE_RELUE_MS`).
-4. **Le tour des règles nommé dans la sonde des gels** (`enFond`,
-   `core/gels.ts`) : un gel qu'elles causent se range aujourd'hui sous la
-   requête qui passait.
+Le choix du propriétaire : « Applique toutes tes corrections ».
 
-Chacun avec son test dans `server/test/`, et ce banc rejoué au dixième de cœur
-avant et après.
+1. **La semaine gardée** (`SanteDuServeur.semaine`) : une heure finie ne
+   change plus — seule la dernière d'un démarrage se récrit. La semaine se lit
+   une fois, six heures par six, la main rendue entre deux (`lireEnTranches`,
+   `rendreLaMain`, nommée « fond · semaine du serveur ») ; ensuite, une remise
+   à jour ne demande que les lignes dont `maj_le` dépasse la précédente moins
+   deux relevés de marge (`MARGE_DE_RELECTURE_MS` : une ligne porte l'heure où
+   elle s'est préparée, et la file qui l'envoie peut la poser après une
+   lecture), plus les démarrages. Une remise à jour en route s'attend : une
+   seconde ne part pas dessous. Le quota des alertes y lit aussi — il se
+   relisait à part, 170 Ko chaque heure. La mémoire ne grandit pas : la
+   semaine lue se gardait déjà, d'une lecture à l'autre.
+2. **Les versions sans la page** (`SanteDuServeur.versions`,
+   `versionsDeLaSemaine`, que la page appelle aussi : la règle juge les
+   ralenties que la page montre).
+3. **La réserve relue au plus toutes les dix minutes** par les règles
+   (`RESERVE_GARDEE_MS`) : 144 lectures par jour au lieu de 1 440, une lecture
+   tombée gardant la précédente.
+4. **Le tour des règles nommé** pour la sonde des gels (« fond · règles des
+   alertes »).
+
+`server/test/qg-serveur-semaine.test.ts` (la page comparée à celle que ses
+heures font, à la première lecture comme après une remise à jour ; ce que la
+base rend, compté : chaque heure une fois, puis les deux lignes récrites ; une
+lecture en route attendue ; les versions de la page) et deux épreuves de plus
+dans `qg-alertes.test.ts` (la réserve dix minutes, le tour nommé) : sur le code
+d'avant, toutes échouent, sauf la garde du rendu (`santeGardeeMs: 0`, qui
+relit tout à chaque fois), qui passait déjà.
+
+**Rejoué au dixième de cœur**, le même banc (`REGLES_MS=3600000` : la semaine
+s'écrit sous le serveur, datée de la fin de chaque heure, et les règles ne
+doivent pas l'avoir lue avant elle) :
+
+| Page | Avant | Après |
+|---|---|---|
+| Le serveur, la semaine remise à jour (`/api/admin/serveur?periode=7j`, une minute après la lecture d'avant) | 2,8 à 3,0 s, 285 à 299 ms de processeur, **gel de 2 567 ms** | **0,4 à 0,5 s, 40 à 52 ms, aucun gel** |
+| Le poste à sa première ouverture, qui fait ici la première lecture de la semaine (42 allers-retours) | — | 2,2 s, 214 ms, **aucun gel** |
+| Le poste ensuite | 0,7 s, 69 ms | 0,5 à 0,6 s, 48 à 65 ms (deux passes) |
+
+La première lecture d'un démarrage passe en production par les règles des
+alertes, à leur première minute ; aucune tranche ne gèle. Turso compte autant
+de lignes qu'avant à chaque remise à jour — la semaine parcourue par sa clé,
+une centaine —, mais n'en rend plus que les récrites : 2,2 Mo ne passent plus
+le fil chaque heure.
 
 ## Le relancer
 
@@ -132,7 +162,7 @@ cd server && node --import tsx ../retours/2026-10-16/reproductions/compiler.ts .
 ```
 
 ```bash
-cd server && GEL=1 ROUTES=70 SOIREES=300 ATTENTE_MS=61000 N=1 SEULES=serveur?periode=7j,api/admin/qg node --single-threaded-gc --no-memory-reducer --max-old-space-size=320 ../export/banc/qg-sous-charge.mjs
+cd server && GEL=1 ROUTES=70 SOIREES=300 ATTENTE_MS=61000 N=1 REGLES_MS=3600000 SEULES=serveur?periode=7j,api/admin/qg node --single-threaded-gc --no-memory-reducer --max-old-space-size=320 ../export/banc/qg-sous-charge.mjs
 ```
 
 La base du banc du gel d'abord (`../2026-10-16/reproductions/banc-gel.ts`), et

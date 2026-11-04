@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import type { InStatement, Row } from '@libsql/client'
 import { clientDistant, type Client } from './distante'
+import { enFond } from './gels'
 import { releve as releveDuProcessus, type ReleveHoraire } from './pouls'
+import { rendreLaMain } from './tourniquet'
 import { veille as veilleDuProcessus, type Veille } from './veille'
 import { lesErreursTriees, lireLeTri, type EtatDUneErreur, type PageDesErreurs, type TriDUneErreur, type TriLu } from '../../../shared/triDesErreurs'
 import { APPAREILS, PAGES_MESUREES, type PageMesuree, type TelephonesDeLHeure } from '../../../shared/telephones'
@@ -19,6 +21,7 @@ import {
   debutDeLHeure,
   pageDuServeur,
   quotaDuMois,
+  versionsDeLaSemaine,
   type AlertesDuServeur,
   type CeQuiGele,
   type CeQuiTournait,
@@ -38,14 +41,30 @@ import {
   type TempsReelDeLHeure,
   type SauvegardeDeLaBase,
   type TrancheDeSante,
+  type VersionDuServeur,
 } from '../../../shared/santeDuServeur'
 
-/** La page se relit au plus une fois la minute : un rechargement ne coûte rien au quota. */
+/** La semaine se remet à jour au plus une fois la minute pour la page : un rechargement ne coûte rien au quota. */
 const PAGE_GARDEE_MS = 60_000
 /** Les démarrages des alertes se relisent au plus toutes les dix minutes : la vue d'ensemble les demande toutes les cinq. */
 const DEMARRAGES_GARDES_MS = 10 * 60_000
-/** Le quota de la semaine, pour les alertes, se relit au plus toutes les heures : il se juge sur des jours. */
+/** Le quota de la semaine, pour les alertes, se lit dans une semaine remise à jour dans l'heure : il se juge sur des jours. */
 const QUOTA_GARDE_MS = HEURE_MS
+/**
+ * La première lecture de la semaine, par tranches de six heures — une poignée
+ * de lignes chacune —, la main rendue entre deux : d'un seul tenant, ses 2,3 Mo
+ * de relevés gelaient le serveur 2,6 s au dixième de cœur (le banc du 4
+ * novembre 2026, `retours/2026-11-04/performance-du-qg.md`).
+ */
+const HEURES_D_UNE_TRANCHE = 6
+/**
+ * Une remise à jour reprend un peu avant la précédente : une ligne porte
+ * l'heure où elle s'est préparée (`maj_le`), et la file qui l'envoie
+ * (`ecrire`) peut la poser après une lecture faite entre-temps — celle d'un
+ * démarrage qui s'éteint, celle de ce démarrage derrière un Turso lent. Deux
+ * relevés de marge : une ou deux lignes relues de trop, au pire.
+ */
+const MARGE_DE_RELECTURE_MS = 2 * RELEVE_MS
 
 const nombreOuNull = (v: unknown) => (v === null || v === undefined ? null : Number(v))
 
@@ -99,16 +118,6 @@ function quotaLu(v: unknown): QuotaDeLHeure | null {
     ? q.lourdes.filter((l): l is LecturesDUneRequete => !!l && typeof l.requete === 'string' && Number.isFinite(l.n) && Number.isFinite(l.lues))
     : []
   return { appels: Number(q.appels), lues: Number(q.lues), ecrites: Number(q.ecrites), lourdes }
-}
-
-/** Le quota d'une heure tel que `json_extract` le rend, un texte ; null s'il ne se lit pas. */
-function quotaDuTexte(v: unknown): QuotaDeLHeure | null {
-  if (typeof v !== 'string') return null
-  try {
-    return quotaLu(JSON.parse(v))
-  } catch {
-    return null
-  }
 }
 
 /**
@@ -180,6 +189,14 @@ function lireHeure(r: Row): HeureDeSante | null {
   }
 }
 
+/** Une ligne de `qg_sante` dans la semaine gardée, sous son heure et son démarrage ; récrite illisible, son heure s'en va. */
+function garder(semaine: Map<string, HeureDeSante>, r: Row) {
+  const cle = `${Number(r.heure)}|${String(r.demarrage)}`
+  const h = lireHeure(r)
+  if (h) semaine.set(cle, h)
+  else semaine.delete(cle)
+}
+
 /** Le temps réel d'une heure : ses messages lisibles, comme des routes, et ses comptes ; rien d'une ligne d'avant, ou illisible. */
 function tempsReelLu(t: unknown): TempsReelDeLHeure | null {
   if (!unObjet(t) || !Array.isArray(t.parMessage)) return null
@@ -227,10 +244,20 @@ export class SanteDuServeur {
   private minuterie: ReturnType<typeof setInterval> | null = null
   private file: Promise<void> = Promise.resolve()
   private purgeeLe = 0
-  private lue: { le: number; lecture: Promise<{ heures: HeureDeSante[]; demarrages: DemarrageDuServeur[] }> } | null = null
+  /**
+   * Les heures de la semaine déjà lues de la base, par heure et démarrage : une
+   * heure finie ne change plus — seule la dernière d'un démarrage se récrit —,
+   * la base ne se relit donc que pour ce qui a changé (`relire`). La page, ses
+   * versions et le quota des alertes y lisent tous.
+   */
+  private semaine = new Map<string, HeureDeSante>()
+  /** Les démarrages de la semaine et le dernier d'avant, relus avec elle : quelques dizaines de lignes. */
+  private demarragesLus: DemarrageDuServeur[] = []
+  /** L'instant de la dernière remise à jour réussie ; null, la semaine n'est pas encore lue. */
+  private lueJusquA: number | null = null
+  /** La remise à jour en route ou la dernière faite : une seule à la fois, que tous attendent — même passé son temps. */
+  private lue: { le: number; lecture: Promise<void>; finie: boolean } | null = null
   private recents: { le: number; lecture: Promise<DemarrageDuServeur[]> } | null = null
-  /** Le quota de chaque heure de la semaine, sans le reste du relevé : les alertes n'ont besoin que de lui. */
-  private quotas: { le: number; lecture: Promise<Pick<HeureDeSante, 'heure' | 'demarrage' | 'quota'>[]> } | null = null
   /**
    * Ce que l'administrateur a dit des erreurs (`/admin#erreurs`), lu au
    * démarrage et tenu en mémoire : les alertes de la vue d'ensemble le lisent
@@ -267,7 +294,11 @@ export class SanteDuServeur {
       releveMs?: number
       plafonds?: PlafondsDuConteneur
       mesuresDeLHebergeur?: string | null
-      /** La base relue au plus une fois par…, la minute d'office (`PAGE_GARDEE_MS`) ; zéro pour un rendu qui écrit sa semaine sous le serveur. */
+      /**
+       * La semaine remise à jour au plus une fois par…, la minute d'office
+       * (`PAGE_GARDEE_MS`) ; zéro la relit en entier à chaque fois — un rendu
+       * écrit sa semaine sous le serveur, à des `maj_le` d'avant sa lecture.
+       */
       pageGardeeMs?: number
     } = {},
   ) {
@@ -418,44 +449,128 @@ export class SanteDuServeur {
     return this.file
   }
 
-  /** Sept jours de relevés et les démarrages de la semaine, plus le dernier d'avant : la sorte du premier se lit dans lui. */
-  private async lire(maintenant: number) {
-    const debut = debutDeLHeure(maintenant) - (HEURES_DE_SANTE - 1) * HEURE_MS
-    const [heures, demarrages, avant] = await this.client.batch(
-      [
-        { sql: 'SELECT heure, demarrage, releve FROM qg_sante WHERE heure >= ?', args: [debut] },
-        { sql: 'SELECT * FROM qg_demarrages WHERE demarre_le >= ? ORDER BY demarre_le', args: [debut] },
-        { sql: 'SELECT * FROM qg_demarrages WHERE demarre_le < ? ORDER BY demarre_le DESC LIMIT 1', args: [debut] },
-      ],
-      'read',
-    )
-    return {
-      heures: heures.rows.map(lireHeure).filter((h): h is HeureDeSante => h !== null),
-      demarrages: [...avant.rows, ...demarrages.rows].map(lireDemarrage),
+  /**
+   * La semaine, remise à jour si elle a plus de `gardeeMs` — après les
+   * écritures en route (`file`) : la page voit ce que ce démarrage vient
+   * d'écrire. Une remise à jour encore en route s'attend, même passé ce
+   * temps : derrière un Turso lent, une seconde partirait sous elle, et la
+   * première lecture se serait faite deux fois. Une remise à jour qui échoue
+   * ne se garde pas : la suivante réessaie, et la semaine d'avant reste telle
+   * qu'elle était.
+   */
+  private semaineFraiche(gardeeMs: number): Promise<void> {
+    const maintenant = this.now()
+    // À zéro — un rendu qui écrit sa semaine sous le serveur —, chaque appel relit : une lecture partie avant ce qu'il
+    // vient d'écrire ne le verrait pas.
+    if (!this.lue || (maintenant - this.lue.le > gardeeMs && (this.lue.finie || gardeeMs === 0))) {
+      // Nommée pour la sonde des gels (`core/gels.ts`) : la première lecture court sur une trentaine d'allers-retours.
+      const lecture = enFond('fond · semaine du serveur', this.file.then(() => this.relire(maintenant)))
+      const lue = { le: maintenant, lecture, finie: false }
+      this.lue = lue
+      lecture.then(
+        () => {
+          lue.finie = true
+        },
+        () => {
+          if (this.lue === lue) this.lue = null
+        },
+      )
     }
+    return this.lue.lecture
   }
 
   /**
-   * La page « Le serveur » sur sa période (la semaine d'office) : la base
-   * relue au plus une fois la minute — les sept jours, quelle que soit la
-   * période : une heure et une journée en sont des morceaux —, et les heures
-   * de ce démarrage lues dans le relevé, plus frais que la base.
+   * La semaine gardée, remise à jour : la première fois, lue en entier par
+   * tranches qui rendent la main (`lireEnTranches`) ; ensuite, seulement les
+   * lignes récrites depuis la remise à jour d'avant, marge comprise
+   * (`MARGE_DE_RELECTURE_MS`). Relue en entier à chaque fois, la semaine
+   * faisait recevoir, décoder et relire 2,3 Mo d'un seul bloc — chaque heure
+   * pour les règles des alertes, QG fermé, et à chaque page « Le serveur » :
+   * 2,6 s de gel pour tout le monde au dixième de cœur (le banc du 4 novembre
+   * 2026, `retours/2026-11-04/performance-du-qg.md`). Les démarrages —
+   * quelques dizaines de lignes, et le dernier d'avant la semaine : la sorte
+   * du premier se lit dans lui — se relisent en entier, après les heures :
+   * chaque heure lue a le sien.
+   */
+  private async relire(maintenant: number): Promise<void> {
+    const debut = debutDeLHeure(maintenant) - (HEURES_DE_SANTE - 1) * HEURE_MS
+    const depuis = this.pageGardeeMs > 0 && this.lueJusquA !== null ? this.lueJusquA - MARGE_DE_RELECTURE_MS : null
+    // Lue en entier, une semaine neuve : celle d'avant reste tant que la lecture n'a pas fini.
+    const semaine = depuis === null ? new Map<string, HeureDeSante>() : this.semaine
+    if (depuis === null) await this.lireEnTranches(debut, debutDeLHeure(maintenant), semaine)
+    const [demarrages, avant, recrites] = await this.client.batch(
+      [
+        { sql: 'SELECT * FROM qg_demarrages WHERE demarre_le >= ? ORDER BY demarre_le', args: [debut] },
+        { sql: 'SELECT * FROM qg_demarrages WHERE demarre_le < ? ORDER BY demarre_le DESC LIMIT 1', args: [debut] },
+        ...(depuis === null ? [] : [{ sql: 'SELECT heure, demarrage, releve FROM qg_sante WHERE heure >= ? AND maj_le > ?', args: [debut, depuis] }]),
+      ],
+      'read',
+    )
+    for (const r of recrites?.rows ?? []) garder(semaine, r)
+    for (const [cle, h] of semaine) if (h.heure < debut) semaine.delete(cle)
+    this.semaine = semaine
+    this.demarragesLus = [...avant.rows, ...demarrages.rows].map(lireDemarrage)
+    this.lueJusquA = maintenant
+  }
+
+  /**
+   * Les heures de la semaine, six par six (`HEURES_D_UNE_TRANCHE`) : le client
+   * décode une tranche, la main se rend, ses lignes se relisent — le plus long
+   * bloc n'est plus que la plus grosse tranche. La dernière, sans borne : une
+   * heure qu'un démarrage aurait datée en avance ne se perd pas.
+   */
+  private async lireEnTranches(debut: number, derniere: number, semaine: Map<string, HeureDeSante>): Promise<void> {
+    const pas = HEURES_D_UNE_TRANCHE * HEURE_MS
+    for (let de = debut; de <= derniere; de += pas) {
+      const lues = await this.client.execute(
+        de + pas > derniere
+          ? { sql: 'SELECT heure, demarrage, releve FROM qg_sante WHERE heure >= ?', args: [de] }
+          : { sql: 'SELECT heure, demarrage, releve FROM qg_sante WHERE heure >= ? AND heure < ?', args: [de, de + pas] },
+      )
+      await rendreLaMain()
+      for (const r of lues.rows) garder(semaine, r)
+    }
+  }
+
+  /** Les heures de la semaine : celles de la base, et celles de ce démarrage lues dans son relevé — plus fraîches que la base. */
+  private lignesDeLaSemaine(miennes: HeureDeSante[] = this.releve.lignes(this.id)): HeureDeSante[] {
+    const autres = [...this.semaine.values()].filter(h => h.demarrage !== this.id || !miennes.some(m => m.heure === h.heure))
+    return [...autres, ...miennes]
+  }
+
+  /** Celui qui répond, même si son démarrage n'est pas encore écrit. */
+  private courantA(maintenant: number): DemarrageDuServeur {
+    return this.moi ?? { id: this.id, demarreLe: maintenant, pretEnMs: null, version: null, env: null, vuLe: maintenant, arreteLe: null }
+  }
+
+  /**
+   * La page « Le serveur » sur sa période (la semaine d'office) : la semaine
+   * remise à jour au plus une fois la minute — les sept jours, quelle que soit
+   * la période : une heure et une journée en sont des morceaux —, et les
+   * heures de ce démarrage lues dans le relevé, plus frais que la base.
    */
   async page(periode: PeriodeDuServeur = '7j'): Promise<PageDuServeur> {
     const maintenant = this.now()
-    if (!this.lue || maintenant - this.lue.le > this.pageGardeeMs) {
-      const lecture = this.file.then(() => this.lire(maintenant))
-      this.lue = { le: maintenant, lecture }
-      // Une lecture qui échoue ne se garde pas : la suivante réessaie.
-      lecture.catch(() => {
-        if (this.lue?.lecture === lecture) this.lue = null
-      })
-    }
-    const { heures, demarrages } = await this.lue.lecture
-    const miennes = this.releve.lignes(this.id)
-    const autres = heures.filter(h => h.demarrage !== this.id || !miennes.some(m => m.heure === h.heure))
-    const courant = this.moi ?? { id: this.id, demarreLe: maintenant, pretEnMs: null, version: null, env: null, vuLe: maintenant, arreteLe: null }
-    return pageDuServeur([...autres, ...miennes], demarrages, { maintenant, courant, plafonds: this.plafonds, mesuresDeLHebergeur: this.mesuresDeLHebergeur, periode })
+    await this.semaineFraiche(this.pageGardeeMs)
+    return pageDuServeur(this.lignesDeLaSemaine(), this.demarragesLus, {
+      maintenant,
+      courant: this.courantA(maintenant),
+      plafonds: this.plafonds,
+      mesuresDeLHebergeur: this.mesuresDeLHebergeur,
+      periode,
+    })
+  }
+
+  /**
+   * Les versions de la semaine, telles que la page les montre
+   * (`versionsDeLaSemaine`), sans le reste de la page : les règles des alertes
+   * y lisent, une fois l'heure, les routes que la version en ligne ralentit —
+   * elles calculaient la page entière pour cela.
+   */
+  async versions(): Promise<VersionDuServeur[]> {
+    const maintenant = this.now()
+    await this.semaineFraiche(this.pageGardeeMs)
+    return versionsDeLaSemaine(this.lignesDeLaSemaine(), this.demarragesLus, { maintenant, courant: this.courantA(maintenant) })
   }
 
   /** La dernière sauvegarde notée, par son index — une ligne ; null, jamais une : la règle « Sauvegarde ancienne », une fois l'heure. */
@@ -556,7 +671,8 @@ export class SanteDuServeur {
    * panne, que la veille voit tomber ; les erreurs à regarder et Turso lus
    * dans le relevé, la mémoire mesurée à l'instant, les démarrages de ce
    * dernier jour relus au plus toutes les dix minutes, et le quota de la
-   * semaine au plus toutes les heures. Une base qui se tait ôte l'arrêt net
+   * semaine lu dans la semaine gardée, remise à jour dans l'heure — il se
+   * relisait à part, 170 Ko chaque heure. Une base qui se tait ôte l'arrêt net
    * et le quota, pas le reste.
    */
   async alertes(memoireMo: number | null): Promise<AlertesDuServeur> {
@@ -570,31 +686,23 @@ export class SanteDuServeur {
         if (this.recents?.lecture === lecture) this.recents = null
       })
     }
-    if (!this.quotas || maintenant - this.quotas.le > QUOTA_GARDE_MS) {
-      const lecture = this.client
-        .execute({
-          sql: `SELECT heure, demarrage, json_extract(releve, '$.quota') AS quota FROM qg_sante WHERE heure >= ? AND json_valid(releve)`,
-          args: [debutDeLHeure(maintenant) - (HEURES_DE_SANTE - 1) * HEURE_MS],
-        })
-        .then(r => r.rows.map(l => ({ heure: Number(l.heure), demarrage: String(l.demarrage), quota: quotaDuTexte(l.quota) })))
-      this.quotas = { le: maintenant, lecture }
-      lecture.catch(() => {
-        if (this.quotas?.lecture === lecture) this.quotas = null
-      })
-    }
-    const [demarrages, quotas] = await Promise.all([
+    const [demarrages, semaineLue] = await Promise.all([
       this.recents.lecture.catch((e: unknown) => {
         console.error('[santé] les démarrages ne se lisent pas :', e)
         return []
       }),
-      this.quotas.lecture.catch((e: unknown) => {
-        console.error('[santé] le quota de la semaine ne se lit pas :', e)
-        return null
-      }),
+      this.semaineFraiche(QUOTA_GARDE_MS).then(
+        () => true,
+        (e: unknown) => {
+          console.error('[santé] le quota de la semaine ne se lit pas :', e)
+          return false
+        },
+      ),
     ])
     const recentes = this.releve.lignes(this.id)
-    // Les heures de ce démarrage se lisent dans son relevé, plus frais que la base.
-    const quota = quotas && quotaDuMois([...quotas.filter(h => h.demarrage !== this.id || !recentes.some(m => m.heure === h.heure)), ...recentes], maintenant)
+    // Les heures de ce démarrage se lisent dans son relevé, plus frais que la base ; la semaine, à l'heure qu'il est.
+    const debutDeLaSemaine = debutDeLHeure(maintenant) - (HEURES_DE_SANTE - 1) * HEURE_MS
+    const quota = semaineLue ? quotaDuMois(this.lignesDeLaSemaine(recentes).filter(h => h.heure >= debutDeLaSemaine), maintenant) : null
     return alertesDuServeur({
       recentes,
       demarrages,

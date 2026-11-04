@@ -628,7 +628,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     },
     lire: lecteurDesAlertes({
       alertes: memoireMo => sante.alertes(memoireMo),
-      versions: async () => (await sante.page('7j')).versions,
+      // Les versions seules, sur la semaine gardée : elles calculaient toute la page (`retours/2026-11-04/performance-du-qg.md`).
+      versions: () => sante.versions(),
       direct: releve.direct,
       miroir: () => backup.sante(),
       reserve: () => jour.avanceDeLaReserve(),

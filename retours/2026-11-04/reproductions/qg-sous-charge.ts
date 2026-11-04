@@ -203,6 +203,10 @@ ecrit.transaction(() => {
     const id = `jour-${d}`
     unDemarrage.run(id, debut, 1100, d > 3 ? 'a1b2c3d' : 'e4f5a6b', 'production', fin, fin)
     for (let h = debut; h < fin; h += H) {
+      // Récrite pour la dernière fois à la fin de son heure, comme le relevé l'écrit (`maj_le`) : datée de l'instant,
+      // toute la semaine tombait dans la marge de relecture de la semaine gardée, et chaque remise à jour la relisait
+      // entière. Le serveur ne doit donc pas l'avoir lue avant ces lignes : `REGLES_MS=3600000`, et les règles des
+      // alertes, qui la liraient à leur première minute, attendent.
       uneHeure.run(h, id, texte, h + H - 1)
       heures++
     }
@@ -233,6 +237,10 @@ console.log(
 // Le cache de la page du serveur (une minute) a lu la semaine vide au démarrage : il passe.
 await attendre(61_000)
 await silence()
+// Les gels d'avant la première page : le réveil, et la première lecture de la semaine par les règles des alertes.
+console.log(
+  `Les gels avant la première page : ${gels.map(g => `${g.dureeMs} ms (${g.enCours.map(c => c.quoi).join(', ') || 'rien de nommé'})`).join(' · ') || 'aucun'}.\n`,
+)
 
 // ── Les pages ──────────────────────────────────────────────────────────────
 const tailles = new Map<string, number>()
