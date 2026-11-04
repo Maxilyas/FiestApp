@@ -46,6 +46,8 @@ import {
 } from '../src/core/journalDesReponses'
 import { MODES_DE_SERIE, semaineDe } from '../../shared/campagne'
 import { idDeLEclair, idDeLaFiche, idDeLaFriseATheme, idDeLaFriseDeSujet, idDeLaReplique, idDuLieu, idDuTableau } from '../../shared/cabinet/pieces'
+import { vuesDuCabinet } from '../../shared/cabinet/vues'
+import { PREFIXE_DE_LA_FRISE } from '../../shared/frise'
 import { PREFIXES_HORS_DE_LA_BASE, horsDeLaBase, sqlDansLaBase } from '../../shared/horsDeLaBase'
 import { jourDe } from '../../shared/jour'
 import type { SuiviDeRevision } from '../../shared/revision'
@@ -367,6 +369,8 @@ async function comparer(client: Client, journal: JournalDesReponses, profils: re
     }
     attendues.vues = deplieesAvant(lues, montrees, depliees)
     assert.deepEqual(journal.vuesDe(p), attendues, `${nom} · ${p} : ce qu’il a vu, déplié — et ses premières réponses, sans rien des composés`)
+    // Sa carte du Cabinet, lue au premier passage puis tenue à jour réponse par réponse : celle refaite de zéro, à chaque passage.
+    assert.deepEqual(new Map(journal.vuesDuCabinetDe(p)), vuesDuCabinet(attendues.vues), `${nom} · ${p} : ses vues au Cabinet, tenues à jour`)
     // Ses pièces jugées seules, telles quelles : tes murs du Cabinet ne lisent rien qu'une révélation n'ait dit.
     assert.deepEqual(journal.jugeesDe(p), lues, `${nom} · ${p} : ses pièces jugées, sans rien de ce qu’elles ont montré de plus`)
     // Ses premières réponses, avec leur instant (`lireLesPremieres`).
@@ -726,6 +730,44 @@ test('un réveil relit ses tranches gardées, puis la base pour ce qui les suit 
     for (const c of ouvertes) c.close()
     rmSync(dir, { recursive: true, force: true })
   }
+})
+
+test('sa carte du Cabinet se lit une fois, puis suit ses réponses : la même que refaite de zéro, sans jamais rajeunir à rebours', () => {
+  const journal = new JournalDesReponses(() => MAINTENANT)
+  const refaite = (qui: string) => vuesDuCabinet(journal.vuesDe(qui).vues)
+  assert.equal(journal.vuesDuCabinetDe('p').size, 0, 'sans une réponse, rien de vu')
+  const eclair = idDeLEclair(['r2', 'r3', 'r4', 'r5', 'r6'])
+  // Une frise de l'Expédition : le Cabinet seul la déplie (`deplieePourLeCabinet`), la campagne la garde entière.
+  const friseDeLExpedition = `${PREFIXE_DE_LA_FRISE}e1+e2`
+  journal.appliquer({
+    reponses: [
+      reponseDuJournal({ n: 1, question: 'r1', juste: true, le: 100 }),
+      reponseDuJournal({ n: 2, question: eclair, juste: true, le: 200, mode: 'cabinet' }),
+      reponseDuJournal({ n: 3, question: friseDeLExpedition, juste: true, le: 300, mode: 'expedition' }),
+    ],
+    jusqua: 3,
+    aSuivre: false,
+  })
+  const carte = journal.vuesDuCabinetDe('p')
+  assert.deepEqual(new Map(carte), refaite('p'))
+  assert.deepEqual([carte.get('r2'), carte.get('e1'), carte.has(friseDeLExpedition)], [200, 300, false], 'les composés dépliés, la frise en ses événements')
+  journal.appliquer({
+    reponses: [
+      // Plus ancienne que la manche de l'Éclair qui l'a montrée : r2 garde son heure la plus récente.
+      reponseDuJournal({ n: 4, question: 'r2', juste: false, le: 150 }),
+      reponseDuJournal({ n: 5, question: 'r1', juste: true, le: 400 }),
+      // Ce qu'une manche a montré de plus qu'elle — une autre manche de l'Éclair, que « Changer » a remplacée —, déplié à son heure.
+      reponseDuJournal({ n: 6, question: 'r7', juste: true, le: 500, mode: 'cabinet', montre: [idDeLEclair(['r1', 'r8', 'r9', 'r10', 'r11'])] }),
+      // Un autre joueur : sa carte à lui.
+      reponseDuJournal({ n: 7, qui: 'autre', question: 'r12', juste: true, le: 600 }),
+    ],
+    jusqua: 7,
+    aSuivre: false,
+  })
+  assert.equal(journal.vuesDuCabinetDe('p'), carte, 'la même carte, tenue à jour sur place : rien ne se refait')
+  assert.deepEqual(new Map(carte), refaite('p'), 'et la même que refaite de zéro')
+  assert.deepEqual([carte.get('r2'), carte.get('r1'), carte.get('r9'), carte.get('r7'), carte.has('r12')], [200, 500, 500, 500, false])
+  assert.deepEqual(new Map(journal.vuesDuCabinetDe('autre')), refaite('autre'))
 })
 
 test('ses réponses récentes ne remontent pas plus loin que la fenêtre des missions, et s’oublient en sortant', () => {

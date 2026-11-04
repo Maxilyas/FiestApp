@@ -187,6 +187,13 @@ export class Pouls {
   readonly battements: Fenetre
   readonly battementsTombes: Fenetre
   readonly ouvertesParUnBattement: Fenetre
+  /**
+   * La patience des connexions (`QUIZ_DB_PATIENCE_MS`, `placeSurUneGardee`, `transportLeger.ts`) : les
+   * allers-retours qui ont attendu qu'une connexion gardée se libère, et ceux
+   * qui ont attendu en vain — la patience passée, ils en ont ouvert une.
+   */
+  readonly attentesDUneConnexion: Fenetre
+  readonly attentesLassees: Fenetre
   /** Le temps de chaque route d'API, sous son modèle (`GET /api/jour`) — jamais l'adresse, qui peut porter un identifiant. */
   private routes = new Map<string, Fenetre>()
   /**
@@ -210,6 +217,8 @@ export class Pouls {
     this.battements = new Fenetre(now)
     this.battementsTombes = new Fenetre(now)
     this.ouvertesParUnBattement = new Fenetre(now)
+    this.attentesDUneConnexion = new Fenetre(now)
+    this.attentesLassees = new Fenetre(now)
     this.toutesLesRoutes = new Fenetre(now)
     this.adressesDebut = now()
   }

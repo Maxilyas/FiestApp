@@ -31,6 +31,7 @@
 
 import type { InStatement } from '@libsql/client'
 import { ajouterColonne, clientDistant, type Client } from './distante'
+import { enFond } from './gels'
 import { lireAbonnement, nouvellesCles, pousser, type Abonnement, type ClesVapid } from './pousser'
 import type { ProfileStore } from '../auth/profiles'
 import type { JourStore } from './jour'
@@ -426,7 +427,9 @@ export class RappelStore {
     const heure = heureDeParis(maintenant)
     if (this.faitPour === jour || heure < HEURE_DU_RAPPEL || heure >= FIN_DU_RAPPEL || Date.now() < this.pasAvant) return null
     if (this.deps.enPause?.()) return null
-    this.tournee = this.faireLaTournee(jour)
+    // Nommée pour la sonde des gels (`core/gels.ts`) : chaque téléphone prévenu chiffre sa notification, et une
+    // tournée qui gèle à 18 h se comptait « sans rien de nommé ».
+    this.tournee = enFond('fond · rappel du soir', this.faireLaTournee(jour))
       .then(() => {
         this.faitPour = jour
       })

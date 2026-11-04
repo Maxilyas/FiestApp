@@ -117,6 +117,27 @@ export function enFond<T>(quoi: string, travail: Promise<T>): Promise<T> {
 }
 
 /**
+ * Une étape d'une requête qui attend — une écriture et ce qu'elle range —,
+ * sous ce nom jusqu'à son issue : `enFond`, sur le chemin d'une réponse.
+ */
+export const pendant = enFond
+
+/**
+ * Un calcul d'un seul tenant, sous ce nom, le temps qu'il tourne. Dans une
+ * requête, il dit laquelle de ses étapes a gelé : le 4 novembre 2026, la
+ * production relevait 1,5 s sous `POST /api/cabinet/traversee/:id/geste`,
+ * sans rien pour dire si c'était le tirage, la conclusion ou ses trophées.
+ */
+export function sousLeNom<T>(quoi: string, calcul: () => T): T {
+  const fin = commencer(quoi)
+  try {
+    return calcul()
+  } finally {
+    fin()
+  }
+}
+
+/**
  * Ce qui a tourné entre ces deux instants (`performance.now()`), chaque nom
  * une fois avec son nombre : ce qui a couvert le plus longtemps la fenêtre
  * d'abord, `EN_COURS_D_UN_GEL` au plus.

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { InStatement, Row } from '@libsql/client'
 import { clientDistant, type Client } from './distante'
-import { enFond } from './gels'
+import { enFond, sousLeNom } from './gels'
 import { releve as releveDuProcessus, type ReleveHoraire } from './pouls'
 import { rendreLaMain } from './tourniquet'
 import { veille as veilleDuProcessus, type Veille } from './veille'
@@ -411,11 +411,10 @@ export class SanteDuServeur {
     if (!this.moi) return this.file
     const maintenant = this.now()
     this.moi.vuLe = maintenant
-    return this.ecrire([
-      ...this.lignesAEcrire(maintenant),
-      { sql: 'UPDATE qg_demarrages SET vu_le = ? WHERE id = ?', args: [maintenant, this.id] },
-      ...this.purger(maintenant),
-    ])
+    // Ses heures en texte, d'un seul tenant et sous son nom (`core/gels.ts`) : chaque route, ses tranches, les
+    // téléphones et le temps réel de l'heure, toutes les dix minutes, sans requête pour les porter.
+    const lignes = sousLeNom('fond · relevé du serveur', () => this.lignesAEcrire(maintenant))
+    return this.ecrire([...lignes, { sql: 'UPDATE qg_demarrages SET vu_le = ? WHERE id = ?', args: [maintenant, this.id] }, ...this.purger(maintenant)])
   }
 
   /**

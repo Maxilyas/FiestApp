@@ -604,8 +604,17 @@ export interface CabinetDAccueil {
 export function vuesDuCabinet(vues: ReadonlyMap<string, number>): Map<string, number> {
   const depliees = new Map<string, number>()
   for (const [id, le] of vues) {
-    const questions = id.startsWith(PREFIXE_DE_LA_FRISE) ? id.slice(PREFIXE_DE_LA_FRISE.length).split('+') : deplier(id)
-    for (const q of questions) depliees.set(q, Math.max(le, depliees.get(q) ?? Number.NEGATIVE_INFINITY))
+    for (const q of deplieePourLeCabinet(id)) depliees.set(q, Math.max(le, depliees.get(q) ?? Number.NEGATIVE_INFINITY))
   }
   return depliees
+}
+
+/**
+ * Ce qu'une vue déplie pour le Cabinet, une seule règle : les questions d'un
+ * composé, les événements d'une frise de l'Expédition, sinon elle-même. Le
+ * journal des réponses tient sa carte à jour par elle, réponse par réponse
+ * (`JournalDesReponses.vuesDuCabinetDe`).
+ */
+export function deplieePourLeCabinet(id: string): string[] {
+  return id.startsWith(PREFIXE_DE_LA_FRISE) ? id.slice(PREFIXE_DE_LA_FRISE.length).split('+') : deplier(id)
 }

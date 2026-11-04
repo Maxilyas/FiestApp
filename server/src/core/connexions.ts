@@ -55,7 +55,7 @@ const ouvertes = new Set<Socket>()
  * d'un joueur n'empruntent que les premières, et les autres vieillissent
  * pendant qu'il joue.
  */
-const servies = new WeakMap<Socket, { libre: boolean; rendue: number }>()
+const servies = new WeakMap<Socket, { libre: boolean; rendue: number; aServi: boolean }>()
 
 /** La connexion qu'emprunte chaque requête partie vers la base : sa fin la rend. */
 const empruntees = new WeakMap<object, Socket>()
@@ -97,7 +97,7 @@ export function connexionOuverte(socket: Socket | undefined, hote: string | unde
   const ouverte = performance.now()
   if (socket) {
     ouvertes.add(socket)
-    servies.set(socket, { libre: true, rendue: ouverte })
+    servies.set(socket, { libre: true, rendue: ouverte, aServi: false })
     socket.once('close', () => ouvertes.delete(socket))
   }
   // Refermée par la base, la connexion reçoit sa fin ; refermée par nous — la
@@ -147,6 +147,17 @@ export function connexionRendue(socket: Socket) {
   if (!servie) return
   servie.libre = true
   servie.rendue = performance.now()
+  servie.aServi = true
+}
+
+/**
+ * A-t-elle déjà rendu une réponse ? Une connexion qui sert après avoir servi
+ * sera libre dans un aller-retour ; celle qui fait encore sa poignée de main,
+ * non — la patience des connexions n'attend que les premières
+ * (`placeSurUneGardee`, `core/transportLeger.ts`).
+ */
+export function aDejaServi(socket: Socket): boolean {
+  return servies.get(socket)?.aServi ?? false
 }
 
 // Le `fetch` de Node (undici, embarqué) annonce chaque connexion qu'il ouvre,
