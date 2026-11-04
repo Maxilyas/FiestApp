@@ -14478,13 +14478,16 @@ body:has(.player-shell.qg) {
 .qg-periodes-feuille { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
 /* Le sommaire d'une longue page : une rangée de liens à l'ordinateur, replié sous « Sur cette page » au téléphone. Le
    titre atteint s'arrête sous la barre collée. */
-.qg-sommaire-page ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
-.qg-sommaire-rangee { display: none; }
+/* Des liens de texte, pas des pastilles : sous la tête, ils ne se confondent pas avec les onglets d'une page. */
+.qg-sommaire-page ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 2px 16px; }
+.qg-sommaire-rangee { display: none; align-items: baseline; gap: 4px 16px; }
+.qg-sommaire-titre { flex: none; font: 600 var(--t-label)/1.2 var(--qg-mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
 .qg-sommaire-pli summary { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--accent-text); font-size: 0.85rem; font-weight: 600; cursor: pointer; }
 .qg-sommaire-pli summary .icon { width: 15px; height: 15px; }
-.qg-sommaire-pli ul { padding-bottom: 6px; }
-.qg-sommaire-lien { min-height: 36px; padding: 0 12px; border: 1px solid var(--qg-trait-fort); border-radius: var(--radius-pill); background: rgba(255, 255, 255, 0.025); color: var(--qg-encre-2); font: inherit; font-size: 0.8125rem; cursor: pointer; }
-.qg-sommaire-lien:hover { border-color: rgba(217, 181, 106, 0.45); color: var(--ink); }
+.qg-sommaire-pli ul { flex-direction: column; padding-bottom: 6px; }
+.qg-sommaire-lien { min-height: 28px; padding: 0; border: 0; background: none; color: var(--qg-encre-2); font: inherit; font-size: 0.8125rem; text-align: left; text-decoration: underline; text-decoration-color: var(--qg-trait-fort); text-underline-offset: 4px; cursor: pointer; }
+.qg-sommaire-lien:hover { color: var(--accent-text-hover); text-decoration-color: currentColor; }
+.qg-sommaire-pli .qg-sommaire-lien { min-height: 44px; font-size: 0.9rem; }
 .qg .page-corps h2[id] { scroll-margin-top: 84px; }
 .qg .page-corps h2[id]:focus { outline: none; }
 /* Une page qui ne suit pas la période de la barre y montre, grisée, la fenêtre qu'elle lit. */

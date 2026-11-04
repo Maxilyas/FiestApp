@@ -72,7 +72,12 @@ export function SommaireDeLaPage({ titres }: { titres: readonly TitreDeSection[]
   ))
   return (
     <nav className="qg-sommaire-page" aria-label="Sur cette page">
-      <ul className="qg-sommaire-rangee">{liens}</ul>
+      <div className="qg-sommaire-rangee">
+        <span className="qg-sommaire-titre" aria-hidden="true">
+          Sur cette page
+        </span>
+        <ul>{liens}</ul>
+      </div>
       <details className="qg-sommaire-pli">
         <summary>
           <Icon name="list" />
