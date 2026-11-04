@@ -12,12 +12,14 @@ import { connexionAnimateur, cookieDe, demarrer, ecrire, inscrireProfil, type Ba
 import { ANNONCE_MAX, CHOIX_LONGUEUR_MAX, MOT_MAX, lireLaQuestion, lireLaReponse, lireLeMessage, lireLesConfettis, type PageDesAnnonces } from '../../shared/annonces'
 import type { AnnonceDeLAdministrateur, FicheDuJoueur, ProfilDAccueil } from '../../shared/profil'
 import type { JournalDuQg } from '../../shared/qg'
+import type { ComptesDesSegments } from '../../shared/qgJoueurs'
+import { jourDe } from '../../shared/jour'
 
 const lire = <T = any>(banc: Banc, cookie: string, chemin: string) =>
   fetch(`${banc.url}${chemin}`, { headers: { Cookie: cookie } }).then(async r => ({ status: r.status, corps: (await r.json()) as T }))
 const faire = (banc: Banc, cookie: string, chemin: string, corps: unknown = {}, methode = 'POST') =>
   ecrire(banc.url, chemin, corps, cookie, methode).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
-const annoncer = (banc: Banc, admin: string, corps: { id?: string; message?: unknown; confettis?: unknown; question?: unknown }) => faire(banc, admin, '/api/admin/annonces', corps)
+const annoncer = (banc: Banc, admin: string, corps: { id?: string; message?: unknown; confettis?: unknown; question?: unknown; segment?: unknown }) => faire(banc, admin, '/api/admin/annonces', corps)
 const accueil = async (banc: Banc, cookie: string) => (await lire<{ profile: ProfilDAccueil }>(banc, cookie, '/api/joueur/moi?accueil')).corps.profile
 /** Ce que son accueil lui annonce, de ce que l'administrateur a dit à tous. */
 const sesAnnonces = async (banc: Banc, cookie: string) =>
@@ -314,6 +316,85 @@ test('une note et un mot libre : la moyenne, les mots avec leur auteur — et un
     // Retirée, une annonce ne reçoit plus de réponse.
     assert.equal((await faire(banc, admin, '/api/admin/annonces/mot-libre-ideal', {}, 'DELETE')).status, 200)
     assert.equal((await repondre(banc, bob, 'mot-libre-ideal', 'Trop tard')).status, 404)
+  } finally {
+    await banc.close()
+  }
+})
+
+// Écrire à un segment de la page des joueurs (le lot 6 du QG 2, le 4 novembre 2026 : « Écrire aux endormis ») :
+// les membres du segment à l'envoi, et eux seuls — le même lot, la même fois, un don par profil.
+test('une annonce à un segment des joueurs : à ses seuls membres, leurs dons seuls — « pour toi », jamais le nom du segment, et rejouée elle garde le sien', async () => {
+  const banc = await demarrer()
+  try {
+    const admin = await connexionAnimateur(banc.url)
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const zoe = await inscrireProfil(banc.url, 'zoe', 'Zoé', '🐼')
+    const [idLea, idZoe] = [await idDe(banc, lea), await idDe(banc, zoe)]
+    // Toutes deux inscrites il y a quarante jours ; Léa joue chaque jour — régulière —, Zoé a joué il y a vingt jours : endormie.
+    // Des parties sans une bonne réponse : leurs confettis brouilleraient les soldes qu'on compte plus bas.
+    const J = 86_400_000
+    const maintenant = Date.now()
+    const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+    db.prepare('UPDATE profiles SET created_at = ?').run(maintenant - 40 * J)
+    const partie = db.prepare('INSERT INTO jour_parties (profile_id, jour, commencee_le, question, justes) VALUES (?, ?, ?, 10, 0)')
+    for (const [qui, il_y_a] of [[idLea, 0], [idLea, 1], [idLea, 2], [idZoe, 20]] as const) {
+      const quand = maintenant - il_y_a * J - 60_000
+      partie.run(qui, jourDe(quand), quand)
+    }
+    db.close()
+
+    const comptes = (await lire<ComptesDesSegments>(banc, admin, '/api/admin/joueurs/segments')).corps.comptes
+    assert.deepEqual(comptes, { nouveaux: 0, reguliers: 1, occasionnels: 0, 'a-risque': 0, endormis: 1, perdus: 0 })
+
+    const faite = await annoncer(banc, admin, { id: 'reveil-des-endormis', message: 'Tu nous manques : le Cabinet t’attend !', confettis: 30, segment: 'endormis' })
+    assert.equal(faite.status, 200, faite.corps.error)
+    const annonce = (faite.corps as PageDesAnnonces).annonces[0]
+    assert.deepEqual([annonce.id, annonce.destinataires, annonce.segment], ['reveil-des-endormis', 1, 'endormis'])
+    // Zoé la lit avec ses confettis, une annonce « à quelques-uns » ; Léa ne la voit pas, et n'a rien reçu.
+    const deZoe = ((await accueil(banc, zoe)).annonces ?? []).flatMap(a => (a.sorte === 'annonce' ? [[a.message, a.confettis, a.aQuelquesUns]] : []))
+    assert.deepEqual(deZoe, [['Tu nous manques : le Cabinet t’attend !', 30, true]])
+    assert.equal((await accueil(banc, zoe)).boutique?.confettis.solde, 30)
+    assert.deepEqual(await sesAnnonces(banc, lea), [])
+    assert.equal((await accueil(banc, lea)).boutique?.confettis.solde, 0)
+
+    // Le même envoi refait à tous — sa réponse perdue en route, le choix changé entre-temps : refusé, et ses dons suivent
+    // le segment qu'elle a gardé, pas celui qu'on redemande.
+    assert.equal((await annoncer(banc, admin, { id: 'reveil-des-endormis', message: 'Tu nous manques : le Cabinet t’attend !', confettis: 30 })).status, 409)
+    assert.equal((await accueil(banc, lea)).boutique?.confettis.solde, 0)
+    assert.deepEqual(await lesGestes(banc, admin), ['Annonce aux endormis (1 profil) : « Tu nous manques : le Cabinet t’attend ! » — 30 confettis chacun'])
+
+    // Sa question ne se répond que par ses destinataires : l'accueil ne la pose qu'à eux.
+    assert.equal((await annoncer(banc, admin, { id: 'mot-des-endormis', message: 'Qu’est-ce qui te ferait revenir ?', question: { sorte: 'mot' }, segment: 'endormis' })).status, 200)
+    assert.equal((await repondre(banc, lea, 'mot-des-endormis', 'Rien du tout')).status, 404)
+    assert.equal((await repondre(banc, zoe, 'mot-des-endormis', 'Un mode à deux')).status, 200)
+
+    // Un segment inconnu, un segment vide : refusés, sans rien envoyer.
+    const inconnu = await annoncer(banc, admin, { message: 'Coucou', segment: 'dormeurs' })
+    assert.equal(inconnu.status, 400)
+    assert.match(inconnu.corps.error, /Ce segment n’existe pas/)
+    const vide = await annoncer(banc, admin, { message: 'Coucou', segment: 'perdus' })
+    assert.equal(vide.status, 400)
+    assert.match(vide.corps.error, /Personne n’est dans ce segment/)
+    assert.equal((await lire<PageDesAnnonces>(banc, admin, '/api/admin/annonces')).corps.annonces.length, 2)
+
+    // Sur sa carte : « pour toi », jamais « à tous les joueurs », ni le nom du segment.
+    Object.assign(globalThis, { React })
+    const { CarteDeLAdministrateur } = await import(new URL('../../client/src/components/CarteDeLAdministrateur.tsx', import.meta.url).href)
+    const { renderToStaticMarkup } = await import('react-dom/server')
+    const carte = (annonce: AnnonceDeLAdministrateur) => renderToStaticMarkup(React.createElement(CarteDeLAdministrateur, { annonce, prenom: 'Zoé', onRanger: () => {} }))
+    const avec = carte({ id: 'annonce:r', sorte: 'annonce', message: 'Tu nous manques !', confettis: 30, le: 0, aQuelquesUns: true })
+    assert.match(avec, /<b>\+30 confettis pour toi<\/b>/)
+    assert.doesNotMatch(avec, /à tous|endormi/i)
+    assert.match(carte({ id: 'annonce:s', sorte: 'annonce', message: 'Tu nous manques !', confettis: 0, le: 0, aQuelquesUns: true }), /<b>Un mot pour toi<\/b>/)
+
+    // Supprimé, un profil emporte sa place parmi les destinataires.
+    assert.equal((await faire(banc, admin, `/api/admin/profils/${idZoe}`, undefined, 'DELETE')).status, 200)
+    const lecteur = new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: true })
+    try {
+      assert.equal((lecteur.prepare('SELECT COUNT(*) AS n FROM qg_annonce_destinataires WHERE profile_id = ?').get(idZoe) as { n: number }).n, 0)
+    } finally {
+      lecteur.close()
+    }
   } finally {
     await banc.close()
   }

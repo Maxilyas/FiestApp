@@ -152,7 +152,13 @@ test('supprimer un profil emporte tout ce qui n’était qu’à lui — son sal
     const bobAvant = (await lire(banc, bob, '/api/joueur/moi')).corps.profile
     // Et elle teste le Cabinet, que l'administrateur garde pour bientôt (`/admin#maintenance`).
     assert.equal((await ecrire(banc.url, `/api/admin/maintenance/pages/cabinet/testeurs/${leaId}`, undefined, admin, 'PUT')).status, 200)
-    assert.ok(Object.keys(lignesDu(banc, leaId)).length >= 5, 'Léa a laissé des traces un peu partout')
+    // Le QG l'a vue jouer — la feuille de présence d'hier s'écrit au premier passage de la page des joueurs —, et une
+    // annonce aux nouveaux l'a comptée parmi ses destinataires (`/admin#joueurs`, le 4 novembre 2026).
+    assert.equal((await lire(banc, admin, '/api/admin/joueurs')).status, 200)
+    assert.equal((await ecrire(banc.url, '/api/admin/annonces', { id: 'aux-nouveaux', message: 'Bienvenue !', confettis: 0, segment: 'nouveaux' }, admin)).status, 200)
+    const traces = lignesDu(banc, leaId)
+    assert.ok(traces['qg_presences.profile_id'] && traces['qg_annonce_destinataires.profile_id'], JSON.stringify(traces))
+    assert.ok(Object.keys(traces).length >= 5, 'Léa a laissé des traces un peu partout')
 
     const fait = await supprimer(banc, admin, leaId)
     assert.equal(fait.status, 200, JSON.stringify(fait.corps))

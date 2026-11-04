@@ -24,7 +24,10 @@
 // Automate et de duels classés, six lancés aujourd'hui par les vraies routes,
 // ceux qui attendent leur adversaire — et l'un d'eux annulé ; la page de
 // l'économie — trente jours de thèmes, de compagnons et de soirées, des Éclats,
-// dix-sept légendaires portés — ; puis la fiche d'une joueuse — une épreuve en route, des confettis
+// dix-sept légendaires portés — ; la page des joueurs — soixante-dix profils
+// nés sur dix semaines et revenus plus ou moins souvent, les habitués et les
+// joueurs nommés d'avant eux —, une cohorte lue au clavier, un endormi ouvert,
+// et « Leur écrire » : les annonces, le segment choisi ; puis la fiche d'une joueuse — une épreuve en route, des confettis
 // offerts, sa connexion fermée, masquée du classement —, le don qu'on prépare, le code de secours
 // tiré pour elle, et son accueil qui annonce le don — et le merci d'une
 // question qu'elle avait signalée —, une fois ; elle, remise au classement
@@ -43,8 +46,9 @@ import { mkdirSync } from 'node:fs'
 import path from 'node:path'
 import Database from 'better-sqlite3'
 import { baseDEssai, connexionAnimateur, creerQuiz, demarrer, ecranCommun, ecrire, inscrireProfil, invite, lancerQuiz, qcm } from '../test/banc'
-import { jourDe, minutesDeParis } from '../../shared/jour'
+import { jourAvant, jourDe, minutesDeParis } from '../../shared/jour'
 import { minuitsDeParis } from '../../shared/qg'
+import { lundiDe, minuitDuJour } from '../../shared/qgJoueurs'
 import { DUREE_D_UN_DUEL_MS, LETTRES_D_UN_CODE, LONGUEUR_D_UN_CODE, VIES, semaineAvant, semaineDe } from '../../shared/campagne'
 import { coteDuScore } from '../../shared/duels'
 import { regleDuPalier } from '../../shared/sentiers'
@@ -711,6 +715,108 @@ try {
         }
       }
     }
+    // La page des joueurs (`/admin#joueurs`, le lot 6 du QG 2) : une audience
+    // qui a une histoire. Les habitués du quiz du jour sont là depuis cinq mois,
+    // les vingt-quatre joueurs nommés et les porteurs de légendaires depuis plus
+    // de trois — avant les cohortes, que leurs trente jours tous joués
+    // écraseraient ; Léa et Tom naissent aujourd'hui, chacun de sa page. Puis
+    // soixante-dix profils nés sur dix semaines : chaque semaine ses fidèles,
+    // ses curieux et ses passants d'un soir, revenus plus ou moins souvent
+    // ensuite — au quiz du jour et en campagne surtout, le soir et le week-end,
+    // les nés en soirée crédités de la leur —, chacun l'écran de sa naissance,
+    // sauf ceux d'avant le 4 novembre 2026, qui ne le disent pas. Les profils
+    // fantômes des trente jours (`p-…`) comptent aux joueurs, jamais aux
+    // segments ni aux cohortes : ils n'ont pas de fiche — et leurs trente jours
+    // font la marche du graphique des actifs.
+    {
+      const J = 24 * H
+      const nee = permanente.prepare('UPDATE profiles SET created_at = ? WHERE id = ?')
+      idsDesHabitues.forEach((id, i) => nee.run(maintenant - (150 + i * 3) * J, id))
+      joueurs.forEach((j, k) => nee.run(maintenant - (95 + k) * J, j.id))
+      permanente.prepare("UPDATE profiles SET created_at = ? WHERE id LIKE 'porteur-%'").run(maintenant - 100 * J)
+      permanente.prepare("UPDATE profiles SET origine = 'jour' WHERE login = 'lea'").run()
+      permanente.prepare("UPDATE profiles SET origine = 'salon' WHERE login = 'tom'").run()
+      const PRENOMS = [
+        'Agathe', 'Bastien', 'Céleste', 'Dorian', 'Elsa', 'Fabien', 'Garance', 'Hector', 'Irène', 'Joachim', 'Katia', 'Lucien', 'Margaux', 'Nils',
+        'Octave', 'Pauline', 'Quentin', 'Romane', 'Simon', 'Tess', 'Ulysse', 'Valentine', 'William', 'Yasmine', 'Zacharie', 'Apolline', 'Benoît',
+        'Clémence', 'Damien', 'Éloïse', 'Florent', 'Gwen', 'Hugues', 'Iris', 'Jérôme', 'Klara', 'Lazare', 'Maëlle', 'Noah', 'Ophélie', 'Pierre',
+        'Rachel', 'Solène', 'Théo', 'Ugo', 'Vianney', 'Wendy', 'Xavier', 'Yanis', 'Zélie', 'Anouk', 'Baptiste', 'Capucine', 'Diane', 'Émile',
+        'Fanny', 'Gilles', 'Héloïse', 'Ilan', 'Juliette', 'Kenza', 'Léon', 'Maxime', 'Nina', 'Olivier', 'Prune', 'Raphaël', 'Sarah', 'Tristan', 'Vera',
+      ]
+      const VISAGES = ['🦊', '🐸', '🦄', '🐙', '🐼', '🐯', '🦁', '🐨', '🐷', '🐶', '🐱', '🐵', '🦉', '🐢', '🐬', '🦋', '🐝', '🌻', '🍀', '🌙', '⭐', '🍒', '🍋', '🎈']
+      // L'écran de naissance, au poids d'une vraie semaine : l'entrée et la fin d'une soirée d'abord.
+      const ORIGINES = ['entree', 'entree', 'entree', 'fin-de-soiree', 'fin-de-soiree', 'soiree', 'accueil', 'accueil', 'jour', 'jour', 'campagne', 'cabinet', 'duels', 'salon']
+      const NEES_PAR_SEMAINE = [3, 6, 8, 7, 9, 6, 8, 7, 5, 11]
+      const profil = permanente.prepare("INSERT INTO profiles (id, login, name, avatar, password_hash, recovery_hash, created_at, origine) VALUES (?, ?, ?, ?, 'rendu', 'rendu', ?, ?)")
+      const sonQuiz = permanente.prepare('INSERT OR IGNORE INTO jour_parties (profile_id, jour, commencee_le, question, finie_le) VALUES (?, ?, ?, 10, ?)')
+      const saSerie = permanente.prepare("INSERT INTO campagne_series (id, profile_id, questions, position, vies, commencee_le, mode) VALUES (?, ?, '[]', 8, 3, ?, ?)")
+      const saSoiree = permanente.prepare("INSERT OR IGNORE INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at) VALUES (?, ?, 'rendu', 60, ?, ?)")
+      const detailDUneSoiree = JSON.stringify({ v: 3, gain: gainVide(), releve: { ...releveVide(), questions: 12, quizJoues: 1 } })
+      const lundi = lundiDe(jourDe(maintenant))
+      /** L'heure d'une partie : le soir surtout, le midi parfois, le week-end aussi l'après-midi. */
+      const heureDeJeu = (finDeSemaine: boolean) => {
+        const r = hasard()
+        if (r < 0.15) return 12 + hasard()
+        if (finDeSemaine && r < 0.45) return 14 + hasard() * 4
+        if (r < 0.25) return 8 + hasard() * 2
+        return 18 + hasard() * 5
+      }
+      let c = 0
+      let numero = 0
+      for (let semaine = 0; semaine < NEES_PAR_SEMAINE.length; semaine++) {
+        const debut = jourAvant(lundi, 7 * semaine)
+        // Les semaines récentes retiennent un peu mieux : la proposition d'il y a deux mois a servi.
+        const qualite = 0.7 + 0.035 * (NEES_PAR_SEMAINE.length - 1 - semaine)
+        for (let i = 0; i < NEES_PAR_SEMAINE[semaine]; i++, c++) {
+          const sorte = hasard()
+          const fidele = sorte < 0.25
+          const passant = sorte >= 0.7
+          // Le goût de chacun : le quiz du jour, la campagne, ou un peu des deux et du Cabinet.
+          const gout = hasard()
+          const modeDUnePartie = () => {
+            const r = hasard()
+            if (gout < 0.4) return r < 0.8 ? 'jour' : 'serie'
+            if (gout < 0.75) return r < 0.7 ? 'serie' : r < 0.85 ? 'cabinet' : 'jour'
+            return r < 0.4 ? 'jour' : r < 0.75 ? 'serie' : 'cabinet'
+          }
+          const origine = ORIGINES[Math.floor(hasard() * ORIGINES.length)]
+          const enSoiree = origine === 'entree' || origine === 'soiree' || origine === 'fin-de-soiree'
+          // Né en soirée : un vendredi ou un samedi soir ; sinon n'importe quel jour, à une heure de jeu.
+          let jourDeNaissance = enSoiree ? 4 + Math.floor(hasard() * 2) : Math.floor(hasard() * 7)
+          let quand = minuitDuJour(jourAvant(debut, -jourDeNaissance)) + (enSoiree ? 21 + hasard() * 1.5 : heureDeJeu(jourDeNaissance >= 5)) * H
+          // Cette semaine, personne ne naît demain : le jour de naissance recule jusqu'à aujourd'hui, ou plus tôt.
+          while (quand > maintenant - 30 * 60_000 && jourDeNaissance > 0) {
+            jourDeNaissance--
+            quand = minuitDuJour(jourAvant(debut, -jourDeNaissance)) + 9 * H
+          }
+          if (quand > maintenant - 30 * 60_000) continue
+          const id = `cohorte-${c}`
+          // Ceux d'avant le 4 novembre 2026 ne disent pas d'où ils viennent — ici, ceux d'il y a plus de trois semaines.
+          profil.run(id, `cohorte${c}`, PRENOMS[c % PRENOMS.length], VISAGES[(c * 7) % VISAGES.length], quand, quand < maintenant - 21 * J ? null : origine)
+          const jouer = (instant: number) => {
+            if (instant > maintenant - 60_000) return
+            const mode = modeDUnePartie()
+            if (mode === 'jour') sonQuiz.run(id, jourDe(instant), instant, instant + 4 * 60_000)
+            else saSerie.run(`cohorte-partie-${numero++}`, id, instant, mode)
+          }
+          // Le soir de sa naissance : sa soirée, ou sa première partie.
+          if (enSoiree) saSoiree.run(id, `${jourDe(quand)}-rendu`, detailDUneSoiree, Math.min(quand + 90 * 60_000, maintenant - 60_000))
+          else if (hasard() < 0.9) jouer(quand + 5 * 60_000)
+          // Puis chaque semaine qui suit, revenu ou non, plus souvent s'il est fidèle.
+          for (let apres = 0; apres <= semaine; apres++) {
+            const chance = apres === 0 ? (fidele ? 0.9 : passant ? 0.1 : 0.5) : qualite * (fidele ? 0.88 : passant ? 0.14 * 0.7 ** (apres - 1) : 0.55 * 0.78 ** (apres - 1))
+            if (hasard() >= chance) continue
+            const lundiDeLaSemaine = jourAvant(debut, -7 * apres)
+            const jours = fidele ? 2 + Math.floor(hasard() * 4) : passant ? 1 : 1 + Math.floor(hasard() * 2)
+            for (let k = 0; k < jours; k++) {
+              const jourDeLaSemaine = Math.floor(hasard() * 7)
+              const instant = minuitDuJour(jourAvant(lundiDeLaSemaine, -jourDeLaSemaine)) + heureDeJeu(jourDeLaSemaine >= 5) * H
+              if (instant > quand) jouer(instant)
+            }
+          }
+        }
+      }
+    }
     // Le journal d'hier : deux gestes, pour voir les jours se ranger.
     const geste = permanente.prepare("INSERT INTO qg_gestes (id, quand, qui, sorte, route, resume, cible) VALUES (?, ?, 'banc', ?, 'POST /api/admin/x', ?, NULL)")
     geste.run('hier-1', minuits[minuits.length - 1] - 3 * H, 'salon', 'Espace « Chez Bob » renommé « Chez Robert », adresse /chez-bob → /chez-robert')
@@ -762,6 +868,8 @@ try {
       await page.waitForSelector('section[aria-labelledby="economie-circulation"] .qg-pistes', { timeout: 15000 })
     }
     if (adresse === '/admin#signalements') await page.waitForSelector('.signalement-carte', { timeout: 15000 })
+    // Son premier passage écrit d'abord la mémoire, aussi loin que les journaux remontent : un peu plus long.
+    if (adresse === '/admin#joueurs') await page.waitForSelector('.qg-joueurs-page', { timeout: 60000 })
     if (adresse === '/admin#activite') {
       await page.waitForSelector('.qg-multiple svg', { timeout: 15000 })
       await page.waitForSelector('.qg-assidu-barre', { timeout: 15000 })
@@ -812,6 +920,41 @@ try {
   await photographier('5-telephone-sous-ivoire', 360, 640, { theme: 'ivoire' })
   }
   // Les pages du QG 2 qui suivront, chacune son bloc `if (photo('<clé>')) { … }`, ici.
+
+  // Les joueurs (`/admin#joueurs`) : la page aux trois tailles et sous l'Ivoire ; une cohorte lue au clavier ; un
+  // endormi touché au téléphone, sa fiche ouverte ; puis « Leur écrire » — les annonces, le segment choisi, un message en route.
+  if (photo('joueurs')) {
+    await photographier('70-joueurs', 1366, 768, { adresse: '/admin#joueurs' })
+    await photographier('71-joueurs-1920', 1920, 1080, { adresse: '/admin#joueurs' })
+    await photographier('72-joueurs-telephone', 360, 640, { adresse: '/admin#joueurs' })
+    await photographier('73-joueurs-ivoire', 360, 640, { adresse: '/admin#joueurs', theme: 'ivoire' })
+    await photographier('74-joueurs-cohorte-lue', 1366, 768, {
+      pleine: false,
+      adresse: '/admin#joueurs',
+      geste: async page => {
+        await page.locator('.qg-joueurs-cohortes .qg-chaleur-cadre').focus()
+        for (const touche of ['ArrowRight', 'ArrowRight', 'ArrowDown', 'ArrowDown']) await page.keyboard.press(touche)
+        await page.locator('.qg-joueurs-cohortes').scrollIntoViewIfNeeded()
+      },
+    })
+    await photographier('75-joueurs-fiche-telephone', 360, 640, {
+      pleine: false,
+      adresse: '/admin#joueurs',
+      geste: async page => {
+        await page.getByRole('button', { name: /^Endormis/ }).click()
+        await page.locator('.qg-joueurs-membres .qg-ligne').first().click()
+        await page.waitForSelector('.qg-fiche dl', { timeout: 15000 })
+      },
+    })
+    const versLesEndormis = async (page: any) => {
+      await page.getByRole('button', { name: /^Endormis/ }).click()
+      await page.getByRole('button', { name: 'Leur écrire' }).click()
+      await page.waitForSelector('.annonce-sortes [aria-checked="true"]', { timeout: 15000 })
+      await page.locator('#annonce-message').fill('Tu nous manques ! Le Cabinet de curiosités a ouvert ses portes : viens voir ses trois gardiens.')
+    }
+    await photographier('76-annonces-segment', 1366, 768, { adresse: '/admin#joueurs', geste: versLesEndormis })
+    await photographier('77-annonces-segment-telephone', 360, 640, { adresse: '/admin#joueurs', geste: versLesEndormis })
+  }
 
   // Les pages d'avant le QG 2 : seulement sans `SEULEMENT`.
   lesAutresPages: {

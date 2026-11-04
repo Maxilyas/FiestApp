@@ -77,6 +77,8 @@ import {
 } from '../../../shared/themes'
 import { cleDeSaison, saison, type Saison } from '../../../shared/saisons'
 import { etiquetteDuTimbre, timbreDe, timbresDe } from '../../../shared/timbres'
+import { lireLOrigine, type OrigineLue } from '../../../shared/origines'
+import type { SegmentDuQg } from '../../../shared/qgJoueurs'
 import { NOMS_DES_DEFIS, PREFIXE_DES_DEFIS, RANGS_DITS, confettisDesDefis, defisAuMoins, defisTenus, gardienDeLaMaitrise, nomDuTitreDuDefi, rangDeLaCle, titresDesDefis, type DefisTenus } from '../../../shared/cabinet/sceaux'
 import {
   LEGENDAIRE_DES_DEFIS,
@@ -892,6 +894,8 @@ export interface AnnonceATous {
   le: number
   /** Sa question, tant qu'il n'y a pas répondu et qu'elle est ouverte. */
   question?: QuestionAPoser
+  /** Écrite à un segment de la page des joueurs, dont il était : elle ne se dit pas « à tous ». */
+  aQuelquesUns?: true
 }
 
 /**
@@ -1025,7 +1029,9 @@ const afficheLue = (r: Row): Omit<AfficheAuQg, 'ouvertes' | 'rangees'> => ({
   retireeLe: r.retiree_le == null ? null : Number(r.retiree_le),
 })
 
-const COLONNES_D_UNE_ANNONCE = 'id, message, confettis, destinataires, created_at, retiree_le'
+/** Une annonce telle que le QG la lit, son segment avec — lu par sa clé, toujours après `FROM qg_annonces`. */
+const COLONNES_D_UNE_ANNONCE =
+  'id, message, confettis, destinataires, created_at, retiree_le, (SELECT segment FROM qg_annonce_segments s WHERE s.annonce_id = qg_annonces.id) AS segment'
 const annonceDuQg = (r: Row, question: QuestionAuQg | null = null): AnnonceAuQg => ({
   id: String(r.id),
   question,
@@ -1034,6 +1040,7 @@ const annonceDuQg = (r: Row, question: QuestionAuQg | null = null): AnnonceAuQg 
   destinataires: Number(r.destinataires),
   le: Number(r.created_at),
   retireeLe: r.retiree_le == null ? null : Number(r.retiree_le),
+  segment: r.segment == null ? null : (String(r.segment) as SegmentDuQg),
 })
 
 export class ProfileStore {
@@ -1570,6 +1577,20 @@ export class ProfileStore {
            PRIMARY KEY (annonce_id, profile_id)
          )`,
         'CREATE INDEX IF NOT EXISTS idx_qg_annonce_reponses_profil ON qg_annonce_reponses(profile_id)',
+        // Une annonce écrite à un segment de la page des joueurs (le lot 6 du QG 2, le 4 novembre 2026 : les
+        // endormis, les nouveaux…) : son segment, une ligne par annonce — sans ligne, elle va à tous — et ses
+        // destinataires, les profils du segment à son envoi, écrits dans son lot. À part de `qg_annonces` : une
+        // colonne de plus y coûtait une lecture de son schéma à chaque réveil.
+        `CREATE TABLE IF NOT EXISTS qg_annonce_segments (
+           annonce_id TEXT PRIMARY KEY,
+           segment    TEXT NOT NULL
+         )`,
+        `CREATE TABLE IF NOT EXISTS qg_annonce_destinataires (
+           annonce_id TEXT NOT NULL,
+           profile_id TEXT NOT NULL,
+           PRIMARY KEY (annonce_id, profile_id)
+         )`,
+        'CREATE INDEX IF NOT EXISTS idx_qg_annonce_destinataires_profil ON qg_annonce_destinataires(profile_id)',
         // Celles du dernier mois, lues avec les dons de chaque accueil : par leur date, sans parcourir la table.
         'CREATE INDEX IF NOT EXISTS idx_qg_annonces_quand ON qg_annonces(created_at)',
         // Les affiches des nouveautés (`shared/affiches.ts`), une ligne chacune,
@@ -1735,6 +1756,9 @@ export class ProfileStore {
     // soirées » : sans lui, le bilan redemandait « Qui es-tu ? ». Une ligne
     // d'avant la colonne le retrouve dans l'archive (`retenirJoueur`).
     await ajouterColonne(this.client, 'profile_xp', 'joueur_id', 'TEXT')
+    // L'écran où il est né (`shared/origines.ts`), que la page des joueurs du QG compte. NULL : un profil d'avant le
+    // 4 novembre 2026, qui ne le dit pas — jamais deviné. Sur `profiles`, dont le schéma est déjà lu plus haut.
+    await ajouterColonne(this.client, 'profiles', 'origine', 'TEXT')
     await this.garderLesLegendairesAcquis()
     await this.garderLesNiveauxAtteints()
     await this.installerLesNiches()
@@ -2143,12 +2167,16 @@ export class ProfileStore {
           ? [
               {
                 // Sa question, tant qu'elle est ouverte et qu'il n'y a pas répondu : la carte la pose avec le message.
-                sql: `SELECT a.id, a.message, a.confettis, a.created_at, q.sorte, q.choix, q.recompense, q.close_le, r.profile_id AS deja
+                // Écrite à un segment, seulement s'il en était à son envoi — par la clé de ses destinataires.
+                sql: `SELECT a.id, a.message, a.confettis, a.created_at, q.sorte, q.choix, q.recompense, q.close_le, r.profile_id AS deja, s.segment
                       FROM qg_annonces a
                       LEFT JOIN qg_annonce_questions q ON q.annonce_id = a.id
                       LEFT JOIN qg_annonce_reponses r ON r.annonce_id = a.id AND r.profile_id = ?
-                      WHERE a.created_at >= ? AND a.created_at >= ? AND a.retiree_le IS NULL ORDER BY a.created_at DESC`,
-                args: [profileId, annonces.depuis, annonces.inscritLe],
+                      LEFT JOIN qg_annonce_segments s ON s.annonce_id = a.id
+                      WHERE a.created_at >= ? AND a.created_at >= ? AND a.retiree_le IS NULL
+                        AND (s.annonce_id IS NULL OR EXISTS (SELECT 1 FROM qg_annonce_destinataires d WHERE d.annonce_id = a.id AND d.profile_id = ?))
+                      ORDER BY a.created_at DESC`,
+                args: [profileId, annonces.depuis, annonces.inscritLe, profileId],
               },
               {
                 // Les affiches en cours, toutes — un profil né après l'une la voit aussi : elle pousse vers une page,
@@ -2188,6 +2216,7 @@ export class ProfileStore {
         message: String(r.message),
         confettis: Number(r.confettis),
         le: Number(r.created_at),
+        ...(r.segment != null && { aQuelquesUns: true as const }),
         ...(r.sorte != null && r.close_le == null && r.deja == null && {
           question: { sorte: String(r.sorte) as SorteDeQuestion, choix: JSON.parse(String(r.choix)) as string[], recompense: Number(r.recompense) },
         }),
@@ -2680,6 +2709,7 @@ export class ProfileStore {
         confettis: parId.get(donDeLAnnonce(a.id, p.id)) ?? 0,
         le: a.le,
         ...(a.question && { question: a.question }),
+        ...(a.aQuelquesUns && { aQuelquesUns: true as const }),
       })
     }
     return [...annonces, ...mercis].sort((a, b) => b.le - a.le)
@@ -4172,6 +4202,8 @@ export class ProfileStore {
     password: string
     name: unknown
     avatar: unknown
+    /** L'écran où il naît (`shared/origines.ts`), que la page des joueurs du QG compte ; d'une page qui ne le dit pas, `inconnue`. */
+    origine?: unknown
   }): Promise<{ profile: ProfileRec; recovery: string }> {
     const login = normalizeLogin(input.login)
     if (!isValidLogin(login)) {
@@ -4208,9 +4240,9 @@ export class ProfileStore {
     }
     await this.client
       .execute({
-        sql: `INSERT INTO profiles (id, login, name, avatar, finition, password_hash, recovery_hash, xp, created_at, last_seen_at, disabled_at)
-              VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, NULL, NULL)`,
-        args: [rec.id, rec.login, rec.name, rec.avatar, rec.finition, rec.passwordHash, rec.recoveryHash, rec.createdAt],
+        sql: `INSERT INTO profiles (id, login, name, avatar, finition, password_hash, recovery_hash, xp, created_at, last_seen_at, disabled_at, origine)
+              VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, NULL, NULL, ?)`,
+        args: [rec.id, rec.login, rec.name, rec.avatar, rec.finition, rec.passwordHash, rec.recoveryHash, rec.createdAt, lireLOrigine(input.origine)],
       })
       .catch(e => {
         // Deux hachages séparent la vérification du dessus de cette écriture :
@@ -4269,8 +4301,9 @@ export class ProfileStore {
       renommeLe: null,
     }
     await this.client.execute({
-      sql: `INSERT INTO profiles (id, login, name, avatar, finition, password_hash, recovery_hash, xp, created_at, last_seen_at, disabled_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, NULL, NULL)`,
+      // Né d'un compte d'animateur d'avant (`profilUnique.ts`) : son origine le dit.
+      sql: `INSERT INTO profiles (id, login, name, avatar, finition, password_hash, recovery_hash, xp, created_at, last_seen_at, disabled_at, origine)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, NULL, NULL, 'compte')`,
       args: [rec.id, rec.login, rec.name, rec.avatar, rec.finition, rec.passwordHash, rec.recoveryHash, rec.createdAt],
     })
     this.profiles.set(rec.id, rec)
@@ -4679,6 +4712,78 @@ export class ProfileStore {
       achats: achats.rows.map(r => Number(r.created_at)),
       soirees: soirees.rows.map(soireeDuQg),
     }
+  }
+
+  /**
+   * Ce que la mémoire du QG lit d'une plage de jours (`joueursDuQg.ts`), d'un
+   * lot : les inscriptions, les achats et les soirées créditées entre deux
+   * instants — qui, quand. Chacune en un seul texte JSON : un mois rattrapé en
+   * compte des milliers, que le client de Turso décoderait ligne à ligne.
+   */
+  async activiteEntre(debut: number, fin: number): Promise<{ inscriptions: number[]; achats: number[]; soirees: { qui: string; quand: number }[] }> {
+    const [inscrits, achats, soirees] = await this.client.batch(
+      [
+        { sql: 'SELECT json_group_array(created_at) AS lignes FROM profiles WHERE created_at >= ? AND created_at < ?', args: [debut, fin] },
+        {
+          sql: `SELECT json_group_array(created_at) AS lignes FROM (
+                  SELECT created_at FROM profile_achats WHERE created_at >= ?1 AND created_at < ?2
+                  UNION ALL SELECT created_at FROM profile_vies WHERE created_at >= ?1 AND created_at < ?2
+                  UNION ALL SELECT created_at FROM profile_sabliers WHERE created_at >= ?1 AND created_at < ?2
+                  UNION ALL SELECT created_at FROM profile_eclats_achetes WHERE created_at >= ?1 AND created_at < ?2)`,
+          args: [debut, fin],
+        },
+        {
+          sql: `SELECT json_group_array(json_array(profile_id, created_at)) AS lignes FROM profile_xp WHERE created_at >= ? AND created_at < ? AND ${HORS_LIGNES_A_PART}`,
+          args: [debut, fin],
+        },
+      ],
+      'read',
+    )
+    const lire = <T>(r: { rows: Row[] }) => JSON.parse(String(r.rows[0]?.lignes ?? '[]')) as T[]
+    return {
+      inscriptions: lire<number>(inscrits).map(Number),
+      achats: lire<number>(achats).map(Number),
+      soirees: lire<[string, number]>(soirees).map(([qui, quand]) => ({ qui: String(qui), quand: Number(quand) })),
+    }
+  }
+
+  /**
+   * Les profils tels que l'audience du QG les compte (`joueursDuQg.ts`) — nés
+   * dans une plage : quand, suspendus ou non, d'où ils viennent — en un seul
+   * texte JSON. Sans nom : seuls ceux qu'une liste montre se nomment
+   * (`nomsPourLeQg`).
+   */
+  async profilsPourLAudience(debut: number, fin: number): Promise<{ id: string; cree: number; suspendu: boolean; origine: OrigineLue | null }[]> {
+    const res = await this.client.execute({
+      sql: `SELECT json_group_array(json_array(id, created_at, disabled_at IS NOT NULL, origine)) AS lignes FROM profiles WHERE created_at >= ? AND created_at < ?`,
+      args: [debut, fin],
+    })
+    const lignes = JSON.parse(String(res.rows[0]?.lignes ?? '[]')) as [string, number, number, string | null][]
+    return lignes.map(([id, cree, suspendu, origine]) => ({ id: String(id), cree: Number(cree), suspendu: Number(suspendu) === 1, origine: origine === null ? null : lireLOrigine(origine) }))
+  }
+
+  /**
+   * Le prénom et l'identifiant de quelques profils, pour une liste du QG :
+   * de mémoire quand il y est — suspendus compris, que `byIds` tait —, sinon
+   * d'une seule lecture, sans charger leurs récompenses comme `byIds` : la
+   * liste ne fait que les nommer, sa ligne ouvre la fiche. Un profil supprimé
+   * manque.
+   */
+  async nomsPourLeQg(ids: readonly string[]): Promise<Map<string, { nom: string; login: string }>> {
+    const noms = new Map<string, { nom: string; login: string }>()
+    const manquants: string[] = []
+    for (const id of new Set(ids)) {
+      const p = this.profiles.get(id)
+      if (p) noms.set(id, { nom: p.name, login: p.login })
+      else manquants.push(id)
+    }
+    if (manquants.length === 0) return noms
+    const res = await this.client.execute({
+      sql: 'SELECT json_group_array(json_array(id, name, login)) AS lignes FROM profiles WHERE id IN (SELECT value FROM json_each(?))',
+      args: [JSON.stringify(manquants)],
+    })
+    for (const [id, nom, login] of JSON.parse(String(res.rows[0]?.lignes ?? '[]')) as [string, string, string][]) noms.set(String(id), { nom: String(nom), login: String(login) })
+    return noms
   }
 
   /** Les soirées d'un seul profil depuis un instant, lues comme celles de `activiteDepuis` : sa fiche au QG. */
@@ -5763,27 +5868,66 @@ export class ProfileStore {
    * partie : un envoi rejoué — la réponse perdue en route, le geste refait —
    * retrouve l'annonce faite (`nouvelle` faux) au lieu d'offrir une seconde
    * fois à tout le monde.
+   *
+   * `segment` (le lot 6 du QG 2, le 4 novembre 2026) : écrite aux seuls
+   * profils d'un segment de la page des joueurs — `destinataires`, ses
+   * membres à l'instant, que la route a comptés (`joueursDuQg.ts`). Son
+   * segment et ses destinataires s'écrivent dans le même lot, et seulement
+   * pour l'annonce née dans ce lot ; ses dons ne vont qu'à eux, sans les
+   * suspendus ni les profils supprimés depuis — l'instruction les relit. Un
+   * envoi rejoué sous un autre segment retrouve l'annonce faite, et ses dons
+   * suivent le segment qu'elle a gardé, pas celui qu'on redemande.
    */
-  async annoncerATous(demande: { id: unknown; message: unknown; confettis: unknown; question?: unknown }): Promise<{ annonce: AnnonceAuQg; nouvelle: boolean }> {
+  async annoncerATous(demande: {
+    id: unknown
+    message: unknown
+    confettis: unknown
+    question?: unknown
+    segment?: SegmentDuQg | null
+    destinataires?: readonly string[]
+  }): Promise<{ annonce: AnnonceAuQg; nouvelle: boolean }> {
     const message = lireLeMessage(demande.message)
     const confettis = lireLesConfettis(demande.confettis)
     const id = typeof demande.id === 'string' && ID_D_ANNONCE.test(demande.id) ? demande.id : randomUUID()
     const maintenant = Date.now()
     const question = lireLaQuestion(demande.question)
+    const segment = demande.segment ?? null
+    const destinataires = JSON.stringify([...new Set(demande.destinataires ?? [])])
     const lot = await this.client.batch(
       [
-        {
-          sql: `INSERT OR IGNORE INTO qg_annonces (id, message, confettis, destinataires, created_at)
-                SELECT ?, ?, ?, COUNT(*), ? FROM profiles WHERE disabled_at IS NULL AND created_at <= ?`,
-          args: [id, message, confettis, maintenant, maintenant],
-        },
+        segment === null
+          ? {
+              sql: `INSERT OR IGNORE INTO qg_annonces (id, message, confettis, destinataires, created_at)
+                    SELECT ?, ?, ?, COUNT(*), ? FROM profiles WHERE disabled_at IS NULL AND created_at <= ?`,
+              args: [id, message, confettis, maintenant, maintenant],
+            }
+          : {
+              sql: `INSERT OR IGNORE INTO qg_annonces (id, message, confettis, destinataires, created_at)
+                    SELECT ?, ?, ?, COUNT(*), ? FROM profiles WHERE disabled_at IS NULL AND created_at <= ? AND id IN (SELECT value FROM json_each(?))`,
+              args: [id, message, confettis, maintenant, maintenant, destinataires],
+            },
+        // Son segment et ses destinataires : seulement pour l'annonce née dans ce lot, à son heure.
+        ...(segment === null
+          ? []
+          : [
+              { sql: 'INSERT OR IGNORE INTO qg_annonce_segments (annonce_id, segment) SELECT id, ? FROM qg_annonces WHERE id = ? AND created_at = ?', args: [segment, id, maintenant] },
+              {
+                sql: `INSERT OR IGNORE INTO qg_annonce_destinataires (annonce_id, profile_id)
+                      SELECT a.id, p.id FROM qg_annonces a JOIN profiles p ON p.disabled_at IS NULL AND p.created_at <= a.created_at
+                      WHERE a.id = ? AND a.created_at = ? AND p.id IN (SELECT value FROM json_each(?))`,
+                args: [id, maintenant, destinataires],
+              },
+            ]),
         // À l'heure de l'annonce, la première fois qu'elle est partie : rejouée,
         // elle ne donne rien aux profils venus depuis, et ses dons déjà faits restent seuls.
+        // Écrite à un segment, à ses seuls destinataires — le segment qu'elle a gardé, d'où que vienne l'envoi.
         {
           sql: `INSERT OR IGNORE INTO profile_dons (id, profile_id, confettis, mot, created_at)
                 SELECT 'annonce:' || a.id || ':' || p.id, p.id, a.confettis, NULL, a.created_at
                 FROM qg_annonces a JOIN profiles p ON p.disabled_at IS NULL AND p.created_at <= a.created_at
-                WHERE a.id = ? AND a.confettis > 0 AND a.retiree_le IS NULL`,
+                WHERE a.id = ? AND a.confettis > 0 AND a.retiree_le IS NULL
+                  AND (NOT EXISTS (SELECT 1 FROM qg_annonce_segments s WHERE s.annonce_id = a.id)
+                       OR EXISTS (SELECT 1 FROM qg_annonce_destinataires d WHERE d.annonce_id = a.id AND d.profile_id = p.id))`,
           args: [id],
         },
         // Sa question, dans le même lot — et seulement pour l'annonce née dans ce lot : rejouée avec une
@@ -5926,16 +6070,20 @@ export class ProfileStore {
    */
   async repondreALAnnonce(p: ProfileRec, annonceId: string, reponse: unknown): Promise<{ etat: 'ok'; accuse: AccuseDeReponse } | { etat: 'introuvable' | 'fermee' | 'deja' }> {
     const lue = await this.client.execute({
-      sql: `SELECT a.created_at, a.retiree_le, q.sorte, q.choix, q.recompense, q.close_le, r.profile_id AS deja
+      // Écrite à un segment, elle ne se répond que par ses destinataires : l'accueil ne la pose qu'à eux.
+      sql: `SELECT a.created_at, a.retiree_le, q.sorte, q.choix, q.recompense, q.close_le, r.profile_id AS deja,
+                   (EXISTS (SELECT 1 FROM qg_annonce_segments s WHERE s.annonce_id = a.id)
+                    AND NOT EXISTS (SELECT 1 FROM qg_annonce_destinataires d WHERE d.annonce_id = a.id AND d.profile_id = ?)) AS ailleurs
             FROM qg_annonces a
             JOIN qg_annonce_questions q ON q.annonce_id = a.id
             LEFT JOIN qg_annonce_reponses r ON r.annonce_id = a.id AND r.profile_id = ?
             WHERE a.id = ?`,
-      args: [p.id, annonceId],
+      args: [p.id, p.id, annonceId],
     })
     const ligne = lue.rows[0]
     const maintenant = Date.now()
-    if (!ligne || ligne.retiree_le != null || Number(ligne.created_at) < p.createdAt || maintenant - Number(ligne.created_at) >= ANNONCE_MS) return { etat: 'introuvable' }
+    if (!ligne || Number(ligne.ailleurs) === 1 || ligne.retiree_le != null || Number(ligne.created_at) < p.createdAt || maintenant - Number(ligne.created_at) >= ANNONCE_MS)
+      return { etat: 'introuvable' }
     if (ligne.close_le != null) return { etat: 'fermee' }
     if (ligne.deja != null) return { etat: 'deja' }
     const question: QuestionDAnnonce = { sorte: String(ligne.sorte) as SorteDeQuestion, choix: JSON.parse(String(ligne.choix)) as string[], recompense: Number(ligne.recompense) }
@@ -6233,6 +6381,7 @@ export class ProfileStore {
           'profile_fonds',
           'profile_dons',
           'qg_annonce_reponses',
+          'qg_annonce_destinataires',
           'profile_affiches',
           'profile_loge_vus',
           'profile_missions',

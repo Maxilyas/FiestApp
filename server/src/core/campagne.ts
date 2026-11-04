@@ -7422,6 +7422,22 @@ export class CampagneStore {
     return lignes.map(([qui, quand, mode, questions]) => ({ qui: String(qui), quand: Number(quand), mode: mode === null ? null : String(mode), questions: Number(questions) }))
   }
 
+  /**
+   * Les séries commencées entre deux instants — qui, quand, dans quel mode —,
+   * pour la mémoire du QG (`server/src/joueursDuQg.ts`), qui écrit chaque
+   * jour fini une fois : par l'index de leur date, en un seul texte JSON comme
+   * `seriesDepuis`. Sans leurs questions jouées : la feuille de présence dit
+   * qui a joué, pas combien — et une expédition ne relit pas ses réponses.
+   */
+  async seriesEntre(debut: number, fin: number): Promise<{ qui: string; quand: number; mode: string | null }[]> {
+    const res = await this.client.execute({
+      sql: `SELECT json_group_array(json_array(profile_id, commencee_le, mode)) AS lignes FROM campagne_series WHERE commencee_le >= ? AND commencee_le < ?`,
+      args: [debut, fin],
+    })
+    const lignes = JSON.parse(String(res.rows[0]?.lignes ?? '[]')) as [string, number, string | null][]
+    return lignes.map(([qui, quand, mode]) => ({ qui: String(qui), quand: Number(quand), mode: mode === null ? null : String(mode) }))
+  }
+
   /** Ce que le QG compte des signalements à relire : les questions, et les joueurs qui les signalent. */
   async signalementsATraiter(): Promise<{ questions: number; joueurs: number }> {
     const res = await this.client.execute(

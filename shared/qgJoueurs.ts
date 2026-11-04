@@ -1,0 +1,743 @@
+// Les joueurs au QG (`/admin#joueurs`, le lot 6 du QG 2, le 4 novembre 2026 —
+// la proposition du 3, `retours/2026-11-03/le-qg.md`, « Les joueurs » et « Ce que
+// le serveur doit mesurer de plus ») : combien jouent, combien reviennent, et
+// qui décroche. Les profils seulement : un invité sans profil ne se suit pas
+// d'un soir à l'autre, il se compte, il ne se nomme nulle part.
+//
+// Deux mémoires, dans la base permanente (`server/src/core/memoireDuQg.ts`),
+// dérivées des journaux — les parties du jour, les séries de la campagne, les
+// soirées créditées à chaque profil, les fiches de l'historique — et donc
+// recalculables (`VERSION_DE_LA_MEMOIRE`) :
+//
+// - la feuille de présence (`qg_presences`) : une ligne par profil et par jour
+//   de Paris, les modes qu'il y a joués et la minute de sa première partie ;
+// - la mémoire longue (`qg_jours`) : les chiffres de chaque jour, figés une
+//   fois le jour fini, gardés un an — quatre-vingt-dix jours se lisent en
+//   quatre-vingt-dix lignes.
+//
+// Un jour fini s'écrit une fois, au premier passage du QG après minuit, et se
+// rattrape s'il manque ; seul aujourd'hui se relit des journaux, par leurs
+// index. Ce fichier tient les dérivations pures : la feuille d'un jour, ses
+// chiffres, les segments, les cohortes, les heures de jeu, les combinaisons de
+// modes, l'origine des profils.
+
+import { MODES_DU_QG, jourDeLInstant, joursDesMinuits, minuitDe, participationsParSeau, type ModeDuQg, type PartieDesParticipations, type SoireeDesParticipations } from './qg'
+import { jourAvant, jourDe, minutesDeParis } from './jour'
+import type { CalculEnTranches } from './tranches'
+import type { OrigineLue } from './origines'
+
+/**
+ * La version des dérivations : une règle de la feuille de présence ou des
+ * chiffres d'un jour qui change la monte, et le premier passage d'après efface
+ * les deux mémoires et les refait des journaux, aussi loin qu'ils remontent.
+ */
+export const VERSION_DE_LA_MEMOIRE = 1
+
+/** Ce que la mémoire garde : un an de jours, et de feuilles de présence. Au-delà, elle s'efface d'elle-même. */
+export const JOURS_DE_LA_MEMOIRE = 366
+
+/** Le graphique des joueurs, jour par jour : quatre-vingt-dix jours au plus, aujourd'hui compris. */
+export const JOURS_DU_GRAPHE_DES_ACTIFS = 90
+
+/** « Quand on joue » : les quatre dernières semaines finies, chaque jour de la semaine quatre fois. */
+export const JOURS_DES_HEURES = 28
+
+/** Les cohortes : huit semaines d'inscription au plus, suivies huit semaines chacune. */
+export const COHORTES_MONTREES = 8
+export const SEMAINES_DE_RETOUR = 8
+
+/** Les profils qu'un segment nomme, au plus : les cinquante premiers, comme l'activité. */
+export const PROFILS_D_UN_SEGMENT = 50
+
+/** Les combinaisons de modes que la page montre, au plus : les autres se comptent ensemble. */
+export const COMBINAISONS_MONTREES = 8
+
+// ── La feuille de présence ────────────────────────────────────────────────
+
+/** Un mode en un bit : la feuille garde les modes d'un jour en un seul nombre. L'ordre est celui de `MODES_DU_QG`. */
+export const BIT_DU_MODE: Record<ModeDuQg, number> = { soiree: 1, campagne: 2, cabinet: 4, jour: 8, duel: 16 }
+
+export const modesDuMasque = (masque: number): ModeDuQg[] => MODES_DU_QG.filter(m => (masque & BIT_DU_MODE[m]) !== 0)
+
+/** Une ligne de la feuille de présence : un profil, un jour de Paris, ses modes, et la minute de sa première partie. */
+export interface Presence {
+  jour: string
+  qui: string
+  modes: number
+  /**
+   * Les minutes écoulées depuis le minuit de Paris jusqu'à sa première partie
+   * du jour : « aujourd'hui à la même heure » se compare aux jours d'avant
+   * arrêtés au même écart, comme `compteDuJour`.
+   */
+  premiere: number
+}
+
+/** Un fait daté qui dit qu'un profil a joué : une partie, une soirée. */
+export interface FaitDePresence {
+  qui: string
+  quand: number
+  mode: ModeDuQg
+}
+
+/** La feuille d'un jour : chaque profil une fois, l'union de ses modes, sa première minute ; rangée par profil. */
+export function presencesDuJour(jour: string, minuit: number, faits: Iterable<FaitDePresence>): Presence[] {
+  const parQui = new Map<string, Presence>()
+  for (const f of faits) {
+    const minute = Math.max(0, Math.floor((f.quand - minuit) / 60_000))
+    const deja = parQui.get(f.qui)
+    if (deja) {
+      deja.modes |= BIT_DU_MODE[f.mode]
+      if (minute < deja.premiere) deja.premiere = minute
+    } else parQui.set(f.qui, { jour, qui: f.qui, modes: BIT_DU_MODE[f.mode], premiere: minute })
+  }
+  return [...parQui.values()].sort((a, b) => (a.qui < b.qui ? -1 : a.qui > b.qui ? 1 : 0))
+}
+
+/**
+ * Les journaux d'une plage de jours, tels que la mémoire les lit : les mêmes
+ * que la vue d'ensemble (`lesTrenteJours`, `lesSoireesDepuis`), sur une plage
+ * bornée des deux côtés.
+ */
+export interface JournauxDeLaMemoire {
+  /** Chaque partie jouée seul — du jour, de campagne, du Cabinet, un duel —, datée à son début. */
+  solo: readonly PartieDesParticipations[]
+  /**
+   * Chaque soirée créditée à un profil, à l'heure de son premier crédit
+   * (`profile_xp`) : une fiche d'avant le 14 octobre 2026 ne dit pas ses
+   * profils, sa ligne d'expérience si.
+   */
+  soireesDesProfils: readonly { qui: string; quand: number }[]
+  /** Chaque soirée, datée à sa première question : ses invités qui ont joué, et leurs profils quand sa fiche les dit. */
+  soirees: readonly SoireeDesParticipations[]
+  inscriptions: readonly number[]
+  achats: readonly number[]
+}
+
+/** Les chiffres d'un jour fini, figés dans `qg_jours`. */
+export interface ChiffresDUnJour {
+  /** La version des dérivations qui l'a écrit (`VERSION_DE_LA_MEMOIRE`). */
+  v: number
+  /** Les personnes du jour, comme le poste de commande les compte : un profil une fois, un invité sans profil une fois par soirée. */
+  joueurs: number
+  /** Les joueurs de chaque mode, qui ne s'additionnent pas. */
+  modes: Record<ModeDuQg, number>
+  /** Les participations de chaque mode, qui que ce soit : chaque partie, en soirée chaque invité qui a joué. */
+  parties: Record<ModeDuQg, number>
+  nouveauxProfils: number
+  achats: number
+  /** Les profils qui ont joué ce jour-là, ces sept jours, ces trente jours — finissant ce jour-là. */
+  profils: number
+  semaine: number
+  mois: number
+  /** Les invités sans profil venus en soirée : chacun une fois par soirée — une fiche qui ne dit pas ses profils les compte tous. */
+  invites: number
+  /** Les participations commencées à chaque heure de Paris, de 0 à 23 : « quand on joue ». */
+  heures: number[]
+}
+
+/** Un jour fini, prêt à s'écrire : ses chiffres et sa feuille de présence. */
+export interface JourDeLaMemoire {
+  jour: string
+  chiffres: ChiffresDUnJour
+  presences: Presence[]
+}
+
+/**
+ * L'heure de Paris d'un instant, gardée par heure du temps universel : Paris
+ * est à une heure pleine de Greenwich et change d'heure à une heure pile — la
+ * même règle que `jourDe`. Chaque partie la demandait à `Intl` : des milliers
+ * par plage.
+ */
+const heuresDeParis = new Map<number, number>()
+export function heureDeParis(quand: number): number {
+  const heure = Math.floor(quand / 3_600_000)
+  const gardee = heuresDeParis.get(heure)
+  if (gardee !== undefined) return gardee
+  if (heuresDeParis.size >= 20_000) heuresDeParis.clear()
+  const lue = Math.floor(minutesDeParis(heure * 3_600_000) / 60)
+  heuresDeParis.set(heure, lue)
+  return lue
+}
+
+/** Les profils distincts d'une fenêtre de jours, comptés sur les feuilles qu'on a. */
+function profilsDistincts(feuilles: ReadonlyMap<string, readonly string[]>, jours: readonly string[]): number {
+  const vus = new Set<string>()
+  for (const j of jours) for (const qui of feuilles.get(j) ?? []) vus.add(qui)
+  return vus.size
+}
+
+/** Les `n` jours qui finissent par `jour`, le plus ancien d'abord. */
+const joursJusqua = (jour: string, n: number) => Array.from({ length: n }, (_, k) => jourAvant(jour, n - 1 - k))
+
+/** Les invités sans profil d'une soirée : ses joueurs, moins ses profils quand sa fiche les dit. */
+export const invitesSansProfil = (s: SoireeDesParticipations) => (s.profils ? Math.max(0, s.joueurs - new Set(s.profils).size) : s.joueurs)
+
+/** Le minuit de Paris d'un jour de Paris : lu dans le jour, comme `minuitDe` — un jour a vingt-trois à vingt-cinq heures. */
+export function minuitDuJour(jour: string): number {
+  const [a, m, j] = jour.split('-').map(Number)
+  return minuitDe(Date.UTC(a, m - 1, j, 12))
+}
+
+/**
+ * Les jours d'une plage, un par tranche : la feuille de présence et les
+ * chiffres de chacun. `minuits` : les minuits de Paris de ses jours, le plus
+ * ancien d'abord, et `fin` celui qui suit le dernier. `avant` : les profils de
+ * chacun des vingt-neuf jours d'avant la plage, déjà écrits — les joueurs de
+ * la semaine et du mois de son premier jour en ont besoin. Un fait hors de la
+ * plage ne compte pas.
+ */
+export function* joursDeLaMemoire(
+  journaux: JournauxDeLaMemoire,
+  minuits: readonly number[],
+  fin: number,
+  avant: ReadonlyMap<string, readonly string[]> = new Map(),
+): CalculEnTranches<JourDeLaMemoire[]> {
+  const n = minuits.length
+  const jours = joursDesMinuits(minuits)
+  const indice = (quand: number) => (quand < fin ? jourDeLInstant(minuits, quand) : -1)
+  const vide = <T>() => Array.from({ length: n }, () => [] as T[])
+  const solo = vide<PartieDesParticipations>()
+  const xp = vide<{ qui: string; quand: number }>()
+  const soirees = vide<SoireeDesParticipations>()
+  const inscriptions = minuits.map(() => 0)
+  const achats = minuits.map(() => 0)
+  for (const p of journaux.solo) solo[indice(p.quand)]?.push(p)
+  for (const s of journaux.soireesDesProfils) xp[indice(s.quand)]?.push(s)
+  for (const s of journaux.soirees) soirees[indice(s.quand)]?.push(s)
+  for (const quand of journaux.inscriptions) if (indice(quand) >= 0) inscriptions[indice(quand)]++
+  for (const quand of journaux.achats) if (indice(quand) >= 0) achats[indice(quand)]++
+  yield
+  const feuilles = new Map<string, readonly string[]>(avant)
+  const rendus: JourDeLaMemoire[] = []
+  for (let i = 0; i < n; i++) {
+    const jour = jours[i]
+    const minuit = minuits[i]
+    const faits: FaitDePresence[] = [
+      ...solo[i],
+      ...xp[i].map(s => ({ qui: s.qui, quand: s.quand, mode: 'soiree' as const })),
+      ...soirees[i].flatMap(s => (s.profils ?? []).map(qui => ({ qui, quand: s.quand, mode: 'soiree' as const }))),
+    ]
+    const presences = presencesDuJour(jour, minuit, faits)
+    feuilles.set(
+      jour,
+      presences.map(p => p.qui),
+    )
+    const [seau] = participationsParSeau(solo[i], soirees[i], [minuit], (minuits[i + 1] ?? fin) - 1)
+    const heures = Array.from({ length: 24 }, () => 0)
+    for (const p of solo[i]) heures[heureDeParis(p.quand)]++
+    for (const s of soirees[i]) heures[heureDeParis(s.quand)] += s.joueurs
+    rendus.push({
+      jour,
+      presences,
+      chiffres: {
+        v: VERSION_DE_LA_MEMOIRE,
+        joueurs: seau.joueurs,
+        modes: seau.modes,
+        parties: seau.parties,
+        nouveauxProfils: inscriptions[i],
+        achats: achats[i],
+        profils: presences.length,
+        semaine: profilsDistincts(feuilles, joursJusqua(jour, 7)),
+        mois: profilsDistincts(feuilles, joursJusqua(jour, 30)),
+        invites: soirees[i].reduce((t, s) => t + invitesSansProfil(s), 0),
+        heures,
+      },
+    })
+    yield
+  }
+  return rendus
+}
+
+/** La feuille d'aujourd'hui, de ses journaux relus — elle ne s'écrit qu'une fois le jour fini. */
+export function presencesDAujourdhui(journaux: JournauxDeLaMemoire, minuit: number, maintenant: number): Presence[] {
+  const dans = (quand: number) => quand >= minuit && quand <= maintenant
+  const jour = jourDe(minuit + 12 * 3_600_000)
+  return presencesDuJour(jour, minuit, [
+    ...journaux.solo.filter(p => dans(p.quand)),
+    ...journaux.soireesDesProfils.filter(s => dans(s.quand)).map(s => ({ qui: s.qui, quand: s.quand, mode: 'soiree' as const })),
+    ...journaux.soirees.filter(s => dans(s.quand)).flatMap(s => (s.profils ?? []).map(qui => ({ qui, quand: s.quand, mode: 'soiree' as const }))),
+  ])
+}
+
+// ── Les joueurs du jour, de la semaine, du mois ─────────────────────────────
+
+/** Un chiffre et celui d'avant à comparer — null quand la mémoire ne remonte pas jusque-là. */
+export interface ChiffreEtAvant {
+  valeur: number
+  avant: number | null
+}
+
+/**
+ * Les profils distincts d'une fenêtre de jours qui finit aujourd'hui, arrêtée
+ * à une minute du jour : les jours d'avant entiers, le dernier jusqu'à cette
+ * minute. Rien avant `depuis`, le premier jour que la mémoire sait : une
+ * fenêtre qui le dépasse rend null.
+ */
+export function actifsALaMinute(
+  presences: ReadonlyMap<string, readonly Presence[]>,
+  dernier: string,
+  jours: number,
+  minute: number,
+  depuis: string,
+): number | null {
+  const fenetre = joursJusqua(dernier, jours)
+  if (fenetre[0] < depuis) return null
+  const vus = new Set<string>()
+  for (const j of fenetre) for (const p of presences.get(j) ?? []) if (j !== dernier || p.premiere <= minute) vus.add(p.qui)
+  return vus.size
+}
+
+/**
+ * Aujourd'hui comparé aux sept jours d'avant, chacun arrêté à la même minute
+ * — la règle de `compteDuJour` : un soir à 21 h ne se lit pas en baisse contre
+ * des journées entières. Null sans jour d'avant à comparer.
+ */
+export function joueursDuJourALHeure(presences: ReadonlyMap<string, readonly Presence[]>, aujourdhui: string, minute: number, depuis: string): ChiffreEtAvant {
+  const avant = joursJusqua(jourAvant(aujourdhui), 7).filter(j => j >= depuis)
+  const valeur = (presences.get(aujourdhui) ?? []).filter(p => p.premiere <= minute).length
+  if (avant.length === 0) return { valeur, avant: null }
+  const total = avant.reduce((t, j) => t + (presences.get(j) ?? []).filter(p => p.premiere <= minute).length, 0)
+  return { valeur, avant: Math.round(total / avant.length) }
+}
+
+/**
+ * La fidélité : un jour moyen de la semaine finie — les sept jours d'avant
+ * aujourd'hui, qui est entamé — sur les joueurs du mois au soir d'hier, en
+ * pour cent. Chaque jour, la part des joueurs du mois qui revient. Null quand
+ * la mémoire n'a pas ces jours, ou personne au mois.
+ */
+export function fideliteAuSoir(jours: ReadonlyMap<string, Pick<ChiffresDUnJour, 'profils' | 'mois'>>, soir: string): number | null {
+  const semaine = joursJusqua(soir, 7).map(j => jours.get(j))
+  const mois = jours.get(soir)?.mois
+  if (!mois || semaine.some(j => j === undefined)) return null
+  const moyenne = semaine.reduce((t, j) => t + (j?.profils ?? 0), 0) / 7
+  return Math.round((moyenne / mois) * 100)
+}
+
+// ── Les segments ────────────────────────────────────────────────────────────
+
+/**
+ * Où en est chacun, un segment par profil, le premier qui lui va dans cet
+ * ordre : un nouveau l'est sa première semaine, quoi qu'il ait joué. Ils se
+ * partagent tous les profils, sans les suspendus — qui ne jouent plus, et
+ * qu'une annonce ne touche pas.
+ */
+export const SEGMENTS = ['nouveaux', 'reguliers', 'occasionnels', 'a-risque', 'endormis', 'perdus'] as const
+export type SegmentDuQg = (typeof SEGMENTS)[number]
+
+export const NOM_DU_SEGMENT: Record<SegmentDuQg, string> = {
+  nouveaux: 'Nouveaux',
+  reguliers: 'Réguliers',
+  occasionnels: 'Occasionnels',
+  'a-risque': 'À risque',
+  endormis: 'Endormis',
+  perdus: 'Perdus de vue',
+}
+
+/** La règle de chaque segment, en clair : la page l'écrit à côté de son compte. */
+export const REGLE_DU_SEGMENT: Record<SegmentDuQg, string> = {
+  nouveaux: 'Inscrits ces sept derniers jours, qu’ils aient joué ou non',
+  reguliers: 'Trois jours de jeu ou plus ces sept derniers jours',
+  occasionnels: 'Un ou deux jours de jeu ces sept derniers jours',
+  'a-risque': 'Rien ces sept jours, mais joué la semaine d’avant',
+  endormis: 'Dernière partie il y a deux à quatre semaines',
+  perdus: 'Rien depuis trente jours, ou jamais joué',
+}
+
+/** Le segment dans une phrase : « Annonce aux endormis », « 34 profils à risque ». */
+export const AUX_PROFILS_DU_SEGMENT: Record<SegmentDuQg, string> = {
+  nouveaux: 'aux nouveaux',
+  reguliers: 'aux réguliers',
+  occasionnels: 'aux occasionnels',
+  'a-risque': 'aux profils à risque',
+  endormis: 'aux endormis',
+  perdus: 'aux perdus de vue',
+}
+
+/** Un segment tel que la route le reçoit : un des six, ou null — tous les profils. Refusé plutôt que deviné. */
+export function lireLeSegment(brut: unknown): SegmentDuQg | null {
+  if (brut === undefined || brut === null || brut === 'tous') return null
+  if (!(SEGMENTS as readonly unknown[]).includes(brut)) throw new Error('Ce segment n’existe pas : recharge la page')
+  return brut as SegmentDuQg
+}
+
+/** Un profil tel que l'audience le lit : quand il est né, s'il est suspendu, d'où il vient. */
+export interface ProfilDeLAudience {
+  id: string
+  cree: number
+  suspendu: boolean
+  /** NULL : un profil d'avant le 4 novembre 2026, qui ne le dit pas. */
+  origine: OrigineLue | null
+}
+
+/** Ce que les trente derniers jours disent d'un profil : ses jours joués, le dernier, l'union de ses modes. */
+export interface TraceDUnProfil {
+  jours: string[]
+  dernier: string
+  modes: number
+}
+
+/** Les traces des trente jours qui finissent aujourd'hui, profil par profil, tirées des feuilles de présence. */
+export function tracesDesTrenteJours(presences: ReadonlyMap<string, readonly Presence[]>, aujourdhui: string): Map<string, TraceDUnProfil> {
+  const traces = new Map<string, TraceDUnProfil>()
+  for (const jour of joursJusqua(aujourdhui, 30)) {
+    for (const p of presences.get(jour) ?? []) {
+      const t = traces.get(p.qui)
+      if (t) {
+        t.jours.push(jour)
+        t.dernier = jour
+        t.modes |= p.modes
+      } else traces.set(p.qui, { jours: [jour], dernier: jour, modes: p.modes })
+    }
+  }
+  return traces
+}
+
+/** Les jours du calendrier de `de` à `a` : des jours de Paris, comptés sur leurs dates. */
+export function joursEntre(de: string, a: string): number {
+  const date = (j: string) => Date.UTC(Number(j.slice(0, 4)), Number(j.slice(5, 7)) - 1, Number(j.slice(8, 10)))
+  return Math.round((date(a) - date(de)) / 86_400_000)
+}
+
+/** Le segment d'un profil, aujourd'hui. */
+export function segmentDe(p: Pick<ProfilDeLAudience, 'cree'>, trace: TraceDUnProfil | undefined, aujourdhui: string): SegmentDuQg {
+  if (jourDe(p.cree) >= jourAvant(aujourdhui, 6)) return 'nouveaux'
+  if (!trace) return 'perdus'
+  const absent = joursEntre(trace.dernier, aujourdhui)
+  if (absent <= 6) return trace.jours.filter(j => j >= jourAvant(aujourdhui, 6)).length >= 3 ? 'reguliers' : 'occasionnels'
+  if (absent <= 13) return 'a-risque'
+  if (absent <= 29) return 'endormis'
+  return 'perdus'
+}
+
+/** Un membre d'un segment, avant qu'on le nomme : de quoi le ranger et dire où il en est. */
+export interface MembreDUnSegment {
+  id: string
+  cree: number
+  /** Ses jours de jeu ces trente jours. */
+  jours: number
+  /** Son dernier jour de jeu ces trente jours ; null au-delà, ou jamais. */
+  dernier: string | null
+  modes: ModeDuQg[]
+}
+
+/**
+ * Les segments de tous les profils, chacun ses membres dans son ordre : les
+ * nouveaux du plus récent au plus ancien ; les réguliers et les occasionnels,
+ * les plus assidus d'abord ; les autres, ceux partis le plus récemment d'abord
+ * — les plus faciles à rappeler ; les perdus de vue, du plus récent inscrit.
+ */
+export function segmentsDesProfils(
+  profils: readonly ProfilDeLAudience[],
+  traces: ReadonlyMap<string, TraceDUnProfil>,
+  aujourdhui: string,
+): Record<SegmentDuQg, MembreDUnSegment[]> {
+  const parSegment = Object.fromEntries(SEGMENTS.map(s => [s, [] as MembreDUnSegment[]])) as Record<SegmentDuQg, MembreDUnSegment[]>
+  for (const p of profils) {
+    if (p.suspendu) continue
+    const trace = traces.get(p.id)
+    parSegment[segmentDe(p, trace, aujourdhui)].push({
+      id: p.id,
+      cree: p.cree,
+      jours: trace?.jours.length ?? 0,
+      dernier: trace?.dernier ?? null,
+      modes: trace ? modesDuMasque(trace.modes) : [],
+    })
+  }
+  const parId = (a: MembreDUnSegment, b: MembreDUnSegment) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+  const plusRecentInscrit = (a: MembreDUnSegment, b: MembreDUnSegment) => b.cree - a.cree || parId(a, b)
+  const plusAssidu = (a: MembreDUnSegment, b: MembreDUnSegment) => b.jours - a.jours || (b.dernier ?? '').localeCompare(a.dernier ?? '') || parId(a, b)
+  const partiLePlusRecemment = (a: MembreDUnSegment, b: MembreDUnSegment) => (b.dernier ?? '').localeCompare(a.dernier ?? '') || b.jours - a.jours || parId(a, b)
+  parSegment.nouveaux.sort(plusRecentInscrit)
+  parSegment.reguliers.sort(plusAssidu)
+  parSegment.occasionnels.sort(plusAssidu)
+  parSegment['a-risque'].sort(partiLePlusRecemment)
+  parSegment.endormis.sort(partiLePlusRecemment)
+  parSegment.perdus.sort(plusRecentInscrit)
+  return parSegment
+}
+
+// ── Les cohortes ────────────────────────────────────────────────────────────
+
+/** Le lundi de la semaine d'un jour de Paris, au calendrier. */
+export function lundiDe(jour: string): string {
+  const [a, m, j] = jour.split('-').map(Number)
+  return jourAvant(jour, (new Date(Date.UTC(a, m - 1, j)).getUTCDay() + 6) % 7)
+}
+
+/** Une semaine d'inscription, et ce qu'elle est devenue. */
+export interface CohorteDuQg {
+  /** Son lundi. */
+  semaine: string
+  /** Les profils inscrits cette semaine-là, qui existent encore. */
+  taille: number
+  /** Combien ont joué une, deux… huit semaines plus tard ; null pour une semaine pas encore finie. */
+  revenus: (number | null)[]
+}
+
+/**
+ * Les cohortes : chaque semaine d'inscription — du lundi au dimanche de
+ * Paris —, et combien de ses profils ont joué au moins une fois chacune des
+ * semaines suivantes. Seules les semaines finies se comptent : la plus récente
+ * cohorte suivie est celle d'avant la semaine dernière, qui a sa première
+ * semaine entière derrière elle. Les plus anciennes d'abord, sans celles qui
+ * n'ont personne. Les suspendus y restent : ils ont joué, ce qu'ils sont
+ * devenus depuis n'efface pas leur semaine.
+ */
+export function cohortesDesProfils(
+  profils: readonly ProfilDeLAudience[],
+  presences: ReadonlyMap<string, readonly Presence[]>,
+  aujourdhui: string,
+  n = COHORTES_MONTREES,
+  semaines = SEMAINES_DE_RETOUR,
+): CohorteDuQg[] {
+  const cetteSemaine = lundiDe(aujourdhui)
+  const premiere = jourAvant(cetteSemaine, 7 * (n + 1))
+  // La semaine de jeu de chaque profil, comptée en lundis.
+  const semainesJouees = new Map<string, Set<string>>()
+  for (const [jour, lignes] of presences) {
+    if (jour < premiere) continue
+    const lundi = lundiDe(jour)
+    for (const p of lignes) {
+      let siennes = semainesJouees.get(p.qui)
+      if (!siennes) semainesJouees.set(p.qui, (siennes = new Set()))
+      siennes.add(lundi)
+    }
+  }
+  const cohortes: CohorteDuQg[] = []
+  for (let k = n + 1; k >= 2; k--) {
+    const semaine = jourAvant(cetteSemaine, 7 * k)
+    const fin = jourAvant(semaine, -6)
+    const membres = profils.filter(p => {
+      const j = jourDe(p.cree)
+      return j >= semaine && j <= fin
+    })
+    if (membres.length === 0) continue
+    const revenus = Array.from({ length: semaines }, (_, s) => {
+      const lundi = jourAvant(semaine, -7 * (s + 1))
+      // Une semaine qui n'est pas finie ne se lit pas : sa part monterait encore jusqu'à dimanche.
+      if (lundi >= cetteSemaine) return null
+      return membres.filter(p => semainesJouees.get(p.id)?.has(lundi)).length
+    })
+    cohortes.push({ semaine, taille: membres.length, revenus })
+  }
+  return cohortes
+}
+
+// ── Quand on joue, qui joue à quoi, d'où viennent les profils ────────────────
+
+/** Le jour de la semaine d'un jour de Paris, du lundi (0) au dimanche (6). */
+export function jourDeLaSemaineDuJour(jour: string): number {
+  const [a, m, j] = jour.split('-').map(Number)
+  return (new Date(Date.UTC(a, m - 1, j)).getUTCDay() + 6) % 7
+}
+
+/**
+ * Quand on joue : les participations des quatre dernières semaines finies,
+ * jour de la semaine par heure de Paris — sept rangées de vingt-quatre
+ * heures, chaque jour de la semaine quatre fois. `jours` : combien de jours la
+ * mémoire en avait.
+ */
+export function heuresDeJeu(jours: ReadonlyMap<string, Pick<ChiffresDUnJour, 'heures'>>, aujourdhui: string): { grille: number[][]; jours: number } {
+  const grille = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => 0))
+  let comptes = 0
+  for (const jour of joursJusqua(jourAvant(aujourdhui), JOURS_DES_HEURES)) {
+    const c = jours.get(jour)
+    if (!c) continue
+    comptes++
+    const rangee = grille[jourDeLaSemaineDuJour(jour)]
+    c.heures.forEach((n, h) => (rangee[h] += n))
+  }
+  return { grille, jours: comptes }
+}
+
+/** Une combinaison de modes et les profils qui la jouent : « le quiz du jour et la campagne, 18 profils ». */
+export interface CombinaisonDeModes {
+  modes: ModeDuQg[]
+  profils: number
+}
+
+/**
+ * Qui joue à quoi : les profils actifs ces trente jours, rangés par les modes
+ * qu'ils ont joués — la plus courante d'abord ; au-delà des premières, les
+ * autres ensemble, sous une combinaison vide (`modes: []`).
+ */
+export function combinaisonsDesModes(traces: ReadonlyMap<string, TraceDUnProfil>, montrees = COMBINAISONS_MONTREES): CombinaisonDeModes[] {
+  const parMasque = new Map<number, number>()
+  for (const t of traces.values()) parMasque.set(t.modes, (parMasque.get(t.modes) ?? 0) + 1)
+  const rangees = [...parMasque].sort((a, b) => b[1] - a[1] || a[0] - b[0])
+  const premieres = rangees.slice(0, montrees).map(([masque, profils]) => ({ modes: modesDuMasque(masque), profils }))
+  const reste = rangees.slice(montrees).reduce((t, [, n]) => t + n, 0)
+  return reste > 0 ? [...premieres, { modes: [], profils: reste }] : premieres
+}
+
+/** Le mode dans une phrase, et seul : « la campagne », « la campagne seule ». */
+const LE_MODE: Record<ModeDuQg, string> = { soiree: 'les soirées', campagne: 'la campagne', cabinet: 'le Cabinet', jour: 'le quiz du jour', duel: 'les duels' }
+const SEUL: Record<ModeDuQg, string> = { soiree: 'Les soirées seules', campagne: 'La campagne seule', cabinet: 'Le Cabinet seul', jour: 'Le quiz du jour seul', duel: 'Les duels seuls' }
+
+/** Le nom d'une combinaison : « Le quiz du jour seul », « Le quiz du jour et la campagne », « Un peu de tout ». */
+export function nomDeLaCombinaison(modes: readonly ModeDuQg[]): string {
+  if (modes.length === 0) return 'Les autres combinaisons'
+  if (modes.length === 1) return SEUL[modes[0]]
+  if (modes.length === MODES_DU_QG.length) return 'Un peu de tout'
+  const noms = modes.map(m => LE_MODE[m])
+  const phrase = `${noms.slice(0, -1).join(', ')} et ${noms[noms.length - 1]}`
+  return phrase[0].toUpperCase() + phrase.slice(1)
+}
+
+/** L'écran où est né chaque profil, au QG : « Pendant une soirée », « Par le quiz du jour ». */
+export const NOM_DE_L_ORIGINE: Record<OrigineLue, string> = {
+  entree: 'À l’entrée d’une soirée',
+  soiree: 'Pendant une soirée',
+  'fin-de-soiree': 'À la fin d’une soirée',
+  accueil: 'Sur l’accueil',
+  jour: 'Par le quiz du jour',
+  campagne: 'Par la campagne',
+  duels: 'Par les duels',
+  cabinet: 'Par le Cabinet de curiosités',
+  salon: 'Pour ouvrir un salon',
+  compte: 'Par un compte d’animateur',
+  inconnue: 'Par une page d’avant, qui ne le disait pas',
+}
+
+/** Les profils d'avant la colonne : ils ne disent pas d'où ils viennent, et la page ne le devine pas. */
+export const PROFILS_D_AVANT_L_ORIGINE = 'D’avant le 4 novembre 2026'
+
+/** D'où viennent les profils nés depuis un instant : un compte par écran, le plus fréquent d'abord, ceux d'avant en dernier. */
+export function originesDesProfils(profils: readonly ProfilDeLAudience[], depuis: number): { origine: OrigineLue | null; profils: number }[] {
+  const parOrigine = new Map<OrigineLue | null, number>()
+  for (const p of profils) if (p.cree >= depuis) parOrigine.set(p.origine, (parOrigine.get(p.origine) ?? 0) + 1)
+  return [...parOrigine]
+    .map(([origine, n]) => ({ origine, profils: n }))
+    .sort((a, b) => Number(a.origine === null) - Number(b.origine === null) || b.profils - a.profils || String(a.origine).localeCompare(String(b.origine)))
+}
+
+// ── La page ─────────────────────────────────────────────────────────────────
+
+/** Un membre d'un segment tel que la page le montre : de quoi le reconnaître et ouvrir sa fiche, et où il en est. */
+export interface MembreMontre extends MembreDUnSegment {
+  nom: string
+  login: string
+}
+
+export interface SegmentMontre {
+  segment: SegmentDuQg
+  profils: number
+  /** Les premiers, dans l'ordre du segment (`PROFILS_D_UN_SEGMENT`). */
+  montres: MembreMontre[]
+}
+
+/** Un jour du graphique des joueurs : du jour, de la semaine, du mois — aujourd'hui entamé, en dernier. */
+export interface ActifsDUnJour {
+  jour: string
+  profils: number
+  semaine: number
+  mois: number
+}
+
+export interface PageDesJoueurs {
+  maintenant: number
+  /** Le premier jour que la mémoire sait : les journaux ne remontent pas plus loin. Null tant que personne n'a joué. */
+  depuis: string | null
+  /** Les profils qui ont joué aujourd'hui (comparé aux sept jours d'avant à la même minute), ces sept jours, ces trente jours, et la fidélité. */
+  actifs: { jour: ChiffreEtAvant; semaine: ChiffreEtAvant; mois: ChiffreEtAvant; fidelite: { valeur: number | null; avant: number | null } }
+  parJour: ActifsDUnJour[]
+  /** Les profils nés ces trente jours, et les trente d'avant. */
+  nouveaux: ChiffreEtAvant
+  /** Les invités sans profil venus en soirée ces trente jours, et les trente d'avant. */
+  invites: ChiffreEtAvant
+  cohortes: CohorteDuQg[]
+  segments: SegmentMontre[]
+  heures: { grille: number[][]; jours: number }
+  combinaisons: CombinaisonDeModes[]
+  /** Les profils actifs ces trente jours : ce que les combinaisons se partagent. */
+  profilsActifs: number
+  origines: { origine: OrigineLue | null; profils: number }[]
+}
+
+/** Les segments, comptés seulement : ce que la page des annonces propose, à côté de « tous ». */
+export interface ComptesDesSegments {
+  maintenant: number
+  comptes: Record<SegmentDuQg, number>
+}
+
+/** La page telle que le calcul la rend : les membres des segments pas encore nommés — la route lit leurs prénoms. */
+export type PageDesJoueursSansNoms = Omit<PageDesJoueurs, 'segments'> & { segments: { segment: SegmentDuQg; profils: number; montres: MembreDUnSegment[] }[] }
+
+/** Ce que le serveur a lu pour la page : les feuilles et les jours gardés, aujourd'hui relu de ses journaux, tous les profils. */
+export interface DonneesDeLaPage {
+  maintenant: number
+  /** Les feuilles de présence des jours finis gardés, et celle d'aujourd'hui, entamée. */
+  presences: ReadonlyMap<string, readonly Presence[]>
+  /** Les chiffres des jours finis gardés (`qg_jours`). */
+  jours: ReadonlyMap<string, ChiffresDUnJour>
+  /** Le premier jour que la mémoire sait ; null tant qu'elle ne sait rien. */
+  depuis: string | null
+  profils: readonly ProfilDeLAudience[]
+  /** Les invités sans profil venus en soirée aujourd'hui. */
+  invitesDuJour: number
+}
+
+/**
+ * La page des joueurs, une étape par tranche : les joueurs du jour, de la
+ * semaine et du mois — chacun comparé à la même fenêtre arrêtée au même
+ * instant une semaine ou un mois plus tôt —, la fidélité, quatre-vingt-dix
+ * jours jour par jour, les nouveaux profils et les invités sans profil de ces
+ * trente jours, les segments, les cohortes, quand on joue, qui joue à quoi,
+ * d'où viennent les profils. Ce que la mémoire ne sait pas encore ne se compare
+ * pas (`avant: null`).
+ */
+export function* calculDeLaPage(d: DonneesDeLaPage): CalculEnTranches<PageDesJoueursSansNoms> {
+  const minuit = minuitDe(d.maintenant)
+  const aujourdhui = jourDe(d.maintenant)
+  const hier = jourAvant(aujourdhui)
+  const minute = Math.floor((d.maintenant - minuit) / 60_000)
+  const depuis = d.depuis ?? aujourdhui
+  const actifs = {
+    jour: joueursDuJourALHeure(d.presences, aujourdhui, minute, depuis),
+    semaine: { valeur: actifsALaMinute(d.presences, aujourdhui, 7, Infinity, '') ?? 0, avant: actifsALaMinute(d.presences, jourAvant(aujourdhui, 7), 7, minute, depuis) },
+    mois: { valeur: actifsALaMinute(d.presences, aujourdhui, 30, Infinity, '') ?? 0, avant: actifsALaMinute(d.presences, jourAvant(aujourdhui, 30), 30, minute, depuis) },
+    fidelite: { valeur: fideliteAuSoir(d.jours, hier), avant: fideliteAuSoir(d.jours, jourAvant(hier, 30)) },
+  }
+  yield
+  const parJour: ActifsDUnJour[] = []
+  for (const jour of joursJusqua(hier, JOURS_DU_GRAPHE_DES_ACTIFS - 1)) {
+    const c = d.jours.get(jour)
+    if (c) parJour.push({ jour, profils: c.profils, semaine: c.semaine, mois: c.mois })
+  }
+  parJour.push({ jour: aujourdhui, profils: d.presences.get(aujourdhui)?.length ?? 0, semaine: actifs.semaine.valeur, mois: actifs.mois.valeur })
+  const debutDuMois = minuitDuJour(jourAvant(aujourdhui, 29))
+  const debutDuMoisDAvant = minuitDuJour(jourAvant(aujourdhui, 59))
+  const nouveaux = {
+    valeur: d.profils.filter(p => p.cree >= debutDuMois && p.cree <= d.maintenant).length,
+    avant: d.profils.filter(p => p.cree >= debutDuMoisDAvant && p.cree < debutDuMois).length,
+  }
+  const invitesDe = (jours: readonly string[]) => jours.reduce((t, j) => t + (d.jours.get(j)?.invites ?? 0), 0)
+  const moisDAvant = joursJusqua(jourAvant(aujourdhui, 30), 30)
+  const invites = {
+    valeur: invitesDe(joursJusqua(hier, 29)) + d.invitesDuJour,
+    avant: moisDAvant.every(j => d.jours.has(j)) ? invitesDe(moisDAvant) : null,
+  }
+  yield
+  const traces = tracesDesTrenteJours(d.presences, aujourdhui)
+  yield
+  const parSegment = segmentsDesProfils(d.profils, traces, aujourdhui)
+  const segments = SEGMENTS.map(segment => ({ segment, profils: parSegment[segment].length, montres: parSegment[segment].slice(0, PROFILS_D_UN_SEGMENT) }))
+  yield
+  const cohortes = cohortesDesProfils(d.profils, d.presences, aujourdhui)
+  yield
+  return {
+    maintenant: d.maintenant,
+    depuis: d.depuis,
+    actifs,
+    parJour,
+    nouveaux,
+    invites,
+    cohortes,
+    segments,
+    heures: heuresDeJeu(d.jours, aujourdhui),
+    combinaisons: combinaisonsDesModes(traces),
+    profilsActifs: traces.size,
+    origines: originesDesProfils(d.profils, debutDuMois),
+  }
+}

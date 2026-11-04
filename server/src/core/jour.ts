@@ -3662,6 +3662,23 @@ export class JourStore {
     return lignes.map(([qui, quand, questions]) => ({ qui: String(qui), quand: Number(quand), questions: Number(questions) }))
   }
 
+  /**
+   * Les parties commencées entre deux instants — qui, quand —, pour la
+   * mémoire du QG (`server/src/joueursDuQg.ts`) : elle écrit chaque jour fini
+   * une fois, et rattrape d'un coup ceux qui manquent, un mois de journaux à
+   * la fois. Par leurs jours, que l'index connaît, puis à l'instant près ; en
+   * un seul texte JSON, comme `partiesDepuis`.
+   */
+  async partiesEntre(debut: number, fin: number): Promise<{ qui: string; quand: number }[]> {
+    const res = await this.client.execute({
+      sql: `SELECT json_group_array(json_array(profile_id, commencee_le)) AS lignes
+            FROM jour_parties WHERE jour >= ? AND jour <= ? AND commencee_le >= ? AND commencee_le < ?`,
+      args: [jourDe(debut), jourDe(fin - 1), debut, fin],
+    })
+    const lignes = JSON.parse(String(res.rows[0]?.lignes ?? '[]')) as [string, number][]
+    return lignes.map(([qui, quand]) => ({ qui: String(qui), quand: Number(quand) }))
+  }
+
   // ── Le suivi du QG ──────────────────────────────────────────────────────
 
   /**

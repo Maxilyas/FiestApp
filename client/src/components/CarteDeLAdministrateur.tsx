@@ -174,8 +174,9 @@ export function CarteDeLAdministrateur({
           </>
         ) : a.sorte === 'annonce' ? (
           <>
-            {/* Ce qu'elle lui a offert à lui : rien s'il n'était pas là pour le recevoir. */}
-            <b>{a.confettis > 0 ? `${nConfettis(a.confettis)}, à tous les joueurs` : 'À tous les joueurs'}</b>
+            {/* Ce qu'elle lui a offert à lui : rien s'il n'était pas là pour le recevoir. Écrite à quelques-uns — un segment
+                du QG —, elle lui parle à lui, sans dire lequel : « endormi » n'est pas un mot à lire sur son accueil. */}
+            <b>{a.aQuelquesUns ? (a.confettis > 0 ? `${nConfettis(a.confettis)} pour toi` : 'Un mot pour toi') : a.confettis > 0 ? `${nConfettis(a.confettis)}, à tous les joueurs` : 'À tous les joueurs'}</b>
             <span>{espacesFines(a.message)}</span>
             {a.question && <QuestionDeLaCarte question={a.question} merci={merci} onMerci={setMerci} onRepondre={onRepondre} />}
             <span className="muted small">— de l’administrateur</span>

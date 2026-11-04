@@ -60,6 +60,8 @@ import type { SuiviDeLaCampagne } from '../../shared/qgCampagne'
 import type { SuiviDesDuels } from '../../shared/qgDuels'
 import type { PageDeLEconomie } from '../../shared/qgEconomie'
 import type { PageDeLActivite } from '../../shared/qgActivite'
+import type { ComptesDesSegments, PageDesJoueurs, SegmentDuQg } from '../../shared/qgJoueurs'
+import type { OrigineDUnProfil } from '../../shared/origines'
 import type { Classement, PageDesSignalements } from '../../shared/qgSignalements'
 import { applySample, mesureDeLaReponse, tempsDuPrechargement } from './clock'
 import { DEPART } from '../../shared/depart'
@@ -455,8 +457,8 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ login, password }),
       }),
-    /** Rend le code de secours — la seule fois où il existe en clair. */
-    inscription: (input: { login: string; password: string; name: string; avatar: string }) =>
+    /** Rend le code de secours — la seule fois où il existe en clair. `origine` : l'écran où il naît, que le QG compte. */
+    inscription: (input: { login: string; password: string; name: string; avatar: string; origine: OrigineDUnProfil }) =>
       req<{ profile: PublicProfile; espace: PublicSpace | null; recovery: string }>('/api/joueur/inscription', {
         method: 'POST',
         body: JSON.stringify(input),
@@ -855,9 +857,16 @@ export const api = {
       req<EtatDeLaMaintenance>(`/api/admin/maintenance/pages/${page}/testeurs/${encodeURIComponent(profileId)}`, { method: 'DELETE' }),
     /** Les annonces à tous, et combien de profils recevraient la prochaine. */
     annonces: () => req<PageDesAnnonces>('/api/admin/annonces'),
-    /** Une annonce à tous, et ses confettis pour chacun ; `id`, celui de l'envoi : refait, il ne part pas deux fois. Rend la page d'après. */
-    annoncer: (id: string, message: string, confettis: number, question?: QuestionDAnnonce) =>
-      req<PageDesAnnonces>('/api/admin/annonces', { method: 'POST', body: JSON.stringify({ id, message, confettis, ...(question && { question }) }) }),
+    /**
+     * Une annonce à tous — ou aux seuls profils d'un segment des joueurs —, et ses confettis pour chacun ; `id`, celui de
+     * l'envoi : refait, il ne part pas deux fois. Rend la page d'après.
+     */
+    annoncer: (id: string, message: string, confettis: number, question?: QuestionDAnnonce, segment?: SegmentDuQg | null) =>
+      req<PageDesAnnonces>('/api/admin/annonces', { method: 'POST', body: JSON.stringify({ id, message, confettis, ...(question && { question }), ...(segment && { segment }) }) }),
+    /** Les joueurs : combien jouent, combien reviennent, les cohortes, les segments, quand on joue, d'où viennent les profils. */
+    joueurs: () => req<PageDesJoueurs>('/api/admin/joueurs'),
+    /** Combien chaque segment compte de profils : ce que la page des annonces propose. */
+    segmentsDesJoueurs: () => req<ComptesDesSegments>('/api/admin/joueurs/segments'),
     /** Clore la question d'une annonce : les joueurs ne la voient plus, les résultats restent. Rend la page d'après. */
     cloreLaQuestion: (id: string) => req<PageDesAnnonces>(`/api/admin/annonces/${encodeURIComponent(id)}/cloturer`, { method: 'POST', body: '{}' }),
     /** Retirer une annonce : l'accueil la tait, ses confettis restent offerts. Rend la page d'après. */

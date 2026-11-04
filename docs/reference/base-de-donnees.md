@@ -199,7 +199,7 @@ mémoire ce qu'il a lu.
 
 Les profils de joueur.
 
-- **Colonnes clés** : `id`, `login` (unique), `name`, `avatar`, `finition`, `password_hash`, `recovery_hash` (le code de secours, haché), `xp` (le total), `created_at`, `last_seen_at`, `disabled_at` (suspendu), et ce qu'il porte : `legendaire`, `titre`, `vitrine` (JSON), `fond`, `theme`, `gerbe`, `bordure` ; `niche`, le compagnon qu'il a installé dans sa niche (NULL : celui que la règle désigne, `compagnonDeLaNiche` — le plus grand des siens ; les niches jamais choisies se sont figées une fois, le 19 octobre 2026, sur ce qu'elles montraient, drapeau `niches_installees`, et une adoption ou un coffre écrit la sienne) ; ainsi que `renomme_le`.
+- **Colonnes clés** : `id`, `login` (unique), `name`, `avatar`, `finition`, `password_hash`, `recovery_hash` (le code de secours, haché), `xp` (le total), `created_at`, `last_seen_at`, `disabled_at` (suspendu), et ce qu'il porte : `legendaire`, `titre`, `vitrine` (JSON), `fond`, `theme`, `gerbe`, `bordure` ; `niche`, le compagnon qu'il a installé dans sa niche (NULL : celui que la règle désigne, `compagnonDeLaNiche` — le plus grand des siens ; les niches jamais choisies se sont figées une fois, le 19 octobre 2026, sur ce qu'elles montraient, drapeau `niches_installees`, et une adoption ou un coffre écrit la sienne) ; ainsi que `renomme_le` ; `origine`, l'écran où il est né (`ORIGINES_D_UN_PROFIL`, `shared/origines.ts` : l'entrée d'une soirée, la soirée, sa fin, l'accueil, le quiz du jour, la campagne, les duels, le Cabinet, le salon, un compte d'avant — `compte`, l'adoption aussi ; `inconnue` d'une page qui ne le disait pas), écrite à l'inscription et jamais après — NULL pour un profil né avant le 4 novembre 2026, que rien ne devine (la page des joueurs le dit « d'avant »).
 - **Espace** : non.
 - **Écrite par** : `ProfileStore` — l'inscription, l'adoption d'un compte d'avant, la loge, les mots de passe, les crédits, l'administration.
 - **Lue par** : `ProfileStore` ; `JourStore` (`server/src/core/jour.ts` : les classements, qui écartent les profils suspendus).
@@ -1151,6 +1151,46 @@ Les réponses des profils aux questions des annonces.
 - **Écrite par** : `ProfileStore` (`repondreALAnnonce`), avec la récompense : un don de `profile_dons` d'identifiant `annonce-reponse:<annonce>:<profil>`, dans le même lot ; rejouée, elle ne donne pas deux fois. Jamais modifiée.
 - **Lue par** : `ProfileStore` — les résultats du QG (`questionsDuQg`), la carte de l'accueil (a-t-il répondu ?).
 - **Effacée par** : un profil supprimé emporte les siennes (`supprimer`).
+
+### `qg_annonce_segments`
+
+Le segment de la page des joueurs auquel une annonce a été écrite (`/admin#annonces`, le 4 novembre 2026) : une ligne par annonce qui ne parle pas à tous.
+
+- **Colonnes clés** : `annonce_id` (clé primaire), `segment` (`nouveaux`, `reguliers`, `occasionnels`, `a-risque`, `endormis` ou `perdus` — `SEGMENTS`, `shared/qgJoueurs.ts`).
+- **Espace** : non — comme l'annonce.
+- **Écrite par** : `ProfileStore` (`annoncerATous`, dans le lot de l'annonce, et seulement pour l'annonce née dans ce lot : rejouée, une annonce à tous ne devient pas celle d'un segment). Une table à part plutôt qu'une colonne de `qg_annonces` : chaque réveil y aurait relu le schéma de la table pour l'ajouter.
+- **Lue par** : `ProfileStore` — la page du QG (le nom du segment, `COLONNES_D_UNE_ANNONCE`), l'accueil (`achatsDe` : une annonce à un segment ne se lit que par ses destinataires), ses dons et sa question.
+- **Effacée par** : rien.
+
+### `qg_annonce_destinataires`
+
+Les profils d'un segment à l'envoi de son annonce : eux seuls la lisent, reçoivent ses confettis et répondent à sa question.
+
+- **Colonnes clés** : `annonce_id` et `profile_id` (clé primaire) ; `profile_id` indexé, pour l'accueil et la suppression d'un profil.
+- **Espace** : non.
+- **Écrite par** : `ProfileStore` (`annoncerATous`), dans le même lot que l'annonce et ses dons — les membres du segment comptés à l'instant par la page des joueurs (`profilsDuSegment`, `server/src/joueursDuQg.ts`), sans les suspendus. Jamais modifiée.
+- **Lue par** : `ProfileStore` — l'accueil de chaque profil, dans le lot de ses dons (`achatsDe`) ; l'instruction même des dons de l'annonce ; la réponse à sa question (`repondreALAnnonce` : 404 à qui n'en est pas).
+- **Effacée par** : un profil supprimé emporte les siennes (`supprimer`).
+
+### `qg_presences`
+
+La feuille de présence de la page des joueurs (`/admin#joueurs`, le 4 novembre 2026, `shared/qgJoueurs.ts`) : une ligne par profil et par jour de Paris où il a joué — une partie du jour, de campagne, du Cabinet, un duel, une soirée. Une dérivation des journaux, recalculable : jamais un invité sans profil.
+
+- **Colonnes clés** : `jour` et `profile_id` (clé primaire, le jour d'abord : la page lit les feuilles depuis un jour), `modes` (les modes du jour en un nombre, un bit chacun — `BIT_DU_MODE`), `premiere` (les minutes de son minuit de Paris à sa première partie : aujourd'hui se compare à la même heure) ; `profile_id` indexé (`idx_qg_presences_profil`), pour la suppression d'un profil.
+- **Espace** : non — un profil va d'un espace à l'autre.
+- **Écrite par** : `MemoireDuQg` (`server/src/core/memoireDuQg.ts`), au premier passage de la page des joueurs, de ses comptes ou d'une annonce à un segment après minuit : les jours finis qui manquent jusqu'à hier, rattrapés un mois de journaux à la fois, d'un lot par mois — la première fois, aussi loin que les journaux remontent, un an au plus. Un jour écrit ne se relit plus des journaux ; aujourd'hui ne s'écrit jamais.
+- **Lue par** : `MemoireDuQg` — la page des joueurs, une fois par jour, ses soixante derniers jours et les semaines des cohortes, en un seul texte JSON (`presencesEntre`).
+- **Effacée par** : ce qui a passé l'an, à chaque écriture (`JOURS_DE_LA_MEMOIRE`) ; tout, quand la version des dérivations monte (`VERSION_DE_LA_MEMOIRE`), puis réécrit des journaux ; un profil supprimé emporte les siennes (`oublierProfil`, dans `supprimerProfil`).
+
+### `qg_jours`
+
+La mémoire longue du QG : les chiffres de chaque jour fini, figés à son premier passage d'après minuit et gardés un an — quatre-vingt-dix jours de joueurs se lisent en quatre-vingt-dix lignes, sans relire les journaux.
+
+- **Colonnes clés** : `jour` (clé primaire), `chiffres` (JSON, `ChiffresDUnJour` : `v`, la version des dérivations ; les joueurs, ceux de chaque mode, les participations, les nouveaux profils, les achats, les profils du jour, de ses sept jours et de ses trente, les invités sans profil, les participations heure par heure), `ecrit_le`. Des chiffres, jamais un nom.
+- **Espace** : non.
+- **Écrite par** : `MemoireDuQg`, dans le lot des feuilles de présence des mêmes jours.
+- **Lue par** : `MemoireDuQg` — la page des joueurs, une fois par jour : ses quatre-vingt-neuf derniers jours et le premier jour qu'elle sait (`joursDepuis`) ; le dernier jour écrit et sa version, à chaque rattrapage (`dernierJour`).
+- **Effacée par** : ce qui a passé l'an, à chaque écriture ; tout, quand la version des dérivations monte. Les chiffres d'un jour restent quand un profil est supprimé : ils ne le nomment pas.
 
 ### `qg_affiches`
 

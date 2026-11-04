@@ -231,6 +231,46 @@ export function* chiffresDeLaVue(
 /** Les parties d'une soirée pas encore close dont une question a été jouée. */
 const partiesJouees = (l: LigneDeSoiree) => (l.parties ?? '').split(',').filter(Boolean)
 
+/**
+ * Les soirées commencées depuis un instant : celles de l'historique, et
+ * celles pas encore closes. Une soirée se range après chaque quiz : celle
+ * qui se joue encore a déjà sa fiche, un quiz en retard — elle compte ce
+ * qu'elle a joué depuis, lu dans la base locale. `jouees` : les questions
+ * que ses invités ont jouées, que seule l'activité demande — une fiche
+ * d'avant les apprend alors de son archive (`ArchiveStore.soireesDepuis`).
+ * `profils` : ceux de ses invités qui ont joué, que la vue d'ensemble
+ * compte une fois par jour avec ceux des autres modes — la base locale les
+ * sait tous, la fiche ceux du dernier rangement. `jusqua` : celles
+ * commencées avant cet instant seulement — la mémoire du QG rattrape ses
+ * jours finis un mois à la fois (`joueursDuQg.ts`).
+ */
+export async function lesSoireesDepuis(
+  deps: Pick<QgDeps, 'archives' | 'db'>,
+  depuis: number,
+  { jouees = false, jusqua }: { jouees?: boolean; jusqua?: number } = {},
+) {
+  const rangees = await deps.archives.soireesDepuis(depuis, { jouees, ...(jusqua !== undefined && { jusqua }) })
+  const soirees = new Map(rangees.map(r => [`${r.spaceId}|${r.id}`, { ...r, ouverte: false }]))
+  const profilsOuverts = profilsDesSoireesOuvertes(deps.db)
+  for (const l of lignesDesSoirees(deps.db)) {
+    if (l.held_at === null || l.soiree_id === null || l.held_at < depuis || (jusqua !== undefined && l.held_at >= jusqua)) continue
+    const cle = `${l.space_id}|${l.soiree_id}`
+    const rangee = soirees.get(cle)
+    soirees.set(cle, {
+      spaceId: l.space_id,
+      id: l.soiree_id,
+      quand: l.held_at,
+      joueurs: Math.max(rangee?.joueurs ?? 0, l.joueurs),
+      quiz: Math.max(rangee?.quiz ?? 0, partiesJouees(l).length),
+      questions: Math.max(rangee?.questions ?? 0, l.questions),
+      jouees: Math.max(rangee?.jouees ?? 0, l.jouees),
+      profils: [...new Set([...(rangee?.profils ?? []), ...(profilsOuverts.get(l.space_id) ?? [])])],
+      ouverte: true,
+    })
+  }
+  return [...soirees.values()]
+}
+
 /** La mémoire du processus, en Mo ; null si la mesure échoue. */
 function memoireDuProcessus(): number | null {
   try {
@@ -366,47 +406,13 @@ export function mountQg(app: Express, deps: QgDeps) {
     return boutABout(jusquHier, aujourdhui)
   }
 
-  /**
-   * Les soirées commencées depuis un instant : celles de l'historique, et
-   * celles pas encore closes. Une soirée se range après chaque quiz : celle
-   * qui se joue encore a déjà sa fiche, un quiz en retard — elle compte ce
-   * qu'elle a joué depuis, lu dans la base locale. `jouees` : les questions
-   * que ses invités ont jouées, que seule l'activité demande — une fiche
-   * d'avant les apprend alors de son archive (`ArchiveStore.soireesDepuis`).
-   * `profils` : ceux de ses invités qui ont joué, que la vue d'ensemble
-   * compte une fois par jour avec ceux des autres modes — la base locale les
-   * sait tous, la fiche ceux du dernier rangement.
-   */
-  const lesSoireesDepuis = async (depuis: number, { jouees = false }: { jouees?: boolean } = {}) => {
-    const rangees = await deps.archives.soireesDepuis(depuis, { jouees })
-    const soirees = new Map(rangees.map(r => [`${r.spaceId}|${r.id}`, { ...r, ouverte: false }]))
-    const profilsOuverts = profilsDesSoireesOuvertes(deps.db)
-    for (const l of lignesDesSoirees(deps.db)) {
-      if (l.held_at === null || l.soiree_id === null || l.held_at < depuis) continue
-      const cle = `${l.space_id}|${l.soiree_id}`
-      const rangee = soirees.get(cle)
-      soirees.set(cle, {
-        spaceId: l.space_id,
-        id: l.soiree_id,
-        quand: l.held_at,
-        joueurs: Math.max(rangee?.joueurs ?? 0, l.joueurs),
-        quiz: Math.max(rangee?.quiz ?? 0, partiesJouees(l).length),
-        questions: Math.max(rangee?.questions ?? 0, l.questions),
-        jouees: Math.max(rangee?.jouees ?? 0, l.jouees),
-        profils: [...new Set([...(rangee?.profils ?? []), ...(profilsOuverts.get(l.space_id) ?? [])])],
-        ouverte: true,
-      })
-    }
-    return [...soirees.values()]
-  }
-
   const vueDEnsemble = async (): Promise<VueDEnsemble> => {
     const maintenant = deps.maintenant()
     const minuits = minuitsDeParis(maintenant, JOURS_DU_QG)
     const depuis = minuits[0]
     const [journaux, soirees, reserve, signalementsDuJour, signalementsDeLaCampagne, aRelire, serveur, propositions] = await Promise.all([
       lesTrenteJours(minuits),
-      lesSoireesDepuis(depuis),
+      lesSoireesDepuis(deps, depuis),
       deps.jour.avanceDeLaReserve(),
       deps.jour.signalementsATraiter(),
       deps.campagne.signalementsATraiter(),
@@ -442,7 +448,7 @@ export function mountQg(app: Express, deps: QgDeps) {
   const pageDesSoirees = async (): Promise<PageDesSoirees> => {
     const maintenant = deps.maintenant()
     const minuits = minuitsDeParis(maintenant, JOURS_DES_SOIREES)
-    const soirees = await lesSoireesDepuis(minuits[0])
+    const soirees = await lesSoireesDepuis(deps, minuits[0])
     const debutDuMois = minuits[minuits.length - JOURS_DU_QG]
     const duMois = soirees.filter(s => s.quand >= debutDuMois && s.quand <= maintenant).sort((a, b) => b.quand - a.quand)
     const salons = await lesSalons(duMois.map(s => s.spaceId))
@@ -474,7 +480,7 @@ export function mountQg(app: Express, deps: QgDeps) {
   const pageDeLActivite = async (): Promise<PageDeLActivite> => {
     const maintenant = deps.maintenant()
     const minuits = minuitsDeParis(maintenant, JOURS_DU_QG)
-    const [{ parties, series, activite }, soirees] = await Promise.all([lesTrenteJours(minuits), lesSoireesDepuis(minuits[0], { jouees: true })])
+    const [{ parties, series, activite }, soirees] = await Promise.all([lesTrenteJours(minuits), lesSoireesDepuis(deps, minuits[0], { jouees: true })])
     const seules: PartieSeule[] = [
       ...parties.map(p => ({ qui: p.qui, quand: p.quand, mode: 'jour' as const, questions: p.questions })),
       ...series.map(s => ({ qui: s.qui, quand: s.quand, mode: modeDeLaSerie(s.mode), questions: s.questions })),
