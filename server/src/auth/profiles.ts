@@ -690,6 +690,8 @@ const CLE_DES_MOYENNES = 'moyennes_du_savoir'
 /** Un an : un invité ne doit pas avoir à se reconnecter d'une fête à l'autre. */
 const SESSION_MS = 365 * 24 * 3600 * 1000
 const SLIDE_EVERY_MS = 7 * 24 * 3600 * 1000
+/** Les passages des profils s'écrivent d'un lot, au plus toutes les dix minutes (`noterLePassage`). */
+export const PASSAGES_ECRITS_TOUS_LES_MS = 10 * 60_000
 
 /**
  * « En ligne » : passé ces cinq dernières minutes — une page, une partie,
@@ -1053,6 +1055,13 @@ export class ProfileStore {
    * l'oublie — personne n'y est « en ligne » d'avant.
    */
   private vus = new Map<string, number>()
+  /**
+   * L'heure où chaque profil a vu son passage écrit pour la dernière fois (`last_seen_at`) : une fois l'heure au
+   * plus, par la session qui le reconnaît (`sessionProfileId`). Le QG dit « dernier passage » et trie « Les
+   * profils » sur ce chiffre ; seule la connexion par mot de passe l'écrivait (`touchSeen`), et un joueur de chaque
+   * jour, au cookie d'un an, paraissait parti depuis des mois (la revue d'expert du 4 novembre 2026).
+   */
+  private passagesEcrits = new Map<string, number>()
   /** Les emojis éclatés, par profil — chargés avec le profil. */
   private eclats = new Map<string, Set<string>>()
   /**
@@ -4668,7 +4677,47 @@ export class ProfileStore {
         .catch(() => {})
     }
     this.vus.set(session.profileId, now)
+    this.noterLePassage(session.profileId, now)
     return session.profileId
+  }
+
+  /**
+   * Son passage, noté une fois l'heure au plus, et écrit plus tard, d'un seul lot avec les autres
+   * (`ecrireLesPassages`) : jamais sur le chemin d'une requête — l'accueil, la page du jour comptent leurs
+   * allers-retours —, et un réveil de l'hébergeur ne le réécrit qu'une fois de plus.
+   */
+  private noterLePassage(profileId: string, now: number) {
+    const heure = Math.floor(now / 3_600_000)
+    if (this.passagesEcrits.get(profileId) === heure) return
+    this.passagesEcrits.set(profileId, heure)
+    const rec = this.profiles.get(profileId)
+    if (rec) rec.lastSeenAt = now
+    this.passagesAEcrire.set(profileId, now)
+    if (!this.minuterieDesPassages) {
+      this.minuterieDesPassages = setTimeout(() => void this.ecrireLesPassages(), PASSAGES_ECRITS_TOUS_LES_MS)
+      // Une minuterie ne retient pas un processus qu'on arrête.
+      this.minuterieDesPassages.unref()
+    }
+  }
+
+  private passagesAEcrire = new Map<string, number>()
+  private minuterieDesPassages: ReturnType<typeof setTimeout> | null = null
+
+  /** Les passages notés depuis le dernier lot, écrits ensemble ; un lot qui tombe se refera à leur heure suivante. */
+  async ecrireLesPassages(): Promise<void> {
+    if (this.minuterieDesPassages) clearTimeout(this.minuterieDesPassages)
+    this.minuterieDesPassages = null
+    const lot = [...this.passagesAEcrire]
+    this.passagesAEcrire.clear()
+    if (lot.length === 0) return
+    try {
+      await this.client.batch(
+        lot.map(([id, quand]) => ({ sql: 'UPDATE profiles SET last_seen_at = MAX(COALESCE(last_seen_at, 0), ?) WHERE id = ?', args: [quand, id] })),
+        'write',
+      )
+    } catch {
+      for (const [id] of lot) this.passagesEcrits.delete(id)
+    }
   }
 
   /**
@@ -6674,6 +6723,9 @@ export class ProfileStore {
    * laissait une de plus derrière lui.
    */
   close() {
+    // Les passages notés et pas encore écrits se perdent : une indication, que la prochaine visite refera.
+    if (this.minuterieDesPassages) clearTimeout(this.minuterieDesPassages)
+    this.minuterieDesPassages = null
     this.client.close()
   }
 
@@ -6742,7 +6794,8 @@ export class ProfileStore {
       recoveryHash: String(r.recovery_hash),
       xp: Number(r.xp ?? 0),
       createdAt: Number(r.created_at),
-      lastSeenAt: r.last_seen_at === null || r.last_seen_at === undefined ? null : Number(r.last_seen_at),
+      // Un passage noté avant que la fiche soit en mémoire, pas encore écrit (`noterLePassage`) : le plus récent des deux.
+      lastSeenAt: Math.max(Number(r.last_seen_at ?? 0), this.passagesAEcrire.get(String(r.id)) ?? 0) || null,
       disabledAt: r.disabled_at === null || r.disabled_at === undefined ? null : Number(r.disabled_at),
       renommeLe: r.renomme_le === null || r.renomme_le === undefined ? null : Number(r.renomme_le),
     }

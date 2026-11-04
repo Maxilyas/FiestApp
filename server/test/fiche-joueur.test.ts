@@ -8,6 +8,7 @@
 // sur son profil.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import Database from 'better-sqlite3'
 import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil, invite, type Banc } from './banc'
 import type { FicheDuJoueur, ProfilDAccueil, ProfilDAdministration } from '../../shared/profil'
 import type { JournalDuQg } from '../../shared/qg'
@@ -41,6 +42,32 @@ test('la fiche d’un joueur : ce qu’il a joué, ses confettis, sa connexion, 
     assert.deepEqual(f.jour, { joues: 0, victoires: 0 })
     assert.equal(typeof f.creeLe, 'number')
     assert.equal((await lire(banc, admin, '/api/admin/profils/inconnu')).status, 404)
+  } finally {
+    await banc.close()
+  }
+})
+
+// La revue d'expert du 4 novembre 2026 : seule la connexion par mot de passe écrivait le passage d'un profil, et un
+// joueur de chaque jour, au cookie d'un an, paraissait parti depuis des mois. Ses visites l'écrivent — notées une fois
+// l'heure, écrites d'un lot hors du chemin de la requête, et le lot part avec le serveur qui s'arrête.
+test('le dernier passage se lit de ses visites, pas de son dernier mot de passe — et survit au réveil', async () => {
+  const { banc, admin, lea, id } = await avecLea()
+  try {
+    {
+      const ecriture = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+      ecriture.prepare('UPDATE profiles SET last_seen_at = ? WHERE id = ?').run(Date.UTC(2026, 6, 1), id)
+      ecriture.close()
+    }
+    await banc.redemarrer()
+    const avant = Date.now()
+    assert.equal((await lire(banc, lea, '/api/jour')).status, 200)
+    const admin2 = await connexionAnimateur(banc.url)
+    assert.ok((await fiche(banc, admin2, id)).vuLe! >= avant, 'la fiche le lit aussitôt')
+    // Le lot n'a pas encore dix minutes : c'est l'arrêt du serveur qui l'écrit.
+    await banc.redemarrer()
+    const admin3 = await connexionAnimateur(banc.url)
+    assert.ok((await fiche(banc, admin3, id)).vuLe! >= avant, 'relu de la base, au réveil')
+    void admin
   } finally {
     await banc.close()
   }

@@ -1743,7 +1743,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
           // La file du miroir se vide d'abord, dans le délai qu'on lui laisse :
           // la base locale doit rester ouverte d'ici là — une resynchronisation
           // en attente la relit.
-          await Promise.all([backup.close(), santeArretee])
+          // Les passages des profils notés depuis le dernier lot, avec : « dernier passage » au QG ne recule pas d'un réveil.
+          await Promise.all([backup.close(), santeArretee, profiles.ecrireLesPassages().catch(() => {})])
           db.close()
           store.close()
           programmes.close()
