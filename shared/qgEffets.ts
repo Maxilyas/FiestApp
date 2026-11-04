@@ -11,7 +11,7 @@
 
 import { jourAvant, jourDe, jourEnToutesLettres } from './jour'
 import { formatNumber } from './typographie'
-import { HABITUDE_EN_POURCENTS, NOM_DU_MODE, type EcartALHabitude, type ModeDuQg } from './qg'
+import { ECART_FAIBLE_EN_POURCENTS, HABITUDE_EN_POURCENTS, NOM_DU_MODE, type EcartALHabitude, type ModeDuQg } from './qg'
 import { AUX_PROFILS_DU_SEGMENT, BIT_DU_MODE, minuitDuJour, segmentsDesProfils, tracesDesTrenteJours, type ChiffresDUnJour, type Presence, type ProfilDeLAudience, type SegmentDuQg } from './qgJoueurs'
 import { estUnePageALAffiche, type PageALAffiche } from './affiches'
 import { PAGES_EN_MAINTENANCE, type PageEnMaintenance } from './maintenance'
@@ -474,7 +474,7 @@ export function ecartDeLAvantApres(avant: number | null, apres: number | null): 
     return { sens, texte: `${sens === 'plus' ? '+' : '−'}${moyenneEcrite(ecart)} par jour`, suite: '' }
   }
   const pourcents = Math.round((Math.abs(apres - avant) / avant) * 100)
-  return { sens, texte: `${formatNumber(pourcents)} %`, suite: sens === 'plus' ? ' de plus' : ' de moins' }
+  return { sens, texte: `${formatNumber(pourcents)} %`, suite: sens === 'plus' ? ' de plus' : ' de moins', ...(pourcents < ECART_FAIBLE_EN_POURCENTS && { faible: true as const }) }
 }
 
 // ── Le fil du journal ───────────────────────────────────────────────────────

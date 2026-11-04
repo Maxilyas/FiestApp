@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, motifDe } from '../api'
 import { Icon } from './Icon'
+import { CopierLeTableau } from './CopierLeTableau'
 import { Feuille } from './Pieces'
 import { CarteDeChaleur, GrapheDuTemps, TuileDuQg, type CaseDeChaleur } from './QgGraphes'
 import { reperesDeLaCourbe, useReperesDuQg } from '../qgReperes'
@@ -172,6 +173,11 @@ function LesActifs({ page }: { page: PageDesJoueurs }) {
             {`Jour par jour, ${pluriel(jours.length, 'jour')} : les barres disent les profils du jour, les traits ceux des sept et des trente jours qui finissent ce jour-là.`}
           </span>
         </div>
+        {/* La mémoire entière, un jour par ligne sur un an, pour un tableur (la revue d'expert du 4 novembre 2026, P2.10). */}
+        <a className="qg-copier" href="/api/admin/joueurs/memoire.csv" download title="Un jour par ligne sur l’année que la mémoire garde, pour un tableur">
+          <Icon name="download" />
+          Télécharger la mémoire
+        </a>
       </div>
       <GrapheDuTemps
         etiquettes={page.parJour.map((j, i) => (i === page.parJour.length - 1 ? `${jourEnToutesLettres(j.jour)}, entamé` : jourEnToutesLettres(j.jour)))}
@@ -395,6 +401,9 @@ function LesPremiersPas({ premiersPas: pp }: { premiersPas: PremiersPas }) {
         <p className="muted small">Aucun profil né ces neuf semaines.</p>
       ) : (
         <>
+          <div className="qg-outils">
+            <CopierLeTableau nom="les premiers pas, semaine par semaine" />
+          </div>
           <div className="qg-table-cadre qg-cote-table">
             <table className="qg-table">
               <caption className="sr-only">{`Les premiers pas des profils nés ces neuf semaines — ${nomDeLEcran(choisi.origine).toLowerCase()}`}</caption>

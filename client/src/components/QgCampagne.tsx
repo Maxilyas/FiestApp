@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AvatarEnLigne } from './Avatar'
 import { Chiffre, GrapheDesJours, enPourcentsEcrits } from './QgModes'
 import { barreArrondie, useLargeur } from './QgGraphes'
+import { CopierLeTableau } from './CopierLeTableau'
 import { espacesFines } from '../format'
 import { formatNumber } from '../../../shared/typographie'
 import { jourEnToutesLettres } from '../../../shared/jour'
@@ -297,6 +298,9 @@ export function ParcoursDeThemeAuQg({ suivi }: { suivi: SuiviDeLaCampagne | null
         <p className="muted small">Personne n’a joué de parcours ces trente derniers jours.</p>
       ) : (
         <>
+          <div className="qg-outils">
+            <CopierLeTableau nom="les parcours les plus suivis" />
+          </div>
           <div className="qg-tableau">
             <table>
               <thead>

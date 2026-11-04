@@ -297,8 +297,11 @@ test('ce qui attend un geste : le plus pressé d’abord, et rien qui n’attend
 test('l’écart à l’habitude : en pour cent au-delà de vingt, en chiffre en deçà — trois contre deux ne font pas « 50 % de plus »', () => {
   const c = (aujourdhui: number, habituel: number | null) => ecartALHabitude({ aujourdhui, habituel, parJour: [] })
   assert.equal(c(3, null), null, 'le premier jour n’a rien à quoi se comparer')
-  assert.deepEqual(c(163, 155), { sens: 'plus', texte: '5 %', suite: ' de plus que d’habitude' })
-  assert.deepEqual(c(220, 229), { sens: 'moins', texte: '4 %', suite: ' de moins que d’habitude' })
+  // Sous ±10 %, l'écart se dit faible : sa flèche reste grise (la revue d'ergonomie du 4 novembre 2026, M3).
+  assert.deepEqual(c(163, 155), { sens: 'plus', texte: '5 %', suite: ' de plus que d’habitude', faible: true })
+  assert.deepEqual(c(220, 229), { sens: 'moins', texte: '4 %', suite: ' de moins que d’habitude', faible: true })
+  assert.deepEqual(c(200, 160), { sens: 'plus', texte: '25 %', suite: ' de plus que d’habitude' })
+  assert.deepEqual(c(144, 160), { sens: 'moins', texte: '10 %', suite: ' de moins que d’habitude' }, 'dix pour cent tout juste se colorent')
   assert.deepEqual(c(70, 70), { sens: null, texte: 'comme d’habitude', suite: '' })
   assert.deepEqual(c(400, 399), { sens: null, texte: 'comme d’habitude', suite: '' }, 'un quart de pour cent s’arrondit à rien')
   assert.deepEqual(c(3, 2), { sens: null, texte: '2 d’habitude', suite: '' })

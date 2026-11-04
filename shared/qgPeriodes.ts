@@ -16,6 +16,7 @@ import { formatNumber } from './typographie'
 import {
   HABITUDE_EN_POURCENTS,
   MODES_DU_QG,
+  ecartEnPourcents,
   minuitDe,
   participationsParSeau,
   type EcartALHabitude,
@@ -216,9 +217,5 @@ export function ecartALaPeriodeDAvant(maintenant: number, avant: number | null |
   if (avant < HABITUDE_EN_POURCENTS) return maintenant === avant ? pareil : { sens: null, texte: `${formatNumber(avant)} avant`, suite: '' }
   const pourcents = Math.round(((maintenant - avant) / avant) * 100)
   if (pourcents === 0) return pareil
-  return {
-    sens: pourcents > 0 ? 'plus' : 'moins',
-    texte: `${formatNumber(Math.abs(pourcents))} %`,
-    suite: pourcents > 0 ? ' de plus que la période d’avant' : ' de moins que la période d’avant',
-  }
+  return ecartEnPourcents(pourcents, 'que la période d’avant')
 }

@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { api, motifDe } from '../api'
 import { confirmDialog } from './Dialog'
 import { Icon } from './Icon'
+import { CopierLeTableau } from './CopierLeTableau'
 import { LigneDeSoiree } from './QgVueDEnsemble'
 import { Chiffre as ChiffreDuMode, GabaritDUnMode } from './QgModes'
 import { showToast } from '../state'
@@ -223,6 +224,10 @@ export function BilanDesSoireesDuQg({ page }: { page: PageDesSoirees }) {
         {page.historique.length === 0 ? (
           <p className="muted small">Aucune soirée ces trente derniers jours.</p>
         ) : (
+          <>
+          <div className="qg-outils">
+            <CopierLeTableau nom="l’historique du mois" />
+          </div>
           <div className="qg-tableau">
             <table>
               <thead>
@@ -254,6 +259,7 @@ export function BilanDesSoireesDuQg({ page }: { page: PageDesSoirees }) {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </section>
     </>

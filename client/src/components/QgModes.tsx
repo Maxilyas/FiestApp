@@ -32,7 +32,7 @@ export function Chiffre({ nom, valeur, detail, compte }: { nom: string; valeur: 
       <span className="qg-tuile-valeur num">{valeur}</span>
       {ecart && (
         <span
-          className={'qg-ecart' + (ecart.sens ? ` qg-ecart-${ecart.sens}` : '')}
+          className={'qg-ecart' + (ecart.sens ? ` qg-ecart-${ecart.sens}` : '') + (ecart.faible ? ' qg-ecart-faible' : '')}
           title={compte?.habituel != null ? `D’habitude à cette heure : ${formatNumber(compte.habituel)}` : undefined}
         >
           {ecart.sens && <Icon name={ecart.sens === 'plus' ? 'arrow-up' : 'arrow-down'} />}

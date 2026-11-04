@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
 import { Icon } from './Icon'
+import { CopierLeTableau } from './CopierLeTableau'
 import { formatNumber } from '../../../shared/typographie'
 import { graduations, heureEcrite, type EcartALHabitude, type ModeDuQg } from '../../../shared/qg'
 import { REPERES_NOMMES, reperesEcrits, type RepereDuQg, type SorteDeRepere } from '../../../shared/qgEffets'
@@ -515,7 +516,7 @@ export function TuileDuQg({
       </span>
       <span className="qg-tuile-valeur num">{valeur == null ? '–' : `${formatNumber(valeur)}${unite ?? ''}`}</span>
       {(ecart || detail) && (
-        <span className={'qg-ecart' + (ecart?.sens ? ` qg-ecart-${ecart.sens}` : '')}>
+        <span className={'qg-ecart' + (ecart?.sens ? ` qg-ecart-${ecart.sens}` : '') + (ecart?.faible ? ' qg-ecart-faible' : '')}>
           {ecart?.sens && <Icon name={ecart.sens === 'plus' ? 'arrow-up' : 'arrow-down'} />}
           {ecart?.texte}
           {ecart?.suite && <span className="sr-only">{ecart.suite}</span>}
@@ -618,6 +619,9 @@ export function CarteDeChaleur({
     )
   return (
     <div className={'qg-chaleur' + (compacte ? ' qg-chaleur-compacte' : '')}>
+      <div className="qg-outils">
+        <CopierLeTableau nom="cette carte de chaleur" />
+      </div>
       <div
         className="qg-chaleur-cadre"
         tabIndex={0}

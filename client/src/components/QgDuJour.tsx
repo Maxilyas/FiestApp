@@ -1,5 +1,6 @@
 import { Fragment, useState } from 'react'
 import { Icon } from './Icon'
+import { CopierLeTableau } from './CopierLeTableau'
 import { Avatar, AvatarEnLigne } from './Avatar'
 import { Chiffre, GrapheDesJours, enPourcentsEcrits } from './QgModes'
 import { PrenomDuJoueur } from './PrenomDuJoueur'
@@ -369,6 +370,10 @@ export function RappelDuSoirAuQg({ suivi }: { suivi: SuiviDuJour | null }) {
             />
           </ul>
           {r.tournees.length > 0 ? (
+            <>
+            <div className="qg-outils">
+              <CopierLeTableau nom="les soirs du rappel" />
+            </div>
             <div className="qg-tableau qg-rappel-soirs">
               <table>
                 <thead>
@@ -407,6 +412,7 @@ export function RappelDuSoirAuQg({ suivi }: { suivi: SuiviDuJour | null }) {
                 </tbody>
               </table>
             </div>
+            </>
           ) : (
             <p className="muted small">Aucune tournée gardée pour l’instant : la première s’écrira à 18 h.</p>
           )}

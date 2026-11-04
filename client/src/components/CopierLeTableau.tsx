@@ -18,16 +18,20 @@ function leTableauQuiSuit(bouton: HTMLElement): HTMLTableElement | null {
 
 /**
  * Les cellules d'un tableau telles que la page les montre : ce qui ne se dit
- * qu'au lecteur d'écran (`.sr-only`) et les icônes (`aria-hidden`) n'y
- * passent pas ; une cellule qui en couvre plusieurs laisse les suivantes
- * vides, pour que les colonnes restent alignées.
+ * qu'au lecteur d'écran (`.sr-only` — « au-delà du seuil : ») n'y passe pas,
+ * sauf dans une cellule qui ne montre rien d'autre — l'en-tête « L » d'une
+ * carte de chaleur dit « lundi » au lecteur d'écran, et le chiffre de sa case
+ * se montre sans se lire. Les icônes n'ont pas de texte. Une cellule qui en
+ * couvre plusieurs laisse les suivantes vides, pour que les colonnes restent
+ * alignées.
  */
 function lignesDuTableau(table: HTMLTableElement): string[][] {
   return [...table.rows].map(ligne =>
     [...ligne.cells].flatMap(cellule => {
       const copie = cellule.cloneNode(true) as HTMLElement
-      for (const cache of copie.querySelectorAll('.sr-only, [aria-hidden="true"]')) cache.remove()
-      return [copie.textContent ?? '', ...Array<string>(Math.max(0, cellule.colSpan - 1)).fill('')]
+      for (const cache of copie.querySelectorAll('.sr-only')) cache.remove()
+      const montre = (copie.textContent ?? '').trim()
+      return [montre || (cellule.textContent ?? ''), ...Array<string>(Math.max(0, cellule.colSpan - 1)).fill('')]
     }),
   )
 }

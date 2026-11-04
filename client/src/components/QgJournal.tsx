@@ -457,7 +457,7 @@ function CarteAvantApres({
                           <td className="num">{l.apres === null ? '–' : moyenneEcrite(l.apres)}</td>
                           <td>
                             {ecart ? (
-                              <span className={'qg-ecart' + (ecart.sens ? ` qg-ecart-${ecart.sens}` : '')}>
+                              <span className={'qg-ecart' + (ecart.sens ? ` qg-ecart-${ecart.sens}` : '') + (ecart.faible ? ' qg-ecart-faible' : '')}>
                                 {ecart.sens && <Icon name={ecart.sens === 'plus' ? 'arrow-up' : 'arrow-down'} />}
                                 {ecart.texte}
                                 {ecart.suite && <span className="sr-only">{ecart.suite}</span>}

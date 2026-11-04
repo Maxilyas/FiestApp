@@ -14781,6 +14781,8 @@ button.qg-groupe-titre:hover { color: var(--ink); background: rgba(255, 255, 255
 .qg-ecart .icon { flex: none; width: 13px; height: 13px; }
 .qg-ecart-plus .icon { color: var(--en-ligne); }
 .qg-ecart-moins .icon { color: var(--alert); }
+/* Sous ±10 % (`ECART_FAIBLE_EN_POURCENTS`), la flèche reste grise : le bruit d'une semaine n'est pas une alerte. */
+.qg-ecart-faible .icon { color: var(--muted); }
 /* La courbe d'une tuile : le trait et son aire à la teinte du mode, sinon en sourdine ; le dernier seau en point. */
 .qg-etincelle { display: block; width: 100%; height: 30px; margin-top: 4px; overflow: visible; }
 .qg-etincelle-aire { fill: color-mix(in srgb, var(--teinte, var(--qg-encre-2)) 14%, transparent); stroke: none; }
@@ -15087,8 +15089,9 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
 .qg-signaux { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
 /* La table des routes : un filtre et les méthodes au-dessus ; la table défile de côté dans son cadre, jamais la page. */
 .qg-outils { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-/* « Copier » un tableau vers un tableur : discret, au bout de sa barre d'outils (ou seul dans la sienne), 44 pixels au doigt. */
-.qg-copier { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; margin-left: auto; padding: 4px 12px; border: 1px solid var(--qg-trait-fort); border-radius: 9px; background: none; color: var(--qg-encre-2); font: inherit; font-size: 0.8125rem; cursor: pointer; }
+/* « Copier » un tableau vers un tableur, et « Télécharger la mémoire » : discrets, au bout de leur barre d'outils (ou seuls dans
+   la leur), 44 pixels au doigt. */
+.qg-copier { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; margin-left: auto; padding: 4px 12px; border: 1px solid var(--qg-trait-fort); border-radius: 9px; background: none; color: var(--qg-encre-2); font: inherit; font-size: 0.8125rem; text-decoration: none; cursor: pointer; }
 .qg-copier:hover { border-color: rgba(217, 181, 106, 0.55); color: var(--ink); }
 .qg-copier .icon { flex: none; width: 14px; height: 14px; }
 @media (pointer: coarse) { .qg-copier { min-height: 44px; } }

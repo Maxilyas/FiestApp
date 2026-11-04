@@ -510,12 +510,31 @@ export function quandEcrit(instant: number, maintenant: number): string {
  */
 export const HABITUDE_EN_POURCENTS = 20
 
+/**
+ * En deçà, un écart se dit sans couleur : −4 % d'un jour à l'autre est le
+ * bruit d'une semaine, et sa flèche rouge se lisait comme une alerte (la revue
+ * d'ergonomie du 4 novembre 2026, M3). La flèche reste, grise.
+ */
+export const ECART_FAIBLE_EN_POURCENTS = 10
+
 export interface EcartALHabitude {
   sens: 'plus' | 'moins' | null
   /** Ce qu'on lit sous le chiffre : « 5 % », « 7 d’habitude », « comme d’habitude ». */
   texte: string
   /** Ce que le lecteur d'écran lit après, la flèche ne se lisant pas : « de plus que d’habitude ». */
   suite: string
+  /** Moins de `ECART_FAIBLE_EN_POURCENTS` dans un sens ou dans l'autre : sa flèche ne se colore pas. */
+  faible?: true
+}
+
+/** Un écart en pour cent, dit : son sens, son chiffre, ce que le lecteur d'écran lit après, et s'il est faible. */
+export function ecartEnPourcents(pourcents: number, deQuoi: string): EcartALHabitude {
+  return {
+    sens: pourcents > 0 ? 'plus' : 'moins',
+    texte: `${formatNumber(Math.abs(pourcents))} %`,
+    suite: pourcents > 0 ? ` de plus ${deQuoi}` : ` de moins ${deQuoi}`,
+    ...(Math.abs(pourcents) < ECART_FAIBLE_EN_POURCENTS && { faible: true as const }),
+  }
 }
 
 /** Aujourd'hui comparé à la même heure des sept jours d'avant ; rien sans jour d'avant à comparer. */
@@ -525,11 +544,7 @@ export function ecartALHabitude(c: CompteDuJour): EcartALHabitude | null {
   if (c.habituel < HABITUDE_EN_POURCENTS) return c.aujourdhui === c.habituel ? pareil : { sens: null, texte: `${formatNumber(c.habituel)} d’habitude`, suite: '' }
   const pourcents = Math.round(((c.aujourdhui - c.habituel) / c.habituel) * 100)
   if (pourcents === 0) return pareil
-  return {
-    sens: pourcents > 0 ? 'plus' : 'moins',
-    texte: `${formatNumber(Math.abs(pourcents))} %`,
-    suite: pourcents > 0 ? ' de plus que d’habitude' : ' de moins que d’habitude',
-  }
+  return ecartEnPourcents(pourcents, 'que d’habitude')
 }
 
 /**

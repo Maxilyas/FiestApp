@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { Icon, type IconName } from './Icon'
 import { GrapheDuTemps, TuileDuQg, type SerieDuGraphe } from './QgGraphes'
 import { HierEnBref } from './QgHier'
+import { CopierLeTableau } from './CopierLeTableau'
 import { reperesDeLaCourbe, useReperesDuQg } from '../qgReperes'
 import { formatNumber } from '../../../shared/typographie'
 import { jourDe, jourEnToutesLettres, minutesDeParis } from '../../../shared/jour'
@@ -343,6 +344,7 @@ export function Participations({
           {/* Rendu à l'ouverture seulement : replié, le tableau n'a pas à se construire. */}
           <details className="qg-tableau" onToggle={e => setTableau(e.currentTarget.open)}>
             <summary>Les chiffres, en tableau</summary>
+            {tableau && <CopierLeTableau nom="les chiffres de la période" />}
             {tableau && (
               <table>
                 <caption className="sr-only">{`${NOM_DU_COMPTE[quoi]} ${PAS_EN_MOTS[periode].par} et par mode`}</caption>
