@@ -3,6 +3,7 @@ import { api, motifDe } from '../api'
 import { Icon } from './Icon'
 import { Onglets } from './Onglets'
 import { Feuille } from './Pieces'
+import { CopierLeTableau } from './CopierLeTableau'
 import { AdminSalons } from './AdminSalons'
 import { FicheDuJoueurAuQg } from './QgFicheJoueur'
 import { supprimerLeProfil } from './AdminProfils'
@@ -363,6 +364,9 @@ function LaTable({ carnet, lignes, etat, ouvrir }: { carnet: CarnetDesAnimateurs
         <p className="muted small">Aucun salon dans cet état aujourd’hui.</p>
       ) : (
         <>
+          <div className="qg-outils">
+            <CopierLeTableau nom="le carnet des animateurs" />
+          </div>
           <div className="qg-table-cadre qg-cote-table">
             <table className="qg-table qg-animateurs-table">
               <caption className="sr-only">{`Le carnet des animateurs, trié par ${COLONNES.find(c => c.cle === tri.cle)?.nom.toLowerCase()}`}</caption>

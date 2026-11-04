@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { Icon, type IconName } from './Icon'
+import { CopierLeTableau } from './CopierLeTableau'
 import { Etincelle, GrapheDuTemps, TuileDuQg } from './QgGraphes'
 import { LigneDeSoiree } from './QgVueDEnsemble'
 import { NomDeLaRoute } from './QgServeur'
@@ -430,6 +431,10 @@ function RoutesDeLaMinute({ routes, seuils }: { routes: RouteDuDirect[]; seuils:
       {routes.length === 0 ? (
         <p className="muted small">Aucune route appelée sur la minute.</p>
       ) : (
+        <>
+        <div className="qg-outils">
+          <CopierLeTableau nom="les routes de la dernière minute" />
+        </div>
         <div className="qg-table-cadre">
           <table className="qg-table">
             <caption className="sr-only">Les routes d’API de la dernière minute</caption>
@@ -480,6 +485,7 @@ function RoutesDeLaMinute({ routes, seuils }: { routes: RouteDuDirect[]; seuils:
             </tbody>
           </table>
         </div>
+        </>
       )}
       {routes.length > ROUTES_MONTREES && (
         <button type="button" className="qg-bouton qg-plus" onClick={() => setToutes(!toutes)} aria-expanded={toutes}>

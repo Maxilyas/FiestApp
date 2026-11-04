@@ -14,6 +14,7 @@ import { dUneTraite } from '../../shared/tranches'
 import { jourAvant, jourDe } from '../../shared/jour'
 import { participationsParSeau } from '../../shared/qg'
 import { lireLOrigine, origineDeLAccueil } from '../../shared/origines'
+import { FORMULE, celluleDeTableur, texteTabule } from '../../shared/tableur'
 import {
   BIT_DU_MODE,
   VERSION_DE_LA_MEMOIRE,
@@ -22,6 +23,7 @@ import {
   combinaisonsDesModes,
   heuresDeJeu,
   joursDeLaMemoire,
+  lignesDeLaMemoire,
   lireLeSegment,
   minuitDuJour,
   nomDeLaCombinaison,
@@ -288,6 +290,68 @@ test('la page : ce que la mémoire ne sait pas encore ne se compare pas, et la f
   )
 })
 
+test('la mémoire en tableur : un jour par ligne, le plus ancien d’abord, et ce qu’un jour ne sait pas reste vide', () => {
+  const modes = (n: number) => ({ soiree: n, campagne: n + 1, cabinet: 0, jour: n + 2, duel: 0 })
+  const dAvant: ChiffresDUnJour = { v: 1, joueurs: 7, modes: modes(1), parties: modes(2), nouveauxProfils: 1, achats: 0, profils: 5, semaine: 9, mois: 14, invites: 2, heures: [] }
+  const complet = {
+    ...dAvant,
+    v: VERSION_DE_LA_MEMOIRE,
+    soirees: [
+      { espace: 'salon-a', invites: 6, profils: 2 },
+      { espace: 'salon-a', invites: 3, profils: 1 },
+      { espace: 'salon-b', invites: 4, profils: null },
+    ],
+    nouveauxSalons: ['salon-b'],
+    naissances: { entree: 2, 'fin-de-soiree': 1, accueil: 4 },
+    lendemain: 1,
+    missions: { faites: 9, profils: 5, toutes: 2 },
+    questions: { soiree: 120, campagne: 40, cabinet: 0, jour: 30, duel: 10 },
+    confettis: { gagnes: { campagne: 300, jour: 50 }, depenses: { themes: 200 } },
+    serveur: { heures: 17.25, versions: ['abc1234', 'def5678'] },
+  } as unknown as ChiffresDUnJour
+  const [tete, ...lignes] = lignesDeLaMemoire(new Map([[il_y_a(1), complet], [il_y_a(400), dAvant]]))
+  const colonne = (nom: string) => {
+    const i = tete.indexOf(nom)
+    assert.ok(i >= 0, nom)
+    return lignes.map(l => l[i])
+  }
+  assert.equal(tete.length, lignes[0].length)
+  assert.deepEqual(colonne('Jour'), [il_y_a(400), il_y_a(1)])
+  assert.deepEqual(colonne('Personnes'), [7, 7])
+  assert.deepEqual(colonne('Passages d’invités'), [2, 2])
+  // Une ligne d'avant la version 2 ne dit ni ses soirées, ni ses naissances, ni ses confettis, ni son serveur : vide, pas zéro.
+  assert.deepEqual(colonne('Soirées'), ['', 3])
+  assert.deepEqual(colonne('Salons qui ont joué'), ['', 2])
+  assert.deepEqual(colonne('Nouveaux salons'), ['', 1])
+  assert.deepEqual(colonne('Nés en soirée'), ['', 3])
+  assert.deepEqual(colonne('Questions jouées · Soirées'), ['', 120])
+  assert.deepEqual(colonne('Missions faites'), ['', 9])
+  assert.deepEqual(colonne('Confettis gagnés'), ['', 350])
+  assert.deepEqual(colonne('Confettis dépensés'), ['', 200])
+  // Une heure à la virgule, que le tableur français lit comme un nombre ; les versions d'une ligne.
+  assert.deepEqual(colonne('Heures éveillées du serveur'), ['', '17,3'])
+  assert.deepEqual(colonne('Versions en ligne'), ['', 'abc1234 def5678'])
+  assert.deepEqual(colonne('Joueurs · Campagne'), [2, 2])
+  // Des comptes : ni un salon, ni un profil.
+  assert.doesNotMatch(JSON.stringify(lignes), /salon-/)
+})
+
+test('un tableau du QG copié pour un tableur : des colonnes tabulées, un nombre français rendu nombre, une formule désamorcée', () => {
+  // « Copier », sur chaque tableau du QG (`CopierLeTableau`) : ce que la page montre, collé en colonnes.
+  assert.equal(
+    texteTabule([
+      ['Route', 'Appels', 'Écart', 'Réussite'],
+      ['GET /api/jour', '12 345', '−3', '48 %'],
+      ['=HYPERLINK("x")', '+12 %', '0,8', ' Léa\n(2) '],
+    ]),
+    "Route\tAppels\tÉcart\tRéussite\nGET /api/jour\t12345\t-3\t48 %\n'=HYPERLINK(\"x\")\t'+12 %\t0,8\tLéa (2)\n",
+  )
+  // Un nombre ne se désamorce pas ; une date, un rang, un texte restent ce qu'ils sont.
+  assert.deepEqual(['-40', '1889', '3 sur 9', '1ʳᵉ place', '@lea'].map(celluleDeTableur), ['-40', '1889', '3 sur 9', '1ʳᵉ place', "'@lea"])
+  // La même règle que le CSV téléchargé (`toCsv`) : une seule liste de ce qu'un tableur prend pour une formule.
+  assert.ok(['=', '+', '-', '@'].every(c => FORMULE.test(`${c}1`)))
+})
+
 // ── Au banc : ce qui s'écrit, ce qui se relit ───────────────────────────────
 
 /** Ce que la base permanente a servi pendant une mesure : chaque instruction, comme `qg-charge.test.ts`. */
@@ -469,7 +533,7 @@ test('les joueurs se lisent à l’administrateur seul, et ne nomment que des pr
   const banc = await demarrer()
   try {
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa')
-    for (const chemin of ['/api/admin/joueurs', '/api/admin/joueurs/segments']) {
+    for (const chemin of ['/api/admin/joueurs', '/api/admin/joueurs/segments', '/api/admin/joueurs/memoire.csv']) {
       assert.equal((await fetch(`${banc.url}${chemin}`, { headers: { Cookie: lea } })).status, 401, chemin)
     }
     const admin = await connexionAnimateur(banc.url)
@@ -479,6 +543,20 @@ test('les joueurs se lisent à l’administrateur seul, et ne nomment que des pr
     assert.equal(page.segments.find(s => s.segment === 'nouveaux')?.montres[0]?.nom, 'Léa')
     // Rien d'une soirée : ni un titre, ni un prénom d'invité, ni un espace — des comptes, et les profils des segments.
     assert.doesNotMatch(JSON.stringify(page), /spaceId|titre|title|"salon"/)
+    // « Télécharger la mémoire » : le tableur d'Excel en français, que le navigateur enregistre sous un nom daté, jamais
+    // gardé en route ; ici, l'en-tête seul — aucun jour fini.
+    const tableur = await fetch(`${banc.url}/api/admin/joueurs/memoire.csv`, { headers: { Cookie: admin } })
+    assert.equal(tableur.status, 200)
+    assert.match(tableur.headers.get('content-type') ?? '', /^text\/csv; charset=utf-8/)
+    assert.match(tableur.headers.get('content-disposition') ?? '', /^attachment; filename="memoire-du-qg-\d{4}-\d{2}-\d{2}\.csv"$/)
+    assert.equal(tableur.headers.get('cache-control'), 'no-store')
+    // Le BOM d'abord, qu'Excel lit pour l'UTF-8 — `text()` le retire en décodant : il se lit dans les octets.
+    const octets = new Uint8Array(await tableur.arrayBuffer())
+    assert.deepEqual([...octets.slice(0, 3)], [0xef, 0xbb, 0xbf])
+    const texte = new TextDecoder('utf-8', { ignoreBOM: true }).decode(octets)
+    assert.ok(texte.startsWith('﻿Jour;Personnes;Profils actifs;'), texte.slice(0, 80))
+    assert.equal(texte.trim().split('\r\n').length, 1, 'l’en-tête seul')
+    assert.doesNotMatch(texte, /Léa|lea/)
   } finally {
     await banc.close()
   }

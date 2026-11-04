@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api, motifDe } from '../api'
 import { Icon } from './Icon'
+import { CopierLeTableau } from './CopierLeTableau'
 import { formatNumber } from '../../../shared/typographie'
 import { tempsDeReponse, type PeriodeDuServeur } from '../../../shared/santeDuServeur'
 import {
@@ -215,6 +216,10 @@ function PageParPage({ pages }: { pages: PageDesTelephones[] }) {
       {pages.length === 0 ? (
         <p className="muted small">Aucune page mesurée sur la période : les mesures arrivent quand les joueurs quittent une page.</p>
       ) : (
+        <>
+        <div className="qg-outils">
+          <CopierLeTableau nom="le ressenti page par page" />
+        </div>
         <div className="qg-table-cadre">
           <table className="qg-table">
             <caption className="sr-only">Ce que les téléphones vivent, page par page</caption>
@@ -279,6 +284,7 @@ function PageParPage({ pages }: { pages: PageDesTelephones[] }) {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </section>
   )

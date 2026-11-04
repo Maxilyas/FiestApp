@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api, motifDe } from '../api'
 import { Icon } from './Icon'
 import { Feuille } from './Pieces'
+import { CopierLeTableau } from './CopierLeTableau'
 import { GrapheDesJours, enPourcentsEcrits } from './QgModes'
 import { FicheDuJoueurAuQg } from './QgFicheJoueur'
 import { supprimerLeProfil } from './AdminProfils'
@@ -197,6 +198,10 @@ function LesModesCoteACote({ modes, periode }: { modes: ModesCoteACote; periode:
           </ul>
         </>
       )}
+      {/* Au téléphone aussi : la table cachée derrière ses cartes se copie, la même. */}
+      <div className="qg-outils">
+        <CopierLeTableau nom="les modes côte à côte" />
+      </div>
       <div className="qg-table-cadre qg-cote-table">
         <table className="qg-table">
           <caption className="sr-only">{`Les modes sur ${PERIODE_EN_TOUTES_LETTRES[periode]}, triés par ${COLONNES_DES_MODES.find(c => c.cle === tri.cle)?.nom.toLowerCase()}`}</caption>

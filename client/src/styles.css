@@ -15035,6 +15035,11 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
 .qg-signaux { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
 /* La table des routes : un filtre et les méthodes au-dessus ; la table défile de côté dans son cadre, jamais la page. */
 .qg-outils { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+/* « Copier » un tableau vers un tableur : discret, au bout de sa barre d'outils (ou seul dans la sienne), 44 pixels au doigt. */
+.qg-copier { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; margin-left: auto; padding: 4px 12px; border: 1px solid var(--qg-trait-fort); border-radius: 9px; background: none; color: var(--qg-encre-2); font: inherit; font-size: 0.8125rem; cursor: pointer; }
+.qg-copier:hover { border-color: rgba(217, 181, 106, 0.55); color: var(--ink); }
+.qg-copier .icon { flex: none; width: 14px; height: 14px; }
+@media (pointer: coarse) { .qg-copier { min-height: 44px; } }
 .qg-filtre { flex: 1 1 220px; display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 10px; border: 1px solid var(--qg-trait-fort); border-radius: 9px; background: rgba(255, 255, 255, 0.025); }
 .qg-filtre:focus-within { border-color: rgba(217, 181, 106, 0.55); }
 .qg-filtre > .icon { flex: none; width: 15px; height: 15px; color: var(--muted); }

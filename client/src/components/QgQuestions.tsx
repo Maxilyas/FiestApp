@@ -3,6 +3,7 @@ import { api, motifDe } from '../api'
 import { confirmDialog } from './Dialog'
 import { Icon } from './Icon'
 import { Feuille } from './Pieces'
+import { CopierLeTableau } from './CopierLeTableau'
 import { TuileDuQg } from './QgGraphes'
 import { Chiffre } from './QgModes'
 import { GestesDUneQuestionDeCampagne, GestesDUneQuestionDuJour, QUESTION_DE_NIVEAU, VersLesSignalements, depuisQuand, quelJour, type Faire } from './QgSignalements'
@@ -271,6 +272,8 @@ export function QgQuestions({
               {tri && !ORDRES.some(o => o.cle === tri.cle && o.sens === tri.sens) && <option value={valeurDuTri}>{ordre}</option>}
             </select>
           </label>
+          {/* La page de cinquante qu'on voit, triée et filtrée : ce que la page montre, rien de plus. */}
+          {lue && lue.lignes.length > 0 && <CopierLeTableau nom="cette page de questions" />}
         </div>
         {erreur && <p className="error">{erreur}</p>}
         {!lue ? (

@@ -21,7 +21,7 @@
 // chiffres, les segments, les cohortes, les heures de jeu, les combinaisons de
 // modes, l'origine des profils.
 
-import { MODES_DU_QG, jourDeLInstant, joursDesMinuits, minuitDe, participationsParSeau, type ModeDuQg, type PartieDesParticipations, type SoireeDesParticipations } from './qg'
+import { MODES_DU_QG, NOM_DU_MODE, jourDeLInstant, joursDesMinuits, minuitDe, participationsParSeau, type ModeDuQg, type PartieDesParticipations, type SoireeDesParticipations } from './qg'
 import { jourAvant, jourDe, minutesDeParis } from './jour'
 import { formatNumber } from './typographie'
 import type { CalculEnTranches } from './tranches'
@@ -245,6 +245,78 @@ export function soireesDuJour(c: Pick<ChiffresDUnJour, 'soirees' | 'nouveauxSalo
 /** Les profils nés en soirée un jour, toutes ses portes ; null, une ligne d'avant. */
 export const nesEnSoiree = (c: Pick<ChiffresDUnJour, 'naissances'>): number | null =>
   c.naissances ? ORIGINES_EN_SOIREE.reduce((t, o) => t + (c.naissances?.[o] ?? 0), 0) : null
+
+/**
+ * La mémoire du QG en lignes de tableur (« Télécharger la mémoire », la revue
+ * d'expert du 4 novembre 2026, P2.10 : un bilan de l'année, ou une question à
+ * laquelle le QG ne répond pas encore, se font hors de lui) — l'en-tête, puis
+ * un jour par ligne, le plus ancien d'abord. Ce qu'un jour ne sait pas — une
+ * ligne d'avant la version 2, un serveur que ses démarrages ne couvraient
+ * plus — reste vide, jamais zéro : un tableur en ferait une moyenne fausse.
+ * Des comptes et les versions du serveur ; ni un salon, ni un profil.
+ */
+export function lignesDeLaMemoire(jours: ReadonlyMap<string, ChiffresDUnJour>): (string | number)[][] {
+  const inconnu = ''
+  const somme = (r: Readonly<Record<string, number>> | undefined) => (r ? Object.values(r).reduce((t, n) => t + n, 0) : inconnu)
+  // Une heure à la virgule : le tableur français lit « 17,5 » comme un nombre, « 17.5 » comme un texte.
+  const heures = (h: number) => String(Math.round(h * 10) / 10).replace('.', ',')
+  const tete = [
+    'Jour',
+    'Personnes',
+    'Profils actifs',
+    'Profils actifs sur 7 jours',
+    'Profils actifs sur 30 jours',
+    'Passages d’invités',
+    'Profils nés',
+    'Nés en soirée',
+    'Nés la veille qui ont rejoué',
+    'Achats',
+    'Soirées',
+    'Salons qui ont joué',
+    'Nouveaux salons',
+    ...MODES_DU_QG.map(m => `Joueurs · ${NOM_DU_MODE[m]}`),
+    ...MODES_DU_QG.map(m => `Participations · ${NOM_DU_MODE[m]}`),
+    ...MODES_DU_QG.map(m => `Questions jouées · ${NOM_DU_MODE[m]}`),
+    'Missions faites',
+    'Profils à une mission au moins',
+    'Profils aux trois missions',
+    'Confettis gagnés',
+    'Confettis dépensés',
+    'Heures éveillées du serveur',
+    'Versions en ligne',
+  ]
+  const lignes = [...jours.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([jour, c]) => {
+      const s = soireesDuJour(c)
+      return [
+        jour,
+        c.joueurs,
+        c.profils,
+        c.semaine,
+        c.mois,
+        c.invites,
+        c.nouveauxProfils,
+        nesEnSoiree(c) ?? inconnu,
+        c.lendemain ?? inconnu,
+        c.achats,
+        s?.soirees ?? inconnu,
+        s?.animateurs ?? inconnu,
+        s?.nouveaux ?? inconnu,
+        ...MODES_DU_QG.map(m => c.modes[m] ?? inconnu),
+        ...MODES_DU_QG.map(m => c.parties[m] ?? inconnu),
+        ...MODES_DU_QG.map(m => c.questions?.[m] ?? inconnu),
+        c.missions?.faites ?? inconnu,
+        c.missions?.profils ?? inconnu,
+        c.missions?.toutes ?? inconnu,
+        somme(c.confettis?.gagnes),
+        somme(c.confettis?.depenses),
+        c.serveur ? heures(c.serveur.heures) : inconnu,
+        c.serveur ? c.serveur.versions.join(' ') : inconnu,
+      ]
+    })
+  return [tete, ...lignes]
+}
 
 /** Un jour fini, prêt à s'écrire : ses chiffres et sa feuille de présence. */
 export interface JourDeLaMemoire {

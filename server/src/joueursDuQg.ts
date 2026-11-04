@@ -1,5 +1,6 @@
 import type { Express } from 'express'
 import { wrap } from './core/http'
+import { toCsv } from './core/export'
 import { enTranches } from './core/tourniquet'
 import type { MemoireDuQg } from './core/memoireDuQg'
 import type { ProfileStore } from './auth/profiles'
@@ -17,6 +18,7 @@ import {
   calculDeLaPage,
   invitesSansProfil,
   joursDeLaMemoire,
+  lignesDeLaMemoire,
   lundiDe,
   minuitDuJour,
   presencesDAujourdhui,
@@ -360,6 +362,19 @@ export function audienceDuQg(deps: AudienceDeps) {
       }
     },
 
+    /**
+     * La mémoire en tableur (`GET /api/admin/joueurs/memoire.csv`, la revue
+     * d'expert du 4 novembre 2026, P2.10) : à jour jusqu'à hier, l'année que
+     * la mémoire garde, un jour par ligne. Rare et demandée à la main : lue à
+     * chaque fois, jamais gardée.
+     */
+    async laMemoireEnTableur(): Promise<{ jour: string; lignes: (string | number)[][] }> {
+      await aJour()
+      const aujourdhui = jourDe(deps.maintenant())
+      const { jours } = await deps.memoire.joursDepuis(jourAvant(aujourdhui, JOURS_DE_LA_MEMOIRE))
+      return { jour: aujourdhui, lignes: lignesDeLaMemoire(jours) }
+    },
+
     /** Combien chaque segment compte de profils : ce que la page des annonces propose (`GET /api/admin/joueurs/segments`). */
     async comptes(): Promise<ComptesDesSegments> {
       const { maintenant, parSegment } = await lesSegments()
@@ -428,6 +443,14 @@ export function mountJoueurs(app: Express, audience: AudienceDuQg) {
     '/api/admin/joueurs/segments',
     wrap(async (_req, res) => {
       res.json(await audience.comptes())
+    }),
+  )
+  // Le seul téléchargement du QG : le tableur d'Excel en français (`toCsv` : point-virgule, BOM, une formule désamorcée).
+  app.get(
+    '/api/admin/joueurs/memoire.csv',
+    wrap(async (_req, res) => {
+      const { jour, lignes } = await audience.laMemoireEnTableur()
+      res.set('Cache-Control', 'no-store').attachment(`memoire-du-qg-${jour}.csv`).type('text/csv; charset=utf-8').send(toCsv(lignes))
     }),
   )
 }

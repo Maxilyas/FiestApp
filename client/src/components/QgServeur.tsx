@@ -4,6 +4,7 @@ import { Icon, type IconName } from './Icon'
 import { Onglets, type Onglet } from './Onglets'
 import { Feuille } from './Pieces'
 import { Etincelle, barreArrondie, useLargeur } from './QgGraphes'
+import { CopierLeTableau } from './CopierLeTableau'
 import { formatNumber } from '../../../shared/typographie'
 import { jourAvant, jourDe } from '../../../shared/jour'
 import { JOURS_DE_LA_SEMAINE, dureeEcrite, graduations, heureEcrite, jourAbrege, jourDeLaSemaine, quandEcrit } from '../../../shared/qg'
@@ -1253,6 +1254,7 @@ function TableauDesHeures({ heures, maintenant }: { heures: HeureDuServeur[]; ma
       </div>
       <details className="qg-tableau" onToggle={e => setOuvert((e.target as HTMLDetailsElement).open)}>
         <summary>Les chiffres des {formatNumber(eveillees.length)} heures éveillées</summary>
+        {ouvert && <CopierLeTableau nom="les chiffres heure par heure" />}
         {ouvert && (
           <table>
             <thead>
@@ -1417,6 +1419,7 @@ function LesRoutes({ page }: { page: PageDuServeur }) {
             </button>
           ))}
         </div>
+        <CopierLeTableau nom="la table des routes" />
       </div>
       <div className="qg-table-cadre">
         <table className="qg-table">
@@ -1680,6 +1683,7 @@ function LeTempsReel({ page }: { page: PageDuServeur }) {
                 </button>
               ))}
             </div>
+            <CopierLeTableau nom="la table des messages" />
           </div>
           <div className="qg-table-cadre">
             <table className="qg-table">
