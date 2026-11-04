@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { createQuizServer, DemarrageRefuse, MOT_DE_PASSE_PAR_DEFAUT } from './server'
 import { chaudesDemandees } from './core/connexions'
-import { choisirLeClient, choisirLeTransport, clientDemande, DELAI_DISTANT_MS, pourquoiInjoignable, transportDemande } from './core/distante'
+import { choisirLaPatience, choisirLeClient, choisirLeTransport, clientDemande, DELAI_DISTANT_MS, patienceDemandee, pourquoiInjoignable, transportDemande } from './core/distante'
 import { ramasseMiettes, releve } from './core/pouls'
 import { SERVEUR } from './racine'
 
@@ -75,6 +75,18 @@ if ('refus' in client) console.warn(`[base] ${client.refus}`)
 else {
   choisirLeClient(client.client)
   if (client.client === 'minimal') console.log('[base] la base se parle par le client minimal (QUIZ_DB_CLIENT=minimal)')
+}
+// La patience des connexions (le 4 novembre 2026) : un aller-retour qui ne
+// trouve aucune connexion libre attend qu'une gardée se libère plutôt que
+// d'en ouvrir une neuve — une poignée de main coûtait ~0,45 s en production.
+// Elle s'essaie en préproduction, comme le transport, qu'elle demande.
+const patience = patienceDemandee(process.env.QUIZ_DB_PATIENCE_MS)
+if ('refus' in patience) console.warn(`[base] ${patience.refus}`)
+else if (patience.patienceMs > 0) {
+  choisirLaPatience(patience.patienceMs)
+  if ('transport' in transport && transport.transport === 'leger')
+    console.log(`[base] un aller-retour attend jusqu’à ${patience.patienceMs} ms une connexion gardée plutôt que d’en ouvrir une (QUIZ_DB_PATIENCE_MS)`)
+  else console.warn('[base] QUIZ_DB_PATIENCE_MS ne vaut que pour le transport léger (QUIZ_DB_TRANSPORT=leger) : les allers-retours ouvrent une connexion dès qu’aucune n’est libre.')
 }
 // Le ramasse-miettes, réglé par la commande de démarrage (le banc du 19
 // octobre 2026) : en parallèle et avec son réducteur de mémoire, il figeait

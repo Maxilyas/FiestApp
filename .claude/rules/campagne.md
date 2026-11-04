@@ -223,7 +223,15 @@ paths:
   révélé ; depuis le 3 novembre 2026, `justesDeTousDepuis`, les bonnes
   réponses de tous heure par heure — l'économie du QG les cherchait dans la
   base, et SQLite y parcourait toute la table à chaque ouverture, le
-  cinquième du quota lu ce jour-là) : une dérivation de plus s'y écrit, et se compare
+  cinquième du quota lu ce jour-là ; depuis le 4 novembre 2026,
+  `vuesDuCabinetDe`, ce qu'il a vu déplié pour le Cabinet, lu une fois puis
+  tenu à jour réponse par réponse (`voirAuCabinet`, dans `une` : chaque
+  valeur est la plus récente des vues qui la montrent, une réponse neuve ne
+  fait qu'en monter) — chaque départ et chaque entrée d'épreuve la refaisaient
+  de zéro, et elle se compare à la carte refaite de zéro, jamais à la
+  base ; lue, elle ne se change pas : un tirage qui la changerait la
+  changerait pour tous ceux qui suivent, et `vuesDe` rend toujours une
+  carte neuve, que le duel complète des vues de l'adversaire) : une dérivation de plus s'y écrit, et se compare
   au SQL d'avant dans `journal-des-reponses.test.ts`, sur une base au hasard
   — sans SQL d'avant, comme les leurres, écrit dans le test à part. Les
   leurres lisent la mauvaise réponse en texte, telle que sa série l'a posée

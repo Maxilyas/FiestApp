@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express'
 import { pouls, releve } from './core/pouls'
+import { commencer } from './core/gels'
 import type { DirectDuQg, SoireeDuQg } from '../../shared/qg'
 import type { PlafondsDuConteneur } from '../../shared/santeDuServeur'
 import { ENVOI_DU_FLUX_MS, evenementsDesSoirees, type MessageDuFlux, type RouteDuDirect } from '../../shared/qgDirect'
@@ -102,6 +103,9 @@ export class FluxDuQg {
   private async tour() {
     if (this.enRoute || this.abonnes.size === 0) return
     this.enRoute = true
+    // Nommé pour la sonde des gels (`core/gels.ts`), le temps du tour seulement : la page restée ouverte n'est d'aucun
+    // gel (`server.ts` laisse sa requête hors du minutage), mais ce que le tour calcule toutes les deux secondes en est.
+    const fin = commencer('fond · flux du QG')
     try {
       let direct: DirectDuQg | null = null
       try {
@@ -117,6 +121,7 @@ export class FluxDuQg {
       const routes = routesDeLaMinute()
       for (const a of this.abonnes) this.envoyer(a, direct, routes)
     } finally {
+      fin()
       this.enRoute = false
     }
   }

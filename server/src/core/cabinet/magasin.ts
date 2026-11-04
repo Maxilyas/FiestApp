@@ -86,7 +86,7 @@ import {
   type GesteDeLaTraverseeEcrit,
   type ThemeDuQuiz,
 } from '../../../../shared/cabinet/traversee'
-import { fondreLesReveils, vuesDuCabinet, type ReveilDesGardiens } from '../../../../shared/cabinet/vues'
+import { fondreLesReveils, type ReveilDesGardiens } from '../../../../shared/cabinet/vues'
 import {
   LECTURES_DE_TOUTES_LES_TRAVERSEES,
   ecritureDuResume,
@@ -116,6 +116,7 @@ import {
   type TraverseeLueEnBase,
 } from './tables'
 import { enTranches } from '../tourniquet'
+import { commencer, enFond, pendant, sousLeNom } from '../gels'
 import type { CalculEnTranches } from '../../../../shared/tranches'
 import type { PieceAuQg, TraverseeAuQg } from '../../../../shared/qgCabinet'
 import { fichierDuCadrage } from '../details'
@@ -1002,7 +1003,7 @@ export class CabinetStore {
             porte: this.porte,
             jouables,
             mesures,
-            vues: vuesDuCabinet(journal.vuesDe(profileId).vues),
+            vues: journal.vuesDuCabinetDe(profileId),
             maintenant: t,
             hasard: this.hasard,
             // L'œuvre visée règle le tirage — une épique, une dorure : une marche de plus —, et l'Éclair propose les leurres
@@ -1204,7 +1205,10 @@ export class CabinetStore {
                 },
               }
             : undefined
-        ecrites = await this.porte.ecrireDesReponses(profileId, lot, finDuRituel)
+        // Sa fin sous son nom, pour la sonde des gels : l'expérience, ses gardiens, ses paliers et le compagnon, l'un
+        // derrière l'autre — le geste de huit secondes du 4 novembre 2026 ne disait pas lequel attendait.
+        const rituel = this.porte.ecrireDesReponses(profileId, lot, finDuRituel)
+        ecrites = await (finDuRituel ? pendant('cabinet · fin d’une partie', rituel) : rituel)
       }
     } catch (e) {
       this.oublier(profileId, p.id)
@@ -1592,7 +1596,9 @@ export class CabinetStore {
    */
   private tasDe(jouables: readonly QuestionDeLaBase[]): Promise<void> {
     if (this.tas?.jouables !== jouables) {
-      const prets: Promise<void> = preparerLesTas(this.porte, jouables).catch(e => {
+      // Nommés pour la sonde des gels (`core/gels.ts`) : lancés derrière la réponse d'une page du Cabinet, leurs gels se
+      // comptaient « sans rien de nommé » ; attendus par un départ, sous sa route, sans dire que c'étaient eux.
+      const prets: Promise<void> = enFond('fond · tas du Cabinet', preparerLesTas(this.porte, jouables)).catch(e => {
         if (this.tas?.prets === prets) this.tas = null
         console.error('[cabinet] tas non préparés, le tireur fera ce qui manque :', e)
       })
@@ -1673,27 +1679,34 @@ export class CabinetStore {
     }
     let suite: TraverseeGardee = { ...tr, gestes, etat: apres }
     this.garder(this.traversees, profileId, suite, MUSEES_GARDES)
-    if (fin?.legendaire) await this.rangerLeLegendaire(profileId, fin.legendaire, t)
-    // Son dernier gardien à terre : ses exploits tombent à ce coup même, rangés sous elle — le bilan de l'épreuve les dit.
-    // Le choix du légendaire, qui la finit, les redemande : rangés deux fois, ils ne tombent qu'une (la clé de leur
-    // rangement), et un rangement raté au coup final s'y rattrape.
-    if ((geste.quoi === 'conclure' && apres.ou.sorte === 'legendaire') || fin?.legendaire) await this.rangerLesExploits(profileId, suite, resume, t)
-    // Toute fin — gagnée, perdue, abandonnée — : ses pistes la comptent (son résumé est dans le lot qui la finit), et
-    // leurs paliers tombent tout de suite, rangés sous elle — L'Explorateur d'une traversée gagnée aussi —, sans quoi ils
-    // attendaient la fin de la partie suivante. Raté, il se dit au journal : la fin d'une partie le rattrapera. Ce qui
-    // tombe, l'écran de fin le dit (`VueDeLaTraversee.paliers`) : sans lui, seize pistes montaient en silence.
-    if (fin) {
-      const paliers = await this.porte.accorderLesPaliers(profileId, tr.id).catch(e => {
-        console.error(`[cabinet] les paliers de la traversée ${tr.id} ne se rangent pas`, e)
-        return [] as string[]
-      })
-      if (paliers.length > 0) {
-        suite = { ...suite, paliers }
-        this.garder(this.traversees, profileId, suite, MUSEES_GARDES)
+    // Ce qui se range après l'écriture, sous son nom pour la sonde des gels : le légendaire, les exploits, les paliers de
+    // seize pistes, les défis des cartes — des lectures et des calculs que la route seule ne distinguait pas du tirage.
+    const finDesTrophees = fin || geste.quoi === 'conclure' ? commencer('cabinet · trophées d’une traversée') : null
+    try {
+      if (fin?.legendaire) await this.rangerLeLegendaire(profileId, fin.legendaire, t)
+      // Son dernier gardien à terre : ses exploits tombent à ce coup même, rangés sous elle — le bilan de l'épreuve les dit.
+      // Le choix du légendaire, qui la finit, les redemande : rangés deux fois, ils ne tombent qu'une (la clé de leur
+      // rangement), et un rangement raté au coup final s'y rattrape.
+      if ((geste.quoi === 'conclure' && apres.ou.sorte === 'legendaire') || fin?.legendaire) await this.rangerLesExploits(profileId, suite, resume, t)
+      // Toute fin — gagnée, perdue, abandonnée — : ses pistes la comptent (son résumé est dans le lot qui la finit), et
+      // leurs paliers tombent tout de suite, rangés sous elle — L'Explorateur d'une traversée gagnée aussi —, sans quoi ils
+      // attendaient la fin de la partie suivante. Raté, il se dit au journal : la fin d'une partie le rattrapera. Ce qui
+      // tombe, l'écran de fin le dit (`VueDeLaTraversee.paliers`) : sans lui, seize pistes montaient en silence.
+      if (fin) {
+        const paliers = await this.porte.accorderLesPaliers(profileId, tr.id).catch(e => {
+          console.error(`[cabinet] les paliers de la traversée ${tr.id} ne se rangent pas`, e)
+          return [] as string[]
+        })
+        if (paliers.length > 0) {
+          suite = { ...suite, paliers }
+          this.garder(this.traversees, profileId, suite, MUSEES_GARDES)
+        }
       }
+      // Seule une épreuve conclue fait tomber un défi (`defisDeLaTraversee`) : ils se rangent aussitôt.
+      if (geste.quoi === 'conclure') await this.rangerLesDefis(profileId, suite, t)
+    } finally {
+      finDesTrophees?.()
     }
-    // Seule une épreuve conclue fait tomber un défi (`defisDeLaTraversee`) : ils se rangent aussitôt.
-    if (geste.quoi === 'conclure') await this.rangerLesDefis(profileId, suite, t)
     return { traversee: suite }
   }
 
@@ -1863,7 +1876,9 @@ export class CabinetStore {
         ...(p && { aides: aidesDeLaPartie(p.etat), durees: dureesDesManches(p.etat).map(d => (d === null ? null : Math.min(DUREE_D_UNE_MANCHE_MAX_MS, d))) }),
         ...(quittee && { quittee: true as const }),
       }
-      const issue = await this.ecrireUnGesteDeTraversee(profileId, tr, geste, t)
+      // Sous son nom pour la sonde des gels : la conclusion écrit, puis range les défis de ses cartes — dans la page de la
+      // carte comme dans le geste qui suit l'épreuve, qui ne disaient pas laquelle de leurs étapes gelait.
+      const issue = await pendant('cabinet · conclusion d’une épreuve', this.ecrireUnGesteDeTraversee(profileId, tr, geste, t))
       if ('traversee' in issue) return { traversee: issue.traversee, partie: null }
       if ('refus' in issue) {
         console.error(`[cabinet] l’épreuve ${id} de la traversée ${tr.id} ne se conclut pas : ${issue.refus}`)
@@ -2045,20 +2060,23 @@ export class CabinetStore {
     const cartes = cartesDeLEpreuve(tr.etat.cartes)
     const echange = cartes.find(c => c.pouvoir === 'changer')
     const rechanges = echange && JEUX[visee.jeu].changeable ? CHANGEMENTS_PAR_PARTIE[echange.force] : 0
-    const tirages = tirerLePlan(
-      visee.jeu,
-      {
-        porte: this.porte,
-        jouables,
-        mesures,
-        vues: vuesDuCabinet(journal.vuesDe(profileId).vues),
-        maintenant: t,
-        hasard: this.hasard,
-        enjeu: { marchesEnPlus: [], friseSerree: false, marches: visee.marches },
-        leurres: journal.leurresChoisis(),
-        vise: { categorie: visee.categorie, theme: visee.theme, sujet: visee.sujet },
-      },
-      rechanges,
+    // D'un seul tenant, et sous son nom : ce qu'il a vu, puis le plan entier (`core/gels.ts`, `sousLeNom`).
+    const tirages = sousLeNom('cabinet · tirage d’une épreuve', () =>
+      tirerLePlan(
+        visee.jeu,
+        {
+          porte: this.porte,
+          jouables,
+          mesures,
+          vues: journal.vuesDuCabinetDe(profileId),
+          maintenant: t,
+          hasard: this.hasard,
+          enjeu: { marchesEnPlus: [], friseSerree: false, marches: visee.marches },
+          leurres: journal.leurresChoisis(),
+          vise: { categorie: visee.categorie, theme: visee.theme, sujet: visee.sujet },
+        },
+        rechanges,
+      ),
     )
     if (!tirages) throw new Error(RIEN_A_TIRER_EN_ROUTE)
     const theme = themeDuPlan(tirages)

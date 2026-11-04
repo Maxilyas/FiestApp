@@ -4,7 +4,7 @@ import { noterLaReponse, noterUnEchec, refermerLesAttardees, suivreLaBase, unAll
 import { pouls, releve } from './pouls'
 import { clientMinimal, type EnvoiALaBase, type ReponseDeLaBase } from './clientMinimal'
 import { coutDeLAllerRetour } from './quotaDeTurso'
-import { fetchLeger } from './transportLeger'
+import { fetchLeger, placeSurUneGardee } from './transportLeger'
 
 export type { Client }
 
@@ -26,6 +26,40 @@ export function choisirLeTransport(choisi: TransportDeLaBase) {
 
 export function transportDeLaBase(): TransportDeLaBase {
   return transport
+}
+
+/**
+ * La patience d'un aller-retour qui ne trouve aucune connexion libre : il
+ * attend qu'une connexion gardée se libère, au plus tant de millisecondes,
+ * plutôt que d'en ouvrir une neuve (`placeSurUneGardee`, `transportLeger.ts`) —
+ * `QUIZ_DB_PATIENCE_MS`, qui s'essaie en préproduction avant la production,
+ * comme le transport. Zéro, comme avant : il en ouvre une. Le transport léger
+ * seul.
+ */
+let patienceMs = 0
+
+/** Bornée : au-delà d'une demi-seconde, la poignée de main qu'elle évite coûterait moins que l'attente. */
+export const PATIENCE_AU_PLUS_MS = 500
+
+export function choisirLaPatience(ms: number) {
+  patienceMs = Math.min(PATIENCE_AU_PLUS_MS, Math.max(0, ms))
+}
+
+export function patienceDeLaBase(): number {
+  return patienceMs
+}
+
+/** Ce que demande `QUIZ_DB_PATIENCE_MS` : des millisecondes, d'une à `PATIENCE_AU_PLUS_MS` ; zéro ou rien, pas de patience ; autre chose, un refus qui dit quoi écrire. */
+export function patienceDemandee(texte: string | undefined): { patienceMs: number } | { refus: string } {
+  const lu = texte?.trim()
+  if (!lu || lu === '0') return { patienceMs: 0 }
+  const ms = Number(lu)
+  if (Number.isInteger(ms) && ms >= 1 && ms <= PATIENCE_AU_PLUS_MS) return { patienceMs: ms }
+  return {
+    refus:
+      `QUIZ_DB_PATIENCE_MS illisible (« ${lu} ») : un nombre de millisecondes, de 1 à ${PATIENCE_AU_PLUS_MS} — 150 pour qu'un aller-retour attende une connexion gardée ` +
+      'plutôt que d’en ouvrir une neuve ; 0 ou rien pour s’en passer. Les allers-retours ouvrent une connexion dès qu’aucune n’est libre.',
+  }
 }
 
 /**
@@ -355,6 +389,11 @@ export function avecDelai(delaiMs: number, reglages: { battement?: boolean } = {
     // ne porte plus rien : Turso l'a peut-être fermée pendant le gel
     // (`connexions.ts`).
     refermerLesAttardees()
+    // Aucune connexion libre, et de la patience (`QUIZ_DB_PATIENCE_MS`) : la place sur une gardée qui se libère, plutôt
+    // qu'une poignée de main — attendue avant le chronomètre, elle ne fait passer ni Turso pour lent, ni l'aller-retour
+    // pour en vol aux yeux de l'entretien (`placeSurUneGardee`, `core/transportLeger.ts`).
+    const place = transport === 'leger' ? placeSurUneGardee(envoi.url, patienceMs) : null
+    if (place) await place
     // Son corps part tel quel, et le relevé du quota y lit le texte d'une
     // instruction lourde (`compterLeQuota`).
     const corps = envoi.corps === '' ? null : envoi.corps

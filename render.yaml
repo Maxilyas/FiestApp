@@ -197,6 +197,15 @@ services:
       # /healthz dit `base.connexions.client`. En production ensuite.
       - key: QUIZ_DB_CLIENT
         sync: false
+      # La patience des connexions (150 ; le 4 novembre 2026) : un aller-retour
+      # sans connexion libre attend qu'une gardée se libère plutôt que d'en
+      # ouvrir une neuve — ~0,45 s de poignée de main en production, deux à
+      # quatre par bilan d'une épreuve du Cabinet. Le transport léger seul. À
+      # essayer ici d'abord, la page « Le serveur » du QG ouverte : moins de
+      # connexions neuves, peu de lassées ; /healthz dit
+      # `base.connexions.patience`. En production ensuite.
+      - key: QUIZ_DB_PATIENCE_MS
+        sync: false
       # Pour essayer la routine de la réserve avant la production : un jeton
       # à elle, jamais celui de la prod (docs/exploitation/mise-en-ligne.md, étape 9).
       - key: RESERVE_TOKEN

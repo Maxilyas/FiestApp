@@ -1,4 +1,5 @@
 import { clientDistant, type Client } from './distante'
+import { enFond } from './gels'
 import { jourAvant, jourDe, minutesDeParis } from '../../../shared/jour'
 import { minuitDuJour, type ChiffresDUnJour } from '../../../shared/qgJoueurs'
 import { FIN_DU_POINT, JOURS_DU_POINT, jourDuPoint, messageDuPoint, pointDuMatin, type EntreeDuPoint, type EtatDuPoint, type HierDuQg, type PointRegle } from '../../../shared/pointDuMatin'
@@ -113,7 +114,9 @@ export class LePointDuMatin {
     const aujourdhui = jourDe(maintenant)
     if (this.faitPour === aujourdhui || Date.now() < this.pasAvant) return null
     if (minutesDeParis(maintenant) < this.deps.reglage().minutes) return null
-    this.enRoute = this.faire(aujourdhui, maintenant)
+    // Nommé pour la sonde des gels (`core/gels.ts`) : son passage écrit la mémoire de la veille, puis la raconte — un
+    // gel de 8 h 40 se serait compté « sans rien de nommé ».
+    this.enRoute = enFond('fond · point du matin', this.faire(aujourdhui, maintenant))
       .then(() => {
         this.faitPour = aujourdhui
       })

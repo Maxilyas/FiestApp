@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import type { InStatement } from '@libsql/client'
 import { deplier, estDuCabinet, idDuTableau } from '../../../shared/cabinet/pieces'
+import { deplieePourLeCabinet, vuesDuCabinet } from '../../../shared/cabinet/vues'
 import { bitDuMode } from '../../../shared/campagne'
 import { horsDeLaBase } from '../../../shared/horsDeLaBase'
 import { jourDe } from '../../../shared/jour'
@@ -394,6 +395,27 @@ class Dossier {
    * base (`carnetDe` rend null).
    */
   carnetIncertain = false
+  /** Ce qu'il a vu, déplié pour le Cabinet (`vuesDuCabinetDe`) : null tant que le Cabinet ne l'a pas demandé, puis tenu à jour. */
+  vuesDuCabinet: Map<string, number> | null = null
+}
+
+/** Un joueur sans une réponse n'a rien vu : la même carte vide pour tous, que personne ne change. */
+const SANS_VUES: ReadonlyMap<string, number> = new Map()
+
+/**
+ * Une réponse neuve sur sa carte du Cabinet déjà lue : ce qu'elle a montré, à
+ * son heure — la question, ce qu'elle déplie, ce que sa manche a montré de
+ * plus — rajeunit chacune des questions que cela déplie, si c'est plus récent.
+ * Chaque valeur de la carte est la plus récente des vues qui la montrent, et
+ * une réponse ne fait qu'en ajouter une : la carte refaite de zéro dirait la
+ * même chose (`vuesDuCabinet(vuesDe(qui).vues)`).
+ */
+function voirAuCabinet(carte: Map<string, number>, r: ReponseDuJournal) {
+  const ids = [r.question, ...questionsMontrees(r.question)]
+  for (const m of r.montre ?? []) ids.push(m, ...questionsMontrees(m))
+  for (const id of ids) {
+    for (const q of deplieePourLeCabinet(id)) if (r.le > (carte.get(q) ?? Number.NEGATIVE_INFINITY)) carte.set(q, r.le)
+  }
 }
 
 function compter(comptes: Map<string, Compte>, question: string, juste: boolean) {
@@ -523,6 +545,8 @@ export class JournalDesReponses {
       if (r.le > p.le) p.le = r.le
       if (code < p.premiere) p.premiere = code
     }
+    // Sa carte du Cabinet, si elle est déjà lue, suit : relue de zéro, elle coûtait la moitié d'une entrée d'épreuve.
+    if (d.vuesDuCabinet) voirAuCabinet(d.vuesDuCabinet, r)
     if (!revision && code < p.premiereHorsRevision) {
       this.nouvellePremiere(r.question, p.premiereHorsRevision, code)
       p.premiereHorsRevision = code
@@ -684,6 +708,24 @@ export class JournalDesReponses {
       }
     }
     return { vues, premieres }
+  }
+
+  /**
+   * Ce qu'il a vu, déplié pour le Cabinet (`vuesDuCabinet` sur `vuesDe`) —
+   * la fraîcheur de chacun de ses tirages —, lu une fois puis tenu à jour
+   * réponse par réponse (`voirAuCabinet`, dans `une`). Chaque départ et chaque
+   * entrée d'épreuve refaisaient la carte de tout ce qu'il avait vu, puis la
+   * redépliaient : 45 % du processeur d'une entrée pour un joueur de 9 000
+   * réponses, au banc du 4 novembre 2026 (`retours/2026-11-04/`). La même que
+   * la carte refaite de zéro, à chaque instant (`journal-des-reponses.test.ts`).
+   * En lecture seule : un tirage qui la changerait la changerait pour tous ceux
+   * qui suivent (`ContexteDuTirage.vues`).
+   */
+  vuesDuCabinetDe(qui: string): ReadonlyMap<string, number> {
+    const d = this.dossiers.get(qui)
+    if (!d) return SANS_VUES
+    d.vuesDuCabinet ??= vuesDuCabinet(this.vuesDe(qui).vues)
+    return d.vuesDuCabinet
   }
 
   /**

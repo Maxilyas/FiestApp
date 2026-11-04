@@ -50,7 +50,7 @@ import { FluxDuQg } from './qgFlux'
 import { ReglesDuQg, heuresDeLHebergeur, lecteurDesAlertes } from './core/regles'
 import { SondeDesGels, commencer } from './core/gels'
 import { connexionsGardeesChaudes, entretenirLesConnexions, gardeAnnoncee, noterUneDemande, type ReglagesDeLEntretien } from './core/connexions'
-import { clientDeLaBase, clientDistant, transportDeLaBase } from './core/distante'
+import { clientDeLaBase, clientDistant, patienceDeLaBase, transportDeLaBase } from './core/distante'
 import { GARDE_DE_NODE_MS } from '../../shared/santeDuServeur'
 import { AuthStore, type AccountRec } from './auth/store'
 import { ProfileStore, cleDeSoiree } from './auth/profiles'
@@ -1220,6 +1220,12 @@ export async function createQuizServer(opts: QuizServerOptions) {
                   ouvertesParMin: pouls.ouvertesParUnBattement.lire().n,
                 }
               : null,
+            // La patience (`QUIZ_DB_PATIENCE_MS`), null sans elle — le transport léger seul : les allers-retours qui ont
+            // attendu une connexion gardée, et ceux que la patience passée a lassés.
+            patience:
+              transportDeLaBase() === 'leger' && patienceDeLaBase() > 0
+                ? { ms: patienceDeLaBase(), attentesParMin: pouls.attentesDUneConnexion.lire().n, lasseesParMin: pouls.attentesLassees.lire().n }
+                : null,
           },
         },
       }

@@ -2,7 +2,8 @@ import http from 'node:http'
 import https from 'node:https'
 import type { Socket } from 'node:net'
 import { gunzipSync, inflateSync, brotliDecompressSync } from 'node:zlib'
-import { connexionEmpruntee, connexionOuverte, connexionRefermeeParNous, connexionRendue, gardeDesConnexions } from './connexions'
+import { aDejaServi, connexionEmpruntee, connexionOuverte, connexionRefermeeParNous, connexionRendue, gardeDesConnexions } from './connexions'
+import { pouls } from './pouls'
 
 // Le transport léger vers la base permanente (`QUIZ_DB_TRANSPORT=leger`) : les
 // allers-retours du client libsql sur `http.request` / `https.request` de
@@ -124,6 +125,89 @@ function adresseDe(url: string): Adresse {
   return a
 }
 
+// ── La patience des connexions ────────────────────────────────────────────
+//
+// Une connexion neuve coûte une poignée de main : ~0,45 s en production le
+// 4 novembre 2026, contre ~45 ms un aller-retour sur une gardée. Or une page
+// lance ses lectures de front — au bilan d'une épreuve du Cabinet, les
+// missions, un lot par magasin, et la carte avec elles —, et l'entretien ne
+// garde que ce que la dernière minute a demandé : pendant les manches, une
+// connexion ; au bilan suivant, une à deux minutes plus tard, chaque lot de
+// plus en ouvrait une (2 à 4 par bilan, `retours/2026-11-04/`). Avec de la
+// patience (`QUIZ_DB_PATIENCE_MS`), un aller-retour qui ne trouve aucune
+// connexion libre attend que l'une de celles qui servent déjà se libère, au
+// plus tant de millisecondes, puis en ouvre une comme avant : il passe
+// derrière un aller-retour au lieu d'une poignée de main. À froid, rien à
+// attendre : une connexion qui s'ouvre ne se libère qu'après sa poignée de
+// main, et la rafale s'ouvre de front.
+
+/** Les allers-retours qui attendent une place, le plus ancien d'abord : chacun se relâche une fois, libéré ou lassé. */
+const enAttente: ((lassee: boolean) => void)[] = []
+
+/**
+ * Deux attentes au plus par connexion qui sert : la troisième n'aurait sa
+ * place qu'après trois allers-retours, sa patience passée — elle ouvre la
+ * sienne tout de suite.
+ */
+const ATTENTES_PAR_CONNEXION = 2
+
+/** Une connexion se rend, ou tombe : la plus ancienne attente reprend — sur elle, ou sur une neuve si elle est tombée. */
+function relacherUneAttente() {
+  enAttente.shift()?.(false)
+}
+
+/**
+ * Ce que l'agent de cette base tient à l'instant : ses connexions libres, et
+ * celles qui servent après avoir déjà servi. Lu chez lui, jamais dans
+ * `connexions.ts` : l'agent prend une connexion libre dès `http.request`,
+ * quand l'événement `socket` ne le dit qu'au tour suivant — trois lectures
+ * parties ensemble l'auraient toutes crue libre.
+ */
+function etatDesConnexions(a: Adresse): { libres: number; quiServent: number } {
+  const agent = agents[a.protocole]
+  // Le nom que l'agent donne à une base commence par son hôte et son port (`Agent.getName`).
+  const prefixe = `${a.hoteSansCrochets}:${a.port || (a.protocole === 'https:' ? 443 : 80)}:`
+  let libres = 0
+  let quiServent = 0
+  for (const [nom, liste] of Object.entries(agent.freeSockets)) if (nom.startsWith(prefixe)) libres += liste?.length ?? 0
+  for (const [nom, liste] of Object.entries(agent.sockets)) {
+    if (nom.startsWith(prefixe)) for (const s of liste ?? []) if (aDejaServi(s as Socket)) quiServent++
+  }
+  return { libres, quiServent }
+}
+
+/**
+ * Une place sur une connexion gardée qui se libère bientôt, plutôt qu'une
+ * neuve : null s'il n'y a rien à attendre — une connexion libre, aucune qui
+ * serve déjà (à froid, ou rien que des poignées de main en cours), ou déjà
+ * assez d'attentes devant —, sinon la promesse d'une place, tenue au plus
+ * `patienceMs`. Chaque réponse finie en relâche une (`fetchLeger`) : l'agent
+ * rend sa connexion libre au tour d'après, avant que l'attente, relâchée par
+ * une promesse, reprenne la main — sa requête l'emprunte. `avecDelai`
+ * l'attend avant de chronométrer l'aller-retour : l'attente n'est pas un
+ * Turso lent, ni un aller-retour en vol pour l'entretien.
+ */
+export function placeSurUneGardee(url: string, patienceMs: number): Promise<void> | null {
+  if (patienceMs <= 0) return null
+  const { libres, quiServent } = etatDesConnexions(adresseDe(url))
+  if (libres > 0 || quiServent === 0 || enAttente.length >= ATTENTES_PAR_CONNEXION * quiServent) return null
+  pouls.attentesDUneConnexion.noter()
+  return new Promise<void>(rendre => {
+    let fini = false
+    const relacher = (lassee: boolean) => {
+      if (fini) return
+      fini = true
+      clearTimeout(minuteur)
+      const i = enAttente.indexOf(relacher)
+      if (i >= 0) enAttente.splice(i, 1)
+      if (lassee) pouls.attentesLassees.noter()
+      rendre()
+    }
+    const minuteur = setTimeout(() => relacher(true), patienceMs)
+    enAttente.push(relacher)
+  })
+}
+
 /**
  * Les connexions que ce transport a déjà vues : une neuve se compte une fois.
  * `reusedSocket` ne suffit pas à le dire — l'agent qui passe une connexion
@@ -205,6 +289,8 @@ export async function fetchLeger(
       fini = true
       clearTimeout(minuteur)
       if (socket) connexionRendue(socket)
+      // Sa connexion se rend : la plus ancienne attente la prendra (`placeSurUneGardee`).
+      relacherUneAttente()
       if (reponse) rendre(reponse)
       else refuser(erreur)
     }
@@ -242,6 +328,8 @@ export async function fetchLeger(
         // une connexion libre attend : celle-là, c'est nous qui la refermons.
         connexionOuverte(s, adresse.hote, { finPeutManquer: true })
         s.on('timeout', () => connexionRefermeeParNous(s))
+        // Tombée, elle ne se libérera pas : qui l'attendait n'attend plus pour rien.
+        s.once('close', relacherUneAttente)
       }
       connexionEmpruntee(s)
       s.setTimeout(0)
