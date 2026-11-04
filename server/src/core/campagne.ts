@@ -1270,6 +1270,17 @@ export class CampagneStore {
   private referenceEnRoute: ReferenceEnRoute | null = null
   /** Les questions jouables, toutes catégories, et ce dont elles sont faites : la base, la réserve du jour, les retraits (`jouables`). */
   private jouablesGardees: { base: BaseDeLaCampagne; duJour: ReadonlySet<string>; retirees: number; questions: readonly QuestionDeLaBase[] } | null = null
+  /**
+   * Ce que la page de la campagne du QG tire des jouables à leur mesure
+   * (`tableauDeLaBase`), gardé tant que ni l'une ni l'autre ne change — par
+   * identité, comme les listes des jouables. Rangé sous la mesure, qui se relit
+   * toutes les six heures et l'emporte : sous une seule case, l'ancienne mesure
+   * serait restée en mémoire jusqu'à la prochaine ouverture du QG. Chaque
+   * ouverture repassait les vingt-sept mille questions quatorze fois : la
+   * moitié des 42 ms de la page au premier appel d'un processus, sur un vrai
+   * cœur (le banc du 3 novembre 2026), dix fois plus au dixième de cœur.
+   */
+  private tableauxDuQg = new WeakMap<ReadonlyMap<string, MesureDUneQuestion>, { jouables: readonly QuestionDeLaBase[]; tableau: TableauDeLaBase }>()
   /** Les jouables de chaque choix de catégories, par liste de jouables (`jouables`). */
   private jouablesDesChoix = new WeakMap<readonly QuestionDeLaBase[], Map<string, readonly QuestionDeLaBase[]>>()
   /** Les catégories et les sujets de chaque liste de jouables (`choixDe`). */
@@ -8127,13 +8138,10 @@ export class CampagneStore {
   /** L'écran de l'administrateur : la base, ce qu'on en joue, et les signalements à relire. */
   async administration(): Promise<AdminDeLaCampagne> {
     const [jouables, signalements, base, mesure] = await Promise.all([this.jouables(), this.signalements(), this.base(), this.mesures()])
-    // Ce que les réponses contredisent, les plus nettes d'abord : ce que les familles n'ont pas reclassé d'elles-mêmes.
-    const contredites = jouables
-      .flatMap(q => {
-        const c = marcheContredite(q.meta.difficulte, mesure.get(q.id))
-        return c ? [{ q, c, m: mesure.get(q.id)! }] : []
-      })
-      .sort((a, b) => b.c.force - a.c.force)
+    let garde = this.tableauxDuQg.get(mesure)
+    if (garde?.jouables !== jouables) this.tableauxDuQg.set(mesure, (garde = { jouables, tableau: tableauDeLaBase(jouables, mesure) }))
+    const { tableau } = garde
+    const { contredites } = tableau
     return {
       contredites: contredites.slice(0, CONTREDITES_MONTREES).map(({ q, c, m }) => ({
         questionId: q.id,
@@ -8152,12 +8160,9 @@ export class CampagneStore {
       questions: base.questions.length,
       jouables: jouables.length,
       retirees: this.retirees.size,
-      parCategorie: parCategorie(jouables),
-      parDifficulte: CATEGORIES.map(categorie => {
-        const difficultes = [0, 0, 0, 0, 0]
-        for (const q of jouables) if (q.meta.categorie === categorie) difficultes[q.meta.difficulte - 1]++
-        return { categorie, difficultes }
-      }),
+      // Des copies : le tableau gardé sert la page suivante.
+      parCategorie: tableau.parCategorie.map(c => ({ ...c })),
+      parDifficulte: tableau.parDifficulte.map(c => ({ categorie: c.categorie, difficultes: [...c.difficultes] })),
       ajouts: this.ajoutsDeLaRoutine(base),
       signalements,
     }
@@ -10830,6 +10835,42 @@ function plusHaute(questions: readonly QuestionDeSerie[]): Niveau {
   return NIVEAUX[Math.max(0, ...questions.map(q => NIVEAUX.indexOf(q.niveau)))]
 }
 
+/** Ce que la page de la campagne du QG tire des jouables, à leur mesure (`tableauDeLaBase`). */
+export interface TableauDeLaBase {
+  /** Ce que leurs réponses contredisent, les plus nettes d'abord. */
+  contredites: { q: QuestionDeLaBase; c: NonNullable<ReturnType<typeof marcheContredite>>; m: MesureDUneQuestion }[]
+  parCategorie: { categorie: string; questions: number }[]
+  parDifficulte: { categorie: string; difficultes: number[] }[]
+}
+
+/**
+ * Ce que la page de la campagne du QG tire des jouables, d'une seule passe :
+ * ce que leurs réponses contredisent, les plus nettes d'abord — ce que les
+ * familles n'ont pas reclassé d'elles-mêmes (`marcheContredite`) —, et leurs
+ * comptes par catégorie et par difficulté. Une passe par catégorie, et deux
+ * de plus, faisaient quatorze fois les vingt-sept mille questions.
+ */
+export function tableauDeLaBase(jouables: readonly QuestionDeLaBase[], mesure: ReadonlyMap<string, MesureDUneQuestion>): TableauDeLaBase {
+  const comptes = new Map<string, { questions: number; difficultes: number[] }>()
+  const contredites: TableauDeLaBase['contredites'] = []
+  for (const q of jouables) {
+    let compte = comptes.get(q.meta.categorie)
+    if (!compte) comptes.set(q.meta.categorie, (compte = { questions: 0, difficultes: [0, 0, 0, 0, 0] }))
+    compte.questions++
+    compte.difficultes[q.meta.difficulte - 1]++
+    const m = mesure.get(q.id)
+    const c = marcheContredite(q.meta.difficulte, m)
+    if (c) contredites.push({ q, c, m: m! })
+  }
+  // Un tri stable : à force égale, l'ordre des jouables, comme avant.
+  contredites.sort((a, b) => b.c.force - a.c.force)
+  return {
+    contredites,
+    parCategorie: CATEGORIES.filter(c => comptes.has(c)).map(c => ({ categorie: c, questions: comptes.get(c)!.questions })),
+    parDifficulte: CATEGORIES.map(categorie => ({ categorie, difficultes: comptes.get(categorie)?.difficultes ?? [0, 0, 0, 0, 0] })),
+  }
+}
+
 /** Les catégories et leur nombre de questions, dans l'ordre fixe de la liste (`shared/categories.ts`). */
 function parCategorie(questions: readonly QuestionDeLaBase[]): { categorie: string; questions: number }[] {
   const compte = new Map<string, number>()
@@ -11639,7 +11680,7 @@ export function* tirerUneEpreuveEnTranches(
     const servi = usage.get(q.meta.sousTheme) ?? 0
     const f = fraicheur(q.id)
     const jumelle = deja.jumelle(q) ? 1 : 0
-    const deTrop = regle.parCoeurMax !== undefined && parCoeurPris >= regle.parCoeurMax && parCoeur(q) ? 1 : 0
+    const deTrop = regle.parCoeurMax !== undefined && parCoeurPris >= regle.parCoeurMax && parCoeurDe(q) ? 1 : 0
     if (regle.touteLaCategorie) return [f.recente, servi, f.vue, deTrop, jumelle, f.le]
     if (duChapitre.size > 0) return [f.recente, duChapitre.has(q.meta.sousTheme) ? 0 : 1, f.vue, deTrop, servi, jumelle, f.le]
     return [f.recente, f.vue, deTrop, servi, jumelle, f.le]
@@ -11672,7 +11713,7 @@ export function* tirerUneEpreuveEnTranches(
           prises.add(meilleure.id)
           deja.prendre(meilleure)
           usage.set(meilleure.meta.sousTheme, (usage.get(meilleure.meta.sousTheme) ?? 0) + 1)
-          if (regle.parCoeurMax !== undefined && parCoeur(meilleure)) parCoeurPris++
+          if (regle.parCoeurMax !== undefined && parCoeurDe(meilleure)) parCoeurPris++
           tirees.push({ question: meilleure, niveau: n })
           break
         }
@@ -11682,16 +11723,21 @@ export function* tirerUneEpreuveEnTranches(
   return melanger(tirees)
 }
 
+/** Ce qui s'apprend par cœur (`seSaitParCoeur`), calculé : ce que le build range de chaque question (`preparationDeLaQuestion`). */
+export const parCoeurCalcule = (q: QuestionDeLaBase): boolean =>
+  seSaitParCoeur({ texte: q.texte, reponses: q.reponses, bonne: q.bonne, valeur: q.meta.valeur, categorie: q.meta.categorie, entites: q.meta.entites })
+
 /**
- * Ce qui s'apprend par cœur (`seSaitParCoeur`), lu une fois par question de
- * la base : une épreuve le relit pour chaque candidate de chaque place, des
- * centaines de fois.
+ * Ce qui s'apprend par cœur, lu une fois par question de la base : une
+ * épreuve le relit pour chaque candidate de chaque place, des centaines de
+ * fois. Ce que le build a rangé (`preparationDe`) d'abord : calculé au
+ * premier tirage de chaque catégorie, il en faisait un douzième à froid.
  */
 const PAR_COEUR = new WeakMap<QuestionDeLaBase, boolean>()
-function parCoeur(q: QuestionDeLaBase): boolean {
+export function parCoeurDe(q: QuestionDeLaBase): boolean {
   let lu = PAR_COEUR.get(q)
   if (lu === undefined) {
-    lu = seSaitParCoeur({ texte: q.texte, reponses: q.reponses, bonne: q.bonne, valeur: q.meta.valeur, categorie: q.meta.categorie, entites: q.meta.entites })
+    lu = preparationDe(q)?.parCoeur ?? parCoeurCalcule(q)
     PAR_COEUR.set(q, lu)
   }
   return lu

@@ -5,12 +5,20 @@
 // (`core/preparees.ts`). Seul ce module tire à la fois la campagne et le
 // Cabinet, que rien d'autre ne lie.
 import type { QuestionDeLaBase } from './baseCampagne'
-import { familleCalculee } from './campagne'
+import { familleCalculee, parCoeurCalcule } from './campagne'
 import { masqueDuVerdict, verdictCalcule } from './cabinet/tirages/tas'
+import { signeAPreparer } from './jumelles'
 import type { PreparationDUneQuestion } from './preparees'
 import { sujetsEtRubriqueDe } from '../../../shared/sujets'
 
 /** Ce que le build range d'une question, à côté d'elle, dans la base préparée. */
 export function preparationDeLaQuestion(q: QuestionDeLaBase): PreparationDUneQuestion {
-  return { sujets: sujetsEtRubriqueDe(q.meta), famille: familleCalculee(q), cabinet: masqueDuVerdict(verdictCalcule(q)) }
+  return {
+    sujets: sujetsEtRubriqueDe(q.meta),
+    famille: familleCalculee(q),
+    cabinet: masqueDuVerdict(verdictCalcule(q)),
+    // La signature de ses jumelles et ce qui s'apprend par cœur, que chaque tirage lit (`signeDe`, `parCoeurDe`).
+    ...signeAPreparer(q),
+    parCoeur: parCoeurCalcule(q),
+  }
 }

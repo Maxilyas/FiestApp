@@ -389,10 +389,11 @@ export const BASE_PREPAREE: string | null =
 
 /**
  * Le format de la base préparée : celle d'un autre format s'écarte, et le
- * dossier se relit et se vérifie. 2, le 3 novembre 2026 : chaque ligne porte
- * la question (`q`) et ce que le build en a calculé (`p`, `core/preparees.ts`).
+ * dossier se relit et se vérifie. 2, le 3 novembre 2026 : ce que le build
+ * calcule de chaque question, en colonnes (`core/preparees.ts`) ; 3, le même
+ * soir : la signature de ses jumelles et ce qui s'apprend par cœur avec.
  */
-const VERSION_DE_LA_BASE_PREPAREE = 2
+const VERSION_DE_LA_BASE_PREPAREE = 3
 
 /** Ce qui dit qu'une base préparée est celle du dossier : chacun de ses fichiers, sa taille et sa date. */
 type SignatureDuDossier = { fichier: string; taille: number; modifie: number }[]
@@ -414,25 +415,42 @@ function signatureDuDossier(dossier: string): SignatureDuDossier {
  * d'en-tête — son format, la signature du dossier, ce que le juge a écarté
  * —, puis une question par ligne, telle que le juge la rend, empreinte et
  * réponse soufflée comprises (`q`), et ce que `preparer` en calcule une fois
- * pour toutes (`p` : ses sujets, sa famille, les cribles du Cabinet —
- * `core/preparationDeLaBase.ts`, que le build donne).
+ * pour toutes, en colonnes, une ligne devant chaque bloc de questions
+ * (`QUESTIONS_PAR_COLONNES`) : ses sujets, sa famille, les cribles du Cabinet,
+ * la signature de ses jumelles, ce qui s'apprend par cœur
+ * (`core/preparationDeLaBase.ts`, que le build donne).
  */
 export function preparerLaBase(sortie: string, dossier = DOSSIER_DE_LA_BASE, preparer?: (q: QuestionDeLaBase) => PreparationDUneQuestion): BaseLue {
   const signature = signatureDuDossier(dossier)
   const lue = lireLaBase(dossier)
   mkdirSync(path.dirname(sortie), { recursive: true })
-  const entete = { version: VERSION_DE_LA_BASE_PREPAREE, signature, refusees: lue.refusees }
-  const preparations = preparer ? JSON.stringify(preparationsEnColonnes(lue.questions.map(preparer))) : null
-  writeFileSync(sortie, `${[JSON.stringify(entete), ...(preparations ? [preparations] : []), ...lue.questions.map(q => JSON.stringify(q))].join('\n')}\n`)
+  const lignes = [JSON.stringify({ version: VERSION_DE_LA_BASE_PREPAREE, signature, refusees: lue.refusees })]
+  for (let debut = 0; debut < lue.questions.length; debut += QUESTIONS_PAR_COLONNES) {
+    const bloc = lue.questions.slice(debut, debut + QUESTIONS_PAR_COLONNES)
+    if (preparer) lignes.push(JSON.stringify(preparationsEnColonnes(bloc.map(preparer))))
+    for (const q of bloc) lignes.push(JSON.stringify(q))
+  }
+  writeFileSync(sortie, `${lignes.join('\n')}\n`)
   return lue
 }
 
 /**
- * Ce que le build a calculé de toutes les questions, sur une seule ligne,
- * colonne par colonne, dans l'ordre des questions qui la suivent : chaque
- * ensemble de sujets et chaque famille une fois, et les cribles du Cabinet en
- * un chiffre par question. Rangé à côté de chaque question, il grossissait la
- * base de 2,5 Mo et sa lecture de 150 ms ; ainsi, d'un quart de mégaoctet.
+ * Les questions que décrit une ligne de colonnes, juste derrière elle. D'une
+ * seule ligne, les colonnes de toute la base pesaient 2,2 Mo depuis la
+ * signature des jumelles : 13 ms de `JSON.parse` d'un bloc sur un vrai cœur,
+ * une centaine au dixième de cœur, quand la lecture rend la main à chaque
+ * morceau du fichier. Par deux mille, quelque 160 Ko chacune.
+ */
+const QUESTIONS_PAR_COLONNES = 2000
+
+/**
+ * Ce que le build a calculé d'un bloc de questions, sur une ligne, colonne
+ * par colonne, dans l'ordre des questions qui la suivent : chaque ensemble de
+ * sujets, chaque famille et chaque forme une fois, les cribles du Cabinet et
+ * le par-cœur en un chiffre par question. Rangé à côté de chaque question, il
+ * grossissait la base de 2,5 Mo et sa lecture de 150 ms. Les réponses nettes
+ * en font la moitié, et seules celles qui ne sont pas les réponses en
+ * minuscules s'y rangent (`signeAPreparer`).
  */
 interface PreparationsEnColonnes {
   preparations: 1
@@ -445,6 +463,14 @@ interface PreparationsEnColonnes {
   famille: number[]
   /** Les cribles de chaque question, un chiffre chacune (`PreparationDUneQuestion.cabinet`). */
   cabinet: string
+  /** Les formes des intitulés, pour les jumelles, chacune une fois : « qui realise film » en sert deux cent vingt-quatre. */
+  formes?: string[]
+  /** La forme de chaque question, par son rang dans `formes` ; −1 : pas de jumelle possible ; −2 : pas préparée. */
+  forme?: number[]
+  /** Ses réponses nettes en un texte, ou 0 quand ses réponses en minuscules les disent (`PreparationDUneQuestion.nettes`). */
+  nettes?: (string | 0)[]
+  /** Ce qui s'apprend par cœur, un chiffre par question : 1 oui, 0 non. */
+  parCoeur?: string
 }
 
 function preparationsEnColonnes(preparations: readonly PreparationDUneQuestion[]): PreparationsEnColonnes {
@@ -457,6 +483,8 @@ function preparationsEnColonnes(preparations: readonly PreparationDUneQuestion[]
   }
   const sujets = preparations.map(p => rang(ensembles, JSON.stringify(p.sujets)))
   const famille = preparations.map(p => (p.famille === null ? -1 : rang(familles, p.famille)))
+  const formes = new Map<string, number>()
+  const preparees = preparations.some(p => p.forme !== undefined)
   return {
     preparations: 1,
     ensembles: [...ensembles.keys()].map(e => JSON.parse(e) as string[]),
@@ -464,6 +492,12 @@ function preparationsEnColonnes(preparations: readonly PreparationDUneQuestion[]
     familles: [...familles.keys()],
     famille,
     cabinet: preparations.map(p => String(p.cabinet)).join(''),
+    ...(preparees && {
+      forme: preparations.map(p => (p.forme === undefined ? -2 : p.forme === null ? -1 : rang(formes, p.forme))),
+      formes: [...formes.keys()],
+      nettes: preparations.map(p => p.nettes ?? 0),
+    }),
+    ...(preparations.some(p => p.parCoeur !== undefined) && { parCoeur: preparations.map(p => (p.parCoeur ? '1' : '0')).join('') }),
   }
 }
 
@@ -487,20 +521,31 @@ export async function lireLaBasePreparee(fichier: string, dossier = DOSSIER_DE_L
   let refusees: BaseLue['refusees'] | null = null
   const questions: QuestionDeLaBase[] = []
   let colonnes: PreparationsEnColonnes | null = null
-  /** Une ligne : l'en-tête d'abord, ce que le build a calculé s'il l'a fait, puis une question ; un motif, quand l'en-tête l'écarte. */
+  /** Le rang de la première question que décrivent les dernières colonnes lues. */
+  let premiere = 0
+  /** Une ligne : l'en-tête d'abord, puis des questions, chaque bloc derrière ce que le build en a calculé s'il l'a fait ; un motif, quand l'en-tête l'écarte. */
   const lire = (ligne: string): string | null => {
     if (!ligne) return null
     if (refusees) {
       const lu = JSON.parse(ligne) as QuestionDeLaBase | PreparationsEnColonnes
       if ('preparations' in lu) {
         colonnes = lu
+        premiere = questions.length
         return null
       }
-      const i = questions.push(lu) - 1
+      const i = questions.push(lu) - 1 - premiere
       // Ce que le build a calculé d'elle, que les lecteurs reprennent au lieu de le refaire (`core/preparees.ts`).
       const c = colonnes as PreparationsEnColonnes | null
       if (c && i < c.sujets.length) {
-        retenirLaPreparation(lu, { sujets: c.ensembles[c.sujets[i]], famille: c.famille[i] < 0 ? null : c.familles[c.famille[i]], cabinet: c.cabinet.charCodeAt(i) - 48 })
+        const f = c.forme?.[i] ?? -2
+        const nettes = c.nettes?.[i]
+        retenirLaPreparation(lu, {
+          sujets: c.ensembles[c.sujets[i]],
+          famille: c.famille[i] < 0 ? null : c.familles[c.famille[i]],
+          cabinet: c.cabinet.charCodeAt(i) - 48,
+          ...(f !== -2 && { forme: f === -1 ? null : c.formes![f], nettes: f === -1 || typeof nettes !== 'string' ? null : nettes }),
+          ...(c.parCoeur !== undefined && { parCoeur: c.parCoeur.charCodeAt(i) === 49 }),
+        })
       }
       return null
     }
