@@ -1084,12 +1084,12 @@ Le tri des erreurs serveur (`/admin#erreurs`) : ce que l'administrateur a dit de
 
 ### `qg_reglages`
 
-Les réglages des alertes du QG (`/admin#alertes`) : une ligne par règle réglée — son seuil, son téléphone —, ce qui vaut d'office n'y est pas. Un réglage d'exploitation, jamais un barème du jeu.
+Les réglages des alertes du QG (`/admin#alertes`) : une ligne par règle réglée — son seuil, son téléphone —, et celle du point du matin — son heure, sa notification —, ce qui vaut d'office n'y est pas. Un réglage d'exploitation, jamais un barème du jeu.
 
-- **Colonnes clés** : `cle` (la clé : celle de la règle, `CLES_DES_REGLES`), `valeur` (JSON : `{ seuil?, telephone? }`), `maj_le`.
+- **Colonnes clés** : `cle` (la clé : celle de la règle, `CLES_DES_REGLES`, ou `point-du-matin`, `CLE_DU_POINT`), `valeur` (JSON : `{ seuil?, telephone? }` ; pour le point, `{ actif?, minutes? }`), `maj_le`.
 - **Espace** : non — le serveur est le même pour tous.
-- **Écrite par** : `ReglesDuQg.regler` (`server/src/core/regles.ts`), à chaque réglage ; revenu au défaut, la ligne s'efface.
-- **Lue par** : `ReglesDuQg`, une fois au démarrage, puis tenue en mémoire : chaque règle s'y juge, la santé du serveur y prend ses seuils (Turso lent, la mémoire, le quota), « À traiter » celui de la réserve.
+- **Écrite par** : `ReglesDuQg.regler` et `reglerLePoint` (`server/src/core/regles.ts`), à chaque réglage ; revenu au défaut, la ligne s'efface.
+- **Lue par** : `ReglesDuQg`, une fois au démarrage, puis tenue en mémoire : chaque règle s'y juge, la santé du serveur y prend ses seuils (Turso lent, la mémoire, le quota), « À traiter » celui de la réserve, le point du matin son heure et sa notification.
 - **Effacée par** : le retour au défaut. Un réglage que le code a resserré depuis se tait à la lecture.
 
 ### `qg_incidents`
@@ -1099,8 +1099,18 @@ Les incidents des alertes du QG : une règle ouverte, de sa première minute à 
 - **Colonnes clés** : `id`, `regle`, `gravite`, `debut` (indexée), `fin` (vide tant qu'il dure), `cause` (une phrase : une route, un mode, un chiffre — jamais un joueur), `mot` (celui de l'administrateur, 120 caractères au plus).
 - **Espace** : non.
 - **Écrite par** : `ReglesDuQg.tour`, chaque minute — une écriture à l'ouverture, une à la fermeture — et `noterUnMot`.
-- **Lue par** : `ReglesDuQg` — au démarrage, ceux encore ouverts (le serveur suivant les continue) ; la page des alertes, les trente derniers jours par leur index.
+- **Lue par** : `ReglesDuQg` — au démarrage, ceux encore ouverts (le serveur suivant les continue) ; la page des alertes, les trente derniers jours par leur index ; le point du matin, ceux qui ont couru la veille, nés au plus une semaine avant, par le même index (`incidentsEntre`), une fois par jour.
 - **Effacée par** : rien — quelques lignes par semaine.
+
+### `qg_points`
+
+Le point du matin (la revue d'expert du 4 novembre 2026, P1.4) : une ligne par jour où il est passé — sa réservation, écrite avant l'envoi, comme celle du rappel du soir (`jour_rappels.dernier_jour`) : un redémarrage, ou l'autre serveur d'une mise en ligne, ne renvoie pas la notification.
+
+- **Colonnes clés** : `jour` (clé primaire, le jour de Paris du point), `reserve_le`, `envoye_le` (vide : rien n'est parti — coupé, passé midi, ou la mémoire ne savait rien de la veille), `telephones` (ceux qui l'ont reçue), `corps` (le texte de la notification : des nombres, jamais un nom).
+- **Espace** : non.
+- **Écrite par** : `LePointDuMatin` (`server/src/core/pointDuMatin.ts`), à son heure : la réservation (`INSERT … ON CONFLICT DO NOTHING`), puis l'envoi noté ; une panne avant l'envoi rend la réservation, et le point se refait cinq minutes plus tard.
+- **Lue par** : la page des alertes, la dernière ligne, par la clé (`etat`).
+- **Effacée par** : ce qui a deux mois, à chaque réservation (`JOURS_DES_POINTS`).
 
 ### `qg_sauvegardes`
 
@@ -1208,7 +1218,7 @@ La feuille de présence de la page des joueurs (`/admin#joueurs`, le 4 novembre 
 
 - **Colonnes clés** : `jour` et `profile_id` (clé primaire, le jour d'abord : la page lit les feuilles depuis un jour), `modes` (les modes du jour en un nombre, un bit chacun — `BIT_DU_MODE`), `premiere` (les minutes de son minuit de Paris à sa première partie : aujourd'hui se compare à la même heure) ; `profile_id` indexé (`idx_qg_presences_profil`), pour la suppression d'un profil.
 - **Espace** : non — un profil va d'un espace à l'autre.
-- **Écrite par** : `MemoireDuQg` (`server/src/core/memoireDuQg.ts`), au premier passage de la page des joueurs, de ses comptes ou d'une annonce à un segment après minuit : les jours finis qui manquent jusqu'à hier, rattrapés un mois de journaux à la fois, d'un lot par mois — la première fois, aussi loin que les journaux remontent, un an au plus. Un jour écrit ne se relit plus des journaux ; aujourd'hui ne s'écrit jamais.
+- **Écrite par** : `MemoireDuQg` (`server/src/core/memoireDuQg.ts`), au passage du point du matin (8 h 40 d'office, `LePointDuMatin`), ou avant lui au premier passage de la page des joueurs, de ses comptes ou d'une annonce à un segment après minuit : les jours finis qui manquent jusqu'à hier, rattrapés un mois de journaux à la fois, d'un lot par mois — la première fois, aussi loin que les journaux remontent, un an au plus. Un jour écrit ne se relit plus des journaux ; aujourd'hui ne s'écrit jamais.
 - **Lue par** : `MemoireDuQg` — la page des joueurs, une fois par jour, ses soixante derniers jours et les semaines des cohortes, en un seul texte JSON (`presencesEntre`).
 - **Effacée par** : ce qui a passé l'an, à chaque écriture (`JOURS_DE_LA_MEMOIRE`) ; tout, quand la version des dérivations monte (`VERSION_DE_LA_MEMOIRE`), puis réécrit des journaux ; un profil supprimé emporte les siennes (`oublierProfil`, dans `supprimerProfil`).
 
@@ -1219,7 +1229,7 @@ La mémoire longue du QG : les chiffres de chaque jour fini, figés à son premi
 - **Colonnes clés** : `jour` (clé primaire), `chiffres` (JSON, `ChiffresDUnJour` : `v`, la version des dérivations ; les joueurs, ceux de chaque mode, les participations, les nouveaux profils, les achats, les profils du jour, de ses sept jours et de ses trente, les invités sans profil, les participations heure par heure — et depuis la version 2, le 4 novembre 2026 : ses soirées, chacune l'identifiant de son salon, ses invités et ceux venus avec un profil (`soirees`), les salons qui y ont joué leur toute première soirée (`nouveauxSalons`), les profils nés par écran de naissance (`naissances`, `avant` pour ceux d'avant la colonne), ceux nés la veille qui y ont joué (`lendemain`), les missions faites, leurs profils et les lignes des trois (`missions`), les questions jouées de chaque mode (`questions`), les confettis gagnés source par source et dépensés puits par puits (`confettis`), le serveur — ses heures éveillées au dixième et ses mises en ligne (`serveur`, null quand ses démarrages n'étaient plus gardés : jamais zéro). Une ligne d'avant n'a pas ces champs : ils se lisent absents), `ecrit_le`. Des chiffres et des identifiants de salon, jamais un nom ni un titre : la page nomme le salon à la lecture.
 - **Espace** : non.
 - **Écrite par** : `MemoireDuQg`, dans le lot des feuilles de présence des mêmes jours.
-- **Lue par** : `MemoireDuQg` — la page des joueurs, une fois par jour : ses quatre-vingt-neuf derniers jours et le premier jour qu'elle sait (`joursDepuis`) ; le dernier jour écrit et sa version, à chaque rattrapage (`dernierJour`) ; les heures éveillées des jours du mois, une fois l'heure, pour la règle « Heures de l'hébergeur » (`heuresDesJours`) ; le serveur de chaque jour, avant qu'une version neuve n'efface tout — les démarrages ne se gardent que huit jours, le rattrapage le reprend (`serveursDesJours`).
+- **Lue par** : `MemoireDuQg` — la page des joueurs, une fois par jour : ses quatre-vingt-neuf derniers jours et le premier jour qu'elle sait (`joursDepuis`) ; le point du matin, ses trente-cinq derniers jours, une fois par jour, et « Hier, en bref » au poste de commande, gardés jusqu'à minuit ; le dernier jour écrit et sa version, à chaque rattrapage (`dernierJour`) ; les heures éveillées des jours du mois, une fois l'heure, pour la règle « Heures de l'hébergeur » (`heuresDesJours`) ; le serveur de chaque jour, avant qu'une version neuve n'efface tout — les démarrages ne se gardent que huit jours, le rattrapage le reprend (`serveursDesJours`).
 - **Effacée par** : ce qui a passé l'an, à chaque écriture ; tout, quand la version des dérivations monte. Les chiffres d'un jour restent quand un profil est supprimé : ils ne le nomment pas.
 
 ### `qg_affiches`

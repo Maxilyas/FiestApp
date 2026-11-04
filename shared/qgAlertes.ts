@@ -1,4 +1,5 @@
 import type { PanneDUnMode } from './pannes'
+import type { EtatDuPoint } from './pointDuMatin'
 import { formatNumber } from './typographie'
 import { HEURE_MS, MEMOIRE_PLAFOND_MO, PART_DU_QUOTA_EN_ALERTE, SAUVEGARDE_ANCIENNE_MS, TURSO_LENT_MS } from './santeDuServeur'
 
@@ -503,6 +504,8 @@ export interface PageDesAlertes {
   incidents: IncidentDuQg[]
   /** Les téléphones que les alertes font sonner. */
   telephones: number
+  /** Le point du matin, son heure et sa notification, à côté des téléphones (`shared/pointDuMatin.ts`) ; absent d'un serveur d'avant. */
+  point?: EtatDuPoint
 }
 
 /** Les chiffres des trente jours : les incidents, leur durée médiane une fois clos, et la part du temps où aucun mode n'était en panne. */

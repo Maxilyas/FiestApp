@@ -6,15 +6,37 @@
 // source, et son serveur — null quand ses démarrages ne le couvrent pas,
 // jamais zéro. Une ligne d'avant se lit sans eux ; une version neuve refait
 // tout des journaux et garde le serveur que les démarrages ne savent plus.
+//
+// Puis le point du matin (P1.4) : la dérivation qui fait la notification et
+// « Hier, en bref » — des nombres seulement dans la notification —, son
+// réglage, et au banc, l'horloge à la main : rien avant l'heure, la mémoire de
+// la veille écrite par son passage, une notification par jour même après un
+// redémarrage, le lundi la semaine, coupé il écrit sans sonner.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
-import { connexionAnimateur, demarrer, ecrire } from './banc'
+import { Sqlite3Client } from '@libsql/client/sqlite3'
+import { connexionAnimateur, demarrer, ecrire, inscrireProfil, patienter, type Banc } from './banc'
+import { abonnementDe, dechiffrer, serviceDePush } from './push'
 import { dUneTraite } from '../../shared/tranches'
 import { jourAvant } from '../../shared/jour'
 import { gainsDesMissions } from '../../shared/missions'
 import { confettisParJour, sansMouvement } from '../../shared/qgEconomie'
 import { couvertsDepuis, serveurDuJour, SANTE_GARDEE_MS, type DemarrageDuServeur } from '../../shared/santeDuServeur'
+import {
+  HEURE_DU_POINT,
+  jourDuPoint,
+  lireLeReglageDuPoint,
+  messageDuPoint,
+  phraseDuReglageDuPoint,
+  pointDOffice,
+  pointDuMatin,
+  pointRegle,
+  type EntreeDuPoint,
+  type HierDuQg,
+  type JourDuPoint,
+} from '../../shared/pointDuMatin'
+import type { PageDesAlertes } from '../../shared/qgAlertes'
 import {
   VERSION_DE_LA_MEMOIRE,
   joursDeLaMemoire,
@@ -279,5 +301,325 @@ test('au banc : chaque jour fini s’écrit avec sa mémoire v2, sans un salon d
     }
   } finally {
     await banc.close()
+  }
+})
+
+// ── Le point du matin : sa dérivation ──────────────────────────────────────
+
+/** Les espaces de la typographie, ramenées à des espaces : la comparaison lit les mots. */
+const net = (s: string) => s.replace(/[  ]/g, ' ').replace(/⁠/g, '')
+
+/** Un jour du point, rien d'autre que ce qu'on lui donne. */
+const jourVide = (jour: string, x: Partial<JourDuPoint> = {}): JourDuPoint => ({
+  jour,
+  joueurs: 0,
+  parties: 0,
+  profils: 0,
+  semaine: 0,
+  nes: 0,
+  nesEnSoiree: 0,
+  lendemain: 0,
+  soirees: { nombre: 0, invites: 0, avecProfil: 0, salons: [] },
+  ...x,
+})
+
+test('le point lit chaque jour de la mémoire en quelques nombres — une ligne d’avant sans ce qu’elle ne savait pas', () => {
+  const heures = Array.from({ length: 24 }, () => 0)
+  const ligne: ChiffresDUnJour = {
+    v: VERSION_DE_LA_MEMOIRE,
+    joueurs: 9,
+    modes: { soiree: 7, campagne: 2, cabinet: 0, jour: 1, duel: 1 },
+    parties: { soiree: 10, campagne: 2, cabinet: 0, jour: 3, duel: 1 },
+    nouveauxProfils: 2,
+    achats: 0,
+    profils: 4,
+    semaine: 6,
+    mois: 9,
+    invites: 8,
+    heures,
+    soirees: [
+      { espace: 'e1', invites: 5, profils: 2 },
+      { espace: 'e1', invites: 3, profils: null },
+      { espace: 'e2', invites: 2, profils: 0 },
+    ],
+    nouveauxSalons: ['e2'],
+    naissances: { soiree: 1, jour: 1 },
+    lendemain: 1,
+  }
+  assert.deepEqual(jourDuPoint('2026-11-03', ligne), {
+    jour: '2026-11-03',
+    joueurs: 9,
+    parties: 16,
+    profils: 4,
+    semaine: 6,
+    nes: 2,
+    nesEnSoiree: 1,
+    lendemain: 1,
+    soirees: {
+      nombre: 3,
+      invites: 10,
+      avecProfil: 2,
+      salons: [
+        { espace: 'e1', nouveau: false },
+        { espace: 'e2', nouveau: true },
+      ],
+    },
+  })
+  const { soirees, nouveauxSalons, naissances, lendemain, ...dAvant } = ligne
+  assert.ok(soirees && nouveauxSalons && naissances && lendemain !== undefined)
+  const lu = jourDuPoint('2026-11-03', { ...dAvant, v: 1 })
+  assert.deepEqual([lu.soirees, lu.nesEnSoiree, lu.lendemain], [null, null, null])
+})
+
+test('le point du matin : la veille face à son habitude, ce qui s’écarte le plus, et une notification de nombres — jamais un salon', () => {
+  const hier = '2026-11-03'
+  // Sept jours d'habitude : vingt-cinq joueurs, un profil né un jour sur deux, une seule soirée de dix invités. Le jour
+  // d'avant eux ne compte pas.
+  const habitude = Array.from({ length: 7 }, (_, k) =>
+    jourVide(jourAvant(hier, 7 - k), {
+      joueurs: 25,
+      parties: 35,
+      profils: 18,
+      nes: k % 2 ? 0 : 1,
+      ...(k === 3 && { soirees: { nombre: 1, invites: 10, avecProfil: 4, salons: [{ espace: 'e-max', nouveau: true }] } }),
+    }),
+  )
+  const laVeille: JourDuPoint = jourVide(hier, {
+    joueurs: 28,
+    parties: 40,
+    profils: 20,
+    nes: 3,
+    nesEnSoiree: 2,
+    lendemain: 1,
+    soirees: { nombre: 1, invites: 12, avecProfil: 5, salons: [{ espace: 'e-lea', nouveau: true }] },
+  })
+  const entree: EntreeDuPoint = {
+    hier,
+    jours: [jourVide(jourAvant(hier, 8), { joueurs: 999 }), ...habitude, laVeille],
+    incidents: [{ regle: 'ressenti', debut: a(hier, 21), fin: a(hier, 21.2) }],
+    salons: { 'e-lea': 'Léa' },
+  }
+  const point = pointDuMatin({ ...entree, aTraiter: 2 })!
+  assert.equal(point.date, 'mardi 3 novembre')
+  assert.deepEqual(
+    point.chiffres.map(c => [c.cle, c.valeur, c.habituel, c.ecart?.sens ?? null, c.ecart && net(c.ecart.texte), c.detail && net(c.detail)]),
+    [
+      ['joueurs', 28, 25, 'plus', '12 %', 'dont 20 profils'],
+      ['nes', 3, 1, null, '1 d’habitude', 'dont 2 en soirée · 1 sur 1 né la veille a rejoué'],
+      ['soirees', 1, 0, null, '0 d’habitude', '1 animateur, dont un nouveau'],
+      ['invites', 12, 1, null, '1 d’habitude', '5 avec un profil, 7 sans'],
+    ],
+  )
+  // Douze invités contre une poignée d'habitude s'écartent bien plus que vingt-huit joueurs contre vingt-cinq.
+  assert.equal(point.phrase, '12 invités, quand il y en a 1 d’habitude.')
+  assert.deepEqual(point.animateurs, [{ nom: 'Léa', nouveau: true }])
+  assert.deepEqual(
+    point.incidents.map(i => [i.nom, i.dureeMs]),
+    [['Ressenti dégradé', 12 * 60_000]],
+  )
+  assert.equal(point.semaine, null, 'un mardi ne parle pas de la semaine')
+  assert.deepEqual([point.notification.titre, net(point.notification.corps)], ['Le point du matin', 'Hier : 28 joueurs (+12 %), 3 profils nés, 1 soirée, 12 invités · 1 incident · 2 choses à traiter'])
+  assert.doesNotMatch(JSON.stringify(point.notification), /Léa|e-lea|e-max/, 'un écran verrouillé se lit par-dessus l’épaule')
+  assert.deepEqual(messageDuPoint(point), { ...point.notification, url: '/admin#hier', tag: 'qg-point' })
+
+  // Rien à traiter le dit ; ce qu'on ne sait pas se tait.
+  assert.match(net(pointDuMatin({ ...entree, aTraiter: 0 })!.notification.corps), /· rien à traiter$/)
+  assert.match(net(pointDuMatin({ ...entree, incidents: [], aTraiter: null })!.notification.corps), /12 invités$/)
+  // Une journée comme les autres ; sans soirée, ses invités se taisent.
+  const pareil = pointDuMatin({ ...entree, jours: [...habitude, jourVide(hier, { joueurs: 25, parties: 35, profils: 18, nes: 1 })], incidents: [], aTraiter: 1 })!
+  assert.equal(pareil.phrase, 'Une journée comme les autres.')
+  assert.equal(net(pareil.notification.corps), 'Hier : 25 joueurs, 1 profil né, aucune soirée · 1 chose à traiter')
+  // Sans jour d'avant, rien à comparer ; sans la veille, pas de point.
+  const seul = pointDuMatin({ ...entree, jours: [laVeille], aTraiter: null })!
+  assert.deepEqual([seul.phrase, seul.chiffres[0].ecart], [null, null])
+  assert.equal(pointDuMatin({ ...entree, jours: habitude, aTraiter: null }), null)
+})
+
+test('le point du lundi : la semaine finie face aux quatre d’avant, complètes seulement', () => {
+  const dimanche = '2026-11-08'
+  const jours: JourDuPoint[] = []
+  for (let k = 34; k >= 0; k--) {
+    const cetteSemaine = k < 7
+    const soirees = cetteSemaine ? k < 6 : k % 7 < 4
+    jours.push(
+      jourVide(jourAvant(dimanche, k), {
+        joueurs: 30,
+        profils: 10,
+        // Chaque dimanche compte les profils de sa semaine.
+        semaine: k % 7 === 0 ? (cetteSemaine ? 54 : 50) : 0,
+        nes: cetteSemaine ? 3 : 2,
+        soirees: { nombre: soirees ? 1 : 0, invites: soirees ? 15 : 0, avecProfil: 0, salons: [] },
+      }),
+    )
+  }
+  const point = pointDuMatin({ hier: dimanche, jours, incidents: [], salons: {}, aTraiter: 0 })!
+  assert.equal(point.semaine?.du, '2026-11-02')
+  assert.deepEqual(
+    point.semaine?.chiffres.map(c => [c.cle, c.valeur, c.habituel, c.ecart && net(c.ecart.texte)]),
+    [
+      ['actifs', 54, 50, '8 %'],
+      ['nes', 21, 14, '14 d’habitude'],
+      ['soirees', 6, 4, '4 d’habitude'],
+      ['invites', 90, 60, '50 %'],
+    ],
+  )
+  assert.deepEqual([point.notification.titre, net(point.notification.corps)], ['Le point du lundi', 'La semaine : 54 profils actifs (+8 %), 21 profils nés, 6 soirées, 90 invités · rien à traiter'])
+  // Une semaine à qui il manque un jour ne se dit pas : le lundi redevient un matin.
+  const troue = pointDuMatin({ hier: dimanche, jours: jours.filter(j => j.jour !== jourAvant(dimanche, 3)), incidents: [], salons: {}, aTraiter: 0 })!
+  assert.deepEqual([troue.semaine, troue.notification.titre], [null, 'Le point du matin'])
+})
+
+test('le réglage du point : son heure dans ses bornes et sur son pas, sa notification ; ce qui vaut d’office ne s’écrit pas', () => {
+  const dOffice = pointDOffice(true)
+  assert.deepEqual(dOffice, { actif: true, minutes: HEURE_DU_POINT })
+  assert.equal(pointDOffice(false).actif, false, 'hors de la production, la notification attend qu’on l’allume')
+  assert.deepEqual(lireLeReglageDuPoint({ minutes: 555 }, {}, dOffice), { minutes: 555 })
+  assert.deepEqual(lireLeReglageDuPoint({ minutes: HEURE_DU_POINT }, { minutes: 555 }, dOffice), {}, 'revenu à l’heure d’office, rien ne s’écrit')
+  assert.deepEqual(lireLeReglageDuPoint({ actif: false }, { minutes: 555 }, dOffice), { actif: false, minutes: 555 })
+  assert.deepEqual(pointRegle({ actif: false }, dOffice), { actif: false, minutes: HEURE_DU_POINT })
+  for (const faux of [{ minutes: 557 }, { minutes: 5 * 60 }, { minutes: 11 * 60 + 5 }, { minutes: '8:40' }]) {
+    assert.throws(() => lireLeReglageDuPoint(faux, {}, dOffice), (e: Error) => net(e.message) === 'L’heure du point se règle de 6 h 00 à 11 h 00, de cinq en cinq minutes.')
+  }
+  assert.throws(() => lireLeReglageDuPoint({ actif: 'oui' }, {}, dOffice), /s’allume ou se coupe/)
+  for (const vide of [null, {}, 'matin']) assert.throws(() => lireLeReglageDuPoint(vide, {}, dOffice), /Un réglage attendu/)
+  assert.equal(net(phraseDuReglageDuPoint(dOffice, { actif: true, minutes: 555 })), 'Point du matin réglé : à 9 h 15 (avant 8 h 40)')
+  assert.equal(phraseDuReglageDuPoint(dOffice, { actif: false, minutes: HEURE_DU_POINT }), 'Point du matin réglé : la notification coupée')
+})
+
+// ── Le point du matin, au banc ─────────────────────────────────────────────
+
+/** Ce que la base permanente a servi pendant une mesure : chaque instruction, comme `qg-joueurs.test.ts`. */
+const compte = { actif: false, instructions: [] as string[] }
+const sqlDe = (s: unknown) => (typeof s === 'string' ? s : (s as { sql: string }).sql).replace(/\s+/g, ' ').trim()
+const proto = Sqlite3Client.prototype as unknown as Record<'execute' | 'batch', (...args: unknown[]) => Promise<unknown>>
+for (const methode of ['execute', 'batch'] as const) {
+  const origine = proto[methode]
+  proto[methode] = function (this: unknown, ...args: unknown[]) {
+    if (compte.actif) compte.instructions.push(...(methode === 'batch' ? (args[0] as unknown[]) : [args[0]]).map(sqlDe))
+    return origine.apply(this, args)
+  }
+}
+async function mesurer<T>(travail: () => Promise<T>): Promise<{ instructions: string[]; resultat: T }> {
+  Object.assign(compte, { actif: true, instructions: [] })
+  try {
+    const resultat = await travail()
+    return { instructions: [...compte.instructions], resultat }
+  } finally {
+    compte.actif = false
+  }
+}
+
+test('au banc : rien avant l’heure ; son passage écrit la veille et sonne une fois par jour, même après un redémarrage — le lundi la semaine, coupé il écrit sans sonner', async () => {
+  const push = await serviceDePush()
+  const horloge = { t: a(AUJOURDHUI, 8.5) }
+  const banc = await demarrer({ horlogeDuJour: () => horloge.t, pointDuMatinMs: 20, rappels: { servicesDePush: url => url.hostname === '127.0.0.1' } })
+  const tel = push.telephone('admin')
+  const recus = () => push.recus.filter(r => r.nom === 'admin').map(r => dechiffrer(r.corps, tel) as { titre: string; corps: string; url: string; tag: string })
+  const attendre = async (n: number) => {
+    for (let i = 0; i < 400 && recus().length < n; i++) await patienter(10)
+    return recus()
+  }
+  const lire = async <T>(b: Banc, cookie: string, chemin: string): Promise<T> => {
+    const r = await fetch(`${b.url}${chemin}`, { headers: { Cookie: cookie } })
+    assert.equal(r.status, 200, chemin)
+    return (await r.json()) as T
+  }
+  const base = () => new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: true })
+  const ecrits = () => {
+    const db = base()
+    try {
+      return {
+        jours: (db.prepare('SELECT jour FROM qg_jours ORDER BY jour').all() as { jour: string }[]).map(r => r.jour),
+        points: db.prepare('SELECT jour, envoye_le IS NOT NULL AS parti, telephones FROM qg_points ORDER BY jour').all() as { jour: string; parti: number; telephones: number | null }[],
+      }
+    } finally {
+      db.close()
+    }
+  }
+  try {
+    const admin = await connexionAnimateur(banc.url)
+    assert.equal((await ecrire(banc.url, '/api/admin/alertes/telephones', { abonnement: abonnementDe(tel) }, admin)).status, 200)
+    // Léa, née il y a quarante jours, a joué hier.
+    await inscrireProfil(banc.url, 'lea', 'Léa')
+    const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+    const lea = (db.prepare("SELECT id FROM profiles WHERE login = 'lea'").get() as { id: string }).id
+    db.prepare('UPDATE profiles SET created_at = ? WHERE id = ?').run(MAINTENANT - 40 * J, lea)
+    db.prepare('INSERT INTO jour_parties (profile_id, jour, commencee_le, question, justes) VALUES (?, ?, ?, 10, 6)').run(lea, il_y_a(1), a(il_y_a(1), 9))
+    db.close()
+
+    // 8 h 30 : rien ne part, rien ne s'écrit — et le poste de commande ne lit rien qu'il ne sache.
+    await patienter(200)
+    assert.equal(recus().length, 0, 'rien avant 8 h 40')
+    assert.deepEqual(ecrits(), { jours: [], points: [] })
+    const { instructions: avant, resultat: tot } = await mesurer(() => lire<HierDuQg>(banc, admin, '/api/admin/qg/hier'))
+    assert.deepEqual([tot.entree, tot.point], [null, { actif: true, minutes: HEURE_DU_POINT }])
+    assert.deepEqual(
+      avant.filter(sql => /\bqg_(jours|incidents)\b/.test(sql)),
+      [],
+      'la mémoire ne sait pas encore la veille : rien ne se lit',
+    )
+
+    // 8 h 41 : la mémoire de la veille s'écrit — sans une visite de la page des joueurs —, puis la notification part.
+    horloge.t = a(AUJOURDHUI, 8 + 41 / 60)
+    const [matin] = await attendre(1)
+    assert.equal(matin.titre, 'Le point du matin')
+    assert.match(net(matin.corps), /^Hier : 1 joueur \(0 d’habitude\), aucun profil né, aucune soirée · (rien à traiter|\d+ choses? à traiter)$/)
+    assert.deepEqual([matin.url, matin.tag], ['/admin#hier', 'qg-point'])
+    assert.doesNotMatch(JSON.stringify(matin), /Léa|lea/)
+    for (let i = 0; i < 100 && ecrits().points[0]?.parti !== 1; i++) await patienter(10)
+    const apres = ecrits()
+    assert.equal(apres.jours.at(-1), il_y_a(1))
+    assert.deepEqual(apres.points, [{ jour: AUJOURDHUI, parti: 1, telephones: 1 }])
+
+    // « Hier, en bref » : la veille, lue une fois, puis gardée — le poste qui se relit ne lit plus rien.
+    const premier = await lire<HierDuQg>(banc, admin, '/api/admin/qg/hier')
+    assert.equal(premier.entree?.hier, il_y_a(1))
+    assert.equal(net(pointDuMatin({ ...premier.entree!, aTraiter: null })!.notification.corps), 'Hier : 1 joueur (0 d’habitude), aucun profil né, aucune soirée')
+    const { instructions: ensuite } = await mesurer(() => lire<HierDuQg>(banc, admin, '/api/admin/qg/hier'))
+    assert.deepEqual(
+      ensuite.filter(sql => /\bqg_(jours|incidents|points)\b/.test(sql)),
+      [],
+      'gardée jusqu’à minuit',
+    )
+
+    // Un redémarrage dans la matinée : la réservation tient, rien ne repart.
+    await banc.redemarrer()
+    await patienter(200)
+    assert.equal(recus().length, 1, 'une seule notification par jour')
+    assert.deepEqual(ecrits().points, [{ jour: AUJOURDHUI, parti: 1, telephones: 1 }])
+
+    // Le lundi suivant : la semaine finie hier, face aux quatre d'avant — la mémoire, rattrapée, les a toutes.
+    horloge.t = a('2026-11-09', 8.75)
+    const [, lundi] = await attendre(2)
+    assert.equal(lundi.titre, 'Le point du lundi')
+    assert.match(net(lundi.corps), /^La semaine : 1 profil actif \(0 d’habitude\), aucun profil né, aucune soirée/)
+
+    // Coupé, à dix heures : à 9 h rien ne s'écrit ; à 10 h 01 la veille s'écrit, et rien ne sonne.
+    const admin2 = await connexionAnimateur(banc.url)
+    const coupe = await ecrire(banc.url, '/api/admin/point-du-matin', { actif: false, minutes: 600 }, admin2, 'PUT')
+    assert.equal(coupe.status, 200)
+    const page = (await coupe.json()) as PageDesAlertes
+    assert.deepEqual([page.point?.actif, page.point?.minutes, page.point?.dOffice], [false, 600, { actif: true, minutes: HEURE_DU_POINT }])
+    assert.deepEqual([page.point?.dernier?.jour, page.point?.dernier?.envoyeLe !== null, page.point?.dernier?.telephones], ['2026-11-09', true, 1])
+    for (const [corps, motif] of [
+      [{ minutes: 557 }, /de cinq en cinq minutes/],
+      [{ actif: false, minutes: 600 }, /déjà celui-là/],
+    ] as const) {
+      const refus = await ecrire(banc.url, '/api/admin/point-du-matin', corps, admin2, 'PUT')
+      assert.equal(refus.status, 400)
+      assert.match(((await refus.json()) as { error: string }).error, motif)
+    }
+    horloge.t = a('2026-11-10', 9)
+    await patienter(200)
+    assert.ok(!ecrits().jours.includes('2026-11-09'), 'avant son heure, la veille attend')
+    horloge.t = a('2026-11-10', 10 + 1 / 60)
+    for (let i = 0; i < 400 && !ecrits().points.some(p => p.jour === '2026-11-10'); i++) await patienter(10)
+    assert.ok(ecrits().jours.includes('2026-11-09'), 'son passage écrit la veille')
+    assert.deepEqual(ecrits().points.at(-1), { jour: '2026-11-10', parti: 0, telephones: null })
+    await patienter(100)
+    assert.equal(recus().length, 2, 'coupé, il ne sonne pas')
+  } finally {
+    await banc.close()
+    await push.fermer()
   }
 })

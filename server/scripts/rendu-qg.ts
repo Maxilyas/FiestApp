@@ -38,7 +38,9 @@
 // Cabinet de curiosités — trente jours de traversées des vingt-quatre joueurs,
 // jouées au pli, une rendue par la vraie route —, « Rendre » ouvert, et la fiche
 // d'un joueur en route. Et les modes : côte à côte, puis le gabarit en tête de
-// chaque page de mode (`SEULEMENT=modes`). Le client construit d'abord (`npm run build -w client`).
+// chaque page de mode (`SEULEMENT=modes`). Et la mémoire de chaque jour, écrite,
+// puis « Hier, en bref » au poste et le point du matin sous « Alertes »
+// (`SEULEMENT=memoire`). Le client construit d'abord (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-qg.ts [dossier]
 //   SEULEMENT=poste,cabinet npx tsx scripts/rendu-qg.ts [dossier]   — ces pages-là, le temps d'une retouche
@@ -1449,6 +1451,39 @@ try {
     }
     await photographier('65-cabinet-fiche-telephone', 360, 640, { ...cabinet, pleine: false, geste: laFiche })
     await photographier('66-cabinet-fiche', 1366, 768, { ...cabinet, pleine: false, geste: laFiche })
+  }
+
+  // La mémoire de chaque jour et le point du matin (la revue d'expert du 4 novembre 2026, P1.3 à P1.5) : la mémoire
+  // écrite d'abord — le passage de la page des joueurs, comme celui du point —, puis « Hier, en bref » en tête du poste
+  // aux trois tailles, replié au téléphone puis déplié, et ouvert par la notification (`#hier`) ; les deux règles neuves
+  // et le point du matin sous « Alertes », son heure ouverte à la saisie.
+  if (photo('memoire')) {
+    const joueurs = await uneFoisDePlus(() => fetch(`${banc.url}/api/admin/joueurs`, { headers: { Cookie: admin } }))
+    if (joueurs.status !== 200) console.error(`[memoire] la mémoire ne s’écrit pas : ${joueurs.status}`)
+    const leBandeau = (avant?: (page: any) => Promise<void>) => async (page: any) => {
+      await page.waitForSelector('.qg-hier', { timeout: 15000 })
+      if (avant) await avant(page)
+    }
+    await photographier('110-hier-en-bref', 1366, 768, { pleine: false, geste: leBandeau() })
+    await photographier('111-hier-en-bref-1920', 1920, 1080, { pleine: false, geste: leBandeau() })
+    await photographier('112-hier-en-bref-telephone', 360, 640, { pleine: false, geste: leBandeau() })
+    await photographier('113-hier-en-bref-telephone-deplie', 360, 640, { geste: leBandeau(page => page.click('.qg-hier-deplier')) })
+    await photographier('114-hier-en-bref-notification', 360, 640, { pleine: false, adresse: '/admin#hier', geste: leBandeau() })
+    const auPoint = async (page: any) => {
+      await page.waitForSelector('#alertes-point', { timeout: 15000 })
+      await page.locator('#alertes-point').scrollIntoViewIfNeeded()
+    }
+    await photographier('115-alertes-point-du-matin', 1366, 768, { adresse: '/admin#alertes', geste: auPoint })
+    await photographier('116-alertes-point-du-matin-1920', 1920, 1080, { adresse: '/admin#alertes', geste: auPoint })
+    await photographier('117-alertes-point-du-matin-telephone', 360, 640, {
+      adresse: '/admin#alertes',
+      pleine: false,
+      geste: async page => {
+        await auPoint(page)
+        await page.click('section[aria-labelledby="alertes-point"] .qg-seuil')
+        await page.locator('section[aria-labelledby="alertes-point"]').scrollIntoViewIfNeeded()
+      },
+    })
   }
 
   // Les pages d'avant le QG 2 : seulement sans `SEULEMENT`.

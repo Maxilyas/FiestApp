@@ -288,6 +288,9 @@ export function audienceDuQg(deps: AudienceDeps) {
   return {
     aJour,
 
+    /** La mémoire sait-elle la veille ? En mémoire, sans rien lire : le point du matin ne relit la veille qu'une fois écrite. */
+    estAJour: (): boolean => ajour === jourDe(deps.maintenant()),
+
     /** La page des joueurs (`GET /api/admin/joueurs`) : le calcul en tranches, puis les prénoms de ceux qu'elle montre. */
     async page(): Promise<PageDesJoueurs> {
       const e = await lEtat()

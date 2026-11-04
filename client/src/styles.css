@@ -14675,6 +14675,20 @@ button.qg-vif[aria-current='page'] { border-color: var(--qg-trait-fort); color: 
 
 /* Le poste de commande : une colonne au téléphone — l'état, ce qui attend, les chiffres, le reste. */
 .qg-poste { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+/* « Hier, en bref » (la revue d'expert du 4 novembre 2026, P1.4), en tête de la grille du poste. Au téléphone, sa
+   phrase et sa ligne — la notification du point du matin —, qui déplie le reste. */
+.qg-hier-corps { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.qg-hier-texte { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.qg-hier-phrase { margin: 0; font-family: var(--sans); font-size: 1.1rem; font-weight: 600; letter-spacing: -0.01em; line-height: 1.3; }
+.qg-hier-deplier { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0; border: 0; background: none; font: inherit; font-size: 0.85rem; text-align: left; cursor: pointer; }
+.qg-hier-deplier .icon { flex: none; width: 14px; height: 14px; transition: transform 0.15s; }
+.qg-hier-deplier[aria-expanded='true'] .icon { transform: rotate(180deg); }
+.qg-hier-lignes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 0.875rem; line-height: 1.4; color: var(--qg-encre-2); }
+.qg-hier-semaine { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.qg-hier-semaine h3 { margin: 0; }
+.qg-hier-replie .qg-hier-lignes,
+.qg-hier-replie .qg-hier-tuiles,
+.qg-hier-replie .qg-hier-semaine { display: none; }
 .qg-chiffres { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .qg-tuiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 /* Des tuiles dans une carte — les duels en attente, la circulation, les Éclats — se partagent sa largeur : les six
@@ -14896,6 +14910,8 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
 .qg-seuil-saisie input,
 .qg-incident-saisie input { min-height: 36px; padding: 0 10px; border: 1px solid var(--qg-trait-fort); border-radius: 8px; background: rgba(255, 255, 255, 0.03); color: var(--ink); font: inherit; font-size: 1rem; }
 .qg-seuil-saisie input { width: 7.5em; font-family: var(--qg-mono); }
+/* L'heure du point du matin : un champ d'heure, à sa largeur — à celle d'un seuil, sa pendule et son « AM » passaient dessous. */
+.qg-seuil-saisie input[type='time'] { width: auto; }
 .qg-incident-saisie label { flex: 1 1 220px; display: flex; }
 .qg-incident-saisie input { flex: 1; min-width: 0; }
 /* La frise des incidents : une ligne par règle, une barre par incident — pleine, close ; en contour, encore ouverte. */
@@ -15439,9 +15455,10 @@ span.annonce-admin-merci { cursor: default; }
      puis le direct, les soirées et le serveur côte à côte — la grille de la maquette du 3 novembre 2026. */
   .qg-poste {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-template-areas: 'etat etat etat' 'chiffres chiffres chiffres' 'graphe graphe traiter' 'direct soirees serveur';
+    grid-template-areas: 'hier hier hier' 'etat etat etat' 'chiffres chiffres chiffres' 'graphe graphe traiter' 'direct soirees serveur';
     align-items: start;
   }
+  .qg-hier { grid-area: hier; }
   .qg-etat-du-service { grid-area: etat; }
   .qg-chiffres { grid-area: chiffres; }
   .qg-participations { grid-area: graphe; align-self: stretch; }
@@ -15449,6 +15466,13 @@ span.annonce-admin-merci { cursor: default; }
   .qg-direct { grid-area: direct; align-self: stretch; }
   .qg-soirees { grid-area: soirees; align-self: stretch; }
   .qg-serveur { grid-area: serveur; align-self: stretch; }
+  /* « Hier, en bref » tout dehors : sa phrase et ses lignes à gauche, ses quatre tuiles à droite, la semaine dessous. */
+  .qg-hier-corps { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); align-items: start; gap: 12px 20px; }
+  .qg-hier-semaine { grid-column: 1 / -1; }
+  .qg-hier-deplier { display: none; }
+  .qg-hier-replie .qg-hier-lignes,
+  .qg-hier-replie .qg-hier-semaine { display: flex; }
+  .qg-hier-replie .qg-hier-tuiles { display: grid; }
   .qg-voyants { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .qg-etat-phrase { font-size: 1.3rem; }
   .qg-etat-replie .qg-voyant-bloc-ok,
