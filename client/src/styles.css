@@ -14476,6 +14476,17 @@ body:has(.player-shell.qg) {
 .qg-periode-courte { gap: 6px; font-family: var(--sans); font-variant-numeric: lining-nums tabular-nums; }
 .qg-periode-courte .icon:last-child { width: 14px; height: 14px; }
 .qg-periodes-feuille { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+/* Le sommaire d'une longue page : une rangée de liens à l'ordinateur, replié sous « Sur cette page » au téléphone. Le
+   titre atteint s'arrête sous la barre collée. */
+.qg-sommaire-page ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.qg-sommaire-rangee { display: none; }
+.qg-sommaire-pli summary { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--accent-text); font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+.qg-sommaire-pli summary .icon { width: 15px; height: 15px; }
+.qg-sommaire-pli ul { padding-bottom: 6px; }
+.qg-sommaire-lien { min-height: 36px; padding: 0 12px; border: 1px solid var(--qg-trait-fort); border-radius: var(--radius-pill); background: rgba(255, 255, 255, 0.025); color: var(--qg-encre-2); font: inherit; font-size: 0.8125rem; cursor: pointer; }
+.qg-sommaire-lien:hover { border-color: rgba(217, 181, 106, 0.45); color: var(--ink); }
+.qg .page-corps h2[id] { scroll-margin-top: 84px; }
+.qg .page-corps h2[id]:focus { outline: none; }
 /* Une page qui ne suit pas la période de la barre y montre, grisée, la fenêtre qu'elle lit. */
 .qg-periode-propre { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 10px; border: 1px dashed var(--qg-trait-fort); border-radius: 9px; color: var(--muted); font: 500 0.75rem/1 var(--sans); white-space: nowrap; cursor: help; }
 .qg-periode-propre .icon { width: 14px; height: 14px; }
@@ -15615,6 +15626,8 @@ span.annonce-admin-merci { cursor: default; }
   .qg-table .qg-colonne-detail { display: table-cell; }
   .qg-table .qg-colonne-resume { display: none; }
   .qg-signaux { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .qg-sommaire-rangee { display: flex; }
+  .qg-sommaire-pli { display: none; }
   .qg-versions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
   /* Une demi-largeur, quatre tuiles : deux par deux, sans quoi « Ce qu'un joueur attend » tenait sur trois lignes. */
   .qg-versions .qg-tuiles.qg-tuiles-quatre { grid-template-columns: repeat(2, minmax(0, 1fr)); }

@@ -29,6 +29,7 @@ import { QgQuestions } from '../components/QgQuestions'
 import { QgReserves } from '../components/QgReserves'
 import { FicheDuJoueurAuQg } from '../components/QgFicheJoueur'
 import { OuvrirLaFiche } from '../components/PrenomDuJoueur'
+import { SommaireDeLaPage, useSommaire } from '../components/SommaireDeLaPage'
 import { PaletteDuQg } from '../components/QgPalette'
 import { Feuille } from '../components/Pieces'
 import { useAppState } from '../state'
@@ -319,7 +320,10 @@ export function AdminApp() {
   const [questionsSur, setQuestionsSur] = useState<EtatDesQuestions>('toutes')
   const [groupes, setGroupes] = useState<Record<string, boolean>>(lireLesGroupes)
   const titre = useRef<HTMLHeadingElement>(null)
+  const corps = useRef<HTMLElement>(null)
   const premierRendu = useRef(true)
+  // Les sections de la page ouverte, lues dans la page : son sommaire, sur une longue page.
+  const sections = useSommaire(corps, `${ecran}|${onglet}|${!!me}`)
   // Une lecture à la fois : l'hébergeur qui se réveille tient une requête trente secondes.
   const enVol = useRef({ direct: false, vue: false })
   const derniereVue = useRef(0)
@@ -738,7 +742,9 @@ export function AdminApp() {
         <div className="qg-cote-pied">{sortir}</div>
       </nav>
 
-      <main className="page-corps">
+      <main className="page-corps" ref={corps}>
+        {/* Une longue page a son sommaire ; le poste de commande se lit d'un coup d'œil. */}
+        {ecran !== null && <SommaireDeLaPage titres={sections} />}
         {ecran === null && (
           <VueDEnsembleDuQg vue={vue} direct={direct} vueEnPanne={vueEnPanne} directEnPanne={directEnPanne} ouvrir={aller} periode={periode} comparer={comparer} />
         )}

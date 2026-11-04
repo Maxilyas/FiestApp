@@ -18,13 +18,17 @@ import {
   REGLE,
   REGLES_DU_QG,
   chiffresDesIncidents,
+  depasse,
+  graviteDe,
+  lesSeuils,
   lireLeReglage,
+  rappelEnEchec,
   reglesOuvertes,
   type IncidentDuQg,
   type PageDesAlertes,
   type ReleveDesAlertes,
 } from '../../shared/qgAlertes'
-import { ALERTE_JOURS_D_AVANCE, type VueDEnsemble } from '../../shared/qg'
+import { ALERTE_JOURS_D_AVANCE, type DirectDuQg, type VueDEnsemble } from '../../shared/qg'
 import { MEMOIRE_PLAFOND_MO, PART_DU_QUOTA_EN_ALERTE, TURSO_LENT_MS } from '../../shared/santeDuServeur'
 import type { MessageDuQg } from '../../shared/pannes'
 
@@ -273,7 +277,42 @@ test('au banc : la page des alertes, un seuil réglé au journal, refusé en cla
     const vue = (await (await lire('/api/admin/qg')).json()) as VueDEnsemble
     assert.equal(vue.aTraiter.seuilDeLaReserve, 3)
     assert.deepEqual(vue.aTraiter.alertes, [])
+    // Le direct prête au client les seuils de toutes les règles, réglés ou d'office : ses voyants et ses compteurs s'y
+    // jugent comme les règles s'ouvrent — un seuil écrit dans le client rougissait à 800 ms une règle réglée à 900.
+    assert.equal((await ecrire(banc.url, '/api/admin/regles/ressenti', { seuil: 900 }, admin, 'PUT')).status, 200)
+    const direct = (await (await lire('/api/admin/qg/direct')).json()) as DirectDuQg
+    assert.deepEqual([direct.seuils?.ressenti, direct.seuils?.reserve, direct.seuils?.memoire], [900, 3, MEMOIRE_PLAFOND_MO])
+    assert.equal(direct.seuils?.panne, undefined, 'une règle sans seuil n’en prête pas')
   } finally {
     await banc.close()
   }
+})
+
+test('une seule comparaison et une seule gravité : la règle, à son seuil réglé, juge la ligne, le voyant et le compteur', () => {
+  // La réserve passe son seuil par en dessous, le quota dès qu'il l'atteint, les autres au-delà.
+  assert.deepEqual([depasse('reserve', 6, {}), depasse('reserve', 7, {})], [true, false])
+  assert.deepEqual([depasse('quota', PART_DU_QUOTA_EN_ALERTE, {}), depasse('quota', PART_DU_QUOTA_EN_ALERTE - 1, {})], [true, false])
+  assert.deepEqual([depasse('ressenti', 800, {}), depasse('ressenti', 801, {})], [false, true])
+  // Un seuil réglé vaut partout ; une règle sans seuil ne se juge pas à une mesure.
+  assert.equal(depasse('ressenti', 850, { ressenti: 900 }), false)
+  assert.equal(depasse('panne', 99, {}), false)
+  // La gravité, celle de la règle ; le quota seul monte d'un cran, critique aux quatre cinquièmes du mois.
+  assert.equal(graviteDe('gel-long', 25_800, {}), 'veille', 'un gel de 25,8 s n’est plus neutre au direct')
+  assert.equal(graviteDe('gel-long', 2_000, {}), null)
+  assert.equal(graviteDe('memoire', 470, {}), 'serieux')
+  assert.deepEqual([graviteDe('quota', 60, {}), graviteDe('quota', 85, {})], ['veille', 'critique'])
+  assert.equal(graviteDe('ressenti', null, {}), null)
+  // Les seuils de toutes les règles qui en ont un, réglés ou d'office : ce que le direct prête au client.
+  const seuils = lesSeuils({ ressenti: { seuil: 900 } })
+  assert.deepEqual([seuils.ressenti, seuils.memoire, seuils.panne], [900, MEMOIRE_PLAFOND_MO, undefined])
+  // Le rappel : sur cinq envois au moins, une part d'échecs passé son seuil — trois sur quatre-vingt-dix ne sont pas une panne.
+  assert.equal(rappelEnEchec({ envoyes: 87, echecs: 3 }, {}), false)
+  assert.equal(rappelEnEchec({ envoyes: 3, echecs: 1 }, {}), false, 'quatre envois ne se jugent pas')
+  assert.equal(rappelEnEchec({ envoyes: 78, echecs: 12 }, {}), true)
+  // Et les règles s'ouvrent à la même comparaison : 850 ms sous un seuil réglé à 900 se taisent, 950 se disent.
+  assert.equal(reglesOuvertes({ ...calme(), ressenti: { p95: 850, appels: 400 } }, { ressenti: { seuil: 900 } }).has('ressenti'), false)
+  assert.equal(reglesOuvertes({ ...calme(), ressenti: { p95: 950, appels: 400 } }, { ressenti: { seuil: 900 } }).has('ressenti'), true)
+  // Une règle mène où l'on agit : un gel long à « Ce qui gèle », la réserve à « Réserves et base ».
+  assert.deepEqual([REGLE['gel-long'].page, REGLE['gel-long'].onglet], ['serveur', 'gels'])
+  assert.equal(REGLE.reserve.page, 'reserves')
 })
