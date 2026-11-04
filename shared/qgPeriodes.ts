@@ -15,6 +15,7 @@
 import { formatNumber } from './typographie'
 import {
   HABITUDE_EN_POURCENTS,
+  MODES_DU_QG,
   minuitDe,
   participationsParSeau,
   type EcartALHabitude,
@@ -62,6 +63,14 @@ export interface TotauxDUnePeriode {
   modes: Record<ModeDuQg, number>
   /** Les participations de chaque mode, qui que ce soit. */
   parties: Record<ModeDuQg, number>
+  /**
+   * Les parties jouées seul commencées sur la période et finies avant sa fin,
+   * mode par mode : l'entonnoir d'une page de mode, d'une partie commencée à sa
+   * fin (`entonnoirDuSolo`, `shared/qgModes.ts`) — la période d'avant arrêtée au
+   * même instant, comme le reste. En soirée, zéro : une soirée se clôt, ses quiz
+   * ne se finissent pas ici. Absent d'un serveur d'avant le QG 2, lot 5.
+   */
+  finies?: Record<ModeDuQg, number>
   nouveauxProfils: number
   achats: number
 }
@@ -147,10 +156,14 @@ export function totauxEntre(
 ): TotauxDUnePeriode {
   const [tout] = participationsParSeau(solo, soirees, [debut], fin)
   const dans = (quand: number) => quand >= debut && quand <= fin
+  // Finie avant la fin de la période : celle d'avant, arrêtée au même instant, n'a pas eu plus de temps que celle-ci.
+  const finies = Object.fromEntries(MODES_DU_QG.map(m => [m, 0])) as Record<ModeDuQg, number>
+  for (const p of solo) if (p.fin != null && dans(p.quand) && p.fin <= fin) finies[p.mode]++
   return {
     joueurs: tout.joueurs,
     modes: tout.modes,
     parties: tout.parties,
+    finies,
     nouveauxProfils: faits.inscriptions.filter(dans).length,
     achats: faits.achats.filter(dans).length,
   }

@@ -3,6 +3,7 @@ import { api, motifDe } from '../api'
 import { confirmDialog } from './Dialog'
 import { Icon } from './Icon'
 import { LigneDeSoiree } from './QgVueDEnsemble'
+import { Chiffre as ChiffreDuMode, GabaritDUnMode } from './QgModes'
 import { showToast } from '../state'
 import { formatNumber } from '../../../shared/typographie'
 import { jourDe } from '../../../shared/jour'
@@ -15,7 +16,10 @@ import {
   type DirectDuQg,
   type PageDesSoirees,
   type SoireeDuQg,
+  type VueDEnsemble,
 } from '../../../shared/qg'
+import type { PeriodeDuQg } from '../../../shared/qgPeriodes'
+import { entonnoirDesSoirees, mediane } from '../../../shared/qgModes'
 
 const soirees = (n: number) => `${formatNumber(n)} soirée${n > 1 ? 's' : ''}`
 
@@ -27,9 +31,23 @@ const dateCourte = (instant: number) => `${JOURS_DE_LA_SEMAINE[jourDeLaSemaine(i
  * en plan — et le seul geste du QG sur la soirée d'un autre, la clore (le
  * choix du 13 octobre 2026) —, puis ce que les trente derniers jours en
  * disent. Des chiffres seulement : ni un quiz, ni un titre, ni un prénom
- * d'invité (`server/src/qg.ts`).
+ * d'invité (`server/src/qg.ts`). En tête, depuis le QG 2 (lot 5), le gabarit
+ * des modes sur la période de la barre (`GabaritDUnMode`) : ses soirées et
+ * leurs salles, tirées de l'historique du mois déjà lu, et son entonnoir.
  */
-export function QgSoirees({ direct, apresUnGeste }: { direct: DirectDuQg | null; apresUnGeste: () => void }) {
+export function QgSoirees({
+  direct,
+  apresUnGeste,
+  vue = null,
+  periode = '24h',
+  comparer = false,
+}: {
+  direct: DirectDuQg | null
+  apresUnGeste: () => void
+  vue?: VueDEnsemble | null
+  periode?: PeriodeDuQg
+  comparer?: boolean
+}) {
   const [page, setPage] = useState<PageDesSoirees | null>(null)
   const [error, setError] = useState('')
   const [enCours, setEnCours] = useState<string | null>(null)
@@ -69,9 +87,52 @@ export function QgSoirees({ direct, apresUnGeste }: { direct: DirectDuQg | null;
     }
   }
 
+  // La période de la barre, de son premier seau à la dernière lecture de l'historique : ses soirées, comptées à leur première question.
+  const debut = vue?.periodes?.[periode]?.seaux[0]?.debut
+  const surLaPeriode = page && debut !== undefined ? page.historique.filter(s => s.quand >= debut && s.quand <= page.maintenant) : null
+  const pasCloses = surLaPeriode?.filter(s => s.ouverte).length ?? 0
+  const salles = surLaPeriode ? mediane(surLaPeriode.filter(s => s.invites > 0).map(s => s.invites)) : null
+
   return (
     <>
       <p className="muted small">Les quiz, les questions et les prénoms des invités restent chez leur animateur : le QG n’en voit que les chiffres.</p>
+      <GabaritDUnMode
+        mode="soiree"
+        vue={vue}
+        periode={periode}
+        comparer={comparer}
+        tuiles={
+          <>
+            <ChiffreDuMode
+              nom="Soirées"
+              valeur={surLaPeriode ? formatNumber(surLaPeriode.length) : '–'}
+              detail={surLaPeriode ? (pasCloses > 0 ? `dont ${formatNumber(pasCloses)} pas encore close${pasCloses > 1 ? 's' : ''}` : 'chacune à sa première question') : undefined}
+            />
+            <ChiffreDuMode
+              nom="Invités par soirée"
+              valeur={salles === null ? '–' : formatNumber(Math.round(salles * 10) / 10)}
+              detail={surLaPeriode ? 'la médiane des salles' : undefined}
+            />
+          </>
+        }
+        enCeMoment={
+          direct && (
+            <span className="small">
+              {formatNumber(vivantes.length)} soirée{vivantes.length > 1 ? 's' : ''} en cours
+              {enPlan.length > 0 && ` · ${formatNumber(enPlan.length)} laissée${enPlan.length > 1 ? 's' : ''} en plan`}
+            </span>
+          )
+        }
+        entonnoir={
+          page && debut !== undefined
+            ? {
+                titre: 'D’un premier quiz à la clôture',
+                etapes: entonnoirDesSoirees(page.historique, debut, page.maintenant),
+                note: 'Une salle ouverte sans une question jouée ne laisse pas de trace : un essai s’efface. Celle qui n’est pas close se joue encore, ou a été laissée en plan.',
+              }
+            : null
+        }
+      />
       <section className="qg-carte" aria-labelledby="soirees-direct">
         <div className="qg-carte-tete">
           <h2 id="soirees-direct">En direct</h2>

@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react'
 import { api, motifDe, type ProfilMasquable } from '../api'
 import { confirmDialog } from './Dialog'
 import { AujourdhuiDesDuels, ClassementDesDuelsAuQg, DuelsEnAttente, DuelsParJour, LiguesAuQg } from './QgDuels'
-import { confirmerLeMasque } from './QgModes'
+import { Chiffre, GabaritDUnMode, TuileParJoueur, confirmerLeMasque } from './QgModes'
 import { showToast } from '../state'
+import { formatNumber } from '../../../shared/typographie'
 import type { LigneDesDuels } from '../../../shared/duels'
 import type { VueDEnsemble } from '../../../shared/qg'
 import type { DuelEnAttente, SuiviDesDuels } from '../../../shared/qgDuels'
+import type { PeriodeDuQg } from '../../../shared/qgPeriodes'
+import { entonnoirDesDuels } from '../../../shared/qgModes'
 
 /**
  * Les duels, côté administrateur (`/admin#duels`, le choix du 13 octobre
@@ -14,9 +17,10 @@ import type { DuelEnAttente, SuiviDesDuels } from '../../../shared/qgDuels'
  * ligues et le classement — « Masquer » sur chaque ligne, et les masqués à y
  * remettre —, les duels qui attendent leur adversaire — « Annuler » sur
  * chacun (`QgDuels.tsx`). La vue d'ensemble du QG lui prête ses trente
- * jours : déjà lus, ils ne se relisent pas ici.
+ * jours : déjà lus, ils ne se relisent pas ici — et, depuis le QG 2 (lot 5),
+ * ses périodes, que le gabarit des modes pose en tête (`GabaritDUnMode`).
  */
-export function AdminDuels({ vue }: { vue: VueDEnsemble | null }) {
+export function AdminDuels({ vue, periode = '24h', comparer = false }: { vue: VueDEnsemble | null; periode?: PeriodeDuQg; comparer?: boolean }) {
   const [suivi, setSuivi] = useState<SuiviDesDuels | null>(null)
   const [masques, setMasques] = useState<ProfilMasquable[] | null>(null)
   const [enPanne, setEnPanne] = useState(false)
@@ -70,8 +74,36 @@ export function AdminDuels({ vue }: { vue: VueDEnsemble | null }) {
     if (ok) await faire(() => api.admin.annulerUnDuel(d.code), `Duel annulé : ${d.auteur.nom} contre ${d.adversaire.nom}`)
   }
 
+  // Les duels classés de la période : ceux lancés depuis son premier seau, lus avec le suivi.
+  const debut = vue?.periodes?.[periode]?.seaux[0]?.debut
+  const lances = suivi?.lancesDuMois && debut !== undefined ? entonnoirDesDuels(suivi.lancesDuMois, debut, suivi.maintenant) : null
   return (
     <>
+      <GabaritDUnMode
+        mode="duel"
+        vue={vue}
+        periode={periode}
+        comparer={comparer}
+        tuiles={
+          <>
+            <Chiffre
+              nom="Duels classés"
+              valeur={lances ? formatNumber(lances[0].n) : '–'}
+              detail={lances ? `lancés · ${formatNumber(lances[1].n)} joués des deux côtés` : undefined}
+            />
+            <TuileParJoueur mode="duel" vue={vue} periode={periode} detail="en moyenne, contre Automate compris" />
+          </>
+        }
+        entonnoir={
+          lances
+            ? {
+                titre: 'D’un duel classé lancé à son verdict',
+                etapes: lances,
+                note: 'Un duel a sept jours pour être joué de l’autre côté : sur une heure, la plupart attendent encore. Contre Automate, rien ne décroche — il répond toujours.',
+              }
+            : null
+        }
+      />
       <AujourdhuiDesDuels vue={vue} suivi={suivi} />
       {enPanne && <p className="serif-note">La base permanente ne répond pas : les duels reviendront en rouvrant la page.</p>}
       <DuelsParJour vue={vue} suivi={suivi} />

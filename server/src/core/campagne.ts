@@ -1161,7 +1161,7 @@ export class CampagneStore {
   /** Les trente jours des parcours et des vies au QG, gardés dix minutes (`TRENTE_JOURS_GARDES_MS`). */
   private trenteJoursGardes: { minuit: number; jusqua: number; lus: Promise<Pick<SuiviDeLaCampagne, 'parcours' | 'vies'>> } | null = null
   /** Les duels classés lancés sur trente jours, au QG : gardés de même. */
-  private lancesGardes: { minuit: number; jusqua: number; lus: Promise<Pick<SuiviDesDuels, 'lances' | 'jouesDesDeuxCotes'>> } | null = null
+  private lancesGardes: { minuit: number; jusqua: number; lus: Promise<Pick<SuiviDesDuels, 'lances' | 'jouesDesDeuxCotes' | 'lancesDuMois'>> } | null = null
   private ferme = false
   /** Le préchauffage est parti (`prechauffer`) : le délai du démarrage, ou le premier profil venu. */
   private prechauffee = false
@@ -7420,17 +7420,30 @@ export class CampagneStore {
    * seul texte JSON : trente jours de séries, 3 405 en production le
    * 3 novembre 2026, se décodaient ligne à ligne à coups de `defineProperty`,
    * une demi-seconde de gel au dixième de cœur à chaque réveil
-   * (`qg-charge.test.ts`).
+   * (`qg-charge.test.ts`). Et sa fin et ses bonnes réponses, deux colonnes
+   * des mêmes lignes : la durée d'une partie et la réussite des modes côte à
+   * côte (le QG 2, lot 5), pas une ligne de plus au quota.
    */
-  async seriesDepuis(depuis: number, qui?: string): Promise<{ qui: string; quand: number; mode: string | null; questions: number }[]> {
+  async seriesDepuis(
+    depuis: number,
+    qui?: string,
+  ): Promise<{ qui: string; quand: number; mode: string | null; questions: number; fin: number | null; justes: number }[]> {
     const res = await this.client.execute({
       sql: `SELECT json_group_array(json_array(profile_id, commencee_le, mode,
-                     CASE WHEN mode = 'expedition' THEN (SELECT COUNT(*) FROM campagne_reponses r WHERE r.serie_id = campagne_series.id) ELSE position END)) AS lignes
+                     CASE WHEN mode = 'expedition' THEN (SELECT COUNT(*) FROM campagne_reponses r WHERE r.serie_id = campagne_series.id) ELSE position END,
+                     finie_le, justes)) AS lignes
             FROM campagne_series WHERE commencee_le >= ?${qui === undefined ? '' : ' AND profile_id = ?'}`,
       args: qui === undefined ? [depuis] : [depuis, qui],
     })
-    const lignes = JSON.parse(String(res.rows[0]?.lignes ?? '[]')) as [string, number, string | null, number][]
-    return lignes.map(([qui, quand, mode, questions]) => ({ qui: String(qui), quand: Number(quand), mode: mode === null ? null : String(mode), questions: Number(questions) }))
+    const lignes = JSON.parse(String(res.rows[0]?.lignes ?? '[]')) as [string, number, string | null, number, number | null, number][]
+    return lignes.map(([qui, quand, mode, questions, fin, justes]) => ({
+      qui: String(qui),
+      quand: Number(quand),
+      mode: mode === null ? null : String(mode),
+      questions: Number(questions),
+      fin: fin === null ? null : Number(fin),
+      justes: Number(justes),
+    }))
   }
 
   /**
@@ -7656,8 +7669,12 @@ export class CampagneStore {
     }
   }
 
-  /** Les duels classés lancés chaque jour sur trente jours, et ceux joués des deux côtés : gardés dix minutes, comme les vies. */
-  private duelsLancesAuQg(minuits: readonly number[]): Promise<Pick<SuiviDesDuels, 'lances' | 'jouesDesDeuxCotes'>> {
+  /**
+   * Les duels classés lancés chaque jour sur trente jours, et ceux joués des
+   * deux côtés : gardés dix minutes, comme les vies. Chacun aussi à son heure
+   * (`lancesDuMois`) : l'entonnoir de la page se lit sur la période de la barre.
+   */
+  private duelsLancesAuQg(minuits: readonly number[]): Promise<Pick<SuiviDesDuels, 'lances' | 'jouesDesDeuxCotes' | 'lancesDuMois'>> {
     const maintenant = this.maintenant()
     const minuit = minuits[minuits.length - 1]
     const garde = this.lancesGardes
@@ -7671,14 +7688,19 @@ export class CampagneStore {
         args: [minuits[0]],
       })
       const lances = minuits.map(() => 0)
+      const lancesDuMois: { quand: number; joue: boolean }[] = []
       let joues = 0
       for (const r of res.rows) {
         const quand = Number(r.quand)
+        const joue = Number(r.joue) === 1
         const i = quand <= maintenant ? jourDeLInstant(minuits, quand) : -1
-        if (i >= 0) lances[i]++
-        if (Number(r.joue) === 1) joues++
+        if (i >= 0) {
+          lances[i]++
+          lancesDuMois.push({ quand, joue })
+        }
+        if (joue) joues++
       }
-      return { lances, jouesDesDeuxCotes: joues }
+      return { lances, jouesDesDeuxCotes: joues, lancesDuMois }
     })()
     this.lancesGardes = { minuit, jusqua: maintenant + TRENTE_JOURS_GARDES_MS, lus }
     lus.catch(() => {

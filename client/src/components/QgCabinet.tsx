@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { api, motifDe } from '../api'
 import { Icon } from './Icon'
 import { Feuille } from './Pieces'
-import { Chiffre } from './QgModes'
+import { Chiffre, GabaritDUnMode } from './QgModes'
 import { GrapheDuTemps, type SerieDuGraphe } from './QgGraphes'
 import { FicheDuJoueurAuQg, confirmerLeRendu } from './QgFicheJoueur'
 import { supprimerLeProfil } from './AdminProfils'
@@ -10,7 +10,8 @@ import { showToast } from '../state'
 import { espacesFines } from '../format'
 import { formatNumber } from '../../../shared/typographie'
 import { jourEnToutesLettres } from '../../../shared/jour'
-import { dureeCourteEcrite, dureeEcrite, jourAbrege, quandEcrit } from '../../../shared/qg'
+import { dureeCourteEcrite, dureeEcrite, jourAbrege, quandEcrit, type VueDEnsemble } from '../../../shared/qg'
+import type { PeriodeDuQg } from '../../../shared/qgPeriodes'
 import { CLES_DES_JEUX, JEUX } from '../../../shared/cabinet/jeux/regle'
 import { NOMS_DES_CARTES } from '../../../shared/cabinet/sceaux'
 import { ACTES, type Acte } from '../../../shared/cabinet/traversee'
@@ -52,7 +53,22 @@ const LIGNES_D_ABORD = 10
 const uneDecimale = (x: number) => formatNumber(Math.round(x * 10) / 10)
 const nomDuGardien = (cle: string) => legendaire(cle)?.nom ?? 'Un gardien'
 
-export function QgCabinet({ versLaMaintenance }: { versLaMaintenance: () => void }) {
+/**
+ * La page, et en tête le gabarit des modes (le QG 2, lot 5) : la courbe du Cabinet sur la période de la barre et
+ * « En ce moment », sans ses tuiles — la page a les siennes, sur trente jours. Il ne lit que la vue d'ensemble et le
+ * flux, déjà là : il n'attend pas la page.
+ */
+export function QgCabinet({
+  versLaMaintenance,
+  vue = null,
+  periode = '24h',
+  comparer = false,
+}: {
+  versLaMaintenance: () => void
+  vue?: VueDEnsemble | null
+  periode?: PeriodeDuQg
+  comparer?: boolean
+}) {
   const [page, setPage] = useState<PageDuCabinetAuQg | null>(null)
   const [error, setError] = useState('')
   const [relire, setRelire] = useState(0)
@@ -66,9 +82,37 @@ export function QgCabinet({ versLaMaintenance }: { versLaMaintenance: () => void
     )
   }, [relire])
 
-  if (error && !page) return <p className="error">{error}</p>
-  if (!page) return <p className="serif-note">Chargement…</p>
-  return <CabinetAuQg page={page} apresUnGeste={() => setRelire(n => n + 1)} versLaMaintenance={versLaMaintenance} />
+  const gabarit = (
+    <GabaritDUnMode
+      mode="cabinet"
+      vue={vue}
+      periode={periode}
+      comparer={comparer}
+      sansTuiles
+      // Celles qui attendent leur joueur, de tout âge : la courbe ne compte que les épreuves qui commencent.
+      enCeMoment={page && <span className="small">{page.enRouteEnTout > 0 ? `${pluriel(page.enRouteEnTout, 'traversée')} en route` : 'Aucune traversée en route'}</span>}
+    />
+  )
+  if (error && !page)
+    return (
+      <>
+        {gabarit}
+        <p className="error">{error}</p>
+      </>
+    )
+  if (!page)
+    return (
+      <>
+        {gabarit}
+        <p className="serif-note">Chargement…</p>
+      </>
+    )
+  return (
+    <>
+      {gabarit}
+      <CabinetAuQg page={page} apresUnGeste={() => setRelire(n => n + 1)} versLaMaintenance={versLaMaintenance} />
+    </>
+  )
 }
 
 /** La page lue : le tableau de bord, les traversées en route, les jeux, les cartes et les gardiens, le contenu, les joueurs. */

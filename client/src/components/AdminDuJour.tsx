@@ -3,7 +3,11 @@ import { api, motifDe, type AdminDuJour as Etat, type ProfilMasquable } from '..
 import { confirmDialog } from './Dialog'
 import { Flamme, Icon } from './Icon'
 import { AujourdhuiDuJour, ClassementDuMoisAuQg, JoueursParJour, QuestionsDuJour, RappelDuSoirAuQg, SeriesDuJourAuQg } from './QgDuJour'
-import { confirmerLeMasque } from './QgModes'
+import { Chiffre, GabaritDUnMode, confirmerLeMasque, enPourcentsEcrits } from './QgModes'
+import { formatNumber } from '../../../shared/typographie'
+import { enPourcents } from '../../../shared/qgDuJour'
+import { entonnoirDuSolo } from '../../../shared/qgModes'
+import type { PeriodeDuQg } from '../../../shared/qgPeriodes'
 import { VersLesSignalements } from './QgSignalements'
 import { QuestionsDuPublicAuQg } from './QgQuestionsDuPublic'
 import { copierTexte } from '../copier'
@@ -16,6 +20,14 @@ import { ALERTE_JOURS_D_AVANCE as ALERTE_JOURS, type VueDEnsemble } from '../../
 
 const SOURCES: Record<string, string> = { livre: 'Quiz livrés', liste: 'Liste collée', ia: 'Écrite par l’IA', public: 'Question du public' }
 
+/** Les parties d'aujourd'hui pas encore finies : en cours, ou laissées — une partie du jour se finit quand son joueur revient. */
+function enRouteDuJour({ commencees, finies }: SuiviDuJour['parties']): string {
+  const n = commencees - finies
+  if (commencees === 0) return 'Personne n’a encore joué aujourd’hui'
+  if (n <= 0) return 'Toutes les parties d’aujourd’hui sont finies'
+  return `${formatNumber(n)} partie${n > 1 ? 's' : ''} d’aujourd’hui pas encore finie${n > 1 ? 's' : ''}`
+}
+
 /**
  * Le quiz du jour, côté administrateur : les chiffres d'aujourd'hui, la
  * réserve et ses jours d'avance, de quoi la remplir (« Coller une liste », le
@@ -24,9 +36,21 @@ const SOURCES: Record<string, string> = { livre: 'Quiz livrés', liste: 'Liste c
  * la campagne (`AdminSignalements.tsx`) —, les joueurs des trente derniers
  * jours, le classement du mois, les séries, le rappel du soir, et les
  * profils à masquer du classement (`QgDuJour.tsx`). La vue d'ensemble du QG
- * lui prête ses trente jours : déjà lus, ils ne se relisent pas ici.
+ * lui prête ses trente jours : déjà lus, ils ne se relisent pas ici — et,
+ * depuis le QG 2 (lot 5), ses périodes, que le gabarit des modes pose en tête
+ * (`GabaritDUnMode`), avant même la réserve.
  */
-export function AdminDuJour({ vue, versLesSignalements }: { vue: VueDEnsemble | null; versLesSignalements: () => void }) {
+export function AdminDuJour({
+  vue,
+  versLesSignalements,
+  periode = '24h',
+  comparer = false,
+}: {
+  vue: VueDEnsemble | null
+  versLesSignalements: () => void
+  periode?: PeriodeDuQg
+  comparer?: boolean
+}) {
   const [etat, setEtat] = useState<Etat | null>(null)
   const [erreur, setErreur] = useState('')
   const [suivi, setSuivi] = useState<SuiviDuJour | null>(null)
@@ -145,12 +169,51 @@ export function AdminDuJour({ vue, versLesSignalements }: { vue: VueDEnsemble | 
     setTrouves(ts => ts.map(t => (t.id === p.id ? { ...t, masque } : t)))
   }
 
-  if (erreur) return <p className="error">{erreur}</p>
-  if (!etat) return null
+  // Le gabarit d'abord, sans attendre la réserve : il ne lit que la vue d'ensemble et le direct, déjà là.
+  const totaux = vue?.periodes?.[periode]?.totaux
+  const finies = totaux?.finies ? enPourcents({ justes: totaux.finies.jour, sur: totaux.parties.jour }) : null
+  const enAvance = etat?.reserve.joursDAvance ?? vue?.aTraiter.reserve?.joursDAvance
+  const gabarit = (
+    <GabaritDUnMode
+      mode="jour"
+      vue={vue}
+      periode={periode}
+      comparer={comparer}
+      tuiles={
+        <>
+          <Chiffre
+            nom="Parties finies"
+            valeur={enPourcentsEcrits(finies)}
+            detail={totaux?.finies ? `${formatNumber(totaux.finies.jour)} sur ${formatNumber(totaux.parties.jour)} commencées` : undefined}
+          />
+          <Chiffre
+            nom="La réserve"
+            valeur={enAvance === undefined ? '–' : formatNumber(enAvance)}
+            detail={enAvance === undefined ? undefined : `jour${enAvance > 1 ? 's' : ''} d’avance${enAvance < ALERTE_JOURS ? ' · à remplir' : ''}`}
+          />
+        </>
+      }
+      // Ce qui court encore, plutôt que les parties du jour : « Aujourd'hui », juste dessous, les compte déjà.
+      enCeMoment={suivi && <span className="small">{enRouteDuJour(suivi.parties)}</span>}
+      entonnoir={(() => {
+        const etapes = totaux && entonnoirDuSolo(totaux, 'jour')
+        return etapes ? { titre: 'D’une partie commencée à sa fin', etapes, note: 'Dix questions chronométrées : une partie laissée en route se finit quand son joueur revient, ou jamais.' } : null
+      })()}
+    />
+  )
+  if (erreur)
+    return (
+      <>
+        {gabarit}
+        <p className="error">{erreur}</p>
+      </>
+    )
+  if (!etat) return gabarit
   const { reserve } = etat
   const dernierDepot = reserve.apports.find(a => a.source === 'ia')
   return (
     <>
+      {gabarit}
       <AujourdhuiDuJour suivi={suivi} vue={vue} />
       {/* La réserve d'abord, dans le cadre du tableau de bord : c'est ce
           qu'on vient vérifier, et ce qui s'allume quand elle baisse. */}

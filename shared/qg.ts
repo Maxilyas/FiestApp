@@ -330,6 +330,12 @@ export interface PartieDesParticipations {
   quand: number
   qui: string
   mode: Exclude<ModeDuQg, 'soiree'>
+  /**
+   * Sa fin, quand le journal la date — null tant qu'elle court, ou laissée en
+   * route : l'entonnoir d'un mode compte les finies (`TotauxDUnePeriode.finies`,
+   * le QG 2, lot 5). La participation ne la lit pas.
+   */
+  fin?: number | null
 }
 
 /** Ce qu'un seau de temps a vu : qui a joué, et combien de fois, mode par mode (`participationsParSeau`). */

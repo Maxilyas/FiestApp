@@ -380,14 +380,28 @@ export const HORS_LIGNES_A_PART = `soiree_id NOT IN (${LIGNES_A_PART.map(l => `'
  * Ce que le QG lit d'une ligne de soirée : qui, quand, les quiz qu'il y a
  * joués et les questions qu'on lui a posées — tirés du détail dans la base
  * même, sans le faire voyager (ses catégories en font l'essentiel). Une ligne
- * illisible compte zéro au lieu de faire échouer la lecture.
+ * illisible compte zéro au lieu de faire échouer la lecture. Et les questions
+ * à choix auxquelles il a répondu, ses justes, et sa soirée : la réussite des
+ * soirées aux modes côte à côte du QG (le QG 2, lot 5), tirées des mêmes
+ * lignes, comptée avec la soirée qu'elles disent.
  */
-const COLONNES_D_UNE_SOIREE_DU_QG = `profile_id, created_at,
+const COLONNES_D_UNE_SOIREE_DU_QG = `profile_id, created_at, space_id, soiree_id,
   CASE WHEN json_valid(detail) THEN json_extract(detail, '$.releve.quizJoues') END AS quiz,
-  CASE WHEN json_valid(detail) THEN json_extract(detail, '$.releve.questions') END AS questions`
+  CASE WHEN json_valid(detail) THEN json_extract(detail, '$.releve.questions') END AS questions,
+  CASE WHEN json_valid(detail) THEN json_extract(detail, '$.releve.qcm') END AS qcm,
+  CASE WHEN json_valid(detail) THEN json_extract(detail, '$.releve.justes') END AS justes`
 
 /** Une soirée d'un profil, telle que le QG la compte (`COLONNES_D_UNE_SOIREE_DU_QG`). */
-const soireeDuQg = (r: Row): SoireeDUnProfil => ({ qui: String(r.profile_id), quand: Number(r.created_at), quiz: Number(r.quiz ?? 0), questions: Number(r.questions ?? 0) })
+const soireeDuQg = (r: Row): SoireeDUnProfil => ({
+  qui: String(r.profile_id),
+  quand: Number(r.created_at),
+  quiz: Number(r.quiz ?? 0),
+  questions: Number(r.questions ?? 0),
+  qcm: Number(r.qcm ?? 0),
+  justes: Number(r.justes ?? 0),
+  // La clé de `lesSoireesDepuis` (`server/src/qg.ts`) : son espace, et le nom figé de la soirée, celui de sa fiche.
+  soiree: `${String(r.space_id)}|${String(r.soiree_id)}`,
+})
 
 /** Ses dernières soirées, où l'on cherche qui il a croisé (`compagnonsDeSoiree`) : au-delà, on ne se souvient plus de qui était là. */
 const SOIREES_DES_CROISES = 5
