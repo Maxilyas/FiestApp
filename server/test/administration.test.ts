@@ -56,21 +56,26 @@ test('/admin : le QG — la vue d’ensemble d’abord, son journal et son serve
   // (`annonces.test.ts`), et les erreurs à trier, avant le serveur (`qg-erreurs.test.ts`) ; les nouveautés à l'affiche, après
   // les annonces, le 1er novembre 2026 (`affiches.test.ts`) ; la base et le miroir, sortis du serveur, le 4 novembre
   // 2026 (le QG 2, `qg-serveur-routes.test.ts`), le direct, le même jour (`qg-direct.test.ts`), les alertes et leurs
-  // incidents (`qg-alertes.test.ts`), les joueurs, en tête de l'audience (`qg-joueurs.test.ts`), et les téléphones
-  // (`qg-telephones.test.ts`) ; les ancres d'avant y mènent encore.
+  // incidents (`qg-alertes.test.ts`), les joueurs, en tête de l'audience (`qg-joueurs.test.ts`), les téléphones
+  // (`qg-telephones.test.ts`), et le Cabinet de curiosités, après la campagne (`qg-cabinet.test.ts`) ; les ancres
+  // d'avant y mènent encore.
   assert.match(
     page,
-    /const ECRANS: readonly Ecran\[\] = \['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes', 'joueurs', 'telephones'\]/,
+    /const ECRANS: readonly Ecran\[\] = \['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'cabinet', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes', 'joueurs', 'telephones'\]/,
   )
   assert.match(page, /const ANCIENNES: Record<string, Ecran> = \{ 'les-profils': 'profils', 'quiz-du-jour': 'jour' \}/)
   assert.match(page, /history\.pushState\(\{ \.\.\.history\.state, depuisAdmin: true \}, '', e \? `\/admin#\$\{e\}` : '\/admin'\)/)
   // À l'ordinateur, la barre de côté mène à chaque écran ; au téléphone, la
   // liste des pages, qui dit ce qu'on y trouve — les signalements y comptent
   // leurs questions à relire, aux deux modes (le 14 octobre 2026).
-  for (const e of ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes', 'joueurs', 'telephones']) {
+  for (const e of ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'cabinet', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes', 'joueurs', 'telephones']) {
     assert.match(page, new RegExp(`\\{ ecran: '${e}', nom: '[^']+', icone: '[a-z-]+' \\}`), e)
   }
   assert.match(page, /<Ligne icone="eye" nom="Les joueurs"/)
+  // Le Cabinet dans les modes, juste après la campagne, qui le garde parmi ses sous-modes ; sa tuile du poste de commande y mène.
+  assert.match(page, /\{ ecran: 'campagne', nom: 'Campagne', icone: 'target' \},\s*\{ ecran: 'cabinet', nom: 'Cabinet', icone: 'landmark' \}/)
+  assert.match(page, /<Ligne icone="landmark" nom="Le Cabinet"/)
+  assert.match(source('components/QgVueDEnsemble.tsx'), /cabinet: 'cabinet'/)
   assert.match(page, /<Ligne icone="hash" nom="L’activité"/)
   assert.match(page, /<Ligne icone="alert" nom="La maintenance"/)
   assert.match(page, /<Ligne icone="megaphone" nom="Les annonces"/)

@@ -154,6 +154,10 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     ok(await faire(banc, admin, `/api/admin/profils/${idLea}/connexion`), 'verrou')
     ok(await faire(banc, lea, '/api/campagne/sentiers/epreuve', { branche: 'mythes', palier: 1 }), 'épreuve')
     ok(await faire(banc, admin, `/api/admin/profils/${idLea}/epreuve`), 'libérer l’épreuve')
+    // …sa traversée du Cabinet, partie puis rendue : celle que la fiche a montrée.
+    ok(await faire(banc, lea, '/api/cabinet/traversee'), 'partir en traversée')
+    const traversee = (await lire(banc, admin, `/api/admin/profils/${idLea}`)).corps.traversee.id as string
+    ok(await faire(banc, admin, `/api/admin/profils/${idLea}/traversee`, { traversee }), 'rendre la traversée')
     ok(await faire(banc, admin, `/api/admin/profils/${idLea}/suspendre`), 'suspendre')
     ok(await faire(banc, admin, `/api/admin/profils/${idLea}/reactiver`), 'réactiver')
     ok(await faire(banc, admin, `/api/admin/profils/${idLea}/prenom`, { nom: 'Léa B.' }), 'renommer')
@@ -266,6 +270,7 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       'Le coffre d’or offert : Léa (@lea)',
       'Code de secours neuf tiré : Léa (@lea)',
       'Verrou de connexion levé : Léa (@lea)',
+      'Traversée du Cabinet rendue, sans rien coûter : Léa (@lea) — au choix de ses cartes',
       'Profil suspendu : Léa (@lea)',
       'Profil réactivé : Léa (@lea)',
       'Profil renommé : « Léa » devient « Léa B. » (@lea)',
@@ -350,6 +355,7 @@ test('chaque route de l’administration qui change quelque chose se note avec s
         'Profil renommé : « Léa » devient « Léa B. » (@lea)',
         'Profil réactivé : Léa (@lea)',
         'Profil suspendu : Léa (@lea)',
+        'Traversée du Cabinet rendue, sans rien coûter : Léa (@lea) — au choix de ses cartes',
         'Épreuve de sentier libérée, sans coûter de vie : Léa (@lea) — …',
         'Verrou de connexion levé : Léa (@lea)',
         'Code de secours neuf tiré : Léa (@lea)',

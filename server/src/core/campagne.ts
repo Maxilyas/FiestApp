@@ -1398,6 +1398,8 @@ export class CampagneStore {
    */
   async init(enPlus: CeQueLeReveilAjoute = {}) {
     const secret = enPlus.secret
+    // Le schéma des tables du Cabinet qui ont gagné une colonne depuis leur naissance, lu dans ce lot : une par table.
+    const sesTables = [...new Set((enPlus.colonnesDeSesTables ?? []).map(([table]) => table))]
     const resultats = await this.client.batch(
       [
         `CREATE TABLE IF NOT EXISTS campagne_series (
@@ -1476,6 +1478,8 @@ export class CampagneStore {
         // Chaque réveil en propose un neuf ; la base ne le prend que si elle n'en a pas : deux serveurs pendant une
         // mise en ligne, un redémarrage relisent le même — jamais un secret neuf au réveil (règle `cabinet.md`).
         ...(secret ? [{ sql: 'INSERT INTO campagne_meta (cle, valeur) VALUES (?, ?) ON CONFLICT (cle) DO NOTHING', args: [secret, randomBytes(32).toString('hex')] }] : []),
+        // Créées plus haut dans ce lot s'il le fallait : leur schéma se lit après elles.
+        ...sesTables.map(table => ({ sql: 'SELECT name FROM pragma_table_info(?)', args: [table] })),
         // Dans le même aller-retour : un réveil de l'hébergeur n'en paie pas un de plus.
         'SELECT question_id FROM campagne_retraits',
         'SELECT entree, ajoutee_le FROM campagne_ajouts ORDER BY ajoutee_le',
@@ -1487,6 +1491,13 @@ export class CampagneStore {
     )
     const [retraits, ajouts, corrections, melanges, secretLu] = resultats.slice(secret ? -5 : -4)
     if (secret) this.secretLu = typeof secretLu.rows[0]?.valeur === 'string' ? secretLu.rows[0].valeur : null
+    // Une colonne qui manque à sa table — une base née avant elle — s'ajoute ici, une fois : `ajouterColonne` relit le
+    // schéma et lève toute autre panne, qui arrête le démarrage.
+    const schemas = resultats.slice(secret ? -5 - sesTables.length : -4 - sesTables.length, secret ? -5 : -4)
+    for (const [table, colonne, type] of enPlus.colonnesDeSesTables ?? []) {
+      const lues = schemas[sesTables.indexOf(table)]?.rows.map(r => String(r.name)) ?? []
+      if (!lues.includes(colonne)) await ajouterColonne(this.client, table, colonne, type)
+    }
     for (const r of retraits.rows) this.retirees.add(String(r.question_id))
     // Un mélange que les règles du jour refusent — une marche de plus, un palier de moins — se tait : le palier reprend celui du code.
     for (const r of melanges.rows) {

@@ -20,6 +20,8 @@ import type { CeQueLeReveilAjoute } from '../porteDeLaCampagne'
 import { lireUnGeste, lireLeDepart, lireLaMonteeDuDepart } from '../../../../shared/cabinet/lecture'
 import { lireLeDepartDeLaTraversee, lireUnGesteDeLaTraversee, type DepartDeLaTraversee, type GesteDeLaTraverseeEcrit } from '../../../../shared/cabinet/traversee'
 import type { RecordDeLaTour } from '../../../../shared/cabinet/montee'
+import { VERSION_DU_RESUME, type ResumeDeLaTraversee } from '../../../../shared/cabinet/resume'
+import type { PieceAuQg } from '../../../../shared/qgCabinet'
 import type { DepartDUnePartie, GesteEcrit, IssueDUnePartie, Manche, OrigineDUnePartie } from '../../../../shared/cabinet/partie'
 import { ISSUES } from '../../../../shared/cabinet/partie'
 import { type CaseFigee, type LigneDOeuvre, type LigneDuProfil, type OrigineDUneOeuvre, type PartieDuJour, type VisiteFigee } from '../../../../shared/cabinet/musee'
@@ -112,7 +114,14 @@ const RECORDS = `CREATE TABLE IF NOT EXISTS cabinet_records (
  * versionné — la carte des trois actes, ses cartes, ses gardiens), et leur
  * fin, écrite dans le lot du geste qui la décide. Une seule en route par
  * profil, recomptée par la base dans l'instruction qui en commence une. Ce
- * qu'elle a gagné se lit de ses gestes : rien d'autre ne s'y résume.
+ * qu'elle a gagné se lit de ses gestes.
+ *
+ * `resume` (le 4 novembre 2026, la page du Cabinet au QG) : son résumé
+ * (`ResumeDeLaTraversee`, JSON versionné), écrit dans le lot qui la finit —
+ * un reflet, comme `cabinet_profils`, que son pli refait (`resumeDeLaTraversee`)
+ * : la page du QG lit une ligne par traversée, jamais ses gestes. Une
+ * traversée finie avant la colonne se résume à la première page qui la lit, et
+ * garde ce résumé. Rendue par l'administrateur, son issue reste vide.
  */
 const TRAVERSEES = `CREATE TABLE IF NOT EXISTS cabinet_traversees (
   id           TEXT PRIMARY KEY,
@@ -121,10 +130,18 @@ const TRAVERSEES = `CREATE TABLE IF NOT EXISTS cabinet_traversees (
   commencee_le INTEGER NOT NULL,
   finie_le     INTEGER,
   issue        TEXT CHECK (issue IN ('gagnee', 'perdue', 'abandonnee')),
-  legendaire   TEXT
+  legendaire   TEXT,
+  resume       TEXT
 )`
 /** La dernière traversée d'un profil, et celle qui est en route : par son index, jamais un parcours de la table. */
 const TRAVERSEES_DU_PROFIL = 'CREATE INDEX IF NOT EXISTS cabinet_traversees_profil ON cabinet_traversees (profile_id, commencee_le)'
+/**
+ * Les traversées de tout le serveur par leur fin, pour le QG : celles en route (`finie_le IS NULL`, que l'index range
+ * aussi), celles finies aujourd'hui, et les trente jours d'avant, lus une fois par jour. Sans lui, la table entière à
+ * chaque ouverture de la page. Sans statistiques, la garde du départ — un profil, `finie_le IS NULL` — garde l'index
+ * du profil (`qg-cabinet.test.ts` lit les deux plans).
+ */
+const TRAVERSEES_PAR_LEUR_FIN = 'CREATE INDEX IF NOT EXISTS cabinet_traversees_finie ON cabinet_traversees (finie_le)'
 
 /**
  * Les gestes d'une traversée, dans l'ordre, comme ceux d'une partie
@@ -151,10 +168,13 @@ export const SECRET_DU_CABINET = 'secret_du_cabinet'
 
 /** Ce que le Cabinet ajoute au premier lot de la campagne : ses tables, la colonne de son départ figé, son secret. */
 export const REVEIL_DU_CABINET = {
-  tablesEnPlus: [GESTES, PROFILS, OEUVRES, RECORDS, TRAVERSEES, TRAVERSEES_DU_PROFIL, TRAVERSEE_GESTES],
+  tablesEnPlus: [GESTES, PROFILS, OEUVRES, RECORDS, TRAVERSEES, TRAVERSEES_DU_PROFIL, TRAVERSEES_PAR_LEUR_FIN, TRAVERSEE_GESTES],
   // Le départ figé d'une partie (`DepartDUnePartie`, JSON versionné) : ses manches et leurs rechanges, réponses comprises.
   // Il ne se relit qu'à la relecture d'une partie, par sa clé ; les lectures du jour n'en tirent que des champs.
   colonnesEnPlus: [['cabinet', 'TEXT']],
+  // Le résumé d'une traversée, venu après sa table : une base née avant le 4 novembre 2026 l'ajoute une fois. Son schéma
+  // se lit dans le premier lot — un réveil ordinaire n'en paie rien, le premier son seul `ALTER`.
+  colonnesDeSesTables: [['cabinet_traversees', 'resume', 'TEXT']],
   secret: SECRET_DU_CABINET,
 } as const satisfies CeQueLeReveilAjoute
 
@@ -541,4 +561,165 @@ export function lesPartiesLues(lus: readonly ResultSet[]): Map<string, { depart:
 /** La garde de chaque instruction d'un lot de la traversée après la première : son geste est en base, à son rang, avec l'`uid` de ce lot. */
 export function gesteDeTraverseeEcrit(id: string, rang: number, uid: string): { sql: string; args: [string, number, string] } {
   return { sql: 'EXISTS (SELECT 1 FROM cabinet_traversee_gestes WHERE traversee_id = ? AND rang = ? AND uid = ?)', args: [id, rang, uid] }
+}
+
+// ── Le QG ─────────────────────────────────────────────────────────────────
+//
+// La page du Cabinet au QG (`/admin#cabinet`, le 4 novembre 2026) lit les
+// traversées de tout le serveur par l'index de leur fin
+// (`cabinet_traversees_finie`) : celles finies avant minuit une fois par jour,
+// celles en route et finies depuis minuit à chaque page — chacune une ligne,
+// son résumé compris, en un seul texte JSON par lecture (le client de la base
+// décodait chaque ligne une à une, `server/src/qg.ts`). Ses gestes ne se
+// lisent que pour la refaire : une traversée en route que la page n'a pas
+// encore repliée, une finie d'avant la colonne du résumé.
+
+/** Une traversée telle que la page du QG la lit : sa ligne, son résumé brut — relu par `lireLeResume`. */
+export interface LigneDeTraverseeAuQg {
+  id: string
+  profileId: string
+  commenceeLe: number
+  finieLe: number | null
+  /** L'issue de sa ligne : vide en route, et vide aussi rendue par l'administrateur. */
+  issue: 'gagnee' | 'perdue' | 'abandonnee' | null
+  legendaire: string | null
+  resume: unknown
+  /** En route : le rang de son dernier geste, que la page compare à ce qu'elle a déjà replié. */
+  rangs?: number
+}
+
+const COLONNES_AU_QG = "json_array(id, profile_id, commencee_le, finie_le, issue, legendaire, CASE WHEN json_valid(resume) THEN json(resume) END)"
+
+/** Les traversées finies entre deux instants et commencées depuis le premier : les jours finis de la page, lus une fois par jour. */
+export function lectureDesTraverseesFinies(depuis: number, jusqua: number): InStatement {
+  return {
+    sql: `SELECT json_group_array(${COLONNES_AU_QG}) AS lignes FROM cabinet_traversees WHERE finie_le >= ? AND finie_le < ? AND commencee_le >= ?`,
+    args: [depuis, jusqua, depuis],
+  }
+}
+
+/**
+ * Ce qui bouge encore, à chaque page : les traversées en route — de tout âge : une traversée oubliée depuis un mois est
+ * peut-être celle qu'on vient rendre —, le rang de leur dernier geste par la clé de leurs gestes (un seul pas d'index), et
+ * celles finies depuis un instant, le dernier minuit.
+ */
+export function lecturesDesTraverseesVivantes(depuis: number): InStatement[] {
+  return [
+    {
+      sql: `SELECT json_group_array(json_array(t.id, t.profile_id, t.commencee_le, (SELECT MAX(g.rang) FROM cabinet_traversee_gestes g WHERE g.traversee_id = t.id))) AS lignes
+            FROM cabinet_traversees t WHERE t.finie_le IS NULL`,
+      args: [],
+    },
+    { sql: `SELECT json_group_array(${COLONNES_AU_QG}) AS lignes FROM cabinet_traversees WHERE finie_le >= ?`, args: [depuis] },
+  ]
+}
+
+const ISSUES_D_UNE_LIGNE: readonly unknown[] = ['gagnee', 'perdue', 'abandonnee']
+
+/** Les lignes d'une lecture du QG, relues une à une ; une ligne abîmée se tait. */
+export function lesLignesAuQg(lu: ResultSet | undefined, enRoute = false): LigneDeTraverseeAuQg[] {
+  let brut: unknown
+  try {
+    brut = JSON.parse(String(lu?.rows[0]?.lignes ?? '[]'))
+  } catch {
+    return []
+  }
+  if (!Array.isArray(brut)) return []
+  return brut.flatMap((l: unknown): LigneDeTraverseeAuQg[] => {
+    if (!Array.isArray(l) || typeof l[0] !== 'string' || typeof l[1] !== 'string' || !Number.isFinite(l[2])) return []
+    if (enRoute) return [{ id: l[0], profileId: l[1], commenceeLe: Number(l[2]), finieLe: null, issue: null, legendaire: null, resume: null, rangs: Number(l[3] ?? 0) }]
+    const [id, profileId, commenceeLe, finieLe, issue, legendaire, resume] = l as unknown[]
+    if (!Number.isFinite(finieLe)) return []
+    return [
+      {
+        id: id as string,
+        profileId: profileId as string,
+        commenceeLe: Number(commenceeLe),
+        finieLe: Number(finieLe),
+        issue: ISSUES_D_UNE_LIGNE.includes(issue) ? (issue as LigneDeTraverseeAuQg['issue']) : null,
+        legendaire: typeof legendaire === 'string' ? legendaire : null,
+        resume: resume ?? null,
+      },
+    ]
+  })
+}
+
+/** Des traversées, de leurs clés : leur départ et leurs gestes, pour les replier — par la clé de chacune, et par celle de leurs gestes. */
+export function lecturesDesTraversees(ids: readonly string[]): InStatement[] {
+  const places = ids.map(() => '?').join(', ')
+  return [
+    { sql: `SELECT id, profile_id, depart, commencee_le FROM cabinet_traversees WHERE id IN (${places})`, args: [...ids] },
+    { sql: `SELECT traversee_id, rang, geste, fait_le FROM cabinet_traversee_gestes WHERE traversee_id IN (${places}) ORDER BY traversee_id, rang`, args: [...ids] },
+  ]
+}
+
+/**
+ * Le résumé d'une traversée finie, gardé : seulement s'il n'y en a pas encore un de cette version — la première page
+ * après la colonne résume les traversées d'avant, une fois ; deux pages de front écrivent la même chose.
+ */
+export function ecritureDuResume(id: string, resume: ResumeDeLaTraversee): InStatement {
+  return {
+    sql: `UPDATE cabinet_traversees SET resume = ? WHERE id = ? AND finie_le IS NOT NULL
+          AND (resume IS NULL OR NOT json_valid(resume) OR json_extract(resume, '$.v') IS NOT ?)`,
+    args: [JSON.stringify(resume), id, VERSION_DU_RESUME],
+  }
+}
+
+/** Ce que les manches d'épreuves ont posé, par la clé de leurs parties : chaque pièce, juste ou non, et ce qu'elle a fait (`composee`). */
+export function lectureDesPiecesDesParties(parties: readonly string[]): InStatement {
+  return {
+    sql: `SELECT json_group_array(json_array(serie_id, reserve_id, juste, composee)) AS lignes FROM campagne_reponses WHERE serie_id IN (${parties.map(() => '?').join(', ')})`,
+    args: [...parties],
+  }
+}
+
+/**
+ * Les signalements des questions qu'une partie du Cabinet a posées, jeu par jeu, depuis un instant. La table des
+ * signalements n'a pas d'index sur sa date : quelques centaines de lignes, que la page des signalements parcourt déjà
+ * de même ; chaque partie s'y lit par sa clé.
+ */
+export function lectureDesSignalementsDesJeux(depuis: number): InStatement {
+  return {
+    sql: `SELECT CASE WHEN json_valid(s.cabinet) THEN json_extract(s.cabinet, '$.jeu') END AS jeu, COUNT(*) AS n
+          FROM campagne_signalements g JOIN campagne_series s ON s.id = g.serie_id
+          WHERE g.cree_le >= ? AND s.mode = 'cabinet' GROUP BY jeu`,
+    args: [depuis],
+  }
+}
+
+/** Les pièces relues : une ligne abîmée se tait. */
+export function lesPiecesLues(lu: ResultSet | undefined): PieceAuQg[] {
+  let brut: unknown
+  try {
+    brut = JSON.parse(String(lu?.rows[0]?.lignes ?? '[]'))
+  } catch {
+    return []
+  }
+  return Array.isArray(brut)
+    ? brut.flatMap((l: unknown) =>
+        Array.isArray(l) && typeof l[0] === 'string' && typeof l[1] === 'string'
+          ? [{ partie: l[0], id: l[1], juste: Number(l[2]) === 1, composee: typeof l[3] === 'string' ? l[3] : null }]
+          : [],
+      )
+    : []
+}
+
+/**
+ * La traversée en route d'un profil, telle que la base la garde — même illisible pour ce code : la fiche d'un joueur au
+ * QG la dit, et « Rendre » la referme. Par l'index du profil.
+ */
+export function lecturesDeLaTraverseeEnRoute(profileId: string): InStatement[] {
+  const enRoute = 'SELECT id FROM cabinet_traversees WHERE profile_id = ?1 AND finie_le IS NULL'
+  return [
+    { sql: 'SELECT id, depart, commencee_le FROM cabinet_traversees WHERE profile_id = ?1 AND finie_le IS NULL', args: [profileId] },
+    { sql: `SELECT rang, geste, fait_le FROM cabinet_traversee_gestes WHERE traversee_id = (${enRoute}) ORDER BY rang`, args: [profileId] },
+  ]
+}
+
+/** Sa traversée en route relue : son identifiant toujours, son pli s'il se relit ; null : aucune en route. */
+export function laTraverseeEnRouteLue(lus: readonly ResultSet[]): { id: string; commenceeLe: number; lue: TraverseeLueEnBase | null } | null {
+  const ligne = lus[0]?.rows[0] as Record<string, unknown> | undefined
+  if (!ligne || typeof ligne.id !== 'string') return null
+  const lue = laTraverseeLue(lus)
+  return { id: ligne.id, commenceeLe: nombre(ligne.commencee_le), lue: lue && lue !== 'illisible' ? lue : null }
 }

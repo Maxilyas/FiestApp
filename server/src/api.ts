@@ -7,6 +7,7 @@ import { mountCabinet } from './cabinet'
 import type { CabinetStore } from './core/cabinet/magasin'
 import { mountProfilsAdmin } from './profilsAdmin'
 import { mountQg, type QgDeps } from './qg'
+import { mountCabinetDuQg } from './cabinetDuQg'
 import { fermerLesPortes, mountMaintenance } from './maintenance'
 import { mountAnnonces } from './annonces'
 import { mountJoueurs, type AudienceDuQg } from './joueursDuQg'
@@ -234,6 +235,8 @@ export function mountApi(app: Express, deps: ApiDeps) {
     store: deps.store,
     jour: deps.jour,
     campagne: deps.campagne,
+    // Sa traversée en route, et « Rendre la traversée », là où le Cabinet répond : ailleurs, la fiche n'en dit rien.
+    ...(deps.cabinet.ouvert && { cabinet: deps.cabinet.magasin }),
     soireesPasCloses: deps.soireesPasCloses,
     supprimerProfil: deps.supprimerProfil,
     onLibraryChanged: deps.onLibraryChanged,
@@ -252,6 +255,8 @@ export function mountApi(app: Express, deps: ApiDeps) {
     rappels: deps.rappels,
     maintenant: deps.maintenant,
   })
+  // Le Cabinet de curiosités au QG : ses traversées, ses jeux, ses cartes, ses gardiens, son contenu — l'administrateur seul.
+  mountCabinetDuQg(app, { cabinet: deps.cabinet.magasin, profiles: deps.profiles, maintenant: deps.maintenant })
   // Le bandeau rouge, les pages fermées et leurs testeurs : l'administrateur seul.
   mountMaintenance(app, { maintenance: deps.maintenance, profiles: deps.profiles })
   // Les joueurs : combien jouent, combien reviennent, qui décroche — l'administrateur seul.

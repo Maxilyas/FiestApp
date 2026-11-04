@@ -873,6 +873,20 @@ export const aidesDeLaPartie = (e: Pick<EtatDeLaPartie, 'servis' | 'manches'>): 
   temps: e.manches.filter(m => m.etapes.some(x => x.tempsEnPlus)).length,
 })
 
+/**
+ * Le temps de jeu de chaque manche, de l'ouverture de sa première étape à son verdict, en millisecondes : la révélation
+ * d'avant n'y compte pas, la pause de « Quitter ? » si — trente secondes au plus. Null pour une manche jamais ouverte,
+ * ou quittée : son temps dirait quand il est parti, pas ce que le jeu lui a demandé. Une épreuve de traversée l'écrit
+ * au geste qui la conclut (`conclure`, `durees`), et la page du Cabinet au QG en tire la durée d'une manche, jeu par
+ * jeu, sans rouvrir une partie.
+ */
+export const dureesDesManches = (e: Pick<EtatDeLaPartie, 'manches'>): (number | null)[] =>
+  Array.from({ length: MANCHES_PAR_PARTIE }, (_, k) => {
+    const m = e.manches[k]
+    const debut = m?.etapes[0]?.ouverteLe
+    return m && m.fin !== 'quittee' && m.trancheeLe !== null && debut !== undefined ? Math.max(0, m.trancheeLe - debut) : null
+  })
+
 /** Ce que le pli sait d'une partie finie, avant le musée : l'issue et la poussière en dépendent (`bilanDe`). */
 export interface ResultatDUnePartie {
   etoiles: [number, number, number]

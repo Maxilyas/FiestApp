@@ -1661,6 +1661,15 @@ function FinDeLaTraversee({ t, possedes, busy, onCommencer }: { t: VueDeLaTraver
             <h2 tabIndex={-1}>{`${nomDe(fin.legendaire)} est à toi`}</h2>
             <p className="cab-tv-pale">{espacesFines(possedes.includes(fin.legendaire) ? 'Ton avatar légendaire : choisis-le depuis ton profil, il te suit partout.' : 'Il rejoint tes avatars légendaires.')}</p>
           </>
+        ) : fin.issue === 'rendue' ? (
+          // Refermée au QG (« Rendre une traversée bloquée », le 4 novembre 2026) : ni perdue ni abandonnée — il ne l'a pas voulu.
+          <>
+            <p className="cab-tv-sur">Traversée refermée</p>
+            <h2 tabIndex={-1}>Ta traversée a été refermée</h2>
+            <p className="cab-tv-pale">
+              {espacesFines(`${ACTES[t.acte].court} · ${ACTES[t.acte].nom}. L’administrateur l’a refermée là où elle en était : ce qu’elle t’a rapporté reste à toi. Repars : une carte neuve, des gardiens neufs.`)}
+            </p>
+          </>
         ) : (
           <>
             <p className="cab-tv-sur">{fin.issue === 'abandonnee' ? 'Traversée abandonnée' : 'Traversée perdue'}</p>

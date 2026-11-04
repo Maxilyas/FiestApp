@@ -60,6 +60,7 @@ import type { SuiviDuJour } from '../../shared/qgDuJour'
 import type { SuiviDeLaCampagne } from '../../shared/qgCampagne'
 import type { SuiviDesDuels } from '../../shared/qgDuels'
 import type { PageDeLEconomie } from '../../shared/qgEconomie'
+import type { PageDuCabinetAuQg } from '../../shared/qgCabinet'
 import type { PageDeLActivite } from '../../shared/qgActivite'
 import type { ComptesDesSegments, PageDesJoueurs, SegmentDuQg } from '../../shared/qgJoueurs'
 import type { OrigineDUnProfil } from '../../shared/origines'
@@ -942,6 +943,9 @@ export const api = {
     rouvrirLaConnexion: (id: string) => req<{ ok: true }>(`/api/admin/profils/${encodeURIComponent(id)}/connexion`, { method: 'POST', body: '{}' }),
     libererLEpreuve: (id: string) =>
       req<{ ok: true; sentier: string; palier: number }>(`/api/admin/profils/${encodeURIComponent(id)}/epreuve`, { method: 'POST', body: '{}' }),
+    /** Rendre sa traversée du Cabinet bloquée — celle que la page a montrée, et pas une autre : refermée sans rien lui coûter. */
+    rendreLaTraversee: (id: string, traversee: string) =>
+      req<{ ok: true; id: string }>(`/api/admin/profils/${encodeURIComponent(id)}/traversee`, { method: 'POST', body: JSON.stringify({ traversee }) }),
     /** Le catalogue du serveur, toutes les copies : proposées, publiées, refusées, retirées. */
     catalogue: () => req<EntreeDuCatalogue[]>('/api/admin/catalogue'),
     /** Une copie proposée, questions comprises, pour la relire. */
@@ -1019,6 +1023,8 @@ export const api = {
     annulerUnDuel: (code: string) => req<{ ok: true; code: string }>(`/api/admin/duels/${encodeURIComponent(code)}/annuler`, { method: 'POST', body: '{}' }),
     /** L'économie : les confettis gagnés et dépensés, ceux qui circulent, les meilleures ventes, les Éclats et les légendaires. */
     economie: () => req<PageDeLEconomie>('/api/admin/economie'),
+    /** Le Cabinet de curiosités : ses traversées sur trente jours, ses jeux, ses cartes, ses gardiens, son contenu, ses joueurs. */
+    cabinet: () => req<PageDuCabinetAuQg>('/api/admin/cabinet'),
   },
 }
 

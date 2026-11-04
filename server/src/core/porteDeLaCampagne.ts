@@ -157,6 +157,13 @@ export interface CeQueLeReveilAjoute {
    */
   colonnesEnPlus?: readonly (readonly [colonne: string, type: string])[]
   /**
+   * Ses colonnes venues après ses propres tables (`cabinet_traversees.resume`, le 4 novembre 2026) : leur schéma se lit
+   * dans le premier lot (`pragma_table_info`), et seul le réveil qui ne les y trouve pas paie l'`ALTER`
+   * (`ajouterColonne`). Lu par `ajouterColonne` seul, le schéma d'une table que la campagne ne lit pas coûtait un
+   * aller-retour de plus à chaque réveil (`porte-de-la-campagne.test.ts`).
+   */
+  colonnesDeSesTables?: readonly (readonly [table: string, colonne: string, type: string])[]
+  /**
    * La clé, dans `campagne_meta`, d'un secret que le premier réveil tire et
    * que chacun relit (`INSERT … ON CONFLICT DO NOTHING`, puis sa lecture) :
    * deux serveurs pendant une mise en ligne, un redémarrage, le même secret.

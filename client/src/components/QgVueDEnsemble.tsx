@@ -22,7 +22,7 @@ import { PERIODE_EN_TOUTES_LETTRES, ecartALaPeriodeDAvant, type ActiviteDUnePeri
 import { etatDuService, phraseDeLEtat, type VoyantDuService } from '../../../shared/qgEtat'
 
 /** Les écrans du QG qu'une chose à traiter, un voyant ou une tuile ouvrent — la tuile d'un mode, sa page. */
-type EcranATraiter = NonNullable<ChoseATraiter['ecran']> | 'campagne' | 'duels'
+type EcranATraiter = NonNullable<ChoseATraiter['ecran']> | 'campagne' | 'cabinet' | 'duels'
 
 /**
  * Le poste de commande du QG 2 (`/admin`, la proposition du 3 novembre 2026
@@ -140,8 +140,8 @@ function EtatDuService({ direct, vue, enPanne, ouvrir }: { direct: DirectDuQg | 
 
 // ── Les chiffres de la période ─────────────────────────────────────────────
 
-/** La page de chaque mode : le Cabinet se lit encore sur celle de la campagne, parmi ses sous-modes, jusqu'à sa page à lui. */
-const PAGE_DU_MODE: Record<ModeDuQg, EcranATraiter> = { soiree: 'soirees', campagne: 'campagne', cabinet: 'campagne', jour: 'jour', duel: 'duels' }
+/** La page de chaque mode : le Cabinet a la sienne depuis le 4 novembre 2026 — la campagne le garde encore parmi ses sous-modes. */
+const PAGE_DU_MODE: Record<ModeDuQg, EcranATraiter> = { soiree: 'soirees', campagne: 'campagne', cabinet: 'cabinet', jour: 'jour', duel: 'duels' }
 
 const somme = (parties: Record<ModeDuQg, number>) => MODES_DU_QG.reduce((n, m) => n + parties[m], 0)
 
