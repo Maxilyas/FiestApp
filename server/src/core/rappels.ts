@@ -62,8 +62,8 @@ function reglagesDe(r: Record<string, unknown> | undefined): ReglagesDesNotifica
   return { soir: !!r && Number(r.soir) === 1 }
 }
 
-/** Ce que la dernière tournée a fait, pour `/healthz` et le QG : des nombres, jamais un nom — ses ouverts viennent après elle. */
-export type BilanDeTournee = Omit<TourneeDuRappel, 'ouverts'>
+/** Ce que la dernière tournée a fait, pour `/healthz` et le QG : des nombres, jamais un nom — ses ouverts et ses joués viennent après elle. */
+export type BilanDeTournee = Omit<TourneeDuRappel, 'ouverts' | 'joues'>
 
 /** Ce que la notification dit, en un titre et une phrase. */
 export interface MessageDuRappel {
@@ -191,6 +191,34 @@ export class RappelStore {
     await ajouterColonne(this.client, 'jour_rappels', 'soir', 'INTEGER NOT NULL DEFAULT 1')
     // Les rappels touchés (le QG 2, le 4 novembre 2026) : un soir d'avant leur compte en dit zéro.
     await ajouterColonne(this.client, 'jour_rappels_tournees', 'ouverts', 'INTEGER NOT NULL DEFAULT 0')
+    // Ceux qui ont joué après lui (le même jour, la revue P2.1) : nul tant que le soir n'est pas compté — un soir d'avant
+    // le reste. Le schéma de la table est déjà lu pour la colonne d'avant : rien de plus au réveil.
+    await ajouterColonne(this.client, 'jour_rappels_tournees', 'joues', 'INTEGER')
+  }
+
+  /**
+   * « Joué après le rappel » d'un soir fini (la revue du 4 novembre 2026, P2.1 : ouvert, mais a-t-il fait jouer ?) : les
+   * téléphones prévenus ce soir-là — `jour_rappels.dernier_jour`, réservé avant l'envoi — dont le profil a commencé sa
+   * partie du jour après la tournée, ou l'a reprise — une réponse après elle : le rappel dit aussi « reprends-la où tu
+   * l'as laissée ». Jamais plus que les envoyés : un envoi refusé par son service a pourtant réservé son téléphone.
+   *
+   * `dernier_jour` ne garde que le dernier soir de chaque téléphone : la tournée suivante l'écrase. Le compte se fait donc
+   * une fois, sur le plus récent des soirs finis, avant que la suivante ne parte — à son départ (`faireLaTournee`), ou à
+   * la première lecture du QG qui le trouve fini, avant l'heure du rappel (`suivi`) —, et ne se refait jamais : sa colonne
+   * écrite, `joues IS NULL` ne la retrouve plus. L'envoi se date à la fin de la tournée (`faite_le`) : une seconde tournée
+   * le même soir — un redémarrage — la repousse, et les premiers prévenus qui ont joué entre les deux ne comptent pas.
+   */
+  private async compterLesJoues(aujourdhui: string): Promise<void> {
+    await this.client.execute({
+      sql: `UPDATE jour_rappels_tournees SET joues = MIN(envoyes, (
+              SELECT COUNT(*) FROM jour_rappels r
+              WHERE r.dernier_jour = jour_rappels_tournees.jour
+                AND (EXISTS (SELECT 1 FROM jour_parties p WHERE p.profile_id = r.profile_id AND p.jour = jour_rappels_tournees.jour AND p.commencee_le > jour_rappels_tournees.faite_le)
+                  OR EXISTS (SELECT 1 FROM jour_reponses q WHERE q.profile_id = r.profile_id AND q.jour = jour_rappels_tournees.jour AND q.repondue_le > jour_rappels_tournees.faite_le))
+            ))
+            WHERE jour = (SELECT MAX(jour) FROM jour_rappels_tournees WHERE jour < ?) AND joues IS NULL`,
+      args: [aujourdhui],
+    })
   }
 
   /** Les soirs dont tous les rappels envoyés se sont dits ouverts : un toucher de plus ne réécrit rien. */
@@ -325,7 +353,8 @@ export class RappelStore {
         sql: `INSERT INTO jour_rappels_tournees (jour, envoyes, finis, retires, echecs, faite_le) VALUES (?, ?, ?, ?, ?, ?)
               ON CONFLICT(jour) DO UPDATE SET envoyes = envoyes + excluded.envoyes, finis = MAX(finis, excluded.finis),
                 retires = retires + excluded.retires, echecs = echecs + excluded.echecs, faite_le = excluded.faite_le`,
-        args: [b.jour, b.envoyes, b.finis, b.retires, b.echecs, Date.now()],
+        // À l'heure du quiz du jour, celle qui date le soir et ses parties : « joué après » les compare (`compterLesJoues`).
+        args: [b.jour, b.envoyes, b.finis, b.retires, b.echecs, this.deps.maintenant()],
       })
     } catch (e) {
       if (!this.ferme) console.warn('[rappels] le bilan du soir ne s’est pas gardé :', e instanceof Error ? e.message : e)
@@ -337,13 +366,31 @@ export class RappelStore {
    * profils qu'ils tiennent, et les derniers soirs. Des nombres seulement.
    */
   async suivi(soirs: number): Promise<{ telephones: number; profils: number; tournees: TourneeDuRappel[] }> {
-    const [abonnes, tournees] = await this.client.batch(
-      [
-        'SELECT COUNT(*) AS telephones, COUNT(DISTINCT profile_id) AS profils FROM jour_rappels WHERE soir = 1',
-        { sql: 'SELECT jour, envoyes, finis, retires, echecs, ouverts FROM jour_rappels_tournees ORDER BY jour DESC LIMIT ?', args: [soirs] },
-      ],
-      'read',
-    )
+    const lire = () =>
+      this.client.batch(
+        [
+          'SELECT COUNT(*) AS telephones, COUNT(DISTINCT profile_id) AS profils FROM jour_rappels WHERE soir = 1',
+          { sql: 'SELECT jour, envoyes, finis, retires, echecs, ouverts, joues FROM jour_rappels_tournees ORDER BY jour DESC LIMIT ?', args: [soirs] },
+        ],
+        'read',
+      )
+    let [abonnes, tournees] = await lire()
+    // Le plus récent des soirs finis, pas encore compté : la première lecture qui le trouve fini le compte — avant 18 h
+    // seulement, la tournée du soir le comptant elle-même avant de réserver les téléphones qu'elle préviendra.
+    const maintenant = this.deps.maintenant()
+    const aujourdhui = jourDe(maintenant)
+    const fini = tournees.rows.find(r => String(r.jour) < aujourdhui)
+    if (fini && fini.joues == null && heureDeParis(maintenant) < HEURE_DU_RAPPEL) {
+      // Un compte qui échoue ne prive pas la page de ses soirs : la lecture suivante réessaie.
+      const compte = await this.compterLesJoues(aujourdhui).then(
+        () => true,
+        e => {
+          console.warn('[rappels] les joués du soir d’avant ne se comptent pas :', e instanceof Error ? e.message : e)
+          return false
+        },
+      )
+      if (compte) [abonnes, tournees] = await lire()
+    }
     return {
       telephones: Number(abonnes.rows[0]?.telephones ?? 0),
       profils: Number(abonnes.rows[0]?.profils ?? 0),
@@ -354,6 +401,7 @@ export class RappelStore {
         retires: Number(r.retires),
         echecs: Number(r.echecs),
         ouverts: Number(r.ouverts ?? 0),
+        joues: r.joues == null ? null : Number(r.joues),
       })),
     }
   }
@@ -394,6 +442,11 @@ export class RappelStore {
   }
 
   private async faireLaTournee(jour: string) {
+    // Le soir d'avant d'abord, tant que ses téléphones disent encore qu'il les a prévenus : la réservation d'après écrase
+    // leur `dernier_jour`. Un échec ne retient pas la tournée : un chiffre du QG manque, le rappel part.
+    await this.compterLesJoues(jour).catch(e => {
+      if (!this.ferme) console.warn('[rappels] les joués du soir d’avant ne se comptent pas :', e instanceof Error ? e.message : e)
+    })
     const bilan: BilanDeTournee = { jour, envoyes: 0, finis: 0, retires: 0, echecs: 0 }
     // Ceux qui veulent le rappel du soir : un téléphone abonné pour les seuls défis de ses amis ne sonne pas à 18 h.
     const dus = await this.client.execute({

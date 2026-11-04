@@ -3,7 +3,7 @@ import { Icon } from './Icon'
 import { Avatar, AvatarEnLigne } from './Avatar'
 import { Chiffre, GrapheDesJours, enPourcentsEcrits } from './QgModes'
 import { PrenomDuJoueur } from './PrenomDuJoueur'
-import { formatNumber } from '../../../shared/typographie'
+import { espacesFines, formatNumber } from '../../../shared/typographie'
 import { jourAvant, jourEnToutesLettres, moisEnToutesLettres, type LigneDuJour } from '../../../shared/jour'
 import type { VueDEnsemble } from '../../../shared/qg'
 import { TRANCHES_DE_SERIE, enPourcents, type QuestionDuSuivi, type SuiviDuJour } from '../../../shared/qgDuJour'
@@ -316,11 +316,17 @@ export function SeriesDuJourAuQg({ suivi }: { suivi: SuiviDuJour | null }) {
 /** « 34 % » : la part des rappels envoyés qu'on a touchés, un soir. */
 const partOuverte = (t: { envoyes: number; ouverts: number }) => `${formatNumber(Math.round((t.ouverts / t.envoyes) * 100))} %`
 
-/** Le rappel du soir : les téléphones abonnés, et ce que chaque tournée a fait — jusqu'aux rappels touchés. */
+/**
+ * Le rappel du soir : les téléphones abonnés, et ce que chaque tournée a fait — jusqu'aux rappels touchés, et aux
+ * parties qu'ils ont fait jouer (la revue du 4 novembre 2026, P2.1).
+ */
 export function RappelDuSoirAuQg({ suivi }: { suivi: SuiviDuJour | null }) {
   const r = suivi?.rappel
   const derniere = r?.tournees[0]
   const veille = r && derniere ? r.tournees.find(t => t.jour === jourAvant(derniere.jour)) : undefined
+  // « Joué après » ne se compte qu'un soir fini : ce soir attend demain, et la tuile dit le plus récent des soirs comptés.
+  const compte = r?.tournees.find(t => t.joues != null)
+  const compteLaVeille = r && compte ? r.tournees.find(t => t.jour === jourAvant(compte.jour) && t.joues != null) : undefined
   return (
     <section className="qg-carte" aria-labelledby="jour-rappel">
       <div className="qg-carte-tete qg-carte-tete-pile">
@@ -331,7 +337,7 @@ export function RappelDuSoirAuQg({ suivi }: { suivi: SuiviDuJour | null }) {
         <p className="serif-note">Chargement…</p>
       ) : (
         <>
-          <ul className="qg-tuiles qg-tuiles-quatre">
+          <ul className="qg-tuiles qg-tuiles-cinq">
             <Chiffre nom="Téléphones abonnés" valeur={formatNumber(r.telephones)} detail={pluriel(r.profils, 'profil')} />
             <Chiffre
               nom="Dernier soir"
@@ -348,33 +354,54 @@ export function RappelDuSoirAuQg({ suivi }: { suivi: SuiviDuJour | null }) {
               }
             />
             <Chiffre
+              nom="Joué après"
+              valeur={compte?.joues != null ? formatNumber(compte.joues) : '–'}
+              detail={
+                compte?.joues != null
+                  ? `sur ${formatNumber(compte.envoyes)} envoyés · ${jourEnToutesLettres(compte.jour)}${compteLaVeille?.joues != null ? ` · la veille ${formatNumber(compteLaVeille.joues)}` : ''}`
+                  : 'compté le soir fini, le lendemain'
+              }
+            />
+            <Chiffre
               nom="Échecs"
               valeur={derniere ? formatNumber(derniere.echecs) : '–'}
               detail={veille ? `la veille : ${formatNumber(veille.echecs)}` : 'le service de push a refusé'}
             />
           </ul>
           {r.tournees.length > 0 ? (
-            <div className="qg-tableau">
+            <div className="qg-tableau qg-rappel-soirs">
               <table>
                 <thead>
                   <tr>
                     <th scope="col">Soir</th>
-                    <th scope="col">Envoyés</th>
+                    {/* Au téléphone, ce qu'un soir a fait — ouverts, joué après — d'abord : le reste se lit à l'ordinateur,
+                        la note le dit. Sept colonnes coupaient la table au bord de l'écran, sans un signe. */}
+                    <th scope="col" className="qg-colonne-large">
+                      Envoyés
+                    </th>
                     <th scope="col">Ouverts</th>
-                    <th scope="col">Déjà joué</th>
-                    <th scope="col">Échecs</th>
-                    <th scope="col">Partis</th>
+                    <th scope="col">Joué après</th>
+                    <th scope="col" className="qg-colonne-large">
+                      Déjà joué
+                    </th>
+                    <th scope="col" className="qg-colonne-large">
+                      Échecs
+                    </th>
+                    <th scope="col" className="qg-colonne-large">
+                      Partis
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {r.tournees.map(t => (
                     <tr key={t.jour}>
                       <th scope="row">{jourEnToutesLettres(t.jour, true)}</th>
-                      <td className="num">{formatNumber(t.envoyes)}</td>
+                      <td className="num qg-colonne-large">{formatNumber(t.envoyes)}</td>
                       <td className="num">{t.envoyes > 0 ? `${formatNumber(t.ouverts)} · ${partOuverte(t)}` : formatNumber(t.ouverts)}</td>
-                      <td className="num">{formatNumber(t.finis)}</td>
-                      <td className="num">{formatNumber(t.echecs)}</td>
-                      <td className="num">{formatNumber(t.retires)}</td>
+                      <td className="num">{t.joues == null ? '–' : formatNumber(t.joues)}</td>
+                      <td className="num qg-colonne-large">{formatNumber(t.finis)}</td>
+                      <td className="num qg-colonne-large">{formatNumber(t.echecs)}</td>
+                      <td className="num qg-colonne-large">{formatNumber(t.retires)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -384,8 +411,9 @@ export function RappelDuSoirAuQg({ suivi }: { suivi: SuiviDuJour | null }) {
             <p className="muted small">Aucune tournée gardée pour l’instant : la première s’écrira à 18 h.</p>
           )}
           <p className="muted small">
-            « Ouverts » : les rappels touchés sur le téléphone, que la page du jour a ouverts — comptés depuis le 4 novembre 2026. « Partis » : des
-            abonnements défaits — une session close, ou un téléphone que son service dit désabonné.
+            {espacesFines(
+              '« Ouverts » : les rappels touchés sur le téléphone, que la page du jour a ouverts, et leur part des envoyés — comptés depuis le 4 novembre 2026. « Joué après » : les téléphones prévenus dont le profil a commencé ou repris sa partie après la tournée, ce soir-là — compté une fois le soir fini, avant le rappel du lendemain, « – » tant qu’il ne l’est pas. « Partis » : des abonnements défaits — une session close, ou un téléphone que son service dit désabonné. Au téléphone, les envoyés, « Déjà joué », les échecs et « Partis » se lisent à l’ordinateur.',
+            )}
           </p>
         </>
       )}

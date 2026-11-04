@@ -26,6 +26,46 @@ import {
   type PageDesAffiches,
 } from '../../../shared/affiches'
 import { messageNet } from '../../../shared/annonces'
+import { DU_MODE, JOURS_DE_L_EFFET_D_UNE_AFFICHE, MODE_DE_LA_PAGE, partEcrite, type EffetDUneAffiche, type EffetsDesAffiches } from '../../../shared/qgEffets'
+import { oublierLesReperes } from '../qgReperes'
+
+/**
+ * Ce qu'une affiche a changé (la revue du 4 novembre 2026, P2.1) : les joueurs de son mode les quatorze jours qui
+ * suivent son jour, face à autant juste avant — sa page ne note que la première visite de chacun, la feuille de
+ * présence dit qui y a joué —, et ses visiteurs revenus y jouer un autre jour ; la boutique, qui ne se joue pas, par ses
+ * achats. Des comptes, jamais un nom.
+ */
+function EffetDeLAffiche({ affiche: a, effet }: { affiche: AfficheAuQg; effet: EffetDUneAffiche | undefined }) {
+  if (!effet) return null
+  const N = JOURS_DE_L_EFFET_D_UNE_AFFICHE
+  const mode = MODE_DE_LA_PAGE[a.page]
+  const compte = (n: number) => (mode ? `${formatNumber(n)} joueur${n > 1 ? 's' : ''} ${DU_MODE[mode]}` : `${formatNumber(n)} achat${n > 1 ? 's' : ''} à la boutique`)
+  const jours = (n: number) => `${formatNumber(n)} jour${n > 1 ? 's' : ''}`
+  const chiffres = effet.joueurs ?? effet.achats
+  const lignes: string[] = []
+  if (chiffres === null) lignes.push('La mémoire du QG ne remonte pas jusqu’à elle : ce qu’elle a changé ne se lit pas.')
+  else if (effet.jours === 0) {
+    lignes.push(`Ce qu’elle change se lira jour après jour, sur les ${N} qui suivent son jour${chiffres.avant !== null ? ` — les ${N} d’avant : ${compte(chiffres.avant)}` : ''}.`)
+  } else {
+    const en = effet.jours < N
+    const avant = chiffres.avant === null ? 'les jours d’avant, la mémoire ne les sait pas' : `${en ? `les ${jours(effet.joursAvant)} d’avant` : `les ${N} d’avant`} : ${formatNumber(chiffres.avant)}`
+    lignes.push(`${en ? `En cours, ${jours(effet.jours)} sur ${N} : ${compte(chiffres.apres)}` : `Les ${N} jours suivants : ${compte(chiffres.apres)}`} — ${avant}`)
+  }
+  // Le jour même, personne n'a encore pu revenir un autre jour : la ligne attend le lendemain.
+  if (effet.revenus && effet.revenus.visiteurs > 0 && effet.jours > 0) {
+    lignes.push(`Revenus y jouer un autre jour : ${partEcrite({ n: effet.revenus.revenus, sur: effet.revenus.visiteurs })} visiteurs`)
+  }
+  return (
+    <span className="qg-effet">
+      {lignes.map(l => (
+        <span key={l} className="qg-effet-ligne">
+          <Icon name="bar-chart" />
+          {espacesFines(l)}
+        </span>
+      ))}
+    </span>
+  )
+}
 
 /**
  * L'identifiant d'un envoi, tiré par la page : le même tant que l'affiche
@@ -70,6 +110,8 @@ export function QgAffiches({ maintenance }: { maintenance: EtatDeLaMaintenance |
   const [confettis, setConfettis] = useState(0)
   const [envoi, setEnvoi] = useState(tirerUnEnvoi)
   const [occupe, setOccupe] = useState<string | null>(null)
+  /** Ce que chaque affiche a changé, lu au serveur une fois par jour ; null tant qu'il n'est pas lu — les lignes se taisent. */
+  const [effets, setEffets] = useState<EffetsDesAffiches | null>(null)
 
   const relire = () =>
     api.admin.affiches().then(
@@ -79,8 +121,11 @@ export function QgAffiches({ maintenance }: { maintenance: EtatDeLaMaintenance |
       },
       e => setError(motifDe(e)),
     )
+  const relireLesEffets = () => api.admin.effetsDesAffiches().then(setEffets, () => setEffets(null))
   useEffect(() => {
     void relire()
+    // À côté, sans faire attendre la page : la mémoire du QG peut avoir un jour à rattraper.
+    void relireLesEffets()
   }, [])
 
   if (error) return <p className="error">{error}</p>
@@ -122,6 +167,9 @@ export function QgAffiches({ maintenance }: { maintenance: EtatDeLaMaintenance |
       setPage(await api.admin.mettreALAffiche(envoi, { page: cible, titre: titreEcrit, phrase: phraseEcrite, jours: jours as (typeof JOURS_A_L_AFFICHE)[number], confettis }))
       repartir()
       showToast({ kind: 'info', message: 'Affiche posée : chaque accueil la montre' })
+      void relireLesEffets()
+      // Elle se pose sur les courbes du QG : la suivante relit leurs repères.
+      oublierLesReperes()
     } catch (e) {
       showToast({ kind: 'error', message: motifDe(e) })
       // Déjà posée, ou une autre en cours sur la page : la liste le montre.
@@ -255,6 +303,7 @@ export function QgAffiches({ maintenance }: { maintenance: EtatDeLaMaintenance |
                         }${a.confettis > 0 && a.ouvertes > 0 ? ` · ${nConfettis(a.confettis * a.ouvertes)} offerts` : ''}`,
                       )}
                     </span>
+                    <EffetDeLAffiche affiche={a} effet={effets?.effets[a.id]} />
                     {a.retireeLe !== null && <span className="annonce-faite-etat">{`Retirée ${quandEcrit(a.retireeLe, page.maintenant)}`}</span>}
                     {a.retireeLe === null && !visible && <span className="annonce-faite-etat">{`Finie le ${jourEnToutesLettres(jourDe(a.fin), true)}`}</span>}
                   </span>

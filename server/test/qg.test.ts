@@ -673,7 +673,11 @@ test('le poste de commande se lit d’un coup d’œil : l’état du service, c
   const infobulles = [...graphe.matchAll(/<title>([^<]+)<\/title>/g)].map(m => m[1])
   assert.equal(infobulles.length, 24)
   assert.equal(infobulles.at(-1), '21 h 00 → 21 h 04 : 5 joueurs — campagne 1, cabinet 1, quiz du jour 3, duels 1')
-  assert.match(graphe, /<p class="qg-lecture" aria-live="polite"><span>21 h 00 → 21 h 04 · <\/span><b class="num">5 joueurs<\/b><\/p>/)
+  // La lecture dit l'heure en cours sans la redire au lecteur d'écran : sa région vivante ne se remplit qu'au choix d'un
+  // seau (la revue d'ergonomie du 4 novembre 2026, M7). Le résumé se porte une fois, sur le groupe : le dessin se tait.
+  assert.match(graphe, /<p class="qg-lecture"><span><span>21 h 00 → 21 h 04 · <\/span><b class="num">5 joueurs<\/b><\/span><span aria-live="polite"><\/span><\/p>/)
+  assert.match(graphe, /<div class="qg-graphe" tabindex="0" aria-label="[^"]+" role="group"><svg viewBox="[^"]+" aria-hidden="true">/)
+  assert.doesNotMatch(graphe, /role="img"/)
   assert.match(graphe, /Qui joue à plusieurs modes compte dans chacun, une fois dans le total/)
   assert.match(graphe, /<button type="button" class="onglet actif" aria-pressed="true">Joueurs<\/button><button type="button" class="onglet" aria-pressed="false">Participations<\/button>/)
   assert.match(graphe, /class="qg-joueurs"/)

@@ -124,7 +124,7 @@ function lireAdresse(): { ecran: Ecran | null; onglet: string | null } {
 const adresseDe = (e: Ecran | null, onglet?: string | null) => (e ? `/admin#${e}${onglet ? `/${onglet}` : ''}` : '/admin')
 
 const TITRE: Record<Ecran, string> = {
-  journal: 'Le journal',
+  journal: 'Journal et repères',
   erreurs: 'Les erreurs',
   serveur: 'Le serveur',
   maintenance: 'La maintenance',
@@ -185,7 +185,9 @@ const PAGES_DU_QG: { groupe: string; pages: PageDuRail[] }[] = [
       // des alertes — la maintenance était le dernier lien d'« Animer ».
       { ecran: 'erreurs', nom: 'Erreurs', icone: 'x-circle', description: 'Les trier, en être prévenu', mots: 'panne bogue plantage' },
       { ecran: 'maintenance', nom: 'Maintenance', icone: 'lock', description: 'Le bandeau, les pages fermées, les testeurs', mots: 'fermer bandeau masquer bientôt testeurs' },
-      { ecran: 'journal', nom: 'Journal', icone: 'clipboard', description: 'Tes gestes, un par un', mots: 'historique gestes' },
+      // Le journal et les repères des courbes (la revue d'expert, P2.2) : tes gestes, les mises en ligne, les arrêts nets
+      // et les incidents au même fil, et « Avant / après ».
+      { ecran: 'journal', nom: 'Journal et repères', icone: 'clipboard', description: 'Tes gestes, les mises en ligne, avant / après', mots: 'historique gestes repères versions déploiement incidents avant après' },
     ],
   },
   {

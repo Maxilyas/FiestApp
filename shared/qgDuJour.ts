@@ -47,6 +47,12 @@ export interface TourneeDuRappel {
    * jamais plus que les envoyés. Zéro pour un soir d'avant leur compte, le 4 novembre 2026.
    */
   ouverts: number
+  /**
+   * Les téléphones prévenus dont le profil a commencé ou repris sa partie après la tournée, ce jour-là (la revue du
+   * 4 novembre 2026, P2.1) — compté une fois le soir fini, avant la tournée suivante (`RappelStore.compterLesJoues`),
+   * jamais recompté ; null tant qu'il ne l'est pas — ce soir, ou un soir d'avant le compte. Absent d'un serveur d'avant.
+   */
+  joues?: number | null
 }
 
 /**

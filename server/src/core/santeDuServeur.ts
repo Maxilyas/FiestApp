@@ -475,6 +475,28 @@ export class SanteDuServeur {
     return lus.rows.map(lireDemarrage)
   }
 
+  private gardes: { le: number; lecture: Promise<DemarrageDuServeur[]> } | null = null
+
+  /**
+   * Les démarrages que la base garde — huit jours —, pour les repères des courbes du QG (`shared/qgEffets.ts` : ses mises
+   * en ligne, ses arrêts nets) : leur seule table, par l'index de leur date, au plus toutes les dix minutes — jamais les
+   * heures du relevé, que la page du serveur lit. Et l'identifiant de celui qui répond, qui ne se juge jamais arrêté net.
+   * Les règles et la mémoire ont leur lecture à elles, à leur rythme (`demarragesGardes`).
+   */
+  async demarragesDesReperes(): Promise<{ demarrages: DemarrageDuServeur[]; courant: string; maintenant: number }> {
+    const maintenant = this.now()
+    if (!this.gardes || maintenant - this.gardes.le > DEMARRAGES_GARDES_MS) {
+      const lecture = this.client
+        .execute({ sql: 'SELECT * FROM qg_demarrages WHERE demarre_le >= ? ORDER BY demarre_le', args: [maintenant - SANTE_GARDEE_MS] })
+        .then(r => r.rows.map(lireDemarrage))
+      this.gardes = { le: maintenant, lecture }
+      lecture.catch(() => {
+        if (this.gardes?.lecture === lecture) this.gardes = null
+      })
+    }
+    return { demarrages: await this.gardes.lecture, courant: this.id, maintenant }
+  }
+
   /** Les dernières sauvegardes de la base, la plus récente d'abord : dix lignes par leur index, à l'ouverture de la page. */
   async sauvegardes(): Promise<SauvegardeDeLaBase[]> {
     const lues = await this.client.execute({

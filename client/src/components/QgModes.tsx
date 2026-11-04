@@ -4,6 +4,7 @@ import { Icon } from './Icon'
 import { Etincelle, GrapheDuTemps, TuileDuQg, barreArrondie, useLargeur } from './QgGraphes'
 import { etiquetteDeLAxe, nomDuSeau } from './QgVueDEnsemble'
 import { fluxDuQg } from '../qgFlux'
+import { reperesDeLaCourbe, useReperesDuQg } from '../qgReperes'
 import { formatNumber } from '../../../shared/typographie'
 import { jourEnToutesLettres } from '../../../shared/jour'
 import { NOM_DU_MODE, ecartALHabitude, graduations, jourAbrege, type CompteDuJour, type EcartALHabitude, type ModeDuQg, type VueDEnsemble } from '../../../shared/qg'
@@ -321,6 +322,8 @@ function CourbeDuMode({ mode, vue, periode, comparer }: { mode: ModeDuQg; vue: V
   const avant = comparer && a?.avant ? a.avant.seaux.map(lire) : null
   const nom = quoi === 'joueurs' ? 'joueur' : NOM_DES_PARTIES[mode].un
   const id = `gabarit-courbe-${mode}`
+  // Ce qui touche ce mode, et ce qui touche tous — une mise en ligne, une annonce (la revue du 4 novembre 2026, P2.2).
+  const reperes = reperesDeLaCourbe(useReperesDuQg(), debuts.map((d, i) => [d, debuts[i + 1] ?? fin + 1] as const), mode)
   return (
     <section className="qg-console" aria-labelledby={id}>
       <div className="qg-console-tete">
@@ -357,6 +360,7 @@ function CourbeDuMode({ mode, vue, periode, comparer }: { mode: ModeDuQg; vue: V
             series={[{ cle: mode, nom: NOM_DU_MODE[mode], valeurs, classe: `qg-mode-${mode}` }]}
             empile={false}
             avant={avant}
+            reperes={reperes}
             nomDuTotal={nom}
             resume={`${NOM_DU_MODE[mode]}, ${quoi === 'joueurs' ? 'ses joueurs' : `ses ${NOM_DES_PARTIES[mode].pluriel.toLowerCase()}`} sur ${PERIODE_EN_TOUTES_LETTRES[periode]} : de ${formatNumber(Math.min(...valeurs))} à ${formatNumber(Math.max(...valeurs))} par seau, ${formatNumber(valeurs.at(-1) ?? 0)} dans le dernier.`}
           />

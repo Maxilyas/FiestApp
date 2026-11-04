@@ -4,12 +4,14 @@ import { Icon } from './Icon'
 import { Feuille } from './Pieces'
 import { Chiffre, GabaritDUnMode } from './QgModes'
 import { GrapheDuTemps, type SerieDuGraphe } from './QgGraphes'
+import { reperesDeLaCourbe, useReperesDuQg } from '../qgReperes'
+import { minuitDuJour } from '../../../shared/qgJoueurs'
 import { FicheDuJoueurAuQg, confirmerLeRendu } from './QgFicheJoueur'
 import { supprimerLeProfil } from './AdminProfils'
 import { showToast } from '../state'
 import { espacesFines } from '../format'
 import { formatNumber } from '../../../shared/typographie'
-import { jourEnToutesLettres } from '../../../shared/jour'
+import { jourAvant, jourEnToutesLettres } from '../../../shared/jour'
 import { dureeCourteEcrite, dureeEcrite, jourAbrege, quandEcrit, type VueDEnsemble } from '../../../shared/qg'
 import type { PeriodeDuQg } from '../../../shared/qgPeriodes'
 import { CLES_DES_JEUX, JEUX } from '../../../shared/cabinet/jeux/regle'
@@ -216,6 +218,8 @@ function TableauDeBord({ page }: { page: PageDuCabinetAuQg }) {
     classe: s.classe,
   }))
   const totaux = page.parJour.map(j => ISSUES_DE_LA_PILE.reduce((n, s) => n + s.valeur(j), 0))
+  // L'ouverture, l'affiche, une mise en ligne posées sur les traversées (la proposition du 3 novembre 2026 le voulait ainsi).
+  const reperes = reperesDeLaCourbe(useReperesDuQg(), page.jours.map(j => [minuitDuJour(j), minuitDuJour(jourAvant(j, -1))] as const), 'cabinet')
   return (
     <>
       <section className="qg-jour" aria-labelledby="cabinet-trente-jours">
@@ -248,6 +252,7 @@ function TableauDeBord({ page }: { page: PageDuCabinetAuQg }) {
               axe={axeDesJours(page.jours)}
               series={series}
               empile
+              reperes={reperes}
               nomDuTotal="traversée"
               resume={`Les traversées commencées jour par jour, sur trente jours, par ce qu’elles sont devenues : ${formatNumber(t.commencees)} en tout, ${formatNumber(totaux.at(-1) ?? 0)} aujourd’hui.`}
             />

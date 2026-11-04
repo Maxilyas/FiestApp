@@ -14832,6 +14832,58 @@ button.qg-groupe-titre:hover { color: var(--ink); background: rgba(255, 255, 255
 .qg-bulle-morceau { padding-left: 14px; }
 .qg-lecture { min-height: 1.4em; margin: 0; font: 500 0.75rem/1.4 var(--sans); font-variant-numeric: lining-nums tabular-nums; color: var(--qg-encre-2); }
 .qg-lecture b { font-weight: 600; color: var(--ink); }
+/* Les repères d'une courbe (la revue du 4 novembre 2026, P2.2) : dans une bande au-dessus du tracé, une forme par sorte —
+   jamais la couleur seule — et un trait fin jusqu'à lui, discrets. Leur couleur suit ce qui les porte (`currentColor`) :
+   l'encre seconde sur la courbe, celle de la bulle, de la légende ou du rond du journal ailleurs. */
+.qg-reperes { color: var(--qg-encre-2); pointer-events: none; }
+.qg-repere { fill: currentColor; stroke: none; }
+.qg-repere-creux { fill: none; stroke: currentColor; stroke-width: 1.5px; }
+/* L'arrêt net, seul en rouge : une panne, pas un geste. */
+.qg-repere-arret { fill: none; stroke: var(--qg-critique-texte); stroke-width: 2px; stroke-linecap: round; }
+.qg-repere-trait { stroke: currentColor; stroke-width: 1px; opacity: 0.5; }
+/* Plusieurs repères trop serrés pour se distinguer : une pastille, et leur nombre dedans. */
+.qg-repere-groupe { fill: var(--qg-console); stroke: currentColor; stroke-width: 1px; }
+.qg-repere-compte { fill: var(--ink); font-family: var(--sans); font-size: 0.6875rem; font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
+.qg-bulle-reperes { display: flex; flex-direction: column; gap: 3px; margin-top: 3px; padding-top: 5px; border-top: 1px solid var(--qg-trait); }
+/* « bientôt disponible : le quiz du jour · 21 h 10 » passe la largeur de la bulle : il va à la ligne, sa forme en face de la première. */
+.qg-bulle-reperes .qg-bulle-ligne { align-items: flex-start; white-space: normal; }
+.qg-bulle-reperes .qg-bulle-forme { margin-top: 2px; }
+/* La forme d'un repère dans la bulle, la légende ou le journal : douze pixels — sous `.qg-graphe`, la règle du dessin
+   (`.qg-graphe svg`, toute la largeur) l'emportait, et la légende posait des croix grandes comme l'écran. */
+.qg-bulle-forme,
+.qg-graphe .qg-bulle-forme { flex: none; width: 12px; height: 12px; overflow: visible; }
+/* La ligne de lecture, et au téléphone ‹ et › de part et d'autre, 44 pixels au doigt (la revue d'ergonomie, G7) : à
+   l'ordinateur, la souris et le clavier lisent déjà la courbe, ils s'effacent. */
+.qg-lecture-ligne { display: flex; align-items: center; gap: 6px; }
+.qg-lecture-ligne .qg-lecture { flex: 1; min-width: 0; }
+.qg-lecture-pas { flex: none; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid var(--qg-trait); border-radius: 50%; background: none; color: var(--ink); cursor: pointer; }
+.qg-lecture-pas .icon { width: 16px; height: 16px; }
+.qg-lecture-pas[aria-disabled='true'] { opacity: 0.35; cursor: default; }
+.qg-lecture-repere { color: var(--ink); }
+/* Ce que veut dire chaque forme, sous la courbe — celles qu'elle porte, rien de plus. */
+.qg-reperes-legende { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; padding: 0; color: var(--qg-encre-2); font-size: 0.75rem; }
+.qg-reperes-legende li { display: inline-flex; align-items: center; gap: 6px; }
+.qg-reperes-legende-compte { display: inline-grid; place-items: center; min-width: 16px; height: 14px; padding: 0 3px; border: 1px solid currentColor; border-radius: 5px; color: var(--ink); font-size: 0.6875rem; font-weight: 700; line-height: 1; }
+/* Les soirs du rappel : au téléphone, « Joué après » passe sur deux lignes plutôt que de pousser la table hors de l'écran. */
+.qg-rappel-soirs thead th { white-space: normal; }
+/* L'effet d'une annonce ou d'une affiche, sous sa ligne (la revue, P2.1) : des comptes, l'icône d'un graphique devant. */
+.qg-effet { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
+.qg-effet-ligne { display: flex; align-items: flex-start; gap: 6px; font-size: 0.85rem; color: var(--qg-encre-2); }
+.qg-effet-ligne .icon { flex: none; width: 14px; height: 14px; margin-top: 2px; color: var(--accent-text); }
+/* Journal et repères : au téléphone, la carte « Avant / après » en tête — trois lignes tant que rien n'est choisi, le fil
+   reste sous le pouce —, le fil dessous ; à l'ordinateur, le fil à gauche et la carte collée à droite. */
+.qg-journal-et-reperes { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+.qg-journal-fil { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+/* Choisie du fil, la carte remonte sous la barre de commande collée, pas dessous. */
+.qg-avant-apres { scroll-margin-top: 72px; }
+.qg-avant-apres-repere { display: flex; align-items: center; gap: 10px; }
+/* L'écart dans sa colonne étroite : la flèche reste avec le nombre — elle partait seule au-dessus de « −0,2 par jour » —,
+   et au téléphone « par jour » passe dessous plutôt que de couper la table en silence. */
+.qg-avant-apres .qg-ecart { flex-wrap: nowrap; white-space: normal; text-align: left; }
+.qg-avant-apres-dernier { align-self: flex-start; max-width: 100%; text-align: left; }
+/* « Avant / après » sur la ligne d'un repère, sous sa phrase : 44 pixels au doigt, comme ‹ et ›. */
+.qg-comparer { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0; border: 0; background: none; color: var(--accent-text); font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+.qg-comparer .icon { width: 14px; height: 14px; }
 .qg-mode-soiree { fill: var(--mode-soiree); background: var(--mode-soiree); }
 .qg-mode-campagne { fill: var(--mode-campagne); background: var(--mode-campagne); }
 .qg-mode-cabinet { fill: var(--mode-cabinet); background: var(--mode-cabinet); }
@@ -15696,6 +15748,15 @@ span.annonce-admin-merci { cursor: default; }
   .qg-cote-table { display: block; }
   .qg-cote-cartes { display: none; }
   .qg-tableau .qg-colonne-large { display: table-cell; }
+  /* Les courbes se lisent à la souris et au clavier : ‹ et › sont pour le doigt. */
+  .qg-lecture-pas { display: none; }
+  .qg-comparer { min-height: 32px; }
+  /* Journal et repères : le fil à gauche, la carte « Avant / après » collée à droite, sous la barre de commande. */
+  .qg-journal-et-reperes { grid-template-columns: minmax(0, 1fr) minmax(320px, 420px); gap: 20px; }
+  .qg-journal-et-reperes > .qg-avant-apres { grid-column: 2; grid-row: 1; position: sticky; top: 72px; }
+  .qg-journal-fil { grid-column: 1; grid-row: 1; }
+  /* La place ne manque plus : l'écart tient sur sa ligne, le nom d'un chiffre passe à la ligne s'il le faut. */
+  .qg-avant-apres .qg-ecart { white-space: nowrap; }
   .qg-question { grid-template-columns: 1.5rem minmax(0, 1.3fr) minmax(0, 1fr) 3.5rem 8.5rem; grid-template-areas: 'n texte piste part marques'; }
   .qg-question-texte { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .qg-rang { grid-template-columns: 1.5rem 36px minmax(0, 1fr) auto auto; grid-template-areas: 'place avatar nom points geste'; }

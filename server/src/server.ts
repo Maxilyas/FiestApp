@@ -61,6 +61,7 @@ import { mouvementsEntre } from './economie'
 import { LePointDuMatin } from './core/pointDuMatin'
 import { animateursDuQg } from './animateursDuQg'
 import { MemoireDuQg } from './core/memoireDuQg'
+import { EffetsDuQg } from './effetsDuQg'
 import { questionAuCentreOuverte, rencontresOuvertes } from './expedition'
 import { JourStore } from './core/jour'
 import { RappelStore } from './core/rappels'
@@ -689,6 +690,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
     quizPrets: spaceId => quizLibrary(spaceId).map(p => p.id),
     maintenant: maintenantDuJour,
   })
+  // L'effet de ce que le QG envoie — une annonce, une affiche — et les repères de ses courbes : lus de la mémoire du QG,
+  // du journal des gestes et des démarrages, une fois par jour pour ce qui est fini (`effetsDuQg.ts`).
+  const effetsDuQg = new EffetsDuQg(opts.quizDbUrl, opts.quizDbToken, { memoire: memoireDuQg, audience, profiles, gestes, sante, maintenant: maintenantDuJour })
 
   /**
    * Deux écritures du même espace lancent deux relectures, qui reviennent
@@ -1495,6 +1499,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     erreurs: { sante, alertes, rappels, veille },
     audience,
     animateurs,
+    effets: effetsDuQg,
     online: !!opts.online,
     publicOrigin: allowedOrigin,
     onLibraryChanged: refreshLibrary,
@@ -1812,6 +1817,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
           alertes.close()
           regles.close()
           pointDuMatin.close()
+          effetsDuQg.close()
           maintenance.close()
           // Les profils en dernier : un crédit d'expérience parti avec la fin
           // du dernier quiz garde ainsi le plus long sursis pour aboutir. On ne
