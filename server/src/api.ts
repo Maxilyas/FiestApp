@@ -13,6 +13,7 @@ import { fermerLesPortes, mountMaintenance } from './maintenance'
 import { mountAnnonces } from './annonces'
 import { mountJoueurs, type AudienceDuQg } from './joueursDuQg'
 import { mountAffiches } from './affiches'
+import { mountEffetsDuQg, type EffetsDuQg } from './effetsDuQg'
 import { mountErreurs, type ErreursDeps } from './erreursDuQg'
 import type { Maintenance } from './core/maintenance'
 import { journaliser, type JournalDesGestes } from './core/journalDesGestes'
@@ -118,6 +119,8 @@ interface ApiDeps {
   erreurs: ErreursDeps
   /** L'audience du QG : la page des joueurs, ses segments — et les destinataires d'une annonce écrite à l'un d'eux. */
   audience: AudienceDuQg
+  /** L'effet des annonces et des affiches, et les repères des courbes du QG. */
+  effets: EffetsDuQg
 }
 
 /**
@@ -272,6 +275,8 @@ export function mountApi(app: Express, deps: ApiDeps) {
   mountAnnonces(app, { profiles: deps.profiles, audience: deps.audience })
   // L'affiche d'une nouveauté, en haut de chaque accueil, et sa pastille « Nouveau » : l'administrateur seul.
   mountAffiches(app, { profiles: deps.profiles, cabinet: deps.cabinet.ouvert })
+  // Ce que les annonces et les affiches ont changé, et les repères des courbes du QG : l'administrateur seul.
+  mountEffetsDuQg(app, deps.effets)
   // Le tri des erreurs serveur, et les alertes de panne sur son téléphone : l'administrateur seul.
   mountErreurs(app, deps.erreurs)
 

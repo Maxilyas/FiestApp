@@ -213,7 +213,8 @@ test('le rappel du soir se garde soir par soir : un redémarrage ne l’efface p
 
     horloge.t = aParis(26, 18, 5)
     await tournee('2026-09-26')
-    const ceSoir = { jour: '2026-09-26', envoyes: 1, finis: 1, retires: 0, echecs: 0, ouverts: 0 }
+    // « Joué après » attend le soir fini, avant la tournée du lendemain (`qg-effets.test.ts`) : ce soir, il ne se sait pas.
+    const ceSoir = { jour: '2026-09-26', envoyes: 1, finis: 1, retires: 0, echecs: 0, ouverts: 0, joues: null }
     // L'écriture du bilan suit la tournée : on la laisse arriver.
     for (let essai = 0; essai < 100 && (await suiviDe(banc, admin)).rappel.tournees.length === 0; essai++) await patienter(20)
     suivi = await suiviDe(banc, admin)

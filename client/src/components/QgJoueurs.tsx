@@ -3,11 +3,12 @@ import { api, motifDe } from '../api'
 import { Icon } from './Icon'
 import { Feuille } from './Pieces'
 import { CarteDeChaleur, GrapheDuTemps, TuileDuQg, type CaseDeChaleur } from './QgGraphes'
+import { reperesDeLaCourbe, useReperesDuQg } from '../qgReperes'
 import { FicheDuJoueurAuQg } from './QgFicheJoueur'
 import { supprimerLeProfil } from './AdminProfils'
 import { espacesFines } from '../format'
 import { formatNumber } from '../../../shared/typographie'
-import { jourDe, jourEnToutesLettres } from '../../../shared/jour'
+import { jourAvant, jourDe, jourEnToutesLettres } from '../../../shared/jour'
 import { MODES_DU_QG, NOM_DU_MODE, ecartALHabitude, jourAbrege, quandEcrit, type EcartALHabitude, type ModeDuQg } from '../../../shared/qg'
 import { ecartALaPeriodeDAvant } from '../../../shared/qgPeriodes'
 import {
@@ -18,6 +19,7 @@ import {
   REGLE_DU_SEGMENT,
   SEMAINES_DE_RETOUR,
   joursEntre,
+  minuitDuJour,
   nomDeLaCombinaison,
   type MembreMontre,
   type PageDesJoueurs,
@@ -145,6 +147,8 @@ function axeDesJours(jours: readonly string[], i: number, largeur: number): stri
 
 function LesActifs({ page }: { page: PageDesJoueurs }) {
   const jours = page.parJour.map(j => j.jour)
+  // Ce qui s'est passé jour par jour (la revue du 4 novembre 2026, P2.2) : chaque jour de Paris, de son minuit au suivant.
+  const reperes = reperesDeLaCourbe(useReperesDuQg(), jours.map(j => [minuitDuJour(j), minuitDuJour(jourAvant(j, -1))] as const))
   return (
     <section className="qg-console qg-joueurs-actifs" aria-labelledby="joueurs-actifs">
       <div className="qg-console-tete">
@@ -165,6 +169,7 @@ function LesActifs({ page }: { page: PageDesJoueurs }) {
           { cle: 'mois', nom: 'du mois', valeurs: page.parJour.map(j => j.mois), classe: 'qg-joueurs-mois' },
         ]}
         empile={false}
+        reperes={reperes}
         nomDuTotal="joueur"
         resume={`Les joueurs, jour par jour sur ${pluriel(jours.length, 'jour')} : ${pluriel(page.actifs.jour.valeur, 'profil')} aujourd’hui, ${formatNumber(page.actifs.semaine.valeur)} ces sept jours, ${formatNumber(page.actifs.mois.valeur)} ces trente jours.`}
       />

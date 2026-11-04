@@ -129,6 +129,23 @@ export class JournalDesGestes {
     const dernier = gestes.at(-1)
     return { gestes, suite: res.rows.length > GESTES_PAR_PAGE && dernier ? `${dernier.quand}:${dernier.id}` : null }
   }
+
+  /**
+   * Les gestes de quelques routes, de `depuis` à `jusqua` (exclu), le plus ancien d'abord — ceux qui posent un repère
+   * sur les courbes du QG (`ROUTES_DES_REPERES`, `shared/qgEffets.ts`) —, par l'index de leur date, d'un seul texte JSON.
+   * Les écritures en route d'abord : un repère posé à l'instant se lit à la courbe suivante.
+   */
+  async desRoutes(routes: readonly string[], depuis: number, jusqua = Number.MAX_SAFE_INTEGER): Promise<{ id: string; quand: number; route: string; resume: string; cible: string | null }[]> {
+    await this.file
+    const res = await this.client.execute({
+      sql: `SELECT json_group_array(json_array(id, quand, route, resume, cible)) AS lignes FROM (
+              SELECT id, quand, route, resume, cible FROM qg_gestes WHERE quand >= ? AND quand < ? AND route IN (SELECT value FROM json_each(?)) ORDER BY quand
+            )`,
+      args: [depuis, jusqua, JSON.stringify(routes)],
+    })
+    const lignes = JSON.parse(String(res.rows[0]?.lignes ?? '[]')) as [string, number, string, string, string | null][]
+    return lignes.map(([id, quand, route, resume, cible]) => ({ id: String(id), quand: Number(quand), route: String(route), resume: String(resume), cible: cible === null ? null : String(cible) }))
+  }
 }
 
 /**

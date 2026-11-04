@@ -10,6 +10,8 @@ import { formatNumber } from '../../../shared/typographie'
 import { quandEcrit } from '../../../shared/qg'
 import { ANNONCE_MS, CONFETTIS_PAR_DON_MAX } from '../../../shared/profil'
 import { AUX_PROFILS_DU_SEGMENT, NOM_DU_SEGMENT, REGLE_DU_SEGMENT, SEGMENTS, type ComptesDesSegments, type SegmentDuQg } from '../../../shared/qgJoueurs'
+import { JOURS_DE_L_EFFET_D_UNE_ANNONCE, partEcrite, type EffetDUneAnnonce, type EffetsDesAnnonces } from '../../../shared/qgEffets'
+import { oublierLesReperes } from '../qgReperes'
 import {
   ANNONCE_MAX,
   CHOIX_LONGUEUR_MAX,
@@ -79,6 +81,46 @@ function ResultatsDeLaQuestion({ question: q }: { question: QuestionAuQg }) {
 }
 
 /**
+ * Ce qu'une annonce a changé (la revue du 4 novembre 2026, P2.1) : ses destinataires qui ont rejoué dans les sept jours
+ * qui suivent son jour, face à l'habitude de la même audience une semaine plus tôt ; et, si elle pose une question, qui y
+ * a répondu. Des comptes, jamais un pourcentage, jamais un nom ; la lecture d'une annonce ne se sait pas — le téléphone
+ * la retient seul —, le retour au jeu en tient lieu.
+ */
+function EffetDeLAnnonce({ annonce: a, effet }: { annonce: AnnonceAuQg; effet: EffetDUneAnnonce | undefined }) {
+  const lignes: string[] = []
+  if (effet) {
+    const habitude = effet.habitude && effet.habitude.sur > 0 ? effet.habitude : null
+    const jours = (n: number) => `${formatNumber(n)} jour${n > 1 ? 's' : ''}`
+    if (effet.jours === 0) {
+      lignes.push(
+        `Ce qu’elle change se lira jour après jour, sur les ${JOURS_DE_L_EFFET_D_UNE_ANNONCE} qui suivent son jour${habitude ? ` — d’habitude, ${partEcrite(habitude)} rejouent en une semaine` : ''}.`,
+      )
+    } else if (effet.apres === null) {
+      lignes.push('La mémoire du QG ne remonte pas jusqu’à elle : ce qu’elle a changé ne se lit pas.')
+    } else {
+      const en = effet.jours < JOURS_DE_L_EFFET_D_UNE_ANNONCE
+      lignes.push(
+        `${en ? `En cours, ${jours(effet.jours)} sur ${JOURS_DE_L_EFFET_D_UNE_ANNONCE} : ${partEcrite(effet.apres)} ont rejoué` : `Ont rejoué dans les ${JOURS_DE_L_EFFET_D_UNE_ANNONCE} jours : ${partEcrite(effet.apres)}`}${
+          habitude ? ` — d’habitude, ${partEcrite(habitude)}${en ? ` en ${jours(effet.joursDeLHabitude)}` : ''}` : ''
+        }`,
+      )
+    }
+  }
+  if (a.question) lignes.push(`Ont répondu à sa question : ${partEcrite({ n: a.question.resultats.reponses, sur: a.destinataires })}`)
+  if (lignes.length === 0) return null
+  return (
+    <span className="qg-effet">
+      {lignes.map(l => (
+        <span key={l} className="qg-effet-ligne">
+          <Icon name="bar-chart" />
+          {espacesFines(l)}
+        </span>
+      ))}
+    </span>
+  )
+}
+
+/**
  * Les annonces à tous au QG (`/admin#annonces`, sous « Animer ») — le souhait
  * du propriétaire du 19 octobre 2026, le soir où le quiz du jour et les défis
  * s'étaient rouverts : « une annonce pour dire que l'incident est résolu, et
@@ -98,6 +140,8 @@ export function QgAnnonces({ segment: depart = null }: { segment?: SegmentDuQg |
   const [pourQui, setPourQui] = useState<SegmentDuQg | null>(depart)
   /** Combien chaque segment compte de profils ; null tant qu'ils ne sont pas lus, ou s'ils ne se lisent pas. */
   const [comptes, setComptes] = useState<ComptesDesSegments | null>(null)
+  /** Ce que chaque annonce a changé, lu au serveur une fois par jour ; null tant qu'il n'est pas lu — les lignes se taisent. */
+  const [effets, setEffets] = useState<EffetsDesAnnonces | null>(null)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [confettis, setConfettis] = useState(0)
@@ -116,10 +160,12 @@ export function QgAnnonces({ segment: depart = null }: { segment?: SegmentDuQg |
       e => setError(motifDe(e)),
     )
   const relireLesComptes = () => api.admin.segmentsDesJoueurs().then(setComptes, () => setComptes(null))
+  const relireLesEffets = () => api.admin.effetsDesAnnonces().then(setEffets, () => setEffets(null))
   useEffect(() => {
     void relire()
     // À côté, sans faire attendre la page : la mémoire du QG peut avoir un jour à rattraper.
     void relireLesComptes()
+    void relireLesEffets()
   }, [])
 
   if (error) return <p className="error">{error}</p>
@@ -170,6 +216,9 @@ export function QgAnnonces({ segment: depart = null }: { segment?: SegmentDuQg |
       repartir()
       showToast({ kind: 'info', message: `Annonce envoyée ${aQui}` })
       void relireLesComptes()
+      void relireLesEffets()
+      // Elle se pose sur les courbes du QG : la suivante relit leurs repères.
+      oublierLesReperes()
     } catch (e) {
       showToast({ kind: 'error', message: motifDe(e) })
       // Déjà partie : la réponse d'avant s'était perdue en route. La liste la montre.
@@ -371,6 +420,7 @@ export function QgAnnonces({ segment: depart = null }: { segment?: SegmentDuQg |
                         .filter(Boolean)
                         .join(' · ')}
                     </span>
+                    <EffetDeLAnnonce annonce={a} effet={effets?.effets[a.id]} />
                     {a.question && <ResultatsDeLaQuestion question={a.question} />}
                     {a.retireeLe !== null && <span className="annonce-faite-etat">{`Retirée ${quandEcrit(a.retireeLe, page.maintenant)}`}</span>}
                     {a.retireeLe === null && !visible && <span className="muted small">Ne se montre plus : un mois a passé</span>}

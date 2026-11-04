@@ -51,6 +51,7 @@ import type { EnjeuDuDuel, EtatDesDuels, FaceAFace, JoueurADefier, JoueurCroise,
 import type { DirectDuQg, JournalDuQg, PageDesSoirees, SorteDeGeste, VueDEnsemble } from '../../shared/qg'
 import type { AccuseDeReponse, PageDesAnnonces, QuestionDAnnonce } from '../../shared/annonces'
 import type { DemandeDAffiche, PageDesAffiches } from '../../shared/affiches'
+import type { EffetsDesAffiches, EffetsDesAnnonces, JoursDeLAvantApres, ReperesDuQg } from '../../shared/qgEffets'
 import type { BaseDuQg, PageDuServeur, PeriodeDuServeur } from '../../shared/santeDuServeur'
 import type { CleDeRegle, IncidentDuQg, PageDesAlertes } from '../../shared/qgAlertes'
 import type { EtatDUneErreur, PageDesErreurs } from '../../shared/triDesErreurs'
@@ -887,6 +888,14 @@ export const api = {
     mettreALAffiche: (id: string, affiche: DemandeDAffiche) => req<PageDesAffiches>('/api/admin/affiches', { method: 'POST', body: JSON.stringify({ id, ...affiche }) }),
     /** La retirer avant sa fin : l'accueil la tait à tous, sa pastille avec. Rend la page d'après. */
     retirerLAffiche: (id: string) => req<PageDesAffiches>(`/api/admin/affiches/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+    /** Ce que chaque annonce a changé : ses destinataires revenus jouer dans les sept jours, face à l'habitude. Lu une fois par jour au serveur. */
+    effetsDesAnnonces: () => req<EffetsDesAnnonces>('/api/admin/annonces/effets'),
+    /** Ce que chaque affiche a changé : les joueurs de sa page quatorze jours avant et après, ses visiteurs revenus. */
+    effetsDesAffiches: () => req<EffetsDesAffiches>('/api/admin/affiches/effets'),
+    /** Les repères des courbes : mises en ligne, arrêts nets, pages fermées ou rouvertes, affiches, annonces, réglages — `jours` en arrière. */
+    reperes: (jours?: number) => req<ReperesDuQg>(`/api/admin/reperes${jours ? `?jours=${jours}` : ''}`),
+    /** Les jours de la mémoire autour d'un repère : quatorze de chaque côté de son jour. */
+    joursAutourDUnRepere: (jour: string) => req<JoursDeLAvantApres>(`/api/admin/reperes/avant-apres?jour=${encodeURIComponent(jour)}`),
     /** Les erreurs de la semaine, chacune sous son tri, les modes en panne, et les téléphones que la panne fait sonner. */
     erreurs: () => req<PageDesErreurs>('/api/admin/erreurs'),
     /** Une erreur réglée — avec son mot —, ignorée, ou remise à regarder. Rend la page d'après. */

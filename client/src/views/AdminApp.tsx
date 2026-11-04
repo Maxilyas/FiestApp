@@ -105,7 +105,7 @@ function lireEcran(): Ecran | null {
 }
 
 const TITRE: Record<Ecran, string> = {
-  journal: 'Le journal',
+  journal: 'Journal et repères',
   erreurs: 'Les erreurs',
   serveur: 'Le serveur',
   maintenance: 'La maintenance',
@@ -147,7 +147,7 @@ const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; 
       { ecran: null, nom: 'Poste de commande', icone: 'bar-chart' },
       { ecran: 'direct', nom: 'En direct', icone: 'eye' },
       { ecran: 'alertes', nom: 'Alertes', icone: 'bell' },
-      { ecran: 'journal', nom: 'Journal', icone: 'list' },
+      { ecran: 'journal', nom: 'Journal et repères', icone: 'list' },
     ],
   },
   {

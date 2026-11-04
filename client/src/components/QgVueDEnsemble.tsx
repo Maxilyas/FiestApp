@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Icon, type IconName } from './Icon'
 import { GrapheDuTemps, TuileDuQg, type SerieDuGraphe } from './QgGraphes'
+import { reperesDeLaCourbe, useReperesDuQg } from '../qgReperes'
 import { formatNumber } from '../../../shared/typographie'
 import { jourDe, jourEnToutesLettres, minutesDeParis } from '../../../shared/jour'
 import {
@@ -258,6 +259,8 @@ export function Participations({
   const seaux = a?.seaux ?? []
   const fin = vue?.maintenant ?? 0
   const debuts = seaux.map(s => s.debut)
+  // Ce qui s'est passé seau par seau — une mise en ligne, une affiche, une annonce… (la revue du 4 novembre 2026, P2.2).
+  const reperes = reperesDeLaCourbe(useReperesDuQg(), debuts.map((d, i) => [d, debuts[i + 1] ?? fin + 1] as const))
   const etiquettes = seaux.map(s => nomDuSeau(s.debut, a?.pas ?? HEURE, fin))
   const empile = quoi === 'participations'
   const series: SerieDuGraphe[] = empile
@@ -296,6 +299,7 @@ export function Participations({
             empile={empile}
             avant={avant}
             repartition={empile ? undefined : seaux.map(s => MODES_DU_QG.map(m => ({ nom: NOM_DU_MODE[m], valeur: s.modes[m] })))}
+            reperes={reperes}
             nomDuTotal={empile ? 'participation' : 'joueur'}
             resume={`${empile ? 'Participations par mode' : 'Joueurs, tous modes confondus'}, sur ${PERIODE_EN_TOUTES_LETTRES[periode]} : de ${formatNumber(Math.min(...totaux))} à ${formatNumber(Math.max(...totaux))} par seau, ${formatNumber(totaux.at(-1) ?? 0)} dans le dernier.`}
           />

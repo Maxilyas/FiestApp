@@ -38,7 +38,10 @@
 // Cabinet de curiosités — trente jours de traversées des vingt-quatre joueurs,
 // jouées au pli, une rendue par la vraie route —, « Rendre » ouvert, et la fiche
 // d'un joueur en route. Et les modes : côte à côte, puis le gabarit en tête de
-// chaque page de mode (`SEULEMENT=modes`). Le client construit d'abord (`npm run build -w client`).
+// chaque page de mode (`SEULEMENT=modes`). Et l'effet de ce que le QG envoie
+// (`SEULEMENT=effets`) : trois annonces, deux affiches et leurs visiteurs, les
+// soirs du rappel et « Joué après », « Journal et repères » et son « Avant /
+// après », le poste sur sept jours et ses repères. Le client construit d'abord (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-qg.ts [dossier]
 //   SEULEMENT=poste,cabinet npx tsx scripts/rendu-qg.ts [dossier]   — ces pages-là, le temps d'une retouche
@@ -58,6 +61,7 @@ import { regleDuPalier } from '../../shared/sentiers'
 import { PRIX_DES_THEMES, THEMES } from '../../shared/themes'
 import { PRIX_D_UN_COMPAGNON } from '../../shared/compagnons'
 import { gainVide, releveVide } from '../../shared/profil'
+import { DESTINATIONS } from '../../shared/affiches'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import type { PageDesSignalements } from '../../shared/qgSignalements'
 import type { ErreurEnDetail, GelDeLaBoucle, GelsDeLHeure } from '../../shared/santeDuServeur'
@@ -680,19 +684,21 @@ try {
       // soir : la tournée du banc, s'il tourne à 18 h, n'y touche pas.
       const telephone = permanente.prepare('INSERT INTO jour_rappels (endpoint, profile_id, session_id, p256dh, auth, vu_le, dernier_jour, soir) VALUES (?, ?, ?, ?, ?, ?, ?, 1)')
       for (let k = 0; k < 96; k++) telephone.run(`https://push.exemple/${k}`, `p-${k < 81 ? k : k - 15}`, `session-${k}`, 'cle', 'secret', maintenant, aujourdhui)
-      const tournee = permanente.prepare('INSERT INTO jour_rappels_tournees (jour, envoyes, finis, retires, echecs, faite_le) VALUES (?, ?, ?, ?, ?, ?)')
+      // Chaque soir, ses rappels touchés et ceux qui ont joué après lui (la revue du 4 novembre 2026, P2.1) : comptés,
+      // comme le serveur les compte le soir fini.
+      const tournee = permanente.prepare('INSERT INTO jour_rappels_tournees (jour, envoyes, finis, retires, echecs, ouverts, joues, faite_le) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
       const soirs = [
-        [87, 6, 2, 3],
-        [84, 9, 0, 2],
-        [80, 11, 1, 0],
-        [82, 7, 0, 1],
-        [79, 10, 2, 0],
-        [77, 12, 0, 0],
-        [75, 8, 1, 1],
+        [87, 6, 2, 3, 29, 31],
+        [84, 9, 0, 2, 21, 27],
+        [80, 11, 1, 0, 26, 30],
+        [82, 7, 0, 1, 19, 24],
+        [79, 10, 2, 0, 24, 26],
+        [77, 12, 0, 0, 22, 25],
+        [75, 8, 1, 1, 17, 21],
       ]
-      soirs.forEach(([envoyes, finis, retires, echecs], d) => {
+      soirs.forEach(([envoyes, finis, retires, echecs, ouverts, joues], d) => {
         const minuit = minuits[minuits.length - 2 - d]
-        tournee.run(jourDe(minuit + 12 * H), envoyes, finis, retires, echecs, minuit + 18 * H)
+        tournee.run(jourDe(minuit + 12 * H), envoyes, finis, retires, echecs, ouverts, joues, minuit + 18 * H)
       })
       // Les signalements d'aujourd'hui, par des habitués qui y ont répondu
       // (la page des signalements, le 14 octobre 2026) : la question piège —
@@ -1137,6 +1143,80 @@ try {
     const geste = permanente.prepare("INSERT INTO qg_gestes (id, quand, qui, sorte, route, resume, cible) VALUES (?, ?, 'banc', ?, 'POST /api/admin/x', ?, NULL)")
     geste.run('hier-1', minuits[minuits.length - 1] - 3 * H, 'salon', 'Espace « Chez Bob » renommé « Chez Robert », adresse /chez-bob → /chez-robert')
     geste.run('hier-2', minuits[minuits.length - 1] - 2 * H, 'catalogue', 'Copie publiée au catalogue : « Les années 80 en chansons », de Nadia')
+    // L'effet de ce que le QG envoie et les repères des courbes (la revue du 4 novembre 2026, P2.1 et P2.2 ;
+    // `SEULEMENT=effets`) : une annonce à tous il y a douze jours — sa semaine finie, un vote —, une aux endormis il y a
+    // quatre jours, en cours, et une ce matin ; une affiche du Cabinet il y a seize jours, finie, une de la campagne il y
+    // a cinq jours, retirée depuis — l'accueil des autres photos ne la montre pas —, et leurs visiteurs ; la page du quiz
+    // du jour fermée puis rouverte pendant la panne d'il y a quinze jours. Chacun au journal sous sa vraie route, comme
+    // ses gestes l'y écrivent ; la mémoire les lit au premier passage de la page qui les montre.
+    {
+      const J = 24 * H
+      const auJournal = permanente.prepare("INSERT INTO qg_gestes (id, quand, qui, sorte, route, resume, cible) VALUES (?, ?, 'banc', ?, ?, ?, ?)")
+      const profilsLe = (le: number) => (permanente.prepare('SELECT COUNT(*) AS n FROM profiles WHERE created_at <= ? AND disabled_at IS NULL').get(le) as { n: number }).n
+      const annonce = permanente.prepare('INSERT INTO qg_annonces (id, message, confettis, destinataires, created_at) VALUES (?, ?, ?, ?, ?)')
+      const aTous = minuits[minuits.length - 13] + 11 * H
+      const duCabinet = 'Le Cabinet de curiosités est ouvert à tous ! Qu’y préférez-vous ?'
+      annonce.run('annonce-cabinet', duCabinet, 50, profilsLe(aTous), aTous)
+      permanente
+        .prepare("INSERT INTO qg_annonce_questions (annonce_id, sorte, choix, recompense, close_le) VALUES (?, 'vote', ?, 10, NULL)")
+        .run('annonce-cabinet', JSON.stringify(['Les épreuves', 'Les cartes', 'Les gardiens']))
+      const vote = permanente.prepare('INSERT INTO qg_annonce_reponses (annonce_id, profile_id, reponse, created_at) VALUES (?, ?, ?, ?)')
+      joueurs.slice(0, 17).forEach((j, k) => vote.run('annonce-cabinet', j.id, String(k % 4 === 3 ? 0 : k % 3), aTous + (k + 1) * 47 * 60_000))
+      auJournal.run('repere-annonce-cabinet', aTous, 'annonce', 'POST /api/admin/annonces', `Annonce à ${profilsLe(aTous)} profils : « ${duCabinet} » — 50 confettis chacun — avec un vote, 10 confettis par réponse`, 'annonce-cabinet')
+      // Aux endormis, il y a quatre jours : les profils dont la dernière partie datait de deux à quatre semaines ; un sur
+      // trois revient dans les trois jours finis qui suivent.
+      const auxEndormis = minuits[minuits.length - 5] + 10 * H
+      const endormis = (
+        permanente
+          .prepare(
+            `SELECT id FROM profiles p WHERE p.created_at < ? AND p.disabled_at IS NULL AND (
+               SELECT MAX(t) FROM (
+                 SELECT MAX(commencee_le) AS t FROM jour_parties WHERE profile_id = p.id AND commencee_le < ?
+                 UNION ALL SELECT MAX(commencee_le) FROM campagne_series WHERE profile_id = p.id AND commencee_le < ?
+               )
+             ) BETWEEN ? AND ?`,
+          )
+          .all(auxEndormis - 7 * J, auxEndormis, auxEndormis, auxEndormis - 29 * J, auxEndormis - 14 * J) as { id: string }[]
+      ).map(r => r.id)
+      if (endormis.length > 0) {
+        const message = 'Tu nous manques ! Une nouvelle saison de la campagne t’attend.'
+        annonce.run('annonce-endormis', message, 0, endormis.length, auxEndormis)
+        permanente.prepare("INSERT INTO qg_annonce_segments (annonce_id, segment) VALUES (?, 'endormis')").run('annonce-endormis')
+        const destinataire = permanente.prepare('INSERT INTO qg_annonce_destinataires (annonce_id, profile_id) VALUES (?, ?)')
+        const revient = permanente.prepare('INSERT OR IGNORE INTO jour_parties (profile_id, jour, commencee_le, question, finie_le) VALUES (?, ?, ?, 10, ?)')
+        endormis.forEach((id, k) => {
+          destinataire.run('annonce-endormis', id)
+          if (k % 3 !== 0) return
+          const quand = minuits[minuits.length - 4 + (Math.floor(k / 3) % 3)] + 19 * H
+          revient.run(id, jourDe(quand), quand, quand + 4 * 60_000)
+        })
+        auJournal.run('repere-annonce-endormis', auxEndormis, 'annonce', 'POST /api/admin/annonces', `Annonce aux endormis (${endormis.length} profils) : « ${message} »`, 'annonce-endormis')
+      }
+      const ceMatin = Math.min(maintenant - 2 * H, minuits[minuits.length - 1] + 9 * H)
+      const merci = 'Merci d’avoir été si nombreux au quiz du jour hier soir !'
+      annonce.run('annonce-du-jour', merci, 0, profilsLe(ceMatin), ceMatin)
+      auJournal.run('repere-annonce-du-jour', ceMatin, 'annonce', 'POST /api/admin/annonces', `Annonce à ${profilsLe(ceMatin)} profils : « ${merci} »`, 'annonce-du-jour')
+      const affiche = permanente.prepare('INSERT INTO qg_affiches (id, page, titre, phrase, confettis, created_at, fin, retiree_le) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      const visite = permanente.prepare('INSERT INTO profile_affiches (affiche_id, profile_id, ouverte_le) VALUES (?, ?, ?)')
+      const cabinetPose = minuits[minuits.length - 17] + 12 * H
+      affiche.run('affiche-cabinet', 'cabinet', DESTINATIONS.cabinet.titre, DESTINATIONS.cabinet.phrase, 20, cabinetPose, cabinetPose + 14 * J, null)
+      joueurs.slice(4, 20).forEach((j, k) => visite.run('affiche-cabinet', j.id, cabinetPose + (2 + k * 9) * H))
+      auJournal.run(
+        'repere-affiche-cabinet',
+        cabinetPose,
+        'annonce',
+        'POST /api/admin/affiches',
+        `Affiche posée : ${DESTINATIONS.cabinet.nom} — « ${DESTINATIONS.cabinet.titre} », 14 jours — 20 confettis à la première visite`,
+        'affiche-cabinet',
+      )
+      const campagnePose = minuits[minuits.length - 6] + 9 * H
+      affiche.run('affiche-campagne', 'campagne', DESTINATIONS.campagne.titre, DESTINATIONS.campagne.phrase, 0, campagnePose, campagnePose + 14 * J, campagnePose + 3 * J)
+      joueurs.slice(0, 9).forEach((j, k) => visite.run('affiche-campagne', j.id, campagnePose + (1 + k * 7) * H))
+      auJournal.run('repere-affiche-campagne', campagnePose, 'annonce', 'POST /api/admin/affiches', `Affiche posée : ${DESTINATIONS.campagne.nom} — « ${DESTINATIONS.campagne.titre} », 14 jours`, 'affiche-campagne')
+      const pendantLaPanne = maintenant - 15 * J - 2 * H
+      auJournal.run('repere-maintenance', pendantLaPanne + 20 * 60_000, 'maintenance', 'PUT /api/admin/maintenance/pages/:page', 'Page mise en maintenance : Le quiz du jour', 'jour')
+      auJournal.run('repere-reouverture', pendantLaPanne + 130 * 60_000, 'maintenance', 'PUT /api/admin/maintenance/pages/:page', 'Page rouverte aux joueurs : Le quiz du jour', 'jour')
+    }
     // Les modes côte à côte (le QG 2, lot 5) : ce que la réussite et la durée d'une partie lisent des parties inventées —
     // leurs bonnes réponses, de la moitié aux quatre cinquièmes, et leur fin, trois à neuf minutes après leur début, une
     // sur dix laissée en route ; les QCM répondus du relevé des soirées, dix, de quatre à neuf justes. Ni les duels ni
@@ -1356,6 +1436,55 @@ try {
     await photographier('89-telephones-telephone', 360, 640, { adresse: '/admin#telephones' })
   }
   // Les pages du QG 2 qui suivront, chacune son bloc `if (photo('<clé>')) { … }`, ici.
+  // L'effet de ce que le QG envoie et les repères (la revue du 4 novembre 2026, P2.1 et P2.2) : les annonces et les
+  // affiches et ce qu'elles ont changé, le rappel du soir et « Joué après », « Journal et repères » et la carte
+  // « Avant / après » ouverte sur l'affiche du Cabinet — aux trois tailles —, puis le poste sur sept jours, un seau à
+  // repères survolé à l'ordinateur, touché au téléphone.
+  if (photo('effets')) {
+    // Le premier passage écrit d'abord la mémoire du QG, aussi loin que les journaux remontent : un peu plus long.
+    const effets = async (page: any) => {
+      await page.waitForSelector('.qg-effet', { timeout: 60000 })
+    }
+    const avantApres = async (page: any) => {
+      await page.waitForSelector('.qg-comparer', { timeout: 60000 })
+      await page.locator('li.qg-geste', { hasText: 'Affiche posée : Le Cabinet' }).locator('.qg-comparer').click()
+      await page.waitForSelector('.qg-avant-apres table', { timeout: 60000 })
+    }
+    for (const [suffixe, largeur, hauteur] of [
+      ['', 1366, 768],
+      ['-1920', 1920, 1080],
+      ['-telephone', 360, 640],
+    ] as const) {
+      await photographier(`110-effets-annonces${suffixe}`, largeur, hauteur, { adresse: '/admin#annonces', geste: effets })
+      await photographier(`111-effets-affiches${suffixe}`, largeur, hauteur, { adresse: '/admin#affiches', geste: effets })
+      await photographier(`112-effets-rappel${suffixe}`, largeur, hauteur, { adresse: '/admin#jour', geste: page => page.waitForSelector('section[aria-labelledby="jour-rappel"] table', { timeout: 15000 }) })
+      // Le fil entier, la carte repliée ; puis l'écran tel qu'on le voit après « Avant / après » — la carte collée à droite
+      // à l'ordinateur, remontée en tête au téléphone : une photo de toute la page poserait ce qui colle à l'endroit du
+      // défilement.
+      await photographier(`113-effets-journal${suffixe}`, largeur, hauteur, { adresse: '/admin#journal', geste: page => page.waitForSelector('.qg-comparer', { timeout: 60000 }) })
+      await photographier(`113b-effets-avant-apres${suffixe}`, largeur, hauteur, { adresse: '/admin#journal', pleine: false, geste: avantApres })
+    }
+    /** Le poste sur sept jours : le seau d'un repère survolé — ou touché, au téléphone, le graphique sous les yeux. */
+    const surUnRepere = (toucher: boolean) => async (page: any) => {
+      await page.click('.qg-periodes button:has-text("7 j")')
+      // La courbe de sept jours redessinée — celle de la journée avait déjà ses repères.
+      await page.waitForTimeout(800)
+      await page.waitForSelector('.qg-participations .qg-reperes > g', { timeout: 15000 })
+      // En texte, comme `CE_QUI_DEBORDE` : une fonction y arriverait avec les `__name` de tsx. La photo est celle de
+      // l'écran, le graphique au milieu : une photo de toute la page agrandit la fenêtre, et la souris la quitte.
+      await page.evaluate("document.querySelector('.qg-participations .qg-graphe').scrollIntoView({ block: 'center' })")
+      const marques = await page.$$('.qg-participations .qg-reperes > g')
+      const marque = await marques[Math.max(0, marques.length - 3)].boundingBox()
+      const dessin = await (await page.$('.qg-participations .qg-graphe svg')).boundingBox()
+      if (!marque || !dessin) return console.error('[effets] le repère du poste ne se trouve pas')
+      const [x, y] = [marque.x + marque.width / 2, dessin.y + dessin.height * 0.6]
+      if (toucher) await page.mouse.click(x, y)
+      else await page.mouse.move(x, y)
+    }
+    await photographier('114-effets-poste', 1366, 768, { pleine: false, geste: surUnRepere(false) })
+    await photographier('115-effets-poste-1920', 1920, 1080, { pleine: false, geste: surUnRepere(false) })
+    await photographier('116-effets-poste-telephone', 360, 640, { pleine: false, geste: surUnRepere(true) })
+  }
   // Les modes (le QG 2, lot 5) : côte à côte — sur 24 heures, triée sur la réussite, sur trente jours, au téléphone —,
   // puis chaque page de mode et son gabarit en tête : ses tuiles, sa courbe, « En ce moment » une fois le flux arrivé, son
   // entonnoir ; le Cabinet, sa courbe et « En ce moment » au-dessus de ses trente jours.

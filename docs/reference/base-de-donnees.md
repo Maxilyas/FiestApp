@@ -747,9 +747,9 @@ secret, que la sauvegarde emporte.
 
 Le bilan de chaque soir de rappel : des nombres, jamais un nom.
 
-- **Colonnes clés** : `jour` (la clé), `envoyes`, `finis` (ceux qui avaient déjà joué), `retires` (abonnements défaits), `echecs`, `ouverts` (les rappels touchés sur le téléphone, depuis le 4 novembre 2026 ; jamais plus que `envoyes`), `faite_le`. Une seconde tournée le même soir — un redémarrage, un second serveur — s'y ajoute ; `finis` garde le plus grand des deux comptes.
+- **Colonnes clés** : `jour` (la clé), `envoyes`, `finis` (ceux qui avaient déjà joué), `retires` (abonnements défaits), `echecs`, `ouverts` (les rappels touchés sur le téléphone, depuis le 4 novembre 2026 ; jamais plus que `envoyes`), `joues` (les téléphones prévenus dont le profil a commencé ou repris sa partie après la tournée, ce jour-là ; nul tant que le soir n'est pas compté — un soir d'avant le 4 novembre 2026 le reste ; jamais plus que `envoyes`), `faite_le` (à l'heure du quiz du jour, celle qui date ses parties). Une seconde tournée le même soir — un redémarrage, un second serveur — s'y ajoute ; `finis` garde le plus grand des deux comptes.
 - **Espace** : non.
-- **Écrite par** : `RappelStore`, à la fin de chaque tournée qui avait quelqu'un à prévenir ; `ouverts`, à chaque rappel touché (`RappelStore.ouvert`, `POST /api/jour/rappel/ouvert`, que le service worker envoie).
+- **Écrite par** : `RappelStore`, à la fin de chaque tournée qui avait quelqu'un à prévenir ; `ouverts`, à chaque rappel touché (`RappelStore.ouvert`, `POST /api/jour/rappel/ouvert`, que le service worker envoie) ; `joues`, une fois, sur le plus récent des soirs finis — à la première lecture du QG qui le trouve fini, avant l'heure du rappel, ou au départ de la tournée suivante, avant que ses réservations n'écrasent `jour_rappels.dernier_jour` (`RappelStore.compterLesJoues`).
 - **Lue par** : `RappelStore.suivi`, pour la page du quiz du jour au QG (les sept derniers soirs).
 - **Effacée par** : rien.
 
@@ -1049,7 +1049,7 @@ quelque chose, jamais modifiée.
 - **Colonnes clés** : `id`, `quand` (indexée), `qui` (l'espace de l'administrateur), `sorte`, `route`, `resume` (la phrase), `cible` (indexée avec `quand` : le profil, l'espace ou la question visés).
 - **Espace** : non (`qui` le nomme).
 - **Écrite par** : `JournalDesGestes` (`server/src/core/journalDesGestes.ts`), après la réponse de chaque route d'administration qui écrit.
-- **Lue par** : `JournalDesGestes` (la page « Le journal », la fiche d'un joueur).
+- **Lue par** : `JournalDesGestes` (la page « Journal et repères », la fiche d'un joueur) ; les repères des courbes du QG, les gestes qui en posent un, par leur route et l'index de leur date (`desRoutes`, `EffetsDuQg` : ceux d'avant aujourd'hui une fois par jour).
 - **Effacée par** : rien — il garde même le nom d'un profil supprimé.
 
 ### `qg_sante`
@@ -1069,7 +1069,7 @@ Chaque démarrage du serveur, et son extinction propre.
 - **Colonnes clés** : `id`, `demarre_le` (indexée), `pret_en_ms`, `version`, `env`, `vu_le` (le dernier signe de vie, indexé), `arrete_le` (l'extinction propre ; vide : arrêt net, ou toujours debout).
 - **Espace** : non.
 - **Écrite par** : `SanteDuServeur` — une fois le port ouvert, puis à chaque relevé, et à l'arrêt.
-- **Lue par** : `SanteDuServeur` (la raison de chaque démarrage : réveil, mise en ligne, relance, redémarrage après un arrêt net ; l'alerte d'arrêt net).
+- **Lue par** : `SanteDuServeur` (la raison de chaque démarrage : réveil, mise en ligne, relance, redémarrage après un arrêt net ; l'alerte d'arrêt net ; les mises en ligne et les arrêts nets posés en repères sur les courbes du QG, au plus toutes les dix minutes — `demarragesGardes`).
 - **Effacée par** : le relevé : ce qui n'a plus donné signe de vie depuis huit jours.
 
 ### `qg_erreurs`
@@ -1199,7 +1199,7 @@ Les profils d'un segment à l'envoi de son annonce : eux seuls la lisent, reçoi
 - **Colonnes clés** : `annonce_id` et `profile_id` (clé primaire) ; `profile_id` indexé, pour l'accueil et la suppression d'un profil.
 - **Espace** : non.
 - **Écrite par** : `ProfileStore` (`annoncerATous`), dans le même lot que l'annonce et ses dons — les membres du segment comptés à l'instant par la page des joueurs (`profilsDuSegment`, `server/src/joueursDuQg.ts`), sans les suspendus. Jamais modifiée.
-- **Lue par** : `ProfileStore` — l'accueil de chaque profil, dans le lot de ses dons (`achatsDe`) ; l'instruction même des dons de l'annonce ; la réponse à sa question (`repondreALAnnonce` : 404 à qui n'en est pas).
+- **Lue par** : `ProfileStore` — l'accueil de chaque profil, dans le lot de ses dons (`achatsDe`) ; l'instruction même des dons de l'annonce ; la réponse à sa question (`repondreALAnnonce` : 404 à qui n'en est pas). `EffetsDuQg` — l'effet de chaque annonce à un segment, une fois par jour, en un seul texte JSON.
 - **Effacée par** : un profil supprimé emporte les siennes (`supprimer`).
 
 ### `qg_presences`
@@ -1209,7 +1209,7 @@ La feuille de présence de la page des joueurs (`/admin#joueurs`, le 4 novembre 
 - **Colonnes clés** : `jour` et `profile_id` (clé primaire, le jour d'abord : la page lit les feuilles depuis un jour), `modes` (les modes du jour en un nombre, un bit chacun — `BIT_DU_MODE`), `premiere` (les minutes de son minuit de Paris à sa première partie : aujourd'hui se compare à la même heure) ; `profile_id` indexé (`idx_qg_presences_profil`), pour la suppression d'un profil.
 - **Espace** : non — un profil va d'un espace à l'autre.
 - **Écrite par** : `MemoireDuQg` (`server/src/core/memoireDuQg.ts`), au premier passage de la page des joueurs, de ses comptes ou d'une annonce à un segment après minuit : les jours finis qui manquent jusqu'à hier, rattrapés un mois de journaux à la fois, d'un lot par mois — la première fois, aussi loin que les journaux remontent, un an au plus. Un jour écrit ne se relit plus des journaux ; aujourd'hui ne s'écrit jamais.
-- **Lue par** : `MemoireDuQg` — la page des joueurs, une fois par jour, ses soixante derniers jours et les semaines des cohortes, en un seul texte JSON (`presencesEntre`).
+- **Lue par** : `MemoireDuQg` — la page des joueurs, une fois par jour, ses soixante derniers jours et les semaines des cohortes, en un seul texte JSON (`presencesEntre`) ; l'effet des annonces et des affiches (`EffetsDuQg`), une fois par jour, de trente-huit jours avant la plus ancienne d'entre elles, un an au plus.
 - **Effacée par** : ce qui a passé l'an, à chaque écriture (`JOURS_DE_LA_MEMOIRE`) ; tout, quand la version des dérivations monte (`VERSION_DE_LA_MEMOIRE`), puis réécrit des journaux ; un profil supprimé emporte les siennes (`oublierProfil`, dans `supprimerProfil`).
 
 ### `qg_jours`
@@ -1219,7 +1219,7 @@ La mémoire longue du QG : les chiffres de chaque jour fini, figés à son premi
 - **Colonnes clés** : `jour` (clé primaire), `chiffres` (JSON, `ChiffresDUnJour` : `v`, la version des dérivations ; les joueurs, ceux de chaque mode, les participations, les nouveaux profils, les achats, les profils du jour, de ses sept jours et de ses trente, les invités sans profil, les participations heure par heure), `ecrit_le`. Des chiffres, jamais un nom.
 - **Espace** : non.
 - **Écrite par** : `MemoireDuQg`, dans le lot des feuilles de présence des mêmes jours.
-- **Lue par** : `MemoireDuQg` — la page des joueurs, une fois par jour : ses quatre-vingt-neuf derniers jours et le premier jour qu'elle sait (`joursDepuis`) ; le dernier jour écrit et sa version, à chaque rattrapage (`dernierJour`).
+- **Lue par** : `MemoireDuQg` — la page des joueurs, une fois par jour : ses quatre-vingt-neuf derniers jours et le premier jour qu'elle sait (`joursDepuis`) ; le dernier jour écrit et sa version, à chaque rattrapage (`dernierJour`) ; l'effet d'une affiche de la boutique et l'avant / après d'un repère (`EffetsDuQg`), un an de jours, une fois par jour.
 - **Effacée par** : ce qui a passé l'an, à chaque écriture ; tout, quand la version des dérivations monte. Les chiffres d'un jour restent quand un profil est supprimé : ils ne le nomment pas.
 
 ### `qg_affiches`
@@ -1239,7 +1239,7 @@ Ce que chaque profil a fait d'une affiche : allé sur sa page — l'affiche et s
 - **Colonnes clés** : `affiche_id` et `profile_id` (clé primaire, l'affiche d'abord : le QG compte les siens, l'accueil lit la ligne d'un profil), `ouverte_le`, `rangee_le` ; `profile_id` indexé, pour la suppression d'un profil.
 - **Espace** : non.
 - **Écrite par** : `ProfileStore` — `noterUneVisite`, quand le serveur sert la page d'une affiche en cours à ce profil (`servirPage`, `server.ts`), dans le lot du don de sa première visite ; `rangerLAffiche` (`POST /api/joueur/affiches/:id/ranger`).
-- **Lue par** : `ProfileStore` — l'accueil, dans le lot de ses dons (`achatsDe`) ; la page du QG (`affichesAuQg` : `ouvertes`, `rangees`).
+- **Lue par** : `ProfileStore` — l'accueil, dans le lot de ses dons (`achatsDe`) ; la page du QG (`affichesAuQg` : `ouvertes`, `rangees`). `EffetsDuQg` — les visites de chaque affiche, pour ses visiteurs revenus, une fois par jour, en un seul texte JSON.
 - **Effacée par** : un profil supprimé emporte les siennes (`supprimer`).
 
 ## Pour aller plus loin

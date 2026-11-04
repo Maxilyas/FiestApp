@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
 import { Icon } from './Icon'
 import { formatNumber } from '../../../shared/typographie'
-import { graduations, type EcartALHabitude, type ModeDuQg } from '../../../shared/qg'
+import { graduations, heureEcrite, type EcartALHabitude, type ModeDuQg } from '../../../shared/qg'
+import { REPERES_NOMMES, reperesEcrits, type RepereDuQg, type SorteDeRepere } from '../../../shared/qgEffets'
 
 /**
  * Les graphes du QG 2 (la proposition du 3 novembre 2026, sa maquette
@@ -54,6 +55,33 @@ export interface MorceauDuSeau {
   valeur: number
 }
 
+/** La bande des repères, au-dessus du tracé : leur forme, et le trait fin qui descend jusqu'à lui. */
+const BANDE_DES_REPERES = 16
+/** Deux repères plus proches que ça à l'écran — deux seaux voisins de quatre pixels au téléphone — ne font qu'une marque. */
+const ECART_DES_MARQUES = 12
+/** Ce que l'infobulle nomme des repères d'un seau ; les autres se comptent. */
+const REPERES_DE_L_INFOBULLE = 4
+
+/** Une marque de la bande : le milieu des seaux qu'elle couvre, et leurs repères. */
+interface MarqueDeRepere {
+  x: number
+  dernierX: number
+  reperes: RepereDuQg[]
+}
+
+/**
+ * La forme d'un repère, jamais sa couleur seule (le principe 5 de la proposition) : le triangle d'une mise en ligne, la
+ * croix d'un arrêt net, le carré d'une page fermée, le losange de ce qui s'ouvre ou s'annonce, le rond d'un réglage.
+ * Le journal la reprend, dans un dessin de douze pixels (`qg-bulle-forme`) : la même forme qu'au-dessus des courbes.
+ */
+export function FormeDuRepere({ sorte, x, y }: { sorte: SorteDeRepere; x: number; y: number }) {
+  if (sorte === 'mise-en-ligne') return <path className="qg-repere" d={`M${x - 5} ${y + 4}L${x} ${y - 5}L${x + 5} ${y + 4}Z`} />
+  if (sorte === 'arret-net') return <path className="qg-repere qg-repere-arret" d={`M${x - 4} ${y - 4}L${x + 4} ${y + 4}M${x + 4} ${y - 4}L${x - 4} ${y + 4}`} />
+  if (sorte === 'maintenance') return <rect className="qg-repere" x={x - 4} y={y - 4} width={8} height={8} rx={1} />
+  if (sorte === 'reglage') return <circle className="qg-repere qg-repere-creux" cx={x} cy={y} r={3.5} />
+  return <path className="qg-repere" d={`M${x} ${y - 5}L${x + 5} ${y}L${x} ${y + 5}L${x - 5} ${y}Z`} />
+}
+
 /**
  * Des seaux de temps en barres : une série seule — les joueurs, qui ne
  * s'additionnent pas d'un mode à l'autre —, ou une pile — les participations,
@@ -65,6 +93,20 @@ export interface MorceauDuSeau {
  * même seau, en traits pleins par-dessus les barres et sur la même échelle —
  * les joueurs de la semaine et du mois au-dessus de ceux du jour, que leur
  * écart dit fidèles ou non (le lot 6 du QG 2).
+ *
+ * `reperes`, seau par seau (`reperesDesSeaux`, `shared/qgEffets.ts`) : ce qui
+ * s'est passé ce jour-là — une mise en ligne, une page fermée, une affiche, une
+ * annonce, un réglage —, discret, un trait fin et sa forme au-dessus du tracé ;
+ * plusieurs trop serrés pour se distinguer ne font qu'une marque, leur nombre
+ * dedans. Ils se lisent comme le reste : l'infobulle, la ligne de lecture, le
+ * clavier, le doigt (la revue du 4 novembre 2026, P2.2).
+ *
+ * Au doigt (la revue d'ergonomie du même jour, G7) : le seau sous le doigt se lit,
+ * et glisser fait suivre la lecture — chaque barre n'écoutait que son propre
+ * toucher, quatre pixels au téléphone ; au téléphone, ‹ et › de part et
+ * d'autre de la lecture avancent d'un seau. La lecture ne parle au lecteur
+ * d'écran que quand on choisit un seau (M7 : celle du direct changeait toutes
+ * les dix secondes), et le graphique ne porte qu'une fois son résumé.
  */
 export function GrapheDuTemps({
   etiquettes,
@@ -74,6 +116,7 @@ export function GrapheDuTemps({
   avant,
   lignes,
   repartition,
+  reperes,
   resume,
   nomDuTotal,
   dire,
@@ -89,6 +132,8 @@ export function GrapheDuTemps({
   lignes?: readonly SerieDuGraphe[]
   /** Seau par seau, ce qu'une série seule compte de chaque sorte ; une pile le dit d'elle-même. */
   repartition?: readonly (readonly MorceauDuSeau[])[]
+  /** Seau par seau, les repères qui s'y posent — dans l'ordre de leur heure. */
+  reperes?: readonly (readonly RepereDuQg[])[]
   /** Ce que dit le graphique à qui ne le voit pas. */
   resume: string
   /** Le nom du total, au singulier et au pluriel, pour la lecture : « joueur ». */
@@ -100,19 +145,48 @@ export function GrapheDuTemps({
 }) {
   const [boite, largeur] = useLargeur(640)
   const [choisi, setChoisi] = useState<number | null>(null)
+  const trace = useRef<SVGSVGElement>(null)
   const n = etiquettes.length
   const ecrire = dire ?? formatNumber
-  const hauteur = Math.round(Math.min(260, Math.max(170, largeur * 0.3)))
+  const avecReperes = !!reperes?.some(r => r.length > 0)
+  // La bande des repères s'ajoute au-dessus : le tracé garde sa hauteur.
+  const bande = avecReperes ? BANDE_DES_REPERES : 0
+  const hautDuTrace = MARGE.haut + bande
+  const hauteur = Math.round(Math.min(260, Math.max(170, largeur * 0.3))) + bande
   const totaux = etiquettes.map((_, i) => (empile ? series.reduce((s, se) => s + (se.valeurs[i] ?? 0), 0) : (series[0]?.valeurs[i] ?? 0)))
   const crans = graduations(Math.max(1, ...totaux, ...(avant ?? []), ...(lignes ?? []).flatMap(l => l.valeurs)))
   const sommet = crans[crans.length - 1] || 1
-  const utile = { l: Math.max(1, largeur - MARGE.gauche - MARGE.droite), h: hauteur - MARGE.haut - MARGE.bas }
+  const utile = { l: Math.max(1, largeur - MARGE.gauche - MARGE.droite), h: hauteur - hautDuTrace - MARGE.bas }
   const pas = utile.l / Math.max(1, n)
   const barre = Math.min(24, Math.max(2, pas * 0.68))
-  const y = (v: number) => MARGE.haut + utile.h - (v / sommet) * utile.h
+  const y = (v: number) => hautDuTrace + utile.h - (v / sommet) * utile.h
   const xDe = (i: number) => MARGE.gauche + i * pas
   const lu = choisi !== null && choisi < n ? choisi : n - 1
   const pluriel = (k: number) => (lire ? lire(k) : `${ecrire(k)} ${nomDuTotal}${k > 1 ? 's' : ''}`)
+  const reperesDe = (i: number): readonly RepereDuQg[] => reperes?.[i] ?? []
+  // Les marques de la bande, de gauche à droite : deux seaux voisins trop serrés pour se distinguer n'en font qu'une.
+  const marques: MarqueDeRepere[] = []
+  for (let i = 0; i < n; i++) {
+    const siens = reperesDe(i)
+    if (siens.length === 0) continue
+    const x = xDe(i) + pas / 2
+    const derniere = marques.at(-1)
+    if (derniere && x - derniere.dernierX < ECART_DES_MARQUES) {
+      derniere.x = (derniere.x * derniere.reperes.length + x * siens.length) / (derniere.reperes.length + siens.length)
+      derniere.dernierX = x
+      derniere.reperes.push(...siens)
+    } else marques.push({ x, dernierX: x, reperes: [...siens] })
+  }
+  /** Le seau sous le doigt — ou la souris —, lu dans la largeur affichée : glisser fait suivre la lecture. */
+  const choisirSous = (clientX: number) => {
+    const r = trace.current?.getBoundingClientRect()
+    if (!r || r.width === 0 || n === 0) return
+    const x = ((clientX - r.left) / r.width) * largeur
+    if (x < MARGE.gauche - 4) return
+    setChoisi(Math.max(0, Math.min(n - 1, Math.floor((x - MARGE.gauche) / pas))))
+  }
+  /** ‹ et › : un seau de plus ou de moins, depuis celui qu'on lit. */
+  const avancer = (de: number) => setChoisi(Math.max(0, Math.min(n - 1, lu + de)))
   // Les morceaux d'un seau, de bas en haut : ceux de la pile, ou la répartition d'une série seule.
   const morceaux = (i: number): MorceauDuSeau[] =>
     (empile ? series.map(se => ({ nom: se.nom, valeur: se.valeurs[i] ?? 0 })) : [...(repartition?.[i] ?? [])]).filter(m => m.valeur > 0)
@@ -151,10 +225,74 @@ export function GrapheDuTemps({
           gauche: xDe(choisi) + pas / 2 > largeur / 2 ? undefined : xDe(choisi) + pas + 8,
           droite: xDe(choisi) + pas / 2 > largeur / 2 ? largeur - xDe(choisi) + 8 : undefined,
         }
+  const nombreDeReperes = marques.reduce((t, m) => t + m.reperes.length, 0)
+  /** Ce que la ligne de lecture dit d'un seau : son nom, son total, ses traits, la période d'avant, ses repères. */
+  const lecture = (i: number) => {
+    const siens = reperesDe(i)
+    return (
+      <>
+        <span>{`${etiquettes[i] ?? ''} · `}</span>
+        <b className="num">{pluriel(totaux[i] ?? 0)}</b>
+        {enTraits.length > 0 && <span className="muted"> · {dansLesTraits(i)}</span>}
+        {avant && avant[i] !== undefined && <span className="muted"> · {ecrire(avant[i])} la période d’avant</span>}
+        {siens.length > 0 && (
+          <span className="qg-lecture-repere">
+            {' · '}
+            {reperesEcrits(siens)}
+            {/* Comptés à l'œil, nommés à l'oreille : l'infobulle, qui les nomme, ne se lit pas. */}
+            {siens.length > REPERES_NOMMES && <span className="sr-only"> : {siens.map(r => r.nom).join(', ')}</span>}
+          </span>
+        )}
+      </>
+    )
+  }
   return (
-    <div ref={boite} className="qg-graphe" tabIndex={0} onKeyDown={clavier} onBlur={() => setChoisi(null)} aria-label={resume} role="group">
-      <svg viewBox={`0 0 ${largeur} ${hauteur}`} role="img" aria-label={resume} onPointerLeave={() => setChoisi(null)}>
-        {choisi !== null && <rect className="qg-graphe-choisi" x={xDe(choisi)} y={MARGE.haut} width={pas} height={utile.h} rx={3} />}
+    <div
+      ref={boite}
+      className="qg-graphe"
+      tabIndex={0}
+      onKeyDown={clavier}
+      // ‹ et › sont dedans : y passer le focus ne quitte pas le graphique.
+      onBlur={e => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setChoisi(null)
+      }}
+      aria-label={`${resume}${nombreDeReperes > 0 ? ` ${nombreDeReperes > 1 ? `${formatNumber(nombreDeReperes)} événements posés` : 'Un événement posé'} sur la courbe.` : ''} Au clavier, ← et → la lisent pas à pas.`}
+      role="group"
+    >
+      {/* Son résumé est celui du groupe : le dessin ne le redit pas (M7, la revue du 4 novembre 2026). */}
+      <svg
+        ref={trace}
+        viewBox={`0 0 ${largeur} ${hauteur}`}
+        aria-hidden="true"
+        onPointerDown={e => choisirSous(e.clientX)}
+        onPointerMove={e => choisirSous(e.clientX)}
+        // Au doigt, le seau touché reste lu : le doigt levé « quitte » le graphique aussitôt.
+        onPointerLeave={e => e.pointerType === 'mouse' && setChoisi(null)}
+      >
+        {choisi !== null && <rect className="qg-graphe-choisi" x={xDe(choisi)} y={hautDuTrace} width={pas} height={utile.h} rx={3} />}
+        {marques.length > 0 && (
+          <g className="qg-reperes">
+            {marques.map(m => {
+              const centre = Math.round(m.x) + 0.5
+              const milieu = 2 + BANDE_DES_REPERES / 2
+              return (
+                <g key={m.reperes[0].cle}>
+                  <line className="qg-repere-trait" x1={centre} x2={centre} y1={milieu + 6} y2={hautDuTrace - 2} />
+                  {m.reperes.length === 1 ? (
+                    <FormeDuRepere sorte={m.reperes[0].sorte} x={centre} y={milieu} />
+                  ) : (
+                    <>
+                      <rect className="qg-repere-groupe" x={centre - 8} y={milieu - 7} width={16} height={14} rx={5} />
+                      <text className="qg-repere-compte" x={centre} y={milieu + 4} textAnchor="middle">
+                        {m.reperes.length}
+                      </text>
+                    </>
+                  )}
+                </g>
+              )
+            })}
+          </g>
+        )}
         <g className="qg-graphe-grille">
           {crans.map(c => (
             <line key={c} x1={MARGE.gauche} x2={largeur - MARGE.droite} y1={y(c)} y2={y(c)} />
@@ -182,9 +320,10 @@ export function GrapheDuTemps({
           const visibles = empile ? series.filter(se => (se.valeurs[i] ?? 0) > 0) : totaux[i] > 0 ? [series[0]] : []
           let base = y(0)
           const detail = detailDe(i)
+          const siens = reperesDe(i)
           return (
             <g key={i}>
-              <title>{`${etiquette} : ${pluriel(totaux[i])}${detail ? ` — ${detail}` : ''}${enTraits.length > 0 ? ` · ${dansLesTraits(i)}` : ''}`}</title>
+              <title>{`${etiquette} : ${pluriel(totaux[i])}${detail ? ` — ${detail}` : ''}${enTraits.length > 0 ? ` · ${dansLesTraits(i)}` : ''}${siens.length > 0 ? ` · ${siens.map(r => r.nom).join(', ')}` : ''}`}</title>
               {visibles.map((se, k) => {
                 const v = empile ? se.valeurs[i] : totaux[i]
                 const h = (v / sommet) * utile.h
@@ -194,8 +333,8 @@ export function GrapheDuTemps({
                 const visible = Math.max(0, h - ECART)
                 return <rect key={se.cle} className={se.classe} x={x} y={haut + h - visible} width={barre} height={visible} />
               })}
-              {/* La cible du survol et du toucher : toute la hauteur, toute la largeur du seau. */}
-              <rect className="qg-graphe-cible" x={xDe(i)} y={MARGE.haut} width={pas} height={utile.h} onPointerEnter={() => setChoisi(i)} onPointerDown={() => setChoisi(i)} />
+              {/* La zone du seau, sous le viseur : le doigt et la souris se lisent sur tout le dessin (`choisirSous`). */}
+              <rect className="qg-graphe-cible" x={xDe(i)} y={hautDuTrace} width={pas} height={utile.h} />
             </g>
           )
         })}
@@ -245,15 +384,79 @@ export function GrapheDuTemps({
               <b className="num">{ecrire(avant[choisi])}</b> la période d’avant
             </span>
           )}
+          {/* Ce qui s'est passé dans ce seau : sa sorte seule, jamais un profil. */}
+          {reperesDe(choisi).length > 0 && (
+            <span className="qg-bulle-reperes">
+              {reperesDe(choisi)
+                .slice(0, REPERES_DE_L_INFOBULLE)
+                .map(r => (
+                  <span key={r.cle} className="qg-bulle-ligne">
+                    <svg className="qg-bulle-forme" viewBox="0 0 12 12" aria-hidden="true">
+                      <FormeDuRepere sorte={r.sorte} x={6} y={6} />
+                    </svg>
+                    {`${r.nom} · ${heureEcrite(r.quand)}`}
+                  </span>
+                ))}
+              {reperesDe(choisi).length > REPERES_DE_L_INFOBULLE && (
+                <span className="qg-bulle-ligne qg-bulle-morceau">{`et ${formatNumber(reperesDe(choisi).length - REPERES_DE_L_INFOBULLE)} de plus`}</span>
+              )}
+            </span>
+          )}
         </div>
       )}
-      <p className="qg-lecture" aria-live="polite">
-        <span>{choisi === null ? `${etiquettes[lu] ?? ''} · ` : `${etiquettes[lu]} · `}</span>
-        <b className="num">{pluriel(totaux[lu] ?? 0)}</b>
-        {enTraits.length > 0 && <span className="muted"> · {dansLesTraits(lu)}</span>}
-        {avant && avant[lu] !== undefined && <span className="muted"> · {ecrire(avant[lu])} la période d’avant</span>}
-      </p>
+      <div className="qg-lecture-ligne">
+        <button type="button" className="qg-lecture-pas" aria-label={lu > 0 ? `Lire avant : ${etiquettes[lu - 1]}` : 'Rien avant'} aria-disabled={lu <= 0 || undefined} onClick={() => lu > 0 && avancer(-1)}>
+          <Icon name="arrow-left" />
+        </button>
+        {/* Rien de choisi, la lecture se tait : le dernier seau change avec le direct, et le lecteur d'écran l'aurait redit à chaque relecture. */}
+        <p className="qg-lecture">
+          {choisi === null && <span>{lecture(lu)}</span>}
+          <span aria-live="polite">{choisi !== null && lecture(lu)}</span>
+        </p>
+        <button
+          type="button"
+          className="qg-lecture-pas"
+          aria-label={lu < n - 1 ? `Lire après : ${etiquettes[lu + 1]}` : 'Rien après'}
+          aria-disabled={lu >= n - 1 || undefined}
+          onClick={() => lu < n - 1 && avancer(1)}
+        >
+          <Icon name="arrow-right" />
+        </button>
+      </div>
+      {marques.length > 0 && <LegendeDesReperes marques={marques} />}
     </div>
+  )
+}
+
+/** Ce que chaque forme veut dire, celles de la courbe seulement — un losange pour ce qui s'ouvre, s'affiche ou s'annonce. */
+const LEGENDE_DES_REPERES: readonly { sortes: readonly SorteDeRepere[]; nom: string }[] = [
+  { sortes: ['mise-en-ligne'], nom: 'mise en ligne' },
+  { sortes: ['arret-net'], nom: 'arrêt net' },
+  { sortes: ['maintenance'], nom: 'page fermée' },
+  { sortes: ['ouverture', 'affiche', 'annonce'], nom: 'ouverture, affiche, annonce' },
+  { sortes: ['reglage'], nom: 'réglage' },
+]
+
+function LegendeDesReperes({ marques }: { marques: readonly MarqueDeRepere[] }) {
+  const presentes = new Set(marques.flatMap(m => m.reperes.map(r => r.sorte)))
+  const groupe = marques.some(m => m.reperes.length > 1)
+  return (
+    <ul className="qg-reperes-legende" aria-hidden="true">
+      {LEGENDE_DES_REPERES.filter(l => l.sortes.some(s => presentes.has(s))).map(l => (
+        <li key={l.nom}>
+          <svg className="qg-bulle-forme" viewBox="0 0 12 12">
+            <FormeDuRepere sorte={l.sortes[0]} x={6} y={6} />
+          </svg>
+          {l.nom}
+        </li>
+      ))}
+      {groupe && (
+        <li>
+          <span className="qg-reperes-legende-compte">2</span>
+          plusieurs, trop proches
+        </li>
+      )}
+    </ul>
   )
 }
 
