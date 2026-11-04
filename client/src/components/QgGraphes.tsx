@@ -61,7 +61,10 @@ export interface MorceauDuSeau {
  * `axe` dit lesquels portent une date sous l'axe. `avant`, la période d'avant
  * seau par seau, se pose en filet discret par-dessus. Une série seule peut
  * dire de quoi elle est faite (`repartition`) : les joueurs de chaque mode,
- * dans l'infobulle, qui ne s'empilent pas.
+ * dans l'infobulle, qui ne s'empilent pas. `lignes` : d'autres chiffres du
+ * même seau, en traits pleins par-dessus les barres et sur la même échelle —
+ * les joueurs de la semaine et du mois au-dessus de ceux du jour, que leur
+ * écart dit fidèles ou non (le lot 6 du QG 2).
  */
 export function GrapheDuTemps({
   etiquettes,
@@ -69,6 +72,7 @@ export function GrapheDuTemps({
   series,
   empile,
   avant,
+  lignes,
   repartition,
   resume,
   nomDuTotal,
@@ -81,6 +85,8 @@ export function GrapheDuTemps({
   series: readonly SerieDuGraphe[]
   empile: boolean
   avant?: readonly number[] | null
+  /** D'autres chiffres de chaque seau, en traits — leur classe peint le trait (`stroke`) et la clé de l'infobulle (`background`). */
+  lignes?: readonly SerieDuGraphe[]
   /** Seau par seau, ce qu'une série seule compte de chaque sorte ; une pile le dit d'elle-même. */
   repartition?: readonly (readonly MorceauDuSeau[])[]
   /** Ce que dit le graphique à qui ne le voit pas. */
@@ -98,7 +104,7 @@ export function GrapheDuTemps({
   const ecrire = dire ?? formatNumber
   const hauteur = Math.round(Math.min(260, Math.max(170, largeur * 0.3)))
   const totaux = etiquettes.map((_, i) => (empile ? series.reduce((s, se) => s + (se.valeurs[i] ?? 0), 0) : (series[0]?.valeurs[i] ?? 0)))
-  const crans = graduations(Math.max(1, ...totaux, ...(avant ?? [])))
+  const crans = graduations(Math.max(1, ...totaux, ...(avant ?? []), ...(lignes ?? []).flatMap(l => l.valeurs)))
   const sommet = crans[crans.length - 1] || 1
   const utile = { l: Math.max(1, largeur - MARGE.gauche - MARGE.droite), h: hauteur - MARGE.haut - MARGE.bas }
   const pas = utile.l / Math.max(1, n)
@@ -129,6 +135,14 @@ export function GrapheDuTemps({
           .map((v, i) => `${i ? 'L' : 'M'}${(xDe(i) + pas / 2).toFixed(1)} ${y(v).toFixed(1)}`)
           .join('')
       : null
+  // Les traits, du milieu d'un seau au milieu du suivant.
+  const cheminDe = (valeurs: readonly number[]) =>
+    valeurs
+      .slice(0, n)
+      .map((v, i) => `${i ? 'L' : 'M'}${(xDe(i) + pas / 2).toFixed(1)} ${y(v).toFixed(1)}`)
+      .join('')
+  const enTraits = (lignes ?? []).filter(l => l.valeurs.length > 0)
+  const dansLesTraits = (i: number) => enTraits.map(l => `${ecrire(l.valeurs[i] ?? 0)} ${l.nom}`).join(' · ')
   // L'infobulle, à côté du seau, de l'autre côté passé le milieu : elle ne sort jamais de la boîte.
   const bulle =
     choisi === null
@@ -170,7 +184,7 @@ export function GrapheDuTemps({
           const detail = detailDe(i)
           return (
             <g key={i}>
-              <title>{`${etiquette} : ${pluriel(totaux[i])}${detail ? ` — ${detail}` : ''}`}</title>
+              <title>{`${etiquette} : ${pluriel(totaux[i])}${detail ? ` — ${detail}` : ''}${enTraits.length > 0 ? ` · ${dansLesTraits(i)}` : ''}`}</title>
               {visibles.map((se, k) => {
                 const v = empile ? se.valeurs[i] : totaux[i]
                 const h = (v / sommet) * utile.h
@@ -186,6 +200,9 @@ export function GrapheDuTemps({
           )
         })}
         {cheminAvant && <path className="qg-avant" d={cheminAvant} />}
+        {enTraits.map(l => (
+          <path key={l.cle} className={`qg-graphe-trait ${l.classe}`} d={cheminDe(l.valeurs)} />
+        ))}
       </svg>
       {bulle && choisi !== null && (
         <div className="qg-bulle" style={{ left: bulle.gauche, right: bulle.droite }} aria-hidden="true">
@@ -216,6 +233,12 @@ export function GrapheDuTemps({
                   <b className="num">{ecrire(m.valeur)}</b> {m.nom}
                 </span>
               ))}
+          {enTraits.map(l => (
+            <span key={l.cle} className="qg-bulle-ligne">
+              <i className={`qg-bulle-cle ${l.classe}`} />
+              <b className="num">{ecrire(l.valeurs[choisi] ?? 0)}</b> {l.nom}
+            </span>
+          ))}
           {avant && avant[choisi] !== undefined && (
             <span className="qg-bulle-ligne qg-bulle-avant">
               <i className="qg-bulle-cle qg-bulle-cle-avant" />
@@ -227,6 +250,7 @@ export function GrapheDuTemps({
       <p className="qg-lecture" aria-live="polite">
         <span>{choisi === null ? `${etiquettes[lu] ?? ''} · ` : `${etiquettes[lu]} · `}</span>
         <b className="num">{pluriel(totaux[lu] ?? 0)}</b>
+        {enTraits.length > 0 && <span className="muted"> · {dansLesTraits(lu)}</span>}
         {avant && avant[lu] !== undefined && <span className="muted"> · {ecrire(avant[lu])} la période d’avant</span>}
       </p>
     </div>
@@ -266,6 +290,7 @@ export function TuileDuQg({
   etincelle,
   mode,
   detail,
+  unite,
   onOuvrir,
 }: {
   nom: string
@@ -274,6 +299,8 @@ export function TuileDuQg({
   etincelle?: readonly number[]
   mode?: ModeDuQg
   detail?: ReactNode
+  /** Ce qui suit le chiffre, collé à lui : « 23 % » — la fidélité des joueurs. */
+  unite?: string
   onOuvrir?: () => void
 }) {
   const teinte = mode ? ({ '--teinte': `var(--mode-${mode})` } as CSSProperties) : undefined
@@ -283,7 +310,7 @@ export function TuileDuQg({
         {mode && <i className={`qg-tuile-cle qg-mode-${mode}`} aria-hidden="true" />}
         {nom}
       </span>
-      <span className="qg-tuile-valeur num">{valeur == null ? '–' : formatNumber(valeur)}</span>
+      <span className="qg-tuile-valeur num">{valeur == null ? '–' : `${formatNumber(valeur)}${unite ?? ''}`}</span>
       {(ecart || detail) && (
         <span className={'qg-ecart' + (ecart?.sens ? ` qg-ecart-${ecart.sens}` : '')}>
           {ecart?.sens && <Icon name={ecart.sens === 'plus' ? 'arrow-up' : 'arrow-down'} />}
@@ -306,5 +333,146 @@ export function TuileDuQg({
     <li className="qg-tuile" style={teinte}>
       {contenu}
     </li>
+  )
+}
+
+/** Une case d'une carte de chaleur : sa part du plus haut, ce qu'on y lit, et ce qu'elle dit en entier. */
+export interface CaseDeChaleur {
+  /** De 0 à 1, sa part du plus haut : sa teinte. Null, rien à lire encore — une semaine pas finie. */
+  part: number | null
+  /** Ce qu'on lit dans la case, quand elle a la place : « 42 ». */
+  texte?: string
+  /** Ce qu'elle dit en entier, à la lecture dessous et au lecteur d'écran : « Semaine du 14 sept., 2 semaines après : 42 % ». */
+  dit: string
+}
+
+/** Les six paliers de la teinte, du plus pâle au plus vif ; zéro, le cadre seul. */
+export function palierDeChaleur(part: number): number {
+  if (!(part > 0)) return 0
+  return part <= 0.15 ? 1 : part <= 0.3 ? 2 : part <= 0.45 ? 3 : part <= 0.65 ? 4 : part <= 0.85 ? 5 : 6
+}
+
+// Chaque classe écrite en entier, jamais assemblée de son numéro : un nom assemblé couvrirait tout son préfixe, et la garde
+// des classes mortes (S7, `design.test.ts`) ne verrait plus partir un palier.
+const CLASSES_DES_PALIERS = ['qg-chaleur-p0', 'qg-chaleur-p1', 'qg-chaleur-p2', 'qg-chaleur-p3', 'qg-chaleur-p4', 'qg-chaleur-p5', 'qg-chaleur-p6'] as const
+
+/**
+ * Une carte de chaleur (le kit de la maquette, `graphes.js`, « la carte de
+ * chaleur ») : un vrai tableau — ses en-têtes de ligne et de colonne, chaque
+ * case son texte entier pour le lecteur d'écran —, une seule teinte, l'or des
+ * joueurs, en six paliers d'opacité, et le texte de chaque case clair sur les
+ * trois pâles, sombre sur les trois vifs : tous deux au-dessus de 4,5:1 sur la
+ * console, vérifiés palier par palier (`.qg-chaleur-p1` à `p6`). Les flèches
+ * parcourent les cases, la case choisie se lit dessous, comme un seau de
+ * `GrapheDuTemps`. `compacte` : des cases sans texte — vingt-quatre heures par
+ * rangée —, leur valeur dite à l'oreille et à la lecture seulement.
+ */
+export function CarteDeChaleur({
+  resume,
+  lignes,
+  colonnes,
+  cases,
+  legende,
+  compacte,
+}: {
+  resume: string
+  /** `court`, ce que l'en-tête montre (« lun. », « +2 »), `nom` ce qu'il dit à l'oreille (« lundi », « 2 semaines après ») ; sans `court`, le nom se montre. */
+  lignes: readonly { nom: string; court?: string; detail?: string }[]
+  colonnes: readonly { nom: string; court?: string }[]
+  cases: readonly (readonly CaseDeChaleur[])[]
+  /** Ce que la teinte dit, du plus pâle au plus vif : « peu reviennent », « tous reviennent ». */
+  legende: readonly [string, string]
+  compacte?: boolean
+}) {
+  const [choisie, setChoisie] = useState<readonly [number, number] | null>(null)
+  const nL = lignes.length
+  const nC = colonnes.length
+  const clavier = (e: KeyboardEvent<HTMLDivElement>) => {
+    // La première flèche choisit la première case ; les suivantes s'y déplacent.
+    const [i, j] = choisie ?? [0, 0]
+    const pas = choisie ? 1 : 0
+    const vers = (a: number, b: number) => {
+      e.preventDefault()
+      setChoisie([Math.max(0, Math.min(nL - 1, a)), Math.max(0, Math.min(nC - 1, b))])
+    }
+    if (e.key === 'ArrowRight') vers(i, j + pas)
+    else if (e.key === 'ArrowLeft') vers(i, j - pas)
+    else if (e.key === 'ArrowDown') vers(i + pas, j)
+    else if (e.key === 'ArrowUp') vers(i - pas, j)
+    else if (e.key === 'Home') vers(i, 0)
+    else if (e.key === 'End') vers(i, nC - 1)
+    else if (e.key === 'Escape') setChoisie(null)
+  }
+  const lue = choisie ? cases[choisie[0]]?.[choisie[1]] : undefined
+  const enTete = (e: { nom: string; court?: string }) =>
+    e.court === undefined ? (
+      e.nom
+    ) : (
+      <>
+        <span aria-hidden="true">{e.court}</span>
+        <span className="sr-only">{e.nom}</span>
+      </>
+    )
+  return (
+    <div className={'qg-chaleur' + (compacte ? ' qg-chaleur-compacte' : '')}>
+      <div
+        className="qg-chaleur-cadre"
+        tabIndex={0}
+        role="group"
+        aria-label={`${resume} — les flèches parcourent les cases`}
+        onKeyDown={clavier}
+        onBlur={() => setChoisie(null)}
+        // Au doigt, la case touchée reste lue : le doigt levé « quitte » la carte aussitôt.
+        onPointerLeave={e => e.pointerType === 'mouse' && setChoisie(null)}
+      >
+        <table>
+          <caption className="sr-only">{resume}</caption>
+          <thead>
+            <tr>
+              <td />
+              {colonnes.map((c, j) => (
+                <th key={j} scope="col">
+                  {enTete(c)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {lignes.map((l, i) => (
+              <tr key={i}>
+                <th scope="row">
+                  {enTete(l)}
+                  {l.detail && <small>{l.detail}</small>}
+                </th>
+                {(cases[i] ?? []).map((c, j) => {
+                  const palier = c.part === null ? null : palierDeChaleur(c.part)
+                  const ici = choisie !== null && choisie[0] === i && choisie[1] === j
+                  return (
+                    <td key={j} onPointerEnter={() => setChoisie([i, j])} onPointerDown={() => setChoisie([i, j])}>
+                      <span className={`qg-chaleur-case ${palier === null ? 'qg-chaleur-vide' : CLASSES_DES_PALIERS[palier]}${ici ? ' qg-chaleur-choisie' : ''}`}>
+                        {!compacte && c.texte && <span aria-hidden="true">{c.texte}</span>}
+                        <span className="sr-only">{c.dit}</span>
+                      </span>
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="qg-lecture" aria-live="polite">
+        {lue ? lue.dit : <span className="muted">Touche ou survole une case ; au clavier, les flèches.</span>}
+      </p>
+      <div className="qg-chaleur-legende" aria-hidden="true">
+        <span>{legende[0]}</span>
+        <span className="qg-chaleur-rampe">
+          {CLASSES_DES_PALIERS.slice(1).map(c => (
+            <i key={c} className={c} />
+          ))}
+        </span>
+        <span>{legende[1]}</span>
+      </div>
+    </div>
   )
 }

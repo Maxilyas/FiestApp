@@ -639,6 +639,8 @@ function SalleDuJoueur() {
           onDone={profilConnecte}
           onCancel={() => setMontrerProfil(false)}
           creer
+          // Né pendant la soirée, entre deux quiz : le QG compte d'où viennent les profils.
+          origine="soiree"
           // Le formulaire tient tout l'écran : le nom de la soirée lui sert de
           // titre de premier niveau, caché (« Créer un profil » était un titre
           // de niveau 2 seul). L'onglet garde ce nom, posé plus haut.

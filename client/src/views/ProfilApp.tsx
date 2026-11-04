@@ -11,6 +11,7 @@ import { GrosBouton, MenuBarre, PieceTete, type Piece } from '../components/Piec
 import { ProfilForm } from '../components/ProfilForm'
 import { tronquer } from '../../../shared/avatars'
 import { pageDeRetour } from '../../../shared/securite'
+import { origineDeLAccueil } from '../../../shared/origines'
 import type { ProfilDAccueil, PublicProfileDetail } from '../../../shared/profil'
 // Le type seul : les règles de la loge viennent avec ses panneaux, à la demande.
 import type { PieceDeLaLoge } from '../../../shared/loge'
@@ -508,6 +509,8 @@ export function ProfilApp() {
         }
         creer={!!creation}
         prefill={creation ?? undefined}
+        // D'où il naît, que le QG compte : la page qui l'a envoyé ici (`?next=`), la fin d'une soirée (`?creer&prenom`), ou l'accueil.
+        origine={origineDeLAccueil(suite, !!creation)}
         // L'application à installer, sous les trois boutons : ils restent visibles sans défiler.
         pied={<Installer />}
         // Connecté, le profil montre ses écrans ; l'accueil, rien d'eux.

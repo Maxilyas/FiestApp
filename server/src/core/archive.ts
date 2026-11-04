@@ -818,12 +818,19 @@ export class ArchiveStore {
    * une fois par jour d'un mode à l'autre — ils restent au serveur, la vue
    * n'en envoie que le compte. Une fiche d'avant le 14 octobre 2026 ne les
    * dit pas (`profils` absent) : `undefined`, chaque invité compte à part.
+   *
+   * `jusqua` : celles commencées avant cet instant seulement — la mémoire du
+   * QG rattrape ses jours finis un mois à la fois (`joueursDuQg.ts`).
    */
   async soireesDepuis(
     depuis: number,
-    { jouees = false }: { jouees?: boolean } = {},
+    { jouees = false, jusqua }: { jouees?: boolean; jusqua?: number } = {},
   ): Promise<{ spaceId: string; id: string; quand: number; joueurs: number; quiz: number; questions: number; jouees: number; profils: string[] | undefined }[]> {
-    const res = await this.client.execute({ sql: 'SELECT space_id, id, held_at, summary FROM soirees WHERE held_at >= ?', args: [depuis] })
+    const res = await this.client.execute(
+      jusqua === undefined
+        ? { sql: 'SELECT space_id, id, held_at, summary FROM soirees WHERE held_at >= ?', args: [depuis] }
+        : { sql: 'SELECT space_id, id, held_at, summary FROM soirees WHERE held_at >= ? AND held_at < ?', args: [depuis, jusqua] },
+    )
     const lues = res.rows.map(r => ({ spaceId: String(r.space_id), id: String(r.id), quand: Number(r.held_at), stocke: String(r.summary), fiche: lireFiche(String(r.summary)) }))
     if (jouees) {
       const sansJouees = lues.filter((l): l is (typeof lues)[number] & { fiche: FicheSoiree } => l.fiche !== null && l.fiche.jouees === undefined)

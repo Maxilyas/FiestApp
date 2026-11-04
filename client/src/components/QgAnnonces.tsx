@@ -9,6 +9,7 @@ import { espacesFines } from '../format'
 import { formatNumber } from '../../../shared/typographie'
 import { quandEcrit } from '../../../shared/qg'
 import { ANNONCE_MS, CONFETTIS_PAR_DON_MAX } from '../../../shared/profil'
+import { AUX_PROFILS_DU_SEGMENT, NOM_DU_SEGMENT, REGLE_DU_SEGMENT, SEGMENTS, type ComptesDesSegments, type SegmentDuQg } from '../../../shared/qgJoueurs'
 import {
   ANNONCE_MAX,
   CHOIX_LONGUEUR_MAX,
@@ -85,9 +86,18 @@ function ResultatsDeLaQuestion({ question: q }: { question: QuestionAuQg }) {
  * profil lit une fois, en haut de son accueil, montré ici tel qu'il le lira,
  * et des confettis pour chacun si on veut ; puis les annonces faites, et
  * « Retirer » tant qu'elles se montrent. Chaque geste va au journal.
+ *
+ * Depuis le 4 novembre 2026 (le lot 6 du QG 2), à tous d'office ou aux seuls
+ * profils d'un segment de la page des joueurs — les nouveaux, les endormis… —,
+ * chacun compté avant d'écrire ; « Leur écrire », sur la page des joueurs,
+ * l'ouvre sur le sien (`segment`).
  */
-export function QgAnnonces() {
+export function QgAnnonces({ segment: depart = null }: { segment?: SegmentDuQg | null } = {}) {
   const [page, setPage] = useState<PageDesAnnonces | null>(null)
+  /** À qui elle part : null, tous les profils ; sinon un segment des joueurs, ses membres comptés à l'envoi. */
+  const [pourQui, setPourQui] = useState<SegmentDuQg | null>(depart)
+  /** Combien chaque segment compte de profils ; null tant qu'ils ne sont pas lus, ou s'ils ne se lisent pas. */
+  const [comptes, setComptes] = useState<ComptesDesSegments | null>(null)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [confettis, setConfettis] = useState(0)
@@ -105,8 +115,11 @@ export function QgAnnonces() {
       },
       e => setError(motifDe(e)),
     )
+  const relireLesComptes = () => api.admin.segmentsDesJoueurs().then(setComptes, () => setComptes(null))
   useEffect(() => {
     void relire()
+    // À côté, sans faire attendre la page : la mémoire du QG peut avoir un jour à rattraper.
+    void relireLesComptes()
   }, [])
 
   if (error) return <p className="error">{error}</p>
@@ -114,7 +127,11 @@ export function QgAnnonces() {
 
   const ecrit = messageNet(message)
   const longueur = Array.from(ecrit).length
-  const pour = deProfils(page.profils)
+  /** Les profils qu'elle toucherait : tous ceux d'aujourd'hui, ou ceux du segment — inconnus tant que les comptes ne sont pas lus. */
+  const touches = pourQui === null ? page.profils : (comptes?.comptes[pourQui] ?? null)
+  const pour = touches === null ? 'les profils de ce segment' : deProfils(touches)
+  /** « Annoncer à 128 profils », « Annoncer aux endormis » : à qui, dans le bouton et la confirmation. */
+  const aQui = pourQui === null ? `à ${pour}` : AUX_PROFILS_DU_SEGMENT[pourQui]
   /** Le formulaire repart à zéro, l'annonce partie : le prochain envoi est un autre. */
   const repartir = () => {
     setMessage('')
@@ -122,6 +139,7 @@ export function QgAnnonces() {
     setSorte('aucune')
     setChoix(['', ''])
     setRecompense(0)
+    setPourQui(null)
     setEnvoi(tirerUnEnvoi())
   }
 
@@ -130,22 +148,28 @@ export function QgAnnonces() {
     sorte === 'aucune' ? undefined : { sorte, choix: sorte === 'vote' ? choix.map(messageNet).filter(Boolean) : [], recompense }
 
   const annoncer = async () => {
-    if (!ecrit || occupe) return
+    if (!ecrit || occupe || touches === 0) return
     const ok = await confirmDialog({
-      title: `Annoncer à ${pour} ?`,
+      title: pourQui === null ? `Annoncer à ${pour} ?` : `Annoncer ${aQui}${touches === null ? '' : ` (${pour})`} ?`,
       message: espacesFines(
-        confettis > 0
-          ? `Chacun la lira une fois, en haut de son accueil, avec ${nConfettis(confettis)} — ${nConfettis(confettis * page.profils)} en tout. Un don ne se reprend pas : retirer l’annonce les laissera à chacun.`
-          : 'Chacun la lira une fois, en haut de son accueil.',
+        [
+          pourQui !== null && `Ses destinataires se comptent à l’envoi : ceux qui suivent la règle à cet instant — ${REGLE_DU_SEGMENT[pourQui].toLowerCase()}. Elle ne leur dit pas pourquoi eux.`,
+          confettis > 0
+            ? `Chacun la lira une fois, en haut de son accueil, avec ${nConfettis(confettis)}${touches === null ? '' : ` — ${nConfettis(confettis * touches)} en tout`}. Un don ne se reprend pas : retirer l’annonce les laissera à chacun.`
+            : 'Chacun la lira une fois, en haut de son accueil.',
+        ]
+          .filter(Boolean)
+          .join(' '),
       ),
       confirmLabel: confettis > 0 ? `Annoncer et offrir ${nConfettis(confettis)}` : 'Annoncer',
     })
     if (!ok) return
     setOccupe('annoncer')
     try {
-      setPage(await api.admin.annoncer(envoi, ecrit, confettis, question))
+      setPage(await api.admin.annoncer(envoi, ecrit, confettis, question, pourQui))
       repartir()
-      showToast({ kind: 'info', message: `Annonce envoyée à ${pour}` })
+      showToast({ kind: 'info', message: `Annonce envoyée ${aQui}` })
+      void relireLesComptes()
     } catch (e) {
       showToast({ kind: 'error', message: motifDe(e) })
       // Déjà partie : la réponse d'avant s'était perdue en route. La liste la montre.
@@ -202,7 +226,7 @@ export function QgAnnonces() {
     <>
       <p className="muted small">
         {espacesFines(
-          'Un message pour tous les profils — une panne réglée, une nouveauté, un cadeau —, que chacun lit une fois, en haut de son accueil. Le bandeau rouge, lui, prévient pendant la panne et se retire avec elle.',
+          'Un message pour tous les profils, ou pour un segment de la page des joueurs — une panne réglée, une nouveauté, un cadeau, un « tu nous manques » —, que chacun lit une fois, en haut de son accueil. Le bandeau rouge, lui, prévient pendant la panne et se retire avec elle.',
         )}
       </p>
 
@@ -212,8 +236,33 @@ export function QgAnnonces() {
         </div>
         {/* Telle que les joueurs la liront, à mesure qu'on l'écrit. */}
         <ul className={'annonces-admin annonce-apercu' + (ecrit ? '' : ' annonce-apercu-vide')} aria-hidden="true">
-          <CarteDeLAdministrateur annonce={{ id: 'apercu', sorte: 'annonce', message: ecrit || 'Ce que tu écris ici', confettis, le: 0, ...(question && { question }) }} prenom="" />
+          <CarteDeLAdministrateur
+            annonce={{ id: 'apercu', sorte: 'annonce', message: ecrit || 'Ce que tu écris ici', confettis, le: 0, ...(question && { question }), ...(pourQui !== null && { aQuelquesUns: true as const }) }}
+            prenom=""
+          />
         </ul>
+        {/* À qui : tous d'office, ou un segment de la page des joueurs — chacun son compte, sa règle dessous. */}
+        <fieldset className="annonce-question-form">
+          <legend className="label">À qui ?</legend>
+          <div className="annonce-sortes" role="radiogroup" aria-label="À qui l’annonce part">
+            {([null, ...SEGMENTS] as (SegmentDuQg | null)[]).map(s => {
+              const n = s === null ? page.profils : comptes?.comptes[s]
+              return (
+                <button key={s ?? 'tous'} type="button" role="radio" aria-checked={pourQui === s} className={'annonce-sorte' + (pourQui === s ? ' actif' : '')} onClick={() => setPourQui(s)}>
+                  {s === null ? 'Tous' : NOM_DU_SEGMENT[s]}
+                  {n !== undefined && <span className="rayon-compte">{formatNumber(n)}</span>}
+                </button>
+              )
+            })}
+          </div>
+          <p className="muted small">
+            {espacesFines(
+              pourQui === null
+                ? 'Tous les profils d’aujourd’hui, sans les suspendus.'
+                : `${REGLE_DU_SEGMENT[pourQui]} — la règle de la page des joueurs, sans les suspendus. L’annonce ne dit pas le segment à qui la lit : « Pour toi », sur son accueil.`,
+            )}
+          </p>
+        </fieldset>
         <label className="label" htmlFor="annonce-message">
           Ce qu’elle dit
         </label>
@@ -235,7 +284,7 @@ export function QgAnnonces() {
         <ChampNombre id="annonce-confettis" valeur={confettis} min={0} max={CONFETTIS_PAR_DON_MAX} onValeur={setConfettis} inputMode="numeric" />
         <p className="muted small">
           {espacesFines(
-            `Pour les ${pour} d’aujourd’hui${confettis > 0 ? `, soit ${nConfettis(confettis * page.profils)} en tout` : ''}. Ni les invités sans profil, ni ceux qui en créeront un ensuite ne la liront.`,
+            `Pour ${touches === null ? pour : `les ${pour}`} d’aujourd’hui${confettis > 0 && touches !== null ? `, soit ${nConfettis(confettis * touches)} en tout` : ''}. Ni les invités sans profil, ni ceux qui en créeront un ensuite ne la liront.`,
           )}
         </p>
         <fieldset className="annonce-question-form">
@@ -284,7 +333,7 @@ export function QgAnnonces() {
               <p className="muted small">
                 {espacesFines(
                   recompense > 0
-                    ? `Donnés à chaque profil qui répond, une fois — au plus ${nConfettis(recompense * page.profils)} si les ${pour} répondent. Un don ne se reprend pas.`
+                    ? `Donnés à chaque profil qui répond, une fois — au plus ${nConfettis(recompense * (touches ?? page.profils))} si ${touches === null ? 'tous' : `les ${pour}`} répondent. Un don ne se reprend pas.`
                     : 'Répondre ne rapporte rien.',
                 )}
               </p>
@@ -292,9 +341,9 @@ export function QgAnnonces() {
           )}
         </fieldset>
         <div className="admin-gestes maintenance-gestes">
-          <button type="button" className="salon-geste admin-geste-oui" aria-disabled={!ecrit || occupe !== null || undefined} onClick={() => void annoncer()}>
+          <button type="button" className="salon-geste admin-geste-oui" aria-disabled={!ecrit || occupe !== null || touches === 0 || undefined} onClick={() => void annoncer()}>
             <Icon name="megaphone" />
-            {occupe === 'annoncer' ? '…' : confettis > 0 ? `Annoncer et offrir ${nConfettis(confettis)}` : 'Annoncer à tous'}
+            {occupe === 'annoncer' ? '…' : confettis > 0 ? `Annoncer et offrir ${nConfettis(confettis)}` : pourQui === null ? 'Annoncer à tous' : `Annoncer ${aQui}`}
           </button>
         </div>
       </section>
@@ -314,7 +363,13 @@ export function QgAnnonces() {
                   <span className="annonce-faite-texte">
                     <b>{espacesFines(a.message)}</b>
                     <span className="muted small">
-                      {[a.confettis > 0 ? `${nConfettis(a.confettis)} à ${deProfils(a.destinataires)}` : `Pour ${deProfils(a.destinataires)}`, quandEcrit(a.le, page.maintenant)].join(' · ')}
+                      {[
+                        a.confettis > 0 ? `${nConfettis(a.confettis)} à ${deProfils(a.destinataires)}` : `Pour ${deProfils(a.destinataires)}`,
+                        a.segment && NOM_DU_SEGMENT[a.segment],
+                        quandEcrit(a.le, page.maintenant),
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
                     </span>
                     {a.question && <ResultatsDeLaQuestion question={a.question} />}
                     {a.retireeLe !== null && <span className="annonce-faite-etat">{`Retirée ${quandEcrit(a.retireeLe, page.maintenant)}`}</span>}

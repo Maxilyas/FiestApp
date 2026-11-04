@@ -9,6 +9,7 @@ import { mountProfilsAdmin } from './profilsAdmin'
 import { mountQg, type QgDeps } from './qg'
 import { fermerLesPortes, mountMaintenance } from './maintenance'
 import { mountAnnonces } from './annonces'
+import { mountJoueurs, type AudienceDuQg } from './joueursDuQg'
 import { mountAffiches } from './affiches'
 import { mountErreurs, type ErreursDeps } from './erreursDuQg'
 import type { Maintenance } from './core/maintenance'
@@ -111,6 +112,8 @@ interface ApiDeps {
   maintenance: Maintenance
   /** La page des erreurs du QG, et les téléphones que la panne d'un mode fait sonner. */
   erreurs: ErreursDeps
+  /** L'audience du QG : la page des joueurs, ses segments — et les destinataires d'une annonce écrite à l'un d'eux. */
+  audience: AudienceDuQg
 }
 
 /**
@@ -238,8 +241,10 @@ export function mountApi(app: Express, deps: ApiDeps) {
   })
   // Le bandeau rouge, les pages fermées et leurs testeurs : l'administrateur seul.
   mountMaintenance(app, { maintenance: deps.maintenance, profiles: deps.profiles })
-  // Les annonces à tous, et les confettis qu'elles offrent : l'administrateur seul.
-  mountAnnonces(app, { profiles: deps.profiles })
+  // Les joueurs : combien jouent, combien reviennent, qui décroche — l'administrateur seul.
+  mountJoueurs(app, deps.audience)
+  // Les annonces à tous — ou à un segment des joueurs —, et les confettis qu'elles offrent : l'administrateur seul.
+  mountAnnonces(app, { profiles: deps.profiles, audience: deps.audience })
   // L'affiche d'une nouveauté, en haut de chaque accueil, et sa pastille « Nouveau » : l'administrateur seul.
   mountAffiches(app, { profiles: deps.profiles, cabinet: deps.cabinet.ouvert })
   // Le tri des erreurs serveur, et les alertes de panne sur son téléphone : l'administrateur seul.

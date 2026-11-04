@@ -21,6 +21,7 @@ import { QgErreurs } from '../components/QgErreurs'
 import { QgActivite } from '../components/QgActivite'
 import { QgMaintenance } from '../components/QgMaintenance'
 import { QgAnnonces } from '../components/QgAnnonces'
+import { QgJoueurs } from '../components/QgJoueurs'
 import { QgAffiches } from '../components/QgAffiches'
 import { FicheDuJoueurAuQg } from '../components/QgFicheJoueur'
 import { PaletteDuQg } from '../components/QgPalette'
@@ -40,6 +41,7 @@ import { ceQuiEstPose, PAGES_EN_MAINTENANCE, type EtatDeLaMaintenance } from '..
 import type { EntreeDuCatalogue, StatutAuCatalogue } from '../../../shared/partage'
 import type { QuizQuestionDef } from '../../../shared/library'
 import type { ProfilDAdministration } from '../../../shared/profil'
+import type { SegmentDuQg } from '../../../shared/qgJoueurs'
 
 /**
  * Le QG de l'administrateur (`/admin`), pour lui seul — le souhait du
@@ -83,7 +85,8 @@ type Ecran =
   | 'base'
   | 'direct'
   | 'alertes'
-const ECRANS: readonly Ecran[] = ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes']
+  | 'joueurs'
+const ECRANS: readonly Ecran[] = ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes', 'joueurs']
 /** Les ancres de la page d'avant, qu'un favori garde encore. */
 const ANCIENNES: Record<string, Ecran> = { 'les-profils': 'profils', 'quiz-du-jour': 'jour' }
 
@@ -112,6 +115,7 @@ const TITRE: Record<Ecran, string> = {
   base: 'La base et le miroir',
   direct: 'En direct',
   alertes: 'Alertes et incidents',
+  joueurs: 'Les joueurs',
 }
 
 /**
@@ -119,7 +123,7 @@ const TITRE: Record<Ecran, string> = {
  * commande, l'audience, les modes, le contenu, la technique, l'animation ; la
  * vue d'ensemble, le poste de commande, est `null`. Seules les pages qui
  * existent : une page rejoint le rail quand elle est là, jamais avant (règle
- * `qg.md`) — les joueurs, les questions et le Cabinet y entreront avec la leur.
+ * `qg.md`) — les questions et le Cabinet y entreront avec la leur.
  */
 const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; icone: IconName }[] }[] = [
   {
@@ -134,6 +138,8 @@ const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; 
   {
     groupe: 'Audience',
     pages: [
+      // En tête : combien jouent, combien reviennent, qui décroche — puis chacun, dans « Profils ».
+      { ecran: 'joueurs', nom: 'Joueurs', icone: 'eye' },
       { ecran: 'profils', nom: 'Profils', icone: 'users' },
       { ecran: 'salons', nom: 'Salons', icone: 'home' },
       { ecran: 'economie', nom: 'Économie', icone: 'bag' },
@@ -218,6 +224,8 @@ export function AdminApp() {
   const [toutes, setToutes] = useState(false)
   const [palette, setPalette] = useState(false)
   const [fiche, setFiche] = useState<Pick<ProfilDAdministration, 'id' | 'nom'> | null>(null)
+  /** Le segment des joueurs à qui la page des annonces s'ouvre pour écrire (« Leur écrire ») ; null, à tous. */
+  const [segmentDesAnnonces, setSegmentDesAnnonces] = useState<SegmentDuQg | null>(null)
   /** Ce que son propre profil a de neuf à porter : la pastille de « Profil », dans la barre du téléphone. */
   const nouveautes = useNouveautesDuMenu(true)
   // Une lecture à la fois : l'hébergeur qui se réveille tient une requête trente secondes.
@@ -327,6 +335,8 @@ export function AdminApp() {
   /** Une page du QG, à son adresse : le rail y va de l'une à l'autre, le retour du navigateur revient. */
   const aller = (e: Ecran | null) => {
     setToutes(false)
+    // Les annonces ouvertes d'ailleurs que « Leur écrire » repartent à tous.
+    if (e !== 'annonces') setSegmentDesAnnonces(null)
     if (e === ecran) return
     history.pushState({ ...history.state, depuisAdmin: true }, '', e ? `/admin#${e}` : '/admin')
     setEcran(e)
@@ -455,6 +465,7 @@ export function AdminApp() {
       />
       <Ligne icone="target" nom="La campagne" valeur="Sentiers, défi, Cabinet" onClick={() => aller('campagne')} />
       <Ligne icone="swords" nom="Les duels" valeur="Ligues, classement, en attente" onClick={() => aller('duels')} />
+      <Ligne icone="eye" nom="Les joueurs" valeur="Fidélité, cohortes, segments" onClick={() => aller('joueurs')} />
       <Ligne icone="users" nom="Les profils" valeur={profils === undefined ? 'Chercher, supprimer' : formatNumber(profils)} onClick={() => aller('profils')} />
       <Ligne icone="home" nom="Les salons" valeur={espaces ? formatNumber(espaces.length) : 'Renommer, fermer'} onClick={() => aller('salons')} />
       <Ligne icone="bag" nom="L’économie" valeur="Confettis, ventes, Éclats" onClick={() => aller('economie')} />
@@ -577,7 +588,16 @@ export function AdminApp() {
         {ecran === 'base' && <QgBase periode={periodeDuServeur(periodeDeLaPage)} />}
         {/* Chaque geste rend l'état d'après : le rail le compte aussitôt. La panne réglée, l'annonce qui le dit à tous. */}
         {ecran === 'maintenance' && <QgMaintenance onEtat={setMaintenance} versLesAnnonces={() => aller('annonces')} />}
-        {ecran === 'annonces' && <QgAnnonces />}
+        {/* Écrire à un segment, depuis la page des joueurs : les annonces s'ouvrent sur lui. */}
+        {ecran === 'annonces' && <QgAnnonces segment={segmentDesAnnonces} />}
+        {ecran === 'joueurs' && (
+          <QgJoueurs
+            versLesAnnonces={segment => {
+              setSegmentDesAnnonces(segment)
+              aller('annonces')
+            }}
+          />
+        )}
         {/* L'état de la maintenance : une page fermée, l'affiche le dit avant de la poser. */}
         {ecran === 'affiches' && <QgAffiches maintenance={maintenance} />}
         {ecran === 'activite' && <QgActivite />}

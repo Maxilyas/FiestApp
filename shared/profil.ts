@@ -1066,13 +1066,16 @@ export type IssueQuiSert = 'corrigee' | 'reclassee' | 'retiree' | 'annulee'
  * question qu'il a signalée et dont sa remarque a servi — et ce qu'il a dit à
  * tous, une annonce (`shared/annonces.ts`), avec les confettis qu'elle lui a
  * offerts. Retenu sur son téléphone une fois montré
- * (`AnnoncesDeLAdministrateur`).
+ * (`AnnoncesDeLAdministrateur`). Une annonce écrite à un segment de la page
+ * des joueurs du QG (`aQuelquesUns`) ne se dit pas « à tous les joueurs » — ni
+ * le nom de son segment : il n'a pas à savoir qu'on le range parmi les
+ * endormis.
  */
 export type AnnonceDeLAdministrateur =
   | { id: string; sorte: 'confettis'; confettis: number; mot: string | null; le: number }
   | { id: string; sorte: 'prenom'; nom: string; le: number }
   | { id: string; sorte: 'merci'; mode: 'jour' | 'campagne'; issue: IssueQuiSert; question: string; le: number }
-  | { id: string; sorte: 'annonce'; message: string; confettis: number; le: number; question?: QuestionAPoser }
+  | { id: string; sorte: 'annonce'; message: string; confettis: number; le: number; question?: QuestionAPoser; aQuelquesUns?: true }
   | { id: string; sorte: 'proposition'; issue: IssueDUneProposition; question: string; motif: string | null; le: number }
 
 /**

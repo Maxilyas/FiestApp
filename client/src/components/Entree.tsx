@@ -456,7 +456,8 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
       setSuggestion('')
       setMotDePasseRefuse('')
       try {
-        const res = await inscrireAvecRepli({ login: login.trim(), password, name: name.trim(), avatar }, !loginTouche)
+        // Né à l'entrée d'une soirée : le QG compte d'où viennent les profils (`shared/origines.ts`).
+        const res = await inscrireAvecRepli({ login: login.trim(), password, name: name.trim(), avatar, origine: 'entree' }, !loginTouche)
         setLogin(res.login)
         // Le profil existe désormais : son code de secours se note quoi qu'il
         // arrive ensuite. Une reconnexion trop lente affichait « Connexion

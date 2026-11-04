@@ -55,6 +55,9 @@ import { GARDE_DE_NODE_MS } from '../../shared/santeDuServeur'
 import { AuthStore, type AccountRec } from './auth/store'
 import { ProfileStore, cleDeSoiree } from './auth/profiles'
 import { mountApi } from './api'
+import { lesSoireesDepuis } from './qg'
+import { audienceDuQg } from './joueursDuQg'
+import { MemoireDuQg } from './core/memoireDuQg'
 import { questionAuCentreOuverte, rencontresOuvertes } from './expedition'
 import { JourStore } from './core/jour'
 import { RappelStore } from './core/rappels'
@@ -616,6 +619,18 @@ export async function createQuizServer(opts: QuizServerOptions) {
     }),
   })
   sante.reglerLesSeuils(() => regles.seuilsDuServeur())
+  // La mémoire du QG — la feuille de présence, les chiffres de chaque jour fini —, que la page des joueurs relit : dans
+  // la base permanente, un reflet des journaux qui s'écrit une fois par jour fini. Et l'audience qui la tient à jour,
+  // sur les mêmes journaux que la vue d'ensemble, à la même horloge.
+  const memoireDuQg = new MemoireDuQg(opts.quizDbUrl, opts.quizDbToken)
+  const audience = audienceDuQg({
+    memoire: memoireDuQg,
+    profiles,
+    jour,
+    campagne,
+    soireesEntre: (debut, fin) => lesSoireesDepuis({ archives, db }, debut, { jusqua: fin }),
+    maintenant: maintenantDuJour,
+  })
 
   /**
    * Deux écritures du même espace lancent deux relectures, qui reviennent
@@ -677,6 +692,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     campagne.init(REVEIL_DU_CABINET),
     gestes.init(),
     sante.init(),
+    memoireDuQg.init(),
     // Les pannes qu'un serveur d'avant n'a pas vues se rétablir : la veille dira leur retour.
     alertes.init().then(heritees => veille.heriter(heritees)),
     // Les réglages des alertes et les incidents laissés ouverts par le serveur d'avant.
@@ -693,7 +709,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // La carrière d'un profil compte son quiz du jour, pour ses paliers : le
   // quiz du jour dépend des profils, et se branche donc sur eux après coup.
   profiles.statsDuJour = id => jour.statsDuJour(id)
-  profiles.suspensionChangee = () => jour.suspensionChangee()
+  // Les segments de la page des joueurs aussi : un suspendu n'en est d'aucun, une annonce ne le touche pas.
+  profiles.suspensionChangee = () => {
+    jour.suspensionChangee()
+    audience.oublierLesProfils()
+  }
   // Une soirée créditée ou retirée, un sablier acheté : sa série gardée se relit.
   profiles.serieChangee = id => jour.oublierLaSerie(id)
   // Le laurier du vainqueur d'hier, lu en mémoire à chaque diffusion — et le
@@ -956,6 +976,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     await campagne.oublierProfil(profileId)
     // Les pages bientôt disponibles qu'il testait (`core/maintenance.ts`).
     await maintenance.oublierProfil(profileId)
+    // Sa feuille de présence au QG (`qg_presences`) : les chiffres des jours, sans un nom, restent.
+    await audience.oublierProfil(profileId)
     await profiles.supprimer(profileId)
     console.log(`[profils] profil « ${login} » supprimé` + (salon ? `, détaché de « ${salon.login} »` : ''))
     return { salon: salon ? 'detache' : null }
@@ -1411,6 +1433,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     gestes,
     maintenance,
     erreurs: { sante, alertes, rappels, veille },
+    audience,
     online: !!opts.online,
     publicOrigin: allowedOrigin,
     onLibraryChanged: refreshLibrary,

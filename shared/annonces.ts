@@ -1,5 +1,6 @@
 import { tronquer } from './avatars'
 import { CONFETTIS_PAR_DON_MAX } from './profil'
+import type { SegmentDuQg } from './qgJoueurs'
 
 /**
  * Les annonces de l'administrateur à tous les profils (`/admin#annonces`, sous
@@ -162,6 +163,12 @@ export interface AnnonceAuQg {
   question: QuestionAuQg | null
   /** Retirée : l'accueil la tait à qui ne l'avait pas encore lue ; les confettis offerts restent. */
   retireeLe: number | null
+  /**
+   * Écrite aux seuls profils d'un segment de la page des joueurs (le lot 6 du
+   * QG 2, le 4 novembre 2026) — ses destinataires, ceux du segment à son
+   * envoi ; null, à tous. Absent d'un serveur d'avant.
+   */
+  segment?: SegmentDuQg | null
 }
 
 /** La page des annonces au QG. */
