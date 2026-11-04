@@ -72,6 +72,57 @@ test('une épreuve laissée ailleurs : la fiche du palier le dit, et mène à el
   assert.match(await fiche(7, { ...DANS_LA_FORET, issue: 'validee' }), /Jouer le palier 7/)
 })
 
+// « Sentier : quand on a un palier en cours mais qu'on clique sur un autre,
+// ne pas switch et demander si on veut abandonner le palier en cours » (le
+// propriétaire, le 4 novembre 2026) : un rejeu ou une épreuve validée se
+// refermaient en silence au départ d'une autre, et un palier en jeu ne
+// s'abandonnait que de l'intérieur.
+test('jouer un autre palier qu’une épreuve ouverte : on demande d’abord, et l’on dit ce qu’il en coûte', async () => {
+  const { quitterPourCePalier } = await page()
+  const vies = etat({}, null).vies
+  // Rien d'ouvert, ou ce palier-là, que le serveur reprend tel quel : rien à demander.
+  assert.equal(quitterPourCePalier(null, 'scene', 7, vies), null)
+  assert.equal(quitterPourCePalier(DANS_LA_FORET, 'foret', 10, vies), null)
+  assert.equal(quitterPourCePalier({ ...DANS_LA_FORET, finie: true }, 'scene', 7, vies), null)
+
+  const enJeu = quitterPourCePalier(DANS_LA_FORET, 'scene', 7, vies)
+  assert.equal(enJeu.epreuve.id, 'e1')
+  assert.equal(enJeu.dialogue.title, 'Laisser le palier 10 de la forêt pour le palier 7 ?')
+  assert.match(enJeu.dialogue.message, /\(2 bonnes sur 3\) t’attend\. L’abandonner compte comme raté : une vie de moins\.$/)
+  assert.equal(enJeu.dialogue.danger, true)
+  assert.match(quitterPourCePalier(DANS_LA_FORET, 'scene', 7, { ...vies, jour: 1 }).dialogue.message, /C’était ta dernière vie du jour\./)
+  // Sur le même sentier, le sentier ne se redit pas.
+  assert.equal(quitterPourCePalier({ ...DANS_LA_FORET, palier: 3, rejeu: true }, 'foret', 10, vies).dialogue.title, 'Laisser le palier 3 pour le palier 10 ?')
+
+  const rejeu = quitterPourCePalier({ ...DANS_LA_FORET, rejeu: true }, 'scene', 7, vies)
+  assert.match(rejeu.dialogue.message, /ne coûte aucune vie, mais ses étoiles en route sont perdues/)
+  assert.equal(rejeu.dialogue.danger, false)
+  const validee = quitterPourCePalier({ ...DANS_LA_FORET, issue: 'validee', justes: 12 }, 'scene', 7, vies)
+  assert.match(validee.dialogue.message, /est validée : elle le reste, avec les étoiles de ses 12 bonnes réponses/)
+
+  // La fiche offre de la laisser pour ce palier, à côté de « Reprendre » — sauf sans vie, pour un palier neuf.
+  assert.match(await fiche(7, DANS_LA_FORET), /Reprendre l’épreuve<\/button><button[^>]*>La laisser pour ce palier<\/button>/)
+  assert.match(await fiche(3, DANS_LA_FORET), /La laisser pour ce palier/)
+  const sansVie = await rendre('FicheDuPalier', {
+    regle: regleDuPalier(7),
+    branche: BRANCHES.find(b => b.key === 'scene'),
+    sentier: etat({ scene: 6 }, DANS_LA_FORET).sentiers.find(s => s.branche === 'scene'),
+    epreuve: DANS_LA_FORET,
+    maitres: 0,
+    sansVie: true,
+    busy: false,
+    onJouer: () => {},
+    onVies: () => {},
+    onReprendre: () => {},
+  })
+  assert.doesNotMatch(sansVie, /La laisser/)
+
+  // Et `jouer` passe par elle avant de commencer, puis abandonne celle qu'on laisse.
+  const source = readFileSync(new URL('../../client/src/views/Sentiers.tsx', import.meta.url), 'utf8')
+  assert.match(source, /const quitter = quitterPourCePalier\(etat\.epreuve, b, palier, etat\.vies\)\s+if \(quitter && !\(await confirmDialog\(quitter\.dialogue\)\)\) return/)
+  assert.match(source, /await api\.campagne\.sentiers\.abandonner\(quitter\.epreuve\.id\)[\s\S]{0,120}await api\.campagne\.sentiers\.commencer\(b, palier\)/)
+})
+
 // « Jouer le palier 1 · Une vie en jeu » sur le palier même qu'on avait
 // quitté : on craignait de recommencer et de perdre ses bonnes réponses,
 // quand le serveur reprend l'épreuve telle quelle (l'experte du jeu solo, le
