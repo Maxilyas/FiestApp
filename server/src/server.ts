@@ -57,6 +57,7 @@ import { ProfileStore, cleDeSoiree } from './auth/profiles'
 import { mountApi } from './api'
 import { lesSoireesDepuis } from './qg'
 import { audienceDuQg } from './joueursDuQg'
+import { mouvementsEntre } from './economie'
 import { MemoireDuQg } from './core/memoireDuQg'
 import { questionAuCentreOuverte, rencontresOuvertes } from './expedition'
 import { JourStore } from './core/jour'
@@ -644,13 +645,18 @@ export async function createQuizServer(opts: QuizServerOptions) {
     }),
   })
   sante.reglerLesSeuils(() => regles.seuilsDuServeur())
-  // L'audience qui tient la mémoire à jour, sur les mêmes journaux que la vue d'ensemble, à la même horloge.
+  // L'audience qui tient la mémoire à jour, sur les mêmes journaux que la vue d'ensemble, à la même horloge — et, pour
+  // chaque jour fini, ce que l'économie, l'historique et les démarrages en savent (la mémoire v2).
   const audience = audienceDuQg({
     memoire: memoireDuQg,
     profiles,
     jour,
     campagne,
-    soireesEntre: (debut, fin) => lesSoireesDepuis({ archives, db }, debut, { jusqua: fin }),
+    soireesEntre: (debut, fin, { jouees = false } = {}) => lesSoireesDepuis({ archives, db }, debut, { jusqua: fin, jouees }),
+    premieresSoirees: ids => archives.premieresSoirees(ids),
+    confettisEntre: async (debut, fin) => (await mouvementsEntre({ profiles, jour, campagne }, debut, fin)).mouvements,
+    // Les démarrages se datent à l'horloge de la machine, celle de la santé du serveur.
+    demarrages: async () => ({ demarrages: await sante.demarragesGardes(), maintenant: Date.now(), courant: sante.id }),
     maintenant: maintenantDuJour,
   })
 

@@ -849,6 +849,22 @@ export class ArchiveStore {
   }
 
   /**
+   * La première soirée de l'historique de quelques espaces — l'instant de sa
+   * première question —, d'une lecture, par la clé de la table (`space_id`
+   * d'abord) : la mémoire du QG y lit qu'un salon a joué ce jour-là sa toute
+   * première soirée, un nouvel animateur. Un espace sans soirée manque.
+   */
+  async premieresSoirees(spaceIds: readonly string[]): Promise<Map<string, number>> {
+    if (spaceIds.length === 0) return new Map()
+    const res = await this.client.execute({
+      sql: 'SELECT json_group_array(json_array(space_id, premiere)) AS lignes FROM (SELECT space_id, MIN(held_at) AS premiere FROM soirees WHERE space_id IN (SELECT value FROM json_each(?)) GROUP BY space_id)',
+      args: [JSON.stringify([...new Set(spaceIds)])],
+    })
+    const lignes = JSON.parse(String(res.rows[0]?.lignes ?? '[]')) as [string, number][]
+    return new Map(lignes.map(([espace, premiere]) => [String(espace), Number(premiere)]))
+  }
+
+  /**
    * Les fiches d'avant le 17 octobre 2026 ne disent pas combien de questions
    * leurs invités ont jouées : leur archive le sait — une ligne de
    * `answers` par invité et par question posée —, lu dans la base même

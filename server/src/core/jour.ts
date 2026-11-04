@@ -2531,11 +2531,14 @@ export class JourStore {
    * retirées (`recompter`) —, au moment où elle a commencé ; et ceux des
    * questions du public, à leur acceptation et au minuit du jour qui les a
    * jouées : le QG, `/admin#economie`. Par le jour, qui a son index.
+   * `jusqua` : avant cet instant seulement — la mémoire du QG compte ses jours
+   * finis une plage à la fois.
    */
-  async confettisDepuis(depuis: number): Promise<Mouvement[]> {
+  async confettisDepuis(depuis: number, jusqua?: number): Promise<Mouvement[]> {
+    const borne = jusqua === undefined ? { sql: '', args: [] } : { sql: ' AND jour <= ? AND commencee_le < ?', args: [jourDe(jusqua - 1), jusqua] }
     const [parties, propositions] = await this.client.batch(
       [
-        { sql: 'SELECT commencee_le, justes FROM jour_parties WHERE jour >= ? AND commencee_le >= ? AND justes > 0', args: [jourDe(depuis), depuis] },
+        { sql: `SELECT commencee_le, justes FROM jour_parties WHERE jour >= ? AND commencee_le >= ?${borne.sql} AND justes > 0`, args: [jourDe(depuis), depuis, ...borne.args] },
         { sql: `SELECT confettis, quand, jour FROM (${CONFETTIS_DES_PROPOSITIONS}) WHERE quand >= ? OR jour >= ?`, args: [depuis, jourDe(depuis)] },
       ],
       'read',
@@ -2544,7 +2547,7 @@ export class JourStore {
       ...parties.rows.map(r => ({ quand: Number(r.commencee_le), confettis: Number(r.justes) })),
       ...propositions.rows.flatMap(r => {
         const quand = typeof r.jour === 'string' ? minuitDuJour(r.jour) : Number(r.quand)
-        return quand >= depuis ? [{ quand, confettis: Number(r.confettis) }] : []
+        return quand >= depuis && (jusqua === undefined || quand < jusqua) ? [{ quand, confettis: Number(r.confettis) }] : []
       }),
     ]
   }
@@ -3687,20 +3690,21 @@ export class JourStore {
   }
 
   /**
-   * Les parties commencées entre deux instants — qui, quand —, pour la
-   * mémoire du QG (`server/src/joueursDuQg.ts`) : elle écrit chaque jour fini
-   * une fois, et rattrape d'un coup ceux qui manquent, un mois de journaux à
-   * la fois. Par leurs jours, que l'index connaît, puis à l'instant près ; en
-   * un seul texte JSON, comme `partiesDepuis`.
+   * Les parties commencées entre deux instants — qui, quand, ses questions
+   * posées (`question`, comme l'activité les compte) —, pour la mémoire du QG
+   * (`server/src/joueursDuQg.ts`) : elle écrit chaque jour fini une fois, et
+   * rattrape d'un coup ceux qui manquent, un mois de journaux à la fois. Par
+   * leurs jours, que l'index connaît, puis à l'instant près ; en un seul texte
+   * JSON, comme `partiesDepuis`.
    */
-  async partiesEntre(debut: number, fin: number): Promise<{ qui: string; quand: number }[]> {
+  async partiesEntre(debut: number, fin: number): Promise<{ qui: string; quand: number; questions: number }[]> {
     const res = await this.client.execute({
-      sql: `SELECT json_group_array(json_array(profile_id, commencee_le)) AS lignes
+      sql: `SELECT json_group_array(json_array(profile_id, commencee_le, question)) AS lignes
             FROM jour_parties WHERE jour >= ? AND jour <= ? AND commencee_le >= ? AND commencee_le < ?`,
       args: [jourDe(debut), jourDe(fin - 1), debut, fin],
     })
-    const lignes = JSON.parse(String(res.rows[0]?.lignes ?? '[]')) as [string, number][]
-    return lignes.map(([qui, quand]) => ({ qui: String(qui), quand: Number(quand) }))
+    const lignes = JSON.parse(String(res.rows[0]?.lignes ?? '[]')) as [string, number, number][]
+    return lignes.map(([qui, quand, questions]) => ({ qui: String(qui), quand: Number(quand), questions: Number(questions) }))
   }
 
   // ── Le suivi du QG ──────────────────────────────────────────────────────

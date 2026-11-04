@@ -1,6 +1,7 @@
 import { clientDistant, type Client } from './distante'
 import { minuitDe } from '../../../shared/qg'
-import type { ChiffresDUnJour, JourDeLaMemoire, Presence } from '../../../shared/qgJoueurs'
+import { lireLeServeurDUnJour, type ChiffresDUnJour, type JourDeLaMemoire, type Presence } from '../../../shared/qgJoueurs'
+import type { ServeurDUnJour } from '../../../shared/santeDuServeur'
 
 /**
  * La mémoire du QG dans la base permanente (le lot 6 du QG 2, le 4 novembre
@@ -137,6 +138,28 @@ export class MemoireDuQg {
     })
     const lignes = JSON.parse(String(res.rows[0]?.lignes ?? '[]')) as [string, number | null][]
     return new Map(lignes.map(([jour, heures]) => [String(jour), typeof heures === 'number' && Number.isFinite(heures) ? heures : null]))
+  }
+
+  /**
+   * Ce que la mémoire sait du serveur de chaque jour depuis `de` — ses heures
+   * éveillées et ses mises en ligne, ou null quand ses démarrages n'étaient
+   * plus gardés —, lu avant qu'une version neuve des dérivations n'efface
+   * tout : les démarrages ne se gardent que huit jours, et le rattrapage qui
+   * suit reprend ce qu'ils ne savent plus. Un jour qui ne le dit pas — une
+   * ligne d'avant la mémoire v2, une ligne illisible — manque.
+   */
+  async serveursDesJours(de: string): Promise<Map<string, ServeurDUnJour | null>> {
+    const res = await this.client.execute({
+      sql: `SELECT json_group_array(json_array(jour, json(json_extract(chiffres, '$.serveur')))) AS lignes FROM qg_jours
+            WHERE jour >= ? AND CASE WHEN json_valid(chiffres) THEN json_type(chiffres, '$.serveur') END IS NOT NULL`,
+      args: [de],
+    })
+    const serveurs = new Map<string, ServeurDUnJour | null>()
+    for (const [jour, serveur] of JSON.parse(String(res.rows[0]?.lignes ?? '[]')) as [string, unknown][]) {
+      const lu = lireLeServeurDUnJour(serveur)
+      if (lu !== undefined) serveurs.set(String(jour), lu)
+    }
+    return serveurs
   }
 
   /**

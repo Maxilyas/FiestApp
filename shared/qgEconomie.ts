@@ -173,6 +173,38 @@ export function fluxDeConfettis(m: MouvementsDeConfettis, minuits: readonly numb
   }
 }
 
+/** Les confettis d'un jour fini, dans la mémoire du QG (`qg_jours`) : gagnés source par source, dépensés puits par puits. */
+export interface ConfettisDUnJour {
+  gagnes: Record<SourceDeConfettis, number>
+  depenses: Record<DepenseDeConfettis, number>
+}
+
+/**
+ * Les confettis de quelques jours, jour par jour (la revue d'expert du
+ * 4 novembre 2026, P1.3 : l'inflation, les puits face aux sources, au-delà de
+ * trente jours) — aux mêmes règles que la page, d'un mouvement lu une fois.
+ * `minuits` : les débuts des jours, `fin` celui qui suit le dernier ; ce qui
+ * tombe hors d'eux ne compte pas.
+ */
+export function confettisParJour(m: MouvementsDeConfettis, minuits: readonly number[], fin: number): ConfettisDUnJour[] {
+  const jours = minuits.map(() => ({
+    gagnes: Object.fromEntries(SOURCES_DE_CONFETTIS.map(s => [s, 0])) as Record<SourceDeConfettis, number>,
+    depenses: Object.fromEntries(DEPENSES_DE_CONFETTIS.map(d => [d, 0])) as Record<DepenseDeConfettis, number>,
+  }))
+  const leJour = (quand: number) => (quand < fin ? jours[jourDeLInstant(minuits, quand)] : undefined)
+  for (const s of SOURCES_DE_CONFETTIS) {
+    for (const x of m.gagnes[s]) {
+      const j = leJour(x.quand)
+      if (j) j.gagnes[s] += x.confettis
+    }
+  }
+  for (const a of m.achats) {
+    const j = leJour(a.quand)
+    if (j) j.depenses[a.sorte] += a.confettis
+  }
+  return jours
+}
+
 // ── Les étoiles et les ligues, datées ───────────────────────────────────────
 
 /** Une épreuve de sentier validée, telle que la campagne la garde. */

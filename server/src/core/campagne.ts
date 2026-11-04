@@ -841,6 +841,14 @@ const SERIES = "mode = 'serie'"
  */
 const LA_PLUS_RECENTE = 'ORDER BY +commencee_le DESC LIMIT 1'
 /**
+ * Les questions jouées d'une partie, comme le QG les compte — l'activité
+ * (`seriesDepuis`) et la mémoire de chaque jour (`seriesEntre`) : sa
+ * position, qui avance à chaque réponse ; une expédition, ses réponses — sa
+ * position saute les questions de reste d'un gardien vaincu, jamais posées.
+ * Une seule écriture : deux copies auraient compté deux choses différentes.
+ */
+const QUESTIONS_JOUEES_D_UNE_SERIE = "CASE WHEN mode = 'expedition' THEN (SELECT COUNT(*) FROM campagne_reponses r WHERE r.serie_id = campagne_series.id) ELSE position END"
+/**
  * Sa tentative au défi d'une semaine (le profil, puis la semaine) : par ses
  * défis à lui, un par semaine au plus — l'index du profil et du mode. Sans
  * ses deux `+`, sans statistiques, SQLite partait de l'index du profil pour
@@ -7440,9 +7448,7 @@ export class CampagneStore {
     qui?: string,
   ): Promise<{ qui: string; quand: number; mode: string | null; questions: number; fin: number | null; justes: number }[]> {
     const res = await this.client.execute({
-      sql: `SELECT json_group_array(json_array(profile_id, commencee_le, mode,
-                     CASE WHEN mode = 'expedition' THEN (SELECT COUNT(*) FROM campagne_reponses r WHERE r.serie_id = campagne_series.id) ELSE position END,
-                     finie_le, justes)) AS lignes
+      sql: `SELECT json_group_array(json_array(profile_id, commencee_le, mode, ${QUESTIONS_JOUEES_D_UNE_SERIE}, finie_le, justes)) AS lignes
             FROM campagne_series WHERE commencee_le >= ?${qui === undefined ? '' : ' AND profile_id = ?'}`,
       args: qui === undefined ? [depuis] : [depuis, qui],
     })
@@ -7458,19 +7464,20 @@ export class CampagneStore {
   }
 
   /**
-   * Les séries commencées entre deux instants — qui, quand, dans quel mode —,
-   * pour la mémoire du QG (`server/src/joueursDuQg.ts`), qui écrit chaque
-   * jour fini une fois : par l'index de leur date, en un seul texte JSON comme
-   * `seriesDepuis`. Sans leurs questions jouées : la feuille de présence dit
-   * qui a joué, pas combien — et une expédition ne relit pas ses réponses.
+   * Les séries commencées entre deux instants — qui, quand, dans quel mode, et
+   * leurs questions jouées, comptées comme l'activité les compte
+   * (`QUESTIONS_JOUEES_D_UNE_SERIE`) —, pour la mémoire du QG
+   * (`server/src/joueursDuQg.ts`), qui écrit chaque jour fini une fois : par
+   * l'index de leur date, en un seul texte JSON comme `seriesDepuis`.
    */
-  async seriesEntre(debut: number, fin: number): Promise<{ qui: string; quand: number; mode: string | null }[]> {
+  async seriesEntre(debut: number, fin: number): Promise<{ qui: string; quand: number; mode: string | null; questions: number }[]> {
     const res = await this.client.execute({
-      sql: `SELECT json_group_array(json_array(profile_id, commencee_le, mode)) AS lignes FROM campagne_series WHERE commencee_le >= ? AND commencee_le < ?`,
+      sql: `SELECT json_group_array(json_array(profile_id, commencee_le, mode, ${QUESTIONS_JOUEES_D_UNE_SERIE})) AS lignes
+            FROM campagne_series WHERE commencee_le >= ? AND commencee_le < ?`,
       args: [debut, fin],
     })
-    const lignes = JSON.parse(String(res.rows[0]?.lignes ?? '[]')) as [string, number, string | null][]
-    return lignes.map(([qui, quand, mode]) => ({ qui: String(qui), quand: Number(quand), mode: mode === null ? null : String(mode) }))
+    const lignes = JSON.parse(String(res.rows[0]?.lignes ?? '[]')) as [string, number, string | null, number][]
+    return lignes.map(([qui, quand, mode, questions]) => ({ qui: String(qui), quand: Number(quand), mode: mode === null ? null : String(mode), questions: Number(questions) }))
   }
 
   /** Ce que le QG compte des signalements à relire : les questions, et les joueurs qui les signalent. */
@@ -7801,15 +7808,18 @@ export class CampagneStore {
    * de la campagne — la table entière, jointe à ses séries, à chaque
    * ouverture de la page : 60 000 lignes au quota de Turso, le cinquième de ce
    * que la production lisait le 3 novembre 2026. Et sans marge : une partie
-   * reprise plus d'une semaine après son début paie aussi.
+   * reprise plus d'une semaine après son début paie aussi. `jusqua` : avant
+   * cet instant seulement — la mémoire du QG compte ses jours finis une plage
+   * à la fois ; tout se lit pareil, en mémoire ou par l'index des épreuves
+   * validées, puis se borne ici.
    */
-  async economieDepuis(depuis: number): Promise<{ justes: Mouvement[]; etoiles: Mouvement[]; ligues: Mouvement[] }> {
+  async economieDepuis(depuis: number, jusqua = Infinity): Promise<{ justes: Mouvement[]; etoiles: Mouvement[]; ligues: Mouvement[] }> {
     const [journal, payes] = await Promise.all([this.rattraperLeJournal(), this.etoilesEtLigues()])
-    const depuisLa = (m: readonly Mouvement[]) => m.filter(x => x.quand >= depuis)
+    const dedans = (m: readonly Mouvement[]) => m.filter(x => x.quand >= depuis && x.quand < jusqua)
     return {
-      justes: journal.justesDeTousDepuis(depuis).map(([heure, n]) => ({ quand: heure * HEURE_MS, confettis: n })),
-      etoiles: depuisLa(payes.etoiles.mouvements),
-      ligues: depuisLa(payes.ligues.mouvements),
+      justes: dedans(journal.justesDeTousDepuis(depuis).map(([heure, n]) => ({ quand: heure * HEURE_MS, confettis: n }))),
+      etoiles: dedans(payes.etoiles.mouvements),
+      ligues: dedans(payes.ligues.mouvements),
     }
   }
 

@@ -1114,6 +1114,40 @@ export function eveilleEntre(demarrages: readonly DemarrageDuServeur[], debut: n
   return total
 }
 
+/** Ce que le serveur dit d'un jour fini, dans la mémoire du QG (`qg_jours`) : ses heures éveillées, et les versions mises en ligne ce jour-là. */
+export interface ServeurDUnJour {
+  heures: number
+  versions: string[]
+}
+
+/**
+ * Le serveur d'un jour, lu dans ses démarrages : ses heures éveillées, au
+ * dixième (`eveilleEntre`), et chaque version neuve qu'une mise en ligne a
+ * démarrée ce jour-là (`sorteDuDemarrage`), dans l'ordre. Les démarrages n'en
+ * gardent que huit jours : la mémoire le retient au-delà.
+ */
+export function serveurDuJour(demarrages: readonly DemarrageDuServeur[], debut: number, fin: number, maintenant: number, courant: string): ServeurDUnJour {
+  const tous = [...demarrages].sort((a, b) => a.demarreLe - b.demarreLe)
+  const versions: string[] = []
+  tous.forEach((d, i) => {
+    if (d.demarreLe < debut || d.demarreLe >= fin || !d.version || versions.includes(d.version)) return
+    if (sorteDuDemarrage(d, tous[i - 1], maintenant, courant) === 'mise-en-ligne') versions.push(d.version)
+  })
+  return { heures: Math.round((eveilleEntre(tous, debut, fin, maintenant, courant) / HEURE_MS) * 10) / 10, versions }
+}
+
+/**
+ * Depuis quand les démarrages gardés disent tout le temps du serveur : huit
+ * jours (`SANTE_GARDEE_MS` — un démarrage vivant depuis a donné signe de vie
+ * depuis, et la purge ne lit que ce signe), jamais avant le plus ancien
+ * d'entre eux — avant lui, une base neuve ne savait rien, et un jour sans
+ * démarrage s'y serait lu « zéro heure ». Plus tard que tout, sans démarrage.
+ */
+export function couvertsDepuis(demarrages: readonly DemarrageDuServeur[], maintenant: number): number {
+  if (demarrages.length === 0) return Infinity
+  return Math.max(maintenant - SANTE_GARDEE_MS, Math.min(...demarrages.map(d => d.demarreLe)))
+}
+
 /** Le rythme des heures de l'hébergeur : les sept derniers jours, que les démarrages gardés couvrent tout entiers. */
 export const JOURS_DU_RYTHME = 7
 
