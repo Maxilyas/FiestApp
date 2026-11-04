@@ -532,6 +532,23 @@ export class PartyBackup {
     return this.voies.get(spaceId)?.enRetard ?? false
   }
 
+  /**
+   * Chaque file ouverte, en chiffres (la page « Base et miroir » du QG) : ce
+   * qui attend, les échecs d'affilée, depuis quand, le dernier envoi réussi.
+   * Lu en mémoire, sans rien de ce que la file porte — ni le texte d'une
+   * erreur, qui citerait sa requête.
+   */
+  filesDuQg(): { spaceId: string; enAttente: number; echecs: number; enEchecDepuis: number | null; dernierSucces: number | null; enRetard: boolean }[] {
+    return [...this.voies.values()].map(v => ({
+      spaceId: v.spaceId,
+      enAttente: this.compterEnAttente(v),
+      echecs: v.echecs,
+      enEchecDepuis: v.enEchecDepuis,
+      dernierSucces: v.dernierSucces,
+      enRetard: v.enRetard,
+    }))
+  }
+
   private voieDe(spaceId: string): Voie {
     let voie = this.voies.get(spaceId)
     if (!voie) {

@@ -1056,10 +1056,10 @@ quelque chose, jamais modifiée.
 
 Le relevé de la santé du serveur, heure par heure et par démarrage.
 
-- **Colonnes clés** : `heure` et `demarrage` (la clé), `releve` (JSON : appels et temps des routes, allers-retours vers la base, charge, erreurs par source et, depuis le 17 octobre 2026, en détail — douze au plus par heure : sorte, code, message nettoyé, pile ramenée aux fichiers du dépôt —, invités), `maj_le`.
+- **Colonnes clés** : `heure` et `demarrage` (la clé), `releve` (JSON : appels et temps des routes, allers-retours vers la base, charge, erreurs par source et, depuis le 17 octobre 2026, en détail — douze au plus par heure : sorte, code, message nettoyé, pile ramenée aux fichiers du dépôt —, invités ; depuis le 4 novembre 2026, chaque route sous son modèle — appels, médiane, 95ᵉ centile, pire, temps cumulé, refus et erreurs, `parRoute` — et les douze tranches de cinq minutes de l'heure, `tranches`), `maj_le`.
 - **Espace** : non.
 - **Écrite par** : `SanteDuServeur` (`server/src/core/santeDuServeur.ts`), toutes les dix minutes (`RELEVE_MS`).
-- **Lue par** : `SanteDuServeur` (la page « Le serveur » du QG, sept jours).
+- **Lue par** : `SanteDuServeur` (les pages « Le serveur » et « La base et le miroir » du QG : une heure, un jour ou sept jours).
 - **Effacée par** : le relevé, au plus une fois l'heure : ce qui a plus de huit jours (`SANTE_GARDEE_MS`).
 
 ### `qg_demarrages`
@@ -1081,6 +1081,16 @@ Le tri des erreurs serveur (`/admin#erreurs`) : ce que l'administrateur a dit de
 - **Écrite par** : `SanteDuServeur` (`trier`), à chaque geste de la page des erreurs.
 - **Lue par** : `SanteDuServeur`, une fois au démarrage, puis tenue en mémoire : la page des erreurs, et l'alerte de la vue d'ensemble, qui ne compte que celles à regarder.
 - **Effacée par** : « Remettre à regarder » efface sa ligne. Elle survit aux huit jours du relevé : une erreur ignorée qui retombe dans un mois le reste.
+
+### `qg_sauvegardes`
+
+Les sauvegardes de la base permanente (`npm run sauvegarde`), une ligne chacune : la page « Base et miroir » du QG dit à quand remonte la dernière — rien ne le disait.
+
+- **Colonnes clés** : `faite_le`, `tables`, `lignes` (celles copiées), `octets` (la taille du fichier SQL), `duree_ms`.
+- **Espace** : non — la base est la même pour tous.
+- **Écrite par** : `server/scripts/sauvegarde.ts`, à la fin d'une sauvegarde réussie ; un jeton en lecture seule ne l'écrit pas, la sauvegarde est faite quand même.
+- **Lue par** : `SanteDuServeur.sauvegardes`, les dix dernières par leur index (`idx_qg_sauvegardes_le`), à l'ouverture de la page.
+- **Effacée par** : rien — une ligne par sauvegarde, quelques dizaines par an.
 
 ### `qg_alertes_telephones`
 

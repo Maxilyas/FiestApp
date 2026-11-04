@@ -63,6 +63,49 @@ mkdirSync(sortie, { recursive: true })
 // pages d'avant le QG 2 ne se photographient qu'avec tout le reste, sans elle. Toutes les données s'inventent quand même.
 const SEULEMENT = process.env.SEULEMENT?.split(',').map(s => s.trim()).filter(Boolean) ?? null
 const photo = (cle: string) => !SEULEMENT || SEULEMENT.includes(cle)
+
+/**
+ * Ce qui élargit la page : les éléments les plus profonds qui passent le bord droit, sans qu'un cadre qui
+ * défile ou qui coupe les retienne — leur balise, leurs classes, leur bord. En texte : une fonction passée à la
+ * page y arriverait avec les `__name` de tsx, qu'elle ne connaît pas.
+ */
+const CE_QUI_DEBORDE = `(() => {
+  const bord = document.documentElement.clientWidth + 0.5
+  const retenu = el => {
+    for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) if (getComputedStyle(p).overflowX !== 'visible') return true
+    return false
+  }
+  // Une boîte qui passe le bord, ou un texte qui sort de la sienne sans la pousser — un mot trop long.
+  const passent = [...document.querySelectorAll('body *')].filter(el => {
+    const r = el.getBoundingClientRect()
+    if (r.width === 0 || retenu(el)) return false
+    return r.right > bord || (el.scrollWidth > el.clientWidth + 1 && el.clientWidth > 0 && getComputedStyle(el).overflowX === 'visible' && r.left + el.scrollWidth > bord)
+  })
+  const nom = el => el.tagName.toLowerCase() + (typeof el.className === 'string' && el.className.trim() ? '.' + el.className.trim().split(/\\s+/).join('.') : '')
+  // Les plus profonds : un parent qui passe le bord n'est souvent poussé que par son enfant.
+  const profonds = passent.filter(el => !passent.some(autre => autre !== el && el.contains(autre)))
+  if (profonds.length) return profonds.slice(0, 6).map(el => nom(el) + ' → ' + Math.round(el.getBoundingClientRect().right))
+  // Rien ne se voit passer — un pseudo-élément, une marge négative : on cache, branche par branche, ce dont
+  // l'absence rend la page à sa largeur, jusqu'au plus profond.
+  const trop = () => document.documentElement.scrollWidth > document.documentElement.clientWidth
+  const chemin = []
+  for (let el = document.body; el; ) {
+    let fautif = null
+    for (const enfant of el.children) {
+      const avant = enfant.style.display
+      enfant.style.display = 'none'
+      const regle = !trop()
+      enfant.style.display = avant
+      if (regle) {
+        fautif = enfant
+        break
+      }
+    }
+    if (fautif) chemin.push(nom(fautif))
+    el = fautif
+  }
+  return chemin.length ? ['(caché, la page tient) ' + chemin.slice(-3).join(' › ')] : []
+})()`
 const { chromium } = createRequire(path.join(spawnSync('npm', ['root', '-g'], { encoding: 'utf8' }).stdout.trim(), 'rendu.js'))('playwright')
 
 const H = 3_600_000
@@ -349,6 +392,54 @@ try {
       const vague = 1 + 0.35 * Math.sin(heure / H / 2.7)
       return { base: Math.round((soiree ? 95 : 62) * vague), routes: Math.round((soiree ? 330 : 190) * vague) }
     }
+    // Les routes de chaque heure (le QG 2) : leur part des appels et leur temps d'habitude ; la mise en ligne
+    // `e4f5a6b` ralentit le geste du Cabinet, que l'onglet des versions doit dire.
+    const ROUTES_INVENTEES: [string, number, number][] = [
+      ['POST /api/campagne/serie/:id/reponse', 0.22, 140],
+      ['GET /api/joueur/accueil', 0.12, 210],
+      ['POST /api/jour/reponse', 0.1, 120],
+      ['GET /api/jour', 0.08, 90],
+      ['POST /api/cabinet/traversee/:id/geste', 0.08, 260],
+      ['GET /api/campagne/sentiers', 0.06, 380],
+      ['GET /api/joueur/missions', 0.06, 70],
+      ['POST /api/duels/:code/reponse', 0.05, 110],
+      ['GET /api/profil/carte/:id', 0.05, 160],
+      ['GET /api/admin/qg/direct', 0.05, 35],
+      ['GET /api/boutique', 0.03, 150],
+      ['POST /api/joueur/connexion', 0.02, 520],
+    ]
+    const routesDeLHeure = (heure: number, version: string, soiree: boolean, erreurs: Record<string, number>) =>
+      ROUTES_INVENTEES.map(([route, part, ms], i) => {
+        const vague = 1 + 0.3 * Math.sin(heure / H / 1.9 + i)
+        const ralentie = version !== 'a1b2c3d' && route === 'POST /api/cabinet/traversee/:id/geste' ? 1.7 : 1
+        const p95 = Math.round(ms * vague * (soiree ? 1.35 : 1) * ralentie)
+        const n = Math.max(1, Math.round(260 * part * (soiree ? 2.2 : 1)))
+        const p50 = Math.round(p95 * 0.42)
+        return {
+          route,
+          n,
+          p50,
+          p95,
+          max: Math.round(p95 * 2.6),
+          totalMs: Math.round(n * p50 * 1.25),
+          refusees: route === 'POST /api/joueur/connexion' ? Math.max(1, Math.round(n * 0.15)) : 0,
+          enErreur: erreurs[route] ?? 0,
+        }
+      }).sort((a, b) => b.totalMs - a.totalMs)
+    // Ses douze tranches de cinq minutes, de quoi lire une heure : la même allure, un peu de bruit.
+    const tranchesDeLHeure = (heure: number, routes: number, base: number, invites: number, erreurs: number) =>
+      Array.from({ length: 12 }, (_, k) => {
+        const bruit = 0.8 + 0.4 * Math.abs(Math.sin(heure / 997 + k * 1.7))
+        return {
+          debut: heure + k * 5 * 60_000,
+          routes: { n: 22, p50: Math.round(routes * 0.4 * bruit), p95: Math.round(routes * bruit), max: Math.round(routes * 2.4 * bruit) },
+          base: { n: 12, p50: Math.round(base * 0.45 * bruit), p95: Math.round(base * bruit), max: Math.round(base * 2 * bruit) },
+          requetes: { reussies: Math.round(40 * bruit), redirigees: 4, refusees: 1, enErreur: k === 7 ? erreurs : 0 },
+          erreurs: k === 7 ? erreurs : 0,
+          charge: { n: 30, processeur: Math.round((1.2 + invites * 0.27 * bruit) * 10) / 10, boucleMaxMs: Math.round(18 + invites * 6 * bruit), memoireMaxMo: Math.round(150 + invites * 3.4), invitesMax: invites },
+          gels: { n: 0, maxMs: 0 },
+        }
+      })
     const vie = (id: string, debut: number, fin: number, version: string, pretEnMs: number, propre: boolean) => {
       unDemarrage.run(id, debut, pretEnMs, version, 'production', fin, propre ? fin : null)
       for (let heure = Math.floor(debut / H) * H; heure < fin; heure += H) {
@@ -445,6 +536,8 @@ try {
             connexions,
             requetes: { reussies: servies - refusees - enErreur - redirigees, redirigees, refusees, enErreur },
             ...(gels && { gels }),
+            parRoute: routesDeLHeure(heure, version, soiree, erreurs),
+            tranches: tranchesDeLHeure(heure, r.routes, base, invites, enErreur),
           }),
           heure,
         )
@@ -462,6 +555,11 @@ try {
     vie('hier-matin', a(6, 7, 2), arretNet, 'e4f5a6b', 1180, false)
     vie('hier-soir', arretNet + 15 * 60_000, a(6, 23, 59), 'e4f5a6b', 3920, true)
     vie('ce-matin', a(7, 7, 2), maintenant - 5 * 60_000, 'e4f5a6b', 1090, true)
+    // Trois sauvegardes de la base, une par semaine, la dernière avant-hier (la page « Base et miroir »).
+    const sauvegarde = permanente.prepare('INSERT INTO qg_sauvegardes (faite_le, tables, lignes, octets, duree_ms) VALUES (?, ?, ?, ?, ?)')
+    sauvegarde.run(maintenant - 2 * 24 * H - 3 * H, 63, 184_520, 41_200_000, 38_400)
+    sauvegarde.run(maintenant - 9 * 24 * H, 61, 171_904, 38_600_000, 35_100)
+    sauvegarde.run(maintenant - 16 * 24 * H, 60, 160_118, 35_900_000, 33_800)
     // Le quiz du jour en détail : les séries et les points des habitués, les
     // réponses d'aujourd'hui question par question — la quatrième, piège, où
     // une mauvaise réponse l'emporte —, des sabliers, le rappel du soir.
@@ -746,6 +844,7 @@ try {
     if (adresse === '/admin') await page.waitForSelector('.qg-graphe svg, .qg-participations .muted', { timeout: 15000 })
     if (adresse === '/admin#soirees') await page.waitForSelector('.qg-barres', { timeout: 15000 })
     if (adresse === '/admin#serveur') await page.waitForSelector('.qg-graphe svg', { timeout: 15000 })
+    if (adresse === '/admin#base') await page.waitForSelector('#base-sauvegardes', { timeout: 15000 })
     if (adresse === '/admin#erreurs') await page.waitForSelector('section[aria-labelledby="erreurs-telephone"] .admin-gestes, section[aria-labelledby="erreurs-telephone"] .qg-erreurs-etat', { timeout: 15000 })
     if (adresse === '/admin#jour') await page.waitForSelector('.qg-question', { timeout: 15000 })
     if (adresse === '/admin#campagne') {
@@ -774,9 +873,10 @@ try {
       const porte = (await page.evaluate('document.documentElement.dataset.theme ?? null')) as string | null
       if (porte) console.error(`[${nom}] le QG porte le thème du profil (${porte}) : il devrait rester nocturne`)
     }
-    // Rien ne dépasse en largeur : la page ne défile qu'en hauteur.
+    // Rien ne dépasse en largeur : la page ne défile qu'en hauteur. Si elle déborde, ce qui la pousse — les
+    // éléments les plus profonds qui passent le bord sans qu'un cadre qui défile les retienne.
     const deborde = (await page.evaluate('document.documentElement.scrollWidth - document.documentElement.clientWidth')) as number
-    if (deborde > 0) console.error(`[${nom}] la page déborde de ${deborde} px en largeur`)
+    if (deborde > 0) console.error(`[${nom}] la page déborde de ${deborde} px en largeur : ${(await page.evaluate(CE_QUI_DEBORDE)).join(' · ')}`)
     await page.screenshot({ path: path.join(sortie, `${nom}.png`), fullPage: pleine })
     console.log(path.join(sortie, `${nom}.png`))
     await contexte.close()
@@ -810,6 +910,40 @@ try {
   await photographier('3b-ordinateur-1920-trente-jours', 1920, 1080, { geste: page => page.click('.qg-periodes button:has-text("30 j")') })
   await photographier('4-ordinateur-sous-ivoire', 1366, 768, { theme: 'ivoire' })
   await photographier('5-telephone-sous-ivoire', 360, 640, { theme: 'ivoire' })
+  }
+  // « Le serveur » du QG 2 : ses quatre onglets sur la période de la barre — les signaux sur une heure, la table des
+  // routes et la feuille de la plus coûteuse, les versions (la mise en ligne qui ralentit le Cabinet), ce qui gèle.
+  if (photo('serveur')) {
+    const surLeServeur = (geste?: (page: any) => Promise<void>) => ({ adresse: '/admin#serveur', geste })
+    await photographier('70-serveur-signaux', 1366, 768, surLeServeur())
+    await photographier('71-serveur-une-heure', 1366, 768, surLeServeur(page => page.click('.qg-periodes button:has-text("1 h")')))
+    await photographier('72-serveur-routes', 1366, 768, surLeServeur(page => page.click('#serveur-onglet-routes')))
+    await photographier('73-serveur-route-feuille', 1366, 768, {
+      ...surLeServeur(async page => {
+        await page.click('#serveur-onglet-routes')
+        await page.click('.qg-table tbody tr:first-child .qg-route')
+      }),
+      pleine: false,
+    })
+    await photographier(
+      '74-serveur-versions',
+      1366,
+      768,
+      surLeServeur(async page => {
+        await page.click('.qg-periodes button:has-text("7 j")')
+        await page.waitForTimeout(600)
+        await page.click('#serveur-onglet-versions')
+      }),
+    )
+    await photographier('75-serveur-gels', 1366, 768, surLeServeur(page => page.click('#serveur-onglet-gels')))
+    await photographier('76-serveur-routes-1920', 1920, 1080, surLeServeur(page => page.click('#serveur-onglet-routes')))
+    await photographier('77-serveur-routes-telephone', 360, 640, surLeServeur(page => page.click('#serveur-onglet-routes')))
+    await photographier('78-serveur-signaux-telephone', 360, 640, surLeServeur())
+  }
+  // « Base et miroir » : Turso et son quota, le miroir de chaque salon, les sauvegardes.
+  if (photo('base')) {
+    await photographier('80-base', 1366, 768, { adresse: '/admin#base' })
+    await photographier('81-base-telephone', 360, 640, { adresse: '/admin#base' })
   }
   // Les pages du QG 2 qui suivront, chacune son bloc `if (photo('<clé>')) { … }`, ici.
 

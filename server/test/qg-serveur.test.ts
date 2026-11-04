@@ -1019,12 +1019,19 @@ test('la page « Le serveur » trace les plafonds lus dans le conteneur, et mèn
   assert.ok(ailleurs.includes('les plafonds de l’hébergeur gratuit'))
 })
 
-test('la page « Le serveur » se lit d’un coup d’œil : quatre chiffres, la nuit hachurée, chaque réveil et sa raison', async () => {
+test('la page « Le serveur » se lit d’un coup d’œil : quatre chiffres, la nuit hachurée, chaque réveil et sa raison — et Turso sur la page de la base', async () => {
   Object.assign(globalThis, { React, window: { location: { pathname: '/admin', search: '', hash: '#serveur', origin: 'http://banc' } } })
   const { SanteDuServeurAuQg } = await import(new URL('../../client/src/components/QgServeur.tsx', import.meta.url).href)
+  // Turso et ses connexions ont quitté la page du serveur pour « Base et miroir » (le QG 2, le 4 novembre 2026).
+  const { BaseEtMiroirAuQg } = await import(new URL('../../client/src/components/QgBase.tsx', import.meta.url).href)
   const { renderToStaticMarkup } = await import('react-dom/server')
   const page = pageDuServeur(LIGNES, SEMAINE, { maintenant, courant: COURANT })
-  const html = sansInsecables(renderToStaticMarkup(React.createElement(SanteDuServeurAuQg, { page })).replace(/<!-- -->/g, ''))
+  const html = sansInsecables(
+    (renderToStaticMarkup(React.createElement(SanteDuServeurAuQg, { page })) + renderToStaticMarkup(React.createElement(BaseEtMiroirAuQg, { page, base: null }))).replace(
+      /<!-- -->/g,
+      '',
+    ),
+  )
   for (const attendu of [
     'version bbbbbbb · en marche depuis 14 h 02',
     'le plus long : prêt en 4,1 s',
@@ -1079,12 +1086,15 @@ test('gardées chaudes, l’heure dit ses battements ; deux démarrages de la m�
   })
   assert.deepEqual(fondreConnexions(davant, davant), { ...davant, ouvertes: 10, refermeesParLaBase: 4, echecs: 2 }, 'des lignes d’avant l’entretien restent sans lui')
 
-  Object.assign(globalThis, { React, window: { location: { pathname: '/admin', search: '', hash: '#serveur', origin: 'http://banc' } } })
-  const { SanteDuServeurAuQg } = await import(new URL('../../client/src/components/QgServeur.tsx', import.meta.url).href)
+  Object.assign(globalThis, { React, window: { location: { pathname: '/admin#base', search: '', hash: '#base', origin: 'http://banc' } } })
+  // Turso et ses connexions vivent sur la page « Base et miroir » depuis le QG 2 (le 4 novembre 2026).
+  const { BaseEtMiroirAuQg } = await import(new URL('../../client/src/components/QgBase.tsx', import.meta.url).href)
   const { renderToStaticMarkup } = await import('react-dom/server')
   // La dernière heure gardée chaude : une connexion neuve pour cinq allers-retours, quarante battements, une rouverte par l'un d'eux.
   const lignes = LIGNES.map(l => (l.heure === a(0, 21) ? { ...l, connexions: chaude } : l))
-  const html = sansInsecables(renderToStaticMarkup(React.createElement(SanteDuServeurAuQg, { page: pageDuServeur(lignes, SEMAINE, { maintenant, courant: COURANT }) })).replace(/<!-- -->/g, ''))
+  const html = sansInsecables(
+    renderToStaticMarkup(React.createElement(BaseEtMiroirAuQg, { page: pageDuServeur(lignes, SEMAINE, { maintenant, courant: COURANT }), base: null })).replace(/<!-- -->/g, ''),
+  )
   const attendu = 'aujourd’hui, 21 h : 95ᵉ centile 110 ms · 20 % de connexions neuves · gardées chaudes par 40 battements · 1 rouverte par un battement'
   assert.ok(html.includes(attendu), `« ${attendu} » dans la page`)
 })

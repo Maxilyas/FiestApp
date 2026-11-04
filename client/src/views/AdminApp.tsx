@@ -13,6 +13,7 @@ import { VueDEnsembleDuQg } from '../components/QgVueDEnsemble'
 import { QgJournal } from '../components/QgJournal'
 import { QgSoirees } from '../components/QgSoirees'
 import { QgServeur } from '../components/QgServeur'
+import { QgBase } from '../components/QgBase'
 import { QgErreurs } from '../components/QgErreurs'
 import { QgActivite } from '../components/QgActivite'
 import { QgMaintenance } from '../components/QgMaintenance'
@@ -28,7 +29,8 @@ import { formatDay } from '../../../shared/archive'
 import { formatNumber } from '../../../shared/typographie'
 import { jourDe, jourEnToutesLettres } from '../../../shared/jour'
 import { heureEcrite, lesChosesATraiter, type DirectDuQg, type VueDEnsemble } from '../../../shared/qg'
-import { NOM_DE_LA_PERIODE, PERIODES_DU_QG, PERIODE_EN_TOUTES_LETTRES } from '../../../shared/qgPeriodes'
+import { NOM_DE_LA_PERIODE, PERIODES_DU_QG, PERIODE_EN_TOUTES_LETTRES, type PeriodeDuQg } from '../../../shared/qgPeriodes'
+import { periodeDuServeur } from '../../../shared/santeDuServeur'
 import { etatDuService, phraseDeLEtat } from '../../../shared/qgEtat'
 import type { EspaceDAdministration } from '../../../shared/space'
 import { ceQuiEstPose, PAGES_EN_MAINTENANCE, type EtatDeLaMaintenance } from '../../../shared/maintenance'
@@ -75,7 +77,8 @@ type Ecran =
   | 'signalements'
   | 'annonces'
   | 'affiches'
-const ECRANS: readonly Ecran[] = ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie', 'signalements', 'annonces', 'affiches']
+  | 'base'
+const ECRANS: readonly Ecran[] = ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base']
 /** Les ancres de la page d'avant, qu'un favori garde encore. */
 const ANCIENNES: Record<string, Ecran> = { 'les-profils': 'profils', 'quiz-du-jour': 'jour' }
 
@@ -101,6 +104,7 @@ const TITRE: Record<Ecran, string> = {
   signalements: 'Les signalements',
   annonces: 'Les annonces',
   affiches: 'Les nouveautés',
+  base: 'La base et le miroir',
 }
 
 /**
@@ -150,6 +154,8 @@ const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; 
       // Avant le serveur : on y agit — trier, être prévenu —, quand l'autre se lit.
       { ecran: 'erreurs', nom: 'Erreurs', icone: 'x-circle' },
       { ecran: 'serveur', nom: 'Serveur', icone: 'zap' },
+      // Sortie du serveur, où elle se perdait : Turso, son quota, le miroir de chaque salon, les sauvegardes.
+      { ecran: 'base', nom: 'Base et miroir', icone: 'archive' },
     ],
   },
   {
@@ -163,8 +169,16 @@ const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; 
   },
 ]
 
-/** Les pages qui lisent la période de la barre : le poste de commande, pour l'instant — le serveur viendra. */
-const LISENT_LA_PERIODE: readonly (Ecran | null)[] = [null]
+/**
+ * Les pages qui lisent la période de la barre, celles qu'elles offrent, et si
+ * elles comparent à la période d'avant. Le serveur ne garde que huit jours :
+ * trente jours n'y sont pas, et la période retenue au-delà s'y lit en semaine.
+ */
+const PERIODES_DES_PAGES: Partial<Record<Ecran | 'poste', { periodes: readonly PeriodeDuQg[]; comparer: boolean }>> = {
+  poste: { periodes: PERIODES_DU_QG, comparer: true },
+  serveur: { periodes: ['1h', '24h', '7j'], comparer: false },
+  base: { periodes: ['1h', '24h', '7j'], comparer: false },
+}
 
 /**
  * Le direct se relit toutes les dix secondes — en mémoire et dans la base
@@ -369,7 +383,9 @@ export function AdminApp() {
     .join(' · ')
   // L'état du service, en un mot dans la barre : ce que les voyants du poste de commande disent en grand.
   const etat = phraseDeLEtat(etatDuService(direct, vue?.aTraiter.serveur ?? null))
-  const lisLaPeriode = LISENT_LA_PERIODE.includes(ecran)
+  const lecture = PERIODES_DES_PAGES[ecran ?? 'poste']
+  const lisLaPeriode = !!lecture
+  const periodeDeLaPage = lecture && !lecture.periodes.includes(periode) ? lecture.periodes[lecture.periodes.length - 1] : periode
   const groupeDeLEcran = PAGES_DU_QG.find(g => g.pages.some(p => p.ecran === ecran))?.groupe ?? 'Commande'
   const nomDeLEcran = ecran ? TITRE[ecran] : 'Poste de commande'
 
@@ -419,7 +435,8 @@ export function AdminApp() {
       <Ligne icone="flag" nom="Les signalements" valeur={signalees > 0 ? `${signalees} à relire` : 'Corriger, reclasser'} onClick={() => aller('signalements')} />
       <Ligne icone="list" nom="Le journal" valeur="Tes gestes" onClick={() => aller('journal')} />
       <Ligne icone="x-circle" nom="Les erreurs" valeur={desErreurs > 0 ? `${desErreurs} à traiter` : 'Trier, être prévenu'} onClick={() => aller('erreurs')} />
-      <Ligne icone="zap" nom="Le serveur" valeur={duServeur > 0 ? `${duServeur} à traiter` : 'Sept jours'} onClick={() => aller('serveur')} />
+      <Ligne icone="zap" nom="Le serveur" valeur={duServeur > 0 ? `${duServeur} à traiter` : 'Signaux, routes, gels, versions'} onClick={() => aller('serveur')} />
+      <Ligne icone="archive" nom="La base et le miroir" valeur="Turso, quota, miroir, sauvegardes" onClick={() => aller('base')} />
       <Ligne icone="alert" nom="La maintenance" valeur={enMaintenance || 'Bandeau, pages fermées, testeurs'} onClick={() => aller('maintenance')} />
       <Ligne icone="megaphone" nom="Les annonces" valeur="Un mot à tous, des confettis" onClick={() => aller('annonces')} />
       <Ligne icone="sparkles" nom="Les nouveautés" valeur="Une affiche, « Nouveau » sur un bouton" onClick={() => aller('affiches')} />
@@ -437,16 +454,16 @@ export function AdminApp() {
         <span className="qg-ariane">
           {groupeDeLEcran} <span aria-hidden="true">›</span> <b>{nomDeLEcran}</b>
         </span>
-        {lisLaPeriode && (
+        {lecture && (
           <div className="qg-periodes" role="group" aria-label="La période de la page">
-            {PERIODES_DU_QG.map(p => (
-              <button key={p} type="button" aria-pressed={periode === p} title={`Voir ${PERIODE_EN_TOUTES_LETTRES[p]}`} onClick={() => setPeriode(p)}>
+            {lecture.periodes.map(p => (
+              <button key={p} type="button" aria-pressed={periodeDeLaPage === p} title={`Voir ${PERIODE_EN_TOUTES_LETTRES[p]}`} onClick={() => setPeriode(p)}>
                 {NOM_DE_LA_PERIODE[p]}
               </button>
             ))}
           </div>
         )}
-        {lisLaPeriode && (
+        {lecture?.comparer && (
           <button type="button" className="qg-bascule" aria-pressed={comparer} onClick={() => setComparer(!comparer)} title="La période d’avant en filet sur le graphique">
             <span className="qg-interrupteur" aria-hidden="true" />
             Comparer
@@ -524,7 +541,9 @@ export function AdminApp() {
         {ecran === 'journal' && <QgJournal />}
         {/* Un tri change ce qui sonne : la ligne de « À traiter », et la pastille du rail, se relisent. */}
         {ecran === 'erreurs' && <QgErreurs apresUnTri={relireLaVue} />}
-        {ecran === 'serveur' && <QgServeur versLesErreurs={() => aller('erreurs')} />}
+        {ecran === 'serveur' && <QgServeur periode={periodeDuServeur(periodeDeLaPage)} versLesErreurs={() => aller('erreurs')} />}
+        {/* Le miroir de chaque salon et les sauvegardes, à côté de Turso et de son quota ; la période, celle de la barre. */}
+        {ecran === 'base' && <QgBase periode={periodeDuServeur(periodeDeLaPage)} />}
         {/* Chaque geste rend l'état d'après : le rail le compte aussitôt. La panne réglée, l'annonce qui le dit à tous. */}
         {ecran === 'maintenance' && <QgMaintenance onEtat={setMaintenance} versLesAnnonces={() => aller('annonces')} />}
         {ecran === 'annonces' && <QgAnnonces />}
@@ -561,9 +580,10 @@ export function AdminApp() {
         <PaletteDuQg
           pages={PAGES_DU_QG.flatMap(g => g.pages.map(p => ({ ...p, groupe: g.groupe })))}
           aller={aller}
-          periode={lisLaPeriode ? periode : null}
+          periode={lisLaPeriode ? periodeDeLaPage : null}
+          periodes={lecture?.periodes ?? []}
           changerDePeriode={setPeriode}
-          comparer={comparer}
+          comparer={lecture?.comparer ? comparer : null}
           changerLaComparaison={setComparer}
           ouvrirLeProfil={setFiche}
           onFermer={() => setPalette(false)}

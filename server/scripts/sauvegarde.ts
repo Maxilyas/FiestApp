@@ -219,6 +219,7 @@ async function copier(table: { name: string; sql: string }): Promise<number> {
 }
 
 console.log(`💾 ${lisible(url)}`)
+const commenceeLe = Date.now()
 try {
   const objets = (await client.execute('SELECT type, name, tbl_name, sql FROM sqlite_master WHERE sql IS NOT NULL ORDER BY rowid')).rows
     .map(r => ({ type: String(r.type), name: String(r.name), table: String(r.tbl_name), sql: String(r.sql) }))
@@ -264,6 +265,28 @@ try {
   console.log(`     turso db shell <nouvelle-base> < ${affiche}`)
   console.log(`     sqlite3 restauree.db < ${affiche}`)
   console.log('   Ce fichier contient les comptes (mots de passe hachés) : garde-le comme un secret.')
+  // La page « Base et miroir » du QG dit à quand remonte la dernière sauvegarde (`qg_sauvegardes`) : rien ne le disait.
+  // Un jeton en lecture seule n'empêche pas la sauvegarde — elle est faite —, seule sa ligne manque, et on le dit.
+  try {
+    await client.batch(
+      [
+        `CREATE TABLE IF NOT EXISTS qg_sauvegardes (
+           faite_le INTEGER NOT NULL,
+           tables   INTEGER NOT NULL,
+           lignes   INTEGER NOT NULL,
+           octets   INTEGER NOT NULL,
+           duree_ms INTEGER NOT NULL
+         )`,
+        {
+          sql: 'INSERT INTO qg_sauvegardes (faite_le, tables, lignes, octets, duree_ms) VALUES (?, ?, ?, ?, ?)',
+          args: [Date.now(), tables.length, total, statSync(final).size, Date.now() - commenceeLe],
+        },
+      ],
+      'write',
+    )
+  } catch (e) {
+    console.log(`   La page « Base et miroir » du QG ne la verra pas : ${e instanceof Error ? e.message : String(e)}`)
+  }
   client.close()
 } catch (e) {
   flux.destroy()

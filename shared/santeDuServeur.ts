@@ -319,6 +319,40 @@ export const CE_QUI_GELE_PAR_HEURE = 12
 export const GELS_MONTRES = 8
 export const CE_QUI_GELE_MONTRE = 12
 
+// ── Le QG 2 : chaque route chaque heure, les tranches de cinq minutes ─────
+// (le lot 2 de la proposition du 3 novembre 2026, `retours/2026-11-03/le-qg.md`) :
+// la page « Le serveur » se lit sur la période de la barre — une heure, une
+// journée, une semaine —, et ses routes se trient. Pas une table de plus :
+// tout tient dans la ligne JSON de l'heure, que le relevé réécrit déjà toutes
+// les dix minutes (`qg_sante`) — pas une ligne de plus écrite ni lue au quota.
+
+/** Une tranche de la page sur une heure : cinq minutes. */
+export const TRANCHE_MS = 5 * 60_000
+export const TRANCHES_PAR_HEURE = HEURE_MS / TRANCHE_MS
+export const debutDeLaTranche = (instant: number) => Math.floor(instant / TRANCHE_MS) * TRANCHE_MS
+
+/** Une route d'API sur une heure, sous son modèle : ses appels, ses temps, et ses réponses refusées ou en erreur. */
+export interface RouteDeLHeure extends Releve {
+  route: string
+  /** Le temps qu'elle a pris au serveur, toutes ses réponses ensemble, en millisecondes : ses appels fois son temps. */
+  totalMs: number
+  /** Ses réponses 4xx, puis 5xx. */
+  refusees: number
+  enErreur: number
+}
+
+/** Cinq minutes d'un démarrage : ce qu'un joueur attend, Turso, les requêtes, les erreurs, la charge, les gels. */
+export interface TrancheDeSante {
+  debut: number
+  routes: Releve | null
+  base: Releve | null
+  requetes: RequetesDeLHeure
+  erreurs: number
+  /** Null sans un relevé de charge dans la tranche (il en part un toutes les dix secondes) ; `n`, leur nombre. */
+  charge: { n: number; processeur: number; boucleMaxMs: number; memoireMaxMo: number; invitesMax: number } | null
+  gels: { n: number; maxMs: number }
+}
+
 /** Une heure d'un démarrage, telle que la base la garde (`qg_sante`). */
 export interface HeureDeSante {
   heure: number
@@ -345,6 +379,10 @@ export interface HeureDeSante {
   quota?: QuotaDeLHeure | null
   /** Ses gels de plus d'une demi-seconde, et ce qui tournait ; absent d'une ligne d'avant le 2 novembre 2026 — après, une heure sans gel en compte zéro. */
   gels?: GelsDeLHeure
+  /** Chaque route appelée dans l'heure, la plus coûteuse d'abord ; absent d'une ligne d'avant le 4 novembre 2026. */
+  parRoute?: RouteDeLHeure[]
+  /** Ses tranches de cinq minutes, de la plus ancienne à la dernière ; absent d'une ligne d'avant le 4 novembre 2026. */
+  tranches?: TrancheDeSante[]
 }
 
 /** Un démarrage du serveur, tel que la base le garde (`qg_demarrages`). */
@@ -455,8 +493,60 @@ export interface PlafondsDuConteneur {
   memoireMo: number | null
 }
 
+/** La période de la page « Le serveur » : une heure en tranches de cinq minutes, une journée et une semaine heure par heure. */
+export const PERIODES_DU_SERVEUR = ['1h', '24h', '7j'] as const
+export type PeriodeDuServeur = (typeof PERIODES_DU_SERVEUR)[number]
+
+/** La période lue d'une adresse : une inconnue, ou trente jours — le relevé n'en garde que huit —, vaut la semaine. */
+export function periodeDuServeur(lue: unknown): PeriodeDuServeur {
+  return (PERIODES_DU_SERVEUR as readonly unknown[]).includes(lue) ? (lue as PeriodeDuServeur) : '7j'
+}
+
+/**
+ * Une route sur la période : ses appels, sa médiane et son 95ᵉ centile —
+ * ceux de ses heures, moyennés par leurs appels : le pire d'une semaine
+ * n'aurait dit que son réveil le plus froid —, sa pire réponse, sa part du
+ * temps du serveur, ses appels heure par heure, et la période d'avant.
+ */
+export interface RouteDeLaPeriode extends RouteDeLHeure {
+  /** Sa part de tout le temps que les routes ont pris au serveur, en pour cent : ce qui mérite d'être optimisé d'abord. */
+  part: number
+  /** Ses appels heure par heure sur la période ; vide sur une heure, que ses chiffres ne découpent pas. */
+  parHeure: number[]
+  /** La même route sur la période d'avant, de même longueur ; null si elle n'y a pas été appelée. */
+  avant: { n: number; p95: number } | null
+}
+
+/** Assez d'appels, des deux côtés, pour dire qu'une route a ralenti d'une version à l'autre. */
+export const APPELS_POUR_COMPARER = 20
+/** Ralentie : un tiers de plus au 95ᵉ centile moyen que sous la version d'avant. */
+export const RALENTIE_DE = 4 / 3
+
+/** Une version du serveur sur la semaine, et ce qu'elle a changé face à celle d'avant (`versionsDuServeur`). */
+export interface VersionDuServeur {
+  version: string
+  /** Son premier démarrage de la semaine, et son dernier signe. */
+  depuis: number
+  jusqua: number
+  /** Les heures où elle a répondu. */
+  heures: number
+  /** Ce qu'un joueur a attendu sous elle : la médiane et le 95ᵉ centile moyens de ses heures, pondérés par leurs appels. */
+  routes: { n: number; p50: number; p95: number } | null
+  requetes: number
+  /** Ses erreurs serveur pour mille requêtes servies ; null sans requête comptée. */
+  erreursPourMille: number | null
+  /** Le processeur moyen, en pour cent d'un cœur, et le pic de mémoire ; null sans relevé de charge. */
+  processeur: number | null
+  memoireMaxMo: number | null
+  /** Les routes plus lentes d'un tiers au moins que sous la version d'avant, la plus ralentie d'abord (trois au plus). */
+  ralenties: { route: string; avant: number; apres: number }[]
+}
+
 export interface PageDuServeur {
   maintenant: number
+  /** La période lue, et le pas de ses seaux : une heure, ou cinq minutes sur une heure. */
+  periode: PeriodeDuServeur
+  pas: number
   /** Le démarrage qui répond. */
   enMarche: { depuis: number; version: string | null; env: string | null }
   /** Ceux du démarrage qui répond : un changement d'offre déplace le trait de toute la semaine. */
@@ -487,8 +577,55 @@ export interface PageDuServeur {
   erreursSansDetail: { source: string; n: number }[]
   /** Le quota de Turso, au rythme de la semaine ; null avant la première heure comptée. */
   quota: QuotaDuMois | null
-  /** Les gels de la semaine et ce qui tournait pendant ; null avant la première heure qui les relève. */
+  /** Les gels de la période et ce qui tournait pendant ; null avant la première heure qui les relève. */
   gels: GelsDeLaSemaine | null
+  /**
+   * Chaque route de la période, la plus coûteuse au serveur d'abord
+   * (`routesDeLaPeriode`) — sur une heure, celles de l'heure en cours et de la
+   * précédente : une route n'a pas de tranches. `routesDepuis`, la première
+   * heure qui les relève : avant le 4 novembre 2026, rien.
+   */
+  routes: RouteDeLaPeriode[]
+  routesDepuis: number | null
+  /** Les versions de la semaine, la plus récente d'abord, chacune comparée à celle d'avant. */
+  versions: VersionDuServeur[]
+}
+
+/**
+ * La file du miroir d'un salon (`PartyBackup.voies`) : ce qui attend de partir
+ * vers Turso, ses échecs d'affilée, depuis quand, son dernier envoi réussi, et
+ * s'il affiche « Sauvegarde en retard » sur son écran commun. Des chiffres
+ * seulement : le salon par son nom, jamais ce que la file porte.
+ */
+export interface VoieDuMiroir {
+  spaceId: string
+  salon: { nom: string; avatar: string | null }
+  enAttente: number
+  echecs: number
+  enEchecDepuis: number | null
+  dernierSucces: number | null
+  enRetard: boolean
+}
+
+/** Une sauvegarde de la base permanente (`npm run sauvegarde`, `qg_sauvegardes`) : quand, ce qu'elle a copié, combien de temps. */
+export interface SauvegardeDeLaBase {
+  faiteLe: number
+  tables: number
+  lignes: number
+  octets: number
+  dureeMs: number
+}
+
+/** Au-delà d'une semaine sans sauvegarde, la page « Base et miroir » le dit en rouge. */
+export const SAUVEGARDE_ANCIENNE_MS = 7 * 24 * HEURE_MS
+/** Les sauvegardes que la page montre : les plus récentes. */
+export const SAUVEGARDES_MONTREES = 10
+
+/** La page « Base et miroir » (`GET /api/admin/base`) : le miroir salon par salon, les dernières sauvegardes. */
+export interface BaseDuQg {
+  maintenant: number
+  miroir: VoieDuMiroir[]
+  sauvegardes: SauvegardeDeLaBase[]
 }
 
 /** Une erreur de la semaine : ses heures et ses versions, les mêmes de chaque heure fondues. */
@@ -855,10 +992,215 @@ const finDe = (d: DemarrageDuServeur, maintenant: number, courant: string) => d.
 /** Une machine qui ne dit pas ses plafonds. */
 export const PLAFONDS_INCONNUS: PlafondsDuConteneur = { processeurPct: null, memoireMo: null }
 
+/** Ce que des heures disent d'une route : ses appels, et ses centiles en sommes pondérées par leurs appels. */
+interface CumulDUneRoute {
+  n: number
+  s50: number
+  s95: number
+  max: number
+  totalMs: number
+  refusees: number
+  enErreur: number
+}
+
+function cumulsDesRoutes(lignes: readonly Pick<HeureDeSante, 'parRoute'>[]): Map<string, CumulDUneRoute> {
+  const cumuls = new Map<string, CumulDUneRoute>()
+  for (const l of lignes) {
+    for (const r of l.parRoute ?? []) {
+      if (r.n <= 0) continue
+      const c = cumuls.get(r.route) ?? { n: 0, s50: 0, s95: 0, max: 0, totalMs: 0, refusees: 0, enErreur: 0 }
+      c.n += r.n
+      c.s50 += r.p50 * r.n
+      c.s95 += r.p95 * r.n
+      c.max = Math.max(c.max, r.max)
+      c.totalMs += r.totalMs
+      c.refusees += r.refusees
+      c.enErreur += r.enErreur
+      cumuls.set(r.route, c)
+    }
+  }
+  return cumuls
+}
+
+const routeDuCumul = (route: string, c: CumulDUneRoute): RouteDeLHeure => ({
+  route,
+  n: c.n,
+  p50: Math.round(c.s50 / c.n),
+  p95: Math.round(c.s95 / c.n),
+  max: Math.round(c.max),
+  totalMs: Math.round(c.totalMs),
+  refusees: c.refusees,
+  enErreur: c.enErreur,
+})
+
 /**
- * La page « Le serveur » : sept jours heure par heure, les démarrages et les
- * arrêts nets, et quatre chiffres. `demarrages` porte aussi le dernier
- * démarrage d'avant la semaine : la sorte du premier se lit dans lui.
+ * La table des routes : celles des heures `[debut, fin]`, la plus coûteuse au
+ * serveur d'abord — ses appels fois son temps —, chacune sa part, ses appels
+ * heure par heure, et sa ligne de la période d'avant (`[avantDebut, avantFin]`).
+ * Ses centiles sont ceux de ses heures, moyennés par leurs appels, comme « la
+ * plus lente » de la semaine.
+ */
+export function routesDeLaPeriode(
+  lignes: readonly Pick<HeureDeSante, 'heure' | 'parRoute'>[],
+  { debut, fin, avantDebut, avantFin }: { debut: number; fin: number; avantDebut: number; avantFin: number },
+): RouteDeLaPeriode[] {
+  const dans = lignes.filter(l => l.heure >= debut && l.heure <= fin)
+  const cumuls = cumulsDesRoutes(dans)
+  const avant = cumulsDesRoutes(lignes.filter(l => l.heure >= avantDebut && l.heure <= avantFin))
+  const total = [...cumuls.values()].reduce((s, c) => s + c.totalMs, 0)
+  // Les appels heure par heure, d'un seul passage : chercher chaque route dans chaque heure coûtait 120 × 168 × 120
+  // comparaisons à chaque ouverture, au dixième de cœur de l'hébergeur.
+  const heures = Math.max(0, Math.round((fin - debut) / HEURE_MS) + 1)
+  const parHeure = new Map<string, number[]>()
+  if (heures > 2) {
+    for (const l of dans) {
+      const i = Math.round((l.heure - debut) / HEURE_MS)
+      for (const r of l.parRoute ?? []) {
+        let serie = parHeure.get(r.route)
+        if (!serie) parHeure.set(r.route, (serie = Array.from({ length: heures }, () => 0)))
+        serie[i] += r.n
+      }
+    }
+  }
+  return [...cumuls]
+    .map(([route, c]) => {
+      const a = avant.get(route)
+      return {
+        ...routeDuCumul(route, c),
+        part: total > 0 ? Math.round((c.totalMs / total) * 1000) / 10 : 0,
+        parHeure: parHeure.get(route) ?? [],
+        avant: a ? { n: a.n, p95: Math.round(a.s95 / a.n) } : null,
+      }
+    })
+    .sort((a, b) => b.totalMs - a.totalMs || b.n - a.n || (a.route < b.route ? -1 : 1))
+}
+
+/**
+ * Les versions de la semaine, chacune comparée à celle d'avant : ce qu'un
+ * joueur a attendu sous elle, ses erreurs pour mille requêtes, son processeur
+ * et sa mémoire, et les routes qu'elle a ralenties d'un tiers et plus, sur
+ * assez d'appels des deux côtés (`APPELS_POUR_COMPARER`, `RALENTIE_DE`). Hors
+ * de l'hébergeur, un démarrage n'a pas de version : il n'y est pas. La plus
+ * récente d'abord.
+ */
+export function versionsDuServeur(
+  lignes: readonly HeureDeSante[],
+  demarrages: readonly DemarrageDuServeur[],
+  maintenant: number,
+  courant: string,
+): VersionDuServeur[] {
+  const parVersion = new Map<string, { demarrages: DemarrageDuServeur[]; lignes: HeureDeSante[] }>()
+  for (const d of demarrages) {
+    if (!d.version) continue
+    const v = parVersion.get(d.version) ?? { demarrages: [], lignes: [] }
+    v.demarrages.push(d)
+    parVersion.set(d.version, v)
+  }
+  const versionDe = new Map(demarrages.map(d => [d.id, d.version]))
+  for (const l of lignes) {
+    const version = versionDe.get(l.demarrage)
+    if (version) parVersion.get(version)?.lignes.push(l)
+  }
+  const ordre = [...parVersion].sort(([, a], [, b]) => Math.min(...a.demarrages.map(d => d.demarreLe)) - Math.min(...b.demarrages.map(d => d.demarreLe)))
+  const versions: VersionDuServeur[] = []
+  let avant: Map<string, CumulDUneRoute> | null = null
+  for (const [version, v] of ordre) {
+    let n = 0
+    let s50 = 0
+    let s95 = 0
+    let requetes = 0
+    let erreurs = 0
+    let releves = 0
+    let processeur = 0
+    let memoire: number | null = null
+    for (const l of v.lignes) {
+      if (l.routes && l.routes.n > 0) {
+        n += l.routes.n
+        s50 += l.routes.p50 * l.routes.n
+        s95 += l.routes.p95 * l.routes.n
+      }
+      if (l.requetes) requetes += requetesServies(l.requetes)
+      erreurs += totalDesErreurs(l.erreurs)
+      if (l.charge && l.charge.n > 0) {
+        releves += l.charge.n
+        processeur += l.charge.processeur * l.charge.n
+        memoire = Math.max(memoire ?? 0, l.charge.memoireMaxMo)
+      }
+    }
+    const routes = cumulsDesRoutes(v.lignes)
+    const ralenties: VersionDuServeur['ralenties'] = []
+    for (const [route, c] of avant ?? []) {
+      const ici = routes.get(route)
+      if (!ici || ici.n < APPELS_POUR_COMPARER || c.n < APPELS_POUR_COMPARER) continue
+      const p95Avant = c.s95 / c.n
+      const p95Apres = ici.s95 / ici.n
+      if (p95Avant > 0 && p95Apres >= p95Avant * RALENTIE_DE) ralenties.push({ route, avant: Math.round(p95Avant), apres: Math.round(p95Apres) })
+    }
+    ralenties.sort((a, b) => b.apres / b.avant - a.apres / a.avant)
+    versions.push({
+      version,
+      depuis: Math.min(...v.demarrages.map(d => d.demarreLe)),
+      jusqua: Math.max(...v.demarrages.map(d => finDe(d, maintenant, courant))),
+      heures: new Set(v.lignes.map(l => l.heure)).size,
+      routes: n > 0 ? { n, p50: Math.round(s50 / n), p95: Math.round(s95 / n) } : null,
+      requetes,
+      erreursPourMille: requetes > 0 ? Math.round((erreurs / requetes) * 10_000) / 10 : null,
+      processeur: releves > 0 ? Math.round((processeur / releves) * 10) / 10 : null,
+      memoireMaxMo: memoire,
+      ralenties: ralenties.slice(0, 3),
+    })
+    // Une version sans route mesurée ne sert pas de point de comparaison : la suivante se compare à la dernière qui en a.
+    if (routes.size > 0) avant = routes
+  }
+  return versions.reverse()
+}
+
+/** Les tranches de cinq minutes de lignes d'heures, tous démarrages fondus, par leur début. */
+export function tranchesFondues(lignes: readonly Pick<HeureDeSante, 'tranches'>[]): Map<number, TrancheDeSante> {
+  const fondues = new Map<number, TrancheDeSante>()
+  for (const l of lignes) {
+    for (const t of l.tranches ?? []) {
+      const a = fondues.get(t.debut)
+      if (!a) {
+        fondues.set(t.debut, { ...t, requetes: { ...t.requetes }, charge: t.charge && { ...t.charge }, gels: { ...t.gels } })
+        continue
+      }
+      // Deux démarrages dans les mêmes cinq minutes — une mise en ligne : la moyenne se pondère, les pics gardent le pire.
+      const ca = a.charge
+      const cb = t.charge
+      fondues.set(t.debut, {
+        debut: t.debut,
+        routes: fondreReleves(a.routes, t.routes),
+        base: fondreReleves(a.base, t.base),
+        requetes: fondreRequetes(a.requetes, t.requetes) ?? a.requetes,
+        erreurs: a.erreurs + t.erreurs,
+        charge:
+          ca && cb
+            ? {
+                n: ca.n + cb.n,
+                processeur: Math.round(((ca.processeur * ca.n + cb.processeur * cb.n) / (ca.n + cb.n)) * 10) / 10,
+                boucleMaxMs: Math.max(ca.boucleMaxMs, cb.boucleMaxMs),
+                memoireMaxMo: Math.max(ca.memoireMaxMo, cb.memoireMaxMo),
+                invitesMax: Math.max(ca.invitesMax, cb.invitesMax),
+              }
+            : (ca ?? cb),
+        gels: { n: a.gels.n + t.gels.n, maxMs: Math.max(a.gels.maxMs, t.gels.maxMs) },
+      })
+    }
+  }
+  return fondues
+}
+
+/** Combien d'heures de lignes chaque période lit : sur une heure, l'heure en cours et la précédente, que ses tranches couvrent. */
+const HEURES_DE_LA_PERIODE: Record<PeriodeDuServeur, number> = { '1h': 2, '24h': 24, '7j': HEURES_DE_SANTE }
+
+/**
+ * La page « Le serveur » sur sa période (`periode`, la semaine d'office) : ses
+ * seaux — une heure, ou cinq minutes sur une heure (`tranches`) —, les
+ * démarrages et les arrêts nets, quatre chiffres, chaque route, les gels, et
+ * les versions de la semaine. `demarrages` porte aussi le dernier démarrage
+ * d'avant la semaine : la sorte du premier se lit dans lui. Le quota se
+ * projette toujours sur la semaine : une heure n'en dit rien.
  */
 export function pageDuServeur(
   lignes: readonly HeureDeSante[],
@@ -868,10 +1210,16 @@ export function pageDuServeur(
     courant,
     plafonds = PLAFONDS_INCONNUS,
     mesuresDeLHebergeur = null,
-  }: { maintenant: number; courant: DemarrageDuServeur; plafonds?: PlafondsDuConteneur; mesuresDeLHebergeur?: string | null },
+    periode = '7j',
+  }: { maintenant: number; courant: DemarrageDuServeur; plafonds?: PlafondsDuConteneur; mesuresDeLHebergeur?: string | null; periode?: PeriodeDuServeur },
 ): PageDuServeur {
   const derniere = debutDeLHeure(maintenant)
-  const debut = derniere - (HEURES_DE_SANTE - 1) * HEURE_MS
+  const nHeures = HEURES_DE_LA_PERIODE[periode]
+  const debut = derniere - (nHeures - 1) * HEURE_MS
+  const debutDeLaSemaine = derniere - (HEURES_DE_SANTE - 1) * HEURE_MS
+  const pas = periode === '1h' ? TRANCHE_MS : HEURE_MS
+  // Les seaux des graphiques : les heures de la période, ou les douze dernières tranches de cinq minutes.
+  const premierSeau = periode === '1h' ? debutDeLaTranche(maintenant) - (TRANCHES_PAR_HEURE - 1) * TRANCHE_MS : debut
   // Celui qui répond, même si son démarrage n'est pas encore arrivé jusqu'à la base.
   const tous = [...demarrages.filter(d => d.id !== courant.id), courant].sort((a, b) => a.demarreLe - b.demarreLe)
 
@@ -883,9 +1231,12 @@ export function pageDuServeur(
   const vies = tous.map(d => [d.demarreLe, finDe(d, maintenant, courant.id)] as const)
   const heures: HeureDuServeur[] = []
   const fondues: Omit<HeureDeSante, 'demarrage'>[] = []
+  const tranches = periode === '1h' ? tranchesFondues(lignes.filter(l => l.heure >= debut && l.heure <= derniere)) : null
   for (let heure = debut; heure <= derniere; heure += HEURE_MS) {
     const h = fondreLHeure(parHeure.get(heure) ?? [])
     if (h) fondues.push(h)
+    // Sur une heure, les seaux sont les tranches, plus bas : l'heure ne sert qu'aux chiffres, aux erreurs et aux gels.
+    if (tranches) continue
     heures.push({
       heure,
       eveille: h !== null || vies.some(([de, a]) => de < heure + HEURE_MS && a >= heure),
@@ -911,8 +1262,39 @@ export function pageDuServeur(
       gels: h?.gels && h.gels.n > 0 && h.gels.plusLongs[0] ? { n: h.gels.n, plusLong: h.gels.plusLongs[0] } : null,
     })
   }
+  // Une heure en cinq minutes : ce que les tranches relèvent — ce qu'un joueur attend, Turso, les requêtes, les erreurs,
+  // la charge. Ni les connexions, ni le quota, ni le réseau, ni le détail des gels : l'heure seule les garde.
+  if (tranches) {
+    for (let t = premierSeau; t <= debutDeLaTranche(maintenant); t += TRANCHE_MS) {
+      const tr = tranches.get(t)
+      heures.push({
+        heure: t,
+        eveille: !!tr || vies.some(([de, a]) => de < t + TRANCHE_MS && a >= t),
+        base: tr?.base?.p95 ?? null,
+        routes: tr?.routes?.p95 ?? null,
+        erreurs: tr?.erreurs ?? 0,
+        erreursParSource: [],
+        miroir: 0,
+        processeur: tr?.charge?.processeur ?? null,
+        gele: null,
+        boucle: tr?.charge?.boucleMaxMs ?? null,
+        memoire: tr?.charge?.memoireMaxMo ?? null,
+        invites: tr?.charge?.invitesMax ?? null,
+        connexionsNeuves: null,
+        connexions: null,
+        requetes: tr?.requetes ?? null,
+        connexionsOuvertes: null,
+        tempsReel: null,
+        envoyesMo: null,
+        recusMo: null,
+        lignesLues: null,
+        lignesEcrites: null,
+        gels: null,
+      })
+    }
+  }
 
-  // Les erreurs de la semaine, par source.
+  // Les erreurs de la période, par source.
   const sources = new Map<string, number>()
   for (const h of fondues) for (const [s, n] of Object.entries(h.erreurs)) sources.set(s, (sources.get(s) ?? 0) + n)
   const avecErreurs = heures.filter(h => h.erreurs > 0)
@@ -935,16 +1317,16 @@ export function pageDuServeur(
   const routes = mesurees(h => h.routes)
   const assez = (rs: Releve[]) => rs.filter(r => r.n >= APPELS_POUR_UNE_LENTE).map(r => r.p95)
 
-  // Les événements : chaque démarrage de la semaine, et chaque arrêt net.
+  // Les événements : chaque démarrage de la période, et chaque arrêt net.
   const evenements: EvenementDuServeur[] = []
   tous.forEach((d, i) => {
-    if (d.demarreLe >= debut) {
+    if (d.demarreLe >= premierSeau) {
       evenements.push({ quand: d.demarreLe, sorte: sorteDuDemarrage(d, tous[i - 1], maintenant, courant.id), pretEnMs: d.pretEnMs, version: d.version })
     }
-    if (arreteNet(d, maintenant, courant.id) && d.vuLe >= debut) evenements.push({ quand: d.vuLe, sorte: 'arret-net', pretEnMs: null, version: d.version })
+    if (arreteNet(d, maintenant, courant.id) && d.vuLe >= premierSeau) evenements.push({ quand: d.vuLe, sorte: 'arret-net', pretEnMs: null, version: d.version })
   })
   evenements.sort((a, b) => b.quand - a.quand)
-  const demarresCetteSemaine = tous.filter(d => d.demarreLe >= debut)
+  const demarresCetteSemaine = tous.filter(d => d.demarreLe >= premierSeau)
   const prets = demarresCetteSemaine.map(d => d.pretEnMs).filter((ms): ms is number => ms !== null)
   // Les erreurs en détail, sur les heures de la semaine ; leur version, celle du démarrage qui les a relevées.
   const versions = new Map(tous.map(d => [d.id, d.version]))
@@ -953,8 +1335,11 @@ export function pageDuServeur(
     id => versions.get(id) ?? null,
   )
 
+  const relevees = lignes.filter(l => l.parRoute !== undefined).map(l => l.heure)
   return {
     maintenant,
+    periode,
+    pas,
     enMarche: { depuis: courant.demarreLe, version: courant.version, env: courant.env },
     plafonds,
     mesuresDeLHebergeur,
@@ -977,10 +1362,18 @@ export function pageDuServeur(
     erreurs: enDetail.erreurs,
     erreursSansDetail: enDetail.sansDetail,
     quota: quotaDuMois(
-      lignes.filter(l => l.heure >= debut && l.heure <= derniere),
+      lignes.filter(l => l.heure >= debutDeLaSemaine && l.heure <= derniere),
       maintenant,
     ),
     gels: gelsDeLaSemaine(fondues),
+    routes: routesDeLaPeriode(lignes, { debut, fin: derniere, avantDebut: debut - nHeures * HEURE_MS, avantFin: debut - HEURE_MS }),
+    routesDepuis: relevees.length > 0 ? Math.min(...relevees) : null,
+    versions: versionsDuServeur(
+      lignes.filter(l => l.heure >= debutDeLaSemaine && l.heure <= derniere),
+      tous,
+      maintenant,
+      courant.id,
+    ),
   }
 }
 

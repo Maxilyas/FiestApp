@@ -13,6 +13,7 @@ import type { PartyBackup } from './core/backup'
 import { pouls, type Charge } from './core/pouls'
 import { noterLeGeste, type JournalDesGestes } from './core/journalDesGestes'
 import type { SanteDuServeur } from './core/santeDuServeur'
+import { periodeDuServeur, type BaseDuQg } from '../../shared/santeDuServeur'
 import { wrap } from './core/http'
 import { nomDeLEspace } from '../../shared/space'
 import { tronquer } from '../../shared/avatars'
@@ -67,7 +68,7 @@ export interface QgDeps {
   backup: PartyBackup
   charge: Charge
   /** La santé du serveur sur sept jours, dans la base permanente : la page « Le serveur » et ses alertes. */
-  sante: Pick<SanteDuServeur, 'page' | 'alertes'>
+  sante: Pick<SanteDuServeur, 'page' | 'alertes' | 'sauvegardes'>
   gestes: JournalDesGestes
   /**
    * Clôt la soirée d'un espace comme son écran commun l'aurait close, et en
@@ -575,8 +576,27 @@ export function mountQg(app: Express, deps: QgDeps) {
   // La santé du serveur sur sept jours : relue au plus une fois la minute, à l'ouverture de sa page.
   app.get(
     '/api/admin/serveur',
+    wrap(async (req, res) => {
+      // La période de la barre du QG : une heure, une journée, une semaine — trente jours, le relevé ne les garde pas.
+      res.json(await deps.sante.page(periodeDuServeur(req.query.periode)))
+    }),
+  )
+  // La page « Base et miroir » : la file du miroir de chaque salon — lue en mémoire —, et les dernières
+  // sauvegardes de la base permanente — dix lignes. Des salons, rien que des chiffres.
+  app.get(
+    '/api/admin/base',
     wrap(async (_req, res) => {
-      res.json(await deps.sante.page())
+      const voies = deps.backup.filesDuQg()
+      const [salons, sauvegardes] = await Promise.all([lesSalons(voies.map(v => v.spaceId)), deps.sante.sauvegardes()])
+      const base: BaseDuQg = {
+        maintenant: deps.maintenant(),
+        // Ce qui attend d'abord, puis ce qui a échoué ; les files vides et à jour, derrière.
+        miroir: voies
+          .map(v => ({ ...v, salon: salons.get(v.spaceId) ?? ESPACE_SUPPRIME }))
+          .sort((a, b) => Number(b.enRetard) - Number(a.enRetard) || b.echecs - a.echecs || b.enAttente - a.enAttente || (b.dernierSucces ?? 0) - (a.dernierSucces ?? 0)),
+        sauvegardes,
+      }
+      res.json(base)
     }),
   )
   // Le seul geste du QG sur la soirée d'un autre (le choix du 13 octobre

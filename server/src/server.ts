@@ -397,8 +397,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
       if (res.locals.auFilDuTemps) return
       const ms = performance.now() - debut
       pouls.noterRoute(`${req.method} ${modele}`, ms)
-      // Et heure par heure, pour la page « Le serveur » du QG.
-      releve.route(`${req.method} ${modele}`, ms)
+      // Et heure par heure, pour la page « Le serveur » du QG — son statut avec : la table des routes compte leurs refus et leurs erreurs.
+      releve.route(`${req.method} ${modele}`, ms, res.statusCode)
     })
     next()
   })

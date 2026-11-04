@@ -12,6 +12,7 @@ import {
   REQUETES_PAR_HEURE,
   cleDeLErreur,
   debutDeLHeure,
+  debutDeLaTranche,
   type ChargeDeLHeure,
   type ErreurEnDetail,
   type GelDeLaBoucle,
@@ -21,6 +22,8 @@ import {
   type QuotaDeLHeure,
   type Releve,
   type RequetesDeLHeure,
+  type RouteDeLHeure,
+  type TrancheDeSante,
 } from '../../../shared/santeDuServeur'
 import { detailDeLErreur, type DetailDUneErreur } from './erreurs'
 import type { CoutDUnAllerRetour } from './quotaDeTurso'
@@ -310,10 +313,85 @@ class Mesure {
   }
 }
 
+/** Les échantillons d'une tranche : cinq minutes n'ont pas besoin des quatre cents de l'heure. */
+const ECHANTILLON_D_UNE_TRANCHE = 60
+
+/** Ajoute une réponse à des requêtes comptées par famille de statut. */
+function compterLeStatut(r: RequetesDeLHeure, statut: number) {
+  if (statut >= 500) r.enErreur++
+  else if (statut >= 400) r.refusees++
+  else if (statut >= 300) r.redirigees++
+  else r.reussies++
+}
+
+/**
+ * Cinq minutes de l'heure (`TrancheDeSante`) : ce qu'un joueur attend, Turso,
+ * les requêtes, les erreurs, la charge, les gels — ce que la page « Le
+ * serveur » montre sur une heure. Ni les routes une à une, ni le quota, ni le
+ * détail des gels : l'heure les garde, et douze tranches de cent vingt routes
+ * auraient fait de chaque ligne un petit livre.
+ */
+class Tranche {
+  readonly routes = new Mesure(ECHANTILLON_D_UNE_TRANCHE)
+  readonly base = new Mesure(ECHANTILLON_D_UNE_TRANCHE)
+  readonly requetes: RequetesDeLHeure = { reussies: 0, redirigees: 0, refusees: 0, enErreur: 0 }
+  erreurs = 0
+  private charge = { n: 0, processeur: 0, boucleMaxMs: 0, memoireMaxMo: 0, invitesMax: 0 }
+  private gels = { n: 0, maxMs: 0 }
+
+  constructor(readonly debut: number) {}
+
+  noterCharge(c: ReleveDeCharge) {
+    const k = this.charge
+    k.n++
+    k.processeur += c.processeur
+    k.boucleMaxMs = Math.max(k.boucleMaxMs, c.boucleMaxMs)
+    if (c.memoireMo !== null) k.memoireMaxMo = Math.max(k.memoireMaxMo, c.memoireMo)
+    k.invitesMax = Math.max(k.invitesMax, c.invites)
+  }
+
+  gel(dureeMs: number) {
+    this.gels.n++
+    this.gels.maxMs = Math.max(this.gels.maxMs, dureeMs)
+  }
+
+  lue(): TrancheDeSante {
+    const k = this.charge
+    return {
+      debut: this.debut,
+      routes: this.routes.lire(),
+      base: this.base.lire(),
+      requetes: { ...this.requetes },
+      erreurs: this.erreurs,
+      charge:
+        k.n === 0
+          ? null
+          : {
+              n: k.n,
+              processeur: Math.round((k.processeur / k.n) * 10) / 10,
+              boucleMaxMs: Math.round(k.boucleMaxMs),
+              memoireMaxMo: Math.round(k.memoireMaxMo),
+              invitesMax: k.invitesMax,
+            },
+      gels: { n: this.gels.n, maxMs: Math.round(this.gels.maxMs) },
+    }
+  }
+}
+
+/** Une route sur l'heure : son échantillon, le temps qu'elle a pris en tout, ses refus et ses erreurs. */
+interface RouteSuivie {
+  mesure: Mesure
+  totalMs: number
+  refusees: number
+  enErreur: number
+}
+
 class Heure {
   readonly base = new Mesure(ECHANTILLON_HORAIRE)
   readonly routes = new Mesure(ECHANTILLON_HORAIRE)
-  private parRoute = new Map<string, Mesure>()
+  private parRoute = new Map<string, RouteSuivie>()
+  /** Ses tranches de cinq minutes, créées à leur première mesure. */
+  private tranches = new Map<number, Tranche>()
   private erreurs = new Map<string, number>()
   /** Les erreurs de l'heure en détail, les mêmes comptées ensemble (`cleDeLErreur`). */
   private enDetail = new Map<string, ErreurEnDetail>()
@@ -350,6 +428,14 @@ class Heure {
 
   constructor(readonly debut: number) {}
 
+  /** La tranche de cinq minutes d'un instant de l'heure. */
+  tranche(quand: number): Tranche {
+    const debut = debutDeLaTranche(quand)
+    let t = this.tranches.get(debut)
+    if (!t) this.tranches.set(debut, (t = new Tranche(debut)))
+    return t
+  }
+
   connexion() {
     this.liaison.ouvertes++
   }
@@ -380,7 +466,13 @@ class Heure {
     this.liaison.echecs++
   }
 
-  noterCharge(c: ReleveDeCharge) {
+  noterBase(ms: number, quand: number) {
+    this.base.noter(ms)
+    this.tranche(quand).base.noter(ms)
+  }
+
+  noterCharge(c: ReleveDeCharge, quand: number) {
+    this.tranche(quand).noterCharge(c)
     const k = this.charge
     k.n++
     k.processeur += c.processeur
@@ -399,12 +491,9 @@ class Heure {
     if (typeof c.recusOctets === 'number') k.recus = (k.recus ?? 0) + c.recusOctets
   }
 
-  requete(statut: number) {
-    const r = this.requetes
-    if (statut >= 500) r.enErreur++
-    else if (statut >= 400) r.refusees++
-    else if (statut >= 300) r.redirigees++
-    else r.reussies++
+  requete(statut: number, quand: number) {
+    compterLeStatut(this.requetes, statut)
+    compterLeStatut(this.tranche(quand).requetes, statut)
   }
 
   noterQuota(c: CoutDUnAllerRetour) {
@@ -423,7 +512,8 @@ class Heure {
   }
 
   /** Un gel de la boucle (`SondeDesGels`) : compté, gardé s'il est des plus longs, et ce qui tournait, chacun une fois. */
-  gel(g: GelDeLaBoucle) {
+  gel(g: GelDeLaBoucle, quand: number) {
+    this.tranche(quand).gel(g.dureeMs)
     const k = this.gels
     k.n++
     k.totalMs += g.dureeMs
@@ -484,17 +574,23 @@ class Heure {
     }
   }
 
-  route(modele: string, ms: number) {
+  /** Une route d'API servie : son temps, son statut — sans lui (un appelant d'avant), elle compte comme une réponse. */
+  route(modele: string, ms: number, statut: number | null, quand: number) {
     this.routes.noter(ms)
-    let mesure = this.parRoute.get(modele)
-    if (!mesure) {
+    this.tranche(quand).routes.noter(ms)
+    let suivie = this.parRoute.get(modele)
+    if (!suivie) {
       if (this.parRoute.size >= ROUTES_SUIVIES) return
-      this.parRoute.set(modele, (mesure = new Mesure(ECHANTILLON_PAR_ROUTE)))
+      this.parRoute.set(modele, (suivie = { mesure: new Mesure(ECHANTILLON_PAR_ROUTE), totalMs: 0, refusees: 0, enErreur: 0 }))
     }
-    mesure.noter(ms)
+    suivie.mesure.noter(ms)
+    suivie.totalMs += ms
+    if (statut !== null && statut >= 500) suivie.enErreur++
+    else if (statut !== null && statut >= 400) suivie.refusees++
   }
 
   erreur(source: string, detail: DetailDUneErreur | null, quand: number) {
+    this.tranche(quand).erreurs++
     const cle = this.erreurs.has(source) || this.erreurs.size < SOURCES_SUIVIES ? source : 'autre'
     this.erreurs.set(cle, (this.erreurs.get(cle) ?? 0) + 1)
     if (!detail) return
@@ -511,10 +607,15 @@ class Heure {
 
   ligne(demarrage: string, chaudes: boolean): HeureDeSante {
     const l = this.liaison
-    const lentes = [...this.parRoute]
-      .map(([route, m]) => ({ route, l: m.lire() }))
-      .filter((r): r is { route: string; l: Releve } => r.l !== null && r.l.n >= APPELS_POUR_UNE_LENTE)
-      .map(r => ({ route: r.route, n: r.l.n, p95: r.l.p95 }))
+    // Chaque route de l'heure, la plus coûteuse au serveur d'abord : la page « Le serveur » les trie et les compare.
+    const parRoute: RouteDeLHeure[] = [...this.parRoute]
+      .map(([route, s]) => ({ route, s, r: s.mesure.lire() }))
+      .filter((x): x is { route: string; s: RouteSuivie; r: Releve } => x.r !== null)
+      .map(({ route, s, r }) => ({ route, ...r, totalMs: Math.round(s.totalMs), refusees: s.refusees, enErreur: s.enErreur }))
+      .sort((a, b) => b.totalMs - a.totalMs || (a.route < b.route ? -1 : 1))
+    const lentes = parRoute
+      .filter(r => r.n >= APPELS_POUR_UNE_LENTE)
+      .map(r => ({ route: r.route, n: r.n, p95: r.p95 }))
       .sort((a, b) => b.p95 - a.p95)
       .slice(0, 3)
     return {
@@ -543,6 +644,9 @@ class Heure {
       quota: this.quotaLu(),
       // Toujours, même à zéro : une heure qui les relève sans en avoir eu se distingue d'une ligne d'avant.
       gels: this.gelsLus(),
+      // Toujours aussi, même vides : une heure du QG 2 qui n'a rien servi se distingue d'une ligne d'avant leur relevé.
+      parRoute,
+      tranches: [...this.tranches.values()].sort((a, b) => a.debut - b.debut).map(t => t.lue()),
     }
   }
 }
@@ -595,16 +699,17 @@ export class ReleveHoraire {
   }
 
   base(ms: number) {
-    this.heure().base.noter(ms)
+    this.heure().noterBase(ms, this.now())
   }
 
-  route(modele: string, ms: number) {
-    this.heure().route(modele, ms)
+  /** Une route d'API servie, sous son modèle : son temps et son statut, pour sa ligne et pour la tranche de cinq minutes. */
+  route(modele: string, ms: number, statut: number | null = null) {
+    this.heure().route(modele, ms, statut, this.now())
   }
 
   /** Une requête servie — une page, un fichier, une route d'API —, comptée par la famille de son statut. */
   requete(statut: number) {
-    this.heure().requete(statut)
+    this.heure().requete(statut, this.now())
   }
 
   /**
@@ -635,12 +740,12 @@ export class ReleveHoraire {
   }
 
   charge(c: ReleveDeCharge) {
-    this.heure().noterCharge(c)
+    this.heure().noterCharge(c, this.now())
   }
 
   /** Un gel de la boucle de plus d'une demi-seconde, et ce qui tournait (`SondeDesGels`, `core/gels.ts`), dans l'heure où il a fini. */
   gel(g: GelDeLaBoucle) {
-    this.heure().gel(g)
+    this.heure().gel(g, this.now())
   }
 
   /** Une connexion ouverte vers la base, une qu'elle a refermée d'elle-même (à quel âge), un aller-retour tombé en route, le délai qu'elle annonce. */

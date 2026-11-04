@@ -11,6 +11,7 @@ import {
   PLAFONDS_INCONNUS,
   RELEVE_MS,
   SANTE_GARDEE_MS,
+  SAUVEGARDES_MONTREES,
   SILENCE_D_UN_ARRET_MS,
   alertesDuServeur,
   debutDeLHeure,
@@ -27,8 +28,12 @@ import {
   type HeureDeSante,
   type LecturesDUneRequete,
   type PageDuServeur,
+  type PeriodeDuServeur,
   type PlafondsDuConteneur,
   type QuotaDeLHeure,
+  type RouteDeLHeure,
+  type SauvegardeDeLaBase,
+  type TrancheDeSante,
 } from '../../../shared/santeDuServeur'
 
 /** La page se relit au plus une fois la minute : un rechargement ne coûte rien au quota. */
@@ -127,6 +132,19 @@ function gelsLus(v: unknown): GelsDeLHeure | undefined {
   return { n: Number(g.n), totalMs: Number(g.totalMs), plusLongs, parCe, sansRien: Number(g.sansRien) || 0 }
 }
 
+const unNombre = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
+const unObjet = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object'
+
+/** Une route d'une ligne : chacun de ses chiffres lisible, ou elle s'ôte — pas la ligne. */
+function routeLue(r: unknown): r is RouteDeLHeure {
+  return unObjet(r) && typeof r.route === 'string' && [r.n, r.p50, r.p95, r.max, r.totalMs, r.refusees, r.enErreur].every(unNombre)
+}
+
+/** Une tranche d'une ligne, de même : son début et ses comptes lisibles. */
+function trancheLue(t: unknown): t is TrancheDeSante {
+  return unObjet(t) && unNombre(t.debut) && unNombre(t.erreurs) && unObjet(t.requetes) && unObjet(t.gels)
+}
+
 /** Une ligne de `qg_sante` ; null si son relevé ne se lit plus — une ligne illisible ôte son heure, pas la page. */
 function lireHeure(r: Row): HeureDeSante | null {
   try {
@@ -147,6 +165,9 @@ function lireHeure(r: Row): HeureDeSante | null {
       requetes: releve.requetes ?? null,
       quota: quotaLu(releve.quota),
       ...(gels && { gels }),
+      // Absents d'une ligne d'avant le 4 novembre 2026 : la page dit depuis quand elle les a (`routesDepuis`).
+      ...(Array.isArray(releve.parRoute) && { parRoute: releve.parRoute.filter(routeLue) }),
+      ...(Array.isArray(releve.tranches) && { tranches: releve.tranches.filter(trancheLue) }),
     }
   } catch {
     return null
@@ -247,6 +268,16 @@ export class SanteDuServeur {
            depuis   INTEGER NOT NULL,
            versions TEXT NOT NULL
          )`,
+        // Les sauvegardes de la base permanente, une ligne chacune, que `npm run sauvegarde` écrit en finissant
+        // (`server/scripts/sauvegarde.ts`) : rien ne disait à quand remontait la dernière.
+        `CREATE TABLE IF NOT EXISTS qg_sauvegardes (
+           faite_le INTEGER NOT NULL,
+           tables   INTEGER NOT NULL,
+           lignes   INTEGER NOT NULL,
+           octets   INTEGER NOT NULL,
+           duree_ms INTEGER NOT NULL
+         )`,
+        'CREATE INDEX IF NOT EXISTS idx_qg_sauvegardes_le ON qg_sauvegardes(faite_le)',
         'SELECT cle, etat, note, depuis, versions FROM qg_erreurs',
       ],
       'write',
@@ -361,10 +392,12 @@ export class SanteDuServeur {
   }
 
   /**
-   * La page « Le serveur » : la base relue au plus une fois la minute, et
-   * les heures de ce démarrage lues dans le relevé, plus frais que la base.
+   * La page « Le serveur » sur sa période (la semaine d'office) : la base
+   * relue au plus une fois la minute — les sept jours, quelle que soit la
+   * période : une heure et une journée en sont des morceaux —, et les heures
+   * de ce démarrage lues dans le relevé, plus frais que la base.
    */
-  async page(): Promise<PageDuServeur> {
+  async page(periode: PeriodeDuServeur = '7j'): Promise<PageDuServeur> {
     const maintenant = this.now()
     if (!this.lue || maintenant - this.lue.le > PAGE_GARDEE_MS) {
       const lecture = this.file.then(() => this.lire(maintenant))
@@ -378,7 +411,16 @@ export class SanteDuServeur {
     const miennes = this.releve.lignes(this.id)
     const autres = heures.filter(h => h.demarrage !== this.id || !miennes.some(m => m.heure === h.heure))
     const courant = this.moi ?? { id: this.id, demarreLe: maintenant, pretEnMs: null, version: null, env: null, vuLe: maintenant, arreteLe: null }
-    return pageDuServeur([...autres, ...miennes], demarrages, { maintenant, courant, plafonds: this.plafonds, mesuresDeLHebergeur: this.mesuresDeLHebergeur })
+    return pageDuServeur([...autres, ...miennes], demarrages, { maintenant, courant, plafonds: this.plafonds, mesuresDeLHebergeur: this.mesuresDeLHebergeur, periode })
+  }
+
+  /** Les dernières sauvegardes de la base, la plus récente d'abord : dix lignes par leur index, à l'ouverture de la page. */
+  async sauvegardes(): Promise<SauvegardeDeLaBase[]> {
+    const lues = await this.client.execute({
+      sql: 'SELECT faite_le, tables, lignes, octets, duree_ms FROM qg_sauvegardes ORDER BY faite_le DESC LIMIT ?',
+      args: [SAUVEGARDES_MONTREES],
+    })
+    return lues.rows.map(r => ({ faiteLe: Number(r.faite_le), tables: Number(r.tables), lignes: Number(r.lignes), octets: Number(r.octets), dureeMs: Number(r.duree_ms) }))
   }
 
   /**

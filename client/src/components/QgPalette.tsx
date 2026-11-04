@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { api } from '../api'
 import { Icon, type IconName } from './Icon'
 import { Feuille } from './Pieces'
-import { PERIODES_DU_QG, PERIODE_EN_TOUTES_LETTRES, type PeriodeDuQg } from '../../../shared/qgPeriodes'
+import { PERIODE_EN_TOUTES_LETTRES, type PeriodeDuQg } from '../../../shared/qgPeriodes'
 import type { ProfilDAdministration } from '../../../shared/profil'
 
 /** Une page du QG, telle que la palette la propose : son nom, son groupe du rail, son icône. */
@@ -42,6 +42,7 @@ export function PaletteDuQg<E>({
   pages,
   aller,
   periode,
+  periodes,
   changerDePeriode,
   comparer,
   changerLaComparaison,
@@ -52,8 +53,11 @@ export function PaletteDuQg<E>({
   aller: (e: E) => void
   /** La période de la page, quand elle en lit une ; sinon, la palette n'en propose pas. */
   periode: PeriodeDuQg | null
+  /** Celles que la page offre : le serveur ne garde pas trente jours. */
+  periodes: readonly PeriodeDuQg[]
   changerDePeriode: (p: PeriodeDuQg) => void
-  comparer: boolean
+  /** Null sur une page qui ne compare pas. */
+  comparer: boolean | null
   changerLaComparaison: (oui: boolean) => void
   ouvrirLeProfil: (p: Pick<ProfilDAdministration, 'id' | 'nom'>) => void
   onFermer: () => void
@@ -92,20 +96,26 @@ export function PaletteDuQg<E>({
     ...(periode === null
       ? []
       : [
-          ...PERIODES_DU_QG.filter(p => p !== periode).map(p => ({
-            cle: `periode-${p}`,
-            groupe: 'La période',
-            nom: `Voir ${PERIODE_EN_TOUTES_LETTRES[p]}`,
-            icone: 'clock' as IconName,
-            faire: fermerPuis(() => changerDePeriode(p)),
-          })),
-          {
-            cle: 'comparer',
-            groupe: 'La période',
-            nom: comparer ? 'Ne plus comparer à la période d’avant' : 'Comparer à la période d’avant',
-            icone: 'bar-chart' as IconName,
-            faire: fermerPuis(() => changerLaComparaison(!comparer)),
-          },
+          ...periodes
+            .filter(p => p !== periode)
+            .map(p => ({
+              cle: `periode-${p}`,
+              groupe: 'La période',
+              nom: `Voir ${PERIODE_EN_TOUTES_LETTRES[p]}`,
+              icone: 'clock' as IconName,
+              faire: fermerPuis(() => changerDePeriode(p)),
+            })),
+          ...(comparer === null
+            ? []
+            : [
+                {
+                  cle: 'comparer',
+                  groupe: 'La période',
+                  nom: comparer ? 'Ne plus comparer à la période d’avant' : 'Comparer à la période d’avant',
+                  icone: 'bar-chart' as IconName,
+                  faire: fermerPuis(() => changerLaComparaison(!comparer)),
+                },
+              ]),
         ]),
   ]
   const q = simple(cherche.trim())

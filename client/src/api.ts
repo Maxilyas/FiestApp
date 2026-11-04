@@ -51,7 +51,7 @@ import type { EnjeuDuDuel, EtatDesDuels, FaceAFace, JoueurADefier, JoueurCroise,
 import type { DirectDuQg, JournalDuQg, PageDesSoirees, SorteDeGeste, VueDEnsemble } from '../../shared/qg'
 import type { AccuseDeReponse, PageDesAnnonces, QuestionDAnnonce } from '../../shared/annonces'
 import type { DemandeDAffiche, PageDesAffiches } from '../../shared/affiches'
-import type { PageDuServeur } from '../../shared/santeDuServeur'
+import type { BaseDuQg, PageDuServeur, PeriodeDuServeur } from '../../shared/santeDuServeur'
 import type { EtatDUneErreur, PageDesErreurs } from '../../shared/triDesErreurs'
 import type { BilanDUneAlerte } from '../../shared/pannes'
 import type { EtatDUnePage, EtatDeLaMaintenance, PageEnMaintenance } from '../../shared/maintenance'
@@ -834,8 +834,10 @@ export const api = {
     },
     /** Le bilan des soirées : trente jours en chiffres, quand on joue, la taille des salles, l'historique du mois. */
     soirees: () => req<PageDesSoirees>('/api/admin/soirees'),
-    /** La santé du serveur sur sept jours : les temps de réponse, les réveils et les arrêts, les erreurs. */
-    serveur: () => req<PageDuServeur>('/api/admin/serveur'),
+    /** La santé du serveur sur sa période — une heure, une journée, une semaine : ses signaux, ses routes, ses gels, ses versions. */
+    serveur: (periode?: PeriodeDuServeur) => req<PageDuServeur>(`/api/admin/serveur${periode ? `?periode=${periode}` : ''}`),
+    /** La base et le miroir : la file du miroir de chaque salon, les dernières sauvegardes. */
+    base: () => req<BaseDuQg>('/api/admin/base'),
     /** L'activité : trente jours de questions jouées et de parties, mode par mode, et ce que chaque profil a joué. */
     activite: () => req<PageDeLActivite>('/api/admin/activite'),
     /** Clore une soirée laissée en plan, comme son animateur l'aurait close : rangée, ses invités crédités. */

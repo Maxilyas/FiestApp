@@ -14827,6 +14827,65 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
 .qg-etat-alerte { color: var(--alert); }
 .qg-sommaire { display: flex; flex-direction: column; gap: 14px; }
 .qg-sommaire .compte-groupe { margin: 6px 0 -4px; }
+/* La page qui se relit sur une autre période : la précédente reste, en retrait, le temps que la nouvelle arrive. */
+.qg-recharge { opacity: 0.6; transition: opacity 0.2s; }
+/* Les onglets d'une page du QG 2 (« Le serveur ») : une rangée qui défile de côté au téléphone plutôt que de passer à la ligne. */
+/* Les onglets d'une page du QG tiennent en entier, jamais derrière un défilement de côté : « Versions » s'y perdait au
+   téléphone, et leur rangée qui défilait élargissait quand même la page (de 19 pixels, la pastille des versions posée).
+   Au téléphone, sans leurs icônes et sous leur nom court ; ils passent à la ligne s'il le faut. */
+.qg-onglets { flex-wrap: wrap; }
+@media (max-width: 600px) {
+  .qg-onglets .onglet { gap: 4px; padding: 0 10px; }
+  .qg-onglets .onglet > .icon { display: none; }
+  .qg-onglets .onglet-nom { display: none; }
+  .qg-onglets .onglet-court { display: inline; }
+}
+.qg-panneau { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+/* La table des routes : un filtre et les méthodes au-dessus ; la table défile de côté dans son cadre, jamais la page. */
+.qg-outils { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.qg-filtre { flex: 1 1 220px; display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 10px; border: 1px solid var(--qg-trait-fort); border-radius: 9px; background: rgba(255, 255, 255, 0.025); }
+.qg-filtre:focus-within { border-color: rgba(217, 181, 106, 0.55); }
+.qg-filtre > .icon { flex: none; width: 15px; height: 15px; color: var(--muted); }
+.qg-filtre input { flex: 1; min-width: 0; border: 0; outline: none; background: none; color: var(--ink); font: inherit; font-size: 1rem; }
+.qg-filtre input::placeholder { color: var(--muted); }
+.qg-table-cadre { min-width: 0; overflow-x: auto; border: 1px solid var(--qg-trait); border-radius: 10px; }
+.qg-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.qg-table th,
+.qg-table td { padding: 8px; border-bottom: 1px solid var(--qg-trait); text-align: left; white-space: nowrap; vertical-align: middle; }
+.qg-table tbody tr:last-child > * { border-bottom: 0; }
+.qg-table tbody tr:hover > * { background: rgba(255, 255, 255, 0.025); }
+.qg-table thead th { position: sticky; top: 0; z-index: 1; padding: 0; background: var(--qg-console-haute); border-bottom-color: var(--qg-trait-fort); }
+.qg-table .qg-nombre { text-align: right; font-family: var(--qg-mono); font-size: 0.8rem; font-variant-numeric: lining-nums tabular-nums; }
+.qg-tri { display: flex; align-items: center; gap: 4px; width: 100%; min-height: 36px; padding: 0 8px; border: 0; background: none; color: var(--muted); font: 600 0.6875rem/1.2 var(--qg-mono); letter-spacing: 0.06em; text-transform: uppercase; text-align: inherit; cursor: pointer; }
+.qg-nombre .qg-tri { justify-content: flex-end; }
+span.qg-tri { cursor: default; }
+.qg-tri:hover { color: var(--ink); }
+.qg-tri .icon { width: 11px; height: 11px; }
+.qg-table th[aria-sort] .qg-tri { color: var(--accent-text); }
+.qg-route { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; padding: 0; border: 0; background: none; color: var(--ink); font: 500 0.8rem/1.35 var(--qg-mono); text-align: left; cursor: pointer; }
+button.qg-route:hover .qg-route-chemin { text-decoration: underline; }
+.qg-route-chemin { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.qg-route-titre { margin: 0; font-size: 0.95rem; cursor: default; }
+.qg-route-titre .qg-route-chemin { white-space: normal; overflow-wrap: anywhere; }
+/* La méthode d'une route : son nom dans une pastille — la couleur n'en dit pas plus que le mot. */
+.qg-verbe { flex: none; display: inline-block; min-width: 46px; padding: 3px 5px; border-radius: 4px; background: rgba(255, 255, 255, 0.06); color: var(--qg-encre-2); font: 600 0.6875rem/1 var(--qg-mono); letter-spacing: 0.04em; text-align: center; }
+.qg-verbe-get { background: rgba(57, 135, 229, 0.16); color: #9cc4ff; }
+.qg-verbe-post { background: rgba(25, 158, 112, 0.18); color: #8fe0b8; }
+.qg-verbe-put,
+.qg-verbe-patch { background: rgba(201, 133, 0, 0.18); color: #f3d08a; }
+.qg-verbe-delete { background: rgba(229, 72, 77, 0.16); color: #ffa29b; }
+.qg-part { display: inline-flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.qg-part-piste { flex: none; width: 40px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.07); overflow: hidden; }
+.qg-part-piste > i { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
+.qg-table-alerte { color: var(--qg-critique-texte); }
+.qg-table-mieux { color: var(--qg-ok-texte); }
+.qg-table-courbe { width: 84px; }
+.qg-table-courbe .qg-etincelle { width: 72px; height: 22px; margin: 0; }
+/* Au téléphone, la route, ses appels, son 95ᵉ centile, ses erreurs et sa part : le détail à l'ordinateur. */
+.qg-table .qg-colonne-detail { display: none; }
+/* Les versions, l'une sous l'autre, la plus récente d'abord. */
+.qg-versions { display: flex; flex-direction: column; gap: 16px; }
+.qg-console h2.qg-version-nom { font-family: var(--qg-mono); letter-spacing: 0.02em; }
 /* Ce qui attend un geste : une bande à gauche, rouge pour une alerte, ambre pour le reste — avec son icône, jamais la couleur seule. */
 .qg-traiter .qg-ligne { position: relative; padding-left: 14px; }
 .qg-traiter .qg-ligne::before { content: ''; position: absolute; top: 10px; bottom: 10px; left: 0; width: 3px; border-radius: 0 3px 3px 0; background: var(--qg-veille); }
@@ -15148,9 +15207,10 @@ span.annonce-admin-merci { cursor: default; }
   .qg-periodes button { flex: none; }
   .qg-bascule { order: 0; }
   .qg-commande .qg-vif:not(.qg-vif-perdu) { display: inline-flex; }
-  /* L'heure à droite du titre, comme un cadran ; le titre en grand. */
-  .qg-tete { flex-direction: row-reverse; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px 24px; }
-  .qg-quand { padding: 8px 12px; border: 1px solid var(--qg-trait-fort); border-radius: 9px; background: rgba(255, 255, 255, 0.03); color: var(--qg-encre-2); }
+  /* L'heure à droite du titre, comme un cadran ; le titre en grand, à gauche — en ordre inversé, seul sur une page
+     sans heure, il partait à droite. */
+  .qg-tete { flex-direction: row; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px 24px; }
+  .qg-quand { order: 2; padding: 8px 12px; border: 1px solid var(--qg-trait-fort); border-radius: 9px; background: rgba(255, 255, 255, 0.03); color: var(--qg-encre-2); }
   .qg-titre h1 { font-size: 2.45rem; }
   /* Le poste de commande : l'état et les chiffres sur toute la largeur, la participation à côté de ce qui attend un geste,
      puis le direct, les soirées et le serveur côte à côte — la grille de la maquette du 3 novembre 2026. */
@@ -15179,6 +15239,10 @@ span.annonce-admin-merci { cursor: default; }
   .qg-poste .qg-soiree > .qg-etat { grid-column: 2; }
   .qg-cadrans { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .qg-tuiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .qg-table .qg-colonne-detail { display: table-cell; }
+  .qg-versions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  /* Une demi-largeur, quatre tuiles : deux par deux, sans quoi « Ce qu'un joueur attend » tenait sur trois lignes. */
+  .qg-versions .qg-tuiles.qg-tuiles-quatre { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   /* La palette, une fenêtre en haut de l'écran, comme celles des outils qu'on ouvre au clavier. */
   .carte-voile:has(> .qg-palette) { align-items: flex-start; padding-top: max(10vh, 56px); }
   .carte-feuille.qg-palette { height: auto; max-height: min(72vh, 640px); max-width: 640px; border-bottom: 1px solid var(--edge-strong); border-radius: 14px; }
