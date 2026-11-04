@@ -11,6 +11,7 @@ import { MAX_NAME_LENGTH } from '../../../shared/avatars'
 import { LIGUES } from '../../../shared/duels'
 import { MODES_DU_QG, NOM_DU_MODE, heureEcrite, quandEcrit, type GesteDuQg } from '../../../shared/qg'
 import { totalDesModes, type ActiviteDUnJoueur } from '../../../shared/qgActivite'
+import { etatDeLaTraverseeEnRoute, peutSeRendre, type TraverseeEnRouteAuQg } from '../../../shared/qgCabinet'
 import { CONFETTIS_PAR_DON_MAX, MOT_D_UN_DON_MAX, type FicheDuJoueur, type ProfilDAdministration } from '../../../shared/profil'
 import { MOT_D_UN_COFFRE_OFFERT_MAX, NOM_DU_COFFRE, RANGS_DU_COFFRE, type RangDuCoffre } from '../../../shared/coffre'
 
@@ -34,6 +35,24 @@ export function sesTrenteJours(a: ActiviteDUnJoueur): string {
     .sort((x, y) => a.questions[y] - a.questions[x])
     .map(m => `${NOM_DU_MODE[m].toLowerCase()} ${formatNumber(a.questions[m])}`)
   return `${pluriel(total, 'question')} en ${pluriel(a.jours, 'jour')}${modes.length > 0 ? ` : ${modes.join(', ')}` : ''}`
+}
+
+/**
+ * « Rendre la traversée » (le 4 novembre 2026, le pendant de « Libérer l'épreuve ») : ce que la confirmation dit avant
+ * de refermer celle que la page a montrée — et rien d'autre : une neuve, commencée depuis, se refuse au serveur. La page
+ * du Cabinet au QG et la fiche passent par elle.
+ */
+export async function confirmerLeRendu(nom: string, t: Omit<TraverseeEnRouteAuQg, 'profil'>, toi = false): Promise<boolean> {
+  // Où elle en est, en tête de phrase : « illisible sur ce serveur » s'écrivait sans sa majuscule.
+  const ou = etatDeLaTraverseeEnRoute(t)
+  // Son épreuve ne se dit que s'il en joue une : sur la carte, la phrase annonçait refermée une épreuve qui n'existait pas.
+  const epreuve = t.ou === null ? ', son épreuve en cours avec elle s’il en jouait une' : t.ou.enJeu ? ', son épreuve en cours avec elle' : ''
+  return confirmDialog({
+    title: toi ? 'Rendre ta traversée ?' : `Rendre la traversée de ${nom} ?`,
+    message: `${ou.charAt(0).toUpperCase()}${ou.slice(1)}. Elle se referme là où elle en est, ni gagnée ni perdue${epreuve}. Rien ne se paie ni ne se rend : partir ne coûte rien, et ce qu’elle a déjà rapporté — expérience, confettis, défis des cartes — reste acquis. Une traversée neuve se commence aussitôt.`,
+    confirmLabel: 'Rendre la traversée',
+    danger: true,
+  })
 }
 
 /**
@@ -86,7 +105,7 @@ export function FicheDuJoueurAuQg({
   }, [profil.id])
 
   /** Un geste : refusé, il le dit ; fait, la fiche et son journal se relisent. */
-  const geste = async (faire: () => Promise<unknown>, merci: string, { liste = false } = {}) => {
+  const geste = async (faire: () => Promise<unknown>, merci: string, { liste = false, relireAuRefus = false } = {}) => {
     if (occupe) return
     setOccupe(true)
     try {
@@ -96,6 +115,8 @@ export function FicheDuJoueurAuQg({
       if (liste && relue) onChange(relue)
     } catch (e) {
       showToast({ kind: 'error', message: motifDe(e) })
+      // Un refus qui dit que la fiche a vieilli — une autre traversée, un geste du joueur au même instant : elle se relit.
+      if (relireAuRefus) await charger()
     } finally {
       setOccupe(false)
     }
@@ -167,6 +188,15 @@ export function FicheDuJoueurAuQg({
     if (ok) await geste(() => api.admin.suspendre(f.id), 'Profil suspendu', { liste: true })
   }
 
+  // `liste` : la page qui a ouvert la fiche se relit — celle du Cabinet nomme ses traversées en route.
+  const rendre = async (t: Omit<TraverseeEnRouteAuQg, 'profil'>) => {
+    if (await confirmerLeRendu(f.nom, t, f.toi))
+      await geste(() => api.admin.rendreLaTraversee(f.id, t.id), f.toi ? 'Traversée rendue : une neuve t’attend' : `Traversée rendue : ${f.nom} peut en commencer une neuve`, {
+        liste: true,
+        relireAuRefus: true,
+      })
+  }
+
   const ligue = f.duels ? LIGUES.find(l => l.cle === f.duels!.ligue) : undefined
   const fermee = f.connexion.fermeeJusquA !== null && f.connexion.fermeeJusquA > maintenant
   // Ce qui l'aide, d'un côté, ce qui le modère, de l'autre : un coup de main
@@ -202,6 +232,11 @@ export function FicheDuJoueurAuQg({
     f.epreuve && (
       <Geste key="epreuve" icone="target" occupe={occupe} onClick={() => void geste(() => api.admin.libererLEpreuve(f.id), 'Épreuve libérée, sans lui coûter de vie')}>
         Libérer l’épreuve
+      </Geste>
+    ),
+    f.traversee && peutSeRendre(f.traversee) && (
+      <Geste key="traversee" icone="landmark" occupe={occupe} onClick={() => void rendre(f.traversee!)}>
+        Rendre la traversée
       </Geste>
     ),
   ].filter(Boolean)
@@ -290,6 +325,17 @@ export function FicheDuJoueurAuQg({
           <span>
             Une épreuve l’attend : {f.epreuve.sentier}, palier {f.epreuve.palier}, commencée {quandEcrit(f.epreuve.depuis, maintenant)}
             {f.epreuve.vieEnJeu ? ' · une vie en jeu' : ''}. Tant qu’elle attend, aucune autre ne commence.
+          </span>
+        </p>
+      )}
+
+      {f.traversee && (
+        <p className="qg-fiche-note">
+          <Icon name="landmark" />
+          <span>
+            Une traversée du Cabinet en route : {etatDeLaTraverseeEnRoute(f.traversee)}. Commencée {quandEcrit(f.traversee.commenceeLe, maintenant)}
+            {f.traversee.dernier !== null ? `, dernier geste ${quandEcrit(f.traversee.dernier, maintenant)}` : ''}.{' '}
+            {peutSeRendre(f.traversee) ? 'Tant qu’elle est en route, aucune autre ne commence.' : 'Rien n’y bloque : son légendaire attend d’être choisi.'}
           </span>
         </p>
       )}

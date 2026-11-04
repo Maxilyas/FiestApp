@@ -15,6 +15,7 @@ import { QgSoirees } from '../components/QgSoirees'
 import { QgServeur } from '../components/QgServeur'
 import { QgErreurs } from '../components/QgErreurs'
 import { QgActivite } from '../components/QgActivite'
+import { QgCabinet } from '../components/QgCabinet'
 import { QgMaintenance } from '../components/QgMaintenance'
 import { QgAnnonces } from '../components/QgAnnonces'
 import { QgAffiches } from '../components/QgAffiches'
@@ -70,12 +71,13 @@ type Ecran =
   | 'catalogue'
   | 'jour'
   | 'campagne'
+  | 'cabinet'
   | 'duels'
   | 'economie'
   | 'signalements'
   | 'annonces'
   | 'affiches'
-const ECRANS: readonly Ecran[] = ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie', 'signalements', 'annonces', 'affiches']
+const ECRANS: readonly Ecran[] = ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'cabinet', 'duels', 'economie', 'signalements', 'annonces', 'affiches']
 /** Les ancres de la page d'avant, qu'un favori garde encore. */
 const ANCIENNES: Record<string, Ecran> = { 'les-profils': 'profils', 'quiz-du-jour': 'jour' }
 
@@ -96,6 +98,7 @@ const TITRE: Record<Ecran, string> = {
   catalogue: 'Le catalogue',
   jour: 'Le quiz du jour',
   campagne: 'La campagne',
+  cabinet: 'Le Cabinet de curiosités',
   duels: 'Les duels',
   economie: 'L’économie',
   signalements: 'Les signalements',
@@ -108,8 +111,9 @@ const TITRE: Record<Ecran, string> = {
  * commande, l'audience, les modes, le contenu, la technique, l'animation ; la
  * vue d'ensemble, le poste de commande, est `null`. Seules les pages qui
  * existent : une page rejoint le rail quand elle est là, jamais avant (règle
- * `qg.md`) — le direct, les alertes, les joueurs, les questions, la base et le
- * Cabinet y entreront avec la leur.
+ * `qg.md`) — le direct, les alertes, les joueurs, les questions et la base y
+ * entreront avec la leur ; le Cabinet y est entré le 4 novembre 2026, après la
+ * campagne qui le comptait seule jusque-là.
  */
 const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; icone: IconName }[] }[] = [
   {
@@ -134,6 +138,7 @@ const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; 
       { ecran: 'soirees', nom: 'Soirées', icone: 'glass' },
       { ecran: 'jour', nom: 'Quiz du jour', icone: 'sun' },
       { ecran: 'campagne', nom: 'Campagne', icone: 'target' },
+      { ecran: 'cabinet', nom: 'Cabinet', icone: 'landmark' },
       { ecran: 'duels', nom: 'Duels', icone: 'swords' },
     ],
   },
@@ -411,6 +416,7 @@ export function AdminApp() {
         onClick={() => aller('jour')}
       />
       <Ligne icone="target" nom="La campagne" valeur="Sentiers, défi, Cabinet" onClick={() => aller('campagne')} />
+      <Ligne icone="landmark" nom="Le Cabinet" valeur="Traversées, jeux, gardiens" onClick={() => aller('cabinet')} />
       <Ligne icone="swords" nom="Les duels" valeur="Ligues, classement, en attente" onClick={() => aller('duels')} />
       <Ligne icone="users" nom="Les profils" valeur={profils === undefined ? 'Chercher, supprimer' : formatNumber(profils)} onClick={() => aller('profils')} />
       <Ligne icone="home" nom="Les salons" valeur={espaces ? formatNumber(espaces.length) : 'Renommer, fermer'} onClick={() => aller('salons')} />
@@ -538,6 +544,7 @@ export function AdminApp() {
         {ecran === 'catalogue' && <Catalogue />}
         {ecran === 'jour' && <AdminDuJour vue={vue} versLesSignalements={() => aller('signalements')} />}
         {ecran === 'campagne' && <AdminCampagne vue={vue} versLesSignalements={() => aller('signalements')} />}
+        {ecran === 'cabinet' && <QgCabinet versLaMaintenance={() => aller('maintenance')} />}
         {ecran === 'duels' && <AdminDuels vue={vue} />}
         {ecran === 'economie' && <AdminEconomie />}
         {/* Un geste referme des signalements : ce qui attend, et la pastille du rail, se relisent. */}

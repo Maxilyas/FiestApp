@@ -32,6 +32,7 @@ import type { DefiDAccueil } from './campagne'
 import type { BordureDeLigue, ChoixDeBordure, CleDeLigue, DuelsDAccueil } from './duels'
 import type { VusDeLaLoge } from './piecesDeLaLoge'
 import type { ActiviteDUnJoueur } from './qgActivite'
+import type { TraverseeEnRouteAuQg } from './qgCabinet'
 import type { CabinetDAccueil } from './cabinet/vues'
 import type { CleDeSaison } from './saisons'
 import { formeDeCompagnon, type CleDeCompagnon, type CompagnonPossede } from './compagnons'
@@ -1041,6 +1042,13 @@ export interface FicheDuJoueur extends ProfilDAdministration {
   connexion: { fermeeJusquA: number | null }
   /** L'épreuve de sentier qui l'attend : une seule à la fois, et il ne peut en commencer aucune autre. */
   epreuve: { sentier: string; palier: number; depuis: number; vieEnJeu: boolean } | null
+  /**
+   * Sa traversée du Cabinet en route — une seule à la fois, et il n'en commence aucune autre tant qu'elle l'est : où elle
+   * en est, ses cœurs, son or, son dernier geste (`ou` null : son pli ne se relit pas sur ce code, elle bloque sûrement).
+   * « Rendre la traversée » la referme (le 4 novembre 2026). Null : aucune en route, ou la base s'est tue. Absente d'un
+   * serveur où le Cabinet ne s'ouvre pas.
+   */
+  traversee?: Omit<TraverseeEnRouteAuQg, 'profil'> | null
   /**
    * Ses trente derniers jours, mode par mode : les questions jouées, les
    * parties, les jours où il a joué (`shared/qgActivite.ts`) — sur quoi il

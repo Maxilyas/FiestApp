@@ -31,8 +31,10 @@
 // depuis la page des duels ; la fiche de l'administrateur, qui s'offre des
 // confettis ; enfin la page des signalements — trois questions à relire,
 // quatre relues par les vraies routes —, « Corriger » ouvert sur la question
-// piège, « Reclasser » sur celle du défi, et l'onglet des relues. Le client
-// construit d'abord (`npm run build -w client`).
+// piège, « Reclasser » sur celle du défi, et l'onglet des relues. Et la page du
+// Cabinet de curiosités — trente jours de traversées des vingt-quatre joueurs,
+// jouées au pli, une rendue par la vraie route —, « Rendre » ouvert, et la fiche
+// d'un joueur en route. Le client construit d'abord (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-qg.ts [dossier]
 //   SEULEMENT=poste,cabinet npx tsx scripts/rendu-qg.ts [dossier]   — ces pages-là, le temps d'une retouche
@@ -54,6 +56,25 @@ import { gainVide, releveVide } from '../../shared/profil'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import type { PageDesSignalements } from '../../shared/qgSignalements'
 import type { ErreurEnDetail, GelDeLaBoucle, GelsDeLHeure } from '../../shared/santeDuServeur'
+import {
+  CARTES,
+  VERSION_DE_LA_TRAVERSEE,
+  atteignables,
+  choisirLesGardiens,
+  etapeDe,
+  etatDeLaTraversee,
+  jeuDeLAssaut,
+  jouerUnGesteDeLaTraversee,
+  offrables,
+  tracerLaCarte,
+  type DepartDeLaTraversee,
+  type EtatDeLaTraversee,
+  type GesteDeLaTraversee,
+  type GesteDeLaTraverseeEcrit,
+} from '../../shared/cabinet/traversee'
+import { resumeDeLaTraversee } from '../../shared/cabinet/resume'
+import { idDeLaFiche, idDeLaReplique, idDuLieu } from '../../shared/cabinet/pieces'
+import { contenuDuCabinetEnTranches } from '../src/core/cabinet/contenu'
 import { veille } from '../src/core/veille'
 import { ReleveHoraire } from '../src/core/pouls'
 
@@ -258,6 +279,8 @@ try {
   const maintenant = Date.now()
   const minuits = minuitsDeParis(maintenant, 30)
   const permanente = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+  /** La traversée de Lina, en route depuis douze jours : la page du Cabinet la rend par la vraie route. */
+  let traverseeBloquee: { id: string; profil: string } | null = null
   {
     const partie = permanente.prepare('INSERT OR IGNORE INTO jour_parties (profile_id, jour, commencee_le, question, finie_le) VALUES (?, ?, ?, 10, ?)')
     // Chaque série ses questions jouées, à la mesure de son mode : la page de l'activité les compte.
@@ -711,6 +734,143 @@ try {
         }
       }
     }
+    // Le Cabinet de curiosités : trente jours de traversées — gagnées, perdues, abandonnées, en route —, écrites comme
+    // le serveur les écrit : leur départ tracé, leurs gestes joués au pli, chaque épreuve conclue à ses étoiles — tirées
+    // de la force du joueur, de l'acte et du contenu —, au temps de ses manches et à son « Quitter ? » ; le résumé que
+    // le lot de leur fin écrit, sauf les plus vieilles, d'avant la colonne, que la page résume elle-même ; leurs parties
+    // et les pièces de leurs Épingles, de leurs Indices et de leurs Répliques, sur le vrai contenu. Une seule en route par
+    // joueur : celle de quatre d'entre eux, une en pleine épreuve, une bloquée depuis douze jours — rendue plus bas par la
+    // vraie route —, et une que ce code ne relit pas.
+    {
+      const ecrite = permanente.prepare('INSERT INTO cabinet_traversees (id, profile_id, depart, commencee_le, finie_le, issue, legendaire, resume) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      const sonGeste = permanente.prepare('INSERT INTO cabinet_traversee_gestes (traversee_id, rang, geste, fait_le, uid) VALUES (?, ?, ?, ?, ?)')
+      const saPartie = permanente.prepare("INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode) VALUES (?, ?, '[]', ?, 0, ?, ?, ?, 'cabinet')")
+      const saPiece = permanente.prepare('INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, composee) VALUES (?, ?, ?, 0, ?, ?, ?)')
+      const contenu = await contenuDuCabinetEnTranches()
+      // Douze de chaque, chacun sa difficulté : les lieux les plus durs à placer se lisent en tête de leur liste.
+      const parJeu = {
+        epingle: contenu.lieux.slice(0, 12).map(l => idDuLieu(l.id)),
+        indices: contenu.fiches.slice(0, 12).map(f => idDeLaFiche(f.id)),
+        replique: contenu.repliques.slice(0, 12).map(r => idDeLaReplique(r.id)),
+      } as const
+      const difficulte = (k: number) => ((k * 7) % 12) / 6 - 0.8
+      const logit = (p: number) => Math.log(p / (1 - p))
+      const sigmoide = (x: number) => 1 / (1 + Math.exp(-x))
+      const battre = <T>(xs: T[]): T[] => xs.map(x => [hasard(), x] as const).sort((a, b) => a[0] - b[0]).map(([, x]) => x)
+      let parties = 0
+      const inventer = (
+        id: string,
+        profil: string,
+        force: number,
+        debut: number,
+        { enRoute = false, arret = 0, avantLaColonne = false }: { enRoute?: boolean; arret?: number; avantLaColonne?: boolean } = {},
+      ) => {
+        const depart: DepartDeLaTraversee = { v: VERSION_DE_LA_TRAVERSEE, jour: jourDe(debut), actes: tracerLaCarte(hasard, choisirLesGardiens(hasard, new Set(), false), { epingle: ['Rome'], frise: ['Rome'] }) }
+        const ecrits: GesteDeLaTraverseeEcrit[] = []
+        let e: EtatDeLaTraversee = etatDeLaTraversee(depart, [])
+        let t = debut
+        const jouer = (g: GesteDeLaTraversee): boolean => {
+          const apres = jouerUnGesteDeLaTraversee(depart, e, g, t)
+          if (typeof apres === 'string') return false
+          ecrits.push({ geste: g, faitLe: t })
+          e = apres
+          // Une traversée se reprend : parfois le lendemain.
+          t += hasard() < 0.012 ? 20 * H : 40_000 + Math.floor(hasard() * 90_000)
+          return true
+        }
+        const cartes = battre(CARTES.map(c => c.cle)).slice(0, 3)
+        jouer({ quoi: 'cartes', cartes })
+        let enCours: string | null = null
+        for (let pas = 0; pas < 90 && !e.fin && t < maintenant - 60_000; pas++) {
+          if (enRoute && pas >= arret) break
+          if (!enRoute && hasard() < (force < 0 ? 0.012 : 0.004)) {
+            jouer({ quoi: 'abandonner' })
+            break
+          }
+          if (e.ameliorations > 0) {
+            const carte = offrables(depart, e)[0]
+            if (!carte || !jouer({ quoi: 'ameliorer', carte: carte.cle })) break
+            continue
+          }
+          if (e.ou.sorte === 'legendaire') {
+            jouer({ quoi: 'legendaire', gardien: e.vaincus[Math.floor(hasard() * e.vaincus.length)] })
+            break
+          }
+          const ici = atteignables(depart, e).map(x => etapeDe(depart, x)!)
+          if (ici.length === 0) break
+          const etape = ici.find(x => x.sorte === 'epreuve' && hasard() < 0.75) ?? ici[Math.floor(hasard() * ici.length)]
+          if (etape.sorte === 'coffre' || etape.sorte === 'marchand' || etape.sorte === 'depart') {
+            if (!jouer({ quoi: 'aller', etape: etape.id })) break
+            // Chez le marchand, un cœur quand il en manque et que l'or suffit — refusé, il repart sans.
+            if (etape.sorte === 'marchand' && e.coeurs < 3) jouer({ quoi: 'acheter', article: 'coeur' })
+            continue
+          }
+          const partie = `${id}-p${++parties}`
+          if (!jouer({ quoi: 'epreuve', etape: etape.id, partie, ...(etape.choix && { theme: 0 }) })) break
+          const jeu = (etape.sorte === 'gardien' ? jeuDeLAssaut(depart.actes[e.acte], e.assauts) : etape.jeu) ?? 'pari'
+          const commencee = t
+          // La dernière d'une traversée en route peut rester en pleine épreuve.
+          if (enRoute && pas >= arret - 1 && hasard() < 0.6) {
+            saPartie.run(partie, profil, 1, 0, commencee, null)
+            enCours = partie
+            break
+          }
+          const quittee = etape.sorte === 'epreuve' && hasard() < 0.07
+          const manches = [0, 1, 2].map(k => {
+            if (quittee && k > 0) return { etoiles: null, misee: false }
+            const pool = (parJeu as Record<string, readonly string[]>)[jeu]
+            const contenuJoue = pool ? Math.floor(hasard() * pool.length) : -1
+            const reussie = hasard() < sigmoide(logit(0.84) + 0.8 * force - 0.25 * e.acte - (etape.sorte === 'gardien' ? 0.2 : 0) - (contenuJoue >= 0 ? 0.6 * difficulte(contenuJoue) : 0))
+            const etoiles = reussie ? 1 + (hasard() < 0.6 ? 1 : 0) + (hasard() < 0.35 ? 1 : 0) : 0
+            if (pool) {
+              const juste = etoiles >= 2
+              const composee =
+                jeu === 'epingle' ? `46.2,2.2|${Math.round(juste ? 15 + hasard() * 60 : 140 + hasard() * 380)}` : jeu === 'indices' ? `${juste ? 1 + Math.floor(hasard() * 3) : 5}|${Math.floor(hasard() * 3)}` : null
+              saPiece.run(partie, k, pool[contenuJoue], juste ? 1 : 0, commencee + (k + 1) * 30_000, composee)
+            }
+            return { etoiles, misee: false }
+          })
+          const jouees = manches.filter(m => m.etoiles !== null).length
+          const durees = manches.map(m => (m.etoiles === null ? null : 12_000 + Math.floor(hasard() * 55_000)))
+          const aides = { eclairer: cartes.includes('coup-d-oeil') && hasard() < 0.5 ? 1 : 0, changer: cartes.includes('echange') && hasard() < 0.3 ? 1 : 0, temps: cartes.includes('concentration') ? jouees : 0 }
+          saPartie.run(partie, profil, jouees, manches.filter(m => (m.etoiles ?? 0) >= 2).length, commencee, commencee + jouees * 50_000)
+          if (!jouer({ quoi: 'conclure', partie, manches, aides, durees, ...(quittee && { quittee: true as const }) })) break
+        }
+        // Une traversée finie va au bout : laissée sans fin passé le temps du rendu, elle s'abandonne — jamais dans le futur.
+        t = Math.min(t, maintenant - 30_000)
+        if (!enRoute && !e.fin) jouer({ quoi: 'abandonner' })
+        const fin = e.fin
+        const issue = fin && fin.issue !== 'rendue' ? fin.issue : null
+        ecrite.run(
+          id,
+          profil,
+          JSON.stringify(depart),
+          debut,
+          fin ? fin.le : null,
+          issue,
+          fin?.legendaire ?? null,
+          fin && !avantLaColonne ? JSON.stringify(resumeDeLaTraversee(depart, ecrits)) : null,
+        )
+        ecrits.forEach((g, k) => sonGeste.run(id, k + 1, JSON.stringify(g.geste), g.faitLe, `rendu-${id}-${k}`))
+        return { id, profil, enCours }
+      }
+      for (const [k, j] of joueurs.entries()) {
+        const combien = 1 + ((k * 7) % 5)
+        for (let i = 0; i < combien; i++) {
+          const derniere = i === combien - 1
+          // Une en route pour quatre joueurs : la dernière, et leurs autres traversées finies avant qu'elle parte — une à la
+          // fois ; Lina (k = 7) s'est arrêtée il y a douze jours, et n'a rien commencé depuis.
+          const enRoute = derniere && k % 6 === 1
+          const jour = k === 7 ? (derniere ? 17 : 2 + i * 4) : Math.min(k % 6 === 1 ? 26 : 28, (k * 3 + i * 6) % 29)
+          const debut = enRoute && k !== 7 ? maintenant - (2 + k) * H : minuits[jour] + (9 + ((k + i) % 12)) * H
+          const lue = inventer(`tr-${k}-${i}`, j.id, j.force, debut, { enRoute, arret: k === 7 ? 4 : 3 + (k % 8), avantLaColonne: jour < 8 })
+          if (k === 7 && derniere) traverseeBloquee = lue
+        }
+      }
+      // Une traversée qu'un serveur d'une version à venir a commencée : ce code ne la relit pas.
+      ecrite.run('tr-illisible', joueurs[5].id, JSON.stringify({ v: 99 }), maintenant - 26 * H, null, null, null, null)
+      sonGeste.run('tr-illisible', 1, JSON.stringify({ quoi: 'cartes', cartes: ['parade', 'cagnotte', 'panacee'] }), maintenant - 26 * H, 'rendu-illisible')
+    }
     // Le journal d'hier : deux gestes, pour voir les jours se ranger.
     const geste = permanente.prepare("INSERT INTO qg_gestes (id, quand, qui, sorte, route, resume, cible) VALUES (?, ?, 'banc', ?, 'POST /api/admin/x', ?, NULL)")
     geste.run('hier-1', minuits[minuits.length - 1] - 3 * H, 'salon', 'Espace « Chez Bob » renommé « Chez Robert », adresse /chez-bob → /chez-robert')
@@ -762,6 +922,7 @@ try {
       await page.waitForSelector('section[aria-labelledby="economie-circulation"] .qg-pistes', { timeout: 15000 })
     }
     if (adresse === '/admin#signalements') await page.waitForSelector('.signalement-carte', { timeout: 15000 })
+    if (adresse === '/admin#cabinet') await page.waitForSelector('section[aria-labelledby="cabinet-par-jour"] .qg-graphe svg', { timeout: 30000 })
     if (adresse === '/admin#activite') {
       await page.waitForSelector('.qg-multiple svg', { timeout: 15000 })
       await page.waitForSelector('.qg-assidu-barre', { timeout: 15000 })
@@ -812,6 +973,35 @@ try {
   await photographier('5-telephone-sous-ivoire', 360, 640, { theme: 'ivoire' })
   }
   // Les pages du QG 2 qui suivront, chacune son bloc `if (photo('<clé>')) { … }`, ici.
+
+  // Le Cabinet de curiosités (`/admin#cabinet`) : la traversée de Lina, bloquée depuis douze jours, rendue d'abord par la
+  // vraie route — la page la compte « rendue », la pile dit « En route ou rendues » ; puis la page aux trois tailles,
+  // « Rendre » ouvert sur la première traversée en route — celle que ce code ne relit pas —, au téléphone aussi, et la
+  // fiche d'un joueur ouverte de la liste, sa traversée en pleine route et son geste.
+  if (photo('cabinet')) {
+    if (traverseeBloquee) {
+      const r = await ecrire(banc.url, `/api/admin/profils/${traverseeBloquee.profil}/traversee`, { traversee: traverseeBloquee.id }, admin)
+      if (r.status !== 200) console.error(`[cabinet] la traversée de Lina ne se rend pas : ${r.status} ${await r.text()}`)
+    }
+    const cabinet = { adresse: '/admin#cabinet' }
+    await photographier('60-cabinet', 1366, 768, cabinet)
+    await photographier('61-cabinet-1920', 1920, 1080, cabinet)
+    await photographier('62-cabinet-telephone', 360, 640, cabinet)
+    const rendre = async (page: any) => {
+      await page.click('.qg-cabinet-route .salon-geste')
+      await page.waitForSelector('.dialog')
+    }
+    await photographier('63-cabinet-rendre', 1366, 768, { ...cabinet, pleine: false, geste: rendre })
+    await photographier('64-cabinet-rendre-telephone', 360, 640, { ...cabinet, pleine: false, geste: rendre })
+    // La fiche ouverte de la liste, sa traversée en vue : la note et ses gestes, que la feuille montre sous les chiffres.
+    const laFiche = async (page: any) => {
+      await page.locator('.qg-cabinet-route .qg-ligne').nth(1).click()
+      await page.waitForSelector('.qg-fiche-note')
+      await page.locator('.qg-fiche-note').last().scrollIntoViewIfNeeded()
+    }
+    await photographier('65-cabinet-fiche-telephone', 360, 640, { ...cabinet, pleine: false, geste: laFiche })
+    await photographier('66-cabinet-fiche', 1366, 768, { ...cabinet, pleine: false, geste: laFiche })
+  }
 
   // Les pages d'avant le QG 2 : seulement sans `SEULEMENT`.
   lesAutresPages: {

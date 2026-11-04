@@ -447,6 +447,17 @@ export function dureeEcrite(ms: number): string {
   return `${Math.floor(heures / 24)}${INSECABLE}j`
 }
 
+/**
+ * Une durée de quelques secondes : « 42 s », « 1 min 12 s » — le temps d'une manche du Cabinet, que `dureeEcrite`
+ * dirait « moins d'une minute ». Arrondie à la seconde ; au-delà d'une heure, `dureeEcrite`.
+ */
+export function dureeCourteEcrite(ms: number): string {
+  const secondes = Math.round(Math.max(0, ms) / 1000)
+  if (secondes < 60) return `${secondes}${INSECABLE}s`
+  if (secondes < 3600) return `${Math.floor(secondes / 60)}${INSECABLE}min${secondes % 60 ? `${INSECABLE}${secondes % 60}${INSECABLE}s` : ''}`
+  return dureeEcrite(ms)
+}
+
 const MOIS_ABREGES = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.']
 
 /** « 14 sept. », « 1er oct. » : sous l'axe d'un graphique, où « septembre » ne tient pas trois fois au téléphone. */

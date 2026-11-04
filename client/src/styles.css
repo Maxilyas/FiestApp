@@ -14396,6 +14396,8 @@ html:has(> body.avec-panier) { scroll-padding-bottom: calc(72px + 76px + env(saf
   --qg-erreur: #e06c6c;
   /* La page de l'économie : les confettis dans le même or, une seule couleur — une source n'est pas un mode. */
   --qg-confettis: #d9b56a;
+  /* La page du Cabinet : ses traversées en route, une ardoise — ni finie, ni un état d'alerte (`.qg-cabinet-en-route`). */
+  --qg-en-route: #7d8aa3;
   /* Les surfaces de la salle : la console, posée sur la nuit ; ses traits, bleutés, et l'or pour ce qui est choisi. */
   --qg-console: #0d121b;
   --qg-console-haute: #121926;
@@ -14985,6 +14987,36 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
 .qg-ratees .qg-piste-nom { grid-area: texte; }
 .qg-ratees .qg-piste { grid-area: piste; }
 .qg-ratees .qg-piste-ligne > b { grid-area: part; }
+/* La page du Cabinet (`/admin#cabinet`, `QgCabinet.tsx`) : ce que deviennent ses traversées, en couleurs d'état — une
+   issue n'est pas un mode. Vérifiées sur la console, voisines dans l'ordre de la pile, de bas en haut : l'ambre d'une
+   abandonnée, le rouge d'une perdue, l'ardoise de celles en route, le vert d'une gagnée (le validateur de la skill
+   `dataviz`, `--mode dark --surface "#0d121b"`, le 4 novembre 2026 : au plus serré, l'ardoise et le rouge, ΔE 13,3
+   aux yeux qui confondent le vert et le rouge). Un ordre ou une couleur changés se revérifient. */
+.qg-cabinet-abandonnee { fill: var(--qg-veille); background: var(--qg-veille); }
+.qg-cabinet-perdue { fill: var(--qg-critique); background: var(--qg-critique); }
+.qg-cabinet-en-route { fill: var(--qg-en-route); background: var(--qg-en-route); }
+.qg-cabinet-gagnee { fill: var(--qg-ok); background: var(--qg-ok); }
+/* Chaque ligne de la page : son nom au-dessus de sa piste, sa part au bout, ce qu'elle dit de plus dessous — et en
+   colonnes dans une carte large (`.qg-cabinet-colonnes`) : sur une seule ligne, le nom d'un gardien passait sur trois
+   dans le tiers d'une carte. */
+.qg-cabinet-pistes { gap: 12px; }
+.qg-cabinet-pistes .qg-piste-ligne { grid-template-columns: minmax(0, 1fr) 3.5rem; grid-template-areas: 'texte texte' 'piste part' 'detail detail'; align-content: start; gap: 4px 10px; }
+.qg-cabinet-pistes .qg-piste-nom { grid-area: texte; }
+.qg-cabinet-pistes .qg-piste { grid-area: piste; }
+.qg-cabinet-pistes .qg-piste-ligne > b { grid-area: part; }
+.qg-cabinet-detail { grid-area: detail; min-width: 0; overflow-wrap: anywhere; }
+.qg-cabinet-colonnes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 16px 28px; }
+/* Où l'on tombe : la perdue et l'abandonnée bout à bout, le filet du fond entre elles, comme dans la pile. */
+.qg-piste.qg-cabinet-pile { display: flex; }
+.qg-cabinet-pile > i { flex: none; border-radius: 0; }
+.qg-cabinet-pile > i + i { margin-left: 2px; }
+.qg-cabinet-pile > i:last-child { border-radius: 0 4px 4px 0; }
+/* Une traversée en route : la ligne qui ouvre la fiche du joueur, « Rendre » sous elle au téléphone — au bout, il serrait
+   sa colonne sur six lignes —, au bout de la ligne à l'ordinateur. */
+.qg-cabinet-route { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; gap: 0 12px; padding-bottom: 10px; }
+.qg-cabinet-route > .salon-geste { justify-self: start; }
+/* La ligne qui mène à la maintenance : un lien, sans le soulignement d'un lien. */
+.qg-cabinet-lien { color: inherit; text-decoration: none; }
 /* La fiche d'un joueur, dans sa feuille : qui il est, ses chiffres, ce qu'on
    peut faire pour lui, puis ce qu'on a déjà fait. Le code de secours tiré
    s'encadre en pointillé : il ne sera plus affiché. */
@@ -15202,6 +15234,7 @@ span.annonce-admin-merci { cursor: default; }
   .signalement-quand { justify-self: end; }
   .signalement-qui { margin-left: auto; }
   .signalement-question { font-size: 1.65rem; }
+  .qg-cabinet-route { grid-template-columns: minmax(0, 1fr) auto; padding-bottom: 0; }
 }
 @media (min-width: 1300px) {
   /* Dix voyants, cinq par rangée dès qu'ils tiennent : deux rangées égales, plutôt que huit et deux. */

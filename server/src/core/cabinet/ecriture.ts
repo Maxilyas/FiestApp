@@ -31,6 +31,7 @@ import type { RecordDeLaTour } from '../../../../shared/cabinet/montee'
 import type { BilanDUnePartie, DepartDUnePartie, GesteDuCabinet, PieceJugee } from '../../../../shared/cabinet/partie'
 import type { CleDeSaison } from '../../../../shared/saisons'
 import type { DepartDeLaTraversee, FinDeLaTraversee, GesteDeLaTraversee } from '../../../../shared/cabinet/traversee'
+import type { ResumeDeLaTraversee } from '../../../../shared/cabinet/resume'
 import { COLONNES_D_UNE_OEUVRE, champDuDepart, gesteDeTraverseeEcrit, gesteEcrit, partiesDuJour } from './tables'
 
 // ── Le départ ─────────────────────────────────────────────────────────────
@@ -251,8 +252,13 @@ export function lotDuGeste(g: GesteAEcrire): InStatement[] {
   const garde = gesteEcrit(g.serie, g.rang, g.uid)
   const lot: InStatement[] = [
     {
-      sql: 'INSERT INTO cabinet_gestes (serie_id, rang, geste, fait_le, uid) VALUES (?, ?, ?, ?, ?) ON CONFLICT (serie_id, rang) DO NOTHING',
-      args: [g.serie, g.rang, JSON.stringify(g.geste), g.faitLe, g.uid],
+      // Jamais sur une partie close : sa fin la clôt dans le lot même du geste qui la finit, et « Rendre une traversée
+      // bloquée » clôt l'épreuve qui l'attendait sans rien conclure (`lotDeLaTraverseeRendue`) — encore à l'écran dans un
+      // onglet, elle aurait continué de payer ses réponses après coup.
+      sql: `INSERT INTO cabinet_gestes (serie_id, rang, geste, fait_le, uid)
+            SELECT ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM campagne_series WHERE id = ? AND finie_le IS NOT NULL)
+            ON CONFLICT (serie_id, rang) DO NOTHING`,
+      args: [g.serie, g.rang, JSON.stringify(g.geste), g.faitLe, g.uid, g.serie],
     },
   ]
   for (const p of g.pieces) {
@@ -513,7 +519,7 @@ export function lotDeLaTraverseeQuiCommence(o: { id: string; profileId: string; 
   ]
 }
 
-/** Un geste de la traversée à écrire : son rang, l'`uid` tiré pour ce lot, et la fin qu'il décide. */
+/** Un geste de la traversée à écrire : son rang, l'`uid` tiré pour ce lot, et la fin qu'il décide — avec son résumé. */
 export interface GesteDeTraverseeAEcrire {
   id: string
   rang: number
@@ -521,7 +527,12 @@ export interface GesteDeTraverseeAEcrire {
   faitLe: number
   uid: string
   fin?: FinDeLaTraversee | null
+  /** Le résumé de la traversée que la fin laisse (`resumeDeLaTraversee`) : la page du Cabinet au QG le lit seul. */
+  resume?: ResumeDeLaTraversee | null
 }
+
+/** L'issue que garde la ligne : rendue par l'administrateur, elle reste vide — la `CHECK` de la table n'en connaît que trois. */
+const issueDeLaLigne = (fin: FinDeLaTraversee): string | null => (fin.issue === 'rendue' ? null : fin.issue)
 
 /** Le geste en première instruction, seulement sur une traversée en route ; à son rang, une fois (`ON CONFLICT DO NOTHING`). */
 function insertionDuGeste(g: GesteDeTraverseeAEcrire, garde?: { sql: string; args: readonly (string | number)[] }): InStatement {
@@ -533,14 +544,14 @@ function insertionDuGeste(g: GesteDeTraverseeAEcrire, garde?: { sql: string; arg
   }
 }
 
-/** La fin, sous le geste qui la décide : son heure, son issue, le légendaire choisi. */
+/** La fin, sous le geste qui la décide : son heure, son issue, le légendaire choisi, et son résumé — dans la même instruction. */
 function instructionDeLaFin(g: GesteDeTraverseeAEcrire): InStatement[] {
   if (!g.fin) return []
   const ecrit = gesteDeTraverseeEcrit(g.id, g.rang, g.uid)
   return [
     {
-      sql: `UPDATE cabinet_traversees SET finie_le = ?, issue = ?, legendaire = ? WHERE id = ? AND finie_le IS NULL AND ${ecrit.sql}`,
-      args: [g.fin.le, g.fin.issue, g.fin.legendaire ?? null, g.id, ...ecrit.args],
+      sql: `UPDATE cabinet_traversees SET finie_le = ?, issue = ?, legendaire = ?, resume = ? WHERE id = ? AND finie_le IS NULL AND ${ecrit.sql}`,
+      args: [g.fin.le, issueDeLaLigne(g.fin), g.fin.legendaire ?? null, g.resume ? JSON.stringify(g.resume) : null, g.id, ...ecrit.args],
     },
   ]
 }
@@ -553,6 +564,48 @@ function instructionDeLaFin(g: GesteDeTraverseeAEcrire): InStatement[] {
  */
 export function lotDuGesteDeTraversee(g: GesteDeTraverseeAEcrire): InStatement[] {
   return [insertionDuGeste(g), ...instructionDeLaFin(g)]
+}
+
+/**
+ * Une traversée rendue par l'administrateur (« Rendre une traversée bloquée », le 4 novembre 2026, le pendant de
+ * « Libérer une épreuve » des sentiers), d'un seul lot, chaque instruction sous la première :
+ *
+ * 1. le geste `rendre`, au rang qui suit le dernier écrit — la base le compte : une traversée que ce code ne relit
+ *    pas (un départ d'une version à venir, un geste troué) se rend aussi —, seulement si elle est encore en route ;
+ * 2. sa fin : l'heure, l'issue vide, son résumé quand son pli se relit ;
+ * 3. la partie de son épreuve, si une l'attend encore, refermée comme une épreuve de sentier libérée : `finie_le`
+ *    posé, rien d'autre — ni bilan, ni issue, ni étoiles conclues ; ses réponses déjà données restent au journal ;
+ * 4. la ligne du profil la lâche : la partie suivante ne l'attend plus.
+ *
+ * Chaque instruction a ses paramètres numérotés, tous lus (le client de la base refuse un argument de trop). Rendu :
+ * `rowsAffected` de la première dit si le geste s'est écrit.
+ */
+export function lotDeLaTraverseeRendue(o: { id: string; profileId: string; t: number; uid: string; resume: ResumeDeLaTraversee | null }): InStatement[] {
+  const ecrit = 'EXISTS (SELECT 1 FROM cabinet_traversee_gestes WHERE traversee_id = ?1 AND uid = ?4)'
+  const deSaTraversee = "CASE WHEN json_valid(cabinet) THEN json_extract(cabinet, '$.traversee.id') END = ?1"
+  return [
+    {
+      sql: `INSERT INTO cabinet_traversee_gestes (traversee_id, rang, geste, fait_le, uid)
+            SELECT ?1, COALESCE((SELECT MAX(rang) FROM cabinet_traversee_gestes WHERE traversee_id = ?1), 0) + 1, ?3, ?5, ?4
+            WHERE EXISTS (SELECT 1 FROM cabinet_traversees WHERE id = ?1 AND profile_id = ?2 AND finie_le IS NULL)
+            ON CONFLICT (traversee_id, rang) DO NOTHING`,
+      args: [o.id, o.profileId, JSON.stringify({ quoi: 'rendre' }), o.uid, o.t],
+    },
+    {
+      sql: `UPDATE cabinet_traversees SET finie_le = ?3, issue = NULL, resume = ?5 WHERE id = ?1 AND profile_id = ?2 AND finie_le IS NULL AND ${ecrit}`,
+      args: [o.id, o.profileId, o.t, o.uid, o.resume ? JSON.stringify(o.resume) : null],
+    },
+    {
+      sql: `UPDATE campagne_series SET finie_le = ?3
+            WHERE id = (SELECT partie FROM cabinet_profils WHERE profile_id = ?2) AND finie_le IS NULL AND mode = 'cabinet' AND ${deSaTraversee} AND ${ecrit}`,
+      args: [o.id, o.profileId, o.t, o.uid],
+    },
+    {
+      sql: `UPDATE cabinet_profils SET partie = NULL, maj_le = ?3
+            WHERE profile_id = ?2 AND partie IN (SELECT id FROM campagne_series WHERE id = cabinet_profils.partie AND ${deSaTraversee}) AND ${ecrit}`,
+      args: [o.id, o.profileId, o.t, o.uid],
+    },
+  ]
 }
 
 /** Une épreuve qui commence : le geste qui y entre, et la partie qu'elle joue, comme un départ (`DepartAEcrire`). */

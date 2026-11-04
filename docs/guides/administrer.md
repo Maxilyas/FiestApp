@@ -27,6 +27,7 @@ Un autre animateur lit « Cette page est réservée à l'administrateur. » ; un
 | Les soirées | `/admin#soirees` | celles qui se jouent, celles laissées en plan, le bilan du mois |
 | Le quiz du jour | `/admin#jour` | la journée, la réserve, le tirage, le classement, les séries, le rappel du soir |
 | La campagne | `/admin#campagne` | la journée, ce qu'on joue, le défi de la semaine, les parcours, les vies, les sentiers et leurs mélanges, la base, la routine du matin |
+| Le Cabinet | `/admin#cabinet` | trente jours de traversées et ce qu'elles sont devenues, celles en route — et les rendre —, du départ au légendaire, où l'on tombe, les jeux, les cartes, les gardiens, le contenu le plus raté, ceux qui traversent |
 | Les duels | `/admin#duels` | la journée, les duels par jour, les ligues, le classement, les duels qui attendent leur adversaire |
 | Les profils | `/admin#profils` | chaque joueur, et sa fiche |
 | Les salons | `/admin#salons` | chaque espace du serveur |
@@ -206,6 +207,7 @@ Une réponse perdue en route ne fait pas poser deux affiches : refait, le même 
 | « Tirer un code de secours » | Pour qui a perdu son mot de passe : un code neuf, montré une seule fois (« Copier le code »), à lui transmettre. Il le tape dans « J'ai oublié mon mot de passe » avec son identifiant, puis choisit un mot de passe ; un nouveau code, que personne d'autre ne voit, remplace alors le tien. Son code d'avant ne vaut plus rien. |
 | « Lever le verrou de connexion » | Paraît quand sa connexion est fermée — cinq essais manqués, du mot de passe ou du code de secours, la ferment un quart d'heure — et la rouvre aussitôt. |
 | « Libérer l'épreuve » | Paraît quand une épreuve de sentier l'attend — tant qu'elle attend, aucune autre ne commence — et la referme sans lui coûter de vie. |
+| « Rendre la traversée » | Paraît quand une traversée du Cabinet est en route, sauf quand son légendaire l'attend, et la referme là où elle en est, sans rien lui coûter ni lui rendre : voir [Rendre une traversée bloquée](#rendre-une-traversée-bloquée). |
 
 Il n'y a ni adresse e-mail, ni mot de passe provisoire, ni lien de réinitialisation : le code de secours est la seule porte de retour d'un profil.
 
@@ -296,7 +298,24 @@ Une épreuve de sentier qui bloque un joueur se libère depuis sa fiche.
 
 ## Le Cabinet de curiosités
 
-Les règles vivent dans [Le Cabinet de curiosités](../produit/le-cabinet.md). Le QG n'a pas de page à lui — une page rejoint la barre de côté quand elle existe, jamais avant — : il le lit là où il touche le reste.
+Les règles vivent dans [Le Cabinet de curiosités](../produit/le-cabinet.md). Depuis le 4 novembre 2026, il a sa page au QG, « Cabinet » sous « Modes », après la campagne ; la tuile du Cabinet au poste de commande y mène.
+
+- **Ces trente jours** : les joueurs, les traversées commencées et leurs épreuves, les gagnées — et leur part des finies —, les perdues, les abandonnées — et celles que tu as rendues —, la durée médiane d'une traversée, de son départ à sa fin.
+- **Jour par jour** : les traversées au jour de leur départ, empilées par ce qu'elles sont devenues — gagnées en vert, en route ou rendues en ardoise, perdues en rouge, abandonnées en ambre.
+- **Les traversées en route**, de tout âge : celle que ce serveur ne relit pas d'abord — un départ d'une version à venir : elle bloque sûrement —, puis celles qui ont bougé en dernier ; chacune son joueur, son acte et son étape — sur la carte, en pleine épreuve et son jeu, au coffre, chez le marchand, face à son gardien —, ses cœurs, son or, son départ et son dernier geste. Une ligne ouvre la fiche du joueur ; « Rendre » la referme (plus bas).
+- **Du départ au légendaire** : les traversées du mois, marche par marche — commencées, cartes choisies, chaque gardien vaincu, le légendaire choisi — ; **Où l'on tombe** : les perdues et les abandonnées, acte par acte.
+- **Les jeux** : chacun ses épreuves — dont les assauts des gardiens —, sa réussite (les manches gagnées d'une étoile au moins : une ratée coûte un cœur), ses étoiles, le temps médian d'une manche, les épreuves quittées (« Quitter ? ») quand rien ne l'arrêtait, la part des épreuves où Éclairer a servi, et les signalements de ses questions de la base (le Pari, le Mot mystère, le Filet). Le temps et « Quitter ? » ne se savent que des épreuves conclues depuis le 4 novembre 2026.
+- **Les cartes** : la part des traversées qui l'ont choisie, et la part des finies qu'elle a gagnées ; **le légendaire choisi** au bout ; **les gardiens**, acte par acte — tirés, affrontés, vaincus, vaincus en maître.
+- **Le contenu** : ce qui se rate le plus, joué trois fois au moins — les lieux de l'Épingle et la médiane de leur distance, les fiches des Indices et les indices lus, les répliques —, et les thèmes du Quiz les plus joués.
+- **Les joueurs** : ceux qui traversent le plus, leurs traversées, leurs victoires, leurs épreuves, les défis de leurs cartes tenus et leurs épreuves de maître ; une ligne ouvre sa fiche.
+
+Des joueurs, la page ne dit que le prénom et l'identifiant ; rien d'un Divin. Elle lit peu : les jours finis une fois par jour, seul aujourd'hui se relit.
+
+### Rendre une traversée bloquée
+
+Une seule traversée en route par joueur : tant qu'elle l'est, il n'en commence aucune autre. « Rendre », sur sa ligne ou sur sa fiche (« Rendre la traversée », sous « L'aider »), la referme là où elle en est, après une confirmation qui dit où elle en était : ni gagnée, ni perdue, ni abandonnée — rendue —, son épreuve en cours avec elle, sans être conclue. Rien ne se paie ni ne se rend : partir ne coûte rien, et ce qu'elle a déjà rapporté — expérience, confettis, défis de ses cartes, épreuves de maître — reste à lui. Il en commence une neuve quand il veut ; sa page lui dit « Ta traversée a été refermée ». Une épreuve encore ouverte dans un de ses onglets ne paie plus rien : son geste suivant lui dit de recharger la page. Une traversée que ce serveur ne relit pas se rend aussi. Celle dont les trois gardiens sont vaincus ne se rend pas — son légendaire l'attend, rien n'y bloque —, et le geste ne vise que la traversée que la page a montrée : une autre, partie depuis, se refuse. Le geste va au journal, sur son profil.
+
+Le Cabinet se lit aussi ailleurs, là où il touche le reste :
 
 - **Ouvert ou non** : il se construit en préproduction ; en production, tant que son ouverture n'est pas livrée, il répond à tous « Le Cabinet de curiosités ouvre bientôt : reviens dans quelques jours », toi compris, et l'accueil n'a pas son bouton. C'est le code qui le ferme, pas la maintenance : rien ne l'ouvre d'ici.
 - **[La maintenance](#la-maintenance)** : là où il répond, sa page se ferme comme les autres — sa page, le départ d'une partie, l'achat et la dorure d'une œuvre, l'échange d'un jeu de la visite —, ou s'annonce pour bientôt à ses testeurs ; une partie commencée se finit.
@@ -304,7 +323,7 @@ Les règles vivent dans [Le Cabinet de curiosités](../produit/le-cabinet.md). L
 - **Ce qu'on joue** : depuis le 2 novembre 2026, il a son mode, sa couleur (violet) et sa ligne à la vue d'ensemble (« Jour par jour ») comme à l'activité — ses tuiles, ses graphiques, « Qui joue à quoi », la fiche d'un joueur. Une partie du Cabinet reste une série de campagne : la tuile « Séries de campagne » d'aujourd'hui la compte, et la page de la campagne lui donne son graphique, « Cabinet ».
 - **[Les signalements](#les-signalements)** : seules les questions de la base qu'il pose — au Pari, au Mot mystère, au Filet — se signalent, à leur place dans la partie, et leur carte dit « au Cabinet » ; elles se corrigent, se reclassent ou se retirent comme les autres. Le reste n'est pas une question de la base — un lieu de l'Épingle, une fiche des Indices, une réplique, un tableau du Détail, une frise, les affirmations récrites de l'Éclair — et répond « Ce jeu du Cabinet ne se signale pas : seules les questions de la campagne le peuvent » : son contenu neuf n'a pas encore de correction au QG, et une erreur s'y corrige dans le dépôt (`server/content/cabinet/`).
 - **[L'économie](#léconomie)** : ses manches réussies paient leur confetti comme toute bonne réponse de campagne, et se comptent sous la campagne ; la poussière d'or n'est pas un confetti, et ne s'y lit pas.
-- **La fiche d'un joueur** : ses trente jours comptent ses parties du Cabinet, et rien d'autre du Cabinet — une partie y est courte, et rien n'y bloque personne ; une partie laissée la veille se clôt à sa page suivante. Supprimer un profil efface son musée avec lui.
+- **La fiche d'un joueur** : ses trente jours comptent ses parties du Cabinet, et sa traversée en route se dit dessous — où elle en est, ses cœurs, son or, son dernier geste —, avec « Rendre la traversée ». Supprimer un profil efface son musée et ses traversées avec lui.
 
 ## Les duels
 
