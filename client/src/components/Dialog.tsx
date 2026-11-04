@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { espacesFines } from '../format'
-import { couvrir, horsDeLaBoite, poserUneFenetre, retenirLeFocus } from '../modale'
+import { couvrir, horsDeLaBoite, lacherLeClavier, poserUneFenetre, retenirLeFocus } from '../modale'
 import { estLEchoDUnDoigt } from '../toucher'
 
 /**
@@ -157,6 +157,12 @@ function DialogBox({ pending }: { pending: Pending }) {
   const [value, setValue] = useState(options.input?.value ?? '')
   const voile = useRef<HTMLDivElement>(null)
   const box = useRef<HTMLFormElement>(null)
+
+  // Le champ d'un `promptDialog` rend le clavier avant que la boîte quitte la page, comme celui d'une feuille (`useModale`).
+  useLayoutEffect(() => {
+    const la = box.current
+    return () => void lacherLeClavier(document.activeElement as HTMLElement | null, la ?? undefined)
+  }, [])
 
   useEffect(() => {
     // Le clavier arrive dans la boîte, et il y reste : Tab tourne en rond

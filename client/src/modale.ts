@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from 'react'
+import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react'
 
 /** Le strict nécessaire d'un élément pour savoir ce qui l'entoure. */
 interface Noeud {
@@ -89,6 +89,33 @@ export function retenirLeFocus(e: { target: unknown; currentTarget: unknown; pre
  */
 const SANS_ANNEAU: FocusOptions & { focusVisible?: boolean } = { focusVisible: false }
 
+/** Le strict nécessaire de ce qui a le focus pour savoir si c'est un champ qu'on tape. */
+interface Champ {
+  tagName?: string
+  isContentEditable?: boolean
+  blur?: () => void
+}
+
+/**
+ * Le champ où l'on tapait rend le clavier, s'il est dans la fenêtre (`dans`) —
+ * ou n'importe où, sans elle. Sur iPhone, toucher un bouton ne prend pas le
+ * focus : le champ le garde, et le clavier reste ouvert jusqu'à ce que la
+ * fenêtre parte et l'emporte avec elle. Retiré de la page encore focalisé,
+ * Safari lâchait le clavier sans rendre l'écran : la page de dessous restait
+ * décalée, et plus rien ne répondait au doigt (le signalement d'une question
+ * corrigée, « Envoyer ma correction », dans un duel contre Automate : il a
+ * fallu fermer l'application — le retour du propriétaire du 4 novembre 2026).
+ * Sur Android, le `mousedown` du bouton retire le focus au champ : le cas ne
+ * se présentait pas. Rend vrai si un champ a lâché le clavier.
+ */
+export function lacherLeClavier(actif: Champ | null | undefined, dans?: { contains: (n: never) => boolean }): boolean {
+  if (!actif || typeof actif.blur !== 'function') return false
+  const tape = actif.tagName === 'TEXTAREA' || actif.tagName === 'INPUT' || actif.tagName === 'SELECT' || actif.isContentEditable === true
+  if (!tape || (dans && !dans.contains(actif as never))) return false
+  actif.blur()
+  return true
+}
+
 /**
  * Les fenêtres ouvertes, de la plus ancienne à celle du dessus : seule
  * celle du dessus entend le clavier. Une feuille, la carte d'un joueur et un
@@ -134,6 +161,12 @@ export function useModale(boite: RefObject<HTMLElement | null>, onFermer: () => 
   // le dernier sans rouvrir la fenêtre.
   const fermer = useRef(onFermer)
   fermer.current = onFermer
+  // Avant que la boîte quitte la page : le nettoyage d'un `useLayoutEffect` passe avant le retrait de ses nœuds, celui
+  // d'un `useEffect` après — trop tard, le champ serait parti focalisé (`lacherLeClavier`).
+  useLayoutEffect(() => {
+    const la = boite.current
+    return () => void lacherLeClavier(document.activeElement as Champ | null, la ?? undefined)
+  }, [boite])
   useEffect(() => {
     const fenetre = poserUneFenetre()
     const avant = document.activeElement instanceof HTMLElement ? document.activeElement : null

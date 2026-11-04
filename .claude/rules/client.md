@@ -140,6 +140,19 @@ paths:
   la page de jeu noire, et rien ne le vérifie partout. Les clés commencent
   par `quizz.`, sauf `quizz-telecommande` et `fiestappTriDesQuiz`.
 
+- **Sur iPhone, un bouton touché ne prend pas le focus** : le champ où l'on
+  tapait le garde, clavier ouvert. Une fenêtre qui partait avec lui — la
+  feuille du signalement, « Envoyer ma correction » après avoir corrigé la
+  question, dans un duel contre Automate — laissait un écran qui ne répondait
+  plus, et il fallait fermer l'application (le 4 novembre 2026 ; Chromium
+  ne le montre pas : sur Android, le `mousedown` du bouton ôte le focus au
+  champ). Une fenêtre rend donc le clavier avant de quitter la page
+  (`lacherLeClavier`, `modale.ts`), dans le nettoyage d'un `useLayoutEffect`
+  — celui d'un `useEffect` passe après le retrait de ses nœuds : `useModale`,
+  le dialogue —, et une feuille qui envoie le rend dès le toucher, pendant
+  l'aller-retour (`SignalerLaQuestion`). Une fenêtre de plus qui ne passe pas
+  par `useModale` fait de même (`petit-ecran.test.ts`).
+
 ## Ce qu'il ne faut pas faire
 
 - Rendre la connexion obligatoire. L'entrée d'une soirée **est** un écran de
