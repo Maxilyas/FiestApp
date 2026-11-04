@@ -1,9 +1,10 @@
 import http from 'node:http'
 import https from 'node:https'
 import type { Socket } from 'node:net'
+import { performance } from 'node:perf_hooks'
 import { gunzipSync, inflateSync, brotliDecompressSync } from 'node:zlib'
 import { aDejaServi, connexionEmpruntee, connexionOuverte, connexionRefermeeParNous, connexionRendue, gardeDesConnexions } from './connexions'
-import { pouls } from './pouls'
+import { pouls, releve } from './pouls'
 
 // Le transport léger vers la base permanente (`QUIZ_DB_TRANSPORT=leger`) : les
 // allers-retours du client libsql sur `http.request` / `https.request` de
@@ -192,6 +193,7 @@ export function placeSurUneGardee(url: string, patienceMs: number): Promise<void
   const { libres, quiServent } = etatDesConnexions(adresseDe(url))
   if (libres > 0 || quiServent === 0 || enAttente.length >= ATTENTES_PAR_CONNEXION * quiServent) return null
   pouls.attentesDUneConnexion.noter()
+  const debut = performance.now()
   return new Promise<void>(rendre => {
     let fini = false
     const relacher = (lassee: boolean) => {
@@ -201,6 +203,8 @@ export function placeSurUneGardee(url: string, patienceMs: number): Promise<void
       const i = enAttente.indexOf(relacher)
       if (i >= 0) enAttente.splice(i, 1)
       if (lassee) pouls.attentesLassees.noter()
+      // L'heure la garde aussi, avec ce qu'elle a coûté : sur deux jours, la patience se juge à ce qu'elle fait attendre.
+      releve.attenteDUneConnexion(performance.now() - debut, lassee)
       rendre()
     }
     const minuteur = setTimeout(() => relacher(true), patienceMs)

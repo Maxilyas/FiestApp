@@ -62,7 +62,8 @@ test('le relevé de l’heure : ce que les modules lui disent, et l’heure d’
   // Les connexions vers la base : ouvertes, refermées par elle — la plus jeune compte —, tombées en route,
   // la garde de Node, le délai qu'elle annonce — le plus long de l'heure —, et l'entretien qui les garde
   // chaudes : ses battements, ceux qui sont tombés, les connexions qu'ils ont ouvertes.
-  const sansRien = { battements: 0, battementsTombes: 0, ouvertesParUnBattement: 0 }
+  // Et la patience des connexions (`QUIZ_DB_PATIENCE_MS`), zéro sans elle : ses attentes, ses lassées, ce qu'elles ont attendu.
+  const sansRien = { battements: 0, battementsTombes: 0, ouvertesParUnBattement: 0, patienceMs: 0, attentes: 0, lassees: 0, attenteMs: 0 }
   assert.deepEqual(r.lignes('d1')[0].connexions, { ouvertes: 0, refermeesParLaBase: 0, plusJeuneRefermeeMs: null, echecs: 0, gardeMs: 4_000, annonceeMs: null, chaudes: false, ...sansRien })
   for (let i = 0; i < 3; i++) r.connexion()
   r.refermeeParLaBase(45_200.4)
@@ -75,6 +76,9 @@ test('le relevé de l’heure : ce que les modules lui disent, et l’heure d’
   r.connexionParUnBattement()
   r.annonceDeLaBase(5_000)
   r.annonceDeLaBase(2_000)
+  r.patience(150)
+  r.attenteDUneConnexion(40.4, false)
+  r.attenteDUneConnexion(150.3, true)
   const [h] = r.lignes('d1')
   assert.deepEqual(h.connexions, {
     ouvertes: 3,
@@ -87,7 +91,16 @@ test('le relevé de l’heure : ce que les modules lui disent, et l’heure d’
     battements: 8,
     battementsTombes: 1,
     ouvertesParUnBattement: 1,
+    patienceMs: 150,
+    attentes: 2,
+    lassees: 1,
+    attenteMs: 191,
   })
+  // Ses cinq minutes aussi : les connexions neuves d'un joueur et les attentes, à 21 h 10 — pas celles d'un battement.
+  assert.deepEqual(
+    h.tranches?.map(tr => [tr.debut, tr.connexions]),
+    [[Date.UTC(2026, 9, 13, 19, 10), { ouvertes: 3, attentes: 2, lassees: 1 }]],
+  )
   assert.deepEqual(h.charge, { n: 2, processeur: 6, processeurMax: 8, boucleMaxMs: 120, memoireMaxMo: 200, invitesMax: 20 })
   assert.deepEqual([h.heure, h.demarrage], [Date.UTC(2026, 9, 13, 19), 'd1'])
   assert.deepEqual(h.base, { n: 30, p50: 35, p95: 48, max: 49 })
@@ -111,11 +124,11 @@ test('le relevé de l’heure : ce que les modules lui disent, et l’heure d’
   const erreurs = r.lignes('d1')[1].erreurs
   assert.equal(Object.keys(erreurs).length, 21)
   assert.equal(erreurs.autre, 5)
-  // Un serveur neuf part de zéro ; l'entretien, réglé pour le processus, reste.
+  // Un serveur neuf part de zéro ; l'entretien et la patience, réglés pour le processus, restent.
   r.remettreAZero()
   assert.deepEqual(
     r.lignes('d1').map(l => [l.base, l.routes, l.erreurs, l.miroir, l.charge, l.connexions]),
-    [[null, null, {}, 0, null, { ouvertes: 0, refermeesParLaBase: 0, plusJeuneRefermeeMs: null, echecs: 0, gardeMs: 4_000, annonceeMs: null, chaudes: true, ...sansRien }]],
+    [[null, null, {}, 0, null, { ouvertes: 0, refermeesParLaBase: 0, plusJeuneRefermeeMs: null, echecs: 0, gardeMs: 4_000, annonceeMs: null, chaudes: true, ...sansRien, patienceMs: 150 }]],
   )
   // Comptées sans rien de ce qu'elles étaient, les erreurs n'ont pas de détail : la ligne n'en porte pas.
   assert.equal('erreursEnDetail' in r.lignes('d1')[0], false)
@@ -1089,6 +1102,19 @@ test('gardées chaudes, l’heure dit ses battements ; deux démarrages de la m�
     ouvertesParUnBattement: 1,
   })
   assert.deepEqual(fondreConnexions(davant, davant), { ...davant, ouvertes: 10, refermeesParLaBase: 4, echecs: 2 }, 'des lignes d’avant l’entretien restent sans lui')
+  // La patience (le 4 novembre 2026) : ses comptes s'ajoutent, la plus longue l'emporte — l'ancien serveur d'une mise en ligne ne l'avait pas.
+  const patiente = { ...chaude, patienceMs: 150, attentes: 4, lassees: 1, attenteMs: 380 }
+  assert.deepEqual(fondreConnexions(chaude, patiente), {
+    ...chaude,
+    ouvertes: 2,
+    battements: 80,
+    ouvertesParUnBattement: 2,
+    patienceMs: 150,
+    attentes: 4,
+    lassees: 1,
+    attenteMs: 380,
+  })
+  assert.equal(fondreConnexions(davant, chaude)?.patienceMs, undefined, 'deux lignes d’avant la patience n’en disent rien')
 
   Object.assign(globalThis, { React, window: { location: { pathname: '/admin#base', search: '', hash: '#base', origin: 'http://banc' } } })
   // Turso et ses connexions vivent sur la page « Base et miroir » depuis le QG 2 (le 4 novembre 2026).

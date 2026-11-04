@@ -281,6 +281,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/ressenti.test.ts` — ce que `/healthz` dit du ressenti.
 - `server/test/base-preparee.test.ts` — la base de la campagne vérifiée une fois au build et relue telle quelle au réveil, le dossier relu quand elle ne le dit plus ; ce que le build a calculé de chaque question — ses sujets, sa famille, les cribles du Cabinet — relu avec elle, et repris par chaque lecteur au lieu d'être refait.
 - `server/test/ramasse-miettes.test.ts` — le ramasse-miettes réglé par la commande de démarrage, que `NODE_OPTIONS` refuse, et `/healthz` qui dit s'il a pris.
+- `server/test/bilan-de-la-production.test.ts` — le bilan de la production (`server/scripts/bilan-de-la-production.ts`) sur des heures inventées : chaque moment lent de cinq minutes avec ce qui y coïncidait — le gel et son nom, Turso, les connexions neuves, l'attente lassée —, les routes les plus lentes sur assez d'appels, les attentes de plus de deux secondes même rares, rien hors de la fenêtre, la patience, l'arrêt net, et le message d'une erreur seulement à la demande.
 
 ### Le client : chargement, entrée, navigation, mots
 

@@ -22,6 +22,7 @@ let transport: TransportDeLaBase = 'fetch'
 /** Le transport des clients qui partent ensuite — et des allers-retours de ceux déjà ouverts (`avecDelai` le relit à chacun). */
 export function choisirLeTransport(choisi: TransportDeLaBase) {
   transport = choisi
+  direLaPatienceAuReleve()
 }
 
 export function transportDeLaBase(): TransportDeLaBase {
@@ -43,10 +44,21 @@ export const PATIENCE_AU_PLUS_MS = 500
 
 export function choisirLaPatience(ms: number) {
   patienceMs = Math.min(PATIENCE_AU_PLUS_MS, Math.max(0, ms))
+  direLaPatienceAuReleve()
 }
 
 export function patienceDeLaBase(): number {
   return patienceMs
+}
+
+/**
+ * Ce que le relevé de l'heure écrit de la patience : celle qui vaut — sous
+ * le `fetch` de Node, aucune, même posée (`avecDelai` ne l'attend que sous le
+ * transport léger). Les deux se choisissent au démarrage, dans n'importe quel
+ * ordre : chacun le redit.
+ */
+function direLaPatienceAuReleve() {
+  releve.patience(transport === 'leger' ? patienceMs : 0)
 }
 
 /** Ce que demande `QUIZ_DB_PATIENCE_MS` : des millisecondes, d'une à `PATIENCE_AU_PLUS_MS` ; zéro ou rien, pas de patience ; autre chose, un refus qui dit quoi écrire. */

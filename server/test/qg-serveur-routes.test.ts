@@ -16,6 +16,7 @@ import {
   pageDuServeur,
   periodeDuServeur,
   routesDeLaPeriode,
+  tranchesFondues,
   versionsDuServeur,
   type DemarrageDuServeur,
   type HeureDeSante,
@@ -159,6 +160,19 @@ test('la période de la page : une heure en douze tranches de cinq minutes, une 
   assert.equal(pageDuServeur(lignes, [], { maintenant, courant, periode: '24h' }).pas, H)
   // Trente jours, ou n'importe quoi d'autre : la semaine — le relevé n'en garde que huit.
   assert.deepEqual(['1h', '24h', '7j', '30j', undefined, ['1h']].map(periodeDuServeur), ['1h', '24h', '7j', '7j', '7j', '7j'])
+})
+
+test('les connexions de cinq minutes : deux démarrages dans la même tranche les additionnent, une tranche d’avant leur relevé n’en dit rien', () => {
+  const heure = debutDeLHeure(maintenant)
+  const fondues = tranchesFondues([
+    ligne(heure, 'f', { tranches: [tranche(heure, { connexions: { ouvertes: 2, attentes: 1, lassees: 0 } }), tranche(heure + TRANCHE_MS, {})] }),
+    ligne(heure, 'g', { tranches: [tranche(heure, { connexions: { ouvertes: 1, attentes: 3, lassees: 1 } }), tranche(heure + TRANCHE_MS, {})] }),
+    // Seul l'un des deux les relevait : ses comptes, tels quels.
+    ligne(heure, 'h', { tranches: [tranche(heure + 2 * TRANCHE_MS, { connexions: { ouvertes: 4, attentes: 0, lassees: 0 } })] }),
+  ])
+  assert.deepEqual(fondues.get(heure)?.connexions, { ouvertes: 3, attentes: 4, lassees: 1 })
+  assert.equal(fondues.get(heure + TRANCHE_MS)?.connexions, undefined)
+  assert.deepEqual(fondues.get(heure + 2 * TRANCHE_MS)?.connexions, { ouvertes: 4, attentes: 0, lassees: 0 })
 })
 
 test('la table des routes : la plus coûteuse au serveur d’abord, ses centiles moyennés par ses appels, sa part, la période d’avant', () => {
