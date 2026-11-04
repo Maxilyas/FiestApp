@@ -16,6 +16,7 @@ import { QgServeur } from '../components/QgServeur'
 import { QgBase } from '../components/QgBase'
 import { QgEnDirect } from '../components/QgEnDirect'
 import { QgAlertes } from '../components/QgAlertes'
+import { QgTelephones } from '../components/QgTelephones'
 import { fluxDuQg } from '../qgFlux'
 import { QgErreurs } from '../components/QgErreurs'
 import { QgActivite } from '../components/QgActivite'
@@ -86,7 +87,8 @@ type Ecran =
   | 'direct'
   | 'alertes'
   | 'joueurs'
-const ECRANS: readonly Ecran[] = ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes', 'joueurs']
+  | 'telephones'
+const ECRANS: readonly Ecran[] = ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes', 'joueurs', 'telephones']
 /** Les ancres de la page d'avant, qu'un favori garde encore. */
 const ANCIENNES: Record<string, Ecran> = { 'les-profils': 'profils', 'quiz-du-jour': 'jour' }
 
@@ -116,6 +118,7 @@ const TITRE: Record<Ecran, string> = {
   direct: 'En direct',
   alertes: 'Alertes et incidents',
   joueurs: 'Les joueurs',
+  telephones: 'Les téléphones',
 }
 
 /**
@@ -170,6 +173,8 @@ const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; 
       { ecran: 'serveur', nom: 'Serveur', icone: 'zap' },
       // Sortie du serveur, où elle se perdait : Turso, son quota, le miroir de chaque salon, les sauvegardes.
       { ecran: 'base', nom: 'Base et miroir', icone: 'archive' },
+      // Ce que vivent les téléphones des joueurs : le serveur vu d'en face.
+      { ecran: 'telephones', nom: 'Téléphones', icone: 'smartphone' },
     ],
   },
   {
@@ -192,6 +197,7 @@ const PERIODES_DES_PAGES: Partial<Record<Ecran | 'poste', { periodes: readonly P
   poste: { periodes: PERIODES_DU_QG, comparer: true },
   serveur: { periodes: ['1h', '24h', '7j'], comparer: false },
   base: { periodes: ['1h', '24h', '7j'], comparer: false },
+  telephones: { periodes: ['1h', '24h', '7j'], comparer: false },
 }
 
 /**
@@ -475,6 +481,7 @@ export function AdminApp() {
       <Ligne icone="x-circle" nom="Les erreurs" valeur={desErreurs > 0 ? `${desErreurs} à traiter` : 'Trier, être prévenu'} onClick={() => aller('erreurs')} />
       <Ligne icone="zap" nom="Le serveur" valeur={duServeur > 0 ? `${duServeur} à traiter` : 'Signaux, routes, gels, versions'} onClick={() => aller('serveur')} />
       <Ligne icone="archive" nom="La base et le miroir" valeur="Turso, quota, miroir, sauvegardes" onClick={() => aller('base')} />
+      <Ligne icone="smartphone" nom="Les téléphones" valeur="Affichage, réponse au doigt, sauts, erreurs" onClick={() => aller('telephones')} />
       <Ligne icone="alert" nom="La maintenance" valeur={enMaintenance || 'Bandeau, pages fermées, testeurs'} onClick={() => aller('maintenance')} />
       <Ligne icone="megaphone" nom="Les annonces" valeur="Un mot à tous, des confettis" onClick={() => aller('annonces')} />
       <Ligne icone="sparkles" nom="Les nouveautés" valeur="Une affiche, « Nouveau » sur un bouton" onClick={() => aller('affiches')} />
@@ -586,6 +593,8 @@ export function AdminApp() {
         {ecran === 'serveur' && <QgServeur periode={periodeDuServeur(periodeDeLaPage)} versLesErreurs={() => aller('erreurs')} />}
         {/* Le miroir de chaque salon et les sauvegardes, à côté de Turso et de son quota ; la période, celle de la barre. */}
         {ecran === 'base' && <QgBase periode={periodeDuServeur(periodeDeLaPage)} />}
+        {/* Ce que vivent les téléphones des joueurs, sur la même période que le serveur, lu dans sa page. */}
+        {ecran === 'telephones' && <QgTelephones periode={periodeDuServeur(periodeDeLaPage)} />}
         {/* Chaque geste rend l'état d'après : le rail le compte aussitôt. La panne réglée, l'annonce qui le dit à tous. */}
         {ecran === 'maintenance' && <QgMaintenance onEtat={setMaintenance} versLesAnnonces={() => aller('annonces')} />}
         {/* Écrire à un segment, depuis la page des joueurs : les annonces s'ouvrent sur lui. */}

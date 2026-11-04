@@ -395,6 +395,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // mesuré là où Turso est vraiment loin — `/healthz` le dit (`core/pouls.ts`).
   app.use((req, res, next) => {
     if (!req.path.startsWith('/api/')) return next()
+    // La mesure d'un téléphone (`POST /api/mesures`, le QG 2, lot 9) part quand sa page se cache : personne ne
+    // l'attend, et elle ne lit rien de la base. Ni le ressenti des joueurs — ses quelques millisecondes y feraient
+    // passer les vraies routes pour plus rapides —, ni l'entretien : chaque page quittée aurait gardé Turso chaud une minute.
+    if (req.path === '/api/mesures') return next()
     // Un joueur est là : ses connexions vers la base restent chaudes une
     // minute (`core/connexions.ts`). Pas l'administrateur : un QG ouvert toute
     // la journée relit son direct toutes les dix secondes, sans Turso.

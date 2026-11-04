@@ -28,6 +28,7 @@ import {
 import { detailDeLErreur, type DetailDUneErreur } from './erreurs'
 import type { CoutDUnAllerRetour } from './quotaDeTurso'
 import type { ModeDuQg } from '../../../shared/qg'
+import { p75, type Appareil, type CentileDuTelephone, type MesureDUnePage, type PageMesuree, type TelephonesDeLHeure } from '../../../shared/telephones'
 import {
   EVENEMENTS_DES_ROUTES,
   EVENEMENTS_DU_FIL,
@@ -661,6 +662,63 @@ class Heure {
       // Toujours aussi, même vides : une heure du QG 2 qui n'a rien servi se distingue d'une ligne d'avant leur relevé.
       parRoute,
       tranches: [...this.tranches.values()].sort((a, b) => a.debut - b.debut).map(t => t.lue()),
+      ...(this.telephones.vues > 0 && { telephones: this.telephones.lus() }),
+    }
+  }
+
+  /** Ce que les téléphones des joueurs ont mesuré dans l'heure (`POST /api/mesures`, le QG 2, lot 9). */
+  readonly telephones = new TelephonesDeLHeureEnCours()
+}
+
+/** Les échantillons d'une page mesurée dans une heure : de quoi un 75ᵉ centile. */
+const ECHANTILLON_D_UNE_PAGE = 100
+/** Les mesures reçues dans une heure, au plus : au-delà, elles se comptent sans s'échantillonner — une rafale n'emplit pas la mémoire. */
+const MESURES_PAR_HEURE = 5_000
+
+/** Un échantillon borné, renouvelé au hasard au-delà de sa taille, comme `Mesure`. */
+class Echantillon {
+  n = 0
+  private valeurs: number[] = []
+  noter(v: number) {
+    this.n++
+    if (this.valeurs.length < ECHANTILLON_D_UNE_PAGE) this.valeurs.push(v)
+    else {
+      const i = Math.floor(Math.random() * this.n)
+      if (i < ECHANTILLON_D_UNE_PAGE) this.valeurs[i] = v
+    }
+  }
+  lu(): CentileDuTelephone | null {
+    const c = p75(this.valeurs)
+    return c === null ? null : { n: this.n, p75: c }
+  }
+}
+
+/** Les téléphones d'une heure : par page, ses vues, ses centiles, ses erreurs ; les appareils ; l'application installée. */
+class TelephonesDeLHeureEnCours {
+  vues = 0
+  private pages = new Map<PageMesuree, { vues: number; erreurs: number; lcp: Echantillon; inp: Echantillon; cls: Echantillon }>()
+  private appareils: Partial<Record<Appareil, number>> = {}
+  private installees = 0
+
+  noter(m: MesureDUnePage) {
+    this.vues++
+    if (this.vues > MESURES_PAR_HEURE) return
+    let p = this.pages.get(m.page)
+    if (!p) this.pages.set(m.page, (p = { vues: 0, erreurs: 0, lcp: new Echantillon(), inp: new Echantillon(), cls: new Echantillon() }))
+    p.vues++
+    p.erreurs += m.erreurs
+    if (m.lcp !== null) p.lcp.noter(m.lcp)
+    if (m.inp !== null) p.inp.noter(m.inp)
+    if (m.cls !== null) p.cls.noter(m.cls)
+    this.appareils[m.appareil] = (this.appareils[m.appareil] ?? 0) + 1
+    if (m.installee) this.installees++
+  }
+
+  lus(): TelephonesDeLHeure {
+    return {
+      pages: [...this.pages].map(([page, p]) => ({ page, vues: p.vues, erreurs: p.erreurs, lcp: p.lcp.lu(), inp: p.inp.lu(), cls: p.cls.lu() })),
+      appareils: { ...this.appareils },
+      installees: this.installees,
     }
   }
 }
@@ -989,6 +1047,11 @@ export class ReleveHoraire {
   gel(g: GelDeLaBoucle) {
     this.heure().gel(g, this.now())
     this.direct.gel()
+  }
+
+  /** Ce qu'un téléphone a mesuré d'une page (`POST /api/mesures`), relu (`lireUneMesure`) : agrégé à l'heure, rien d'autre. */
+  telephone(m: MesureDUnePage) {
+    this.heure().telephones.noter(m)
   }
 
   /** Une connexion ouverte vers la base, une qu'elle a refermée d'elle-même (à quel âge), un aller-retour tombé en route, le délai qu'elle annonce. */

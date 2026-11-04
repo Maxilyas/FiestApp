@@ -41,6 +41,8 @@ import type { JourStore } from './core/jour'
 import type { RappelStore } from './core/rappels'
 import { lireModeles } from './core/seed'
 import { lirePourQui, personnaliser } from '../../shared/modeles'
+import { releve } from './core/pouls'
+import { lireUneMesure } from '../../shared/telephones'
 
 interface ApiDeps {
   store: QuizStore
@@ -189,6 +191,16 @@ export function mountApi(app: Express, deps: ApiDeps) {
   mountReserve(app, { jour: deps.jour, jeton: deps.jetonDeLaReserve })
   // La base de la campagne aussi, par la même routine et le même jeton.
   mountBaseDeLaCampagne(app, { campagne: deps.campagne, jeton: deps.jetonDeLaReserve })
+  // Ce que vit le téléphone d'un joueur (le QG 2, lot 9) : une page mesurée, envoyée quand elle se cache. Sans session —
+  // l'invité anonyme compte aussi, d'où sa place avant la porte —, relue et bornée (`lireUneMesure` : la page se lit au
+  // serveur dans son adresse, un salon se dit « une soirée »), agrégée à l'heure en mémoire (`releve.telephone`) : pas
+  // une écriture par visite. Son corps tient en quelques centaines d'octets. Ce qui ne se lit pas s'ignore, sans le
+  // dire : 204 dans tous les cas.
+  app.post('/api/mesures', express.json({ limit: '2kb', strict: false }), (req, res) => {
+    const mesure = lireUneMesure(req.body)
+    if (mesure) releve.telephone(mesure)
+    res.status(204).end()
+  })
   app.use('/api', requireAccount(deps.auth))
 
   // Les photos arrivent en dataURL dans le corps JSON. Une lecture (GET, HEAD)
@@ -201,6 +213,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
 
   /** L'espace de l'animateur connecté : celui de sa session, et pas un autre. */
   const spaceOf = (res: express.Response) => accountOf(res).id
+
 
   // Partager : un code à quelqu'un, une copie au catalogue (`partages.ts`).
   mountPartages(app, { store: deps.store, partages: deps.partages, onLibraryChanged: deps.onLibraryChanged })

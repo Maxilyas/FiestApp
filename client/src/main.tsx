@@ -14,6 +14,7 @@ import { donneesDuFragment } from '../../shared/depart'
 import { pageDeLAdresse } from '../../shared/maintenance'
 import { fermeePourMoi } from './maintenance'
 import { titreDePage } from './titres'
+import { PART_DES_TELEPHONES_MESURES } from '../../shared/telephones'
 import './styles.css'
 
 // Les adresses (client/src/routes.ts) :
@@ -293,3 +294,11 @@ code.then(
   Vue => rendre(<Page Vue={Vue} />),
   (erreur: unknown) => rendre(<Perdu erreur={erreur} />),
 )
+// Un téléphone sur quatre mesure ce qu'il vit (le QG 2, lot 9 : `PART_DES_TELEPHONES_MESURES`) ; son code ne vient qu'à
+// lui, une fois la page partie. Pas le QG : l'administrateur n'est pas un joueur.
+if (Math.random() < PART_DES_TELEPHONES_MESURES && !window.location.pathname.startsWith('/admin')) {
+  code.then(() => import('./mesures')).then(
+    m => m.mesurerCettePage(),
+    () => {},
+  )
+}

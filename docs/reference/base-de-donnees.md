@@ -1056,7 +1056,7 @@ quelque chose, jamais modifiée.
 
 Le relevé de la santé du serveur, heure par heure et par démarrage.
 
-- **Colonnes clés** : `heure` et `demarrage` (la clé), `releve` (JSON : appels et temps des routes, allers-retours vers la base, charge, erreurs par source et, depuis le 17 octobre 2026, en détail — douze au plus par heure : sorte, code, message nettoyé, pile ramenée aux fichiers du dépôt —, invités ; depuis le 4 novembre 2026, chaque route sous son modèle — appels, médiane, 95ᵉ centile, pire, temps cumulé, refus et erreurs, `parRoute` — et les douze tranches de cinq minutes de l'heure, `tranches`), `maj_le`.
+- **Colonnes clés** : `heure` et `demarrage` (la clé), `releve` (JSON : appels et temps des routes, allers-retours vers la base, charge, erreurs par source et, depuis le 17 octobre 2026, en détail — douze au plus par heure : sorte, code, message nettoyé, pile ramenée aux fichiers du dépôt —, invités ; depuis le 4 novembre 2026, chaque route sous son modèle — appels, médiane, 95ᵉ centile, pire, temps cumulé, refus et erreurs, `parRoute` — et les douze tranches de cinq minutes de l'heure, `tranches` ; et ce que les téléphones des joueurs ont mesuré, page par page — vues, 75ᵉ centiles de l'affichage, de la réponse au doigt et des sauts, erreurs du client —, les appareils et l'application installée, `telephones`, sans un nom ni une adresse), `maj_le`.
 - **Espace** : non.
 - **Écrite par** : `SanteDuServeur` (`server/src/core/santeDuServeur.ts`), toutes les dix minutes (`RELEVE_MS`).
 - **Lue par** : `SanteDuServeur` (les pages « Le serveur » et « La base et le miroir » du QG : une heure, un jour ou sept jours).

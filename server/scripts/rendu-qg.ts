@@ -966,6 +966,7 @@ try {
     if (adresse === '/admin#serveur') await page.waitForSelector('.qg-graphe svg', { timeout: 15000 })
     if (adresse === '/admin#base') await page.waitForSelector('#base-sauvegardes', { timeout: 15000 })
     if (adresse === '/admin#alertes') await page.waitForSelector('#alertes-incidents', { timeout: 15000 })
+    if (adresse === '/admin#telephones') await page.waitForSelector('#telephones-pages', { timeout: 15000 })
     // Le direct : ses courbes, puis deux messages du flux — le premier porte tout, le suivant ce qui a bougé.
     if (adresse === '/admin#direct') {
       await page.waitForSelector('.qg-direct-graphes svg', { timeout: 15000 })
@@ -1103,6 +1104,29 @@ try {
     await photographier('85-alertes', 1366, 768, { adresse: '/admin#alertes' })
     await photographier('86-alertes-1920', 1920, 1080, { adresse: '/admin#alertes' })
     await photographier('87-alertes-telephone', 360, 640, { adresse: '/admin#alertes' })
+  }
+  // « Les téléphones » : une heure de mesures envoyées par la vraie route, sans cookie — des soirées au doigt de plus
+  // en plus lent, le quiz du jour sur un vieil Android, l'écran commun qui saute, des iPhone qui ne mesurent rien, un
+  // profil qui plante —, sur la période de la barre.
+  if (photo('telephones')) {
+    const mesures = [
+      ...Array.from({ length: 14 }, (_, i) => ({
+        chemin: '/chez-nadia',
+        lcp: 1400 + i * 120,
+        inp: 90 + i * 15,
+        cls: 0.02 + i * 0.004,
+        erreurs: i % 7 === 0 ? 1 : 0,
+        appareil: i % 3 === 0 ? 'iphone' : 'android',
+        installee: false,
+      })),
+      ...Array.from({ length: 9 }, (_, i) => ({ chemin: '/jour', lcp: 2200 + i * 260, inp: 140 + i * 20, cls: 0.01, erreurs: 0, appareil: 'android', installee: i % 2 === 0 })),
+      ...Array.from({ length: 5 }, (_, i) => ({ chemin: '/host', lcp: 900 + i * 80, inp: 40, cls: 0.18 + i * 0.02, erreurs: 0, appareil: 'ordinateur', installee: false })),
+      ...Array.from({ length: 4 }, () => ({ chemin: '/cabinet', lcp: null, inp: null, cls: null, erreurs: 0, appareil: 'iphone', installee: true })),
+      { chemin: '/profil', lcp: 1900, inp: 110, cls: 0.05, erreurs: 2, appareil: 'android', installee: true },
+    ]
+    for (const m of mesures) await uneFoisDePlus(() => ecrire(banc.url, '/api/mesures', m))
+    await photographier('88-telephones', 1366, 768, { adresse: '/admin#telephones' })
+    await photographier('89-telephones-telephone', 360, 640, { adresse: '/admin#telephones' })
   }
   // Les pages du QG 2 qui suivront, chacune son bloc `if (photo('<clé>')) { … }`, ici.
 

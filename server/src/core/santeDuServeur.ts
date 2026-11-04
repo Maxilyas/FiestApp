@@ -4,6 +4,7 @@ import { clientDistant, type Client } from './distante'
 import { releve as releveDuProcessus, type ReleveHoraire } from './pouls'
 import { veille as veilleDuProcessus, type Veille } from './veille'
 import { lesErreursTriees, lireLeTri, type EtatDUneErreur, type PageDesErreurs, type TriDUneErreur, type TriLu } from '../../../shared/triDesErreurs'
+import { APPAREILS, PAGES_MESUREES, type PageMesuree, type TelephonesDeLHeure } from '../../../shared/telephones'
 import {
   ARRET_RECENT_MS,
   HEURE_MS,
@@ -170,9 +171,23 @@ function lireHeure(r: Row): HeureDeSante | null {
       // Absents d'une ligne d'avant le 4 novembre 2026 : la page dit depuis quand elle les a (`routesDepuis`).
       ...(Array.isArray(releve.parRoute) && { parRoute: releve.parRoute.filter(routeLue) }),
       ...(Array.isArray(releve.tranches) && { tranches: releve.tranches.filter(trancheLue) }),
+      ...(telephonesLus(releve.telephones) && { telephones: telephonesLus(releve.telephones)! }),
     }
   } catch {
     return null
+  }
+}
+
+/** Ce que les téléphones ont mesuré dans une heure : ses pages lisibles, ou rien — une page illisible s'ôte, pas l'heure. */
+function telephonesLus(t: unknown): TelephonesDeLHeure | null {
+  if (!unObjet(t) || !Array.isArray(t.pages)) return null
+  const centile = (c: unknown) => (unObjet(c) && unNombre(c.n) && unNombre(c.p75) ? { n: c.n, p75: c.p75 } : null)
+  return {
+    pages: t.pages
+      .filter((p): p is Record<string, unknown> => unObjet(p) && (PAGES_MESUREES as readonly unknown[]).includes(p.page) && unNombre(p.vues) && unNombre(p.erreurs))
+      .map(p => ({ page: p.page as PageMesuree, vues: p.vues as number, erreurs: p.erreurs as number, lcp: centile(p.lcp), inp: centile(p.inp), cls: centile(p.cls) })),
+    appareils: unObjet(t.appareils) ? Object.fromEntries(Object.entries(t.appareils).filter(([a, n]) => (APPAREILS as readonly string[]).includes(a) && unNombre(n))) : {},
+    installees: unNombre(t.installees) ? t.installees : 0,
   }
 }
 

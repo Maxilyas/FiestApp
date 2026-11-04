@@ -14908,6 +14908,8 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
 .qg-incident-changer { display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 0; border: 0; background: none; color: var(--accent-text); font: inherit; cursor: pointer; }
 .qg-incident-changer:hover { color: var(--accent-text-hover); text-decoration: underline; }
 .qg-incident-changer .icon { width: 13px; height: 13px; }
+/* Les téléphones (le QG 2, lot 9) : la part de chaque appareil, une barre d'or — une série seule, sans couleur de mode. */
+.qg-piste-or > i { background: var(--qg-joueurs); }
 .qg-plus[aria-expanded='true'] .icon { transform: rotate(180deg); }
 @media (min-width: 1101px) {
   .qg-direct-graphes { grid-template-columns: repeat(2, minmax(0, 1fr)); }

@@ -18,6 +18,7 @@
 import { formatNumber } from './typographie'
 import { lireLeTri, type ParVersion, type TriDUneErreur } from './triDesErreurs'
 import type { PanneDUnMode } from './pannes'
+import { telephonesDeLaPeriode, type TelephonesDeLHeure } from './telephones'
 
 export const HEURE_MS = 3_600_000
 /** Ce que la page montre. */
@@ -395,6 +396,8 @@ export interface HeureDeSante {
   parRoute?: RouteDeLHeure[]
   /** Ses tranches de cinq minutes, de la plus ancienne à la dernière ; absent d'une ligne d'avant le 4 novembre 2026. */
   tranches?: TrancheDeSante[]
+  /** Ce que les téléphones des joueurs ont mesuré dans l'heure (`POST /api/mesures`) ; absent d'une heure sans mesure, ou d'avant le 4 novembre 2026. */
+  telephones?: TelephonesDeLHeure
 }
 
 /** Un démarrage du serveur, tel que la base le garde (`qg_demarrages`). */
@@ -601,6 +604,8 @@ export interface PageDuServeur {
   routesDepuis: number | null
   /** Les versions de la semaine, la plus récente d'abord, chacune comparée à celle d'avant. */
   versions: VersionDuServeur[]
+  /** Ce que les téléphones des joueurs ont mesuré sur la période (`telephonesDeLaPeriode`, le QG 2, lot 9) ; absent d'un serveur d'avant. */
+  telephones?: TelephonesDeLHeure
 }
 
 /**
@@ -1380,6 +1385,8 @@ export function pageDuServeur(
     gels: gelsDeLaSemaine(fondues),
     routes: routesDeLaPeriode(lignes, { debut, fin: derniere, avantDebut: debut - nHeures * HEURE_MS, avantFin: debut - HEURE_MS }),
     routesDepuis: relevees.length > 0 ? Math.min(...relevees) : null,
+    // Les téléphones, sur les heures de la période — sur une heure, celle en cours et la précédente, comme les routes.
+    telephones: telephonesDeLaPeriode(lignes.filter(l => l.heure >= debut && l.heure <= derniere).map(l => l.telephones)),
     versions: versionsDuServeur(
       lignes.filter(l => l.heure >= debutDeLaSemaine && l.heure <= derniere),
       tous,
