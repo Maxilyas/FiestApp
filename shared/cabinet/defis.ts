@@ -1,29 +1,28 @@
-// Les défis de tes cartes, et les épreuves de maître des gardiens (le
-// 1er novembre 2026 : « comme c'est dur d'équilibrer les cartes, est-ce que
-// l'on pourrait pas avoir des choses à gagner en fonction des cartes que l'on a
-// sur nous. Des défis, avoir un nombre X d'or à la fin, battre sans parade » ;
-// la proposition validée le même jour, `retours/2026-11-01/defis-des-cartes.md`).
+// Les défis de tes cartes (le 1er novembre 2026 : « comme c'est dur
+// d'équilibrer les cartes, est-ce que l'on pourrait pas avoir des choses à
+// gagner en fonction des cartes que l'on a sur nous. Des défis, avoir un
+// nombre X d'or à la fin, battre sans parade » ; la proposition validée le
+// même jour, `retours/2026-11-01/defis-des-cartes.md`).
 //
 // Chaque carte porte un défi, en trois rangs — Bronze, Argent, Or —, qui ne
 // compte que si elle est dans ta main : une carte un peu faible devient
 // intéressante pour ce qu'elle fait gagner, sans qu'on retouche ce qu'elle fait
-// en jeu. Beaucoup demandent de l'avoir et de ne pas s'en servir. Chaque
-// gardien a son épreuve de maître, dite à son annonce, que l'on connaît avant
-// de choisir ses cartes : vaincu ainsi, son légendaire porte la marque du
-// maître.
+// en jeu. Beaucoup demandent de l'avoir et de ne pas s'en servir. Les épreuves
+// de maître des gardiens, qui vivaient ici, sont parties le 4 novembre 2026
+// (« inutile, il faut enlever ça », le propriétaire) : leurs lignes rangées se
+// taisent (`shared/cabinet/sceaux.ts`), et la traversée a désormais ses
+// exploits, que n'importe quelle main tient (`shared/cabinet/exploits.ts`).
 //
 // Rien ne s'écrit pour eux : ils se lisent du journal de la traversée — son
 // départ, ses gestes —, par son pli même (invariants 14 et 20), et le serveur
 // range sur l'étagère, une fois pour toutes, ce qu'une traversée a atteint
 // (invariant 22). Une cinquième notion n'entre pas dans la traversée : un défi
-// est écrit au dos de l'une de tes cartes, une épreuve de maître dans l'annonce
-// de son gardien. Ce module est pur, sans un chiffre écrit à la main
-// (`bareme.ts`).
+// est écrit au dos de l'une de tes cartes. Ce module est pur, sans un chiffre
+// écrit à la main (`bareme.ts`).
 
-import { ACTES_DES_RANGS, ACTES_D_UNE_TRAVERSEE, MISES_DU_FLAMBEUR, OR_DU_TRESORIER, OR_D_UNE_MAITRISE } from './bareme'
-import { MAITRISES, NOMS_DES_DEFIS, PHRASES_DES_DEFIS, RANGS, cleDeLaMaitrise, cleDuRang, type RangDUnDefi, type SorteDeMaitrise } from './sceaux'
+import { ACTES_DES_RANGS, ACTES_D_UNE_TRAVERSEE, MISES_DU_FLAMBEUR, OR_DU_TRESORIER } from './bareme'
+import { NOMS_DES_DEFIS, PHRASES_DES_DEFIS, RANGS, cleDuRang, type RangDUnDefi } from './sceaux'
 import {
-  acteDe,
   carteDeLaTraversee,
   etatDuDepart,
   jouerUnGesteDeLaTraversee,
@@ -36,12 +35,14 @@ import {
 } from './traversee'
 
 /**
- * La version des règles des défis et des épreuves de maître : les traversées passées se relisent une fois à
- * chacune (`CabinetStore.relireLesDefis`, au démarrage) — un rang ou une épreuve de maître que la règle neuve donne
- * se range, rien ne se reprend (invariant 22). Elle monte quand une règle s'adoucit ou qu'un défi s'ajoute, pour
- * offrir d'emblée ce que les traversées d'avant tenaient ; un seuil relevé n'a pas à la monter.
+ * La version des règles des défis de tes cartes, des exploits de la traversée et de ce que ses pistes comptent : les
+ * traversées passées se relisent une fois à chacune (`CabinetStore.relireLesDefis`, au démarrage) — un rang ou un
+ * exploit que la règle neuve donne se range, un résumé d'avant se refait, les paliers des pistes se jugent ; rien ne
+ * se reprend (invariant 22). Elle monte quand une règle s'adoucit, qu'un défi, un exploit ou une piste s'ajoute, pour
+ * offrir d'emblée ce que les traversées d'avant tenaient ; un seuil relevé n'a pas à la monter. La 2, le 4 novembre
+ * 2026 : les exploits et les pistes du Cabinet, les épreuves de maître parties.
  */
-export const VERSION_DES_DEFIS = 1
+export const VERSION_DES_DEFIS = 2
 
 // ── Ce que la traversée a fait, relevé ────────────────────────────────────
 
@@ -209,6 +210,9 @@ function plusHaut(tient: readonly [boolean, boolean, boolean]): 0 | RangDUnDefi 
   return tient[2] ? 3 : tient[1] ? 2 : tient[0] ? 1 : 0
 }
 
+/** Abattu dès la deuxième manche de son premier assaut : d'un assaut suivant, il ne lui restait presque rien. L'Exécuteur, au Bronze. */
+const dEntree = (a: ActeRelu): boolean => a.chute !== null && a.chute.assaut === 1 && a.chute.manche <= 1
+
 /** Les rangs d'un défi « sans » : un, deux, puis trois actes finis sans que ceci ait servi. */
 function sansRien(sans: (a: ActeRelu) => boolean): (r: ReleveDeLaTraversee) => 0 | RangDUnDefi {
   return r => {
@@ -308,31 +312,6 @@ const DEFI_PAR_CARTE = new Map(DEFIS.map(x => [x.carte as string, x]))
 /** Le défi d'une carte, par sa clé — une `Map`, jamais `TABLE[cle]` : un objet répond aussi de son prototype. */
 export const defiDeLaCarte = (cle: unknown): DefiDUneCarte | null => (typeof cle === 'string' ? (DEFI_PAR_CARTE.get(cle) ?? null) : null)
 
-// ── Les épreuves de maître ────────────────────────────────────────────────
-
-/** Ce qu'une épreuve de maître lit : l'acte de son gardien, fini. */
-type Maitrise = (a: ActeRelu) => boolean
-
-const unSeulAssaut: Maitrise = a => a.chute?.assaut === 1
-const sansFaute: Maitrise = a => a.contreLui.every(m => m.etoiles > 0)
-const sansPerdreUnCoeur: Maitrise = a => a.contreLui.every(m => m.coeurs === 0) && !a.souffleContreLui
-const toutesLesEtoiles: Maitrise = a => a.contreLui.length > 0 && a.contreLui.every(m => m.etoiles === 3)
-const surUneMise: Maitrise = a => a.chute?.misee === true
-/** Abattu dès la deuxième manche de son premier assaut : d'un assaut suivant, il ne lui restait presque rien. */
-const dEntree: Maitrise = a => a.chute !== null && a.chute.assaut === 1 && a.chute.manche <= 1
-const orEnPoche: Maitrise = a => a.orALaChute !== null && a.orALaChute >= OR_D_UNE_MAITRISE[a.acte]
-/** Tombé dans l'assaut même où tu as perdu un cœur, avant le coup de grâce : se relever de ses erreurs. */
-const apresUnCoeurPerdu: Maitrise = a => a.chute !== null && a.contreLui.some(m => m.assaut === a.chute!.assaut && m.manche < a.chute!.manche && m.coeurs > 0)
-const apresLeSouffle: Maitrise = a => a.souffleContreLui
-
-/** Les conditions des épreuves de maître, une par sorte — exportées pour le calibrage et les épreuves, qui les mesurent une à une. */
-export const CONDITIONS_DE_MAITRISE = { unSeulAssaut, sansFaute, sansPerdreUnCoeur, toutesLesEtoiles, surUneMise, dEntree, orEnPoche, apresUnCoeurPerdu, apresLeSouffle } as const satisfies Record<SorteDeMaitrise, Maitrise>
-
-// L'épreuve de chaque gardien, son acte et ce qu'elle se dit vivent dans `sceaux.ts` (`MAITRISES`, `maitriseDite`,
-// `maitriseCourte`) : l'album des trophées les lit sans la traversée. Ici, la règle qui la juge.
-export { maitriseCourte, maitriseDite } from './sceaux'
-
-
 // ── Ce qu'une traversée a atteint ─────────────────────────────────────────
 
 /** Ce qu'une traversée a atteint : ses clés, et ce que chaque épreuve conclue a fait tomber — son bilan le dit. */
@@ -341,7 +320,7 @@ export interface DefisDUneTraversee {
   parPartie: ReadonlyMap<string, readonly string[]>
 }
 
-/** Les clés que tient un relevé : chaque rang de chaque défi de ses cartes — ceux d'en dessous compris —, chaque gardien vaincu en maître. */
+/** Les clés que tient un relevé : chaque rang de chaque défi de ses cartes, ceux d'en dessous compris. */
 function clesDuReleve(r: ReleveDeLaTraversee): string[] {
   const cles: string[] = []
   for (const carte of r.cartes) {
@@ -349,10 +328,6 @@ function clesDuReleve(r: ReleveDeLaTraversee): string[] {
     if (!x) continue
     const n = x.rang(r)
     for (const k of RANGS) if (k <= n) cles.push(cleDuRang(carte, k))
-  }
-  for (const a of r.actes) {
-    const m = a.fini ? MAITRISES.get(a.gardien) : undefined
-    if (m && CONDITIONS_DE_MAITRISE[m.sorte](a)) cles.push(cleDeLaMaitrise(a.gardien))
   }
   return cles
 }
@@ -374,9 +349,6 @@ export function defisDeLaTraversee(d: DepartDeLaTraversee, gestes: readonly Gest
   }
   return { cles: [...tenues], parPartie }
 }
-
-/** Le gardien d'une étape de gardien — l'acte qu'elle ouvre —, pour dire son épreuve de maître. */
-export const gardienDeLActe = (d: Pick<DepartDeLaTraversee, 'actes'>, etape: string): string | null => d.actes[acteDe(etape)]?.gardien ?? null
 
 /** Le nom d'une carte, pour dire un défi : « la Cagnotte ». */
 export const carteDuDefi = (x: Pick<DefiDUneCarte, 'carte'>): string => carteDeLaTraversee(x.carte)?.nom ?? x.carte

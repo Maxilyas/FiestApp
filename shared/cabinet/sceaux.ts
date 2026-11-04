@@ -1,19 +1,26 @@
-// Ce que les défis de tes cartes et les épreuves de maître laissent sur le
-// profil, lu sans la traversée : leurs clés sur l'étagère, leurs noms, et ce
-// qu'ils rapportent (`shared/cabinet/defis.ts` dit comment ils se gagnent).
-// Léger exprès : le solde des confettis (`ProfileStore.boutiqueEtDons`), les
-// titres (`nomDuTitre`, `shared/sentiers.ts`), la loge et les gerbes le
-// lisent, et rien de la traversée — ni la carte, ni le pli — n'a à descendre
-// avec eux. Il n'importe que le barème (`bareme.ts`, qui n'importe que des
-// types) et des types.
+// Ce que les défis de tes cartes laissent sur le profil, lu sans la
+// traversée : leurs clés sur l'étagère, leurs noms, et ce qu'ils rapportent
+// (`shared/cabinet/defis.ts` dit comment ils se gagnent). Léger exprès : le
+// solde des confettis (`ProfileStore.boutiqueEtDons`), les titres
+// (`nomDuTitre`, `shared/sentiers.ts`), la loge et les gerbes le lisent, et
+// rien de la traversée — ni la carte, ni le pli — n'a à descendre avec eux.
+// Il n'importe que le barème (`bareme.ts`, qui n'importe que des types) et des
+// types.
 //
 // Un sceau se range sous `#cabinet`, comme un gardien réveillé et le légendaire
 // choisi au bout d'une traversée, et sous le préfixe des voies du Cabinet
 // (`cabinet:`) : l'étagère et le compte des badges l'écartent d'office
 // (`PREFIXES_DES_VOIES_RANGEES`) — ce n'est pas un trophée de soirée —, et la
 // ligne ne se reprend jamais (invariant 22).
+//
+// Les épreuves de maître des gardiens, du 1er au 4 novembre 2026, sont parties
+// (« inutile, il faut enlever ça », le propriétaire) : plus rien ne les juge ni
+// ne les montre. Leurs lignes (`cabinet:maitrise:<gardien>`) restent sur les
+// étagères qui les ont reçues, sans rien dire ni rien rapporter — le légendaire
+// qu'elles donnaient, lui, a sa propre ligne (`cabinet:<gardien>`), et reste à
+// qui l'a gagné.
 
-import { ACTES_DES_RANGS, ACTES_D_UNE_TRAVERSEE, ARGENTS_POUR_LA_GERBE, CONFETTIS_D_UN_RANG, MISES_DU_FLAMBEUR, ORS_POUR_LE_LEGENDAIRE, OR_DU_TRESORIER, OR_D_UNE_MAITRISE } from './bareme'
+import { ACTES_DES_RANGS, ACTES_D_UNE_TRAVERSEE, ARGENTS_POUR_LA_GERBE, CONFETTIS_D_UN_RANG, MISES_DU_FLAMBEUR, ORS_POUR_LE_LEGENDAIRE, OR_DU_TRESORIER } from './bareme'
 import type { CleDeCarte } from './traversee'
 
 /** Un rang : 1 le Bronze, 2 l'Argent, 3 l'Or. */
@@ -93,83 +100,11 @@ export const PHRASES_DES_DEFIS: Readonly<Record<CleDeCarte, readonly [string, st
   'second-souffle': ['Ton Second souffle sert, et tu finis l’acte quand même', 'La traversée gagnée après ton Second souffle', 'Ton Second souffle sert avant l’acte III, et la traversée est gagnée'],
 }
 
-// ── Les épreuves de maître, en mots ───────────────────────────────────────
-
-/** Ce qu'une épreuve de maître demande : la règle de chacune vit dans `defis.ts` (`CONDITIONS_DE_MAITRISE`). */
-export type SorteDeMaitrise = 'unSeulAssaut' | 'sansFaute' | 'sansPerdreUnCoeur' | 'toutesLesEtoiles' | 'surUneMise' | 'dEntree' | 'orEnPoche' | 'apresUnCoeurPerdu' | 'apresLeSouffle'
-
-const DITS_DES_MAITRISES: Readonly<Record<Exclude<SorteDeMaitrise, 'orEnPoche'>, string>> = {
-  unSeulAssaut: 'au premier assaut',
-  sansFaute: 'sans rater une manche contre lui',
-  sansPerdreUnCoeur: 'sans perdre un cœur contre lui',
-  toutesLesEtoiles: 'avec trois étoiles à chaque manche contre lui',
-  surUneMise: 'd’un coup porté sur une mise',
-  dEntree: 'dès la deuxième manche de ton premier assaut',
-  apresUnCoeurPerdu: 'dans l’assaut même où tu perds un cœur',
-  apresLeSouffle: 'après que ton Second souffle t’a relevé contre lui',
-}
-
-const COURTS_DES_MAITRISES: Readonly<Record<Exclude<SorteDeMaitrise, 'orEnPoche'>, string>> = {
-  unSeulAssaut: 'Au premier assaut',
-  sansFaute: 'Sans rater une manche',
-  sansPerdreUnCoeur: 'Sans perdre un cœur',
-  toutesLesEtoiles: '★★★ à chaque manche',
-  surUneMise: 'Sur une mise',
-  dEntree: 'En deux manches',
-  apresUnCoeurPerdu: 'Après un cœur perdu',
-  apresLeSouffle: 'Après le Second souffle',
-}
-
-/** Un acte de la traversée : 0, 1, 2. */
-type ActeDuGardien = 0 | 1 | 2
-
-/**
- * L'épreuve de maître de chaque gardien de la traversée, et l'acte où il se rencontre, dans l'ordre des actes — celui
- * de leurs cercles (`GARDIENS_DES_ACTES`, `traversee.ts`, la Citrouille à l'acte I : `cabinet-defis.test.ts` les
- * compare). Chacune dans l'esprit de sa devise : le Dragon garde son or, le Phénix renaît de ses cendres, la Comète ne
- * passe qu'une fois. On la lit dès l'écran des trois gardiens, avant de choisir ses cartes : certaines s'y préparent
- * — sur une mise, après le Second souffle.
- */
-export const MAITRISES: ReadonlyMap<string, { acte: ActeDuGardien; sorte: SorteDeMaitrise }> = new Map(
-  (
-    [
-      // L'acte I : des gardiens doux — au calibrage, le joueur moyen qui les vainc les maîtrise une fois sur cinq à peu près.
-      [0, { 'lg:renard': 'toutesLesEtoiles', 'lg:coq': 'dEntree', 'lg:chouette': 'toutesLesEtoiles', 'lg:tigre': 'dEntree', 'lg:chauve-souris': 'apresUnCoeurPerdu', 'lg:scarabee': 'orEnPoche', 'lg:citrouille': 'surUneMise' }],
-      // L'acte II : une fois sur cinq à dix ; le Lion, roi de sa carte, une fois sur vingt-cinq.
-      [1, { 'lg:sphinx': 'sansFaute', 'lg:janus': 'surUneMise', 'lg:phenix': 'apresUnCoeurPerdu', 'lg:fantome': 'sansPerdreUnCoeur', 'lg:salamandre': 'orEnPoche', 'lg:lion': 'unSeulAssaut', 'lg:oracle': 'sansFaute', 'lg:serpent': 'sansPerdreUnCoeur' }],
-      // L'acte III : une fois sur dix à quatre ; la Comète, qui ne passe qu'une fois, presque jamais.
-      [2, { 'lg:dragon': 'orEnPoche', 'lg:kraken': 'apresLeSouffle', 'lg:chimere': 'sansFaute', 'lg:ouroboros': 'apresUnCoeurPerdu', 'lg:trou-noir': 'sansPerdreUnCoeur', 'lg:comete': 'unSeulAssaut' }],
-    ] as const satisfies readonly (readonly [ActeDuGardien, Readonly<Record<string, SorteDeMaitrise>>])[]
-  ).flatMap(([acte, gardiens]) => Object.entries(gardiens).map(([gardien, sorte]) => [gardien, { acte, sorte }] as const)),
-)
-
-/** Son épreuve, par la clé du gardien — une `Map`, jamais `TABLE[cle]`. */
-const maitriseDe = (gardien: unknown) => (typeof gardien === 'string' ? MAITRISES.get(gardien) : undefined)
-
-/** L'épreuve de maître d'un gardien, en une phrase — « Le vaincre avec 300 pièces en poche » ; null : pas un gardien de la traversée. */
-export function maitriseDite(gardien: unknown): string | null {
-  const m = maitriseDe(gardien)
-  if (!m) return null
-  return `Le vaincre ${m.sorte === 'orEnPoche' ? `avec ${OR_D_UNE_MAITRISE[m.acte]} pièces en poche` : DITS_DES_MAITRISES[m.sorte]}`
-}
-
-/**
- * La même, en quelques mots, sous le médaillon du gardien (« Sans perdre un cœur ») : l'écran des trois gardiens en
- * disait la phrase entière de chacun, trois phrases sous trois médaillons — « trop de texte, pas assez visuel et
- * sobre » (le propriétaire, le 1er novembre 2026). L'annonce du gardien la redit en entier (`maitriseDite`).
- */
-export function maitriseCourte(gardien: unknown): string | null {
-  const m = maitriseDe(gardien)
-  if (!m) return null
-  return m.sorte === 'orEnPoche' ? `${OR_D_UNE_MAITRISE[m.acte]} pièces en poche` : COURTS_DES_MAITRISES[m.sorte]
-}
 const estUneCarte = (x: string): x is CleDeCarte => (CARTES_DES_DEFIS as readonly string[]).includes(x)
 
-/** Les préfixes de ce qui se range : un rang d'un défi (`cabinet:defi:cagnotte:2`), une épreuve de maître (`cabinet:maitrise:dragon`). */
+/** Le préfixe de ce qui se range : un rang d'un défi (`cabinet:defi:cagnotte:2`). */
 export const PREFIXE_DES_DEFIS = 'cabinet:defi:'
-export const PREFIXE_DES_MAITRISES = 'cabinet:maitrise:'
 export const cleDuRang = (carte: CleDeCarte, rang: RangDUnDefi): string => `${PREFIXE_DES_DEFIS}${carte}:${rang}`
-export const cleDeLaMaitrise = (gardien: string): string => `${PREFIXE_DES_MAITRISES}${gardien.replace(/^lg:/, '')}`
 
 /** Un rang lu d'une clé : sa carte et son rang ; null : une autre clé, ou une clé abîmée. */
 export function rangDeLaCle(cle: string): { carte: CleDeCarte; rang: RangDUnDefi } | null {
@@ -179,26 +114,22 @@ export function rangDeLaCle(cle: string): { carte: CleDeCarte; rang: RangDUnDefi
   return reste.length === 0 && estUneCarte(carte) && (n === 1 || n === 2 || n === 3) ? { carte, rang: n } : null
 }
 
-/** Le gardien d'une épreuve de maître lue d'une clé (`lg:dragon`) ; null : une autre clé. */
-export const gardienDeLaMaitrise = (cle: string): string | null => (cle.startsWith(PREFIXE_DES_MAITRISES) && cle.length > PREFIXE_DES_MAITRISES.length ? `lg:${cle.slice(PREFIXE_DES_MAITRISES.length)}` : null)
-
-/** Ce qu'un profil tient : le rang de chaque carte (0 à 3), et les gardiens qu'il a vaincus en maître. */
+/** Ce qu'un profil tient des défis de ses cartes : le rang de chacune, de 0 à 3. */
 export interface DefisTenus {
   rangs: Readonly<Record<CleDeCarte, 0 | RangDUnDefi>>
-  maitrises: readonly string[]
 }
 
-/** Les défis qu'un profil tient, d'après les clés de son étagère — une clé inconnue ou abîmée se tait. */
+/**
+ * Les défis qu'un profil tient, d'après les clés de son étagère — une clé inconnue ou abîmée se tait, comme celle d'une
+ * épreuve de maître d'avant (`cabinet:maitrise:<gardien>`).
+ */
 export function defisTenus(cles: Iterable<string>): DefisTenus {
   const rangs = Object.fromEntries(CARTES_DES_DEFIS.map(c => [c, 0])) as Record<CleDeCarte, 0 | RangDUnDefi>
-  const maitrises: string[] = []
   for (const cle of cles) {
     const r = rangDeLaCle(cle)
     if (r && r.rang > rangs[r.carte]) rangs[r.carte] = r.rang
-    const g = gardienDeLaMaitrise(cle)
-    if (g && !maitrises.includes(g)) maitrises.push(g)
   }
-  return { rangs, maitrises }
+  return { rangs }
 }
 
 /** Combien de défis il tient à ce rang au moins : les cinq Argent de la gerbe, les dix Or du légendaire. */

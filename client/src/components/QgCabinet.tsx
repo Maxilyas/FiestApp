@@ -538,7 +538,7 @@ function LesGardiens({ page }: { page: PageDuCabinetAuQg }) {
     <section className="qg-carte qg-ecran" aria-labelledby="cabinet-gardiens">
       <div className="qg-carte-tete qg-carte-tete-pile">
         <h2 id="cabinet-gardiens">Les gardiens</h2>
-        <span className="muted small">acte par acte : vaincus sur affrontés ; dessous, tirés au départ et vaincus en maître</span>
+        <span className="muted small">acte par acte : vaincus sur affrontés ; dessous, tirés au départ et vaincus</span>
       </div>
       {page.gardiens.length === 0 ? (
         <p className="muted small">Aucune traversée commencée ces trente jours.</p>
@@ -561,7 +561,7 @@ function LesGardiens({ page }: { page: PageDuCabinetAuQg }) {
                         nom={`${nomDuGardien(g.cle)} · ${pluriel(g.affronte, 'affronté', 'affrontés')}`}
                         largeur={vaincus ?? 0}
                         valeur={pourcents(vaincus)}
-                        detail={`tiré ${pluriel(g.tire, 'fois', 'fois')} · ${pluriel(g.vaincu, 'vaincu', 'vaincus')} · ${g.maitrise > 0 ? `${formatNumber(g.maitrise)} en maître` : 'jamais en maître'}`}
+                        detail={`tiré ${pluriel(g.tire, 'fois', 'fois')} · ${pluriel(g.vaincu, 'vaincu', 'vaincus')}`}
                       />
                     )
                   })}
@@ -649,10 +649,10 @@ function LeContenu({ page }: { page: PageDuCabinetAuQg }) {
 
 // ── Les joueurs, et ce qu'on y fait ────────────────────────────────────────
 
-/** Les défis qu'il tient, tous jours confondus : les rangs des défis de ses cartes, ses épreuves de maître. */
-function sesDefis(j: Pick<JoueurDuCabinet, 'rangs' | 'maitrises'>): string {
-  if (j.rangs === 0 && j.maitrises === 0) return 'aucun défi tenu'
-  return `défis tenus : ${pluriel(j.rangs, 'rang')}${j.maitrises > 0 ? `, ${pluriel(j.maitrises, 'épreuve de maître', 'épreuves de maître')}` : ''}`
+/** Ce qu'il tient, tous jours confondus : les rangs des défis de ses cartes, ses exploits tombés — chaque fois compte. */
+function sesDefis(j: Pick<JoueurDuCabinet, 'rangs' | 'exploits'>): string {
+  if (j.rangs === 0 && j.exploits === 0) return 'aucun défi tenu, aucun exploit'
+  return `défis tenus : ${pluriel(j.rangs, 'rang')} · ${j.exploits > 0 ? pluriel(j.exploits, 'exploit') : 'aucun exploit'}`
 }
 
 function LesJoueurs({ page, ouvrir }: { page: PageDuCabinetAuQg; ouvrir: (p: { id: string; nom: string }) => void }) {

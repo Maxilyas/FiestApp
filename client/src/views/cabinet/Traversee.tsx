@@ -37,8 +37,9 @@ import {
   type ThemeAuChoix,
 } from '../../../../shared/cabinet/traversee'
 import type { PageDeLaTraversee, VueDeLaTraversee } from '../../../../shared/cabinet/vues'
-import { defiDeLaCarte, maitriseCourte, maitriseDite } from '../../../../shared/cabinet/defis'
-import { NOMS_DES_DEFIS, RANGS, RANGS_DITS, defisTenus, gardienDeLaMaitrise, rangDeLaCle, type DefisTenus, type RangDUnDefi } from '../../../../shared/cabinet/sceaux'
+import { defiDeLaCarte } from '../../../../shared/cabinet/defis'
+import { NOMS_DES_DEFIS, RANGS, RANGS_DITS, defisTenus, rangDeLaCle, type DefisTenus, type RangDUnDefi } from '../../../../shared/cabinet/sceaux'
+import { NOM_PALIER, clePalier, hautFaitDeSoiree, palierDe, titreDePalier, xpDe, type HautFaitDeCarriere } from '../../../../shared/hautsfaits'
 import { Bourse, Coeurs, Piece, PointsDeVie } from './Monnaies'
 import type { EtapeDessinee, SceneDeLaTraversee } from './TraverseeEn3D'
 
@@ -300,18 +301,79 @@ function FicheDeLaCarte({
 /** Une phrase de rang après les deux-points : sa première lettre en minuscule — « Bronze : un acte fini… ». */
 const enMinuscule = (phrase: string) => phrase.charAt(0).toLowerCase() + phrase.slice(1)
 
-/** Ce qu'une clé tombée dit, une ligne : le plus haut rang de chaque carte, chaque gardien vaincu en maître. */
+/** Ce qu'une clé tombée dit, une ligne : le plus haut rang de chaque carte. */
 function sceauxDits(cles: readonly string[]): string[] {
   const t = defisTenus(cles)
-  const rangs = (Object.keys(NOMS_DES_DEFIS) as CleDeCarte[]).flatMap(c => (cles.some(k => rangDeLaCle(k)?.carte === c) && t.rangs[c] > 0 ? [`${NOMS_DES_DEFIS[c]} · ${RANGS_DITS[t.rangs[c] as RangDUnDefi]}`] : []))
-  const maitres = cles.flatMap(k => {
-    const g = gardienDeLaMaitrise(k)
-    return g ? [`${nomDe(g)} vaincu en maître : il est à toi`] : []
-  })
-  return [...rangs, ...maitres]
+  return (Object.keys(NOMS_DES_DEFIS) as CleDeCarte[]).flatMap(c => (cles.some(k => rangDeLaCle(k)?.carte === c) && t.rangs[c] > 0 ? [`${NOMS_DES_DEFIS[c]} · ${RANGS_DITS[t.rangs[c] as RangDUnDefi]}`] : []))
 }
 
-/** Les sceaux tombés, sous un bilan ou à la fin : ce que ses cartes ont tenu, ses gardiens vaincus en maître. */
+/**
+ * Les exploits de la traversée, son dernier gardien à terre (`VueDeLaTraversee.exploits`) : chacun son emoji, son nom
+ * et l'expérience qu'il rapporte — il se regagne, une traversée au plus chacun, et l'album les compte. Au bilan du coup
+ * final, puis à la fin.
+ */
+function ExploitsTombes({ cles }: { cles: readonly string[] }) {
+  const faits = cles.flatMap(k => {
+    const h = hautFaitDeSoiree(k)
+    return h ? [h] : []
+  })
+  if (faits.length === 0) return null
+  return (
+    <section className="cab-tv-tombes" aria-label={faits.length > 1 ? 'Tes exploits' : 'Ton exploit'}>
+      <p className="cab-tv-sur">{faits.length > 1 ? 'Tes exploits' : 'Ton exploit'}</p>
+      <ul className="cab-tv-notes">
+        {faits.map(h => (
+          <li key={h.key}>
+            <span aria-hidden="true">{h.emoji}</span> {espacesFines(`${h.title} · +${h.xp} XP`)}
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+/**
+ * Les paliers des pistes que sa fin a fait tomber (`VueDeLaTraversee.paliers`) : une ligne par piste, ses métaux réunis
+ * (« Le Parieur · Bronze → Argent »), et ce qu'ils rapportent — comme les trophées de toute fin de partie
+ * (`tropheesTombes`, `shared/gains.ts`, que la traversée ne télécharge pas : ses catalogues n'ont rien à faire sur le
+ * chemin de la carte). Sans lui, les seize pistes du Cabinet montaient en silence.
+ */
+function PaliersTombes({ cles }: { cles: readonly string[] }) {
+  const pistes = new Map<string, { h: HautFaitDeCarriere; metaux: number[] }>()
+  for (const k of cles) {
+    const p = palierDe(k)
+    if (!p) continue
+    const g = pistes.get(p.hautFait.key) ?? { h: p.hautFait, metaux: [] }
+    g.metaux.push(p.palier)
+    pistes.set(p.hautFait.key, g)
+  }
+  if (pistes.size === 0) return null
+  const lignes = [...pistes.values()].map(({ h, metaux }) => {
+    const bas = Math.min(...metaux)
+    const haut = Math.max(...metaux)
+    return {
+      cle: h.key,
+      emoji: h.emoji,
+      titre: bas === haut ? titreDePalier(h, haut) : `${h.title} · ${NOM_PALIER[bas - 1]} → ${NOM_PALIER[haut - 1]}`,
+      xp: metaux.reduce((n, m) => n + xpDe(clePalier(h.key, m)), 0),
+    }
+  })
+  const titre = lignes.length > 1 ? 'Tes trophées' : 'Ton trophée'
+  return (
+    <section className="cab-tv-tombes" aria-label={titre}>
+      <p className="cab-tv-sur">{titre}</p>
+      <ul className="cab-tv-notes">
+        {lignes.map(l => (
+          <li key={l.cle}>
+            <span aria-hidden="true">{l.emoji}</span> {espacesFines(`${l.titre} · +${l.xp} XP`)}
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+/** Les sceaux tombés, sous un bilan ou à la fin : ce que ses cartes ont tenu. */
 function SceauxTombes({ cles, titre }: { cles: readonly string[]; titre: string }) {
   const dits = sceauxDits(cles)
   if (dits.length === 0) return null
@@ -701,7 +763,7 @@ export function Traversee({ page, busy, onCommencer, onGeste, onRegles, onRepren
       })
     plein =
       e.sorte === 'gardien' ? (
-        <AnnonceDuGardien t={t} etape={arrivee} maitrises={defis.maitrises} busy={busy} onAffronter={() => entrer()} onRetour={() => retourALaCarte(arrivee)} />
+        <AnnonceDuGardien t={t} etape={arrivee} busy={busy} onAffronter={() => entrer()} onRetour={() => retourALaCarte(arrivee)} />
       ) : (
         <AnnonceDeLEpreuve t={t} e={e} busy={busy} onCommencer={entrer} onRetour={() => retourALaCarte(arrivee)} />
       )
@@ -716,7 +778,7 @@ export function Traversee({ page, busy, onCommencer, onGeste, onRegles, onRepren
       />
     )
   else if (t.ou.sorte === 'gardien' && t.ou.partie === null)
-    plein = <AnnonceDuGardien t={t} etape={t.ou.etape} maitrises={defis.maitrises} busy={busy} onAffronter={() => void geste({ quoi: 'aller', etape: t.ou.sorte === 'gardien' ? t.ou.etape : '' })} />
+    plein = <AnnonceDuGardien t={t} etape={t.ou.etape} busy={busy} onAffronter={() => void geste({ quoi: 'aller', etape: t.ou.sorte === 'gardien' ? t.ou.etape : '' })} />
 
   /** Renoncer à l'annonce : la comète revient où il était, rien n'est joué. */
   function retourALaCarte(etape: string) {
@@ -728,7 +790,7 @@ export function Traversee({ page, busy, onCommencer, onGeste, onRegles, onRepren
   return (
     <div className="cab-tv" style={{ ['--cab-tv-teinte' as string]: String(ACTES[t.acte].teinte) }}>
       {scene}
-      {!plein && t.ou.sorte === 'cartes' && <LesGardiens t={t} possedes={page.possedes} maitrises={defis.maitrises} onChoisirLesCartes={() => setChoixDesCartes(true)} />}
+      {!plein && t.ou.sorte === 'cartes' && <LesGardiens t={t} possedes={page.possedes} onChoisirLesCartes={() => setChoixDesCartes(true)} />}
       {!plein && t.ou.sorte !== 'cartes' && (
         <LaCarte
           t={t}
@@ -855,7 +917,7 @@ function EcranDeTitre({ page, busy, carte, onCommencer, onRegles }: { page: Page
 
 // ── Les trois gardiens, puis les cartes ──
 
-function LesGardiens({ t, possedes, maitrises, onChoisirLesCartes }: { t: VueDeLaTraversee; possedes: readonly string[]; maitrises: readonly string[]; onChoisirLesCartes: () => void }) {
+function LesGardiens({ t, possedes, onChoisirLesCartes }: { t: VueDeLaTraversee; possedes: readonly string[]; onChoisirLesCartes: () => void }) {
   return (
     <div className="cab-tv-ui">
       <header className="cab-tv-titre">
@@ -866,34 +928,18 @@ function LesGardiens({ t, possedes, maitrises, onChoisirLesCartes }: { t: VueDeL
       <div className="cab-tv-vide" />
       <div className="cab-tv-panneau">
         <section className="cab-tv-verre">
-          {/* Leur épreuve de maître en quelques mots, sous chaque médaillon, dite avant le choix des cartes : certaines s'y
-              préparent — une mise, le Second souffle. Trois phrases entières l'écrasaient (le propriétaire, le 1er novembre
-              2026) ; l'annonce du gardien la redit en entier. */}
+          {/* Leurs épreuves de maître, sous chaque médaillon, sont parties le 4 novembre 2026 (« inutile, il faut enlever
+              ça », le propriétaire) : les trois gardiens, et ce qui se gagne au bout. */}
           <ul className="cab-tv-trio">
-            {t.actes.map((a, k) => {
-              const court = maitriseCourte(a.gardien)
-              const fait = maitrises.includes(a.gardien)
-              return (
-                <li key={a.gardien}>
-                  <img src={imageDuGardien(a.gardien)} alt="" />
-                  <b>{nomDe(a.gardien)}</b>
-                  <small>{possedes.includes(a.gardien) ? 'Déjà à toi' : ACTES[k].court}</small>
-                  {court && (
-                    <span className={'cab-tv-couronne' + (fait ? ' cab-tv-couronne-faite' : '')}>
-                      <span aria-hidden="true">👑</span>
-                      <span className="sr-only">Épreuve de maître : </span>
-                      {fait ? 'Déjà maître' : court}
-                    </span>
-                  )}
-                </li>
-              )
-            })}
+            {t.actes.map((a, k) => (
+              <li key={a.gardien}>
+                <img src={imageDuGardien(a.gardien)} alt="" />
+                <b>{nomDe(a.gardien)}</b>
+                <small>{possedes.includes(a.gardien) ? 'Déjà à toi' : ACTES[k].court}</small>
+              </li>
+            ))}
           </ul>
-          <p className="cab-tv-pale cab-tv-gardiens-dit">
-            {espacesFines('Bats-les tous : l’un d’eux sera à toi.')}
-            <br />
-            <span aria-hidden="true">👑</span> {espacesFines('Vaincu ainsi, il est à toi aussitôt.')}
-          </p>
+          <p className="cab-tv-pale cab-tv-gardiens-dit">{espacesFines('Bats-les tous : l’un d’eux sera à toi.')}</p>
           <button type="button" className="cab-tv-cta" {...toucher(onChoisirLesCartes)}>
             Choisir mes trois cartes
           </button>
@@ -1236,14 +1282,12 @@ function AnnonceDeLEpreuve({
 function AnnonceDuGardien({
   t,
   etape,
-  maitrises,
   busy,
   onAffronter,
   onRetour,
 }: {
   t: VueDeLaTraversee
   etape: string
-  maitrises: readonly string[]
   busy: boolean
   onAffronter: () => void
   onRetour?: () => void
@@ -1267,11 +1311,6 @@ function AnnonceDuGardien({
         <h2 tabIndex={-1}>{nomDe(g)}</h2>
         {fiche && <p className="cab-tv-devise">{espacesFines(fiche.devise)}</p>}
         <PointsDeVie pv={pv.restent} max={pv.max} />
-        {maitriseDite(g) && (
-          <p className="cab-tv-maitrise">
-            <b>Épreuve de maître</b> {espacesFines(maitrises.includes(g) ? `· déjà réussie — ${maitriseDite(g)}` : `· ${maitriseDite(g)} : il est à toi aussitôt, quoi qu’il arrive ensuite.`)}
-          </p>
-        )}
         <div className="cab-tv-regle-gardien">
           <p>
             <b>{t.assauts > 0 ? `Assaut ${assaut}` : 'Le combat'}</b>
@@ -1427,6 +1466,8 @@ function BilanDEpreuve({ t, b, onContinuer }: { t: VueDeLaTraversee; b: BilanDEp
         {b.manches.some(m => m.misee && m.comptee && (m.etoiles ?? 0) === 0) && <p className="cab-tv-pale">{espacesFines(`Une mise perdue coûte ${coeursDits(COEURS_D_UNE_MISE_PERDUE)}.`)}</p>}
         {/* Ce que cette épreuve a fait tomber des défis de tes cartes : un défi tombe à la chute d'un gardien, une mise gagnée. */}
         <SceauxTombes cles={t.derniere?.partie === b.partie ? (t.sceaux?.derniers ?? []) : []} titre="Tes défis" />
+        {/* Le coup qui abat son dernier gardien : les exploits de la traversée tombent avec lui, rangés sous elle. */}
+        {b.vaincu && t.derniere?.partie === b.partie && <ExploitsTombes cles={t.exploits ?? []} />}
         <MissionsDeLEpreuve key={b.partie} />
       </div>
       <div className="cab-tv-pied">
@@ -1678,7 +1719,10 @@ function FinDeLaTraversee({ t, possedes, busy, onCommencer }: { t: VueDeLaTraver
           </>
         )}
         {stats}
-        {/* Ce qu'elle a tenu reste à lui, gagnée ou non : un défi d'acte tenu ne se reprend pas. */}
+        {/* Ce qu'elle a tenu reste à lui, gagnée ou non : un défi d'acte tenu ne se reprend pas. Ses exploits, gagnée ; les
+            paliers de ses pistes, à toute fin. */}
+        {gagnee && <ExploitsTombes cles={t.exploits ?? []} />}
+        <PaliersTombes cles={t.paliers ?? []} />
         <SceauxTombes cles={t.sceaux?.atteints ?? []} titre="Tenu pendant cette traversée" />
       </div>
       <div className="cab-tv-pied">

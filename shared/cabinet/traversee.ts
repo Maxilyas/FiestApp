@@ -813,6 +813,11 @@ export interface BilanDEpreuve {
   /** L'or gagné, celui du gardien vaincu compris. */
   or: number
   coeurs: number
+  /**
+   * Ses cœurs au bout de ses manches, avant que le gardien vaincu ne les rende tous : « Sur le fil » le lit au coup
+   * final (`shared/cabinet/exploits.ts`) — après lui, l'état a déjà ses cœurs au plus. Absent d'un bilan écrit à la main.
+   */
+  restants?: number
   /** Le Second souffle a servi. */
   souffle: boolean
   /** Les points de vie du gardien avant et après l'assaut. */
@@ -1207,6 +1212,7 @@ export function consequencesDe(
     manches,
     or: etat.or - e.or,
     coeurs: perdus,
+    restants: coeurs,
     souffle: souffleIci,
     ...(gardien && pvAvant !== null && pv !== null && { pv: { avant: pvAvant, apres: pv, max: e.pv?.max ?? pvAvant } }),
     vaincu,

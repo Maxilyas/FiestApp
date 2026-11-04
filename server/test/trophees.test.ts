@@ -20,9 +20,8 @@ import { LEGENDAIRES, PREFIXES_DES_VOIES_RANGEES, estUneVoieRangee, partiesDe, v
 import { HAUTS_FAITS_DE_CARRIERE, HAUTS_FAITS_REGAGNABLES, clePalier, hautFait, type HautFaitVu } from '../../shared/hautsfaits'
 import { SEUILS_DU_LAURIER } from '../../shared/jour'
 import { CONFETTIS_D_UN_RANG } from '../../shared/cabinet/bareme'
-import { MAITRISES, NOMS_DES_DEFIS, PHRASES_DES_DEFIS, cleDeLaMaitrise, maitriseDite } from '../../shared/cabinet/sceaux'
+import { NOMS_DES_DEFIS, PHRASES_DES_DEFIS } from '../../shared/cabinet/sceaux'
 import { CARTES_PEINTES } from '../../client/src/components/cartes-peintes'
-import { IMAGES } from '../../client/src/components/legendaires-peints'
 
 const lieu = { pathname: '/profil', search: '', hash: '', origin: 'http://banc' }
 Object.assign(globalThis, { React, window: { location: lieu }, location: lieu })
@@ -155,7 +154,7 @@ const NEUF = {
   sentiers: {},
 }
 
-test('l’album compte tout ce qui se gagne par ce qu’on a fait : 200 trophées, une page par mode — et s’ouvre où l’on joue', () => {
+test('l’album compte tout ce qui se gagne par ce qu’on a fait : 253 trophées, une page par mode — et s’ouvre où l’on joue', () => {
   const pages = albumDesTrophees(NEUF as any)
   assert.deepEqual(
     pages.map(p => `${p.page} ${p.acquis}/${p.total}`),
@@ -163,15 +162,15 @@ test('l’album compte tout ce qui se gagne par ce qu’on a fait : 200 trophée
     // le quiz du jour : six pistes — La Plume depuis le 2 novembre 2026 —, six exploits, trois coups, douze pages ; la campagne : quatre pistes — le
     // Globe-trotter, le passeport de l'expédition, depuis le 18 octobre 2026 —, cinq exploits ; les duels : six
     // ligues, six bordures serties ; les sentiers : trois pistes, deux exploits, douze maîtres ; le Cabinet, depuis le
-    // 1er novembre 2026 : L'Explorateur, rangé en campagne jusque-là ; partout : douze écussons de trois métaux, le
-    // niveau et les Éclats.
-    ['soiree 0/64', 'jour 0/39', 'campagne 0/17', 'duels 0/12', 'sentiers 0/23', 'cabinet 0/3', 'partout 0/42'],
+    // 1er novembre 2026 : L'Explorateur, rangé en campagne jusque-là, et depuis le 4 ses six pistes de fond, ses dix
+    // jeux de trois métaux et ses cinq exploits ; partout : douze écussons de trois métaux, le niveau et les Éclats.
+    ['soiree 0/64', 'jour 0/39', 'campagne 0/17', 'duels 0/12', 'sentiers 0/23', 'cabinet 0/56', 'partout 0/42'],
   )
-  assert.deepEqual(compteDesTrophees(NEUF as any), { acquis: 0, total: 200 })
-  // L'Explorateur ne se compte que là où le serveur le cite — là où le Cabinet s'ouvre : un serveur où il est fermé le
-  // tait, et sa collection ne compte pas trois trophées qu'elle ne montre nulle part ; sans rien d'autre du Cabinet,
-  // sa page ne s'ouvre pas.
-  const sansLui = { ...NEUF, hautsFaits: NEUF.hautsFaits.filter(h => h.key !== 'hf:explorateur') }
+  assert.deepEqual(compteDesTrophees(NEUF as any), { acquis: 0, total: 253 })
+  // Les pistes du Cabinet ne se comptent que là où le serveur les cite — là où le Cabinet s'ouvre : un serveur où il est
+  // fermé les tait, et sa collection ne compte pas ce qu'elle ne montre nulle part — ni ses exploits, qui n'ont de case
+  // que là ; sans rien d'autre du Cabinet, sa page ne s'ouvre pas.
+  const sansLui = { ...NEUF, hautsFaits: NEUF.hautsFaits.filter(h => !HAUTS_FAITS_DE_CARRIERE.some(x => x.montreParLeServeur && x.key === h.key)) }
   assert.deepEqual(compteDesTrophees(sansLui as any), { acquis: 0, total: 197 })
   assert.ok(!albumDesTrophees(sansLui as any).some(p => p.sections.some(s => s.cases.some(c => c.cle === 'hf:explorateur'))))
   assert.ok(!albumDesTrophees(sansLui as any).some(p => p.page === 'cabinet'), 'pas de page « Cabinet 0/0 »')
@@ -222,7 +221,11 @@ test('chaque trophée a sa page : celle du mode où il se gagne', () => {
     ['hf:marathonien:3', 'campagne'],
     ['hf:explorateur:2', 'cabinet'],
     ['cabinet:defi:parade:2', 'cabinet'],
+    // Une épreuve de maître d'avant le 4 novembre 2026 : sa ligne rangée garde sa page.
     ['cabinet:maitrise:phenix', 'cabinet'],
+    ['hf:jeu-pari:2', 'cabinet'],
+    ['hf:bestiaire:1', 'cabinet'],
+    ['hf:intouchable', 'cabinet'],
     ['ligue:or', 'duels'],
     ['maitre:foret', 'sentiers'],
     ['hf:randonneur:2', 'sentiers'],
@@ -237,20 +240,53 @@ async function rendu(composant: string, props: object): Promise<string> {
   return renduDe(composant, props)
 }
 
-test('la page du Cabinet : le défi de chaque carte en trois métaux, l’épreuve de maître de chaque gardien et son légendaire', async () => {
+test('la page du Cabinet : ses pistes, ses dix jeux, ses exploits payés selon leur rareté, et le défi de chaque carte', async () => {
   // « Est-ce que l'on voit quelque part dans la collection, album des trophées, une section cabinets ? » (le
-  // propriétaire, le 1er novembre 2026) : non, jusque-là — les défis et les épreuves de maître ne se voyaient qu'au Cabinet.
+  // propriétaire, le 1er novembre 2026) : non, jusque-là. Puis, le 4 novembre 2026, « peu nombreux en expérience » : six
+  // pistes de fond, une par jeu, des exploits — et les épreuves de maître parties (« inutile, il faut enlever ça »).
   const rangs = Object.fromEntries(Object.keys(NOMS_DES_DEFIS).map(c => [c, 0]))
-  const tient = { ...NEUF, defisDuCabinet: { rangs: { ...rangs, parade: 2, cagnotte: 3 }, maitrises: ['lg:phenix'] } }
+  const tient = { ...NEUF, defisDuCabinet: { rangs: { ...rangs, parade: 2, cagnotte: 3 } } }
   const page = albumDesTrophees(tient as any).find(p => p.page === 'cabinet')!
-  // L'Explorateur, ses dix défis à trois métaux, une épreuve par gardien de la traversée : cinquante et un de plus.
-  assert.deepEqual(page.sections.map(x => [x.cle, x.acquis, x.total]), [['pistes', 0, 3], ['defis', 5, 30], ['maitrises', 1, MAITRISES.size]])
-  assert.equal(MAITRISES.size, 21)
-  assert.deepEqual(compteDesTrophees(tient as any), { acquis: 6, total: 200 + 30 + MAITRISES.size })
+  assert.deepEqual(
+    page.sections.map(x => [x.cle, x.acquis, x.total]),
+    [
+      ['pistes', 0, 21],
+      ['jeux', 0, 30],
+      ['exploits', 0, 5],
+      ['defis', 5, 30],
+    ],
+  )
+  assert.deepEqual(compteDesTrophees(tient as any), { acquis: 5, total: 253 + 30 })
+  // Les pistes : L'Explorateur d'abord, puis celles de fond ; leurs mots courts sous leur case.
+  const [pistes, jeux, exploits, sesDefis] = page.sections
+  assert.deepEqual(
+    pistes.cases.map(c => [c.cle, c.compte]),
+    [
+      ['hf:explorateur', '0 traversée'],
+      ['hf:pensionnaire', '0 épreuve'],
+      ['hf:chasseur', '0 gardien'],
+      ['hf:bestiaire', '0 gardien'],
+      ['hf:coffre-fort', '0 pièce'],
+      ['hf:perfectionniste', '0 parfaite'],
+      ['hf:invaincu', '0 d’affilée'],
+    ],
+  )
+  // Les dix jeux, dans l'ordre de la carte de la traversée, chacun l'emoji de son jeu ; la Frise, qu'aucun gardien ne
+  // joue, à ses paliers à elle.
+  assert.equal(jeux.cases.length, 10)
+  const frise = jeux.cases.find(c => c.cle === 'hf:jeu-frise')!
+  assert.deepEqual([frise.titre, frise.regle, frise.etapes!.map(e => e.seuil)], ['Le Chronologiste', 'épreuves menées au bout à la Frise', [3, 12, 35]])
+  assert.equal(seuilDeLEtape('hf:jeu-pari', 25), '25 épreuves')
+  // Les exploits : ils se regagnent, et rapportent selon leur rareté — la plus rare, le plus.
+  const implacable = exploits.cases.find(c => c.cle === 'hf:implacable')!
+  assert.deepEqual([implacable.sorte, implacable.rarete, implacable.xp], ['exploit', 'legendaire', 400])
+  const fil = exploits.cases.find(c => c.cle === 'hf:sur-le-fil')!
+  assert.deepEqual([fil.rarete, fil.xp], ['epique', 200])
+  assert.match(exploits.aide, /Plus un exploit est rare, plus il rapporte/)
   // Les défis, dans l'ordre des cartes, ce qu'il tient d'abord : chacun sa carte, ses métaux, ce que chaque rang demande
   // et rapporte — des confettis au bronze et à l'argent, et dès l'argent le dos doré de sa carte au choix des cartes
   // (`.cab-tv-doree`), un titre à l'or.
-  const defis = page.sections[1].cases
+  const defis = sesDefis.cases
   assert.deepEqual(
     defis.slice(0, 2).map(c => [c.cle, c.titre, c.metaux, c.compte, c.carte]),
     [
@@ -268,13 +304,6 @@ test('la page du Cabinet : le défi de chaque carte en trois métaux, l’épreu
       [3, false, false, PHRASES_DES_DEFIS.parade[2], 'Le titre « Sans filet »'],
     ],
   )
-  // Les épreuves de maître : une par gardien, ce qu'elle demande, et le légendaire qu'elle donne aussitôt.
-  const phenix = page.sections[2].cases[0]
-  assert.deepEqual([phenix.cle, phenix.titre, phenix.aLui, phenix.gardien, phenix.regle], [cleDeLaMaitrise('lg:phenix'), 'Le Phénix', true, 'lg:phenix', maitriseDite('lg:phenix')])
-  assert.deepEqual(
-    phenix.ouvre?.map(o => [o.recompense.sorte, o.recompense.cle, o.tenue]),
-    [['legendaire', 'lg:phenix', true]],
-  )
   // Leurs fiches : ses rangs, leurs phrases, ce qu'ils rapportent ; le chemin du Cabinet tant qu'il en reste.
   const fiche = await rendu('FicheDuTrophee', { c: parade, page: 'cabinet', visuel: '', cabinet: true })
   assert.match(fiche, /<span class="label album-etiquette">Ses rangs<\/span>/)
@@ -283,24 +312,23 @@ test('la page du Cabinet : le défi de chaque carte en trois métaux, l’épreu
   assert.match(fiche, /Tenu à l’Argent : il ne se reprend jamais\./)
   assert.match(fiche, /href="\/cabinet">Aller au Cabinet<\/a>/)
   assert.doesNotMatch(fiche, /XP/, 'un défi ne rapporte pas d’expérience')
-  const maitre = await rendu('FicheDuTrophee', { c: phenix, page: 'cabinet', visuel: '', cabinet: true })
-  assert.match(maitre, /Vaincu en maître : son légendaire est à toi\./)
-  assert.doesNotMatch(maitre, /1 fois :/)
-  assert.doesNotMatch(maitre, /album-aller/, 'faite, plus de chemin')
-  // La page rendue : chaque défi a la peinture de sa carte pour visuel, chaque épreuve le médaillon de son gardien — en
-  // couleur ce qu'il tient, éteint le reste (`.trophee-manque .trophee-image`).
+  // La fiche d'un exploit dit ce qu'il rapporte à chaque fois, et mène au Cabinet.
+  const ficheDeLExploit = await rendu('FicheDuTrophee', { c: implacable, page: 'cabinet', visuel: implacable.emoji, cabinet: true })
+  assert.match(ficheDeLExploit, /400/)
+  assert.match(ficheDeLExploit, /href="\/cabinet">Aller au Cabinet<\/a>/)
+  // La page rendue : chaque défi a la peinture de sa carte pour visuel — en couleur ce qu'il tient, éteint le reste
+  // (`.trophee-manque .trophee-image`) ; plus aucun médaillon de gardien.
   const album = await rendu('AlbumDesTrophees', { profil: { ...tient, legendaires: [] }, page: 'cabinet', onPage: () => {} })
   const caseDe = (cle: string) => album.match(new RegExp(`<button[^>]*class="trophee-case [^"]*"[^>]*>(?:(?!</button>).)*${cle}`, 's'))?.[0] ?? ''
   assert.ok(album.includes(`src="${CARTES_PEINTES.parade[1]}"`), 'la peinture de la Parade')
-  assert.ok(album.includes(`src="${IMAGES['lg:phenix'].art[1]}"`), 'le médaillon du Phénix')
   for (const carte of Object.keys(NOMS_DES_DEFIS) as (keyof typeof CARTES_PEINTES)[]) assert.ok(album.includes(`src="${CARTES_PEINTES[carte][1]}"`), carte)
-  for (const g of MAITRISES.keys()) assert.ok(album.includes(`src="${IMAGES[g].art[1]}"`), g)
+  assert.doesNotMatch(album, /maître|maitrise/i, 'plus d’épreuve de maître')
   assert.match(caseDe(CARTES_PEINTES.parade[1]), /class="trophee-case trophee-defi"/, 'tenu : en couleur')
   assert.match(caseDe(CARTES_PEINTES['coup-d-oeil'][1]), /class="trophee-case trophee-defi trophee-manque"/, 'pas encore : éteint')
   assert.match(album, /aria-label="Sans filet, bronze, argent"/, 'à l’oreille, ses métaux — rien de vide')
   assert.match(album, /aria-label="L’Œil nu, pas encore"/)
-  // Le Cabinet fermé ici — le serveur ne dit rien de ses défis — : ni défis ni épreuves de maître.
-  assert.deepEqual(albumDesTrophees(NEUF as any).find(p => p.page === 'cabinet')!.sections.map(x => x.cle), ['pistes'])
+  // Le Cabinet fermé ici — le serveur ne dit rien de ses défis — : ses pistes, ses jeux et ses exploits, pas ses défis.
+  assert.deepEqual(albumDesTrophees(NEUF as any).find(p => p.page === 'cabinet')!.sections.map(x => x.cle), ['pistes', 'jeux', 'exploits'])
 })
 
 async function renduDe(composant: string, props: object): Promise<string> {

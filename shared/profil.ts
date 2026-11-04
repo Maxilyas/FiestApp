@@ -19,6 +19,7 @@
 
 import type { QuestionAPoser } from './annonces'
 import type { DefisTenus } from './cabinet/sceaux'
+import type { CleDeJeu } from './cabinet/jeux/regle'
 import type { AfficheDAccueil } from './affiches'
 import type { BadgePorte } from './badges'
 import type { HautFaitVu } from './hautsfaits'
@@ -494,7 +495,13 @@ export const AUCUN_JOUR: StatsDuJour = { joues: 0, victoires: 0, sansFautes: 0, 
  * épreuve sur les sentiers (`statsDesSentiers`), et les salles complètes du
  * Cabinet de curiosités.
  */
-export interface StatsDeCampagne {
+/**
+ * Ses épreuves menées au bout au Cabinet, jeu par jeu (`epreuves:pari`) : les dix pistes des jeux (le 4 novembre
+ * 2026). Une clé par jeu, pour que chaque piste lise la sienne comme toute piste de la campagne (`deCampagne`).
+ */
+export type EpreuvesDesJeux = Record<`epreuves:${CleDeJeu}`, number>
+
+export interface StatsDeCampagne extends EpreuvesDesJeux {
   record: number
   expertes: number
   justes: number
@@ -516,10 +523,48 @@ export interface StatsDeCampagne {
    * remplissait plus : ses paliers rangés restent.
    */
   traversees: number
+  /**
+   * Ce que ses traversées finies laissent aux pistes de fond du Cabinet (le 4 novembre 2026), lu comme ses traversées
+   * gagnées (`statsEnPlus`) : ses épreuves menées au bout, ses gardiens vaincus et combien de différents, l'or qu'elles
+   * ont rapporté, ses épreuves parfaites, et sa plus longue suite de traversées gagnées d'affilée. 0 là où le Cabinet
+   * est fermé.
+   */
+  epreuvesAuCabinet: number
+  gardiensVaincus: number
+  gardiensDifferents: number
+  orDuCabinet: number
+  epreuvesParfaites: number
+  traverseesDAffilee: number
 }
 
+/** Aucune épreuve du Cabinet, jeu par jeu. */
+export const AUCUNE_EPREUVE_DES_JEUX: EpreuvesDesJeux = {
+  'epreuves:epingle': 0,
+  'epreuves:frise': 0,
+  'epreuves:mot': 0,
+  'epreuves:detail': 0,
+  'epreuves:filet': 0,
+  'epreuves:pari': 0,
+  'epreuves:eclair': 0,
+  'epreuves:indices': 0,
+  'epreuves:replique': 0,
+  'epreuves:quiz': 0,
+}
+
+/** Rien du Cabinet : un serveur où il est fermé, un profil qui n'y a jamais fini une traversée. */
+export const RIEN_DU_CABINET = {
+  ...AUCUNE_EPREUVE_DES_JEUX,
+  traversees: 0,
+  epreuvesAuCabinet: 0,
+  gardiensVaincus: 0,
+  gardiensDifferents: 0,
+  orDuCabinet: 0,
+  epreuvesParfaites: 0,
+  traverseesDAffilee: 0,
+} as const satisfies Partial<StatsDeCampagne>
+
 /** Aucune campagne : un profil qui n'y a jamais joué, ou une carrière sans elle. */
-export const AUCUNE_CAMPAGNE: StatsDeCampagne = { record: 0, expertes: 0, justes: 0, paliersValides: 0, etoiles: 0, sentiersMenes: 0, tampons: 0, traversees: 0 }
+export const AUCUNE_CAMPAGNE: StatsDeCampagne = { record: 0, expertes: 0, justes: 0, paliersValides: 0, etoiles: 0, sentiersMenes: 0, tampons: 0, ...RIEN_DU_CABINET }
 
 /** Ce qu'un profil a accumulé sur toutes ses soirées : la fiche, et la base des hauts faits de carrière. */
 export interface Carriere {

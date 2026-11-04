@@ -119,8 +119,10 @@ paths:
   (`voiesMontrees`) ne suffit pas quand la préproduction doit le montrer :
   elle sert le même code — c'est le serveur qui sait (`cabinetOuvert`, posé
   au démarrage sur `ProfileStore.cabinet` ; le crochet `statsEnPlus` de la
-  porte de la campagne, qui compte ses traversées gagnées, n'est branché que
-  là).
+  porte de la campagne, qui compte ses traversées, n'est branché que là). Les
+  dix-sept pistes du Cabinet en sont toutes, depuis le 4 novembre 2026
+  (`auCabinet`) ; ses cinq exploits n'ont pas de jauge : l'album ne les montre
+  qu'avec ses pistes, ou à qui en tient un.
 - **Une piste qui change de mesure garde sa clé** (L'Explorateur, du niveau
   d'explorateur aux salles complètes du Cabinet, le 26 octobre 2026, puis
   aux traversées gagnées, 1, 5 et 15, le 1er novembre 2026 : la traversée
@@ -128,16 +130,19 @@ paths:
   rangés restent à leurs détenteurs (invariant 22), et l'album les montre
   acquis au-dessus de la jauge (`etapesVues` lit les métaux rangés, pas
   seulement la valeur). Ses traversées se lisent de la base dans le lot de
-  `statsDe` (`lectureDesTraverseesGagnees`), jamais de la mémoire du
-  Cabinet : l'autre serveur d'une mise en ligne a pu en finir une. Une
-  traversée se gagne au choix de son légendaire, hors de toute partie : son
-  palier tombe à ce geste, rangé sous elle (`porte.accorderLesPaliers`,
-  `cleDeSerie(<traversée>)`) — sans quoi il attendait la fin d'une partie
-  suivante ; raté, la fin d'une partie le rattrape. Ni `VERSION_BAREME` ni
+  `statsDe` (`lectureDesComptesDuCabinet` : le compte du résumé de chaque
+  traversée finie, que toutes les pistes du Cabinet lisent), jamais de la
+  mémoire du Cabinet : l'autre serveur d'une mise en ligne a pu en finir une.
+  Une traversée se gagne au choix de son légendaire, hors de toute partie :
+  ses paliers tombent à ce geste — et à toute fin qu'il joue, perdue ou
+  abandonnée ; rendue au QG, à sa fin suivante —, rangés sous elle (`porte.accorderLesPaliers`,
+  `cleDeSerie(<traversée>)`) — sans quoi ils attendaient la fin d'une partie
+  suivante ; ratés, la fin d'une partie les rattrape. Ni `VERSION_BAREME` ni
   `DURCISSEMENTS` : rien de soirée, ni légendaire ni courbe. Il vit sur la
-  page « Cabinet » de l'album, avec les défis des cartes et les épreuves de
-  maître (`PISTES_DU_CABINET`, `shared/pagesDesTrophees.ts`), et sa fiche
-  mène au Cabinet, pas à une série (`ouJouer`, `shared/trophees.ts`).
+  page « Cabinet » de l'album, avec les autres pistes du Cabinet, ses dix
+  jeux, ses exploits et les défis des cartes (`PISTES_DU_CABINET`,
+  `shared/pagesDesTrophees.ts`), et sa fiche mène au Cabinet, pas à une
+  série (`ouJouer`, `shared/trophees.ts`).
 - **Durcir la règle d'un haut fait de soirée, d'un prix ou d'un Divin, puis
   monter `VERSION_BAREME`, reprend le passé** : le recalcul remplace les
   lignes de chaque soirée (`remplacerRecompensesDeSoiree`), et ce que la
@@ -146,10 +151,12 @@ paths:
   légendaire : retiens d'abord ce que chacun avait. Les paliers, eux, ne se
   reprennent qu'avec leur soirée.
 - **Une source d'expérience de plus doit faire juger La Légende**
-  (`paliersDuNiveau`) : la clôture d'une soirée et le quiz du jour
-  (`accorderPaliersDuJour`) le font, la campagne non — qui n'y joue
-  qu'elle passe le niveau 10 sans son palier jusqu'à sa prochaine partie du
-  jour ou soirée close.
+  (`paliersDuNiveau`) : la clôture d'une soirée, le quiz du jour
+  (`accorderPaliersDuJour`) et, depuis le 4 novembre 2026, les trophées
+  d'une traversée du Cabinet (`accorderLesPaliers` et `rangerDesExploits` de
+  la porte, quand ils rangent du neuf) le font ; la campagne non — qui n'y
+  joue qu'elle passe le niveau 10 sans son palier jusqu'à sa prochaine
+  partie du jour ou soirée close.
 - **Une fête de plus prend son `depuis`, à l'année qui vient** (`shared/saisons.ts`,
   le 1er novembre 2026) : sans lui, le recalcul de l'historique — une
   `VERSION_BAREME` qui monte — l'aurait ouverte à chaque soirée passée à ses

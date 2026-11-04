@@ -64,12 +64,16 @@ try {
   for (const theme of ['neige', 'ocean']) achat.run(id, theme)
   // Son Phénix a éclaté : la carte de la loge propose sa version rare.
   db.prepare(`INSERT INTO profile_eclats (profile_id, avatar, soiree_id, created_at) VALUES (?, 'lg:phenix', 'une-soiree-d-avant', 1)`).run(id)
-  // Au Cabinet : une traversée gagnée — le bronze de L'Explorateur, rangé sous elle —, la Cagnotte à l'Argent, la Panacée
-  // à l'Or, le Renard et le Dragon vaincus en maître ; la page « Cabinet » de l'album les montre.
-  db.prepare(`INSERT INTO cabinet_traversees (id, profile_id, depart, commencee_le, finie_le, issue, legendaire) VALUES ('traversee-de-lea', ?, '{}', 1, 2, 'gagnee', 'lg:renard')`).run(id)
-  db.prepare(`INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, 'hf:explorateur:1', '#campagne:traversee-de-lea', '', '🎒', 'L’Explorateur', 1)`).run(id)
+  // Au Cabinet : une traversée gagnée — le bronze de L'Explorateur, du Perfectionniste et du Navigateur, L'Intouchable,
+  // rangés sous elle ; son résumé compte ses épreuves, que ses pistes lisent : chaque palier que ses comptes atteignent
+  // rangé, comme sa fin l'aurait fait (sans lui, la fiche cochait un bronze que sa case taisait) —, la Cagnotte à
+  // l'Argent, la Panacée à l'Or ; la page « Cabinet » de l'album les montre.
+  const resume = { v: 2, compte: { jeux: { epingle: 6, pari: 3, quiz: 2, frise: 1 }, parfaites: 12, or: 820 }, vaincus: ['lg:renard', 'lg:sphinx', 'lg:dragon'] }
+  db.prepare(`INSERT INTO cabinet_traversees (id, profile_id, depart, commencee_le, finie_le, issue, legendaire, resume) VALUES ('traversee-de-lea', ?, '{}', 1, 2, 'gagnee', 'lg:renard', ?)`).run(id, JSON.stringify(resume))
+  const sousElle = db.prepare(`INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, ?, '#campagne:traversee-de-lea', '', '🎒', 'Cabinet', 1)`)
+  for (const cle of ['hf:explorateur:1', 'hf:perfectionniste:1', 'hf:jeu-epingle:1', 'hf:intouchable']) sousElle.run(id, cle)
   const sceau = db.prepare(`INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, ?, '#cabinet', '', '🃏', 'défi', 1)`)
-  for (const cle of ['cabinet:defi:cagnotte:1', 'cabinet:defi:cagnotte:2', 'cabinet:defi:panacee:1', 'cabinet:defi:panacee:2', 'cabinet:defi:panacee:3', 'cabinet:maitrise:renard', 'cabinet:maitrise:dragon']) sceau.run(id, cle)
+  for (const cle of ['cabinet:defi:cagnotte:1', 'cabinet:defi:cagnotte:2', 'cabinet:defi:panacee:1', 'cabinet:defi:panacee:2', 'cabinet:defi:panacee:3']) sceau.run(id, cle)
   db.close()
   await banc.redemarrer()
   await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'lg:phenix', gerbe: 'etoiles', ...(ivoire && { theme: 'ivoire' }) }, cookie, 'PUT')
@@ -235,9 +239,11 @@ try {
     ['jour', 'Le Sans-Faute,', 'sans-faute'],
     ['jour', 'Le Champion du jour,', 'champion-du-jour'],
     ['soiree', 'Le Phénix,', 'phenix'],
-    // Au Cabinet : un défi tenu à l'Argent — ses trois rangs et ce que chacun rapporte —, une épreuve de maître à faire.
+    // Au Cabinet : un défi tenu à l'Argent — ses trois rangs et ce que chacun rapporte —, un exploit tenu, ce qu'il paie
+    // à chaque fois, et la piste d'un jeu commencée.
     ['cabinet', 'Le Trésorier,', 'defi-tresorier'],
-    ['cabinet', 'Le Sphinx,', 'maitrise-sphinx'],
+    ['cabinet', 'L’Intouchable,', 'exploit-intouchable'],
+    ['cabinet', 'Le Navigateur,', 'jeu-epingle'],
   ] as const) {
     await page.goto(`${banc.url}/profil#collection-trophees-${p}`)
     await page.waitForSelector('.trophees-grille')

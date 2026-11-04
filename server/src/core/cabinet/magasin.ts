@@ -29,7 +29,7 @@
 // l'horloge de la machine ici (`cabinet-chronos.test.ts`). Le plafond des départs, lui,
 // compte en temps de la machine (`Budget`) : ce n'est pas une échéance.
 import { createHmac, randomUUID } from 'node:crypto'
-import type { ResultSet } from '@libsql/client'
+import type { InStatement, ResultSet } from '@libsql/client'
 import { Budget } from '../budget'
 import type { QuestionDeLaBase } from '../baseCampagne'
 import type { FinDUnePartie, PorteDeLaCampagne, ReponsesEcrites, StatsEnPlus } from '../porteDeLaCampagne'
@@ -55,7 +55,8 @@ import { clesARanger, reconcilier, type EtagereDuCabinet } from './gardiens'
 import { VERSION_DES_DEFIS, defisDeLaTraversee } from '../../../../shared/cabinet/defis'
 import { defisTenus, type DefisTenus } from '../../../../shared/cabinet/sceaux'
 import { GARDIENS_DU_CABINET, RANGEMENT_DU_CABINET, voieDuGardien } from '../../../../shared/cabinet/salles'
-import { lireLeResume, resumeDeLaTraversee, type ResumeDeLaTraversee } from '../../../../shared/cabinet/resume'
+import { VERSION_DU_RESUME, lireLeResume, resumeDeLaTraversee, type ResumeDeLaTraversee } from '../../../../shared/cabinet/resume'
+import { exploitsDeLaTraversee } from '../../../../shared/cabinet/exploits'
 import {
   DUREE_D_UNE_MANCHE_MAX_MS,
   ETAPE_INCONNUE,
@@ -94,8 +95,8 @@ import {
   laTraverseeLue,
   lectureDesPiecesDesParties,
   lectureDesSignalementsDesJeux,
+  lectureDesComptesDuCabinet,
   lectureDesTraverseesFinies,
-  lectureDesTraverseesGagnees,
   lecturesDeLaPartie,
   lecturesDeLaTraversee,
   lecturesDeLaTraverseeEnRoute,
@@ -109,7 +110,7 @@ import {
   lecturesDuMusee,
   laPartieLue,
   lireLeMusee,
-  traverseesGagneesLues,
+  statsDuCabinetLues,
   type LigneDeTraverseeAuQg,
   type PartieLueEnBase,
   type TraverseeLueEnBase,
@@ -337,6 +338,12 @@ export interface TraverseeGardee {
   gestes: GesteDeLaTraverseeEcrit[]
   etat: EtatDeLaTraversee
   commenceeLe: number
+  /**
+   * Les paliers que sa fin a fait tomber ici (`accorderLesPaliers`) : l'écran de fin les dit. En mémoire seulement —
+   * rien de la base ne dit sous quelle traversée un palier s'est rangé sans une lecture de plus : relue après un réveil,
+   * la fin se tait, et l'album les montre.
+   */
+  paliers?: readonly string[]
 }
 
 /** Ce que la page de la traversée lit (`vueDeLaTraversee`) : la dernière, la partie de son épreuve, ses légendaires. */
@@ -616,15 +623,18 @@ export class CabinetStore {
    * Ce que le Cabinet ajoute aux paliers de la campagne (`statsDe`, le crochet
    * `statsEnPlus` de sa porte) : ses traversées gagnées, que L'Explorateur
    * compte depuis le 1er novembre 2026 — ses salles complètes jusque-là, d'un
-   * musée que la traversée a remplacé. De la base, dans le lot même des
-   * paliers — jamais de la mémoire : l'autre serveur d'une mise en ligne a pu
-   * en finir une. Un compte par l'index des traversées du profil. `server.ts`
-   * ne le branche que là où le Cabinet s'ouvre : fermé, aucune traversée, et
-   * L'Explorateur ne tombe pas.
+   * musée que la traversée a remplacé —, et depuis le 4 novembre 2026 ce que
+   * ses traversées finies laissent aux pistes de fond (`statsDuCabinetLues` :
+   * ses épreuves jeu par jeu, ses gardiens, son or, ses parfaites, ses
+   * victoires d'affilée). De la base, dans le lot même des paliers — jamais de
+   * la mémoire : l'autre serveur d'une mise en ligne a pu en finir une. Une
+   * ligne par traversée finie, par l'index des traversées du profil, et de
+   * chacune le seul compte de son résumé. `server.ts` ne le branche que là où
+   * le Cabinet s'ouvre : fermé, aucune traversée, et rien ne tombe.
    */
   readonly statsEnPlus: StatsEnPlus = {
-    lectures: profileId => [lectureDesTraverseesGagnees(profileId)],
-    lire: ([gagnees]) => ({ traversees: traverseesGagneesLues(gagnees) }),
+    lectures: profileId => [lectureDesComptesDuCabinet(profileId)],
+    lire: ([comptes]) => statsDuCabinetLues(comptes),
   }
 
   constructor(
@@ -1661,17 +1671,45 @@ export class CabinetStore {
       this.traversees.delete(profileId)
       return { devance: true }
     }
-    const suite: TraverseeGardee = { ...tr, gestes, etat: apres }
+    let suite: TraverseeGardee = { ...tr, gestes, etat: apres }
     this.garder(this.traversees, profileId, suite, MUSEES_GARDES)
-    if (fin?.legendaire) {
-      await this.rangerLeLegendaire(profileId, fin.legendaire, t)
-      // Une traversée gagnée : L'Explorateur la compte, et son palier tombe tout de suite, rangé sous elle — sans quoi il
-      // attendait la fin de la partie suivante. Raté, il se dit au journal : la fin d'une partie le rattrapera.
-      await this.porte.accorderLesPaliers(profileId, tr.id).catch(e => console.error(`[cabinet] les paliers de la traversée ${tr.id} ne se rangent pas`, e))
+    if (fin?.legendaire) await this.rangerLeLegendaire(profileId, fin.legendaire, t)
+    // Son dernier gardien à terre : ses exploits tombent à ce coup même, rangés sous elle — le bilan de l'épreuve les dit.
+    // Le choix du légendaire, qui la finit, les redemande : rangés deux fois, ils ne tombent qu'une (la clé de leur
+    // rangement), et un rangement raté au coup final s'y rattrape.
+    if ((geste.quoi === 'conclure' && apres.ou.sorte === 'legendaire') || fin?.legendaire) await this.rangerLesExploits(profileId, suite, resume, t)
+    // Toute fin — gagnée, perdue, abandonnée — : ses pistes la comptent (son résumé est dans le lot qui la finit), et
+    // leurs paliers tombent tout de suite, rangés sous elle — L'Explorateur d'une traversée gagnée aussi —, sans quoi ils
+    // attendaient la fin de la partie suivante. Raté, il se dit au journal : la fin d'une partie le rattrapera. Ce qui
+    // tombe, l'écran de fin le dit (`VueDeLaTraversee.paliers`) : sans lui, seize pistes montaient en silence.
+    if (fin) {
+      const paliers = await this.porte.accorderLesPaliers(profileId, tr.id).catch(e => {
+        console.error(`[cabinet] les paliers de la traversée ${tr.id} ne se rangent pas`, e)
+        return [] as string[]
+      })
+      if (paliers.length > 0) {
+        suite = { ...suite, paliers }
+        this.garder(this.traversees, profileId, suite, MUSEES_GARDES)
+      }
     }
-    // Seule une épreuve conclue fait tomber un défi ou une épreuve de maître (`defisDeLaTraversee`) : ils se rangent aussitôt.
+    // Seule une épreuve conclue fait tomber un défi (`defisDeLaTraversee`) : ils se rangent aussitôt.
     if (geste.quoi === 'conclure') await this.rangerLesDefis(profileId, suite, t)
     return { traversee: suite }
+  }
+
+  /**
+   * Les exploits d'une traversée gagnée (`exploitsDeLaTraversee`, lus sur son résumé — celui que sa fin vient d'écrire,
+   * sinon refait de son pli), rangés sous elle par la porte (`rangerDesExploits`), qui fait juger La Légende. Rien tant
+   * que son dernier gardien est debout. Un rangement raté se dit au journal sans faire tomber le geste, déjà écrit.
+   */
+  private async rangerLesExploits(profileId: string, tr: TraverseeGardee, resume: ResumeDeLaTraversee | null, t: number): Promise<void> {
+    const cles = exploitsDeLaTraversee(resume ?? resumeDeLaTraversee(tr.depart, tr.gestes))
+    if (cles.length === 0) return
+    try {
+      await this.porte.rangerDesExploits(profileId, tr.id, cles, t)
+    } catch (e) {
+      console.error(`[cabinet] les exploits de la traversée ${tr.id} ne se rangent pas`, e)
+    }
   }
 
   /**
@@ -1701,8 +1739,8 @@ export class CabinetStore {
 
   /**
    * Ce qu'une traversée a atteint et que l'étagère en mémoire n'a pas encore (`clesARanger`) : les rangs des défis
-   * de ses cartes, chaque gardien vaincu en maître et son légendaire, le légendaire du Cabinet aux dix Or — d'un
-   * seul lot, sous `#cabinet`, idempotent par la clé (invariant 22). Appelé après chaque épreuve conclue, et à
+   * de ses cartes, et le légendaire du Cabinet aux dix Or — d'un seul lot, sous `#cabinet`, idempotent par la clé
+   * (invariant 22). Appelé après chaque épreuve conclue, et à
    * chaque page de la traversée : un rangement raté ne fait tomber ni l'épreuve ni la page, il se dit au journal et
    * la page suivante le refait. Rien ne se range quand rien ne manque — chaque `ranger` neuf recompte l'étagère.
    */
@@ -1719,12 +1757,15 @@ export class CabinetStore {
   }
 
   /**
-   * Les défis des traversées d'avant, une fois par version (`VERSION_DES_DEFIS`, `campagne_meta.relecture_des_defis`)
-   * — au démarrage, comme les autres relectures : chaque traversée relue au pli, et ce qu'elle avait atteint rangé
-   * sous `#cabinet` (`clesARanger`), les légendaires des gardiens vaincus en maître compris. Ses épreuves conclues
-   * avant que le serveur écrive ce qui y a servi (`AidesDUneEpreuve`, le 1er novembre 2026) le reprennent de leurs
-   * parties, relues au pli — en mémoire seulement : le journal d'une traversée ne se réécrit pas. Une relecture ne
-   * fait qu'ajouter (invariant 22), un profil sous son verrou. Rend ce qu'elle a relu, ou null quand c'est déjà fait.
+   * Les traversées d'avant, une fois par version (`VERSION_DES_DEFIS`, `campagne_meta.relecture_des_defis`) — au
+   * démarrage, comme les autres relectures : chaque traversée relue au pli, et ce qu'elle avait atteint rangé. Les rangs
+   * des défis de ses cartes sous `#cabinet` (`clesARanger`). Depuis la version 2 (le 4 novembre 2026), le résumé de
+   * chaque traversée finie refait à la version du jour — ses pistes ne lisent que lui (`lectureDesComptesDuCabinet`) —,
+   * les exploits de chaque traversée gagnée rangés sous elle (`rangerDesExploits`), puis les paliers des pistes de chaque
+   * joueur jugés, sous sa dernière traversée finie (`accorderLesPaliers`). Ses épreuves conclues avant que le serveur
+   * écrive ce qui y a servi (`AidesDUneEpreuve`, le 1er novembre 2026) le reprennent de leurs parties, relues au pli — en
+   * mémoire seulement : le journal d'une traversée ne se réécrit pas. Une relecture ne fait qu'ajouter (invariant 22),
+   * un profil sous son verrou. Rend ce qu'elle a relu, ou null quand c'est déjà fait.
    */
   async relireLesDefis(): Promise<{ traversees: number; profils: number } | null> {
     if (!this.profils.ranger) return null
@@ -1739,11 +1780,24 @@ export class CabinetStore {
       for (const [id, p] of parties) aides.set(id, aidesDeLaPartie(pliDeLaPartie(p.depart, p.gestes)))
     }
     const parProfil = new Map<string, string[]>()
+    const resumes: InStatement[] = []
+    const exploits: { profileId: string; id: string; cles: string[] }[] = []
+    // La dernière traversée finie de chacun, dans l'ordre où elles ont commencé : ses paliers se rangent sous elle.
+    const derniereFinie = new Map<string, string>()
     for (const tr of traversees) {
       const gestes = tr.gestes.map(x => (x.geste.quoi === 'conclure' && !x.geste.aides && aides.has(x.geste.partie) ? { ...x, geste: { ...x.geste, aides: aides.get(x.geste.partie)! } } : x))
       const { cles } = defisDeLaTraversee(tr.depart, gestes)
       if (cles.length > 0) parProfil.set(tr.profileId, [...(parProfil.get(tr.profileId) ?? []), ...cles])
+      const resume = resumeDeLaTraversee(tr.depart, gestes)
+      if (tr.finieLe !== null) {
+        if (tr.versionDuResume !== VERSION_DU_RESUME) resumes.push(ecritureDuResume(tr.id, resume))
+        derniereFinie.set(tr.profileId, tr.id)
+      }
+      const tenus = exploitsDeLaTraversee(resume)
+      if (tenus.length > 0) exploits.push({ profileId: tr.profileId, id: tr.id, cles: tenus })
     }
+    // Les résumés d'abord : les paliers des pistes, plus bas, ne lisent qu'eux.
+    for (let k = 0; k < resumes.length; k += PARTIES_PAR_LECTURE) await this.porte.client.batch(resumes.slice(k, k + PARTIES_PAR_LECTURE), 'write')
     const t = this.maintenant()
     for (const [profileId, cles] of parProfil) {
       await this.porte.avecVerrou(profileId, async () => {
@@ -1751,11 +1805,13 @@ export class CabinetStore {
         if (manquantes.length > 0) await this.profils.ranger!(profileId, RANGEMENT_DU_CABINET, manquantes, t)
       })
     }
+    for (const x of exploits) await this.porte.avecVerrou(x.profileId, () => this.porte.rangerDesExploits(x.profileId, x.id, x.cles, t))
+    for (const [profileId, id] of derniereFinie) await this.porte.avecVerrou(profileId, () => this.porte.accorderLesPaliers(profileId, id))
     await this.porte.client.execute({
       sql: 'INSERT INTO campagne_meta (cle, valeur) VALUES (?, ?) ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur',
       args: [RELECTURE_DES_DEFIS, String(VERSION_DES_DEFIS)],
     })
-    return { traversees: traversees.length, profils: parProfil.size }
+    return { traversees: traversees.length, profils: new Set([...parProfil.keys(), ...exploits.map(x => x.profileId), ...derniereFinie.keys()]).size }
   }
 
   /**
@@ -2175,8 +2231,10 @@ export class CabinetStore {
    * « Rendre une traversée bloquée » (le QG, le 4 novembre 2026 — le pendant de « Libérer une épreuve » des sentiers) :
    * sa traversée en route se referme là où elle en est, rendue — ni gagnée, ni perdue, ni abandonnée —, son épreuve en
    * cours refermée sans rien conclure (`lotDeLaTraverseeRendue`). Rien ne s'y paie ni ne s'y reprend : ce qu'elle a déjà
-   * rangé — les rangs des défis de ses cartes, ses épreuves de maître, l'expérience et les confettis de ses parties —
-   * reste à lui, rien ne s'y ajoute, et une traversée ne coûte rien pour partir : il n'y a rien à lui rendre. Il en
+   * rangé — les rangs des défis de ses cartes, l'expérience et les confettis de ses parties — reste à lui, rien ne s'y
+   * ajoute — ni exploit, ni victoire —, et une traversée ne coûte rien pour partir : il n'y a rien à lui rendre. Ses
+   * épreuves menées au bout comptent pour les pistes du Cabinet, comme elles ont été jouées : leurs paliers tombent à sa
+   * fin suivante, d'une partie ou d'une traversée. Il en
    * commence une neuve quand il veut. Sous le verrou du profil, la base relue — la mémoire de ce serveur n'est pas la plus
    * fraîche quand l'autre d'une mise en ligne a joué —, et une traversée que ce code ne relit pas se rend aussi :
    * c'est elle qui bloque le plus sûrement, la base refusant d'en commencer une autre. `attendue` : celle que la page a

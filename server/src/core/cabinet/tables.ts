@@ -16,11 +16,13 @@
 // pas — refusé, un achat se dit en mots (`rowsAffected`), jamais par une
 // `LibsqlError`.
 import type { InStatement, ResultSet } from '@libsql/client'
-import type { CeQueLeReveilAjoute } from '../porteDeLaCampagne'
+import type { CeQueLeReveilAjoute, StatsDuCabinet } from '../porteDeLaCampagne'
 import { lireUnGeste, lireLeDepart, lireLaMonteeDuDepart } from '../../../../shared/cabinet/lecture'
-import { lireLeDepartDeLaTraversee, lireUnGesteDeLaTraversee, type DepartDeLaTraversee, type GesteDeLaTraverseeEcrit } from '../../../../shared/cabinet/traversee'
+import { gardienDeLaTraversee, lireLeDepartDeLaTraversee, lireUnGesteDeLaTraversee, type DepartDeLaTraversee, type GesteDeLaTraverseeEcrit } from '../../../../shared/cabinet/traversee'
 import type { RecordDeLaTour } from '../../../../shared/cabinet/montee'
-import { VERSION_DU_RESUME, type ResumeDeLaTraversee } from '../../../../shared/cabinet/resume'
+import { VERSION_DU_RESUME, lireLeCompte, type ResumeDeLaTraversee } from '../../../../shared/cabinet/resume'
+import { comptesDesTraversees, type TraverseeComptee } from '../../../../shared/cabinet/exploits'
+import type { EpreuvesDesJeux } from '../../../../shared/profil'
 import type { PieceAuQg } from '../../../../shared/qgCabinet'
 import type { DepartDUnePartie, GesteEcrit, IssueDUnePartie, Manche, OrigineDUnePartie } from '../../../../shared/cabinet/partie'
 import { ISSUES } from '../../../../shared/cabinet/partie'
@@ -354,21 +356,59 @@ export const COLONNES_D_UNE_OEUVRE = 'oeuvre, origine, gagnee_le, saison, serie_
  * Ses œuvres, par la clé du profil — 84 lignes au plus : le lot froid les lit.
  * Le lot des paliers de la campagne les lisait aussi, pour les salles de
  * L'Explorateur, jusqu'au 1er novembre 2026 : il compte depuis les traversées
- * gagnées (`lectureDesTraverseesGagnees`).
+ * gagnées (`lectureDesComptesDuCabinet`).
  */
 export function lectureDesOeuvres(profileId: string): InStatement {
   return { sql: `SELECT ${COLONNES_D_UNE_OEUVRE} FROM cabinet_oeuvres WHERE profile_id = ?`, args: [profileId] }
 }
 
 /**
- * Ses traversées gagnées, que L'Explorateur compte (le 1er novembre 2026) : le
- * lot des paliers de la campagne les lit (`statsEnPlus`), par l'index des
- * traversées du profil — une poignée de lignes, jamais un parcours de la table.
+ * Ses traversées finies, pour les pistes du Cabinet : leur issue — L'Explorateur compte les gagnées depuis le
+ * 1er novembre 2026 —, et depuis le 4 novembre 2026 ce que leur résumé compte d'elles (`$.compte`) et leurs gardiens
+ * vaincus (`$.vaincus`), extraits par la base — jamais le résumé entier, ses épreuves une à une. Le lot des paliers de
+ * la campagne la lit (`statsEnPlus`), par l'index des traversées du profil, dans l'ordre où elles ont commencé —
+ * L'Invaincu y lit ses victoires d'affilée : une ligne par traversée, comme le compte des gagnées qu'elle remplace,
+ * jamais un parcours de la table. Un résumé abîmé ne fait pas échouer le lot (`json_valid`) : sa ligne compte son issue.
  */
-export function lectureDesTraverseesGagnees(profileId: string): InStatement {
-  return { sql: "SELECT COUNT(*) AS n FROM cabinet_traversees WHERE profile_id = ? AND issue = 'gagnee'", args: [profileId] }
+export function lectureDesComptesDuCabinet(profileId: string): InStatement {
+  return {
+    sql: `SELECT issue,
+            CASE WHEN json_valid(resume) THEN json_extract(resume, '$.compte') END AS compte,
+            CASE WHEN json_valid(resume) THEN json_extract(resume, '$.vaincus') END AS vaincus
+          FROM cabinet_traversees WHERE profile_id = ? AND finie_le IS NOT NULL ORDER BY commencee_le`,
+    args: [profileId],
+  }
 }
-export const traverseesGagneesLues = (lu: ResultSet): number => Number(lu.rows[0]?.n ?? 0)
+
+/** Les traversées comptées de cette lecture : un compte abîmé se tait, des gardiens abîmés aussi — l'issue reste. */
+export function traverseesComptees(lu: ResultSet | undefined): TraverseeComptee[] {
+  return ((lu?.rows ?? []) as Record<string, unknown>[]).map(r => {
+    let vaincus: string[] = []
+    try {
+      const brut: unknown = typeof r.vaincus === 'string' ? JSON.parse(r.vaincus) : []
+      if (Array.isArray(brut)) vaincus = brut.filter((g): g is string => gardienDeLaTraversee(g) !== null)
+    } catch {
+      vaincus = []
+    }
+    const issue = r.issue === 'gagnee' || r.issue === 'perdue' || r.issue === 'abandonnee' ? r.issue : null
+    return { issue, compte: lireLeCompte(r.compte), vaincus }
+  })
+}
+
+/** Ce que ses traversées finies donnent aux pistes du Cabinet, champ par champ de `StatsDeCampagne` (`ChampsDuCabinet`). */
+export function statsDuCabinetLues(lu: ResultSet | undefined): StatsDuCabinet {
+  const c = comptesDesTraversees(traverseesComptees(lu))
+  return {
+    ...(Object.fromEntries(CLES_DES_JEUX.map(jeu => [`epreuves:${jeu}`, c.jeux[jeu]])) as EpreuvesDesJeux),
+    traversees: c.traversees,
+    epreuvesAuCabinet: c.epreuves,
+    gardiensVaincus: c.gardiens,
+    gardiensDifferents: c.bestiaire,
+    orDuCabinet: c.or,
+    epreuvesParfaites: c.parfaites,
+    traverseesDAffilee: c.serie,
+  }
+}
 
 export function laLigneDOeuvre(r: Record<string, unknown>): LigneDOeuvre | null {
   const origine = r.origine as OrigineDUneOeuvre
@@ -513,16 +553,21 @@ export function laTraverseeLue(lus: readonly ResultSet[]): TraverseeLueEnBase | 
 }
 
 /**
- * Toutes les traversées et leurs gestes, d'un lot : la relecture des défis de tes cartes, une fois par version
- * (`CabinetStore.relireLesDefis`) — jamais une page. Une traversée que ce code ne relit pas se tait.
+ * Toutes les traversées et leurs gestes, d'un lot : la relecture des défis de tes cartes, des exploits et des comptes des
+ * pistes, une fois par version (`CabinetStore.relireLesDefis`) — jamais une page. Leur fin, et la version de leur résumé,
+ * qu'une version d'avant fait refaire. Une traversée que ce code ne relit pas se tait.
  */
 export const LECTURES_DE_TOUTES_LES_TRAVERSEES: InStatement[] = [
-  'SELECT id, profile_id, depart, commencee_le FROM cabinet_traversees ORDER BY commencee_le',
+  `SELECT id, profile_id, depart, commencee_le, finie_le, CASE WHEN json_valid(resume) THEN json_extract(resume, '$.v') END AS resume_v
+   FROM cabinet_traversees ORDER BY commencee_le`,
   'SELECT traversee_id, rang, geste, fait_le FROM cabinet_traversee_gestes ORDER BY traversee_id, rang',
 ]
 
+/** Une traversée relue de tout le serveur : son profil, sa fin (null en route), la version de son résumé (null : aucun). */
+export type TraverseeDuServeur = TraverseeLueEnBase & { profileId: string; finieLe: number | null; versionDuResume: number | null }
+
 /** Les traversées relues de ce lot, chacune avec son profil ; les illisibles écartées. */
-export function lesTraverseesLues(lus: readonly ResultSet[]): (TraverseeLueEnBase & { profileId: string })[] {
+export function lesTraverseesLues(lus: readonly ResultSet[]): TraverseeDuServeur[] {
   const gestes = new Map<string, Record<string, unknown>[]>()
   for (const r of (lus[1]?.rows ?? []) as Record<string, unknown>[]) {
     const id = String(r.traversee_id)
@@ -530,7 +575,17 @@ export function lesTraverseesLues(lus: readonly ResultSet[]): (TraverseeLueEnBas
   }
   return ((lus[0]?.rows ?? []) as Record<string, unknown>[]).flatMap(ligne => {
     const lue = laTraverseeLue([{ rows: [ligne] } as unknown as ResultSet, { rows: gestes.get(String(ligne.id)) ?? [] } as unknown as ResultSet])
-    return lue && lue !== 'illisible' ? [{ ...lue, profileId: String(ligne.profile_id) }] : []
+    if (!lue || lue === 'illisible') return []
+    const finie = ligne.finie_le
+    const v = ligne.resume_v
+    return [
+      {
+        ...lue,
+        profileId: String(ligne.profile_id),
+        finieLe: finie === null || finie === undefined ? null : nombre(finie),
+        versionDuResume: v === null || v === undefined || !Number.isFinite(Number(v)) ? null : Number(v),
+      },
+    ]
   })
 }
 

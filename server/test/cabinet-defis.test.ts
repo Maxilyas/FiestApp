@@ -1,9 +1,12 @@
-// Les défis de tes cartes et les épreuves de maître (le 1er novembre 2026,
+// Les défis de tes cartes (le 1er novembre 2026,
 // `retours/2026-11-01/defis-des-cartes.md`) : leur catalogue, ce qu'une
 // traversée relevée tient — une épreuve conclue d'avant, qui ne disait pas ce
 // qui y avait servi, ne prouve rien —, ce qui se range et ce qu'on en lit ;
 // puis au serveur : la page qui range ce qui manque, et la relecture des
-// traversées passées au démarrage, ce qui a servi repris de leurs parties.
+// traversées passées au démarrage, ce qui a servi repris de leurs parties. Les
+// épreuves de maître des gardiens, parties le 4 novembre 2026 (« inutile, il
+// faut enlever ça », le propriétaire), ne tombent plus : ce qui reste de
+// celles d'avant se tait, et le légendaire qu'elles ont donné reste à lui.
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { ecrire, inscrireProfil } from './banc'
@@ -12,14 +15,11 @@ import { cleDeSerie } from '../src/auth/profiles'
 import { RELECTURE_DES_DEFIS } from '../src/core/cabinet/magasin'
 import { clesARanger } from '../src/core/cabinet/gardiens'
 import * as B from '../../shared/cabinet/bareme'
-import { CONDITIONS_DE_MAITRISE, DEFIS, VERSION_DES_DEFIS, defiDeLaCarte, defisDeLaTraversee, maitriseCourte, maitriseDite, releverLaTraversee } from '../../shared/cabinet/defis'
-import { MAITRISES, NOMS_DES_CARTES, NOMS_DES_DEFIS, cleDeLaMaitrise, cleDuRang, confettisDesDefis, defisAuMoins, defisTenus, gerbeDesDefis, legendaireDesDefis, nomDuTitreDuDefi, titresDesDefis } from '../../shared/cabinet/sceaux'
+import { DEFIS, VERSION_DES_DEFIS, defiDeLaCarte, defisDeLaTraversee, releverLaTraversee } from '../../shared/cabinet/defis'
+import { NOMS_DES_CARTES, NOMS_DES_DEFIS, cleDuRang, confettisDesDefis, defisAuMoins, defisTenus, gerbeDesDefis, legendaireDesDefis, nomDuTitreDuDefi, titresDesDefis } from '../../shared/cabinet/sceaux'
 import {
   CARTES,
   CLES_DES_CARTES,
-  GARDIENS_DES_ACTES,
-  GARDIENS_DE_LA_TRAVERSEE,
-  GARDIEN_D_HALLOWEEN,
   VERSION_DE_LA_TRAVERSEE,
   etatDeLaTraversee,
   lireUnGesteDeLaTraversee,
@@ -86,9 +86,12 @@ function traversee({ cartes, gardiens, etoiles = () => [3, 3, 3], aides = { ecla
 
 const GARDIENS: [string, string, string] = ['lg:renard', 'lg:sphinx', 'lg:dragon']
 
+/** Une clé d'une épreuve de maître, telle que le serveur la rangeait du 1er au 4 novembre 2026. */
+const MAITRISE_D_AVANT = (gardien: string) => `cabinet:maitrise:${gardien.replace(/^lg:/, '')}`
+
 // ── Les règles, pures ─────────────────────────────────────────────────────
 
-test('le catalogue : un défi par carte, dans l’ordre des cartes, trois rangs dits ; une épreuve de maître par gardien', () => {
+test('le catalogue : un défi par carte, dans l’ordre des cartes, trois rangs dits', () => {
   assert.deepEqual(
     DEFIS.map(x => x.carte),
     [...CLES_DES_CARTES],
@@ -105,29 +108,11 @@ test('le catalogue : un défi par carte, dans l’ordre des cartes, trois rangs 
   // Les chiffres de l'écran se composent du barème.
   assert.match(defiDeLaCarte('cagnotte')!.rangs[0], new RegExp(`^${B.OR_DU_TRESORIER[0]} pièces`))
   assert.match(defiDeLaCarte('quitte-ou-double')!.rangs[2], /^Huit mises/)
-  for (const g of GARDIENS_DE_LA_TRAVERSEE) assert.match(maitriseDite(g.cle) ?? '', /^Le vaincre /, g.cle)
-  assert.equal(maitriseDite('lg:inconnu'), null)
-  assert.equal(maitriseDite('lg:scarabee'), `Le vaincre avec ${B.OR_D_UNE_MAITRISE[0]} pièces en poche`)
-  assert.equal(maitriseDite('lg:dragon'), `Le vaincre avec ${B.OR_D_UNE_MAITRISE[2]} pièces en poche`)
-  // Et en quelques mots, sous le médaillon de chaque gardien (« trop de texte », le propriétaire, le 1er novembre 2026) :
-  // tenus sur trois lignes dans le tiers d'un écran de 360, au barème pour l'or.
-  for (const g of GARDIENS_DE_LA_TRAVERSEE) {
-    const court = maitriseCourte(g.cle) ?? ''
-    assert.ok(court.length > 0 && court.length <= 24, `${g.cle} : « ${court} »`)
-    assert.match(court, /^[A-ZÀ-Ý0-9★]/, `${g.cle} : une majuscule, sous le médaillon`)
-  }
-  assert.equal(maitriseCourte('lg:inconnu'), null)
-  assert.equal(maitriseCourte('lg:dragon'), `${B.OR_D_UNE_MAITRISE[2]} pièces en poche`)
-  // Le module léger que lit l'album des trophées recopie ce qu'il dit de la traversée sans la tirer : le nom de chaque
-  // carte, et l'acte de chaque gardien — dont l'or d'une épreuve de maître dépend (`OR_D_UNE_MAITRISE[acte]`). L'album
-  // les montre dans cet ordre : les cartes comme au choix, les gardiens acte par acte, la Citrouille avec l'acte I.
+  // Le module léger que lit l'album des trophées recopie le nom de chaque carte sans tirer la traversée ; l'album les
+  // montre dans cet ordre, celui du choix.
   assert.deepEqual(Object.entries(NOMS_DES_CARTES), CARTES.map(c => [c.cle, c.nom]), 'les noms des cartes, recopiés pour l’album')
-  assert.deepEqual([...MAITRISES.keys()], [...GARDIENS_DES_ACTES[0], GARDIEN_D_HALLOWEEN, ...GARDIENS_DES_ACTES[1], ...GARDIENS_DES_ACTES[2]], 'une épreuve par gardien, acte par acte')
-  assert.deepEqual([...MAITRISES.keys()].sort(), GARDIENS_DE_LA_TRAVERSEE.map(g => g.cle).sort(), 'aucun gardien de la traversée sans la sienne')
-  for (const [g, m] of MAITRISES) {
-    assert.equal(m.acte, g === GARDIEN_D_HALLOWEEN ? 0 : GARDIENS_DES_ACTES.findIndex(gs => gs.includes(g)), `${g} : l’acte de son cercle`)
-    assert.equal(typeof CONDITIONS_DE_MAITRISE[m.sorte], 'function', `${g} : sa condition`)
-  }
+  // Les épreuves de maître sont parties : ni leur barème, ni leurs mots, ni leurs conditions ne restent.
+  assert.equal('OR_D_UNE_MAITRISE' in B, false)
 })
 
 test('une traversée gagnée sans faute : les défis de ses cartes, les gardiens vaincus en maître, épreuve par épreuve', () => {
@@ -146,10 +131,9 @@ test('une traversée gagnée sans faute : les défis de ses cartes, les gardiens
   assert.equal(cles.includes(cleDuRang('cagnotte', 3)), (r.actes[2].orALaChute ?? 0) >= B.OR_DU_TRESORIER[2])
   // Seules ses cartes comptent : rien de la Parade, qu'il n'a pas.
   assert.ok(!cles.some(c => c.startsWith('cabinet:defi:parade')))
-  // Le Renard sans perdre une étoile, le Sphinx sans rater une manche : vaincus en maître. Le Dragon, selon son or.
-  assert.ok(cles.includes(cleDeLaMaitrise('lg:renard')))
-  assert.ok(cles.includes(cleDeLaMaitrise('lg:sphinx')))
-  assert.equal(cles.includes(cleDeLaMaitrise('lg:dragon')), (r.actes[2].orALaChute ?? 0) >= B.OR_D_UNE_MAITRISE[2])
+  // Le Renard sans perdre une étoile, le Sphinx sans rater une manche : vaincus en maître jusqu'au 4 novembre 2026 —
+  // plus rien de tel ne tombe, seuls les défis de ses cartes.
+  assert.ok(cles.every(c => c.startsWith('cabinet:defi:')), cles.join(', '))
   // Chaque clé tombe à l'épreuve qui l'a faite : le Bronze de l'Œil nu à la chute du premier gardien, l'Or au dernier.
   const ou = (cle: string) => [...parPartie].find(([, cs]) => cs.includes(cle))?.[0]
   const chutes = t.gestes.filter(g => g.geste.quoi === 'conclure').map(g => (g.geste as { partie: string }).partie)
@@ -162,8 +146,7 @@ test('une épreuve conclue d’avant ne prouve rien de ce qui y a servi ; une tr
   // Sans les aides écrites, un acte ne se compte pas « sans un Coup d'œil » : rien ne le prouve.
   const ancienne = traversee({ cartes: ['coup-d-oeil', 'echange', 'concentration'], gardiens: GARDIENS, aides: null })
   const vieilles = defisDeLaTraversee(ancienne.depart, ancienne.gestes).cles
-  assert.ok(!vieilles.some(c => c.startsWith('cabinet:defi:')), vieilles.join(', '))
-  assert.ok(vieilles.includes(cleDeLaMaitrise('lg:renard')), 'une épreuve de maître ne lit que les étoiles')
+  assert.deepEqual(vieilles, [], 'ni défi « sans », ni épreuve de maître : plus rien ne tombe')
   // Écrites, et toutes à zéro : les trois défis « sans » tombent, les trois rangs.
   const neuve = traversee({ cartes: ['coup-d-oeil', 'echange', 'concentration'], gardiens: GARDIENS })
   const tenues = defisDeLaTraversee(neuve.depart, neuve.gestes).cles
@@ -179,13 +162,12 @@ test('une épreuve conclue d’avant ne prouve rien de ce qui y a servi ; une tr
   assert.ok(!gardees.includes(cleDuRang('panacee', 3)))
 })
 
-test('ce qui se range : les clés qui manquent, le légendaire du gardien vaincu en maître, celui des dix Or', () => {
-  const renard = cleDeLaMaitrise('lg:renard')
-  assert.deepEqual(clesARanger([cleDuRang('cagnotte', 1), renard], new Map()), [cleDuRang('cagnotte', 1), renard, voieDuGardien('lg:renard')])
+test('ce qui se range : les clés qui manquent, et le légendaire des dix Or — jamais plus celui d’un gardien', () => {
+  assert.deepEqual(clesARanger([cleDuRang('cagnotte', 1), cleDuRang('parade', 1)], new Map()), [cleDuRang('cagnotte', 1), cleDuRang('parade', 1)])
   // Déjà rangé, d'où qu'il vienne : rien ne se range deux fois.
-  assert.deepEqual(clesARanger([cleDuRang('cagnotte', 1), renard], new Map([[cleDuRang('cagnotte', 1), 1], [voieDuGardien('lg:renard')!, 1]])), [renard])
-  // La Citrouille, gardien de saison : sa voie est sa saison.
-  assert.deepEqual(clesARanger([cleDeLaMaitrise('lg:citrouille')], new Map()), [cleDeLaMaitrise('lg:citrouille'), 'saison:halloween'])
+  assert.deepEqual(clesARanger([cleDuRang('cagnotte', 1), cleDuRang('parade', 1)], new Map([[cleDuRang('cagnotte', 1), 1]])), [cleDuRang('parade', 1)])
+  // Une clé d'une épreuve de maître d'avant ne range plus la voie de son gardien : son légendaire ne se gagne qu'au bout.
+  assert.ok(!clesARanger([MAITRISE_D_AVANT('lg:renard')], new Map()).includes(voieDuGardien('lg:renard')!))
   // Le dixième Or — neuf rangés, le dernier atteint à l'instant : le légendaire des défis.
   const neufOr = new Map(CLES_DES_CARTES.slice(0, 9).map(c => [cleDuRang(c, 3), 1] as const))
   const dernier = cleDuRang(CLES_DES_CARTES[9], 3)
@@ -193,13 +175,14 @@ test('ce qui se range : les clés qui manquent, le légendaire du gardien vaincu
   assert.deepEqual(clesARanger([], neufOr), [], 'neuf Or ne suffisent pas')
 })
 
-test('ce qu’on lit des clés rangées : les rangs, les maîtres, les confettis, les titres, la gerbe et le légendaire', () => {
-  const cles = [cleDuRang('cagnotte', 1), cleDuRang('cagnotte', 2), cleDuRang('parade', 1), cleDeLaMaitrise('lg:dragon'), 'cabinet:defi:bastion:1', 'cabinet:defi:parade:4', 'cabinet:phenix', 'hf:habitue:1']
+test('ce qu’on lit des clés rangées : les rangs, les confettis, les titres, la gerbe et le légendaire', () => {
+  const cles = [cleDuRang('cagnotte', 1), cleDuRang('cagnotte', 2), cleDuRang('parade', 1), MAITRISE_D_AVANT('lg:dragon'), 'cabinet:defi:bastion:1', 'cabinet:defi:parade:4', 'cabinet:phenix', 'hf:habitue:1']
   const t = defisTenus(cles)
   assert.equal(t.rangs.cagnotte, 2)
   assert.equal(t.rangs.parade, 1)
   assert.equal(t.rangs['coup-d-oeil'], 0)
-  assert.deepEqual(t.maitrises, ['lg:dragon'])
+  // Une épreuve de maître d'avant se tait : ce qu'il tient ne dit plus que ses rangs.
+  assert.deepEqual(Object.keys(t), ['rangs'])
   // Les confettis : chaque rang tenu une fois, quelle que soit le nombre de ses lignes.
   const recompenses = new Map(cles.map(c => [c, c === cleDuRang('cagnotte', 1) ? 2 : 1] as const))
   assert.equal(confettisDesDefis(recompenses), 2 * B.CONFETTIS_D_UN_RANG[0] + B.CONFETTIS_D_UN_RANG[1])
@@ -227,8 +210,6 @@ test('le geste qui conclut une épreuve porte ce qui y a servi ; d’avant, il s
     assert.equal(lireUnGesteDeLaTraversee({ quoi: 'conclure', partie: 'p1', manches, aides }, true), null, JSON.stringify(aides))
   }
   assert.equal(lireUnGesteDeLaTraversee({ quoi: 'conclure', partie: 'p1', manches }), null, 'jamais de la page')
-  // Les conditions des épreuves de maître se lisent une à une.
-  assert.deepEqual(Object.keys(CONDITIONS_DE_MAITRISE).sort(), ['apresLeSouffle', 'apresUnCoeurPerdu', 'dEntree', 'orEnPoche', 'sansFaute', 'sansPerdreUnCoeur', 'surUneMise', 'toutesLesEtoiles', 'unSeulAssaut'])
 })
 
 // ── Au serveur ────────────────────────────────────────────────────────────
@@ -269,12 +250,13 @@ test('la page de la traversée range ce que ses épreuves ont tenu, et dit ce qu
   assert.ok(attendues.includes(cleDuRang('coup-d-oeil', 1)))
   assert.deepEqual([...page.traversee!.sceaux.atteints].sort(), [...attendues].sort())
   assert.ok(page.defis.rangs['coup-d-oeil'] >= 1)
-  assert.deepEqual(page.defis.maitrises, ['lg:renard'], 'le Renard vaincu sans perdre une étoile')
-  // Rangés sous le Cabinet, le légendaire du Renard compris : il est à lui.
+  // Rangés sous le Cabinet. Le Renard, vaincu sans perdre une étoile, l'était en maître jusqu'au 4 novembre 2026, et son
+  // légendaire était à lui : plus maintenant — il ne se gagne qu'au bout d'une traversée.
   const ranges = sousLeCabinet(profil)
   for (const c of attendues) assert.ok(ranges.includes(c), c)
-  assert.ok(ranges.includes(voieDuGardien('lg:renard')!))
-  assert.ok(page.possedes.includes('lg:renard'))
+  assert.ok(!ranges.includes(voieDuGardien('lg:renard')!))
+  assert.ok(!ranges.some(c => c.startsWith('cabinet:maitrise:')))
+  assert.ok(!page.possedes.includes('lg:renard'))
   // Une page de plus ne range rien de neuf.
   ok(await lire(b, cookie, '/api/cabinet/traversee'), 'la page encore')
   assert.deepEqual(sousLeCabinet(profil), ranges)
@@ -323,7 +305,7 @@ test('au démarrage, les traversées d’avant se relisent une fois : ce qui a s
   // Rangés sans qu'une page les lise : la relecture du démarrage.
   const ranges = sousLeCabinet(profil)
   for (const carte of ['coup-d-oeil', 'echange', 'concentration'] as const) for (const k of [1, 2, 3] as const) assert.ok(ranges.includes(cleDuRang(carte, k)), `${carte} ${k}`)
-  assert.ok(ranges.includes(cleDeLaMaitrise('lg:renard')))
+  assert.ok(!ranges.some(c => c.startsWith('cabinet:maitrise:')), 'plus d’épreuve de maître')
   const version = enBase(b.fichier, db => (db.prepare('SELECT valeur FROM campagne_meta WHERE cle = ?').get(RELECTURE_DES_DEFIS) as { valeur: string } | undefined)?.valeur)
   assert.equal(Number(version), VERSION_DES_DEFIS)
   // Une fois : effacée derrière son dos, la ligne ne revient pas au démarrage suivant.
@@ -364,18 +346,18 @@ test('ce que les défis rapportent : les confettis au solde, le titre de l’Or 
 })
 
 test('la page du profil dit à l’album ce qu’il tient : là où le Cabinet s’ouvre, et partout à qui en tient un', async () => {
-  // La page « Cabinet » de l'album des trophées lit ses défis et ses épreuves de maître dans la page du profil
-  // (`PublicProfileDetail.defisDuCabinet`). Là où le Cabinet s'ouvre, chacun la reçoit — tout à gagner d'abord.
+  // La page « Cabinet » de l'album des trophées lit ses défis dans la page du profil (`PublicProfileDetail.defisDuCabinet`).
+  // Là où le Cabinet s'ouvre, chacun la reçoit — tout à gagner d'abord.
   const cookie = await unProfil()
   const profil = await idDe(cookie)
-  const sesDefis = async (bc: BancDuCabinet, c: string) => ok(await lire(bc, c, '/api/joueur/moi'), 'le profil').profile.defisDuCabinet as { rangs: Record<string, number>; maitrises: string[] } | undefined
+  const sesDefis = async (bc: BancDuCabinet, c: string) => ok(await lire(bc, c, '/api/joueur/moi'), 'le profil').profile.defisDuCabinet as { rangs: Record<string, number> } | undefined
   const neuf = await sesDefis(b, cookie)
-  assert.ok(neuf && Object.values(neuf.rangs).every(r => r === 0) && neuf.maitrises.length === 0, 'tout à gagner')
-  // Un rang tenu donne ceux d'en dessous : seul le plus haut se lit ; et le gardien vaincu en maître.
+  assert.ok(neuf && Object.values(neuf.rangs).every(r => r === 0), 'tout à gagner')
+  // Un rang tenu donne ceux d'en dessous : seul le plus haut se lit ; une épreuve de maître d'avant se tait.
   const tenir = (bc: BancDuCabinet, qui: string) =>
     aLaMain(
       bc.fichier,
-      [cleDuRang('cagnotte', 2), cleDeLaMaitrise('lg:dragon')]
+      [cleDuRang('cagnotte', 2), MAITRISE_D_AVANT('lg:dragon')]
         .map(c => `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (${q(qui)}, ${q(c)}, '#cabinet', '', '🃏', 'défi', 1)`)
         .join(';\n'),
     )
@@ -384,9 +366,9 @@ test('la page du profil dit à l’album ce qu’il tient : là où le Cabinet s
   const tenus = await sesDefis(b, cookie)
   assert.equal(tenus?.rangs.cagnotte, 2)
   assert.equal(tenus?.rangs.parade, 0)
-  assert.deepEqual(tenus?.maitrises, ['lg:dragon'])
+  assert.deepEqual(Object.keys(tenus ?? {}), ['rangs'])
 
-  // Là où il est fermé, rien à qui n'y a rien gagné — sa collection ne compterait pas « 0 sur 51 » ce qui ne s'y gagne
+  // Là où il est fermé, rien à qui n'y a rien gagné — sa collection ne compterait pas « 0 sur 30 » ce qui ne s'y gagne
   // pas —, mais un rang tenu ne se perd jamais, ni de vue : à son détenteur, comme L'Explorateur.
   const ferme = await bancDuCabinet({ cabinet: false })
   try {
@@ -395,7 +377,7 @@ test('la page du profil dit à l’album ce qu’il tient : là où le Cabinet s
     tenir(ferme, (await lire(ferme, detenteur, '/api/joueur/moi?leger')).corps.profile.id as string)
     await ferme.banc.redemarrer()
     assert.equal(await sesDefis(ferme, sans), undefined, 'tu à qui n’a rien')
-    assert.deepEqual((await sesDefis(ferme, detenteur))?.maitrises, ['lg:dragon'], 'dit à qui en tient un')
+    assert.equal((await sesDefis(ferme, detenteur))?.rangs.cagnotte, 2, 'dit à qui en tient un')
   } finally {
     await ferme.banc.close()
   }

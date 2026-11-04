@@ -135,8 +135,6 @@ export interface StatsDUnGardien {
   /** Celles qui l'ont affronté — un assaut au moins. */
   affronte: number
   vaincu: number
-  /** Vaincu en maître (l'épreuve de maître de sa carte). */
-  maitrise: number
 }
 
 /** Un contenu d'un jeu : joué combien de fois, trouvé combien ; `km` (l'Épingle) la médiane de la distance ; `indices` (les Indices) ceux lus en moyenne. */
@@ -162,9 +160,9 @@ export interface JoueurDuCabinet {
   traversees: number
   gagnees: number
   epreuves: number
-  /** Les rangs des défis de ses cartes qu'il tient, tous jours confondus, et ses épreuves de maître. */
+  /** Les rangs des défis de ses cartes qu'il tient, et ses exploits tombés au Cabinet, tous jours confondus. */
   rangs: number
-  maitrises: number
+  exploits: number
   /** Son dernier passage au Cabinet. */
   dernier: number
 }
@@ -216,7 +214,7 @@ export interface EntreesDeLaPage {
 /** Une page dont les profils ne sont pas encore nommés : leur identifiant seul (`nommerLaPage`). */
 export type PageANommer = Omit<PageDuCabinetAuQg, 'enRoute' | 'joueurs'> & {
   enRoute: (Omit<TraverseeEnRouteAuQg, 'profil'> & { profileId: string })[]
-  joueurs: (Omit<JoueurDuCabinet, 'profil' | 'rangs' | 'maitrises'> & { profileId: string })[]
+  joueurs: (Omit<JoueurDuCabinet, 'profil' | 'rangs' | 'exploits'> & { profileId: string })[]
 }
 
 /** Les jeux dont une pièce est une question de la base, que le joueur peut signaler (`shared/cabinet/pieces.ts`) : les autres sont `cab:`. */
@@ -399,11 +397,10 @@ export function* pageDuCabinetEnTranches(e: EntreesDeLaPage, prefixes: PrefixesD
     if (!r) continue
     r.gardiens.forEach((cle, k) => {
       const acte = k as Acte
-      const s = parGardien.get(`${acte}|${cle}`) ?? { cle, acte, tire: 0, affronte: 0, vaincu: 0, maitrise: 0 }
+      const s = parGardien.get(`${acte}|${cle}`) ?? { cle, acte, tire: 0, affronte: 0, vaincu: 0 }
       s.tire++
       if ((r.assauts[acte] ?? 0) > 0) s.affronte++
       if (r.vaincus.includes(cle)) s.vaincu++
-      if (r.maitrises.includes(cle)) s.maitrise++
       parGardien.set(`${acte}|${cle}`, s)
     })
   }
@@ -493,7 +490,7 @@ export const profilsANommer = (p: PageANommer): string[] => [...new Set([...p.en
  * profil supprimé depuis — ses traversées s'effacent avec lui, mais une page gardée a pu les lire — ne se nomme pas, et
  * sa ligne part.
  */
-export function nommerLaPage(p: PageANommer, profils: ReadonlyMap<string, ProfilNomme>, defis: ReadonlyMap<string, { rangs: number; maitrises: number }>): PageDuCabinetAuQg {
+export function nommerLaPage(p: PageANommer, profils: ReadonlyMap<string, ProfilNomme>, defis: ReadonlyMap<string, { rangs: number; exploits: number }>): PageDuCabinetAuQg {
   return {
     ...p,
     enRoute: p.enRoute.flatMap(({ profileId, ...t }) => {
@@ -502,7 +499,7 @@ export function nommerLaPage(p: PageANommer, profils: ReadonlyMap<string, Profil
     }),
     joueurs: p.joueurs.flatMap(({ profileId, ...j }) => {
       const profil = profils.get(profileId)
-      return profil ? [{ ...j, profil, rangs: defis.get(profileId)?.rangs ?? 0, maitrises: defis.get(profileId)?.maitrises ?? 0 }] : []
+      return profil ? [{ ...j, profil, rangs: defis.get(profileId)?.rangs ?? 0, exploits: defis.get(profileId)?.exploits ?? 0 }] : []
     }),
   }
 }

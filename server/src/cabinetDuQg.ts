@@ -8,6 +8,7 @@ import { tronquer } from '../../shared/avatars'
 import { minuitsDeParis } from '../../shared/qg'
 import { idDeLaFiche, idDeLaReplique, idDuLieu } from '../../shared/cabinet/pieces'
 import { defisTenus } from '../../shared/cabinet/sceaux'
+import { HAUTS_FAITS_DU_CABINET } from '../../shared/hautsfaits'
 import type { CleDeJeu } from '../../shared/cabinet/jeux/regle'
 import type { Replique } from '../../shared/cabinet/contenu'
 import {
@@ -123,9 +124,10 @@ export function mountCabinetDuQg(app: Express, deps: CabinetDuQgDeps) {
     )
     const defis = new Map(
       ids.map(id => {
-        const tenus = defisTenus(deps.profiles.recompensesOf(id).keys())
-        // Un rang tenu donne ceux d'en dessous : l'Or d'une carte, ce sont trois rangs.
-        return [id, { rangs: Object.values(tenus.rangs).reduce<number>((n, r) => n + r, 0), maitrises: tenus.maitrises.length }] as const
+        const etagere = deps.profiles.recompensesOf(id)
+        const tenus = defisTenus(etagere.keys())
+        // Un rang tenu donne ceux d'en dessous : l'Or d'une carte, ce sont trois rangs. Un exploit se regagne : chaque fois compte.
+        return [id, { rangs: Object.values(tenus.rangs).reduce<number>((n, r) => n + r, 0), exploits: HAUTS_FAITS_DU_CABINET.reduce((n, h) => n + (etagere.get(h.key) ?? 0), 0) }] as const
       }),
     )
     return nommerLaPage(aNommer, profils, defis)

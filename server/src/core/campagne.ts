@@ -72,7 +72,7 @@ import { jourAvant, jourDe, minutesAvantMinuit, type PalierTombe } from '../../.
 import type { Saison } from '../../../shared/saisons'
 import { calendrierDesExpeditions } from './saisons'
 import { hautFait, palierDe, titreDePalier } from '../../../shared/hautsfaits'
-import { CHANCE_ECLAT_DU_DEFI, type AnnonceDeLAdministrateur, type StatsDeCampagne } from '../../../shared/profil'
+import { CHANCE_ECLAT_DU_DEFI, RIEN_DU_CABINET, type AnnonceDeLAdministrateur, type StatsDeCampagne } from '../../../shared/profil'
 import {
   ISSUES_QUI_SERVENT,
   QUESTION_DU_MERCI,
@@ -970,6 +970,8 @@ export interface RecompensesDeCampagne {
   tirerUnEclat(profileId: string, sous: string, chance: number): Promise<{ avatar: string; paliers: string[] } | null>
   /** Les légendaires qu'il a (`ProfileStore.legendairesOf`) : l'expédition tire ses gardiens parmi les autres. */
   legendairesOf?(profileId: string): string[]
+  /** Les paliers de La Légende que son niveau atteint, rangés sous `sous` (`ProfileStore.accorderLaLegende`) : le Cabinet les fait juger. */
+  accorderLaLegende?(profileId: string, sous: string): Promise<string[]>
 }
 
 /** Sa ligue, sa cote et ses bordures de ligue (`coteDe`) : sa carte, la bordure qu'il choisit. */
@@ -2675,7 +2677,9 @@ export class CampagneStore {
    * épreuves ont validé sur les sentiers (`statsDesSentiers`). Le niveau
    * d'une question est celui que la série lui donnait quand elle l'a posée.
    * Et ce que le Cabinet y ajoute (`statsEnPlus` : ses traversées gagnées,
-   * pour L'Explorateur), lu dans le même lot : `statsDe` se lit à chaque fin
+   * pour L'Explorateur, et ce que ses traversées finies laissent à ses pistes
+   * de fond — une ligne par traversée, `lectureDesComptesDuCabinet`), lu dans
+   * le même lot : `statsDe` se lit à chaque fin
    * de partie et à chaque page du profil. La renommée de l'Expédition n'y est
    * plus lue depuis le 26 octobre 2026 : quatre lectures qui grandissaient
    * avec ses expéditions, pour un trophée qui compte désormais au Cabinet. Ses
@@ -2701,7 +2705,7 @@ export class CampagneStore {
       ...(enPlus?.lectures(profileId) ?? []),
     ])
     return {
-      traversees: 0,
+      ...RIEN_DU_CABINET,
       ...(enPlus && enPlus.lire(duCabinet)),
       record: Number(record.rows[0]?.n ?? 0),
       // Toutes ses bonnes réponses, du journal : la somme des `justes` de ses
@@ -3337,7 +3341,18 @@ export class CampagneStore {
       lireAvecLeJournal: async lot => (lot.length === 0 ? { lus: [], journal: await this.rattraperLeJournal(this.derniereReponse) } : this.lireAvecLeJournal(lot)),
       ecrireDesReponses: (profileId, lot, fin) => this.ecrireDesReponses(profileId, lot, fin),
       compagnonDeLaNiche: profileId => this.compagnonDeLaNiche(profileId),
-      accorderLesPaliers: async (profileId, sous) => (this.recompenses ? this.recompenses.accorderPaliersDeCampagne(profileId, cleDeSerie(sous), await this.statsDe(profileId)) : []),
+      accorderLesPaliers: async (profileId, sous) => {
+        if (!this.recompenses) return []
+        const paliers = await this.recompenses.accorderPaliersDeCampagne(profileId, cleDeSerie(sous), await this.statsDe(profileId))
+        // Une source d'expérience de plus fait juger La Légende (règle `recompenses.md`) : sans elle, qui ne joue qu'au
+        // Cabinet passait un niveau sans son palier jusqu'à sa prochaine partie du jour.
+        return paliers.length > 0 ? [...paliers, ...((await this.recompenses.accorderLaLegende?.(profileId, cleDeSerie(sous))) ?? [])] : []
+      },
+      rangerDesExploits: async (profileId, sous, cles, quand) => {
+        if (!this.recompenses || cles.length === 0) return []
+        const neufs = await this.recompenses.ranger(profileId, cleDeSerie(sous), cles, quand)
+        return neufs.length > 0 ? [...neufs, ...((await this.recompenses.accorderLaLegende?.(profileId, cleDeSerie(sous))) ?? [])] : []
+      },
       prechauffer: () => this.prechauffer(),
       secretDuCabinet: () => {
         if (this.secretLu === null) throw new TypeError('le secret du Cabinet n’a pas été relu : la campagne s’est ouverte sans `REVEIL_DU_CABINET` (`CampagneStore.init`)')

@@ -664,8 +664,18 @@ export const CONFETTIS_D_UN_RANG: readonly [number, number, number] = [25, 75, 0
 export const ARGENTS_POUR_LA_GERBE = 5
 /** Les défis tenus à l'Or qu'il faut pour le légendaire du Cabinet : les dix. */
 export const ORS_POUR_LE_LEGENDAIRE = 10
-/**
- * L'or en poche qu'une épreuve de maître demande à la chute de son gardien, acte par acte (le Scarabée, la
- * Salamandre, le Dragon) : au calibrage, une traversée du joueur moyen sur sept, cinq et neuf qui l'a vaincu.
- */
-export const OR_D_UNE_MAITRISE: readonly [number, number, number] = [120, 250, 350]
+
+// ── Les exploits de la traversée ──────────────────────────────────────────
+// Le 4 novembre 2026 (« des exploits, challengeants », le propriétaire) : ils
+// se regagnent, une traversée au plus chacun, et se jugent au coup qui abat
+// son dernier gardien (`shared/cabinet/exploits.ts`). Aucun ne demande une
+// carte : les défis de tes cartes le font déjà. Un seuil durci ne reprend
+// rien — les exploits tombés restent rangés sous leur traversée — et ne vaut
+// que pour les traversées à venir ; adouci, il demande de monter
+// `VERSION_DES_DEFIS` pour offrir d'emblée ce que les traversées d'avant
+// tenaient.
+
+/** Touche-à-tout : les jeux différents dont une traversée gagnée a mené des épreuves au bout, assauts compris. */
+export const JEUX_DU_TOUCHE_A_TOUT = 10
+/** Crésus : l'or qu'une traversée gagnée a rapporté — ses gains, jamais ce que le marchand en a pris. */
+export const OR_DE_CRESUS = 1000

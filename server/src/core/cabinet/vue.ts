@@ -74,6 +74,8 @@ import {
 } from '../../../../shared/cabinet/partie'
 import { ameliorables, atteignables, carteDeLaTraversee, coeursMax, offrables, paradesDeLActe, prixAuMarchand } from '../../../../shared/cabinet/traversee'
 import { defisDeLaTraversee } from '../../../../shared/cabinet/defis'
+import { estGagnee, exploitsDeLaTraversee } from '../../../../shared/cabinet/exploits'
+import { resumeDeLaTraversee } from '../../../../shared/cabinet/resume'
 import { POUVOIRS, ceQueFaitLaCarte } from '../../../../shared/cabinet/pouvoirs'
 import { AUTRES_GARDIENS, GARDIENS, GARDIENS_DES_SALLES, GARDIENS_DE_SAISON, SALLES, conditionDuGardien, pouvoirDuGardien, salle, voieDuGardien } from '../../../../shared/cabinet/salles'
 import type {
@@ -498,6 +500,11 @@ export function vueDeLaTraversee(tr: TraverseeGardee, partie: PartieLue | null, 
     offrables: offrables(d, e).map(c => c.cle),
     parades: paradesDeLActe(d, e),
     sceaux: { atteints: defis.cles, derniers: [...((e.derniere && defis.parPartie.get(e.derniere.partie)) ?? [])] },
+    // Ses exploits, une fois son dernier gardien à terre : son résumé refait du pli, comme ses défis — pas avant, il ne
+    // tiendrait rien.
+    exploits: estGagnee(e) ? exploitsDeLaTraversee(resumeDeLaTraversee(d, tr.gestes)) : [],
+    // Les paliers que sa fin a rangés ici : la mémoire seule les sait (`TraverseeGardee.paliers`).
+    ...(e.fin && tr.paliers && tr.paliers.length > 0 && { paliers: [...tr.paliers] }),
     ...(partie && { partie: vueDeLaPartie(partie) }),
   }
 }
