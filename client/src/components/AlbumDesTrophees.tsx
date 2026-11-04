@@ -12,7 +12,6 @@ import { ongletVise } from './Onglets'
 import { espacesFines, formatNumber } from '../format'
 import { cabinetIci } from '../maintenance'
 import { CARTES_PEINTES } from './cartes-peintes'
-import { IMAGES } from './legendaires-peints'
 import { NOM_RARETE, type Rarete } from '../../../shared/badges'
 import { NOM_PALIER, XP_PALIER, hautFaitDeSoiree } from '../../../shared/hautsfaits'
 import { lesPlusProches } from '../../../shared/proches'
@@ -203,8 +202,6 @@ function ouEnEst(c: CaseDeTrophee): string | null {
       return `${c.compte ?? ''}, où que tu joues.`
     case 'defi':
       return c.metaux ? `Tenu ${TENU_AU_RANG[c.metaux]} : il ne se reprend jamais.` : 'Pas encore : il ne compte que si la carte est dans ta main.'
-    case 'maitrise':
-      return c.aLui ? 'Vaincu en maître : son légendaire est à toi.' : 'Pas encore.'
     default:
       return c.aLui ? 'À toi.' : 'Pas encore.'
   }
@@ -254,7 +251,7 @@ export function FicheDuTrophee({ c, page, visuel, cabinet = cabinetIci() }: { c:
             {c.ouvre.map(o => (
               <li key={`${o.fois}-${o.recompense.cle}`} className={o.tenue ? 'tenue' : undefined}>
                 <Icon name={o.tenue ? 'check' : 'lock'} />
-                <span>{espacesFines(`${c.sorte === 'ligue' || c.sorte === 'maitrise' ? '' : `${o.fois} fois : `}${ditLaRecompense(o.recompense)}`)}</span>
+                <span>{espacesFines(`${c.sorte === 'ligue' ? '' : `${o.fois} fois : `}${ditLaRecompense(o.recompense)}`)}</span>
               </li>
             ))}
           </ul>
@@ -306,11 +303,9 @@ function Section({
         )
       case 'ecusson':
         return <Ecusson categorie={c.titre} palier={Math.max(0, Math.min(3, c.metaux ?? 0)) as 0 | 1 | 2 | 3} />
-      // Le Cabinet : la peinture de la carte au dos de laquelle est le défi, le médaillon du gardien d'une épreuve de maître.
+      // Le Cabinet : la peinture de la carte au dos de laquelle est le défi.
       case 'defi':
         return CARTES_PEINTES[c.carte!] ? <img className="trophee-image" src={CARTES_PEINTES[c.carte!][1]} alt="" loading="lazy" /> : c.emoji
-      case 'maitrise':
-        return IMAGES[c.gardien!] ? <img className="trophee-image" src={IMAGES[c.gardien!].art[1]} alt="" loading="lazy" /> : c.emoji
       default:
         return c.aLui ? c.emoji : <span className="silhouette">{c.emoji}</span>
     }

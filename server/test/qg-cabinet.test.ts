@@ -75,7 +75,7 @@ function resume(r: Partial<ResumeDeLaTraversee> = {}): ResumeDeLaTraversee {
     coeurs: 4,
     coeursMax: 5,
     epreuves: [],
-    maitrises: [],
+    compte: { jeux: {}, parfaites: 0, or: 0 },
     defis: 0,
     dernier: null,
     ...r,
@@ -93,7 +93,7 @@ function unMoisDeTraversees(): EntreesDeLaPage {
   const [depuis, aujourdhui] = [minuits[0], minuits[minuits.length - 1]]
   const t = (o: Partial<TraverseeAuQg> & Pick<TraverseeAuQg, 'id' | 'profileId' | 'commenceeLe'>): TraverseeAuQg => ({ finieLe: null, issue: null, legendaire: null, resume: resume(), ...o })
   const traversees: TraverseeAuQg[] = [
-    // Gagnée par p1, le légendaire du Sphinx — ses trois gardiens vaincus, le Sphinx en maître.
+    // Gagnée par p1, le légendaire du Sphinx — ses trois gardiens vaincus.
     t({
       id: 'A',
       profileId: 'p1',
@@ -106,7 +106,6 @@ function unMoisDeTraversees(): EntreesDeLaPage {
         ou: 'legendaire',
         vaincus: [...GARDIENS],
         assauts: [1, 1, 1],
-        maitrises: ['lg:sphinx'],
         dernier: minuits[27] + 3 * H,
         epreuves: [
           { partie: 'a1', jeu: 'pari', acte: 0, etoiles: [3, 2, 0], durees: [20_000, 30_000, 40_000], aides: { eclairer: 1, changer: 0, temps: 0 } },
@@ -172,10 +171,10 @@ function unMoisDeTraversees(): EntreesDeLaPage {
   }
 }
 
-/** Ses profils nommés, sauf p3, supprimé depuis ; p5 suspendu ; p1 tient quatre rangs de défis et une épreuve de maître. */
+/** Ses profils nommés, sauf p3, supprimé depuis ; p5 suspendu ; p1 tient quatre rangs de défis et deux exploits. */
 function nommerLeMois(page: PageANommer): PageDuCabinetAuQg {
   const nom = (id: string) => ({ id, nom: `Nom ${id}`, login: id, suspendu: id === 'p5' })
-  return nommerLaPage(page, new Map(['p1', 'p2', 'p4', 'p5'].map(id => [id, nom(id)])), new Map([['p1', { rangs: 4, maitrises: 1 }]]))
+  return nommerLaPage(page, new Map(['p1', 'p2', 'p4', 'p5'].map(id => [id, nom(id)])), new Map([['p1', { rangs: 4, exploits: 2 }]]))
 }
 
 test('la page se dérive des traversées et des pièces de leurs épreuves : chaque section, en tranches comme d’une traite, puis nommée', async () => {
@@ -236,11 +235,11 @@ test('la page se dérive des traversées et des pièces de leurs épreuves : cha
   )
   assert.deepEqual(page.legendaires, [{ cle: 'lg:sphinx', n: 1 }])
   assert.deepEqual(
-    page.gardiens.map(g => [g.acte, g.cle, g.tire, g.affronte, g.vaincu, g.maitrise]),
+    page.gardiens.map(g => [g.acte, g.cle, g.tire, g.affronte, g.vaincu]),
     [
-      [0, 'lg:renard', 5, 2, 2, 0],
-      [1, 'lg:sphinx', 5, 2, 1, 1],
-      [2, 'lg:dragon', 5, 1, 1, 0],
+      [0, 'lg:renard', 5, 2, 2],
+      [1, 'lg:sphinx', 5, 2, 1],
+      [2, 'lg:dragon', 5, 1, 1],
     ],
   )
   assert.deepEqual(page.contenu.epingle, [{ id: 'lyon', nom: 'Lyon', joues: 3, trouves: 1, km: 120 }])
@@ -262,9 +261,9 @@ test('la page se dérive des traversées et des pièces de leurs épreuves : cha
   assert.deepEqual(profilsANommer(page).sort(), ['p1', 'p2', 'p3', 'p4', 'p5'])
   const nommee = nommerLeMois(page)
   assert.deepEqual(
-    nommee.joueurs.map(j => [j.profil.id, j.rangs, j.maitrises]),
+    nommee.joueurs.map(j => [j.profil.id, j.rangs, j.exploits]),
     [
-      ['p1', 4, 1],
+      ['p1', 4, 2],
       ['p2', 0, 0],
       ['p5', 0, 0],
     ],

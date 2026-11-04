@@ -157,18 +157,25 @@ test('la page du profil lit ses sentiers et ses duels une fois, d’un seul lot 
   assert.ok(profile.bordures.length > 0)
 })
 
-test('ses paliers de campagne ne relisent plus la renommée de l’Expédition : L’Explorateur compte ses traversées gagnées, une fois, par la clé', async () => {
+test('ses paliers de campagne ne relisent plus la renommée de l’Expédition : les pistes du Cabinet comptent ses traversées finies, une fois, par la clé', async () => {
   await lire('/api/joueur/moi')
   const m = await mesurer(() => lire('/api/joueur/moi'))
   // Jusqu'au 26 octobre 2026, `statsDe` relisait à chaque page et à chaque fin de partie les bilans de toutes ses
   // expéditions finies, et de quoi refaire ceux qui manquaient — quatre lectures qui grandissaient avec son histoire.
   const renommee = m.lectures.filter(l => /FROM expedition_gestes|mode = 'expedition' AND finie_le IS NOT NULL/.test(l.sql))
   assert.equal(renommee.length, 0, `sa renommée relue :\n${enClair(m)}`)
-  // À leur place, ses traversées gagnées — ses salles complètes, ses œuvres, jusqu'au 1er novembre 2026 : un compte par
-  // l'index de ses traversées, dans le même lot.
+  // À leur place, ses traversées — ses salles complètes, ses œuvres, jusqu'au 1er novembre 2026 ; un compte de ses
+  // gagnées jusqu'au 4 novembre : une ligne par traversée finie, par l'index de ses traversées, dans le même lot — son
+  // issue, et de son résumé le seul compte que lisent les pistes du Cabinet et ses gardiens vaincus, jamais le résumé
+  // entier ni ses gestes.
   const traversees = m.lectures.filter(l => /FROM cabinet_traversees/.test(l.sql))
   assert.equal(traversees.length, 1, `ses traversées lues ${traversees.length} fois :\n${enClair(m)}`)
-  assert.match(traversees[0].sql, /^SELECT COUNT\(\*\) AS n FROM cabinet_traversees WHERE profile_id = \? AND issue = 'gagnee'$/)
+  const sql = traversees[0].sql.replace(/\s+/g, ' ')
+  assert.match(sql, /^SELECT issue, .* FROM cabinet_traversees WHERE profile_id = \? AND finie_le IS NOT NULL ORDER BY commencee_le$/)
+  assert.deepEqual(sql.match(/json_extract\(resume, '[^']+'\)/g), ["json_extract(resume, '$.compte')", "json_extract(resume, '$.vaincus')"])
+  const horsDesExtraits = sql.replace(/json_(?:valid|extract)\(resume(?:, '[^']+')?\)/g, '')
+  assert.ok(!/\bresume\b/.test(horsDesExtraits), `le résumé entier ne se lit pas : ${sql}`)
+  assert.ok(!m.lectures.some(l => /FROM cabinet_traversee_gestes/.test(l.sql)), 'ses gestes ne se relisent pas')
   assert.ok(!m.lectures.some(l => /FROM cabinet_oeuvres/.test(l.sql)), 'ses œuvres ne se lisent plus pour lui')
   assert.equal(m.resultat.profile.hautsFaits.find((h: { key: string }) => h.key === 'hf:explorateur')?.valeur, 0, 'L’Explorateur cité, aucune traversée')
 })

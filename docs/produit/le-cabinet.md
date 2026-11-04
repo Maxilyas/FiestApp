@@ -87,8 +87,8 @@ Un gardien qu'on a déjà reste un gardien à battre — la traversée se joue p
 - **Chaque manche réussie est une bonne réponse de la campagne** — deux étoiles au moins, ou la bonne réponse au Pari : un confetti, l'expérience d'une bonne réponse, un pas pour le compagnon, les missions du jour. Comme partout en solo.
 - **Sa mission du jour**, depuis le 1er novembre 2026, avec la même chance que les autres découvertes : jouer une épreuve, n'importe laquelle, gagnée ou non, dès sa première réponse ([les missions](les-missions.md)). Le bilan de chaque épreuve dit ce qu'elle a fait des missions du jour, comme la fin de chaque mode.
 - **L'or ne sert que dans la traversée** : au marchand. Il n'en sort jamais, ne s'achète pas, et une traversée perdue le perd avec elle.
-- **Les défis de tes cartes et les épreuves de maître** ([plus bas](#les-défis-de-tes-cartes)) : des confettis, un dos de carte doré, des titres, une gerbe, et des légendaires — le gardien vaincu en maître, le Djinn aux dix défis tenus à l'Or.
-- **L'Explorateur** 🎒, un trophée en trois métaux : une, cinq, puis quinze traversées gagnées. Son palier tombe au choix du légendaire qui la gagne.
+- **Les défis de tes cartes** ([plus bas](#les-défis-de-tes-cartes)) : des confettis, un dos de carte doré, des titres, une gerbe, et un légendaire — le Djinn aux dix défis tenus à l'Or.
+- **Ses trophées** ([plus bas](#les-trophées-de-la-traversée)), depuis le 4 novembre 2026 : dix-sept pistes en trois métaux — L'Explorateur 🎒, une, cinq, puis quinze traversées gagnées ; une par jeu ; six autres « à force de jouer » — et cinq exploits, qui se regagnent et rapportent selon leur rareté.
 
 ## Les défis de tes cartes
 
@@ -111,11 +111,41 @@ Le 1er novembre 2026 : « comme c'est dur d'équilibrer les cartes, est-ce que l
 
 **Ce qu'ils rapportent**, une fois chacun : **25 confettis au Bronze, 75 à l'Argent** — et le dos de la carte doré au choix des cartes —, et à l'**Or, un titre** à porter sur ta carte, le nom du défi (« Le Trésorier »). Cinq défis tenus à l'Argent ouvrent **la gerbe des cartes** (🃏 ♠️ ♥️ ♦️ ♣️) ; les dix tenus à l'Or, **le Djinn**, un légendaire qui ne se gagne que là.
 
-**Les épreuves de maître** : chaque gardien a la sienne, dans l'esprit de sa devise, dite dès l'écran de ses trois gardiens — en quelques mots sous son médaillon, une couronne devant (« 👑 Sans perdre un cœur ») : avant de choisir ses cartes, certaines s'y préparent — et en entier dans son annonce. **Vaincu ainsi, il est à toi aussitôt**, quoi qu'il arrive ensuite, comme le légendaire choisi au bout : le Renard et la Chouette sans perdre une étoile contre eux, le Coq et le Tigre dès la deuxième manche de ton premier assaut, le Scarabée avec 120 pièces en poche, la Salamandre avec 250, le Dragon avec 350, la Citrouille et Janus d'un coup porté sur une mise, le Sphinx, l'Oracle et la Chimère sans rater une manche contre eux, la Chauve-souris, le Phénix et l'Ouroboros dans l'assaut même où tu perds un cœur, le Fantôme, le Serpent et le Trou noir sans perdre un cœur contre eux, le Kraken après que ton Second souffle t'a relevé contre lui, le Lion et la Comète au premier assaut.
+**Les épreuves de maître**, du 1er au 4 novembre 2026 : chaque gardien avait la sienne, et vaincu ainsi, son légendaire était à toi aussitôt. Elles sont parties (« pour moi les épreuves de maître c'est inutile, il faut enlever ça », le propriétaire) : plus rien ne les juge ni ne les montre. **Le légendaire qu'une épreuve de maître t'a donné reste à toi** — il a sa propre ligne sur ton profil —, et un gardien ne se gagne plus qu'en le choisissant au bout d'une traversée.
 
-Tout se lit du journal de la traversée, rien ne s'écrit à côté : une épreuve conclue porte maintenant ce qui y a servi (un Coup d'œil, un Échange, le temps en plus), et ce qu'une traversée atteint se range sur ton profil, une fois pour toutes (l'invariant 22). **Les traversées jouées avant les défis se sont relues une fois**, au démarrage qui les a apportés : ce qu'elles avaient déjà tenu t'a été offert d'emblée — ce qui avait servi dans leurs épreuves repris de leurs parties. Les chiffres, et ce que le calibrage en dit : [les barèmes](../reference/baremes.md#les-défis-de-tes-cartes-et-les-épreuves-de-maître).
+Tout se lit du journal de la traversée, rien ne s'écrit à côté : une épreuve conclue porte maintenant ce qui y a servi (un Coup d'œil, un Échange, le temps en plus), et ce qu'une traversée atteint se range sur ton profil, une fois pour toutes (l'invariant 22). **Les traversées jouées avant les défis se sont relues une fois**, au démarrage qui les a apportés : ce qu'elles avaient déjà tenu t'a été offert d'emblée — ce qui avait servi dans leurs épreuves repris de leurs parties. Les chiffres, et ce que le calibrage en dit : [les barèmes](../reference/baremes.md#les-défis-de-tes-cartes).
 
-**Ils ont leur page dans ta collection** — la page « Cabinet » de l'album des trophées, depuis le soir du 1er novembre 2026 (« est-ce que l'on voit quelque part dans la collection, album des trophées, une section cabinets ? », le propriétaire : défis et maîtres ne se voyaient qu'au Cabinet) : L'Explorateur ; le défi de chaque carte, sa peinture pour case, en couleur dès le Bronze, et dans sa fiche ses trois rangs, ce que chacun demande et rapporte ; les épreuves de maître, le médaillon de chaque gardien, acte par acte — ce que tu tiens en couleur, le reste éteint. Elle ne paraît que là où le Cabinet s'ouvre, ou à qui y a déjà gagné quelque chose.
+**Ils ont leur page dans ta collection** — la page « Cabinet » de l'album des trophées, depuis le soir du 1er novembre 2026 (« est-ce que l'on voit quelque part dans la collection, album des trophées, une section cabinets ? », le propriétaire : les défis ne se voyaient qu'au Cabinet) : ses pistes, ses dix jeux, ses exploits (plus bas), et le défi de chaque carte, sa peinture pour case, en couleur dès le Bronze, et dans sa fiche ses trois rangs, ce que chacun demande et rapporte. Elle ne paraît que là où le Cabinet s'ouvre, ou à qui y a déjà gagné quelque chose.
+
+## Les trophées de la traversée
+
+Le 4 novembre 2026 : « les trophées dans le cabinet ne sont pas très bien et peu nombreux en expérience », puis « j'aimerais que certains soient des tâches de fond, c'est à force de jouer, et d'autres des “exploits”, donc challengeants » — le propriétaire, sur la proposition qu'il a validée le même jour. Tous se comptent de tes traversées, rien ne s'écrit à côté (l'invariant 20) ; ils rapportent de l'expérience, dans la ligne des paliers, comme partout en solo.
+
+**Les pistes, à force de jouer** : trois métaux chacune, 50, 100 puis 200 XP, une fois. Elles comptent tes traversées finies — gagnées, perdues ou abandonnées — et leurs paliers tombent à la fin de chacune : son écran les dit (« Ton trophée : 🎲 Le Parieur · Bronze · +50 XP »). À leur page de l'album, chacune dit où tu en es.
+
+| Piste | Ce qu'elle compte | Bronze · Argent · Or |
+|---|---|---|
+| 🎒 L'Explorateur | tes traversées gagnées | 1 · 5 · 15 |
+| Une par jeu — 🎲 Le Parieur, ⚡ Le Fulgurant, 🔤 Le Cruciverbiste, 🎯 Le Pêcheur, 🖼️ L'Œil de lynx, 📍 Le Navigateur, 🕵️ Le Détective, 🎬 Le Cinéphile, ❓ Le Candidat | tes épreuves menées au bout à ce jeu, assauts compris — une épreuve quittée ne compte pas | 5 · 25 · 75 |
+| ⏳ Le Chronologiste | de même, à la Frise, qu'aucun gardien ne joue : elle vient deux fois moins souvent | 3 · 12 · 35 |
+| 🗝️ Le Pensionnaire | toutes tes épreuves menées au bout | 100 · 400 · 1 000 |
+| 🐾 Le Chasseur de gardiens | tes gardiens vaincus | 10 · 50 · 150 |
+| 📖 Le Bestiaire | tes gardiens différents vaincus — l'or, les vingt de l'année ; la Citrouille d'Halloween compte en plus | 7 · 14 · 20 |
+| 🔐 Le Coffre-fort | l'or que tes traversées t'ont rapporté — jamais ce que le marchand en a pris | 2 500 · 10 000 · 30 000 |
+| ⭐ Le Perfectionniste | tes épreuves parfaites : trois étoiles à chacune de leurs trois manches | 10 · 40 · 100 |
+| 🔗 L'Invaincu | ta plus longue suite de traversées gagnées d'affilée | 2 · 4 · 7 |
+
+**Les exploits, à relever** : ils tombent au coup qui abat ton dernier gardien — le bilan de cette épreuve les dit, la fin de la traversée aussi —, et **se regagnent**, une traversée au plus chacun, comme les exploits des autres modes. **Plus un exploit est rare, plus il rapporte**, chaque fois : 50 XP s'il est commun, 75 peu commun, 100 rare, 200 épique, 400 légendaire. Aucun ne demande une carte : les défis de tes cartes le font déjà.
+
+| Exploit | Ce qu'il demande | Rareté · XP |
+|---|---|---|
+| ❤️ L'Intouchable | gagner une traversée sans perdre un seul cœur — une manche parée ne coûte rien | légendaire · 400 |
+| ❣️ Sur le fil | abattre le dernier gardien avec un seul cœur | épique · 200 |
+| 🗡️ L'Implacable | vaincre les trois gardiens, chacun dès son premier assaut | légendaire · 400 |
+| 🎭 Touche-à-tout | gagner une traversée en menant au bout une épreuve de chacun des dix jeux | épique · 200 |
+| 💰 Crésus | gagner une traversée qui t'a rapporté mille pièces d'or | épique · 200 |
+
+Deux idées du même jour sont devenues des pistes plutôt que des exploits, trop faciles à regagner : l'épreuve parfaite — le joueur moyen du calibrage en fait une par traversée — et trois traversées gagnées d'affilée, que le fort enchaîne. **Tes traversées d'avant comptent** : au démarrage qui a apporté ces trophées, chacune s'est relue une fois, et ce qu'elle tenait t'a été donné. Les seuils, les raretés et ce que le calibrage en dit : [les barèmes](../reference/baremes.md#les-exploits-et-les-pistes-du-cabinet).
 
 ## Les mots du Cabinet
 

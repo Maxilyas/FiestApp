@@ -79,7 +79,7 @@ import { cleDeSaison, saison, type Saison } from '../../../shared/saisons'
 import { etiquetteDuTimbre, timbreDe, timbresDe } from '../../../shared/timbres'
 import { lireLOrigine, type OrigineLue } from '../../../shared/origines'
 import type { SegmentDesAnnonces } from '../../../shared/qgAnimateurs'
-import { NOMS_DES_DEFIS, PREFIXE_DES_DEFIS, RANGS_DITS, confettisDesDefis, defisAuMoins, defisTenus, gardienDeLaMaitrise, nomDuTitreDuDefi, rangDeLaCle, titresDesDefis, type DefisTenus } from '../../../shared/cabinet/sceaux'
+import { NOMS_DES_DEFIS, PREFIXE_DES_DEFIS, RANGS_DITS, confettisDesDefis, defisAuMoins, defisTenus, nomDuTitreDuDefi, rangDeLaCle, titresDesDefis, type DefisTenus } from '../../../shared/cabinet/sceaux'
 import {
   LEGENDAIRE_DES_DEFIS,
   cibleEclat,
@@ -885,12 +885,11 @@ function etiquetteDe(cle: string): { emoji: string; title: string } {
   if (l) return { emoji: '🧭', title: `L’Expédition : ${l.nom}` }
   const g = legendaireDuCabinet(cle)
   if (g) return { emoji: '🏛️', title: `Le Cabinet : ${g.nom}` }
-  // Un rang d'un défi de tes cartes, un gardien vaincu en maître, le légendaire des dix Or (`shared/cabinet/sceaux.ts`) :
-  // rangés sous le Cabinet, hors de l'étagère comme ses gardiens — leur ligne garde quand même un nom qui se lit.
+  // Un rang d'un défi de tes cartes, le légendaire des dix Or (`shared/cabinet/sceaux.ts`) : rangés sous le Cabinet, hors
+  // de l'étagère comme ses gardiens — leur ligne garde quand même un nom qui se lit. Les épreuves de maître, parties le
+  // 4 novembre 2026, ne se rangent plus : leurs lignes gardent le nom qu'elles avaient reçu.
   const rang = rangDeLaCle(cle)
   if (rang) return { emoji: '🃏', title: `Le Cabinet : ${NOMS_DES_DEFIS[rang.carte]} · ${RANGS_DITS[rang.rang]}` }
-  const maitre = gardienDeLaMaitrise(cle)
-  if (maitre) return { emoji: '👑', title: `Le Cabinet : ${legendaire(maitre)?.nom ?? maitre} vaincu en maître` }
   if (cle === cleDuCabinet(LEGENDAIRE_DES_DEFIS)) return { emoji: '🏛️', title: `Le Cabinet : ${legendaire(LEGENDAIRE_DES_DEFIS)?.nom ?? 'les dix défis à l’Or'}` }
   // Une saison rangée hors du quiz du jour — le Cabinet, sa fête : la même étiquette qu'`accorderSaison` lui donne.
   const s = cle.startsWith('saison:') ? saison(cle) : undefined
@@ -4103,17 +4102,16 @@ export class ProfileStore {
   }
 
   /**
-   * Les défis de ses cartes et ses épreuves de maître, que la page « Cabinet »
-   * de l'album montre (`PublicProfileDetail.defisDuCabinet`) : là où il
-   * s'ouvre — trente défis et vingt et une épreuves à gagner, comptés dans sa
-   * collection —, et partout à qui en tient un, comme L'Explorateur
-   * (`hautsFaitsVus`) : un rang tenu ne se perd jamais, ni de vue
+   * Les défis de ses cartes, que la page « Cabinet » de l'album montre
+   * (`PublicProfileDetail.defisDuCabinet`) : là où il s'ouvre — trente rangs à
+   * gagner, comptés dans sa collection —, et partout à qui en tient un, comme
+   * L'Explorateur (`hautsFaitsVus`) : un rang tenu ne se perd jamais, ni de vue
    * (invariant 22). Ailleurs, rien : une collection où le Cabinet est fermé ne
-   * compterait pas « 0 sur 51 » ce qui ne s'y gagne pas.
+   * compterait pas « 0 sur 30 » ce qui ne s'y gagne pas.
    */
   private defisVus(profileId: string): { defisDuCabinet?: DefisTenus } {
     const tenus = defisTenus(this.recompensesOf(profileId).keys())
-    return this.cabinet || tenus.maitrises.length > 0 || defisAuMoins(tenus, 1) > 0 ? { defisDuCabinet: tenus } : {}
+    return this.cabinet || defisAuMoins(tenus, 1) > 0 ? { defisDuCabinet: tenus } : {}
   }
 
   /**

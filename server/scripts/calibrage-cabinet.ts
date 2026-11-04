@@ -82,7 +82,7 @@
 //
 //   npx tsx scripts/calibrage-cabinet.ts [--parcours 4] [--jours 365] [--parties 1000] [--mesures 100]
 //     [--joueurs moyen,bon] [--jeux pari,detail] [--pouvoirs miser,changer] [--graine cabinet] [--sans-musee]
-//     [--sections jeux,oeuvres,cartes,epingle,confettis,musee,traversee] [--traversees 600]
+//     [--sections jeux,oeuvres,cartes,epingle,confettis,musee,traversee] [--traversees 600] [--carriere 200 (rien d'office)]
 //     [--essai ERREURS_DE_LA_FRISE=0/1/2] [--essai SEUILS_DES_RARETES=commun:6/rare:7]
 //     [--essai MARCHES_DU_PARI=pari:moyen+difficile] [--essai MARCHES_DES_ENJEUX=epique:/dorer:]
 //
@@ -121,6 +121,8 @@ import type { DecalageDeLaZone, EpingleMontree, EpingleTiree } from '../../share
 import type { IndicesMontres, IndicesTires } from '../../shared/cabinet/jeux/indices'
 import type { RepliqueMontreeAQui, RepliqueMontreeAuMot, RepliqueTiree } from '../../shared/cabinet/jeux/replique'
 import type { QuizMontre, QuizTire } from '../../shared/cabinet/jeux/quiz'
+import type { ComptesDuCabinet, TraverseeComptee } from '../../shared/cabinet/exploits'
+import type { ResumeDeLaTraversee } from '../../shared/cabinet/resume'
 import type {
   AidesDUneEpreuve,
   CarteEnMain,
@@ -185,6 +187,13 @@ const SANS_MUSEE = ARGS.includes('--sans-musee')
 const enSection = (s: (typeof SECTIONS)[number]) => (sectionsDemandees ? sectionsDemandees.includes(s) : s !== 'traversee' && !(SANS_MUSEE && s === 'musee'))
 /** Les traversées de chaque joueur (`--sections traversee`) : chaque trio des dix cartes autant de fois, à quelques-unes près. */
 const TRAVERSEES = entier('traversees', 600)
+/**
+ * Sa carrière (`--carriere 200`, rien d'office) : ses traversées l'une après l'autre, ses gardiens tirés parmi ceux qui
+ * lui manquent, comme au serveur — la traversée où chaque étape des pistes du Cabinet lui tombe. Demandée seulement : deux
+ * cents traversées de plus par joueur, et la section des traversées que `cabinet-calibrage.test.ts` joue passait ses deux
+ * minutes.
+ */
+const CARRIERE = entier('carriere', 0)
 
 // ── Un barème à l'essai, avant que les règles ne se chargent ──────────────
 
@@ -293,9 +302,12 @@ const { Budget } = await import('../src/core/budget')
 const { tronquer } = await import('../../shared/avatars')
 // La traversée et ses règles, chargées après l'essai comme les autres : un barème de la traversée s'y essaie aussi.
 const T = await import('../../shared/cabinet/traversee')
-// Les défis de tes cartes et les épreuves de maître, relus sur chaque traversée jouée : leurs seuils s'y essaient aussi.
+// Les défis de tes cartes, relus sur chaque traversée jouée : leurs seuils s'y essaient aussi. Et ses exploits et ce que
+// ses pistes comptent, relus sur son résumé (`exploitsDeLaTraversee`, `comptesDesTraversees`) : leurs seuils de même.
 const D = await import('../../shared/cabinet/defis')
 const S = await import('../../shared/cabinet/sceaux')
+const R = await import('../../shared/cabinet/resume')
+const E = await import('../../shared/cabinet/exploits')
 const { JEUX_PRETS } = await import('../../shared/cabinet/ouverture')
 
 const {
@@ -1989,6 +2001,8 @@ interface TraverseeJouee {
   /** Son départ et ses gestes, tels que le serveur les écrirait : les défis de ses cartes s'y relisent (`defisDeLaTraversee`). */
   depart: DepartDeLaTraversee
   gestes: GesteDeLaTraverseeEcrit[]
+  /** Le légendaire choisi au bout, gagnée : un gardien qui lui manque, s'il en reste un parmi les trois. */
+  legendaire?: string
 }
 
 /**
@@ -2083,7 +2097,7 @@ const THEMES_DU_CONTENU = { epingle: [...new Set(LIEUX.map(l => l.theme))], fris
  * quatre cœurs et plus (`ilMise`). Un joueur raisonnable, pas un stratège : ce
  * qu'on mesure est ce que la traversée laisse à qui la joue sans calcul.
  */
-function jouerUneTraversee(j: Joueur, cartes: readonly CleDeCarte[], racine: string): TraverseeJouee {
+function jouerUneTraversee(j: Joueur, cartes: readonly CleDeCarte[], racine: string, possedes: ReadonlySet<string> = new Set()): TraverseeJouee {
   const x: TraverseeJouee = {
     cartes,
     gagnee: false,
@@ -2107,7 +2121,7 @@ function jouerUneTraversee(j: Joueur, cartes: readonly CleDeCarte[], racine: str
     gestes: [],
   }
   const r = hasardDe(`${racine}:choix`)
-  const gardiens = T.choisirLesGardiens(hasardDe(`${racine}:gardiens`), new Set(), false)
+  const gardiens = T.choisirLesGardiens(hasardDe(`${racine}:gardiens`), possedes, false)
   const depart: DepartDeLaTraversee = { v: T.VERSION_DE_LA_TRAVERSEE, jour: JOUR_MESURE, actes: T.tracerLaCarte(hasardDe(`${racine}:carte`), gardiens, THEMES_DU_CONTENU, JEUX_PRETS) }
   x.depart = depart
   let e = T.etatDuDepart(depart)
@@ -2132,7 +2146,9 @@ function jouerUneTraversee(j: Joueur, cartes: readonly CleDeCarte[], racine: str
       continue
     }
     if (e.ou.sorte === 'legendaire') {
-      jouer({ quoi: 'legendaire', gardien: e.vaincus[0] })
+      // Celui qui lui manque, s'il en reste un : sans légendaires, le premier — la mesure de toujours.
+      x.legendaire = e.vaincus.find(g => !possedes.has(g)) ?? e.vaincus[0]
+      jouer({ quoi: 'legendaire', gardien: x.legendaire })
       break
     }
     if (e.ou.sorte === 'marchand') {
@@ -2592,19 +2608,66 @@ if (enSection('traversee')) {
       return S.RANGS.map(k => (avec.length === 0 ? '—' : enPourcent(avec.filter(y => y.cles.has(S.cleDuRang(c, k))).length / avec.length))).join(' · ')
     }
     console.log(`    défis de ses cartes (Bronze · Argent · Or, parmi les traversées qui ont la carte) : ${T.CLES_DES_CARTES.map(c => `${S.NOMS_DES_DEFIS[c]} ${lesRangs(c)}`).join(' ; ')}`)
-    // Les épreuves de maître : parmi les traversées qui ont vaincu ce gardien, celles qui l'ont vaincu en maître.
-    const maitres = T.GARDIENS_DES_ACTES.map(
-      (cercle, k) =>
-        `acte ${ACTES_DITS[k]} — ` +
-        cercle
-          .map(g => {
-            const vaincu = relus.filter(y => y.x.depart.actes[k]?.gardien === g && y.x.acte > k)
-            const nom = g.replace(/^lg:/, '')
-            return vaincu.length < 20 ? `${nom} —` : `${nom} ${enPourcent(vaincu.filter(y => y.cles.has(S.cleDeLaMaitrise(g))).length / vaincu.length)}`
-          })
-          .join(', '),
+    // Les exploits de la traversée (le 4 novembre 2026) : la part de ses traversées qui tiennent chacun — il se regagne,
+    // une traversée au plus —, puis parmi ses gagnées ; relus par la règle même, sur le résumé que le serveur écrirait.
+    const resumes = xs.map(x => R.resumeDeLaTraversee(x.depart, x.gestes))
+    const tenus = resumes.map(r => new Set<string>(E.exploitsDeLaTraversee(r)))
+    const gagneesR = resumes.filter(E.estGagnee)
+    console.log(
+      `    exploits (la part de ses traversées, puis de ses gagnées) : ${E.CLES_DES_EXPLOITS.map(k => {
+        const n = tenus.filter(t => t.has(k)).length
+        return `${k.replace(/^hf:/, '')} ${enPourcent(n / xs.length)} (${gagneesR.length === 0 ? '—' : enPourcent(n / gagneesR.length)})`
+      }).join(' ; ')}`,
     )
-    console.log(`    épreuves de maître (parmi les traversées qui l'ont vaincu) : ${maitres.join(' ; ')}`)
+    // Ce qu'une traversée compte aux pistes : ses épreuves menées au bout, jeu par jeu, ses parfaites, son or rapporté —
+    // et, parmi les gagnées, ses jeux différents menés au bout et son or rapporté, à la médiane et au neuvième décile.
+    const menees = (r: ResumeDeLaTraversee) => Object.values(r.compte.jeux).reduce<number>((a, b) => a + (b ?? 0), 0)
+    const centile = (ys: readonly number[], p: number) => {
+      const t = [...ys].sort((a, b) => a - b)
+      return t.length === 0 ? '—' : formatNumber(t[Math.min(t.length - 1, Math.floor(p * t.length))])
+    }
+    const differents = gagneesR.map(r => Object.keys(r.compte.jeux).length)
+    const orDesGagnees = gagneesR.map(r => r.compte.or)
+    console.log(
+      `    par traversée : ${arrondi(moyenne(resumes.map(menees)))} épreuves menées au bout (${CLES_DES_JEUX.map(jeu => `${jeu} ${arrondi(moyenne(resumes.map(r => r.compte.jeux[jeu] ?? 0)), 2)}`).join(', ')}) ; ${arrondi(
+        moyenne(resumes.map(r => r.compte.parfaites)),
+        2,
+      )} parfaites ; ${arrondi(moyenne(resumes.map(r => r.compte.or)), 0)} pièces rapportées — gagnées : ${centile(differents, 0.5)} jeux différents (9ᵉ décile ${centile(differents, 0.9)}), ${centile(orDesGagnees, 0.5)} pièces (9ᵉ décile ${centile(orDesGagnees, 0.9)}, 95ᵉ centile ${centile(orDesGagnees, 0.95)})`,
+    )
+    // Sa carrière : ses traversées l'une après l'autre, ses gardiens tirés parmi ceux qui lui manquent et le légendaire
+    // choisi parmi eux, comme au serveur — la traversée où chaque seuil essayé de chaque piste lui tombe.
+    const possedes = new Set<string>()
+    const comptees: TraverseeComptee[] = []
+    const ESSAYES: { nom: string; valeur: (c: ComptesDuCabinet) => number; seuils: number[] }[] = [
+      { nom: 'traversées gagnées', valeur: c => c.traversees, seuils: [1, 5, 15] },
+      ...CLES_DES_JEUX.map(jeu => ({ nom: `épreuves ${jeu}`, valeur: (c: ComptesDuCabinet) => c.jeux[jeu], seuils: [5, 10, 25, 40, 75, 100] })),
+      { nom: 'épreuves', valeur: c => c.epreuves, seuils: [25, 50, 100, 250, 500, 750] },
+      { nom: 'gardiens vaincus', valeur: c => c.gardiens, seuils: [5, 10, 25, 50, 75, 100] },
+      { nom: 'gardiens différents', valeur: c => c.bestiaire, seuils: [5, 7, 10, 14, 17, 20] },
+      { nom: 'or rapporté', valeur: c => c.or, seuils: [1000, 2500, 5000, 10000, 20000, 30000] },
+      { nom: 'épreuves parfaites', valeur: c => c.parfaites, seuils: [3, 5, 10, 25, 50, 100] },
+      { nom: 'gagnées d’affilée', valeur: c => c.serie, seuils: [2, 3, 4, 5, 7, 10] },
+    ]
+    const tombee = ESSAYES.map(s => s.seuils.map((): number | null => null))
+    const exploitsDeCarriere = new Map<string, number>()
+    for (let i = 0; i < CARRIERE; i++) {
+      const x = jouerUneTraversee(j, TRIOS[i % TRIOS.length], `${GRAINE}:carriere:${cleDuSavoir(j)}:${i}`, possedes)
+      if (x.legendaire) possedes.add(x.legendaire)
+      const r = R.resumeDeLaTraversee(x.depart, x.gestes)
+      for (const k of E.exploitsDeLaTraversee(r)) if (!exploitsDeCarriere.has(k)) exploitsDeCarriere.set(k, i + 1)
+      comptees.push({ issue: x.gagnee ? 'gagnee' : 'perdue', compte: r.compte, vaincus: r.vaincus })
+      const c = E.comptesDesTraversees(comptees)
+      ESSAYES.forEach((s, a) =>
+        s.seuils.forEach((seuil, b) => {
+          if (tombee[a][b] === null && s.valeur(c) >= seuil) tombee[a][b] = i + 1
+        }),
+      )
+    }
+    if (CARRIERE > 0) {
+      console.log(`    sa carrière de ${formatNumber(CARRIERE)} traversées — la traversée où chaque seuil tombe (— : au-delà) :`)
+      for (const [a, s] of ESSAYES.entries()) console.log(`      ${s.nom} : ${s.seuils.map((seuil, b) => `${formatNumber(seuil)} → ${tombee[a][b] ?? '—'}`).join(' · ')}`)
+      console.log(`      premier exploit de chaque sorte : ${E.CLES_DES_EXPLOITS.map(k => `${k.replace(/^hf:/, '')} → ${exploitsDeCarriere.get(k) ?? '—'}`).join(' · ')}`)
+    }
   }
   // Ce que chaque carte apporte : les victoires des traversées qui l'emportent, et l'écart à toutes, en points.
   const noms = [...parCarte.keys()]

@@ -288,6 +288,9 @@ await etape('legendaire', async () => {
   await page.locator('.cab-tv-pied .cab-tv-cta').click()
   await page.waitForTimeout(1500)
   await photo('legendaire-gagne')
+  // Sous le pli de sa fin : ses exploits, les paliers de ses pistes, les défis de ses cartes (le 4 novembre 2026).
+  await page.evaluate(() => (globalThis as any).document.querySelector('.cab-tv-ecran')?.scrollTo(0, 99999))
+  await photo('legendaire-gagne-bas')
 })
 
 await etape('quiz', async () => {

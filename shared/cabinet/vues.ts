@@ -505,10 +505,21 @@ export interface VueDeLaTraversee {
   /** Ce que la Parade peut encore parer dans cet acte (`paradesDeLActe`) ; null sans Parade, ou sans plafond (jusqu'à la version 2). */
   parades: { restent: number; max: number } | null
   /**
-   * Ce que cette traversée a fait tomber des défis de ses cartes et des épreuves de maître (`defisDeLaTraversee`,
-   * `shared/cabinet/defis.ts`) : toutes ses clés, et celles de sa dernière épreuve conclue — son bilan les dit.
+   * Ce que cette traversée a fait tomber des défis de ses cartes (`defisDeLaTraversee`, `shared/cabinet/defis.ts`) :
+   * toutes ses clés, et celles de sa dernière épreuve conclue — son bilan les dit.
    */
   sceaux: { atteints: string[]; derniers: string[] }
+  /**
+   * Ses exploits (`exploitsDeLaTraversee`, `shared/cabinet/exploits.ts`), dès que son dernier gardien est à terre : le
+   * bilan du coup final et sa fin les disent, rangés sous elle. Vide avant ; absent d'un serveur d'avant.
+   */
+  exploits?: string[]
+  /**
+   * Les paliers des pistes que sa fin a fait tomber (`hf:jeu-pari:1`, `hf:explorateur:2`, La Légende), tels que ce
+   * serveur les a rangés à son dernier geste : sa fin les dit. Absent sans eux — et relue après un réveil, la mémoire
+   * les ayant oubliés : l'album les a.
+   */
+  paliers?: string[]
   partie?: VueDeLaPartie
 }
 
@@ -518,7 +529,7 @@ export interface PageDeLaTraversee {
   traversee: VueDeLaTraversee | null
   /** Ses légendaires : un gardien qu'il a déjà se dit « déjà à toi », au départ comme au choix final. */
   possedes: string[]
-  /** Ce qu'il tient des défis de ses cartes, toutes traversées confondues — le rang de chaque carte, les gardiens vaincus en maître. */
+  /** Ce qu'il tient des défis de ses cartes, toutes traversées confondues : le rang de chaque carte. */
   defis: DefisTenus
 }
 

@@ -9,12 +9,17 @@
 // ses gestes : trente jours de traversées, c'étaient des milliers de gestes à
 // rejouer à chaque ouverture.
 //
+// Depuis la version 2 (le 4 novembre 2026, les trophées du Cabinet), il porte
+// aussi ce que ses pistes comptent d'elle (`compte`) : le lot des paliers de
+// la campagne n'en lit que ce morceau (`json_extract`), une ligne par
+// traversée finie, jamais ses gestes ni ses épreuves une à une.
+//
 // Pur (invariant 14) : une traversée finie et une traversée en route passent
 // par le même chemin.
 
 import { MANCHES_PAR_PARTIE } from './bareme'
 import { defisDeLaTraversee } from './defis'
-import { gardienDeLaMaitrise, rangDeLaCle } from './sceaux'
+import { rangDeLaCle } from './sceaux'
 import { CLES_DES_JEUX, type CleDeJeu } from './jeux/regle'
 import {
   NIVEAU_MAX,
@@ -39,8 +44,12 @@ import {
   type OuEnEst,
 } from './traversee'
 
-/** La forme du résumé, telle qu'écrite : un résumé d'une autre version se refait de son pli. */
-export const VERSION_DU_RESUME = 1
+/**
+ * La forme du résumé, telle qu'écrite : un résumé d'une autre version se refait de son pli. La 2 (le 4 novembre 2026) a
+ * quitté les épreuves de maître et pris ce que les pistes du Cabinet comptent (`compte`), les cœurs de chaque épreuve
+ * et ceux qui restaient au coup final ; la relecture du démarrage refait les résumés d'avant (`CabinetStore.relireLesDefis`).
+ */
+export const VERSION_DU_RESUME = 2
 
 /** Une épreuve conclue — ou un assaut contre un gardien —, telle que le pli l'a payée. */
 export interface EpreuveResumee {
@@ -66,7 +75,31 @@ export interface EpreuveResumee {
   vaincu?: true
   /** Le dernier cœur y est tombé. */
   perdue?: true
+  /** Les cœurs qu'elle a coûtés, quand elle en a coûté (la Parade comprise : une manche parée ne coûte rien). */
+  coeurs?: number
+  /** Le gardien tombé : ses cœurs au coup final, avant qu'il ne les rende tous (`BilanDEpreuve.restants`). */
+  restants?: number
 }
+
+/**
+ * Ce que les pistes du Cabinet comptent d'une traversée (le 4 novembre 2026) : un reflet compact du pli, que le lot des
+ * paliers de la campagne lit seul (`lectureDesComptesDuCabinet`, `server/src/core/cabinet/tables.ts`) — une ligne par
+ * traversée finie, jamais ses gestes.
+ */
+export interface CompteDeLaTraversee {
+  /** Ses épreuves menées au bout — ni quittées, ni jamais ouvertes —, assauts compris, jeu par jeu. */
+  jeux: Partial<Record<CleDeJeu, number>>
+  /** Celles à trois étoiles naturelles à chacune de leurs trois manches. */
+  parfaites: number
+  /** L'or qu'elle a rapporté : ses gains, jamais ce qu'il a dépensé. */
+  or: number
+}
+
+/** Une épreuve menée au bout : il ne l'a pas quittée, et une manche au moins s'est jouée — une partie introuvable se conclut sans rien. */
+export const meneeAuBout = (ep: Pick<EpreuveResumee, 'quittee' | 'etoiles'>): boolean => !ep.quittee && ep.etoiles.some(s => s !== null)
+
+/** Une épreuve parfaite : trois étoiles naturelles à chacune de ses trois manches — un gardien tombé avant la troisième ne l'est pas. */
+export const parfaite = (ep: Pick<EpreuveResumee, 'etoiles'>): boolean => ep.etoiles.length === MANCHES_PAR_PARTIE && ep.etoiles.every(s => s === 3)
 
 export interface ResumeDeLaTraversee {
   v: typeof VERSION_DU_RESUME
@@ -88,8 +121,8 @@ export interface ResumeDeLaTraversee {
   /** Le jeu de l'épreuve qui se joue — en route, devant elle ou en plein assaut. */
   enJeu?: CleDeJeu
   epreuves: EpreuveResumee[]
-  /** Les épreuves de maître tenues pendant elle : leurs gardiens. */
-  maitrises: string[]
+  /** Ce que les pistes du Cabinet comptent d'elle. */
+  compte: CompteDeLaTraversee
   /** Les rangs des défis de ses cartes tombés pendant elle. */
   defis: number
   /** L'heure de son dernier geste — le sien ou celui de ses épreuves, jamais « rendre », de l'administrateur ; null : aucun. */
@@ -107,12 +140,16 @@ export function resumeDeLaTraversee(d: DepartDeLaTraversee, gestes: readonly Ges
   const assauts = d.actes.map(() => 0)
   const enCours = new Map<string, Omit<EpreuveResumee, 'partie' | 'etoiles'>>()
   const epreuves: EpreuveResumee[] = []
+  // L'or qu'elle rapporte : ce que chaque geste ajoute à la bourse — une épreuve, un coffre, un gardien —, jamais ce que
+  // le marchand en prend.
+  let orGagne = 0
   for (const { geste: g, faitLe } of gestes) {
     const apres = jouerUnGesteDeLaTraversee(d, e, g, faitLe)
     if (typeof apres === 'string') {
       e = { ...e, rang: e.rang + 1, ignores: e.ignores + 1 }
       continue
     }
+    if (apres.or > e.or) orGagne += apres.or - e.or
     if (g.quoi === 'epreuve') {
       const etape = etapeDe(d, g.etape)
       const acte = acteDe(g.etape)
@@ -140,6 +177,8 @@ export function resumeDeLaTraversee(d: DepartDeLaTraversee, gestes: readonly Ges
           ...(quittee(d, e, g, etoiles) && { quittee: true as const }),
           ...(b.vaincu && { vaincu: true as const }),
           ...(b.perdue && { perdue: true as const }),
+          ...(b.coeurs > 0 && { coeurs: b.coeurs }),
+          ...(b.vaincu && b.restants !== undefined && { restants: b.restants }),
         })
       }
     }
@@ -149,6 +188,8 @@ export function resumeDeLaTraversee(d: DepartDeLaTraversee, gestes: readonly Ges
   const enJeu = e.fin ? undefined : enCours.get(partieEnCours(e) ?? '')?.jeu
   // Son dernier passage : un geste de lui ou de ses épreuves — « rendre » est celui de l'administrateur, pas le sien.
   const siens = gestes.filter(g => g.geste.quoi !== 'rendre')
+  const jeux: Partial<Record<CleDeJeu, number>> = {}
+  for (const ep of epreuves) if (meneeAuBout(ep)) jeux[ep.jeu] = (jeux[ep.jeu] ?? 0) + 1
   return {
     v: VERSION_DU_RESUME,
     acte: e.acte,
@@ -162,7 +203,7 @@ export function resumeDeLaTraversee(d: DepartDeLaTraversee, gestes: readonly Ges
     coeursMax: coeursMax(d, e.cartes),
     ...(enJeu && { enJeu }),
     epreuves,
-    maitrises: cles.flatMap(c => gardienDeLaMaitrise(c) ?? []),
+    compte: { jeux, parfaites: epreuves.filter(parfaite).length, or: orGagne },
     defis: cles.filter(c => rangDeLaCle(c) !== null).length,
     dernier: siens.length > 0 ? siens[siens.length - 1].faitLe : null,
   }
@@ -203,6 +244,7 @@ function lEpreuve(x: unknown): EpreuveResumee | null {
   if (!(aides === undefined || (objet(aides) && entier(aides.eclairer, 0, 99) && entier(aides.changer, 0, 99) && entier(aides.temps, 0, MANCHES_PAR_PARTIE)))) return null
   const drapeau = (v: unknown) => v === undefined || v === true
   if (![x.gardien, x.quittee, x.vaincu, x.perdue].every(drapeau)) return null
+  if (!(x.coeurs === undefined || entier(x.coeurs, 1, 99)) || !(x.restants === undefined || entier(x.restants, 0, 99))) return null
   return {
     partie: x.partie,
     jeu: x.jeu,
@@ -216,7 +258,32 @@ function lEpreuve(x: unknown): EpreuveResumee | null {
     ...(x.quittee === true && { quittee: true as const }),
     ...(x.vaincu === true && { vaincu: true as const }),
     ...(x.perdue === true && { perdue: true as const }),
+    ...(typeof x.coeurs === 'number' && { coeurs: x.coeurs }),
+    ...(typeof x.restants === 'number' && { restants: x.restants }),
   }
+}
+
+/**
+ * Ce que les pistes comptent d'une traversée, relu de son résumé — ou du seul morceau que le lot des paliers en extrait
+ * (`json_extract(resume, '$.compte')`) ; null : absent ou abîmé. Un jeu inconnu de ce code se tait, comme une
+ * traversée qu'il ne relit pas.
+ */
+export function lireLeCompte(brut: unknown): CompteDeLaTraversee | null {
+  let x: unknown = brut
+  if (typeof brut === 'string') {
+    try {
+      x = JSON.parse(brut)
+    } catch {
+      return null
+    }
+  }
+  if (!objet(x) || !objet(x.jeux) || !entier(x.parfaites, 0, 999) || !entier(x.or, 0, 1_000_000)) return null
+  const jeux: Partial<Record<CleDeJeu, number>> = {}
+  for (const [jeu, n] of Object.entries(x.jeux)) {
+    if (!entier(n, 0, 999)) return null
+    if (unJeu(jeu)) jeux[jeu] = n
+  }
+  return { jeux, parfaites: x.parfaites, or: x.or }
 }
 
 /**
@@ -235,12 +302,13 @@ export function lireLeResume(brut: unknown): ResumeDeLaTraversee | null {
   }
   if (!objet(r) || r.v !== VERSION_DU_RESUME || !unActe(r.acte) || !(SORTES_D_UN_OU as readonly unknown[]).includes(r.ou)) return null
   if (!desGardiens(r.gardiens) || !desGardiens(r.vaincus) || !Array.isArray(r.assauts) || !r.assauts.every(a => entier(a, 0, 999))) return null
-  if (!entier(r.or, 0, 1_000_000) || !entier(r.coeurs, 0, 99) || !entier(r.coeursMax, 0, 99) || !entier(r.defis, 0, 999) || !desGardiens(r.maitrises)) return null
+  if (!entier(r.or, 0, 1_000_000) || !entier(r.coeurs, 0, 99) || !entier(r.coeursMax, 0, 99) || !entier(r.defis, 0, 999)) return null
   if (!(r.dernier === null || entier(r.dernier, 0, Number.MAX_SAFE_INTEGER)) || !(r.enJeu === undefined || unJeu(r.enJeu))) return null
   if (!Array.isArray(r.cartes) || !Array.isArray(r.epreuves)) return null
   const cartes = r.cartes.map(c => (objet(c) && carteDeLaTraversee(c.cle) && entier(c.niveau, 1, NIVEAU_MAX) ? { cle: carteDeLaTraversee(c.cle)!.cle, niveau: c.niveau as NiveauDeCarte } : null))
   const epreuves = r.epreuves.map(lEpreuve)
-  if (cartes.some(c => c === null) || epreuves.some(x => x === null)) return null
+  const compte = lireLeCompte(r.compte)
+  if (cartes.some(c => c === null) || epreuves.some(x => x === null) || !compte) return null
   return {
     v: VERSION_DU_RESUME,
     acte: r.acte,
@@ -254,7 +322,7 @@ export function lireLeResume(brut: unknown): ResumeDeLaTraversee | null {
     coeursMax: r.coeursMax,
     ...(r.enJeu !== undefined && { enJeu: r.enJeu as CleDeJeu }),
     epreuves: epreuves as EpreuveResumee[],
-    maitrises: [...r.maitrises],
+    compte,
     defis: r.defis,
     dernier: r.dernier as number | null,
   }

@@ -28,13 +28,14 @@
 // dit d'où l'on vient, pas ce qu'on vaut ce soir.
 
 import type { Carriere, StatsDeCampagne, StatsDuJour } from './profil'
+import type { CleDeJeu } from './cabinet/jeux/regle'
 import type { Rarete } from './badges'
 import { formatNumber } from './typographie'
 
 export type Ton = 'eclat' | 'ombre'
 
-/** Où se gagne un haut fait, s'il ne se gagne pas en soirée (`origineDe`). */
-export type Origine = 'jour' | 'campagne' | 'sentiers'
+/** Où se gagne un haut fait, s'il ne se gagne pas en soirée (`origineDe`) — le Cabinet de curiosités depuis le 4 novembre 2026. */
+export type Origine = 'jour' | 'campagne' | 'sentiers' | 'cabinet'
 
 export interface HautFaitDeSoiree {
   key: string
@@ -90,6 +91,13 @@ export interface HautFaitDeCarriere {
    */
   surLesSentiers?: true
   /**
+   * Ce qu'il compte se fait au Cabinet de curiosités, de ses traversées : il
+   * tombe avec ceux de la campagne, par sa porte (`statsEnPlus`, `deCampagne`),
+   * et l'album, les lieux et la page du profil le disent « Au Cabinet »
+   * (`origineDe`).
+   */
+  auCabinet?: true
+  /**
    * Il ne se montre que là où le serveur le cite (`PublicProfileDetail.hautsFaits`)
    * : L'Explorateur, là où le Cabinet de curiosités reste fermé — ses
    * traversées ne s'y jouent pas, et le même code sert les serveurs où il
@@ -111,6 +119,16 @@ export const NOM_PALIER = ['Bronze', 'Argent', 'Or'] as const
  * toute dans l'étagère, sans relire une soirée.
  */
 export const XP_PALIER = [50, 100, 200] as const
+
+/**
+ * L'expérience d'un exploit du Cabinet, chaque fois qu'il tombe, selon sa rareté (`PART_DES_JOUEURS`, aux seuils de
+ * `rareteMesuree`) : le choix du propriétaire du 4 novembre 2026 — « gagner de l'expérience + niveau de rareté », les
+ * trophées du Cabinet « peu nombreux en expérience ». Un exploit qui se regagne et ne demande rien de rare ne paie
+ * pas plus qu'une piste ; un légendaire paie le double d'une étape d'or. `hautsfaits.test.ts` vérifie que chacun
+ * suit sa rareté : une part relevée change l'expérience à la ligne suivante qu'elle range, le passé compris (la ligne
+ * des paliers se refait de l'étagère, `xpHorsDesSoirees`).
+ */
+export const XP_DES_EXPLOITS_DU_CABINET: Readonly<Record<Rarete, number>> = { commune: 50, peucommune: 75, rare: 100, epique: 200, legendaire: 400 }
 
 /** La clé sous laquelle un palier de carrière se range : `hf:bavard:2` pour l'argent. */
 export const clePalier = (key: string, palier: number) => `${key}:${palier}`
@@ -524,6 +542,103 @@ export const HAUTS_FAITS_DES_SENTIERS: HautFaitDeSoiree[] = [
   },
 ]
 
+/**
+ * Les exploits du Cabinet de curiosités (le 4 novembre 2026 : « d'autres c'est des “exploits” donc challengeants », le
+ * propriétaire) : ils se regagnent, une traversée au plus chacun — « à chaque fois, pour que ce soit homogène avec ce
+ * qui se fait sur les autres trophées » —, rangés sous elle (`#campagne:<traversée>`, comme ses paliers) au coup qui
+ * abat son dernier gardien, et payés dans la ligne des paliers chaque fois, selon leur rareté
+ * (`XP_DES_EXPLOITS_DU_CABINET`). Ce qui les juge vit dans `shared/cabinet/exploits.ts`, leurs seuils au barème du
+ * Cabinet (`JEUX_DU_TOUCHE_A_TOUT`, `OR_DE_CRESUS`) — leurs règles les écrivent en toutes lettres,
+ * `cabinet-trophees.test.ts` les compare. Aucun ne demande une carte : les défis de tes cartes le font déjà. Deux
+ * idées du même jour sont devenues des pistes, trop faciles à regagner : l'épreuve parfaite — une par traversée au
+ * joueur moyen du calibrage — et trois traversées gagnées d'affilée, que le fort enchaîne (Le Perfectionniste,
+ * L'Invaincu).
+ */
+export const HAUTS_FAITS_DU_CABINET: HautFaitDeSoiree[] = [
+  {
+    // Au calibrage : une traversée sur cinq cents au joueur moyen, une sur neuf au fort ; la Parade compte — une manche parée ne coûte rien.
+    key: 'hf:intouchable',
+    famille: 'soiree',
+    origine: 'cabinet',
+    emoji: '❤️',
+    title: 'L’Intouchable',
+    rule: 'Gagner une traversée du Cabinet sans perdre un seul cœur',
+    ton: 'eclat',
+    xp: 400,
+  },
+  {
+    // Lu au coup final, avant que le gardien vaincu ne rende tous les cœurs : près d'une traversée gagnée sur quatre au joueur moyen.
+    key: 'hf:sur-le-fil',
+    famille: 'soiree',
+    origine: 'cabinet',
+    emoji: '❣️',
+    title: 'Sur le fil',
+    rule: 'Abattre le dernier gardien d’une traversée avec un seul cœur',
+    ton: 'eclat',
+    xp: 200,
+  },
+  {
+    // Une traversée sur cinquante au fort du calibrage ; le Coup de grâce aide, comme pour L'Exécuteur.
+    key: 'hf:implacable',
+    famille: 'soiree',
+    origine: 'cabinet',
+    emoji: '🗡️',
+    title: 'L’Implacable',
+    rule: 'Vaincre les trois gardiens d’une traversée, chacun dès son premier assaut',
+    ton: 'eclat',
+    xp: 400,
+  },
+  {
+    // `JEUX_DU_TOUCHE_A_TOUT` : les dix. À sept, toute traversée gagnée le tenait ; à dix, une gagnée sur quatorze au joueur
+    // moyen, qui va au hasard — la carte se choisit, et la Frise, qu'aucun gardien ne joue, se cherche.
+    key: 'hf:touche-a-tout',
+    famille: 'soiree',
+    origine: 'cabinet',
+    emoji: '🎭',
+    title: 'Touche-à-tout',
+    rule: 'Gagner une traversée en menant au bout une épreuve de chacun des dix jeux',
+    ton: 'eclat',
+    xp: 200,
+  },
+  {
+    // `OR_DE_CRESUS` : ce que la traversée rapporte, jamais ce qu'il garde — Le Trésorier, au dos de la Cagnotte, compte l'or en poche.
+    key: 'hf:cresus',
+    famille: 'soiree',
+    origine: 'cabinet',
+    emoji: '💰',
+    title: 'Crésus',
+    rule: 'Gagner une traversée qui t’a rapporté mille pièces d’or',
+    ton: 'eclat',
+    xp: 200,
+  },
+]
+
+/**
+ * Les dix pistes des jeux du Cabinet (le 4 novembre 2026 : « le nombre de fois qu'un jeu est joué », le propriétaire) :
+ * ses épreuves menées au bout dans chacun, assauts compris (`StatsDeCampagne['epreuves:pari']`). Leurs emojis sont
+ * ceux de la carte de la traversée (`EMOJI_DES_JEUX`, que ce fichier ne lit pas : la soirée le télécharge —
+ * `cabinet-trophees.test.ts` les compare). La Frise, qu'aucun gardien ne joue, vient deux fois moins souvent : ses
+ * paliers sont à sa mesure, pour qu'elle tombe à la même traversée que les autres au joueur moyen du calibrage.
+ */
+const PISTES_DES_JEUX: readonly { jeu: CleDeJeu; emoji: string; title: string; au: string; paliers: readonly [number, number, number] }[] = [
+  { jeu: 'pari', emoji: '🎲', title: 'Le Parieur', au: 'au Pari', paliers: [5, 25, 75] },
+  { jeu: 'eclair', emoji: '⚡', title: 'Le Fulgurant', au: 'à l’Éclair', paliers: [5, 25, 75] },
+  { jeu: 'mot', emoji: '🔤', title: 'Le Cruciverbiste', au: 'au Mot mystère', paliers: [5, 25, 75] },
+  { jeu: 'filet', emoji: '🎯', title: 'Le Pêcheur', au: 'au Filet', paliers: [5, 25, 75] },
+  { jeu: 'detail', emoji: '🖼️', title: 'L’Œil de lynx', au: 'au Détail', paliers: [5, 25, 75] },
+  { jeu: 'frise', emoji: '⏳', title: 'Le Chronologiste', au: 'à la Frise', paliers: [3, 12, 35] },
+  { jeu: 'epingle', emoji: '📍', title: 'Le Navigateur', au: 'à l’Épingle', paliers: [5, 25, 75] },
+  { jeu: 'indices', emoji: '🕵️', title: 'Le Détective', au: 'aux Indices', paliers: [5, 25, 75] },
+  { jeu: 'replique', emoji: '🎬', title: 'Le Cinéphile', au: 'à la Réplique', paliers: [5, 25, 75] },
+  { jeu: 'quiz', emoji: '❓', title: 'Le Candidat', au: 'au Quiz', paliers: [5, 25, 75] },
+]
+
+/** La clé de la piste d'un jeu du Cabinet : `hf:jeu-pari`. */
+export const cleDeLaPisteDuJeu = (jeu: CleDeJeu): string => `hf:jeu-${jeu}`
+
+/** Les dix pistes des jeux, par leur clé : l'album les range dans leur section (« Les dix jeux »). */
+export const CLES_DES_PISTES_DES_JEUX: ReadonlySet<string> = new Set(PISTES_DES_JEUX.map(p => cleDeLaPisteDuJeu(p.jeu)))
+
 export const HAUTS_FAITS_DE_CARRIERE: HautFaitDeCarriere[] = [
   {
     key: 'hf:habitue',
@@ -776,6 +891,108 @@ export const HAUTS_FAITS_DE_CARRIERE: HautFaitDeCarriere[] = [
     paliers: [1, 5, 15],
     valeur: c => c.campagne.traversees,
     deCampagne: 'traversees',
+    auCabinet: true,
+    montreParLeServeur: true,
+  },
+  // Les pistes de fond du Cabinet (le 4 novembre 2026 : « des tâches de fond, c'est à force de jouer », le
+  // propriétaire), comptées de ses traversées finies par sa porte (`statsEnPlus`) et décernées avec celles de la
+  // campagne ; leurs paliers, au joueur moyen du calibrage (`calibrage-cabinet.ts --sections traversee`, sa carrière) :
+  // le bronze en une dizaine de traversées, l'argent en une trentaine, l'or vers la quatre-vingtième. Réservées comme
+  // L'Explorateur aux serveurs où le Cabinet s'ouvre (`montreParLeServeur`).
+  ...PISTES_DES_JEUX.map(
+    (p): HautFaitDeCarriere => ({
+      key: cleDeLaPisteDuJeu(p.jeu),
+      famille: 'carriere',
+      emoji: p.emoji,
+      title: p.title,
+      mesure: `épreuves menées au bout ${p.au}`,
+      mesureUne: `épreuve menée au bout ${p.au}`,
+      paliers: p.paliers,
+      valeur: c => c.campagne[`epreuves:${p.jeu}`],
+      deCampagne: `epreuves:${p.jeu}`,
+      auCabinet: true,
+      montreParLeServeur: true,
+    }),
+  ),
+  {
+    key: 'hf:pensionnaire',
+    famille: 'carriere',
+    emoji: '🗝️',
+    title: 'Le Pensionnaire',
+    mesure: 'épreuves menées au bout au Cabinet',
+    mesureUne: 'épreuve menée au bout au Cabinet',
+    paliers: [100, 400, 1000],
+    valeur: c => c.campagne.epreuvesAuCabinet,
+    deCampagne: 'epreuvesAuCabinet',
+    auCabinet: true,
+    montreParLeServeur: true,
+  },
+  {
+    key: 'hf:chasseur',
+    famille: 'carriere',
+    emoji: '🐾',
+    title: 'Le Chasseur de gardiens',
+    mesure: 'gardiens vaincus au Cabinet',
+    mesureUne: 'gardien vaincu au Cabinet',
+    paliers: [10, 50, 150],
+    valeur: c => c.campagne.gardiensVaincus,
+    deCampagne: 'gardiensVaincus',
+    auCabinet: true,
+    montreParLeServeur: true,
+  },
+  {
+    // L'or : les vingt gardiens de l'année, la Citrouille à part — elle ne garde l'acte I qu'à Halloween, et compte en plus.
+    key: 'hf:bestiaire',
+    famille: 'carriere',
+    emoji: '📖',
+    title: 'Le Bestiaire',
+    mesure: 'gardiens différents vaincus au Cabinet',
+    mesureUne: 'gardien différent vaincu au Cabinet',
+    paliers: [7, 14, 20],
+    valeur: c => c.campagne.gardiensDifferents,
+    deCampagne: 'gardiensDifferents',
+    auCabinet: true,
+    montreParLeServeur: true,
+  },
+  {
+    key: 'hf:coffre-fort',
+    famille: 'carriere',
+    emoji: '🔐',
+    title: 'Le Coffre-fort',
+    mesure: 'pièces d’or rapportées de tes traversées',
+    mesureUne: 'pièce d’or rapportée de tes traversées',
+    paliers: [2500, 10000, 30000],
+    valeur: c => c.campagne.orDuCabinet,
+    deCampagne: 'orDuCabinet',
+    auCabinet: true,
+    montreParLeServeur: true,
+  },
+  {
+    // Une épreuve par traversée au joueur moyen : trop facile pour un exploit qui se regagne, une piste.
+    key: 'hf:perfectionniste',
+    famille: 'carriere',
+    emoji: '⭐',
+    title: 'Le Perfectionniste',
+    mesure: 'épreuves parfaites au Cabinet (★★★ à chaque manche)',
+    mesureUne: 'épreuve parfaite au Cabinet (★★★ à chaque manche)',
+    paliers: [10, 40, 100],
+    valeur: c => c.campagne.epreuvesParfaites,
+    deCampagne: 'epreuvesParfaites',
+    auCabinet: true,
+    montreParLeServeur: true,
+  },
+  {
+    // Un record, comme L'Infatigable : trois d'affilée, le fort les enchaînait — un exploit qu'il aurait regagné sans fin.
+    key: 'hf:invaincu',
+    famille: 'carriere',
+    emoji: '🔗',
+    title: 'L’Invaincu',
+    mesure: 'traversées gagnées d’affilée',
+    mesureUne: 'traversée gagnée d’affilée',
+    paliers: [2, 4, 7],
+    valeur: c => c.campagne.traverseesDAffilee,
+    deCampagne: 'traverseesDAffilee',
+    auCabinet: true,
     montreParLeServeur: true,
   },
   // Les sentiers du savoir (le 15 octobre 2026) : ce qui s'y valide en
@@ -823,11 +1040,11 @@ export const HAUTS_FAITS_DE_CARRIERE: HautFaitDeCarriere[] = [
   },
 ]
 
-/** Tous ceux qui se regagnent : de soirée, du quiz du jour, de la campagne, des sentiers. */
-export const HAUTS_FAITS_REGAGNABLES: readonly HautFaitDeSoiree[] = [...HAUTS_FAITS_DE_SOIREE, ...HAUTS_FAITS_DU_JOUR, ...HAUTS_FAITS_DE_CAMPAGNE, ...HAUTS_FAITS_DES_SENTIERS]
+/** Tous ceux qui se regagnent : de soirée, du quiz du jour, de la campagne, des sentiers, du Cabinet. */
+export const HAUTS_FAITS_REGAGNABLES: readonly HautFaitDeSoiree[] = [...HAUTS_FAITS_DE_SOIREE, ...HAUTS_FAITS_DU_JOUR, ...HAUTS_FAITS_DE_CAMPAGNE, ...HAUTS_FAITS_DES_SENTIERS, ...HAUTS_FAITS_DU_CABINET]
 
-/** Ceux qui se gagnent hors des soirées — au quiz du jour, en campagne, sur les sentiers : leur expérience vit dans la ligne des paliers. */
-export const HAUTS_FAITS_HORS_SOIREE: readonly HautFaitDeSoiree[] = [...HAUTS_FAITS_DU_JOUR, ...HAUTS_FAITS_DE_CAMPAGNE, ...HAUTS_FAITS_DES_SENTIERS]
+/** Ceux qui se gagnent hors des soirées — au quiz du jour, en campagne, sur les sentiers, au Cabinet : leur expérience vit dans la ligne des paliers. */
+export const HAUTS_FAITS_HORS_SOIREE: readonly HautFaitDeSoiree[] = [...HAUTS_FAITS_DU_JOUR, ...HAUTS_FAITS_DE_CAMPAGNE, ...HAUTS_FAITS_DES_SENTIERS, ...HAUTS_FAITS_DU_CABINET]
 
 const PAR_CLE = new Map<string, HautFait>([...HAUTS_FAITS_REGAGNABLES, ...HAUTS_FAITS_DE_CARRIERE].map(h => [h.key, h]))
 
@@ -844,13 +1061,15 @@ export function hautFaitDeSoiree(key: string): HautFaitDeSoiree | undefined {
 /**
  * Où se gagne un haut fait, s'il ne se gagne pas en soirée : son origine, ou,
  * pour une piste, ce qu'elle compte — le quiz du jour, la campagne, les
- * sentiers. La page de l'album qui le range, le lieu d'un avatar ou d'un fond
- * qu'il ouvre, sa page du profil : une seule règle — quatre fichiers la
- * recopiaient, et les sentiers devaient s'ajouter à chacun.
+ * sentiers, le Cabinet. La page de l'album qui le range, le lieu d'un avatar
+ * ou d'un fond qu'il ouvre, sa page du profil : une seule règle — quatre
+ * fichiers la recopiaient, et les sentiers devaient s'ajouter à chacun. Une
+ * piste du Cabinet tombe avec celles de la campagne (`deCampagne`), mais se
+ * fait au Cabinet : son lieu passe devant.
  */
 export function origineDe(h: HautFait): Origine | undefined {
   if (h.famille === 'soiree') return h.origine
-  return h.duJour ? 'jour' : h.surLesSentiers ? 'sentiers' : h.deCampagne ? 'campagne' : undefined
+  return h.duJour ? 'jour' : h.surLesSentiers ? 'sentiers' : h.auCabinet ? 'cabinet' : h.deCampagne ? 'campagne' : undefined
 }
 
 /** Le palier de carrière derrière une clé rangée (`hf:bavard:2`), s'il en est un. */
@@ -1191,6 +1410,37 @@ export const PART_DES_JOUEURS: Readonly<Record<string, number>> = {
   'hf:explorateur:1': 0.12,
   'hf:explorateur:2': 0.04,
   'hf:explorateur:3': 0.01,
+  // Les trophées du Cabinet du 4 novembre 2026, estimés au calibrage (`calibrage-cabinet.ts --sections traversee`) sur
+  // la même population que L'Explorateur : un profil sur cinq qui y joue, le bronze de L'Explorateur à 12 %. Les pistes
+  // de fond, au bronze vers la dixième traversée, à l'argent vers la trentième, à l'or vers la quatre-vingtième.
+  ...Object.fromEntries(PISTES_DES_JEUX.flatMap(p => [0.12, 0.04, 0.01].map((part, i) => [clePalier(cleDeLaPisteDuJeu(p.jeu), i + 1), part] as const))),
+  'hf:pensionnaire:1': 0.1,
+  'hf:pensionnaire:2': 0.03,
+  'hf:pensionnaire:3': 0.008,
+  'hf:chasseur:1': 0.12,
+  'hf:chasseur:2': 0.04,
+  'hf:chasseur:3': 0.01,
+  'hf:bestiaire:1': 0.12,
+  'hf:bestiaire:2': 0.06,
+  'hf:bestiaire:3': 0.02,
+  'hf:coffre-fort:1': 0.12,
+  'hf:coffre-fort:2': 0.04,
+  'hf:coffre-fort:3': 0.01,
+  'hf:perfectionniste:1': 0.14,
+  'hf:perfectionniste:2': 0.04,
+  'hf:perfectionniste:3': 0.01,
+  // Deux d'affilée viennent vers la quatorzième traversée au joueur moyen ; sept, presque au fort seul.
+  'hf:invaincu:1': 0.08,
+  'hf:invaincu:2': 0.03,
+  'hf:invaincu:3': 0.008,
+  // Les exploits : leur part fait leur rareté, et leur rareté leur expérience (`XP_DES_EXPLOITS_DU_CABINET`). Par
+  // traversée, au joueur moyen puis au fort : L'Intouchable 0,2 et 11 %, Sur le fil 7 et 8 %, L'Implacable 0,2 et
+  // 2 %, Touche-à-tout 2 et 2 %, Crésus 0,7 et 7 %.
+  'hf:intouchable': 0.02,
+  'hf:sur-le-fil': 0.07,
+  'hf:implacable': 0.01,
+  'hf:touche-a-tout': 0.04,
+  'hf:cresus': 0.04,
   // Ceux des sentiers (le 15 octobre 2026), mesurés sur la production — seize
   // joueurs de campagne, dix sur les sentiers en trois semaines : quatre
   // auraient Le Randonneur et La Constellation au bronze, un à l'argent ;

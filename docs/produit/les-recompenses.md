@@ -200,6 +200,18 @@ Ils se jugent à la fin d'une épreuve en jeu — jamais d'un rejeu, qui se rejo
 | 💎 L'Impeccable | 150 | seize bonnes réponses sur seize, dès le cinquième palier — où le vrai ou faux s'arrête |
 | ⛷️ Contre toute attente | 100 | valider du premier coup un palier que ta chance annonçait en piste noire, à son départ |
 
+### Les exploits du Cabinet
+
+Ils se jugent au coup qui abat le dernier gardien d'une traversée, une traversée au plus chacun, et rapportent selon leur rareté — 400 un légendaire, 200 un épique (`XP_DES_EXPLOITS_DU_CABINET`) — depuis le 4 novembre 2026 ([le Cabinet de curiosités](le-cabinet.md#les-trophées-de-la-traversée)).
+
+| Haut fait | XP | Ce qu'il faut |
+|---|---|---|
+| ❤️ L'Intouchable | 400 | gagner une traversée sans perdre un seul cœur |
+| ❣️ Sur le fil | 200 | abattre le dernier gardien avec un seul cœur |
+| 🗡️ L'Implacable | 400 | vaincre les trois gardiens, chacun dès son premier assaut |
+| 🎭 Touche-à-tout | 200 | gagner une traversée en menant au bout une épreuve de chacun des dix jeux |
+| 💰 Crésus | 200 | gagner une traversée qui t'a rapporté mille pièces d'or |
+
 ### Les pistes
 
 Chaque étape tombe une fois dans ta carrière et rapporte 50, 100 puis 200 points d'expérience (`XP_PALIER`) ; elle dit aussi ce qu'elle ouvre en chemin — un laurier, une gerbe, un fond, un thème, un légendaire (`shared/pistes.ts`). À l'écran, Le Laurier du quiz du jour se compte dans la piste du Champion du jour : une victoire, une ligne — chacun garde son expérience.
@@ -226,7 +238,14 @@ Chaque étape tombe une fois dans ta carrière et rapporte 50, 100 puis 200 poin
 | 🎓 L'Érudit | expertes trouvées en campagne, hors révisions | 25 · 100 · 300 | en campagne |
 | 👟 Le Marathonien | bonnes réponses en campagne, tous modes | 250 · 1 000 · 2 000 | en campagne |
 | 🧳 Le Globe-trotter | tampons au passeport de l'expédition : chaque thème pointu trouvé, une fois | 10 · 40 · 92 | au bout d'une expédition |
-| 🎒 L'Explorateur | les traversées gagnées au Cabinet de curiosités — il comptait ton niveau d'explorateur jusqu'au 26 octobre 2026, puis les salles complètes de ton musée jusqu'au 1er novembre, et ce qu'il t'a donné reste | 1 · 5 · 15 | au Cabinet, au choix du légendaire qui gagne la traversée — là où le Cabinet est ouvert, la préproduction d'abord ; ses paliers d'avant se montrent partout à qui les a. Il vit sur la page « Cabinet » de l'album, avec les défis de tes cartes et les épreuves de maître |
+| 🎒 L'Explorateur | les traversées gagnées au Cabinet de curiosités — il comptait ton niveau d'explorateur jusqu'au 26 octobre 2026, puis les salles complètes de ton musée jusqu'au 1er novembre, et ce qu'il t'a donné reste | 1 · 5 · 15 | au Cabinet, au choix du légendaire qui gagne la traversée — là où le Cabinet est ouvert, la préproduction d'abord ; ses paliers d'avant se montrent partout à qui les a. Il vit sur la page « Cabinet » de l'album, avec les autres pistes du Cabinet, ses exploits et les défis de tes cartes |
+| Les dix jeux du Cabinet — 🎲 ⚡ 🔤 🎯 🖼️ 📍 🕵️ 🎬 ❓ ⏳ | une piste par jeu : tes épreuves menées au bout à ce jeu, assauts compris | 5 · 25 · 75 — la Frise 3 · 12 · 35 | à la fin de chaque traversée |
+| 🗝️ Le Pensionnaire | toutes tes épreuves menées au bout au Cabinet | 100 · 400 · 1 000 | à la fin de chaque traversée |
+| 🐾 Le Chasseur de gardiens | tes gardiens vaincus | 10 · 50 · 150 | à la fin de chaque traversée |
+| 📖 Le Bestiaire | tes gardiens différents vaincus | 7 · 14 · 20 | à la fin de chaque traversée |
+| 🔐 Le Coffre-fort | l'or que tes traversées t'ont rapporté | 2 500 · 10 000 · 30 000 | à la fin de chaque traversée |
+| ⭐ Le Perfectionniste | tes épreuves parfaites, ★★★ à chaque manche | 10 · 40 · 100 | à la fin de chaque traversée |
+| 🔗 L'Invaincu | ta plus longue suite de traversées gagnées d'affilée | 2 · 4 · 7 | à la fin de chaque traversée |
 | 🥾 Le Randonneur | paliers des sentiers validés en épreuve | 12 · 48 · 120 | en campagne |
 | 🌟 La Constellation | étoiles des sentiers, la meilleure note de chaque palier | 25 · 100 · 250 | en campagne |
 | 🗺️ Le Cartographe | sentiers validés en épreuve jusqu'au palier 8 ou plus haut | 3 · 6 · 12 | en campagne |

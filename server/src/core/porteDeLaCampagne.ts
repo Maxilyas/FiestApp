@@ -24,7 +24,7 @@ import type { Recompenses } from './campagne'
 import type { MesureDUneQuestion } from '../../../shared/campagne'
 import type { Categorie } from '../../../shared/categories'
 import type { EvenementDeLaFrise } from '../../../shared/frise'
-import type { StatsDeCampagne } from '../../../shared/profil'
+import type { RIEN_DU_CABINET, StatsDeCampagne } from '../../../shared/profil'
 
 export interface PorteDeLaCampagne {
   /** La base permanente, le client de la campagne : un geste du Cabinet qui ne juge rien s'y écrit seul, d'un lot. */
@@ -75,13 +75,22 @@ export interface PorteDeLaCampagne {
   compagnonDeLaNiche(profileId: string): string | null
   /**
    * Les paliers de la campagne qu'il vient d'atteindre hors d'une fin de partie
-   * — une traversée gagnée, que L'Explorateur compte (le 1er novembre 2026) —,
-   * rangés sous elle (`cleDeSerie`) comme ceux d'une fin de partie, de la même
-   * règle (`statsDe`, ses champs du Cabinet compris). Rend les clés neuves.
-   * Sans elle, son palier attendait la fin de la partie suivante : la
-   * traversée se gagne au choix du légendaire, après sa dernière épreuve.
+   * — une traversée qui finit, que L'Explorateur et les pistes de fond du
+   * Cabinet comptent (le 1er et le 4 novembre 2026) —, rangés sous elle
+   * (`cleDeSerie`) comme ceux d'une fin de partie, de la même règle (`statsDe`,
+   * ses champs du Cabinet compris), puis La Légende, que leur expérience fait
+   * juger. Rend les clés neuves. Sans elle, son palier attendait la fin de la
+   * partie suivante : la traversée se gagne au choix du légendaire, après sa
+   * dernière épreuve, et se perd à la conclusion de l'épreuve qui la décide.
    */
   accorderLesPaliers(profileId: string, sous: string): Promise<string[]>
+  /**
+   * Les exploits d'une traversée (le 4 novembre 2026), rangés sous elle (`cleDeSerie`) comme ses paliers — un haut
+   * fait qui se regagne, une traversée au plus chacun : la clé de son rangement le garde —, payés dans la ligne des
+   * paliers, puis La Légende jugée. Rend les clés neuves. La clé d'un rangement de campagne vit chez la campagne :
+   * le Cabinet ne la recopie pas.
+   */
+  rangerDesExploits(profileId: string, sous: string, cles: readonly string[], quand: number): Promise<string[]>
   /** La base, ses mesures, ses tirages et le journal lus en fond, une fois par processus : la page du Cabinet la lance comme l'accueil. */
   prechauffer(): void
   /**
@@ -174,11 +183,14 @@ export interface CeQueLeReveilAjoute {
 /**
  * Les champs de `StatsDeCampagne` que le Cabinet compte, et que la campagne ne
  * compte pas : ses traversées gagnées, que L'Explorateur lit depuis le
- * 1er novembre 2026 (ses salles complètes, du 26 octobre jusque-là). `statsDe`
- * leur pose leur défaut avant de les étaler : un serveur où le Cabinet est
- * fermé ne branche pas le crochet, et n'en compte aucune.
+ * 1er novembre 2026 (ses salles complètes, du 26 octobre jusque-là), et depuis
+ * le 4 novembre 2026 ce que ses pistes de fond comptent — ses épreuves jeu par
+ * jeu, ses gardiens, son or, ses épreuves parfaites, ses victoires d'affilée
+ * (`RIEN_DU_CABINET`). `statsDe` leur pose leur défaut avant de les étaler : un
+ * serveur où le Cabinet est fermé ne branche pas le crochet, et n'en compte
+ * aucune.
  */
-export type ChampsDuCabinet = 'traversees'
+export type ChampsDuCabinet = keyof typeof RIEN_DU_CABINET
 
 /**
  * Ce que le Cabinet tire de ses lectures pour les paliers : ses champs, jamais

@@ -21,10 +21,12 @@
 // seule règle pour la ligne et pour le total.
 
 import {
+  CLES_DES_PISTES_DES_JEUX,
   HAUTS_FAITS_DE_CAMPAGNE,
   HAUTS_FAITS_DE_CARRIERE,
   HAUTS_FAITS_DE_SOIREE,
   HAUTS_FAITS_DES_SENTIERS,
+  HAUTS_FAITS_DU_CABINET,
   HAUTS_FAITS_DU_JOUR,
   XP_PALIER,
   clePalier,
@@ -47,9 +49,8 @@ import { formatNumber } from './typographie'
 import type { PublicProfileDetail } from './profil'
 
 import { PAGES_DES_TROPHEES, PISTES_DU_CABINET, type PageDesTrophees } from './pagesDesTrophees'
-import { legendaire } from './legendaires'
 import { CONFETTIS_D_UN_RANG } from './cabinet/bareme'
-import { MAITRISES, NOMS_DES_CARTES, NOMS_DES_DEFIS, PHRASES_DES_DEFIS, RANGS, RANGS_DITS, cleDeLaMaitrise, maitriseDite, type DefisTenus, type RangDUnDefi } from './cabinet/sceaux'
+import { NOMS_DES_CARTES, NOMS_DES_DEFIS, PHRASES_DES_DEFIS, RANGS, RANGS_DITS, type DefisTenus, type RangDUnDefi } from './cabinet/sceaux'
 import type { CleDeCarte } from './cabinet/traversee'
 
 // Les pages elles-mêmes vivent à part, sans catalogue : la fin d'une partie
@@ -74,11 +75,11 @@ export const CE_QUE_RANGE_LA_PAGE: Readonly<Record<PageDesTrophees, string>> = {
   campagne: 'La série à trois vies, et le défi de la semaine.',
   duels: 'Ta cote, tes ligues et leurs bordures, duel après duel.',
   sentiers: 'Ce que tu valides en épreuve, et le maître de chaque sentier du savoir. Leurs portraits sont dans l’album des avatars.',
-  cabinet: 'Tes traversées, le défi au dos de chacune de tes cartes, et l’épreuve de maître de chaque gardien. Leurs légendaires sont dans l’album des avatars.',
+  cabinet: 'Tes traversées et tes dix jeux, tes exploits, et le défi au dos de chacune de tes cartes. Les légendaires des gardiens sont dans l’album des avatars.',
   partout: 'Ce que tous les modes nourrissent : tes écussons, ton niveau, tes Éclats.',
 }
 
-export type SorteDeCase = 'piste' | 'exploit' | 'coup' | 'prix' | 'ecusson' | 'page' | 'ligue' | 'bordure' | 'maitre' | 'defi' | 'maitrise'
+export type SorteDeCase = 'piste' | 'exploit' | 'coup' | 'prix' | 'ecusson' | 'page' | 'ligue' | 'bordure' | 'maitre' | 'defi'
 
 /** Une étape d'une piste, telle que sa fiche la montre : atteinte ou non, et la prochaine. */
 export interface EtapeVue {
@@ -130,11 +131,9 @@ export interface CaseDeTrophee {
   doree?: boolean
   /** Un défi : la carte au dos de laquelle il est — la page en montre la peinture. */
   carte?: CleDeCarte
-  /** Une épreuve de maître : son gardien, un légendaire — la page en montre le médaillon. */
-  gardien?: string
 }
 
-export type CleDeSection = 'pistes' | 'exploits' | 'coups' | 'palmares' | 'calendrier' | 'ligues' | 'bordures' | 'maitres' | 'ecussons' | 'niveau' | 'defis' | 'maitrises'
+export type CleDeSection = 'pistes' | 'jeux' | 'exploits' | 'coups' | 'palmares' | 'calendrier' | 'ligues' | 'bordures' | 'maitres' | 'ecussons' | 'niveau' | 'defis'
 
 export interface SectionDeLAlbum {
   cle: CleDeSection
@@ -185,6 +184,14 @@ const COURT: Readonly<Record<string, readonly [string, string]>> = {
   'hf:randonneur': ['palier', 'paliers'],
   'hf:constellation': ['étoile', 'étoiles'],
   'hf:cartographe': ['sentier', 'sentiers'],
+  // Le Cabinet (le 4 novembre 2026) : ses dix jeux, puis ses pistes de fond.
+  ...Object.fromEntries([...CLES_DES_PISTES_DES_JEUX].map(cle => [cle, ['épreuve', 'épreuves'] as const])),
+  'hf:pensionnaire': ['épreuve', 'épreuves'],
+  'hf:chasseur': ['gardien', 'gardiens'],
+  'hf:bestiaire': ['gardien', 'gardiens'],
+  'hf:coffre-fort': ['pièce', 'pièces'],
+  'hf:perfectionniste': ['parfaite', 'parfaites'],
+  'hf:invaincu': ['d’affilée', 'd’affilée'],
 }
 
 /** Ce qu'une piste compte, en court : « 7 victoires », « niveau 14 », « record 18 ». */
@@ -224,6 +231,7 @@ export function ouIlEnEst(piste: string, valeur: number): string {
   if (h.key === 'hf:legende') return `Tu es au niveau ${valeur}.`
   if (h.key === 'hf:alpiniste') return `Ta meilleure série de campagne : ${pluriel(valeur, 'bonne réponse', 'bonnes réponses')}.`
   if (h.key === 'hf:infatigable') return `Ta plus longue série : ${pluriel(valeur, 'jour d’affilée', 'jours d’affilée')}.`
+  if (h.key === 'hf:invaincu') return `Ta plus longue suite au Cabinet : ${pluriel(valeur, 'traversée gagnée d’affilée', 'traversées gagnées d’affilée')}.`
   return `Tu en es à ${pluriel(valeur, h.mesureUne, h.mesure)}.`
 }
 
@@ -333,12 +341,14 @@ function section(cle: CleDeSection, titre: string, aide: string, cases: CaseDeTr
 const exploits = (liste: readonly HautFaitDeSoiree[]) => liste.filter(h => h.ton === 'eclat' && !ABSORBES[h.key])
 const coups = (liste: readonly HautFaitDeSoiree[]) => liste.filter(h => h.ton === 'ombre')
 
-const PISTES_DE: Readonly<Record<'soiree' | 'jour' | 'campagne' | 'sentiers' | 'cabinet' | 'partout', readonly HautFaitDeCarriere[]>> = {
+const PISTES_DE: Readonly<Record<'soiree' | 'jour' | 'campagne' | 'sentiers' | 'cabinet' | 'jeux' | 'partout', readonly HautFaitDeCarriere[]>> = {
   soiree: HAUTS_FAITS_DE_CARRIERE.filter(h => !origineDe(h) && h.key !== 'hf:legende' && h.key !== 'hf:eclats'),
   jour: HAUTS_FAITS_DE_CARRIERE.filter(h => origineDe(h) === 'jour'),
   campagne: HAUTS_FAITS_DE_CARRIERE.filter(h => origineDe(h) === 'campagne' && !PISTES_DU_CABINET.has(h.key)),
-  // Ses paliers tombent comme ceux de la campagne, mais ce qu'il compte se fait au Cabinet : sa page.
-  cabinet: HAUTS_FAITS_DE_CARRIERE.filter(h => PISTES_DU_CABINET.has(h.key)),
+  // Leurs paliers tombent comme ceux de la campagne, mais ce qu'ils comptent se fait au Cabinet : sa page — L'Explorateur
+  // et les pistes de fond d'abord, ses dix jeux dans leur section.
+  cabinet: HAUTS_FAITS_DE_CARRIERE.filter(h => PISTES_DU_CABINET.has(h.key) && !CLES_DES_PISTES_DES_JEUX.has(h.key)),
+  jeux: HAUTS_FAITS_DE_CARRIERE.filter(h => CLES_DES_PISTES_DES_JEUX.has(h.key)),
   sentiers: HAUTS_FAITS_DE_CARRIERE.filter(h => origineDe(h) === 'sentiers'),
   partout: HAUTS_FAITS_DE_CARRIERE.filter(h => h.key === 'hf:legende' || h.key === 'hf:eclats'),
 }
@@ -388,40 +398,18 @@ function gainDuRang(k: RangDUnDefi, nom: string): string {
   return reste ? `${confettis}, et ${reste}` : confettis
 }
 
-/** La case de l'épreuve de maître d'un gardien : ce qu'elle demande, et son légendaire, qu'elle donne aussitôt. */
-function caseDeLaMaitrise(gardien: string, faite: boolean): CaseDeTrophee {
-  const l = legendaire(gardien)
-  return {
-    cle: cleDeLaMaitrise(gardien),
-    sorte: 'maitrise',
-    emoji: '👑',
-    titre: l?.nom ?? gardien,
-    regle: maitriseDite(gardien) ?? '',
-    aLui: faite,
-    rarete: null,
-    gardien,
-    ...(l && { ouvre: [{ fois: 1, recompense: { sorte: 'legendaire' as const, cle: l.key, nom: l.nom }, tenue: faite }] }),
-  }
-}
-
-/** Les deux sections du Cabinet qu'il tient de ses traversées : les défis de ses cartes, puis ses épreuves de maître. */
-function sectionsDesDefis(t: DefisTenus): SectionDeLAlbum[] {
-  return [
-    section(
-      'defis',
-      'Les défis de tes cartes',
-      `Un défi au dos de chaque carte, qui ne compte que si elle est dans ta main : ${CONFETTIS_D_UN_RANG[0]} confettis au bronze, ${CONFETTIS_D_UN_RANG[1]} à l’argent, un titre à l’or.`,
-      CARTES_DES_DEFIS.map(c => caseDuDefi(c, t.rangs[c] ?? 0)),
-    ),
-    section(
-      'maitrises',
-      'Les épreuves de maître',
-      'Vaincs un gardien comme il le demande : son légendaire est à toi aussitôt.',
-      [...MAITRISES.keys()].map(g => caseDeLaMaitrise(g, t.maitrises.includes(g))),
-    ),
-  ]
+/** La section des défis de ses cartes, que le Cabinet tient de ses traversées. Les épreuves de maître, parties le 4 novembre 2026, n'ont plus la leur. */
+function sectionDesDefis(t: DefisTenus): SectionDeLAlbum {
+  return section(
+    'defis',
+    'Les défis de tes cartes',
+    `Un défi au dos de chaque carte, qui ne compte que si elle est dans ta main : ${CONFETTIS_D_UN_RANG[0]} confettis au bronze, ${CONFETTIS_D_UN_RANG[1]} à l’argent, un titre à l’or.`,
+    CARTES_DES_DEFIS.map(c => caseDuDefi(c, t.rangs[c] ?? 0)),
+  )
 }
 const AIDE_DES_EXPLOITS = 'Ils se regagnent : le nombre dit combien de fois.'
+/** Ceux du Cabinet tombent au coup qui abat le dernier gardien, et rapportent selon leur rareté (`XP_DES_EXPLOITS_DU_CABINET`). */
+const AIDE_DES_EXPLOITS_DU_CABINET = 'Une traversée gagnée : ils se regagnent, le nombre dit combien de fois. Plus un exploit est rare, plus il rapporte d’XP.'
 const AIDE_DES_COUPS = 'Pour en rire : ta carte ne les montre que si tu les choisis.'
 
 /**
@@ -526,9 +514,15 @@ export function albumDesTrophees(p: ProfilDeLAlbumDesTrophees): PageDeTrophees[]
       ),
     ],
     cabinet: [
-      // L'Explorateur, là où le serveur le cite ; ses défis et ses épreuves de maître, là où il dit ce qu'il en tient.
+      // L'Explorateur et les pistes de fond, là où le serveur les cite (`montreParLeServeur`), puis ses dix jeux ; ses
+      // exploits là où le Cabinet se joue — ces pistes citées, ou un exploit déjà à lui —, et ses défis là où le serveur
+      // dit ce qu'il en tient. Ailleurs, rien : sa page ne s'ouvre pas.
       ...(pistes('cabinet').length > 0 ? [section('pistes', 'Les pistes', AIDE_DES_PISTES, pistes('cabinet'))] : []),
-      ...(p.defisDuCabinet ? sectionsDesDefis(p.defisDuCabinet) : []),
+      ...(pistes('jeux').length > 0 ? [section('jeux', 'Les dix jeux', 'Tes épreuves menées au bout dans chacun, assauts compris : bronze, argent, or.', pistes('jeux'))] : []),
+      ...(pistes('cabinet').length > 0 || HAUTS_FAITS_DU_CABINET.some(h => (vus.get(h.key)?.fois ?? 0) > 0)
+        ? [section('exploits', 'Les exploits', AIDE_DES_EXPLOITS_DU_CABINET, HAUTS_FAITS_DU_CABINET.map(h => caseDExploit(h, vus)))]
+        : []),
+      ...(p.defisDuCabinet ? [sectionDesDefis(p.defisDuCabinet)] : []),
     ],
     sentiers: [
       section('pistes', 'Les pistes', AIDE_DES_PISTES, pistes('sentiers')),
