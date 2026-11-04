@@ -14,7 +14,7 @@ import { rareEnCampagne, reactionDuSolo } from '../../../shared/niche'
 import { Dessin } from '../components/Avatar'
 import { Balise } from '../components/Balise'
 import { LUEUR, lueur } from '../components/Atlas'
-import { confirmDialog, promptDialog } from '../components/Dialog'
+import { confirmDialog, promptDialog, type DialogOptions } from '../components/Dialog'
 import { espacesFines } from '../format'
 import { showToast } from '../state'
 import { answersSizeClass, questionSizeClass } from '../games/quiz/questionSize'
@@ -220,15 +220,26 @@ export function Sentiers({ onglets, onSerie }: { onglets: ReactNode; onSerie: ()
   }
 
   const jouer = async (b: CleDeBranche, palier: number) => {
-    if (busy) return
+    if (busy || !etat) return
+    // Une autre épreuve ouverte : on ne la quitte pas sans le dire. Le serveur
+    // refermait en silence un rejeu ou une épreuve validée, et refusait un
+    // palier en jeu sans offrir de le laisser pour celui qu'on visait.
+    const quitter = quitterPourCePalier(etat.epreuve, b, palier, etat.vies)
+    if (quitter && !(await confirmDialog(quitter.dialogue))) return
     setBusy(true)
     setErreur('')
+    let vies = etat.vies
     try {
+      if (quitter) {
+        // Sa fin éventuelle (validée) est rangée par le serveur : ses trophées tombent quand même.
+        const lu = await api.campagne.sentiers.abandonner(quitter.epreuve.id)
+        setEtat(lu)
+        vies = lu.vies
+      }
       const epreuve = await api.campagne.sentiers.commencer(b, palier)
       if (epreuve.question) setEcran({ e: 'epreuve', epreuve, question: epreuve.question, reponse: null, choix: null, xp: 0, xpPalier: 0, justesIci: 0 })
     } catch (e) {
       // Sans vie, l'écran du rachat plutôt qu'un refus sec.
-      const vies = etat?.vies
       if (vies && vies.jour + vies.reserve <= 0 && palier > (etat?.sentiers.find(s => s.branche === b)?.paliers ?? 0)) setEcran({ e: 'vies', branche: b })
       else setErreur(motifDe(e))
     } finally {
@@ -1182,6 +1193,46 @@ function epreuveQuiBloque(epreuve: EpreuveDeSentier | null, branche: CleDeBranch
   return epreuve.branche === branche && epreuve.palier === palier ? null : epreuve
 }
 
+/**
+ * Jouer un palier quand une autre épreuve est ouverte : ce qu'il faut
+ * demander avant de la quitter pour lui (« Sentier : […] ne pas switch et
+ * demander si on veut abandonner le palier en cours », le propriétaire, le
+ * 4 novembre 2026). Un palier en jeu laissé compte raté — une vie ; un rejeu
+ * ne coûte rien mais perd ses étoiles en route ; une épreuve validée le
+ * reste. Null quand rien n'est ouvert, ou que c'est ce palier-là, que le
+ * serveur reprend tel quel.
+ */
+export function quitterPourCePalier(
+  epreuve: EpreuveDeSentier | null,
+  branche: CleDeBranche,
+  palier: number,
+  vies: VieDesSentiers,
+): { epreuve: EpreuveDeSentier; dialogue: DialogOptions } | null {
+  if (!epreuve || epreuve.finie || (epreuve.branche === branche && epreuve.palier === palier)) return null
+  const autre = epreuve.branche === branche ? null : brancheDe(epreuve.branche)
+  const nom = (n: number) => (n === PALIER_DU_MAITRE ? 'le palier de maître' : `le palier ${n}`)
+  const laissee = `${nom(epreuve.palier)}${autre ? ` ${deLaBranche(autre)}` : ''}`
+  const vise = nom(palier)
+  const enJeu = !epreuve.rejeu && epreuve.issue !== 'validee'
+  const reponses = epreuve.justes + epreuve.fausses
+  const ouEnEst = reponses > 0 ? ` (${epreuve.justes} bonne${epreuve.justes > 1 ? 's' : ''} sur ${reponses})` : ''
+  const message = enJeu
+    ? `Ton épreuve ${laissee}${ouEnEst} t’attend. L’abandonner compte comme raté : une vie de moins.${vies.jour + vies.reserve <= 1 ? ' C’était ta dernière vie du jour.' : ''}`
+    : epreuve.issue === 'validee'
+      ? `Ton épreuve ${laissee} est validée : elle le reste, avec les étoiles de ses ${epreuve.justes} bonnes réponses.`
+      : `Ton rejeu ${laissee}${ouEnEst} s’arrête là : il ne coûte aucune vie, mais ses étoiles en route sont perdues.`
+  return {
+    epreuve,
+    dialogue: {
+      title: `Laisser ${laissee} pour ${vise} ?`,
+      message,
+      confirmLabel: enJeu ? 'Abandonner et jouer' : 'Laisser et jouer',
+      cancelLabel: 'Garder mon épreuve',
+      danger: enJeu,
+    },
+  }
+}
+
 /** « Ton épreuve du palier 10 de la forêt t'attend » — sans le sentier quand on y est. */
 function phraseDeLEpreuveQuiAttend(e: EpreuveDeSentier, ici: CleDeBranche): string {
   const autre = e.branche === ici ? null : brancheDe(e.branche)
@@ -1294,10 +1345,16 @@ export function FicheDuPalier({
       ) : bloquante ? (
         <div className="sentier-fiche-attente">
           <b>{phraseDeLEpreuveQuiAttend(bloquante, b.key)}</b>
-          <p className="muted small">Une seule épreuve à la fois : finis-la, ou quitte-la — un palier quitté compte comme raté.</p>
+          <p className="muted small">Une seule épreuve à la fois : reprends-la, ou laisse-la pour celui-ci — un palier quitté compte comme raté.</p>
           <button type="button" className="btn btn-primary btn-block" onClick={() => onReprendre(bloquante)}>
             Reprendre l’épreuve
           </button>
+          {/* Laisser l'autre pour celui-ci : `jouer` demande d'abord, et dit ce qu'il en coûte. Sans vie, un palier neuf ne se jouerait pas. */}
+          {(fait || !sansVie) && (
+            <button type="button" className="btn btn-block" aria-disabled={busy || undefined} onClick={onJouer}>
+              {r.maitre ? 'La laisser pour le maître' : `La laisser pour ce palier`}
+            </button>
+          )}
         </div>
       ) : fait ? (
         <>
