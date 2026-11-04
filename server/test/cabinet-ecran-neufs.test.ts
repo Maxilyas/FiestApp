@@ -71,7 +71,9 @@ const texte = (html: string) =>
 
 const echapper = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 /** Un texte du contenu tel que `texte()` le lit : son apostrophe droite y devient la typographique, ses espaces fines des espaces. */
-const lu = (s: string) => echapper(texte(s.replace(/'/g, '’')))
+const telQuIlSeLit = (s: string) => texte(s.replace(/'/g, '’'))
+/** Le même, à chercher dans le texte d'un rendu (`texte()`) — jamais dans son HTML brut, qui écrit l'apostrophe `&#x27;`. */
+const lu = (s: string) => echapper(telQuIlSeLit(s))
 
 /**
  * Les mots de l'écran : « carte de France », « carte-bonus », jamais « carte » seule ; rien du lexique d'avant ; aucun champ qui
@@ -1004,14 +1006,18 @@ test('la révélation de la Réplique : la réplique entière, qui l’a dite et
   assert.match(t, new RegExp(`Étape 2 Qui l’a dit \\? La bonne réponse · la tienne ${lu(r.repondu.qui!)}`))
   assert.equal(r.mots[r.bonnes.mot], r.repondu.mot)
   assert.equal(r.personnes[r.bonnes.qui], r.repondu.qui)
-  // Ratée : la bonne encadrée, la sienne barrée dessous.
+  // Ratée : la bonne encadrée, la sienne barrée dessous — sous un nom à apostrophe aussi, quel que soit le tirage. Le contenu
+  // en a trois (« L'Aztec », « Peter O'Toole », « Buzz l'Éclair »), que le rendu écrit `&#x27;` : le `<s>` se cherchait dans le
+  // HTML brut avec l'apostrophe typographique de `lu`, et l'épreuve rougissait quand l'un d'eux tombait faux (le 3 novembre 2026).
   const { replique: ECRAN } = await ecrans()
   const { renderToStaticMarkup: rendre } = await import('react-dom/server')
   const autre = (r.bonnes.qui + 1) % r.personnes.length
-  const ratee = rendre(React.createElement(ECRAN.Revelation as React.FC<Record<string, unknown>>, { corps: { ...r, bonneQui: false, choix: { ...r.choix, qui: autre } }, partie: v.id }))
-  assert.match(ratee, /<li class="corrige ko">/)
-  assert.match(texte(ratee), new RegExp(`Qui l’a dit \\? La bonne réponse ${lu(r.personnes[r.bonnes.qui])} Ta réponse ${lu(r.personnes[autre])}`))
-  assert.match(ratee, new RegExp(`<s>${lu(r.personnes[autre])}</s>`))
+  for (const personnes of [r.personnes, r.personnes.map((p, i) => (i === autre ? "L'Aztec" : p))]) {
+    const ratee = rendre(React.createElement(ECRAN.Revelation as React.FC<Record<string, unknown>>, { corps: { ...r, personnes, bonneQui: false, choix: { ...r.choix, qui: autre } }, partie: v.id }))
+    assert.match(ratee, /<li class="corrige ko">/)
+    assert.match(texte(ratee), new RegExp(`Qui l’a dit \\? La bonne réponse ${lu(personnes[r.bonnes.qui])} Ta réponse ${lu(personnes[autre])}`))
+    assert.equal(texte(/<s>([^<]*)<\/s>/.exec(ratee)?.[1] ?? ''), telQuIlSeLit(personnes[autre]), 'la sienne, barrée, en entier')
+  }
   assert.doesNotMatch(t, /quittée/i)
   sansJargon(html, 'la révélation de la Réplique', [r.entiere, r.source, r.qui, r.savais])
   // La partie relue — celle de « Mes réponses » —, quittée au bon mot : la troisième manche se titre « Le bon mot », et ne rapporte

@@ -1241,6 +1241,8 @@ async function lesPartiesDeHugo() {
 const echapper = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 /** Un texte du contenu tel que `texte()` le lit : son apostrophe droite y devient la typographique. */
 const lu = (s: string) => echapper(s.replace(/'/g, '’'))
+/** Du HTML brut où chercher un motif de `lu` : ses balises gardées, ses entités décodées comme `texte()` les lit. */
+const enClair = (html: string) => html.replace(/&#x27;|&#39;/g, '’').replace(/&quot;/g, '"').replace(/&amp;/g, '&')
 /**
  * Un nombre dit tel que `texte()` le lit — par `texte()` même : ses espaces insécables y deviennent des espaces. Cherché tel que
  * `formatNumber` l'écrit, « 16 000 km » ne se trouvait jamais — et la piste tirée au hasard ne passe les dix mille qu'une fois
@@ -2516,7 +2518,9 @@ test('une manche du Détail : le cadrage atteint à l’adresse de son tirage, c
   for (const x of m.titres) {
     assert.match(t, new RegExp(lu(x.titre)))
     assert.match(t, new RegExp(lu(x.peintre)))
-    assert.doesNotMatch(img, new RegExp(lu(x.titre)))
+    // La balise de l'image lue décodée : un titre à apostrophe y serait écrit `&#x27;`, que le motif de `lu`, typographique,
+    // n'aurait jamais trouvé — l'épreuve passait pour lui quoi que dise la balise.
+    assert.doesNotMatch(enClair(img), new RegExp(lu(x.titre)))
   }
   assert.doesNotMatch(html, /(bonne|correct|juste)[\w-]*="|cab-juste|class="corrige/i)
   // La carte-bonus, Éclairer, sous le pouce.
