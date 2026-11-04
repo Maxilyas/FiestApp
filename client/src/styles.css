@@ -9245,25 +9245,13 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .geste-du-bas:hover { color: var(--ink); }
 .geste-du-bas.geste-qui-coute { color: var(--alert); border-color: rgba(var(--alert-rgb), 0.45); }
 .geste-du-bas.geste-qui-coute:hover { color: var(--alert-hover); border-color: var(--alert); }
-/* La base, à l'administration : une ligne par catégorie, son compte au bout. */
-.campagne-admin-categories { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 4px 16px; }
-.campagne-admin-categories li { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--edge); font-size: 0.9rem; }
-.campagne-admin-difficultes { margin-top: 10px; }
-.campagne-admin-difficultes summary { cursor: pointer; }
-.campagne-admin-difficultes table { width: 100%; margin-top: 6px; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-.campagne-admin-difficultes th, .campagne-admin-difficultes td { padding: 4px 6px; border-bottom: 1px solid var(--edge); text-align: left; font-weight: 500; }
-.campagne-admin-difficultes .num { text-align: right; }
+/* La routine du matin, au QG (`QgReserves.tsx`, venue de la page de la campagne au QG 2, lot 7) : ses derniers dépôts,
+   « Retirer » au bout de chacun. La base par catégorie et ce que les réponses contredisent y ont cédé leur place à la
+   carte de la base et à la page des questions. */
 .campagne-ajouts { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .campagne-ajouts li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--edge); }
 .campagne-ajouts li p { margin: 0; }
 .campagne-ajout-retire { opacity: var(--dim); }
-/* Ce que les réponses contredisent (`QuestionsContredites`) : l'intitulé, ce
-   qu'en disent ses réponses, puis « Reclasser », en colonne — côte à côte,
-   au téléphone, chacun n'avait que quelques mots par ligne. */
-.campagne-contredites { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; }
-.campagne-contredites li { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--edge); }
-.campagne-contredites li p { margin: 0; }
-.campagne-contredites .correction-question { align-self: stretch; }
 
 /* ── Les sentiers du savoir (`Sentiers.tsx`) ─────────────────────────────
    La maquette du 5 octobre 2026 : les sentiers en tuiles, un sentier en
@@ -15379,6 +15367,27 @@ span.annonce-admin-merci { cursor: default; }
 .qg-chaleur-legende { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: var(--muted); }
 .qg-chaleur-rampe { display: inline-flex; gap: 2px; }
 .qg-chaleur-rampe i { width: 16px; height: 9px; border-radius: 2px; }
+/* Les questions jouées (`QgQuestions.tsx`, le QG 2, lot 7) : l'intitulé sur deux lignes au plus et, au téléphone, ce
+   que les colonnes cachées disent dessous ; l'ordre choisi d'un menu, là où les colonnes manquent ; les pages de la
+   liste. Une marche contredite dans l'ambre de la veille, un piège dans le rouge — chacun avec ses mots. */
+.qg-jouees { scroll-margin-top: 76px; }
+.qg-jouees-table th[scope='row'] { width: 100%; min-width: 10rem; white-space: normal; }
+.qg-jouee { display: flex; flex-direction: column; gap: 3px; width: 100%; padding: 0; border: 0; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.qg-jouee:hover .qg-jouee-texte { color: var(--accent-text-hover); }
+.qg-jouee-texte { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-weight: 500; line-height: 1.35; overflow-wrap: anywhere; }
+.qg-jouee-sous { font: 500 0.75rem/1.35 var(--qg-mono); color: var(--muted); overflow-wrap: anywhere; }
+.qg-jouee-mode { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.qg-jouee-contredite { color: var(--qg-veille-texte); }
+.qg-jouee-piege .qg-part-piste > i { background: var(--qg-critique); }
+/* Toute sa rangée, et le menu s'y rétrécit : sa largeur suivait sa plus longue option, « les plus nettement contredites
+   d'abord », et la page débordait de 36 pixels au téléphone (le rendu du 4 novembre 2026). */
+.qg-jouees-trier { flex: 1 1 100%; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.qg-jouees-trier .input { flex: 1; width: auto; min-width: 0; }
+.qg-jouees-pages { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+/* Dans sa feuille, la coche de la bonne réponse prend la teinte de son mode, comme sa barre. */
+.qg-recueil .qg-piste-nom .icon { color: var(--teinte, var(--mode-jour)); }
+/* Une carte du QG titrée d'un h3 — les sortes du contenu du Cabinet, sous la console qui les porte. */
+.qg-carte-tete h3 { margin: 0; font-family: var(--sans); font-size: 0.95rem; font-weight: 600; line-height: 1.3; }
 @media (min-width: 1101px) {
   /* Le rail dans la première colonne, toute la hauteur de l'écran ; la barre
      de commande, la tête et la page dans la seconde. La barre du menu
@@ -15512,6 +15521,11 @@ span.annonce-admin-merci { cursor: default; }
   .qg-chaleur-case { height: 34px; font-size: 0.75rem; }
   .qg-chaleur-compacte .qg-chaleur-case { height: 20px; }
   .qg-cabinet-route { grid-template-columns: minmax(0, 1fr) auto; padding-bottom: 0; }
+  /* Les questions jouées : les colonnes s'ouvrent, l'intitulé n'a plus rien à porter dessous ; la catégorie et la marche
+     passent à la ligne plutôt que de serrer l'intitulé. */
+  .qg-jouee-sous { display: none; }
+  .qg-jouees-trier { display: none; }
+  .qg-jouees-table td.qg-jouees-plie { min-width: 6rem; white-space: normal; }
 }
 @media (min-width: 1300px) {
   /* Dix voyants, cinq par rangée dès qu'ils tiennent : deux rangées égales, plutôt que huit et deux. */

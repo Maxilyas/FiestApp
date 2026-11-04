@@ -848,6 +848,7 @@ test('les alertes du serveur : un arrêt net du jour, les erreurs depuis l’heu
 
   // Dans « À traiter » : après le miroir, avant la réserve — trois en rouge, Turso lent en sourdine. Les
   // erreurs mènent à leur page, où elles se trient (le 19 octobre 2026) : les autres, à la page du serveur.
+  // La réserve, à la page « Réserves et base », où elle vit depuis le QG 2, lot 7.
   const calme: ATraiterDuQg = {
     reserve: { joursDAvance: 6 },
     signalementsDuJour: { questions: 0, joueurs: 0 },
@@ -865,7 +866,7 @@ test('les alertes du serveur : un arrêt net du jour, les erreurs depuis l’heu
       ['erreurs', true, 'erreurs'],
       ['memoire', true, 'serveur'],
       ['turso-lent', false, 'serveur'],
-      ['reserve', true, 'jour'],
+      ['reserve', true, 'reserves'],
     ],
   )
   assert.deepEqual(

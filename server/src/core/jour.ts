@@ -110,6 +110,14 @@ import { savoirDesLignes, type Savoir } from '../../../shared/ecussons'
 import { SALLE_DU_JOUR, hautFait, palierDe, xpDe } from '../../../shared/hautsfaits'
 import { minuitDe } from '../../../shared/qg'
 import { recueilDeLaQuestion, type PartDesBonnes, type QuestionDuSuivi } from '../../../shared/qgDuJour'
+import {
+  JOURS_DES_APPORTS,
+  JOURS_DES_QUESTIONS_DU_JOUR,
+  type LectureDesQuestionsDuJour,
+  type LigneDuRecueil,
+  type QuestionPoseeDuJour,
+  type ReserveDuJourAuQg,
+} from '../../../shared/qgContenu'
 import type { Mouvement } from '../../../shared/qgEconomie'
 import type { JournauxDesJours } from '../../../shared/missions'
 
@@ -421,6 +429,18 @@ const JOURS_RELUS = 30
 const JOURS_GARDES = 120
 /** Combien de tirages restent en mémoire : aujourd'hui, et de quoi revoir la semaine. */
 const TIRAGES_GARDES = 8
+
+/**
+ * Ce que les réponses de jours qui suivent `?` jusqu'à `?` (compris) ont
+ * recueilli, question par question et choix par choix — comme le suivi
+ * d'aujourd'hui (`suiviDAujourdhui`), et l'instant de la plus récente : la
+ * page des questions du QG (`questionsAuQg`). Par l'index des réponses d'un
+ * jour, en un seul texte.
+ */
+const RECUEIL_DES_JOURS = `SELECT json_group_array(json_array(jour, question, choix, n, ms, chronometrees, le)) AS lignes FROM (
+    SELECT jour, question, choix, COUNT(*) AS n, SUM(CASE WHEN choix IS NOT NULL THEN ms END) AS ms,
+           COUNT(CASE WHEN choix IS NOT NULL THEN ms END) AS chronometrees, MAX(repondue_le) AS le
+    FROM jour_reponses WHERE jour > ? AND jour <= ? GROUP BY jour, question, choix)`
 
 /** Combien de profils gardent leur jour d'hier en mémoire (`sonsHier`) : ceux du jour, et de la marge. */
 const SONS_HIER_GARDES = 2000
@@ -1107,6 +1127,44 @@ export class JourStore {
         ajoutees: Number(r.ajoutees),
         ecartees: lireListe(r.ecartees),
       })),
+    }
+  }
+
+  /**
+   * La réserve pour la page « Réserves et base » du QG (`/admin#reserves`) :
+   * ce que `etatDeLaReserve` en dit, ses questions prêtes catégorie par
+   * catégorie — celles du public mises à part, elles ont leur file —, et ce qui
+   * y est entré chaque jour de ces deux semaines, la routine du matin à part.
+   * Les prêtes par l'index des questions pas encore posées ; les apports, une
+   * poignée par jour, comme `etatDeLaReserve` les lit.
+   */
+  async reserveAuQg(): Promise<Omit<ReserveDuJourAuQg, 'remplissage'>> {
+    const aujourdhui = jourDe(this.maintenant())
+    const jours = Array.from({ length: JOURS_DES_APPORTS }, (_, k) => jourAvant(aujourdhui, JOURS_DES_APPORTS - 1 - k))
+    const [etat, [categories, apports]] = await Promise.all([
+      this.etatDeLaReserve(),
+      this.client.batch(
+        [
+          "SELECT categorie, COUNT(*) AS n FROM jour_reserve WHERE posee_le IS NULL AND retiree_le IS NULL AND source <> 'public' GROUP BY categorie",
+          // Une journée de marge avant le premier jour : un minuit de Paris tombe à 22 h ou 23 h UTC, et l'instant se range au jour de Paris dessous.
+          { sql: 'SELECT quand, source, ajoutees FROM jour_apports WHERE quand >= ?', args: [Date.parse(`${jours[0]}T00:00:00Z`) - 86_400_000] },
+        ],
+        'read',
+      ),
+    ])
+    const parJour = new Map(jours.map(jour => [jour, { jour, routine: 0, autres: 0 }]))
+    for (const r of apports.rows) {
+      const j = parJour.get(jourDe(Number(r.quand)))
+      if (!j) continue
+      if (r.source === 'ia') j.routine += Number(r.ajoutees)
+      else j.autres += Number(r.ajoutees)
+    }
+    return {
+      ...etat,
+      parCategorie: categories.rows
+        .map(r => ({ categorie: r.categorie === null || r.categorie === undefined ? null : String(r.categorie), pretes: Number(r.n) }))
+        .sort((a, b) => b.pretes - a.pretes || String(a.categorie ?? '').localeCompare(String(b.categorie ?? ''), 'fr')),
+      parJour: [...parJour.values()],
     }
   }
 
@@ -3790,6 +3848,92 @@ export class JourStore {
     return this.bonnesGardees.part
   }
 
+  // ── Les questions au QG (le QG 2, lot 7) ─────────────────────────────────
+
+  /**
+   * Ce que les réponses des jours clos ont recueilli, question par question,
+   * jusqu'au dernier jour clos lu (`jusqua`) : passé minuit, une réponse ne
+   * s'y ajoute plus — seule la suppression d'un profil en retire, et oublie
+   * tout (`oublierProfil`). Lus une fois, puis seulement les jours qui se
+   * closent : relus à chaque page des questions, ils parcouraient au quota de
+   * Turso toutes les réponses d'un trimestre pour en montrer celles d'aujourd'hui.
+   */
+  private recueilsClos: { jusqua: string; parJour: Map<string, Map<number, LigneDuRecueil[]>> } | null = null
+
+  /**
+   * Les questions posées depuis `jours` jours (aujourd'hui compris), pour la
+   * page des questions du QG (`/admin#questions`) : chaque tirage tel que son
+   * jour l'a figé, ce que ses réponses ont recueilli — choix par choix, leur
+   * temps, la plus récente —, ses signalements ouverts, et la version de la
+   * réserve de chacune. D'un seul lot, chaque lecture par son index : les
+   * tirages par leur jour, la réserve par celui où elle a été posée
+   * (`idx_jour_reserve_posee`), les signalements par leur clé, les réponses
+   * d'aujourd'hui — et des jours clos pas encore lus — par leur jour
+   * (`idx_jour_reponses_question`). Chaque partie en un seul texte JSON : le
+   * client de Turso décode chaque ligne à coups de `defineProperty`.
+   */
+  async questionsAuQg(jours = JOURS_DES_QUESTIONS_DU_JOUR): Promise<LectureDesQuestionsDuJour> {
+    const aujourdhui = jourDe(this.maintenant())
+    const depuis = jourAvant(aujourdhui, jours - 1)
+    const hier = jourAvant(aujourdhui)
+    const gardes = this.recueilsClos
+    // Les jours clos qu'on n'a pas encore lus : tous au premier appel, puis seulement ceux que minuit a clos depuis.
+    const closALire = !gardes ? { apres: jourAvant(depuis), jusqua: hier } : gardes.jusqua < hier ? { apres: gardes.jusqua, jusqua: hier } : null
+    const recueil = (apres: string, jusqua: string): InStatement => ({ sql: RECUEIL_DES_JOURS, args: [apres, jusqua] })
+    const [tirages, reserve, signales, clos, duJour, ...lusClos] = await this.client.batch(
+      [
+        { sql: "SELECT json_group_array(json_array(jour, CASE WHEN json_valid(questions) THEN json(questions) END, annulees)) AS lignes FROM jour_tirages WHERE jour >= ?", args: [depuis] },
+        { sql: 'SELECT json_group_array(json_array(id, question, categorie, metadonnees, retiree_le)) AS lignes FROM jour_reserve WHERE posee_le >= ?', args: [depuis] },
+        { sql: 'SELECT jour, question, COUNT(*) AS n FROM jour_signalements WHERE jour >= ? AND traite_le IS NULL GROUP BY jour, question', args: [depuis] },
+        { sql: 'SELECT 1 FROM jour_clotures WHERE jour = ?', args: [aujourdhui] },
+        recueil(hier, aujourdhui),
+        ...(closALire ? [recueil(closALire.apres, closALire.jusqua)] : []),
+      ],
+      'read',
+    )
+    const parJour = (res: ResultSet | undefined) => {
+      const lignes = new Map<string, Map<number, LigneDuRecueil[]>>()
+      for (const [jour, question, choix, n, ms, chronometrees, le] of JSON.parse(String(res?.rows[0]?.lignes ?? '[]')) as [string, number, number | null, number, number | null, number, number][]) {
+        let duJour = lignes.get(jour)
+        if (!duJour) lignes.set(jour, (duJour = new Map()))
+        const siennes = duJour.get(question)
+        const ligne: LigneDuRecueil = [choix, Number(n), ms === null ? null : Number(ms), Number(chronometrees), Number(le)]
+        if (siennes) siennes.push(ligne)
+        else duJour.set(question, [ligne])
+      }
+      return lignes
+    }
+    // Les jours clos lus se gardent ; ceux sortis de la fenêtre s'oublient.
+    const desClos = new Map([...(gardes?.parJour ?? []), ...(closALire ? parJour(lusClos[0]) : [])])
+    for (const jour of [...desClos.keys()]) if (jour < depuis) desClos.delete(jour)
+    // Sauf si un profil parti pendant la lecture les a fait oublier : ses réponses y seraient encore, la suivante relira tout.
+    if (this.recueilsClos === gardes) this.recueilsClos = { jusqua: closALire ? closALire.jusqua : gardes!.jusqua, parJour: desClos }
+    const recueils = new Map([...desClos, ...parJour(duJour)])
+    const signalements = new Map(signales.rows.map(r => [`${r.jour}#${r.question}`, Number(r.n)]))
+    const versions = new Map<string, VersionDeLaReserve>()
+    for (const [id, question, categorie, metadonnees, retireeLe] of JSON.parse(String(reserve.rows[0]?.lignes ?? '[]')) as unknown[][]) {
+      const v = versionDeLaReserve({ id, question, categorie, metadonnees, retiree_le: retireeLe })
+      if (v) versions.set(String(id), v)
+    }
+    const posees: QuestionPoseeDuJour[] = []
+    for (const [jour, questions, annulees] of JSON.parse(String(tirages.rows[0]?.lignes ?? '[]')) as [string, QuestionTiree[] | null, unknown][]) {
+      if (!Array.isArray(questions)) continue
+      const annuleesDuJour = lireNombres(annulees)
+      questions.forEach((q, index) => {
+        if (!q?.reserveId) return
+        posees.push({
+          jour,
+          index,
+          question: { reserveId: q.reserveId, texte: q.texte, reponses: q.reponses, bonne: q.bonne, categorie: q.categorie ?? null, anecdote: q.anecdote ?? null },
+          annulee: annuleesDuJour.includes(index),
+          lignes: recueils.get(jour)?.get(index) ?? [],
+          signalements: signalements.get(`${jour}#${index}`) ?? 0,
+        })
+      })
+    }
+    return { aujourdhui, aujourdhuiOuvert: clos.rows.length === 0, posees, reserve: versions }
+  }
+
   /** Les séries en cours, gardées dix minutes : elles bougent avec les parties, pas avec les clics. */
   private seriesGardees: { a: number; jour: string; lues: Promise<SeriesLues> } | null = null
 
@@ -4201,6 +4345,8 @@ export class JourStore {
         'write',
       )
       for (const r of jours.rows) this.reviser(String(r.jour))
+      // Ses réponses comptaient dans ce que les jours clos ont recueilli, au QG : ils se relisent à la page suivante.
+      this.recueilsClos = null
       this.masques.delete(profileId)
       this.versionDesMasques++
       this.oublierSesCompagnons(profileId)

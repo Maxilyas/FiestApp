@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 import type { InStatement } from '@libsql/client'
 import { deplier, estDuCabinet, idDuTableau } from '../../../shared/cabinet/pieces'
+import { bitDuMode } from '../../../shared/campagne'
 import { horsDeLaBase } from '../../../shared/horsDeLaBase'
 import { jourDe } from '../../../shared/jour'
 import { CARTES_DU_SECOND_ESSAI } from '../../../shared/rencontres'
@@ -300,6 +301,17 @@ export interface Compte {
   total: number
 }
 
+/**
+ * Une question de la base posée en campagne, tous modes et toutes réponses
+ * comprises — révisions, réponses aidées, laissées au temps : quand pour la
+ * dernière fois, et dans quels modes (un bit chacun, `bitDuMode`). Ce que la
+ * page des questions du QG en dit (`questionsJouees`).
+ */
+export interface QuestionJouee {
+  derniere: number
+  modes: number
+}
+
 /** Ses écussons d'une catégorie : ses questions, celles qu'il a répondues, ses justes (`savoirDesLignes`). */
 interface CompteDeSavoir {
   questions: number
@@ -420,6 +432,8 @@ export class JournalDesReponses {
   private readonly leurres = new Map<string, Map<string, number>>()
   /** Les bonnes réponses de tous, heure par heure : un confetti chacune (`justesDeTousDepuis`). */
   private readonly justesDeTousParHeure = new Map<number, number>()
+  /** Chaque question de la base qu'une partie a posée : sa dernière fois, ses modes (`questionsJouees`). */
+  private readonly jouees = new Map<string, QuestionJouee>()
 
   constructor(private readonly maintenant: () => number = Date.now) {}
 
@@ -459,6 +473,16 @@ export class JournalDesReponses {
   private une(r: ReponseDuJournal) {
     this.reponses++
     if (r.duel !== null && r.fermeLe !== null) this.fermerLeDuel(r.duel, r.fermeLe)
+    // La page des questions du QG : chaque question de la base posée, toute réponse comptée — une révision la pose aussi.
+    if (!horsDeLaBase(r.question)) {
+      const bit = bitDuMode(r.mode)
+      const j = this.jouees.get(r.question)
+      if (!j) this.jouees.set(r.question, { derniere: r.le, modes: bit })
+      else {
+        if (r.le > j.derniere) j.derniere = r.le
+        j.modes |= bit
+      }
+    }
     // L'administration des sentiers : chaque épreuve jouée pour de bon, ses réponses à chaque marche.
     if (r.epreuve !== null && !r.epreuve.rejeu && r.niveau !== null && r.commencee !== null) {
       let e = this.epreuves.get(r.serie)
@@ -756,6 +780,28 @@ export class JournalDesReponses {
     const debut = this.debutDesRecentes()
     if (d.recentes.length > 0 && d.recentes[0].le < debut) d.recentes = d.recentes.filter(r => r.le >= debut)
     return d.recentes.filter(r => r.le >= depuis && r.commencee >= commencees)
+  }
+
+  /**
+   * Les questions de la base qu'une partie a posées, chacune sa dernière fois
+   * et ses modes — la page des questions du QG (`CampagneStore.questionsAuQg`),
+   * sans relire une réponse : sur toute la campagne, sa lecture aurait
+   * parcouru la table entière à chaque ouverture. Le journal tient la carte
+   * telle quelle ; qui la lit ne la change pas.
+   */
+  questionsJouees(): ReadonlyMap<string, Readonly<QuestionJouee>> {
+    return this.jouees
+  }
+
+  /**
+   * Les réponses d'une question que la mesure compte — nues, hors révision —,
+   * à jour de la dernière lecture, sans copier la mesure entière : la page des
+   * questions du QG les lit avec ses leurres choisis (`leurresChoisis`), sur
+   * les mêmes réponses. La marche, elle, se juge sur la mesure gardée
+   * (`CampagneStore.mesures`), celle que les tirages lisent.
+   */
+  compteDe(question: string): Readonly<Compte> | undefined {
+    return this.brutes.get(question)
   }
 
   /** La mesure des difficultés, recopiée : celle qu'on garde dix minutes ne bouge pas sous ceux qui la lisent. */

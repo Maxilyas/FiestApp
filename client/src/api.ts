@@ -65,6 +65,7 @@ import type { PageDeLActivite } from '../../shared/qgActivite'
 import type { ComptesDesSegments, PageDesJoueurs, SegmentDuQg } from '../../shared/qgJoueurs'
 import type { OrigineDUnProfil } from '../../shared/origines'
 import type { Classement, PageDesSignalements } from '../../shared/qgSignalements'
+import type { FiltreDesQuestions, PageDesQuestions, PageDesReserves } from '../../shared/qgContenu'
 import { applySample, mesureDeLaReponse, tempsDuPrechargement } from './clock'
 import { DEPART } from '../../shared/depart'
 
@@ -994,6 +995,22 @@ export const api = {
       req<{ ok: true }>('/api/admin/campagne/reclasser', { method: 'POST', body: JSON.stringify({ questionId, classement }) }),
     /** Les signalements : à relire, au quiz du jour et en campagne, et ce qui a été fait des questions relues ces trente jours. */
     signalements: () => req<PageDesSignalements>('/api/admin/signalements'),
+    /** Les questions jouées, de la campagne et du quiz du jour : les tuiles, et une page de celles que le filtre retient, dans son ordre. */
+    questions: (f: FiltreDesQuestions) => {
+      const q = new URLSearchParams()
+      if (f.mode) q.set('mode', f.mode)
+      if (f.etat !== 'toutes') q.set('etat', f.etat)
+      if (f.mot) q.set('mot', f.mot)
+      if (f.tri) {
+        q.set('tri', f.tri)
+        q.set('sens', f.sens)
+      }
+      if (f.page > 0) q.set('page', String(f.page))
+      const s = q.toString()
+      return req<PageDesQuestions>(`/api/admin/questions${s ? `?${s}` : ''}`)
+    },
+    /** La réserve du quiz du jour, la base de la campagne catégorie par marche, le contenu neuf du Cabinet. */
+    reserves: () => req<PageDesReserves>('/api/admin/reserves'),
     /**
      * Corriger une question du jour signalée : sa version de la réserve, et le
      * jour qui l'a posée quand la bonne réponse ne change pas ; `annuler`

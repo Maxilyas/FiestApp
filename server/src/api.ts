@@ -8,6 +8,7 @@ import type { CabinetStore } from './core/cabinet/magasin'
 import { mountProfilsAdmin } from './profilsAdmin'
 import { mountQg, type QgDeps } from './qg'
 import { mountCabinetDuQg } from './cabinetDuQg'
+import { ContenuDuQg, mountContenuDuQg, oublierApresUnGeste } from './qgContenu'
 import { fermerLesPortes, mountMaintenance } from './maintenance'
 import { mountAnnonces } from './annonces'
 import { mountJoueurs, type AudienceDuQg } from './joueursDuQg'
@@ -141,6 +142,10 @@ export function mountApi(app: Express, deps: ApiDeps) {
   // Derrière la porte, avant toute route : chaque geste qui change quelque
   // chose se note au journal du QG, celui d'une route à venir compris.
   app.use('/api/admin', journaliser(deps.gestes))
+  // Les questions et les réserves du QG gardent leur lecture une minute : tout
+  // geste de l'administrateur la fait oublier — avant toute route, lui aussi.
+  const contenu = new ContenuDuQg({ jour: deps.jour, campagne: deps.campagne, maintenant: deps.maintenant, reserveAutomatique: deps.jetonDeLaReserve !== null })
+  app.use('/api/admin', oublierApresUnGeste(contenu))
   // Devant les routes des joueurs : une page en maintenance, ou bientôt
   // disponible, ferme celles qui y commencent une partie, un départ, un achat
   // (`PORTES_DES_PAGES`) — à tous sauf à l'administrateur et à ses testeurs.
@@ -257,6 +262,8 @@ export function mountApi(app: Express, deps: ApiDeps) {
   })
   // Le Cabinet de curiosités au QG : ses traversées, ses jeux, ses cartes, ses gardiens, son contenu — l'administrateur seul.
   mountCabinetDuQg(app, { cabinet: deps.cabinet.magasin, profiles: deps.profiles, maintenant: deps.maintenant })
+  // Les questions jouées de la campagne et du quiz du jour, la réserve, la base et le contenu du Cabinet : l'administrateur seul.
+  mountContenuDuQg(app, contenu)
   // Le bandeau rouge, les pages fermées et leurs testeurs : l'administrateur seul.
   mountMaintenance(app, { maintenance: deps.maintenance, profiles: deps.profiles })
   // Les joueurs : combien jouent, combien reviennent, qui décroche — l'administrateur seul.

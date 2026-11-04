@@ -276,6 +276,7 @@ import {
 } from '../../../shared/sentiersDeSujets'
 import { JOURS_DU_QG, jourDeLInstant, joursDesMinuits, minuitsDeParis } from '../../../shared/qg'
 import { DUELS_EN_ATTENTE_MONTRES, LIGNES_DU_CLASSEMENT_AU_QG, joueursParLigue, type JoueurDuDuel, type SuiviDesDuels } from '../../../shared/qgDuels'
+import { carteDeLaBaseEnTranches, questionsDeLaCampagneEnTranches, type BaseDeLaCampagneAuQg, type QuestionAuQg } from '../../../shared/qgContenu'
 import { etoilesDansLeTemps, liguesDansLeTemps, type EpreuveValidee, type Mouvement } from '../../../shared/qgEconomie'
 import { hasardDe, MODES_QUE_LES_MISSIONS_COMPTENT, type JournauxDesJours } from '../../../shared/missions'
 import {
@@ -8188,6 +8189,65 @@ export class CampagneStore {
       ajouts: this.ajoutsDeLaRoutine(base),
       signalements,
     }
+  }
+
+  /**
+   * Les questions jouées de la campagne, pour la page des questions du QG
+   * (`/admin#questions`, le QG 2) : chaque jouable qu'une partie a posée —
+   * série, épreuve, parcours, révision, défi, duel, et le Cabinet quand il pose
+   * une question de la base —, où et quand pour la dernière fois, ce que ses
+   * réponses ont recueilli, ses signalements ouverts ; sa marche, celle où la
+   * campagne la tire (la préparation du tirage), et ce que ses réponses en
+   * contredisent, la règle de la page de la campagne (`marcheContredite`, sur
+   * la même mesure). Rien ne se relit d'une réponse : la base, la mesure, la
+   * préparation et le journal sont en mémoire — un seul aller-retour, les
+   * signalements ouverts et ce qui est arrivé au journal au bout du même lot
+   * (`lireAvecLeJournal`) —, et toute la base passe une tranche à la fois.
+   */
+  async questionsAuQg(): Promise<QuestionAuQg[]> {
+    const [
+      jouables,
+      mesure,
+      {
+        lus: [signales],
+        journal,
+      },
+    ] = await Promise.all([
+      this.jouables(),
+      this.mesures(),
+      this.lireAvecLeJournal(['SELECT question_id, COUNT(*) AS n FROM campagne_signalements WHERE traite_le IS NULL GROUP BY question_id']),
+    ])
+    // La préparation de ces jouables à cette mesure, déjà faite derrière la mesure neuve, le plus souvent : ses marches.
+    const preparation = await this.tirage(jouables, mesure)
+    return enTranches(
+      questionsDeLaCampagneEnTranches(
+        {
+          jouables,
+          marche: i => preparation.marche(i),
+          mesure,
+          jouees: journal.questionsJouees(),
+          compte: id => journal.compteDe(id),
+          leurres: journal.leurresChoisis(),
+          signalements: new Map(signales.rows.map(r => [String(r.question_id), Number(r.n)])),
+        },
+        this.tranche,
+      ),
+    )
+  }
+
+  /**
+   * La base pour la page « Réserves et base » du QG (`/admin#reserves`) : ce
+   * qu'elle a, ce que la campagne peut en poser, et ses jouables catégorie par
+   * marche — la marche où la campagne tire chacune, et celles que leurs
+   * réponses contredisent —, une tranche à la fois ; puis ce que la routine du
+   * matin y a déposé. Là où une case pâlit, les sentiers et le Quiz du Cabinet
+   * tirent toujours les mêmes.
+   */
+  async baseAuQg(): Promise<BaseDeLaCampagneAuQg> {
+    const [jouables, mesure, base] = await Promise.all([this.jouables(), this.mesures(), this.base()])
+    const preparation = await this.tirage(jouables, mesure)
+    const carte = await enTranches(carteDeLaBaseEnTranches(jouables, i => preparation.marche(i), mesure, CATEGORIES, this.tranche))
+    return { questions: base.questions.length, jouables: jouables.length, retirees: this.retirees.size, carte, ajouts: this.ajoutsDeLaRoutine(base) }
   }
 
   // ── L'Expédition ────────────────────────────────────────────────────────

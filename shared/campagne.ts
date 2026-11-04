@@ -59,6 +59,15 @@ export function modeDeSerieLu(brut: unknown): ModeDeSerie {
   return (MODES_DE_SERIE as readonly unknown[]).includes(brut) ? (brut as ModeDeSerie) : 'serie'
 }
 
+/**
+ * Le bit d'un mode dans un ensemble de modes, un bit par mode de la liste :
+ * ce que le journal des réponses garde des parties qui ont posé une question
+ * (`JournalDesReponses.questionsJouees`) — un nombre par question plutôt qu'un
+ * ensemble, sur des milliers de questions. Lu comme le mode d'une ligne : un
+ * mode hors de la liste compte en série.
+ */
+export const bitDuMode = (mode: unknown): number => 1 << MODES_DE_SERIE.indexOf(modeDeSerieLu(mode))
+
 export type Niveau = 'facile' | 'moyen' | 'difficile' | 'expert'
 
 export const NIVEAUX: readonly Niveau[] = ['facile', 'moyen', 'difficile', 'expert']
@@ -355,9 +364,21 @@ export function marcheContredite(
   const niveau = niveauDeQuestion(difficulte, mesure)
   const niveauMesure = niveauDuTaux(part)
   if (niveau === niveauMesure) return null
-  const depart = Math.min(0.99, Math.max(0.01, mesure.depart ?? TAUX_A_PRIORI[difficulte] ?? TAUX_A_PRIORI[3]))
-  const force = Math.abs(part - depart) / Math.sqrt((depart * (1 - depart)) / mesure.total)
+  const force = forceDuDesaccord(part, mesure.depart ?? TAUX_A_PRIORI[difficulte] ?? TAUX_A_PRIORI[3], mesure.total)
   return { niveau, niveauMesure, force, difficulteProposee: difficultePourLaPart(part) }
+}
+
+/**
+ * De combien la part de `total` réponses s'écarte de celle d'où elle
+ * partait, en écarts types d'un tirage de `total` réponses : ce qui range
+ * les questions contredites, les plus nettes d'abord — celles de la campagne
+ * (`marcheContredite`), et au QG celles du quiz du jour, contre l'estimation
+ * de la routine qui les a décrites (`shared/qgContenu.ts`) : une seule mesure,
+ * pour qu'une liste qui mêle les deux les range sur la même échelle.
+ */
+export function forceDuDesaccord(part: number, depart: number, total: number): number {
+  const d = Math.min(0.99, Math.max(0.01, depart))
+  return Math.abs(part - d) / Math.sqrt((d * (1 - d)) / total)
 }
 
 /**

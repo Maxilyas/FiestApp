@@ -25,6 +25,8 @@ import { QgMaintenance } from '../components/QgMaintenance'
 import { QgAnnonces } from '../components/QgAnnonces'
 import { QgJoueurs } from '../components/QgJoueurs'
 import { QgAffiches } from '../components/QgAffiches'
+import { QgQuestions } from '../components/QgQuestions'
+import { QgReserves } from '../components/QgReserves'
 import { FicheDuJoueurAuQg } from '../components/QgFicheJoueur'
 import { PaletteDuQg } from '../components/QgPalette'
 import { Feuille, MenuBarre, Sortie } from '../components/Pieces'
@@ -44,6 +46,7 @@ import type { EntreeDuCatalogue, StatutAuCatalogue } from '../../../shared/parta
 import type { QuizQuestionDef } from '../../../shared/library'
 import type { ProfilDAdministration } from '../../../shared/profil'
 import type { SegmentDuQg } from '../../../shared/qgJoueurs'
+import type { EtatDesQuestions } from '../../../shared/qgContenu'
 
 /**
  * Le QG de l'administrateur (`/admin`), pour lui seul — le souhait du
@@ -90,7 +93,9 @@ type Ecran =
   | 'alertes'
   | 'joueurs'
   | 'telephones'
-const ECRANS: readonly Ecran[] = ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'cabinet', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes', 'joueurs', 'telephones']
+  | 'questions'
+  | 'reserves'
+const ECRANS: readonly Ecran[] = ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'cabinet', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes', 'joueurs', 'telephones', 'questions', 'reserves']
 /** Les ancres de la page d'avant, qu'un favori garde encore. */
 const ANCIENNES: Record<string, Ecran> = { 'les-profils': 'profils', 'quiz-du-jour': 'jour' }
 
@@ -123,6 +128,8 @@ const TITRE: Record<Ecran, string> = {
   alertes: 'Alertes et incidents',
   joueurs: 'Les joueurs',
   telephones: 'Les téléphones',
+  questions: 'Les questions',
+  reserves: 'Les réserves et la base',
 }
 
 /**
@@ -130,8 +137,8 @@ const TITRE: Record<Ecran, string> = {
  * commande, l'audience, les modes, le contenu, la technique, l'animation ; la
  * vue d'ensemble, le poste de commande, est `null`. Seules les pages qui
  * existent : une page rejoint le rail quand elle est là, jamais avant (règle
- * `qg.md`) — les questions y entreront avec la leur ; le Cabinet y est entré
- * le 4 novembre 2026, après la campagne qui le comptait seule jusque-là.
+ * `qg.md`) — le Cabinet y est entré le 4 novembre 2026, après la campagne qui
+ * le comptait seule jusque-là, les questions et les réserves le même jour.
  */
 const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; icone: IconName }[] }[] = [
   {
@@ -167,6 +174,9 @@ const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; 
   {
     groupe: 'Contenu',
     pages: [
+      // Ce que chaque question jouée donne vraiment, puis ce qui nourrit les modes : les deux pages du lot 7.
+      { ecran: 'questions', nom: 'Questions', icone: 'bulb' },
+      { ecran: 'reserves', nom: 'Réserves et base', icone: 'book' },
       { ecran: 'signalements', nom: 'Signalements', icone: 'flag' },
       { ecran: 'catalogue', nom: 'Catalogue', icone: 'globe' },
     ],
@@ -246,6 +256,8 @@ export function AdminApp() {
   const [fiche, setFiche] = useState<Pick<ProfilDAdministration, 'id' | 'nom'> | null>(null)
   /** Le segment des joueurs à qui la page des annonces s'ouvre pour écrire (« Leur écrire ») ; null, à tous. */
   const [segmentDesAnnonces, setSegmentDesAnnonces] = useState<SegmentDuQg | null>(null)
+  /** Les questions que la page des questions montre, retenues d'une page à l'autre : la campagne et les réserves l'ouvrent sur les contredites. */
+  const [questionsSur, setQuestionsSur] = useState<EtatDesQuestions>('toutes')
   /** Ce que son propre profil a de neuf à porter : la pastille de « Profil », dans la barre du téléphone. */
   const nouveautes = useNouveautesDuMenu(true)
   // Une lecture à la fois : l'hébergeur qui se réveille tient une requête trente secondes.
@@ -491,6 +503,13 @@ export function AdminApp() {
       <Ligne icone="home" nom="Les salons" valeur={espaces ? formatNumber(espaces.length) : 'Renommer, fermer'} onClick={() => aller('salons')} />
       <Ligne icone="bag" nom="L’économie" valeur="Confettis, ventes, Éclats" onClick={() => aller('economie')} />
       <Ligne icone="globe" nom="Le catalogue" valeur={aRelire > 0 ? `${aRelire} à relire` : 'Relire, publier'} onClick={() => aller('catalogue')} />
+      <Ligne icone="bulb" nom="Les questions" valeur="Jouées, contredites, pièges" onClick={() => aller('questions')} />
+      <Ligne
+        icone="book"
+        nom="Les réserves et la base"
+        valeur={reserve ? `${reserve.joursDAvance} jour${reserve.joursDAvance > 1 ? 's' : ''} d’avance au quiz du jour` : 'Réserve, base, Cabinet'}
+        onClick={() => aller('reserves')}
+      />
       <Ligne icone="flag" nom="Les signalements" valeur={signalees > 0 ? `${signalees} à relire` : 'Corriger, reclasser'} onClick={() => aller('signalements')} />
       <Ligne icone="list" nom="Le journal" valeur="Tes gestes" onClick={() => aller('journal')} />
       <Ligne icone="x-circle" nom="Les erreurs" valeur={desErreurs > 0 ? `${desErreurs} à traiter` : 'Trier, être prévenu'} onClick={() => aller('erreurs')} />
@@ -631,13 +650,48 @@ export function AdminApp() {
         {ecran === 'profils' && <AdminProfils />}
         {ecran === 'salons' && <AdminSalons espaces={espaces} onChange={relireLesComptes} />}
         {ecran === 'catalogue' && <Catalogue />}
-        {ecran === 'jour' && <AdminDuJour vue={vue} versLesSignalements={() => aller('signalements')} periode={periodeDeLaPage} comparer={comparer} />}
-        {ecran === 'campagne' && <AdminCampagne vue={vue} versLesSignalements={() => aller('signalements')} periode={periodeDeLaPage} comparer={comparer} />}
+        {ecran === 'jour' && (
+          <AdminDuJour
+            vue={vue}
+            versLesSignalements={() => aller('signalements')}
+            versLesReserves={() => aller('reserves')}
+            periode={periodeDeLaPage}
+            comparer={comparer}
+          />
+        )}
+        {ecran === 'campagne' && (
+          <AdminCampagne
+            vue={vue}
+            versLesSignalements={() => aller('signalements')}
+            versLesReserves={() => aller('reserves')}
+            versLesContredites={() => {
+              setQuestionsSur('contredites')
+              aller('questions')
+            }}
+            periode={periodeDeLaPage}
+            comparer={comparer}
+          />
+        )}
         {ecran === 'cabinet' && <QgCabinet versLaMaintenance={() => aller('maintenance')} vue={vue} periode={periodeDeLaPage} comparer={comparer} />}
         {ecran === 'duels' && <AdminDuels vue={vue} periode={periodeDeLaPage} comparer={comparer} />}
         {ecran === 'economie' && <AdminEconomie />}
         {/* Un geste referme des signalements : ce qui attend, et la pastille du rail, se relisent. */}
         {ecran === 'signalements' && <AdminSignalements apresUnGeste={relireLaVue} />}
+        {/* Le contenu : un geste sur une question referme peut-être ses signalements, un apport éteint l'alerte de la réserve —
+            ce qui attend, et les pastilles du rail, se relisent. */}
+        {ecran === 'questions' && (
+          <QgQuestions etat={questionsSur} changerDEtat={setQuestionsSur} apresUnGeste={relireLaVue} versLesSignalements={() => aller('signalements')} />
+        )}
+        {ecran === 'reserves' && (
+          <QgReserves
+            seuilDeLaReserve={vue?.aTraiter.seuilDeLaReserve}
+            apresUnGeste={relireLaVue}
+            versLesQuestions={e => {
+              setQuestionsSur(e)
+              aller('questions')
+            }}
+          />
+        )}
 
         {toast && <div className={`toast toast-${toast.kind}`}>{toast.message}</div>}
       </main>

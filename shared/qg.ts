@@ -546,7 +546,7 @@ export interface ChoseATraiter {
   titre: string
   detail: string
   /** L'écran du QG qui la montre ; null, rien encore à ouvrir — la ligne suffit. */
-  ecran: 'soirees' | 'jour' | 'signalements' | 'catalogue' | 'serveur' | 'erreurs' | 'alertes' | null
+  ecran: 'soirees' | 'jour' | 'signalements' | 'catalogue' | 'serveur' | 'erreurs' | 'alertes' | 'reserves' | null
 }
 
 const pluriel = (n: number, mot: string, motPluriel = `${mot}s`) => `${n} ${n > 1 ? motPluriel : mot}`
@@ -640,7 +640,8 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
       alerte: true,
       titre: 'La réserve du quiz du jour',
       detail: `${pluriel(vue.reserve.joursDAvance, 'jour')} d’avance, l’alerte est à ${seuilDeLaReserve}`,
-      ecran: 'jour',
+      // La réserve vit sur la page « Réserves et base » depuis le QG 2, lot 7 : la page du quiz du jour n'en garde qu'une ligne qui y mène.
+      ecran: 'reserves',
     })
   }
   // Les deux modes se relisent sur une seule page (le choix du 14 octobre
