@@ -257,7 +257,7 @@ test('la page de l’activité — les modes côte à côte — se lit d’un co
     'sur les 22 jours de ces trente qui ont leurs sept jours derrière eux',
     'Jour par jour',
     'Questions jouées',
-    'Qui joue à quoi',
+    'Les plus assidus',
     '4 profils actifs ces trente jours',
     // Tom : ses questions, ses jours, et sur quoi il s'acharne ; sa barre dit chaque mode au lecteur d'écran.
     '44 questions · 2 jours sur 30 · surtout les soirées, 55 %',

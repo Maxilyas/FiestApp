@@ -371,10 +371,13 @@ function ceQuIlAJoue(j: ActiviteDUnJoueur, vue: Vue, jours: number): string {
 }
 
 /**
- * Qui joue à quoi : chaque profil et ses questions jouées, en une barre —
+ * Les plus assidus : chaque profil et ses questions jouées, en une barre —
  * sa longueur dit combien, ses couleurs à quoi. Tous les modes, ou un seul ;
  * une ligne ouvre sa fiche, comme dans « Les profils ». Les invités sans
- * profil n'y sont pas : ils ne comptent qu'au volume des soirées.
+ * profil n'y sont pas : ils ne comptent qu'au volume des soirées. La section
+ * s'appelait « Qui joue à quoi », comme les combinaisons de modes de la page
+ * des joueurs — deux tableaux sous un même nom (la revue d'expert du
+ * 4 novembre 2026).
  */
 function QuiJoueAQuoi({ page, apresUnGeste }: { page: PageDeLActivite; apresUnGeste?: () => void }) {
   const [vue, setVue] = useState<Vue>('tous')
@@ -394,7 +397,7 @@ function QuiJoueAQuoi({ page, apresUnGeste }: { page: PageDeLActivite; apresUnGe
     <section className="qg-jour" aria-labelledby="activite-joueurs">
       <div className="qg-section-tete">
         <h2 className="compte-groupe" id="activite-joueurs">
-          Qui joue à quoi
+          Les plus assidus
         </h2>
         <span className="muted small">{pluriel(page.profilsActifs, 'profil actif', 'profils actifs')} ces trente jours</span>
       </div>
