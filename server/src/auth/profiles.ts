@@ -4638,6 +4638,15 @@ export class ProfileStore {
     return session.profileId
   }
 
+  /**
+   * Le profil derrière un jeton, sans rien glisser ni noter, au contraire de
+   * `sessionProfileId` : le direct du QG compte qui joue à quel mode, une
+   * fois la route servie, et la route elle-même a déjà fait le reste.
+   */
+  profilDuJeton(token: string): string | null {
+    return this.profilDeLaSession(fingerprint(token))
+  }
+
   /** Passé ces cinq dernières minutes (`EN_LIGNE_MS`) — à l'horloge de la machine, comme les sessions. */
   enLigne(profileId: string, maintenant = Date.now()): boolean {
     const vu = this.vus.get(profileId)

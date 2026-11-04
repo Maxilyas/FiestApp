@@ -27,6 +27,20 @@ import {
 } from '../../../shared/santeDuServeur'
 import { detailDeLErreur, type DetailDUneErreur } from './erreurs'
 import type { CoutDUnAllerRetour } from './quotaDeTurso'
+import type { ModeDuQg } from '../../../shared/qg'
+import {
+  EVENEMENTS_DES_ROUTES,
+  EVENEMENTS_DU_FIL,
+  PAS_DU_DIRECT_MS,
+  POINTS_DU_DIRECT,
+  PRESENCE_MS,
+  debutDuPas,
+  modesAZero,
+  type EvenementDuFil,
+  type FaitDuFil,
+  type MesureDuPas,
+  type PointDuDirect,
+} from '../../../shared/qgDirect'
 
 // Le pouls du serveur : ce que `/healthz` dit de la charge, pour savoir, sur
 // l'hébergeur, si le serveur tient. Rien ne le disait : la tablée du 24
@@ -667,6 +681,198 @@ export interface ReleveDeCharge {
   recusOctets?: number | null
 }
 
+// ── Le direct du QG (le QG 2, lot 3) ──────────────────────────────────────
+
+/** Les échantillons d'un pas de dix secondes : de quoi un centile, sans plus. */
+const ECHANTILLON_D_UN_PAS = 40
+
+/** La charge d'un relevé, telle que le direct la garde. */
+interface ChargeDuPas {
+  processeur: number
+  boucleMaxMs: number
+  memoireMo: number | null
+  invites: number
+  tempsReel: number | null
+}
+
+/** Le pas en cours du direct : ce que le relevé reçoit pendant ses dix secondes. */
+class PasDuDirect {
+  readonly routes = new Mesure(ECHANTILLON_D_UN_PAS)
+  readonly base = new Mesure(ECHANTILLON_D_UN_PAS)
+  requetes = 0
+  refusees = 0
+  enErreur = 0
+  erreurs = 0
+  gels = 0
+  charge: ChargeDuPas | null = null
+  constructor(readonly debut: number) {}
+}
+
+const mesureDuPas = (m: Mesure): MesureDuPas | null => m.lire()
+
+/**
+ * Le direct du QG (le QG 2, lot 3, le 4 novembre 2026 : « voir … sur du temps
+ * réel ») : ce que le relevé de l'heure reçoit, au pas de dix secondes sur
+ * quinze minutes (`POINTS_DU_DIRECT`), les joueurs de chaque mode et le fil
+ * de ce qui arrive — en mémoire seulement, nourri par le relevé
+ * (`ReleveHoraire.direct`) et lu par le flux du QG (`GET /api/admin/flux`).
+ * Quelques dizaines de kilo-octets : quatre-vingt-dix pas, quatre-vingts
+ * événements, un instant par profil passé ces cinq minutes.
+ *
+ * Un joueur compte dans un mode tant qu'il est passé sur une de ses routes ces
+ * cinq dernières minutes (`joueur`, le minutage de `server.ts`) : son profil
+ * ne sort jamais d'ici, seul leur nombre. En soirée, les invités connectés.
+ */
+export class DirectDuServeur {
+  private points: PointDuDirect[] = []
+  private pas: PasDuDirect
+  private presences = new Map<ModeDuQg, Map<string, number>>()
+  private fil: EvenementDuFil[] = []
+  private prochainId = 1
+  private prochainRang = 1
+
+  constructor(private readonly now: () => number = Date.now) {
+    this.pas = new PasDuDirect(debutDuPas(now()))
+  }
+
+  /**
+   * Le pas qu'il est. Celui d'avant, fini, rejoint l'anneau, et les pas
+   * passés sans rien aussi, vides — le temps du graphique reste continu ; un
+   * serveur resté muet plus de quinze minutes ne remplit que ce qui se voit.
+   */
+  private courant(): PasDuDirect {
+    const debut = debutDuPas(this.now())
+    if (debut === this.pas.debut) return this.pas
+    this.points.push(this.figer(this.pas))
+    const premierVide = Math.max(this.pas.debut + PAS_DU_DIRECT_MS, debut - POINTS_DU_DIRECT * PAS_DU_DIRECT_MS)
+    for (let a = premierVide; a < debut; a += PAS_DU_DIRECT_MS) this.points.push(this.figer(new PasDuDirect(a)))
+    if (this.points.length > POINTS_DU_DIRECT) this.points.splice(0, this.points.length - POINTS_DU_DIRECT)
+    this.pas = new PasDuDirect(debut)
+    return this.pas
+  }
+
+  /**
+   * Un pas en point. La charge se relève toutes les dix secondes, sans se
+   * caler sur les pas : un pas qui n'en a pas reçu reprend celle du pas
+   * d'avant, s'il en avait une — un relevé tombé de l'autre côté du pas ne
+   * fait pas un trou dans la courbe.
+   */
+  private figer(p: PasDuDirect, maintenant?: number): PointDuDirect {
+    const fin = maintenant ?? p.debut + PAS_DU_DIRECT_MS
+    const avant = this.points.at(-1)
+    const reprise = avant && avant.a === p.debut - PAS_DU_DIRECT_MS && avant.processeur !== null ? avant : null
+    const c = p.charge
+    const modes = modesAZero()
+    for (const [mode, vus] of this.presences) {
+      let n = 0
+      for (const [profil, quand] of vus) {
+        if (quand > fin - PRESENCE_MS) n++
+        // Le ménage, au passage : celui qui n'est plus passé depuis cinq minutes ne revient pas dans un pas d'avant.
+        else if (maintenant === undefined && quand <= this.now() - PRESENCE_MS) vus.delete(profil)
+      }
+      modes[mode] = n
+    }
+    const invites = c ? c.invites : reprise ? reprise.invites : null
+    modes.soiree = invites ?? 0
+    return {
+      a: p.debut,
+      requetes: p.requetes,
+      refusees: p.refusees,
+      enErreur: p.enErreur,
+      erreurs: p.erreurs,
+      routes: mesureDuPas(p.routes),
+      base: mesureDuPas(p.base),
+      processeur: c ? Math.round(c.processeur * 10) / 10 : (reprise?.processeur ?? null),
+      boucleMaxMs: c ? Math.round(c.boucleMaxMs) : (reprise?.boucleMaxMs ?? null),
+      memoireMo: c ? c.memoireMo : (reprise?.memoireMo ?? null),
+      invites,
+      tempsReel: c ? c.tempsReel : (reprise?.tempsReel ?? null),
+      gels: p.gels,
+      modes,
+    }
+  }
+
+  route(modele: string, ms: number, statut: number | null) {
+    this.courant().routes.noter(ms)
+    const fait = statut !== null && statut < 400 ? EVENEMENTS_DES_ROUTES[modele] : undefined
+    if (fait) this.evenement(fait)
+  }
+
+  requete(statut: number) {
+    const p = this.courant()
+    p.requetes++
+    if (statut >= 500) p.enErreur++
+    else if (statut >= 400) p.refusees++
+  }
+
+  base(ms: number) {
+    this.courant().base.noter(ms)
+  }
+
+  /** Une erreur serveur : comptée dans son pas, et dite au fil par sa source et son code — jamais son message, qui peut citer un joueur. */
+  erreur(source: string, code: string | null) {
+    this.courant().erreurs++
+    this.evenement({ sorte: 'erreur', mode: null, texte: `Erreur serveur · ${source}${code ? ` · ${code}` : ''}` })
+  }
+
+  charge(c: ReleveDeCharge) {
+    this.courant().charge = { processeur: c.processeur, boucleMaxMs: c.boucleMaxMs, memoireMo: c.memoireMo, invites: c.invites, tempsReel: c.tempsReel ?? null }
+  }
+
+  gel() {
+    this.courant().gels++
+  }
+
+  /** Un profil passé sur une route d'un mode : il y compte cinq minutes. */
+  joueur(mode: ModeDuQg, profil: string) {
+    let vus = this.presences.get(mode)
+    if (!vus) this.presences.set(mode, (vus = new Map()))
+    vus.set(profil, this.now())
+  }
+
+  /**
+   * Une ligne du fil. La même, arrivée dans le même pas, se compte avec la
+   * précédente (« 3 × ») et reprend un rang neuf : la page qui l'avait la
+   * remplace — une panne qui fait tomber cent requêtes ne noie pas le fil.
+   */
+  evenement(fait: FaitDuFil) {
+    const a = this.now()
+    const dernier = this.fil.find(e => e.texte === fait.texte && e.sorte === fait.sorte && a - e.a < PAS_DU_DIRECT_MS)
+    if (dernier) {
+      dernier.n++
+      dernier.a = a
+      dernier.rang = this.prochainRang++
+      return
+    }
+    this.fil.unshift({ id: this.prochainId++, rang: this.prochainRang++, a, sorte: fait.sorte, mode: fait.mode, texte: fait.texte, n: 1 })
+    if (this.fil.length > EVENEMENTS_DU_FIL) this.fil.length = EVENEMENTS_DU_FIL
+  }
+
+  /**
+   * Ce qu'une page n'a pas encore : les pas finis après `depuisPoint`, le pas
+   * en cours tel qu'il est, les événements de rang au-delà de `depuisRang` —
+   * du plus ancien au plus récent — et où elle en sera.
+   */
+  lire(depuisPoint = 0, depuisRang = 0) {
+    const pas = this.courant()
+    const fil = this.fil.filter(e => e.rang > depuisRang).sort((a, b) => a.rang - b.rang)
+    return {
+      points: this.points.filter(p => p.a > depuisPoint),
+      enCours: this.figer(pas, this.now()),
+      fil,
+      dernierPoint: this.points.at(-1)?.a ?? depuisPoint,
+      dernierRang: this.prochainRang - 1,
+    }
+  }
+
+  remettreAZero() {
+    this.points = []
+    this.pas = new PasDuDirect(debutDuPas(this.now()))
+    this.presences.clear()
+    this.fil = []
+  }
+}
+
 /**
  * Le relevé de l'heure : ce que la page « Le serveur » du QG garde sur sept
  * jours (`core/santeDuServeur.ts` l'écrit dans la base permanente). Un seul
@@ -684,9 +890,12 @@ export class ReleveHoraire {
   private precedente: Heure | null = null
   /** Les connexions vers la base gardées chaudes, réglé une fois pour le processus (`connexions.ts`) : chaque heure l'écrit à côté de ses comptes. */
   private gardeesChaudes = false
+  /** Le direct du QG : ce que le relevé reçoit, au pas de dix secondes, en mémoire seulement. */
+  readonly direct: DirectDuServeur
 
   constructor(private readonly now: () => number = Date.now) {
     this.courante = new Heure(debutDeLHeure(now()))
+    this.direct = new DirectDuServeur(now)
   }
 
   private heure(): Heure {
@@ -700,16 +909,19 @@ export class ReleveHoraire {
 
   base(ms: number) {
     this.heure().noterBase(ms, this.now())
+    this.direct.base(ms)
   }
 
-  /** Une route d'API servie, sous son modèle : son temps et son statut, pour sa ligne et pour la tranche de cinq minutes. */
+  /** Une route d'API servie, sous son modèle : son temps et son statut, pour sa ligne, pour la tranche de cinq minutes et pour le direct. */
   route(modele: string, ms: number, statut: number | null = null) {
     this.heure().route(modele, ms, statut, this.now())
+    this.direct.route(modele, ms, statut)
   }
 
   /** Une requête servie — une page, un fichier, une route d'API —, comptée par la famille de son statut. */
   requete(statut: number) {
     this.heure().requete(statut, this.now())
+    this.direct.requete(statut)
   }
 
   /**
@@ -728,6 +940,7 @@ export class ReleveHoraire {
       }
     }
     this.heure().erreur(source, detail, this.now())
+    this.direct.erreur(source, detail?.code ?? null)
   }
 
   echecDuMiroir() {
@@ -741,11 +954,13 @@ export class ReleveHoraire {
 
   charge(c: ReleveDeCharge) {
     this.heure().noterCharge(c, this.now())
+    this.direct.charge(c)
   }
 
   /** Un gel de la boucle de plus d'une demi-seconde, et ce qui tournait (`SondeDesGels`, `core/gels.ts`), dans l'heure où il a fini. */
   gel(g: GelDeLaBoucle) {
     this.heure().gel(g, this.now())
+    this.direct.gel()
   }
 
   /** Une connexion ouverte vers la base, une qu'elle a refermée d'elle-même (à quel âge), un aller-retour tombé en route, le délai qu'elle annonce. */
@@ -793,6 +1008,7 @@ export class ReleveHoraire {
   remettreAZero() {
     this.courante = new Heure(debutDeLHeure(this.now()))
     this.precedente = null
+    this.direct.remettreAZero()
   }
 }
 

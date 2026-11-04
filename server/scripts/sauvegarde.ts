@@ -169,10 +169,30 @@ const flux = createWriteStream(partiel, { encoding: 'utf8' })
 let erreurDisque: Error | null = null
 flux.on('error', e => (erreurDisque = e))
 
+/** Les octets écrits dans le fichier : la ligne de la sauvegarde dit sa taille. */
+let ecrits = 0
 async function ecrire(texte: string) {
   if (erreurDisque) throw erreurDisque
+  ecrits += Buffer.byteLength(texte)
   if (!flux.write(texte)) await once(flux, 'drain')
 }
+
+/**
+ * La ligne qui note la sauvegarde (`qg_sauvegardes`, la page « La base et le
+ * miroir » du QG) : la même dans le fichier, avant son `COMMIT`, et dans la
+ * base, après lui — restaurée, la base dit aussi qu'elle a été sauvegardée, et
+ * reste identique à celle qu'on a sauvegardée (`exploitation.test.ts`). La
+ * table naît ici s'il le faut, du même texte des deux côtés.
+ */
+const TABLE_DES_SAUVEGARDES = `CREATE TABLE IF NOT EXISTS qg_sauvegardes (
+  faite_le INTEGER NOT NULL,
+  tables   INTEGER NOT NULL,
+  lignes   INTEGER NOT NULL,
+  octets   INTEGER NOT NULL,
+  duree_ms INTEGER NOT NULL
+)`
+const noteDeLaSauvegarde = (n: { faiteLe: number; tables: number; lignes: number; octets: number; dureeMs: number }) =>
+  `INSERT INTO qg_sauvegardes (faite_le, tables, lignes, octets, duree_ms) VALUES (${n.faiteLe}, ${n.tables}, ${n.lignes}, ${n.octets}, ${n.dureeMs})`
 
 /** Recopie les lignes d'une table, page par page. Rend leur nombre. */
 async function copier(table: { name: string; sql: string }): Promise<number> {
@@ -252,6 +272,8 @@ try {
   // Index, vues et déclencheurs après les données, comme `sqlite3 .dump` :
   // un index se construit plus vite d'un coup qu'une ligne à la fois.
   for (const autre of objets.filter(o => o.type !== 'table')) await ecrire(`${autre.sql};\n`)
+  const note = { faiteLe: Date.now(), tables: tables.length, lignes: total, octets: ecrits, dureeMs: Date.now() - commenceeLe }
+  await ecrire(`${TABLE_DES_SAUVEGARDES};\n${noteDeLaSauvegarde(note)};\n`)
   await ecrire(`COMMIT;\n-- Fin de la sauvegarde : ${tables.length} tables, ${total} lignes.\n`)
   await new Promise<void>((resolve, reject) => flux.end((e?: Error | null) => (e ? reject(e) : resolve())))
   if (erreurDisque) throw erreurDisque
@@ -268,22 +290,7 @@ try {
   // La page « Base et miroir » du QG dit à quand remonte la dernière sauvegarde (`qg_sauvegardes`) : rien ne le disait.
   // Un jeton en lecture seule n'empêche pas la sauvegarde — elle est faite —, seule sa ligne manque, et on le dit.
   try {
-    await client.batch(
-      [
-        `CREATE TABLE IF NOT EXISTS qg_sauvegardes (
-           faite_le INTEGER NOT NULL,
-           tables   INTEGER NOT NULL,
-           lignes   INTEGER NOT NULL,
-           octets   INTEGER NOT NULL,
-           duree_ms INTEGER NOT NULL
-         )`,
-        {
-          sql: 'INSERT INTO qg_sauvegardes (faite_le, tables, lignes, octets, duree_ms) VALUES (?, ?, ?, ?, ?)',
-          args: [Date.now(), tables.length, total, statSync(final).size, Date.now() - commenceeLe],
-        },
-      ],
-      'write',
-    )
+    await client.batch([TABLE_DES_SAUVEGARDES, noteDeLaSauvegarde(note)], 'write')
   } catch (e) {
     console.log(`   La page « Base et miroir » du QG ne la verra pas : ${e instanceof Error ? e.message : String(e)}`)
   }

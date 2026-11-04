@@ -55,17 +55,18 @@ test('/admin : le QG — la vue d’ensemble d’abord, son journal et son serve
   // maintenance à côté du serveur depuis le 19 (`maintenance.test.ts`), et le même jour les annonces, sous « Animer »
   // (`annonces.test.ts`), et les erreurs à trier, avant le serveur (`qg-erreurs.test.ts`) ; les nouveautés à l'affiche, après
   // les annonces, le 1er novembre 2026 (`affiches.test.ts`) ; la base et le miroir, sortis du serveur, le 4 novembre
-  // 2026 (le QG 2, `qg-serveur-routes.test.ts`) ; les ancres d'avant y mènent encore.
+  // 2026 (le QG 2, `qg-serveur-routes.test.ts`), et le direct, le même jour (`qg-direct.test.ts`) ; les ancres d'avant
+  // y mènent encore.
   assert.match(
     page,
-    /const ECRANS: readonly Ecran\[\] = \['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base'\]/,
+    /const ECRANS: readonly Ecran\[\] = \['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct'\]/,
   )
   assert.match(page, /const ANCIENNES: Record<string, Ecran> = \{ 'les-profils': 'profils', 'quiz-du-jour': 'jour' \}/)
   assert.match(page, /history\.pushState\(\{ \.\.\.history\.state, depuisAdmin: true \}, '', e \? `\/admin#\$\{e\}` : '\/admin'\)/)
   // À l'ordinateur, la barre de côté mène à chaque écran ; au téléphone, la
   // liste des pages, qui dit ce qu'on y trouve — les signalements y comptent
   // leurs questions à relire, aux deux modes (le 14 octobre 2026).
-  for (const e of ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base']) {
+  for (const e of ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct']) {
     assert.match(page, new RegExp(`\\{ ecran: '${e}', nom: '[^']+', icone: '[a-z-]+' \\}`), e)
   }
   assert.match(page, /<Ligne icone="hash" nom="L’activité"/)

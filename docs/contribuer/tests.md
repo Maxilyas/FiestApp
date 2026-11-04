@@ -312,6 +312,8 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/journal.test.ts` — le journal des gestes de l'administrateur.
 - `server/test/qg-soirees.test.ts` — les soirées au QG.
 - `server/test/qg-serveur.test.ts` — la santé du serveur sur sept jours.
+- `server/test/qg-serveur-routes.test.ts` — le serveur sur une heure, un jour ou une semaine : chaque route relevée heure par heure et les tranches de cinq minutes, la table des routes et ses centiles pondérés, les versions comparées et les routes qu'elles ralentissent, au banc.
+- `server/test/qg-direct.test.ts` — le direct du QG : les pas de dix secondes en mémoire, la présence des modes sans un nom, le fil des soirées et des routes, le flux au banc — son premier message, ce qui arrive, sa fermeture avec le serveur.
 - `server/test/quota-de-turso.test.ts` — le quota de Turso : ce que chaque réponse de Turso dit avoir lu, compté heure par heure par les deux transports, projeté sur trente jours, ses requêtes lourdes nommées, et l'alerte de « À traiter ».
 - `server/test/qg-erreurs.test.ts` — les erreurs au QG : le tri relu sur les versions — réglée, revenue, ignorée —, l'alerte qui ne compte que celles à regarder, et la panne d'un mode qui sonne sur le téléphone de l'administrateur, puis son retour, redémarrage compris.
 - `server/test/veille.test.ts` — la veille des modes de jeu, l'horloge à la main : quand un mode tombe, quand il est rétabli, ce que la notification dit.

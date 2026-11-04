@@ -14524,6 +14524,13 @@ body:has(.player-shell.qg) {
 .qg-vif-perdu .qg-vif-point::after { display: none; }
 /* Au téléphone, le pouls se tait tant qu'il bat : l'état du service le dit à côté. Perdu, il se dit. */
 .qg-commande .qg-vif:not(.qg-vif-perdu) { display: none; }
+/* « Direct » dans la barre : un bouton, qui ouvre la page du direct (le QG 2, lot 3). */
+button.qg-vif { min-height: 32px; padding: 0 10px; border: 1px solid transparent; border-radius: 9px; background: none; cursor: pointer; }
+button.qg-vif:hover,
+button.qg-vif[aria-current='page'] { border-color: var(--qg-trait-fort); color: var(--ink); }
+@media (prefers-reduced-motion: reduce) {
+  .qg-vif-point::after { animation: none; display: none; }
+}
 .qg-etat-pastille {
   display: inline-flex;
   align-items: center;
@@ -14834,6 +14841,33 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
    téléphone, et leur rangée qui défilait élargissait quand même la page (de 19 pixels, la pastille des versions posée).
    Au téléphone, sans leurs icônes et sous leur nom court ; ils passent à la ligne s'il le faut. */
 .qg-onglets { flex-wrap: wrap; }
+/* La page du direct (le QG 2, lot 3) : son état — le flux qui parle, ou qui s'est tu —, ses compteurs, ses six courbes
+   de quinze minutes, deux par rangée à l'ordinateur et trois sur un grand écran, puis le fil et les routes côte à côte. */
+.qg-direct-etat { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 0.85rem; color: var(--qg-encre-2); }
+.qg-direct-etat-coupe { color: var(--qg-critique-texte); }
+.qg-direct-etat-coupe .qg-vif-point { background: var(--qg-critique); }
+.qg-direct-etat-coupe .qg-vif-point::after { display: none; }
+.qg-tuile-alerte { border-color: color-mix(in srgb, var(--alert) 55%, transparent); }
+.qg-tuile-alerte .qg-tuile-nom { color: var(--qg-critique-texte); }
+.qg-tuile-alerte .qg-tuile-nom .icon { flex: none; width: 14px; height: 14px; }
+.qg-direct-graphes { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.qg-direct-graphes h3 { margin: 0; font-family: var(--sans); font-size: 1rem; font-weight: 600; line-height: 1.3; }
+.qg-direct-bas { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+/* Le fil défile dans sa console : quatre-vingts lignes ne poussent pas les routes et les soirées hors de vue. */
+.qg-fil-liste { max-height: 560px; overflow-y: auto; overscroll-behavior: contain; }
+.qg-fil-ligne b { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; font-weight: 600; }
+.qg-fil-n { color: var(--qg-encre-2); font-weight: 500; }
+.qg-fil-erreur b { color: var(--qg-critique-texte); }
+.qg-plus { align-self: flex-start; }
+.qg-plus[aria-expanded='true'] .icon { transform: rotate(180deg); }
+@media (min-width: 1101px) {
+  .qg-direct-graphes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* Les routes ont cinq colonnes, le fil une : la table prend la plus grande part. */
+  .qg-direct-bas { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); align-items: start; }
+}
+@media (min-width: 1600px) {
+  .qg-direct-graphes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 @media (max-width: 600px) {
   .qg-onglets .onglet { gap: 4px; padding: 0 10px; }
   .qg-onglets .onglet > .icon { display: none; }

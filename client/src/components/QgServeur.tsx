@@ -1285,8 +1285,8 @@ function valeurDeTri(r: RouteDeLaPeriode, cle: CleDeTri): number | string {
   return r[cle]
 }
 
-/** La méthode d'une route, en pastille (« GET », « POST »), et son chemin. */
-function NomDeLaRoute({ route }: { route: string }) {
+/** La méthode d'une route, en pastille (« GET », « POST »), et son chemin — la page du direct la montre de même. */
+export function NomDeLaRoute({ route }: { route: string }) {
   const [methode, ...chemin] = route.split(' ')
   return (
     <>

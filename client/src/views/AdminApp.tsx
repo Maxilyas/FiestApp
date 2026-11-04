@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { api, motifDe, UnauthorizedError, type Me } from '../api'
 import { Icon, type IconName } from '../components/Icon'
 import { NavAnimateur } from '../components/NavAnimateur'
@@ -14,6 +14,8 @@ import { QgJournal } from '../components/QgJournal'
 import { QgSoirees } from '../components/QgSoirees'
 import { QgServeur } from '../components/QgServeur'
 import { QgBase } from '../components/QgBase'
+import { QgEnDirect } from '../components/QgEnDirect'
+import { fluxDuQg } from '../qgFlux'
 import { QgErreurs } from '../components/QgErreurs'
 import { QgActivite } from '../components/QgActivite'
 import { QgMaintenance } from '../components/QgMaintenance'
@@ -78,7 +80,8 @@ type Ecran =
   | 'annonces'
   | 'affiches'
   | 'base'
-const ECRANS: readonly Ecran[] = ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base']
+  | 'direct'
+const ECRANS: readonly Ecran[] = ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct']
 /** Les ancres de la page d'avant, qu'un favori garde encore. */
 const ANCIENNES: Record<string, Ecran> = { 'les-profils': 'profils', 'quiz-du-jour': 'jour' }
 
@@ -105,6 +108,7 @@ const TITRE: Record<Ecran, string> = {
   annonces: 'Les annonces',
   affiches: 'Les nouveautés',
   base: 'La base et le miroir',
+  direct: 'En direct',
 }
 
 /**
@@ -112,14 +116,15 @@ const TITRE: Record<Ecran, string> = {
  * commande, l'audience, les modes, le contenu, la technique, l'animation ; la
  * vue d'ensemble, le poste de commande, est `null`. Seules les pages qui
  * existent : une page rejoint le rail quand elle est là, jamais avant (règle
- * `qg.md`) — le direct, les alertes, les joueurs, les questions, la base et le
- * Cabinet y entreront avec la leur.
+ * `qg.md`) — les alertes, les joueurs, les questions et le Cabinet y entreront
+ * avec la leur.
  */
 const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; icone: IconName }[] }[] = [
   {
     groupe: 'Commande',
     pages: [
       { ecran: null, nom: 'Poste de commande', icone: 'bar-chart' },
+      { ecran: 'direct', nom: 'En direct', icone: 'eye' },
       { ecran: 'journal', nom: 'Journal', icone: 'list' },
     ],
   },
@@ -181,11 +186,12 @@ const PERIODES_DES_PAGES: Partial<Record<Ecran | 'poste', { periodes: readonly P
 }
 
 /**
- * Le direct se relit toutes les dix secondes — en mémoire et dans la base
- * locale, sans un aller-retour vers Turso ; la vue d'ensemble, qui lit
- * Turso, toutes les cinq minutes, et en revenant d'une page : un QG reste
- * ouvert sur un écran toute la journée, et chaque relecture compte au quota.
- * Rien tant que l'onglet est caché.
+ * Le direct arrive par son flux, toutes les deux secondes (`qgFlux.ts`) ; muet,
+ * il se relit toutes les dix secondes — en mémoire et dans la base locale,
+ * sans un aller-retour vers Turso. La vue d'ensemble, qui lit Turso, toutes
+ * les cinq minutes, et en revenant d'une page : un QG reste ouvert sur un
+ * écran toute la journée, et chaque relecture compte au quota. Rien tant que
+ * l'onglet est caché.
  */
 const DIRECT_MS = 10_000
 const VUE_MS = 300_000
@@ -215,6 +221,16 @@ export function AdminApp() {
   const enVol = useRef({ direct: false, vue: false })
   const derniereVue = useRef(0)
   const estAdmin = me?.account.role === 'admin'
+  // Le direct par le flux, toutes les deux secondes (`qgFlux.ts`) : le poste de commande ne se redessine que quand il
+  // change ; muet, la relecture de dix secondes reprend.
+  const directDuFlux = useSyncExternalStore(fluxDuQg.abonner, () => fluxDuQg.lire().direct)
+  const fluxVivant = useSyncExternalStore(fluxDuQg.abonner, fluxDuQg.estVivant)
+  useEffect(() => (estAdmin ? fluxDuQg.demarrer() : undefined), [estAdmin])
+  useEffect(() => {
+    if (!directDuFlux) return
+    setDirect(directDuFlux)
+    setDirectEnPanne(false)
+  }, [directDuFlux])
 
   const relireLeDirect = () => {
     if (enVol.current.direct) return
@@ -277,7 +293,8 @@ export function AdminApp() {
     const visible = () => document.visibilityState === 'visible'
     const relire = () => {
       if (!visible()) return
-      relireLeDirect()
+      // Le flux vivant porte le direct : la relecture n'est que son relais.
+      if (!fluxDuQg.estVivant()) relireLeDirect()
       if (Date.now() - derniereVue.current >= VUE_MS) relireLaVue()
     }
     // De retour sur l'onglet, sans attendre le tour suivant : le direct, et la vue si elle date.
@@ -407,6 +424,7 @@ export function AdminApp() {
   /** Toutes les pages, chacune ce qu'on y trouve ou ce qui y attend : sous le poste de commande au téléphone, et dans sa feuille. */
   const listeDesPages = (
     <ul className="style-liste">
+      <Ligne icone="eye" nom="En direct" valeur={fluxVivant ? 'À la seconde : qui joue, le fil, les routes' : 'La seconde du serveur'} onClick={() => aller('direct')} />
       <Ligne icone="hash" nom="L’activité" valeur="Le volume des modes, qui joue à quoi" onClick={() => aller('activite')} />
       <Ligne
         icone="glass"
@@ -470,7 +488,7 @@ export function AdminApp() {
           </button>
         )}
         <span className="qg-commande-droite">
-          <EnDirect direct={direct} enPanne={directEnPanne} />
+          <EnDirect direct={direct} enPanne={directEnPanne} vivant={fluxVivant} ouvrir={() => aller('direct')} ici={ecran === 'direct'} />
           <button type="button" className={'qg-etat-pastille' + (etat.aRegarder > 0 ? ' qg-etat-pastille-alerte' : '')} onClick={() => aller(null)}>
             <i className={`qg-voyant qg-voyant-${etat.aRegarder > 0 ? 'critique' : direct ? 'ok' : 'inconnu'}`} aria-hidden="true" />
             {etat.aRegarder > 0 ? `${etat.aRegarder} à regarder` : direct ? 'Au vert' : 'État…'}
@@ -538,6 +556,8 @@ export function AdminApp() {
             </nav>
           </>
         )}
+        {/* La seconde du serveur, poussée par le flux : ses compteurs mènent au serveur et aux erreurs. */}
+        {ecran === 'direct' && <QgEnDirect ouvrir={aller} />}
         {ecran === 'journal' && <QgJournal />}
         {/* Un tri change ce qui sonne : la ligne de « À traiter », et la pastille du rail, se relisent. */}
         {ecran === 'erreurs' && <QgErreurs apresUnTri={relireLaVue} />}
@@ -610,13 +630,18 @@ export function AdminApp() {
 }
 
 /** Le direct vit ou se tait : « En direct », ou l'heure du dernier relevé qui a répondu. */
-function EnDirect({ direct, enPanne }: { direct: DirectDuQg | null; enPanne: boolean }) {
-  if (!direct && !enPanne) return null
+/**
+ * « Direct » dans la barre : le pouls du serveur, qui ouvre la page « En direct ». Il bat quand le flux parle, reste
+ * allumé quand la relecture de dix secondes prend le relais, et dit l'heure du dernier relevé quand plus rien ne vient.
+ */
+function EnDirect({ direct, enPanne, vivant, ouvrir, ici }: { direct: DirectDuQg | null; enPanne: boolean; vivant: boolean; ouvrir: () => void; ici: boolean }) {
+  if (!direct && !enPanne && !vivant) return null
+  const perdu = enPanne && !vivant
   return (
-    <span className={'qg-vif' + (enPanne ? ' qg-vif-perdu' : '')}>
+    <button type="button" className={'qg-vif' + (perdu ? ' qg-vif-perdu' : '') + (vivant ? ' qg-vif-flux' : '')} onClick={ouvrir} aria-current={ici ? 'page' : undefined}>
       <span className="qg-vif-point" aria-hidden="true" />
-      {!enPanne ? 'En direct' : direct ? `Dernier relevé à ${heureEcrite(direct.maintenant)}` : 'Le serveur ne répond pas'}
-    </span>
+      {!perdu ? 'En direct' : direct ? `Dernier relevé à ${heureEcrite(direct.maintenant)}` : 'Le serveur ne répond pas'}
+    </button>
   )
 }
 

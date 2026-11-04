@@ -44,6 +44,9 @@ import { SpaceRegistry } from './core/space'
 import { PagesPubliques, type DemandeDePage } from './core/pages'
 import { servirPrecompresse } from './core/precompresse'
 import { Charge, compteurDeConnexions, plafondsDuConteneur, pouls, ramasseMiettes, releve } from './core/pouls'
+import { CHEMIN_DU_FLUX, ENVOI_DU_FLUX_MS, modeDuDirect } from '../../shared/qgDirect'
+import { formatNumber } from '../../shared/typographie'
+import { FluxDuQg } from './qgFlux'
 import { SondeDesGels, commencer } from './core/gels'
 import { connexionsGardeesChaudes, entretenirLesConnexions, gardeAnnoncee, noterUneDemande, type ReglagesDeLEntretien } from './core/connexions'
 import { clientDeLaBase, clientDistant, transportDeLaBase } from './core/distante'
@@ -84,6 +87,8 @@ export interface QuizServerOptions {
   /** Bibliothèque de quiz : fichier local (`file:...`) ou base Turso (`libsql://...`). */
   quizDbUrl: string
   quizDbToken?: string
+  /** Le rythme du flux du QG (`ENVOI_DU_FLUX_MS`, deux secondes) : les tests le pressent. */
+  fluxDuQgMs?: number
   /** URL publique à mettre dans le QR code (prioritaire sur l'IP locale). */
   publicUrl?: string
   /**
@@ -373,7 +378,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // modèle de sa route, lu à sa fin — jamais son adresse, qui peut porter un
   // identifiant —, de son arrivée à sa réponse partie ou abandonnée.
   app.use((req, res, next) => {
-    if (req.path === '/healthz') return next()
+    // Ni le flux du QG : ouvert des heures, il serait de chaque gel, sans y être pour rien — il n'écrit que toutes les deux secondes.
+    if (req.path === '/healthz' || req.path === CHEMIN_DU_FLUX) return next()
     const fin = commencer(() => quoiDeLaRequete(req))
     res.once('finish', fin)
     res.once('close', fin)
@@ -393,7 +399,15 @@ export async function createQuizServer(opts: QuizServerOptions) {
       if (typeof modele !== 'string') return
       // La veille des modes de jeu : un 5xx la fait guetter une panne, le reste — un refus compris — est une réponse (`core/veille.ts`).
       veille.noter(`${req.method} ${modele}`, res.statusCode < 500)
-      // Une réponse qui s'écrit au fil du temps — le dévoilement de l'expédition — dure ce qu'elle raconte : ce n'est pas une attente.
+      // Qui joue à quoi, pour le direct du QG : un profil servi sur une route d'un mode y compte cinq minutes. Sa
+      // session se lit en mémoire, sans rien glisser — la route l'a déjà fait ; seul leur nombre sort du relevé.
+      const mode = res.statusCode < 400 ? modeDuDirect(`${req.method} ${modele}`) : null
+      if (mode) {
+        const jeton = readPlayerToken(req.header('cookie'))
+        const profil = jeton ? profiles.profilDuJeton(jeton) : null
+        if (profil) releve.direct.joueur(mode, profil)
+      }
+      // Une réponse qui s'écrit au fil du temps — le dévoilement de l'expédition, le flux du QG — dure ce qu'elle raconte : ce n'est pas une attente.
       if (res.locals.auFilDuTemps) return
       const ms = performance.now() - debut
       pouls.noterRoute(`${req.method} ${modele}`, ms)
@@ -566,10 +580,13 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const gestes = new JournalDesGestes(opts.quizDbUrl, opts.quizDbToken, { maintenant: maintenantDuJour })
   // La santé du serveur sur sept jours, que la page « Le serveur » du QG relit :
   // dans la base permanente, la seule qui survive à un réveil.
+  const plafonds = plafondsDuConteneur()
   const sante = new SanteDuServeur(opts.quizDbUrl, opts.quizDbToken, {
-    plafonds: plafondsDuConteneur(),
+    plafonds,
     mesuresDeLHebergeur: opts.mesuresDeLHebergeur ?? null,
   })
+  // Le direct du QG, poussé toutes les deux secondes aux pages qui l'écoutent : en mémoire, rien vers Turso.
+  const fluxDuQg = new FluxDuQg({ envoiMs: opts.fluxDuQgMs ?? ENVOI_DU_FLUX_MS, plafonds })
 
   /**
    * Deux écritures du même espace lancent deux relectures, qui reviennent
@@ -1356,6 +1373,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
       version: opts.version ?? null,
       // Clore d'ici une soirée laissée en plan tient les mêmes comptes que son écran commun.
       clore: rt => cloreLaSoiree(rt, { auth, inscriptions }),
+      flux: fluxDuQg,
     },
     gestes,
     maintenance,
@@ -1599,6 +1617,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
   )
   // Le démarrage s'écrit une fois le port ouvert : un réveil n'attend pas un aller-retour de plus.
   sante.demarrer({ demarreLe: debutDuDemarrage, pretEnMs, version: opts.version ?? null, env: opts.appEnv ?? 'production' })
+  releve.direct.evenement({ sorte: 'serveur', mode: null, texte: `Le serveur démarre${opts.version ? ` · version ${opts.version}` : ''} · prêt en ${formatNumber(Math.round(pretEnMs))} ms` })
   // La base de la campagne, en fond et par tranches qui rendent la main
   // (`lireLaBaseSansBloquer`) : personne ne l'attend plus à sa première série.
   const prechauffage = setTimeout(() => campagne.prechauffer(), opts.prechauffageCampagneMs ?? PRECHAUFFAGE_CAMPAGNE_MS)
@@ -1612,6 +1631,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const direLaVeille = (e: EvenementDeLaVeille) => {
     const message = e.sorte === 'panne' ? messageDePanne(e.pannes) : messageDeRetour(e.modes)
     console.warn(`[veille] ${message.titre} — ${message.corps}`)
+    releve.direct.evenement({ sorte: 'serveur', mode: null, texte: message.titre })
     const garder = e.sorte === 'panne' ? alertes.garderLesPannes(e.pannes) : alertes.oublierLesPannes(e.modes)
     garder.catch(err => console.warn('[veille] les pannes ne se gardent pas :', err instanceof Error ? err.message : err))
     alertes.prevenir(message).then(
@@ -1642,6 +1662,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
         rappels.arreter()
         // Ni une panne : un serveur qui s'arrête fait échouer ce qui était en route.
         veille.arreter(direLaVeille)
+        // Les pages du QG qui écoutent le direct : ouvertes, elles retiendraient la fermeture du serveur.
+        fluxDuQg.fermer()
         charge.arreter()
         sondeDesGels.arreter()
         registry.stopAll()

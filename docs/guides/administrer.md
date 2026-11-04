@@ -2,7 +2,7 @@
 
 > Le guide de l'administrateur du serveur : entrer au QG (`/admin`), puis, page par page, ce qu'on y trouve et ce qu'on y fait — surveiller le serveur, prévenir les joueurs d'un problème et fermer ce qui ne marche pas, leur annoncer qu'il est réglé, mettre une nouveauté à l'affiche, clore une soirée laissée en plan, aider un joueur ou le modérer, veiller sur les salons, relire le catalogue, tenir les réserves de questions, relire les questions signalées, annuler un duel que l'adversaire n'a pas commencé, suivre les confettis.
 
-**Dans cette page** : [Entrer au QG](#entrer-au-qg) · [Le poste de commande](#le-poste-de-commande) · [Le journal](#le-journal-de-tes-gestes) · [Les erreurs](#les-erreurs-et-les-pannes) · [Le serveur](#la-santé-du-serveur) · [La base](#la-base-et-le-miroir) · [La maintenance](#la-maintenance) · [Les annonces](#les-annonces) · [Les nouveautés](#les-nouveautés-laffiche-et-la-pastille) · [Les soirées](#les-soirées) · [Les profils](#les-profils-et-la-fiche-dun-joueur) · [Les salons](#les-salons) · [Le catalogue](#le-catalogue) · [Les signalements](#les-signalements) · [Le quiz du jour](#le-quiz-du-jour) · [La campagne](#la-campagne-et-les-sentiers) · [Le Cabinet](#le-cabinet-de-curiosités) · [Les duels](#les-duels) · [L'économie](#léconomie) · [Les comptes d'avant](#les-comptes-davant)
+**Dans cette page** : [Entrer au QG](#entrer-au-qg) · [Le poste de commande](#le-poste-de-commande) · [En direct](#en-direct) · [Le journal](#le-journal-de-tes-gestes) · [Les erreurs](#les-erreurs-et-les-pannes) · [Le serveur](#la-santé-du-serveur) · [La base](#la-base-et-le-miroir) · [La maintenance](#la-maintenance) · [Les annonces](#les-annonces) · [Les nouveautés](#les-nouveautés-laffiche-et-la-pastille) · [Les soirées](#les-soirées) · [Les profils](#les-profils-et-la-fiche-dun-joueur) · [Les salons](#les-salons) · [Le catalogue](#le-catalogue) · [Les signalements](#les-signalements) · [Le quiz du jour](#le-quiz-du-jour) · [La campagne](#la-campagne-et-les-sentiers) · [Le Cabinet](#le-cabinet-de-curiosités) · [Les duels](#les-duels) · [L'économie](#léconomie) · [Les comptes d'avant](#les-comptes-davant)
 
 > [!NOTE]
 > Le QG a grandi page après page : chaque mode de jeu y a la sienne — le quiz du jour, la campagne, les duels —, l'économie et les signalements aussi ; « Animer » a commencé par les annonces, puis la mise en avant des nouveautés ; les événements viendront à leur tour. Ce guide dit ce que chaque page montre et permet ; la place exacte d'un chiffre peut bouger.
@@ -19,6 +19,7 @@ Un autre animateur lit « Cette page est réservée à l'administrateur. » ; un
 | Page | Adresse | Ce que tu y trouves |
 |---|---|---|
 | Le poste de commande | `/admin` | l'état du service, ce qui attend un geste, la période choisie en chiffres et seau par seau, l'instant, les soirées en cours, le serveur |
+| En direct | `/admin#direct` | la seconde du serveur : qui est là, ce qu'il sert et en combien de temps, qui joue à quoi, quinze minutes au pas de dix secondes, le fil de ce qui arrive, les routes de la minute |
 | Le journal | `/admin#journal` | tes gestes, du plus récent au plus ancien |
 | Les erreurs | `/admin#erreurs` | les erreurs serveur de la semaine, à trier — à regarder, réglées, ignorées —, les modes de jeu en panne, et ton téléphone, que leur panne fait sonner |
 | Le serveur | `/admin#serveur` | la santé du serveur sur une heure, un jour ou une semaine : ses signaux, chaque route triable, ce qui gèle, les versions comparées |
@@ -41,7 +42,7 @@ Le QG est une salle de contrôle nocturne, quel que soit le thème que porte ton
 
 **Aller à…** (⌘K, Ctrl+K, ou « / » hors d'un champ) ouvre la palette : une page, une période, ou la fiche d'un joueur cherché par son prénom ou son identifiant — sans passer par le rail.
 
-Le QG se tient à jour seul — le direct toutes les dix secondes, le reste toutes les cinq minutes et chaque fois que tu reviens au poste de commande — et ne relit rien tant que l'onglet est caché. En haut à droite, « En direct » ; si le serveur se tait, « Dernier relevé à 21 h 40 » ou « Le serveur ne répond pas ».
+Le QG se tient à jour seul — le direct toutes les deux secondes, par un flux que le serveur pousse tant que l'onglet est visible (toutes les dix secondes s'il ne passe pas), le reste toutes les cinq minutes et chaque fois que tu reviens au poste de commande — et ne relit rien tant que l'onglet est caché. En haut à droite, « En direct », qui ouvre [sa page](#en-direct) ; si le serveur se tait, « Dernier relevé à 21 h 40 » ou « Le serveur ne répond pas ».
 
 ## Le poste de commande
 
@@ -77,6 +78,17 @@ Survole ou touche un seau : l'infobulle dit sa valeur d'abord, puis ses modes, e
 **En ce moment** : les soirées en cours (« et 1 laissée en plan »), les invités connectés sur ceux inscrits ce soir, les profils passés ces cinq dernières minutes, et les écritures qui attendent le miroir Turso — « miroir à jour », ou « Turso en échec depuis 21 h 05 », « 2 salons en retard ».
 
 **Soirées en cours** : chaque soirée par son salon — où elle en est, depuis quand, combien de téléphones connectés sur combien d'inscrits, « aucun écran branché » s'il y a lieu, « sauvegardée » ou « sauvegarde en retard ». **Le serveur** : mémoire, processeur (en part d'un cœur), boucle occupée, Turso au 95ᵉ centile, connexions temps réel, et le dernier dépôt de la routine du matin dans la réserve du quiz du jour et dans la base de la campagne.
+
+## En direct
+
+La seconde du serveur, sous « Commande » : tout y vient de sa mémoire, relu toutes les deux secondes — rien n'en coûte à Turso, et tout s'efface à son redémarrage. Si le flux se tait (un réseau qui tombe), la page le dit et relit le direct toutes les dix secondes en attendant.
+
+- **Maintenant** : huit compteurs, chacun sa courbe des quinze minutes — en ligne (les profils passés ces cinq minutes et les invités en soirée), les requêtes de la dernière minute, ce qu'un joueur attend (le 95ᵉ centile des routes sur la minute, rouge dès 800 ms), les erreurs serveur des cinq dernières minutes, le processeur (en part d'un cœur, face au dixième que l'hébergeur donne), la mémoire (sur 512 Mo), le pire gel de la boucle sur la minute, Turso. « Ce qu'un joueur attend » ouvre le serveur, « Erreurs serveur » les erreurs.
+- **Qui joue, en ce moment** : chaque mode — soirées, campagne, Cabinet, quiz du jour, duels — et ses joueurs : les profils passés sur ses pages ces cinq dernières minutes ; en soirée, les téléphones connectés. Des nombres : le serveur ne dit pas qui.
+- **Quinze minutes, dix secondes par dix secondes** : ce qu'un joueur attend, les requêtes, les erreurs, le processeur, la mémoire, les invités connectés — survole ou touche un pas pour le lire.
+- **Le fil** : ce qui arrive, le plus récent en tête — une partie qui commence (quiz du jour, série, défi, épreuve, duel, Cabinet), un profil qui naît, un achat, une soirée qui s'ouvre, un quiz qui commence ou finit, une soirée laissée en plan ou close, une erreur (sa route et son code), un démarrage, une panne et son retour. Les mêmes, dans les dix secondes, se comptent ensemble (« × 3 »). Des filtres — Parties, Soirées, Profils et boutique, Erreurs et serveur — et « Pause », pour le lire sans qu'il bouge ; « Reprendre » dit ce qui est arrivé entre-temps. Rien n'y nomme un joueur, ni un quiz, ni une question.
+- **Les routes de la dernière minute** : les douze plus coûteuses au serveur, triables, puis « Les autres routes ».
+- **Les soirées en cours**, salon par salon, comme au poste de commande.
 
 ## L'activité
 

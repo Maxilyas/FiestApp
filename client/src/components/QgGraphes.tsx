@@ -73,6 +73,7 @@ export function GrapheDuTemps({
   resume,
   nomDuTotal,
   dire,
+  lire,
 }: {
   etiquettes: readonly string[]
   /** L'étiquette sous l'axe d'un seau, ou null : quelques-unes, jamais toutes. */
@@ -88,6 +89,8 @@ export function GrapheDuTemps({
   nomDuTotal: string
   /** Un nombre de la lecture, à sa façon (« 1 280 ») ; d'office, `formatNumber`. */
   dire?: (n: number) => string
+  /** Le total d'un seau en entier, unité comprise (« 188 ms », « 12,5 % ») : une mesure n'a pas de pluriel à accorder. */
+  lire?: (n: number) => string
 }) {
   const [boite, largeur] = useLargeur(640)
   const [choisi, setChoisi] = useState<number | null>(null)
@@ -103,7 +106,7 @@ export function GrapheDuTemps({
   const y = (v: number) => MARGE.haut + utile.h - (v / sommet) * utile.h
   const xDe = (i: number) => MARGE.gauche + i * pas
   const lu = choisi !== null && choisi < n ? choisi : n - 1
-  const pluriel = (k: number) => `${ecrire(k)} ${nomDuTotal}${k > 1 ? 's' : ''}`
+  const pluriel = (k: number) => (lire ? lire(k) : `${ecrire(k)} ${nomDuTotal}${k > 1 ? 's' : ''}`)
   // Les morceaux d'un seau, de bas en haut : ceux de la pile, ou la répartition d'une série seule.
   const morceaux = (i: number): MorceauDuSeau[] =>
     (empile ? series.map(se => ({ nom: se.nom, valeur: se.valeurs[i] ?? 0 })) : [...(repartition?.[i] ?? [])]).filter(m => m.valeur > 0)
@@ -188,8 +191,14 @@ export function GrapheDuTemps({
         <div className="qg-bulle" style={{ left: bulle.gauche, right: bulle.droite }} aria-hidden="true">
           <span className="qg-bulle-titre">{etiquettes[choisi]}</span>
           <span className="qg-bulle-ligne">
-            <b className="num">{ecrire(totaux[choisi])}</b> {nomDuTotal}
-            {totaux[choisi] > 1 ? 's' : ''}
+            {lire ? (
+              <b className="num">{lire(totaux[choisi])}</b>
+            ) : (
+              <>
+                <b className="num">{ecrire(totaux[choisi])}</b> {nomDuTotal}
+                {totaux[choisi] > 1 ? 's' : ''}
+              </>
+            )}
           </span>
           {/* La pile se lit de haut en bas, chaque morceau à sa couleur ; une série seule, sans couleur : ses morceaux ne s'empilent pas. */}
           {empile

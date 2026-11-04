@@ -14,6 +14,7 @@ import { pouls, type Charge } from './core/pouls'
 import { noterLeGeste, type JournalDesGestes } from './core/journalDesGestes'
 import type { SanteDuServeur } from './core/santeDuServeur'
 import { periodeDuServeur, type BaseDuQg } from '../../shared/santeDuServeur'
+import type { FluxDuQg } from './qgFlux'
 import { wrap } from './core/http'
 import { nomDeLEspace } from '../../shared/space'
 import { tronquer } from '../../shared/avatars'
@@ -80,6 +81,8 @@ export interface QgDeps {
   maintenant: () => number
   env: string
   version: string | null
+  /** Le flux du direct (`GET /api/admin/flux`), que le serveur referme à sa fermeture ; sans lui, la route répond 404 et la page relit le direct. */
+  flux?: FluxDuQg
 }
 
 /** Une soirée pas encore close, telle que la base locale la garde. */
@@ -502,6 +505,15 @@ export function mountQg(app: Express, deps: QgDeps) {
       res.json(await direct())
     }),
   )
+  // Le même direct, poussé toutes les deux secondes avec les pas de dix secondes, la présence des modes et le fil
+  // (`qgFlux.ts`) : la page l'écoute tant qu'elle est visible, et relit `/qg/direct` s'il se tait.
+  deps.flux?.brancher(direct)
+  // En toutes lettres, comme toute route : la référence de l'API les lit dans le code (`documentation.test.ts`) ;
+  // `CHEMIN_DU_FLUX`, que la page ouvre, est le même (`qg-direct.test.ts`).
+  app.get('/api/admin/flux', (req, res) => {
+    if (deps.flux) deps.flux.ouvrir(req, res)
+    else res.status(404).json({ error: 'Le direct ne passe pas par un flux ici.' })
+  })
   app.get(
     '/api/admin/activite',
     wrap(async (_req, res) => {

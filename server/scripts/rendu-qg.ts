@@ -845,6 +845,11 @@ try {
     if (adresse === '/admin#soirees') await page.waitForSelector('.qg-barres', { timeout: 15000 })
     if (adresse === '/admin#serveur') await page.waitForSelector('.qg-graphe svg', { timeout: 15000 })
     if (adresse === '/admin#base') await page.waitForSelector('#base-sauvegardes', { timeout: 15000 })
+    // Le direct : ses courbes, puis deux messages du flux — le premier porte tout, le suivant ce qui a bougé.
+    if (adresse === '/admin#direct') {
+      await page.waitForSelector('.qg-direct-graphes svg', { timeout: 15000 })
+      await page.waitForTimeout(2500)
+    }
     if (adresse === '/admin#erreurs') await page.waitForSelector('section[aria-labelledby="erreurs-telephone"] .admin-gestes, section[aria-labelledby="erreurs-telephone"] .qg-erreurs-etat', { timeout: 15000 })
     if (adresse === '/admin#jour') await page.waitForSelector('.qg-question', { timeout: 15000 })
     if (adresse === '/admin#campagne') {
@@ -944,6 +949,27 @@ try {
   if (photo('base')) {
     await photographier('80-base', 1366, 768, { adresse: '/admin#base' })
     await photographier('81-base-telephone', 360, 640, { adresse: '/admin#base' })
+  }
+  // « En direct » : la seconde du serveur, après une rafale par les vraies routes — trois profils qui naissent et
+  // passent par la campagne, le quiz du jour et les duels —, au fil, dans « Qui joue » et sur les courbes.
+  if (photo('direct')) {
+    // Le serveur a redémarré pendant l'amorce : la première requête peut partir sur une connexion d'avant, que le
+    // client de Node croit encore vivante (« ECONNRESET ») — elle se refait une fois.
+    const uneFoisDePlus = async <T>(f: () => Promise<T>): Promise<T> => {
+      try {
+        return await f()
+      } catch {
+        await new Promise(r => setTimeout(r, 100))
+        return f()
+      }
+    }
+    for (const [login, nom] of [['ines', 'Inès'], ['hugo', 'Hugo'], ['sacha', 'Sacha']]) {
+      const cookie = await uneFoisDePlus(() => inscrireProfil(banc.url, `direct-${login}`, nom))
+      for (const chemin of ['/api/campagne/sentiers', '/api/jour', '/api/duels']) await uneFoisDePlus(() => fetch(`${banc.url}${chemin}`, { headers: { Cookie: cookie } }))
+    }
+    await photographier('82-direct', 1366, 768, { adresse: '/admin#direct' })
+    await photographier('83-direct-1920', 1920, 1080, { adresse: '/admin#direct' })
+    await photographier('84-direct-telephone', 360, 640, { adresse: '/admin#direct' })
   }
   // Les pages du QG 2 qui suivront, chacune son bloc `if (photo('<clé>')) { … }`, ici.
 
