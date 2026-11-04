@@ -14476,6 +14476,9 @@ body:has(.player-shell.qg) {
 .qg-periode-courte { gap: 6px; font-family: var(--sans); font-variant-numeric: lining-nums tabular-nums; }
 .qg-periode-courte .icon:last-child { width: 14px; height: 14px; }
 .qg-periodes-feuille { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+/* Une page qui ne suit pas la période de la barre y montre, grisée, la fenêtre qu'elle lit. */
+.qg-periode-propre { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 10px; border: 1px dashed var(--qg-trait-fort); border-radius: 9px; color: var(--muted); font: 500 0.75rem/1 var(--sans); white-space: nowrap; cursor: help; }
+.qg-periode-propre .icon { width: 14px; height: 14px; }
 .qg-periodes-feuille .qg-bouton { justify-content: center; min-height: 48px; font-size: 0.9rem; }
 .qg-bouton[aria-pressed='true'] { border-color: rgba(217, 181, 106, 0.5); background: var(--accent-soft); color: var(--accent-text-hover); }
 .qg-periodes button {

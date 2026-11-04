@@ -333,9 +333,13 @@ function ilYA(a: number, maintenant: number): string {
 function LeFil({ fil, maintenant }: { fil: EvenementDuFil[]; maintenant: number }) {
   const [filtre, setFiltre] = useState<(typeof FILTRES_DU_FIL)[number]['cle']>('tout')
   const [fige, setFige] = useState<{ fil: EvenementDuFil[]; maintenant: number } | null>(null)
+  const [toutes, setToutes] = useState(false)
   const montre = fige ?? { fil, maintenant }
   const sortes = FILTRES_DU_FIL.find(f => f.cle === filtre)!.sortes
-  const lignes = montre.fil.filter(e => sortes.includes(e.sorte))
+  const filtrees = montre.fil.filter(e => sortes.includes(e.sorte))
+  // Les plus récentes d'abord, puis « Les suivantes » : au téléphone, le fil suit la page, et ses quatre-vingts lignes
+  // repoussaient les routes de quatre mille pixels (la revue d'ergonomie du 4 novembre 2026).
+  const lignes = toutes ? filtrees : filtrees.slice(0, LIGNES_DU_FIL)
   const neufs = fige ? fil.filter(e => !fige.fil.some(f => f.id === e.id && f.n === e.n)).length : 0
   return (
     <section className="qg-console qg-fil" aria-labelledby="direct-fil">
@@ -378,9 +382,18 @@ function LeFil({ fil, maintenant }: { fil: EvenementDuFil[]; maintenant: number 
           ))}
         </ul>
       )}
+      {filtrees.length > LIGNES_DU_FIL && (
+        <button type="button" className="qg-bouton qg-plus" onClick={() => setToutes(!toutes)} aria-expanded={toutes}>
+          <Icon name="chevron-down" />
+          {toutes ? 'Les plus récentes seulement' : `Les ${formatNumber(filtrees.length - LIGNES_DU_FIL)} suivantes`}
+        </button>
+      )}
     </section>
   )
 }
+
+/** Les lignes du fil montrées d'emblée : un écran de téléphone, à peu près. */
+const LIGNES_DU_FIL = 12
 
 type CleDesRoutes = 'route' | 'parMin' | 'p50' | 'p95' | 'max'
 const COLONNES_DES_ROUTES: { cle: CleDesRoutes; nom: string }[] = [

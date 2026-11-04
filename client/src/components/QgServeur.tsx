@@ -318,6 +318,7 @@ function Heures({
   legende,
   classe,
   maintenant,
+  vide,
 }: {
   id: string
   titre: string
@@ -331,10 +332,23 @@ function Heures({
   legende?: (h: HeureDuServeur) => string | null
   classe: string
   maintenant: number
+  /** Ce qu'il dit quand rien n'est mesuré sur la période : un cadre vide ne disait rien (la revue d'ergonomie du 4 novembre 2026). */
+  vide?: string
 }) {
   const [choisie, setChoisie] = useState<number | null>(null)
   const h = heures[choisie ?? derniereMesuree(heures.map(valeur))]
   const v = valeur(h)
+  if (heures.every(x => valeur(x) === null)) {
+    return (
+      <section className="qg-carte qg-ecran" aria-labelledby={id}>
+        <div className="qg-carte-tete qg-carte-tete-pile">
+          <h2 id={id}>{titre}</h2>
+          <span className="muted small">{sousTitre}</span>
+        </div>
+        <p className="muted small">{vide ?? 'Rien de mesuré sur la période.'}</p>
+      </section>
+    )
+  }
   return (
     <section className="qg-carte qg-ecran" aria-labelledby={id}>
       <div className="qg-carte-tete qg-carte-tete-pile">
@@ -395,6 +409,7 @@ export function LeQuotaDeTurso({ page }: { page: PageDuServeur }) {
         legende={lignesDeLHeure}
         classe="qg-serveur-temps"
         maintenant={page.maintenant}
+        vide="Rien de lu sur la période : le serveur compte ce qu’il lit depuis cette version."
       />
       <section className="qg-carte" aria-labelledby="serveur-ce-qui-lit">
         <div className="qg-carte-tete">

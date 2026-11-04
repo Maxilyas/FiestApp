@@ -267,6 +267,14 @@ const PERIODES_DES_PAGES: Partial<Record<Ecran | 'poste', { periodes: readonly P
   duels: { periodes: PERIODES_DU_QG, comparer: true },
 }
 
+/**
+ * Les pages qui ne suivent pas la période de la barre, et la fenêtre qu'elles
+ * lisent à la place : la barre la montre, grisée, où serait la période. Venu
+ * du poste de commande sur « 7 j », on lisait l'économie du jour sans en être
+ * averti (la revue d'ergonomie du 4 novembre 2026).
+ */
+const FENETRE_PROPRE: Partial<Record<Ecran, string>> = { economie: 'Aujourd’hui · 30 j', joueurs: 'Jour · 7 j · 30 j', alertes: '30 j', erreurs: '7 j' }
+
 /** À quoi « Comparer » compare : « Comparer » seul ne disait pas à quoi. */
 const LA_PERIODE_D_AVANT: Record<PeriodeDuQg, string> = { '1h': 'l’heure d’avant', '24h': 'la veille', '7j': 'la semaine d’avant', '30j': 'le mois d’avant' }
 
@@ -642,6 +650,13 @@ export function AdminApp() {
               <Icon name="chevron-down" />
             </button>
           </>
+        )}
+        {!lecture && ecran && FENETRE_PROPRE[ecran] && (
+          <span className="qg-periode-propre" title="Cette page ne suit pas la période de la barre : elle lit sa propre fenêtre">
+            <Icon name="clock" />
+            {FENETRE_PROPRE[ecran]}
+            <span className="sr-only"> : cette page ne suit pas la période de la barre</span>
+          </span>
         )}
         {lecture?.comparer && (
           <button type="button" className="qg-bascule" aria-pressed={comparer} onClick={() => setComparer(!comparer)} title="La période d’avant en filet sur le graphique">
