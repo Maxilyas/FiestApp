@@ -95,6 +95,11 @@ export interface QuizServerOptions {
   fluxDuQgMs?: number
   /** Le pas des règles des alertes (`TOUR_DES_REGLES_MS`, une minute) : les tests le pressent. */
   reglesDuQgMs?: number
+  /**
+   * La page « Le serveur » relit la base au plus une fois la minute : les règles des alertes la lisent dès le
+   * démarrage, et un rendu qui écrit sa semaine inventée ensuite la photographiait sans elle. Zéro : toujours relue.
+   */
+  santeGardeeMs?: number
   /** URL publique à mettre dans le QR code (prioritaire sur l'IP locale). */
   publicUrl?: string
   /**
@@ -594,6 +599,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const sante = new SanteDuServeur(opts.quizDbUrl, opts.quizDbToken, {
     plafonds,
     mesuresDeLHebergeur: opts.mesuresDeLHebergeur ?? null,
+    ...(opts.santeGardeeMs !== undefined && { pageGardeeMs: opts.santeGardeeMs }),
   })
   // Le direct du QG, poussé toutes les deux secondes aux pages qui l'écoutent : en mémoire, rien vers Turso.
   const fluxDuQg = new FluxDuQg({ envoiMs: opts.fluxDuQgMs ?? ENVOI_DU_FLUX_MS, plafonds })

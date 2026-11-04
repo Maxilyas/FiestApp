@@ -23,7 +23,9 @@ import {
   type Releve,
   type RequetesDeLHeure,
   type RouteDeLHeure,
+  type TempsReelDeLHeure,
   type TrancheDeSante,
+  CHRONO_EN_RETARD_MS,
 } from '../../../shared/santeDuServeur'
 import { detailDeLErreur, type DetailDUneErreur } from './erreurs'
 import type { CoutDUnAllerRetour } from './quotaDeTurso'
@@ -139,6 +141,11 @@ const ADRESSES_PAR_ESPACE = 2_000
 
 /** Les routes d'API suivies, au plus : il y en a moins, et la mémoire reste bornée quoi qu'il arrive. */
 const ROUTES_SUIVIES = 120
+/** Les messages du temps réel suivis, au plus : le contrat en compte vingt-sept — seuls ceux qu'écoute `ecouter()` arrivent ici. */
+const MESSAGES_SUIVIS = 40
+
+/** L'issue d'un message du temps réel : son accusé `ok: false` est un refus — `too-late`, le plus fréquent, compté à part —, son exception une panne. */
+export type IssueDUnMessage = 'ok' | 'refus' | 'trop-tard' | 'panne'
 
 /**
  * Les compteurs que les modules nourrissent : un seul par processus, comme
@@ -589,6 +596,55 @@ class Heure {
     }
   }
 
+  /** Le temps réel de l'heure : chaque message sous son nom, comme une route ; les « trop tard » ; les liaisons ouvertes ; les chronomètres. */
+  private tempsReel = {
+    parMessage: new Map<string, RouteSuivie>(),
+    tropTard: 0,
+    connexions: 0,
+    chronos: { n: 0, enRetard: 0, maxMs: 0 },
+  }
+
+  /** Un message du temps réel traité (`ecouter`) : son temps jusqu'à l'accusé, ou jusqu'à son issue, et ce qu'il a donné. */
+  message(nom: string, ms: number, issue: IssueDUnMessage) {
+    const t = this.tempsReel
+    if (issue === 'trop-tard') t.tropTard++
+    let suivi = t.parMessage.get(nom)
+    if (!suivi) {
+      if (t.parMessage.size >= MESSAGES_SUIVIS) return
+      t.parMessage.set(nom, (suivi = { mesure: new Mesure(ECHANTILLON_PAR_ROUTE), totalMs: 0, refusees: 0, enErreur: 0 }))
+    }
+    suivi.mesure.noter(ms)
+    suivi.totalMs += ms
+    if (issue === 'panne') suivi.enErreur++
+    else if (issue !== 'ok') suivi.refusees++
+  }
+
+  liaisonOuverte() {
+    this.tempsReel.connexions++
+  }
+
+  /** Un chronomètre de partie qui sonne, et son retard sur l'échéance. */
+  chrono(retardMs: number) {
+    const c = this.tempsReel.chronos
+    c.n++
+    if (retardMs > CHRONO_EN_RETARD_MS) c.enRetard++
+    c.maxMs = Math.max(c.maxMs, retardMs)
+  }
+
+  private tempsReelLu(): TempsReelDeLHeure {
+    const t = this.tempsReel
+    return {
+      parMessage: [...t.parMessage]
+        .map(([route, s]) => ({ route, s, r: s.mesure.lire() }))
+        .filter((x): x is { route: string; s: RouteSuivie; r: Releve } => x.r !== null)
+        .map(({ route, s, r }) => ({ route, ...r, totalMs: Math.round(s.totalMs), refusees: s.refusees, enErreur: s.enErreur }))
+        .sort((a, b) => b.totalMs - a.totalMs || (a.route < b.route ? -1 : 1)),
+      tropTard: t.tropTard,
+      connexions: t.connexions,
+      chronos: { n: t.chronos.n, enRetard: t.chronos.enRetard, maxMs: Math.round(t.chronos.maxMs) },
+    }
+  }
+
   /** Une route d'API servie : son temps, son statut — sans lui (un appelant d'avant), elle compte comme une réponse. */
   route(modele: string, ms: number, statut: number | null, quand: number) {
     this.routes.noter(ms)
@@ -663,6 +719,8 @@ class Heure {
       parRoute,
       tranches: [...this.tranches.values()].sort((a, b) => a.debut - b.debut).map(t => t.lue()),
       ...(this.telephones.vues > 0 && { telephones: this.telephones.lus() }),
+      // Toujours, même vide : une heure sans soirée se distingue d'une ligne d'avant son relevé.
+      tempsReel: this.tempsReelLu(),
     }
   }
 
@@ -1052,6 +1110,25 @@ export class ReleveHoraire {
   /** Ce qu'un téléphone a mesuré d'une page (`POST /api/mesures`), relu (`lireUneMesure`) : agrégé à l'heure, rien d'autre. */
   telephone(m: MesureDUnePage) {
     this.heure().telephones.noter(m)
+  }
+
+  /**
+   * Un message du temps réel traité (`ecouter`, `sockets.ts`), sous son nom —
+   * jamais sa charge : son temps jusqu'à l'accusé (ou jusqu'à son issue), et
+   * ce qu'il a donné. Le relevé de l'heure le range comme une route.
+   */
+  message(nom: string, ms: number, issue: IssueDUnMessage) {
+    this.heure().message(nom, ms, issue)
+  }
+
+  /** Une liaison du temps réel ouverte — un téléphone qui se reconnecte en ouvre une de plus. */
+  liaisonOuverte() {
+    this.heure().liaisonOuverte()
+  }
+
+  /** Un chronomètre de partie qui sonne (`GameEngine`), et son retard sur l'échéance. */
+  chrono(retardMs: number) {
+    this.heure().chrono(retardMs)
   }
 
   /** Une connexion ouverte vers la base, une qu'elle a refermée d'elle-même (à quel âge), un aller-retour tombé en route, le délai qu'elle annonce. */

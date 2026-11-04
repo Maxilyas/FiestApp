@@ -149,7 +149,13 @@ async function uneFoisDePlus<T>(f: () => Promise<T>): Promise<T> {
 }
 
 // Les règles des alertes se jugent toutes les cinq secondes : la page des alertes se photographie avec ce qui s'y ouvre.
-const banc = await demarrer({ baseDeLaCampagne: baseDEssai(40), mesuresDeLHebergeur: 'https://dashboard.render.com/web/srv-rendu/metrics', reglesDuQgMs: 5_000 })
+// Elles lisent la page du serveur dès le démarrage : relue à chaque fois (`santeGardeeMs`), elle voit la semaine inventée plus bas.
+const banc = await demarrer({
+  baseDeLaCampagne: baseDEssai(40),
+  mesuresDeLHebergeur: 'https://dashboard.render.com/web/srv-rendu/metrics',
+  reglesDuQgMs: 5_000,
+  santeGardeeMs: 0,
+})
 const navigateur = await chromium.launch({ headless: true })
 try {
   // Ce que les réponses contredisent, à la page de la campagne : une moyenne
@@ -458,6 +464,39 @@ try {
           gels: { n: 0, maxMs: 0 },
         }
       })
+    // Le temps réel de chaque heure (l'onglet « Temps réel ») : le soir, la salle — ses réponses, ses gestes, ses
+    // téléphones qui se reconnectent, un chronomètre en retard à 21 h —, le jour, quelques écrans et l'heure qu'ils
+    // demandent.
+    const tempsReelDeLHeure = (heure: number, soiree: boolean, invites: number, heureDeParis: number) => {
+      const vague = 1 + 0.25 * Math.sin(heure / H / 1.3)
+      const message = (route: string, n: number, p95: number, refusees = 0, enErreur = 0) => {
+        const p50 = Math.round(p95 * 0.45)
+        return { route, n, p50, p95, max: Math.round(p95 * 3), totalMs: Math.round(n * p50 * 1.2), refusees, enErreur }
+      }
+      const parMessage = soiree
+        ? [
+            message('player:action', invites * 24, Math.round(14 * vague), Math.round(invites * 0.6)),
+            message('time:sync', invites * 9 + 12, 3),
+            message('player:join', Math.round(invites * 1.6), Math.round(42 * vague), 1),
+            message('party:watch', Math.round(invites * 1.8), Math.round(18 * vague)),
+            message('host:command', 70, Math.round(9 * vague)),
+            message('host:launch', 3, Math.round(120 * vague)),
+            message('host:endSession', 3, Math.round(260 * vague)),
+            message('host:scene', 6, 7),
+            message('host:hello', 4, Math.round(60 * vague)),
+            message('player:setTeam', Math.round(invites * 0.4), 11),
+            message('host:awardTeam', 2, 15),
+          ]
+        : invites > 0
+          ? [message('time:sync', 8, 3), message('party:watch', 3, 16)]
+          : []
+      return {
+        parMessage: parMessage.filter(m => m.n > 0).sort((a, b) => b.totalMs - a.totalMs),
+        tropTard: soiree ? Math.round(invites * 0.5) : 0,
+        connexions: soiree ? Math.round(invites * 1.7 + 4) : invites,
+        chronos: soiree ? { n: 60, enRetard: heureDeParis === 21 ? 2 : 0, maxMs: heureDeParis === 21 ? 1650 : Math.round(30 * vague) } : { n: 0, enRetard: 0, maxMs: 0 },
+      }
+    }
     const vie = (id: string, debut: number, fin: number, version: string, pretEnMs: number, propre: boolean) => {
       unDemarrage.run(id, debut, pretEnMs, version, 'production', fin, propre ? fin : null)
       for (let heure = Math.floor(debut / H) * H; heure < fin; heure += H) {
@@ -556,6 +595,7 @@ try {
             ...(gels && { gels }),
             parRoute: routesDeLHeure(heure, version, soiree, erreurs),
             tranches: tranchesDeLHeure(heure, r.routes, base, invites, enErreur),
+            tempsReel: tempsReelDeLHeure(heure, soiree, invites, heureDeParis),
           }),
           heure,
         )
@@ -1065,6 +1105,9 @@ try {
       }),
     )
     await photographier('75-serveur-gels', 1366, 768, surLeServeur(page => page.click('#serveur-onglet-gels')))
+    // Le temps réel : la soirée en cours du script a fait parler ses téléphones et son écran.
+    await photographier('75b-serveur-temps-reel', 1366, 768, surLeServeur(page => page.click('#serveur-onglet-temps-reel')))
+    await photographier('75c-serveur-temps-reel-telephone', 360, 640, surLeServeur(page => page.click('#serveur-onglet-temps-reel')))
     await photographier('76-serveur-routes-1920', 1920, 1080, surLeServeur(page => page.click('#serveur-onglet-routes')))
     await photographier('77-serveur-routes-telephone', 360, 640, surLeServeur(page => page.click('#serveur-onglet-routes')))
     await photographier('78-serveur-signaux-telephone', 360, 640, surLeServeur())

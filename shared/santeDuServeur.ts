@@ -19,6 +19,7 @@ import { formatNumber } from './typographie'
 import { lireLeTri, type ParVersion, type TriDUneErreur } from './triDesErreurs'
 import type { PanneDUnMode } from './pannes'
 import { telephonesDeLaPeriode, type TelephonesDeLHeure } from './telephones'
+import type { ClientToServerEvents } from './events'
 
 export const HEURE_MS = 3_600_000
 /** Ce que la page montre. */
@@ -354,6 +355,70 @@ export interface RouteDeLHeure extends Releve {
   enErreur: number
 }
 
+/**
+ * Le temps réel d'une heure (le QG 2, l'onglet « Temps réel » de la page du
+ * serveur) : ce que les téléphones et les écrans envoient par la liaison,
+ * relevé par `ecouter()` (`sockets.ts`), où passe chaque message d'un client.
+ * Une soirée vit là, pas dans les routes : un « Révéler » qui traîne, des
+ * réponses refusées « trop tard », des téléphones qui se reconnectent sans
+ * cesse ne se voyaient nulle part.
+ */
+export interface TempsReelDeLHeure {
+  /**
+   * Chaque message reçu sous son nom (`player:action`), comme une route : ses
+   * arrivées, son temps jusqu'à l'accusé — ce que le client attend ; jusqu'à
+   * son issue s'il n'en attend pas —, le temps qu'il a pris au serveur, ses
+   * refus (`refusees` : un accusé `ok: false` — trop tard, en pause, inconnu…)
+   * et ses pannes (`enErreur` : une exception, que `ecouter()` rattrape). Le
+   * plus coûteux d'abord.
+   */
+  parMessage: RouteDeLHeure[]
+  /** Les réponses d'invités arrivées après la révélation (`too-late`), parmi les refus. */
+  tropTard: number
+  /** Les liaisons ouvertes dans l'heure : un téléphone qui se reconnecte en ouvre une de plus. */
+  connexions: number
+  /** Les chronomètres des parties sonnés dans l'heure, ceux sonnés plus d'une seconde après leur échéance, et le pire retard. */
+  chronos: { n: number; enRetard: number; maxMs: number }
+}
+
+/** Un chronomètre en retard au-delà d'une seconde : la révélation que la salle attend se voit traîner. */
+export const CHRONO_EN_RETARD_MS = 1000
+
+/**
+ * Ce que chaque message du temps réel fait, en mots, sous son nom dans la
+ * table : `player:horsLigne` ne dit rien à qui ne lit pas `sockets.ts`. Le
+ * contrat entier — un message de plus, et le typage demande ses mots.
+ */
+export const CE_QUE_FAIT_LE_MESSAGE: Record<keyof ClientToServerEvents, string> = {
+  'time:sync': 'L’heure du serveur, que chaque écran demande',
+  'party:watch': 'Une page qui suit la soirée',
+  'player:join': 'Un invité qui entre, ou se re-présente',
+  'player:action': 'Une réponse d’invité',
+  'player:reprendre': 'Une place reprise par un code',
+  'player:horsLigne': 'Un prénom cherché parmi les absents',
+  'player:setTeam': 'Un invité qui change d’équipe',
+  'host:hello': 'Un écran d’animateur qui se présente',
+  'host:launch': 'Un quiz lancé',
+  'host:command': 'Un geste de la partie : révéler, la suite…',
+  'host:endSession': 'Un quiz terminé',
+  'host:closeParty': 'Une soirée close',
+  'host:discardParty': 'Un essai effacé',
+  'host:resetParty': 'Une clôture, d’une page d’avant',
+  'host:archiveParty': 'Un rangement, d’une page d’avant',
+  'host:renamePlayer': 'Un invité renommé',
+  'host:removePlayer': 'Un invité exclu',
+  'host:rendrePlace': 'Un code pour rendre sa place',
+  'host:createTeam': 'Une équipe créée',
+  'host:updateTeam': 'Une équipe changée',
+  'host:removeTeam': 'Une équipe retirée',
+  'host:seedTeams': 'Les équipes tirées',
+  'host:assignPlayer': 'Un invité placé dans une équipe',
+  'host:awardTeam': 'Un prix remis',
+  'host:removeBonus': 'Un prix retiré',
+  'host:scene': 'L’écran de la salle changé : podium, prix…',
+  'host:telecommande': 'La barre du chef qui se signale',
+}
+
 /** Cinq minutes d'un démarrage : ce qu'un joueur attend, Turso, les requêtes, les erreurs, la charge, les gels. */
 export interface TrancheDeSante {
   debut: number
@@ -398,6 +463,8 @@ export interface HeureDeSante {
   tranches?: TrancheDeSante[]
   /** Ce que les téléphones des joueurs ont mesuré dans l'heure (`POST /api/mesures`) ; absent d'une heure sans mesure, ou d'avant le 4 novembre 2026. */
   telephones?: TelephonesDeLHeure
+  /** Les messages de la liaison, ses connexions, ses chronomètres ; absent d'une ligne d'avant le 4 novembre 2026 — après, une heure sans message en compte zéro. */
+  tempsReel?: TempsReelDeLHeure
 }
 
 /** Un démarrage du serveur, tel que la base le garde (`qg_demarrages`). */
@@ -606,6 +673,24 @@ export interface PageDuServeur {
   versions: VersionDuServeur[]
   /** Ce que les téléphones des joueurs ont mesuré sur la période (`telephonesDeLaPeriode`, le QG 2, lot 9) ; absent d'un serveur d'avant. */
   telephones?: TelephonesDeLHeure
+  /** Le temps réel sur la période (`tempsReelDeLaPeriode`) ; absent d'un serveur d'avant. */
+  tempsReel?: TempsReelDeLaPeriode
+}
+
+/** Le temps réel d'une période : ses messages en table, comme les routes, et ce que ses heures ont compté. */
+export interface TempsReelDeLaPeriode {
+  messages: RouteDeLaPeriode[]
+  /** Tous les messages ensemble, leurs refus et leurs pannes. */
+  recus: number
+  refuses: number
+  enPanne: number
+  tropTard: number
+  connexions: number
+  chronos: { n: number; enRetard: number; maxMs: number }
+  /** Le pic des clients de la liaison, lu dans la charge (`tempsReelMax`) ; null sans relevé qui le dise. */
+  clientsMax: number | null
+  /** La première heure qui relève le temps réel : avant le 4 novembre 2026, rien. */
+  depuis: number | null
 }
 
 /**
@@ -1020,10 +1105,14 @@ interface CumulDUneRoute {
   enErreur: number
 }
 
-function cumulsDesRoutes(lignes: readonly Pick<HeureDeSante, 'parRoute'>[]): Map<string, CumulDUneRoute> {
+/** Ce qu'une ligne dit, route par route — ses routes, ou ses messages du temps réel, qui s'écrivent pareil. */
+type LireLaTable<L> = (l: L) => readonly RouteDeLHeure[] | undefined
+const sesRoutes: LireLaTable<Pick<HeureDeSante, 'parRoute'>> = l => l.parRoute
+
+function cumulsDesRoutes<L>(lignes: readonly L[], lire: LireLaTable<L>): Map<string, CumulDUneRoute> {
   const cumuls = new Map<string, CumulDUneRoute>()
   for (const l of lignes) {
-    for (const r of l.parRoute ?? []) {
+    for (const r of lire(l) ?? []) {
       if (r.n <= 0) continue
       const c = cumuls.get(r.route) ?? { n: 0, s50: 0, s95: 0, max: 0, totalMs: 0, refusees: 0, enErreur: 0 }
       c.n += r.n
@@ -1059,11 +1148,35 @@ const routeDuCumul = (route: string, c: CumulDUneRoute): RouteDeLHeure => ({
  */
 export function routesDeLaPeriode(
   lignes: readonly Pick<HeureDeSante, 'heure' | 'parRoute'>[],
+  bornes: { debut: number; fin: number; avantDebut: number; avantFin: number },
+): RouteDeLaPeriode[] {
+  return tableDeLaPeriode(lignes, sesRoutes, bornes)
+}
+
+/**
+ * Les messages du temps réel d'une période, en table comme les routes
+ * (`TempsReelDeLHeure.parMessage`, qui s'écrit comme `parRoute`) : le plus
+ * coûteux au serveur d'abord, sa part, ses arrivées heure par heure, la période
+ * d'avant.
+ */
+export function messagesDeLaPeriode(
+  lignes: readonly Pick<HeureDeSante, 'heure' | 'tempsReel'>[],
+  bornes: { debut: number; fin: number; avantDebut: number; avantFin: number },
+): RouteDeLaPeriode[] {
+  return tableDeLaPeriode(lignes, l => l.tempsReel?.parMessage, bornes)
+}
+
+function tableDeLaPeriode<L extends { heure: number }>(
+  lignes: readonly L[],
+  lire: LireLaTable<L>,
   { debut, fin, avantDebut, avantFin }: { debut: number; fin: number; avantDebut: number; avantFin: number },
 ): RouteDeLaPeriode[] {
   const dans = lignes.filter(l => l.heure >= debut && l.heure <= fin)
-  const cumuls = cumulsDesRoutes(dans)
-  const avant = cumulsDesRoutes(lignes.filter(l => l.heure >= avantDebut && l.heure <= avantFin))
+  const cumuls = cumulsDesRoutes(dans, lire)
+  const avant = cumulsDesRoutes(
+    lignes.filter(l => l.heure >= avantDebut && l.heure <= avantFin),
+    lire,
+  )
   const total = [...cumuls.values()].reduce((s, c) => s + c.totalMs, 0)
   // Les appels heure par heure, d'un seul passage : chercher chaque route dans chaque heure coûtait 120 × 168 × 120
   // comparaisons à chaque ouverture, au dixième de cœur de l'hébergeur.
@@ -1072,7 +1185,7 @@ export function routesDeLaPeriode(
   if (heures > 2) {
     for (const l of dans) {
       const i = Math.round((l.heure - debut) / HEURE_MS)
-      for (const r of l.parRoute ?? []) {
+      for (const r of lire(l) ?? []) {
         let serie = parHeure.get(r.route)
         if (!serie) parHeure.set(r.route, (serie = Array.from({ length: heures }, () => 0)))
         serie[i] += r.n
@@ -1090,6 +1203,47 @@ export function routesDeLaPeriode(
       }
     })
     .sort((a, b) => b.totalMs - a.totalMs || b.n - a.n || (a.route < b.route ? -1 : 1))
+}
+
+/**
+ * Le temps réel d'une période (`[debut, fin]`, sa période d'avant pour l'écart
+ * de chaque message) : les messages en table, et ce que les heures ont compté —
+ * les refus, les pannes, les « trop tard », les liaisons ouvertes, les
+ * chronomètres, le pic des clients. Null sans une heure qui le relève : un
+ * serveur d'avant le 4 novembre 2026 n'en dit rien, et la page le dit.
+ */
+export function tempsReelDeLaPeriode(
+  lignes: readonly Pick<HeureDeSante, 'heure' | 'tempsReel' | 'charge'>[],
+  bornes: { debut: number; fin: number; avantDebut: number; avantFin: number },
+): TempsReelDeLaPeriode | null {
+  const relevees = lignes.filter(l => l.tempsReel !== undefined)
+  if (relevees.length === 0) return null
+  const dans = lignes.filter(l => l.heure >= bornes.debut && l.heure <= bornes.fin)
+  const t: Omit<TempsReelDeLaPeriode, 'messages' | 'depuis'> = {
+    recus: 0,
+    refuses: 0,
+    enPanne: 0,
+    tropTard: 0,
+    connexions: 0,
+    chronos: { n: 0, enRetard: 0, maxMs: 0 },
+    clientsMax: null,
+  }
+  for (const l of dans) {
+    const r = l.tempsReel
+    if (typeof l.charge?.tempsReelMax === 'number') t.clientsMax = Math.max(t.clientsMax ?? 0, l.charge.tempsReelMax)
+    if (!r) continue
+    for (const m of r.parMessage) {
+      t.recus += m.n
+      t.refuses += m.refusees
+      t.enPanne += m.enErreur
+    }
+    t.tropTard += r.tropTard
+    t.connexions += r.connexions
+    t.chronos.n += r.chronos.n
+    t.chronos.enRetard += r.chronos.enRetard
+    t.chronos.maxMs = Math.max(t.chronos.maxMs, r.chronos.maxMs)
+  }
+  return { ...t, messages: messagesDeLaPeriode(lignes, bornes), depuis: Math.min(...relevees.map(l => l.heure)) }
 }
 
 /**
@@ -1144,7 +1298,7 @@ export function versionsDuServeur(
         memoire = Math.max(memoire ?? 0, l.charge.memoireMaxMo)
       }
     }
-    const routes = cumulsDesRoutes(v.lignes)
+    const routes = cumulsDesRoutes(v.lignes, sesRoutes)
     const ralenties: VersionDuServeur['ralenties'] = []
     for (const [route, c] of avant ?? []) {
       const ici = routes.get(route)
@@ -1353,6 +1507,8 @@ export function pageDuServeur(
   )
 
   const relevees = lignes.filter(l => l.parRoute !== undefined).map(l => l.heure)
+  // Le temps réel, comme les routes : ses messages en table, la période d'avant pour leur écart.
+  const tempsReel = tempsReelDeLaPeriode(lignes, { debut, fin: derniere, avantDebut: debut - nHeures * HEURE_MS, avantFin: debut - HEURE_MS })
   return {
     maintenant,
     periode,
@@ -1387,6 +1543,7 @@ export function pageDuServeur(
     routesDepuis: relevees.length > 0 ? Math.min(...relevees) : null,
     // Les téléphones, sur les heures de la période — sur une heure, celle en cours et la précédente, comme les routes.
     telephones: telephonesDeLaPeriode(lignes.filter(l => l.heure >= debut && l.heure <= derniere).map(l => l.telephones)),
+    ...(tempsReel && { tempsReel }),
     versions: versionsDuServeur(
       lignes.filter(l => l.heure >= debutDeLaSemaine && l.heure <= derniere),
       tous,

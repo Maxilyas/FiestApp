@@ -11,7 +11,7 @@ import { messagePourEcran } from './core/http'
 import { sansAccent } from '../../shared/homonymes'
 import { apparenceDeLAvatar } from '../../shared/profil'
 import { cleanAvatar, cleanName, tronquer } from '../../shared/avatars'
-import { pouls, releve } from './core/pouls'
+import { pouls, releve, type IssueDUnMessage } from './core/pouls'
 import { commencer } from './core/gels'
 import { veille } from './core/veille'
 
@@ -198,6 +198,9 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
   })
 
   io.on('connection', socket => {
+    // Les liaisons ouvertes de l'heure, pour l'onglet « Temps réel » du QG : bien plus de liaisons que d'invités, ce
+    // sont des téléphones qui se reconnectent — un wifi qui flanche, une veille d'écran.
+    releve.liaisonOuverte()
     /** L'heure où la session d'une télé branchée s'éteint : sa connexion tombe avec elle. */
     let finDeLaTele: ReturnType<typeof setTimeout> | undefined
     let helloFailures = 0
@@ -236,20 +239,35 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         const accuse = typeof dernier === 'function' ? (dernier as (res: unknown) => void) : null
         const brute = accuse && args.length === 1 ? undefined : args[0]
         const charge = brute !== null && typeof brute === 'object' && !Array.isArray(brute) ? brute : {}
+        // Pour l'onglet « Temps réel » du QG : le temps jusqu'à l'accusé — ce que le client attend —, et ce qu'il
+        // a dit. Rien de la charge : le nom du message, son temps, son issue (`releve.message`).
+        const recu = performance.now()
+        let accuseEn: number | null = null
+        let issue: IssueDUnMessage = 'ok'
         let repondu = false
         const repondre = (res: unknown) => {
           if (repondu) return
           repondu = true
+          accuseEn = performance.now() - recu
+          if (res !== null && typeof res === 'object' && (res as { ok?: unknown }).ok === false) {
+            issue = (res as { reason?: unknown }).reason === 'too-late' ? 'trop-tard' : 'refus'
+          }
           accuse?.(res)
         }
+        const releverLeMessage = () => releve.message(event, accuseEn ?? performance.now() - recu, issue)
         const panne = (e: unknown) => {
           console.error(`[socket] « ${event} » a échoué :`, e)
           releve.erreur(`socket ${event}`, e)
           veille.noter(`socket ${event}`, false)
           if (enPanne !== undefined) repondre(enPanne)
+          issue = 'panne'
+          releverLeMessage()
         }
         // La veille des soirées : chaque message qui aboutit compte, comme chaque route (`core/veille.ts`).
-        const abouti = () => veille.noter(`socket ${event}`, true)
+        const abouti = () => {
+          veille.noter(`socket ${event}`, true)
+          releverLeMessage()
+        }
         // Ce qui tourne, pour les gels (`core/gels.ts`) : le message jusqu'à son issue.
         const fin = commencer(`socket ${event}`)
         try {

@@ -35,6 +35,7 @@ import {
   type SeuilsDuServeur,
   type QuotaDeLHeure,
   type RouteDeLHeure,
+  type TempsReelDeLHeure,
   type SauvegardeDeLaBase,
   type TrancheDeSante,
 } from '../../../shared/santeDuServeur'
@@ -172,9 +173,23 @@ function lireHeure(r: Row): HeureDeSante | null {
       ...(Array.isArray(releve.parRoute) && { parRoute: releve.parRoute.filter(routeLue) }),
       ...(Array.isArray(releve.tranches) && { tranches: releve.tranches.filter(trancheLue) }),
       ...(telephonesLus(releve.telephones) && { telephones: telephonesLus(releve.telephones)! }),
+      ...(tempsReelLu(releve.tempsReel) && { tempsReel: tempsReelLu(releve.tempsReel)! }),
     }
   } catch {
     return null
+  }
+}
+
+/** Le temps réel d'une heure : ses messages lisibles, comme des routes, et ses comptes ; rien d'une ligne d'avant, ou illisible. */
+function tempsReelLu(t: unknown): TempsReelDeLHeure | null {
+  if (!unObjet(t) || !Array.isArray(t.parMessage)) return null
+  const compte = (v: unknown) => (unNombre(v) ? v : 0)
+  const c = unObjet(t.chronos) ? t.chronos : {}
+  return {
+    parMessage: t.parMessage.filter(routeLue),
+    tropTard: compte(t.tropTard),
+    connexions: compte(t.connexions),
+    chronos: { n: compte(c.n), enRetard: compte(c.enRetard), maxMs: compte(c.maxMs) },
   }
 }
 
@@ -252,6 +267,8 @@ export class SanteDuServeur {
       releveMs?: number
       plafonds?: PlafondsDuConteneur
       mesuresDeLHebergeur?: string | null
+      /** La base relue au plus une fois par…, la minute d'office (`PAGE_GARDEE_MS`) ; zéro pour un rendu qui écrit sa semaine sous le serveur. */
+      pageGardeeMs?: number
     } = {},
   ) {
     this.client = clientDistant(url, authToken)
@@ -261,7 +278,10 @@ export class SanteDuServeur {
     this.releveMs = deps.releveMs ?? RELEVE_MS
     this.plafonds = deps.plafonds ?? PLAFONDS_INCONNUS
     this.mesuresDeLHebergeur = deps.mesuresDeLHebergeur ?? null
+    this.pageGardeeMs = deps.pageGardeeMs ?? PAGE_GARDEE_MS
   }
+
+  private readonly pageGardeeMs: number
 
   async init() {
     const lus = await this.client.batch(
@@ -423,7 +443,7 @@ export class SanteDuServeur {
    */
   async page(periode: PeriodeDuServeur = '7j'): Promise<PageDuServeur> {
     const maintenant = this.now()
-    if (!this.lue || maintenant - this.lue.le > PAGE_GARDEE_MS) {
+    if (!this.lue || maintenant - this.lue.le > this.pageGardeeMs) {
       const lecture = this.file.then(() => this.lire(maintenant))
       this.lue = { le: maintenant, lecture }
       // Une lecture qui échoue ne se garde pas : la suivante réessaie.
