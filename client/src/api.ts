@@ -52,6 +52,7 @@ import type { DirectDuQg, JournalDuQg, PageDesSoirees, SorteDeGeste, VueDEnsembl
 import type { AccuseDeReponse, PageDesAnnonces, QuestionDAnnonce } from '../../shared/annonces'
 import type { DemandeDAffiche, PageDesAffiches } from '../../shared/affiches'
 import type { BaseDuQg, PageDuServeur, PeriodeDuServeur } from '../../shared/santeDuServeur'
+import type { CleDeRegle, IncidentDuQg, PageDesAlertes } from '../../shared/qgAlertes'
 import type { EtatDUneErreur, PageDesErreurs } from '../../shared/triDesErreurs'
 import type { BilanDUneAlerte } from '../../shared/pannes'
 import type { EtatDUnePage, EtatDeLaMaintenance, PageEnMaintenance } from '../../shared/maintenance'
@@ -838,6 +839,11 @@ export const api = {
     serveur: (periode?: PeriodeDuServeur) => req<PageDuServeur>(`/api/admin/serveur${periode ? `?periode=${periode}` : ''}`),
     /** La base et le miroir : la file du miroir de chaque salon, les dernières sauvegardes. */
     base: () => req<BaseDuQg>('/api/admin/base'),
+    /** Les alertes et les incidents : chaque règle, son réglage et son état, les incidents des trente jours. */
+    regles: () => req<PageDesAlertes>('/api/admin/regles'),
+    reglerUneRegle: (cle: CleDeRegle, reglage: { seuil?: number; telephone?: boolean }) =>
+      req<PageDesAlertes>(`/api/admin/regles/${cle}`, { method: 'PUT', body: JSON.stringify(reglage) }),
+    motDUnIncident: (id: number, mot: string) => req<IncidentDuQg>(`/api/admin/incidents/${id}/mot`, { method: 'POST', body: JSON.stringify({ mot }) }),
     /** L'activité : trente jours de questions jouées et de parties, mode par mode, et ce que chaque profil a joué. */
     activite: () => req<PageDeLActivite>('/api/admin/activite'),
     /** Clore une soirée laissée en plan, comme son animateur l'aurait close : rangée, ses invités crédités. */

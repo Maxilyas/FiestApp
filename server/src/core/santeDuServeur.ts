@@ -12,6 +12,7 @@ import {
   RELEVE_MS,
   SANTE_GARDEE_MS,
   SAUVEGARDES_MONTREES,
+  SEUILS_DU_SERVEUR,
   SILENCE_D_UN_ARRET_MS,
   alertesDuServeur,
   debutDeLHeure,
@@ -30,6 +31,7 @@ import {
   type PageDuServeur,
   type PeriodeDuServeur,
   type PlafondsDuConteneur,
+  type SeuilsDuServeur,
   type QuotaDeLHeure,
   type RouteDeLHeure,
   type SauvegardeDeLaBase,
@@ -212,6 +214,13 @@ export class SanteDuServeur {
   private readonly releveMs: number
   private readonly plafonds: PlafondsDuConteneur
   private readonly mesuresDeLHebergeur: string | null
+  /** Les seuils que l'administrateur a réglés au QG (`ReglesDuQg`, branchés par `server.ts`) ; d'office, ceux du code. */
+  private seuils: () => SeuilsDuServeur = () => SEUILS_DU_SERVEUR
+
+  /** Les règles des alertes, nées après la santé dans le démarrage, lui prêtent leurs seuils. */
+  reglerLesSeuils(seuils: () => SeuilsDuServeur) {
+    this.seuils = seuils
+  }
 
   /**
    * `plafonds` : ceux du conteneur, lus une fois au démarrage
@@ -522,6 +531,7 @@ export class SanteDuServeur {
       tri: this.tris,
       pannes: this.veille.pannes(),
       quota,
+      seuils: this.seuils(),
     })
   }
 }

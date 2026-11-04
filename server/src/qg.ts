@@ -15,6 +15,8 @@ import { noterLeGeste, type JournalDesGestes } from './core/journalDesGestes'
 import type { SanteDuServeur } from './core/santeDuServeur'
 import { periodeDuServeur, type BaseDuQg } from '../../shared/santeDuServeur'
 import type { FluxDuQg } from './qgFlux'
+import { ReglesDuQg } from './core/regles'
+import { estUneRegle } from '../../shared/qgAlertes'
 import { wrap } from './core/http'
 import { nomDeLEspace } from '../../shared/space'
 import { tronquer } from '../../shared/avatars'
@@ -83,6 +85,10 @@ export interface QgDeps {
   version: string | null
   /** Le flux du direct (`GET /api/admin/flux`), que le serveur referme à sa fermeture ; sans lui, la route répond 404 et la page relit le direct. */
   flux?: FluxDuQg
+  /** Les règles des alertes et leurs incidents (`core/regles.ts`) : la page des alertes, et ce qu'« À traiter » en dit. */
+  regles?: ReglesDuQg
+  /** Combien de téléphones les alertes font sonner. */
+  telephonesDuQg?: () => Promise<number>
 }
 
 /** Une soirée pas encore close, telle que la base locale la garde. */
@@ -433,6 +439,8 @@ export function mountQg(app: Express, deps: QgDeps) {
         rappel: bilan && { jour: bilan.jour, envoyes: bilan.envoyes, echecs: bilan.echecs },
         routine: { jour: reserve.dernierDepotIa, campagne: deps.campagne.santeDeLaBase().dernierApport },
         serveur,
+        // Les règles neuves ouvertes, lues en mémoire, et le seuil de la réserve tel qu'on l'a réglé.
+        ...(deps.regles && { alertes: deps.regles.aTraiter(), seuilDeLaReserve: deps.regles.seuilDeLaReserve() }),
       },
     }
   }
@@ -514,6 +522,39 @@ export function mountQg(app: Express, deps: QgDeps) {
     if (deps.flux) deps.flux.ouvrir(req, res)
     else res.status(404).json({ error: 'Le direct ne passe pas par un flux ici.' })
   })
+
+  // Les alertes et les incidents (le QG 2, lot 8) : chaque règle, son seuil et son téléphone, les incidents des trente jours.
+  app.get(
+    '/api/admin/regles',
+    wrap(async (_req, res) => {
+      if (!deps.regles) return void res.status(404).json({ error: 'Les règles des alertes ne tournent pas ici.' })
+      const telephones = deps.telephonesDuQg ? await deps.telephonesDuQg().catch(() => 0) : 0
+      res.json(await deps.regles.page(telephones))
+    }),
+  )
+  // Régler une règle : son seuil — un réglage d'exploitation, jamais un barème du jeu —, son téléphone. Au journal.
+  app.put(
+    '/api/admin/regles/:cle',
+    wrap(async (req, res) => {
+      const cle = req.params.cle
+      if (!deps.regles || !estUneRegle(cle)) return void res.status(404).json({ error: 'Règle introuvable.' })
+      const { avant, apres } = await deps.regles.regler(cle, req.body)
+      noterLeGeste(res, { sorte: 'erreur', resume: ReglesDuQg.phraseDuReglage(cle, avant, apres), cible: cle })
+      res.json(await deps.regles.page(deps.telephonesDuQg ? await deps.telephonesDuQg().catch(() => 0) : 0))
+    }),
+  )
+  // Un mot sur un incident : sa cause vue d'ici, comme le mot d'une erreur triée.
+  app.post(
+    '/api/admin/incidents/:id/mot',
+    wrap(async (req, res) => {
+      const id = Number(req.params.id)
+      if (!deps.regles || !Number.isInteger(id)) return void res.status(404).json({ error: 'Incident introuvable.' })
+      const incident = await deps.regles.noterUnMot(id, req.body?.mot)
+      if (!incident) return void res.status(404).json({ error: 'Incident introuvable.' })
+      noterLeGeste(res, { sorte: 'erreur', resume: incident.mot ? `Mot sur un incident : « ${incident.mot} »` : 'Mot d’un incident effacé', cible: String(id) })
+      res.json(incident)
+    }),
+  )
   app.get(
     '/api/admin/activite',
     wrap(async (_req, res) => {

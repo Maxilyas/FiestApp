@@ -47,6 +47,7 @@ import { Charge, compteurDeConnexions, plafondsDuConteneur, pouls, ramasseMiette
 import { CHEMIN_DU_FLUX, ENVOI_DU_FLUX_MS, modeDuDirect } from '../../shared/qgDirect'
 import { formatNumber } from '../../shared/typographie'
 import { FluxDuQg } from './qgFlux'
+import { ReglesDuQg, lecteurDesAlertes } from './core/regles'
 import { SondeDesGels, commencer } from './core/gels'
 import { connexionsGardeesChaudes, entretenirLesConnexions, gardeAnnoncee, noterUneDemande, type ReglagesDeLEntretien } from './core/connexions'
 import { clientDeLaBase, clientDistant, transportDeLaBase } from './core/distante'
@@ -89,6 +90,8 @@ export interface QuizServerOptions {
   quizDbToken?: string
   /** Le rythme du flux du QG (`ENVOI_DU_FLUX_MS`, deux secondes) : les tests le pressent. */
   fluxDuQgMs?: number
+  /** Le pas des règles des alertes (`TOUR_DES_REGLES_MS`, une minute) : les tests le pressent. */
+  reglesDuQgMs?: number
   /** URL publique à mettre dans le QR code (prioritaire sur l'IP locale). */
   publicUrl?: string
   /**
@@ -587,6 +590,32 @@ export async function createQuizServer(opts: QuizServerOptions) {
   })
   // Le direct du QG, poussé toutes les deux secondes aux pages qui l'écoutent : en mémoire, rien vers Turso.
   const fluxDuQg = new FluxDuQg({ envoiMs: opts.fluxDuQgMs ?? ENVOI_DU_FLUX_MS, plafonds })
+  // Les règles des alertes du QG (le QG 2, lot 8) : leurs réglages et leurs incidents dans la base permanente, jugées
+  // chaque minute sur ce que le serveur sait déjà. Ce qu'elles lisent naît plus bas : elles ne lisent qu'une fois
+  // le serveur ouvert (`regles.demarrer`).
+  const regles = new ReglesDuQg(opts.quizDbUrl, opts.quizDbToken, {
+    tourMs: opts.reglesDuQgMs,
+    prevenir: m => {
+      alertes.prevenir(m).catch(err => console.warn('[alertes] les téléphones du QG ne se lisent pas :', err instanceof Error ? err.message : err))
+    },
+    lire: lecteurDesAlertes({
+      alertes: memoireMo => sante.alertes(memoireMo),
+      versions: async () => (await sante.page('7j')).versions,
+      direct: releve.direct,
+      miroir: () => backup.sante(),
+      reserve: () => jour.avanceDeLaReserve(),
+      rappel: () => rappels.bilan(),
+      memoireMo: () => {
+        try {
+          return Math.round(process.memoryUsage().rss / 1024 / 1024)
+        } catch {
+          return null
+        }
+      },
+      version: opts.version ?? null,
+    }),
+  })
+  sante.reglerLesSeuils(() => regles.seuilsDuServeur())
 
   /**
    * Deux écritures du même espace lancent deux relectures, qui reviennent
@@ -650,6 +679,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     sante.init(),
     // Les pannes qu'un serveur d'avant n'a pas vues se rétablir : la veille dira leur retour.
     alertes.init().then(heritees => veille.heriter(heritees)),
+    // Les réglages des alertes et les incidents laissés ouverts par le serveur d'avant.
+    regles.init(),
     maintenance.init(),
     (async () => {
       await archives.init(defaultSpace)
@@ -1374,6 +1405,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
       // Clore d'ici une soirée laissée en plan tient les mêmes comptes que son écran commun.
       clore: rt => cloreLaSoiree(rt, { auth, inscriptions }),
       flux: fluxDuQg,
+      regles,
+      telephonesDuQg: async () => (await alertes.telephones()).length,
     },
     gestes,
     maintenance,
@@ -1634,6 +1667,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     releve.direct.evenement({ sorte: 'serveur', mode: null, texte: message.titre })
     const garder = e.sorte === 'panne' ? alertes.garderLesPannes(e.pannes) : alertes.oublierLesPannes(e.modes)
     garder.catch(err => console.warn('[veille] les pannes ne se gardent pas :', err instanceof Error ? err.message : err))
+    // La page des alertes peut faire taire le téléphone pour la panne d'un mode : elle reste dite au QG.
+    if (!regles.sonne('panne')) return
     alertes.prevenir(message).then(
       b => {
         if (b.envoyes + b.echecs + b.retires > 0) console.log(`[alertes] ${message.titre} : ${b.envoyes} téléphone(s) prévenu(s), ${b.echecs} échec(s), ${b.retires} oublié(s)`)
@@ -1642,6 +1677,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     )
   }
   veille.demarrer(direLaVeille)
+  // Chaque minute, les règles des alertes se jugent : le serveur est ouvert, tout ce qu'elles lisent est né.
+  regles.demarrer()
 
   return {
     httpServer,
@@ -1664,6 +1701,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
         veille.arreter(direLaVeille)
         // Les pages du QG qui écoutent le direct : ouvertes, elles retiendraient la fermeture du serveur.
         fluxDuQg.fermer()
+        // Plus une règle ne se juge : ce qui tombe pendant l'extinction n'est pas un incident.
+        regles.arreter()
         charge.arreter()
         sondeDesGels.arreter()
         registry.stopAll()
@@ -1683,6 +1722,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
           jour.close()
           rappels.close()
           alertes.close()
+          regles.close()
           maintenance.close()
           // Les profils en dernier : un crédit d'expérience parti avec la fin
           // du dernier quiz garde ainsi le plus long sursis pour aboutir. On ne

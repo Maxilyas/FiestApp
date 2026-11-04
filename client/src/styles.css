@@ -14859,11 +14859,61 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
 .qg-fil-n { color: var(--qg-encre-2); font-weight: 500; }
 .qg-fil-erreur b { color: var(--qg-critique-texte); }
 .qg-plus { align-self: flex-start; }
+/* Les alertes et les incidents (le QG 2, lot 8) : une règle par ligne — en colonne au téléphone, en rangée à
+   l'ordinateur —, son état d'un voyant, sa gravité d'un mot coloré, jamais de la couleur seule. */
+.qg-regles { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.qg-regle { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 12px 0; border-top: 1px solid var(--qg-trait); }
+.qg-regle:first-child { border-top: 0; }
+.qg-regle-ouverte { margin-inline: -10px; padding-inline: 10px; border-radius: 10px; background: color-mix(in srgb, var(--qg-critique) 7%, transparent); }
+.qg-regle-ouverte.qg-regle-veille { background: color-mix(in srgb, var(--qg-veille) 7%, transparent); }
+.qg-regle-ouverte.qg-regle-serieux { background: color-mix(in srgb, var(--qg-serieux) 8%, transparent); }
+.qg-regle-ouverte.qg-regle-critique { background: color-mix(in srgb, var(--qg-critique) 9%, transparent); }
+.qg-regle-etat { display: inline-flex; align-items: center; gap: 8px; font: 500 0.75rem/1.3 var(--qg-mono); color: var(--qg-encre-2); }
+.qg-regle-ouverte .qg-regle-etat { color: var(--ink); }
+.qg-regle-texte { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.qg-regle-nom { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0; border: 0; background: none; color: var(--ink); font: 600 0.95rem/1.35 var(--sans); text-align: left; cursor: pointer; }
+.qg-regle-nom:hover { color: var(--accent-text-hover); }
+.qg-regle-neuve { padding: 1px 7px; border: 1px solid var(--qg-trait-fort); border-radius: 999px; font: 600 var(--t-label)/1.4 var(--qg-mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--qg-encre-2); }
+.qg-regle-reglages { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.qg-regle-sans-seuil,
+.qg-regle-sur,
+.qg-regle-derniere { color: var(--muted); }
+.qg-regle-tel { min-height: 32px; }
+.qg-regle-erreur { margin: 0; grid-column: 1 / -1; }
+.qg-gravite { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; white-space: nowrap; }
+.qg-gravite::before { content: ''; flex: none; width: 7px; height: 7px; border-radius: 2px; background: currentColor; }
+.qg-gravite-critique { color: var(--qg-critique-texte); }
+.qg-gravite-serieux { color: var(--qg-serieux); }
+.qg-gravite-veille { color: var(--qg-veille); }
+.qg-seuil { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 10px; border: 1px dashed var(--qg-trait-fort); border-radius: 8px; background: none; color: var(--ink); font: 600 0.85rem/1 var(--qg-mono); cursor: pointer; }
+.qg-seuil:hover { border-style: solid; border-color: rgba(217, 181, 106, 0.55); }
+.qg-seuil .icon { width: 13px; height: 13px; color: var(--qg-encre-2); }
+.qg-seuil-saisie,
+.qg-incident-saisie { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.qg-seuil-saisie input,
+.qg-incident-saisie input { min-height: 36px; padding: 0 10px; border: 1px solid var(--qg-trait-fort); border-radius: 8px; background: rgba(255, 255, 255, 0.03); color: var(--ink); font: inherit; font-size: 1rem; }
+.qg-seuil-saisie input { width: 7.5em; font-family: var(--qg-mono); }
+.qg-incident-saisie label { flex: 1 1 220px; display: flex; }
+.qg-incident-saisie input { flex: 1; min-width: 0; }
+/* La frise des incidents : une ligne par règle, une barre par incident — pleine, close ; en contour, encore ouverte. */
+.qg-frise-regle { font: 500 0.72rem var(--sans); fill: var(--qg-encre-2); }
+.qg-frise-ligne { stroke: var(--qg-trait); }
+.qg-frise-incident { fill: currentColor; fill-opacity: 0.85; }
+.qg-frise-incident.qg-frise-ouvert { fill-opacity: 0.35; stroke: currentColor; stroke-width: 1.5; }
+.qg-incident-ouvert b { color: var(--ink); }
+.qg-incident-mot { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.qg-incident-cite { color: var(--qg-encre-2); font-style: italic; }
+/* Le mot se change d'un lien discret, à l'or du texte : un bouton plein à chaque ligne en faisait un formulaire. */
+.qg-incident-changer { display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 0; border: 0; background: none; color: var(--accent-text); font: inherit; cursor: pointer; }
+.qg-incident-changer:hover { color: var(--accent-text-hover); text-decoration: underline; }
+.qg-incident-changer .icon { width: 13px; height: 13px; }
 .qg-plus[aria-expanded='true'] .icon { transform: rotate(180deg); }
 @media (min-width: 1101px) {
   .qg-direct-graphes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   /* Les routes ont cinq colonnes, le fil une : la table prend la plus grande part. */
   .qg-direct-bas { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); align-items: start; }
+  /* Une règle en rangée : son état, ce qu'elle guette, ses réglages. */
+  .qg-regle { grid-template-columns: 170px minmax(0, 1fr) minmax(0, 1.15fr); align-items: center; gap: 10px 18px; }
 }
 @media (min-width: 1600px) {
   .qg-direct-graphes { grid-template-columns: repeat(3, minmax(0, 1fr)); }

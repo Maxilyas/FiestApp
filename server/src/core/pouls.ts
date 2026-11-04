@@ -730,9 +730,33 @@ export class DirectDuServeur {
   private fil: EvenementDuFil[] = []
   private prochainId = 1
   private prochainRang = 1
+  /**
+   * Ce qui s'est joué, heure par heure, depuis le démarrage — un profil sur une
+   * route d'un mode, une salle où des téléphones sont connectés : le silence
+   * d'un soir (la règle `silence`, `shared/qgAlertes.ts`) se lit ici. Deux
+   * jours au plus.
+   */
+  private jeuParHeure = new Map<number, number>()
+  /** Depuis quand ce relevé écoute : un soir n'est jugé que si le serveur était debout tout du long. */
+  private ecouteDepuis: number
 
   constructor(private readonly now: () => number = Date.now) {
     this.pas = new PasDuDirect(debutDuPas(now()))
+    this.ecouteDepuis = now()
+  }
+
+  private noterDuJeu() {
+    const heure = Math.floor(this.now() / 3_600_000) * 3_600_000
+    this.jeuParHeure.set(heure, (this.jeuParHeure.get(heure) ?? 0) + 1)
+    if (this.jeuParHeure.size > 48) for (const h of this.jeuParHeure.keys()) if (h < heure - 48 * 3_600_000) this.jeuParHeure.delete(h)
+  }
+
+  /** Ce qui s'est joué entre deux instants (des heures entières), ou null si le relevé n'écoutait pas encore au début. */
+  jeuEntre(debut: number, fin: number): number | null {
+    if (this.ecouteDepuis > debut) return null
+    let n = 0
+    for (const [h, k] of this.jeuParHeure) if (h >= debut && h < fin) n += k
+    return n
   }
 
   /**
@@ -817,6 +841,7 @@ export class DirectDuServeur {
 
   charge(c: ReleveDeCharge) {
     this.courant().charge = { processeur: c.processeur, boucleMaxMs: c.boucleMaxMs, memoireMo: c.memoireMo, invites: c.invites, tempsReel: c.tempsReel ?? null }
+    if (c.invites > 0) this.noterDuJeu()
   }
 
   gel() {
@@ -828,6 +853,7 @@ export class DirectDuServeur {
     let vus = this.presences.get(mode)
     if (!vus) this.presences.set(mode, (vus = new Map()))
     vus.set(profil, this.now())
+    this.noterDuJeu()
   }
 
   /**
@@ -870,6 +896,8 @@ export class DirectDuServeur {
     this.pas = new PasDuDirect(debutDuPas(this.now()))
     this.presences.clear()
     this.fil = []
+    this.jeuParHeure.clear()
+    this.ecouteDepuis = this.now()
   }
 }
 

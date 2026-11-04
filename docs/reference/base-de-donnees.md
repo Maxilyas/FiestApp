@@ -1082,6 +1082,26 @@ Le tri des erreurs serveur (`/admin#erreurs`) : ce que l'administrateur a dit de
 - **Lue par** : `SanteDuServeur`, une fois au démarrage, puis tenue en mémoire : la page des erreurs, et l'alerte de la vue d'ensemble, qui ne compte que celles à regarder.
 - **Effacée par** : « Remettre à regarder » efface sa ligne. Elle survit aux huit jours du relevé : une erreur ignorée qui retombe dans un mois le reste.
 
+### `qg_reglages`
+
+Les réglages des alertes du QG (`/admin#alertes`) : une ligne par règle réglée — son seuil, son téléphone —, ce qui vaut d'office n'y est pas. Un réglage d'exploitation, jamais un barème du jeu.
+
+- **Colonnes clés** : `cle` (la clé : celle de la règle, `CLES_DES_REGLES`), `valeur` (JSON : `{ seuil?, telephone? }`), `maj_le`.
+- **Espace** : non — le serveur est le même pour tous.
+- **Écrite par** : `ReglesDuQg.regler` (`server/src/core/regles.ts`), à chaque réglage ; revenu au défaut, la ligne s'efface.
+- **Lue par** : `ReglesDuQg`, une fois au démarrage, puis tenue en mémoire : chaque règle s'y juge, la santé du serveur y prend ses seuils (Turso lent, la mémoire, le quota), « À traiter » celui de la réserve.
+- **Effacée par** : le retour au défaut. Un réglage que le code a resserré depuis se tait à la lecture.
+
+### `qg_incidents`
+
+Les incidents des alertes du QG : une règle ouverte, de sa première minute à cinq minutes de calme.
+
+- **Colonnes clés** : `id`, `regle`, `gravite`, `debut` (indexée), `fin` (vide tant qu'il dure), `cause` (une phrase : une route, un mode, un chiffre — jamais un joueur), `mot` (celui de l'administrateur, 120 caractères au plus).
+- **Espace** : non.
+- **Écrite par** : `ReglesDuQg.tour`, chaque minute — une écriture à l'ouverture, une à la fermeture — et `noterUnMot`.
+- **Lue par** : `ReglesDuQg` — au démarrage, ceux encore ouverts (le serveur suivant les continue) ; la page des alertes, les trente derniers jours par leur index.
+- **Effacée par** : rien — quelques lignes par semaine.
+
 ### `qg_sauvegardes`
 
 Les sauvegardes de la base permanente (`npm run sauvegarde`), une ligne chacune : la page « Base et miroir » du QG dit à quand remonte la dernière — rien ne le disait.

@@ -235,6 +235,18 @@ export const QUOTA_DES_LIGNES_ECRITES = 10_000_000
 export const PART_DU_QUOTA_EN_ALERTE = 50
 /** Au-delà, l'alerte passe au rouge : à ce rythme, le mois ne tient plus qu'avec une préproduction qui ne lit rien. */
 export const PART_DU_QUOTA_EN_ROUGE = 80
+
+/**
+ * Les seuils des alertes du serveur que l'administrateur règle au QG (la page
+ * des alertes, le QG 2, lot 8 : un réglage d'exploitation, pas un barème) ;
+ * d'office, ceux du code. `alertesDuServeur` les lit, « À traiter » avec.
+ */
+export interface SeuilsDuServeur {
+  tursoLentMs: number
+  memoireMo: number
+  partDuQuota: number
+}
+export const SEUILS_DU_SERVEUR: SeuilsDuServeur = { tursoLentMs: TURSO_LENT_MS, memoireMo: MEMOIRE_PLAFOND_MO, partDuQuota: PART_DU_QUOTA_EN_ALERTE }
 /** Un rythme ne se juge pas sur moins d'un jour : un réveil relit d'un coup tout le journal des réponses. */
 export const HEURES_POUR_PROJETER = 24
 
@@ -1416,6 +1428,7 @@ export function alertesDuServeur({
   tri = new Map(),
   pannes = [],
   quota = null,
+  seuils = SEUILS_DU_SERVEUR,
 }: {
   recentes: readonly HeureDeSante[]
   demarrages: readonly DemarrageDuServeur[]
@@ -1427,6 +1440,8 @@ export function alertesDuServeur({
   pannes?: readonly PanneDUnMode[]
   /** Le quota de Turso au rythme de la semaine (`quotaDuMois`), relu au plus toutes les heures. */
   quota?: QuotaDuMois | null
+  /** Les seuils réglés au QG (`ReglesDuQg`, le QG 2, lot 8) ; d'office, ceux du code. */
+  seuils?: SeuilsDuServeur
 }): AlertesDuServeur {
   const cetteHeure = debutDeLHeure(maintenant)
   const lues = recentes.filter(h => h.heure === cetteHeure || h.heure === cetteHeure - HEURE_MS).sort((a, b) => a.heure - b.heure)
@@ -1449,10 +1464,10 @@ export function alertesDuServeur({
     pannes: [...pannes],
     arretNet: arrets[0] ? { vers: arrets[0].vuLe } : null,
     erreurs: total > 0 && premiere ? { n: total, depuis: depuis ?? cetteHeure, source: premiere[0] } : null,
-    tursoLent: jugee?.base && jugee.base.p95 > TURSO_LENT_MS ? { p95: jugee.base.p95, depuis: jugee.heure } : null,
-    memoireMo: memoireMo !== null && memoireMo > MEMOIRE_PLAFOND_MO ? memoireMo : null,
+    tursoLent: jugee?.base && jugee.base.p95 > seuils.tursoLentMs ? { p95: jugee.base.p95, depuis: jugee.heure } : null,
+    memoireMo: memoireMo !== null && memoireMo > seuils.memoireMo ? memoireMo : null,
     quota:
-      quota && quota.part >= PART_DU_QUOTA_EN_ALERTE && maintenant - quota.depuis >= HEURES_POUR_PROJETER * HEURE_MS
+      quota && quota.part >= seuils.partDuQuota && maintenant - quota.depuis >= HEURES_POUR_PROJETER * HEURE_MS
         ? { part: quota.part, luesSurTrenteJours: quota.luesSurTrenteJours }
         : null,
   }

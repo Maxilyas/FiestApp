@@ -15,6 +15,7 @@ import { QgSoirees } from '../components/QgSoirees'
 import { QgServeur } from '../components/QgServeur'
 import { QgBase } from '../components/QgBase'
 import { QgEnDirect } from '../components/QgEnDirect'
+import { QgAlertes } from '../components/QgAlertes'
 import { fluxDuQg } from '../qgFlux'
 import { QgErreurs } from '../components/QgErreurs'
 import { QgActivite } from '../components/QgActivite'
@@ -81,7 +82,8 @@ type Ecran =
   | 'affiches'
   | 'base'
   | 'direct'
-const ECRANS: readonly Ecran[] = ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct']
+  | 'alertes'
+const ECRANS: readonly Ecran[] = ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes']
 /** Les ancres de la page d'avant, qu'un favori garde encore. */
 const ANCIENNES: Record<string, Ecran> = { 'les-profils': 'profils', 'quiz-du-jour': 'jour' }
 
@@ -109,6 +111,7 @@ const TITRE: Record<Ecran, string> = {
   affiches: 'Les nouveautés',
   base: 'La base et le miroir',
   direct: 'En direct',
+  alertes: 'Alertes et incidents',
 }
 
 /**
@@ -116,8 +119,7 @@ const TITRE: Record<Ecran, string> = {
  * commande, l'audience, les modes, le contenu, la technique, l'animation ; la
  * vue d'ensemble, le poste de commande, est `null`. Seules les pages qui
  * existent : une page rejoint le rail quand elle est là, jamais avant (règle
- * `qg.md`) — les alertes, les joueurs, les questions et le Cabinet y entreront
- * avec la leur.
+ * `qg.md`) — les joueurs, les questions et le Cabinet y entreront avec la leur.
  */
 const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; icone: IconName }[] }[] = [
   {
@@ -125,6 +127,7 @@ const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; 
     pages: [
       { ecran: null, nom: 'Poste de commande', icone: 'bar-chart' },
       { ecran: 'direct', nom: 'En direct', icone: 'eye' },
+      { ecran: 'alertes', nom: 'Alertes', icone: 'bell' },
       { ecran: 'journal', nom: 'Journal', icone: 'list' },
     ],
   },
@@ -425,6 +428,12 @@ export function AdminApp() {
   const listeDesPages = (
     <ul className="style-liste">
       <Ligne icone="eye" nom="En direct" valeur={fluxVivant ? 'À la seconde : qui joue, le fil, les routes' : 'La seconde du serveur'} onClick={() => aller('direct')} />
+      <Ligne
+        icone="bell"
+        nom="Alertes et incidents"
+        valeur={vue?.aTraiter.alertes?.length ? `${vue.aTraiter.alertes.length} ouverte${vue.aTraiter.alertes.length > 1 ? 's' : ''}` : 'Les règles, leurs seuils, les incidents'}
+        onClick={() => aller('alertes')}
+      />
       <Ligne icone="hash" nom="L’activité" valeur="Le volume des modes, qui joue à quoi" onClick={() => aller('activite')} />
       <Ligne
         icone="glass"
@@ -558,6 +567,8 @@ export function AdminApp() {
         )}
         {/* La seconde du serveur, poussée par le flux : ses compteurs mènent au serveur et aux erreurs. */}
         {ecran === 'direct' && <QgEnDirect ouvrir={aller} />}
+        {/* Les règles et leurs seuils, les incidents : une règle touchée ouvre la page où l'on agit. */}
+        {ecran === 'alertes' && <QgAlertes ouvrir={aller} />}
         {ecran === 'journal' && <QgJournal />}
         {/* Un tri change ce qui sonne : la ligne de « À traiter », et la pastille du rail, se relisent. */}
         {ecran === 'erreurs' && <QgErreurs apresUnTri={relireLaVue} />}

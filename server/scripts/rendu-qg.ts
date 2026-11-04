@@ -131,7 +131,21 @@ function gelsInventes(heure: number, reveil: boolean, soiree: boolean, invites: 
   return r.lignes('rendu')[0].gels
 }
 // Le lien vers les graphiques de Render, comme sur l'hébergeur : la page « Le serveur » le propose.
-const banc = await demarrer({ baseDeLaCampagne: baseDEssai(40), mesuresDeLHebergeur: 'https://dashboard.render.com/web/srv-rendu/metrics' })
+/**
+ * Le serveur redémarre pendant l'amorce : la première requête d'après peut partir sur une connexion d'avant, que le
+ * client de Node croit encore vivante (« ECONNRESET ») — elle se refait une fois.
+ */
+async function uneFoisDePlus<T>(f: () => Promise<T>): Promise<T> {
+  try {
+    return await f()
+  } catch {
+    await new Promise(r => setTimeout(r, 100))
+    return f()
+  }
+}
+
+// Les règles des alertes se jugent toutes les cinq secondes : la page des alertes se photographie avec ce qui s'y ouvre.
+const banc = await demarrer({ baseDeLaCampagne: baseDEssai(40), mesuresDeLHebergeur: 'https://dashboard.render.com/web/srv-rendu/metrics', reglesDuQgMs: 5_000 })
 const navigateur = await chromium.launch({ headless: true })
 try {
   // Ce que les réponses contredisent, à la page de la campagne : une moyenne
@@ -845,6 +859,7 @@ try {
     if (adresse === '/admin#soirees') await page.waitForSelector('.qg-barres', { timeout: 15000 })
     if (adresse === '/admin#serveur') await page.waitForSelector('.qg-graphe svg', { timeout: 15000 })
     if (adresse === '/admin#base') await page.waitForSelector('#base-sauvegardes', { timeout: 15000 })
+    if (adresse === '/admin#alertes') await page.waitForSelector('#alertes-incidents', { timeout: 15000 })
     // Le direct : ses courbes, puis deux messages du flux — le premier porte tout, le suivant ce qui a bougé.
     if (adresse === '/admin#direct') {
       await page.waitForSelector('.qg-direct-graphes svg', { timeout: 15000 })
@@ -953,16 +968,6 @@ try {
   // « En direct » : la seconde du serveur, après une rafale par les vraies routes — trois profils qui naissent et
   // passent par la campagne, le quiz du jour et les duels —, au fil, dans « Qui joue » et sur les courbes.
   if (photo('direct')) {
-    // Le serveur a redémarré pendant l'amorce : la première requête peut partir sur une connexion d'avant, que le
-    // client de Node croit encore vivante (« ECONNRESET ») — elle se refait une fois.
-    const uneFoisDePlus = async <T>(f: () => Promise<T>): Promise<T> => {
-      try {
-        return await f()
-      } catch {
-        await new Promise(r => setTimeout(r, 100))
-        return f()
-      }
-    }
     for (const [login, nom] of [['ines', 'Inès'], ['hugo', 'Hugo'], ['sacha', 'Sacha']]) {
       const cookie = await uneFoisDePlus(() => inscrireProfil(banc.url, `direct-${login}`, nom))
       for (const chemin of ['/api/campagne/sentiers', '/api/jour', '/api/duels']) await uneFoisDePlus(() => fetch(`${banc.url}${chemin}`, { headers: { Cookie: cookie } }))
@@ -970,6 +975,26 @@ try {
     await photographier('82-direct', 1366, 768, { adresse: '/admin#direct' })
     await photographier('83-direct-1920', 1920, 1080, { adresse: '/admin#direct' })
     await photographier('84-direct-telephone', 360, 640, { adresse: '/admin#direct' })
+  }
+  // « Alertes et incidents » : trois semaines d'incidents écrits à la main — une panne du quiz du jour réparée, Turso
+  // lent et le taux d'erreur qui le suit, la mémoire puis un arrêt net —, un seuil réglé par la vraie route, et la
+  // réserve du banc, trop courte, que la première minute du serveur a déjà ouverte.
+  if (photo('alertes')) {
+    const base = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+    const t = Date.now()
+    const J = 24 * H
+    const incident = base.prepare('INSERT INTO qg_incidents (regle, gravite, debut, fin, cause, mot) VALUES (?, ?, ?, ?, ?, ?)')
+    incident.run('panne', 'critique', t - 15 * J - 2 * H, t - 15 * J, 'jour : 14 échecs', 'Le quiz du jour et les défis ne s’ouvraient plus · réparé par 3b8f1c2')
+    incident.run('turso-lent', 'veille', t - 6 * J, t - 6 * J + 42 * 60_000, '1,4 s au 95ᵉ centile', null)
+    incident.run('taux-d-erreur', 'serieux', t - 6 * J + 10 * 60_000, t - 6 * J + 35 * 60_000, '2,4 % des requêtes en erreur (31 sur 1290)', 'ECONNRESET sous Turso lent')
+    incident.run('memoire', 'serieux', t - 2 * J, t - 2 * J + 22 * 60_000, '470 Mo', null)
+    incident.run('arret-net', 'critique', t - 2 * J + 22 * 60_000, t - 2 * J + 24 * 60_000, 'un démarrage s’est arrêté sans s’éteindre', 'Redémarré en deux minutes, aucune soirée perdue')
+    base.close()
+    const admin = await uneFoisDePlus(() => connexionAnimateur(banc.url))
+    await uneFoisDePlus(() => ecrire(banc.url, '/api/admin/regles/ressenti', { seuil: 900 }, admin, 'PUT'))
+    await photographier('85-alertes', 1366, 768, { adresse: '/admin#alertes' })
+    await photographier('86-alertes-1920', 1920, 1080, { adresse: '/admin#alertes' })
+    await photographier('87-alertes-telephone', 360, 640, { adresse: '/admin#alertes' })
   }
   // Les pages du QG 2 qui suivront, chacune son bloc `if (photo('<clé>')) { … }`, ici.
 

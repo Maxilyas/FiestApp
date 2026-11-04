@@ -12,6 +12,7 @@ import { jourAvant, jourDe, jourEnToutesLettres, minutesDeParis } from './jour'
 import { espacesFines, formatNumber } from './typographie'
 import { MEMOIRE_DE_L_HEBERGEUR_MO, PART_DU_QUOTA_EN_ROUGE, enLignes, tempsDeReponse, type AlertesDuServeur } from './santeDuServeur'
 import { lesModes } from './pannes'
+import { REGLE, type AlerteATraiter } from './qgAlertes'
 // Des types seulement : `qgCampagne.ts` et `qgDuels.ts` lisent leurs jours ici, et rien ne tourne en rond à l'exécution.
 import type { CampagneDeLaVue } from './qgCampagne'
 import type { DuelsDeLaVue } from './qgDuels'
@@ -185,6 +186,15 @@ export interface ATraiterDuQg {
   routine: { jour: number | null; campagne: number | null }
   /** Le serveur : un arrêt net, des erreurs, Turso lent, la mémoire près du plafond (`shared/santeDuServeur.ts`). */
   serveur: AlertesDuServeur
+  /**
+   * Les règles des alertes qu'« À traiter » ne disait pas encore — le ressenti,
+   * le taux d'erreur, un gel long, une version qui ralentit, le silence d'un
+   * soir —, ouvertes à l'instant (`ReglesDuQg`, `shared/qgAlertes.ts`). Absent
+   * d'un serveur d'avant.
+   */
+  alertes?: AlerteATraiter[]
+  /** Le seuil de la réserve du quiz du jour, tel qu'on l'a réglé ; absent, celui du code (`ALERTE_JOURS_D_AVANCE`). */
+  seuilDeLaReserve?: number
 }
 
 export interface VueDEnsemble {
@@ -519,7 +529,7 @@ export interface ChoseATraiter {
   titre: string
   detail: string
   /** L'écran du QG qui la montre ; null, rien encore à ouvrir — la ligne suffit. */
-  ecran: 'soirees' | 'jour' | 'signalements' | 'catalogue' | 'serveur' | 'erreurs' | null
+  ecran: 'soirees' | 'jour' | 'signalements' | 'catalogue' | 'serveur' | 'erreurs' | 'alertes' | null
 }
 
 const pluriel = (n: number, mot: string, motPluriel = `${mot}s`) => `${n} ${n > 1 ? motPluriel : mot}`
@@ -606,12 +616,13 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
       ecran: 'serveur',
     })
   }
-  if (vue?.reserve && vue.reserve.joursDAvance < ALERTE_JOURS_D_AVANCE) {
+  const seuilDeLaReserve = vue?.seuilDeLaReserve ?? ALERTE_JOURS_D_AVANCE
+  if (vue?.reserve && vue.reserve.joursDAvance < seuilDeLaReserve) {
     choses.push({
       cle: 'reserve',
       alerte: true,
       titre: 'La réserve du quiz du jour',
-      detail: `${pluriel(vue.reserve.joursDAvance, 'jour')} d’avance, l’alerte est à ${ALERTE_JOURS_D_AVANCE}`,
+      detail: `${pluriel(vue.reserve.joursDAvance, 'jour')} d’avance, l’alerte est à ${seuilDeLaReserve}`,
       ecran: 'jour',
     })
   }
@@ -671,6 +682,17 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
       titre: 'Le rappel du soir',
       detail: `${pluriel(vue.rappel.echecs, 'envoi')} en échec sur ${vue.rappel.envoyes + vue.rappel.echecs}`,
       ecran: null,
+    })
+  }
+  // Les règles venues avec la page des alertes : rouges si elles sont critiques ou sérieuses, en sourdine sinon.
+  for (const a of vue?.alertes ?? []) {
+    const regle = REGLE[a.cle]
+    choses.push({
+      cle: `alerte:${a.cle}`,
+      alerte: regle.gravite !== 'veille',
+      titre: regle.nom,
+      detail: `${a.cause} · depuis ${heureEcrite(a.depuis)}`,
+      ecran: 'alertes',
     })
   }
   return choses
