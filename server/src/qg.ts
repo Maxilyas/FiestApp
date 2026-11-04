@@ -565,7 +565,7 @@ export function mountQg(app: Express, deps: QgDeps) {
       const cle = req.params.cle
       if (!deps.regles || !estUneRegle(cle)) return void res.status(404).json({ error: 'Règle introuvable.' })
       const { avant, apres } = await deps.regles.regler(cle, req.body)
-      noterLeGeste(res, { sorte: 'erreur', resume: ReglesDuQg.phraseDuReglage(cle, avant, apres), cible: cle })
+      noterLeGeste(res, { sorte: 'erreur', resume: ReglesDuQg.phraseDuReglage(cle, avant, apres, deps.regles.defauts), cible: cle })
       res.json(await deps.regles.page(deps.telephonesDuQg ? await deps.telephonesDuQg().catch(() => 0) : 0))
     }),
   )
@@ -674,6 +674,8 @@ export function mountQg(app: Express, deps: QgDeps) {
           .map(v => ({ ...v, salon: salons.get(v.spaceId) ?? ESPACE_SUPPRIME }))
           .sort((a, b) => Number(b.enRetard) - Number(a.enRetard) || b.echecs - a.echecs || b.enAttente - a.enAttente || (b.dernierSucces ?? 0) - (a.dernierSucces ?? 0)),
         sauvegardes,
+        // Le seuil de la règle « Sauvegarde ancienne », tel qu'il est réglé : la page la peint en rouge au même âge.
+        ...(deps.regles && { ancienneApresMs: deps.regles.joursDUneSauvegarde() * 86_400_000 }),
       }
       res.json(base)
     }),

@@ -6,6 +6,8 @@ import {
   MOT_D_UN_INCIDENT_MAX,
   REGLE,
   REGLES_NEUVES_A_TRAITER,
+  defautDe,
+  defautsDesSeuils,
   estUneRegle,
   lesSeuils,
   lireLeReglage,
@@ -15,6 +17,7 @@ import {
   sonneAuTelephone,
   type AlerteATraiter,
   type CleDeRegle,
+  type DefautsDesSeuils,
   type IncidentDuQg,
   type PageDesAlertes,
   type ReglageDUneRegle,
@@ -22,10 +25,19 @@ import {
   type ReleveDesAlertes,
   type SeuilsDesRegles,
 } from '../../../shared/qgAlertes'
-import { SEUILS_DU_SERVEUR, type AlertesDuServeur, type PageDuServeur, type SeuilsDuServeur } from '../../../shared/santeDuServeur'
+import {
+  SEUILS_DU_SERVEUR,
+  heuresDuMois,
+  type AlertesDuServeur,
+  type DemarrageDuServeur,
+  type HeuresDeLHebergeur,
+  type PageDuServeur,
+  type SeuilsDuServeur,
+} from '../../../shared/santeDuServeur'
 import type { MessageDuQg } from '../../../shared/pannes'
 import { espacesFines } from '../../../shared/typographie'
-import { minutesDeParis } from '../../../shared/jour'
+import { jourAvant, jourDe, minutesDeParis } from '../../../shared/jour'
+import { minuitDuJour } from '../../../shared/qgJoueurs'
 import type { DirectDuServeur } from './pouls'
 
 /** Chaque règle se juge une fois la minute. */
@@ -74,13 +86,23 @@ export class ReglesDuQg {
   private enRoute = false
   /** Les écritures l'une après l'autre : un réglage et un incident partis ensemble finissent dans l'ordre. */
   private file: Promise<unknown> = Promise.resolve()
+  /** Ce qui vaut d'office sur ce serveur : hors de la production, la part de la préproduction des heures de l'hébergeur. */
+  readonly defauts: DefautsDesSeuils
 
   constructor(
     url: string,
     authToken: string | undefined,
-    private deps: { lire: () => Promise<ReleveDesAlertes>; prevenir: (m: MessageDuQg) => void; maintenant?: () => number; tourMs?: number },
+    private deps: {
+      lire: () => Promise<ReleveDesAlertes>
+      prevenir: (m: MessageDuQg) => void
+      maintenant?: () => number
+      tourMs?: number
+      /** Ce serveur est la production (`APP_ENV` absent) ; d'office, oui. */
+      production?: boolean
+    },
   ) {
     this.client = clientDistant(url, authToken)
+    this.defauts = defautsDesSeuils(deps.production ?? true)
   }
 
   private now() {
@@ -123,7 +145,7 @@ export class ReglesDuQg {
       if (!estUneRegle(cle)) continue
       // Relu par la même règle qu'à l'écriture : un seuil que le code a resserré depuis se tait, la règle reprend son défaut.
       try {
-        this.reglages[cle] = lireLeReglage(cle, JSON.parse(String(r.valeur)))
+        this.reglages[cle] = lireLeReglage(cle, JSON.parse(String(r.valeur)), {}, this.defauts)
       } catch {
         // Un réglage illisible n'empêche pas de démarrer.
       }
@@ -149,9 +171,9 @@ export class ReglesDuQg {
   /** Ce que la santé du serveur juge avec : les seuils réglés de Turso, de la mémoire et du quota. */
   seuilsDuServeur(): SeuilsDuServeur {
     return {
-      tursoLentMs: seuilDe('turso-lent', this.reglages) ?? SEUILS_DU_SERVEUR.tursoLentMs,
-      memoireMo: seuilDe('memoire', this.reglages) ?? SEUILS_DU_SERVEUR.memoireMo,
-      partDuQuota: seuilDe('quota', this.reglages) ?? SEUILS_DU_SERVEUR.partDuQuota,
+      tursoLentMs: seuilDe('turso-lent', this.reglages, this.defauts) ?? SEUILS_DU_SERVEUR.tursoLentMs,
+      memoireMo: seuilDe('memoire', this.reglages, this.defauts) ?? SEUILS_DU_SERVEUR.memoireMo,
+      partDuQuota: seuilDe('quota', this.reglages, this.defauts) ?? SEUILS_DU_SERVEUR.partDuQuota,
     }
   }
 
@@ -161,12 +183,17 @@ export class ReglesDuQg {
    * comme les règles s'y ouvrent.
    */
   seuils(): SeuilsDesRegles {
-    return lesSeuils(this.reglages)
+    return lesSeuils(this.reglages, this.defauts)
   }
 
   /** Le seuil de la réserve du quiz du jour : « À traiter » le lit (`ATraiterDuQg.seuilDeLaReserve`). */
   seuilDeLaReserve(): number {
-    return seuilDe('reserve', this.reglages) ?? 0
+    return seuilDe('reserve', this.reglages, this.defauts) ?? 0
+  }
+
+  /** L'âge d'une sauvegarde qui la fait dire ancienne, en jours : la page « Base et miroir » la peint au même seuil que la règle. */
+  joursDUneSauvegarde(): number {
+    return seuilDe('sauvegarde', this.reglages, this.defauts) ?? 0
   }
 
   /** La panne d'un mode sonne-t-elle au téléphone ? La veille le demande avant de prévenir. */
@@ -194,7 +221,7 @@ export class ReglesDuQg {
     try {
       const releve = await this.deps.lire()
       const maintenant = releve.maintenant
-      const dites = reglesOuvertes(releve, this.reglages)
+      const dites = reglesOuvertes(releve, this.reglages, this.defauts)
       for (const [cle, cause] of dites) {
         const deja = this.ouvertes.get(cle)
         if (deja) {
@@ -242,7 +269,7 @@ export class ReglesDuQg {
   async regler(cle: CleDeRegle, brut: unknown): Promise<{ avant: ReglageDUneRegle; apres: ReglageDUneRegle }> {
     return this.enFile(async () => {
       const avant = this.reglages[cle] ?? {}
-      const apres = lireLeReglage(cle, brut, avant)
+      const apres = lireLeReglage(cle, brut, avant, this.defauts)
       if (JSON.stringify(avant) === JSON.stringify(apres)) throw new Error('Ce réglage est déjà celui-là.')
       if (Object.keys(apres).length === 0) await this.client.execute({ sql: 'DELETE FROM qg_reglages WHERE cle = ?', args: [cle] })
       else
@@ -283,7 +310,8 @@ export class ReglesDuQg {
         const o = this.ouvertes.get(cle)
         return {
           cle,
-          seuil: seuilDe(cle, this.reglages),
+          seuil: seuilDe(cle, this.reglages, this.defauts),
+          defaut: defautDe(cle, this.defauts),
           telephone: this.sonne(cle),
           ouverte: o && o.calmeDepuis === null ? { depuis: o.debut, cause: o.cause } : null,
           derniere: incidents.find(i => i.regle === cle)?.debut ?? null,
@@ -295,11 +323,11 @@ export class ReglesDuQg {
   }
 
   /** « Seuil de « Ressenti dégradé » : 900 ms (avant 800 ms) » : la phrase d'un réglage, pour le journal. */
-  static phraseDuReglage(cle: CleDeRegle, avant: ReglageDUneRegle, apres: ReglageDUneRegle): string {
+  static phraseDuReglage(cle: CleDeRegle, avant: ReglageDUneRegle, apres: ReglageDUneRegle, defauts: DefautsDesSeuils = {}): string {
     const regle = REGLE[cle]
     const morceaux: string[] = []
-    const seuilAvant = avant.seuil ?? regle.seuil?.defaut
-    const seuilApres = apres.seuil ?? regle.seuil?.defaut
+    const seuilAvant = avant.seuil ?? defautDe(cle, defauts) ?? undefined
+    const seuilApres = apres.seuil ?? defautDe(cle, defauts) ?? undefined
     if (regle.seuil && seuilAvant !== seuilApres && seuilApres !== undefined && seuilAvant !== undefined) {
       morceaux.push(`seuil ${seuilEcrit(cle, seuilApres)} (avant ${seuilEcrit(cle, seuilAvant)})`)
     }
@@ -315,8 +343,29 @@ export class ReglesDuQg {
   }
 }
 
-/** Les versions ne se relisent qu'une fois l'heure : la page du serveur sur sept jours lit toute la semaine. */
+/**
+ * Les versions ne se relisent qu'une fois l'heure : la page du serveur sur sept jours lit toute la semaine. La dernière
+ * sauvegarde et les heures de l'hébergeur de même : elles se jugent en jours.
+ */
 const VERSIONS_GARDEES_MS = 3_600_000
+
+/**
+ * Ce qu'une lecture à l'heure garde : sa valeur, et quand. Une lecture qui
+ * échoue garde la précédente et se refait au tour suivant — sans quoi un
+ * hoquet de Turso aurait refermé l'incident d'une sauvegarde ancienne.
+ */
+function alHeure<T>(lire: () => Promise<T>): (maintenant: number) => Promise<T | undefined> {
+  let gardee: { le: number; valeur: T } | null = null
+  return async maintenant => {
+    if (gardee && maintenant - gardee.le <= VERSIONS_GARDEES_MS) return gardee.valeur
+    try {
+      gardee = { le: maintenant, valeur: await lire() }
+    } catch (e) {
+      console.warn('[alertes] une lecture à l’heure ne se fait pas :', e instanceof Error ? e.message : e)
+    }
+    return gardee?.valeur
+  }
+}
 
 /**
  * Ce que les règles lisent, composé de ce que le serveur sait déjà : la
@@ -324,7 +373,10 @@ const VERSIONS_GARDEES_MS = 3_600_000
  * l'heure), le direct en mémoire (le ressenti sur dix minutes, les requêtes
  * sur un quart d'heure, le pire gel de la minute, ce qui s'est joué le soir),
  * le miroir, la réserve du quiz du jour (une lecture par ses questions
- * prêtes), la dernière tournée du rappel. Rien d'autre vers Turso.
+ * prêtes), la dernière tournée du rappel ; et une fois l'heure, la dernière
+ * sauvegarde (une ligne, par son index) et les heures de l'hébergeur (les
+ * démarrages des huit jours gardés, et les jours plus anciens du mois que la
+ * mémoire du QG sait). Rien d'autre vers Turso.
  */
 export function lecteurDesAlertes(d: {
   alertes: (memoireMo: number | null) => Promise<AlertesDuServeur>
@@ -336,8 +388,14 @@ export function lecteurDesAlertes(d: {
   memoireMo: () => number | null
   version: string | null
   maintenant?: () => number
+  /** La dernière sauvegarde notée (`qg_sauvegardes`) ; null, jamais une. */
+  sauvegarde?: () => Promise<number | null>
+  /** Les heures éveillées de ce service ce mois-ci (`heuresDeLHebergeur`). */
+  hebergeur?: () => Promise<HeuresDeLHebergeur | null>
 }): () => Promise<ReleveDesAlertes> {
   let versions: { le: number; ralenties: ReleveDesAlertes['ralenties'] } | null = null
+  const sauvegarde = d.sauvegarde && alHeure(d.sauvegarde)
+  const hebergeur = d.hebergeur && alHeure(d.hebergeur)
   return async () => {
     const maintenant = (d.maintenant ?? Date.now)()
     const memoireMo = d.memoireMo()
@@ -346,6 +404,7 @@ export function lecteurDesAlertes(d: {
       const lues = await d.versions().catch(() => [])
       versions = { le: maintenant, ralenties: lues[0] && d.version && lues[0].version === d.version ? lues[0].ralenties : [] }
     }
+    const [derniereSauvegarde, heures] = await Promise.all([sauvegarde?.(maintenant), hebergeur?.(maintenant)])
     const [a, reserve] = await Promise.all([d.alertes(memoireMo), d.reserve().catch(() => null)])
     const { points, enCours } = d.direct.lire()
     const tous = [...points, enCours]
@@ -381,8 +440,36 @@ export function lecteurDesAlertes(d: {
       rappel: d.rappel(),
       soir,
       ralenties: versions.ralenties,
+      // Pas encore lue (une base muette au premier tour) : rien ne se juge — ni « jamais sauvegardé » par erreur.
+      ...(derniereSauvegarde !== undefined && { sauvegarde: { derniere: derniereSauvegarde } }),
+      ...(heures !== undefined && { hebergeur: heures && { faites: heures.faites, projetees: heures.projetees } }),
     }
   }
+}
+
+/**
+ * Les heures éveillées de ce service ce mois-ci, au rythme de la semaine : les
+ * jours du mois de Paris jusqu'à aujourd'hui, ceux que les démarrages gardés
+ * couvrent lus sur eux, les plus anciens dans la mémoire du QG (`qg_jours`) —
+ * un mois a au plus trente et une lignes —, le reste au rythme (`heuresDuMois`).
+ */
+export async function heuresDeLHebergeur(d: {
+  demarrages: () => Promise<DemarrageDuServeur[]>
+  /** Les heures éveillées des jours finis que la mémoire sait, depuis un jour ; null, elle ne le sait pas. */
+  heuresDesJours: (depuis: string) => Promise<ReadonlyMap<string, number | null>>
+  courant: string
+  maintenant: number
+}): Promise<HeuresDeLHebergeur> {
+  const aujourdhui = jourDe(d.maintenant)
+  const premier = `${aujourdhui.slice(0, 8)}01`
+  const [annee, mois] = aujourdhui.split('-').map(Number)
+  const premierDuSuivant = jourDe(Date.UTC(annee, mois, 1, 12))
+  const [demarrages, memoire] = await Promise.all([d.demarrages(), d.heuresDesJours(premier)])
+  const jours: { debut: number; fin: number; heures: number | null }[] = []
+  for (let j = premier; j <= aujourdhui; j = jourAvant(j, -1)) {
+    jours.push({ debut: minuitDuJour(j), fin: j === aujourdhui ? d.maintenant : minuitDuJour(jourAvant(j, -1)), heures: memoire.get(j) ?? null })
+  }
+  return heuresDuMois({ demarrages, maintenant: d.maintenant, courant: d.courant, finDuMois: minuitDuJour(premierDuSuivant), jours })
 }
 
 function incidentLu(l: Record<string, unknown>): IncidentDuQg | null {

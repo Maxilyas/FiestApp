@@ -3378,8 +3378,14 @@ export class ProfileStore {
    * dates : les confettis de chaque soirée, au barème du solde
    * (`confettisDeSoiree`) et à sa première ligne de crédit ; les dons de
    * l'administrateur ; chaque achat, au prix payé ; les Éclats tombés.
+   * `jusqua` : avant cet instant seulement — la mémoire du QG compte ses jours
+   * finis une plage à la fois, et lus jusqu'à maintenant, les premières
+   * plages d'un rattrapage auraient relu toute l'année derrière elles.
    */
-  async economieDepuis(depuis: number): Promise<{
+  async economieDepuis(
+    depuis: number,
+    jusqua = Number.MAX_SAFE_INTEGER,
+  ): Promise<{
     soirees: Mouvement[]
     defis: Mouvement[]
     dons: Mouvement[]
@@ -3392,24 +3398,24 @@ export class ProfileStore {
       [
         // Une soirée se nomme d'abord par son jour (`archiveIdOf`) : lue par son nom, les lignes à part
         // (`#jour`…) n'en sont pas. La veille comprise : un premier quiz fini après minuit crédite le lendemain.
-        { sql: 'SELECT detail, created_at FROM profile_xp WHERE soiree_id >= ? AND created_at >= ?', args: [jourAvant(jourDe(depuis), 1), depuis] },
-        { sql: 'SELECT confettis, created_at FROM profile_dons WHERE created_at >= ?', args: [depuis] },
+        { sql: 'SELECT detail, created_at FROM profile_xp WHERE soiree_id >= ? AND created_at >= ? AND created_at < ?', args: [jourAvant(jourDe(depuis), 1), depuis, jusqua] },
+        { sql: 'SELECT confettis, created_at FROM profile_dons WHERE created_at >= ? AND created_at < ?', args: [depuis, jusqua] },
         // Un thème ou un compagnon tiré d'un coffre s'écrit à prix nul : ce n'est pas un achat.
-        { sql: 'SELECT theme, prix, created_at FROM profile_achats WHERE created_at >= ? AND prix > 0', args: [depuis] },
-        { sql: 'SELECT compagnon, prix, created_at FROM profile_compagnons WHERE created_at >= ? AND prix > 0', args: [depuis] },
-        { sql: 'SELECT fond, prix, created_at FROM profile_fonds WHERE created_at >= ?', args: [depuis] },
-        { sql: 'SELECT nombre, prix, created_at FROM profile_vies WHERE created_at >= ?', args: [depuis] },
-        { sql: 'SELECT prix, created_at FROM profile_sabliers WHERE created_at >= ?', args: [depuis] },
+        { sql: 'SELECT theme, prix, created_at FROM profile_achats WHERE created_at >= ? AND created_at < ? AND prix > 0', args: [depuis, jusqua] },
+        { sql: 'SELECT compagnon, prix, created_at FROM profile_compagnons WHERE created_at >= ? AND created_at < ? AND prix > 0', args: [depuis, jusqua] },
+        { sql: 'SELECT fond, prix, created_at FROM profile_fonds WHERE created_at >= ? AND created_at < ?', args: [depuis, jusqua] },
+        { sql: 'SELECT nombre, prix, created_at FROM profile_vies WHERE created_at >= ? AND created_at < ?', args: [depuis, jusqua] },
+        { sql: 'SELECT prix, created_at FROM profile_sabliers WHERE created_at >= ? AND created_at < ?', args: [depuis, jusqua] },
         // Ni un Éclat offert, ni un Éclat acheté : le QG compte ceux que le hasard a fait tomber.
         {
-          sql: 'SELECT soiree_id, created_at FROM profile_eclats WHERE created_at >= ? AND soiree_id NOT LIKE ? AND soiree_id NOT LIKE ?',
-          args: [depuis, `${PREFIXE_DES_DONS_D_ECLAT}%`, `${PREFIXE_DES_ACHATS_D_ECLAT}%`],
+          sql: 'SELECT soiree_id, created_at FROM profile_eclats WHERE created_at >= ? AND created_at < ? AND soiree_id NOT LIKE ? AND soiree_id NOT LIKE ?',
+          args: [depuis, jusqua, `${PREFIXE_DES_DONS_D_ECLAT}%`, `${PREFIXE_DES_ACHATS_D_ECLAT}%`],
         },
-        { sql: 'SELECT rang, faite_le FROM profile_missions WHERE faite_le >= ?', args: [depuis] },
-        { sql: 'SELECT confettis, ouvert_le FROM profile_coffres WHERE ouvert_le >= ? AND confettis > 0', args: [depuis] },
-        { sql: 'SELECT prix, created_at FROM profile_eclats_achetes WHERE created_at >= ?', args: [depuis] },
+        { sql: 'SELECT rang, faite_le FROM profile_missions WHERE faite_le >= ? AND faite_le < ?', args: [depuis, jusqua] },
+        { sql: 'SELECT confettis, ouvert_le FROM profile_coffres WHERE ouvert_le >= ? AND ouvert_le < ? AND confettis > 0', args: [depuis, jusqua] },
+        { sql: 'SELECT prix, created_at FROM profile_eclats_achetes WHERE created_at >= ? AND created_at < ?', args: [depuis, jusqua] },
         // Les rangs des défis du Cabinet, par l'index des clés rangées : leur plage seule, jamais toute l'étagère.
-        { sql: 'SELECT badge, created_at FROM profile_badges WHERE badge >= ? AND badge < ? AND created_at >= ?', args: [...PLAGE_DES_DEFIS, depuis] },
+        { sql: 'SELECT badge, created_at FROM profile_badges WHERE badge >= ? AND badge < ? AND created_at >= ? AND created_at < ?', args: [...PLAGE_DES_DEFIS, depuis, jusqua] },
       ],
       'read',
     )
@@ -4816,6 +4822,38 @@ export class ProfileStore {
       inscriptions: lire<number>(inscrits).map(Number),
       achats: lire<number>(achats).map(Number),
       soirees: lire<[string, number]>(soirees).map(([qui, quand]) => ({ qui: String(qui), quand: Number(quand) })),
+    }
+  }
+
+  /**
+   * Ce que seul le rattrapage de la mémoire du QG lit des profils (la mémoire
+   * v2, la revue d'expert du 4 novembre 2026), d'un lot et par les index des
+   * dates : les profils nés depuis la veille de la plage — qui, quand, par quel
+   * écran (`origine`, null d'avant la colonne) : le lendemain de son premier
+   * jour se compte sur ceux de la veille — et les missions du jour faites dans
+   * la plage — qui, quand, leur rang (`RANG_DES_TROIS`, la ligne des trois).
+   * Jamais à l'ouverture d'une page : un jour fini se lit une fois.
+   */
+  async naissancesEtMissionsEntre(
+    veille: number,
+    debut: number,
+    fin: number,
+  ): Promise<{ naissances: { qui: string; quand: number; origine: OrigineLue | null }[]; missions: { qui: string; quand: number; rang: number }[] }> {
+    const [nes, faites] = await this.client.batch(
+      [
+        { sql: 'SELECT json_group_array(json_array(id, created_at, origine)) AS lignes FROM profiles WHERE created_at >= ? AND created_at < ?', args: [veille, fin] },
+        { sql: 'SELECT json_group_array(json_array(profile_id, faite_le, rang)) AS lignes FROM profile_missions WHERE faite_le >= ? AND faite_le < ?', args: [debut, fin] },
+      ],
+      'read',
+    )
+    const lire = <T>(r: { rows: Row[] }) => JSON.parse(String(r.rows[0]?.lignes ?? '[]')) as T[]
+    return {
+      naissances: lire<[string, number, string | null]>(nes).map(([qui, quand, origine]) => ({
+        qui: String(qui),
+        quand: Number(quand),
+        origine: origine === null ? null : lireLOrigine(origine),
+      })),
+      missions: lire<[string, number, number]>(faites).map(([qui, quand, rang]) => ({ qui: String(qui), quand: Number(quand), rang: Number(rang) })),
     }
   }
 

@@ -1,6 +1,6 @@
 import type { PanneDUnMode } from './pannes'
 import { formatNumber } from './typographie'
-import { MEMOIRE_PLAFOND_MO, PART_DU_QUOTA_EN_ALERTE, PART_DU_QUOTA_EN_ROUGE, TURSO_LENT_MS } from './santeDuServeur'
+import { HEURE_MS, MEMOIRE_PLAFOND_MO, PART_DU_QUOTA_EN_ALERTE, PART_DU_QUOTA_EN_ROUGE, SAUVEGARDE_ANCIENNE_MS, TURSO_LENT_MS } from './santeDuServeur'
 
 /**
  * Les alertes du QG et leurs incidents (le QG 2, lot 8 ; la proposition du 3
@@ -8,11 +8,14 @@ import { MEMOIRE_PLAFOND_MO, PART_DU_QUOTA_EN_ALERTE, PART_DU_QUOTA_EN_ROUGE, TU
  * existaient — la panne d'un mode, l'arrêt net, les erreurs à regarder, Turso
  * lent, la mémoire, le quota — et huit de plus — le ressenti dégradé, le taux
  * d'erreur, un gel long, le miroir en retard, la réserve du quiz du jour, le
- * silence anormal, le rappel du soir en échec, la version qui ralentit. Chaque
- * règle a son seuil, réglable — un réglage d'exploitation, jamais un barème du
- * jeu —, sa gravité, et sonne au QG et, si on le choisit, sur le téléphone de
- * l'administrateur. Chaque fois qu'elle s'ouvre, un incident naît, avec son
- * début, sa fin, sa cause et un mot.
+ * silence anormal, le rappel du soir en échec, la version qui ralentit. Puis
+ * deux arrêts que rien ne guettait (la revue d'expert du 4 novembre 2026,
+ * `retours/2026-11-04/experts/analyse-et-management.md`, P1.5) : la sauvegarde
+ * trop ancienne, et les heures de l'hébergeur. Chaque règle a son seuil,
+ * réglable — un réglage d'exploitation, jamais un barème du jeu —, sa gravité,
+ * et sonne au QG et, si on le choisit, sur le téléphone de l'administrateur.
+ * Chaque fois qu'elle s'ouvre, un incident naît, avec son début, sa fin, sa
+ * cause et un mot.
  */
 
 export const GRAVITES = ['critique', 'serieux', 'veille'] as const
@@ -26,10 +29,12 @@ export const CLES_DES_REGLES = [
   'miroir',
   'taux-d-erreur',
   'memoire',
+  'sauvegarde',
   'ressenti',
   'turso-lent',
   'gel-long',
   'quota',
+  'hebergeur',
   'version',
   'reserve',
   'rappel',
@@ -40,10 +45,16 @@ export type CleDeRegle = (typeof CLES_DES_REGLES)[number]
 /** Un seuil réglable : sa valeur d'office, ses bornes, son pas, son unité. */
 export interface SeuilDUneRegle {
   defaut: number
+  /**
+   * Sa valeur d'office sur un serveur qui n'est pas la production — la
+   * préproduction (`APP_ENV`) : les heures de l'hébergeur se partagent entre
+   * les deux services, et la production en prend d'office la plus grande part.
+   */
+  horsProduction?: number
   min: number
   max: number
   pas: number
-  unite: 'ms' | 'Mo' | '%' | 'jours'
+  unite: 'ms' | 'Mo' | '%' | 'jours' | 'heures'
 }
 
 /** La page où l'on agit sur ce qu'une règle dit. */
@@ -58,7 +69,10 @@ export interface RegleDuQg {
   /** Sur quoi elle se juge. */
   sur: string
   gravite: Gravite
-  /** Le téléphone sonne d'office : la panne d'un mode, depuis le 19 octobre 2026 ; le taux d'erreur et le miroir, proposés avec elle. */
+  /**
+   * Le téléphone sonne d'office : la panne d'un mode, depuis le 19 octobre 2026 ; le taux d'erreur et le miroir, proposés
+   * avec elle ; les heures de l'hébergeur, dont l'épuisement suspend les deux services jusqu'au 1er.
+   */
   telephone: boolean
   page: PageDUneRegle
   /**
@@ -67,9 +81,31 @@ export interface RegleDuQg {
    * ce qui gelait.
    */
   onglet?: string
-  /** Une des huit de la proposition du 3 novembre 2026 : les six autres sonnaient déjà au QG. */
+  /**
+   * Venue avec la page des alertes ou après elle : les huit de la proposition du 3 novembre 2026, les deux de la revue
+   * du 4. Les six autres sonnaient déjà au QG.
+   */
   neuve: boolean
 }
+
+/** Un jour, pour les seuils qui se comptent en jours. */
+const JOUR_MS = 24 * HEURE_MS
+
+/**
+ * Les heures éveillées que l'offre gratuite de Render donne chaque mois, aux
+ * deux services ensemble — la production et la préproduction : épuisées, elles
+ * les suspendent tous deux jusqu'au 1er (règle `exploitation.md`).
+ */
+export const HEURES_DE_L_OFFRE = 750
+
+/**
+ * La part de la production, d'office : la veille de cron-job.org la tient
+ * éveillée de 7 h à minuit, environ 520 heures d'un mois de trente jours, 540
+ * d'un mois de trente et un — plus quelques visites de nuit. La moitié des 750
+ * l'aurait dite en alerte tout le mois, sans rien de changé ; la préproduction
+ * prend d'office le reste (`horsProduction`), et chacun se règle sur sa part.
+ */
+export const HEURES_DE_LA_PRODUCTION = 560
 
 export const REGLES_DU_QG: readonly RegleDuQg[] = [
   {
@@ -139,6 +175,19 @@ export const REGLES_DU_QG: readonly RegleDuQg[] = [
     neuve: false,
   },
   {
+    // La page « Base et miroir » la disait en rouge, mais rien ne sonnait : un geste sans retour — un espace supprimé
+    // « en reprenant » — ou une panne de Turso coûtait l'historique sans qu'on l'ait vu venir.
+    cle: 'sauvegarde',
+    nom: 'Sauvegarde ancienne',
+    quoi: 'la dernière sauvegarde de la base permanente (npm run sauvegarde) date de plus de tant de jours, ou il n’y en a jamais eu',
+    seuil: { defaut: SAUVEGARDE_ANCIENNE_MS / JOUR_MS, min: 1, max: 60, pas: 1, unite: 'jours' },
+    sur: 'chaque heure',
+    gravite: 'serieux',
+    telephone: false,
+    page: 'base',
+    neuve: true,
+  },
+  {
     cle: 'ressenti',
     nom: 'Ressenti dégradé',
     quoi: 'ce qu’un joueur attend — le 95ᵉ centile des routes d’API —, sur vingt appels au moins',
@@ -182,6 +231,19 @@ export const REGLES_DU_QG: readonly RegleDuQg[] = [
     telephone: false,
     page: 'base',
     neuve: false,
+  },
+  {
+    // Chaque service ne voit que ses heures : son seuil se règle sur sa part des 750, celle de la production d'office
+    // (`HEURES_DE_LA_PRODUCTION`), le reste ailleurs. Le téléphone d'office : un quota épuisé ne se rattrape pas.
+    cle: 'hebergeur',
+    nom: 'Heures de l’hébergeur',
+    quoi: 'les heures que ce service aura passées éveillé ce mois-ci, au rythme des sept derniers jours — l’offre gratuite en donne 750 aux deux services ensemble',
+    seuil: { defaut: HEURES_DE_LA_PRODUCTION, horsProduction: HEURES_DE_L_OFFRE - HEURES_DE_LA_PRODUCTION, min: 50, max: HEURES_DE_L_OFFRE, pas: 10, unite: 'heures' },
+    sur: 'sept jours',
+    gravite: 'serieux',
+    telephone: true,
+    page: 'serveur',
+    neuve: true,
   },
   {
     cle: 'version',
@@ -249,16 +311,34 @@ export interface ReglageDUneRegle {
 }
 export type ReglagesDuQg = Partial<Record<CleDeRegle, ReglageDUneRegle>>
 
-export const seuilDe = (cle: CleDeRegle, reglages: ReglagesDuQg): number | null => {
+/** Ce qui vaut d'office sur ce serveur quand ce n'est pas le défaut du catalogue : la part de la préproduction des heures de l'hébergeur. */
+export type DefautsDesSeuils = Partial<Record<CleDeRegle, number>>
+
+/** Les seuils d'office d'un serveur : ceux du catalogue en production, la part `horsProduction` ailleurs. */
+export function defautsDesSeuils(production: boolean): DefautsDesSeuils {
+  if (production) return {}
+  return Object.fromEntries(REGLES_DU_QG.flatMap(r => (r.seuil?.horsProduction === undefined ? [] : [[r.cle, r.seuil.horsProduction]])))
+}
+
+/** Le seuil d'office d'une règle sur ce serveur ; null pour une règle sans seuil. */
+export const defautDe = (cle: CleDeRegle, defauts: DefautsDesSeuils = {}): number | null => {
   const seuil = REGLE[cle].seuil
-  return seuil ? (reglages[cle]?.seuil ?? seuil.defaut) : null
+  return seuil ? (defauts[cle] ?? seuil.defaut) : null
+}
+
+export const seuilDe = (cle: CleDeRegle, reglages: ReglagesDuQg, defauts: DefautsDesSeuils = {}): number | null => {
+  const defaut = defautDe(cle, defauts)
+  return defaut === null ? null : (reglages[cle]?.seuil ?? defaut)
 }
 export const sonneAuTelephone = (cle: CleDeRegle, reglages: ReglagesDuQg): boolean => reglages[cle]?.telephone ?? REGLE[cle].telephone
 
-/** Les seuils de toutes les règles qui en ont un, tels que l'administrateur les a réglés. */
-export function lesSeuils(reglages: ReglagesDuQg): SeuilsDesRegles {
+/** Les seuils de toutes les règles qui en ont un, tels que l'administrateur les a réglés — ou d'office sur ce serveur. */
+export function lesSeuils(reglages: ReglagesDuQg, defauts: DefautsDesSeuils = {}): SeuilsDesRegles {
   const seuils: SeuilsDesRegles = {}
-  for (const r of REGLES_DU_QG) if (r.seuil) seuils[r.cle] = reglages[r.cle]?.seuil ?? r.seuil.defaut
+  for (const r of REGLES_DU_QG) {
+    const s = seuilDe(r.cle, reglages, defauts)
+    if (s !== null) seuils[r.cle] = s
+  }
   return seuils
 }
 
@@ -269,12 +349,13 @@ export function lesSeuils(reglages: ReglagesDuQg): SeuilsDesRegles {
  * La revue d'ergonomie du 4 novembre 2026 : le direct rougissait à 800 ms
  * écrits dans le client quand la règle était réglée à 900, et un gel de
  * 25,8 s y restait neutre. La réserve passe le sien par en dessous ; le
- * quota, dès qu'il l'atteint. Un seuil absent vaut celui d'office.
+ * quota et les heures de l'hébergeur, dès qu'ils l'atteignent. Un seuil absent
+ * vaut celui d'office.
  */
 export function depasse(cle: CleDeRegle, valeur: number, seuils: SeuilsDesRegles): boolean {
   const seuil = seuils[cle] ?? REGLE[cle].seuil?.defaut
   if (seuil === undefined) return false
-  return cle === 'reserve' ? valeur < seuil : cle === 'quota' ? valeur >= seuil : valeur > seuil
+  return cle === 'reserve' ? valeur < seuil : cle === 'quota' || cle === 'hebergeur' ? valeur >= seuil : valeur > seuil
 }
 
 /**
@@ -291,11 +372,13 @@ export function graviteDe(cle: CleDeRegle, valeur: number | null | undefined, se
   return valeur == null || !depasse(cle, valeur, seuils) ? null : graviteOuverte(cle, valeur)
 }
 
-/** « 800 ms », « 1 % », « 450 Mo », « 7 jours » : un seuil, dit avec son unité. */
+/** « 800 ms », « 1 % », « 450 Mo », « 7 jours », « 560 h » : un seuil, dit avec son unité. */
 export function seuilEcrit(cle: CleDeRegle, valeur: number): string {
   const unite = REGLE[cle].seuil?.unite
   if (unite === 'jours') return `${formatNumber(valeur)} jour${valeur > 1 ? 's' : ''}`
   if (unite === 'ms' && valeur >= 1000) return `${formatNumber(Math.round(valeur / 100) / 10)} s`
+  // Insécable : au téléphone, « h » seul en début de ligne ne se lisait pas (`heureEcrite`).
+  if (unite === 'heures') return `${formatNumber(valeur)} h`
   return `${formatNumber(valeur)} ${unite ?? ''}`.trim()
 }
 
@@ -303,9 +386,10 @@ export function seuilEcrit(cle: CleDeRegle, valeur: number): string {
  * Un réglage reçu, relu : un seuil dans ses bornes et sur son pas, un
  * téléphone vrai ou faux. Un seuil hors bornes se refuse en clair — jamais
  * ramené en silence à la borne : l'administrateur croirait avoir réglé ce
- * qu'il a tapé. Rend le réglage entier, ce qui vaut d'office retiré.
+ * qu'il a tapé. Rend le réglage entier, ce qui vaut d'office retiré — d'office
+ * sur ce serveur (`defauts`) : la part de la préproduction ne s'écrit pas.
  */
-export function lireLeReglage(cle: CleDeRegle, brut: unknown, avant: ReglageDUneRegle = {}): ReglageDUneRegle {
+export function lireLeReglage(cle: CleDeRegle, brut: unknown, avant: ReglageDUneRegle = {}, defauts: DefautsDesSeuils = {}): ReglageDUneRegle {
   if (!brut || typeof brut !== 'object') throw new Error('Un réglage attendu : un seuil, un téléphone.')
   const { seuil, telephone } = brut as { seuil?: unknown; telephone?: unknown }
   const regle = REGLE[cle]
@@ -317,7 +401,7 @@ export function lireLeReglage(cle: CleDeRegle, brut: unknown, avant: ReglageDUne
     if (seuil < min || seuil > max) throw new Error(`Le seuil va de ${seuilEcrit(cle, min)} à ${seuilEcrit(cle, max)}.`)
     // Sur son pas, sans les poussières de la virgule flottante : 0,5 + 0,5 + 0,5 reste 1,5.
     const pose = Math.round(Math.round(seuil / pas) * pas * 1000) / 1000
-    if (pose === regle.seuil.defaut) delete neuf.seuil
+    if (pose === defautDe(cle, defauts)) delete neuf.seuil
     else neuf.seuil = pose
   }
   if (telephone !== undefined) {
@@ -357,6 +441,16 @@ export interface ReleveDesAlertes {
   soir: { joue: number } | null
   /** Les routes que la dernière version a ralenties. */
   ralenties: readonly { route: string; avant: number; apres: number }[]
+  /**
+   * La dernière sauvegarde notée (`qg_sauvegardes`), relue une fois l'heure : `derniere` nulle, il n'y en a jamais eu.
+   * Absente, pas encore lue — elle ne se juge pas.
+   */
+  sauvegarde?: { derniere: number | null } | null
+  /**
+   * Les heures éveillées de ce service ce mois-ci : celles déjà faites, et ce qu'elles seront à la fin du mois au rythme
+   * des sept derniers jours (`heuresDuMois`, `shared/santeDuServeur.ts`), relues une fois l'heure.
+   */
+  hebergeur?: { faites: number; projetees: number } | null
 }
 
 /** Les appels et les requêtes en deçà desquels une part ou un centile ne se juge pas. */
@@ -377,9 +471,9 @@ const ms = (v: number) => (v >= 1000 ? `${formatNumber(Math.round(v / 100) / 10)
  * le serveur la joue chaque minute, le test sur des relevés inventés. La
  * cause ne cite jamais un joueur : une route, un mode, un chiffre.
  */
-export function reglesOuvertes(r: ReleveDesAlertes, reglages: ReglagesDuQg): Map<CleDeRegle, string> {
+export function reglesOuvertes(r: ReleveDesAlertes, reglages: ReglagesDuQg, defauts: DefautsDesSeuils = {}): Map<CleDeRegle, string> {
   const ouvertes = new Map<CleDeRegle, string>()
-  const seuils = lesSeuils(reglages)
+  const seuils = lesSeuils(reglages, defauts)
   const passe = (cle: CleDeRegle, valeur: number) => depasse(cle, valeur, seuils)
   if (r.pannes.length > 0) ouvertes.set('panne', `${r.pannes.map(p => p.mode).join(', ')} : ${formatNumber(r.pannes.reduce((n, p) => n + p.echecs, 0))} échecs`)
   if (r.arretNet) ouvertes.set('arret-net', 'un démarrage s’est arrêté sans s’éteindre')
@@ -409,6 +503,22 @@ export function reglesOuvertes(r: ReleveDesAlertes, reglages: ReglagesDuQg): Map
     }
   }
   if (r.soir && r.soir.joue === 0) ouvertes.set('silence', 'personne n’a joué de 19 h à 22 h')
+  // Jamais de sauvegarde : ouverte aussi — un serveur neuf a tout à perdre, et la cause dit quoi faire.
+  if (r.sauvegarde) {
+    const { derniere } = r.sauvegarde
+    if (derniere === null) ouvertes.set('sauvegarde', 'aucune sauvegarde notée : npm run sauvegarde, depuis un ordinateur')
+    else if (passe('sauvegarde', (r.maintenant - derniere) / JOUR_MS)) {
+      const jours = Math.floor((r.maintenant - derniere) / JOUR_MS)
+      ouvertes.set('sauvegarde', `la dernière date de ${formatNumber(jours)} jour${jours > 1 ? 's' : ''}`)
+    }
+  }
+  if (r.hebergeur && passe('hebergeur', r.hebergeur.projetees)) {
+    const { faites, projetees } = r.hebergeur
+    ouvertes.set(
+      'hebergeur',
+      `${formatNumber(Math.round(projetees))} h ce mois-ci à ce rythme, déjà ${formatNumber(Math.round(faites))} — sur ${formatNumber(HEURES_DE_L_OFFRE)} pour les deux services`,
+    )
+  }
   return ouvertes
 }
 
@@ -441,6 +551,8 @@ export const CALME_POUR_CLORE_MS = 5 * 60_000
 export interface RegleALaPage {
   cle: CleDeRegle
   seuil: number | null
+  /** Le seuil d'office sur ce serveur (`defautDe`) : la saisie le dit ; absent d'un serveur d'avant, celui du catalogue. */
+  defaut?: number | null
   telephone: boolean
   ouverte: { depuis: number; cause: string } | null
   /** Le début du dernier incident de la règle, ouvert ou clos. */
@@ -486,9 +598,10 @@ export function chiffresDesIncidents(incidents: readonly IncidentDuQg[], mainten
 /**
  * Les règles qu'« À traiter » ne disait pas encore : les autres — une panne,
  * le miroir, un arrêt net, les erreurs, la mémoire, le quota, Turso, la
- * réserve, le rappel — y ont leur ligne depuis longtemps, lue à part.
+ * réserve, le rappel — y ont leur ligne depuis longtemps, lue à part. La
+ * sauvegarde et les heures de l'hébergeur n'en avaient aucune.
  */
-export const REGLES_NEUVES_A_TRAITER: readonly CleDeRegle[] = ['taux-d-erreur', 'ressenti', 'gel-long', 'version', 'silence']
+export const REGLES_NEUVES_A_TRAITER: readonly CleDeRegle[] = ['taux-d-erreur', 'ressenti', 'gel-long', 'version', 'silence', 'sauvegarde', 'hebergeur']
 
 /** Une règle ouverte qu'« À traiter » montre. */
 export interface AlerteATraiter {

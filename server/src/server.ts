@@ -47,7 +47,7 @@ import { Charge, compteurDeConnexions, plafondsDuConteneur, pouls, ramasseMiette
 import { CHEMIN_DU_FLUX, ENVOI_DU_FLUX_MS, modeDuDirect } from '../../shared/qgDirect'
 import { formatNumber } from '../../shared/typographie'
 import { FluxDuQg } from './qgFlux'
-import { ReglesDuQg, lecteurDesAlertes } from './core/regles'
+import { ReglesDuQg, heuresDeLHebergeur, lecteurDesAlertes } from './core/regles'
 import { SondeDesGels, commencer } from './core/gels'
 import { connexionsGardeesChaudes, entretenirLesConnexions, gardeAnnoncee, noterUneDemande, type ReglagesDeLEntretien } from './core/connexions'
 import { clientDeLaBase, clientDistant, transportDeLaBase } from './core/distante'
@@ -57,6 +57,7 @@ import { ProfileStore, cleDeSoiree } from './auth/profiles'
 import { mountApi } from './api'
 import { lesSoireesDepuis } from './qg'
 import { audienceDuQg } from './joueursDuQg'
+import { mouvementsEntre } from './economie'
 import { MemoireDuQg } from './core/memoireDuQg'
 import { questionAuCentreOuverte, rencontresOuvertes } from './expedition'
 import { JourStore } from './core/jour'
@@ -603,11 +604,17 @@ export async function createQuizServer(opts: QuizServerOptions) {
   })
   // Le direct du QG, poussé toutes les deux secondes aux pages qui l'écoutent : en mémoire, rien vers Turso.
   const fluxDuQg = new FluxDuQg({ envoiMs: opts.fluxDuQgMs ?? ENVOI_DU_FLUX_MS, plafonds })
+  // La mémoire du QG — la feuille de présence, les chiffres de chaque jour fini —, que la page des joueurs relit : dans
+  // la base permanente, un reflet des journaux qui s'écrit une fois par jour fini. Les règles y lisent les heures
+  // éveillées des jours que les démarrages gardés ne couvrent plus.
+  const memoireDuQg = new MemoireDuQg(opts.quizDbUrl, opts.quizDbToken)
   // Les règles des alertes du QG (le QG 2, lot 8) : leurs réglages et leurs incidents dans la base permanente, jugées
   // chaque minute sur ce que le serveur sait déjà. Ce qu'elles lisent naît plus bas : elles ne lisent qu'une fois
-  // le serveur ouvert (`regles.demarrer`).
+  // le serveur ouvert (`regles.demarrer`). Hors de la production, la préproduction prend sa part des heures de
+  // l'hébergeur d'office (`defautsDesSeuils`).
   const regles = new ReglesDuQg(opts.quizDbUrl, opts.quizDbToken, {
     tourMs: opts.reglesDuQgMs,
+    production: (opts.appEnv ?? 'production') === 'production',
     prevenir: m => {
       alertes.prevenir(m).catch(err => console.warn('[alertes] les téléphones du QG ne se lisent pas :', err instanceof Error ? err.message : err))
     },
@@ -626,19 +633,30 @@ export async function createQuizServer(opts: QuizServerOptions) {
         }
       },
       version: opts.version ?? null,
+      // Une fois l'heure : la dernière sauvegarde, une ligne ; les heures de l'hébergeur, les démarrages gardés et le mois de la mémoire.
+      sauvegarde: () => sante.derniereSauvegarde(),
+      hebergeur: () =>
+        heuresDeLHebergeur({
+          demarrages: () => sante.demarragesGardes(),
+          heuresDesJours: depuis => memoireDuQg.heuresDesJours(depuis),
+          courant: sante.id,
+          maintenant: Date.now(),
+        }),
     }),
   })
   sante.reglerLesSeuils(() => regles.seuilsDuServeur())
-  // La mémoire du QG — la feuille de présence, les chiffres de chaque jour fini —, que la page des joueurs relit : dans
-  // la base permanente, un reflet des journaux qui s'écrit une fois par jour fini. Et l'audience qui la tient à jour,
-  // sur les mêmes journaux que la vue d'ensemble, à la même horloge.
-  const memoireDuQg = new MemoireDuQg(opts.quizDbUrl, opts.quizDbToken)
+  // L'audience qui tient la mémoire à jour, sur les mêmes journaux que la vue d'ensemble, à la même horloge — et, pour
+  // chaque jour fini, ce que l'économie, l'historique et les démarrages en savent (la mémoire v2).
   const audience = audienceDuQg({
     memoire: memoireDuQg,
     profiles,
     jour,
     campagne,
-    soireesEntre: (debut, fin) => lesSoireesDepuis({ archives, db }, debut, { jusqua: fin }),
+    soireesEntre: (debut, fin, { jouees = false } = {}) => lesSoireesDepuis({ archives, db }, debut, { jusqua: fin, jouees }),
+    premieresSoirees: ids => archives.premieresSoirees(ids),
+    confettisEntre: async (debut, fin) => (await mouvementsEntre({ profiles, jour, campagne }, debut, fin)).mouvements,
+    // Les démarrages se datent à l'horloge de la machine, celle de la santé du serveur.
+    demarrages: async () => ({ demarrages: await sante.demarragesGardes(), maintenant: Date.now(), courant: sante.id }),
     maintenant: maintenantDuJour,
   })
 

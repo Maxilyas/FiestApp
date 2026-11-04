@@ -7,6 +7,7 @@ import type { JourStore } from './core/jour'
 import type { CampagneStore } from './core/campagne'
 import { jourAvant, jourDe } from '../../shared/jour'
 import { minuitDe, modeDeLaSerie, type SoireeDesParticipations } from '../../shared/qg'
+import { confettisParJour, type MouvementsDeConfettis } from '../../shared/qgEconomie'
 import {
   COHORTES_MONTREES,
   JOURS_DE_LA_MEMOIRE,
@@ -21,6 +22,7 @@ import {
   presencesDAujourdhui,
   segmentsDesProfils,
   tracesDesTrenteJours,
+  type CeQueLaMemoireLitDePlus,
   type ChiffresDUnJour,
   type ComptesDesSegments,
   type JournauxDeLaMemoire,
@@ -32,11 +34,22 @@ import {
 
 export interface AudienceDeps {
   memoire: MemoireDuQg
-  profiles: Pick<ProfileStore, 'activiteEntre' | 'profilsPourLAudience' | 'nomsPourLeQg'>
+  profiles: Pick<ProfileStore, 'activiteEntre' | 'profilsPourLAudience' | 'nomsPourLeQg' | 'naissancesEtMissionsEntre'>
   jour: Pick<JourStore, 'partiesEntre'>
   campagne: Pick<CampagneStore, 'seriesEntre'>
-  /** Les soirées commencées entre deux instants : celles de l'historique, et celles pas encore closes (`lesSoireesDepuis`, `qg.ts`). */
-  soireesEntre: (debut: number, fin: number) => Promise<SoireeDesParticipations[]>
+  /**
+   * Les soirées commencées entre deux instants : celles de l'historique, et
+   * celles pas encore closes (`lesSoireesDepuis`, `qg.ts`) — leur salon, et
+   * leurs questions jouées quand le rattrapage les demande (`jouees`) : une
+   * fiche d'avant les apprend alors, une fois, de son archive.
+   */
+  soireesEntre: (debut: number, fin: number, options?: { jouees?: boolean }) => Promise<(SoireeDesParticipations & { spaceId: string; jouees: number })[]>
+  /** La première soirée de l'historique de quelques salons (`ArchiveStore.premieresSoirees`) : un nouvel animateur. */
+  premieresSoirees: (spaceIds: readonly string[]) => Promise<Map<string, number>>
+  /** Les mouvements de confettis d'une plage de jours finis, aux règles de l'économie (`mouvementsEntre`, `economie.ts`). */
+  confettisEntre: (debut: number, fin: number) => Promise<MouvementsDeConfettis>
+  /** Les démarrages gardés du serveur (`SanteDuServeur.demarragesGardes`), celui qui répond, et l'instant de leur lecture à l'horloge qui les date. */
+  demarrages: () => Promise<CeQueLaMemoireLitDePlus['serveur']>
   /** L'heure du serveur — celle du quiz du jour, que les tests avancent. */
   maintenant: () => number
 }
@@ -71,20 +84,46 @@ function joursDe(de: string, a: string): string[] {
  * nomment (`nomsPourLeQg`).
  */
 export function audienceDuQg(deps: AudienceDeps) {
-  const lirePlage = async (debut: number, fin: number): Promise<JournauxDeLaMemoire> => {
+  /** Les journaux d'une plage ; `jouees`, les questions jouées des soirées, que seul le rattrapage demande. */
+  const lirePlage = async (debut: number, fin: number, { jouees = false } = {}): Promise<JournauxDeLaMemoire> => {
     const [parties, series, activite, soirees] = await Promise.all([
       deps.jour.partiesEntre(debut, fin),
       deps.campagne.seriesEntre(debut, fin),
       deps.profiles.activiteEntre(debut, fin),
-      deps.soireesEntre(debut, fin),
+      deps.soireesEntre(debut, fin, { jouees }),
     ])
     return {
-      solo: [...parties.map(p => ({ qui: p.qui, quand: p.quand, mode: 'jour' as const })), ...series.map(s => ({ qui: s.qui, quand: s.quand, mode: modeDeLaSerie(s.mode) }))],
+      solo: [
+        ...parties.map(p => ({ qui: p.qui, quand: p.quand, mode: 'jour' as const, questions: p.questions })),
+        ...series.map(s => ({ qui: s.qui, quand: s.quand, mode: modeDeLaSerie(s.mode), questions: s.questions })),
+      ],
       soireesDesProfils: activite.soirees,
       soirees,
       inscriptions: activite.inscriptions,
       achats: activite.achats,
     }
+  }
+
+  /**
+   * Ce que le rattrapage lit d'une plage en plus de ses journaux (la mémoire
+   * v2) : les naissances depuis la veille de son premier jour et les missions,
+   * les premières soirées des salons qui y jouent, ses confettis jour par
+   * jour — chacun par ses index, une fois par jour fini.
+   */
+  const lirePlus = async (
+    journaux: JournauxDeLaMemoire,
+    minuits: readonly number[],
+    fin: number,
+    serveur: CeQueLaMemoireLitDePlus['serveur'],
+    heritage: CeQueLaMemoireLitDePlus['heritage'],
+  ): Promise<CeQueLaMemoireLitDePlus> => {
+    const veille = minuitDuJour(jourAvant(jourDe(minuits[0])))
+    const [profils, premieresSoirees, confettis] = await Promise.all([
+      deps.profiles.naissancesEtMissionsEntre(veille, minuits[0], fin),
+      deps.premieresSoirees(journaux.soirees.flatMap(s => (s.spaceId === undefined ? [] : [s.spaceId]))),
+      deps.confettisEntre(minuits[0], fin),
+    ])
+    return { ...profils, premieresSoirees, confettis: confettisParJour(confettis, minuits, fin), serveur, heritage }
   }
 
   // ── Ce qui se garde jusqu'à minuit ───────────────────────────────────────
@@ -148,7 +187,10 @@ export function audienceDuQg(deps: AudienceDeps) {
       const hier = jourAvant(aujourdhui)
       const plusAncien = jourAvant(aujourdhui, JOURS_DE_LA_MEMOIRE)
       let dernier = await deps.memoire.dernierJour()
+      // Ce que la mémoire savait du serveur de chaque jour, lu avant d'effacer : ses démarrages ne se refont pas.
+      let heritage: CeQueLaMemoireLitDePlus['heritage'] = new Map()
       if (dernier && dernier.version !== VERSION_DE_LA_MEMOIRE) {
+        heritage = await deps.memoire.serveursDesJours(plusAncien)
         await deps.memoire.effacer()
         dernier = null
       }
@@ -169,12 +211,15 @@ export function audienceDuQg(deps: AudienceDeps) {
           du.push(p.qui)
         }
       }
+      // Les démarrages gardés, une fois pour tout le rattrapage : quelques dizaines de lignes, huit jours au plus.
+      const serveur = await deps.demarrages()
       for (let debut = premier; debut <= hier; debut = jourAvant(debut, -JOURS_D_UNE_PLAGE)) {
         const finDeLaPlage = jourAvant(debut, -(JOURS_D_UNE_PLAGE - 1)) < hier ? jourAvant(debut, -(JOURS_D_UNE_PLAGE - 1)) : hier
         const minuits = joursDe(debut, finDeLaPlage).map(minuitDuJour)
         const fin = minuitDuJour(jourAvant(finDeLaPlage, -1))
-        const journaux = await lirePlage(minuits[0], fin)
-        const ecrits = await enTranches(joursDeLaMemoire(journaux, minuits, fin, avant))
+        const journaux = await lirePlage(minuits[0], fin, { jouees: true })
+        const plus = await lirePlus(journaux, minuits, fin, serveur, heritage)
+        const ecrits = await enTranches(joursDeLaMemoire(journaux, minuits, fin, avant, plus))
         await deps.memoire.ecrire(ecrits, plusAncien)
         for (const j of ecrits) avant.set(j.jour, j.presences.map(p => p.qui))
         for (const j of [...avant.keys()]) if (j < jourAvant(finDeLaPlage, 28)) avant.delete(j)

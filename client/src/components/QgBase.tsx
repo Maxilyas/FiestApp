@@ -120,13 +120,14 @@ const enMo = (octets: number) => `${formatNumber(Math.round((octets / 1024 / 102
 
 /**
  * Les sauvegardes de la base permanente (`npm run sauvegarde`, à la main
- * depuis un ordinateur) : la dernière en tête, en rouge au-delà d'une semaine
- * (`SAUVEGARDE_ANCIENNE_MS`), puis les précédentes — quand, combien de
- * lignes, sa taille, son temps.
+ * depuis un ordinateur) : la dernière en tête, en rouge au-delà du seuil de la
+ * règle « Sauvegarde ancienne » (une semaine d'office, `SAUVEGARDE_ANCIENNE_MS`),
+ * puis les précédentes — quand, combien de lignes, sa taille, son temps.
  */
 function LesSauvegardes({ base }: { base: BaseDuQg }) {
   const [derniere, ...avant] = base.sauvegardes
-  const ancienne = !derniere || base.maintenant - derniere.faiteLe > SAUVEGARDE_ANCIENNE_MS
+  const seuil = base.ancienneApresMs ?? SAUVEGARDE_ANCIENNE_MS
+  const ancienne = !derniere || base.maintenant - derniere.faiteLe > seuil
   return (
     <section className={'qg-console' + (ancienne ? ' qg-hud-alerte' : '')} aria-labelledby="base-sauvegardes">
       <div className="qg-console-tete">
@@ -152,7 +153,7 @@ function LesSauvegardes({ base }: { base: BaseDuQg }) {
             <Icon name={ancienne ? 'alert' : 'check-circle'} />
             <span>
               La dernière : {quandDuServeur(derniere.faiteLe, base.maintenant)} — il y a {dureeEcrite(base.maintenant - derniere.faiteLe)}
-              {ancienne ? ', plus d’une semaine : à refaire.' : '.'}
+              {ancienne ? `, plus de ${dureeEcrite(seuil)} : à refaire.` : '.'}
             </span>
           </p>
           <ul className="qg-liste">

@@ -25,13 +25,22 @@ import { MODES_DU_QG, jourDeLInstant, joursDesMinuits, minuitDe, participationsP
 import { jourAvant, jourDe, minutesDeParis } from './jour'
 import type { CalculEnTranches } from './tranches'
 import type { OrigineLue } from './origines'
+import type { ConfettisDUnJour } from './qgEconomie'
+import { couvertsDepuis, serveurDuJour, type DemarrageDuServeur, type ServeurDUnJour } from './santeDuServeur'
+import { RANG_DES_TROIS } from './missions'
 
 /**
  * La version des dérivations : une règle de la feuille de présence ou des
  * chiffres d'un jour qui change la monte, et le premier passage d'après efface
- * les deux mémoires et les refait des journaux, aussi loin qu'ils remontent.
+ * les deux mémoires et les refait des journaux, aussi loin qu'ils remontent —
+ * ce que les journaux savent encore : le serveur d'un jour, que ses démarrages
+ * ne gardent que huit jours, passe de l'ancienne ligne à la neuve.
+ *
+ * 2 (le 4 novembre 2026, la revue d'expert P1.3) : les soirées et leurs salons,
+ * les invités avec et sans profil, les naissances et leur lendemain, les
+ * missions, les questions jouées de chaque mode, les confettis, le serveur.
  */
-export const VERSION_DE_LA_MEMOIRE = 1
+export const VERSION_DE_LA_MEMOIRE = 2
 
 /** Ce que la mémoire garde : un an de jours, et de feuilles de présence. Au-delà, elle s'efface d'elle-même. */
 export const JOURS_DE_LA_MEMOIRE = 366
@@ -99,18 +108,59 @@ export function presencesDuJour(jour: string, minuit: number, faits: Iterable<Fa
  * bornée des deux côtés.
  */
 export interface JournauxDeLaMemoire {
-  /** Chaque partie jouée seul — du jour, de campagne, du Cabinet, un duel —, datée à son début. */
-  solo: readonly PartieDesParticipations[]
+  /** Chaque partie jouée seul — du jour, de campagne, du Cabinet, un duel —, datée à son début, et ses questions jouées quand elle les dit. */
+  solo: readonly (PartieDesParticipations & { questions?: number })[]
   /**
    * Chaque soirée créditée à un profil, à l'heure de son premier crédit
    * (`profile_xp`) : une fiche d'avant le 14 octobre 2026 ne dit pas ses
    * profils, sa ligne d'expérience si.
    */
   soireesDesProfils: readonly { qui: string; quand: number }[]
-  /** Chaque soirée, datée à sa première question : ses invités qui ont joué, et leurs profils quand sa fiche les dit. */
-  soirees: readonly SoireeDesParticipations[]
+  /**
+   * Chaque soirée, datée à sa première question : ses invités qui ont joué, et
+   * leurs profils quand sa fiche les dit ; son salon (`spaceId`) et ses
+   * questions jouées (`jouees`, une par invité et par question posée), que le
+   * rattrapage lit — jamais la page à chaque ouverture.
+   */
+  soirees: readonly (SoireeDesParticipations & { spaceId?: string; jouees?: number })[]
   inscriptions: readonly number[]
   achats: readonly number[]
+}
+
+/**
+ * Ce que seul le rattrapage lit en plus (la mémoire v2) — de quoi dire de
+ * chaque jour fini ce que l'audience ne disait pas : les naissances, les
+ * salons, les missions, les confettis, le serveur. Des lectures par index des
+ * mêmes jours, une fois par jour fini ; aujourd'hui ne les lit jamais.
+ */
+export interface CeQueLaMemoireLitDePlus {
+  /** Les profils nés dans la plage — et la veille de son premier jour, dont le lendemain est à lui : qui, quand, d'où. */
+  naissances: readonly { qui: string; quand: number; origine: OrigineLue | null }[]
+  /** La première soirée de l'historique de chaque salon qui joue dans la plage (`held_at`). */
+  premieresSoirees: ReadonlyMap<string, number>
+  /** Les missions du jour faites dans la plage : qui, quand, leur rang (`RANG_DES_TROIS`, la ligne des trois). */
+  missions: readonly { qui: string; quand: number; rang: number }[]
+  /** Les confettis de la plage, jour par jour, alignés sur ses minuits (`confettisParJour`). */
+  confettis: readonly ConfettisDUnJour[]
+  /**
+   * Les démarrages gardés (`qg_demarrages`), l'instant de leur lecture — à
+   * l'horloge qui les date — et celui qui répond : un jour qu'ils couvrent tout
+   * entier (`couvertsDepuis`) se lit sur eux.
+   */
+  serveur: { demarrages: readonly DemarrageDuServeur[]; maintenant: number; courant: string }
+  /**
+   * Ce que la mémoire savait du serveur de chaque jour avant une version neuve
+   * — null compris, un jour déjà trop vieux quand il s'est écrit : ses
+   * démarrages, eux, ne se refont pas. Un jour qui n'y est pas se lit sur eux.
+   */
+  heritage: ReadonlyMap<string, ServeurDUnJour | null>
+}
+
+/** Une soirée d'un jour fini, telle que la mémoire la garde : son salon — un identifiant, que la page nomme —, ses invités qui ont joué, et ceux venus avec un profil (null, sa fiche ne le dit pas). */
+export interface SoireeDUnJour {
+  espace: string
+  invites: number
+  profils: number | null
 }
 
 /** Les chiffres d'un jour fini, figés dans `qg_jours`. */
@@ -133,7 +183,67 @@ export interface ChiffresDUnJour {
   invites: number
   /** Les participations commencées à chaque heure de Paris, de 0 à 23 : « quand on joue ». */
   heures: number[]
+  // La version 2 (la revue d'expert du 4 novembre 2026, P1.3) : absents d'une ligne d'avant — lus absents, jamais zéro.
+  /** Les soirées du jour, chacune son salon, ses invités et ses profils. */
+  soirees?: SoireeDUnJour[]
+  /** Les salons qui ont joué ce jour-là la toute première soirée de leur historique : un nouvel animateur. */
+  nouveauxSalons?: string[]
+  /** Les profils nés ce jour-là, par l'écran de leur naissance (`profiles.origine`) ; `avant`, ceux d'avant la colonne. */
+  naissances?: Partial<Record<OrigineLue | 'avant', number>>
+  /** Des profils nés la veille, ceux qui ont joué ce jour-là : le lendemain des nouveaux. */
+  lendemain?: number
+  /** Les missions du jour faites, les profils qui en ont fait une au moins, et ceux qui ont fait les trois. */
+  missions?: { faites: number; profils: number; toutes: number }
+  /** Les questions jouées de chaque mode, comme l'activité les compte — en soirée, une par invité et par question posée. */
+  questions?: Record<ModeDuQg, number>
+  /** Les confettis gagnés, source par source, et dépensés, puits par puits. */
+  confettis?: ConfettisDUnJour
+  /** Le serveur ce jour-là ; null, ses démarrages n'étaient plus gardés quand le jour s'est écrit. */
+  serveur?: ServeurDUnJour | null
 }
+
+/**
+ * Le serveur d'un jour tel qu'une ligne de la mémoire le garde : null — ses
+ * démarrages n'étaient plus gardés quand il s'est écrit —, ou ses heures et
+ * ses versions ; undefined, une forme que la mémoire n'écrit pas, qui se lit
+ * absente.
+ */
+export function lireLeServeurDUnJour(brut: unknown): ServeurDUnJour | null | undefined {
+  if (brut === null) return null
+  if (typeof brut !== 'object') return undefined
+  const { heures, versions } = brut as { heures?: unknown; versions?: unknown }
+  if (typeof heures !== 'number' || !Number.isFinite(heures) || heures < 0) return undefined
+  if (!Array.isArray(versions) || !versions.every(v => typeof v === 'string')) return undefined
+  return { heures, versions: [...(versions as string[])] }
+}
+
+/** Les profils nés en soirée : à son entrée, entre deux quiz, à sa fin. */
+export const ORIGINES_EN_SOIREE: readonly OrigineLue[] = ['entree', 'soiree', 'fin-de-soiree']
+
+/** Ce qu'un jour dit de ses soirées : combien, leurs salons, les nouveaux, et leurs invités avec et sans profil — null, une ligne d'avant. */
+export function soireesDuJour(c: Pick<ChiffresDUnJour, 'soirees' | 'nouveauxSalons' | 'invites'>): {
+  soirees: number
+  animateurs: number
+  nouveaux: number
+  invites: number
+  avecProfil: number
+  sansProfil: number
+} | null {
+  if (!c.soirees) return null
+  const avecProfil = c.soirees.reduce((t, s) => t + (s.profils ?? 0), 0)
+  return {
+    soirees: c.soirees.length,
+    animateurs: new Set(c.soirees.map(s => s.espace)).size,
+    nouveaux: c.nouveauxSalons?.length ?? 0,
+    invites: c.soirees.reduce((t, s) => t + s.invites, 0),
+    avecProfil,
+    sansProfil: c.invites,
+  }
+}
+
+/** Les profils nés en soirée un jour, toutes ses portes ; null, une ligne d'avant. */
+export const nesEnSoiree = (c: Pick<ChiffresDUnJour, 'naissances'>): number | null =>
+  c.naissances ? ORIGINES_EN_SOIREE.reduce((t, o) => t + (c.naissances?.[o] ?? 0), 0) : null
 
 /** Un jour fini, prêt à s'écrire : ses chiffres et sa feuille de présence. */
 export interface JourDeLaMemoire {
@@ -184,21 +294,23 @@ export function minuitDuJour(jour: string): number {
  * ancien d'abord, et `fin` celui qui suit le dernier. `avant` : les profils de
  * chacun des vingt-neuf jours d'avant la plage, déjà écrits — les joueurs de
  * la semaine et du mois de son premier jour en ont besoin. Un fait hors de la
- * plage ne compte pas.
+ * plage ne compte pas. `plus` : ce que le rattrapage lit en plus (la mémoire
+ * v2) ; sans lui, un jour ne dit que l'audience — les épreuves de la feuille.
  */
 export function* joursDeLaMemoire(
   journaux: JournauxDeLaMemoire,
   minuits: readonly number[],
   fin: number,
   avant: ReadonlyMap<string, readonly string[]> = new Map(),
+  plus?: CeQueLaMemoireLitDePlus,
 ): CalculEnTranches<JourDeLaMemoire[]> {
   const n = minuits.length
   const jours = joursDesMinuits(minuits)
   const indice = (quand: number) => (quand < fin ? jourDeLInstant(minuits, quand) : -1)
   const vide = <T>() => Array.from({ length: n }, () => [] as T[])
-  const solo = vide<PartieDesParticipations>()
+  const solo = vide<JournauxDeLaMemoire['solo'][number]>()
   const xp = vide<{ qui: string; quand: number }>()
-  const soirees = vide<SoireeDesParticipations>()
+  const soirees = vide<JournauxDeLaMemoire['soirees'][number]>()
   const inscriptions = minuits.map(() => 0)
   const achats = minuits.map(() => 0)
   for (const p of journaux.solo) solo[indice(p.quand)]?.push(p)
@@ -206,12 +318,27 @@ export function* joursDeLaMemoire(
   for (const s of journaux.soirees) soirees[indice(s.quand)]?.push(s)
   for (const quand of journaux.inscriptions) if (indice(quand) >= 0) inscriptions[indice(quand)]++
   for (const quand of journaux.achats) if (indice(quand) >= 0) achats[indice(quand)]++
+  // Ce que le rattrapage lit en plus, rangé par jour : les naissances — celles de la veille de la plage à part, dont
+  // le lendemain est son premier jour —, les missions faites.
+  const naissances = vide<CeQueLaMemoireLitDePlus['naissances'][number]>()
+  const missions = vide<CeQueLaMemoireLitDePlus['missions'][number]>()
+  const nesLaVeille = new Set<string>()
+  if (plus && n > 0) {
+    const veille = minuitDuJour(jourAvant(jours[0]))
+    for (const p of plus.naissances) {
+      if (p.quand >= veille && p.quand < minuits[0]) nesLaVeille.add(p.qui)
+      else naissances[indice(p.quand)]?.push(p)
+    }
+    for (const m of plus.missions) missions[indice(m.quand)]?.push(m)
+  }
+  const couverts = plus ? couvertsDepuis(plus.serveur.demarrages, plus.serveur.maintenant) : Infinity
   yield
   const feuilles = new Map<string, readonly string[]>(avant)
   const rendus: JourDeLaMemoire[] = []
   for (let i = 0; i < n; i++) {
     const jour = jours[i]
     const minuit = minuits[i]
+    const finDuJour = minuits[i + 1] ?? fin
     const faits: FaitDePresence[] = [
       ...solo[i],
       ...xp[i].map(s => ({ qui: s.qui, quand: s.quand, mode: 'soiree' as const })),
@@ -222,27 +349,52 @@ export function* joursDeLaMemoire(
       jour,
       presences.map(p => p.qui),
     )
-    const [seau] = participationsParSeau(solo[i], soirees[i], [minuit], (minuits[i + 1] ?? fin) - 1)
+    const [seau] = participationsParSeau(solo[i], soirees[i], [minuit], finDuJour - 1)
     const heures = Array.from({ length: 24 }, () => 0)
     for (const p of solo[i]) heures[heureDeParis(p.quand)]++
     for (const s of soirees[i]) heures[heureDeParis(s.quand)] += s.joueurs
-    rendus.push({
-      jour,
-      presences,
-      chiffres: {
-        v: VERSION_DE_LA_MEMOIRE,
-        joueurs: seau.joueurs,
-        modes: seau.modes,
-        parties: seau.parties,
-        nouveauxProfils: inscriptions[i],
-        achats: achats[i],
-        profils: presences.length,
-        semaine: profilsDistincts(feuilles, joursJusqua(jour, 7)),
-        mois: profilsDistincts(feuilles, joursJusqua(jour, 30)),
-        invites: soirees[i].reduce((t, s) => t + invitesSansProfil(s), 0),
-        heures,
-      },
-    })
+    const chiffres: ChiffresDUnJour = {
+      v: VERSION_DE_LA_MEMOIRE,
+      joueurs: seau.joueurs,
+      modes: seau.modes,
+      parties: seau.parties,
+      nouveauxProfils: inscriptions[i],
+      achats: achats[i],
+      profils: presences.length,
+      semaine: profilsDistincts(feuilles, joursJusqua(jour, 7)),
+      mois: profilsDistincts(feuilles, joursJusqua(jour, 30)),
+      invites: soirees[i].reduce((t, s) => t + invitesSansProfil(s), 0),
+      heures,
+    }
+    if (plus) {
+      const salons = new Set<string>()
+      for (const s of soirees[i]) {
+        const premiere = s.spaceId === undefined ? undefined : plus.premieresSoirees.get(s.spaceId)
+        if (s.spaceId !== undefined && premiere !== undefined && premiere >= minuit && premiere < finDuJour) salons.add(s.spaceId)
+      }
+      const parOrigine: Partial<Record<OrigineLue | 'avant', number>> = {}
+      for (const p of naissances[i]) parOrigine[p.origine ?? 'avant'] = (parOrigine[p.origine ?? 'avant'] ?? 0) + 1
+      const nesLaVeilleDuJour = i === 0 ? nesLaVeille : new Set(naissances[i - 1].map(p => p.qui))
+      const faites = missions[i].filter(m => m.rang < RANG_DES_TROIS)
+      const questions = Object.fromEntries(MODES_DU_QG.map(m => [m, 0])) as Record<ModeDuQg, number>
+      for (const p of solo[i]) questions[p.mode] += p.questions ?? 0
+      for (const s of soirees[i]) questions.soiree += s.jouees ?? 0
+      chiffres.soirees = soirees[i].map(s => ({ espace: s.spaceId ?? '', invites: s.joueurs, profils: s.profils ? new Set(s.profils).size : null }))
+      chiffres.nouveauxSalons = [...salons].sort()
+      chiffres.naissances = parOrigine
+      chiffres.lendemain = presences.filter(p => nesLaVeilleDuJour.has(p.qui)).length
+      chiffres.missions = { faites: faites.length, profils: new Set(faites.map(m => m.qui)).size, toutes: missions[i].length - faites.length }
+      chiffres.questions = questions
+      if (plus.confettis[i]) chiffres.confettis = plus.confettis[i]
+      // Le serveur d'un jour : ce que la mémoire en savait d'abord — ses démarrages, purgés au huitième jour, ne se
+      // refont pas —, sinon ses démarrages s'ils le couvrent tout entier, sinon rien : null, jamais zéro.
+      chiffres.serveur = plus.heritage.has(jour)
+        ? (plus.heritage.get(jour) ?? null)
+        : minuit >= couverts && finDuJour <= plus.serveur.maintenant
+          ? serveurDuJour(plus.serveur.demarrages, minuit, finDuJour, plus.serveur.maintenant, plus.serveur.courant)
+          : null
+    }
+    rendus.push({ jour, presences, chiffres })
     yield
   }
   return rendus

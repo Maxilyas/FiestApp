@@ -157,7 +157,7 @@ function LesRegles({ page, onPage, ouvrir }: { page: PageDesAlertes; onPage: (p:
         <div>
           <span className="qg-etiquette">Les règles</span>
           <h2 id="alertes-regles">Ce qui sonne</h2>
-          <span className="muted small">quatorze règles : six sonnaient déjà au QG, huit sont venues avec cette page</span>
+          <span className="muted small">seize règles : six sonnaient déjà au QG, dix sont venues avec cette page et après elle</span>
         </div>
       </div>
       <ul className="qg-regles">
@@ -180,7 +180,7 @@ function LesRegles({ page, onPage, ouvrir }: { page: PageDesAlertes; onPage: (p:
                 {r.seuil === null ? (
                   <span className="qg-regle-sans-seuil small">sans seuil</span>
                 ) : (
-                  <Seuil cle={r.cle} valeur={r.seuil} occupe={enCours === r.cle} regler={seuil => regler(r.cle, { seuil })} />
+                  <Seuil cle={r.cle} valeur={r.seuil} defaut={r.defaut ?? null} occupe={enCours === r.cle} regler={seuil => regler(r.cle, { seuil })} />
                 )}
                 <span className="qg-regle-sur small">sur {regle.sur}</span>
                 <span className={`qg-gravite qg-gravite-${regle.gravite} small`}>{NOM_DE_LA_GRAVITE[regle.gravite]}</span>
@@ -217,8 +217,22 @@ const quand = quandEcrit
  * Un seuil : son chiffre, un bouton qui l'ouvre à la saisie. Le texte tapé
  * reste tel quel le temps de la frappe et se lit en le validant (`lireNombre` :
  * « 0,5 » vaut un demi) ; ses bornes, le serveur les dit en clair s'il le faut.
+ * Son « d'office » est celui de ce serveur (`defaut`) : en préproduction, sa
+ * part des heures de l'hébergeur.
  */
-function Seuil({ cle, valeur, occupe, regler }: { cle: CleDeRegle; valeur: number; occupe: boolean; regler: (v: number) => Promise<boolean> }) {
+function Seuil({
+  cle,
+  valeur,
+  defaut,
+  occupe,
+  regler,
+}: {
+  cle: CleDeRegle
+  valeur: number
+  defaut: number | null
+  occupe: boolean
+  regler: (v: number) => Promise<boolean>
+}) {
   const [texte, setTexte] = useState<string | null>(null)
   const borne = REGLE[cle].seuil!
   if (texte === null) {
@@ -244,7 +258,7 @@ function Seuil({ cle, valeur, occupe, regler }: { cle: CleDeRegle; valeur: numbe
         <input type="text" inputMode="decimal" value={texte} onChange={e => setTexte(e.target.value)} aria-describedby={`seuil-${cle}`} />
       </label>
       <span id={`seuil-${cle}`} className="muted small">
-        {borne.unite} · de {seuilEcrit(cle, borne.min)} à {seuilEcrit(cle, borne.max)}, d’office {seuilEcrit(cle, borne.defaut)}
+        {borne.unite} · de {seuilEcrit(cle, borne.min)} à {seuilEcrit(cle, borne.max)}, d’office {seuilEcrit(cle, defaut ?? borne.defaut)}
       </span>
       <button type="submit" className="qg-bouton" disabled={occupe || lu === null}>
         Régler

@@ -458,6 +458,23 @@ export class SanteDuServeur {
     return pageDuServeur([...autres, ...miennes], demarrages, { maintenant, courant, plafonds: this.plafonds, mesuresDeLHebergeur: this.mesuresDeLHebergeur, periode })
   }
 
+  /** La dernière sauvegarde notée, par son index — une ligne ; null, jamais une : la règle « Sauvegarde ancienne », une fois l'heure. */
+  async derniereSauvegarde(): Promise<number | null> {
+    const lue = await this.client.execute('SELECT MAX(faite_le) AS le FROM qg_sauvegardes')
+    const le = lue.rows[0]?.le
+    return le === null || le === undefined ? null : Number(le)
+  }
+
+  /**
+   * Tous les démarrages gardés — huit jours au plus, quelques dizaines de
+   * lignes —, le plus ancien d'abord : les heures de l'hébergeur (une fois
+   * l'heure) et celles de chaque jour de la mémoire du QG (une fois par jour).
+   */
+  async demarragesGardes(): Promise<DemarrageDuServeur[]> {
+    const lus = await this.client.execute('SELECT * FROM qg_demarrages ORDER BY demarre_le')
+    return lus.rows.map(lireDemarrage)
+  }
+
   /** Les dernières sauvegardes de la base, la plus récente d'abord : dix lignes par leur index, à l'ouverture de la page. */
   async sauvegardes(): Promise<SauvegardeDeLaBase[]> {
     const lues = await this.client.execute({
