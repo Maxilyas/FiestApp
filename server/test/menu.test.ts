@@ -52,7 +52,10 @@ test('la barre compte, sur « Profil », ce qu’il a de neuf à porter — blan
   // qu'ils lisent, l'accueil et les pages sans détail la demandent au serveur, une fois montrées.
   assert.match(source('views/ProfilApp.tsx'), /const menu = \(ici: Piece\) => <MenuBarre ici=\{ici\} nouveautes=\{nouveautesDuDetail\?\.nouveautes \?\? compteDuMenu\} \/>/)
   assert.match(source('views/ProfilApp.tsx'), /const compteDuMenu = useNouveautesDuMenu\(VUE === 'accueil' && aUnProfil\)/)
-  for (const f of ['views/EditorApp.tsx', 'views/AccountApp.tsx', 'views/AdminApp.tsx']) assert.match(source(f), /const nouveautes = useNouveautesDuMenu\(true\)/, f)
+  for (const f of ['views/EditorApp.tsx', 'views/AccountApp.tsx']) assert.match(source(f), /const nouveautes = useNouveautesDuMenu\(true\)/, f)
+  // Le QG n'a plus la barre du joueur : une console, sa barre à elle sous le pouce (la revue d'ergonomie du
+  // 4 novembre 2026) — et rien à demander au serveur pour une pastille qu'il ne montre pas.
+  assert.doesNotMatch(source('views/AdminApp.tsx'), /<MenuBarre|useNouveautesDuMenu/)
   // La barre reste légère : l'entrée d'une soirée la partage, et n'a que faire de l'API du profil.
   assert.doesNotMatch(source('components/Pieces.tsx'), /from '\.\.\/(api|nouveautes)'/)
   // Le dernier compte connu de l'onglet, sous try/catch : la barre le montre en attendant le serveur.

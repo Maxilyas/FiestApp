@@ -5,12 +5,22 @@ import { Feuille } from './Pieces'
 import { PERIODE_EN_TOUTES_LETTRES, type PeriodeDuQg } from '../../../shared/qgPeriodes'
 import type { ProfilDAdministration } from '../../../shared/profil'
 
-/** Une page du QG, telle que la palette la propose : son nom, son groupe du rail, son icône. */
+/** Une page du QG, telle que la palette la propose : son nom, son groupe du rail, son icône, et ce qu'on y trouve. */
 export interface PageDeLaPalette<E> {
   ecran: E
   nom: string
   groupe: string
   icone: IconName
+  /** Ce qu'on tape pour y venir sans connaître son nom : sa description, et d'autres mots (« turso », « bandeau »). */
+  mots?: string
+}
+
+/** Un geste, qu'on cherche par ce qu'on veut faire : il ouvre la page où il se fait. */
+export interface GesteDeLaPalette<E> {
+  nom: string
+  icone: IconName
+  ecran: E
+  mots: string
 }
 
 interface Choix {
@@ -18,6 +28,10 @@ interface Choix {
   groupe: string
   nom: string
   detail?: string
+  /** Ce que la recherche lit en plus du nom, sans le montrer. */
+  mots?: string
+  /** Ne se montre qu'à la recherche. */
+  cache?: boolean
   icone: IconName
   faire: () => void
 }
@@ -31,15 +45,19 @@ const simple = (t: string) =>
 
 /**
  * La palette du QG 2 (⌘K, Ctrl+K ou « / » de partout ; la loupe de la barre) :
- * aller à une page, changer la période, comparer, ouvrir la fiche d'un
- * joueur cherché par son prénom ou son identifiant — sans passer par le rail.
- * Le clavier la parcourt (↑ ↓, Entrée) ; le doigt la touche. Une feuille, comme
- * toute fenêtre de l'application (`Feuille` : le reste de la page inerte,
- * Échap la ferme, le focus revient d'où l'on venait). Les profils se cherchent
- * par la route de « Les profils », le temps de finir le mot.
+ * aller à une page, faire un geste, changer la période, comparer, ouvrir la
+ * fiche d'un joueur cherché par son prénom ou son identifiant — sans passer
+ * par le rail. Une page se trouve aussi par ce qu'on y fait (« bandeau »,
+ * « réserve », « turso » ne trouvaient rien, la revue d'ergonomie du
+ * 4 novembre 2026). Le clavier la parcourt (↑ ↓, Entrée) ; le doigt la touche.
+ * Une feuille, comme toute fenêtre de l'application (`Feuille` : le reste de
+ * la page inerte, Échap la ferme, le focus revient d'où l'on venait). Les
+ * profils se cherchent par la route de « Chercher un joueur », le temps de
+ * finir le mot.
  */
 export function PaletteDuQg<E>({
   pages,
+  gestes = [],
   aller,
   periode,
   periodes,
@@ -47,9 +65,11 @@ export function PaletteDuQg<E>({
   comparer,
   changerLaComparaison,
   ouvrirLeProfil,
+  raccourci = '⌘K',
   onFermer,
 }: {
   pages: readonly PageDeLaPalette<E>[]
+  gestes?: readonly GesteDeLaPalette<E>[]
   aller: (e: E) => void
   /** La période de la page, quand elle en lit une ; sinon, la palette n'en propose pas. */
   periode: PeriodeDuQg | null
@@ -60,6 +80,8 @@ export function PaletteDuQg<E>({
   comparer: boolean | null
   changerLaComparaison: (oui: boolean) => void
   ouvrirLeProfil: (p: Pick<ProfilDAdministration, 'id' | 'nom'>) => void
+  /** « ⌘K » sur un Mac, « Ctrl K » ailleurs. */
+  raccourci?: string
   onFermer: () => void
 }) {
   const [cherche, setCherche] = useState('')
@@ -92,7 +114,9 @@ export function PaletteDuQg<E>({
     geste()
   }
   const tous: Choix[] = [
-    ...pages.map(p => ({ cle: `page-${p.nom}`, groupe: 'Les pages', nom: p.nom, detail: p.groupe, icone: p.icone, faire: fermerPuis(() => aller(p.ecran)) })),
+    ...pages.map(p => ({ cle: `page-${p.nom}`, groupe: 'Les pages', nom: p.nom, detail: p.groupe, mots: p.mots, icone: p.icone, faire: fermerPuis(() => aller(p.ecran)) })),
+    // Les gestes ne se montrent qu'à la recherche : la liste d'office reste celle des pages.
+    ...gestes.map(g => ({ cle: `geste-${g.nom}`, groupe: 'Les gestes', nom: g.nom, mots: g.mots, icone: g.icone, cache: true, faire: fermerPuis(() => aller(g.ecran)) })),
     ...(periode === null
       ? []
       : [
@@ -120,7 +144,7 @@ export function PaletteDuQg<E>({
   ]
   const q = simple(cherche.trim())
   const visibles = [
-    ...(q ? tous.filter(c => simple(`${c.nom} ${c.detail ?? ''}`).includes(q)) : tous),
+    ...(q ? tous.filter(c => simple(`${c.nom} ${c.detail ?? ''} ${c.mots ?? ''}`).includes(q)) : tous.filter(c => !c.cache)),
     ...profils.map(p => ({
       cle: `profil-${p.id}`,
       groupe: 'Les profils',
@@ -146,12 +170,12 @@ export function PaletteDuQg<E>({
     <Feuille titre="Aller à…" onFermer={onFermer} className="qg-palette">
       <label className="qg-palette-champ">
         <Icon name="search" />
-        <span className="sr-only">Une page, une période, un joueur</span>
+        <span className="sr-only">Une page, un geste, une période, un joueur</span>
         <input
           ref={champ}
           type="search"
           value={cherche}
-          placeholder="Une page, une période, un joueur…"
+          placeholder="Une page, un geste, un joueur…"
           role="combobox"
           aria-expanded="true"
           aria-controls={`${id}-liste`}
@@ -167,7 +191,7 @@ export function PaletteDuQg<E>({
       <ul className="qg-palette-liste" id={`${id}-liste`} role="listbox" aria-label="Où aller">
         {visibles.length === 0 && (
           <li className="qg-palette-vide" role="presentation">
-            {q.length >= 2 ? 'Rien ne correspond — un prénom, une page, « 30 jours »…' : 'Rien ne correspond.'}
+            {q.length >= 2 ? 'Rien ne correspond — un prénom, une page, un geste, « 30 jours »…' : 'Rien ne correspond.'}
           </li>
         )}
         {visibles.map((c, i) => {
@@ -195,7 +219,8 @@ export function PaletteDuQg<E>({
           ]
         })}
       </ul>
-      <p className="qg-palette-pied muted small">↑ ↓ pour choisir · Entrée pour ouvrir · « / » l’ouvre de partout</p>
+      {/* Le clavier, au clavier seulement : au toucher, ces mots ne disaient rien (`.qg-palette-pied`, caché sans souris). */}
+      <p className="qg-palette-pied muted small">↑ ↓ pour choisir · Entrée pour ouvrir · « / » ou {raccourci} l’ouvrent de partout</p>
     </Feuille>
   )
 }

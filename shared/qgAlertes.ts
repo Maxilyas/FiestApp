@@ -1,6 +1,6 @@
 import type { PanneDUnMode } from './pannes'
 import { formatNumber } from './typographie'
-import { MEMOIRE_PLAFOND_MO, PART_DU_QUOTA_EN_ALERTE, TURSO_LENT_MS } from './santeDuServeur'
+import { MEMOIRE_PLAFOND_MO, PART_DU_QUOTA_EN_ALERTE, PART_DU_QUOTA_EN_ROUGE, TURSO_LENT_MS } from './santeDuServeur'
 
 /**
  * Les alertes du QG et leurs incidents (le QG 2, lot 8 ; la proposition du 3
@@ -47,7 +47,7 @@ export interface SeuilDUneRegle {
 }
 
 /** La page où l'on agit sur ce qu'une règle dit. */
-export type PageDUneRegle = 'erreurs' | 'serveur' | 'base' | 'jour' | 'direct'
+export type PageDUneRegle = 'erreurs' | 'serveur' | 'base' | 'jour' | 'reserves' | 'direct'
 
 export interface RegleDuQg {
   cle: CleDeRegle
@@ -61,6 +61,12 @@ export interface RegleDuQg {
   /** Le téléphone sonne d'office : la panne d'un mode, depuis le 19 octobre 2026 ; le taux d'erreur et le miroir, proposés avec elle. */
   telephone: boolean
   page: PageDUneRegle
+  /**
+   * L'onglet de cette page où l'on agit — « Ce qui gèle » pour un gel long : la
+   * revue d'ergonomie du 4 novembre 2026 ouvrait les Signaux, et l'on cherchait
+   * ce qui gelait.
+   */
+  onglet?: string
   /** Une des huit de la proposition du 3 novembre 2026 : les six autres sonnaient déjà au QG. */
   neuve: boolean
 }
@@ -157,12 +163,13 @@ export const REGLES_DU_QG: readonly RegleDuQg[] = [
   {
     cle: 'gel-long',
     nom: 'Gel long',
-    quoi: 'la boucle figée d’un seul tenant — toute la salle attend',
+    quoi: 'le serveur figé d’un seul tenant — toute la salle attend',
     seuil: { defaut: 3000, min: 1000, max: 30000, pas: 500, unite: 'ms' },
     sur: 'la minute',
     gravite: 'veille',
     telephone: false,
     page: 'serveur',
+    onglet: 'gels',
     neuve: true,
   },
   {
@@ -185,6 +192,7 @@ export const REGLES_DU_QG: readonly RegleDuQg[] = [
     gravite: 'veille',
     telephone: false,
     page: 'serveur',
+    onglet: 'versions',
     neuve: true,
   },
   {
@@ -195,7 +203,8 @@ export const REGLES_DU_QG: readonly RegleDuQg[] = [
     sur: 'chaque jour',
     gravite: 'veille',
     telephone: false,
-    page: 'jour',
+    // La réserve vit sur la page « Réserves et base » depuis le QG 2, lot 7 : on y verse des questions.
+    page: 'reserves',
     // « À traiter » la disait déjà, à sept jours ; elle devient une règle, son seuil réglable.
     neuve: true,
   },
@@ -225,6 +234,12 @@ export const REGLES_DU_QG: readonly RegleDuQg[] = [
 
 export const REGLE: Record<CleDeRegle, RegleDuQg> = Object.fromEntries(REGLES_DU_QG.map(r => [r.cle, r])) as Record<CleDeRegle, RegleDuQg>
 
+/** Le pire d'abord : une liste de voyants, de lignes, de règles se trie à ce rang. */
+export const RANG_DE_LA_GRAVITE: Record<Gravite, number> = { critique: 0, serieux: 1, veille: 2 }
+
+/** Le seuil de chaque règle qui en a un, réglé ou d'office : le direct le prête au client (`DirectDuQg.seuils`). */
+export type SeuilsDesRegles = Partial<Record<CleDeRegle, number>>
+
 export const estUneRegle = (cle: unknown): cle is CleDeRegle => typeof cle === 'string' && (CLES_DES_REGLES as readonly string[]).includes(cle)
 
 /** Ce que l'administrateur a réglé d'une règle : son seuil, son téléphone. Ce qui n'y est pas vaut d'office. */
@@ -239,6 +254,42 @@ export const seuilDe = (cle: CleDeRegle, reglages: ReglagesDuQg): number | null 
   return seuil ? (reglages[cle]?.seuil ?? seuil.defaut) : null
 }
 export const sonneAuTelephone = (cle: CleDeRegle, reglages: ReglagesDuQg): boolean => reglages[cle]?.telephone ?? REGLE[cle].telephone
+
+/** Les seuils de toutes les règles qui en ont un, tels que l'administrateur les a réglés. */
+export function lesSeuils(reglages: ReglagesDuQg): SeuilsDesRegles {
+  const seuils: SeuilsDesRegles = {}
+  for (const r of REGLES_DU_QG) if (r.seuil) seuils[r.cle] = reglages[r.cle]?.seuil ?? r.seuil.defaut
+  return seuils
+}
+
+/**
+ * Une mesure passe-t-elle le seuil de sa règle ? La seule comparaison du QG :
+ * les règles s'y ouvrent (`reglesOuvertes`), et le voyant, le compteur du
+ * direct et la ligne d'« À traiter » s'y jugent — un seuil réglé vaut partout.
+ * La revue d'ergonomie du 4 novembre 2026 : le direct rougissait à 800 ms
+ * écrits dans le client quand la règle était réglée à 900, et un gel de
+ * 25,8 s y restait neutre. La réserve passe le sien par en dessous ; le
+ * quota, dès qu'il l'atteint. Un seuil absent vaut celui d'office.
+ */
+export function depasse(cle: CleDeRegle, valeur: number, seuils: SeuilsDesRegles): boolean {
+  const seuil = seuils[cle] ?? REGLE[cle].seuil?.defaut
+  if (seuil === undefined) return false
+  return cle === 'reserve' ? valeur < seuil : cle === 'quota' ? valeur >= seuil : valeur > seuil
+}
+
+/**
+ * La gravité d'une règle ouverte : la sienne. Le quota seul monte d'un cran :
+ * critique dès les quatre cinquièmes du mois, où la base s'arrêterait bientôt
+ * pour tous.
+ */
+export function graviteOuverte(cle: CleDeRegle, valeur?: number): Gravite {
+  return cle === 'quota' && valeur !== undefined && valeur >= PART_DU_QUOTA_EN_ROUGE ? 'critique' : REGLE[cle].gravite
+}
+
+/** La gravité d'une mesure : celle de sa règle, passé son seuil ; null en deçà. */
+export function graviteDe(cle: CleDeRegle, valeur: number | null | undefined, seuils: SeuilsDesRegles): Gravite | null {
+  return valeur == null || !depasse(cle, valeur, seuils) ? null : graviteOuverte(cle, valeur)
+}
 
 /** « 800 ms », « 1 % », « 450 Mo », « 7 jours » : un seuil, dit avec son unité. */
 export function seuilEcrit(cle: CleDeRegle, valeur: number): string {
@@ -313,6 +364,12 @@ export const APPELS_POUR_LE_RESSENTI = 20
 export const REQUETES_POUR_LE_TAUX = 50
 export const ENVOIS_POUR_LE_RAPPEL = 5
 
+/** Le rappel du soir en échec : sur cinq envois au moins, une part d'échecs passé son seuil — « À traiter » le juge de même. */
+export function rappelEnEchec(rappel: { envoyes: number; echecs: number }, seuils: SeuilsDesRegles): boolean {
+  const envois = rappel.envoyes + rappel.echecs
+  return envois >= ENVOIS_POUR_LE_RAPPEL && depasse('rappel', (rappel.echecs / envois) * 100, seuils)
+}
+
 const ms = (v: number) => (v >= 1000 ? `${formatNumber(Math.round(v / 100) / 10)} s` : `${formatNumber(Math.round(v))} ms`)
 
 /**
@@ -322,7 +379,8 @@ const ms = (v: number) => (v >= 1000 ? `${formatNumber(Math.round(v / 100) / 10)
  */
 export function reglesOuvertes(r: ReleveDesAlertes, reglages: ReglagesDuQg): Map<CleDeRegle, string> {
   const ouvertes = new Map<CleDeRegle, string>()
-  const seuil = (cle: CleDeRegle) => seuilDe(cle, reglages) ?? 0
+  const seuils = lesSeuils(reglages)
+  const passe = (cle: CleDeRegle, valeur: number) => depasse(cle, valeur, seuils)
   if (r.pannes.length > 0) ouvertes.set('panne', `${r.pannes.map(p => p.mode).join(', ')} : ${formatNumber(r.pannes.reduce((n, p) => n + p.echecs, 0))} échecs`)
   if (r.arretNet) ouvertes.set('arret-net', 'un démarrage s’est arrêté sans s’éteindre')
   if (r.erreurs) ouvertes.set('erreurs', `${formatNumber(r.erreurs.n)} erreur${r.erreurs.n > 1 ? 's' : ''}, surtout ${r.erreurs.source}`)
@@ -331,21 +389,22 @@ export function reglesOuvertes(r: ReleveDesAlertes, reglages: ReglagesDuQg): Map
   }
   if (r.requetes && r.requetes.n >= REQUETES_POUR_LE_TAUX) {
     const part = (r.requetes.enErreur / r.requetes.n) * 100
-    if (part > seuil('taux-d-erreur')) ouvertes.set('taux-d-erreur', `${formatNumber(Math.round(part * 10) / 10)} % des requêtes en erreur (${formatNumber(r.requetes.enErreur)} sur ${formatNumber(r.requetes.n)})`)
+    if (passe('taux-d-erreur', part)) ouvertes.set('taux-d-erreur', `${formatNumber(Math.round(part * 10) / 10)} % des requêtes en erreur (${formatNumber(r.requetes.enErreur)} sur ${formatNumber(r.requetes.n)})`)
   }
-  if (r.memoireMo !== null && r.memoireMo > seuil('memoire')) ouvertes.set('memoire', `${formatNumber(r.memoireMo)} Mo`)
-  if (r.ressenti && r.ressenti.appels >= APPELS_POUR_LE_RESSENTI && r.ressenti.p95 > seuil('ressenti')) {
+  if (r.memoireMo !== null && passe('memoire', r.memoireMo)) ouvertes.set('memoire', `${formatNumber(r.memoireMo)} Mo`)
+  if (r.ressenti && r.ressenti.appels >= APPELS_POUR_LE_RESSENTI && passe('ressenti', r.ressenti.p95)) {
     ouvertes.set('ressenti', `${ms(r.ressenti.p95)} au 95ᵉ centile, sur ${formatNumber(r.ressenti.appels)} appels`)
   }
-  if (r.turso && r.turso.p95 > seuil('turso-lent')) ouvertes.set('turso-lent', `${ms(r.turso.p95)} au 95ᵉ centile`)
-  if (r.gelMs !== null && r.gelMs > seuil('gel-long')) ouvertes.set('gel-long', `la boucle figée ${ms(r.gelMs)}`)
-  if (r.quotaPart !== null && r.quotaPart >= seuil('quota')) ouvertes.set('quota', `${formatNumber(Math.round(r.quotaPart))} % du quota du mois à ce rythme`)
+  if (r.turso && passe('turso-lent', r.turso.p95)) ouvertes.set('turso-lent', `${ms(r.turso.p95)} au 95ᵉ centile`)
+  // « La boucle » ne parlait qu'à un ingénieur (la revue d'ergonomie du 4 novembre 2026) : c'est le serveur qui ne répond plus.
+  if (r.gelMs !== null && passe('gel-long', r.gelMs)) ouvertes.set('gel-long', `le serveur figé ${ms(r.gelMs)} d’un tenant`)
+  if (r.quotaPart !== null && passe('quota', r.quotaPart)) ouvertes.set('quota', `${formatNumber(Math.round(r.quotaPart))} % du quota du mois à ce rythme`)
   const pire = [...r.ralenties].sort((a, b) => b.apres / b.avant - a.apres / a.avant)[0]
   if (pire) ouvertes.set('version', `${pire.route} : ${ms(pire.avant)} → ${ms(pire.apres)}${r.ralenties.length > 1 ? `, et ${r.ralenties.length - 1} autre${r.ralenties.length > 2 ? 's' : ''}` : ''}`)
-  if (r.reserveJours !== null && r.reserveJours < seuil('reserve')) ouvertes.set('reserve', `${formatNumber(r.reserveJours)} jour${r.reserveJours > 1 ? 's' : ''} d’avance`)
+  if (r.reserveJours !== null && passe('reserve', r.reserveJours)) ouvertes.set('reserve', `${formatNumber(r.reserveJours)} jour${r.reserveJours > 1 ? 's' : ''} d’avance`)
   if (r.rappel) {
     const envois = r.rappel.envoyes + r.rappel.echecs
-    if (envois >= ENVOIS_POUR_LE_RAPPEL && (r.rappel.echecs / envois) * 100 > seuil('rappel')) {
+    if (rappelEnEchec(r.rappel, seuils)) {
       ouvertes.set('rappel', `${formatNumber(r.rappel.echecs)} envoi${r.rappel.echecs > 1 ? 's' : ''} en échec sur ${formatNumber(envois)}`)
     }
   }

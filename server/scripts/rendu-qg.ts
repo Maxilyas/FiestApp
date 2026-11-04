@@ -1187,6 +1187,8 @@ try {
     if (adresse === '/admin') await page.waitForSelector('.qg-graphe svg, .qg-participations .muted', { timeout: 15000 })
     if (adresse === '/admin#soirees') await page.waitForSelector('.qg-barres', { timeout: 15000 })
     if (adresse === '/admin#serveur') await page.waitForSelector('.qg-graphe svg', { timeout: 15000 })
+    // Un onglet dans l'adresse (`/admin#serveur/gels`) : la page s'ouvre sur lui.
+    if (adresse.startsWith('/admin#serveur/')) await page.waitForSelector('.qg-panneau', { timeout: 15000 })
     if (adresse === '/admin#base') await page.waitForSelector('#base-sauvegardes', { timeout: 15000 })
     if (adresse === '/admin#alertes') await page.waitForSelector('#alertes-incidents', { timeout: 15000 })
     if (adresse === '/admin#telephones') await page.waitForSelector('#telephones-pages', { timeout: 15000 })
@@ -1237,11 +1239,26 @@ try {
 
   if (photo('poste')) {
   await photographier('1-telephone', 360, 640)
-  // « Pages » ouvre la liste de toutes les pages ; les voyants au vert, repliés au téléphone, se déplient.
+  // Le premier écran, tel qu'il s'ouvre : « À traiter » avant l'état, la barre du QG en bas.
+  await photographier('1a-telephone-premier-ecran', 360, 640, { pleine: false })
+  // « Pages », dans la barre du bas, ouvre la feuille tirée du rail ; les voyants au vert, repliés, se déplient.
   await photographier('1b-telephone-pages', 360, 640, { pleine: false, geste: page => page.click('.qg-pages') })
   await photographier('1c-telephone-voyants', 360, 640, { geste: page => page.click('.qg-etat-deplier') })
-  await photographier('1d-telephone-sept-jours', 360, 640, { geste: page => page.click('.qg-periodes button:has-text("7 j")') })
+  // La période, dans son bouton : sa feuille, puis sept jours.
+  await photographier('1d-telephone-sept-jours', 360, 640, {
+    geste: async page => {
+      await page.click('.qg-periode-courte')
+      await page.click('.qg-periodes-feuille button:has-text("Les sept derniers jours")')
+    },
+  })
+  await photographier('1e-telephone-periode', 360, 640, { pleine: false, geste: page => page.click('.qg-periode-courte') })
+  // « À traiter », de la barre du bas : la liste, de n'importe quelle page.
+  await photographier('1f-telephone-a-traiter', 360, 640, { pleine: false, adresse: '/admin#serveur', geste: page => page.click('.qg-bas button:has-text("À traiter")') })
   await photographier('2-ordinateur-1366', 1366, 768)
+  // Le premier écran du portable : ce qui attend un geste en colonne de droite, sans défiler.
+  await photographier('2a-ordinateur-1366-premier-ecran', 1366, 768, { pleine: false })
+  // La pastille de la barre ouvre « À traiter » de n'importe quelle page ; le rail replié tient dans l'écran.
+  await photographier('2e-ordinateur-a-traiter', 1366, 768, { pleine: false, adresse: '/admin#telephones', geste: page => page.click('.qg-commande .qg-etat-pastille') })
   await photographier('2b-ordinateur-une-heure', 1366, 768, { geste: page => page.click('.qg-periodes button:has-text("1 h")') })
   await photographier('2c-ordinateur-sept-jours-compare', 1366, 768, {
     geste: async page => {
@@ -1292,6 +1309,8 @@ try {
     // Le temps réel : la soirée en cours du script a fait parler ses téléphones et son écran.
     await photographier('75b-serveur-temps-reel', 1366, 768, surLeServeur(page => page.click('#serveur-onglet-temps-reel')))
     await photographier('75c-serveur-temps-reel-telephone', 360, 640, surLeServeur(page => page.click('#serveur-onglet-temps-reel')))
+    // L'onglet dans l'adresse : une alerte « Gel long » ouvre « Ce qui gèle », pas les Signaux.
+    await photographier('75d-serveur-gels-par-l-adresse', 1366, 768, { adresse: '/admin#serveur/gels', pleine: false })
     await photographier('76-serveur-routes-1920', 1920, 1080, surLeServeur(page => page.click('#serveur-onglet-routes')))
     await photographier('77-serveur-routes-telephone', 360, 640, surLeServeur(page => page.click('#serveur-onglet-routes')))
     await photographier('78-serveur-signaux-telephone', 360, 640, surLeServeur())

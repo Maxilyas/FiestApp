@@ -846,9 +846,12 @@ test('les alertes du serveur : un arrêt net du jour, les erreurs depuis l’heu
     quota: null,
   })
 
-  // Dans « À traiter » : après le miroir, avant la réserve — trois en rouge, Turso lent en sourdine. Les
-  // erreurs mènent à leur page, où elles se trient (le 19 octobre 2026) : les autres, à la page du serveur.
-  // La réserve, à la page « Réserves et base », où elle vit depuis le QG 2, lot 7.
+  // Dans « À traiter » : après le miroir, chacune à la gravité de sa règle — l'arrêt net critique, les erreurs et la
+  // mémoire sérieuses, Turso lent et la réserve à surveiller —, la plus grave d'abord ; et chacune mène où l'on agit :
+  // les erreurs à leur page, où elles se trient (le 19 octobre 2026), l'arrêt net et la mémoire à la page du serveur,
+  // Turso à « Base et miroir », qui le montre depuis le QG 2, la réserve à « Réserves et base », où elle vit depuis le
+  // lot 7. La revue d'ergonomie du 4 novembre 2026 : la réserve rouge ici était « à surveiller » sur la page des
+  // alertes, et Turso ouvrait une page qui ne le montrait plus.
   const calme: ATraiterDuQg = {
     reserve: { joursDAvance: 6 },
     signalementsDuJour: { questions: 0, joueurs: 0 },
@@ -860,13 +863,13 @@ test('les alertes du serveur : un arrêt net du jour, les erreurs depuis l’heu
   }
   const choses = lesChosesATraiter(calme, null, maintenant)
   assert.deepEqual(
-    choses.map(c => [c.cle, c.alerte, c.ecran]),
+    choses.map(c => [c.cle, c.gravite, c.ecran]),
     [
-      ['arret-net', true, 'serveur'],
-      ['erreurs', true, 'erreurs'],
-      ['memoire', true, 'serveur'],
-      ['turso-lent', false, 'serveur'],
-      ['reserve', true, 'reserves'],
+      ['arret-net', 'critique', 'serveur'],
+      ['erreurs', 'serieux', 'erreurs'],
+      ['memoire', 'serieux', 'serveur'],
+      ['turso-lent', 'veille', 'base'],
+      ['reserve', 'veille', 'reserves'],
     ],
   )
   assert.deepEqual(
@@ -875,7 +878,7 @@ test('les alertes du serveur : un arrêt net du jour, les erreurs depuis l’heu
       'Le serveur s’est arrêté net — aujourd’hui à 19 h 04, sans s’éteindre proprement',
       '4 erreurs serveur à regarder — depuis 20 h 00 · POST /api/x',
       'La mémoire approche du plafond — 462 Mo sur 512 : au-delà, l’hébergeur arrête le serveur',
-      'Turso répond lentement — 1,4 s au 95ᵉ centile depuis 20 h 00',
+      'Turso répond lentement — 1,4 s pour 19 allers-retours sur 20, depuis 20 h 00',
     ],
   )
   // Sans l'heure qu'il est, l'arrêt net garde la sienne.

@@ -229,10 +229,10 @@ test('la panne d’un mode sonne sur le téléphone de l’administrateur — un
     await patienter(50)
     assert.equal(recus().length, 2)
 
-    // Le QG la montre : en tête de « À traiter », et sur la page des erreurs.
+    // Le QG la montre : en tête de « À traiter », critique comme sa règle, et sur la page des erreurs.
     const vue = (await lire<VueDEnsemble>(banc, admin, '/api/admin/qg')).corps
     const [premiere] = lesChosesATraiter(vue.aTraiter, null, vue.maintenant)
-    assert.deepEqual([premiere.cle, premiere.alerte, sansInsecables(premiere.titre), premiere.ecran], ['panne', true, 'Panne : le quiz du jour', 'erreurs'])
+    assert.deepEqual([premiere.cle, premiere.gravite, sansInsecables(premiere.titre), premiere.ecran], ['panne', 'critique', 'Panne : le quiz du jour', 'erreurs'])
     assert.match(sansInsecables(premiere.detail), /^depuis \d+ h \d\d · 4 échecs, le dernier à \d+ h \d\d$/)
     assert.deepEqual(
       (await lire<PageDesErreurs>(banc, admin, '/api/admin/erreurs')).corps.pannes.map(p => [p.mode, p.echecs, p.source]),

@@ -65,39 +65,50 @@ test('/admin : le QG — la vue d’ensemble d’abord, son journal et son serve
     /const ECRANS: readonly Ecran\[\] = \['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'cabinet', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes', 'joueurs', 'telephones', 'questions', 'reserves'\]/,
   )
   assert.match(page, /const ANCIENNES: Record<string, Ecran> = \{ 'les-profils': 'profils', 'quiz-du-jour': 'jour' \}/)
-  assert.match(page, /history\.pushState\(\{ \.\.\.history\.state, depuisAdmin: true \}, '', e \? `\/admin#\$\{e\}` : '\/admin'\)/)
-  // À l'ordinateur, la barre de côté mène à chaque écran ; au téléphone, la
-  // liste des pages, qui dit ce qu'on y trouve — les signalements y comptent
-  // leurs questions à relire, aux deux modes (le 14 octobre 2026).
+  // L'onglet ouvert est dans l'adresse (`/admin#serveur/gels`) : le retour du navigateur et un lien partagé le gardent.
+  assert.match(page, /history\.pushState\(\{ \.\.\.history\.state, depuisAdmin: true \}, '', adresseDe\(e, o\)\)/)
+  assert.match(page, /const adresseDe = \(e: Ecran \| null, onglet\?: string \| null\) => \(e \? `\/admin#\$\{e\}\$\{onglet \? `\/\$\{onglet\}` : ''\}` : '\/admin'\)/)
+  // À l'ordinateur, le rail mène à chaque écran ; au téléphone, la feuille « Pages », tirée du même rail — mêmes groupes,
+  // mêmes noms, même ordre, ses pastilles — : écrite à la main à côté, elle ne lui ressemblait plus (la revue
+  // d'ergonomie du 4 novembre 2026). Chaque page dit ce qu'on y trouve, que la palette cherche aussi.
   for (const e of ['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'cabinet', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes', 'joueurs', 'telephones', 'questions', 'reserves']) {
-    assert.match(page, new RegExp(`\\{ ecran: '${e}', nom: '[^']+', icone: '[a-z-]+' \\}`), e)
+    assert.match(page, new RegExp(`\\{ ecran: '${e}', nom: '[^']+', icone: '[a-z-]+', description: '[^']+'`), e)
   }
-  assert.match(page, /<Ligne icone="eye" nom="Les joueurs"/)
+  assert.doesNotMatch(page, /<Ligne\s/, 'plus de liste des pages écrite à la main')
+  assert.equal([...page.matchAll(/PAGES_DU_QG\.map\(\(\{ groupe, pages \}\) =>/g)].length, 2, 'le rail et la feuille « Pages » lisent la même liste')
+  assert.match(page, /<Feuille titre="Les pages du QG"/)
+  // Une icône par page : l'œil disait « En direct » et « Joueurs », le triangle « Maintenance » et les alertes.
+  const icones = [...page.matchAll(/\{ ecran: (?:'[a-z]+'|null), nom: '[^']+', icone: '([a-z-]+)'/g)].map(m => m[1])
+  assert.equal(new Set(icones).size, icones.length, `une icône par page : ${icones.join(', ')}`)
+  // Le rail par moment d'usage : une panne se voit, se comprend, se ferme et se dit sans quitter « Commande ».
+  const groupe = (nom: string) => page.slice(page.indexOf(`groupe: '${nom}'`), page.indexOf(']', page.indexOf(`groupe: '${nom}'`)))
+  assert.deepEqual(
+    [...groupe('Commande').matchAll(/ecran: ('[a-z]+'|null)/g)].map(m => m[1]),
+    ['null', "'direct'", "'alertes'", "'erreurs'", "'maintenance'", "'journal'"],
+  )
+  assert.deepEqual([...groupe('Technique').matchAll(/ecran: '([a-z]+)'/g)].map(m => m[1]), ['serveur', 'base', 'telephones'])
+  assert.deepEqual([...groupe('Animer').matchAll(/ecran: '([a-z]+)'/g)].map(m => m[1]), ['annonces', 'affiches'])
+  // L'économie vit des modes ; « Profils » ressemblait à « Joueurs » : on y cherche quelqu'un.
+  assert.match(groupe('Modes'), /\{ ecran: 'duels'[^}]*\},\s*(\/\/[^\n]*\n\s*)*\{ ecran: 'economie'/)
+  assert.match(groupe('Audience'), /\{ ecran: 'profils', nom: 'Chercher un joueur'/)
   // Le contenu : ce que chaque question jouée donne, puis ce qui nourrit les modes — avant les signalements, où l'on relit.
   assert.match(
     page,
-    /\{ ecran: 'questions', nom: 'Questions', icone: 'bulb' \},\s*\{ ecran: 'reserves', nom: 'Réserves et base', icone: 'book' \},\s*\{ ecran: 'signalements', nom: 'Signalements', icone: 'flag' \}/,
+    /\{ ecran: 'questions', nom: 'Questions', icone: 'bulb'[^}]*\},\s*\{ ecran: 'reserves', nom: 'Réserves et base', icone: 'book'[^}]*\},\s*\{ ecran: 'signalements', nom: 'Signalements', icone: 'flag'/,
   )
-  assert.match(page, /<Ligne icone="bulb" nom="Les questions"/)
-  assert.match(page, /<Ligne\s+icone="book"\s+nom="Les réserves et la base"/)
   // Le Cabinet dans les modes, juste après la campagne, qui le garde parmi ses sous-modes ; sa tuile du poste de commande y mène.
-  assert.match(page, /\{ ecran: 'campagne', nom: 'Campagne', icone: 'target' \},\s*\{ ecran: 'cabinet', nom: 'Cabinet', icone: 'landmark' \}/)
-  assert.match(page, /<Ligne icone="landmark" nom="Le Cabinet"/)
+  assert.match(page, /\{ ecran: 'campagne', nom: 'Campagne', icone: 'target'[^}]*\},\s*\{ ecran: 'cabinet', nom: 'Cabinet', icone: 'landmark'/)
   assert.match(source('components/QgVueDEnsemble.tsx'), /cabinet: 'cabinet'/)
-  assert.match(page, /<Ligne icone="hash" nom="Les modes côte à côte"/)
-  assert.match(page, /<Ligne icone="alert" nom="La maintenance"/)
-  assert.match(page, /<Ligne icone="megaphone" nom="Les annonces"/)
-  assert.match(page, /<Ligne icone="sparkles" nom="Les nouveautés"/)
-  assert.match(page, /<Ligne icone="x-circle" nom="Les erreurs"/)
-  for (const nom of ['Le journal', 'Le serveur', 'Les soirées', 'Les profils', 'Les salons', 'Le catalogue', 'Le quiz du jour', 'Les signalements']) {
-    assert.match(page, new RegExp(`<Ligne\\s+icone="[a-z]+"\\s+nom="${nom}"`), nom)
-  }
-  assert.match(page, /<Ligne\s+icone="target"\s+nom="La campagne"/)
-  assert.match(page, /<Ligne\s+icone="swords"\s+nom="Les duels"/)
-  assert.match(page, /<Ligne\s+icone="bag"\s+nom="L’économie"/)
-  // La barre du menu, comme « Mon compte » — son compteur des nouveautés de la loge sur « Profil » ; celle de l'animateur pour qui n'a pas de profil.
-  assert.match(page, /<MenuBarre ici="compte" nouveautes=\{nouveautes\} \/>/)
-  assert.match(page, /\{!me\.profil && <NavAnimateur ici="admin" slug=\{me\.space\.slug\} admin \/>\}/)
+  // Au téléphone, une console : la barre du QG sous le pouce — le poste, ce qui attend, le direct, les pages — à la place
+  // de celle du joueur ; la ligne de l'animateur, pour qui n'a pas de profil, au pied du rail et de la feuille « Pages ».
+  assert.doesNotMatch(page, /<MenuBarre/)
+  assert.match(page, /<nav className="qg-bas" aria-label="Le QG">/)
+  assert.match(page, /const sortir = me\.profil \?[\s\S]*?: \(\s*<NavAnimateur ici="admin" slug=\{me\.space\.slug\} admin \/>\s*\)/)
+  assert.match(page, /<div className="qg-cote-pied">\{sortir\}<\/div>/)
+  assert.match(page, /<div className="qg-pages-pied">\{sortir\}<\/div>/)
+  // La pastille de la barre compte ce qui attend un geste, à la couleur de sa pire ligne, et en ouvre la liste.
+  assert.match(page, /<BoutonATraiter n=\{choses\.length\} pire=\{pireGravite\(choses\)\}/)
+  assert.match(page, /<Feuille titre="À traiter"/)
   // Le direct et la vue se relisent tant que l'onglet se voit — jamais derrière un autre, à lire Turso pour personne.
   assert.match(page, /document\.visibilityState === 'visible'/)
   // La lueur balaie, sauf si le système demande moins de mouvement.

@@ -52,6 +52,19 @@ const HEURE = 60 * MINUTE
  */
 export const PAS_DE_LA_PERIODE: Record<PeriodeDuQg, number> = { '1h': 5 * MINUTE, '24h': HEURE, '7j': 3 * HEURE, '30j': 24 * HEURE }
 
+/**
+ * Le pas d'un graphique en mots : son titre (« Heure par heure ») et ce qu'il
+ * compte (« une fois par heure »). « Seau par seau » ne se lisait que de qui
+ * l'avait écrit (la revue d'ergonomie du 4 novembre 2026) ; le pas, lui, est
+ * connu.
+ */
+export const PAS_EN_MOTS: Record<PeriodeDuQg, { titre: string; par: string }> = {
+  '1h': { titre: 'Cinq minutes par cinq minutes', par: 'par tranche de cinq minutes' },
+  '24h': { titre: 'Heure par heure', par: 'par heure' },
+  '7j': { titre: 'Trois heures par trois heures', par: 'par tranche de trois heures' },
+  '30j': { titre: 'Jour par jour', par: 'par jour' },
+}
+
 /** Les seaux d'une semaine : trois heures, comptées depuis chaque minuit de Paris. */
 const HEURES_D_UN_SEAU_DE_LA_SEMAINE = 3
 

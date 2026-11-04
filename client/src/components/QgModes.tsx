@@ -7,7 +7,7 @@ import { fluxDuQg } from '../qgFlux'
 import { formatNumber } from '../../../shared/typographie'
 import { jourEnToutesLettres } from '../../../shared/jour'
 import { NOM_DU_MODE, ecartALHabitude, graduations, jourAbrege, type CompteDuJour, type EcartALHabitude, type ModeDuQg, type VueDEnsemble } from '../../../shared/qg'
-import { PERIODE_EN_TOUTES_LETTRES, ecartALaPeriodeDAvant, type PeriodeDuQg } from '../../../shared/qgPeriodes'
+import { PAS_EN_MOTS, PERIODE_EN_TOUTES_LETTRES, ecartALaPeriodeDAvant, type PeriodeDuQg } from '../../../shared/qgPeriodes'
 import { POINTS_DU_DIRECT } from '../../../shared/qgDirect'
 import { marchesDeLEntonnoir, partiesParJoueur, type EtapeDeLEntonnoir } from '../../../shared/qgModes'
 
@@ -326,13 +326,15 @@ function CourbeDuMode({ mode, vue, periode, comparer }: { mode: ModeDuQg; vue: V
       <div className="qg-console-tete">
         <div>
           <span className="qg-etiquette">{NOM_DU_MODE[mode]}</span>
-          <h2 id={id}>Seau par seau, sur {PERIODE_EN_TOUTES_LETTRES[periode]}</h2>
+          <h2 id={id}>
+            {PAS_EN_MOTS[periode].titre}, sur {PERIODE_EN_TOUTES_LETTRES[periode]}
+          </h2>
           <span className="muted small">
             {quoi === 'joueurs'
-              ? 'chaque personne compte une fois par seau'
+              ? `chaque personne compte une fois ${PAS_EN_MOTS[periode].par}`
               : mode === 'soiree'
-                ? 'chaque invité qui a joué, au seau où sa soirée a commencé'
-                : `chaque ${NOM_DES_PARTIES[mode].un}, qui que ce soit, au seau où ${mode === 'duel' ? 'il a' : 'elle a'} commencé`}
+                ? 'chaque invité qui a joué, à l’heure où sa soirée a commencé'
+                : `chaque ${NOM_DES_PARTIES[mode].un}, qui que ce soit, à l’heure où ${mode === 'duel' ? 'il a' : 'elle a'} commencé`}
           </span>
         </div>
         <div className="onglets onglets-puces" role="group" aria-label="Ce que le graphique compte">

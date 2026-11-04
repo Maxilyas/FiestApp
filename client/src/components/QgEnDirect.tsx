@@ -6,11 +6,9 @@ import { NomDeLaRoute } from './QgServeur'
 import { fluxDuQg } from '../qgFlux'
 import { formatNumber } from '../../../shared/typographie'
 import { MODES_DU_QG, NOM_DU_MODE, heureEcrite } from '../../../shared/qg'
-import { MEMOIRE_DE_L_HEBERGEUR_MO, MEMOIRE_PLAFOND_MO, PROCESSEUR_DE_L_HEBERGEUR_PCT, tempsDeReponse } from '../../../shared/santeDuServeur'
+import { MEMOIRE_DE_L_HEBERGEUR_MO, PROCESSEUR_DE_L_HEBERGEUR_PCT, tempsDeReponse } from '../../../shared/santeDuServeur'
+import { APPELS_POUR_LE_RESSENTI, NOM_DE_LA_GRAVITE, REGLE, depasse, graviteDe, seuilEcrit, type CleDeRegle, type Gravite, type SeuilsDesRegles } from '../../../shared/qgAlertes'
 import { FILTRES_DU_FIL, POINTS_DU_DIRECT, type EvenementDuFil, type PointDuDirect, type RouteDuDirect, type SorteDuFil } from '../../../shared/qgDirect'
-
-/** Ce qu'un joueur attend, au-delà duquel le voyant du poste de commande passe au rouge : la page le dit de même. */
-const RESSENTI_EN_ALERTE_MS = 800
 
 /**
  * Le direct du QG (`/admin#direct`, le QG 2, lot 3, le 4 novembre 2026 : « je
@@ -21,7 +19,7 @@ const RESSENTI_EN_ALERTE_MS = 800
  * vient de la mémoire du serveur : la page ne coûte rien à Turso, et ce
  * qu'elle montre s'efface au redémarrage.
  */
-export function QgEnDirect({ ouvrir }: { ouvrir: (e: 'soirees' | 'serveur' | 'erreurs') => void }) {
+export function QgEnDirect({ ouvrir }: { ouvrir: (e: 'soirees' | 'serveur' | 'erreurs', onglet?: string) => void }) {
   const etat = useSyncExternalStore(fluxDuQg.abonner, fluxDuQg.lire)
   const vivant = useSyncExternalStore(fluxDuQg.abonner, fluxDuQg.estVivant)
   // La page le demande aussi : ouverte seule — un onglet sur `/admin#direct` —, elle a son flux.
@@ -48,7 +46,7 @@ export function QgEnDirect({ ouvrir }: { ouvrir: (e: 'soirees' | 'serveur' | 'er
       <Courbes points={points} plafondProcesseur={etat.plafonds.processeurPct ?? PROCESSEUR_DE_L_HEBERGEUR_PCT} />
       <div className="qg-direct-bas">
         <LeFil fil={etat.fil} maintenant={etat.maintenant} />
-        <RoutesDeLaMinute routes={etat.routes} />
+        <RoutesDeLaMinute routes={etat.routes} seuils={etat.direct?.seuils ?? {}} />
       </div>
       {etat.direct && etat.direct.soirees.length > 0 && (
         <section className="qg-console" aria-labelledby="direct-soirees">
@@ -83,20 +81,40 @@ const dernierConnu = (ps: readonly PointDuDirect[], f: (p: PointDuDirect) => num
   return null
 }
 
-/** Un compteur : son nom, sa valeur dite avec son unité, ce qu'elle veut dire, et sa courbe des quinze minutes. */
-function Compteur({ nom, valeur, detail, courbe, alerte = false, onOuvrir }: { nom: string; valeur: string; detail: ReactNode; courbe: number[]; alerte?: boolean; onOuvrir?: () => void }) {
+/**
+ * Un compteur : son nom, sa valeur dite avec son unité, ce qu'elle veut dire, et sa courbe des quinze minutes. Passé le
+ * seuil de sa règle, il en prend l'état — sa bordure, une icône et le mot de sa gravité —, jamais la couleur seule.
+ */
+function Compteur({
+  nom,
+  valeur,
+  detail,
+  courbe,
+  gravite = null,
+  onOuvrir,
+}: {
+  nom: string
+  valeur: string
+  detail: ReactNode
+  courbe: number[]
+  gravite?: Gravite | null
+  onOuvrir?: () => void
+}) {
   const contenu = (
     <>
       <span className="qg-tuile-nom">
-        {alerte && <Icon name="alert" />}
+        {gravite && <Icon name="alert" />}
         {nom}
       </span>
       <span className="qg-tuile-valeur num">{valeur}</span>
-      <span className="qg-ecart qg-tuile-detail">{detail}</span>
+      <span className="qg-ecart qg-tuile-detail">
+        {gravite && <span className={`qg-gravite qg-gravite-${gravite}`}>{NOM_DE_LA_GRAVITE[gravite]}</span>}
+        {detail}
+      </span>
       {courbe.length > 1 && <Etincelle valeurs={courbe} />}
     </>
   )
-  const classe = 'qg-tuile' + (alerte ? ' qg-tuile-alerte' : '')
+  const classe = 'qg-tuile' + (gravite ? ` qg-tuile-alerte qg-tuile-${gravite}` : '')
   return onOuvrir ? (
     <li className={classe + ' qg-tuile-ouvre'}>
       <button type="button" onClick={onOuvrir}>
@@ -111,22 +129,33 @@ function Compteur({ nom, valeur, detail, courbe, alerte = false, onOuvrir }: { n
 /**
  * Huit compteurs, la dernière minute ou l'instant : qui est là, ce que le
  * serveur sert et en combien de temps, ce qui casse, ce qu'il lui reste —
- * chacun sa courbe des quinze minutes. Rouge quand le poste de commande le
- * dirait : une erreur, un joueur qui attend plus de 800 ms, la mémoire près
- * du plafond.
+ * chacun sa courbe des quinze minutes. Chacun se juge au seuil réglé de sa
+ * règle, celui du voyant du poste de commande (`graviteDe`, que le direct
+ * prête) : un seuil écrit ici rougissait à 800 ms quand la règle était réglée
+ * à 900, et un gel de 25,8 s restait neutre (la revue d'ergonomie du
+ * 4 novembre 2026). Le processeur, sans règle, au-delà de la part que
+ * l'hébergeur donne, comme son voyant.
  */
-function Compteurs({ points, etat, ouvrir }: { points: PointDuDirect[]; etat: ReturnType<typeof fluxDuQg.lire>; ouvrir: (e: 'serveur' | 'erreurs') => void }) {
+function Compteurs({ points, etat, ouvrir }: { points: PointDuDirect[]; etat: ReturnType<typeof fluxDuQg.lire>; ouvrir: (e: 'serveur' | 'erreurs', onglet?: string) => void }) {
   const minute = points.slice(-7, -1)
   const cinqMinutes = points.slice(-31)
   const d = etat.direct
+  const seuils: SeuilsDesRegles = d?.seuils ?? {}
   const enLigne = d ? d.profilsEnLigne + d.invitesConnectes : null
   const ressenti = d?.serveur.routesP95Ms ?? null
   const erreurs = somme(cinqMinutes, p => p.erreurs)
   const processeur = dernierConnu(points, p => p.processeur)
   const memoire = dernierConnu(points, p => p.memoireMo)
   const gel = minute.length ? Math.max(0, ...minute.map(p => p.boucleMaxMs ?? 0)) : null
+  const turso = d?.serveur.baseP95Ms ?? null
   const plafondMo = etat.plafonds.memoireMo ?? MEMOIRE_DE_L_HEBERGEUR_MO
   const plafondPct = etat.plafonds.processeurPct ?? PROCESSEUR_DE_L_HEBERGEUR_PCT
+  /** « seuil 3 s » : ce qu'un compteur passé son seuil dit après le mot de sa gravité. */
+  const auSeuil = (cle: CleDeRegle, g: Gravite | null) => (g ? ` · seuil ${seuilEcrit(cle, seuils[cle] ?? REGLE[cle].seuil?.defaut ?? 0)}` : '')
+  const lent = (d?.serveur.routesParMin ?? 0) >= APPELS_POUR_LE_RESSENTI ? graviteDe('ressenti', ressenti, seuils) : null
+  const pleine = graviteDe('memoire', memoire, seuils)
+  const gele = graviteDe('gel-long', gel, seuils)
+  const tursoLent = graviteDe('turso-lent', turso, seuils)
   return (
     <section className="qg-chiffres" aria-labelledby="direct-maintenant">
       <div className="qg-section-tete">
@@ -145,9 +174,9 @@ function Compteurs({ points, etat, ouvrir }: { points: PointDuDirect[]; etat: Re
         <Compteur
           nom="Ce qu’un joueur attend"
           valeur={ressenti === null ? '–' : tempsDeReponse(ressenti)}
-          detail={d?.serveur.routesParMin ? `95ᵉ centile · ${formatNumber(d.serveur.routesParMin)} appels` : 'aucun appel sur la minute'}
+          detail={d?.serveur.routesParMin ? `pour 19 appels sur 20 · ${formatNumber(d.serveur.routesParMin)} cette minute${auSeuil('ressenti', lent)}` : 'aucun appel sur la minute'}
           courbe={points.map(p => p.routes?.p95 ?? 0)}
-          alerte={ressenti !== null && ressenti >= RESSENTI_EN_ALERTE_MS}
+          gravite={lent}
           onOuvrir={() => ouvrir('serveur')}
         />
         <Compteur
@@ -155,7 +184,7 @@ function Compteurs({ points, etat, ouvrir }: { points: PointDuDirect[]; etat: Re
           valeur={formatNumber(erreurs)}
           detail="ces cinq dernières minutes"
           courbe={points.map(p => p.erreurs)}
-          alerte={erreurs > 0}
+          gravite={erreurs > 0 ? REGLE.erreurs.gravite : null}
           onOuvrir={() => ouvrir('erreurs')}
         />
         <Compteur
@@ -163,20 +192,31 @@ function Compteurs({ points, etat, ouvrir }: { points: PointDuDirect[]; etat: Re
           valeur={processeur === null ? '–' : `${formatNumber(processeur)} %`}
           detail={`d’un cœur · l’hébergeur en donne ${formatNumber(plafondPct)} %`}
           courbe={points.map(p => p.processeur ?? 0)}
+          gravite={processeur !== null && processeur >= plafondPct ? 'veille' : null}
         />
         <Compteur
           nom="Mémoire"
           valeur={memoire === null ? '–' : `${formatNumber(memoire)} Mo`}
-          detail={`sur ${formatNumber(plafondMo)} Mo`}
+          detail={`sur ${formatNumber(plafondMo)} Mo${auSeuil('memoire', pleine)}`}
           courbe={points.map(p => p.memoireMo ?? 0)}
-          alerte={memoire !== null && memoire > MEMOIRE_PLAFOND_MO}
+          gravite={pleine}
         />
-        <Compteur nom="Pire gel" valeur={gel === null ? '–' : tempsDeReponse(gel)} detail="la boucle, sur la minute" courbe={points.map(p => p.boucleMaxMs ?? 0)} />
+        {/* « La boucle » ne parlait qu'à un ingénieur : ce qu'on lit, c'est le serveur qui ne répond plus à personne. Il
+            ouvre « Ce qui gèle », où l'on voit ce qui tournait. */}
+        <Compteur
+          nom="Pire gel"
+          valeur={gel === null ? '–' : tempsDeReponse(gel)}
+          detail={`le serveur figé d’un tenant, sur la minute${auSeuil('gel-long', gele)}`}
+          courbe={points.map(p => p.boucleMaxMs ?? 0)}
+          gravite={gele}
+          onOuvrir={() => ouvrir('serveur', 'gels')}
+        />
         <Compteur
           nom="Turso"
-          valeur={d?.serveur.baseP95Ms == null ? '–' : tempsDeReponse(d.serveur.baseP95Ms)}
-          detail="un aller-retour, 95ᵉ centile"
+          valeur={turso === null ? '–' : tempsDeReponse(turso)}
+          detail={`pour 19 allers-retours sur 20${auSeuil('turso-lent', tursoLent)}`}
           courbe={points.map(p => p.base?.p95 ?? 0)}
+          gravite={tursoLent}
         />
       </ul>
     </section>
@@ -347,15 +387,16 @@ const COLONNES_DES_ROUTES: { cle: CleDesRoutes; nom: string }[] = [
   { cle: 'route', nom: 'Route' },
   { cle: 'parMin', nom: 'Appels' },
   { cle: 'p50', nom: 'Médiane' },
-  { cle: 'p95', nom: '95ᵉ centile' },
+  // « 95ᵉ centile » ne se lisait que d'un ingénieur : la valeur que dix-neuf appels sur vingt ne dépassent pas.
+  { cle: 'p95', nom: '19 sur 20' },
   { cle: 'max', nom: 'Pire' },
 ]
 
 /** Les routes montrées d'emblée : la table entière, une cinquantaine de lignes, poussait les soirées loin sous le fil. */
 const ROUTES_MONTREES = 12
 
-/** Les routes d'API de la dernière minute, la plus coûteuse d'abord, triables : ce qui ralentit maintenant. */
-function RoutesDeLaMinute({ routes }: { routes: RouteDuDirect[] }) {
+/** Les routes d'API de la dernière minute, la plus coûteuse d'abord, triables : ce qui ralentit maintenant — au seuil réglé du ressenti. */
+function RoutesDeLaMinute({ routes, seuils }: { routes: RouteDuDirect[]; seuils: SeuilsDesRegles }) {
   const [tri, setTri] = useState<{ cle: CleDesRoutes; sens: 1 | -1 } | null>(null)
   const [toutes, setToutes] = useState(false)
   const triees = useMemo(() => {
@@ -410,7 +451,16 @@ function RoutesDeLaMinute({ routes }: { routes: RouteDuDirect[] }) {
                   </th>
                   <td className="qg-nombre">{formatNumber(r.parMin)}</td>
                   <td className="qg-nombre">{tempsDeReponse(r.p50)}</td>
-                  <td className={'qg-nombre' + (r.p95 >= RESSENTI_EN_ALERTE_MS ? ' qg-table-alerte' : '')}>{tempsDeReponse(r.p95)}</td>
+                  {/* Au-delà du seuil, une icône avec le rouge : la couleur seule ne se lit pas de tous. */}
+                  <td className={'qg-nombre' + (depasse('ressenti', r.p95, seuils) ? ' qg-table-alerte' : '')}>
+                    {depasse('ressenti', r.p95, seuils) && (
+                      <>
+                        <Icon name="alert" />
+                        <span className="sr-only">au-delà du seuil : </span>
+                      </>
+                    )}
+                    {tempsDeReponse(r.p95)}
+                  </td>
                   <td className="qg-nombre">{tempsDeReponse(r.max)}</td>
                 </tr>
               ))}

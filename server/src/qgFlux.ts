@@ -132,7 +132,8 @@ export class FluxDuQg {
       // Le direct repart quand ses soirées, ses invités, ses profils en ligne ou son miroir changent, sinon toutes les
       // dix secondes, comme la relecture d'avant : sa mémoire, son processeur bougent à chaque tour, et les pas les
       // disent déjà à la seconde.
-      const cle = JSON.stringify([direct.soirees, direct.invitesConnectes, direct.profilsEnLigne, direct.miroir])
+      // Les seuils aussi : un seuil réglé sur la page des alertes recolore le direct aussitôt.
+      const cle = JSON.stringify([direct.soirees, direct.invitesConnectes, direct.profilsEnLigne, direct.miroir, direct.seuils])
       const maintenant = Date.now()
       if (cle !== a.direct || maintenant - a.directEnvoyeLe >= DIRECT_AU_PLUS_TARD_MS) {
         m.direct = direct

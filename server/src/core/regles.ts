@@ -7,6 +7,7 @@ import {
   REGLE,
   REGLES_NEUVES_A_TRAITER,
   estUneRegle,
+  lesSeuils,
   lireLeReglage,
   reglesOuvertes,
   seuilDe,
@@ -19,6 +20,7 @@ import {
   type ReglageDUneRegle,
   type ReglagesDuQg,
   type ReleveDesAlertes,
+  type SeuilsDesRegles,
 } from '../../../shared/qgAlertes'
 import { SEUILS_DU_SERVEUR, type AlertesDuServeur, type PageDuServeur, type SeuilsDuServeur } from '../../../shared/santeDuServeur'
 import type { MessageDuQg } from '../../../shared/pannes'
@@ -151,6 +153,15 @@ export class ReglesDuQg {
       memoireMo: seuilDe('memoire', this.reglages) ?? SEUILS_DU_SERVEUR.memoireMo,
       partDuQuota: seuilDe('quota', this.reglages) ?? SEUILS_DU_SERVEUR.partDuQuota,
     }
+  }
+
+  /**
+   * Les seuils de toutes les règles, réglés ou d'office : le direct les prête
+   * au client (`DirectDuQg.seuils`), qui y juge ses voyants et ses compteurs
+   * comme les règles s'y ouvrent.
+   */
+  seuils(): SeuilsDesRegles {
+    return lesSeuils(this.reglages)
   }
 
   /** Le seuil de la réserve du quiz du jour : « À traiter » le lit (`ATraiterDuQg.seuilDeLaReserve`). */

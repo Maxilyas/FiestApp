@@ -25,6 +25,13 @@ import {
 const RELECTURE_MS = 60_000
 
 /**
+ * « Nouvelle » se dit la première semaine des règles venues avec la page (le
+ * 4 novembre 2026) : posé pour toujours, le mot ne disait plus rien (la revue
+ * d'ergonomie du même jour).
+ */
+const NOUVELLES_JUSQU_AU = Date.UTC(2026, 10, 11)
+
+/**
  * Les alertes et les incidents (`/admin#alertes`, sous « Commande », le QG 2,
  * lot 8 ; la proposition du 3 novembre 2026) : ce qui sonne, à partir de
  * quand, et où — au QG seulement, ou sur le téléphone aussi. Chaque règle et
@@ -32,7 +39,7 @@ const RELECTURE_MS = 60_000
  * restent dans le code —, puis les incidents des trois dernières semaines sur
  * une frise, et chacun sa cause et un mot.
  */
-export function QgAlertes({ ouvrir }: { ouvrir: (e: PageDUneRegle | 'erreurs') => void }) {
+export function QgAlertes({ ouvrir }: { ouvrir: (e: PageDUneRegle | 'erreurs', onglet?: string) => void }) {
   const [page, setPage] = useState<PageDesAlertes | null>(null)
   const [error, setError] = useState('')
   useEffect(() => {
@@ -127,7 +134,7 @@ function rang(r: RegleALaPage, i: number): number {
  * téléphone, et la dernière fois qu'elle s'est ouverte. Une colonne au
  * téléphone, une rangée à l'ordinateur.
  */
-function LesRegles({ page, onPage, ouvrir }: { page: PageDesAlertes; onPage: (p: PageDesAlertes) => void; ouvrir: (e: PageDUneRegle) => void }) {
+function LesRegles({ page, onPage, ouvrir }: { page: PageDesAlertes; onPage: (p: PageDesAlertes) => void; ouvrir: (e: PageDUneRegle, onglet?: string) => void }) {
   const [enCours, setEnCours] = useState<CleDeRegle | null>(null)
   const [erreur, setErreur] = useState<{ cle: CleDeRegle; motif: string } | null>(null)
   const regler = async (cle: CleDeRegle, reglage: { seuil?: number; telephone?: boolean }) => {
@@ -163,9 +170,9 @@ function LesRegles({ page, onPage, ouvrir }: { page: PageDesAlertes; onPage: (p:
                 <span>{r.ouverte ? `ouverte · ${heureEcrite(r.ouverte.depuis)}` : 'au calme'}</span>
               </span>
               <span className="qg-regle-texte">
-                <button type="button" className="qg-regle-nom" onClick={() => ouvrir(regle.page)}>
+                <button type="button" className="qg-regle-nom" onClick={() => ouvrir(regle.page, regle.onglet)}>
                   {regle.nom}
-                  {regle.neuve && <span className="qg-regle-neuve">nouvelle</span>}
+                  {regle.neuve && page.maintenant < NOUVELLES_JUSQU_AU && <span className="qg-regle-neuve">nouvelle</span>}
                 </button>
                 <span className="muted small">{r.ouverte ? r.ouverte.cause : regle.quoi}</span>
               </span>

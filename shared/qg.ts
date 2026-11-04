@@ -10,9 +10,9 @@
 
 import { jourAvant, jourDe, jourEnToutesLettres, minutesDeParis } from './jour'
 import { espacesFines, formatNumber } from './typographie'
-import { MEMOIRE_DE_L_HEBERGEUR_MO, PART_DU_QUOTA_EN_ROUGE, enLignes, tempsDeReponse, type AlertesDuServeur } from './santeDuServeur'
+import { MEMOIRE_DE_L_HEBERGEUR_MO, enLignes, tempsDeReponse, type AlertesDuServeur } from './santeDuServeur'
 import { lesModes } from './pannes'
-import { REGLE, type AlerteATraiter } from './qgAlertes'
+import { REGLE, RANG_DE_LA_GRAVITE, graviteOuverte, rappelEnEchec, type AlerteATraiter, type Gravite, type SeuilsDesRegles } from './qgAlertes'
 // Des types seulement : `qgCampagne.ts` et `qgDuels.ts` lisent leurs jours ici, et rien ne tourne en rond à l'exécution.
 import type { CampagneDeLaVue } from './qgCampagne'
 import type { DuelsDeLaVue } from './qgDuels'
@@ -120,6 +120,13 @@ export interface DirectDuQg {
     routesParMin?: number
     connexions: number | null
   }
+  /**
+   * Les seuils des règles des alertes, tels que l'administrateur les a réglés
+   * (`core/regles.ts`) : les voyants, les compteurs du direct et « À traiter »
+   * s'y jugent, comme les règles — plus un seuil écrit dans le client. Absents
+   * d'un serveur sans règles : ceux d'office.
+   */
+  seuils?: SeuilsDesRegles
 }
 
 /** Un chiffre d'aujourd'hui, et ce qu'il valait d'habitude à la même heure. */
@@ -538,28 +545,59 @@ export function graduations(max: number): number[] {
   return Array.from({ length: Math.ceil(max / pas) + 1 }, (_, i) => i * pas)
 }
 
-/** Une chose qui attend un geste : ce qu'on lit, et l'écran qui la montre. */
+/**
+ * La gravité d'une chose à traiter : celle de la règle des alertes qui la juge
+ * (`REGLES_DU_QG`) — la même sur la page des alertes, dans « À traiter », sur
+ * le rail et dans la barre ; « à faire », une tâche qui attend sans que rien ne
+ * casse — relire, clore. La revue d'ergonomie du 4 novembre 2026 : la même
+ * réserve à deux jours était rouge ici, « à surveiller » sur la page des
+ * alertes.
+ */
+export type GraviteDUneChose = Gravite | 'a-faire'
+
+const RANG_D_UNE_CHOSE: Record<GraviteDUneChose, number> = { ...RANG_DE_LA_GRAVITE, 'a-faire': 3 }
+
+/** Rouge : critique ou sérieuse — ce qui casse déjà. « À surveiller » est ambre, une tâche neutre. */
+export const estRouge = (g: GraviteDUneChose | null | undefined): boolean => g === 'critique' || g === 'serieux'
+
+/** La pire gravité d'une liste ; null si elle est vide. La pastille de la barre et celle d'une page en prennent la couleur. */
+export function pireGravite(choses: readonly { gravite: GraviteDUneChose }[]): GraviteDUneChose | null {
+  let pire: GraviteDUneChose | null = null
+  for (const c of choses) if (pire === null || RANG_D_UNE_CHOSE[c.gravite] < RANG_D_UNE_CHOSE[pire]) pire = c.gravite
+  return pire
+}
+
+/** Les écrans du QG qu'une chose à traiter ouvre : celui où l'on agit. */
+export type EcranDUneChose = 'soirees' | 'jour' | 'signalements' | 'catalogue' | 'serveur' | 'erreurs' | 'alertes' | 'reserves' | 'base' | 'direct'
+
+/** Une chose qui attend un geste : ce qu'on lit, sa gravité, et l'écran où l'on agit. */
 export interface ChoseATraiter {
   cle: string
-  /** Allumée en rouge : elle presse. */
-  alerte: boolean
+  gravite: GraviteDUneChose
   titre: string
   detail: string
-  /** L'écran du QG qui la montre ; null, rien encore à ouvrir — la ligne suffit. */
-  ecran: 'soirees' | 'jour' | 'signalements' | 'catalogue' | 'serveur' | 'erreurs' | 'alertes' | 'reserves' | null
+  /** L'écran du QG où l'on agit ; null, rien encore à ouvrir — la ligne suffit. */
+  ecran: EcranDUneChose | null
+  /** L'onglet de cet écran : « Ce qui gèle », pour un gel long. */
+  onglet?: string
 }
 
 const pluriel = (n: number, mot: string, motPluriel = `${mot}s`) => `${n} ${n > 1 ? motPluriel : mot}`
 
 /**
- * La liste de ce qui attend un geste, la plus pressée d'abord : un mode de jeu
- * en panne, le miroir en panne, le serveur arrêté net ou en erreur, la réserve
- * qui baisse s'allument, le reste s'aligne. Rien qui n'attende pas : une liste
- * qui dit toujours quelque chose ne se lit plus. `maintenant` date un arrêt
- * net (« hier à 23 h 10 ») ; sans lui, l'heure seule.
+ * La liste de ce qui attend un geste, la plus pressée d'abord — critique,
+ * sérieuse, à surveiller, puis ce qui est à faire, chacune dans l'ordre où
+ * elle s'écrit : un mode de jeu en panne, les soirées qui ne se sauvegardent
+ * plus, le serveur arrêté net ou en erreur, la réserve qui baisse… Rien qui
+ * n'attende pas : une liste qui dit toujours quelque chose ne se lit plus.
+ * Chaque ligne mène où l'on agit — Turso, son quota et la sauvegarde à « Base
+ * et miroir », un gel long à « Ce qui gèle ». `maintenant` date un arrêt net
+ * (« hier à 23 h 10 ») ; sans lui, l'heure seule. Les seuils, ceux que le
+ * direct prête (`DirectDuQg.seuils`) ; sans lui, ceux d'office.
  */
-export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectDuQg, 'soirees' | 'miroir'> | null, maintenant?: number): ChoseATraiter[] {
+export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectDuQg, 'soirees' | 'miroir' | 'seuils'> | null, maintenant?: number): ChoseATraiter[] {
   const choses: ChoseATraiter[] = []
+  const seuils = direct?.seuils ?? {}
   // Un mode de jeu que la veille du serveur voit tomber (`core/veille.ts`) : le téléphone de l'administrateur l'a sonné, s'il l'a allumé.
   const pannes = vue?.serveur.pannes ?? []
   if (pannes.length > 0) {
@@ -567,7 +605,7 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
     const premiere = Math.min(...pannes.map(p => p.depuis))
     choses.push({
       cle: 'panne',
-      alerte: true,
+      gravite: REGLE.panne.gravite,
       titre: espacesFines(`Panne : ${lesModes(pannes.map(p => p.mode))}`),
       detail: `depuis ${heureEcrite(premiere)} · ${pluriel(echecs, 'échec')}, le dernier à ${heureEcrite(Math.max(...pannes.map(p => p.dernierEchec)))}`,
       ecran: 'erreurs',
@@ -577,10 +615,12 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
   if (miroir && (miroir.enEchecDepuis !== null || miroir.espacesEnRetard > 0)) {
     choses.push({
       cle: 'miroir',
-      alerte: true,
-      titre: 'Le miroir Turso est en panne',
+      gravite: REGLE.miroir.gravite,
+      // « Le miroir » ne disait rien à qui ne l'a pas écrit : ce qui casse, ce sont les soirées qui ne se gardent plus.
+      titre: 'Les soirées ne se sauvegardent plus',
       detail: `${pluriel(miroir.enAttente, 'écriture')} en attente${miroir.espacesEnRetard > 0 ? `, ${pluriel(miroir.espacesEnRetard, 'salon')} en retard` : ''}`,
-      ecran: null,
+      // La page qui montre la sauvegarde de chaque salon : avant elle, la ligne n'ouvrait rien.
+      ecran: 'base',
     })
   }
   const serveur = vue?.serveur
@@ -588,7 +628,7 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
     const vers = serveur.arretNet.vers
     choses.push({
       cle: 'arret-net',
-      alerte: true,
+      gravite: REGLE['arret-net'].gravite,
       titre: 'Le serveur s’est arrêté net',
       detail: `${maintenant === undefined ? `vers ${heureEcrite(vers)}` : quandEcrit(vers, maintenant)}, sans s’éteindre proprement`,
       ecran: 'serveur',
@@ -598,7 +638,7 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
     const e = serveur.erreurs
     choses.push({
       cle: 'erreurs',
-      alerte: true,
+      gravite: REGLE.erreurs.gravite,
       // Les seules à regarder : réglées ou ignorées, elles ne sonnent plus (`/admin#erreurs`).
       titre: e.n > 1 ? `${formatNumber(e.n)} erreurs serveur à regarder` : 'Une erreur serveur à regarder',
       detail: `depuis ${heureEcrite(e.depuis)} · ${e.source}`,
@@ -608,36 +648,37 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
   if (serveur?.memoireMo) {
     choses.push({
       cle: 'memoire',
-      alerte: true,
+      gravite: REGLE.memoire.gravite,
       titre: 'La mémoire approche du plafond',
       detail: `${formatNumber(serveur.memoireMo)} Mo sur ${MEMOIRE_DE_L_HEBERGEUR_MO} : au-delà, l’hébergeur arrête le serveur`,
       ecran: 'serveur',
     })
   }
-  // Le quota de Turso, au rythme de la semaine : un mois qui le dépasse arrête la base de tous — la page « Le serveur » dit quelles requêtes le prennent.
+  // Le quota de Turso, au rythme de la semaine : un mois qui le dépasse arrête la base de tous — « Base et miroir » dit quelles requêtes le prennent.
   if (serveur?.quota) {
     choses.push({
       cle: 'quota',
-      alerte: serveur.quota.part >= PART_DU_QUOTA_EN_ROUGE,
+      // Le serveur l'a jugé passé son seuil : la règle dit sa gravité, critique aux quatre cinquièmes du mois.
+      gravite: graviteOuverte('quota', serveur.quota.part),
       titre: 'Le quota de Turso',
       detail: `${enLignes(serveur.quota.luesSurTrenteJours)} lues en trente jours à ce rythme : ${formatNumber(serveur.quota.part)} % du quota`,
-      ecran: 'serveur',
+      ecran: 'base',
     })
   }
   if (serveur?.tursoLent) {
     choses.push({
       cle: 'turso-lent',
-      alerte: false,
+      gravite: REGLE['turso-lent'].gravite,
       titre: 'Turso répond lentement',
-      detail: `${tempsDeReponse(serveur.tursoLent.p95)} au 95ᵉ centile depuis ${heureEcrite(serveur.tursoLent.depuis)}`,
-      ecran: 'serveur',
+      detail: `${tempsDeReponse(serveur.tursoLent.p95)} pour 19 allers-retours sur 20, depuis ${heureEcrite(serveur.tursoLent.depuis)}`,
+      ecran: 'base',
     })
   }
-  const seuilDeLaReserve = vue?.seuilDeLaReserve ?? ALERTE_JOURS_D_AVANCE
+  const seuilDeLaReserve = vue?.seuilDeLaReserve ?? seuils.reserve ?? ALERTE_JOURS_D_AVANCE
   if (vue?.reserve && vue.reserve.joursDAvance < seuilDeLaReserve) {
     choses.push({
       cle: 'reserve',
-      alerte: true,
+      gravite: REGLE.reserve.gravite,
       titre: 'La réserve du quiz du jour',
       detail: `${pluriel(vue.reserve.joursDAvance, 'jour')} d’avance, l’alerte est à ${seuilDeLaReserve}`,
       // La réserve vit sur la page « Réserves et base » depuis le QG 2, lot 7 : la page du quiz du jour n'en garde qu'une ligne qui y mène.
@@ -652,7 +693,7 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
     const { signalementsDuJour: j, signalementsDeLaCampagne: c } = vue
     choses.push({
       cle: 'signalements',
-      alerte: false,
+      gravite: 'a-faire',
       titre: signalees > 1 ? `${signalees} questions signalées` : 'Une question signalée',
       detail: [
         j.questions > 0 && `${j.questions} au quiz du jour (${pluriel(j.joueurs, 'joueur')})`,
@@ -667,7 +708,7 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
   if (vue?.propositions) {
     choses.push({
       cle: 'propositions',
-      alerte: false,
+      gravite: 'a-faire',
       titre: vue.propositions > 1 ? `${vue.propositions} questions du public à relire` : 'Une question du public à relire',
       detail: 'proposée au quiz du jour',
       ecran: 'jour',
@@ -676,7 +717,7 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
   if (vue && vue.catalogue > 0) {
     choses.push({
       cle: 'catalogue',
-      alerte: false,
+      gravite: 'a-faire',
       titre: vue.catalogue > 1 ? `${vue.catalogue} copies à relire` : 'Une copie à relire',
       detail: vue.catalogue > 1 ? 'proposées au catalogue' : 'proposée au catalogue',
       ecran: 'catalogue',
@@ -686,34 +727,40 @@ export function lesChosesATraiter(vue: ATraiterDuQg | null, direct: Pick<DirectD
     if (s.etat !== 'en-plan') continue
     choses.push({
       cle: `en-plan-${s.spaceId}`,
-      alerte: false,
+      gravite: 'a-faire',
       titre: 'Une soirée laissée en plan',
       detail: `${s.salon.nom}, ${pluriel(s.inscrits, 'invité')}`,
       // La page des soirées la clôt.
       ecran: 'soirees',
     })
   }
-  if (vue?.rappel && vue.rappel.echecs > 0) {
+  // Le rappel du soir, jugé comme sa règle — sur cinq envois au moins, une part d'échecs passé son seuil : un échec sur
+  // quatre-vingt-dix n'est pas une panne, et la ligne le disait, quand la page des alertes s'en taisait.
+  if (vue?.rappel && rappelEnEchec(vue.rappel, seuils)) {
     choses.push({
       cle: 'rappel',
-      alerte: false,
+      gravite: REGLE.rappel.gravite,
       titre: 'Le rappel du soir',
       detail: `${pluriel(vue.rappel.echecs, 'envoi')} en échec sur ${vue.rappel.envoyes + vue.rappel.echecs}`,
-      ecran: null,
+      // Sa page dit chaque tournée : envoyés, ouverts, échecs.
+      ecran: 'jour',
     })
   }
-  // Les règles venues avec la page des alertes : rouges si elles sont critiques ou sérieuses, en sourdine sinon.
+  // Les règles venues avec la page des alertes, à leur gravité : chacune mène où l'on agit — l'onglet compris —, la page
+  // des alertes ne dit que la règle et son seuil.
   for (const a of vue?.alertes ?? []) {
     const regle = REGLE[a.cle]
     choses.push({
       cle: `alerte:${a.cle}`,
-      alerte: regle.gravite !== 'veille',
+      gravite: regle.gravite,
       titre: regle.nom,
       detail: `${a.cause} · depuis ${heureEcrite(a.depuis)}`,
-      ecran: 'alertes',
+      ecran: regle.page,
+      ...(regle.onglet && { onglet: regle.onglet }),
     })
   }
-  return choses
+  // La plus pressée d'abord, chacune à son rang dans l'ordre où elle s'est écrite.
+  return choses.map((c, i) => [c, i] as const).sort(([a, i], [b, j]) => RANG_D_UNE_CHOSE[a.gravite] - RANG_D_UNE_CHOSE[b.gravite] || i - j).map(([c]) => c)
 }
 
 // ── La page des soirées ───────────────────────────────────────────────────

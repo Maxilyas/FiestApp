@@ -247,31 +247,48 @@ test('ce qui attend un geste : le plus pressé d’abord, et rien qui n’attend
       signalementsDuJour: { questions: 1, joueurs: 3 },
       signalementsDeLaCampagne: { questions: 2, joueurs: 4 },
       catalogue: 2,
-      rappel: { jour: '2026-10-12', envoyes: 87, echecs: 3 },
+      rappel: { jour: '2026-10-12', envoyes: 78, echecs: 12 },
     },
     { soirees: [enPlan], miroir: { enAttente: 12, echecsConsecutifs: 4, enEchecDepuis: '2026-10-13T19:00:00.000Z', espacesEnRetard: 1 } },
   )
   // Les signalements des deux modes se relisent sur une seule page depuis le
   // 14 octobre 2026 (« Une page qui remplace les sections ») : une seule
   // ligne, qui dit d'où viennent ses questions — deux lignes menaient à deux
-  // pages qui ne les montrent plus.
+  // pages qui ne les montrent plus. Chaque ligne à la gravité de sa règle, la
+  // plus grave d'abord (la revue d'ergonomie du 4 novembre 2026 : la réserve
+  // était rouge ici, « à surveiller » sur la page des alertes) ; ce qui
+  // attend sans rien casser — relire, clore — après.
   assert.deepEqual(
-    choses.map(c => c.cle),
-    ['miroir', 'reserve', 'signalements', 'catalogue', 'en-plan-tom', 'rappel'],
-  )
-  assert.deepEqual(
-    choses.filter(c => c.alerte).map(c => c.cle),
-    ['miroir', 'reserve'],
+    choses.map(c => [c.cle, c.gravite]),
+    [
+      ['miroir', 'critique'],
+      ['reserve', 'veille'],
+      ['rappel', 'veille'],
+      ['signalements', 'a-faire'],
+      ['catalogue', 'a-faire'],
+      ['en-plan-tom', 'a-faire'],
+    ],
   )
   assert.equal(choses[1].detail, '6 jours d’avance, l’alerte est à 7')
   assert.deepEqual(
-    [choses[2].titre, choses[2].detail, choses[2].ecran],
+    [choses[3].titre, choses[3].detail, choses[3].ecran],
     ['3 questions signalées', '1 au quiz du jour (3 joueurs) · 2 en campagne (4 joueurs)', 'signalements'],
     'les joueurs se comptent par mode : le même signale peut-être aux deux',
   )
-  assert.equal(choses[3].titre, '2 copies à relire')
-  assert.equal(choses[4].detail, 'Le salon de Tom, 9 invités')
-  assert.equal(choses[5].detail, '3 envois en échec sur 90')
+  assert.equal(choses[4].titre, '2 copies à relire')
+  assert.equal(choses[5].detail, 'Le salon de Tom, 9 invités')
+  // Le rappel du soir, jugé comme sa règle : 12 échecs sur 90 passent les dix pour cent, et la ligne mène à sa page.
+  assert.deepEqual([choses[2].detail, choses[2].ecran], ['12 envois en échec sur 90', 'jour'])
+  // Les soirées qui ne se sauvegardent plus mènent à « Base et miroir », qui montre chaque salon : la ligne n'ouvrait rien.
+  assert.deepEqual([choses[0].titre, choses[0].ecran], ['Les soirées ne se sauvegardent plus', 'base'])
+  // Trois échecs sur quatre-vingt-dix ne sont pas une panne : sa règle se tait, la ligne aussi — elle le disait.
+  const peu = { ...calme, rappel: { jour: '2026-10-12', envoyes: 87, echecs: 3 } }
+  assert.deepEqual(lesChosesATraiter(peu, null), [])
+  // Un seuil réglé vaut ici comme sur la page des alertes : à deux pour cent, les trois échecs se disent.
+  assert.deepEqual(
+    lesChosesATraiter(peu, { soirees: [], miroir: null, seuils: { rappel: 2 } }).map(c => c.cle),
+    ['rappel'],
+  )
   assert.equal(lesChosesATraiter({ ...calme, catalogue: 1 }, null)[0].detail, 'proposée au catalogue')
   const uneSeule = lesChosesATraiter({ ...calme, signalementsDeLaCampagne: { questions: 1, joueurs: 1 } }, null)
   assert.deepEqual([uneSeule[0].titre, uneSeule[0].detail], ['Une question signalée', '1 en campagne (1 joueur)'])
@@ -476,11 +493,17 @@ test('l’état du service : ce qui ne va pas d’abord, d’un mot et d’un ch
   assert.deepEqual(vert.map(v => v.cle), ['modes', 'ressenti', 'erreurs', 'arret', 'base', 'memoire', 'processeur', 'miroir', 'quota', 'version'])
   assert.ok(vert.every(v => v.etat === 'ok'))
   assert.deepEqual(phraseDeLEtat(vert), { aRegarder: 0, phrase: 'Tout est au vert' })
-  assert.equal(vert[1].detail.replace(/[  ]/g, ' '), '238 ms au 95ᵉ centile · 1280 appels')
-  assert.equal(vert[7].detail, '3 écritures en attente')
+  assert.equal(vert[1].detail.replace(/[  ]/g, ' '), '238 ms pour 19 appels sur 20 · 1280 cette minute')
+  assert.deepEqual([vert[7].nom, vert[7].detail, vert[7].ecran], ['Sauvegarde des soirées', '3 écritures en attente', 'base'])
   assert.equal(vert[9].nom, 'Version a41c9e2')
-  // Des erreurs à regarder, la mémoire au plafond, un ressenti lent : le critique d'abord, dans l'ordre des organes,
-  // puis ce qui est à surveiller — le regard tombe sur le rouge, pas sur la sixième case.
+  // Turso et son quota mènent à « Base et miroir », qui les montre : ils ouvraient « Le serveur », qui ne les montre plus.
+  assert.deepEqual(
+    vert.filter(v => v.cle === 'base' || v.cle === 'quota').map(v => v.ecran),
+    ['base', 'base'],
+  )
+  // Des erreurs à regarder, la mémoire au plafond, un ressenti lent : chacun à la gravité de sa règle — les erreurs et
+  // la mémoire sérieuses, comme sur la page des alertes —, le plus grave d'abord, dans l'ordre des organes, puis ce qui
+  // est à surveiller : le regard tombe sur le rouge, pas sur la sixième case.
   const mal = etatDuService(
     { ...direct, serveur: { ...direct.serveur, memoireMo: 470, routesP95Ms: 950 } },
     { ...auVert, erreurs: { n: 2, depuis: maintenant - H, source: 'GET /api/jour' } },
@@ -488,13 +511,28 @@ test('l’état du service : ce qui ne va pas d’abord, d’un mot et d’un ch
   assert.deepEqual(
     mal.slice(0, 3).map(v => [v.cle, v.etat]),
     [
-      ['erreurs', 'critique'],
-      ['memoire', 'critique'],
+      ['erreurs', 'serieux'],
+      ['memoire', 'serieux'],
       ['ressenti', 'veille'],
     ],
   )
   assert.equal(mal[0].ecran, 'erreurs')
   assert.deepEqual(phraseDeLEtat(mal), { aRegarder: 3, phrase: 'Trois points à regarder' })
+  // Les seuils réglés valent ici comme pour les règles : 950 ms sous un ressenti réglé à une seconde, 470 Mo sous une
+  // mémoire réglée à 480, sont au vert.
+  const regles = etatDuService(
+    { ...direct, serveur: { ...direct.serveur, memoireMo: 470, routesP95Ms: 950 }, seuils: { ressenti: 1000, memoire: 480 } },
+    auVert,
+  )
+  assert.deepEqual(
+    regles.filter(v => v.cle === 'ressenti' || v.cle === 'memoire').map(v => [v.cle, v.etat]),
+    [
+      ['ressenti', 'ok'],
+      ['memoire', 'ok'],
+    ],
+  )
+  // Et une minute de trois appels ne juge pas ce qu'un joueur attend : sa règle en veut vingt.
+  assert.equal(etatDuService({ ...direct, serveur: { ...direct.serveur, routesP95Ms: 4000, routesParMin: 3 } }, auVert).find(v => v.cle === 'ressenti')?.etat, 'ok')
   // Un mode en panne se nomme ; un miroir en échec aussi, à son heure.
   const panne = etatDuService(
     { ...direct, miroir: { enAttente: 40, echecsConsecutifs: 6, enEchecDepuis: new Date(maintenant - 10 * 60_000).toISOString(), espacesEnRetard: 2 } },
@@ -594,27 +632,29 @@ test('le poste de commande se lit d’un coup d’œil : l’état du service, c
     .replace(/ /g, ' ')
   assert.doesNotMatch(html, /undefined|NaN/)
 
-  // Le direct : une soirée en cours, l'autre laissée en plan ; le miroir à jour.
+  // Le direct : une soirée en cours, l'autre laissée en plan ; la sauvegarde des soirées à jour.
   assert.match(html, /<span class="admin-cadran-chiffre num">1<\/span><span class="admin-cadran-nom">soirée en cours<\/span><span class="admin-cadran-detail">et 1 laissée en plan<\/span>/)
-  assert.match(html, /miroir à jour · Turso 84 ms/)
+  assert.match(html, /sauvegarde à jour · Turso 84 ms/)
   // L'état du service : la phrase, puis les dix voyants — tout au vert ici, chacun son chiffre.
   assert.match(html, /<span class="qg-etat-phrase">Tout est au vert<\/span>/)
   assert.equal([...html.matchAll(/<li class="qg-voyant-bloc /g)].length, 10)
   assert.match(html, /<b>Mémoire<\/b><span class="qg-voyant-detail">212 sur 512 Mo<span class="sr-only"> — au vert<\/span><\/span>/)
-  // Ce qui attend un geste, le plus pressé d'abord, et l'alerte marquée ; ce qui a sa page s'ouvre d'un toucher,
-  // le reste se lit — la soirée laissée en plan, sur la page des soirées qui la clôt.
-  const lignes = [...html.matchAll(/<(button type="button"|div) class="qg-ligne( qg-ligne-alerte)?">.*?<b>([^<]+)<\/b>/g)].map(m => [
+  // Ce qui attend un geste, le plus pressé d'abord, chaque ligne à la gravité de sa règle ; ce qui a sa page s'ouvre
+  // d'un toucher, le reste se lit — la soirée laissée en plan, sur la page des soirées qui la clôt.
+  const lignes = [...html.matchAll(/<(button type="button"|div) class="qg-ligne qg-ligne-([a-z-]+)">.*?<b>([^<]+)<\/b>/g)].map(m => [
     m[1] === 'div' ? 'lu' : 'ouvre',
     m[3],
-    m[2] ? 'alerte' : '',
+    m[2],
   ])
   assert.deepEqual(lignes, [
-    ['ouvre', 'La réserve du quiz du jour', 'alerte'],
+    ['ouvre', 'La réserve du quiz du jour', 'veille'],
     // Une ligne pour les deux modes, qui ouvre leur page (le 14 octobre 2026).
-    ['ouvre', 'Une question signalée', ''],
-    ['ouvre', 'Une copie à relire', ''],
-    ['ouvre', 'Une soirée laissée en plan', ''],
+    ['ouvre', 'Une question signalée', 'a-faire'],
+    ['ouvre', 'Une copie à relire', 'a-faire'],
+    ['ouvre', 'Une soirée laissée en plan', 'a-faire'],
   ])
+  // Elle n'est pas vide : au téléphone, elle passe avant l'état du service (la revue d'ergonomie du 4 novembre 2026).
+  assert.ok(html.indexOf('qg-traiter') < html.indexOf('qg-etat-du-service'), '« À traiter » d’abord quand quelque chose attend')
   // Les tuiles de la période — la journée, d'office : le chiffre, l'écart à la période d'avant, qui se dit aussi au
   // lecteur d'écran. Vingt-quatre joueurs, chacun une fois — les deux profils de la soirée et les dix-huit invités
   // sans profil, les six profils qui ont joué seuls —, contre vingt la veille.

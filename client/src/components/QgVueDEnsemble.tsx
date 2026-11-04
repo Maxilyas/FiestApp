@@ -18,11 +18,14 @@ import {
   type SoireeDuQg,
   type VueDEnsemble,
 } from '../../../shared/qg'
-import { PERIODE_EN_TOUTES_LETTRES, ecartALaPeriodeDAvant, type ActiviteDUnePeriode, type PeriodeDuQg } from '../../../shared/qgPeriodes'
+import { PAS_EN_MOTS, PERIODE_EN_TOUTES_LETTRES, ecartALaPeriodeDAvant, type ActiviteDUnePeriode, type PeriodeDuQg } from '../../../shared/qgPeriodes'
 import { etatDuService, phraseDeLEtat, type VoyantDuService } from '../../../shared/qgEtat'
 
 /** Les écrans du QG qu'une chose à traiter, un voyant ou une tuile ouvrent — la tuile d'un mode, sa page. */
-type EcranATraiter = NonNullable<ChoseATraiter['ecran']> | 'campagne' | 'cabinet' | 'duels'
+type EcranATraiter = NonNullable<ChoseATraiter['ecran'] | VoyantDuService['ecran']> | 'campagne' | 'cabinet' | 'duels'
+
+/** Ouvrir un écran du QG, à l'onglet où l'on agit s'il y en a un : « Ce qui gèle », pour un gel long. */
+type Ouvrir = (e: EcranATraiter, onglet?: string) => void
 
 /**
  * Le poste de commande du QG 2 (`/admin`, la proposition du 3 novembre 2026
@@ -35,8 +38,12 @@ type EcranATraiter = NonNullable<ChoseATraiter['ecran']> | 'campagne' | 'cabinet
  * chiffres : où elles en sont, combien d'invités, jamais un prénom ni un quiz
  * (`server/src/qg.ts`).
  *
- * Au téléphone, une colonne : l'état, ce qui attend un geste, les chiffres,
- * puis le reste. À l'ordinateur, la grille de la maquette (`.qg-poste`).
+ * Ce qui attend un geste se lit au premier écran (la revue d'ergonomie du
+ * 4 novembre 2026 : il tombait sous la ligne de flottaison, en 1366 × 768
+ * comme au téléphone) : au téléphone, avant l'état dès qu'il n'est pas vide ;
+ * à l'ordinateur, en colonne de droite dès la première rangée, à côté de
+ * l'état et des chiffres (`.qg-poste`). Les voyants au vert se replient
+ * partout : ce qui ne va pas reste dehors.
  */
 export function VueDEnsembleDuQg({
   vue,
@@ -52,16 +59,18 @@ export function VueDEnsembleDuQg({
   /** La dernière lecture a échoué : on montre la précédente, et on le dit. */
   vueEnPanne: boolean
   directEnPanne: boolean
-  ouvrir: (e: EcranATraiter) => void
+  ouvrir: Ouvrir
   periode?: PeriodeDuQg
   /** La période d'avant en filet sur le graphique — l'écart des tuiles se dit toujours. */
   comparer?: boolean
 }) {
   const choses = lesChosesATraiter(vue?.aTraiter ?? null, direct, direct?.maintenant ?? vue?.maintenant)
+  const aTraiter = <ATraiter choses={choses} chargement={!vue && !direct && !vueEnPanne} ouvrir={ouvrir} />
   return (
     <div className="qg-poste">
+      {choses.length > 0 && aTraiter}
       <EtatDuService direct={direct} vue={vue} enPanne={directEnPanne} ouvrir={ouvrir} />
-      <ATraiter choses={choses} chargement={!vue && !direct && !vueEnPanne} ouvrir={ouvrir} />
+      {choses.length === 0 && aTraiter}
       <ChiffresDeLaPeriode vue={vue} periode={periode} ouvrir={ouvrir} />
       <Participations vue={vue} enPanne={vueEnPanne} periode={periode} comparer={comparer} />
       <EnCeMoment direct={direct} enPanne={directEnPanne} />
@@ -77,12 +86,13 @@ const ETAT_DIT: Record<VoyantDuService['etat'], string> = { ok: 'au vert', veill
 
 /**
  * Les voyants du serveur, ce qui ne va pas d'abord (`etatDuService`) : un mot
- * et un chiffre chacun, et la page qui en dit plus. Au téléphone, ceux au
- * vert se replient derrière « Voir les dix voyants » : dix cases sur cinq
- * rangées repoussaient « À traiter » sous le pli, et ce qui ne va pas reste
- * toujours dehors (`.qg-etat-replie`, sans effet à l'ordinateur).
+ * et un chiffre chacun, et la page où l'on agit. Ceux au vert se replient
+ * derrière « Voir les dix voyants » : dix cases sur cinq rangées repoussaient
+ * « À traiter » sous le pli au téléphone, et à l'ordinateur deux rangées de
+ * vert prenaient la place de ce qui attend ; ce qui ne va pas reste toujours
+ * dehors (`.qg-etat-replie`).
  */
-function EtatDuService({ direct, vue, enPanne, ouvrir }: { direct: DirectDuQg | null; vue: VueDEnsemble | null; enPanne: boolean; ouvrir: (e: EcranATraiter) => void }) {
+function EtatDuService({ direct, vue, enPanne, ouvrir }: { direct: DirectDuQg | null; vue: VueDEnsemble | null; enPanne: boolean; ouvrir: Ouvrir }) {
   const [tout, setTout] = useState(false)
   const voyants = etatDuService(direct, vue?.aTraiter.serveur ?? null)
   const { aRegarder, phrase } = phraseDeLEtat(voyants)
@@ -145,7 +155,7 @@ const PAGE_DU_MODE: Record<ModeDuQg, EcranATraiter> = { soiree: 'soirees', campa
 
 const somme = (parties: Record<ModeDuQg, number>) => MODES_DU_QG.reduce((n, m) => n + parties[m], 0)
 
-function ChiffresDeLaPeriode({ vue, periode, ouvrir }: { vue: VueDEnsemble | null; periode: PeriodeDuQg; ouvrir: (e: EcranATraiter) => void }) {
+function ChiffresDeLaPeriode({ vue, periode, ouvrir }: { vue: VueDEnsemble | null; periode: PeriodeDuQg; ouvrir: Ouvrir }) {
   const a: ActiviteDUnePeriode | undefined = vue?.periodes?.[periode]
   const avant = a?.avant?.totaux
   const t = a?.totaux
@@ -194,9 +204,9 @@ export const COMPTES_DU_GRAPHE = ['joueurs', 'participations'] as const
 export type CompteDuGraphe = (typeof COMPTES_DU_GRAPHE)[number]
 
 const NOM_DU_COMPTE: Record<CompteDuGraphe, string> = { joueurs: 'Joueurs', participations: 'Participations' }
-const REGLE_DU_COMPTE: Record<CompteDuGraphe, string> = {
-  joueurs: 'Chaque personne compte une fois par seau, à quoi qu’elle joue',
-  participations: 'Chaque partie compte, qui que ce soit ; en soirée, chaque invité qui a joué',
+const REGLE_DU_COMPTE: Record<CompteDuGraphe, (periode: PeriodeDuQg) => string> = {
+  joueurs: periode => `Chaque personne compte une fois ${PAS_EN_MOTS[periode].par}, à quoi qu’elle joue`,
+  participations: () => 'Chaque partie compte, qui que ce soit ; en soirée, chaque invité qui a joué',
 }
 
 const HEURE = 3_600_000
@@ -272,8 +282,10 @@ export function Participations({
       <div className="qg-console-tete">
         <div>
           <span className="qg-etiquette">{NOM_DU_COMPTE[quoi]}</span>
-          <h2 id="qg-participations-titre">Seau par seau, sur {PERIODE_EN_TOUTES_LETTRES[periode]}</h2>
-          <span className="muted small">{REGLE_DU_COMPTE[quoi]}</span>
+          <h2 id="qg-participations-titre">
+            {PAS_EN_MOTS[periode].titre}, sur {PERIODE_EN_TOUTES_LETTRES[periode]}
+          </h2>
+          <span className="muted small">{REGLE_DU_COMPTE[quoi](periode)}</span>
         </div>
         <div className="onglets onglets-puces" role="group" aria-label="Ce que le graphique compte">
           {COMPTES_DU_GRAPHE.map(q => (
@@ -321,13 +333,13 @@ export function Participations({
           )}
           {/* Rendu à l'ouverture seulement : replié, le tableau n'a pas à se construire. */}
           <details className="qg-tableau" onToggle={e => setTableau(e.currentTarget.open)}>
-            <summary>Les chiffres, seau par seau</summary>
+            <summary>Les chiffres, en tableau</summary>
             {tableau && (
               <table>
-                <caption className="sr-only">{`${NOM_DU_COMPTE[quoi]} par seau et par mode`}</caption>
+                <caption className="sr-only">{`${NOM_DU_COMPTE[quoi]} ${PAS_EN_MOTS[periode].par} et par mode`}</caption>
                 <thead>
                   <tr>
-                    <th scope="col">Seau</th>
+                    <th scope="col">Quand</th>
                     {MODES_DU_QG.map(m => (
                       <th key={m} scope="col">
                         {NOM_DU_MODE[m]}
@@ -397,7 +409,7 @@ function EnCeMoment({ direct, enPanne }: { direct: DirectDuQg | null; enPanne: b
                 ? `Turso en échec depuis ${heureEcrite(Date.parse(miroir.enEchecDepuis))}`
                 : miroir.espacesEnRetard > 0
                   ? `${miroir.espacesEnRetard} salon${miroir.espacesEnRetard > 1 ? 's' : ''} en retard`
-                  : `miroir à jour${typeof base === 'number' ? ` · Turso ${formatNumber(base)} ms` : ''}`
+                  : `sauvegarde à jour${typeof base === 'number' ? ` · Turso ${formatNumber(base)} ms` : ''}`
           }
         />
       </div>
@@ -419,55 +431,68 @@ function Cadran({ chiffre, nom, detail, alerte }: { chiffre?: number; nom: strin
 // ── À traiter ─────────────────────────────────────────────────────────────
 
 function iconeDe(c: ChoseATraiter): IconName {
-  if (c.alerte) return 'alert'
+  if (c.gravite !== 'a-faire') return 'alert'
   if (c.cle.startsWith('signalements')) return 'flag'
   if (c.cle === 'catalogue') return 'globe'
   if (c.cle.startsWith('en-plan')) return 'clock'
   return 'bell'
 }
 
-function ATraiter({ choses, chargement, ouvrir }: { choses: ChoseATraiter[]; chargement: boolean; ouvrir: (e: EcranATraiter) => void }) {
+/** Ce que la gravité d'une ligne dit à l'oreille, l'icône et la couleur ne se lisant pas. */
+const GRAVITE_DITE: Record<ChoseATraiter['gravite'], string> = { critique: 'critique', serieux: 'sérieux', veille: 'à surveiller', 'a-faire': 'à faire' }
+
+function ATraiter({ choses, chargement, ouvrir }: { choses: ChoseATraiter[]; chargement: boolean; ouvrir: Ouvrir }) {
   return (
     <section className="qg-console qg-traiter" aria-labelledby="qg-traiter-titre">
       <div className="qg-console-tete">
         <h2 id="qg-traiter-titre">À traiter</h2>
         {choses.length > 0 && <span className="etiquette num">{choses.length}</span>}
       </div>
-      {chargement ? (
-        <p className="serif-note">Chargement…</p>
-      ) : choses.length === 0 ? (
-        <p className="muted small">Rien n’attend de geste : la réserve tient, personne ne signale rien.</p>
-      ) : (
-        <ul className="qg-liste">
-          {choses.map(c => {
-            const ecran = c.ecran
-            const contenu = (
-              <>
-                <span className={'qg-rond' + (c.alerte ? ' qg-rond-alerte' : '')}>
-                  <Icon name={iconeDe(c)} />
-                </span>
-                <span className="qg-ligne-texte">
-                  <b>{c.titre}</b>
-                  <span className="muted small">{c.detail}</span>
-                </span>
-                {ecran && <Icon name="chevron-right" className="qg-chevron" />}
-              </>
-            )
-            return (
-              <li key={c.cle}>
-                {ecran ? (
-                  <button type="button" className={'qg-ligne' + (c.alerte ? ' qg-ligne-alerte' : '')} onClick={() => ouvrir(ecran)}>
-                    {contenu}
-                  </button>
-                ) : (
-                  <div className={'qg-ligne' + (c.alerte ? ' qg-ligne-alerte' : '')}>{contenu}</div>
-                )}
-              </li>
-            )
-          })}
-        </ul>
-      )}
+      <ListeATraiter choses={choses} chargement={chargement} ouvrir={ouvrir} />
     </section>
+  )
+}
+
+/**
+ * Ce qui attend un geste, la plus pressée d'abord, chaque ligne à la gravité de
+ * sa règle et menant où l'on agit — au poste de commande, et dans la feuille
+ * que la pastille de la barre ouvre de n'importe quelle page.
+ */
+export function ListeATraiter({ choses, chargement, ouvrir }: { choses: ChoseATraiter[]; chargement: boolean; ouvrir: Ouvrir }) {
+  if (chargement) return <p className="serif-note">Chargement…</p>
+  if (choses.length === 0) return <p className="muted small">Rien n’attend de geste : la réserve tient, personne ne signale rien.</p>
+  return (
+    <ul className="qg-liste qg-a-traiter">
+      {choses.map(c => {
+        const ecran = c.ecran
+        const contenu = (
+          <>
+            <span className={`qg-rond qg-rond-${c.gravite}`}>
+              <Icon name={iconeDe(c)} />
+            </span>
+            <span className="qg-ligne-texte">
+              <b>{c.titre}</b>
+              <span className="muted small">
+                <span className="sr-only">{GRAVITE_DITE[c.gravite]} : </span>
+                {c.detail}
+              </span>
+            </span>
+            {ecran && <Icon name="chevron-right" className="qg-chevron" />}
+          </>
+        )
+        return (
+          <li key={c.cle}>
+            {ecran ? (
+              <button type="button" className={`qg-ligne qg-ligne-${c.gravite}`} onClick={() => ouvrir(ecran, c.onglet)}>
+                {contenu}
+              </button>
+            ) : (
+              <div className={`qg-ligne qg-ligne-${c.gravite}`}>{contenu}</div>
+            )}
+          </li>
+        )
+      })}
+    </ul>
   )
 }
 
@@ -568,12 +593,13 @@ function LeServeur({ direct, vue, ouvrir }: { direct: DirectDuQg | null; vue: Vu
           <dt>Processeur</dt>
           <dd className="num">{s ? `${pourcents(s.cpuPct)} d’un cœur` : '–'}</dd>
         </div>
+        {/* Les mots de l'administrateur, pas ceux de l'ingénieur : « Boucle occupée », « 95ᵉ centile » ne se lisaient pas. */}
         <div>
-          <dt>Boucle occupée</dt>
+          <dt>Serveur occupé</dt>
           <dd className="num">{s ? pourcents(s.bouclePct) : '–'}</dd>
         </div>
         <div>
-          <dt>Turso, 95ᵉ centile</dt>
+          <dt>Turso, 19 allers-retours sur 20</dt>
           <dd className="num">{s?.baseP95Ms == null ? '–' : `${formatNumber(s.baseP95Ms)} ms`}</dd>
         </div>
         <div>

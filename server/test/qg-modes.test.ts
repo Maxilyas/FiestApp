@@ -410,7 +410,8 @@ test('le gabarit d’un mode se lit d’un coup d’œil : ses tuiles sur la pé
     // Trois parties contre une la veille : sous vingt, le chiffre d'avant.
     '1 avant',
     'La réserve',
-    'Seau par seau, sur les dernières 24 heures',
+    // Le pas en mots : « seau par seau » ne se lisait que de qui l'avait écrit (la revue d'ergonomie du 4 novembre 2026).
+    'Heure par heure, sur les dernières 24 heures',
     'aria-pressed="true">Joueurs</button>',
     'class="qg-mode-jour"',
     // La période d'avant, en filet, puisqu'on compare.
@@ -454,6 +455,6 @@ test('le gabarit d’un mode se lit d’un coup d’œil : ses tuiles sur la pé
   // du Cabinet y est une épreuve de sa traversée ; aux duels, un duel — chaque côté, contre Automate compris.
   const cabinet = rendre({ mode: 'cabinet', vue, periode: '24h', sansTuiles: true, enCeMoment: React.createElement('span', null, '3 traversées en route') })
   assert.ok(!cabinet.includes('qg-chiffres') && !cabinet.includes('qg-tuile-nom'), 'ni tuiles ni « Sur les dernières 24 heures » : la page a les siennes')
-  for (const attendu of ['Seau par seau, sur les dernières 24 heures', '>Épreuves</button>', 'En ce moment', '3 traversées en route']) assert.ok(cabinet.includes(attendu), `le Cabinet dit « ${attendu} »`)
+  for (const attendu of ['Heure par heure, sur les dernières 24 heures', '>Épreuves</button>', 'En ce moment', '3 traversées en route']) assert.ok(cabinet.includes(attendu), `le Cabinet dit « ${attendu} »`)
   assert.ok(rendre({ mode: 'duel', vue, periode: '24h' }).includes('<span class="qg-tuile-nom"><i class="qg-tuile-cle qg-mode-duel" aria-hidden="true"></i>Duels</span>'))
 })

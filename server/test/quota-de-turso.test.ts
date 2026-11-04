@@ -203,12 +203,13 @@ test('le mois se projette au rythme des heures comptées — les heures endormie
     routine: { jour: null, campagne: null },
     serveur: alertes,
   }
+  // À surveiller, comme sa règle, et il mène à « Base et miroir », où le quota se lit depuis le QG 2.
   const [chose] = lesChosesATraiter(aTraiter, null, MAINTENANT)
-  assert.deepEqual([chose.cle, chose.alerte, chose.ecran], ['quota', false, 'serveur'])
+  assert.deepEqual([chose.cle, chose.gravite, chose.ecran], ['quota', 'veille', 'base'])
   assert.match(sansInsecables(chose.detail), /^[\d,]+ millions de lignes lues en trente jours à ce rythme : [\d,]+ % du quota$/)
-  // Au-delà des quatre cinquièmes, en rouge.
+  // Au-delà des quatre cinquièmes, critique : la base s'arrêterait bientôt pour tous.
   const rouge = alertesDuServeur({ recentes: [], demarrages: [], memoireMo: null, maintenant: MAINTENANT, courant: 'c', quota: { ...quota, part: 85 } })
-  assert.equal(lesChosesATraiter({ ...aTraiter, serveur: rouge }, null, MAINTENANT)[0].alerte, true)
+  assert.equal(lesChosesATraiter({ ...aTraiter, serveur: rouge }, null, MAINTENANT)[0].gravite, 'critique')
   // Sous la moitié, rien ; et un rythme de moins d'un jour ne se juge pas : un réveil relit tout le journal d'un coup.
   assert.equal(alertesDuServeur({ recentes: [], demarrages: [], memoireMo: null, maintenant: MAINTENANT, courant: 'c', quota: { ...quota, part: 40 } }).quota, null)
   const unReveil = quotaDuMois([ligne(debutDeLHeure(MAINTENANT), 'c', { appels: 30, lues: 2_000_000, ecrites: 0, lourdes: [] })], MAINTENANT)!

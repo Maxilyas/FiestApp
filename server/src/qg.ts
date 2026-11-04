@@ -378,6 +378,8 @@ export function mountQg(app: Express, deps: QgDeps) {
         routesParMin: routes.n,
         connexions: deps.io.engine.clientsCount,
       },
+      // Les seuils réglés des alertes : le poste de commande et le direct y jugent leurs voyants et leurs compteurs.
+      ...(deps.regles && { seuils: deps.regles.seuils() }),
     }
   }
 

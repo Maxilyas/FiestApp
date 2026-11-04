@@ -73,10 +73,23 @@ const erreursDeLHeure = (h: HeureDuServeur) =>
  * comparées. La page se relit à chaque période ; le serveur ne relit la base
  * qu'une fois la minute. Turso et son quota ont leur page, « Base et miroir ».
  */
-export function QgServeur({ periode = '7j', versLesErreurs }: { periode?: PeriodeDuServeur; versLesErreurs?: () => void }) {
+export function QgServeur({
+  periode = '7j',
+  versLesErreurs,
+  onglet: ongletDeLAdresse,
+  changerDOnglet,
+}: {
+  periode?: PeriodeDuServeur
+  versLesErreurs?: () => void
+  /** L'onglet de l'adresse (`/admin#serveur/gels`), quand le QG la tient : une alerte « Gel long » ouvre « Ce qui gèle ». */
+  onglet?: string | null
+  changerDOnglet?: (o: OngletDuServeur) => void
+}) {
   const [page, setPage] = useState<PageDuServeur | null>(null)
   const [error, setError] = useState('')
-  const [onglet, setOnglet] = useState<OngletDuServeur>('signaux')
+  const [ongletLocal, setOngletLocal] = useState<OngletDuServeur>('signaux')
+  const onglet: OngletDuServeur = changerDOnglet ? (estUnOngletDuServeur(ongletDeLAdresse) ? ongletDeLAdresse : 'signaux') : ongletLocal
+  const setOnglet = changerDOnglet ?? setOngletLocal
   const [relue, setRelue] = useState(false)
   useEffect(() => {
     // Une période changée en route : la réponse de la précédente, arrivée après, ne la remplace pas.
@@ -109,7 +122,9 @@ export function QgServeur({ periode = '7j', versLesErreurs }: { periode?: Period
 }
 
 /** Les onglets de la page : les signaux d'abord — ce qui s'y voit en premier, c'est ce qu'un joueur vit. */
-export type OngletDuServeur = 'signaux' | 'routes' | 'temps-reel' | 'gels' | 'versions'
+export const ONGLETS_DU_SERVEUR = ['signaux', 'routes', 'temps-reel', 'gels', 'versions'] as const
+export type OngletDuServeur = (typeof ONGLETS_DU_SERVEUR)[number]
+const estUnOngletDuServeur = (o: unknown): o is OngletDuServeur => (ONGLETS_DU_SERVEUR as readonly unknown[]).includes(o)
 
 /** « sur la dernière heure, cinq minutes par cinq minutes » : ce que les graphiques montrent. */
 const SUR_LA_PERIODE: Record<PeriodeDuServeur, { titre: string; pas: string }> = {

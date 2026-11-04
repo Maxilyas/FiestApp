@@ -14424,15 +14424,17 @@ body:has(.player-shell.qg) {
    légende paraissait d'un autre corps que son nom. */
 .qg .num { font-family: var(--sans); }
 
-/* La barre de commande : où l'on est, la période de la page, l'état du service, « Aller à… ». Collée en haut,
-   l'encoche d'un téléphone comprise ; au téléphone, la période passe sur sa propre rangée. Pas `.qg-barre` : c'est
-   une barre du graphique des soirées, plus bas, dont la règle en faisait une colonne. */
+/* La barre de commande : où l'on est, la période de la page, ce qui attend un geste, « Aller à… ». Collée en haut,
+   l'encoche d'un téléphone comprise ; au téléphone, une seule rangée — où l'on est, la période dans un bouton, la
+   loupe — : ce qui attend et le direct sont dans la barre du bas, et la rangée des périodes prenait la moitié de
+   l'écran collé (la revue d'ergonomie du 4 novembre 2026). Pas `.qg-barre` : c'est une barre du graphique des
+   soirées, plus bas, dont la règle en faisait une colonne. */
 .qg-commande {
   position: sticky;
   top: 0;
   z-index: 30;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 8px 10px;
   margin-inline: calc(-1 * var(--qg-gouttiere));
@@ -14460,9 +14462,16 @@ body:has(.player-shell.qg) {
 }
 .qg-bouton:hover { border-color: rgba(217, 181, 106, 0.45); color: var(--ink); }
 .qg-bouton .icon { width: 17px; height: 17px; }
-.qg-ariane { display: none; min-width: 0; font-size: 0.8125rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Au téléphone, où l'on est prend la place qui reste, coupé s'il le faut : à sa largeur, il poussait la loupe à la ligne. */
+.qg-ariane { flex: 1 1 0; min-width: 0; font-size: 0.8125rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .qg-ariane b { color: var(--ink); font-weight: 600; }
-.qg-periodes { order: 5; flex: 1 1 auto; display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--qg-trait-fort); border-radius: 10px; background: rgba(255, 255, 255, 0.03); }
+.qg-periodes { display: none; gap: 2px; padding: 3px; border: 1px solid var(--qg-trait-fort); border-radius: 10px; background: rgba(255, 255, 255, 0.03); }
+/* Au téléphone, la période de la page dans un bouton, qui ouvre sa feuille ; à l'ordinateur, la rangée entière. */
+.qg-periode-courte { gap: 6px; font-family: var(--sans); font-variant-numeric: lining-nums tabular-nums; }
+.qg-periode-courte .icon:last-child { width: 14px; height: 14px; }
+.qg-periodes-feuille { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+.qg-periodes-feuille .qg-bouton { justify-content: center; min-height: 48px; font-size: 0.9rem; }
+.qg-bouton[aria-pressed='true'] { border-color: rgba(217, 181, 106, 0.5); background: var(--accent-soft); color: var(--accent-text-hover); }
 .qg-periodes button {
   flex: 1 1 0;
   min-height: 32px;
@@ -14480,7 +14489,6 @@ body:has(.player-shell.qg) {
 /* Sur l'or pâle, l'or du survol : celui du texte, fait pour la nuit nue, y perdait de son contraste (règle `css.md`). */
 .qg-periodes button[aria-pressed='true'] { background: var(--accent-soft); color: var(--accent-text-hover); box-shadow: inset 0 0 0 1px rgba(217, 181, 106, 0.3); }
 .qg-bascule {
-  order: 6;
   flex: none;
   display: inline-flex;
   align-items: center;
@@ -14501,7 +14509,10 @@ body:has(.player-shell.qg) {
 .qg-bascule[aria-pressed='true'] .qg-interrupteur { background: rgba(217, 181, 106, 0.55); }
 .qg-bascule[aria-pressed='true'] .qg-interrupteur::after { transform: translateX(11px); background: #fff; }
 .qg-commande-droite { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-.qg-vif { display: inline-flex; align-items: center; gap: 8px; font: 500 0.75rem/1.2 var(--qg-mono); color: var(--muted); white-space: nowrap; }
+/* Au téléphone, « Comparer » vit dans la feuille de la période, et ce qui attend dans la barre du bas. */
+.qg-commande > .qg-bascule,
+.qg-commande .qg-etat-pastille { display: none; }
+.qg-vif { display: inline-flex; align-items: center; gap: 8px; font: 500 0.75rem/1.2 var(--sans); color: var(--muted); white-space: nowrap; }
 /* Le pouls du direct : un point, et l'onde qui en part — il vit tant que le serveur répond. */
 .qg-vif-point { position: relative; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--en-ligne); }
 .qg-vif-point::after { content: ''; position: absolute; inset: -4px; border: 1.5px solid var(--en-ligne); border-radius: 50%; animation: qg-onde 1.8s ease-out infinite; }
@@ -14510,8 +14521,10 @@ body:has(.player-shell.qg) {
   to { transform: scale(1.9); opacity: 0; }
 }
 .qg-vif-perdu { color: var(--qg-critique-texte); }
-.qg-vif-perdu .qg-vif-point { background: var(--qg-critique); }
-.qg-vif-perdu .qg-vif-point::after { display: none; }
+.qg-vif-perdu .qg-vif-point,
+.qg-vif-point.qg-vif-point-perdu { background: var(--qg-critique); }
+.qg-vif-perdu .qg-vif-point::after,
+.qg-vif-point.qg-vif-point-perdu::after { display: none; }
 /* Au téléphone, le pouls se tait tant qu'il bat : l'état du service le dit à côté. Perdu, il se dit. */
 .qg-commande .qg-vif:not(.qg-vif-perdu) { display: none; }
 /* « Direct » dans la barre : un bouton, qui ouvre la page du direct (le QG 2, lot 3). */
@@ -14537,28 +14550,51 @@ button.qg-vif[aria-current='page'] { border-color: var(--qg-trait-fort); color: 
   white-space: nowrap;
   cursor: pointer;
 }
-.qg-etat-pastille-alerte { border-color: rgba(229, 72, 77, 0.5); background: rgba(229, 72, 77, 0.12); color: var(--qg-critique-texte); }
+/* La pastille de la barre prend la couleur de la pire ligne d'« À traiter » : rouge ce qui casse, ambre ce qui est à
+   surveiller, l'or d'une tâche, le vert quand rien n'attend — jamais le rouge pour « à surveiller ». */
+.qg-etat-pastille-critique { border-color: rgba(229, 72, 77, 0.55); background: rgba(229, 72, 77, 0.14); color: var(--qg-critique-texte); }
+.qg-etat-pastille-serieux { border-color: rgba(236, 131, 90, 0.5); background: rgba(236, 131, 90, 0.12); color: var(--qg-serieux-texte); }
+.qg-etat-pastille-veille { border-color: rgba(250, 178, 25, 0.45); background: rgba(250, 178, 25, 0.1); color: var(--qg-veille-texte); }
+.qg-etat-pastille-a-faire { border-color: rgba(217, 181, 106, 0.45); background: var(--accent-soft); color: var(--accent-text-hover); }
+.qg-etat-pastille-inconnu { border-color: var(--qg-trait-fort); background: rgba(255, 255, 255, 0.03); color: var(--qg-encre-2); }
 .qg-commande kbd { margin-left: auto; padding: 3px 6px; border: 1px solid var(--qg-trait-fort); border-radius: 5px; background: rgba(255, 255, 255, 0.04); color: var(--qg-encre-2); font: 500 0.6875rem/1 var(--qg-mono); }
 
-/* Un voyant : un point allumé, qui clignote quand c'est grave. Son état se dit aussi en mots, à côté ou pour l'oreille. */
+/* Un voyant : un point allumé, qui clignote quelques fois quand c'est critique — sans fin, il fatiguait, et pour un
+   simple « à surveiller » (la revue d'ergonomie du 4 novembre 2026). Son état se dit aussi en mots, à côté ou pour
+   l'oreille. */
 .qg-voyant { flex: none; display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--qg-ok); box-shadow: 0 0 0 3px rgba(47, 179, 79, 0.16), 0 0 12px rgba(47, 179, 79, 0.5); }
 .qg-voyant-veille { background: var(--qg-veille); box-shadow: 0 0 0 3px rgba(250, 178, 25, 0.16), 0 0 12px rgba(250, 178, 25, 0.45); }
 .qg-voyant-serieux { background: var(--qg-serieux); box-shadow: 0 0 0 3px rgba(236, 131, 90, 0.16), 0 0 12px rgba(236, 131, 90, 0.45); }
-.qg-voyant-critique { background: var(--qg-critique); box-shadow: 0 0 0 3px rgba(229, 72, 77, 0.2), 0 0 14px rgba(229, 72, 77, 0.6); animation: qg-clignote 1.5s ease-in-out infinite; }
+.qg-voyant-critique { background: var(--qg-critique); box-shadow: 0 0 0 3px rgba(229, 72, 77, 0.2), 0 0 14px rgba(229, 72, 77, 0.6); animation: qg-clignote 1.5s ease-in-out 4; }
+/* Une tâche — relire, clore — : l'or, ni alerte ni repos. */
+.qg-voyant-a-faire { background: var(--accent); box-shadow: 0 0 0 3px rgba(217, 181, 106, 0.16), 0 0 10px rgba(217, 181, 106, 0.4); }
 .qg-voyant-inconnu { background: #3a4456; box-shadow: none; }
 @keyframes qg-clignote { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) {
+  .qg-voyant-critique { animation: none; }
+}
 
-/* La tête de la page : d'où l'on vient au téléphone (« ← Le QG ») ou l'heure, puis le groupe et le titre. */
-.qg-tete { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
-.qg-quand { font: 500 0.75rem/1.3 var(--qg-mono); color: var(--muted); }
+/* La tête de la page : au téléphone, une ligne — le retour au poste et le titre ; la barre collée dit déjà le groupe.
+   Elle poussait la page à 365 pixels sur 640 (la revue d'ergonomie du 4 novembre 2026). À l'ordinateur, le groupe et
+   le titre en grand, l'heure à droite. */
+.qg-tete { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.qg-tete-retour { flex: none; display: grid; place-items: center; width: 44px; height: 44px; margin-left: -10px; border-radius: 10px; color: var(--qg-encre-2); }
+.qg-tete-retour:hover { color: var(--ink); background: rgba(255, 255, 255, 0.05); }
+.qg-tete-retour .icon { width: 20px; height: 20px; }
+.qg-quand { font: 500 0.75rem/1.3 var(--sans); color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
 .qg-titre { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.qg-surtitre { font: 600 0.6875rem/1 var(--qg-mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
-.qg-titre h1 { margin: 0; font-family: var(--serif); font-size: 2.1rem; font-style: italic; font-weight: 500; line-height: 1.02; }
+.qg-surtitre { display: none; font: 600 0.6875rem/1 var(--qg-mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+.qg-titre h1 { margin: 0; font-family: var(--serif); font-size: 1.6rem; font-style: italic; font-weight: 500; line-height: 1.05; text-wrap: balance; }
+/* Le titre reçoit le focus à chaque page ouverte, pour qu'on l'entende : un anneau autour d'un titre ne dirait rien. */
+.qg-titre h1:focus { outline: none; }
+/* Le poste de commande, au téléphone : sa date au-dessus de son titre. */
+.qg-tete:has(> .qg-quand) { flex-direction: column; align-items: flex-start; gap: 4px; }
 
-/* Le rail n'existe qu'à l'ordinateur ; au téléphone, « Pages » et la liste sous le poste de commande le remplacent. */
+/* Le rail n'existe qu'à l'ordinateur ; au téléphone, la barre du bas et sa feuille « Pages » le remplacent. */
 .qg-cote { display: none; }
-/* La marque : le sceau, le nom, et l'environnement dessous — à côté, « Production » ne tenait pas dans le rail. */
-.qg-marque { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 4px 8px 6px; }
+/* La marque, sur une ligne : le sceau, le nom, l'environnement en pastille au bout — dessous, elle prenait trois lignes
+   au rail, qui ne tenait plus en 1366 × 768. */
+.qg-marque { display: flex; align-items: center; gap: 10px; padding: 2px 8px 4px; }
 .qg-marque-logo {
   flex: none;
   display: grid;
@@ -14572,19 +14608,31 @@ button.qg-vif[aria-current='page'] { border-color: var(--qg-trait-fort); color: 
   font: 700 0.75rem/1 var(--qg-mono);
   letter-spacing: -0.02em;
 }
-.qg-marque-nom { display: flex; flex-direction: column; font-family: var(--serif); font-size: 1.45rem; font-style: italic; font-weight: 600; line-height: 1; }
-.qg-marque-nom small { margin-top: 4px; font: 600 0.6875rem/1.2 var(--qg-mono); font-style: normal; letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap; color: var(--muted); }
-.qg-env { margin-left: 42px; border-color: rgba(217, 181, 106, 0.45); background: rgba(217, 181, 106, 0.08); color: var(--accent-text-hover); font-family: var(--qg-mono); }
+.qg-marque-nom { min-width: 0; font-family: var(--serif); font-size: 1.4rem; font-style: italic; font-weight: 600; line-height: 1; white-space: nowrap; }
+.qg-env { margin-left: auto; border-color: rgba(217, 181, 106, 0.45); background: rgba(217, 181, 106, 0.08); color: var(--accent-text-hover); font-family: var(--qg-mono); }
 .qg-groupe { display: flex; flex-direction: column; gap: 1px; }
-.qg-groupe-titre { padding: 0 10px 6px; font: 600 0.6875rem/1 var(--qg-mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
-.qg-lien { display: flex; align-items: center; gap: 10px; min-height: 32px; padding: 4px 10px; border-radius: 8px; color: var(--qg-encre-2); font-size: 0.875rem; font-weight: 500; text-decoration: none; }
+.qg-groupe-titre { display: flex; align-items: center; gap: 6px; padding: 0 10px 6px; font: 600 0.6875rem/1 var(--qg-mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+/* Un groupe se replie à son titre : la somme de ses pastilles y reste, à la couleur de la pire. */
+button.qg-groupe-titre { width: 100%; min-height: 28px; padding: 0 10px; border: 0; border-radius: 6px; background: none; text-align: left; cursor: pointer; }
+button.qg-groupe-titre:hover { color: var(--ink); background: rgba(255, 255, 255, 0.035); }
+.qg-groupe-titre .icon { flex: none; width: 12px; height: 12px; transition: transform 0.15s; }
+.qg-groupe-titre[aria-expanded='false'] .icon { transform: rotate(-90deg); }
+.qg-groupe-titre .qg-pastille { letter-spacing: 0; }
+.qg-lien { display: flex; align-items: center; gap: 10px; min-height: 30px; padding: 3px 10px; border-radius: 8px; color: var(--qg-encre-2); font-size: 0.875rem; font-weight: 500; text-decoration: none; }
 .qg-lien:hover { background: rgba(255, 255, 255, 0.045); color: var(--ink); }
 .qg-lien[aria-current='page'] { background: var(--accent-soft); color: var(--accent-text-hover); box-shadow: inset 0 0 0 1px rgba(217, 181, 106, 0.22); }
 .qg-lien .icon { flex: none; width: 16px; height: 16px; }
-.qg-compte { margin-left: auto; font: 500 0.6875rem/1 var(--qg-mono); color: var(--muted); }
-.qg-pastille { margin-left: auto; display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border: 1px solid rgba(250, 178, 25, 0.4); border-radius: var(--radius-pill); background: rgba(250, 178, 25, 0.12); color: var(--qg-veille-texte); font: 700 0.6875rem/1 var(--qg-mono); }
-.qg-pastille-alerte { border-color: var(--qg-critique); background: #c2383d; color: #fff; }
-.qg-retour { margin-top: auto; padding: 14px 10px 0; border-top: 1px solid var(--qg-trait); }
+/* Une pastille, à la gravité de ce qu'elle compte : rouge ce qui casse, orange le sérieux, ambre ce qui est à
+   surveiller, l'or d'une tâche — et son chiffre toujours, jamais la couleur seule. */
+.qg-pastille { margin-left: auto; display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border: 1px solid rgba(217, 181, 106, 0.45); border-radius: var(--radius-pill); background: var(--accent-soft); color: var(--accent-text-hover); font: 700 0.6875rem/1 var(--sans); font-variant-numeric: lining-nums tabular-nums; }
+.qg-pastille-veille { border-color: rgba(250, 178, 25, 0.45); background: rgba(250, 178, 25, 0.12); color: var(--qg-veille-texte); }
+.qg-pastille-serieux { border-color: var(--qg-serieux); background: rgba(236, 131, 90, 0.2); color: var(--qg-serieux-texte); }
+.qg-pastille-critique { border-color: var(--qg-critique); background: #c2383d; color: #fff; }
+/* Le pied du rail et de la feuille « Pages » : de quoi sortir du QG — l'accueil et son compte, ou la ligne de l'animateur. */
+.qg-cote-pied { margin-top: auto; padding: 12px 10px 0; border-top: 1px solid var(--qg-trait); }
+.qg-sortir { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.qg-cote-pied .nav-animateur,
+.qg-pages-pied .nav-animateur { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0; padding: 0; border: 0; }
 /* Le direct se lit, il ne s'ouvre pas : ses cadrans n'ont ni main ni survol. */
 .admin-cadran-fixe { cursor: default; }
 .admin-cadran-fixe:hover { border-color: color-mix(in srgb, var(--lueur) 20%, transparent); }
@@ -14647,14 +14695,17 @@ button.qg-vif[aria-current='page'] { border-color: var(--qg-trait-fort); color: 
 .qg-voyant-bloc > button { cursor: pointer; }
 .qg-voyant-bloc > button:hover { border-color: var(--qg-trait-fort); background: rgba(255, 255, 255, 0.035); }
 .qg-voyant-bloc b { min-width: 0; font-size: 0.8125rem; font-weight: 600; overflow-wrap: anywhere; }
-.qg-voyant-detail { grid-column: 2; min-width: 0; font: 500 0.75rem/1.35 var(--qg-mono); color: var(--muted); overflow-wrap: anywhere; }
+/* Les phrases d'un détail en sans-serif, ses chiffres alignés : en chasse fixe de 12 px, elles cassaient sur trois lignes
+   au téléphone, dans la police du système — différente sur chaque appareil. La chasse fixe reste aux routes, aux codes
+   et aux versions. */
+.qg-voyant-detail { grid-column: 2; min-width: 0; font: 500 0.75rem/1.35 var(--sans); font-variant-numeric: lining-nums tabular-nums; color: var(--muted); overflow-wrap: anywhere; }
 .qg-voyant-bloc-veille > * { border-color: rgba(250, 178, 25, 0.35); background: rgba(250, 178, 25, 0.06); }
 .qg-voyant-bloc-serieux > * { border-color: rgba(236, 131, 90, 0.4); background: rgba(236, 131, 90, 0.07); }
 .qg-voyant-bloc-critique > * { border-color: rgba(229, 72, 77, 0.5); background: rgba(229, 72, 77, 0.09); }
 .qg-voyant-bloc-veille .qg-voyant-detail { color: var(--qg-veille-texte); }
 .qg-voyant-bloc-serieux .qg-voyant-detail { color: var(--qg-serieux-texte); }
 .qg-voyant-bloc-critique .qg-voyant-detail { color: var(--qg-critique-texte); }
-/* Au téléphone, ceux au vert attendent « Voir les dix voyants » ; à l'ordinateur, le bouton n'existe pas. */
+/* Ceux au vert attendent « Voir les dix voyants », au téléphone comme à l'ordinateur : ce qui ne va pas reste dehors. */
 .qg-etat-replie .qg-voyant-bloc-ok,
 .qg-etat-replie .qg-voyant-bloc-inconnu { display: none; }
 .qg-etat-deplier { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0; border: 0; background: none; font: inherit; font-size: 0.85rem; cursor: pointer; }
@@ -14688,7 +14739,8 @@ button.qg-vif[aria-current='page'] { border-color: var(--qg-trait-fort); color: 
 .qg-tuile-nom { display: flex; align-items: center; gap: 7px; min-height: 18px; font-size: 0.8125rem; color: var(--qg-encre-2); }
 .qg-tuile-cle { flex: none; width: 8px; height: 8px; border-radius: 2px; }
 .qg-tuile-valeur { font-family: var(--sans); font-size: 1.75rem; font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
-.qg-ecart { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; font: 500 0.75rem/1.35 var(--qg-mono); color: var(--muted); }
+.qg-ecart { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; font: 500 0.75rem/1.35 var(--sans); font-variant-numeric: lining-nums tabular-nums; color: var(--muted); }
+.qg-ecart .qg-gravite { margin-right: 2px; }
 .qg-ecart .icon { flex: none; width: 13px; height: 13px; }
 .qg-ecart-plus .icon { color: var(--en-ligne); }
 .qg-ecart-moins .icon { color: var(--alert); }
@@ -14741,7 +14793,7 @@ button.qg-vif[aria-current='page'] { border-color: var(--qg-trait-fort); color: 
 .qg-bulle-avant { margin-top: 3px; padding-top: 5px; border-top: 1px solid var(--qg-trait); }
 /* Les joueurs de chaque mode, sous leur total : en retrait, sans pastille — ils ne s'empilent pas. */
 .qg-bulle-morceau { padding-left: 14px; }
-.qg-lecture { min-height: 1.4em; margin: 0; font: 500 0.75rem/1.4 var(--qg-mono); color: var(--qg-encre-2); }
+.qg-lecture { min-height: 1.4em; margin: 0; font: 500 0.75rem/1.4 var(--sans); font-variant-numeric: lining-nums tabular-nums; color: var(--qg-encre-2); }
 .qg-lecture b { font-weight: 600; color: var(--ink); }
 .qg-mode-soiree { fill: var(--mode-soiree); background: var(--mode-soiree); }
 .qg-mode-campagne { fill: var(--mode-campagne); background: var(--mode-campagne); }
@@ -14809,7 +14861,10 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
 .qg-ligne-texte b { font-weight: 600; }
 .qg-rond { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: color-mix(in srgb, var(--lueur) 12%, transparent); color: color-mix(in srgb, var(--lueur) 70%, var(--ink)); }
 .qg-rond .icon { width: 16px; height: 16px; }
-.qg-rond-alerte { background: color-mix(in srgb, var(--alert) 16%, transparent); color: var(--alert); }
+.qg-rond-alerte,
+.qg-rond-critique { background: color-mix(in srgb, var(--alert) 16%, transparent); color: var(--alert); }
+.qg-rond-serieux { background: color-mix(in srgb, var(--qg-serieux) 16%, transparent); color: var(--qg-serieux-texte); }
+.qg-rond-veille { background: color-mix(in srgb, var(--qg-veille) 14%, transparent); color: var(--qg-veille-texte); }
 .qg-chevron { flex: none; width: 16px; height: 16px; color: var(--muted); }
 /* Une soirée : son avatar, ce qu'on en lit, sa sauvegarde — sous le texte au
    téléphone, où elle serrait sa colonne sur trois lignes ; au bout à l'ordinateur. */
@@ -14823,8 +14878,6 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
 .qg-etat-ok { color: var(--muted); }
 .qg-etat-ok .icon { color: var(--en-ligne); }
 .qg-etat-alerte { color: var(--alert); }
-.qg-sommaire { display: flex; flex-direction: column; gap: 14px; }
-.qg-sommaire .compte-groupe { margin: 6px 0 -4px; }
 /* La page qui se relit sur une autre période : la précédente reste, en retrait, le temps que la nouvelle arrive. */
 .qg-recharge { opacity: 0.6; transition: opacity 0.2s; }
 /* Les onglets d'une page du QG 2 (« Le serveur ») : une rangée qui défile de côté au téléphone plutôt que de passer à la ligne. */
@@ -14841,10 +14894,16 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
 .qg-tuile-alerte { border-color: color-mix(in srgb, var(--alert) 55%, transparent); }
 .qg-tuile-alerte .qg-tuile-nom { color: var(--qg-critique-texte); }
 .qg-tuile-alerte .qg-tuile-nom .icon { flex: none; width: 14px; height: 14px; }
+/* Un compteur du direct passé le seuil de sa règle en prend la gravité : sa bordure, son nom, son mot. */
+.qg-tuile-veille { border-color: rgba(250, 178, 25, 0.5); }
+.qg-tuile-veille .qg-tuile-nom { color: var(--qg-veille-texte); }
+.qg-tuile-serieux { border-color: rgba(236, 131, 90, 0.55); }
+.qg-tuile-serieux .qg-tuile-nom { color: var(--qg-serieux-texte); }
 .qg-direct-graphes { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .qg-direct-graphes h3 { margin: 0; font-family: var(--sans); font-size: 1rem; font-weight: 600; line-height: 1.3; }
 .qg-direct-bas { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
-/* Le fil défile dans sa console : quatre-vingts lignes ne poussent pas les routes et les soirées hors de vue. */
+/* Le fil défile dans sa console à l'ordinateur : quatre-vingts lignes ne poussent pas les routes et les soirées hors de
+   vue. Au téléphone, il suit la page : un cadre de 560 pixels sur un écran de 640 retenait le pouce (le bloc du bas). */
 .qg-fil-liste { max-height: 560px; overflow-y: auto; overscroll-behavior: contain; }
 .qg-fil-ligne b { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; font-weight: 600; }
 .qg-fil-n { color: var(--qg-encre-2); font-weight: 500; }
@@ -14917,6 +14976,21 @@ button.qg-ligne:hover .qg-chevron { color: var(--ink); }
   .qg-onglets .onglet-nom { display: none; }
   .qg-onglets .onglet-court { display: inline; }
 }
+/* Au doigt, 44 pixels au moins : les périodes en faisaient 32, la loupe 38, le tri et les seuils 32 (la revue
+   d'ergonomie du 4 novembre 2026). Et le fil du direct suit la page, sans cadre qui retienne le pouce. */
+@media (max-width: 1100px) {
+  .qg-periodes button,
+  .qg-bouton,
+  .qg-bascule,
+  .qg-etat-deplier,
+  .qg-seuil,
+  .qg-regle-tel,
+  .qg-tri,
+  .qg-suite,
+  .qg-incident-changer,
+  .qg-tableau > summary { min-height: 44px; }
+  .qg-fil-liste { max-height: none; overflow: visible; }
+}
 .qg-panneau { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 /* La table des routes : un filtre et les méthodes au-dessus ; la table défile de côté dans son cadre, jamais la page. */
 .qg-outils { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
@@ -14958,6 +15032,7 @@ button.qg-route:hover .qg-route-chemin { text-decoration: underline; }
 .qg-part-piste { flex: none; width: 40px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.07); overflow: hidden; }
 .qg-part-piste > i { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
 .qg-table-alerte { color: var(--qg-critique-texte); }
+.qg-table-alerte .icon { width: 13px; height: 13px; margin-right: 4px; vertical-align: -2px; }
 .qg-table-mieux { color: var(--qg-ok-texte); }
 .qg-table-courbe { width: 84px; }
 .qg-table-courbe .qg-etincelle { width: 72px; height: 22px; margin: 0; }
@@ -14966,29 +15041,69 @@ button.qg-route:hover .qg-route-chemin { text-decoration: underline; }
 /* Les versions, l'une sous l'autre, la plus récente d'abord. */
 .qg-versions { display: flex; flex-direction: column; gap: 16px; }
 .qg-console h2.qg-version-nom { font-family: var(--qg-mono); letter-spacing: 0.02em; }
-/* Ce qui attend un geste : une bande à gauche, rouge pour une alerte, ambre pour le reste — avec son icône, jamais la couleur seule. */
-.qg-traiter .qg-ligne { position: relative; padding-left: 14px; }
-.qg-traiter .qg-ligne::before { content: ''; position: absolute; top: 10px; bottom: 10px; left: 0; width: 3px; border-radius: 0 3px 3px 0; background: var(--qg-veille); }
-.qg-traiter .qg-ligne-alerte::before { background: var(--qg-critique); }
-/* « Toutes les pages », au téléphone : le poste de commande en tête de la feuille, ce qui y attend au bout. */
-.qg-feuille-poste {
+/* Ce qui attend un geste — au poste, et dans la feuille de la barre : une bande à gauche à la gravité de sa règle, rouge
+   ce qui casse, orange le sérieux, ambre ce qui est à surveiller, l'or d'une tâche — avec son icône, jamais la couleur
+   seule. */
+.qg-a-traiter .qg-ligne { position: relative; padding-left: 14px; }
+.qg-a-traiter .qg-ligne::before { content: ''; position: absolute; top: 10px; bottom: 10px; left: 0; width: 3px; border-radius: 0 3px 3px 0; background: var(--qg-en-route); }
+.qg-a-traiter .qg-ligne-critique::before { background: var(--qg-critique); }
+.qg-a-traiter .qg-ligne-serieux::before { background: var(--qg-serieux); }
+.qg-a-traiter .qg-ligne-veille::before { background: var(--qg-veille); }
+/* La feuille « Pages », au téléphone : le rail lui-même — ses groupes en titres, ses noms, son ordre, ses pastilles —,
+   une ligne de 48 pixels par page, ce qui s'y passe dessous en petit. Elle était écrite à la main à côté du rail, dans
+   un autre ordre, sous d'autres noms, sans une gravité. */
+.qg-pages-liste { display: flex; flex-direction: column; gap: 14px; }
+.qg-pages-groupe ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.qg-pages-groupe .qg-groupe-titre { margin: 0; padding: 0 4px 6px; }
+.qg-page-ligne { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 6px 10px; border-radius: 10px; color: var(--qg-encre-2); text-decoration: none; }
+.qg-page-ligne:hover { background: rgba(255, 255, 255, 0.045); color: var(--ink); }
+.qg-page-ligne[aria-current='page'] { background: var(--accent-soft); color: var(--accent-text-hover); }
+.qg-page-ligne > .icon { flex: none; width: 18px; height: 18px; }
+.qg-page-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.qg-page-texte b { color: var(--ink); font-weight: 600; line-height: 1.25; }
+.qg-page-dit { overflow: hidden; color: var(--muted); font-size: 0.8rem; line-height: 1.3; white-space: nowrap; text-overflow: ellipsis; }
+.qg-pages-pied { padding: 12px 4px 4px; border-top: 1px solid var(--qg-trait); }
+/* La barre du QG, au téléphone : le poste, ce qui attend, le direct, toutes les pages — sous le pouce, à la place de
+   celle du joueur. Quatre cases égales de 44 pixels au moins, la pastille sur l'icône. */
+.qg-bas {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding: 0 max(6px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
+  border-top: 1px solid var(--qg-trait-fort);
+  background: rgba(8, 12, 19, 0.96);
+  -webkit-backdrop-filter: saturate(140%) blur(14px);
+  backdrop-filter: saturate(140%) blur(14px);
+}
+.qg-bas-lien {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
-  width: 100%;
-  min-height: 52px;
-  margin-bottom: 10px;
-  padding: 0 14px;
-  border: 1px solid var(--edge-strong);
-  border-radius: var(--radius-xs);
-  background: var(--accent-soft);
-  color: var(--accent-text-hover);
-  font: inherit;
-  font-weight: 600;
-  text-align: left;
+  justify-content: center;
+  gap: 3px;
+  min-height: 56px;
+  padding: 6px 2px 0;
+  border: 0;
+  background: none;
+  color: var(--qg-encre-2);
+  font: 600 0.72rem/1.1 var(--sans);
+  text-decoration: none;
   cursor: pointer;
 }
-.qg-feuille-poste .icon { flex: none; width: 18px; height: 18px; }
+.qg-bas-lien[aria-current='page'] { color: var(--accent-text-hover); }
+.qg-bas-icone { position: relative; display: grid; place-items: center; width: 26px; height: 24px; }
+.qg-bas-icone .icon { width: 20px; height: 20px; }
+.qg-bas-icone .qg-pastille { position: absolute; top: -6px; left: 15px; min-width: 18px; height: 18px; margin: 0; padding: 0 5px; font-size: 0.6875rem; }
+/* Au téléphone, la page ne passe pas sous la barre du QG, ni le toast. */
+.player-shell.qg { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
+.qg .toast { bottom: calc(80px + env(safe-area-inset-bottom)); }
+/* Une panne, et ce qu'on y fait : fermer sa page aux joueurs, poser un bandeau — à côté de ce qui est tombé. */
+.qg-panne { align-items: flex-start; }
+.qg-panne-geste { align-self: flex-start; margin-top: 6px; }
 /* La palette (⌘K) : un champ, puis ce qui y répond, groupé — les pages, la période, les profils. Au téléphone, une
    feuille haute, pour la garder au-dessus du clavier ; à l'ordinateur, une fenêtre en haut de l'écran. */
 .carte-feuille.qg-palette { height: 88%; }
@@ -15007,6 +15122,10 @@ button.qg-route:hover .qg-route-chemin { text-decoration: underline; }
 .qg-palette-detail { margin-left: auto; padding-left: 10px; color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
 .qg-palette-vide { padding: 20px 10px; text-align: center; color: var(--muted); }
 .qg-palette-pied { margin: 12px 0 0; }
+/* Ses touches ne disent rien à qui n'a pas de clavier. */
+@media (hover: none) {
+  .qg-palette-pied { display: none; }
+}
 /* Le journal des gestes : un jour, puis ses gestes — la phrase d'abord, l'heure et la sorte dessous. */
 .qg-journal { display: flex; flex-direction: column; gap: 18px; }
 .qg-journal-jour { display: flex; flex-direction: column; gap: 2px; }
@@ -15389,9 +15508,8 @@ span.annonce-admin-merci { cursor: default; }
 /* Une carte du QG titrée d'un h3 — les sortes du contenu du Cabinet, sous la console qui les porte. */
 .qg-carte-tete h3 { margin: 0; font-family: var(--sans); font-size: 0.95rem; font-weight: 600; line-height: 1.3; }
 @media (min-width: 1101px) {
-  /* Le rail dans la première colonne, toute la hauteur de l'écran ; la barre
-     de commande, la tête et la page dans la seconde. La barre du menu
-     s'efface : « Mon compte » est au pied du rail. */
+  /* Le rail dans la première colonne, toute la hauteur de l'écran ; la barre de commande, la tête et la page dans la
+     seconde. La barre du QG du téléphone s'efface : le rail la remplace, l'accueil et son compte à son pied. */
   .player-shell.qg {
     --qg-gouttiere: 28px;
     max-width: none;
@@ -15400,19 +15518,19 @@ span.annonce-admin-merci { cursor: default; }
     padding: 0;
     display: grid;
     grid-template-columns: 252px minmax(0, 1fr);
-    grid-template-rows: auto auto auto 1fr;
+    grid-template-rows: auto auto 1fr;
     align-items: start;
     gap: 0;
   }
-  .qg > .qg-commande { grid-column: 2; grid-row: 1; margin: 0; padding: 10px var(--qg-gouttiere); }
+  .qg > .qg-commande { grid-column: 2; grid-row: 1; margin: 0; padding: 10px var(--qg-gouttiere); flex-wrap: nowrap; }
   /* La page ne s'étale pas au-delà de 1720 pixels : sur un écran plus large, elle reste au milieu de sa colonne. */
   .qg > .qg-tete,
-  .qg > .nav-animateur,
   .qg > .page-corps { justify-self: center; width: 100%; max-width: 1720px; padding-inline: var(--qg-gouttiere); }
   .qg > .qg-tete { grid-column: 2; grid-row: 2; padding-top: 22px; padding-bottom: 18px; }
-  .qg > .nav-animateur { grid-column: 2; grid-row: 3; margin-bottom: 18px; }
   /* Son écart à lui : il héritait de celui de la grille, nul entre les rangées, et ses sections se collaient. */
-  .qg > .page-corps { grid-column: 2; grid-row: 4; gap: 16px; padding-bottom: 64px; }
+  .qg > .page-corps { grid-column: 2; grid-row: 3; gap: 16px; padding-bottom: 64px; }
+  /* Le rail tient en 1366 × 768 : ses groupes se replient, la marque tient sur une ligne. Tout déplié, il cachait
+     Erreurs, Serveur et Maintenance sous un titre « TECHNIQUE » qui semblait le finir. */
   .qg > .qg-cote {
     grid-column: 1;
     grid-row: 1 / -1;
@@ -15420,35 +15538,40 @@ span.annonce-admin-merci { cursor: default; }
     top: 0;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 10px;
     height: 100vh;
     height: 100dvh;
     overflow-y: auto;
-    padding: 14px 12px 18px;
+    padding: 12px 12px 14px;
     border-right: 1px solid var(--qg-trait);
     background: linear-gradient(180deg, rgba(11, 15, 24, 0.97), rgba(6, 9, 15, 0.97));
     scrollbar-width: thin;
   }
-  .qg > .menu-barre { display: none; }
-  body.avec-menu:has(.qg) { padding-bottom: 0; }
-  .qg-tete > .jour-sortie { display: none; }
+  .qg-bas { display: none; }
+  .qg .toast { bottom: max(26px, calc(env(safe-area-inset-bottom) + 12px)); }
+  .qg-tete-retour { display: none; }
   .qg-a-l-ordinateur { display: inline; }
-  .qg-pages { display: none; }
-  .qg-ariane { display: block; flex: 0 1 auto; }
-  .qg-periodes { order: 0; flex: none; }
+  .qg-ariane { flex: 0 1 auto; }
+  .qg-periodes { display: inline-flex; flex: none; }
   .qg-periodes button { flex: none; }
-  .qg-bascule { order: 0; }
+  .qg-periode-courte { display: none; }
+  .qg-commande > .qg-bascule { display: inline-flex; }
+  .qg-commande .qg-etat-pastille { display: inline-flex; }
   .qg-commande .qg-vif:not(.qg-vif-perdu) { display: inline-flex; }
   /* L'heure à droite du titre, comme un cadran ; le titre en grand, à gauche — en ordre inversé, seul sur une page
-     sans heure, il partait à droite. */
-  .qg-tete { flex-direction: row; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px 24px; }
+     sans heure, il partait à droite. Le groupe au-dessus du titre, à l'ordinateur seulement : au téléphone, la barre
+     collée le dit. */
+  .qg-tete,
+  .qg-tete:has(> .qg-quand) { flex-direction: row; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px 24px; }
+  .qg-surtitre { display: block; }
   .qg-quand { order: 2; padding: 8px 12px; border: 1px solid var(--qg-trait-fort); border-radius: 9px; background: rgba(255, 255, 255, 0.03); color: var(--qg-encre-2); }
   .qg-titre h1 { font-size: 2.45rem; }
-  /* Le poste de commande : l'état et les chiffres sur toute la largeur, la participation à côté de ce qui attend un geste,
-     puis le direct, les soirées et le serveur côte à côte — la grille de la maquette du 3 novembre 2026. */
+  /* Le poste de commande : ce qui attend un geste en colonne de droite dès la première rangée, à côté de l'état et des
+     chiffres — il tombait sous la ligne de flottaison en 1366 × 768 (la revue d'ergonomie du 4 novembre 2026) —, puis
+     la participation de toute la largeur, et le direct, les soirées et le serveur côte à côte. */
   .qg-poste {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-template-areas: 'etat etat etat' 'chiffres chiffres chiffres' 'graphe graphe traiter' 'direct soirees serveur';
+    grid-template-areas: 'etat etat traiter' 'chiffres chiffres traiter' 'graphe graphe graphe' 'direct soirees serveur';
     align-items: start;
   }
   .qg-etat-du-service { grid-area: etat; }
@@ -15458,11 +15581,8 @@ span.annonce-admin-merci { cursor: default; }
   .qg-direct { grid-area: direct; align-self: stretch; }
   .qg-soirees { grid-area: soirees; align-self: stretch; }
   .qg-serveur { grid-area: serveur; align-self: stretch; }
-  .qg-voyants { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .qg-voyants { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .qg-etat-phrase { font-size: 1.3rem; }
-  .qg-etat-replie .qg-voyant-bloc-ok,
-  .qg-etat-replie .qg-voyant-bloc-inconnu { display: block; }
-  .qg-etat-deplier { display: none; }
   .qg-tuile-valeur { font-size: 1.9rem; }
   /* Le direct dans un tiers de la largeur : ses quatre cadrans deux par deux. Une soirée en cours, sa sauvegarde sous
      son texte, comme au téléphone : au bout de la ligne, elle serrait sa colonne sur cinq lignes. */
@@ -15482,7 +15602,6 @@ span.annonce-admin-merci { cursor: default; }
   .qg-soiree > .qg-etat { grid-column: 3; }
   .qg-soiree:has(> .qg-soiree-geste) { grid-template-columns: 36px minmax(0, 1fr) auto auto; }
   .qg-soiree > .qg-soiree-geste { grid-column: 4; }
-  .qg-sommaire { display: none; }
   .qg-tuiles.qg-tuiles-quatre { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .qg-tuiles.qg-tuiles-cinq { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .qg-tuiles-cinq > :last-child:nth-child(odd) { grid-column: auto; }
@@ -15527,8 +15646,9 @@ span.annonce-admin-merci { cursor: default; }
   .qg-jouees-trier { display: none; }
   .qg-jouees-table td.qg-jouees-plie { min-width: 6rem; white-space: normal; }
 }
-@media (min-width: 1300px) {
-  /* Dix voyants, cinq par rangée dès qu'ils tiennent : deux rangées égales, plutôt que huit et deux. */
+@media (min-width: 1600px) {
+  /* Dix voyants dépliés, cinq par rangée dès qu'ils tiennent dans les deux tiers de la page : deux rangées égales,
+     plutôt que huit et deux. */
   .qg-voyants { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
 @media (min-width: 1400px) {
