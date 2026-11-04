@@ -4,6 +4,7 @@ import { Icon } from './Icon'
 import { Shape } from './Shape'
 import { EMBLEME } from './Ecusson'
 import { espacesFines } from '../format'
+import { lacherLeClavier } from '../modale'
 import { CATEGORIES } from '../../../shared/categories'
 import { SIGNALEMENT_MAX, changementsProposes, morceaux, texteDuSignalement, type Proposition, type QuestionSignalee } from '../../../shared/signalement'
 
@@ -59,6 +60,9 @@ export function SignalerLaQuestion({
   const envoyer = async () => {
     const phrase = texteDuSignalement(q, proposition)
     if (!phrase || envoi) return
+    // Sur iPhone, le bouton touché laisse le focus au champ corrigé : le clavier se ferme ici, pendant l'envoi, et pas
+    // avec la feuille qui l'emporterait encore ouvert — l'écran ne répondait plus (`lacherLeClavier`).
+    lacherLeClavier(document.activeElement as HTMLElement | null)
     setEnvoi(true)
     setErreur(null)
     try {

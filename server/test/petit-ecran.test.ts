@@ -266,6 +266,41 @@ test('la carte d’un joueur rend le reste de la page inerte, et le focus à qui
   assert.match(modale, /avant\?\.focus\(/)
 })
 
+// ── Le clavier d'un iPhone : rendu avant que la fenêtre parte ──────────────
+
+test('une fenêtre qui part rend d’abord le clavier du champ où l’on tapait — l’iPhone ne répondait plus', async () => {
+  // Sur iPhone, toucher « Envoyer ma correction » laisse le focus au champ
+  // corrigé : la feuille partait avec lui, clavier ouvert, et l'écran du duel
+  // contre Automate ne répondait plus — il a fallu fermer l'application (le
+  // retour du propriétaire du 4 novembre 2026).
+  const { lacherLeClavier } = await import(new URL('../../client/src/modale.ts', import.meta.url).href)
+  const champ = (tagName: string, isContentEditable = false) => {
+    const c = { tagName, isContentEditable, lache: 0, blur: () => void c.lache++ }
+    return c
+  }
+  const zone = champ('TEXTAREA')
+  const boite = { contains: (n: unknown) => n === zone }
+  assert.equal(lacherLeClavier(zone, boite), true, 'le champ de la feuille rend le clavier')
+  assert.equal(zone.lache, 1)
+  const ailleurs = champ('INPUT')
+  assert.equal(lacherLeClavier(ailleurs, boite), false, 'un champ hors de la fenêtre garde le sien')
+  assert.equal(ailleurs.lache, 0)
+  assert.equal(lacherLeClavier(champ('DIV', true)), true, 'un texte modifiable aussi')
+  const bouton = champ('BUTTON')
+  assert.equal(lacherLeClavier(bouton), false, 'un bouton n’a pas de clavier : il garde son focus')
+  assert.equal(bouton.lache, 0)
+  assert.equal(lacherLeClavier(null), false)
+
+  // Dans le nettoyage d'un `useLayoutEffect`, qui passe avant le retrait des nœuds — celui d'un `useEffect` vient après :
+  // le champ serait déjà parti, focalisé.
+  const modale = source('modale.ts')
+  assert.match(modale, /useLayoutEffect\(\(\) => \{\s*const la = boite\.current\s*return \(\) => void lacherLeClavier\(document\.activeElement/)
+  assert.match(source('components/Dialog.tsx'), /useLayoutEffect\(\(\) => \{\s*const la = box\.current\s*return \(\) => void lacherLeClavier\(document\.activeElement/)
+  // Et la feuille du signalement le rend dès le toucher, avant l'envoi : il se ferme pendant l'aller-retour.
+  const signaler = source('components/SignalerLaQuestion.tsx')
+  assert.ok(signaler.indexOf('lacherLeClavier(document.activeElement') < signaler.indexOf('await onEnvoyer(phrase)'), 'le clavier rendu avant l’envoi')
+})
+
 // ── Un dialogue : une vraie fenêtre modale aussi ──────────────────────────
 
 test('« Quitter cette partie ? » rend le reste de la page inerte, et un toucher ne lui vole pas son focus', async () => {
