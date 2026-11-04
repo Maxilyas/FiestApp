@@ -37,7 +37,8 @@
 // piège, « Reclasser » sur celle du défi, et l'onglet des relues. Et la page du
 // Cabinet de curiosités — trente jours de traversées des vingt-quatre joueurs,
 // jouées au pli, une rendue par la vraie route —, « Rendre » ouvert, et la fiche
-// d'un joueur en route. Le client construit d'abord (`npm run build -w client`).
+// d'un joueur en route. Et les modes : côte à côte, puis le gabarit en tête de
+// chaque page de mode (`SEULEMENT=modes`). Le client construit d'abord (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-qg.ts [dossier]
 //   SEULEMENT=poste,cabinet npx tsx scripts/rendu-qg.ts [dossier]   — ces pages-là, le temps d'une retouche
@@ -1133,6 +1134,25 @@ try {
     const geste = permanente.prepare("INSERT INTO qg_gestes (id, quand, qui, sorte, route, resume, cible) VALUES (?, ?, 'banc', ?, 'POST /api/admin/x', ?, NULL)")
     geste.run('hier-1', minuits[minuits.length - 1] - 3 * H, 'salon', 'Espace « Chez Bob » renommé « Chez Robert », adresse /chez-bob → /chez-robert')
     geste.run('hier-2', minuits[minuits.length - 1] - 2 * H, 'catalogue', 'Copie publiée au catalogue : « Les années 80 en chansons », de Nadia')
+    // Les modes côte à côte (le QG 2, lot 5) : ce que la réussite et la durée d'une partie lisent des parties inventées —
+    // leurs bonnes réponses, de la moitié aux quatre cinquièmes, et leur fin, trois à neuf minutes après leur début, une
+    // sur dix laissée en route ; les QCM répondus du relevé des soirées, dix, de quatre à neuf justes. Ni les duels ni
+    // les épreuves des sentiers, que leurs pages lisent à leur façon : les leurs ont déjà ce qu'il faut, ou s'en passent.
+    permanente
+      .prepare(
+        `UPDATE campagne_series SET justes = position * (5 + rowid % 4) / 10,
+           finie_le = CASE WHEN rowid % 10 = 0 THEN NULL ELSE min(commencee_le + (3 + rowid % 7) * 60000, ?) END
+         WHERE (id LIKE 's-%' OR id LIKE 'j-%') AND mode NOT IN ('duel', 'rencontre', 'sentier')`,
+      )
+      .run(maintenant - 60_000)
+    permanente.prepare('UPDATE jour_parties SET justes = min(question, 4 + rowid % 6) WHERE justes = 0').run()
+    permanente.prepare(`UPDATE profile_xp SET detail = json_set(detail, '$.releve.qcm', 10, '$.releve.justes', 4 + rowid % 6) WHERE space_id = 'rendu'`).run()
+    // La réussite d'une soirée se compte avec elle, sur les lignes de ses profils (`lignesDesModes`) : celles des joueurs
+    // inventés rejoignent la soirée archivée de leur jour, quand il y en a une — sans quoi elles ne disent celle d'aucune.
+    const rejoindre = permanente.prepare("UPDATE OR IGNORE profile_xp SET space_id = ?, soiree_id = ? WHERE space_id = 'rendu' AND soiree_id = ?")
+    for (const s of permanente.prepare('SELECT space_id, id, held_at FROM soirees').all() as { space_id: string; id: string; held_at: number }[]) {
+      rejoindre.run(s.space_id, s.id, `${jourDe(s.held_at)}-rendu`)
+    }
   }
   permanente.close()
 
@@ -1333,6 +1353,39 @@ try {
     await photographier('89-telephones-telephone', 360, 640, { adresse: '/admin#telephones' })
   }
   // Les pages du QG 2 qui suivront, chacune son bloc `if (photo('<clé>')) { … }`, ici.
+  // Les modes (le QG 2, lot 5) : côte à côte — sur 24 heures, triée sur la réussite, sur trente jours, au téléphone —,
+  // puis chaque page de mode et son gabarit en tête : ses tuiles, sa courbe, « En ce moment » une fois le flux arrivé, son
+  // entonnoir ; le Cabinet, sa courbe et « En ce moment » au-dessus de ses trente jours.
+  if (photo('modes')) {
+    const avecLeFlux = (avant?: (page: any) => Promise<void>) => async (page: any) => {
+      if (avant) await avant(page)
+      await page.waitForSelector('.qg-gabarit', { timeout: 15000 })
+      await page.waitForTimeout(2500)
+    }
+    await photographier('90-modes-cote-a-cote', 1366, 768, { adresse: '/admin#activite' })
+    await photographier('90b-modes-cote-a-cote-reussite', 1366, 768, { adresse: '/admin#activite', pleine: false, geste: page => page.click('.qg-cote-table .qg-tri:has-text("Réussite")') })
+    await photographier('91-modes-cote-a-cote-trente-jours', 1366, 768, { adresse: '/admin#activite', geste: page => page.click('.qg-periodes button:has-text("30 j")') })
+    await photographier('92-modes-cote-a-cote-1920', 1920, 1080, { adresse: '/admin#activite' })
+    await photographier('93-modes-cote-a-cote-telephone', 360, 640, { adresse: '/admin#activite' })
+    await photographier('94-modes-soirees', 1366, 768, { adresse: '/admin#soirees', geste: avecLeFlux(page => page.click('.qg-periodes button:has-text("7 j")')) })
+    await photographier('95-modes-soirees-telephone', 360, 640, { adresse: '/admin#soirees', geste: avecLeFlux() })
+    await photographier('96-modes-jour', 1366, 768, { adresse: '/admin#jour', geste: avecLeFlux() })
+    await photographier('97-modes-jour-1920-compare', 1920, 1080, {
+      adresse: '/admin#jour',
+      geste: avecLeFlux(async page => {
+        await page.click('.qg-periodes button:has-text("7 j")')
+        await page.click('.qg-bascule')
+      }),
+    })
+    await photographier('98-modes-jour-telephone', 360, 640, { adresse: '/admin#jour', geste: avecLeFlux() })
+    await photographier('99-modes-campagne', 1366, 768, { adresse: '/admin#campagne', geste: avecLeFlux() })
+    await photographier('100-modes-campagne-telephone', 360, 640, { adresse: '/admin#campagne', geste: avecLeFlux() })
+    await photographier('101-modes-duels', 1366, 768, { adresse: '/admin#duels', geste: avecLeFlux(page => page.click('.qg-periodes button:has-text("30 j")')) })
+    await photographier('102-modes-duels-1920', 1920, 1080, { adresse: '/admin#duels', geste: avecLeFlux() })
+    await photographier('103-modes-duels-telephone', 360, 640, { adresse: '/admin#duels', geste: avecLeFlux() })
+    await photographier('104-modes-cabinet', 1366, 768, { adresse: '/admin#cabinet', geste: avecLeFlux(page => page.click('.qg-periodes button:has-text("7 j")')) })
+    await photographier('105-modes-cabinet-telephone', 360, 640, { adresse: '/admin#cabinet', pleine: false, geste: avecLeFlux() })
+  }
 
   // Les joueurs (`/admin#joueurs`) : la page aux trois tailles et sous l'Ivoire ; une cohorte lue au clavier ; un
   // endormi touché au téléphone, sa fiche ouverte ; puis « Leur écrire » — les annonces, le segment choisi, un message en route.

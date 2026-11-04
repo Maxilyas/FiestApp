@@ -25,6 +25,8 @@
 // jouent l'horloge à la main.
 
 import { MODES_DU_QG, jourDeLInstant, joursDesMinuits, type ModeDuQg } from './qg'
+// Un type seulement : `qgModes.ts` lit ses parties ici, et rien ne tourne en rond à l'exécution.
+import type { ModesCoteACote } from './qgModes'
 
 /** Un chiffre par mode. */
 export type ParMode = Record<ModeDuQg, number>
@@ -78,6 +80,13 @@ export interface PageDeLActivite {
   joueurs: JoueurDeLActivite[]
   /** Tous les profils qui ont joué sur la période : la liste en montre moins quand ils sont nombreux. */
   profilsActifs: number
+  /**
+   * Les modes côte à côte (le QG 2, lot 5) : sur chaque période de la barre,
+   * la quantité, la réussite et la durée d'une partie, mode par mode ; et le
+   * retour à J+7 sur les trente jours (`modesCoteACote`, `shared/qgModes.ts`).
+   * Absent d'un serveur d'avant.
+   */
+  modes?: ModesCoteACote
 }
 
 // ── Ce que les journaux en disent ────────────────────────────────────────
@@ -104,6 +113,22 @@ export interface SoireeDUnProfil {
   quand: number
   quiz: number
   questions: number
+  /**
+   * Les questions à choix auxquelles il a répondu, et ses justes — son relevé
+   * (`ReleveSoiree.qcm`, `justes`), lus dans la même ligne : la réussite des
+   * soirées aux modes côte à côte (`shared/qgModes.ts`). Une estimation n'y
+   * est jamais juste. Absents, zéro.
+   */
+  qcm?: number
+  justes?: number
+  /**
+   * Sa soirée, `<espace>|<soirée>` — la clé de `lesSoireesDepuis` : la
+   * réussite d'une soirée se compte avec elle, sur les lignes de ses profils
+   * (`lignesDesModes`). Une ligne se date à son premier crédit, la soirée à sa
+   * première question : sur une heure, l'une passait sans l'autre. Ne quitte
+   * jamais le serveur — un espace ne se dit pas.
+   */
+  soiree?: string
 }
 
 /** L'indice du jour d'un instant, -1 hors de la période ou après maintenant. */

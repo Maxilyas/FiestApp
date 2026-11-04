@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api, motifDe } from '../api'
 import { Icon } from './Icon'
 import { Feuille } from './Pieces'
-import { Chiffre, GrapheDesJours } from './QgModes'
+import { GrapheDesJours, enPourcentsEcrits } from './QgModes'
 import { FicheDuJoueurAuQg } from './QgFicheJoueur'
 import { supprimerLeProfil } from './AdminProfils'
 import { espacesFines } from '../format'
 import { formatNumber } from '../../../shared/typographie'
-import { MODES_DU_QG, NOM_DU_MODE, type ModeDuQg } from '../../../shared/qg'
+import { MODES_DU_QG, NOM_DU_MODE, dureeEcrite, type ModeDuQg } from '../../../shared/qg'
+import { PERIODE_EN_TOUTES_LETTRES, type PeriodeDuQg } from '../../../shared/qgPeriodes'
+import { enPourcents } from '../../../shared/qgDuJour'
+import { JOURS_DU_RETOUR, type LigneDesModes, type ModesCoteACote } from '../../../shared/qgModes'
 import {
   JOUEURS_DE_L_ACTIVITE,
   modePrefere,
@@ -22,9 +25,12 @@ import {
 const pluriel = (n: number, mot: string, motPluriel = `${mot}s`) => `${formatNumber(n)} ${n > 1 ? motPluriel : mot}`
 const questions = (n: number) => pluriel(n, 'question')
 
-/** Ce qu'une partie s'appelle dans chaque mode : un quiz de soirée, une partie du jour, de campagne ou du Cabinet, un duel. */
+/**
+ * Ce qu'une partie s'appelle dans chaque mode : un quiz de soirée, une partie du jour ou de campagne, un duel — et au
+ * Cabinet une épreuve de sa traversée, que sa page compte à part des traversées : « 12 parties » s'y lisait douze traversées.
+ */
 export function parties(m: ModeDuQg, n: number): string {
-  return m === 'soiree' ? `${formatNumber(n)} quiz` : m === 'duel' ? pluriel(n, 'duel') : pluriel(n, 'partie')
+  return m === 'soiree' ? `${formatNumber(n)} quiz` : m === 'duel' ? pluriel(n, 'duel') : m === 'cabinet' ? pluriel(n, 'épreuve') : pluriel(n, 'partie')
 }
 
 /** Le mode, dans une phrase : « surtout la campagne ». */
@@ -37,13 +43,17 @@ const OU_L_ON_JOUE: Record<ModeDuQg, string> = { soiree: 'en soirée', campagne:
 const JOUEURS_D_ABORD = 10
 
 /**
- * L'activité au QG (`/admin#activite`, le souhait du propriétaire du
- * 17 octobre 2026 : « la quantité de ce que font les joueurs […] sur quoi
- * une personne s'acharne ou pas ») : trente jours de questions jouées et de
- * parties, mode par mode, puis qui joue à quoi. La page se lit à son
- * ouverture.
+ * Les modes côte à côte au QG (`/admin#activite`, l'adresse que des favoris
+ * gardent — l'activité du 17 octobre 2026, refaite au QG 2, lot 5 : « Les
+ * modes aussi restent très sommaires », le propriétaire, le 3 novembre 2026).
+ * Sur la période de la barre, les cinq modes en une ligne chacun — les
+ * joueurs, les parties, les questions jouées, la réussite, la durée d'une
+ * partie, le retour à J+7 —, triables à l'ordinateur, en cartes au
+ * téléphone ; puis ce que l'activité avait déjà, sur trente jours : jour par
+ * jour, et qui joue à quoi. La page se lit à son ouverture ; la période se
+ * change sans la relire, le serveur les envoie toutes les quatre.
  */
-export function QgActivite() {
+export function QgActivite({ periode = '24h' }: { periode?: PeriodeDuQg }) {
   const [page, setPage] = useState<PageDeLActivite | null>(null)
   const [error, setError] = useState('')
   const [relire, setRelire] = useState(0)
@@ -53,48 +63,231 @@ export function QgActivite() {
 
   if (error) return <p className="error">{error}</p>
   if (!page) return <p className="serif-note">Chargement…</p>
-  return <ActiviteAuQg page={page} apresUnGeste={() => setRelire(n => n + 1)} />
+  return <ActiviteAuQg page={page} periode={periode} apresUnGeste={() => setRelire(n => n + 1)} />
 }
 
-/** La page lue : les trente jours en tout, jour par jour, puis les joueurs. */
-export function ActiviteAuQg({ page, apresUnGeste }: { page: PageDeLActivite; apresUnGeste?: () => void }) {
+/** La page lue : les modes côte à côte sur la période, puis les trente jours, jour par jour, et les joueurs. */
+export function ActiviteAuQg({ page, periode = '30j', apresUnGeste }: { page: PageDeLActivite; periode?: PeriodeDuQg; apresUnGeste?: () => void }) {
   return (
     <>
       <p className="muted small">
-        Trente jours, mode par mode. Une question jouée est une question posée à un joueur, qu’il y ait répondu ou l’ait laissée au temps ; une partie, un quiz
-        de soirée, une partie du jour, de campagne ou du Cabinet, un duel. La vue d’ensemble compte les joueurs, cette page ce qu’ils ont joué.
+        Une question jouée est une question posée à un joueur, qu’il y ait répondu ou l’ait laissée au temps ; une partie, un quiz de soirée, une partie du
+        jour ou de campagne, une épreuve d’une traversée du Cabinet, un duel. Le poste de commande compte les joueurs ; cette page, ce qu’ils jouent et
+        comment.
       </p>
-      <CesTrenteJours totaux={page.totaux} />
+      {page.modes ? (
+        <LesModesCoteACote modes={page.modes} periode={periode} />
+      ) : (
+        <p className="serif-note">Le serveur ne dit pas encore la réussite ni la durée des modes : il le dira à sa prochaine mise en ligne.</p>
+      )}
       <JourParJour page={page} />
       <QuiJoueAQuoi page={page} apresUnGeste={apresUnGeste} />
     </>
   )
 }
 
-/** Les trente jours en tout : une tuile par mode, ses questions jouées en grand, ses parties et ses joueurs dessous. */
-function CesTrenteJours({ totaux }: { totaux: PageDeLActivite['totaux'] }) {
+// ── Côte à côte ────────────────────────────────────────────────────────────
+
+type CleDuTri = 'mode' | 'joueurs' | 'parties' | 'questions' | 'reussite' | 'duree' | 'retour'
+
+const COLONNES_DES_MODES: { cle: CleDuTri; nom: string; titre: string }[] = [
+  { cle: 'mode', nom: 'Mode', titre: 'Dans l’ordre de leurs couleurs' },
+  { cle: 'joueurs', nom: 'Joueurs', titre: 'Les personnes : un profil une fois ; en soirée, un invité sans profil une fois par soirée' },
+  { cle: 'parties', nom: 'Parties', titre: 'Un quiz de soirée, une partie du jour ou de campagne, une épreuve du Cabinet, un duel' },
+  { cle: 'questions', nom: 'Questions', titre: 'Les questions posées à un joueur, répondues ou laissées au temps' },
+  { cle: 'reussite', nom: 'Réussite', titre: 'Les bonnes réponses aux QCM, sur ceux qui comptent' },
+  { cle: 'duree', nom: 'Une partie', titre: 'La médiane d’une partie finie, de son début à sa fin' },
+  { cle: 'retour', nom: 'Revenus à J+7', titre: 'Des joueurs d’un jour, la part qui rejoue au même mode dans les sept jours' },
+]
+
+/** Ce qu'une ligne vaut pour le tri : ce qui ne se compte pas passe après le plus petit. */
+function valeurDuTri(l: LigneDesModes, cle: CleDuTri, retour: ModesCoteACote['retour']): number {
+  switch (cle) {
+    case 'mode':
+      return MODES_DU_QG.indexOf(l.mode)
+    case 'reussite':
+      return (l.reussite && enPourcents(l.reussite)) ?? -1
+    case 'duree':
+      return l.duree?.medianeMs ?? -1
+    case 'retour': {
+      const r = retour.modes[l.mode]
+      return enPourcents({ justes: r.revenus, sur: r.sur }) ?? -1
+    }
+    default:
+      return l[cle]
+  }
+}
+
+/** Une part en pour cent et sa piste, à l'or de la salle : une part n'est pas un mode. Au téléphone, la piste passe sous le chiffre (`.qg-cote-chiffres`). */
+function Part({ pct, titre }: { pct: number; titre: string }) {
   return (
-    <section className="qg-jour" aria-labelledby="activite-trente-jours">
-      <div className="qg-section-tete">
-        <h2 className="compte-groupe" id="activite-trente-jours">
-          Ces trente jours
-        </h2>
-        <span className="muted small">{questions(totalDesModes(totaux.questions))} jouées, tous modes confondus</span>
+    <span className="qg-part" title={titre}>
+      <span className="qg-part-piste" aria-hidden="true">
+        <i style={{ width: `${Math.min(100, pct)}%` }} />
+      </span>
+      {enPourcentsEcrits(pct)}
+    </span>
+  )
+}
+
+/** Ce que les parties d'un mode s'appellent sur sa carte, au téléphone : la table, elle, n'a qu'une colonne « Parties ». */
+const PARTIES_DE_LA_CARTE: Record<ModeDuQg, string> = { soiree: 'Quiz', campagne: 'Parties', cabinet: 'Épreuves', jour: 'Parties', duel: 'Duels' }
+
+/** La réussite d'un mode : « 62 % » sur ses QCM ; le Cabinet n'en pose pas, une période vide n'en a pas. */
+function reussiteEcrite(l: LigneDesModes): ReactNode {
+  if (!l.reussite) return <span className="muted">pas des QCM</span>
+  const pct = enPourcents(l.reussite)
+  return pct === null ? '–' : <Part pct={pct} titre={`${formatNumber(l.reussite.justes)} bonnes sur ${pluriel(l.reussite.sur, 'QCM', 'QCM')}`} />
+}
+
+/** La médiane d'une partie : un quiz de soirée ne date pas sa fin ; une période sans partie finie n'en a pas. */
+function dureeDeLaLigne(l: LigneDesModes): ReactNode {
+  if (!l.duree) return <span className="muted">pas datée</span>
+  return l.duree.medianeMs === null ? '–' : <span title={`la médiane de ${pluriel(l.duree.finies, 'partie finie', 'parties finies')}`}>{dureeEcrite(l.duree.medianeMs)}</span>
+}
+
+/** Le retour à J+7 d'un mode, sur les jours qui ont leurs sept jours derrière eux. */
+function retourEcrit(r: { revenus: number; sur: number }): ReactNode {
+  const pct = enPourcents({ justes: r.revenus, sur: r.sur })
+  return pct === null ? '–' : <Part pct={pct} titre={`${formatNumber(r.revenus)} retours sur ${pluriel(r.sur, 'journée de jeu', 'journées de jeu')}`} />
+}
+
+/**
+ * Les cinq modes côte à côte sur la période de la barre : la part de chacun
+ * dans les questions jouées, puis une ligne par mode. À l'ordinateur, une
+ * table triable sur chaque colonne (les pièces de celle des routes du
+ * serveur) ; au téléphone, une carte par mode. Dessous, ce qui ne se compte
+ * pas, et pourquoi.
+ */
+function LesModesCoteACote({ modes, periode }: { modes: ModesCoteACote; periode: PeriodeDuQg }) {
+  const [tri, setTri] = useState<{ cle: CleDuTri; sens: 'monte' | 'descend' }>({ cle: 'mode', sens: 'monte' })
+  const lignes = modes.periodes[periode]
+  const triees = useMemo(
+    () =>
+      [...lignes].sort((a, b) => {
+        const c = valeurDuTri(a, tri.cle, modes.retour) - valeurDuTri(b, tri.cle, modes.retour)
+        return tri.sens === 'monte' ? c : -c
+      }),
+    [lignes, tri, modes.retour],
+  )
+  const trier = (cle: CleDuTri) => setTri(t => (t.cle === cle ? { cle, sens: t.sens === 'monte' ? 'descend' : 'monte' } : { cle, sens: cle === 'mode' ? 'monte' : 'descend' }))
+  const total = lignes.reduce((n, l) => n + l.questions, 0)
+  const partDe = (l: LigneDesModes) => (total > 0 ? Math.round((l.questions / total) * 100) : 0)
+  return (
+    <section className="qg-console" aria-labelledby="modes-cote">
+      <div className="qg-console-tete">
+        <div>
+          <span className="qg-etiquette">Mode par mode</span>
+          <h2 id="modes-cote">Sur {PERIODE_EN_TOUTES_LETTRES[periode]}</h2>
+          <span className="muted small">{questions(total)} jouées, tous modes confondus</span>
+        </div>
       </div>
-      <ul className="qg-tuiles qg-tuiles-cinq">
-        {MODES_DU_QG.map(m => (
-          <Chiffre
-            key={m}
-            nom={NOM_DU_MODE[m]}
-            valeur={formatNumber(totaux.questions[m])}
-            detail={[
-              'questions',
-              parties(m, totaux.parties[m]),
-              m === 'soiree' ? `${pluriel(totaux.soirees, 'soirée')}, ${pluriel(totaux.joueurs.soiree, 'invité')}` : pluriel(totaux.joueurs[m], 'joueur'),
-            ].join(' · ')}
-          />
+      {total > 0 && (
+        <>
+          <span className="qg-assidu-barre" role="img" aria-label={`La part de chaque mode dans les questions jouées : ${lignes.map(l => `${NOM_DU_MODE[l.mode]} ${partDe(l)} %`).join(', ')}`}>
+            {lignes.map(l => (l.questions > 0 ? <span key={l.mode} className={`qg-mode-${l.mode}`} style={{ width: `calc(${(l.questions / total) * 100}% - 2px)` }} /> : null))}
+          </span>
+          <ul className="qg-legende-modes" aria-hidden="true">
+            {lignes.map(l => (
+              <li key={l.mode}>
+                <i className={`qg-pastille-mode qg-mode-${l.mode}`} />
+                {NOM_DU_MODE[l.mode]} · {formatNumber(partDe(l))} %
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <div className="qg-table-cadre qg-cote-table">
+        <table className="qg-table">
+          <caption className="sr-only">{`Les modes sur ${PERIODE_EN_TOUTES_LETTRES[periode]}, triés par ${COLONNES_DES_MODES.find(c => c.cle === tri.cle)?.nom.toLowerCase()}`}</caption>
+          <thead>
+            <tr>
+              {COLONNES_DES_MODES.map(c => (
+                <th
+                  key={c.cle}
+                  scope="col"
+                  className={c.cle === 'mode' ? undefined : 'qg-nombre'}
+                  aria-sort={tri.cle === c.cle ? (tri.sens === 'monte' ? 'ascending' : 'descending') : undefined}
+                >
+                  <button type="button" className="qg-tri" title={c.titre} onClick={() => trier(c.cle)}>
+                    {c.nom}
+                    {tri.cle === c.cle && <Icon name={tri.sens === 'monte' ? 'arrow-up' : 'arrow-down'} />}
+                  </button>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {triees.map(l => (
+              <tr key={l.mode}>
+                <th scope="row">
+                  <span className="qg-cote-mode">
+                    <i className={`qg-pastille-mode qg-mode-${l.mode}`} aria-hidden="true" />
+                    <b>{NOM_DU_MODE[l.mode]}</b>
+                  </span>
+                </th>
+                <td className="qg-nombre">{formatNumber(l.joueurs)}</td>
+                <td className="qg-nombre">{formatNumber(l.parties)}</td>
+                <td className="qg-nombre">{formatNumber(l.questions)}</td>
+                <td className="qg-nombre">{reussiteEcrite(l)}</td>
+                <td className="qg-nombre">{dureeDeLaLigne(l)}</td>
+                <td className="qg-nombre">{retourEcrit(modes.retour.modes[l.mode])}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {/* Au téléphone, une carte par mode : la table et ses sept colonnes ne tenaient pas sans défiler de côté. */}
+      <ul className="qg-liste qg-cote-cartes">
+        {lignes.map(l => (
+          <li key={l.mode} className="qg-cote-carte">
+            <span className="qg-cote-mode">
+              <i className={`qg-pastille-mode qg-mode-${l.mode}`} aria-hidden="true" />
+              <b>{NOM_DU_MODE[l.mode]}</b>
+            </span>
+            <dl className="qg-cote-chiffres">
+              <div>
+                <dt>Joueurs</dt>
+                <dd className="num">{formatNumber(l.joueurs)}</dd>
+              </div>
+              <div>
+                <dt>{PARTIES_DE_LA_CARTE[l.mode]}</dt>
+                <dd className="num">{formatNumber(l.parties)}</dd>
+              </div>
+              <div>
+                <dt>Questions</dt>
+                <dd className="num">{formatNumber(l.questions)}</dd>
+              </div>
+              <div>
+                <dt>Réussite</dt>
+                <dd className="num">{reussiteEcrite(l)}</dd>
+              </div>
+              <div>
+                <dt>Une partie</dt>
+                <dd className="num">{dureeDeLaLigne(l)}</dd>
+              </div>
+              <div>
+                <dt>Revenus à J+7</dt>
+                <dd className="num">{retourEcrit(modes.retour.modes[l.mode])}</dd>
+              </div>
+            </dl>
+          </li>
         ))}
       </ul>
+      <p className="muted small">
+        <b>La réussite</b> ne compte que les QCM : au quiz du jour, ses questions posées — laissées au temps comprises, les annulées pour tous non ; en
+        campagne et en duel, ses questions jouées ; en soirée, les QCM auxquels les profils de ses soirées ont répondu, une estimation n’y est jamais juste.
+        Au Cabinet, ses jeux ne sont pas des QCM : rien ne s’y compte.
+      </p>
+      <p className="muted small">
+        <b>Une partie</b> : la médiane de celles finies, de leur début à leur fin — une partie laissée puis reprise compte son attente ; au Cabinet, une
+        épreuve, pas la traversée (sa page dit la durée d’une traversée). Un quiz de soirée ne date pas sa fin.
+      </p>
+      <p className="muted small">
+        <b>Revenus à J+{JOURS_DU_RETOUR}</b> : des joueurs d’un jour, la part qui y rejoue dans les {JOURS_DU_RETOUR} jours suivants, sur les{' '}
+        {pluriel(modes.retour.jours, 'jour')} de ces trente qui ont leurs sept jours derrière eux, quelle que soit la période — des profils seulement : un invité
+        sans profil ne se suit pas d’un soir à l’autre.
+      </p>
     </section>
   )
 }
@@ -114,6 +307,7 @@ function JourParJour({ page }: { page: PageDeLActivite }) {
         <h2 className="compte-groupe" id="activite-jours">
           Jour par jour
         </h2>
+        <span className="muted small">les trente derniers jours, quelle que soit la période</span>
       </div>
       <div className="onglets onglets-puces" role="group" aria-label="Ce que les graphiques comptent">
         {(['questions', 'parties'] as const).map(q => (

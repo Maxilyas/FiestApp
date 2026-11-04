@@ -3,7 +3,11 @@ import { api, motifDe } from '../api'
 import { confirmDialog } from './Dialog'
 import { Icon } from './Icon'
 import { AujourdhuiDeLaCampagne, CeQuOnJoue, DefiDeLaSemaineAuQg, ParcoursDeThemeAuQg, ViesDesSentiersAuQg } from './QgCampagne'
+import { Chiffre, GabaritDUnMode, TuileParJoueur, enPourcentsEcrits } from './QgModes'
 import { ReclasserLaQuestion, VersLesSignalements } from './QgSignalements'
+import { enPourcents } from '../../../shared/qgDuJour'
+import { entonnoirDuSolo } from '../../../shared/qgModes'
+import type { PeriodeDuQg } from '../../../shared/qgPeriodes'
 import { espacesFines, quand } from '../format'
 import { showToast } from '../state'
 import { formatNumber } from '../../../shared/typographie'
@@ -43,9 +47,22 @@ import { texteDuMelangeCourt } from './melanges'
  * de questions, par catégorie —, la routine du matin, et la ligne qui mène
  * aux questions que les joueurs signalent : elles se relisent sur leur page,
  * avec celles du quiz du jour (`AdminSignalements.tsx`). La vue d'ensemble
- * du QG lui prête ses trente jours : déjà lus, ils ne se relisent pas ici.
+ * du QG lui prête ses trente jours : déjà lus, ils ne se relisent pas ici —
+ * et, depuis le QG 2 (lot 5), ses périodes, que le gabarit des modes pose en
+ * tête (`GabaritDUnMode`). Le Cabinet de curiosités a sa page : la campagne
+ * le garde parmi ses sous-modes, pas dans son gabarit.
  */
-export function AdminCampagne({ vue, versLesSignalements }: { vue: VueDEnsemble | null; versLesSignalements: () => void }) {
+export function AdminCampagne({
+  vue,
+  versLesSignalements,
+  periode = '24h',
+  comparer = false,
+}: {
+  vue: VueDEnsemble | null
+  versLesSignalements: () => void
+  periode?: PeriodeDuQg
+  comparer?: boolean
+}) {
   const [etat, setEtat] = useState<AdminDeLaCampagne | null>(null)
   const [erreur, setErreur] = useState('')
   const [suivi, setSuivi] = useState<SuiviDeLaCampagne | null>(null)
@@ -84,8 +101,36 @@ export function AdminCampagne({ vue, versLesSignalements }: { vue: VueDEnsemble 
     }
   }
 
+  const totaux = vue?.periodes?.[periode]?.totaux
+  const finies = totaux?.finies ? enPourcents({ justes: totaux.finies.campagne, sur: totaux.parties.campagne }) : null
+  const etapes = totaux && entonnoirDuSolo(totaux, 'campagne')
   return (
     <>
+      <GabaritDUnMode
+        mode="campagne"
+        vue={vue}
+        periode={periode}
+        comparer={comparer}
+        tuiles={
+          <>
+            <Chiffre
+              nom="Parties finies"
+              valeur={enPourcentsEcrits(finies)}
+              detail={totaux?.finies ? `${formatNumber(totaux.finies.campagne)} sur ${formatNumber(totaux.parties.campagne)} commencées` : undefined}
+            />
+            <TuileParJoueur mode="campagne" vue={vue} periode={periode} detail="en moyenne" />
+          </>
+        }
+        entonnoir={
+          etapes
+            ? {
+                titre: 'D’une partie commencée à sa fin',
+                etapes,
+                note: 'Toutes ses sortes ensemble — séries, épreuves des sentiers, parcours, révisions, défi —, sans le Cabinet, qui a sa page. Une partie laissée se reprend, et se finit plus tard.',
+              }
+            : null
+        }
+      />
       <AujourdhuiDeLaCampagne vue={vue} suivi={suivi} />
       {suiviEnPanne && <p className="serif-note">La base permanente ne répond pas : le défi, les parcours et les vies reviendront en rouvrant la page.</p>}
       <CeQuOnJoue vue={vue} />

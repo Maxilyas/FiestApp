@@ -15129,6 +15129,30 @@ button.qg-route:hover .qg-route-chemin { text-decoration: underline; }
 .qg-assidu-nom { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
 .qg-assidu-barre { display: flex; height: 10px; margin: 4px 0 2px; overflow: hidden; }
 .qg-assidu-barre > span { flex: none; min-width: 2px; margin-right: 2px; border-radius: 3px; }
+/* Le gabarit d'un mode (`GabaritDUnMode`, le QG 2, lot 5) : sa courbe, puis ce qui s'y joue à la minute — l'une sous
+   l'autre au téléphone, côte à côte à l'ordinateur, la courbe aux deux tiers. */
+.qg-gabarit { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+/* L'entonnoir : sous la barre de chaque marche, ce qui s'est perdu depuis la précédente et sa part du départ. */
+.qg-entonnoir-perte { grid-column: 2 / -1; margin-top: -6px; font: 500 0.75rem/1.35 var(--qg-mono); color: var(--muted); }
+/* Au téléphone, une marche sur trois lignes — son nom, sa piste et son compte, sa perte : en trois colonnes, son nom
+   prenait neuf rem, la piste n'était plus qu'un trait et la perte tenait sur trois lignes (le rendu du lot 5). */
+.qg-entonnoir .qg-piste-ligne { grid-template-columns: minmax(0, 1fr) 3.5rem; grid-template-areas: 'texte texte' 'piste part' 'perte perte'; gap: 4px 10px; }
+.qg-entonnoir .qg-piste-nom { grid-area: texte; }
+.qg-entonnoir .qg-piste { grid-area: piste; }
+.qg-entonnoir .qg-piste-ligne > b { grid-area: part; }
+.qg-entonnoir .qg-entonnoir-perte { grid-area: perte; margin-top: 0; }
+/* Les modes côte à côte : un mode, sa couleur devant son nom. */
+.qg-cote-mode { display: inline-flex; align-items: center; gap: 8px; }
+/* Au téléphone, une carte par mode — six chiffres en trois colonnes — à la place de la table, qui l'attend à l'ordinateur. */
+.qg-cote-table { display: none; }
+.qg-cote-carte { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; }
+.qg-cote-chiffres { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px; margin: 0; }
+.qg-cote-chiffres > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.qg-cote-chiffres dt { font-size: 0.75rem; color: var(--muted); }
+.qg-cote-chiffres dd { margin: 0; font-family: var(--sans); font-size: 1rem; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; overflow-wrap: anywhere; }
+.qg-cote-chiffres dd .muted { font-size: 0.8rem; font-weight: 500; }
+/* Une part sur sa carte : le chiffre, sa piste dessous — à côté, « 100 % » passait la largeur de sa colonne. */
+.qg-cote-chiffres .qg-part { flex-direction: column-reverse; align-items: flex-start; gap: 5px; }
 /* Un duel en attente : qui défie qui, la flèche à la taille du texte. */
 .qg-attente b .icon { width: 12px; height: 12px; vertical-align: -1px; }
 /* Les questions les plus ratées du défi : au téléphone, l'intitulé sur toute la largeur et sa piste dessous ; à l'ordinateur, sur une ligne, coupé d'une ellipse. */
@@ -15454,6 +15478,11 @@ span.annonce-admin-merci { cursor: default; }
   .qg-tuiles.qg-tuiles-cinq { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .qg-tuiles-cinq > :last-child:nth-child(odd) { grid-column: auto; }
   .qg-deux { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  .qg-gabarit { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: stretch; }
+  .qg-entonnoir .qg-piste-ligne { grid-template-columns: minmax(0, 9rem) minmax(0, 1fr) 3.5rem; grid-template-areas: 'texte piste part' '. perte perte'; gap: 10px; }
+  .qg-entonnoir .qg-entonnoir-perte { margin-top: -6px; }
+  .qg-cote-table { display: block; }
+  .qg-cote-cartes { display: none; }
   .qg-tableau .qg-colonne-large { display: table-cell; }
   .qg-question { grid-template-columns: 1.5rem minmax(0, 1.3fr) minmax(0, 1fr) 3.5rem 8.5rem; grid-template-areas: 'n texte piste part marques'; }
   .qg-question-texte { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

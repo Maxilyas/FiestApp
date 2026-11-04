@@ -43,15 +43,8 @@ import { enTranches } from './core/tourniquet'
 import type { CalculEnTranches } from '../../shared/tranches'
 import { campagneDeLaVue } from '../../shared/qgCampagne'
 import { duelsDeLaVue } from '../../shared/qgDuels'
-import {
-  activiteDesJoueurs,
-  activiteParJour,
-  joueursAMontrer,
-  totauxDeLActivite,
-  type PageDeLActivite,
-  type PartieSeule,
-  type SoireeDUnProfil,
-} from '../../shared/qgActivite'
+import { activiteDesJoueurs, activiteParJour, joueursAMontrer, totauxDeLActivite, type PageDeLActivite, type SoireeDUnProfil } from '../../shared/qgActivite'
+import { modesCoteACote, seJoueEnQcm, type PartieDesModes } from '../../shared/qgModes'
 import { economieDuQg } from './economie'
 import { jourDe } from '../../shared/jour'
 import { JOURS_DES_RELUS, RELUS_MONTRES, type PageDesSignalements } from '../../shared/qgSignalements'
@@ -150,10 +143,15 @@ function profilsDesSoireesOuvertes(db: DB): Map<string, string[]> {
   return new Map(lignes.map(l => [l.space_id, JSON.parse(l.profils) as string[]]))
 }
 
-/** Les journaux qui grossissent chaque jour, tels que la vue d'ensemble les lit : qui, quand — et ce qu'il a joué, pour l'activité. */
+/**
+ * Les journaux qui grossissent chaque jour, tels que la vue d'ensemble les lit :
+ * qui, quand — et ce qu'il a joué, pour l'activité ; sa fin et ses bonnes
+ * réponses, pour les modes côte à côte et l'entonnoir d'un mode (le QG 2,
+ * lot 5) — des colonnes des mêmes lignes.
+ */
 export interface Journaux {
-  parties: { qui: string; quand: number; questions: number }[]
-  series: { qui: string; quand: number; mode: string | null; questions: number }[]
+  parties: { qui: string; quand: number; questions: number; fin: number | null; justes: number; comptees: number }[]
+  series: { qui: string; quand: number; mode: string | null; questions: number; fin: number | null; justes: number }[]
   activite: { inscriptions: number[]; achats: number[]; soirees: SoireeDUnProfil[] }
 }
 
@@ -200,9 +198,10 @@ export function* chiffresDeLaVue(
   minuits: readonly number[],
   maintenant: number,
 ): CalculEnTranches<ChiffresDeLaVue> {
-  const solo: { quand: number; qui: string; mode: Exclude<ModeDuQg, 'soiree'> }[] = [
-    ...parties.map(p => ({ quand: p.quand, qui: p.qui, mode: 'jour' as const })),
-    ...series.map(s => ({ quand: s.quand, qui: s.qui, mode: modeDeLaSerie(s.mode) })),
+  // Leur fin aussi : chaque période compte ses parties finies, l'entonnoir d'une page de mode.
+  const solo: { quand: number; qui: string; mode: Exclude<ModeDuQg, 'soiree'>; fin: number | null }[] = [
+    ...parties.map(p => ({ quand: p.quand, qui: p.qui, mode: 'jour' as const, fin: p.fin })),
+    ...series.map(s => ({ quand: s.quand, qui: s.qui, mode: modeDeLaSerie(s.mode), fin: s.fin })),
   ]
   // La tuile de la campagne compte aussi le Cabinet : sa page le range parmi
   // ses sous-modes (`SOUS_MODES_DE_CAMPAGNE`), et elle y lit ses parties du
@@ -488,18 +487,36 @@ export function mountQg(app: Express, deps: QgDeps) {
    * avec les questions de leurs invités ; seuls les profils montrés se
    * nomment. Des soirées des autres, rien que des chiffres : ni un prénom
    * d'invité, ni un titre, ni un espace.
+   *
+   * Et, depuis le QG 2 (lot 5), les modes côte à côte sur chaque période de
+   * la barre — la réussite, la durée d'une partie — et leur retour à J+7, des
+   * mêmes journaux : leur fin et leurs bonnes réponses viennent avec eux.
    */
   const pageDeLActivite = async (): Promise<PageDeLActivite> => {
     const maintenant = deps.maintenant()
     const minuits = minuitsDeParis(maintenant, JOURS_DU_QG)
     const [{ parties, series, activite }, soirees] = await Promise.all([lesTrenteJours(minuits), lesSoireesDepuis(deps, minuits[0], { jouees: true })])
-    const seules: PartieSeule[] = [
-      ...parties.map(p => ({ qui: p.qui, quand: p.quand, mode: 'jour' as const, questions: p.questions })),
-      ...series.map(s => ({ qui: s.qui, quand: s.quand, mode: modeDeLaSerie(s.mode), questions: s.questions })),
+    const seules: PartieDesModes[] = [
+      // Au quiz du jour, ses questions à choix qui comptent : les posées, sans les annulées pour tous.
+      ...parties.map(p => ({ qui: p.qui, quand: p.quand, mode: 'jour' as const, questions: p.questions, fin: p.fin, justes: p.justes, qcm: p.comptees })),
+      ...series.map(s => ({
+        qui: s.qui,
+        quand: s.quand,
+        mode: modeDeLaSerie(s.mode),
+        questions: s.questions,
+        fin: s.fin,
+        justes: s.justes,
+        // Le Cabinet et l'expédition d'avant lui ne posent pas que des QCM : leur réussite ne se compte pas.
+        qcm: seJoueEnQcm(s.mode) ? s.questions : null,
+      })),
     ]
     const classes = activiteDesJoueurs(seules, activite.soirees, minuits, maintenant)
     const montres = joueursAMontrer(classes)
-    const profils = new Map((await deps.profiles.pourLAdministrateurDe(montres.map(a => a.qui))).map(p => [p.id, p]))
+    const [profilsMontres, modes] = await Promise.all([
+      deps.profiles.pourLAdministrateurDe(montres.map(a => a.qui)),
+      enTranches(modesCoteACote(seules, soirees, activite.soirees, minuits, maintenant)),
+    ])
+    const profils = new Map(profilsMontres.map(p => [p.id, p]))
     return {
       maintenant,
       parJour: activiteParJour(seules, soirees, minuits, maintenant),
@@ -510,6 +527,7 @@ export function mountQg(app: Express, deps: QgDeps) {
         return p ? [{ id: p.id, nom: p.name, login: p.login, suspendu: p.disabledAt !== null, ...a }] : []
       }),
       profilsActifs: classes.length,
+      modes,
     }
   }
 

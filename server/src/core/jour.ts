@@ -3651,15 +3651,39 @@ export class JourStore {
    * d'un seul profil, sa fiche au QG — par sa clé, `(profile_id, jour)`. En un
    * seul texte JSON, comme les séries de la campagne (`seriesDepuis`) : le
    * client de Turso décode chaque ligne à coups de `defineProperty`.
+   *
+   * Et, pour les modes côte à côte du QG (le QG 2, lot 5), sa fin, ses bonnes
+   * réponses et ses questions qui comptent — deux colonnes de plus des mêmes
+   * lignes, pas une de plus au quota. Ses `justes` ont déjà perdu les
+   * questions annulées pour tous (`recompter`) ; ses questions posées, non :
+   * les annulées des jours qui en ont viennent du même lot, par la clé des
+   * tirages — un tirage par jour, une dizaine sur trente jours, aucune le
+   * plus souvent —, et `comptees` ôte celles qu'il a passées. Une question
+   * laissée au temps compte, comme au QG (`partDesBonnes`) : le joueur l'a vue.
    */
-  async partiesDepuis(depuis: number, qui?: string): Promise<{ qui: string; quand: number; questions: number }[]> {
-    const res = await this.client.execute({
-      sql: `SELECT json_group_array(json_array(profile_id, commencee_le, question)) AS lignes
-            FROM jour_parties WHERE jour >= ? AND commencee_le >= ?${qui === undefined ? '' : ' AND profile_id = ?'}`,
-      args: qui === undefined ? [jourDe(depuis), depuis] : [jourDe(depuis), depuis, qui],
+  async partiesDepuis(
+    depuis: number,
+    qui?: string,
+  ): Promise<{ qui: string; quand: number; questions: number; fin: number | null; justes: number; comptees: number }[]> {
+    const [res, annuleesLues] = await this.client.batch(
+      [
+        {
+          sql: `SELECT json_group_array(json_array(profile_id, commencee_le, question, finie_le, justes, jour)) AS lignes
+                FROM jour_parties WHERE jour >= ? AND commencee_le >= ?${qui === undefined ? '' : ' AND profile_id = ?'}`,
+          args: qui === undefined ? [jourDe(depuis), depuis] : [jourDe(depuis), depuis, qui],
+        },
+        { sql: "SELECT jour, annulees FROM jour_tirages WHERE jour >= ? AND annulees <> '[]'", args: [jourDe(depuis)] },
+      ],
+      'read',
+    )
+    const annulees = new Map(annuleesLues.rows.map(r => [String(r.jour), lireNombres(r.annulees)]))
+    const lignes = JSON.parse(String(res.rows[0]?.lignes ?? '[]')) as [string, number, number, number | null, number, string][]
+    return lignes.map(([qui, quand, questions, fin, justes, jour]) => {
+      const posees = Number(questions)
+      // Les questions d'avant la sienne ont été posées : une annulée parmi elles ne compte plus pour personne.
+      const otees = (annulees.get(String(jour)) ?? []).filter(i => i < posees).length
+      return { qui: String(qui), quand: Number(quand), questions: posees, fin: fin === null ? null : Number(fin), justes: Number(justes), comptees: posees - otees }
     })
-    const lignes = JSON.parse(String(res.rows[0]?.lignes ?? '[]')) as [string, number, number][]
-    return lignes.map(([qui, quand, questions]) => ({ qui: String(qui), quand: Number(quand), questions: Number(questions) }))
   }
 
   /**

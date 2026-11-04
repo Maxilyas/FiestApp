@@ -156,9 +156,17 @@ test('les chiffres de la vue d’ensemble, un compte par tranche : les mêmes qu
   const quand = () => minuits[0] - 3 * H + Math.floor(hasard() * (maintenant - minuits[0] + 5 * H))
   const qui = () => `p${Math.floor(hasard() * 40)}`
   const modes = ['serie', 'sentier', 'duel', 'rencontre', 'revision', 'sujet', 'cabinet', 'defi', 'expedition', null]
+  // Une partie sur cinq laissée en route ; les autres finies quelques minutes après leur début — parfois après maintenant.
+  const finDe = (debut: number) => (hasard() < 0.2 ? null : debut + Math.floor(hasard() * 40) * 60_000)
   const journaux: Journaux = {
-    parties: Array.from({ length: 300 }, () => ({ qui: qui(), quand: quand(), questions: 10 })),
-    series: Array.from({ length: 900 }, () => ({ qui: qui(), quand: quand(), mode: modes[Math.floor(hasard() * modes.length)], questions: 12 })),
+    parties: Array.from({ length: 300 }, () => {
+      const debut = quand()
+      return { qui: qui(), quand: debut, questions: 10, fin: finDe(debut), justes: 6, comptees: 10 }
+    }),
+    series: Array.from({ length: 900 }, () => {
+      const debut = quand()
+      return { qui: qui(), quand: debut, mode: modes[Math.floor(hasard() * modes.length)], questions: 12, fin: finDe(debut), justes: 7 }
+    }),
     activite: {
       inscriptions: Array.from({ length: 30 }, quand),
       achats: Array.from({ length: 50 }, quand),
@@ -167,11 +175,12 @@ test('les chiffres de la vue d’ensemble, un compte par tranche : les mêmes qu
   }
   const soirees = Array.from({ length: 25 }, (_, i) => ({ quand: quand(), joueurs: 6, ...(i % 3 > 0 && { profils: [qui(), qui()] }) }))
 
-  // Le bloc d'avant, recopié de la route : chaque compte sur les mêmes journaux.
+  // Le bloc d'avant, recopié de la route : chaque compte sur les mêmes journaux — la fin de chaque partie comprise,
+  // que les périodes comptent pour l'entonnoir d'un mode.
   const { parties, series, activite } = journaux
   const solo = [
     ...parties.map(p => ({ ...p, mode: 'jour' as const })),
-    ...series.map(s => ({ quand: s.quand, qui: s.qui, mode: modeDeLaSerie(s.mode) })),
+    ...series.map(s => ({ quand: s.quand, qui: s.qui, mode: modeDeLaSerie(s.mode), fin: s.fin })),
   ]
   const campagne = series.filter(s => modeDeLaSerie(s.mode) !== 'duel')
   const duels = series.filter(s => modeDeLaSerie(s.mode) === 'duel')
@@ -191,6 +200,9 @@ test('les chiffres de la vue d’ensemble, un compte par tranche : les mêmes qu
     periodes: Object.fromEntries(PERIODES_DU_QG.map(p => [p, activiteDeLaPeriode(p, solo, soirees, activite, minuits, maintenant)])),
   }
   assert.ok(dUnBloc.aujourdhui.profilsActifs.aujourdhui > 0 && dUnBloc.aujourdhui.seriesDeCampagne.habituel !== null, 'des chiffres à comparer')
+  // Des parties finies à compter, et moins que de commencées : la vue les tient de la fin de chacune.
+  const surTrente = dUnBloc.periodes['30j'].totaux
+  assert.ok(surTrente.finies && surTrente.finies.campagne > 0 && surTrente.finies.campagne < surTrente.parties.campagne, 'des parties finies à compter')
 
   let tranches = 0
   const calcul = chiffresDeLaVue(journaux, soirees, minuits, maintenant)

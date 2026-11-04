@@ -57,8 +57,8 @@ test('/admin : le QG — la vue d’ensemble d’abord, son journal et son serve
   // les annonces, le 1er novembre 2026 (`affiches.test.ts`) ; la base et le miroir, sortis du serveur, le 4 novembre
   // 2026 (le QG 2, `qg-serveur-routes.test.ts`), le direct, le même jour (`qg-direct.test.ts`), les alertes et leurs
   // incidents (`qg-alertes.test.ts`), les joueurs, en tête de l'audience (`qg-joueurs.test.ts`), les téléphones
-  // (`qg-telephones.test.ts`), et le Cabinet de curiosités, après la campagne (`qg-cabinet.test.ts`) ; les ancres
-  // d'avant y mènent encore.
+  // (`qg-telephones.test.ts`), et le Cabinet de curiosités, après la campagne (`qg-cabinet.test.ts`) ; l'activité devenue
+  // les modes côte à côte au lot 5, à la même adresse (`qg-modes.test.ts`) ; les ancres d'avant y mènent encore.
   assert.match(
     page,
     /const ECRANS: readonly Ecran\[\] = \['journal', 'erreurs', 'serveur', 'maintenance', 'activite', 'soirees', 'profils', 'salons', 'catalogue', 'jour', 'campagne', 'cabinet', 'duels', 'economie', 'signalements', 'annonces', 'affiches', 'base', 'direct', 'alertes', 'joueurs', 'telephones'\]/,
@@ -76,7 +76,7 @@ test('/admin : le QG — la vue d’ensemble d’abord, son journal et son serve
   assert.match(page, /\{ ecran: 'campagne', nom: 'Campagne', icone: 'target' \},\s*\{ ecran: 'cabinet', nom: 'Cabinet', icone: 'landmark' \}/)
   assert.match(page, /<Ligne icone="landmark" nom="Le Cabinet"/)
   assert.match(source('components/QgVueDEnsemble.tsx'), /cabinet: 'cabinet'/)
-  assert.match(page, /<Ligne icone="hash" nom="L’activité"/)
+  assert.match(page, /<Ligne icone="hash" nom="Les modes côte à côte"/)
   assert.match(page, /<Ligne icone="alert" nom="La maintenance"/)
   assert.match(page, /<Ligne icone="megaphone" nom="Les annonces"/)
   assert.match(page, /<Ligne icone="sparkles" nom="Les nouveautés"/)

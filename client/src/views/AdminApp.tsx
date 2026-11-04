@@ -104,7 +104,8 @@ const TITRE: Record<Ecran, string> = {
   erreurs: 'Les erreurs',
   serveur: 'Le serveur',
   maintenance: 'La maintenance',
-  activite: 'L’activité',
+  // L'activité du 17 octobre 2026, refaite au QG 2 (lot 5) ; son adresse reste `#activite`, que des favoris gardent.
+  activite: 'Les modes côte à côte',
   soirees: 'Les soirées',
   profils: 'Les profils',
   salons: 'Les salons',
@@ -155,7 +156,7 @@ const PAGES_DU_QG: { groupe: string; pages: { ecran: Ecran | null; nom: string; 
   {
     groupe: 'Modes',
     pages: [
-      { ecran: 'activite', nom: 'Activité', icone: 'hash' },
+      { ecran: 'activite', nom: 'Côte à côte', icone: 'hash' },
       { ecran: 'soirees', nom: 'Soirées', icone: 'glass' },
       { ecran: 'jour', nom: 'Quiz du jour', icone: 'sun' },
       { ecran: 'campagne', nom: 'Campagne', icone: 'target' },
@@ -203,6 +204,14 @@ const PERIODES_DES_PAGES: Partial<Record<Ecran | 'poste', { periodes: readonly P
   serveur: { periodes: ['1h', '24h', '7j'], comparer: false },
   base: { periodes: ['1h', '24h', '7j'], comparer: false },
   telephones: { periodes: ['1h', '24h', '7j'], comparer: false },
+  // Les modes (le QG 2, lot 5) : côte à côte, une table — rien à poser en filet ; chaque page de mode, son gabarit et sa
+  // courbe — le Cabinet aussi, sa courbe seule : ses tuiles restent les siennes, sur trente jours.
+  activite: { periodes: PERIODES_DU_QG, comparer: false },
+  soirees: { periodes: PERIODES_DU_QG, comparer: true },
+  jour: { periodes: PERIODES_DU_QG, comparer: true },
+  campagne: { periodes: PERIODES_DU_QG, comparer: true },
+  cabinet: { periodes: PERIODES_DU_QG, comparer: true },
+  duels: { periodes: PERIODES_DU_QG, comparer: true },
 }
 
 /**
@@ -455,7 +464,7 @@ export function AdminApp() {
         valeur={vue?.aTraiter.alertes?.length ? `${vue.aTraiter.alertes.length} ouverte${vue.aTraiter.alertes.length > 1 ? 's' : ''}` : 'Les règles, leurs seuils, les incidents'}
         onClick={() => aller('alertes')}
       />
-      <Ligne icone="hash" nom="L’activité" valeur="Le volume des modes, qui joue à quoi" onClick={() => aller('activite')} />
+      <Ligne icone="hash" nom="Les modes côte à côte" valeur="Réussite, durée, retour à J+7" onClick={() => aller('activite')} />
       <Ligne
         icone="glass"
         nom="Les soirées"
@@ -615,16 +624,17 @@ export function AdminApp() {
         )}
         {/* L'état de la maintenance : une page fermée, l'affiche le dit avant de la poser. */}
         {ecran === 'affiches' && <QgAffiches maintenance={maintenance} />}
-        {ecran === 'activite' && <QgActivite />}
+        {/* Les modes côte à côte, et le gabarit de chaque page de mode : la période de la barre, la vue d'ensemble déjà lue. */}
+        {ecran === 'activite' && <QgActivite periode={periodeDeLaPage} />}
         {/* Le direct de la page des soirées est celui du QG, relu toutes les dix secondes ; relu aussitôt après un geste. */}
-        {ecran === 'soirees' && <QgSoirees direct={direct} apresUnGeste={relireLeDirect} />}
+        {ecran === 'soirees' && <QgSoirees direct={direct} apresUnGeste={relireLeDirect} vue={vue} periode={periodeDeLaPage} comparer={comparer} />}
         {ecran === 'profils' && <AdminProfils />}
         {ecran === 'salons' && <AdminSalons espaces={espaces} onChange={relireLesComptes} />}
         {ecran === 'catalogue' && <Catalogue />}
-        {ecran === 'jour' && <AdminDuJour vue={vue} versLesSignalements={() => aller('signalements')} />}
-        {ecran === 'campagne' && <AdminCampagne vue={vue} versLesSignalements={() => aller('signalements')} />}
-        {ecran === 'cabinet' && <QgCabinet versLaMaintenance={() => aller('maintenance')} />}
-        {ecran === 'duels' && <AdminDuels vue={vue} />}
+        {ecran === 'jour' && <AdminDuJour vue={vue} versLesSignalements={() => aller('signalements')} periode={periodeDeLaPage} comparer={comparer} />}
+        {ecran === 'campagne' && <AdminCampagne vue={vue} versLesSignalements={() => aller('signalements')} periode={periodeDeLaPage} comparer={comparer} />}
+        {ecran === 'cabinet' && <QgCabinet versLaMaintenance={() => aller('maintenance')} vue={vue} periode={periodeDeLaPage} comparer={comparer} />}
+        {ecran === 'duels' && <AdminDuels vue={vue} periode={periodeDeLaPage} comparer={comparer} />}
         {ecran === 'economie' && <AdminEconomie />}
         {/* Un geste referme des signalements : ce qui attend, et la pastille du rail, se relisent. */}
         {ecran === 'signalements' && <AdminSignalements apresUnGeste={relireLaVue} />}
