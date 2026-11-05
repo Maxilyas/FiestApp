@@ -53,8 +53,9 @@ body { position: relative; color: var(--papier); font-family: Figtree, sans-seri
 /* La bande : papier clair, le texte qui défile, la barre rouge. */
 #bande { position: absolute; left: 0; top: 884px; width: 1920px; height: 188px; overflow: hidden; background: var(--papier); border-top: 2px solid #c9b48a; border-bottom: 2px solid #c9b48a; }
 #piste { position: absolute; left: 0; top: 0; height: 100%; }
-.jeu { position: absolute; top: 8px; font: italic 600 22px/1 Figtree, sans-serif; color: var(--jeu); white-space: nowrap; }
-.texte { position: absolute; top: 36px; font: italic 500 64px/1 'Cormorant Garamond', serif; color: var(--encre); white-space: nowrap; transform-origin: 0 50%; }
+.jeu { position: absolute; top: 7px; font: italic 600 24px/1 Figtree, sans-serif; color: var(--jeu); white-space: nowrap; }
+/* Une linéale grasse et droite : l'italique fine du montage perdait ses déliés en défilant, et se lisait floue. */
+.texte { position: absolute; top: 38px; font: 700 62px/1 Figtree, sans-serif; color: var(--encre); white-space: nowrap; transform-origin: 0 50%; }
 .duree { position: absolute; top: 116px; height: 4px; border-radius: 2px; background: rgba(26, 20, 18, 0.4); }
 .bip { position: absolute; top: 30px; width: 0; font: 600 76px/1 'Cormorant Garamond', serif; color: var(--rouge); }
 .bip span { position: absolute; left: 0; transform: translateX(-50%); }
@@ -210,9 +211,8 @@ window.pret = (async () => {
     ...HISTOIRE.LEGENDES.map(l => ({ t: l.a, nom: l.etiquette ?? sansBalises(l.titre).split('?')[0] + ' ?' })),
     { t: HISTOIRE.DEBUT_DE_LA_FIN, nom: 'La fin' },
   ]
-  await document.fonts.load('italic 500 64px "Cormorant Garamond"')
   await document.fonts.load('600 40px "Cormorant Garamond"')
-  await document.fonts.load('600 20px Figtree')
+  await document.fonts.load('700 62px Figtree')
   construire()
   window.DEBUT = -AVANT
   window.DUREE = AVANT + HISTOIRE.DUREE + DOUBLAGE.apres

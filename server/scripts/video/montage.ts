@@ -183,23 +183,29 @@ async function encoder(page: any, dossier: string, format: Format, musique?: str
  * Chaque image d'une page pilotée par le temps, de `debut` à `debut + duree`,
  * photographiée en JPEG presque sans perte et poussée dans ffmpeg qui l'encode
  * en H.264 ; `entree` et `son` ajoutent une piste audio et disent comment la
- * mêler.
+ * mêler, `ips` combien d'images par seconde (30 d'office).
  */
-async function filmer(page: any, sortie: string, nom: string, f: { debut: number; duree: number; entree: string[]; son: string[] }): Promise<string> {
-  const images = Math.round(f.duree * IMAGES_PAR_SECONDE)
-  const args = ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(IMAGES_PAR_SECONDE), '-c:v', 'mjpeg', '-i', '-', ...f.entree]
+async function filmer(
+  page: any,
+  sortie: string,
+  nom: string,
+  f: { debut: number; duree: number; entree: string[]; son: string[]; ips?: number },
+): Promise<string> {
+  const ips = f.ips ?? IMAGES_PAR_SECONDE
+  const images = Math.round(f.duree * ips)
+  const args = ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(ips), '-c:v', 'mjpeg', '-i', '-', ...f.entree]
   // H.264 en yuv420p, l'en-tête en tête du fichier (`faststart`) : ce que WhatsApp, Instagram, TikTok et un navigateur
   // lisent tous, et qui se lit avant d'être tout téléchargé.
-  args.push('-c:v', 'libx264', '-preset', 'slow', '-crf', '18', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-r', String(IMAGES_PAR_SECONDE))
+  args.push('-c:v', 'libx264', '-preset', 'slow', '-crf', '18', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-r', String(ips))
   args.push(...f.son, sortie)
   const ffmpeg = spawn('ffmpeg', args, { stdio: ['pipe', 'inherit', 'inherit'] })
   const fini = once(ffmpeg, 'close')
   const debut = Date.now()
   for (let i = 0; i < images; i++) {
-    await page.evaluate(`window.rendre(${f.debut + i / IMAGES_PAR_SECONDE})`)
+    await page.evaluate(`window.rendre(${f.debut + i / ips})`)
     const image: Buffer = await page.screenshot({ type: 'jpeg', quality: 94 })
     if (!ffmpeg.stdin.write(image)) await once(ffmpeg.stdin, 'drain')
-    if (i % (IMAGES_PAR_SECONDE * 5) === 0) {
+    if (i % (ips * 5) === 0) {
       const ecoule = (Date.now() - debut) / 1000
       process.stdout.write(`\r  ${nom} : ${Math.round((i / images) * 100)} % — ${Math.round(ecoule)} s`)
     }
@@ -238,6 +244,9 @@ export async function bandeRythmo(dossier: string, plans: Plans): Promise<string
       duree,
       entree: ['-f', 'lavfi', '-i', bip],
       son: ['-map', '0:v', '-map', '1:a', '-c:a', 'aac', '-b:a', '128k', '-shortest'],
+      // Soixante images par seconde : à trente, le texte sautait de vingt pixels d'une image à l'autre, et l'œil qui le
+      // suit le voyait flou (le propriétaire, le 5 novembre 2026 : « ça défile et c'est flou »).
+      ips: 60,
     })
   } finally {
     await navigateur.close()
