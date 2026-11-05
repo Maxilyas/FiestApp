@@ -21,6 +21,7 @@ import { legendaire } from '../../../shared/legendaires'
 import { COMPAGNONS } from '../../../shared/compagnons'
 import { CARTES } from '../../../shared/cabinet/traversee'
 import { THEMES_FILMES, type Plans } from './plans'
+import { APRES_LA_VIDEO, AVANT_LA_VIDEO, BIPS, REPLIQUES } from './doublage'
 
 const ici = path.dirname(fileURLToPath(import.meta.url))
 const racine = path.resolve(ici, '../../..')
@@ -95,28 +96,37 @@ const TYPES: Record<string, string> = {
   '.woff2': 'font/woff2',
 }
 
-/** Ouvre la page de montage dans ce format, ses images décodées et ses polices chargées. */
-async function ouvrirLeMontage(navigateur: any, dossier: string, format: Format, plans: Plans) {
+/** Les pages que l'adresse inventée sert : le montage, et la bande rythmo qui le pose au-dessus de son texte. */
+const PAGES = ['montage.html', 'rythmo.html']
+
+/**
+ * Ouvre une page dans ce format, ses images décodées et ses polices chargées :
+ * le montage, ou la bande rythmo — qui charge le montage du même format dans
+ * son cadre, et lit les répliques de `doublage.ts` (`doublage.js`).
+ */
+async function ouvrirLaPage(navigateur: any, dossier: string, format: Format, plans: Plans, fichierDeLaPage = 'montage.html') {
   const page = await navigateur.newPage({ viewport: TAILLES[format], deviceScaleFactor: 1 })
-  page.on('pageerror', (e: Error) => console.error(`[montage] ${e.message}`))
-  const script = `window.DONNEES = ${JSON.stringify(donnees(format, plans))}`
+  page.on('pageerror', (e: Error) => console.error(`[${fichierDeLaPage}] ${e.message}`))
+  const scripts: Record<string, string> = {
+    'donnees.js': `window.DONNEES = ${JSON.stringify(donnees(format, plans))}`,
+    'doublage.js': `window.DOUBLAGE = ${JSON.stringify({ repliques: REPLIQUES, avant: AVANT_LA_VIDEO, bips: BIPS, apres: APRES_LA_VIDEO })}`,
+  }
   await page.route('http://montage.local/**', async (route: any) => {
     const chemin = decodeURIComponent(new URL(route.request().url()).pathname).replace(/^\/+/, '')
-    if (chemin === 'donnees.js') return route.fulfill({ body: script, contentType: TYPES['.js'] })
-    const fichier =
-      chemin === 'montage.html'
-        ? path.join(ici, 'montage.html')
-        : chemin.startsWith('plans/')
-          ? path.join(dossier, chemin)
-          : chemin.startsWith('public/')
-            ? path.join(PUBLIC, chemin.slice('public/'.length))
-            : null
-    // Rien hors de ces trois dossiers : un chemin remonté (`..`) ne sort pas.
-    const permis = fichier && [path.join(ici, 'montage.html'), dossier, PUBLIC].some(d => path.resolve(fichier).startsWith(d))
+    if (scripts[chemin]) return route.fulfill({ body: scripts[chemin], contentType: TYPES['.js'] })
+    const fichier = PAGES.includes(chemin)
+      ? path.join(ici, chemin)
+      : chemin.startsWith('plans/')
+        ? path.join(dossier, chemin)
+        : chemin.startsWith('public/')
+          ? path.join(PUBLIC, chemin.slice('public/'.length))
+          : null
+    // Rien hors des pages, des prises et de `client/public/` : un chemin remonté (`..`) ne sort pas.
+    const permis = fichier && [...PAGES.map(p => path.join(ici, p)), dossier, PUBLIC].some(d => path.resolve(fichier).startsWith(d))
     if (!permis || !existsSync(fichier) || !statSync(fichier).isFile()) return route.fulfill({ status: 404, body: '' })
     return route.fulfill({ body: readFileSync(fichier), contentType: TYPES[path.extname(fichier)] ?? 'application/octet-stream' })
   })
-  await page.goto('http://montage.local/montage.html')
+  await page.goto(`http://montage.local/${fichierDeLaPage}`)
   await page.evaluate('window.pret')
   return page
 }
@@ -138,7 +148,7 @@ export async function monter(dossier: string, plans: Plans, opts: OptionsDuMonta
   try {
     for (const format of opts.formats) {
       if (!TAILLES[format]) throw new Error(`Format inconnu : ${format} (paysage ou portrait)`)
-      const page = await ouvrirLeMontage(navigateur, dossier, format, plans)
+      const page = await ouvrirLaPage(navigateur, dossier, format, plans)
       if (opts.apercu) {
         const dossierDesApercus = path.join(dossier, 'apercus')
         mkdirSync(dossierDesApercus, { recursive: true })
@@ -158,36 +168,102 @@ export async function monter(dossier: string, plans: Plans, opts: OptionsDuMonta
   return ecrits
 }
 
-/** Chaque image du montage, photographiée en JPEG presque sans perte, poussée dans ffmpeg qui l'encode en H.264. */
+/** La vidéo montée dans un format : la page photographiée de 0 à sa durée, et la musique s'il y en a une. */
 async function encoder(page: any, dossier: string, format: Format, musique?: string): Promise<string> {
   const duree = Number(await page.evaluate('window.DUREE'))
-  const images = Math.round(duree * IMAGES_PAR_SECONDE)
-  const sortie = path.join(dossier, `fiestapp-${format}.mp4`)
-  const args = ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(IMAGES_PAR_SECONDE), '-c:v', 'mjpeg', '-i', '-']
-  if (musique) args.push('-i', musique)
+  return filmer(page, path.join(dossier, `fiestapp-${format}.mp4`), format, {
+    debut: 0,
+    duree,
+    entree: musique ? ['-i', musique] : [],
+    son: musique ? ['-map', '0:v', '-map', '1:a', '-c:a', 'aac', '-b:a', '192k', '-af', `afade=t=out:st=${Math.max(0, duree - 2)}:d=2`, '-shortest'] : [],
+  })
+}
+
+/**
+ * Chaque image d'une page pilotée par le temps, de `debut` à `debut + duree`,
+ * photographiée en JPEG presque sans perte et poussée dans ffmpeg qui l'encode
+ * en H.264 ; `entree` et `son` ajoutent une piste audio et disent comment la
+ * mêler.
+ */
+async function filmer(page: any, sortie: string, nom: string, f: { debut: number; duree: number; entree: string[]; son: string[] }): Promise<string> {
+  const images = Math.round(f.duree * IMAGES_PAR_SECONDE)
+  const args = ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(IMAGES_PAR_SECONDE), '-c:v', 'mjpeg', '-i', '-', ...f.entree]
   // H.264 en yuv420p, l'en-tête en tête du fichier (`faststart`) : ce que WhatsApp, Instagram, TikTok et un navigateur
   // lisent tous, et qui se lit avant d'être tout téléchargé.
   args.push('-c:v', 'libx264', '-preset', 'slow', '-crf', '18', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-r', String(IMAGES_PAR_SECONDE))
-  if (musique) args.push('-map', '0:v', '-map', '1:a', '-c:a', 'aac', '-b:a', '192k', '-af', `afade=t=out:st=${Math.max(0, duree - 2)}:d=2`, '-shortest')
-  args.push(sortie)
+  args.push(...f.son, sortie)
   const ffmpeg = spawn('ffmpeg', args, { stdio: ['pipe', 'inherit', 'inherit'] })
   const fini = once(ffmpeg, 'close')
   const debut = Date.now()
   for (let i = 0; i < images; i++) {
-    await page.evaluate(`window.rendre(${i / IMAGES_PAR_SECONDE})`)
+    await page.evaluate(`window.rendre(${f.debut + i / IMAGES_PAR_SECONDE})`)
     const image: Buffer = await page.screenshot({ type: 'jpeg', quality: 94 })
     if (!ffmpeg.stdin.write(image)) await once(ffmpeg.stdin, 'drain')
     if (i % (IMAGES_PAR_SECONDE * 5) === 0) {
       const ecoule = (Date.now() - debut) / 1000
-      process.stdout.write(`\r  ${format} : ${Math.round((i / images) * 100)} % — ${Math.round(ecoule)} s`)
+      process.stdout.write(`\r  ${nom} : ${Math.round((i / images) * 100)} % — ${Math.round(ecoule)} s`)
     }
   }
   ffmpeg.stdin.end()
   const [code] = (await fini) as [number]
   process.stdout.write('\n')
   if (code !== 0) throw new Error(`ffmpeg a échoué (code ${code}) en encodant ${sortie}`)
-  console.log(`  ${sortie} — ${duree} s, ${Math.round(statSync(sortie).size / 1024 / 1024 * 10) / 10} Mo, en ${Math.round((Date.now() - debut) / 1000)} s`)
+  console.log(`  ${sortie} — ${Math.round(f.duree * 10) / 10} s, ${Math.round(statSync(sortie).size / 1024 / 1024 * 10) / 10} Mo, en ${Math.round((Date.now() - debut) / 1000)} s`)
   return sortie
+}
+
+// ── La bande rythmo du doublage ────────────────────────────────────────────
+
+/**
+ * La bande rythmo (`rythmo.html`) en vidéo, pour le doubleur : le montage en
+ * haut, le texte de `doublage.ts` qui défile dessous, le décompte et ses trois
+ * bips — 1 000 Hz, 0,15 s chacun, que le doubleur écoute au casque. Elle se
+ * monte sur les prises du dossier, comme la vidéo, et dit les répliques trop
+ * serrées pour se lire.
+ */
+export async function bandeRythmo(dossier: string, plans: Plans): Promise<string> {
+  if (spawnSync('ffmpeg', ['-version']).status !== 0) throw new Error('ffmpeg introuvable : il encode la bande (apt install ffmpeg, brew install ffmpeg).')
+  const { chromium } = chargerPlaywright()
+  const navigateur = await chromium.launch({ headless: true })
+  try {
+    const page = await ouvrirLaPage(navigateur, dossier, 'paysage', plans, 'rythmo.html')
+    for (const r of (await page.evaluate('window.SERREES')) as string[]) console.log(`  serrée au point de mal se lire : ${r}`)
+    const debut = Number(await page.evaluate('window.DEBUT'))
+    const duree = Number(await page.evaluate('window.DUREE'))
+    // Les bips à leur seconde dans le fichier, qui commence avec le décompte.
+    const bips = BIPS.map(b => b - debut)
+    const bip = `aevalsrc='if(${bips.map(b => `between(t,${b},${b + 0.15})`).join('+')},0.35*sin(2*PI*1000*t),0)':s=48000:d=${duree}`
+    return await filmer(page, path.join(dossier, 'bande-rythmo.mp4'), 'bande rythmo', {
+      debut,
+      duree,
+      entree: ['-f', 'lavfi', '-i', bip],
+      son: ['-map', '0:v', '-map', '1:a', '-c:a', 'aac', '-b:a', '128k', '-shortest'],
+    })
+  } finally {
+    await navigateur.close()
+  }
+}
+
+/** Une image fixe de la bande rythmo, à la seconde `t` de la vidéo (négative pendant le décompte). */
+export async function apercuDeLaBande(dossier: string, plans: Plans, instants: number[]): Promise<string[]> {
+  const { chromium } = chargerPlaywright()
+  const navigateur = await chromium.launch({ headless: true })
+  const ecrits: string[] = []
+  try {
+    const page = await ouvrirLaPage(navigateur, dossier, 'paysage', plans, 'rythmo.html')
+    const dossierDesApercus = path.join(dossier, 'apercus')
+    mkdirSync(dossierDesApercus, { recursive: true })
+    for (const t of instants) {
+      await page.evaluate(`window.rendre(${t})`)
+      const fichier = path.join(dossierDesApercus, `rythmo-${t.toFixed(2).replace('.', '_').replace('-', 'moins')}.png`)
+      await page.screenshot({ path: fichier })
+      ecrits.push(fichier)
+      console.log(`  ${fichier}`)
+    }
+  } finally {
+    await navigateur.close()
+  }
+  return ecrits
 }
 
 // ── La vidéo de la vitrine ─────────────────────────────────────────────────
