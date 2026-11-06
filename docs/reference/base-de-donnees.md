@@ -840,7 +840,10 @@ Les questions de la base de la campagne retirées pour tous.
 ### `campagne_ajouts`
 
 Les questions que la routine du matin a déposées : elles s'ajoutent à la base
-livrée et se jouent tout de suite, sans déploiement.
+livrée et se jouent sans déploiement — une fois la routine finie (sa commande
+du jour remplie), ou dix minutes après son dernier dépôt
+(`PUBLICATION_DES_AJOUTS_MS`) : la base ne se refait qu'une fois pour toute la
+matinée. Au réveil, toutes celles qu'elle garde se jouent.
 
 - **Colonnes clés** : `id`, `categorie`, `entree` (JSON), `ajoutee_le`.
 - **Espace** : non.

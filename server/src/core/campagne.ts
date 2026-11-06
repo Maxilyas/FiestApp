@@ -16,7 +16,7 @@ import { enTranches, laisserPasserLaSalle, rendreLaMain } from './tourniquet'
 import { LECTURES_GARDEES_MS, LecturesGardees, type LectureDansUnLot } from './lecturesGardees'
 import { preparationDe } from './preparees'
 import { QUESTIONS_D_UNE_TRANCHE, dUneTraite, type CalculEnTranches } from '../../../shared/tranches'
-import { enFond, suivre } from './gels'
+import { enFond, sousLeNom, suivre } from './gels'
 import {
   DECLENCHEURS_DES_TRANCHES,
   FENETRE_DES_RECENTES_MS,
@@ -652,8 +652,8 @@ interface AdversaireGarde {
 }
 
 /**
- * La mesure des difficultés : les comptes du journal, relus au plus toutes
- * les six heures (`MESURES_GARDEES_MS` ; `brutes`, et `premieres` pour les familles), et ce que
+ * La mesure des difficultés : les comptes du journal, relus au plus une fois
+ * par jour (`MESURES_GARDEES_MS` ; `brutes`, et `premieres` pour les familles), et ce que
  * les familles en font pour la base d'où elle a été tirée (`parQuestion`,
  * refait quand la base change).
  */
@@ -753,18 +753,20 @@ interface Duel {
 }
 
 /**
- * La difficulté mesurée se relit au plus toutes les six heures : elle bouge
- * avec les jours, pas avec les clics — trente mille réponses, mille de plus par
- * jour. Toutes les dix minutes jusqu'au 3 novembre 2026 : chaque relecture
- * refait derrière elle ses familles, la préparation des tirages de toutes les
- * catégories et la série de référence, en tranches — et au dixième de cœur de
- * l'hébergeur, c'est la quantité de travail qui gèle, pas sa forme : 1 à 2 s
- * de gel plusieurs fois par heure, les premiers du relevé de la production
- * après le démarrage (« fond · mesure des difficultés », « fond · tirages de
- * la mesure neuve »). Un réveil la relit de toute façon : la production dort
- * chaque nuit.
+ * La difficulté mesurée se relit au plus une fois par jour : elle bouge avec
+ * les jours, pas avec les clics — trente mille réponses, mille de plus par
+ * jour. Chaque relecture refait derrière elle ses familles, la préparation des
+ * tirages de toutes les catégories et la série de référence, en tranches — et
+ * au dixième de cœur de l'hébergeur, c'est la quantité de travail qui gèle, pas
+ * sa forme (« fond · mesure des difficultés », « fond · tirages de la mesure
+ * neuve »). Toutes les dix minutes jusqu'au 3 novembre 2026, puis toutes les
+ * six heures : à l'heure où elle tombait, au gré du réveil — le 5 novembre
+ * 2026 à 21 h, en plein soir, deux gels et une réponse d'épreuve à 6,2 s
+ * (`retours/2026-11-06/`). Un réveil la relit de toute façon : la production
+ * dort chaque nuit, et chaque mise en ligne la relit au démarrage. Sur une
+ * journée, elle ne se relit donc plus en route.
  */
-export const MESURES_GARDEES_MS = 6 * 60 * 60_000
+export const MESURES_GARDEES_MS = 24 * 60 * 60_000
 /**
  * Lue dès ses deux dernières minutes, elle se relit en fond (`mesures`), et
  * personne ne l'attend plus : la requête qui l'aurait trouvée périmée — un
@@ -773,6 +775,16 @@ export const MESURES_GARDEES_MS = 6 * 60 * 60_000
  * 16 octobre 2026), 2,9 s pour un duel en production (le 22 octobre).
  */
 export const MESURE_EN_AVANCE_MS = 2 * 60_000
+/**
+ * Combien de temps un dépôt de la routine du matin attend le suivant avant
+ * que la base qu'on joue ne le prenne, si sa commande du jour n'est pas
+ * remplie avant (`publierLesAjouts`) : la routine écrit catégorie par
+ * catégorie, quelques minutes chacune, et chaque dépôt publié refaisait la
+ * base entière — trente-trois fois entre 7 h et 7 h 45 le 5 novembre 2026.
+ * Assez long pour couvrir l'écart de deux dépôts, assez court pour qu'une
+ * routine arrêtée en route ne laisse pas ses questions de côté.
+ */
+export const PUBLICATION_DES_AJOUTS_MS = 10 * 60_000
 /** Une relecture de la mesure tentée — réussie ou ratée —, la suivante attend au moins ceci : une base muette ne se fait pas relire à chaque requête. */
 const MESURE_RETENTEE_MS = 2 * 60_000
 /**
@@ -1035,6 +1047,15 @@ export class CampagneStore {
    */
   private ajouts: { question: QuestionDeLaBase; ajouteeLe: number }[] = []
   /**
+   * Combien de ces ajouts la base qu'on joue a pris : les premiers, dans leur
+   * ordre — les suivants attendent leur publication (`publierLesAjouts`). Au
+   * réveil, tous.
+   */
+  private ajoutsPublies = 0
+  /** La publication qui attend un dépôt de plus (`PUBLICATION_DES_AJOUTS_MS`) ; null sans dépôt en attente. */
+  private publicationPrevue: ReturnType<typeof setTimeout> | null = null
+  private readonly publicationDesAjoutsMs: number
+  /**
    * Les corrections de l'administrateur (`campagne_corrections`), sous
    * l'identifiant de la question corrigée : sa version corrigée — sous le
    * même identifiant, ou sous un neuf quand la bonne réponse a changé
@@ -1203,11 +1224,24 @@ export class CampagneStore {
    */
   statsEnPlus?: StatsEnPlus
   expeditionChange?: ExpeditionQuiChange
+  /**
+   * La base qu'on joue vient de prendre les dépôts de la routine
+   * (`publierLesAjouts`) : le Cabinet prépare ses tas en fond, avant que le
+   * premier départ ne les attende — le 5 novembre 2026, 8,3 s pour le premier
+   * de la matinée (`server.ts`).
+   */
+  baseRenouvelee?: () => void
   /** Le secret du Cabinet, relu au réveil (`init`) ; null tant qu'aucun réveil ne l'a tiré. */
   private secretLu: string | null = null
   /** La porte du Cabinet, ouverte une fois (`porte`). */
   private porteOuverte: PorteDeLaCampagne | null = null
   private mesuresGardees: MesureGardee | null = null
+  /**
+   * La force de chaque joueur sur les sentiers, sous la série de référence qui
+   * l'a lue (`chancesPourLui`) : une série neuve — une base, une mesure, un
+   * modèle neufs — emporte les forces d'avant avec elle.
+   */
+  private forcesGardees = new WeakMap<SerieDeReference, Map<string, ForceGardee>>()
   /** La relecture des comptes en cours (`mesures`). */
   private mesuresEnRoute: Promise<void> | null = null
   /** La famille de chaque question, par base (`famillesDe`), faite en tranches. */
@@ -1285,7 +1319,7 @@ export class CampagneStore {
    * Ce que la page de la campagne du QG tire des jouables à leur mesure
    * (`tableauDeLaBase`), gardé tant que ni l'une ni l'autre ne change — par
    * identité, comme les listes des jouables. Rangé sous la mesure, qui se relit
-   * toutes les six heures et l'emporte : sous une seule case, l'ancienne mesure
+   * une fois par jour et l'emporte : sous une seule case, l'ancienne mesure
    * serait restée en mémoire jusqu'à la prochaine ouverture du QG. Chaque
    * ouverture repassait les vingt-sept mille questions quatorze fois : la
    * moitié des 42 ms de la page au premier appel d'un processus, sur un vrai
@@ -1330,6 +1364,8 @@ export class CampagneStore {
       fraicheurDesDuelsMs?: number
       /** Combien de temps ses épreuves validées se gardent entre deux visites (`LECTURES_GARDEES_MS`) ; le banc, 0. */
       fraicheurDesLecturesMs?: number
+      /** Combien de temps un dépôt de la routine attend le suivant avant de se publier (`PUBLICATION_DES_AJOUTS_MS`) ; le banc, 0 : tout de suite. */
+      publicationDesAjoutsMs?: number
       /** Combien de questions un calcul de fond passe d'une traite (`QUESTIONS_D_UNE_TRANCHE`) ; un test, moins. */
       questionsParTranche?: number
     } = {},
@@ -1338,6 +1374,7 @@ export class CampagneStore {
     this.recompenses = opts.recompenses ?? null
     this.fraicheurDesDuels = opts.fraicheurDesDuelsMs ?? FRAICHEUR_DES_DUELS_MS
     this.tranche = opts.questionsParTranche ?? QUESTIONS_D_UNE_TRANCHE
+    this.publicationDesAjoutsMs = opts.publicationDesAjoutsMs ?? PUBLICATION_DES_AJOUTS_MS
     this.maintenant = opts.maintenant ?? Date.now
     this.validees = new LecturesGardees(opts.fraicheurDesLecturesMs ?? LECTURES_GARDEES_MS, () => this.maintenant(), lignes =>
       lignes.map(r => ({ branche: String(r.branche), palier: Number(r.palier), justes: Number(r.justes), seuil: r.seuil == null ? null : Number(r.seuil) })),
@@ -1359,16 +1396,16 @@ export class CampagneStore {
   }
 
   /**
-   * La base qu'on joue : celle du dépôt, ce que la routine y a ajouté, et ce
-   * que l'administrateur y a corrigé (`appliquerLesCorrections`). Refaite
-   * seulement quand l'un d'eux change — une série la lit à chaque fois. Un
-   * ajout que le dépôt aurait rangé depuis (même identifiant, même intitulé)
-   * n'y entre pas deux fois.
+   * La base qu'on joue : celle du dépôt, ce que la routine y a ajouté — ses
+   * dépôts publiés (`ajoutsPublies`) —, et ce que l'administrateur y a corrigé
+   * (`appliquerLesCorrections`). Refaite seulement quand l'un d'eux change —
+   * une série la lit à chaque fois. Un ajout que le dépôt aurait rangé depuis
+   * (même identifiant, même intitulé) n'y entre pas deux fois.
    */
   private async base(): Promise<BaseDeLaCampagne> {
     const fichiers = await this.fichiers()
-    if (this.ajouts.length === 0 && this.corrections.size === 0) return fichiers
-    const cle = { fichiers, ajouts: this.ajouts.length, corrections: this.versionDesCorrections }
+    if (this.ajoutsPublies === 0 && this.corrections.size === 0) return fichiers
+    const cle = { fichiers, ajouts: this.ajoutsPublies, corrections: this.versionDesCorrections }
     const pour = (f: { fichiers: BaseDeLaCampagne; ajouts: number; corrections: number } | null) =>
       f !== null && f.fichiers === cle.fichiers && f.ajouts === cle.ajouts && f.corrections === cle.corrections
     if (pour(this.fusion)) return this.fusion!.base
@@ -1379,7 +1416,10 @@ export class CampagneStore {
     // derrière la lecture des fichiers et chaque correction du QG avant la
     // page qu'il relisait — une demi-seconde de gel au dixième de cœur (le
     // 2 novembre 2026).
-    const enPlus = this.ajouts.map(a => a.question).filter(q => !fichiers.parId.has(q.id) && !fichiers.empreintes.has(q.empreinte))
+    const enPlus = this.ajouts
+      .slice(0, this.ajoutsPublies)
+      .map(a => a.question)
+      .filter(q => !fichiers.parId.has(q.id) && !fichiers.empreintes.has(q.empreinte))
     const corrections = new Map(this.corrections)
     const enRoute = {
       ...cle,
@@ -1535,6 +1575,8 @@ export class CampagneStore {
       if ('refus' in lu) illisibles++
       else this.ajouts.push({ question: lu.question, ajouteeLe: Number(r.ajoutee_le) })
     }
+    // Au réveil, tout ce que la base garde se joue : un dépôt qui attendait sa publication sur le serveur d'avant aussi.
+    this.ajoutsPublies = this.ajouts.length
     if (illisibles > 0) console.warn(`[campagne] ${illisibles} question(s) déposée(s) par la routine écartée(s) : le juge de la base ne les accepte plus`)
     illisibles = 0
     for (const r of corrections.rows) {
@@ -1839,7 +1881,7 @@ export class CampagneStore {
    * La part de joueurs qui ont trouvé chaque question de la base, en
    * campagne, et celle de sa famille (`mesuresEnFamille`) : ce qui corrige sa
    * difficulté estimée (`niveauDeQuestion`). Les réponses se relisent au plus
-   * toutes les six heures (`MESURES_GARDEES_MS`) ; les familles, aussi quand la base change — un
+   * une fois par jour (`MESURES_GARDEES_MS`) ; les familles, aussi quand la base change — un
    * reclassement du QG vaut dès le tirage suivant.
    */
   async mesures(): Promise<ReadonlyMap<string, MesureDUneQuestion>> {
@@ -2517,7 +2559,7 @@ export class CampagneStore {
    * Le tirage d'une série sur ces jouables, préparé une fois pour leur
    * mesure (`PreparationDuTirage`) : la liste de toutes les catégories, ou
    * d'un sujet, se garde tant que la base, la réserve du jour et les retraits
-   * ne changent pas, et la mesure six heures.
+   * ne changent pas, et la mesure un jour.
    */
   private tirage(jouables: readonly QuestionDeLaBase[], mesure: ReadonlyMap<string, MesureDUneQuestion>): Promise<PreparationDuTirage> {
     const faite = this.preparations.get(jouables)
@@ -6409,7 +6451,13 @@ export class CampagneStore {
   private async lireLesSentiers(
     profileId: string,
     avecSesPremieres = false,
-  ): Promise<{ sentiers: SentierDuJoueur[]; vies: VieDesSentiers; ouverte: Serie | null; premieres: Map<string, PremiereReponse> | null }> {
+  ): Promise<{
+    sentiers: SentierDuJoueur[]
+    vies: VieDesSentiers
+    ouverte: Serie | null
+    /** Ses premières réponses, lues seulement si sa force est à refaire (`chancesPourLui`), et combien de réponses le journal a de lui. */
+    premieres: { lire: () => Map<string, PremiereReponse>; version: number } | null
+  }> {
     const sentiers = this.lecturesDesSentiers(profileId)
     const lectures = [...sentiers.lot, this.lectureDesEchecs(profileId), this.lectureDeLEpreuveOuverte(profileId)]
     const [lus, achetees] = await Promise.all([
@@ -6417,11 +6465,12 @@ export class CampagneStore {
       this.viesAchetees?.(profileId) ?? 0,
     ])
     const [acquis, validees, echecs, ouverte] = lus.lus
+    const journal = avecSesPremieres ? lus.journal : null
     return {
       sentiers: sentiers.lire(acquis, validees),
       vies: this.viesLues(echecs.rows, achetees),
       ouverte: ouverte.rows[0] ? versSerie(ouverte.rows[0]) : null,
-      premieres: avecSesPremieres && lus.journal ? lus.journal.premieresDe(profileId) : null,
+      premieres: journal ? { lire: () => journal.premieresDe(profileId), version: journal.versionDe(profileId) } : null,
     }
   }
 
@@ -6462,50 +6511,51 @@ export class CampagneStore {
    * (`chanceDeLEpreuve`) — et, s'il a assez répondu depuis dans la
    * catégorie, ce qu'elle valait il y a une semaine, aux difficultés
    * d'aujourd'hui : ce que ses réponses ont changé, rien d'autre. Sa force se
-   * relit de ses premières réponses à chaque fois, partie de celle du modèle,
-   * comme au dé : le modèle, refait en fond, n'a peut-être pas vu sa
-   * dernière épreuve. Rien sous `PREMIERES_REPONSES_POUR_SA_CHANCE`
-   * premières réponses : la page ne dirait que la chance d'un joueur moyen.
+   * relit de ses premières réponses, partie de celle du modèle, comme au dé :
+   * le modèle, refait en fond, n'a peut-être pas vu sa dernière épreuve. Rien
+   * sous `PREMIERES_REPONSES_POUR_SA_CHANCE` premières réponses : la page ne
+   * dirait que la chance d'un joueur moyen.
+   *
+   * Sa force se garde d'une visite à l'autre (`forcesGardees`) tant qu'il n'a
+   * pas répondu (`versionDe`), que la série de référence — sa base, sa mesure,
+   * son modèle — reste la même, et dans l'heure, sa semaine glissant : refaite
+   * à chaque visite de toutes ses premières réponses, elle prenait la moitié du
+   * processeur de la page — 27 ms sur 60 pour un joueur de 9 000 réponses, au
+   * banc du 6 novembre 2026 —, et la production gelait 1,5 à 2,3 s à chaque
+   * ouverture de la page (`retours/2026-11-06/`).
    */
   private async chancesPourLui(
     profileId: string,
     sentiers: readonly SentierDuJoueur[],
-    premieres: ReadonlyMap<string, PremiereReponse>,
+    premieres: { lire: () => ReadonlyMap<string, PremiereReponse>; version: number },
     modele: ModeleDuSavoir,
     base: BaseDeLaCampagne,
     jouables: readonly QuestionDeLaBase[],
     mesure: ReadonlyMap<string, MesureDUneQuestion>,
   ): Promise<ChanceDuSentier[] | undefined> {
     const { reference, forceDe } = await this.forceSurLesSentiers(profileId, modele, base, jouables, mesure)
-    const depuis = this.maintenant() - JOURS_DE_SA_PROGRESSION * 24 * HEURE_MS
-    const toutes = new Map<string, boolean>()
-    const avant = new Map<string, boolean>()
-    // Ses premières réponses par catégorie, d'avant la semaine et de la
-    // semaine : sa chance d'avant ne se dit que là où il avait déjà répondu,
-    // et où il a répondu depuis. Sans les premières, elle ne disait que son
-    // niveau d'ailleurs — « 27 % il y a une semaine » sur un sport qu'il
-    // n'avait jamais joué ; sans les secondes, rien de ce qu'il a fait.
-    const anciennes = new Array<number>(CATEGORIES.length).fill(0)
-    const recentes = new Array<number>(CATEGORIES.length).fill(0)
-    for (const [id, p] of premieres) {
-      toutes.set(id, p.juste)
-      const c = indiceDeCategorie(base.parId.get(id)?.meta.categorie ?? '')
-      if (p.le < depuis) {
-        avant.set(id, p.juste)
-        if (c >= 0) anciennes[c]++
-      } else if (c >= 0) recentes[c]++
+    const maintenant = this.maintenant()
+    const heure = Math.floor(maintenant / HEURE_MS)
+    let gardees = this.forcesGardees.get(reference)
+    if (!gardees) this.forcesGardees.set(reference, (gardees = new Map()))
+    let f = gardees.get(profileId)
+    if (!f || f.version !== premieres.version || f.heure !== heure || f.base !== base || f.modele !== modele) {
+      // D'un seul tenant, et sous son nom pour la sonde des gels (`core/gels.ts`) : s'il gèle encore, le relevé le dira.
+      const depuis = maintenant - JOURS_DE_SA_PROGRESSION * 24 * HEURE_MS
+      const forces = sousLeNom('campagne · force sur les sentiers', () => sesForcesSurLesSentiers(premieres.lire(), base, forceDe, depuis))
+      f = { version: premieres.version, heure, base, modele, ...forces }
+      gardees.set(profileId, f)
     }
-    const lui = forceDe(toutes)
+    const { lui, luiAvant, anciennes, recentes } = f
     if (lui.reponses < PREMIERES_REPONSES_POUR_SA_CHANCE) return undefined
-    const luiAvant = forceDe(avant, lui)
-    const avantSeLit = luiAvant.reponses >= PREMIERES_REPONSES_POUR_SA_CHANCE
+    const avantSeLit = luiAvant !== null && luiAvant.reponses >= PREMIERES_REPONSES_POUR_SA_CHANCE
     const melanges = this.melangesRegles()
     return sentiers.flatMap((s): ChanceDuSentier[] => {
       const regle = regleDuPalier(s.paliers + 1, melanges)
       const c = indiceDeCategorie(brancheParCle(s.branche)?.categorie ?? '')
       if (!regle || c < 0) return []
       const progresse = avantSeLit && anciennes[c] >= REPONSES_DE_SA_PROGRESSION && recentes[c] >= REPONSES_DE_SA_PROGRESSION
-      return [{ branche: s.branche, palier: regle.n, chance: saChanceSur(reference, c, lui, regle), ...(progresse && { avant: saChanceSur(reference, c, luiAvant, regle) }) }]
+      return [{ branche: s.branche, palier: regle.n, chance: saChanceSur(reference, c, lui, regle), ...(progresse && luiAvant && { avant: saChanceSur(reference, c, luiAvant, regle) }) }]
     })
   }
 
@@ -7307,7 +7357,10 @@ export class CampagneStore {
       const deposees = this.ajouts.filter(a => a.question.meta.categorie === categorie && jourDe(a.ajouteeLe) === aujourdhui).length
       const aEcrire = Math.max(0, QUESTIONS_PAR_CATEGORIE_ET_PAR_JOUR - deposees)
       if (aEcrire === 0) return { categorie, aEcrire, quotas: [], consigne: null }
-      const existantes = base.questions.filter(q => q.meta.categorie === categorie && !this.retirees.has(q.id))
+      // Avec ce que la routine a déposé ce matin et qui attend sa publication (`publierLesAjouts`) : la commande le compte.
+      const existantes = [...base.questions, ...this.ajouts.slice(this.ajoutsPublies).map(a => a.question)].filter(
+        q => q.meta.categorie === categorie && !this.retirees.has(q.id),
+      )
       const quotas = commandeDeLaCategorie(
         categorie,
         existantes.map(q => ({ sousTheme: q.meta.sousTheme, difficulte: q.meta.difficulte })),
@@ -7337,9 +7390,13 @@ export class CampagneStore {
       if (!c) throw new Error(`Catégorie inconnue : ${String(categorie)}`)
       if (!Array.isArray(entrees) || entrees.length === 0) throw new Error('Envoie les questions dans « entrees », un tableau au format de la consigne')
       if (entrees.length > DEPOT_MAX) throw new Error(`${DEPOT_MAX} questions au plus par envoi : coupe le lot en plusieurs`)
+      // La base qu'on joue, sans refaire : les dépôts d'avant ce matin attendent leur publication (`publierLesAjouts`).
       const [base, duJour] = await Promise.all([this.base(), this.empreintesDuJour()])
+      // Ce qui attend sa publication compte comme s'il y était : un intitulé, un identifiant, un fait déjà déposés ce matin.
+      const enAttente = this.ajouts.slice(this.ajoutsPublies).map(a => a.question)
+      const empreintesEnAttente = new Set(enAttente.map(q => q.empreinte))
       this.livres ??= empreintesDesLivres()
-      const faits = await (this.faits ??= indexSansBloquer(base.questions).catch(e => {
+      const faits = await (this.faits ??= indexSansBloquer([...base.questions, ...enAttente]).catch(e => {
         // Raté, il se rebâtit au dépôt suivant : gardée, la promesse le figerait.
         this.faits = null
         throw e
@@ -7347,6 +7404,7 @@ export class CampagneStore {
       // Ce dépôt à part : écrit seulement si le lot passe, il rejoint ensuite les faits de la base.
       const dansCeDepot = new IndexDesFaits<QuestionDeLaBase>()
       const ids = new Set(base.parId.keys())
+      for (const q of enAttente) ids.add(q.id)
       const vues = new Set<string>()
       const aujourdhui = jourDe(this.maintenant())
       let place = PLAFOND_PAR_CATEGORIE_ET_PAR_JOUR - this.ajouts.filter(a => a.question.meta.categorie === c && jourDe(a.ajouteeLe) === aujourdhui).length
@@ -7364,7 +7422,7 @@ export class CampagneStore {
         const motif =
           q.meta.categorie !== c
             ? `d’une autre catégorie (${q.meta.categorie}) : dépose-la avec la sienne`
-            : base.empreintes.has(q.empreinte)
+            : base.empreintes.has(q.empreinte) || empreintesEnAttente.has(q.empreinte)
               ? 'déjà dans la base'
               : duJour.has(q.empreinte)
                 ? 'déjà dans la réserve du quiz du jour'
@@ -7396,14 +7454,76 @@ export class CampagneStore {
           })),
           'write',
         )
-        // Écrites : elles se jouent tout de suite. La base fusionnée se refait à la prochaine lecture.
+        // Écrites, elles attendent la fin de la routine pour se jouer : la base ne se refait qu'une fois pour tous ses dépôts.
         for (const q of acceptees) {
           this.ajouts.push({ question: q, ajouteeLe: maintenant })
           faits.ajouter(q)
         }
+        this.publierLesAjouts()
       }
       return { ajoutees: acceptees.length, ecartees }
     })
+  }
+
+  /**
+   * Les dépôts de la routine entrent dans la base qu'on joue, une fois pour
+   * tous : tout de suite quand sa commande du jour est remplie — chaque
+   * catégorie a reçu ses questions (`commandeRemplie`) —, sinon
+   * `PUBLICATION_DES_AJOUTS_MS` après le dernier dépôt, si aucun ne suit.
+   * Chaque dépôt se publiait : le suivant relisait la base et la refaisait
+   * entière, puis ses sujets, ses tirages et les tas du Cabinet —
+   * trente-trois dépôts entre 7 h et 7 h 45 le 5 novembre 2026, des gels pour
+   * qui jouait, et 8,3 s pour le premier départ du Cabinet
+   * (`retours/2026-11-06/`). Les questions arrivent un peu plus tard, après
+   * le dernier dépôt plutôt qu'au sien (le choix du propriétaire du 6 novembre
+   * 2026 : « je veux que ce soit stable pour les joueurs »).
+   */
+  private publierLesAjouts(): void {
+    if (this.publicationPrevue) clearTimeout(this.publicationPrevue)
+    this.publicationPrevue = null
+    if (this.ferme || this.ajoutsPublies === this.ajouts.length) return
+    if (this.publicationDesAjoutsMs <= 0 || this.commandeRemplie()) {
+      this.publier()
+      return
+    }
+    const prevue = setTimeout(() => {
+      if (this.publicationPrevue === prevue) this.publicationPrevue = null
+      this.publier()
+    }, this.publicationDesAjoutsMs)
+    // Un serveur qu'on arrête ne l'attend pas : le réveil suivant publie tout ce que la base garde.
+    prevue.unref()
+    this.publicationPrevue = prevue
+  }
+
+  /**
+   * La base qu'on joue prend tout ce que la routine a déposé, puis se refait
+   * en fond, ses sujets et ses tirages derrière elle, et le Cabinet ses tas
+   * (`baseRenouvelee`) : la première page qui suit les trouve prêts, au lieu de
+   * les attendre.
+   */
+  private publier(): void {
+    if (this.ferme || this.ajoutsPublies === this.ajouts.length) return
+    this.ajoutsPublies = this.ajouts.length
+    // Chacun sous son nom, pour les gels (`core/gels.ts`), comme au préchauffage.
+    enFond('fond · base de la campagne', this.base()).catch(e => console.error('[campagne] base non refaite en fond après les dépôts — la première série la refera :', e))
+    enFond('fond · sujets et tirages', this.preparerEnFond()).catch(e =>
+      console.warn('[campagne] sujets et tirages non préparés après les dépôts — la première demande les fera :', e instanceof Error ? e.message : e),
+    )
+    try {
+      this.baseRenouvelee?.()
+    } catch (e) {
+      console.error('[cabinet] ses tas ne se préparent pas après les dépôts — le premier départ les fera :', e)
+    }
+  }
+
+  /** La commande du jour remplie : chaque catégorie a reçu ses questions du jour (`QUESTIONS_PAR_CATEGORIE_ET_PAR_JOUR`) — la routine a fini. */
+  private commandeRemplie(): boolean {
+    const aujourdhui = jourDe(this.maintenant())
+    const recues = new Map<string, number>()
+    for (const a of this.ajouts) {
+      if (jourDe(a.ajouteeLe) === aujourdhui) recues.set(a.question.meta.categorie, (recues.get(a.question.meta.categorie) ?? 0) + 1)
+    }
+    return CATEGORIES.every(c => (recues.get(c) ?? 0) >= QUESTIONS_PAR_CATEGORIE_ET_PAR_JOUR)
   }
 
   /**
@@ -9261,6 +9381,8 @@ export class CampagneStore {
 
   close() {
     this.ferme = true
+    if (this.publicationPrevue) clearTimeout(this.publicationPrevue)
+    this.publicationPrevue = null
     this.client.close()
   }
 }
@@ -9279,6 +9401,56 @@ interface PremiereReponse {
 /** Sa chance de valider un palier d'une catégorie, à sa force (`chanceDeLEpreuve`) : celle que la page écrit, et que l'épreuve garde. */
 const saChanceSur = (reference: SerieDeReference, c: number, f: Pick<ForceDUnJoueur, 'force' | 'ecarts'>, regle: RegleDuPalier): number =>
   arrondiDeChance(chanceDeLEpreuve(reference, c, f.force + (f.ecarts[c] ?? 0), regle.melange, regle.seuil))
+
+/** Sa force sur les sentiers, telle que la page la garde d'une visite à l'autre (`CampagneStore.chancesPourLui`). */
+interface SesForces {
+  lui: ForceDUnJoueur
+  /** Sa force d'il y a une semaine, de ses seules premières réponses d'avant ; null sans assez de réponses pour la dire. */
+  luiAvant: ForceDUnJoueur | null
+  /** Ses premières réponses par catégorie, d'avant la semaine et de la semaine. */
+  anciennes: number[]
+  recentes: number[]
+}
+
+/** Ce que la page des sentiers garde de sa force, et ce qui la rendrait fausse : ses réponses, l'heure, la base, le modèle. */
+interface ForceGardee extends SesForces {
+  version: number
+  heure: number
+  base: BaseDeLaCampagne
+  modele: ModeleDuSavoir
+}
+
+/**
+ * Sa force de toutes ses premières réponses, et celle d'avant la semaine
+ * (`depuis`), partie de la première ; et ses premières réponses par
+ * catégorie, d'avant la semaine et de la semaine : sa chance d'avant ne se dit
+ * que là où il avait déjà répondu, et où il a répondu depuis. Sans les
+ * premières, elle ne disait que son niveau d'ailleurs — « 27 % il y a une
+ * semaine » sur un sport qu'il n'avait jamais joué ; sans les secondes, rien de
+ * ce qu'il a fait.
+ */
+function sesForcesSurLesSentiers(
+  premieres: ReadonlyMap<string, PremiereReponse>,
+  base: BaseDeLaCampagne,
+  forceDe: (premieres: ReadonlyMap<string, boolean>, depart?: ForceDUnJoueur) => ForceDUnJoueur,
+  depuis: number,
+): SesForces {
+  const toutes = new Map<string, boolean>()
+  const avant = new Map<string, boolean>()
+  const anciennes = new Array<number>(CATEGORIES.length).fill(0)
+  const recentes = new Array<number>(CATEGORIES.length).fill(0)
+  for (const [id, p] of premieres) {
+    toutes.set(id, p.juste)
+    const c = indiceDeCategorie(base.parId.get(id)?.meta.categorie ?? '')
+    if (p.le < depuis) {
+      avant.set(id, p.juste)
+      if (c >= 0) anciennes[c]++
+    } else if (c >= 0) recentes[c]++
+  }
+  const lui = forceDe(toutes)
+  // Sous le seuil, la page ne dit rien : sa force d'avant ne servirait pas.
+  return { lui, luiAvant: lui.reponses < PREMIERES_REPONSES_POUR_SA_CHANCE ? null : forceDe(avant, lui), anciennes, recentes }
+}
 
 /**
  * Les premières réponses de tout le monde, pour ajuster le modèle du savoir
@@ -11546,7 +11718,7 @@ function* preparerLeTirage(
 /**
  * Ce qu'un tirage de série relit de chaque question jouable — sa marche, sa
  * catégorie et son sous-thème —, lu une fois par liste de jouables et par
- * mesure des difficultés, qui ne change qu'au plus toutes les six heures
+ * mesure des difficultés, qui ne change qu'au plus une fois par jour
  * (`CampagneStore.tirage`). Un tirage battait les vingt-quatre mille
  * questions, puis les repassait quatre fois — rangées par fraîcheur, par
  * marche, par classe, par file — pour en prendre soixante : 13 à 25 ms de

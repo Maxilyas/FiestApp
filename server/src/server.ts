@@ -198,6 +198,13 @@ export interface QuizServerOptions {
    */
   fraicheurDesLecturesMs?: number
   /**
+   * Combien de temps un dépôt de la routine du matin attend le suivant avant
+   * que la base qu'on joue ne le prenne (`PUBLICATION_DES_AJOUTS_MS`, dix
+   * minutes d'office — tout de suite quand sa commande du jour est remplie).
+   * Le banc le met à 0 : ses épreuves jouent ce qu'elles viennent de déposer.
+   */
+  publicationDesAjoutsMs?: number
+  /**
    * Le rappel du soir du quiz du jour (`core/rappels.ts`) : les tests
    * regardent l'heure plus souvent, et ouvrent leur propre service de push,
    * sur la machine — en ligne, seuls ceux des navigateurs sont acceptés.
@@ -585,6 +592,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     recompenses: profiles,
     ...(opts.fraicheurDesDuelsMs !== undefined && { fraicheurDesDuelsMs: opts.fraicheurDesDuelsMs }),
     ...(opts.fraicheurDesLecturesMs !== undefined && { fraicheurDesLecturesMs: opts.fraicheurDesLecturesMs }),
+    ...(opts.publicationDesAjoutsMs !== undefined && { publicationDesAjoutsMs: opts.publicationDesAjoutsMs }),
   })
   // Le Cabinet de curiosités : il ne connaît la campagne que par sa porte, ses tables naissent dans son premier lot
   // (`REVEIL_DU_CABINET`) — pas d'`init` à lui —, et il lit l'heure de la campagne et le calendrier de ses fêtes.
@@ -596,6 +604,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Ses traversées gagnées, que L'Explorateur compte, lues dans le lot des paliers de la campagne — là seulement où il
   // s'ouvre : fermé, il n'en compte aucune, sans une lecture de plus, et rien ne tombe (`montreParLeServeur`).
   if (cabinetEstOuvert) campagne.statsEnPlus = cabinet.statsEnPlus
+  // Les dépôts de la routine publiés, le Cabinet refait ses tas en fond, avant que le premier départ ne les attende — le
+  // 5 novembre 2026, 8,3 s pour le premier de la matinée (`retours/2026-11-06/`). Un crochet de plus de sa porte.
+  if (cabinetEstOuvert) campagne.baseRenouvelee = () => void cabinet.prechauffer()
   // L'historique des soirées vit avec la bibliothèque : c'est l'autre chose
   // qui doit survivre à tout.
   const archives = new ArchiveStore(opts.quizDbUrl, opts.quizDbToken)
