@@ -167,6 +167,38 @@ test('la page des sentiers dit sa chance sur chacun, lue de ses premières répo
   }
 })
 
+test('sa force se garde d’une visite à l’autre : la même que refaite de zéro, et refaite dès qu’il a répondu', async () => {
+  // Refaite à chaque visite de toutes ses premières réponses, elle prenait la moitié du processeur de la page : 27 ms sur
+  // 60 pour un joueur de 9 000 réponses, au banc du 6 novembre 2026, et la production gelait à chaque ouverture.
+  let maintenant = DEBUT
+  const banc = await demarrer({ horlogeDuJour: () => maintenant, baseDeLaCampagne: BASE, prechauffageCampagneMs: 3_600_000 })
+  try {
+    const ines = await inscrireProfil(banc.url, 'ines', 'Inès', '🦉')
+    const id = await idDuProfil(banc.url, ines)
+    // Comme Léa : du sport trouvé, du cinéma raté, il y a deux jours.
+    ecrireUnPasse(banc, id, [
+      ...DE('Sport').slice(0, 30).map((q, i): [string, boolean, number] => [q.id, true, DEBUT - 2 * JOUR + i * 10_000]),
+      ...DE('Cinéma & séries').slice(0, 30).map((q, i): [string, boolean, number] => [q.id, false, DEBUT - 2 * JOUR + (30 + i) * 10_000]),
+    ])
+    acquerir(banc, id, { stade: 7, ecran: 7 })
+    await lireLesSentiers(banc.url, ines)
+    await modeleAjuste(banc.url)
+    const premiere = (await lireLesSentiers(banc.url, ines)).pourToi
+    assert.ok(premiere, 'sa chance, une fois le modèle ajusté')
+    // Relue, gardée : la même.
+    assert.deepEqual((await lireLesSentiers(banc.url, ines)).pourToi, premiere)
+    // Une heure plus tard, sa semaine a glissé : refaite de zéro — rien de ses réponses n'a passé la semaine —, la même.
+    maintenant += 3_600_000
+    assert.deepEqual((await lireLesSentiers(banc.url, ines)).pourToi, premiere)
+    // Trente réponses de sport ratées, derrière le dos du serveur : la page suivante les lit, et sa force se refait.
+    ecrireUnPasse(banc, id, DE('Sport').slice(30, 60).map((q, i): [string, boolean, number] => [q.id, false, DEBUT - JOUR + i * 10_000]))
+    const apres = (await lireLesSentiers(banc.url, ines)).pourToi
+    assert.ok(sur(apres, 'stade')!.chance < sur(premiere, 'stade')!.chance - 0.05, `le stade : ${sur(premiere, 'stade')!.chance} puis ${sur(apres, 'stade')!.chance}`)
+  } finally {
+    await banc.close()
+  }
+})
+
 test('sous vingt premières réponses, la page ne dit pas de chance : ce serait celle d’un joueur moyen', async () => {
   const banc = await demarrer({ horlogeDuJour: () => DEBUT, baseDeLaCampagne: BASE, prechauffageCampagneMs: 3_600_000 })
   try {

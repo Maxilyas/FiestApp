@@ -75,7 +75,7 @@ function entree(
 
 const oiseaux = (n: number, depuis = 0) => Array.from({ length: n }, (_, i) => entree(`Quel oiseau de nos forêts porte le numéro ${depuis + i} ?`))
 
-async function avecBanc(opts: { jetonDeLaReserve?: string }, scenario: (banc: Banc) => Promise<void>) {
+async function avecBanc(opts: { jetonDeLaReserve?: string; publicationDesAjoutsMs?: number }, scenario: (banc: Banc) => Promise<void>) {
   // Trente questions d'Histoire, toutes du premier sous-thème : la commande les évite.
   const banc = await demarrer({ ...opts, baseDeLaCampagne: baseDEssai(30, { categories: ['Histoire'] }) })
   try {
@@ -248,8 +248,9 @@ test('le dépôt : relu par le juge de la base, les doublons écartés, le reste
     assert.ok(motifs.some((m: string) => /réserve du quiz du jour|quiz livré/.test(m)))
     assert.ok(motifs.includes('déjà dans la base'))
 
-    // Jouable tout de suite : la base d'essai n'a rien en Nature, une série
-    // de Nature tire donc les questions déposées — il en faut dix.
+    // Jouable tout de suite au banc, qui publie chaque dépôt (`publicationDesAjoutsMs: 0` ; en ligne, après la routine :
+    // l'épreuve suivante) : la base d'essai n'a rien en Nature, une série de Nature tire donc les questions déposées — il en
+    // faut dix.
     const encore = await routine(banc, '/api/campagne/base', { corps: { categorie: 'Nature', entrees: [entree('Quel oiseau de nos forêts porte le numéro 99 ?')] } })
     assert.equal(encore.corps.ajoutees, 1)
     const alice = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
@@ -298,6 +299,62 @@ test('le dépôt : relu par le juge de la base, les doublons écartés, le reste
     assert.equal(apres.ajouts.total, 10)
     assert.equal(apres.ajouts.derniers.find((a: any) => a.id === retiree).retiree, true)
     assert.equal(apres.parCategorie.find((c: any) => c.categorie === 'Nature').questions, 9, 'la retirée ne se joue plus')
+  }))
+
+/** Ce que la base qu'on joue a de questions de cette catégorie, lu à l'administration ; zéro sans une. */
+async function questionsJouables(banc: Banc, admin: string, categorie: string): Promise<number> {
+  const etat = (await lire(banc, admin, '/api/admin/campagne')).corps
+  return etat.parCategorie.find((c: any) => c.categorie === categorie)?.questions ?? 0
+}
+
+test('en ligne, les dépôts de la routine se publient ensemble, après le dernier : la base ne se refait qu’une fois pour toute sa matinée', () =>
+  // Le 5 novembre 2026, chaque dépôt se publiait, et le suivant refaisait toute la base, ses sujets, ses tirages et les tas
+  // du Cabinet : trente-trois fois entre 7 h et 7 h 45. Un délai court ici, dix minutes en ligne (`PUBLICATION_DES_AJOUTS_MS`).
+  avecBanc({ jetonDeLaReserve: JETON, publicationDesAjoutsMs: 600 }, async banc => {
+    const admin = await connexionAnimateur(banc.url)
+    const premier = await routine(banc, '/api/campagne/base', { corps: { categorie: 'Nature', entrees: oiseaux(3) } })
+    assert.equal(premier.corps.ajoutees, 3)
+    // Écrites, comptées par la routine et l'administration, mais pas encore jouables : la base attend la suite.
+    assert.equal(await questionsJouables(banc, admin, 'Nature'), 0, 'pas encore dans la base qu’on joue')
+    const etat = (await lire(banc, admin, '/api/admin/campagne')).corps
+    assert.equal(etat.ajouts.total, 3)
+    const nature = (await routine(banc, '/api/campagne/base')).corps.categories.find((c: any) => c.categorie === 'Nature')
+    assert.equal(nature.aEcrire, QUESTIONS_PAR_CATEGORIE_ET_PAR_JOUR - 3, 'la commande compte ce qui attend')
+    // Un dépôt de plus, avant la fin du délai : il repart de zéro, et le même intitulé se refuse comme s'il était publié.
+    const second = await routine(banc, '/api/campagne/base', { corps: { categorie: 'Nature', entrees: [...oiseaux(1), ...oiseaux(1, 3)] } })
+    assert.deepEqual([second.corps.ajoutees, second.corps.ecartees.map((e: any) => e.motif)], [1, ['déjà dans la base']])
+    assert.equal(await questionsJouables(banc, admin, 'Nature'), 0)
+    // Puis le calme : les quatre ensemble, jamais trois — une seule base refaite.
+    const vus: number[] = []
+    const fin = Date.now() + 10_000
+    while (Date.now() < fin) {
+      const n = await questionsJouables(banc, admin, 'Nature')
+      if (vus.at(-1) !== n) vus.push(n)
+      if (n > 0) break
+      await new Promise(r => setTimeout(r, 50))
+    }
+    assert.deepEqual(vus, [0, 4], 'publiées d’un coup, après le dernier dépôt')
+  }))
+
+test('la commande du jour remplie — chaque catégorie a ses questions —, la routine a fini : ses dépôts se publient tout de suite', () =>
+  avecBanc({ jetonDeLaReserve: JETON, publicationDesAjoutsMs: 60 * 60_000 }, async banc => {
+    const admin = await connexionAnimateur(banc.url)
+    // La base d'essai : trente questions d'Histoire, rien ailleurs.
+    const avant = new Map<string, number>()
+    for (const categorie of CATEGORIES) avant.set(categorie, await questionsJouables(banc, admin, categorie))
+    for (const [i, categorie] of CATEGORIES.entries()) {
+      const sousTheme = SOUS_THEMES[categorie][0].cle
+      const entrees = Array.from({ length: QUESTIONS_PAR_CATEGORIE_ET_PAR_JOUR }, (_, j) => entree(`Quelle curiosité numéro ${i * 10 + j} garde-t-on ici ?`, { categorie, sousTheme }))
+      const depot = await routine(banc, '/api/campagne/base', { corps: { categorie, entrees } })
+      assert.equal(depot.corps.ajoutees, QUESTIONS_PAR_CATEGORIE_ET_PAR_JOUR, `${categorie} : ${JSON.stringify(depot.corps.ecartees)}`)
+      // Avant la dernière catégorie, rien ne se joue encore : l'heure de délai n'est pas passée.
+      if (i < CATEGORIES.length - 1) assert.equal(await questionsJouables(banc, admin, categorie), avant.get(categorie), categorie)
+    }
+    // La dernière remplit la commande : tout se publie sans attendre l'heure.
+    for (const categorie of CATEGORIES) {
+      assert.equal(await questionsJouables(banc, admin, categorie), avant.get(categorie)! + QUESTIONS_PAR_CATEGORIE_ET_PAR_JOUR, categorie)
+    }
+    assert.equal((await routine(banc, '/api/campagne/base')).corps.aEcrire, 0)
   }))
 
 test('un dépôt trop gros, ou d’une catégorie inconnue, est refusé en entier', () =>

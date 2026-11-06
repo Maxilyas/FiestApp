@@ -397,6 +397,8 @@ class Dossier {
   carnetIncertain = false
   /** Ce qu'il a vu, déplié pour le Cabinet (`vuesDuCabinetDe`) : null tant que le Cabinet ne l'a pas demandé, puis tenu à jour. */
   vuesDuCabinet: Map<string, number> | null = null
+  /** Ses réponses lues jusqu'ici (`versionDe`) : ce qui se tire de ses réponses ne change qu'avec elles. */
+  lues = 0
 }
 
 /** Un joueur sans une réponse n'a rien vu : la même carte vide pour tous, que personne ne change. */
@@ -536,6 +538,7 @@ export class JournalDesReponses {
       return
     }
     const d = this.dossier(r.qui)
+    d.lues++
     for (const id of r.montre ?? []) if (r.le > (d.montrees.get(id) ?? -Infinity)) d.montrees.set(id, r.le)
     let p = d.paires.get(r.question)
     // Son carnet, avant que la question ne retienne l'instant de cette réponse : il dit si elle arrive dans l'ordre.
@@ -748,6 +751,17 @@ export class JournalDesReponses {
    */
   leurresChoisis(): ReadonlyMap<string, ReadonlyMap<string, number>> {
     return this.leurres
+  }
+
+  /**
+   * Combien de ses réponses le journal a lues : ce qui se tire de ses réponses
+   * ne change qu'avec ce nombre — sa force sur les sentiers, que la page garde
+   * d'une visite à l'autre (`CampagneStore.chancesPourLui`). Une réponse ne
+   * change jamais, et le journal relu de zéro (`oublierProfil`) les relit
+   * toutes : le même nombre dit les mêmes réponses.
+   */
+  versionDe(qui: string): number {
+    return this.dossiers.get(qui)?.lues ?? 0
   }
 
   /** Ses premières réponses, chacune avec son instant, sauf aidées : sa chance sur les sentiers (`forceSurLesSentiers`). */
