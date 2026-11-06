@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type MouseEvent, type ReactNode, type SyntheticEvent } from 'react'
 import { Glossaire } from '../components/Glossaire'
-import { api, currentMe, motifDe } from '../api'
+import { api, auReveil, currentMe, motifDe } from '../api'
+import { Patience } from '../annonce'
 import { Niveau } from '../components/Niveau'
 import { Laurier } from '../components/Laurier'
 import { Icon, type IconName } from '../components/Icon'
@@ -20,7 +21,7 @@ import { retenirLeCompte, useNouveautesDuMenu } from '../nouveautes'
 import { FormulaireSoiree } from '../components/Rejoindre'
 import { annonceDuChoix, type ChoixDuProfil, type GardeDeLaLoge } from '../components/choix'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
-import { formatNumber } from '../format'
+import { espacesFines, formatNumber } from '../format'
 import { hautFait } from '../../../shared/hautsfaits'
 import { route } from '../routes'
 import { derniereSoireeGardee } from '../state'
@@ -91,6 +92,10 @@ export function ProfilApp() {
   /** La soirée que ce profil anime, s'il en anime une. */
   const [espace, setEspace] = useState<PublicSpace | null>(null)
   const [chargement, setChargement] = useState(true)
+  /** La première lecture attend le réveil du serveur (`lireAuDepart`) : la page le dit. */
+  const [reveil, setReveil] = useState(false)
+  /** Pourquoi la première lecture a renoncé : la page le dit, avec de quoi réessayer (`AvantLeProfil`). */
+  const [panne, setPanne] = useState('')
   const [erreur, setErreur] = useState('')
   const [busy, setBusy] = useState(false)
   const enregistrement = useRef(false)
@@ -292,6 +297,27 @@ export function ProfilApp() {
       setEnCours(r.enCours ?? [])
     })
 
+  /**
+   * La première lecture de la page, celle qui dit qui est là — en attendant le
+   * réveil du serveur au besoin (`auReveil`, deux minutes au plus). Au réveil
+   * du 6 novembre 2026, le profil a mis 27,8 s à revenir
+   * (`retours/2026-11-06/stabilite-des-joueurs.md`), et le client renonce à
+   * vingt : l'accueil prenait ce renoncement pour « pas de profil », et
+   * montrait à son animateur les trois gros boutons d'un invité, « J'anime »
+   * au-dessus — sa console, lue en mémoire, avait répondu à temps (le retour
+   * du propriétaire du 6 novembre 2026). Rien ne relisait le profil ensuite :
+   * l'accueil normal n'arrivait qu'au rechargement. Seul le serveur dit qu'il
+   * n'y a pas de profil (`profile: null`) ; un échec se dit, et se réessaie.
+   */
+  const lireAuDepart = () => {
+    setReveil(false)
+    setPanne('')
+    auReveil(() => relire({ missionsDemandees: VUE === 'accueil' }), { surAttente: () => setReveil(true) }).then(
+      () => setChargement(false),
+      (e: unknown) => setPanne(motifDe(e)),
+    )
+  }
+
   useEffect(() => {
     // L'onglet de l'accueil dit ce qu'est l'application ; celui de `/profil`,
     // ce qu'on y regarde.
@@ -302,9 +328,7 @@ export function ProfilApp() {
     // jamais après une connexion, qui lirait le refus préchargé. Demandées une
     // fois l'accueil lu, elles arrivaient un aller-retour après lui.
     if (VUE === 'accueil') void relireLesMissions().catch(() => {})
-    relire({ missionsDemandees: VUE === 'accueil' })
-      .catch(() => setProfil(null))
-      .finally(() => setChargement(false))
+    lireAuDepart()
   }, [])
 
   // Le thème de son profil habille sa page, une fois le profil lu : celui
@@ -460,13 +484,8 @@ export function ProfilApp() {
 
   if (rejoindre) return <FormulaireSoiree onCancel={() => setRejoindre(false)} />
 
-  if (chargement) {
-    return (
-      <div className="center-page">
-        <p className="serif-note">Chargement…</p>
-      </div>
-    )
-  }
+  // Avant la réponse du serveur, jamais l'accueil d'un invité : l'attente, le réveil, ou l'échec qui se réessaie.
+  if (chargement) return <AvantLeProfil reveil={reveil} panne={panne} onReessayer={lireAuDepart} onRejoindre={() => setRejoindre(true)} />
 
   if (!profil) {
     // Le formulaire ne rend que le profil léger : on redemande le détail, qui
@@ -848,6 +867,52 @@ export function ProfilApp() {
           4 octobre 2026). */}
       {menu('profil')}
     </div>
+  )
+}
+
+/**
+ * La page avant son profil, le temps de sa première lecture (`lireAuDepart`) :
+ * « Chargement… », l'attente même que le serveur a écrite dans la page
+ * (`ecrireAttente`) — rien ne bouge quand React la remplace ; « Réveil du
+ * serveur… » dès que la lecture attend l'hébergeur ; et s'il ne répond
+ * toujours pas, pourquoi, de quoi réessayer, et la soirée qu'on rejoint sans
+ * profil. Jamais les trois gros boutons d'un invité : le serveur n'a rien dit
+ * de qui est là.
+ */
+export function AvantLeProfil({
+  reveil,
+  panne,
+  onReessayer,
+  onRejoindre,
+}: {
+  reveil: boolean
+  panne: string
+  onReessayer: () => void
+  onRejoindre: () => void
+}) {
+  if (panne) {
+    return (
+      <Patience
+        texte={<p className="error">{espacesFines(panne)}</p>}
+        suite={
+          <>
+            <button type="button" className="btn btn-primary" onClick={onReessayer}>
+              <Icon name="rotate" />
+              Réessayer
+            </button>
+            <button type="button" className="btn btn-ghost btn-small" onClick={onRejoindre}>
+              Rejoindre une soirée
+            </button>
+          </>
+        }
+      />
+    )
+  }
+  return (
+    <Patience
+      texte={<p className="muted">{reveil ? 'Réveil du serveur…' : 'Chargement…'}</p>}
+      suite={reveil && <p className="muted small">{espacesFines('Ça prend parfois une minute : ta page arrive d’elle-même.')}</p>}
+    />
   )
 }
 

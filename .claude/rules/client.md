@@ -11,7 +11,7 @@ paths:
   - "shared/{depart,adresses,erreurs,reveil,glossaire}.ts"
   - "server/src/core/{page,apercus}.ts"
   - "server/scripts/mesure-pages.ts"
-  - "server/test/{depart,chargement,navigation,connexion-claire,client,page,medaillons,portes}.test.ts"
+  - "server/test/{depart,chargement,navigation,connexion-claire,client,page,medaillons,portes,accueil-au-reveil}.test.ts"
 ---
 
 # Ce que la page charge : les adresses, l'entrée, la navigation
@@ -28,7 +28,7 @@ paths:
 - `client/src/components/NavAnimateur.tsx` — la ligne des pages de l'animateur — Accueil · Écran commun · Mes quiz · Mon compte · Historique · Le QG, à l'administrateur —, la page courante à sa place, sans lien : en tête de « Mon compte », au pied du rail du QG et de sa feuille « Pages », pour un espace **sans profil** seulement ; « Mon compte » et « Mes quiz » ont en bas la barre du menu (`MenuBarre`, `components/Pieces.tsx`), « Mes quiz » n'a qu'elle (`navigation.test.ts`), et le QG a la sienne, une console (`.qg-bas`, règle `qg.md`). L'écran commun a « Accueil » dans la bande de sa salle d'attente
 - `components/Dialog.tsx` · `Onglets.tsx` · `client/src/{modale,clavier,retour,decompte}.ts` — un seul dialogue à la fois (`confirmDialog`, `promptDialog`, `choixDialog`), qu'une page ferme comme un renoncement quand ce qu'il demandait ne se demande plus (`fermerLeDialogue` : le « Quitter ? » d'une manche du Cabinet que la réponse partie à l'échéance a dépassé, ou que la partie démontée emporte) ; des onglets à un seul arrêt de Tab, parcourus aux flèches, et des fenêtres modales — un dialogue, une feuille (`Feuille`, `components/Pieces.tsx`), la carte d'un joueur, tout ce qui passe par `useModale` — qui rendent le reste de la page `inert` (`horsDeLaBoite` : leur voile, qui les porte, reste vivant ; `couvrir` compte les fenêtres qui couvrent chaque élément, qui ne revit qu'au départ de la dernière — chacune écartait ce qui était déjà inerte, et la feuille d'une équipe que la barre du chef referme d'elle-même rendait vivant, derrière la confirmation ouverte sur elle, ce qu'elle avait endormi), prennent le focus sans anneau (`SANS_ANNEAU`) et le rendent en partant (`petit-ecran.test.ts`, `feuilles.test.ts`) ; Échap ne ferme que celle du dessus (`poserUneFenetre`) : la plus ancienne l'entend la première, et une feuille se serait fermée avec la carte d'un ami ouverte sur elle ; sur un écran d'entrée, la page défile pour garder le bouton principal au-dessus du clavier ; « Quitter la soirée ? » au geste retour, dès la salle d'attente — ou la question de la page (`useGardeRetour(actif, auRetour)`, qui rend `'parti'` ou `'reste'` : rester repose la garde). Une page qui dit sa question marque sa garde d'un jeton tiré à son montage (`marqueDeLaGarde`) : une garde laissée par un rechargement ne passe pas pour la sienne. La soirée garde `true`, pour reprendre celle d'un rechargement sans en empiler une autre. La garde vit hors de React (`garder`, `porteLaGarde`), jouée sur un faux historique (`cabinet-ecran.test.ts`) ; levée, elle ne se repose plus quand sa question finit après elle — au Cabinet, la question attend le réseau, et une entrée orpheline faisait tomber le retour suivant dans le vide (règle `cabinet.md`). La ligne `if (demandes === 0 && gardee()) history.back()` est relue telle quelle (`chef-entree.test.ts`) ; un décompte lu à `serverNow()`
 - `shared/erreurs.ts` — les motifs que le client montre quand ça coince (réseau, serveur qui redémarre…), et ce qui passe tout seul (`statutPassager`, `echecPassager`) — à l'inverse, un refus du serveur, qu'on ne retouche pas (`refusDuServeur`, `client/src/api.ts`)
-- `shared/reveil.ts` — une écriture qui attend le réveil de l'hébergeur au lieu d'échouer à vingt secondes (`auReveil`, dans `client/src/api.ts`)
+- `shared/reveil.ts` — un appel qu'on peut rejouer, qui attend le réveil de l'hébergeur au lieu d'échouer à vingt secondes (`auReveil`, dans `client/src/api.ts`) : les écritures de l'éditeur, et deux lectures — la première de l'accueil, du profil et de la boutique (`lireAuDepart`, `ProfilApp.tsx`), et la console (`currentMe`)
 - `shared/glossaire.ts` · `client/src/components/Glossaire.tsx` — les mots maison (souvenir, bilan, coup d'œil, finition…), une phrase chacun, dépliée au toucher sous les pages qui les emploient — des Divins, le nom et le mystère seulement
 - `server/scripts/mesure-pages.ts` — ce que chaque page fait attendre à un téléphone (`npm run mesure`) : un serveur jetable, une soirée jouée et une expédition partie — Max la rouvre sur le plan de l'acte (`explorateur`) —, puis chaque page ouverte dans Chromium bridé (4G, 4G lente ou la 4G moyenne des audits de septembre, processeur ×4), cache vide puis plein ; le premier affichage, l'écran utile, les octets et requêtes avant lui, le processeur, et les préchargements qu'elle n'a pas repris. Derrière un relais HTTP/2, comme chez l'hébergeur : en HTTP/1.1, les trente morceaux d'une route font la queue sur six connexions, et toute conclusion sur le nombre de requêtes s'inverse. La mesure d'avant et d'après une retouche, pas un test (`retours/2026-10-05/affichage-des-pages.md`)
 
@@ -135,6 +135,17 @@ paths:
   sans quoi « Revenir au musée » ouvrait la tuile du musée venue sous le
   doigt. Les autres pages ne l'ont pas : un lien qui y paraît sous un
   doigt pris au lever reçoit encore son écho.
+- **Une lecture qui renonce n'est pas une absence.** Une page qui demande
+  qui est là — le profil, la console — ne prend jamais un échec (le délai de
+  vingt secondes, un 502 de l'hébergeur, une panne) pour « personne » : seul
+  le serveur le dit (`profile: null`, un 401). Au réveil du 6 novembre 2026,
+  le profil a mis 27,8 s à revenir, et l'accueil montrait à son animateur les
+  trois gros boutons d'un invité, « J'anime » au-dessus — sa console avait
+  répondu à temps —, jusqu'au rechargement. Sa première lecture attend le
+  réveil (`lireAuDepart`), la console aussi (`currentMe`), puis l'échec se
+  dit, « Réessayer » et « Rejoindre une soirée » dessous (`AvantLeProfil`) ;
+  le quiz du jour, la campagne, le salon, l'Expédition et le Cabinet le
+  disaient déjà, sans attendre (`accueil-au-reveil.test.ts`).
 - **Une clé du stockage du navigateur se lit et s'écrit sous try/catch**
   (comme `writeSafe`) : un stockage refusé au chargement d'un module rendait
   la page de jeu noire, et rien ne le vérifie partout. Les clés commencent
