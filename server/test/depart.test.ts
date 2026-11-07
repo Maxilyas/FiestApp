@@ -102,11 +102,11 @@ test('chaque page dit ce qu’elle demandera dès son code arrivé — avec les 
   }
   // L'accueil demande ses missions à son ouverture, quel que soit le visiteur
   // — un invité reçoit un refus — : demandées après une connexion seulement,
-  // elles liraient le refus préchargé. Et pas une seconde fois, l'accueil lu.
-  assert.match(
-    source('views/ProfilApp.tsx'),
-    /if \(VUE === 'accueil'\) void relireLesMissions\(\)\.catch\(\(\) => \{\}\)\n\s*relire\(\{ missionsDemandees: VUE === 'accueil' \}\)/,
-  )
+  // elles liraient le refus préchargé. Et pas une seconde fois, l'accueil lu —
+  // ni à chaque essai de sa première lecture, qui attend le réveil du serveur
+  // (`lireAuDepart`, `accueil-au-reveil.test.ts`).
+  assert.match(source('views/ProfilApp.tsx'), /if \(VUE === 'accueil'\) void relireLesMissions\(\)\.catch\(\(\) => \{\}\)\n\s*lireAuDepart\(\)/)
+  assert.match(source('views/ProfilApp.tsx'), /auReveil\(\(\) => relire\(\{ missionsDemandees: VUE === 'accueil' \}\)/)
   assert.match(source('views/ProfilApp.tsx'), /if \(!missionsDemandees\) void relireLesMissions\(\)\.catch\(\(\) => \{\}\)/)
   assert.match(source('themeJoueur.ts'), /fetch\(DEPART\.theme, /)
   assert.match(source('routes.ts'), /return adresseDesDonnees\(slug, file, archiveId\)/)

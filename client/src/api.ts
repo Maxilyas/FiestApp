@@ -1162,11 +1162,14 @@ export function auReveil<T>(appel: () => Promise<T>, attente: Omit<Attente, 'pas
 /**
  * Qui est connecté, demandé une seule fois par page. Les pages publiques
  * s'en servent pour reconnaître l'animateur de l'espace ; un invité reçoit
- * 401, et c'est le cas normal : null, sans bruit.
+ * 401, et c'est le cas normal : null, sans bruit. Un serveur qui se réveille
+ * n'est pas une console fermée : la lecture l'attend (`auReveil`), comme la
+ * première lecture de l'accueil — sinon, au réveil, l'accueil d'un animateur
+ * sans profil perdait sa carte « J'anime » jusqu'au rechargement.
  */
 let meOnce: Promise<Me | null> | null = null
 export function currentMe(): Promise<Me | null> {
-  if (!meOnce) meOnce = api.auth.me().catch(() => null)
+  if (!meOnce) meOnce = auReveil(() => api.auth.me()).catch(() => null)
   return meOnce
 }
 

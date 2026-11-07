@@ -815,13 +815,16 @@ h3 > .icon {
   color: var(--muted);
 }
 
-/* « Connexion… », puis ce qu'on peut y faire. */
+/* « Connexion… », puis ce qu'on peut y faire. Ses lignes s'équilibrent : en
+   360 de large, « Réveil du serveur… » laissait « même. » seul sous « ta page
+   arrive d'elle- » (l'accueil au réveil, le 6 novembre 2026). */
 .attente {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
   text-align: center;
+  text-wrap: balance;
 }
 
 .waiting {
