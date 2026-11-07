@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>FiestApp — la bande rythmo du doublage</title>
+<!--
+  La bande rythmo du doublage (`montage.ts`, `npm run video -- --rythmo`),
+  comme au studio : l'image en haut — le montage même, posé dans un cadre et
+  rendu à la même seconde —, et dessous une bande claire où le texte défile de
+  droite à gauche. Le doubleur dit chaque mot quand il passe sous la barre
+  rouge ; la longueur d'un mot sur la bande est sa durée — étiré, il se dit
+  lentement ; serré, vite. Le jeu, en rouge au-dessus, ne se dit pas.
+
+  Comme le montage, rien n'y bouge de soi-même : `rendre(T)` pose tout pour la
+  seconde T de la vidéo (négative pendant le décompte). Les répliques viennent
+  de `doublage.ts` (`DOUBLAGE`) ; les scènes et les touchers, du montage
+  (`HISTOIRE`), jamais recopiés ici.
+-->
+<style>
+@font-face { font-family: 'Cormorant Garamond'; font-weight: 600; src: url(public/fonts/cormorant-garamond-600.woff2) format('woff2'); }
+@font-face { font-family: 'Cormorant Garamond'; font-style: italic; font-weight: 500; src: url(public/fonts/cormorant-garamond-500-italic.woff2) format('woff2'); }
+@font-face { font-family: Figtree; font-weight: 300 900; src: url(public/fonts/figtree-variable.woff2) format('woff2'); }
+
+:root {
+  --fond: #0d0a09;
+  --papier: #f3ece2;
+  --encre: #1a1412;
+  --doux: #6f6152;
+  --champagne: #d9b56a;
+  --rouge: #c8322b;
+  --jeu: #a8352a;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--fond); }
+body { position: relative; color: var(--papier); font-family: Figtree, sans-serif; }
+
+/* L'image : le montage à 80 %, entre deux marges qui disent où l'on en est. */
+#cadre { position: absolute; left: 192px; top: 10px; width: 1536px; height: 864px; overflow: hidden; border-radius: 6px; background: #000; box-shadow: 0 0 0 1px rgba(217, 181, 106, 0.35); }
+#film { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; border: 0; transform: scale(0.8); transform-origin: 0 0; }
+#decompte { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(13, 10, 9, 0.88); opacity: 0; }
+#decompte b { font: 600 250px/1 'Cormorant Garamond', serif; color: var(--champagne); }
+#decompte p { margin-top: 26px; font: 500 34px/1.35 Figtree, sans-serif; color: #e8dfd2; text-align: center; }
+.marge { position: absolute; top: 10px; width: 192px; height: 864px; padding: 26px 16px; }
+#gauche { left: 0; }
+#droite { right: 0; }
+.etiquette { font: 600 15px/1.2 Figtree, sans-serif; letter-spacing: 0.2em; text-transform: uppercase; color: #a89b8a; }
+#temps { margin-top: 10px; font: 600 44px/1 Figtree, sans-serif; font-variant-numeric: tabular-nums; }
+#scene { margin-top: 28px; font: italic 500 30px/1.12 'Cormorant Garamond', serif; color: var(--champagne); }
+#droite ul { list-style: none; margin-top: 14px; display: grid; gap: 20px; font: 500 18px/1.3 Figtree, sans-serif; color: #e8dfd2; }
+#droite li b { display: block; font-weight: 700; color: var(--papier); }
+#droite .barre-legende { display: inline-block; width: 4px; height: 18px; margin-right: 8px; vertical-align: -3px; background: var(--rouge); }
+
+/* La bande : papier clair, le texte qui défile, la barre rouge. */
+#bande { position: absolute; left: 0; top: 884px; width: 1920px; height: 188px; overflow: hidden; background: var(--papier); border-top: 2px solid #c9b48a; border-bottom: 2px solid #c9b48a; }
+#piste { position: absolute; left: 0; top: 0; height: 100%; }
+.jeu { position: absolute; top: 7px; font: italic 600 24px/1 Figtree, sans-serif; color: var(--jeu); white-space: nowrap; }
+/* Une linéale grasse et droite : l'italique fine du montage perdait ses déliés en défilant, et se lisait floue. */
+.texte { position: absolute; top: 38px; font: 700 62px/1 Figtree, sans-serif; color: var(--encre); white-space: nowrap; transform-origin: 0 50%; }
+.duree { position: absolute; top: 116px; height: 4px; border-radius: 2px; background: rgba(26, 20, 18, 0.4); }
+.bip { position: absolute; top: 30px; width: 0; font: 600 76px/1 'Cormorant Garamond', serif; color: var(--rouge); }
+.bip span { position: absolute; left: 0; transform: translateX(-50%); }
+.coupe { position: absolute; top: 0; bottom: 0; width: 2px; background: rgba(122, 93, 30, 0.45); }
+.nom-de-scene { position: absolute; top: 128px; padding-left: 8px; font: 700 14px/1 Figtree, sans-serif; letter-spacing: 0.14em; text-transform: uppercase; color: #7a5d1e; white-space: nowrap; }
+.toucher { position: absolute; top: 124px; width: 0; }
+.toucher span { position: absolute; left: 0; transform: translateX(-50%); font: 16px/1 Figtree, sans-serif; color: var(--rouge); }
+.graduation { position: absolute; bottom: 24px; width: 2px; background: #8a7a66; }
+.seconde { position: absolute; bottom: 5px; width: 0; }
+.seconde span { position: absolute; left: 0; bottom: 0; transform: translateX(-50%); font: 600 15px/1 Figtree, sans-serif; color: var(--doux); font-variant-numeric: tabular-nums; }
+/* Ce qui est passé pâlit : l'œil reste sur ce qui vient. */
+#passe { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(243, 236, 226, 0.62); }
+#barre { position: absolute; top: 0; bottom: 0; width: 4px; background: var(--rouge); box-shadow: 0 0 12px rgba(200, 50, 43, 0.55); }
+#barre::before, #barre::after { content: ''; position: absolute; left: -8px; border: 10px solid transparent; }
+#barre::before { top: 0; border-top-color: var(--rouge); }
+#barre::after { bottom: 0; border-bottom-color: var(--rouge); }
+</style>
+</head>
+<body>
+<div id="cadre">
+  <iframe id="film" src="montage.html" title="La vidéo" scrolling="no"></iframe>
+  <div id="decompte"><b></b><p></p></div>
+</div>
+<aside class="marge" id="gauche">
+  <p class="etiquette">Temps</p>
+  <p id="temps"></p>
+  <p id="scene"></p>
+</aside>
+<aside class="marge" id="droite">
+  <p class="etiquette">Lire la bande</p>
+  <ul>
+    <li><b><span class="barre-legende"></span>Maintenant</b>Dis le mot quand il passe la barre rouge.</li>
+    <li><b>Étiré : lent</b>Serré : vite.</li>
+    <li><b>Un blanc</b>Tais-toi.</li>
+    <li><b>En rouge</b>Le jeu, qui ne se dit pas.</li>
+    <li><b>▲</b>Un doigt touche l'écran.</li>
+  </ul>
+</aside>
+<div id="bande">
+  <div id="piste"></div>
+  <div id="passe"></div>
+  <div id="barre"></div>
+</div>
+
+<script src="doublage.js"></script>
+<script>
+'use strict'
+const DOUBLAGE = window.DOUBLAGE
+/** Pixels par seconde : une seconde de parole fait un peu plus qu'une phrase courte, et la bande montre 2,5 s d'avance. */
+const PPS = 600
+/** Où se tient la barre : assez à gauche pour voir venir, assez loin du bord pour voir ce qui vient de passer. */
+const BARRE = 420
+const AVANT = DOUBLAGE.avant
+const $ = id => document.getElementById(id)
+const film = $('film')
+let HISTOIRE = null
+let SCENES = []
+
+/** Où se pose l'instant `t` de la vidéo sur la piste, qui commence avec le décompte. */
+const x = t => (t + AVANT) * PPS
+
+const poser = (classe, gauche, contenu) => {
+  const e = document.createElement('div')
+  e.className = classe
+  e.style.left = `${gauche}px`
+  if (contenu !== undefined) e.innerHTML = contenu
+  $('piste').appendChild(e)
+  return e
+}
+
+/** Le texte nu d'un titre de légende du montage (son italique, ses espaces fines). */
+const sansBalises = html => {
+  const d = document.createElement('div')
+  d.innerHTML = html
+  return d.textContent.replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * La piste, une fois : chaque réplique étirée ou serrée à sa durée, son jeu au-dessus, le trait de sa durée ; les
+ * bips du décompte ; les coupes et le nom de chaque scène ; un ▲ à chaque toucher ; les secondes.
+ */
+function construire() {
+  const fin = HISTOIRE.DUREE + DOUBLAGE.apres
+  $('piste').style.width = `${x(fin) + 2000}px`
+  window.SERREES = []
+  for (const r of DOUBLAGE.repliques) {
+    const largeur = (r.a - r.de) * PPS
+    // Le jeu finit où la réplique commence : posé sur elle, il passait la barre avec ses premiers mots, trop tard pour
+    // se jouer. Seul (le bâillement), il se pose à son instant.
+    if (r.jeu) {
+      const jeu = poser('jeu', x(r.de), r.texte ? `${r.jeu} →` : r.jeu)
+      if (r.texte) jeu.style.transform = 'translateX(calc(-100% - 10px))'
+    }
+    if (!r.texte) continue
+    const texte = poser('texte', x(r.de))
+    texte.textContent = r.texte
+    const naturelle = texte.offsetWidth
+    // Étiré, le mot garde sa forme au-delà d'un tiers de plus : l'espace entre ses lettres prend le reste. Serré, il se
+    // comprime — c'est le signe qu'il se dit vite.
+    const echelle = largeur >= naturelle ? Math.min(largeur / naturelle, 1.3) : largeur / naturelle
+    const espace = largeur >= naturelle ? (largeur / echelle - naturelle) / r.texte.length : 0
+    texte.style.letterSpacing = `${espace}px`
+    texte.style.transform = `scaleX(${echelle})`
+    if (echelle < 0.55) window.SERREES.push(`${r.texte} (${r.de} s : ${Math.round(echelle * 100)} %)`)
+    poser('duree', x(r.de)).style.width = `${largeur}px`
+  }
+  for (const [k, t] of DOUBLAGE.bips.entries()) poser('bip', x(t), `<span>${DOUBLAGE.bips.length - k}</span>`)
+  for (const s of SCENES) {
+    poser('coupe', x(s.t))
+    poser('nom-de-scene', x(s.t), s.nom)
+  }
+  for (const e of HISTOIRE.PISTE_TEL) if (e.toucher !== undefined) poser('toucher', x(e.toucher), '<span>▲</span>')
+  for (let t = -AVANT; t <= fin; t += 0.5) {
+    const seconde = Math.abs(t - Math.round(t)) < 1e-6
+    const g = poser('graduation', x(t) - 1)
+    g.style.height = seconde ? '16px' : '8px'
+    if (seconde && t >= 0) poser('seconde', x(t), `<span>${Math.round(t)}</span>`)
+  }
+  $('passe').style.width = `${BARRE}px`
+  $('barre').style.left = `${BARRE - 2}px`
+}
+
+/** « 0:12,4 », ou « −2,5 » pendant le décompte. */
+const temps = t => {
+  if (t < 0) return `−${(Math.ceil(-t * 10 - 1e-9) / 10).toFixed(1).replace('.', ',')}`
+  const s = Math.floor(t)
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')},${Math.floor((t - s) * 10)}`
+}
+
+window.rendre = function rendre(t) {
+  film.contentWindow.rendre(Math.min(Math.max(t, 0), HISTOIRE.DUREE))
+  $('piste').style.transform = `translateX(${BARRE - x(t)}px)`
+  $('temps').textContent = temps(t)
+  let scene = SCENES[0]
+  for (const s of SCENES) if (s.t <= t) scene = s
+  $('scene').textContent = t < 0 ? 'Décompte' : scene.nom
+  // Le décompte, sur l'image : « Prêt ? », puis un chiffre à chaque bip, et l'image part au quatrième temps.
+  const d = $('decompte')
+  d.style.opacity = t < 0 ? 1 : 0
+  if (t < 0) {
+    const premier = DOUBLAGE.bips[0]
+    d.querySelector('b').textContent = t < premier ? 'Prêt ?' : String(Math.ceil(-t - 1e-9))
+    d.querySelector('p').innerHTML = 'La vidéo part après le troisième bip.<br>Au troisième, claque une fois dans tes mains.'
+  }
+}
+
+window.pret = (async () => {
+  if (!film.contentWindow?.pret) await new Promise(r => film.addEventListener('load', r, { once: true }))
+  await film.contentWindow.pret
+  HISTOIRE = film.contentWindow.HISTOIRE
+  SCENES = [
+    { t: 0, nom: 'Ouverture' },
+    ...HISTOIRE.LEGENDES.map(l => ({ t: l.a, nom: l.etiquette ?? sansBalises(l.titre).split('?')[0] + ' ?' })),
+    { t: HISTOIRE.DEBUT_DE_LA_FIN, nom: 'La fin' },
+  ]
+  await document.fonts.load('600 40px "Cormorant Garamond"')
+  await document.fonts.load('700 62px Figtree')
+  construire()
+  window.DEBUT = -AVANT
+  window.DUREE = AVANT + HISTOIRE.DUREE + DOUBLAGE.apres
+  window.rendre(-AVANT)
+  return true
+})()
+</script>
+</body>
+</html>

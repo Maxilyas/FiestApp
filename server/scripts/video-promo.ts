@@ -13,6 +13,8 @@
 //   --musique=<fichier>    une piste audio sous la vidéo, coupée à sa longueur et fondue à la fin
 //   --apercu=<s>[,<s>…]    des images fixes du montage à ces instants, sans vidéo
 //   --vitrine              la vidéo montée, réduite pour la vitrine, et son affiche, dans docs/vitrine/video/
+//   --rythmo               la bande rythmo du doublage (bande-rythmo.mp4) : l'image, le texte qui défile, trois bips ;
+//                          seule, sans --formats, elle ne remonte pas la vidéo ; avec --apercu, ses images fixes
 //
 // Le client se construit d'abord (`npm run build -w client`) : le banc sert
 // `client/dist` tel qu'il est. Playwright vient des modules globaux, ffmpeg du
@@ -46,14 +48,19 @@ if (drapeau('sans-tournage')) {
   console.log(`Tournage fini : ${Object.keys(plans).length} prises en ${Math.round((Date.now() - debut) / 1000)} s`)
 }
 if (!drapeau('tournage-seul')) {
-  const { monter, pourLaVitrine } = await import('./video/montage')
-  const formats = (option('formats') ?? 'paysage,portrait').split(',') as ('paysage' | 'portrait')[]
+  const { monter, pourLaVitrine, bandeRythmo, apercuDeLaBande } = await import('./video/montage')
+  const rythmo = drapeau('rythmo')
+  // La bande seule ne remonte pas la vidéo : elle pose le montage dans son cadre, image par image, sans son MP4.
+  const formats = (option('formats') ?? (rythmo ? '' : 'paysage,portrait')).split(',').filter(Boolean) as ('paysage' | 'portrait')[]
   const apercu = option('apercu')?.split(',').map(Number)
-  await monter(dossier, plans, {
-    formats,
-    musique: option('musique') ? path.resolve(depuis, option('musique')!) : undefined,
-    apercu,
-  })
+  if (formats.length) {
+    await monter(dossier, plans, {
+      formats,
+      musique: option('musique') ? path.resolve(depuis, option('musique')!) : undefined,
+      apercu,
+    })
+  }
   if (drapeau('vitrine') && !apercu) pourLaVitrine(dossier, formats)
+  if (rythmo) await (apercu ? apercuDeLaBande(dossier, plans, apercu) : bandeRythmo(dossier, plans))
 }
 console.log(`Fini en ${Math.round((Date.now() - debut) / 1000)} s`)
