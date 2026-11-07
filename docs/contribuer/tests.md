@@ -289,6 +289,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/client.test.ts` — ce que le téléphone dit quand un appel échoue.
 - `server/test/connexion-claire.test.ts` — trois gros boutons, « Jouer sans compte » d'abord ; un profil qui naît, et chaque refus sous le champ qu'il vise ; un titre de premier niveau à chaque écran de connexion.
 - `server/test/depart.test.ts` — ce que la page demande dès son arrivée.
+- `server/test/accueil-au-reveil.test.ts` — l'accueil d'un profil au réveil du serveur : sa première lecture et la console attendent le réveil, puis un échec se dit, « Réessayer » dessous — jamais l'accueil d'un invité.
 - `server/test/navigation.test.ts` — le liant entre les pages.
 - `server/test/page.test.ts` — la page nommée par le serveur avant tout script.
 - `server/test/medaillons.test.ts` — les dessins chargés à la demande.
