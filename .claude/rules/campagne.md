@@ -204,6 +204,19 @@ paths:
   JSON — le client de Turso décode chaque ligne à coups de
   `defineProperty` —, au bout du lot de la requête qui en a besoin
   (`lireAvecLeJournal`) ou d'un aller-retour à lui (`rattraperLeJournal`).
+  **Tant qu'il se charge au réveil, l'accueil et les missions ne
+  l'attendent pas** (le 8 novembre 2026) : l'accueil compte ses bonnes
+  réponses dans la base, au bout de son lot (`lireAuReveil`,
+  `lectureDesJustesDeCampagne`), les missions reprennent la lecture d'avant
+  (`activiteDepuis`), le carnet aussi (`suivisDe`) — ils l'attendaient tout
+  entier, ses tranches décodées et appliquées sous eux : 27,8 et 29,3 s pour
+  un premier accueil en production, les missions en 500 au bout de leurs
+  quinze secondes au banc du réveil ; au vingtième de cœur, le premier
+  accueil passe de 16 à 20 s à 6 à 11 s
+  (`retours/2026-11-08/reproductions/reveil-au-dixieme.ts`). Ce qu'ils lisent
+  ainsi dit ce que le journal dira chargé (`journal-des-reponses.test.ts`) ;
+  une lecture de plus que l'accueil ou les missions tireraient du journal
+  sait se lire de la base au réveil.
   Il garde les dérivations mêmes que relisaient les requêtes d'avant, avec
   leurs filtres (`vuesDe`, `premieresDe`, `justesParHeureDe`, `savoirDe`,
   `expertesDe`, `recentesDe`, `mesures`, `premieresJustesDe`, `carnetDe` ;
@@ -450,7 +463,8 @@ paths:
   `core/gels.ts`, règle `exploitation.md`) ; un travail de fond neuf aussi.
 - **Le réveil passe une étape après l'autre** (`prechauffer`,
   `lUneApresLAutre`, le 8 novembre 2026) : le journal des réponses d'abord —
-  l'accueil et les missions l'attendent —, puis la base, les bordures de
+  l'accueil et les missions le lisent dès qu'il est là, la base tant qu'il se
+  charge —, puis la base, les bordures de
   ligue, les sujets et les tirages, les tas du Cabinet (`baseRenouvelee`), et
   le modèle du savoir, lancé au bout sans être attendu. Lancés de front, ils se
   partageaient le dixième de cœur avec la page qui attendait le journal : les

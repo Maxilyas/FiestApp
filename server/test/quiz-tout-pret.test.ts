@@ -8,6 +8,7 @@ import { BaseDeLaCampagne, lireQuestionDeLaBase, type QuestionDeLaBase } from '.
 import {
   cibleDeLEstimation,
   composerUnQuiz,
+  composerUnQuizEnTranches,
   dejaDansLEspace,
   idDansLeQuiz,
   lireChoixDuQuiz,
@@ -22,6 +23,7 @@ import { sujetsDeLaQuestion } from '../src/core/campagne'
 import { consigneDEcriture } from '../src/core/consigneCampagne'
 import { niveauDeQuestion } from '../../shared/campagne'
 import { suiteFixe } from '../../shared/hasard'
+import { QUESTIONS_D_UNE_TRANCHE } from '../../shared/tranches'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import type { Categorie } from '../../shared/categories'
 import type { ChoixDuQuiz } from '../../shared/quizToutPret'
@@ -152,6 +154,32 @@ const niveauDe = (base: readonly QuestionDeLaBase[]) => {
 
 /** Un identifiant de la base, huit caractères : `id('h', 3)` vaut `h0000003`. */
 const id = (prefixe: string, i: number) => `${prefixe}${String(i).padStart(8 - prefixe.length, '0')}`
+
+test('la composition rend la main une tranche de la base à la fois, et compose le même quiz au même hasard', () => {
+  // D'une traite, chaque aperçu de la feuille passait les vingt-sept mille questions de la base, une vingtaine de
+  // millisecondes sur un vrai cœur : le 7 novembre 2026, un aperçu a gelé la production 2,8 s. Les routes la mènent
+  // une tranche par tour de boucle (`enTranches`) ; chaque question dit ici la tranche où la passe sur toute la base lit
+  // sa difficulté — le tour de rôle des catégories, qui suit, ne relit que les candidates de chaque marche, une passe
+  // par tranche.
+  let tranche = 0
+  const lues = new Map<number, number>()
+  const base = Array.from({ length: 2 * QUESTIONS_D_UNE_TRANCHE + 300 }, (_, i) => {
+    const q = question(id('t', i), { categorie: i % 2 === 0 ? 'Histoire' : 'Sport', difficulte: 1 + (i % 3) })
+    const meta = new Proxy(q.meta, { get: (m, champ) => (champ === 'difficulte' && lues.set(tranche, (lues.get(tranche) ?? 0) + 1), Reflect.get(m, champ)) })
+    return { ...q, meta }
+  })
+  const calcul = composerUnQuizEnTranches(base, sujetsDeLaQuestion, new Map(), choix({ nombre: 20 }), rien, suiteFixe(7))
+  let r = calcul.next()
+  while (!r.done) {
+    tranche++
+    r = calcul.next()
+  }
+  assert.ok(tranche >= 3, `${tranche} tranches`)
+  const plus = Math.max(...lues.values())
+  assert.ok(plus <= QUESTIONS_D_UNE_TRANCHE, `${plus} difficultés lues dans une seule tranche (au plus ${QUESTIONS_D_UNE_TRANCHE})`)
+  assert.deepEqual(r.value, composer(base, choix({ nombre: 20 })), 'le même quiz, d’une traite, au même hasard')
+  assert.equal(r.value.length, 20)
+})
 
 test('le plan monte de marche en marche, et compte toujours ce qu’on a demandé', () => {
   assert.deepEqual(planDuQuiz('facile', 15), [{ niveau: 'facile', n: 15 }])

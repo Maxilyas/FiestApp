@@ -150,4 +150,8 @@ paths:
   Chaque part se rend à part, et la route rattrape chacune : ce qui tombe en
   la lisant n'ôte qu'elle ; un lot qui tombe les ôte toutes, comme une base
   qui se tait. Les missions de même, un lot par magasin
-  (`ProfileStore.lecturesDesMissions`, règle `missions.md`).
+  (`ProfileStore.lecturesDesMissions`, règle `missions.md`). Au réveil, la
+  campagne n'attend pas son journal des réponses : elle compte ses bonnes
+  réponses dans son lot (`lireAuReveil`, règle `campagne.md`) — le premier
+  accueil d'un réveil attendait le journal entier, 27,8 et 29,3 s en
+  production les 6 et 7 novembre 2026.

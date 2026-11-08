@@ -13,6 +13,7 @@ import {
   type DifficulteDuQuiz,
 } from '../../../shared/quizToutPret'
 import { rubriqueDe, sujetParCle } from '../../../shared/sujets'
+import { QUESTIONS_D_UNE_TRANCHE, dUneTraite, type CalculEnTranches } from '../../../shared/tranches'
 import type { QuestionDeLaBase } from './baseCampagne'
 import { cibleDeLEstimation, lireLEstimation } from './estimation'
 import { empreinteDe } from './jour'
@@ -330,6 +331,26 @@ export function composerUnQuiz(
   deja: DejaDansLEspace,
   aleatoire: Aleatoire = Math.random,
 ): QuizQuestionDef[] {
+  return dUneTraite(composerUnQuizEnTranches(questions, sujetsDe, mesures, choix, deja, aleatoire))
+}
+
+/**
+ * La même composition, en tranches (`CalculEnTranches`) : le serveur la mène
+ * une tranche par tour de boucle (`enTranches`, les routes du quiz tout prêt).
+ * D'une traite, elle passait les vingt-sept mille questions de la base, une
+ * vingtaine de millisecondes sur un vrai cœur, à chaque aperçu de la feuille
+ * qu'on règle — le 7 novembre 2026, un aperçu a gelé la production 2,8 s.
+ * Les mêmes questions au même hasard : seul le moment où elle rend la main
+ * change.
+ */
+export function* composerUnQuizEnTranches(
+  questions: readonly QuestionDeLaBase[],
+  sujetsDe: (q: QuestionDeLaBase) => readonly string[],
+  mesures: ReadonlyMap<string, MesureDUneQuestion>,
+  choix: ChoixDuQuiz,
+  deja: DejaDansLEspace,
+  aleatoire: Aleatoire = Math.random,
+): CalculEnTranches<QuizQuestionDef[]> {
   const filtre = choix.categories.length > 0 ? new Set<string>(choix.categories) : null
   const epoque = choix.sujet ? sujetParCle(choix.sujet)?.annees : undefined
   const parNiveau = new Map<Niveau, QuestionDeLaBase[]>(NIVEAUX.map(n => [n, []]))
@@ -337,7 +358,10 @@ export function composerUnQuiz(
   const niveaux = new Map<string, Niveau>()
   const cibles = new Map<string, { target: number; unit: string }>()
   const marchesDesEstimations = new Set(MARCHES_DES_ESTIMATIONS[choix.difficulte])
-  for (const q of battre(questions, aleatoire)) {
+  const battues = battre(questions, aleatoire)
+  for (let i = 0; i < battues.length; i++) {
+    if (i > 0 && i % QUESTIONS_D_UNE_TRANCHE === 0) yield
+    const q = battues[i]
     if (choix.sujet ? !sujetsDe(q).includes(choix.sujet) : filtre && !filtre.has(q.meta.categorie)) continue
     if (choix.enfants && q.meta.ageMin > AGE_DES_ENFANTS) continue
     if (deja.ids.has(idDansLeQuiz(q.id)) || deja.empreintes.has(q.empreinte)) continue
@@ -376,10 +400,15 @@ export function composerUnQuiz(
   }
   const prises = new Set<string>()
   const servies: Servies = { categories: new Map(), sousThemes: new Map(), deja: new DejaPrises() }
-  /** Les questions de chaque marche du plan, passe après passe ; une marche qui manque emprunte à sa voisine — jamais hors de `permises`. */
-  const tirerLePlan = (plan: readonly { niveau: Niveau; n: number }[], dans: ReadonlyMap<Niveau, readonly QuestionDeLaBase[]>, permises?: ReadonlySet<Niveau>) => {
+  /** Les questions de chaque marche du plan, passe après passe — chacune son tour de boucle ; une marche qui manque emprunte à sa voisine — jamais hors de `permises`. */
+  function* tirerLePlan(
+    plan: readonly { niveau: Niveau; n: number }[],
+    dans: ReadonlyMap<Niveau, readonly QuestionDeLaBase[]>,
+    permises?: ReadonlySet<Niveau>,
+  ): CalculEnTranches<QuestionDeLaBase[]> {
     const marches: QuestionDeLaBase[][] = plan.map(() => [])
     for (const passe of passes) {
+      yield
       plan.forEach((marche, i) => {
         for (const niveau of [marche.niveau, ...VOISINES[marche.niveau]]) {
           if (permises && !permises.has(niveau)) continue
@@ -402,9 +431,9 @@ export function composerUnQuiz(
   // la quatrième question, dans les « faciles d'abord ».
   const voulues = choix.estimations ? Math.round(choix.nombre / UNE_ESTIMATION_SUR) : 0
   const rang = (q: QuestionDeLaBase) => NIVEAUX.indexOf(niveaux.get(q.id)!)
-  const estimations = tirerLePlan(planDuQuiz(choix.difficulte, voulues), estimables, marchesDesEstimations).sort((a, b) => rang(a) - rang(b))
+  const estimations = (yield* tirerLePlan(planDuQuiz(choix.difficulte, voulues), estimables, marchesDesEstimations)).sort((a, b) => rang(a) - rang(b))
 
-  const qcm = tirerLePlan(planDuQuiz(choix.difficulte, choix.nombre - estimations.length), parNiveau)
+  const qcm = yield* tirerLePlan(planDuQuiz(choix.difficulte, choix.nombre - estimations.length), parNiveau)
   const total = qcm.length + estimations.length
   const places = placesDesEstimations(total, estimations.length)
   const quiz: QuizQuestionDef[] = []

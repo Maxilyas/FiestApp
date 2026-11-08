@@ -266,6 +266,24 @@ test('une correction du QG refait en fond la base, ses sujets et ses tirages, pu
   }
 })
 
+test('la commande du jour de la routine bâtit en fond l’index des faits de la base : son premier dépôt ne le bâtit plus sous lui', async () => {
+  // Bâti au premier dépôt, il faisait attendre la routine 9,1 s au premier dépôt d'un réveil (le 7 novembre 2026,
+  // `retours/2026-11-08/`) ; elle demande toujours sa commande d'abord, et écrit ses questions des minutes durant.
+  const { campagne, fermer } = magasinObserve()
+  try {
+    await campagne.init()
+    const prive = campagne as unknown as { faits: Promise<unknown> | null }
+    assert.equal(prive.faits, null)
+    const commande = await campagne.commandeDuJour()
+    assert.ok(commande.aEcrire > 0, 'la routine a de quoi écrire')
+    assert.ok(prive.faits, 'lancé dès la commande, sans l’attendre')
+    await prive.faits
+    assert.ok(ceQuiTournait(0, performance.now()).some(c => c.quoi === 'fond · faits de la base'), 'nommé pour la sonde des gels')
+  } finally {
+    fermer()
+  }
+})
+
 // Le modèle du savoir refait en fond prenait le dixième de cœur de
 // l'hébergeur à la salle — 28,5 s au démarrage du 2 novembre 2026 : tant
 // qu'une question attend ses réponses, il ne commence ni ne reprend.

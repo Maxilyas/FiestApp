@@ -587,6 +587,55 @@ test('le journal dit ce que disaient les lectures d’avant — toute la base lu
   }
 })
 
+test('au réveil, l’accueil et les missions n’attendent pas le journal : ils lisent la base, et disent ce qu’il dira', async () => {
+  // L'attendre faisait patienter le premier accueil d'un réveil de toute sa lecture — 27,8 et 29,3 s en production les 6
+  // et 7 novembre 2026 —, et les missions, bornées à quinze secondes, tombaient en 500 au banc du réveil
+  // (`retours/2026-11-08/reproductions/reveil-au-dixieme.ts`).
+  const dir = mkdtempSync(path.join(tmpdir(), 'quizz-journal-'))
+  const fichier = path.join(dir, 'permanente.db')
+  const campagne = new CampagneStore(`file:${fichier.replace(/\\/g, '/')}`, undefined, { base: baseDEssai(30), maintenant: () => MAINTENANT })
+  try {
+    await campagne.init()
+    remplir(fichier, hasardDe(43), { series: 160, depart: 0, debut: MAINTENANT - 20 * JOUR_MS, fin: MAINTENANT - HEURE_MS })
+    // Les profils, que le défi de l'accueil lit pour écarter les suspendus.
+    enBase(fichier, db => {
+      db.exec('CREATE TABLE profiles (id TEXT PRIMARY KEY, disabled_at INTEGER)')
+      for (let i = 0; i < 7; i++) db.prepare('INSERT INTO profiles (id) VALUES (?)').run(`p${i}`)
+    })
+    // Le journal retenu : sa lecture ne commence qu'une fois lâchée.
+    const prive = campagne as unknown as { chargerLeJournal(): Promise<void>; journal: JournalDesReponses }
+    const charger = prive.chargerLeJournal.bind(campagne)
+    let lacher = () => {}
+    const retenu = new Promise<void>(r => (lacher = r))
+    prive.chargerLeJournal = () => retenu.then(charger)
+    const profils = Array.from({ length: 7 }, (_, i) => `p${i}`)
+    const depuis = MAINTENANT - 9 * JOUR_MS
+    const parOrdre = (a: { serie: string; le: number }, b: { serie: string; le: number }) => a.serie.localeCompare(b.serie) || a.le - b.le
+    const lireTout = () =>
+      Promise.all(
+        profils.map(async p => {
+          const accueil = campagne.accueilDe(p, 0)
+          const [solde, sentiers, defi, mercis, duels, activite] = await Promise.all([accueil.campagne, accueil.sentiers, accueil.defi, accueil.mercis, accueil.duels, campagne.activiteDepuis(p, depuis)])
+          return { solde, sentiers, defi, mercis, duels, series: activite.series, reponses: [...activite.reponses].sort(parOrdre) }
+        }),
+      )
+    let minuteur: ReturnType<typeof setTimeout> | undefined
+    const auReveil = await Promise.race([
+      lireTout(),
+      new Promise<never>((_, rejeter) => (minuteur = setTimeout(() => rejeter(new Error('l’accueil ou les missions attendent le journal retenu')), 10_000))),
+    ]).finally(() => clearTimeout(minuteur))
+    assert.equal(prive.journal.charge, false, 'lus sans attendre le journal')
+    lacher()
+    await prive.chargerLeJournal()
+    assert.equal(prive.journal.charge, true)
+    assert.deepEqual(auReveil, await lireTout(), 'la base au réveil dit ce que dit le journal chargé')
+    assert.ok(auReveil.filter(a => a.solde.confettis > 0 && a.reponses.length > 0 && a.sentiers.aRevoir).length >= 3, 'des confettis, des réponses récentes et un carnet à comparer')
+  } finally {
+    campagne.close()
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 // ── Les tranches gardées ────────────────────────────────────────────────────
 
 /** Ce qu'une campagne demande à la base pour son journal : d'où part chaque lecture, et les duels qu'elle relit. */

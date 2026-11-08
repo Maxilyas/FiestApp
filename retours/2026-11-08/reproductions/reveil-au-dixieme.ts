@@ -175,10 +175,14 @@ const processeur = () => {
   return Math.round(ns / 1e6)
 }
 const journal: string[] = []
+/** Le serveur prêt : à l'horloge du banc, et à la sienne (`prêt en … ms`, depuis son départ) — de quoi lire son profil à l'heure du banc. */
+let pret: { banc: number; serveur: number } | null = null
 const ecouter = (d: Buffer) => {
   for (const ligne of String(d).split('\n')) {
     if (!ligne.trim()) continue
     journal.push(ligne)
+    const m = /prêt en (\d+) ms/.exec(ligne)
+    if (m) pret = { banc: performance.now() - t0, serveur: Number(m[1]) }
     if (/prêt en|\[campagne\]|\[cabinet\]|\[http\]|\[base\]|\[veille\]|erreur|Error/i.test(ligne)) console.log(`${depuis()}  · ${ligne.slice(0, 150)}`)
   }
 }
@@ -196,7 +200,7 @@ await new Promise<void>((ok, ko) => {
   serveur.on('exit', c => ko(new Error(`serveur arrêté (${c}) : ${journal.join('\n')}`)))
 })
 
-type Mesure = { quoi: string; ms: number; status: number }
+type Mesure = { quoi: string; ms: number; status: number; fin: number }
 const mesures: Mesure[] = []
 async function appel(qui: string, cookie: string, methode: 'GET' | 'POST', chemin: string, corps?: unknown) {
   const debut = performance.now()
@@ -207,7 +211,7 @@ async function appel(qui: string, cookie: string, methode: 'GET' | 'POST', chemi
   })
   const lu = (await r.json().catch(() => null)) as any
   const ms = Math.round(performance.now() - debut)
-  mesures.push({ quoi: `${methode} ${chemin.replace(/\?.*$/, '')} · ${qui}`, ms, status: r.status })
+  mesures.push({ quoi: `${methode} ${chemin.replace(/\?.*$/, '')} · ${qui}`, ms, status: r.status, fin: performance.now() - t0 })
   console.log(`${depuis()}  ${`${methode} ${chemin} · ${qui}`.padEnd(52)} ${String(ms).padStart(6)} ms  ${r.status}  (processeur du serveur : ${processeur()} ms)`)
   return lu
 }
@@ -256,22 +260,38 @@ if (PROFIL) {
     const parId = new Map<number, any>(p.nodes.map((n: any) => [n.id, n]))
     const parent = new Map<number, number>()
     for (const n of p.nodes) for (const c of n.children ?? []) parent.set(c, n.id)
-    const inclus = new Map<string, number>()
-    const propre = new Map<string, number>()
-    for (let i = 0; i < p.samples.length; i++) {
-      const vus = new Set<string>()
-      const feuille = parId.get(p.samples[i])
-      const cle = (n: any) => n.callFrame.functionName || '(anonyme)'
-      if (feuille) propre.set(cle(feuille), (propre.get(cle(feuille)) ?? 0) + (p.timeDeltas[i] ?? 0))
-      for (let n = feuille; n; n = parent.has(n.id) ? parId.get(parent.get(n.id)!) : undefined) {
-        const k = cle(n)
-        if (!vus.has(k)) inclus.set(k, (inclus.get(k) ?? 0) + (p.timeDeltas[i] ?? 0))
-        vus.add(k)
+    const cle = (n: any) => `${n.callFrame.functionName || '(anonyme)'}${n.callFrame.url ? ' ' + n.callFrame.url.replace(/^.*\//, '') + ':' + (n.callFrame.lineNumber + 1) : ''}`
+    /** Le temps inclus et propre de chaque fonction, sur les échantillons pris entre `de` et `a` (en ms depuis le départ du serveur). */
+    const entre = (de: number, a: number) => {
+      const inclus = new Map<string, number>()
+      const propre = new Map<string, number>()
+      let t = 0
+      for (let i = 0; i < p.samples.length; i++) {
+        t += (p.timeDeltas[i] ?? 0) / 1000
+        if (t < de || t > a) continue
+        const vus = new Set<string>()
+        const feuille = parId.get(p.samples[i])
+        if (feuille) propre.set(cle(feuille), (propre.get(cle(feuille)) ?? 0) + (p.timeDeltas[i] ?? 0))
+        for (let n = feuille; n; n = parent.has(n.id) ? parId.get(parent.get(n.id)!) : undefined) {
+          const k = cle(n)
+          if (!vus.has(k)) inclus.set(k, (inclus.get(k) ?? 0) + (p.timeDeltas[i] ?? 0))
+          vus.add(k)
+        }
       }
+      return { inclus, propre }
     }
-    console.log(`\n== Le réveil au profileur — temps inclus, ms (le processeur réel ; au dixième de cœur, dix fois plus d'attente)`)
-    for (const [k, us] of [...inclus].sort((a, c) => c[1] - a[1]).slice(0, 45)) console.log(`${String(Math.round(us / 100) / 10).padStart(8)}  ${k}`)
-    console.log(`\n== Temps propre, ms`)
-    for (const [k, us] of [...propre].sort((a, c) => c[1] - a[1]).slice(0, 25)) console.log(`${String(Math.round(us / 100) / 10).padStart(8)}  ${k}`)
+    const montrer = (titre: string, { inclus, propre }: ReturnType<typeof entre>) => {
+      console.log(`\n== ${titre} — temps inclus, ms (le processeur réel ; au dixième de cœur, dix fois plus d'attente)`)
+      for (const [k, us] of [...inclus].sort((a, c) => c[1] - a[1]).slice(0, 45)) console.log(`${String(Math.round(us / 100) / 10).padStart(8)}  ${k}`)
+      console.log(`\n== Temps propre, ms`)
+      for (const [k, us] of [...propre].sort((a, c) => c[1] - a[1]).slice(0, 25)) console.log(`${String(Math.round(us / 100) / 10).padStart(8)}  ${k}`)
+    }
+    montrer('Le réveil au profileur', entre(-Infinity, Infinity))
+    // Ce que le serveur a calculé entre son ouverture et la réponse du dernier des deux premiers accueils : ce qu'ils attendaient.
+    const premiers = mesures.filter(m => m.quoi.includes('accueil') && !m.quoi.includes('un autre')).map(m => m.fin)
+    if (pret && premiers.length > 0) {
+      const decalage = pret.banc - pret.serveur
+      montrer(`Du serveur prêt aux deux premiers accueils (${Math.round(Math.max(...premiers) - pret.banc)} ms)`, entre(pret.serveur, Math.max(...premiers) - decalage))
+    }
   }
 }

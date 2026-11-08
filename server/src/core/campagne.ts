@@ -3551,7 +3551,8 @@ export class CampagneStore {
 
   /**
    * Le réveil en fond, sans que rien l'attende, une étape après l'autre :
-   * d'abord le journal des réponses, que l'accueil et les missions attendent ;
+   * d'abord le journal des réponses, que le carnet, l'accueil et les missions
+   * lisent dès qu'il est là — la base tant qu'il se charge (`lireAuReveil`) ;
    * puis la base, que la première série lit ; les bordures de ligue, que les
    * classements du jour et du défi montrent (`borduresEnMemoire`) ; les sujets
    * et la préparation des tirages, que la première ouverture de la campagne et
@@ -3666,15 +3667,19 @@ export class CampagneStore {
       },
       duels,
     ] = await Promise.all([this.lireAvecLeJournal(sentiers.lot), this.lesDuels()])
-    return this.campagneLue(profileId, sentiers.lire(acquis, validees), journal, duels, tour)
+    return this.campagneLue(profileId, sentiers.lire(acquis, validees), journal.justesDe(profileId), duels, tour)
   }
 
-  /** Son solde, ses paliers et sa cote (`duProfil`), de ses sentiers, du journal des réponses et de celui des duels. */
-  private campagneLue(profileId: string, sentiers: SentierDuJoueur[], journal: JournalDesReponses, duels: JournalDesDuels, tour: number): CampagneDuProfil {
+  /**
+   * Son solde, ses paliers et sa cote (`duProfil`), de ses sentiers, de ses
+   * bonnes réponses — du journal des réponses, ou de la base au réveil
+   * (`accueilDe`) — et du journal des duels.
+   */
+  private campagneLue(profileId: string, sentiers: SentierDuJoueur[], justes: number, duels: JournalDesDuels, tour: number): CampagneDuProfil {
     const releve = this.releveLu(profileId, duels.duelsDe(profileId), tour)
     const ligues = confettisDesLigues(releve, this.semaineDeLHeure().semaine)
     return {
-      confettis: journal.justesDe(profileId) + confettisDesEtoiles(sentiers) + ligues,
+      confettis: justes + confettisDesEtoiles(sentiers) + ligues,
       paliers: paliersCommences(sentiers),
       duels: coteDuReleve(releve),
     }
@@ -3700,15 +3705,16 @@ export class CampagneStore {
     // Le journal rattrapé au bout du lot : le carnet du bouton le lit ensuite, sans un aller-retour de plus.
     const debut = this.lecturesDuJournal
     const desSentiers = this.lecturesDesSentiers(profileId)
+    const lot = [
+      ...desSentiers.lot,
+      this.lectureDesEchecs(profileId),
+      this.lectureDeLEpreuveOuverte(profileId),
+      lectureDuDefiDAccueil(profileId, semaine),
+      lectureDesMercis(profileId, depuis),
+      ...lecturesDesDuelsDAccueil(profileId, maintenant),
+    ]
     const lecture = Promise.all([
-      this.lireAvecLeJournal([
-        ...desSentiers.lot,
-        this.lectureDesEchecs(profileId),
-        this.lectureDeLEpreuveOuverte(profileId),
-        lectureDuDefiDAccueil(profileId, semaine),
-        lectureDesMercis(profileId, depuis),
-        ...lecturesDesDuelsDAccueil(profileId, maintenant),
-      ]),
+      this.journal.charge ? this.lireAvecLeJournal(lot).then(({ lus, journal }) => ({ lus, justes: journal.justesDe(profileId) })) : this.lireAuReveil(profileId, lot),
       // Ses duels classés, de leur journal.
       this.lesDuels(),
     ])
@@ -3716,12 +3722,29 @@ export class CampagneStore {
     const relire = () => this.viesAchetees?.(profileId) ?? 0
     const vies = viesAchetees ? viesAchetees.catch(relire) : Promise.resolve().then(relire)
     return {
-      campagne: Promise.all([lecture, sentiers]).then(([[{ journal }, duels], lus]) => this.campagneLue(profileId, lus, journal, duels, tour)),
+      campagne: Promise.all([lecture, sentiers]).then(([[{ justes }, duels], lus]) => this.campagneLue(profileId, lus, justes, duels, tour)),
       sentiers: Promise.all([lecture, sentiers, vies]).then(([[{ lus }], s, achetees]) => this.sentiersDAccueil(profileId, s, lus[2], lus[3], achetees, debut)),
       defi: lecture.then(([{ lus }]) => this.defiDAccueil(profileId, lus[4])),
       mercis: lecture.then(([{ lus }]) => this.mercisLus(lus[5])),
       duels: lecture.then(([{ lus }, duels]) => this.duelsDAccueil(profileId, lus.slice(6, 9), duels)),
     }
+  }
+
+  /**
+   * Le lot de l'accueil au réveil, le journal des réponses pas encore chargé :
+   * ses bonnes réponses — ses confettis de campagne — se comptent dans la
+   * base, au bout du même lot, comme avant le journal, et son carnet s'y relit
+   * aussi (`suivisDe`), pendant que le journal se charge en fond. L'attendre
+   * faisait patienter le premier accueil de toute sa lecture — ses tranches de
+   * quarante mille réponses décodées et appliquées sous lui, les deux tiers du
+   * processeur qu'il attendait : 27,8 et 29,3 s en production les 6 et
+   * 7 novembre 2026 (`retours/2026-11-08/`). Une fois par réveil et par joueur,
+   * au plus : la suivante trouve le journal chargé.
+   */
+  private async lireAuReveil(profileId: string, lot: readonly InStatement[]): Promise<{ lus: ResultSet[]; justes: number }> {
+    this.chargerLeJournal().catch(() => {})
+    const lus = await this.client.batch([...lot, lectureDesJustesDeCampagne(profileId)], 'read')
+    return { lus: lus.slice(0, -1), justes: Number(lus[lus.length - 1].rows[0]?.n ?? 0) }
   }
 
   /**
@@ -3770,7 +3793,12 @@ export class CampagneStore {
     // l'accueil (le 22 octobre 2026). Une question qu'une source de
     // l'expédition reprend du carnet paie, mais ne dit rien de son savoir,
     // comme une révision : sans catégorie, elle ne compte qu'en bonne réponse.
-    if (depuis >= this.maintenant() - FENETRE_DES_RECENTES_MS) {
+    // Au réveil, le journal pas encore chargé, la lecture d'avant, pendant
+    // qu'il se charge en fond : l'attendre, c'était attendre ses quarante mille
+    // réponses, et la lecture des missions, bornée à quinze secondes
+    // (`LectureEnRoute`), tombait en 500 au banc du réveil du 8 novembre 2026.
+    if (!this.journal.charge) this.chargerLeJournal().catch(() => {})
+    else if (depuis >= this.maintenant() - FENETRE_DES_RECENTES_MS) {
       const {
         lus: [lues],
         journal,
@@ -3780,7 +3808,7 @@ export class CampagneStore {
         reponses: journal.recentesDe(profileId, depuis, commencees).map(r => ({ serie: r.serie, mode: r.mode, juste: r.juste, le: r.le, categorie: r.categorie })),
       }
     }
-    // Plus loin que ce que le journal garde : la lecture d'avant.
+    // Plus loin que ce que le journal garde, ou avant qu'il soit chargé : la lecture d'avant.
     const [lues, reponses] = await this.client.batch(
       [
         series,
@@ -7512,7 +7540,27 @@ export class CampagneStore {
       return { categorie, aEcrire, quotas, consigne: partDeLaCategorie(categorie, quotas, deja) }
     })
     const aEcrire = categories.reduce((n, c) => n + c.aEcrire, 0)
+    // Ses dépôts suivront, le temps d'écrire : l'index des faits se bâtit en fond dès maintenant (`indexDesFaits`).
+    if (aEcrire > 0) this.indexDesFaits(base).catch(() => {})
     return { aEcrire, parEnvoi: DEPOT_MAX, consigneCommune: aEcrire > 0 ? consigneCommune({ sorte: 'routine' }) : null, categories }
+  }
+
+  /**
+   * Les faits que posent la base et ce qui attend sa publication
+   * (`IndexDesFaits`), bâtis une fois par processus, par tranches
+   * (`indexSansBloquer`), puis tenus à jour dépôt après dépôt (`deposer`). La
+   * commande du jour les lance en fond : la routine la demande avant d'écrire,
+   * et son premier dépôt, des minutes plus tard, ne les attend plus — il les
+   * bâtissait sous lui, 9,1 s au premier dépôt d'un réveil le 7 novembre 2026
+   * (`retours/2026-11-08/`). Raté, l'index se rebâtit à la demande suivante :
+   * gardée, la promesse le figerait.
+   */
+  private indexDesFaits(base: BaseDeLaCampagne): Promise<IndexDesFaits<QuestionDeLaBase>> {
+    const enAttente = this.ajouts.slice(this.ajoutsPublies).map(a => a.question)
+    return (this.faits ??= enFond('fond · faits de la base', indexSansBloquer([...base.questions, ...enAttente])).catch(e => {
+      this.faits = null
+      throw e
+    }))
   }
 
   /**
@@ -7537,11 +7585,7 @@ export class CampagneStore {
       const enAttente = this.ajouts.slice(this.ajoutsPublies).map(a => a.question)
       const empreintesEnAttente = new Set(enAttente.map(q => q.empreinte))
       this.livres ??= empreintesDesLivres()
-      const faits = await (this.faits ??= indexSansBloquer([...base.questions, ...enAttente]).catch(e => {
-        // Raté, il se rebâtit au dépôt suivant : gardée, la promesse le figerait.
-        this.faits = null
-        throw e
-      }))
+      const faits = await this.indexDesFaits(base)
       // Ce dépôt à part : écrit seulement si le lot passe, il rejoint ensuite les faits de la base.
       const dansCeDepot = new IndexDesFaits<QuestionDeLaBase>()
       const ids = new Set(base.parId.keys())
@@ -10730,6 +10774,20 @@ function lectureDesAmis(profileId: string): InStatement[] {
     },
     { sql: 'SELECT ami, retire_le FROM campagne_amis_retires WHERE profile_id = ?', args: [profileId] },
   ]
+}
+
+/**
+ * Ses bonnes réponses de campagne, tous les modes, comptées dans la base —
+ * celles que le journal des réponses tient (`JournalDesReponses.justesDe`),
+ * lues ainsi tant qu'il se charge au réveil (`lireAuReveil`) : par l'index de
+ * ses séries, puis la clé de leurs réponses — `CROSS JOIN` tient cet ordre ;
+ * sans statistiques, la base aurait pu partir de toutes les réponses.
+ */
+function lectureDesJustesDeCampagne(profileId: string): InStatement {
+  return {
+    sql: 'SELECT COUNT(*) AS n FROM campagne_series s CROSS JOIN campagne_reponses r ON r.serie_id = s.id WHERE s.profile_id = ? AND r.juste = 1',
+    args: [profileId],
+  }
 }
 
 /**
