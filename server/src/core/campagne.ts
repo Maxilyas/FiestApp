@@ -1199,6 +1199,12 @@ export class CampagneStore {
   /** Le préchauffage parti (`prechauffer`) — le délai du démarrage, ou le premier profil venu — : tenu quand toutes ses étapes sont passées. */
   private prechauffage: Promise<void> | null = null
   /**
+   * La base qui se renouvelle en fond (`renouvelerEnFond`), null quand rien ne
+   * se renouvelle ; `encore` : elle a changé pendant ce temps, et le
+   * renouvellement repassera une fois au bout.
+   */
+  private renouvellement: { encore: boolean } | null = null
+  /**
    * Les profils, pour nommer le classement du défi et ses vainqueurs
    * (`ProfileStore`) ; les masqués du quiz du jour, qu'il écarte aussi ; et
    * de quoi rediffuser la salle d'un laurier d'argent qui change de tête.
@@ -1227,10 +1233,12 @@ export class CampagneStore {
   expeditionChange?: ExpeditionQuiChange
   /**
    * La base qu'on joue est prête — au réveil, une fois lue (`prechauffer`), ou
-   * quand elle vient de prendre les dépôts de la routine (`publierLesAjouts`) :
-   * le Cabinet prépare ses tas en fond, avant que le premier départ ne les
+   * quand elle vient de changer : les dépôts de la routine publiés, une
+   * question corrigée, reclassée ou retirée au QG (`renouvelerEnFond`) — : le
+   * Cabinet prépare ses tas en fond, avant que le premier départ ne les
    * attende — le 5 novembre 2026, 8,3 s pour le premier de la matinée ; le 6,
-   * 6,5 s pour le premier d'après la mise en ligne (`server.ts`). Ne rejette
+   * 6,5 s pour le premier d'après la mise en ligne, et deux gels sous une
+   * traversée après trois corrections du soir (`server.ts`). Ne rejette
    * jamais : le préchauffage l'attend, puis passe au modèle du savoir.
    */
   baseRenouvelee?: () => Promise<void> | void
@@ -1879,6 +1887,31 @@ export class CampagneStore {
       parChoix.set(cle, (liste = g.questions.filter(q => filtre.has(q.meta.categorie))))
     }
     return liste
+  }
+
+  /**
+   * Les jouables de la base qu'on joue, filtrées en tranches (`this.tranche`
+   * questions par tour de boucle) et gardées comme les filtrerait `jouables` :
+   * le préchauffage et le renouvellement de la base les préparent ainsi, avant
+   * que la première demande ne passe toute la base au crible d'une traite.
+   * Ce qui change pendant ce temps — un retrait, une liste qu'une demande a
+   * filtrée entre-temps — l'emporte : rien ne s'installe par-dessus.
+   */
+  private async preparerLesJouables(): Promise<void> {
+    const [duJour, base] = await Promise.all([this.empreintesDuJour(), this.base()])
+    const retirees = this.retirees.size
+    const avant = this.jouablesGardees
+    if (avant && avant.base === base && avant.duJour === duJour && avant.retirees === retirees) return
+    const questions: QuestionDeLaBase[] = []
+    for (let debut = 0; debut < base.questions.length; debut += this.tranche) {
+      await rendreLaMain()
+      if (this.ferme || this.retirees.size !== retirees || this.jouablesGardees !== avant) return
+      for (let i = debut; i < Math.min(debut + this.tranche, base.questions.length); i++) {
+        const q = base.questions[i]
+        if (!this.retirees.has(q.id) && !duJour.has(q.empreinte)) questions.push(q)
+      }
+    }
+    this.jouablesGardees = { base, duJour, retirees, questions }
   }
 
   /**
@@ -2617,30 +2650,35 @@ export class CampagneStore {
    */
   private async preparerEnFond(): Promise<void> {
     const jouables = await this.jouables()
-    // Chaque tranche à son tour de boucle (`rendreLaMain`), la première aussi :
-    // la base vient d'arriver, ses index derrière elle. Les sujets et les
-    // catégories se comptent au passage : comptés ensuite d'une traite
-    // (`choixDe`), toute la base gelait encore le réveil au dixième de cœur
-    // (le banc bridé du 2 novembre 2026).
-    const sujets = new Map<string, number>()
-    const categories = new Map<string, number>()
-    for (let debut = 0; debut < jouables.length && !this.ferme; debut += SUJETS_PAR_TRANCHE) {
-      await rendreLaMain()
-      for (let i = debut; i < Math.min(debut + SUJETS_PAR_TRANCHE, jouables.length); i++) {
-        const q = jouables[i]
-        for (const s of sujetsDeLaQuestion(q)) sujets.set(s, (sujets.get(s) ?? 0) + 1)
-        categories.set(q.meta.categorie, (categories.get(q.meta.categorie) ?? 0) + 1)
+    // Déjà comptées — un renouvellement qui repasse sur la même liste, une page qui les a comptées d'une traite — : rien à recompter.
+    if (!this.choixGardes.has(jouables) || !this.comptesDesSujets.has(jouables)) {
+      // Chaque tranche à son tour de boucle (`rendreLaMain`), la première aussi :
+      // la base vient d'arriver, ses index derrière elle. Les sujets et les
+      // catégories se comptent au passage : comptés ensuite d'une traite
+      // (`choixDe`), toute la base gelait encore le réveil au dixième de cœur
+      // (le banc bridé du 2 novembre 2026).
+      const sujets = new Map<string, number>()
+      const categories = new Map<string, number>()
+      // Jamais plus que les tranches du magasin : un banc les règle plus fines (`questionsParTranche`).
+      const parTranche = Math.min(SUJETS_PAR_TRANCHE, this.tranche)
+      for (let debut = 0; debut < jouables.length && !this.ferme; debut += parTranche) {
+        await rendreLaMain()
+        for (let i = debut; i < Math.min(debut + parTranche, jouables.length); i++) {
+          const q = jouables[i]
+          for (const s of sujetsDeLaQuestion(q)) sujets.set(s, (sujets.get(s) ?? 0) + 1)
+          categories.set(q.meta.categorie, (categories.get(q.meta.categorie) ?? 0) + 1)
+        }
       }
-    }
-    if (this.ferme) return
-    await rendreLaMain()
-    // Ce qu'en dirait `sujetsComptes` et `parCategorie`, s'ils ne l'ont pas déjà dit pendant ce temps.
-    if (!this.comptesDesSujets.has(jouables)) this.comptesDesSujets.set(jouables, sujets)
-    if (!this.choixGardes.has(jouables)) {
-      this.choixGardes.set(jouables, {
-        categories: CATEGORIES.filter(c => categories.has(c)).map(c => ({ categorie: c, questions: categories.get(c)! })),
-        sujets: this.sujetsJouables(jouables),
-      })
+      if (this.ferme) return
+      await rendreLaMain()
+      // Ce qu'en dirait `sujetsComptes` et `parCategorie`, s'ils ne l'ont pas déjà dit pendant ce temps.
+      if (!this.comptesDesSujets.has(jouables)) this.comptesDesSujets.set(jouables, sujets)
+      if (!this.choixGardes.has(jouables)) {
+        this.choixGardes.set(jouables, {
+          categories: CATEGORIES.filter(c => categories.has(c)).map(c => ({ categorie: c, questions: categories.get(c)! })),
+          sujets: this.sujetsJouables(jouables),
+        })
+      }
     }
     const mesure = await this.mesures()
     // Sa préparation et la série de référence en tranches (`enTranches`), pas d'une traite derrière les familles de la mesure.
@@ -3532,7 +3570,7 @@ export class CampagneStore {
     this.prechauffage ??= this.lUneApresLAutre([
       // Le journal se nomme lui-même pour la sonde des gels (« fond · journal des réponses », `chargerLeJournal`).
       { nom: null, quoi: () => this.chargerLeJournal(), siRatee: 'journal des réponses non lu en fond — la première demande le lira' },
-      { nom: 'fond · base de la campagne', quoi: () => this.base(), siRatee: 'base non lue en fond — la première série la relira' },
+      { nom: 'fond · base de la campagne', quoi: () => this.preparerLesJouables(), siRatee: 'base non lue en fond — la première série la relira' },
       { nom: 'fond · bordures de ligue', quoi: () => this.toutesLesCotes(), siRatee: 'bordures de ligue non lues en fond — chacune se relira à la demande' },
       { nom: 'fond · sujets et tirages', quoi: () => this.preparerEnFond(), siRatee: 'sujets et tirages non préparés en fond — la première demande les fera' },
       { nom: null, quoi: async () => this.baseRenouvelee?.(), siRatee: 'tas du Cabinet non préparés en fond — le premier départ les fera' },
@@ -3543,12 +3581,49 @@ export class CampagneStore {
   }
 
   /**
+   * La base qu'on joue vient de changer — les dépôts de la routine publiés
+   * (`publier`), une question corrigée, reclassée ou retirée au QG — : elle se
+   * refait en fond, ses sujets et ses tirages derrière elle, puis le Cabinet
+   * ses tas (`baseRenouvelee`), l'une après l'autre comme au préchauffage. Le
+   * joueur qui suit les trouve prêts : refaits à sa demande, ils tombaient
+   * sous lui — le décompte des sujets de la page de la campagne d'une traite,
+   * les tas du Cabinet sous une traversée en cours (le 6 novembre 2026 à
+   * 20 h 10, trois corrections au QG, deux gels de 2,1 et 1,8 s :
+   * `retours/2026-11-08/`). Un seul renouvellement à la fois : ce qui change
+   * pendant qu'il passe le fait repasser une fois au bout, pour tout — trois
+   * corrections de suite ne refont pas trois fois tout de front. Ce qu'une
+   * requête demande entre-temps se fait pour elle, comme avant.
+   */
+  private renouvelerEnFond(): void {
+    if (this.ferme) return
+    if (this.renouvellement) {
+      this.renouvellement.encore = true
+      return
+    }
+    const renouvellement = (this.renouvellement = { encore: false })
+    void (async () => {
+      try {
+        do {
+          renouvellement.encore = false
+          await this.lUneApresLAutre([
+            { nom: 'fond · base de la campagne', quoi: () => this.preparerLesJouables(), siRatee: 'base non refaite en fond — la première série la refera' },
+            { nom: 'fond · sujets et tirages', quoi: () => this.preparerEnFond(), siRatee: 'sujets et tirages non préparés en fond — la première demande les fera' },
+            { nom: null, quoi: async () => this.baseRenouvelee?.(), siRatee: 'tas du Cabinet non préparés en fond — le premier départ les fera' },
+          ])
+        } while (renouvellement.encore && !this.ferme)
+      } finally {
+        this.renouvellement = null
+      }
+    })()
+  }
+
+  /**
    * Des étapes de fond, l'une après l'autre : chacune sous son nom pour la
    * sonde des gels (`core/gels.ts`), ratée sans arrêter les suivantes — ce
    * qu'elle n'a pas fait, la première demande qui en a besoin le fera. Le
-   * préchauffage et la publication des dépôts de la routine passent par ici :
-   * lancées de front, leurs étapes se partageaient le dixième de cœur avec la
-   * page qui attendait la première d'entre elles.
+   * préchauffage et le renouvellement de la base passent par ici : lancées de
+   * front, leurs étapes se partageaient le dixième de cœur avec la page qui
+   * attendait la première d'entre elles.
    */
   private async lUneApresLAutre(etapes: readonly { nom: string | null; quoi: () => Promise<unknown>; siRatee: string }[]): Promise<void> {
     for (const { nom, quoi, siRatee } of etapes) {
@@ -3899,7 +3974,9 @@ export class CampagneStore {
    */
   async carnet(profileId: string): Promise<EtatDuCarnet> {
     const [suivis, jouables, ouverte] = await Promise.all([this.suivisDe(profileId), this.jouables(), this.revisionEnCours(profileId)])
-    const parId = new Map(jouables.map(q => [q.id, q]))
+    // Gardée avec les jouables : refaite à chaque carnet, la table des vingt-sept mille questions coûtait
+    // à elle seule les trois quarts de son processeur (le banc de l'ouverture, le 8 novembre 2026).
+    const parId = this.parIdDe(jouables)
     const aujourdhui = jourDe(this.maintenant())
     const demain = jourAvant(aujourdhui, -1)
     const carnet: EtatDuCarnet = { aRevoir: 0, demain: 0, plusTard: 0, prochainJour: null, appris: 0, enCours: ouverte ? vueDeSerie(ouverte) : null, categories: [], sujets: [] }
@@ -3947,7 +4024,7 @@ export class CampagneStore {
    */
   async faitsAppris(profileId: string): Promise<FaitAppris[]> {
     const [suivis, jouables] = await Promise.all([this.suivisDe(profileId), this.jouables()])
-    const parId = new Map(jouables.map(q => [q.id, q]))
+    const parId = this.parIdDe(jouables)
     const faits: FaitAppris[] = []
     for (const [id, s] of suivis) {
       const q = parId.get(id)
@@ -3990,7 +4067,7 @@ export class CampagneStore {
       const visee = (q: QuestionDeLaBase) => (suivi ? sujetsDeLaQuestion(q).includes(suivi.cle) : !categories || categories.includes(q.meta.categorie))
       const [suivis, jouables, mesure] = await Promise.all([this.suivisDe(profileId), this.jouables(), this.mesures()])
       const aujourdhui = jourDe(this.maintenant())
-      const parId = new Map(jouables.map(q => [q.id, q]))
+      const parId = this.parIdDe(jouables)
       const dues: { q: QuestionDeLaBase; etape: number; revientLe: string }[] = []
       const enRoute: { q: QuestionDeLaBase; etape: number; revientLe: string }[] = []
       const apprises: { q: QuestionDeLaBase; le: string }[] = []
@@ -7562,17 +7639,13 @@ export class CampagneStore {
   /**
    * La base qu'on joue prend tout ce que la routine a déposé, puis se refait
    * en fond, ses sujets et ses tirages derrière elle, et le Cabinet ses tas
-   * (`baseRenouvelee`) — l'une après l'autre, comme au préchauffage : la
-   * première page qui suit les trouve prêts, au lieu de les attendre.
+   * (`renouvelerEnFond`) : la première page qui suit les trouve prêts, au lieu
+   * de les attendre.
    */
   private publier(): void {
     if (this.ferme || this.ajoutsPublies === this.ajouts.length) return
     this.ajoutsPublies = this.ajouts.length
-    void this.lUneApresLAutre([
-      { nom: 'fond · base de la campagne', quoi: () => this.base(), siRatee: 'base non refaite en fond après les dépôts — la première série la refera' },
-      { nom: 'fond · sujets et tirages', quoi: () => this.preparerEnFond(), siRatee: 'sujets et tirages non préparés après les dépôts — la première demande les fera' },
-      { nom: null, quoi: async () => this.baseRenouvelee?.(), siRatee: 'tas du Cabinet non préparés après les dépôts — le premier départ les fera' },
-    ])
+    this.renouvelerEnFond()
   }
 
   /** La commande du jour remplie : chaque catégorie a reçu ses questions du jour (`QUESTIONS_PAR_CATEGORIE_ET_PAR_JOUR`) — la routine a fini. */
@@ -8195,7 +8268,11 @@ export class CampagneStore {
       ],
       'write',
     )
-    this.retirees.add(questionId)
+    // Les jouables changent, et ce qui s'en tire : refait en fond, pas sous le joueur qui suit.
+    if (!this.retirees.has(questionId)) {
+      this.retirees.add(questionId)
+      this.renouvelerEnFond()
+    }
   }
 
   /**
@@ -8255,10 +8332,12 @@ export class CampagneStore {
         ],
         'write',
       )
-      // Écrite : elle se joue tout de suite. La base fusionnée se refait à la prochaine lecture.
+      // Écrite : elle se joue tout de suite. La base fusionnée se refait à la
+      // prochaine lecture, et en fond, avec ce qui s'en tire (`renouvelerEnFond`).
       this.corrections.set(questionId, { question: corrigee, corrigeeLe: maintenant })
       this.versionDesCorrections++
       if (nouvelle) this.retirees.add(questionId)
+      this.renouvelerEnFond()
       return { id: corrigee.id, nouvelle }
     })
   }
@@ -8302,6 +8381,7 @@ export class CampagneStore {
       )
       this.corrections.set(questionId, { question: reclassee, corrigeeLe: maintenant })
       this.versionDesCorrections++
+      this.renouvelerEnFond()
       return { avant: classe, apres: lu }
     })
   }

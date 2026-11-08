@@ -1586,8 +1586,9 @@ export class CabinetStore {
   /**
    * Ses tas, préparés en fond sur la base qu'on joue, sans réveiller rien
    * d'autre : la campagne les demande quand sa base est prête — à la fin de
-   * son préchauffage, et après les dépôts de la routine du matin
-   * (`baseRenouvelee`, `server.ts`). Préparés seulement à la première page du
+   * son préchauffage, après les dépôts de la routine du matin, après une
+   * correction, un reclassement ou un retrait du QG (`baseRenouvelee`,
+   * `server.ts`). Préparés seulement à la première page du
    * Cabinet, ils faisaient attendre le premier départ d'un réveil ou d'une
    * mise en ligne : 6,5 s le 6 novembre 2026, juste après celle de 11 h 40.
    * Ne rejette jamais.
