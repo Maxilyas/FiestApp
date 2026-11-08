@@ -564,18 +564,48 @@ export function forceDuJoueur(
     categories.push(c)
     justes.push(juste ? 1 : 0)
   }
-  const n = justes.length
+  // Chaque réponse a sa propre question : ses difficultés, dans l'ordre.
+  return forceDesTableaux(
+    { difficultes: Float64Array.from(difficultes), categories: Int8Array.from(categories), quelles: Int32Array.from({ length: justes.length }, (_, i) => i), justes: Uint8Array.from(justes) },
+    forceDeDepart,
+    depart,
+  )
+}
+
+/**
+ * Ses premières réponses déjà rangées en tableaux, telles que sa force se lit
+ * dessus : la difficulté et la catégorie de chaque question (`difficultes`,
+ * `categories`), puis, réponse par réponse, sa question et si elle est juste
+ * (`quelles`, `justes`) — dans l'ordre où elles se comptent, celui de ses
+ * premières réponses.
+ */
+export interface PremieresEnTableaux {
+  difficultes: Float64Array
+  categories: Int8Array
+  quelles: Int32Array
+  justes: Uint8Array
+}
+
+/**
+ * Sa force sur des premières réponses déjà rangées : le calcul même de
+ * `forceDuJoueur`, qui y range les siennes d'abord. La page des sentiers
+ * tient ses tableaux à jour de ses seules réponses nouvelles
+ * (`core/forceTenue.ts`) : les ranger toutes de nouveau, en tables neuves, à
+ * chaque retour d'une épreuve gelait la production (`retours/2026-11-08/`).
+ * Mêmes tableaux, même départ : la même force, au bit près.
+ */
+export function forceDesTableaux(t: PremieresEnTableaux, forceDeDepart: number, depart?: Pick<ForceDUnJoueur, 'force' | 'ecarts'>): ForceDUnJoueur {
+  const n = t.quelles.length
   // Sans une réponse, le joueur de la cote de départ, d'où qu'on parte.
   const d = n > 0 ? depart : undefined
   const e: Etat = {
-    difficultes: Float64Array.from(difficultes),
-    categories: Int8Array.from(categories),
+    difficultes: t.difficultes,
+    categories: t.categories,
     forces: Float64Array.of(d?.force ?? forceDeDepart),
     ecarts: Float64Array.from({ length: C }, (_, c) => d?.ecarts[c] ?? 0),
     debut: Int32Array.of(0, n),
-    // Chaque réponse a sa propre question : ses difficultés, dans l'ordre.
-    quelles: Int32Array.from({ length: n }, (_, i) => i),
-    justes: Uint8Array.from(justes),
+    quelles: t.quelles,
+    justes: t.justes,
     forceDeDepart,
   }
   for (let i = 0; i < PAS_D_UN_JOUEUR && n > 0; i++) if (pasDuJoueur(e, 0) < PRECISION) break

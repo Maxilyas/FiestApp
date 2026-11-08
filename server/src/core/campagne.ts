@@ -31,6 +31,7 @@ import {
   type LectureDuJournal,
 } from './journalDesReponses'
 import { JournalDesDuels, type DuelsARelire, type LigneDuJournalDesDuels } from './journalDesDuels'
+import { ForceTenue, type LesQuestions } from './forceTenue'
 import { DejaPrises } from './jumelles'
 import type { CeQueLeReveilAjoute, ExpeditionQuiChange, FinDUnePartie, PorteDeLaCampagne, ReponsesEcrites, StatsEnPlus } from './porteDeLaCampagne'
 import { seRange } from './rangDeLaBonne'
@@ -1195,8 +1196,8 @@ export class CampagneStore {
   /** Les duels classés lancés sur trente jours, au QG : gardés de même. */
   private lancesGardes: { minuit: number; jusqua: number; lus: Promise<Pick<SuiviDesDuels, 'lances' | 'jouesDesDeuxCotes' | 'lancesDuMois'>> } | null = null
   private ferme = false
-  /** Le préchauffage est parti (`prechauffer`) : le délai du démarrage, ou le premier profil venu. */
-  private prechauffee = false
+  /** Le préchauffage parti (`prechauffer`) — le délai du démarrage, ou le premier profil venu — : tenu quand toutes ses étapes sont passées. */
+  private prechauffage: Promise<void> | null = null
   /**
    * Les profils, pour nommer le classement du défi et ses vainqueurs
    * (`ProfileStore`) ; les masqués du quiz du jour, qu'il écarte aussi ; et
@@ -1225,23 +1226,26 @@ export class CampagneStore {
   statsEnPlus?: StatsEnPlus
   expeditionChange?: ExpeditionQuiChange
   /**
-   * La base qu'on joue vient de prendre les dépôts de la routine
-   * (`publierLesAjouts`) : le Cabinet prépare ses tas en fond, avant que le
-   * premier départ ne les attende — le 5 novembre 2026, 8,3 s pour le premier
-   * de la matinée (`server.ts`).
+   * La base qu'on joue est prête — au réveil, une fois lue (`prechauffer`), ou
+   * quand elle vient de prendre les dépôts de la routine (`publierLesAjouts`) :
+   * le Cabinet prépare ses tas en fond, avant que le premier départ ne les
+   * attende — le 5 novembre 2026, 8,3 s pour le premier de la matinée ; le 6,
+   * 6,5 s pour le premier d'après la mise en ligne (`server.ts`). Ne rejette
+   * jamais : le préchauffage l'attend, puis passe au modèle du savoir.
    */
-  baseRenouvelee?: () => void
+  baseRenouvelee?: () => Promise<void> | void
   /** Le secret du Cabinet, relu au réveil (`init`) ; null tant qu'aucun réveil ne l'a tiré. */
   private secretLu: string | null = null
   /** La porte du Cabinet, ouverte une fois (`porte`). */
   private porteOuverte: PorteDeLaCampagne | null = null
   private mesuresGardees: MesureGardee | null = null
   /**
-   * La force de chaque joueur sur les sentiers, sous la série de référence qui
-   * l'a lue (`chancesPourLui`) : une série neuve — une base, une mesure, un
-   * modèle neufs — emporte les forces d'avant avec elle.
+   * La force de chaque joueur sur les sentiers, tenue à jour de ses seules
+   * réponses nouvelles (`forceTenue`), sous la série de référence qui en a lu
+   * les difficultés : une série neuve — une base, une mesure, un modèle
+   * neufs — emporte les forces d'avant avec elle.
    */
-  private forcesGardees = new WeakMap<SerieDeReference, Map<string, ForceGardee>>()
+  private forcesTenues = new WeakMap<SerieDeReference, Map<string, { tenue: ForceTenue; base: BaseDeLaCampagne; modele: ModeleDuSavoir }>>()
   /** La relecture des comptes en cours (`mesures`). */
   private mesuresEnRoute: Promise<void> | null = null
   /** La famille de chaque question, par base (`famillesDe`), faite en tranches. */
@@ -3508,29 +3512,53 @@ export class CampagneStore {
   }
 
   /**
-   * Lit la base en fond, sans rien attendre : la première série la trouve
-   * prête. Une fois par processus — au premier profil qui ouvre son accueil ou
-   * l'expédition, sinon `PRECHAUFFAGE_CAMPAGNE_MS` après le démarrage
-   * (`server.ts`) : appelée encore, elle repasserait toute la base au crible.
+   * Le réveil en fond, sans que rien l'attende, une étape après l'autre :
+   * d'abord le journal des réponses, que l'accueil et les missions attendent ;
+   * puis la base, que la première série lit ; les bordures de ligue, que les
+   * classements du jour et du défi montrent (`borduresEnMemoire`) ; les sujets
+   * et la préparation des tirages, que la première ouverture de la campagne et
+   * le premier tirage trouvent faits ; les tas du Cabinet (`baseRenouvelee`) ;
+   * enfin le modèle du savoir, que personne n'attend — le premier dé et la page
+   * des sentiers le trouvent ajusté. Lancées ensemble, elles se partageaient le
+   * dixième de cœur de l'hébergeur avec la page qui attendait le journal : le
+   * 6 novembre 2026 à 6 h 52, un accueil a attendu 27,8 s, le 7 à 0 h 29, 29,3 s
+   * (`retours/2026-11-08/`). Une fois par processus — au premier profil qui
+   * ouvre son accueil, sinon `PRECHAUFFAGE_CAMPAGNE_MS` après le démarrage
+   * (`server.ts`) : appelée encore, elle rend la même promesse, qui ne rejette
+   * jamais. Ce qu'une requête demande entre-temps se fait pour elle, à son
+   * heure, comme avant.
    */
-  prechauffer(): void {
-    if (this.prechauffee) return
-    this.prechauffee = true
-    // Chacun sous son nom, pour les gels (`core/gels.ts`) : au réveil, le préchauffage sature le dixième de cœur.
-    enFond('fond · base de la campagne', this.base()).catch(e => console.error('[campagne] base non lue en fond — la première série la relira :', e))
-    // Ses sujets et la préparation de ses tirages : la première ouverture de la campagne et le premier tirage les trouvent faits.
-    enFond('fond · sujets et tirages', this.preparerEnFond()).catch(e =>
-      console.warn('[campagne] sujets et tirages non préparés en fond — la première demande les fera :', e instanceof Error ? e.message : e),
-    )
-    // Les bordures de ligue de tous, d'une lecture : les classements du jour
-    // et du défi les montrent sans rien attendre (`borduresEnMemoire`).
-    enFond('fond · bordures de ligue', this.toutesLesCotes()).catch(e =>
-      console.warn('[campagne] bordures de ligue non lues en fond — chacune se relira à la demande :', e instanceof Error ? e.message : e),
-    )
-    // Le journal des réponses : la première page, la première bonne réponse le trouvent lu.
-    this.chargerLeJournal().catch(e => console.warn('[campagne] journal des réponses non lu en fond — la première demande le lira :', e instanceof Error ? e.message : e))
-    // Le modèle du savoir : le premier dé le trouve ajusté.
-    this.modeleDuSavoir()
+  prechauffer(): Promise<void> {
+    this.prechauffage ??= this.lUneApresLAutre([
+      // Le journal se nomme lui-même pour la sonde des gels (« fond · journal des réponses », `chargerLeJournal`).
+      { nom: null, quoi: () => this.chargerLeJournal(), siRatee: 'journal des réponses non lu en fond — la première demande le lira' },
+      { nom: 'fond · base de la campagne', quoi: () => this.base(), siRatee: 'base non lue en fond — la première série la relira' },
+      { nom: 'fond · bordures de ligue', quoi: () => this.toutesLesCotes(), siRatee: 'bordures de ligue non lues en fond — chacune se relira à la demande' },
+      { nom: 'fond · sujets et tirages', quoi: () => this.preparerEnFond(), siRatee: 'sujets et tirages non préparés en fond — la première demande les fera' },
+      { nom: null, quoi: async () => this.baseRenouvelee?.(), siRatee: 'tas du Cabinet non préparés en fond — le premier départ les fera' },
+      // Lancé, pas attendu : refait en fond, il laisse passer la salle d'une soirée (`ajusterLeSavoir`).
+      { nom: null, quoi: async () => void this.modeleDuSavoir(), siRatee: 'modèle du savoir non lancé en fond — le premier dé le lancera' },
+    ])
+    return this.prechauffage
+  }
+
+  /**
+   * Des étapes de fond, l'une après l'autre : chacune sous son nom pour la
+   * sonde des gels (`core/gels.ts`), ratée sans arrêter les suivantes — ce
+   * qu'elle n'a pas fait, la première demande qui en a besoin le fera. Le
+   * préchauffage et la publication des dépôts de la routine passent par ici :
+   * lancées de front, leurs étapes se partageaient le dixième de cœur avec la
+   * page qui attendait la première d'entre elles.
+   */
+  private async lUneApresLAutre(etapes: readonly { nom: string | null; quoi: () => Promise<unknown>; siRatee: string }[]): Promise<void> {
+    for (const { nom, quoi, siRatee } of etapes) {
+      if (this.ferme) return
+      try {
+        await (nom ? enFond(nom, quoi()) : quoi())
+      } catch (e) {
+        if (!this.ferme) console.warn(`[campagne] ${siRatee} :`, e instanceof Error ? e.message : e)
+      }
+    }
   }
 
   /** Cet intitulé est-il dans la base ? La réserve du quiz du jour le refuse alors (`JourStore.dansLaCampagne`). */
@@ -6442,11 +6470,11 @@ export class CampagneStore {
   /**
    * Tout ce que ses sentiers disent de lui — ses paliers, ses vies, l'épreuve
    * laissée — en un lot, à côté de ses vies achetées, qui sont chez le
-   * profil : deux allers-retours de front. La page des sentiers y ajoute ses
-   * premières réponses (`avecSesPremieres`), du journal rattrapé dans le même
-   * lot : sa chance sur chaque sentier ne coûte pas un aller-retour — ni, au
-   * quota de Turso, toutes ses réponses. L'accueil lit les mêmes lectures dans
-   * son propre lot (`accueilDe`).
+   * profil : deux allers-retours de front. La page des sentiers y rattrape le
+   * journal des réponses (`avecSesPremieres`), dans le même lot : sa chance sur
+   * chaque sentier ne coûte pas un aller-retour — ni, au quota de Turso, toutes
+   * ses réponses. L'accueil lit les mêmes lectures dans son propre lot
+   * (`accueilDe`).
    */
   private async lireLesSentiers(
     profileId: string,
@@ -6455,8 +6483,8 @@ export class CampagneStore {
     sentiers: SentierDuJoueur[]
     vies: VieDesSentiers
     ouverte: Serie | null
-    /** Ses premières réponses, lues seulement si sa force est à refaire (`chancesPourLui`), et combien de réponses le journal a de lui. */
-    premieres: { lire: () => Map<string, PremiereReponse>; version: number } | null
+    /** Le journal rattrapé, d'où sa force se tient à jour (`forceTenue`) ; null sans ses premières réponses. */
+    journal: JournalDesReponses | null
   }> {
     const sentiers = this.lecturesDesSentiers(profileId)
     const lectures = [...sentiers.lot, this.lectureDesEchecs(profileId), this.lectureDeLEpreuveOuverte(profileId)]
@@ -6465,12 +6493,11 @@ export class CampagneStore {
       this.viesAchetees?.(profileId) ?? 0,
     ])
     const [acquis, validees, echecs, ouverte] = lus.lus
-    const journal = avecSesPremieres ? lus.journal : null
     return {
       sentiers: sentiers.lire(acquis, validees),
       vies: this.viesLues(echecs.rows, achetees),
       ouverte: ouverte.rows[0] ? versSerie(ouverte.rows[0]) : null,
-      premieres: journal ? { lire: () => journal.premieresDe(profileId), version: journal.versionDe(profileId) } : null,
+      journal: avecSesPremieres ? lus.journal : null,
     }
   }
 
@@ -6486,11 +6513,11 @@ export class CampagneStore {
     const modele = this.modeleDuSavoir()
     const tirage = modele ? Promise.all([this.base(), this.jouables(), this.mesures()]) : null
     tirage?.catch(() => {})
-    const { sentiers, vies, ouverte, premieres } = await this.lireLesSentiers(profileId, modele !== null)
+    const { sentiers, vies, ouverte, journal } = await this.lireLesSentiers(profileId, modele !== null)
     let pourToi: ChanceDuSentier[] | undefined
-    if (modele && tirage && premieres) {
+    if (modele && tirage && journal) {
       try {
-        pourToi = await this.chancesPourLui(profileId, sentiers, premieres, modele, ...(await tirage))
+        pourToi = await this.chancesPourLui(profileId, sentiers, journal, modele, ...(await tirage))
       } catch (e) {
         // Sa chance n'est qu'un renseignement : la page s'ouvre sans elle.
         console.warn('[campagne] chance des sentiers non calculée :', e instanceof Error ? e.message : e)
@@ -6511,43 +6538,40 @@ export class CampagneStore {
    * (`chanceDeLEpreuve`) — et, s'il a assez répondu depuis dans la
    * catégorie, ce qu'elle valait il y a une semaine, aux difficultés
    * d'aujourd'hui : ce que ses réponses ont changé, rien d'autre. Sa force se
-   * relit de ses premières réponses, partie de celle du modèle, comme au dé :
-   * le modèle, refait en fond, n'a peut-être pas vu sa dernière épreuve. Rien
-   * sous `PREMIERES_REPONSES_POUR_SA_CHANCE` premières réponses : la page ne
-   * dirait que la chance d'un joueur moyen.
+   * lit de ses premières réponses, partie de celle du modèle, comme au dé : le
+   * modèle, refait en fond, n'a peut-être pas vu sa dernière épreuve. Rien sous
+   * `PREMIERES_REPONSES_POUR_SA_CHANCE` premières réponses : la page ne dirait
+   * que la chance d'un joueur moyen. Sa chance d'avant ne se dit que là où il
+   * avait déjà répondu, et où il a répondu depuis : sans les premières, elle ne
+   * disait que son niveau d'ailleurs — « 27 % il y a une semaine » sur un sport
+   * qu'il n'avait jamais joué ; sans les secondes, rien de ce qu'il a fait.
    *
-   * Sa force se garde d'une visite à l'autre (`forcesGardees`) tant qu'il n'a
-   * pas répondu (`versionDe`), que la série de référence — sa base, sa mesure,
-   * son modèle — reste la même, et dans l'heure, sa semaine glissant : refaite
-   * à chaque visite de toutes ses premières réponses, elle prenait la moitié du
-   * processeur de la page — 27 ms sur 60 pour un joueur de 9 000 réponses, au
-   * banc du 6 novembre 2026 —, et la production gelait 1,5 à 2,3 s à chaque
-   * ouverture de la page (`retours/2026-11-06/`).
+   * Sa force se tient à jour de ses seules réponses nouvelles (`forceTenue`),
+   * sa semaine à l'heure : relue à chaque visite de toutes ses premières
+   * réponses, elle prenait la moitié du processeur de la page ; gardée tant
+   * qu'il n'avait pas répondu (le 6 novembre 2026), elle se relisait encore à
+   * chaque retour d'une épreuve, et la production gelait 0,9 à 1,9 s
+   * (`retours/2026-11-08/`).
    */
   private async chancesPourLui(
     profileId: string,
     sentiers: readonly SentierDuJoueur[],
-    premieres: { lire: () => ReadonlyMap<string, PremiereReponse>; version: number },
+    journal: JournalDesReponses,
     modele: ModeleDuSavoir,
     base: BaseDeLaCampagne,
     jouables: readonly QuestionDeLaBase[],
     mesure: ReadonlyMap<string, MesureDUneQuestion>,
   ): Promise<ChanceDuSentier[] | undefined> {
-    const { reference, forceDe } = await this.forceSurLesSentiers(profileId, modele, base, jouables, mesure)
-    const maintenant = this.maintenant()
-    const heure = Math.floor(maintenant / HEURE_MS)
-    let gardees = this.forcesGardees.get(reference)
-    if (!gardees) this.forcesGardees.set(reference, (gardees = new Map()))
-    let f = gardees.get(profileId)
-    if (!f || f.version !== premieres.version || f.heure !== heure || f.base !== base || f.modele !== modele) {
-      // D'un seul tenant, et sous son nom pour la sonde des gels (`core/gels.ts`) : s'il gèle encore, le relevé le dira.
-      const depuis = maintenant - JOURS_DE_SA_PROGRESSION * 24 * HEURE_MS
-      const forces = sousLeNom('campagne · force sur les sentiers', () => sesForcesSurLesSentiers(premieres.lire(), base, forceDe, depuis))
-      f = { version: premieres.version, heure, base, modele, ...forces }
-      gardees.set(profileId, f)
-    }
-    const { lui, luiAvant, anciennes, recentes } = f
+    const reference = await this.referencePour(jouables, mesure, modele)
+    const tenue = this.forceTenue(profileId, journal, reference, base, modele, mesure)
+    const lui = tenue.lui!
     if (lui.reponses < PREMIERES_REPONSES_POUR_SA_CHANCE) return undefined
+    const maintenant = this.maintenant()
+    // Sous son nom pour la sonde des gels (`core/gels.ts`) : s'il gèle encore, le relevé le dira.
+    sousLeNom('campagne · force sur les sentiers', () =>
+      tenue.saSemaine(Math.floor(maintenant / HEURE_MS), maintenant - JOURS_DE_SA_PROGRESSION * 24 * HEURE_MS, reference.forceDeDepart, PREMIERES_REPONSES_POUR_SA_CHANCE),
+    )
+    const { luiAvant, anciennes, recentes } = tenue
     const avantSeLit = luiAvant !== null && luiAvant.reponses >= PREMIERES_REPONSES_POUR_SA_CHANCE
     const melanges = this.melangesRegles()
     return sentiers.flatMap((s): ChanceDuSentier[] => {
@@ -6560,12 +6584,46 @@ export class CampagneStore {
   }
 
   /**
-   * De quoi dire sa chance sur un palier : la série de référence de chaque
-   * catégorie, et sa force relue de premières réponses (`forceDuJoueur`) —
-   * partie de celle du modèle, comme au dé : refait en fond, il n'a peut-être
-   * pas vu sa dernière épreuve. La page (`chancesPourLui`) et le départ d'une
-   * épreuve (`chanceAuDepart`) la lisent par ici : Contre toute attente juge
-   * l'épreuve à la chance même que la page annonçait.
+   * Sa force sur toutes ses premières réponses, tenue à jour du journal
+   * (`core/forceTenue.ts`) sous la série de référence qui en a lu les
+   * difficultés — celles du modèle, sinon la part lissée de qui les a
+   * trouvées (`difficulteSansModele`) —, partie de celle du modèle, comme au
+   * dé : refait en fond, il n'a peut-être pas vu sa dernière épreuve. La page
+   * (`chancesPourLui`) et le départ d'une épreuve (`chanceAuDepart`) la lisent
+   * par ici : Contre toute attente juge l'épreuve à la chance même que la page
+   * annonçait. Rien à faire s'il n'a pas répondu depuis ; ses seules premières
+   * réponses nouvelles sinon, sous son nom pour la sonde des gels.
+   */
+  private forceTenue(
+    profileId: string,
+    journal: JournalDesReponses,
+    reference: SerieDeReference,
+    base: BaseDeLaCampagne,
+    modele: ModeleDuSavoir,
+    mesure: ReadonlyMap<string, MesureDUneQuestion>,
+  ): ForceTenue {
+    let tenues = this.forcesTenues.get(reference)
+    if (!tenues) this.forcesTenues.set(reference, (tenues = new Map()))
+    let t = tenues.get(profileId)
+    if (!t || t.tenue.journal !== journal || t.base !== base || t.modele !== modele) tenues.set(profileId, (t = { tenue: new ForceTenue(journal), base, modele }))
+    const tenue = t.tenue
+    const questions: LesQuestions = {
+      categorie: id => {
+        const q = base.parId.get(id)
+        return q ? indiceDeCategorie(q.meta.categorie) : -1
+      },
+      difficulte: id => modele.difficultes.get(id) ?? difficulteSansModele(base.parId.get(id)!.meta.difficulte, mesure.get(id)),
+    }
+    sousLeNom('campagne · force sur les sentiers', () => tenue.tenir(profileId, questions, reference.forceDeDepart, modele.forces.get(profileId)))
+    return tenue
+  }
+
+  /**
+   * De quoi dire sa chance sur un palier, de premières réponses qu'on lui
+   * donne : la série de référence de chaque catégorie, et sa force relue
+   * dessus (`forceDuJoueur`), partie de celle du modèle. L'expédition la lit
+   * par ici ; la page des sentiers et le départ d'une épreuve tiennent la leur
+   * à jour (`forceTenue`).
    */
   private async forceSurLesSentiers(
     profileId: string,
@@ -6585,17 +6643,19 @@ export class CampagneStore {
   /**
    * La chance que la page des sentiers lui annonce sur ce palier
    * (`chancesPourLui`), au départ d'une épreuve en jeu : gardée avec elle
-   * (`campagne_series.chance`), Contre toute attente la relit à sa fin. Ses
-   * premières réponses viennent de la lecture que le tirage vient de faire :
-   * pas un aller-retour de plus. Null sans modèle — il se lance en fond —,
-   * sous vingt premières réponses, comme la page, ou si le calcul échoue : ce
-   * n'est qu'un renseignement, l'épreuve part sans lui.
+   * (`campagne_series.chance`), Contre toute attente la relit à sa fin. Sa
+   * force est celle que la page vient de tenir à jour (`forceTenue`), sur le
+   * journal que le tirage vient de rattraper : pas un aller-retour de plus, et
+   * rien à refaire — la refaire de toutes ses premières réponses pesait sur
+   * chaque départ. Null sans modèle — il se lance en fond —, sous vingt
+   * premières réponses, comme la page, ou si le calcul échoue : ce n'est qu'un
+   * renseignement, l'épreuve part sans lui.
    */
   private async chanceAuDepart(
     profileId: string,
     categorie: string,
     regle: RegleDuPalier,
-    premieres: ReadonlyMap<string, boolean>,
+    journal: JournalDesReponses,
     mesure: ReadonlyMap<string, MesureDUneQuestion>,
   ): Promise<number | null> {
     const modele = this.modeleDuSavoir()
@@ -6603,8 +6663,8 @@ export class CampagneStore {
     if (!modele || c < 0) return null
     try {
       const [base, jouables] = await Promise.all([this.base(), this.jouables()])
-      const { reference, forceDe } = await this.forceSurLesSentiers(profileId, modele, base, jouables, mesure)
-      const lui = forceDe(premieres)
+      const reference = await this.referencePour(jouables, mesure, modele)
+      const lui = this.forceTenue(profileId, journal, reference, base, modele, mesure).lui!
       return lui.reponses < PREMIERES_REPONSES_POUR_SA_CHANCE ? null : saChanceSur(reference, c, lui, regle)
     } catch (e) {
       console.warn('[campagne] chance de l’épreuve non gardée :', e instanceof Error ? e.message : e)
@@ -6759,13 +6819,17 @@ export class CampagneStore {
         const vies = await this.vies(profileId)
         if (vies.jour + vies.reserve <= 0) throw new Error('Plus de vies pour aujourd’hui : elles reviennent à minuit, ou rachètes-en en confettis')
       }
-      // Ce qu'il a vu, et sa première réponse à chacune (le journal) : le tirage lit l'un, sa chance l'autre.
-      const [jouables, mesure, lues] = await Promise.all([this.jouables([b.categorie]), this.mesures(), this.rattraperLeJournal().then(j => j.vuesDe(profileId))])
+      // Ce qu'il a vu, du journal rattrapé : le tirage le lit, et sa chance se tient à jour sur le même journal.
+      const [jouables, mesure, lues] = await Promise.all([
+        this.jouables([b.categorie]),
+        this.mesures(),
+        this.rattraperLeJournal().then(journal => ({ journal, vues: journal.vuesDe(profileId).vues })),
+      ])
       // Les huit premiers paliers posent le thème de leur chapitre (`shared/chapitres.ts`).
       const chapitre = chapitreDuPalier(b.key, regle.n)?.sousThemes ?? []
       const tirees = await enTranches(tirerUneEpreuveEnTranches(jouables, regle, lues.vues, mesure, this.maintenant(), chapitre))
       const questions = tirees.map(x => versQuestionDeSerie(x.question, x.niveau))
-      const chance = rejeu ? null : await this.chanceAuDepart(profileId, b.categorie, regle, lues.premieres, mesure)
+      const chance = rejeu ? null : await this.chanceAuDepart(profileId, b.categorie, regle, lues.journal, mesure)
       const e: Serie = {
         id: randomUUID(),
         profileId,
@@ -7498,22 +7562,17 @@ export class CampagneStore {
   /**
    * La base qu'on joue prend tout ce que la routine a déposé, puis se refait
    * en fond, ses sujets et ses tirages derrière elle, et le Cabinet ses tas
-   * (`baseRenouvelee`) : la première page qui suit les trouve prêts, au lieu de
-   * les attendre.
+   * (`baseRenouvelee`) — l'une après l'autre, comme au préchauffage : la
+   * première page qui suit les trouve prêts, au lieu de les attendre.
    */
   private publier(): void {
     if (this.ferme || this.ajoutsPublies === this.ajouts.length) return
     this.ajoutsPublies = this.ajouts.length
-    // Chacun sous son nom, pour les gels (`core/gels.ts`), comme au préchauffage.
-    enFond('fond · base de la campagne', this.base()).catch(e => console.error('[campagne] base non refaite en fond après les dépôts — la première série la refera :', e))
-    enFond('fond · sujets et tirages', this.preparerEnFond()).catch(e =>
-      console.warn('[campagne] sujets et tirages non préparés après les dépôts — la première demande les fera :', e instanceof Error ? e.message : e),
-    )
-    try {
-      this.baseRenouvelee?.()
-    } catch (e) {
-      console.error('[cabinet] ses tas ne se préparent pas après les dépôts — le premier départ les fera :', e)
-    }
+    void this.lUneApresLAutre([
+      { nom: 'fond · base de la campagne', quoi: () => this.base(), siRatee: 'base non refaite en fond après les dépôts — la première série la refera' },
+      { nom: 'fond · sujets et tirages', quoi: () => this.preparerEnFond(), siRatee: 'sujets et tirages non préparés après les dépôts — la première demande les fera' },
+      { nom: null, quoi: async () => this.baseRenouvelee?.(), siRatee: 'tas du Cabinet non préparés après les dépôts — le premier départ les fera' },
+    ])
   }
 
   /** La commande du jour remplie : chaque catégorie a reçu ses questions du jour (`QUESTIONS_PAR_CATEGORIE_ET_PAR_JOUR`) — la routine a fini. */
@@ -9387,70 +9446,9 @@ export class CampagneStore {
   }
 }
 
-/**
- * Sa première réponse à une question : quand, et si elle était juste — celle
- * de son premier instant, du journal (`JournalDesReponses.premieresDe`). Pas
- * nue — un joker l'a aidée, une autre forme l'a posée —, elle ne dit rien de
- * son savoir, et aucune d'après ne la remplace : il avait vu la correction.
- */
-interface PremiereReponse {
-  le: number
-  juste: boolean
-}
-
 /** Sa chance de valider un palier d'une catégorie, à sa force (`chanceDeLEpreuve`) : celle que la page écrit, et que l'épreuve garde. */
 const saChanceSur = (reference: SerieDeReference, c: number, f: Pick<ForceDUnJoueur, 'force' | 'ecarts'>, regle: RegleDuPalier): number =>
   arrondiDeChance(chanceDeLEpreuve(reference, c, f.force + (f.ecarts[c] ?? 0), regle.melange, regle.seuil))
-
-/** Sa force sur les sentiers, telle que la page la garde d'une visite à l'autre (`CampagneStore.chancesPourLui`). */
-interface SesForces {
-  lui: ForceDUnJoueur
-  /** Sa force d'il y a une semaine, de ses seules premières réponses d'avant ; null sans assez de réponses pour la dire. */
-  luiAvant: ForceDUnJoueur | null
-  /** Ses premières réponses par catégorie, d'avant la semaine et de la semaine. */
-  anciennes: number[]
-  recentes: number[]
-}
-
-/** Ce que la page des sentiers garde de sa force, et ce qui la rendrait fausse : ses réponses, l'heure, la base, le modèle. */
-interface ForceGardee extends SesForces {
-  version: number
-  heure: number
-  base: BaseDeLaCampagne
-  modele: ModeleDuSavoir
-}
-
-/**
- * Sa force de toutes ses premières réponses, et celle d'avant la semaine
- * (`depuis`), partie de la première ; et ses premières réponses par
- * catégorie, d'avant la semaine et de la semaine : sa chance d'avant ne se dit
- * que là où il avait déjà répondu, et où il a répondu depuis. Sans les
- * premières, elle ne disait que son niveau d'ailleurs — « 27 % il y a une
- * semaine » sur un sport qu'il n'avait jamais joué ; sans les secondes, rien de
- * ce qu'il a fait.
- */
-function sesForcesSurLesSentiers(
-  premieres: ReadonlyMap<string, PremiereReponse>,
-  base: BaseDeLaCampagne,
-  forceDe: (premieres: ReadonlyMap<string, boolean>, depart?: ForceDUnJoueur) => ForceDUnJoueur,
-  depuis: number,
-): SesForces {
-  const toutes = new Map<string, boolean>()
-  const avant = new Map<string, boolean>()
-  const anciennes = new Array<number>(CATEGORIES.length).fill(0)
-  const recentes = new Array<number>(CATEGORIES.length).fill(0)
-  for (const [id, p] of premieres) {
-    toutes.set(id, p.juste)
-    const c = indiceDeCategorie(base.parId.get(id)?.meta.categorie ?? '')
-    if (p.le < depuis) {
-      avant.set(id, p.juste)
-      if (c >= 0) anciennes[c]++
-    } else if (c >= 0) recentes[c]++
-  }
-  const lui = forceDe(toutes)
-  // Sous le seuil, la page ne dit rien : sa force d'avant ne servirait pas.
-  return { lui, luiAvant: lui.reponses < PREMIERES_REPONSES_POUR_SA_CHANCE ? null : forceDe(avant, lui), anciennes, recentes }
-}
 
 /**
  * Les premières réponses de tout le monde, pour ajuster le modèle du savoir
