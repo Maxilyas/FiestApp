@@ -39,7 +39,7 @@ import type { CabinetDAccueil } from './cabinet/vues'
 import type { CleDeSaison } from './saisons'
 import { formeDeCompagnon, type CleDeCompagnon, type CompagnonPossede } from './compagnons'
 import { matiereOuverte, type EclatPorte, type Matiere, type MatiereTaillee } from './matieres'
-import { CONFETTIS_D_UNE_QUESTION_ACCEPTEE, CONFETTIS_D_UNE_QUESTION_JOUEE } from './propositions'
+import { CONFETTIS_D_UNE_QUESTION_ACCEPTEE, CONFETTIS_D_UNE_QUESTION_BIEN_DOSEE, CONFETTIS_D_UNE_QUESTION_JOUEE, dosageDe, type SalleDuBonus } from './propositions'
 
 // ── Niveaux ───────────────────────────────────────────────────────────────
 
@@ -1136,15 +1136,28 @@ export type AnnonceDeLAdministrateur =
   | { id: string; sorte: 'prenom'; nom: string; le: number }
   | { id: string; sorte: 'merci'; mode: 'jour' | 'campagne'; issue: IssueQuiSert; question: string; le: number }
   | { id: string; sorte: 'annonce'; message: string; confettis: number; le: number; question?: QuestionAPoser; aQuelquesUns?: true }
-  | { id: string; sorte: 'proposition'; issue: IssueDUneProposition; question: string; motif: string | null; le: number }
+  | {
+      id: string
+      sorte: 'proposition'
+      issue: IssueDUneProposition
+      question: string
+      motif: string | null
+      le: number
+      /** Posée en question bonus, après les dix (le 8 novembre 2026). */
+      bonus?: true
+      /** Son bilan, le jour clos : ce que la salle en a fait — son dosage s'en lit (`dosageDe`). */
+      salle?: SalleDuBonus
+    }
 
 /**
  * Ce que le QG a fait d'une question qu'il a proposée au quiz du jour
  * (`shared/propositions.ts`), qu'on lui dit sur son accueil : acceptée, puis
  * posée — le jour où elle se joue — et, fausse, annulée pour tous ce jour-là ;
- * ou pas retenue, et pourquoi.
+ * ou pas retenue, et pourquoi. Posée en question bonus, le lendemain dit son
+ * bilan (`bilan`) : combien l'ont trouvée, les pouces de la salle, et si elle
+ * était bien dosée.
  */
-export type IssueDUneProposition = 'acceptee' | 'posee' | 'annulee' | 'refusee'
+export type IssueDUneProposition = 'acceptee' | 'posee' | 'annulee' | 'refusee' | 'bilan'
 
 /**
  * La carte d'une question qu'il a proposée : un titre — avec les confettis
@@ -1152,7 +1165,39 @@ export type IssueDUneProposition = 'acceptee' | 'posee' | 'annulee' | 'refusee'
  * —, puis la phrase. Annulée, elle dit ce qu'elle ne lui rapporte plus : ses
  * confettis avaient paru au solde le matin.
  */
-export function phraseDeLaProposition(a: { issue: IssueDUneProposition; question: string; motif: string | null }): { titre: string; phrase: string } {
+export function phraseDeLaProposition(a: {
+  issue: IssueDUneProposition
+  question: string
+  motif: string | null
+  bonus?: true
+  salle?: SalleDuBonus
+}): { titre: string; phrase: string } {
+  if (a.issue === 'bilan') {
+    const s = a.salle ?? { joueurs: 0, trouvees: 0, pour: 0, contre: 0 }
+    const dosage = dosageDe(s.joueurs, s.trouvees)
+    const part = s.joueurs > 0 ? Math.round((100 * s.trouvees) / s.joueurs) : 0
+    const titre =
+      dosage === 'bien'
+        ? `Ta question était bien dosée : +${CONFETTIS_D_UNE_QUESTION_BIEN_DOSEE} confettis`
+        : s.joueurs > 0
+          ? `Ta question bonus : trouvée par ${part} % des joueurs`
+          : 'Ta question bonus est passée'
+    const trouvee = s.trouvees === 0 ? 'personne ne l’a trouvée' : `${s.trouvees} l’${s.trouvees > 1 ? 'ont' : 'a'} trouvée`
+    const jouee = s.joueurs > 0 ? `${s.joueurs} joueur${s.joueurs > 1 ? 's' : ''} l’${s.joueurs > 1 ? 'ont' : 'a'} jouée, ${trouvee}` : 'personne ne l’a jouée'
+    const pouces = s.pour + s.contre > 0 ? ` · 👍 ${s.pour} · 👎 ${s.contre}` : ''
+    const suite =
+      dosage === 'bien'
+        ? 'ni évidente, ni impossible.'
+        : dosage === 'facile'
+          ? 'un peu facile : la prochaine, corse-la.'
+          : dosage === 'dure'
+            ? 'un peu dure : la prochaine, donne une piste.'
+            : 'merci de l’avoir écrite.'
+    return { titre, phrase: `« ${a.question} » : ${jouee}${pouces} — ${suite}` }
+  }
+  if (a.issue === 'posee' && a.bonus) {
+    return { titre: `Ta question est la question bonus du jour : +${CONFETTIS_D_UNE_QUESTION_JOUEE} confettis`, phrase: `« ${a.question} » se joue après les dix questions, signée de ton nom.` }
+  }
   if (a.issue === 'posee') return { titre: `Ta question est au quiz du jour : +${CONFETTIS_D_UNE_QUESTION_JOUEE} confettis`, phrase: `« ${a.question} » se joue, signée de ton nom.` }
   if (a.issue === 'acceptee') {
     return { titre: `Ta question est acceptée : +${CONFETTIS_D_UNE_QUESTION_ACCEPTEE} confettis`, phrase: `« ${a.question} » passera bientôt au quiz du jour, signée de ton nom.` }

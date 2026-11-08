@@ -10,6 +10,8 @@ import { api, motifDe } from '../api'
 import { sonAvatar } from '../../../shared/sonAvatar'
 import {
   ANECDOTE_DU_PUBLIC_MAX,
+  CONFETTIS_D_UNE_QUESTION_ACCEPTEE,
+  CONFETTIS_D_UNE_QUESTION_JOUEE,
   QUESTION_DU_PUBLIC_MAX,
   REPONSE_DU_PUBLIC_MAX,
   conseilDeLaProposition,
@@ -64,6 +66,64 @@ export function LaPlume({ accroche, appel, profil }: { accroche: string; appel: 
       </button>
       {ouverte && <FeuilleDeLaPlume profil={profil} onFermer={() => setOuverte(false)} />}
     </>
+  )
+}
+
+/** Rangée, la bulle se tait une semaine sur ce téléphone, puis revient : on oublie qu'on peut écrire. */
+const BULLE_RANGEE = 'quizz.plume.bulle'
+const BULLE_RANGEE_MS = 7 * 24 * 3_600_000
+
+function bulleRangee(): boolean {
+  try {
+    const le = Number(localStorage.getItem(BULLE_RANGEE))
+    return Number.isFinite(le) && le > 0 && Date.now() - le < BULLE_RANGEE_MS
+  } catch {
+    return false
+  }
+}
+
+/**
+ * La bulle d'info, avant même de jouer (le souhait du propriétaire du
+ * 8 novembre 2026 : « une bulle d'info qui montre aux joueurs qu'il est
+ * possible de soumettre une question […] aussi quand on n'a pas encore fait
+ * le quiz du jour ») : la plume ne paraissait qu'au bout d'une partie, et
+ * qui ne la finissait pas ne savait pas qu'on pouvait écrire. Elle dit ce
+ * que devient une question acceptée — la question bonus, signée — et ce
+ * qu'elle rapporte ; « Plus tard » la range une semaine sur ce téléphone.
+ */
+export function BulleDeLaPlume({ profil }: { profil?: PublicProfile | null }) {
+  const [rangee, setRangee] = useState(bulleRangee)
+  const [ouverte, setOuverte] = useState(false)
+  if (rangee && !ouverte) return null
+  const ranger = () => {
+    try {
+      localStorage.setItem(BULLE_RANGEE, String(Date.now()))
+    } catch {
+      // Un stockage refusé : elle reviendra à la prochaine visite, c'est tout.
+    }
+    setRangee(true)
+  }
+  return (
+    <aside className="plume-bulle" aria-label="Proposer une question">
+      <IconePlume />
+      <div className="plume-bulle-texte">
+        <b>Le savais-tu ? Tu peux écrire une question du jour</b>
+        <span className="small">
+          {espacesFines(
+            `Acceptée, elle devient la question bonus, signée de ton nom : +${CONFETTIS_D_UNE_QUESTION_ACCEPTEE} confettis, puis +${CONFETTIS_D_UNE_QUESTION_JOUEE} le jour où elle passe.`,
+          )}
+        </span>
+        <span className="plume-bulle-gestes">
+          <button type="button" className="btn btn-small" aria-haspopup="dialog" onClick={() => setOuverte(true)}>
+            Écrire ma question
+          </button>
+          <button type="button" className="link-inline small" onClick={ranger}>
+            Plus tard
+          </button>
+        </span>
+      </div>
+      {ouverte && <FeuilleDeLaPlume profil={profil} onFermer={() => setOuverte(false)} />}
+    </aside>
   )
 }
 
@@ -127,6 +187,14 @@ function TesQuestions({ propositions }: { propositions: PropositionDuJoueur[] })
             <span className="plume-tienne-texte">
               {espacesFines(p.texte)}
               {p.statut === 'refusee' && p.motif && <small>{espacesFines(p.motif)}</small>}
+              {/* Jouée en question bonus : ce que la salle en a fait, sans un prénom. */}
+              {p.salle && p.salle.joueurs > 0 && (
+                <small>
+                  {espacesFines(
+                    `Jouée par ${p.salle.joueurs}, trouvée par ${Math.round((100 * p.salle.trouvees) / p.salle.joueurs)} %${p.salle.pour + p.salle.contre > 0 ? ` · 👍 ${p.salle.pour} · 👎 ${p.salle.contre}` : ''}`,
+                  )}
+                </small>
+              )}
             </span>
           </li>
         ))}

@@ -19,8 +19,9 @@ import { Rank, Score, motPoints } from '../components/Rank'
 import { Shape } from '../components/Shape'
 import { Corrige, verdictDe } from '../components/Corrige'
 import { SignalerLaQuestion } from '../components/SignalerLaQuestion'
-import { IconePlume, LaPlume, SignatureDuPublic } from '../components/LaPlume'
-import { JUSTES_POUR_LA_PLUME } from '../../../shared/propositions'
+import { BulleDeLaPlume, IconePlume, LaPlume, SignatureDuPublic } from '../components/LaPlume'
+import { AnnonceDuBonus, CarteDuBonus, EcranDuBonus, QuestionDuBonusEnJeu, RevelationDuBonusVue } from '../components/QuestionBonus'
+import { JUSTES_POUR_LA_PLUME, type VoteDuBonus } from '../../../shared/propositions'
 import { NoteDuJour, Serie, ontGagneHier } from '../components/Jour'
 import { EclatTombe, LegendaireOuvert, Medaillon } from '../components/Ouverts'
 import { APorter, CeQueTuGagnes, LigneDeTrophee, MissionsAccomplies, NouveauxTrophees, emojisAPorter, niveauDe } from '../components/Gains'
@@ -49,6 +50,7 @@ import {
   moisDe,
   moisEnToutesLettres,
   phraseDesEtoiles,
+  type BonusDuJour,
   type ClassementDuJour,
   type LigneDuJour,
   type PartieDuJour,
@@ -309,6 +311,96 @@ export function JourApp() {
     })
   }, [question, enRoute, recevoir])
 
+  // ── La question bonus, après les dix (`components/QuestionBonus.tsx`) ──
+  /** Sa révélation, tant qu'il la regarde : ce qu'elle a donné, et son pouce. */
+  const [bonusRevele, setBonusRevele] = useState<BonusDuJour | null>(null)
+  /** « Plus tard » : la fin d'abord — la carte de la question bonus l'y attend, jusqu'à minuit. */
+  const [bonusPlusTard, setBonusPlusTard] = useState(false)
+  /** La réponse touchée, en route vers le serveur. */
+  const [envoiBonus, setEnvoiBonus] = useState<number | null>(null)
+  const [voteEnRoute, setVoteEnRoute] = useState(false)
+  /** Le bonus reçu : la partie le garde ; une révélation fraîche s'ouvre en grand, une ouverte se met à jour (le pouce). */
+  const recevoirLeBonus = useCallback((b: BonusDuJour, reveler: boolean) => {
+    setPartie(p => p && { ...p, bonus: b })
+    setBonusRevele(avant => (reveler && b.etat === 'jouee' && b.revelation ? b : avant && b.revelation ? b : avant))
+  }, [])
+
+  /** « Jouer la question bonus » : le serveur la montre, son chrono part — redemandée, elle garde son échéance. */
+  const jouerLeBonus = async () => {
+    const n = ++gestes.current
+    relance.current?.()
+    setOccupe(true)
+    try {
+      const b = await api.jour.bonus.servir()
+      if (n === gestes.current) recevoirLeBonus(b, true)
+    } catch (e) {
+      showToast({ kind: 'error', message: motifDe(e) })
+      relire()
+    } finally {
+      setOccupe(false)
+    }
+  }
+
+  /** Sa réponse à la question bonus : envoyée une fois, révélée aussitôt ; perdue en route, elle se retouche. */
+  const repondreAuBonus = (choix: number) => {
+    const q = partie?.bonus?.question
+    if (!q || envoiBonus !== null) return
+    // Pas dans la demi-seconde qui suit l'affichage : ce toucher-là ne vient pas d'une lecture.
+    if (!gesteAccepte(changement.current, performance.now())) return
+    ++gestes.current
+    relance.current?.()
+    setEnvoiBonus(choix)
+    api.jour.bonus
+      .repondre(q.jour, choix)
+      .then(b => recevoirLeBonus(b, true))
+      .catch(e => {
+        showToast({ kind: 'error', message: motifDe(e) })
+        if (refusDuServeur(e)) relire()
+      })
+      .finally(() => setEnvoiBonus(null))
+  }
+
+  /** Son pouce : levé, baissé — il se change jusqu'à minuit. */
+  const voterPourLeBonus = (vote: VoteDuBonus) => {
+    const jour = partie?.jour
+    if (!jour || voteEnRoute) return
+    setVoteEnRoute(true)
+    api.jour.bonus
+      .voter(jour, vote)
+      .then(b => recevoirLeBonus(b, false))
+      .catch(e => showToast({ kind: 'error', message: motifDe(e) }))
+      .finally(() => setVoteEnRoute(false))
+  }
+
+  /** Quitter sa révélation : la partie se relit — l'expérience qu'elle a rapportée compte dans le niveau de la fin. */
+  const quitterLeBonus = () => {
+    setBonusRevele(null)
+    void geste(api.jour.etat)
+  }
+
+  // L'échéance de la question bonus passée sans réponse : le serveur la compte
+  // « sans réponse », et la page va chercher ce qu'elle révèle — comme pour les dix.
+  const questionBonus = partie?.bonus?.etat === 'en-cours' ? partie.bonus.question : undefined
+  const bonusEnRoute = envoiBonus !== null
+  useEffect(() => {
+    if (!questionBonus || bonusEnRoute) return
+    const n = gestes.current
+    return insister(
+      () =>
+        api.jour.etat().then(p => {
+          if (n !== gestes.current) return
+          recevoir(p)
+          if (p.bonus?.etat === 'jouee' && p.bonus.revelation) setBonusRevele(p.bonus)
+        }),
+      { premier: Math.max(0, questionBonus.echeance - serverNow()) + APRES_ECHEANCE_MS },
+    )
+  }, [questionBonus, bonusEnRoute, recevoir])
+
+  /** Ce que la carte de la question bonus fait faire, sur la fin et le jour joué. */
+  const gestesDuBonus: GestesDuBonus = { occupe: occupe || voteEnRoute, onJouer: () => void jouerLeBonus(), onVoter: voterPourLeBonus }
+  /** Juste après les dix, la question bonus passe avant la fin : la course finie, une dernière, pour le plaisir. */
+  const introDuBonus = partie?.etat === 'finie' && partie.bonus?.etat === 'a-jouer' && !finieALArrivee && !bonusPlusTard
+
   // L'écran affiché, en un mot. Chacun commence en haut, comme ceux d'une
   // soirée : au texte agrandi, la question suivante s'ouvrait là où l'on
   // avait fait défiler la révélation, chrono et numéro hors de l'écran. Le
@@ -327,7 +419,13 @@ export function JourApp() {
             ? `revelation:${revelation.jour}:${revelation.index}`
             : partie.etat === 'en-cours' && partie.question
               ? `question:${partie.question.jour}:${partie.question.index}`
-              : `partie:${partie.jour}:${partie.etat}${finieALArrivee ? ':jouee' : ''}`
+              : bonusRevele
+                ? `bonus-revelation:${partie.jour}`
+                : partie.bonus?.etat === 'en-cours' && partie.bonus.question
+                  ? `bonus-question:${partie.jour}`
+                  : introDuBonus
+                    ? `bonus-intro:${partie.jour}`
+                    : `partie:${partie.jour}:${partie.etat}${finieALArrivee ? ':jouee' : ''}`
   const precedent = useRef<string | null>(null)
   useLayoutEffect(() => {
     const avant = precedent.current
@@ -476,15 +574,67 @@ export function JourApp() {
     )
   }
 
+  // La question bonus : sa révélation, sa question montrée, puis l'écran qui la présente juste après les dix.
+  if (bonusRevele?.revelation) {
+    return (
+      <div className="player-shell">
+        {bandeau(partie.points)}
+        <RevelationDuBonusVue bonus={bonusRevele} revelation={bonusRevele.revelation} profil={profil} occupe={voteEnRoute} onVoter={voterPourLeBonus} />
+        <button
+          className="btn btn-primary btn-big btn-block"
+          disabled={occupe}
+          onClick={() => {
+            if (gesteAccepte(changement.current, performance.now())) quitterLeBonus()
+          }}
+        >
+          {finieALArrivee ? 'Revenir à mon jour' : 'Voir mon résultat'}
+        </button>
+        {toastVu}
+      </div>
+    )
+  }
+
+  if (partie.bonus?.etat === 'en-cours' && partie.bonus.question) {
+    return (
+      <div className="player-shell">
+        {bandeau(partie.points)}
+        <QuestionDuBonusEnJeu question={partie.bonus.question} auteur={partie.bonus.auteur} envoi={envoiBonus} onRepondre={repondreAuBonus} />
+        <AnnonceDeLaFin key="bonus" echeance={partie.bonus.question.echeance} />
+        {toastVu}
+      </div>
+    )
+  }
+
+  if (introDuBonus && partie.bonus) {
+    return (
+      // Une étape de la partie, comme une révélation : le bandeau des écrans de jeu, pas la barre de la sortie — elle vit
+      // sur les trois écrans qu'on retrouve (`rappel.test.ts`), et « Plus tard » mène à l'un d'eux.
+      <div className="player-shell bonus-ecran">
+        {bandeau(partie.points)}
+        <EcranDuBonus
+          bonus={partie.bonus}
+          points={partie.points}
+          justes={partie.justes}
+          comptees={partie.comptees}
+          occupe={occupe}
+          onJouer={() => void jouerLeBonus()}
+          onPlusTard={() => setBonusPlusTard(true)}
+        />
+        {toastVu}
+      </div>
+    )
+  }
+
   if (partie.etat === 'finie') {
     return (
       <>
         {finieALArrivee ? (
-          <JourJoue partie={partie} profil={profil} onClassement={() => ouvrir('classement')} onCorrection={() => ouvrir('correction')} />
+          <JourJoue partie={partie} profil={profil} onClassement={() => ouvrir('classement')} onCorrection={() => ouvrir('correction')} gestesDuBonus={gestesDuBonus} />
         ) : (
           <Fin
             partie={partie}
             profil={profil}
+            gestesDuBonus={gestesDuBonus}
             // La fin ne se voit qu'une fois : quittée, elle laisse la place au
             // jour joué, son classement incrusté — et le retour du classement
             // ou de la correction y ramène, plus à « mon résultat » (le
@@ -534,6 +684,8 @@ export function JourApp() {
               <Icon name="play" />
               {enCours ? `Reprendre · ${pts(partie.points)}` : 'Jouer'}
             </button>
+            {/* La question d'un joueur se dit avant même la première question : elle viendra après les dix. */}
+            {partie.bonus && <AnnonceDuBonus bonus={partie.bonus} />}
           </>
         )}
         {/* Le vainqueur d'hier est déjà dans « Hier, au quiz du jour » quand il s'affiche. */}
@@ -558,9 +710,19 @@ export function JourApp() {
         partie.moisDernier && <MoisDernier mois={partie.moisDernier} />
       )}
       {partie.saison && <Saison saison={partie.saison} />}
+      {/* La bulle de la plume, avant même de jouer : on peut écrire une question sans avoir fini la sienne. Pas en reprenant
+          une partie en route : la question attend. */}
+      {!enCours && <BulleDeLaPlume profil={profil} />}
       {toastVu}
     </div>
   )
+}
+
+/** Ce que la carte de la question bonus fait faire à la page, sur la fin et le jour joué : la jouer, la noter. */
+interface GestesDuBonus {
+  occupe: boolean
+  onJouer: () => void
+  onVoter: (v: VoteDuBonus) => void
 }
 
 /**
@@ -785,13 +947,18 @@ export function Fin({
   profil,
   onClassement,
   onCorrection,
+  gestesDuBonus,
 }: {
   partie: PartieDuJour
   profil: PublicProfile
   onClassement: () => void
   onCorrection: () => void
+  /** La question bonus du jour se joue d'ici, si on l'a laissée pour plus tard. */
+  gestesDuBonus?: GestesDuBonus
 }) {
   const comptees = partie.comptees
+  // Ce que la question bonus a rapporté, une fois jouée : en plus de la partie.
+  const duBonus = partie.bonus?.etat === 'jouee' ? partie.bonus.revelation : undefined
   const s = partie.justes > 1 ? 's' : ''
   const tombes = [...(partie.paliers ?? []), ...(partie.hautsFaits ?? [])]
   const cles = tombes.map(t => t.key)
@@ -831,16 +998,20 @@ export function Fin({
         {/* L'invitation à écrire une question, au moment où l'on est fier : une ligne au pied du résultat, pas une carte. */}
         {partie.justes >= JUSTES_POUR_LA_PLUME && <LaPlume accroche="Et si demain," appel="ta question ?" profil={profil} />}
       </section>
+      {/* La question bonus, juste sous le résultat : à jouer si on l'a laissée pour plus tard, ce qu'elle a donné sinon. */}
+      {partie.bonus && gestesDuBonus && <CarteDuBonus bonus={partie.bonus} {...gestesDuBonus} />}
       {/* Ce qu'elle rapporte, en un total : la partie à ses points, la série
-          — c'est la régularité qui la paie —, les trophées, payés à part ; une
-          bonne réponse, un confetti, comme en soirée. */}
+          — c'est la régularité qui la paie —, la question bonus trouvée, les
+          trophées, payés à part ; une bonne réponse, un confetti, comme en
+          soirée. */}
       <CeQueTuGagnes
         parts={partsDeLXp([
           { nom: 'ta partie', xp: partie.xp },
           { nom: `ta série de ${partie.serie} jour${partie.serie > 1 ? 's' : ''}`, xp: partie.xpSerie ?? 0 },
+          { nom: 'la question bonus', xp: duBonus?.xp ?? 0 },
           { nom: 'tes trophées', xp: xpDesTrophees(cles) },
         ])}
-        confettis={partie.justes}
+        confettis={partie.justes + (duBonus?.confettis ?? 0)}
         niveau={niveau}
       />
       {/* Un Divin passe avant tout le reste, comme en fin de soirée. */}
@@ -924,12 +1095,16 @@ export function JourJoue({
   profil,
   onClassement,
   onCorrection,
+  gestesDuBonus,
 }: {
   partie: PartieDuJour
   profil?: PublicProfile | null
   onClassement: () => void
   onCorrection: () => void
+  /** La question bonus du jour se joue d'ici, jusqu'à minuit. */
+  gestesDuBonus?: GestesDuBonus
 }) {
+  const xpDuBonus = partie.bonus?.etat === 'jouee' ? (partie.bonus.revelation?.xp ?? 0) : 0
   const [classement, setClassement] = useState<ClassementDuJour | null>(null)
   const [carte, setCarte] = useState<string | null>(null)
   const laCarte = useALaDemande(carteJoueur, !!carte)
@@ -982,7 +1157,7 @@ export function JourJoue({
             )}
             <span className="muted small">
               {partie.justes} bonne{partie.justes > 1 ? 's' : ''} réponse{partie.justes > 1 ? 's' : ''} sur {partie.comptees} ·{' '}
-              {partie.medaille ? NOM_DE_LA_NOTE[partie.medaille].toLowerCase() : 'pas d’étoile'} · +{formatNumber(partie.xp + (partie.xpSerie ?? 0))} XP
+              {partie.medaille ? NOM_DE_LA_NOTE[partie.medaille].toLowerCase() : 'pas d’étoile'} · +{formatNumber(partie.xp + (partie.xpSerie ?? 0) + xpDuBonus)} XP
             </span>
           </span>
         </div>
@@ -995,6 +1170,9 @@ export function JourJoue({
             (le propriétaire du dépôt, le 2 novembre 2026). Ici, elle ne juge pas la partie : c'est sa place. */}
         <LaPlume accroche="Et si demain," appel="ta question ?" profil={profil} />
       </section>
+
+      {/* La question bonus, sous le résultat : à jouer jusqu'à minuit, ce qu'elle a donné sinon. */}
+      {partie.bonus && gestesDuBonus && <CarteDuBonus bonus={partie.bonus} {...gestesDuBonus} />}
 
       <section className="card jour-classement-incruste" aria-labelledby="classement-du-jour">
         <div className="jour-classement-tete">
@@ -1406,10 +1584,59 @@ export function Correction({ jour, onRetour }: { jour: string; onRetour: () => v
       {erreur && <p className="muted">{erreur}</p>}
       {!correction && !erreur && <p className="muted">Chargement…</p>}
       {correction && <QuestionsCorrigees questions={correction.questions} />}
+      {correction?.bonus?.revelation && <BonusCorrige bonus={correction.bonus} revelation={correction.bonus.revelation} />}
       <button className="btn btn-ghost btn-block" onClick={onRetour}>
         Retour
       </button>
     </div>
+  )
+}
+
+/**
+ * La question bonus, au bout de la correction : dans son parchemin, signée,
+ * comme on l'a jouée — ce qu'elle a rapporté, sinon pourquoi rien. Son
+ * auteur et qui l'a relue y lisent ce que la salle en a fait.
+ */
+function BonusCorrige({ bonus, revelation: r }: { bonus: BonusDuJour; revelation: NonNullable<BonusDuJour['revelation']> }) {
+  const sansLaJouer = bonus.etat === 'tienne' || bonus.etat === 'relue'
+  const verdict = verdictDe({ juste: r.juste, choix: r.choix, ...(bonus.etat === 'tienne' && { tienne: true as const }) })
+  return (
+    <ol className="correction bonus-corrige">
+      <Corrige
+        verdict={verdict}
+        dit={sansLaJouer ? (bonus.etat === 'tienne' ? 'Ta question' : 'Relue') : bonus.etat === 'jouee' ? verdict : 'Pas jouée'}
+        tete={bonus.auteur ? `Question bonus · la question ${deNom(bonus.auteur.nom)}` : 'Question bonus'}
+        points={r.juste && <span className="corrige-points">{espacesFines(`+${r.confettis} confettis · +${r.xp} XP`)}</span>}
+        texte={r.texte}
+        reponses={r.reponses}
+        bonne={r.bonne}
+        choix={r.choix}
+      >
+        <div className="corrige-pied muted small">
+          {sansLaJouer ? (
+            <p>
+              <Icon name="edit" /> {bonus.etat === 'tienne' ? 'Ta question : tu ne la jouais pas' : 'Tu l’as relue : tu ne la jouais pas'}
+            </p>
+          ) : bonus.etat !== 'jouee' ? (
+            <p>
+              <Icon name="clock" /> Pas jouée : elle se jouait après les dix
+            </p>
+          ) : (
+            r.choix === null && (
+              <p>
+                <Icon name="clock" /> Sans réponse : le temps s’est écoulé
+              </p>
+            )
+          )}
+          {r.trouveePar !== null && (
+            <p>
+              <Icon name="users" /> Trouvée par {pourcent(r.trouveePar)} de ceux qui l’ont jouée
+            </p>
+          )}
+        </div>
+        {r.anecdote && <p className="corrige-anecdote small">{espacesFines(r.anecdote)}</p>}
+      </Corrige>
+    </ol>
   )
 }
 

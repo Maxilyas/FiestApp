@@ -27,6 +27,28 @@ export interface QuestionDuSuivi {
   signalements: number
 }
 
+/**
+ * La question bonus d'aujourd'hui, au QG : la question du public, qui l'a
+ * écrite, et ce que la salle en fait — ses réponses choix par choix, celles
+ * laissées au temps, les pouces (`shared/propositions.ts`). Hors des bonnes
+ * réponses du jour : elle ne compte pas aux points.
+ */
+export interface BonusDuSuivi {
+  texte: string
+  categorie: string | null
+  reponses: string[]
+  bonne: number
+  /** Son auteur, par son profil ; null : son profil a été supprimé. */
+  auteur: { id: string; nom: string } | null
+  /** Les réponses données, dans l'ordre de `reponses`. */
+  parReponse: number[]
+  sansReponse: number
+  joueurs: number
+  trouvees: number
+  pour: number
+  contre: number
+}
+
 /** Des bonnes réponses, et sur combien de questions posées. */
 export interface PartDesBonnes {
   justes: number
@@ -97,6 +119,8 @@ export interface SuiviDuJour {
   bonnes: { aujourdhui: PartDesBonnes; hier: PartDesBonnes | null }
   /** Le tirage d'aujourd'hui ; vide tant que personne ne l'a demandé. */
   questions: QuestionDuSuivi[]
+  /** Sa question bonus, s'il en a une : la question du public, après les dix. */
+  bonus?: BonusDuSuivi
   /** Le classement du mois, tel que les joueurs le voient : les masqués écartés, comptés à part. */
   mois: { mois: string; joueurs: number; lignes: LigneDuJour[]; masques: number }
   series: SeriesEnCours

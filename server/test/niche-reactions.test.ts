@@ -229,6 +229,8 @@ test('chaque écran de révélation la dit à la niche, et chaque réponse lui f
     'games/quiz/PlayerView.tsx': { revelations: 3, souffles: 4 },
     // Le quiz du jour répond par l'écran des soirées : son souffle est celui du QCM, plus haut.
     'views/JourApp.tsx': { revelations: 1, souffles: 0 },
+    // Sa question bonus, après les dix, a son écran à elle : sa réponse et sa révélation.
+    'components/QuestionBonus.tsx': { revelations: 1, souffles: 1 },
     'views/CampagneApp.tsx': { revelations: 1, souffles: 1 },
     'views/Sentiers.tsx': { revelations: 1, souffles: 1 },
     'views/Parcours.tsx': { revelations: 1, souffles: 1 },

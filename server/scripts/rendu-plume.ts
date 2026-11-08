@@ -1,20 +1,22 @@
-// La plume et le signalement en plusieurs points, photographiés au téléphone
-// (360 × 640) sur un serveur jetable : une partie du quiz du jour jouée
-// jusqu'au bout — une question signée par un joueur à sa révélation, la
-// feuille du signalement cochée puis corrigée, la plume au pied du résultat,
-// tracée puis encrée, et la feuille qu'elle ouvre — ; puis le défi de la
-// semaine — le signalement d'une question de campagne, qui sait sa marche, et
-// la plume au pied de sa fin. Sous le thème qu'on veut (`THEME=ivoire`). Le
+// La plume, la question bonus et le signalement en plusieurs points,
+// photographiés au téléphone (360 × 640) sur un serveur jetable : la page du
+// jour avant de jouer — la question bonus annoncée, la bulle de la plume —,
+// une partie du quiz du jour jouée jusqu'au bout — la feuille du signalement
+// cochée puis corrigée —, puis la question bonus — l'écran qui la présente,
+// elle dans son parchemin, sa révélation et le pouce —, la plume au pied du
+// résultat, tracée puis encrée, et la feuille qu'elle ouvre ; puis le défi de
+// la semaine — le signalement d'une question de campagne, qui sait sa marche,
+// et la plume au pied de sa fin. Sous le thème qu'on veut (`THEME=ivoire`). Le
 // client construit d'abord (`npm run build -w client`).
 //
 // Le circuit entier, par les vraies routes : Camille propose sa question — la
 // danse en file, et son anecdote —, l'administrateur la relit au QG et
-// l'accepte, l'anecdote déjà dans son champ ; elle passe au quiz du jour, que
-// Léa joue, signée ; puis
-// Camille joue le sien jusqu'au bout : sa question se montre sans se jouer,
-// La Plume tombe à la fin, et son accueil lui dit qu'elle est au quiz du jour,
-// ses confettis avec ; enfin l'administrateur l'annule pour tous, et son
-// accueil lui dit qu'elle ne compte plus.
+// l'accepte, l'anecdote déjà dans son champ ; elle passe au quiz du jour en
+// question bonus, que Léa joue après ses dix, signée ; quatre autres la jouent
+// par les routes, et le QG la suit sous « Question par question » ; puis
+// Camille joue ses dix : sa question bonus ne se joue pas pour elle, sa carte
+// lui dit ce que la salle en fait, La Plume tombe, et son accueil lui dit
+// qu'elle est la question bonus du jour ; le lendemain, son bilan.
 //
 //   [THEME=ivoire] npx tsx scripts/rendu-plume.ts [dossier]
 import { createRequire } from 'node:module'
@@ -104,7 +106,8 @@ try {
   const qg = await auQg.newPage()
   qg.on('pageerror', (e: Error) => console.error('[qg]', e.message))
   await qg.goto(`${banc.url}/admin#jour`)
-  await qg.waitForSelector('text=Les questions du public')
+  // Par son titre : le sommaire de la page, replié au téléphone, porte le même texte, et le prenait avant lui.
+  await qg.waitForSelector('#questions-du-public-titre')
   await qg.locator('article', { hasText: 'Question du public' }).first().scrollIntoViewIfNeeded()
   await qg.waitForTimeout(500)
   await qg.screenshot({ path: path.join(sortie, '00-qg-a-relire.png') })
@@ -120,26 +123,31 @@ try {
   await qg.waitForSelector('text=Rien à relire')
   await auQg.close()
 
-  // 1. Le quiz du jour : chaque question juste, sauf la cinquième — neuf sur dix.
+  // 1. La page du jour, avant de jouer : la question bonus de Camille annoncée sous « Jouer », et la bulle de la plume.
   await page.goto(`${banc.url}/jour`)
   await page.waitForSelector('.jour-heros')
+  await page.waitForSelector('.plume-bulle')
+  await photo('01-jour-avant-de-jouer')
+  await photo('01-jour-avant-de-jouer-entiere', { pleine: true })
+  await largeur('la page du jour, avant de jouer')
+  // Chaque question juste, sauf la cinquième — neuf sur dix.
   await page.locator('.jour-heros .btn-primary').click()
   await page.waitForSelector('.ans-btn')
-  const { jour, tirage } = (() => {
+  const { jour, tirage, bonus } = (() => {
     const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
     try {
       const r = db.prepare('SELECT jour, questions FROM jour_tirages ORDER BY jour DESC LIMIT 1').get() as { jour: string; questions: string }
-      return { jour: r.jour, tirage: JSON.parse(r.questions) as { bonne: number; auteur?: string }[] }
+      const b = db.prepare('SELECT question FROM jour_bonus WHERE jour = ?').get(r.jour) as { question: string } | undefined
+      return { jour: r.jour, tirage: JSON.parse(r.questions) as { bonne: number }[], bonus: b ? (JSON.parse(b.question) as { bonne: number; auteur?: string }) : null }
     } finally {
       db.close()
     }
   })()
-  // Sa place, tirée avec le jour : la question de Camille, mélangée parmi les autres.
-  const k = tirage.findIndex(q => q.auteur)
-  if (k < 0) throw new Error('la question de Camille n’est pas au quiz du jour')
+  // La question de Camille vient après les dix, à part : la question bonus.
+  if (!bonus?.auteur) throw new Error('la question de Camille n’est pas la question bonus du jour')
   for (let i = 0; i < tirage.length; i++) {
-    await page.waitForSelector('.ans-btn, .fin-tete', { timeout: 15000 })
-    if (await page.locator('.fin-tete').count()) break
+    await page.waitForSelector('.ans-btn, .bonus-invitation, .fin-tete', { timeout: 15000 })
+    if (await page.locator('.bonus-invitation, .fin-tete').count()) break
     const choix = i === 4 ? (tirage[i].bonne + 1) % 2 : tirage[i].bonne
     // Le temps de lecture d'abord, et rien dans la première demi-seconde : on retouche jusqu'à ce que la réponse parte.
     for (let essai = 0; essai < 30 && !(await page.locator('.result-banner').count()); essai++) {
@@ -147,34 +155,30 @@ try {
       await page.locator('.ans-btn').nth(choix).click({ timeout: 2000 }).catch(() => {})
     }
     await page.waitForSelector('.result-banner')
-    if (i === k) {
-      // La question du public : sa signature, au pied de son anecdote.
-      await photo('01-jour-question-du-public')
-      await photo('02-jour-question-du-public-entiere', { pleine: true })
-      await largeur('la question du public')
-      // Sa signature ne doit pas pousser « Question suivante » sous le bord de l'écran.
-      const bas = Number(await page.evaluate("document.querySelector('.btn-primary.btn-big').getBoundingClientRect().bottom"))
-      console.log(`[question du public] « Question suivante » finit à ${Math.round(bas)} px${bas > 640 ? ' : sous le bord, en 360 × 640' : ', en vue'}`)
-      // La signaler : la feuille est la question même. La coquille de l'anecdote se corrige sur place, la difficulté d'un toucher.
+    if (i === 0) {
+      // La signaler : la feuille est la question même. L'anecdote se corrige sur place, s'il y en a une ; la difficulté d'un toucher.
       await page.click('text=Signaler une erreur dans cette question')
       await page.waitForSelector('.signaler-feuille')
-      await photo('03-jour-signaler', { attente: 400 })
-      await page.locator('button.signaler-anecdote').tap()
-      const anecdote = page.locator('textarea.signaler-anecdote')
-      await anecdote.fill('Elle a même sa chanson, « La Chenille », un tube de la Bande à Basile.')
-      await photo('04-jour-signaler-en-edition', { attente: 300 })
+      await photo('02-jour-signaler', { attente: 400 })
+      if (await page.locator('button.signaler-anecdote').count()) {
+        await page.locator('button.signaler-anecdote').tap()
+        const anecdote = page.locator('textarea.signaler-anecdote')
+        await anecdote.fill(`${await anecdote.inputValue()} Corrigée sur place.`)
+        await photo('03-jour-signaler-en-edition', { attente: 300 })
+      }
       // Puis la difficulté, touchée au doigt sans quitter le champ d'abord : le texte se relit corrigé, et grandit, après le
       // geste (`RELIRE_APRES_MS`) — avant, la pastille glissait sous le doigt et le toucher se perdait.
       const facile = page.locator('.signaler-pastille', { hasText: 'Trop facile' })
       await facile.tap()
       if ((await facile.getAttribute('aria-pressed')) !== 'true') console.warn('[signaler] « Trop facile », touchée au sortir du champ, ne s’est pas cochée')
-      await photo('05-jour-signaler-corrige', { attente: 400 })
+      await photo('04-jour-signaler-corrige', { attente: 400 })
       // Deux retouches dans la question : chacune se lit à sa place, la phrase entre elles intacte (`morceaux`). Quittée d'un
       // toucher dans la marge de la carte, hors de tout bouton.
       await page.locator('button.signaler-question').tap()
-      await page.locator('textarea.signaler-question').fill('Quelle danse de fête fait-on en file indienne, chacun les mains sur les épaules de celui qui est devant ?')
+      const question = page.locator('textarea.signaler-question')
+      await question.fill(`Au juste, ${(await question.inputValue()).replace(/\?$/, ', d’après toi ?')}`)
       await page.locator('.signaler-carte').tap({ position: { x: 6, y: 6 } })
-      await photo('06-jour-signaler-deux-retouches', { attente: 500 })
+      await photo('05-jour-signaler-deux-retouches', { attente: 500 })
       await page.locator('.signaler-feuille .carte-fermer').click()
       await page.waitForTimeout(400)
     }
@@ -182,30 +186,56 @@ try {
     await page.locator('.btn-primary.btn-big').click()
   }
 
-  // 2. La fin : la plume au pied du résultat — à son arrivée, tracée, puis encrée.
+  // 2. Juste après les dix : l'écran qui présente la question bonus, puis elle dans son parchemin, sa révélation et le pouce.
+  await page.waitForSelector('.bonus-invitation', { timeout: 15000 })
+  await photo('06-bonus-une-derniere')
+  await largeur('l’écran de la question bonus')
+  await page.locator('.bonus-invitation .btn-primary').click()
+  await page.waitForSelector('.bonus-carte-question .quiz-question')
+  await photo('07-bonus-question')
+  await largeur('la question bonus')
+  // Ses quatre réponses en vue, en 360 × 640 : sa tête de parchemin ne doit pas pousser la dernière sous le bord.
+  const basDesReponses = Number(await page.evaluate("Math.max(...[...document.querySelectorAll('.ans-btn')].map(b => b.getBoundingClientRect().bottom))"))
+  console.log(`[question bonus] sa dernière réponse finit à ${Math.round(basDesReponses)} px${basDesReponses > 640 ? ' : sous le bord, en 360 × 640' : ', en vue'}`)
+  for (let essai = 0; essai < 30 && !(await page.locator('.result-banner').count()); essai++) {
+    await page.waitForTimeout(400)
+    await page.locator('.ans-btn').nth(bonus.bonne).tap({ timeout: 2000 }).catch(() => {})
+  }
+  await page.waitForSelector('.result-banner')
+  await photo('08-bonus-revelation')
+  await photo('08-bonus-revelation-entiere', { pleine: true })
+  await largeur('la révélation de la question bonus')
+  await page.locator('.bonus-pouce-btn').first().tap()
+  await page.waitForSelector('.bonus-pouce-btn[aria-pressed="true"]')
+  await page.locator('.bonus-pouce').scrollIntoViewIfNeeded()
+  await photo('09-bonus-pouce', { attente: 400 })
+  await page.waitForTimeout(600)
+  await page.locator('.btn-primary.btn-big').click()
+
+  // 3. La fin : la carte de la question bonus jouée, la plume au pied du résultat — à son arrivée, tracée, puis encrée.
   await page.waitForSelector('.fin-tete')
   await page.waitForSelector('.plume')
-  await rafale('07-jour-fin-la-plume', '.plume')
-  await photo('07-jour-fin', { attente: 200 })
-  await photo('08-jour-fin-entiere', { pleine: true, attente: 200 })
+  await rafale('10-jour-fin-la-plume', '.plume')
+  await photo('10-jour-fin', { attente: 200 })
+  await photo('11-jour-fin-entiere', { pleine: true, attente: 200 })
   await largeur('la fin du jour')
   // La carte à écrire : vide, puis à moitié — le conseil dit le prochain geste —, puis prête, la bonne cochée.
   await page.click('.plume')
   await page.waitForSelector('.plume-feuille')
-  await photo('09-plume-carte-vide', { attente: 400 })
+  await photo('12-plume-carte-vide', { attente: 400 })
   await page.locator('.plume-carte-question').fill('Quel est le seul pays au monde dont le drapeau n’est pas un rectangle ?')
   const champs = page.locator('.plume-carte-reponse .plume-carte-champ')
   await champs.nth(0).fill('Le Bhoutan')
   await champs.nth(1).fill('Le Népal')
-  await photo('10-plume-carte-en-cours', { attente: 300 })
+  await photo('13-plume-carte-en-cours', { attente: 300 })
   await champs.nth(2).fill('La Suisse')
   await champs.nth(3).fill('Le Vatican')
   await page.locator('.plume-carte-forme').nth(1).click()
   await page.locator('.plume-carte-anecdote textarea').fill('Deux triangles superposés, pour deux branches de sa dynastie.')
-  await photo('11-plume-carte-prete', { attente: 500 })
+  await photo('14-plume-carte-prete', { attente: 500 })
   await page.locator('.plume-feuille .carte-fermer').click()
 
-  // 3. Le défi de la semaine : une question signalée — la campagne sait sa marche —, puis sa fin, et la plume.
+  // 4. Le défi de la semaine : une question signalée — la campagne sait sa marche —, puis sa fin, et la plume.
   await page.goto(`${banc.url}/campagne#defi`)
   await page.reload()
   await page.waitForSelector('.defi-heros')
@@ -223,7 +253,7 @@ try {
       await page.waitForSelector('.signaler-feuille')
       await page.locator('.signaler-reponse').nth(bonne === 0 ? 1 : 0).tap()
       await page.locator('.signaler-pastille', { hasText: 'Trop dure' }).tap()
-      await photo('12-defi-signaler', { attente: 400 })
+      await photo('15-defi-signaler', { attente: 400 })
       await page.locator('.signaler-feuille .carte-fermer').click()
       await page.waitForTimeout(300)
     }
@@ -234,13 +264,38 @@ try {
   }
   await page.waitForSelector('.fin-tete')
   await page.waitForSelector('.plume')
-  await rafale('13-defi-fin-la-plume', '.plume')
-  await photo('13-defi-fin', { attente: 200 })
-  await photo('14-defi-fin-entiere', { pleine: true, attente: 200 })
+  await rafale('16-defi-fin-la-plume', '.plume')
+  await photo('16-defi-fin', { attente: 200 })
+  await photo('17-defi-fin-entiere', { pleine: true, attente: 200 })
   await largeur('la fin du défi')
 
-  // 4. Camille joue le sien jusqu'au bout : sa question se montre sans se jouer, La Plume tombe à la fin ; puis son accueil
-  // le lui dit, ses confettis avec — et, sa question annulée pour tous, qu'elle ne compte plus.
+  // 5. Quatre autres la jouent, par les routes — deux la trouvent, avec Léa trois sur cinq, de quoi juger son dosage —, et le
+  // QG la suit sous « Question par question ».
+  for (const [i, login] of ['hugo', 'ines', 'jules', 'kenza'].entries()) {
+    const cookie = await inscrireProfil(banc.url, login, login.charAt(0).toUpperCase() + login.slice(1), ['🐻', '🐼', '🐸', '🐯'][i])
+    let vue = (await (await ecrire(banc.url, '/api/jour/commencer', {}, cookie)).json()) as { etat: string; question?: { index: number } }
+    for (let garde = 0; garde < 30 && vue.etat === 'en-cours'; garde++) {
+      if (vue.question) await ecrire(banc.url, '/api/jour/repondre', { jour, index: vue.question.index, choix: tirage[vue.question.index].bonne }, cookie)
+      vue = (await (await ecrire(banc.url, '/api/jour/suivante', {}, cookie)).json()) as typeof vue
+    }
+    await ecrire(banc.url, '/api/jour/bonus', {}, cookie)
+    await ecrire(banc.url, '/api/jour/bonus/repondre', { jour, choix: i < 2 ? bonus.bonne : (bonus.bonne + 1) % 4 }, cookie)
+    await ecrire(banc.url, '/api/jour/bonus/vote', { jour, vote: i < 3 ? 1 : -1 }, cookie)
+  }
+  const suiviAuQg = await navigateur.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2, hasTouch: true })
+  await suiviAuQg.addCookies([{ name: nomAdmin, value: valeurAdmin, url: banc.url }])
+  const suivi = await suiviAuQg.newPage()
+  suivi.on('pageerror', (e: Error) => console.error('[qg]', e.message))
+  await suivi.goto(`${banc.url}/admin#jour`)
+  await suivi.waitForSelector('.qg-bonus', { timeout: 15000 })
+  await suivi.locator('.qg-bonus').scrollIntoViewIfNeeded()
+  await suivi.waitForTimeout(500)
+  await suivi.locator('.qg-bonus').screenshot({ path: path.join(sortie, '18-qg-question-bonus.png') })
+  console.log(path.join(sortie, '18-qg-question-bonus.png'))
+  await suiviAuQg.close()
+
+  // 6. Camille joue ses dix : sa question bonus ne se joue pas pour elle — sa carte lui dit ce que la salle en fait —, La Plume
+  // tombe à la fin ; son accueil lui dit qu'elle est la question bonus du jour, et le lendemain, son bilan.
   const chezCamille = await navigateur.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2, hasTouch: true })
   const [nomC, valeurC] = camille.split('=')
   await chezCamille.addCookies([{ name: nomC, value: valeurC, url: banc.url }])
@@ -252,35 +307,33 @@ try {
     console.log(path.join(sortie, `${n}.png`))
   }
   await pc.goto(`${banc.url}/jour`)
-  await pc.waitForSelector('.jour-heros')
+  await pc.waitForSelector('.jour-heros .bonus-annonce')
+  await photoDeCamille('19-camille-avant-de-jouer')
   await pc.locator('.jour-heros .btn-primary').click()
-  for (let n = 0; n < tirage.length; n++) {
+  for (let n = 0; n < tirage.length + 2; n++) {
     await pc.waitForTimeout(700)
-    await pc.waitForSelector('.ans-btn, .plume-tienne-icone, .fin-tete', { timeout: 15000 })
+    await pc.waitForSelector('.ans-btn, .fin-tete', { timeout: 15000 })
     if (await pc.locator('.fin-tete').count()) break
-    if (await pc.locator('.plume-tienne-icone').count()) {
-      await photoDeCamille('15-camille-ta-question')
-    } else {
-      // Une autre question : une réponse, la première venue, puis la suivante.
-      for (let essai = 0; essai < 30 && !(await pc.locator('.result-banner').count()); essai++) {
-        await pc.waitForTimeout(400)
-        await pc.locator('.ans-btn').first().click({ timeout: 2000 }).catch(() => {})
-      }
+    // Une réponse, la première venue, puis la suivante.
+    for (let essai = 0; essai < 30 && !(await pc.locator('.result-banner').count()); essai++) {
+      await pc.waitForTimeout(400)
+      await pc.locator('.ans-btn').first().click({ timeout: 2000 }).catch(() => {})
     }
     await pc.waitForTimeout(500)
     await pc.locator('.btn-primary.btn-big').click()
   }
   await pc.waitForSelector('.fin-tete', { timeout: 15000 })
-  await photoDeCamille('16-camille-fin-la-plume', { pleine: true })
+  await pc.locator('.bonus-carte').scrollIntoViewIfNeeded()
+  await photoDeCamille('20-camille-fin-sa-question-bonus')
+  await photoDeCamille('21-camille-fin-entiere', { pleine: true })
   await pc.goto(`${banc.url}/`)
   await pc.waitForSelector('.annonce-admin', { timeout: 15000 })
-  await photoDeCamille('17-camille-accueil')
-  // Fausse, l'administrateur l'annule pour tous : son accueil remplace « +25 confettis » par ce qu'elle ne rapporte plus.
-  const annulee = await ecrire(banc.url, '/api/admin/jour/annuler', { jour, index: k }, admin)
-  if (!annulee.ok) throw new Error(`annulation refusée (${annulee.status})`)
+  await photoDeCamille('22-camille-accueil')
+  // Le lendemain : la nuit a jugé son dosage — trois sur cinq, bien dosée —, et son accueil raconte son bilan.
+  horloge.t += 24 * 3_600_000
   await pc.reload()
   await pc.waitForSelector('.annonce-admin', { timeout: 15000 })
-  await photoDeCamille('18-camille-accueil-annulee')
+  await photoDeCamille('23-camille-accueil-bilan')
   await chezCamille.close()
 } finally {
   await navigateur.close()

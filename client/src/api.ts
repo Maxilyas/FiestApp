@@ -38,8 +38,8 @@ import type { EspaceDAdministration, PublicAccount, PublicSpace, SpaceSettings }
 import type { FicheDuJoueur, FinitionChoisie, ProfilDAccueil, ProfilDAdministration, ProfilDeLEspace, PublicProfile, PublicProfileDetail } from '../../shared/profil'
 import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '../../shared/erreurs'
 import { enAttendantLeReveil, type Attente } from '../../shared/reveil'
-import type { ClassementDuJour, PartieDuJour, ReglagesDesNotifications, RevelationDuJour } from '../../shared/jour'
-import type { PropositionDuJoueur, PropositionsAuQg, QuestionProposee } from '../../shared/propositions'
+import type { BonusDuJour, ClassementDuJour, PartieDuJour, ReglagesDesNotifications, RevelationDuJour } from '../../shared/jour'
+import type { PropositionDuJoueur, PropositionsAuQg, QuestionProposee, VoteDuBonus } from '../../shared/propositions'
 import type { BoutiqueDuProfil, SoldeDeConfettis } from '../../shared/themes'
 import type { NouveautesDeLaLoge, VusDeLaLoge } from '../../shared/piecesDeLaLoge'
 import type { MissionsDuJour } from '../../shared/missions'
@@ -793,6 +793,16 @@ export const api = {
         `/api/jour/classement${periode.mois ? `?mois=${periode.mois}` : periode.jour ? `?jour=${periode.jour}` : ''}`,
       ),
     correction: (jour: string) => req<CorrectionDuJour>(`/api/jour/correction/${jour}`),
+    /**
+     * La question bonus, après les dix : la montrer — son chrono part au
+     * serveur, d'où l'heure remesurée —, y répondre, la noter d'un pouce.
+     * Chaque réponse rend la question bonus seule, pas la partie.
+     */
+    bonus: {
+      servir: () => avecLHeure(() => req<BonusDuJour & { maintenant: number }>('/api/jour/bonus', { method: 'POST' })),
+      repondre: (jour: string, choix: number) => req<BonusDuJour>('/api/jour/bonus/repondre', { method: 'POST', body: JSON.stringify({ jour, choix }) }),
+      voter: (jour: string, vote: VoteDuBonus) => req<BonusDuJour>('/api/jour/bonus/vote', { method: 'POST', body: JSON.stringify({ jour, vote }) }),
+    },
     signaler: (jour: string, index: number, texte: string) =>
       req<{ ok: true }>('/api/jour/signaler', { method: 'POST', body: JSON.stringify({ jour, index, texte }) }),
     /** Ses questions proposées au quiz du jour, les plus récentes d'abord : où en est chacune (« Tes questions »). */
@@ -1126,6 +1136,8 @@ export interface CorrectionDuJour {
     /** Sa propre question, proposée par lui : il ne l'a pas jouée, elle lui a compté sa moyenne (`points`). */
     tienne?: true
   }[]
+  /** La question bonus, au bout : jouée, ou connue d'avance — et à tous une fois le jour clos. */
+  bonus?: BonusDuJour
 }
 
 /**

@@ -6,7 +6,7 @@ import type { RappelStore } from './core/rappels'
 import { idDeSession, type ProfileStore } from './auth/profiles'
 import { wrap } from './core/http'
 import { extrait, noterLeGeste } from './core/journalDesGestes'
-import { readPlayerToken, requireAdmin } from './auth/http'
+import { accountOf, readPlayerToken, requireAdmin } from './auth/http'
 import { A_ECRIRE_A_LA_MAIN, A_ECRIRE_MAX } from './core/consigne'
 import { consigneDEtiquetage } from './core/etiquetage'
 import { parseImportedQuestions } from '../../shared/library'
@@ -143,6 +143,40 @@ export function mountJour(app: Express, deps: JourDeps & { rappels: RappelStore 
       if (!profil) return
       const { jour, index, choix } = req.body ?? {}
       res.json(await deps.jour.repondre(profil, String(jour ?? ''), Number(index), choix))
+    }),
+  )
+
+  // La question bonus (`shared/propositions.ts`) : la question d'un joueur,
+  // après les dix, hors des points. La montrer — son chrono part —, y
+  // répondre, puis la noter d'un pouce. Chaque réponse rend la question bonus
+  // seule, pas la partie : la servir ne relit pas la fin de la partie.
+  app.post(
+    '/api/jour/bonus',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.jour.servirLeBonus(profil))
+    }),
+  )
+
+  app.post(
+    '/api/jour/bonus/repondre',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (!profil) return
+      const { jour, choix } = req.body ?? {}
+      res.json(await deps.jour.repondreAuBonus(profil, String(jour ?? ''), choix))
+    }),
+  )
+
+  app.post(
+    '/api/jour/bonus/vote',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (!profil) return
+      const { jour, vote } = req.body ?? {}
+      res.json(await deps.jour.voterPourLeBonus(profil, String(jour ?? ''), vote))
     }),
   )
 
@@ -370,7 +404,11 @@ export function mountJourAdmin(app: Express, deps: JourDeps & { rappels: Pick<Ra
       ])
       // Les plus longues, nommées : un profil qui ne se lit plus laisse sa place au suivant.
       const candidates = lues.series.slice(0, SERIES_NOMMEES * 2)
-      const profils = await deps.profiles.byIds(candidates.map(s => s.profileId))
+      const [profils, auteurDuBonus] = await Promise.all([
+        deps.profiles.byIds(candidates.map(s => s.profileId)),
+        // L'auteur de la question bonus, suspendu compris : le QG le nomme ; supprimé, il ne se nomme plus.
+        aujourdhui.bonus?.auteurId ? deps.profiles.pourLAdministrateur(aujourdhui.bonus.auteurId) : null,
+      ])
       const plusLongues = candidates
         .flatMap((s, i) => {
           const p = profils[i]
@@ -386,6 +424,9 @@ export function mountJourAdmin(app: Express, deps: JourDeps & { rappels: Pick<Ra
         parties: aujourdhui.parties,
         bonnes: { aujourdhui: partDesBonnes(aujourdhui.questions), hier },
         questions: aujourdhui.questions,
+        ...(aujourdhui.bonus && {
+          bonus: (({ auteurId: _, ...b }) => ({ ...b, auteur: auteurDuBonus ? { id: auteurDuBonus.id, nom: auteurDuBonus.name } : null }))(aujourdhui.bonus),
+        }),
         mois: { mois, joueurs: classement.joueurs, lignes: classement.lignes.slice(0, LIGNES_DU_MOIS_AU_QG), masques: deps.jour.nombreDeMasques() },
         series: { parTranche: repartirLesSeries(lues.series.map(s => s.serie)), total: lues.series.length, plusLongues, sabliersDuMois: lues.sabliersDuMois },
         rappel,
@@ -515,12 +556,13 @@ export function mountJourAdmin(app: Express, deps: JourDeps & { rappels: Pick<Ra
     }),
   )
 
-  // L'accepter — telle que l'administrateur l'a retouchée, sa catégorie et son anecdote données — : elle rejoint la réserve, signée.
+  // L'accepter — telle que l'administrateur l'a retouchée, sa catégorie et son anecdote données — : elle rejoint la réserve,
+  // signée. Son profil, s'il en tient un, l'a relue : il en connaît la réponse, la question bonus ne se jouera pas pour lui.
   app.post(
     '/api/admin/jour/propositions/:id/accepter',
     requireAdmin,
     wrap(async (req, res) => {
-      const acceptee = await deps.jour.accepterLaProposition(req.params.id, req.body?.question)
+      const acceptee = await deps.jour.accepterLaProposition(req.params.id, req.body?.question, accountOf(res).profileId)
       if (!acceptee) return res.status(404).json({ error: 'Cette question proposée n’existe plus' })
       noterLeGeste(res, { sorte: 'jour', resume: `Question du public acceptée au quiz du jour : « ${extrait(acceptee.texte)} »`, cible: acceptee.auteurId })
       res.json({ ok: true })

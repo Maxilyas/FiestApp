@@ -7,7 +7,7 @@ import { PrenomDuJoueur } from './PrenomDuJoueur'
 import { espacesFines, formatNumber } from '../../../shared/typographie'
 import { jourAvant, jourEnToutesLettres, moisEnToutesLettres, type LigneDuJour } from '../../../shared/jour'
 import type { VueDEnsemble } from '../../../shared/qg'
-import { TRANCHES_DE_SERIE, enPourcents, type QuestionDuSuivi, type SuiviDuJour } from '../../../shared/qgDuJour'
+import { TRANCHES_DE_SERIE, enPourcents, type BonusDuSuivi, type QuestionDuSuivi, type SuiviDuJour } from '../../../shared/qgDuJour'
 
 /**
  * Ce que le QG suit du quiz du jour, à côté de la réserve et des signalements
@@ -189,7 +189,70 @@ export function QuestionsDuJour({
           })}
         </ol>
       )}
+      {suivi?.bonus && <BonusDuSuiviAuQg bonus={suivi.bonus} />}
     </section>
+  )
+}
+
+/**
+ * La question bonus d'aujourd'hui, sous les dix : la question du public, qui
+ * l'a écrite, ce que chaque réponse a recueilli et ses pouces. Hors de la
+ * part des bonnes réponses du jour : elle ne compte pas aux points.
+ */
+function BonusDuSuiviAuQg({ bonus }: { bonus: BonusDuSuivi }) {
+  const sur = bonus.joueurs
+  return (
+    <div className="qg-bonus">
+      <p className="qg-bonus-tete small">
+        <span className="etiquette">Question bonus</span>{' '}
+        {bonus.auteur ? (
+          <>
+            de <PrenomDuJoueur id={bonus.auteur.id} nom={bonus.auteur.nom} />
+          </>
+        ) : (
+          'd’un profil supprimé'
+        )}
+      </p>
+      <p>{espacesFines(bonus.texte)}</p>
+      <p className="muted small">
+        {sur === 0
+          ? 'Personne ne l’a encore jouée.'
+          : espacesFines(
+              [
+                pluriel(sur, 'joueur'),
+                `trouvée par ${enPourcentsEcrits(enPourcents({ justes: bonus.trouvees, sur }))}`,
+                bonus.sansReponse > 0 && `${formatNumber(bonus.sansReponse)} laissée${bonus.sansReponse > 1 ? 's' : ''} au temps`,
+                bonus.pour + bonus.contre > 0 && `👍 ${bonus.pour} · 👎 ${bonus.contre}`,
+              ]
+                .filter(Boolean)
+                .join(' · '),
+            )}
+      </p>
+      {sur > 0 && (
+        <ul className="qg-pistes">
+          {bonus.reponses.map((r, i) => {
+            const n = bonus.parReponse[i] ?? 0
+            const p = Math.round((n / sur) * 100)
+            const bonne = i === bonus.bonne
+            return (
+              <li key={i} className="qg-piste-ligne">
+                <span className="qg-piste-nom">
+                  {bonne && <Icon name="check" />}
+                  {r}
+                  {bonne && <span className="sr-only"> (la bonne réponse)</span>}
+                </span>
+                <span className="qg-piste" aria-hidden="true">
+                  {p > 0 && <i className={bonne ? 'qg-mode-jour' : 'qg-piste-autre'} style={{ width: `${p}%` }} />}
+                </span>
+                <b className="num">
+                  {formatNumber(p)} %<span className="sr-only">, {pluriel(n, 'joueur')}</span>
+                </b>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
   )
 }
 

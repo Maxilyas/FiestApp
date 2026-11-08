@@ -1,7 +1,8 @@
 // Le quiz du jour : dix questions, les mêmes pour tous les profils, tirées à
 // minuit (heure de Paris) et figées. Un seul essai, qu'on reprend si le
 // téléphone sonne ; la bonne réponse et son anecdote arrivent après chaque
-// réponse — c'est là qu'on apprend.
+// réponse — c'est là qu'on apprend. Les jours où un joueur en a écrit une,
+// la question bonus vient après les dix, pour le plaisir (`BonusDuJour`).
 //
 // Il ne remplace pas la soirée, il en est l'entre-deux : on y joue seul, pour
 // apprendre et pour avancer. Il rapporte de l'expérience — 200 au plus, à
@@ -22,6 +23,7 @@ import type { ApparenceDeLAvatar, Finition } from './profil'
 import type { BordureDeLigue } from './duels'
 import type { CleDeSaison } from './saisons'
 import type { EclatPorte } from './matieres'
+import type { SalleDuBonus, VoteDuBonus } from './propositions'
 
 /** Le quiz d'un jour : dix questions — moins si la réserve est à sec. */
 export const QUESTIONS_PAR_JOUR = 10
@@ -419,9 +421,70 @@ export interface RevelationDuJour {
    * Sa propre question : il ne l'a pas jouée, il en connaît la réponse. Elle
    * lui compte à sa moyenne sur les autres (`partDeLAuteur`) — sans choix,
    * sans points à elle ; la révélation la lui montre, telle que les autres la
-   * jouent.
+   * jouent. Les tirages d'avant la question bonus seulement.
    */
   tienne?: true
+}
+
+/**
+ * La question bonus, vue de son téléphone (`shared/propositions.ts`) : la
+ * question d'un joueur, après les dix, signée dès qu'elle paraît. Ni points,
+ * ni classement, ni étoile ; trouvée, des confettis et de l'expérience.
+ */
+export interface BonusDuJour {
+  /**
+   * Où il en est : à venir — sa partie n'est pas finie —, à jouer, en cours
+   * (montrée), jouée ; ou il ne la joue pas : c'est la sienne (`tienne`), ou
+   * il l'a relue au QG (`relue`) — il en connaît la réponse.
+   */
+  etat: 'a-venir' | 'a-jouer' | 'en-cours' | 'jouee' | 'tienne' | 'relue'
+  /** Qui l'a écrite, tel qu'il se porte — absent quand son profil ne se montre plus (supprimé, suspendu, masqué). */
+  auteur?: { nom: string; avatar: string } & ApparenceDeLAvatar
+  /** Ce qu'elle rapporte, trouvée. */
+  confettis: number
+  xp: number
+  /** Son chrono, en secondes : plus long que celui des dix. */
+  duree: number
+  /** En cours : la question, sans sa bonne réponse (invariant 1). */
+  question?: QuestionDuBonus
+  /** Jouée — ou la sienne, ou relue : ce qu'elle révèle. */
+  revelation?: RevelationDuBonus
+  /** L'heure du serveur quand il l'a montrée : le téléphone y recale son chrono (invariant 6). */
+  maintenant?: number
+}
+
+/** La question bonus montrée : ni sa bonne réponse, ni son anecdote. L'échéance est une heure du serveur (invariant 6). */
+export interface QuestionDuBonus {
+  jour: string
+  texte: string
+  reponses: string[]
+  categorie: string | null
+  duree: number
+  echeance: number
+}
+
+/** Ce que la question bonus apprend, une fois jouée — à son auteur et à qui l'a relue, d'emblée. */
+export interface RevelationDuBonus {
+  jour: string
+  texte: string
+  reponses: string[]
+  bonne: number
+  categorie: string | null
+  anecdote: string | null
+  /** Ce qu'il a touché — null : rien, le temps a passé, ou il ne la jouait pas. */
+  choix: number | null
+  juste: boolean
+  /** Sa réponse est arrivée après l'échéance : elle ne compte pas. */
+  tropTard?: true
+  /** La part de ceux qui l'ont jouée et trouvée, lui compris — null tant qu'ils sont moins de trois. */
+  trouveePar: number | null
+  /** Ce qu'elle lui a rapporté : rien, ratée. */
+  confettis: number
+  xp: number
+  /** Son pouce, s'il en a donné un. */
+  vote: VoteDuBonus | null
+  /** À son auteur et à qui l'a relue : ce que la salle en fait, jusqu'ici. */
+  salle?: SalleDuBonus
 }
 
 /** Une ligne du classement du jour, du mois : ce que la salle verrait d'un profil. */
@@ -534,6 +597,8 @@ export interface PartieDuJour {
   xp: number
   /** Le bonus de série de sa partie (`xpDeSerie`), payé dès qu'elle commence. */
   xpSerie?: number
+  /** La question bonus du jour, s'il y en a une : la question d'un joueur, après les dix. */
+  bonus?: BonusDuJour
   medaille: Medaille | null
   /** Sa place pour l'instant, et combien ont joué. */
   rang: number
