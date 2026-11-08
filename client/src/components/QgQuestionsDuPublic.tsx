@@ -10,8 +10,10 @@ import {
   MOTIF_DE_REFUS_MAX,
   QUESTION_DU_PUBLIC_MAX,
   REPONSE_DU_PUBLIC_MAX,
+  dosageDe,
   type PropositionAuQg,
   type PropositionsAuQg,
+  type SalleDuBonus,
   type StatutDUneProposition,
 } from '../../../shared/propositions'
 
@@ -85,6 +87,8 @@ export function QuestionsDuPublicAuQg() {
                         .join(' · '),
                     )}
                   </span>
+                  {/* Jouée en question bonus : ce que la salle en a fait — de quoi repérer qui écrit bien. */}
+                  {p.salle && <SalleDUneQuestionDuPublic salle={p.salle} />}
                 </span>
               </li>
             ))}
@@ -92,6 +96,33 @@ export function QuestionsDuPublicAuQg() {
         </details>
       )}
     </section>
+  )
+}
+
+/** Le dosage, en mots : ce que la nuit en a jugé, ou en jugera. */
+const DOSAGE: Record<NonNullable<ReturnType<typeof dosageDe>>, string> = { bien: 'bien dosée', facile: 'trop facile', dure: 'trop dure' }
+
+/**
+ * Ce que la salle a fait d'une question du public jouée en question bonus :
+ * combien l'ont jouée, la part qui l'a trouvée, son dosage et ses pouces —
+ * des chiffres, sans un prénom.
+ */
+export function SalleDUneQuestionDuPublic({ salle }: { salle: SalleDuBonus }) {
+  if (salle.joueurs === 0) return <span className="muted small">Personne ne l’a jouée</span>
+  const dosage = dosageDe(salle.joueurs, salle.trouvees)
+  return (
+    <span className="small">
+      {espacesFines(
+        [
+          `jouée par ${salle.joueurs}`,
+          `trouvée par ${Math.round((100 * salle.trouvees) / salle.joueurs)} %`,
+          dosage && DOSAGE[dosage],
+          salle.pour + salle.contre > 0 && `👍 ${salle.pour} · 👎 ${salle.contre}`,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+      )}
+    </span>
   )
 }
 

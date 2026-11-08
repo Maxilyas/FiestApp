@@ -5,6 +5,12 @@
 // montre, et lui compte sa moyenne sur les autres, en points comme en bonnes
 // réponses — jusque dans les recomptes d'une annulation. Sa relecture au QG :
 // `jour-propositions.test.ts`.
+//
+// Depuis le 8 novembre 2026, elle vient après les dix, en question bonus
+// (`jour-question-bonus.test.ts`). Les jours tirés avant — celui de la mise
+// en ligne, que la production joue encore, et ceux que la correction relit —
+// gardent leur règle : les épreuves qui la jouent tirent leur jour comme
+// avant (`commeAvant`).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
@@ -58,6 +64,40 @@ function tirage(banc: Banc, jour = JOUR): { bonne: number; reponses: string[]; t
   } finally {
     db.close()
   }
+}
+
+/** La question bonus d'un jour, lue en base : la question du public, à part des dix. */
+function bonusDu(banc: Banc, jour = JOUR): { texte: string; auteur?: string } | null {
+  const db = new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: true, fileMustExist: true })
+  try {
+    const r = db.prepare('SELECT question FROM jour_bonus WHERE jour = ?').get(jour) as { question: string } | undefined
+    return r ? JSON.parse(r.question) : null
+  } finally {
+    db.close()
+  }
+}
+
+/**
+ * Le jour tiré comme avant le 8 novembre 2026 : la question du public parmi
+ * les dix, à la place de la quatrième — ce que la production joue encore le
+ * jour de la mise en ligne, et ce que la correction et les recomptes des
+ * jours d'avant relisent. Le serveur tire à la nouvelle façon ; on réécrit
+ * son tirage, puis il redémarre et le relit de la base.
+ */
+async function commeAvant(banc: Banc, jour = JOUR) {
+  const db = new Database(banc.quizDbUrl.replace(/^file:/, ''), { fileMustExist: true })
+  try {
+    const t = db.prepare('SELECT questions FROM jour_tirages WHERE jour = ?').get(jour) as { questions: string }
+    const b = db.prepare('SELECT question FROM jour_bonus WHERE jour = ?').get(jour) as { question: string }
+    const questions = JSON.parse(t.questions)
+    const { relecteur: _, ...bonus } = JSON.parse(b.question)
+    questions[3] = { ...bonus, duree: 20 }
+    db.prepare('UPDATE jour_tirages SET questions = ? WHERE jour = ?').run(JSON.stringify(questions), jour)
+    db.prepare('DELETE FROM jour_bonus WHERE jour = ?').run(jour)
+  } finally {
+    db.close()
+  }
+  await banc.redemarrer()
 }
 
 /** Un profil, et l'identifiant que le serveur lui a donné. */
@@ -114,27 +154,24 @@ test('une question du public par jour, la plus anciennement acceptée d’abord 
 
     const bob = await profil(banc, 'bob', 'Bob', '🐻')
     assert.equal((await lire(banc, bob.cookie, '/api/jour')).corps.total, 10)
-    const duJour = tirage(banc).filter(q => q.auteur)
-    assert.deepEqual(
-      duJour.map(q => [q.texte, q.auteur]),
-      [[CHENILLE.texte, lea.id]],
-      'une seule, celle de Léa, acceptée la première',
-    )
+    // Une seule, celle de Léa, acceptée la première — en question bonus, et aucune parmi les dix.
+    assert.deepEqual(tirage(banc).filter(q => q.auteur), [])
+    const duJour = bonusDu(banc)
+    assert.deepEqual([duJour?.texte, duJour?.auteur], [CHENILLE.texte, lea.id], 'une seule, celle de Léa, acceptée la première')
     // Le lendemain, celle de Chloé.
     horloge.t += 24 * 3_600_000
     await lire(banc, bob.cookie, '/api/jour')
-    assert.deepEqual(
-      tirage(banc, LENDEMAIN).filter(q => q.auteur).map(q => q.auteur),
-      [chloe.id],
-    )
+    assert.equal(bonusDu(banc, LENDEMAIN)?.auteur, chloe.id)
   }))
 
-test('les autres la jouent comme une autre, signée de son auteur ; lui la voit sans la jouer, et elle lui compte sa moyenne', () =>
+test('un jour tiré comme avant : les autres la jouent comme une autre, signée de son auteur ; lui la voit sans la jouer, et elle lui compte sa moyenne', () =>
   avecBanc(async banc => {
     const admin = await connexionAnimateur(banc.url)
     const lea = await profil(banc, 'lea', 'Léa', '🦊')
     await proposerEtAccepter(banc, lea.cookie, admin, CHENILLE)
     const joueurs = await Promise.all(['bob', 'chloe', 'dan'].map((l, i) => profil(banc, l, l, ['🐻', '🐼', '🐸'][i])))
+    await lire(banc, joueurs[0].cookie, '/api/jour')
+    await commeAvant(banc)
 
     // Trois joueurs : tout juste, à la première seconde.
     for (const j of joueurs) await jouer(banc, j.cookie, () => true)
@@ -182,11 +219,13 @@ test('les autres la jouent comme une autre, signée de son auteur ; lui la voit 
     }
   }))
 
-test('neuf sur neuf : le sans-faute et le maximum ; une annulation recompte sa moyenne, la sienne annulée la lui retire', () =>
+test('un jour tiré comme avant, neuf sur neuf : le sans-faute et le maximum ; une annulation recompte sa moyenne, la sienne annulée la lui retire', () =>
   avecBanc(async banc => {
     const admin = await connexionAnimateur(banc.url)
     const lea = await profil(banc, 'lea', 'Léa', '🦊')
     await proposerEtAccepter(banc, lea.cookie, admin, CHENILLE)
+    await lire(banc, lea.cookie, '/api/jour')
+    await commeAvant(banc)
     const { etat } = await jouer(banc, lea.cookie, () => true)
     assert.deepEqual([etat.points, etat.justes, etat.medaille, etat.xp], [2000, 10, 'or', XP_MAX_DU_JOUR])
 
@@ -224,7 +263,7 @@ test('ce que sa question lui rapporte : des confettis acceptée, puis jouée —
     // Jouée : le premier qui ouvre le quiz du jour la tire — Léa reçoit les seconds sans avoir joué.
     const bob = await profil(banc, 'bob', 'Bob', '🐻')
     await lire(banc, bob.cookie, '/api/jour')
-    assert.ok(tirage(banc).some(q => q.auteur === lea.id))
+    assert.equal(bonusDu(banc)?.auteur, lea.id, 'tirée en question bonus')
     assert.equal(await solde(), avant + CONFETTIS_D_UNE_QUESTION_ACCEPTEE + CONFETTIS_D_UNE_QUESTION_JOUEE)
     // Le QG les compte au quiz du jour, d'où ils viennent, et dans ce qui circule — au confetti près, les soldes de chacun.
     const economie = (await lire(banc, admin, '/api/admin/economie')).corps
@@ -249,7 +288,7 @@ test('ce que sa question lui rapporte : des confettis acceptée, puis jouée —
     assert.equal(await soldeDeChloe(), avantChloe)
   }))
 
-test('annulée pour tous, elle ne paie plus son jour : ni ses confettis, ni La Plume — et son accueil le lui dit', () =>
+test('un jour tiré comme avant, annulée pour tous, elle ne paie plus son jour : ni ses confettis, ni La Plume — et son accueil le lui dit', () =>
   avecBanc(async banc => {
     const admin = await connexionAnimateur(banc.url)
     const lea = await profil(banc, 'lea', 'Léa', '🦊')
@@ -257,6 +296,7 @@ test('annulée pour tous, elle ne paie plus son jour : ni ses confettis, ni La P
     const avant = (await accueil()).boutique?.confettis.solde as number
     await proposerEtAccepter(banc, lea.cookie, admin, CHENILLE)
     await lire(banc, (await profil(banc, 'bob', 'Bob', '🐻')).cookie, '/api/jour')
+    await commeAvant(banc)
     const k = tirage(banc).findIndex(q => q.auteur === lea.id)
     assert.equal((await accueil()).boutique?.confettis.solde, avant + CONFETTIS_D_UNE_QUESTION_ACCEPTEE + CONFETTIS_D_UNE_QUESTION_JOUEE)
 
@@ -278,11 +318,13 @@ test('annulée pour tous, elle ne paie plus son jour : ni ses confettis, ni La P
     )
   }))
 
-test('masqué des classements, il ne signe plus ; le lendemain, son accueil lui dit qu’elle a été jouée', () =>
+test('un jour tiré comme avant, masqué des classements, il ne signe plus ; le lendemain, son accueil lui dit qu’elle a été jouée', () =>
   avecBanc(async (banc, horloge) => {
     const admin = await connexionAnimateur(banc.url)
     const lea = await profil(banc, 'lea', 'Léa', '🦊')
     await proposerEtAccepter(banc, lea.cookie, admin, CHENILLE)
+    await lire(banc, lea.cookie, '/api/jour')
+    await commeAvant(banc)
     assert.equal((await poster(banc, admin, '/api/admin/jour/masquer', { profileId: lea.id, masque: true })).status, 200)
     const bob = await jouer(banc, (await profil(banc, 'bob', 'Bob', '🐻')).cookie, () => true)
     const k = tirage(banc).findIndex(q => q.auteur === lea.id)

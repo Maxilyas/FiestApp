@@ -7,8 +7,21 @@
 // sa question dans « Ta question » (la plume), le QG la relit — l'accepte,
 // retouchée s'il le faut, ou la refuse en disant pourquoi —, et une question
 // acceptée passe au quiz du jour, une par jour au plus, signée de son
-// auteur. Lui ne la joue pas : elle lui compte à sa moyenne sur les autres
-// (`partDeLAuteur`). Le quiz du jour d'abord ; le défi de la semaine attend.
+// auteur. Le quiz du jour d'abord ; le défi de la semaine attend.
+//
+// Depuis le 8 novembre 2026 (le choix du propriétaire, « 1 + 2 + 4 »), elle
+// ne se mêle plus aux dix : elle vient après elles, la question bonus, dans
+// une carte à part et signée dès qu'elle paraît. Mêlée aux autres, on la
+// jouait à la course sans voir qu'un joueur l'avait écrite ; et
+// l'administrateur, qui l'avait relue, la jouait en en sachant la réponse —
+// des points d'avance au classement. Elle ne compte donc ni aux points, ni au
+// classement, ni aux étoiles : trouvée, elle rapporte des confettis et de
+// l'expérience (`CONFETTIS_DE_LA_QUESTION_BONUS`, `XP_DE_LA_QUESTION_BONUS`).
+// Son auteur et celui qui l'a relue ne la jouent pas, sans rien y perdre ;
+// la salle la note d'un pouce, et son auteur gagne de plus à l'avoir bien
+// dosée — ni évidente, ni impossible (`dosageDe`). Les jours d'avant, où elle
+// était l'une des dix, gardent leur règle : son auteur ne la jouait pas, elle
+// lui comptait sa moyenne sur les autres (`partDeLAuteur`).
 
 import { sansAccent } from './homonymes'
 
@@ -68,6 +81,68 @@ export const JUSTES_POUR_LA_PLUME = 7
 export const CONFETTIS_D_UNE_QUESTION_ACCEPTEE = 25
 export const CONFETTIS_D_UNE_QUESTION_JOUEE = 25
 
+// ── La question bonus ─────────────────────────────────────────────────────
+
+/**
+ * Ce que la question bonus rapporte à qui la trouve — rien à qui la rate :
+ * des confettis, comptés avec ceux du quiz du jour (`JourStore.justesDe`) et
+ * relus à chaque lecture, et de l'expérience, figée avec la partie
+ * (`jour_parties.xp_bonus`), en plus de ses 200 — comme le bonus de série.
+ * Ni points, ni place au classement, ni étoile : elle se joue pour le
+ * plaisir. Des choix de produit (le 8 novembre 2026).
+ */
+export const CONFETTIS_DE_LA_QUESTION_BONUS = 10
+export const XP_DE_LA_QUESTION_BONUS = 20
+
+/**
+ * Son chrono : plus long que les dix — la course est finie, on la lit. Une
+ * question du public a 20 secondes (`DEFAULT_DURATION`) ; elle en garde
+ * davantage si on lui en a donné plus.
+ */
+export const DUREE_DE_LA_QUESTION_BONUS = 30
+
+/**
+ * Le défi de l'auteur : sa question est bien dosée quand la salle la trouve
+ * sans qu'elle soit évidente — de 20 % à 80 % de ceux qui l'ont jouée, à
+ * cinq au moins (en deçà, la part ne dit rien). Jugée à la nuit, une fois le
+ * jour clos ; elle lui rapporte alors des confettis de plus. Trop facile ou
+ * trop dure, rien ne se retire : ses confettis d'acceptée et de jouée
+ * restent. Des choix de produit (le 8 novembre 2026).
+ */
+export const CONFETTIS_D_UNE_QUESTION_BIEN_DOSEE = 25
+export const JOUEURS_POUR_LE_DOSAGE = 5
+export const DOSAGE_DES_POUR_CENT = 20
+export const DOSAGE_JUSQU_A_POUR_CENT = 80
+
+/** Ce que la salle en a fait : ceux qui l'ont jouée — trouvée, ratée ou laissée au temps —, ceux qui l'ont trouvée, et les pouces. */
+export interface SalleDuBonus {
+  joueurs: number
+  trouvees: number
+  pour: number
+  contre: number
+}
+
+/**
+ * Le dosage d'une question bonus jouée : bien dosée, trop facile, trop dure
+ * — ou null, trop peu de joueurs pour en juger. Les mêmes bornes que le SQL
+ * des confettis (`BIEN_DOSEE`, `core/jour.ts`), en entiers : la virgule
+ * flottante aurait pu séparer 20 % d'un cinquième.
+ */
+export function dosageDe(joueurs: number, trouvees: number): 'bien' | 'facile' | 'dure' | null {
+  if (joueurs < JOUEURS_POUR_LE_DOSAGE) return null
+  if (trouvees * 100 > joueurs * DOSAGE_JUSQU_A_POUR_CENT) return 'facile'
+  if (trouvees * 100 < joueurs * DOSAGE_DES_POUR_CENT) return 'dure'
+  return 'bien'
+}
+
+/** Un pouce de la salle sur une question bonus : levé, baissé. */
+export type VoteDuBonus = 1 | -1
+
+/** Un vote envoyé par le téléphone, relu : un pouce, ou rien. */
+export function lireLeVote(brut: unknown): VoteDuBonus | null {
+  return brut === 1 || brut === -1 ? brut : null
+}
+
 /** Les motifs d'un refus qui reviennent, proposés d'un toucher au QG — un autre s'écrit à la main. */
 export const MOTIFS_DE_REFUS = [
   'Elle est déjà dans le quiz du jour',
@@ -100,6 +175,8 @@ export interface PropositionDuJoueur extends QuestionProposee {
   motif?: string
   /** Posée : le jour du quiz qui l'a jouée. */
   jour?: string
+  /** Posée en question bonus : ce que la salle en a fait, jusqu'ici. */
+  salle?: SalleDuBonus
 }
 
 /** Une proposition au QG : la question, qui l'a écrite — par son profil, jamais deviné —, et ce qu'on en a fait. */
@@ -111,6 +188,8 @@ export interface PropositionAuQg extends QuestionProposee {
   auteur: { id: string; nom: string; login: string } | null
   motif?: string
   relueLe?: number
+  /** Posée en question bonus : ce que la salle en a fait — de quoi repérer les auteurs qui écrivent bien. */
+  salle?: SalleDuBonus
 }
 
 /** La page du QG : ce qui attend, le plus ancien d'abord, et ce qui a été relu ces derniers jours. */
@@ -180,7 +259,9 @@ export function lireLeMotif(brut: unknown): string | { erreur: string } {
 }
 
 /**
- * Ce que sa propre question rapporte à son auteur, qui ne la joue pas : sa
+ * Ce que sa propre question rapportait à son auteur, qui ne la joue pas,
+ * quand elle était l'une des dix — les tirages d'avant le 8 novembre 2026,
+ * que la correction et le jour en cours relisent encore : sa
  * moyenne sur les autres questions qui comptent, en points comme en bonnes
  * réponses (le choix du propriétaire du 2 novembre 2026, « moyenne
  * personnelle »). Il en connaît la réponse : jouée, elle lui donnait la

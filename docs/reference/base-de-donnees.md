@@ -603,9 +603,9 @@ range par profil ou par jour (de Paris), sans espace.
 
 La réserve de questions du quiz du jour.
 
-- **Colonnes clés** : `id`, `question` (JSON), `empreinte` (unique : l'intitulé normalisé, contre les doublons), `categorie`, `source` (`livre`, `liste`, `ia` ou `public`), `ajoutee_le`, `posee_le` (le jour qui l'a tirée), `retiree_le`, `metadonnees` (JSON, l'étiquetage), `etiquetee_le`, `auteur` (le profil qui l'a proposée, pour une question du public ; vidé quand son profil est supprimé).
+- **Colonnes clés** : `id`, `question` (JSON), `empreinte` (unique : l'intitulé normalisé, contre les doublons), `categorie`, `source` (`livre`, `liste`, `ia` ou `public`), `ajoutee_le`, `posee_le` (le jour qui l'a tirée), `retiree_le`, `metadonnees` (JSON, l'étiquetage), `etiquetee_le`, `auteur` (le profil qui l'a proposée, pour une question du public ; vidé quand son profil est supprimé), `relecteur` (le profil de l'administrateur qui l'a acceptée, depuis le 8 novembre 2026 : la question bonus ne se joue pas pour lui ; vidé de même).
 - **Espace** : non.
-- **Écrite par** : `JourStore` — l'amorce des quiz livrés au premier démarrage, « Coller une liste » au QG, le dépôt de la routine, une question du public acceptée, le tirage, un retrait, l'étiquetage ; « Corriger » et « Reclasser » à la page des signalements (la question, son empreinte, sa catégorie, ses métadonnées). Les questions du public ont leur file : le tirage en pose une par jour au plus, la plus anciennement acceptée d'abord, et elles ne comptent pas dans les jours d'avance.
+- **Écrite par** : `JourStore` — l'amorce des quiz livrés au premier démarrage, « Coller une liste » au QG, le dépôt de la routine, une question du public acceptée, le tirage, un retrait, l'étiquetage ; « Corriger » et « Reclasser » à la page des signalements (la question, son empreinte, sa catégorie, ses métadonnées). Les questions du public ont leur file : le tirage en pose une par jour au plus, la plus anciennement acceptée d'abord — en question bonus depuis le 8 novembre 2026 (`jour_bonus`), parmi les dix avant —, et elles ne comptent pas dans les jours d'avance.
 - **Lue par** : `JourStore` (le tirage, la consigne de la routine, le QG — la page des signalements lit la version d'une question signalée, et ses métadonnées) ; la campagne, qui écarte ses intitulés.
 - **Effacée par** : rien : une question retirée garde sa ligne (`retiree_le`).
 
@@ -630,11 +630,21 @@ Les dix questions de chaque jour, tirées à la première demande et figées.
 - **Lue par** : `JourStore`, qui garde le tirage en mémoire.
 - **Effacée par** : rien.
 
+### `jour_bonus`
+
+La question bonus de chaque jour (le 8 novembre 2026) : la question du public, tirée avec le jour et figée comme lui, mais à part des dix — ni dans leurs points, ni dans leurs index.
+
+- **Colonnes clés** : `jour` (la clé), `reserve_id` (sa ligne de la réserve), `question` (JSON : la copie jouée — ses réponses mélangées, son chrono allongé, `auteur` et `relecteur`).
+- **Espace** : non.
+- **Écrite par** : `JourStore`, dans le lot du tirage (`INSERT OR IGNORE`, jamais sans lui) ; la suppression d'un profil en retire son `auteur` et son `relecteur`.
+- **Lue par** : `JourStore`, avec le tirage (une jointure) : la partie, la correction, le suivi du QG, et les confettis de son auteur — jouée, puis bien dosée (`BIEN_DOSEE`).
+- **Effacée par** : rien.
+
 ### `jour_parties`
 
 La partie de chaque profil, chaque jour.
 
-- **Colonnes clés** : `profile_id` et `jour` (la clé), `commencee_le`, `question`, `servie_le`, `points`, `justes`, `finie_le`, `xp`, `xp_serie` (le bonus de série, payé dès le début).
+- **Colonnes clés** : `profile_id` et `jour` (la clé), `commencee_le`, `question`, `servie_le`, `points`, `justes`, `finie_le`, `xp`, `xp_serie` (le bonus de série, payé dès le début) ; sa question bonus, depuis le 8 novembre 2026 : `bonus_servie_le` (montrée : son chrono part), `bonus_le` (jouée — trouvée, ratée ou laissée au temps), `bonus_choix`, `bonus_juste` (ses confettis s'en relisent), `xp_bonus` (son expérience, figée), `bonus_vote` (son pouce : `1`, `-1`).
 - **Espace** : non.
 - **Écrite par** : `JourStore`.
 - **Lue par** : `JourStore` (classements, séries, carrière, QG).

@@ -169,8 +169,8 @@ export function CarteDeLAdministrateur({
           <>
             <b>{espacesFines(phraseDeLaProposition(a).titre)}</b>
             <span>{espacesFines(phraseDeLaProposition(a).phrase)}</span>
-            {/* Jouée, elle est passée d'elle-même, à son tour : l'administrateur ne l'a qu'acceptée ou refusée. */}
-            {a.issue !== 'posee' && <span className="muted small">— de l’administrateur</span>}
+            {/* Jouée, elle est passée d'elle-même, à son tour, et son bilan vient de la salle : l'administrateur ne l'a qu'acceptée ou refusée. */}
+            {a.issue !== 'posee' && a.issue !== 'bilan' && <span className="muted small">— de l’administrateur</span>}
           </>
         ) : a.sorte === 'annonce' ? (
           <>

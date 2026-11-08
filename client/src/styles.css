@@ -7147,6 +7147,67 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 /* Sa propre question, à la révélation : la plume à la place du verdict. */
 .plume-tienne-icone { color: var(--accent-text); }
 .plume-tienne-icone .plume-icone { width: 34px; height: 34px; }
+/* La bulle de la plume, avant même de jouer (`BulleDeLaPlume`) : une bulle
+   qui parle, sa pointe vers la carte du jour au-dessus — on ignorait qu'on
+   pouvait écrire tant qu'on n'avait pas fini sa partie. */
+.plume-bulle { position: relative; display: flex; align-items: flex-start; gap: 12px; margin-top: 4px; padding: 14px 16px; border: 1px solid var(--edge-strong); border-radius: var(--radius); background: var(--bg-raised); }
+.plume-bulle::before { content: ''; position: absolute; top: -7px; left: 28px; width: 12px; height: 12px; border-top: 1px solid var(--edge-strong); border-left: 1px solid var(--edge-strong); background: var(--bg-raised); transform: rotate(45deg); }
+.plume-bulle > .plume-icone { width: 28px; height: 28px; margin-top: 2px; }
+.plume-bulle-texte { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.plume-bulle-texte b { font-family: var(--serif); font-size: 1.15rem; line-height: 1.2; }
+.plume-bulle-gestes { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; margin-top: 2px; }
+
+/* ── La question bonus : un parchemin, à part des dix ─────────────────────
+   La question d'un joueur, après les dix (`QuestionBonus.tsx`) : mêlée aux
+   autres, on la jouait à la course sans voir qu'un joueur l'avait écrite.
+   Elle ne prend donc pas le verre des cartes du thème (`.card`) : un papier
+   doré, un double filet, la plume et la signature de son auteur en tête, de
+   l'invitation à la correction. Le sol plein d'abord : un téléphone sans
+   `color-mix` garde celui-là. */
+.bonus-carte {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 18px 16px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  background: linear-gradient(165deg, color-mix(in srgb, var(--accent) 16%, var(--bg-raised)), var(--bg-raised) 70%);
+  box-shadow: inset 0 0 0 4px var(--bg-raised), inset 0 0 0 5px var(--edge-strong);
+}
+.bonus-tete { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; }
+.pill.bonus-pastille { display: inline-flex; align-items: center; gap: 6px; border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text-hover); font-weight: 700; letter-spacing: 0.02em; }
+.pill.bonus-pastille .plume-icone { width: 16px; height: 16px; color: inherit; }
+.bonus-de { display: inline-flex; align-items: center; gap: 8px; min-width: 0; font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 1.1rem; line-height: 1.15; }
+.bonus-de .av { flex: none; font-size: 1.4rem; font-style: normal; }
+.bonus-titre { margin: 0; font-family: var(--serif); font-size: 1.45rem; line-height: 1.15; text-wrap: balance; }
+.bonus-rappel { margin: 0; font-family: var(--serif); font-size: 1.15rem; line-height: 1.25; }
+.bonus-carte p { margin: 0; }
+.bonus-carte .btn .plume-icone { width: 20px; height: 20px; }
+.bonus-verdict { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.bonus-verdict .icon { flex: none; color: var(--accent-text); }
+.bonus-salle { color: var(--accent-text); font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
+/* Sous « Jouer », la question d'un joueur se dit avant la première question. */
+.bonus-annonce { display: flex; align-items: flex-start; gap: 10px; margin: 4px 0 0; padding-top: 12px; border-top: 1px dashed var(--edge-strong); font-size: 0.92rem; line-height: 1.35; }
+.bonus-annonce .plume-icone { width: 22px; height: 22px; }
+/* Son écran : la question dans le parchemin, ses réponses dessous, à leurs formes. */
+.bonus-question { gap: 14px; }
+.bonus-carte-question .quiz-question { margin: 0; }
+.bonus-carte-question .quiz-categorie { align-self: flex-start; }
+.bonus-score .big { font-variant-numeric: lining-nums tabular-nums; }
+.bonus-invitation .btn-ghost { margin-top: -4px; }
+.bonus-pied { gap: 10px; padding-bottom: 14px; }
+/* Le pouce : deux grands boutons ronds, sous le doigt, le choisi en or. */
+.bonus-pouce { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding-top: 10px; border-top: 1px solid var(--edge); }
+/* Le texte se plie dans sa case : « Merci : Camille le lira demain », plus long que la question, poussait les pouces à la
+   ligne, sous le doigt qui venait de voter. */
+.bonus-pouce-question { flex: 1 1 140px; min-width: 0; font-family: var(--serif); font-size: 1.1rem; font-style: italic; }
+.bonus-pouce-boutons { display: inline-flex; gap: 10px; }
+.bonus-pouce-btn { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; padding: 0; border: 1px solid var(--edge-strong); border-radius: 50%; background: var(--bg-raised); font-size: 1.35rem; cursor: pointer; }
+.bonus-pouce-btn[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 2px var(--accent); }
+.bonus-pouce-btn:disabled { cursor: progress; }
+/* Au bout de la correction, dans le même papier ; son filet garde le verdict, comme les dix. */
+.bonus-corrige .corrige { background: var(--bg-raised); background: linear-gradient(165deg, color-mix(in srgb, var(--accent) 14%, var(--bg-raised)), var(--bg-raised) 70%); }
 
 /* ── Signaler : la question elle-même, à toucher ─────────────────────────
    La feuille est la question telle qu'on vient de la jouer
@@ -15303,6 +15364,9 @@ button.qg-route:hover .qg-route-chemin { text-decoration: underline; }
 .qg-drapeau .icon { width: 13px; height: 13px; }
 .qg-question-detail { display: flex; flex-direction: column; gap: 10px; margin: 0 0 12px 2rem; padding: 12px; border: 1px solid var(--edge); border-radius: var(--radius-xs); }
 .qg-question-detail p { margin: 0; }
+/* La question bonus, sous les dix : la question du public, à part de leur part de bonnes réponses. */
+.qg-bonus { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; padding: 12px; border: 1px dashed var(--edge-strong); border-radius: var(--radius-xs); }
+.qg-bonus p { margin: 0; }
 /* Le classement du mois : la place, l'avatar, le prénom, les points, puis « Masquer ». */
 .qg-rang { display: grid; grid-template-columns: 1.5rem 36px minmax(0, 1fr) auto; grid-template-areas: 'place avatar nom points' 'place avatar geste geste'; align-items: center; gap: 4px 10px; padding: 8px 0; }
 .qg-rang-place { grid-area: place; color: var(--muted); text-align: right; }
