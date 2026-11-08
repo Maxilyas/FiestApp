@@ -88,6 +88,25 @@ gelait 1,5 à 2,3 s : on attend de l'ordre de 0,2 à 0,3 s.
   requêtes isolées après plus d'une minute de calme, et les rafales du soir
   au-delà de ce que l'entretien garde.
 
+## Le soir : ce que la version du jour a changé
+
+Le point programmé de 18 h 40 (le bilan relu sur les sept heures de `b109781`, mise
+en ligne à 11 h 40, avant midi comme convenu) :
+
+- **La mesure des difficultés** ne s'est plus relue en route, et aucune erreur
+  serveur ; la patience tient (313 attentes, 30 lassées).
+- **La page des sentiers gelait encore** : cinq gels de 0,9 à 1,9 s, tous pendant
+  « campagne · force sur les sentiers ». La force gardée ne servait qu'à qui
+  revenait sur la page sans avoir joué ; or le chemin d'un joueur des sentiers est
+  la page, une épreuve, la page : chaque réponse la faisait refaire en entier. Le
+  banc enchaînait huit visites sans jouer — le mauvais scénario, et l'annonce de
+  « 0,2 à 0,3 s » ne tenait pas. Corrigé pour de bon le 8 novembre, sur un banc
+  qui rejoue le vrai chemin (`../2026-11-08/stabilite-des-joueurs.md`).
+- **Le premier départ du Cabinet** d'après la mise en ligne a attendu 6,5 s
+  (12 h 59) : ses tas ne se préparaient qu'à la première visite de sa page.
+- **La routine du matin** tournait encore sous l'ancienne version ce jour-là ; son
+  premier matin sous la nouvelle est celui du 7.
+
 ## Le relancer
 
 ```bash

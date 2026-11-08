@@ -399,6 +399,13 @@ class Dossier {
   vuesDuCabinet: Map<string, number> | null = null
   /** Ses réponses lues jusqu'ici (`versionDe`) : ce qui se tire de ses réponses ne change qu'avec elles. */
   lues = 0
+  /**
+   * Ses premières réponses changées en place (`retouchesDe`) : une réponse
+   * plus ancienne lue après une plus récente à la même question. Ce qui tient
+   * ses premières de proche en proche (`lirePremieres`) se relit alors en
+   * entier.
+   */
+  retouches = 0
 }
 
 /** Un joueur sans une réponse n'a rien vu : la même carte vide pour tous, que personne ne change. */
@@ -546,7 +553,10 @@ export class JournalDesReponses {
     if (!p) d.paires.set(r.question, (p = { le: r.le, premiere: code, premiereHorsRevision: Infinity }))
     else {
       if (r.le > p.le) p.le = r.le
-      if (code < p.premiere) p.premiere = code
+      if (code < p.premiere) {
+        p.premiere = code
+        d.retouches++
+      }
     }
     // Sa carte du Cabinet, si elle est déjà lue, suit : relue de zéro, elle coûtait la moitié d'une entrée d'épreuve.
     if (d.vuesDuCabinet) voirAuCabinet(d.vuesDuCabinet, r)
@@ -762,6 +772,40 @@ export class JournalDesReponses {
    */
   versionDe(qui: string): number {
     return this.dossiers.get(qui)?.lues ?? 0
+  }
+
+  /**
+   * Combien de ses premières réponses ont changé en place : une réponse plus
+   * ancienne lue après une plus récente à la même question — une réponse
+   * écrite à la main, une horloge qui recule. Ce qui tient ses premières de
+   * proche en proche (`lirePremieres`) se relit alors en entier.
+   */
+  retouchesDe(qui: string): number {
+    return this.dossiers.get(qui)?.retouches ?? 0
+  }
+
+  /**
+   * Ses premières réponses aux questions qu'il a vues après les `deja`
+   * premières, une à une (`chacune`), dans l'ordre de `premieresDe`, et
+   * combien de questions il a vues en tout : la page des sentiers tient sa
+   * force à jour de ses seules réponses nouvelles (`core/forceTenue.ts`) — les
+   * relire toutes, en tables neuves, à chaque retour d'une épreuve gelait la
+   * production (`retours/2026-11-08/`). Une question vue ne change jamais de
+   * place ; sa première, seulement par une réponse plus ancienne lue après
+   * (`retouchesDe`). Rien ne s'alloue par question. Une première qui n'était
+   * pas nue — un joker l'a aidée, une autre forme l'a posée — ne dit rien de
+   * son savoir, et aucune d'après ne la remplace : il avait vu la correction.
+   */
+  lirePremieres(qui: string, deja: number, chacune: (question: string, le: number, juste: boolean) => void): number {
+    const d = this.dossiers.get(qui)
+    if (!d) return 0
+    let i = 0
+    d.paires.forEach((p, question) => {
+      if (i++ < deja) return
+      const juste = premiereReponse(p.premiere)
+      if (juste !== null) chacune(question, Math.floor(p.premiere / 4), juste === 1)
+    })
+    return d.paires.size
   }
 
   /** Ses premières réponses, chacune avec son instant, sauf aidées : sa chance sur les sentiers (`forceSurLesSentiers`). */

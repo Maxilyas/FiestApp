@@ -185,6 +185,41 @@ test('au réveil, la campagne prépare ses tirages et son modèle une étape lou
   }
 })
 
+test('au réveil, le préchauffage passe une étape après l’autre : le journal d’abord, puis la base, les bordures, les sujets et les tirages, les tas du Cabinet, le modèle', async () => {
+  // Lancées ensemble, ses étapes se partageaient le dixième de cœur de l'hébergeur avec la page qui attendait le journal :
+  // le 6 novembre 2026 à 6 h 52, un accueil a attendu 27,8 s ; le 7 à 0 h 29, 29,3 s (`retours/2026-11-08/`).
+  const { campagne, fermer } = magasinObserve()
+  try {
+    await campagne.init()
+    const prive = campagne as unknown as Record<string, (...a: unknown[]) => unknown> & { journal: { charge: boolean } }
+    const ordre: string[] = []
+    let journalLuAvantLaBase: boolean | null = null
+    for (const nom of ['chargerLeJournal', 'base', 'toutesLesCotes', 'preparerEnFond', 'modeleDuSavoir']) {
+      const avant = prive[nom].bind(campagne)
+      prive[nom] = (...a: unknown[]) => {
+        if (!ordre.includes(nom)) {
+          ordre.push(nom)
+          if (nom === 'base') journalLuAvantLaBase = prive.journal.charge
+        }
+        return avant(...a)
+      }
+    }
+    // Les tas du Cabinet, que `server.ts` branche ici ; une étape ratée n'arrête pas les suivantes.
+    campagne.baseRenouvelee = async () => {
+      ordre.push('tas du Cabinet')
+      throw new Error('les tas ne se préparent pas')
+    }
+    const prechauffage = campagne.prechauffer()
+    assert.equal(campagne.prechauffer(), prechauffage, 'une fois par processus : appelé encore, la même promesse')
+    await prechauffage
+    assert.deepEqual(ordre, ['chargerLeJournal', 'base', 'toutesLesCotes', 'preparerEnFond', 'tas du Cabinet', 'modeleDuSavoir'])
+    assert.equal(journalLuAvantLaBase, true, 'la base attend que le journal soit lu')
+    await quand(() => campagne.santeDuSavoir().ajusteLe !== null, 'le modèle du savoir s’ajuste en fond, au bout')
+  } finally {
+    fermer()
+  }
+})
+
 // Le modèle du savoir refait en fond prenait le dixième de cœur de
 // l'hébergeur à la salle — 28,5 s au démarrage du 2 novembre 2026 : tant
 // qu'une question attend ses réponses, il ne commence ni ne reprend.

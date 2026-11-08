@@ -233,9 +233,13 @@ paths:
   changerait pour tous ceux qui suivent, et `vuesDe` rend toujours une
   carte neuve, que le duel complète des vues de l'adversaire ; depuis le
   6 novembre 2026, `versionDe`, combien de ses réponses le journal a lues —
-  ce qui se tire de ses réponses ne change qu'avec elles : la page des
-  sentiers y garde sa force d'une visite à l'autre, règle `sentiers.md` ;
-  relu de zéro, le journal retrouve le même nombre) : une dérivation de plus s'y écrit, et se compare
+  ce qui se tire de ses réponses ne change qu'avec elles ; relu de zéro, le
+  journal retrouve le même nombre ; depuis le 8 novembre 2026,
+  `lirePremieres`, ses premières réponses aux questions vues après les
+  `deja` premières, une à une, sans rien allouer, et `retouchesDe`, celles
+  qui ont changé en place — une réponse plus ancienne lue en retard : la page
+  des sentiers tient sa force à jour de ses seules réponses nouvelles, règle
+  `sentiers.md`, et relit tout quand une première d'avant change) : une dérivation de plus s'y écrit, et se compare
   au SQL d'avant dans `journal-des-reponses.test.ts`, sur une base au hasard
   — sans SQL d'avant, comme les leurres, écrit dans le test à part. Les
   leurres lisent la mauvaise réponse en texte, telle que sa série l'a posée
@@ -327,10 +331,12 @@ paths:
   `recompenserLExpedition`, où passe toute fin, écrite : en mémoire, sous le
   verrou du profil, pour la seule ligne « Ton expédition t'attend » de sa
   page ; ce qui y tombe se dit au journal sans faire tomber le geste), et la
-  base qui vient de prendre les dépôts de la routine du matin
-  (`baseRenouvelee`, appelé par `publier` : le Cabinet refait ses tas en
-  fond, avant que son premier départ ne les attende — 8,3 s le 5 novembre
-  2026). Rien ne s'en rapporte : la fin d'une expédition qui rapportait ses œuvres est
+  base prête — à la fin du préchauffage du réveil, et quand elle vient de
+  prendre les dépôts de la routine du matin (`baseRenouvelee`, appelé par
+  `prechauffer` et `publier` : le Cabinet prépare ses tas en fond,
+  `CabinetStore.preparerSesTas`, avant que son premier départ ne les
+  attende — 8,3 s le 5 novembre 2026, 6,5 s le 6 au premier départ d'après
+  une mise en ligne). Rien ne s'en rapporte : la fin d'une expédition qui rapportait ses œuvres est
   partie avec la migration (abandonnée le 25 octobre 2026, `decisions.md`) —
   n'y remets ni lecture ni écriture. Le
   rituel d'une réponse y tient en une fonction (`ecrireDesReponses`), dans
@@ -440,6 +446,20 @@ paths:
   personne. Chaque travail de fond se nomme pour les gels (« fond · modèle du
   savoir », `enFond`, `suivre` — en pause, il n'est d'aucun gel :
   `core/gels.ts`, règle `exploitation.md`) ; un travail de fond neuf aussi.
+- **Le réveil passe une étape après l'autre** (`prechauffer`,
+  `lUneApresLAutre`, le 8 novembre 2026) : le journal des réponses d'abord —
+  l'accueil et les missions l'attendent —, puis la base, les bordures de
+  ligue, les sujets et les tirages, les tas du Cabinet (`baseRenouvelee`), et
+  le modèle du savoir, lancé au bout sans être attendu. Lancés de front, ils se
+  partageaient le dixième de cœur avec la page qui attendait le journal : les
+  gels du réveil de la production nommaient la base, le modèle et les tirages
+  sous l'accueil qui attendait 27,8 s (le 6 novembre 2026 à 6 h 52), 29,3 s (le
+  7 à 0 h 29). Chaque étape ratée se dit et laisse passer la suivante ; ce
+  qu'une requête demande entre-temps se fait pour elle, comme avant — le
+  préchauffage n'ordonne que le fond. La publication des dépôts de la routine
+  passe de même (`publier`). Une étape de plus du réveil y prend sa place,
+  jamais un `enFond` de front ; `travail-de-fond.test.ts` en lit l'ordre. Le
+  banc du réveil : `retours/2026-11-08/reproductions/reveil-au-dixieme.ts`.
 - **L'en-tête d'une partie passe à la ligne au téléphone** : en 360 de
   large, à côté des cœurs, « Contre Automate · question 1 » laissait le
   « 1 » seul sur sa seconde ligne (contre Tom, il tenait sur une). « question
