@@ -1,5 +1,6 @@
 import { sujetsDeLaQuestion, type CampagneStore } from './core/campagne'
-import { composerUnQuiz, dejaDansLEspace, idDeLaBase, lireChoixDuQuiz, NOMBRE_MIN, titreDuQuizToutPret, uneAutreQuestion } from './core/quizToutPret'
+import { composerUnQuizEnTranches, dejaDansLEspace, idDeLaBase, lireChoixDuQuiz, NOMBRE_MIN, titreDuQuizToutPret, uneAutreQuestion } from './core/quizToutPret'
+import { enTranches } from './core/tourniquet'
 import { dernieresFois } from './core/memoire'
 import { mountBaseDeLaCampagne, mountCampagne, mountCampagneAdmin } from './campagne'
 import { expeditionOuverte, mountExpedition } from './expedition'
@@ -632,9 +633,11 @@ export function mountApi(app: Express, deps: ApiDeps) {
   }
 
   /** Le tirage d'un choix dans ce que l'espace n'a pas encore — celui que « Composer » range, celui que l'aperçu compte. */
+  // En tranches, une par tour de boucle : d'une traite, chaque aperçu de la feuille passait toute la base (le 7 novembre
+  // 2026, un gel de 2,8 s en production).
   const tirerPourLEspace = async (spaceId: string, choix: ChoixDuQuiz) => {
     const { questions, mesures, bibliotheque, deja } = await contexteDeLEspace(spaceId)
-    return { bibliotheque, tirees: composerUnQuiz(questions, sujetsDeLaQuestion, mesures, choix, deja) }
+    return { bibliotheque, tirees: await enTranches(composerUnQuizEnTranches(questions, sujetsDeLaQuestion, mesures, choix, deja)) }
   }
 
   // « Une autre », dans l'éditeur : la voisine d'une question tirée de la

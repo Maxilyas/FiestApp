@@ -220,6 +220,70 @@ test('au réveil, le préchauffage passe une étape après l’autre : le journa
   }
 })
 
+test('une correction du QG refait en fond la base, ses sujets et ses tirages, puis les tas du Cabinet — trois de suite ne les refont pas trois fois', async () => {
+  // Refaits à la demande, ils tombaient sous le joueur qui suivait : le décompte des sujets de la page de la campagne d'une
+  // traite, les tas du Cabinet sous une traversée en cours — le 6 novembre 2026 à 20 h 10, trois corrections au QG, deux
+  // gels de 2,1 et 1,8 s (`retours/2026-11-08/reproductions/correction-au-qg.ts`).
+  const { campagne, fermer } = magasinObserve()
+  try {
+    await campagne.init()
+    await campagne.prechauffer()
+    const prive = campagne as unknown as Prive & { choixGardes: WeakMap<object, unknown>; preparerEnFond(): Promise<void>; renouvellement: object | null }
+    const etapes: string[] = []
+    const preparerEnFond = prive.preparerEnFond.bind(campagne)
+    prive.preparerEnFond = () => (etapes.push('sujets et tirages'), preparerEnFond())
+    // Les tas du Cabinet, que `server.ts` branche ici — retenus à la demande, le temps que d'autres corrections arrivent.
+    let retenir = false
+    let lacher = () => {}
+    campagne.baseRenouvelee = async () => {
+      etapes.push('tas du Cabinet')
+      if (retenir) await new Promise<void>(r => (lacher = r))
+    }
+    const fini = () => etapes.at(-1) === 'tas du Cabinet' && prive.renouvellement === null
+    const [q, r, s] = (await prive.jouables()).slice(0, 3)
+    const corriger = (x: QuestionDeLaBase) => campagne.corriger(x.id, { texte: x.texte, reponses: [...x.reponses], bonne: x.bonne, anecdote: `${x.anecdote ?? ''} Corrigée au QG.` })
+    await corriger(q)
+    await quand(fini, 'les tas du Cabinet refaits en fond, au bout')
+    assert.deepEqual(etapes, ['sujets et tirages', 'tas du Cabinet'])
+    const jouables = await prive.jouables()
+    assert.equal(jouables.find(x => x.id === q.id)?.anecdote, `${q.anecdote ?? ''} Corrigée au QG.`, 'la correction se joue')
+    assert.ok(prive.choixGardes.has(jouables), 'la page qui suit trouve ses sujets comptés')
+    // Une correction, puis une autre et un retrait pendant qu'elle se renouvelle : une repasse au bout, pour les deux.
+    etapes.length = 0
+    retenir = true
+    await corriger(r)
+    await quand(() => etapes.includes('tas du Cabinet'), 'le renouvellement en est aux tas du Cabinet')
+    retenir = false
+    await corriger(s)
+    await campagne.retirer(q.id)
+    lacher()
+    await quand(fini, 'le renouvellement repasse une fois, au bout')
+    assert.deepEqual(etapes, ['sujets et tirages', 'tas du Cabinet', 'sujets et tirages', 'tas du Cabinet'])
+    assert.ok(prive.choixGardes.has(await prive.jouables()), 'sur la dernière liste : sans la question retirée')
+    assert.ok(!(await prive.jouables()).some(x => x.id === q.id))
+  } finally {
+    fermer()
+  }
+})
+
+test('la commande du jour de la routine bâtit en fond l’index des faits de la base : son premier dépôt ne le bâtit plus sous lui', async () => {
+  // Bâti au premier dépôt, il faisait attendre la routine 9,1 s au premier dépôt d'un réveil (le 7 novembre 2026,
+  // `retours/2026-11-08/`) ; elle demande toujours sa commande d'abord, et écrit ses questions des minutes durant.
+  const { campagne, fermer } = magasinObserve()
+  try {
+    await campagne.init()
+    const prive = campagne as unknown as { faits: Promise<unknown> | null }
+    assert.equal(prive.faits, null)
+    const commande = await campagne.commandeDuJour()
+    assert.ok(commande.aEcrire > 0, 'la routine a de quoi écrire')
+    assert.ok(prive.faits, 'lancé dès la commande, sans l’attendre')
+    await prive.faits
+    assert.ok(ceQuiTournait(0, performance.now()).some(c => c.quoi === 'fond · faits de la base'), 'nommé pour la sonde des gels')
+  } finally {
+    fermer()
+  }
+})
+
 // Le modèle du savoir refait en fond prenait le dixième de cœur de
 // l'hébergeur à la salle — 28,5 s au démarrage du 2 novembre 2026 : tant
 // qu'une question attend ses réponses, il ne commence ni ne reprend.

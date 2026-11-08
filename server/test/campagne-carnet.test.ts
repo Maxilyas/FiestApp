@@ -7,6 +7,9 @@
 // court n'y entre qu'à sa clôture — il soufflerait ses réponses.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import Database from 'better-sqlite3'
 import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { CATEGORIES } from '../../shared/categories'
@@ -14,7 +17,8 @@ import { DUREE_D_UN_DUEL_MS, VIES, xpDeLaBonneReponse } from '../../shared/campa
 import { INTERVALLES_DE_REVISION, QUESTIONS_PAR_REVISION, TOUT_LE_CARNET, partVisee, suiteDeLaRevision, suiviDeLaQuestion } from '../../shared/revision'
 import { rubriqueDe, sujetsDe } from '../../shared/sujets'
 import { ProfileStore } from '../src/auth/profiles'
-import { MESURES_GARDEES_MS } from '../src/core/campagne'
+import { BaseDeLaCampagne } from '../src/core/baseCampagne'
+import { CampagneStore, MESURES_GARDEES_MS } from '../src/core/campagne'
 
 ProfileStore.tirageEclat = () => false
 
@@ -445,5 +449,38 @@ test('le défi de la semaine et un défi entre amis n’entrent au carnet qu’�
     assert.equal((await compte(banc, lea)).aRevoir, new Set([...dansLeDefi, ...dansLeDuel]).size)
   } finally {
     await banc.close()
+  }
+})
+
+test('le carnet, ses faits appris et une révision ne refont pas la table des questions à chaque lecture : elle se garde avec les jouables', async () => {
+  // Refaite à chaque carnet — vingt-sept mille questions, à chaque ouverture de la campagne et à chaque passage sur
+  // « Apprendre » —, elle en coûtait les trois quarts du processeur, 364 ms au dixième de cœur au lieu de 106 (le banc du
+  // 8 novembre 2026, `retours/2026-11-08/reproductions/campagne-a-l-ouverture.ts`). Chaque question dit combien de fois
+  // on lit son identifiant : la table ne se fait qu'une fois par liste de jouables.
+  let lus = 0
+  const base = new BaseDeLaCampagne(
+    BASE.questions.map(q => {
+      const copie = { ...q }
+      Object.defineProperty(copie, 'id', { enumerable: true, get: () => (lus++, q.id) })
+      return copie
+    }),
+  )
+  const dir = mkdtempSync(path.join(tmpdir(), 'quizz-carnet-'))
+  const campagne = new CampagneStore(`file:${path.join(dir, 'permanente.db').replace(/\\/g, '/')}`, undefined, { base, maintenant: () => DEBUT })
+  const uneLecture = async () => {
+    await campagne.carnet('lea')
+    await campagne.faitsAppris('lea')
+    await assert.rejects(campagne.commencerRevision('lea'), /Ton carnet est vide/)
+  }
+  try {
+    await campagne.init()
+    // La première fait la table, et la mesure des difficultés, qui passe une fois sur toute la base.
+    await uneLecture()
+    lus = 0
+    for (let i = 0; i < 3; i++) await uneLecture()
+    assert.equal(lus, 0)
+  } finally {
+    campagne.close()
+    rmSync(dir, { recursive: true, force: true })
   }
 })

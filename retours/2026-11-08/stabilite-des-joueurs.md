@@ -145,6 +145,133 @@ disait 27 s pour l'accueil : sous la bride, le profileur gonfle tout.
    tout prêt** (2,8 s de gel), **le premier dépôt de la routine** d'un réveil
    (9,1 s : la routine attend, et un gel de 0,8 s).
 
+## La suite, le même jour : ce qui restait
+
+Le propriétaire, la PR #372 fusionnée : « Merge une fois ci verte et attaque
+toi au reste. »
+
+**En bref** : le carnet ne refait plus la table des vingt-sept mille questions
+à chaque lecture — l'ouverture de la campagne passe de 364 à 106 ms au dixième
+de cœur, sans gel. Une correction du QG renouvelle la base en fond, ses sujets,
+ses tirages et les tas du Cabinet derrière elle : le joueur qui suit ne les
+refait plus sous lui. Au réveil, l'accueil et les missions n'attendent plus le
+journal des réponses : au banc du réveil, le premier accueil passe de 16,8 à
+8,7 s, les missions de leur borne de quinze secondes — et de deux 500 sur six —
+à 6,9. La composition d'un
+quiz tout prêt se fait en tranches, et l'index des faits de la routine se bâtit
+dès sa commande du jour.
+
+### L'ouverture de la campagne
+
+`reproductions/campagne-a-l-ouverture.ts` : un joueur de 9 000 réponses et dix
+autres de 2 000, écrites dans l'ordre du temps, la base livrée, le modèle du
+savoir ajusté, le faux Turso dehors à 30 ms ; six fois, la page puis le compte
+du carnet (l'ouverture), le carnet et les parcours de front (« Apprendre »),
+une série. Sous le profileur, sur un vrai cœur : le carnet prenait 142 ms en
+propre sur douze lectures, dont les trois quarts à ranger toutes les jouables
+dans une table neuve — `carnetDe`, le journal, n'en prenait que 8. Le carnet,
+ses faits appris et une révision lisent désormais la table que leur liste
+garde (`parIdDe`) :
+
+| Au dixième de cœur, six fois | Avant | Après |
+|---|---|---|
+| L'ouverture : la page (médiane / pire) | 49 / 495 ms | 44 / 52 ms |
+| L'ouverture : le carnet | 364 / 406 ms | 106 / 303 ms |
+| « Apprendre » : le carnet, et les parcours de front | 298 / 596 ms | 164 / 200 ms, 102 / 297 ms |
+| Son processeur, le carnet (médiane) | 33 à 35 ms | 16 à 25 ms |
+| Gels de plus d'une demi-seconde | 1 (584 ms, sous une série) | 0 |
+
+`campagne-carnet.test.ts` compte les identifiants lus : zéro par lecture,
+1 296 avant pour trois tours sur la base d'essai.
+
+### Les corrections du QG
+
+La production, le 6 novembre à 20 h 10 : trois corrections, puis deux gels
+sous « fond · tas du Cabinet » (2,1 et 1,8 s, 328 et 275 ms de processeur, une
+centaine de ramasse-miettes chacun). Une correction ne faisait que changer la
+version de la base : la page suivante la refaisait, puis ses jouables, le
+décompte de ses sujets d'une traite (`choixDe`, 15 à 20 ms sur un vrai cœur) et
+les tas du Cabinet, sous le joueur qui passait. Désormais une correction, un
+reclassement ou un retrait renouvellent la base en fond
+(`renouvelerEnFond`, celui de la publication des dépôts de la routine) : ses
+jouables filtrées en tranches, ses sujets comptés et ses tirages préparés,
+puis les tas du Cabinet — un renouvellement à la fois, qui repasse une fois au
+bout pour ce qui a changé pendant. Les magasins seuls sur la base livrée
+(`reproductions/correction-au-qg.ts`), trois corrections au dixième de cœur, la
+page d'un joueur et le Cabinet cinq secondes après chacune :
+
+| Au dixième de cœur | Avant (`main`) | Après |
+|---|---|---|
+| La page de la campagne, cinq secondes après | 301, 500, 405 ms | 101, 1, 1 ms |
+| Le Cabinet qui attend ses tas | 1 101, 700, 495 ms | 0 |
+| Le plus long tour de boucle | 711, 304, 209 ms | 402, 197, 204 ms |
+
+« Ne refaire que la question corrigée » n'est pas fait : chaque dérivation de
+la base — les sujets, les tirages, les tas du Cabinet, la série de référence —
+se garde par liste de jouables, et une liste neuve les refait toutes. Le banc
+ne retrouve pas non plus l'ampleur des gels de la production : ses plus longs
+tours de fond restent sous la quinzaine de millisecondes sur un vrai cœur — les
+frises des sujets du Cabinet, d'une traite (9 à 12 ms), et la table de ses
+tableaux (8 ms) ; le reste, en production, est le ramasse-miettes d'un tas bien
+plus gros. D'ici là, corriger hors des heures de jeu reste le plus sûr.
+
+### Le premier accueil d'un réveil
+
+Sous le profileur, sur un vrai cœur, entre l'ouverture du serveur et la réponse
+des deux premiers accueils : 447 ms de processeur, dont les tranches du journal
+des réponses (136 ms à les appliquer, 80 à décoder leur texte) et 155 ms de
+ramasse-miettes. Or l'accueil ne lit du journal que deux choses du joueur : ses
+bonnes réponses, pour son solde, et son carnet — qui se relisait déjà dans la
+base tant que le journal se charge. Ses bonnes réponses se comptent désormais
+dans la base, au bout de son lot (`lireAuReveil`) ; les missions reprennent la
+lecture d'avant (`activiteDepuis`) ; le journal se charge en fond pendant ce
+temps. `journal-des-reponses.test.ts` retient le journal et vérifie que ce
+qu'ils lisent ainsi est ce qu'il dira chargé.
+
+`reproductions/reveil-au-dixieme.ts`, le paquet de la production à cinq
+millisecondes de processeur sur cent, 40 125 réponses ; le paquet d'avant,
+construit à part (`SERVEUR_DIR`), et celui-ci, trois passages chacun :
+
+| Le réveil au vingtième de cœur | Avant | Après |
+|---|---|---|
+| Les deux premiers accueils (médiane, et l'étendue) | 16,8 s (16,0 à 20,1) | 8,7 s (6,3 à 10,9) |
+| Leurs missions | 15 s, à leur borne : deux sur six en 500 | 6,9 s (5,7 à 7,3), aucune en 500 |
+| Le troisième téléphone, dix secondes après : l'accueil, les missions | 7,2 s, 5,5 s | 3,5 s, 3,6 s |
+
+Ce que le premier accueil attend encore : le reste du démarrage, la nuit du
+quiz du jour (`clorePasses`, trois allers-retours l'un après l'autre avant tout
+le reste), le journal des duels — et le dixième de cœur, que le journal qui se
+charge en fond partage avec lui. La production attend toujours davantage que le
+banc ; la mise en ligne le dira.
+
+### Le quiz tout prêt et la routine du matin
+
+**L'aperçu du quiz tout prêt** (un gel de 2,8 s le 7 novembre) composait le
+quiz d'une traite à chaque réglage de la feuille : une vingtaine de
+millisecondes sur un vrai cœur pour les vingt-sept mille questions — la passe
+sur la base (10 ms), le tour de rôle des catégories (4), le ramasse-miettes
+(4). Ses routes la mènent en tranches (`composerUnQuizEnTranches`), les mêmes
+questions au même hasard (`quiz-tout-pret.test.ts`). Retenir ce que vise chaque
+question en estimation, essayé d'abord, ne gagnait rien de mesurable : retiré.
+
+**Le premier dépôt de la routine** d'un réveil bâtissait l'index des faits de
+toute la base sous lui (9,1 s le 7 novembre). La commande du jour, que la
+routine demande avant d'écrire, le lance en fond (`indexDesFaits`, « fond ·
+faits de la base ») : son premier dépôt, des minutes plus tard, le trouve prêt.
+Ni l'un ni l'autre n'a son banc au dixième de cœur : la production le dira.
+
+### Ce qui reste, encore
+
+1. **Le premier accueil d'un réveil**, à mesurer en production ; puis la nuit
+   du quiz du jour d'un seul lot, et des tranches du journal plus légères à
+   décoder (le même texte pour chaque réponse : sa série, son mode, sa
+   catégorie se répètent).
+2. **Les gels sous les tas du Cabinet** après une correction : leurs frises
+   des sujets et la table de ses tableaux en tranches.
+3. **L'accueil et les missions** (32 % du temps du serveur) : leur part fixe —
+   la session, les allers-retours, leur décodage —, une vingtaine de
+   millisecondes de processeur par requête au banc.
+
 ## Le relancer
 
 ```bash
@@ -152,6 +279,8 @@ cd server && NODE_USE_ENV_PROXY=1 npx tsx scripts/bilan-de-la-production.ts 48
 cd server && GEL=1 SERIES=600 node --single-threaded-gc --no-memory-reducer --max-old-space-size=320 --import tsx ../retours/2026-11-08/reproductions/sentiers-le-vrai-chemin.ts 6
 cd server && npm run build && GEL=1 QUOTA=5000 CABINET_A=180 node --import tsx ../retours/2026-11-08/reproductions/reveil-au-dixieme.ts
 cd server && node --single-threaded-gc --max-old-space-size=320 --import tsx ../retours/2026-11-08/reproductions/journal-au-reveil.ts
+cd server && GEL=1 SERIES=600 node --single-threaded-gc --no-memory-reducer --max-old-space-size=320 --import tsx ../retours/2026-11-08/reproductions/campagne-a-l-ouverture.ts 6
+cd server && npm run build && GEL=1 node --single-threaded-gc --no-memory-reducer --max-old-space-size=320 --import tsx ../retours/2026-11-08/reproductions/correction-au-qg.ts 3
 ```
 
 `GEL=1` demande d'être root (`/sys/fs/cgroup/cpu/gel`), `PROFIL=1` le

@@ -604,10 +604,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Ses traversées gagnées, que L'Explorateur compte, lues dans le lot des paliers de la campagne — là seulement où il
   // s'ouvre : fermé, il n'en compte aucune, sans une lecture de plus, et rien ne tombe (`montreParLeServeur`).
   if (cabinetEstOuvert) campagne.statsEnPlus = cabinet.statsEnPlus
-  // La base prête — à la fin du préchauffage, et après les dépôts de la routine —, le Cabinet prépare ses tas en fond,
-  // avant que le premier départ ne les attende : le 5 novembre 2026, 8,3 s pour le premier de la matinée ; le 6, 6,5 s
-  // pour le premier d'après la mise en ligne (`retours/2026-11-08/`). Un crochet de plus de sa porte ; ses seuls tas, le
-  // préchauffage de la campagne qui l'appelle étant déjà parti.
+  // La base prête — à la fin du préchauffage, après les dépôts de la routine, après une correction, un reclassement ou un
+  // retrait du QG —, le Cabinet prépare ses tas en fond, avant que le premier départ ne les attende : le 5 novembre 2026,
+  // 8,3 s pour le premier de la matinée ; le 6, 6,5 s pour le premier d'après la mise en ligne, et deux gels sous une
+  // traversée après trois corrections du soir (`retours/2026-11-08/`). Un crochet de plus de sa porte ; ses seuls tas, la
+  // campagne qui l'appelle ayant déjà refait sa base.
   if (cabinetEstOuvert) campagne.baseRenouvelee = () => cabinet.preparerSesTas()
   // L'historique des soirées vit avec la bibliothèque : c'est l'autre chose
   // qui doit survivre à tout.
