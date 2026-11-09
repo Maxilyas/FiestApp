@@ -10,6 +10,9 @@
 //   criteres   un modèle logistique « force du joueur − difficulté de la question », la difficulté prédite par les
 //              critères de la base, jugé sur des questions qu'il n'a jamais vues (cinq plis) ; avec, en second
 //              argument, un cache de notoriété (entité → vues sur 60 jours, langues) pour l'ajouter aux critères
+//   vivier     (sans la production) le vivier du Filet vu par le moteur : sur 435 questions tirées au hasard parmi
+//              celles qu'il peut poser (`../maquette-filet/vivier-echantillon.json`), la part de chaque acte, par
+//              forme et par catégorie
 //
 // Jamais `QUIZ_DB_URL` : `PROD_LECTURE_URL` et `PROD_LECTURE_TOKEN`, un jeton en lecture seule.
 import fs from 'node:fs'
@@ -17,14 +20,36 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { lireLaBase } from '../../../server/src/core/baseCampagne.ts'
+import { valeurDuFilet } from '../../../server/src/core/cabinet/tirages/tas.ts'
 
 const ICI = path.dirname(fileURLToPath(import.meta.url))
 const require = createRequire(path.resolve(ICI, '../../../server/package.json'))
 const quoi = process.argv[2] ?? 'panel'
+const parId = new Map(((lireLaBase() as any).questions as any[]).map(q => [q.id, q]))
+
+if (quoi === 'vivier') {
+  const notes = new Map((JSON.parse(fs.readFileSync(path.resolve(ICI, '../maquette-filet/panel-ia.json'), 'utf8')) as any[]).map(n => [n.id, n]))
+  const tires = (JSON.parse(fs.readFileSync(path.resolve(ICI, '../maquette-filet/vivier-echantillon.json'), 'utf8')) as string[]).filter(id => notes.has(id) && parId.has(id))
+  const vivier = [...parId.values()].filter(q => !(q.meta.aRelire ?? []).length && valeurDuFilet(q))
+  const p = (ids: string[], f: (e: number) => boolean) => ids.filter(id => f(notes.get(id).estimation)).length / ids.length
+  const ACTES: [string, (e: number) => boolean][] = [['acte I (≥ 40 %)', e => e >= 40], ['acte II (25–39 %)', e => e >= 25 && e < 40], ['acte III (< 25 %)', e => e < 25]]
+  console.log(`${tires.length} questions tirées au hasard et notées, sur un vivier de ${vivier.length} questions du Filet`)
+  for (const [nom, f] of ACTES) console.log(`  ${nom.padEnd(18)} ${(100 * p(tires, f)).toFixed(0).padStart(3)} %  → environ ${Math.round(p(tires, f) * vivier.length)} questions`)
+  const annee = (id: string) => valeurDuFilet(parId.get(id))!.annee
+  for (const [nom, ids] of [['années', tires.filter(annee)], ['grandeurs', tires.filter(id => !annee(id))]] as const) {
+    console.log(`  ${nom.padEnd(10)} ${String(ids.length).padStart(3)} : ${ACTES.map(([n, f]) => `${n.split(' (')[0]} ${(100 * p(ids, f)).toFixed(0)} %`).join(', ')}`)
+  }
+  console.log('\ncatégorie              notées  acte I   → connaissables dans le vivier')
+  for (const c of [...new Set(vivier.map(q => q.meta.categorie))].sort()) {
+    const ids = tires.filter(id => parId.get(id).meta.categorie === c), n = vivier.filter(q => q.meta.categorie === c).length
+    console.log(`  ${c.padEnd(20)} ${String(ids.length).padStart(6)}  ${(100 * p(ids, e => e >= 40)).toFixed(0).padStart(4)} %   ~${Math.round(p(ids, e => e >= 40) * n)} sur ${n}`)
+  }
+  process.exit(0)
+}
+
 const url = process.env.PROD_LECTURE_URL, authToken = process.env.PROD_LECTURE_TOKEN
 if (!url || !authToken) throw new Error('PROD_LECTURE_URL et PROD_LECTURE_TOKEN, un jeton en lecture seule — jamais QUIZ_DB_URL')
 const db = require('@libsql/client').createClient({ url: url.replace(/^libsql:/, 'https:'), authToken })
-const parId = new Map(((lireLaBase() as any).questions as any[]).map(q => [q.id, q]))
 
 /** Les premières réponses de chaque joueur à chaque question de la base, hors Cabinet et révision. */
 async function premieres(): Promise<[number, string, number][]> {

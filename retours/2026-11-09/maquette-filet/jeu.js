@@ -404,7 +404,7 @@
         <div class="valeur-vise"><output class="valeur" id="valeur">${q.an ? m.x : nombre(m.x)}${!q.an && q.u ? ` <small>${echapper(q.u)}</small>` : ''}</output></div>
         <p class="couvre" id="couvre">Ton filet : de ${dire(q, Math.max(p.min, m.x - demi))} à ${dire(q, Math.min(p.max, m.x + demi))}</p>
         <div class="curseur"><button type="button" class="cran" data-cran="-1" aria-label="Un cran de moins">−</button>
-          <div class="piste"><div class="rail" id="anneaux">${zone}<span class="anneau anneau-2" style="left:${g.toFixed(2)}%;width:${(d - g).toFixed(2)}%"></span></div>
+          <div class="piste"><div class="rail" id="anneaux">${zone}<span class="anneau anneau-2" id="filet-bande" style="left:${g.toFixed(2)}%;width:${(d - g).toFixed(2)}%"></span></div>
             <input id="curseur" class="range" type="range" min="0" max="${Math.round(L / p.pas)}" step="1" value="${pos}" aria-label="${q.an ? 'L’année' : 'La valeur'}"></div>
           <button type="button" class="cran" data-cran="1" aria-label="Un cran de plus">+</button></div>
         <div class="bornes"><span>${dire(q, p.min)}</span><span>${dire(q, p.max)}</span></div>
@@ -425,8 +425,20 @@
       const r = document.getElementById('curseur')
       if (r) { r.value = positionDe(M, M.x); r.setAttribute('aria-valuetext', q.an ? String(M.x) : dire(q, M.x)) }
     } else {
-      afficherLaManche()
-      document.getElementById('curseur')?.focus({ preventScroll: true })
+      // Rien d'autre ne bouge que la valeur, le filet et ce qu'il couvre : redessiné en entier, l'écran lâchait le
+      // curseur au premier cran d'un glissé.
+      const p = M.p, L = p.max - p.min, demi = DEMI[M.taille] * L
+      v.innerHTML = `${q.an ? M.x : nombre(M.x)}${!q.an && q.u ? ` <small>${echapper(q.u)}</small>` : ''}`
+      const couvre = document.getElementById('couvre')
+      if (couvre) couvre.textContent = `Ton filet : de ${dire(q, Math.max(p.min, M.x - demi))} à ${dire(q, Math.min(p.max, M.x + demi))}`
+      const bande = document.getElementById('filet-bande')
+      if (bande) {
+        const g = Math.max(0, (100 * (M.x - demi - p.min)) / L), d = Math.min(100, (100 * (M.x + demi - p.min)) / L)
+        bande.style.left = `${g.toFixed(2)}%`
+        bande.style.width = `${(d - g).toFixed(2)}%`
+      }
+      const r = document.getElementById('curseur')
+      if (r && document.activeElement !== r) r.value = String(Math.round((M.x - p.min) / p.pas))
     }
   }
 
@@ -524,7 +536,15 @@
       <button type="button" class="lien retour" data-geste="accueil">← L’accueil</button>
       <p class="label">La production, du 1er au 8 novembre 2026</p>
       <h1>Ce que disent les ${P.lancers} lancers</h1>
-      <p>${P.lancers} lancers réels du Filet, ${P.joueurs} joueurs, rejugés sous chaque règle : le curseur posé dit ce que le joueur croyait, la règle dit ce que ça vaut. « Au hasard » : un joueur qui ne lit pas la question.</p>
+      <p>${fines(`${P.lancers} lancers réels du Filet, ${P.joueurs} joueurs, rejugés sous chaque règle : le curseur posé dit ce que le joueur croyait, la règle dit ce que ça vaut. « Au hasard » : un joueur qui ne lit pas la question.`)}</p>
+      <figure class="graphe" aria-label="Manches réussies et part attrapée au hasard, règle par règle">
+        <div class="graphe-legende"><span><i class="cle-barre"></i>Manches réussies</span><span><i class="cle-trait"></i>Au hasard, sans lire la question</span></div>
+        <div class="graphe-lignes">${P.regles.map(r => `<div class="graphe-ligne${r.fort ? ' fort' : ''}" tabindex="0" title="${echapper(r.nom)} : ${r.reussies} % de manches réussies, ${r.aveugle} % au hasard">
+          <span class="graphe-nom">${echapper(r.nom)}</span>
+          <div class="graphe-piste"><span class="graphe-barre" style="width:${r.reussies}%"></span><span class="graphe-hasard" style="left:${r.aveugle}%"></span></div>
+          <span class="graphe-val">${r.reussies} %</span></div>`).join('')}</div>
+        <div class="graphe-axe" aria-hidden="true"><span>0</span><span>25</span><span>50</span><span>75</span><span>100 %</span></div>
+      </figure>
       <div class="tableau"><table><thead><tr><th>Règle</th><th>Réussies</th><th>★ / manche</th><th>Au hasard</th><th>Le savoir (pts)</th></tr></thead><tbody>${lignes}</tbody></table></div>
       <h2>Pourquoi le Filet d’aujourd’hui se joue au hasard</h2>
       <ul>${P.pourquoi.map(p => `<li>${fines(p)}</li>`).join('')}</ul>
@@ -604,6 +624,15 @@
   })
   app.addEventListener('input', ev => {
     if (ev.target.id === 'curseur') bouger(Number(ev.target.value))
+  })
+  // Le doigt pose le curseur là où il touche la piste. Sur l'iPhone, un curseur ne se déplace qu'en saisissant sa
+  // poignée — et tant que le curseur n'est pas posé, sa poignée est cachée : sans ceci, la piste ne répondait pas.
+  app.addEventListener('pointerdown', ev => {
+    const r = ev.target
+    if (r.id !== 'curseur' || !M || M.fin) return
+    const boite = r.getBoundingClientRect()
+    const part = Math.max(0, Math.min(1, (ev.clientX - boite.left) / boite.width))
+    bouger(Math.round(part * Number(r.max)))
   })
   app.addEventListener('change', ev => {
     const r = ev.target.dataset?.reglage

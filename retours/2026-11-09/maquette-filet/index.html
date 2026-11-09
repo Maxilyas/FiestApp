@@ -269,8 +269,9 @@ button { font: inherit; color: inherit; }
 .coulisses dd { margin: 0; display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
 
 /* ── Les pages d'explication ─────────────────────────────────────────── */
-.page h1 { font-family: var(--serif); font-size: 2.1rem; line-height: 1.05; }
-.page h2 { font-family: var(--serif); font-size: 1.45rem; line-height: 1.1; margin-top: 6px; }
+.page h1 { font-family: var(--serif); font-size: 2.1rem; line-height: 1.05; font-variant-numeric: lining-nums; }
+.page h2 { font-family: var(--serif); font-size: 1.45rem; line-height: 1.1; margin-top: 6px; font-variant-numeric: lining-nums; }
+.question, .verdict .grand, .acte-btn b, .tete-g b { font-variant-numeric: lining-nums; }
 .page p, .page li { max-width: 65ch; }
 .page ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
 .tableau { overflow-x: auto; }
@@ -280,6 +281,23 @@ button { font: inherit; color: inherit; }
 .tableau thead th { color: var(--muted); font-weight: 600; font-size: 0.8125rem; }
 .tableau tr.fort td { color: var(--accent-text); font-weight: 700; }
 .retour { align-self: flex-start; }
+
+/* Le graphique des règles : une barre (les manches réussies), un trait (ce que le hasard attrape), une échelle. */
+.graphe { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.graphe-legende { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--muted); font-size: 0.875rem; }
+.graphe-legende span { display: inline-flex; align-items: center; gap: 6px; }
+.cle-barre { display: inline-block; width: 18px; height: 10px; border-radius: 0 4px 4px 0; background: var(--accent); }
+.cle-trait { display: inline-block; width: 3px; height: 16px; border-radius: 2px; background: var(--ink); }
+.graphe-lignes { display: grid; gap: 12px; }
+.graphe-ligne { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; border-radius: 8px; padding: 2px 4px; }
+.graphe-ligne:hover, .graphe-ligne:focus-visible { background: var(--surface-strong); }
+.graphe-nom { grid-column: 1 / -1; font-size: 0.875rem; }
+.graphe-ligne.fort .graphe-nom { color: var(--accent-text); font-weight: 700; }
+.graphe-piste { position: relative; height: 22px; background-image: linear-gradient(90deg, var(--track) 1px, transparent 1px); background-size: 25% 100%; background-position: -1px 0; border-left: 1px solid var(--track); }
+.graphe-barre { position: absolute; left: 0; top: 5px; height: 12px; border-radius: 0 4px 4px 0; background: var(--accent); }
+.graphe-hasard { position: absolute; top: 0; width: 3px; height: 22px; margin-left: -1.5px; border-radius: 2px; background: var(--ink); box-shadow: 0 0 0 2px var(--bg); }
+.graphe-val { font-variant-numeric: lining-nums tabular-nums; font-weight: 700; font-size: 0.9375rem; min-width: 3.2em; text-align: right; }
+.graphe-axe { display: flex; justify-content: space-between; color: var(--muted); font-size: 0.75rem; font-variant-numeric: lining-nums tabular-nums; margin-right: calc(3.2em + 10px); }
 
 @media (prefers-reduced-motion: reduce) { .apparait { animation: none; } }
 @media (min-width: 720px) { .question { font-size: 1.7rem; } }

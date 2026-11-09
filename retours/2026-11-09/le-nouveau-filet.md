@@ -65,9 +65,9 @@ En lecture seule, du 1er au 8 novembre 2026 (`reproductions/filet-en-production.
 169 lancers du Filet, 162 questions distinctes, 9 joueurs.
 
 - **Le choix du filet** : petit 16 fois, moyen 64, grand 89.
-  - Le moyen ou le petit, pris 80 fois sur 169, coûtent la manche bien plus
-    souvent qu'ils ne rapportent leur étoile de plus.
-  - Le grand filet réussit 56 % des manches là où le joueur l'a posé.
+  - Les joueurs réussissent 43 % de leurs manches.
+  - Le grand filet, posé au même endroit, en aurait réussi 56 % : le pari sur
+    un filet plus petit leur coûte des manches.
 - **Il savait, ou il tirait au sort.** Part des curseurs selon leur écart à
   la valeur, en part de la piste :
 
@@ -100,13 +100,15 @@ En lecture seule, du 1er au 8 novembre 2026 (`reproductions/filet-en-production.
 
 ## 2. Ce qui se fait ailleurs
 
-Une recherche sur les jeux d'estimation, les aides des jeux de quiz et la
-difficulté adaptative (les sources sont celles d'un agent de recherche ; les
-chiffres non vérifiés à la source sont signalés comme tels) :
+Une recherche en ligne sur les jeux d'estimation, les aides des jeux de quiz
+et la difficulté adaptative. Elle s'appuie sur les résumés d'un moteur de
+recherche : les pages elles-mêmes n'étaient pas joignables d'ici. Ce sont des
+ordres de grandeur et des mécaniques, pas des citations.
 
 - **Personne n'est en tout-ou-rien.**
   - GeoGuessr paie la distance : 5 000 × e^(−10 d / D), où D est la taille
-    de la carte.
+    de la carte (une formule retrouvée par les joueurs, que GeoGuessr ne
+    publie pas).
   - Les jeux de dates retirent quelques points par année d'écart
     (whentaken : −1 par an les cinq premières, −2 les cinq suivantes…).
   - Kahoot propose une marge réglable sur son curseur ; Wavelength a des
@@ -177,8 +179,8 @@ bonne.
 - **Une grandeur.**
   - Quatre ordres de grandeur bornés par la suite 1, 3, 10, 30, 100… : de
     1 000 à 3 000, de 3 000 à 10 000.
-  - Ceux de la réponse : la plus haute borne qui ne la dépasse pas ; sa place
-    parmi les quatre est tirée au hasard.
+  - L'ordre de grandeur de la réponse commence à la plus haute borne qui ne
+    la dépasse pas ; sa place parmi les quatre est tirée au hasard.
   - La piste d'un ordre de grandeur est logarithmique : on pense en rapports,
     pas en unités.
   - Des tranches centrées sur des nombres ronds (≈ 100) mettaient au milieu
@@ -247,8 +249,8 @@ compte enfin.
   elle vaut au plus ★★ ; avec les deux, ★.
   - Une manche aidée peut encore réussir et sauver son cœur ; elle frappe
     simplement moins fort le gardien et rapporte moins d'or.
-  - Un prix en étoiles plutôt qu'en or : l'or a déjà son marchand, et une
-    cinquième notion n'entre pas dans la traversée.
+  - Un prix en étoiles, pas en or : il se paie dans la manche même, sans un
+    geste de plus, et l'or garde son seul usage, le marchand.
 - **La carte Coup d'œil offre la première aide de chaque épreuve** :
   - elle remplace Éclairer au Filet, dont la zone dorée ne servait à
     personne ;
@@ -398,7 +400,33 @@ par question et jeu par jeu.
 - **Pour les autres jeux** : le Pari (64 % de manches à zéro étoile), les
   Indices, l'Épingle. La même mécanique, sur leur propre note.
 
-### 4.5 Le mettre en service
+### 4.5 Le vivier du Filet, vu par le moteur — et ce qu'il faut écrire
+
+Le panel a noté 435 questions tirées au hasard parmi les 1 780 que le Filet
+peut poser (`reproductions/moteur-de-difficulte.ts vivier`) :
+
+| | Acte I (≥ 40 %) | Acte II (25–39 %) | Acte III (< 25 %) |
+|---|---|---|---|
+| Tout le vivier | 43 % ± 5, environ 760 questions | 22 %, environ 400 | 35 %, environ 620 |
+| Les années | 63 % | 25 % | 12 % |
+| Les grandeurs | 28 % | 20 % | 51 % |
+
+- **Une année se place bien mieux qu'une grandeur** : les dates sont le cœur
+  du Filet, les grandeurs presque des loteries une fois sur deux.
+- **Trois catégories n'ont presque rien de connaissable** : la Cuisine
+  (environ 9 questions sur 83), la Géographie (14 sur 111) et la Nature (13
+  sur 111). Une étape « Filet · Cuisine » à l'acte I y tournerait en rond en
+  quelques jours.
+  - La carte de la traversée ne doit proposer le Filet que dans une catégorie
+    qui a de quoi tenir son acte : le tracé lit le vivier du moteur.
+  - Il faut écrire là : des estimations que le grand public sait placer
+    (hauteurs, distances, durées et dates connues), notées par le panel à
+    l'écriture, une centaine par catégorie faible.
+  - C'est la réponse à la question du volume : pas plus de questions en
+    général, mais des questions **connaissables au Filet** là où il en
+    manque.
+
+### 4.6 Le mettre en service
 
 - **La passe sur la base** : les agents notent les 27 404 questions, par lots,
   sur l'abonnement, comme la génération de la base (`generer-campagne.ts`).
@@ -421,6 +449,7 @@ que chaque morceau devient.
 | `shared/cabinet/jeux/filet.ts` | La règle pure : le tirage (`FiletTire` : la question, la valeur, les quatre époques, la place de la réponse, les repères), l'état (l'époque touchée, les aides prises, les époques retirées), le geste (`repondre` : l'époque et le curseur ; `aide` : sa clé), le jugement à la distance (§ 3.3), ce qu'on montre et ce qu'on révèle (§ 3.9), la pièce (`composee` : « 1852\|1\|2 », le curseur, l'époque, les aides), le cartel. |
 | `VERSIONS_DU_DEPART` (`shared/cabinet/partie.ts`) | Une version de plus (la 4) : le pli jugerait autrement une partie déjà commencée. La règle d'avant reste, choisie par `d.v` ; son départ et son bilan écrits en dur dans `cabinet-regles.test.ts`. |
 | `server/src/core/cabinet/tirages/filet.ts` | Le tirage par la connaissabilité de l'acte (§ 4.4) au lieu des marches (`MARCHES_DU_FILET_AUX_EPREUVES`, `_AUX_GARDIENS`), les époques et les repères figés dans le tirage, du hasard du serveur. |
+| Le tracé de la carte (`tracerLaCarte`, `shared/cabinet/traversee.ts`) | Une étape de Filet ne prend qu'une catégorie dont le vivier tient son acte — le serveur lui donne, comme il donne au Quiz ses thèmes (`themesDuQuiz`), les catégories qui en ont assez : la Cuisine, la Géographie et la Nature n'en ont pas à l'acte I (§ 4.5). |
 | Les repères | Un fichier de contenu (`server/content/cabinet/reperes.json`, rangé et jugé par `cabinet-contenu.ts`), et les siens lus du journal des réponses (`JournalDesReponses`, une dérivation de plus, comparée au SQL d'avant dans `journal-des-reponses.test.ts`). |
 | Les indices | `server/content/cabinet/indices-du-filet.json`, une entrée par question, jugée (§ 3.7) ; une question sans indice ne propose pas l'aide. |
 | Les pouvoirs (`shared/cabinet/pouvoirs.ts`) | Éclairer, au Filet, devient la première aide offerte ; Changer et le temps en plus restent. `refusDuPouvoir` dit pourquoi une aide ne se prend pas (déjà prise, plus de place, la manche tranchée). |
@@ -480,6 +509,9 @@ un sondage du QG aux joueurs du Cabinet (`qg_annonce_questions`).
    Le calibrage proposait déjà 11 et 17 aux actes II et III.
 6. **Les autres jeux après le Filet** : le Pari d'abord (64 % de manches à
    zéro étoile, 45 cœurs perdus), puis les Indices.
+7. **Écrire des estimations connaissables** là où le vivier en manque : la
+   Cuisine, la Géographie, la Nature, et les grandeurs en général (§ 4.5) —
+   une centaine par catégorie, notées par le panel à l'écriture.
 
 ## 8. Ce qui attend
 
