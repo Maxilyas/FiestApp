@@ -13,7 +13,9 @@
 //   cd server && node --import tsx ../retours/2026-11-09/reproductions/place-de-la-reponse.mts
 //
 // La maquette tire avec les mêmes poids (`../maquette-filet/extraire.mts` importe `poidsDesPlaces`).
-import { pathToFileURL } from 'node:url'
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { lireLaBase } from '../../../server/src/core/baseCampagne.ts'
 import { valeurDuFilet } from '../../../server/src/core/cabinet/tirages/tas.ts'
 
@@ -117,5 +119,23 @@ for (const recul of [46, 25]) {
     console.log(`${String(recul).padStart(4)} ans ${String(vs.length).padStart(7)}   ${nom.padEnd(20)} ${pct(r.derniere).padStart(24)}   ${pct(r.lecteur).padStart(26)}`)
   }
   if (recul === 25) console.log(`\nLes poids à 25 ans, par nombre de places qui restent (de gauche à droite) :\n${[1, 2, 3, 4].map(m => `  ${m} : ${W[m].map(x => x.toFixed(3)).join(' · ')}`).join('\n')}`)
+}
+// L'acte I : ses années sont celles que chaque Français sait placer, et les récentes y pèsent bien plus que dans tout
+// le vivier — les poids calculés sur tout le vivier y laissent deviner la place. Le tirage les calcule donc par acte,
+// sur les années que l'acte peut poser ; et quand les réponses forcées dépassent le quart, la fuite ne se referme
+// qu'en partie.
+const classe = new Map((JSON.parse(fs.readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../vivier-du-filet.json'), 'utf8')) as any[]).map(a => [a.id, a]))
+const vivierI = ((lireLaBase() as any).questions as any[]).filter(q => !(q.meta.aRelire ?? []).length && valeurDuFilet(q)?.annee && classe.get(q.id)?.chacun && !classe.get(q.id)?.calcul)
+const anneesI = vivierI.map(q => valeurDuFilet(q)!.valeur as number).filter(v => v >= 1800)
+console.log('\nL’acte I : les années que chaque Français sait placer')
+console.log('recul   années   tirage                          « toujours la dernière »   le joueur qui lit la frise')
+for (const recul of [46, 25]) {
+  const vs = anneesI.filter(v => v <= ANNEE - recul)
+  const auHasard = (v: number) => { const pl = places(v); return [0, 1, 2, 3].map(i => (pl.includes(i) ? 1 / pl.length : 0)) }
+  const tout = poidsDesPlaces(annees.filter(v => v <= ANNEE - recul)), parActe = poidsDesPlaces(vs)
+  for (const [nom, t] of [['au hasard', auHasard], ['poids de tout le vivier', (v: number) => tout[places(v).length]], ['poids de l’acte I', (v: number) => parActe[places(v).length]]] as const) {
+    const r = mesurer(vs, t)
+    console.log(`${String(recul).padStart(4)} ans ${String(vs.length).padStart(7)}   ${nom.padEnd(31)} ${pct(r.derniere).padStart(24)}   ${pct(r.lecteur).padStart(26)}`)
+  }
 }
 }

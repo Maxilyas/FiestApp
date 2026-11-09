@@ -1152,6 +1152,15 @@ un sondage du QG aux joueurs du Cabinet (`qg_annonce_questions`).
       petite : les années de la base se serrent au XXe siècle. Les poids la
       ramènent à 39 %, sous ce qu'elle est aujourd'hui ; équilibrer chaque
       frise, à 33 %, au prix d'une place qui se devine un peu (30 %).
+    - **Les poids se calculent par acte**, sur les années qu'il pose.
+      L'acte I prend les années que chacun sait placer, et les récentes y
+      pèsent bien plus qu'ailleurs : avec les poids de tout le vivier,
+      « toujours la dernière » y gagnerait 30 % ; avec les siens, 25 % —
+      et le joueur qui lit la frise, 43 % au lieu de 51 aujourd'hui.
+      Quand les réponses forcées dépassent le quart, aucun poids ne
+      referme tout : la maquette, dont l'acte I a 16 années récentes sur
+      23, reste à 35 %. Le tireur garde alors les années récentes sous le
+      quart de celles qu'il tire à l'acte.
     - **La proposition : 25 ans de recul, la place tirée avec des poids.**
       Elle rend 16 années que chaque Français sait placer — l'abolition de
       la peine de mort, la chute du mur, la mort de Diana, le premier

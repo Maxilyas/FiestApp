@@ -11,7 +11,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { lireLaBase } from '../../../server/src/core/baseCampagne.ts'
 import { valeurDuFilet } from '../../../server/src/core/cabinet/tirages/tas.ts'
-import { anneesDuVivier, poidsDesPlaces } from '../reproductions/place-de-la-reponse.mts'
+import { poidsDesPlaces } from '../reproductions/place-de-la-reponse.mts'
 
 const ICI = path.dirname(fileURLToPath(import.meta.url))
 const lireJson = (f: string) => JSON.parse(fs.readFileSync(path.join(ICI, f), 'utf8'))
@@ -99,10 +99,6 @@ for (const r of lireJson('recentes.json') as any[]) {
     ...(c?.chacun ? { fr: true, fp: c.pourquoi ?? '' } : {}), anc: c?.ancrage ?? '',
   })
 }
-// La place de la réponse parmi les quatre époques se tire avec ces poids, par nombre de places qui restent : chaque
-// place reçoit un quart des réponses (`reproductions/place-de-la-reponse.mts`), sur les années du vivier que 25 ans de
-// recul laissent poser.
-const placesDesAnnees = poidsDesPlaces(anneesDuVivier().filter(v => v <= 2026 - 25))
 
 // ── Des repères que tout le monde connaît ───────────────────────────────────────────────────────────────────
 // Des dates que tout Français a apprises à l'école ou vécues, chacune vérifiée ; la frise n'en pose que deux, jamais du
@@ -173,12 +169,18 @@ const production = {
   ],
 }
 
-const sortie = `// Écrit par extraire.mts : ${questions.filter(q => !q.recent).length} questions du Filet que la production a posées et ${questions.filter(q => q.recent).length} années récentes, la note du moteur, un indice et un repère chacune.\nwindow.FILET = ${JSON.stringify({ questions, reperesAnnees, reperesGrandeurs, production, placesDesAnnees })}\n`
-fs.writeFileSync(path.join(ICI, 'donnees.js'), sortie)
-console.log(`${questions.length} questions (${questions.filter(q => q.an).length} années), ${questions.filter(q => q.i).length} indices retenus, ${refusés.length} refusés`)
-for (const r of refusés) console.log('  refusé', r)
 // L'acte I : ce que chaque Français sait placer, ou le panel à 50 % et plus — la règle stricte seule passait au-dessus de
 // la réussite visée (le cahier, § 4.5).
 const premierActe = (q: any) => q.fr || q.ia >= 50
 const parActe = [premierActe, (q: any) => !premierActe(q) && q.ia >= 25, (q: any) => !premierActe(q) && q.ia < 25].map(garde => questions.filter(q => !q.calcul && garde(q)))
+// La place de la réponse parmi les quatre époques se tire avec des poids, par nombre de places qui restent : chaque
+// place reçoit un quart des réponses (`reproductions/place-de-la-reponse.mts`). Ils se calculent acte par acte, sur
+// les années que l'acte pose : calculés sur tout le vivier, ils laissaient l'acte I — plein d'années récentes, que
+// chacun sait placer — à 30 % pour « toujours la dernière époque » ; sur les siennes, 25 %. Un acte trop riche en
+// années récentes ne se referme qu'en partie : les réponses forcées dépassent alors le quart.
+const placesParActe = Object.fromEntries(parActe.map((qs, k) => [k + 1, poidsDesPlaces(qs.filter((q: any) => q.an && q.v >= 1800).map((q: any) => q.v))]))
+const sortie = `// Écrit par extraire.mts : ${questions.filter(q => !q.recent).length} questions du Filet que la production a posées et ${questions.filter(q => q.recent).length} années récentes, la note du moteur, un indice et un repère chacune.\nwindow.FILET = ${JSON.stringify({ questions, reperesAnnees, reperesGrandeurs, production, placesParActe })}\n`
+fs.writeFileSync(path.join(ICI, 'donnees.js'), sortie)
+console.log(`${questions.length} questions (${questions.filter(q => q.an).length} années), ${questions.filter(q => q.i).length} indices retenus, ${refusés.length} refusés`)
+for (const r of refusés) console.log('  refusé', r)
 console.log('par acte :', parActe.map((qs, i) => `${['I', 'II', 'III'][i]} ${qs.length} (${qs.filter(q => q.an).length} années)`).join(' · '))

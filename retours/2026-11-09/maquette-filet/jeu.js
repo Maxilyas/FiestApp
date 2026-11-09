@@ -159,9 +159,10 @@
       // qui restent, elle se devinait : une réponse récente ne peut être que dans les dernières, et « toujours la
       // dernière époque » gagnait 29 % des manches, 35 % avec 25 ans de recul. Tirée avec des poids — les réponses
       // anciennes vont moins souvent dans la dernière, autant que les récentes y vont d'office —, chaque place reçoit un
-      // quart des réponses (le cahier, décision 10 ; `reproductions/place-de-la-reponse.mts`, qui calcule les poids).
+      // quart des réponses (le cahier, décision 10 ; `reproductions/place-de-la-reponse.mts`, qui calcule les poids) —
+      // les poids de l'acte, calculés sur les années qu'il pose : l'acte I est plein d'années récentes.
       const places = [0, 1, 2, 3].filter(i => base - i * T + 4 * T - 1 <= ANNEE)
-      const poids = T === 25 && D.placesDesAnnees ? D.placesDesAnnees[places.length] : null
+      const poids = T === 25 && E.mode === 'v2' && D.placesParActe ? D.placesParActe[E.acte]?.[places.length] : null
       const i = !places.length ? 3 : poids ? tirerSelon(poids) : auHasard(places)
       const debut = base - i * T
       return {
