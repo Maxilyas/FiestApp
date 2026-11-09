@@ -731,17 +731,21 @@ pas touchée (`vivier-du-filet.json`, `reproductions/vivier-du-filet.mts`) :
 ### 4.5 Le pilote : écrire ce que chaque Français sait
 
 Avant tout lot en nombre, le propriétaire a voulu un essai : trente questions
-de géographie à nombre que chaque Français sait placer, écrites par la
-chaîne de la base (la skill `base-campagne` : la consigne `--nombres` et une
-section « ce lot en particulier », le rédacteur, le vérificateur, la
-relecture des faits), rangées sur la branche, sans déploiement.
+à nombre, jouables au Filet, écrites par la chaîne de la base (la skill
+`base-campagne` : la consigne `--nombres` et une section « ce lot en
+particulier », le rédacteur, le vérificateur, la relecture des faits),
+rangées sur la branche, sans déploiement — la géographie d'abord, ce que
+chaque Français sait ; puis le sport, ce qu'il sait estimer (ce qu'il a eu
+en main, ou vu cent fois sur un terrain). Le relevé de chaque question et de
+ses deux jugements : `reproductions/pilote-du-filet.json`.
 
-| Les 47 faits que le rédacteur a essayés | |
-|---|---|
-| Déjà dans la base — le tunnel sous la Manche, le viaduc de Millau, la tour Eiffel, le puy de Dôme, la Seine, l'Everest… | 13 |
-| Pas assez connus — la Garonne, le Nil, le pont du Gard, le Léman… | 12 |
-| Un chiffre pas assez sûr — le Rhône, le mont Blanc remesuré, la dune du Pilat… | 12 |
-| Écrits | 10 |
+| Les faits que les rédacteurs ont essayés | Géographie | Sport |
+|---|---|---|
+| Déjà dans la base — la tour Eiffel, le puy de Dôme, l'Everest ; le filet de tennis, le panier à 3,05 m, le but de 7,32 m… | 13 | 12 |
+| Pas assez connus, ou pas assez estimables — la Garonne, le Nil ; l'écart des haies du 110 m… | 12 | 8 |
+| Un chiffre pas assez sûr — le Rhône, le mont Blanc remesuré ; le poids d'un ballon de rugby… | 12 | 7 |
+| Écrits | 10 | 10 |
+| **Sur** | **47** | **37** |
 
 - **Écrits, relus, rangés : 10 questions**, toutes jouables au Filet — la
   Loire, quatre distances depuis Paris, la tour de Pise, les tours de
@@ -753,14 +757,26 @@ relecture des faits), rangées sur la branche, sans déploiement.
   celles que chaque Français sait placer** — la Loire, « ses 1 000 km
   s'apprennent à l'école ». Les distances « s'estiment plus qu'elles ne se
   savent » ; les monuments sont célèbres, pas leur hauteur.
+- **Le sport, ensuite : 9 questions rangées** sur 10 écrites (27 423
+  questions) — la relecture a retiré la longueur d'un terrain de football :
+  les lois du jeu en laissent une fourchette, de 90 à 120 m, et 105 m n'est
+  qu'une recommandation. Les rédacteurs se sont repliés sur les cotes
+  réglementaires — le rond central, la ligne de service, la poutre —,
+  justes, mais que personne n'estime.
+- **Un second juge à l'aveugle, sur les vingt** : rien que chaque Français
+  sache — il refuse même la Loire, que le premier gardait : au seuil de sept
+  adultes sur dix, deux juges divergent sur les cas limites — et trois que
+  chaque Français sait estimer, sur les dix-neuf rangées : Paris–Marseille,
+  Paris–Bordeaux (« la route des vacances par l'A10 »), la largeur d'un bassin
+  olympique (« deux fois plus long que large »).
 
 Ce qu'on en tire :
 
 1. **Les faits que tout le monde connaît sont déjà dans la base**, ou
-   presque : un sur quatre de ceux essayés y était, et la consigne en
-   écartait d'autres d'emblée. Écrire en nombre ce que chaque Français sait,
-   à la règle stricte, rendrait peu — une question gardée pour dix écrites,
-   un fait sur cinquante essayés.
+   presque : 25 des 84 faits essayés y étaient, et la consigne en écartait
+   d'autres d'emblée. Écrire en nombre ce que chaque Français sait ou estime,
+   à la règle stricte, rendrait peu : quatre questions au plus pour 84 faits
+   essayés, une sur vingt.
 2. **Savoir n'est pas savoir placer.** Paris–Marseille fait 775 km par la
    route : dans le filet ★★ des 660 km à vol d'oiseau (de 495 à 825), où
    tombe qui l'a faite en voiture sans la savoir. La règle stricte (« de
@@ -793,6 +809,17 @@ Ce qu'on en tire :
      d'une place moins secrète : les quatre époques ne passent jamais dans
      l'avenir, et une réponse récente ne peut tomber que dans les dernières.
      Le compromis est chiffré à la décision 10 (§ 8).
+4. **Où chercher alors, plutôt qu'écrire** :
+   - **la sévérité de la règle est un réglage** : stricte, l'acte I se
+     réussit à 84 % sur les lancers réels, au-dessus des 65 à 80 % que
+     visent les jeux qui règlent leur difficulté ; la première passe, plus
+     large, à 67 % (§ 4.2). Calée sur trois manches sur quatre, entre les
+     deux, elle garderait bien plus que 105 questions — à mesurer au
+     calibrage, sur les lancers ;
+   - **le recul des années** : 25 ans au lieu de 46 rendent 16 années que
+     chaque Français sait placer (décision 10) ;
+   - **les dix-neuf questions du pilote, en production** : leurs lancers
+     diront si ce qui s'estime se place, mieux que six lancers d'aujourd'hui.
 
 ## 5. Le moteur de difficulté
 

@@ -133,9 +133,12 @@ import { sansAccent } from '../../shared/homonymes'
  * Le 9 novembre 2026, un lot pilote de géographie à nombre que chaque
  * Français saurait placer, pour le nouveau Filet : 47 faits essayés, 13 déjà
  * dans la base, 10 écrits et rangés (une anecdote corrigée, la Loire
- * « jamais endiguée ») : 27 414.
+ * « jamais endiguée ») : 27 414. Puis sa seconde moitié, en sport, ce que
+ * chaque Français saurait estimer : 37 faits essayés, 12 déjà dans la base,
+ * 10 écrits, 9 rangés (la longueur d'un terrain de football retirée : les
+ * lois du jeu en laissent une fourchette) : 27 423.
  */
-const AU_MOINS = 27414
+const AU_MOINS = 27423
 
 const { questions, refusees } = lireLaBase()
 
