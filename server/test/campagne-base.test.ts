@@ -130,8 +130,19 @@ import { sansAccent } from '../../shared/homonymes'
  * la base et écrite là où elle vit (`preparer --sujet`), 144 rangées sur
  * 150 : 27 405. Le lendemain, une question de Stargate retirée — elle
  * donnait Halla pour planète-mère des Asgard, qui est Othala — : 27 404.
+ * Le 9 novembre 2026, l'équitation et la plongée, deux disciplines que la
+ * base ne posait pas : un sous-thème neuf chacune en Sport et un inventaire
+ * de six familles, 260 questions écrites en douze lots d'une seule vague —
+ * 4 refusées entre lots comme un fait déjà posé, 9 retirées et 20 corrigées
+ * à la relecture (Salinero donné pour le cheval d'Anky van Grunsven dès
+ * 2000, qui était Bonfire), 5 retirées encore au coup d'œil sur tous les
+ * lots : le mot « apnée » et les palmes, demandés par trois familles que
+ * leurs relecteurs ne lisaient pas ensemble — 242 rangées : 27 646. Puis
+ * un lot de complément, les faciles et les moyennes qui manquaient encore
+ * aux deux montées de leur parcours, 29 rangées sur 30 : 27 675 — 135
+ * questions d'équitation, 136 de plongée.
  */
-const AU_MOINS = 27404
+const AU_MOINS = 27675
 
 const { questions, refusees } = lireLaBase()
 
