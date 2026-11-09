@@ -40,6 +40,8 @@ interface Etat {
   feuilleEntiere?: boolean
   /** Un geste avant la photo : toucher ce sélecteur. */
   toucher?: string
+  /** La page défilée jusqu'à ce sélecteur, en haut de l'écran. */
+  defiler?: string
 }
 
 const ETATS: readonly Etat[] = [
@@ -64,6 +66,22 @@ const ETATS: readonly Etat[] = [
   { nom: 'p3-4-bataille-malik', adresse: '?p=3&bataille=malik', feuilleEntiere: true },
   { nom: 'p3-5-bataille-hugo', adresse: '?p=3&bataille=hugo', feuilleEntiere: true },
   { nom: 'p3-6-galerie-ivoire', adresse: '?p=3', theme: 'ivoire' },
+  // La synthèse (`?p=4`), les Divins comptés et mis en avant.
+  { nom: 's-00-entree-du-profil', adresse: '?vue=entree&p=4' },
+  { nom: 's-01-collectionneurs', adresse: '?p=4', entiere: true },
+  { nom: 's-02-les-divins', adresse: '?p=4', defiler: '.cl-divins' },
+  { nom: 's-03-les-records', adresse: '?p=4', defiler: '.cl-etagere' },
+  { nom: 's-04-le-classement', adresse: '?p=4', defiler: '.cl-liste' },
+  { nom: 's-05-mes-amis', adresse: '?p=4&amis', defiler: '.cl-liste' },
+  { nom: 's-06-vitrine-max', adresse: '?p=4&vitrine=max', feuilleEntiere: true },
+  { nom: 's-07-vitrine-zoe', adresse: '?p=4&vitrine=zoe', feuilleEntiere: true },
+  { nom: 's-08-vitrine-hugo', adresse: '?p=4&vitrine=hugo' },
+  { nom: 's-09-bataille-malik', adresse: '?p=4&bataille=malik', feuilleEntiere: true },
+  { nom: 's-10-bataille-max', adresse: '?p=4&bataille=max', feuilleEntiere: true },
+  { nom: 's-11-record-maitres', adresse: '?p=4&record=maitres' },
+  { nom: 's-12-bareme', adresse: '?p=4&bareme', defiler: '.cl-bareme' },
+  { nom: 's-13-ivoire', adresse: '?p=4', theme: 'ivoire' },
+  { nom: 's-14-ivoire-divins', adresse: '?p=4', theme: 'ivoire', defiler: '.cl-divins' },
 ]
 
 const banc = await demarrer()
@@ -102,6 +120,8 @@ try {
       await page.evaluate(`document.documentElement.dataset.theme = '${e.theme}'`)
     }
     if (e.toucher) await page.tap(e.toucher)
+    // Défilée en texte : une fonction passée à `evaluate` partirait avec les `__name` de tsx, que la page ne connaît pas.
+    if (e.defiler) await page.evaluate(`document.querySelector('${e.defiler}').scrollIntoView({ block: 'start' }); window.scrollBy(0, -14)`)
     await attendre()
     const vu = await mesurer()
     mesures.push(`${e.nom} : ${vu}`)
