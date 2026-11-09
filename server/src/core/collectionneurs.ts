@@ -58,6 +58,7 @@ import {
   type ReleveDeCollection,
   type ResumeDuCollectionneur,
   type StyleDeCollection,
+  type SuiteDuClassement,
   type VitrineDUnCollectionneur,
 } from '../../../shared/collectionneurs'
 import type { Classe } from '../../../shared/classement'
@@ -94,15 +95,25 @@ export const PROFILS_PAR_TRANCHE = 8
 /** Les premiers de chaque catégorie que la page reçoit : le podium, puis la liste jusqu'au dixième. */
 export const TETE_DU_CLASSEMENT = 10
 
+/**
+ * Les places d'un paquet de la suite (`suite`), demandé au toucher de « Voir
+ * la suite » : de quoi voir tout le monde en quelques gestes, sans faire
+ * grossir chaque visite de la page avec le nombre de profils.
+ */
+export const PAQUET_DE_LA_SUITE = 50
+
 const CLE_DU_RELEVE = 'collectionneurs'
 
 /**
  * La forme du relevé gardé, et la façon de le compter (`releveDeLaCollection`) :
  * une règle qui change la monte, et le relevé d'avant ne se relit pas — le
  * suivant le remplace au premier passage. La 2 compte les légendaires scellés
- * (l'étoile du zénith, le 9 novembre 2026) : une fiche d'avant n'en a pas.
+ * (l'étoile du zénith, le 9 novembre 2026) : une fiche d'avant n'en a pas. La
+ * 3 garde les comptes de son style dans sa fiche (le même jour : sa vitrine
+ * les montre, le face-à-face les compare) — une fiche d'avant n'en a que la
+ * valeur.
  */
-const VERSION_DU_RELEVE = 2
+const VERSION_DU_RELEVE = 3
 
 /**
  * Le barème avec lequel un relevé a été compté : relu sous un autre — une
@@ -281,6 +292,7 @@ export function entreeDe(p: ProfilDuCollectionneur, ligue: CleDeLigue | undefine
       ...(ligue && { ligue }),
       carats: total,
       familles,
+      style,
     },
     nom: p.nom,
     creeLe: p.creeLe,
@@ -416,6 +428,26 @@ export class Collectionneurs {
     const i = r.position.get(profileId)
     const fiche = this.rangement(tenu).fiches.get(profileId) ?? { ...e.fiche, nom: e.nom }
     return { fiche, ...(i !== undefined && { rang: r.classes[i].rang }), classes: r.classes.length, pieces: e.pieces }
+  }
+
+  /**
+   * La suite d'un classement, après sa tête : un paquet de places et leurs
+   * fiches, de mémoire, comme la tête — rangées de même, sans masqué ni
+   * suspendu. Rien tant que le premier relevé se fait : la page n'a pas de
+   * tête à prolonger.
+   */
+  async suite(cat: CategorieDeCollection, depuis: number): Promise<SuiteDuClassement> {
+    const releve = await this.releveGarde()
+    this.rafraichirSiPerime(releve)
+    const tenu = this.releveTenu
+    if (!tenu) return { places: [], fiches: [], classes: 0 }
+    const r = this.rangement(tenu).categories[cat]
+    const paquet = r.classes.slice(depuis, depuis + PAQUET_DE_LA_SUITE)
+    return {
+      places: paquet.map(c => ({ id: c.item.id, rang: c.rang, valeur: valeurDansLaCategorie(c.item, cat) })),
+      fiches: paquet.map(c => c.item),
+      classes: r.classes.length,
+    }
   }
 
   /**

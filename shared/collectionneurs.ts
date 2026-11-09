@@ -98,8 +98,8 @@ export function enLegendaires(carats: number): number | null {
 /**
  * Ce que le serveur relève d'une collection, pour la compter : des nombres,
  * et ce que sa carte montre déjà de lui (ses légendaires, ses Divins
- * descendus, ses maîtres). Le style — ses thèmes, ses fonds, ses gerbes — ne
- * se compte qu'au serveur : la page n'en reçoit que la valeur.
+ * descendus, ses maîtres). Le style — ses thèmes, ses fonds, ses gerbes — se
+ * compte au serveur, et la page n'en reçoit que les comptes (`StyleDeCollection`).
  */
 export interface ReleveDeCollection {
   niveau: number
@@ -125,7 +125,13 @@ export interface ReleveDeCollection {
   timbres: number
 }
 
-/** Le style, compté au serveur seulement : combien, jamais lesquels — le thème et la gerbe qu'on porte ne partent qu'à soi. */
+/**
+ * Le style, compté au serveur : combien, jamais lesquels — le thème et la
+ * gerbe qu'on porte ne partent qu'à soi. Ses comptes partent avec sa fiche
+ * depuis le 9 novembre 2026 (le propriétaire : « je ne vois pas comment on
+ * peut voir / comparer sur un joueur ce qu'ils ont à ce niveau ») : sa vitrine
+ * les montre, le face-à-face les compare — sauf les thèmes, qui s'achètent.
+ */
 export interface StyleDeCollection {
   themes: Readonly<Partial<Record<RareteDeTheme, number>>>
   fonds: number
@@ -193,6 +199,8 @@ export interface FicheDeCollectionneur extends ReleveDeCollection, ApparenceDeLA
   ligue?: CleDeLigue
   carats: number
   familles: Record<FamilleDeCarats, number>
+  /** Les comptes de son style : sa vitrine, le face-à-face. */
+  style: StyleDeCollection
 }
 
 /**
@@ -325,7 +333,7 @@ export interface PlaceDeCollectionneur {
 export interface CategorieDuClassement {
   /** Combien y sont classés. */
   classes: number
-  /** Les premiers, dans l'ordre : le podium, puis la liste. */
+  /** Les premiers, dans l'ordre : le podium, puis la liste — la suite se demande à part (`SuiteDuClassement`). */
   tete: PlaceDeCollectionneur[]
   /** Sa place, s'il y est classé ; ses voisins, s'il est plus bas que la tête. */
   moi?: PlaceDeCollectionneur
@@ -352,6 +360,21 @@ export interface ClassementDesCollections {
   divins: DivinDescendu[]
   /** Le premier relevé de tous se fait encore, après un premier démarrage : la page le redemande dans un instant. */
   enPreparation?: true
+}
+
+/**
+ * La suite d'un classement, après sa tête : les places d'après et leurs
+ * fiches, un paquet à la fois (`GET /api/collectionneurs/suite/:categorie`).
+ * « J'aimerais voir tout le monde » (le propriétaire, le 9 novembre 2026) :
+ * la page s'arrêtait au dixième. Tout envoyer d'un coup ferait grossir la
+ * page de chaque visite avec le nombre de profils ; la suite ne part qu'à qui
+ * la demande, lue en mémoire comme la tête.
+ */
+export interface SuiteDuClassement {
+  places: PlaceDeCollectionneur[]
+  fiches: FicheDeCollectionneur[]
+  /** Combien y sont classés à l'heure de ce paquet : la page sait s'il en reste. */
+  classes: number
 }
 
 /** Une pièce de sa vitrine : sa clé, sa gemme, la version qu'elle montre — rare, ou la matière qu'il en porte —, ses matières taillées, son sceau, ce qu'elle vaut. */
@@ -391,17 +414,34 @@ export interface LigneDuFaceAFace {
   divine?: true
 }
 
+/** Ce que son style compte, pièce par pièce — les deux thèmes offerts à tous n'y sont pas : ils ne disent rien de lui. */
+export interface PiecesDuStyle {
+  themes: number
+  fonds: number
+  gerbes: number
+  finitions: number
+  bordures: number
+}
+
+export function piecesDuStyle(s: StyleDeCollection): PiecesDuStyle {
+  const themes = somme((Object.keys(s.themes) as RareteDeTheme[]).filter(r => r !== 'offert').map(r => s.themes[r] ?? 0))
+  return { themes, fonds: s.fonds, gerbes: s.gerbes, finitions: s.finitions, bordures: s.ligues.length }
+}
+
 /**
  * Les lignes qu'on compare, de ce qu'on a à ce qu'on a fait — les Divins
- * d'abord. Pas de ligne pour les thèmes (le propriétaire, le 9 novembre
- * 2026 : « gagner sur quelqu'un en fonction des thèmes, je ne suis pas fan ») :
- * ils s'achètent, et l'on ne se mesure pas à ce qu'on a payé ; ils restent
- * dans la valeur. Ce que ni l'un ni l'autre n'a ne se compare pas : « 0
- * contre 0 » ne dit rien de personne.
+ * d'abord, puis les trophées et le style depuis le 9 novembre 2026 (« comment
+ * on peut voir / comparer sur un joueur ce qu'ils ont à ce niveau ? », le
+ * propriétaire). Pas de ligne pour les thèmes (le propriétaire, le même jour :
+ * « gagner sur quelqu'un en fonction des thèmes, je ne suis pas fan ») : ils
+ * s'achètent, et l'on ne se mesure pas à ce qu'on a payé ; ils restent dans la
+ * valeur, et sa vitrine les montre. Ce que ni l'un ni l'autre n'a ne se
+ * compare pas : « 0 contre 0 » ne dit rien de personne.
  */
 export function lignesDuFaceAFace(moi: FicheDeCollectionneur, lui: FicheDeCollectionneur): LigneDuFaceAFace[] {
   const avatars = (f: FicheDeCollectionneur) => somme(Object.values(f.gemmes))
   const trophees = (f: FicheDeCollectionneur) => f.trophees + f.maitres.length + f.sceaux.bronze + f.sceaux.argent + f.sceaux.or
+  const [sm, sl] = [piecesDuStyle(moi.style), piecesDuStyle(lui.style)]
   const lignes: LigneDuFaceAFace[] = [
     { nom: 'Divins', moi: moi.divins.length, lui: lui.divins.length, divine: true },
     { nom: 'Avatars', moi: avatars(moi), lui: avatars(lui) },
@@ -412,6 +452,11 @@ export function lignesDuFaceAFace(moi: FicheDeCollectionneur, lui: FicheDeCollec
     { nom: 'Sceaux d’or du Cabinet', moi: moi.sceaux.or, lui: lui.sceaux.or },
     { nom: 'Éclats', moi: moi.eclats, lui: lui.eclats },
     { nom: 'Trophées', moi: trophees(moi), lui: trophees(lui) },
+    { nom: 'Timbres des fêtes', moi: moi.timbres, lui: lui.timbres },
+    { nom: 'Finitions', moi: sm.finitions, lui: sl.finitions },
+    { nom: 'Bordures de ligue', moi: sm.bordures, lui: sl.bordures },
+    { nom: 'Gerbes', moi: sm.gerbes, lui: sl.gerbes },
+    { nom: 'Fonds de carte', moi: sm.fonds, lui: sl.fonds },
     { nom: 'Niveau', moi: moi.niveau, lui: lui.niveau },
   ]
   return lignes.filter(l => l.moi > 0 || l.lui > 0)

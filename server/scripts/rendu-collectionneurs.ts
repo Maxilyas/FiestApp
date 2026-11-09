@@ -4,7 +4,8 @@
 // Divins, une vitrine, le face-à-face et le barème. Sept joueurs, chacun sa
 // collection écrite dans la base — ses légendaires par leurs hauts faits, ses
 // Divins, ses Éclats et une matière, ses maîtres, ses défis du Cabinet, un
-// thème, ses duels —, le serveur relu, le relevé de tous attendu. Le client
+// thème, ses duels —, et huit figurants pour que la liste passe le dixième
+// (« Voir la suite »), le serveur relu, le relevé de tous attendu. Le client
 // construit d'abord (`npm run build -w client`). À chaque photo, ce qui
 // élargit la page et les noms coupés.
 //
@@ -109,6 +110,15 @@ const JOUEURS: readonly Joueur[] = [
   { login: 'ines', nom: 'Inès', avatar: '🐸', niveau: 16, ligue: 'argent', crans: 12, badges: { 'hf:triple': 1 }, sentiers: { arcade: 6 }, eclats: ['🐸'] },
   { login: 'malik', nom: 'Malik', avatar: '🐼', niveau: 9, ligue: 'bronze', crans: 3, badges: { 'hf:phenix': 1 }, sentiers: { carnaval: 4 } },
   { login: 'nina', nom: 'Nina', avatar: '🐙', niveau: 4 },
+  // Huit figurants, de quoi passer le dixième : la liste s'y arrête, et « Voir la suite » apporte le reste.
+  { login: 'sacha', nom: 'Sacha', avatar: '🦁', niveau: 12, ligue: 'argent', crans: 4 },
+  { login: 'yanis', nom: 'Yanis', avatar: '🐨', niveau: 11 },
+  { login: 'lina', nom: 'Lina', avatar: '🐷', niveau: 10, ligue: 'bronze', crans: 8 },
+  { login: 'theo', nom: 'Théo', avatar: '🐶', niveau: 8 },
+  { login: 'jade', nom: 'Jade', avatar: '🐱', niveau: 7 },
+  { login: 'rayan', nom: 'Rayan', avatar: '🐵', niveau: 6 },
+  { login: 'mila', nom: 'Mila', avatar: '🦖', niveau: 5 },
+  { login: 'tom', nom: 'Tom', avatar: '🦄', niveau: 3 },
 ]
 
 interface Etat {
@@ -122,6 +132,8 @@ interface Etat {
   defiler?: string
   /** Une feuille ouverte : la photo de son bas, en plus. */
   feuilleEntiere?: boolean
+  /** Une feuille ouverte, défilée jusqu'à ce sélecteur, en haut de son cadre. */
+  defilerFeuille?: string
 }
 
 const ETATS: readonly Etat[] = [
@@ -146,6 +158,12 @@ const ETATS: readonly Etat[] = [
   { nom: '16-sa-carte-depuis-sa-vitrine', adresse: '/collectionneurs', toucher: ['.cl-carte-premier', { bouton: 'Sa carte' }] },
   // Où mène la carte d'un autre : sa vitrine, ouverte d'emblée (`{max}`, son identifiant).
   { nom: '17-sa-vitrine-par-sa-carte', adresse: '/collectionneurs#vitrine-{max}', feuilleEntiere: true },
+  // « J'aimerais voir tout le monde » : la liste jusqu'au dixième et « Voir la suite », puis la liste entière.
+  { nom: '20-la-liste-et-sa-suite', adresse: '/collectionneurs', defiler: '.cl-liste li:nth-child(4)' },
+  { nom: '21-toute-la-liste', adresse: '/collectionneurs', toucher: ['.cl-suite'], defiler: '.cl-liste li:nth-child(9)' },
+  // Ses trophées et son style : la vitrine de Max, famille par famille, puis pièce par pièce, et le face-à-face.
+  { nom: '22-vitrine-trophees-et-style', adresse: '/collectionneurs', toucher: ['.cl-carte-premier'], defilerFeuille: '.cl-familles' },
+  { nom: '23-face-a-face-trophees-et-style', adresse: '/collectionneurs', toucher: ['.cl-carte-premier', { bouton: 'Comparer' }], defilerFeuille: '.cl-duel-ligne:nth-child(6)' },
 ]
 
 const banc = await demarrer()
@@ -224,6 +242,13 @@ try {
     // Défilée en texte : une fonction passée à `evaluate` partirait avec les `__name` de tsx, que la page ne connaît pas.
     if (e.defiler) await page.evaluate(`document.querySelector('${e.defiler}').scrollIntoView({ block: 'start' }); window.scrollBy(0, -14)`)
     await attendre()
+    // Après l'attente : la vitrine pose ses pièces maîtresses en arrivant, et tout ce qui suit descend d'autant.
+    if (e.defilerFeuille) {
+      await page.evaluate(
+        `(() => { const c = document.querySelector('.carte-corps'), x = document.querySelector('${e.defilerFeuille}'); if (c && x) c.scrollTop += x.getBoundingClientRect().top - c.getBoundingClientRect().top - 12 })()`,
+      )
+      await page.waitForTimeout(300)
+    }
     const vu = await mesurer()
     mesures.push(`${e.nom} : ${vu}`)
     console.log(`${e.nom} : ${vu}`)

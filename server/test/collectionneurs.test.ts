@@ -19,6 +19,7 @@ import {
   classerLesCollectionneurs,
   enLegendaires,
   lignesDuFaceAFace,
+  piecesDuStyle,
   piecesMaitresses,
   rangDeCollection,
   valeurDansLaCategorie,
@@ -179,7 +180,7 @@ test('une pièce de la vitrine : son Éclat, et chaque matière qu’il a coût�
 })
 
 test('le face-à-face : les Divins d’abord, rien des thèmes, et ce que ni l’un ni l’autre n’a ne se compare pas', () => {
-  const avec = (r: Partial<ReleveDeCollection>, carats: number) => ({ ...releve(r), id: 'x', nom: 'X', avatar: '🦊', carats, familles: { avatars: 0, trophees: 0, style: 0 } })
+  const avec = (r: Partial<ReleveDeCollection>, carats: number, style: StyleDeCollection = sansStyle()) => ({ ...releve(r), id: 'x', nom: 'X', avatar: '🦊', carats, familles: { avatars: 0, trophees: 0, style: 0 }, style })
   const moi = avec({ niveau: 12, legendaires: ['lg:phenix'], maitres: ['monde'], paliers: 13 }, 100)
   const lui = avec({ niveau: 30, divins: ['dv:x'], legendaires: ['lg:phenix', 'lg:sphinx'], eclats: 2 }, 400)
   const lignes = lignesDuFaceAFace(moi, lui)
@@ -193,6 +194,27 @@ test('le face-à-face : les Divins d’abord, rien des thèmes, et ce que ni l�
   const scelle = lignesDuFaceAFace(moi, avec({ ...lui, scelles: ['lg:phenix'] }, 425))
   const i = scelle.findIndex(l => l.nom === 'Légendaires scellés')
   assert.deepEqual([scelle[i - 1].nom, scelle[i].moi, scelle[i].lui], ['Légendaires', 0, 1])
+})
+
+test('le face-à-face compare aussi les trophées et le style — ses timbres, finitions, bordures, gerbes, fonds —, jamais ses thèmes', () => {
+  // « Comment on peut voir / comparer sur un joueur ce qu'ils ont à ce niveau ? » (le propriétaire, le 9 novembre 2026).
+  const avec = (r: Partial<ReleveDeCollection>, style: StyleDeCollection) => ({ ...releve(r), id: 'x', nom: 'X', avatar: '🦊', carats: 1, familles: { avatars: 0, trophees: 0, style: 0 }, style })
+  const moi = avec({ niveau: 8, timbres: 2 }, { themes: { legendaire: 4, offert: 2 }, fonds: 1, gerbes: 0, finitions: 3, ligues: ['bronze'] })
+  const lui = avec({ niveau: 8, timbres: 1 }, { themes: {}, fonds: 2, gerbes: 0, finitions: 1, ligues: ['bronze', 'argent', 'or'] })
+  const lignes = lignesDuFaceAFace(moi, lui)
+  const ligne = (nom: string) => lignes.find(l => l.nom === nom)
+  assert.deepEqual(
+    lignes.map(l => l.nom),
+    ['Timbres des fêtes', 'Finitions', 'Bordures de ligue', 'Fonds de carte', 'Niveau'],
+    'les trophées puis le style, le niveau au bout ; ni gerbe ni l’un ni l’autre',
+  )
+  assert.deepEqual([ligne('Finitions')!.moi, ligne('Finitions')!.lui], [3, 1])
+  assert.deepEqual([ligne('Bordures de ligue')!.moi, ligne('Bordures de ligue')!.lui], [1, 3], 'une bordure par ligue atteinte')
+  // Quatre thèmes légendaires de plus que lui : rien ne le dit au face-à-face, et rien n'y penche pour moi.
+  assert.ok(!lignes.some(l => /th[eè]me/i.test(l.nom)))
+  assert.deepEqual(bilanDuFaceAFace(lignes), { moi: 2, lui: 2, egalites: 1 })
+  // Ses comptes, pour sa vitrine : les deux thèmes offerts à tous n'y sont pas.
+  assert.deepEqual(piecesDuStyle(moi.style), { themes: 4, fonds: 1, gerbes: 0, finitions: 3, bordures: 1 })
 })
 
 type Fiche = ReleveDeCollection & { id: string; nom: string; carats: number }

@@ -30,14 +30,17 @@ import {
   CARATS_D_UN_TROPHEE,
   CATEGORIE,
   CATEGORIES_DE_COLLECTION,
+  FAMILLES_DE_CARATS,
   bilanDuFaceAFace,
   celuiAPasser,
   classerLesCollectionneurs,
   enLegendaires,
   lignesDuFaceAFace,
+  piecesDuStyle,
   rangDeCollection,
   valeurDansLaCategorie,
   type CategorieDeCollection,
+  type FamilleDeCarats,
   type ClassementDesCollections,
   type FicheDeCollectionneur,
   type PieceDeVitrine,
@@ -433,7 +436,68 @@ function Socle({ piece: p }: { piece: PieceDeVitrine }) {
   )
 }
 
-/** Sa vitrine : ses Divins d'abord, puis ses plus belles pièces ; sa collection gemme par gemme, à côté de la mienne. */
+/** Les trois familles que le barème compte, en tête de leur colonne. */
+const NOM_DE_LA_FAMILLE: Record<FamilleDeCarats, string> = { avatars: 'Avatars', trophees: 'Trophées', style: 'Style' }
+
+/** Une pièce de ses trophées ou de son style, comptée : son nom, son dessin — celui du barème —, combien il en a. */
+interface PieceDeSonStyle {
+  nom: string
+  dessin: () => ReactNode
+  compte: (f: FicheDeCollectionneur) => number
+}
+
+const PIECES_DE_SON_STYLE: readonly PieceDeSonStyle[] = [
+  { nom: 'Maîtres', dessin: () => <Icon name="crown" />, compte: f => f.maitres.length },
+  { nom: 'Sceaux', dessin: () => <SceauxDuBareme />, compte: f => f.sceaux.bronze + f.sceaux.argent + f.sceaux.or },
+  { nom: 'Trophées', dessin: () => <Icon name="trophy" />, compte: f => f.trophees },
+  { nom: 'Timbres', dessin: () => <TimbreDuBareme />, compte: f => f.timbres },
+  { nom: 'Finitions', dessin: () => <i className="cl-bareme-finition" />, compte: f => piecesDuStyle(f.style).finitions },
+  { nom: 'Bordures', dessin: () => <BlasonsDuBareme />, compte: f => piecesDuStyle(f.style).bordures },
+  { nom: 'Gerbes', dessin: () => <Icon name="artifice" />, compte: f => piecesDuStyle(f.style).gerbes },
+  { nom: 'Fonds', dessin: () => <i className="cl-bareme-fond" />, compte: f => piecesDuStyle(f.style).fonds },
+  { nom: 'Thèmes', dessin: () => <Icon name="palette" />, compte: f => piecesDuStyle(f.style).themes },
+]
+
+/**
+ * Ses trophées et son style, pièce par pièce — les vignettes du barème, trois
+ * par rangée : ce qu'il a, en or, et dessous ce que j'ai, en or à mon tour si
+ * j'en ai plus (« comment on peut voir / comparer sur un joueur ce qu'ils ont
+ * à ce niveau ? », le propriétaire, le 9 novembre 2026). Les thèmes s'y
+ * montrent : le face-à-face, lui, ne les compare pas.
+ */
+function TropheesEtStyle({ lui, moi }: { lui: FicheDeCollectionneur; moi?: FicheDeCollectionneur }) {
+  return (
+    <ul className="cl-style-pieces">
+      {PIECES_DE_SON_STYLE.map(p => {
+        const sa = p.compte(lui)
+        const mienne = moi ? p.compte(moi) : null
+        return (
+          <li key={p.nom}>
+            <span className="cl-bareme-socle" aria-hidden="true">
+              {p.dessin()}
+            </span>
+            <b aria-hidden="true">{formatNumber(sa)}</b>
+            {mienne !== null && (
+              <span className={'cl-style-toi' + (mienne > sa ? ' cl-style-plus' : '')} aria-hidden="true">
+                {`toi ${formatNumber(mienne)}`}
+              </span>
+            )}
+            <span className="cl-bareme-piece-nom" aria-hidden="true">
+              {p.nom}
+            </span>
+            <span className="sr-only">{`${p.nom} : ${formatNumber(sa)}${mienne !== null ? `, toi ${formatNumber(mienne)}` : ''}`}</span>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+/**
+ * Sa vitrine : ses Divins d'abord, puis ses plus belles pièces ; sa collection
+ * gemme par gemme et famille par famille, à côté de la mienne ; ses trophées
+ * et son style, pièce par pièce.
+ */
 function Vitrine({ id, moi, fiches, onComparer, onCarte, onFermer }: { id: string; moi?: FicheDeCollectionneur; fiches: ReadonlyMap<string, FicheDeCollectionneur>; onComparer: (lui: FicheDeCollectionneur) => void; onCarte: (id: string) => void; onFermer: () => void }) {
   const [vitrine, setVitrine] = useState<VitrineDUnCollectionneur | null>(null)
   const [erreur, setErreur] = useState('')
@@ -541,16 +605,43 @@ function Vitrine({ id, moi, fiches, onComparer, onCarte, onFermer }: { id: strin
               )}
             </tbody>
           </table>
-          <div className="cl-vitrine-trophees">
-            <span>
-              <span className="label">{`Maîtres · ${lui.maitres.length}`}</span>
-              <Couronnes f={lui} />
-            </span>
-            <span>
-              <span className="label">{`Cabinet · ${lui.sceaux.or} or`}</span>
-              <Sceaux f={lui} />
-            </span>
-          </div>
+          <h3 className="label">Famille par famille</h3>
+          <table className="cl-gemmes cl-familles">
+            <thead>
+              <tr>
+                <th scope="col">
+                  <span className="sr-only">Carats</span>
+                </th>
+                {FAMILLES_DE_CARATS.map(x => (
+                  <th key={x} scope="col">
+                    {NOM_DE_LA_FAMILLE[x]}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">{soi ? 'Toi' : lui.nom}</th>
+                {FAMILLES_DE_CARATS.map(x => (
+                  <td key={x} className={!soi && moi && lui.familles[x] > moi.familles[x] ? 'cl-gemme-plus' : undefined}>
+                    {formatNumber(lui.familles[x])}
+                  </td>
+                ))}
+              </tr>
+              {!soi && moi && (
+                <tr>
+                  <th scope="row">Toi</th>
+                  {FAMILLES_DE_CARATS.map(x => (
+                    <td key={x} className={moi.familles[x] > lui.familles[x] ? 'cl-gemme-plus' : undefined}>
+                      {formatNumber(moi.familles[x])}
+                    </td>
+                  ))}
+                </tr>
+              )}
+            </tbody>
+          </table>
+          <h3 className="label">Trophées et style</h3>
+          <TropheesEtStyle lui={lui} moi={soi ? undefined : moi} />
         </>
       )}
     </Feuille>
@@ -918,6 +1009,19 @@ function BlasonsDuBareme() {
 const ESSAIS_DU_PREMIER_RELEVE = 8
 const ATTENTE_DU_PREMIER_RELEVE_MS = 2_000
 
+/**
+ * La suite des classements que la page a demandée (`SuiteDuClassement`), pour
+ * le relevé qu'elle prolonge : ses places, catégorie par catégorie, les fiches
+ * qu'elles ont apportées, et les catégories vues jusqu'au bout. Un autre
+ * relevé — la page redemandée pendant le premier — repart de sa tête.
+ */
+interface SuitesDuReleve {
+  releve: number
+  places: Partial<Record<CategorieDeCollection, PlaceDeCollectionneur[]>>
+  fiches: FicheDeCollectionneur[]
+  finies: Partial<Record<CategorieDeCollection, true>>
+}
+
 export function CollectionneursApp() {
   const [etat, setEtat] = useState<ClassementDesCollections | null>(null)
   const [erreur, setErreur] = useState<{ motif: string; connexion: boolean } | null>(null)
@@ -927,7 +1031,14 @@ export function CollectionneursApp() {
   const [vitrine, setVitrine] = useState<string | null>(null)
   const [face, setFace] = useState<FicheDeCollectionneur | null>(null)
   const [salle, setSalle] = useState(false)
+  const [suitesLues, setSuites] = useState<SuitesDuReleve>({ releve: 0, places: {}, fiches: [], finies: {} })
+  const [suiteEnRoute, setSuiteEnRoute] = useState(false)
+  const [erreurDeSuite, setErreurDeSuite] = useState('')
   const { ouvrir: ouvrirLaCarte, carte } = useCarteDUnProfil()
+  const suites = useMemo<SuitesDuReleve>(
+    () => (etat && suitesLues.releve === etat.releve ? suitesLues : { releve: etat?.releve ?? 0, places: {}, fiches: [], finies: {} }),
+    [etat, suitesLues],
+  )
 
   // La carte d'un joueur y mène sur sa vitrine (`#vitrine-<id>`, `CarteJoueur`) : ouverte d'emblée, l'adresse rendue
   // nue — un rechargement ne la rouvre pas.
@@ -960,7 +1071,8 @@ export function CollectionneursApp() {
     if (etat?.enPreparation) setEssais(n => Math.min(n + 1, ESSAIS_DU_PREMIER_RELEVE))
   }, [etat])
 
-  const fiches = useMemo(() => new Map((etat?.fiches ?? []).map(f => [f.id, f])), [etat])
+  // Les fiches de la suite, puis celles de la page, qui l'emportent : la sienne y est de l'instant.
+  const fiches = useMemo(() => new Map([...suites.fiches, ...(etat?.fiches ?? [])].map(f => [f.id, f])), [etat, suites])
   const moi = etat ? fiches.get(etat.moi) : undefined
 
   // Les places de la catégorie choisie : celles du serveur pour tous ; entre amis, reclassés ici, lui compris.
@@ -974,18 +1086,48 @@ export function CollectionneursApp() {
       const cercle = [...new Set([etat.moi, ...etat.amis])].flatMap(id => fiches.get(id) ?? [])
       const classes = classerLesCollectionneurs(cercle, c).map(x => ({ fiche: x.item, rang: x.rang, valeur: valeurDansLaCategorie(x.item, c) }))
       const i = classes.findIndex(p => p.fiche.id === etat.moi)
-      return { classes: classes.length, tete: classes, place: i >= 0 ? classes[i] : undefined, autour: [] as Place[], devant: i >= 0 ? celuiAPasser(classes.map(p => ({ item: p.fiche, rang: p.rang })), i, f => valeurDansLaCategorie(f, c)) : null, tous: cercle.length }
+      return { classes: classes.length, tete: classes, place: i >= 0 ? classes[i] : undefined, autour: [] as Place[], devant: i >= 0 ? celuiAPasser(classes.map(p => ({ item: p.fiche, rang: p.rang })), i, f => valeurDansLaCategorie(f, c)) : null, tous: cercle.length, restants: 0 }
     }
     const cat = etat.categories[c]
-    const tete = cat.tete.flatMap(lire)
+    // Sa tête, puis la suite demandée — chacun une fois, même si le relevé a bougé entre deux paquets.
+    const vus = new Set<string>()
+    const tete = [...cat.tete, ...(suites.places[c] ?? [])].flatMap(lire).filter(p => !vus.has(p.fiche.id) && (vus.add(p.fiche.id), true))
     const place = cat.moi ? lire(cat.moi)[0] : undefined
-    const autour = cat.autour.flatMap(lire)
+    // Ses voisins, tant que la liste ne descend pas jusqu'à lui.
+    const autour = vus.has(etat.moi) ? [] : cat.autour.flatMap(lire)
     // Celui à passer : le plus proche devant lui, parmi ce que la page a sous les yeux — sa liste et ses voisins.
-    const connus = [...tete, ...autour.filter(p => !tete.some(t => t.fiche.id === p.fiche.id))]
+    const connus = [...tete, ...autour.filter(p => !vus.has(p.fiche.id))]
     const i = connus.findIndex(p => p.fiche.id === etat.moi)
     const devant = i >= 0 ? celuiAPasser(connus.map(p => ({ item: p.fiche, rang: p.rang })), i, f => valeurDansLaCategorie(f, c)) : null
-    return { classes: cat.classes, tete, place, autour, devant: devant && { item: devant.item, manque: devant.manque }, tous: etat.categories.collection.classes }
-  }, [etat, fiches, amis, c])
+    const restants = suites.finies[c] ? 0 : Math.max(0, cat.classes - cat.tete.length - (suites.places[c]?.length ?? 0))
+    return { classes: cat.classes, tete, place, autour, devant: devant && { item: devant.item, manque: devant.manque }, tous: etat.categories.collection.classes, restants }
+  }, [etat, fiches, amis, c, suites])
+
+  /** Le paquet suivant de la catégorie choisie, après ce que la page en a — sa tête et la suite déjà lue. */
+  const voirLaSuite = () => {
+    if (!etat || suiteEnRoute) return
+    const cat = c
+    const releve = etat.releve
+    const depuis = etat.categories[cat].tete.length + (suites.places[cat]?.length ?? 0)
+    setSuiteEnRoute(true)
+    setErreurDeSuite('')
+    api.collectionneurs
+      .suite(cat, depuis)
+      .then(s =>
+        setSuites(avant => {
+          const base = avant.releve === releve ? avant : { releve, places: {}, fiches: [], finies: {} }
+          const finie = s.places.length === 0 || depuis + s.places.length >= s.classes
+          return {
+            releve,
+            places: { ...base.places, [cat]: [...(base.places[cat] ?? []), ...s.places] },
+            fiches: [...base.fiches, ...s.fiches],
+            finies: finie ? { ...base.finies, [cat]: true } : base.finies,
+          }
+        }),
+      )
+      .catch(e => setErreurDeSuite(motifDe(e)))
+      .finally(() => setSuiteEnRoute(false))
+  }
 
   if (erreur) {
     return (
@@ -1052,17 +1194,29 @@ export function CollectionneursApp() {
             {reste.map(p => (
               <Ligne key={p.fiche.id} place={p} c={c} moi={etat.moi} onOuvrir={ouvrir} />
             ))}
-            {vue.autour.length > 0 && (
-              <>
-                <li className="muted center small cl-ellipse" aria-hidden="true">
-                  …
-                </li>
-                {vue.autour.map(p => (
-                  <Ligne key={p.fiche.id} place={p} c={c} moi={etat.moi} onOuvrir={ouvrir} />
-                ))}
-              </>
-            )}
           </ol>
+          {/* « J'aimerais voir tout le monde » (le propriétaire, le 9 novembre 2026) : la liste s'arrêtait au dixième. La
+              suite vient au toucher, un paquet à la fois, entre la liste et ses voisins — c'est l'écart qu'elle comble. */}
+          {!amis && vue.restants > 0 && (
+            <button type="button" className="btn cl-suite" onClick={voirLaSuite} disabled={suiteEnRoute}>
+              {suiteEnRoute ? 'Chargement…' : `Voir la suite · ${formatNumber(vue.restants)} autre${vue.restants > 1 ? 's' : ''}`}
+            </button>
+          )}
+          {!amis && erreurDeSuite && (
+            <p className="error small" role="alert">
+              {erreurDeSuite}
+            </p>
+          )}
+          {vue.autour.length > 0 && (
+            <ol className="leaderboard cl-liste" aria-label="Autour de toi">
+              <li className="muted center small cl-ellipse" aria-hidden="true">
+                …
+              </li>
+              {vue.autour.map(p => (
+                <Ligne key={p.fiche.id} place={p} c={c} moi={etat.moi} onOuvrir={ouvrir} />
+              ))}
+            </ol>
+          )}
           {personne && <p className="muted small cl-legende">{personne}</p>}
           {premier && <p className="muted small cl-legende">Touche un joueur : sa vitrine, et de quoi vous comparer.</p>}
           <LeBareme />

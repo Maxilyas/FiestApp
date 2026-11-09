@@ -3,6 +3,7 @@ import type { ProfileStore } from './auth/profiles'
 import type { Collectionneurs } from './core/collectionneurs'
 import { wrap } from './core/http'
 import { readPlayerToken } from './auth/http'
+import { CATEGORIES_DE_COLLECTION, type CategorieDeCollection } from '../../shared/collectionneurs'
 
 interface CollectionneursDeps {
   collectionneurs: Collectionneurs
@@ -13,7 +14,7 @@ interface CollectionneursDeps {
  * Le classement des collectionneurs (`core/collectionneurs.ts`), pour les
  * profils — avant la porte des animateurs, comme la campagne : un invité
  * anonyme n'a pas de collection, et le serveur le lui dit (invariant 8).
- * Les deux routes lisent la mémoire ; seule la fiche du visiteur se refait.
+ * Les trois routes lisent la mémoire ; seule la fiche du visiteur se refait.
  */
 export function mountCollectionneurs(app: Express, deps: CollectionneursDeps) {
   const profilDe = async (req: Request, res: Response) => {
@@ -30,6 +31,21 @@ export function mountCollectionneurs(app: Express, deps: CollectionneursDeps) {
     wrap(async (req, res) => {
       const profil = await profilDe(req, res)
       if (profil) res.json(await deps.collectionneurs.pour(profil.id))
+    }),
+  )
+
+  // La suite d'un classement, un paquet à la fois (`PAQUET_DE_LA_SUITE`), de mémoire comme sa tête.
+  app.get(
+    '/api/collectionneurs/suite/:categorie',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (!profil) return
+      const categorie = String(req.params.categorie)
+      const depuis = String(req.query.depuis ?? '0')
+      if (!(CATEGORIES_DE_COLLECTION as readonly string[]).includes(categorie) || !/^\d{1,6}$/.test(depuis)) {
+        throw new Error('Ce classement est introuvable : rouvre la page')
+      }
+      res.json(await deps.collectionneurs.suite(categorie as CategorieDeCollection, Number(depuis)))
     }),
   )
 

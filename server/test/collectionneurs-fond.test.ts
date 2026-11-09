@@ -8,7 +8,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { performance } from 'node:perf_hooks'
-import { Collectionneurs, PROFILS_PAR_TRANCHE, type DepsDesCollectionneurs, type ProfilDuCollectionneur } from '../src/core/collectionneurs'
+import { Collectionneurs, PAQUET_DE_LA_SUITE, PROFILS_PAR_TRANCHE, TETE_DU_CLASSEMENT, type DepsDesCollectionneurs, type ProfilDuCollectionneur } from '../src/core/collectionneurs'
 import { ceQuiTournait } from '../src/core/gels'
 import { LEGENDAIRES } from '../../shared/legendaires'
 import type { ProfileRec } from '../src/auth/profiles'
@@ -122,6 +122,48 @@ test('une question qui attend ses réponses : le relevé ne compte rien avant qu
     enJeu = false
     await releve
     assert.equal(comptees.length, 3, 'la question passée, il reprend')
+  } finally {
+    t.arreter()
+  }
+})
+
+test('la suite d’un classement : après sa tête, un paquet à la fois, jusqu’au dernier — chacun une fois, dans l’ordre', async () => {
+  // « J'aimerais voir tout le monde » (le propriétaire, le 9 novembre 2026) : la page s'arrêtait au dixième. La suite se
+  // lit de mémoire, comme la tête : pas un aller-retour de plus à la base.
+  const t = tours()
+  try {
+    const n = TETE_DU_CLASSEMENT + PAQUET_DE_LA_SUITE + 7
+    const { deps } = magasins(n, t.lire)
+    // Chacun son niveau, du plus bas au plus haut : le classement du niveau les range à l'envers.
+    const collectionDe = deps.profiles.collectionDe
+    deps.profiles.collectionDe = ((p: ProfileRec, autres: unknown) => ({ ...(collectionDe as (...a: unknown[]) => ProfilDuCollectionneur)(p, autres), niveau: 2 + Number(p.id.slice(1)) })) as typeof collectionDe
+    const c = new Collectionneurs(deps)
+    await c.relever()
+    const page = await c.pour('p0')
+    const tete = page.categories.niveau.tete
+    assert.equal(tete.length, TETE_DU_CLASSEMENT, 'la page, sa tête seule')
+    assert.equal(page.categories.niveau.classes, n)
+    const premier = await c.suite('niveau', tete.length)
+    assert.equal(premier.places.length, PAQUET_DE_LA_SUITE)
+    assert.equal(premier.classes, n)
+    assert.deepEqual(
+      premier.fiches.map(f => f.id),
+      premier.places.map(p => p.id),
+      'chaque place a sa fiche',
+    )
+    const second = await c.suite('niveau', tete.length + premier.places.length)
+    assert.equal(second.places.length, 7, 'le dernier paquet, ce qui reste')
+    assert.deepEqual((await c.suite('niveau', n)).places, [], 'au-delà du dernier, rien')
+    const tous = [...tete, ...premier.places, ...second.places]
+    assert.deepEqual(
+      tous.map(p => p.id),
+      Array.from({ length: n }, (_, i) => `p${n - 1 - i}`),
+      'tout le monde, chacun une fois, du plus haut niveau au plus bas',
+    )
+    assert.deepEqual(
+      tous.map(p => p.rang),
+      Array.from({ length: n }, (_, i) => i + 1),
+    )
   } finally {
     t.arreter()
   }
