@@ -10,13 +10,14 @@ import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
 import { Sqlite3Client } from '@libsql/client/sqlite3'
-import { demarrer, inscrireProfil, relireJusqua, type Banc } from './banc'
-import { CARATS_DE_LA_GEMME, CARATS_D_UN_MAITRE, CARATS_D_UN_TROPHEE, type ClassementDesCollections, type VitrineDUnCollectionneur } from '../../shared/collectionneurs'
+import { demarrer, ecrire, inscrireProfil, relireJusqua, type Banc } from './banc'
+import { CARATS_DE_LA_GEMME, CARATS_D_UN_MAITRE, CARATS_D_UN_TROPHEE, CARATS_DU_ZENITH, type ClassementDesCollections, type VitrineDUnCollectionneur } from '../../shared/collectionneurs'
 import { CARATS_DU_THEME } from '../../shared/collectionneurs'
 import { theme } from '../../shared/themes'
 import { ProfileStore } from '../src/auth/profiles'
 import { FICHE_GARDEE_MS, RELEVE_GARDE_MS } from '../src/core/collectionneurs'
 import { raconter } from '../src/core/divins'
+import { clePalier } from '../../shared/hautsfaits'
 
 ProfileStore.tirageEclat = () => false
 
@@ -96,8 +97,9 @@ before(async () => {
     db.prepare('INSERT INTO profile_achats (profile_id, theme, prix, created_at) VALUES (?, ?, 0, ?)').run(ids.lea, 'jungle', t)
     badge.run(ids.lea, 'hf:bavard:1', 's1', '', '💬', 'Le Bavard', t)
     db.prepare('INSERT INTO profile_eclats (profile_id, avatar, soiree_id, created_at) VALUES (?, ?, ?, ?)').run(ids.lea, '🦊', 's1', t)
-    // Max : un Divin descendu.
+    // Max : un Divin descendu, et la Comète par son exploit — quatre cents réflexes : scellée d'emblée.
     badge.run(ids.max, 'dv:helios', 's2', '', '☀️', 'Hélios', DESCENTE)
+    badge.run(ids.max, clePalier('hf:reflexe', 3), 's2', '', '⚡', 'Le Réflexe', t)
     // Zoé, masquée du classement par l'administrateur : maître du stade, que personne ne doit voir.
     acquis.run(ids.zoe, 'stade', 13, t)
     db.prepare('INSERT INTO jour_masques (profile_id, masque_le) VALUES (?, ?)').run(ids.zoe, t)
@@ -166,6 +168,20 @@ test('la vitrine : un Divin d’abord ; ni un masqué ni un suspendu ne s’y ou
   const sienne = await lire<ClassementDesCollections>('/api/collectionneurs', 'zoe')
   assert.equal(sienne.categories.maitres.moi?.rang, 1, 'masquée, sa page lui dit la place que les classés lui feraient')
   assert.ok(!sienne.categories.maitres.tete.some(p => p.id === ids.zoe))
+})
+
+test('l’étoile du zénith : sa Comète scellée compte, sur sa pièce et dans sa valeur, et se voit quand il la porte', async () => {
+  // « Il faudrait du coup pouvoir récompenser dans le classement cela » (le propriétaire, le 9 novembre 2026).
+  const page = await pagePrete()
+  const max = page.fiches.find(f => f.id === ids.max)!
+  assert.ok(max.legendaires.includes('lg:comete'))
+  assert.deepEqual(max.scelles, ['lg:comete'])
+  const vitrine = await lire<VitrineDUnCollectionneur>(`/api/collectionneurs/${ids.max}`)
+  assert.deepEqual(vitrine.pieces.find(p => p.cle === 'lg:comete'), { cle: 'lg:comete', gemme: 'legendaire', scelle: true, carats: CARATS_DE_LA_GEMME.legendaire + CARATS_DU_ZENITH })
+  // Portée, sa Comète montre son étoile sur son avatar — sa propre page la refait à sa visite.
+  assert.equal((await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'lg:comete' }, cookies.max, 'PUT')).status, 200)
+  const sienne = (await lire<ClassementDesCollections>('/api/collectionneurs', 'max')).fiches.find(f => f.id === ids.max)!
+  assert.deepEqual([sienne.legendaire, sienne.sceau], ['lg:comete', true])
 })
 
 test('un Divin se compte et se montre, jamais son récit ni le soir où il est descendu', async () => {

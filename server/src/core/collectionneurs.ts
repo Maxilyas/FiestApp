@@ -41,6 +41,7 @@ import {
   CARATS_D_UN_MAITRE,
   CARATS_D_UN_TIMBRE,
   CARATS_D_UN_TROPHEE,
+  CARATS_DU_ZENITH,
   CATEGORIES_DE_COLLECTION,
   caratsDeLaCollection,
   caratsDeLaPiece,
@@ -98,9 +99,10 @@ const CLE_DU_RELEVE = 'collectionneurs'
 /**
  * La forme du relevé gardé, et la façon de le compter (`releveDeLaCollection`) :
  * une règle qui change la monte, et le relevé d'avant ne se relit pas — le
- * suivant le remplace au premier passage.
+ * suivant le remplace au premier passage. La 2 compte les légendaires scellés
+ * (l'étoile du zénith, le 9 novembre 2026) : une fiche d'avant n'en a pas.
  */
-const VERSION_DU_RELEVE = 1
+const VERSION_DU_RELEVE = 2
 
 /**
  * Le barème avec lequel un relevé a été compté : relu sous un autre — une
@@ -111,6 +113,7 @@ const EMPREINTE_DU_BAREME = JSON.stringify([
   CARATS_DE_LA_GEMME,
   CARATS_D_UN_ECLAT,
   CARATS_D_UN_MAITRE,
+  CARATS_DU_ZENITH,
   CARATS_DU_SCEAU,
   CARATS_D_UN_TROPHEE,
   CARATS_D_UN_TIMBRE,
@@ -150,6 +153,8 @@ export interface ProfilDuCollectionneur
   bordure: BordureDeLigue | null
   niveau: number
   legendaires: readonly string[]
+  /** Ses légendaires scellés (`legendairesScelles`) : l'étoile du zénith, masquée ou non dans la loge. */
+  scelles: readonly string[]
   /** Ses Divins descendus, par leur seule clé. */
   divins: readonly string[]
   compagnons: readonly CompagnonPossede[]
@@ -185,6 +190,8 @@ export function releveDeLaCollection(p: ProfilDuCollectionneur): { releve: Relev
   const album: ProfilDeLAlbum = { niveau: p.niveau, legendaires: [...p.legendaires], divins: p.divins.map(key => ({ key })) as ProfilDeLAlbum['divins'], sentiers: p.sentiers, compagnons: [...p.compagnons] }
   const gemmes = Object.fromEntries(RARETES_D_AVATAR.map(g => [g, 0])) as Record<RareteDAvatar, number>
   const eclates = new Set(p.eclates)
+  // Ses légendaires scellés, parmi ceux qu'il a : la règle ne scelle rien d'autre, mais la valeur ne compte pas une étoile sans sa pièce.
+  const scelles = p.scelles.filter(cle => p.legendaires.includes(cle))
   const pieces: PieceDeVitrine[] = []
   for (const cle of avatarsALui(album)) {
     const a = avatarDeLAlbum(cle)
@@ -192,12 +199,14 @@ export function releveDeLaCollection(p: ProfilDuCollectionneur): { releve: Relev
     gemmes[a.rarete]++
     const taillees = p.matieres[cle] ?? []
     const eclate = eclates.has(cle) && a.rarete !== 'divin'
+    const scelle = scelles.includes(cle)
     pieces.push({
       cle,
       gemme: a.rarete,
       ...(eclate && { eclat: versionDeLaPiece(taillees, p.portees[cle]) }),
       ...(eclate && taillees.length > 0 && { taillees: taillees.length }),
-      carats: caratsDeLaPiece(a.rarete, eclate, taillees.length),
+      ...(scelle && { scelle: true as const }),
+      carats: caratsDeLaPiece(a.rarete, eclate, taillees.length, scelle),
     })
   }
   const trophees = albumDesTrophees({
@@ -224,6 +233,7 @@ export function releveDeLaCollection(p: ProfilDuCollectionneur): { releve: Relev
       gemmes,
       legendaires: [...p.legendaires],
       divins: [...p.divins],
+      scelles,
       eclats: p.eclatsPoses,
       maitres: maitresDe(p.sentiers),
       paliers: Object.values(p.sentiers).reduce((n: number, x) => n + Math.min(PALIERS_DU_SENTIER, x ?? 0), 0),

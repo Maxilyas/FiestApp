@@ -51,6 +51,16 @@ export const CARATS_D_UN_ECLAT = 25
 /** Un palier de maître des sentiers : ce qu'il coûte vaut un légendaire. */
 export const CARATS_D_UN_MAITRE = 25
 
+/**
+ * Un légendaire scellé — l'étoile du zénith, sa voie d'origine tenue, pas
+ * seulement le raccourci du Cabinet (`estScelle`, `shared/legendaires.ts`) —
+ * vaut un légendaire de plus : son exploit, quatre cents réflexes ou cent
+ * jours d'affilée, en coûte au moins autant (le souhait du propriétaire du
+ * 9 novembre 2026 : « pouvoir récompenser dans le classement cela »). Masqué
+ * dans la loge, il compte encore : seule la salle ne le voit plus.
+ */
+export const CARATS_DU_ZENITH = 25
+
 /** Un défi d'une carte du Cabinet, au métal de son rang le plus haut tenu. */
 export const CARATS_DU_SCEAU: Readonly<{ bronze: number; argent: number; or: number }> = { bronze: 2, argent: 5, or: 10 }
 
@@ -83,6 +93,11 @@ export interface ReleveDeCollection {
   /** Ses légendaires (`lg:…`) et ses Divins descendus (`dv:…`), tels que sa carte les montre au dos. */
   legendaires: readonly string[]
   divins: readonly string[]
+  /**
+   * Ses légendaires scellés (`legendairesScelles`), masqués compris. Pas
+   * `sceaux` : le mot est aux défis du Cabinet, plus bas, depuis la maquette.
+   */
+  scelles: readonly string[]
   /** Ses Éclats posés : avatars éclatés et matières taillées. */
   eclats: number
   /** Les sentiers dont il a validé le palier de maître, et ses paliers validés sur les 144 (les maîtres à part). */
@@ -112,7 +127,8 @@ const somme = (xs: readonly number[]): number => xs.reduce((s, x) => s + x, 0)
 
 /** Ce que vaut chacune de ses trois familles, et le tout. */
 export function caratsDeLaCollection(r: ReleveDeCollection, style: StyleDeCollection): Record<FamilleDeCarats, number> & { total: number } {
-  const avatars = somme((Object.keys(CARATS_DE_LA_GEMME) as RareteDAvatar[]).map(g => (r.gemmes[g] ?? 0) * CARATS_DE_LA_GEMME[g])) + r.eclats * CARATS_D_UN_ECLAT
+  const avatars =
+    somme((Object.keys(CARATS_DE_LA_GEMME) as RareteDAvatar[]).map(g => (r.gemmes[g] ?? 0) * CARATS_DE_LA_GEMME[g])) + r.eclats * CARATS_D_UN_ECLAT + r.scelles.length * CARATS_DU_ZENITH
   const trophees =
     r.maitres.length * CARATS_D_UN_MAITRE +
     r.sceaux.bronze * CARATS_DU_SCEAU.bronze +
@@ -133,12 +149,13 @@ export function caratsDeLaCollection(r: ReleveDeCollection, style: StyleDeCollec
 /**
  * Ce que vaut une pièce de sa vitrine : sa gemme, son Éclat, et chaque
  * matière qu'il y a taillée — un Éclat chacune ; l'Opale, que les quatre
- * ouvrent, ne coûte rien de plus. Un Divin ne prend ni Éclat ni matière
- * (invariant 21) : sa gemme seule.
+ * ouvrent, ne coûte rien de plus —, et son étoile du zénith, scellé. Un
+ * Divin ne prend ni Éclat, ni matière, ni sceau (invariant 21) : sa gemme
+ * seule.
  */
-export function caratsDeLaPiece(gemme: RareteDAvatar, eclate = false, taillees = 0): number {
-  if (!eclate || gemme === 'divin') return CARATS_DE_LA_GEMME[gemme]
-  return CARATS_DE_LA_GEMME[gemme] + (1 + taillees) * CARATS_D_UN_ECLAT
+export function caratsDeLaPiece(gemme: RareteDAvatar, eclate = false, taillees = 0, scelle = false): number {
+  if (gemme === 'divin') return CARATS_DE_LA_GEMME.divin
+  return CARATS_DE_LA_GEMME[gemme] + (eclate ? (1 + taillees) * CARATS_D_UN_ECLAT : 0) + (scelle ? CARATS_DU_ZENITH : 0)
 }
 
 /** La version d'une pièce à montrer sur son socle : l'Opale quand les quatre y sont taillées, sinon la matière qu'il en porte, sinon sa version rare. */
@@ -301,12 +318,14 @@ export interface ClassementDesCollections {
   enPreparation?: true
 }
 
-/** Une pièce de sa vitrine : sa clé, sa gemme, la version qu'elle montre — rare, ou la matière qu'il en porte —, ses matières taillées, ce qu'elle vaut. */
+/** Une pièce de sa vitrine : sa clé, sa gemme, la version qu'elle montre — rare, ou la matière qu'il en porte —, ses matières taillées, son sceau, ce qu'elle vaut. */
 export interface PieceDeVitrine {
   cle: string
   gemme: RareteDAvatar
   eclat?: true | Matiere
   taillees?: number
+  /** Un légendaire scellé : son étoile du zénith, sur son socle — sa vitrine montre sa collection, même s'il la masque sur son avatar. */
+  scelle?: true
   carats: number
 }
 
@@ -351,6 +370,7 @@ export function lignesDuFaceAFace(moi: FicheDeCollectionneur, lui: FicheDeCollec
     { nom: 'Divins', moi: moi.divins.length, lui: lui.divins.length, divine: true },
     { nom: 'Avatars', moi: avatars(moi), lui: avatars(lui) },
     { nom: 'Légendaires', moi: moi.legendaires.length, lui: lui.legendaires.length },
+    { nom: 'Légendaires scellés', moi: moi.scelles.length, lui: lui.scelles.length },
     { nom: 'Maîtres des sentiers', moi: moi.maitres.length, lui: lui.maitres.length },
     { nom: 'Paliers des sentiers', moi: moi.paliers, lui: lui.paliers },
     { nom: 'Sceaux d’or du Cabinet', moi: moi.sceaux.or, lui: lui.sceaux.or },

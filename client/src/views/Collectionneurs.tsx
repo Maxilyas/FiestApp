@@ -22,6 +22,7 @@ import {
   CARATS_D_UN_ECLAT,
   CARATS_D_UN_FOND,
   CARATS_D_UN_MAITRE,
+  CARATS_DU_ZENITH,
   CARATS_D_UN_TIMBRE,
   CARATS_D_UN_TROPHEE,
   CATEGORIE,
@@ -61,7 +62,7 @@ import {
 
 /** Son avatar, tel qu'il le porte — sa bordure de ligue comprise, jamais sous un Divin (le serveur ne la donne pas). */
 function SonAvatar({ f, className, grand }: { f: FicheDeCollectionneur; className?: string; grand?: boolean }) {
-  return <Avatar className={className} avatar={f.avatar} finition={f.finition} legendaire={f.legendaire} eclat={f.eclat} bordure={f.bordure} grand={grand} />
+  return <Avatar className={className} avatar={f.avatar} finition={f.finition} legendaire={f.legendaire} sceau={f.sceau} eclat={f.eclat} bordure={f.bordure} grand={grand} />
 }
 
 /** Une gemme, la pierre de l'album : son losange à la couleur de sa rareté ; le carat, à l'or de l'accent. */
@@ -142,12 +143,18 @@ function Sceaux({ f }: { f: FicheDeCollectionneur }) {
   )
 }
 
-/** Ses premiers légendaires, en petit, peints et figés comme dans toute liste — le reste compté au bout. */
-function Medaillons({ cles, n = 4 }: { cles: readonly string[]; n?: number }) {
+/**
+ * Ses premiers légendaires, en petit, peints et figés comme dans toute liste —
+ * les scellés d'abord, leur étoile du zénith au sommet : sa voie d'origine
+ * tenue se voit dans le classement (le souhait du propriétaire, le 9 novembre
+ * 2026) — ; le reste compté au bout.
+ */
+function Medaillons({ cles, scelles = [], n = 4 }: { cles: readonly string[]; scelles?: readonly string[]; n?: number }) {
+  const ordre = [...cles.filter(c => scelles.includes(c)), ...cles.filter(c => !scelles.includes(c))]
   return (
     <span className="cl-medaillons" aria-hidden="true">
-      {cles.slice(0, n).map(c => (
-        <Avatar key={c} className="lb-avatar cl-medaillon" avatar="" legendaire={c} />
+      {ordre.slice(0, n).map(c => (
+        <Avatar key={c} className="lb-avatar cl-medaillon" avatar="" legendaire={c} sceau={scelles.includes(c)} />
       ))}
       {cles.length > n && <span className="cl-plus">{`+${cles.length - n}`}</span>}
     </span>
@@ -168,7 +175,8 @@ function Detail({ c, f }: { c: CategorieDeCollection; f: FicheDeCollectionneur }
     case 'legendaires':
       return (
         <span className="cl-detail">
-          <Medaillons cles={f.legendaires} />
+          <Medaillons cles={f.legendaires} scelles={f.scelles} />
+          {f.scelles.length > 0 && <span>{`${f.scelles.length} scellé${f.scelles.length > 1 ? 's' : ''}`}</span>}
         </span>
       )
     case 'cabinet':
@@ -393,8 +401,8 @@ function Socle({ piece: p }: { piece: PieceDeVitrine }) {
         ) : emoji ? (
           <Avatar className="cl-socle-av" avatar={p.cle} eclat={p.eclat} />
         ) : (
-          // Sa matière, peinte : le Phénix taillé dans le jade se montre en jade.
-          <Avatar className="cl-socle-av" avatar="" legendaire={p.cle} eclat={p.eclat} grand />
+          // Sa matière, peinte : le Phénix taillé dans le jade se montre en jade ; scellé, son étoile du zénith au sommet.
+          <Avatar className="cl-socle-av" avatar="" legendaire={p.cle} eclat={p.eclat} sceau={p.scelle} grand />
         )}
       </span>
       <span className="cl-socle-pied" aria-hidden="true" />
@@ -403,6 +411,7 @@ function Socle({ piece: p }: { piece: PieceDeVitrine }) {
         <span className={estDivin ? 'cl-opale-texte' : undefined}>
           <Pierre gemme={p.gemme} petite /> {NOM_DE_RARETE_D_AVATAR[p.gemme]}
           {matiere ? ` · ${NOM_DE_LA_MATIERE[matiere].toLowerCase()}` : p.eclat ? ' · éclaté' : ''}
+          {p.scelle && ' · scellé'}
         </span>
         <span className="cl-socle-valeur">{`${formatNumber(p.carats)}\u00a0${carats(p.carats)}`}</span>
       </figcaption>
@@ -556,11 +565,20 @@ function FaceAFace({ moi, lui, onCarte, onFermer }: { moi: FicheDeCollectionneur
   const mesDivins = moi.divins.filter(c => !lui.divins.includes(c))
   const sesLegendaires = lui.legendaires.filter(c => !moi.legendaires.includes(c))
   const mesLegendaires = moi.legendaires.filter(c => !lui.legendaires.includes(c))
+  // Un légendaire qu'ils ont tous les deux, scellé chez un seul : la même pièce, et l'étoile du zénith de sa voie d'origine en plus.
+  const sesScelles = lui.scelles.filter(c => moi.legendaires.includes(c) && !moi.scelles.includes(c))
+  const mesScelles = moi.scelles.filter(c => lui.legendaires.includes(c) && !lui.scelles.includes(c))
   const sesMaitres = lui.maitres.filter(b => !moi.maitres.includes(b))
   const mesMaitres = moi.maitres.filter(b => !lui.maitres.includes(b))
   // Une seule pièce qui vaut l'écart à elle seule : on sait par où commencer.
-  const plusBelle = Math.max(0, ...sesDivins.map(() => CARATS_DE_LA_GEMME.divin), ...sesMaitres.map(() => CARATS_D_UN_MAITRE), ...sesLegendaires.map(() => CARATS_DE_LA_GEMME.legendaire))
-  const pieces = (divins: readonly string[], legendaires: readonly string[], maitres: readonly string[], n: number) => (
+  const plusBelle = Math.max(
+    0,
+    ...sesDivins.map(() => CARATS_DE_LA_GEMME.divin),
+    ...sesMaitres.map(() => CARATS_D_UN_MAITRE),
+    ...sesLegendaires.map(() => CARATS_DE_LA_GEMME.legendaire),
+    ...sesScelles.map(() => CARATS_DU_ZENITH),
+  )
+  const pieces = (de: FicheDeCollectionneur, divins: readonly string[], legendaires: readonly string[], scelles: readonly string[], maitres: readonly string[], n: number) => (
     <div className="cl-manque-pieces">
       {divins.map(c => (
         <span key={c} className="cl-piece cl-piece-divine">
@@ -573,8 +591,14 @@ function FaceAFace({ moi, lui, onCarte, onFermer }: { moi: FicheDeCollectionneur
       ))}
       {legendaires.slice(0, Math.max(0, n - divins.length)).map(c => (
         <span key={c} className="cl-piece">
-          <Avatar className="cl-piece-av" avatar="" legendaire={c} />
+          <Avatar className="cl-piece-av" avatar="" legendaire={c} sceau={de.scelles.includes(c)} />
           <span>{nomDe(c)}</span>
+        </span>
+      ))}
+      {scelles.slice(0, 3).map(c => (
+        <span key={`scelle-${c}`} className="cl-piece">
+          <Avatar className="cl-piece-av" avatar="" legendaire={c} sceau />
+          <span>{`${nomDe(c)} · scellé`}</span>
         </span>
       ))}
       {maitres.slice(0, 3).map(b => (
@@ -651,20 +675,20 @@ function FaceAFace({ moi, lui, onCarte, onFermer }: { moi: FicheDeCollectionneur
           )
         })}
       </ul>
-      {(sesDivins.length > 0 || sesLegendaires.length > 0 || sesMaitres.length > 0) && (
+      {(sesDivins.length > 0 || sesLegendaires.length > 0 || sesScelles.length > 0 || sesMaitres.length > 0) && (
         <section className="cl-manque">
           <h3 className="label">{`Ce que ${lui.nom} a et pas toi`}</h3>
           {ecart > 0 && (
             <p className="muted small cl-manque-phrase">{`Pour le passer, il te manque ${formatNumber(ecart + 1)}\u00a0${carats(ecart + 1)}${plusBelle > ecart ? ' : une seule de ces pièces suffit.' : '.'}`}</p>
           )}
-          {pieces(sesDivins, sesLegendaires, sesMaitres, 5)}
+          {pieces(lui, sesDivins, sesLegendaires, sesScelles, sesMaitres, 5)}
           {sesDivins.length > 0 && <p className="cl-divins-secret cl-divins-secret-petit">Comment un Divin descend ne se dit pas.</p>}
         </section>
       )}
-      {(mesDivins.length > 0 || mesLegendaires.length > 0 || mesMaitres.length > 0) && (
+      {(mesDivins.length > 0 || mesLegendaires.length > 0 || mesScelles.length > 0 || mesMaitres.length > 0) && (
         <section className="cl-manque">
           <h3 className="label">{`Ce que tu as et pas ${lui.nom}`}</h3>
-          {pieces(mesDivins, mesLegendaires, mesMaitres, 4)}
+          {pieces(moi, mesDivins, mesLegendaires, mesScelles, mesMaitres, 4)}
         </section>
       )}
     </Feuille>
@@ -688,7 +712,7 @@ function LeBareme() {
         ))}
       </ul>
       <p className="muted small">
-        {`Un Éclat vaut un légendaire (${CARATS_D_UN_ECLAT}), qu’il fasse éclater un avatar ou y taille une matière — l’Opale, offerte par les quatre, ne compte pas. Un maître de sentier en vaut un aussi (${CARATS_D_UN_MAITRE}) ; un sceau du Cabinet ${CARATS_DU_SCEAU.bronze}, ${CARATS_DU_SCEAU.argent} ou ${CARATS_DU_SCEAU.or} selon son métal ; un autre trophée et un timbre ${CARATS_D_UN_TROPHEE} et ${CARATS_D_UN_TIMBRE}. Un thème vaut sa gemme, un fond et une gerbe ${CARATS_D_UN_FOND} et ${CARATS_D_UNE_GERBE}, une finition ${CARATS_D_UNE_FINITION}, une bordure de ligue de ${CARATS_DE_LA_LIGUE.bronze} au bronze à ${CARATS_DE_LA_LIGUE.maitre} chez les maîtres. Un Divin vaut huit légendaires — comment il descend ne se dit pas.`}
+        {`Un Éclat vaut un légendaire (${CARATS_D_UN_ECLAT}), qu’il fasse éclater un avatar ou y taille une matière — l’Opale, offerte par les quatre, ne compte pas. Un maître de sentier en vaut un aussi (${CARATS_D_UN_MAITRE}), comme l’étoile du zénith d’un légendaire scellé, sa voie d’origine tenue (${CARATS_DU_ZENITH}) ; un sceau du Cabinet ${CARATS_DU_SCEAU.bronze}, ${CARATS_DU_SCEAU.argent} ou ${CARATS_DU_SCEAU.or} selon son métal ; un autre trophée et un timbre ${CARATS_D_UN_TROPHEE} et ${CARATS_D_UN_TIMBRE}. Un thème vaut sa gemme, un fond et une gerbe ${CARATS_D_UN_FOND} et ${CARATS_D_UNE_GERBE}, une finition ${CARATS_D_UNE_FINITION}, une bordure de ligue de ${CARATS_DE_LA_LIGUE.bronze} au bronze à ${CARATS_DE_LA_LIGUE.maitre} chez les maîtres. Un Divin vaut huit légendaires — comment il descend ne se dit pas.`}
       </p>
     </details>
   )

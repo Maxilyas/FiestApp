@@ -23,6 +23,7 @@ const profil = (id: string): ProfilDuCollectionneur => ({
   bordure: null,
   niveau: 5,
   legendaires: [LEGENDAIRES[0].key],
+  scelles: [],
   divins: [],
   compagnons: [],
   eclatsPoses: 0,

@@ -26,6 +26,16 @@ l'intégration, c'est parfait. Attention à la performance pour ne pas geler le
 serveur, etc. Requête. » — le Divin à deux cents carats, et la page faite :
 `/collectionneurs` (« La page, intégrée », plus bas).
 
+Puis, le même jour, l'étoile du zénith arrivée sur `main` — le sceau d'un
+légendaire gagné par sa voie d'origine, pas seulement par le raccourci du
+Cabinet : « il faudrait du coup pouvoir récompenser dans le classement
+cela ». Un légendaire scellé vaut un légendaire de plus (`CARATS_DU_ZENITH`,
+25 carats), masqué ou non dans la loge ; ses légendaires scellés passent en
+tête de sa ligne, leur étoile au sommet, et se comptent (« 3 scellés ») ; sa
+pièce le dit sur son socle ; le face-à-face a sa ligne, « Légendaires
+scellés », et compte l'étoile d'un légendaire que les deux ont parmi ce que
+l'un a et pas l'autre.
+
 Une maquette : les propositions sont posées dans le vrai client — ses avatars
 peints, ses finitions, ses bordures de ligue, ses Divins, ses matières, sa
 feuille, son menu —, derrière une page de maquette (`/classement?p=1`, `2`,

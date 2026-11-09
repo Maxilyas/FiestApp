@@ -8,6 +8,7 @@ import {
   CARATS_DE_LA_GEMME,
   CARATS_D_UN_ECLAT,
   CARATS_D_UN_MAITRE,
+  CARATS_DU_ZENITH,
   caratsDeLaCollection,
   caratsDeLaPiece,
   bilanDuFaceAFace,
@@ -33,6 +34,7 @@ function releve(r: Partial<ReleveDeCollection> = {}): ReleveDeCollection {
     gemmes: aucuneGemme(),
     legendaires: [],
     divins: [],
+    scelles: [],
     eclats: 0,
     maitres: [],
     paliers: 0,
@@ -45,21 +47,23 @@ function releve(r: Partial<ReleveDeCollection> = {}): ReleveDeCollection {
 
 const sansStyle = (): StyleDeCollection => ({ themes: {}, fonds: 0, gerbes: 0, finitions: 0, ligues: [] })
 
-test('le barème : un Divin vaut huit légendaires, un Éclat et un maître chacun un', () => {
+test('le barème : un Divin vaut huit légendaires, un Éclat, un maître et une étoile du zénith chacun un', () => {
   assert.equal(CARATS_DE_LA_GEMME.divin, 200, 'le propriétaire : « passe-le à 200 »')
   assert.equal(CARATS_DE_LA_GEMME.divin, 8 * CARATS_DE_LA_GEMME.legendaire)
   assert.equal(CARATS_D_UN_ECLAT, CARATS_DE_LA_GEMME.legendaire)
   assert.equal(CARATS_D_UN_MAITRE, CARATS_DE_LA_GEMME.legendaire)
+  assert.equal(CARATS_DU_ZENITH, CARATS_DE_LA_GEMME.legendaire, 'sa voie d’origine, l’exploit, en coûte au moins autant')
   // Chaque gemme vaut plus que celle d'en dessous : l'échelle de l'album.
   for (let i = 1; i < RARETES_D_AVATAR.length; i++) assert.ok(CARATS_DE_LA_GEMME[RARETES_D_AVATAR[i]] > CARATS_DE_LA_GEMME[RARETES_D_AVATAR[i - 1]])
 })
 
 test('la valeur d’une collection : ses trois familles, et le tout', () => {
   const gemmes = { ...aucuneGemme(), commune: 3, rare: 1, legendaire: 2, divin: 1 }
-  const r = releve({ gemmes, eclats: 2, maitres: ['monde'], sceaux: { bronze: 1, argent: 1, or: 1 }, trophees: 4, timbres: 3 })
+  const r = releve({ gemmes, eclats: 2, scelles: ['lg:comete'], maitres: ['monde'], sceaux: { bronze: 1, argent: 1, or: 1 }, trophees: 4, timbres: 3 })
   const style: StyleDeCollection = { themes: { offert: 2, rare: 1, legendaire: 1 }, fonds: 2, gerbes: 1, finitions: 3, ligues: ['bronze', 'argent', 'or'] }
   const c = caratsDeLaCollection(r, style)
-  assert.equal(c.avatars, 3 * 1 + 5 + 2 * 25 + 200 + 2 * 25)
+  // Ses avatars, ses deux Éclats, et l'étoile du zénith de sa Comète.
+  assert.equal(c.avatars, 3 * 1 + 5 + 2 * 25 + 200 + 2 * 25 + 25)
   assert.equal(c.trophees, 25 + 2 + 5 + 10 + 4 * 2 + 3 * 2)
   // Les deux thèmes offerts à tous ne valent rien.
   assert.equal(c.style, 5 + 25 + 2 * 3 + 3 + 3 * 2 + (1 + 2 + 5))
@@ -77,6 +81,7 @@ const profilVide = (p: Partial<ProfilDuCollectionneur> = {}): ProfilDuCollection
   bordure: null,
   niveau: 1,
   legendaires: [],
+  scelles: [],
   divins: [],
   compagnons: [],
   eclatsPoses: 0,
@@ -122,6 +127,22 @@ test('le relevé d’un profil : une matière n’est pas un avatar de plus, l�
   assert.equal(zoe.releve.gemmes.legendaire, 1)
 })
 
+test('le relevé d’un profil : l’étoile du zénith d’un légendaire scellé compte, sur sa pièce et dans sa valeur', () => {
+  // « Il faudrait du coup pouvoir récompenser dans le classement cela » (le propriétaire, le 9 novembre 2026) :
+  // la même Comète, gagnée au Cabinet ou par ses quatre cents réflexes, ne vaut pas pareil.
+  const [comete, phenix] = ['lg:comete', LEGENDAIRES[0].key]
+  const auCabinet = releveDeLaCollection(profilVide({ legendaires: [comete, phenix] }))
+  const scellee = releveDeLaCollection(profilVide({ legendaires: [comete, phenix], scelles: [comete] }))
+  assert.deepEqual(scellee.releve.scelles, [comete])
+  assert.deepEqual({ ...scellee.releve.gemmes }, { ...auCabinet.releve.gemmes }, 'scellé, il reste un légendaire : aucun avatar de plus')
+  assert.equal(caratsDeLaCollection(scellee.releve, scellee.style).total - caratsDeLaCollection(auCabinet.releve, auCabinet.style).total, CARATS_DU_ZENITH)
+  // Sa pièce le dit et le vaut : la plus belle de sa vitrine.
+  assert.deepEqual(scellee.pieces[0], { cle: comete, gemme: 'legendaire', scelle: true, carats: CARATS_DE_LA_GEMME.legendaire + CARATS_DU_ZENITH })
+  assert.equal(auCabinet.pieces.find(p => p.cle === comete)?.scelle, undefined)
+  // Une étoile sans sa pièce ne compte pas : la règle ne scelle que ce qu'il a, la valeur ne le suppose pas.
+  assert.deepEqual(releveDeLaCollection(profilVide({ legendaires: [phenix], scelles: [comete] })).releve.scelles, [])
+})
+
 test('une pièce de la vitrine : son Éclat, et chaque matière qu’il a coûté ; l’Opale n’en coûte pas de plus ; un Divin ne prend rien', () => {
   assert.equal(caratsDeLaPiece('legendaire'), 25)
   assert.equal(caratsDeLaPiece('legendaire', true), 50)
@@ -129,7 +150,11 @@ test('une pièce de la vitrine : son Éclat, et chaque matière qu’il a coût�
   assert.equal(caratsDeLaPiece('legendaire', true, 4), 150, 'les quatre matières, et l’Opale qu’elles ouvrent ne coûte rien de plus')
   assert.equal(caratsDeLaPiece('rare', true), 30)
   assert.equal(caratsDeLaPiece('divin', true, 2), 200, 'un Divin ne prend ni finition ni Éclat (invariant 21)')
+  assert.equal(caratsDeLaPiece('divin', false, 0, true), 200, 'ni sceau')
   assert.equal(caratsDeLaPiece('commune'), 1)
+  // Scellé : son étoile du zénith en plus — d'origine, ou éclaté et taillé.
+  assert.equal(caratsDeLaPiece('legendaire', false, 0, true), 50)
+  assert.equal(caratsDeLaPiece('legendaire', true, 4, true), 175)
   // La version montrée : l'Opale aux quatre, la matière portée tant qu'il l'a, sinon la version rare.
   assert.equal(versionDeLaPiece(['jade', 'corail', 'porcelaine', 'obsidienne']), 'opale')
   assert.equal(versionDeLaPiece(['jade', 'corail'], 'corail'), 'corail')
@@ -146,7 +171,12 @@ test('le face-à-face : les Divins d’abord, rien des thèmes, et ce que ni l�
   assert.ok(lignes[0].divine)
   assert.ok(!lignes.some(l => /th[eè]me/i.test(l.nom)), 'pas de ligne pour les thèmes')
   assert.ok(!lignes.some(l => l.nom === 'Sceaux d’or du Cabinet'), 'ni l’un ni l’autre n’a de sceau d’or')
+  assert.ok(!lignes.some(l => l.nom === 'Légendaires scellés'), 'ni l’un ni l’autre n’a de légendaire scellé')
   assert.deepEqual(bilanDuFaceAFace(lignes), { moi: 3, lui: 4, egalites: 0 })
+  // Son Phénix scellé, le mien gagné au Cabinet : la ligne des scellés paraît, juste sous les légendaires.
+  const scelle = lignesDuFaceAFace(moi, avec({ ...lui, scelles: ['lg:phenix'] }, 425))
+  const i = scelle.findIndex(l => l.nom === 'Légendaires scellés')
+  assert.deepEqual([scelle[i - 1].nom, scelle[i].moi, scelle[i].lui], ['Légendaires', 0, 1])
 })
 
 type Fiche = ReleveDeCollection & { id: string; nom: string; carats: number }

@@ -4206,6 +4206,8 @@ export class ProfileStore {
       bordure: apparence.legendaire && divin(apparence.legendaire) ? null : bordurePortee(p.bordure, autres.bordures),
       niveau,
       legendaires: this.legendairesOf(id),
+      // L'étoile du zénith de chacun, la règle de sa page (`toDetail`) : masquée dans la loge, elle compte encore.
+      scelles: legendairesScelles(recompenses, this.acquis.get(id)),
       divins: this.divinsOf(id),
       compagnons: this.compagnonsOf(id),
       eclatsPoses: this.eclatsPosesOf(id),
