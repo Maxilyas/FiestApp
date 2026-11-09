@@ -252,7 +252,12 @@ paths:
   `deja` premières, une à une, sans rien allouer, et `retouchesDe`, celles
   qui ont changé en place — une réponse plus ancienne lue en retard : la page
   des sentiers tient sa force à jour de ses seules réponses nouvelles, règle
-  `sentiers.md`, et relit tout quand une première d'avant change) : une dérivation de plus s'y écrit, et se compare
+  `sentiers.md`, et relit tout quand une première d'avant change ; depuis le
+  9 novembre 2026, `placesAuFiletDe`, ce qu'il a placé au nouveau Filet,
+  juste et sans aide — ses repères à soi, règle `cabinet.md` : la lecture y
+  prend la pièce composée d'un lancer juste du Filet, et elle seule
+  (`composee`), et sa colonne de plus a fait relire tout le journal au premier
+  réveil d'après) : une dérivation de plus s'y écrit, et se compare
   au SQL d'avant dans `journal-des-reponses.test.ts`, sur une base au hasard
   — sans SQL d'avant, comme les leurres, écrit dans le test à part. Les
   leurres lisent la mauvaise réponse en texte, telle que sa série l'a posée

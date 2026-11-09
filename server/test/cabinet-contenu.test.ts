@@ -17,17 +17,25 @@ import {
   DOSSIER_DU_CONTENU,
   SORTES,
   SORTES_DU_CONTENU,
+  bornesDitesDUnTexte,
   contenuDuCabinet,
   ecritDans,
   ligneDe,
   lireLeContenu,
+  nombresDUnTexte,
+  refusDeLIndiceALaLettre,
   refusDeLaFiche,
   refusDeLaFriseATheme,
+  refusDeLaQuestionDuFilet,
   refusDeLaReplique,
   refusDuLieu,
+  refusDuRepere,
   trier,
   type SorteDuContenu,
 } from '../src/core/cabinet/contenu'
+import { lireLaBase } from '../src/core/baseCampagne'
+import { valeurDuFilet } from '../src/core/cabinet/tirages/tas'
+import { acteDuFilet } from '../../shared/cabinet/jeux/filetEnDeuxTemps'
 import { traiterLesLots } from '../scripts/cabinet-contenu'
 import { tirerLePlan } from '../src/core/cabinet/tirages/index'
 import { ENJEU_ORDINAIRE } from '../../shared/cabinet/partie'
@@ -60,7 +68,7 @@ import type { Fiche, FriseATheme, Lieu, Replique } from '../../shared/cabinet/co
  * maladroite ferait rougir ce test, pas un joueur qui retombe sur les mêmes
  * lieux.
  */
-const AU_MOINS: Readonly<Record<SorteDuContenu, number>> = { lieux: 90, fiches: 66, repliques: 66, frises: 18 }
+const AU_MOINS: Readonly<Record<SorteDuContenu, number>> = { lieux: 90, fiches: 66, repliques: 66, frises: 18, filet: 1600, reperes: 80 }
 
 const brut = (s: SorteDuContenu): unknown[] => JSON.parse(readFileSync(path.join(DOSSIER_DU_CONTENU, SORTES[s].fichier), 'utf8'))
 
@@ -115,6 +123,67 @@ test('une entrée par ligne, ses champs dans l’ordre du juge : une relecture d
       assert.equal(l, ligneDe(s, e) + (i < entrees.length - 1 ? ',' : ''), `${fichier} : ${l.slice(0, 60)}`)
     })
   }
+})
+
+test('le Filet en deux temps : chaque question de son contenu est une question de la base qu’il vise, et son indice passe le juge à la lettre', () => {
+  // Le contenu du Filet ne porte que l'identifiant d'une question : sa valeur et sa réponse restent dans la base. Une
+  // question retirée, ou qui ne se vise plus, s'y verrait d'abord ; un indice trop près de la réponse aussi — la lettre se
+  // juge contre la base, qui seule sait la valeur (`refusDeLIndiceALaLettre`).
+  const base = new Map(lireLaBase().questions.map(q => [q.id, q]))
+  const { filet, reperes } = contenuDuCabinet()
+  const absentes: string[] = []
+  const sansValeur: string[] = []
+  const tropPres: string[] = []
+  for (const e of filet) {
+    const q = base.get(e.id)
+    if (!q || (q.meta.aRelire ?? []).length > 0) {
+      absentes.push(e.id)
+      continue
+    }
+    const v = valeurDuFilet(q)
+    if (!v) {
+      sansValeur.push(e.id)
+      continue
+    }
+    const refus = e.indice && refusDeLIndiceALaLettre(e.indice, v.valeur, v.annee)
+    if (refus) tropPres.push(`${e.id} (${v.valeur}) : ${refus} — « ${e.indice} »`)
+  }
+  assert.deepEqual(absentes, [], 'des questions que la base n’a plus, ou qu’elle relit')
+  assert.deepEqual(sansValeur, [], 'des questions que le Filet ne vise pas')
+  assert.deepEqual(tropPres, [], 'des indices qui écrivent un nombre trop près de la réponse')
+  // Chaque acte a de quoi tenir, et les repères de quoi poser une frise : des années, et des grandeurs dans leur unité.
+  for (const acte of [0, 1, 2] as const) assert.ok(filet.filter(q => acteDuFilet(q) === acte).length >= 200, `l’acte ${acte + 1}`)
+  assert.ok(reperes.filter(r => r.unite === null).length >= 60, 'des dates')
+  assert.ok(reperes.filter(r => r.unite !== null).length >= 10, 'des grandeurs')
+})
+
+test('le juge à la lettre des indices du Filet : les chiffres, les lettres, jamais un article', () => {
+  assert.deepEqual(nombresDUnTexte('Entre la crise de 1929 et 1 000 morts, à 3,5 près'), [1929, 1000, 3.5])
+  assert.deepEqual(nombresDUnTexte('quatre-vingt-dix, deux cents, trois mille, vingt et un'), [90, 200, 3000, 21])
+  assert.deepEqual(nombresDUnTexte('mille neuf cent quatre-vingt-un'), [1981])
+  assert.deepEqual(nombresDUnTexte('Une tour plus haute qu’un immeuble'), [], '« une » seul est un article')
+  // Une année : à quinze ans ; une grandeur : à 20 %.
+  assert.equal(refusDeLIndiceALaLettre('Après la crise de 1929', 1946, true), null)
+  assert.equal(refusDeLIndiceALaLettre('Peu après 1940', 1946, true), '1940, trop près de la réponse')
+  assert.equal(refusDeLIndiceALaLettre('En mille neuf cent cinquante', 1946, true), '1950, trop près de la réponse')
+  assert.equal(refusDeLIndiceALaLettre('Plus haute que l’Arc de triomphe, loin d’un kilomètre', 330, false), null)
+  assert.equal(refusDeLIndiceALaLettre('Environ trois cents mètres', 330, false), '300, trop près de la réponse')
+  // La borne d'une tranche dite comme une borne mène à la tranche, sans la place : la frise l'écrit déjà.
+  assert.deepEqual(nombresDUnTexte('entre deux cents et trois cents'), [200, 300], '« et » sépare deux nombres, hors de « vingt et un »')
+  assert.deepEqual(bornesDitesDUnTexte('Plus de dix secondes, mais moins d’une demi-minute'), [10])
+  assert.deepEqual(bornesDitesDUnTexte('Entre 1925 et mille neuf cent cinquante, après la guerre'), [1925, 1950])
+  assert.equal(refusDeLIndiceALaLettre('Plus de dix secondes, mais moins d’une demi-minute', 12, false), null)
+  assert.equal(refusDeLIndiceALaLettre('Plus de mille battements par minute, moins de trois mille', 1200, false), null)
+  assert.equal(refusDeLIndiceALaLettre('Avant mille neuf cent cinquante', 1946, true), null)
+  assert.equal(refusDeLIndiceALaLettre('Vers mille neuf cent cinquante', 1946, true), '1950, trop près de la réponse')
+  assert.equal(refusDeLIndiceALaLettre('Plus de mille neuf cent quarante', 1946, true), '1940, trop près de la réponse', 'une borne, mais pas d’une tranche')
+  // Les juges de la forme : une question du Filet, un repère.
+  assert.equal(refusDeLaQuestionDuFilet({ id: 'abc', chacun: true, panel: 50, indice: null, repere: null }), null)
+  assert.match(refusDeLaQuestionDuFilet({ id: 'abc', chacun: true, panel: 120, indice: null, repere: null })!, /note du panel/)
+  assert.match(refusDeLaQuestionDuFilet({ id: 'abc', chacun: true, panel: 50, indice: 'x'.repeat(101), repere: null })!, /101 signes/)
+  assert.match(refusDeLaQuestionDuFilet({ id: 'abc', chacun: true, panel: 50, indice: null })!, /il manque repere/)
+  assert.equal(refusDuRepere({ id: '1789-bastille', valeur: 1789, texte: 'La prise de la Bastille', unite: null }), null)
+  assert.match(refusDuRepere({ id: 'x', valeur: 1789.5, texte: 'Une demi-année', unite: null })!, /une année : un entier/)
 })
 
 test('chaque thème de l’Épingle a de quoi faire une partie : trois lieux d’un même thème', () => {

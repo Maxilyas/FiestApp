@@ -50,7 +50,7 @@ import {
   type Force,
 } from '../../shared/cabinet/pouvoirs'
 import * as B from '../../shared/cabinet/bareme'
-import { CABINET_EN_PRODUCTION, JEUX_PRETS, cabinetOuvert } from '../../shared/cabinet/ouverture'
+import { CABINET_EN_PRODUCTION, FILET_EN_DEUX_TEMPS, JEUX_PRETS, cabinetOuvert } from '../../shared/cabinet/ouverture'
 import {
   PREFIXE_DU_CABINET,
   JOKER_D_ECLAIRER,
@@ -456,7 +456,16 @@ test('dix jeux, chacun ses mots, son chrono et son barème dit', () => {
   assert.equal(JEUX.frise.bareme, 'sans faute ★★★ · une erreur ★★')
   assert.equal(JEUX.mot.bareme, 'en 1 ou 2 essais ★★★ · 3 ou 4 ★★ · 5 ★')
   assert.equal(JEUX.detail.bareme, 'au premier coup d’œil ★★★ · un pas ★★ · deux ★')
-  assert.equal(JEUX.filet.bareme, `petit filet ${etoiles(B.ETOILES_DU_FILET.petit)} · moyen ${etoiles(B.ETOILES_DU_FILET.moyen)} · grand ${etoiles(B.ETOILES_DU_FILET.grand)}`)
+  // Le Filet dit celui qui se joue (`FILET_EN_DEUX_TEMPS`) : en deux temps depuis le 9 novembre 2026, la bonne époque puis ses
+  // deux anneaux, en parts d'époque — un quart, un douzième, écrits en mots — et en pour cent d'une grandeur ; avant, ses trois filets.
+  assert.equal(
+    JEUX.filet.bareme,
+    FILET_EN_DEUX_TEMPS
+      ? `la bonne époque ★ · à un quart d’époque près ★★ · à un douzième ★★★ — une grandeur, à ${B.ANNEAUX_DES_GRANDEURS.deux} et ${B.ANNEAUX_DES_GRANDEURS.trois} %`
+      : `petit filet ${etoiles(B.ETOILES_DU_FILET.petit)} · moyen ${etoiles(B.ETOILES_DU_FILET.moyen)} · grand ${etoiles(B.ETOILES_DU_FILET.grand)}`,
+  )
+  assert.deepEqual([B.ANNEAUX_DES_EPOQUES.deux, B.ANNEAUX_DES_EPOQUES.trois], [4, 12], 'la phrase dit « un quart », « un douzième »')
+  if (FILET_EN_DEUX_TEMPS) assert.match(JEUX.filet.geste, /^Choisis l’époque/)
   assert.equal(JEUX.pari.bareme, `garder ${etoiles(B.ETOILES_DU_PARI.garder)} · parier et réussir ${etoiles(B.ETOILES_DU_PARI.parier)}`)
   assert.equal(JEUX.pari.bareme, 'garder ★★ · parier et réussir ★★★')
   // Le geste du Pari dit les étoiles gardées au nombre du barème : « garde une étoile » en promettait une de moins.

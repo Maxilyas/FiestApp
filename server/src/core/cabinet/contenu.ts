@@ -26,37 +26,57 @@ import { CATEGORIES } from '../../../../shared/categories'
 import { refusDuLibelle } from '../../../../shared/frise'
 import { dansLaFrance, distanceKm } from '../../../../shared/cabinet/france'
 import {
+  ANS_PRES_D_UN_INDICE,
   AUTRES_D_UNE_REPLIQUE,
   CLES_MAX,
   ECART_DES_ANNEES_DE_LA_FRISE,
   EVENEMENTS_D_UNE_FRISE_A_THEME,
   INDICES_D_UNE_FICHE,
+  INDICE_DU_FILET_MAX,
   INDICE_MAX,
   LEURRES_D_UNE_REPLIQUE,
   LIEUX_VOISINS_KM,
   MOTS_D_UNE_IDENTITE_MAX,
   MOTS_D_UNE_REPLIQUE_MAX,
+  PART_PRES_D_UN_INDICE,
   QUESTION_MAX,
   RECIT_MAX,
+  REPERE_DU_FILET_MAX,
   SAVAIS_MAX,
 } from '../../../../shared/cabinet/bareme'
-import { FORME_D_UN_IDENTIFIANT, FORME_D_UNE_CLE, type Fiche, type FriseATheme, type Lieu, type Replique } from '../../../../shared/cabinet/contenu'
+import {
+  FORME_D_UN_IDENTIFIANT,
+  FORME_D_UNE_CLE,
+  type Fiche,
+  type FriseATheme,
+  type Lieu,
+  type QuestionDuFilet,
+  type RepereCommun,
+  type Replique,
+} from '../../../../shared/cabinet/contenu'
 import { bonneIdentite, motsDe, motsUtiles, proches } from '../../../../shared/cabinet/jeux/indices'
+import { borneDeGrandeur, largeurDesEpoques } from '../../../../shared/cabinet/jeux/filetEnDeuxTemps'
 
 export const DOSSIER_DU_CONTENU = path.join(SERVEUR, 'content/cabinet')
 
-/** Le contenu neuf, sorte par sorte : chaque entrée jugée, aucune deux fois. */
+/**
+ * Le contenu neuf, sorte par sorte : chaque entrée jugée, aucune deux fois. Le Filet en deux temps y range ce qu'il
+ * ajoute aux questions de la base — l'acte, l'indice, l'étiquette d'un repère (`filet`) — et les repères que tout le
+ * monde connaît (`reperes`).
+ */
 export interface ContenuDuCabinet {
   lieux: readonly Lieu[]
   fiches: readonly Fiche[]
   repliques: readonly Replique[]
   frises: readonly FriseATheme[]
+  filet: readonly QuestionDuFilet[]
+  reperes: readonly RepereCommun[]
 }
 
 export type SorteDuContenu = keyof ContenuDuCabinet
 export type EntreeDuContenu<S extends SorteDuContenu> = ContenuDuCabinet[S][number]
 
-export const SORTES_DU_CONTENU: readonly SorteDuContenu[] = ['lieux', 'fiches', 'repliques', 'frises']
+export const SORTES_DU_CONTENU: readonly SorteDuContenu[] = ['lieux', 'fiches', 'repliques', 'frises', 'filet', 'reperes']
 
 // ── Ce qu'un texte peut être ────────────────────────────────────────────────
 
@@ -350,6 +370,146 @@ export function refusDeLaFriseATheme(brut: unknown): string | null {
   )
 }
 
+const CHAMPS_DE_LA_QUESTION_DU_FILET = ['id', 'chacun', 'panel', 'indice', 'repere'] as const
+
+/**
+ * Pourquoi cette question du Filet en deux temps ne se pose pas — null : elle se pose. L'identifiant d'une question de
+ * la base ; chaque Français la sait-il placer (le classement du vivier, une question à la fois) ; la note du panel, de
+ * zéro à cent ; un indice d'une ligne, ou null quand l'énoncé donne déjà l'époque ; l'étiquette de son fait. Ce que
+ * l'indice ne doit pas écrire — un nombre trop près de la réponse —, la réponse n'est pas ici : `cabinet-contenu.test.ts`
+ * le lit contre la base, comme le juge à la lettre de la chaîne d'écriture.
+ */
+export function refusDeLaQuestionDuFilet(brut: unknown): string | null {
+  const champs = refusDesChamps(brut, CHAMPS_DE_LA_QUESTION_DU_FILET)
+  if (champs) return champs
+  const q = brut as Record<(typeof CHAMPS_DE_LA_QUESTION_DU_FILET)[number], unknown>
+  return premier(
+    () => refusDeLIdentifiant(q.id),
+    () => (typeof q.chacun === 'boolean' ? null : 'chaque Français la sait-il placer : vrai ou faux'),
+    () => (Number.isInteger(q.panel) && (q.panel as number) >= 0 && (q.panel as number) <= 100 ? null : 'sa note du panel : un entier de 0 à 100'),
+    () => (q.indice === null ? null : refusDuTexte('son indice', q.indice, INDICE_DU_FILET_MAX)),
+    () => (q.repere === null ? null : refusDuTexte('son repère', q.repere, REPERE_DU_FILET_MAX)),
+  )
+}
+
+/** Les mots des nombres, de zéro à un milliard : « quatre-vingt-dix », « deux cents », « trois mille » se lisent comme 90, 200, 3000. */
+const MOTS_DES_NOMBRES: Readonly<Record<string, number>> = {
+  zero: 0, un: 1, une: 1, deux: 2, trois: 3, quatre: 4, cinq: 5, six: 6, sept: 7, huit: 8, neuf: 9, dix: 10, onze: 11, douze: 12, treize: 13,
+  quatorze: 14, quinze: 15, seize: 16, vingt: 20, vingts: 20, trente: 30, quarante: 40, cinquante: 50, soixante: 60, cent: 100, cents: 100,
+  mille: 1000, mil: 1000, million: 1e6, millions: 1e6, milliard: 1e9, milliards: 1e9,
+}
+
+/** Les dizaines qu'un « et » prolonge : « vingt et un », « soixante et onze » — ailleurs, « et » sépare deux nombres. */
+const DIZAINES_A_ET = new Set(['vingt', 'trente', 'quarante', 'cinquante', 'soixante'])
+
+/**
+ * Les nombres d'un texte, en chiffres (« 1929 », « 1 000 », « 3,5 ») et en lettres (« quatre-vingt-dix ») ; « un »,
+ * « une » seuls sont des articles, et une ponctuation sépare deux nombres (« dix, vingt »), un « et » aussi, hors de
+ * « vingt et un » : « entre deux cents et trois cents » se lisait 20 300.
+ */
+export function nombresDUnTexte(texte: string): number[] {
+  const enChiffres = [...texte.matchAll(/\d[\d   ]*(?:[.,]\d+)?/g)].map(m => Number(m[0].replace(/[   ]/g, '').replace(',', '.'))).filter(Number.isFinite)
+  // Chaque ponctuation devient un mot qui n'est pas un nombre : elle coupe la suite des mots d'un nombre.
+  const mots = texte
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[-’']/g, ' ')
+    .replace(/[,;.:!?()«»—–]/g, ' | ')
+    .split(/[^a-z|]+/)
+    .filter(Boolean)
+  const enLettres: number[] = []
+  let total = 0
+  let courant = 0
+  let dedans = false
+  const finir = () => {
+    if (dedans) enLettres.push(total + courant)
+    total = 0
+    courant = 0
+    dedans = false
+  }
+  for (let i = 0; i < mots.length; i++) {
+    const m = mots[i]
+    const v = MOTS_DES_NOMBRES[m]
+    if (m === 'et' && dedans && DIZAINES_A_ET.has(mots[i - 1]) && ['un', 'une', 'onze'].includes(mots[i + 1])) continue
+    if (v === undefined || ((m === 'un' || m === 'une') && !dedans && MOTS_DES_NOMBRES[mots[i + 1]] === undefined)) {
+      finir()
+      continue
+    }
+    dedans = true
+    if (v === 100) courant = (courant || 1) * 100
+    else if (v >= 1000) {
+      total += (courant || 1) * v
+      courant = 0
+    }
+    // « quatre-vingt » : le quatre est déjà compté — 904 devient 980, pas 924.
+    else if (m.startsWith('vingt') && mots[i - 1] === 'quatre') courant += 76
+    else courant += v
+  }
+  finir()
+  return [...enChiffres, ...enLettres]
+}
+
+/** Un nombre, en chiffres ou en lettres, tel que `nombresDUnTexte` le lit. */
+const UN_NOMBRE = `(?:\\d[\\d\\u00a0\\u202f ]*(?:[.,]\\d+)?|(?:(?:${Object.keys(MOTS_DES_NOMBRES).join('|')}|et)\\b\\s*)+)`
+/** Ce qui fait d'un nombre une borne : « plus de dix », « avant 1950 », « entre 1925 et 1950 ». */
+const UNE_BORNE_DITE = new RegExp(
+  `\\b(?:(?:plus|moins|au dela|au dessus|au dessous|en dessous) d(?:e|es)?|avant|apres|depuis|jusqu a)\\s+(${UN_NOMBRE})|\\bentre\\s+(${UN_NOMBRE})\\s*et\\s+(${UN_NOMBRE})`,
+  'g',
+)
+
+/** Les nombres qu'un texte dit comme des bornes — au-delà, en deçà, entre —, jamais comme une valeur (« vers 1950 »). */
+export function bornesDitesDUnTexte(texte: string): number[] {
+  const plat = texte
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[-’']/g, ' ')
+  return [...plat.matchAll(UNE_BORNE_DITE)].flatMap(m => m.slice(1).flatMap(g => (g ? nombresDUnTexte(g) : [])))
+}
+
+/**
+ * Le juge à la lettre d'un indice du Filet : aucun nombre à moins de quinze ans d'une année, ni à moins de 20 % d'une
+ * grandeur, en chiffres ni en lettres — « vingt ans » écrit en toutes lettres passait le premier script de la maquette.
+ * Les autres nombres aident (« la crise de 1929 » pour 1946), et la borne d'une tranche dite comme une borne aussi, que
+ * la frise écrit déjà : « plus de dix secondes, mais moins d'une demi-minute » recopie 10–30 pour 12 secondes — c'est la
+ * cible d'un indice. Dite comme une valeur, la même borne la donne : « environ trois cents mètres » pour 330, « en 1950 »
+ * pour 1946. Une décennie qui borne une fenêtre large n'est pas refusée : seule, elle donnerait la réponse à cinq ans
+ * près, et c'est le juge à l'aveugle qui le voit.
+ */
+export function refusDeLIndiceALaLettre(indice: string, valeur: number, annee: boolean): string | null {
+  const largeur = largeurDesEpoques(valeur)
+  const dites = new Set(bornesDitesDUnTexte(indice))
+  const borne = (n: number) =>
+    dites.has(n) &&
+    (annee ? Number.isInteger(n) && (n % largeur === 0 || (n + 1) % largeur === 0) : Array.from({ length: 40 }, (_, k) => borneDeGrandeur(k)).includes(n))
+  for (const n of nombresDUnTexte(indice)) {
+    if (borne(n)) continue
+    if (annee ? Math.abs(n - valeur) < ANS_PRES_D_UN_INDICE : Math.abs(n - valeur) < PART_PRES_D_UN_INDICE * valeur) return `${n}, trop près de la réponse`
+  }
+  return null
+}
+
+const CHAMPS_DU_REPERE = ['id', 'valeur', 'texte', 'unite'] as const
+
+/**
+ * Pourquoi ce repère ne se pose pas — null : il se pose. Une date que tout Français a apprise ou vécue (son unité
+ * null), ou une grandeur du quotidien dans son unité — la tour Eiffel, un marathon. Jamais la définition d'une unité :
+ * « 100 ans · Un siècle », pour l'âge d'Orson Welles, apprenait à Huguette ce qu'est un siècle.
+ */
+export function refusDuRepere(brut: unknown): string | null {
+  const champs = refusDesChamps(brut, CHAMPS_DU_REPERE)
+  if (champs) return champs
+  const r = brut as Record<(typeof CHAMPS_DU_REPERE)[number], unknown>
+  return premier(
+    () => refusDeLIdentifiant(r.id),
+    () => (typeof r.valeur === 'number' && Number.isFinite(r.valeur) ? null : 'sa valeur : un nombre'),
+    () => refusDuTexte('son texte', r.texte, REPERE_DU_FILET_MAX),
+    () => (r.unite === null ? null : refusDuTexte('son unité', r.unite)),
+    () => (r.unite === null && !Number.isInteger(r.valeur) ? 'une année : un entier' : null),
+  )
+}
+
 // ── Les sortes, et ce qui fait deux fois la même entrée ─────────────────────
 
 /** Une sorte du contenu : son fichier, son juge, et ce qui la fait se répéter. */
@@ -401,6 +561,21 @@ export const SORTES: { readonly [S in SorteDuContenu]: SorteDeContenu<EntreeDuCo
     champs: CHAMPS_DE_LA_FRISE,
     refus: refusDeLaFriseATheme,
     memes: f => [sonIdentifiant(f), { quoi: 'le même thème', cle: empreinte(f.theme) }],
+  },
+  filet: {
+    fichier: 'filet.json',
+    nom: 'question du Filet',
+    champs: CHAMPS_DE_LA_QUESTION_DU_FILET,
+    refus: refusDeLaQuestionDuFilet,
+    memes: q => [sonIdentifiant(q)],
+  },
+  reperes: {
+    fichier: 'reperes.json',
+    nom: 'repère',
+    champs: CHAMPS_DU_REPERE,
+    refus: refusDuRepere,
+    // Deux repères de la même valeur, dans la même unité, se poseraient l'un sur l'autre sur la frise.
+    memes: r => [sonIdentifiant(r), { quoi: 'la même valeur', cle: `${r.valeur}|${r.unite ?? 'an'}` }],
   },
 }
 
@@ -516,7 +691,9 @@ export function* lireLeContenuEnTranches(dossier: string, tranche = ENTREES_PAR_
   const fiches = yield* sorte('fiches')
   const repliques = yield* sorte('repliques')
   const frises = yield* sorte('frises')
-  return { lieux, fiches, repliques, frises }
+  const filet = yield* sorte('filet')
+  const reperes = yield* sorte('reperes')
+  return { lieux, fiches, repliques, frises, filet, reperes }
 }
 
 let lu: ContenuDuCabinet | null = null

@@ -1083,7 +1083,7 @@ test('tes murs, sans écran depuis la traversée, ont encore leur route : `api.c
 const SYMBOLES = new Set([
   'm', 'km', 'cm', '%', '°C', 'g', 'min', 'mm', 'km/h', 'kg', 'Hz', 'cl', 's', '°', '°F', 'L', '€', 'h', 'm²', 'km/s', 't', '$', 'mL',
   'ml', 'K', 'av. J.-C.', 'cm²', 'cm³', 'hPa', 'm/s', 'M$', 'e', 'mph', 'SHU', 'g/L', 'g/m²', 'A', 'W', 'km²', 'm³', '£', 'MW', 'DU',
-  'µm', 'g/mol', 'Ma', 'kg/m³', 'g/cm³', 'kHz', 'Mbit/s', 'cm3',
+  'µm', 'g/mol', 'Ma', 'kg/m³', 'g/cm³', 'kHz', 'Mbit/s', 'cm3', 'kcal',
 ])
 const MOTS_QUI_NE_CHANGENT_PAS = new Set(['fois', 'mois', 'pays', 'os', 'pas', 'vers', 'hertz', 'cure-dents', 'Pokémon'])
 const PLURIELS_A_PART: Record<string, string> = {

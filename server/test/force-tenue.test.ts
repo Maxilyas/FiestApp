@@ -69,6 +69,7 @@ function reponse(id: string, le: number, juste: boolean, aidee = false): Reponse
     compagnon: null,
     epreuve: null,
     choisie: null,
+    composee: null,
   }
 }
 const lire = (journal: JournalDesReponses, reponses: ReponseDuJournal[]) => journal.appliquer({ reponses, jusqua: rowid, aSuivre: false })

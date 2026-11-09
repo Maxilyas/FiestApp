@@ -55,6 +55,7 @@ import type { AffirmationTiree, EclairTire } from './jeux/eclair'
 import type { DetailTire } from './jeux/detail'
 import type { EpingleTiree } from './jeux/epingle'
 import { TAILLES_DU_FILET, type FiletTire } from './jeux/filet'
+import { AIDES_DU_FILET, type CleDAideDuFilet, type FiletEnDeuxTempsTire, type RepereDuFilet, type TrancheDuFilet } from './jeux/filetEnDeuxTemps'
 import type { EvenementTire, FriseTiree } from './jeux/frise'
 import type { IndicesTires } from './jeux/indices'
 import type { MotTire } from './jeux/mot'
@@ -145,13 +146,63 @@ function leMot(x: Brut): MotTire | null {
  * tireur l'a jugé au départ ; relu ici au barème du jour, un recul allongé
  * aurait rendu illisibles les parties déjà jouées.
  */
-function leFilet(x: Brut, annee: number): FiletTire | null {
+function leFilet(x: Brut, annee: number): FiletTire | FiletEnDeuxTempsTire | null {
+  // Le Filet en deux temps le dit lui-même : la règle se choisit par la forme du tirage (`filets.ts`).
+  if (x.deuxTemps !== undefined) return x.deuxTemps === true ? leFiletEnDeuxTemps(x, annee) : null
   const question = laQuestion(x.question)
   const p = x.piste
   if (!question || !fini(x.valeur) || typeof x.annee !== 'boolean' || (x.unite !== undefined && !chaine(x.unite)) || !objet(p)) return null
   if (!fini(p.min) || !fini(p.max) || !fini(p.pas) || p.pas <= 0 || p.max <= p.min || x.valeur < p.min || x.valeur > p.max) return null
   if (x.annee && (!Number.isInteger(x.valeur) || p.max > annee)) return null
   return { jeu: 'filet', question, valeur: x.valeur, annee: x.annee, ...(x.unite !== undefined && { unite: x.unite }), piste: { min: p.min, max: p.max, pas: p.pas } }
+}
+
+/** Des rangs distincts parmi `n` : les bonnes tranches, les époques que l'aide retire. */
+const rangsParmi = (x: unknown, n: number, min = 0): x is number[] =>
+  Array.isArray(x) && x.length >= min && x.length <= n && x.every(i => entier(i, 0, n - 1)) && new Set(x).size === x.length
+
+/**
+ * Le Filet en deux temps : des tranches qui se suivent, ses bonnes qui
+ * contiennent la réponse, les époques que l'aide retire jamais parmi elles, des
+ * anneaux et un prix d'une aide de nombres — à leur forme, jamais aux chiffres
+ * du jour : quatre tranches, un douzième et un quart, une étoile, le tirage les
+ * a figés. Une année : entière, sa frise jamais dans l'avenir de son départ.
+ */
+function leFiletEnDeuxTemps(x: Brut, annee: number): FiletEnDeuxTempsTire | null {
+  const question = laQuestion(x.question)
+  const valeur = x.valeur
+  if (!question || !fini(valeur) || typeof x.annee !== 'boolean' || (x.unite !== undefined && !chaine(x.unite))) return null
+  if (!Array.isArray(x.tranches) || x.tranches.length < 2 || x.tranches.length > ELEMENTS_D_UNE_REPONSE_MAX) return null
+  const tranches = tous(x.tranches.map((t: unknown): TrancheDuFilet | null => (objet(t) && fini(t.de) && fini(t.a) && fini(t.pas) && t.pas > 0 && t.de < t.a ? { de: t.de, a: t.a, pas: t.pas } : null)))
+  if (!tranches || tranches.some((t, k) => k > 0 && t.de < tranches[k - 1].a)) return null
+  const bonnes = x.bonnes
+  if (!rangsParmi(bonnes, tranches.length, 1) || !bonnes.every(i => valeur >= tranches[i].de && valeur <= tranches[i].a)) return null
+  if (!rangsParmi(x.retirables, tranches.length) || x.retirables.some(i => bonnes.includes(i))) return null
+  const an = x.anneaux
+  if (!objet(an) || !fini(an.trois) || !fini(an.deux) || an.trois < 0 || an.deux < an.trois) return null
+  if (!Array.isArray(x.reperes) || x.reperes.length > ELEMENTS_D_UNE_REPONSE_MAX) return null
+  const reperes = tous(
+    x.reperes.map((r: unknown): RepereDuFilet | null =>
+      objet(r) && fini(r.valeur) && chaine(r.texte) && (r.sien === undefined || r.sien === true) ? { valeur: r.valeur, texte: r.texte, ...(r.sien === true && { sien: true as const }) } : null,
+    ),
+  )
+  if (!reperes || !chaineOuNull(x.indice) || !entier(x.prixDUneAide, 0, 3)) return null
+  if (x.annee && (!Number.isInteger(valeur) || tranches[tranches.length - 1].a > annee)) return null
+  return {
+    jeu: 'filet',
+    deuxTemps: true,
+    question,
+    valeur,
+    annee: x.annee,
+    ...(x.unite !== undefined && { unite: x.unite }),
+    tranches,
+    bonnes: [...bonnes],
+    anneaux: { trois: an.trois, deux: an.deux },
+    retirables: [...x.retirables],
+    reperes,
+    indice: x.indice,
+    prixDUneAide: x.prixDUneAide,
+  }
 }
 
 function leDetail(x: Brut): DetailTire | null {
@@ -394,7 +445,9 @@ function laReponse(r: unknown): ReponseDUnJeu | null | undefined {
         ? { eclair: { reponses: [...(x.reponses as (boolean | null)[])] } }
         : undefined
     case 'filet':
-      return fini(x.x) && parmi(x.taille, TAILLES_DU_FILET) ? { filet: { x: x.x, taille: x.taille } } : undefined
+      // Le Filet d'avant, sa taille ; le Filet en deux temps, son époque — la règle de la manche lit celle de son tirage.
+      if (fini(x.x) && parmi(x.taille, TAILLES_DU_FILET) && x.epoque === undefined) return { filet: { x: x.x, taille: x.taille } }
+      return fini(x.x) && unIndex(x.epoque) && x.taille === undefined ? { filet: { epoque: x.epoque, x: x.x } } : undefined
     case 'detail':
       return unIndex(x.titre) ? { detail: { titre: x.titre } } : undefined
     case 'frise':
@@ -455,6 +508,8 @@ export function lireUnGeste(brut: unknown, o: { duServeur?: boolean } = {}): Ges
       return chaine(g.texte) ? { quoi: 'nom', manche, texte: tronquer(g.texte, signes) } : null
     case 'mot':
       return unIndex(g.choix) ? { quoi: 'mot', manche, choix: g.choix } : null
+    case 'aide':
+      return parmi<CleDAideDuFilet>(g.aide, AIDES_DU_FILET) ? { quoi: 'aide', manche, aide: g.aide } : null
     case 'repondre': {
       if (!(g.auto === undefined || typeof g.auto === 'boolean')) return null
       const reponse = laReponse(g.reponse)

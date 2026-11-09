@@ -63,6 +63,7 @@ import {
   ILLISIBLE_EN_ROUTE,
   TRAVERSEE_FINIE,
   VERSION_DE_LA_TRAVERSEE,
+  acteDe,
   cartesDeLEpreuve,
   choisirLesGardiens,
   epreuveEnCours,
@@ -72,6 +73,7 @@ import {
   jeuDeLAssaut,
   jouerUnGesteDeLaTraversee,
   lireUnGesteDeLaTraversee,
+  mancheConclue,
   partieEnCours,
   refusDAller,
   refusDuTheme,
@@ -123,6 +125,8 @@ import { fichierDuCadrage } from '../details'
 import { contenuDuCabinetEnTranches } from './contenu'
 import { preparerLesTas, themesDuQuiz } from './tirages/tas'
 import { themeDuPlan, tirerLePlan } from './tirages/index'
+import { categoriesDuFiletALAnnee } from './tirages/filetEnDeuxTemps'
+import type { Categorie } from '../../../../shared/categories'
 import { CHANGEMENTS_PAR_PARTIE, DEPARTS_PAR_HEURE, MANCHES_PAR_PARTIE } from '../../../../shared/cabinet/bareme'
 import { lireLeBilan, lireUnGeste } from '../../../../shared/cabinet/lecture'
 import {
@@ -159,6 +163,7 @@ import {
   PARTIE_FINIE,
   VERSION_DU_DEPART,
   aidesDeLaPartie,
+  anneeDuDepart,
   bilanDe,
   chronoDuDepart,
   dureesDesManches,
@@ -232,6 +237,12 @@ export interface ReglagesDuCabinet {
    * `/expedition` mène ici. « Ton expédition t'attend : la finir » ferait tourner en rond qui en avait une en route.
    */
   expeditionEffacee?: boolean
+  /**
+   * Le Filet se tire-t-il en deux temps (`FILET_EN_DEUX_TEMPS`, que l'option du serveur passe outre) ? Le tireur pose
+   * alors le nouveau Filet — à l'acte d'une épreuve (`ContexteDuTirage.vise.acte`) —, sinon celui d'avant. Absent : celui
+   * d'avant, comme un magasin construit à la main par un test.
+   */
+  filetEnDeuxTemps?: boolean
 }
 
 /** Un musée en mémoire : des reflets, des faits d'acquisition, les parties du jour sans leur plan. */
@@ -1010,6 +1021,9 @@ export class CabinetStore {
             // que la campagne choisit (l'arbitrage du 26 octobre 2026).
             enjeu: enjeuDuTirage(cadre),
             leurres: journal.leurresChoisis(),
+            filetEnDeuxTemps: this.reglages.filetEnDeuxTemps === true,
+            // Les années qu'il a su placer au nouveau Filet, sans aide : ses repères à soi.
+            placesAuFilet: journal.placesAuFiletDe(profileId),
           },
           rechanges,
         )
@@ -1871,15 +1885,19 @@ export class CabinetStore {
       if (p && !p.etat.fin) return { traversee: tr, partie: p }
       if (!p) console.error(`[cabinet] l’épreuve ${id} de la traversée ${tr.id} ne se relit pas : elle se conclut sans étoiles`)
       const lesManches = p ? etoilesDesManches(p.depart, p.etat) : null
-      const manches = lesManches
-        ? lesManches.map(m => ({ etoiles: m.naturel, misee: m.misee }))
-        : Array.from({ length: MANCHES_PAR_PARTIE }, () => ({ etoiles: null, misee: false }))
+      const manches = lesManches ? lesManches.map(m => mancheConclue(m)) : Array.from({ length: MANCHES_PAR_PARTIE }, () => ({ etoiles: null, misee: false }))
       // Le « Quitter ? » du joueur, pour la page du Cabinet au QG : quittée quand rien ne l'arrêtait encore, comptée sans
       // la manche qu'il quittait. Le gardien à terre ou le dernier cœur parti, la page et la lecture la quittent d'elles-mêmes.
       const quittee =
         p?.etat.fin?.pourquoi === 'quittee' &&
         lesManches !== null &&
-        epreuveEnCours(tr.depart, tr.etat, id, lesManches.map(m => ({ etoiles: m.fin === 'quittee' ? null : m.naturel, misee: m.misee })), false)?.fin === undefined
+        epreuveEnCours(
+          tr.depart,
+          tr.etat,
+          id,
+          lesManches.map(m => mancheConclue(m, true)),
+          false,
+        )?.fin === undefined
       // Ce qui a servi dans la partie, que les défis de tes cartes lisent (`aidesDeLaPartie`), et le temps de chacune de ses
       // manches, que la page du QG lit jeu par jeu (`dureesDesManches`, coupé à ce que la relecture admet) ; introuvable,
       // rien ne le dit.
@@ -1904,7 +1922,7 @@ export class CabinetStore {
 
   /** L'épreuve n'a-t-elle plus rien à jouer — le gardien à terre, le dernier cœur parti — avant même sa dernière manche ? */
   private plusRienAJouer(tr: TraverseeGardee, p: PartieGardee): boolean {
-    const manches = etoilesDesManches(p.depart, p.etat).map(m => ({ etoiles: m.naturel, misee: m.misee }))
+    const manches = etoilesDesManches(p.depart, p.etat).map(m => mancheConclue(m))
     return epreuveEnCours(tr.depart, tr.etat, p.id, manches, false)?.fin !== undefined
   }
 
@@ -1913,7 +1931,7 @@ export class CabinetStore {
     if (lue.depart.origine !== 'traversee') return lue
     const tr = this.traversees.get(profileId)
     if (!tr) return lue
-    const manches = etoilesDesManches(lue.depart, lue.etat).map(m => ({ etoiles: m.naturel, misee: m.misee }))
+    const manches = etoilesDesManches(lue.depart, lue.etat).map(m => mancheConclue(m))
     const traversee = epreuveEnCours(tr.depart, tr.etat, lue.id, manches, lue.etat.fin !== null)
     return traversee ? { ...lue, traversee } : lue
   }
@@ -1956,6 +1974,8 @@ export class CabinetStore {
     if (!this.departs.take(profileId)) throw new Error(TROP_DE_DEPARTS)
     // Les thèmes que le Quiz peut promettre, lus avant le verrou : les tas d'une liste neuve se préparent sans le retenir.
     const quiz = await this.themesPourLeQuiz()
+    // … et, au nouveau Filet, les catégories où chaque acte a de quoi tirer, à l'année du jour : la carte n'en promet pas d'autre.
+    const filet = this.reglages.filetEnDeuxTemps === true ? await this.categoriesPourLeFilet(anneeDuDepart({ jour: jourDe(recueLe) })) : undefined
     return this.porte.avecVerrou(profileId, async () => {
       for (let essai = 0; ; essai++) {
         const t = recueLe
@@ -1966,7 +1986,7 @@ export class CabinetStore {
         const gardiens = choisirLesGardiens(this.hasard, new Set(this.profils.legendairesOf(profileId)), halloween)
         // Lu en tranches : les tas l'ont lu d'ordinaire, mais le premier départ d'un processus ne le lirait pas d'une traite.
         const contenu = await contenuDuCabinetEnTranches()
-        const themes = { epingle: [...new Set(contenu.lieux.map(l => l.theme))], frise: [...new Set(contenu.frises.map(f => f.theme))], quiz }
+        const themes = { epingle: [...new Set(contenu.lieux.map(l => l.theme))], frise: [...new Set(contenu.frises.map(f => f.theme))], quiz, ...(filet && { filet }) }
         const depart: DepartDeLaTraversee = { v: VERSION_DE_LA_TRAVERSEE, jour, actes: tracerLaCarte(this.hasard, gardiens, themes, JEUX_PRETS) }
         const id = randomUUID()
         let lus: ResultSet[]
@@ -2004,6 +2024,22 @@ export class CabinetStore {
     } catch (e) {
       console.error('[cabinet] base de la campagne non lue, le Quiz ne promettra que des catégories :', e)
       return []
+    }
+  }
+
+  /**
+   * Au nouveau Filet, les catégories où chaque acte a de quoi tirer une épreuve, à l'année du départ
+   * (`categoriesDuFiletALAnnee`), sur les tas prêts. Aucune si la base ne se lit pas : la carte promet alors toutes les
+   * catégories, le tireur prend la promise d'abord, puis une autre, et la traversée part quand même.
+   */
+  private async categoriesPourLeFilet(annee: number): Promise<Categorie[][] | undefined> {
+    try {
+      const jouables = await this.porte.jouables()
+      await this.tasDe(jouables)
+      return categoriesDuFiletALAnnee({ porte: this.porte, jouables }, annee)
+    } catch (e) {
+      console.error('[cabinet] base de la campagne non lue, le Filet promettra toutes les catégories :', e)
+      return undefined
     }
   }
 
@@ -2087,7 +2123,10 @@ export class CabinetStore {
           hasard: this.hasard,
           enjeu: { marchesEnPlus: [], friseSerree: false, marches: visee.marches },
           leurres: journal.leurresChoisis(),
-          vise: { categorie: visee.categorie, theme: visee.theme, sujet: visee.sujet },
+          // L'acte de l'étape : le Filet en deux temps y tire ses questions, plutôt qu'à une marche.
+          vise: { categorie: visee.categorie, theme: visee.theme, sujet: visee.sujet, acte: acteDe(etape.id) },
+          filetEnDeuxTemps: this.reglages.filetEnDeuxTemps === true,
+          placesAuFilet: journal.placesAuFiletDe(profileId),
         },
         rechanges,
       ),

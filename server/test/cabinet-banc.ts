@@ -8,10 +8,15 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import Database from 'better-sqlite3'
-import { BaseDeLaCampagne, lireQuestionDeLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
+import { BaseDeLaCampagne, lireLaBase, lireQuestionDeLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
 import { CampagneStore } from '../src/core/campagne'
 import { REVEIL_DU_CABINET } from '../src/core/cabinet/tables'
 import { CabinetStore, type ReglagesDuCabinet } from '../src/core/cabinet/magasin'
+import { contenuDuCabinet } from '../src/core/cabinet/contenu'
+import { valeurDuFilet } from '../src/core/cabinet/tirages/tas'
+import { acteDuFilet, seTendEnDeuxTemps } from '../../shared/cabinet/jeux/filetEnDeuxTemps'
+import { anneeDuDepart } from '../../shared/cabinet/partie'
+import { jourDe } from '../../shared/jour'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import { CATEGORIES, type Categorie } from '../../shared/categories'
 import type { DepartDUnePartie, GesteDuCabinet } from '../../shared/cabinet/partie'
@@ -175,6 +180,29 @@ export function baseDuCabinet(parMarche = 8, enPlus: readonly QuestionDeLaBase[]
     ...CATEGORIES.flatMap((c, k) => [2 * k, 2 * k + 1].flatMap(n => [motDuCabinet(n, c), valeurDuCabinet(n, c)])),
     ...enPlus,
   ])
+}
+
+/**
+ * De vraies questions du contenu du Filet en deux temps (`server/content/cabinet/filet.json`), prises dans la base livrée :
+ * `parActe` de chaque acte, chacune sa valeur, toutes posables à l'année du banc — avec un indice jugé seulement, si
+ * `avecIndice`. Le contenu ne porte que leur identifiant, et le tireur relit leur valeur dans la base, comme au serveur :
+ * une base d'essai qui les ajoute aux siennes (`baseDuCabinet(8, …)`) a de quoi tirer le nouveau Filet, acte par acte —
+ * les siennes, faites pour le Filet d'avant, n'en sont pas.
+ */
+export function vraiesQuestionsDuFilet(parActe = 10, { avecIndice = false } = {}): QuestionDeLaBase[] {
+  const annee = anneeDuDepart({ jour: jourDe(DIX_HEURES) })
+  const base = new Map(lireLaBase().questions.map(q => [q.id, q]))
+  const parActes: QuestionDeLaBase[][] = [[], [], []]
+  const valeurs = new Set<number>()
+  for (const e of contenuDuCabinet().filet) {
+    const q = base.get(e.id)
+    const v = q && valeurDuFilet(q)
+    const tas = parActes[acteDuFilet(e)]
+    if (!q || !v || (avecIndice && !e.indice) || valeurs.has(v.valeur) || !seTendEnDeuxTemps(v.valeur, v.annee, annee) || tas.length >= parActe) continue
+    valeurs.add(v.valeur)
+    tas.push(q)
+  }
+  return parActes.flat()
 }
 
 /** Samedi 24 octobre 2026, 10 h à Paris — la veille d'Halloween : aucun calendrier à fermer, l'horloge à la main. */

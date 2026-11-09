@@ -1,0 +1,258 @@
+{
+ "faitsEssayes": {
+  "geographie": {
+   "ecrit": 10,
+   "deja-dans-la-base": 13,
+   "pas-assez-connu": 12,
+   "pas-sur": 12
+  },
+  "sport": {
+   "ecrit": 10,
+   "pas-assez-estimable": 8,
+   "deja-dans-la-base": 12,
+   "pas-sur": 7
+  }
+ },
+ "questions": [
+  {
+   "id": "gxas5mi0",
+   "lot": "geographie",
+   "question": "Quelle est la longueur de la Loire, le plus long fleuve de France, en kilomètres ?",
+   "rangee": true,
+   "premierJuge": {
+    "chacun": true
+   },
+   "secondJuge": {
+    "chacun": false,
+    "estime": false
+   }
+  },
+  {
+   "id": "4pmjmeau",
+   "lot": "geographie",
+   "question": "À vol d'oiseau, quelle distance sépare Paris de Marseille, en kilomètres ?",
+   "rangee": true,
+   "premierJuge": {
+    "chacun": false
+   },
+   "secondJuge": {
+    "chacun": false,
+    "estime": true
+   }
+  },
+  {
+   "id": "z9ckgghm",
+   "lot": "geographie",
+   "question": "À vol d'oiseau, quelle distance sépare Paris de Lyon, en kilomètres ?",
+   "rangee": true,
+   "premierJuge": {
+    "chacun": false
+   },
+   "secondJuge": {
+    "chacun": false,
+    "estime": false
+   }
+  },
+  {
+   "id": "h6rnjrvr",
+   "lot": "geographie",
+   "question": "Quelle est la hauteur de la tour de Pise, en mètres ?",
+   "rangee": true,
+   "premierJuge": {
+    "chacun": false
+   },
+   "secondJuge": {
+    "chacun": false,
+    "estime": false
+   }
+  },
+  {
+   "id": "e540zo9n",
+   "lot": "geographie",
+   "question": "Quelle hauteur atteignent les deux tours de Notre-Dame de Paris, en mètres ?",
+   "rangee": true,
+   "premierJuge": {
+    "chacun": false
+   },
+   "secondJuge": {
+    "chacun": false,
+    "estime": false
+   }
+  },
+  {
+   "id": "l79edamm",
+   "lot": "geographie",
+   "question": "Quelle est la hauteur du dôme de la basilique du Sacré-Cœur, à Paris, en mètres ?",
+   "rangee": true,
+   "premierJuge": {
+    "chacun": false
+   },
+   "secondJuge": {
+    "chacun": false,
+    "estime": false
+   }
+  },
+  {
+   "id": "3jslsycd",
+   "lot": "geographie",
+   "question": "À vol d'oiseau, quelle distance sépare Paris de Bordeaux, en kilomètres ?",
+   "rangee": true,
+   "premierJuge": {
+    "chacun": false
+   },
+   "secondJuge": {
+    "chacun": false,
+    "estime": true
+   }
+  },
+  {
+   "id": "99jk1734",
+   "lot": "geographie",
+   "question": "À vol d'oiseau, quelle distance sépare Paris de Lille, en kilomètres ?",
+   "rangee": true,
+   "premierJuge": {
+    "chacun": false
+   },
+   "secondJuge": {
+    "chacun": false,
+    "estime": false
+   }
+  },
+  {
+   "id": "hbrtsg3u",
+   "lot": "geographie",
+   "question": "À son point le plus étroit, quelle largeur mesure le pas de Calais, en kilomètres ?",
+   "rangee": true,
+   "premierJuge": {
+    "chacun": false
+   },
+   "secondJuge": {
+    "chacun": false,
+    "estime": false
+   }
+  },
+  {
+   "id": "zd01ah84",
+   "lot": "geographie",
+   "question": "À quelle altitude culmine le mont Ventoux, en mètres ?",
+   "rangee": true,
+   "premierJuge": {
+    "chacun": false
+   },
+   "secondJuge": {
+    "chacun": false,
+    "estime": false
+   }
+  },
+  {
+   "id": null,
+   "lot": "sport",
+   "question": "Quelle longueur, en mètres, les stades de grandes compétitions retiennent-ils pour leur terrain de football ?",
+   "rangee": false,
+   "premierJuge": null,
+   "secondJuge": {
+    "chacun": true,
+    "estime": true
+   }
+  },
+  {
+   "id": "ayi63mht",
+   "lot": "sport",
+   "question": "Quel diamètre, en mètres, mesure le rond central d'un terrain de football ?",
+   "rangee": true,
+   "premierJuge": null,
+   "secondJuge": {
+    "chacun": false,
+    "estime": false
+   }
+  },
+  {
+   "id": "uo74k8nz",
+   "lot": "sport",
+   "question": "Quelle hauteur minimale, en centimètres, doit avoir le poteau qui porte le drapeau de chaque coin d'un terrain de football ?",
+   "rangee": true,
+   "premierJuge": null,
+   "secondJuge": {
+    "chacun": false,
+    "estime": false
+   }
+  },
+  {
+   "id": "owtf8qhj",
+   "lot": "sport",
+   "question": "Quelle largeur maximale, en mètres, peut avoir un terrain de rugby à XV ?",
+   "rangee": true,
+   "premierJuge": null,
+   "secondJuge": {
+    "chacun": false,
+    "estime": false
+   }
+  },
+  {
+   "id": "xhm1h0e7",
+   "lot": "sport",
+   "question": "À quelle distance du filet, en mètres, se trouve la ligne de service d'un court de tennis ?",
+   "rangee": true,
+   "premierJuge": null,
+   "secondJuge": {
+    "chacun": false,
+    "estime": false
+   }
+  },
+  {
+   "id": "56c430w5",
+   "lot": "sport",
+   "question": "Quelle largeur, en mètres, mesure un court de tennis pour un match de simple ?",
+   "rangee": true,
+   "premierJuge": null,
+   "secondJuge": {
+    "chacun": false,
+    "estime": false
+   }
+  },
+  {
+   "id": "lukqbseo",
+   "lot": "sport",
+   "question": "Quelle largeur, en mètres, mesure un bassin olympique de natation ?",
+   "rangee": true,
+   "premierJuge": null,
+   "secondJuge": {
+    "chacun": false,
+    "estime": true
+   }
+  },
+  {
+   "id": "qux38zrq",
+   "lot": "sport",
+   "question": "À quelle hauteur du sol, en centimètres, se trouve la poutre en gymnastique artistique ?",
+   "rangee": true,
+   "premierJuge": null,
+   "secondJuge": {
+    "chacun": false,
+    "estime": false
+   }
+  },
+  {
+   "id": "71ow08yi",
+   "lot": "sport",
+   "question": "Quelle largeur, en mètres, mesure un terrain de basket-ball aux normes de la FIBA ?",
+   "rangee": true,
+   "premierJuge": null,
+   "secondJuge": {
+    "chacun": false,
+    "estime": false
+   }
+  },
+  {
+   "id": "9ph6e0yz",
+   "lot": "sport",
+   "question": "Quelle longueur, en mètres, mesure un terrain de volley-ball ?",
+   "rangee": true,
+   "premierJuge": null,
+   "secondJuge": {
+    "chacun": false,
+    "estime": false
+   }
+  }
+ ]
+}

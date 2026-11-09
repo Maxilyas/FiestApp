@@ -12,8 +12,11 @@
 // dur : un barème changé change aussi ce que l'annonce promet.
 
 import type { PieceDuCabinet } from '../pieces'
+import { FILET_EN_DEUX_TEMPS } from '../ouverture'
 import {
   AFFIRMATIONS_DE_L_ECLAIR,
+  ANNEAUX_DES_EPOQUES,
+  ANNEAUX_DES_GRANDEURS,
   DUREES_DES_JEUX,
   ERREURS_DE_LA_FRISE,
   ESSAIS_DES_ETOILES,
@@ -153,6 +156,27 @@ export function motsDuPari(e: Readonly<Record<'garder' | 'parier', number>>) {
 /** Les mots du Pari, au barème du code. */
 export const MOTS_DU_PARI = motsDuPari(ETOILES_DU_PARI)
 
+/** « un quart », « un douzième » : la part d'une époque, en mots — une fraction se lit, elle ne se déchiffre pas. */
+const PARTS: Readonly<Record<number, string>> = { 2: 'une moitié', 3: 'un tiers', 4: 'un quart', 5: 'un cinquième', 6: 'un sixième', 8: 'un huitième', 10: 'un dixième', 12: 'un douzième' }
+const part = (n: number) => PARTS[n] ?? `un ${n}ᵉ`
+
+/**
+ * Le Filet de l'annonce, celui qui se joue (`FILET_EN_DEUX_TEMPS`) : en deux temps, l'époque puis la valeur, et son
+ * barème composé des anneaux — « la bonne époque ★ · à un quart d’époque près ★★ · à un douzième ★★★ » —, Éclairer qui
+ * offre une aide ; sinon celui d'avant, trois filets. L'annonce promettait des filets à qui jouait des époques.
+ */
+const LE_FILET: Pick<DescriptionDUnJeu, 'geste' | 'bareme' | 'eclairer'> = FILET_EN_DEUX_TEMPS
+  ? {
+      geste: 'Choisis l’époque — ou l’ordre de grandeur —, puis vise la valeur : tout près, elle rapporte plus.',
+      bareme: `la bonne époque ${etoiles(1)} · à ${part(ANNEAUX_DES_EPOQUES.deux)} d’époque près ${etoiles(2)} · à ${part(ANNEAUX_DES_EPOQUES.trois)} ${etoiles(3)} — une grandeur, à ${ANNEAUX_DES_GRANDEURS.deux} et ${ANNEAUX_DES_GRANDEURS.trois} %`,
+      eclairer: 'offre une aide — l’indice d’abord —, sans étoile retirée',
+    }
+  : {
+      geste: 'Place ton curseur, puis choisis ton filet : petit, il rapporte plus.',
+      bareme: `petit filet ${etoiles(ETOILES_DU_FILET.petit)} · moyen ${etoiles(ETOILES_DU_FILET.moyen)} · grand ${etoiles(ETOILES_DU_FILET.grand)}`,
+      eclairer: 'montre une zone où est la réponse',
+    }
+
 /** « au premier coup d’œil ★★★ · un pas ★★ · deux ★ » : les étoiles de chaque cadrage ; un cadrage qui ne vaut rien ne se dit pas — en deçà, zéro. */
 function baremeDesCadrages(parCadrage: readonly number[]): string {
   return parCadrage
@@ -209,9 +233,7 @@ export const JEUX: Readonly<Record<CleDeJeu, DescriptionDUnJeu>> = {
     cle: 'filet',
     nom: 'Le Filet',
     a: 'au Filet',
-    geste: 'Place ton curseur, puis choisis ton filet : petit, il rapporte plus.',
-    bareme: `petit filet ${etoiles(ETOILES_DU_FILET.petit)} · moyen ${etoiles(ETOILES_DU_FILET.moyen)} · grand ${etoiles(ETOILES_DU_FILET.grand)}`,
-    eclairer: 'montre une zone où est la réponse',
+    ...LE_FILET,
     changeable: true,
     etapes: 1,
   },
@@ -275,6 +297,12 @@ export const JEUX: Readonly<Record<CleDeJeu, DescriptionDUnJeu>> = {
  */
 export interface VerdictDUneManche {
   naturel: 0 | 1 | 2 | 3
+  /**
+   * Les étoiles que ses aides ont prises, déjà retirées de `naturel` — le Filet en deux temps seul en a
+   * (`filetEnDeuxTemps.ts`). Une aide coûte une étoile, jamais un cœur : réussie, une manche qu'elles laissent à
+   * zéro n'est pas ratée.
+   */
+  payees?: number
   pieces: { juste: boolean; choix: number | null; composee: string | null; etape?: 1 | 2 }[]
 }
 
