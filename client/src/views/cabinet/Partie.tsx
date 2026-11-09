@@ -620,7 +620,11 @@ function CarteDeLaManche({
       <button type="button" className="btn btn-block cab-pouvoir" aria-disabled={refus !== null || busy || undefined} {...toucher(() => refus === null && !busy && onGeste(geste))}>
         {icone}
         {nom}
-        <span className="cab-reste">{` · encore ${c.reste}`}</span>
+        {/* Le point à part : dans une épreuve, « encore 1 » passe sous le nom, et ne commence pas sa ligne par lui (`styles.css`). */}
+        <span className="cab-reste">
+          <span className="cab-reste-point"> · </span>
+          {`encore ${c.reste}`}
+        </span>
       </button>
       {refus && <p className="cab-raison">{espacesFines(refus)}</p>}
     </>

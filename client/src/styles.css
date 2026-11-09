@@ -12161,6 +12161,12 @@ button.cab-tv-carte { cursor: pointer; }
 .cab-cartes-en-jeu { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; align-items: start; }
 .cab-cartes-en-jeu .cab-carte-ligne { grid-column: 1 / -1; }
 .cab-carte-en-jeu { display: grid; gap: 4px; min-width: 0; }
+/* « encore 1 » sous le nom de la carte, sans son point : sur la ligne du nom, l'icône, le nom et le compteur faisaient 183 pixels
+   pour une case de 156, et deux cartes côte à côte — Coup d'œil et Échange — faisaient déborder le pied de 30 pixels à droite en
+   360 de large, le compteur cassé en trois lignes (le rendu du 9 novembre 2026, une épreuve du Filet). */
+.cab-carte-en-jeu .cab-pouvoir { flex-wrap: wrap; column-gap: 0; row-gap: 0; padding-inline: 12px; }
+.cab-carte-en-jeu .cab-reste { flex-basis: 100%; }
+.cab-carte-en-jeu .cab-reste-point { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .cab-tv-verre,
   .cab-tv-regard,
