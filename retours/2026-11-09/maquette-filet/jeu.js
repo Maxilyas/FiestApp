@@ -864,6 +864,7 @@
     proprietaire: [
       ['Le curseur se pose au milieu de l’époque choisie, et le filet dit d’emblée ce qu’il couvre', '« lorsque l’on choisit une époque, ça n’affiche pas la fourchette pour l’estimation ; elle devrait se placer directement au milieu ». Le milieu ne rapporte rien de plus que le toucher au milieu, premier geste de qui ne sait pas'],
       ['L’écran s’épure : une ligne par étape, ni barème, ni bornes, ni nombres sous la piste, et la révélation dit d’où viennent les étoiles en une ligne', '« un peu brouillon »'],
+      ['Les années vécues reviennent à l’acte I, et la place de la réponse ne se devine plus', '« continue avec tes recommandations » : avec 25 ans de recul au lieu de 46, seize années que chaque Français sait placer — la chute du mur, la mort de Diana, le premier iPod — ; tirée avec des poids, la place de la réponse ne paie plus « toujours la dernière époque »'],
       ['L’acte I pose ce que chaque Français sait placer, puis ce que le panel donne à 50 % et plus', '« le levier le plus fort, c’est d’avoir des questions que chacun connaisse, sachant que la population et la connaissance sont des personnes françaises » ; sur les vrais lancers, elles se placent à 2 % près sept fois plus souvent que les autres, et se réussissent à 84 % en deux temps — trop haut pour un acte I : complétées du panel, 76 %, et trois fois plus de questions'],
     ],
     ouvert: [

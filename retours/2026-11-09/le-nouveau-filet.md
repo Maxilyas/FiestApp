@@ -257,11 +257,16 @@ page lance ce qui est posé : l'époque choisie et le curseur où il est.
   - Quatre époques consécutives, de 25 ans depuis 1800, de 50 ans de 1500 à
     1799, d'un siècle avant : on date plus grossièrement ce qui est loin.
   - Leurs bornes sont rondes : 1775–1799, 1800–1824.
-  - L'époque de la réponse est tirée au hasard parmi les quatre, sans
-    qu'aucune époque ne passe dans l'avenir. Avec 46 ans de recul
-    (`seTendAuFilet`), une réponse de 1960 à 1980 ne peut être que dans la
-    troisième ou la quatrième époque, comme la piste d'aujourd'hui s'arrête à
-    l'année en cours.
+  - L'époque de la réponse se place parmi les quatre sans qu'aucune époque
+    ne passe dans l'avenir : une réponse de 1975 à 1999 ne peut être que dans
+    la troisième ou la quatrième, une de 2000 à 2024 que dans la quatrième.
+  - **Sa place se tire avec des poids**, pas au hasard parmi celles qui
+    restent : tirée au hasard, elle se devinait — « toujours la dernière
+    époque » gagnait 29 % des manches (25 % au hasard pur). Les poids donnent
+    à chaque place un quart des réponses : les anciennes vont moins souvent
+    dans la dernière, autant que les récentes y vont d'office
+    (`reproductions/place-de-la-reponse.mts`, décision 10). La maquette tire
+    ainsi.
 - **Une grandeur.**
   - Quatre ordres de grandeur bornés par la suite 1, 3, 10, 30, 100… : de
     1 000 à 3 000, de 3 000 à 10 000.
@@ -1127,13 +1132,31 @@ un sondage du QG aux joueurs du Cabinet (`qg_annonce_questions`).
     | 20 ans | 638 | 61 | 37 % |
 
     - Le hasard pur fait 25 % : la fuite existe déjà, petite.
-    - Elle se referme si la place de la réponse se tire pour qu'aucune
-      époque ne paie plus qu'une autre : les réponses anciennes vont moins
-      souvent dans la dernière, autant que les récentes y vont d'office —
-      possible tant que les réponses forcées restent sous le quart. Seul le
-      savoir de l'âge de la réponse en profite alors, et c'est un savoir.
-    - La proposition : 25 ans de recul, la place tirée ainsi, à vérifier
-      au calibrage.
+    - **Elle se referme si la place de la réponse se tire avec des poids**,
+      pour que chaque place reçoive un quart des réponses — les anciennes
+      vont moins souvent dans la dernière, autant que les récentes y vont
+      d'office. Simulé sur les années du vivier
+      (`reproductions/place-de-la-reponse.mts`) :
+
+      | Recul | La place | « Toujours la dernière » | Le joueur qui lit la frise |
+      |---|---|---|---|
+      | 46 ans, aujourd'hui | au hasard | 29 % | 47 % |
+      | 25 ans | au hasard | 35 % | 45 % |
+      | **25 ans** | **avec des poids** | **25 %** | **39 %** |
+      | 25 ans | frises équilibrées | 30 % | 33 % |
+
+      « Le joueur qui lit la frise » connaît la répartition des années de la
+      base et prend, pour les quatre époques qu'il voit, la plus probable :
+      la borne haute de qui joue sans rien savoir de la question. Il trouve
+      la bonne époque 47 % du temps aujourd'hui — la fuite n'était pas
+      petite : les années de la base se serrent au XXe siècle. Les poids la
+      ramènent à 39 %, sous ce qu'elle est aujourd'hui ; équilibrer chaque
+      frise, à 33 %, au prix d'une place qui se devine un peu (30 %).
+    - **La proposition : 25 ans de recul, la place tirée avec des poids.**
+      Elle rend 16 années que chaque Français sait placer — l'abolition de
+      la peine de mort, la chute du mur, la mort de Diana, le premier
+      iPod —, et fuit moins qu'aujourd'hui. La maquette la joue : ces seize
+      années sont à son acte I, avec leur indice relu à l'aveugle.
 11. **La largeur de l'anneau ★★** : un quart d'époque. Dans la bonne époque,
     le milieu sans rien savoir y tombe 52 fois sur cent, et ★★★ 20 fois
     (`reproductions/prix-des-aides.mjs`) — « ★ pour la bonne époque vaut

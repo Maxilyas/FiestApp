@@ -34,6 +34,11 @@ liste.
     sujet français, du monde ou de l'étranger (`ancrage.json` : les 591
     questions que le panel a notées, classées par des agents qui ne voyaient
     ni le panel ni les lancers) ;
+  - les seize années que 25 ans de recul rendent à l'acte I, de 1981 à 2001,
+    avec leur indice et leur repère (`recentes.json`, l'indice relu à
+    l'aveugle) — le Filet d'aujourd'hui de la maquette ne les pose pas ;
+  - les poids de la place de la réponse parmi les quatre époques, par le
+    calcul même de `../reproductions/place-de-la-reponse.mts` ;
   - l'indice et le repère de chacune (`indices.json`) ;
   - des repères vérifiés ;
   - les chiffres de la production.
