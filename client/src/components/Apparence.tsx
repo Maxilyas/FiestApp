@@ -9,7 +9,7 @@ import { AVATARS, COLLECTION, COLLECTION_HAUTE } from '../../../shared/avatars'
 import { AUCUNE_BORDURE, CRANS_D_UNE_BORDURE, LIGUES, NOM_DE_LA_BORDURE, bordurePortee, ligueParCle, type BordureDeLigue, type ChoixDeBordure } from '../../../shared/duels'
 import { hautsFaitsGagnes } from '../../../shared/hautsfaits'
 import { recompensesDe } from '../../../shared/proches'
-import { legendaire } from '../../../shared/legendaires'
+import { estScellable, legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import {
   NOM_COURT_DE_RARETE_D_AVATAR,
@@ -637,6 +637,63 @@ export function MesBordures({ profil, essai, essayer, neufs }: PropsDUnePiece) {
             ? phraseDeLaBordure(montreeVue)
             : 'Auto : ta plus haute bordure, dès que tu y gagnes un duel.'}
       </p>
+    </div>
+  )
+}
+
+/**
+ * Le sceau de ses légendaires, sous sa bordure : « Montré », d'office, ou
+ * « Masqué » — chacun en petit avatar, l'étoile au sommet ou non. Il ne
+ * paraît qu'à qui a déjà un légendaire scellé : rien à régler avant. Masqué,
+ * le sceau reste à lui et compte partout ; seule la salle ne le voit plus,
+ * comme la version d'origine d'un avatar éclaté. Dessous, ce que dit le
+ * légendaire montré : scellé, ou ce qui lui manque.
+ */
+export function MonSceau({ profil, essai, essayer }: PropsDUnePiece) {
+  const scelles = profil.scelles ?? []
+  if (scelles.length === 0) return null
+  const vu = avecLEssai(profil, essai)
+  const montre = !vu.sceauMasque
+  const porte = !profil.sceauMasque
+  // L'aperçu : le légendaire montré s'il est scellé, sinon le premier des scellés — l'étoile ne se pose que sur eux.
+  const sur = vu.legendaire && scelles.includes(vu.legendaire) ? vu.legendaire : scelles[0]
+  const pastille = (montrer: boolean, nom: string) => {
+    const choisi = montre === montrer
+    const actuel = porte === montrer
+    return (
+      <button
+        key={nom}
+        type="button"
+        className={'finition-choix bordure-choix' + classesDUnAvatar({ montre: choisi, porte: actuel })}
+        aria-pressed={choisi}
+        aria-label={`Sceau ${nom.toLowerCase()}` + ceQueDitLaCase({ montre: choisi, porte: actuel }, 'porté', 'nouveau')}
+        onClick={() => essayer({ sceau: montrer })}
+      >
+        <span className="bordure-apercu" aria-hidden="true">
+          <Avatar avatar={vu.avatar} legendaire={sur} finition={vu.finition} sceau={montrer} />
+        </span>
+        <span aria-hidden="true">{nom}</span>
+      </button>
+    )
+  }
+  const l = vu.legendaire ? legendaire(vu.legendaire) : undefined
+  const phrase = !l
+    ? `Tes ${scelles.length > 1 ? `${scelles.length} légendaires scellés portent` : 'légendaire scellé porte'} l’étoile du zénith, que toute la salle voit.`
+    : scelles.includes(l.key)
+      ? `${l.nom} est scellé : tu tiens l’exploit qui l’ouvre, pas seulement le Cabinet.`
+      : estScellable(l)
+        ? `${l.nom} n’a pas encore son sceau : il se gagne par son exploit, hors du Cabinet.`
+        : `${l.nom} n’a pas de sceau : il ne se gagne que d’une façon.`
+  return (
+    <div className="loge-bordures">
+      <span className="loge-sous-titre" id="loge-sceau-titre">
+        Sceau
+      </span>
+      <div className={rangee(2) + ' loge-bordures-rangee'} role="group" aria-labelledby="loge-sceau-titre">
+        {pastille(true, 'Montré')}
+        {pastille(false, 'Masqué')}
+      </div>
+      <p className="muted small loge-bordure-phrase">{montre ? phrase : 'Masqué : ton sceau reste à toi, mais la salle ne le voit plus.'}</p>
     </div>
   )
 }

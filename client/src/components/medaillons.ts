@@ -9,6 +9,7 @@ import type { Portrait } from './Portrait'
 import type { Compagnon, DessinDeCompagnon } from './Compagnon'
 import type { Lumiere } from './Lumiere'
 import type { Bordure } from './Bordure'
+import type { Sceau } from './Sceau'
 import type { DessinDePortrait } from './portraits/outils'
 
 /**
@@ -99,6 +100,8 @@ export function sortesDesAvatars(avatars: readonly { legendaire?: string | null;
 
 interface Dessins {
   Legendaire?: typeof Legendaire
+  /** Le sceau d'un légendaire tenu par sa voie d'origine, venu avec les légendaires. */
+  Sceau?: typeof Sceau
   Divin?: typeof Divin
   /** Le cadre des portraits — le disque, la silhouette, le cercle de la finition —, venu avec la première branche. */
   Portrait?: typeof Portrait

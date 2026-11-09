@@ -4359,7 +4359,7 @@ export class CampagneStore {
     const nom = (j: (typeof joueurs)[number]) => marques.get(j.profil.id) ?? j.profil.name
     const classes = classer(joueurs, j => j.justes, nom, j => j.profil.id)
     const ligne = ({ item: j, rang }: (typeof classes)[number]): LigneDuDefi => {
-      const { niveau, finition, eclat, legendaire, laurier } = p.apparenceDe(j.profil)
+      const { niveau, finition, eclat, legendaire, sceau, laurier } = p.apparenceDe(j.profil)
       // Sa bordure de ligue, de mémoire : le classement ne l'attend pas.
       const bordure = p.bordureDe?.(j.profil, legendaire)
       return {
@@ -4369,6 +4369,7 @@ export class CampagneStore {
         niveau,
         finition,
         ...(legendaire && { legendaire }),
+        ...(sceau && { sceau }),
         ...(eclat && { eclat }),
         ...(laurier && { laurier }),
         ...(bordure && { bordure }),
@@ -6175,7 +6176,7 @@ export class CampagneStore {
     // La place de chacun au lundi : les flèches de chaque ligne, comme un tableau sportif.
     const auLundi = this.rangsAuLundi(joueurs, nom)
     const ligne = ({ item: j, rang }: (typeof classes)[number]): LigneDesDuels => {
-      const { niveau, finition, eclat, legendaire, laurier } = p.apparenceDe(j.profil)
+      const { niveau, finition, eclat, legendaire, sceau, laurier } = p.apparenceDe(j.profil)
       // Sa bordure de ligue, lue sur le même relevé que sa cote — jamais sous un Divin.
       const bordure = legendaire && divin(legendaire) ? null : bordurePortee(j.profil.bordure, j.releve.bordures)
       const avant = auLundi.get(j)
@@ -6186,6 +6187,7 @@ export class CampagneStore {
         niveau,
         finition,
         ...(legendaire && { legendaire }),
+        ...(sceau && { sceau }),
         ...(eclat && { eclat }),
         ...(laurier && { laurier }),
         ...(bordure && { bordure }),
@@ -10996,12 +10998,12 @@ export function sujetsDeLaQuestion(q: QuestionDeLaBase): readonly string[] {
  * visages sur la même page.
  */
 function sonApparence(p: Pick<ProfileStore, 'apparenceDe'>, x: ProfileRec, releve?: ReleveDesDuels): SonApparence {
-  const { finition, eclat, legendaire } = p.apparenceDe(x)
+  const { finition, eclat, legendaire, sceau } = p.apparenceDe(x)
   // Sa bordure de ligue, quand ses duels sont lus avec lui — jamais sous un
   // Divin, qui a sa propre lumière.
   const bordure = legendaire && divin(legendaire) ? null : bordurePortee(x.bordure, releve?.bordures)
   // Mat, c'est l'avatar sans rien autour : sa ligne n'a rien de plus à dire.
-  return { ...(finition !== 'mat' && { finition }), ...(legendaire && { legendaire }), ...(eclat && { eclat }), ...(bordure && { bordure }) }
+  return { ...(finition !== 'mat' && { finition }), ...(legendaire && { legendaire }), ...(sceau && { sceau }), ...(eclat && { eclat }), ...(bordure && { bordure }) }
 }
 
 /** Les amis qu'une page désigne : des identifiants, pas plus qu'elle n'en montre — le reste ne désigne personne. */

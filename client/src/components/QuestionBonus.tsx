@@ -30,7 +30,7 @@ import type { PublicProfile } from '../../../shared/profil'
 function LaQuestionDe({ auteur, tienne = false }: { auteur?: BonusDuJour['auteur']; tienne?: boolean }) {
   return (
     <span className="bonus-de">
-      {auteur && !tienne && <Avatar avatar={auteur.avatar} finition={auteur.finition} eclat={auteur.eclat} legendaire={auteur.legendaire} />}
+      {auteur && !tienne && <Avatar avatar={auteur.avatar} finition={auteur.finition} eclat={auteur.eclat} legendaire={auteur.legendaire} sceau={auteur.sceau} />}
       {espacesFines(tienne ? 'Ta question' : auteur ? `La question ${deNom(auteur.nom)}` : 'La question d’un joueur')}
     </span>
   )

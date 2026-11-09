@@ -578,6 +578,55 @@ export function cibleEclat(porte: string | null | undefined, emoji: string): str
   return porte && (legendaire(porte) || portrait(porte) || formeDeCompagnon(porte)) ? porte : emoji
 }
 
+// ── Le sceau ───────────────────────────────────────────────────────────────
+//
+// Le Cabinet donne un légendaire au bout de chaque traversée gagnée, choisi
+// parmi les gardiens qui lui manquent : la Comète, l'Ouroboros, la Chimère s'y
+// gagnaient en quelques heures, et leur voie d'origine — quatre cents réflexes,
+// cent jours d'affilée — ne valait plus rien une fois le légendaire en main
+// (le retour du propriétaire du 9 novembre 2026, `retours/2026-11-09/`). Le
+// Cabinet garde ce qu'il promet : le légendaire, qu'on porte tel quel. Sa voie
+// d'origine donne en plus son sceau, l'étoile du zénith, que toute la salle
+// voit (la planche validée le même jour). Une dérivation des récompenses
+// rangées, comme le légendaire lui-même : qui tenait déjà sa voie a son sceau
+// dès le premier jour, et rien n'est repris à personne.
+
+/** Une voie de raccourci : un gardien vaincu au Cabinet, ou gardé au bout de l'Expédition. */
+const estUnRaccourci = (c: Condition): boolean => estUneVoieDuCabinet(c) || estUneVoieDExpedition(c)
+
+/**
+ * Un légendaire qui peut porter un sceau : un raccourci le donne aussi. Pas
+ * ceux qui n'ont qu'une voie — la Licorne, l'Aigle, le Djinn : il n'y a rien à
+ * distinguer — ni ceux de saison, dont le Cabinet range la condition même
+ * (`saison:halloween`) : la voie d'origine et le raccourci s'y confondent.
+ */
+export function estScellable(l: Legendaire): boolean {
+  return !l.saison && voiesDe(l).some(estUnRaccourci) && voiesDe(l).some(v => !estUnRaccourci(v))
+}
+
+/** Ses voies d'origine : toutes, sauf les raccourcis. Ce que son sceau demande — l'une d'elles suffit. */
+export function voiesDuSceau(l: Legendaire): readonly Condition[] {
+  return estScellable(l) ? voiesDe(l).filter(v => !estUnRaccourci(v)) : []
+}
+
+/**
+ * Les légendaires scellés d'un profil : il les a, et il en tient une voie
+ * d'origine — celle du jour, ou la règle sous laquelle il l'avait gagné avant
+ * qu'elle se durcisse (`acquis`, invariant 22), si ce n'était pas un raccourci.
+ */
+export function legendairesScelles(recompenses: ReadonlyMap<string, number>, acquis?: ReadonlyMap<string, Condition>): string[] {
+  return LEGENDAIRES.filter(l => estScelle(l.key, recompenses, acquis)).map(l => l.key)
+}
+
+/** Ce légendaire est-il scellé pour ce profil ? */
+export function estScelle(cle: string, recompenses: ReadonlyMap<string, number>, acquis?: ReadonlyMap<string, Condition>): boolean {
+  const l = legendaire(cle)
+  if (!l || !estScellable(l)) return false
+  if (voiesDuSceau(l).some(v => conditionTenue(v, recompenses))) return true
+  const avant = acquis?.get(cle)
+  return !!avant && !estUnRaccourci(avant) && conditionTenue(avant, recompenses)
+}
+
 /**
  * Un Éclat tombé sur un avatar qui avait déjà éclaté ne se perd plus : il
  * attend en réserve, et se dépense sur n'importe quel avatar qu'on a et qui

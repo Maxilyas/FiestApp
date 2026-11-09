@@ -6,7 +6,7 @@ paths:
   - "server/scripts/calibrage.ts"
   - "client/src/components/{Ecusson,Trophees,Trophies,Carriere,CarriereAtlas,Niveau,Gains,Etoiles}.tsx"
   - "client/src/niveauVu.ts"
-  - "server/test/{hautsfaits,legendaires,divins,eclat,eclat-hors-soiree,experience,niveaux,recalcul,saisons,saisons-relues,sphinx,ecussons,bareme,recompenses-montrees,gains,pierres}.test.ts"
+  - "server/test/{hautsfaits,legendaires,divins,eclat,eclat-hors-soiree,experience,niveaux,recalcul,saisons,saisons-relues,sphinx,ecussons,bareme,recompenses-montrees,gains,pierres,sceau}.test.ts"
 ---
 
 # L'expérience, les hauts faits, les légendaires, les Divins, le recalcul
@@ -143,6 +143,25 @@ paths:
   jeux, ses exploits et les défis des cartes (`PISTES_DU_CABINET`,
   `shared/pagesDesTrophees.ts`), et sa fiche mène au Cabinet, pas à une
   série (`ouJouer`, `shared/trophees.ts`).
+- **Le sceau d'un légendaire se dérive, il ne se range pas** (le 9 novembre
+  2026, `retours/2026-11-09/legendaires-du-cabinet.md` et la planche
+  `sceau/`) : le Cabinet donnait vingt et un légendaires, un par traversée
+  gagnée, et leur voie d'origine ne valait plus rien une fois le légendaire en
+  main. Un légendaire qu'un raccourci donne aussi — un gardien vaincu au
+  Cabinet, gardé au bout de l'Expédition — se scelle par l'une de ses autres
+  voies (`estScellable`, `voiesDuSceau`, `estScelle`, `legendairesScelles`,
+  `shared/legendaires.ts`) ; pas ceux de saison, dont le Cabinet range la
+  condition même, ni ceux qui n'ont qu'une voie. Une règle durcie garde le
+  sceau de qui l'avait gagné par son exploit (`acquis`, invariant 22), jamais
+  par le raccourci. Rien en base que le réglage du profil (`profiles.sceau` :
+  NULL, montré ; `cache`, masqué dans la loge — l'essai `sceau`, `shared/loge.ts`) :
+  `apparenceDe` pose `sceau` sur le légendaire porté, et il voyage avec
+  l'avatar (`Distinctions.sceau`, `ApparenceDeLAvatar`, `SonApparence`, les
+  lignes des classements du jour, du défi et des duels) ; une page qui lit le
+  profil lui-même passe par `sceauVisible` (`PublicProfile.scelles`,
+  `sceauMasque`, toujours dit). L'album dit « Scellé », ou garde la jauge de
+  son exploit sous « Son sceau » (`AlbumDesAvatars.tsx`). Le dessin : règle
+  `medaillons.md`.
 - **Durcir la règle d'un haut fait de soirée, d'un prix ou d'un Divin, puis
   monter `VERSION_BAREME`, reprend le passé** : le recalcul remplace les
   lignes de chaque soirée (`remplacerRecompensesDeSoiree`), et ce que la

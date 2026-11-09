@@ -304,7 +304,7 @@ function Picker({
             <div className="bilan-picker">
               {g.members.map(p => (
                 <button key={p.id} className="bilan-chip" onClick={() => onPick(p.id)}>
-                  <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
+                  <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} sceau={p.sceau} />
                   {p.name}
                 </button>
               ))}

@@ -496,6 +496,8 @@ export interface LigneDuJour {
   niveau: number
   finition?: Finition
   legendaire?: string
+  /** Le légendaire porté est scellé : il en tient la voie d'origine (`Distinctions.sceau`). */
+  sceau?: true
   eclat?: EclatPorte
   /** Il a gagné le quiz du jour d'hier : l'allure de son laurier (`niveauDuLaurier`) — ou l'argent du défi de la semaine. */
   laurier?: LaurierPorte

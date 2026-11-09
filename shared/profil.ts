@@ -794,6 +794,14 @@ export interface Distinctions {
    */
   legendaire?: string
   /**
+   * Le légendaire qu'il porte est scellé : il en tient la voie d'origine, pas
+   * seulement le raccourci du Cabinet (`estScelle`, `shared/legendaires.ts`).
+   * L'étoile du zénith au sommet de son cercle, que toute la salle voit —
+   * absente s'il l'a masquée dans la loge, ou sous un emoji, un portrait, un
+   * compagnon, un Divin.
+   */
+  sceau?: true
+  /**
    * Il a gagné le quiz du jour d'hier : un laurier suit son prénom toute la
    * journée, jusque dans les soirées où il joue — et grandit avec ses
    * victoires (`niveauDuLaurier` : vert, d'or, serti, étoilé). Ou le défi
@@ -828,14 +836,15 @@ export function distinctions(source: Distinctions | undefined | null): Distincti
     // Telle quelle : `true` lui ôterait sa matière.
     ...(source.eclat && { eclat: source.eclat }),
     ...(source.legendaire && { legendaire: source.legendaire }),
+    ...(source.sceau && source.legendaire && { sceau: true as const }),
     ...(source.laurier && { laurier: source.laurier }),
     ...(source.champion && { champion: source.champion }),
     ...(source.bordure && { bordure: source.bordure }),
   }
 }
 
-/** Ce que montre l'avatar d'un joueur, au-delà de son emoji : le légendaire porté, sa finition, son Éclat. */
-export type ApparenceDeLAvatar = Pick<Distinctions, 'finition' | 'eclat' | 'legendaire'>
+/** Ce que montre l'avatar d'un joueur, au-delà de son emoji : le légendaire porté, sa finition, son Éclat, son sceau. */
+export type ApparenceDeLAvatar = Pick<Distinctions, 'finition' | 'eclat' | 'legendaire' | 'sceau'>
 
 /**
  * L'avatar seul, sans le niveau ni le laurier : ce que recopient le
@@ -854,6 +863,7 @@ export function apparenceDeLAvatar(source: Distinctions | undefined | null): App
     ...(source.finition && (source.finition !== 'mat' || source.legendaire) && { finition: source.finition }),
     ...(source.eclat && { eclat: source.eclat }),
     ...(source.legendaire && { legendaire: source.legendaire }),
+    ...(source.sceau && source.legendaire && { sceau: true as const }),
   }
 }
 
@@ -913,6 +923,13 @@ export interface PublicProfile {
   legendaire: string | null
   /** Les avatars légendaires qu'il a débloqués. */
   legendaires: string[]
+  /**
+   * Ceux qu'il a scellés : il en tient la voie d'origine, pas seulement le
+   * raccourci du Cabinet (`legendairesScelles`). Absent d'un serveur d'avant.
+   */
+  scelles?: string[]
+  /** Il a masqué le sceau de ses légendaires dans la loge : la salle ne le voit plus. Absent : il se montre. */
+  sceauMasque?: boolean
   /** Les Divins descendus sur lui, avec leur récit. Ce qui les fait descendre ne quitte jamais le serveur. */
   divins: DivinDescendu[]
   /**
@@ -959,7 +976,19 @@ export interface PublicProfile {
  * tiers comprise, et le profil au complet y portait le récit de ses Divins
  * (invariant 21).
  */
-export type ProfilDeLEspace = Pick<PublicProfile, 'login' | 'name' | 'avatar' | 'finition' | 'eclats' | 'eclatsEteints' | 'matieres' | 'matieresPortees' | 'legendaire' | 'niveau'>
+export type ProfilDeLEspace = Pick<
+  PublicProfile,
+  'login' | 'name' | 'avatar' | 'finition' | 'eclats' | 'eclatsEteints' | 'matieres' | 'matieresPortees' | 'legendaire' | 'niveau' | 'scelles' | 'sceauMasque'
+>
+
+/**
+ * Son sceau se voit-il sur ce qu'il porte ? Le légendaire porté est scellé et
+ * il ne l'a pas masqué : la même règle que le serveur (`apparenceDe`), lue du
+ * profil qu'une page tient — l'entrée, l'accueil, la loge.
+ */
+export function sceauVisible(p: Pick<PublicProfile, 'legendaire' | 'scelles' | 'sceauMasque'>): boolean {
+  return !!p.legendaire && !p.sceauMasque && !!p.scelles?.includes(p.legendaire)
+}
 
 /**
  * Cet avatar brille-t-il sur lui ? Éclaté pour lui, et pas éteint : il peut

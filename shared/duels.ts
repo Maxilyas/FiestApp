@@ -765,6 +765,8 @@ export interface LigneDesDuels {
   niveau: number
   finition?: Finition
   legendaire?: string
+  /** Le légendaire porté est scellé : il en tient la voie d'origine (`Distinctions.sceau`). */
+  sceau?: true
   eclat?: EclatPorte
   laurier?: LaurierPorte
   /** La bordure de ligue qu'il porte, s'il en porte une (`bordurePortee`). */

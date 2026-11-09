@@ -50,7 +50,7 @@ export function TeamPicker({ teams, value, onPick, disabled, players }: Props) {
             {membres.length > 0 && (
               <span className="team-btn-avatars" aria-hidden="true">
                 {membres.slice(0, AVATARS_MAX).map(p => (
-                  <Avatar key={p.id} className="team-btn-av" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
+                  <Avatar key={p.id} className="team-btn-av" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} sceau={p.sceau} />
                 ))}
               </span>
             )}

@@ -71,7 +71,7 @@ export function PlayerReview({ ctx, player }: { ctx: BilanCtx; player: ReviewPla
             avatar={player.avatar}
             finition={player.finition}
             eclat={player.eclat}
-            legendaire={player.legendaire}
+            legendaire={player.legendaire} sceau={player.sceau}
           />
           <div>
             <h2>{player.name}</h2>

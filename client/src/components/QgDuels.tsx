@@ -170,7 +170,7 @@ export function ClassementDesDuelsAuQg({
               <span className="qg-rang-place num">{l.rang}</span>
               {/* Tel que les joueurs le voient : ce qu'il porte, pas l'emoji d'en dessous. */}
               <span className="qg-avatar" aria-hidden="true">
-                <Avatar avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} eclat={l.eclat} />
+                <Avatar avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} sceau={l.sceau} eclat={l.eclat} />
               </span>
               <span className="qg-ligne-texte">
                 <PrenomDuJoueur id={l.profileId} nom={l.nom} />
