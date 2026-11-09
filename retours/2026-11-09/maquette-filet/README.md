@@ -2,7 +2,8 @@
 
 La maquette du cahier des charges `../le-nouveau-filet.md` : une épreuve de
 trois manches, au nouveau Filet ou au Filet d'aujourd'hui, sur les 156 vraies
-questions que la production a posées du 1er au 8 novembre 2026. Chaque
+questions que la production a posées du 1er au 8 novembre 2026 — 155
+aujourd'hui : l'une, doublon d'une autre, a quitté la base depuis. Chaque
 question porte la note du moteur, un indice et un repère. Une page hors de
 l'application : rien ici n'est servi par FiestApp.
 

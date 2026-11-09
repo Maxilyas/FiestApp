@@ -124,6 +124,7 @@ const production = {
     { nom: 'En deux temps, sans ce qui se calcule', reussies: 58, etoiles: 1.07, aveugle: 25, savoir: 33 },
     { nom: 'En deux temps, questions du moteur (≥ 40 %)', reussies: 67, etoiles: 1.39, aveugle: 25, savoir: 42, fort: true },
     { nom: 'En deux temps, ce que chaque Français sait placer', reussies: 84, etoiles: 1.89, aveugle: 25, savoir: 59, fort: true },
+    { nom: 'En deux temps, l’acte I réglé : chaque Français, ou le panel à 50 %', reussies: 76, etoiles: 1.8, aveugle: 25, savoir: 51, fort: true },
   ],
   pourquoi: [
     'Le pari sur la taille du filet se retourne contre les joueurs : ils prennent le moyen ou le petit 80 fois sur 169, et réussissent 43 % des manches quand le grand filet, posé au même endroit, en aurait réussi 56 %.',
@@ -152,5 +153,8 @@ const sortie = `// Écrit par extraire.mts : ${questions.length} questions du Fi
 fs.writeFileSync(path.join(ICI, 'donnees.js'), sortie)
 console.log(`${questions.length} questions (${questions.filter(q => q.an).length} années), ${questions.filter(q => q.i).length} indices retenus, ${refusés.length} refusés`)
 for (const r of refusés) console.log('  refusé', r)
-const parActe = [(q: any) => q.fr, (q: any) => !q.fr && q.ia >= 25, (q: any) => !q.fr && q.ia < 25].map(garde => questions.filter(q => !q.calcul && garde(q)))
+// L'acte I : ce que chaque Français sait placer, ou le panel à 50 % et plus — la règle stricte seule passait au-dessus de
+// la réussite visée (le cahier, § 4.5).
+const premierActe = (q: any) => q.fr || q.ia >= 50
+const parActe = [premierActe, (q: any) => !premierActe(q) && q.ia >= 25, (q: any) => !premierActe(q) && q.ia < 25].map(garde => questions.filter(q => !q.calcul && garde(q)))
 console.log('par acte :', parActe.map((qs, i) => `${['I', 'II', 'III'][i]} ${qs.length} (${qs.filter(q => q.an).length} années)`).join(' · '))

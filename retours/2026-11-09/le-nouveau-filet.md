@@ -47,8 +47,8 @@ Trois causes, mesurées :
    fort, dit le propriétaire, et les lancers réels le confirment : ce que
    chaque Français sait se place à 2 % près sept fois plus souvent que le
    reste (42 % des lancers contre 6 %), et se réussit à 84 % en deux temps,
-   contre 53 %. L'acte I ne pose plus que cela. C'est aussi le plus mince :
-   classé question par question, le vivier en a 150 sur 1 790, dont 105 que
+   contre 53 %. L'acte I pose cela d'abord. C'est aussi le plus mince :
+   classé question par question, le vivier en a 150 sur 1 798, dont 105 que
    le Filet peut poser — une seule en Arts & lettres, une en Jeux. Et ce qui
    manque ne s'écrit pas facilement : à l'essai, un fait sur quatre que tout
    le monde connaît était déjà dans la base (§ 4.3 à 4.5).
@@ -77,7 +77,8 @@ curseurs ont été posés sous l'ancienne règle ; la règle rejouée est celle 
 | En deux temps, sans ce qui se calcule | 151 | 58 % | 1,07 | 25 % | +33 points |
 | … ce que le moteur donne à 40 % ou plus | 36 | 67 % | 1,39 | 25 % | +42 points |
 | … dont ce que chaque Français ne sait pas placer | 19 | 53 % | 1,05 | 25 % | +28 points |
-| … ce que chaque Français sait placer | 19 | **84 %** | **1,89** | 25 % | +59 points |
+| … ce que chaque Français sait placer | 19 | 84 % | 1,89 | 25 % | +59 points |
+| … ou que le moteur donne à 50 % et plus — l'acte I réglé (§ 4.5) | 25 | **76 %** | **1,80** | 25 % | +51 points |
 
 - Ce que chaque Français sait placer passe un peu au-dessus de la zone que
   visent les jeux qui règlent leur difficulté (65 à 80 %) : c'est l'acte I,
@@ -635,7 +636,7 @@ Les lancers réels rejugés en deux temps (§ 3.3), sans ce qui se calcule
 
 ### 4.3 Ce que le vivier en a
 
-Les 1 790 questions de la base que le Filet peut poser, classées une à une
+Les 1 798 questions de la base que le Filet peut poser, classées une à une
 — les 589 de la passe qui fait foi, puis les autres par sept agents, chacun
 à l'aveugle avec dix questions de cette passe glissées dans son lot : il
 s'en accorde à 93 % (kappa 0,85) — dans un fichier à part, la base n'en est
@@ -694,11 +695,12 @@ pas touchée (`vivier-du-filet.json`, `reproductions/vivier-du-filet.mts`) :
 
 ### 4.4 Ce qu'il faut en faire
 
-1. **Le tirage** : l'acte I ne pose que ce que chaque Français sait placer ;
-   l'acte II, le reste que le panel donne à 25 % ou plus ; l'acte III, les
-   loteries, où tombent les deux tiers des sujets de l'étranger (41 sur 64).
-   La maquette tire déjà ainsi : 18 questions à l'acte I, 57 au II, 64 au
-   III.
+1. **Le tirage** : l'acte I pose ce que chaque Français sait placer, ou ce
+   que le panel donne à 50 % et plus — la règle seule visait trop haut
+   (§ 4.5) ; l'acte II, le reste que le panel donne à 25 % ou plus ;
+   l'acte III, les loteries, où tombent les deux tiers des sujets de
+   l'étranger (41 sur 64). La maquette tire déjà ainsi : 24 questions à
+   l'acte I, 50 au II, 64 au III.
 2. **Le panel le marque en notant** : deux cases de plus à sa consigne —
    « chaque Français la place à ★★, de mémoire », « son sujet : français, du
    monde, de l'étranger » —, à la passe sur la base (§ 5.6) et à l'écriture
@@ -812,10 +814,23 @@ Ce qu'on en tire :
 4. **Où chercher alors, plutôt qu'écrire** :
    - **la sévérité de la règle est un réglage** : stricte, l'acte I se
      réussit à 84 % sur les lancers réels, au-dessus des 65 à 80 % que
-     visent les jeux qui règlent leur difficulté ; la première passe, plus
-     large, à 67 % (§ 4.2). Calée sur trois manches sur quatre, entre les
-     deux, elle garderait bien plus que 105 questions — à mesurer au
-     calibrage, sur les lancers ;
+     visent les jeux qui règlent leur difficulté, et ne garde qu'une
+     question posable sur douze. Chaque règle candidate, rejouée sur les
+     lancers et comptée dans l'échantillon du vivier
+     (`reproductions/filet-en-production.ts severite`) :
+
+     | L'acte I | Lancers | Réussies en deux temps | Étoiles par manche | Questions posables au vivier |
+     |---|---|---|---|---|
+     | Chaque Français la sait placer — la règle stricte | 19 | 84 % | 1,89 | ~114 |
+     | **… ou le panel à 50 % et plus** | 25 | **76 %** | 1,80 | **~317** |
+     | … ou le panel à 60 % et plus | 20 | 85 % | 1,95 | ~220 |
+     | … ou la première passe, plus large, et le panel à 40 % | 24 | 79 % | 1,83 | ~237 |
+     | La première passe, seule | 21 | 67 % | 1,52 | ~258 |
+
+     **La stricte, complétée du panel à 50 %, tombe sur les trois manches
+     sur quatre et triple l'acte I** : les deux signaux sont ceux que la
+     passe du panel donnera en production (§ 5.6). Calée sur 25 lancers : à
+     revérifier à blanc, avec les autres notes du moteur ;
    - **le recul des années** : 25 ans au lieu de 46 rendent 16 années que
      chaque Français sait placer (décision 10) ;
    - **les dix-neuf questions du pilote, en production** : leurs lancers
@@ -906,11 +921,12 @@ par question et jeu par jeu.
     trois manches sur quatre, l'acte II deux sur trois, l'acte III une sur
     deux.
   - En première version :
-    - l'acte I tire au Filet ce que chaque Français sait placer (§ 4) ;
+    - l'acte I tire au Filet ce que chaque Français sait placer, ou ce que le
+      panel donne à 50 % et plus (§ 4.5) ;
     - l'acte II, le reste que le panel donne à 25 % ou plus ;
     - l'acte III, les loteries.
   - Le vivier de la maquette — les questions réellement posées, les calculs
-    écartés — s'y répartit en 18, 57 et 64. Par la seule note du panel (40 %
+    écartés — s'y répartit en 24, 50 et 64. Par la seule note du panel (40 %
     et 25 %), il se répartissait en 35, 40 et 64 ; mais celles qu'il donne à
     40 % ou plus sans que chaque Français les sache placer se réussissent à
     53 %, loin des trois manches sur quatre (§ 4.2).
@@ -1079,10 +1095,12 @@ un sondage du QG aux joueurs du Cabinet (`qg_annonce_questions`).
      plus fourni (environ 760 questions), mais ce qu'il y met sans que chaque
      Français le sache se réussit à 53 % (§ 4.2).
    - La sévérité de la règle est un réglage : stricte, l'acte I se réussit à
-     84 % (rejoué) ; large, à 67 %. Trois manches sur quatre se visent entre
-     les deux.
-   - La proposition : la première, et la passe d'écriture avant la mise en
-     ligne.
+     84 % (rejoué) et ne garde qu'une question posable sur douze ; complétée
+     du panel à 50 % et plus, 76 %, et trois fois plus de questions
+     (§ 4.5).
+   - La proposition : la stricte complétée du panel à 50 %, revérifiée à
+     blanc ; l'écriture, seulement là où la mesure du pilote en production
+     dira qu'elle paie.
 8. **Le chrono** : deux gestes au lieu d'un, et un indice à lire. 45 secondes
    suffisent à Claire, pas à Huguette (« remonter chercher la question,
    choisir l'époque, toucher la piste, lire l'indice, et réfléchir ! »). À

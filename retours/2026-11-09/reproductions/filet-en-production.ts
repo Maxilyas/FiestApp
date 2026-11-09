@@ -11,6 +11,7 @@
 //             (les notes du panel de l'IA : ../maquette-filet/panel-ia.json)
 //   ancrage   ce que chaque Français sait placer, contre le reste (../maquette-filet/ancrage.json)
 //   estime    ce que chaque Français sait estimer, au-delà de ce qu'il sait (estime-des-posees.json)
+//   pilote    les dix-neuf questions du pilote, une fois en ligne (pilote-du-filet.json)
 //
 // Jamais `QUIZ_DB_URL` : `PROD_LECTURE_URL` et `PROD_LECTURE_TOKEN`, un jeton en lecture seule.
 import fs from 'node:fs'
@@ -197,6 +198,65 @@ if (quoi === 'lancers') {
     const s = ls.map(deux)
     console.log(`${nom.padEnd(39)} ${String(ls.length).padStart(7)}  ${pct(ls.filter(l => ecart(l) <= 0.02).length, ls.length).padStart(9)}  ${pct(auj, ls.length).padStart(20)}  ${pct(s.filter(Boolean).length, ls.length).padStart(13)}  ${(s.reduce((a, b) => a + b, 0) / ls.length).toFixed(2).padStart(8)}`)
   }
+} else if (quoi === 'pilote') {
+  // Les dix-neuf questions du pilote (`pilote-du-filet.json`), une fois en ligne : ce qui s'estime se place-t-il ?
+  // Les six lancers d'aujourd'hui ne le disaient pas (`estime`) ; celles-ci ont été écrites pour le dire. Le jugement
+  // qui les sépare est le second, à l'aveugle, sur les deux critères.
+  const pilote = (JSON.parse(fs.readFileSync(path.resolve(ICI, 'pilote-du-filet.json'), 'utf8')).questions as any[]).filter(q => q.rangee)
+  const groupes: [string, (q: any) => boolean][] = [
+    ['Il la sait estimer (second juge)', q => q.secondJuge.estime],
+    ['Il ne la sait pas estimer', q => !q.secondJuge.estime],
+    ['Tout le pilote', () => true],
+  ]
+  const deux = (l: Lancer) => deuxTemps(l, l.x)
+  console.log(`${pilote.length} questions du pilote, ${lancers.filter(l => pilote.some(q => q.id === l.id)).length} lancers sur elles\n`)
+  console.log('groupe                                  lancers  il savait  en deux temps  ★/manche')
+  for (const [nom, garder] of groupes) {
+    const ids = new Set(pilote.filter(garder).map(q => q.id))
+    const ls = lancers.filter(l => ids.has(l.id))
+    if (!ls.length) { console.log(`${nom.padEnd(39)} ${String(0).padStart(7)}  — pas encore jouées`); continue }
+    const s = ls.map(deux)
+    console.log(`${nom.padEnd(39)} ${String(ls.length).padStart(7)}  ${pct(ls.filter(l => ecart(l) <= 0.02).length, ls.length).padStart(9)}  ${pct(s.filter(Boolean).length, ls.length).padStart(13)}  ${(s.reduce((a, b) => a + b, 0) / ls.length).toFixed(2).padStart(8)}`)
+  }
+} else if (quoi === 'severite') {
+  // La sévérité de la règle est un réglage (`../le-nouveau-filet.md`, § 4.5) : stricte, l'acte I se réussit à 84 %,
+  // au-dessus des 65 à 80 % que visent les jeux qui règlent leur difficulté, et ne garde que 105 questions. Chaque
+  // règle candidate, rejouée sur les lancers réels — sans ce qui se calcule —, puis comptée dans l'échantillon de 435
+  // questions tirées au hasard du vivier : ce qu'elle garderait à l'acte I, posables au tireur (`seTendAuFilet`).
+  const { lireLaBase } = await import('../../../server/src/core/baseCampagne.ts')
+  const { valeurDuFilet } = await import('../../../server/src/core/cabinet/tirages/tas.ts')
+  const { seTendAuFilet } = await import('../../../shared/cabinet/jeux/filet.ts')
+  const lire = (f: string) => JSON.parse(fs.readFileSync(path.resolve(ICI, f), 'utf8')) as any[]
+  const stricte = new Map(lire('../maquette-filet/ancrage.json').map(a => [a.id, a.chacun === true]))
+  const large = new Map(lire('ancrage-premiere-passe.json').map(a => [a.id, a.chacun === true]))
+  const panel = new Map(lire('../maquette-filet/panel-ia.json').map(n => [n.id, n.estimation as number | null]))
+  const estime = new Map(lire('estime-des-posees.json').map(a => [a.id, a.estime === true]))
+  const classe = new Map(lire('../vivier-du-filet.json').map(a => [a.id, a]))
+  const p = (id: string) => panel.get(id) ?? -1
+  const regles: [string, (id: string) => boolean, boolean][] = [
+    ['la seconde passe, stricte', id => !!stricte.get(id), true],
+    ['la première passe, large', id => !!large.get(id), true],
+    ['l’une ou l’autre', id => !!stricte.get(id) || !!large.get(id), true],
+    ['les deux', id => !!stricte.get(id) && !!large.get(id), true],
+    ['stricte, ou le panel à 60 % et plus', id => !!stricte.get(id) || p(id) >= 60, true],
+    ['stricte, ou le panel à 50 % et plus', id => !!stricte.get(id) || p(id) >= 50, true],
+    ['stricte, ou large et le panel à 40 %', id => !!stricte.get(id) || (!!large.get(id) && p(id) >= 40), true],
+    ['stricte, ou qu’il sait estimer', id => !!stricte.get(id) || !!estime.get(id), false],
+  ]
+  const parId = new Map(((lireLaBase() as any).questions as any[]).map((q: any) => [q.id, q]))
+  const posable = (id: string) => { const q = parId.get(id); const v = q && valeurDuFilet(q); return !!v && seTendAuFilet(v.valeur, v.annee, 2026) && !classe.get(id)?.calcul }
+  const echantillon = lire('../maquette-filet/vivier-echantillon.json').filter((id: any) => posable(id))
+  const vivier = [...parId.values()].filter((q: any) => !(q.meta.aRelire ?? []).length && posable(q.id)).length
+  const juges = lancers.filter(l => !calculs.has(l.id) && stricte.has(l.id))
+  const deux = (l: Lancer) => deuxTemps(l, l.x)
+  console.log(`${juges.length} lancers jugés ; l'échantillon : ${echantillon.length} questions posables, sur ${vivier} au vivier\n`)
+  console.log('règle                                   lancers  en deux temps  ★/manche  dans l’échantillon → au vivier')
+  for (const [nom, garder, compte] of regles) {
+    const ls = juges.filter(l => garder(l.id))
+    const s = ls.map(deux)
+    const part = echantillon.filter((id: string) => garder(id)).length / echantillon.length
+    console.log(`${nom.padEnd(39)} ${String(ls.length).padStart(7)}  ${pct(s.filter(Boolean).length, ls.length).padStart(13)}  ${(s.reduce((a, b) => a + b, 0) / ls.length).toFixed(2).padStart(8)}  ${compte ? `${pct(Math.round(1000 * part), 1000).padStart(18)} → ~${Math.round(part * vivier)}` : '                 — (jugé sur les seules posées)'}`)
+  }
 } else {
-  throw new Error(`« ${quoi} » : lancers, regles, ancrage ou estime`)
+  throw new Error(`« ${quoi} » : lancers, regles, ancrage, estime, pilote ou severite`)
 }

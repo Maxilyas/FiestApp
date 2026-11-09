@@ -109,12 +109,16 @@
   // L'acte I tire ce que chaque Français sait placer (`q.fr`) — le propriétaire, au matin du 9 novembre 2026 : « le
   // levier le plus fort, c'est d'avoir des questions que chacun connaisse, sachant que la population et la
   // connaissance sont des personnes françaises ». Sur les vrais lancers, ces questions se placent à 2 % près sept fois
-  // plus souvent que les autres, et se réussissent à 84 % en deux temps (le cahier des charges, § 4). Les actes II et
-  // III se partagent le reste par le panel.
+  // plus souvent que les autres, et se réussissent à 84 % en deux temps (le cahier des charges, § 4). Trop sévère,
+  // cette règle seule passait au-dessus des trois manches sur quatre que vise l'acte I, et ne gardait qu'une question
+  // sur douze du vivier : le panel à 50 % et plus la complète — 76 % de manches réussies sur les lancers réels, et trois
+  // fois plus de questions (le cahier, § 4.5, `filet-en-production.ts severite`). Les actes II et III se partagent le
+  // reste par le panel.
+  const premierActe = q => q.fr || q.ia >= 50
   const ACTES = {
-    1: { nom: 'Acte I', dit: 'Connu de tous', garde: q => q.fr, regle: 'chaque Français la sait placer' },
-    2: { nom: 'Acte II', dit: 'Pointu', garde: q => !q.fr && q.ia >= 25, regle: 'le panel à 25 % ou plus' },
-    3: { nom: 'Acte III', dit: 'Pour initiés', garde: q => !q.fr && q.ia < 25, regle: 'le panel sous 25 %' },
+    1: { nom: 'Acte I', dit: 'Connu de tous', garde: premierActe, regle: 'chaque Français la sait placer, ou le panel à 50 % et plus' },
+    2: { nom: 'Acte II', dit: 'Pointu', garde: q => !premierActe(q) && q.ia >= 25, regle: 'le panel de 25 à 49 %' },
+    3: { nom: 'Acte III', dit: 'Pour initiés', garde: q => !premierActe(q) && q.ia < 25, regle: 'le panel sous 25 %' },
   }
   const ANCRAGES = { france: 'un sujet français', monde: 'un sujet du monde', etranger: 'un sujet de l’étranger', ailleurs: 'un sujet de l’étranger' }
   function tirer(mode, acte) {
@@ -852,7 +856,7 @@
     proprietaire: [
       ['Le curseur se pose au milieu de l’époque choisie, et le filet dit d’emblée ce qu’il couvre', '« lorsque l’on choisit une époque, ça n’affiche pas la fourchette pour l’estimation ; elle devrait se placer directement au milieu ». Le milieu ne rapporte rien de plus que le toucher au milieu, premier geste de qui ne sait pas'],
       ['L’écran s’épure : une ligne par étape, ni barème, ni bornes, ni nombres sous la piste, et la révélation dit d’où viennent les étoiles en une ligne', '« un peu brouillon »'],
-      ['L’acte I ne pose que ce que chaque Français sait placer', '« le levier le plus fort, c’est d’avoir des questions que chacun connaisse, sachant que la population et la connaissance sont des personnes françaises » ; sur les vrais lancers, elles se placent à 2 % près sept fois plus souvent que les autres, et se réussissent à 84 % en deux temps'],
+      ['L’acte I pose ce que chaque Français sait placer, puis ce que le panel donne à 50 % et plus', '« le levier le plus fort, c’est d’avoir des questions que chacun connaisse, sachant que la population et la connaissance sont des personnes françaises » ; sur les vrais lancers, elles se placent à 2 % près sept fois plus souvent que les autres, et se réussissent à 84 % en deux temps — trop haut pour un acte I : complétées du panel, 76 %, et trois fois plus de questions'],
     ],
     ouvert: [
       'Le milieu de la bonne époque tombe à ★★ une fois sur deux : « ★ pour la bonne époque vaut plutôt une étoile et demie » (Claire). C’est la largeur de l’anneau ★★, qui paie aussi l’à-peu-près : un choix de produit.',
@@ -939,8 +943,8 @@
       <ul><li><b>Deux époques de moins</b> retire deux mauvaises époques. <b>Un indice</b> donne une phrase pour s’orienter, jamais la valeur : chaque indice est relu par quelqu’un qui ne connaît pas le sujet, et celui qui mène à la réponse se réécrit.</li>
         <li>Chacune, une fois par manche. Payée, elle retire une étoile à ce que la manche rapporte : ★★ moins une, ★. Ratée, la manche coûte un cœur comme toujours ; réussie, elle garde ton cœur, même si l’aide a pris sa seule étoile. La carte Coup d’œil offre la première aide de chaque épreuve.</li></ul>
       <h2>Les questions</h2>
-      <ul><li>L’acte I ne pose que ce que chaque Français sait placer : ce qu’on apprend à l’école, ce qu’on voit tous les jours, ce qu’on a entendu partout. Les joueurs sont français, leur savoir aussi.</li>
-        <li>Les autres portent une note : la part des joueurs qui placeraient sa valeur à 5 % près. L’acte II pose celles qu’au moins 25 % connaissent, l’acte III le reste.</li>
+      <ul><li>L’acte I pose ce que chaque Français sait placer : ce qu’on apprend à l’école, ce qu’on voit tous les jours, ce qu’on a entendu partout. Les joueurs sont français, leur savoir aussi.</li>
+        <li>Chaque question porte aussi une note : la part des joueurs qui placeraient sa valeur à 5 % près. Celles qu’au moins la moitié connaissent rejoignent l’acte I ; l’acte II pose celles qu’au moins 25 % connaissent, l’acte III le reste.</li>
         <li>Elle part d’une première estimation, que la production corrige ensuite à chaque lancer.</li>
         <li>Une question qui se calcule ou se convertit (le carré de 25, les secondes d’une heure) n’est pas une estimation : le nouveau Filet ne la pose pas.</li></ul>
     </section>`)
