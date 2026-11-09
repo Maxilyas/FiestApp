@@ -19,7 +19,7 @@ import { CampagneStore } from './core/campagne'
 import { REVEIL_DU_CABINET } from './core/cabinet/tables'
 import { CabinetStore } from './core/cabinet/magasin'
 import { calendrierDuCabinet } from './core/saisons'
-import { cabinetOuvert } from '../../shared/cabinet/ouverture'
+import { FILET_EN_DEUX_TEMPS, cabinetOuvert } from '../../shared/cabinet/ouverture'
 import { EXPEDITION_REMPLACEE } from '../../shared/jokers'
 import { Missions, rattraperLesEtoiles } from './core/missions'
 import { Soins } from './core/soins'
@@ -154,6 +154,12 @@ export interface QuizServerOptions {
    * épreuves de l'effacement le passent à vrai (`cabinet-ouverture.test.ts`).
    */
   expeditionRemplacee?: boolean
+  /**
+   * Le Filet du Cabinet se tire-t-il en deux temps — l'époque, puis la valeur ? Absent : son drapeau le dit
+   * (`FILET_EN_DEUX_TEMPS`, `shared/cabinet/ouverture.ts`), partout pareil. Le banc le pose à faux : les fichiers qui
+   * jouent le Filet d'avant par les routes tournent encore ; les épreuves du nouveau le passent à vrai.
+   */
+  filetEnDeuxTemps?: boolean
   /** Les délais du miroir de la soirée — les tests les resserrent, la production garde les siens. */
   miroir?: Omit<ReglagesMiroir, 'base'>
   /** Le client compilé. Les tests en donnent un de trois lignes : `client/dist` n'existe qu'après le build. */
@@ -597,7 +603,12 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Le Cabinet de curiosités : il ne connaît la campagne que par sa porte, ses tables naissent dans son premier lot
   // (`REVEIL_DU_CABINET`) — pas d'`init` à lui —, et il lit l'heure de la campagne et le calendrier de ses fêtes.
   const cabinetEstOuvert = opts.cabinet ?? cabinetOuvert({ online: !!opts.online, env: opts.appEnv ?? 'production' })
-  const cabinet = new CabinetStore(campagne.porte(), profiles, { maintenant: maintenantDuJour, calendrier: calendrierDuCabinet, expeditionEffacee: expeditionRemplacee })
+  const cabinet = new CabinetStore(campagne.porte(), profiles, {
+    maintenant: maintenantDuJour,
+    calendrier: calendrierDuCabinet,
+    expeditionEffacee: expeditionRemplacee,
+    filetEnDeuxTemps: opts.filetEnDeuxTemps ?? FILET_EN_DEUX_TEMPS,
+  })
   // L'expédition qui part ou finit, dite à la page du Cabinet (« Ton expédition t'attend ») : en mémoire, un crochet
   // de sa porte, comme ses paliers — sans lui, la ligne restait jusqu'au réveil suivant.
   campagne.expeditionChange = (profileId, enRoute) => cabinet.expeditionChange(profileId, enRoute)

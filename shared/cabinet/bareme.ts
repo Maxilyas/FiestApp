@@ -415,6 +415,21 @@ export const REPERES_SIENS_DU_FILET = 1
 export const REPERE_A_LA_REPONSE = 0.02
 /** Le Filet en deux temps : un repère qui partage avec la question un mot d'au moins tant de lettres en est le sujet — il ne vient pas. */
 export const LETTRES_D_UN_MOT_DU_SUJET = 5
+/**
+ * Le Filet en deux temps : l'acte I tire ce que chaque Français sait placer, ou que le panel donne à tant de pour cent
+ * et plus (la part des joueurs qui placeraient la valeur à 5 % près) ; l'acte II, de…
+ */
+export const PANEL_DE_L_ACTE_I = 50
+/** … tant à l'acte I ; l'acte III, sous tant. */
+export const PANEL_DE_L_ACTE_II = 25
+/** Le Filet en deux temps : un indice tient en tant de signes au plus — une phrase qui mène à la tranche. */
+export const INDICE_DU_FILET_MAX = 100
+/** … et un repère, l'étiquette d'un fait sur la frise (« La tour Eiffel »), en tant. */
+export const REPERE_DU_FILET_MAX = 40
+/** Le Filet en deux temps : un indice n'écrit aucun nombre à moins de tant d'années de la réponse, en chiffres ni en lettres… */
+export const ANS_PRES_D_UN_INDICE = 15
+/** … ni, pour une grandeur, à moins de cette part d'elle. */
+export const PART_PRES_D_UN_INDICE = 0.2
 
 /**
  * Le Pari : garder ses étoiles, ou les parier sur une question plus difficile —

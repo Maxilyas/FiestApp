@@ -63,6 +63,7 @@ import {
   ILLISIBLE_EN_ROUTE,
   TRAVERSEE_FINIE,
   VERSION_DE_LA_TRAVERSEE,
+  acteDe,
   cartesDeLEpreuve,
   choisirLesGardiens,
   epreuveEnCours,
@@ -233,6 +234,12 @@ export interface ReglagesDuCabinet {
    * `/expedition` mène ici. « Ton expédition t'attend : la finir » ferait tourner en rond qui en avait une en route.
    */
   expeditionEffacee?: boolean
+  /**
+   * Le Filet se tire-t-il en deux temps (`FILET_EN_DEUX_TEMPS`, que l'option du serveur passe outre) ? Le tireur pose
+   * alors le nouveau Filet — à l'acte d'une épreuve (`ContexteDuTirage.vise.acte`) —, sinon celui d'avant. Absent : celui
+   * d'avant, comme un magasin construit à la main par un test.
+   */
+  filetEnDeuxTemps?: boolean
 }
 
 /** Un musée en mémoire : des reflets, des faits d'acquisition, les parties du jour sans leur plan. */
@@ -1011,6 +1018,7 @@ export class CabinetStore {
             // que la campagne choisit (l'arbitrage du 26 octobre 2026).
             enjeu: enjeuDuTirage(cadre),
             leurres: journal.leurresChoisis(),
+            filetEnDeuxTemps: this.reglages.filetEnDeuxTemps === true,
           },
           rechanges,
         )
@@ -2092,7 +2100,9 @@ export class CabinetStore {
           hasard: this.hasard,
           enjeu: { marchesEnPlus: [], friseSerree: false, marches: visee.marches },
           leurres: journal.leurresChoisis(),
-          vise: { categorie: visee.categorie, theme: visee.theme, sujet: visee.sujet },
+          // L'acte de l'étape : le Filet en deux temps y tire ses questions, plutôt qu'à une marche.
+          vise: { categorie: visee.categorie, theme: visee.theme, sujet: visee.sujet, acte: acteDe(etape.id) },
+          filetEnDeuxTemps: this.reglages.filetEnDeuxTemps === true,
         },
         rechanges,
       ),

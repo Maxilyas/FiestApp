@@ -166,7 +166,8 @@ const ECRANS: Partial<Record<CleDeJeu, ALaDemande<EcranEfface>>> = {
   detail: aLaDemande(() => import('./jeux/Detail').then(m => m.DETAIL as unknown as EcranEfface)),
   frise: aLaDemande(() => import('./jeux/Frise').then(m => m.FRISE as unknown as EcranEfface)),
   mot: aLaDemande(() => import('./jeux/MotMystere').then(m => m.MOT as unknown as EcranEfface)),
-  filet: aLaDemande(() => import('./jeux/Filet').then(m => m.FILET as unknown as EcranEfface)),
+  // Les deux Filets ensemble, chaque manche le sien par sa forme (`FILETS`) : celui d'avant garde ses parties.
+  filet: aLaDemande(() => import('./jeux/Filet').then(m => m.FILETS as unknown as EcranEfface)),
   epingle: aLaDemande(() => import('./jeux/Epingle').then(m => m.EPINGLE as unknown as EcranEfface)),
   indices: aLaDemande(() => import('./jeux/Indices').then(m => m.INDICES as unknown as EcranEfface)),
   replique: aLaDemande(() => import('./jeux/Replique').then(m => m.REPLIQUE as unknown as EcranEfface)),

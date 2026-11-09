@@ -31,6 +31,8 @@ import {
   ETOILES_D_UNE_AIDE,
   LETTRES_D_UN_MOT_DU_SUJET,
   ORDRES_DE_GRANDEUR,
+  PANEL_DE_L_ACTE_I,
+  PANEL_DE_L_ACTE_II,
   RECUL_DES_ANNEES_DU_FILET,
   REPERES_DU_FILET,
   REPERES_SIENS_DU_FILET,
@@ -40,6 +42,7 @@ import {
   VALEUR_MIN_DU_FILET,
 } from '../bareme'
 import { decimales, ecartEstimation } from '../../classement'
+import type { QuestionDuFilet } from '../contenu'
 import { GESTE_A_JUGER, SANS_REPONSE, auHasard, battre, champsDuGeste, estUnIndex, naturelDe, pieceDeLaQuestion, reponseEnvoyee, rienAEclairer, type QuestionTiree } from './outils'
 import { justeDeLaPiece, type RegleDuJeu, type VerdictDUneManche } from './regle'
 
@@ -273,6 +276,17 @@ export function seTendEnDeuxTemps(valeur: number, annee: boolean, anneeDuDepart:
   )
 }
 
+/**
+ * L'acte où une question se pose, de zéro à deux : l'acte I, ce que chaque Français sait placer, ou que le panel donne à
+ * 50 % et plus — le levier le plus fort, « des questions que chacun connaisse » (le propriétaire, au matin du
+ * 9 novembre 2026) : sur les vrais lancers, elles se placent à 2 % près sept fois plus souvent que les autres ; l'acte
+ * II, le panel de 25 à 49 % ; l'acte III, sous 25.
+ */
+export function acteDuFilet(q: Pick<QuestionDuFilet, 'chacun' | 'panel'>): 0 | 1 | 2 {
+  if (q.chacun || q.panel >= PANEL_DE_L_ACTE_I) return 0
+  return q.panel >= PANEL_DE_L_ACTE_II ? 1 : 2
+}
+
 // ── La place de la réponse ────────────────────────────────────────────────
 
 /**
@@ -436,6 +450,32 @@ export const cranDe = (t: TrancheDuFilet, x: number): number => Math.max(0, Math
  * de qui ne sait pas, des quatre joueurs de la tablée, au premier tour.
  */
 export const milieuDeLaTranche = (t: TrancheDuFilet): number => valeurAuCran(t, cransDe(t) / 2)
+
+/**
+ * Trois chiffres qui comptent, un dixième sous cent — un entier pour une piste d'entiers, comme ses crans —, arrondis
+ * vers l'intérieur : ce que la phrase promet, la règle le tient (« de 70,8 à 79,7 » pour des syllabes, non).
+ */
+function versLInterieur(v: number, haut: boolean, entiere: boolean): number {
+  let p = v < 100 ? 0.1 : 10 ** (Math.floor(Math.log10(v)) - 2)
+  if (entiere) p = Math.max(1, p)
+  return Number(((haut ? Math.floor(v / p + 1e-9) : Math.ceil(v / p - 1e-9)) * p).toFixed(decimales(p)))
+}
+
+/**
+ * Les réponses qu'un lancer à `x` prendrait à ★★★ et à ★★ : le filet se dit en nombres autour du curseur — « ★★★
+ * 1960–1964 · ★★ 1956–1968 » —, la règle se lit aussi sur la piste (Claire, à la tablée). Une année : à tant d'années ;
+ * une grandeur, les réponses `a` à 6 % ou 25 % d'elles-mêmes de `x` — de x / 1,06 à x / 0,94 —, arrondies vers
+ * l'intérieur : la phrase ne promet jamais plus que la règle. Rien de la réponse : la page le calcule de ce qu'elle a.
+ */
+export function ceQueCouvreLeFilet(
+  m: Pick<FiletEnDeuxTempsMontre, 'annee' | 'anneaux'>,
+  x: number,
+  entiere: boolean,
+): { trois: { de: number; a: number }; deux: { de: number; a: number } } {
+  if (m.annee) return { trois: { de: x - m.anneaux.trois, a: x + m.anneaux.trois }, deux: { de: x - m.anneaux.deux, a: x + m.anneaux.deux } }
+  const anneau = (pc: number) => ({ de: versLInterieur(x / (1 + pc / 100), false, entiere), a: versLInterieur(x / (1 - pc / 100), true, entiere) })
+  return { trois: anneau(m.anneaux.trois), deux: anneau(m.anneaux.deux) }
+}
 
 // ── Le jugement ───────────────────────────────────────────────────────────
 

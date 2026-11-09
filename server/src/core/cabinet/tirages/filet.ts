@@ -22,11 +22,15 @@ import { MARCHES_DU_FILET } from '../../../../../shared/cabinet/bareme'
 import { pisteDuFilet, seTendAuFilet, type FiletTire } from '../../../../../shared/cabinet/jeux/filet'
 import { anneeDuDepart } from '../../../../../shared/cabinet/partie'
 import { jourDe } from '../../../../../shared/jour'
+import type { FiletEnDeuxTempsTire } from '../../../../../shared/cabinet/jeux/filetEnDeuxTemps'
 import { commeLaPartieLaGarde, marchesDuTirage, uneQuestionDesCategories } from './communs'
 import type { ContexteDuTirage, Posees } from './communs'
+import { tirerUnFiletEnDeuxTemps } from './filetEnDeuxTemps'
 import { valeurDuFilet, valeursDeLaCategorie } from './tas'
 
-export function tirerUnFilet(ctx: ContexteDuTirage, posees: Posees): FiletTire | null {
+/** Le Filet d'une manche : en deux temps quand le serveur le tire ainsi (`FILET_EN_DEUX_TEMPS`), sinon celui d'avant. */
+export function tirerUnFilet(ctx: ContexteDuTirage, posees: Posees): FiletTire | FiletEnDeuxTempsTire | null {
+  if (ctx.filetEnDeuxTemps) return tirerUnFiletEnDeuxTemps(ctx, posees)
   const annee = anneeDuDepart({ jour: jourDe(ctx.maintenant) })
   const marches = marchesDuTirage(ctx, MARCHES_DU_FILET)
   const ecartees = new Set<string>()

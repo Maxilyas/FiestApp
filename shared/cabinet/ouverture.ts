@@ -16,6 +16,16 @@ import type { CleDeJeu } from './jeux/regle'
 /** Le Cabinet s'ouvre-t-il en production ? Oui depuis le 31 octobre 2026 : entier, joué par deux tablées, il remplace l'Expédition. */
 export const CABINET_EN_PRODUCTION = true
 
+/**
+ * Le Filet se joue-t-il en deux temps — l'époque, puis la valeur (`retours/2026-11-09/le-nouveau-filet.md`) ? Le tireur
+ * pose alors le nouveau Filet, et l'annonce le dit (`JEUX.filet`) ; sinon, celui d'avant. Les deux règles vivent
+ * ensemble, chacune juge les parties que son tirage désigne (`jeux/filets.ts`) : un Filet commencé avant la bascule se
+ * finit tel qu'il a été tiré. Une constante du code, la même en préproduction et en production — la page la lit pour
+ * l'annonce. Le serveur la passe outre par son option (`filetEnDeuxTemps`) : le banc joue celui d'avant, et les épreuves
+ * du nouveau l'ouvrent.
+ */
+export const FILET_EN_DEUX_TEMPS = true
+
 /** Le Cabinet répond-il ? Hors de la production toujours ; en production, sous son drapeau. */
 export function cabinetOuvert({ online, env }: { online: boolean; env: string }): boolean {
   return CABINET_EN_PRODUCTION || !online || env !== 'production'

@@ -4,9 +4,22 @@
 // tranches, une piste régulière où chaque « + » change la valeur jusqu'au bout, la distance qui juge d'abord — de
 // part et d'autre d'une borne, l'écart d'une grandeur lu au dixième —, deux aides qui retirent chacune une étoile sans
 // jamais coûter le cœur, Éclairer qui en offre une, des repères tirés sans regarder où est la réponse, la place de la
-// réponse tirée avec des poids, et rien au téléphone qui dise où elle est avant le verdict (invariant 1).
-import { test } from 'node:test'
+// réponse tirée avec des poids, et rien au téléphone qui dise où elle est avant le verdict (invariant 1). Puis son
+// tireur, sur de vraies questions de son contenu : à l'acte de l'épreuve, par le pli comme par les routes.
+import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
+import type { QuestionDeLaBase } from '../src/core/baseCampagne'
+import { lireLaBase } from '../src/core/baseCampagne'
+import { contenuDuCabinet } from '../src/core/cabinet/contenu'
+import { valeurDuFilet } from '../src/core/cabinet/tirages/tas'
+import { tirerLePlan, type ContexteDuTirage } from '../src/core/cabinet/tirages/index'
+import type { Categorie } from '../../shared/categories'
+import type { FiletTire } from '../../shared/cabinet/jeux/filet'
+import { ENJEU_ORDINAIRE } from '../../shared/cabinet/partie'
+import { VERSION_DE_LA_TRAVERSEE, etatDeLaTraversee, tracerLaCarte, type DepartDeLaTraversee, type GesteDeLaTraversee } from '../../shared/cabinet/traversee'
+import type { PageDeLaTraversee, VueDeLaPartie } from '../../shared/cabinet/vues'
+import { inscrireProfil } from './banc'
+import { DIX_HEURES, aLaMain, bancDuCabinet, baseDuCabinet, commencer, departEnBase, fermerLesMagasins, jouer as unGeste, lire, ok, poster, vraiesQuestionsDuFilet } from './cabinet-banc'
 import * as B from '../../shared/cabinet/bareme'
 import { hasardDe } from '../../shared/missions'
 import { lireLeDepart, lireUnGeste } from '../../shared/cabinet/lecture'
@@ -23,6 +36,7 @@ import {
   CHOISIS_TON_AIDE,
   REGLE_DU_FILET_EN_DEUX_TEMPS as R,
   SANS_INDICE,
+  acteDuFilet,
   borneDeGrandeur,
   cransDe,
   ecartEnPourCent,
@@ -39,6 +53,8 @@ import {
   tranchesDuFilet,
   valeurAuCran,
   type EtatDuFiletEnDeuxTemps,
+  type FiletEnDeuxTempsMontre,
+  type FiletEnDeuxTempsRevele,
   type FiletEnDeuxTempsTire,
   type RepereDuFilet,
 } from '../../shared/cabinet/jeux/filetEnDeuxTemps'
@@ -563,4 +579,165 @@ test('le Filet en deux temps : son départ et ses gestes se relisent à leur for
   assert.deepEqual(lireUnGeste({ quoi: 'repondre', manche: 1, reponse: { filet: { x: 1852, taille: 'moyen' } } }), { quoi: 'repondre', manche: 1, reponse: { filet: { x: 1852, taille: 'moyen' } } })
   assert.equal(lireUnGeste({ quoi: 'repondre', manche: 1, reponse: { filet: { epoque: -1, x: 2400 } } }), null)
   assert.equal(lireUnGeste({ quoi: 'repondre', manche: 1, reponse: { filet: { epoque: 1, x: 1852, taille: 'moyen' } } }), null, 'des deux Filets à la fois')
+})
+
+// ── Le tireur, sur de vraies questions de son contenu ─────────────────────
+
+/** La base livrée, et le contenu du Filet : il ne porte que l'identifiant d'une question, le tireur relit sa valeur dans la base. */
+const LA_BASE = new Map(lireLaBase().questions.map(q => [q.id, q]))
+const CONTENU = new Map(contenuDuCabinet().filet.map(e => [e.id, e]))
+const acteDe = (id: string) => acteDuFilet(CONTENU.get(id)!)
+
+/** Dix vraies questions de chaque acte, chacune sa valeur : ce qu'une base d'essai ajoute aux siennes, que le Filet ne pose pas. */
+const REELLES: readonly QuestionDeLaBase[] = vraiesQuestionsDuFilet(10)
+
+const PORTE = { deLaCategorie: (jouables: readonly QuestionDeLaBase[], c: Categorie) => jouables.filter(q => q.meta.categorie === c) }
+const contexte = (jouables: readonly QuestionDeLaBase[], o: { acte?: 0 | 1 | 2; enDeuxTemps?: boolean } = {}): ContexteDuTirage => ({
+  porte: PORTE,
+  jouables,
+  mesures: new Map(),
+  vues: new Map(),
+  maintenant: DIX_HEURES,
+  hasard: Math.random,
+  enjeu: ENJEU_ORDINAIRE,
+  leurres: new Map(),
+  filetEnDeuxTemps: o.enDeuxTemps ?? true,
+  ...(o.acte !== undefined && { vise: { categorie: null, theme: null, acte: o.acte } }),
+})
+
+test('le tireur du Filet en deux temps : une question du contenu à l’acte de l’épreuve, son indice jugé, ses repères — jamais deux fois la même valeur', () => {
+  assert.equal(REELLES.length, 30, 'dix questions de chaque acte dans le contenu')
+  const jouables = baseDuCabinet(8, REELLES).questions
+  const { reperes } = contenuDuCabinet()
+  for (const acte of [0, 1, 2] as const) {
+    for (let essai = 0; essai < 5; essai++) {
+      const plan = tirerLePlan('filet', contexte(jouables, { acte }), 2) as FiletEnDeuxTempsTire[] | null
+      assert.ok(plan, `l’acte ${acte + 1}`)
+      assert.equal(plan.length, 5, 'trois manches et deux rechanges')
+      assert.equal(new Set(plan.map(t => t.valeur)).size, plan.length, 'jamais deux fois la même valeur')
+      for (const t of plan) {
+        const e = CONTENU.get(t.question.id)
+        assert.ok(e, `${t.question.id} : une question hors du contenu du Filet`)
+        assert.equal(t.deuxTemps, true)
+        assert.equal(acteDuFilet(e), acte, `${t.question.id} : de l’acte ${acteDuFilet(e) + 1}`)
+        assert.equal(t.indice, e.indice, 'l’indice jugé du contenu, ou rien')
+        const v = valeurDuFilet(LA_BASE.get(t.question.id)!)!
+        assert.deepEqual([t.valeur, t.annee, t.unite], [v.valeur, v.annee, v.unite])
+        assert.ok(t.bonnes.length > 0 && t.bonnes.every(k => t.tranches[k].de <= t.valeur && t.valeur <= t.tranches[k].a), 'la bonne époque la tient')
+        if (t.annee) assert.ok(t.tranches[B.TRANCHES_DU_FILET - 1].a <= DEPART, 'jamais dans l’avenir')
+        // Les repères : des dates pour une année, la même unité pour une grandeur — jamais la réponse.
+        assert.ok(t.reperes.length <= B.REPERES_DU_FILET)
+        for (const r of t.reperes) {
+          const commun = reperes.find(c => c.valeur === r.valeur && c.texte === r.texte)
+          assert.ok(commun, `« ${r.texte} » : un repère du contenu`)
+          assert.equal(commun.unite === null, t.annee, `« ${r.texte} » pour ${t.valeur}`)
+          assert.notEqual(r.valeur, t.valeur)
+        }
+      }
+    }
+  }
+  // Hors d'une traversée, l'acte I ; sans rien à l'acte promis, les autres — une épreuve qui ne partirait pas serait pire.
+  assert.ok((tirerLePlan('filet', contexte(jouables), 0) as FiletEnDeuxTempsTire[]).every(t => acteDe(t.question.id) === 0))
+  const sansLActeIII = baseDuCabinet(8, REELLES.filter(q => acteDe(q.id) !== 2)).questions
+  const ailleurs = tirerLePlan('filet', contexte(sansLActeIII, { acte: 2 }), 0) as FiletEnDeuxTempsTire[] | null
+  assert.ok(ailleurs && ailleurs.every(t => t.deuxTemps && acteDe(t.question.id) !== 2))
+  // Le serveur qui ne tire pas en deux temps pose le Filet d'avant, ses parties intactes.
+  assert.ok((tirerLePlan('filet', contexte(jouables, { enDeuxTemps: false }), 0) as FiletTire[]).every(t => 'piste' in t))
+})
+
+// ── Par les routes ───────────────────────────────────────────────────────
+
+const ouverts: { close(): unknown }[] = []
+after(() => ouverts.forEach(o => o.close()))
+after(fermerLesMagasins)
+
+/** Un vrai serveur qui tire le Filet en deux temps, sur une base d'essai qui porte les vraies questions de son contenu. */
+async function unServeur() {
+  const b = await bancDuCabinet({ filetEnDeuxTemps: true, baseDeLaCampagne: baseDuCabinet(8, REELLES) })
+  ouverts.push(b.banc)
+  return b
+}
+
+test('le Filet en deux temps par les routes : une partie libre se tire à l’acte I, et se joue en deux temps — l’époque, puis la valeur', async () => {
+  const b = await unServeur()
+  const lea = await inscrireProfil(b.banc.url, 'lea', 'Léa')
+  const v0 = ok(await commencer(b, lea, { origine: 'libre', jeu: 'filet', carte: 'coup-d-oeil' }), 'commencer')
+  const tirages = departEnBase(b.fichier, v0.id).tirages as FiletEnDeuxTempsTire[]
+  assert.ok(
+    tirages.every(t => t.deuxTemps && acteDe(t.question.id) === 0),
+    'l’acte I, hors d’une traversée',
+  )
+  const montree = v0.enCours as FiletEnDeuxTempsMontre
+  assert.equal(montree.deuxTemps, true)
+  assert.deepEqual(montree.tranches, tirages[0].tranches)
+  // Pile sur la valeur, dans la bonne époque : trois étoiles, sans aide.
+  const t = tirages[0]
+  const revelee = ok(await unGeste(b, lea, v0, { quoi: 'repondre', manche: 0, reponse: { filet: { epoque: t.bonnes[0], x: t.valeur } } }), 'le lancer')
+  const corps = revelee.revelation?.corps as FiletEnDeuxTempsRevele
+  assert.deepEqual([corps.valeur, corps.etoiles, corps.payees], [t.valeur, 3, 0])
+})
+
+test('une épreuve du Filet à l’acte II se tire à l’acte II : l’acte de l’étape va jusqu’au tireur', async () => {
+  const b = await unServeur()
+  const cookie = await inscrireProfil(b.banc.url, 'noe', 'Noé')
+  const profil = (await lire(b, cookie, '/api/joueur/moi?leger')).corps.profile.id as string
+  // Une traversée écrite à la main jusqu'à l'acte II, ses épreuves conclues sans faute, rejouée par le pli comme le serveur
+  // l'aurait écrite ; sa carte tracée de trois jeux, qu'une rangée de trois épreuves pose tous.
+  let x = 7
+  const hasard = () => ((x = (x * 16807) % 2147483647) / 2147483647)
+  const depart: DepartDeLaTraversee = {
+    v: VERSION_DE_LA_TRAVERSEE,
+    jour: '2026-10-24',
+    actes: tracerLaCarte(hasard, ['lg:renard', 'lg:sphinx', 'lg:dragon'], { epingle: [], frise: [] }, ['filet', 'pari', 'eclair']),
+  }
+  const gestes: GesteDeLaTraversee[] = [{ quoi: 'cartes', cartes: ['cagnotte', 'parade', 'panacee'] }]
+  const etat = () =>
+    etatDeLaTraversee(
+      depart,
+      gestes.map(geste => ({ geste, faitLe: 0 })),
+    )
+  let e = etat()
+  let p = 0
+  while (!(e.acte === 1 && e.ameliorations === 0)) {
+    if (e.ameliorations > 0) gestes.push({ quoi: 'ameliorer', carte: e.cartes.find(c => c.niveau < 3)!.cle })
+    else {
+      const ici = depart.actes[e.acte].etapes
+      const suivantes = e.ou.sorte === 'gardien' ? [e.ou.etape] : ici.find(s => s.id === e.position)!.suivantes
+      const etape = ici.find(s => s.id === (suivantes.find(id => ici.find(s => s.id === id)?.sorte === 'epreuve') ?? suivantes[0]))!
+      if (etape.sorte === 'coffre' || etape.sorte === 'marchand') gestes.push({ quoi: 'aller', etape: etape.id })
+      else {
+        const partie = `fausse-${++p}`
+        gestes.push({ quoi: 'epreuve', etape: etape.id, partie }, { quoi: 'conclure', partie, manches: [3, 3, 3].map(etoiles => ({ etoiles, misee: false })) })
+      }
+    }
+    e = etat()
+  }
+  assert.equal(e.ignores, 0)
+  const q = (s: string) => `'${s.replace(/'/g, "''")}'`
+  aLaMain(
+    b.fichier,
+    [
+      `INSERT INTO cabinet_traversees (id, profile_id, depart, commencee_le) VALUES ('filet-acte-2', ${q(profil)}, ${q(JSON.stringify(depart))}, 1)`,
+      ...gestes.map((g, k) => `INSERT INTO cabinet_traversee_gestes (traversee_id, rang, geste, fait_le, uid) VALUES ('filet-acte-2', ${k + 1}, ${q(JSON.stringify(g))}, ${k + 2}, 'u${k}')`),
+    ].join(';\n'),
+  )
+  const t = ok(await lire<PageDeLaTraversee>(b, cookie, '/api/cabinet/traversee'), 'la page').traversee!
+  assert.equal(t.acte, 1)
+  const etape = t.atteignables.find(id => depart.actes[1].etapes.find(s => s.id === id)?.jeu === 'filet')
+  assert.ok(etape, 'un Filet au premier rang de l’acte II')
+  const entree = ok(await poster<PageDeLaTraversee>(b, cookie, `/api/cabinet/traversee/${t.id}/geste`, { rang: t.rang, geste: { quoi: 'aller', etape } }), 'l’entrée').traversee!
+  const partie = entree.partie as VueDeLaPartie
+  assert.equal(partie.jeu, 'filet')
+  const tirages = departEnBase(b.fichier, partie.id).tirages as FiletEnDeuxTempsTire[]
+  assert.deepEqual(
+    tirages.map(x => [x.deuxTemps, acteDe(x.question.id)]),
+    tirages.map(() => [true, 1]),
+    'chaque manche, et chaque rechange, de l’acte II',
+  )
+  // Une aide payée, puis le lancer juste : deux étoiles, et la traversée lira l'aide payée.
+  const aidee = ok(await unGeste(b, cookie, partie, { quoi: 'aide', manche: 0, aide: 'epoques' }), 'l’aide')
+  const revelee = ok(await unGeste(b, cookie, aidee, { quoi: 'repondre', manche: 0, reponse: { filet: { epoque: tirages[0].bonnes[0], x: tirages[0].valeur } } }), 'le lancer')
+  assert.deepEqual([(revelee.revelation?.corps as FiletEnDeuxTempsRevele).etoiles, (revelee.revelation?.corps as FiletEnDeuxTempsRevele).payees], [2, 1])
+  // La note de la manche le dit : sans elle, deux étoiles pour un lancer pile dessus se lisaient comme un lancer à côté.
+  assert.equal(revelee.manches[0].note, '−1 : ton aide')
 })
