@@ -11,7 +11,16 @@ import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
 import { Sqlite3Client } from '@libsql/client/sqlite3'
 import { demarrer, ecrire, inscrireProfil, relireJusqua, type Banc } from './banc'
-import { CARATS_DE_LA_GEMME, CARATS_D_UN_MAITRE, CARATS_D_UN_TROPHEE, CARATS_DU_ZENITH, type ClassementDesCollections, type VitrineDUnCollectionneur } from '../../shared/collectionneurs'
+import {
+  CARATS_DE_LA_GEMME,
+  CARATS_D_UN_MAITRE,
+  CARATS_D_UN_TROPHEE,
+  CARATS_DU_ZENITH,
+  piecesDuStyle,
+  type ClassementDesCollections,
+  type SuiteDuClassement,
+  type VitrineDUnCollectionneur,
+} from '../../shared/collectionneurs'
 import { CARATS_DU_THEME } from '../../shared/collectionneurs'
 import { theme } from '../../shared/themes'
 import { ProfileStore } from '../src/auth/profiles'
@@ -168,6 +177,46 @@ test('la vitrine : un Divin d’abord ; ni un masqué ni un suspendu ne s’y ou
   const sienne = await lire<ClassementDesCollections>('/api/collectionneurs', 'zoe')
   assert.equal(sienne.categories.maitres.moi?.rang, 1, 'masquée, sa page lui dit la place que les classés lui feraient')
   assert.ok(!sienne.categories.maitres.tete.some(p => p.id === ids.zoe))
+})
+
+test('la suite d’un classement, à la demande : ni masqué ni suspendu, et ce qui ne se classe pas se refuse en clair', async () => {
+  // « J'aimerais voir tout le monde » (le propriétaire, le 9 novembre 2026) : la page s'arrêtait au dixième.
+  await pagePrete()
+  const suite = await lire<SuiteDuClassement>('/api/collectionneurs/suite/collection?depuis=0')
+  assert.deepEqual(
+    suite.places.map(p => p.id),
+    [ids.max, ids.lea],
+  )
+  assert.deepEqual(
+    suite.fiches.map(f => f.id),
+    [ids.max, ids.lea],
+    'chaque place a sa fiche',
+  )
+  assert.equal(suite.classes, 2)
+  assert.deepEqual((await lire<SuiteDuClassement>('/api/collectionneurs/suite/collection?depuis=1')).places.map(p => p.id), [ids.lea])
+  assert.deepEqual((await lire<SuiteDuClassement>('/api/collectionneurs/suite/collection?depuis=10')).places, [], 'au-delà du dernier, rien')
+  assert.deepEqual(
+    (await lire<SuiteDuClassement>('/api/collectionneurs/suite/maitres?depuis=0')).places.map(p => p.id),
+    [ids.lea],
+    'la maîtresse masquée n’y est pas plus que dans la tête',
+  )
+  for (const chemin of ['/api/collectionneurs/suite/themes?depuis=0', '/api/collectionneurs/suite/collection?depuis=-1', '/api/collectionneurs/suite/collection?depuis=deux']) {
+    assert.match((await lire<{ error: string }>(chemin, 'lea', 400)).error, /rouvre la page/)
+  }
+  assert.equal((await fetch(`${banc.url}/api/collectionneurs/suite/collection`)).status, 401)
+})
+
+test('trophées et style : sa fiche dit combien il en a, jamais lesquels', async () => {
+  // « Comment on peut voir / comparer sur un joueur ce qu'ils ont à ce niveau ? » (le propriétaire, le 9 novembre 2026).
+  const page = await pagePrete()
+  const lea = page.fiches.find(f => f.id === ids.lea)!
+  assert.equal(lea.style.themes[theme('jungle')!.rarete], 1, 'son thème acheté, à sa rareté')
+  assert.doesNotMatch(JSON.stringify(lea.style), /jungle/, 'combien, jamais lesquels')
+  assert.deepEqual(piecesDuStyle(lea.style).themes, 1, 'les thèmes offerts à tous ne se comptent pas')
+  assert.equal(lea.trophees, 1, 'son étape de piste')
+  // La vitrine d'un autre les montre, et le face-à-face les compare.
+  const max = (await lire<VitrineDUnCollectionneur>(`/api/collectionneurs/${ids.max}`)).fiche
+  assert.deepEqual(Object.keys(max.style).sort(), ['finitions', 'fonds', 'gerbes', 'ligues', 'themes'])
 })
 
 test('l’étoile du zénith : sa Comète scellée compte, sur sa pièce et dans sa valeur, et se voit quand il la porte', async () => {

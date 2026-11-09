@@ -1136,7 +1136,8 @@ La valeur d'une collection, en carats, et le classement de chacun par elle et pa
 | `FICHE_GARDEE_MS` | 60 s | `server/src/core/collectionneurs.ts` | Sa fiche, refaite à sa visite d'un aller-retour par magasin de front, se garde tant : la page rouverte dans la minute ne relit rien | plus long, un achat ou un palier attendent d'autant pour s'y voir |
 | `PROFILS_PAR_PAQUET` | 50 | `server/src/core/collectionneurs.ts` | Les profils que le relevé charge d'un paquet (`byIds`), entre deux tours de boucle : six instructions chacun, décodées d'une traite | plus grand, un paquet gèle plus longtemps au dixième de cœur de l'hébergeur |
 | `PROFILS_PAR_TRANCHE` | 8 | `server/src/core/collectionneurs.ts` | Les profils dont la collection se compte d'une traite, entre deux tours de boucle : trois millisecondes environ sur un vrai cœur (0,3 à 0,5 chacun) | plus grand, une tranche gèle plus longtemps au dixième de cœur (`collectionneurs-fond.test.ts`) |
-| `TETE_DU_CLASSEMENT` | 10 | `server/src/core/collectionneurs.ts` | Les premiers de chaque catégorie que la page reçoit : le podium, puis la liste jusqu'au dixième ; au-delà, sa place et ses voisins | plus grand, la réponse grossit de leurs fiches |
+| `TETE_DU_CLASSEMENT` | 10 | `server/src/core/collectionneurs.ts` | Les premiers de chaque catégorie que la page reçoit : le podium, puis la liste jusqu'au dixième ; au-delà, sa place et ses voisins, et « Voir la suite » | plus grand, la réponse de chaque visite grossit de leurs fiches |
+| `PAQUET_DE_LA_SUITE` | 50 | `server/src/core/collectionneurs.ts` | Les places qu'apporte chaque toucher de « Voir la suite », et leurs fiches (« j'aimerais voir tout le monde », le propriétaire, le 9 novembre 2026) | plus grand, moins de gestes pour voir tout le monde, et un paquet plus lourd ; plus petit, l'inverse |
 
 ## Les soins du compagnon
 

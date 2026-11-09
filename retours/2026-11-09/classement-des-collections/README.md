@@ -73,6 +73,17 @@ nuit — ; les trophées et le style en vignettes, chacun sur son socle. Photos 
 `13-bareme` et `13-bareme-bas` (`rendu-collectionneurs.ts`), sous Velours et
 sous Ivoire.
 
+Puis : « Dans le classement de “tous”, ça s'arrête au dixième, c'est dommage,
+j'aimerais voir tout le monde. Je vois aussi que trophées et style ont leurs
+points, mais je ne vois pas comment on peut voir / comparer sur un joueur ce
+qu'il a à ce niveau. » — « Voir la suite », sous le dixième, apporte les
+suivants, cinquante à la fois (une route de plus, lue en mémoire comme la
+tête : tout envoyer ferait grossir chaque visite avec le nombre de profils) ;
+la fiche de chacun porte les comptes de son style — combien, jamais lesquels
+—, que sa vitrine montre famille par famille, puis en vignettes à côté des
+tiens, et que le face-à-face compare, sauf les thèmes. Photos : `20-` à `23-`,
+huit figurants de plus pour passer le dixième.
+
 Une maquette : les propositions sont posées dans le vrai client — ses avatars
 peints, ses finitions, ses bordures de ligue, ses Divins, ses matières, sa
 feuille, son menu —, derrière une page de maquette (`/classement?p=1`, `2`,
