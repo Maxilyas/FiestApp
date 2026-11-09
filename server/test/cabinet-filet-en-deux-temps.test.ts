@@ -9,8 +9,14 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as B from '../../shared/cabinet/bareme'
 import { hasardDe } from '../../shared/missions'
+import { lireLeDepart, lireUnGeste } from '../../shared/cabinet/lecture'
+import { chronoDuDepart, etoilesDesManches, pliDeLaPartie, type CarteDuDepart, type DepartDUnePartie } from '../../shared/cabinet/partie'
+import { JOKER_D_ECLAIRER } from '../../shared/cabinet/pieces'
+import { regleDe } from '../../shared/cabinet/jeux/index'
+import { estEnDeuxTemps } from '../../shared/cabinet/jeux/filets'
 import { eclairerSertEncore, rienAEclairer, type QuestionTiree } from '../../shared/cabinet/jeux/outils'
 import { trancheLaManche, type VerdictDUneManche } from '../../shared/cabinet/jeux/regle'
+import { MIDI, Partie, S, carte, departDe, ouvrir, tirageDe } from './cabinet-plans'
 import {
   AIDES_DU_FILET,
   AIDE_DEJA_PRISE,
@@ -442,4 +448,119 @@ test('le Filet en deux temps : le tirage fige ses tranches, ses époques à reti
   // Pile sur une borne, une grandeur a deux bonnes tranches : l'aide retire les deux autres.
   assert.deepEqual(tirage(10000, false, 2).retirables, [0, 3])
   assert.equal(tirageEnDeuxTemps({ question: question(), valeur: 1962, annee: true, place: 0, anneeDuDepart: DEPART, reperes: [], indice: null }, hasardDe('x')), null, '1950–1974 n’est jamais la première')
+})
+
+// ── Le branchement ──────────────────────────────────────────────────────
+
+/** Un départ d'épreuve du nouveau Filet, trois manches tirées comme le serveur les tirera, et une carte qui éclaire. */
+function departEnDeuxTemps(cartes: CarteDuDepart[] = [carte('eclairer', 1)]): DepartDUnePartie {
+  const tirages = [tirage(1962, true, 1), tirage(2500, false, 2, { unite: 'km' }), tirage(1789, true, 0)]
+  return departDe('filet', { v: 3, origine: 'traversee', traversee: { id: 'tr-1', etape: 'a0r0c0', assaut: 0 }, cartes, carte: null, chrono: chronoDuDepart('filet', cartes), tirages })
+}
+
+test('le Filet en deux temps : le registre choisit la règle par la forme du tirage, et le Filet d’avant garde ses parties', () => {
+  const r = regleDe('filet')
+  const nouveau = tirage(1962, true, 1)
+  const avant = tirageDe('filet', 0)
+  assert.equal((r.montrer(nouveau, r.ouvrir(nouveau)) as { deuxTemps?: true }).deuxTemps, true)
+  assert.deepEqual((r.montrer(avant, r.ouvrir(avant)) as { piste: unknown }).piste, { min: 1800, max: 1900, pas: 1 })
+  // Un lancer de l'un ne se lit pas à l'autre.
+  assert.equal(r.lireLeGeste({ quoi: 'repondre', reponse: { filet: { x: 1852, taille: 'moyen' } } }, nouveau), null)
+  assert.equal(r.lireLeGeste({ quoi: 'repondre', reponse: { filet: { epoque: 1, x: 1962 } } }, avant), null)
+  assert.equal(r.lireLeGeste({ quoi: 'aide', aide: 'epoques' }, avant), null, 'le Filet d’avant n’a pas d’aide')
+  assert.ok(estEnDeuxTemps(nouveau) && !estEnDeuxTemps(avant as never))
+})
+
+test('le Filet en deux temps : une épreuve jouée au pli — une aide payée, une offerte par Éclairer, une manche laissée au chrono', () => {
+  const d = departEnDeuxTemps()
+  const p = new Partie(d)
+  p.joue(ouvrir(0), MIDI)
+  p.joue({ quoi: 'aide', manche: 0, aide: 'epoques' }, MIDI + 3 * S)
+  assert.equal(p.refuse({ quoi: 'aide', manche: 0, aide: 'epoques' }, MIDI + 4 * S), AIDE_DEJA_PRISE)
+  p.joue({ quoi: 'repondre', manche: 0, reponse: { filet: { epoque: 1, x: 1957 } } }, MIDI + 10 * S)
+  // ★★ à la distance, moins l'aide payée : ★, la pièce juste, le cœur gardé — `payees` le dit à la traversée.
+  assert.deepEqual(p.etat.pieces[0].composee, '1957|1|e')
+  assert.equal(p.etat.pieces[0].juste, true)
+  assert.equal(p.etat.pieces[0].joker, null)
+  // Éclairer offre l'indice : la carte sert, la pièce porte son pouvoir, et rien n'est retiré.
+  p.joue(ouvrir(1), MIDI + 20 * S)
+  assert.equal(p.refuse({ quoi: 'eclairer', manche: 1 }, MIDI + 21 * S), CHOISIS_TON_AIDE)
+  p.joue({ quoi: 'eclairer', manche: 1, affirmation: AIDES_DU_FILET.indexOf('indice') }, MIDI + 22 * S)
+  p.joue({ quoi: 'repondre', manche: 1, reponse: { filet: { epoque: 2, x: 2400 } } }, MIDI + 30 * S)
+  assert.equal(p.etat.pieces[1].composee, '2400|2|I')
+  assert.equal(p.etat.pieces[1].joker, JOKER_D_ECLAIRER)
+  // La troisième, ouverte puis laissée au chrono : rien, sans réponse.
+  p.joue(ouvrir(2), MIDI + 40 * S)
+  p.joue({ quoi: 'repondre', manche: 2, auto: true }, MIDI + 40 * S + d.chrono.etapesMs[0] + 1)
+  assert.deepEqual(
+    etoilesDesManches(d, p.etat).map(m => [m.naturel, m.payees]),
+    [
+      [1, 1],
+      [3, 0],
+      [0, 0],
+    ],
+  )
+  assert.equal(p.etat.pieces[2].choix, null)
+  assert.ok(p.etat.fin)
+  // Le pli rejoué d'une traite redonne la même partie.
+  assert.deepEqual(pliDeLaPartie(d, p.gestes), p.etat)
+})
+
+test('le Filet en deux temps : son départ et ses gestes se relisent à leur forme', () => {
+  const d = departEnDeuxTemps()
+  assert.deepEqual(lireLeDepart(JSON.stringify(d)), d)
+  const casse = (f: (t: Record<string, unknown>) => void) => {
+    const x = JSON.parse(JSON.stringify(d))
+    f(x.tirages[0])
+    return lireLeDepart(JSON.stringify(x))
+  }
+  assert.equal(
+    casse(t => {
+      t.bonnes = [0]
+    }),
+    null,
+    'la réponse hors de sa tranche',
+  )
+  assert.equal(
+    casse(t => {
+      ;(t.tranches as { de: number }[])[1].de = 1940
+    }),
+    null,
+    'deux tranches qui se chevauchent',
+  )
+  assert.equal(
+    casse(t => {
+      t.retirables = [1, 2]
+    }),
+    null,
+    'une époque retirée qui serait la bonne',
+  )
+  assert.equal(
+    casse(t => {
+      t.prixDUneAide = -1
+    }),
+    null,
+  )
+  assert.equal(
+    casse(t => {
+      ;(t.tranches as { a: number }[])[3].a = 2030
+    }),
+    null,
+    'une époque dans l’avenir',
+  )
+  assert.equal(
+    casse(t => {
+      t.reperes = [{ valeur: 1936 }]
+    }),
+    null,
+    'un repère sans texte',
+  )
+  // Les gestes : l'aide, par sa clé ; le lancer, l'époque et le curseur — et celui d'avant se lit encore.
+  assert.deepEqual(lireUnGeste({ quoi: 'aide', manche: 0, aide: 'indice' }), { quoi: 'aide', manche: 0, aide: 'indice' })
+  assert.equal(lireUnGeste({ quoi: 'aide', manche: 0, aide: 'zone' }), null)
+  assert.equal(lireUnGeste({ quoi: 'aide', manche: 0, aide: 'constructor' }), null)
+  assert.deepEqual(lireUnGeste({ quoi: 'repondre', manche: 1, reponse: { filet: { epoque: 2, x: 2400 } } }), { quoi: 'repondre', manche: 1, reponse: { filet: { epoque: 2, x: 2400 } } })
+  assert.deepEqual(lireUnGeste({ quoi: 'repondre', manche: 1, reponse: { filet: { x: 1852, taille: 'moyen' } } }), { quoi: 'repondre', manche: 1, reponse: { filet: { x: 1852, taille: 'moyen' } } })
+  assert.equal(lireUnGeste({ quoi: 'repondre', manche: 1, reponse: { filet: { epoque: -1, x: 2400 } } }), null)
+  assert.equal(lireUnGeste({ quoi: 'repondre', manche: 1, reponse: { filet: { epoque: 1, x: 1852, taille: 'moyen' } } }), null, 'des deux Filets à la fois')
 })

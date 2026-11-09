@@ -72,6 +72,7 @@ import {
   jeuDeLAssaut,
   jouerUnGesteDeLaTraversee,
   lireUnGesteDeLaTraversee,
+  mancheConclue,
   partieEnCours,
   refusDAller,
   refusDuTheme,
@@ -1871,15 +1872,19 @@ export class CabinetStore {
       if (p && !p.etat.fin) return { traversee: tr, partie: p }
       if (!p) console.error(`[cabinet] l’épreuve ${id} de la traversée ${tr.id} ne se relit pas : elle se conclut sans étoiles`)
       const lesManches = p ? etoilesDesManches(p.depart, p.etat) : null
-      const manches = lesManches
-        ? lesManches.map(m => ({ etoiles: m.naturel, misee: m.misee }))
-        : Array.from({ length: MANCHES_PAR_PARTIE }, () => ({ etoiles: null, misee: false }))
+      const manches = lesManches ? lesManches.map(m => mancheConclue(m)) : Array.from({ length: MANCHES_PAR_PARTIE }, () => ({ etoiles: null, misee: false }))
       // Le « Quitter ? » du joueur, pour la page du Cabinet au QG : quittée quand rien ne l'arrêtait encore, comptée sans
       // la manche qu'il quittait. Le gardien à terre ou le dernier cœur parti, la page et la lecture la quittent d'elles-mêmes.
       const quittee =
         p?.etat.fin?.pourquoi === 'quittee' &&
         lesManches !== null &&
-        epreuveEnCours(tr.depart, tr.etat, id, lesManches.map(m => ({ etoiles: m.fin === 'quittee' ? null : m.naturel, misee: m.misee })), false)?.fin === undefined
+        epreuveEnCours(
+          tr.depart,
+          tr.etat,
+          id,
+          lesManches.map(m => mancheConclue(m, true)),
+          false,
+        )?.fin === undefined
       // Ce qui a servi dans la partie, que les défis de tes cartes lisent (`aidesDeLaPartie`), et le temps de chacune de ses
       // manches, que la page du QG lit jeu par jeu (`dureesDesManches`, coupé à ce que la relecture admet) ; introuvable,
       // rien ne le dit.
@@ -1904,7 +1909,7 @@ export class CabinetStore {
 
   /** L'épreuve n'a-t-elle plus rien à jouer — le gardien à terre, le dernier cœur parti — avant même sa dernière manche ? */
   private plusRienAJouer(tr: TraverseeGardee, p: PartieGardee): boolean {
-    const manches = etoilesDesManches(p.depart, p.etat).map(m => ({ etoiles: m.naturel, misee: m.misee }))
+    const manches = etoilesDesManches(p.depart, p.etat).map(m => mancheConclue(m))
     return epreuveEnCours(tr.depart, tr.etat, p.id, manches, false)?.fin !== undefined
   }
 
@@ -1913,7 +1918,7 @@ export class CabinetStore {
     if (lue.depart.origine !== 'traversee') return lue
     const tr = this.traversees.get(profileId)
     if (!tr) return lue
-    const manches = etoilesDesManches(lue.depart, lue.etat).map(m => ({ etoiles: m.naturel, misee: m.misee }))
+    const manches = etoilesDesManches(lue.depart, lue.etat).map(m => mancheConclue(m))
     const traversee = epreuveEnCours(tr.depart, tr.etat, lue.id, manches, lue.etat.fin !== null)
     return traversee ? { ...lue, traversee } : lue
   }

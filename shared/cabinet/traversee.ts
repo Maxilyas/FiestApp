@@ -68,7 +68,7 @@ import { jourValide } from '../jour'
 import type { Sujet } from '../sujets'
 import { auHasard, battre } from './jeux/outils'
 import { CLES_DES_JEUX, JEUX, type CleDeJeu } from './jeux/regle'
-import type { CarteDuDepart } from './partie'
+import type { CarteDuDepart, EtoilesDUneManche } from './partie'
 import type { CleDePouvoir, Force } from './pouvoirs'
 
 // ── Les dix cartes ────────────────────────────────────────────────────────
@@ -716,7 +716,24 @@ export function lireLesCartesChoisies(brut: unknown): CleDeCarte[] | string {
 export interface MancheConclue {
   etoiles: number | null
   misee: boolean
+  /**
+   * Les étoiles que les aides du Filet en deux temps ont prises, déjà retirées des siennes : réussie à zéro étoile, la
+   * manche ne coûte pas de cœur — une aide coûte une étoile, jamais un cœur. Absent : aucune (toute épreuve d'avant).
+   */
+  payees?: number
 }
+
+/**
+ * Une manche d'une partie d'épreuve, telle que la traversée la conclut et la lit en route (`etoilesDesManches`) : ses
+ * étoiles naturelles, sa mise, et ce que ses aides ont pris, seulement s'il y en a. Une seule copie : le serveur la
+ * recopiait en quatre endroits, et chacun aurait dû apprendre les aides — une copie qui les oublie fait payer un cœur
+ * à une manche réussie. `sansLaQuittee` : la manche qu'il quittait ne compte pas — ce que valait l'épreuve au « Quitter ? ».
+ */
+export const mancheConclue = (m: Pick<EtoilesDUneManche, 'naturel' | 'misee' | 'payees' | 'fin'>, sansLaQuittee = false): MancheConclue => ({
+  etoiles: sansLaQuittee && m.fin === 'quittee' ? null : m.naturel,
+  misee: m.misee,
+  ...(m.payees > 0 && { payees: m.payees }),
+})
 
 /**
  * Ce qui a servi dans une épreuve finie, tel que sa partie le sait (`EtatDeLaPartie.servis`, et ses étapes jouées
@@ -1114,7 +1131,8 @@ export function cheminsVers(d: Pick<DepartDeLaTraversee, 'actes'>, depuis: reado
  * elles se sont jouées. Une manche réussie (une étoile au moins) rapporte
  * l'or de ses étoiles, la Cagnotte en plus — multiplié par la mise —, et
  * frappe le gardien d'autant ; une manche ratée coûte un cœur — deux, misée —,
- * sauf si la Parade la couvre. Au dernier cœur, le Second souffle relève une
+ * sauf si la Parade la couvre. Celle que ses aides ont laissée à zéro (le Filet
+ * en deux temps, `MancheConclue.payees`) n'est pas ratée : ni or, ni cœur. Au dernier cœur, le Second souffle relève une
  * fois ; sinon la traversée est perdue, et rien ne compte plus. Le gardien à
  * terre, les manches d'après ne comptent pas : l'assaut s'arrête là.
  *
@@ -1171,6 +1189,13 @@ export function consequencesDe(
         if (pv <= 0) vaincu = true
       }
       manches.push({ ...nulle, or: gain, coups, comptee: true })
+      continue
+    }
+    // Réussie, mais ses aides ont pris ses étoiles (le Filet en deux temps) : ni or ni coup, et pas de cœur — une aide
+    // coûte une étoile, jamais un cœur. La Parade ne s'y use pas : la manche n'est pas ratée.
+    if (m.etoiles !== null && (m.payees ?? 0) > 0) {
+      reussies++
+      manches.push({ ...nulle, comptee: true })
       continue
     }
     const paree = parees < paresMax && parees < resteALActe
@@ -1470,7 +1495,11 @@ export function lireLeDepartDeLaTraversee(brut: unknown): DepartDeLaTraversee | 
 
 const lesManches = (x: unknown): MancheConclue[] | null => {
   if (!Array.isArray(x) || x.length !== MANCHES_PAR_PARTIE) return null
-  const manches = x.map(m => (objet(m) && (m.etoiles === null || entier(m.etoiles, 0, 3)) && typeof m.misee === 'boolean' ? { etoiles: m.etoiles as number | null, misee: m.misee } : null))
+  const manches = x.map(m =>
+    objet(m) && (m.etoiles === null || entier(m.etoiles, 0, 3)) && typeof m.misee === 'boolean' && (m.payees === undefined || entier(m.payees, 1, 3))
+      ? { etoiles: m.etoiles as number | null, misee: m.misee, ...(m.payees !== undefined && { payees: m.payees as number }) }
+      : null,
+  )
   return manches.every(m => m !== null) ? (manches as MancheConclue[]) : null
 }
 
