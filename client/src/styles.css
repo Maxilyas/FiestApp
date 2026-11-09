@@ -17235,6 +17235,10 @@ span.annonce-admin-merci { cursor: default; }
 .cl-legende { margin: 10px 0 0; text-align: center; }
 
 .cl-ligne { gap: 10px; }
+/* Ses lignes n'entrent pas en glissant, comme celles des autres classements (`.lb-row`, `slide-in`) : d'une catégorie
+   à l'autre, les mêmes joueurs changent de place, et seules les lignes que la page déplaçait rejouaient leur entrée —
+   deux sur sept, jamais les mêmes —, les autres immobiles (le 9 novembre 2026). */
+.cl-liste .lb-row { animation: none; }
 .cl-nom { display: flex; flex: 1; flex-direction: column; gap: 3px; min-width: 0; }
 .cl-nom > b { display: flex; align-items: center; gap: 6px; overflow: hidden; font-weight: 600; white-space: nowrap; text-overflow: ellipsis; }
 .cl-detail { display: flex; align-items: center; gap: 6px; overflow: hidden; color: var(--muted); font-size: 0.75rem; white-space: nowrap; }
@@ -17370,6 +17374,12 @@ span.annonce-admin-merci { cursor: default; }
 /* Sa place, en tête : deux lignes et ce qui la ferait monter. Sur l'or pâle, le texte s'écrit en `--accent-text-hover` (règle `css.md`). */
 .cl-sa-place { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; padding: 10px 12px 10px 6px; border: 1px solid var(--edge-strong); border-radius: 16px; background: var(--accent-soft); }
 .cl-sa-place > .av { font-size: 1.6rem; }
+/* Sa place dans chaque catégorie et chaque cercle, toutes dans la même case, une seule montrée : le bloc garde la
+   hauteur de la plus haute. Écrite seule, elle faisait de 74 à 107 pixels d'une puce à l'autre, et les puces sautaient
+   sous le doigt qui venait de les toucher (« ça a l'air de bouger quand on navigue dedans », le 9 novembre 2026). */
+.cl-sa-place-cases { display: grid; flex: 1; align-items: center; min-width: 0; }
+.cl-sa-place-cases > .cl-sa-place-texte { grid-area: 1 / 1; }
+.cl-sa-place-cases > [aria-hidden='true'] { visibility: hidden; }
 .cl-sa-place-texte { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .cl-sa-place-texte > b { display: flex; align-items: baseline; gap: 6px; font-family: var(--serif); font-size: 1.35rem; line-height: 1.1; font-variant-numeric: lining-nums; }
 .cl-sa-place-sur { color: var(--muted); font-family: var(--sans); font-size: 0.82rem; font-weight: 500; }
@@ -17434,9 +17444,14 @@ span.annonce-admin-merci { cursor: default; }
 /* Sa carte, d'un anneau à l'or de l'accent — pas d'un contour : le seul contour plein est celui du focus (`design.test.ts`, A2). */
 .cl-carte-moi { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent), 0 6px 16px rgba(0, 0, 0, 0.35); }
 .cl-carte-moi .cl-carte-nom { color: #f6dd94; }
-.cl-carte .cl-opale-pastille { margin-top: 4px; }
+/* Ses Divins, à cheval sur le pied de sa carte, comme un sceau : hors du flux, ils ne la grandissent pas. Posés sous
+   sa valeur, ils lui ajoutaient 26 pixels — le troisième, un Divin à lui, montait plus haut que le deuxième, un premier
+   ex æquo plus haut que la carte du milieu, et le podium passait de 162 à 187 pixels d'une catégorie à l'autre, la
+   liste poussée d'autant (le 9 novembre 2026). Centrés par marges (règle `css.md`) ; le podium leur garde la place
+   dessous, qu'un Divin y soit ou non. */
+.cl-carte .cl-opale-pastille { position: absolute; z-index: 2; right: 0; bottom: -15px; left: 0; width: fit-content; margin: 0 auto; }
 
-.cl-podium { display: grid; grid-template-columns: 1fr 1.18fr 1fr; align-items: end; gap: 8px; margin: 18px 0 4px; }
+.cl-podium { display: grid; grid-template-columns: 1fr 1.18fr 1fr; align-items: end; gap: 8px; margin: 18px 0 14px; }
 .cl-carte-podium .cl-carte-illu { height: 4.3rem; }
 .cl-carte-podium .cl-carte-av { font-size: 2.7rem; }
 .cl-carte-premier .cl-carte-dedans { padding-top: 18px; }
@@ -17528,7 +17543,9 @@ span.annonce-admin-merci { cursor: default; }
 .cl-divins-secret { margin: 10px 0 0; color: #b3a6c2; font-family: var(--serif); font-size: 1rem; font-style: italic; text-align: center; }
 .cl-divins-secret.cl-divins-secret-petit { margin-top: 8px; color: var(--muted); font-size: 0.9rem; }
 
-/* La vitrine. */
+/* La vitrine. Sa feuille garde sa hauteur : elle s'ouvre sur son nom, sa collection arrive d'un bloc derrière
+   (`VitrineOuverte`), et à la taille de son contenu elle aurait grandi sous les yeux. */
+.carte-feuille.cl-vitrine-feuille { height: 92%; }
 .cl-vitrine-tete { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; margin-bottom: 14px; }
 .cl-vitrine-tete > span:nth-child(2) { display: flex; flex-direction: column; min-width: 0; }
 .cl-vitrine-valeur { display: flex; flex-direction: column; align-items: flex-end; }

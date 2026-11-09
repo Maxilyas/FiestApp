@@ -84,6 +84,27 @@ la fiche de chacun porte les comptes de son style — combien, jamais lesquels
 tiens, et que le face-à-face compare, sauf les thèmes. Photos : `20-` à `23-`,
 huit figurants de plus pour passer le dixième.
 
+Puis : « J'ai vu un bug dans le classement des collections, ça a l'air de
+“bouger” quand on navigue dedans, je ne sais pas trop comment décrire, mais on
+dirait que c'est instable. » Une photo ne le montre pas : la page a été
+filmée image par image, au doigt, en 360 × 640 (`rendu-collectionneurs.ts`,
+sa passe `24-ce-qui-bouge`). Quatre choses bougeaient, et plus aucune :
+
+| Ce qui bougeait | Avant | Pourquoi | Ce qui le tient |
+|---|---|---|---|
+| les puces, sous le doigt qui venait de les toucher | 33 px d'une puce à l'autre | « Ta place », au-dessus d'elles, faisait de 74 à 107 px selon la catégorie : une ligne de moins à qui est premier, celui à passer sur deux lignes aux scellés | sa place s'écrit d'avance dans chaque catégorie et chaque cercle, toutes dans la même case, une seule montrée (`SaPlace`, `.cl-sa-place-cases`) : le bloc garde la hauteur de la plus haute |
+| le podium, et la liste dessous | 26 px, la liste 46 | la pastille des Divins, sous la valeur, grandissait la carte de qui en garde un : le troisième plus haut que le deuxième, un premier ex æquo plus haut que la carte du milieu | la pastille à cheval sur le pied de sa carte, comme un sceau, hors du flux : une carte a la taille de son rang |
+| deux lignes sur sept, jamais les mêmes | à chaque puce | les lignes entrent en glissant (`slide-in`), et la page ne déplaçait que celles qui changeaient de place : elles seules rejouaient leur entrée | les lignes de cette liste n'ont plus d'entrée (`.cl-liste .lb-row`) |
+| les tableaux d'une vitrine | 228 px | ils s'écrivaient d'abord, de la fiche que la page a déjà, puis ses pièces maîtresses se posaient au-dessus d'eux en arrivant | la vitrine s'ouvre sur son nom, sa collection arrive d'un bloc, dans une feuille qui garde sa hauteur (`VitrineOuverte`, `.cl-vitrine-feuille`) |
+
+Sous Chrome, le navigateur rattrapait le premier en faisant défiler la page
+(l'ancrage du défilement) — sauf en haut de page, et jamais sous Safari : la
+passe le coupe. Et, la vue de la page sortie en fonction pure
+(`vueDuClassement`, `shared/collectionneurs.ts`) : onzième, on lisait le
+dixième deux fois, de part et d'autre de « Voir la suite » — ses voisins ne
+sont plus que ceux que la liste ne montre pas
+(`collectionneurs-stable.test.ts`).
+
 Une maquette : les propositions sont posées dans le vrai client — ses avatars
 peints, ses finitions, ses bordures de ligue, ses Divins, ses matières, sa
 feuille, son menu —, derrière une page de maquette (`/classement?p=1`, `2`,
@@ -372,10 +393,15 @@ les réglages, dans `docs/reference/baremes.md` ; les deux routes, dans
   quand il vieillit ; `collectionneurs-fond.test.ts` — huit collections par
   tour de boucle au plus, rien pendant une question, un relevé à la fois ;
   `collectionneurs-index.test.ts` — la lecture des épreuves par son index,
-  sous des statistiques de production.
+  sous des statistiques de production ; `collectionneurs-stable.test.ts` —
+  rien ne bouge quand on navigue : sa place dans la même case à chaque
+  catégorie, une carte du podium à la taille de son rang, des lignes sans
+  entrée rejouée, une vitrine qui arrive d'un bloc, et personne deux fois
+  sur la page.
 - **Le rendu** : `server/scripts/rendu-collectionneurs.ts` photographie la
   page au téléphone (360 × 640), sous le Velours et l'Ivoire, et dit ce qui
-  déborde : rien, et aucun prénom coupé.
+  déborde : rien, et aucun prénom coupé ; puis il la filme, d'une puce à
+  l'autre et à l'ouverture d'une vitrine, et dit ce qui bouge : rien.
 
 ## Rejouer la maquette
 

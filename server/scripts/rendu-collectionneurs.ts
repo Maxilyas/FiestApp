@@ -7,7 +7,8 @@
 // thème, ses duels —, et huit figurants pour que la liste passe le dixième
 // (« Voir la suite »), le serveur relu, le relevé de tous attendu. Le client
 // construit d'abord (`npm run build -w client`). À chaque photo, ce qui
-// élargit la page et les noms coupés.
+// élargit la page et les noms coupés ; et pour finir la page filmée, d'une
+// puce à l'autre et à l'ouverture d'une vitrine : ce qui bouge (`bouge`).
 //
 //   npx tsx scripts/rendu-collectionneurs.ts ../export/collectionneurs [mots,…]
 //
@@ -290,6 +291,74 @@ try {
       console.log(`${nom} : ${vu}`)
       await page.screenshot({ path: path.join(sortie, `${nom}.png`) })
     }
+  }
+  // Ce qui bouge quand on navigue dans la page (« ça a l'air de bouger […] on dirait que c'est instable », le
+  // propriétaire, le 9 novembre 2026) : une photo ne le montre pas, la page se filme — image par image, au doigt, les
+  // animations laissées, l'ancrage du défilement coupé comme sous Safari, la vitrine retardée comme sur un vrai réseau.
+  // Tout doit dire zéro : les puces restent sous le doigt, le podium garde sa taille, aucune ligne ne rejoue son entrée,
+  // et rien de ce qu'une vitrine a montré ne descend.
+  if (retenu('24-ce-qui-bouge')) {
+    const anime = await navigateur.newContext({ viewport: { width: 360, height: 640 }, isMobile: true, hasTouch: true, reducedMotion: 'no-preference' })
+    await anime.addCookies([{ name: nom, value: valeur, url: banc.url }])
+    const film = await anime.newPage()
+    await film.route(/\/api\/collectionneurs\/[^/]+$/, async (route: any) => {
+      await new Promise(r => setTimeout(r, 600))
+      await route.continue()
+    })
+    await film.goto(`${banc.url}/collectionneurs`)
+    await film.waitForSelector('.cl-sa-place')
+    await film.waitForLoadState('networkidle').catch(() => {})
+    await film.waitForTimeout(1000)
+    await film.addStyleTag({ content: '* { overflow-anchor: none !important; }' })
+    await film.evaluate(`window.__filmer = ms => new Promise(fin => {
+      const images = [], debut = performance.now()
+      const haut = s => { const e = document.querySelector(s); return e ? e.getBoundingClientRect() : null }
+      const pas = () => {
+        const corps = document.querySelector('.carte-corps'), gemmes = haut('.cl-gemmes'), lignes = [...document.querySelectorAll('.cl-liste .cl-ligne')]
+        images.push({
+          puces: haut('.cl-puces')?.top, podium: haut('.cl-podium')?.height, liste: haut('.cl-liste')?.top,
+          lignes: lignes.length, rejouees: lignes.filter(e => e.getAnimations().some(a => a.playState === 'running')).length,
+          feuille: haut('.carte-feuille')?.height, tableaux: corps && gemmes ? gemmes.top - corps.getBoundingClientRect().top + corps.scrollTop : undefined,
+        })
+        performance.now() - debut < ms ? requestAnimationFrame(pas) : fin(images)
+      }
+      requestAnimationFrame(pas)
+    })`)
+    type Image = { puces?: number; podium?: number; liste?: number; lignes: number; rejouees: number; feuille?: number; tableaux?: number }
+    const etendue = (xs: (number | undefined)[]) => {
+      const vus = xs.filter((x): x is number => x !== undefined)
+      return vus.length ? Math.round(Math.max(...vus) - Math.min(...vus)) : 0
+    }
+    await film.evaluate('window.scrollTo(0, 120)')
+    await film.waitForTimeout(300)
+    const fins: Image[] = []
+    let rejouees = ''
+    for (const onglet of ['Niveau', 'Maîtres', 'Cabinet', 'Légendaires', 'Scellés', 'Éclats', 'Collection', 'Mes amis', 'Tous']) {
+      const b = await film.getByRole('tab', { name: onglet, exact: true }).boundingBox()
+      const images = film.evaluate('window.__filmer(500)') as Promise<Image[]>
+      // Au doigt, là où la puce est à l'écran : `tap()` ferait défiler la page pour l'amener, et cacherait son saut.
+      await film.touchscreen.tap(b.x + b.width / 2, b.y + b.height / 2)
+      const vues = await images
+      fins.push(vues[vues.length - 1])
+      // Une entrée rejouée par quelques lignes seulement : celles que la page a déplacées, les autres immobiles.
+      const pire = vues.find(i => i.rejouees > 0 && i.rejouees < i.lignes)
+      if (pire && !rejouees) rejouees = `${pire.rejouees} sur ${pire.lignes} à « ${onglet} »`
+    }
+    await film.getByRole('tab', { name: 'Collection', exact: true }).tap()
+    await film.waitForTimeout(400)
+    const vitrine = film.evaluate('window.__filmer(1500)') as Promise<Image[]>
+    await film.locator('.cl-carte-premier').tap()
+    const ouverte = (await vitrine).filter(i => i.feuille !== undefined)
+    const vu = [
+      `les puces se déplacent de ${etendue(fins.map(i => i.puces))} px d'une puce à l'autre`,
+      `le podium change de ${etendue(fins.map(i => i.podium))} px`,
+      `la liste se déplace de ${etendue(fins.filter(i => i.podium !== undefined).map(i => i.liste))} px`,
+      `lignes qui rejouent seules leur entrée : ${rejouees || 'aucune'}`,
+      `la feuille d'une vitrine grandit de ${etendue(ouverte.map(i => i.feuille))} px, ses tableaux descendent de ${etendue(ouverte.map(i => i.tableaux))} px`,
+    ].join(' · ')
+    mesures.push(`24-ce-qui-bouge : ${vu}`)
+    console.log(`24-ce-qui-bouge : ${vu}`)
+    await anime.close()
   }
   writeFileSync(path.join(sortie, 'mesures.txt'), mesures.join('\n') + '\n')
   console.log(`\n${mesures.length} états photographiés dans ${sortie}`)
