@@ -59,6 +59,12 @@
   // d'union, la question se lisait « parle-t- / on ».
   const fines = s => typo(echapper(s)).replace(/-(?=\p{Ll})/gu, '-⁠')
   const dire = (q, x) => (q.an ? String(Math.round(x)) : nombre(x) + (q.u ? `${INSECABLE}${q.u}` : ''))
+  /**
+   * Les étoiles écrites dans une phrase se disent en mots à l'oreille : « à 2 ans ★★★ » se lisait « étoile noire,
+   * étoile noire, étoile noire ». Les étoiles d'un score (`etoiles`) ont déjà leur nom (`role="img"`).
+   */
+  const NOMS_DES_ETOILES = ['une étoile', 'deux étoiles', 'trois étoiles']
+  const aLOreille = h => h.replace(/★{1,3}/g, m => `<span aria-hidden="true">${m}</span><span class="sr">${NOMS_DES_ETOILES[m.length - 1]}</span>`)
   const melanger = a => { const b = a.slice(); for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]] } return b }
   const auHasard = a => a[Math.floor(Math.random() * a.length)]
   const entre = (a, b) => a + Math.floor(Math.random() * (b - a + 1))
@@ -503,7 +509,7 @@
       return de === a ? `pile sur ${enMots(de)}` : `de ${m.q.an ? de : enMots(de)} à ${m.q.an ? a : enMots(a)}`
     }
     // Deux morceaux qui ne se coupent pas : « ★★ » seul en fin de ligne se lisait avec la fourchette d'au-dessus.
-    return `<span>${fines(`Ton filet ★★★ ${d(...trois)}`)}</span><span class="sr">, </span><span>${fines(`★★ ${d(...deux)}`)}</span>`
+    return `<span>${aLOreille(fines(`Ton filet ★★★ ${d(...trois)}`))}</span><span class="sr">, </span><span>${aLOreille(fines(`★★ ${d(...deux)}`))}</span>`
   }
   function libelleDuLancer(m) {
     return m.choisie === null ? `Choisis d’abord ${m.q.an ? 'une époque' : 'un ordre de grandeur'}` : m.x === null ? 'Pose ton curseur sur la piste' : 'Lancer le filet'
@@ -539,14 +545,14 @@
       // « Gratuite » sur les deux, et la phrase dessous dit que seule la première l'est : ce que la tablée a compris
       // d'emblée (Samir, Huguette) ; « Offerte » sur chacune laissait croire à deux aides offertes.
       const cout = prise ? (prise.offerte ? 'Prise · offerte' : 'Prise · −1 ★') : offerte ? 'Gratuite' : 'Coûte une étoile'
-      return `<button type="button" class="aide${!prise && offerte ? ' offerte' : ''}" data-aide="${cle}"${prise ? ' aria-disabled="true"' : ''}><b>${a.nom(m.q)}</b><small>${cout}</small></button>`
+      return `<button type="button" class="aide${!prise && offerte ? ' offerte' : ''}" data-aide="${cle}"${prise ? ' aria-disabled="true"' : ''}><b>${a.nom(m.q)}</b><small>${aLOreille(cout)}</small></button>`
     }).join('')
     const indice = m.aides.some(a => a.cle === 'indice') ? `<p class="indice"><b>Indice · </b>${fines(m.q.i || 'Pas d’indice écrit pour cette question.')}</p>` : ''
     const p = payees(m)
     // Ce que l'aide coûte, en clair : une étoile retirée de ce que la manche rapportera — Samir ne savait pas si c'était
     // « une étoile retirée de mon score, ou seulement le plafond qui baisse ».
     const prix = p
-      ? `<p class="prix">${fines(`Tes aides : −${p} ★ sur ce que la manche te rapportera. Ratée, elle coûte un cœur, comme toujours.`)}</p>`
+      ? `<p class="prix">${aLOreille(fines(`Tes aides : −${p} ★ sur ce que la manche te rapportera. Ratée, elle coûte un cœur, comme toujours.`))}</p>`
       : `<p class="prix">${fines(offerte ? 'Ta carte Coup d’œil offre ta première aide de l’épreuve ; la suivante retirera une étoile à ce que sa manche rapporte.' : 'Une aide retire une étoile à ce que la manche rapporte.')}</p>`
     return `<section class="aides" aria-label="Les aides"><div class="aides-rangee${offertes.length === 1 ? ' une' : ''}">${boutons}</div>${indice}${prix}</section>`
   }
@@ -554,8 +560,8 @@
     const m = M, q = m.q
     if (E.mode === 'v2') {
       app.innerHTML = `${tete()}${chrono()}${laQuestion(q)}
-        <section class="etape"><p class="etape-titre"><span><span class="num">1</span><b>${q.an ? 'L’époque' : 'L’ordre de grandeur'}</b></span><span class="regle">la bonne : ★</span></p>${frise(m)}</section>
-        <section class="etape"><p class="etape-titre"><span><span class="num">2</span><b>${q.an ? 'L’année' : 'La valeur'}</b></span><span class="regle">${fines(q.an ? `à ${accorde(m.ep.anneaux[0], 'an')} ★★★ · à ${m.ep.anneaux[1]} ans ★★` : 'à 6 % ★★★ · à 25 % ★★')}</span></p>${etapeValeur(m)}</section>
+        <section class="etape"><p class="etape-titre"><span><span class="num">1</span><b>${q.an ? 'L’époque' : 'L’ordre de grandeur'}</b></span><span class="regle">${aLOreille('la bonne : ★')}</span></p>${frise(m)}</section>
+        <section class="etape"><p class="etape-titre"><span><span class="num">2</span><b>${q.an ? 'L’année' : 'La valeur'}</b></span><span class="regle">${aLOreille(fines(q.an ? `à ${accorde(m.ep.anneaux[0], 'an')} ★★★ · à ${m.ep.anneaux[1]} ans ★★` : 'à 6 % ★★★ · à 25 % ★★'))}</span></p>${etapeValeur(m)}</section>
         ${aides(m)}
         <button type="button" class="btn btn-or btn-plein colle" id="lancer" data-geste="lancer"${m.choisie === null || m.x === null ? ' aria-disabled="true"' : ''}>${libelleDuLancer(m)}</button>
         ${coulisses(q)}`
@@ -619,13 +625,13 @@
       titre = nat === 3 ? 'Pile dedans' : nat === 2 ? 'Tout près' : nat === 1 ? (q.an ? 'La bonne époque' : 'Le bon ordre de grandeur') : m.fin.auto && m.choisie === null ? 'Le temps a filé' : 'À côté'
       const bonne = m.choisie !== null && m.ep.bonnes.includes(m.choisie)
       const ecartDit = m.choisie === null || m.x === null ? '' : q.an ? accorde(Math.abs(m.x - q.v), 'an') : pourCent(ecartEnPourCent(m.x, q.v))
-      const oui = (ok, dit) => `<span class="${ok ? 'oui' : 'non'}">${ok ? `${dit} oui` : 'non'}</span>`
+      const oui = (ok, dit) => `<span class="${ok ? 'oui' : 'non'}">${ok ? `${aLOreille(dit)} oui` : 'non'}</span>`
       juge = `<ul class="detail-juge">
         <li><span>${q.an ? 'La bonne époque' : 'Le bon ordre de grandeur'}</span>${oui(bonne, '★')}</li>
         <li><span>${fines(q.an ? `À ${m.ep.anneaux[1]} ans près` : 'À 25 % près')}</span>${oui(nat >= 2, '★★')}</li>
         <li><span>${fines(q.an ? `À ${accorde(m.ep.anneaux[0], 'an')} près` : 'À 6 % près')}</span>${oui(nat >= 3, '★★★')}</li>
         ${ecartDit ? `<li><span>Ton écart</span><span>${fines(ecartDit)}</span></li>` : ''}
-        ${m.payees ? `<li><span>Tes aides</span><span>−${m.payees} ★</span></li>` : ''}
+        ${m.payees ? `<li><span>Tes aides</span><span>${aLOreille(`−${m.payees} ★`)}</span></li>` : ''}
       </ul>${!bonne && nat >= 2 ? `<p class="note">${fines(`La mauvaise ${q.an ? 'époque' : 'tranche'}, mais si près de la réponse que la distance compte d’abord.`)}</p>` : ''}`
     } else {
       // Les mots de la production : « Dans le filet » ou « À côté », puis le filet lancé et ce qu'il valait.
@@ -871,8 +877,9 @@
   app.addEventListener('pointerdown', ev => {
     const r = ev.target
     if (r.id !== 'curseur' || !M || M.fin) return
+    // La poignée va de la moitié de sa largeur (5 px) à l'autre bord, comme le rail (`index.html`, `.rail`).
     const boite = r.getBoundingClientRect()
-    const part = Math.max(0, Math.min(1, (ev.clientX - boite.left) / boite.width))
+    const part = Math.max(0, Math.min(1, (ev.clientX - boite.left - 5) / (boite.width - 10)))
     bouger(Math.round(part * Number(r.max)))
   })
   app.addEventListener('change', ev => {

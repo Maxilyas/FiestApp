@@ -149,7 +149,7 @@ button { font: inherit; color: inherit; }
 .tete { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .tete-g { display: flex; flex-direction: column; }
 .tete-g b { font-family: var(--serif); font-size: 1.3rem; line-height: 1.1; }
-.tete-g span { color: var(--muted); font-size: 1.0625rem; }
+.tete-g span { color: var(--muted); font-size: 1.0625rem; white-space: nowrap; }
 .tete-d { display: flex; align-items: center; gap: 12px; }
 .coeurs { color: var(--alert); letter-spacing: 0.06em; font-size: 1.15rem; white-space: nowrap; }
 .coeurs .perdu { color: var(--muted); opacity: 0.4; }
@@ -219,13 +219,16 @@ button { font: inherit; color: inherit; }
 .curseur { display: flex; align-items: center; gap: 8px; }
 .cran { flex: none; display: grid; place-items: center; width: 48px; height: 48px; padding: 0; border: 1.5px solid var(--edge-strong); border-radius: 12px; background: var(--surface-strong); font-size: 1.5rem; font-weight: 700; line-height: 1; cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
 .piste { position: relative; flex: 1; min-width: 0; }
-.rail { position: relative; height: 48px; }
+/* Le rail laisse à chaque bout la moitié de la poignée (5 px) : la poignée d'un curseur natif va du milieu de sa
+   largeur au bord, et sans ce retrait les anneaux et les graduations ne tombaient pas sous elle aux bords de la piste
+   — la production a trouvé la même chose (`Filet.tsx`, le mât). */
+.rail { position: relative; height: 48px; margin: 0 5px; }
 .rail::before { content: ''; position: absolute; left: 0; right: 0; top: 22px; height: 4px; border-radius: 2px; background: var(--track); }
 .anneau { position: absolute; top: 9px; height: 30px; border-radius: 8px; pointer-events: none; }
 /* Le grand anneau en tirets, le petit plein : leur bord les sépare, pas seulement une nuance de beige (Samir). */
 .anneau-2 { background: var(--anneau-2); border: 2px dashed var(--anneau-3); }
 .anneau-3 { top: 14px; height: 20px; background: var(--anneau-3); border: 2px solid var(--accent-text); }
-.decor { position: absolute; inset: 0; pointer-events: none; }
+.decor { position: absolute; inset: 0 5px; pointer-events: none; }
 .trait { position: absolute; top: 36px; width: 1.5px; height: 9px; margin-left: -0.75px; background: var(--edge-strong); }
 .repere-piste { position: absolute; top: 0; width: 2px; height: 48px; margin-left: -1px; background: var(--muted); opacity: 0.85; }
 .repere-piste::before { content: ''; position: absolute; top: -4px; left: -5px; width: 12px; height: 12px; box-sizing: border-box; border: 2.5px solid var(--muted); border-radius: 50%; background: var(--bg); }

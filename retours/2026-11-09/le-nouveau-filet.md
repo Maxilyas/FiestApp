@@ -502,6 +502,11 @@ par question et jeu par jeu.
     cours de maths (« c'est pas fun », Théo), et l'indice d'un calcul en était
     la solution — les 16 questions de cette sorte, sur 156, avaient toutes un
     indice qui donnait la valeur.
+  - Peu nombreuses dans la base, servies souvent : 56 au moins des 1 825
+    questions que le Filet peut poser se calculent ou se convertissent,
+    d'après leurs mots (3 %, `reproductions/calculs-du-vivier.mts`) — mais 16
+    des 156 que la production a posées (10 %), des conversions de la marche 1
+    aux diviseurs de la marche 5.
   - Le panel les marque en notant (une case de plus à sa consigne : « se
     calcule à partir de l'énoncé ou d'une définition d'école »), et le tireur
     du Filet ne les pose pas ; le QCM et le Quiz les gardent.
@@ -661,3 +666,8 @@ un sondage du QG aux joueurs du Cabinet (`qg_annonce_questions`).
   attente.
 - **Le pari d'un point** « plus haut ou plus bas que la médiane des autres »
   (Wits & Wagers, Guesspionage), pour qui ne sait rien.
+- **Écarté : des jetons d'aide gagnés par le savoir**, comme les jetons de
+  Hitster — un ★★★ sans aide en rapporterait un, à dépenser là où l'on sèche.
+  Astucieux, mais c'est une cinquième notion, et la traversée n'en a que
+  quatre (les cœurs, l'or, tes cartes, la carte) : l'aide se paie dans la
+  manche même, en étoiles.
