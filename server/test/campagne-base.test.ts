@@ -140,9 +140,19 @@ import { sansAccent } from '../../shared/homonymes'
  * doublon que le juge des faits ne voyait pas retiré — deux questions de
  * Lost sur le code de 108 minutes, sous deux entités écrites autrement
  * (« Le Cygne », « Station Cygne ») ; i3uqyd02 s'en va, k9n359l1 reste :
- * 27 422.
+ * 27 422. Le soir, quatre lots pour le premier acte du nouveau Filet, là où
+ * il n'avait pas de quoi tirer — la Nature, la Cuisine, les Arts & lettres,
+ * la Géographie —, des années et des grandeurs que la plupart des Français
+ * placeraient : 140 écrites ; 37 redites que le vérificateur ne voyait pas
+ * — leur réponse chiffrée déjà écrite dans l'intitulé d'une autre question
+ * sur le même sujet, ou la canette de 330 ml en centilitres —, remplacées
+ * dans trois lots, retirées de la cuisine ; 15 retirées pour un gabarit
+ * répété (des morts d'auteurs étrangers, les apports de référence des
+ * étiquettes) et 7 à la relecture : 110 rangées, 27 532. Puis un second
+ * lot de géographie, à qui il manquait une valeur : 12 écrites et rangées,
+ * la longueur de l'équateur passée aux Sciences : 27 544.
  */
-const AU_MOINS = 27422
+const AU_MOINS = 27544
 
 const { questions, refusees } = lireLaBase()
 

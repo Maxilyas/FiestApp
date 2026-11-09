@@ -154,3 +154,26 @@ Pour agrandir la base (un lot, sa relecture, son rangement — ou des milliers d
   comédien, ensuite Khal Drogo, joue Ronon Dex ? »). La section « CE LOT
   EN PARTICULIER » d'un prochain lot d'univers le dit d'emblée : la réponse
   est de l'univers, toujours.
+- **Une réponse chiffrée retournée passe le vérificateur** (le 9 novembre
+  2026, des lots pour le premier acte du nouveau Filet — des années et des
+  grandeurs que la plupart des Français placent, en Nature, en Cuisine, en
+  Arts & lettres et en Géographie ; règle `cabinet.md`) : « En quelle année
+  Delacroix peint-il La Liberté guidant le peuple ? » quand la base a « Quel
+  peintre a représenté la révolution de Juillet 1830 dans La Liberté guidant
+  le peuple ? » — `memeFait` ne retourne deux questions que si chacune écrit
+  la réponse entière de l'autre, et « Eugène Delacroix » n'est pas écrit.
+  37 des 140 premières questions en étaient, rattrapées par un contrôle à
+  part — la réponse cherchée dans les intitulés qui partagent un nom propre
+  avec la question, chaque résultat relu : un nom commun par hasard (la tour
+  Montparnasse et le « Tour de France 1973 ») n'en est pas une —, à refaire
+  sur tout lot à nombre avant de le ranger, tant que le juge ne les refuse
+  pas lui-même. Les faits connus de tous sont presque tous dans la base, la
+  date d'une œuvre souvent dans l'intitulé qui demande son auteur ; à court,
+  un rédacteur retombe sur un seul gabarit (vingt « En quelle année
+  meurt… », dix « apports de référence » des étiquettes), que le rangement
+  réduit à quelques-unes. Et la section « CE LOT EN PARTICULIER » dit ce
+  qu'elle renverse de la consigne `--nombres` (« jamais un nombre que tout
+  le monde sait par cœur », « un tiers d'années au plus », « préfère les
+  faits moins courus »), sans rien lâcher de ce qu'elle garde : un petit
+  entier facile ne se joue pas au plus près (`lireLEstimation`), et une
+  question d'alcool (`aRelire: ["sensible"]`) n'entre pas au Cabinet.

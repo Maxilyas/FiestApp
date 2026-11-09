@@ -51,7 +51,10 @@ Trois causes, mesurées :
    classé question par question, le vivier en a 150 sur 1 798, dont 105 que
    le Filet peut poser — une seule en Arts & lettres, une en Jeux. Et ce qui
    manque ne s'écrit pas facilement : à l'essai, un fait sur quatre que tout
-   le monde connaît était déjà dans la base (§ 4.3 à 4.5).
+   le monde connaît était déjà dans la base (§ 4.3 à 4.5). Les lots écrits
+   le soir pour l'acte I l'ont confirmé : la Géographie y est entrée, mais la
+   Nature et les Arts & lettres n'ont presque plus rien de connu de tous à
+   écrire (§ 4.6).
 2. **D'abord l'époque, puis la valeur.** Quatre époques (ou quatre ordres de
    grandeur) ; la bonne vaut déjà une étoile.
 3. **Le filet se resserre tout seul.** Plus de taille à parier : à 2 ans près
@@ -842,11 +845,79 @@ Ce qu'on en tire :
      exact, au nouveau Filet — sans ce qui se calcule, une année avec 25 ans
      de recul : **264 questions à l'acte I**, dont 121 que chaque Français
      sait placer et 143 que le panel donne à 50 % et plus, pour 174 valeurs
-     distinctes ;
+     distinctes — 277 et 178 avec les questions neuves du soir (§ 4.6) ;
    - **le recul des années** : 25 ans au lieu de 46 rendent 16 années que
      chaque Français sait placer (décision 10) ;
    - **les dix-neuf questions du pilote, en production** : leurs lancers
      diront si ce qui s'estime se place, mieux que six lancers d'aujourd'hui.
+
+### 4.6 Des questions neuves pour l'acte I
+
+Le tracé de la carte (§ 6) ne promet le Filet à l'acte I que dans une
+catégorie qui y a douze valeurs distinctes. Au contenu du 9 novembre, quatre
+n'y arrivaient pas : la Nature (2), la Cuisine (4), les Arts & lettres (6)
+et la Géographie (7). Le soir même, la chaîne de la base y a écrit ce que la
+plupart des Français placent, à la lettre du § 4.4 : des années de l'école
+et de l'actualité, des grandeurs du quotidien. Chaque lot avait la consigne
+`--nombres` et une section « ce lot en particulier », qui renversait ce
+qu'elle dit du savoir commun. Il est passé par le vérificateur, la relecture
+des faits et le rangement (`server/test/campagne-base.test.ts` : 27 544
+questions). Puis le classement à l'aveugle et le panel l'ont noté comme le
+reste du vivier : une troisième passe, et une quatrième pour un second lot de
+géographie, chacune recalée sur vingt étalons de la première
+(`reproductions/panel-du-vivier.mts`).
+
+| | Nature | Cuisine | Arts & lettres | Géographie |
+|---|---|---|---|---|
+| Écrites et acceptées par le vérificateur | 40 | 40 | 30 | 30, puis 12 |
+| Redites qu'il ne voyait pas — remplacées, sauf en cuisine | 4 | 8 | 12 | 13 |
+| Retirées pour un gabarit répété | — | 8 | 7 | — |
+| Retirées à la relecture des faits | 1 | 2 | 4 | — |
+| Rangées | 39 | 22 | 19 | 30, puis 11 (l'équateur aux Sciences) |
+| À l'acte I | 0 | 3 | 0 | 7, puis 3 |
+| Valeurs distinctes à l'acte I | 2 → 2 | 4 → 7 | 6 → 6 | 7 → **14** |
+
+- **La Géographie entre à l'acte I**, qui a désormais neuf catégories. Ce
+  qui y entre : les indépendances que l'école raconte — la Tunisie, le
+  Maroc, Madagascar, la Guinée et son « non » —, les changements du monde
+  vécus par l'actualité — le Viêt Nam réunifié, le drapeau de l'Afrique du
+  Sud en 1994, la Slovénie et la Croatie —, l'Everest, les 96 départements
+  de la métropole. Le premier lot lui laissait une valeur de moins que le
+  seuil ; le second, court, a été écrit avec la liste des valeurs que l'acte
+  avait déjà, puisqu'une valeur posée deux fois ne compte qu'une.
+- **La Cuisine gagne trois valeurs, pas assez** : ce qu'on lit sur
+  l'emballage — le pot de yaourt de 125 g, les 2 000 kcal des étiquettes —
+  et l'embargo de la vache folle. Ses formats connus de tous sont déjà dans
+  la base (la plaquette de beurre, la canette), et ses dates de marques ne
+  passent pas 40 au panel.
+- **La Nature et les Arts & lettres n'ont presque plus rien à écrire pour
+  l'acte I.** Leurs dates connues de tous sont dans la base, ou trop
+  récentes pour le recul de 25 ans : l'accord de Paris (2015) et le Grenelle
+  de l'environnement (2007), notés 85 et 72 par le panel, ne se poseront
+  qu'en 2040 et 2032. Leurs rédacteurs se sont repliés sur ce que personne
+  ne place, la création des parcs nationaux, la mort des écrivains : aucune
+  de leurs 58 questions ne passe 45 au panel. Pour elles, c'est le tracé qui
+  répond — la carte ne leur promet pas l'acte I —, et leurs questions vont
+  aux actes II et III.
+- **Les faits connus de tous sont dans la base, et souvent sous l'autre
+  face** : la date d'une œuvre est écrite dans l'intitulé qui demande son
+  auteur (« Quel peintre a représenté la révolution de Juillet 1830 dans La
+  Liberté guidant le peuple ? »). Le vérificateur ne voit pas ces redites
+  pour une réponse chiffrée (`memeFait`) : 37 des 140 premières questions en
+  étaient, rattrapées par un contrôle à part (la règle `campagne-base.md`).
+- **Un appel au panel, une dérive** : sur ses étalons, la troisième passe
+  note comme la première (38,5 contre 40,6, corrélation 0,92), la
+  quatrième plus bas (34,2, corrélation 0,93) ; recalée, chacune classe 14
+  étalons sur 20 au même acte que la première — le bruit déjà mesuré au
+  § 5.5. Le classement à l'aveugle s'accorde avec la passe qui fait foi sur
+  9 de ses 10 étalons, aux deux lots, et ajoute cinq questions que chaque
+  Français sait placer : l'Everest, le pot de yaourt, les 2 000 kcal, la
+  vache folle et les 96 départements.
+- **Leurs indices**, par la chaîne des vagues (`reproductions/indices/`) :
+  120 écrits par trois rédacteurs, acte par acte, puis mêlés pour deux juges
+  à l'aveugle, qui les ont tous gardés (119 mènent à toute la tranche, un
+  un peu large). Le contenu du Filet (`server/content/cabinet/filet.json`)
+  en est refait : 1 761 questions, 1 575 indices.
 
 ## 5. Le moteur de difficulté
 
@@ -1026,7 +1097,9 @@ dix étalons de la première passe — 80 en tout — pour mesurer sa dérive
   questions en Nature, 5 en Cuisine, 6 en Arts & lettres et 7 en
   Géographie, quand la Culture générale en a 51 et l'Histoire 50. Le tracé
   de la carte ne peut y proposer le Filet à l'acte I (§ 6), et c'est là
-  qu'écrire paiera (§ 4.4).
+  qu'écrire paiera (§ 4.4). Écrit le soir même, cela a payé pour la
+  Géographie, à peine pour la Cuisine, pas du tout pour la Nature et les
+  Arts & lettres (§ 4.6).
 
 ### 5.6 Le mettre en service
 
@@ -1054,9 +1127,9 @@ que chaque morceau devient.
 | La traversée — **écrit le 9 novembre** (le lot 2) | Une aide coûte une étoile, jamais un cœur : la manche conclue dit ce que ses aides ont pris (`MancheConclue.payees`, d'une seule copie, `mancheConclue`), et `consequencesDe` ne prend ni cœur ni or à une manche réussie que ses aides ont laissée à zéro — ni la Cagnotte : l'aide a pris ce que la manche rapportait. |
 | Le tireur — **écrit le 9 novembre** (le lot 3) | `server/src/core/cabinet/tirages/filetEnDeuxTemps.ts`, que `filet.ts` appelle quand le serveur tire en deux temps (`ctx.filetEnDeuxTemps`) : le tirage par acte au lieu des marches — l'acte I parmi ce que chaque Français sait placer ou que le panel donne à 50 % et plus (§ 4, § 5.5), l'acte II de 25 à 49, l'acte III sous 25 (`acteDuFilet`, `PANEL_DE_L_ACTE_I`, `PANEL_DE_L_ACTE_II`) —, l'acte lu de l'étape (`ctx.vise.acte`, `acteDe`), l'acte I hors d'une traversée ; rien à l'acte promis, les autres. Les époques, la place de la réponse — ses poids par acte, lus dans les tas des valeurs, jamais la base entière —, les deux époques que l'aide retire et les repères se figent dans le tirage, du hasard du serveur ; jamais deux fois la même valeur dans une partie. Éprouvé sur de vraies questions du contenu (`vraiesQuestionsDuFilet`), par le pli et par les routes, une épreuve de l'acte II comprise (`cabinet-filet-en-deux-temps.test.ts`). |
 | Le drapeau — **écrit le 9 novembre** (le lot 3) | `FILET_EN_DEUX_TEMPS` (`shared/cabinet/ouverture.ts`), oui : le serveur tire le nouveau Filet, l'annonce dit son barème (`JEUX.filet`). Une constante du code, la même en préproduction et en production, puisque la page la lit pour l'annonce ; l'option `filetEnDeuxTemps` du serveur la passe outre, et le banc d'essai garde le Filet d'avant à ses tests. **Fusionner la branche, c'est livrer le nouveau Filet** : en préproduction d'emblée, en production au déploiement suivant. |
-| Le tracé de la carte (`tracerLaCarte`, `shared/cabinet/traversee.ts`) — **écrit le 9 novembre** | Une épreuve du Filet ne promet qu'une catégorie où son acte a de quoi tirer : au moins douze valeurs distinctes posables à l'année du départ (`VALEURS_D_UN_THEME_DU_FILET`, `categoriesDuFilet`). Le serveur les lui donne au départ de la traversée, acte par acte, comme il donne au Quiz ses thèmes (`categoriesDuFiletALAnnee`, `ThemesDuContenu.filet`) ; une carte tracée les garde. Au contenu du 9 novembre, l'acte I perd la Nature (2 valeurs), la Cuisine (4), les Arts & lettres (6) et la Géographie (7), et garde huit catégories ; les actes II et III les gardent toutes. Sans liste — le Filet d'avant, une base illisible —, la carte est celle d'avant, au même hasard. Le tireur garde son repli : la catégorie promise d'abord, puis une autre de l'acte. |
+| Le tracé de la carte (`tracerLaCarte`, `shared/cabinet/traversee.ts`) — **écrit le 9 novembre** | Une épreuve du Filet ne promet qu'une catégorie où son acte a de quoi tirer : au moins douze valeurs distinctes posables à l'année du départ (`VALEURS_D_UN_THEME_DU_FILET`, `categoriesDuFilet`). Le serveur les lui donne au départ de la traversée, acte par acte, comme il donne au Quiz ses thèmes (`categoriesDuFiletALAnnee`, `ThemesDuContenu.filet`) ; une carte tracée les garde. Au contenu du 9 novembre, l'acte I perdait la Nature (2 valeurs), la Cuisine (4), les Arts & lettres (6) et la Géographie (7) ; après les questions neuves du soir (§ 4.6), la Géographie y entre (14 valeurs), la Cuisine monte à 7, et l'acte I garde neuf catégories ; les actes II et III les gardent toutes. Sans liste — le Filet d'avant, une base illisible —, la carte est celle d'avant, au même hasard. Le tireur garde son repli : la catégorie promise d'abord, puis une autre de l'acte. |
 | Les repères — **écrits le 9 novembre**, les communs (le lot 3) puis les siens | Un fichier de contenu (`server/content/cabinet/reperes.json`, 68 dates et 15 grandeurs, rangé et jugé par `cabinet-contenu.ts`) ; une grandeur ne prend que des repères de son unité (« minutes » et « min » sont la même). **Les siens** : les années qu'il a su placer au nouveau Filet, juste — ★★ au moins — et sans aide, même offerte. Le journal des réponses les tient (`JournalDesReponses.placesAuFiletDe`) : sa lecture prend la pièce composée d'un lancer juste du Filet (« 1962\|1 », ses aides au bout), comparée à la requête qui la lirait dans `journal-des-reponses.test.ts`. Le tireur en pose un au plus, marqué sien (◆, « ton repère » à l'écran), sous l'étiquette que le contenu donne à son fait (`QuestionDuFilet.repere`), sur la frise d'une autre année. Une colonne de plus à la lecture du journal : le premier réveil après la mise en ligne le relit en entier, une fois. |
-| Les indices — **les trois actes écrits le 9 novembre** (le lot 3, puis trois vagues) | Dans le contenu du Filet (`server/content/cabinet/filet.json`, une question de la base par ligne : son classement, sa note du panel, son indice, son repère), refait du vivier par `retours/2026-11-09/reproductions/contenu-du-filet.mts` — jamais à la main —, jugé à la lettre par `cabinet-contenu.ts` (`refusDeLIndiceALaLettre` : la borne d'une tranche passe dite comme une borne, « plus de dix secondes », jamais comme une valeur, « environ trois cents mètres » pour 330) et au sens par le juge à l'aveugle (§ 3.7) — un agent de plus dans la chaîne d'écriture, qui n'écrit jamais ce qu'il juge ; une question sans indice ne propose pas l'aide. La chaîne, ses consignes et ses scripts : `retours/2026-11-09/reproductions/indices/` (son `README.md`). Une vague par acte, de huit à douze rédacteurs et de sept à onze juges à l'aveugle ; les 147 indices de la maquette rejugés avec l'acte II, au verdict « étroit » né de lui (§ 3.7 : plus serré que la tranche, son milieu rapporte deux étoiles que celui de la tranche ne rapportait pas) ; 65 indices refusés puis réécrits — 63 gardés au second jugement, 2 devenus « sans indice » —, et celui du haïku, qui invitait à un calcul (« fais l'addition ») que le juge à l'aveugle ne voit pas. Posables en 2026 : 242 des 264 questions de l'acte I ont leur indice, 413 des 422 de l'acte II, 800 des 803 de l'acte III — 1 455 indices, et 34 questions sans indice honnête : l'énoncé donne déjà l'époque ou la tranche (le Lusitania, Bill Russell et ses treize saisons), ou le seul repère mène droit à la valeur (Jeanne Calment, où « un siècle » tombe trop près de ses 122 ans). |
+| Les indices — **les trois actes écrits le 9 novembre** (le lot 3, puis trois vagues) | Dans le contenu du Filet (`server/content/cabinet/filet.json`, une question de la base par ligne : son classement, sa note du panel, son indice, son repère), refait du vivier par `retours/2026-11-09/reproductions/contenu-du-filet.mts` — jamais à la main —, jugé à la lettre par `cabinet-contenu.ts` (`refusDeLIndiceALaLettre` : la borne d'une tranche passe dite comme une borne, « plus de dix secondes », jamais comme une valeur, « environ trois cents mètres » pour 330) et au sens par le juge à l'aveugle (§ 3.7) — un agent de plus dans la chaîne d'écriture, qui n'écrit jamais ce qu'il juge ; une question sans indice ne propose pas l'aide. La chaîne, ses consignes et ses scripts : `retours/2026-11-09/reproductions/indices/` (son `README.md`). Une vague par acte, de huit à douze rédacteurs et de sept à onze juges à l'aveugle ; les 147 indices de la maquette rejugés avec l'acte II, au verdict « étroit » né de lui (§ 3.7 : plus serré que la tranche, son milieu rapporte deux étoiles que celui de la tranche ne rapportait pas) ; 65 indices refusés puis réécrits — 63 gardés au second jugement, 2 devenus « sans indice » —, et celui du haïku, qui invitait à un calcul (« fais l'addition ») que le juge à l'aveugle ne voit pas. Posables en 2026, avec les questions neuves du soir (§ 4.6 : 120 indices de plus, tous gardés par les juges à l'aveugle) : 255 des 277 questions de l'acte I ont leur indice, 453 des 462 de l'acte II, 867 des 870 de l'acte III — 1 575 indices, et 34 questions sans indice honnête : l'énoncé donne déjà l'époque ou la tranche (le Lusitania, Bill Russell et ses treize saisons), ou le seul repère mène droit à la valeur (Jeanne Calment, où « un siècle » tombe trop près de ses 122 ans). |
 | Les pouvoirs (`shared/cabinet/pouvoirs.ts`) | Éclairer, au Filet, devient la première aide offerte ; Changer et le temps en plus restent. `refusDuPouvoir` dit pourquoi une aide ne se prend pas (déjà prise, plus de place, la manche tranchée). |
 | La page — **écrite le 9 novembre** (le lot 3) | L'écran du § 3.1 et du § 3.8 (`client/src/views/cabinet/jeux/FiletEnDeuxTemps.tsx`), que l'aiguillage des deux Filets choisit par la forme de la manche (`FILETS`, `jeux/Filet.tsx`) : une partie d'avant garde son écran. Ses classes dans la section du Cabinet de `styles.css` — la frise des époques en `cab-epoques` et `cab-tranche`, `.cab-frise` étant la Frise. Aucun texte sous 17 pixels : `cabinet-ecran.test.ts` relit chaque taille — la première maquette en écrivait à 13, « petites et pâles » pour Huguette. Les étoiles se dessinent (`Etoiles` : chaque anneau les siennes, une aide payée en éteint une) ou se disent en mots (« Coûte une étoile », « une étoile en moins »), jamais en signes. Le curseur est celui du Filet d'avant (`.cab-curseur`, un mât) : posé au milieu de l'époque dès qu'elle est touchée, il n'a plus d'état « pas encore touché », et le toucher de sa valeur n'a rien à dire. Rien ne se colle au bas de l'écran : le bouton du lancer y cachait la piste et le gros chiffre (§ 3.1). L'indice pris et ce qui reste après « Deux époques de moins » reçoivent le focus. La note de la manche dit l'aide payée (« −1 : ton aide », `vue.ts`). Éprouvé rendu en HTML sur les vues d'un vrai serveur (`cabinet-ecran-filet.test.ts`). |
 | Le moteur | `core/modeleDuSavoir.ts` : une difficulté par question et par jeu, partie de la note a priori ; la note a priori dans la base (`meta.connaissabilite`, par jeu) ou dans une table du Cabinet, avec ses trois cases — « chaque Français la sait placer » et son ancrage (§ 4), « se calcule », qui écarte une question du Filet (§ 5.4) ; les lancers du Filet lus en paliers. |
@@ -1071,9 +1144,12 @@ relue à sa règle (`cabinet-filet-en-deux-temps.test.ts`, `cabinet-secret.test.
 (`cabinet-contenu.test.ts`), le tireur par acte sur de vraies questions, par
 le pli et par les routes, et l'écran rendu (`cabinet-ecran-filet.test.ts`).
 Puis le calibrage, qui joue le nouveau Filet acte par acte et vérifie que
-l'indice pris garde le cœur (`cabinet-calibrage-modele.test.ts`). Restent ceux
-de ce qui reste à faire — les siens parmi les repères, le tracé. La liste
-d'origine :
+l'indice pris garde le cœur (`cabinet-calibrage-modele.test.ts`) ; le tracé
+— les catégories de chaque acte, et la carte qui ne promet qu'elles — et les
+siens parmi les repères, lus du journal des réponses comme la requête les
+lirait (`cabinet-filet-en-deux-temps.test.ts`, `journal-des-reponses.test.ts`) ;
+enfin le dé de la tablée à l'acte de la question, ses seuils recalculés du
+modèle du calibrage (`tablee.test.ts`). La liste d'origine :
 
 - la règle pure :
   - les époques (bornes, place de la réponse, jamais l'avenir) ;

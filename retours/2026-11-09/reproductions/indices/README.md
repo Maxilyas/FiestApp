@@ -75,6 +75,12 @@ tranche 100–300, se lit 90–180, et viser 135 rapporte trois étoiles. Ce ver
 | Acte I | 228 | 8 | 7 | 208 | 20 | 181 gardés | 27, tous gardés au second jugement |
 | Acte II, avec les 147 de la maquette | 375 + 147 | 8 | 9 | 366 + 147 | 9 | 475 gardés ; 31 étroits, 7 valeur | 38 : 36 gardés, 2 sans indice honnête |
 | Acte III | 739 | 12 | 11 | 737 | 2 | 737 gardés (726 tranche, 11 large) | aucun |
+| Les questions neuves de l'acte I (le cahier, § 4.6), tous actes mêlés | 120 | 3 | 2 | 120 | 0 | 120 gardés (119 tranche, 1 large) | aucun |
+
+Une vague de questions neuves se fait acte par acte (`lots-des-redacteurs.mts n1 1 1`, puis `n2 2 1`…), et ses
+lots se jugent ensemble (`lots-des-juges.mts nj 2 …`) : un juge ne voit pas de quel acte vient un indice. Ses
+questions ont d'abord leur ligne au classement et leur note du panel (`../vivier-du-filet.json`,
+`../panel-du-vivier.json`), sans quoi `posables.mts` ne les voit pas.
 
 Deux lignes ont été corrigées à la main, après les juges :
 - **Bill Russell** (`5aiymlab`) est passé à « sans indice ». L'énoncé borne déjà à treize saisons : tout indice qui
@@ -83,8 +89,8 @@ Deux lignes ont été corrigées à la main, après les juges :
   interdit. Le juge à l'aveugle l'avait gardé : il juge la fourchette, pas le calcul. Il a été réécrit, puis rejugé
   seul, en vague d'une question.
 
-En 2026, le vivier compte 1 489 lignes : 1 455 indices et 34 questions sans indice honnête. Selon l'acte, 242
-questions posables sur 264 ont leur indice à l'acte I, 413 sur 422 à l'acte II et 800 sur 803 à l'acte III.
+En 2026, le vivier compte 1 609 lignes : 1 575 indices et 34 questions sans indice honnête. Selon l'acte, 255
+questions posables sur 277 ont leur indice à l'acte I, 453 sur 462 à l'acte II et 867 sur 870 à l'acte III.
 
 ## Ce que la chaîne ne vérifie pas
 
