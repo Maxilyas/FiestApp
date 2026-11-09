@@ -18,6 +18,12 @@
 // lui dit ce que la salle en fait, La Plume tombe, et son accueil lui dit
 // qu'elle est la question bonus du jour ; le lendemain, son bilan.
 //
+// La confiance (le 9 novembre 2026) : acceptée, Camille est de confiance — sa
+// deuxième question, sa catégorie choisie, passe d'office ; le QG la voit close
+// dans la file, la lit (« La lire »), ouvre « Retirer… » sans retirer. Elle
+// devient la question bonus du lendemain, que le QG annule pour tous : son
+// suivi, la page du jour de Léa et l'accueil de Camille le disent.
+//
 //   [THEME=ivoire] npx tsx scripts/rendu-plume.ts [dossier]
 import { createRequire } from 'node:module'
 import { spawnSync } from 'node:child_process'
@@ -121,6 +127,35 @@ try {
   console.log(path.join(sortie, '00-qg-accepter.png'))
   await qg.locator('button', { hasText: 'Ajouter au quiz du jour' }).tap()
   await qg.waitForSelector('text=Rien à relire')
+  // Acceptée, Camille est de confiance : sa deuxième question, sa catégorie choisie, passe d'office — close dans la file.
+  const DRAPEAU = {
+    texte: 'Quel est le seul pays au monde dont le drapeau n’est pas un rectangle ?',
+    reponses: ['Le Bhoutan', 'Le Népal', 'La Suisse', 'Le Vatican'],
+    bonne: 1,
+    categorie: 'Géographie',
+  }
+  const dOffice = (await (await ecrire(banc.url, '/api/jour/propositions', DRAPEAU, camille)).json()) as { statut?: string }
+  if (dOffice.statut !== 'acceptee') console.warn(`[confiance] la deuxième question de Camille n’est pas passée d’office (${dOffice.statut})`)
+  await qg.reload()
+  await qg.waitForSelector('.qg-file-question', { timeout: 15000 })
+  const close = qg.locator('.qg-file-question', { hasText: 'Pas encore lue' })
+  await close.scrollIntoViewIfNeeded()
+  await qg.waitForTimeout(400)
+  await qg.locator('.qg-file').screenshot({ path: path.join(sortie, '00b-qg-la-file.png') })
+  console.log(path.join(sortie, '00b-qg-la-file.png'))
+  await close.locator('button', { hasText: 'La lire' }).tap()
+  await qg.waitForSelector('.dialog-actions')
+  await qg.screenshot({ path: path.join(sortie, '00c-qg-la-lire.png') })
+  console.log(path.join(sortie, '00c-qg-la-lire.png'))
+  await qg.locator('.dialog-actions button', { hasText: 'La lire' }).tap()
+  await qg.waitForSelector(`.qg-file-question:has-text("${DRAPEAU.texte}")`)
+  const lue = qg.locator('.qg-file-question', { hasText: DRAPEAU.texte })
+  await lue.locator('button', { hasText: 'Retirer' }).tap()
+  await qg.waitForTimeout(300)
+  await lue.screenshot({ path: path.join(sortie, '00d-qg-retirer.png') })
+  console.log(path.join(sortie, '00d-qg-retirer.png'))
+  // Sans la retirer : elle sera la question bonus du lendemain, que le QG annulera.
+  await lue.locator('button', { hasText: 'Annuler' }).tap()
   await auQg.close()
 
   // 1. La page du jour, avant de jouer : la question bonus de Camille annoncée sous « Jouer », et la bulle de la plume.
@@ -232,6 +267,9 @@ try {
   await champs.nth(3).fill('Le Vatican')
   await page.locator('.plume-carte-forme').nth(1).click()
   await page.locator('.plume-carte-anecdote textarea').fill('Deux triangles superposés, pour deux branches de sa dynastie.')
+  // Le dernier geste : sa catégorie, en haut de la carte.
+  await photo('14-plume-carte-sans-categorie', { attente: 400 })
+  await page.locator('.plume-carte-categorie select').selectOption('Géographie')
   await photo('14-plume-carte-prete', { attente: 500 })
   await page.locator('.plume-feuille .carte-fermer').click()
 
@@ -334,6 +372,40 @@ try {
   await pc.reload()
   await pc.waitForSelector('.annonce-admin', { timeout: 15000 })
   await photoDeCamille('23-camille-accueil-bilan')
+
+  // 7. Le même jour, la question passée d'office est la question bonus : le QG l'annule pour tous, de son suivi.
+  await page.goto(`${banc.url}/jour`)
+  await page.waitForSelector('.jour-heros .bonus-annonce')
+  const annulationAuQg = await navigateur.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2, hasTouch: true })
+  await annulationAuQg.addCookies([{ name: nomAdmin, value: valeurAdmin, url: banc.url }])
+  const annulation = await annulationAuQg.newPage()
+  annulation.on('pageerror', (e: Error) => console.error('[qg]', e.message))
+  await annulation.goto(`${banc.url}/admin#jour`)
+  await annulation.waitForSelector('.qg-bonus', { timeout: 15000 })
+  await annulation.locator('.qg-bonus button', { hasText: 'Annuler pour tous' }).scrollIntoViewIfNeeded()
+  await annulation.locator('.qg-bonus button', { hasText: 'Annuler pour tous' }).tap()
+  await annulation.waitForSelector('.dialog-actions')
+  await annulation.screenshot({ path: path.join(sortie, '24-qg-annuler-le-bonus.png') })
+  console.log(path.join(sortie, '24-qg-annuler-le-bonus.png'))
+  await annulation.locator('.dialog-actions button', { hasText: 'Annuler pour tous' }).tap()
+  await annulation.waitForSelector('.qg-bonus .etiquette:has-text("annulée pour tous")', { timeout: 15000 })
+  await annulation.waitForTimeout(400)
+  await annulation.locator('.qg-bonus').screenshot({ path: path.join(sortie, '25-qg-bonus-annulee.png') })
+  console.log(path.join(sortie, '25-qg-bonus-annulee.png'))
+  await annulationAuQg.close()
+  // Léa, avant de jouer : l'annonce sous « Jouer » le dit. Camille, sur son accueil.
+  await page.reload()
+  await page.waitForSelector('.jour-heros .bonus-annonce')
+  await photo('26-jour-bonus-annulee')
+  const chezCamilleEncore = await navigateur.newContext({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2, hasTouch: true })
+  await chezCamilleEncore.addCookies([{ name: nomC, value: valeurC, url: banc.url }])
+  const pc2 = await chezCamilleEncore.newPage()
+  await pc2.goto(`${banc.url}/`)
+  await pc2.waitForSelector('.annonce-admin', { timeout: 15000 })
+  await pc2.waitForTimeout(600)
+  await pc2.screenshot({ path: path.join(sortie, '27-camille-accueil-annulee.png'), fullPage: true })
+  console.log(path.join(sortie, '27-camille-accueil-annulee.png'))
+  await chezCamilleEncore.close()
   await chezCamille.close()
 } finally {
   await navigateur.close()

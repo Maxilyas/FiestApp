@@ -323,6 +323,8 @@ export function JourApp() {
   const recevoirLeBonus = useCallback((b: BonusDuJour, reveler: boolean) => {
     setPartie(p => p && { ...p, bonus: b })
     setBonusRevele(avant => (reveler && b.etat === 'jouee' && b.revelation ? b : avant && b.revelation ? b : avant))
+    // Annulée pour tous par le QG pendant qu'il la jouait : son geste n'a rien écrit, la page le lui dit.
+    if (b.etat === 'annulee') showToast({ kind: 'info', message: 'La question bonus a été annulée pour tous : elle ne se joue plus' })
   }, [])
 
   /** « Jouer la question bonus » : le serveur la montre, son chrono part — redemandée, elle garde son échéance. */
@@ -1599,21 +1601,25 @@ export function Correction({ jour, onRetour }: { jour: string; onRetour: () => v
  */
 function BonusCorrige({ bonus, revelation: r }: { bonus: BonusDuJour; revelation: NonNullable<BonusDuJour['revelation']> }) {
   const sansLaJouer = bonus.etat === 'tienne' || bonus.etat === 'relue'
-  const verdict = verdictDe({ juste: r.juste, choix: r.choix, ...(bonus.etat === 'tienne' && { tienne: true as const }) })
+  // Annulée pour tous par le QG : sa marque le dit d'abord, comme une question des dix annulée.
+  const annulee = bonus.annulee === true
+  const verdict = verdictDe({ juste: r.juste, choix: r.choix, annulee, ...(bonus.etat === 'tienne' && { tienne: true as const }) })
   return (
     <ol className="correction bonus-corrige">
       <Corrige
         verdict={verdict}
-        dit={sansLaJouer ? (bonus.etat === 'tienne' ? 'Ta question' : 'Relue') : bonus.etat === 'jouee' ? verdict : 'Pas jouée'}
+        dit={annulee ? verdict : sansLaJouer ? (bonus.etat === 'tienne' ? 'Ta question' : 'Relue') : bonus.etat === 'jouee' ? verdict : 'Pas jouée'}
         tete={bonus.auteur ? `Question bonus · la question ${deNom(bonus.auteur.nom)}` : 'Question bonus'}
-        points={r.juste && <span className="corrige-points">{espacesFines(`+${r.confettis} confettis · +${r.xp} XP`)}</span>}
+        points={r.juste && !annulee && <span className="corrige-points">{espacesFines(`+${r.confettis} confettis · +${r.xp} XP`)}</span>}
         texte={r.texte}
         reponses={r.reponses}
         bonne={r.bonne}
         choix={r.choix}
       >
         <div className="corrige-pied muted small">
-          {sansLaJouer ? (
+          {annulee ? (
+            <p>Annulée pour tous : elle ne rapporte rien à personne.</p>
+          ) : sansLaJouer ? (
             <p>
               <Icon name="edit" /> {bonus.etat === 'tienne' ? 'Ta question : tu ne la jouais pas' : 'Tu l’as relue : tu ne la jouais pas'}
             </p>

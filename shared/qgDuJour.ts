@@ -47,6 +47,8 @@ export interface BonusDuSuivi {
   trouvees: number
   pour: number
   contre: number
+  /** Annulée pour tous (« Annuler pour tous », `annulerLeBonus`) : elle ne se joue plus, et ne rapporte plus rien. */
+  annulee: boolean
 }
 
 /** Des bonnes réponses, et sur combien de questions posées. */

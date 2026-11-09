@@ -92,12 +92,15 @@ export function QuestionsDuJour({
   occupe,
   annuler,
   retirer,
+  annulerLeBonus,
 }: {
   suivi: SuiviDuJour | null
   enPanne: boolean
   occupe: boolean
   annuler: (q: QuestionDuSuivi) => void
   retirer: (q: QuestionDuSuivi) => void
+  /** Annuler pour tous la question bonus d'aujourd'hui. */
+  annulerLeBonus: () => void
 }) {
   const [ouverte, setOuverte] = useState<number | null>(null)
   return (
@@ -189,7 +192,7 @@ export function QuestionsDuJour({
           })}
         </ol>
       )}
-      {suivi?.bonus && <BonusDuSuiviAuQg bonus={suivi.bonus} />}
+      {suivi?.bonus && <BonusDuSuiviAuQg bonus={suivi.bonus} occupe={occupe} annuler={annulerLeBonus} />}
     </section>
   )
 }
@@ -197,12 +200,15 @@ export function QuestionsDuJour({
 /**
  * La question bonus d'aujourd'hui, sous les dix : la question du public, qui
  * l'a écrite, ce que chaque réponse a recueilli et ses pouces. Hors de la
- * part des bonnes réponses du jour : elle ne compte pas aux points.
+ * part des bonnes réponses du jour : elle ne compte pas aux points. Fausse,
+ * ou passée d'office alors qu'elle n'aurait pas dû, elle s'annule pour tous
+ * (le filet du 9 novembre 2026, quand les questions des auteurs de confiance
+ * ne se relisent plus) — le geste sans retour au bout, comme pour les dix.
  */
-function BonusDuSuiviAuQg({ bonus }: { bonus: BonusDuSuivi }) {
+function BonusDuSuiviAuQg({ bonus, occupe, annuler }: { bonus: BonusDuSuivi; occupe: boolean; annuler: () => void }) {
   const sur = bonus.joueurs
   return (
-    <div className="qg-bonus">
+    <div className={'qg-bonus' + (bonus.annulee ? ' qg-question-annulee' : '')}>
       <p className="qg-bonus-tete small">
         <span className="etiquette">Question bonus</span>{' '}
         {bonus.auteur ? (
@@ -211,6 +217,12 @@ function BonusDuSuiviAuQg({ bonus }: { bonus: BonusDuSuivi }) {
           </>
         ) : (
           'd’un profil supprimé'
+        )}
+        {bonus.annulee && (
+          <>
+            {' '}
+            <span className="etiquette">annulée pour tous</span>
+          </>
         )}
       </p>
       <p>{espacesFines(bonus.texte)}</p>
@@ -251,6 +263,14 @@ function BonusDuSuiviAuQg({ bonus }: { bonus: BonusDuSuivi }) {
             )
           })}
         </ul>
+      )}
+      {/* Seul geste ici, sans le filet qui sépare ailleurs le geste sans retour des autres. */}
+      {!bonus.annulee && (
+        <div className="admin-gestes">
+          <button type="button" className="btn btn-small btn-danger" disabled={occupe} onClick={annuler}>
+            Annuler pour tous
+          </button>
+        </div>
       )}
     </div>
   )

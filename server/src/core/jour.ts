@@ -58,7 +58,6 @@ import {
   type QuizQuestionDef,
 } from '../../../shared/library'
 import { preparerPartie, suiteFixe } from '../../../shared/hasard'
-import { CATEGORIES } from '../../../shared/categories'
 import {
   CONFETTIS_DE_LA_QUESTION_BONUS,
   CONFETTIS_D_UNE_QUESTION_ACCEPTEE,
@@ -70,13 +69,17 @@ import {
   JOUEURS_POUR_LE_DOSAGE,
   PROPOSITIONS_EN_RELECTURE_MAX,
   QUESTIONS_DU_PUBLIC_PAR_JOUR,
+  QUESTIONS_D_OFFICE_EN_FILE_MAX,
   XP_DE_LA_QUESTION_BONUS,
+  estDeConfiance,
+  lireLaCategorie,
   lireLaProposition,
   lireLeMotif,
   lireLeVote,
   partDeLAuteur,
   type PropositionAuQg,
   type PropositionDuJoueur,
+  type QuestionEnFile,
   type QuestionProposee,
   type SalleDuBonus,
   type StatutDUneProposition,
@@ -149,11 +152,19 @@ interface QuestionTiree {
    */
   auteur?: string
   /**
-   * Le profil qui l'a relue et acceptée au QG (`accepterLaProposition`), figé
-   * avec le jour : il en connaît la réponse, la question bonus ne se joue pas
-   * pour lui. Les questions acceptées avant le 8 novembre 2026 n'en ont pas.
+   * Le profil qui l'a relue et acceptée au QG (`accepterLaProposition`) — ou
+   * lue dans la file, passée d'office (`lireLaQuestionEnFile`) —, figé avec le
+   * jour : il en connaît la réponse, la question bonus ne se joue pas pour
+   * lui. Les questions acceptées avant le 8 novembre 2026 n'en ont pas.
    */
   relecteur?: string
+  /**
+   * La question bonus annulée pour tous par le QG, à cet instant
+   * (`annulerLeBonus`) : elle ne se joue plus, et ne rapporte plus rien — à
+   * qui l'a trouvée, ni à son auteur. Rangée dans `jour_bonus.question`, que
+   * le tirage relit avec elle.
+   */
+  annulee?: number
 }
 
 interface Tirage {
@@ -250,12 +261,15 @@ function coffresDuMoisLus(rows: ResultSet['rows']): CoffreDuMoisLu[] {
 
 /**
  * Sa question du public (`r`, sa ligne de la réserve) annulée pour tous le
- * jour qui l'a jouée : son tirage à sa clé, puis ses dix questions. Une
- * question annulée était fausse, et ne compte pour personne — son auteur non
- * plus : ni les confettis de son jour, ni La Plume (`JOUEE_ET_COMPTEE`).
+ * jour qui l'a jouée : son tirage à sa clé, puis ses dix questions — ou sa
+ * question bonus, que le QG annule à part (`annulerLeBonus`, son instant dans
+ * `jour_bonus.question`). Une question annulée était fausse, et ne compte
+ * pour personne — son auteur non plus : ni les confettis de son jour, ni La
+ * Plume (`JOUEE_ET_COMPTEE`), ni le défi de l'auteur (`BIEN_DOSEE`).
  */
-const ANNULEE_POUR_TOUS = `EXISTS (SELECT 1 FROM jour_tirages t, json_each(t.questions) q, json_each(t.annulees) a
-  WHERE t.jour = r.posee_le AND json_extract(q.value, '$.reserveId') = r.id AND a.value = q.key)`
+const ANNULEE_POUR_TOUS = `(EXISTS (SELECT 1 FROM jour_tirages t, json_each(t.questions) q, json_each(t.annulees) a
+  WHERE t.jour = r.posee_le AND json_extract(q.value, '$.reserveId') = r.id AND a.value = q.key)
+  OR EXISTS (SELECT 1 FROM jour_bonus b WHERE b.jour = r.posee_le AND b.reserve_id = r.id AND json_extract(b.question, '$.annulee') IS NOT NULL))`
 
 /** Sa question du public jouée, et qui compte encore : ce qui la paie le jour où elle passe, et ce que La Plume compte. */
 const JOUEE_ET_COMPTEE = `(r.posee_le IS NOT NULL AND NOT ${ANNULEE_POUR_TOUS})`
@@ -267,7 +281,7 @@ const JOUEE_ET_COMPTEE = `(r.posee_le IS NOT NULL AND NOT ${ANNULEE_POUR_TOUS})`
  * minuit, la part bouge encore, et ce qui peut se renverser attend la nuit.
  */
 const BIEN_DOSEE = `(r.posee_le IS NOT NULL
-  AND EXISTS (SELECT 1 FROM jour_bonus b WHERE b.jour = r.posee_le AND b.reserve_id = r.id)
+  AND EXISTS (SELECT 1 FROM jour_bonus b WHERE b.jour = r.posee_le AND b.reserve_id = r.id AND json_extract(b.question, '$.annulee') IS NULL)
   AND EXISTS (SELECT 1 FROM jour_clotures c WHERE c.jour = r.posee_le)
   AND EXISTS (SELECT 1 FROM jour_parties j WHERE j.jour = r.posee_le AND j.bonus_le IS NOT NULL GROUP BY j.jour
               HAVING COUNT(*) >= ${JOUEURS_POUR_LE_DOSAGE}
@@ -280,11 +294,14 @@ const BIEN_DOSEE = `(r.posee_le IS NOT NULL
  * `…_BIEN_DOSEE`) : la part de chacune, du profil et de l'instant qui la
  * paient — son acceptation, le minuit du jour où elle est jouée, celui de la
  * nuit qui juge son dosage. Une refusée ne rapporte rien ; une annulée pour
- * tous, son acceptation seule.
+ * tous, son acceptation seule — une retirée de la file avant son jour aussi :
+ * son acceptation reste payée, comme celle d'une annulée (elle a pu passer
+ * d'office, et ses confettis paraître au solde), et `relue_le` garde l'instant
+ * qui l'a payée.
  */
 const CONFETTIS_DES_PROPOSITIONS = `
   SELECT p.profile_id AS profile_id, ${CONFETTIS_D_UNE_QUESTION_ACCEPTEE} AS confettis, p.relue_le AS quand, NULL AS jour
-  FROM jour_propositions p WHERE p.statut = 'acceptee'
+  FROM jour_propositions p WHERE p.statut IN ('acceptee', 'retiree')
   UNION ALL
   SELECT p.profile_id, ${CONFETTIS_D_UNE_QUESTION_JOUEE}, NULL, r.posee_le
   FROM jour_propositions p JOIN jour_reserve r ON r.id = p.reserve_id WHERE p.statut = 'acceptee' AND ${JOUEE_ET_COMPTEE}
@@ -310,7 +327,7 @@ function lectureDesJustes(profileId: string): InStatement {
     sql: `SELECT (SELECT COALESCE(SUM(${CONFETTIS_D_UNE_PARTIE}), 0) FROM jour_parties WHERE profile_id = ?)
                + (SELECT COALESCE(SUM(? + CASE WHEN ${JOUEE_ET_COMPTEE} THEN ? ELSE 0 END + CASE WHEN ${BIEN_DOSEE} THEN ? ELSE 0 END), 0)
                   FROM jour_propositions p LEFT JOIN jour_reserve r ON r.id = p.reserve_id
-                  WHERE p.profile_id = ? AND p.statut = 'acceptee') AS n`,
+                  WHERE p.profile_id = ? AND p.statut IN ('acceptee', 'retiree')) AS n`,
     args: [profileId, CONFETTIS_D_UNE_QUESTION_ACCEPTEE, CONFETTIS_D_UNE_QUESTION_JOUEE, CONFETTIS_D_UNE_QUESTION_BIEN_DOSEE, profileId],
   }
 }
@@ -357,28 +374,31 @@ function mercisLus(res: ResultSet): AnnonceDeLAdministrateur[] {
 
 /**
  * Les questions qu'il a proposées et que le QG a relues depuis `depuis` — ou
- * que le quiz du jour a posées depuis ce jour-là : son accueil le lui dit,
- * une fois par téléphone. Posée longtemps après son acceptation — la file du
- * public avance d'une par jour —, elle se lit par son jour. Par l'index de
- * ses propositions, dans le lot de l'accueil (`accueilDe`).
+ * que le quiz du jour a posées depuis ce jour-là, ou que le QG a retirées de
+ * la file depuis : son accueil le lui dit, une fois par téléphone. Posée
+ * longtemps après son acceptation — la file du public avance d'une par jour
+ * —, elle se lit par son jour ; retirée, par l'instant de son retrait, que la
+ * réserve garde (`retiree_le`). Par l'index de ses propositions, dans le lot
+ * de l'accueil (`accueilDe`).
  */
 function lectureDesPropositionsRelues(profileId: string, depuis: number): InStatement {
   return {
-    sql: `SELECT p.id, p.statut, p.motif, p.relue_le, json_extract(p.question, '$.texte') AS texte, r.posee_le, ${ANNULEE_POUR_TOUS} AS annulee,
+    sql: `SELECT p.id, p.statut, p.motif, p.relue_le, json_extract(p.question, '$.texte') AS texte, r.posee_le, r.retiree_le, r.d_office, ${ANNULEE_POUR_TOUS} AS annulee,
                  EXISTS (SELECT 1 FROM jour_bonus b WHERE b.jour = r.posee_le AND b.reserve_id = r.id) AS en_bonus,
                  EXISTS (SELECT 1 FROM jour_clotures c WHERE c.jour = r.posee_le) AS close,
                  CASE WHEN r.posee_le IS NULL THEN NULL ELSE ${salleDuBonus('r.posee_le')} END AS salle
           FROM jour_propositions p LEFT JOIN jour_reserve r ON r.id = p.reserve_id
-          WHERE p.profile_id = ? AND p.statut IN ('acceptee', 'refusee') AND (p.relue_le >= ? OR r.posee_le >= ?)`,
-    args: [profileId, depuis, jourDe(depuis)],
+          WHERE p.profile_id = ? AND p.statut IN ('acceptee', 'refusee', 'retiree') AND (p.relue_le >= ? OR r.posee_le >= ? OR r.retiree_le >= ?)`,
+    args: [profileId, depuis, jourDe(depuis), depuis],
   }
 }
 
 /**
  * Ce que l'accueil lui dit de ses questions (`lectureDesPropositionsRelues`) :
- * posée — ou annulée —, acceptée — pas les deux —, ou refusée. Posée en
- * question bonus, le jour clos, son bilan prend la place de la carte du
- * jour : ce que la salle en a fait, et son dosage.
+ * posée — ou annulée —, acceptée — pas les deux —, refusée, ou retirée de la
+ * file avant son jour. Posée en question bonus, le jour clos, son bilan prend
+ * la place de la carte du jour : ce que la salle en a fait, et son dosage —
+ * sauf annulée pour tous : sa carte le dit, il n'y a rien à juger.
  */
 function propositionsRelues(res: ResultSet): AnnonceDeLAdministrateur[] {
   return res.rows.flatMap((r): AnnonceDeLAdministrateur[] => {
@@ -388,18 +408,24 @@ function propositionsRelues(res: ResultSet): AnnonceDeLAdministrateur[] {
     if (r.statut === 'refusee') {
       return [{ id: `proposition:${id}:refusee`, sorte: 'proposition', issue: 'refusee', question, motif: r.motif == null ? null : String(r.motif), le: Number(r.relue_le) }]
     }
+    // Retirée : l'acceptation d'avant se tait, et cette carte-ci se lit sous son nom à elle, même l'autre déjà vue.
+    if (r.statut === 'retiree') {
+      return [{ id: `proposition:${id}:retiree`, sorte: 'proposition', issue: 'retiree', question, motif: r.motif == null ? null : String(r.motif), le: Number(r.retiree_le ?? r.relue_le) }]
+    }
     // Posée, elle dit tout : l'acceptation d'avant ne se redit pas à côté. Annulée ensuite, elle ne paie plus son
     // jour : la carte qui le promettait se tait, et une autre le dit — sous son nom à elle, même déjà vue.
     if (typeof r.posee_le === 'string') {
       const enBonus = Number(r.en_bonus) === 1
       // Le lendemain, son bilan : sous son nom à lui, il se lit même quand la carte du jour a été vue.
-      if (enBonus && Number(r.close) === 1) {
+      if (enBonus && Number(r.close) === 1 && !Number(r.annulee)) {
         return [{ id: `proposition:${id}:bilan`, sorte: 'proposition', issue: 'bilan', question, motif: null, le: minuitDuJour(jourAvant(r.posee_le, -1)), salle: salleLue(r.salle) }]
       }
       const issue = Number(r.annulee) ? 'annulee' : 'posee'
       return [{ id: `proposition:${id}:${issue}`, sorte: 'proposition', issue, question, motif: null, le: minuitDuJour(r.posee_le), ...(enBonus && { bonus: true as const }) }]
     }
-    return [{ id: `proposition:${id}:acceptee`, sorte: 'proposition', issue: 'acceptee', question, motif: null, le: Number(r.relue_le) }]
+    return [
+      { id: `proposition:${id}:acceptee`, sorte: 'proposition', issue: 'acceptee', question, motif: null, le: Number(r.relue_le), ...(Number(r.d_office) === 1 && { dOffice: true as const }) },
+    ]
   })
 }
 
@@ -409,12 +435,36 @@ function minuitDuJour(jour: string): number {
   return minuitDe(Date.UTC(annee, mois - 1, j, 12))
 }
 
-/** Une proposition lue de sa colonne : la question telle que le joueur l'a écrite — son anecdote s'il en a écrit une —, ou null. */
+/** Une proposition lue de sa colonne : la question telle que le joueur l'a écrite — son anecdote, sa catégorie s'il en a donné —, ou null. */
 function questionProposeeLue(brut: unknown): QuestionProposee | null {
   try {
     const q = JSON.parse(String(brut)) as Partial<QuestionProposee>
     if (typeof q.texte !== 'string' || !Array.isArray(q.reponses) || !Number.isInteger(q.bonne)) return null
-    return { texte: q.texte, reponses: q.reponses.map(String), bonne: q.bonne!, ...(typeof q.anecdote === 'string' && q.anecdote && { anecdote: q.anecdote }) }
+    const categorie = lireLaCategorie(q.categorie)
+    return {
+      texte: q.texte,
+      reponses: q.reponses.map(String),
+      bonne: q.bonne!,
+      ...(typeof q.anecdote === 'string' && q.anecdote && { anecdote: q.anecdote }),
+      ...(categorie && { categorie }),
+    }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Une question de la réserve, telle que le quiz du jour la jouera — retouches
+ * du QG comprises —, dans les mots d'une proposition : ce que la file du QG
+ * montre d'une question qu'il lit (`lireLaQuestionEnFile`). Null : illisible.
+ */
+function questionDeLaReserve(brut: unknown, categorie: unknown): QuestionProposee | null {
+  try {
+    const q = JSON.parse(String(brut)) as QuizQuestionDef
+    const p = toPlayable({ ...q, id: q.id ?? 'reserve' })
+    if (!p || p.kind !== 'choice') return null
+    const lue = lireLaCategorie(categorie)
+    return { texte: p.text, reponses: p.answers, bonne: p.correct, ...(p.anecdote && { anecdote: p.anecdote }), ...(lue && { categorie: lue }) }
   } catch {
     return null
   }
@@ -423,10 +473,37 @@ function questionProposeeLue(brut: unknown): QuestionProposee | null {
 /** Une proposition au QG, son auteur par son profil : la route le nomme. */
 export type PropositionLue = Omit<PropositionAuQg, 'auteur'> & { auteurId: string }
 
+/** Une question de la file au QG, son auteur par son profil : la route le nomme. */
+export type QuestionEnFileLue = Omit<QuestionEnFile, 'auteur'> & { auteurId: string }
+
 /** Un statut lu de sa colonne ; ce qu'on ne connaît pas se relit à relire. */
 function statutLu(brut: unknown): StatutDUneProposition {
-  return brut === 'acceptee' || brut === 'refusee' || brut === 'posee' ? brut : 'en-relecture'
+  return brut === 'acceptee' || brut === 'refusee' || brut === 'retiree' || brut === 'posee' ? brut : 'en-relecture'
 }
+
+/**
+ * Ce qui dit si un auteur est de confiance (`estDeConfiance`), d'une ligne :
+ * sa dernière question acceptée, sa dernière retirée de la file — l'instant
+ * de son retrait, que la réserve garde —, sa dernière question bonus annulée
+ * pour tous, et combien des siennes attendent leur jour. Par l'index de ses
+ * propositions.
+ */
+function lectureDeLaConfiance(profileId: string): InStatement {
+  return {
+    sql: `SELECT
+            (SELECT MAX(relue_le) FROM jour_propositions WHERE profile_id = ? AND statut = 'acceptee') AS acceptee,
+            (SELECT MAX(r.retiree_le) FROM jour_propositions p JOIN jour_reserve r ON r.id = p.reserve_id
+              WHERE p.profile_id = ? AND p.statut = 'retiree') AS retiree,
+            (SELECT MAX(CAST(json_extract(b.question, '$.annulee') AS INTEGER)) FROM jour_propositions p JOIN jour_reserve r ON r.id = p.reserve_id
+              JOIN jour_bonus b ON b.jour = r.posee_le AND b.reserve_id = r.id WHERE p.profile_id = ? AND p.statut = 'acceptee') AS annulee,
+            (SELECT COUNT(*) FROM jour_propositions p JOIN jour_reserve r ON r.id = p.reserve_id
+              WHERE p.profile_id = ? AND p.statut = 'acceptee' AND r.posee_le IS NULL AND r.retiree_le IS NULL) AS en_file`,
+    args: [profileId, profileId, profileId, profileId],
+  }
+}
+
+/** Un instant lu d'une colonne : null s'il n'y en a pas. */
+const instantLu = (brut: unknown): number | null => (brut == null ? null : Number(brut))
 
 /** Ses questions proposées que « Tes questions » montre, au plus : les plus récentes. */
 const PROPOSITIONS_MONTREES = 20
@@ -957,6 +1034,12 @@ export class JourStore {
     // Le profil de l'administrateur qui l'a acceptée (le 8 novembre 2026) :
     // il en connaît la réponse, la question bonus ne se joue pas pour lui.
     await ajouterColonne(this.client, 'jour_reserve', 'relecteur', 'TEXT')
+    // Passée d'office, sans relecture (le 9 novembre 2026) : son auteur était
+    // de confiance (`proposer`). Le QG la montre close dans la file, et le dit.
+    // Sur la réserve plutôt que sur la proposition : le schéma de
+    // `jour_reserve` est déjà lu, celui de `jour_propositions` coûterait une
+    // lecture de plus à chaque réveil.
+    await ajouterColonne(this.client, 'jour_reserve', 'd_office', 'INTEGER NOT NULL DEFAULT 0')
     for (const r of (await this.client.execute('SELECT profile_id FROM jour_masques')).rows) this.masques.add(String(r.profile_id))
     await this.amorcer()
   }
@@ -1129,6 +1212,8 @@ export class JourStore {
     auteur: string | null = null,
     /** Le profil de l'administrateur qui l'a acceptée : il ne la jouera pas. */
     relecteur: string | null = null,
+    /** Acceptée d'office, sans relecture : son auteur est de confiance (`proposer`). */
+    dOffice = false,
   ): Promise<{ ajoutees: number; ecartees: { texte: string; raison: string }[] }> {
     const ecartees: { texte: string; raison: string }[] = []
     const vues = new Set<string>()
@@ -1171,9 +1256,9 @@ export class JourStore {
     await this.client.batch(
       [
         ...neuves.map((c, i) => ({
-          sql: `INSERT OR IGNORE INTO jour_reserve (id, question, empreinte, categorie, source, ajoutee_le, auteur, relecteur) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          sql: `INSERT OR IGNORE INTO jour_reserve (id, question, empreinte, categorie, source, ajoutee_le, auteur, relecteur, d_office) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           // Une milliseconde d'écart par question : la réserve garde l'ordre de la liste.
-          args: [c.id, JSON.stringify(c.question), c.empreinte, c.question.category ?? null, source, quand + i, auteur, relecteur],
+          args: [c.id, JSON.stringify(c.question), c.empreinte, c.question.category ?? null, source, quand + i, auteur, relecteur, dOffice ? 1 : 0],
         })),
         {
           sql: 'INSERT INTO jour_apports (id, quand, source, ajoutees, ecartees) VALUES (?, ?, ?, ?, ?)',
@@ -1378,31 +1463,82 @@ export class JourStore {
   /**
    * Un joueur propose une question au quiz du jour (`shared/propositions.ts`),
    * relue aux règles mêmes que son téléphone lui a conseillées — refusée en
-   * clair sinon. Trois en relecture à la fois au plus
-   * (`PROPOSITIONS_EN_RELECTURE_MAX`), comptées dans l'instruction même qui
-   * l'écrit : deux touchers croisés n'en font pas passer une quatrième.
+   * clair sinon. Un auteur de confiance la voit passer d'office, sa catégorie
+   * donnée (`accepterDOffice`) ; sinon elle part en relecture, trois à la fois
+   * au plus (`PROPOSITIONS_EN_RELECTURE_MAX`), comptées dans l'instruction
+   * même qui l'écrit : deux touchers croisés n'en font pas passer une
+   * quatrième. Sous son verrou à lui : deux envois croisés d'un auteur de
+   * confiance ne dépassent pas sa part de la file.
    */
   async proposer(profil: ProfileRec, brut: unknown): Promise<PropositionDuJoueur> {
     const lue = lireLaProposition(brut)
     if (typeof lue === 'string') throw new Error(lue)
-    const id = randomUUID()
-    const maintenant = this.maintenant()
-    const res = await this.client.execute({
-      sql: `INSERT INTO jour_propositions (id, profile_id, question, proposee_le, statut)
-            SELECT ?, ?, ?, ?, 'en-relecture'
-            WHERE (SELECT COUNT(*) FROM jour_propositions WHERE profile_id = ? AND statut = 'en-relecture') < ?`,
-      args: [id, profil.id, JSON.stringify(lue), maintenant, profil.id, PROPOSITIONS_EN_RELECTURE_MAX],
+    return this.avecVerrou(`#plume:${profil.id}`, async () => {
+      const id = randomUUID()
+      const maintenant = this.maintenant()
+      // Une page d'avant n'envoie pas de catégorie : personne ne l'aurait classée, le QG la relit.
+      const dOffice = lue.categorie ? await this.accepterDOffice(profil.id, id, { ...lue, categorie: lue.categorie }, maintenant) : null
+      if (dOffice) return dOffice
+      const res = await this.client.execute({
+        sql: `INSERT INTO jour_propositions (id, profile_id, question, proposee_le, statut)
+              SELECT ?, ?, ?, ?, 'en-relecture'
+              WHERE (SELECT COUNT(*) FROM jour_propositions WHERE profile_id = ? AND statut = 'en-relecture') < ?`,
+        args: [id, profil.id, JSON.stringify(lue), maintenant, profil.id, PROPOSITIONS_EN_RELECTURE_MAX],
+      })
+      if (res.rowsAffected === 0) throw new Error(`Tu as déjà ${PROPOSITIONS_EN_RELECTURE_MAX} questions en relecture : attends qu’une soit relue`)
+      return { id, ...lue, statut: 'en-relecture', proposeeLe: maintenant }
     })
-    if (res.rowsAffected === 0) throw new Error(`Tu as déjà ${PROPOSITIONS_EN_RELECTURE_MAX} questions en relecture : attends qu’une soit relue`)
-    return { id, ...lue, statut: 'en-relecture', proposeeLe: maintenant }
+  }
+
+  /**
+   * La question d'un auteur de confiance (`estDeConfiance`), acceptée
+   * d'office (le choix du propriétaire du 9 novembre 2026) : elle rejoint la
+   * file comme une question que le QG accepte — signée, sa proposition dite
+   * acceptée dans le lot même de l'apport —, sans relecteur : personne ne la
+   * connaît, l'administrateur la jouera comme tout le monde. Null : il n'est
+   * pas de confiance, ou elle ne passe pas d'office — la réserve ou la
+   * campagne l'ont déjà, elle ne se joue pas telle quelle — : la relecture le
+   * dira au QG, sans apprendre au joueur ce que la réserve contient.
+   */
+  private async accepterDOffice(
+    auteur: string,
+    id: string,
+    lue: QuestionProposee & { categorie: string },
+    maintenant: number,
+  ): Promise<PropositionDuJoueur | null> {
+    const confiance = (await this.client.execute(lectureDeLaConfiance(auteur))).rows[0]
+    if (!confiance || !estDeConfiance(instantLu(confiance.acceptee), instantLu(confiance.retiree), instantLu(confiance.annulee))) return null
+    if (Number(confiance.en_file) >= QUESTIONS_D_OFFICE_EN_FILE_MAX) {
+      throw new Error(`${QUESTIONS_D_OFFICE_EN_FILE_MAX} de tes questions attendent déjà leur jour : la suivante quand l’une sera passée`)
+    }
+    const def = normalizeQuestions([{ kind: 'choice', text: lue.texte, answers: lue.reponses, correct: lue.bonne, anecdote: lue.anecdote ?? null, category: lue.categorie }])[0]
+    if (!def || raisonDEcarter(def)) return null
+    const { ajoutees } = await this.ajouter(
+      [def],
+      'public',
+      n =>
+        n > 0
+          ? {
+              sql: `INSERT INTO jour_propositions (id, profile_id, question, proposee_le, statut, relue_le, reserve_id)
+                    VALUES (?, ?, ?, ?, 'acceptee', ?, (SELECT id FROM jour_reserve WHERE empreinte = ?))`,
+              args: [id, auteur, JSON.stringify(lue), maintenant, maintenant, empreinteDe(def.text)],
+            }
+          : { sql: 'SELECT 0', args: [] },
+      auteur,
+      null,
+      true,
+    )
+    if (ajoutees === 0) return null
+    return { id, ...lue, statut: 'acceptee', proposeeLe: maintenant, dOffice: true }
   }
 
   /** Ses questions proposées, les plus récentes d'abord (« Tes questions ») : posée, avec le jour qui l'a jouée. */
   async sesPropositions(profileId: string): Promise<PropositionDuJoueur[]> {
     const res = await this.client.execute({
-      // Posée en question bonus : ce que la salle en a fait, que « Tes questions » dit sous elle.
-      sql: `SELECT p.id, p.question, p.proposee_le, p.statut, p.motif, r.posee_le,
-                   CASE WHEN EXISTS (SELECT 1 FROM jour_bonus b WHERE b.jour = r.posee_le AND b.reserve_id = r.id) THEN ${salleDuBonus('r.posee_le')} END AS salle
+      // Posée en question bonus : ce que la salle en a fait, que « Tes questions » dit sous elle — annulée, rien à en dire.
+      sql: `SELECT p.id, p.question, p.proposee_le, p.statut, p.motif, r.posee_le, r.d_office,
+                   CASE WHEN EXISTS (SELECT 1 FROM jour_bonus b WHERE b.jour = r.posee_le AND b.reserve_id = r.id AND json_extract(b.question, '$.annulee') IS NULL)
+                        THEN ${salleDuBonus('r.posee_le')} END AS salle
             FROM jour_propositions p LEFT JOIN jour_reserve r ON r.id = p.reserve_id
             WHERE p.profile_id = ? ORDER BY p.proposee_le DESC LIMIT ?`,
       args: [profileId, PROPOSITIONS_MONTREES],
@@ -1420,31 +1556,42 @@ export class JourStore {
           ...(r.motif != null && { motif: String(r.motif) }),
           ...(posee && { jour: posee }),
           ...(typeof r.salle === 'string' && { salle: salleLue(r.salle) }),
+          ...(Number(r.d_office) === 1 && { dOffice: true as const }),
         },
       ]
     })
   }
 
   /**
-   * Ce que le QG relit des questions du public : celles qui attendent, la
-   * plus ancienne d'abord, et celles relues ce dernier mois. Leurs auteurs
-   * par leur profil : la route les nomme (`pourLAdministration`), un suspendu
-   * compris. Et combien d'acceptées attendent leur jour.
+   * Ce que le QG relit des questions du public : celles qui attendent leur
+   * relecture, la plus ancienne d'abord ; la file des acceptées, dans l'ordre
+   * où le tirage les prendra (`tirer`) — leur question seulement si
+   * l'administrateur la connaît déjà (`relecteur`) : passée d'office, elle
+   * reste close tant qu'il ne la lit pas (`lireLaQuestionEnFile`) ; et celles
+   * refusées, retirées ou jouées ce dernier mois. Leurs auteurs par leur
+   * profil : la route les nomme (`pourLAdministrateurDe`), un suspendu compris.
    */
-  async propositionsAuQg(): Promise<{ aRelire: PropositionLue[]; relues: PropositionLue[]; enAttente: number }> {
-    const [aRelire, relues, file] = await this.client.batch(
+  async propositionsAuQg(): Promise<{ aRelire: PropositionLue[]; enFile: QuestionEnFileLue[]; relues: PropositionLue[] }> {
+    const depuis = this.maintenant() - JOURS_DES_PROPOSITIONS_RELUES * 24 * HEURE_MS
+    const [aRelire, file, relues] = await this.client.batch(
       [
-        `SELECT id, profile_id, question, proposee_le, statut, motif, relue_le, NULL AS posee_le FROM jour_propositions
+        `SELECT id, profile_id, question, proposee_le, statut, motif, relue_le FROM jour_propositions
          WHERE statut = 'en-relecture' ORDER BY proposee_le`,
+        // Acceptée par le QG, il l'a lue en l'acceptant ; passée d'office, elle attend son « La lire ».
+        `SELECT p.id, p.profile_id, p.proposee_le, p.relue_le, r.categorie, r.d_office,
+                CASE WHEN r.relecteur IS NOT NULL OR r.d_office = 0 THEN r.question END AS question
+         FROM jour_propositions p JOIN jour_reserve r ON r.id = p.reserve_id
+         WHERE p.statut = 'acceptee' AND r.posee_le IS NULL AND r.retiree_le IS NULL
+         ORDER BY r.ajoutee_le, r.id`,
         {
-          // Posée en question bonus : ce que la salle en a fait — la part qui l'a trouvée, les pouces —, de quoi repérer qui écrit bien.
-          sql: `SELECT p.id, p.profile_id, p.question, p.proposee_le, p.statut, p.motif, p.relue_le, r.posee_le,
+          // Jouée en question bonus : ce que la salle en a fait — la part qui l'a trouvée, les pouces —, de quoi repérer qui écrit bien.
+          sql: `SELECT p.id, p.profile_id, p.question, p.proposee_le, p.statut, p.motif, p.relue_le, r.posee_le, r.retiree_le, r.d_office,
+                       CASE WHEN r.posee_le IS NULL THEN 0 ELSE ${ANNULEE_POUR_TOUS} END AS annulee,
                        CASE WHEN EXISTS (SELECT 1 FROM jour_bonus b WHERE b.jour = r.posee_le AND b.reserve_id = r.id) THEN ${salleDuBonus('r.posee_le')} END AS salle
                 FROM jour_propositions p LEFT JOIN jour_reserve r ON r.id = p.reserve_id
-                WHERE p.statut IN ('acceptee', 'refusee') AND p.relue_le >= ? ORDER BY p.relue_le DESC`,
-          args: [this.maintenant() - JOURS_DES_PROPOSITIONS_RELUES * 24 * HEURE_MS],
+                WHERE (p.statut = 'refusee' AND p.relue_le >= ?) OR (p.statut = 'retiree' AND r.retiree_le >= ?) OR (p.statut = 'acceptee' AND r.posee_le >= ?)`,
+          args: [depuis, depuis, jourDe(depuis)],
         },
-        "SELECT COUNT(*) AS n FROM jour_reserve WHERE source = 'public' AND posee_le IS NULL AND retiree_le IS NULL",
       ],
       'read',
     )
@@ -1461,10 +1608,102 @@ export class JourStore {
           ...(r.motif != null && { motif: String(r.motif) }),
           ...(r.relue_le != null && { relueLe: Number(r.relue_le) }),
           ...(typeof r.salle === 'string' && { salle: salleLue(r.salle) }),
+          ...(Number(r.d_office) === 1 && { dOffice: true as const }),
+          ...(Number(r.annulee) === 1 && { annulee: true as const }),
         },
       ]
     }
-    return { aRelire: aRelire.rows.flatMap(lire), relues: relues.rows.flatMap(lire), enAttente: Number(file.rows[0]?.n ?? 0) }
+    // Le plus récent d'abord : une jouée à son jour, une retirée à son retrait, une refusée à sa relecture.
+    const quand = (r: Record<string, unknown>) => (typeof r.posee_le === 'string' ? minuitDuJour(r.posee_le) : r.statut === 'retiree' ? Number(r.retiree_le) : Number(r.relue_le))
+    return {
+      aRelire: aRelire.rows.flatMap(lire),
+      enFile: file.rows.map(r => {
+        const question = r.question == null ? null : questionDeLaReserve(r.question, r.categorie)
+        return {
+          id: String(r.id),
+          auteurId: String(r.profile_id),
+          categorie: r.categorie == null ? null : String(r.categorie),
+          proposeeLe: Number(r.proposee_le),
+          accepteeLe: Number(r.relue_le),
+          dOffice: Number(r.d_office) === 1,
+          ...(question && { question }),
+        }
+      }),
+      relues: [...relues.rows].sort((a, b) => quand(b) - quand(a)).flatMap(lire),
+    }
+  }
+
+  /**
+   * L'administrateur lit une question de la file (« La lire ») : elle se
+   * montre telle qu'elle se jouera, et il en devient le relecteur — il en
+   * connaît la réponse, la question bonus ne se jouera pas pour lui, comme
+   * s'il l'avait acceptée. `lecteur` : le profil que tient sa console ; sans
+   * profil, rien à retenir — il ne joue pas le quiz du jour d'ici. Null : elle
+   * n'existe pas ; plus dans la file, le geste se refuse.
+   */
+  async lireLaQuestionEnFile(id: string, lecteur: string | null): Promise<{ question: QuestionProposee; auteurId: string } | null> {
+    const [, lue] = await this.client.batch(
+      [
+        lecteur
+          ? {
+              sql: `UPDATE jour_reserve SET relecteur = ? WHERE id = (SELECT reserve_id FROM jour_propositions WHERE id = ? AND statut = 'acceptee')
+                    AND posee_le IS NULL AND retiree_le IS NULL AND relecteur IS NULL`,
+              args: [lecteur, id],
+            }
+          : { sql: 'SELECT 0', args: [] },
+        {
+          sql: `SELECT p.profile_id, p.statut, r.question, r.categorie, r.posee_le, r.retiree_le
+                FROM jour_propositions p LEFT JOIN jour_reserve r ON r.id = p.reserve_id WHERE p.id = ?`,
+          args: [id],
+        },
+      ],
+      'write',
+    )
+    const r = lue.rows[0]
+    if (!r) return null
+    if (r.statut !== 'acceptee' || r.question == null || r.posee_le != null || r.retiree_le != null) throw new Error('Cette question n’attend plus son jour : recharge la page')
+    const question = questionDeLaReserve(r.question, r.categorie)
+    if (!question) throw new Error('Cette question ne se lit pas : retire-la de la file')
+    return { question, auteurId: String(r.profile_id) }
+  }
+
+  /**
+   * Retire de la file une question acceptée, avant son jour, en disant
+   * pourquoi : elle quitte la réserve, et son auteur le lit sur son accueil,
+   * une fois. Son acceptation reste payée — elle a pu passer d'office, ses
+   * confettis paraître au solde —, mais il n'est plus de confiance : sa
+   * prochaine question repasse par la relecture (`estDeConfiance`, l'instant du
+   * retrait dans `jour_reserve.retiree_le`). Déjà posée, elle ne se retire
+   * plus : le jour qui la joue l'annule pour tous (`annulerLeBonus`). Null :
+   * elle n'existe pas.
+   */
+  async retirerLaProposition(id: string, brut: unknown): Promise<{ texte: string; auteurId: string } | null> {
+    const motif = lireLeMotif(brut)
+    if (typeof motif !== 'string') throw new Error(motif.erreur)
+    const maintenant = this.maintenant()
+    // Le retrait de la réserve d'abord, puis la proposition — seulement si c'est ce retrait-ci qui l'a ôtée : d'un seul lot.
+    const [retrait, , ligne] = await this.client.batch(
+      [
+        {
+          sql: `UPDATE jour_reserve SET retiree_le = ? WHERE id = (SELECT reserve_id FROM jour_propositions WHERE id = ? AND statut = 'acceptee')
+                AND posee_le IS NULL AND retiree_le IS NULL`,
+          args: [maintenant, id],
+        },
+        {
+          sql: `UPDATE jour_propositions SET statut = 'retiree', motif = ? WHERE id = ? AND statut = 'acceptee'
+                AND EXISTS (SELECT 1 FROM jour_reserve r WHERE r.id = jour_propositions.reserve_id AND r.retiree_le = ?)`,
+          args: [motif, id, maintenant],
+        },
+        { sql: 'SELECT p.profile_id, p.question, r.posee_le FROM jour_propositions p LEFT JOIN jour_reserve r ON r.id = p.reserve_id WHERE p.id = ?', args: [id] },
+      ],
+      'write',
+    )
+    const r = ligne.rows[0]
+    if (!r) return null
+    if (retrait.rowsAffected === 0) {
+      throw new Error(r.posee_le != null ? 'Elle est déjà passée au quiz du jour : annule-la pour tous depuis son suivi' : 'Cette question n’attend plus son jour')
+    }
+    return { texte: questionProposeeLue(r.question)?.texte ?? '', auteurId: String(r.profile_id) }
   }
 
   /** Combien de questions du public attendent leur relecture : ce que le QG compte sur sa page. */
@@ -1489,9 +1728,10 @@ export class JourStore {
     if (!ligne) return null
     if (ligne.statut !== 'en-relecture') throw new Error('Cette question est déjà relue')
     const o = brut && typeof brut === 'object' ? (brut as Record<string, unknown>) : {}
-    const lue = lireLaProposition(o)
+    // Sa catégorie se relit à part, dite à l'administrateur : le conseil du joueur parlerait du haut de sa carte.
+    const lue = lireLaProposition({ ...o, categorie: undefined })
     if (typeof lue === 'string') throw new Error(lue)
-    const categorie = (CATEGORIES as readonly unknown[]).includes(o.categorie) ? String(o.categorie) : null
+    const categorie = lireLaCategorie(o.categorie)
     if (!categorie) throw new Error('Choisis sa catégorie : le quiz du jour en mêle deux au plus de chaque')
     const anecdote = typeof o.anecdote === 'string' ? o.anecdote.trim().replace(/\s+/g, ' ') : ''
     if (tronquer(anecdote, MAX_ANECDOTE) !== anecdote) throw new Error(`L’anecdote tient en ${MAX_ANECDOTE} caractères`)
@@ -2046,7 +2286,10 @@ export class JourStore {
       if (this.neLaJouePas(bonus, profil.id)) throw new Error('Tu en connais la réponse : elle ne se joue pas pour toi')
       const partie = await this.partieDe(profil.id, jour)
       if (!partie?.finieLe) throw new Error('Finis d’abord tes dix questions : la question bonus vient après')
-      if (partie.bonusServieLe !== null) return { ...(await this.bonusVu(profil, tirage, (await this.expirerLeBonus(partie, tirage)) ?? partie)), maintenant: this.maintenant() }
+      // Annulée pour tous : sa vue le dit, et la page range la carte qui la proposait.
+      if (bonus.annulee !== undefined || partie.bonusServieLe !== null) {
+        return { ...(await this.bonusVu(profil, tirage, (await this.expirerLeBonus(partie, tirage)) ?? partie)), maintenant: this.maintenant() }
+      }
       // Sa signature d'abord, puis la question servie et relue dans le même lot : son chrono part au dernier aller-retour.
       const auteur = await this.signatureDe(bonus.auteur)
       const [, lue] = await this.client.batch(
@@ -2076,7 +2319,9 @@ export class JourStore {
       if (!bonus) throw new Error('Pas de question bonus ce jour-là')
       const partie = await this.partieDe(profil.id, jour)
       if (!partie) throw new Error('Commence d’abord le quiz du jour')
-      if (partie.bonusLe !== null) return this.bonusVu(profil, tirage, partie)
+      // Annulée pour tous pendant qu'il la lisait : rien ne s'écrit, sa vue le lui dit. Le tirage se relit sous son
+      // verrou — l'annulation le change d'abord, puis défait chacun sous le sien (`annulerLeBonus`).
+      if (partie.bonusLe !== null || bonus.annulee !== undefined) return this.bonusVu(profil, tirage, partie)
       if (this.neLaJouePas(bonus, profil.id) || partie.bonusServieLe === null) throw new Error('Cette question n’est pas encore posée')
       const maintenant = this.maintenant()
       // Minuit clôt la journée, sa question bonus avec : sa nuit juge déjà son dosage.
@@ -2100,6 +2345,7 @@ export class JourStore {
     return this.avecVerrou(profil.id, async () => {
       const tirage = jourValide(jour) ? await this.tirage(jour) : null
       if (!tirage?.bonus) throw new Error('Pas de question bonus ce jour-là')
+      if (tirage.bonus.annulee !== undefined) throw new Error('Cette question bonus a été annulée pour tous : rien à noter')
       if (jour !== jourDe(this.maintenant())) throw new Error('Minuit est passé : la question bonus d’hier est close')
       const partie = await this.partieDe(profil.id, jour)
       if (partie?.bonusLe == null) throw new Error('Joue-la d’abord : on note une question qu’on a jouée')
@@ -2117,7 +2363,8 @@ export class JourStore {
   /** La question bonus montrée dont l'échéance est passée sans réponse : elle compte « sans réponse ». Rend la partie d'après, ou null. */
   private async expirerLeBonus(partie: Partie, tirage: Tirage): Promise<Partie | null> {
     const b = tirage.bonus
-    if (!b || partie.bonusServieLe === null || partie.bonusLe !== null) return null
+    // Annulée pour tous : rien ne s'écrit plus pour elle, pas même « sans réponse ».
+    if (!b || b.annulee !== undefined || partie.bonusServieLe === null || partie.bonusLe !== null) return null
     const maintenant = this.maintenant()
     if (maintenant - partie.bonusServieLe <= b.duree * 1000 + GRACE_MS) return null
     return this.ecrireLeBonus(partie, null, false, maintenant)
@@ -2163,8 +2410,11 @@ export class JourStore {
     const b = tirage.bonus!
     const sansLaJouer = this.neLaJouePas(b, profil.id)
     const enCours = partie !== null && partie.finieLe === null
+    const annulee = b.annulee !== undefined
+    // Annulée pour tous : qui ne l'a pas jouée ne la jouera plus — pendant les dix, rien ne se dit encore.
     const etat: BonusDuJour['etat'] =
-      sansLaJouer ?? (!partie || enCours ? 'a-venir' : partie.bonusLe !== null ? 'jouee' : partie.bonusServieLe !== null ? 'en-cours' : 'a-jouer')
+      sansLaJouer ??
+      (enCours ? 'a-venir' : partie?.bonusLe != null ? 'jouee' : annulee ? 'annulee' : !partie ? 'a-venir' : partie.bonusServieLe !== null ? 'en-cours' : 'a-jouer')
     // Sa signature, sauf à lui-même, et pas pendant les dix : la page ne la montre qu'avant et après.
     const signature = sansLaJouer === 'tienne' || (enCours && !corrigee) ? null : auteur === undefined ? await this.signatureDe(b.auteur) : auteur
     let vu: BonusDuJour = {
@@ -2173,6 +2423,7 @@ export class JourStore {
       xp: XP_DE_LA_QUESTION_BONUS,
       duree: b.duree,
       ...(signature && { auteur: signature }),
+      ...(annulee && { annulee: true as const }),
     }
     if (etat === 'en-cours' && !corrigee && partie?.bonusServieLe != null) {
       vu = { ...vu, question: { jour: tirage.jour, texte: b.texte, reponses: b.reponses, categorie: b.categorie, duree: b.duree, echeance: partie.bonusServieLe + b.duree * 1000 } }
@@ -2180,7 +2431,8 @@ export class JourStore {
     // Un jour clos, la correction la montre à tous — même montrée et jamais jouée : minuit l'a close sans rien écrire, sa nuit
     // a déjà jugé son dosage sur ceux qui l'ont jouée.
     if (etat === 'jouee' || (sansLaJouer && !enCours) || corrigee) {
-      const salle = salleLue((await this.client.execute({ sql: `SELECT ${salleDuBonus('?')} AS salle`, args: [tirage.jour] })).rows[0]?.salle)
+      // Annulée, sa salle ne dit plus rien : ses trouvailles sont défaites (`annulerLeBonus`).
+      const salle = annulee ? null : salleLue((await this.client.execute({ sql: `SELECT ${salleDuBonus('?')} AS salle`, args: [tirage.jour] })).rows[0]?.salle)
       const jouee = etat === 'jouee' && partie !== null
       const revelation: RevelationDuBonus = {
         jour: tirage.jour,
@@ -2190,16 +2442,64 @@ export class JourStore {
         categorie: b.categorie,
         anecdote: b.anecdote,
         choix: jouee ? partie.bonusChoix : null,
-        juste: jouee && partie.bonusJuste,
-        trouveePar: salle.joueurs >= TROUVEE_PAR_DES ? salle.trouvees / salle.joueurs : null,
-        confettis: jouee && partie.bonusJuste ? CONFETTIS_DE_LA_QUESTION_BONUS : 0,
-        xp: jouee ? partie.xpBonus : 0,
+        // Annulée, sa colonne est remise à zéro : son choix dit encore s'il l'avait trouvée.
+        juste: jouee && (annulee ? partie.bonusChoix === b.bonne : partie.bonusJuste),
+        trouveePar: salle && salle.joueurs >= TROUVEE_PAR_DES ? salle.trouvees / salle.joueurs : null,
+        confettis: jouee && partie.bonusJuste && !annulee ? CONFETTIS_DE_LA_QUESTION_BONUS : 0,
+        xp: jouee && !annulee ? partie.xpBonus : 0,
         vote: jouee ? partie.bonusVote : null,
-        ...(sansLaJouer && { salle }),
+        ...(sansLaJouer && salle && { salle }),
       }
       vu = { ...vu, revelation }
     }
     return vu
+  }
+
+  /**
+   * Annule pour tous la question bonus d'aujourd'hui (le choix du
+   * propriétaire du 9 novembre 2026) : fausse, ou passée d'office alors
+   * qu'elle n'aurait pas dû. Elle ne se joue plus, ne rapporte plus rien — ses
+   * confettis et son expérience repartent de chez qui l'a trouvée —, ni à son
+   * auteur : ni les confettis de son jour, ni La Plume, ni le défi de l'auteur
+   * (`ANNULEE_POUR_TOUS`), et il n'est plus de confiance (`estDeConfiance`).
+   * Son acceptation reste payée. Après minuit, le jour est clos — son dosage
+   * jugé — : elle ne s'annule plus. Déjà annulée — un double clic, un essai
+   * après une panne à mi-chemin —, chacun se défait encore : rien ne change à
+   * qui l'est déjà.
+   */
+  async annulerLeBonus(jour: string): Promise<{ texte: string; reserveId: string }> {
+    if (!jourValide(jour) || jour !== jourDe(this.maintenant()) || (await this.estClos(jour))) {
+      throw new Error('Ce jour est clos : sa question bonus ne s’annule plus')
+    }
+    const bonus = await this.avecVerrou('#tirage', async () => {
+      const tirage = await this.tirageLu(jour)
+      const b = tirage?.bonus
+      if (!tirage || !b) throw new Error('Pas de question bonus aujourd’hui')
+      if (b.annulee !== undefined) return b
+      const annulee = this.maintenant()
+      await this.client.execute({
+        sql: `UPDATE jour_bonus SET question = json_set(question, '$.annulee', ?) WHERE jour = ? AND json_extract(question, '$.annulee') IS NULL`,
+        args: [annulee, jour],
+      })
+      // Sous le verrou du tirage, comme une annulation des dix : chacun, sous le sien, lira celle-ci.
+      this.garderTirage({ ...tirage, bonus: { ...b, annulee } })
+      return b
+    })
+    // Chacun se défait sous son verrou, ceux qui l'ont vue servie : une réponse partie avant l'annulation et écrite après
+    // passe d'abord, puis se défait ; une réponse d'après lit l'annulation et n'écrit rien (`repondreAuBonus`).
+    const servis = await this.client.execute({ sql: 'SELECT profile_id FROM jour_parties WHERE jour = ? AND bonus_servie_le IS NOT NULL', args: [jour] })
+    await parLots(servis.rows, PROFILS_EN_VOL, r => {
+      const profileId = String(r.profile_id)
+      return this.avecVerrou(profileId, async () => {
+        const defaite = await this.client.execute({
+          sql: 'UPDATE jour_parties SET bonus_juste = 0, xp_bonus = 0 WHERE profile_id = ? AND jour = ? AND (bonus_juste <> 0 OR xp_bonus <> 0)',
+          args: [profileId, jour],
+        })
+        // Son expérience du quiz du jour se recopie sans la question : rien ne s'y gagne, aucun palier n'est à juger.
+        if (defaite.rowsAffected > 0) await this.ecrireXp(profileId, jour, false)
+      })
+    })
+    return { texte: bonus.texte, reserveId: bonus.reserveId }
   }
 
   /**
@@ -4221,6 +4521,7 @@ export class JourStore {
         trouvees: parReponse[b.bonne] ?? 0,
         pour,
         contre,
+        annulee: b.annulee !== undefined,
       }
     }
     const parQuestion = new Map<number, [number | null, number, number | null, number][]>()

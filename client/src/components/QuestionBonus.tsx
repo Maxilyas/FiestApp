@@ -58,8 +58,11 @@ function TeteDuBonus({ auteur, tienne = false }: { auteur?: BonusDuJour['auteur'
  * qu'elle vient d'un joueur avant même la première question.
  */
 export function AnnonceDuBonus({ bonus }: { bonus: BonusDuJour }) {
-  const texte =
-    bonus.etat === 'tienne'
+  const texte = bonus.annulee
+    ? bonus.etat === 'tienne'
+      ? 'Ta question bonus a été annulée pour tous aujourd’hui : elle ne se joue plus.'
+      : 'La question bonus du jour a été annulée : rien de plus après tes dix.'
+    : bonus.etat === 'tienne'
       ? 'Ta question est la question bonus du jour : les autres la jouent après leurs dix.'
       : bonus.etat === 'relue'
         ? 'Aujourd’hui, la question bonus est une question que tu as relue : tu ne la joues pas.'
@@ -112,7 +115,8 @@ export function PouceDuBonus({ vote, auteur, occupe, onVoter }: { vote: VoteDuBo
  * La carte de la question bonus, sous le résultat du jour : l'invitation à
  * la jouer, ce qu'elle a donné une fois jouée — et à son auteur, à qui l'a
  * relue, ce que la salle en fait. Un parchemin : elle ne ressemble à rien
- * d'autre de la page.
+ * d'autre de la page. Annulée pour tous par le QG, elle le dit, et rien ne se
+ * joue ni ne se note plus.
  */
 export function CarteDuBonus({
   bonus,
@@ -131,7 +135,21 @@ export function CarteDuBonus({
     // Pas `.card` : chaque thème repeint la carte d'un verre à lui, et la question d'un joueur ne ressemblerait plus à rien d'autre.
     <section className="bonus-carte" aria-label="La question bonus">
       <TeteDuBonus auteur={bonus.auteur} tienne={bonus.etat === 'tienne'} />
-      {bonus.etat === 'a-jouer' || bonus.etat === 'en-cours' ? (
+      {bonus.annulee ? (
+        <>
+          <h2 className="bonus-titre">{bonus.etat === 'tienne' ? 'Ta question a été annulée pour tous' : 'La question bonus a été annulée'}</h2>
+          {r && <p className="bonus-rappel">{espacesFines(r.texte)}</p>}
+          <p className="muted small">
+            {espacesFines(
+              bonus.etat === 'tienne'
+                ? 'Elle ne compte plus pour personne : ta prochaine question sera relue avant de passer.'
+                : r?.juste
+                  ? 'Tu l’avais trouvée, mais elle ne compte plus : ni confettis ni expérience, pour personne.'
+                  : 'Elle ne compte plus : ni confettis ni expérience, pour personne.',
+            )}
+          </p>
+        </>
+      ) : bonus.etat === 'a-jouer' || bonus.etat === 'en-cours' ? (
         <>
           <h2 className="bonus-titre">Une dernière, pour le plaisir</h2>
           <p className="muted small">
@@ -303,9 +321,9 @@ export function RevelationDuBonusVue({
   occupe: boolean
   onVoter: (v: VoteDuBonus) => void
 }) {
-  const ton = r.choix === null || r.tropTard ? '' : r.juste ? 'result-ok' : 'result-ko'
-  // Sa niche : sans réponse ou trop tard, calme ; peu l'ont trouvée, des cœurs.
-  const reaction = reactionDuSolo(r.tropTard || r.choix === null ? null : r.juste, rareAuQuizDuJour(r.trouveePar))
+  const ton = bonus.annulee || r.choix === null || r.tropTard ? '' : r.juste ? 'result-ok' : 'result-ko'
+  // Sa niche : sans réponse, trop tard ou annulée, calme ; peu l'ont trouvée, des cœurs.
+  const reaction = reactionDuSolo(bonus.annulee || r.tropTard || r.choix === null ? null : r.juste, rareAuQuizDuJour(r.trouveePar))
   const nom = bonus.auteur?.nom
   return (
     <div className="quiz-player bonus-question">
@@ -315,7 +333,9 @@ export function RevelationDuBonusVue({
       </div>
       <div className={'card result-banner ' + ton}>
         <NicheALaRevelation cle={`jour:bonus:${r.jour}`} reaction={reaction} />
-        {r.tropTard ? (
+        {bonus.annulee ? (
+          <p>Annulée pour tous : elle ne compte pour personne.</p>
+        ) : r.tropTard ? (
           <>
             <span className="result-icon">
               <Icon name="clock" />
@@ -370,7 +390,7 @@ export function RevelationDuBonusVue({
           </p>
         )}
         {bonus.auteur && <SignatureDuPublic auteur={bonus.auteur} profil={profil} />}
-        <PouceDuBonus vote={r.vote} auteur={bonus.auteur} occupe={occupe} onVoter={onVoter} />
+        {!bonus.annulee && <PouceDuBonus vote={r.vote} auteur={bonus.auteur} occupe={occupe} onVoter={onVoter} />}
       </div>
     </div>
   )

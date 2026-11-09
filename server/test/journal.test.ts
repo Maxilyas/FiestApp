@@ -88,14 +88,19 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     ok(propose, 'proposer')
     ok(await faire(banc, admin, `/api/admin/catalogue/${propose.corps.id}`, { statut: 'publie' }), 'publier')
 
-    // Le quiz du jour : Léa le commence, son tirage existe.
+    // Le quiz du jour : Léa le commence, son tirage existe — sa question bonus, une question du public acceptée avant.
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
     const idLea = (await lire(banc, lea, '/api/joueur/moi')).corps.profile.id as string
+    const duPublic = (n: number) => ({ texte: `Quelle est la question numéro ${n} du public ?`, reponses: [`A${n}`, `B${n}`, `C${n}`, `D${n}`], bonne: 0 })
+    ok(await faire(banc, lea, '/api/jour/propositions', duPublic(0)), 'proposer la question bonus')
+    const enBonus = (await lire(banc, admin, '/api/admin/jour/propositions')).corps.aRelire[0] as { id: string }
+    ok(await faire(banc, admin, `/api/admin/jour/propositions/${enBonus.id}/accepter`, { question: { ...duPublic(0), categorie: 'Histoire', anecdote: '' } }), 'accepter la question bonus')
     ok(await faire(banc, lea, '/api/jour/commencer'), 'commencer')
     const jour = (await lire(banc, admin, '/api/admin/jour')).corps.aujourdhui as string
     ok(await faire(banc, admin, '/api/admin/jour/liste', { texte: 'Quel fleuve traverse Lyon et Avignon ?\n*Le Rhône\nLa Loire\nLa Garonne' }), 'liste')
     ok(await faire(banc, admin, '/api/admin/jour/garder', { jour, index: 0 }), 'garder')
     ok(await faire(banc, admin, '/api/admin/jour/annuler', { jour, index: 1 }), 'annuler')
+    ok(await faire(banc, admin, '/api/admin/jour/bonus/annuler', { jour }), 'annuler la question bonus')
     // La page des signalements : corriger une question du jour — son anecdote —, en reclasser une autre.
     const { duJour, categorie } = (() => {
       const base = new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: true })
@@ -114,12 +119,17 @@ test('chaque route de l’administration qui change quelque chose se note avec s
     const prochaines = (await lire<{ id: string }[]>(banc, admin, '/api/admin/jour/prochaines')).corps
     ok(await faire(banc, admin, '/api/admin/jour/retirer', { reserveId: prochaines[0].id }), 'retirer du jour')
     // Les questions du public : Léa en propose deux, l'une acceptée, l'autre refusée.
-    const duPublic = (n: number) => ({ texte: `Quelle est la question numéro ${n} du public ?`, reponses: [`A${n}`, `B${n}`, `C${n}`, `D${n}`], bonne: 0 })
     ok(await faire(banc, lea, '/api/jour/propositions', duPublic(1)), 'proposer une question')
     ok(await faire(banc, lea, '/api/jour/propositions', duPublic(2)), 'proposer une autre question')
     const [premiere, seconde] = (await lire(banc, admin, '/api/admin/jour/propositions')).corps.aRelire as { id: string }[]
     ok(await faire(banc, admin, `/api/admin/jour/propositions/${premiere.id}/accepter`, { question: { ...duPublic(1), categorie: 'Histoire', anecdote: '' } }), 'accepter une question du public')
     ok(await faire(banc, admin, `/api/admin/jour/propositions/${seconde.id}/refuser`, { motif: 'Sa réponse se discute' }), 'refuser une question du public')
+    // Acceptée de nouveau, Léa est de confiance : sa suivante, sa catégorie choisie, passe d'office — le QG la lit, puis la retire de la file.
+    const dOffice = await faire(banc, lea, '/api/jour/propositions', { ...duPublic(3), categorie: 'Sciences' })
+    ok(dOffice, 'proposer une question d’office')
+    assert.equal(dOffice.corps.statut, 'acceptee')
+    ok(await faire(banc, admin, `/api/admin/jour/propositions/${dOffice.corps.id}/lire`), 'lire une question de la file')
+    ok(await faire(banc, admin, `/api/admin/jour/propositions/${dOffice.corps.id}/retirer`, { motif: 'Sa réponse se discute' }), 'retirer une question de la file')
     ok(await faire(banc, admin, '/api/admin/jour/masquer', { profileId: idLea, masque: true }), 'masquer')
 
     // Les duels : Ana défie Max et finit son duel — il part à Max, qui ne le commence pas ; le QG l'annule.
@@ -297,6 +307,9 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       'Alerte réglée : Gel long — sonne au téléphone',
       'Point du matin réglé : à 9 h 15 (avant 8 h 40)',
       'Mot sur un incident : « Un hoquet de Turso »',
+      'Question bonus du jour annulée pour tous : « Quelle est la question numéro 0 du public ? »',
+      'Question du public lue dans la file du quiz du jour : « Quelle est la question numéro 3 du public ? »',
+      'Question du public retirée de la file du quiz du jour : « Quelle est la question numéro 3 du public ? »',
     ]) {
       assert.ok(resumes.includes(attendu), `« ${attendu} » parmi :\n${resumes.join('\n')}`)
     }

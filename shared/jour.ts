@@ -435,9 +435,16 @@ export interface BonusDuJour {
   /**
    * Où il en est : à venir — sa partie n'est pas finie —, à jouer, en cours
    * (montrée), jouée ; ou il ne la joue pas : c'est la sienne (`tienne`), ou
-   * il l'a relue au QG (`relue`) — il en connaît la réponse.
+   * il l'a relue au QG (`relue`) — il en connaît la réponse ; ou le QG l'a
+   * annulée pour tous avant qu'il la joue (`annulee`) : elle ne se joue plus.
    */
-  etat: 'a-venir' | 'a-jouer' | 'en-cours' | 'jouee' | 'tienne' | 'relue'
+  etat: 'a-venir' | 'a-jouer' | 'en-cours' | 'jouee' | 'tienne' | 'relue' | 'annulee'
+  /**
+   * Annulée pour tous par le QG — une question fausse, ou qui n'aurait pas
+   * dû passer : elle ne rapporte plus rien à personne, à qui l'a trouvée non
+   * plus, ni à son auteur. Posé quel que soit l'état, jouée comprise.
+   */
+  annulee?: true
   /** Qui l'a écrite, tel qu'il se porte — absent quand son profil ne se montre plus (supprimé, suspendu, masqué). */
   auteur?: { nom: string; avatar: string } & ApparenceDeLAvatar
   /** Ce qu'elle rapporte, trouvée. */

@@ -130,7 +130,7 @@ test('proposer, accepter : la question rejoint la réserve signée, et son auteu
     const page = (await lire(banc, admin, '/api/admin/jour/propositions')).corps
     assert.equal(page.aRelire.length, 1)
     assert.deepEqual(page.aRelire[0].auteur, { id: leaId, nom: 'Léa', login: 'lea' })
-    assert.equal(page.enAttente, 0)
+    assert.equal(page.enFile.length, 0)
     const id = page.aRelire[0].id
 
     // Sans catégorie, elle ne passe pas : le quiz du jour mêle les siennes.
@@ -149,10 +149,13 @@ test('proposer, accepter : la question rejoint la réserve signée, et son auteu
     assert.equal(ligne?.question.anecdote, ACCEPTEE.anecdote)
     assert.deepEqual([ligne?.question.answers, ligne?.question.correct], [NEPAL.reponses, NEPAL.bonne])
 
-    // Relue une fois : un second geste se refuse, et la page la range parmi les relues.
+    // Relue une fois : un second geste se refuse, et la page la range dans la file des acceptées — lue, puisqu'il l'a acceptée.
     assert.equal((await poster(banc, admin, `/api/admin/jour/propositions/${id}/refuser`, { motif: 'Trop facile' })).status, 400)
     const apres = (await lire(banc, admin, '/api/admin/jour/propositions')).corps
-    assert.deepEqual([apres.aRelire.length, apres.relues.map((p: any) => p.statut), apres.enAttente], [0, ['acceptee'], 1])
+    assert.deepEqual(
+      [apres.aRelire.length, apres.relues.length, apres.enFile.map((q: any) => [q.auteur?.id, q.categorie, q.dOffice, q.question?.texte])],
+      [0, 0, [[leaId, 'Géographie', false, NEPAL.texte]]],
+    )
     // Une question du public sort une par jour : elle ne fait pas des jours d'avance à la réserve.
     const reserve = (await lire(banc, admin, '/api/admin/jour')).corps.reserve
     const prochaines = (await lire(banc, admin, '/api/admin/jour/prochaines')).corps

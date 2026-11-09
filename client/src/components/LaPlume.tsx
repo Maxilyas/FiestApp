@@ -4,10 +4,12 @@ import { Feuille } from './Pieces'
 import { Icon } from './Icon'
 import { Shape } from './Shape'
 import { Avatar, type AvatarAPlat } from './Avatar'
+import { EMBLEME } from './Ecusson'
 import { espacesFines } from '../format'
 import { showToast } from '../state'
 import { api, motifDe } from '../api'
 import { sonAvatar } from '../../../shared/sonAvatar'
+import { CATEGORIES } from '../../../shared/categories'
 import {
   ANECDOTE_DU_PUBLIC_MAX,
   CONFETTIS_D_UNE_QUESTION_ACCEPTEE,
@@ -165,13 +167,15 @@ const STATUT: Record<StatutDUneProposition, string> = {
   'en-relecture': 'En relecture',
   acceptee: 'Acceptée',
   refusee: 'Pas retenue',
+  retiree: 'Retirée',
   posee: 'Jouée',
 }
 
 /**
  * Ses questions déjà proposées, sous la carte : une ligne chacune, sa
  * pastille d'abord — on sait d'un coup d'œil où elles en sont, sans une page
- * de plus. Le refus dit son motif dessous ; rien sans question proposée.
+ * de plus. Le refus et le retrait disent leur motif dessous ; rien sans
+ * question proposée.
  */
 function TesQuestions({ propositions }: { propositions: PropositionDuJoueur[] }) {
   if (propositions.length === 0) return null
@@ -186,7 +190,7 @@ function TesQuestions({ propositions }: { propositions: PropositionDuJoueur[] })
             <span className={`pill plume-statut plume-statut-${p.statut}`}>{STATUT[p.statut]}</span>
             <span className="plume-tienne-texte">
               {espacesFines(p.texte)}
-              {p.statut === 'refusee' && p.motif && <small>{espacesFines(p.motif)}</small>}
+              {(p.statut === 'refusee' || p.statut === 'retiree') && p.motif && <small>{espacesFines(p.motif)}</small>}
               {/* Jouée en question bonus : ce que la salle en a fait, sans un prénom. */}
               {p.salle && p.salle.joueurs > 0 && (
                 <small>
@@ -204,18 +208,22 @@ function TesQuestions({ propositions }: { propositions: PropositionDuJoueur[] })
 }
 
 /**
- * On écrit sa question dans la carte même du jeu : sa place de question en
- * serif, ses quatre réponses aux formes et aux couleurs du quiz, et la
- * forme qu'on touche porte la coche de la bonne. Dessous, sa signature,
- * telle que la salle la lira. Ce qu'on voit est ce que les autres joueront ;
- * le conseil ne dit qu'une chose, le prochain geste (le retour du
- * propriétaire du 2 novembre 2026 : « trop de texte, pas assez vivant »).
+ * On écrit sa question dans la carte même du jeu : sa catégorie en tête, là
+ * où le quiz l'écrit au-dessus de la question, sa place de question en serif,
+ * ses quatre réponses aux formes et aux couleurs du quiz, et la forme qu'on
+ * touche porte la coche de la bonne. Dessous, sa signature, telle que la
+ * salle la lira. Ce qu'on voit est ce que les autres joueront ; le conseil ne
+ * dit qu'une chose, le prochain geste (le retour du propriétaire du
+ * 2 novembre 2026 : « trop de texte, pas assez vivant »). La catégorie, il la
+ * choisit depuis le 9 novembre 2026 : sa question peut passer d'office, sans
+ * personne au QG pour la classer (`estDeConfiance`).
  */
 function CarteAEcrire({ profil, onFermer }: { profil?: PublicProfile | null; onFermer: () => void }) {
   const [question, setQuestion] = useState('')
   const [reponses, setReponses] = useState(['', '', '', ''])
   const [bonne, setBonne] = useState<number | null>(null)
   const [anecdote, setAnecdote] = useState('')
+  const [categorie, setCategorie] = useState('')
   const [envoi, setEnvoi] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const [propositions, setPropositions] = useState<PropositionDuJoueur[]>([])
@@ -230,15 +238,22 @@ function CarteAEcrire({ profil, onFermer }: { profil?: PublicProfile | null; onF
       vivante = false
     }
   }, [])
-  const conseil = conseilDeLaProposition(question, reponses, bonne, anecdote)
+  const conseil = conseilDeLaProposition(question, reponses, bonne, anecdote, categorie)
   const prete = conseil === null
   const envoyer = async () => {
     if (!prete || bonne === null || envoi) return
     setEnvoi(true)
     setErreur(null)
     try {
-      await api.jour.proposer({ texte: question, reponses, bonne, anecdote })
-      showToast({ kind: 'info', message: 'Envoyée : ton accueil te dira la suite' })
+      const envoyee = await api.jour.proposer({ texte: question, reponses, bonne, anecdote, categorie })
+      // Un auteur de confiance la voit passer d'office : il le sait tout de suite, ses confettis avec.
+      showToast({
+        kind: 'info',
+        message:
+          envoyee.statut === 'acceptee'
+            ? `Acceptée d’office : +${CONFETTIS_D_UNE_QUESTION_ACCEPTEE} confettis, elle passera à son tour en question bonus`
+            : 'Envoyée en relecture : ton accueil te dira la suite',
+      })
       onFermer()
     } catch (e) {
       // Le serveur relit avec les mêmes règles ; son refus se dit dans la feuille, qui reste ouverte.
@@ -254,12 +269,31 @@ function CarteAEcrire({ profil, onFermer }: { profil?: PublicProfile | null; onF
       pied={
         <button type="button" className="btn btn-primary btn-block" disabled={!prete || envoi} onClick={() => void envoyer()}>
           <IconePlume />
-          Envoyer en relecture
+          Envoyer ma question
         </button>
       }
     >
       <div className={'plume-carte' + (prete ? ' plume-carte-prete' : '')}>
-        <span className="pill plume-du-public">Question du public</span>
+        <div className="plume-carte-tete">
+          <span className="pill plume-du-public">Question du public</span>
+          {/* Sa catégorie, en pointillé tant qu'elle reste à choisir, comme ce qui reste à écrire. La liste est la pastille
+              même — le toucher ouvre celle du téléphone —, et l'anneau du focus, celui de toute l'application, s'y pose :
+              invisible sous une pastille dessinée à côté, elle l'aurait emporté avec elle. */}
+          <span className={'plume-carte-categorie' + (categorie ? ' plume-carte-categorie-choisie' : '')}>
+            <Icon name={EMBLEME[categorie] ?? 'hash'} />
+            <select value={categorie} aria-label="Sa catégorie" onChange={e => setCategorie(e.target.value)}>
+              <option value="" disabled>
+                Sa catégorie
+              </option>
+              {CATEGORIES.map(c => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <Icon name="chevron-down" className="plume-carte-categorie-ouvrir" />
+          </span>
+        </div>
         <textarea
           className="plume-carte-question"
           rows={3}
@@ -315,7 +349,7 @@ function CarteAEcrire({ profil, onFermer }: { profil?: PublicProfile | null; onF
       <p className={'plume-conseil' + (prete ? ' plume-conseil-prete' : '')} aria-live="polite">
         <Icon name={prete ? 'check-circle' : 'edit'} />
         {/* Une ligne : sur deux, son dernier mot restait seul au milieu. */}
-        {espacesFines(conseil ?? 'Prête : elle part en relecture.')}
+        {espacesFines(conseil ?? 'Prête : envoie-la.')}
       </p>
       {erreur && (
         <p className="error" role="alert">
