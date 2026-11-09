@@ -9,8 +9,11 @@ l'application : rien ici n'est servi par FiestApp.
 Elle a été retouchée après trois tours de tablée, le 9 novembre 2026
 (`../la-tablee-du-filet.md`) : quatre joueurs ont joué la première version,
 trois chaque version corrigée, un joueur aveugle deux fois au lecteur
-d'écran, et chaque retouche dit, dans le code, qui l'a demandée. Sa page
-« Ce que la tablée a changé » en fait la liste.
+d'écran, et chaque retouche dit, dans le code, qui l'a demandée. Puis le
+propriétaire l'a jouée, au matin : l'écran s'est épuré, le curseur se pose
+au milieu de l'époque choisie, et l'acte I ne pose plus que ce que chaque
+Français sait placer. Sa page « Ce que la tablée a changé » en fait la
+liste.
 
 - `index.html` : la page et ses styles, aux jetons de FiestApp (Velours, et
   Ivoire en clair) ; aucun texte d'une manche sous dix-sept pixels.
@@ -26,6 +29,10 @@ d'écran, et chaque retouche dit, dans le code, qui l'a demandée. Sa page
     calculent, que le nouveau Filet ne pose pas ;
   - la note du panel de l'IA (`panel-ia.json` : 518 questions, au Filet et en
     QCM) ;
+  - ce que chaque Français sait placer, et l'ancrage de chaque question — un
+    sujet français, du monde ou de l'étranger (`ancrage.json` : les 591
+    questions que le panel a notées, classées par des agents qui ne voyaient
+    ni le panel ni les lancers) ;
   - l'indice et le repère de chacune (`indices.json`) ;
   - des repères vérifiés ;
   - les chiffres de la production.

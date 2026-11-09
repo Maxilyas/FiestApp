@@ -1,8 +1,9 @@
 # La tablée du nouveau Filet — 9 novembre 2026
 
 La maquette du cahier des charges (`le-nouveau-filet.md`, `maquette-filet/`)
-jouée par une tablée, cette nuit-là, en deux tours : la première version, puis
-la seconde, retouchée d'après le premier tour. Chaque joueur est un agent qui
+jouée par une tablée, cette nuit-là, en trois tours : la première version, puis
+chaque version retouchée d'après le tour d'avant ; puis par le propriétaire,
+au matin. Chaque joueur est un agent qui
 joue un personnage (la skill `tablee`, ses navigateurs de `npm run tablee`),
 au téléphone, sur les vraies questions que la production a posées du 1er au
 8 novembre ; il ne sait d'une question que ce qu'un dé lui laisse savoir, au
@@ -162,6 +163,38 @@ après avoir relu son dernier retour.
 | **À l'oreille** : « −1 ★ » s'entend « moins un, une étoile » ; la légende dit « La réponse » sans la réponse ; le bilan annonce deux scores ; « là où tu vises » seul ; un grand pas ne dit pas sa taille ; « Quitter » quitte sans demander | Hugo | « une étoile en moins » ; « La réponse, 1946 », « Ton lancer, 1957 » ; un seul score ; « Touche la piste là où tu vises » ; « 5 ans de plus » ; « Quitter l'épreuve ? », puis « Quitter l'épreuve » ou « Continuer ». |
 | **Toujours des mots de fabricant** : « En production », « connaissabilité », « un juge » | Huguette | Plus là où le joueur lit ; l'accueil et les coulisses restent une page pour le propriétaire. |
 
+## Le propriétaire, au matin
+
+Il a joué la version du troisième tour : « Le filet en deux temps ne me
+dérange pas en soi, mais là je trouve que c'est un peu brouillon. […]
+Lorsque l'on choisit une époque, ça n'affiche pas la fourchette pour
+l'estimation en second temps ; elle devrait se placer directement au milieu.
+Le levier le plus fort, c'est d'avoir des questions que chacun connaisse,
+sachant que la population et la connaissance sont des personnes
+françaises. »
+
+| Ce qu'il a dit | La maquette |
+|---|---|
+| « Un peu brouillon » | Une ligne par étape (« Choisis l'époque, la bonne vaut ★ »), et la piste n'apparaît qu'une époque choisie. Partis : les titres numérotés et leurs barèmes, les bornes sous la piste, les nombres des graduations, « Touche la piste ». La révélation dit d'où viennent les étoiles en une ligne (« ✓ la bonne époque ✗ à 6 ans près ✗ à 2 ans près »). |
+| « Elle devrait se placer directement au milieu » | Le curseur se pose au milieu de l'époque choisie, et le filet dit d'emblée ce qu'il couvre (« ★★★ 1960–1964 ★★ 1956–1968 »). Il ne rapporte rien de plus que le toucher au milieu, premier geste de qui ne sait pas : dans la bonne époque, 1,67 étoile en moyenne sur une année, 1,53 sur une grandeur (cahier, § 3.4). |
+| « Des questions que chacun connaisse » | L'acte I ne pose que ce que chaque Français sait placer. Sur les vrais lancers, ces questions se placent à 2 % près cinq fois plus souvent que les autres (cahier, § 4). |
+
+- **Trois corrections du troisième tour s'en vont avec l'épure** : les
+  nombres des graduations qui s'effaçaient quand ils se chevauchaient
+  (Huguette) — plus de nombres ; le barème des étapes qui barrait l'étoile
+  payée (Claire) — plus de barème, le filet la barre toujours ; « Touche la
+  piste là où tu vises », à l'oreille (Hugo) — le curseur est déjà posé, et
+  dit sa valeur.
+- **Vérifié au navigateur** : 18 manches en 360 × 640, 6 en sombre, 6 au
+  texte agrandi à 130 % — le curseur au milieu dès l'époque choisie, la
+  fourchette dite, le toucher ailleurs, chaque « + », le focus de l'indice
+  et de « Il reste… », les critères de la révélation contre l'écart ; aucun
+  débordement, aucune erreur de page. La vérification a trouvé deux défauts,
+  corrigés : « − 1 ans » sur un grand pas (les unités de la base sont au
+  pluriel), et « ★★★ pile sur 2 · ★★ pile sur 2 » sur une piste de 1 à 3.
+- Il reste à rejouer l'écran épuré avec la tablée, Hugo d'abord : « trois
+  gestes au plus », disait-il ; une époque et « Lancer » en font deux.
+
 ## Ce qui reste ouvert
 
 - **Le milieu de la bonne époque paie bien.** Claire : « dès que j'ai la
@@ -170,7 +203,7 @@ après avoir relu son dernier retour.
   C'est la largeur de l'anneau ★★ (un quart d'époque) qui le veut, et c'est
   elle qui paie l'à-peu-près d'Huguette (« je me suis trompée de cinq ans, et
   les deux étoiles, je les ai gagnées »). La resserrer serait un choix de
-  produit, à mesurer au calibrage (cahier, § 7).
+  produit, à mesurer au calibrage (cahier, § 8).
 - **« Onze ans ou cent trente-trois, même tarif »** (Samir, 11 ans d'écart
   dans l'époque voisine : zéro, comme 133). Une étoile à moins d'une
   demi-tranche a été mesurée sur les lancers réels, puis écartée : 71 % de
@@ -181,10 +214,10 @@ après avoir relu son dernier retour.
   cœur perdu de Samir.
 - **Le chrono.** Deux gestes, et un indice à lire : 45 secondes suffisent à
   Claire, pas à Huguette ; Hugo, au lecteur d'écran, les dépasse à chaque
-  manche. À mesurer en production (cahier, § 7).
+  manche. À mesurer en production (cahier, § 8).
 - **Le pari perdu.** « Il n'y a toujours rien à parier » (Claire). Le frisson
   reste celui de la carte Miser ; un pari propre au Filet attend (cahier,
-  § 8).
+  § 9).
 - **Ce que la frise laisse deviner** : une croyance plus petite que la plus
   petite tranche tombe d'office dans la bonne quand elle est au bord
   (Huguette, la canette) ; « Deux ordres de moins » laisse parfois une case

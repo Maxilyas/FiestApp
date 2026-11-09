@@ -1,4 +1,4 @@
-// Combien des questions que le Filet peut poser se calculent ou se convertissent ? (`../le-nouveau-filet.md`, § 4.4)
+// Combien des questions que le Filet peut poser se calculent ou se convertissent ? (`../le-nouveau-filet.md`, § 5.4)
 // Une estimation par les mots de l'énoncé — une conversion d'unités, un calcul, une définition d'école —, relue à la
 // main sur la maquette : ses 16 questions de cette sorte, sur 156, y sont toutes ; ici, la liste entière s'imprime
 // pour qu'on la relise. Le panel les marquera mieux, en notant : ce compte-ci n'en donne que l'ordre de grandeur.

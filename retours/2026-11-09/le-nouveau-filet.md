@@ -8,7 +8,13 @@ donner une note sur la difficulté de la question en se basant sur plusieurs
 critères. Aider les joueurs sur certains jeux en permettant d'avoir peut-être
 des indices ? » Puis : « maquette et cahier des charges […] une vraie
 amélioration de ce qui existe, en te basant sur les données de la prod et ce
-qu'il se fait concrètement dans ce type de jeu ».
+qu'il se fait concrètement dans ce type de jeu ». Enfin, au matin, après
+avoir joué la maquette : « Le filet en deux temps ne me dérange pas en soi,
+mais là je trouve que c'est un peu brouillon. […] Lorsque l'on choisit une
+époque, ça n'affiche pas la fourchette pour l'estimation en second temps ;
+elle devrait se placer directement au milieu. Le levier le plus fort, c'est
+d'avoir des questions que chacun connaisse, sachant que la population et la
+connaissance sont des personnes françaises. »
 
 - La maquette jouable : `maquette-filet/` (le README dit comment la lancer),
   publiée aussi en artefact privé.
@@ -32,34 +38,45 @@ Trois causes, mesurées :
    tire au sort : la moitié des curseurs des questions moyennes tombent à
    plus de 20 % de la valeur.
 
-**Ce que propose ce cahier des charges, en quatre pièces :**
+**Ce que propose ce cahier des charges, en cinq pièces :**
 
-1. **D'abord l'époque, puis la valeur.** Quatre époques (ou quatre ordres de
+1. **Des questions que chaque Français sait placer** — le levier le plus
+   fort, dit le propriétaire, et les lancers réels le confirment : ce que
+   chaque Français sait se place à 2 % près cinq fois plus souvent que le
+   reste (33 % des lancers contre 6 %). L'acte I ne pose plus que cela, et il
+   faut en écrire là où il en manque : la Nature, la Cuisine, la Géographie
+   (§ 4).
+2. **D'abord l'époque, puis la valeur.** Quatre époques (ou quatre ordres de
    grandeur) ; la bonne vaut déjà une étoile.
-2. **Le filet se resserre tout seul.** Plus de taille à parier : à 2 ans près
-   trois étoiles, à 6 ans deux. Le curseur ne part de nulle part.
-3. **Des repères et deux aides.** Des dates connues sur la frise, et celles
+3. **Le filet se resserre tout seul.** Plus de taille à parier : à 2 ans près
+   trois étoiles, à 6 ans deux. Le curseur se pose au milieu de l'époque
+   choisie, et le filet dit d'emblée ce qu'il couvre.
+4. **Des repères et deux aides.** Des dates connues sur la frise, et celles
    que le joueur a déjà su placer. Deux aides — « deux époques de moins », un
    indice écrit —, qui retirent chacune une étoile à ce que la manche
    rapporte, sans jamais coûter le cœur.
-4. **Un moteur qui note chaque question pour chaque jeu.** Le Filet tire,
-   acte par acte, des questions que les joueurs savent placer ; les loteries
-   attendent le dernier acte, et ce qui se calcule ne se pose pas.
+5. **Un moteur qui note chaque question pour chaque jeu.** Les actes II et III
+   se tirent par sa note ; les loteries attendent le dernier acte, et ce qui
+   se calcule ne se pose pas.
 
 **Ce que ça change, rejoué sur les lancers réels** (une borne basse : les
 curseurs ont été posés sous l'ancienne règle ; la règle rejouée est celle du
 § 3.3, mot pour mot) :
 
-| Règle | Manches réussies | Étoiles par manche | Au hasard | Ce que le savoir ajoute |
-|---|---|---|---|---|
-| Le Filet d'aujourd'hui | 43 % | 0,67 | 45 % | −2 points |
-| Le filet qui se resserre tout seul | 56 % | 1,12 | 45 % | +11 points |
-| En deux temps : l'époque, puis la valeur | 62 % | 1,20 | 25 % | +37 points |
-| En deux temps, questions du moteur (≥ 25 %) | 66 % | 1,38 | 25 % | +41 points |
-| En deux temps, questions du moteur (≥ 40 %) | **74 %** | **1,74** | 25 % | +49 points |
+| Règle | Lancers | Manches réussies | Étoiles par manche | Au hasard | Ce que le savoir ajoute |
+|---|---|---|---|---|---|
+| Le Filet d'aujourd'hui | 169 | 43 % | 0,67 | 45 % | −2 points |
+| Le filet qui se resserre tout seul | 169 | 56 % | 1,12 | 45 % | +11 points |
+| En deux temps : l'époque, puis la valeur | 169 | 62 % | 1,20 | 25 % | +37 points |
+| En deux temps, sans ce qui se calcule | 151 | 58 % | 1,07 | 25 % | +33 points |
+| … ce que le moteur donne à 40 % ou plus | 36 | 67 % | 1,39 | 25 % | +42 points |
+| … ce que chaque Français sait placer | 21 | 67 % | 1,52 | 25 % | +42 points |
+| … les deux à la fois | 18 | **72 %** | **1,61** | 25 % | +47 points |
 
-Le dernier palier est la zone que visent les jeux qui règlent leur
-difficulté : 65 à 80 % de réussite.
+Les deux derniers paliers sont dans la zone que visent les jeux qui règlent
+leur difficulté : 65 à 80 % de réussite. Les lignes du tirage ne comptent
+pas les questions qui se calculent, que le nouveau Filet ne pose pas :
+comptées, elles faisaient dire 74 % au moteur (§ 5.2).
 
 **Joué par une tablée, trois tours** (`la-tablee-du-filet.md`) : quatre
 joueurs aux profils opposés — une institutrice de 72 ans au petit téléphone,
@@ -74,6 +91,11 @@ repères. Un juge à l'aveugle a relu
 chaque indice : 42 sur 140 donnaient la réponse, aucun aujourd'hui ; 85 sur
 136 menaient à cheval sur deux tranches, 25 aujourd'hui, toutes contre une
 frontière.
+
+**Puis le propriétaire l'a jouée, au matin** : l'écran s'épure, le curseur
+se pose au milieu de l'époque choisie et le filet dit d'emblée ce qu'il
+couvre (§ 3.1, § 3.4) ; l'acte I ne pose plus que ce que chaque Français sait
+placer (§ 4).
 
 ## 1. Ce que la production a montré
 
@@ -151,49 +173,55 @@ ordres de grandeur et des mécaniques, pas des citations.
   - Duolingo a fait tourner son modèle « à blanc », ses prédictions notées
     sans servir, avant de le brancher.
 - **L'IA pour noter une question jamais jouée** : la littérature trouve une
-  corrélation de rang de 0,1 à 0,4. Notre panel fait 0,62 (plus bas) : une
+  corrélation de rang de 0,1 à 0,4. Notre panel fait 0,61 (§ 5.2) : une
   bonne surprise, à confirmer sur plus de réponses.
 
 ## 3. Le nouveau Filet — les règles
 
 ### 3.1 Une manche
 
-Un seul écran, de haut en bas :
+Un seul écran, de haut en bas — épuré au matin du 9 novembre, le propriétaire
+le trouvant « un peu brouillon » :
 
 1. **La question**, sa catégorie au-dessus.
 2. **L'époque** — ou l'ordre de grandeur :
+   - une ligne : « Choisis l'époque, la bonne vaut ★ » ;
    - quatre boutons côte à côte, une frise ;
-   - au-dessus, deux dates repères au plus (§ 3.5) ;
-   - la ligne de l'étape dit « la bonne : ★ ».
-3. **L'année** — ou la valeur :
-   - **l'indice, s'il est pris, se lit ici**, entre l'époque et la piste —
-     là où l'on choisit et où l'on vise ; sous les aides, il passait derrière
-     le bouton du bas (Samir) ;
-   - la piste s'ouvre sur l'époque touchée, sans curseur : « Touche la
-     piste », et vient sous les yeux ;
-   - **le premier toucher pose le curseur, partout, pile au milieu compris** :
-     c'est le réflexe de qui ne sait pas, et à la première version le milieu
-     ne répondait pas (les quatre joueurs de la tablée) ; le doigt lui donne
-     aussi le focus ;
-   - les crans − et + l'ajustent d'un cran rond, les grands pas d'une
-     graduation (« − 5 ans », « + 100 g » — de 198 anneaux à 100, Hugo, au
-     lecteur d'écran, touchait « − » 98 fois) ; « − » et « + » s'éteignent aux
-     bouts ; la piste est régulière, et ses graduations portent leurs
-     nombres — qui s'effacent quand ils se chevauchent, à la taille réelle du
-     texte : sous un texte agrandi, « 100150200250300 » (Huguette) (§ 3.2) ;
-   - les deux anneaux du filet se dessinent autour du curseur — le grand en
-     tirets, le petit plein — et se disent en nombres dessous : « Ton filet
-     ★★★ de 1960 à 1964 · ★★ de 1956 à 1968 » ; une aide payée y barre son
-     étoile ;
+   - au-dessus, deux dates repères au plus (§ 3.5), dites en mots dessous.
+3. **L'indice, s'il est pris**, ou ce qui reste après « Deux époques de
+   moins » : entre l'époque et la piste, là où l'on choisit et où l'on vise.
+   Sous les aides, il passait derrière le bouton du bas (Samir).
+4. **L'année** — ou la valeur —, dès qu'une époque est touchée, et rien
+   avant :
+   - **le curseur se pose au milieu de l'époque, et le filet dit d'emblée ce
+     qu'il couvre** : « ★★★ 1960–1964 ★★ 1956–1968 » (§ 3.4) ; une aide
+     payée y barre son étoile ;
+   - le gros chiffre, puis la piste, régulière, et ses crans − et + ;
+   - les grands pas d'une graduation (« − 5 ans », « + 100 g ») : de 198
+     anneaux à 100, Hugo, au lecteur d'écran, touchait « − » 98 fois ;
+   - « − » et « + » s'éteignent aux bouts ;
+   - le doigt pose le curseur où il touche, et lui donne le focus ;
+   - les deux anneaux du filet se dessinent autour du curseur, le grand en
+     tirets, le petit plein ;
    - les repères de l'époque ouverte descendent sur la piste ;
-   - la ligne de l'étape dit « à 2 ans ★★★ · à 6 ans ★★ » ;
    - toucher une autre époque reste possible.
-4. **Les aides** (§ 3.6) et ce qu'elles coûtent, en clair.
-5. **« Lancer le filet »**, éteint tant que l'époque et le curseur ne sont
-   pas posés — « Choisis d'abord une époque », puis « Pose ton curseur sur la
-   piste ». Collé au bas de l'écran à la seconde version, il cachait la
-   piste, le gros chiffre et l'indice sur un petit écran (Huguette, Samir) :
-   il reste à sa place.
+5. **Les aides** (§ 3.6) et leur prix, en une phrase.
+6. **« Lancer le filet »**, éteint tant qu'aucune époque n'est choisie
+   (« Choisis d'abord une époque »). Collé au bas de l'écran à la seconde
+   version, il cachait la piste, le gros chiffre et l'indice d'un petit écran
+   (Huguette, Samir) : il reste à sa place.
+
+**Ce que l'épure a retiré** :
+- les titres numérotés des deux étapes et leurs barèmes (« à 2 ans ★★★ · à
+  6 ans ★★ ») : le filet dit ses anneaux en nombres, et la révélation dit
+  d'où viennent les étoiles ;
+- les bornes de la piste sous elle : l'époque choisie les porte ;
+- les nombres des graduations : des traits suffisent à dire la piste
+  régulière, et leurs nombres se chevauchaient sous un texte agrandi
+  (« 100150200250300 », Huguette) ;
+- « Touche la piste », et l'attente d'un premier toucher.
+
+La révélation se resserre de même (§ 3.8).
 
 Chaque manche s'ouvre en haut, la question sous les yeux : à la première
 version, elle s'ouvrait là où « Manche suivante » avait laissé la page.
@@ -211,8 +239,7 @@ focus ; la légende de la révélation dit les valeurs (« La réponse, 1946 »)
 gestes au plus ».
 
 Le chrono reste de 45 secondes (`DUREES_DES_JEUX.filet`). À l'échéance, la
-page lance ce qui est posé : l'époque seule vaut son étoile, si elle est la
-bonne.
+page lance ce qui est posé : l'époque choisie et le curseur où il est.
 
 ### 3.2 Les époques et les ordres de grandeur
 
@@ -273,11 +300,32 @@ bonne.
 Au hasard, un joueur trouve la bonne époque une fois sur quatre : le savoir
 compte enfin.
 
-### 3.4 Le curseur ne part de nulle part
+### 3.4 Le curseur se pose au milieu de l'époque choisie
 
-- Posé d'office au milieu, il donnait des étoiles à qui ne bougeait pas, et
-  le milieu d'une tranche ronde était la réponse.
-- Il garde sa valeur quand on change d'époque, si elle y tient encore.
+- **Dès qu'une époque est touchée, le curseur se pose en son milieu, et le
+  filet dit ce qu'il couvre.** Le propriétaire, au matin du 9 novembre :
+  « lorsque l'on choisit une époque, ça n'affiche pas la fourchette pour
+  l'estimation en second temps ; elle devrait se placer directement au
+  milieu ».
+- Les versions jouées par la tablée attendaient un toucher (« Touche la
+  piste »), de peur qu'un curseur posé d'office donne des étoiles à qui ne
+  bouge pas. Il n'en donne pas plus que ce toucher-là, qui était justement le
+  premier geste de qui ne sait pas — les quatre joueurs, au premier tour.
+  Mesuré sur les 139 questions jouables de la maquette, dans la bonne époque,
+  le milieu rapporte :
+
+  | Sans rien savoir, dans la bonne époque | ★★★ | ★★ | ★ seule | Étoiles en moyenne |
+  |---|---|---|---|---|
+  | Une année (43 questions) | 21 % | 26 % | 53 % | 1,67 |
+  | Une grandeur (96) | 13 % | 28 % | 59 % | 1,53 |
+
+  - C'est la largeur de l'anneau ★★ qui en décide (§ 8, décision 10), pas
+    la place du curseur au départ.
+  - Le milieu d'une tranche tombe parfois sur une réponse ronde : 20 de 10 à
+    30, 200 de 100 à 300 (« les moins de vingt ans » d'Aznavour, la hauteur
+    du Sphinx). Le toucher au milieu l'attrapait déjà.
+- Il garde sa valeur quand on change d'époque, si elle y tient encore ;
+  sinon, il se pose au milieu de la nouvelle.
 
 ### 3.5 Les repères
 
@@ -439,7 +487,7 @@ compte enfin.
   - **La cible, précisée : la tranche du jeu, toute la tranche.** Un indice
     qui la recopie (« plus haut que la tour Eiffel, mais loin d'un
     kilomètre » pour 300–1000) fait choisir la bonne ; il ne dit rien de
-    plus que ce que vaut le milieu de la tranche (§ 7).
+    plus que ce que vaut le milieu de la tranche (§ 8).
   - **Contre une frontière, on garde l'indice qui enjambe** : un indice tenu
     dans la tranche y serait presque la valeur (« juste après la guerre »
     pour 1946), et la distance paie des deux côtés (§ 3.3) — **sauf s'il
@@ -449,7 +497,7 @@ compte enfin.
     tranche de la réponse (« entre la crise de 1929 et la fin des années
     quarante » pour 1946).
   - La passe a aussi trouvé une question qui se compte (les chiffres 9 de 1
-    à 100), écartée avec les calculs (§ 4.4).
+    à 100), écartée avec les calculs (§ 5.4).
 - **Rangement** : en production, un fichier de contenu du Cabinet, clé par
   question (`server/content/cabinet/indices-du-filet.json`) — ou un champ de
   la base, si l'on veut que la campagne s'en serve un jour.
@@ -470,9 +518,12 @@ compte enfin.
   - **○ un repère**, **◆ le tien** ;
   - la bonne époque écrit « la bonne », la sienne « ton choix » ;
   - la légende reprend chaque forme en mots.
-- **« La réponse : 1898 · tu visais 1840 »**, puis les trois critères en
-  lignes (« La bonne époque — ★ oui », « À 6 ans près — non »…), l'écart, et
-  ce que les aides ont pris.
+- **« La réponse : 1898 »**, en grand, et dessous « tu visais 1840 · 58 ans
+  d'écart ».
+- **D'où viennent les étoiles, en une ligne** : « ✓ la bonne époque ✗ à 6
+  ans près ✗ à 2 ans près », et ce que les aides ont pris. En cinq lignes,
+  la révélation débordait d'un petit écran ; la tablée tenait à savoir
+  « exactement d'où viennent mes étoiles ».
 - **L'anecdote**, toujours : c'est le moment où l'on apprend.
 - **Le repère gagné**, s'il y en a un.
 - **« Manche suivante »**, juste après ce qu'on lit. Collé au bas de l'écran
@@ -496,9 +547,132 @@ compte enfin.
 - **La place de la réponse dans ses quatre époques se tire au serveur**, du
   hasard du serveur, jamais de la graine (`pisteDuFilet` aujourd'hui).
 
-## 4. Le moteur de difficulté
+## 4. Le levier le plus fort : des questions que chaque Français sait placer
 
-### 4.1 Ce qu'il fait
+Le propriétaire, au matin du 9 novembre : « Le levier le plus fort, c'est
+d'avoir des questions que chacun connaisse, sachant que la population et la
+connaissance sont des personnes françaises. » Les lancers réels lui donnent
+raison.
+
+### 4.1 Le classement
+
+Des agents ont classé les 591 questions que le panel a notées — les 156
+posées et l'échantillon de 435 du vivier (`maquette-filet/ancrage.json`) —
+sans voir ni le panel ni les lancers :
+
+- **Chaque Français la sait placer** : un adulte français pris au hasard — ni
+  passionné du sujet, ni joueur de quiz — la place à ★★ (6 ans, 25 %) de
+  mémoire, parce qu'il l'a apprise à l'école, la voit tous les jours, ou l'a
+  entendue partout.
+  - Un sujet célèbre ne suffit pas : tout le monde connaît Astérix, personne
+    ne sait combien d'albums il compte.
+  - Ce qui se calcule n'en est pas : ce n'est pas un souvenir (§ 5.4).
+- **Son ancrage** :
+  - un sujet français : l'histoire de France, ses lieux, ses lois, sa vie
+    quotidienne, ses personnalités ;
+  - un sujet du monde, présent dans la vie des Français : ce qu'on en
+    apprend à l'école, les grands événements, Titanic, les Beatles, le corps
+    humain ;
+  - un sujet de l'étranger, enraciné ailleurs et peu présent ici :
+    l'histoire intérieure des États-Unis, les unités anglo-saxonnes, le
+    baseball.
+- ACCORD_DES_PASSES
+
+### 4.2 Ce que disent les lancers
+
+Les lancers réels rejugés en deux temps (§ 3.3), sans ce qui se calcule
+(`reproductions/filet-en-production.ts ancrage`) :
+
+| Sur N_LANCERS lancers | Lancers | « Il savait » (à 2 % près) | Réussies en deux temps | Étoiles par manche |
+|---|---|---|---|---|
+| **Chaque Français la sait placer** | 21 | **33 %** | **67 %** | **1,52** |
+| Les autres, un sujet français | 35 | 11 % | 66 % | 1,14 |
+| Les autres, un sujet du monde | 48 | 4 % | 54 % | 1,00 |
+| Les autres, un sujet de l'étranger | 41 | 5 % | 49 % | 0,85 |
+
+- **Un gradient** : ce que chaque Français sait se place à 2 % près cinq
+  fois plus souvent que le reste, et rapporte une demi-étoile de plus par
+  manche ; puis un sujet français, même pointu, se place mieux qu'un sujet
+  du monde, et celui-ci mieux qu'un sujet de l'étranger.
+- **Il ajoute au panel, qui note pourtant « des joueurs d'une application
+  française »** : parmi les questions que le panel donne à 40 % ou plus,
+  celles que chaque Français sait placer se réussissent à 72 % (1,61
+  étoile, 33 % « il savait »), les autres à 61 % (1,17 étoile, 17 %). Le
+  panel lit la difficulté du fait ; il lit moins bien la culture de ceux qui
+  jouent.
+- **Il prédit aussi bien que le panel** qui « savait » : AUC 0,78 seul, comme
+  le panel ; d'abord lui, puis le panel pour départager, 0,80
+  (`reproductions/moteur-de-difficulte.ts panel`).
+- De petits nombres — 21 lancers pour le premier groupe, 145 en tout —, mais
+  le sens ne bouge pas d'une passe de classement à l'autre.
+
+### 4.3 Ce que le vivier en a
+
+Sur les 435 questions tirées au hasard du vivier
+(`reproductions/moteur-de-difficulte.ts vivier`), **25 % ± 4 sont de
+celles que chaque Français sait placer : environ 440 des 1 780** que le
+Filet peut poser — autant d'années (27 %) que de grandeurs (23 %).
+
+| Catégorie | Chaque Français | Dans le vivier |
+|---|---|---|
+| Histoire | 40 % | ~60 sur 153 |
+| Culture générale | 39 % | ~92 sur 233 |
+| Musique | 32 % | ~45 sur 141 |
+| Sciences | 30 % | ~64 sur 216 |
+| Autour de la fête | 23 % | ~30 sur 129 |
+| Jeux & pop culture | 22 % | ~42 sur 187 |
+| Arts & lettres | 19 % | ~21 sur 112 |
+| Sport | 17 % | ~28 sur 167 |
+| Cinéma & séries | 13 % | ~18 sur 137 |
+| Géographie | 13 % | ~14 sur 111 |
+| Cuisine | 11 % | ~9 sur 83 |
+| Nature | 4 % | ~4 sur 111 |
+
+- De quoi tenir l'acte I quelques mois au rythme d'aujourd'hui (169 lancers
+  en huit jours, tous actes confondus), pas dans toutes les catégories : la
+  Nature, la Cuisine, la Géographie et le Cinéma n'en ont presque pas.
+- La Géographie, à 13 %, est le paradoxe : celle de la France est la plus
+  apprise de toutes (le mont Blanc, la Loire, les départements), et ses
+  questions françaises demandent des détails — l'altitude du puy Mary, du
+  pic du Midi de Bigorre, les sommets de plus de 4 000 mètres des Alpes —
+  plutôt que ce que tout le monde a appris.
+
+### 4.4 Ce qu'il faut en faire
+
+1. **Le tirage** : l'acte I ne pose que ce que chaque Français sait placer ;
+   l'acte II, le reste que le panel donne à 25 % ou plus ; l'acte III, les
+   loteries, où tombent presque tous les sujets de l'étranger. La maquette
+   tire déjà ainsi.
+2. **Le panel le marque en notant** : deux cases de plus à sa consigne —
+   « chaque Français la place à ★★, de mémoire », « son sujet : français, du
+   monde, de l'étranger » —, à la passe sur la base (§ 5.6) et à l'écriture
+   de chaque question.
+3. **Écrire ce que chaque Français sait, d'abord là où il en manque** — une
+   centaine de questions par catégorie faible, par `redacteur-campagne`, la
+   règle dans la consigne de son lot, le panel notant à l'écriture. Le savoir
+   commun d'un Français vient de quatre sources :
+
+   | D'où il le sait | Ce qui s'y écrit |
+   |---|---|
+   | L'école | les dates du programme d'histoire (la Bastille, l'armistice, la Ve République) ; la géographie de la France (le mont Blanc, la Loire, les départements) |
+   | La vie de tous les jours | la plaquette de beurre, le thermostat 6, la vitesse sur autoroute, les 35 heures, la durée d'un match |
+   | L'actualité vécue | la Coupe du monde de 1998, l'euro dans les poches, l'incendie de Notre-Dame |
+   | La culture populaire | les films et les chansons que tout le monde a vus ou chantés, le Tour de France, les jeux de société |
+
+   - **C'est le fait qui doit être connu, pas son sujet** (§ 5.2) : la
+     taille d'Édith Piaf est un sujet français que personne ne sait placer.
+   - **Une question de l'étranger a souvent un jumeau français** : la
+     statue de la Liberté a la tour Eiffel, le mah-jong le tarot, le mile le
+     marathon. Le jumeau va à l'acte I ; l'original reste à l'acte III.
+4. **Les indices et les repères parlent français, eux aussi** : les repères
+   sont des dates de l'école et de l'actualité françaises (Marignan, la
+   Bastille, les congés payés, 1998) ; un indice s'oriente par ce que tout
+   Français connaît (« au temps du disco », « quand l'euro arrive dans les
+   poches »), jamais par une référence d'ailleurs.
+
+## 5. Le moteur de difficulté
+
+### 5.1 Ce qu'il fait
 
 Il donne, pour chaque question et **chaque jeu qui la pose**, une
 connaissabilité : la part des joueurs qui la réussiraient.
@@ -506,14 +680,14 @@ connaissabilité : la part des joueurs qui la réussiraient.
 - Au Filet : la part qui placeraient la valeur à 5 % près.
 - En QCM : la part qui la trouveraient parmi quatre.
 
-Et, pour un joueur donné, sa chance (§ 4.4).
+Et, pour un joueur donné, sa chance (§ 5.4).
 
 La même question n'a pas la même difficulté selon le jeu. « Combien de cm²
 dans un m² ? » se trouve parmi quatre réponses par élimination ; sur une
 piste, sans réponse proposée, il faut le savoir. Un sujet obscur coûte peu en
 QCM et tout au Filet, au Mot ou aux Indices.
 
-### 4.2 Deux notes qui se corrigent l'une l'autre
+### 5.2 Deux notes qui se corrigent l'une l'autre
 
 **La note a priori**, avant toute réponse : l'avis d'un panel d'IA, question
 par question et jeu par jeu.
@@ -521,18 +695,28 @@ par question et jeu par jeu.
 - La consigne, par jeu (celle du Filet) : « la part des joueurs adultes d'une
   application de quiz grand public française qui placeraient la valeur à
   ±5 % près, sans choix » ; celle du QCM, « parmi quatre ».
-- Validée sur la production :
+- Validée sur la production (`reproductions/moteur-de-difficulte.ts panel`,
+  relancé le 9 novembre au matin) :
 
   | Ce qu'il fallait prédire | Difficulté écrite | Panel de l'IA |
   |---|---|---|
-  | Au Filet, « il savait » (à 2 % près), 163 lancers | AUC 0,78 | **AUC 0,85** |
-  | Au Filet, « à 9 % près » | AUC 0,57 | **AUC 0,69** |
-  | En QCM, la réussite corrigée de la force des joueurs (369 questions, 1 729 premières réponses) | rang 0,49 | **rang 0,62** |
+  | Au Filet, « il savait » (à 2 % près), 146 lancers | AUC 0,73 | **AUC 0,78** |
+  | Au Filet, « à 9 % près » | AUC 0,50 | **AUC 0,62** |
+  | En QCM, la réussite corrigée de la force des joueurs (393 questions, 1 855 premières réponses) | rang 0,47 | **rang 0,61** |
 
 - Quand l'IA annonce qu'au moins un joueur sur deux placerait la valeur,
-  57 % savaient vraiment ; sous 25 %, 4 à 7 %.
-- **Elle se recale** : elle prédit 75 % de réussite moyenne en QCM, les
-  joueurs en font 68 % — un décalage d'ensemble, appris une fois par famille.
+  37 % savaient vraiment ; sous 25 %, 3 %.
+- **Sans ce qui se calcule.** La première mesure comptait les 18 lancers des
+  questions qui se calculent (« les grammes d'un kilogramme ») : tout le
+  monde les « sait », le panel les notait haut, et elles le flattaient —
+  AUC 0,85 au lieu de 0,78, 57 % de « il savait » au-dessus de 50 % au lieu
+  de 37. Le nouveau Filet ne les pose pas (§ 5.4) : ce cahier les écarte de
+  toutes ses mesures du tirage.
+- **Un critère fait aussi bien que le panel** : « chaque Français la sait
+  placer », seul, prédit « il savait » à AUC 0,78 ; d'abord lui, puis le
+  panel, 0,80 (§ 4).
+- **Elle se recale** : elle prédit 74 % de réussite moyenne en QCM, les
+  joueurs en font 67 % — un décalage d'ensemble, appris une fois par famille.
 - **Ce qui n'a pas servi**, mesuré sur 32 780 premières réponses :
   - la notoriété du sujet (ses vues sur Wikipédia, son nombre de langues)
     n'ajoute rien à la difficulté écrite (AUC 0,685 dans les deux cas) ;
@@ -554,7 +738,7 @@ par question et jeu par jeu.
   si l'on a eu juste : ses étoiles (0 à 3) se lisent en paliers, et le moteur
   apprend vite, même avec peu de joueurs.
 
-### 4.3 Les critères, en résumé
+### 5.3 Les critères, en résumé
 
 | Critère | D'où il vient | Ce qu'il pèse |
 |---|---|---|
@@ -564,18 +748,21 @@ par question et jeu par jeu.
 | La difficulté écrite | `meta.difficulte` | l'ancien départ, gardé comme repli |
 | La forme (année, nombre, mot), l'âge minimum | la base | un ajustement |
 
-### 4.4 Ce qu'il permet
+### 5.4 Ce qu'il permet
 
 - **Viser une chance plutôt qu'une marche.**
   - Le tirage d'une épreuve vise une réussite par acte : l'acte I autour de
     trois manches sur quatre, l'acte II deux sur trois, l'acte III une sur
     deux.
-  - En première version, des seuils de connaissabilité :
-    - l'acte I tire au Filet ce que 40 % au moins savent placer ;
-    - l'acte II, de 25 à 39 % ;
-    - l'acte III, le reste.
+  - En première version :
+    - l'acte I tire au Filet ce que chaque Français sait placer (§ 4) ;
+    - l'acte II, le reste que le panel donne à 25 % ou plus ;
+    - l'acte III, les loteries.
   - Le vivier de la maquette — les questions réellement posées, les calculs
-    écartés — s'y répartit en 35, 40 et 65.
+    écartés — s'y répartit en ACTE_I, ACTE_II et ACTE_III. Par la seule note du panel
+    (40 % et 25 %), il se répartissait en 35, 40 et 64 ; mais celles qu'il
+    donne à 40 % ou plus sans que chaque Français les sache placer se
+    réussissent à 61 %, loin des trois manches sur quatre (§ 4.2).
 - **Écarter ce qui se calcule.** Un calcul (« le carré de 25 »), une
   conversion d'unités (« les secondes d'une heure », « les mètres carrés d'un
   hectare »), une question qui écrit de quoi trouver sa réponse (Verdun « du
@@ -606,7 +793,7 @@ par question et jeu par jeu.
 - **Pour les autres jeux** : le Pari (64 % de manches à zéro étoile), les
   Indices, l'Épingle. La même mécanique, sur leur propre note.
 
-### 4.5 Le vivier du Filet, vu par le moteur — et ce qu'il faut écrire
+### 5.5 Le vivier du Filet, vu par le moteur — et ce qu'il faut écrire
 
 Le panel a noté 435 questions tirées au hasard parmi les 1 780 que le Filet
 peut poser (`reproductions/moteur-de-difficulte.ts vivier`) :
@@ -625,14 +812,15 @@ peut poser (`reproductions/moteur-de-difficulte.ts vivier`) :
   quelques jours.
   - La carte de la traversée ne doit proposer le Filet que dans une catégorie
     qui a de quoi tenir son acte : le tracé lit le vivier du moteur.
-  - Il faut écrire là : des estimations que le grand public sait placer
-    (hauteurs, distances, durées et dates connues), notées par le panel à
-    l'écriture, une centaine par catégorie faible.
+  - Il faut écrire là ce que chaque Français sait placer (§ 4.4) : des
+    hauteurs, des distances, des durées et des dates de l'école, du
+    quotidien et de l'actualité, notées par le panel à l'écriture, une
+    centaine par catégorie faible.
   - C'est la réponse à la question du volume : pas plus de questions en
     général, mais des questions **connaissables au Filet** là où il en
     manque.
 
-### 4.6 Le mettre en service
+### 5.6 Le mettre en service
 
 - **La passe sur la base** : les agents notent les 27 404 questions, par lots,
   sur l'abonnement, comme la génération de la base (`generer-campagne.ts`).
@@ -644,7 +832,7 @@ peut poser (`reproductions/moteur-de-difficulte.ts vivier`) :
   - une semaine où le moteur note ses prédictions sans servir ;
   - puis il se compare aux lancers (AUC, rang), et seulement alors il tire.
 
-## 5. L'intégration dans FiestApp
+## 6. L'intégration dans FiestApp
 
 Tout se lit dans la règle du Cabinet (`.claude/rules/cabinet.md`) ; voici ce
 que chaque morceau devient.
@@ -654,13 +842,13 @@ que chaque morceau devient.
 | `shared/cabinet/bareme.ts` | Les chiffres neufs, chacun sa ligne dans `baremes.md` (`documentation.test.ts`, `cabinet-catalogue.test.ts`) : les époques (`EPOQUES_DU_FILET` : 25, 50, 100 et leurs seuils), les anneaux (un douzième, un quart ; 6 % et 25 % de la réponse, l'écart lu au dixième), la suite des ordres de grandeur, les crans d'une tranche (deux cents au plus, ronds, un au moins pour une réponse entière), `AIDES_PAR_MANCHE` (2), ce qu'une aide payée retire (une étoile). `LARGEURS_DU_FILET`, `ETOILES_DU_FILET`, `POSITION_DE_LA_REPONSE`, `PISTE_DES_ANNEES`, `ZONE_DU_FILET` restent, pour les parties d'avant. |
 | `shared/cabinet/jeux/filet.ts` | La règle pure : le tirage (`FiletTire` : la question, la valeur, les quatre époques, la place de la réponse, les repères), l'état (l'époque touchée, les aides prises, les époques retirées), le geste (`repondre` : l'époque et le curseur ; `aide` : sa clé), le jugement à la distance (§ 3.3), ce qu'on montre et ce qu'on révèle (§ 3.9), la pièce (`composee` : « 1852\|1\|2 », le curseur, l'époque, les aides), le cartel. |
 | `VERSIONS_DU_DEPART` (`shared/cabinet/partie.ts`) | Une version de plus (la 4) : le pli jugerait autrement une partie déjà commencée. La règle d'avant reste, choisie par `d.v` ; son départ et son bilan écrits en dur dans `cabinet-regles.test.ts`. |
-| `server/src/core/cabinet/tirages/filet.ts` | Le tirage par la connaissabilité de l'acte (§ 4.4) au lieu des marches (`MARCHES_DU_FILET_AUX_EPREUVES`, `_AUX_GARDIENS`), les époques et les repères figés dans le tirage, du hasard du serveur. |
-| Le tracé de la carte (`tracerLaCarte`, `shared/cabinet/traversee.ts`) | Une étape de Filet ne prend qu'une catégorie dont le vivier tient son acte — le serveur lui donne, comme il donne au Quiz ses thèmes (`themesDuQuiz`), les catégories qui en ont assez : la Cuisine, la Géographie et la Nature n'en ont pas à l'acte I (§ 4.5). |
+| `server/src/core/cabinet/tirages/filet.ts` | Le tirage par acte au lieu des marches (`MARCHES_DU_FILET_AUX_EPREUVES`, `_AUX_GARDIENS`) : l'acte I parmi ce que chaque Français sait placer (§ 4), les deux autres par la connaissabilité (§ 5.4) ; les époques et les repères figés dans le tirage, du hasard du serveur. |
+| Le tracé de la carte (`tracerLaCarte`, `shared/cabinet/traversee.ts`) | Une étape de Filet ne prend qu'une catégorie dont le vivier tient son acte — le serveur lui donne, comme il donne au Quiz ses thèmes (`themesDuQuiz`), les catégories qui en ont assez : la Cuisine, la Géographie et la Nature n'en ont pas à l'acte I (§ 5.5). |
 | Les repères | Un fichier de contenu (`server/content/cabinet/reperes.json`, rangé et jugé par `cabinet-contenu.ts`), et les siens lus du journal des réponses (`JournalDesReponses`, une dérivation de plus, comparée au SQL d'avant dans `journal-des-reponses.test.ts`). |
 | Les indices | `server/content/cabinet/indices-du-filet.json`, une entrée par question, jugée à la lettre par `cabinet-contenu.ts` et au sens par le juge à l'aveugle (§ 3.7) — un agent de plus dans la chaîne d'écriture, comme `relecteur-campagne`, qui n'écrit jamais ce qu'il juge ; une question sans indice ne propose pas l'aide. |
 | Les pouvoirs (`shared/cabinet/pouvoirs.ts`) | Éclairer, au Filet, devient la première aide offerte ; Changer et le temps en plus restent. `refusDuPouvoir` dit pourquoi une aide ne se prend pas (déjà prise, plus de place, la manche tranchée). |
-| La page (`client/src/views/cabinet/jeux/Filet.tsx`) | L'écran du § 3.1, ses classes `cab-filet-*` dans la section du Cabinet de `styles.css`. Aucun texte sous 17 pixels : `cabinet-ecran.test.ts` relit chaque taille — la première maquette en écrivait à 13, « petites et pâles » pour Huguette ; la seconde tient 17 partout dans une manche, la frise sur deux ou trois lignes, et les grands nombres en mots (« 300 millions »). Le toucher pose le curseur où il tombe, par le doigt même (`pointerdown`) : un curseur natif ne dit rien quand on touche sa valeur, et le milieu d'une piste vierge ne répondait pas. Le bouton du lancer se colle au bas de l'écran, la piste ouverte vient au-dessus de lui (`scroll-padding-bottom`). |
-| Le moteur | `core/modeleDuSavoir.ts` : une difficulté par question et par jeu, partie de la note a priori ; la note a priori dans la base (`meta.connaissabilite`, par jeu) ou dans une table du Cabinet, avec la case « se calcule » qui écarte une question du Filet (§ 4.4) ; les lancers du Filet lus en paliers. |
+| La page (`client/src/views/cabinet/jeux/Filet.tsx`) | L'écran du § 3.1, ses classes `cab-filet-*` dans la section du Cabinet de `styles.css`. Aucun texte sous 17 pixels : `cabinet-ecran.test.ts` relit chaque taille — la première maquette en écrivait à 13, « petites et pâles » pour Huguette ; la seconde tient 17 partout dans une manche, la frise sur deux ou trois lignes, et les grands nombres en mots (« 300 millions »). Le toucher pose le curseur où il tombe, par le doigt même (`pointerdown`) : un curseur natif ne dit rien quand on touche sa valeur. Rien ne se colle au bas de l'écran : le bouton du lancer y cachait la piste et le gros chiffre (§ 3.1). |
+| Le moteur | `core/modeleDuSavoir.ts` : une difficulté par question et par jeu, partie de la note a priori ; la note a priori dans la base (`meta.connaissabilite`, par jeu) ou dans une table du Cabinet, avec ses trois cases — « chaque Français la sait placer » et son ancrage (§ 4), « se calcule », qui écarte une question du Filet (§ 5.4) ; les lancers du Filet lus en paliers. |
 | Le QG | La page du Cabinet : la réussite de chaque jeu, la part des loteries tirées, la liste des questions à revoir. |
 | Le calibrage (`calibrage-cabinet.ts --sections traversee`) | Le joueur modèle du Filet devient bimodal — il sait, il sait à peu près, il ne sait pas —, recalé sur les lancers réels. Les étoiles par manche du Filet passent de 0,67 à environ 1,1–1,8 : les gardiens tombent plus vite, à mesurer avant de toucher à leurs points de vie. |
 
@@ -687,10 +875,11 @@ son test) :
   aide ;
 - le juge des indices, et le tireur qui écarte ce qui se calcule ;
 - une partie de la version 3 relue telle qu'elle s'est jouée ;
-- le tirage par la connaissabilité ;
+- le tirage : l'acte I parmi ce que chaque Français sait placer, les autres
+  par la connaissabilité ;
 - l'écran rendu (`cabinet-ecran-neufs.test.ts`).
 
-## 6. Mesurer après la mise en ligne
+## 7. Mesurer après la mise en ligne
 
 Le script `reproductions/filet-en-production.ts` rejoue les mêmes lectures
 sur la nouvelle version. Les cibles :
@@ -698,6 +887,7 @@ sur la nouvelle version. Les cibles :
 | Mesure | Aujourd'hui | Cible |
 |---|---|---|
 | Manches du Filet réussies | 43 % | 65 à 80 % à l'acte I, 50 % au moins à l'acte III |
+| « Il savait » (à 2 % près) à l'acte I, ce que chaque Français sait placer | — | un lancer sur trois au moins, comme rejoué (§ 4.2) |
 | Au hasard (la bonne époque) | 45 % | 25 % |
 | Ce que le savoir ajoute | −2 points | +25 points au moins |
 | Manches à zéro étoile | 59 % | 35 % au plus |
@@ -708,7 +898,7 @@ sur la nouvelle version. Les cibles :
 Avec 11 joueurs, pas de test A/B : un avant-après, par les mêmes scripts. Et
 un sondage du QG aux joueurs du Cabinet (`qg_annonce_questions`).
 
-## 7. Les décisions à prendre
+## 8. Les décisions à prendre
 
 1. **Le Filet en deux temps** (cette proposition), ou seulement le filet qui
    se resserre tout seul.
@@ -722,15 +912,21 @@ un sondage du QG aux joueurs du Cabinet (`qg_annonce_questions`).
      plus simple à dire, mais gratuit pour qui ne savait rien (§ 3.6) ;
    - ou une aide gratuite pour tous à l'acte I, le temps d'apprendre.
 3. **La couleur de piste** de chaque étape sur la carte de la traversée.
-4. **La passe du panel sur toute la base**, puis le moteur à blanc une
-   semaine.
+4. **La passe du panel sur toute la base**, avec ses deux cases neuves
+   (chaque Français, l'ancrage), puis le moteur à blanc une semaine.
 5. **Les points de vie des gardiens**, à remesurer une fois le Filet changé.
    Le calibrage proposait déjà 11 et 17 aux actes II et III.
 6. **Les autres jeux après le Filet** : le Pari d'abord (64 % de manches à
    zéro étoile, 45 cœurs perdus), puis les Indices.
-7. **Écrire des estimations connaissables** là où le vivier en manque : la
-   Cuisine, la Géographie, la Nature, et les grandeurs en général (§ 4.5) —
-   une centaine par catégorie, notées par le panel à l'écriture.
+7. **Le levier français** (§ 4) : l'acte I parmi ce que chaque Français sait
+   placer — environ 440 questions du vivier aujourd'hui — et en écrire une
+   centaine par catégorie faible (la Nature, la Cuisine, la Géographie, le
+   Cinéma), notées par le panel à l'écriture.
+   - L'autre voie garde l'acte I à la seule note du panel (40 % ou plus) :
+     plus fourni (environ 760 questions), mais ce qu'il y met sans que chaque
+     Français le sache se réussit à 61 % (§ 4.2).
+   - La proposition : la première, et la passe d'écriture avant la mise en
+     ligne.
 8. **Le chrono** : deux gestes au lieu d'un, et un indice à lire. 45 secondes
    suffisent à Claire, pas à Huguette (« remonter chercher la question,
    choisir l'époque, toucher la piste, lire l'indice, et réfléchir ! »). À
@@ -741,14 +937,16 @@ un sondage du QG aux joueurs du Cabinet (`qg_annonce_questions`).
    vingt.
 9. **Le pari perdu** : « il n'y a plus de risque à prendre » (Claire, qui
    aimait le frisson du petit filet). Le frisson reste celui de la carte
-   Miser (Quitte ou double) ; un pari propre au Filet attend (§ 8).
+   Miser (Quitte ou double) ; un pari propre au Filet attend (§ 9).
 10. **La largeur de l'anneau ★★** : un quart d'époque. Dans la bonne époque,
     le milieu sans rien savoir y tombe 52 fois sur cent, et ★★★ 20 fois
     (`reproductions/prix-des-aides.mjs`) — « ★ pour la bonne époque vaut
     plutôt une étoile et demie » (Claire, au second tour). C'est aussi ce qui
     paie l'à-peu-près (Huguette, cinq ans d'écart : ★★). La resserrer à un
     sixième (4 ans) ferait tomber le milieu à 36 % ; un choix de produit, à
-    mesurer au calibrage avant d'y toucher.
+    mesurer au calibrage avant d'y toucher. Le curseur s'y pose désormais
+    d'office (§ 3.4) : « Lancer » sitôt l'époque choisie rapporte ce que
+    rapportait le toucher au milieu, ce qui rend la question visible.
 11. **Écartée : une étoile à moins d'une demi-tranche, même dans la tranche
     voisine** — « onze ans ou cent trente-trois, même tarif » (Samir).
     Rejouée sur les lancers réels : 71 % de manches réussies au lieu de 62,
@@ -758,7 +956,7 @@ un sondage du QG aux joueurs du Cabinet (`qg_annonce_questions`).
     indices recentrés sur leur tranche (§ 3.7) qui répondent au cœur perdu de
     Samir.
 
-## 8. Ce qui attend
+## 9. Ce qui attend
 
 - **La salle fantôme** : la bande où les joueurs précédents ont lancé leur
   filet, comme « l'avis du public » du Millionnaire. Il faut d'abord des

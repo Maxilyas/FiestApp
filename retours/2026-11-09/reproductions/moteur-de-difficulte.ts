@@ -44,6 +44,27 @@ if (quoi === 'vivier') {
     const ids = tires.filter(id => parId.get(id).meta.categorie === c), n = vivier.filter(q => q.meta.categorie === c).length
     console.log(`  ${c.padEnd(20)} ${String(ids.length).padStart(6)}  ${(100 * p(ids, e => e >= 40)).toFixed(0).padStart(4)} %   ~${Math.round(p(ids, e => e >= 40) * n)} sur ${n}`)
   }
+  // Ce que chaque Français sait placer, dans le même échantillon (`../maquette-filet/ancrage.json`, ou le fichier
+  // donné) : de quoi tenir l'acte I, catégorie par catégorie — et ce qu'il faut écrire là où il en manque.
+  const fichier = process.argv[3] ?? path.resolve(ICI, '../maquette-filet/ancrage.json')
+  if (fs.existsSync(fichier)) {
+    const ancrage = new Map((JSON.parse(fs.readFileSync(fichier, 'utf8')) as any[]).map(a => [a.id, a]))
+    const classes = tires.filter(id => ancrage.has(id))
+    const part = (ids: string[], f: (a: any) => boolean) => (ids.length ? ids.filter(id => f(ancrage.get(id))).length / ids.length : 0)
+    const chacun = (a: any) => a.chacun === true
+    const marge = 1.96 * Math.sqrt((part(classes, chacun) * (1 - part(classes, chacun))) / classes.length)
+    console.log(`\nChaque Français la sait placer : ${(100 * part(classes, chacun)).toFixed(0)} % ± ${(100 * marge).toFixed(0)} des ${classes.length} questions classées → environ ${Math.round(part(classes, chacun) * vivier.length)} dans le vivier`)
+    for (const [nom, ids] of [['années', classes.filter(annee)], ['grandeurs', classes.filter(id => !annee(id))]] as const) console.log(`  ${nom.padEnd(10)} ${String(ids.length).padStart(3)} : ${(100 * part(ids, chacun)).toFixed(0)} %`)
+    for (const anc of ['france', 'monde', 'etranger']) {
+      const ids = classes.filter(id => ancrage.get(id).ancrage === anc)
+      console.log(`  un sujet ${anc.padEnd(9)} ${String(ids.length).padStart(3)} questions (${(100 * ids.length / classes.length).toFixed(0)} %), dont ${(100 * part(ids, chacun)).toFixed(0)} % que chaque Français sait placer`)
+    }
+    console.log('\ncatégorie              classées  chaque Français  → dans le vivier')
+    for (const c of [...new Set(vivier.map(q => q.meta.categorie))].sort()) {
+      const ids = classes.filter(id => parId.get(id).meta.categorie === c), n = vivier.filter(q => q.meta.categorie === c).length
+      console.log(`  ${c.padEnd(20)} ${String(ids.length).padStart(8)}  ${(100 * part(ids, chacun)).toFixed(0).padStart(13)} %   ~${Math.round(part(ids, chacun) * n)} sur ${n}`)
+    }
+  }
   process.exit(0)
 }
 
@@ -123,6 +144,33 @@ if (quoi === 'panel') {
   for (const [a, b] of [[0, 25], [25, 50], [50, 101]]) {
     const ls = avec.filter(l => notes.get(l.id).estimation >= a && notes.get(l.id).estimation < b)
     console.log(`  panel ${String(a).padStart(2)}–${Math.min(100, b - 1)} % : ${ls.length} lancers, ${Math.round((100 * ls.filter(l => l.e <= 0.02).length) / ls.length)} % savaient`)
+  }
+  // Sans ce qui se calcule, que le nouveau Filet ne pose pas (§ 5.4) : « les grammes d'un kilogramme », sus de tous et
+  // notés haut par le panel, flattaient sa note — relu le 9 novembre au matin, en mesurant l'ancrage français.
+  const donnees = fs.readFileSync(path.resolve(ICI, '../maquette-filet/donnees.js'), 'utf8')
+  const calculs = new Set((JSON.parse(donnees.slice(donnees.indexOf('{'), donnees.lastIndexOf('}') + 1)).questions as any[]).filter(q => q.calcul).map(q => q.id))
+  const poses = avec.filter(l => !calculs.has(l.id))
+  const sv = poses.map(l => (l.e <= 0.02 ? 1 : 0)), pr = poses.map(l => (l.e <= 0.09 ? 1 : 0))
+  console.log(`\nFilet, sans ce qui se calcule : ${poses.length} lancers — AUC de « il savait » (2 %) · « à 9 % près »`)
+  console.log(`  la difficulté écrite  ${auc(poses.map(l => -Number(parId.get(l.id).meta.difficulte)), sv).toFixed(2)} · ${auc(poses.map(l => -Number(parId.get(l.id).meta.difficulte)), pr).toFixed(2)}`)
+  console.log(`  le panel de l'IA       ${auc(poses.map(l => notes.get(l.id).estimation), sv).toFixed(2)} · ${auc(poses.map(l => notes.get(l.id).estimation), pr).toFixed(2)}`)
+  for (const [a, b] of [[0, 25], [25, 50], [50, 101]]) {
+    const ls = poses.filter(l => notes.get(l.id).estimation >= a && notes.get(l.id).estimation < b)
+    console.log(`  panel ${String(a).padStart(2)}–${Math.min(100, b - 1)} % : ${ls.length} lancers, ${Math.round((100 * ls.filter(l => l.e <= 0.02).length) / ls.length)} % savaient`)
+  }
+  // L'ancrage (`../maquette-filet/ancrage.json`) : « chaque Français la sait placer », seul, puis d'abord — le panel
+  // départage ensuite. Le propriétaire : « le levier le plus fort, c'est d'avoir des questions que chacun connaisse ».
+  const fichier = process.argv[3] ?? path.resolve(ICI, '../maquette-filet/ancrage.json')
+  if (fs.existsSync(fichier)) {
+    const ancrage = new Map((JSON.parse(fs.readFileSync(fichier, 'utf8')) as any[]).map(a => [a.id, a]))
+    const ancres = poses.filter(l => ancrage.has(l.id))
+    const s2 = ancres.map(l => (l.e <= 0.02 ? 1 : 0)), p2 = ancres.map(l => (l.e <= 0.09 ? 1 : 0))
+    const chacun = ancres.map(l => (ancrage.get(l.id).chacun ? 1 : 0))
+    const lesDeux = ancres.map(l => 1000 * (ancrage.get(l.id).chacun ? 1 : 0) + notes.get(l.id).estimation)
+    console.log(`  (les ${ancres.length} lancers dont la question a son ancrage)`)
+    console.log(`  le panel de l'IA       ${auc(ancres.map(l => notes.get(l.id).estimation), s2).toFixed(2)} · ${auc(ancres.map(l => notes.get(l.id).estimation), p2).toFixed(2)}`)
+    console.log(`  chaque Français, seul  ${auc(chacun, s2).toFixed(2)} · ${auc(chacun, p2).toFixed(2)}`)
+    console.log(`  chaque Français, puis le panel ${auc(lesDeux, s2).toFixed(2)} · ${auc(lesDeux, p2).toFixed(2)}`)
   }
 } else if (quoi === 'criteres') {
   const notoriete: Record<string, any> = process.argv[3] ? JSON.parse(fs.readFileSync(process.argv[3], 'utf8')) : {}

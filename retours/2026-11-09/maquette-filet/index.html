@@ -112,6 +112,16 @@ button { font: inherit; color: inherit; }
    (Huguette, au troisième) — Claire, au premier, voulait seulement ne pas le chercher : il vient juste après ce
    qu'on lit. */
 .nobr { white-space: nowrap; }
+/* La consigne d'une ligne au-dessus des époques, qui remplace les deux titres d'étape et leurs barèmes. */
+.consigne { font-weight: 700; }
+.consigne span { font-weight: 400; color: var(--muted); }
+/* D'où viennent les étoiles, en une ligne. */
+.juge { display: flex; flex-wrap: wrap; gap: 2px 14px; margin: 0; }
+.juge > span { white-space: nowrap; }
+.juge i { font-style: normal; margin-right: 4px; font-weight: 700; }
+.juge .oui i { color: var(--ok); }
+.juge .non { color: var(--muted); }
+.reponse .vise { display: block; font-family: var(--sans); font-size: 1.0625rem; font-weight: 500; color: var(--muted); }
 .confirmer { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border: 1.5px solid var(--edge-strong); border-radius: var(--radius-sm); background: var(--bg-raised); }
 .confirmer div { display: flex; flex-wrap: wrap; gap: 8px; }
 .lien { background: none; border: 0; padding: 6px 0; color: var(--accent-text); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; text-align: left; }
@@ -219,7 +229,7 @@ button { font: inherit; color: inherit; }
 .valeur-vise { display: flex; align-items: baseline; justify-content: center; gap: 8px; }
 .valeur { font-family: var(--serif); font-size: 2.6rem; font-weight: 700; line-height: 1; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
 .valeur small { font-size: 1.3rem; }
-.couvre { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 14px; color: var(--ink); opacity: 0.85; text-align: center; font-variant-numeric: lining-nums tabular-nums; }
+.couvre { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 24px; color: var(--ink); opacity: 0.85; text-align: center; font-variant-numeric: lining-nums tabular-nums; }
 .couvre span { min-width: 0; }
 .curseur { display: flex; align-items: center; gap: 8px; }
 .cran { flex: none; display: grid; place-items: center; width: 48px; height: 48px; padding: 0; border: 1.5px solid var(--edge-strong); border-radius: 12px; background: var(--surface-strong); font-size: 1.5rem; font-weight: 700; line-height: 1; cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none; }

@@ -9,6 +9,7 @@
 //   lancers   le choix du filet, l'écart des curseurs par marche, ce que le hasard attrape
 //   regles    les lancers rejugés : le filet qui se resserre, les rapports, les deux temps, le tirage du moteur
 //             (les notes du panel de l'IA : ../maquette-filet/panel-ia.json)
+//   ancrage   ce que chaque Français sait placer, contre le reste (../maquette-filet/ancrage.json)
 //
 // Jamais `QUIZ_DB_URL` : `PROD_LECTURE_URL` et `PROD_LECTURE_TOKEN`, un jeton en lecture seule.
 import fs from 'node:fs'
@@ -60,7 +61,37 @@ const milieu = (l: Lancer) => (l.piste.min + l.piste.max) / 2
 const pct = (a: number, b: number) => `${Math.round((100 * a) / b)} %`.padStart(5)
 const lancers = await lesLancers()
 console.log(`${lancers.length} lancers, ${new Set(lancers.map(l => l.id)).size} questions distinctes\n`)
+// Ce qui se calcule (« les grammes d'un kilogramme ») n'est pas posé au nouveau Filet (§ 5.4) : les lignes qui
+// simulent son tirage le laissent de côté. Compté, il flattait les questions « faciles » : tout le monde le « sait ».
+const donnees = fs.readFileSync(path.resolve(ICI, '../maquette-filet/donnees.js'), 'utf8')
+const calculs = new Set((JSON.parse(donnees.slice(donnees.indexOf('{'), donnees.lastIndexOf('}') + 1)).questions as any[]).filter(q => q.calcul).map(q => q.id))
 
+// Le Filet en deux temps, à la règle même de la maquette (`jeu.js`, `naturelles`) et du cahier des charges (§ 3.3),
+// lu sur le curseur réel — une borne basse. Une année : des époques alignées de 25 ans depuis 1800, de 50 de 1500 à
+// 1799, d'un siècle avant ; ★★★ à un douzième, ★★ à un quart. Une grandeur : les tranches 1, 3, 10, 30…, une
+// réponse pile sur une borne des deux ; ★★★ à 6 %, ★★ à 25 % de la réponse, l'écart lu au dixième comme l'écran
+// l'écrit. La distance d'abord, puis la bonne tranche.
+const borneDuDemi = (k: number) => (k % 2 === 0 ? 10 ** (k / 2) : 3 * 10 ** ((k - 1) / 2))
+const trancheDe = (v: number) => { let k = 0; while (borneDuDemi(k + 1) <= v) k++; return k }
+// `demi` : ★ aussi à moins d'une demi-tranche de la réponse — 12 ans sur 25, 50 % d'une grandeur —, même dans la
+// tranche d'à côté. La tablée du 9 novembre 2026 : « onze ans ou cent trente-trois, même tarif » (Samir).
+function deuxTemps(l: Lancer, x: number, demi = false): number {
+  if (l.annee) {
+    const T = l.valeur >= 1800 ? 25 : l.valeur >= 1500 ? 50 : 100
+    const e = Math.abs(x - l.valeur)
+    if (e <= Math.max(1, Math.round(T / 12))) return 3
+    if (e <= Math.round(T / 4)) return 2
+    if (demi && e <= Math.floor(T / 2)) return 1
+    return Math.floor(x / T) === Math.floor(l.valeur / T) ? 1 : 0
+  }
+  const p = Math.round((1000 * Math.abs(x - l.valeur)) / l.valeur) / 10
+  if (p <= 6) return 3
+  if (p <= 25) return 2
+  if (demi && p <= 50) return 1
+  if (x < 1) return 0
+  const kx = trancheDe(x), kv = trancheDe(l.valeur)
+  return kx === kv || (l.valeur === borneDuDemi(kv) && kx === kv - 1) ? 1 : 0
+}
 if (quoi === 'lancers') {
   const tailles = (['petit', 'moyen', 'grand'] as const).map(t => `${t} ${lancers.filter(l => l.taille === t).length}`).join(', ')
   const pris = lancers.filter(l => ecart(l) <= DEMI[l.taille] + 1e-9).length
@@ -79,32 +110,6 @@ if (quoi === 'lancers') {
 } else if (quoi === 'regles') {
   const paliers = (e: number, [a, b, c]: number[]) => (e <= a ? 3 : e <= b ? 2 : e <= c ? 1 : 0)
   const rapport = (l: Lancer, x: number) => Math.abs(Math.log(Math.max(x, l.piste.max / 1000) / l.valeur))
-  // Le Filet en deux temps, à la règle même de la maquette (`jeu.js`, `naturelles`) et du cahier des charges (§ 3.3),
-  // lu sur le curseur réel — une borne basse. Une année : des époques alignées de 25 ans depuis 1800, de 50 de 1500 à
-  // 1799, d'un siècle avant ; ★★★ à un douzième, ★★ à un quart. Une grandeur : les tranches 1, 3, 10, 30…, une
-  // réponse pile sur une borne des deux ; ★★★ à 6 %, ★★ à 25 % de la réponse, l'écart lu au dixième comme l'écran
-  // l'écrit. La distance d'abord, puis la bonne tranche.
-  const borneDuDemi = (k: number) => (k % 2 === 0 ? 10 ** (k / 2) : 3 * 10 ** ((k - 1) / 2))
-  const trancheDe = (v: number) => { let k = 0; while (borneDuDemi(k + 1) <= v) k++; return k }
-  // `demi` : ★ aussi à moins d'une demi-tranche de la réponse — 12 ans sur 25, 50 % d'une grandeur —, même dans la
-  // tranche d'à côté. La tablée du 9 novembre 2026 : « onze ans ou cent trente-trois, même tarif » (Samir).
-  function deuxTemps(l: Lancer, x: number, demi = false): number {
-    if (l.annee) {
-      const T = l.valeur >= 1800 ? 25 : l.valeur >= 1500 ? 50 : 100
-      const e = Math.abs(x - l.valeur)
-      if (e <= Math.max(1, Math.round(T / 12))) return 3
-      if (e <= Math.round(T / 4)) return 2
-      if (demi && e <= Math.floor(T / 2)) return 1
-      return Math.floor(x / T) === Math.floor(l.valeur / T) ? 1 : 0
-    }
-    const p = Math.round((1000 * Math.abs(x - l.valeur)) / l.valeur) / 10
-    if (p <= 6) return 3
-    if (p <= 25) return 2
-    if (demi && p <= 50) return 1
-    if (x < 1) return 0
-    const kx = trancheDe(x), kv = trancheDe(l.valeur)
-    return kx === kv || (l.valeur === borneDuDemi(kv) && kx === kv - 1) ? 1 : 0
-  }
   const regles: [string, (l: Lancer, x: number, aveugle: boolean) => number][] = [
     ['Aujourd’hui (le filet choisi)', (l, x, aveugle) => { const t = aveugle ? 'grand' : l.taille; return ecart(l, x) <= DEMI[t] + 1e-9 ? ETOILES[t] : 0 }],
     ['Le filet qui se resserre (3,5 / 9 / 20 %)', (l, x) => paliers(ecart(l, x), [0.035, 0.09, 0.2])],
@@ -125,10 +130,46 @@ if (quoi === 'lancers') {
   const hasardDesDeuxTemps = (nom: string) => (nom.startsWith('En deux temps') ? 25 : null)
   tableau('Tous les lancers', lancers, hasardDesDeuxTemps)
   tableau('Depuis le 4 novembre', lancers.filter(l => l.jour >= '2026-11-04'), hasardDesDeuxTemps)
+  // Ce que le nouveau Filet poserait : sans ce qui se calcule. La base des lignes du moteur et de l'ancrage.
+  tableau('Sans ce qui se calcule', lancers.filter(l => !calculs.has(l.id)), hasardDesDeuxTemps)
   const notes = new Map((JSON.parse(fs.readFileSync(path.resolve(ICI, '../maquette-filet/panel-ia.json'), 'utf8')) as any[]).map(n => [n.id, n]))
   for (const [nom, garder] of [['Le moteur : connaissabilité < 25 % (les loteries)', (p: number) => p < 25], ['Le moteur : connaissabilité ≥ 25 %', (p: number) => p >= 25], ['Le moteur : connaissabilité ≥ 40 %', (p: number) => p >= 40]] as const) {
-    tableau(nom, lancers.filter(l => notes.get(l.id)?.estimation != null && garder(notes.get(l.id).estimation)), hasardDesDeuxTemps)
+    tableau(nom, lancers.filter(l => !calculs.has(l.id) && notes.get(l.id)?.estimation != null && garder(notes.get(l.id).estimation)), hasardDesDeuxTemps)
+  }
+} else if (quoi === 'ancrage') {
+  // Ce que chaque Français sait placer, contre le reste — le propriétaire, au matin du 9 novembre 2026 : « le levier
+  // le plus fort, c'est d'avoir des questions que chacun connaisse, sachant que la population et la connaissance sont
+  // des personnes françaises ». L'ancrage de chaque question (`../maquette-filet/ancrage.json`) vient d'agents qui
+  // ne voient ni le panel ni les lancers ; ici, les vrais joueurs le jugent. Le curseur est celui de l'ancienne règle :
+  // « il savait », c'est à 2 % de la piste près, la mesure du § 1.
+  const fichier = process.argv[3] ?? path.resolve(ICI, '../maquette-filet/ancrage.json')
+  const ancrage = new Map((JSON.parse(fs.readFileSync(fichier, 'utf8')) as any[]).map(a => [a.id, a]))
+  const notes = new Map((JSON.parse(fs.readFileSync(path.resolve(ICI, '../maquette-filet/panel-ia.json'), 'utf8')) as any[]).map(n => [n.id, n.estimation]))
+  // Le panel note déjà « la part des joueurs adultes d'une application de quiz grand public française » : le
+  // croisement dit si « chaque Français » ajoute quelque chose à sa note, ou la répète.
+  const groupes: [string, (a: any, panel: number | undefined) => boolean][] = [
+    ['Chaque Français la sait placer', a => a.chacun === true],
+    ['Le reste', a => a.chacun === false],
+    ['  un sujet français', a => a.chacun === false && a.ancrage === 'france'],
+    ['  un sujet du monde', a => a.chacun === false && a.ancrage === 'monde'],
+    ['  un sujet de l’étranger', a => a.chacun === false && (a.ancrage === 'etranger' || a.ancrage === 'ailleurs')],
+    ['Le panel à 40 % ou plus', (_, n) => n !== undefined && n >= 40],
+    ['  et chaque Français la sait placer', (a, n) => n !== undefined && n >= 40 && a.chacun === true],
+    ['  sans que chaque Français la sache', (a, n) => n !== undefined && n >= 40 && a.chacun === false],
+    ['Le panel sous 40 %', (_, n) => n !== undefined && n < 40],
+    ['  et chaque Français la sait placer', (a, n) => n !== undefined && n < 40 && a.chacun === true],
+  ]
+  const deux = (l: Lancer) => deuxTemps(l, l.x)
+  const sans = lancers.filter(l => !ancrage.has(l.id)).length, calcules = lancers.filter(l => calculs.has(l.id)).length
+  console.log(`${calcules} lancers sur une question qui se calcule, ${sans} sans ancrage : laissés de côté\n`)
+  console.log('groupe                                  lancers  il savait  réussies aujourd’hui  en deux temps  ★/manche')
+  for (const [nom, garder] of groupes) {
+    const ls = lancers.filter(l => ancrage.has(l.id) && !calculs.has(l.id) && garder(ancrage.get(l.id), notes.get(l.id) ?? undefined))
+    if (!ls.length) continue
+    const auj = ls.filter(l => ecart(l) <= DEMI[l.taille] + 1e-9).length
+    const s = ls.map(deux)
+    console.log(`${nom.padEnd(39)} ${String(ls.length).padStart(7)}  ${pct(ls.filter(l => ecart(l) <= 0.02).length, ls.length).padStart(9)}  ${pct(auj, ls.length).padStart(20)}  ${pct(s.filter(Boolean).length, ls.length).padStart(13)}  ${(s.reduce((a, b) => a + b, 0) / ls.length).toFixed(2).padStart(8)}`)
   }
 } else {
-  throw new Error(`« ${quoi} » : lancers ou regles`)
+  throw new Error(`« ${quoi} » : lancers, regles ou ancrage`)
 }

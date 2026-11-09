@@ -1,8 +1,9 @@
 // Fabrique les données de la maquette du nouveau Filet (`donnees.js`) : les questions du Filet que la production a
 // posées du 1er au 8 novembre 2026 (`questions-posees.json`), lues dans la base livrée par la règle même du tireur
 // (`valeurDuFilet`) ; la note du panel de l'IA (`panel-ia.json`, la connaissabilité au Filet et en QCM) ; l'indice et
-// le repère écrits pour chacune par des agents (`indices.json`), passés au juge plus bas ; des repères que tout le
-// monde connaît ; et les chiffres de la production que la page « Ce que disent les lancers » montre.
+// le repère écrits pour chacune par des agents (`indices.json`), passés au juge plus bas ; ce que chaque Français sait
+// placer (`ancrage.json`) ; des repères que tout le monde connaît ; et les chiffres de la production que la page « Ce
+// que disent les lancers » montre.
 //
 //   cd server && node --import tsx ../retours/2026-11-09/maquette-filet/extraire.mts
 import fs from 'node:fs'
@@ -16,6 +17,12 @@ const lireJson = (f: string) => JSON.parse(fs.readFileSync(path.join(ICI, f), 'u
 const parId = new Map(((lireLaBase() as any).questions as any[]).map(q => [q.id, q]))
 const notes = new Map((lireJson('panel-ia.json') as any[]).map(n => [n.id, n]))
 const indices = new Map((lireJson('indices.json') as any[]).map(n => [n.id, n]))
+// ── Ce que chaque Français sait placer ──────────────────────────────────────────────────────────────────────
+// Le propriétaire, au matin du 9 novembre 2026 : « le levier le plus fort, c'est d'avoir des questions que chacun
+// connaisse, sachant que la population et la connaissance sont des personnes françaises ». Des agents ont classé
+// chaque question sans voir ni le panel ni les lancers : `chacun`, un adulte français pris au hasard la place à ★★ de
+// mémoire ; `ancrage`, son sujet est français, du monde, ou de l'étranger. L'acte I de la maquette tire les premières.
+const ancrages = new Map((lireJson('ancrage.json') as any[]).map(a => [a.id, a]))
 
 // ── Le juge des indices : un indice oriente, il ne donne jamais la valeur ───────────────────────────────────
 // Une année : aucun nombre de trois ou quatre chiffres à moins de 15 ans d'elle. Une grandeur : aucun nombre à moins
@@ -45,8 +52,7 @@ function refusDeLIndice(indice: string, valeur: number, annee: boolean): string 
 // trouver sa réponse (Verdun « du 21 février au 18 décembre ») : on la sait ou on la calcule, on ne l'estime pas.
 // Le moteur les donnait connues de tous, et l'acte I tournait au cours de maths (Théo, la tablée du 9 novembre
 // 2026) ; leur indice en était la solution (le juge des indices : 16 de ses 58 « valeur », et un comptage à la passe
-// des tranches). Le Filet d'aujourd'hui de
-// la maquette les pose encore, comme la production.
+// des tranches). Le Filet d'aujourd'hui de la maquette les pose encore, comme la production.
 const CALCULS = new Set([
   'gwncegep', 'eq6d1uie', '3yiw4do8', 'ct92jdvr', // le carré de 25, un nombre abondant, six diviseurs, les carrés parfaits
   'cb6v7fpw', 'gawi2k69', 'brg0edw0', 'm1tml875', 'j1ln7nbb', 'b1x00df9', 'hn1ubkxc', // secondes, millimètres, grammes, kilos, m², cm², jours d'une année
@@ -68,12 +74,13 @@ for (const id of lireJson('questions-posees.json') as string[]) {
     id, t: q.texte, v: v.valeur, an: v.annee, u: v.unite ?? '', c: q.meta.categorie, d: q.meta.difficulte,
     a: q.anecdote ?? '', ia: n.estimation, qcm: n.qcm, i: refus ? '' : ind.indice, r: ind?.repere ?? '',
     ...(CALCULS.has(id) ? { calcul: true } : {}),
+    ...(ancrages.get(id)?.chacun ? { fr: true } : {}), anc: ancrages.get(id)?.ancrage ?? '',
   })
 }
 
 // ── Des repères que tout le monde connaît ───────────────────────────────────────────────────────────────────
-// Des dates de l'école et de l'actualité, chacune vérifiée ; la frise n'en pose que deux, jamais du sujet de la
-// question, jamais à moins d'un quart d'époque de la réponse (`reperesDe`, jeu.js).
+// Des dates que tout Français a apprises à l'école ou vécues, chacune vérifiée ; la frise n'en pose que deux, jamais du
+// sujet de la question, jamais la réponse elle-même (`reperesDe`, jeu.js).
 const reperesAnnees = [
   [1066, 'Guillaume le Conquérant en Angleterre'], [1096, 'La première croisade'], [1163, 'Notre-Dame de Paris commencée'], [1214, 'La bataille de Bouvines'],
   [1270, 'La mort de Saint Louis'], [1337, 'Début de la guerre de Cent Ans'], [1347, 'La peste noire arrive en Europe'], [1429, 'Jeanne d’Arc délivre Orléans'],
@@ -139,5 +146,5 @@ const sortie = `// Écrit par extraire.mts : ${questions.length} questions du Fi
 fs.writeFileSync(path.join(ICI, 'donnees.js'), sortie)
 console.log(`${questions.length} questions (${questions.filter(q => q.an).length} années), ${questions.filter(q => q.i).length} indices retenus, ${refusés.length} refusés`)
 for (const r of refusés) console.log('  refusé', r)
-const parActe = [[40, 101], [25, 40], [0, 25]].map(([a, b]) => questions.filter(q => !q.calcul && q.ia >= a && q.ia < b))
+const parActe = [(q: any) => q.fr, (q: any) => !q.fr && q.ia >= 25, (q: any) => !q.fr && q.ia < 25].map(garde => questions.filter(q => !q.calcul && garde(q)))
 console.log('par acte :', parActe.map((qs, i) => `${['I', 'II', 'III'][i]} ${qs.length} (${qs.filter(q => q.an).length} années)`).join(' · '))
