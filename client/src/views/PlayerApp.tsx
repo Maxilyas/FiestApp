@@ -103,11 +103,11 @@ export function PlayerApp() {
   const laBarre = useALaDemande(barreDuChef, !!chef)
   // Une fois entré seulement : sur l'écran d'entrée, la barre couvrait
   // « Jouer sous un autre prénom ce soir », et rien n'y est encore à lancer.
-  const entre = !!useAppState().me
+  const moi = useAppState().me
   return (
     <>
       <SalleDuJoueur />
-      {chef && entre && laBarre && laBarre !== 'perdu' && <laBarre.BarreDuChef reglages={chef} />}
+      {chef && moi && laBarre && laBarre !== 'perdu' && <laBarre.BarreDuChef reglages={chef} moi={moi.playerId} />}
     </>
   )
 }

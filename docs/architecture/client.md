@@ -207,7 +207,7 @@ Ce que l'appareil garde n'est qu'une commodité : tout ce qui compte est au serv
 | `quizz.profile.<espace>` | local | le prénom et l'avatar choisis ici, le « choix local » — son nom d'avant est gardé : le changer ferait repasser chaque téléphone par l'entrée | `client/src/state.ts` |
 | `quizz.fin.<espace>` | local | la dernière soirée close et, si elle a été montrée, sa fin (`SoireeGardee`) | `client/src/state.ts` |
 | `quizz.plus-tard.<espace>` | local | l'invité qui a répondu « Plus tard » à l'invitation à créer un profil | `client/src/views/PlayerApp.tsx` |
-| `quizz.chef` | local | les réglages du chef d'un salon : s'il joue, le rythme, les équipes préparées | `client/src/chef.ts` |
+| `quizz.chef` | local | les réglages du chef d'un salon : s'il joue, le rythme — celui du salon, puis celui qu'il choisit dans sa barre —, les équipes préparées | `client/src/chef.ts`, `client/src/components/BarreDuChef.tsx` |
 | `quizz.chef.entrer` | session | l'espace où « Ouvrir le salon » fait entrer le chef, une fois | `client/src/chef.ts` |
 | `quizz.salon` | local | le brouillon de « Nouveau salon », du premier changement à « Ouvrir le salon » : le nom de la soirée, les quiz et leurs points, l'écran, si le chef joue, le rythme, les équipes | `client/src/chef.ts` |
 | `quizz.theme-joueur` | local | le thème du profil connecté ici, posé dès le démarrage | `client/src/themeJoueur.ts` |
