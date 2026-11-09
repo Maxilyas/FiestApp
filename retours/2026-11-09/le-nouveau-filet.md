@@ -699,6 +699,57 @@ en trouvait 25 % (environ 440).
    Français connaît (« au temps du disco », « quand l'euro arrive dans les
    poches »), jamais par une référence d'ailleurs.
 
+### 4.5 Le pilote : écrire ce que chaque Français sait
+
+Avant tout lot en nombre, le propriétaire a voulu un essai : trente questions
+de géographie à nombre que chaque Français sait placer, écrites par la
+chaîne de la base (la skill `base-campagne` : la consigne `--nombres` et une
+section « ce lot en particulier », le rédacteur, le vérificateur, la
+relecture des faits), rangées sur la branche, sans déploiement.
+
+| Les 47 faits que le rédacteur a essayés | |
+|---|---|
+| Déjà dans la base — le tunnel sous la Manche, le viaduc de Millau, la tour Eiffel, le puy de Dôme, la Seine, l'Everest… | 13 |
+| Pas assez connus — la Garonne, le Nil, le pont du Gard, le Léman… | 12 |
+| Un chiffre pas assez sûr — le Rhône, le mont Blanc remesuré, la dune du Pilat… | 12 |
+| Écrits | 10 |
+
+- **Écrits, relus, rangés : 10 questions**, toutes jouables au Filet — la
+  Loire, quatre distances depuis Paris, la tour de Pise, les tours de
+  Notre-Dame, le dôme du Sacré-Cœur, le pas de Calais, le mont Ventoux
+  (`server/content/campagne/geographie.json` : 27 414 questions). La
+  relecture n'en a retiré aucune et corrigé une anecdote fausse : la Loire
+  « jamais endiguée » a ses levées et ses barrages.
+- **Puis le juge à l'aveugle, à la règle stricte : une seule des dix est de
+  celles que chaque Français sait placer** — la Loire, « ses 1 000 km
+  s'apprennent à l'école ». Les distances « s'estiment plus qu'elles ne se
+  savent » ; les monuments sont célèbres, pas leur hauteur.
+
+Ce qu'on en tire :
+
+1. **Les faits que tout le monde connaît sont déjà dans la base**, ou
+   presque : un sur quatre de ceux essayés y était, et la consigne en
+   écartait d'autres d'emblée. Écrire en nombre ce que chaque Français sait,
+   à la règle stricte, rendrait peu — une question gardée pour dix écrites,
+   un fait sur cinquante essayés.
+2. **Savoir n'est pas savoir placer.** Paris–Marseille fait 775 km par la
+   route : dans le filet ★★ des 660 km à vol d'oiseau (de 495 à 825), où
+   tombe qui l'a faite en voiture sans la savoir. La règle stricte (« de
+   mémoire ») mesure le savoir ; le Filet paie le placement. Un second
+   critère — ce que chaque Français sait **estimer**, par ce qu'il vit :
+   les distances, les durées, les tailles du quotidien — serait le vrai
+   gisement à écrire. Les lancers d'aujourd'hui n'en disent rien : à mesurer
+   en production, sur le pilote d'abord, avant d'y écrire en nombre.
+3. **Deux règles écartent des faits parfaits pour le Filet** :
+   - la base refuse une mesure refaite (le mont Blanc, de 4 808 à 4 805 m)
+     — juste pour un QCM au mètre près, sans effet à 6 % près ;
+   - le Filet ne pose une année qu'avec 46 ans de recul (`seTendAuFilet`) :
+     208 des 702 années de son vivier, après 1980, ne se posent jamais — et
+     avec elles ce que les Français ont vécu (1981, 1998, 2002). Le nouveau Filet
+     pourrait les poser par une dernière époque qui finit aujourd'hui, au prix
+     d'une place moins secrète : les quatre époques ne passent jamais dans
+     l'avenir, et une réponse récente ne peut tomber que dans les dernières.
+
 ## 5. Le moteur de difficulté
 
 ### 5.1 Ce qu'il fait

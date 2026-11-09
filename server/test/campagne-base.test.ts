@@ -130,8 +130,12 @@ import { sansAccent } from '../../shared/homonymes'
  * la base et écrite là où elle vit (`preparer --sujet`), 144 rangées sur
  * 150 : 27 405. Le lendemain, une question de Stargate retirée — elle
  * donnait Halla pour planète-mère des Asgard, qui est Othala — : 27 404.
+ * Le 9 novembre 2026, un lot pilote de géographie à nombre que chaque
+ * Français saurait placer, pour le nouveau Filet : 47 faits essayés, 13 déjà
+ * dans la base, 10 écrits et rangés (une anecdote corrigée, la Loire
+ * « jamais endiguée ») : 27 414.
  */
-const AU_MOINS = 27404
+const AU_MOINS = 27414
 
 const { questions, refusees } = lireLaBase()
 
