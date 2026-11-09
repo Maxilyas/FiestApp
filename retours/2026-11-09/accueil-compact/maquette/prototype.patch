@@ -299,10 +299,10 @@ index 170fc7f..283f067 100644
      <div className="accueil-gestes">
        {/* Il joue déjà quelque part : on y revient d'un toucher, avant tout. */}
 diff --git a/client/src/styles.css b/client/src/styles.css
-index faad878..805c308 100644
+index faad878..84eea88 100644
 --- a/client/src/styles.css
 +++ b/client/src/styles.css
-@@ -17601,3 +17601,215 @@ span.annonce-admin-merci { cursor: default; }
+@@ -17601,3 +17601,220 @@ span.annonce-admin-merci { cursor: default; }
  .cl-piece-av { font-size: 1.9rem; }
  .cl-piece-dv { display: grid; place-items: center; height: 2.6rem; font-size: 2.2rem; }
  .cl-piece-divine .cl-opale-texte { font-size: var(--t-label); }
@@ -385,6 +385,9 @@ index faad878..805c308 100644
 +/* Une tuile seule sur sa rangée — cinq modes, un de fermé — la prend entière. */
 +.maq-grille > :last-child:nth-child(odd) { grid-column: 1 / -1; }
 +.accueil.maq .maq-grille > .gros-bouton {
++  /* Une tuile est étroite : sa pastille ronde et son titre se règlent sur la largeur de l'écran, pas sur sa hauteur.
++     Réglés sur la hauteur, « Le Cabinet de curiosités » passait sur trois lignes en 360 × 740. */
++  --maq-icone: 32px;
 +  display: grid;
 +  grid-template-columns: auto minmax(0, 1fr);
 +  align-content: center;
@@ -395,7 +398,11 @@ index faad878..805c308 100644
 +  padding: 8px 10px;
 +}
 +.maq-grille > .gros-bouton > .gros-texte { display: contents; }
-+.maq-grille > .gros-bouton .gros-texte b { grid-area: 1 / 2; }
++.accueil.maq .maq-grille > .gros-bouton .gros-texte b { grid-area: 1 / 2; font-size: 1.12rem; }
++@media (min-width: 384px) {
++  .accueil.maq .maq-grille > .gros-bouton { --maq-icone: 36px; }
++  .accueil.maq .maq-grille > .gros-bouton .gros-texte b { font-size: 1.2rem; }
++}
 +.accueil.maq .maq-grille > .gros-bouton .gros-detail { grid-area: 2 / 1 / 3 / 3; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; }
 +.maq-grille > .gros-bouton .chevron { display: none; }
 +.maq-grille > .gros-bouton > .pastille-attente { position: absolute; top: -9px; right: 10px; box-shadow: 0 0 0 2px var(--bg); }
@@ -513,9 +520,7 @@ index faad878..805c308 100644
 +    --maq-missions-detail: 0.8rem;
 +  }
 +  .accueil.maq .gros-bouton { gap: 12px; padding: 5px 14px; }
-+  /* Une tuile garde la pastille ronde du pas d'avant : plus large, « de curiosités » ne tenait plus sur sa ligne. */
-+  .accueil.maq .maq-grille > .gros-bouton { --maq-icone: 36px; column-gap: 10px; row-gap: 5px; padding: 10px 12px; }
-+  .accueil.maq .maq-grille > .gros-bouton .gros-texte b { font-size: 1.2rem; }
++  .accueil.maq .maq-grille > .gros-bouton { column-gap: 10px; row-gap: 5px; padding: 10px 12px; }
 +  .accueil.maq .maq-grille > .gros-bouton .gros-detail { font-size: 0.8rem; }
 +}
 diff --git a/client/src/views/ProfilApp.tsx b/client/src/views/ProfilApp.tsx

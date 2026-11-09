@@ -155,9 +155,13 @@ onglets, puis les duels et le Cabinet. Dans une tuile, la pastille ronde et le
 titre sur une ligne, ce qui s'y passe dessous sur toute la largeur ; ce qui
 attend (« À jouer », « À relever », « Résultat », « En route ») se pose à
 cheval sur le bord du haut, comme le compteur rouge sur le coin. Une tuile
-seule sur sa rangée — un mode fermé, un de plus — la prend entière.
+seule sur sa rangée — un mode fermé, un de plus — la prend entière. Une tuile
+est étroite : sa pastille ronde et son titre se règlent sur la largeur de
+l'écran (plus grands dès 384 pixels), pas sur sa hauteur — réglés sur la
+hauteur, « Le Cabinet de curiosités » passait sur trois lignes en 360 × 740.
 
-Des tuiles de 86 pixels en 360 × 640, 107 au-delà.
+Des tuiles de 86 pixels en 360 × 640, 101 en 360 × 740, 107 en 390 × 844 et
+au-delà.
 
 - Pour : plus de relief, des cibles plus larges, plus près des gros boutons ;
   la page remplit l'écran.
