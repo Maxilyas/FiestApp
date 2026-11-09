@@ -2,7 +2,7 @@
 paths:
   - "client/src/**/*.css"
   - "shared/typographie.ts"
-  - "server/test/{design,typographie,feuilles}.test.ts"
+  - "server/test/{design,typographie,feuilles,calques-des-listes}.test.ts"
 ---
 
 # Le CSS du client, et la typographie
@@ -164,6 +164,33 @@ paths:
   bornée à celle d'un téléphone (`--force-gpu-mem-available-mb=64`, en
   412 × 915 à la densité 2,625), il ne dessinait plus la feuille une seconde
   après son ouverture, et la dessine depuis.
+- **Dans une liste, rien ne garde un calque de la carte graphique.** Un
+  calque que le téléphone n'a plus la mémoire de dessiner laisse un trou à sa
+  taille — ou de la friture : au classement du quiz du jour, sous Le Ciel,
+  la ligne d'un joueur manquait, le médaillon de son légendaire seul à sa
+  place (le retour du propriétaire du 9 novembre 2026, un téléphone Android).
+  Trois choses en faisaient vingt-cinq pour huit joueurs, sur un décor qui
+  prend déjà quatre plein-écrans. **Une animation qui garde sa fin garde son
+  calque** : l'entrée d'une ligne (`slide-in … both`) le tenait pour toujours
+  — `backwards` quand la dernière image est l'élément au repos, et jamais
+  `both` ni `forwards` sur ce qui se répète. **Une transformation en 3D en
+  fait un même à plat** : la perspective qui fait pencher un légendaire sous
+  le doigt (`.lg-carte`) ne se pose plus que là où il se prend en main
+  (`.lg-touche-libre`). **Et ce qui passe devant un calque en devient un** :
+  la gemme de l'Éclat, les bulles des Abysses, devant le médaillon. Les puces
+  de la salle d'attente gardent encore le leur (`.player-chip`, `pop … both`)
+  — et son `opacity: 1`, qui écrase l'estompe d'une puce hors ligne
+  (`.player-chip.offline` ne s'est jamais vue) : les corriger change ce que
+  la salle voit, à décider avec le propriétaire. `calques-des-listes.test.ts`
+  garde les deux règles ; ce qu'elles font à l'écran se compte et se
+  photographie par
+  `retours/2026-11-09/reproductions/classement-sans-sa-ligne.ts` — les
+  calques de la page et leurs raisons (`LayerTree`, par CDP), puis le
+  classement à plusieurs budgets de mémoire : d'une à cinq lignes perdues dès
+  56 Mo avant, selon l'essai, les huit dessinées jusqu'à 40 depuis. Sous
+  52 Mo, c'est un bout de la page qui manque — son titre, son bouton du bas :
+  elle pèse encore 48 Mo à la densité 2,625 sous Le Ciel, dont 37 pour le
+  décor — et 10 en tout sous le Velours.
 - **Une classe assemblée couvre tout son préfixe** : la garde des classes
   mortes (S7, `design.test.ts`) tient pour vivante toute classe qui commence
   par un préfixe construit dans le code (`gerbe-${…}`) — `.gerbe-a-gagner`
