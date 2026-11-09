@@ -405,10 +405,10 @@ compte enfin.
   - L'indice, lui, reste rentable quand on sèche — s'il mène à la bonne
     époque neuf fois sur dix, 0,65 étoile payée, contre 0,43 sans — et coûte
     quand on sait à peu près : c'est ce qu'une aide doit être.
-  - Ce qu'elle coûte se dit en clair sous les boutons, et ce qu'elle ne
-    coûte jamais : « Tes aides : −1 ★ sur ce que la manche te rapportera,
-    jamais ton cœur : seule une manche ratée le coûte » — Claire et Samir ne
-    l'apprenaient qu'à la révélation. Le filet barre l'étoile payée avant le
+  - Ce qu'elle coûte se dit en une phrase sous les boutons, et ce qu'elle ne
+    coûte jamais : « Une aide coûte une étoile, jamais un cœur », puis « Tes
+    aides : −1 ★, jamais un cœur » — Claire et Samir ne l'apprenaient qu'à la
+    révélation. La phrase était plus longue avant l'épure du matin (§ 3.1). Le filet barre l'étoile payée avant le
     lancer, la révélation et le bilan après — Samir ne savait pas si c'était
     « une étoile retirée de mon score, ou seulement le plafond qui baisse ».
     Une aide offerte le dit aussi (« elle ne te coûte rien ») : Huguette, sous
