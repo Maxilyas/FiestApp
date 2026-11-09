@@ -829,9 +829,15 @@
     "verdict": "a-cheval (réponse contre une frontière)",
     "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
     "juge": "tranche"
+   },
+   {
+    "indice": "Entre la crise de 1929 et la fin des années quarante.",
+    "verdict": "dans",
+    "deduction": "Réécrit à la main : 1929–1949 : la bonne époque ; « les vingt années qui suivent la guerre » menaient à 1950–1974, à neuf ans de la réponse.",
+    "juge": "tranche"
    }
   ],
-  "retenu": "Dans les vingt années qui suivent la Seconde Guerre mondiale."
+  "retenu": "Entre la crise de 1929 et la fin des années quarante."
  },
  {
   "id": "0asc5jaf",
@@ -1675,9 +1681,15 @@
     "verdict": "a-cheval (réponse contre une frontière)",
     "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
     "juge": "tranche"
+   },
+   {
+    "indice": "Entre la chute de Napoléon et le milieu du siècle.",
+    "verdict": "dans",
+    "deduction": "Réécrit à la main : 1815–1850 : la bonne époque l’emporte ; « le début du XIXe siècle » menait à 1800–1824, à dix ans de la réponse.",
+    "juge": "tranche"
    }
   ],
-  "retenu": "Un grand chantier du début du XIXe siècle, quand le chemin de fer commence à peine."
+  "retenu": "Entre la chute de Napoléon et le milieu du siècle."
  },
  {
   "id": "qltqncr2",
@@ -2159,9 +2171,15 @@
     "verdict": "a-cheval (réponse contre une frontière)",
     "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
     "juge": "tranche"
+   },
+   {
+    "indice": "Plus d’un mois, mais bien moins qu’une demi-année.",
+    "verdict": "dans",
+    "deduction": "Réécrit à la main : 30–180 jours : l’ordre de grandeur sans le calcul ; « compte les semaines » donnait presque la valeur (Théo).",
+    "juge": "tranche"
    }
   ],
-  "retenu": "La fuite commence au printemps et s'arrête en plein été : compte les semaines."
+  "retenu": "Plus d’un mois, mais bien moins qu’une demi-année."
  },
  {
   "id": "f641rzbv",
@@ -3498,9 +3516,15 @@
     "verdict": "a-cheval (réponse contre une frontière)",
     "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
     "juge": "tranche"
+   },
+   {
+    "indice": "Un organisme d’État créé entre la crise de 1929 et la fin des années quarante.",
+    "verdict": "dans",
+    "deduction": "Réécrit à la main : 1929–1949 : la bonne époque ; « les vingt ans qui suivent la Libération » menaient à 1950–1974 — le cœur perdu de Samir.",
+    "juge": "tranche"
    }
   ],
-  "retenu": "Un organisme d'État né dans les vingt ans qui suivent la Libération de la France."
+  "retenu": "Un organisme d’État créé entre la crise de 1929 et la fin des années quarante."
  },
  {
   "id": "3rv9n9xk",

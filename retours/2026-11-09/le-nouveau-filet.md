@@ -70,7 +70,7 @@ d'écran. Tous préfèrent le nouveau — « nettement meilleure », au second t
 leurs retours ont changé une vingtaine de choses, dont le prix des aides, la
 piste des grandeurs et la place de l'indice. Un juge à l'aveugle a relu
 chaque indice : 42 sur 140 donnaient la réponse, aucun aujourd'hui ; 85 sur
-136 menaient à cheval sur deux tranches, 29 aujourd'hui, toutes contre une
+136 menaient à cheval sur deux tranches, 25 aujourd'hui, toutes contre une
 frontière.
 
 ## 1. Ce que la production a montré
@@ -416,8 +416,8 @@ compte enfin.
 
   | Sur les 136 indices | Avant | Après |
   |---|---|---|
-  | Tiennent dans la tranche de la réponse | 51 | 106 |
-  | À cheval, la réponse contre une frontière (1946, 330 ml) — gardés | 85 | 29 |
+  | Tiennent dans la tranche de la réponse | 51 | 110 |
+  | À cheval, la réponse contre une frontière (330 ml, 1926) — gardés | 85 | 25 |
   | Donnent la valeur, ou affirment un fait faux | 0 | 0 |
 
   - **La cible, précisée : la tranche du jeu, toute la tranche.** Un indice
@@ -426,7 +426,12 @@ compte enfin.
     plus que ce que vaut le milieu de la tranche (§ 7).
   - **Contre une frontière, on garde l'indice qui enjambe** : un indice tenu
     dans la tranche y serait presque la valeur (« juste après la guerre »
-    pour 1946), et la distance paie des deux côtés (§ 3.3).
+    pour 1946), et la distance paie des deux côtés (§ 3.3) — **sauf s'il
+    penche du mauvais côté** : quand le milieu de sa fourchette tombe dans la
+    tranche voisine, plus loin que ★★, il coûte le cœur de qui le suit. Quatre
+    gardés étaient de ceux-là, dont celui de Samir ; réécrits pour couvrir la
+    tranche de la réponse (« entre la crise de 1929 et la fin des années
+    quarante » pour 1946).
   - La passe a aussi trouvé une question qui se compte (les chiffres 9 de 1
     à 100), écartée avec les calculs (§ 4.4).
 - **Rangement** : en production, un fichier de contenu du Cabinet, clé par
