@@ -138,6 +138,8 @@ const ETATS: readonly Etat[] = [
   { nom: '11-face-a-face-max', adresse: '/collectionneurs', toucher: ['.cl-carte-premier', { bouton: 'Comparer' }], feuilleEntiere: true },
   { nom: '12-ma-vitrine', adresse: '/collectionneurs', toucher: ['.cl-sa-place ~ .cl-classement-tete', '.cl-ligne.me'], feuilleEntiere: true },
   { nom: '13-bareme', adresse: '/collectionneurs', toucher: ['.cl-bareme summary'], defiler: '.cl-bareme' },
+  // Son bas : le Divin, puis les trophées et le style en vignettes.
+  { nom: '13-bareme-bas', adresse: '/collectionneurs', toucher: ['.cl-bareme summary'], defiler: '.cl-bareme-divin' },
   { nom: '14-scelles', adresse: '/collectionneurs', toucher: [{ onglet: 'Scellés' }], defiler: '.cl-classement-tete' },
   // Sa carte dit ce que vaut sa collection : la sienne, qui mène aux collectionneurs ; celle de Max, ouverte de sa vitrine.
   { nom: '15-ma-carte', adresse: '/profil', toucher: ['.identite-ligne'] },

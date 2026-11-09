@@ -17,6 +17,7 @@ import {
   bilanDuFaceAFace,
   celuiAPasser,
   classerLesCollectionneurs,
+  enLegendaires,
   lignesDuFaceAFace,
   piecesMaitresses,
   rangDeCollection,
@@ -58,6 +59,17 @@ test('le barème : un Divin vaut huit légendaires, un Éclat et un maître chac
   assert.equal(CARATS_DU_ZENITH, 2 * CARATS_DE_LA_GEMME.legendaire, 'le propriétaire : « des légendaires durs à obtenir, donc j’aimerais que ce soit 50 »')
   // Chaque gemme vaut plus que celle d'en dessous : l'échelle de l'album.
   for (let i = 1; i < RARETES_D_AVATAR.length; i++) assert.ok(CARATS_DE_LA_GEMME[RARETES_D_AVATAR[i]] > CARATS_DE_LA_GEMME[RARETES_D_AVATAR[i - 1]])
+})
+
+test('le barème de la page compte en gemmes d’or ce qui vaut des légendaires, et jamais une gemme coupée', () => {
+  // « Pas un gros pavé, plutôt le visuel » (le propriétaire, le 9 novembre 2026) : une gemme d'or par légendaire, que
+  // l'œil compare d'une ligne à l'autre — et que le barème ne dessine que s'il tombe juste.
+  assert.deepEqual([CARATS_D_UN_ECLAT, CARATS_D_UN_MAITRE, CARATS_DU_ZENITH, CARATS_DE_LA_GEMME.divin].map(enLegendaires), [1, 1, 2, 8])
+  assert.equal(enLegendaires(CARATS_DE_LA_GEMME.legendaire), 1)
+  // Un barème qui ne tomberait plus juste n'écrirait que ses carats : une gemme et demie mentirait.
+  assert.equal(enLegendaires(40), null)
+  assert.equal(enLegendaires(CARATS_DE_LA_GEMME.epique), null, 'moins d’un légendaire, pas de gemme d’or')
+  assert.equal(enLegendaires(0), null)
 })
 
 test('la valeur d’une collection : ses trois familles, et le tout', () => {

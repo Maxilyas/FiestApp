@@ -63,6 +63,16 @@ comme leur salle — « 2 descendus sur 6 · 200 carats » se lisait comme ce
 que valent les deux ensemble (« corrige », le propriétaire) : la ligne passe
 sous le titre, qu'elle ne tenait plus à côté.
 
+Puis : « Pourrais-tu revoir le texte de “Comment se compte la valeur” ? Je ne
+veux pas un gros pavé, mais plutôt privilégier le visuel pour l'explication,
+de manière stylisée. » Le paragraphe de huit lignes a laissé la place à trois
+vitrines : l'escalier des gemmes d'un avatar ; « En légendaires », une gemme
+d'or par légendaire, que l'œil compare d'une ligne à l'autre — l'Éclat et
+chaque matière, le maître, l'étoile du zénith, le Divin sur sa plaque de
+nuit — ; les trophées et le style en vignettes, chacun sur son socle. Photos :
+`13-bareme` et `13-bareme-bas` (`rendu-collectionneurs.ts`), sous Velours et
+sous Ivoire.
+
 Une maquette : les propositions sont posées dans le vrai client — ses avatars
 peints, ses finitions, ses bordures de ligue, ses Divins, ses matières, sa
 feuille, son menu —, derrière une page de maquette (`/classement?p=1`, `2`,
