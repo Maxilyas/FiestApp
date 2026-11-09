@@ -577,7 +577,7 @@ interface Participant {
   captures: number
   gestes: number
   /** La dernière question que `question` lui a lue, quand elle est apparue, et s'il y a répondu. */
-  question: { cle: string; vueA: number; repondu: boolean; enPause?: boolean } | null
+  question: { cle: string; vueA: number; repondu: boolean; enPause?: boolean; revelee?: boolean } | null
   /** La photo à mémoriser qu'on lui a déjà signalée : `question` ne la lui annonce qu'une fois. */
   memoriser: string | null
   /** La question dont on lui a déjà lu la révélation. */
@@ -1452,6 +1452,12 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
           // La même, reposée par l'animateur : le téléphone a oublié la réponse donnée.
           const vierge = etat.etat === 'qcm' ? etat.choisi === 0 : !etat.deja
           if (p.question.repondu && vierge) return etat
+          // La même, reposée alors qu'il n'avait pas eu le temps d'y répondre :
+          // révélée à une réponse sur sept, reposée deux fois, elle est revenue
+          // sur chaque téléphone sans qu'aucun invité l'apprenne — cinq retours
+          // ont conclu que « Reposer la question » ne reposait que pour
+          // l'animatrice (la tablée du 9 novembre 2026).
+          if (!p.question.repondu && p.question.revelee) return etat
           // La même, rouverte après une pause, et toujours sans sa réponse : la
           // deuxième tablée attendait une question « nouvelle », et l'invitée qui
           // avait voulu répondre pendant la pause a laissé passer celle-ci.
@@ -1466,6 +1472,7 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
         // apprend s'il avait juste. La première tablée la sautait, et le
         // lecteur d'écran a conclu que son téléphone ne disait jamais la
         // bonne réponse — il la dit, en toutes lettres.
+        if (etat.etat === 'revelation' && p.question) p.question.revelee = true
         if (etat.etat === 'revelation' && p.question && p.revelation !== p.question.cle) return etat
         if (etat.etat === 'podium' && !p.podiumAnnonce) return etat
         if (etat.etat === 'fin') return etat
@@ -1506,6 +1513,8 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
       if (!voulu) throw new Refus('Répondre quoi ? le numéro d’une réponse, son texte, ou un nombre.')
       const e: any = await page.evaluate(LIRE_TELEPHONE).catch(() => null)
       if (!e || (e.etat !== 'qcm' && e.etat !== 'estimation')) {
+        // Révélée avant qu'il réponde : si l'animateur la repose, `question` la lui rendra.
+        if (e?.etat === 'revelation' && p.question) p.question.revelee = true
         throw new Refus(`Pas de question ouverte sur ton téléphone (il affiche : ${e?.etat ?? '?'}).`)
       }
       if (!e.ouvert) {

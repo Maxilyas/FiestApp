@@ -158,7 +158,11 @@ ne dit plus « Rejoindre » mais « Code 482 157 » — donne-lui ce mot à
 attendre dans ses valeurs du jour. Un quiz que l'application compose se joue
 à vingt secondes la question : l'animatrice doit le régler à 45–60 s avant
 de lancer (ses consignes le disent), sans quoi les agents n'ont pas le temps
-de répondre. La première : `retours/2026-11-09/`.
+de répondre. Un invité qui attend la première question dans un seul
+`question 540` ne regarde pas sa salle d'attente : demande-leur, dans leurs
+valeurs du jour, de la regarder de temps en temps (`question 60`, puis
+`voir`) — des équipes posées après leur entrée leur ont échappé treize
+minutes. La première : `retours/2026-11-09/`.
 
 ## Plusieurs salons
 
