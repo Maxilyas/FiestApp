@@ -35,7 +35,7 @@ Quand tu animes depuis ton téléphone (« Créer un salon »), ta barre de chef
 - hors d'un quiz, « ⋯ » propose aussi « Terminer la soirée » ;
 - pendant le dernier quiz du programme, « Terminer le quiz » prévient (« Terminer ce quiz et la soirée ? ») : le quiz se termine et la soirée se clôt aussitôt.
 
-La soirée garde le nom qu'elle porte dans l'historique. Sous ta fin de soirée, « Ton salon » propose « Encore un quiz, avec eux » et « C'était un essai », qui retire la soirée close de l'historique.
+Ta barre ne demande pas de nom : la soirée prend celui que tu lui as donné dans « Nouveau salon » (« Le nom de la soirée ») ; sans lui, ou si tu l'as renommée à la main dans l'historique, elle garde le nom qu'elle y porte. Sous ta fin de soirée, « Ton salon » propose « Encore un quiz, avec eux » et « C'était un essai », qui retire la soirée close de l'historique.
 
 ### Une soirée laissée en plan
 

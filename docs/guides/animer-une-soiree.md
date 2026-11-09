@@ -22,12 +22,15 @@ Connecté à l'écran commun, ton profil y retrouve le même espace, ses quiz et
 
 À l'accueil, « Créer un salon » ouvre « Nouveau salon ». Il s'ouvre avec ton profil (sinon : « Me connecter » ou « Créer mon profil ») ; ton espace naît à ta première visite, sans rien d'autre à retenir.
 
-1. **« Les quiz »** : ceux de ce soir, dans l'ordre — « Ajouter un quiz » propose tes quiz prêts, le quiz tout prêt et les modèles.
-2. **« Où voit-on les questions ? »** : « Sur nos téléphones », ou « Sur une télé » ([plus bas](#la-télé)).
-3. **« Et toi ? »** : « Je joue aussi », ou « J'anime seulement ».
-4. **« Les équipes »** : « Chacun pour soi », ou « En équipes ».
-5. Replié dans **« Réglages »** : le rythme (« Question suivante » : « Au clic », « 5 s », « 10 s », « 20 s » — 5 s d'office) et les « Points » de chaque quiz, ×1, ×2 ou ×3.
-6. **« Ouvrir le salon »** enregistre le programme de ce soir, ouvre le salon et son code, et t'emmène dans ta soirée, ta barre en bas de l'écran.
+1. **« Le nom de la soirée »** : « Les 40 ans de Sam ». Tes invités le lisent en arrivant, la télé l'affiche, et l'historique range la soirée sous ce nom ; laissé vide, elle s'appelle « La soirée de *ton prénom* », et l'historique la range sous sa date. Il reste proposé la fois suivante : change-le, ou vide-le.
+2. **« Les quiz »** : ceux de ce soir, dans l'ordre — « Ajouter un quiz » propose tes quiz prêts, le quiz tout prêt et les modèles. Le crayon d'une carte ouvre ce quiz dans « Mes quiz » : ses questions, et le temps de chacune (« Régler tout le quiz »).
+3. **« Où voit-on les questions ? »** : « Sur nos téléphones », ou « Sur une télé » ([plus bas](#la-télé)).
+4. **« Et toi ? »** : « Je joue aussi », ou « J'anime seulement ».
+5. **« Les équipes »** : « Chacun pour soi », ou « En équipes ».
+6. Replié dans **« Réglages »** : le rythme (« Question suivante » : « Au clic », « 5 s », « 10 s », « 20 s » — 5 s d'office) et les « Points » de chaque quiz, ×1, ×2 ou ×3.
+7. **« Ouvrir le salon »** enregistre le nom et le programme de ce soir, ouvre le salon et son code, et t'emmène dans ta soirée, ta barre en bas de l'écran.
+
+Ce que tu prépares t'attend : pars régler un quiz, reviens demain, la page retrouve le nom, les quiz, les équipes et tes choix — sur ce téléphone, jusqu'à « Ouvrir le salon ».
 
 ### Ou ouvrir l'écran commun
 
@@ -111,8 +114,9 @@ Un double clic ne saute rien : la console ignore les gestes de la partie une dem
 En bas de ton téléphone, une fois entré dans ta soirée :
 
 - **L'invitation** en grand tant que personne n'a marqué — « Le code du salon », le QR, « Copier le lien » —, puis « Code », à un toucher.
-- **Le geste du moment** : « Lancer le quiz », « Quiz suivant » (inerte deux secondes et demie après l'arrivée du podium, le temps qu'on le regarde), la pause, « Révéler » avec le compte des réponses (« 12/30 »), le champ « La bonne réponse » d'une estimation en direct, « Question suivante » ou « Le podium », « Ajouter un quiz » quand le programme est joué, et « Terminer la soirée » quand son dernier quiz a rendu son verdict.
-- **« ⋯ » (« La partie »)** : le rythme (« Au clic », « 5 s », « 10 s », « 20 s »), les équipes, et selon le moment : à la révélation, « Reposer la question » (sans confirmation) et « Annuler les points » (« Annuler les points de cette question ? » — « Personne ne gagne rien sur elle, et elle sort des statistiques. ») ; pendant un quiz, « Terminer le quiz » (« Terminer ce quiz ? » — « Les questions restantes ne seront pas posées. Ce qui a été joué compte. » ; sur le dernier quiz du programme, « Terminer ce quiz et la soirée ? ») ; hors d'un quiz, « Ajouter un quiz » et « Terminer la soirée ».
+- **Le geste du moment** : « Lancer le quiz », « Quiz suivant » (inerte deux secondes et demie après l'arrivée du podium, le temps qu'on le regarde), la pause, « Révéler » avec le compte des réponses (« 12/30 »), le champ « La bonne réponse » d'une estimation en direct, « Question suivante » ou « Le podium », « Ajouter un quiz » quand le programme est joué, et « Terminer la soirée » quand son dernier quiz a rendu son verdict — il demande d'abord (« Terminer la soirée ? »).
+- **Deux garde-fous sous ton pouce.** « Révéler » demande tant que moins de la moitié de la salle a répondu : « Révéler maintenant ? » — « 6 joueurs sur 7 n'ont pas encore répondu : la question se ferme pour tout le monde. » Et les boutons qui avancent la partie ignorent un toucher pendant la demi-seconde qui suit un changement d'écran : un double toucher sur « Question suivante » ne révèle pas la question d'après.
+- **« ⋯ » (« La partie »)** : le rythme (« Au clic », « 5 s », « 10 s », « 20 s »), les équipes — chacune dit combien y jouent, et sous « Sans équipe », un toucher sur un prénom le range dans celle que tu choisis, même en plein quiz : son téléphone le lui dit —, et selon le moment : à la révélation, « Reposer la question » (sans confirmation) et « Annuler les points » (« Annuler les points de cette question ? » — « Personne ne gagne rien sur elle, et elle sort des statistiques. ») ; pendant un quiz, « Terminer le quiz » (« Terminer ce quiz ? » — « Les questions restantes ne seront pas posées. Ce qui a été joué compte. » ; sur le dernier quiz du programme, « Terminer ce quiz et la soirée ? ») ; hors d'un quiz, « Ajouter un quiz » et « Terminer la soirée ».
 
 Ta barre ne montre rien de la question : tu la lis sur la même page que tes invités. Révéler, la suite et la pause, restés sans réponse trois secondes, sont renvoyés une fois, sans risque de jouer deux fois. Lancer un quiz, le terminer, clore la soirée et les équipes ne se renvoient pas : si le réseau hoquette au moment où tu touches et que la barre ne bouge pas, retouche — elle montre toujours où en est la partie.
 
@@ -163,7 +167,7 @@ Un déploiement, un réveil de l'hébergeur, une panne : la soirée ne se perd p
 
 - **À l'écran commun**, « Clore la soirée » — en salle d'attente ou sur l'écran de victoire — propose un nom : « Elle rejoint l'historique sous ce nom. Chaque invité reçoit sa fin de soirée sur son téléphone — son rang, ses hauts faits, ses niveaux —, puis la suivante part de zéro. » Ta console confirme : « « … » est close — la soirée suivante peut commencer ».
 - **« C'était un essai »**, dans la même boîte, efface tout sans rien garder : « Effacer cet essai ? », puis « Tout effacer ».
-- **Au salon**, ta barre propose « Terminer la soirée » quand le dernier quiz du programme a rendu son verdict — ou dans « ⋯ », hors d'un quiz : « Elle s'enregistre telle qu'elle a été jouée, et chacun reçoit sa fin de soirée. » Sous ta fin de soirée, « Ton salon » propose « Encore un quiz, avec eux » et « C'était un essai ».
+- **Au salon**, ta barre propose « Terminer la soirée » quand le dernier quiz du programme a rendu son verdict — ou dans « ⋯ », hors d'un quiz ; l'un comme l'autre demande : « Elle s'enregistre telle qu'elle a été jouée, et chacun reçoit sa fin de soirée. » Sous ta fin de soirée, « Ton salon » propose « Encore un quiz, avec eux » et « C'était un essai ».
 - Si la base permanente refuse, rien n'est effacé — « Rien n'a été effacé : … » — : réessaie. Sinon l'écran annonce la soirée close, et « La soirée suivante » rend tous tes écrans à la salle d'attente. Le code du salon vaut encore une demi-heure pour un retardataire ; un écran rallumé pendant ce temps le garde, sinon la soirée suivante en tire un neuf.
 
 La fin de soirée de chacun, le souvenir, le bilan, l'historique et les prix : [Après la soirée](../produit/apres-la-soiree.md).

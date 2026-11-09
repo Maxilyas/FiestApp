@@ -5,11 +5,11 @@ import { Icon } from './Icon'
 import { Feuille } from './Pieces'
 import { showToast } from '../state'
 import { confirmDialog } from './Dialog'
-import { brancherLeChef, clore, commande, creerEquipe, equipesParDefaut, lancer, modifierEquipe, retirerEquipe, terminer, useChef } from '../socketDuChef'
+import { brancherLeChef, clore, commande, creerEquipe, equipesParDefaut, lancer, modifierEquipe, rangerInvite, retirerEquipe, terminer, useChef } from '../socketDuChef'
 import { FeuilleDEquipe } from './FeuilleDEquipe'
 import { MAX_EQUIPES } from '../../../shared/teams'
 import type { ReglagesDuChef } from '../chef'
-import { PALIERS_ENCHAINEMENT } from '../../../shared/console'
+import { PALIERS_ENCHAINEMENT, gesteAccepte, revelationPrecoce } from '../../../shared/console'
 import { ecrireCode } from '../../../shared/space'
 import { lireNombre } from '../../../shared/nombres'
 
@@ -18,11 +18,13 @@ import { lireNombre } from '../../../shared/nombres'
  * La soirée s'enregistrait seule trente secondes après, et le podium
  * disparaissait sous les yeux de la salle (le propriétaire du dépôt, le
  * 4 octobre 2026). Le bouton dit ce qu'il fait : « Maintenant » ne disait
- * pas quoi (le 3 octobre).
+ * pas quoi (le 3 octobre). Et il demande, comme celui du menu : il prend la
+ * place de « Quiz suivant », et closait d'un toucher une soirée qui ne se
+ * rouvre pas (la tablée du 9 novembre 2026).
  */
-function TerminerLaSoiree() {
+function TerminerLaSoiree({ onTerminer }: { onTerminer: () => void }) {
   return (
-    <button type="button" className="btn btn-primary barre-chef-geste barre-chef-terminer" onClick={clore}>
+    <button type="button" className="btn btn-primary barre-chef-geste barre-chef-terminer" onClick={onTerminer}>
       <Icon name="flag" />
       Terminer la soirée
     </button>
@@ -54,6 +56,8 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
   const [qr, setQr] = useState(false)
   /** L'équipe ouverte dans sa feuille : son identifiant, `nouvelle` pour en créer une. */
   const [equipe, setEquipe] = useState<string | null>(null)
+  /** L'invité sans équipe qu'on range : sa feuille liste les équipes. */
+  const [aRangerId, setARangerId] = useState<string | null>(null)
   /**
    * La place que la salle d'attente garde en tête pour l'invitation : le
    * code en grand et le QR, sur le téléphone du chef seulement. La barre
@@ -115,6 +119,22 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
     return () => clearTimeout(t)
   }, [v?.phase, c.sessionId])
 
+  /**
+   * La garde de la console (`gesteAccepte`, `shared/console.ts`), que la
+   * barre n'avait pas : ses boutons changent de rôle sous le même pouce, et
+   * le second toucher d'un double toucher sur « Question suivante » révélait
+   * la question d'après à zéro réponse.
+   */
+  const changement = useRef<number | null>(null)
+  useLayoutEffect(() => {
+    changement.current = performance.now()
+  }, [v?.phase, v?.qIndex, v?.round, c.sessionId])
+  const garde =
+    (geste: () => void): (() => void) =>
+    () => {
+      if (gesteAccepte(changement.current, performance.now())) geste()
+    }
+
   // En équipes : celles par défaut, une fois, si la soirée n'en a pas.
   useEffect(() => {
     if (!reglages.equipes || equipesPosees.current || !c.presente || !c.snapshot) return
@@ -173,11 +193,35 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
     )
     if (ok) terminer()
   }
+  /**
+   * « Révéler » ferme la question pour toute la salle. Tant que moins de la
+   * moitié a répondu, il demande : une animatrice l'a touché à une réponse
+   * sur sept, et six invités ont perdu la question. Ce qu'il vise se lit au
+   * toucher, pas à la confirmation (invariant 12) : la question qui se
+   * révèle d'elle-même pendant la boîte ne fait pas passer à la suivante.
+   */
+  const reveler = async () => {
+    if (!v || !gesteAccepte(changement.current, performance.now())) return
+    const visee = { phase: v.phase, qIndex: v.qIndex, round: v.round }
+    if (revelationPrecoce(v.answeredCount ?? 0, v.participantCount ?? 0)) {
+      const manquent = (v.participantCount ?? 0) - (v.answeredCount ?? 0)
+      const ok = await confirmDialog({
+        title: 'Révéler maintenant ?',
+        message: `${manquent} joueurs sur ${v.participantCount} n’ont pas encore répondu : la question se ferme pour tout le monde.`,
+        confirmLabel: 'Révéler',
+      })
+      if (!ok) return
+    }
+    commande({ type: 'next', ...visee })
+  }
+  /** Ceux qui jouent sans équipe : le chef les range d'ici, même en plein quiz. */
+  const sansEquipe = c.snapshot.players.filter(p => !p.teamId && !p.horsClassement)
+  const aRanger = sansEquipe.find(p => p.id === aRangerId) ?? null
 
   let principal = null
   if (c.snapshot.finDuProgramme && (!v || v.phase === 'finished')) {
     // Le programme est joué : le podium reste, jusqu'à ce geste.
-    principal = <TerminerLaSoiree />
+    principal = <TerminerLaSoiree onTerminer={() => void enregistrer()} />
   } else if (!v || v.phase === 'finished') {
     principal = (
       <button
@@ -211,7 +255,7 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
         >
           <Icon name={v.paused ? 'play' : 'pause'} />
         </button>
-        <button type="button" className="btn btn-primary barre-chef-geste" onClick={() => commande({ type: 'next' })}>
+        <button type="button" className="btn btn-primary barre-chef-geste" onClick={() => void reveler()}>
           Révéler
           {v.participantCount ? <span className="barre-chef-compte">{`${v.answeredCount ?? 0}/${v.participantCount}`}</span> : null}
         </button>
@@ -236,7 +280,7 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
     )
   } else if (v.phase === 'reveal') {
     principal = (
-      <button type="button" className="btn btn-primary barre-chef-geste" onClick={() => commande({ type: 'next' })}>
+      <button type="button" className="btn btn-primary barre-chef-geste" onClick={garde(() => commande({ type: 'next' }))}>
         {v.qIndex + 1 < v.qCount ? 'Question suivante' : 'Le podium'}
       </button>
     )
@@ -317,9 +361,33 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
                     {t.emoji}
                   </span>
                   <span className="equipe-du-chef-nom">{t.name}</span>
+                  {/* Combien y sont : « Les équipes » ne disait ni qui, ni combien. */}
+                  <span className="muted small">{`${t.memberCount} joueur${t.memberCount > 1 ? 's' : ''}`}</span>
                   <Icon name="edit" />
                 </button>
               ))}
+              {/* Entrés avant que les équipes existent, ou sans en choisir : un
+                  toucher les range, et leur téléphone le leur dit. */}
+              {c.snapshot.teams.length > 0 && sansEquipe.length > 0 && (
+                <>
+                  <span className="label">{`Sans équipe · ${sansEquipe.length}`}</span>
+                  {sansEquipe.map(p => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className="equipe-du-chef"
+                      aria-label={`Ranger ${p.nomAffiche ?? p.name} dans une équipe`}
+                      onClick={() => {
+                        setPlus(false)
+                        setARangerId(p.id)
+                      }}
+                    >
+                      <span className="equipe-du-chef-nom">{p.nomAffiche ?? p.name}</span>
+                      <Icon name="users" />
+                    </button>
+                  ))}
+                </>
+              )}
               {c.snapshot.teams.length < MAX_EQUIPES && (
                 <button
                   type="button"
@@ -372,6 +440,22 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
               </button>
             </>
           )}
+        </Feuille>
+      )}
+
+      {/* Rangé, il sort de ceux qui n'ont pas d'équipe : sa feuille se ferme
+          d'elle-même. Elle reste si le geste n'est pas arrivé. */}
+      {aRanger && (
+        <Feuille titre={`L’équipe de ${aRanger.nomAffiche ?? aRanger.name}`} onFermer={() => setARangerId(null)}>
+          {c.snapshot.teams.map(t => (
+            <button key={t.id} type="button" className="equipe-du-chef" onClick={() => rangerInvite(aRanger.id, t.id)}>
+              <span className="equipe-du-chef-emoji" aria-hidden="true">
+                {t.emoji}
+              </span>
+              <span className="equipe-du-chef-nom">{t.name}</span>
+              <span className="muted small">{`${t.memberCount} joueur${t.memberCount > 1 ? 's' : ''}`}</span>
+            </button>
+          ))}
         </Feuille>
       )}
 

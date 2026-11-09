@@ -78,6 +78,13 @@ prénoms. C'était son envie pour mélanger les générations.
   annoncé (`PlayerApp.tsx`). Rouvrir le choix entre deux quiz se décide avec
   cela en tête.
 
+**Depuis (le 9 novembre 2026).** Deux des pistes sont faites : tant que
+personne n'a marqué, la carte « Choisis ton équipe » monte en tête de la
+salle d'attente, son choix ouvert (`choixDEquipeOuvert`) ; et le chef range
+un invité depuis « ⋯ », sous « Sans équipe », même en plein quiz. La télé
+branchée ouvre toujours la salle avant « Ouvrir le salon », et le choix ne
+se rouvre pas de lui-même entre deux quiz : le parti pris tient.
+
 ### 2. « Révéler » part au premier toucher, même à une réponse sur sept — confirmé
 
 **Ce qui se passe.** À la question 6, Nadia a touché « Révéler » alors
@@ -100,6 +107,12 @@ doigt qui glisse ne se rouvre pas.
 répondu, ou une seconde de garde sur ce bouton après « Question suivante » ;
 la confirmation du menu sur le gros « Terminer la soirée ».
 
+**Depuis (le 9 novembre 2026).** Fait, les trois : « Révéler » demande tant
+que moins de la moitié a répondu (`revelationPrecoce`), les gestes qui
+avancent la partie attendent la demi-seconde de la console après un
+changement d'écran (`gesteAccepte`), et le gros « Terminer la soirée »
+demande comme celui du menu.
+
 ### 3. Quitter « Nouveau salon » efface la préparation — confirmé
 
 **Ce qui se passe.** Le quiz composé se joue à vingt secondes la question ;
@@ -116,6 +129,14 @@ soirée, la même page se souvient de tout.
 ses questions sans les réponses (Nadia joue aussi, et l'éditeur les montre),
 et son temps par question.
 
+**Depuis (le 9 novembre 2026).** Le brouillon se garde : du premier
+changement à « Ouvrir le salon », la page écrit sa préparation sur le
+téléphone (`BrouillonDuSalon`, `client/src/chef.ts`) et la retrouve au
+retour — le nom, les quiz et leurs points, l'écran, les équipes. Le crayon
+d'une carte mène à ce quiz dans « Mes quiz ». Restent : voir les questions
+sans leurs réponses depuis le salon (l'éditeur les montre toujours à qui
+joue aussi), et régler le temps par question sans quitter la page.
+
 ### 4. Une soirée ouverte depuis un salon ne se nomme pas — confirmé
 
 La télé dit « La soirée de Nadia », le souvenir et le bilan « Soirée du
@@ -123,6 +144,13 @@ La télé dit « La soirée de Nadia », le souvenir et le bilan « Soirée du
 été l'intertitre d'une question. La barre du chef clôt sans titre
 (`clore()`, `socketDuChef.ts`, envoie une charge vide), quand l'écran commun
 en demande un. C'est le lien qu'on envoie à la famille.
+
+**Depuis (le 9 novembre 2026).** « Nouveau salon » s'ouvre sur « Le nom de
+la soirée » : écrit à « Ouvrir le salon », il fait le titre de l'entrée et
+de la télé (`reglagesAuNom`), et une clôture sans titre — la barre du chef,
+le dernier quiz d'un programme, le QG — range la soirée sous ce nom tant
+que l'historique ne lui en connaît qu'un automatique. Le nom reste celui de
+l'espace : il est proposé de nouveau à la soirée suivante.
 
 ### 5. Qui n'a pas répondu ? — idée
 

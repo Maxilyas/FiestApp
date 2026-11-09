@@ -93,6 +93,29 @@ test('le dernier quiz du programme joué, le podium reste jusqu’à « Terminer
   assert.equal(apres.finDuProgramme, undefined)
 })
 
+test('close sans titre, depuis la barre du chef : la soirée porte le nom que son salon lui a donné', async () => {
+  // La barre clôt sans titre, quand l'écran commun en propose un : la soirée
+  // de Nadia restait « Soirée du 9 novembre 2026 » au souvenir et au bilan,
+  // le lien qu'on envoie à la famille (la tablée du 9 novembre 2026).
+  const s = await salon('chef9')
+  const nommee = { title: 'Les 40 ans de Sam', eyebrow: 'La soirée', headline: 'Les 40 ans de Sam', dateLine: '', maxPlayers: 150 }
+  assert.ok((await ecrire(banc.url, '/api/space/settings', nommee, s.console_, 'PUT')).ok)
+  await jouerJusquAuPodium(s.ecran, s.quiz, s.a.socket)
+  const fin = attendre<any>(s.a.socket, 'soiree:fin', () => true, 'la fin de soirée', 8000)
+  ;(s.ecran as any).emit('host:closeParty', {}, () => {})
+  assert.equal((await fin).soiree.titre, 'Les 40 ans de Sam')
+  const { archives } = (await (await fetch(`${banc.url}/s/${s.slug}/soirees.json`)).json()) as { archives: { title: string }[] }
+  assert.equal(archives[0].title, 'Les 40 ans de Sam', 'l’historique aussi')
+})
+
+test('close sans titre, un salon sans nom : la soirée garde sa date', async () => {
+  const s = await salon('chef10')
+  await jouerJusquAuPodium(s.ecran, s.quiz, s.a.socket)
+  const fin = attendre<any>(s.a.socket, 'soiree:fin', () => true, 'la fin de soirée', 8000)
+  ;(s.ecran as any).emit('host:closeParty', {}, () => {})
+  assert.match((await fin).soiree.titre, /^Soirée du /, '« La soirée de chef10 », identique d’un soir à l’autre, ne nommerait rien')
+})
+
 test('« Ouvrir le salon » le lendemain efface la clôture de la veille sur la télé', async () => {
   // L'écran commun gardait « La soirée est close » jusqu'au premier invité :
   // le chef qui rouvrait son salon la voyait encore (la remarque du

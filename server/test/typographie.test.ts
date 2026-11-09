@@ -8,7 +8,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { de, deNom, espacesFines, formatNumber, place, rang } from '../../shared/typographie'
-import { defaultSettings, normalizeSettings, titreChoisi, titreDeCloture } from '../../shared/space'
+import { defaultSettings, normalizeSettings, reglagesAuNom, titreChoisi, titreDeCloture } from '../../shared/space'
 
 const FINE = ' '
 const INSECABLE = ' '
@@ -46,6 +46,25 @@ test('un espace neuf s’appelle « La soirée d’Antoine », et l’ancien dé
   const tape = normalizeSettings({ title: 'Les 40 ans de Sam', eyebrow: 'La soirée de', headline: 'Sam' }, 'Antoine')
   assert.equal(tape.title, 'Les 40 ans de Sam')
   assert.equal(tape.eyebrow, 'La soirée de')
+})
+
+// La tablée du 9 novembre 2026 : une soirée ouverte depuis un salon ne se
+// nommait nulle part. « Nouveau salon » demande un nom, un seul champ, que
+// la télé, l'entrée des invités, le souvenir et le bilan reprennent.
+test('le nom donné à la soirée en créant le salon : le titre de l’espace, et l’entrée des invités', () => {
+  const espace = { name: 'Nadia', dateLine: 'samedi 14 mars', maxPlayers: 40 }
+  const nommee = reglagesAuNom('  Les 40 ans de Sam ', espace)
+  assert.deepEqual(nommee, { title: 'Les 40 ans de Sam', eyebrow: 'La soirée', headline: 'Les 40 ans de Sam', dateLine: 'samedi 14 mars', maxPlayers: 40 })
+  assert.equal(titreChoisi({ title: nommee.title, name: 'Nadia' }), 'Les 40 ans de Sam', 'la clôture le reprendra')
+  // Vidé, le nom rend le titre d'office — ce que le serveur écrirait de lui-même.
+  assert.deepEqual(reglagesAuNom('', espace), { ...defaultSettings('Nadia'), dateLine: 'samedi 14 mars', maxPlayers: 40 })
+  assert.deepEqual(reglagesAuNom('   ', espace), reglagesAuNom('', espace))
+  // Le grand titre de l'entrée tient en quarante caractères ; le titre, en quatre-vingts.
+  const long = reglagesAuNom('Le grand quiz de la crémaillère de la coloc des Lilas', espace)
+  assert.equal(long.title, 'Le grand quiz de la crémaillère de la coloc des Lilas')
+  assert.equal([...long.headline].length, 40)
+  // Ce que le serveur lit de ces réglages, il le garde tel quel.
+  assert.deepEqual(normalizeSettings(nommee, 'Nadia'), nommee)
 })
 
 test('la clôture propose le titre choisi par l’animateur, jamais le titre par défaut', () => {

@@ -149,11 +149,14 @@ test('une fin sans rien de nouveau ni à suivre ne garde ni trophées ni de quoi
 
 test('au chef : « Terminer la soirée » sur le dernier podium, sans échéance — et rien ne se décompte dans la salle', async () => {
   // Le podium s'enlevait tout seul, trente secondes après : c'est le chef
-  // qui l'enlève (le propriétaire du dépôt, le 4 octobre 2026).
+  // qui l'enlève (le propriétaire du dépôt, le 4 octobre 2026). Son geste
+  // demande d'abord depuis le 9 novembre 2026 (`onTerminer`, la boîte du
+  // menu) : à la place de « Quiz suivant », il closait d'un toucher une
+  // soirée qui ne se rouvre pas (`barre-du-chef.test.ts`).
   const { readFileSync } = await import('node:fs')
   const source = (f: string) => readFileSync(new URL(`../../client/src/${f}`, import.meta.url), 'utf8')
   const barre = source('components/BarreDuChef.tsx')
-  assert.match(barre, /barre-chef-terminer" onClick=\{clore\}>\s*<Icon name="flag" \/>\s*Terminer la soirée\s*<\/button>/)
+  assert.match(barre, /barre-chef-terminer" onClick=\{onTerminer\}>\s*<Icon name="flag" \/>\s*Terminer la soirée\s*<\/button>/)
   assert.match(barre, /c\.snapshot\.finDuProgramme && \(!v \|\| v\.phase === 'finished'\)/)
   assert.doesNotMatch(barre, />\s*Maintenant\s*</)
   assert.doesNotMatch(barre, /barre-chef-echeance|seule dans/)

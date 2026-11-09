@@ -10,6 +10,7 @@ import { questionsDesEquipes, teamScores, vainqueursDuQuiz, type QuestionDEquipe
 import { nomAffiche, nomsAffiches, sansAccent } from '../../../shared/homonymes'
 import { vainqueurs } from '../../../shared/classement'
 import { tronquer } from '../../../shared/avatars'
+import { titreChoisi } from '../../../shared/space'
 import { apparenceDeLAvatar } from '../../../shared/profil'
 import type { PublicPlayer, Recap, TeamBonus } from '../../../shared/types'
 import type { Review } from '../../../shared/review'
@@ -747,15 +748,30 @@ export class ArchiveStore {
   /**
    * Range une soirée. Une archive déjà là est mise à jour et garde son titre,
    * sauf si on en donne un nouveau.
+   *
+   * `aLaCloture` : l'espace qui la clôt. Close sans titre — la barre du chef,
+   * le dernier quiz d'un programme, le QG —, elle prend le nom que son
+   * animateur lui a donné, devant sa date, comme l'écran commun le propose
+   * (`titreDeCloture`) : une soirée ouverte depuis un salon restait « Soirée
+   * du 9 novembre 2026 » au souvenir et au bilan. Un nom tapé dans
+   * l'historique, lui, ne bouge pas.
    */
-  async save(spaceId: string, id: string, heldAt: number, archive: PartyArchive, title?: string): Promise<ArchiveSummary> {
+  async save(
+    spaceId: string,
+    id: string,
+    heldAt: number,
+    archive: PartyArchive,
+    title?: string,
+    aLaCloture?: { title: string; name: string },
+  ): Promise<ArchiveSummary> {
     const existing = await this.client.execute({
       sql: 'SELECT title FROM soirees WHERE space_id = ? AND id = ?',
       args: [spaceId, id],
     })
     const kept = existing.rows[0] ? String(existing.rows[0].title) : null
     const clean = tronquer((title ?? '').trim(), 80)
-    const finalTitle = clean || kept || archiveTitle(heldAt)
+    const choisi = aLaCloture && (!kept || /^Soirée du /.test(kept)) ? titreChoisi(aLaCloture) : null
+    const finalTitle = clean || choisi || kept || archiveTitle(heldAt)
     const archivedAt = Date.now()
     // La colonne `summary` porte la fiche, pas le résumé : des faits bruts,
     // que la liste relira avec les règles du jour.
