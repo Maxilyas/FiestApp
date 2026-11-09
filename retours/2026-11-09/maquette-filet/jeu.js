@@ -108,8 +108,9 @@
   const NOM_DE_PISTE = { verte: 'piste verte', bleue: 'piste bleue', rouge: 'piste rouge', noire: 'piste noire' }
   // L'acte I tire ce que chaque Français sait placer (`q.fr`) — le propriétaire, au matin du 9 novembre 2026 : « le
   // levier le plus fort, c'est d'avoir des questions que chacun connaisse, sachant que la population et la
-  // connaissance sont des personnes françaises ». Sur les vrais lancers, ces questions se placent à 2 % près cinq fois
-  // plus souvent que les autres (le cahier des charges, § 4). Les actes II et III se partagent le reste par le panel.
+  // connaissance sont des personnes françaises ». Sur les vrais lancers, ces questions se placent à 2 % près sept fois
+  // plus souvent que les autres, et se réussissent à 84 % en deux temps (le cahier des charges, § 4). Les actes II et
+  // III se partagent le reste par le panel.
   const ACTES = {
     1: { nom: 'Acte I', dit: 'Connu de tous', garde: q => q.fr, regle: 'chaque Français la sait placer' },
     2: { nom: 'Acte II', dit: 'Pointu', garde: q => !q.fr && q.ia >= 25, regle: 'le panel à 25 % ou plus' },
@@ -491,7 +492,7 @@
     const regle = M.ep ? (M.ep.an ? `époques de ${M.ep.T} ans · ★★★ à ${accorde(M.ep.anneaux[0], 'an')} · ★★ à ${M.ep.anneaux[1]} ans` : 'tranches de 1 à 3, de 3 à 10… · ★★★ à 6 % · ★★ à 25 % de la réponse') : `piste de ${dire(q, M.p.min)} à ${dire(q, M.p.max)}, crans de ${nombre(M.p.pas)}`
     return `<details class="coulisses"${memo.coulissesOuvertes ? ' open' : ''}><summary>Les coulisses du moteur</summary><dl>
       <dt>Connaissabilité</dt><dd>${balise(c)} ${q.ia} % la placeraient à 5 % près · ${NOM_DE_PISTE[c]}</dd>
-      <dt>Chaque Français</dt><dd>${fines(`${q.fr ? 'la sait placer' : 'ne la sait pas placer'}${q.anc ? ` · ${ANCRAGES[q.anc]}` : ''}`)}</dd>
+      <dt>Chaque Français</dt><dd>${fines(`${q.fr ? 'la sait placer' : 'ne la sait pas placer'}${q.anc ? ` · ${ANCRAGES[q.anc]}` : ''}${q.fp ? ` — ${q.fp}` : ''}`)}</dd>
       <dt>En QCM</dt><dd>${q.qcm} % la trouveraient parmi quatre</dd>
       <dt>Difficulté écrite</dt><dd>${q.d} sur 5</dd>
       <dt>Choisie pour</dt><dd>${fines(pour)}</dd>
@@ -851,7 +852,7 @@
     proprietaire: [
       ['Le curseur se pose au milieu de l’époque choisie, et le filet dit d’emblée ce qu’il couvre', '« lorsque l’on choisit une époque, ça n’affiche pas la fourchette pour l’estimation ; elle devrait se placer directement au milieu ». Le milieu ne rapporte rien de plus que le toucher au milieu, premier geste de qui ne sait pas'],
       ['L’écran s’épure : une ligne par étape, ni barème, ni bornes, ni nombres sous la piste, et la révélation dit d’où viennent les étoiles en une ligne', '« un peu brouillon »'],
-      ['L’acte I ne pose que ce que chaque Français sait placer', '« le levier le plus fort, c’est d’avoir des questions que chacun connaisse, sachant que la population et la connaissance sont des personnes françaises » ; sur les vrais lancers, elles se placent à 2 % près cinq fois plus souvent que les autres'],
+      ['L’acte I ne pose que ce que chaque Français sait placer', '« le levier le plus fort, c’est d’avoir des questions que chacun connaisse, sachant que la population et la connaissance sont des personnes françaises » ; sur les vrais lancers, elles se placent à 2 % près sept fois plus souvent que les autres, et se réussissent à 84 % en deux temps'],
     ],
     ouvert: [
       'Le milieu de la bonne époque tombe à ★★ une fois sur deux : « ★ pour la bonne époque vaut plutôt une étoile et demie » (Claire). C’est la largeur de l’anneau ★★, qui paie aussi l’à-peu-près : un choix de produit.',

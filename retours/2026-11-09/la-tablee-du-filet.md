@@ -177,7 +177,7 @@ françaises. »
 |---|---|
 | « Un peu brouillon » | Une ligne par étape (« Choisis l'époque, la bonne vaut ★ »), et la piste n'apparaît qu'une époque choisie. Partis : les titres numérotés et leurs barèmes, les bornes sous la piste, les nombres des graduations, « Touche la piste ». La révélation dit d'où viennent les étoiles en une ligne (« ✓ la bonne époque ✗ à 6 ans près ✗ à 2 ans près »). |
 | « Elle devrait se placer directement au milieu » | Le curseur se pose au milieu de l'époque choisie, et le filet dit d'emblée ce qu'il couvre (« ★★★ 1960–1964 ★★ 1956–1968 »). Il ne rapporte rien de plus que le toucher au milieu, premier geste de qui ne sait pas : dans la bonne époque, 1,67 étoile en moyenne sur une année, 1,53 sur une grandeur (cahier, § 3.4). |
-| « Des questions que chacun connaisse » | L'acte I ne pose que ce que chaque Français sait placer. Sur les vrais lancers, ces questions se placent à 2 % près cinq fois plus souvent que les autres (cahier, § 4). |
+| « Des questions que chacun connaisse » | L'acte I ne pose que ce que chaque Français sait placer. Sur les vrais lancers, ces questions se placent à 2 % près sept fois plus souvent que les autres, et se réussissent à 84 % en deux temps (cahier, § 4). |
 
 - **Trois corrections du troisième tour s'en vont avec l'épure** : les
   nombres des graduations qui s'effaçaient quand ils se chevauchaient

@@ -19,9 +19,11 @@ const notes = new Map((lireJson('panel-ia.json') as any[]).map(n => [n.id, n]))
 const indices = new Map((lireJson('indices.json') as any[]).map(n => [n.id, n]))
 // ── Ce que chaque Français sait placer ──────────────────────────────────────────────────────────────────────
 // Le propriétaire, au matin du 9 novembre 2026 : « le levier le plus fort, c'est d'avoir des questions que chacun
-// connaisse, sachant que la population et la connaissance sont des personnes françaises ». Des agents ont classé
-// chaque question sans voir ni le panel ni les lancers : `chacun`, un adulte français pris au hasard la place à ★★ de
-// mémoire ; `ancrage`, son sujet est français, du monde, ou de l'étranger. L'acte I de la maquette tire les premières.
+// connaisse, sachant que la population et la connaissance sont des personnes françaises ». Un agent a classé chaque
+// question sans voir ni le panel ni les lancers : `chacun`, un adulte français pris au hasard la place à ★★ de mémoire
+// — environ sept sur dix y tomberaient —, et d'où il le sait (`pourquoi`) ; `ancrage`, son sujet est français, du monde,
+// ou de l'étranger. C'est la seconde passe, aux définitions serrées ; la première, plus large, sert de contrôle
+// (`reproductions/accord-des-passes.cjs`). L'acte I de la maquette ne tire que les premières.
 const ancrages = new Map((lireJson('ancrage.json') as any[]).map(a => [a.id, a]))
 
 // ── Le juge des indices : un indice oriente, il ne donne jamais la valeur ───────────────────────────────────
@@ -74,7 +76,7 @@ for (const id of lireJson('questions-posees.json') as string[]) {
     id, t: q.texte, v: v.valeur, an: v.annee, u: v.unite ?? '', c: q.meta.categorie, d: q.meta.difficulte,
     a: q.anecdote ?? '', ia: n.estimation, qcm: n.qcm, i: refus ? '' : ind.indice, r: ind?.repere ?? '',
     ...(CALCULS.has(id) ? { calcul: true } : {}),
-    ...(ancrages.get(id)?.chacun ? { fr: true } : {}), anc: ancrages.get(id)?.ancrage ?? '',
+    ...(ancrages.get(id)?.chacun ? { fr: true, fp: ancrages.get(id).pourquoi ?? '' } : {}), anc: ancrages.get(id)?.ancrage ?? '',
   })
 }
 
@@ -117,8 +119,11 @@ const production = {
     { nom: 'Le Filet d’aujourd’hui (le filet choisi)', reussies: 43, etoiles: 0.67, aveugle: 45, savoir: -2 },
     { nom: 'Le filet qui se resserre tout seul', reussies: 56, etoiles: 1.12, aveugle: 45, savoir: 11 },
     { nom: 'En deux temps : l’époque, puis la valeur', reussies: 62, etoiles: 1.2, aveugle: 25, savoir: 37 },
-    { nom: 'En deux temps, questions du moteur (≥ 25 %)', reussies: 66, etoiles: 1.38, aveugle: 25, savoir: 41, fort: true },
-    { nom: 'En deux temps, questions du moteur (≥ 40 %)', reussies: 74, etoiles: 1.74, aveugle: 25, savoir: 49, fort: true },
+    // Le tirage neuf ne pose pas ce qui se calcule : les lignes qui le simulent le laissent de côté. Comptés, les
+    // calculs faisaient dire 74 % au moteur à 40 % (le cahier des charges, § 5.2).
+    { nom: 'En deux temps, sans ce qui se calcule', reussies: 58, etoiles: 1.07, aveugle: 25, savoir: 33 },
+    { nom: 'En deux temps, questions du moteur (≥ 40 %)', reussies: 67, etoiles: 1.39, aveugle: 25, savoir: 42, fort: true },
+    { nom: 'En deux temps, ce que chaque Français sait placer', reussies: 84, etoiles: 1.89, aveugle: 25, savoir: 59, fort: true },
   ],
   pourquoi: [
     'Le pari sur la taille du filet se retourne contre les joueurs : ils prennent le moyen ou le petit 80 fois sur 169, et réussissent 43 % des manches quand le grand filet, posé au même endroit, en aurait réussi 56 %.',
@@ -129,9 +134,10 @@ const production = {
     'L’aide existe mais personne ne l’a : Éclairer n’a jamais servi au Filet ; la carte Coup d’œil était dans 4 traversées sur 34.',
   ],
   moteur: [
-    'Le panel de l’IA prédit qui « savait » au Filet bien mieux que la difficulté écrite : AUC 0,85 contre 0,78, sur 163 lancers.',
-    'En QCM, il colle mieux à la réussite réelle que la difficulté écrite : corrélation de rang 0,62 contre 0,49, sur 369 questions et 1 729 premières réponses.',
-    'Quand il annonce qu’au moins un joueur sur deux la placerait, 57 % savaient vraiment ; sous 25 %, 4 à 7 %. Ces loteries faisaient 44 % des questions tirées.',
+    'Le panel de l’IA prédit qui « savait » au Filet mieux que la difficulté écrite : AUC 0,78 contre 0,73, sur 146 lancers d’une question qui ne se calcule pas (0,85 en comptant les calculs, sus de tous).',
+    'Ce que chaque Français sait placer le prédit aussi bien, seul : AUC 0,80 ; d’abord lui, puis le panel, 0,82. Ces questions-là se placent à 2 % près sept fois plus souvent que les autres (42 % des lancers contre 6 %).',
+    'En QCM, le panel colle mieux à la réussite réelle que la difficulté écrite : corrélation de rang 0,61 contre 0,47, sur 393 questions et 1 855 premières réponses.',
+    'Quand il annonce qu’au moins un joueur sur deux la placerait, 37 % savaient vraiment ; sous 25 %, 3 %. Ces loteries faisaient 44 % des questions tirées.',
     'La notoriété du sujet (ses vues sur Wikipédia, ses langues) n’aide pas : une question sur Astérix peut porter sur un détail obscur. C’est le fait qui doit être connu, pas son sujet.',
   ],
   ailleurs: [

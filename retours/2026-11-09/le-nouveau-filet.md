@@ -42,10 +42,11 @@ Trois causes, mesurées :
 
 1. **Des questions que chaque Français sait placer** — le levier le plus
    fort, dit le propriétaire, et les lancers réels le confirment : ce que
-   chaque Français sait se place à 2 % près cinq fois plus souvent que le
-   reste (33 % des lancers contre 6 %). L'acte I ne pose plus que cela, et il
-   faut en écrire là où il en manque : la Nature, la Cuisine, la Géographie
-   (§ 4).
+   chaque Français sait se place à 2 % près sept fois plus souvent que le
+   reste (42 % des lancers contre 6 %), et se réussit à 84 % en deux temps,
+   contre 53 %. L'acte I ne pose plus que cela. C'est aussi le plus mince :
+   une question sur dix du vivier, presque rien en Sport, en Nature, en
+   Géographie. Il faut en écrire (§ 4).
 2. **D'abord l'époque, puis la valeur.** Quatre époques (ou quatre ordres de
    grandeur) ; la bonne vaut déjà une étoile.
 3. **Le filet se resserre tout seul.** Plus de taille à parier : à 2 ans près
@@ -70,13 +71,16 @@ curseurs ont été posés sous l'ancienne règle ; la règle rejouée est celle 
 | En deux temps : l'époque, puis la valeur | 169 | 62 % | 1,20 | 25 % | +37 points |
 | En deux temps, sans ce qui se calcule | 151 | 58 % | 1,07 | 25 % | +33 points |
 | … ce que le moteur donne à 40 % ou plus | 36 | 67 % | 1,39 | 25 % | +42 points |
-| … ce que chaque Français sait placer | 21 | 67 % | 1,52 | 25 % | +42 points |
-| … les deux à la fois | 18 | **72 %** | **1,61** | 25 % | +47 points |
+| … dont ce que chaque Français ne sait pas placer | 19 | 53 % | 1,05 | 25 % | +28 points |
+| … ce que chaque Français sait placer | 19 | **84 %** | **1,89** | 25 % | +59 points |
 
-Les deux derniers paliers sont dans la zone que visent les jeux qui règlent
-leur difficulté : 65 à 80 % de réussite. Les lignes du tirage ne comptent
-pas les questions qui se calculent, que le nouveau Filet ne pose pas :
-comptées, elles faisaient dire 74 % au moteur (§ 5.2).
+- Ce que chaque Français sait placer passe un peu au-dessus de la zone que
+  visent les jeux qui règlent leur difficulté (65 à 80 %) : c'est l'acte I,
+  celui où l'on apprend à jouer. Une règle un peu plus large y rentre (la
+  première passe de classement : 67 %, § 4.2).
+- Les lignes du tirage ne comptent pas les questions qui se calculent, que
+  le nouveau Filet ne pose pas : comptées, elles faisaient dire 74 % au
+  moteur (§ 5.2).
 
 **Joué par une tablée, trois tours** (`la-tablee-du-filet.md`) : quatre
 joueurs aux profils opposés — une institutrice de 72 ans au petit téléphone,
@@ -556,100 +560,125 @@ raison.
 
 ### 4.1 Le classement
 
-Des agents ont classé les 591 questions que le panel a notées — les 156
-posées et l'échantillon de 435 du vivier (`maquette-filet/ancrage.json`) —
-sans voir ni le panel ni les lancers :
+Un agent a classé les 591 questions que le panel a notées — les 156 posées
+et l'échantillon de 435 du vivier (`maquette-filet/ancrage.json`) — sans
+voir ni le panel ni les lancers :
 
 - **Chaque Français la sait placer** : un adulte français pris au hasard — ni
   passionné du sujet, ni joueur de quiz — la place à ★★ (6 ans, 25 %) de
   mémoire, parce qu'il l'a apprise à l'école, la voit tous les jours, ou l'a
-  entendue partout.
+  entendue partout ; la limite, environ sept adultes sur dix.
   - Un sujet célèbre ne suffit pas : tout le monde connaît Astérix, personne
     ne sait combien d'albums il compte.
-  - Ce qui se calcule n'en est pas : ce n'est pas un souvenir (§ 5.4).
+  - Ce qui se calcule ou se définit n'en est pas : ce n'est pas un souvenir
+    (§ 5.4).
+  - D'où il le sait, pour les 61 retenues : la vie de tous les jours 25
+    (« 33 cl imprimé sur chaque canette »), la culture populaire 14, l'école
+    12, l'actualité 10.
 - **Son ancrage** :
   - un sujet français : l'histoire de France, ses lieux, ses lois, sa vie
     quotidienne, ses personnalités ;
   - un sujet du monde, présent dans la vie des Français : ce qu'on en
     apprend à l'école, les grands événements, Titanic, les Beatles, le corps
-    humain ;
+    humain, et les détails de spécialiste sur ces sujets ;
   - un sujet de l'étranger, enraciné ailleurs et peu présent ici :
     l'histoire intérieure des États-Unis, les unités anglo-saxonnes, le
     baseball.
-- ACCORD_DES_PASSES
+- **Une première passe, plus large, sert de contrôle**
+  (`reproductions/accord-des-passes.cjs`) : elle retenait 127 questions là
+  où la seconde en retient 61, 44 en commun ; les deux s'accordent sur 83 %
+  des questions (kappa 0,38), et presque parfaitement sur ce qui est un sujet
+  français (159 des 160 de la seconde). La seconde, aux définitions
+  serrées, fait foi.
 
 ### 4.2 Ce que disent les lancers
 
 Les lancers réels rejugés en deux temps (§ 3.3), sans ce qui se calcule
 (`reproductions/filet-en-production.ts ancrage`) :
 
-| Sur N_LANCERS lancers | Lancers | « Il savait » (à 2 % près) | Réussies en deux temps | Étoiles par manche |
-|---|---|---|---|---|
-| **Chaque Français la sait placer** | 21 | **33 %** | **67 %** | **1,52** |
-| Les autres, un sujet français | 35 | 11 % | 66 % | 1,14 |
-| Les autres, un sujet du monde | 48 | 4 % | 54 % | 1,00 |
-| Les autres, un sujet de l'étranger | 41 | 5 % | 49 % | 0,85 |
+| Sur 145 lancers | Lancers | « Il savait » (à 2 % près) | Réussis aujourd'hui | Réussies en deux temps | Étoiles par manche |
+|---|---|---|---|---|---|
+| **Chaque Français la sait placer** | 19 | **42 %** | 63 % | **84 %** | **1,89** |
+| Les autres | 126 | 6 % | 34 % | 53 % | 0,94 |
+| — un sujet français | 30 | 7 % | 43 % | 60 % | 0,97 |
+| — un sujet du monde | 78 | 6 % | 31 % | 51 % | 0,96 |
+| — un sujet de l'étranger | 18 | 0 % | 33 % | 50 % | 0,83 |
 
-- **Un gradient** : ce que chaque Français sait se place à 2 % près cinq
-  fois plus souvent que le reste, et rapporte une demi-étoile de plus par
-  manche ; puis un sujet français, même pointu, se place mieux qu'un sujet
-  du monde, et celui-ci mieux qu'un sujet de l'étranger.
+- **Ce que chaque Français sait se place à 2 % près sept fois plus souvent
+  que le reste**, se réussit à 84 % en deux temps, et rapporte près d'une
+  étoile de plus par manche.
+- **C'est le savoir commun qui compte, plus que le sujet** : parmi le reste,
+  un sujet français se place à peine mieux qu'un autre (60 % contre 51 et
+  50 %). La durée de la Commune de Paris est au programme ; ses 72 jours,
+  personne ne les sait. Écrire des questions sur la France ne suffit pas :
+  il faut écrire ce que les Français savent.
 - **Il ajoute au panel, qui note pourtant « des joueurs d'une application
   française »** : parmi les questions que le panel donne à 40 % ou plus,
-  celles que chaque Français sait placer se réussissent à 72 % (1,61
-  étoile, 33 % « il savait »), les autres à 61 % (1,17 étoile, 17 %). Le
-  panel lit la difficulté du fait ; il lit moins bien la culture de ceux qui
+  celles que chaque Français sait placer se réussissent à 82 % (1,76
+  étoile, 35 % « il savait »), les autres à 53 % (1,05 étoile, 16 %). Le
+  panel lit la difficulté du fait ; il lit mal la culture de ceux qui
   jouent.
-- **Il prédit aussi bien que le panel** qui « savait » : AUC 0,78 seul, comme
-  le panel ; d'abord lui, puis le panel pour départager, 0,80
+- **Il prédit mieux que le panel** qui « savait » : AUC 0,80 seul, contre
+  0,78 ; d'abord lui, puis le panel pour départager, 0,82
   (`reproductions/moteur-de-difficulte.ts panel`).
-- De petits nombres — 21 lancers pour le premier groupe, 145 en tout —, mais
-  le sens ne bouge pas d'une passe de classement à l'autre.
+- **La première passe dit la même chose, plus doucement** : avec ses 127
+  questions, 21 lancers, 33 % « il savait », 67 % de manches réussies, 1,52
+  étoile ; avec les 44 que les deux retiennent, 79 % et 1,71. Plus la règle
+  est stricte, plus l'écart est grand — et moins il y a de questions.
+- De petits nombres : 19 lancers pour le premier groupe. Le sens ne bouge
+  pas d'une passe à l'autre ; l'ampleur, à remesurer en production.
 
 ### 4.3 Ce que le vivier en a
 
 Sur les 435 questions tirées au hasard du vivier
-(`reproductions/moteur-de-difficulte.ts vivier`), **25 % ± 4 sont de
-celles que chaque Français sait placer : environ 440 des 1 780** que le
-Filet peut poser — autant d'années (27 %) que de grandeurs (23 %).
+(`reproductions/moteur-de-difficulte.ts vivier`), **10 % ± 3 sont de celles
+que chaque Français sait placer : environ 180 des 1 780** que le Filet peut
+poser — 13 % des années, 7 % des grandeurs. La première passe, plus large,
+en trouvait 25 % (environ 440).
 
 | Catégorie | Chaque Français | Dans le vivier |
 |---|---|---|
-| Histoire | 40 % | ~60 sur 153 |
-| Culture générale | 39 % | ~92 sur 233 |
-| Musique | 32 % | ~45 sur 141 |
-| Sciences | 30 % | ~64 sur 216 |
-| Autour de la fête | 23 % | ~30 sur 129 |
-| Jeux & pop culture | 22 % | ~42 sur 187 |
-| Arts & lettres | 19 % | ~21 sur 112 |
-| Sport | 17 % | ~28 sur 167 |
-| Cinéma & séries | 13 % | ~18 sur 137 |
-| Géographie | 13 % | ~14 sur 111 |
-| Cuisine | 11 % | ~9 sur 83 |
+| Histoire | 23 % | ~36 sur 153 |
+| Culture générale | 16 % | ~37 sur 233 |
+| Musique | 11 % | ~15 sur 141 |
+| Autour de la fête | 10 % | ~13 sur 129 |
+| Cinéma & séries | 10 % | ~14 sur 137 |
+| Arts & lettres | 7 % | ~8 sur 112 |
+| Jeux & pop culture | 7 % | ~14 sur 187 |
+| Sciences | 7 % | ~16 sur 216 |
+| Cuisine | 6 % | ~5 sur 83 |
+| Géographie | 4 % | ~5 sur 111 |
 | Nature | 4 % | ~4 sur 111 |
+| Sport | 3 % | ~5 sur 167 |
 
-- De quoi tenir l'acte I quelques mois au rythme d'aujourd'hui (169 lancers
-  en huit jours, tous actes confondus), pas dans toutes les catégories : la
-  Nature, la Cuisine, la Géographie et le Cinéma n'en ont presque pas.
-- La Géographie, à 13 %, est le paradoxe : celle de la France est la plus
+- **C'est peu : le levier le plus fort est aussi le plus mince.** L'acte I
+  d'une étape « Filet · Sport » n'aurait que cinq questions ; seules
+  l'Histoire et la Culture générale en ont de quoi tenir quelques semaines.
+- La Géographie, à 4 %, est le paradoxe : celle de la France est la plus
   apprise de toutes (le mont Blanc, la Loire, les départements), et ses
   questions françaises demandent des détails — l'altitude du puy Mary, du
   pic du Midi de Bigorre, les sommets de plus de 4 000 mètres des Alpes —
   plutôt que ce que tout le monde a appris.
+- Même la culture populaire française y est pointue : quatre questions sur
+  Kaamelott (les jours de tournage, les épisodes), aucune que chaque
+  Français sait placer.
 
 ### 4.4 Ce qu'il faut en faire
 
 1. **Le tirage** : l'acte I ne pose que ce que chaque Français sait placer ;
    l'acte II, le reste que le panel donne à 25 % ou plus ; l'acte III, les
-   loteries, où tombent presque tous les sujets de l'étranger. La maquette
-   tire déjà ainsi.
+   loteries, où tombent les deux tiers des sujets de l'étranger (41 sur 64).
+   La maquette tire déjà ainsi : 18 questions à l'acte I, 57 au II, 64 au
+   III.
 2. **Le panel le marque en notant** : deux cases de plus à sa consigne —
    « chaque Français la place à ★★, de mémoire », « son sujet : français, du
    monde, de l'étranger » —, à la passe sur la base (§ 5.6) et à l'écriture
    de chaque question.
 3. **Écrire ce que chaque Français sait, d'abord là où il en manque** — une
-   centaine de questions par catégorie faible, par `redacteur-campagne`, la
-   règle dans la consigne de son lot, le panel notant à l'écriture. Le savoir
+   cinquantaine de questions par catégorie, une centaine dans les plus
+   minces (le Sport, la Nature, la Géographie, la Cuisine), par
+   `redacteur-campagne`, la règle dans la consigne de son lot, le panel
+   notant à l'écriture et le classement relu par un second agent. Le savoir
    commun d'un Français vient de quatre sources :
 
    | D'où il le sait | Ce qui s'y écrit |
@@ -660,7 +689,7 @@ Filet peut poser — autant d'années (27 %) que de grandeurs (23 %).
    | La culture populaire | les films et les chansons que tout le monde a vus ou chantés, le Tour de France, les jeux de société |
 
    - **C'est le fait qui doit être connu, pas son sujet** (§ 5.2) : la
-     taille d'Édith Piaf est un sujet français que personne ne sait placer.
+     Commune de Paris est au programme, sa durée non.
    - **Une question de l'étranger a souvent un jumeau français** : la
      statue de la Liberté a la tour Eiffel, le mah-jong le tarot, le mile le
      marathon. Le jumeau va à l'acte I ; l'original reste à l'acte III.
@@ -712,9 +741,9 @@ par question et jeu par jeu.
   AUC 0,85 au lieu de 0,78, 57 % de « il savait » au-dessus de 50 % au lieu
   de 37. Le nouveau Filet ne les pose pas (§ 5.4) : ce cahier les écarte de
   toutes ses mesures du tirage.
-- **Un critère fait aussi bien que le panel** : « chaque Français la sait
-  placer », seul, prédit « il savait » à AUC 0,78 ; d'abord lui, puis le
-  panel, 0,80 (§ 4).
+- **Un critère fait mieux que le panel** : « chaque Français la sait
+  placer », seul, prédit « il savait » à AUC 0,80 ; d'abord lui, puis le
+  panel, 0,82 (§ 4).
 - **Elle se recale** : elle prédit 74 % de réussite moyenne en QCM, les
   joueurs en font 67 % — un décalage d'ensemble, appris une fois par famille.
 - **Ce qui n'a pas servi**, mesuré sur 32 780 premières réponses :
@@ -759,10 +788,10 @@ par question et jeu par jeu.
     - l'acte II, le reste que le panel donne à 25 % ou plus ;
     - l'acte III, les loteries.
   - Le vivier de la maquette — les questions réellement posées, les calculs
-    écartés — s'y répartit en ACTE_I, ACTE_II et ACTE_III. Par la seule note du panel
-    (40 % et 25 %), il se répartissait en 35, 40 et 64 ; mais celles qu'il
-    donne à 40 % ou plus sans que chaque Français les sache placer se
-    réussissent à 61 %, loin des trois manches sur quatre (§ 4.2).
+    écartés — s'y répartit en 18, 57 et 64. Par la seule note du panel (40 %
+    et 25 %), il se répartissait en 35, 40 et 64 ; mais celles qu'il donne à
+    40 % ou plus sans que chaque Français les sache placer se réussissent à
+    53 %, loin des trois manches sur quatre (§ 4.2).
 - **Écarter ce qui se calcule.** Un calcul (« le carré de 25 »), une
   conversion d'unités (« les secondes d'une heure », « les mètres carrés d'un
   hectare »), une question qui écrit de quoi trouver sa réponse (Verdun « du
@@ -887,7 +916,7 @@ sur la nouvelle version. Les cibles :
 | Mesure | Aujourd'hui | Cible |
 |---|---|---|
 | Manches du Filet réussies | 43 % | 65 à 80 % à l'acte I, 50 % au moins à l'acte III |
-| « Il savait » (à 2 % près) à l'acte I, ce que chaque Français sait placer | — | un lancer sur trois au moins, comme rejoué (§ 4.2) |
+| « Il savait » (à 2 % près) à l'acte I, ce que chaque Français sait placer | — | quatre lancers sur dix, comme rejoué (§ 4.2) |
 | Au hasard (la bonne époque) | 45 % | 25 % |
 | Ce que le savoir ajoute | −2 points | +25 points au moins |
 | Manches à zéro étoile | 59 % | 35 % au plus |
@@ -919,12 +948,16 @@ un sondage du QG aux joueurs du Cabinet (`qg_annonce_questions`).
 6. **Les autres jeux après le Filet** : le Pari d'abord (64 % de manches à
    zéro étoile, 45 cœurs perdus), puis les Indices.
 7. **Le levier français** (§ 4) : l'acte I parmi ce que chaque Français sait
-   placer — environ 440 questions du vivier aujourd'hui — et en écrire une
-   centaine par catégorie faible (la Nature, la Cuisine, la Géographie, le
-   Cinéma), notées par le panel à l'écriture.
+   placer — environ 180 questions du vivier aujourd'hui, 440 à la règle plus
+   large de la première passe — et en écrire une cinquantaine par catégorie,
+   une centaine dans les plus minces (le Sport, la Nature, la Géographie, la
+   Cuisine), notées par le panel à l'écriture.
    - L'autre voie garde l'acte I à la seule note du panel (40 % ou plus) :
      plus fourni (environ 760 questions), mais ce qu'il y met sans que chaque
-     Français le sache se réussit à 61 % (§ 4.2).
+     Français le sache se réussit à 53 % (§ 4.2).
+   - La sévérité de la règle est un réglage : stricte, l'acte I se réussit à
+     84 % (rejoué) ; large, à 67 %. Trois manches sur quatre se visent entre
+     les deux.
    - La proposition : la première, et la passe d'écriture avant la mise en
      ligne.
 8. **Le chrono** : deux gestes au lieu d'un, et un indice à lire. 45 secondes
