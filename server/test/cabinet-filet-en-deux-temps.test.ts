@@ -835,14 +835,19 @@ test('une traversée qui commence ne promet au Filet, à chaque acte, qu’une c
   assert.deepEqual([...attendues[0]].sort(), ['Culture générale', 'Histoire'])
   const b = await bancDuCabinet({ filetEnDeuxTemps: true, baseDeLaCampagne: baseDuCabinet(8, reelles) })
   ouverts.push(b.banc)
-  // Quatre traversées : un Filet manque à l'acte I d'une carte une fois sur trente-cinq environ.
+  // Des traversées jusqu'à huit Filets promis à l'acte I, jamais un nombre fixe de cartes. Un acte a huit épreuves pour dix
+  // jeux : une carte sur cinq n'y a aucun Filet — et non « une sur trente-cinq », comme l'épreuve le croyait d'abord. Ses
+  // quatre cartes n'en avaient donc aucun une fois sur 625, et la CI a tiré cette fois-là le 9 novembre 2026. Huit
+  // promesses : une carte qui ne lirait pas la liste du serveur les tirerait des douze catégories, toutes dans les deux
+  // permises moins d'une fois sur un million. Dix cartes y suffisent en moyenne ; soixante sans y arriver n'arrive pas.
+  const VOULUES = 8
   const promises: string[][] = [[], [], []]
-  for (const nom of ['ines', 'jules', 'kenza', 'lou']) {
-    const cookie = await inscrireProfil(b.banc.url, nom, nom)
+  for (let n = 0; n < 60 && promises[0].length < VOULUES; n++) {
+    const cookie = await inscrireProfil(b.banc.url, `voyageur${n}`, `Voyageur ${n}`)
     const t = ok(await poster<PageDeLaTraversee>(b, cookie, '/api/cabinet/traversee', {}), 'la traversée').traversee!
     t.actes.forEach((acte, a) => acte.etapes.filter(e => e.jeu === 'filet' && e.sorte === 'epreuve').forEach(e => promises[a].push(e.theme!)))
   }
-  assert.ok(promises[0].length > 0, 'un Filet à l’acte I')
+  assert.ok(promises[0].length >= VOULUES, `${promises[0].length} Filets à l’acte I, en soixante traversées`)
   assert.ok(
     promises[0].every(c => attendues[0].includes(c as Categorie)),
     `l’acte I promet au Filet : ${promises[0].join(', ')}`,

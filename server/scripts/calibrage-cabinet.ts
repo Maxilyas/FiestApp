@@ -149,6 +149,7 @@ import type {
   GesteDeLaTraversee,
   GesteDeLaTraverseeEcrit,
   MancheConclue,
+  ThemesDuContenu,
 } from '../../shared/cabinet/traversee'
 import type { Point } from '../../shared/cabinet/france'
 import type { CleDePouvoir, Force } from '../../shared/cabinet/pouvoirs'
@@ -2389,19 +2390,24 @@ function compterLeFilet(j: Joueur, acte: number, e: EtatDeLaPartie): void {
   }
 }
 
+let THEMES_DU_CONTENU: ThemesDuContenu | null = null
 /**
  * Les thèmes que le contenu livré offre à la carte : les lieux de l'Épingle, les frises à thème — et, au nouveau Filet,
- * les catégories où chaque acte a de quoi tirer, comme le serveur les lui donne (`categoriesDuFilet`).
+ * les catégories où chaque acte a de quoi tirer, comme le serveur les lui donne (`categoriesDuFilet`). À la première
+ * carte tracée, pas au chargement : ces catégories lisent toute la base (`baseDuFilet`), une seconde et demie que
+ * chaque lancement payait, même pour refuser un essai ou mesurer un jeu seul — `cabinet-calibrage.test.ts` le
+ * lançait quatorze fois, et a passé les deux minutes d'un fichier sur la CI le 9 novembre 2026.
  */
-const THEMES_DU_CONTENU = {
-  epingle: [...new Set(LIEUX.map(l => l.theme))],
-  frise: [...new Set(FRISES.map(f => f.theme))],
-  ...(DEUX_TEMPS && {
-    filet: F2.categoriesDuFilet(
-      [0, 1, 2].flatMap(acte => filetALActe(acte, P.anneeDuDepart({ jour: JOUR_MESURE })).questions.map(q => ({ categorie: q.question.categorie ?? '', acte, valeur: q.valeur }))),
-    ),
-  }),
-}
+const themesDuContenu = (): ThemesDuContenu =>
+  (THEMES_DU_CONTENU ??= {
+    epingle: [...new Set(LIEUX.map(l => l.theme))],
+    frise: [...new Set(FRISES.map(f => f.theme))],
+    ...(DEUX_TEMPS && {
+      filet: F2.categoriesDuFilet(
+        [0, 1, 2].flatMap(acte => filetALActe(acte, P.anneeDuDepart({ jour: JOUR_MESURE })).questions.map(q => ({ categorie: q.question.categorie ?? '', acte, valeur: q.valeur }))),
+      ),
+    }),
+  })
 
 /**
  * Une traversée entière, par les règles du code : ses gardiens et sa carte
@@ -2440,7 +2446,7 @@ function jouerUneTraversee(j: Joueur, cartes: readonly CleDeCarte[], racine: str
   }
   const r = hasardDe(`${racine}:choix`)
   const gardiens = T.choisirLesGardiens(hasardDe(`${racine}:gardiens`), possedes, false)
-  const depart: DepartDeLaTraversee = { v: T.VERSION_DE_LA_TRAVERSEE, jour: JOUR_MESURE, actes: T.tracerLaCarte(hasardDe(`${racine}:carte`), gardiens, THEMES_DU_CONTENU, JEUX_PRETS) }
+  const depart: DepartDeLaTraversee = { v: T.VERSION_DE_LA_TRAVERSEE, jour: JOUR_MESURE, actes: T.tracerLaCarte(hasardDe(`${racine}:carte`), gardiens, themesDuContenu(), JEUX_PRETS) }
   x.depart = depart
   let e = T.etatDuDepart(depart)
   let t = T_MESURE
