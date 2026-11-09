@@ -29,8 +29,12 @@ import { lireNombre } from '../../shared/nombres'
 import { type Lancement, SCRIPT, SERVEUR, SOURCE, auHasard, calibrer, cases, jeuxQuiVisent, ligneDuJeu, lignesDesConfettis, partAvecLaCarte, sansCommentaires } from './calibrage-du-cabinet'
 import { importsStatiques } from './chemin-des-imports'
 
-/** Le joueur au hasard seul, sans le musée ni la zone de l'Épingle — qui ne dépend d'aucun joueur : quelques secondes. */
-const AU_HASARD = ['--parties', '400', '--mesures', '20', '--sections', 'jeux,cartes,confettis', '--joueurs', 'hasard']
+/**
+ * Le joueur au hasard seul, sans le musée ni la zone de l'Épingle — qui ne dépend d'aucun joueur : quelques secondes. Au
+ * Filet d'avant, dont le plancher se calcule des seules constantes du barème (`filetAuHasard`) ; le nouveau se tire de
+ * vraies questions, et se mesure dans `cabinet-calibrage-modele.test.ts`.
+ */
+const AU_HASARD = ['--parties', '400', '--mesures', '20', '--sections', 'jeux,cartes,confettis', '--joueurs', 'hasard', '--filet', 'avant']
 let auHasardLance: Promise<Lancement> | null = null
 /** Lancé une fois, lu par plusieurs épreuves. */
 const auHasardSeul = () => (auHasardLance ??= calibrer(AU_HASARD))

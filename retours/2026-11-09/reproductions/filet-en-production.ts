@@ -12,6 +12,7 @@
 //   ancrage   ce que chaque Français sait placer, contre le reste (../maquette-filet/ancrage.json)
 //   estime    ce que chaque Français sait estimer, au-delà de ce qu'il sait (estime-des-posees.json)
 //   pilote    les dix-neuf questions du pilote, une fois en ligne (pilote-du-filet.json)
+//   actes     la loi des étoiles de chaque acte, en deux temps : le joueur modèle du calibrage de la traversée
 //
 // Jamais `QUIZ_DB_URL` : `PROD_LECTURE_URL` et `PROD_LECTURE_TOKEN`, un jeton en lecture seule.
 import fs from 'node:fs'
@@ -257,6 +258,50 @@ if (quoi === 'lancers') {
     const part = echantillon.filter((id: string) => garder(id)).length / echantillon.length
     console.log(`${nom.padEnd(39)} ${String(ls.length).padStart(7)}  ${pct(s.filter(Boolean).length, ls.length).padStart(13)}  ${(s.reduce((a, b) => a + b, 0) / ls.length).toFixed(2).padStart(8)}  ${compte ? `${pct(Math.round(1000 * part), 1000).padStart(18)} → ~${Math.round(part * vivier)}` : '                 — (jugé sur les seules posées)'}`)
   }
+} else if (quoi === 'actes') {
+  // Le joueur modèle du nouveau Filet, au calibrage de la traversée (`server/scripts/calibrage-cabinet.ts`,
+  // `LOI_DU_FILET_PAR_ACTE`) : la loi des étoiles de chaque acte, sur les lancers réels rejoués en deux temps — sans ce
+  // qui se calcule, aux seules questions que le nouveau Filet pose, à l'acte que leur classement d'aujourd'hui leur
+  // donne (`acteDuFilet` : le vivier, puis la note du panel). Une borne basse, comme toute la règle rejouée : le curseur
+  // d'avant se posait sur une longue piste, et qui ne savait pas le laissait au milieu, souvent hors de la bonne époque.
+  const { acteDuFilet, seTendEnDeuxTemps } = await import('../../../shared/cabinet/jeux/filetEnDeuxTemps.ts')
+  const lire = (f: string) => JSON.parse(fs.readFileSync(path.resolve(ICI, f), 'utf8')) as any[]
+  const classe = new Map(lire('../vivier-du-filet.json').map(a => [a.id, a]))
+  const panel = new Map(lire('../panel-du-vivier.json').map(n => [n.id, n.estimation as number]))
+  const acteDe = (id: string): number | null => {
+    const c = classe.get(id)
+    const n = panel.get(id)
+    return !c || c.calcul || n === undefined ? null : acteDuFilet({ chacun: c.chacun === true, panel: n })
+  }
+  const ls = lancers.filter(l => acteDe(l.id) !== null && seTendEnDeuxTemps(l.valeur, l.annee, 2026))
+  console.log(`${ls.length} lancers sur une question que le nouveau Filet pose, sans ce qui se calcule\n`)
+  console.log('acte        lancers  questions  réussies  ★/manche     0 ★    1 ★    2 ★    3 ★')
+  const lois: number[][] = []
+  for (const a of [0, 1, 2]) {
+    const ici = ls.filter(l => acteDe(l.id) === a)
+    const s = ici.map(l => deuxTemps(l, l.x))
+    const loi = [0, 1, 2, 3].map(k => s.filter(x => x === k).length / Math.max(1, s.length))
+    lois.push(loi.map(x => Math.round(1000 * x) / 1000))
+    console.log(
+      `${['I', 'II', 'III'][a].padEnd(10)}  ${String(ici.length).padStart(7)}  ${String(new Set(ici.map(l => l.id)).size).padStart(9)}  ${pct(s.filter(Boolean).length, Math.max(1, s.length)).padStart(8)}  ${(s.reduce((x, y) => x + y, 0) / Math.max(1, s.length)).toFixed(2).padStart(8)}  ${loi.map(x => pct(Math.round(1000 * x), 1000)).join('  ')}`,
+    )
+  }
+  console.log(`\nLOI_DU_FILET_PAR_ACTE = ${JSON.stringify(lois)}`)
+  // Le Filet d'avant tel que les joueurs l'ont joué, marche par marche — tous les lancers, ce qui se calcule compris : il
+  // le posait —, pour que le calibrage compare deux règles sur les mêmes joueurs, pas une règle à un modèle jamais recalé.
+  console.log('\nLe Filet d’avant, joué — marche     lancers  réussies  ★/manche     0 ★    1 ★    2 ★    3 ★')
+  const parMarche: Record<string, number[]> = {}
+  for (const n of ['facile', 'moyen', 'difficile', 'expert']) {
+    const ici = lancers.filter(l => l.niveau === n)
+    if (!ici.length) continue
+    const s = ici.map(l => (ecart(l) <= DEMI[l.taille] + 1e-9 ? ETOILES[l.taille] : 0))
+    const loi = [0, 1, 2, 3].map(k => s.filter(x => x === k).length / s.length)
+    parMarche[n] = loi.map(x => Math.round(1000 * x) / 1000)
+    console.log(
+      `${n.padEnd(33)}  ${String(ici.length).padStart(7)}  ${pct(s.filter(Boolean).length, s.length).padStart(8)}  ${(s.reduce((x, y) => x + y, 0) / s.length).toFixed(2).padStart(8)}  ${loi.map(x => pct(Math.round(1000 * x), 1000)).join('  ')}`,
+    )
+  }
+  console.log(`\nLOI_DU_FILET_D_AVANT_PAR_MARCHE = ${JSON.stringify(parMarche)}`)
 } else {
-  throw new Error(`« ${quoi} » : lancers, regles, ancrage, estime, pilote ou severite`)
+  throw new Error(`« ${quoi} » : lancers, regles, ancrage, estime, pilote, severite ou actes`)
 }
