@@ -1177,17 +1177,20 @@ export type AnnonceDeLAdministrateur =
       bonus?: true
       /** Son bilan, le jour clos : ce que la salle en a fait — son dosage s'en lit (`dosageDe`). */
       salle?: SalleDuBonus
+      /** Acceptée d'office (le 9 novembre 2026) : son auteur était de confiance, personne ne l'a relue. */
+      dOffice?: true
     }
 
 /**
  * Ce que le QG a fait d'une question qu'il a proposée au quiz du jour
  * (`shared/propositions.ts`), qu'on lui dit sur son accueil : acceptée, puis
  * posée — le jour où elle se joue — et, fausse, annulée pour tous ce jour-là ;
- * ou pas retenue, et pourquoi. Posée en question bonus, le lendemain dit son
- * bilan (`bilan`) : combien l'ont trouvée, les pouces de la salle, et si elle
- * était bien dosée.
+ * ou pas retenue, et pourquoi ; ou retirée de la file avant son jour, et
+ * pourquoi (`retiree`). Posée en question bonus, le lendemain dit son bilan
+ * (`bilan`) : combien l'ont trouvée, les pouces de la salle, et si elle était
+ * bien dosée.
  */
-export type IssueDUneProposition = 'acceptee' | 'posee' | 'annulee' | 'refusee' | 'bilan'
+export type IssueDUneProposition = 'acceptee' | 'posee' | 'annulee' | 'refusee' | 'retiree' | 'bilan'
 
 /**
  * La carte d'une question qu'il a proposée : un titre — avec les confettis
@@ -1201,6 +1204,7 @@ export function phraseDeLaProposition(a: {
   motif: string | null
   bonus?: true
   salle?: SalleDuBonus
+  dOffice?: true
 }): { titre: string; phrase: string } {
   if (a.issue === 'bilan') {
     const s = a.salle ?? { joueurs: 0, trouvees: 0, pour: 0, contre: 0 }
@@ -1229,13 +1233,26 @@ export function phraseDeLaProposition(a: {
     return { titre: `Ta question est la question bonus du jour : +${CONFETTIS_D_UNE_QUESTION_JOUEE} confettis`, phrase: `« ${a.question} » se joue après les dix questions, signée de ton nom.` }
   }
   if (a.issue === 'posee') return { titre: `Ta question est au quiz du jour : +${CONFETTIS_D_UNE_QUESTION_JOUEE} confettis`, phrase: `« ${a.question} » se joue, signée de ton nom.` }
+  if (a.issue === 'acceptee' && a.dOffice) {
+    return {
+      titre: `Ta question est acceptée d’office : +${CONFETTIS_D_UNE_QUESTION_ACCEPTEE} confettis`,
+      phrase: `« ${a.question} » passera à son tour en question bonus, signée de ton nom : tes questions ne passent plus par la relecture.`,
+    }
+  }
   if (a.issue === 'acceptee') {
     return { titre: `Ta question est acceptée : +${CONFETTIS_D_UNE_QUESTION_ACCEPTEE} confettis`, phrase: `« ${a.question} » passera bientôt au quiz du jour, signée de ton nom.` }
   }
   if (a.issue === 'annulee') {
     return {
       titre: 'Ta question a été annulée',
-      phrase: `« ${a.question} » ne compte pour personne, ses ${CONFETTIS_D_UNE_QUESTION_JOUEE} confettis du jour non plus. Tu peux en proposer une autre.`,
+      // La question bonus annulée rend son auteur à la relecture (`estDeConfiance`) : il le sait avant d'écrire la suivante.
+      phrase: `« ${a.question} » ne compte pour personne, ses ${CONFETTIS_D_UNE_QUESTION_JOUEE} confettis du jour non plus. ${a.bonus ? 'Ta prochaine question sera relue avant de passer.' : 'Tu peux en proposer une autre.'}`,
+    }
+  }
+  if (a.issue === 'retiree') {
+    return {
+      titre: 'Ta question a été retirée avant son jour',
+      phrase: `« ${a.question} »${a.motif ? ` : ${a.motif.replace(/[.!]$/, '')}` : ''}. Ses ${CONFETTIS_D_UNE_QUESTION_ACCEPTEE} confettis te restent ; ta prochaine question sera relue avant de passer.`,
     }
   }
   return { titre: 'Ta question n’a pas été retenue', phrase: `« ${a.question} »${a.motif ? ` : ${a.motif.replace(/[.!]$/, '')}` : ''}. Tu peux en proposer une autre.` }

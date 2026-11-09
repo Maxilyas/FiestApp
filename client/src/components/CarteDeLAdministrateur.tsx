@@ -138,7 +138,7 @@ export function CarteDeLAdministrateur({
       ? 'Avec plaisir'
       : a.sorte === 'annonce' && a.question && merci === null
         ? 'Plus tard'
-        : (a.sorte === 'annonce' && a.confettis === 0) || (a.sorte === 'proposition' && (a.issue === 'refusee' || a.issue === 'annulee'))
+        : (a.sorte === 'annonce' && a.confettis === 0) || (a.sorte === 'proposition' && (a.issue === 'refusee' || a.issue === 'annulee' || a.issue === 'retiree'))
           ? 'Compris'
           : a.sorte === 'proposition'
             ? 'Super'
@@ -169,8 +169,9 @@ export function CarteDeLAdministrateur({
           <>
             <b>{espacesFines(phraseDeLaProposition(a).titre)}</b>
             <span>{espacesFines(phraseDeLaProposition(a).phrase)}</span>
-            {/* Jouée, elle est passée d'elle-même, à son tour, et son bilan vient de la salle : l'administrateur ne l'a qu'acceptée ou refusée. */}
-            {a.issue !== 'posee' && a.issue !== 'bilan' && <span className="muted small">— de l’administrateur</span>}
+            {/* Jouée, elle est passée d'elle-même, à son tour, et son bilan vient de la salle : l'administrateur ne l'a qu'acceptée ou refusée.
+                Passée d'office, personne ne l'a acceptée : son auteur était de confiance. */}
+            {a.issue !== 'posee' && a.issue !== 'bilan' && !a.dOffice && <span className="muted small">— de l’administrateur</span>}
           </>
         ) : a.sorte === 'annonce' ? (
           <>

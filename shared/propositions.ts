@@ -22,7 +22,20 @@
 // dosée — ni évidente, ni impossible (`dosageDe`). Les jours d'avant, où elle
 // était l'une des dix, gardent leur règle : son auteur ne la jouait pas, elle
 // lui comptait sa moyenne sur les autres (`partDeLAuteur`).
+//
+// Depuis le 9 novembre 2026 (le choix du propriétaire, « confiance aux
+// auteurs connus ») : le QG ne relit plus que la première question de chaque
+// joueur. Un auteur dont une question a été acceptée est de confiance
+// (`estDeConfiance`) : les suivantes passent d'office dans la file — c'est
+// lui qui choisit leur catégorie, que le QG choisissait à l'acceptation. Il
+// fallait tout relire, et l'administrateur, qui joue le quiz du jour, en
+// savait chaque question bonus d'avance. Le QG les montre dans la file sans
+// leur texte, qu'il lit s'il veut (la lire, c'est ne pas la jouer), les
+// retire avant leur jour, et annule pour tous la question bonus du jour qui
+// se révèle fausse. Une question retirée ou annulée rend son auteur à la
+// relecture, jusqu'à ce que le QG en accepte une autre.
 
+import { CATEGORIES } from './categories'
 import { sansAccent } from './homonymes'
 
 /** Une question tient sur l'écran d'un téléphone ; une réponse, sur un bouton. */
@@ -47,6 +60,14 @@ const QUESTION_DU_PUBLIC_MIN = 15
  * qu'une soit relue. Un choix de produit.
  */
 export const PROPOSITIONS_EN_RELECTURE_MAX = 3
+
+/**
+ * Les questions d'un auteur de confiance qui attendent leur jour, au plus,
+ * pour qu'une de plus passe d'office : la file avance d'une par jour pour
+ * tous, et un auteur prolifique y aurait fait attendre les autres des
+ * semaines. Au-delà, la suivante attend que l'une passe. Un choix de produit.
+ */
+export const QUESTIONS_D_OFFICE_EN_FILE_MAX = 3
 
 /** Ce que le QG dit d'un refus, au plus : une phrase, que le joueur lit sur son accueil. */
 export const MOTIF_DE_REFUS_MAX = 140
@@ -153,17 +174,25 @@ export const MOTIFS_DE_REFUS = [
 
 /**
  * Où en est une question proposée : relue ou non, et ce qui en a été fait.
- * Posée, elle est passée au quiz du jour — le jour le dit.
+ * Posée, elle est passée au quiz du jour — le jour le dit. Retirée : acceptée,
+ * puis ôtée de la file par le QG avant son jour, son motif dit.
  */
-export type StatutDUneProposition = 'en-relecture' | 'acceptee' | 'refusee' | 'posee'
+export type StatutDUneProposition = 'en-relecture' | 'acceptee' | 'refusee' | 'retiree' | 'posee'
 
-/** Une question du public, telle que le joueur l'écrit : l'intitulé, quatre réponses, l'index de la bonne — et son anecdote, s'il en écrit une. */
+/** Une question du public, telle que le joueur l'écrit : l'intitulé, quatre réponses, l'index de la bonne — son anecdote, s'il en écrit une, et sa catégorie. */
 export interface QuestionProposee {
   texte: string
   reponses: string[]
   bonne: number
   /** « Le saviez-vous ? » : le QG la reçoit dans « Accepter », qui la garde, la retouche ou l'efface. */
   anecdote?: string
+  /**
+   * Sa catégorie, l'une des douze (`CATEGORIES`), que le joueur choisit depuis
+   * le 9 novembre 2026 : sa question peut passer d'office, sans personne pour
+   * la classer. Absente d'une proposition d'avant — ou d'une page d'avant,
+   * qui ne la demande pas : celle-là part en relecture, et le QG la choisit.
+   */
+  categorie?: string
 }
 
 /** Une proposition telle que son auteur la relit, sous sa carte à écrire (« Tes questions »). */
@@ -171,12 +200,14 @@ export interface PropositionDuJoueur extends QuestionProposee {
   id: string
   statut: StatutDUneProposition
   proposeeLe: number
-  /** Refusée : pourquoi, en une phrase du QG. */
+  /** Refusée ou retirée : pourquoi, en une phrase du QG. */
   motif?: string
   /** Posée : le jour du quiz qui l'a jouée. */
   jour?: string
   /** Posée en question bonus : ce que la salle en a fait, jusqu'ici. */
   salle?: SalleDuBonus
+  /** Acceptée d'office, sans relecture : son auteur est de confiance (`estDeConfiance`). */
+  dOffice?: true
 }
 
 /** Une proposition au QG : la question, qui l'a écrite — par son profil, jamais deviné —, et ce qu'on en a fait. */
@@ -190,14 +221,57 @@ export interface PropositionAuQg extends QuestionProposee {
   relueLe?: number
   /** Posée en question bonus : ce que la salle en a fait — de quoi repérer les auteurs qui écrivent bien. */
   salle?: SalleDuBonus
+  /** Acceptée d'office, sans relecture. */
+  dOffice?: true
+  /** Posée en question bonus, puis annulée pour tous. */
+  annulee?: true
 }
 
-/** La page du QG : ce qui attend, le plus ancien d'abord, et ce qui a été relu ces derniers jours. */
+/**
+ * Une question acceptée qui attend son jour, au QG : qui l'a écrite, sa
+ * catégorie, quand elle est entrée dans la file — et la question elle-même
+ * seulement si l'administrateur la connaît déjà (il l'a acceptée, ou lue d'un
+ * « La lire ») : passée d'office, elle reste close tant qu'il ne l'ouvre pas,
+ * et l'ouvrir, c'est ne pas la jouer (`jour_reserve.relecteur`). Sinon, chaque
+ * question bonus à venir se serait lue d'avance en passant sur la page.
+ */
+export interface QuestionEnFile {
+  /** La proposition. */
+  id: string
+  auteur: { id: string; nom: string; login: string } | null
+  categorie: string | null
+  proposeeLe: number
+  accepteeLe: number
+  /** Acceptée d'office, sans relecture : son auteur était de confiance. */
+  dOffice: boolean
+  /** Telle qu'elle se jouera — la réserve, retouches comprises ; absente : pas encore lue. */
+  question?: QuestionProposee
+}
+
+/** La page du QG : ce qui attend sa relecture, le plus ancien d'abord, la file des acceptées, et ce qui a été relu ces derniers jours. */
 export interface PropositionsAuQg {
   aRelire: PropositionAuQg[]
+  /** Acceptées, pas encore posées : la file du quiz du jour, une par jour, dans l'ordre où elles passeront. */
+  enFile: QuestionEnFile[]
+  /** Refusées, retirées, jouées ces derniers jours. */
   relues: PropositionAuQg[]
-  /** Acceptées, pas encore posées : la file du quiz du jour, une par jour. */
-  enAttente: number
+}
+
+/**
+ * Un auteur est de confiance quand sa dernière question acceptée — par le
+ * QG, ou d'office — est plus récente que la dernière qu'on lui a retirée de
+ * la file ou annulée pour tous. Jamais acceptée : pas encore. Retirée ou
+ * annulée : la suivante repasse par la relecture, et une acceptation du QG
+ * lui rend la confiance. Des instants du serveur, en millisecondes.
+ */
+export function estDeConfiance(derniereAcceptee: number | null, dernierRetrait: number | null, derniereAnnulation: number | null): boolean {
+  if (derniereAcceptee === null) return false
+  return derniereAcceptee > Math.max(dernierRetrait ?? 0, derniereAnnulation ?? 0)
+}
+
+/** Une catégorie choisie au téléphone, relue : l'une des douze, ou null. */
+export function lireLaCategorie(brut: unknown): string | null {
+  return typeof brut === 'string' && (CATEGORIES as readonly string[]).includes(brut) ? brut : null
 }
 
 /** Sans casse, accents ni article : « La Loire » et « loire » sont la même réponse. */
@@ -210,8 +284,11 @@ const net = (x: unknown) => (typeof x === 'string' ? x.trim().replace(/\s+/g, ' 
  * Ce qui manque encore, en une phrase — la première qui compte —, ou null :
  * la question est prête. Le téléphone le dit comme le prochain geste
  * (« Encore 2 réponses. ») ; le serveur refuse avec la même phrase.
+ * `categorie` : celle qu'il a choisie, vide tant qu'il n'en a pas choisi —
+ * le dernier geste, la carte prête par ailleurs ; absente (`undefined`), une
+ * page d'avant qui ne la demande pas : elle n'est pas exigée.
  */
-export function conseilDeLaProposition(texte: string, reponses: readonly string[], bonne: number | null, anecdote = ''): string | null {
+export function conseilDeLaProposition(texte: string, reponses: readonly string[], bonne: number | null, anecdote = '', categorie?: string | null): string | null {
   const t = texte.trim()
   const reps = reponses.map(r => r.trim())
   const manquent = reps.filter(r => !r).length
@@ -227,13 +304,17 @@ export function conseilDeLaProposition(texte: string, reponses: readonly string[
   const juste = reconnaissable(reps[bonne])
   // Trois lettres au moins : « Ré » se lit dans bien des questions sans les souffler.
   if (juste.length >= 3 && sansAccent(t).includes(juste)) return 'Ta réponse se lit dans la question.'
+  // En dernier : elle se choisit en haut de la carte, comme le quiz l'écrit au-dessus de la question.
+  if (categorie !== undefined && !lireLaCategorie(categorie)) return 'Dernier geste : sa catégorie, en haut de la carte.'
   return null
 }
 
 /**
  * Ce qu'envoie le téléphone, relu : la question prête, ou la phrase qui dit
  * ce qui manque — celle du conseil, ou la limite dépassée. Rien ne se coupe
- * en silence : coupée, une question dirait autre chose.
+ * en silence : coupée, une question dirait autre chose. Sa catégorie, si la
+ * page l'envoie, est l'une des douze ; une page d'avant n'en envoie pas, et
+ * sa question part en relecture (`JourStore.proposer`).
  */
 export function lireLaProposition(brut: unknown): QuestionProposee | string {
   const o = brut && typeof brut === 'object' ? (brut as Record<string, unknown>) : {}
@@ -245,9 +326,10 @@ export function lireLaProposition(brut: unknown): QuestionProposee | string {
   const anecdote = net(o.anecdote)
   if (Array.from(anecdote).length > ANECDOTE_DU_PUBLIC_MAX) return `L’anecdote tient en ${ANECDOTE_DU_PUBLIC_MAX} caractères.`
   const bonne = typeof o.bonne === 'number' && Number.isInteger(o.bonne) && o.bonne >= 0 && o.bonne < REPONSES_DU_PUBLIC ? o.bonne : null
-  const conseil = conseilDeLaProposition(texte, reponses, bonne, anecdote)
+  const categorie = o.categorie === undefined ? undefined : (lireLaCategorie(o.categorie) ?? '')
+  const conseil = conseilDeLaProposition(texte, reponses, bonne, anecdote, categorie)
   // Vide, elle n'existe pas : ni la carte du QG ni la réserve n'ont à la lire.
-  return conseil ?? { texte, reponses, bonne: bonne!, ...(anecdote && { anecdote }) }
+  return conseil ?? { texte, reponses, bonne: bonne!, ...(anecdote && { anecdote }), ...(categorie && { categorie }) }
 }
 
 /** Le motif d'un refus, relu : une phrase, ni vide ni trop longue — refusée trop longue, jamais coupée. */

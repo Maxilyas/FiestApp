@@ -7251,7 +7251,7 @@ a.carte-collection:hover .carte-collection-pierre { box-shadow: 0 0 16px rgba(24
 /* Un lien du pied de carte, comme « Signaler une erreur » : moins haut qu'un bouton plein. */
 .plume-ecrire { display: inline-flex; align-items: center; gap: 6px; flex: none; min-height: 34px; padding: 0; border: 0; background: none; color: var(--accent-text); font-family: var(--sans); font-size: 0.9rem; font-weight: 600; cursor: pointer; }
 .plume-ecrire .plume-icone { width: 20px; height: 20px; }
-/* Dans un bouton, la plume prend sa couleur : en or sur l'or d'« Envoyer en relecture », elle disparaissait. */
+/* Dans un bouton, la plume prend sa couleur : en or sur l'or d'« Envoyer ma question », elle disparaissait. */
 .btn .plume-icone { color: inherit; }
 .pill.plume-du-public { color: var(--accent-text); border-color: var(--edge-strong); }
 /* « Ta question » : la carte du jeu, à écrire (`CarteAEcrire`, `LaPlume.tsx`).
@@ -7260,6 +7260,16 @@ a.carte-collection:hover .carte-collection-pierre { box-shadow: 0 0 16px rgba(24
    quand elle est prête. Un conseil d'une ligne, rien d'autre à lire. */
 .plume-carte { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; padding: 16px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); transition: border-color 0.3s ease; }
 .plume-carte-prete { border-color: var(--accent); }
+/* Sa tête : « Question du public », puis sa catégorie, là où le quiz l'écrit au-dessus de la question (le
+   9 novembre 2026 : elle peut passer d'office, sans personne pour la classer). En pointillé tant qu'elle reste à
+   choisir, comme ce qui reste à écrire. La liste est la pastille même — le toucher ouvre celle du téléphone —, ses
+   deux icônes posées dessus sans prendre le doigt : l'anneau du focus, celui de toute l'application, s'y pose seul. */
+.plume-carte-tete { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.plume-carte-categorie { position: relative; display: inline-flex; align-items: center; max-width: 100%; }
+.plume-carte-categorie .icon { position: absolute; left: 12px; width: 16px; height: 16px; color: var(--accent-text); pointer-events: none; }
+.plume-carte-categorie .plume-carte-categorie-ouvrir { left: auto; right: 10px; width: 14px; height: 14px; color: var(--muted); }
+.plume-carte-categorie select { appearance: none; min-height: 32px; max-width: 100%; padding: 0 30px 0 34px; border: 1px dashed var(--edge-strong); border-radius: var(--radius-pill); background: var(--surface); color: var(--muted); font-family: var(--sans); font-size: 0.85rem; cursor: pointer; }
+.plume-carte-categorie-choisie select { border-style: solid; border-color: var(--accent); color: var(--ink); font-weight: 600; }
 .plume-carte-question { width: 100%; padding: 2px 0 8px; border: 0; border-bottom: 1px dashed var(--edge-strong); border-radius: 0; background: none; color: var(--ink); font-family: var(--serif); font-size: 1.55rem; font-weight: 600; line-height: 1.15; resize: none; }
 .plume-carte-question::placeholder { color: var(--muted); font-style: italic; font-weight: 500; opacity: 0.85; }
 .plume-carte-reponses { width: 100%; gap: 8px; }
@@ -7291,7 +7301,8 @@ a.carte-collection:hover .carte-collection-pierre { box-shadow: 0 0 16px rgba(24
 .pill.plume-statut { flex: none; font-size: 0.72rem; }
 .pill.plume-statut-acceptee,
 .pill.plume-statut-posee { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text-hover); }
-.pill.plume-statut-refusee { color: var(--muted); }
+.pill.plume-statut-refusee,
+.pill.plume-statut-retiree { color: var(--muted); }
 /* Sa propre question, à la révélation : la plume à la place du verdict. */
 .plume-tienne-icone { color: var(--accent-text); }
 .plume-tienne-icone .plume-icone { width: 34px; height: 34px; }
@@ -15702,6 +15713,11 @@ span.annonce-admin-merci { cursor: default; }
 .qg-proposition-reponse { display: flex; align-items: center; gap: 10px; }
 .qg-proposition-reponse input[type='radio'] { flex: none; width: 20px; height: 20px; margin: 0; accent-color: var(--accent); }
 .qg-motifs { display: flex; flex-wrap: wrap; gap: 6px; }
+/* La file des acceptées (`LaFile`) : une question par ligne, close tant qu'on ne l'a pas lue — sa catégorie,
+   « d'office », qui l'a écrite —, puis ses réponses une fois lue, et ses deux gestes dessous. */
+.qg-file { display: flex; flex-direction: column; gap: 8px; }
+.qg-file-question { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 10px 0; }
+.qg-file-question p { margin: 0; }
 /* « Annuler aussi ses points pour tous », sous une correction du quiz du jour : la case à la taille d'un doigt, sa phrase à côté. */
 .correction-question > .correction-annuler { flex-direction: row; align-items: flex-start; gap: 10px; cursor: pointer; }
 .correction-annuler input { flex: none; width: 20px; height: 20px; margin: 1px 0 0; }

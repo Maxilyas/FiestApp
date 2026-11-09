@@ -100,6 +100,22 @@ export function AdminDuJour({
     if (ok) await faire(() => api.admin.annulerDuJour(jour, index), 'Points effacés pour tous')
   }
 
+  /**
+   * Annuler pour tous la question bonus d'aujourd'hui — fausse, ou passée
+   * d'office alors qu'elle n'aurait pas dû : elle ne se joue plus, ce qu'elle
+   * a rapporté repart, et son auteur repasse par la relecture. Rien ne la rend.
+   */
+  const annulerLeBonus = async (jour: string) => {
+    const ok = await confirmDialog({
+      title: 'Annuler la question bonus pour tous ?',
+      message:
+        'Elle ne se joue plus. Ceux qui l’ont trouvée perdent ses confettis et son expérience, son auteur les confettis de son jour — son acceptation lui reste —, et sa prochaine question sera relue avant de passer. On ne peut pas revenir en arrière.',
+      confirmLabel: 'Annuler pour tous',
+      danger: true,
+    })
+    if (ok) await faire(() => api.admin.annulerLeBonus(jour), 'Question bonus annulée pour tous')
+  }
+
   useEffect(() => {
     if (cherche.trim().length < 2) return setTrouves([])
     // Une recherche courte, plus lente, qui revenait après une longue
@@ -193,6 +209,7 @@ export function AdminDuJour({
         occupe={occupe}
         annuler={q => suivi && void annuler(suivi.jour, q.index)}
         retirer={q => suivi && void faire(() => api.admin.retirerDuJour(q.reserveId, suivi.jour, q.index), 'Retirée de la réserve')}
+        annulerLeBonus={() => suivi && void annulerLeBonus(suivi.jour)}
       />
 
       {/* Les signalements se relisent sur leur page, avec ceux de la campagne (le choix du 14 octobre 2026). */}

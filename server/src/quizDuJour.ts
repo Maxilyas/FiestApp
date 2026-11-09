@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 import express, { type Express, type NextFunction, type Request, type Response } from 'express'
 import type { JourStore, PropositionLue } from './core/jour'
-import type { PropositionAuQg, PropositionsAuQg } from '../../shared/propositions'
+import type { PropositionAuQg, PropositionsAuQg, QuestionEnFile } from '../../shared/propositions'
 import type { RappelStore } from './core/rappels'
 import { idDeSession, type ProfileStore } from './auth/profiles'
 import { wrap } from './core/http'
@@ -540,19 +540,60 @@ export function mountJourAdmin(app: Express, deps: JourDeps & { rappels: Pick<Ra
     }),
   )
 
-  // Les questions du public : celles à relire, celles relues ce mois-ci, la
-  // file des acceptées. Leurs auteurs nommés ici, d'un seul chargement,
-  // suspendus compris (`pourLAdministrateurDe`) ; un profil supprimé ne l'est plus.
+  // Les questions du public : celles à relire, la file des acceptées — closes
+  // tant que l'administrateur ne les a pas lues —, celles relues ce mois-ci.
+  // Leurs auteurs nommés ici, d'un seul chargement, suspendus compris
+  // (`pourLAdministrateurDe`) ; un profil supprimé ne l'est plus.
   app.get(
     '/api/admin/jour/propositions',
     requireAdmin,
     wrap(async (_req, res) => {
       const lues = await deps.jour.propositionsAuQg()
-      const profils = await deps.profiles.pourLAdministrateurDe([...new Set([...lues.aRelire, ...lues.relues].map(p => p.auteurId))])
+      const profils = await deps.profiles.pourLAdministrateurDe([...new Set([...lues.aRelire, ...lues.enFile, ...lues.relues].map(p => p.auteurId))])
       const parId = new Map(profils.map(p => [p.id, { id: p.id, nom: p.name, login: p.login }]))
       const nommer = ({ auteurId, ...p }: PropositionLue): PropositionAuQg => ({ ...p, auteur: parId.get(auteurId) ?? null })
-      const page: PropositionsAuQg = { aRelire: lues.aRelire.map(nommer), relues: lues.relues.map(nommer), enAttente: lues.enAttente }
+      const page: PropositionsAuQg = {
+        aRelire: lues.aRelire.map(nommer),
+        enFile: lues.enFile.map(({ auteurId, ...q }): QuestionEnFile => ({ ...q, auteur: parId.get(auteurId) ?? null })),
+        relues: lues.relues.map(nommer),
+      }
       res.json(page)
+    }),
+  )
+
+  // La lire dans la file : passée d'office, elle était close — l'administrateur en devient le relecteur, la question bonus
+  // ne se jouera pas pour lui (le profil que tient sa console, s'il en tient un).
+  app.post(
+    '/api/admin/jour/propositions/:id/lire',
+    requireAdmin,
+    wrap(async (req, res) => {
+      const lue = await deps.jour.lireLaQuestionEnFile(req.params.id, accountOf(res).profileId)
+      if (!lue) return res.status(404).json({ error: 'Cette question proposée n’existe plus' })
+      noterLeGeste(res, { sorte: 'jour', resume: `Question du public lue dans la file du quiz du jour : « ${extrait(lue.question.texte)} »`, cible: lue.auteurId })
+      res.json({ question: lue.question })
+    }),
+  )
+
+  // La retirer de la file avant son jour, en disant pourquoi : son auteur le lit sur son accueil, et repasse par la relecture.
+  app.post(
+    '/api/admin/jour/propositions/:id/retirer',
+    requireAdmin,
+    wrap(async (req, res) => {
+      const retiree = await deps.jour.retirerLaProposition(req.params.id, req.body?.motif)
+      if (!retiree) return res.status(404).json({ error: 'Cette question proposée n’existe plus' })
+      noterLeGeste(res, { sorte: 'jour', resume: `Question du public retirée de la file du quiz du jour : « ${extrait(retiree.texte)} »`, cible: retiree.auteurId })
+      res.json({ ok: true })
+    }),
+  )
+
+  // Annuler pour tous la question bonus d'aujourd'hui : elle ne se joue plus, ce qu'elle a rapporté repart.
+  app.post(
+    '/api/admin/jour/bonus/annuler',
+    requireAdmin,
+    wrap(async (req, res) => {
+      const annulee = await deps.jour.annulerLeBonus(String(req.body?.jour ?? ''))
+      noterLeGeste(res, { sorte: 'jour', resume: `Question bonus du jour annulée pour tous : « ${extrait(annulee.texte)} »`, cible: annulee.reserveId })
+      res.json({ ok: true })
     }),
   )
 

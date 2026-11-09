@@ -816,7 +816,7 @@ export const api = {
       req<{ ok: true }>('/api/jour/signaler', { method: 'POST', body: JSON.stringify({ jour, index, texte }) }),
     /** Ses questions proposées au quiz du jour, les plus récentes d'abord : où en est chacune (« Tes questions »). */
     propositions: () => req<PropositionDuJoueur[]>('/api/jour/propositions'),
-    /** Propose une question au quiz du jour : le QG la relira. */
+    /** Propose une question au quiz du jour, sa catégorie choisie : le QG la relira — ou, son auteur de confiance, elle passe d'office (`statut` le dit). */
     proposer: (question: QuestionProposee) => req<PropositionDuJoueur>('/api/jour/propositions', { method: 'POST', body: JSON.stringify(question) }),
     /** Des sabliers pour sa série, en confettis — deux au plus en tout : ceux qui l'attendent, et son solde. */
     sablier: (nombre = 1) => req<{ sabliers: number; confettis: SoldeDeConfettis }>('/api/jour/sablier', { method: 'POST', body: JSON.stringify({ nombre }) }),
@@ -1022,6 +1022,13 @@ export const api = {
     /** La refuser, en une phrase que le joueur lira sur son accueil. */
     refuserLaProposition: (id: string, motif: string) =>
       req<{ ok: true }>(`/api/admin/jour/propositions/${encodeURIComponent(id)}/refuser`, { method: 'POST', body: JSON.stringify({ motif }) }),
+    /** Lire une question de la file, passée d'office : elle se montre telle qu'elle se jouera — et la question bonus ne se jouera pas pour lui. */
+    lireLaQuestionEnFile: (id: string) => req<{ question: QuestionProposee }>(`/api/admin/jour/propositions/${encodeURIComponent(id)}/lire`, { method: 'POST' }),
+    /** La retirer de la file avant son jour, en une phrase que son auteur lira sur son accueil. */
+    retirerDeLaFile: (id: string, motif: string) =>
+      req<{ ok: true }>(`/api/admin/jour/propositions/${encodeURIComponent(id)}/retirer`, { method: 'POST', body: JSON.stringify({ motif }) }),
+    /** Annuler pour tous la question bonus d'aujourd'hui : elle ne se joue plus, ce qu'elle a rapporté repart. */
+    annulerLeBonus: (jour: string) => req<{ ok: true }>('/api/admin/jour/bonus/annuler', { method: 'POST', body: JSON.stringify({ jour }) }),
     /** La campagne : sa base, et les questions que les joueurs signalent. */
     campagne: () => req<AdminDeLaCampagne>('/api/admin/campagne'),
     garderDeLaCampagne: (questionId: string) => req<{ ok: true }>('/api/admin/campagne/garder', { method: 'POST', body: JSON.stringify({ questionId }) }),
