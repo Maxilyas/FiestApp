@@ -52,6 +52,14 @@ collectionneur. » — faits le même jour (« La page, intégrée », plus bas)
   soirée, il mène aux collectionneurs — à sa vitrine pour la carte d'un
   autre.
 
+Puis : « “Les collectionneurs” comme nom, je n'aime pas trop pour le titre
+dans le profil. Je verrais quelque chose qui fait plus penser à “Classement
+des collections”, mais c'est peut-être trop long » — « Classement des
+collections » partout où le nom se lit (`TITRE_DES_COLLECTIONNEURS`) : le
+gros bouton, en 360 de large, le coupe net après « Classement », sur deux
+lignes ; « Les collections » aurait tenu sur une. L'adresse reste
+`/collectionneurs`.
+
 Une maquette : les propositions sont posées dans le vrai client — ses avatars
 peints, ses finitions, ses bordures de ligue, ses Divins, ses matières, sa
 feuille, son menu —, derrière une page de maquette (`/classement?p=1`, `2`,

@@ -1073,7 +1073,7 @@ function CartoucheDeCollection({ collection: c, vers }: { collection: NonNullabl
     </>
   )
   return vers ? (
-    <a className="carte-collection" href={vers} aria-label={`${dit} : voir les collectionneurs`}>
+    <a className="carte-collection" href={vers} aria-label={`${dit} : voir le classement des collections`}>
       {dedans}
     </a>
   ) : (

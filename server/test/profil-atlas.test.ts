@@ -185,7 +185,7 @@ test('le profil épuré : qui l’on est, puis quatre boutons — cinq avec un c
   // un écran du profil — et « Nouveau » tant qu'une affiche du QG le montre et qu'il n'y est pas allé.
   assert.match(
     boutons,
-    /ouvrir\('collection'\)\}\s*\/>\s*\{\/\*[^*]*\*\/\}\s*<GrosBouton icone=\{<Icon name="trophy" \/>\} titre="Les collectionneurs" detail=\{detailDesCollectionneurs\(profil\.collectionneur\)\} pastille=\{nouvelle\('collectionneurs'\)\} href="\/collectionneurs" \/>\s*<GrosBouton\s+icone=\{<Icon name="book" \/>\}\s+titre="Mes soirées"/,
+    /ouvrir\('collection'\)\}\s*\/>\s*\{\/\*[^*]*\*\/\}\s*<GrosBouton icone=\{<Icon name="trophy" \/>\} titre=\{TITRE_DES_COLLECTIONNEURS\} detail=\{detailDesCollectionneurs\(profil\.collectionneur\)\} pastille=\{nouvelle\('collectionneurs'\)\} href="\/collectionneurs" \/>\s*<GrosBouton\s+icone=\{<Icon name="book" \/>\}\s+titre="Mes soirées"/,
   )
   assert.match(page, /const nouvelle = \(page: PageALAffiche\) => \(nouvelles\.includes\(page\) \? <PastilleNouveau \/> : undefined\)/)
   // Et, juste après « M'habiller », « Mon compagnon » pour qui en a un : sa niche en petit dès que son code est là.

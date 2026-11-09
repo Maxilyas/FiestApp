@@ -318,7 +318,7 @@ const COURT_D_UNE_PAGE: Record<PageALAffiche | PageEnMaintenance, string> = {
   jour: 'le quiz du jour',
   duels: 'les duels',
   boutique: 'la boutique',
-  collectionneurs: 'les collectionneurs',
+  collectionneurs: 'le classement des collections',
   defi: 'le défi',
 }
 const MODE_D_UNE_PAGE_FERMABLE: Record<PageEnMaintenance, ModeDuQg | null> = { jour: 'jour', campagne: 'campagne', defi: 'campagne', duels: 'duel', cabinet: 'cabinet', boutique: null }

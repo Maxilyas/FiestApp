@@ -38,6 +38,7 @@ import { boutonsDesPages, cabinetIci } from '../maintenance'
 import { AfficheDeLaNouveaute, PastilleNouveau } from '../components/AfficheDeLaNouveaute'
 import { ceQueMontreLAccueil, type PageALAffiche } from '../../../shared/affiches'
 import { estUnePageEnMaintenance } from '../../../shared/maintenance'
+import { TITRE_DES_COLLECTIONNEURS } from '../titres'
 
 const ETAPE_REJOINDRE = 'fiestappRejoindre'
 
@@ -849,7 +850,7 @@ export function ProfilApp() {
         />
         {/* Les collectionneurs (la maquette du 9 novembre 2026), juste sous ce qu'ils comptent : sa place et ce que vaut
             sa collection, au dernier relevé — dits avant qu'on le touche. Une page à part : un lien. */}
-        <GrosBouton icone={<Icon name="trophy" />} titre="Les collectionneurs" detail={detailDesCollectionneurs(profil.collectionneur)} pastille={nouvelle('collectionneurs')} href="/collectionneurs" />
+        <GrosBouton icone={<Icon name="trophy" />} titre={TITRE_DES_COLLECTIONNEURS} detail={detailDesCollectionneurs(profil.collectionneur)} pastille={nouvelle('collectionneurs')} href="/collectionneurs" />
         <GrosBouton
           icone={<Icon name="book" />}
           titre="Mes soirées"

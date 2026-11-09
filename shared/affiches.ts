@@ -108,8 +108,9 @@ export const DESTINATIONS: Record<PageALAffiche, DestinationDUneAffiche> = {
     phrase: 'Des thèmes, des compagnons et des fonds de carte à découvrir avec tes confettis.',
   },
   collectionneurs: {
-    nom: 'Les collectionneurs',
-    a: 'chez les collectionneurs',
+    // Le nom de sa page, « Classement des collections » (`TITRE_DES_COLLECTIONNEURS`, le client).
+    nom: 'Le classement des collections',
+    a: 'au classement des collections',
     chemin: '/collectionneurs',
     // Court : « Plus tard » tient à côté, sur une ligne en 360 de large.
     bouton: 'Voir ma place',

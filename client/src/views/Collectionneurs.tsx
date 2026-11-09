@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { api, motifDe, UnauthorizedError } from '../api'
+import { TITRE_DES_COLLECTIONNEURS } from '../titres'
 import { Feuille, MenuBarre, PieceTete, Sortie } from '../components/Pieces'
 import { Avatar, Dessin } from '../components/Avatar'
 import { Icon } from '../components/Icon'
@@ -802,7 +803,7 @@ export function CollectionneursApp() {
     return (
       <div className="player-shell cl-page">
         <Sortie vers="Mon profil" href="/profil" />
-        <PieceTete piece="Profil" titre="Les collectionneurs" />
+        <PieceTete piece="Profil" titre={TITRE_DES_COLLECTIONNEURS} />
         <p className="error" role="alert">
           {erreur.motif}
         </p>
@@ -824,7 +825,7 @@ export function CollectionneursApp() {
   return (
     <div className="player-shell cl-page">
       <Sortie vers="Mon profil" href="/profil" />
-      <PieceTete piece="Profil" titre="Les collectionneurs" />
+      <PieceTete piece="Profil" titre={TITRE_DES_COLLECTIONNEURS} />
       {!etat || !vue ? (
         <p className="muted small">Chargement…</p>
       ) : (

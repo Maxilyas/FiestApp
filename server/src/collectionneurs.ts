@@ -20,7 +20,7 @@ export function mountCollectionneurs(app: Express, deps: CollectionneursDeps) {
     res.set('Cache-Control', 'no-store')
     const jeton = readPlayerToken(req.header('cookie'))
     const profil = jeton ? await deps.profiles.bySession(jeton) : null
-    if (!profil) res.status(401).json({ error: 'Connecte-toi à ton profil pour voir les collectionneurs' })
+    if (!profil) res.status(401).json({ error: 'Connecte-toi à ton profil pour voir le classement des collections' })
     return profil
   }
 
