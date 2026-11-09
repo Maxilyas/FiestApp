@@ -3,9 +3,9 @@
 // la page : rien ici n'est servi par FiestApp, et ce que le téléphone retient (les repères gagnés, les questions
 // vues, les réglages) vit dans le localStorage, sous try/catch.
 //
-// Après deux tours de tablée, le 9 novembre 2026 (retours/2026-11-09/la-tablee-du-filet.md) : quatre joueurs ont joué
-// la première version contre le Filet d'aujourd'hui, trois la deuxième, un joueur aveugle au lecteur d'écran ; chaque
-// retouche ci-dessous dit qui l'a demandée.
+// Après trois tours de tablée, le 9 novembre 2026 (retours/2026-11-09/la-tablee-du-filet.md) : quatre joueurs ont joué
+// la première version contre le Filet d'aujourd'hui, trois chaque version corrigée, un joueur aveugle deux fois au
+// lecteur d'écran ; chaque retouche ci-dessous dit qui l'a demandée.
 ;(() => {
   'use strict'
   const D = window.FILET
@@ -72,6 +72,8 @@
    */
   const NOMS_DES_ETOILES = ['une étoile', 'deux étoiles', 'trois étoiles']
   const aLOreille = h => h.replace(/★{1,3}/g, m => `<span aria-hidden="true">${m}</span><span class="sr">${NOMS_DES_ETOILES[m.length - 1]}</span>`)
+  /** « −1 ★ » à l'œil, « une étoile en moins » à l'oreille — il s'entendait « moins un, une étoile » (Hugo). */
+  const enMoins = p => `<span aria-hidden="true">−${p}${INSECABLE}★</span><span class="sr">${NOMS_DES_ETOILES[p - 1] || `${p} étoiles`} en moins</span>`
   const melanger = a => { const b = a.slice(); for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]] } return b }
   const auHasard = a => a[Math.floor(Math.random() * a.length)]
   const entre = (a, b) => a + Math.floor(Math.random() * (b - a + 1))
@@ -231,23 +233,28 @@
 
   /**
    * Les repères de la frise : les siens d'abord (ce qu'il a déjà su dater), puis des dates que tout le monde connaît —
-   * deux au plus, jamais à moins d'un quart d'époque de la réponse, jamais du même sujet. L'époque d'un repère se tire
-   * d'abord, chacune la même chance : choisis parmi ceux qui s'écartent de la réponse, ils tombaient rarement dans sa
-   * case, et deux repères dans deux époques valaient « Deux époques de moins » (Claire, cinq repères sur cinq).
+   * deux au plus, jamais du même sujet, jamais la réponse elle-même, et tirés sans regarder où elle est. L'époque d'un
+   * repère se tire d'abord, chacune la même chance : choisis parmi ceux qui s'écartent de la réponse, ils tombaient
+   * rarement dans sa case, et deux repères dans deux époques valaient « Deux époques de moins » (Claire, au premier
+   * tour). Et plus de distance gardée autour d'elle : un repère jamais à moins d'un quart d'époque de la réponse
+   * disait où elle n'était pas — avec 1870 sur la piste, elle ne pouvait être qu'entre 1850 et 1863 (Claire, au
+   * troisième tour).
    */
   function reperesDe(q, ep) {
     const tranches = ep.tranches
     const dans = (x, j) => x >= tranches[j].de && x <= tranches[j].a
+    const mots = new Set(q.t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').split(/[^a-z]+/).filter(m => m.length >= 5))
+    const souffle = l => l.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').split(/[^a-z]+/).some(m => m.length >= 5 && mots.has(m))
+    // La réponse elle-même jamais : « 1969 · Le premier pas sur la Lune » pour une question sur la Lune, que les mots
+    // de cinq lettres ne voient pas. Ne dire que « pas cette année-là » ne coûte presque rien.
+    const laReponse = x => (ep.an ? x === q.v : Math.abs(x / q.v - 1) < 0.02)
     let siens = [], communs = []
     if (ep.an) {
-      const mots = new Set(q.t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').split(/[^a-z]+/).filter(m => m.length >= 5))
-      const souffle = l => l.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').split(/[^a-z]+/).some(m => m.length >= 5 && mots.has(m))
-      const loin = an => Math.abs(an - q.v) > ep.anneaux[1]
-      siens = memo.reperes.filter(r => r.id !== q.id && loin(r.an) && !souffle(r.l)).map(r => ({ x: r.an, l: r.l, perso: true }))
-      communs = D.reperesAnnees.filter(r => loin(r.an) && !souffle(r.l)).map(r => ({ x: r.an, l: r.l, perso: false }))
+      siens = memo.reperes.filter(r => r.id !== q.id && !laReponse(r.an) && !souffle(r.l)).map(r => ({ x: r.an, l: r.l, perso: true }))
+      communs = D.reperesAnnees.filter(r => !laReponse(r.an) && !souffle(r.l)).map(r => ({ x: r.an, l: r.l, perso: false }))
     } else {
       const u = (q.u || '').toLowerCase()
-      communs = D.reperesGrandeurs.filter(r => r.u === u && Math.abs(Math.log(r.v / q.v)) > Math.log(1.3)).map(r => ({ x: r.v, l: r.l, perso: false }))
+      communs = D.reperesGrandeurs.filter(r => r.u === u && !laReponse(r.v) && !souffle(r.l)).map(r => ({ x: r.v, l: r.l, perso: false }))
     }
     const pris = []
     const tranche = x => [0, 1, 2, 3].find(j => dans(x, j))
@@ -377,12 +384,11 @@
       if (M.choisie !== null && mauvaises.includes(M.choisie)) { M.choisie = null; M.grille = null; M.x = null }
     }
     afficherLaManche()
-    if (cle === 'indice') {
-      // L'indice pris vient sous les yeux et à l'oreille : le focus va sur lui (Hugo n'entendait rien venir).
-      const el = document.getElementById('indice')
-      el?.focus({ preventScroll: true })
-      el?.scrollIntoView({ block: 'nearest' })
-    }
+    // L'aide prise vient sous les yeux et à l'oreille : le focus va sur ce qu'elle a donné — l'indice, ou ce qui reste
+    // des époques. Hugo n'entendait rien venir, et un Tab plus loin tombait sur « Quitter ».
+    const el = document.getElementById(cle === 'indice' ? 'indice' : 'retirees')
+    el?.focus({ preventScroll: true })
+    el?.scrollIntoView({ block: 'nearest' })
   }
   function choisirLEpoque(i) {
     if (!M || M.fin || M.retirees.includes(i) || M.choisie === i) return
@@ -461,7 +467,7 @@
     return `<header class="tete">
       <div class="tete-g"><b>${a.nom}</b><span>Manche ${E.i + 1} sur 3</span></div>
       <div class="tete-d"><span class="coeurs" role="img" aria-label="${accorde(E.coeurs, 'cœur')} sur 4">${coeurs}</span>
-      <button type="button" class="quitter" data-geste="accueil">Quitter</button></div>
+      <button type="button" class="quitter" data-geste="quitter">Quitter</button></div>
     </header>`
   }
   function chrono() {
@@ -510,8 +516,8 @@
     }).join('')
     const nomme = r => `${ep.an ? r.x : dire(m.q, r.x)} · ${fines(r.l)}${r.perso ? ' (ton repère)' : ''}`
     const legende = [
-      ...(revelee ? [`<li class="cle-reponse"><i aria-hidden="true">▼</i>La réponse</li>`] : []),
-      ...(lance ? [`<li class="cle-lancer"><i aria-hidden="true">▲</i>Ton lancer</li>`] : []),
+      ...(revelee ? [`<li class="cle-reponse"><i aria-hidden="true">▼</i>${fines(`La réponse, ${dire(m.q, m.q.v)}`)}</li>`] : []),
+      ...(lance ? [`<li class="cle-lancer"><i aria-hidden="true">▲</i>${fines(`Ton lancer, ${dire(m.q, m.x)}`)}</li>`] : []),
       ...m.reperes.map(r => `<li class="${r.perso ? 'cle-perso' : 'cle-repere'}"><i aria-hidden="true">${r.perso ? '◆' : '○'}</i>${nomme(r)}</li>`),
     ]
     return `<div class="frise${revelee ? ' revelee' : ''}${m.reperes.length || revelee ? '' : ' sans-reperes'}"><div class="marques" aria-hidden="true">${haut}</div>
@@ -531,7 +537,7 @@
     return bande('anneau-2', deux) + bande('anneau-3', trois)
   }
   function valeurHtml(m) {
-    if (m.x === null) return '<span class="a-poser">Touche la piste</span>'
+    if (m.x === null) return '<span class="a-poser" aria-hidden="true">Touche la piste</span>'
     return `${m.q.an ? m.x : nombre(m.x)}${!m.q.an && m.q.u ? ` <small>${echapper(m.q.u)}</small>` : ''}`
   }
   /**
@@ -544,8 +550,17 @@
     const dit = reste ? `${NOMS_DES_ETOILES[reste - 1]}, ton aide payée` : 'plus rien, tes aides payées'
     return `<span aria-hidden="true">${'★'.repeat(reste)}<s class="payee">${'★'.repeat(Math.min(n, p))}</s></span><span class="sr">${dit}</span>`
   }
+  /**
+   * Le barème de la valeur, en tête de l'étape, une fois les aides payées : « à 2 ans ★★★ » barre l'étoile que l'aide a
+   * prise — Claire, au troisième tour, faisait encore la soustraction de tête.
+   */
+  function baremeHtml(m) {
+    const p = payees(m)
+    const [trois, deux] = m.q.an ? [`à${INSECABLE}${accorde(m.ep.anneaux[0], 'an')}`, `à${INSECABLE}${m.ep.anneaux[1]}${INSECABLE}ans`] : [`à${INSECABLE}6${FINE}%`, `à${INSECABLE}25${FINE}%`]
+    return `<span class="nobr">${trois} ${netHtml(3, p)}</span> · <span class="nobr">${deux} ${netHtml(2, p)}</span>`
+  }
   function couvreHtml(m) {
-    if (m.x === null) return 'là où tu vises : le curseur s’y pose, puis − et + l’ajustent.'
+    if (m.x === null) return `<span class="sr">Touche la piste </span>${fines('là où tu vises : le curseur s’y pose, puis − et + l’ajustent.')}`
     const [trois, deux] = prisesDe(m, m.x)
     const entier = Number.isInteger(m.q.v)
     const d = (bas, haut) => {
@@ -555,7 +570,7 @@
     // Deux morceaux qui ne se coupent pas : « ★★ » seul en fin de ligne se lisait avec la fourchette d'au-dessus ;
     // et chaque fourchette d'un seul tenant (« de 1958 » en fin de ligne, « à 1962 » dessous — Huguette).
     const p = payees(m)
-    return `<span>Ton filet ${netHtml(3, p)} <span class="nobr">${fines(d(...trois))}</span></span><span class="sr">, </span><span>${netHtml(2, p)} <span class="nobr">${fines(d(...deux))}</span></span>`
+    return `<span>Ton filet ${netHtml(3, p)} <span class="nobr">${fines(d(...trois))}</span></span><span class="sr"> et </span><span>${netHtml(2, p)} <span class="nobr">${fines(d(...deux))}</span></span>`
   }
   function libelleDuLancer(m) {
     return m.choisie === null ? `Choisis d’abord ${m.q.an ? 'une époque' : 'un ordre de grandeur'}` : m.x === null ? 'Pose ton curseur sur la piste' : 'Lancer le filet'
@@ -583,7 +598,7 @@
         <button type="button" class="cran" id="plus" data-cran="1" aria-label="Un cran de plus"${i === g.n ? ' aria-disabled="true"' : ''}>+</button>
       </div>
       <div class="graduees" aria-hidden="true">${nombres}</div>
-      <div class="grands-pas"><button type="button" class="cran" id="grand-moins" data-grand="-1" aria-label="Un grand pas de moins"${i === 0 ? ' aria-disabled="true"' : ''}>−${INSECABLE}${grandDit}</button><button type="button" class="cran" id="grand-plus" data-grand="1" aria-label="Un grand pas de plus"${i === g.n ? ' aria-disabled="true"' : ''}>+${INSECABLE}${grandDit}</button></div>${dits}`
+      <div class="grands-pas"><button type="button" class="cran" id="grand-moins" data-grand="-1" aria-label="${grandDit} de moins"${i === 0 ? ' aria-disabled="true"' : ''}>−${INSECABLE}${grandDit}</button><button type="button" class="cran" id="grand-plus" data-grand="1" aria-label="${grandDit} de plus"${i === g.n ? ' aria-disabled="true"' : ''}>+${INSECABLE}${grandDit}</button></div>${dits}`
   }
   function aides(m) {
     const offerte = memo.coupDOeil && !E.offerteUtilisee
@@ -594,8 +609,8 @@
       const prise = m.aides.find(x => x.cle === cle)
       // « Gratuite » sur les deux, et la phrase dessous dit que seule la première l'est : ce que la tablée a compris
       // d'emblée (Samir, Huguette) ; « Offerte » sur chacune laissait croire à deux aides offertes.
-      const cout = prise ? (prise.offerte ? 'Prise · offerte' : 'Prise · −1 ★') : offerte ? 'Gratuite' : 'Coûte une étoile'
-      return `<button type="button" class="aide${!prise && offerte ? ' offerte' : ''}" data-aide="${cle}"${prise ? ' aria-disabled="true"' : ''}><b>${a.nom(m.q)}</b><small>${aLOreille(cout)}</small></button>`
+      const cout = prise ? (prise.offerte ? 'Prise · offerte' : `Prise · ${enMoins(1)}`) : offerte ? 'Gratuite' : 'Coûte une étoile'
+      return `<button type="button" class="aide${!prise && offerte ? ' offerte' : ''}" data-aide="${cle}"${prise ? ' aria-disabled="true"' : ''}><b>${a.nom(m.q)}</b><small>${cout}</small></button>`
     }).join('')
     const p = payees(m)
     // Ce que l'aide coûte, en clair : une étoile retirée de ce que la manche rapportera — Samir ne savait pas si c'était
@@ -604,11 +619,18 @@
     // avoir payé.
     const offerteIci = m.aides.some(a => a.offerte)
     const prix = p
-      ? `Tes aides : −${p} ★ sur ce que la manche te rapportera, jamais ton cœur : seule une manche ratée le coûte.`
-      : offerteIci ? 'Ton aide était offerte : elle ne te coûte rien. Une autre retirerait une étoile à ce que la manche rapporte, jamais ton cœur.'
-      : offerte ? 'Ta carte Coup d’œil offre ta première aide de l’épreuve ; la suivante retirera une étoile à ce que sa manche rapporte, jamais ton cœur.'
-      : 'Une aide retire une étoile à ce que la manche rapporte, jamais ton cœur : seule une manche ratée le coûte.'
-    return `<section class="aides" aria-label="Les aides"><div class="aides-rangee${offertes.length === 1 ? ' une' : ''}">${boutons}</div><p class="prix">${aLOreille(fines(prix))}</p></section>`
+      ? `${fines('Tes aides :')} ${enMoins(p)} ${fines('sur ce que la manche te rapportera, jamais ton cœur : seule une manche ratée le coûte.')}`
+      : fines(offerteIci ? 'Ton aide était offerte : elle ne te coûte rien. Une autre retirerait une étoile à ce que la manche rapporte, jamais ton cœur.'
+        : offerte ? 'Ta carte Coup d’œil offre ta première aide de l’épreuve ; la suivante retirera une étoile à ce que sa manche rapporte, jamais ton cœur.'
+        : 'Une aide retire une étoile à ce que la manche rapporte, jamais ton cœur : seule une manche ratée le coûte.')
+    return `<section class="aides" aria-label="Les aides"><div class="aides-rangee${offertes.length === 1 ? ' une' : ''}">${boutons}</div><p class="prix">${prix}</p></section>`
+  }
+  /** Ce que « Deux époques de moins » a laissé, en mots : les cases barrées ne se lisent qu'à l'œil. */
+  function retireesHtml(m) {
+    if (!m.retirees.length) return ''
+    const dit = j => { const t = m.ep.tranches[j]; return m.ep.an ? `${t.de}–${t.a}` : `${enMots(t.de)} à ${enMots(t.a)}` }
+    const restent = [0, 1, 2, 3].filter(j => !m.retirees.includes(j))
+    return `<p class="note" id="retirees" tabindex="-1">${fines(`Il reste ${dit(restent[0])} et ${dit(restent[1])}.`)}</p>`
   }
   function indiceHtml(m) {
     return m.aides.some(a => a.cle === 'indice') ? `<p class="indice" id="indice" tabindex="-1"><b>Indice · </b>${fines(m.q.i || 'Pas d’indice écrit pour cette question.')}</p>` : ''
@@ -617,12 +639,13 @@
     const m = M, q = m.q
     if (E.mode === 'v2') {
       app.innerHTML = `${tete()}${chrono()}${laQuestion(q)}
-        <section class="etape"><p class="etape-titre"><span><span class="num">1</span><b>${q.an ? 'L’époque' : 'L’ordre de grandeur'}</b></span><span class="regle">${aLOreille('la bonne : ★')}</span></p>${frise(m)}</section>
-        ${indiceHtml(m)}
-        <section class="etape"><p class="etape-titre"><span><span class="num">2</span><b>${q.an ? 'L’année' : 'La valeur'}</b></span><span class="regle">${aLOreille(fines(q.an ? `à ${accorde(m.ep.anneaux[0], 'an')} ★★★ · à ${m.ep.anneaux[1]} ans ★★` : 'à 6 % ★★★ · à 25 % ★★'))}</span></p>${etapeValeur(m)}</section>
+        <section class="etape"><p class="etape-titre"><span><span class="num">1</span><b>${q.an ? 'L’époque' : 'L’ordre de grandeur'}</b></span><span class="regle">la bonne${FINE}: ${netHtml(1, payees(m))}</span></p>${frise(m)}</section>
+        ${retireesHtml(m)}${indiceHtml(m)}
+        <section class="etape"><p class="etape-titre"><span><span class="num">2</span><b>${q.an ? 'L’année' : 'La valeur'}</b></span><span class="regle">${baremeHtml(m)}</span></p>${etapeValeur(m)}</section>
         ${aides(m)}
         <button type="button" class="btn btn-or btn-plein" id="lancer" data-geste="lancer"${m.choisie === null || m.x === null ? ' aria-disabled="true"' : ''}>${libelleDuLancer(m)}</button>
         ${coulisses(q)}`
+      eclaircirLesGraduations()
     } else {
       const p = m.p, L = p.max - p.min
       const zone = m.zone ? `<span class="zone" style="left:${(100 * (m.zone.de - p.min) / L).toFixed(2)}%;width:${(100 * (m.zone.a - m.zone.de) / L).toFixed(2)}%"></span>` : ''
@@ -655,6 +678,23 @@
    * Seul ce que le curseur change se redessine — la valeur, le filet et ce qu'il couvre, le bouton du lancer : redessiné
    * en entier, l'écran lâchait le curseur sous le doigt, au premier toucher comme au premier cran d'un glissé.
    */
+  /**
+   * Les nombres des graduations se taisent quand ils se chevauchent : la place qu'ils prennent dépend de la taille du
+   * texte, que la page ne connaît pas d'avance — sous un texte agrandi, « 100150200250300 », « 1925 » sur « 1930 »
+   * (Huguette, troisième tour). Les deux bouts restent ; un nombre du milieu trop près d'un voisin s'efface.
+   */
+  function eclaircirLesGraduations() {
+    const nombres = [...document.querySelectorAll('.graduees span')]
+    if (nombres.length < 3) return
+    for (const n of nombres) n.hidden = false
+    const fin = nombres[nombres.length - 1].getBoundingClientRect().left
+    let droite = nombres[0].getBoundingClientRect().right
+    for (const n of nombres.slice(1, -1)) {
+      const r = n.getBoundingClientRect()
+      if (r.left < droite + 8 || r.right > fin - 8) n.hidden = true
+      else droite = r.right
+    }
+  }
   function rafraichirLeCurseur() {
     const q = M.q
     const r = document.getElementById('curseur')
@@ -691,7 +731,7 @@
         <li><span>${fines(q.an ? `À ${m.ep.anneaux[1]} ans près` : 'À 25 % près')}</span>${oui(nat >= 2, '★★')}</li>
         <li><span>${fines(q.an ? `À ${accorde(m.ep.anneaux[0], 'an')} près` : 'À 6 % près')}</span>${oui(nat >= 3, '★★★')}</li>
         ${ecartDit ? `<li><span>Ton écart</span><span>${fines(ecartDit)}</span></li>` : ''}
-        ${m.payees ? `<li><span>Tes aides</span><span>${aLOreille(`−${m.payees} ★`)}</span></li>` : ''}
+        ${m.payees ? `<li><span>Tes aides</span><span>${enMoins(m.payees)}</span></li>` : ''}
       </ul>${!bonne && nat >= 2 ? `<p class="note">${fines(`La mauvaise ${q.an ? 'époque' : 'tranche'}, mais si près de la réponse que la distance compte d’abord.`)}</p>` : ''}`
     } else {
       // Les mots de la production : « Dans le filet » ou « À côté », puis le filet lancé et ce qu'il valait.
@@ -717,7 +757,7 @@
       ${piste}${juge}
       ${q.a ? `<p class="anecdote">${fines(q.a)}</p>` : ''}
       ${gagne}
-      <button type="button" class="btn btn-or btn-plein colle" data-geste="suivante">${E.coeurs === 0 || E.i >= 2 ? 'Voir le bilan' : 'Manche suivante'}</button>
+      <button type="button" class="btn btn-or btn-plein" data-geste="suivante">${E.coeurs === 0 || E.i >= 2 ? 'Voir le bilan' : 'Manche suivante'}</button>
       ${coulisses(q)}`
     enHaut('.verdict .grand')
   }
@@ -739,7 +779,7 @@
     const autre = E.mode === 'v2' ? 'Rejouer cet acte au Filet d’aujourd’hui' : 'Rejouer cet acte au nouveau Filet'
     app.innerHTML = `<section class="page bloc"><p class="label">${ACTES[E.acte].nom} · ${E.mode === 'v2' ? 'le nouveau Filet' : 'le Filet d’aujourd’hui'}</p>
       <h1 tabindex="-1">${tombe ? 'Ton dernier cœur est tombé' : 'Épreuve terminée'}</h1>
-      <p>${etoiles(Math.min(3, Math.round(gagnees / 3)))} <b>${accorde(gagnees, 'étoile')} sur 9</b> · ${perdus ? accorde(perdus, 'cœur perdu', 'cœurs perdus') : 'aucun cœur perdu'}${resume}</p>
+      <p><span aria-hidden="true">${etoiles(Math.min(3, Math.round(gagnees / 3)))}</span> <b>${accorde(gagnees, 'étoile')} sur 9</b> · ${perdus ? accorde(perdus, 'cœur perdu', 'cœurs perdus') : 'aucun cœur perdu'}${resume}</p>
       <ol class="recap">${lignes}</ol>
       <div class="actions">
         <button type="button" class="btn btn-or btn-plein" data-geste="rejouer">Rejouer ${nom(E.acte)}</button>
@@ -756,9 +796,9 @@
     const actes = [1, 2, 3].map(n => `<button type="button" class="acte-btn" data-choisir-acte="${n}" aria-pressed="${memo.acte === n}"><b>${ACTES[n].nom}</b><small>${balise(n === 1 ? 'verte' : n === 2 ? 'bleue' : 'rouge')} ${ACTES[n].dit}</small></button>`).join('')
     const reperes = memo.reperes.length ? `<p class="pied">Tes repères gagnés : ${memo.reperes.slice(-4).map(r => `${r.an} · ${fines(r.l)}`).join(' ; ')}${memo.reperes.length > 4 ? '…' : ''} <button type="button" class="lien" data-geste="oublier">Les oublier</button></p>` : ''
     const jouables = D.questions.filter(q => !q.calcul).length
-    app.innerHTML = `<header class="accueil-tete"><p class="label">Le Cabinet de curiosités · maquette du 9 novembre 2026, après deux tours de tablée</p>
+    app.innerHTML = `<header class="accueil-tete"><p class="label">Le Cabinet de curiosités · maquette du 9 novembre 2026, après trois tours de tablée</p>
         <h1>Le nouveau Filet</h1>
-        <p class="chapo">${fines('En production, les joueurs réussissent 43 % des manches du Filet, moins qu’un joueur qui lancerait le grand filet au milieu sans lire la question (45 %). Voici ce qui change.')}</p></header>
+        <p class="chapo">${fines('Aujourd’hui, au Cabinet, les joueurs réussissent 43 % des manches du Filet, moins qu’un joueur qui lancerait le grand filet au milieu sans lire la question (45 %). Voici ce qui change.')}</p></header>
       <ol class="promesses">
         <li><span class="n">1</span><span><b>D’abord l’époque, puis l’année.</b> Quatre époques (ou quatre ordres de grandeur) : trouver la bonne vaut déjà une étoile. Le savoir approximatif paie enfin.</span></li>
         <li><span class="n">2</span><span><b>Le filet se resserre tout seul.</b> Plus de taille à parier : plus tu es près, plus tu gagnes.</span></li>
@@ -789,11 +829,11 @@
   const TABLEE = {
     // Les notes sur 5 — le plaisir, la clarté, la justice — du Filet d'aujourd'hui, puis du nouveau aux deux tours.
     joueurs: [
-      { qui: 'Huguette, 72 ans, petit téléphone, texte agrandi', avant: [2, 3, 2], tour1: [4, 4, 3], tour2: [4, 4.5, 4] },
-      { qui: 'Théo, 16 ans, joue vite', avant: [3, 3, 3], tour1: [4, 4, 4], tour2: null },
-      { qui: 'Claire, joue chaque soir, calcule tout', avant: [3, 4, 2], tour1: [4, 3, 4], tour2: [4, 4, 4] },
-      { qui: 'Samir, daltonien', avant: [3, 3, 2], tour1: [4, 4, 4], tour2: [4, 5, 4] },
-      { qui: 'Hugo, aveugle, au lecteur d’écran', avant: [2, 3, 2], tour1: null, tour2: [4, 4, 4] },
+      { qui: 'Huguette, 72 ans, petit téléphone, texte agrandi', avant: [2, 3, 2], tour1: [4, 4, 3], tour2: [4, 4.5, 4], tour3: [4.5, 4.5, 4.5] },
+      { qui: 'Théo, 16 ans, joue vite', avant: [3, 3, 3], tour1: [4, 4, 4], tour2: null, tour3: null },
+      { qui: 'Claire, joue chaque soir, calcule tout', avant: [3, 4, 2], tour1: [4, 3, 4], tour2: [4, 4, 4], tour3: [4, 4.5, 4] },
+      { qui: 'Samir, daltonien', avant: [3, 3, 2], tour1: [4, 4, 4], tour2: [4, 5, 4], tour3: null },
+      { qui: 'Hugo, aveugle, au lecteur d’écran', avant: [2, 3, 2], tour1: null, tour2: [4, 4, 4], tour3: [4.5, 4.5, 4] },
     ],
     tour1: [
       ['La piste répond à chaque toucher, même pile au milieu', 'les quatre : le premier réflexe de qui ne sait pas, et rien ne se passait'],
@@ -820,6 +860,14 @@
       ['Une tranche s’écrit sans « à »', '« à 30 000 » sortait de l’écran sous un texte agrandi'],
       ['Un repère à soi au plus, et les repères d’avant s’effacent', 'ses deux repères chassaient toute date connue de la frise d’Huguette'],
     ],
+    tour3: [
+      ['Les repères se tirent sans regarder la réponse', 'tenus loin d’elle, ils disaient où elle n’était pas : « avec 1870 sur la piste, la réponse était forcément entre 1850 et 1863 »'],
+      ['Les nombres des graduations s’effacent quand ils se chevauchent', '« 100150200250300 » sous un texte agrandi'],
+      ['Plus rien n’est collé au bas de l’écran', '« Manche suivante » couvrait l’écart, les cases et l’anecdote'],
+      ['Le barème des étapes barre l’étoile payée', 'il fallait encore faire la soustraction de tête'],
+      ['« Deux époques de moins » dit ce qui reste, et « Quitter » demande d’abord', 'au lecteur d’écran, rien ne s’annonçait, et un Tab plus loin tombait sur « Quitter »'],
+      ['À l’oreille : « une étoile en moins », la réponse dans la légende, un seul score au bilan', '« moins un, une étoile », « La réponse » sans la réponse, « 2 étoiles sur 3 » puis « 5 sur 9 »'],
+    ],
     ouvert: [
       'Le milieu de la bonne époque tombe à ★★ une fois sur deux : « ★ pour la bonne époque vaut plutôt une étoile et demie » (Claire). C’est la largeur de l’anneau ★★, qui paie aussi l’à-peu-près : un choix de produit.',
       'Une étoile à moins d’une demi-tranche, même dans l’époque voisine, a été rejouée sur les lancers réels, puis écartée : 83 % de manches réussies sur les questions connues, trop généreux.',
@@ -836,15 +884,18 @@
       <button type="button" class="lien retour" data-geste="accueil">← L’accueil</button>
       <p class="label">La tablée du 9 novembre 2026</p>
       <h1>Ce que la tablée a changé</h1>
-      <p>${fines('Quatre joueurs ont joué la première version contre le Filet d’aujourd’hui, sur de vraies questions de la production, au téléphone ; trois ont rejoué la deuxième, et un joueur aveugle l’a jouée au lecteur d’écran. Tous préfèrent le nouveau Filet. Leurs notes sur 5 : le plaisir, la clarté, la justice.')}</p>
-      <div class="tableau"><table><thead><tr><th>Joueur</th><th>Aujourd’hui</th><th>Nouveau : 1er tour</th><th>2e tour</th></tr></thead><tbody>
-        ${t.joueurs.map(j => `<tr><td>${fines(j.qui)}</td><td>${notes(j.avant)}</td><td>${notes(j.tour1)}</td><td>${notes(j.tour2)}</td></tr>`).join('')}
+      <p>${fines('Quatre joueurs ont joué la première version contre le Filet d’aujourd’hui, sur de vraies questions de la production, au téléphone ; trois ont rejoué chaque version corrigée, et un joueur aveugle l’a jouée deux fois au lecteur d’écran. Tous préfèrent le nouveau Filet. Leurs notes sur 5 : le plaisir, la clarté, la justice.')}</p>
+      <div class="tableau"><table><thead><tr><th>Joueur</th><th>Aujourd’hui</th><th>Nouveau : 1er tour</th><th>2e tour</th><th>3e tour</th></tr></thead><tbody>
+        ${t.joueurs.map(j => `<tr><td>${fines(j.qui)}</td><td>${notes(j.avant)}</td><td>${notes(j.tour1)}</td><td>${notes(j.tour2)}</td><td>${notes(j.tour3)}</td></tr>`).join('')}
       </tbody></table></div>
       <h2>Ce que le premier tour a changé</h2>
       ${liste(t.tour1)}
       <h2>Ce que le second tour a changé</h2>
       <p>${fines('« Nettement meilleure », disent les trois qui l’ont rejouée : ce qui les gênait est réglé, un par un. Leurs scores baissent, et c’est voulu : « les aides ne sont plus des étoiles gratuites » (Claire).')}</p>
       ${liste(t.tour2)}
+      <h2>Ce que le troisième tour a changé</h2>
+      <p>${fines('Les notes montent encore, jusqu’à 4,5 sur 5 ; au lecteur d’écran, Hugo vise « en trois gestes au plus ».')}</p>
+      ${liste(t.tour3)}
       <h2>Ce qui reste ouvert</h2>
       <ul>${t.ouvert.map(o => `<li>${fines(o)}</li>`).join('')}</ul>
     </section>`
@@ -896,10 +947,10 @@
       <ul><li>Deux dates connues au plus se posent sur la frise, et descendent sur la piste quand leur époque s’ouvre. Leur époque se tire d’abord, chacune la même chance : elle ne dit rien de la réponse. Jamais à moins d’un quart d’époque de la réponse, jamais du même sujet.</li>
         <li>Une année placée à ★★ sans aide devient <b>ton repère</b> : elle revient sur la frise de tes prochaines dates, avant les autres.</li></ul>
       <h2>Les aides</h2>
-      <ul><li><b>Deux époques de moins</b> retire deux mauvaises époques. <b>Un indice</b> donne une phrase pour s’orienter, jamais la valeur : chaque indice passe un juge qui le lit sans connaître le sujet, et celui qui mène à ★★★ se réécrit.</li>
+      <ul><li><b>Deux époques de moins</b> retire deux mauvaises époques. <b>Un indice</b> donne une phrase pour s’orienter, jamais la valeur : chaque indice est relu par quelqu’un qui ne connaît pas le sujet, et celui qui mène à la réponse se réécrit.</li>
         <li>Chacune, une fois par manche. Payée, elle retire une étoile à ce que la manche rapporte : ★★ moins une, ★. Ratée, la manche coûte un cœur comme toujours ; réussie, elle garde ton cœur, même si l’aide a pris sa seule étoile. La carte Coup d’œil offre la première aide de chaque épreuve.</li></ul>
       <h2>Les questions</h2>
-      <ul><li>Chaque question a sa connaissabilité au Filet : la part des joueurs qui placeraient la valeur à 5 % près. L’acte I ne pose que celles qu’au moins 40 % connaissent, l’acte II de 25 à 39 %, l’acte III le reste.</li>
+      <ul><li>Chaque question porte une note : la part des joueurs qui placeraient sa valeur à 5 % près. L’acte I ne pose que celles qu’au moins 40 % connaissent, l’acte II de 25 à 39 %, l’acte III le reste.</li>
         <li>Elle part d’une première estimation, que la production corrige ensuite à chaque lancer.</li>
         <li>Une question qui se calcule ou se convertit (le carré de 25, les secondes d’une heure) n’est pas une estimation : le nouveau Filet ne la pose pas.</li></ul>
     </section>`)
@@ -934,6 +985,13 @@
       case 'autre': return commencer(E.mode === 'v2' ? 'actuel' : 'v2', E.acte)
       case 'acte': return commencer(E.mode, Number(d.acte))
       case 'accueil': return afficher('accueil')
+      case 'quitter': {
+        // Comme en production : « Quitter » demande, « Quitter l'épreuve » quitte, « Continuer » revient au jeu.
+        if (document.getElementById('confirmer')) return
+        app.querySelector('.tete')?.insertAdjacentHTML('afterend', `<div class="confirmer" id="confirmer" role="alertdialog" aria-labelledby="confirmer-titre"><p id="confirmer-titre"><b>Quitter l’épreuve ?</b> ${E && E.resultats.length < 3 ? 'Ce qui est joué reste joué.' : ''}</p><div><button type="button" class="btn" data-geste="accueil">Quitter l’épreuve</button><button type="button" class="btn btn-or" data-geste="continuer">Continuer</button></div></div>`)
+        return document.querySelector('[data-geste="continuer"]')?.focus()
+      }
+      case 'continuer': document.getElementById('confirmer')?.remove(); return app.querySelector('.quitter')?.focus()
       case 'chiffres': return afficher('chiffres')
       case 'regles': return afficher('regles')
       case 'tablee': return afficher('tablee')
@@ -974,6 +1032,7 @@
     // Le doigt donne le focus au curseur : les flèches, et le lecteur d'écran, le suivent (Hugo n'y arrivait qu'après Tab).
     r.focus({ preventScroll: true })
   })
+  window.addEventListener('resize', () => { if (E?.mode === 'v2' && M && !M.fin) eclaircirLesGraduations() })
   app.addEventListener('change', ev => {
     const r = ev.target.dataset?.reglage
     if (r) { memo[r] = ev.target.checked; retenir() }

@@ -107,11 +107,13 @@ button { font: inherit; color: inherit; }
 .btn-plein { width: 100%; min-height: 56px; font-size: 1.125rem; }
 .btn[aria-disabled="true"] { opacity: 0.55; cursor: default; }
 .btn-or[aria-disabled="true"] { background: var(--bg-raised); color: var(--muted); border-color: var(--edge-strong); opacity: 1; }
-/* « Manche suivante » reste sous le pouce, collé au bas de l'écran quand la révélation est plus longue que lui — sous
-   un nouveau repère, Claire devait le chercher. « Lancer le filet » ne l'est plus : collé, il cachait la piste, le
-   gros chiffre et l'indice sur un petit écran (Huguette, Samir, au second tour). */
-.colle { position: sticky; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); z-index: 5; min-height: 50px; box-shadow: 0 0 0 6px var(--bg), 0 10px 24px rgba(0, 0, 0, 0.3); }
+/* Rien ne se colle au bas de l'écran. Collé, « Lancer le filet » cachait la piste, le gros chiffre et l'indice
+   (Huguette, Samir, au second tour) ; « Manche suivante », l'écart, les cases et l'anecdote d'un petit écran
+   (Huguette, au troisième) — Claire, au premier, voulait seulement ne pas le chercher : il vient juste après ce
+   qu'on lit. */
 .nobr { white-space: nowrap; }
+.confirmer { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border: 1.5px solid var(--edge-strong); border-radius: var(--radius-sm); background: var(--bg-raised); }
+.confirmer div { display: flex; flex-wrap: wrap; gap: 8px; }
 .lien { background: none; border: 0; padding: 6px 0; color: var(--accent-text); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; text-align: left; }
 .etoiles { font-family: var(--sans); letter-spacing: 0.08em; color: var(--accent-text); white-space: nowrap; }
 .etoiles .vide { color: var(--muted); opacity: 0.6; }
@@ -136,7 +138,8 @@ button { font: inherit; color: inherit; }
 }
 .acte-btn[aria-pressed="true"] { border: 2px solid var(--accent); background: var(--accent-soft); }
 .acte-btn b { font-family: var(--serif); font-size: 1.35rem; line-height: 1.1; }
-.acte-btn small { color: var(--muted); font-size: 1rem; display: flex; gap: 6px; align-items: center; }
+.acte-btn { min-width: 0; }
+.acte-btn small { color: var(--muted); font-size: 1rem; display: flex; flex-wrap: wrap; gap: 2px 6px; align-items: center; }
 .modes { display: grid; gap: 10px; }
 .mode-btn { flex-direction: column; gap: 2px; min-height: 64px; }
 .mode-btn small { font-weight: 500; opacity: 0.85; font-size: 1rem; }
@@ -148,7 +151,7 @@ button { font: inherit; color: inherit; }
 .pied { color: var(--muted); font-size: 1rem; }
 
 /* ── La tête d'une manche ────────────────────────────────────────────── */
-.tete { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.tete { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; }
 .tete-g { display: flex; flex-direction: column; }
 .tete-g b { font-family: var(--serif); font-size: 1.3rem; line-height: 1.1; }
 .tete-g span { color: var(--muted); font-size: 1.0625rem; white-space: nowrap; }

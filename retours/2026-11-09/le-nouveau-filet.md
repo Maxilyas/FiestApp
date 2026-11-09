@@ -61,14 +61,16 @@ curseurs ont été posés sous l'ancienne règle ; la règle rejouée est celle 
 Le dernier palier est la zone que visent les jeux qui règlent leur
 difficulté : 65 à 80 % de réussite.
 
-**Joué par une tablée, deux tours** (`la-tablee-du-filet.md`) : quatre
+**Joué par une tablée, trois tours** (`la-tablee-du-filet.md`) : quatre
 joueurs aux profils opposés — une institutrice de 72 ans au petit téléphone,
 un lycéen pressé, une stratège qui joue chaque soir, un daltonien — ont joué
-la maquette contre le Filet d'aujourd'hui, sur les vraies questions, puis
-trois d'entre eux la seconde version, et un joueur aveugle au lecteur
-d'écran. Tous préfèrent le nouveau — « nettement meilleure », au second tour ;
-leurs retours ont changé une vingtaine de choses, dont le prix des aides, la
-piste des grandeurs et la place de l'indice. Un juge à l'aveugle a relu
+la maquette contre le Filet d'aujourd'hui, sur les vraies questions ; trois
+d'entre eux ont rejoué chaque version corrigée, et un joueur aveugle l'a jouée
+deux fois au lecteur d'écran. Tous préfèrent le nouveau — « nettement
+meilleure », au second tour ; leurs notes montent d'un tour à l'autre, jusqu'à
+4,5 sur 5. Leurs retours ont changé une trentaine de choses, dont le prix des
+aides, la piste des grandeurs, la place de l'indice et la règle des
+repères. Un juge à l'aveugle a relu
 chaque indice : 42 sur 140 donnaient la réponse, aucun aujourd'hui ; 85 sur
 136 menaient à cheval sur deux tranches, 25 aujourd'hui, toutes contre une
 frontière.
@@ -177,7 +179,8 @@ Un seul écran, de haut en bas :
      graduation (« − 5 ans », « + 100 g » — de 198 anneaux à 100, Hugo, au
      lecteur d'écran, touchait « − » 98 fois) ; « − » et « + » s'éteignent aux
      bouts ; la piste est régulière, et ses graduations portent leurs
-     nombres (§ 3.2) ;
+     nombres — qui s'effacent quand ils se chevauchent, à la taille réelle du
+     texte : sous un texte agrandi, « 100150200250300 » (Huguette) (§ 3.2) ;
    - les deux anneaux du filet se dessinent autour du curseur — le grand en
      tirets, le petit plein — et se disent en nombres dessous : « Ton filet
      ★★★ de 1960 à 1964 · ★★ de 1956 à 1968 » ; une aide payée y barre son
@@ -199,8 +202,13 @@ version, elle s'ouvrait là où « Manche suivante » avait laissé la page.
 (« Acte I », « Manche 1 sur 3 », « 4 cœurs sur 4 », la question en titre) ;
 les quatre époques sont des boutons qui disent leurs bornes et lequel est
 pressé ; le curseur porte sa vraie valeur et la dit (« 1937 », « 350 m ») —
-il annonçait « 12 » pour 1937 ; les étoiles écrites se disent en mots ;
-l'indice pris et le verdict reçoivent le focus.
+il annonçait « 12 » pour 1937 ; un grand pas dit sa taille (« 5 ans de
+plus ») ; les étoiles écrites se disent en mots (« une étoile en moins », pas
+« moins un, une étoile ») ; l'indice pris, ce qui reste après « Deux époques
+de moins » (« Il reste 1925–1949 et 1975–1999 ») et le verdict reçoivent le
+focus ; la légende de la révélation dit les valeurs (« La réponse, 1946 ») ;
+« Quitter » demande d'abord. Hugo, au second passage : « je vise en trois
+gestes au plus ».
 
 Le chrono reste de 45 secondes (`DUREES_DES_JEUX.filet`). À l'échéance, la
 page lance ce qui est posé : l'époque seule vaut son étoile, si elle est la
@@ -285,9 +293,17 @@ compte enfin.
     chaque année de la maquette : 0,34 repère par manche dans l'époque de la
     réponse, 0,56 dans chacune des autres ; l'époque tirée d'abord, 0,50
     partout (`reproductions/reperes-par-epoque.cjs`) ;
-  - jamais à moins d'un quart d'époque de la réponse ;
-  - jamais du même sujet que la question (aucun mot de cinq lettres ou plus
-    en commun).
+  - **tirés sans regarder où est la réponse** : jamais du même sujet que la
+    question (aucun mot de cinq lettres ou plus en commun), jamais la réponse
+    elle-même (« 1969 · Le premier pas sur la Lune » pour une question sur la
+    Lune), et c'est tout. La deuxième version les tenait à un quart d'époque
+    au moins de la réponse, de peur qu'un repère collé à elle la donne : au
+    troisième tour, Claire a vu qu'un repère dans la bonne époque disait
+    alors où la réponse n'était pas — « avec 1870 sur la piste, la réponse
+    était forcément entre 1850 et 1863 » —, et qui visait « comme le repère »
+    n'avait jamais ★★★. Tirés sans distance, 44 % des repères de l'époque de
+    la réponse tombent à ★★ d'elle ou moins, comme le veut le hasard ; avant,
+    aucun.
 - **Les siens d'abord.** Une année que le joueur a placée à ★★ au moins,
   **sans aide**, devient *son* repère : elle revient, dorée, sur la frise de
   ses prochaines dates (« 1889 · La tour Eiffel (ton repère) »). Sa mémoire
@@ -459,8 +475,10 @@ compte enfin.
   ce que les aides ont pris.
 - **L'anecdote**, toujours : c'est le moment où l'on apprend.
 - **Le repère gagné**, s'il y en a un.
-- **« Manche suivante »**, collé au bas de l'écran, mince : sous un repère
-  gagné, il passait sous le pli (Claire).
+- **« Manche suivante »**, juste après ce qu'on lit. Collé au bas de l'écran
+  à la deuxième version — sous un repère gagné, il passait sous le pli
+  (Claire) —, il couvrait l'écart, les cases et l'anecdote d'un petit écran
+  (Huguette, au troisième tour) : rien ne se colle au bas de l'écran.
 
 ### 3.9 Ce que voit le téléphone (invariant 1)
 
@@ -472,10 +490,9 @@ compte enfin.
   - « Deux époques de moins » renvoie les deux époques retirées, choisies au
     serveur ;
   - l'indice ne part qu'une fois pris ;
-  - les repères partent avec la manche. Leur époque, tirée d'abord, ne dit
-    rien de celle de la réponse (§ 3.5) ; ils n'en disent qu'une chose : elle
-    n'est pas tout contre eux, à moins d'un quart d'époque. C'est une fuite
-    minime et voulue : un repère collé à la réponse la donnerait.
+  - les repères partent avec la manche. Tirés sans regarder la réponse — leur
+    époque d'abord, puis un événement de cette époque —, ils n'en disent
+    rien, sinon qu'elle n'est pas l'année même de l'un d'eux (§ 3.5).
 - **La place de la réponse dans ses quatre époques se tire au serveur**, du
   hasard du serveur, jamais de la graine (`pisteDuFilet` aujourd'hui).
 
@@ -664,8 +681,10 @@ son test) :
 - le secret, à ajouter à `cabinet-secret.test.ts` : ni la valeur ni la bonne
   époque dans une vue, l'indice seulement une fois pris ;
 - les repères : leur époque tirée d'abord (sur mille tirages, celle de la
-  réponse en reçoit autant que les autres, à un centième près), jamais trop
-  près, jamais du même sujet, les siens d'abord, gagnés sans aide ;
+  réponse en reçoit autant que les autres, à un centième près), et dans
+  l'époque de la réponse, aussi près d'elle que le hasard le veut ; jamais du
+  même sujet, jamais la réponse elle-même ; un des siens au plus, gagné sans
+  aide ;
 - le juge des indices, et le tireur qui écarte ce qui se calcule ;
 - une partie de la version 3 relue telle qu'elle s'est jouée ;
 - le tirage par la connaissabilité ;

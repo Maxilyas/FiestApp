@@ -10,11 +10,11 @@ barème de sa fiche. Le chrono était coupé : chacun dit s'il se serait senti
 pressé.
 
 Ce sont des agents, pas des joueurs : leurs notes disent une préférence et
-des défauts vus, pas une mesure. Ce que le premier tour a trouvé, la seconde
-version l'a corrigé ; ce que le second a trouvé, la maquette l'a corrigé à
-son tour, puis la vérification au navigateur (18 manches en 360 × 640, le
-toucher du milieu, chaque « + », l'écart et le verdict, le focus de
-l'indice, aucun débordement) l'a rejoué.
+des défauts vus, pas une mesure. Trois tours : ce que chacun a trouvé, la
+maquette l'a corrigé avant le suivant, puis la vérification au navigateur
+l'a rejoué (18 manches en 360 × 640 — le toucher du milieu, chaque « + »,
+l'écart et le verdict, le focus de l'indice —, 72 pistes au texte agrandi
+à 130 %, aucun débordement, aucune erreur de page).
 
 ## Les joueurs
 
@@ -130,6 +130,37 @@ de la tablée, qui ne perçoit l'écran que par l'arbre d'accessibilité).
 | **Petits mots** : « Ton aide a pris l'étoile » quand deux en ont pris deux, « dont 1 offerte » puis « dont une offerte », « 0 cœur perdu », « de 1958 » en fin de ligne | Claire, Samir, Huguette | « Tes aides ont pris tes étoiles » ; « 1 aide offerte », « 2 aides, dont 1 offerte » ; « aucun cœur perdu » ; les fourchettes et les comptes ne se coupent plus. |
 | **Un repère pile sur une borne tiré deux fois** (« 30 cm · une règle d'écolier », entre 10–30 et 30–100) | le rendu de la maquette | Il ne se tire qu'une fois. |
 | **Une question de comptage** (les chiffres 9 de 1 à 100) | le juge des tranches | Écartée avec les calculs. |
+
+## Le troisième tour : vérifier encore
+
+Huguette et Claire ont rejoué une troisième fois, Hugo une deuxième, chacun
+après avoir relu son dernier retour.
+
+| Nouveau Filet — plaisir, clarté, justice | Tour d'avant | Troisième tour |
+|---|---|---|
+| Huguette | 4 · 4,5 · 4 | 4,5 · 4,5 · 4,5 |
+| Claire | 4 · 4 · 4 | 4 · 4,5 · 4 |
+| Hugo, au lecteur d'écran | 4 · 4 · 4 | 4,5 · 4,5 · 4 |
+
+- **Ce que le second tour a corrigé tient** : les cases lisibles sous un texte
+  agrandi, l'indice offert sans doute (« Ton aide était offerte : elle ne te
+  coûte rien »), l'indice visible sans défiler, l'étoile payée barrée dans le
+  filet, « jamais ton cœur » dit avant de payer, les dates connues revenues
+  et descendues sur la piste (« le Titanic, qui m'a aidée à viser pour
+  l'okapi », Huguette). Hugo vise « en trois gestes au plus » et joue six
+  manches « sans jamais chercher la question, l'indice ni le verdict » —
+  « nettement plus jouable ».
+
+| Ce qui gênait | Qui | La maquette |
+|---|---|---|
+| **Un repère dans la bonne époque disait où la réponse n'était pas** : jamais à moins d'un quart d'époque d'elle, « avec 1870 sur la piste, la réponse était forcément entre 1850 et 1863 » ; et qui vise « comme le repère » n'a jamais ★★★ | Claire (sa chose à changer en premier) | Les repères se tirent sans regarder la réponse — seulement jamais du même sujet, jamais la réponse elle-même. Dans l'époque de la réponse, 44 % tombent maintenant à ★★ d'elle ou moins ; à la deuxième version, aucun (`reproductions/reperes-par-epoque.cjs`). |
+| **Les nombres des graduations se chevauchent** sous un texte agrandi (« 100150200250300 ») | Huguette (sa chose à changer en premier) | Un nombre du milieu trop près d'un voisin s'efface, à la taille réelle du texte ; joué au navigateur à 130 % sur 360 px : 72 pistes, aucun chevauchement. |
+| **« Manche suivante », collé, couvre l'écart, les cases et l'anecdote** | Huguette | Plus rien n'est collé au bas de l'écran. |
+| **« Quitter » coupé au bord** (« Quitte »), **« Connu » et « Pointu » hors de leur case** | Huguette | La tête passe à la ligne, la balise d'un acte au-dessus de son mot. |
+| **Le barème en tête des étapes ignore l'aide payée** : « je devais faire la soustraction moi-même » | Claire | « à 2 ans ★★★ » y barre l'étoile payée, comme le filet. |
+| **« Deux époques de moins » n'annonce rien** et perd le focus — un Tab plus loin, « Quitter » | Hugo (sa chose à changer en premier) | Une phrase dit ce qui reste (« Il reste 1925–1949 et 1975–1999 ») et reçoit le focus. |
+| **À l'oreille** : « −1 ★ » s'entend « moins un, une étoile » ; la légende dit « La réponse » sans la réponse ; le bilan annonce deux scores ; « là où tu vises » seul ; un grand pas ne dit pas sa taille ; « Quitter » quitte sans demander | Hugo | « une étoile en moins » ; « La réponse, 1946 », « Ton lancer, 1957 » ; un seul score ; « Touche la piste là où tu vises » ; « 5 ans de plus » ; « Quitter l'épreuve ? », puis « Quitter l'épreuve » ou « Continuer ». |
+| **Toujours des mots de fabricant** : « En production », « connaissabilité », « un juge » | Huguette | Plus là où le joueur lit ; l'accueil et les coulisses restent une page pour le propriétaire. |
 
 ## Ce qui reste ouvert
 

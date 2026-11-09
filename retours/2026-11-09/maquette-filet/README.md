@@ -6,11 +6,11 @@ questions que la production a posées du 1er au 8 novembre 2026. Chaque
 question porte la note du moteur, un indice et un repère. Une page hors de
 l'application : rien ici n'est servi par FiestApp.
 
-Elle a été retouchée après deux tours de tablée, le 9 novembre 2026
+Elle a été retouchée après trois tours de tablée, le 9 novembre 2026
 (`../la-tablee-du-filet.md`) : quatre joueurs ont joué la première version,
-trois la deuxième, un joueur aveugle au lecteur d'écran, et chaque retouche
-dit, dans le code, qui l'a demandée. Sa page « Ce que la tablée a changé » en
-fait la liste.
+trois chaque version corrigée, un joueur aveugle deux fois au lecteur
+d'écran, et chaque retouche dit, dans le code, qui l'a demandée. Sa page
+« Ce que la tablée a changé » en fait la liste.
 
 - `index.html` : la page et ses styles, aux jetons de FiestApp (Velours, et
   Ivoire en clair) ; aucun texte d'une manche sous dix-sept pixels.
