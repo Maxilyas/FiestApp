@@ -21,7 +21,7 @@ Rangés par famille : l'horloge, l'invité, l'écran d'animateur et la partie, l
 
 ### `time:sync`
 
-- **Qui l'émet** : tout le monde, sans identité ni espace. La liaison de `client/src/socket.ts` à chaque connexion, trois fois (`syncClock`) — celle du chef, jamais ; la sonde de liaison (`verifierLiaison`), au retour au premier plan, au retour du réseau, ou quand un accusé tarde.
+- **Qui l'émet** : tout le monde, sans identité ni espace. La liaison de `client/src/socket.ts` à chaque connexion, trois fois (`syncClock`) — celle du chef, jamais ; la sonde de liaison (`verifierLiaison`), au retour au premier plan, au retour du réseau, ou quand un accusé tarde — et celle de la liaison du chef, quand un geste de sa barre reste sans accusé (`sondeurDe`).
 - **Charge** : `{}`.
 - **Accusé** : `{ serverNow }`, l'heure du serveur en millisecondes.
 - **Effet** : aucun au serveur. Le client en tire l'écart de son horloge (`applySample`, `client/src/clock.ts`) ; la sonde ne regarde que si la réponse arrive dans les deux secondes.
@@ -147,7 +147,7 @@ Rangés par famille : l'horloge, l'invité, l'écran d'animateur et la partie, l
 
 ### `host:command`
 
-- **Qui l'émet** : un écran d'animateur — la console et la télécommande (`envoyerCommande`, `client/src/socket.ts`), dont « Ne plus l'attendre » (`client/src/components/Absents.tsx`) ; la barre du chef (`commande`, `client/src/socketDuChef.ts`).
+- **Qui l'émet** : un écran d'animateur — la console et la télécommande (`envoyerCommande`, `client/src/socket.ts`), dont « Ne plus l'attendre » (`client/src/components/Absents.tsx`) ; la barre du chef (`commande`, `client/src/socketDuChef.ts`), par le même accusé, la même sonde et le même renvoi (`commandeVers`).
 - **Charge** : `{ sessionId, command }`. `command` est une `QuizCommand` (`shared/games/quiz.ts`) : `selectPack { packId, multiplier? }`, `next`, `pause`, `resume`, `cancel`, `replay`, `cible { value }`, `autoNext { seconds }` (`null` : au clic), `nePlusAttendre { playerId }`. `next`, `cancel`, `replay` et `cible` portent la visée `{ phase, qIndex, round }` : ce que l'écran avait sous les yeux au moment du clic.
 - **Accusé** : `{ ok: true }` dès que le geste est arrivé — pas forcément joué ; `{ ok: false }` hors écran d'animateur ou sans `sessionId`. Panne : `{ ok: false }`.
 - **Effet** : le moteur passe la commande au module de jeu (`GameEngine.handleHostCommand`). Une commande dont la visée ne correspond plus au moment présent est ignorée en silence : un « Révéler » qui croise la révélation automatique ne la saute pas. La console renvoie une fois, après une sonde, un geste resté trois secondes sans accusé ; la barre du chef n'attend pas l'accusé et ne renvoie pas.
@@ -159,7 +159,7 @@ Rangés par famille : l'horloge, l'invité, l'écran d'animateur et la partie, l
 - **Qui l'émet** : un écran d'animateur — « Terminer » et « Terminer le quiz », « Annuler » au choix du quiz, « Remise des prix » au podium d'un quiz (`client/src/views/HostApp.tsx`, `client/src/games/quiz/HostView.tsx`) ; « Terminer le quiz » de la barre du chef.
 - **Charge** : `{ sessionId }`.
 - **Accusé** : aucun.
-- **Effet** : si `sessionId` est la partie en cours, elle se termine (`SpaceRuntime.terminerLaPartie`) : ses chronomètres s'éteignent, une question ouverte n'est ni payée ni journalisée, ce qui a été gagné reste, et `session:ended` part à l'espace. Sur le dernier quiz du programme d'un salon ouvert depuis un téléphone, la soirée se clôt dans la foulée.
+- **Effet** : si `sessionId` est la partie en cours, elle se termine (`SpaceRuntime.terminerLaPartie`) : ses chronomètres s'éteignent, une question ouverte n'est ni payée ni journalisée, ce qui a été gagné reste, et `session:ended` part à l'espace. Sur le dernier quiz du programme d'un salon ouvert depuis un téléphone, la soirée se clôt dans la foulée, par le chemin de `host:closeParty` (`cloreLaSoiree`) ; refusée par le miroir, elle reste entière, un `toast` d'erreur le dit aux écrans d'animateur de l'espace (« Rien n'a été effacé : … ») et la fin du programme se propose de nouveau (`finDuProgramme`).
 - **Refus** : aucun ; une autre partie que celle en cours est ignorée.
 - **Écouté par** : `server/src/sockets.ts`.
 
@@ -353,8 +353,8 @@ Aucun n'a d'accusé ni de refus. Chaque fiche dit d'où il part, à qui, ce qu'i
 
 ### `toast`
 
-- **Qui l'émet** : `server/src/sockets.ts`.
-- **À qui** : la connexion qui a fait le geste ; `hosts:<espace>` pour une place reprise et des codes faux en rafale ; `player:<invité>` pour un déplacement d'équipe.
+- **Qui l'émet** : `server/src/sockets.ts` ; `server/src/core/space.ts` pour la clôture qu'un espace lance de lui-même et que le miroir refuse (`host:endSession`).
+- **À qui** : la connexion qui a fait le geste ; `hosts:<espace>` pour une place reprise, des codes faux en rafale et cette clôture refusée ; `player:<invité>` pour un déplacement d'équipe.
 - **Charge** : `{ kind, message }`, `kind` valant `info` ou `error`.
 - **Effet** : la page affiche le message (`showToast`, `client/src/state.ts`) ; la liaison du chef ne montre que les erreurs, sous sa barre. Les messages sont ceux des fiches ci-dessus : les issues de clôture et d'essai, les refus des équipes et des prix, l'erreur d'un lancement ou d'une commande, la place reprise, les codes faux, le déplacement d'équipe, le jeton refusé.
 - **Écouté par** : `client/src/socket.ts`, `client/src/socketDuChef.ts`.

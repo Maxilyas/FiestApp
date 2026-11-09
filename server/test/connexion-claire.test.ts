@@ -88,7 +88,7 @@ test('un profil naît d’un prénom et d’un mot de passe : l’identifiant s�
 // profil » — le champ de l'identifiant ouvert, l'identifiant de l'essai
 // dedans (son prénom), et le mot de passe refusé.
 test('la création s’ouvre toujours comme « Créer un profil » : rien de ce qu’on a tapé pour se connecter n’y passe', async () => {
-  const { champsAuChangement } = await import(client('components/ProfilForm.tsx'))
+  const { champsAuChangement } = await import(client('components/inscription.ts'))
   const essai = { login: 'antoine', loginTouche: true, loginOuvert: false, password: 'mauvais-mot', name: '' }
   assert.deepEqual(champsAuChangement('inscription', essai), { login: '', loginTouche: false, loginOuvert: false, password: '' })
   // Un prénom déjà tapé à la création, puis un détour par la connexion : l'identifiant s'en déduit, sur sa ligne.
@@ -99,6 +99,31 @@ test('la création s’ouvre toujours comme « Créer un profil » : rien de ce 
   assert.equal(champsAuChangement('connexion', { ...creation, login: 'camille42', loginTouche: true }).login, 'camille42')
   // Et le retour au choix ne garde pas l'essai pour la création d'après.
   assert.deepEqual(champsAuChangement('inscription', { ...champsAuChangement('choix', essai), name: '' }), { login: '', loginTouche: false, loginOuvert: false, password: '' })
+})
+
+// L'entrée d'une soirée gardait l'écart que l'accueil avait fermé : « Me
+// connecter », un mot de passe refusé, « Retour », « Créer un profil », le
+// prénom — et « Garder ma progression » s'ouvrait sur le mot de passe de
+// l'essai, que ses points ne laissent pas reconnaître. Une épreuve de
+// source : le rendu statique ne touche aucun bouton.
+test('à l’entrée d’une soirée aussi : « Créer un profil » ne garde rien d’une connexion ratée', () => {
+  const entree = readFileSync(new URL('../../client/src/components/Entree.tsx', import.meta.url), 'utf8')
+  // La règle est celle de l'accueil, prise au module léger que les deux formulaires partagent — jamais à `ProfilForm`.
+  // (`assert.ok` sur un test, pas `assert.match` : un échec recopierait tout le fichier au journal.)
+  assert.ok(/import \{[^}]*\bchampsAuChangement\b[^}]*\} from '\.\/inscription'/.test(entree), 'l’entrée prend `champsAuChangement` à `./inscription`')
+  assert.ok(!entree.includes("from './ProfilForm'"), 'l’entrée n’importe pas le formulaire de l’accueil')
+  const fin = entree.indexOf('Créer un profil\n          </button>')
+  assert.ok(fin > 0, 'le bouton « Créer un profil » de l’entrée')
+  const bouton = entree.slice(entree.lastIndexOf('<button', fin), fin)
+  assert.ok(
+    bouton.includes("champsAuChangement('inscription', { login, loginTouche, loginOuvert, password, name })"),
+    '« Créer un profil » repart des champs que la règle rend',
+  )
+  for (const champ of ['setLogin(neufs.login)', 'setLoginTouche(neufs.loginTouche)', 'setLoginOuvert(neufs.loginOuvert)', 'setPassword(neufs.password)']) {
+    assert.ok(bouton.includes(champ), `${champ} : chaque champ que la règle rend repart de sa valeur`)
+  }
+  // Le refus dit sous le mot de passe et l'identifiant proposé ne suivent pas non plus.
+  assert.ok(bouton.includes("setMotDePasseRefuse('')") && bouton.includes("setSuggestion('')"))
 })
 
 test('un identifiant deviné et pris prend celui que le serveur propose ; tapé à la main, jamais en silence', async () => {

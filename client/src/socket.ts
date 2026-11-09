@@ -128,7 +128,6 @@ socket.on('toast', showToast)
 
 /** Le temps accordé à la sonde : une heure du serveur ne met pas deux secondes à revenir. */
 const SONDE_MS = 2000
-let sondeEnCours: Promise<void> | null = null
 
 /**
  * La liaison vit-elle encore ? Sinon, on la rouvre sans attendre.
@@ -142,31 +141,39 @@ let sondeEnCours: Promise<void> | null = null
  * Une sonde déjà en route est rendue telle quelle : qui veut renvoyer
  * derrière elle attend son verdict, au lieu de repartir aussitôt dans la
  * liaison qu'elle est en train de condamner.
+ *
+ * Une sonde par liaison : le téléphone du chef en tient deux, celle du joueur
+ * et celle de l'animateur (`socketDuChef.ts`), et l'une peut mourir sans
+ * l'autre.
  */
-function verifierLiaison(): Promise<void> {
-  if (sondeEnCours) return sondeEnCours
-  if (!socket.connected) return Promise.resolve()
-  sondeEnCours = sonder().finally(() => {
-    sondeEnCours = null
-  })
-  return sondeEnCours
+export function sondeurDe(liaison: Socket<ServerToClientEvents, ClientToServerEvents>): () => Promise<void> {
+  let sondeEnCours: Promise<void> | null = null
+  const sonder = async () => {
+    const sondee = liaison.id
+    const vivante = await new Promise<boolean>(resolve => {
+      const minuteur = setTimeout(() => resolve(false), SONDE_MS)
+      liaison.emit('time:sync', {}, () => {
+        clearTimeout(minuteur)
+        resolve(true)
+      })
+    })
+    // Une reconnexion a pu se faire entre-temps : c'est l'ancienne liaison qui
+    // s'est tue, pas celle-ci.
+    if (vivante || !liaison.connected || liaison.id !== sondee) return
+    liaison.disconnect()
+    liaison.connect()
+  }
+  return () => {
+    if (sondeEnCours) return sondeEnCours
+    if (!liaison.connected) return Promise.resolve()
+    sondeEnCours = sonder().finally(() => {
+      sondeEnCours = null
+    })
+    return sondeEnCours
+  }
 }
 
-async function sonder() {
-  const sondee = socket.id
-  const vivante = await new Promise<boolean>(resolve => {
-    const minuteur = setTimeout(() => resolve(false), SONDE_MS)
-    socket.emit('time:sync', {}, () => {
-      clearTimeout(minuteur)
-      resolve(true)
-    })
-  })
-  // Une reconnexion a pu se faire entre-temps : c'est l'ancienne liaison qui
-  // s'est tue, pas celle-ci.
-  if (vivante || !socket.connected || socket.id !== sondee) return
-  socket.disconnect()
-  socket.connect()
-}
+const verifierLiaison = sondeurDe(socket)
 
 // Au retour au premier plan : écran rallumé, onglet retrouvé, appel terminé.
 document.addEventListener('visibilitychange', () => {
@@ -470,15 +477,29 @@ const COMMANDE_TIMEOUT_MS = 3000
  * posée.
  */
 export function envoyerCommande(sessionId: string, command: unknown): void {
+  commandeVers(socket, verifierLiaison, sessionId, command)
+}
+
+/**
+ * Le même geste, par la liaison qu'on lui donne et sa sonde (`sondeurDe`) :
+ * la barre du chef envoie les siens par sa liaison d'animateur
+ * (`socketDuChef.ts`), et les perdait encore comme la console d'avant.
+ */
+export function commandeVers(
+  liaison: Socket<ServerToClientEvents, ClientToServerEvents>,
+  verifier: () => Promise<void>,
+  sessionId: string,
+  command: unknown,
+): void {
   let recu = false
   const envoyer = () =>
-    socket.emit('host:command', { sessionId, command }, () => {
+    liaison.emit('host:command', { sessionId, command }, () => {
       recu = true
     })
   envoyer()
   setTimeout(() => {
     if (recu) return
-    void verifierLiaison().then(() => {
+    void verifier().then(() => {
       if (!recu) envoyer()
     })
   }, COMMANDE_TIMEOUT_MS)

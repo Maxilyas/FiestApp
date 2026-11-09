@@ -936,6 +936,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // pour close dans les paliers des autres (`soireesEnCoursAilleurs`) — et
   // dans ceux que décernent le quiz du jour et le défi (`soireesEnCours`).
   const cloturesEnCours = new Set<string>()
+  // La réserve d'inscriptions des invités, par adresse et par espace — de
+  // quoi en compter les refus (`mesure()`). Avant les espaces : toute clôture
+  // la mesure, celle qu'un espace lance de lui-même comprise.
+  const inscriptions = new ReserveDInscriptions()
   // Une soirée par espace, réveillée à la première connexion ; celles dont
   // une partie était en cours à l'extinction repartent tout de suite.
   const registry = new SpaceRegistry({
@@ -955,6 +959,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     cloturesEnCours,
     jour,
     salons,
+    clore: rt => cloreLaSoiree(rt, { auth, inscriptions }),
   })
   // L'Éclat tiré au quiz du jour ou au défi fait tomber La Pluie d'Éclats
   // sans compter ceux des soirées qui se jouent encore : un essai effacé
@@ -997,9 +1002,6 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const woken = registry.wakeRunning()
   if (woken > 0) console.log(`[espaces] ${woken} partie${woken > 1 ? 's' : ''} en cours reprise${woken > 1 ? 's' : ''}`)
 
-  // La réserve d'inscriptions des invités, par adresse et par espace — de
-  // quoi en compter les refus (`mesure()`).
-  const inscriptions = new ReserveDInscriptions()
   wireSockets(io, { registry, auth, profiles, trustProxy: !!opts.online, inscriptions })
 
   /**

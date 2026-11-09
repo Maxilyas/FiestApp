@@ -139,7 +139,7 @@ Ce qu'on tape se corrige par `normalizeSlug` : accents retirés, minuscules, tou
 
 | Ce qu'ils protègent | Noms |
 |---|---|
-| des pages sans espace | `host`, `edit`, `compte`, `admin`, `connexion`, `activer`, `profil`, `jour`, `salon`, `tele`, `boutique`, `campagne`, `expedition`, `cabinet` (réservée avec les routes du Cabinet de curiosités, avant sa page), `collectionneurs` |
+| des pages sans espace | `host`, `edit`, `compte`, `admin`, `connexion`, `activer`, `profil`, `jour`, `salon`, `tele`, `boutique`, `campagne`, `duels`, `expedition`, `cabinet` (réservée avec les routes du Cabinet de curiosités, avant sa page), `collectionneurs` |
 | les pages publiques, à la racine (leurs adresses d'avant) | `stats`, `souvenir`, `bilan`, `soirees` |
 | les chemins du serveur | `s`, `api`, `media`, `assets`, `fonts`, `healthz`, `socket.io` |
 | les dossiers des images peintes, servis avant la page | `portraits`, `medaillons`, `compagnons`, `ornements`, `decors`, `cartes` |

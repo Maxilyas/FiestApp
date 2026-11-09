@@ -90,7 +90,7 @@ Le plus court chemin est une **variante de QCM**, comme « plusieurs », « ordr
 
 ### Ajouter une porte de clôture
 
-1. **Passer par `cloreLaSoiree`** (`server/src/sockets.ts`), jamais par `SpaceRuntime.closeParty` directement : c'est lui qui tient les comptes de toute clôture — la mesure des inscriptions, les adresses vues de l'espace, la ligne du journal —, une seule fois quand deux clôtures se croisent (`finEnRoute`, `server/src/core/space.ts`). « Terminer le quiz » sur le dernier quiz d'un programme y échappe encore (`considererCloture`, `server/src/core/space.ts`) — l'exemple à ne pas suivre.
+1. **Passer par `cloreLaSoiree`** (`server/src/sockets.ts`), jamais par `SpaceRuntime.closeParty` directement : c'est lui qui tient les comptes de toute clôture — la mesure des inscriptions, les adresses vues de l'espace, la ligne du journal —, une seule fois quand deux clôtures se croisent (`finEnRoute`, `server/src/core/space.ts`). Une clôture que l'espace lance de lui-même — « Terminer le quiz » sur le dernier quiz d'un programme (`considererCloture`, `server/src/core/space.ts`) — y passe par `SpaceDeps.clore`, que `server/src/server.ts` compose : elle y a échappé jusqu'au 9 novembre 2026.
 2. **Rendre l'issue telle quelle** : un miroir qui refuse laisse la soirée entière, et l'échec part en erreur neutre (`wrap` pour une route, jamais un 503, que le client lit « le serveur redémarre »).
 3. **Le test** : dans `server/test/cloture.test.ts` — un fichier qui approche la minute et demie se coupe par thème, comme `credits.test.ts` (règle `tests.md`) —, deux clôtures croisées par la porte neuve et l'écran commun, et un miroir qui refuse (`server/test/miroir.test.ts` montre comment).
 
@@ -156,7 +156,7 @@ Le test : jouer la route dans le scénario de la première épreuve de `server/t
 ### Ajouter une page
 
 1. **`shared/adresses.ts`** — son nom dans `AccountPage` et `ACCOUNT_PAGES` pour une page sans espace (`/<nom>`) ; dans `PublicPage` et `PUBLIC_PAGES` pour une page d'un espace (`/<espace>/<nom>`, et sa version d'archive).
-2. **`shared/space.ts`** — le même nom dans `RESERVED_SLUGS`. Rien ne l'impose : sans lui, un espace de ce nom deviendrait injoignable, son adresse ouvrant la page (`duels` y manque aujourd'hui). Un dossier servi avant la page (`server/src/server.ts`) s'y ajoute de même.
+2. **`shared/space.ts`** — le même nom dans `RESERVED_SLUGS` : sans lui, un espace de ce nom deviendrait injoignable, son adresse ouvrant la page. `server/test/portes.test.ts` y force chaque page de `ACCOUNT_PAGES` (`duels` y a manqué jusqu'au 9 novembre 2026). Un dossier servi avant la page (`server/src/server.ts`) s'y ajoute de même, et lui, rien ne l'impose.
 3. **`client/src/views/<Page>.tsx`** — la page, un fichier.
 4. **`client/src/main.tsx`** — son chargeur dans `ACCOUNT` (ou `PUBLIC`) ; dans `REPERE_PROPRE` si elle pose ses propres repères (en-tête, navigation) ; dans `LISENT_LE_PROFIL` si elle lit le profil, dont elle porte alors le thème. Ce qu'elle ne montre qu'après son premier écran passe par `aLaDemande`, jamais par `lazy`.
 5. **`client/src/titres.ts`** — le titre de son onglet dans `TITRES` (« … · FiestApp ») ; le typecheck le réclame, `server/test/design.test.ts` le relit.

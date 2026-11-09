@@ -3,6 +3,7 @@ import { io, type Socket } from 'socket.io-client'
 import type { ClientToServerEvents, ServerToClientEvents } from '../../shared/events'
 import type { QuizHostView } from '../../shared/games/quiz'
 import type { PartySnapshot } from '../../shared/types'
+import { commandeVers, sondeurDe } from './socket'
 
 // La seconde liaison du téléphone du chef : celle de l'animateur, à côté de
 // celle du joueur (`socket.ts`). Le chef qui joue tient les deux rôles sur
@@ -33,12 +34,15 @@ const poser = (patch: Partial<EtatDuChef>) => {
 }
 
 let socket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null
+/** La sonde de cette liaison-ci (`sondeurDe`) : celle du joueur peut vivre quand celle-ci est morte. */
+let verifierLiaison: (() => Promise<void>) | null = null
 
-/** Ouvre la liaison de l'animateur, une fois. La session vient du cookie, comme pour l'écran commun. */
-export function brancherLeChef() {
-  if (socket) return
+/** Ouvre la liaison de l'animateur, une fois, et la rend. La session vient du cookie, comme pour l'écran commun. */
+export function brancherLeChef(): Socket<ServerToClientEvents, ClientToServerEvents> {
+  if (socket) return socket
   const s: Socket<ServerToClientEvents, ClientToServerEvents> = io({ forceNew: true, transports: ['websocket', 'polling'], tryAllTransports: true })
   socket = s
+  verifierLiaison = sondeurDe(s)
   s.on('connect', () => {
     poser({ connecte: true })
     s.emit('host:hello', {}, res => {
@@ -59,6 +63,7 @@ export function brancherLeChef() {
   s.on('toast', t => {
     if (t.kind === 'error') poser({ message: t.message })
   })
+  return s
 }
 
 export function useChef(): EtatDuChef {
@@ -74,13 +79,21 @@ export function useChef(): EtatDuChef {
 /**
  * Un geste de la partie. Il porte le moment qu'il visait (invariant 12) :
  * un double toucher, ou l'enchaînement automatique qui croise le doigt, ne
- * joue qu'une fois.
+ * joue qu'une fois — et c'est ce qui permet de le renvoyer. Il part comme
+ * ceux de la console (`commandeVers`) : sans accusé à temps, la liaison est
+ * sondée, rouverte si elle est morte, et le geste renvoyé une fois. Il
+ * partait sans rien attendre, et le téléphone du chef au fond du jardin
+ * perdait « Révéler » sans un mot (`liaison-morte.test.ts`).
+ *
+ * Les autres gestes de la barre — lancer, terminer, clore, les équipes —
+ * n'ont pas d'accusé au serveur, et « Clore », renvoyé à l'aveugle, pourrait
+ * clore la soirée d'après : ils ne se renvoient pas.
  */
 export function commande(command: Record<string, unknown>) {
   const v = etat.vue
-  if (!socket || !etat.sessionId || !v) return
+  if (!socket || !verifierLiaison || !etat.sessionId || !v) return
   poser({ message: null })
-  socket.emit('host:command', { sessionId: etat.sessionId, command: { phase: v.phase, qIndex: v.qIndex, round: v.round, ...command } }, () => {})
+  commandeVers(socket, verifierLiaison, etat.sessionId, { phase: v.phase, qIndex: v.qIndex, round: v.round, ...command })
 }
 
 /** Lance un quiz : la partie qui se joue encore — le podium d'avant — est celle qu'il remplace. */

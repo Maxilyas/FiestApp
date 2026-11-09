@@ -7,7 +7,7 @@ import { AVATARS } from '../../../shared/avatars'
 import { Icon } from './Icon'
 import { MotDePasse, MotDePasseChoisi } from './MotDePasse'
 import { CodeSecours, FormulaireSecours } from './Secours'
-import { identifiantPour, refusDeLIdentifiant, refusDuMotDePasse, tirage } from './inscription'
+import { champsAuChangement, identifiantPour, refusDeLIdentifiant, refusDuMotDePasse, tirage } from './inscription'
 import { IdentifiantDiscret, inscrireAvecRepli } from './IdentifiantDiscret'
 import { Sortie } from './Pieces'
 import { LOGIN } from '../../../shared/space'
@@ -103,29 +103,6 @@ export function ongletDuFormulaire(ecran: EcranDuFormulaire): string | null {
   }
   const titre = titres[ecran]
   return titre && `${titre} · FiestApp`
-}
-
-/** Ce que le formulaire garde de ses champs d'un mode à l'autre. */
-interface ChampsGardes {
-  login: string
-  loginTouche: boolean
-  loginOuvert: boolean
-  password: string
-}
-
-/**
- * Les champs au passage d'un mode à l'autre. La création s'ouvre toujours
- * comme « Créer un profil » — l'identifiant déduit du prénom, sur sa ligne,
- * le mot de passe vide : un essai de connexion raté, puis « Je n'en ai pas
- * encore », y ouvrait le champ de l'identifiant avec celui de l'essai, et le
- * mot de passe refusé — une autre page (le retour du propriétaire du
- * 13 octobre 2026). Vers la connexion, l'identifiant deviné du prénom ne
- * suit pas : Camille y aurait essayé « camille », et ses échecs fermaient le
- * vrai profil « camille » un quart d'heure ; tapé à la main, il suit.
- */
-export function champsAuChangement(vers: 'choix' | 'connexion' | 'inscription', avant: ChampsGardes & { name: string }): ChampsGardes {
-  if (vers === 'inscription') return { login: identifiantPour(avant.name), loginTouche: false, loginOuvert: false, password: '' }
-  return { login: avant.loginTouche ? avant.login : '', loginTouche: avant.loginTouche, loginOuvert: avant.loginOuvert, password: avant.password }
 }
 
 /**

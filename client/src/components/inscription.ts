@@ -41,3 +41,30 @@ export const refusDeLIdentifiant = (e: unknown): boolean =>
  */
 export const refusDuMotDePasse = (e: unknown): boolean =>
   e instanceof ApiError && /^(Il faut un mot de passe|Au (moins|plus) \d+ caractères)$/.test(e.message)
+
+/** Ce qu'un formulaire garde de ses champs d'un mode à l'autre. */
+export interface ChampsGardes {
+  login: string
+  loginTouche: boolean
+  loginOuvert: boolean
+  password: string
+}
+
+/**
+ * Les champs au passage d'un mode à l'autre. La création s'ouvre toujours
+ * comme « Créer un profil » — l'identifiant déduit du prénom, sur sa ligne,
+ * le mot de passe vide : un essai de connexion raté, puis « Je n'en ai pas
+ * encore », y ouvrait le champ de l'identifiant avec celui de l'essai, et le
+ * mot de passe refusé — une autre page (le retour du propriétaire du
+ * 13 octobre 2026). Vers la connexion, l'identifiant deviné du prénom ne
+ * suit pas : Camille y aurait essayé « camille », et ses échecs fermaient le
+ * vrai profil « camille » un quart d'heure ; tapé à la main, il suit.
+ *
+ * Ici, et plus dans `ProfilForm` : l'entrée d'une soirée gardait le même
+ * écart sur son « Créer un profil », et ne peut pas prendre la règle au
+ * formulaire de l'accueil sans l'emporter.
+ */
+export function champsAuChangement(vers: 'choix' | 'connexion' | 'inscription', avant: ChampsGardes & { name: string }): ChampsGardes {
+  if (vers === 'inscription') return { login: identifiantPour(avant.name), loginTouche: false, loginOuvert: false, password: '' }
+  return { login: avant.loginTouche ? avant.login : '', loginTouche: avant.loginTouche, loginOuvert: avant.loginOuvert, password: avant.password }
+}

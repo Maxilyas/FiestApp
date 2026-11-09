@@ -7,6 +7,7 @@ import { ScoreLedger } from './scores'
 import { AnswerLog, type AnswerRow } from './answers'
 import { GameEngine } from './engine'
 import { commencer } from './gels'
+import { messagePourEcran } from './http'
 import { PlacesRendues } from './places'
 import type { PartyBackup, PartyMirror } from './backup'
 import type { ArchiveStore } from './archive'
@@ -77,6 +78,15 @@ export interface SpaceDeps {
   jour?: Pick<JourStore, 'resumeDe' | 'pontDuJour' | 'aujourdhui'>
   /** Les codes des salons (`core/salons.ts`). Absents, un espace ne s'ouvre que par son adresse. */
   salons?: Pick<SalonStore, 'codeDe' | 'ouvrir' | 'fermer' | 'clotureAuto'>
+  /**
+   * La clôture par le chemin de toutes les clôtures (`cloreLaSoiree`,
+   * `sockets.ts`, composé dans `server.ts`) : la soirée qui se clôt
+   * d'elle-même — « Terminer le quiz » sur le dernier du programme — y passe
+   * comme l'écran commun et le QG. Elle appelait `closeParty()` de son côté,
+   * et la mesure des inscriptions de l'espace passait sur le compte de la
+   * soirée suivante.
+   */
+  clore: (rt: SpaceRuntime) => Promise<ArchiveSummary | null>
 }
 
 /**
@@ -1177,7 +1187,19 @@ export class SpaceRuntime {
     if (this.finEnCours || !this.closAuProgramme()) return
     if (voulue) {
       console.log('[soirée] le dernier quiz du programme est terminé : la soirée s’enregistre')
-      this.closeParty().catch(e => console.error('[soirée] la clôture a échoué :', e))
+      this.deps.clore(this).catch(e => {
+        // Refusée par le miroir, la soirée reste entière : le programme est
+        // joué, sa barre propose « Terminer la soirée » pour réessayer, et
+        // l'animateur lit pourquoi, comme après « Clore la soirée » — l'échec
+        // ne partait qu'au journal, devant une salle toujours là.
+        if (this.closAuProgramme()) {
+          this.finDuProgramme = true
+          this.sendSnapshot()
+        }
+        this.deps.io
+          .to(`hosts:${this.spaceId}`)
+          .emit('toast', { kind: 'error', message: `Rien n’a été effacé : ${messagePourEcran(e, 'host:endSession')}` })
+      })
       return
     }
     if (this.finDuProgramme) return

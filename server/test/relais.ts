@@ -20,14 +20,27 @@ export interface Relais {
   fermer(): Promise<void>
 }
 
-export async function relais(portCible: number): Promise<Relais> {
+export async function relais(portCible: number, opts: { cookie?: string } = {}): Promise<Relais> {
   const paires = new Set<Paire>()
   const serveur = net.createServer(a => {
     const b = net.connect(portCible, '127.0.0.1')
     const p: Paire = { a, b, gelee: false }
     paires.add(p)
+    // Le navigateur joint son cookie à chaque poignée de main ; un module du
+    // client chargé dans Node, non, et la liaison du chef (`socketDuChef.ts`)
+    // s'ouvre d'elle-même, sans rien qu'on puisse lui glisser. Le relais le
+    // pose donc en tête de la requête qui ouvre chaque connexion, juste
+    // derrière sa première ligne.
+    let aJoindre = opts.cookie ?? null
     a.on('data', d => {
-      if (!p.gelee) b.write(d)
+      if (p.gelee) return
+      const ligne = aJoindre ? d.indexOf('\r\n') : -1
+      if (ligne > 0) {
+        b.write(Buffer.concat([d.subarray(0, ligne + 2), Buffer.from(`Cookie: ${aJoindre}\r\n`), d.subarray(ligne + 2)]))
+        aJoindre = null
+        return
+      }
+      b.write(d)
     })
     b.on('data', d => {
       if (!p.gelee) a.write(d)

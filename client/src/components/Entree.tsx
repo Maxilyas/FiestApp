@@ -19,7 +19,7 @@ import { Icon } from './Icon'
 import { MotDePasse, MotDePasseChoisi } from './MotDePasse'
 import { Sortie } from './Pieces'
 import { IdentifiantDiscret, inscrireAvecRepli } from './IdentifiantDiscret'
-import { identifiantPour, refusDeLIdentifiant, refusDuMotDePasse, tirage } from './inscription'
+import { champsAuChangement, identifiantPour, refusDeLIdentifiant, refusDuMotDePasse, tirage } from './inscription'
 import { LOGIN } from '../../../shared/space'
 import { espacesFines } from '../format'
 
@@ -228,6 +228,16 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
             type="button"
             className="btn btn-big btn-block"
             onClick={() => {
+              // La création s'ouvre neuve, comme à l'accueil : le mot de
+              // passe d'une connexion ratée, « Retour » passé, attendait
+              // dans « Garder ma progression » — caché sous ses points.
+              const neufs = champsAuChangement('inscription', { login, loginTouche, loginOuvert, password, name })
+              setLogin(neufs.login)
+              setLoginTouche(neufs.loginTouche)
+              setLoginOuvert(neufs.loginOuvert)
+              setPassword(neufs.password)
+              setMotDePasseRefuse('')
+              setSuggestion('')
               setCreation(true)
               setErreur('')
               setEtape('moi')
