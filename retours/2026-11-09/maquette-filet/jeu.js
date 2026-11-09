@@ -86,6 +86,8 @@
   const enMoins = p => `<span aria-hidden="true">−${p}${INSECABLE}★</span><span class="sr">${NOMS_DES_ETOILES[p - 1] || `${p} étoiles`} en moins</span>`
   const melanger = a => { const b = a.slice(); for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]] } return b }
   const auHasard = a => a[Math.floor(Math.random() * a.length)]
+  /** Un indice tiré selon des poids (ils somment à un). */
+  const tirerSelon = poids => { let x = Math.random(); for (let i = 0; i < poids.length; i++) { x -= poids[i]; if (x < 0 && poids[i] > 0) return i } return poids.length - 1 }
   const entre = (a, b) => a + Math.floor(Math.random() * (b - a + 1))
   const accorde = (n, mot, pluriel = mot + 's') => `${n}${INSECABLE}${n > 1 ? pluriel : mot}`
   const ROMAINS = { 1: 'I', 2: 'II', 3: 'III' }
@@ -128,7 +130,7 @@
     // cours de maths (Théo), et l'indice d'un calcul en était la solution (Claire).
     const tas = mode === 'v2'
       ? D.questions.filter(q => !q.calcul && ACTES[acte].garde(q))
-      : D.questions.filter(q => (acte === 3 ? q.d >= 3 : q.d <= 3))
+      : D.questions.filter(q => !q.recent && (acte === 3 ? q.d >= 3 : q.d <= 3))
     const neuves = tas.filter(q => !vues.has(q.id))
     const source = neuves.length >= 3 ? neuves : tas
     // Une année au moins dans l'épreuve quand le tas en a : le nouveau Filet a deux visages.
@@ -153,9 +155,14 @@
     if (q.an) {
       const T = q.v >= 1800 ? 25 : q.v >= 1500 ? 50 : 100
       const base = Math.floor(q.v / T) * T
-      // L'époque de la réponse au hasard parmi les quatre, sans que la frise passe dans l'avenir.
+      // L'époque de la réponse parmi les quatre, sans que la frise passe dans l'avenir. Tirée au hasard parmi les places
+      // qui restent, elle se devinait : une réponse récente ne peut être que dans les dernières, et « toujours la
+      // dernière époque » gagnait 29 % des manches, 35 % avec 25 ans de recul. Tirée avec des poids — les réponses
+      // anciennes vont moins souvent dans la dernière, autant que les récentes y vont d'office —, chaque place reçoit un
+      // quart des réponses (le cahier, décision 10 ; `reproductions/place-de-la-reponse.mts`, qui calcule les poids).
       const places = [0, 1, 2, 3].filter(i => base - i * T + 4 * T - 1 <= ANNEE)
-      const i = places.length ? auHasard(places) : 3
+      const poids = T === 25 && D.placesDesAnnees ? D.placesDesAnnees[places.length] : null
+      const i = !places.length ? 3 : poids ? tirerSelon(poids) : auHasard(places)
       const debut = base - i * T
       return {
         an: true, T, bonne: i, bonnes: [i],
@@ -495,13 +502,14 @@
     const pour = E.mode === 'v2' ? `${ACTES[E.acte].nom} : ${ACTES[E.acte].regle}` : `tirée comme aujourd’hui, sur sa marche écrite (${q.d} sur 5)`
     const regle = M.ep ? (M.ep.an ? `époques de ${M.ep.T} ans · ★★★ à ${accorde(M.ep.anneaux[0], 'an')} · ★★ à ${M.ep.anneaux[1]} ans` : 'tranches de 1 à 3, de 3 à 10… · ★★★ à 6 % · ★★ à 25 % de la réponse') : `piste de ${dire(q, M.p.min)} à ${dire(q, M.p.max)}, crans de ${nombre(M.p.pas)}`
     return `<details class="coulisses"${memo.coulissesOuvertes ? ' open' : ''}><summary>Les coulisses du moteur</summary><dl>
-      <dt>Connaissabilité</dt><dd>${balise(c)} ${q.ia} % la placeraient à 5 % près · ${NOM_DE_PISTE[c]}</dd>
+      <dt>Connaissabilité</dt><dd>${q.ia == null ? 'pas encore notée par le panel' : `${balise(c)} ${q.ia} % la placeraient à 5 % près · ${NOM_DE_PISTE[c]}`}</dd>
       <dt>Chaque Français</dt><dd>${fines(`${q.fr ? 'la sait placer' : 'ne la sait pas placer'}${q.anc ? ` · ${ANCRAGES[q.anc]}` : ''}${q.fp ? ` — ${q.fp}` : ''}`)}</dd>
-      <dt>En QCM</dt><dd>${q.qcm} % la trouveraient parmi quatre</dd>
+      ${q.qcm == null ? '' : `<dt>En QCM</dt><dd>${q.qcm} % la trouveraient parmi quatre</dd>`}
       <dt>Difficulté écrite</dt><dd>${q.d} sur 5</dd>
       <dt>Choisie pour</dt><dd>${fines(pour)}</dd>
       <dt>La règle</dt><dd>${fines(regle)}</dd>
       ${q.calcul ? '<dt>Écartée</dt><dd>se calcule ou se convertit : le nouveau Filet ne la pose pas</dd>' : ''}
+      ${q.recent ? `<dt>Le recul</dt><dd>${fines('posée avec 25 ans de recul ; le Filet d’aujourd’hui en veut 46, et ne la pose pas')}</dd>` : ''}
     </dl></details>`
   }
   /**
@@ -806,7 +814,7 @@
         <button type="button" class="lien" data-geste="regles">Les règles du nouveau Filet, en entier</button>
       </nav>
       ${reperes}
-      <p class="pied">${fines(`Une page hors de FiestApp : ${D.questions.length} vraies questions du Filet, celles que la production a posées du 1er au 8 novembre 2026, avec la note du moteur et un indice écrit pour chacune — ${jouables} au nouveau Filet, qui écarte ce qui se calcule.`)}</p>`
+      <p class="pied">${fines(`Une page hors de FiestApp : ${D.questions.filter(q => !q.recent).length} vraies questions du Filet, celles que la production a posées du 1er au 8 novembre 2026, avec la note du moteur et un indice écrit pour chacune — ${jouables} au nouveau Filet, qui écarte ce qui se calcule. Et ${D.questions.filter(q => q.recent).length} années que chaque Français sait placer, de 1981 à 2001, que 25 ans de recul rendent à l’acte I.`)}</p>`
   }
 
   // Ce que la tablée du 9 novembre 2026 a trouvé, en deux tours, et ce que la maquette en a fait (la synthèse :
@@ -931,6 +939,7 @@
       <h2>Une manche, deux gestes</h2>
       <ul>
         <li><b>L’époque.</b> Quatre époques côte à côte : de 25 ans depuis 1800, de 50 ans de 1500 à 1799, d’un siècle avant. Pour une grandeur, quatre ordres de grandeur : de 1 000 à 3 000, de 3 000 à 10 000, de 10 000 à 30 000… Une réponse pile sur une borne est des deux.</li>
+        <li><b>Où est la bonne ?</b> Les époques ne vont jamais dans l’avenir : une réponse récente ne peut tomber que dans les dernières. Sa place se tire donc avec des poids, pour qu’aucune place ne gagne plus qu’une autre — « toujours la dernière » gagne une fois sur quatre, comme le hasard.</li>
         <li><b>L’année.</b> La piste s’ouvre sur l’époque choisie, régulière, le curseur posé en son milieu : un toucher le porte là où l’on vise, puis − et + l’ajustent d’un cran. On peut encore changer d’époque.</li>
         <li><b>Le filet se resserre tout seul</b> autour du curseur : ★★★ à un douzième de l’époque (2 ans sur 25), ★★ à un quart (6 ans), ★ pour la bonne époque. Une grandeur : ★★★ à 6 % de la réponse, ★★ à 25 %, ★ pour le bon ordre de grandeur. Sous la valeur, le filet se dit en nombres : « ★★★ 1960–1964 ».</li>
         <li><b>La distance compte d’abord.</b> Au bord d’une époque, à 2 ans près de la réponse, c’est ★★★ même dans l’époque d’à côté.</li>

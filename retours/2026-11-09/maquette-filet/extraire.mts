@@ -11,6 +11,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { lireLaBase } from '../../../server/src/core/baseCampagne.ts'
 import { valeurDuFilet } from '../../../server/src/core/cabinet/tirages/tas.ts'
+import { anneesDuVivier, poidsDesPlaces } from '../reproductions/place-de-la-reponse.mts'
 
 const ICI = path.dirname(fileURLToPath(import.meta.url))
 const lireJson = (f: string) => JSON.parse(fs.readFileSync(path.join(ICI, f), 'utf8'))
@@ -79,6 +80,29 @@ for (const id of lireJson('questions-posees.json') as string[]) {
     ...(ancrages.get(id)?.chacun ? { fr: true, fp: ancrages.get(id).pourquoi ?? '' } : {}), anc: ancrages.get(id)?.ancrage ?? '',
   })
 }
+
+// ── Les années que 25 ans de recul rendent au Filet ─────────────────────────────────────────────────────────
+// Le Filet d'aujourd'hui ne pose une année qu'avec 46 ans de recul : la moitié de celles que chaque Français sait
+// placer lui échappe — 1981, 1989, 1997 (le cahier, décision 10). La maquette pose à l'acte I les seize que 25 ans de
+// recul lui rendent, classées au vivier (`../vivier-du-filet.json`), avec leur indice et leur repère (`recentes.json`,
+// écrits par un agent, relus par un juge à l'aveugle, passés ici au juge de la lettre). Le Filet d'aujourd'hui de la
+// maquette ne les pose pas : la production ne le pourrait pas.
+const vivierClasse = new Map((JSON.parse(fs.readFileSync(path.join(ICI, '../vivier-du-filet.json'), 'utf8')) as any[]).map(a => [a.id, a]))
+for (const r of lireJson('recentes.json') as any[]) {
+  const q = parId.get(r.id), v = q && valeurDuFilet(q), c: any = vivierClasse.get(r.id), n: any = notes.get(r.id)
+  if (!q || !v?.annee) continue
+  const refus = r.indice === '' ? null : refusDeLIndice(r.indice, v.valeur, true)
+  if (refus) refusés.push(`${r.id} (${v.valeur}) : ${refus} — ${r.indice}`)
+  questions.push({
+    id: r.id, t: q.texte, v: v.valeur, an: true, u: '', c: q.meta.categorie, d: q.meta.difficulte,
+    a: q.anecdote ?? '', ia: n?.estimation ?? null, qcm: n?.qcm ?? null, i: refus ? '' : r.indice, r: r.repere ?? '', recent: true,
+    ...(c?.chacun ? { fr: true, fp: c.pourquoi ?? '' } : {}), anc: c?.ancrage ?? '',
+  })
+}
+// La place de la réponse parmi les quatre époques se tire avec ces poids, par nombre de places qui restent : chaque
+// place reçoit un quart des réponses (`reproductions/place-de-la-reponse.mts`), sur les années du vivier que 25 ans de
+// recul laissent poser.
+const placesDesAnnees = poidsDesPlaces(anneesDuVivier().filter(v => v <= 2026 - 25))
 
 // ── Des repères que tout le monde connaît ───────────────────────────────────────────────────────────────────
 // Des dates que tout Français a apprises à l'école ou vécues, chacune vérifiée ; la frise n'en pose que deux, jamais du
@@ -149,7 +173,7 @@ const production = {
   ],
 }
 
-const sortie = `// Écrit par extraire.mts : ${questions.length} questions du Filet que la production a posées, la note du moteur, un indice et un repère chacune.\nwindow.FILET = ${JSON.stringify({ questions, reperesAnnees, reperesGrandeurs, production })}\n`
+const sortie = `// Écrit par extraire.mts : ${questions.filter(q => !q.recent).length} questions du Filet que la production a posées et ${questions.filter(q => q.recent).length} années récentes, la note du moteur, un indice et un repère chacune.\nwindow.FILET = ${JSON.stringify({ questions, reperesAnnees, reperesGrandeurs, production, placesDesAnnees })}\n`
 fs.writeFileSync(path.join(ICI, 'donnees.js'), sortie)
 console.log(`${questions.length} questions (${questions.filter(q => q.an).length} années), ${questions.filter(q => q.i).length} indices retenus, ${refusés.length} refusés`)
 for (const r of refusés) console.log('  refusé', r)
