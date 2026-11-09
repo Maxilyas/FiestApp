@@ -44,6 +44,25 @@ console.log(`  d'où chaque Français le sait : ${Object.entries(sources).sort((
 const valeurs = new Set(tout.filter(acteI).map(q => `${valeurDuFilet(q)!.valeur}|${valeurDuFilet(q)!.annee ? 'an' : valeurDuFilet(q)!.unite ?? ''}`))
 console.log(`  valeurs distinctes à l'acte I : ${valeurs.size}`)
 
+// Le recul des années (le cahier, § 8) : ce qu'un recul plus court rendrait, et ce qu'il coûterait. Les quatre époques
+// du nouveau Filet (25 ans depuis 1800) ne passent jamais dans l'avenir : la dernière finit au plus en 2024. Une réponse
+// de 2000 à 2024 ne peut donc être que dans la quatrième, une de 1975 à 1999 que dans les deux dernières, une de 1950 à
+// 1974 dans les trois dernières — et qui choisit toujours la dernière époque l'a une fois sur un, deux ou trois, au lieu
+// d'une sur quatre. Le compte suppose la place tirée au hasard parmi celles qui restent.
+const dernierePossible = (an: number) => {
+  if (an < 1800) return 0.25 // avant 1800, les époques de 50 et 100 ans finissent loin d'aujourd'hui
+  // La dernière époque permise finit au plus l'année du départ (2000–2024 en 2026) ; on compte les époques de la
+  // réponse à elle : 2000–2024 : 0, 1975–1999 : 1…
+  const recul = Math.floor((ANNEE - 1824) / 25) - Math.floor((an - 1800) / 25)
+  return 1 / Math.min(4, Math.max(1, recul + 1))
+}
+console.log('\nrecul   années posables   dont chaque Français   « toujours la dernière époque » les gagne')
+for (const recul of [46, 35, 25, 20]) {
+  const ans = annees.filter(q => valeurDuFilet(q)!.valeur >= 1000 && valeurDuFilet(q)!.valeur <= ANNEE - recul)
+  const gain = ans.reduce((s, q) => s + dernierePossible(valeurDuFilet(q)!.valeur), 0) / ans.length
+  console.log(`${String(recul).padStart(4)} ans  ${String(ans.length).padStart(15)}  ${String(ans.filter(q => c(q).chacun).length).padStart(20)}   ${pct(Math.round(1000 * gain), 1000).trim()} des fois (25 % au hasard)`)
+}
+
 console.log('\ncatégorie              au Filet  chaque Français  posables à l\'acte I')
 for (const cat of [...new Set(tout.map(q => q.meta.categorie))].sort()) {
   const qs = tout.filter(q => q.meta.categorie === cat)

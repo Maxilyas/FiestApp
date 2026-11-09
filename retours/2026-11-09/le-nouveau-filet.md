@@ -779,6 +779,7 @@ Ce qu'on en tire :
      pourrait les poser par une dernière époque qui finit aujourd'hui, au prix
      d'une place moins secrète : les quatre époques ne passent jamais dans
      l'avenir, et une réponse récente ne peut tomber que dans les dernières.
+     Le compromis est chiffré à la décision 10 (§ 8).
 
 ## 5. Le moteur de difficulté
 
@@ -1055,9 +1056,26 @@ un sondage du QG aux joueurs du Cabinet (`qg_annonce_questions`).
    Miser (Quitte ou double) ; un pari propre au Filet attend (§ 9).
 10. **Le recul des années** : 46 ans au Filet (`seTendAuFilet`). Il écarte
     la moitié des années que chaque Français sait placer — 38 sur 76 :
-    1981, 1998, 2002 (§ 4.3). Le nouveau Filet pourrait les poser par une
-    dernière époque qui finit aujourd'hui, au prix d'une place moins
-    secrète pour une réponse récente : à mesurer avant d'y toucher.
+    1981, 1998, 2002 (§ 4.3). Raccourci, il en rend, mais la place de la
+    réponse se devine mieux : les quatre époques ne passent jamais dans
+    l'avenir, et une réponse récente ne peut tomber que dans les dernières
+    (`reproductions/vivier-du-filet.mts`) :
+
+    | Recul | Années posables | Dont chaque Français | « Toujours la dernière époque » gagne |
+    |---|---|---|---|
+    | 46 ans, aujourd'hui | 494 | 38 | 29 % |
+    | 35 ans | 554 | 47 | 31 % |
+    | 25 ans | 615 | 54 | 34 % |
+    | 20 ans | 638 | 61 | 37 % |
+
+    - Le hasard pur fait 25 % : la fuite existe déjà, petite.
+    - Elle se referme si la place de la réponse se tire pour qu'aucune
+      époque ne paie plus qu'une autre : les réponses anciennes vont moins
+      souvent dans la dernière, autant que les récentes y vont d'office —
+      possible tant que les réponses forcées restent sous le quart. Seul le
+      savoir de l'âge de la réponse en profite alors, et c'est un savoir.
+    - La proposition : 25 ans de recul, la place tirée ainsi, à vérifier
+      au calibrage.
 11. **La largeur de l'anneau ★★** : un quart d'époque. Dans la bonne époque,
     le milieu sans rien savoir y tombe 52 fois sur cent, et ★★★ 20 fois
     (`reproductions/prix-des-aides.mjs`) — « ★ pour la bonne époque vaut

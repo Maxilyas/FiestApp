@@ -10,6 +10,7 @@
 //   regles    les lancers rejugés : le filet qui se resserre, les rapports, les deux temps, le tirage du moteur
 //             (les notes du panel de l'IA : ../maquette-filet/panel-ia.json)
 //   ancrage   ce que chaque Français sait placer, contre le reste (../maquette-filet/ancrage.json)
+//   estime    ce que chaque Français sait estimer, au-delà de ce qu'il sait (estime-des-posees.json)
 //
 // Jamais `QUIZ_DB_URL` : `PROD_LECTURE_URL` et `PROD_LECTURE_TOKEN`, un jeton en lecture seule.
 import fs from 'node:fs'
@@ -170,6 +171,32 @@ if (quoi === 'lancers') {
     const s = ls.map(deux)
     console.log(`${nom.padEnd(39)} ${String(ls.length).padStart(7)}  ${pct(ls.filter(l => ecart(l) <= 0.02).length, ls.length).padStart(9)}  ${pct(auj, ls.length).padStart(20)}  ${pct(s.filter(Boolean).length, ls.length).padStart(13)}  ${(s.reduce((a, b) => a + b, 0) / ls.length).toFixed(2).padStart(8)}`)
   }
+} else if (quoi === 'estime') {
+  // Savoir n'est pas savoir placer (`../le-nouveau-filet.md`, § 4.5) : au pilote, les distances entre villes
+  // « s'estiment plus qu'elles ne se savent », et tombent pourtant dans le filet. Un agent a jugé, à l'aveugle, ce que
+  // chaque Français sait estimer — par ce qu'il vit, qu'il sache le chiffre ou non (`estime-des-posees.json`) ; les
+  // lancers disent si ces questions se placent mieux que les autres, au-delà de ce que chacun sait.
+  const fichierEstime = path.resolve(ICI, 'estime-des-posees.json')
+  if (!fs.existsSync(fichierEstime)) throw new Error('estime-des-posees.json manque : le jugement de ce que chaque Français sait estimer ne s’est pas encore rangé à côté de ce script')
+  const ancrage = new Map((JSON.parse(fs.readFileSync(path.resolve(ICI, '../maquette-filet/ancrage.json'), 'utf8')) as any[]).map(a => [a.id, a]))
+  const estime = new Map((JSON.parse(fs.readFileSync(fichierEstime, 'utf8')) as any[]).map(a => [a.id, a.estime]))
+  const groupes: [string, (id: string) => boolean][] = [
+    ['Chaque Français la sait placer', id => ancrage.get(id)?.chacun === true],
+    ['Il la sait estimer, sans la savoir', id => ancrage.get(id)?.chacun !== true && estime.get(id) === true],
+    ['Ni l’un ni l’autre', id => ancrage.get(id)?.chacun !== true && estime.get(id) === false],
+    ['Il la sait placer ou estimer', id => ancrage.get(id)?.chacun === true || estime.get(id) === true],
+  ]
+  const deux = (l: Lancer) => deuxTemps(l, l.x)
+  const juges = lancers.filter(l => !calculs.has(l.id) && estime.has(l.id))
+  console.log(`${juges.length} lancers jugés, sans ce qui se calcule\n`)
+  console.log('groupe                                  lancers  il savait  réussies aujourd’hui  en deux temps  ★/manche')
+  for (const [nom, garder] of groupes) {
+    const ls = juges.filter(l => garder(l.id))
+    if (!ls.length) continue
+    const auj = ls.filter(l => ecart(l) <= DEMI[l.taille] + 1e-9).length
+    const s = ls.map(deux)
+    console.log(`${nom.padEnd(39)} ${String(ls.length).padStart(7)}  ${pct(ls.filter(l => ecart(l) <= 0.02).length, ls.length).padStart(9)}  ${pct(auj, ls.length).padStart(20)}  ${pct(s.filter(Boolean).length, ls.length).padStart(13)}  ${(s.reduce((a, b) => a + b, 0) / ls.length).toFixed(2).padStart(8)}`)
+  }
 } else {
-  throw new Error(`« ${quoi} » : lancers, regles ou ancrage`)
+  throw new Error(`« ${quoi} » : lancers, regles, ancrage ou estime`)
 }
