@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Limite } from './Limite'
 import type { PublicPlayer, PublicTeam } from '../../../shared/types'
 import type { PublicSpace } from '../../../shared/space'
-import { eclatChez, type PublicProfile } from '../../../shared/profil'
+import { eclatChez, sceauVisible, type PublicProfile } from '../../../shared/profil'
 import { AVATARS, MAX_NAME_LENGTH } from '../../../shared/avatars'
 import { cibleEclat } from '../../../shared/legendaires'
 import { sansAccent } from '../../../shared/homonymes'
@@ -385,7 +385,7 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
             avatar={profil.avatar}
             finition={profil.finition}
             eclat={eclatChez(profil, cibleEclat(profil.legendaire, profil.avatar))}
-            legendaire={profil.legendaire ?? undefined}
+            legendaire={profil.legendaire ?? undefined} sceau={sceauVisible(profil)}
           />
           {/* « Content de te revoir » parlait au masculin, et dès la première
               visite : « Te revoilà » ne dit ni l'un ni l'autre. */}
@@ -664,7 +664,7 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
             avatar={profil.avatar}
             finition={profil.finition}
             eclat={eclatChez(profil, cibleEclat(profil.legendaire, profil.avatar))}
-            legendaire={profil.legendaire ?? undefined}
+            legendaire={profil.legendaire ?? undefined} sceau={sceauVisible(profil)}
           />
           Ton profil reste <strong>{profil.name}</strong>
           <Niveau niveau={profil.niveau} />

@@ -831,6 +831,8 @@ export interface LigneDuDefi {
   niveau: number
   finition?: Finition
   legendaire?: string
+  /** Le légendaire porté est scellé : il en tient la voie d'origine (`Distinctions.sceau`). */
+  sceau?: true
   eclat?: EclatPorte
   laurier?: LaurierPorte
   /** Sa bordure de ligue des duels, autour de son avatar (`ProfileStore.bordureDe`). */
@@ -1005,6 +1007,8 @@ export const DEFIS_RECUS_MONTRES = 10
 export interface SonApparence {
   finition?: Finition
   legendaire?: string
+  /** Le légendaire porté est scellé (`Distinctions.sceau`). */
+  sceau?: true
   /** Sa version rare, ou la matière qu'il en porte : telle quelle (`EclatPorte`). */
   eclat?: EclatPorte
   /** La bordure de ligue qu'il porte, là où ses duels sont lus avec lui (`bordurePortee`). */

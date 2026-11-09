@@ -297,7 +297,7 @@ export function ClassementDuMoisAuQg({ suivi, occupe, masquer }: { suivi: SuiviD
               <span className="qg-rang-place num">{l.rang}</span>
               {/* Tel que les joueurs le voient : ce qu'il porte, pas l'emoji d'en dessous. */}
               <span className="qg-avatar" aria-hidden="true">
-                <Avatar avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} eclat={l.eclat} />
+                <Avatar avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} sceau={l.sceau} eclat={l.eclat} />
               </span>
               {/* Son prénom ouvre sa fiche : la revue d'ergonomie du 4 novembre 2026 cherchait le joueur ailleurs. */}
               <span className="qg-ligne-texte">

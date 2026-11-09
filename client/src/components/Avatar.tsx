@@ -32,6 +32,12 @@ interface Props {
   grand?: boolean
   /** Sa bordure de ligue, s'il en porte une là où ses duels sont lus avec lui : la loge, sa carte, les duels. */
   bordure?: BordureDeLigue | null
+  /**
+   * Le légendaire qu'il porte est scellé — il en tient la voie d'origine
+   * (`Distinctions.sceau`) : l'étoile du zénith au sommet de son cercle.
+   * Sans effet sur tout le reste.
+   */
+  sceau?: boolean
 }
 
 /**
@@ -85,13 +91,13 @@ interface Props {
  * par page, et pas de remède bon marché — attendre retarderait son arrivée
  * chez tout le monde, précharger ferait tout télécharger à chacun.
  */
-export function Avatar({ avatar, finition, eclat, legendaire, className, grand, bordure }: Props) {
+export function Avatar({ avatar, finition, eclat, legendaire, className, grand, bordure, sceau }: Props) {
   const divin = legendaire && divinDe(legendaire) ? legendaire : null
   const porte = !divin && legendaire && legendaireDe(legendaire) ? legendaire : null
   const tete = legendaire && portraitDe(legendaire) ? legendaire : null
   const forme = legendaire && formeDeCompagnon(legendaire) ? legendaire : null
   const dessins = useDessins(...sortesDesAvatars([{ legendaire, finition, bordure }]))
-  const { Legendaire, Divin, Portrait, Compagnon, Lumiere, Bordure } = dessins
+  const { Legendaire, Divin, Portrait, Compagnon, Lumiere, Bordure, Sceau } = dessins
   // Son portrait, son compagnon, s'il est arrivé : l'emoji tient la place en attendant.
   const portrait = tete && Portrait && dessinDuPortrait(dessins, tete) ? tete : null
   const compagnon = forme && Compagnon && dessinDuCompagnon(dessins, forme) ? forme : null
@@ -124,6 +130,9 @@ export function Avatar({ avatar, finition, eclat, legendaire, className, grand, 
   }
   if (lumiere) classes.push('av-lumiere')
   if (cadre) classes.push('av-bordure')
+  // Son sceau : sur un légendaire seulement, dessiné — jamais sur l'emoji qui l'attend.
+  const scelle = !!sceau && !!porte && !!Legendaire && !!Sceau
+  if (scelle) classes.push('av-scelle')
   const dedans = (
     <>
       {/* Derrière l'avatar : le débord d'un médaillon passe par-dessus elle. */}
@@ -143,6 +152,8 @@ export function Avatar({ avatar, finition, eclat, legendaire, className, grand, 
           avatar
         )}
       </span>
+      {/* Devant tout, ce qui déborde compris : l'étoile couronne le cercle, ou la bordure. */}
+      {scelle && Sceau && <Sceau finition={finition ?? 'mat'} />}
     </>
   )
   return (
@@ -194,7 +205,11 @@ function EmojiEnMatiere({ avatar, matiere }: { avatar: string; matiere: Matiere 
  * 13 octobre 2026). Sans bordure : là, l'anneau de sa ligue la dit déjà.
  */
 export function Visage({ avatar, apparence }: { avatar: string; apparence?: SonApparence }) {
-  return apparence ? <Avatar avatar={avatar} finition={apparence.finition} legendaire={apparence.legendaire} eclat={apparence.eclat} /> : <>{avatar}</>
+  return apparence ? (
+    <Avatar avatar={avatar} finition={apparence.finition} legendaire={apparence.legendaire} eclat={apparence.eclat} sceau={apparence.sceau} />
+  ) : (
+    <>{avatar}</>
+  )
 }
 
 /** Un avatar tel qu'une ligne le reçoit : son emoji, et ce qu'il porte à sa place, à plat (`ApparenceDeLAvatar`). */
@@ -208,7 +223,7 @@ export type AvatarAPlat = { avatar: string } & ApparenceDeLAvatar
  * une seule entité »).
  */
 export function AvatarEnLigne({ de }: { de: AvatarAPlat }) {
-  return <Avatar className="av-en-ligne" avatar={de.avatar} finition={de.finition} legendaire={de.legendaire} eclat={de.eclat} />
+  return <Avatar className="av-en-ligne" avatar={de.avatar} finition={de.finition} legendaire={de.legendaire} eclat={de.eclat} sceau={de.sceau} />
 }
 
 /** Des joueurs nommés dans une phrase, chacun son avatar, à la française : « 🦊 Léa », « 🦊 Léa et 🐻 Tom », « 🦊 Léa, 🐻 Tom et 🐸 Zoé ». */

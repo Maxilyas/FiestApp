@@ -384,6 +384,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/experience.test.ts` — le barème de l'expérience.
 - `server/test/hautsfaits.test.ts` — hauts faits, paliers, légendaires.
 - `server/test/legendaires.test.ts` — durcir un légendaire ne reprend rien.
+- `server/test/sceau.test.ts` — le sceau d'un légendaire : seul se scelle ce qu'un raccourci donne aussi, par son exploit ; la carte, le profil et la salle le voient, la loge le masque.
 - `server/test/niveaux.test.ts` — personne ne redescend de niveau.
 - `server/test/pierres.test.ts` — dès le niveau 30, la pastille et la gemme de la carte prennent la pierre de leur dizaine ; leur chiffre se lit, aucun thème ne la repeint.
 - `server/test/eclat.test.ts` — ce qui éclate.

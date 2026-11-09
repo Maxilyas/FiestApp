@@ -2,6 +2,7 @@ import { useId, useRef, type CSSProperties, type PointerEvent } from 'react'
 import type { Finition } from '../../../shared/profil'
 import { legendaire as legendaireDe } from '../../../shared/legendaires'
 import { inscrireDessin } from './medaillons'
+import { Sceau } from './Sceau'
 import { Cercle, OR } from './Cercle'
 import { IMAGES } from './legendaires-peints'
 import { MATRICE_DE_LA_LUMIERE, enMatiere, tablesDeLaMatiere, type Matiere } from '../../../shared/matieres'
@@ -340,5 +341,6 @@ export function Legendaire({ cle, verrouille, finition, eclat, grand, className 
   )
 }
 
-// Évalué, le dessin est là pour tout `Avatar` de la page (voir `medaillons.ts`).
-inscrireDessin({ Legendaire })
+// Évalué, le dessin est là pour tout `Avatar` de la page (voir `medaillons.ts`) — et le
+// sceau avec lui : il ne se porte que sur un légendaire.
+inscrireDessin({ Legendaire, Sceau })

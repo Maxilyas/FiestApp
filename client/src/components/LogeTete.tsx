@@ -8,7 +8,7 @@ import { ongletVise } from './Onglets'
 import { espacesFines } from '../format'
 import { cibleEclat } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
-import { NOM_FINITION, eclatChez, type PublicProfileDetail } from '../../../shared/profil'
+import { NOM_FINITION, eclatChez, sceauVisible, type PublicProfileDetail } from '../../../shared/profil'
 import { nomDuTitre } from '../../../shared/sentiers'
 import { bordurePortee } from '../../../shared/duels'
 import { PIECES_DE_LA_LOGE, type PieceDeLaLoge } from '../../../shared/piecesDeLaLoge'
@@ -81,7 +81,7 @@ export function CarteDeLaLoge({
               avatar={vu.avatar}
               finition={vu.finition}
               eclat={eclatChez(vu, cibleEclat(vu.legendaire ?? undefined, vu.avatar))}
-              legendaire={vu.legendaire ?? undefined}
+              legendaire={vu.legendaire ?? undefined} sceau={sceauVisible(vu)}
               bordure={bordurePortee(vu.bordureChoisie ?? 'auto', vu.bordures)}
             />
           </span>

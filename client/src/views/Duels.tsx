@@ -1003,7 +1003,7 @@ function Echelon({
         <span className="num duels-rang-place">{l.rang}</span>
         {/* Ce qu'il porte, sa bordure comprise, comme au classement entier : l'emoji seul y montrait
             l'écureuil d'en dessous à qui porte son légendaire (le retour du propriétaire du 13 octobre 2026). */}
-        <Avatar className="duels-rang-avatar" avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} eclat={l.eclat} bordure={l.bordure} />
+        <Avatar className="duels-rang-avatar" avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} sceau={l.sceau} eclat={l.eclat} bordure={l.bordure} />
         <span className="duels-echelon-texte">
           <b>{moi ? 'Toi' : l.nom}</b>
           <span>
@@ -1317,7 +1317,7 @@ function LigneDuClassement({ ligne: l, moi, enCours, onOuvrir }: { ligne: LigneD
       onClick={() => onOuvrir(l.profileId)}
     >
       <Rank n={l.rang} />
-      <Avatar className="lb-avatar" avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} eclat={l.eclat} bordure={l.bordure} />
+      <Avatar className="lb-avatar" avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} sceau={l.sceau} eclat={l.eclat} bordure={l.bordure} />
       <span className="lb-name">
         <NomLaure nom={l.nom} laurier={l.laurier} />
       </span>

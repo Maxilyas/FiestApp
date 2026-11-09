@@ -290,7 +290,8 @@ test('en soirée : la régie, le panneau des absents et les candidats de « Qui 
     const attendue = s.vueHote()!.attendus!.find(a => a.playerId === lea)
     assert.deepEqual([attendue?.avatar, attendue?.finition, attendue?.legendaire], ['🦊', 'or', 'lg:phenix'])
     const absents = readFileSync(new URL('../../client/src/components/Absents.tsx', import.meta.url), 'utf8')
-    assert.match(absents, /<Avatar avatar=\{l\.avatar\} finition=\{l\.finition\} legendaire=\{l\.legendaire\} eclat=\{l\.eclat\} \/>/)
+    // Son sceau aussi, depuis le 9 novembre 2026 : la Comète scellée n'a pas le même visage que celle du Cabinet.
+    assert.match(absents, /<Avatar avatar=\{l\.avatar\} finition=\{l\.finition\} legendaire=\{l\.legendaire\} sceau=\{l\.sceau\} eclat=\{l\.eclat\} \/>/)
     assert.match(absents, /\.\.\.apparenceDeLAvatar\(a\),/, 'les attendus de la question')
     assert.match(absents, /\.\.\.apparenceDeLAvatar\(p\), horsLigne: true/, 'les autres hors ligne')
   } finally {

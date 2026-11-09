@@ -123,7 +123,7 @@ export function StatsTable({ stats }: { stats: PartyStats }) {
             <tr key={s.playerId}>
               <td className="stats-name">
                 {/* Ce qu'il porte, comme au classement : l'emoji seul lui donnait un autre visage. */}
-                <Avatar className="lb-avatar" avatar={s.avatar} finition={s.finition} legendaire={s.legendaire} eclat={s.eclat} /> {s.name}
+                <Avatar className="lb-avatar" avatar={s.avatar} finition={s.finition} legendaire={s.legendaire} sceau={s.sceau} eclat={s.eclat} /> {s.name}
               </td>
               {COLUMNS.map(c => (
                 <td

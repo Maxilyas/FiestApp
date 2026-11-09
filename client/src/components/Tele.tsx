@@ -134,7 +134,7 @@ export function SalleDeLaTele({
         <ul className="tv-visages">
           {visages.map(p => (
             <li key={p.id}>
-              <Avatar className="tv-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} bordure={p.bordure} />
+              <Avatar className="tv-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} sceau={p.sceau} bordure={p.bordure} />
               <span>{p.nomAffiche ?? p.name}</span>
             </li>
           ))}

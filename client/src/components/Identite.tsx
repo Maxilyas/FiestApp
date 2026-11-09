@@ -3,7 +3,7 @@ import { Niveau } from './Niveau'
 import { Laurier } from './Laurier'
 import { Icon } from './Icon'
 import { formatNumber } from '../format'
-import { eclatChez, type ProfilDAccueil, type PublicProfileDetail } from '../../../shared/profil'
+import { eclatChez, sceauVisible, type ProfilDAccueil, type PublicProfileDetail } from '../../../shared/profil'
 import { cibleEclat } from '../../../shared/legendaires'
 import { bordurePortee } from '../../../shared/duels'
 
@@ -42,7 +42,7 @@ export function IdentiteLigne({
         avatar={profil.avatar}
         finition={profil.finition}
         eclat={eclatChez(profil, cibleEclat(profil.legendaire, profil.avatar))}
-        legendaire={profil.legendaire ?? undefined}
+        legendaire={profil.legendaire ?? undefined} sceau={sceauVisible(profil)}
         bordure={saBordure(profil)}
       />
       <span className="identite-texte">

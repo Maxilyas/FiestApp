@@ -389,7 +389,7 @@ export function CarteJoueur({
                             avatar={carte.avatar}
                             finition={carte.finition}
                             eclat={carte.eclat}
-                            legendaire={carte.legendaire}
+                            legendaire={carte.legendaire} sceau={carte.sceau}
                             bordure={carte.bordure}
                           />
                         </button>
@@ -1123,7 +1123,7 @@ export function AvatarEnGrand({ carte, hauteur, onRevenir }: { carte: CarteDeJou
           avatar={carte.avatar}
           finition={carte.finition}
           eclat={carte.eclat}
-          legendaire={carte.legendaire}
+          legendaire={carte.legendaire} sceau={carte.sceau}
           bordure={carte.bordure}
           grand
         />

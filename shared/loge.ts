@@ -19,7 +19,7 @@ import { fond } from './fonds'
 import { AUCUNE_GERBE, gerbe } from './gerbes'
 import { cleRangee, hautsFaitsGagnes } from './hautsfaits'
 import { cibleEclat, legendaire } from './legendaires'
-import { NOM_FINITION, clesQuiBrillent, eclatChez, meilleureFinition, type FinitionChoisie, type PublicProfileDetail } from './profil'
+import { NOM_FINITION, clesQuiBrillent, eclatChez, meilleureFinition, sceauVisible, type FinitionChoisie, type PublicProfileDetail } from './profil'
 import { NOM_DE_LA_MATIERE, type Matiere } from './matieres'
 import { recompensesDe } from './proches'
 import { cleDeMaitre, maitresDe, nomDuTitre } from './sentiers'
@@ -58,6 +58,8 @@ export interface Essai {
   eclat?: { cle: string; brille: boolean; matiere?: Matiere | null }
   /** La bordure de ligue : `auto`, `aucune`, ou celle d'une ligue atteinte. */
   bordure?: ChoixDeBordure
+  /** Le sceau de ses légendaires : montré (`true`, d'office) ou masqué. */
+  sceau?: boolean
 }
 
 /**
@@ -65,7 +67,7 @@ export interface Essai {
  * qu'il a éteints : la version qu'il montre de chacun.
  */
 export type Tenue = Pick<PublicProfileDetail, 'avatar' | 'legendaire' | 'finitionChoisie' | 'titre' | 'vitrineChoisie' | 'fond' | 'theme' | 'gerbe' | 'bordureChoisie'> &
-  Partial<Pick<PublicProfileDetail, 'eclats' | 'eclatsEteints' | 'matieres' | 'matieresPortees'>>
+  Partial<Pick<PublicProfileDetail, 'eclats' | 'eclatsEteints' | 'matieres' | 'matieresPortees' | 'scelles' | 'sceauMasque'>>
 
 /** L'avatar que la carte montre : l'emoji essayé ôte le légendaire, comme au serveur. */
 export function avatarMontre(porte: Pick<Tenue, 'avatar' | 'legendaire'>, essai: Essai): { avatar: string; legendaire: string | null } {
@@ -109,6 +111,7 @@ export function essayer(essai: Essai, piece: Essai, porte: Tenue): Essai {
   if (suivant.legendaire !== undefined && suivant.legendaire === (porte.legendaire ?? null)) delete suivant.legendaire
   if (suivant.finition !== undefined && suivant.finition === porte.finitionChoisie) delete suivant.finition
   if (suivant.bordure !== undefined && suivant.bordure === (porte.bordureChoisie ?? 'auto')) delete suivant.bordure
+  if (suivant.sceau !== undefined && suivant.sceau === !porte.sceauMasque) delete suivant.sceau
   if (suivant.titre !== undefined && suivant.titre === (porte.titre ?? null)) delete suivant.titre
   if (suivant.vitrine !== undefined && memeVitrine(suivant.vitrine, porte.vitrineChoisie ?? null)) delete suivant.vitrine
   if (suivant.fond !== undefined && suivant.fond === (porte.fond ?? null)) delete suivant.fond
@@ -173,6 +176,7 @@ export function avecLEssai<P extends Tenue & Pick<PublicProfileDetail, 'finition
     vu.finition = essai.finition === 'auto' ? meilleureFinition(profil.niveau) : essai.finition
   }
   if (essai.bordure !== undefined) vu.bordureChoisie = essai.bordure
+  if (essai.sceau !== undefined) vu.sceauMasque = !essai.sceau
   if (essai.titre !== undefined) vu.titre = essai.titre
   if (essai.vitrine !== undefined) vu.vitrineChoisie = essai.vitrine
   if (essai.fond !== undefined) vu.fond = essai.fond
@@ -215,7 +219,7 @@ export function carteAvecLEssai(
 ): CarteDeJoueur {
   const vu = avecLEssai(profil, essai)
   const retouchee: CarteDeJoueur = { ...carte }
-  if (essai.avatar !== undefined || essai.legendaire !== undefined || essai.finition !== undefined || essai.bordure !== undefined || essai.eclat) {
+  if (essai.avatar !== undefined || essai.legendaire !== undefined || essai.finition !== undefined || essai.bordure !== undefined || essai.eclat || essai.sceau !== undefined) {
     const legendaire = vu.legendaire ?? undefined
     // Ni bordure sous un Divin, qui a sa propre lumière.
     const bordure = divin(legendaire) ? null : bordurePortee(vu.bordureChoisie ?? 'auto', vu.bordures)
@@ -225,11 +229,13 @@ export function carteAvecLEssai(
     delete retouchee.eclat
     delete retouchee.legendaire
     delete retouchee.bordure
+    delete retouchee.sceau
     // Telle quelle : sa version rare, ou la matière qu'il essaie.
     const eclat = eclatChez(vu, cibleEclat(legendaire, vu.avatar))
     if (eclat) retouchee.eclat = eclat
     if (legendaire) retouchee.legendaire = legendaire
     if (bordure) retouchee.bordure = bordure
+    if (sceauVisible(vu)) retouchee.sceau = true
   }
   if (carte.profil && (essai.titre !== undefined || essai.vitrine !== undefined || essai.fond !== undefined)) {
     const p = { ...carte.profil }
@@ -294,6 +300,7 @@ export function lignesDeLEssai(essai: Essai, profil: Pick<PublicProfileDetail, '
     const f = essai.finition
     lignes.push({ piece: 'avatar', nom: f === 'auto' ? `La plus belle · ${NOM_FINITION[meilleureFinition(profil.niveau)]}` : NOM_FINITION[f], detail: 'Finition' })
   }
+  if (essai.sceau !== undefined) lignes.push({ piece: 'avatar', nom: essai.sceau ? 'Montré' : 'Masqué', detail: 'Sceau' })
   if (essai.bordure !== undefined) {
     const b = essai.bordure
     lignes.push({
