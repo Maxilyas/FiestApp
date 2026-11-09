@@ -78,6 +78,13 @@ prénoms. C'était son envie pour mélanger les générations.
   annoncé (`PlayerApp.tsx`). Rouvrir le choix entre deux quiz se décide avec
   cela en tête.
 
+**Depuis (le 9 novembre 2026).** Deux des pistes sont faites : tant que
+personne n'a marqué, la carte « Choisis ton équipe » monte en tête de la
+salle d'attente, son choix ouvert (`choixDEquipeOuvert`) ; et le chef range
+un invité depuis « ⋯ », sous « Sans équipe », même en plein quiz. La télé
+branchée ouvre toujours la salle avant « Ouvrir le salon », et le choix ne
+se rouvre pas de lui-même entre deux quiz : le parti pris tient.
+
 ### 2. « Révéler » part au premier toucher, même à une réponse sur sept — confirmé
 
 **Ce qui se passe.** À la question 6, Nadia a touché « Révéler » alors
@@ -99,6 +106,12 @@ doigt qui glisse ne se rouvre pas.
 **Piste.** Une confirmation sur « Révéler » tant que moins de la moitié a
 répondu, ou une seconde de garde sur ce bouton après « Question suivante » ;
 la confirmation du menu sur le gros « Terminer la soirée ».
+
+**Depuis (le 9 novembre 2026).** Fait, les trois : « Révéler » demande tant
+que moins de la moitié a répondu (`revelationPrecoce`), les gestes qui
+avancent la partie attendent la demi-seconde de la console après un
+changement d'écran (`gesteAccepte`), et le gros « Terminer la soirée »
+demande comme celui du menu.
 
 ### 3. Quitter « Nouveau salon » efface la préparation — confirmé
 

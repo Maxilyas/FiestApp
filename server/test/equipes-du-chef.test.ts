@@ -82,3 +82,30 @@ test('le choix d’équipe : l’emoji, le nom, les avatars de ceux qui y sont �
   assert.match(html, /title="Sofia, Hugo"/)
   assert.match(html, /team-btn selected[\s\S]*team-btn-check/, 'la choisie porte sa coche')
 })
+
+// La tablée du 9 novembre 2026 : la télé branchée avait ouvert la salle avant
+// « Ouvrir le salon », quatre invités sur six étaient entrés avant les
+// équipes, et rien ne les invitait à en choisir une — une carte de plus sous
+// le classement, un bouton discret, puis plus rien une fois le quiz parti.
+test('des équipes formées après son entrée : la salle d’attente invite à choisir la sienne, tant que rien n’est joué', async () => {
+  const { choixDEquipeOuvert } = await import('../../shared/teams')
+  const avantLeQuiz = { equipes: 2, aUneEquipe: false, quizEnCours: false, horsClassement: false, soireeCommencee: false }
+  assert.equal(choixDEquipeOuvert(avantLeQuiz), true, 'le choix s’ouvre de lui-même')
+  assert.equal(choixDEquipeOuvert({ ...avantLeQuiz, equipes: 0 }), false, 'pas d’équipes, rien à choisir')
+  assert.equal(choixDEquipeOuvert({ ...avantLeQuiz, aUneEquipe: true }), false, 'qui a la sienne garde « Changer »')
+  assert.equal(choixDEquipeOuvert({ ...avantLeQuiz, quizEnCours: true }), false, 'on ne change pas de camp en plein quiz')
+  assert.equal(choixDEquipeOuvert({ ...avantLeQuiz, horsClassement: true }), false, 'le chef qui anime seulement ne compte pour personne')
+  // Une fois des points marqués, le choix ne s'ouvre plus seul : rejoindre
+  // une équipe après un podium retournait le vainqueur annoncé. Le bouton reste.
+  assert.equal(choixDEquipeOuvert({ ...avantLeQuiz, soireeCommencee: true }), false)
+
+  const page = readFileSync(client('views/PlayerApp.tsx'), 'utf8')
+  assert.ok(
+    /const invite = choixDEquipeOuvert\(\{\s*equipes: teams\.length,\s*aUneEquipe: !!myTeam,\s*quizEnCours: !!session,\s*horsClassement: !!me\?\.horsClassement,\s*soireeCommencee: snap\.players\.some\(p => p\.score > 0\),?\s*\}\)/.test(page),
+    'la salle d’attente lit la règle',
+  )
+  // Invité, il la trouve en tête de sa salle d'attente, le choix déjà ouvert — pas sous le classement.
+  assert.ok(page.indexOf('{invite && carteDesEquipes}') > 0 && page.indexOf('{invite && carteDesEquipes}') < page.indexOf('id="place-invitation"'), 'en tête, avant l’invitation du salon')
+  assert.ok(page.includes('{!invite && carteDesEquipes}'), 'sinon à sa place d’avant')
+  assert.ok(page.includes('{switching || invite ? ('), 'le choix ouvert sans toucher')
+})

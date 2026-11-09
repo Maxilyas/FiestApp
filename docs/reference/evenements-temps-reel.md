@@ -237,7 +237,7 @@ Rangés par famille : l'horloge, l'invité, l'écran d'animateur et la partie, l
 
 ### `host:assignPlayer`
 
-- **Qui l'émet** : un écran d'animateur — le menu d'équipe d'une puce de la salle d'attente (`client/src/views/HostApp.tsx`).
+- **Qui l'émet** : un écran d'animateur — le menu d'équipe d'une puce de la salle d'attente (`client/src/views/HostApp.tsx`) ; la barre du chef, sous « Sans équipe », à tout moment de la soirée (`rangerInvite`, `client/src/socketDuChef.ts`).
 - **Charge** : `{ playerId, teamId }` — `null` pour sortir l'invité de son équipe.
 - **Accusé** : aucun.
 - **Effet** : déplace l'invité, y compris pendant un quiz — les questions déjà jouées gardent l'équipe de leur moment ; l'instantané part regroupé ; son téléphone, et lui seul, reçoit un `toast` au nom de l'animateur : « Bob t'a placé·e dans l'équipe 💃 Les Salseras », ou « Bob t'a sorti·e de ton équipe ».

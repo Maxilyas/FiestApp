@@ -47,7 +47,7 @@ Avec un profil reconnu, rien à retaper : « Te revoilà, » ton prénom et ton 
 
 S'il y a des équipes, un second écran, « Ton équipe », montre un gros bouton par équipe : son emoji, son nom, les visages de ceux qui y sont déjà. « Tes points restent les tiens — ils comptent aussi pour ton équipe. »
 
-Un quiz a déjà commencé ? « Entrer sans équipe » te fait entrer tout de suite : tu la choisiras à la fin du quiz. En salle d'attente, « Choisir mon équipe » ou « Changer » — jamais pendant un quiz.
+Un quiz a déjà commencé ? « Entrer sans équipe » te fait entrer tout de suite : tu la choisiras à la fin du quiz. En salle d'attente, « Choisir mon équipe » ou « Changer » — jamais pendant un quiz. Des équipes formées après ton entrée, avant le premier quiz ? « Choisis ton équipe » monte en tête de ta salle d'attente, le choix déjà ouvert. Et l'animateur peut te ranger lui-même à tout moment : ton téléphone te le dit.
 
 ## En attendant le quiz
 

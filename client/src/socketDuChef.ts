@@ -125,6 +125,15 @@ export function retirerEquipe(teamId: string) {
   socket?.emit('host:removeTeam', { teamId })
 }
 
+/**
+ * Range un invité dans une équipe, même en plein quiz : son téléphone le lui
+ * dit, à lui seul. Entré avant que les équipes existent, il n'avait plus
+ * aucun moyen d'en rejoindre une une fois le quiz parti, et le chef non plus.
+ */
+export function rangerInvite(playerId: string, teamId: string) {
+  socket?.emit('host:assignPlayer', { playerId, teamId })
+}
+
 /** Enregistre la soirée maintenant : sa fin à chacun, puis la page blanche. */
 export function clore() {
   poser({ message: null })

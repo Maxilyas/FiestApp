@@ -18,6 +18,7 @@ import {
 } from '../state'
 import { suivanteCommencee } from '../../../shared/fin'
 import { entreeUtilisable, type EntreeDeDepart } from '../../../shared/depart'
+import { choixDEquipeOuvert } from '../../../shared/teams'
 import { currentSlug, dataUrl, spacePath } from '../routes'
 import { Leaderboard } from '../components/Leaderboard'
 import { TeamBoard } from '../components/TeamBoard'
@@ -770,6 +771,51 @@ function SalleDuJoueur() {
       // Stockage bloqué : la carte reste fermée jusqu'au rechargement.
     }
   }
+  // Des équipes formées après son entrée — la télé branchée ouvre la salle
+  // avant « Ouvrir le salon » — : la carte monte en tête, son choix ouvert.
+  // Sous le classement, derrière un bouton, quatre invités sur six ne l'ont
+  // jamais vue (la tablée du 9 novembre 2026).
+  const invite = choixDEquipeOuvert({
+    equipes: teams.length,
+    aUneEquipe: !!myTeam,
+    quizEnCours: !!session,
+    horsClassement: !!me?.horsClassement,
+    soireeCommencee: snap.players.some(p => p.score > 0),
+  })
+  const carteDesEquipes = teams.length > 0 && (
+    <div className="card">
+      <div className="card-head">
+        <h3>
+          <Icon name="users" />
+          {invite ? 'Choisis ton équipe' : 'Les équipes'}
+        </h3>
+        {/* On ne change pas de camp en plein quiz : le serveur le refuse
+            pendant un quiz, autant ne pas proposer le bouton. */}
+        {!session && !invite && (
+          <button className="btn btn-ghost btn-small" onClick={() => setSwitching(v => !v)}>
+            {switching ? 'Annuler' : myTeam ? 'Changer' : 'Choisir mon équipe'}
+          </button>
+        )}
+      </div>
+      {/* Dite quand elle paraît : au lecteur d'écran, rien d'autre n'annonce
+          que des équipes viennent de se former. */}
+      {invite && (
+        <p className="muted small" role="status">
+          Tes points restent les tiens — ils comptent aussi pour ton équipe.
+        </p>
+      )}
+      {/* Le choix ne s'ouvre de lui-même que tant que rien n'est joué
+          (`choixDEquipeOuvert`) : à qui est entré sans équipe pendant un
+          quiz, le rejoindre après le podium retournait le vainqueur annoncé.
+          L'entrée le lui a proposé ; le bouton reste. */}
+      {switching || invite ? (
+        <TeamPicker teams={teams} value={me?.teamId ?? null} onPick={changeTeam} players={snap.players} />
+      ) : (
+        // Rien sous les équipes : sobre (le propriétaire du dépôt, le 4 octobre 2026).
+        <TeamBoard teams={teams} highlightId={me?.teamId ?? null} compact />
+      )}
+    </div>
+  )
 
   return (
     <div className="player-shell">
@@ -804,6 +850,8 @@ function SalleDuJoueur() {
 
       {avisAbsent}
 
+      {invite && carteDesEquipes}
+
       {/* La place de l'invitation du salon — le code en grand, le QR —, que
           la barre du chef y pose sur son seul téléphone (`BarreDuChef`). */}
       {!session && <div id="place-invitation" className="place-invitation" />}
@@ -831,32 +879,7 @@ function SalleDuJoueur() {
         </div>
       )}
 
-      {teams.length > 0 && (
-        <div className="card">
-          <div className="card-head">
-            <h3>
-              <Icon name="users" />
-              Les équipes
-            </h3>
-            {/* On ne change pas de camp en plein quiz : le serveur le refuse
-                pendant un quiz, autant ne pas proposer le bouton. */}
-            {!session && (
-              <button className="btn btn-ghost btn-small" onClick={() => setSwitching(v => !v)}>
-                {switching ? 'Annuler' : myTeam ? 'Changer' : 'Choisir mon équipe'}
-              </button>
-            )}
-          </div>
-          {/* Le choix ne s'ouvre plus de lui-même à qui est entré sans équipe
-              pendant un quiz : le rejoindre après le podium retournait le
-              vainqueur annoncé. L'entrée le lui a proposé ; le bouton reste. */}
-          {switching ? (
-            <TeamPicker teams={teams} value={me?.teamId ?? null} onPick={changeTeam} players={snap.players} />
-          ) : (
-            // Rien sous les équipes : sobre (le propriétaire du dépôt, le 4 octobre 2026).
-            <TeamBoard teams={teams} highlightId={me?.teamId ?? null} compact />
-          )}
-        </div>
-      )}
+      {!invite && carteDesEquipes}
 
       <div className="card">
         <h3>
