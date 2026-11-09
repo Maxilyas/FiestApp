@@ -44,6 +44,24 @@ paths:
   lancer, terminer, clore, les équipes — n'ont pas d'accusé au serveur et
   ne se renvoient pas** : une liaison morte les perd encore, et « Clore »
   renvoyé à l'aveugle pourrait clore la soirée d'après.
+- **La barre du chef a les garde-fous de la console, et les équipes
+  rattrapent ceux qui sont déjà là** (la tablée du 9 novembre 2026,
+  `retours/2026-11-09/synthese.md`, axes 1 et 2). Ses boutons changent de
+  rôle sous le même pouce : un geste qui avance la partie attend la
+  demi-seconde qui suit un changement de phase (`gesteAccepte`, la garde de
+  `HostView`, que la barre n'avait pas), et « Révéler » se confirme tant que
+  moins de la moitié a répondu (`revelationPrecoce`, `shared/console.ts`) —
+  sa visée prise au toucher, avant la boîte (invariant 12). Le gros
+  « Terminer la soirée » du dernier podium demande comme celui du menu. Un
+  bouton de plus qui avance la partie passe par `garde`. Côté équipes : la
+  télé branchée ouvre la salle avant « Ouvrir le salon », donc avant que les
+  équipes préparées soient posées ; à qui est déjà en salle d'attente, la
+  carte monte en tête, son choix ouvert, tant que personne n'a marqué
+  (`choixDEquipeOuvert`, `shared/teams.ts` — plus après : rejoindre une
+  équipe derrière un podium retournait le vainqueur annoncé), et le chef
+  range un invité depuis « ⋯ », « Sans équipe », même en plein quiz
+  (`rangerInvite`, `host:assignPlayer` : son téléphone le lui dit).
+  `barre-du-chef.test.ts`, `equipes-du-chef.test.ts`, `console.test.ts`.
 - **L'entrée paraît avant la liaison.** La page d'un invité précharge son
   état de départ (`/s/<espace>/entree.json`, `shared/depart.ts`) : ce que
   `party:watch` dirait, l'instantané des téléphones et le profil du cookie.

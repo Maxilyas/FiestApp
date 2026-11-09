@@ -3,7 +3,22 @@
 // serveur (`games/quiz.ts`) les lisent tous deux.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { ENCHAINEMENT_MAX_S, GARDE_APRES_PHASE_MS, PALIERS_ENCHAINEMENT, gesteAccepte } from '../../shared/console'
+import { ENCHAINEMENT_MAX_S, GARDE_APRES_PHASE_MS, PALIERS_ENCHAINEMENT, gesteAccepte, revelationPrecoce } from '../../shared/console'
+
+// La tablée du 9 novembre 2026 : Nadia a touché « Révéler » alors qu'elle
+// seule avait répondu, et six invités ont perdu la question. Moins de la
+// moitié de la salle a répondu : le geste se confirme.
+test('« Révéler » se confirme tant que moins de la moitié de la salle a répondu', () => {
+  assert.equal(revelationPrecoce(1, 7), true, 'une réponse sur sept : la question partait pour tout le monde')
+  assert.equal(revelationPrecoce(0, 7), true, 'le double toucher qui tombe sur la question suivante')
+  assert.equal(revelationPrecoce(3, 7), true)
+  assert.equal(revelationPrecoce(4, 7), false, 'la moitié passée, l’animatrice sait ce qu’elle fait')
+  assert.equal(revelationPrecoce(1, 2), false, 'à deux, une réponse est déjà la moitié')
+  assert.equal(revelationPrecoce(0, 2), true)
+  // Seul, ou sans personne à attendre : il n'y a personne à priver de la question.
+  assert.equal(revelationPrecoce(0, 1), false)
+  assert.equal(revelationPrecoce(0, 0), false)
+})
 
 test('le double-clic sur « Révéler » ne tombe pas sur « Question suivante »', () => {
   // Le premier clic révèle ; la révélation arrive ~100 ms plus tard, et le

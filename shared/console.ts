@@ -43,3 +43,16 @@ export const GARDE_APRES_PHASE_MS = 500
 export function gesteAccepte(changement: number | null, maintenant: number): boolean {
   return changement === null || maintenant - changement >= GARDE_APRES_PHASE_MS
 }
+
+/**
+ * « Révéler » demande-t-il confirmation ? Tant que moins de la moitié de
+ * ceux qu'on attend ont répondu : la question se ferme pour tout le monde,
+ * et rien ne la rend à ceux qui lisaient encore. Une animatrice a révélé à
+ * une réponse sur sept, d'un toucher, sous le pouce qui venait de demander
+ * la question (la tablée du 9 novembre 2026). Passé la moitié, elle sait ce
+ * qu'elle fait — c'est le geste qui presse les retardataires. Seul, ou sans
+ * personne à attendre, il n'y a personne à priver.
+ */
+export function revelationPrecoce(repondu: number, attendus: number): boolean {
+  return attendus >= 2 && repondu * 2 < attendus
+}

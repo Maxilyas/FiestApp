@@ -157,6 +157,28 @@ export const EMOJIS_D_EQUIPE = ['💃', '🕺', '🎤', '✨', '🥁', '🌶️'
 /** Au-delà, le choix d'équipe ne tient plus sur un écran de téléphone. */
 export const MAX_EQUIPES = 10
 
+/**
+ * La salle d'attente ouvre-t-elle d'elle-même le choix d'équipe ? À qui n'en
+ * a pas, quand il y en a, hors d'un quiz, et tant que la soirée n'a rapporté
+ * de points à personne. La télé branchée ouvre la salle avant « Ouvrir le
+ * salon » : des invités entrent avant les équipes, et rien ne les invitait à
+ * en choisir une — quatre sur six sont restés sans équipe toute une soirée
+ * (la tablée du 9 novembre 2026).
+ *
+ * Plus une fois des points marqués : le choix ne s'ouvre plus seul après un
+ * podium, où rejoindre une équipe retournait le vainqueur annoncé. Le bouton
+ * « Choisir mon équipe » reste, et l'animateur peut ranger quelqu'un.
+ */
+export function choixDEquipeOuvert(o: {
+  equipes: number
+  aUneEquipe: boolean
+  quizEnCours: boolean
+  horsClassement: boolean
+  soireeCommencee: boolean
+}): boolean {
+  return o.equipes > 0 && !o.aUneEquipe && !o.quizEnCours && !o.horsClassement && !o.soireeCommencee
+}
+
 /** Le nom d'une équipe tient sur une ligne de téléphone : le serveur coupe au-delà. */
 export const NOM_D_EQUIPE_MAX = 20
 
