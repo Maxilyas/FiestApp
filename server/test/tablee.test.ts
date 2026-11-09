@@ -24,7 +24,9 @@ import { fileURLToPath } from 'node:url'
 import { CATEGORIES } from '../../shared/categories'
 import { NIVEAUX, type Niveau } from '../../shared/campagne'
 import { TAUX_DU_CALIBRAGE } from '../../shared/sentiers'
-import { AFFIRMATIONS_DE_L_ECLAIR, MANCHES_PAR_PARTIE } from '../../shared/cabinet/bareme'
+import { AFFIRMATIONS_DE_L_ECLAIR, MANCHES_PAR_PARTIE, TRANCHES_DU_FILET } from '../../shared/cabinet/bareme'
+import { acteDuFilet } from '../../shared/cabinet/jeux/filetEnDeuxTemps'
+import { contenuDuCabinet } from '../src/core/cabinet/contenu'
 import {
   attenteDesImages,
   DES_PAR_GESTE_MAX,
@@ -203,7 +205,8 @@ test('un geste se dit à trois endroits : la régie, l’aide du pilote, les con
   assert.match(AIDE, /12\.5%/, 'l’aide dit la décimale après un point')
   // Les consignes du Cabinet : le Filet et l'Épingle au doigt, le curseur au clavier, le dé.
   assert.match(CONSIGNES, /tu joues par [^\n]*`de`/, 'les gestes du Cabinet comptent le dé')
-  assert.match(CONSIGNES, /toucher "Ton estimation" --a 30%/)
+  // Le curseur du nouveau Filet, « L'année » — « La valeur » pour une grandeur : « Ton estimation » était celui d'avant.
+  assert.match(CONSIGNES, /toucher "L’année" --a 30%/)
   assert.match(CONSIGNES, /--a 60%,55%/)
   assert.match(CONSIGNES, /12\.5%/, 'une décimale après un point')
   assert.match(CONSIGNES, /touche Tab/, 'un curseur s’atteint par Tab avant les flèches')
@@ -391,8 +394,24 @@ const logit = (p: number) => Math.log(p / (1 - p))
 const chance = (base: number, theta: number) => sigmoide(logit(base) + theta)
 /** Ce qu'un joueur de cette force sait vraiment d'une question de la base, sans deviner parmi ses quatre réponses. */
 const sait = (theta: number, n: Niveau) => Math.max(0, (chance(TAUX_DU_CALIBRAGE[n], theta) - 1 / 4) / (1 - 1 / 4))
-const filetSait = (theta: number, n: Niveau) =>
-  chance(partDuModele('filetSait'), theta + logit(TAUX_DU_CALIBRAGE[n]) - logit(TAUX_DU_CALIBRAGE.moyen))
+/**
+ * La loi des étoiles du nouveau Filet, acte par acte, de zéro à trois : hors de `MODELE` — des lois, pas des parts —,
+ * lue dans sa déclaration (`LOI_DU_FILET_PAR_ACTE`), sa virgule finale ôtée.
+ */
+const LOI_DU_FILET: number[][] = (() => {
+  const m = /const LOI_DU_FILET_PAR_ACTE: [^=]*= (\[.*?\],? \])/.exec(MODELE_DU_CALIBRAGE)
+  assert.ok(m, 'le calibrage déclare LOI_DU_FILET_PAR_ACTE')
+  return JSON.parse(m[1].replace(/,\s*\]$/, ']')) as number[][]
+})()
+/** Au nouveau Filet, ce que le calibrage tire de cette loi (`neSaventPasLEpoque`, `saitLEpoque`, `classesSures`). */
+const neSaventPasLEpoque = (acte: number) => Math.min(0.999, LOI_DU_FILET[acte][0] / (1 - 1 / TRANCHES_DU_FILET))
+const saitLEpoque = (theta: number, acte: number) => chance(1 - neSaventPasLEpoque(acte), theta)
+function classesSures(acte: number): number[] {
+  const [, une, deux, trois] = LOI_DU_FILET[acte]
+  const sansLeHasard = Math.max(0, une - neSaventPasLEpoque(acte) / TRANCHES_DU_FILET)
+  const n = trois + deux + sansLeHasard
+  return [trois / n, deux / n, sansLeHasard / n]
+}
 /** La part de chaque rang — l'indice, le cadrage — selon sa force : le logit ordinal du calibrage. */
 function partsSelonLaForce(parts: readonly number[], theta: number): number[] {
   let cumul = 0
@@ -418,7 +437,11 @@ function seuilsDesRangs(theta: number, reconnu: string, auRang: string): number[
 function deAttendu(theta: number) {
   return {
     base: NIVEAUX.map(n => surDouze(sait(theta, n))),
-    filet: NIVEAUX.map(n => surDouze(filetSait(theta, n))),
+    // Le nouveau Filet, acte par acte : l'époque sue, puis, sue, l'anneau — pile dessus, ou à un quart d'époque ou mieux.
+    filet: [0, 1, 2].map(acte => {
+      const [trois, deux] = partsSelonLaForce(classesSures(acte), theta)
+      return [surDouze(saitLEpoque(theta, acte)), surDouze(trois), surDouze(trois + deux)]
+    }),
     frise: surDouze(chance(partDuModele('friseSait'), theta)),
     mot: surDouze(chance(partDuModele('repliqueMot'), theta)),
     // Qui l'a dite : le calibrage la décide d'après le mot — su, à sa part fixe ; sinon, à la part du joueur.
@@ -478,9 +501,12 @@ function deEcrit(texte: string, rangs: { detail: number; indices: number }) {
   const marches = tableau(texte, /facile \| moyenne \| difficile \| experte/)
   const sansMarche = tableau(texte, /sans marche \| Au plus/)
   const qui = (ligneDe(sansMarche, /^Qui a dit/)[1].match(/\d+/g) ?? []).map(Number)
+  // Le nouveau Filet, son tableau à lui, un acte par colonne : l'époque, pile dessus, à un quart d'époque ou mieux.
+  const filet = tableau(texte, /Le Filet, à l'acte de sa question \| I \| II \| III/)
+  const auFilet = [/^L'époque/, /pile dessus/, /quart d'époque/].map(quoi => ligneDe(filet, quoi).slice(1).map(seuilEcrit))
   return {
     base: ligneDe(marches, /Pari/).slice(1).map(seuilEcrit),
-    filet: ligneDe(marches, /Filet/).slice(1).map(seuilEcrit),
+    filet: [0, 1, 2].map(acte => auFilet.map(ligne => ligne[acte])),
     frise: seuilEcrit(ligneDe(sansMarche, /Frise/)[1]),
     mot: seuilEcrit(ligneDe(sansMarche, /mot de la Réplique/)[1]),
     // Un seul nombre : le même, qu'il sache le mot ou non.
@@ -507,6 +533,13 @@ test('le dé lit ce que lit le calibrage : les mêmes parts, la même marche', (
     'sait(p.j, a.question.niveau)',
     'sait(p.j, t.question.niveau)',
     'filetSait(p.j, t.question.niveau)',
+    // Le nouveau Filet se sait à l'acte de sa question : l'époque, puis l'anneau, de la loi des vrais lancers.
+    'const neSaventPasLEpoque = (acte: number) => Math.min(0.999, loiDuFilet(acte)[0] / (1 - 1 / BAREME.TRANCHES_DU_FILET))',
+    'const saitLEpoque = (j: Joueur, acte: number) => (j.theta === null ? 0 : chance(1 - neSaventPasLEpoque(acte), j.theta))',
+    'const sansLeHasard = Math.max(0, une - neSaventPasLEpoque(acte) / BAREME.TRANCHES_DU_FILET)',
+    'return [trois / n, deux / n, sansLeHasard / n]',
+    'const acte = ACTE_DU_FILET.get(t.question.id) ?? 0',
+    'epoque: p.oui(saitLEpoque(p.j, acte)), etoiles: (4 - rangSelonLaForce(classesSures(acte), p.j, p.r))',
     // Le reste n'a pas de marche.
     'part(p.j, MODELE.detailReconnu)',
     'rangSelonLaForce(MODELE.detailAuCadrage, p.j, p.r)',
@@ -563,6 +596,11 @@ test('la marche de ce qu’il faut savoir : le plan figé à l’indice que dit 
   assert.deepEqual(marchesASavoir(tirageDe('eclair', 0), null)?.marches, ['facile', 'facile', 'facile', 'facile', 'facile'])
   assert.deepEqual(marchesASavoir(tirageDe('mot', 0), null), { quoi: 'du mot', marches: ['facile'] })
   assert.deepEqual(marchesASavoir(tirageDe('filet', 0), null), { quoi: 'de la valeur', marches: ['facile'] })
+  // Le nouveau Filet : l'acte de sa question, que son contenu range — le calibrage y tire ce que sait son joueur.
+  const deLActeII = contenuDuCabinet().filet.find(e => acteDuFilet(e) === 1)!
+  const nouveau = { jeu: 'filet', deuxTemps: true, question: { id: deLActeII.id, niveau: 'facile' } } as unknown as Parameters<typeof marchesASavoir>[0]
+  assert.deepEqual(marchesASavoir(nouveau, null), { quoi: 'de la question', marches: [], acte: 1 })
+  assert.match(ligneDeLaMarche(marchesASavoir(nouveau, null)!), /^🎲 Pour ton dé, l’acte de la question : II — le banc te le dit/)
   // Sans marche au calibrage : rien à dire.
   for (const jeu of ['detail', 'frise', 'epingle', 'indices', 'replique'] as const) assert.equal(marchesASavoir(tirageDe(jeu, 0), null), null, jeu)
   const ligne = ligneDeLaMarche({ quoi: 'des affirmations, dans l’ordre', marches: ['facile', 'moyen', 'difficile', 'expert'] })
