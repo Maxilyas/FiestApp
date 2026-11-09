@@ -16,6 +16,7 @@ import { dernieresFois } from './core/memoire'
 import { ProgrammeStore } from './core/programmes'
 import { SalonStore } from './core/salons'
 import { CampagneStore } from './core/campagne'
+import { Collectionneurs } from './core/collectionneurs'
 import { REVEIL_DU_CABINET } from './core/cabinet/tables'
 import { CabinetStore } from './core/cabinet/magasin'
 import { calendrierDuCabinet } from './core/saisons'
@@ -610,6 +611,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // traversée après trois corrections du soir (`retours/2026-11-08/`). Un crochet de plus de sa porte ; ses seuls tas, la
   // campagne qui l'appelle ayant déjà refait sa base.
   if (cabinetEstOuvert) campagne.baseRenouvelee = () => cabinet.preparerSesTas()
+  // Le classement des collectionneurs : le relevé de tous en fond, gardé dans `meta`, et la fiche de chacun à sa visite —
+  // il ne lit que ce que les trois magasins savent déjà dire, et le Cabinet par les trophées qu'il a rangés.
+  const collectionneurs = new Collectionneurs({ profiles, campagne, jour }, { maintenant: maintenantDuJour })
   // L'historique des soirées vit avec la bibliothèque : c'est l'autre chose
   // qui doit survivre à tout.
   const archives = new ArchiveStore(opts.quizDbUrl, opts.quizDbToken)
@@ -985,6 +989,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // chronomètre court, il ne court plus en pause : le travail de fond de la
   // campagne la laisse passer (`laisserPasserLaSalle`).
   campagne.salleEnJeu = () => registry.all().some(rt => rt.engine.phase() === 'question' && rt.engine.chronometreArme())
+  // Le relevé des collectionneurs aussi : personne ne l'attend.
+  collectionneurs.salleEnJeu = campagne.salleEnJeu
   const woken = registry.wakeRunning()
   if (woken > 0) console.log(`[espaces] ${woken} partie${woken > 1 ? 's' : ''} en cours reprise${woken > 1 ? 's' : ''}`)
 
@@ -1481,6 +1487,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     jour,
     rappels,
     campagne,
+    collectionneurs,
     // Les missions du jour et le coffre de la semaine lisent les trois magasins, à l'horloge du quiz du jour. La mission du
     // Cabinet ne se tire que là où il se joue, ce jour-là : ni fermé ici, ni en maintenance, ni bientôt disponible.
     missions: new Missions({
@@ -1818,6 +1825,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
         pointDuMatin.arreter()
         charge.arreter()
         sondeDesGels.arreter()
+        // Un relevé des collectionneurs en route s'arrête à sa tranche suivante, sans rien écrire.
+        collectionneurs.fermer()
         registry.stopAll()
         io.close(async () => {
           // La file du miroir se vide d'abord, dans le délai qu'on lui laisse :

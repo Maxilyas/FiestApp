@@ -19,6 +19,7 @@
 
 import type { QuestionAPoser } from './annonces'
 import type { DefisTenus } from './cabinet/sceaux'
+import type { ResumeDuCollectionneur } from './collectionneurs'
 import type { CleDeJeu } from './cabinet/jeux/regle'
 import type { AfficheDAccueil } from './affiches'
 import type { BadgePorte } from './badges'
@@ -1293,6 +1294,13 @@ export interface PublicProfileDetail extends PublicProfile {
    * trophées les montre. Absent là où le Cabinet est fermé, et d'un serveur d'avant : la page s'en passe.
    */
   defisDuCabinet?: DefisTenus
+  /**
+   * Sa place parmi les collectionneurs et ce que vaut sa collection, au
+   * dernier relevé (`shared/collectionneurs.ts`) : le gros bouton de sa page
+   * le dit. Absent tant que le relevé n'est pas relu, et pour qui n'a encore
+   * rien à classer.
+   */
+  collectionneur?: ResumeDuCollectionneur
   /**
    * Les bordures de ses ligues atteintes et leurs crans, relues dans ses
    * duels (`ReleveDesDuels.bordures`) : la loge les propose. Absentes d'un

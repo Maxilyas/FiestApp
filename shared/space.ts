@@ -30,6 +30,8 @@ export const RESERVED_SLUGS = new Set([
   'expedition',
   // Le Cabinet de curiosités : réservé dès ses routes, avant que sa page n'arrive — un espace à son nom n'aurait plus d'adresse.
   'cabinet',
+  // Le classement des collectionneurs, de même.
+  'collectionneurs',
   'deconnexion',
   'stats',
   'souvenir',

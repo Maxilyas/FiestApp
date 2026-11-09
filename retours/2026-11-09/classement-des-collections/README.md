@@ -1,4 +1,4 @@
-# Le classement des collections — la maquette (9 novembre 2026)
+# Le classement des collections — la maquette, puis la page (9 novembre 2026)
 
 « Je m'aperçois qu'on regarde souvent le classement des joueurs et ce qu'ils
 ont dans leur collection. Est-ce que ça serait pas intelligent de faire un
@@ -20,6 +20,11 @@ préfère en termes de design le face-à-face du palmarès. Est-ce que les
 matières des légendaires, que l'on peut avoir en utilisant un Éclat, comptent
 bien aussi comme un légendaire ? Est-ce que légendaire et Éclat ont la même
 valeur ? » — la synthèse retouchée, plus bas.
+
+Puis, sur la synthèse retouchée : « Passe-le à 200 et tu peux commencer
+l'intégration, c'est parfait. Attention à la performance pour ne pas geler le
+serveur, etc. Requête. » — le Divin à deux cents carats, et la page faite :
+`/collectionneurs` (« La page, intégrée », plus bas).
 
 Une maquette : les propositions sont posées dans le vrai client — ses avatars
 peints, ses finitions, ses bordures de ligue, ses Divins, ses matières, sa
@@ -48,7 +53,7 @@ Tout se regarde sur la planche Design, privée :
   et de Zoé, le face-à-face avec Malik et avec Max, le barème, sous Ivoire.
 - **Les trois propositions, en un coup d'œil** et **la valeur d'une
   collection** — le barème, les Divins et les Éclats comptés, ce qui
-  deviendrait public, ce qui reste à trancher.
+  deviendrait public, et ce qui a été tranché.
 - **Proposition 1, 2, 3** — chacune dans ses états, telles que photographiées
   d'abord (les Divins hors de la valeur, l'Éclat à 5).
 
@@ -98,9 +103,11 @@ propriétaire, le 9 novembre 2026). Les trois premières propositions les
 laissaient hors de la valeur, par prudence (invariant 21 : « pas même un
 compte de badges qui bougerait ») ; la synthèse les compte :
 
-- **cent carats chacun**, la plus haute gemme — quatre légendaires ;
+- **deux cents carats chacun**, la plus haute gemme — huit légendaires (cent
+  sur les photos de la planche ; « Passe-le à 200 », le propriétaire, le même
+  jour) ;
 - **leur bandeau**, sous ta place, de nuit sous tous les thèmes : « Les
-  Divins · 3 descendus sur 6 · 100 carats », les six, peints ou sous leur
+  Divins · 3 descendus sur 6 · 200 carats », les six, peints ou sous leur
   voile, et qui les a, en petit ; **leur salle**, au toucher : ceux qui sont
   descendus, peints, rayons compris, leur nom et qui les a (le toucher ouvre
   sa vitrine), les autres sous leur voile, sans nom, « Pas encore
@@ -143,9 +150,9 @@ D'où la règle de la synthèse :
 - **l'Opale ne compte pas** : offerte par les quatre, aucun Éclat ne la paie
   — comme pour La Pluie d'Éclats.
 
-À noter : un légendaire taillé dans les quatre matières (cinq Éclats) vaut
-150 carats, plus qu'un Divin (100). Si le Divin doit rester la pièce la plus
-chère, il passe à 200.
+Un légendaire taillé dans les quatre matières (cinq Éclats) vaut 150 carats :
+à cent, un Divin valait moins que lui. Il passe à 200 — le choix du
+propriétaire — et reste la pièce la plus chère.
 
 ## La valeur
 
@@ -158,7 +165,7 @@ dépense : une collection ne se vend pas.
 | Ce qu'on a | Carats |
 |---|---|
 | Un avatar de l'album — légendaire, portrait d'un sentier, forme d'un compagnon, emoji de collection —, à sa gemme : commune, peu commune, rare, épique, légendaire | 1 · 2 · 5 · 10 · 25 |
-| Un Divin | 100 |
+| Un Divin | 200 |
 | Un Éclat — un avatar qui éclate, ou une matière taillée ; l'Opale, offerte, ne compte pas | 25 |
 | Un maître de sentier — il vaut un légendaire | 25 |
 | Un défi d'une carte du Cabinet, au métal de son rang le plus haut : bronze, argent, or | 2 · 5 · 10 |
@@ -167,8 +174,9 @@ dépense : une collection ne se vend pas.
 | Une bordure de ligue, du bronze aux maîtres | 1 · 2 · 5 · 10 · 25 · 50 |
 
 Léa : 371 en avatars et Éclats, 131 en trophées, 77 en style. Les 173
-avatars de l'album font 2 464 carats, dont 600 pour les six Divins ; chaque
-Éclat en ajoute 25.
+avatars de l'album font 3 064 carats, dont 1 200 pour les six Divins ; chaque
+Éclat en ajoute 25. Les chiffres des joueurs inventés sont ceux des photos, le
+Divin à cent : Max en a deux, et passe à 2 249 à deux cents.
 
 **Ce qui ne se compte pas** : les emojis de l'inscription, à tout le monde ;
 les trouvailles, privées ; l'Opale ; l'Expédition, dont le départ est fermé
@@ -184,7 +192,8 @@ ni le thème et la gerbe qu'il porte, qui ne partent qu'à lui.
 
 Un gros bouton de plus sur « Mon profil », entre « Ma collection » et « Mes
 soirées » : « Les collectionneurs », « 12ᵉ sur 87 · ta collection vaut 579
-carats », « Nouveau » le temps de le découvrir.
+carats », « Nouveau » le temps de le découvrir — intégré sans « Nouveau »
+(« La page, intégrée », plus bas).
 
 ## Les trois propositions d'abord
 
@@ -237,54 +246,88 @@ photos) : aucune page ne déborde de côté, aucun prénom n'est coupé.
 | 2 · Le tableau d'honneur | 1 684 px | un record, 550 px de liste ; la comparaison, 47 px |
 | 3 · La galerie | 1 192 px | la vitrine défile de 126 px, la bataille de 187 px |
 
-## À trancher
+## Ce qui restait à trancher, tranché
 
-1. **L'unité** — des carats, ou « points de collection ».
-2. **Le barème** — un Divin, quatre légendaires (ou huit, pour rester plus
-   cher qu'un légendaire taillé dans les quatre matières) ? un Éclat et un
-   maître, un légendaire chacun ?
-3. **Qui est classé** — ceux qui ont joué ces quatre dernières semaines,
-   comme aux duels (la maquette dit « sur 87 »), ou tous les profils.
-4. **Les thèmes dans la valeur** — ils ne sont plus ni une puce ni une ligne
-   du face-à-face ; ils comptent encore dans les carats, comme les fonds et
-   les gerbes.
+1. **L'unité** — des carats, comme la maquette.
+2. **Le barème** — un Divin, huit légendaires (« Passe-le à 200 », le
+   propriétaire) : plus cher qu'un légendaire taillé dans les quatre
+   matières ; un Éclat et un maître, un légendaire chacun.
+3. **Qui est classé** — tous les profils qui ont quelque chose de la
+   catégorie, pas seulement ceux des quatre dernières semaines : une
+   collection ne s'use pas, celle d'un joueur parti reste la sienne. Un choix
+   de l'intégration, à revoir si le classement se remplit de profils
+   endormis.
+4. **Les thèmes dans la valeur** — ils y restent, comme les fonds et les
+   gerbes, sans puce ni ligne du face-à-face.
 
-## Ce que la vraie version demandera
+## La page, intégrée
 
+Faite le même jour, sur la synthèse retouchée et le Divin à deux cents
+carats. Le détail vit dans la règle du domaine (`.claude/rules/profil.md`,
+« les collectionneurs ») et dans `docs/produit/le-profil.md` ; les barèmes et
+les réglages, dans `docs/reference/baremes.md` ; les deux routes, dans
+`docs/reference/api-http.md`.
+
+- **La page** : `/collectionneurs` (`client/src/views/Collectionneurs.tsx`),
+  plutôt que `/classement`, qu'on aurait lu pour celui des duels. Tout ce que
+  la synthèse retouchée montrait — sa place, les Divins en bandeau et leur
+  salle, les six puces, « Tous · Mes amis », le podium en cartes au cadre de
+  leur ligue, la liste jusqu'au dixième puis ses voisins, la vitrine, le
+  face-à-face, le barème. Sans profil, de quoi se connecter. Elle ne commence
+  rien : comme le profil, elle ne se ferme pas au QG (`pageDeLAdresse`).
+- **L'entrée** : le gros bouton, entre « Ma collection » et « Mes soirées »,
+  dit sa place et sa valeur au dernier relevé
+  (`PublicProfileDetail.collectionneur`). Sans « Nouveau » : une nouveauté
+  se dit par l'affiche du QG, et `/collectionneurs` n'en est pas une
+  destination (`PAGES_A_L_AFFICHE`) — à ajouter pour l'annoncer.
+- **La règle, pure** (`shared/collectionneurs.ts`) : le barème, les rangs
+  d'une collection, les six catégories, leur classement par la règle de tous
+  (invariant 15), celui à passer, les pièces maîtresses, le face-à-face. Ce
+  que « Ma collection » compte, le serveur le relit aux mêmes règles
+  (`ProfileStore.collectionDe`, `releveDeLaCollection`) ; les homonymes se
+  marquent par `nomsAffiches` (invariant 17), et chaque ligne montre ce que
+  le joueur porte, sa matière comprise.
 - **L'invariant 21 réécrit** (`CLAUDE.md`, règle `recompenses.md`) : les
-  Divins descendus comptent dans la valeur d'une collection, et ce compte
-  bouge — le choix du propriétaire du 9 novembre 2026 ; restent secrets leur
-  règle, leur légende (au seul porteur), toute jauge, toute progression, toute
-  date. `divins.test.ts` le garde : aucune ligne de `core/divins.ts` hors du
-  serveur, et rien dans la valeur ni dans le classement qui dise quand l'un
-  d'eux est descendu.
-- **La valeur au serveur.** `compteDeLaCollection` ne se calcule aujourd'hui
-  que chez le propriétaire, sur sa page. La valeur de chaque profil se
-  compterait d'une règle pure (`shared/`, à côté de `shared/collection.ts`),
-  en fond et gardée, comme la moyenne des joueurs (`moyennesDesJoueurs`) —
-  ses thèmes achetés, ses paliers des sentiers, ses bordures du journal des
-  duels, ses badges, ses Éclats posés (`eclatsPosesOf`), ses fonds, ses
-  gerbes, ses Divins —, jamais attendue par la page.
-- **Une route** (et sa ligne dans `docs/reference/api-http.md`), réservée aux
-  profils ; **ses constantes**, des choix de produit, dans
-  `docs/reference/baremes.md`.
-- **Les classements par `shared/classement.ts`** (invariant 15), les
-  homonymes par `nomsAffiches` (invariant 17), chaque ligne avec ce que le
-  joueur porte, sa matière comprise (`un-seul-avatar.test.ts`,
-  `recompenses-montrees.test.ts`).
-- **Une page de plus** (`/classement`) : `ACCOUNT_PAGES`, `ACCOUNT`, `TITRES`,
-  `RESERVED_SLUGS`, `pageDeLAdresse` pour que le QG la ferme, `LISENT_LE_PROFIL`
-  et le préchargement de l'accueil d'un profil (règle `client.md`).
-- **Des tests** : un Divin compté une fois, une matière comptée comme un Éclat
-  et jamais comme un avatar, l'Opale jamais, ni masqué ni anonyme au
-  classement, les ex æquo, qui n'a rien de la catégorie pas classé.
+  Divins descendus comptent dans la valeur d'une collection ; leur règle,
+  leur légende, toute jauge et toute date restent au serveur.
+- **La performance** (« Attention à la performance pour ne pas geler le
+  serveur ») : le relevé de tous ne se fait jamais sur le chemin d'une
+  requête — en fond, derrière la réponse, au plus toutes les six heures, un à
+  la fois ; les profils lus par paquets de cinquante, comptés par tranches de
+  huit qui rendent la main à la boucle, jamais pendant qu'une question de
+  soirée attend ses réponses, sous son nom pour la sonde des gels ; les
+  épreuves validées de tous (par l'index partiel), leurs thèmes achetés et
+  leur quiz du jour, un texte JSON chacun ; les ligues, de la mémoire des
+  duels. Gardé dans `meta`, un réveil le reprend sans rien relire. La page
+  lit la mémoire ; seule la fiche du visiteur se refait à sa visite, d'un
+  aller-retour de front, gardée une minute.
+- **Les tests** : `collectionneurs.test.ts` — le barème, la valeur, une
+  matière comptée comme un Éclat et jamais comme un avatar, l'Opale qui ne
+  coûte rien, un Divin sans Éclat, les ex æquo, qui n'a rien pas classé ;
+  `collectionneurs-page.test.ts`, au banc — le premier relevé en fond, ni
+  masqué ni suspendu, ni le récit d'un Divin ni le soir où il est descendu,
+  les allers-retours comptés, le relevé repris au réveil, puis refait en fond
+  quand il vieillit ; `collectionneurs-fond.test.ts` — huit collections par
+  tour de boucle au plus, rien pendant une question, un relevé à la fois ;
+  `collectionneurs-index.test.ts` — la lecture des épreuves par son index,
+  sous des statistiques de production.
+- **Le rendu** : `server/scripts/rendu-collectionneurs.ts` photographie la
+  page au téléphone (360 × 640), sous le Velours et l'Ivoire, et dit ce qui
+  déborde : rien, et aucun prénom coupé.
 
 ## Rejouer la maquette
 
-Le patch s'applique sur le code du 9 novembre 2026 (le commit `7fb947c`).
-Depuis la racine, avec le Chromium de Playwright (`npm root -g`) :
+Le patch s'applique sur le code du 9 novembre 2026 d'avant l'intégration (le
+commit `7fb947c`) : l'intégration touche les mêmes lignes (`main.tsx`,
+`titres.ts`, `shared/adresses.ts`), et il n'y passe plus. Dans un arbre de
+travail à part, depuis la racine, avec le Chromium de Playwright
+(`npm root -g`) :
 
 ```bash
+git worktree add ../maquette 7fb947c
+mkdir -p ../maquette/retours/2026-11-09
+cp -r retours/2026-11-09/classement-des-collections ../maquette/retours/2026-11-09/
+cd ../maquette && npm install
 git apply retours/2026-11-09/classement-des-collections/maquette/prototype.patch
 npm run build -w client
 cd server && npx tsx ../retours/2026-11-09/classement-des-collections/maquette/photos.ts ../export/classement-des-collections
@@ -294,9 +337,10 @@ Le patch posé, `npm run dev` puis `http://localhost:5173/classement?p=4` (la
 synthèse ; `1`, `2`, `3` pour les premières) ; `?vue=entree&p=4`, le profil
 où l'on y entre ; `&axe=maitres` (ou `cabinet`, `legendaires`, `eclats`,
 `niveau`), `&amis`, `&vue=divins`, `&vitrine=zoe`, `&face=malik` ouvrent ce
-qui s'ouvre au toucher. `git apply -R` du même patch le retire. Les trois
-premières, rephotographiées, suivent le barème d'aujourd'hui : leurs photos
-de la planche sont celles d'avant.
+qui s'ouvre au toucher. `git worktree remove ../maquette` efface le tout. La
+maquette compte le Divin à cent, comme ses photos ; les trois premières,
+rephotographiées, suivent le barème du jour de la synthèse : leurs photos de
+la planche sont celles d'avant.
 
 | Fichier | Ce qu'il est |
 |---|---|

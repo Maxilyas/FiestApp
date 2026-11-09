@@ -6534,6 +6534,67 @@ export class CampagneStore {
     return paliersCommences(sentiers.lire(acquis, validees))
   }
 
+  // ── Les collectionneurs ─────────────────────────────────────────────────
+  //
+  // Ce que le classement des collectionneurs lit de la campagne
+  // (`core/collectionneurs.ts`) : les paliers des sentiers — ses maîtres, ses
+  // portraits, ses thèmes et ses fonds — et les bordures de ligue.
+
+  /**
+   * Ce que sa page lit de lui à chaque visite : ses paliers et ses amis, d'un
+   * lot — ses épreuves validées gardées entre deux visites (`validees`),
+   * comme à l'accueil.
+   */
+  async collectionneurDe(profileId: string): Promise<{ paliers: Paliers; amis: string[] }> {
+    const sentiers = this.lecturesDesSentiers(profileId)
+    const [acquis, validees, ensemble, retires] = await this.client.batch([...sentiers.lot, ...lectureDesAmis(profileId)], 'read')
+    return { paliers: paliersCommences(sentiers.lire(acquis, validees)), amis: this.amisLus(ensemble, retires) }
+  }
+
+  /**
+   * Les paliers de tous, d'un lot, pour le relevé de fond : leurs épreuves
+   * validées par l'index partiel, qu'un `CROSS JOIN` fait partir de chaque
+   * profil — sans statistiques, la seule forme dont le plan tienne : filtrées
+   * sur le mode seul, SQLite prenait l'index des duels et relisait toutes les
+   * épreuves, ratées comprises (`collectionneurs-index.test.ts`) —, et ce
+   * que chacun tenait d'avant les sentiers. Chacune en un seul texte JSON :
+   * le client de la base décode chaque ligne à grands frais. Jamais par
+   * `validees`, qui garde les visiteurs : tous les profils l'auraient vidée.
+   */
+  async paliersDeTous(): Promise<Map<string, Paliers>> {
+    const [validees, acquis] = await this.client.batch(
+      [
+        `SELECT json_group_array(json_array(s.profile_id, s.branche, s.palier, s.justes, s.seuil)) AS v
+           FROM profiles p CROSS JOIN campagne_series s ON s.profile_id = p.id
+          WHERE s.mode = 'sentier' AND s.issue = 'validee'`,
+        `SELECT json_group_array(json_array(profile_id, branche, paliers)) AS v FROM sentier_acquis`,
+      ],
+      'read',
+    )
+    const parProfil = new Map<string, { acquis: Record<string, unknown>[]; validees: Record<string, unknown>[] }>()
+    const de = (id: string) => parProfil.get(id) ?? parProfil.set(id, { acquis: [], validees: [] }).get(id)!
+    for (const [id, branche, palier, justes, seuil] of JSON.parse(String(validees.rows[0]?.v ?? '[]')) as [string, string, number, number, number | null][])
+      de(id).validees.push({ branche, palier, justes, seuil })
+    for (const [id, branche, paliers] of JSON.parse(String(acquis.rows[0]?.v ?? '[]')) as [string, string, number][]) de(id).acquis.push({ branche, paliers })
+    return new Map([...parProfil].map(([id, lus]) => [id, paliersCommences(sentiersLus(lus.acquis, lus.validees))]))
+  }
+
+  /**
+   * La ligue et les bordures de chacun qui a fini un duel classé, de mémoire :
+   * le journal des duels (`toutesLesCotes`), gardé tant qu'il ne change pas.
+   * Absent, il n'a fini aucun duel classé — ni ligue ni bordure, pas celles du
+   * bronze (invariant 8).
+   */
+  async liguesDeTous(): Promise<Map<string, { ligue: CleDeLigue; bordures: readonly BordureDeLigue[] }>> {
+    const cotes = await this.toutesLesCotes()
+    const ligues = new Map<string, { ligue: CleDeLigue; bordures: readonly BordureDeLigue[] }>()
+    for (const [id, r] of cotes) {
+      const c = coteDuReleve(r)
+      if (c) ligues.set(id, { ligue: c.ligue, bordures: c.bordures })
+    }
+    return ligues
+  }
+
   /** Ses épreuves ratées, chacune au jour où elle l'a été : ce qui a coûté ses vies. */
   private lectureDesEchecs(profileId: string): InStatement {
     return {

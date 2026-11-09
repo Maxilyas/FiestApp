@@ -26,6 +26,7 @@ const TITRES: Record<AccountPage, string> = {
   duels: 'Les duels',
   expedition: 'L’Expédition',
   cabinet: 'Le Cabinet de curiosités',
+  collectionneurs: 'Les collectionneurs',
 }
 
 export function titreDePage(page: AccountPage): string {

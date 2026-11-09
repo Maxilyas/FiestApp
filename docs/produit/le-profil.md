@@ -2,7 +2,7 @@
 
 > Ce qu'un profil garde, comment il naît et se retrouve, et ce qu'on y voit — l'accueil, la loge, « Ma collection », la carte d'un joueur, les avatars —, puis comment il anime son salon. Pour les joueurs et les animateurs ; la dernière section, pour qui touche au code.
 
-**Dans cette page** : [Naître et revenir](#naître-et-revenir) · [L'accueil](#laccueil) · [La page du profil](#la-page-du-profil) · [La loge](#la-loge) · [Ma collection](#ma-collection) · [La carte d'un joueur](#la-carte-dun-joueur) · [Les avatars](#les-avatars) · [Animer avec son profil](#animer-avec-son-profil) · [Le code](#comment-cest-construit)
+**Dans cette page** : [Naître et revenir](#naître-et-revenir) · [L'accueil](#laccueil) · [La page du profil](#la-page-du-profil) · [La loge](#la-loge) · [Ma collection](#ma-collection) · [Les collectionneurs](#les-collectionneurs) · [La carte d'un joueur](#la-carte-dun-joueur) · [Les avatars](#les-avatars) · [Animer avec son profil](#animer-avec-son-profil) · [Le code](#comment-cest-construit)
 
 ## Ce qu'est un profil
 
@@ -58,12 +58,13 @@ Au lecteur d'écran, la page a son titre de premier niveau, que l'œil ne voit p
 
 ![La page du profil au téléphone : Léa, niveau 14, sa barre d'expérience et l'œil qui ouvre sa carte, puis M'habiller, Ma collection et son compte, Mes soirées, Ma carrière](../vitrine/captures/telephone-profil.jpg)
 
-`/profil` met ta ligne en tête : touchée, l'œil au bout, elle ouvre **ta carte**, telle que la salle la voit. Ton laurier, si tu as gagné hier (« Vainqueur du quiz du jour d'hier », « Vainqueur du défi de la semaine dernière »). Puis quatre boutons, et « Que veulent dire ces mots ? », le glossaire des mots maison :
+`/profil` met ta ligne en tête : touchée, l'œil au bout, elle ouvre **ta carte**, telle que la salle la voit. Ton laurier, si tu as gagné hier (« Vainqueur du quiz du jour d'hier », « Vainqueur du défi de la semaine dernière »). Puis cinq boutons, et « Que veulent dire ces mots ? », le glossaire des mots maison :
 
 | Bouton | Sous son titre | Ouvre |
 |---|---|---|
 | « M'habiller » | « Avatar, titre, vitrine, fond, thème, gerbe » ; un compteur rouge quand la loge a du neuf | `/profil#avatar`, ou la première pièce qui a du neuf |
 | « Ma collection » | sa jauge et « N sur M » ; « Avatars, thèmes, trophées — et où gagner le reste » | `/profil#collection` |
+| « Les collectionneurs » | « 4ᵉ sur 87 · ta collection vaut 579 carats », au dernier relevé | `/collectionneurs` |
 | « Mes soirées » | « Aucune encore », ou « 12 soirées, jouées ou animées » | `/profil#soirees` |
 | « Ma carrière » | « Précision 64 % · tes courbes » | `/profil#carriere` |
 
@@ -119,6 +120,17 @@ Chaque écran a son adresse et « ← », qui ramène d'où tu viens ; les adres
 | Divin | les 6 Divins |
 
 Ce que tu as d'abord, en couleur ; le reste en silhouette dorée, une pastille disant où il se gagne. L'album s'ouvre sur la page de ce que tu portes, sinon sur la première où il te reste à gagner. Une case touchée ouvre sa fiche : l'avatar en grand, sa rareté, ce qu'il raconte, « Comment l'obtenir » — ses voies, chacune avec son lieu, sa règle et où tu en es — et un bouton vers l'écran où le gagner (« Jouer le quiz du jour », « Aller à la campagne », « Aller au sentier », « Aller à la boutique ») ; à toi et pas porté, « Essayer », comme dans le style. Un Divin n'a ni voie, ni lieu, ni jauge : « Un Divin, inconnu », « Personne ne sait ce qui le fait descendre. Ceux qui l'ont vu ne le cherchaient pas. » Chaque page d'un album a son adresse (`#collection-avatars-rare`, `#collection-trophees-jour`) : la loge ouvre celle de la gemme qu'elle montre, la fin d'une partie celle des trophées qu'elle vient de faire tomber.
+
+## Les collectionneurs
+
+`/collectionneurs` donne **une valeur à ta collection**, en carats, et te classe parmi les joueurs (la maquette retenue le 9 novembre 2026). Chaque avatar de l'album vaut sa gemme — commune 1, peu commune 2, rare 5, épique 10, légendaire 25, Divin 200 —, un Éclat posé ou une matière taillée vaut un légendaire (l'Opale, offerte par les quatre, rien de plus), un maître de sentier aussi ; un défi du Cabinet vaut 2, 5 ou 10 selon son métal, un autre trophée et un timbre 2, un thème sa gemme, un fond et une gerbe 3, une finition 2, une bordure de ligue de 1 à 50. Ce qui est à tout le monde — les deux thèmes offerts, la gerbe des confettis, la finition Mat — ne vaut rien. Le barème se déplie sous le classement.
+
+- **Ta place en tête**, dans la catégorie choisie : « Tu es 4ᵉ sur 87 », ta valeur et le nom de ta collection (« Le coffret », « La vitrine », « Le musée »…), et ce qui te manque pour passer le suivant.
+- **Les Divins**, en bandeau : les six, ceux qui sont descendus peints, avec qui les garde ; touché, il ouvre leur salle. Ils comptent et se montrent — leur opale sur la carte et la ligne de qui en a un —, mais rien ne dit comment ils descendent, ni quand.
+- **Six catégories** en puces : la collection, le niveau, les maîtres des sentiers, les légendaires, les sceaux d'or du Cabinet, les Éclats — et « Tous » ou « Mes amis ». Le podium en cartes, au cadre de la ligue de chacun, puis la liste, chaque ligne avec le détail de sa catégorie (les douze sentiers en couronnes, les dix cartes du Cabinet à leur métal, les premiers légendaires peints). Qui n'a rien de ce qu'on classe n'y est pas : « Les autres n'ont pas encore de maître ».
+- **Toucher un joueur** ouvre sa vitrine : sa place, ses trois pièces maîtresses — ses Divins d'abord —, sa collection gemme par gemme à côté de la tienne, ses maîtres et ses sceaux. « Comparer » ouvre le face-à-face : ligne à ligne, qui mène — les Divins d'abord, jamais les thèmes, qui s'achètent —, ce qu'il a et pas toi, et ce qui te manque pour le passer. « Sa carte » ouvre sa carte, « Défier » un duel.
+
+Ta propre fiche est **de l'instant** : ce que tu viens de gagner s'y voit dès ta visite. Celle des autres vient du dernier relevé de tous, que le serveur refait en fond toutes les six heures au plus. Ni les profils masqués par l'administrateur, ni les suspendus n'y paraissent.
 
 ## Mes soirées et Ma carrière
 

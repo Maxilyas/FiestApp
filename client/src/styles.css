@@ -17023,3 +17023,300 @@ span.annonce-admin-merci { cursor: default; }
   .coffre-pluie { display: none; }
 }
 @keyframes coffre-parait { from { opacity: 0; } }
+
+/* ── Les collectionneurs (`/collectionneurs`, `views/Collectionneurs.tsx`) ──
+   La maquette retenue le 9 novembre 2026 (`retours/2026-11-09/classement-des-collections/`) :
+   ses classes en `cl-`, posées sur celles de l'application — `.lb-row`, les onglets, la feuille.
+   Les jetons du thème partout, sauf sur les cartes du podium, nocturnes sous tous les thèmes
+   comme la vraie carte, et l'opale des Divins, écrite en dur : aucun thème ne la repeint. */
+
+.cl-pierre {
+  display: inline-block;
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  transform: rotate(45deg);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--gemme) 35%, white), var(--gemme) 55%, color-mix(in srgb, var(--gemme) 60%, black));
+  vertical-align: middle;
+}
+.cl-pierre-petite { width: 8px; height: 8px; border-radius: 2px; }
+/* Le Divin, une opale irisée, comme sa gemme dans l'album (`.gemme-divin`). */
+.cl-pierre-divin { background: conic-gradient(#f7b8e8, #9fe3ff, #fff1a6, #b9f5c6, #c9b6ff, #f7b8e8); }
+
+.cl-carats { display: inline-flex; align-items: center; gap: 6px; }
+.cl-carats b { font-family: var(--serif); font-size: 1.2rem; font-weight: 600; line-height: 1; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
+.cl-carats > span { font-size: 0.82rem; color: var(--muted); }
+
+.cl-liste { padding: 0; list-style: none; }
+.cl-liste > li { list-style: none; }
+.cl-ellipse { padding: 2px 0; }
+.cl-legende { margin: 10px 0 0; text-align: center; }
+
+.cl-ligne { gap: 10px; }
+.cl-nom { display: flex; flex: 1; flex-direction: column; gap: 3px; min-width: 0; }
+.cl-nom > b { display: flex; align-items: center; gap: 6px; overflow: hidden; font-weight: 600; white-space: nowrap; text-overflow: ellipsis; }
+.cl-detail { display: flex; align-items: center; gap: 6px; overflow: hidden; color: var(--muted); font-size: 0.75rem; white-space: nowrap; }
+.cl-score { display: flex; flex: none; flex-direction: column; align-items: flex-end; gap: 3px; }
+.cl-unite { color: var(--muted); font-size: var(--t-label); }
+
+/* Les douze sentiers : un point chacun, d'or s'il en est maître. */
+.cl-crans { display: inline-grid; grid-template-columns: repeat(12, 6px); gap: 2px; }
+.cl-crans i { width: 6px; height: 6px; border-radius: 50%; background: var(--track); }
+.cl-crans i.cl-cran-plein { background: var(--accent); box-shadow: 0 0 5px rgba(var(--accent-rgb), 0.7); }
+
+/* Les dix cartes du Cabinet, au métal de leur défi : une convention, écrite en dur. */
+.cl-sceaux { display: inline-flex; gap: 3px; }
+.cl-sceaux i { width: 10px; height: 10px; border-radius: 50%; background: var(--track); }
+.cl-sceaux i.cl-sceau-or { background: radial-gradient(circle at 35% 30%, #fff0bf, #b8892f 70%); }
+.cl-sceaux i.cl-sceau-argent { background: radial-gradient(circle at 35% 30%, #ffffff, #858e98 70%); }
+.cl-sceaux i.cl-sceau-bronze { background: radial-gradient(circle at 35% 30%, #f1c08c, #86501f 70%); }
+
+.cl-medaillons { display: inline-flex; align-items: center; gap: 3px; }
+.cl-medaillon { font-size: 1rem; }
+.cl-plus { margin-left: 2px; color: var(--muted); font-size: 0.72rem; font-weight: 600; }
+
+/* Le palier de maître, quand il n'a pas de dessin : la couronne sur l'émail noir du Soleil noir. */
+.cl-couronne { display: grid; flex: none; place-items: center; width: 2.4rem; height: 2.4rem; border: 2px solid #b8892f; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #2c2438, #07060a 75%); color: #f6dd94; }
+.cl-couronne .icon { width: 18px; height: 18px; }
+
+.cl-pied { display: flex; gap: 8px; }
+.cl-pied .btn { flex: 1; justify-content: center; }
+
+/* Un avatar en grand garde la marge de sa bordure de ligue, qui déborde de lui (`--d: 1.9em`, règle `medaillons.md`) :
+   sans elle, le Fleuron de l'or mordait sur le prénom écrit dessous. */
+.cl-vs-cote > .av,
+.cl-vitrine-tete > .av,
+.cl-sa-place > .av { margin: 0.45em; }
+
+/* Le barème, replié sous le classement. */
+.cl-bareme { margin: 16px 0 0; padding: 10px 12px; border: 1px solid var(--edge); border-radius: 12px; background: var(--surface); }
+.cl-bareme summary { min-height: 28px; font-size: 0.86rem; font-weight: 600; cursor: pointer; }
+.cl-bareme p { margin: 6px 0; }
+/* Chaque colonne à la largeur de son nom, l'espace entre elles : égales, « Commune » et « Peu com. » se touchaient en 360. */
+.cl-bareme-gemmes { display: grid; grid-template-columns: repeat(6, auto); justify-content: space-between; gap: 4px; margin: 8px 0; padding: 0; list-style: none; text-align: center; }
+.cl-bareme-gemmes li { display: flex; flex-direction: column; align-items: center; gap: 5px; color: var(--muted); font-size: var(--t-label); }
+.cl-bareme-gemmes li .cl-pierre { margin-top: 3px; }
+.cl-bareme-gemmes b { font-family: var(--serif); font-size: 1.25rem; line-height: 1; color: var(--ink); font-variant-numeric: lining-nums; }
+
+/* Sa place, en tête : deux lignes et ce qui la ferait monter. Sur l'or pâle, le texte s'écrit en `--accent-text-hover` (règle `css.md`). */
+.cl-sa-place { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; padding: 10px 12px 10px 6px; border: 1px solid var(--edge-strong); border-radius: 16px; background: var(--accent-soft); }
+.cl-sa-place > .av { font-size: 1.6rem; }
+.cl-sa-place-texte { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.cl-sa-place-texte > b { display: flex; align-items: baseline; gap: 6px; font-family: var(--serif); font-size: 1.35rem; line-height: 1.1; font-variant-numeric: lining-nums; }
+.cl-sa-place-sur { color: var(--muted); font-family: var(--sans); font-size: 0.82rem; font-weight: 500; }
+.cl-sa-place-valeur { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.cl-sa-place .cl-carats b { color: var(--accent-text-hover); }
+.cl-sa-place-palier { display: inline-flex; align-items: center; gap: 5px; color: var(--accent-text-hover); font-family: var(--serif); font-size: 1.05rem; font-weight: 600; }
+.cl-sa-place-palier .icon { width: 14px; height: 14px; }
+.cl-sa-place-suivant { display: inline-flex; align-items: center; gap: 5px; margin-top: 2px; color: var(--accent-text-hover); font-size: 0.78rem; }
+.cl-sa-place-suivant .icon { width: 14px; height: 14px; flex: none; }
+
+/* « Le classement », et à côté, « Tous · Mes amis » en petit : une ligne de moins avant le podium. */
+.cl-classement-tete { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 18px 0 8px; }
+.cl-classement-tete .label { margin: 0; }
+.cl-cercle-petit { flex-wrap: nowrap; }
+.cl-cercle-petit .onglet { min-height: 32px; padding: 0 10px; }
+.cl-puces { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cl-puces .onglet { justify-content: center; }
+
+/* Une carte du podium, au cadre de sa ligue (`.cadre-<ligue>`, la vraie carte) ; sans ligue, le champagne de tous. */
+.cl-carte {
+  --cadre-de-tous: linear-gradient(135deg, #f6e3b4 0%, #a9884f 30%, #efd9a2 55%, #7f6236 80%, #e8d1a0 100%);
+  position: relative;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: 3px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--cadre, var(--cadre-de-tous));
+  color: #f3ece2;
+  font: inherit;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+.cl-carte-dedans {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 14px 4px 8px;
+  border-radius: 11px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px) 0 0 / 12px 12px,
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px) 0 0 / 12px 12px,
+    radial-gradient(circle at 50% 32%, #3a2c22, #140e0c 78%);
+}
+/* Le rang et le blason passent devant l'illustration : la lumière d'une finition, les ailes d'un portrait les couvraient. */
+.cl-carte-rang { position: absolute; z-index: 2; top: 5px; left: 5px; display: grid; place-items: center; width: 24px; height: 24px; }
+.cl-carte-rang::before { position: absolute; inset: 3px; border: 1px solid rgba(255, 255, 255, 0.5); border-radius: 4px; background: var(--cadre, var(--cadre-de-tous)); content: ''; transform: rotate(45deg); }
+.cl-carte-rang span { position: relative; color: var(--gemme-encre, #2a1d0c); font-family: var(--serif); font-size: 0.82rem; font-weight: 700; line-height: 1; font-variant-numeric: lining-nums; }
+.cl-carte-blason { position: absolute; z-index: 2; top: 6px; right: 6px; }
+.cl-carte-illu { display: grid; place-items: center; height: 3.4rem; }
+.cl-carte-av { font-size: 2.1rem; }
+.cl-carte-nom { max-width: 100%; overflow: hidden; font-size: 0.8rem; font-weight: 600; white-space: nowrap; text-overflow: ellipsis; }
+.cl-carte-valeur { display: inline-flex; align-items: center; gap: 5px; color: #f6dd94; font-family: var(--serif); font-size: 1rem; font-weight: 600; line-height: 1; font-variant-numeric: lining-nums; }
+.cl-carte-valeur .cl-pierre { --gemme: #d9b56a; }
+/* Ce que le podium classe, quand ce ne sont pas des carats : « sur 12 », « niveau ». */
+.cl-carte-unite { margin-left: 4px; color: #d9cbb0; font-family: var(--sans); font-size: var(--t-label); font-weight: 500; }
+/* Sa carte, d'un anneau à l'or de l'accent — pas d'un contour : le seul contour plein est celui du focus (`design.test.ts`, A2). */
+.cl-carte-moi { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent), 0 6px 16px rgba(0, 0, 0, 0.35); }
+.cl-carte-moi .cl-carte-nom { color: #f6dd94; }
+.cl-carte .cl-opale-pastille { margin-top: 4px; }
+
+.cl-podium { display: grid; grid-template-columns: 1fr 1.18fr 1fr; align-items: end; gap: 8px; margin: 18px 0 4px; }
+.cl-carte-podium .cl-carte-illu { height: 4.3rem; }
+.cl-carte-podium .cl-carte-av { font-size: 2.7rem; }
+.cl-carte-premier .cl-carte-dedans { padding-top: 18px; }
+.cl-carte-premier .cl-carte-illu { height: 5.4rem; }
+.cl-carte-premier .cl-carte-av { font-size: 3.4rem; }
+.cl-carte-premier .cl-carte-valeur { font-size: 1.2rem; }
+.cl-carte-premier .cl-carte-rang { width: 26px; height: 26px; }
+.cl-carte-premier .cl-carte-rang span { font-size: 0.95rem; }
+
+/* Une carte qui garde un Divin : l'opale autour d'elle, et sa lueur dans l'illustration. */
+.cl-carte-divine { box-shadow: 0 0 0 1px rgba(234, 223, 255, 0.5), 0 0 22px rgba(201, 182, 255, 0.6), 0 6px 16px rgba(0, 0, 0, 0.35); }
+.cl-carte-divine.cl-carte-moi { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent), 0 0 22px rgba(201, 182, 255, 0.6), 0 6px 16px rgba(0, 0, 0, 0.35); }
+.cl-carte-divine .cl-carte-dedans {
+  background:
+    radial-gradient(circle at 50% 30%, rgba(201, 182, 255, 0.32), transparent 62%),
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px) 0 0 / 12px 12px,
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px) 0 0 / 12px 12px,
+    radial-gradient(circle at 50% 32%, #2f2440, #120d16 78%);
+}
+/* Une ligne qui garde un Divin : un filet d'opale. */
+.lb-row.cl-ligne-divine { box-shadow: inset 0 0 0 1px rgba(201, 182, 255, 0.6), 0 0 16px rgba(201, 182, 255, 0.16); }
+
+/* L'opale des Divins, celle de leur gemme dans l'album : toujours sur un sol de nuit — pastel sur l'Ivoire, elle ne se lisait plus. */
+.cl-opale-texte { display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; border-radius: var(--radius-pill); background: #1b1424; color: #eadfff; box-shadow: inset 0 0 0 1px rgba(201, 182, 255, 0.55); }
+.cl-opale-pastille { display: inline-flex; flex: none; align-items: center; gap: 3px; padding: 1px 7px 1px 3px; border-radius: var(--radius-pill); background: #1b1424; color: #eadfff; font-size: var(--t-label); font-weight: 600; box-shadow: inset 0 0 0 1px rgba(201, 182, 255, 0.65), 0 0 8px rgba(201, 182, 255, 0.35); }
+.cl-opale-bijou { display: inline-block; font-size: 1.05rem; }
+/* À cette taille, un Divin tient dans son cadre, comme dans une liste : ni rayons, ni étincelles. */
+.cl-opale-bijou .dv-rayons,
+.cl-opale-bijou .dv-etincelles { display: none; }
+
+/* Les Divins en bandeau, sous sa place : de nuit, l'opale autour, leur salle au toucher. */
+.cl-divins-bandeau {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  margin: 10px 0 4px;
+  padding: 10px 10px 8px;
+  border: 0;
+  border-radius: 16px;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(201, 182, 255, 0.22), transparent 65%),
+    radial-gradient(ellipse at 10% 100%, rgba(159, 227, 255, 0.1), transparent 55%),
+    #140f18;
+  color: #f3ece2;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(201, 182, 255, 0.45), 0 6px 18px rgba(0, 0, 0, 0.3);
+}
+.cl-divins-bandeau-tete { display: flex; align-items: baseline; gap: 8px; padding: 0 2px; }
+.cl-divins-bandeau-tete > span { color: #c4b8d2; font-size: 0.75rem; }
+.cl-divins-titre { margin: 0; background: linear-gradient(90deg, #f7b8e8, #9fe3ff 35%, #fff1a6 65%, #b9f5c6); -webkit-background-clip: text; background-clip: text; color: transparent; font-family: var(--serif); font-size: 1.8rem; font-weight: 600; line-height: 1.1; }
+.cl-divins-titre.cl-divins-titre-petit { font-size: 1.3rem; }
+.cl-divins-bandeau-chevron { width: 16px; height: 16px; margin-left: auto; align-self: center; color: #c4b8d2; transform: rotate(-90deg); }
+.cl-divins-rangee { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 2px; }
+.cl-divins-case { position: relative; display: grid; place-items: center; height: 3.4rem; }
+.cl-divins-case-bijou { font-size: 2.3rem; }
+.cl-divins-case-voile .cl-divins-case-bijou { font-size: 1.9rem; opacity: 0.85; }
+/* Qui l'a, en petit, au pied de son Divin. */
+.cl-divins-case .av.cl-divins-case-porteur { position: absolute; right: 2px; bottom: 0; font-size: 0.8rem; }
+
+/* La salle des Divins : de nuit sous tous les thèmes, comme la carte. */
+.cl-divins {
+  margin: 4px 0;
+  padding: 14px 12px 12px;
+  border-radius: 18px;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(201, 182, 255, 0.24), transparent 62%),
+    radial-gradient(ellipse at 12% 100%, rgba(159, 227, 255, 0.12), transparent 55%),
+    radial-gradient(ellipse at 90% 100%, rgba(247, 184, 232, 0.1), transparent 55%),
+    #140f18;
+  color: #f3ece2;
+  box-shadow: inset 0 0 0 1px rgba(201, 182, 255, 0.45), 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+.cl-divins-tete { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-bottom: 10px; text-align: center; }
+.cl-divins-tete > span { color: #c4b8d2; font-size: 0.75rem; }
+.cl-divins-liste { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 6px; margin: 0; padding: 0; list-style: none; }
+.cl-divin { display: flex; flex-direction: column; align-items: center; min-width: 0; text-align: center; }
+.cl-divin > button { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; min-height: 44px; padding: 4px 2px; border: 0; border-radius: 12px; background: none; color: inherit; font: inherit; cursor: pointer; }
+.cl-divin-bijou { display: grid; place-items: center; height: 4.4rem; font-size: 3rem; }
+.cl-divin-nom { font-size: 0.75rem; font-weight: 600; line-height: 1.2; }
+.cl-divin-voile { padding-top: 4px; }
+.cl-divin-voile .cl-divin-nom { color: #9d93a8; font-style: italic; font-weight: 500; }
+.cl-divin-porteur { display: inline-flex; align-items: center; gap: 4px; color: #ddd2ea; font-size: 0.72rem; }
+.cl-divin-porteur .av { font-size: 0.95rem; }
+.cl-divin-autres { color: #b3a6c2; }
+.cl-divins-secret { margin: 10px 0 0; color: #b3a6c2; font-family: var(--serif); font-size: 1rem; font-style: italic; text-align: center; }
+.cl-divins-secret.cl-divins-secret-petit { margin-top: 8px; color: var(--muted); font-size: 0.9rem; }
+
+/* La vitrine. */
+.cl-vitrine-tete { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; margin-bottom: 14px; }
+.cl-vitrine-tete > span:nth-child(2) { display: flex; flex-direction: column; min-width: 0; }
+.cl-vitrine-valeur { display: flex; flex-direction: column; align-items: flex-end; }
+.cl-vitrine-valeur b { color: var(--accent-text); font-family: var(--serif); font-size: 1.7rem; line-height: 1; font-variant-numeric: lining-nums; }
+.cl-vitrine-valeur span { color: var(--muted); font-size: 0.75rem; }
+.cl-vitrine-divine { display: flex; align-items: center; justify-content: center; gap: 10px; margin: -4px 0 14px; padding: 8px 12px; border-radius: 12px; background: radial-gradient(ellipse at 50% 0%, rgba(201, 182, 255, 0.28), transparent 72%), #1b1424; color: #eadfff; font-family: var(--serif); font-size: 1.1rem; font-style: italic; box-shadow: inset 0 0 0 1px rgba(201, 182, 255, 0.5); }
+.cl-socles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 10px 0 18px; }
+.cl-socle { display: flex; flex-direction: column; align-items: center; margin: 0; text-align: center; }
+.cl-socle-piece { display: grid; place-items: center; height: 4.6rem; }
+.cl-socle-av { font-size: 3rem; }
+.cl-socle-dv { display: grid; place-items: center; font-size: 3rem; }
+.cl-socle-pied { width: 78%; height: 12px; margin-top: 2px; border-radius: 50%; background: radial-gradient(ellipse at 50% 35%, color-mix(in srgb, var(--gemme) 70%, white), color-mix(in srgb, var(--gemme) 45%, black) 70%); box-shadow: 0 0 14px color-mix(in srgb, var(--gemme) 55%, transparent); }
+.cl-socle-divin .cl-socle-pied { background: radial-gradient(ellipse at 50% 35%, #ffffff, rgba(201, 182, 255, 0.95) 35%, rgba(90, 60, 140, 0.85) 72%); box-shadow: 0 0 18px rgba(201, 182, 255, 0.85); }
+.cl-socle figcaption { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-top: 8px; font-size: 0.7rem; line-height: 1.2; }
+.cl-socle figcaption b { font-size: 0.78rem; }
+.cl-socle figcaption > span { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
+.cl-socle figcaption > .cl-opale-texte { color: #eadfff; }
+.cl-socle figcaption > .cl-socle-valeur { color: var(--accent-text); font-family: var(--serif); font-size: 0.95rem; font-weight: 600; font-variant-numeric: lining-nums; }
+/* Six gemmes : chaque colonne à la largeur de son nom — égales, « Commune » s'y coupait en deux. */
+.cl-gemmes { width: 100%; margin: 8px 0 14px; border-collapse: collapse; font-size: 0.75rem; table-layout: auto; }
+.cl-gemmes th { padding: 4px 2px; color: var(--muted); font-weight: 500; }
+.cl-gemmes thead th { vertical-align: bottom; }
+.cl-gemmes thead th > span { display: block; margin-top: 6px; font-size: var(--t-label); white-space: nowrap; }
+.cl-gemmes tbody th { width: 2.6em; text-align: left; }
+.cl-gemmes td { padding: 6px 2px; border-top: 1px solid var(--edge); color: var(--ink); font-family: var(--serif); font-size: 1.05rem; font-weight: 600; text-align: center; font-variant-numeric: lining-nums tabular-nums; }
+.cl-gemmes td.cl-gemme-plus { color: var(--accent-text); }
+.cl-vitrine-trophees { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.cl-vitrine-trophees > span { display: flex; flex-direction: column; gap: 6px; }
+
+/* Le face-à-face, celui du palmarès. */
+.cl-vs { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; margin: 2px 0 10px; }
+.cl-vs-cote { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
+.cl-vs-milieu { color: var(--muted); font-family: var(--serif); font-size: 1.1rem; font-style: italic; }
+.cl-verdict { margin: 0 0 14px; color: var(--accent-text); font-weight: 600; text-align: center; }
+.cl-duel { display: flex; flex-direction: column; gap: 9px; margin: 0; padding: 0; list-style: none; }
+.cl-duel-ligne { display: grid; grid-template-columns: 2.4em minmax(0, 1fr) 2.4em; align-items: end; gap: 8px; }
+.cl-duel-moi,
+.cl-duel-lui { color: var(--muted); font-family: var(--serif); font-size: 1.15rem; font-weight: 600; line-height: 1; font-variant-numeric: lining-nums tabular-nums; }
+.cl-duel-moi { text-align: right; }
+.cl-mene-moi .cl-duel-moi,
+.cl-mene-lui .cl-duel-lui { color: var(--accent-text); }
+.cl-duel-milieu { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cl-duel-nom { color: var(--muted); font-size: 0.75rem; text-align: center; }
+.cl-duel-barres { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
+.cl-barre { display: flex; height: 7px; overflow: hidden; border-radius: 4px; background: var(--track); }
+.cl-barre-moi { justify-content: flex-end; }
+.cl-barre > span { display: block; height: 100%; border-radius: 4px; background: color-mix(in srgb, var(--muted) 65%, transparent); }
+.cl-mene-moi .cl-barre-moi > span,
+.cl-mene-lui .cl-barre-lui > span { background: var(--accent); }
+/* La ligne des Divins, en opale — sa barre, et le nombre de qui mène sur un sol de nuit. */
+.cl-duel-divine .cl-duel-nom { display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+.cl-duel-divine .cl-barre > span { background: linear-gradient(90deg, #f7b8e8, #9fe3ff 40%, #fff1a6 70%, #c9b6ff); }
+.cl-duel-divine.cl-mene-moi .cl-duel-moi,
+.cl-duel-divine.cl-mene-lui .cl-duel-lui { justify-self: center; padding: 3px 8px; border-radius: var(--radius-pill); background: #1b1424; color: #eadfff; box-shadow: inset 0 0 0 1px rgba(201, 182, 255, 0.6); }
+
+.cl-manque { margin-top: 18px; }
+.cl-manque-phrase { margin: 4px 0 0; }
+.cl-manque-pieces { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 6px; margin-top: 10px; }
+.cl-piece { display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 0.72rem; line-height: 1.2; text-align: center; }
+.cl-piece-av { font-size: 1.9rem; }
+.cl-piece-dv { display: grid; place-items: center; height: 2.6rem; font-size: 2.2rem; }
+.cl-piece-divine .cl-opale-texte { font-size: var(--t-label); }
