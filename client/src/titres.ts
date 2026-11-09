@@ -1,6 +1,16 @@
 import type { AccountPage } from './routes'
 
 /**
+ * Le nom de la page des collectionneurs, partout où il se lit : l'onglet, sa
+ * tête, son gros bouton sur « Mon profil ». « Les collectionneurs » d'abord,
+ * puis « Classement des collections » (le propriétaire, le 9 novembre 2026 :
+ * « quelque chose qui fait plus penser à “Classement des collections” ») —
+ * sur deux lignes au gros bouton, en 360 de large, coupé net après
+ * « Classement ». L'adresse reste `/collectionneurs`.
+ */
+export const TITRE_DES_COLLECTIONNEURS = 'Classement des collections'
+
+/**
  * Le titre de l'onglet des pages d'animateur, avant que la page ne pose le
  * sien. Cinq pages s'appelaient toutes « FiestApp » : dans la liste des
  * onglets, ou au lecteur d'écran qui annonce la page, rien ne distinguait
@@ -26,7 +36,7 @@ const TITRES: Record<AccountPage, string> = {
   duels: 'Les duels',
   expedition: 'L’Expédition',
   cabinet: 'Le Cabinet de curiosités',
-  collectionneurs: 'Les collectionneurs',
+  collectionneurs: TITRE_DES_COLLECTIONNEURS,
 }
 
 export function titreDePage(page: AccountPage): string {

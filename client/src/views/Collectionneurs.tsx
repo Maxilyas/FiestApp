@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { api, motifDe, UnauthorizedError } from '../api'
+import { TITRE_DES_COLLECTIONNEURS } from '../titres'
 import { Feuille, MenuBarre, PieceTete, Sortie } from '../components/Pieces'
 import { Avatar, Dessin } from '../components/Avatar'
 import { Icon } from '../components/Icon'
@@ -49,7 +50,7 @@ import {
 // - les Divins tout de suite dessous, en bandeau — leur salle s'ouvre en
 //   feuille : ils comptent et se montrent, seul leur chemin reste secret
 //   (invariant 21) ;
-// - les six puces du palmarès, qui changent sur place sa place, le podium et
+// - les sept puces du palmarès, qui changent sur place sa place, le podium et
 //   la liste — chaque ligne dit sa catégorie : ses couronnes, ses sceaux, ses
 //   légendaires peints ;
 // - « Tous · Mes amis », et le podium en cartes à collectionner ;
@@ -179,6 +180,13 @@ function Detail({ c, f }: { c: CategorieDeCollection; f: FicheDeCollectionneur }
           {f.scelles.length > 0 && <span>{`${f.scelles.length} scellé${f.scelles.length > 1 ? 's' : ''}`}</span>}
         </span>
       )
+    case 'scelles':
+      // Ses scellés seuls, chacun son étoile du zénith : ce que la catégorie classe.
+      return (
+        <span className="cl-detail">
+          <Medaillons cles={f.scelles} scelles={f.scelles} />
+        </span>
+      )
     case 'cabinet':
       return (
         <span className="cl-detail">
@@ -252,10 +260,13 @@ function BandeauDesDivins({ etat, fiches, onOuvrir }: { etat: ClassementDesColle
       onClick={onOuvrir}
       aria-label={`Les Divins : ${descendus} descendu${descendus > 1 ? 's' : ''} sur ${DIVINS.length}${chez.length > 0 ? `, ${chez.join(', ')}` : ''}. Ouvrir leur salle`}
     >
+      {/* « Chacun », comme dans leur salle : « 2 descendus sur 6 · 200 carats » se lisait comme ce que valent les deux
+          ensemble (« corrige », le propriétaire, le 9 novembre 2026). Avec lui, la ligne ne tient plus à côté du titre en 360 de
+          large : elle passe dessous, la flèche reste au bout du titre. */}
       <span className="cl-divins-bandeau-tete" aria-hidden="true">
         <b className="cl-divins-titre cl-divins-titre-petit">Les Divins</b>
-        <span>{`${descendus} descendu${descendus > 1 ? 's' : ''} sur ${DIVINS.length} · ${CARATS_DE_LA_GEMME.divin}\u00a0carats`}</span>
         <Icon name="chevron-down" className="cl-divins-bandeau-chevron" />
+        <span>{`${descendus} descendu${descendus > 1 ? 's' : ''} sur ${DIVINS.length} · ${CARATS_DE_LA_GEMME.divin}\u00a0carats chacun`}</span>
       </span>
       <span className="cl-divins-rangee" aria-hidden="true">
         {DIVINS.map(d => {
@@ -712,7 +723,7 @@ function LeBareme() {
         ))}
       </ul>
       <p className="muted small">
-        {`Un Éclat vaut un légendaire (${CARATS_D_UN_ECLAT}), qu’il fasse éclater un avatar ou y taille une matière — l’Opale, offerte par les quatre, ne compte pas. Un maître de sentier en vaut un aussi (${CARATS_D_UN_MAITRE}), comme l’étoile du zénith d’un légendaire scellé, sa voie d’origine tenue (${CARATS_DU_ZENITH}) ; un sceau du Cabinet ${CARATS_DU_SCEAU.bronze}, ${CARATS_DU_SCEAU.argent} ou ${CARATS_DU_SCEAU.or} selon son métal ; un autre trophée et un timbre ${CARATS_D_UN_TROPHEE} et ${CARATS_D_UN_TIMBRE}. Un thème vaut sa gemme, un fond et une gerbe ${CARATS_D_UN_FOND} et ${CARATS_D_UNE_GERBE}, une finition ${CARATS_D_UNE_FINITION}, une bordure de ligue de ${CARATS_DE_LA_LIGUE.bronze} au bronze à ${CARATS_DE_LA_LIGUE.maitre} chez les maîtres. Un Divin vaut huit légendaires — comment il descend ne se dit pas.`}
+        {`Un Éclat vaut un légendaire (${CARATS_D_UN_ECLAT}), qu’il fasse éclater un avatar ou y taille une matière — l’Opale, offerte par les quatre, ne compte pas. Un maître de sentier en vaut un aussi (${CARATS_D_UN_MAITRE}) ; l’étoile du zénith d’un légendaire scellé, sa voie d’origine tenue, en vaut deux (${CARATS_DU_ZENITH}) ; un sceau du Cabinet ${CARATS_DU_SCEAU.bronze}, ${CARATS_DU_SCEAU.argent} ou ${CARATS_DU_SCEAU.or} selon son métal ; un autre trophée et un timbre ${CARATS_D_UN_TROPHEE} et ${CARATS_D_UN_TIMBRE}. Un thème vaut sa gemme, un fond et une gerbe ${CARATS_D_UN_FOND} et ${CARATS_D_UNE_GERBE}, une finition ${CARATS_D_UNE_FINITION}, une bordure de ligue de ${CARATS_DE_LA_LIGUE.bronze} au bronze à ${CARATS_DE_LA_LIGUE.maitre} chez les maîtres. Un Divin vaut huit légendaires — comment il descend ne se dit pas.`}
       </p>
     </details>
   )
@@ -732,6 +743,15 @@ export function CollectionneursApp() {
   const [face, setFace] = useState<FicheDeCollectionneur | null>(null)
   const [salle, setSalle] = useState(false)
   const { ouvrir: ouvrirLaCarte, carte } = useCarteDUnProfil()
+
+  // La carte d'un joueur y mène sur sa vitrine (`#vitrine-<id>`, `CarteJoueur`) : ouverte d'emblée, l'adresse rendue
+  // nue — un rechargement ne la rouvre pas.
+  useEffect(() => {
+    const m = /^#vitrine-(.+)$/.exec(location.hash)
+    if (!m) return
+    setVitrine(decodeURIComponent(m[1]))
+    history.replaceState(history.state, '', location.pathname + location.search)
+  }, [])
 
   useEffect(() => {
     let vivant = true
@@ -786,7 +806,7 @@ export function CollectionneursApp() {
     return (
       <div className="player-shell cl-page">
         <Sortie vers="Mon profil" href="/profil" />
-        <PieceTete piece="Profil" titre="Les collectionneurs" />
+        <PieceTete piece="Profil" titre={TITRE_DES_COLLECTIONNEURS} />
         <p className="error" role="alert">
           {erreur.motif}
         </p>
@@ -808,7 +828,7 @@ export function CollectionneursApp() {
   return (
     <div className="player-shell cl-page">
       <Sortie vers="Mon profil" href="/profil" />
-      <PieceTete piece="Profil" titre="Les collectionneurs" />
+      <PieceTete piece="Profil" titre={TITRE_DES_COLLECTIONNEURS} />
       {!etat || !vue ? (
         <p className="muted small">Chargement…</p>
       ) : (

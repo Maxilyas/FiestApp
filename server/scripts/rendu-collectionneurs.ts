@@ -17,7 +17,8 @@ import { spawnSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import Database from 'better-sqlite3'
-import { demarrer, inscrireProfil, relireJusqua } from '../test/banc'
+import { connexionAnimateur, demarrer, ecrire, inscrireProfil, relireJusqua } from '../test/banc'
+import { DESTINATIONS } from '../../shared/affiches'
 import { VERSION_BAREME } from '../src/auth/profiles'
 import { xpDuNiveau } from '../../shared/profil'
 import type { CleDeLigue } from '../../shared/duels'
@@ -137,6 +138,12 @@ const ETATS: readonly Etat[] = [
   { nom: '11-face-a-face-max', adresse: '/collectionneurs', toucher: ['.cl-carte-premier', { bouton: 'Comparer' }], feuilleEntiere: true },
   { nom: '12-ma-vitrine', adresse: '/collectionneurs', toucher: ['.cl-sa-place ~ .cl-classement-tete', '.cl-ligne.me'], feuilleEntiere: true },
   { nom: '13-bareme', adresse: '/collectionneurs', toucher: ['.cl-bareme summary'], defiler: '.cl-bareme' },
+  { nom: '14-scelles', adresse: '/collectionneurs', toucher: [{ onglet: 'Scellés' }], defiler: '.cl-classement-tete' },
+  // Sa carte dit ce que vaut sa collection : la sienne, qui mène aux collectionneurs ; celle de Max, ouverte de sa vitrine.
+  { nom: '15-ma-carte', adresse: '/profil', toucher: ['.identite-ligne'] },
+  { nom: '16-sa-carte-depuis-sa-vitrine', adresse: '/collectionneurs', toucher: ['.cl-carte-premier', { bouton: 'Sa carte' }] },
+  // Où mène la carte d'un autre : sa vitrine, ouverte d'emblée (`{max}`, son identifiant).
+  { nom: '17-sa-vitrine-par-sa-carte', adresse: '/collectionneurs#vitrine-{max}', feuilleEntiere: true },
 ]
 
 const banc = await demarrer()
@@ -168,6 +175,7 @@ try {
   db.prepare("UPDATE profiles SET legendaire = 'dv:helios' WHERE id = ?").run(idDe('max'))
   db.prepare("UPDATE profiles SET legendaire = 'lg:phenix' WHERE id = ?").run(idDe('lea'))
   db.prepare("UPDATE profile_eclats SET matiere = 'jade' WHERE profile_id = ? AND avatar = 'lg:phenix'").run(idDe('lea'))
+  const idDeMax = idDe('max')
   db.close()
   await banc.redemarrer()
   // Le premier relevé se fait en fond, derrière la première visite.
@@ -202,7 +210,7 @@ try {
 
   for (const e of ETATS.filter(x => retenu(x.nom))) {
     await page.goto('about:blank')
-    await page.goto(`${banc.url}${e.adresse}`)
+    await page.goto(`${banc.url}${e.adresse.replace('{max}', encodeURIComponent(idDeMax))}`)
     await page.waitForSelector(e.adresse === '/profil' ? '.profil-boutons' : '.cl-sa-place')
     if (theme) await page.evaluate(`document.documentElement.dataset.theme = '${theme}'`)
     for (const geste of e.toucher ?? []) {
@@ -232,6 +240,28 @@ try {
         await page.waitForTimeout(400)
         await page.screenshot({ path: path.join(sortie, `${e.nom}-bas.png`) })
       }
+    }
+  }
+  // L'affiche du QG, posée en dernier — Léa a déjà ouvert la page, avant elle : l'accueil l'annonce, et « Nouveau »
+  // s'allume sur le gros bouton de son profil jusqu'à sa prochaine visite.
+  if (retenu('18-affiche-accueil') || retenu('19-affiche-profil')) {
+    const admin = await connexionAnimateur(banc.url)
+    const { titre, phrase } = DESTINATIONS.collectionneurs
+    const posee = await ecrire(banc.url, '/api/admin/affiches', { id: 'collectionneurs', page: 'collectionneurs', titre, phrase, jours: 14, confettis: 50 }, admin)
+    if (posee.status !== 200) throw new Error(`affiche refusée : ${posee.status} ${await posee.text()}`)
+    for (const [nom, adresse, attente] of [
+      ['18-affiche-accueil', '/', '.accueil'],
+      ['19-affiche-profil', '/profil', '.profil-boutons'],
+    ] as const) {
+      if (!retenu(nom)) continue
+      await page.goto(`${banc.url}${adresse}`)
+      await page.waitForSelector(attente)
+      if (theme) await page.evaluate(`document.documentElement.dataset.theme = '${theme}'`)
+      await attendre()
+      const vu = await mesurer()
+      mesures.push(`${nom} : ${vu}`)
+      console.log(`${nom} : ${vu}`)
+      await page.screenshot({ path: path.join(sortie, `${nom}.png`) })
     }
   }
   writeFileSync(path.join(sortie, 'mesures.txt'), mesures.join('\n') + '\n')

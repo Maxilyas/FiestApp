@@ -2,6 +2,7 @@ import { tronquer } from './avatars'
 import { CONFETTIS_PAR_DON_MAX } from './profil'
 import { messageNet } from './annonces'
 import type { PageEnMaintenance } from './maintenance'
+import type { Route } from './adresses'
 
 /**
  * L'affiche d'une nouveauté (`/admin#affiches`, sous « Animer ») — le souhait
@@ -27,14 +28,26 @@ import type { PageEnMaintenance } from './maintenance'
 /**
  * Les pages qu'une affiche peut montrer, dans l'ordre où le QG les propose :
  * celles qui ont leur adresse, que le serveur reconnaît en servant la page
- * (`pageDeLAdresse`). Le défi de la semaine n'en a pas — sa page se dit dans
- * le fragment de la campagne, que le serveur ne reçoit pas : sa visite ne se
- * noterait jamais.
+ * (`pageALAfficheDeLAdresse`). Le défi de la semaine n'en a pas — sa page se
+ * dit dans le fragment de la campagne, que le serveur ne reçoit pas : sa
+ * visite ne se noterait jamais. Les collectionneurs, depuis le 9 novembre 2026
+ * (« fais un “Nouveau” sur le bouton, par le QG », le propriétaire) : la
+ * première qui ne se ferme pas au QG — elle ne commence rien, comme le profil.
  */
-export const PAGES_A_L_AFFICHE = ['cabinet', 'campagne', 'jour', 'duels', 'boutique'] as const satisfies readonly PageEnMaintenance[]
+export const PAGES_A_L_AFFICHE = ['cabinet', 'campagne', 'jour', 'duels', 'boutique', 'collectionneurs'] as const satisfies readonly (PageEnMaintenance | 'collectionneurs')[]
 export type PageALAffiche = (typeof PAGES_A_L_AFFICHE)[number]
 
 export const estUnePageALAffiche = (x: unknown): x is PageALAffiche => (PAGES_A_L_AFFICHE as readonly unknown[]).includes(x)
+
+/**
+ * La page à l'affiche qu'ouvre une adresse — servie à un profil, sa visite se
+ * note (`noterUneVisite`). Pas `pageDeLAdresse`, qui ne nomme que les pages
+ * qui se ferment : les collectionneurs n'y sont pas, et leur visite ne se
+ * serait jamais notée.
+ */
+export function pageALAfficheDeLAdresse(route: Route): PageALAffiche | null {
+  return route.kind === 'account' && estUnePageALAffiche(route.page) ? route.page : null
+}
 
 /**
  * Chaque page qu'une affiche montre : son nom au QG, la préposition qui la dit
@@ -93,6 +106,16 @@ export const DESTINATIONS: Record<PageALAffiche, DestinationDUneAffiche> = {
     bouton: 'Ouvrir la boutique',
     titre: 'Du nouveau en boutique',
     phrase: 'Des thèmes, des compagnons et des fonds de carte à découvrir avec tes confettis.',
+  },
+  collectionneurs: {
+    // Le nom de sa page, « Classement des collections » (`TITRE_DES_COLLECTIONNEURS`, le client).
+    nom: 'Le classement des collections',
+    a: 'au classement des collections',
+    chemin: '/collectionneurs',
+    // Court : « Plus tard » tient à côté, sur une ligne en 360 de large.
+    bouton: 'Voir ma place',
+    titre: 'Que vaut ta collection ?',
+    phrase: 'Chaque avatar, chaque trophée a sa valeur en carats : découvre ta place parmi les collectionneurs, et qui garde les Divins.',
   },
 }
 

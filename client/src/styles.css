@@ -6887,6 +6887,59 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .carte-soir .icon { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--accent-text); }
 .carte-soir b { font-family: var(--serif); font-size: 1.05rem; font-variant-numeric: lining-nums; color: var(--accent-text); }
 .carte-soir-detail { display: block; font-size: 0.75rem; color: var(--muted); }
+/* Ce que vaut sa collection, sous l'illustration (le 9 novembre 2026 : « un style très joli ») : un cartouche serti
+   dans le métal de son cadre (`--cadre`), sa pierre taillée, ses carats en or. Un objet peint, comme la plaque de son
+   compagnon : aucun thème ne le repeint, il se lit sur tout fond de carte. Hors d'une soirée, un lien vers les
+   collectionneurs ; en salle, il se lit. */
+.carte-collection {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin: 0;
+  padding: 7px 12px;
+  border-radius: 11px;
+  background:
+    radial-gradient(90% 160% at 0% 0%, rgba(255, 226, 160, 0.18), transparent 60%),
+    linear-gradient(165deg, #2b2016 0%, #17100b 62%, #0f0a07 100%);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 238, 200, 0.14);
+  color: #f3ece2;
+  text-decoration: none;
+  text-shadow: none;
+}
+/* Son serti : le métal du cadre en anneau, comme autour de l'illustration. */
+.carte-collection::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1.5px;
+  border-radius: inherit;
+  background: var(--cadre);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  pointer-events: none;
+}
+/* Sa pierre, taillée : un losange d'or à facettes, un éclat de lumière à son coin. */
+.carte-collection-pierre {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 0 3px;
+  border-radius: 4px;
+  transform: rotate(45deg);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.75) 0 16%, transparent 17%),
+    conic-gradient(from 45deg, #fff0bf, #d9a441 25%, #8f6219 50%, #f6dd94 75%, #fff0bf);
+  box-shadow: 0 0 10px rgba(246, 221, 148, 0.45), inset 0 0 0 1px rgba(255, 240, 200, 0.6);
+}
+a.carte-collection:hover .carte-collection-pierre { box-shadow: 0 0 16px rgba(246, 221, 148, 0.75), inset 0 0 0 1px rgba(255, 240, 200, 0.75); }
+.carte-collection-corps { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.carte-collection-valeur { display: flex; align-items: baseline; gap: 5px; }
+.carte-collection-valeur b { font-family: var(--serif); font-size: 1.45rem; font-weight: 600; line-height: 1; color: #f6dd94; font-variant-numeric: lining-nums tabular-nums; }
+.carte-collection-valeur span { font-size: 0.8rem; color: #e6c47c; }
+.carte-collection-nom { overflow: hidden; font-size: var(--t-label); letter-spacing: 0.04em; color: #d8cdbd; text-overflow: ellipsis; white-space: nowrap; }
+.carte-collection .icon { flex: none; width: 18px; height: 18px; margin-left: auto; color: #e6c47c; }
 .carte-legendaires { display: flex; flex-wrap: wrap; gap: 6px; }
 .carte-legendaire { font-size: 32px; line-height: 0; }
 /* Dans ses galeries, un médaillon ne bouge que sous le doigt ou la souris :
@@ -17210,6 +17263,8 @@ span.annonce-admin-merci { cursor: default; }
 .cl-cercle-petit .onglet { min-height: 32px; padding: 0 10px; }
 .cl-puces { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .cl-puces .onglet { justify-content: center; }
+/* La valeur seule sur sa rangée, les six autres trois par trois : la septième puce, les scellés, laissait sinon les Éclats seuls en bas. */
+.cl-puces .onglet:first-child { grid-column: 1 / -1; }
 
 /* Une carte du podium, au cadre de sa ligue (`.cadre-<ligue>`, la vraie carte) ; sans ligue, le champagne de tous. */
 .cl-carte {
@@ -17308,11 +17363,12 @@ span.annonce-admin-merci { cursor: default; }
   cursor: pointer;
   box-shadow: inset 0 0 0 1px rgba(201, 182, 255, 0.45), 0 6px 18px rgba(0, 0, 0, 0.3);
 }
-.cl-divins-bandeau-tete { display: flex; align-items: baseline; gap: 8px; padding: 0 2px; }
-.cl-divins-bandeau-tete > span { color: #c4b8d2; font-size: 0.75rem; }
+/* Le titre et sa flèche sur une ligne, ce qu'ils valent dessous : « 200 carats chacun » ne tenait plus à côté du titre. */
+.cl-divins-bandeau-tete { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; padding: 0 2px; }
+.cl-divins-bandeau-tete > span { grid-column: 1 / -1; color: #c4b8d2; font-size: 0.75rem; }
 .cl-divins-titre { margin: 0; background: linear-gradient(90deg, #f7b8e8, #9fe3ff 35%, #fff1a6 65%, #b9f5c6); -webkit-background-clip: text; background-clip: text; color: transparent; font-family: var(--serif); font-size: 1.8rem; font-weight: 600; line-height: 1.1; }
 .cl-divins-titre.cl-divins-titre-petit { font-size: 1.3rem; }
-.cl-divins-bandeau-chevron { width: 16px; height: 16px; margin-left: auto; align-self: center; color: #c4b8d2; transform: rotate(-90deg); }
+.cl-divins-bandeau-chevron { width: 16px; height: 16px; color: #c4b8d2; transform: rotate(-90deg); }
 .cl-divins-rangee { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 2px; }
 .cl-divins-case { position: relative; display: grid; place-items: center; height: 3.4rem; }
 .cl-divins-case-bijou { font-size: 2.3rem; }

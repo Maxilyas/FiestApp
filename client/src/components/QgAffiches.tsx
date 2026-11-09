@@ -11,7 +11,7 @@ import { formatNumber } from '../../../shared/typographie'
 import { quandEcrit } from '../../../shared/qg'
 import { jourDe, jourEnToutesLettres } from '../../../shared/jour'
 import { CONFETTIS_PAR_DON_MAX } from '../../../shared/profil'
-import type { EtatDeLaMaintenance } from '../../../shared/maintenance'
+import { estUnePageEnMaintenance, type EtatDeLaMaintenance } from '../../../shared/maintenance'
 import {
   afficheEnCours,
   DESTINATIONS,
@@ -37,6 +37,17 @@ import { oublierLesReperes } from '../qgReperes'
  */
 function EffetDeLAffiche({ affiche: a, effet }: { affiche: AfficheAuQg; effet: EffetDUneAffiche | undefined }) {
   if (!effet) return null
+  // Une page qui ne se joue ni ne vend — les collectionneurs : ses visiteurs, seuls ; ni joueurs ni achats à lui prêter.
+  if (effet.visiteurs !== undefined) {
+    return (
+      <span className="qg-effet">
+        <span className="qg-effet-ligne">
+          <Icon name="bar-chart" />
+          {espacesFines(`Sa page ouverte par ${deProfils(effet.visiteurs)} depuis son jour`)}
+        </span>
+      </span>
+    )
+  }
   const N = JOURS_DE_L_EFFET_D_UNE_AFFICHE
   const mode = MODE_DE_LA_PAGE[a.page]
   const compte = (n: number) => (mode ? `${formatNumber(n)} joueur${n > 1 ? 's' : ''} ${DU_MODE[mode]}` : `${formatNumber(n)} achat${n > 1 ? 's' : ''} à la boutique`)
@@ -83,6 +94,8 @@ const nomDe = (page: string) => (estUnePageALAffiche(page) ? DESTINATIONS[page].
 /** Sa page est fermée aux joueurs (`/admin#maintenance`) : l'affiche ne se montrera qu'à qui y entre. */
 function fermeture(page: PageALAffiche, maintenance: EtatDeLaMaintenance | null): string | null {
   if (page === 'cabinet' && !cabinetIci()) return 'Le Cabinet de curiosités ne s’ouvre pas sur ce serveur : son affiche se refusera.'
+  // Une page qui ne se ferme pas — les collectionneurs — n'a rien à en dire.
+  if (!estUnePageEnMaintenance(page)) return null
   if (maintenance?.pages[page] != null) return `${DESTINATIONS[page].nom} est en maintenance : l’affiche ne se montrera à personne tant qu’elle ne rouvre pas.`
   if (maintenance?.bientot[page] != null) return `${DESTINATIONS[page].nom} est bientôt disponible : seuls ses testeurs verront l’affiche tant que tu ne l’ouvres pas à tous.`
   return null

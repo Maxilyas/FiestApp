@@ -24,7 +24,8 @@ import { pierreDuNiveau } from '../../../shared/pierres'
 import { ceQuIlAFallu } from '../../../shared/hautsfaits'
 import { PALIERS_DU_SENTIER, nomDuTitre, titreDeMaitre } from '../../../shared/sentiers'
 import { NOM_DU_LAURIER, duMois } from '../../../shared/jour'
-import { deNom, espacesFines, formatNumber, place, reponsesParType, secondes, pts } from '../format'
+import { deNom, espacesFines, formatNumber, place, rang as rangDuClassement, reponsesParType, secondes, pts } from '../format'
+import { rangDeCollection } from '../../../shared/collectionneurs'
 import { Avatar, Dessin } from './Avatar'
 import { chargerDessinsAuPlus, complets, dessinDuPortrait, sortesDesAvatars, useDessins, type Sorte } from './medaillons'
 import { justesses, type Chiffre } from './Chiffres'
@@ -190,6 +191,15 @@ export function CarteJoueur({
   const mots = carte && !loupe ? motsDeLaCarte(carte, avecDessins, !!fond) : []
   const titre = nomDuTitre(p?.titre)
   const pierre = pierreDuNiveau(p?.niveau)
+  // Ce que vaut sa collection mène aux collectionneurs — à sa vitrine, quand c'est un autre profil —, hors d'une soirée
+  // seulement : en salle, la carte se lit sans quitter la partie ; dans la loge, l'essai attend ; sur la page des
+  // collectionneurs, on y est déjà.
+  const versLesCollectionneurs =
+    !adresse || retouche || (typeof location !== 'undefined' && location.pathname === '/collectionneurs')
+      ? null
+      : gestes
+        ? `/collectionneurs#vitrine-${encodeURIComponent(gestes.profileId)}`
+        : '/collectionneurs'
   // Son savoir et ses sentiers : deux faces de plus, chacune s'il a de quoi la remplir.
   const radar = useMemo(() => radarDuSavoir(p?.savoir, p?.moyennes), [p])
   const sentiers = useMemo(() => sentiersDeLaCarte(p?.sentiers), [p])
@@ -403,6 +413,8 @@ export function CarteJoueur({
                       </div>
                       {compagnon && <SonCompagnon compagnon={compagnon} bouton={petitCompagnon} onOuvrir={ouvrirLeCompagnon} />}
                     </div>
+                    {/* Ce que vaut sa collection, sous son illustration : un cartouche serti dans le métal de son cadre. */}
+                    {p?.collection && <CartoucheDeCollection collection={p.collection} vers={versLesCollectionneurs} />}
                     {/* Sa soirée — absente de sa propre carte, lue depuis sa page. */}
                     {carte.ceSoir && (
                       <p className="carte-soir">
@@ -1034,6 +1046,44 @@ function SonCompagnon({ compagnon, bouton, onOuvrir }: { compagnon: CompagnonPos
 }
 
 /** Sa plaque, sous sa niche, sur l'illustration : son nom, et le titre de leur amitié quand sa niche a passé un palier. */
+/**
+ * Ce que vaut sa collection, sur sa carte (le souhait du propriétaire du
+ * 9 novembre 2026 : « la valeur de la collection sur la carte joueur avec un
+ * style très joli, et permettre de cliquer dessus ») : un cartouche serti dans
+ * le métal de son cadre, sa pierre taillée, ses carats en or et le nom de sa
+ * collection — « La galerie · 4ᵉ sur 87 ». Un objet peint, comme la plaque de
+ * son compagnon : aucun thème ne le repeint, il se lit sur tout fond de carte.
+ * Il mène aux collectionneurs quand la carte le peut (`vers`), sinon il se lit.
+ */
+function CartoucheDeCollection({ collection: c, vers }: { collection: NonNullable<Profil['collection']>; vers: string | null }) {
+  const unite = c.carats >= 2 ? 'carats' : 'carat'
+  const classement = c.rang ? `${rangDuClassement(c.rang)} sur ${formatNumber(c.classes)}` : null
+  const dit = `Sa collection vaut ${formatNumber(c.carats)} ${unite}${classement ? `, ${classement} des collectionneurs` : ''}`
+  const dedans = (
+    <>
+      <span className="carte-collection-pierre" aria-hidden="true" />
+      <span className="carte-collection-corps" aria-hidden="true">
+        <span className="carte-collection-valeur">
+          <b>{formatNumber(c.carats)}</b>
+          <span>{unite}</span>
+        </span>
+        <span className="carte-collection-nom">{[rangDeCollection(c.carats).nom, classement].filter(Boolean).join(' · ')}</span>
+      </span>
+      {vers && <Icon name="chevron-right" />}
+    </>
+  )
+  return vers ? (
+    <a className="carte-collection" href={vers} aria-label={`${dit} : voir le classement des collections`}>
+      {dedans}
+    </a>
+  ) : (
+    <p className="carte-collection">
+      <span className="sr-only">{dit}</span>
+      {dedans}
+    </p>
+  )
+}
+
 function PlaqueDuCompagnon({ compagnon }: { compagnon: CompagnonPossede }) {
   const code = useCodeDeLaNiche()
   const c = leCompagnon(compagnon)

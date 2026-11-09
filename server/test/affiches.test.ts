@@ -20,6 +20,7 @@ import {
   ceQueMontreLAccueil,
   lireLAffiche,
   motDeLaPremiereVisite,
+  pageALAfficheDeLAdresse,
   type AfficheDAccueil,
   type PageDesAffiches,
 } from '../../shared/affiches'
@@ -89,10 +90,16 @@ test('une affiche se lit au QG telle qu’elle partira : refusée plutôt que co
     assert.throws(() => lireLAffiche(faux), motif, JSON.stringify(faux))
   }
   assert.equal(lireLAffiche({ ...CABINET, titre: 'é'.repeat(TITRE_D_AFFICHE_MAX) }).titre.length, TITRE_D_AFFICHE_MAX)
-  // Chaque page à l'affiche a son adresse, que le serveur reconnaît en la servant : sans elle, sa visite ne se noterait jamais.
+  // Chaque page à l'affiche a son adresse, que le serveur reconnaît en la servant (`pageALAfficheDeLAdresse`) : sans
+  // elle, sa visite ne se noterait jamais. Celles qui se ferment au QG la gardent aussi dans `pageDeLAdresse` ; les
+  // collectionneurs, à l'affiche depuis le 9 novembre 2026, ne s'y ferment pas : ils ne commencent rien.
   for (const page of PAGES_A_L_AFFICHE) {
-    assert.ok((PAGES_EN_MAINTENANCE as readonly string[]).includes(page), page)
-    assert.equal(pageDeLAdresse(parseRoute(DESTINATIONS[page].chemin)), page, DESTINATIONS[page].chemin)
+    assert.equal(pageALAfficheDeLAdresse(parseRoute(DESTINATIONS[page].chemin)), page, DESTINATIONS[page].chemin)
+    if (page === 'collectionneurs') assert.equal(pageDeLAdresse(parseRoute(DESTINATIONS[page].chemin)), null, 'une page qui ne commence rien ne se ferme pas')
+    else {
+      assert.ok((PAGES_EN_MAINTENANCE as readonly string[]).includes(page), page)
+      assert.equal(pageDeLAdresse(parseRoute(DESTINATIONS[page].chemin)), page, DESTINATIONS[page].chemin)
+    }
     assert.ok(lireLAffiche({ page, titre: DESTINATIONS[page].titre, phrase: DESTINATIONS[page].phrase, jours: 7 }), `ce que le QG propose pour ${page} passe`)
   }
   assert.equal(motDeLaPremiereVisite('cabinet'), 'Pour ta première visite au Cabinet de curiosités')
@@ -108,6 +115,31 @@ test('l’accueil montre en grand la plus récente qu’il n’a pas rangée, et
   assert.deepEqual(ceQueMontreLAccueil(toutes, p => p !== 'cabinet'), { grande: toutes[2], nouvelles: ['duels', 'campagne'] })
   assert.deepEqual(ceQueMontreLAccueil([affiche('b', 'duels', true)], () => true), { grande: null, nouvelles: ['duels'] })
   assert.deepEqual(ceQueMontreLAccueil([], () => true), { grande: null, nouvelles: [] })
+})
+
+test('une affiche des collectionneurs : « Nouveau » sur le gros bouton de son profil jusqu’à sa visite, que le serveur note', async () => {
+  // « Fais un “Nouveau” sur le bouton, par le QG » (le propriétaire, le 9 novembre 2026) : la page ne se ferme pas au
+  // QG, et sa visite se note quand même — sans quoi l'affiche et la pastille ne se tairaient jamais.
+  const banc = await avecPages()
+  try {
+    const admin = await connexionAnimateur(banc.url)
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const { titre, phrase } = DESTINATIONS.collectionneurs
+    const posee = await faire(banc, admin, '/api/admin/affiches', { id: 'collectionneurs', page: 'collectionneurs', titre, phrase, jours: 14, confettis: 20 })
+    assert.equal(posee.status, 200, posee.corps.error)
+    // Son profil la lit, comme son accueil : le gros bouton des collectionneurs dit « Nouveau ».
+    const profil = async () => (await lire<{ profile: { affiches?: AfficheDAccueil[] } }>(banc, lea, '/api/joueur/moi')).corps.profile
+    assert.deepEqual((await profil()).affiches?.map(a => a.page), ['collectionneurs'])
+    assert.deepEqual(await sesAffiches(banc, lea), [[titre, false]])
+    const avant = (await solde(banc, lea)) ?? 0
+    // Il ouvre la page : sa visite se note, ses confettis tombent, l'affiche et la pastille se taisent.
+    await ouvrir(banc, lea, '/collectionneurs')
+    await relireJusqua(profil, p => p.affiches === undefined)
+    assert.deepEqual(await sesAffiches(banc, lea), [])
+    assert.equal(await solde(banc, lea), avant + 20)
+  } finally {
+    await banc.close()
+  }
 })
 
 test('une affiche du Cabinet : chaque accueil la montre jusqu’à la visite, qui la tait et offre ses confettis une fois ; « Plus tard » la range', async () => {

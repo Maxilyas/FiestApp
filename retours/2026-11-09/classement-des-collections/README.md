@@ -29,12 +29,39 @@ serveur, etc. Requête. » — le Divin à deux cents carats, et la page faite :
 Puis, le même jour, l'étoile du zénith arrivée sur `main` — le sceau d'un
 légendaire gagné par sa voie d'origine, pas seulement par le raccourci du
 Cabinet : « il faudrait du coup pouvoir récompenser dans le classement
-cela ». Un légendaire scellé vaut un légendaire de plus (`CARATS_DU_ZENITH`,
-25 carats), masqué ou non dans la loge ; ses légendaires scellés passent en
+cela ». Un légendaire scellé vaut deux légendaires de plus (`CARATS_DU_ZENITH`,
+50 carats : « c'est souvent des légendaires durs à obtenir, donc j'aimerais
+que ce soit 50 », d'abord 25), masqué ou non dans la loge ; ses légendaires scellés passent en
 tête de sa ligne, leur étoile au sommet, et se comptent (« 3 scellés ») ; sa
 pièce le dit sur son socle ; le face-à-face a sa ligne, « Légendaires
 scellés », et compte l'étoile d'un légendaire que les deux ont parmi ce que
 l'un a et pas l'autre.
+
+Puis, sur la page fusionnée : « Fais une septième catégorie scellés stp ;
+tout le monde est classé, c'est bien ; fais un “Nouveau” sur le bouton, par
+le QG ; rajoute la valeur de la collection sur la carte joueur avec un style
+très joli, et permettre de cliquer dessus et de renvoyer sur la page
+collectionneur. » — faits le même jour (« La page, intégrée », plus bas) :
+- les scellés, septième puce, sur les vingt légendaires qui se scellent ; la
+  valeur seule sur sa rangée, les six autres trois par trois ;
+- `/collectionneurs` à l'affiche du QG — la première page à l'affiche qui ne
+  se ferme pas (`pageALAfficheDeLAdresse`) —, « Nouveau » sur son gros bouton
+  de « Mon profil » jusqu'à la visite, son effet compté à ses visiteurs ;
+- sur la carte d'un joueur, un cartouche serti dans le métal du cadre : sa
+  pierre d'or, ses carats, le nom de sa collection et sa place ; hors d'une
+  soirée, il mène aux collectionneurs — à sa vitrine pour la carte d'un
+  autre.
+
+Puis : « “Les collectionneurs” comme nom, je n'aime pas trop pour le titre
+dans le profil. Je verrais quelque chose qui fait plus penser à “Classement
+des collections”, mais c'est peut-être trop long » — « Classement des
+collections » partout où le nom se lit (`TITRE_DES_COLLECTIONNEURS`) : le
+gros bouton, en 360 de large, le coupe net après « Classement », sur deux
+lignes ; « Les collections » aurait tenu sur une. L'adresse reste
+`/collectionneurs`. Et le bandeau des Divins dit « 200 carats chacun »,
+comme leur salle — « 2 descendus sur 6 · 200 carats » se lisait comme ce
+que valent les deux ensemble (« corrige », le propriétaire) : la ligne passe
+sous le titre, qu'elle ne tenait plus à côté.
 
 Une maquette : les propositions sont posées dans le vrai client — ses avatars
 peints, ses finitions, ses bordures de ligue, ses Divins, ses matières, sa
@@ -281,17 +308,21 @@ les réglages, dans `docs/reference/baremes.md` ; les deux routes, dans
 - **La page** : `/collectionneurs` (`client/src/views/Collectionneurs.tsx`),
   plutôt que `/classement`, qu'on aurait lu pour celui des duels. Tout ce que
   la synthèse retouchée montrait — sa place, les Divins en bandeau et leur
-  salle, les six puces, « Tous · Mes amis », le podium en cartes au cadre de
+  salle, les puces — sept depuis les scellés —, « Tous · Mes amis », le podium en cartes au cadre de
   leur ligue, la liste jusqu'au dixième puis ses voisins, la vitrine, le
   face-à-face, le barème. Sans profil, de quoi se connecter. Elle ne commence
   rien : comme le profil, elle ne se ferme pas au QG (`pageDeLAdresse`).
 - **L'entrée** : le gros bouton, entre « Ma collection » et « Mes soirées »,
   dit sa place et sa valeur au dernier relevé
-  (`PublicProfileDetail.collectionneur`). Sans « Nouveau » : une nouveauté
-  se dit par l'affiche du QG, et `/collectionneurs` n'en est pas une
-  destination (`PAGES_A_L_AFFICHE`) — à ajouter pour l'annoncer.
+  (`PublicProfileDetail.collectionneur`). « Nouveau » s'y allume quand une
+  affiche du QG montre les collectionneurs, jusqu'à sa visite
+  (`PublicProfileDetail.affiches`) — la maquette le voulait le temps de le
+  découvrir ; l'affiche du QG le décide.
+- **La carte d'un joueur** dit ce que vaut sa collection, de mémoire
+  (`CarteDeJoueur.profil.collection`) : un cartouche sous l'illustration, qui
+  mène aux collectionneurs hors d'une soirée.
 - **La règle, pure** (`shared/collectionneurs.ts`) : le barème, les rangs
-  d'une collection, les six catégories, leur classement par la règle de tous
+  d'une collection, les sept catégories, leur classement par la règle de tous
   (invariant 15), celui à passer, les pièces maîtresses, le face-à-face. Ce
   que « Ma collection » compte, le serveur le relit aux mêmes règles
   (`ProfileStore.collectionDe`, `releveDeLaCollection`) ; les homonymes se

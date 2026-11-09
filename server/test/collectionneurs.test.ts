@@ -9,6 +9,9 @@ import {
   CARATS_D_UN_ECLAT,
   CARATS_D_UN_MAITRE,
   CARATS_DU_ZENITH,
+  CATEGORIE,
+  CATEGORIES_DE_COLLECTION,
+  LEGENDAIRES_SCELLABLES,
   caratsDeLaCollection,
   caratsDeLaPiece,
   bilanDuFaceAFace,
@@ -23,7 +26,7 @@ import {
   type StyleDeCollection,
 } from '../../shared/collectionneurs'
 import { RARETES_D_AVATAR, type RareteDAvatar } from '../../shared/album'
-import { LEGENDAIRES } from '../../shared/legendaires'
+import { LEGENDAIRES, estScellable } from '../../shared/legendaires'
 import { releveDeLaCollection, type ProfilDuCollectionneur } from '../src/core/collectionneurs'
 
 const aucuneGemme = (): Record<RareteDAvatar, number> => Object.fromEntries(RARETES_D_AVATAR.map(g => [g, 0])) as Record<RareteDAvatar, number>
@@ -47,12 +50,12 @@ function releve(r: Partial<ReleveDeCollection> = {}): ReleveDeCollection {
 
 const sansStyle = (): StyleDeCollection => ({ themes: {}, fonds: 0, gerbes: 0, finitions: 0, ligues: [] })
 
-test('le barème : un Divin vaut huit légendaires, un Éclat, un maître et une étoile du zénith chacun un', () => {
+test('le barème : un Divin vaut huit légendaires, un Éclat et un maître chacun un, l’étoile du zénith deux', () => {
   assert.equal(CARATS_DE_LA_GEMME.divin, 200, 'le propriétaire : « passe-le à 200 »')
   assert.equal(CARATS_DE_LA_GEMME.divin, 8 * CARATS_DE_LA_GEMME.legendaire)
   assert.equal(CARATS_D_UN_ECLAT, CARATS_DE_LA_GEMME.legendaire)
   assert.equal(CARATS_D_UN_MAITRE, CARATS_DE_LA_GEMME.legendaire)
-  assert.equal(CARATS_DU_ZENITH, CARATS_DE_LA_GEMME.legendaire, 'sa voie d’origine, l’exploit, en coûte au moins autant')
+  assert.equal(CARATS_DU_ZENITH, 2 * CARATS_DE_LA_GEMME.legendaire, 'le propriétaire : « des légendaires durs à obtenir, donc j’aimerais que ce soit 50 »')
   // Chaque gemme vaut plus que celle d'en dessous : l'échelle de l'album.
   for (let i = 1; i < RARETES_D_AVATAR.length; i++) assert.ok(CARATS_DE_LA_GEMME[RARETES_D_AVATAR[i]] > CARATS_DE_LA_GEMME[RARETES_D_AVATAR[i - 1]])
 })
@@ -63,7 +66,7 @@ test('la valeur d’une collection : ses trois familles, et le tout', () => {
   const style: StyleDeCollection = { themes: { offert: 2, rare: 1, legendaire: 1 }, fonds: 2, gerbes: 1, finitions: 3, ligues: ['bronze', 'argent', 'or'] }
   const c = caratsDeLaCollection(r, style)
   // Ses avatars, ses deux Éclats, et l'étoile du zénith de sa Comète.
-  assert.equal(c.avatars, 3 * 1 + 5 + 2 * 25 + 200 + 2 * 25 + 25)
+  assert.equal(c.avatars, 3 * 1 + 5 + 2 * 25 + 200 + 2 * 25 + 50)
   assert.equal(c.trophees, 25 + 2 + 5 + 10 + 4 * 2 + 3 * 2)
   // Les deux thèmes offerts à tous ne valent rien.
   assert.equal(c.style, 5 + 25 + 2 * 3 + 3 + 3 * 2 + (1 + 2 + 5))
@@ -152,9 +155,10 @@ test('une pièce de la vitrine : son Éclat, et chaque matière qu’il a coût�
   assert.equal(caratsDeLaPiece('divin', true, 2), 200, 'un Divin ne prend ni finition ni Éclat (invariant 21)')
   assert.equal(caratsDeLaPiece('divin', false, 0, true), 200, 'ni sceau')
   assert.equal(caratsDeLaPiece('commune'), 1)
-  // Scellé : son étoile du zénith en plus — d'origine, ou éclaté et taillé.
-  assert.equal(caratsDeLaPiece('legendaire', false, 0, true), 50)
-  assert.equal(caratsDeLaPiece('legendaire', true, 4, true), 175)
+  // Scellé : son étoile du zénith en plus — d'origine, ou éclaté et taillé : il égale alors un Divin, sans le passer.
+  assert.equal(caratsDeLaPiece('legendaire', false, 0, true), 75)
+  assert.equal(caratsDeLaPiece('legendaire', true, 4, true), 200)
+  assert.ok(caratsDeLaPiece('legendaire', true, 4, true) <= CARATS_DE_LA_GEMME.divin, 'aucune pièce ne vaut plus qu’un Divin')
   // La version montrée : l'Opale aux quatre, la matière portée tant qu'il l'a, sinon la version rare.
   assert.equal(versionDeLaPiece(['jade', 'corail', 'porcelaine', 'obsidienne']), 'opale')
   assert.equal(versionDeLaPiece(['jade', 'corail'], 'corail'), 'corail')
@@ -213,6 +217,27 @@ test('le classement d’une catégorie : les ex æquo partagent leur rang, et qu
   )
   assert.equal(valeurDansLaCategorie(fiches[0], 'cabinet'), 2, 'le Cabinet se classe aux sceaux d’or')
   assert.deepEqual(classerLesCollectionneurs(fiches, 'eclats').map(c => c.item.nom), ['Léa'])
+})
+
+test('les scellés, septième catégorie : sur le nombre de légendaires qui se scellent, et qui n’a pas d’étoile n’y est pas', () => {
+  // « Fais une septième catégorie scellés » (le propriétaire, le 9 novembre 2026).
+  assert.equal(LEGENDAIRES_SCELLABLES, LEGENDAIRES.filter(estScellable).length, 'un légendaire de plus qui se scelle monte le plafond')
+  assert.equal(CATEGORIE.scelles.sur, LEGENDAIRES_SCELLABLES)
+  assert.deepEqual(CATEGORIES_DE_COLLECTION, ['collection', 'niveau', 'maitres', 'cabinet', 'legendaires', 'scelles', 'eclats'], 'la valeur, ce qu’il a fait, puis ses avatars')
+  const fiches = [
+    fiche('a', 'Ana', 100, { legendaires: ['lg:comete', 'lg:oracle'], scelles: ['lg:comete'] }),
+    fiche('b', 'Bea', 300, { legendaires: ['lg:comete', 'lg:oracle', 'lg:phenix'] }),
+    fiche('c', 'Cléo', 90, { legendaires: ['lg:comete', 'lg:oracle'], scelles: ['lg:comete', 'lg:oracle'] }),
+  ]
+  assert.deepEqual(
+    classerLesCollectionneurs(fiches, 'scelles').map(c => [c.item.nom, c.rang]),
+    [
+      ['Cléo', 1],
+      ['Ana', 2],
+    ],
+    'Bea, trois légendaires gagnés au Cabinet, n’y est pas',
+  )
+  assert.equal(valeurDansLaCategorie(fiches[2], 'scelles'), 2)
 })
 
 test('celui à passer : le plus proche strictement devant, jamais un ex æquo', () => {

@@ -174,6 +174,16 @@ test('une affiche : les joueurs de son mode les quatorze jours qui suivent son j
   })
   // Une mémoire qui ne remonte pas avant elle : l'avant ne se lit pas, l'après si.
   assert.deepEqual(effetDUneAffiche(affiche, { ...m, depuis: '2026-10-15' }).joueurs, { apres: 3, avant: null })
+  // Les collectionneurs ne se jouent ni ne vendent (le 9 novembre 2026) : leurs visiteurs depuis son jour, seuls — ni les
+  // achats de la boutique, qu'on leur aurait prêtés, ni des joueurs d'un mode qu'ils n'ont pas.
+  assert.deepEqual(effetDUneAffiche({ ...affiche, page: 'collectionneurs' }, { ...m, jours: achats }), {
+    jours: 14,
+    joursAvant: 14,
+    joueurs: null,
+    achats: null,
+    revenus: null,
+    visiteurs: 3,
+  })
 })
 
 test('un geste du journal pose un repère par sa route : sa sorte et ce qu’il touche, jamais le profil qu’il nomme', () => {
