@@ -11,8 +11,10 @@ pressé.
 
 Ce sont des agents, pas des joueurs : leurs notes disent une préférence et
 des défauts vus, pas une mesure. Ce que le premier tour a trouvé, la seconde
-version l'a corrigé ; ce que le second a trouvé, la section du second tour le
-dit.
+version l'a corrigé ; ce que le second a trouvé, la maquette l'a corrigé à
+son tour, puis la vérification au navigateur (18 manches en 360 × 640, le
+toucher du milieu, chaque « + », l'écart et le verdict, le focus de
+l'indice, aucun débordement) l'a rejoué.
 
 ## Les joueurs
 
@@ -73,20 +75,92 @@ Chacun a joué deux épreuves du nouveau Filet et une du Filet d'aujourd'hui.
 | **Les mots** : « La bonne époque » pour des grammes (« une époque, pour du beurre ? »), « Rejouer l'acte ii », « 1 aide(s) », « 31.8 % », les règles qui coupent « de 3 / 000 », les petites lignes grises | les quatre | « Le bon ordre de grandeur » ; « l'acte II » ; « 2 aides, dont une offerte » ; des virgules ; des espaces insécables ; aucun texte d'une manche sous 17 pixels. |
 | **Le Filet d'aujourd'hui de la maquette** : « Tout près » au filet moyen même à 0 % d'écart, des dixièmes de pièce (« 12,2 pièces »), Éclairer sans un mot, « Le grand filet l'aurait prise » en vert quand on avait fait mieux | Samir, Huguette, Claire, Théo | Des défauts de la maquette, pas de la production : elle avait recopié la règle, pas les mots. Elle suit maintenant `Filet.tsx` mot pour mot — « Dans le filet », « Le moyen filet ★★☆ », « Indice : la réponse est entre … et … », un pas d'un pour une réponse entière, « − 12 » et « + 1 500 km » pour les grands pas. |
 
+## Le second tour : « nettement meilleure »
+
+Claire, Huguette et Samir ont rejoué la seconde version — deux épreuves du
+nouveau Filet chacun —, après avoir relu leur propre retour du premier tour,
+sans lire la page « Ce que la tablée a changé » avant de jouer. Hugo, aveugle,
+l'a jouée pour la première fois au lecteur d'écran (la fiche `cabinet-hugo`
+de la tablée, qui ne perçoit l'écran que par l'arbre d'accessibilité).
+
+| Nouveau Filet — plaisir, clarté, justice | Premier tour | Second tour |
+|---|---|---|
+| Huguette | 4 · 4 · 3 | 4 · 4,5 · 4 |
+| Claire | 4 · 3 · 4 | 4 · 4 · 4 |
+| Samir | 4 · 4 · 4 | 4 · 5 · 4 |
+| Hugo, au lecteur d'écran (le Filet d'aujourd'hui : 2 · 3 · 2) | — | 4 · 4 · 4 |
+
+- **Ce qui gênait au premier tour est réglé**, un par un, captures à
+  l'appui : le toucher du milieu (« du premier coup », Samir, sur une
+  grandeur comme sur une année), la piste régulière, « + » qui répond à
+  chaque pression, l'écart qui concorde avec le verdict, les mots, le bilan.
+  Samir distingue tout à la révélation — « pour la première fois, je n'ai
+  jamais eu à deviner quel signe était quoi » —, y compris une époque
+  choisie exprès de travers : « la bonne » et « ton choix » sont écrits dans
+  les cases.
+- **Les aides ont un vrai prix, et on le comprend sans les règles.** « Une
+  étoile retirée de mon score, ou seulement le plafond qui baisse ? » a sa
+  réponse à l'écran (Samir) ; Claire a payé deux aides exprès pour voir :
+  ★★ gagnées, toutes deux reprises, le cœur gardé. « On peut encore protéger
+  ses cœurs, mais plus gratuitement. »
+- **Les scores baissent, et c'est voulu.** Huguette fait 6 sur 9 à l'acte
+  « Pointu » au lieu d'un 8 flatteur, « ce qui colle mieux à ce que je
+  sais » ; Claire 3 sur 9 à l'acte III au lieu de 7 : « les aides ne sont plus
+  des étoiles gratuites ».
+- **Le savoir approximatif paie, dit à l'oreille.** Hugo, 24 % trop bas sur
+  la chouette : « Tout près, 2 étoiles sur 3 » ; la même erreur sur la livre,
+  au Filet d'aujourd'hui : « À côté, la manche te coûte un cœur ». « La même
+  erreur de 24 % vaut deux étoiles d'un côté et un cœur perdu de l'autre.
+  Tout est dit. »
+
+## Ce que le second tour a trouvé, et ce que la maquette en a fait
+
+| Ce qui gênait | Qui | La maquette |
+|---|---|---|
+| **L'indice passe sous le bouton collé** dès que la piste s'ouvre, au moment même de viser | Samir (sa chose à changer en premier) | L'indice se lit entre l'époque et la piste, là où l'on choisit et où l'on vise, et vient sous les yeux quand on le prend. |
+| **Le bouton collé en bas cache le dessous** : les nombres de la piste, le gros chiffre, « Ton écart » — un cinquième d'un petit écran | Huguette, Samir | « Lancer le filet » ne se colle plus ; seul « Manche suivante » le reste, plus mince. |
+| **Les indices tombent à cheval sur deux époques** : « dans les vingt ans qui suivent la Libération », 1944–1964, enjambe 1950 — Samir a fait son compte, pris le gros côté, et perdu un cœur | Samir, Hugo | Un juge a relu chaque indice avec la tranche du jeu sous les yeux : 85 sur 136 enjambaient une frontière. Recentrés sur leur tranche, et rejugés sur la tranche et sur la valeur : 106 y tiennent, aucun ne donne la valeur ni n'affirme de fait faux ; 29 restent à cheval parce que la réponse touche une frontière (1946, 330 ml), où un indice dans la tranche serait presque la valeur, et où la distance paie des deux côtés. |
+| **Après une aide payée, le filet affiche encore les étoiles d'avant**, et rien ne dit qu'une aide ne coûte jamais le cœur | Claire (sa chose à changer en premier), Samir, Huguette | « Ton filet ★★★ » montre l'étoile payée, barrée ; « Tes aides : −1 ★ sur ce que la manche te rapportera, jamais ton cœur : seule une manche ratée le coûte » ; une aide offerte le dit (« elle ne te coûte rien ») — Huguette croyait avoir payé. |
+| **Pas de grand pas** : de 198 anneaux à 100, 98 touchers de « − » | Hugo | Un grand pas vaut une graduation : « − 5 ans », « + 100 g ». |
+| **Le curseur annonce un nombre interne** (« 100 » pour 2000 m), le toucher ne lui donne pas le focus, le verdict n'est ni un titre ni un statut, l'indice pris ne s'annonce pas, Éclairer disparaît sous le doigt | Hugo, Claire | Le curseur porte sa vraie valeur et la dit ; le doigt lui donne le focus ; le verdict est le titre de la révélation et reçoit le focus ; l'indice pris le reçoit aussi, et ce qu'Éclairer a donné. |
+| **Les cases d'ordre de grandeur débordent** sous un texte agrandi (« à 30 000 » coupé au bord) | Huguette (sa chose à changer en premier) | Une tranche de grandeur s'écrit comme une époque, ses deux bornes sans « à ». |
+| **Plus une date connue sur la frise** : ses deux repères à elle prenaient toute la place | Huguette | Un repère à soi au plus par manche. |
+| **Les repères gagnés sous la première règle** — avec une aide — restent ; « Brasília » promis et absent ; un ★★ avec une aide offerte sans repère, sans un mot | Claire, Huguette | Les repères d'avant s'effacent ; « Il pourra revenir sur la frise » ; « Trouvée avec une aide : elle ne devient pas ton repère ». |
+| **Les traits de la piste n'ont pas de chiffres** ; « − » ne s'éteint pas au bout | Samir, Huguette | Les graduations portent leurs nombres ; « − » et « + » s'éteignent aux bouts. |
+| **Petits mots** : « Ton aide a pris l'étoile » quand deux en ont pris deux, « dont 1 offerte » puis « dont une offerte », « 0 cœur perdu », « de 1958 » en fin de ligne | Claire, Samir, Huguette | « Tes aides ont pris tes étoiles » ; « 1 aide offerte », « 2 aides, dont 1 offerte » ; « aucun cœur perdu » ; les fourchettes et les comptes ne se coupent plus. |
+| **Un repère pile sur une borne tiré deux fois** (« 30 cm · une règle d'écolier », entre 10–30 et 30–100) | le rendu de la maquette | Il ne se tire qu'une fois. |
+| **Une question de comptage** (les chiffres 9 de 1 à 100) | le juge des tranches | Écartée avec les calculs. |
+
 ## Ce qui reste ouvert
 
-- **Le pari perdu.** « Ici le filet se resserre tout seul : il n'y a plus de
-  risque à prendre » (Claire, qui aimait le frisson du petit filet). Le
-  frisson reste celui de la carte Miser ; un pari propre au Filet attend
-  (cahier, § 8).
-- **Le chrono.** Deux gestes au lieu d'un, et un indice à lire : 45 secondes
-  suffisent à Claire, pas à Huguette. À mesurer en production avant d'y
-  toucher (cahier, § 7).
-- **L'acte III généreux ?** Claire y fait 7 sur 9 en ne sachant que une
-  question sur trois, Huguette 8 sur 9 à l'acte II : les aides y étaient, et
-  les indices trop forts. Le prix retouché et le juge des indices y
-  répondent ; le second tour le vérifie.
-
-## Le second tour
-
-(à venir)
+- **Le milieu de la bonne époque paie bien.** Claire : « dès que j'ai la
+  bonne époque, le milieu me donne ★★ à peu près une fois sur deux » — 52 %
+  sur une époque de 25 ans, ★★★ 20 % (`reproductions/prix-des-aides.mjs`).
+  C'est la largeur de l'anneau ★★ (un quart d'époque) qui le veut, et c'est
+  elle qui paie l'à-peu-près d'Huguette (« je me suis trompée de cinq ans, et
+  les deux étoiles, je les ai gagnées »). La resserrer serait un choix de
+  produit, à mesurer au calibrage (cahier, § 7).
+- **« Onze ans ou cent trente-trois, même tarif »** (Samir, 11 ans d'écart
+  dans l'époque voisine : zéro, comme 133). Une étoile à moins d'une
+  demi-tranche a été mesurée sur les lancers réels, puis écartée : 71 % de
+  manches réussies au lieu de 62, mais 83 % sur les questions connues —
+  au-delà de la zone visée — et 68 % sur les loteries au lieu de 54
+  (`reproductions/filet-en-production.ts`, la ligne « ★ aussi à une
+  demi-tranche »). Les indices recentrés sur leur tranche répondent mieux au
+  cœur perdu de Samir.
+- **Le chrono.** Deux gestes, et un indice à lire : 45 secondes suffisent à
+  Claire, pas à Huguette ; Hugo, au lecteur d'écran, les dépasse à chaque
+  manche. À mesurer en production (cahier, § 7).
+- **Le pari perdu.** « Il n'y a toujours rien à parier » (Claire). Le frisson
+  reste celui de la carte Miser ; un pari propre au Filet attend (cahier,
+  § 8).
+- **Ce que la frise laisse deviner** : une croyance plus petite que la plus
+  petite tranche tombe d'office dans la bonne quand elle est au bord
+  (Huguette, la canette) ; « Deux ordres de moins » laisse parfois une case
+  absurde (« 1 000 à 3 000 chapitres pour un roman », Claire ; « 3 000 à
+  10 000 degrés » pour une chouette, Samir). La piste d'aujourd'hui a la même
+  limite : ses bornes contiennent toujours la réponse.
+- **Deux anecdotes de la base à reprendre** — elles ne sont pas de la
+  maquette : le girafon « naît debout et chute de près de deux mètres, puis
+  se lève » (« s'il naît debout, pourquoi se lever ? », Huguette) ; « Vue
+  d'avion, Brasília a la forme d'un avion ».

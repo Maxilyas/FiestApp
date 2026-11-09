@@ -9,6 +9,12 @@
     "indice": "En pleine guerre froide, avant que l'homme ne marche sur la Lune.",
     "verdict": "ordre",
     "deduction": "Guerre froide avant 1969 : une tranche de 25 ans, entre 1947 et 1969."
+   },
+   {
+    "indice": "En pleine guerre froide, avant que l'homme ne marche sur la Lune.",
+    "verdict": "dans",
+    "deduction": "1947–1969 — guerre froide avant la Lune, un petit débord sous 1950",
+    "juge": "tranche"
    }
   ],
   "retenu": "En pleine guerre froide, avant que l'homme ne marche sur la Lune."
@@ -23,9 +29,21 @@
     "indice": "Bien plus haut que la tour Montparnasse, au milieu du désert australien.",
     "verdict": "ordre",
     "deduction": "Plus de 210 m, en plein désert : quelques centaines de mètres."
+   },
+   {
+    "indice": "Bien plus haut que la tour Montparnasse, au milieu du désert australien.",
+    "verdict": "a-cheval",
+    "deduction": "250–500: enjambe 300 — « bien plus haut » que 210 m, borne basse floue",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus haut que la tour Eiffel, mais loin d'atteindre un kilomètre.",
+    "verdict": "dans, large",
+    "deduction": "330 à 1000 m — Au-dessus de la Eiffel, sous 1 km : tout le haut de la tranche, trop large pour viser.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Bien plus haut que la tour Montparnasse, au milieu du désert australien."
+  "retenu": "Plus haut que la tour Eiffel, mais loin d'atteindre un kilomètre."
  },
  {
   "id": "nd6zfflt",
@@ -37,6 +55,12 @@
     "indice": "Nettement plus haute que l'Arc de triomphe, mais bien moins que la tour Eiffel.",
     "verdict": "ordre",
     "deduction": "Entre l'Arc (50 m) et la tour Eiffel (330 m) : une centaine de mètres."
+   },
+   {
+    "indice": "Nettement plus haute que l'Arc de triomphe, mais bien moins que la tour Eiffel.",
+    "verdict": "dans",
+    "deduction": "100–250 — entre l'Arc de triomphe et la tour Eiffel",
+    "juge": "tranche"
    }
   ],
   "retenu": "Nettement plus haute que l'Arc de triomphe, mais bien moins que la tour Eiffel."
@@ -51,9 +75,21 @@
     "indice": "Au temps des tout premiers motocyclistes, bien avant la Grande Guerre.",
     "verdict": "ordre",
     "deduction": "Début du XXe siècle, avant 1914."
+   },
+   {
+    "indice": "Au temps des tout premiers motocyclistes, bien avant la Grande Guerre.",
+    "verdict": "a-cheval",
+    "deduction": "1895–1913: enjambe 1900 — premiers motocyclistes, avant 14-18",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Né après le passage au XXe siècle, mais avant la Première Guerre mondiale.",
+    "verdict": "dans, proche",
+    "deduction": "1901 à 1914 — Après 1900, avant 1914 : milieu 1907-1908, ★★ quasi sûr.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Au temps des tout premiers motocyclistes, bien avant la Grande Guerre."
+  "retenu": "Né après le passage au XXe siècle, mais avant la Première Guerre mondiale."
  },
  {
   "id": "616x3aqo",
@@ -70,6 +106,12 @@
     "indice": "Plus que la longueur d'un court de tennis, mais nettement moins que la largeur du terrain.",
     "verdict": "ordre",
     "deduction": "Entre un court de tennis (24 m) et la largeur du terrain (~70 m) : quelque part entre 30 et 60 m, sans pouvoir resserrer."
+   },
+   {
+    "indice": "Plus que la longueur d'un court de tennis, mais nettement moins que la largeur du terrain.",
+    "verdict": "dans",
+    "deduction": "30–50 — plus que 24 m, moins que 68 m",
+    "juge": "tranche"
    }
   ],
   "retenu": "Plus que la longueur d'un court de tennis, mais nettement moins que la largeur du terrain."
@@ -89,9 +131,21 @@
     "indice": "Un sport inventé en 1891 aux États-Unis, devenu olympique quelques décennies plus tard.",
     "verdict": "ordre",
     "deduction": "Inventé en 1891, olympique 'quelques décennies' plus tard : entre 1915 et 1945, la bonne tranche sans plus."
+   },
+   {
+    "indice": "Un sport inventé en 1891 aux États-Unis, devenu olympique quelques décennies plus tard.",
+    "verdict": "a-cheval",
+    "deduction": "1910–1940: enjambe 1925 — quelques décennies après 1891",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Entre le krach de Wall Street et la fin de la Seconde Guerre mondiale.",
+    "verdict": "dans, large",
+    "deduction": "1929 à 1945 — Dans la tranche, mais 16 ans de large (demi-largeur 8 > 6).",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Un sport inventé en 1891 aux États-Unis, devenu olympique quelques décennies plus tard."
+  "retenu": "Entre le krach de Wall Street et la fin de la Seconde Guerre mondiale."
  },
  {
   "id": "2e7xdv3h",
@@ -108,6 +162,12 @@
     "indice": "Sous le père de Louis XIV, le roi qui précède le Roi-Soleil.",
     "verdict": "ordre",
     "deduction": "Règne de Louis XIII, 1610-1643 : tranche trouvée, mais 33 ans de fourchette."
+   },
+   {
+    "indice": "Sous le père de Louis XIV, le roi qui précède le Roi-Soleil.",
+    "verdict": "dans",
+    "deduction": "1610–1643 — Louis XIII",
+    "juge": "tranche"
    }
   ],
   "retenu": "Sous le père de Louis XIV, le roi qui précède le Roi-Soleil."
@@ -127,6 +187,12 @@
     "indice": "Un printemps seulement : plus d'un mois, bien moins que six mois.",
     "verdict": "proche",
     "deduction": "Un printemps, plus d'un mois : environ 2 à 3 mois, soit 60-90 jours, donc ★★ à coup sûr, ★★★ à la chance."
+   },
+   {
+    "indice": "Un printemps seulement : plus d'un mois, bien moins que six mois.",
+    "verdict": "dans",
+    "deduction": "60–100 — un printemps, environ trois mois",
+    "juge": "tranche"
    }
   ],
   "retenu": "Un printemps seulement : plus d'un mois, bien moins que six mois."
@@ -141,9 +207,21 @@
     "indice": "Au temps du Roi-Soleil, en plein règne de Louis XIV.",
     "verdict": "ordre",
     "deduction": "Plein règne de Louis XIV : entre 1661 et 1715."
+   },
+   {
+    "indice": "Au temps du Roi-Soleil, en plein règne de Louis XIV.",
+    "verdict": "a-cheval",
+    "deduction": "1643–1715: enjambe 1700 — tout le règne de Louis XIV",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Après la Fronde, avant la révocation de l'édit de Nantes.",
+    "verdict": "dans, large",
+    "deduction": "1653 à 1685 — Dans la tranche 1650-1699, 32 ans de large : demi-largeur 16 > 13.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Au temps du Roi-Soleil, en plein règne de Louis XIV."
+  "retenu": "Après la Fronde, avant la révocation de l'édit de Nantes."
  },
  {
   "id": "8jb20jck",
@@ -155,9 +233,21 @@
     "indice": "Plus proche du Soleil que nous, Vénus boucle son tour en moins d'une année terrestre.",
     "verdict": "ordre",
     "deduction": "Moins de 365 jours : quelques centaines de jours."
+   },
+   {
+    "indice": "Plus proche du Soleil que nous, Vénus boucle son tour en moins d'une année terrestre.",
+    "verdict": "a-cheval",
+    "deduction": "100–365: enjambe 300 — moins d'un an terrestre, borne haute 365",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un tour du Soleil plus court qu'une année terrestre : plus de quatre mois, moins de dix.",
+    "verdict": "dans, large",
+    "deduction": "120 à 300 jours — Dans 100-300 mais fourchette très large pour ±25 %.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Plus proche du Soleil que nous, Vénus boucle son tour en moins d'une année terrestre."
+  "retenu": "Un tour du Soleil plus court qu'une année terrestre : plus de quatre mois, moins de dix."
  },
  {
   "id": "5fop6rh3",
@@ -169,9 +259,21 @@
     "indice": "Entre les deux guerres, bien avant la télévision en couleur.",
     "verdict": "ordre",
     "deduction": "Entre 1919 et 1939, avant la couleur."
+   },
+   {
+    "indice": "Entre les deux guerres, bien avant la télévision en couleur.",
+    "verdict": "a-cheval",
+    "deduction": "1919–1939: enjambe 1925 — entre-deux-guerres déborde sur 1919–1924",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Entre le krach de Wall Street et la fin de la Seconde Guerre mondiale.",
+    "verdict": "dans, large",
+    "deduction": "1929 à 1945 — Dans la tranche, 16 ans de large.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Entre les deux guerres, bien avant la télévision en couleur."
+  "retenu": "Entre le krach de Wall Street et la fin de la Seconde Guerre mondiale."
  },
  {
   "id": "ay4j9t2b",
@@ -183,6 +285,12 @@
     "indice": "Bien plus de dix titres, mais bien moins de quarante.",
     "verdict": "ordre",
     "deduction": "Entre 10 et 40 titres."
+   },
+   {
+    "indice": "Bien plus de dix titres, mais bien moins de quarante.",
+    "verdict": "dans",
+    "deduction": "15–30 — bien plus de dix, bien moins de quarante",
+    "juge": "tranche"
    }
   ],
   "retenu": "Bien plus de dix titres, mais bien moins de quarante."
@@ -197,9 +305,21 @@
     "indice": "Bien plus qu'un échiquier, mais moins que les jours d'une année.",
     "verdict": "ordre",
     "deduction": "Entre 64 et 365 cases, quelques centaines."
+   },
+   {
+    "indice": "Bien plus qu'un échiquier, mais moins que les jours d'une année.",
+    "verdict": "a-cheval",
+    "deduction": "100–350: enjambe 300 — moins que 365 laisse monter au-delà de 300",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus de cases que deux échiquiers, mais moins que quatre.",
+    "verdict": "dans, proche",
+    "deduction": "128 à 256 cases — Deux à quatre échiquiers : milieu ~190, ★★ probable.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Bien plus qu'un échiquier, mais moins que les jours d'une année."
+  "retenu": "Plus de cases que deux échiquiers, mais moins que quatre."
  },
  {
   "id": "1g9asmz8",
@@ -221,6 +341,18 @@
     "indice": "Le fer fond vers 1500 °C ; l'or fond plus bas, mais il lui faut une forge, pas un four de cuisine.",
     "verdict": "rien",
     "deduction": "Seulement 'sous 1500 °C, forge' : 300-1000 et 1000-3000 restent possibles, le profane ne tranche pas."
+   },
+   {
+    "indice": "Le fer fond vers 1500 °C ; l'or fond plus bas, mais il lui faut une forge, pas un four de cuisine.",
+    "verdict": "a-cheval",
+    "deduction": "600–1400: enjambe 1000 — plus bas que le fer à 1500, sans plancher net",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Le fer fond vers 1500 °C ; l'or fond plus bas, mais il lui faut une forge, pas un four de cuisine.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "Le fer fond vers 1500 °C ; l'or fond plus bas, mais il lui faut une forge, pas un four de cuisine."
@@ -235,6 +367,12 @@
     "indice": "Moins de la moitié du peloton actuel (près de 180), mais plus d'une vingtaine.",
     "verdict": "ordre",
     "deduction": "Entre 20 et 90 coureurs."
+   },
+   {
+    "indice": "Moins de la moitié du peloton actuel (près de 180), mais plus d'une vingtaine.",
+    "verdict": "dans",
+    "deduction": "30–90 — moins de 90, plus d'une vingtaine",
+    "juge": "tranche"
    }
   ],
   "retenu": "Moins de la moitié du peloton actuel (près de 180), mais plus d'une vingtaine."
@@ -254,9 +392,21 @@
     "indice": "Un festival de plus d'un siècle d'existence, né avant la Seconde Guerre mondiale.",
     "verdict": "ordre",
     "deduction": "Plus d'un siècle (avant 1926) et avant 1939 : début du XXe, tranche 1900-1925, sans plus."
+   },
+   {
+    "indice": "Un festival de plus d'un siècle d'existence, né avant la Seconde Guerre mondiale.",
+    "verdict": "a-cheval",
+    "deduction": "1875–1925: enjambe 1900 — plus d'un siècle, début flou",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Dans le premier quart du XXe siècle, entre la Belle Époque et les années folles.",
+    "verdict": "dans",
+    "deduction": "Réécrit à la main : Entre le Titanic et le krach (1912–1929) enjambait 1925.",
+    "juge": "tranche"
    }
   ],
-  "retenu": "Un festival de plus d'un siècle d'existence, né avant la Seconde Guerre mondiale."
+  "retenu": "Dans le premier quart du XXe siècle, entre la Belle Époque et les années folles."
  },
  {
   "id": "4elif5cv",
@@ -268,6 +418,12 @@
     "indice": "Plus d'un mois de travail, mais moins de deux mois.",
     "verdict": "ordre",
     "deduction": "Entre 30 et 60 jours."
+   },
+   {
+    "indice": "Plus d'un mois de travail, mais moins de deux mois.",
+    "verdict": "dans",
+    "deduction": "31–60 — entre un et deux mois",
+    "juge": "tranche"
    }
   ],
   "retenu": "Plus d'un mois de travail, mais moins de deux mois."
@@ -287,9 +443,16 @@
     "indice": "Plus d'une dizaine, bien moins que cent : le 9 ne revient qu'à certains endroits.",
     "verdict": "ordre",
     "deduction": "Plus de 10, bien moins que 100 : entre 12 et 40, la tranche 10-30 sans plus."
+   },
+   {
+    "indice": "Plus d'une dizaine, bien moins que cent : le 9 ne revient qu'à certains endroits.",
+    "verdict": "a-cheval",
+    "deduction": "12–50: enjambe 30 — « bien moins que cent » sans borne nette",
+    "juge": "tranche"
    }
   ],
-  "retenu": "Plus d'une dizaine, bien moins que cent : le 9 ne revient qu'à certains endroits."
+  "retenu": "Plus d'une dizaine, bien moins que cent : le 9 ne revient qu'à certains endroits.",
+  "calcul": true
  },
  {
   "id": "yz00hbzf",
@@ -306,6 +469,18 @@
     "indice": "Un jouet né pendant la reconstruction après la Seconde Guerre mondiale, avant Mai 68.",
     "verdict": "ordre",
     "deduction": "Après-guerre, avant 1968 : entre 1945 et 1968, la bonne tranche de 25 ans."
+   },
+   {
+    "indice": "Un jouet né pendant la reconstruction après la Seconde Guerre mondiale, avant Mai 68.",
+    "verdict": "a-cheval",
+    "deduction": "1945–1968: enjambe 1950 — reconstruction d'après-guerre évoque 1945–1950",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un jouet né pendant la reconstruction après la Seconde Guerre mondiale, avant Mai 68.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "Un jouet né pendant la reconstruction après la Seconde Guerre mondiale, avant Mai 68."
@@ -320,6 +495,12 @@
     "indice": "Moins chaud que l'or en fusion, mais bien plus qu'un four de cuisine.",
     "verdict": "ordre",
     "deduction": "Entre 250 et 1064 degrés : quelques centaines."
+   },
+   {
+    "indice": "Moins chaud que l'or en fusion, mais bien plus qu'un four de cuisine.",
+    "verdict": "dans",
+    "deduction": "400–1000 — moins que l'or, plus qu'un four",
+    "juge": "tranche"
    }
   ],
   "retenu": "Moins chaud que l'or en fusion, mais bien plus qu'un four de cuisine."
@@ -334,9 +515,21 @@
     "indice": "Trois canaux rouge-vert-bleu, avec très peu de niveaux chacun : multiplie.",
     "verdict": "ordre",
     "deduction": "Trois canaux à peu de niveaux : de 64 à 216 selon le nombre de niveaux, ordre de la centaine."
+   },
+   {
+    "indice": "Trois canaux rouge-vert-bleu, avec très peu de niveaux chacun : multiplie.",
+    "verdict": "a-cheval",
+    "deduction": "64–512: enjambe 100 et 300 — « très peu de niveaux » : 4, 5, 6 ou 8 par canal",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus d'une centaine de couleurs, mais moins de trois cents.",
+    "verdict": "dans, proche",
+    "deduction": "100 à 300 — Milieu ~200, ★★ ; ★★★ limite.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Trois canaux rouge-vert-bleu, avec très peu de niveaux chacun : multiplie."
+  "retenu": "Plus d'une centaine de couleurs, mais moins de trois cents."
  },
  {
   "id": "m5achlfm",
@@ -348,9 +541,21 @@
     "indice": "Une minorité des cinquante États américains, tous situés au nord du pays.",
     "verdict": "ordre",
     "deduction": "Une minorité de 50 États : une dizaine à une vingtaine."
+   },
+   {
+    "indice": "Une minorité des cinquante États américains, tous situés au nord du pays.",
+    "verdict": "a-cheval",
+    "deduction": "5–25: enjambe 10 — minorité des cinquante, sans plancher",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus que les doigts des deux mains, mais moins que la moitié des cinquante États.",
+    "verdict": "dans, large",
+    "deduction": "10 à 25 États — Milieu ~17 vs 13 : hors ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Une minorité des cinquante États américains, tous situés au nord du pays."
+  "retenu": "Plus que les doigts des deux mains, mais moins que la moitié des cinquante États."
  },
  {
   "id": "4nz4fpnj",
@@ -362,9 +567,21 @@
     "indice": "Bien plus qu'une sonnerie d'église, mais moins d'une cinquantaine de cloches.",
     "verdict": "ordre",
     "deduction": "Plus qu'une sonnerie, moins de 50 : une dizaine à quelques dizaines."
+   },
+   {
+    "indice": "Bien plus qu'une sonnerie d'église, mais moins d'une cinquantaine de cloches.",
+    "verdict": "a-cheval",
+    "deduction": "10–45: enjambe 30 — moins d'une cinquantaine déborde sur 30–100",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus qu'une dizaine de cloches, mais moins qu'une trentaine.",
+    "verdict": "dans, proche",
+    "deduction": "11 à 29 cloches — Milieu ~20 : ★★ (13 %).",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Bien plus qu'une sonnerie d'église, mais moins d'une cinquantaine de cloches."
+  "retenu": "Plus qu'une dizaine de cloches, mais moins qu'une trentaine."
  },
  {
   "id": "0b53mx4n",
@@ -381,6 +598,18 @@
     "indice": "Bien plus que les 27 pays de l'Union, mais bien moins que les jours d'une année.",
     "verdict": "ordre",
     "deduction": "Entre 27 et 365, il vise l'ordre de la centaine ; la fourchette reste très large."
+   },
+   {
+    "indice": "Bien plus que les 27 pays de l'Union, mais bien moins que les jours d'une année.",
+    "verdict": "a-cheval",
+    "deduction": "40–250: enjambe 100 — plus que 27, moins que 365, la réponse est au bord",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Bien plus que les 27 pays de l'Union, mais bien moins que les jours d'une année.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "Bien plus que les 27 pays de l'Union, mais bien moins que les jours d'une année."
@@ -395,6 +624,18 @@
     "indice": "Plus long que l'alphabet français, à cause de ses nombreuses lettres à signes.",
     "verdict": "ordre",
     "deduction": "Plus de 26 lettres : une trentaine."
+   },
+   {
+    "indice": "Plus long que l'alphabet français, à cause de ses nombreuses lettres à signes.",
+    "verdict": "a-cheval",
+    "deduction": "27–40: enjambe 30 — un peu plus que 26, la réponse est au bord de 30",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus long que l'alphabet français, à cause de ses nombreuses lettres à signes.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "Plus long que l'alphabet français, à cause de ses nombreuses lettres à signes."
@@ -414,6 +655,12 @@
     "indice": "À l'époque de Napoléon, entre la Révolution et la Restauration.",
     "verdict": "ordre",
     "deduction": "Entre la Révolution et la Restauration : 1799-1814, la tranche sans plus."
+   },
+   {
+    "indice": "À l'époque de Napoléon, entre la Révolution et la Restauration.",
+    "verdict": "dans",
+    "deduction": "1800–1815 — Napoléon, un petit débord sous 1800",
+    "juge": "tranche"
    }
   ],
   "retenu": "À l'époque de Napoléon, entre la Révolution et la Restauration."
@@ -433,6 +680,18 @@
     "indice": "Entre la Terreur et Waterloo : la Révolution vient de s'achever.",
     "verdict": "proche",
     "deduction": "Après la Terreur, Révolution achevée, Bonaparte pas encore empereur : 1799-1804, donc ★★ sûr, ★★★ probable."
+   },
+   {
+    "indice": "Entre la Terreur et Waterloo : la Révolution vient de s'achever.",
+    "verdict": "a-cheval",
+    "deduction": "1794–1815: enjambe 1800 — de la Terreur à Waterloo",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Entre la Terreur et Waterloo : la Révolution vient de s'achever.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "Entre la Terreur et Waterloo : la Révolution vient de s'achever."
@@ -457,6 +716,12 @@
     "indice": "Une pièce confortable est à 20 °C ; un corps même refroidi reste nettement au-dessus.",
     "verdict": "ordre",
     "deduction": "Nettement au-dessus de 20 °C, et un corps tourne autour de 37 : tranche 30-100."
+   },
+   {
+    "indice": "Une pièce confortable est à 20 °C ; un corps même refroidi reste nettement au-dessus.",
+    "verdict": "dans",
+    "deduction": "30–36 — nettement au-dessus de 20 °C",
+    "juge": "tranche"
    }
   ],
   "retenu": "Une pièce confortable est à 20 °C ; un corps même refroidi reste nettement au-dessus."
@@ -471,9 +736,21 @@
     "indice": "Une somme dérisoire : de quoi s'offrir un repas, pas de quoi faire fortune.",
     "verdict": "ordre",
     "deduction": "Un repas : entre 10 et 100 dollars."
+   },
+   {
+    "indice": "Une somme dérisoire : de quoi s'offrir un repas, pas de quoi faire fortune.",
+    "verdict": "a-cheval",
+    "deduction": "10–40: enjambe 30 — un repas, somme dérisoire, bornes floues",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Quelques dizaines de dollars seulement : bien moins que cent.",
+    "verdict": "dans, large",
+    "deduction": "30 à 70 $ — \"Quelques dizaines\" : dans 30-100, milieu ~50 hors ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Une somme dérisoire : de quoi s'offrir un repas, pas de quoi faire fortune."
+  "retenu": "Quelques dizaines de dollars seulement : bien moins que cent."
  },
  {
   "id": "5udydpw3",
@@ -490,6 +767,12 @@
     "indice": "La couche vaut plusieurs centaines d'unités ; le trou, c'est quand il en manque une bonne part.",
     "verdict": "ordre",
     "deduction": "Quelques centaines au total, le trou en manque une bonne part : environ 100-300 DU, la tranche."
+   },
+   {
+    "indice": "La couche vaut plusieurs centaines d'unités ; le trou, c'est quand il en manque une bonne part.",
+    "verdict": "dans",
+    "deduction": "150–250 — il manque une bonne part de quelques centaines",
+    "juge": "tranche"
    }
   ],
   "retenu": "La couche vaut plusieurs centaines d'unités ; le trou, c'est quand il en manque une bonne part."
@@ -509,6 +792,12 @@
     "indice": "Dans le dernier quart du siècle de Voltaire, juste avant le XIXe siècle.",
     "verdict": "proche",
     "deduction": "Dernier quart du XVIIIe, juste avant 1800 : environ 1785-1799, donc ★★ à coup sûr, pas ★★★."
+   },
+   {
+    "indice": "Dans le dernier quart du siècle de Voltaire, juste avant le XIXe siècle.",
+    "verdict": "dans",
+    "deduction": "1775–1799 — dernier quart du XVIIIe",
+    "juge": "tranche"
    }
   ],
   "retenu": "Dans le dernier quart du siècle de Voltaire, juste avant le XIXe siècle."
@@ -528,6 +817,18 @@
     "indice": "Dans les vingt années qui suivent la Seconde Guerre mondiale.",
     "verdict": "ordre",
     "deduction": "Dans les vingt ans après 1945 : 1945-1965, la tranche sans plus."
+   },
+   {
+    "indice": "Dans les vingt années qui suivent la Seconde Guerre mondiale.",
+    "verdict": "a-cheval",
+    "deduction": "1945–1965: enjambe 1950 — vingt ans après la guerre, même défaut que le signalement",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Dans les vingt années qui suivent la Seconde Guerre mondiale.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "Dans les vingt années qui suivent la Seconde Guerre mondiale."
@@ -542,6 +843,12 @@
     "indice": "Moins que les 22 régions de métropole d'avant 2016, mais plus de dix.",
     "verdict": "ordre",
     "deduction": "Entre 11 et 21 régions."
+   },
+   {
+    "indice": "Moins que les 22 régions de métropole d'avant 2016, mais plus de dix.",
+    "verdict": "dans",
+    "deduction": "11–21 — plus de dix, moins de 22",
+    "juge": "tranche"
    }
   ],
   "retenu": "Moins que les 22 régions de métropole d'avant 2016, mais plus de dix."
@@ -561,9 +868,21 @@
     "indice": "Dans la seconde moitié du XIXe siècle, bien avant la Première Guerre mondiale.",
     "verdict": "ordre",
     "deduction": "Seconde moitié du XIXe, bien avant 1914 : 1850-1900, la tranche sans plus."
+   },
+   {
+    "indice": "Dans la seconde moitié du XIXe siècle, bien avant la Première Guerre mondiale.",
+    "verdict": "a-cheval",
+    "deduction": "1850–1914: enjambe 1875 et 1900 — seconde moitié du XIXe avant 14-18, fourchette trop large",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Dans le dernier quart du XIXe siècle.",
+    "verdict": "dans, large",
+    "deduction": "1876 à 1900 — Dernier quart du XIXe : dans la tranche, milieu 1888 trop loin.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Dans la seconde moitié du XIXe siècle, bien avant la Première Guerre mondiale."
+  "retenu": "Dans le dernier quart du XIXe siècle."
  },
  {
   "id": "sj6exbfc",
@@ -575,9 +894,21 @@
     "indice": "Bien moins que les lettres de l'alphabet, mais plus que les doigts d'une main.",
     "verdict": "ordre",
     "deduction": "Entre 6 et 25 : une dizaine ou une vingtaine."
+   },
+   {
+    "indice": "Bien moins que les lettres de l'alphabet, mais plus que les doigts d'une main.",
+    "verdict": "a-cheval",
+    "deduction": "6–20: enjambe 10 — entre une main et l'alphabet",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus qu'une dizaine, mais moins qu'une trentaine.",
+    "verdict": "dans, large",
+    "deduction": "10 à 30 — Milieu 20 vs 13 : hors ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Bien moins que les lettres de l'alphabet, mais plus que les doigts d'une main."
+  "retenu": "Plus qu'une dizaine, mais moins qu'une trentaine."
  },
  {
   "id": "1hteero8",
@@ -594,9 +925,21 @@
     "indice": "Une trouvaille de la nouvelle cuisine, un mouvement du dernier tiers du XXe siècle.",
     "verdict": "ordre",
     "deduction": "Nouvelle cuisine, dernier tiers du XXe : 1967-2000, la tranche mais large."
+   },
+   {
+    "indice": "Une trouvaille de la nouvelle cuisine, un mouvement du dernier tiers du XXe siècle.",
+    "verdict": "a-cheval",
+    "deduction": "1967–2000: enjambe 1975 — dernier tiers du XXe, la réponse est juste avant 1975",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Pendant les Trente Glorieuses, quand la nouvelle cuisine bouscule les grandes tables.",
+    "verdict": "dans",
+    "deduction": "Réécrit à la main : « Le dernier tiers du XXe siècle » envoyait dans 1975–1999 ; Hugo y a perdu un cœur.",
+    "juge": "tranche"
    }
   ],
-  "retenu": "Une trouvaille de la nouvelle cuisine, un mouvement du dernier tiers du XXe siècle."
+  "retenu": "Pendant les Trente Glorieuses, quand la nouvelle cuisine bouscule les grandes tables."
  },
  {
   "id": "a1qdkwy5",
@@ -613,6 +956,12 @@
     "indice": "Plus d'un siècle d'existence, née avant le cinéma parlant.",
     "verdict": "ordre",
     "deduction": "Plus d'un siècle (avant 1926) et avant le parlant (1927) : 1900-1925, la tranche sans plus."
+   },
+   {
+    "indice": "Plus d'un siècle d'existence, née avant le cinéma parlant.",
+    "verdict": "dans",
+    "deduction": "1900–1926 — plus d'un siècle, avant le parlant",
+    "juge": "tranche"
    }
   ],
   "retenu": "Plus d'un siècle d'existence, née avant le cinéma parlant."
@@ -651,9 +1000,21 @@
     "indice": "Un petit troupeau : plus d'une dizaine, mais loin de cent.",
     "verdict": "ordre",
     "deduction": "Entre 10 et 100 éléphants, un petit troupeau."
+   },
+   {
+    "indice": "Un petit troupeau : plus d'une dizaine, mais loin de cent.",
+    "verdict": "a-cheval",
+    "deduction": "15–50: enjambe 30 — petit troupeau, borne haute floue",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un troupeau de plus d'une trentaine de bêtes, loin d'atteindre la centaine.",
+    "verdict": "dans, large",
+    "deduction": "30 à ~70 — Milieu ~50 vs 37 : hors ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Un petit troupeau : plus d'une dizaine, mais loin de cent."
+  "retenu": "Un troupeau de plus d'une trentaine de bêtes, loin d'atteindre la centaine."
  },
  {
   "id": "fd8b08gy",
@@ -670,9 +1031,21 @@
     "indice": "Paru entre les deux guerres, quand les barmen américains s'exilent à Londres.",
     "verdict": "proche",
     "deduction": "Entre les deux guerres, exil des barmen (Prohibition) : 1920-1933, donc ★★ à coup sûr, ★★★ pas assuré."
+   },
+   {
+    "indice": "Paru entre les deux guerres, quand les barmen américains s'exilent à Londres.",
+    "verdict": "a-cheval",
+    "deduction": "1919–1939: enjambe 1925 — entre-deux-guerres",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Entre la crise économique mondiale et la fin de la Seconde Guerre mondiale.",
+    "verdict": "dans, large",
+    "deduction": "1929 à 1945 — Dans la tranche ; milieu 1937 à 7 ans.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Paru entre les deux guerres, quand les barmen américains s'exilent à Londres."
+  "retenu": "Entre la crise économique mondiale et la fin de la Seconde Guerre mondiale."
  },
  {
   "id": "3f3uykd1",
@@ -684,6 +1057,12 @@
     "indice": "Bien plus que les lettres de l'alphabet, mais moins d'une centaine.",
     "verdict": "ordre",
     "deduction": "Entre 27 et 99 caractères."
+   },
+   {
+    "indice": "Bien plus que les lettres de l'alphabet, mais moins d'une centaine.",
+    "verdict": "dans",
+    "deduction": "30–99 — plus que 26, moins de cent",
+    "juge": "tranche"
    }
   ],
   "retenu": "Bien plus que les lettres de l'alphabet, mais moins d'une centaine."
@@ -703,6 +1082,12 @@
     "indice": "Dans le dernier quart du XIXe siècle, sous la Troisième République.",
     "verdict": "ordre",
     "deduction": "Dernier quart du XIXe, IIIe République : 1875-1900, la tranche sans plus."
+   },
+   {
+    "indice": "Dans le dernier quart du XIXe siècle, sous la Troisième République.",
+    "verdict": "dans",
+    "deduction": "1875–1900 — dernier quart du XIXe",
+    "juge": "tranche"
    }
   ],
   "retenu": "Dans le dernier quart du XIXe siècle, sous la Troisième République."
@@ -727,6 +1112,18 @@
     "indice": "Postérieure au Front populaire (congés payés) et antérieure à la guerre d'Algérie.",
     "verdict": "rien",
     "deduction": "Entre 1936 et 1954 : l'intervalle chevauche 1925-1949 et 1950-1974, deux tranches."
+   },
+   {
+    "indice": "Postérieure au Front populaire (congés payés) et antérieure à la guerre d'Algérie.",
+    "verdict": "a-cheval",
+    "deduction": "1937–1953: enjambe 1950 — après le Front populaire, avant l'Algérie",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Postérieure au Front populaire (congés payés) et antérieure à la guerre d'Algérie.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "Postérieure au Front populaire (congés payés) et antérieure à la guerre d'Algérie."
@@ -746,9 +1143,21 @@
     "indice": "Un jouet de l'après-guerre, né avant que l'homme ne marche sur la Lune.",
     "verdict": "ordre",
     "deduction": "Après-guerre, avant 1969 : 1945-1969, la tranche sans plus."
+   },
+   {
+    "indice": "Un jouet de l'après-guerre, né avant que l'homme ne marche sur la Lune.",
+    "verdict": "a-cheval",
+    "deduction": "1946–1969: enjambe 1950 — jouet d'après-guerre évoque 1945–1950",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Entre la guerre de Corée et l'homme sur la Lune.",
+    "verdict": "dans, proche",
+    "deduction": "1953 à 1969 — Milieu 1961 : ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Un jouet de l'après-guerre, né avant que l'homme ne marche sur la Lune."
+  "retenu": "Entre la guerre de Corée et l'homme sur la Lune."
  },
  {
   "id": "n4nkmbgs",
@@ -765,9 +1174,21 @@
     "indice": "Un fossile exhumé au milieu du XIXe siècle, quand la paléontologie est toute jeune.",
     "verdict": "ordre",
     "deduction": "Milieu du XIXe : environ 1840-1865, la tranche sans plus."
+   },
+   {
+    "indice": "Un fossile exhumé au milieu du XIXe siècle, quand la paléontologie est toute jeune.",
+    "verdict": "a-cheval",
+    "deduction": "1840–1865: enjambe 1850 — milieu du XIXe",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Sous le Second Empire, avant la guerre contre la Prusse.",
+    "verdict": "dans, proche",
+    "deduction": "1852 à 1870 — Second Empire : milieu 1861, ★★ sûr.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Un fossile exhumé au milieu du XIXe siècle, quand la paléontologie est toute jeune."
+  "retenu": "Sous le Second Empire, avant la guerre contre la Prusse."
  },
  {
   "id": "n8007l7o",
@@ -784,9 +1205,21 @@
     "indice": "Plus que les symphonies de Beethoven, mais bien moins que celles de Haydn, plus de cent.",
     "verdict": "ordre",
     "deduction": "Plus que 9 (Beethoven), bien moins que 104 (Haydn) : entre 10 et 40, la tranche sans plus."
+   },
+   {
+    "indice": "Plus que les symphonies de Beethoven, mais bien moins que celles de Haydn, plus de cent.",
+    "verdict": "a-cheval",
+    "deduction": "10–50: enjambe 30 — moins que Haydn sans borne haute nette",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus d'une dizaine de rhapsodies, mais moins qu'une trentaine.",
+    "verdict": "dans, proche",
+    "deduction": "11 à 29 — Milieu 20 vs 19 : ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Plus que les symphonies de Beethoven, mais bien moins que celles de Haydn, plus de cent."
+  "retenu": "Plus d'une dizaine de rhapsodies, mais moins qu'une trentaine."
  },
  {
   "id": "891qntqh",
@@ -803,6 +1236,18 @@
     "indice": "Quand les femmes adoptent cheveux et jupes courts, entre les deux guerres.",
     "verdict": "proche",
     "deduction": "Cheveux et jupes courts entre deux guerres = les années folles, 1920-1929 : ★★ à coup sûr, ★★★ possible."
+   },
+   {
+    "indice": "Quand les femmes adoptent cheveux et jupes courts, entre les deux guerres.",
+    "verdict": "a-cheval",
+    "deduction": "1919–1930: enjambe 1925 — entre les deux guerres, jupes courtes",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Quand les femmes adoptent cheveux et jupes courts, entre les deux guerres.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "Quand les femmes adoptent cheveux et jupes courts, entre les deux guerres."
@@ -886,6 +1331,12 @@
     "indice": "Plus que les neuf vies d'un chat, mais bien moins qu'une vingtaine.",
     "verdict": "ordre",
     "deduction": "Plus de 9, moins de 20 : de 10 à 16."
+   },
+   {
+    "indice": "Plus que les neuf vies d'un chat, mais bien moins qu'une vingtaine.",
+    "verdict": "dans",
+    "deduction": "10–15 — plus que neuf, bien moins que vingt",
+    "juge": "tranche"
    }
   ],
   "retenu": "Plus que les neuf vies d'un chat, mais bien moins qu'une vingtaine."
@@ -900,9 +1351,21 @@
     "indice": "Quelques centaines au plus, alors que le monde compte des milliers de langues.",
     "verdict": "ordre",
     "deduction": "Quelques centaines : 100 à 900."
+   },
+   {
+    "indice": "Quelques centaines au plus, alors que le monde compte des milliers de langues.",
+    "verdict": "a-cheval",
+    "deduction": "200–600: enjambe 300 — quelques centaines, sans borne",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus d'une centaine de langues, mais moins de trois cents.",
+    "verdict": "dans, proche",
+    "deduction": "100 à 300 — Milieu 200 vs 250 : ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Quelques centaines au plus, alors que le monde compte des milliers de langues."
+  "retenu": "Plus d'une centaine de langues, mais moins de trois cents."
  },
  {
   "id": "8u2eq4gp",
@@ -919,6 +1382,12 @@
     "indice": "Bien plus lourde qu'une tablette de chocolat, mais plus légère qu'un litre de lait.",
     "verdict": "ordre",
     "deduction": "Entre 100 g (tablette) et 1000 g (litre de lait) : vers 300-700 g, la tranche sans plus."
+   },
+   {
+    "indice": "Bien plus lourde qu'une tablette de chocolat, mais plus légère qu'un litre de lait.",
+    "verdict": "dans",
+    "deduction": "300–900 — plus qu'une tablette, moins qu'un litre",
+    "juge": "tranche"
    }
   ],
   "retenu": "Bien plus lourde qu'une tablette de chocolat, mais plus légère qu'un litre de lait."
@@ -933,9 +1402,21 @@
     "indice": "Moins du tiers des quelque deux cents pays que compte le monde.",
     "verdict": "ordre",
     "deduction": "Moins de 67 pays : une ou plusieurs dizaines."
+   },
+   {
+    "indice": "Moins du tiers des quelque deux cents pays que compte le monde.",
+    "verdict": "a-cheval",
+    "deduction": "20–66: enjambe 30 — moins du tiers de 200, sans plancher",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus qu'une trentaine de pays, mais moins que la moitié des pays du monde.",
+    "verdict": "dans, proche",
+    "deduction": "30 à ~97 pays — Milieu ~64 vs 55 : ★★ ; fourchette large, risque si il vise haut.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Moins du tiers des quelque deux cents pays que compte le monde."
+  "retenu": "Plus qu'une trentaine de pays, mais moins que la moitié des pays du monde."
  },
  {
   "id": "2mmr5i3n",
@@ -952,6 +1433,12 @@
     "indice": "Une hypothèse du dernier quart du XXe siècle, avant l'arrivée d'Internet pour tous.",
     "verdict": "ordre",
     "deduction": "Dernier quart du XXe, avant Internet pour tous : 1975-1995, la tranche sans plus."
+   },
+   {
+    "indice": "Une hypothèse du dernier quart du XXe siècle, avant l'arrivée d'Internet pour tous.",
+    "verdict": "dans",
+    "deduction": "1975–1995 — dernier quart du XXe avant Internet",
+    "juge": "tranche"
    }
   ],
   "retenu": "Une hypothèse du dernier quart du XXe siècle, avant l'arrivée d'Internet pour tous."
@@ -971,9 +1458,21 @@
     "indice": "Une surprise scientifique faite après la Première Guerre mondiale, avant la bombe atomique.",
     "verdict": "ordre",
     "deduction": "Après 1918, avant 1945 : 1918-1945, la tranche sans plus."
+   },
+   {
+    "indice": "Une surprise scientifique faite après la Première Guerre mondiale, avant la bombe atomique.",
+    "verdict": "a-cheval",
+    "deduction": "1919–1945: enjambe 1925 — après 14-18 avant la bombe, très large",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Après la crise économique mondiale, avant la bombe atomique.",
+    "verdict": "dans, proche",
+    "deduction": "1929 à 1945 — Milieu 1937 vs 1938 : ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Une surprise scientifique faite après la Première Guerre mondiale, avant la bombe atomique."
+  "retenu": "Après la crise économique mondiale, avant la bombe atomique."
  },
  {
   "id": "3yiw4do8",
@@ -1005,9 +1504,21 @@
     "indice": "Plus long qu'une chanson, moins qu'un épisode de série d'une demi-heure.",
     "verdict": "ordre",
     "deduction": "Plus long qu'une chanson, moins qu'une demi-heure : 5-30 min, devine 10-20, la tranche sans plus."
+   },
+   {
+    "indice": "Plus long qu'une chanson, moins qu'un épisode de série d'une demi-heure.",
+    "verdict": "a-cheval",
+    "deduction": "5–25: enjambe 10 — plus qu'une chanson, moins que 30 min",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus de dix minutes, mais moins qu'un épisode d'une demi-heure.",
+    "verdict": "dans, large",
+    "deduction": "10 à 30 min — Milieu 20 vs 14 : hors ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Plus long qu'une chanson, moins qu'un épisode de série d'une demi-heure."
+  "retenu": "Plus de dix minutes, mais moins qu'un épisode d'une demi-heure."
  },
  {
   "id": "1j5ika99",
@@ -1024,6 +1535,12 @@
     "indice": "Adulte depuis longtemps, mais loin d'être vieux : les hobbits vivent plus longtemps que nous.",
     "verdict": "ordre",
     "deduction": "Adulte mais pas vieux, hobbits longévifs : 30-80 ans, la tranche 30-100 sans plus."
+   },
+   {
+    "indice": "Adulte depuis longtemps, mais loin d'être vieux : les hobbits vivent plus longtemps que nous.",
+    "verdict": "dans",
+    "deduction": "35–60 — adulte, pas vieux",
+    "juge": "tranche"
    }
   ],
   "retenu": "Adulte depuis longtemps, mais loin d'être vieux : les hobbits vivent plus longtemps que nous."
@@ -1038,9 +1555,21 @@
     "indice": "Des chapitres très courts, bien plus nombreux que les jours d'un mois, sous deux cents.",
     "verdict": "ordre",
     "deduction": "Entre 31 et 200 chapitres, une centaine."
+   },
+   {
+    "indice": "Des chapitres très courts, bien plus nombreux que les jours d'un mois, sous deux cents.",
+    "verdict": "a-cheval",
+    "deduction": "40–199: enjambe 100 — bien plus qu'un mois, sous deux cents",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Chapitres brefs : plus d'une centaine, mais pas trois cents.",
+    "verdict": "dans, large",
+    "deduction": "100 à 300 — Milieu 200 vs 135 : hors ★★ ; \"brefs\" ne resserre pas.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Des chapitres très courts, bien plus nombreux que les jours d'un mois, sous deux cents."
+  "retenu": "Chapitres brefs : plus d'une centaine, mais pas trois cents."
  },
  {
   "id": "s0ogafoo",
@@ -1057,6 +1586,12 @@
     "indice": "Mort dans la première moitié du XVIIe siècle, quand la Renaissance s'achève en Angleterre.",
     "verdict": "ordre",
     "deduction": "Première moitié du XVIIe : 1600-1650, la tranche de 50 ans sans plus."
+   },
+   {
+    "indice": "Mort dans la première moitié du XVIIe siècle, quand la Renaissance s'achève en Angleterre.",
+    "verdict": "dans",
+    "deduction": "1600–1650 — première moitié du XVIIe",
+    "juge": "tranche"
    }
   ],
   "retenu": "Mort dans la première moitié du XVIIe siècle, quand la Renaissance s'achève en Angleterre."
@@ -1071,9 +1606,21 @@
     "indice": "Bien moins que la Belle au bois dormant, mais assez pour rater une révolution.",
     "verdict": "ordre",
     "deduction": "Moins de 100 ans, assez pour rater une révolution : 10 à 50."
+   },
+   {
+    "indice": "Bien moins que la Belle au bois dormant, mais assez pour rater une révolution.",
+    "verdict": "a-cheval",
+    "deduction": "10–50: enjambe 30 — bien moins que cent, plancher flou",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Il s'endort jeune et se réveille vieux : plus de dix ans, mais moins de trente.",
+    "verdict": "dans, proche",
+    "deduction": "10 à 30 ans — Milieu 20 = réponse (★★★ possible par chance), ★★ sûr.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Bien moins que la Belle au bois dormant, mais assez pour rater une révolution."
+  "retenu": "Il s'endort jeune et se réveille vieux : plus de dix ans, mais moins de trente."
  },
  {
   "id": "87l4v3kt",
@@ -1085,6 +1632,18 @@
     "indice": "Plus large qu'une route à deux voies, bien plus étroit qu'une piscine olympique n'est longue.",
     "verdict": "ordre",
     "deduction": "Entre 7 et 50 m, une dizaine de mètres."
+   },
+   {
+    "indice": "Plus large qu'une route à deux voies, bien plus étroit qu'une piscine olympique n'est longue.",
+    "verdict": "a-cheval",
+    "deduction": "8–25: enjambe 10 — plus large qu'une route, plancher vers 8",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus large qu'une route à deux voies, bien plus étroit qu'une piscine olympique n'est longue.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "Plus large qu'une route à deux voies, bien plus étroit qu'une piscine olympique n'est longue."
@@ -1104,6 +1663,18 @@
     "indice": "Un grand chantier du début du XIXe siècle, quand le chemin de fer commence à peine.",
     "verdict": "ordre",
     "deduction": "Début du XIXe, chemin de fer naissant : 1805-1830, la tranche sans plus."
+   },
+   {
+    "indice": "Un grand chantier du début du XIXe siècle, quand le chemin de fer commence à peine.",
+    "verdict": "a-cheval",
+    "deduction": "1800–1830: enjambe 1825 — début XIXe, la réponse est au bord",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un grand chantier du début du XIXe siècle, quand le chemin de fer commence à peine.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "Un grand chantier du début du XIXe siècle, quand le chemin de fer commence à peine."
@@ -1123,9 +1694,21 @@
     "indice": "Une fête née sous la dictature de Franco, dans ses premières décennies.",
     "verdict": "ordre",
     "deduction": "Franco (1939-1975), premières décennies : 1940-1960, la tranche sans plus."
+   },
+   {
+    "indice": "Une fête née sous la dictature de Franco, dans ses premières décennies.",
+    "verdict": "a-cheval",
+    "deduction": "1939–1960: enjambe 1950 — premières décennies du franquisme",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Une fête née sous Franco, après la guerre civile espagnole, avant le milieu du siècle.",
+    "verdict": "dans, proche",
+    "deduction": "1939 à 1950 — Après 1939, avant 1950 : milieu 1944-45, ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Une fête née sous la dictature de Franco, dans ses premières décennies."
+  "retenu": "Une fête née sous Franco, après la guerre civile espagnole, avant le milieu du siècle."
  },
  {
   "id": "gawi2k69",
@@ -1187,6 +1770,12 @@
     "indice": "Une interdiction du premier quart du XXe siècle, quand l'alcool est accusé de ravager les familles.",
     "verdict": "ordre",
     "deduction": "Premier quart du XXe : 1900-1925, la tranche sans plus."
+   },
+   {
+    "indice": "Une interdiction du premier quart du XXe siècle, quand l'alcool est accusé de ravager les familles.",
+    "verdict": "dans",
+    "deduction": "1900–1925 — premier quart du XXe",
+    "juge": "tranche"
    }
   ],
   "retenu": "Une interdiction du premier quart du XXe siècle, quand l'alcool est accusé de ravager les familles."
@@ -1221,6 +1810,12 @@
     "indice": "Au temps du disco, quand les premières consoles de jeux entrent dans les salons.",
     "verdict": "proche",
     "deduction": "Le disco, c'est la fin des années 70 : 1973-1980, ★★ à coup sûr, ★★★ pas garanti."
+   },
+   {
+    "indice": "Au temps du disco, quand les premières consoles de jeux entrent dans les salons.",
+    "verdict": "dans",
+    "deduction": "1975–1980 — disco",
+    "juge": "tranche"
    }
   ],
   "retenu": "Au temps du disco, quand les premières consoles de jeux entrent dans les salons."
@@ -1240,6 +1835,12 @@
     "indice": "Née au temps des Trente Glorieuses, quand les stations de ski poussent comme des champignons.",
     "verdict": "ordre",
     "deduction": "Trente Glorieuses (1945-1975), stations de ski : 1950-1975, la tranche sans plus."
+   },
+   {
+    "indice": "Née au temps des Trente Glorieuses, quand les stations de ski poussent comme des champignons.",
+    "verdict": "dans",
+    "deduction": "1950–1975 — Trente Glorieuses, stations de ski",
+    "juge": "tranche"
    }
   ],
   "retenu": "Née au temps des Trente Glorieuses, quand les stations de ski poussent comme des champignons."
@@ -1274,6 +1875,12 @@
     "indice": "Une éruption du début du XIXe siècle, avant la photographie : il ne reste que des récits.",
     "verdict": "ordre",
     "deduction": "Début du XIXe, avant la photographie (1839) : 1800-1830, la tranche sans plus."
+   },
+   {
+    "indice": "Une éruption du début du XIXe siècle, avant la photographie : il ne reste que des récits.",
+    "verdict": "dans",
+    "deduction": "1800–1830 — début XIXe, un débord minime",
+    "juge": "tranche"
    }
   ],
   "retenu": "Une éruption du début du XIXe siècle, avant la photographie : il ne reste que des récits."
@@ -1288,9 +1895,21 @@
     "indice": "Moins que les cinquante États américains, mais bien plus que les régions françaises.",
     "verdict": "ordre",
     "deduction": "Moins de 50, plus qu'une quinzaine : 20 à 45."
+   },
+   {
+    "indice": "Moins que les cinquante États américains, mais bien plus que les régions françaises.",
+    "verdict": "a-cheval",
+    "deduction": "20–49: enjambe 30 — moins que 50, plus que les régions",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Une fédération de plus d'une trentaine d'États, mais de moins d'une centaine.",
+    "verdict": "dans, large",
+    "deduction": "30 à 100 — Indice = la tranche ; milieu ~65 vs 36.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Moins que les cinquante États américains, mais bien plus que les régions françaises."
+  "retenu": "Une fédération de plus d'une trentaine d'États, mais de moins d'une centaine."
  },
  {
   "id": "o8txvq2w",
@@ -1302,9 +1921,21 @@
     "indice": "Plus d'une centaine, mais bien moins d'un millier.",
     "verdict": "ordre",
     "deduction": "Entre 100 et 500 fables."
+   },
+   {
+    "indice": "Plus d'une centaine, mais bien moins d'un millier.",
+    "verdict": "a-cheval",
+    "deduction": "100–600: enjambe 300 — moins d'un millier laisse monter",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus d'une centaine de fables, mais moins de trois cents.",
+    "verdict": "dans, proche",
+    "deduction": "100 à 300 — Milieu 200 vs 243 : ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Plus d'une centaine, mais bien moins d'un millier."
+  "retenu": "Plus d'une centaine de fables, mais moins de trois cents."
  },
  {
   "id": "v9rlm2rb",
@@ -1321,9 +1952,21 @@
     "indice": "Une série à l'ancienne sur cinq saisons : loin d'un épisode par semaine toute l'année.",
     "verdict": "ordre",
     "deduction": "Cinq saisons, moins de 52 épisodes par an : environ 50-250 épisodes, devine ~100-120, la tranche sans plus."
+   },
+   {
+    "indice": "Une série à l'ancienne sur cinq saisons : loin d'un épisode par semaine toute l'année.",
+    "verdict": "a-cheval",
+    "deduction": "60–250: enjambe 100 — cinq saisons, borne basse floue",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus d'une centaine d'épisodes, mais loin de trois cents.",
+    "verdict": "dans, large",
+    "deduction": "100 à ~200 — Milieu ~150 vs 120 : pile à la limite des 25 %.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Une série à l'ancienne sur cinq saisons : loin d'un épisode par semaine toute l'année."
+  "retenu": "Plus d'une centaine d'épisodes, mais loin de trois cents."
  },
  {
   "id": "gwncegep",
@@ -1350,9 +1993,21 @@
     "indice": "Bien plus que quelques semaines : le fromage traverse plusieurs saisons.",
     "verdict": "ordre",
     "deduction": "Plusieurs saisons : de 9 à 24 mois."
+   },
+   {
+    "indice": "Bien plus que quelques semaines : le fromage traverse plusieurs saisons.",
+    "verdict": "a-cheval",
+    "deduction": "6–18: enjambe 10 — plusieurs saisons, sans borne nette",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus de dix mois d'affinage, mais moins de deux ans.",
+    "verdict": "dans, large",
+    "deduction": "10 à 24 mois — Milieu ~17 vs 12 : hors ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Bien plus que quelques semaines : le fromage traverse plusieurs saisons."
+  "retenu": "Plus de dix mois d'affinage, mais moins de deux ans."
  },
  {
   "id": "lelo29o9",
@@ -1369,6 +2024,12 @@
     "indice": "Plus qu'un siècle, mais bien moins que deux : c'est le record de longévité humaine.",
     "verdict": "proche",
     "deduction": "Plus d'un siècle, record de longévité humaine : 110-125 ans, donc ★★ à coup sûr, ★★★ probable."
+   },
+   {
+    "indice": "Plus qu'un siècle, mais bien moins que deux : c'est le record de longévité humaine.",
+    "verdict": "dans",
+    "deduction": "100–150 — plus d'un siècle, moins de deux",
+    "juge": "tranche"
    }
   ],
   "retenu": "Plus qu'un siècle, mais bien moins que deux : c'est le record de longévité humaine."
@@ -1383,6 +2044,18 @@
     "indice": "Moins qu'une demi-bouteille d'un litre, plus qu'un verre d'eau ordinaire.",
     "verdict": "ordre",
     "deduction": "Entre 200 et 500 ml."
+   },
+   {
+    "indice": "Moins qu'une demi-bouteille d'un litre, plus qu'un verre d'eau ordinaire.",
+    "verdict": "a-cheval",
+    "deduction": "200–500: enjambe 300 — entre un verre et une demi-bouteille",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Moins qu'une demi-bouteille d'un litre, plus qu'un verre d'eau ordinaire.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "Moins qu'une demi-bouteille d'un litre, plus qu'un verre d'eau ordinaire."
@@ -1397,6 +2070,12 @@
     "indice": "Trois vers dont aucun n'atteint la longueur d'un alexandrin : fais l'addition.",
     "verdict": "ordre",
     "deduction": "Trois vers de moins de 12 syllabes : jusqu'à 33, une quinzaine ou vingtaine."
+   },
+   {
+    "indice": "Trois vers dont aucun n'atteint la longueur d'un alexandrin : fais l'addition.",
+    "verdict": "dans",
+    "deduction": "15–24 — trois vers de moins de douze syllabes",
+    "juge": "tranche"
    }
   ],
   "retenu": "Trois vers dont aucun n'atteint la longueur d'un alexandrin : fais l'addition."
@@ -1416,6 +2095,18 @@
     "indice": "Une vie coûte plus qu'une vingtaine d'anneaux, mais bien moins qu'un millier.",
     "verdict": "ordre",
     "deduction": "Plus de 20, bien moins que 1000 : vise la centaine, la tranche sans plus."
+   },
+   {
+    "indice": "Une vie coûte plus qu'une vingtaine d'anneaux, mais bien moins qu'un millier.",
+    "verdict": "a-cheval",
+    "deduction": "30–300: enjambe 100 — plus que vingt, sans borne haute nette",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Une vie coûte plus qu'une vingtaine d'anneaux, mais bien moins qu'un millier.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "Une vie coûte plus qu'une vingtaine d'anneaux, mais bien moins qu'un millier."
@@ -1430,6 +2121,18 @@
     "indice": "Bien plus qu'un demi-tour, mais pas un tour complet.",
     "verdict": "ordre",
     "deduction": "Entre 180 et 360 degrés."
+   },
+   {
+    "indice": "Bien plus qu'un demi-tour, mais pas un tour complet.",
+    "verdict": "a-cheval",
+    "deduction": "200–350: enjambe 300 — entre un demi-tour et un tour",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Bien plus qu'un demi-tour, mais pas un tour complet.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "Bien plus qu'un demi-tour, mais pas un tour complet."
@@ -1444,6 +2147,18 @@
     "indice": "La fuite commence au printemps et s'arrête en plein été : compte les semaines.",
     "verdict": "ordre",
     "deduction": "Du printemps à plein été : 30 à 150 jours."
+   },
+   {
+    "indice": "La fuite commence au printemps et s'arrête en plein été : compte les semaines.",
+    "verdict": "a-cheval",
+    "deduction": "60–120: enjambe 100 — du printemps à l'été, en semaines",
+    "juge": "tranche"
+   },
+   {
+    "indice": "La fuite commence au printemps et s'arrête en plein été : compte les semaines.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "La fuite commence au printemps et s'arrête en plein été : compte les semaines."
@@ -1458,6 +2173,18 @@
     "indice": "Bien plus que la population de la France entière, mais moins qu'un milliard.",
     "verdict": "ordre",
     "deduction": "Entre 70 millions et 1 milliard."
+   },
+   {
+    "indice": "Bien plus que la population de la France entière, mais moins qu'un milliard.",
+    "verdict": "a-cheval",
+    "deduction": "100 M–900 M: enjambe 300 M — plus que la France, moins qu'un milliard",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Bien plus que la population de la France entière, mais moins qu'un milliard.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "Bien plus que la population de la France entière, mais moins qu'un milliard."
@@ -1472,9 +2199,21 @@
     "indice": "Moins d'une minute : à peine le temps de lire quelques lignes.",
     "verdict": "ordre",
     "deduction": "Moins d'une minute, quelques lignes à lire : 5 à 40 secondes."
+   },
+   {
+    "indice": "Moins d'une minute : à peine le temps de lire quelques lignes.",
+    "verdict": "a-cheval",
+    "deduction": "5–40: enjambe 10 et 30 — moins d'une minute, très large",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus de dix secondes, mais moins d'une demi-minute.",
+    "verdict": "dans, large",
+    "deduction": "10 à 30 s — Milieu 20 vs 12 : hors ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Moins d'une minute : à peine le temps de lire quelques lignes."
+  "retenu": "Plus de dix secondes, mais moins d'une demi-minute."
  },
  {
   "id": "9saluy1v",
@@ -1491,6 +2230,12 @@
     "indice": "Né dans l'Europe d'après-guerre, quand le football passe à la télévision en noir et blanc.",
     "verdict": "ordre",
     "deduction": "Europe d'après-guerre, télé en noir et blanc : 1950-1970, la tranche sans plus."
+   },
+   {
+    "indice": "Né dans l'Europe d'après-guerre, quand le football passe à la télévision en noir et blanc.",
+    "verdict": "dans",
+    "deduction": "1950–1970 — football à la télé en noir et blanc",
+    "juge": "tranche"
    }
   ],
   "retenu": "Né dans l'Europe d'après-guerre, quand le football passe à la télévision en noir et blanc."
@@ -1510,9 +2255,21 @@
     "indice": "Ouvert à Paris à la Belle Époque, avant la Grande Guerre.",
     "verdict": "ordre",
     "deduction": "Belle Époque, avant 1914 : 1890-1914, la tranche sans plus."
+   },
+   {
+    "indice": "Ouvert à Paris à la Belle Époque, avant la Grande Guerre.",
+    "verdict": "a-cheval",
+    "deduction": "1880–1914: enjambe 1900 — Belle Époque avant 14-18",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un salon de thé né dans les premières années du XXe siècle, avant la Grande Guerre.",
+    "verdict": "dans, proche",
+    "deduction": "1901 à 1914 — Milieu ~1907 vs 1903 : ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Ouvert à Paris à la Belle Époque, avant la Grande Guerre."
+  "retenu": "Un salon de thé né dans les premières années du XXe siècle, avant la Grande Guerre."
  },
  {
   "id": "qj969gnj",
@@ -1529,9 +2286,21 @@
     "indice": "Bien plus que le cœur d'une souris, déjà plus de cinq cents par minute, mais loin de dix mille.",
     "verdict": "ordre",
     "deduction": "Plus de 500 (souris), loin de 10 000 : milliers, vise 1000-3000, la tranche sans plus."
+   },
+   {
+    "indice": "Bien plus que le cœur d'une souris, déjà plus de cinq cents par minute, mais loin de dix mille.",
+    "verdict": "a-cheval",
+    "deduction": "600–5000: enjambe 1000 et 3000 — plus qu'une souris, loin de 10000",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un cœur d'une rapidité folle : plus de mille battements par minute, moins de trois mille.",
+    "verdict": "dans, large",
+    "deduction": "1000 à 3000 — Indice = la tranche ; milieu ~2000 vs 1200.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Bien plus que le cœur d'une souris, déjà plus de cinq cents par minute, mais loin de dix mille."
+  "retenu": "Un cœur d'une rapidité folle : plus de mille battements par minute, moins de trois mille."
  },
  {
   "id": "zgwpvts7",
@@ -1548,6 +2317,12 @@
     "indice": "Plus longue que chez l'humain, mais bien plus courte que chez l'éléphante.",
     "verdict": "ordre",
     "deduction": "Plus que l'humain (280 j), bien moins que l'éléphante (~660 j) : 300-500 jours, la tranche sans plus."
+   },
+   {
+    "indice": "Plus longue que chez l'humain, mais bien plus courte que chez l'éléphante.",
+    "verdict": "dans",
+    "deduction": "300–500 — plus que l'humain, moins que l'éléphante",
+    "juge": "tranche"
    }
   ],
   "retenu": "Plus longue que chez l'humain, mais bien plus courte que chez l'éléphante."
@@ -1572,6 +2347,12 @@
     "indice": "Plus nombreuses que les huit sommets, mais moins de trente.",
     "verdict": "ordre",
     "deduction": "Plus que 8 et moins que 30 : 10-30 en pratique (9 seul tomberait en 3-10)."
+   },
+   {
+    "indice": "Plus nombreuses que les huit sommets, mais moins de trente.",
+    "verdict": "dans",
+    "deduction": "9–29 — plus que huit, moins de trente",
+    "juge": "tranche"
    }
   ],
   "retenu": "Plus nombreuses que les huit sommets, mais moins de trente."
@@ -1591,6 +2372,18 @@
     "indice": "Plus qu'une main de belote, mais moins qu'un jeu de cinquante-deux cartes.",
     "verdict": "ordre",
     "deduction": "Plus de 8, moins de 52 : entre 10 et 50, la tranche sans plus."
+   },
+   {
+    "indice": "Plus qu'une main de belote, mais moins qu'un jeu de cinquante-deux cartes.",
+    "verdict": "a-cheval",
+    "deduction": "9–51: enjambe 30 — entre une main de belote et 52 cartes",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus qu'une main de belote, mais moins qu'un jeu de cinquante-deux cartes.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "Plus qu'une main de belote, mais moins qu'un jeu de cinquante-deux cartes."
@@ -1620,6 +2413,12 @@
     "indice": "Plus large qu'un lit d'une place (90 cm), moins qu'un très grand lit (180 cm).",
     "verdict": "ordre",
     "deduction": "Entre 90 et 180 cm : 120 à 160."
+   },
+   {
+    "indice": "Plus large qu'un lit d'une place (90 cm), moins qu'un très grand lit (180 cm).",
+    "verdict": "dans",
+    "deduction": "100–180 — entre 90 et 180 cm",
+    "juge": "tranche"
    }
   ],
   "retenu": "Plus large qu'un lit d'une place (90 cm), moins qu'un très grand lit (180 cm)."
@@ -1639,9 +2438,21 @@
     "indice": "Une poupée d'après-guerre, née dans l'Amérique du baby-boom, avant l'homme sur la Lune.",
     "verdict": "ordre",
     "deduction": "Après-guerre, baby-boom, avant 1969 : 1946-1969, la tranche sans plus."
+   },
+   {
+    "indice": "Une poupée d'après-guerre, née dans l'Amérique du baby-boom, avant l'homme sur la Lune.",
+    "verdict": "a-cheval",
+    "deduction": "1946–1969: enjambe 1950 — baby-boom d'après-guerre",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Entre la guerre de Corée et l'homme sur la Lune.",
+    "verdict": "dans, proche",
+    "deduction": "1953 à 1969 — Milieu 1961 vs 1959 : ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Une poupée d'après-guerre, née dans l'Amérique du baby-boom, avant l'homme sur la Lune."
+  "retenu": "Entre la guerre de Corée et l'homme sur la Lune."
  },
  {
   "id": "878nfkzj",
@@ -1658,6 +2469,18 @@
     "indice": "Compte en pouces de 2,5 cm : bien plus grande qu'un stylo, bien moins qu'un mètre.",
     "verdict": "ordre",
     "deduction": "Entre un stylo (~6 pouces) et un mètre (~40 pouces) : vers 10-20 pouces, la tranche sans plus."
+   },
+   {
+    "indice": "Compte en pouces de 2,5 cm : bien plus grande qu'un stylo, bien moins qu'un mètre.",
+    "verdict": "a-cheval",
+    "deduction": "6–30: enjambe 10 — pouces, du stylo au mètre",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Compte en pouces de 2,5 cm : bien plus grande qu'un stylo, bien moins qu'un mètre.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "Compte en pouces de 2,5 cm : bien plus grande qu'un stylo, bien moins qu'un mètre."
@@ -1672,9 +2495,21 @@
     "indice": "Moins que les 64 cases d'un échiquier, mais bien plus qu'une douzaine.",
     "verdict": "ordre",
     "deduction": "Entre 13 et 63 cases."
+   },
+   {
+    "indice": "Moins que les 64 cases d'un échiquier, mais bien plus qu'une douzaine.",
+    "verdict": "a-cheval",
+    "deduction": "20–60: enjambe 30 — moins que 64, plus qu'une douzaine",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus qu'une trentaine de cases, mais moins d'une centaine.",
+    "verdict": "dans, large",
+    "deduction": "30 à 100 — Indice = la tranche ; milieu ~65 vs 40.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Moins que les 64 cases d'un échiquier, mais bien plus qu'une douzaine."
+  "retenu": "Plus qu'une trentaine de cases, mais moins d'une centaine."
  },
  {
   "id": "2sfv3yxp",
@@ -1691,9 +2526,21 @@
     "indice": "Plus qu'une vingtaine d'objets, mais loin d'atteindre un millier : une pile reste maniable.",
     "verdict": "ordre",
     "deduction": "Plus qu'une vingtaine, loin de 1000 : entre 30 et 300, la tranche à peu près."
+   },
+   {
+    "indice": "Plus qu'une vingtaine d'objets, mais loin d'atteindre un millier : une pile reste maniable.",
+    "verdict": "a-cheval",
+    "deduction": "25–200: enjambe 100 — loin d'un millier ne borne pas à 100",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Une pile d'objets bien rangée : plus d'une trentaine, moins d'une centaine.",
+    "verdict": "dans, proche",
+    "deduction": "30 à 100 — Milieu ~65 vs 64 : ★★ (★★★ par chance).",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Plus qu'une vingtaine d'objets, mais loin d'atteindre un millier : une pile reste maniable."
+  "retenu": "Une pile d'objets bien rangée : plus d'une trentaine, moins d'une centaine."
  },
  {
   "id": "ummt6z52",
@@ -1710,6 +2557,18 @@
     "indice": "Un chantier commencé sous Napoléon III, mais ouvert plus tard, sous la IIIe République.",
     "verdict": "proche",
     "deduction": "Ouvert après 1870 (IIIe République), chantier long : 1870-1885, donc ★★ à coup sûr, ★★★ pas garanti."
+   },
+   {
+    "indice": "Un chantier commencé sous Napoléon III, mais ouvert plus tard, sous la IIIe République.",
+    "verdict": "a-cheval",
+    "deduction": "1871–1890: enjambe 1875 — ouvert sous la IIIe République, la réponse est au bord",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un chantier commencé sous Napoléon III, mais ouvert plus tard, sous la IIIe République.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "Un chantier commencé sous Napoléon III, mais ouvert plus tard, sous la IIIe République."
@@ -1739,6 +2598,12 @@
     "indice": "Plus de trois fois la tour Eiffel, mais nettement plus bas que le mont Blanc.",
     "verdict": "ordre",
     "deduction": "Plus de 1000 m, bien sous le mont Blanc : 1000 à 3000."
+   },
+   {
+    "indice": "Plus de trois fois la tour Eiffel, mais nettement plus bas que le mont Blanc.",
+    "verdict": "dans",
+    "deduction": "1000–3000 — plus de trois Eiffel, sous le mont Blanc",
+    "juge": "tranche"
    }
   ],
   "retenu": "Plus de trois fois la tour Eiffel, mais nettement plus bas que le mont Blanc."
@@ -1753,9 +2618,21 @@
     "indice": "Plus lourd qu'un homme adulte, mais bien plus léger qu'un cheval.",
     "verdict": "ordre",
     "deduction": "Entre 80 et 500 kg, une centaine."
+   },
+   {
+    "indice": "Plus lourd qu'un homme adulte, mais bien plus léger qu'un cheval.",
+    "verdict": "a-cheval",
+    "deduction": "80–450: enjambe 100 et 300 — entre un homme et un cheval",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un fauve de plus de cent kilos, mais de moins de trois cents.",
+    "verdict": "dans, proche",
+    "deduction": "100 à 300 kg — Milieu 200 vs 190 : ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Plus lourd qu'un homme adulte, mais bien plus léger qu'un cheval."
+  "retenu": "Un fauve de plus de cent kilos, mais de moins de trois cents."
  },
  {
   "id": "5yr5adfl",
@@ -1777,6 +2654,12 @@
     "indice": "Les mieux dotées en portent plus d'une centaine, mais pas trois cents.",
     "verdict": "ordre",
     "deduction": "Plus de 100, moins de 300 : tranche 100-300."
+   },
+   {
+    "indice": "Les mieux dotées en portent plus d'une centaine, mais pas trois cents.",
+    "verdict": "dans",
+    "deduction": "100–300 — plus d'une centaine, pas trois cents",
+    "juge": "tranche"
    }
   ],
   "retenu": "Les mieux dotées en portent plus d'une centaine, mais pas trois cents."
@@ -1796,6 +2679,18 @@
     "indice": "Bien plus grand qu'un chat, sans atteindre la taille d'un adulte humain.",
     "verdict": "ordre",
     "deduction": "Entre un chat et un adulte : 60-170 cm, il vise ~100-140, la tranche sans plus."
+   },
+   {
+    "indice": "Bien plus grand qu'un chat, sans atteindre la taille d'un adulte humain.",
+    "verdict": "a-cheval",
+    "deduction": "60–160: enjambe 100 — plus qu'un chat, moins qu'un adulte",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Bien plus grand qu'un chat, sans atteindre la taille d'un adulte humain.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "Bien plus grand qu'un chat, sans atteindre la taille d'un adulte humain."
@@ -1810,6 +2705,12 @@
     "indice": "Quatorze ans de carrière en Bleu, avec plus de cent matchs au compteur.",
     "verdict": "ordre",
     "deduction": "Plus de 100 matchs en 14 ans : 100 à 200."
+   },
+   {
+    "indice": "Quatorze ans de carrière en Bleu, avec plus de cent matchs au compteur.",
+    "verdict": "dans",
+    "deduction": "100–200 — plus de cent matchs en quatorze ans",
+    "juge": "tranche"
    }
   ],
   "retenu": "Quatorze ans de carrière en Bleu, avec plus de cent matchs au compteur."
@@ -1824,9 +2725,21 @@
     "indice": "Peu de règles : moins que les 26 lettres de l'alphabet, mais plus qu'une demi-douzaine.",
     "verdict": "ordre",
     "deduction": "Entre 7 et 25 règles."
+   },
+   {
+    "indice": "Peu de règles : moins que les 26 lettres de l'alphabet, mais plus qu'une demi-douzaine.",
+    "verdict": "a-cheval",
+    "deduction": "7–25: enjambe 10 — moins que 26, plus que six",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Une grammaire minuscule : plus d'une dizaine de règles, moins que les lettres de l'alphabet.",
+    "verdict": "dans, proche",
+    "deduction": "11 à 26 — Milieu ~18 vs 16 : ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Peu de règles : moins que les 26 lettres de l'alphabet, mais plus qu'une demi-douzaine."
+  "retenu": "Une grammaire minuscule : plus d'une dizaine de règles, moins que les lettres de l'alphabet."
  },
  {
   "id": "k9n359l1",
@@ -1838,6 +2751,18 @@
     "indice": "Plus long qu'un épisode de série, plus court que trois heures de film.",
     "verdict": "ordre",
     "deduction": "Entre 45 et 180 minutes."
+   },
+   {
+    "indice": "Plus long qu'un épisode de série, plus court que trois heures de film.",
+    "verdict": "a-cheval",
+    "deduction": "50–180: enjambe 100 — plus qu'un épisode, moins que trois heures",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus long qu'un épisode de série, plus court que trois heures de film.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "Plus long qu'un épisode de série, plus court que trois heures de film."
@@ -1857,6 +2782,18 @@
     "indice": "Une sitcom de plus de dix ans, avec bien plus d'une centaine d'épisodes, mais loin d'un millier.",
     "verdict": "ordre",
     "deduction": "Plus de 100, loin de 1000 : entre 150 et 500, la tranche sans plus."
+   },
+   {
+    "indice": "Une sitcom de plus de dix ans, avec bien plus d'une centaine d'épisodes, mais loin d'un millier.",
+    "verdict": "a-cheval",
+    "deduction": "100–600: enjambe 300 — loin d'un millier ne borne pas à 300",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Une sitcom de plus de dix ans, avec bien plus d'une centaine d'épisodes, mais loin d'un millier.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "Une sitcom de plus de dix ans, avec bien plus d'une centaine d'épisodes, mais loin d'un millier."
@@ -1876,9 +2813,21 @@
     "indice": "Un prodige : plus âgé qu'un lycéen, mais encore loin d'avoir quarante ans.",
     "verdict": "ordre",
     "deduction": "Plus qu'un lycéen, loin de 40 ans : environ 20-30 ans, la tranche sans plus."
+   },
+   {
+    "indice": "Un prodige : plus âgé qu'un lycéen, mais encore loin d'avoir quarante ans.",
+    "verdict": "a-cheval",
+    "deduction": "18–35: enjambe 30 — plus qu'un lycéen, loin de quarante",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un prodige encore très jeune : majeur, mais pas encore trentenaire.",
+    "verdict": "dans, proche",
+    "deduction": "18 à 29 ans — Milieu ~24 vs 25 : ★★ sûr.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Un prodige : plus âgé qu'un lycéen, mais encore loin d'avoir quarante ans."
+  "retenu": "Un prodige encore très jeune : majeur, mais pas encore trentenaire."
  },
  {
   "id": "xxd5v4kb",
@@ -1890,6 +2839,12 @@
     "indice": "Dès sa naissance, il dépasse un enfant de dix ans.",
     "verdict": "ordre",
     "deduction": "Plus qu'un enfant de 10 ans : au-delà de 140 cm."
+   },
+   {
+    "indice": "Dès sa naissance, il dépasse un enfant de dix ans.",
+    "verdict": "dans",
+    "deduction": "140–250 — dépasse un enfant de dix ans",
+    "juge": "tranche"
    }
   ],
   "retenu": "Dès sa naissance, il dépasse un enfant de dix ans."
@@ -1909,9 +2864,21 @@
     "indice": "Plus qu'un mini-album de cinq ou six titres, mais bien moins qu'une trentaine.",
     "verdict": "ordre",
     "deduction": "Plus de 6 titres, moins de 30 : entre 8 et 20, la tranche sans plus."
+   },
+   {
+    "indice": "Plus qu'un mini-album de cinq ou six titres, mais bien moins qu'une trentaine.",
+    "verdict": "a-cheval",
+    "deduction": "7–20: enjambe 10 — plus que cinq, bien moins que trente",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un album : plus d'une dizaine de titres, mais loin d'une trentaine.",
+    "verdict": "dans, proche",
+    "deduction": "11 à ~20 — Milieu ~15 vs 13 : ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Plus qu'un mini-album de cinq ou six titres, mais bien moins qu'une trentaine."
+  "retenu": "Un album : plus d'une dizaine de titres, mais loin d'une trentaine."
  },
  {
   "id": "6gufim5e",
@@ -1923,6 +2890,12 @@
     "indice": "Plus longue que la Garonne (500 km et un peu), moins que la Loire (plus de 1000 km).",
     "verdict": "ordre",
     "deduction": "Entre 500 et 1000 km."
+   },
+   {
+    "indice": "Plus longue que la Garonne (500 km et un peu), moins que la Loire (plus de 1000 km).",
+    "verdict": "dans",
+    "deduction": "500–1000 — entre la Garonne et la Loire",
+    "juge": "tranche"
    }
   ],
   "retenu": "Plus longue que la Garonne (500 km et un peu), moins que la Loire (plus de 1000 km)."
@@ -1942,9 +2915,21 @@
     "indice": "Les fuseaux s'étalent sur plus d'une demi-journée, mais bien moins que trois jours.",
     "verdict": "ordre",
     "deduction": "Plus d'une demi-journée, moins de trois jours : vise environ 24 h, la tranche sans plus."
+   },
+   {
+    "indice": "Les fuseaux s'étalent sur plus d'une demi-journée, mais bien moins que trois jours.",
+    "verdict": "a-cheval",
+    "deduction": "13–40: enjambe 30 — plus d'une demi-journée, moins de trois jours",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus d'une demi-journée, mais moins d'une journée et quart.",
+    "verdict": "dans, proche",
+    "deduction": "12 à 30 h — Milieu ~21-24 vs 26 : ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Les fuseaux s'étalent sur plus d'une demi-journée, mais bien moins que trois jours."
+  "retenu": "Plus d'une demi-journée, mais moins d'une journée et quart."
  },
  {
   "id": "dvfdi5r0",
@@ -1966,9 +2951,21 @@
     "indice": "Moins de quatre mois sous terre, mais plus d'un mois.",
     "verdict": "ordre",
     "deduction": "Entre un mois et quatre mois (30 à 120 jours) : 30-100 pour l'essentiel, sans valeur précise."
+   },
+   {
+    "indice": "Moins de quatre mois sous terre, mais plus d'un mois.",
+    "verdict": "a-cheval",
+    "deduction": "30–120: enjambe 100 — entre un et quatre mois",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus d'un mois sous terre, mais moins de trois.",
+    "verdict": "dans, proche",
+    "deduction": "30 à 90 jours — Milieu 60 vs 69 : ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Moins de quatre mois sous terre, mais plus d'un mois."
+  "retenu": "Plus d'un mois sous terre, mais moins de trois."
  },
  {
   "id": "4t6omvq2",
@@ -1995,9 +2992,21 @@
     "indice": "Plus lourd qu'une tablette de chocolat, moins qu'un kilo de sucre.",
     "verdict": "ordre",
     "deduction": "Entre 100 et 1000 g."
+   },
+   {
+    "indice": "Plus lourd qu'une tablette de chocolat, moins qu'un kilo de sucre.",
+    "verdict": "a-cheval",
+    "deduction": "150–900: enjambe 300 — entre une tablette et un kilo",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus lourde qu'une tablette de chocolat, mais moins que trois cents grammes.",
+    "verdict": "dans, proche",
+    "deduction": "100 à 300 g — Milieu ~200 vs 250 : ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Plus lourd qu'une tablette de chocolat, moins qu'un kilo de sucre."
+  "retenu": "Plus lourde qu'une tablette de chocolat, mais moins que trois cents grammes."
  },
  {
   "id": "zv332gt9",
@@ -2009,6 +3018,18 @@
     "indice": "Moins qu'une petite bouteille d'un demi-litre, mais plus qu'un grand verre.",
     "verdict": "ordre",
     "deduction": "Entre 200 et 500 ml."
+   },
+   {
+    "indice": "Moins qu'une petite bouteille d'un demi-litre, mais plus qu'un grand verre.",
+    "verdict": "a-cheval",
+    "deduction": "250–500: enjambe 300 — entre un grand verre et un demi-litre",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Moins qu'une petite bouteille d'un demi-litre, mais plus qu'un grand verre.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "Moins qu'une petite bouteille d'un demi-litre, mais plus qu'un grand verre."
@@ -2028,6 +3049,12 @@
     "indice": "Publié quand la France cherche à nourrir ses armées, entre la Révolution et la Restauration.",
     "verdict": "ordre",
     "deduction": "Armées à nourrir, entre Révolution et Restauration : 1795-1814, la tranche sans plus."
+   },
+   {
+    "indice": "Publié quand la France cherche à nourrir ses armées, entre la Révolution et la Restauration.",
+    "verdict": "dans",
+    "deduction": "1800–1814 — armées de Napoléon, débord minime",
+    "juge": "tranche"
    }
   ],
   "retenu": "Publié quand la France cherche à nourrir ses armées, entre la Révolution et la Restauration."
@@ -2042,6 +3069,18 @@
     "indice": "Bien moins haute que la tour Eiffel, mais plus qu'un immeuble de dix étages.",
     "verdict": "ordre",
     "deduction": "Entre 30 m et 330 m."
+   },
+   {
+    "indice": "Bien moins haute que la tour Eiffel, mais plus qu'un immeuble de dix étages.",
+    "verdict": "a-cheval",
+    "deduction": "40–200: enjambe 100 — moins que l'Eiffel, plus que dix étages",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Bien moins haute que la tour Eiffel, mais plus qu'un immeuble de dix étages.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "Bien moins haute que la tour Eiffel, mais plus qu'un immeuble de dix étages."
@@ -2090,6 +3129,12 @@
     "indice": "Après le règne de Louis XV et avant l'Empire de Napoléon.",
     "verdict": "ordre",
     "deduction": "Entre 1774 et l'Empire (1804) : tranche 1750-1799, la Révolution aidant."
+   },
+   {
+    "indice": "Après le règne de Louis XV et avant l'Empire de Napoléon.",
+    "verdict": "dans",
+    "deduction": "1775–1804 — après Louis XV, avant l'Empire, débord minime",
+    "juge": "tranche"
    }
   ],
   "retenu": "Après le règne de Louis XV et avant l'Empire de Napoléon."
@@ -2133,9 +3178,21 @@
     "indice": "Plus de trois fois la hauteur de la tour Eiffel, mais bien moins que dix kilomètres.",
     "verdict": "ordre",
     "deduction": "Plus de 1000 m (3 tours Eiffel), moins de 10 km : 1000-5000 m, la tranche sans plus."
+   },
+   {
+    "indice": "Plus de trois fois la hauteur de la tour Eiffel, mais bien moins que dix kilomètres.",
+    "verdict": "a-cheval",
+    "deduction": "1000–5000: enjambe 3000 — plus de trois Eiffel, moins de dix km",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Une avenue de plus d'un kilomètre, mais de moins de trois.",
+    "verdict": "dans, proche",
+    "deduction": "1000 à 3000 m — Milieu ~2000 vs 1910 : ★★ (★★★ par chance).",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Plus de trois fois la hauteur de la tour Eiffel, mais bien moins que dix kilomètres."
+  "retenu": "Une avenue de plus d'un kilomètre, mais de moins de trois."
  },
  {
   "id": "bkcnmkup",
@@ -2152,6 +3209,12 @@
     "indice": "Plus long qu'une carrière entière : montée très jeune sur le trône, elle y est restée à vie.",
     "verdict": "ordre",
     "deduction": "Plus long qu'une carrière, montée très jeune : 50-90 ans, la tranche sans plus."
+   },
+   {
+    "indice": "Plus long qu'une carrière entière : montée très jeune sur le trône, elle y est restée à vie.",
+    "verdict": "dans",
+    "deduction": "50–90 — carrière entière, montée jeune",
+    "juge": "tranche"
    }
   ],
   "retenu": "Plus long qu'une carrière entière : montée très jeune sur le trône, elle y est restée à vie."
@@ -2166,6 +3229,18 @@
     "indice": "Plus qu'un mois, mais moins que six mois.",
     "verdict": "ordre",
     "deduction": "Entre 30 et 180 jours."
+   },
+   {
+    "indice": "Plus qu'un mois, mais moins que six mois.",
+    "verdict": "a-cheval",
+    "deduction": "30–180: enjambe 100 — entre un mois et six mois",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus qu'un mois, mais moins que six mois.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "Plus qu'un mois, mais moins que six mois."
@@ -2185,9 +3260,21 @@
     "indice": "Un cycle de miniatures pour piano : plus de cinq pièces, loin d'une cinquantaine.",
     "verdict": "ordre",
     "deduction": "Plus de 5, loin de 50 : entre 6 et 30, la tranche sans plus."
+   },
+   {
+    "indice": "Un cycle de miniatures pour piano : plus de cinq pièces, loin d'une cinquantaine.",
+    "verdict": "a-cheval",
+    "deduction": "6–35: enjambe 10 et 30 — plus de cinq, loin de cinquante",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un cycle de miniatures : plus d'une dizaine de pièces, moins qu'une trentaine.",
+    "verdict": "dans, large",
+    "deduction": "10 à 30 — Milieu 20 vs 12 : hors ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Un cycle de miniatures pour piano : plus de cinq pièces, loin d'une cinquantaine."
+  "retenu": "Un cycle de miniatures : plus d'une dizaine de pièces, moins qu'une trentaine."
  },
  {
   "id": "7e7pfqkx",
@@ -2199,6 +3286,12 @@
     "indice": "Bien plus que les 16 pièces d'un joueur d'échecs, mais moins que cent.",
     "verdict": "ordre",
     "deduction": "Entre 17 et 99 pièces."
+   },
+   {
+    "indice": "Bien plus que les 16 pièces d'un joueur d'échecs, mais moins que cent.",
+    "verdict": "dans",
+    "deduction": "25–99 — plus que 16, moins que cent",
+    "juge": "tranche"
    }
   ],
   "retenu": "Bien plus que les 16 pièces d'un joueur d'échecs, mais moins que cent."
@@ -2213,6 +3306,12 @@
     "indice": "Plus que les doigts de tes deux mains, mais moins que trente.",
     "verdict": "ordre",
     "deduction": "Entre 11 et 29 doigts."
+   },
+   {
+    "indice": "Plus que les doigts de tes deux mains, mais moins que trente.",
+    "verdict": "dans",
+    "deduction": "11–29 — plus que dix, moins que trente",
+    "juge": "tranche"
    }
   ],
   "retenu": "Plus que les doigts de tes deux mains, mais moins que trente."
@@ -2232,9 +3331,21 @@
     "indice": "Un animal découvert pour la science à l'ère des explorations coloniales, avant 14-18.",
     "verdict": "ordre",
     "deduction": "Ère des explorations coloniales, avant 1914 : 1880-1914, la tranche sans plus."
+   },
+   {
+    "indice": "Un animal découvert pour la science à l'ère des explorations coloniales, avant 14-18.",
+    "verdict": "a-cheval",
+    "deduction": "1870–1914: enjambe 1900 — explorations coloniales avant 14-18",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Après le passage au XXe siècle, mais avant la Première Guerre mondiale.",
+    "verdict": "dans, large",
+    "deduction": "1901 à 1914 — Dans la tranche ; milieu ~1907 à 6 ans, juste hors ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Un animal découvert pour la science à l'ère des explorations coloniales, avant 14-18."
+  "retenu": "Après le passage au XXe siècle, mais avant la Première Guerre mondiale."
  },
  {
   "id": "m1tml875",
@@ -2261,6 +3372,18 @@
     "indice": "Bien plus qu'une classe d'école, mais moins que mille.",
     "verdict": "ordre",
     "deduction": "Entre 50 et 900 soldats."
+   },
+   {
+    "indice": "Bien plus qu'une classe d'école, mais moins que mille.",
+    "verdict": "a-cheval",
+    "deduction": "100–900: enjambe 300 — plus qu'une classe, moins que mille, la réponse est au bord",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Bien plus qu'une classe d'école, mais moins que mille.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "Bien plus qu'une classe d'école, mais moins que mille."
@@ -2275,9 +3398,21 @@
     "indice": "Dedans flotte un dé, avec plus de faces qu'un dé ordinaire, qui en a six.",
     "verdict": "ordre",
     "deduction": "Un dé de plus de 6 faces : 8, 12 ou 20."
+   },
+   {
+    "indice": "Dedans flotte un dé, avec plus de faces qu'un dé ordinaire, qui en a six.",
+    "verdict": "a-cheval",
+    "deduction": "7–30: enjambe 10 — plus de six faces",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un dé à bien plus de faces que le dé ordinaire : plus de dix, moins de trente.",
+    "verdict": "dans, proche",
+    "deduction": "10 à 30 — Milieu 20 = réponse (par chance), ★★ sûr.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Dedans flotte un dé, avec plus de faces qu'un dé ordinaire, qui en a six."
+  "retenu": "Un dé à bien plus de faces que le dé ordinaire : plus de dix, moins de trente."
  },
  {
   "id": "hjz640tq",
@@ -2289,9 +3424,21 @@
     "indice": "Bien plus que dix étages, mais bien moins que les plus hauts gratte-ciel du monde.",
     "verdict": "ordre",
     "deduction": "Entre 20 et 80 étages."
+   },
+   {
+    "indice": "Bien plus que dix étages, mais bien moins que les plus hauts gratte-ciel du monde.",
+    "verdict": "a-cheval",
+    "deduction": "20–100: enjambe 30 — plus que dix, moins qu'un gratte-ciel",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus de trente étages, mais moins d'une centaine.",
+    "verdict": "dans, large",
+    "deduction": "30 à 100 étages — Milieu ~65 vs 50 : hors ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Bien plus que dix étages, mais bien moins que les plus hauts gratte-ciel du monde."
+  "retenu": "Plus de trente étages, mais moins d'une centaine."
  },
  {
   "id": "38lc9wt9",
@@ -2308,9 +3455,21 @@
     "indice": "Plus de six livres, mais loin d'une cinquantaine : on les lit souvent par petits recueils.",
     "verdict": "ordre",
     "deduction": "Plus de 6, loin de 50 : entre 7 et 30, la tranche sans plus."
+   },
+   {
+    "indice": "Plus de six livres, mais loin d'une cinquantaine : on les lit souvent par petits recueils.",
+    "verdict": "a-cheval",
+    "deduction": "7–30: enjambe 10 — plus de six, loin de cinquante",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un recueil en plusieurs livres : plus qu'une dizaine, moins qu'une trentaine.",
+    "verdict": "dans, large",
+    "deduction": "10 à 30 — Milieu 20 vs 12 : hors ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Plus de six livres, mais loin d'une cinquantaine : on les lit souvent par petits recueils."
+  "retenu": "Un recueil en plusieurs livres : plus qu'une dizaine, moins qu'une trentaine."
  },
  {
   "id": "pe6ktmxm",
@@ -2327,6 +3486,18 @@
     "indice": "Un organisme d'État né dans les vingt ans qui suivent la Libération de la France.",
     "verdict": "ordre",
     "deduction": "Dans les vingt ans après la Libération : 1944-1964, la tranche sans plus."
+   },
+   {
+    "indice": "Un organisme d'État né dans les vingt ans qui suivent la Libération de la France.",
+    "verdict": "a-cheval",
+    "deduction": "1944–1964: enjambe 1950 — le défaut signalé : vingt ans après la Libération",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un organisme d'État né dans les vingt ans qui suivent la Libération de la France.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "Un organisme d'État né dans les vingt ans qui suivent la Libération de la France."
@@ -2341,6 +3512,12 @@
     "indice": "Plus bas qu'un mètre, mais plus haut qu'un demi-mètre.",
     "verdict": "ordre",
     "deduction": "Entre 50 et 100 cm."
+   },
+   {
+    "indice": "Plus bas qu'un mètre, mais plus haut qu'un demi-mètre.",
+    "verdict": "dans",
+    "deduction": "50–100 — moins d'un mètre, plus d'un demi",
+    "juge": "tranche"
    }
   ],
   "retenu": "Plus bas qu'un mètre, mais plus haut qu'un demi-mètre."
@@ -2355,9 +3532,21 @@
     "indice": "Bien plus que cinquante, mais moins que deux cents.",
     "verdict": "ordre",
     "deduction": "Entre 60 et 190 étoiles."
+   },
+   {
+    "indice": "Bien plus que cinquante, mais moins que deux cents.",
+    "verdict": "a-cheval",
+    "deduction": "60–190: enjambe 100 — plus que cinquante, moins que deux cents",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus d'une centaine d'étoiles, mais moins de trois cents.",
+    "verdict": "dans, large",
+    "deduction": "100 à 300 — Milieu 200 vs 120 : hors ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Bien plus que cinquante, mais moins que deux cents."
+  "retenu": "Plus d'une centaine d'étoiles, mais moins de trois cents."
  },
  {
   "id": "2ctbaj05",
@@ -2374,9 +3563,21 @@
     "indice": "Bien plus que l'âge d'entrée au CP, bien moins que celui de la fin d'un master.",
     "verdict": "ordre",
     "deduction": "Plus que 6 ans, moins qu'un master : entre 12 et 22, il vise 14-16, la tranche."
+   },
+   {
+    "indice": "Bien plus que l'âge d'entrée au CP, bien moins que celui de la fin d'un master.",
+    "verdict": "a-cheval",
+    "deduction": "8–20: enjambe 10 — plus que six ans, moins que vingt-trois",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un âge d'élève : plus de dix ans, pas encore vingt.",
+    "verdict": "dans, proche",
+    "deduction": "10 à 20 ans — Âge scolaire : ~15-16 attendu, ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Bien plus que l'âge d'entrée au CP, bien moins que celui de la fin d'un master."
+  "retenu": "Un âge d'élève : plus de dix ans, pas encore vingt."
  },
  {
   "id": "ss8nmuzo",
@@ -2393,6 +3594,18 @@
     "indice": "Une première mondiale du temps de la reine Victoria, avant l'invention de l'ampoule électrique.",
     "verdict": "ordre",
     "deduction": "Règne de Victoria, avant l'ampoule (1879) : 1837-1879, la tranche sans plus."
+   },
+   {
+    "indice": "Une première mondiale du temps de la reine Victoria, avant l'invention de l'ampoule électrique.",
+    "verdict": "a-cheval",
+    "deduction": "1837–1879: enjambe 1850 — temps de Victoria avant l'ampoule",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Une première mondiale du temps de la reine Victoria, avant l'invention de l'ampoule électrique.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "Une première mondiale du temps de la reine Victoria, avant l'invention de l'ampoule électrique."
@@ -2417,6 +3630,12 @@
     "indice": "Pensé pour tenir dans un SMS : plus de cent signes, mais pas trois cents.",
     "verdict": "ordre",
     "deduction": "Plus de 100, moins de 300 : tranche 100-300."
+   },
+   {
+    "indice": "Pensé pour tenir dans un SMS : plus de cent signes, mais pas trois cents.",
+    "verdict": "dans",
+    "deduction": "100–200 — plus de cent, pas trois cents",
+    "juge": "tranche"
    }
   ],
   "retenu": "Pensé pour tenir dans un SMS : plus de cent signes, mais pas trois cents."
@@ -2441,6 +3660,18 @@
     "indice": "Entre un quart et un demi-mètre.",
     "verdict": "rien",
     "deduction": "25 à 50 cm chevauche les tranches 10-30 et 30-100."
+   },
+   {
+    "indice": "Entre un quart et un demi-mètre.",
+    "verdict": "a-cheval",
+    "deduction": "25–50: enjambe 30 — entre un quart et un demi-mètre",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Entre un quart et un demi-mètre.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "Entre un quart et un demi-mètre."
@@ -2455,6 +3686,12 @@
     "indice": "Plus que la puissance d'un cycliste (environ 200 W), mais moins qu'un kilowatt.",
     "verdict": "ordre",
     "deduction": "Entre 200 et 1000 W."
+   },
+   {
+    "indice": "Plus que la puissance d'un cycliste (environ 200 W), mais moins qu'un kilowatt.",
+    "verdict": "dans",
+    "deduction": "300–1000 — plus qu'un cycliste, moins qu'un kilowatt",
+    "juge": "tranche"
    }
   ],
   "retenu": "Plus que la puissance d'un cycliste (environ 200 W), mais moins qu'un kilowatt."
@@ -2469,9 +3706,21 @@
     "indice": "Bien moins que l'alphabet français : peu de consonnes, peu de voyelles.",
     "verdict": "ordre",
     "deduction": "Bien moins de 26 lettres : 8 à 15."
+   },
+   {
+    "indice": "Bien moins que l'alphabet français : peu de consonnes, peu de voyelles.",
+    "verdict": "a-cheval",
+    "deduction": "5–20: enjambe 10 — bien moins que 26, sans plancher",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Bien moins fourni que l'alphabet français, mais plus de dix lettres.",
+    "verdict": "dans, proche",
+    "deduction": "11 à ~20 — Milieu ~15 vs 13 : ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Bien moins que l'alphabet français : peu de consonnes, peu de voyelles."
+  "retenu": "Bien moins fourni que l'alphabet français, mais plus de dix lettres."
  },
  {
   "id": "rfgsd64t",
@@ -2483,9 +3732,21 @@
     "indice": "Plus courte que la Seine et la Loire, mais plus longue que Paris-Lille.",
     "verdict": "ordre",
     "deduction": "Entre 220 et 777 km."
+   },
+   {
+    "indice": "Plus courte que la Seine et la Loire, mais plus longue que Paris-Lille.",
+    "verdict": "a-cheval",
+    "deduction": "250–750: enjambe 300 — plus que Paris-Lille, moins que la Seine",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus courte que la Seine, mais plus longue que trois cents kilomètres.",
+    "verdict": "dans, proche",
+    "deduction": "300 à 777 km — Entre 300 et la Seine : milieu ~540 vs 529 : ★★.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Plus courte que la Seine et la Loire, mais plus longue que Paris-Lille."
+  "retenu": "Plus courte que la Seine, mais plus longue que trois cents kilomètres."
  },
  {
   "id": "0e1vfxp0",
@@ -2497,9 +3758,21 @@
     "indice": "Trois recueils étalés sur vingt-cinq ans : plus de cinq livres, moins de vingt-quatre.",
     "verdict": "ordre",
     "deduction": "Entre 6 et 23 livres."
+   },
+   {
+    "indice": "Trois recueils étalés sur vingt-cinq ans : plus de cinq livres, moins de vingt-quatre.",
+    "verdict": "a-cheval",
+    "deduction": "6–23: enjambe 10 — plus de cinq, moins de 24",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Trois recueils en tout, qui forment plus d'une dizaine de livres, mais pas trente.",
+    "verdict": "dans, large",
+    "deduction": "10 à 30 — Milieu 20 vs 12 : hors ★★ ; \"trois recueils\" ne resserre pas.",
+    "juge": "tranche et valeur"
    }
   ],
-  "retenu": "Trois recueils étalés sur vingt-cinq ans : plus de cinq livres, moins de vingt-quatre."
+  "retenu": "Trois recueils en tout, qui forment plus d'une dizaine de livres, mais pas trente."
  },
  {
   "id": "i3uqyd02",
@@ -2511,6 +3784,18 @@
     "indice": "Plus d'une heure, mais moins que trois heures.",
     "verdict": "ordre",
     "deduction": "Entre 60 et 180 minutes."
+   },
+   {
+    "indice": "Plus d'une heure, mais moins que trois heures.",
+    "verdict": "a-cheval",
+    "deduction": "60–180: enjambe 100 — entre une et trois heures",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus d'une heure, mais moins que trois heures.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
    }
   ],
   "retenu": "Plus d'une heure, mais moins que trois heures."
@@ -2540,6 +3825,12 @@
     "indice": "Plus haut qu'une maison à deux étages, mais bien moins que l'Arc de triomphe.",
     "verdict": "ordre",
     "deduction": "Entre 8 m et 40 m, une vingtaine de mètres."
+   },
+   {
+    "indice": "Plus haut qu'une maison à deux étages, mais bien moins que l'Arc de triomphe.",
+    "verdict": "dans",
+    "deduction": "10–30 — maison à deux étages, bien moins que l'Arc",
+    "juge": "tranche"
    }
   ],
   "retenu": "Plus haut qu'une maison à deux étages, mais bien moins que l'Arc de triomphe."
@@ -2559,6 +3850,12 @@
     "indice": "Une idée née dans les Trente Glorieuses, pour que tous les joueurs comprennent l'arbitre.",
     "verdict": "ordre",
     "deduction": "Trente Glorieuses (1945-1975) : 1950-1975, la tranche sans plus."
+   },
+   {
+    "indice": "Une idée née dans les Trente Glorieuses, pour que tous les joueurs comprennent l'arbitre.",
+    "verdict": "dans",
+    "deduction": "1950–1975 — Trente Glorieuses",
+    "juge": "tranche"
    }
   ],
   "retenu": "Une idée née dans les Trente Glorieuses, pour que tous les joueurs comprennent l'arbitre."
@@ -2578,6 +3875,12 @@
     "indice": "Un âge de jeune, plus que celui d'un collégien, moins que celui d'un trentenaire.",
     "verdict": "ordre",
     "deduction": "Entre un collégien et un trentenaire : 15-29 ans, vise 20, la tranche sans plus."
+   },
+   {
+    "indice": "Un âge de jeune, plus que celui d'un collégien, moins que celui d'un trentenaire.",
+    "verdict": "dans",
+    "deduction": "14–29 — plus qu'un collégien, moins qu'un trentenaire",
+    "juge": "tranche"
    }
   ],
   "retenu": "Un âge de jeune, plus que celui d'un collégien, moins que celui d'un trentenaire."
@@ -2597,6 +3900,12 @@
     "indice": "Bien plus grande qu'un enfant d'école primaire, mais plus petite que la plupart des femmes.",
     "verdict": "proche",
     "deduction": "Plus grande qu'un écolier, plus petite que la plupart des femmes : 140-160 cm, ★★ sûr, ★★★ probable."
+   },
+   {
+    "indice": "Bien plus grande qu'un enfant d'école primaire, mais plus petite que la plupart des femmes.",
+    "verdict": "dans",
+    "deduction": "130–160 — entre un écolier et la plupart des femmes",
+    "juge": "tranche"
    }
   ],
   "retenu": "Bien plus grande qu'un enfant d'école primaire, mais plus petite que la plupart des femmes."
@@ -2616,6 +3925,12 @@
     "indice": "Le grand âge, vu d'un jeune de vingt ans : loin d'un siècle, mais au-delà de la cinquantaine.",
     "verdict": "ordre",
     "deduction": "Au-delà de la cinquantaine, loin d'un siècle : 55-80 ans, la tranche sans plus."
+   },
+   {
+    "indice": "Le grand âge, vu d'un jeune de vingt ans : loin d'un siècle, mais au-delà de la cinquantaine.",
+    "verdict": "dans",
+    "deduction": "55–80 — au-delà de cinquante, loin d'un siècle",
+    "juge": "tranche"
    }
   ],
   "retenu": "Le grand âge, vu d'un jeune de vingt ans : loin d'un siècle, mais au-delà de la cinquantaine."
@@ -2645,6 +3960,12 @@
     "indice": "Bien plus longue qu'une règle d'écolier (30 cm), mais moins d'un mètre.",
     "verdict": "ordre",
     "deduction": "Entre 40 et 90 cm."
+   },
+   {
+    "indice": "Bien plus longue qu'une règle d'écolier (30 cm), mais moins d'un mètre.",
+    "verdict": "dans",
+    "deduction": "35–90 — plus qu'une règle, moins d'un mètre",
+    "juge": "tranche"
    }
   ],
   "retenu": "Bien plus longue qu'une règle d'écolier (30 cm), mais moins d'un mètre."

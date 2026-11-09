@@ -6,10 +6,11 @@ questions que la production a posées du 1er au 8 novembre 2026. Chaque
 question porte la note du moteur, un indice et un repère. Une page hors de
 l'application : rien ici n'est servi par FiestApp.
 
-C'est sa deuxième version, après la tablée du 9 novembre 2026
-(`../la-tablee-du-filet.md`) : quatre joueurs ont joué la première, et chaque
-retouche dit, dans le code, qui l'a demandée. Sa page « Ce que la tablée a
-changé » en fait la liste.
+Elle a été retouchée après deux tours de tablée, le 9 novembre 2026
+(`../la-tablee-du-filet.md`) : quatre joueurs ont joué la première version,
+trois la deuxième, un joueur aveugle au lecteur d'écran, et chaque retouche
+dit, dans le code, qui l'a demandée. Sa page « Ce que la tablée a changé » en
+fait la liste.
 
 - `index.html` : la page et ses styles, aux jetons de FiestApp (Velours, et
   Ivoire en clair) ; aucun texte d'une manche sous dix-sept pixels.
@@ -33,9 +34,9 @@ changé » en fait la liste.
   15 ans d'une année, ni à moins de 20 % d'une grandeur.
 - `juge-des-indices.json` : l'histoire de chaque indice — écrit par des
   agents, relu par un juge à l'aveugle qui se met à la place d'un profane,
-  réécrit, rejugé, en trois passes —, chaque passe avec son verdict et ce que
-  le profane en tirait. Un indice vide est un choix : l'énoncé donne déjà
-  l'époque.
+  réécrit, rejugé — d'abord sur la valeur, puis sur la tranche du jeu —,
+  chaque passe avec son verdict et ce que le profane en tirait. Un indice
+  vide est un choix : l'énoncé donne déjà l'époque.
 
 Le téléphone retient au profil de la page (le `localStorage`, sous try/catch) :
 - les repères gagnés ;

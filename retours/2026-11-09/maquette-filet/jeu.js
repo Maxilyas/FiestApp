@@ -3,8 +3,9 @@
 // la page : rien ici n'est servi par FiestApp, et ce que le téléphone retient (les repères gagnés, les questions
 // vues, les réglages) vit dans le localStorage, sous try/catch.
 //
-// Deuxième version, après la tablée du 9 novembre 2026 (retours/2026-11-09/la-tablee-du-filet.md) : quatre joueurs
-// l'ont jouée contre le Filet d'aujourd'hui, et chaque retouche ci-dessous dit qui l'a demandée.
+// Après deux tours de tablée, le 9 novembre 2026 (retours/2026-11-09/la-tablee-du-filet.md) : quatre joueurs ont joué
+// la première version contre le Filet d'aujourd'hui, trois la deuxième, un joueur aveugle au lecteur d'écran ; chaque
+// retouche ci-dessous dit qui l'a demandée.
 ;(() => {
   'use strict'
   const D = window.FILET
@@ -12,9 +13,15 @@
   const app = document.getElementById('app')
 
   // ── Ce que le téléphone retient ────────────────────────────────────────
-  const CLE = 'filet-maquette-v1'
+  // Deuxième version : les repères gagnés sous la première règle — avec une aide — ne valent plus. Claire retrouvait
+  // « 1980 », trouvé par un indice payé, Huguette l'Atari. Les réglages et les questions vues, eux, se reprennent.
+  const CLE = 'filet-maquette-v2', CLE_D_AVANT = 'filet-maquette-v1'
   function relire() {
-    try { return JSON.parse(localStorage.getItem(CLE) || '{}') } catch { return {} }
+    try {
+      const ici = localStorage.getItem(CLE)
+      if (ici) return JSON.parse(ici)
+      return { ...JSON.parse(localStorage.getItem(CLE_D_AVANT) || '{}'), reperes: [] }
+    } catch { return {} }
   }
   function retenir() {
     try { localStorage.setItem(CLE, JSON.stringify(memo)) } catch { /* sans stockage, la maquette oublie : rien de grave */ }
@@ -68,7 +75,7 @@
   const melanger = a => { const b = a.slice(); for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]] } return b }
   const auHasard = a => a[Math.floor(Math.random() * a.length)]
   const entre = (a, b) => a + Math.floor(Math.random() * (b - a + 1))
-  const accorde = (n, mot, pluriel = mot + 's') => `${n} ${n > 1 ? pluriel : mot}`
+  const accorde = (n, mot, pluriel = mot + 's') => `${n}${INSECABLE}${n > 1 ? pluriel : mot}`
   const ROMAINS = { 1: 'I', 2: 'II', 3: 'III' }
   function etoiles(n, max = 3, payees = 0) {
     const pleines = Math.max(0, n), vides = Math.max(0, max - pleines - payees)
@@ -166,11 +173,30 @@
   const valeurDe = (g, i) => Number((g.de + Math.max(0, Math.min(g.n, Math.round(i))) * g.pas).toFixed(g.dec))
   const indexDe = (g, x) => Math.max(0, Math.min(g.n, Math.round((x - g.de) / g.pas)))
   /** Ses graduations : un trait tous les nombres ronds, huit au plus, pour que la piste se lise régulière à l'œil. */
+  const pasDesGraduations = g => pasRondAuDessus((g.a - g.de) / 8)
+  /**
+   * Un grand pas : une graduation (5 ans, 100 g). Sans lui, de 198 anneaux à 100, Hugo — au lecteur d'écran, qui
+   * n'a que les boutons — touchait « − » 98 fois ; le Filet d'aujourd'hui en a, la production aussi.
+   */
+  const cransDUnGrandPas = g => Math.max(1, Math.round(pasDesGraduations(g) / g.pas))
   function graduationsDe(g) {
-    const pas = pasRondAuDessus((g.a - g.de) / 8)
+    const pas = pasDesGraduations(g)
     const traits = []
     for (let v = Math.ceil(g.de / pas) * pas; v <= g.a + 1e-9; v += pas) traits.push(v)
     return traits
+  }
+  /**
+   * Les nombres des graduations : les deux bouts, et des nombres ronds entre eux, jamais à moins d'un cinquième de
+   * piste l'un de l'autre — cinq au plus, trois quand ils sont longs (« 15 000 » se serrait sous un texte agrandi).
+   */
+  function etiquettesDe(m) {
+    const g = m.grille
+    const long = String(Math.round(g.a)).length > 4
+    const pas = pasRondAuDessus((g.a - g.de) / (long ? 2 : 4))
+    const pc = v => surLaGrille(m, v)
+    const pris = [g.de]
+    for (let v = Math.ceil(g.de / pas) * pas; v < g.a; v += pas) if (pc(v) - pc(pris[pris.length - 1]) >= 20 && pc(g.a) - pc(v) >= 20) pris.push(Number(v.toFixed(g.dec)))
+    return [...pris, g.a]
   }
   /** La distance d'abord : à ★★★ ou ★★ près, la manche les vaut même dans l'époque d'à côté ; sinon la bonne époque, ★. */
   function naturelles(m, x) {
@@ -225,14 +251,16 @@
     }
     const pris = []
     const tranche = x => [0, 1, 2, 3].find(j => dans(x, j))
+    // Un des siens au plus : les deux repères d'Huguette prenaient toute la frise, et plus une date connue n'y venait.
     for (const r of melanger(siens)) {
       const j = tranche(r.x)
-      if (pris.length < 2 && j !== undefined && !pris.some(p => p.j === j)) pris.push({ ...r, j })
+      if (pris.length < 1 && j !== undefined) pris.push({ ...r, j })
     }
     for (const j of melanger([0, 1, 2, 3])) {
       if (pris.length >= 2) break
       if (pris.some(p => p.j === j)) continue
-      const ici = communs.filter(r => dans(r.x, j))
+      // Un repère pile sur une borne (30 cm, entre 10–30 et 30–100) est des deux tranches : il ne se tire qu'une fois.
+      const ici = communs.filter(r => dans(r.x, j) && !pris.some(p => p.x === r.x))
       if (ici.length) pris.push({ ...auHasard(ici), j })
     }
     return pris.sort((a, b) => a.x - b.x)
@@ -349,6 +377,12 @@
       if (M.choisie !== null && mauvaises.includes(M.choisie)) { M.choisie = null; M.grille = null; M.x = null }
     }
     afficherLaManche()
+    if (cle === 'indice') {
+      // L'indice pris vient sous les yeux et à l'oreille : le focus va sur lui (Hugo n'entendait rien venir).
+      const el = document.getElementById('indice')
+      el?.focus({ preventScroll: true })
+      el?.scrollIntoView({ block: 'nearest' })
+    }
   }
   function choisirLEpoque(i) {
     if (!M || M.fin || M.retirees.includes(i) || M.choisie === i) return
@@ -378,7 +412,7 @@
     if (E.mode === 'v2') {
       if (M.choisie === null) return
       // Pas encore posé, « + » ou « − » le pose au milieu de la piste.
-      bouger(M.x === null ? M.grille.n / 2 : indexDe(M.grille, M.x) + sens)
+      bouger(M.x === null ? M.grille.n / 2 : indexDe(M.grille, M.x) + sens * (grand ? cransDUnGrandPas(M.grille) : 1))
     } else {
       const pas = grand ? grandPas(M.p) / M.p.pas : 1
       bouger(Math.round((M.x - M.p.min) / M.p.pas) + sens * pas)
@@ -471,7 +505,7 @@
       const classes = ['tranche', m.retirees.includes(i) ? 'retiree' : '', bonne ? 'bonne' : '', choisie ? 'choisie' : ''].filter(Boolean).join(' ')
       const de = ep.an ? t.de : enMots(t.de), a = ep.an ? t.a : enMots(t.a)
       const dit = revelee ? (bonne ? `<span class="dit">${choisie ? 'la bonne, ton choix' : 'la bonne'}</span>` : choisie ? '<span class="dit">ton choix</span>' : '') : ''
-      const texte = `<span class="de">${de}</span><span class="a">${ep.an ? '' : `à${INSECABLE}`}${a}</span>${dit}`
+      const texte = `<span class="de">${de}</span><span class="a">${a}</span>${dit}`
       return `<button type="button" class="${classes}" data-epoque="${i}" aria-pressed="${m.choisie === i}" aria-label="De ${de} à ${a}${m.retirees.includes(i) ? ', retirée' : ''}${revelee ? (bonne ? ', la bonne' : '') + (choisie ? ', ton choix' : '') : ''}"${revelee || m.retirees.includes(i) ? ' aria-disabled="true"' : ''}>${texte}</button>`
     }).join('')
     const nomme = r => `${ep.an ? r.x : dire(m.q, r.x)} · ${fines(r.l)}${r.perso ? ' (ton repère)' : ''}`
@@ -500,6 +534,16 @@
     if (m.x === null) return '<span class="a-poser">Touche la piste</span>'
     return `${m.q.an ? m.x : nombre(m.x)}${!m.q.an && m.q.u ? ` <small>${echapper(m.q.u)}</small>` : ''}`
   }
+  /**
+   * Les étoiles d'un anneau, une fois les aides payées : celles qui restent, puis la payée, barrée — et à l'oreille,
+   * ce qui reste. Après une aide, l'écran montrait encore « ★★★ de 142 à 159 » (Claire, qui n'en gardait qu'une).
+   */
+  function netHtml(n, p) {
+    if (!p) return aLOreille('★'.repeat(n))
+    const reste = Math.max(0, n - p)
+    const dit = reste ? `${NOMS_DES_ETOILES[reste - 1]}, ton aide payée` : 'plus rien, tes aides payées'
+    return `<span aria-hidden="true">${'★'.repeat(reste)}<s class="payee">${'★'.repeat(Math.min(n, p))}</s></span><span class="sr">${dit}</span>`
+  }
   function couvreHtml(m) {
     if (m.x === null) return 'là où tu vises : le curseur s’y pose, puis − et + l’ajustent.'
     const [trois, deux] = prisesDe(m, m.x)
@@ -508,18 +552,23 @@
       const [de, a] = m.q.an ? [Math.ceil(bas), Math.floor(haut)] : [versLInterieur(bas, false, entier), versLInterieur(haut, true, entier)]
       return de === a ? `pile sur ${enMots(de)}` : `de ${m.q.an ? de : enMots(de)} à ${m.q.an ? a : enMots(a)}`
     }
-    // Deux morceaux qui ne se coupent pas : « ★★ » seul en fin de ligne se lisait avec la fourchette d'au-dessus.
-    return `<span>${aLOreille(fines(`Ton filet ★★★ ${d(...trois)}`))}</span><span class="sr">, </span><span>${aLOreille(fines(`★★ ${d(...deux)}`))}</span>`
+    // Deux morceaux qui ne se coupent pas : « ★★ » seul en fin de ligne se lisait avec la fourchette d'au-dessus ;
+    // et chaque fourchette d'un seul tenant (« de 1958 » en fin de ligne, « à 1962 » dessous — Huguette).
+    const p = payees(m)
+    return `<span>Ton filet ${netHtml(3, p)} <span class="nobr">${fines(d(...trois))}</span></span><span class="sr">, </span><span>${netHtml(2, p)} <span class="nobr">${fines(d(...deux))}</span></span>`
   }
   function libelleDuLancer(m) {
     return m.choisie === null ? `Choisis d’abord ${m.q.an ? 'une époque' : 'un ordre de grandeur'}` : m.x === null ? 'Pose ton curseur sur la piste' : 'Lancer le filet'
   }
   function etapeValeur(m) {
-    if (m.choisie === null) return `<div class="attente">${m.q.an ? 'Choisis d’abord une époque : la piste s’ouvre sur elle.' : 'Choisis d’abord un ordre de grandeur : la piste s’ouvre sur lui.'}</div>`
+    if (m.choisie === null) return `<div class="attente">${fines(m.q.an ? 'Choisis d’abord une époque : la piste s’ouvre sur elle.' : 'Choisis d’abord un ordre de grandeur : la piste s’ouvre sur lui.')}</div>`
     const g = m.grille
     const vierge = m.x === null
-    const bornes = m.ep.an ? [g.de, g.a] : [enMots(g.de), enMots(g.a)]
     const traits = graduationsDe(g).map(v => `<span class="trait" style="left:${surLaGrille(m, v).toFixed(2)}%"></span>`).join('')
+    const nombres = etiquettesDe(m).map(v => `<span style="left:${surLaGrille(m, v).toFixed(2)}%">${m.ep.an ? v : enMots(v)}</span>`).join('')
+    const i = vierge ? null : indexDe(g, m.x)
+    const grand = cransDUnGrandPas(g) * g.pas
+    const grandDit = m.ep.an ? accorde(grand, 'an') : dire(m.q, grand)
     // Les repères de cette tranche descendent sur la piste : « comme Notre-Dame », 69 m, se cherchait à tâtons (Samir).
     const ici = m.reperes.filter(r => r.x >= g.de && r.x <= g.a)
     const reperes = ici.map(r => `<span class="repere-piste${r.perso ? ' perso' : ''}" style="left:${surLaGrille(m, r.x).toFixed(2)}%"></span>`).join('')
@@ -527,13 +576,14 @@
     return `<div class="valeur-vise"><output class="valeur" id="valeur" for="curseur">${valeurHtml(m)}</output></div>
       <p class="couvre" id="couvre">${couvreHtml(m)}</p>
       <div class="curseur apparait${vierge ? ' vierge' : ''}" id="curseur-bloc">
-        <button type="button" class="cran" data-cran="-1" aria-label="Un cran de moins">−</button>
+        <button type="button" class="cran" id="moins" data-cran="-1" aria-label="Un cran de moins"${i === 0 ? ' aria-disabled="true"' : ''}>−</button>
         <div class="piste"><div class="rail" id="anneaux">${anneauxHtml(m)}</div><div class="decor" aria-hidden="true">${traits}${reperes}</div>
-          <input id="curseur" class="range" type="range" min="0" max="${g.n}" step="1" value="${vierge ? Math.round(g.n / 2) : indexDe(g, m.x)}" aria-label="${m.q.an ? 'L’année' : 'La valeur'}" aria-valuetext="${vierge ? 'pas encore posé' : m.q.an ? m.x : dire(m.q, m.x)}">
+          <input id="curseur" class="range" type="range" min="${g.de}" max="${g.a}" step="${g.pas}" value="${vierge ? valeurDe(g, g.n / 2) : m.x}" aria-label="${m.q.an ? 'L’année' : 'La valeur'}" aria-valuetext="${vierge ? 'pas encore posé' : m.q.an ? m.x : dire(m.q, m.x)}">
         </div>
-        <button type="button" class="cran" data-cran="1" aria-label="Un cran de plus">+</button>
+        <button type="button" class="cran" id="plus" data-cran="1" aria-label="Un cran de plus"${i === g.n ? ' aria-disabled="true"' : ''}>+</button>
       </div>
-      <div class="bornes"><span>${bornes[0]}</span><span>${bornes[1]}</span></div>${dits}`
+      <div class="graduees" aria-hidden="true">${nombres}</div>
+      <div class="grands-pas"><button type="button" class="cran" id="grand-moins" data-grand="-1" aria-label="Un grand pas de moins"${i === 0 ? ' aria-disabled="true"' : ''}>−${INSECABLE}${grandDit}</button><button type="button" class="cran" id="grand-plus" data-grand="1" aria-label="Un grand pas de plus"${i === g.n ? ' aria-disabled="true"' : ''}>+${INSECABLE}${grandDit}</button></div>${dits}`
   }
   function aides(m) {
     const offerte = memo.coupDOeil && !E.offerteUtilisee
@@ -547,42 +597,50 @@
       const cout = prise ? (prise.offerte ? 'Prise · offerte' : 'Prise · −1 ★') : offerte ? 'Gratuite' : 'Coûte une étoile'
       return `<button type="button" class="aide${!prise && offerte ? ' offerte' : ''}" data-aide="${cle}"${prise ? ' aria-disabled="true"' : ''}><b>${a.nom(m.q)}</b><small>${aLOreille(cout)}</small></button>`
     }).join('')
-    const indice = m.aides.some(a => a.cle === 'indice') ? `<p class="indice"><b>Indice · </b>${fines(m.q.i || 'Pas d’indice écrit pour cette question.')}</p>` : ''
     const p = payees(m)
     // Ce que l'aide coûte, en clair : une étoile retirée de ce que la manche rapportera — Samir ne savait pas si c'était
-    // « une étoile retirée de mon score, ou seulement le plafond qui baisse ».
+    // « une étoile retirée de mon score, ou seulement le plafond qui baisse » —, et jamais le cœur : Claire et Samir ne
+    // l'apprenaient qu'à la révélation. Une aide offerte le dit aussi : Huguette, sous « Prise · offerte », croyait
+    // avoir payé.
+    const offerteIci = m.aides.some(a => a.offerte)
     const prix = p
-      ? `<p class="prix">${aLOreille(fines(`Tes aides : −${p} ★ sur ce que la manche te rapportera. Ratée, elle coûte un cœur, comme toujours.`))}</p>`
-      : `<p class="prix">${fines(offerte ? 'Ta carte Coup d’œil offre ta première aide de l’épreuve ; la suivante retirera une étoile à ce que sa manche rapporte.' : 'Une aide retire une étoile à ce que la manche rapporte.')}</p>`
-    return `<section class="aides" aria-label="Les aides"><div class="aides-rangee${offertes.length === 1 ? ' une' : ''}">${boutons}</div>${indice}${prix}</section>`
+      ? `Tes aides : −${p} ★ sur ce que la manche te rapportera, jamais ton cœur : seule une manche ratée le coûte.`
+      : offerteIci ? 'Ton aide était offerte : elle ne te coûte rien. Une autre retirerait une étoile à ce que la manche rapporte, jamais ton cœur.'
+      : offerte ? 'Ta carte Coup d’œil offre ta première aide de l’épreuve ; la suivante retirera une étoile à ce que sa manche rapporte, jamais ton cœur.'
+      : 'Une aide retire une étoile à ce que la manche rapporte, jamais ton cœur : seule une manche ratée le coûte.'
+    return `<section class="aides" aria-label="Les aides"><div class="aides-rangee${offertes.length === 1 ? ' une' : ''}">${boutons}</div><p class="prix">${aLOreille(fines(prix))}</p></section>`
+  }
+  function indiceHtml(m) {
+    return m.aides.some(a => a.cle === 'indice') ? `<p class="indice" id="indice" tabindex="-1"><b>Indice · </b>${fines(m.q.i || 'Pas d’indice écrit pour cette question.')}</p>` : ''
   }
   function afficherLaManche() {
     const m = M, q = m.q
     if (E.mode === 'v2') {
       app.innerHTML = `${tete()}${chrono()}${laQuestion(q)}
         <section class="etape"><p class="etape-titre"><span><span class="num">1</span><b>${q.an ? 'L’époque' : 'L’ordre de grandeur'}</b></span><span class="regle">${aLOreille('la bonne : ★')}</span></p>${frise(m)}</section>
+        ${indiceHtml(m)}
         <section class="etape"><p class="etape-titre"><span><span class="num">2</span><b>${q.an ? 'L’année' : 'La valeur'}</b></span><span class="regle">${aLOreille(fines(q.an ? `à ${accorde(m.ep.anneaux[0], 'an')} ★★★ · à ${m.ep.anneaux[1]} ans ★★` : 'à 6 % ★★★ · à 25 % ★★'))}</span></p>${etapeValeur(m)}</section>
         ${aides(m)}
-        <button type="button" class="btn btn-or btn-plein colle" id="lancer" data-geste="lancer"${m.choisie === null || m.x === null ? ' aria-disabled="true"' : ''}>${libelleDuLancer(m)}</button>
+        <button type="button" class="btn btn-or btn-plein" id="lancer" data-geste="lancer"${m.choisie === null || m.x === null ? ' aria-disabled="true"' : ''}>${libelleDuLancer(m)}</button>
         ${coulisses(q)}`
     } else {
       const p = m.p, L = p.max - p.min
       const zone = m.zone ? `<span class="zone" style="left:${(100 * (m.zone.de - p.min) / L).toFixed(2)}%;width:${(100 * (m.zone.a - m.zone.de) / L).toFixed(2)}%"></span>` : ''
-      const zoneDite = m.zone ? `<p class="souffle">${fines(`Indice : la réponse est entre ${dire(q, auCran(p, m.zone.de, n => Math.floor(n + 1e-9)))} et ${dire(q, auCran(p, m.zone.a, n => Math.ceil(n - 1e-9)))}.`)}</p>` : ''
+      const zoneDite = m.zone ? `<p class="souffle" id="souffle" tabindex="-1">${fines(`Indice : la réponse est entre ${dire(q, auCran(p, m.zone.de, n => Math.floor(n + 1e-9)))} et ${dire(q, auCran(p, m.zone.a, n => Math.ceil(n - 1e-9)))}.`)}</p>` : ''
       const g = dire(q, grandPas(p))
       app.innerHTML = `${tete()}${chrono()}${laQuestion(q)}
         <div class="valeur-vise"><output class="valeur" id="valeur">${valeurDAujourdhui(m)}</output></div>
         <p class="couvre" id="couvre">${couvreDAujourdhui(m)}</p>
         <div class="curseur"><button type="button" class="cran" data-cran="-1" aria-label="Un cran de moins">−</button>
           <div class="piste"><div class="rail" id="anneaux">${zone}<span class="anneau anneau-2" id="filet-bande" style="${filetDAujourdhui(m)}"></span></div>
-            <input id="curseur" class="range" type="range" min="0" max="${Math.round(L / p.pas)}" step="1" value="${Math.round((m.x - p.min) / p.pas)}" aria-label="Ton estimation" aria-valuetext="${dire(q, m.x)}"></div>
+            <input id="curseur" class="range" type="range" min="${p.min}" max="${p.max}" step="${p.pas}" value="${m.x}" aria-label="Ton estimation" aria-valuetext="${dire(q, m.x)}"></div>
           <button type="button" class="cran" data-cran="1" aria-label="Un cran de plus">+</button></div>
         <div class="bornes"><span>${dire(q, p.min)}</span><span>${dire(q, p.max)}</span></div>
         <div class="grands-pas"><button type="button" class="cran" data-grand="-1" aria-label="Un grand pas de moins">−${INSECABLE}${g}</button><button type="button" class="cran" data-grand="1" aria-label="Un grand pas de plus">+${INSECABLE}${g}</button></div>
         ${zoneDite}
         <div class="tailles" role="group" aria-label="La taille de ton filet">${Object.keys(DEMI).map(t => `<button type="button" class="taille" data-taille="${t}" aria-pressed="${m.taille === t}">${NOMS_DES_FILETS[t]}${etoiles(ETOILES_DU_FILET[t], ETOILES_DU_FILET[t])}</button>`).join('')}</div>
         ${memo.coupDOeil && !E.eclairerUtilise ? '<button type="button" class="btn" data-geste="eclairer">Éclairer (ta carte Coup d’œil, une fois par épreuve)</button>' : ''}
-        <button type="button" class="btn btn-or btn-plein colle" data-geste="lancer">Lancer le filet</button>
+        <button type="button" class="btn btn-or btn-plein" data-geste="lancer">Lancer le filet</button>
         ${coulisses(q)}`
     }
   }
@@ -605,7 +663,9 @@
       document.getElementById('valeur').innerHTML = valeurHtml(M)
       document.getElementById('couvre').innerHTML = couvreHtml(M)
       document.getElementById('anneaux').innerHTML = anneauxHtml(M)
-      if (r && M.x !== null) { r.value = String(indexDe(M.grille, M.x)); r.setAttribute('aria-valuetext', q.an ? String(M.x) : dire(q, M.x)) }
+      if (r && M.x !== null) { r.value = String(M.x); r.setAttribute('aria-valuetext', q.an ? String(M.x) : dire(q, M.x)) }
+      const i = M.x === null ? null : indexDe(M.grille, M.x)
+      for (const [id, bout] of [['moins', 0], ['grand-moins', 0], ['plus', M.grille.n], ['grand-plus', M.grille.n]]) document.getElementById(id)?.setAttribute('aria-disabled', String(i === bout))
       const b = document.getElementById('lancer')
       if (b) { b.textContent = libelleDuLancer(M); b.setAttribute('aria-disabled', String(M.choisie === null || M.x === null)) }
       return
@@ -614,7 +674,7 @@
     document.getElementById('couvre').innerHTML = couvreDAujourdhui(M)
     const bande = document.getElementById('filet-bande')
     if (bande) bande.setAttribute('style', filetDAujourdhui(M))
-    if (r) { r.value = String(Math.round((M.x - M.p.min) / M.p.pas)); r.setAttribute('aria-valuetext', dire(q, M.x)) }
+    if (r) { r.value = String(M.x); r.setAttribute('aria-valuetext', dire(q, M.x)) }
   }
 
   function afficherLaRevelation() {
@@ -645,10 +705,13 @@
         <div class="bornes"><span>${dire(q, p.min)}</span><span>${dire(q, p.max)}</span></div>`
     }
     const vise = E.mode === 'v2' ? (m.choisie === null ? 'tu n’as pas lancé' : m.x === null ? 'l’époque seule' : `tu visais ${dire(q, m.x)}`) : `tu visais ${dire(q, m.x)}`
-    const gagne = m.repereGagne ? `<p class="gagne"><b>Nouveau repère :</b> ${fines(q.r)} (${q.v}). Il se posera sur la frise de tes prochaines dates.</p>` : ''
-    const coeur = m.fin.rate ? '<span class="perte">La manche te coûte un cœur.</span>' : n === 0 && m.nat > 0 ? '<span class="garde">Ton aide a pris l’étoile ; ton cœur reste.</span>' : ''
+    // Le repère promis ne vient pas s'il donnait la réponse : « Il se posera » était une promesse que la frise ne
+    // tenait pas (Huguette, Brasília 1960 absent d'une question dont la réponse était 1960).
+    const gagne = m.repereGagne ? `<p class="gagne"><b>Nouveau repère :</b> ${fines(q.r)} (${q.v}). Il pourra revenir sur la frise de tes prochaines dates.</p>`
+      : E.mode === 'v2' && q.an && m.nat >= 2 && m.aides.length && !memo.reperes.some(r => r.id === q.id) ? `<p class="note">${fines('Trouvée avec une aide : elle ne devient pas ton repère.')}</p>` : ''
+    const coeur = m.fin.rate ? '<span class="perte">La manche te coûte un cœur.</span>' : n === 0 && m.nat > 0 ? `<span class="garde">${m.payees > 1 ? 'Tes aides ont pris tes étoiles' : 'Ton aide a pris ton étoile'} ; ton cœur reste.</span>` : ''
     app.innerHTML = `${tete()}${laQuestion(q)}
-      <section class="verdict${m.fin.rate ? ' rate' : ''}" aria-live="polite" tabindex="-1"><span class="grand">${titre}</span>${etoiles(n, 3, m.payees || 0)}${coeur}</section>
+      <section class="verdict${m.fin.rate ? ' rate' : ''}"><h2 class="grand" tabindex="-1">${titre}</h2>${etoiles(n, 3, m.payees || 0)}${coeur}</section>
       ${E.mode === 'v2' ? `<section class="etape">${frise(m, true)}</section>` : ''}
       <p class="reponse">${fines(`La réponse : ${dire(q, q.v)} · ${vise}`)}</p>
       ${piste}${juge}
@@ -656,26 +719,27 @@
       ${gagne}
       <button type="button" class="btn btn-or btn-plein colle" data-geste="suivante">${E.coeurs === 0 || E.i >= 2 ? 'Voir le bilan' : 'Manche suivante'}</button>
       ${coulisses(q)}`
-    enHaut('.verdict')
+    enHaut('.verdict .grand')
   }
 
   function afficherLeBilan() {
-    const total = E.resultats.reduce((s, r) => s + r.n, 0)
+    const gagnees = E.resultats.reduce((s, r) => s + r.n, 0)
     const perdus = 4 - E.coeurs
     const tombe = E.coeurs === 0
     const aidesDe = r => (E.mode === 'v2' ? (r.aides.length ? ` · ${accorde(r.aides.length, 'aide')}` : '') : r.eclairer ? ' · Éclairer' : '')
     const lignes = E.resultats.map(r => `<li><span class="q">${fines(r.q.t)}</span><span class="r">${fines(`${dire(r.q, r.q.v)} · ${r.choisie === null && E.mode === 'v2' ? 'pas de lancer' : `toi : ${dire(r.q, r.x)}`}${aidesDe(r)}`)}</span>${etoiles(r.n, 3, r.nat - r.n)}</li>`).join('')
     const aidesPrises = E.resultats.flatMap(r => r.aides)
     const offertes = aidesPrises.filter(a => a.offerte).length
+    const total = aidesPrises.length
     const resume = E.mode === 'v2'
-      ? (aidesPrises.length ? ` · ${accorde(aidesPrises.length, 'aide')}${offertes ? `, dont ${offertes === aidesPrises.length && offertes === 1 ? 'une offerte' : `${offertes} offerte${offertes > 1 ? 's' : ''}`}` : ''}` : ' · sans aide')
+      ? (!total ? ' · sans aide' : offertes === total ? ` · ${accorde(total, 'aide offerte', 'aides offertes')}` : offertes ? ` · ${accorde(total, 'aide')}, dont${INSECABLE}${offertes}${INSECABLE}offerte` : ` · ${accorde(total, 'aide payée', 'aides payées')}`)
       : E.resultats.some(r => r.eclairer) ? ' · Éclairer pris' : ''
     const nom = n => `l’acte ${ROMAINS[n]}`
     const suivant = E.acte < 3 ? `<button type="button" class="btn" data-geste="acte" data-acte="${E.acte + 1}">Passer à ${nom(E.acte + 1)}</button>` : ''
     const autre = E.mode === 'v2' ? 'Rejouer cet acte au Filet d’aujourd’hui' : 'Rejouer cet acte au nouveau Filet'
     app.innerHTML = `<section class="page bloc"><p class="label">${ACTES[E.acte].nom} · ${E.mode === 'v2' ? 'le nouveau Filet' : 'le Filet d’aujourd’hui'}</p>
       <h1 tabindex="-1">${tombe ? 'Ton dernier cœur est tombé' : 'Épreuve terminée'}</h1>
-      <p>${etoiles(Math.min(3, Math.round(total / 3)))} <b>${accorde(total, 'étoile')} sur 9</b> · ${accorde(perdus, 'cœur perdu', 'cœurs perdus')}${resume}</p>
+      <p>${etoiles(Math.min(3, Math.round(gagnees / 3)))} <b>${accorde(gagnees, 'étoile')} sur 9</b> · ${perdus ? accorde(perdus, 'cœur perdu', 'cœurs perdus') : 'aucun cœur perdu'}${resume}</p>
       <ol class="recap">${lignes}</ol>
       <div class="actions">
         <button type="button" class="btn btn-or btn-plein" data-geste="rejouer">Rejouer ${nom(E.acte)}</button>
@@ -692,7 +756,7 @@
     const actes = [1, 2, 3].map(n => `<button type="button" class="acte-btn" data-choisir-acte="${n}" aria-pressed="${memo.acte === n}"><b>${ACTES[n].nom}</b><small>${balise(n === 1 ? 'verte' : n === 2 ? 'bleue' : 'rouge')} ${ACTES[n].dit}</small></button>`).join('')
     const reperes = memo.reperes.length ? `<p class="pied">Tes repères gagnés : ${memo.reperes.slice(-4).map(r => `${r.an} · ${fines(r.l)}`).join(' ; ')}${memo.reperes.length > 4 ? '…' : ''} <button type="button" class="lien" data-geste="oublier">Les oublier</button></p>` : ''
     const jouables = D.questions.filter(q => !q.calcul).length
-    app.innerHTML = `<header class="accueil-tete"><p class="label">Le Cabinet de curiosités · maquette du 9 novembre 2026, deuxième version</p>
+    app.innerHTML = `<header class="accueil-tete"><p class="label">Le Cabinet de curiosités · maquette du 9 novembre 2026, après deux tours de tablée</p>
         <h1>Le nouveau Filet</h1>
         <p class="chapo">${fines('En production, les joueurs réussissent 43 % des manches du Filet, moins qu’un joueur qui lancerait le grand filet au milieu sans lire la question (45 %). Voici ce qui change.')}</p></header>
       <ol class="promesses">
@@ -720,19 +784,21 @@
       <p class="pied">${fines(`Une page hors de FiestApp : ${D.questions.length} vraies questions du Filet, celles que la production a posées du 1er au 8 novembre 2026, avec la note du moteur et un indice écrit pour chacune — ${jouables} au nouveau Filet, qui écarte ce qui se calcule.`)}</p>`
   }
 
-  // Ce que la tablée du 9 novembre 2026 a trouvé, et ce que la deuxième version en a fait (la synthèse :
+  // Ce que la tablée du 9 novembre 2026 a trouvé, en deux tours, et ce que la maquette en a fait (la synthèse :
   // retours/2026-11-09/la-tablee-du-filet.md).
   const TABLEE = {
+    // Les notes sur 5 — le plaisir, la clarté, la justice — du Filet d'aujourd'hui, puis du nouveau aux deux tours.
     joueurs: [
-      { qui: 'Huguette, 72 ans, petit téléphone, texte agrandi', avant: [2, 3, 2], apres: [4, 4, 3] },
-      { qui: 'Théo, 16 ans, joue vite', avant: [3, 3, 3], apres: [4, 4, 4] },
-      { qui: 'Claire, joue chaque soir, calcule tout', avant: [3, 4, 2], apres: [4, 3, 4] },
-      { qui: 'Samir, daltonien', avant: [3, 3, 2], apres: [4, 4, 4] },
+      { qui: 'Huguette, 72 ans, petit téléphone, texte agrandi', avant: [2, 3, 2], tour1: [4, 4, 3], tour2: [4, 4.5, 4] },
+      { qui: 'Théo, 16 ans, joue vite', avant: [3, 3, 3], tour1: [4, 4, 4], tour2: null },
+      { qui: 'Claire, joue chaque soir, calcule tout', avant: [3, 4, 2], tour1: [4, 3, 4], tour2: [4, 4, 4] },
+      { qui: 'Samir, daltonien', avant: [3, 3, 2], tour1: [4, 4, 4], tour2: [4, 5, 4] },
+      { qui: 'Hugo, aveugle, au lecteur d’écran', avant: [2, 3, 2], tour1: null, tour2: [4, 4, 4] },
     ],
-    changes: [
+    tour1: [
       ['La piste répond à chaque toucher, même pile au milieu', 'les quatre : le premier réflexe de qui ne sait pas, et rien ne se passait'],
       ['La piste d’un ordre de grandeur est régulière, en crans ronds', '625 ne se posait pas, « + » restait coincé à 1380 et à 62, le milieu de 300 à 1 000 tombait vers 550'],
-      ['Chaque manche s’ouvre en haut ; « Lancer » et « Manche suivante » restent sous le pouce', 'la question était cachée au-dessus à chaque manche, le bouton sous un nouveau repère'],
+      ['Chaque manche s’ouvre en haut', 'la question était cachée au-dessus, à chaque manche'],
       ['L’écart se dit comme il se juge, au dixième', '« Ton écart 6 % » sous « À 6 % près : non », « 24 % » sous « À 25 % près : non »'],
       ['Une aide payée retire une étoile, au lieu d’abaisser un plafond', 'à qui ne visait qu’une étoile, l’aide ne coûtait rien : une assurance gratuite pour ses cœurs'],
       ['Les indices passent un juge à l’aveugle', 'le carré de 25, la puissance de deux de Minecraft, « compte les semaines » : l’indice donnait la réponse'],
@@ -744,26 +810,41 @@
       ['Un repère se gagne sans aide', 'l’Atari « de l’indice » devenait un repère sans être un savoir'],
       ['Le Filet d’aujourd’hui de la maquette suit la production mot pour mot', '« Tout près » au filet moyen, des dixièmes de pièce, Éclairer sans un mot : la maquette les avait inventés'],
     ],
+    tour2: [
+      ['L’indice se lit entre l’époque et la piste', 'sous les aides, il passait derrière le bouton du bas au moment de viser'],
+      ['Les indices tiennent dans la tranche du jeu', '85 sur 136 menaient à cheval sur deux époques : « dans les vingt ans qui suivent la Libération », pour 1946, a coûté un cœur à Samir'],
+      ['Le filet barre l’étoile payée, et l’aide dit qu’elle ne coûte jamais le cœur', 'après une aide, l’écran montrait encore « ★★★ », et on ne l’apprenait qu’à la révélation'],
+      ['« Lancer le filet » n’est plus collé en bas', 'il cachait la piste, le gros chiffre et l’indice sur un petit écran'],
+      ['Des grands pas, une graduation à la fois, et des graduations chiffrées', 'au lecteur d’écran, de 198 à 100, il fallait 98 touchers de « − »'],
+      ['Le curseur dit sa vraie valeur, le doigt lui donne le focus, le verdict et l’indice le reçoivent', 'le lecteur d’écran annonçait « 12 » pour 1937, et rien quand l’indice arrivait'],
+      ['Une tranche s’écrit sans « à »', '« à 30 000 » sortait de l’écran sous un texte agrandi'],
+      ['Un repère à soi au plus, et les repères d’avant s’effacent', 'ses deux repères chassaient toute date connue de la frise d’Huguette'],
+    ],
     ouvert: [
-      'Le pari du filet manque à Claire : « il n’y a plus de risque à prendre ». Le frisson reste celui de la carte Miser (Quitte ou double).',
-      'Deux gestes au lieu d’un, et un indice à lire : 45 secondes suffisent à Claire, pas à Huguette. À mesurer en production avant d’y toucher.',
-      'Une étoile pour la bonne époque seule : modeste, mais « je ne suis plus punie d’avoir eu la bonne idée générale » (Claire).',
+      'Le milieu de la bonne époque tombe à ★★ une fois sur deux : « ★ pour la bonne époque vaut plutôt une étoile et demie » (Claire). C’est la largeur de l’anneau ★★, qui paie aussi l’à-peu-près : un choix de produit.',
+      'Une étoile à moins d’une demi-tranche, même dans l’époque voisine, a été rejouée sur les lancers réels, puis écartée : 83 % de manches réussies sur les questions connues, trop généreux.',
+      'Deux gestes au lieu d’un, et un indice à lire : 45 secondes suffisent à Claire, pas à Huguette ni à Hugo. À mesurer en production avant d’y toucher.',
+      'Le pari du filet manque à Claire : « il n’y a toujours rien à parier ». Le frisson reste celui de la carte Miser (Quitte ou double).',
     ],
   }
   function afficherLaTablee() {
     clearInterval(minuteur)
     const t = TABLEE
-    const notes = n => n.join(' · ')
+    const notes = n => (n ? n.map(x => nombre(x)).join(' · ') : '—')
+    const liste = l => `<ol class="changes">${l.map(([quoi, pourquoi]) => `<li><b>${fines(quoi)}.</b> <span>${fines(pourquoi)}.</span></li>`).join('')}</ol>`
     app.innerHTML = `<section class="page bloc">
       <button type="button" class="lien retour" data-geste="accueil">← L’accueil</button>
       <p class="label">La tablée du 9 novembre 2026</p>
       <h1>Ce que la tablée a changé</h1>
-      <p>${fines('Quatre joueurs ont joué la première version contre le Filet d’aujourd’hui, de vraies questions de la production, au téléphone. Tous les quatre préfèrent le nouveau Filet. Leurs notes sur 5 : le plaisir, la clarté, la justice.')}</p>
-      <div class="tableau"><table><thead><tr><th>Joueur</th><th>Aujourd’hui</th><th>Nouveau</th></tr></thead><tbody>
-        ${t.joueurs.map(j => `<tr><td>${fines(j.qui)}</td><td>${notes(j.avant)}</td><td>${notes(j.apres)}</td></tr>`).join('')}
+      <p>${fines('Quatre joueurs ont joué la première version contre le Filet d’aujourd’hui, sur de vraies questions de la production, au téléphone ; trois ont rejoué la deuxième, et un joueur aveugle l’a jouée au lecteur d’écran. Tous préfèrent le nouveau Filet. Leurs notes sur 5 : le plaisir, la clarté, la justice.')}</p>
+      <div class="tableau"><table><thead><tr><th>Joueur</th><th>Aujourd’hui</th><th>Nouveau : 1er tour</th><th>2e tour</th></tr></thead><tbody>
+        ${t.joueurs.map(j => `<tr><td>${fines(j.qui)}</td><td>${notes(j.avant)}</td><td>${notes(j.tour1)}</td><td>${notes(j.tour2)}</td></tr>`).join('')}
       </tbody></table></div>
-      <h2>Ce que la deuxième version a changé</h2>
-      <ol class="changes">${t.changes.map(([quoi, pourquoi]) => `<li><b>${fines(quoi)}.</b> <span>${fines(pourquoi)}.</span></li>`).join('')}</ol>
+      <h2>Ce que le premier tour a changé</h2>
+      ${liste(t.tour1)}
+      <h2>Ce que le second tour a changé</h2>
+      <p>${fines('« Nettement meilleure », disent les trois qui l’ont rejouée : ce qui les gênait est réglé, un par un. Leurs scores baissent, et c’est voulu : « les aides ne sont plus des étoiles gratuites » (Claire).')}</p>
+      ${liste(t.tour2)}
       <h2>Ce qui reste ouvert</h2>
       <ul>${t.ouvert.map(o => `<li>${fines(o)}</li>`).join('')}</ul>
     </section>`
@@ -864,12 +945,19 @@
         const L = M.p.max - M.p.min, largeur = 0.3 * L
         const de = Math.min(Math.max(M.q.v - Math.random() * largeur, M.p.min), M.p.max - largeur)
         M.zone = { de, a: de + largeur }
-        return afficherLaManche()
+        afficherLaManche()
+        // Ce qu'Éclairer a donné prend le focus : son bouton disparaissait sous le doigt, et rien ne se disait (Hugo).
+        const dit = document.getElementById('souffle')
+        dit?.focus({ preventScroll: true })
+        dit?.scrollIntoView({ block: 'nearest' })
+        return
       }
     }
   })
   app.addEventListener('input', ev => {
-    if (ev.target.id === 'curseur') bouger(Number(ev.target.value))
+    if (ev.target.id !== 'curseur' || !M) return
+    const v = Number(ev.target.value)
+    bouger(E.mode === 'v2' ? indexDe(M.grille, v) : Math.round((v - M.p.min) / M.p.pas))
   })
   // Le doigt pose le curseur là où il touche la piste. Sur l'iPhone, un curseur ne se déplace qu'en saisissant sa
   // poignée — et tant que le curseur n'est pas posé, sa poignée est cachée ; et pile au milieu, là où la piste vierge
@@ -880,7 +968,11 @@
     // La poignée va de la moitié de sa largeur (5 px) à l'autre bord, comme le rail (`index.html`, `.rail`).
     const boite = r.getBoundingClientRect()
     const part = Math.max(0, Math.min(1, (ev.clientX - boite.left - 5) / (boite.width - 10)))
-    bouger(Math.round(part * Number(r.max)))
+    const crans = E.mode === 'v2' ? M.grille?.n : Math.round((M.p.max - M.p.min) / M.p.pas)
+    if (crans === undefined) return
+    bouger(Math.round(part * crans))
+    // Le doigt donne le focus au curseur : les flèches, et le lecteur d'écran, le suivent (Hugo n'y arrivait qu'après Tab).
+    r.focus({ preventScroll: true })
   })
   app.addEventListener('change', ev => {
     const r = ev.target.dataset?.reglage

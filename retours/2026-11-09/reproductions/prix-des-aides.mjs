@@ -27,5 +27,7 @@ const lignes = [
   ['Les deux aides, sous plafond (★ au plus), l’époque 19 fois sur 20', manche(0.95, plafond(1))],
   ['Les deux aides, deux étoiles retirées, l’époque 19 fois sur 20', manche(0.95, retire(2))],
 ]
-console.log(`Dans la bonne époque, au milieu : ${dansLaBonne(x => x).toFixed(2)} étoile en moyenne\n`)
+const part = n => Math.round((100 * parAnnee.filter(x => x >= n).length) / T)
+// Ce que Claire a vu au second tour : « dès que j'ai la bonne époque, le milieu me donne ★★ à peu près une fois sur deux ».
+console.log(`Dans la bonne époque, au milieu : ${dansLaBonne(x => x).toFixed(2)} étoile en moyenne — ★★ ou mieux ${part(2)} %, ★★★ ${part(3)} %\n`)
 for (const [nom, r] of lignes) console.log(`${nom.padEnd(68)} ${r.etoiles.toFixed(2)} étoile · cœur perdu ${Math.round(100 * r.coeur)} %`)

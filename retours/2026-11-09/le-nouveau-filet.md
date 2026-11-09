@@ -64,10 +64,14 @@ difficulté : 65 à 80 % de réussite.
 **Joué par une tablée, deux tours** (`la-tablee-du-filet.md`) : quatre
 joueurs aux profils opposés — une institutrice de 72 ans au petit téléphone,
 un lycéen pressé, une stratège qui joue chaque soir, un daltonien — ont joué
-la maquette contre le Filet d'aujourd'hui, sur les vraies questions. Tous les
-quatre préfèrent le nouveau ; leurs retours ont changé une douzaine de choses,
-dont le prix des aides et la piste des grandeurs. Un juge à l'aveugle a relu
-chaque indice : 42 sur 140 donnaient la réponse, aucun aujourd'hui.
+la maquette contre le Filet d'aujourd'hui, sur les vraies questions, puis
+trois d'entre eux la seconde version, et un joueur aveugle au lecteur
+d'écran. Tous préfèrent le nouveau — « nettement meilleure », au second tour ;
+leurs retours ont changé une vingtaine de choses, dont le prix des aides, la
+piste des grandeurs et la place de l'indice. Un juge à l'aveugle a relu
+chaque indice : 42 sur 140 donnaient la réponse, aucun aujourd'hui ; 85 sur
+136 menaient à cheval sur deux tranches, 29 aujourd'hui, toutes contre une
+frontière.
 
 ## 1. Ce que la production a montré
 
@@ -160,26 +164,43 @@ Un seul écran, de haut en bas :
    - au-dessus, deux dates repères au plus (§ 3.5) ;
    - la ligne de l'étape dit « la bonne : ★ ».
 3. **L'année** — ou la valeur :
+   - **l'indice, s'il est pris, se lit ici**, entre l'époque et la piste —
+     là où l'on choisit et où l'on vise ; sous les aides, il passait derrière
+     le bouton du bas (Samir) ;
    - la piste s'ouvre sur l'époque touchée, sans curseur : « Touche la
-     piste », et vient sous les yeux, au-dessus du bouton collé en bas ;
+     piste », et vient sous les yeux ;
    - **le premier toucher pose le curseur, partout, pile au milieu compris** :
      c'est le réflexe de qui ne sait pas, et à la première version le milieu
-     ne répondait pas (les quatre joueurs de la tablée) ;
-   - les crans − et + l'ajustent d'un cran rond ; la piste est régulière et
-     graduée (§ 3.2) ;
+     ne répondait pas (les quatre joueurs de la tablée) ; le doigt lui donne
+     aussi le focus ;
+   - les crans − et + l'ajustent d'un cran rond, les grands pas d'une
+     graduation (« − 5 ans », « + 100 g » — de 198 anneaux à 100, Hugo, au
+     lecteur d'écran, touchait « − » 98 fois) ; « − » et « + » s'éteignent aux
+     bouts ; la piste est régulière, et ses graduations portent leurs
+     nombres (§ 3.2) ;
    - les deux anneaux du filet se dessinent autour du curseur — le grand en
      tirets, le petit plein — et se disent en nombres dessous : « Ton filet
-     ★★★ de 1960 à 1964 · ★★ de 1956 à 1968 » ;
+     ★★★ de 1960 à 1964 · ★★ de 1956 à 1968 » ; une aide payée y barre son
+     étoile ;
    - les repères de l'époque ouverte descendent sur la piste ;
    - la ligne de l'étape dit « à 2 ans ★★★ · à 6 ans ★★ » ;
    - toucher une autre époque reste possible.
 4. **Les aides** (§ 3.6) et ce qu'elles coûtent, en clair.
-5. **« Lancer le filet »**, collé au bas de l'écran, éteint tant que
-   l'époque et le curseur ne sont pas posés — « Choisis d'abord une époque »,
-   puis « Pose ton curseur sur la piste ».
+5. **« Lancer le filet »**, éteint tant que l'époque et le curseur ne sont
+   pas posés — « Choisis d'abord une époque », puis « Pose ton curseur sur la
+   piste ». Collé au bas de l'écran à la seconde version, il cachait la
+   piste, le gros chiffre et l'indice sur un petit écran (Huguette, Samir) :
+   il reste à sa place.
 
 Chaque manche s'ouvre en haut, la question sous les yeux : à la première
 version, elle s'ouvrait là où « Manche suivante » avait laissé la page.
+
+**Au lecteur d'écran** (Hugo, la tablée) : chaque manche dit où l'on en est
+(« Acte I », « Manche 1 sur 3 », « 4 cœurs sur 4 », la question en titre) ;
+les quatre époques sont des boutons qui disent leurs bornes et lequel est
+pressé ; le curseur porte sa vraie valeur et la dit (« 1937 », « 350 m ») —
+il annonçait « 12 » pour 1937 ; les étoiles écrites se disent en mots ;
+l'indice pris et le verdict reçoivent le focus.
 
 Le chrono reste de 45 secondes (`DUREES_DES_JEUX.filet`). À l'échéance, la
 page lance ce qui est posé : l'époque seule vaut son étoile, si elle est la
@@ -271,7 +292,14 @@ compte enfin.
   **sans aide**, devient *son* repère : elle revient, dorée, sur la frise de
   ses prochaines dates (« 1889 · La tour Eiffel (ton repère) »). Sa mémoire
   devient sa règle graduée. Une année trouvée par l'indice n'est pas un
-  savoir : l'Atari « de l'indice » revenait à Huguette comme son repère.
+  savoir : l'Atari « de l'indice » revenait à Huguette comme son repère ; la
+  révélation le dit (« Trouvée avec une aide : elle ne devient pas ton
+  repère »).
+  - **Un des siens au plus par manche** : au second tour, les deux repères
+    d'Huguette prenaient toute la frise, et plus une date connue n'y venait.
+  - Il « pourra revenir », pas « se posera » : il ne vient pas quand il
+    donnerait la réponse (Brasília, 1960, promis et absent d'une question
+    dont la réponse était 1960).
   - En production, ils se lisent du journal des réponses : les pièces du
     Filet à ★★ au moins, et les questions de la base à une année exacte qu'il
     a trouvées en QCM.
@@ -313,10 +341,17 @@ compte enfin.
   - L'indice, lui, reste rentable quand on sèche — s'il mène à la bonne
     époque neuf fois sur dix, 0,65 étoile payée, contre 0,43 sans — et coûte
     quand on sait à peu près : c'est ce qu'une aide doit être.
-  - Ce qu'elle coûte se dit en clair sous les boutons (« Tes aides : −1 ★
-    sur ce que la manche te rapportera »), et la révélation montre l'étoile
-    payée, barrée — Samir ne savait pas si c'était « une étoile retirée de
-    mon score, ou seulement le plafond qui baisse ».
+  - Ce qu'elle coûte se dit en clair sous les boutons, et ce qu'elle ne
+    coûte jamais : « Tes aides : −1 ★ sur ce que la manche te rapportera,
+    jamais ton cœur : seule une manche ratée le coûte » — Claire et Samir ne
+    l'apprenaient qu'à la révélation. Le filet barre l'étoile payée avant le
+    lancer, la révélation et le bilan après — Samir ne savait pas si c'était
+    « une étoile retirée de mon score, ou seulement le plafond qui baisse ».
+    Une aide offerte le dit aussi (« elle ne te coûte rien ») : Huguette, sous
+    « Prise · offerte », croyait avoir payé.
+  - Au second tour, avec ce prix : « on peut encore protéger ses cœurs, mais
+    plus gratuitement » (Claire, qui a payé deux aides exprès : ★★ gagnées,
+    toutes deux reprises, le cœur gardé).
   - Un prix en étoiles, pas en or : il se paie dans la manche même, sans un
     geste de plus, et l'or garde son seul usage, le marchand.
 - **Une question sans indice honnête ne propose que l'autre aide** : quand
@@ -370,16 +405,42 @@ compte enfin.
     Wars » pour l'Atari).
   - La première relecture, d'un agent qui écrivait aussi, n'en avait
     corrigé que 6 : il faut un juge qui n'écrit pas.
+- **Puis la tranche du jeu.** Au second tour, Samir perd un cœur sur un
+  indice honnête : « dans les vingt ans qui suivent la Libération », pour
+  1946, mène à 1944–1964, à cheval sur 1925–1949 et 1950–1974 — « mon calcul
+  était bon, la chance non ». Le juge relit alors chaque indice avec la
+  tranche du jeu sous les yeux : **85 sur 136 enjambaient une frontière** —
+  « plus de X, moins de Y », « l'après-guerre », « la Belle Époque », qui
+  coupent 1900, 1925, 1950 ou 300. Recentrés, puis rejugés sur la tranche et
+  sur la valeur :
+
+  | Sur les 136 indices | Avant | Après |
+  |---|---|---|
+  | Tiennent dans la tranche de la réponse | 51 | 106 |
+  | À cheval, la réponse contre une frontière (1946, 330 ml) — gardés | 85 | 29 |
+  | Donnent la valeur, ou affirment un fait faux | 0 | 0 |
+
+  - **La cible, précisée : la tranche du jeu, toute la tranche.** Un indice
+    qui la recopie (« plus haut que la tour Eiffel, mais loin d'un
+    kilomètre » pour 300–1000) fait choisir la bonne ; il ne dit rien de
+    plus que ce que vaut le milieu de la tranche (§ 7).
+  - **Contre une frontière, on garde l'indice qui enjambe** : un indice tenu
+    dans la tranche y serait presque la valeur (« juste après la guerre »
+    pour 1946), et la distance paie des deux côtés (§ 3.3).
+  - La passe a aussi trouvé une question qui se compte (les chiffres 9 de 1
+    à 100), écartée avec les calculs (§ 4.4).
 - **Rangement** : en production, un fichier de contenu du Cabinet, clé par
   question (`server/content/cabinet/indices-du-filet.json`) — ou un champ de
   la base, si l'on veut que la campagne s'en serve un jour.
 
 ### 3.8 La révélation
 
-- **Le verdict** : « Pile dedans » ★★★, « Tout près » ★★, « La bonne
-  époque » ★ — « Le bon ordre de grandeur » pour une grandeur (« une époque,
-  pour du beurre ? », Huguette) —, « À côté », et « La manche te coûte un
-  cœur ». L'étoile payée pour une aide paraît barrée.
+- **Le verdict**, titre de l'écran où le focus se pose : « Pile dedans »
+  ★★★, « Tout près » ★★, « La bonne époque » ★ — « Le bon ordre de grandeur »
+  pour une grandeur (« une époque, pour du beurre ? », Huguette) —, « À
+  côté », et « La manche te coûte un cœur ». L'étoile payée pour une aide
+  paraît barrée ; quand les aides ont tout pris, « Tes aides ont pris tes
+  étoiles ; ton cœur reste ».
 - **La frise**, où chaque chose a sa forme et ses mots, jamais sa seule
   couleur — Samir, daltonien, confondait quatre ronds de teintes voisines, et
   le lancer se cachait sous la réponse :
@@ -393,8 +454,8 @@ compte enfin.
   ce que les aides ont pris.
 - **L'anecdote**, toujours : c'est le moment où l'on apprend.
 - **Le repère gagné**, s'il y en a un.
-- **« Manche suivante »**, collé au bas de l'écran : sous un repère gagné, il
-  passait sous le pli (Claire).
+- **« Manche suivante »**, collé au bas de l'écran, mince : sous un repère
+  gagné, il passait sous le pli (Claire).
 
 ### 3.9 Ce que voit le téléphone (invariant 1)
 
@@ -651,10 +712,27 @@ un sondage du QG aux joueurs du Cabinet (`qg_annonce_questions`).
    choisir l'époque, toucher la piste, lire l'indice, et réfléchir ! »). À
    garder, et à mesurer en production (le temps de chaque manche est déjà
    écrit, `dureesDesManches`) avant d'y toucher ; la carte « Prendre son
-   temps » existe pour qui lit lentement.
+   temps » existe pour qui lit lentement. Hugo, au lecteur d'écran, les
+   dépasse à chaque manche : écouter la manche de haut en bas en prend déjà
+   vingt.
 9. **Le pari perdu** : « il n'y a plus de risque à prendre » (Claire, qui
    aimait le frisson du petit filet). Le frisson reste celui de la carte
    Miser (Quitte ou double) ; un pari propre au Filet attend (§ 8).
+10. **La largeur de l'anneau ★★** : un quart d'époque. Dans la bonne époque,
+    le milieu sans rien savoir y tombe 52 fois sur cent, et ★★★ 20 fois
+    (`reproductions/prix-des-aides.mjs`) — « ★ pour la bonne époque vaut
+    plutôt une étoile et demie » (Claire, au second tour). C'est aussi ce qui
+    paie l'à-peu-près (Huguette, cinq ans d'écart : ★★). La resserrer à un
+    sixième (4 ans) ferait tomber le milieu à 36 % ; un choix de produit, à
+    mesurer au calibrage avant d'y toucher.
+11. **Écartée : une étoile à moins d'une demi-tranche, même dans la tranche
+    voisine** — « onze ans ou cent trente-trois, même tarif » (Samir).
+    Rejouée sur les lancers réels : 71 % de manches réussies au lieu de 62,
+    mais 83 % sur les questions connues, au-delà de la zone visée, et 68 %
+    sur les loteries au lieu de 54 (`reproductions/filet-en-production.ts`,
+    la ligne « ★ aussi à une demi-tranche »). Trop généreux : ce sont les
+    indices recentrés sur leur tranche (§ 3.7) qui répondent au cœur perdu de
+    Samir.
 
 ## 8. Ce qui attend
 

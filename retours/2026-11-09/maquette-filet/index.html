@@ -61,8 +61,8 @@
 
 * { box-sizing: border-box; }
 html, body { min-height: 100%; }
-/* Ce qui vient sous les yeux s'arrête au-dessus du bouton collé en bas (`.colle`). */
-html { scroll-padding-bottom: 96px; }
+/* Ce qui vient sous les yeux (la piste qui s'ouvre, l'indice pris) garde un peu d'air au bord de l'écran. */
+html { scroll-padding-block: 16px; }
 body {
   margin: 0;
   background-color: var(--bg);
@@ -107,9 +107,11 @@ button { font: inherit; color: inherit; }
 .btn-plein { width: 100%; min-height: 56px; font-size: 1.125rem; }
 .btn[aria-disabled="true"] { opacity: 0.55; cursor: default; }
 .btn-or[aria-disabled="true"] { background: var(--bg-raised); color: var(--muted); border-color: var(--edge-strong); opacity: 1; }
-/* Le geste du moment reste sous le pouce : « Lancer le filet » et « Manche suivante » se collent au bas de l'écran
-   quand la page est plus longue que lui — sous un nouveau repère, Claire devait les chercher en faisant défiler. */
-.colle { position: sticky; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); z-index: 5; box-shadow: 0 0 0 8px var(--bg), 0 12px 28px rgba(0, 0, 0, 0.35); }
+/* « Manche suivante » reste sous le pouce, collé au bas de l'écran quand la révélation est plus longue que lui — sous
+   un nouveau repère, Claire devait le chercher. « Lancer le filet » ne l'est plus : collé, il cachait la piste, le
+   gros chiffre et l'indice sur un petit écran (Huguette, Samir, au second tour). */
+.colle { position: sticky; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); z-index: 5; min-height: 50px; box-shadow: 0 0 0 6px var(--bg), 0 10px 24px rgba(0, 0, 0, 0.3); }
+.nobr { white-space: nowrap; }
 .lien { background: none; border: 0; padding: 6px 0; color: var(--accent-text); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; text-align: left; }
 .etoiles { font-family: var(--sans); letter-spacing: 0.08em; color: var(--accent-text); white-space: nowrap; }
 .etoiles .vide { color: var(--muted); opacity: 0.6; }
@@ -243,6 +245,9 @@ button { font: inherit; color: inherit; }
 .range::-moz-range-thumb { box-sizing: border-box; width: 10px; height: 44px; border: 2px solid var(--bg); border-radius: 5px; background: var(--accent); }
 .bornes { display: flex; justify-content: space-between; color: var(--muted); font-size: 1.0625rem; font-variant-numeric: lining-nums tabular-nums; margin: 0 2px; }
 .curseur + .bornes { margin: 0 58px; }
+/* Les nombres des graduations, alignés sur le rail : 48 px de bouton, 8 d'écart, 5 de demi-poignée. */
+.graduees { position: relative; height: 1.5em; margin: 0 61px; color: var(--muted); font-size: 1.0625rem; font-variant-numeric: lining-nums tabular-nums; }
+.graduees span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
 .sur-la-piste { display: flex; flex-wrap: wrap; gap: 4px 14px; justify-content: center; color: var(--ink); }
 /* Le curseur pas encore posé : ni poignée, ni valeur — la piste attend un toucher. */
 .curseur.vierge .range::-webkit-slider-thumb { opacity: 0; }
@@ -260,7 +265,9 @@ button { font: inherit; color: inherit; }
 .aide b { font-weight: 700; font-size: 1.0625rem; line-height: 1.2; }
 .aide small { color: var(--muted); font-size: 1.0625rem; }
 .aide.offerte small { color: var(--accent-text); font-weight: 600; }
-.aide[aria-disabled="true"] { opacity: 0.55; cursor: default; }
+.aide[aria-disabled="true"] { opacity: 0.85; cursor: default; border-style: dashed; }
+.cran[aria-disabled="true"] { opacity: 0.4; cursor: default; }
+s.payee { color: var(--muted); text-decoration-thickness: 2px; text-decoration-color: var(--alert); }
 .prix { color: var(--muted); }
 .indice { padding: 10px 12px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
 .indice b { color: var(--accent-text); }

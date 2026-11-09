@@ -86,17 +86,21 @@ if (quoi === 'lancers') {
   // l'écrit. La distance d'abord, puis la bonne tranche.
   const borneDuDemi = (k: number) => (k % 2 === 0 ? 10 ** (k / 2) : 3 * 10 ** ((k - 1) / 2))
   const trancheDe = (v: number) => { let k = 0; while (borneDuDemi(k + 1) <= v) k++; return k }
-  function deuxTemps(l: Lancer, x: number): number {
+  // `demi` : ★ aussi à moins d'une demi-tranche de la réponse — 12 ans sur 25, 50 % d'une grandeur —, même dans la
+  // tranche d'à côté. La tablée du 9 novembre 2026 : « onze ans ou cent trente-trois, même tarif » (Samir).
+  function deuxTemps(l: Lancer, x: number, demi = false): number {
     if (l.annee) {
       const T = l.valeur >= 1800 ? 25 : l.valeur >= 1500 ? 50 : 100
       const e = Math.abs(x - l.valeur)
       if (e <= Math.max(1, Math.round(T / 12))) return 3
       if (e <= Math.round(T / 4)) return 2
+      if (demi && e <= Math.floor(T / 2)) return 1
       return Math.floor(x / T) === Math.floor(l.valeur / T) ? 1 : 0
     }
     const p = Math.round((1000 * Math.abs(x - l.valeur)) / l.valeur) / 10
     if (p <= 6) return 3
     if (p <= 25) return 2
+    if (demi && p <= 50) return 1
     if (x < 1) return 0
     const kx = trancheDe(x), kv = trancheDe(l.valeur)
     return kx === kv || (l.valeur === borneDuDemi(kv) && kx === kv - 1) ? 1 : 0
@@ -106,6 +110,7 @@ if (quoi === 'lancers') {
     ['Le filet qui se resserre (3,5 / 9 / 20 %)', (l, x) => paliers(ecart(l, x), [0.035, 0.09, 0.2])],
     ['Paliers, grandeurs en rapport (±10/25/60 %)', (l, x) => (l.annee ? paliers(ecart(l, x), [0.035, 0.09, 0.2]) : paliers(rapport(l, x), [Math.log(1.1), Math.log(1.25), Math.log(1.6)]))],
     ['En deux temps (★ la bonne tranche)', (l, x) => deuxTemps(l, x)],
+    ['En deux temps, ★ aussi à une demi-tranche', (l, x) => deuxTemps(l, x, true)],
   ]
   const tableau = (titre: string, ls: Lancer[], auHasard: (nom: string) => number | null) => {
     console.log(`== ${titre} (${ls.length} lancers)\nrègle                                          réussies  ★/manche  au hasard`)

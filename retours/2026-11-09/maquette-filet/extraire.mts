@@ -44,13 +44,15 @@ function refusDeLIndice(indice: string, valeur: number, annee: boolean): string 
 // Un calcul (le carré de 25), une conversion d'unités (les secondes d'une heure), une question qui écrit de quoi
 // trouver sa réponse (Verdun « du 21 février au 18 décembre ») : on la sait ou on la calcule, on ne l'estime pas.
 // Le moteur les donnait connues de tous, et l'acte I tournait au cours de maths (Théo, la tablée du 9 novembre
-// 2026) ; leur indice en était la solution (le juge des indices : 15 de ses 58 « valeur »). Le Filet d'aujourd'hui de
+// 2026) ; leur indice en était la solution (le juge des indices : 16 de ses 58 « valeur », et un comptage à la passe
+// des tranches). Le Filet d'aujourd'hui de
 // la maquette les pose encore, comme la production.
 const CALCULS = new Set([
   'gwncegep', 'eq6d1uie', '3yiw4do8', 'ct92jdvr', // le carré de 25, un nombre abondant, six diviseurs, les carrés parfaits
   'cb6v7fpw', 'gawi2k69', 'brg0edw0', 'm1tml875', 'j1ln7nbb', 'b1x00df9', 'hn1ubkxc', // secondes, millimètres, grammes, kilos, m², cm², jours d'une année
   'ybtwkxdb', 'cxyvjgrc', '4t6omvq2', 'ksswsd14', // le tour complet, le triangle, l'équilatéral, les grades
   '563gbevt', // Verdun : la question donne ses deux dates
+  '8semz46o', // les chiffres 9 de 1 à 100 : ils se comptent (trouvé par le juge des indices, à la passe des tranches)
 ])
 
 const questions: any[] = []
