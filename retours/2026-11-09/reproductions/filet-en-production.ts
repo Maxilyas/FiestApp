@@ -1,0 +1,128 @@
+// Le Filet en production, et ce que d'autres règles en auraient fait (`../le-nouveau-filet.md`, « Ce que la
+// production a montré ») : chaque lancer réel du Filet — le curseur posé, la taille du filet, la valeur, la piste —
+// rejugé sous chaque règle candidate. Le curseur dit ce que le joueur croyait ; la règle dit ce que ça vaut. Chaque
+// règle se compare au même joueur qui ne lit pas la question (le curseur laissé au milieu). En lecture seule, des
+// totaux : aucun profil, aucun nom.
+//
+//   cd server && NODE_USE_ENV_PROXY=1 node --import tsx ../retours/2026-11-09/reproductions/filet-en-production.ts [lancers|regles]
+//
+//   lancers   le choix du filet, l'écart des curseurs par marche, ce que le hasard attrape
+//   regles    les lancers rejugés : le filet qui se resserre, les rapports, les deux temps, le tirage du moteur
+//             (les notes du panel de l'IA : ../maquette-filet/panel-ia.json)
+//
+// Jamais `QUIZ_DB_URL` : `PROD_LECTURE_URL` et `PROD_LECTURE_TOKEN`, un jeton en lecture seule.
+import fs from 'node:fs'
+import { createRequire } from 'node:module'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const ICI = path.dirname(fileURLToPath(import.meta.url))
+const require = createRequire(path.resolve(ICI, '../../../server/package.json'))
+const quoi = process.argv[2] ?? 'lancers'
+
+const url = process.env.PROD_LECTURE_URL, authToken = process.env.PROD_LECTURE_TOKEN
+if (!url || !authToken) throw new Error('PROD_LECTURE_URL et PROD_LECTURE_TOKEN, un jeton en lecture seule — jamais QUIZ_DB_URL')
+const db = require('@libsql/client').createClient({ url: url.replace(/^libsql:/, 'https:'), authToken })
+
+interface Lancer {
+  id: string; niveau: string; annee: boolean; valeur: number; piste: { min: number; max: number }
+  x: number; taille: 'petit' | 'moyen' | 'grand'; jour: string
+}
+/** Les lancers du Filet : chaque partie qui en a, son plan figé (`campagne_series.cabinet`) et ses gestes. */
+async function lesLancers(): Promise<Lancer[]> {
+  const series = (await db.execute(`SELECT id, cabinet FROM campagne_series WHERE mode = 'cabinet' AND cabinet LIKE '%"jeu":"filet"%'`)).rows as Record<string, unknown>[]
+  const gestes = new Map<unknown, any[]>()
+  for (let i = 0; i < series.length; i += 50) {
+    const lot = series.slice(i, i + 50).map(s => s.id)
+    const r = await db.execute({ sql: `SELECT serie_id, geste FROM cabinet_gestes WHERE serie_id IN (${lot.map(() => '?').join(',')}) ORDER BY serie_id, rang`, args: lot })
+    for (const g of r.rows as Record<string, unknown>[]) gestes.set(g.serie_id, [...(gestes.get(g.serie_id) ?? []), JSON.parse(String(g.geste))])
+  }
+  const lancers: Lancer[] = []
+  for (const s of series) {
+    const d = JSON.parse(String(s.cabinet))
+    if (d.jeu !== 'filet') continue
+    const gs = gestes.get(s.id) ?? []
+    for (const g of gs) {
+      // Une manche changée joue sa rechange, ailleurs dans le plan : elle ne se rejuge pas ici.
+      if (g.quoi !== 'repondre' || gs.some(x => x.quoi === 'changer' && x.manche === g.manche)) continue
+      const t = d.tirages[g.manche]
+      if (!t || t.jeu !== 'filet' || !g.reponse?.filet) continue
+      lancers.push({ id: t.question.id, niveau: t.question.niveau, annee: t.annee, valeur: t.valeur, piste: t.piste, x: g.reponse.filet.x, taille: g.reponse.filet.taille, jour: d.jour })
+    }
+  }
+  return lancers
+}
+
+const DEMI = { petit: 0.035, moyen: 0.09, grand: 0.2 }, ETOILES = { petit: 3, moyen: 2, grand: 1 }
+const L = (l: Lancer) => l.piste.max - l.piste.min
+const ecart = (l: Lancer, x = l.x) => Math.abs(x - l.valeur) / L(l)
+const milieu = (l: Lancer) => (l.piste.min + l.piste.max) / 2
+const pct = (a: number, b: number) => `${Math.round((100 * a) / b)} %`.padStart(5)
+const lancers = await lesLancers()
+console.log(`${lancers.length} lancers, ${new Set(lancers.map(l => l.id)).size} questions distinctes\n`)
+
+if (quoi === 'lancers') {
+  const tailles = (['petit', 'moyen', 'grand'] as const).map(t => `${t} ${lancers.filter(l => l.taille === t).length}`).join(', ')
+  const pris = lancers.filter(l => ecart(l) <= DEMI[l.taille] + 1e-9).length
+  console.log(`Filets choisis : ${tailles}`)
+  console.log(`Pris dans son filet : ${pct(pris, lancers.length)} — le grand filet au même endroit : ${pct(lancers.filter(l => ecart(l) <= 0.2).length, lancers.length)} — le grand au milieu, sans lire : ${pct(lancers.filter(l => ecart(l, milieu(l)) <= 0.2).length, lancers.length)}`)
+  console.log('\nmarche        lancers  < 2 % (il savait)  2–20 %  > 20 %')
+  for (const n of ['facile', 'moyen', 'difficile', 'expert']) {
+    const ls = lancers.filter(l => l.niveau === n)
+    if (!ls.length) continue
+    console.log(`${n.padEnd(12)} ${String(ls.length).padStart(8)}  ${pct(ls.filter(l => ecart(l) <= 0.02).length, ls.length).padStart(17)}  ${pct(ls.filter(l => ecart(l) > 0.02 && ecart(l) <= 0.2).length, ls.length)}  ${pct(ls.filter(l => ecart(l) > 0.2).length, ls.length)}`)
+  }
+  const tiers = lancers.filter(l => Math.floor((3 * (l.x - l.piste.min)) / L(l)) === Math.floor((3 * (l.valeur - l.piste.min)) / L(l))).length
+  console.log(`\nCurseur dans le bon tiers de la piste : ${pct(tiers, lancers.length)} (au hasard : 33 %)`)
+  const g = lancers.filter(l => !l.annee).map(l => (l.valeur - l.piste.min) / L(l)).sort((a, b) => a - b)
+  console.log(`Grandeurs : la réponse aux quartiles ${[0.25, 0.5, 0.75].map(q => g[Math.floor(q * g.length)].toFixed(2)).join(' · ')} de la piste — le filet moyen y vaut de ±10 % à ±113 % de la valeur`)
+} else if (quoi === 'regles') {
+  const paliers = (e: number, [a, b, c]: number[]) => (e <= a ? 3 : e <= b ? 2 : e <= c ? 1 : 0)
+  const rapport = (l: Lancer, x: number) => Math.abs(Math.log(Math.max(x, l.piste.max / 1000) / l.valeur))
+  // Le Filet en deux temps, lu sur le curseur réel : quatre époques sur la piste d'une année, quatre tranches en ×3
+  // autour d'une grandeur (sa place tirée une fois, au même hasard), puis la distance — une borne basse.
+  let graine = 9112026
+  const hasard = () => ((graine = (graine * 16807) % 2147483647) / 2147483647)
+  const decalage = new Map<Lancer, number>()
+  function deuxTemps(l: Lancer, x: number): number {
+    if (l.annee) {
+      const t = L(l) / 4, tr = (v: number) => Math.min(3, Math.floor((v - l.piste.min) / t))
+      const e = Math.abs(x - l.valeur)
+      if (e <= 2) return 3
+      if (e <= 6) return 2
+      return tr(x) === tr(l.valeur) ? 1 : 0
+    }
+    if (!decalage.has(l)) decalage.set(l, hasard() * 4)
+    const bas = l.valeur / Math.pow(3, decalage.get(l)!)
+    const tr = (v: number) => (v < bas || v >= bas * 81 ? -1 : Math.floor(Math.log(v / bas) / Math.log(3)))
+    const r = Math.abs(x - l.valeur) / l.valeur
+    if (x > 0 && r <= 0.05) return 3
+    if (x > 0 && r <= 0.2) return 2
+    return x > 0 && tr(x) === tr(l.valeur) ? 1 : 0
+  }
+  const regles: [string, (l: Lancer, x: number, aveugle: boolean) => number][] = [
+    ['Aujourd’hui (le filet choisi)', (l, x, aveugle) => { const t = aveugle ? 'grand' : l.taille; return ecart(l, x) <= DEMI[t] + 1e-9 ? ETOILES[t] : 0 }],
+    ['Le filet qui se resserre (3,5 / 9 / 20 %)', (l, x) => paliers(ecart(l, x), [0.035, 0.09, 0.2])],
+    ['Paliers, grandeurs en rapport (±10/25/60 %)', (l, x) => (l.annee ? paliers(ecart(l, x), [0.035, 0.09, 0.2]) : paliers(rapport(l, x), [Math.log(1.1), Math.log(1.25), Math.log(1.6)]))],
+    ['En deux temps (★ la bonne tranche)', (l, x) => deuxTemps(l, x)],
+  ]
+  const tableau = (titre: string, ls: Lancer[], auHasard: (nom: string) => number | null) => {
+    console.log(`== ${titre} (${ls.length} lancers)\nrègle                                          réussies  ★/manche  au hasard`)
+    for (const [nom, f] of regles) {
+      const s = ls.map(l => f(l, l.x, false))
+      const h = auHasard(nom) ?? Math.round((100 * ls.filter(l => f(l, milieu(l), true) > 0).length) / ls.length)
+      console.log(`${nom.padEnd(46)} ${pct(s.filter(Boolean).length, ls.length)}     ${(s.reduce((a, b) => a + b, 0) / ls.length).toFixed(2)}     ${String(h).padStart(3)} %`)
+    }
+    console.log('')
+  }
+  // Au hasard, les deux temps se jouent par quatre boutons : une chance sur quatre.
+  const hasardDesDeuxTemps = (nom: string) => (nom.startsWith('En deux temps') ? 25 : null)
+  tableau('Tous les lancers', lancers, hasardDesDeuxTemps)
+  tableau('Depuis le 4 novembre', lancers.filter(l => l.jour >= '2026-11-04'), hasardDesDeuxTemps)
+  const notes = new Map((JSON.parse(fs.readFileSync(path.resolve(ICI, '../maquette-filet/panel-ia.json'), 'utf8')) as any[]).map(n => [n.id, n]))
+  for (const [nom, garder] of [['Le moteur : connaissabilité < 25 % (les loteries)', (p: number) => p < 25], ['Le moteur : connaissabilité ≥ 25 %', (p: number) => p >= 25], ['Le moteur : connaissabilité ≥ 40 %', (p: number) => p >= 40]] as const) {
+    tableau(nom, lancers.filter(l => notes.get(l.id)?.estimation != null && garder(notes.get(l.id).estimation)), hasardDesDeuxTemps)
+  }
+} else {
+  throw new Error(`« ${quoi} » : lancers ou regles`)
+}
