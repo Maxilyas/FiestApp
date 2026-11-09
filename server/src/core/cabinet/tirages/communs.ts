@@ -67,6 +67,11 @@ export interface ContexteDuTirage {
    * Filet, à l'acte de l'épreuve (`vise.acte`, le premier hors d'une traversée) ; sinon celui d'avant.
    */
   filetEnDeuxTemps?: boolean
+  /**
+   * Au nouveau Filet, les questions qu'il a su placer, juste et sans aide (`JournalDesReponses.placesAuFiletDe`) : leurs
+   * années deviennent ses repères (`RepereDuFilet.sien`).
+   */
+  placesAuFilet?: ReadonlySet<string>
 }
 
 /** Les marches d'un jeu sous l'enjeu de la partie : les siennes, et ce que l'œuvre visée y ajoute. */

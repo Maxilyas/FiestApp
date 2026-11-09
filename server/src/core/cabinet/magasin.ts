@@ -1022,6 +1022,8 @@ export class CabinetStore {
             enjeu: enjeuDuTirage(cadre),
             leurres: journal.leurresChoisis(),
             filetEnDeuxTemps: this.reglages.filetEnDeuxTemps === true,
+            // Les années qu'il a su placer au nouveau Filet, sans aide : ses repères à soi.
+            placesAuFilet: journal.placesAuFiletDe(profileId),
           },
           rechanges,
         )
@@ -2124,6 +2126,7 @@ export class CabinetStore {
           // L'acte de l'étape : le Filet en deux temps y tire ses questions, plutôt qu'à une marche.
           vise: { categorie: visee.categorie, theme: visee.theme, sujet: visee.sujet, acte: acteDe(etape.id) },
           filetEnDeuxTemps: this.reglages.filetEnDeuxTemps === true,
+          placesAuFilet: journal.placesAuFiletDe(profileId),
         },
         rechanges,
       ),

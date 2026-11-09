@@ -20,7 +20,7 @@ import { ENJEU_ORDINAIRE } from '../../shared/cabinet/partie'
 import { VERSION_DE_LA_TRAVERSEE, etatDeLaTraversee, tracerLaCarte, type DepartDeLaTraversee, type GesteDeLaTraversee } from '../../shared/cabinet/traversee'
 import type { PageDeLaTraversee, VueDeLaPartie } from '../../shared/cabinet/vues'
 import { inscrireProfil } from './banc'
-import { DIX_HEURES, aLaMain, bancDuCabinet, baseDuCabinet, commencer, departEnBase, fermerLesMagasins, jouer as unGeste, lire, ok, poster, vraiesQuestionsDuFilet } from './cabinet-banc'
+import { DIX_HEURES, aLaMain, bancDuCabinet, baseDuCabinet, commencer, departEnBase, fermerLesMagasins, jouer as unGeste, lire, ok, ouvrir as ouvrirLaManche, poster, vraiesQuestionsDuFilet } from './cabinet-banc'
 import * as B from '../../shared/cabinet/bareme'
 import { hasardDe } from '../../shared/missions'
 import { lireLeDepart, lireUnGeste } from '../../shared/cabinet/lecture'
@@ -647,6 +647,39 @@ test('le tireur du Filet en deux temps : une question du contenu à l’acte de 
   assert.ok((tirerLePlan('filet', contexte(jouables, { enDeuxTemps: false }), 0) as FiletTire[]).every(t => 'piste' in t))
 })
 
+// ── Ses repères à soi ──────────────────────────────────────────────────────
+
+/** Les années de l'acte I du contenu qui ont leur étiquette de repère : de quoi en placer, et en retrouver. */
+const ANNEES_DE_L_ACTE_I = vraiesQuestionsDuFilet(400).filter(q => acteDe(q.id) === 0 && valeurDuFilet(q)?.annee === true && !!CONTENU.get(q.id)?.repere)
+const PORTE_PAR_ID = { ...PORTE, parIdDe: (jouables: readonly QuestionDeLaBase[]) => new Map(jouables.map(q => [q.id, q])) }
+
+test('ses repères à soi : une année qu’il a su placer revient, marquée sienne, sur la frise d’une autre année — une au plus', () => {
+  const jouables = baseDuCabinet(8, ANNEES_DE_L_ACTE_I).questions
+  const placees = ANNEES_DE_L_ACTE_I.filter((_, i) => i % 2 === 0)
+  const placesAuFilet = new Set(placees.map(q => q.id))
+  let siens = 0
+  for (let essai = 0; essai < 12; essai++) {
+    const plan = tirerLePlan('filet', { ...contexte(jouables, { acte: 0 }), porte: PORTE_PAR_ID, placesAuFilet }, 2) as FiletEnDeuxTempsTire[]
+    for (const t of plan) {
+      const a = t.reperes.filter(r => r.sien)
+      assert.ok(a.length <= B.REPERES_SIENS_DU_FILET, 'un des siens au plus')
+      for (const r of a) {
+        assert.ok(
+          placees.some(q => valeurDuFilet(q)!.valeur === r.valeur && CONTENU.get(q.id)!.repere === r.texte),
+          `« ${r.texte} » (${r.valeur}) : une année qu’il a placée, sous l’étiquette du contenu`,
+        )
+        assert.notEqual(r.valeur, t.valeur, 'jamais la réponse')
+      }
+      siens += a.length
+    }
+  }
+  assert.ok(siens > 0, 'ses repères reviennent')
+  // Rien de placé, ou une porte qui ne lit pas la base : aucun des siens.
+  for (const ctx of [{ ...contexte(jouables, { acte: 0 }), porte: PORTE_PAR_ID }, { ...contexte(jouables, { acte: 0 }), placesAuFilet }]) {
+    assert.ok((tirerLePlan('filet', ctx, 2) as FiletEnDeuxTempsTire[]).every(t => t.reperes.every(r => !r.sien)))
+  }
+})
+
 // ── Le tracé : un Filet seulement où son acte a de quoi tirer ─────────────
 
 test('les catégories du Filet, acte par acte : celles qui ont assez de valeurs distinctes pour une épreuve', () => {
@@ -813,5 +846,35 @@ test('une traversée qui commence ne promet au Filet, à chaque acte, qu’une c
   assert.ok(
     promises[0].every(c => attendues[0].includes(c as Categorie)),
     `l’acte I promet au Filet : ${promises[0].join(', ')}`,
+  )
+})
+
+test('par les routes : l’année placée sans aide revient en repère à soi à la partie suivante ; celle placée avec une aide, non', async () => {
+  // Des années de l'acte I d'une même époque, 1950–1974 : la frise de chacune tient toutes les autres.
+  const epoque = ANNEES_DE_L_ACTE_I.filter(q => valeurDuFilet(q)!.valeur >= 1950 && valeurDuFilet(q)!.valeur <= 1974)
+  // Deux parties de trois manches sans revoir une question : six au moins.
+  assert.ok(epoque.length >= 6, `${epoque.length} années de 1950 à 1974 à l’acte I`)
+  const b = await bancDuCabinet({ filetEnDeuxTemps: true, baseDeLaCampagne: baseDuCabinet(8, epoque) })
+  ouverts.push(b.banc)
+  const lou = await inscrireProfil(b.banc.url, 'lou', 'Lou')
+  // La première manche placée pile, sans aide ; la deuxième pile aussi, « Deux époques de moins » payée ; la troisième à côté.
+  let v = ok(await commencer(b, lou, { origine: 'libre', jeu: 'filet', carte: 'coup-d-oeil' }), 'commencer')
+  const tirages = departEnBase(b.fichier, v.id).tirages as FiletEnDeuxTempsTire[]
+  const pile = (t: FiletEnDeuxTempsTire) => ({ filet: { epoque: t.bonnes[0], x: t.valeur } })
+  v = ok(await unGeste(b, lou, v, { quoi: 'repondre', manche: 0, reponse: pile(tirages[0]) }), 'la première, pile')
+  v = await ouvrirLaManche(b, lou, v, 1)
+  v = ok(await unGeste(b, lou, v, { quoi: 'aide', manche: 1, aide: 'epoques' }), 'l’aide payée')
+  v = ok(await unGeste(b, lou, v, { quoi: 'repondre', manche: 1, reponse: pile(tirages[1]) }), 'la deuxième, pile et aidée')
+  v = await ouvrirLaManche(b, lou, v, 2)
+  const ailleurs = tirages[2].tranches.findIndex((_, k) => !tirages[2].bonnes.includes(k))
+  v = ok(await unGeste(b, lou, v, { quoi: 'repondre', manche: 2, reponse: { filet: { epoque: ailleurs, x: milieuDeLaTranche(tirages[2].tranches[ailleurs]) } } }), 'la troisième, à côté')
+  const repere = (t: FiletEnDeuxTempsTire) => ({ valeur: t.valeur, texte: CONTENU.get(t.question.id)!.repere! })
+  // La partie suivante : ses frises le montrent, marqué sien — jamais l'année qu'une aide lui a fait placer.
+  const suite = ok(await commencer(b, lou, { origine: 'libre', jeu: 'filet', carte: 'coup-d-oeil' }), 'la partie suivante')
+  const siens = (departEnBase(b.fichier, suite.id).tirages as FiletEnDeuxTempsTire[]).flatMap(t => t.reperes.filter(r => r.sien))
+  assert.ok(siens.length > 0, 'son repère revient')
+  assert.ok(
+    siens.every(r => r.valeur === repere(tirages[0]).valeur && r.texte === repere(tirages[0]).texte),
+    `ses repères : ${siens.map(r => `${r.valeur} ${r.texte}`).join(' ; ')} — seule « ${repere(tirages[0]).texte} » est à lui`,
   )
 })

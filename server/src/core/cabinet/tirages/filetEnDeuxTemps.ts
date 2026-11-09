@@ -98,6 +98,25 @@ export function categoriesDuFiletALAnnee(ctx: Pick<ContexteDuTirage, 'porte' | '
   return categories
 }
 
+/**
+ * Ses repères à soi : les années qu'il a su placer au nouveau Filet, juste et sans aide (`ctx.placesAuFilet`), chacune
+ * sous l'étiquette que le contenu lui donne (« Les Fleurs du mal paraissent », `QuestionDuFilet.repere`). Une question
+ * sans étiquette, qui n'est plus jouable, ou une grandeur n'en fait pas : une grandeur placée ne se lit pas sur la frise
+ * d'une autre unité, et « une année qu'il a déjà su placer » est la promesse du cahier (§ 3.5).
+ */
+function reperesSiens(ctx: Pick<ContexteDuTirage, 'porte' | 'jouables' | 'placesAuFilet'>, filet: ReadonlyMap<string, QuestionDuFilet>): RepereDuFilet[] {
+  if (!ctx.placesAuFilet || ctx.placesAuFilet.size === 0 || !ctx.porte.parIdDe) return []
+  const parId = ctx.porte.parIdDe(ctx.jouables)
+  const siens: RepereDuFilet[] = []
+  for (const id of ctx.placesAuFilet) {
+    const q = parId.get(id)
+    const texte = filet.get(id)?.repere
+    const v = q && texte ? valeurDuFilet(q) : null
+    if (v?.annee && texte) siens.push({ valeur: v.valeur, texte })
+  }
+  return siens
+}
+
 /** Une unité telle qu'elle se compare : sans capitale, et ses deux écritures de la base pour une (« minutes » et « min »). */
 const SYNONYMES: Readonly<Record<string, string>> = { minutes: 'min', minute: 'min', mètres: 'm', mètre: 'm' }
 const uniteComparee = (u: string) => SYNONYMES[u.toLowerCase()] ?? u.toLowerCase()
@@ -121,6 +140,8 @@ export function tirerUnFiletEnDeuxTemps(ctx: ContexteDuTirage, posees: Posees): 
     return v !== null && seTendEnDeuxTemps(v.valeur, v.annee, annee) && !posees.reponses.has(String(v.valeur))
   }
   const tas = (c: Parameters<typeof valeursDeLaCategorie>[2]) => valeursDeLaCategorie(ctx.porte, ctx.jouables, c)
+  // Ses repères à soi, une fois par tirage : une année ne se fait repère que sur la frise d'une année.
+  const siens = reperesSiens(ctx, filet)
   // Une question écartée à chaque tour : le tirage finit, sur une manche ou sur rien.
   for (;;) {
     const tiree =
@@ -137,7 +158,11 @@ export function tirerUnFiletEnDeuxTemps(ctx: ContexteDuTirage, posees: Posees): 
       continue
     }
     const question = commeLaPartieLaGarde(tiree)
-    const reperes = reperesDuFilet({ texte: q.texte, valeur: v.valeur, annee: v.annee, tranches: cadre.tranches }, { siens: [], communs: reperesCommuns(contenu.reperes, v.annee, v.unite) }, ctx.hasard)
+    const reperes = reperesDuFilet(
+      { texte: q.texte, valeur: v.valeur, annee: v.annee, tranches: cadre.tranches },
+      { siens: v.annee ? siens : [], communs: reperesCommuns(contenu.reperes, v.annee, v.unite) },
+      ctx.hasard,
+    )
     const t = tirageEnDeuxTemps({ question, valeur: v.valeur, annee: v.annee, ...(v.unite !== undefined && { unite: v.unite }), place, anneeDuDepart: annee, reperes, indice: e.indice }, ctx.hasard)
     if (!t) {
       ecartees.add(q.id)
