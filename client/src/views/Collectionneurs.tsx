@@ -30,22 +30,26 @@ import {
   CARATS_D_UN_TROPHEE,
   CATEGORIE,
   CATEGORIES_DE_COLLECTION,
+  CERCLES_DE_COLLECTION,
   FAMILLES_DE_CARATS,
   bilanDuFaceAFace,
-  celuiAPasser,
-  classerLesCollectionneurs,
   enLegendaires,
   lignesDuFaceAFace,
   piecesDuStyle,
   rangDeCollection,
   valeurDansLaCategorie,
+  vuesDuClassement,
   type CategorieDeCollection,
+  type CercleDeCollection,
   type FamilleDeCarats,
   type ClassementDesCollections,
   type FicheDeCollectionneur,
   type PieceDeVitrine,
   type PlaceDeCollectionneur,
+  type PlaceLue,
   type VitrineDUnCollectionneur,
+  type VueDuClassement,
+  type VuesDuClassement,
 } from '../../../shared/collectionneurs'
 
 // Les collectionneurs (`/collectionneurs`) : la maquette retenue le 9 novembre
@@ -208,44 +212,54 @@ function Detail({ c, f }: { c: CategorieDeCollection; f: FicheDeCollectionneur }
   }
 }
 
-/** Une place, sa fiche à la main. */
-interface Place {
-  fiche: FicheDeCollectionneur
-  rang: number
-  valeur: number
+/** Sa place dans une catégorie et un cercle : son rang, ce qu'il y a, qui il passerait. */
+function SaPlaceDans({ moi, vue, c, cachee }: { moi?: FicheDeCollectionneur; vue: VueDuClassement; c: CategorieDeCollection; cachee: boolean }) {
+  const { place, devant } = vue
+  return (
+    <span className="cl-sa-place-texte" aria-hidden={cachee || undefined}>
+      {place ? (
+        <b>
+          {`Tu es ${rang(place.rang)}`}
+          <span className="cl-sa-place-sur">{` sur ${formatNumber(vue.classes)}`}</span>
+        </b>
+      ) : (
+        <b>Pas encore au classement</b>
+      )}
+      {c === 'collection' && moi ? (
+        <span className="cl-sa-place-valeur">
+          <Carats n={moi.carats} />
+          <span className="cl-sa-place-palier">
+            <Icon name="landmark" />
+            {rangDeCollection(moi.carats).nom}
+          </span>
+        </span>
+      ) : (
+        <span className="muted small">{place && moi ? ditDe(c, moi) : CATEGORIE[c].premier}</span>
+      )}
+      {place && devant && (
+        <span className="cl-sa-place-suivant">
+          <Icon name="arrow-up" />
+          {`Encore ${formatNumber(devant.manque)} ${CATEGORIE[c].unite[devant.manque >= 2 ? 1 : 0]} pour passer ${devant.fiche.nom}`}
+        </span>
+      )}
+    </span>
+  )
 }
 
-/** Sa place dans la catégorie choisie, et qui il passerait — d'un coup d'œil, en tête. */
-function SaPlace({ moi, place, devant, classes, c }: { moi?: FicheDeCollectionneur; place?: Place; devant: { fiche: FicheDeCollectionneur; manque: number } | null; classes: number; c: CategorieDeCollection }) {
+/**
+ * Sa place dans la catégorie choisie, et qui il passerait — d'un coup d'œil, en tête. Elle s'écrit d'avance dans
+ * chaque catégorie et chaque cercle, toutes dans la même case, une seule montrée (`.cl-sa-place-cases`) : le bloc
+ * garde la hauteur de la plus haute. Écrite seule, elle faisait de 74 à 107 pixels d'une puce à l'autre en 360 de
+ * large — une ligne de moins à qui est premier, celui à passer sur deux lignes aux scellés —, et tout ce qui la suit
+ * sautait d'autant, les puces comprises, sous le doigt qui venait de les toucher (« ça a l'air de bouger quand on
+ * navigue dedans », le propriétaire, le 9 novembre 2026 ; `collectionneurs-stable.test.ts`).
+ */
+export function SaPlace({ moi, vues, c, cercle }: { moi?: FicheDeCollectionneur; vues: VuesDuClassement; c: CategorieDeCollection; cercle: CercleDeCollection }) {
   return (
     <section className="cl-sa-place" aria-label="Ta place">
       {moi && <SonAvatar f={moi} />}
-      <span className="cl-sa-place-texte">
-        {place ? (
-          <b>
-            {`Tu es ${rang(place.rang)}`}
-            <span className="cl-sa-place-sur">{` sur ${formatNumber(classes)}`}</span>
-          </b>
-        ) : (
-          <b>Pas encore au classement</b>
-        )}
-        {c === 'collection' && moi ? (
-          <span className="cl-sa-place-valeur">
-            <Carats n={moi.carats} />
-            <span className="cl-sa-place-palier">
-              <Icon name="landmark" />
-              {rangDeCollection(moi.carats).nom}
-            </span>
-          </span>
-        ) : (
-          <span className="muted small">{place && moi ? ditDe(c, moi) : CATEGORIE[c].premier}</span>
-        )}
-        {place && devant && (
-          <span className="cl-sa-place-suivant">
-            <Icon name="arrow-up" />
-            {`Encore ${formatNumber(devant.manque)} ${CATEGORIE[c].unite[devant.manque >= 2 ? 1 : 0]} pour passer ${devant.fiche.nom}`}
-          </span>
-        )}
+      <span className="cl-sa-place-cases">
+        {CERCLES_DE_COLLECTION.flatMap(a => CATEGORIES_DE_COLLECTION.map(x => <SaPlaceDans key={`${a}-${x}`} moi={moi} vue={vues[a][x]} c={x} cachee={a !== cercle || x !== c} />))}
       </span>
     </section>
   )
@@ -344,7 +358,7 @@ function SalleDesDivins({ etat, fiches, onVitrine, onFermer }: { etat: Classemen
 }
 
 /** Une carte du podium : le cadre de sa ligue, son avatar, son rang en gemme, ce qu'on classe — ses Divins en opale. */
-function CarteDuPodium({ place: p, c, moi, premier, onOuvrir }: { place: Place; c: CategorieDeCollection; moi: string; premier?: boolean; onOuvrir: (id: string) => void }) {
+function CarteDuPodium({ place: p, c, moi, premier, onOuvrir }: { place: PlaceLue; c: CategorieDeCollection; moi: string; premier?: boolean; onOuvrir: (id: string) => void }) {
   const f = p.fiche
   return (
     <button
@@ -374,7 +388,7 @@ function CarteDuPodium({ place: p, c, moi, premier, onOuvrir }: { place: Place; 
 }
 
 /** Une ligne du classement : sa place, son avatar, ses Divins à côté du prénom, le détail de la catégorie, son nombre. */
-function Ligne({ place: p, c, moi, onOuvrir }: { place: Place; c: CategorieDeCollection; moi: string; onOuvrir: (id: string) => void }) {
+function Ligne({ place: p, c, moi, onOuvrir }: { place: PlaceLue; c: CategorieDeCollection; moi: string; onOuvrir: (id: string) => void }) {
   const f = p.fiche
   return (
     <li>
@@ -511,13 +525,43 @@ function Vitrine({ id, moi, fiches, onComparer, onCarte, onFermer }: { id: strin
       vivant = false
     }
   }, [id])
-  const lui = vitrine?.fiche ?? fiches.get(id)
+  return <VitrineOuverte id={id} moi={moi} connue={fiches.get(id)} vitrine={vitrine} erreur={erreur} onComparer={onComparer} onCarte={onCarte} onFermer={onFermer} />
+}
+
+/**
+ * Sa vitrine, telle qu'elle s'ouvre : qui il est tout de suite, de la fiche que la page a déjà (`connue`) ; sa
+ * collection quand sa vitrine est arrivée, d'un bloc. Ses tableaux, que sa fiche suffit à remplir, s'écrivaient
+ * d'abord, puis ses pièces maîtresses se posaient au-dessus d'eux en arrivant : tout ce qu'on lisait descendait de
+ * 228 pixels sous les yeux, à chaque joueur touché. Et la feuille garde sa hauteur (`.cl-vitrine-feuille`) : à la
+ * taille de son contenu, elle aurait grandi d'autant (`collectionneurs-stable.test.ts`).
+ */
+export function VitrineOuverte({
+  id,
+  moi,
+  connue,
+  vitrine,
+  erreur,
+  onComparer,
+  onCarte,
+  onFermer,
+}: {
+  id: string
+  moi?: FicheDeCollectionneur
+  connue?: FicheDeCollectionneur
+  vitrine: VitrineDUnCollectionneur | null
+  erreur: string
+  onComparer: (lui: FicheDeCollectionneur) => void
+  onCarte: (id: string) => void
+  onFermer: () => void
+}) {
+  const lui = vitrine?.fiche ?? connue
   const soi = !!moi && id === moi.id
   const titre = soi ? 'Ta vitrine' : lui ? `La vitrine de ${lui.nom}` : 'Sa vitrine'
   return (
     <Feuille
       titre={titre}
       onFermer={onFermer}
+      className="cl-vitrine-feuille"
       pied={
         soi || !lui ? undefined : (
           <div className="cl-pied">
@@ -558,93 +602,102 @@ function Vitrine({ id, moi, fiches, onComparer, onCarte, onFermer }: { id: strin
               {lui.divins.length > 1 ? `${lui.divins.length} Divins veillent sur sa collection` : 'Un Divin veille sur sa collection'}
             </p>
           )}
-          {vitrine && vitrine.pieces.length > 0 && (
-            <>
-              <h3 className="label">{soi ? 'Tes pièces maîtresses' : 'Ses pièces maîtresses'}</h3>
-              <div className="cl-socles">
-                {vitrine.pieces.map(p => (
-                  <Socle key={p.cle} piece={p} />
-                ))}
-              </div>
-            </>
-          )}
-          <h3 className="label">Gemme par gemme</h3>
-          <table className="cl-gemmes">
-            <thead>
-              <tr>
-                <th scope="col">
-                  <span className="sr-only">Gemme</span>
-                </th>
-                {RARETES_D_AVATAR.map(g => (
-                  <th key={g} scope="col" aria-label={NOM_DE_RARETE_D_AVATAR[g]}>
-                    <Pierre gemme={g} />
-                    <span aria-hidden="true">{NOM_COURT_DE_RARETE_D_AVATAR[g]}</span>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <th scope="row">{soi ? 'Toi' : lui.nom}</th>
-                {RARETES_D_AVATAR.map(g => (
-                  <td key={g} className={!soi && moi && lui.gemmes[g] > moi.gemmes[g] ? 'cl-gemme-plus' : undefined}>
-                    {/* Ses Divins dans leur pastille d'opale : la case qu'on cherche des yeux. */}
-                    {g === 'divin' && lui.gemmes[g] > 0 ? <span className="cl-opale-texte">{lui.gemmes[g]}</span> : lui.gemmes[g]}
-                  </td>
-                ))}
-              </tr>
-              {!soi && moi && (
-                <tr>
-                  <th scope="row">Toi</th>
-                  {RARETES_D_AVATAR.map(g => (
-                    <td key={g} className={moi.gemmes[g] > lui.gemmes[g] ? 'cl-gemme-plus' : undefined}>
-                      {moi.gemmes[g]}
-                    </td>
-                  ))}
-                </tr>
-              )}
-            </tbody>
-          </table>
-          <h3 className="label">Famille par famille</h3>
-          <table className="cl-gemmes cl-familles">
-            <thead>
-              <tr>
-                <th scope="col">
-                  <span className="sr-only">Carats</span>
-                </th>
-                {FAMILLES_DE_CARATS.map(x => (
-                  <th key={x} scope="col">
-                    {NOM_DE_LA_FAMILLE[x]}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <th scope="row">{soi ? 'Toi' : lui.nom}</th>
-                {FAMILLES_DE_CARATS.map(x => (
-                  <td key={x} className={!soi && moi && lui.familles[x] > moi.familles[x] ? 'cl-gemme-plus' : undefined}>
-                    {formatNumber(lui.familles[x])}
-                  </td>
-                ))}
-              </tr>
-              {!soi && moi && (
-                <tr>
-                  <th scope="row">Toi</th>
-                  {FAMILLES_DE_CARATS.map(x => (
-                    <td key={x} className={moi.familles[x] > lui.familles[x] ? 'cl-gemme-plus' : undefined}>
-                      {formatNumber(moi.familles[x])}
-                    </td>
-                  ))}
-                </tr>
-              )}
-            </tbody>
-          </table>
-          <h3 className="label">Trophées et style</h3>
-          <TropheesEtStyle lui={lui} moi={soi ? undefined : moi} />
+          {vitrine ? <SaCollection pieces={vitrine.pieces} lui={lui} moi={moi} soi={soi} /> : <p className="muted small">Chargement…</p>}
         </>
       )}
     </Feuille>
+  )
+}
+
+/** Sa collection, sous son nom : ses pièces maîtresses, puis gemme par gemme, famille par famille, ses trophées et son style. */
+function SaCollection({ pieces, lui, moi, soi }: { pieces: readonly PieceDeVitrine[]; lui: FicheDeCollectionneur; moi?: FicheDeCollectionneur; soi: boolean }) {
+  return (
+    <>
+      {pieces.length > 0 && (
+        <>
+          <h3 className="label">{soi ? 'Tes pièces maîtresses' : 'Ses pièces maîtresses'}</h3>
+          <div className="cl-socles">
+            {pieces.map(p => (
+              <Socle key={p.cle} piece={p} />
+            ))}
+          </div>
+        </>
+      )}
+      <h3 className="label">Gemme par gemme</h3>
+      <table className="cl-gemmes">
+        <thead>
+          <tr>
+            <th scope="col">
+              <span className="sr-only">Gemme</span>
+            </th>
+            {RARETES_D_AVATAR.map(g => (
+              <th key={g} scope="col" aria-label={NOM_DE_RARETE_D_AVATAR[g]}>
+                <Pierre gemme={g} />
+                <span aria-hidden="true">{NOM_COURT_DE_RARETE_D_AVATAR[g]}</span>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">{soi ? 'Toi' : lui.nom}</th>
+            {RARETES_D_AVATAR.map(g => (
+              <td key={g} className={!soi && moi && lui.gemmes[g] > moi.gemmes[g] ? 'cl-gemme-plus' : undefined}>
+                {/* Ses Divins dans leur pastille d'opale : la case qu'on cherche des yeux. */}
+                {g === 'divin' && lui.gemmes[g] > 0 ? <span className="cl-opale-texte">{lui.gemmes[g]}</span> : lui.gemmes[g]}
+              </td>
+            ))}
+          </tr>
+          {!soi && moi && (
+            <tr>
+              <th scope="row">Toi</th>
+              {RARETES_D_AVATAR.map(g => (
+                <td key={g} className={moi.gemmes[g] > lui.gemmes[g] ? 'cl-gemme-plus' : undefined}>
+                  {moi.gemmes[g]}
+                </td>
+              ))}
+            </tr>
+          )}
+        </tbody>
+      </table>
+      <h3 className="label">Famille par famille</h3>
+      <table className="cl-gemmes cl-familles">
+        <thead>
+          <tr>
+            <th scope="col">
+              <span className="sr-only">Carats</span>
+            </th>
+            {FAMILLES_DE_CARATS.map(x => (
+              <th key={x} scope="col">
+                {NOM_DE_LA_FAMILLE[x]}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">{soi ? 'Toi' : lui.nom}</th>
+            {FAMILLES_DE_CARATS.map(x => (
+              <td key={x} className={!soi && moi && lui.familles[x] > moi.familles[x] ? 'cl-gemme-plus' : undefined}>
+                {formatNumber(lui.familles[x])}
+              </td>
+            ))}
+          </tr>
+          {!soi && moi && (
+            <tr>
+              <th scope="row">Toi</th>
+              {FAMILLES_DE_CARATS.map(x => (
+                <td key={x} className={moi.familles[x] > lui.familles[x] ? 'cl-gemme-plus' : undefined}>
+                  {formatNumber(moi.familles[x])}
+                </td>
+              ))}
+            </tr>
+          )}
+        </tbody>
+      </table>
+      <h3 className="label">Trophées et style</h3>
+      <TropheesEtStyle lui={lui} moi={soi ? undefined : moi} />
+    </>
   )
 }
 
@@ -1075,33 +1128,10 @@ export function CollectionneursApp() {
   const fiches = useMemo(() => new Map([...suites.fiches, ...(etat?.fiches ?? [])].map(f => [f.id, f])), [etat, suites])
   const moi = etat ? fiches.get(etat.moi) : undefined
 
-  // Les places de la catégorie choisie : celles du serveur pour tous ; entre amis, reclassés ici, lui compris.
-  const vue = useMemo(() => {
-    if (!etat) return null
-    const lire = (p: PlaceDeCollectionneur): Place[] => {
-      const f = fiches.get(p.id)
-      return f ? [{ fiche: f, rang: p.rang, valeur: p.valeur }] : []
-    }
-    if (amis) {
-      const cercle = [...new Set([etat.moi, ...etat.amis])].flatMap(id => fiches.get(id) ?? [])
-      const classes = classerLesCollectionneurs(cercle, c).map(x => ({ fiche: x.item, rang: x.rang, valeur: valeurDansLaCategorie(x.item, c) }))
-      const i = classes.findIndex(p => p.fiche.id === etat.moi)
-      return { classes: classes.length, tete: classes, place: i >= 0 ? classes[i] : undefined, autour: [] as Place[], devant: i >= 0 ? celuiAPasser(classes.map(p => ({ item: p.fiche, rang: p.rang })), i, f => valeurDansLaCategorie(f, c)) : null, tous: cercle.length, restants: 0 }
-    }
-    const cat = etat.categories[c]
-    // Sa tête, puis la suite demandée — chacun une fois, même si le relevé a bougé entre deux paquets.
-    const vus = new Set<string>()
-    const tete = [...cat.tete, ...(suites.places[c] ?? [])].flatMap(lire).filter(p => !vus.has(p.fiche.id) && (vus.add(p.fiche.id), true))
-    const place = cat.moi ? lire(cat.moi)[0] : undefined
-    // Ses voisins, tant que la liste ne descend pas jusqu'à lui.
-    const autour = vus.has(etat.moi) ? [] : cat.autour.flatMap(lire)
-    // Celui à passer : le plus proche devant lui, parmi ce que la page a sous les yeux — sa liste et ses voisins.
-    const connus = [...tete, ...autour.filter(p => !vus.has(p.fiche.id))]
-    const i = connus.findIndex(p => p.fiche.id === etat.moi)
-    const devant = i >= 0 ? celuiAPasser(connus.map(p => ({ item: p.fiche, rang: p.rang })), i, f => valeurDansLaCategorie(f, c)) : null
-    const restants = suites.finies[c] ? 0 : Math.max(0, cat.classes - cat.tete.length - (suites.places[c]?.length ?? 0))
-    return { classes: cat.classes, tete, place, autour, devant: devant && { item: devant.item, manque: devant.manque }, tous: etat.categories.collection.classes, restants }
-  }, [etat, fiches, amis, c, suites])
+  // Ses vues, toutes : la catégorie choisie se montre, et sa place s'écrit d'avance dans les treize autres (`SaPlace`).
+  const cercle: CercleDeCollection = amis ? 'amis' : 'tous'
+  const vues = useMemo(() => etat && vuesDuClassement(etat, fiches, x => ({ places: suites.places[x], finie: suites.finies[x] })), [etat, fiches, suites])
+  const vue = vues?.[cercle][c]
 
   /** Le paquet suivant de la catégorie choisie, après ce que la page en a — sa tête et la suite déjà lue. */
   const voirLaSuite = () => {
@@ -1156,11 +1186,11 @@ export function CollectionneursApp() {
     <div className="player-shell cl-page">
       <Sortie vers="Mon profil" href="/profil" />
       <PieceTete piece="Profil" titre={TITRE_DES_COLLECTIONNEURS} />
-      {!etat || !vue ? (
+      {!etat || !vues || !vue ? (
         <p className="muted small">Chargement…</p>
       ) : (
         <>
-          <SaPlace moi={moi} place={vue.place} devant={vue.devant && { fiche: vue.devant.item, manque: vue.devant.manque }} classes={vue.classes} c={c} />
+          <SaPlace moi={moi} vues={vues} c={c} cercle={cercle} />
           {etat.enPreparation && <p className="muted small cl-legende">Le classement se prépare : il paraît dans un instant.</p>}
           <BandeauDesDivins etat={etat} fiches={fiches} onOuvrir={() => setSalle(true)} />
           <div className="cl-classement-tete">

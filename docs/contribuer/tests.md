@@ -383,6 +383,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/collectionneurs-page.test.ts` — les collectionneurs sur un serveur jetable : le premier relevé en fond, ni masqué ni suspendu, la suite d'un classement à la demande, les comptes du style dans la fiche — jamais lesquels —, la vitrine, ni le récit d'un Divin ni le soir où il est descendu, la page rouverte qui ne relit rien et sa fiche d'un aller-retour, le relevé gardé dans la base et repris au réveil, puis refait en fond quand il vieillit.
 - `server/test/collectionneurs-fond.test.ts` — le relevé de tous en fond : une tranche par tour de boucle, rien pendant qu'une question attend ses réponses, un relevé à la fois ; la suite d'un classement, paquet par paquet, chacun une fois et dans l'ordre.
 - `server/test/collectionneurs-index.test.ts` — les épreuves validées de tous, lues par leur index partiel, sous des statistiques de production.
+- `server/test/collectionneurs-stable.test.ts` — rien ne bouge quand on navigue dans le classement des collections : sa place écrite d'avance dans chaque catégorie et chaque cercle, toutes dans la même case ; une carte du podium à la taille de son rang, la pastille de ses Divins hors du flux ; des lignes qui ne rejouent pas leur entrée ; une vitrine qui s'ouvre sur son nom, sa collection d'un bloc, dans une feuille à hauteur fixe ; la vue de la page, pure — la suite lue, ses amis reclassés, et personne deux fois : onzième, le dixième n'est plus parmi ses voisins.
 
 ### Les récompenses
 
