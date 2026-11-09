@@ -260,10 +260,13 @@ function BandeauDesDivins({ etat, fiches, onOuvrir }: { etat: ClassementDesColle
       onClick={onOuvrir}
       aria-label={`Les Divins : ${descendus} descendu${descendus > 1 ? 's' : ''} sur ${DIVINS.length}${chez.length > 0 ? `, ${chez.join(', ')}` : ''}. Ouvrir leur salle`}
     >
+      {/* « Chacun », comme dans leur salle : « 2 descendus sur 6 · 200 carats » se lisait comme ce que valent les deux
+          ensemble (« corrige », le propriétaire, le 9 novembre 2026). Avec lui, la ligne ne tient plus à côté du titre en 360 de
+          large : elle passe dessous, la flèche reste au bout du titre. */}
       <span className="cl-divins-bandeau-tete" aria-hidden="true">
         <b className="cl-divins-titre cl-divins-titre-petit">Les Divins</b>
-        <span>{`${descendus} descendu${descendus > 1 ? 's' : ''} sur ${DIVINS.length} · ${CARATS_DE_LA_GEMME.divin}\u00a0carats`}</span>
         <Icon name="chevron-down" className="cl-divins-bandeau-chevron" />
+        <span>{`${descendus} descendu${descendus > 1 ? 's' : ''} sur ${DIVINS.length} · ${CARATS_DE_LA_GEMME.divin}\u00a0carats chacun`}</span>
       </span>
       <span className="cl-divins-rangee" aria-hidden="true">
         {DIVINS.map(d => {

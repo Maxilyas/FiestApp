@@ -58,7 +58,10 @@ des collections”, mais c'est peut-être trop long » — « Classement des
 collections » partout où le nom se lit (`TITRE_DES_COLLECTIONNEURS`) : le
 gros bouton, en 360 de large, le coupe net après « Classement », sur deux
 lignes ; « Les collections » aurait tenu sur une. L'adresse reste
-`/collectionneurs`.
+`/collectionneurs`. Et le bandeau des Divins dit « 200 carats chacun »,
+comme leur salle — « 2 descendus sur 6 · 200 carats » se lisait comme ce
+que valent les deux ensemble (« corrige », le propriétaire) : la ligne passe
+sous le titre, qu'elle ne tenait plus à côté.
 
 Une maquette : les propositions sont posées dans le vrai client — ses avatars
 peints, ses finitions, ses bordures de ligue, ses Divins, ses matières, sa
