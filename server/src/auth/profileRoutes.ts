@@ -24,6 +24,7 @@ import type { CarteDeJoueur } from '../../../shared/carte'
 import { carteDuProfil } from '../core/carte'
 import type { CampagneStore } from '../core/campagne'
 import type { CabinetStore } from '../core/cabinet/magasin'
+import type { Collectionneurs } from '../core/collectionneurs'
 import { accueilDuCabinet } from '../core/cabinet/vue'
 import type { CabinetDAccueil } from '../../../shared/cabinet/vues'
 import { jourDe } from '../../../shared/jour'
@@ -68,6 +69,12 @@ interface ProfileApiDeps {
    * Absent là où le Cabinet est fermé : le bouton ne s'y montre pas.
    */
   cabinet?: Pick<CabinetStore, 'accueil'>
+  /**
+   * Sa place parmi les collectionneurs, pour le gros bouton de sa page
+   * (`Collectionneurs.resume`) : de mémoire seule, au dernier relevé — rien
+   * tant qu'il n'est pas relu.
+   */
+  collectionneurs?: Pick<Collectionneurs, 'resume'>
 }
 
 /**
@@ -161,10 +168,12 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     // qu'il porte et ses formes se relisent après elle — une forme atteinte
     // à l'instant se voit dès cette page.
     const compagnons = profiles.compagnonsOf(rec.id)
+    const collectionneur = deps.collectionneurs?.resume(rec.id)
     return {
       ...detail,
       legendaire: profiles.legendairePorte(rec),
       ...(compagnons.length > 0 && { compagnons }),
+      ...(collectionneur && { collectionneur }),
       jour,
       prix: CATALOGUE_DES_PRIX.map(p => ({ ...p, fois: fois.get(p.key) ?? 0 })),
       ecussons: ecussonsDe(detail.categories),

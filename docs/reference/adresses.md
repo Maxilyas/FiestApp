@@ -16,18 +16,19 @@ Une seule fonction, `parseRoute` (`shared/adresses.ts`), lit l'adresse des deux 
 
 ## Les pages sans espace
 
-Seize pages, l'accueil compris, dont l'adresse ne porte pas d'espace : celui d'une page d'animateur vient de sa session, celui d'une page de joueur de son profil.
+Dix-sept pages, l'accueil compris, dont l'adresse ne porte pas d'espace : celui d'une page d'animateur vient de sa session, celui d'une page de joueur de son profil.
 
 | Adresse | Page | Pour qui | Fichier |
 |---|---|---|---|
 | `/` | L'accueil : sans profil, trois gros boutons (« Jouer sans compte », « Me connecter », « Créer un profil ») ; avec un profil, ses gros boutons de jeu | tout le monde | `client/src/views/ProfilApp.tsx` |
-| `/profil` | « Mon profil » : sa ligne, puis « M'habiller », « Ma collection », « Mes soirées », « Ma carrière » ; sans profil, les trois gros boutons | profil | `client/src/views/ProfilApp.tsx` |
+| `/profil` | « Mon profil » : sa ligne, puis « M'habiller », « Ma collection », « Les collectionneurs », « Mes soirées », « Ma carrière » ; sans profil, les trois gros boutons | profil | `client/src/views/ProfilApp.tsx` |
 | `/boutique` | La boutique, d'un seul tenant : « À la une », les thèmes, les compagnons, les fonds, le comptoir des objets — et l'essai de ce qui s'y prête, avec son panier | profil | `client/src/views/ProfilApp.tsx` |
 | `/jour` | Le quiz du jour ; sans profil, une page qui le présente | profil | `client/src/views/JourApp.tsx` |
 | `/campagne` | La campagne : les séries, les sentiers, le défi de la semaine, le carnet | profil | `client/src/views/CampagneApp.tsx` |
 | `/duels` | Les duels : la cote, la ligue, les défis entre amis — joués sur l'écran de la campagne | profil | `client/src/views/CampagneApp.tsx`, `client/src/views/Duels.tsx` |
 | `/expedition` | L'Expédition : le départ et ses trois gardiens, la carte de l'acte en cours, ses escales, le légendaire à garder au bout ; en production, « L’expédition arrive bientôt » tant que ses jokers ne sont pas venus — aucun bouton n'y mène encore | profil | `client/src/views/ExpeditionApp.tsx` |
 | `/cabinet` | Le Cabinet de curiosités : la traversée — ses trois gardiens, trois cartes à choisir, la carte de ses trois actes en 3D, une épreuve à chaque étape, le coffre, le marchand, le légendaire au bout ; sans profil, comment se connecter ; là où il n'ouvre pas, la phrase du serveur. Rien dans le fragment : la page montre ce que la traversée attend, et une épreuve se reprend d'elle-même. Un gros bouton de l'accueil y mène tant que le serveur ne le dit pas fermé (`<meta name="cabinet">`) | profil | `client/src/views/CabinetApp.tsx`, `client/src/views/cabinet/` |
+| `/collectionneurs` | Les collectionneurs : sa place et ce que vaut sa collection, les Divins et qui les garde, le classement de six catégories — tous, ou ses amis —, la vitrine d'un joueur et le face-à-face ; sans profil, de quoi se connecter. « Les collectionneurs », sur « Mon profil », y mène | profil | `client/src/views/Collectionneurs.tsx` |
 | `/salon` | « Nouveau salon » : créer et ouvrir son salon depuis son profil (`?quiz=<id>` le prépare avec un quiz) | profil | `client/src/views/SalonApp.tsx` |
 | `/host` | L'écran commun et sa console ; sans session, la connexion et le code de la télé | animateur | `client/src/views/HostApp.tsx` |
 | `/tele` | La télé : sans session, le code qui la branche ; branchée, l'écran de la salle | une télé | `client/src/views/HostApp.tsx` |
@@ -138,7 +139,7 @@ Ce qu'on tape se corrige par `normalizeSlug` : accents retirés, minuscules, tou
 
 | Ce qu'ils protègent | Noms |
 |---|---|
-| des pages sans espace | `host`, `edit`, `compte`, `admin`, `connexion`, `activer`, `profil`, `jour`, `salon`, `tele`, `boutique`, `campagne`, `expedition`, `cabinet` (réservée avec les routes du Cabinet de curiosités, avant sa page) |
+| des pages sans espace | `host`, `edit`, `compte`, `admin`, `connexion`, `activer`, `profil`, `jour`, `salon`, `tele`, `boutique`, `campagne`, `expedition`, `cabinet` (réservée avec les routes du Cabinet de curiosités, avant sa page), `collectionneurs` |
 | les pages publiques, à la racine (leurs adresses d'avant) | `stats`, `souvenir`, `bilan`, `soirees` |
 | les chemins du serveur | `s`, `api`, `media`, `assets`, `fonts`, `healthz`, `socket.io` |
 | les dossiers des images peintes, servis avant la page | `portraits`, `medaillons`, `compagnons`, `ornements`, `decors`, `cartes` |

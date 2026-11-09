@@ -11,6 +11,7 @@ import {
   PRIX_D_UN_ECLAT,
   carriereDe,
   choixDeFinition,
+  apparenceDeLAvatar,
   clesQuiBrillent,
   ficheDe,
   finitionPortee,
@@ -180,7 +181,8 @@ import { moyennesDuSavoir } from '../../../shared/carte'
 import { isValidLogin, normalizeLogin } from '../../../shared/space'
 import { sansAccent } from '../../../shared/homonymes'
 import { divinsDebloques, raconter } from '../core/divins'
-import { titreDuPrix } from '../core/stats'
+import { CATALOGUE_DES_PRIX, titreDuPrix } from '../core/stats'
+import type { AutresDeLaCollection, ProfilDuCollectionneur } from '../core/collectionneurs'
 import type { ArchiveStore } from '../core/archive'
 import type { CampagneDuProfil, CoteDesDuels } from '../core/campagne'
 import type { ProfileBadge } from '../core/party'
@@ -4178,12 +4180,95 @@ export class ProfileStore {
   }
 
   /**
+   * Ce que la valeur de sa collection lit de lui (le classement des
+   * collectionneurs, `core/collectionneurs.ts`) : ce que « Ma collection » lit
+   * de sa page (`toDetail`), aux mêmes règles — sauf ses écussons, qui
+   * relisent toutes les réponses de tous les modes —, de mémoire seule :
+   * `byIds` d'abord. Ce que les autres magasins savent de lui — ses paliers
+   * des sentiers, ses bordures de ligue, son quiz du jour — et ses thèmes
+   * achetés (`themesAchetes`) lui sont passés. Ses Divins par leur seule
+   * clé, comme sa carte les montre : leur récit n'est qu'à lui (invariant 21).
+   */
+  collectionDe(p: ProfileRec, autres: AutresDeLaCollection): ProfilDuCollectionneur {
+    const id = p.id
+    const recompenses = this.recompensesOf(id)
+    const niveau = this.niveauOf(p)
+    const maitres = maitresDe(autres.paliers).length
+    const avatar = this.avatarPorte(p)
+    const apparence = this.apparenceDe(p, avatar)
+    return {
+      id,
+      nom: p.name,
+      creeLe: p.createdAt,
+      avatar,
+      apparence: apparenceDeLAvatar(apparence),
+      // Jamais sous un Divin, comme partout où il se montre.
+      bordure: apparence.legendaire && divin(apparence.legendaire) ? null : bordurePortee(p.bordure, autres.bordures),
+      niveau,
+      legendaires: this.legendairesOf(id),
+      // L'étoile du zénith de chacun, la règle de sa page (`toDetail`) : masquée dans la loge, elle compte encore.
+      scelles: legendairesScelles(recompenses, this.acquis.get(id)),
+      divins: this.divinsOf(id),
+      compagnons: this.compagnonsOf(id),
+      eclatsPoses: this.eclatsPosesOf(id),
+      eclates: this.eclatsOf(id),
+      matieres: this.matieresOf(id),
+      portees: this.matieresPorteesOf(id),
+      sentiers: autres.paliers,
+      bordures: [...autres.bordures],
+      hautsFaits: this.hautsFaitsVusDe(id, null, []),
+      prix: CATALOGUE_DES_PRIX.map(x => ({ ...x, fois: recompenses.get(x.key) ?? 0 })),
+      calendrier: { pages: pagesOuvertes(recompenses), dorees: pagesDorees(recompenses), mois: '', joursCeMois: 0 },
+      titresDates: titresDeChampion(recompenses),
+      ...this.defisVus(id),
+      themes: this.themesPossedes(p, autres.achetes, maitres),
+      fonds: this.fondsOuvertsDe(p, autres.jour, maitres),
+      gerbes: gerbesOuvertes(recompenses, this.tresorsOf(id)),
+      finitions: finitionsOuvertes(niveau),
+      timbres: timbresDe(recompenses).length,
+    }
+  }
+
+  /**
+   * Les thèmes achetés — à la boutique, ou tirés d'un coffre à prix nul —, de
+   * lui seul ou de tous, pour la valeur des collections (`collectionDe`) :
+   * une instruction, en un seul texte JSON — rien de sa boutique
+   * (`achatsDe`, ses neuf lectures).
+   */
+  async themesAchetes(profileId?: string): Promise<Map<string, Map<string, number>>> {
+    const lu = await this.client.execute(
+      profileId
+        ? { sql: 'SELECT json_group_array(json_array(profile_id, theme, prix)) AS v FROM profile_achats WHERE profile_id = ?', args: [profileId] }
+        : 'SELECT json_group_array(json_array(profile_id, theme, prix)) AS v FROM profile_achats',
+    )
+    const parProfil = new Map<string, Map<string, number>>()
+    for (const [qui, theme, prix] of JSON.parse(String(lu.rows[0]?.v ?? '[]')) as [string, string, number][])
+      (parProfil.get(qui) ?? parProfil.set(qui, new Map()).get(qui)!).set(theme, prix)
+    return parProfil
+  }
+
+  /** Une valeur que d'autres que les profils gardent dans `meta` — le relevé des collectionneurs (`core/collectionneurs.ts`) : null sans elle. */
+  async lireLaMeta(cle: string): Promise<string | null> {
+    const r = await this.client.execute({ sql: 'SELECT value FROM meta WHERE key = ?', args: [cle] })
+    return r.rows[0] ? String(r.rows[0].value) : null
+  }
+
+  async ecrireLaMeta(cle: string, valeur: string): Promise<void> {
+    await this.client.execute({ sql: 'INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', args: [cle, valeur] })
+  }
+
+  /**
    * Tout le catalogue des hauts faits, vu par ce profil : ceux de soirée avec
    * le nombre de fois, ceux de carrière avec leur palier et leur jauge. Ce
    * qu'on n'a pas encore se montre aussi — savoir ce qui vient donne envie de
    * revenir. Sans `carriere`, sans jauge : la loge ne compte que ce qu'il a.
    */
   private async hautsFaitsVus(id: string, carriere: Carriere | null, vitrine: readonly BadgePorte[]): Promise<HautFaitVu[]> {
+    return this.hautsFaitsVusDe(id, carriere, vitrine)
+  }
+
+  /** Les mêmes, d'une traite : de mémoire seule — le relevé des collectionneurs les lit pour tous, sans rien attendre. */
+  private hautsFaitsVusDe(id: string, carriere: Carriere | null, vitrine: readonly BadgePorte[]): HautFaitVu[] {
     const recompenses = this.recompensesOf(id)
     const rarete = new Map(vitrine.map(b => [b.key, b]))
     const soiree: HautFaitVu[] = HAUTS_FAITS_REGAGNABLES.map(h => {

@@ -147,7 +147,7 @@ const cartes = (html: string) => [...html.matchAll(/<h3>(?:<svg[^>]*>.*?<\/svg>)
 // Le souhait du propriétaire du 12 octobre 2026 : « un bouton pour la loge…
 // comme ça le profil est épuré, un bouton pour s'habiller, collection,
 // soirée et carrière » — sans la carte, le thème ni la gerbe sur la page.
-test('le profil épuré : qui l’on est, puis quatre boutons — cinq avec un compagnon —, la loge derrière « M’habiller »', async () => {
+test('le profil épuré : qui l’on est, puis quatre boutons — cinq avec un compagnon — et le lien des collectionneurs, la loge derrière « M’habiller »', async () => {
   const app = source('views/ProfilApp.tsx')
   const ecrans = [...app.matchAll(/\{ id: '(\w+)', nom: '([^']+)', groupe: '([^']+)'/g)].map(([, id, nom, groupe]) => `${groupe} › ${nom} (#${id})`)
   assert.deepEqual(ecrans, [
@@ -175,11 +175,17 @@ test('le profil épuré : qui l’on est, puis quatre boutons — cinq avec un c
   const page = app.slice(app.indexOf("// ── Le profil : qui l'on est, puis ses gros boutons ──"), app.indexOf('/**\n * Un onglet qui arrive'))
   assert.match(page, /<IdentiteLigne profil=\{profil\} onCarte=\{\(\) => setCarteOuverte\(true\)\} \/>\s*\{carteOuverte && laCarte && laCarte !== 'perdu' && <laCarte\.CarteJoueur adresse="\/api\/joueur\/carte" onFermer=\{\(\) => setCarteOuverte\(false\)\} \/>\}/)
   const boutons = page.slice(page.indexOf('<div className="profil-boutons">'), page.indexOf('<Glossaire'))
-  // « M'habiller » ouvre la loge sur la première pièce qui a du neuf, l'avatar d'office.
-  const gestes = [...boutons.matchAll(/<GrosBouton\s+icone=\{<Icon name="([\w-]+)" \/>\}\s+titre="([^"]+)"[\s\S]*?onClick=\{\(\) => ouvrir\((?:pieceNeuve \?\? )?'(\w+)'\)\}/g)].map(
+  // « M'habiller » ouvre la loge sur la première pièce qui a du neuf, l'avatar d'office. Chaque bouton se lit jusqu'à son
+  // geste sans passer au suivant : « Les collectionneurs », un lien sans `onClick`, y prenait celui de « Mes soirées ».
+  const gestes = [...boutons.matchAll(/<GrosBouton\s+icone=\{<Icon name="([\w-]+)" \/>\}\s+titre="([^"]+)"(?:(?!<GrosBouton)[\s\S])*?onClick=\{\(\) => ouvrir\((?:pieceNeuve \?\? )?'(\w+)'\)\}/g)].map(
     ([, icone, titre, ecran]) => `${titre} (${icone}) → #${ecran}`,
   )
   assert.deepEqual(gestes, ['M’habiller (hanger) → #avatar', 'Ma collection (award) → #collection', 'Mes soirées (book) → #soirees', 'Ma carrière (bar-chart) → #carriere'])
+  // « Les collectionneurs », juste sous ce qu'ils comptent (la maquette du 9 novembre 2026) : un lien vers leur page, pas un écran du profil.
+  assert.match(
+    boutons,
+    /ouvrir\('collection'\)\}\s*\/>\s*\{\/\*[^*]*\*\/\}\s*<GrosBouton icone=\{<Icon name="trophy" \/>\} titre="Les collectionneurs" detail=\{detailDesCollectionneurs\(profil\.collectionneur\)\} href="\/collectionneurs" \/>\s*<GrosBouton\s+icone=\{<Icon name="book" \/>\}\s+titre="Mes soirées"/,
+  )
   // Et, juste après « M'habiller », « Mon compagnon » pour qui en a un : sa niche en petit dès que son code est là.
   assert.match(
     boutons,

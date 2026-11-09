@@ -21,7 +21,7 @@ import { retenirLeCompte, useNouveautesDuMenu } from '../nouveautes'
 import { FormulaireSoiree } from '../components/Rejoindre'
 import { annonceDuChoix, type ChoixDuProfil, type GardeDeLaLoge } from '../components/choix'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
-import { espacesFines, formatNumber } from '../format'
+import { espacesFines, formatNumber, rang } from '../format'
 import { hautFait } from '../../../shared/hautsfaits'
 import { route } from '../routes'
 import { derniereSoireeGardee } from '../state'
@@ -842,6 +842,9 @@ export function ProfilApp() {
           detail="Avatars, thèmes, trophées — et où gagner le reste"
           onClick={() => ouvrir('collection')}
         />
+        {/* Les collectionneurs (la maquette du 9 novembre 2026), juste sous ce qu'ils comptent : sa place et ce que vaut
+            sa collection, au dernier relevé — dits avant qu'on le touche. Une page à part : un lien. */}
+        <GrosBouton icone={<Icon name="trophy" />} titre="Les collectionneurs" detail={detailDesCollectionneurs(profil.collectionneur)} href="/collectionneurs" />
         <GrosBouton
           icone={<Icon name="book" />}
           titre="Mes soirées"
@@ -983,6 +986,18 @@ const VUE: 'accueil' | 'profil' | 'boutique' =
 
 /** L'écran d'où l'on a ouvert celui-ci, gardé dans l'historique — null : les tuiles. « ← » y revient d'un cran. */
 const DEPUIS = 'fiestappProfilDepuis'
+
+/**
+ * Ce que le gros bouton des collectionneurs dit de lui : sa place et ce que
+ * vaut sa collection au dernier relevé ; rien de chiffré tant que le serveur
+ * ne l'a pas relu, ni pour qui n'a encore rien à classer.
+ */
+function detailDesCollectionneurs(r: PublicProfileDetail['collectionneur']): string {
+  if (!r) return 'Ta place, et ce que vaut ta collection'
+  // Le nombre et son unité d'un bloc : « carats » restait seul sur sa ligne en 360 de large.
+  const valeur = `ta collection vaut ${formatNumber(r.carats)}\u00a0carat${r.carats >= 2 ? 's' : ''}`
+  return r.rang ? `${rang(r.rang)} sur\u00a0${formatNumber(r.classes)} · ${valeur}` : `${valeur.charAt(0).toUpperCase()}${valeur.slice(1)}`
+}
 
 /**
  * Les adresses d'avant mènent à la page qui les a reprises — un onglet,

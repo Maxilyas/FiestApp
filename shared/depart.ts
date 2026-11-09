@@ -40,6 +40,8 @@ export const DEPART = {
   campagne: '/api/campagne',
   /** La page des duels : sa cote, sa ligue, sa semaine, le classement. */
   duels: '/api/duels',
+  /** Le classement des collectionneurs : sa place à chaque catégorie, les têtes, ses amis, les Divins. */
+  collectionneurs: '/api/collectionneurs',
   /** L'expédition en route, sinon la prochaine et ses gardiens. */
   expedition: '/api/expedition',
   /**
@@ -114,6 +116,9 @@ export function donneesDeDepart(route: Route): string[] {
         return [DEPART.campagne, DEPART.moiLeger]
       case 'duels':
         return [DEPART.duels, DEPART.moiLeger]
+      // Elle ne lit pas le profil : le thème seul, que `confirmerTheme` demande.
+      case 'collectionneurs':
+        return [DEPART.collectionneurs, DEPART.theme]
       case 'expedition':
         return [DEPART.expedition, DEPART.moiLeger]
       case 'cabinet':

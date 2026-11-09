@@ -48,6 +48,7 @@ import type { CompagnonAcquis } from '../../shared/compagnons'
 import type { ReglageDesOrnements } from '../../shared/ornements'
 import type { CadeauOuvert, CueilletteEcrite, SoinsDuProfil } from '../../shared/soins'
 import type { EnjeuDuDuel, EtatDesDuels, FaceAFace, JoueurADefier, JoueurCroise, PageDHistoire } from '../../shared/duels'
+import type { ClassementDesCollections, VitrineDUnCollectionneur } from '../../shared/collectionneurs'
 import type { DirectDuQg, JournalDuQg, PageDesSoirees, SorteDeGeste, VueDEnsemble } from '../../shared/qg'
 import type { AccuseDeReponse, PageDesAnnonces, QuestionDAnnonce } from '../../shared/annonces'
 import type { DemandeDAffiche, PageDesAffiches } from '../../shared/affiches'
@@ -781,6 +782,12 @@ export const api = {
     amis: () => req<AmisDeLaFeuille>('/api/duels/amis'),
     /** Des joueurs croisés — une soirée, un duel, le défi de la semaine, son niveau —, pour « Contre qui ? ». */
     croises: () => req<JoueurCroise[]>('/api/duels/croises'),
+  },
+  /** Le classement des collectionneurs (`shared/collectionneurs.ts`) : sa page, `/collectionneurs`. */
+  collectionneurs: {
+    classement: () => req<ClassementDesCollections>(DEPART.collectionneurs),
+    /** La vitrine d'un joueur : sa fiche, sa place, ses pièces maîtresses. */
+    vitrine: (profileId: string) => req<VitrineDUnCollectionneur>(`/api/collectionneurs/${encodeURIComponent(profileId)}`),
   },
   jour: {
     etat: () => avecLHeure(() => req<PartieDuJour>(DEPART.jour), DEPART.jour),

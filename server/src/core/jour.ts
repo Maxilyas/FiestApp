@@ -2986,6 +2986,15 @@ export class JourStore {
     return this.masques.has(profileId)
   }
 
+  /**
+   * Monte à chaque masquage ou démasquage, à chaque suspension ou
+   * réactivation : ce qui se classe sans eux et se garde — le classement des
+   * collectionneurs (`core/collectionneurs.ts`) — se refait quand elle change.
+   */
+  versionDesExclus(): string {
+    return `${this.versionDesMasques}#${this.versionDesSuspensions}`
+  }
+
   /** Ce que la carte d'un joueur dit de son quiz du jour : les jours joués, les victoires. */
   async resumeDe(profileId: string): Promise<{ joues: number; victoires: number }> {
     const [joues, victoires] = await this.client.batch(
@@ -2996,6 +3005,27 @@ export class JourStore {
       'read',
     )
     return { joues: Number(joues.rows[0]?.n ?? 0), victoires: Number(victoires.rows[0]?.n ?? 0) }
+  }
+
+  /**
+   * Les jours joués et les victoires de chacun (`resumeDe`), pour le relevé de
+   * fond des collectionneurs (`core/collectionneurs.ts`) : ce qui ouvre la
+   * Nuit étoilée et le Kintsugi. D'un lot, chacune en un seul texte JSON — le
+   * client de la base décode chaque ligne à grands frais ; les parties se
+   * comptent sur la clé de leur table, sans en lire une colonne.
+   */
+  async resumesDeTous(): Promise<Map<string, { joues: number; victoires: number }>> {
+    const [joues, victoires] = await this.client.batch(
+      [
+        'SELECT json_group_array(json_array(profile_id, n)) AS v FROM (SELECT profile_id, COUNT(*) AS n FROM jour_parties GROUP BY profile_id)',
+        'SELECT json_group_array(json_array(profile_id, n)) AS v FROM (SELECT profile_id, COUNT(*) AS n FROM jour_podiums WHERE rang = 1 GROUP BY profile_id)',
+      ],
+      'read',
+    )
+    const resumes = new Map<string, { joues: number; victoires: number }>()
+    for (const [id, n] of JSON.parse(String(joues.rows[0]?.v ?? '[]')) as [string, number][]) resumes.set(id, { joues: n, victoires: 0 })
+    for (const [id, n] of JSON.parse(String(victoires.rows[0]?.v ?? '[]')) as [string, number][]) resumes.set(id, { joues: resumes.get(id)?.joues ?? 0, victoires: n })
+    return resumes
   }
 
   /**

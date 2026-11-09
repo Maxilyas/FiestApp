@@ -378,6 +378,10 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/jardin.test.ts` — les règles pures du soin et du jardin : trente trouvailles, le cadeau tiré à ses chances, les deux légendaires par exploit, le terrain qui grandit.
 - `server/test/soins.test.ts` — s'occuper de son compagnon sur un serveur jetable : trois envies par jour, le cadeau tiré une fois, la cueillette, le jardin vérifié place par place, rien qui reste d'un profil supprimé.
 - `server/test/luciole.test.ts` — la luciole, qui ne s'achète pas : la Première traversée la donne, et la première salle complète du Cabinet de curiosités ; installée dans une niche vide, jamais à la place d'un autre.
+- `server/test/collectionneurs.test.ts` — la valeur d'une collection en carats : le barème (un Divin, huit légendaires), ses trois familles, une matière comptée comme un Éclat et jamais comme un avatar, l'Opale qui ne coûte rien, un Divin sans Éclat ; le classement de chaque catégorie — les ex æquo, qui n'a rien pas classé —, celui à passer, les rangs d'une collection, les pièces maîtresses, le face-à-face sans les thèmes.
+- `server/test/collectionneurs-page.test.ts` — les collectionneurs sur un serveur jetable : le premier relevé en fond, ni masqué ni suspendu, la vitrine, ni le récit d'un Divin ni le soir où il est descendu, la page rouverte qui ne relit rien et sa fiche d'un aller-retour, le relevé gardé dans la base et repris au réveil, puis refait en fond quand il vieillit.
+- `server/test/collectionneurs-fond.test.ts` — le relevé de tous en fond : une tranche par tour de boucle, rien pendant qu'une question attend ses réponses, un relevé à la fois.
+- `server/test/collectionneurs-index.test.ts` — les épreuves validées de tous, lues par leur index partiel, sous des statistiques de production.
 
 ### Les récompenses
 

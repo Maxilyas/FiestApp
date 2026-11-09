@@ -3,6 +3,8 @@ import { composerUnQuizEnTranches, dejaDansLEspace, idDeLaBase, lireChoixDuQuiz,
 import { enTranches } from './core/tourniquet'
 import { dernieresFois } from './core/memoire'
 import { mountBaseDeLaCampagne, mountCampagne, mountCampagneAdmin } from './campagne'
+import { mountCollectionneurs } from './collectionneurs'
+import type { Collectionneurs } from './core/collectionneurs'
 import { expeditionOuverte, mountExpedition } from './expedition'
 import { mountCabinet } from './cabinet'
 import type { CabinetStore } from './core/cabinet/magasin'
@@ -95,6 +97,8 @@ interface ApiDeps {
   rappels: RappelStore
   /** La campagne solo : ses séries, pour les profils. */
   campagne: CampagneStore
+  /** Le classement des collectionneurs : le relevé de tous, en fond, et la fiche de chacun à sa visite. */
+  collectionneurs: Collectionneurs
   /** Les rencontres de l'expédition s'ouvrent sur ce serveur (`rencontresOuvertes`, calculé une fois au démarrage). */
   rencontres: boolean
   /** La question au centre de l'expédition (v10) s'offre au départ sur ce serveur (`questionAuCentreOuverte`, calculé de même). */
@@ -173,6 +177,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
     jour: deps.jour,
     maintenant: deps.maintenant,
     campagne: deps.campagne,
+    collectionneurs: deps.collectionneurs,
     // Le bouton du Cabinet sur l'accueil dit son musée, là où le Cabinet répond : ailleurs, l'accueil n'a pas de bouton pour lui.
     ...(deps.cabinet.ouvert && { cabinet: deps.cabinet.magasin }),
   })
@@ -180,6 +185,8 @@ export function mountApi(app: Express, deps: ApiDeps) {
   mountJour(app, { jour: deps.jour, profiles: deps.profiles, maintenant: deps.maintenant, rappels: deps.rappels })
   // La campagne aussi : seul, avec son profil.
   mountCampagne(app, { campagne: deps.campagne, profiles: deps.profiles })
+  // Le classement des collectionneurs, avec son profil aussi : la mémoire du relevé, et sa fiche de l'instant.
+  mountCollectionneurs(app, { collectionneurs: deps.collectionneurs, profiles: deps.profiles })
   // L'expédition, une partie de la campagne d'un autre mode : ouverte en production depuis ses jokers, tant que son drapeau l'ouvre.
   // Ses rencontres sont le jeu partout depuis le 19 octobre 2026 — calculées une fois (`server.ts`).
   // Remplacée par le Cabinet (`EXPEDITION_REMPLACEE`), l'Expédition n'a plus aucune route : effacée, pas seulement fermée au départ.
