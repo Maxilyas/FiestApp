@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { api, motifDe, UnauthorizedError } from '../api'
 import { TITRE_DES_COLLECTIONNEURS } from '../titres'
 import { Feuille, MenuBarre, PieceTete, Sortie } from '../components/Pieces'
 import { Avatar, Dessin } from '../components/Avatar'
+import { useDessins } from '../components/medaillons'
 import { Icon } from '../components/Icon'
 import { BlasonDeLigue } from '../components/Blason'
 import { useCarteDUnProfil } from '../components/CarteDUnProfil'
@@ -13,7 +14,7 @@ import { BRANCHES, branche, portrait } from '../../../shared/branches'
 import { legendaire } from '../../../shared/legendaires'
 import { formeDeCompagnon } from '../../../shared/compagnons'
 import { DIVINS, divin } from '../../../shared/divins'
-import { NOM_DE_LA_MATIERE, estUneMatiere } from '../../../shared/matieres'
+import { MATIERES_A_TAILLER, NOM_DE_LA_MATIERE, estUneMatiere } from '../../../shared/matieres'
 import {
   CARATS_DE_LA_GEMME,
   CARATS_DE_LA_LIGUE,
@@ -23,6 +24,7 @@ import {
   CARATS_D_UN_ECLAT,
   CARATS_D_UN_FOND,
   CARATS_D_UN_MAITRE,
+  CARATS_DU_THEME,
   CARATS_DU_ZENITH,
   CARATS_D_UN_TIMBRE,
   CARATS_D_UN_TROPHEE,
@@ -31,6 +33,7 @@ import {
   bilanDuFaceAFace,
   celuiAPasser,
   classerLesCollectionneurs,
+  enLegendaires,
   lignesDuFaceAFace,
   rangDeCollection,
   valeurDansLaCategorie,
@@ -706,26 +709,208 @@ function FaceAFace({ moi, lui, onCarte, onFermer }: { moi: FicheDeCollectionneur
   )
 }
 
-/** Le barème, replié sous le classement : ce que vaut chaque pièce. */
+/**
+ * Le barème, replié sous le classement : ce que vaut chaque pièce, à voir
+ * plutôt qu'à lire (le propriétaire, le 9 novembre 2026 : « je ne veux pas un
+ * gros pavé mais plutôt privilégier le visuel » — un paragraphe de huit lignes
+ * le disait jusque-là). Il ne se rend qu'ouvert : replié, il n'est qu'un
+ * titre, et l'étoile du zénith n'y fait pas venir pour rien les dessins des
+ * légendaires.
+ */
 function LeBareme() {
+  const [ouvert, setOuvert] = useState(false)
   return (
-    <details className="cl-bareme">
+    <details className="cl-bareme" onToggle={e => setOuvert(e.currentTarget.open)}>
       <summary>Comment se compte la valeur ?</summary>
-      <p className="muted small">Chaque avatar de l’album vaut sa gemme :</p>
-      <ul className="cl-bareme-gemmes">
-        {RARETES_D_AVATAR.map(g => (
-          <li key={g}>
-            <Pierre gemme={g} />
-            {/* Abrégée comme sous les gemmes de l'album : « Peu commune » passait sur deux lignes et décalait son chiffre. */}
-            <span aria-label={NOM_DE_RARETE_D_AVATAR[g]}>{NOM_COURT_DE_RARETE_D_AVATAR[g]}</span>
-            <b>{CARATS_DE_LA_GEMME[g]}</b>
-          </li>
-        ))}
-      </ul>
-      <p className="muted small">
-        {`Un Éclat vaut un légendaire (${CARATS_D_UN_ECLAT}), qu’il fasse éclater un avatar ou y taille une matière — l’Opale, offerte par les quatre, ne compte pas. Un maître de sentier en vaut un aussi (${CARATS_D_UN_MAITRE}) ; l’étoile du zénith d’un légendaire scellé, sa voie d’origine tenue, en vaut deux (${CARATS_DU_ZENITH}) ; un sceau du Cabinet ${CARATS_DU_SCEAU.bronze}, ${CARATS_DU_SCEAU.argent} ou ${CARATS_DU_SCEAU.or} selon son métal ; un autre trophée et un timbre ${CARATS_D_UN_TROPHEE} et ${CARATS_D_UN_TIMBRE}. Un thème vaut sa gemme, un fond et une gerbe ${CARATS_D_UN_FOND} et ${CARATS_D_UNE_GERBE}, une finition ${CARATS_D_UNE_FINITION}, une bordure de ligue de ${CARATS_DE_LA_LIGUE.bronze} au bronze à ${CARATS_DE_LA_LIGUE.maitre} chez les maîtres. Un Divin vaut huit légendaires — comment il descend ne se dit pas.`}
-      </p>
+      {ouvert && <LeBaremeEnVitrines />}
     </details>
+  )
+}
+
+/** Une pièce comptée en légendaires : son dessin, son nom — et ce qui le précise —, sa phrase à l'oreille, ses carats. */
+interface PieceEnLegendaires {
+  dessin: ReactNode
+  nom: string
+  sous?: string
+  dit: string
+  carats: number
+}
+
+/** Une petite pièce, en vignette : son dessin, sa valeur — un nombre, ou de quoi à quoi —, son nom, sa phrase à l'oreille. */
+interface PetitePiece {
+  dessin: ReactNode
+  valeur: string
+  nom: string
+  dit: string
+}
+
+const enCarats = (n: number) => `${formatNumber(n)}\u00a0${carats(n)}`
+
+/** Les gemmes d'un avatar en escalier, de la commune à la légendaire : le Divin, huit légendaires, se compte plus bas. */
+const GEMMES_EN_ESCALIER = RARETES_D_AVATAR.filter(g => g !== 'divin')
+
+/**
+ * Trois vitrines, presque sans phrase : l'escalier des gemmes d'un avatar ;
+ * ce qui se compte en légendaires, une gemme d'or chacun, que l'œil compare
+ * d'un coup — l'Éclat et chaque matière, le maître, l'étoile du zénith, le
+ * Divin — ; les trophées et le style, en vignettes. Chaque pièce se dit
+ * entière à l'oreille.
+ */
+function LeBaremeEnVitrines() {
+  const enLegendairesDe: PieceEnLegendaires[] = [
+    { dessin: <i className="cl-gemme-eclat" />, nom: 'Éclat', dit: 'Un Éclat posé', carats: CARATS_D_UN_ECLAT },
+    { dessin: <Matieres />, nom: 'Matière', sous: 'sauf l’Opale', dit: 'Chaque matière taillée — l’Opale, offerte par les quatre, ne compte pas', carats: CARATS_D_UN_ECLAT },
+    { dessin: <Icon name="crown" />, nom: 'Maître', sous: 'd’un sentier', dit: 'Un maître de sentier', carats: CARATS_D_UN_MAITRE },
+    { dessin: <EtoileDuZenith />, nom: 'Zénith', sous: 'légendaire scellé', dit: 'L’étoile du zénith d’un légendaire scellé', carats: CARATS_DU_ZENITH },
+  ]
+  const { bronze, argent, or } = CARATS_DU_SCEAU
+  const petites: PetitePiece[] = [
+    { dessin: <SceauxDuBareme />, valeur: `${bronze}·${argent}·${or}`, nom: 'Sceau', dit: `Un sceau du Cabinet : ${bronze}, ${argent} ou ${or}\u00a0carats selon son métal` },
+    { dessin: <Icon name="trophy" />, valeur: `${CARATS_D_UN_TROPHEE}`, nom: 'Trophée', dit: `Un autre trophée : ${enCarats(CARATS_D_UN_TROPHEE)}` },
+    { dessin: <TimbreDuBareme />, valeur: `${CARATS_D_UN_TIMBRE}`, nom: 'Timbre', dit: `Un timbre des fêtes : ${enCarats(CARATS_D_UN_TIMBRE)}` },
+    { dessin: <i className="cl-bareme-finition" />, valeur: `${CARATS_D_UNE_FINITION}`, nom: 'Finition', dit: `Une finition : ${enCarats(CARATS_D_UNE_FINITION)}` },
+    { dessin: <Icon name="palette" />, valeur: `${CARATS_DU_THEME.commune}–${CARATS_DU_THEME.legendaire}`, nom: 'Thème', dit: `Un thème : sa gemme, de ${CARATS_DU_THEME.commune} à ${CARATS_DU_THEME.legendaire}\u00a0carats` },
+    { dessin: <i className="cl-bareme-fond" />, valeur: `${CARATS_D_UN_FOND}`, nom: 'Fond', dit: `Un fond de carte : ${enCarats(CARATS_D_UN_FOND)}` },
+    { dessin: <Icon name="artifice" />, valeur: `${CARATS_D_UNE_GERBE}`, nom: 'Gerbe', dit: `Une gerbe : ${enCarats(CARATS_D_UNE_GERBE)}` },
+    {
+      dessin: <BlasonsDuBareme />,
+      valeur: `${CARATS_DE_LA_LIGUE.bronze}–${CARATS_DE_LA_LIGUE.maitre}`,
+      nom: 'Bordure',
+      dit: `Une bordure de ligue : de ${enCarats(CARATS_DE_LA_LIGUE.bronze)} au bronze à ${enCarats(CARATS_DE_LA_LIGUE.maitre)} chez les maîtres`,
+    },
+  ]
+  return (
+    <div className="cl-bareme-vitrines">
+      <section>
+        <h3 className="label">Un avatar vaut sa gemme</h3>
+        <ul className="cl-bareme-escalier">
+          {GEMMES_EN_ESCALIER.map((g, i) => (
+            <li key={g} style={{ ...gemmeDAvatar(g), '--marche': i + 1 } as CSSProperties}>
+              <Pierre gemme={g} />
+              <i className="cl-bareme-marche" aria-hidden="true" />
+              <b aria-hidden="true">{CARATS_DE_LA_GEMME[g]}</b>
+              {/* Abrégée comme sous les gemmes de l'album : « Peu commune » passait sur deux lignes et décalait son chiffre. */}
+              <span className="cl-bareme-piece-nom" aria-hidden="true">
+                {NOM_COURT_DE_RARETE_D_AVATAR[g]}
+              </span>
+              <span className="sr-only">{`${NOM_DE_RARETE_D_AVATAR[g]} : ${enCarats(CARATS_DE_LA_GEMME[g])}`}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+      <section>
+        <header className="cl-bareme-tete">
+          <h3 className="label">En légendaires</h3>
+          <span className="cl-bareme-unite">
+            <Pierre gemme="legendaire" petite />
+            <span aria-hidden="true">{`=\u00a0${CARATS_DE_LA_GEMME.legendaire}`}</span>
+            <span className="sr-only">{`Un légendaire vaut ${enCarats(CARATS_DE_LA_GEMME.legendaire)}`}</span>
+          </span>
+        </header>
+        <ul className="cl-bareme-legendaires">
+          {enLegendairesDe.map(p => (
+            <LigneEnLegendaires key={p.nom} piece={p} />
+          ))}
+          <LigneEnLegendaires
+            divin
+            piece={{ dessin: <Pierre gemme="divin" />, nom: 'Divin', dit: 'Un Divin descendu', carats: CARATS_DE_LA_GEMME.divin }}
+          />
+        </ul>
+        <p className="cl-divins-secret cl-divins-secret-petit">Comment un Divin descend ne se dit pas.</p>
+      </section>
+      <section>
+        <h3 className="label">Trophées et style</h3>
+        <ul className="cl-bareme-pieces">
+          {petites.map(p => (
+            <li key={p.nom}>
+              <span className="cl-bareme-socle" aria-hidden="true">
+                {p.dessin}
+              </span>
+              <b aria-hidden="true">{p.valeur}</b>
+              <span className="cl-bareme-piece-nom" aria-hidden="true">
+                {p.nom}
+              </span>
+              <span className="sr-only">{p.dit}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
+  )
+}
+
+/** Une ligne de « En légendaires » : son dessin, son nom, une gemme d'or par légendaire, ses carats au bout. */
+function LigneEnLegendaires({ piece: p, divin }: { piece: PieceEnLegendaires; divin?: boolean }) {
+  const n = enLegendaires(p.carats)
+  return (
+    <li className={divin ? 'cl-bareme-divin' : undefined}>
+      <span className="sr-only">{`${p.dit} : ${n === 1 ? 'un légendaire, ' : n ? `${n} légendaires, ` : ''}${enCarats(p.carats)}`}</span>
+      <span className="cl-bareme-dessin" aria-hidden="true">
+        {p.dessin}
+      </span>
+      <span className="cl-bareme-nom" aria-hidden="true">
+        <b>{p.nom}</b>
+        {p.sous && <small>{p.sous}</small>}
+      </span>
+      <span className="cl-bareme-or" aria-hidden="true">
+        {Array.from({ length: n ?? 0 }, (_, i) => (
+          <Pierre key={i} gemme="legendaire" petite />
+        ))}
+      </span>
+      <b className="cl-bareme-valeur" aria-hidden="true">
+        {formatNumber(p.carats)}
+      </b>
+    </li>
+  )
+}
+
+/** Les quatre matières qu'un Éclat taille, chacune sa gemme à ses couleurs, comme au coin d'un avatar. */
+function Matieres() {
+  return (
+    <span className="cl-bareme-matieres">
+      {MATIERES_A_TAILLER.map(m => (
+        <i key={m} className={`cl-gemme-eclat av-matiere-${m}`} />
+      ))}
+    </span>
+  )
+}
+
+/** L'étoile du zénith, seule — celle qui couronne un légendaire scellé, venue avec leurs dessins. */
+function EtoileDuZenith() {
+  const { Sceau } = useDessins('legendaire')
+  return <span className="cl-bareme-etoile">{Sceau && <Sceau finition="mat" />}</span>
+}
+
+/**
+ * Un timbre en petit : son papier dentelé — un masque, qui couperait aussi une ombre posée sur lui —, et son filet
+ * d'ombre sur ce qui l'enveloppe : sous Ivoire, son papier crème se perdait dans le socle, dentelure comprise.
+ */
+function TimbreDuBareme() {
+  return (
+    <span className="cl-bareme-timbre">
+      <i />
+    </span>
+  )
+}
+
+/** Les trois métaux d'un sceau du Cabinet, comme sur une ligne du classement. */
+function SceauxDuBareme() {
+  return (
+    <span className="cl-sceaux">
+      <i className="cl-sceau-bronze" />
+      <i className="cl-sceau-argent" />
+      <i className="cl-sceau-or" />
+    </span>
+  )
+}
+
+/** De la bordure du bronze à celle des maîtres. */
+function BlasonsDuBareme() {
+  return (
+    <span className="cl-bareme-blasons">
+      <BlasonDeLigue ligue="bronze" taille={15} decoratif />
+      <BlasonDeLigue ligue="maitre" taille={19} decoratif />
+    </span>
   )
 }
 

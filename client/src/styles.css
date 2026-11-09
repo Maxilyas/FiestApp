@@ -3865,6 +3865,10 @@ h3 > .icon {
   height: 0.42em;
   z-index: 2;
   pointer-events: none;
+}
+/* Son dessin — que le barème des collectionneurs montre aussi, seul (`.cl-gemme-eclat`) : une seule gemme de l'Éclat. */
+.av-eclat::after,
+.cl-gemme-eclat {
   background:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3.5 9h17L12 20.5Z' fill='%23000' fill-opacity='0.16'/%3E%3Cpath d='M7 4.5 9.5 9 12 4.5 14.5 9 17 4.5' fill='none' stroke='%231a1020' stroke-opacity='0.45' stroke-width='1.1' stroke-linejoin='round'/%3E%3Cpath d='M7 4.5h10l3.5 4.5L12 20.5 3.5 9Z' fill='none' stroke='%231a1020' stroke-width='2.4' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat,
     linear-gradient(135deg, var(--gemme-1, #f2fdff), var(--gemme-2, #f0c6ff) 50%, var(--gemme-3, #ffe39a));
@@ -17237,11 +17241,98 @@ span.annonce-admin-merci { cursor: default; }
 .cl-bareme { margin: 16px 0 0; padding: 10px 12px; border: 1px solid var(--edge); border-radius: 12px; background: var(--surface); }
 .cl-bareme summary { min-height: 28px; font-size: 0.86rem; font-weight: 600; cursor: pointer; }
 .cl-bareme p { margin: 6px 0; }
-/* Chaque colonne à la largeur de son nom, l'espace entre elles : égales, « Commune » et « Peu com. » se touchaient en 360. */
-.cl-bareme-gemmes { display: grid; grid-template-columns: repeat(6, auto); justify-content: space-between; gap: 4px; margin: 8px 0; padding: 0; list-style: none; text-align: center; }
-.cl-bareme-gemmes li { display: flex; flex-direction: column; align-items: center; gap: 5px; color: var(--muted); font-size: var(--t-label); }
-.cl-bareme-gemmes li .cl-pierre { margin-top: 3px; }
-.cl-bareme-gemmes b { font-family: var(--serif); font-size: 1.25rem; line-height: 1; color: var(--ink); font-variant-numeric: lining-nums; }
+/* Ouvert, trois vitrines plutôt qu'un paragraphe (« pas un gros pavé », le propriétaire, le 9 novembre 2026). */
+.cl-bareme-vitrines { display: grid; gap: 18px; margin: 12px 0 4px; }
+.cl-bareme-vitrines h3 { margin: 0 0 10px; }
+.cl-bareme-vitrines ul { margin: 0; padding: 0; list-style: none; }
+
+/* L'escalier des gemmes : chacune sur sa marche, plus haute à chaque rareté ; le chiffre et le nom au pied, alignés. */
+.cl-bareme-escalier { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: end; gap: 6px; text-align: center; }
+.cl-bareme-escalier li { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.cl-bareme-escalier .cl-pierre { width: 14px; height: 14px; margin-bottom: 3px; }
+.cl-bareme-marche {
+  display: block;
+  width: 100%;
+  height: calc(var(--marche) * 8px);
+  border-radius: 7px 7px 2px 2px;
+  /* Sans `color-mix`, une marche sans couleur plutôt que rien. */
+  background: rgba(127, 127, 127, 0.14);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--gemme) 45%, transparent), color-mix(in srgb, var(--gemme) 6%, transparent));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--gemme) 80%, white);
+}
+.cl-bareme-escalier b { font-family: var(--serif); font-size: 1.3rem; font-weight: 600; line-height: 1; color: var(--ink); font-variant-numeric: lining-nums tabular-nums; }
+.cl-bareme-escalier .cl-bareme-piece-nom { white-space: nowrap; }
+
+/* En légendaires : une gemme d'or par légendaire, alignées d'une ligne à l'autre — l'œil compare leurs longueurs. */
+.cl-bareme-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.cl-bareme-tete h3 { margin-bottom: 10px; }
+.cl-bareme-unite { display: inline-flex; align-items: center; gap: 6px; color: var(--accent-text); font-family: var(--serif); font-size: 1.05rem; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
+.cl-bareme-legendaires { display: grid; gap: 6px; }
+.cl-bareme-legendaires li { display: grid; grid-template-columns: 30px minmax(0, 1fr) 94px 2.3rem; align-items: center; column-gap: 10px; min-height: 36px; padding: 2px 6px; border-radius: 12px; }
+.cl-bareme-dessin { display: grid; place-items: center; width: 30px; height: 30px; color: var(--accent); }
+.cl-bareme-dessin .icon { width: 24px; height: 24px; }
+.cl-bareme-nom { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.cl-bareme-nom b { font-size: 0.92rem; }
+.cl-bareme-nom small { color: var(--muted); font-size: var(--t-label); }
+.cl-bareme-or { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.cl-bareme-valeur { justify-self: end; font-family: var(--serif); font-size: 1.3rem; font-weight: 600; line-height: 1; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
+/* Le Divin : de nuit, son opale autour, comme son bandeau — la plus longue rangée d'or. */
+.cl-bareme-legendaires li.cl-bareme-divin { margin-top: 4px; padding: 6px; background: #1b1424; color: #eadfff; box-shadow: inset 0 0 0 1px rgba(201, 182, 255, 0.55), 0 0 14px rgba(201, 182, 255, 0.16); }
+.cl-bareme-divin .cl-bareme-valeur { color: #f6dd94; }
+.cl-bareme-divin .cl-pierre-divin { width: 17px; height: 17px; border-radius: 4px; box-shadow: 0 0 10px rgba(201, 182, 255, 0.65); }
+
+/* La gemme de l'Éclat, seule ou aux couleurs de chaque matière (son dessin est celui du coin d'un avatar, plus haut). */
+.cl-gemme-eclat { display: block; flex: none; width: 24px; height: 24px; }
+.cl-bareme-matieres { display: grid; grid-template-columns: repeat(2, 12px); gap: 2px; }
+.cl-bareme-matieres .cl-gemme-eclat { width: 12px; height: 12px; }
+/* L'étoile du zénith, seule, son halo figé derrière : ses rayons, fins comme ses branches, la noyaient (rendu du
+   9 novembre 2026), et il n'y a pas de cercle dont faire le tour. Plus grande que sa case : ses branches sont fines. */
+.cl-bareme-etoile { position: relative; display: block; width: 30px; height: 30px; }
+.cl-bareme-etoile .sc { top: -8px; left: -8px; width: calc(100% + 16px); height: calc(100% + 16px); margin: 0; }
+.cl-bareme-etoile .sc-tour,
+.cl-bareme-etoile .sc-rayons { display: none; }
+
+/* Les trophées et le style, en vignettes : chaque pièce sur son socle rond, sa valeur à l'or, son nom dessous. */
+.cl-bareme-pieces { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 6px; text-align: center; }
+.cl-bareme-pieces li { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; }
+.cl-bareme-socle { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; color: var(--accent); background: radial-gradient(circle at 50% 35%, rgba(var(--accent-rgb), 0.18), rgba(var(--accent-rgb), 0.04) 72%); box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.32); }
+.cl-bareme-socle .icon { width: 22px; height: 22px; }
+.cl-bareme-pieces b { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; line-height: 1; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
+.cl-bareme-piece-nom { color: var(--muted); font-size: var(--t-label); }
+.cl-bareme-blasons { display: inline-flex; align-items: flex-end; gap: 1px; }
+/* Un timbre : son papier crème dentelé — de vrais trous, un masque —, son image au milieu ; imprimé, il ne prend aucun
+   thème. Son filet d'ombre sur ce qui l'enveloppe : posé sur le papier masqué, le masque l'aurait coupé. */
+.cl-bareme-timbre { display: block; filter: drop-shadow(0 0 0.6px rgba(58, 40, 12, 0.75)) drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.25)); }
+.cl-bareme-timbre i {
+  display: block;
+  width: 20px;
+  height: 24px;
+  background: linear-gradient(160deg, #7a5aa3, #2b2140) center / 12px 16px no-repeat, #f6efdc;
+  -webkit-mask: linear-gradient(#000 0 0) center / 14px 18px no-repeat, radial-gradient(circle 1.5px, transparent 96%, #000) -2px -2px / 4px 4px;
+  mask: linear-gradient(#000 0 0) center / 14px 18px no-repeat, radial-gradient(circle 1.5px, transparent 96%, #000) -2px -2px / 4px 4px;
+}
+/* Un fond de carte : une carte en petit, sa nuit étoilée et son filet d'or. */
+.cl-bareme-fond {
+  display: block;
+  width: 18px;
+  height: 24px;
+  border-radius: 3px;
+  background:
+    radial-gradient(circle at 70% 25%, #fff1a6 0 1px, transparent 1.6px),
+    radial-gradient(circle at 30% 62%, #fff1a6 0 0.8px, transparent 1.3px),
+    linear-gradient(165deg, #34306a, #120f22);
+  box-shadow: inset 0 0 0 1.5px #c9a24a;
+}
+/* Une finition : l'anneau de métal autour d'un avatar. */
+.cl-bareme-finition {
+  display: block;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: conic-gradient(from 200deg, #fff1a6, #c9a24a, #8a6a2a, #f6dd94, #fff1a6);
+  -webkit-mask: radial-gradient(circle, transparent 7px, #000 7.5px);
+  mask: radial-gradient(circle, transparent 7px, #000 7.5px);
+}
 
 /* Sa place, en tête : deux lignes et ce qui la ferait monter. Sur l'or pâle, le texte s'écrit en `--accent-text-hover` (règle `css.md`). */
 .cl-sa-place { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; padding: 10px 12px 10px 6px; border: 1px solid var(--edge-strong); border-radius: 16px; background: var(--accent-soft); }

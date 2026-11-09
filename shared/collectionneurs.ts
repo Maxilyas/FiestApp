@@ -81,6 +81,18 @@ export const CARATS_D_UNE_FINITION = 2
 /** Une bordure par ligue atteinte aux duels, à sa hauteur. */
 export const CARATS_DE_LA_LIGUE: Readonly<Record<CleDeLigue, number>> = { bronze: 1, argent: 2, or: 5, platine: 10, diamant: 25, maitre: 50 }
 
+/**
+ * Ce qu'une pièce vaut en légendaires, quand c'en est un nombre rond : le
+ * barème de la page les montre en gemmes d'or, une par légendaire, que l'œil
+ * compare d'un coup — l'Éclat une, l'étoile du zénith deux, le Divin huit.
+ * Null sinon : une gemme coupée mentirait, et la page n'écrit alors que ses
+ * carats.
+ */
+export function enLegendaires(carats: number): number | null {
+  const n = carats / CARATS_DE_LA_GEMME.legendaire
+  return Number.isInteger(n) && n >= 1 ? n : null
+}
+
 // ── Le relevé d'un joueur ─────────────────────────────────────────────────
 
 /**
