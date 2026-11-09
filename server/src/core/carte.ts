@@ -72,6 +72,9 @@ export async function carteDuProfil(
   // l'ouvre, rien de lui ne part à la salle. De mémoire, comme sa niche.
   const niche = profiles.compagnonDeLaNiche(profil)
   const compagnon = niche ? profiles.compagnonsOf(profil.id).find(a => a.compagnon === niche) : undefined
+  // Ce que vaut sa collection (le souhait du propriétaire du 9 novembre 2026 : « la valeur de la collection sur la
+  // carte joueur ») : le dernier relevé des collectionneurs, de mémoire — la carte ne l'attend jamais, ni ne le refait.
+  const collection = profiles.resumeDuCollectionneur?.(profil.id)
   const sonProfil: NonNullable<CarteDeJoueur['profil']> = {
     prenom: profil.name,
     niveau: profiles.niveauOf(profil),
@@ -96,6 +99,7 @@ export async function carteDuProfil(
     ...(Object.keys(sentiers).length > 0 && { sentiers }),
     ...(fond && { fond }),
     ...(compagnon && { compagnon }),
+    ...(collection && collection.carats > 0 && { collection: { carats: collection.carats, ...(collection.rang && { rang: collection.rang }), classes: collection.classes } }),
     fiche: {
       soirees: fiche.soirees,
       precision: fiche.precision,

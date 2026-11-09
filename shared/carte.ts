@@ -132,6 +132,14 @@ export interface CarteDeJoueur extends Distinctions {
     /** Le fond de sa carte, s'il en porte un (`shared/fonds.ts`) : la carte qu'on ouvre change d'allure. */
     fond?: string
     /**
+     * Ce que vaut sa collection, en carats, et sa place parmi les
+     * collectionneurs (`/collectionneurs`), au dernier relevé de tous — de
+     * mémoire, jamais attendu (`Collectionneurs.resume`). Sans place, s'il
+     * n'y est pas classé (masqué). Absente tant que le relevé ne l'a pas
+     * compté, et d'un serveur d'avant.
+     */
+    collection?: { carats: number; rang?: number; classes: number }
+    /**
      * Le compagnon de sa niche, tel qu'elle le montre — la forme qu'il y a
      * choisie, son Éclat, les paliers de sa niche et ses ornements — et son
      * nom, s'il lui en a donné un (le propriétaire, le 19 octobre 2026 : « Le

@@ -614,6 +614,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Le classement des collectionneurs : le relevé de tous en fond, gardé dans `meta`, et la fiche de chacun à sa visite —
   // il ne lit que ce que les trois magasins savent déjà dire, et le Cabinet par les trophées qu'il a rangés.
   const collectionneurs = new Collectionneurs({ profiles, campagne, jour }, { maintenant: maintenantDuJour })
+  // Ce que vaut sa collection, sur sa carte — en soirée comme hors d'elle : de mémoire, au dernier relevé.
+  profiles.resumeDuCollectionneur = id => collectionneurs.resume(id)
   // L'historique des soirées vit avec la bibliothèque : c'est l'autre chose
   // qui doit survivre à tout.
   const archives = new ArchiveStore(opts.quizDbUrl, opts.quizDbToken)

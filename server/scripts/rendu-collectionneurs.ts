@@ -137,6 +137,12 @@ const ETATS: readonly Etat[] = [
   { nom: '11-face-a-face-max', adresse: '/collectionneurs', toucher: ['.cl-carte-premier', { bouton: 'Comparer' }], feuilleEntiere: true },
   { nom: '12-ma-vitrine', adresse: '/collectionneurs', toucher: ['.cl-sa-place ~ .cl-classement-tete', '.cl-ligne.me'], feuilleEntiere: true },
   { nom: '13-bareme', adresse: '/collectionneurs', toucher: ['.cl-bareme summary'], defiler: '.cl-bareme' },
+  { nom: '14-scelles', adresse: '/collectionneurs', toucher: [{ onglet: 'Scellés' }], defiler: '.cl-classement-tete' },
+  // Sa carte dit ce que vaut sa collection : la sienne, qui mène aux collectionneurs ; celle de Max, ouverte de sa vitrine.
+  { nom: '15-ma-carte', adresse: '/profil', toucher: ['.identite-ligne'] },
+  { nom: '16-sa-carte-depuis-sa-vitrine', adresse: '/collectionneurs', toucher: ['.cl-carte-premier', { bouton: 'Sa carte' }] },
+  // Où mène la carte d'un autre : sa vitrine, ouverte d'emblée (`{max}`, son identifiant).
+  { nom: '17-sa-vitrine-par-sa-carte', adresse: '/collectionneurs#vitrine-{max}', feuilleEntiere: true },
 ]
 
 const banc = await demarrer()
@@ -168,6 +174,7 @@ try {
   db.prepare("UPDATE profiles SET legendaire = 'dv:helios' WHERE id = ?").run(idDe('max'))
   db.prepare("UPDATE profiles SET legendaire = 'lg:phenix' WHERE id = ?").run(idDe('lea'))
   db.prepare("UPDATE profile_eclats SET matiere = 'jade' WHERE profile_id = ? AND avatar = 'lg:phenix'").run(idDe('lea'))
+  const idDeMax = idDe('max')
   db.close()
   await banc.redemarrer()
   // Le premier relevé se fait en fond, derrière la première visite.
@@ -202,7 +209,7 @@ try {
 
   for (const e of ETATS.filter(x => retenu(x.nom))) {
     await page.goto('about:blank')
-    await page.goto(`${banc.url}${e.adresse}`)
+    await page.goto(`${banc.url}${e.adresse.replace('{max}', encodeURIComponent(idDeMax))}`)
     await page.waitForSelector(e.adresse === '/profil' ? '.profil-boutons' : '.cl-sa-place')
     if (theme) await page.evaluate(`document.documentElement.dataset.theme = '${theme}'`)
     for (const geste of e.toucher ?? []) {

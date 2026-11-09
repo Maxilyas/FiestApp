@@ -29,8 +29,9 @@ serveur, etc. Requête. » — le Divin à deux cents carats, et la page faite :
 Puis, le même jour, l'étoile du zénith arrivée sur `main` — le sceau d'un
 légendaire gagné par sa voie d'origine, pas seulement par le raccourci du
 Cabinet : « il faudrait du coup pouvoir récompenser dans le classement
-cela ». Un légendaire scellé vaut un légendaire de plus (`CARATS_DU_ZENITH`,
-25 carats), masqué ou non dans la loge ; ses légendaires scellés passent en
+cela ». Un légendaire scellé vaut deux légendaires de plus (`CARATS_DU_ZENITH`,
+50 carats : « c'est souvent des légendaires durs à obtenir, donc j'aimerais
+que ce soit 50 », d'abord 25), masqué ou non dans la loge ; ses légendaires scellés passent en
 tête de sa ligne, leur étoile au sommet, et se comptent (« 3 scellés ») ; sa
 pièce le dit sur son socle ; le face-à-face a sa ligne, « Légendaires
 scellés », et compte l'étoile d'un légendaire que les deux ont parmi ce que

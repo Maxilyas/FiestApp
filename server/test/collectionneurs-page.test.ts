@@ -184,6 +184,21 @@ test('l’étoile du zénith : sa Comète scellée compte, sur sa pièce et dans
   assert.deepEqual([sienne.legendaire, sienne.sceau], ['lg:comete', true])
 })
 
+test('sa carte dit ce que vaut sa collection, de mémoire : la valeur et la place du dernier relevé', async () => {
+  // « Rajoute la valeur de la collection sur la carte joueur » (le propriétaire, le 9 novembre 2026).
+  const page = await pagePrete()
+  const max = page.fiches.find(f => f.id === ids.max)!
+  const sienne = await lire(`/api/joueur/carte/${ids.max}`)
+  assert.deepEqual(sienne.profil.collection, { carats: max.carats, rang: 1, classes: page.categories.collection.classes })
+  // La sienne aussi, depuis sa page ; et la carte ne relit rien pour la dire.
+  const mienne = await mesurer(() => lire('/api/joueur/carte'))
+  assert.equal(mienne.resultat.profil.collection.rang, 2)
+  // Rien du relevé de tous : ni leurs épreuves, ni leurs achats, ni leur quiz du jour.
+  assert.ok(!mienne.lectures.some(l => /json_array\(s?\.?profile_id|GROUP BY profile_id/.test(l)), mienne.lectures.join('\n'))
+  // Qui n'a rien à classer n'en a pas : l'absence, pas « 0 carat ».
+  assert.equal((await lire(`/api/joueur/carte/${ids.noe}`)).profil.collection, undefined)
+})
+
 test('un Divin se compte et se montre, jamais son récit ni le soir où il est descendu', async () => {
   // Le choix du propriétaire du 9 novembre 2026 : sa valeur et qui le garde,
   // rien de son chemin (invariant 21). Le récit reste à son porteur, sur sa

@@ -33,8 +33,9 @@ import { MATIERES_POUR_L_OPALE, OPALE, type Matiere, type MatiereTaillee } from 
  * Un avatar de l'album, à sa gemme — légendaires, portraits des sentiers,
  * formes des compagnons, emojis de collection. Un Divin vaut huit
  * légendaires : un légendaire taillé dans les quatre matières, cinq Éclats,
- * en vaut six — le Divin reste la pièce la plus chère (le propriétaire, le
- * 9 novembre 2026 : « passe-le à 200 »).
+ * en vaut six, et scellé en plus il l'égale sans le passer — le Divin reste
+ * la pièce la plus chère (le propriétaire, le 9 novembre 2026 : « passe-le à
+ * 200 »).
  */
 export const CARATS_DE_LA_GEMME: Readonly<Record<RareteDAvatar, number>> = { commune: 1, peucommune: 2, rare: 5, epique: 10, legendaire: 25, divin: 200 }
 
@@ -54,12 +55,14 @@ export const CARATS_D_UN_MAITRE = 25
 /**
  * Un légendaire scellé — l'étoile du zénith, sa voie d'origine tenue, pas
  * seulement le raccourci du Cabinet (`estScelle`, `shared/legendaires.ts`) —
- * vaut un légendaire de plus : son exploit, quatre cents réflexes ou cent
- * jours d'affilée, en coûte au moins autant (le souhait du propriétaire du
- * 9 novembre 2026 : « pouvoir récompenser dans le classement cela »). Masqué
- * dans la loge, il compte encore : seule la salle ne le voit plus.
+ * vaut deux légendaires de plus : son exploit, quatre cents réflexes ou cent
+ * jours d'affilée, est souvent bien plus dur que le légendaire lui-même (le
+ * propriétaire, le 9 novembre 2026 : « pouvoir récompenser dans le classement
+ * cela », puis « c'est souvent des légendaires durs à obtenir, donc j'aimerais
+ * que ce soit 50 »). Masqué dans la loge, il compte encore : seule la salle ne
+ * le voit plus.
  */
-export const CARATS_DU_ZENITH = 25
+export const CARATS_DU_ZENITH = 50
 
 /** Un défi d'une carte du Cabinet, au métal de son rang le plus haut tenu. */
 export const CARATS_DU_SCEAU: Readonly<{ bronze: number; argent: number; or: number }> = { bronze: 2, argent: 5, or: 10 }
@@ -180,10 +183,23 @@ export interface FicheDeCollectionneur extends ReleveDeCollection, ApparenceDeLA
   familles: Record<FamilleDeCarats, number>
 }
 
-/** Ce qu'on classe : la valeur, puis ce que chacun a fait. */
-export type CategorieDeCollection = 'collection' | 'niveau' | 'maitres' | 'legendaires' | 'cabinet' | 'eclats'
+/**
+ * Ce qu'on classe : la valeur, puis ce que chacun a fait — le niveau, les
+ * maîtres et le Cabinet —, puis ses avatars — ses légendaires, ses scellés,
+ * ses Éclats : l'ordre de leurs puces, la valeur seule sur sa rangée, les six
+ * autres trois par trois. Les scellés ont leur catégorie depuis le
+ * 9 novembre 2026 (« fais une septième catégorie scellés », le propriétaire).
+ */
+export type CategorieDeCollection = 'collection' | 'niveau' | 'maitres' | 'cabinet' | 'legendaires' | 'scelles' | 'eclats'
 
-export const CATEGORIES_DE_COLLECTION: readonly CategorieDeCollection[] = ['collection', 'niveau', 'maitres', 'legendaires', 'cabinet', 'eclats']
+export const CATEGORIES_DE_COLLECTION: readonly CategorieDeCollection[] = ['collection', 'niveau', 'maitres', 'cabinet', 'legendaires', 'scelles', 'eclats']
+
+/**
+ * Les légendaires qui peuvent se sceller (`estScellable`, `shared/legendaires.ts`) :
+ * écrit ici pour que la page n'emporte pas le catalogue des légendaires avec
+ * la règle — `collectionneurs.test.ts` le recompte.
+ */
+export const LEGENDAIRES_SCELLABLES = 20
 
 export interface DefinitionDeCategorie {
   /** Le nom de sa puce. */
@@ -200,8 +216,14 @@ export const CATEGORIE: Readonly<Record<CategorieDeCollection, DefinitionDeCateg
   collection: { court: 'Collection', unite: ['carat', 'carats'], premier: 'Ta première pièce gagnée te place ici.' },
   niveau: { court: 'Niveau', unite: ['niveau', 'niveaux'], premier: 'Ton premier niveau gagné te place ici.' },
   maitres: { court: 'Maîtres', unite: ['maître', 'maîtres'], sur: 12, premier: 'Ton premier palier de maître te place ici.' },
-  legendaires: { court: 'Légendaires', unite: ['légendaire', 'légendaires'], sur: 32, premier: 'Ton premier légendaire te place ici.' },
   cabinet: { court: 'Cabinet', unite: ['sceau d’or', 'sceaux d’or'], sur: 10, premier: 'Ton premier défi de carte tenu à l’Or te place ici.' },
+  legendaires: { court: 'Légendaires', unite: ['légendaire', 'légendaires'], sur: 32, premier: 'Ton premier légendaire te place ici.' },
+  scelles: {
+    court: 'Scellés',
+    unite: ['légendaire scellé', 'légendaires scellés'],
+    sur: LEGENDAIRES_SCELLABLES,
+    premier: 'Ton premier légendaire gagné par sa voie d’origine, l’étoile du zénith, te place ici.',
+  },
   eclats: { court: 'Éclats', unite: ['Éclat', 'Éclats'], premier: 'Ton premier Éclat te place ici.' },
 }
 
@@ -209,7 +231,7 @@ export const CATEGORIE: Readonly<Record<CategorieDeCollection, DefinitionDeCateg
 export const NIVEAU_DE_DEPART = 1
 
 /** Ce qui le classe dans une catégorie. */
-export function valeurDansLaCategorie(f: Pick<FicheDeCollectionneur, 'carats' | 'niveau' | 'maitres' | 'legendaires' | 'sceaux' | 'eclats'>, c: CategorieDeCollection): number {
+export function valeurDansLaCategorie(f: Pick<FicheDeCollectionneur, 'carats' | 'niveau' | 'maitres' | 'legendaires' | 'scelles' | 'sceaux' | 'eclats'>, c: CategorieDeCollection): number {
   switch (c) {
     case 'collection':
       return f.carats
@@ -218,10 +240,12 @@ export function valeurDansLaCategorie(f: Pick<FicheDeCollectionneur, 'carats' | 
       return f.niveau > NIVEAU_DE_DEPART ? f.niveau : 0
     case 'maitres':
       return f.maitres.length
-    case 'legendaires':
-      return f.legendaires.length
     case 'cabinet':
       return f.sceaux.or
+    case 'legendaires':
+      return f.legendaires.length
+    case 'scelles':
+      return f.scelles.length
     case 'eclats':
       return f.eclats
   }
@@ -233,7 +257,7 @@ export function valeurDansLaCategorie(f: Pick<FicheDeCollectionneur, 'carats' | 
  * par le nom puis l'identifiant. Qui n'a rien de ce qu'on classe n'y est
  * pas : ni dernier ex æquo, ni « 0 sur 10 ».
  */
-export function classerLesCollectionneurs<T extends Pick<FicheDeCollectionneur, 'id' | 'nom' | 'carats' | 'niveau' | 'maitres' | 'legendaires' | 'sceaux' | 'eclats'>>(
+export function classerLesCollectionneurs<T extends Pick<FicheDeCollectionneur, 'id' | 'nom' | 'carats' | 'niveau' | 'maitres' | 'legendaires' | 'scelles' | 'sceaux' | 'eclats'>>(
   fiches: readonly T[],
   c: CategorieDeCollection,
 ): Classe<T>[] {

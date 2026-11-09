@@ -49,7 +49,7 @@ import {
 // - les Divins tout de suite dessous, en bandeau — leur salle s'ouvre en
 //   feuille : ils comptent et se montrent, seul leur chemin reste secret
 //   (invariant 21) ;
-// - les six puces du palmarès, qui changent sur place sa place, le podium et
+// - les sept puces du palmarès, qui changent sur place sa place, le podium et
 //   la liste — chaque ligne dit sa catégorie : ses couronnes, ses sceaux, ses
 //   légendaires peints ;
 // - « Tous · Mes amis », et le podium en cartes à collectionner ;
@@ -177,6 +177,13 @@ function Detail({ c, f }: { c: CategorieDeCollection; f: FicheDeCollectionneur }
         <span className="cl-detail">
           <Medaillons cles={f.legendaires} scelles={f.scelles} />
           {f.scelles.length > 0 && <span>{`${f.scelles.length} scellé${f.scelles.length > 1 ? 's' : ''}`}</span>}
+        </span>
+      )
+    case 'scelles':
+      // Ses scellés seuls, chacun son étoile du zénith : ce que la catégorie classe.
+      return (
+        <span className="cl-detail">
+          <Medaillons cles={f.scelles} scelles={f.scelles} />
         </span>
       )
     case 'cabinet':
@@ -712,7 +719,7 @@ function LeBareme() {
         ))}
       </ul>
       <p className="muted small">
-        {`Un Éclat vaut un légendaire (${CARATS_D_UN_ECLAT}), qu’il fasse éclater un avatar ou y taille une matière — l’Opale, offerte par les quatre, ne compte pas. Un maître de sentier en vaut un aussi (${CARATS_D_UN_MAITRE}), comme l’étoile du zénith d’un légendaire scellé, sa voie d’origine tenue (${CARATS_DU_ZENITH}) ; un sceau du Cabinet ${CARATS_DU_SCEAU.bronze}, ${CARATS_DU_SCEAU.argent} ou ${CARATS_DU_SCEAU.or} selon son métal ; un autre trophée et un timbre ${CARATS_D_UN_TROPHEE} et ${CARATS_D_UN_TIMBRE}. Un thème vaut sa gemme, un fond et une gerbe ${CARATS_D_UN_FOND} et ${CARATS_D_UNE_GERBE}, une finition ${CARATS_D_UNE_FINITION}, une bordure de ligue de ${CARATS_DE_LA_LIGUE.bronze} au bronze à ${CARATS_DE_LA_LIGUE.maitre} chez les maîtres. Un Divin vaut huit légendaires — comment il descend ne se dit pas.`}
+        {`Un Éclat vaut un légendaire (${CARATS_D_UN_ECLAT}), qu’il fasse éclater un avatar ou y taille une matière — l’Opale, offerte par les quatre, ne compte pas. Un maître de sentier en vaut un aussi (${CARATS_D_UN_MAITRE}) ; l’étoile du zénith d’un légendaire scellé, sa voie d’origine tenue, en vaut deux (${CARATS_DU_ZENITH}) ; un sceau du Cabinet ${CARATS_DU_SCEAU.bronze}, ${CARATS_DU_SCEAU.argent} ou ${CARATS_DU_SCEAU.or} selon son métal ; un autre trophée et un timbre ${CARATS_D_UN_TROPHEE} et ${CARATS_D_UN_TIMBRE}. Un thème vaut sa gemme, un fond et une gerbe ${CARATS_D_UN_FOND} et ${CARATS_D_UNE_GERBE}, une finition ${CARATS_D_UNE_FINITION}, une bordure de ligue de ${CARATS_DE_LA_LIGUE.bronze} au bronze à ${CARATS_DE_LA_LIGUE.maitre} chez les maîtres. Un Divin vaut huit légendaires — comment il descend ne se dit pas.`}
       </p>
     </details>
   )
@@ -732,6 +739,15 @@ export function CollectionneursApp() {
   const [face, setFace] = useState<FicheDeCollectionneur | null>(null)
   const [salle, setSalle] = useState(false)
   const { ouvrir: ouvrirLaCarte, carte } = useCarteDUnProfil()
+
+  // La carte d'un joueur y mène sur sa vitrine (`#vitrine-<id>`, `CarteJoueur`) : ouverte d'emblée, l'adresse rendue
+  // nue — un rechargement ne la rouvre pas.
+  useEffect(() => {
+    const m = /^#vitrine-(.+)$/.exec(location.hash)
+    if (!m) return
+    setVitrine(decodeURIComponent(m[1]))
+    history.replaceState(history.state, '', location.pathname + location.search)
+  }, [])
 
   useEffect(() => {
     let vivant = true

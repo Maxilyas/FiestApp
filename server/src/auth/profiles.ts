@@ -183,6 +183,7 @@ import { sansAccent } from '../../../shared/homonymes'
 import { divinsDebloques, raconter } from '../core/divins'
 import { CATALOGUE_DES_PRIX, titreDuPrix } from '../core/stats'
 import type { AutresDeLaCollection, ProfilDuCollectionneur } from '../core/collectionneurs'
+import type { ResumeDuCollectionneur } from '../../../shared/collectionneurs'
 import type { ArchiveStore } from '../core/archive'
 import type { CampagneDuProfil, CoteDesDuels } from '../core/campagne'
 import type { ProfileBadge } from '../core/party'
@@ -1328,6 +1329,13 @@ export class ProfileStore {
    * aucun duel classé.
    */
   duelsDe?: (profileId: string) => Promise<CoteDesDuels | null>
+
+  /**
+   * Ce que vaut sa collection et sa place parmi les collectionneurs, au
+   * dernier relevé (`Collectionneurs.resume`) : de mémoire, pour sa carte —
+   * jamais un relevé sur le chemin d'une requête. Branché par `server.ts`.
+   */
+  resumeDuCollectionneur?: (profileId: string) => ResumeDuCollectionneur | undefined
 
   /**
    * Ses bordures de ligue, de mémoire (`CampagneStore.borduresEnMemoire`) :
