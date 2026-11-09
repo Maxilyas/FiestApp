@@ -1637,7 +1637,9 @@ export class SpaceRuntime {
         const recopie = this.recopierSoiree(soiree)
         const bilans = await this.enFile(async () => {
           await recopie
-          const archive = await this.deps.archives.save(this.spaceId, built.id, built.heldAt, built.archive, title)
+          // Sans titre donné, le nom que l'animateur a donné à sa soirée
+          // passe devant la date (`ArchiveStore.save`, `aLaCloture`).
+          const archive = await this.deps.archives.save(this.spaceId, built.id, built.heldAt, built.archive, title, this.publicSpace())
           return { archive, profils: await this.crediterCloture(soiree.id, credit) }
         })
         // Les figures se lisent APRÈS les crédits : le podium de la clôture

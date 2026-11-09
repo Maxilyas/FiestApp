@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api, currentMe, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Choix, Feuille, PieceTete, Sortie } from '../components/Pieces'
 import { FeuilleDuQuizToutPretADemande, quizToutPret } from '../components/QuizToutPretADemande'
 import { FeuilleDEquipe } from '../components/FeuilleDEquipe'
-import { chefIci, demanderEntree, retenirChef } from '../chef'
+import { brouillonDuSalon, chefIci, demanderEntree, oublierBrouillon, retenirBrouillon, retenirChef, type BrouillonDuSalon } from '../chef'
 import { spacePath } from '../routes'
 import { porterTheme } from '../themeJoueur'
 import { porterNiche } from '../niche'
@@ -13,7 +13,7 @@ import { PALIERS_ENCHAINEMENT } from '../../../shared/console'
 import { EQUIPES_PROPOSEES, MAX_EQUIPES, equipeSuivante, type EquipePreparee } from '../../../shared/teams'
 import type { ModeleResume } from '../../../shared/modeles'
 import type { EntreeDeProgramme, Programme } from '../../../shared/programme'
-import type { PublicSpace } from '../../../shared/space'
+import { defaultSettings, reglagesAuNom, titreChoisi, type PublicSpace } from '../../../shared/space'
 
 /** Un quiz de ce soir, tel que la page le montre. */
 interface QuizDuSoir {
@@ -33,14 +33,26 @@ const RYTHME_PAR_DEFAUT = 5
  * l'aurait noyé derrière d'autres ; sinon, le programme d'hier reprend sa
  * place : on l'ajuste plutôt que de tout rechoisir. Un quiz demandé qui ne
  * se joue pas (archivé, rien de prêt, d'un autre espace) n'y entre pas.
+ *
+ * Entre les deux, le brouillon de ce téléphone (`BrouillonDuSalon`) : ce
+ * qu'on préparait passe devant le programme d'hier — même vide, s'il avait
+ * tout retiré —, pas devant un quiz qu'on vient de lancer. Sauf si ce quiz
+ * en est déjà : le crayon d'une carte mène à « Mes quiz », d'où l'on revient
+ * par « Lancer » — et le salon de trois quiz n'en gardait qu'un.
  */
-export function quizDuSalon(liste: readonly QuizSummary[], programme: Programme | null, demande: string | null): QuizDuSoir[] {
+export function quizDuSalon(
+  liste: readonly QuizSummary[],
+  programme: Programme | null,
+  demande: string | null,
+  brouillon: BrouillonDuSalon['quiz'] | null = null,
+): QuizDuSoir[] {
   const titres = new Map(liste.map(q => [q.id, q.title]))
   const lance = demande ? liste.find(q => q.id === demande && !q.archivedAt && q.readyCount > 0) : undefined
-  if (lance) {
+  if (lance && !brouillon?.some(q => q.id === lance.id)) {
     const avant = programme?.entrees.find(e => e.quizId === lance.id)
     return [{ id: lance.id, titre: lance.title, multiplicateur: avant?.multiplier ?? 1 }]
   }
+  if (brouillon) return brouillon.filter(q => titres.has(q.id)).map(q => ({ id: q.id, titre: titres.get(q.id)!, multiplicateur: q.multiplicateur }))
   return (programme?.entrees ?? []).filter(e => titres.has(e.quizId)).map(e => ({ id: e.quizId, titre: titres.get(e.quizId)!, multiplicateur: e.multiplier }))
 }
 
@@ -85,6 +97,38 @@ export function SalonApp() {
   const [cherche, setCherche] = useState('')
   const [busy, setBusy] = useState(false)
   const [erreur, setErreur] = useState('')
+  /** Le nom de la soirée, tel qu'on le tape ; vide, celui d'office (« La soirée de Nadia »). */
+  const [nom, setNom] = useState('')
+  /** Ce que la page a chargé, et si l'on y a touché depuis : le brouillon ne s'écrit qu'après. */
+  const depart = useRef<string | null>(null)
+  const aChange = useRef(false)
+
+  // La préparation se garde sur ce téléphone à chaque changement : quitter la
+  // page — pour régler le temps d'un quiz dans « Mes quiz » — l'effaçait toute.
+  const slug = etat.e === 'pret' ? etat.espace.slug : null
+  useEffect(() => {
+    if (!slug) return
+    const brouillon: BrouillonDuSalon = {
+      slug,
+      nom,
+      quiz: quiz.map(q => ({ id: q.id, multiplicateur: q.multiplicateur })),
+      ecran,
+      joue,
+      rythme,
+      equipes,
+      equipesPreparees: lesEquipes,
+    }
+    const cle = JSON.stringify(brouillon)
+    // Ce que la page vient de charger — le programme d'hier, les réglages du
+    // chef — n'est pas un brouillon : écrit d'emblée, il passerait la fois
+    // suivante devant un programme changé depuis l'écran commun.
+    if (depart.current === null) {
+      depart.current = cle
+      return
+    }
+    if (cle !== depart.current) aChange.current = true
+    if (aChange.current) retenirBrouillon(brouillon)
+  }, [slug, nom, quiz, ecran, joue, rythme, equipes, lesEquipes])
 
   useEffect(() => {
     document.title = 'Nouveau salon · FiestApp'
@@ -109,7 +153,9 @@ export function SalonApp() {
       setModeles(livres)
       const actif = programmes.find(p => p.actif) ?? null
       setProgramme(actif)
-      setQuiz(quizDuSalon(liste, actif, new URLSearchParams(window.location.search).get('quiz')))
+      // Ce qu'il préparait sur ce téléphone, s'il a quitté la page avant d'ouvrir.
+      const garde = brouillonDuSalon(espace.slug)
+      setQuiz(quizDuSalon(liste, actif, new URLSearchParams(window.location.search).get('quiz'), garde?.quiz ?? null))
       // Rechargée, la page reprend le programme : le quiz lancé y est déjà, s'il a ouvert le salon.
       if (window.location.search) history.replaceState(history.state, '', '/salon')
       // Le chef retrouve ses choix de la dernière fois.
@@ -119,6 +165,16 @@ export function SalonApp() {
         setRythme(avant.rythme)
         setEquipes(avant.equipes)
         if (avant.equipesPreparees) setLesEquipes(avant.equipesPreparees)
+      }
+      setNom(titreChoisi(espace) ?? '')
+      // Son brouillon passe devant ses choix de la dernière fois : c'est ce soir qu'il prépare.
+      if (garde) {
+        setNom(garde.nom)
+        setEcran(garde.ecran)
+        setJoue(garde.joue)
+        setRythme(garde.rythme)
+        setEquipes(garde.equipes)
+        if (garde.equipesPreparees) setLesEquipes(garde.equipesPreparees)
       }
       setEtat({ e: 'pret', espace })
     })().catch(e => vivant && setEtat({ e: 'erreur', motif: motifDe(e) }))
@@ -213,10 +269,18 @@ export function SalonApp() {
       } else {
         await api.programmes.creer('Ce soir', entrees)
       }
+      // Le nom de la soirée, s'il a changé : avant que le salon s'ouvre, pour
+      // que la télé et l'entrée des invités le portent d'emblée. La clôture
+      // le reprendra pour le souvenir et le bilan.
+      if (nom.trim() !== (titreChoisi(espace) ?? '')) await api.space.saveSettings(reglagesAuNom(nom, espace))
       // Les équipes partent avec l'ouverture : posées par le serveur avant le
       // premier invité — la barre du chef n'en créait que deux, une fois
       // ouverte, et les renommer attendait que la salle soit là.
       const salon = await api.joueur.salon(equipes ? { equipes: lesEquipes } : {})
+      // Ouvert : le programme et les réglages du chef tiennent désormais ce
+      // qu'il avait préparé. Pas avant — un refus le laisse sur sa page, son
+      // brouillon intact.
+      oublierBrouillon()
       retenirChef({ slug: salon.espace.slug, joue, rythme, equipes, equipesPreparees: lesEquipes })
       demanderEntree(salon.espace.slug)
       // Qu'il joue ou anime seulement, le chef suit la soirée sur l'écran de
@@ -238,9 +302,26 @@ export function SalonApp() {
   return (
     <div className="player-shell salon-nouveau">
       <Sortie />
-      <PieceTete piece="Entre amis" titre="Nouveau salon">
-        <p className="muted small">{espace.title}</p>
-      </PieceTete>
+      <PieceTete piece="Entre amis" titre="Nouveau salon" />
+
+      {/* Le nom de la soirée : le sous-titre le disait sans se laisser
+          toucher, et un salon ne se nommait nulle part (la tablée du
+          9 novembre 2026). Pas d'`autoFocus` : le clavier pousserait la page. */}
+      <section className="salon-bloc">
+        <label className="label" htmlFor="salon-nom">
+          Le nom de la soirée
+        </label>
+        <input
+          id="salon-nom"
+          className="input"
+          value={nom}
+          maxLength={80}
+          placeholder={defaultSettings(espace.name).title}
+          enterKeyHint="done"
+          onChange={e => setNom(e.target.value)}
+        />
+        <p className="muted small salon-aide">Tes invités le lisent en arrivant, et le souvenir le garde.</p>
+      </section>
 
       <section className="salon-bloc" aria-labelledby="salon-quiz">
         <span className="label" id="salon-quiz">
@@ -259,6 +340,11 @@ export function SalonApp() {
                     {q.multiplicateur > 1 && ` · points ×${q.multiplicateur}`}
                   </span>
                 </span>
+                {/* Sa page, dans « Mes quiz » : ses questions, et le temps de
+                    chacune. Le brouillon garde le salon pendant ce détour. */}
+                <a className="btn btn-ghost btn-small btn-icon" href={`/edit?quiz=${encodeURIComponent(q.id)}`} aria-label={`Voir et régler « ${q.titre} »`}>
+                  <Icon name="edit" />
+                </a>
                 <button
                   type="button"
                   className="btn btn-ghost btn-small btn-icon"
@@ -470,7 +556,15 @@ export function SalonApp() {
             <input type="search" value={cherche} placeholder="Chercher un quiz" aria-label="Chercher un quiz" onChange={e => setCherche(e.target.value)} />
           </label>
           <span className="label">Mes quiz</span>
-          {jouables.length === 0 && <p className="muted small">{cherche ? 'Aucun de tes quiz ne porte ces lettres.' : 'Pas encore de quiz prêt à jouer.'}</p>}
+          {jouables.length === 0 && (
+            <p className="muted small">
+              {cherche
+                ? 'Aucun de tes quiz ne porte ces lettres.'
+                : bibliotheque.some(q => !q.archivedAt && q.readyCount > 0)
+                  ? 'Tous tes quiz prêts sont déjà dans ce salon.'
+                  : 'Pas encore de quiz prêt à jouer.'}
+            </p>
+          )}
           {jouables.map(q => (
             <Choix
               key={q.id}

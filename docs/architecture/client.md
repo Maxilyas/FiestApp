@@ -209,6 +209,7 @@ Ce que l'appareil garde n'est qu'une commodité : tout ce qui compte est au serv
 | `quizz.plus-tard.<espace>` | local | l'invité qui a répondu « Plus tard » à l'invitation à créer un profil | `client/src/views/PlayerApp.tsx` |
 | `quizz.chef` | local | les réglages du chef d'un salon : s'il joue, le rythme, les équipes préparées | `client/src/chef.ts` |
 | `quizz.chef.entrer` | session | l'espace où « Ouvrir le salon » fait entrer le chef, une fois | `client/src/chef.ts` |
+| `quizz.salon` | local | le brouillon de « Nouveau salon », du premier changement à « Ouvrir le salon » : le nom de la soirée, les quiz et leurs points, l'écran, si le chef joue, le rythme, les équipes | `client/src/chef.ts` |
 | `quizz.theme-joueur` | local | le thème du profil connecté ici, posé dès le démarrage | `client/src/themeJoueur.ts` |
 | `quizz.theme` | local | Velours ou Ivoire, à l'écran commun | `client/src/theme.ts` |
 | `quizz.gerbe` | local | la gerbe du profil connecté ici | `client/src/gerbe.ts` |

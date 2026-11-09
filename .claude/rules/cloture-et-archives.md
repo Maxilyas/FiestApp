@@ -72,6 +72,13 @@ paths:
   les contournerait laisserait le souvenir en retard — une minute au plus en
   cours de soirée —, et une nouvelle source d'une page publique entre dans
   `empreinteDesPages`. La place d'une page porte toujours l'espace.
+- **Une clôture sans titre prend le titre choisi de l'espace**
+  (`ArchiveStore.save(…, aLaCloture)`, `titreChoisi` — le 9 novembre 2026 :
+  la barre du chef, le dernier quiz d'un programme et le QG closent sans
+  boîte, et « Les 40 ans de Sam » restait « Soirée du 9 novembre 2026 » au
+  souvenir). À la clôture seulement — le rangement d'après chaque quiz
+  garde la date —, et jamais par-dessus un nom tapé dans l'historique
+  (`cloture-auto.test.ts`).
 - **Une porte de clôture de plus passe par `cloreLaSoiree`** (`sockets.ts`),
   jamais par `closeParty()` seul : la mesure des inscriptions, les adresses
   vues et la ligne de journal n'y passeraient pas (le piège de `qg.md`).
