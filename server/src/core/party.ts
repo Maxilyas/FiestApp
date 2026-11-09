@@ -28,6 +28,8 @@ export interface ProfileBadge {
   eclat: false | EclatPorte
   /** L'avatar dessiné qu'il porte — légendaire ou Divin : il remplace l'emoji à l'écran. */
   legendaire?: string
+  /** Le légendaire porté est scellé : il en tient la voie d'origine (`Distinctions.sceau`). */
+  sceau?: true
   /** Il a gagné le quiz du jour d'hier : l'allure de son laurier, qui grandit avec ses victoires — ou l'argent du défi de la semaine. */
   laurier?: LaurierPorte
   /** Le champion du mois dernier au quiz du jour (`2026-10`) : l'écran commun le salue à son entrée. */
@@ -462,6 +464,7 @@ export class Party {
       // Telle quelle : `true` lui ôterait sa matière.
       ...(badge?.eclat && { eclat: badge.eclat }),
       ...(badge?.legendaire && { legendaire: badge.legendaire }),
+      ...(badge?.sceau && badge.legendaire && { sceau: true as const }),
       ...(badge?.laurier && { laurier: badge.laurier }),
       ...(badge?.champion && { champion: badge.champion }),
       ...(badge?.bordure && { bordure: badge.bordure }),

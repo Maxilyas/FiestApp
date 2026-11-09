@@ -95,6 +95,8 @@ import {
   PREFIXE_DES_DONS_D_ECLAT,
   PREFIXE_DES_ACHATS_D_ECLAT,
   legendairesDebloques,
+  legendairesScelles,
+  estScelle,
   legendairesOuvertsPar,
   sqlHorsDesVoiesRangees,
   type Condition,
@@ -291,6 +293,13 @@ export interface ProfileRec {
    * grandit de ses bonnes réponses.
    */
   niche: string | null
+  /**
+   * Le sceau de ses légendaires (`estScelle`, `shared/legendaires.ts`) :
+   * null, il se montre — le choix d'office ; `cache`, il l'a masqué dans la
+   * loge. Masqué, il reste à lui et compte partout ; seule la salle ne le voit
+   * plus, comme la version d'origine d'un avatar éclaté.
+   */
+  sceau: 'cache' | null
   passwordHash: string
   /** Le code de secours, haché lui aussi : la base qui fuit ne rend personne. */
   recoveryHash: string
@@ -1754,6 +1763,8 @@ export class ProfileStore {
     await ajouterColonne(this.client, 'profiles', 'bordure', 'TEXT')
     // Le compagnon qu'il installe dans sa niche, parmi ceux qu'il a adoptés.
     await ajouterColonne(this.client, 'profiles', 'niche', 'TEXT')
+    // Le sceau de ses légendaires : null, il se montre ; `cache`, il l'a masqué.
+    await ajouterColonne(this.client, 'profiles', 'sceau', 'TEXT')
     // Ce qu'il règle de chacun, dans sa niche : son nom, et la forme qu'il y
     // montre quand ce n'est pas la plus haute (null : la plus haute, qui suit
     // sa croissance).
@@ -3979,6 +3990,9 @@ export class ProfileStore {
       badges: [...(this.recompenses.get(p.id)?.keys() ?? [])].filter(k => !k.startsWith('dv:') && !estUneVoieRangee(k) && !moisDeLaPage(k)).length,
       legendaire: this.legendairePorte(p),
       legendaires: this.legendairesOf(p.id),
+      scelles: legendairesScelles(this.recompensesOf(p.id), this.acquis.get(p.id)),
+      // Toujours dit : la page fond ce profil dans celui qu'elle tient, et un champ absent garderait le réglage d'avant.
+      sceauMasque: p.sceau === 'cache',
       divins: raconter(this.divinsOf(p.id)),
       // Absents sans compagnon, comme le laurier : rien de plus à lire pour qui n'en a pas.
       ...(compagnons.length > 0 && { compagnons }),
@@ -4340,6 +4354,7 @@ export class ProfileStore {
       gerbe: null,
       bordure: null,
       niche: null,
+      sceau: null,
       passwordHash: await hashPassword(input.password),
       recoveryHash: await hashPassword(normalizeRecovery(recovery)),
       xp: 0,
@@ -4402,6 +4417,7 @@ export class ProfileStore {
       gerbe: null,
       bordure: null,
       niche: null,
+      sceau: null,
       passwordHash: compte.passwordHash,
       recoveryHash: await hashPassword(normalizeRecovery(newRecoveryCode())),
       xp: 0,
@@ -4520,6 +4536,8 @@ export class ProfileStore {
       eclat?: unknown
       bordure?: unknown
       niche?: unknown
+      /** Le sceau de ses légendaires se montre-t-il ? `false` le masque. */
+      sceau?: unknown
       /** L'avatar sur lequel il dépense un Éclat en réserve (`donnerUnEclat`) : définitif. */
       eclatDeReserve?: unknown
       /** La matière qu'il taille avec un Éclat en réserve dans un avatar déjà éclaté (`{ cle, matiere }`, `shared/matieres.ts`) : définitif. */
@@ -4530,7 +4548,7 @@ export class ProfileStore {
     // Seules les colonnes demandées s'écrivent : la mémoire ne suit qu'après
     // coup, et un prénom changé sur le téléphone pendant que la tablette
     // change l'emoji ne doit pas revenir en arrière.
-    const champs: Partial<Pick<ProfileRec, 'name' | 'avatar' | 'finition' | 'legendaire' | 'titre' | 'vitrine' | 'fond' | 'theme' | 'gerbe' | 'bordure' | 'niche'>> = {}
+    const champs: Partial<Pick<ProfileRec, 'name' | 'avatar' | 'finition' | 'legendaire' | 'titre' | 'vitrine' | 'fond' | 'theme' | 'gerbe' | 'bordure' | 'niche' | 'sceau'>> = {}
     if (patch.name !== undefined) {
       const name = cleanName(patch.name)
       if (!name) throw new Error('Il faut un prénom')
@@ -4657,6 +4675,12 @@ export class ProfileStore {
         if (!duels?.bordures.some(b => b.ligue === choix)) throw new Error(`Cette bordure s’ouvre en atteignant la ${ligueParCle(choix).nom.toLowerCase()} en duel`)
       }
       champs.bordure = choix === 'auto' ? null : choix
+    }
+    // Le sceau se montre ou se masque, qu'il en ait un ou pas encore : un
+    // réglage, comme la version d'un Éclat, que la salle relit.
+    if (patch.sceau !== undefined) {
+      if (typeof patch.sceau !== 'boolean') throw new Error('Choisis de montrer ton sceau ou de le masquer')
+      champs.sceau = patch.sceau ? null : 'cache'
     }
     // Un Éclat se garde, qu'on le porte ou non : on peut préférer la version
     // d'origine de l'avatar qui a éclaté, et y revenir. Seulement sur ce qui a
@@ -6795,9 +6819,11 @@ export class ProfileStore {
   apparenceDe(
     p: ProfileRec,
     avatar: string = this.avatarPorte(p),
-  ): { niveau: number; finition: Finition; eclat: false | EclatPorte; legendaire?: string; laurier?: LaurierPorte; champion?: string } {
+  ): { niveau: number; finition: Finition; eclat: false | EclatPorte; legendaire?: string; sceau?: true; laurier?: LaurierPorte; champion?: string } {
     const niveau = this.niveauOf(p)
     const legendaire = this.legendairePorte(p)
+    // Son sceau, sur le légendaire qu'il porte s'il en tient la voie d'origine, et ne l'a pas masqué.
+    const sceau = !!legendaire && p.sceau !== 'cache' && estScelle(legendaire, this.recompensesOf(p.id), this.acquis.get(p.id))
     const laurier = this.laurierPorte(p.id)
     const champion = this.championDe?.(p.id)
     return {
@@ -6806,6 +6832,7 @@ export class ProfileStore {
       // Éteint, un Éclat ne se voit plus : il porte la version d'origine. Taillé, sa matière.
       eclat: this.eclatChez(p.id, cibleEclat(legendaire, avatar)),
       ...(legendaire && { legendaire }),
+      ...(sceau && { sceau: true as const }),
       ...(laurier && { laurier }),
       ...(champion && { champion }),
     }
@@ -6923,6 +6950,7 @@ export class ProfileStore {
       gerbe: typeof r.gerbe === 'string' && r.gerbe ? r.gerbe : null,
       bordure: typeof r.bordure === 'string' && r.bordure ? r.bordure : null,
       niche: typeof r.niche === 'string' && r.niche ? r.niche : null,
+      sceau: r.sceau === 'cache' ? 'cache' : null,
       passwordHash: String(r.password_hash),
       recoveryHash: String(r.recovery_hash),
       xp: Number(r.xp ?? 0),

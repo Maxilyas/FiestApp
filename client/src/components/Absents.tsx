@@ -136,7 +136,7 @@ export function Absents({ players, quiz, sendCommand }: Props) {
                 <li key={l.playerId} className={'absent' + (l.horsLigne ? ' hors-ligne' : '')}>
                   <div className="absent-qui">
                     <span className="absent-avatar" aria-hidden="true">
-                      <Avatar avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} eclat={l.eclat} />
+                      <Avatar avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} sceau={l.sceau} eclat={l.eclat} />
                     </span>
                     <span className="absent-nom">{l.name}</span>
                     {l.horsLigne && (

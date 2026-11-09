@@ -138,7 +138,7 @@ export function SignatureDuPublic({ auteur, profil }: { auteur: AvatarAPlat & { 
     <span className="plume-signature">
       {/* Son visage, tel qu'il le porte : la question d'une personne, pas d'un pseudonyme. */}
       <span className="plume-de">
-        <Avatar avatar={auteur.avatar} finition={auteur.finition} eclat={auteur.eclat} legendaire={auteur.legendaire} />
+        <Avatar avatar={auteur.avatar} finition={auteur.finition} eclat={auteur.eclat} legendaire={auteur.legendaire} sceau={auteur.sceau} />
         {/* « La question de Camille », à côté de son visage, passait sur deux lignes : la pastille du haut dit déjà d'où elle vient. */}
         {espacesFines(`Signée ${auteur.nom}`)}
       </span>

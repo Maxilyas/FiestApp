@@ -242,7 +242,7 @@ export function LigneDuDefiVue({ ligne: l, moi, onOuvrir }: { ligne: LigneDuDefi
   const contenu = (
     <>
       <Rank n={l.rang} />
-      <Avatar className="lb-avatar" avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} eclat={l.eclat} bordure={l.bordure} />
+      <Avatar className="lb-avatar" avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} sceau={l.sceau} eclat={l.eclat} bordure={l.bordure} />
       <span className="lb-name">
         <NomLaure nom={l.nom} laurier={l.laurier} />
         {l.enCours && <span className="muted small"> · en cours</span>}

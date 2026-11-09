@@ -42,6 +42,8 @@ export type ChoixDuProfil = {
   bordure?: ChoixDeBordure
   /** Le compagnon de sa niche, parmi ceux qu'il a adoptés : c'est lui qui grandit. */
   niche?: string | null
+  /** Le sceau de ses légendaires se montre (`true`, d'office) ou se masque. */
+  sceau?: boolean
 }
 
 /**
@@ -79,7 +81,7 @@ export interface PropsDUnePiece {
 }
 
 /** Les champs d'un enregistrement, dans l'ordre où l'annonce les dit : celui de la rangée de la loge. */
-const CHAMPS = ['avatar', 'eclat', 'eclatDeReserve', 'matiereDeReserve', 'legendaire', 'finition', 'bordure', 'titre', 'vitrine', 'fond', 'theme', 'gerbe', 'niche'] as const
+const CHAMPS = ['avatar', 'eclat', 'eclatDeReserve', 'matiereDeReserve', 'legendaire', 'sceau', 'finition', 'bordure', 'titre', 'vitrine', 'fond', 'theme', 'gerbe', 'niche'] as const
 
 /**
  * Ce qu'un choix enregistré a changé, une phrase par pièce, pour le lecteur
@@ -104,6 +106,7 @@ function annonceDUnChamp(choix: ChoixDuProfil): string {
     const nom = legendaire(choix.legendaire)?.nom ?? divin(choix.legendaire)?.nom ?? (tete && nomDansLaPhrase(tete.nom))
     return nom ? `Tu portes ${nom}.` : 'Tu reviens à ton emoji.'
   }
+  if (choix.sceau !== undefined) return choix.sceau ? 'Ton sceau se montre.' : 'Ton sceau est masqué.'
   if (choix.finition) return choix.finition === 'auto' ? 'Ta plus belle finition, d’office.' : `Finition ${NOM_FINITION[choix.finition]}.`
   if (choix.bordure) {
     if (choix.bordure === 'auto') return 'Ta plus haute bordure, d’office.'

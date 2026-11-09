@@ -36,6 +36,8 @@ export interface PublicPlayer {
   eclat?: false | EclatPorte
   /** L'avatar dessiné qu'il porte — légendaire ou Divin : il remplace l'emoji à l'écran. */
   legendaire?: string
+  /** Le légendaire porté est scellé : il en tient la voie d'origine (`Distinctions.sceau`). */
+  sceau?: true
   /** Il a gagné le quiz du jour d'hier : un laurier suit son prénom (`Distinctions.laurier`), à l'allure de ses victoires — ou le défi de la semaine passée, en argent. */
   laurier?: LaurierPorte
   /** Le champion du mois dernier au quiz du jour (`2026-10`) : l'écran commun le salue quand il entre. */

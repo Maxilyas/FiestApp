@@ -5979,6 +5979,97 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 /* Resserrée, elle déborde encore un peu : le prénom de l'en-tête s'écarte. */
 .me-header .player-avatar.av-lumiere { margin-inline-end: 0.2em; }
 
+/* ── Le sceau des légendaires : l'étoile du zénith ────────────────────────
+
+   Le légendaire qu'on tient par sa voie d'origine, pas seulement par le
+   raccourci du Cabinet (`Sceau.tsx`, la planche validée le 9 novembre 2026,
+   `retours/2026-11-09/sceau/`) : une étoile taillée, centrée sur le sommet
+   du cercle du médaillon (1,12 em) — sur une bordure de ligue, sur le bord
+   de la bordure, qu'elle couronne. Devant tout, ce qui déborde compris
+   (`.lu-avant` est à 2). Ses couleurs sont celles du métal de la finition,
+   dans ses images : `--sc-lueur` n'est que celle de sa lumière. Là où
+   l'avatar est le sujet, son halo respire, ses rayons tournent et une lueur
+   fait le tour du cercle — par `rotate`, `scale` et `opacity` seulement ;
+   dans une liste, elle se fige, sans halo ni rayons, et grossit un peu pour
+   rester une étoile. */
+.sc,
+.sc-tour {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+}
+.sc {
+  top: 0;
+  left: 50%;
+  width: 0.82em;
+  height: 0.82em;
+  margin: -0.41em 0 0 -0.41em;
+}
+.sc > * {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+}
+.sc-etoile { filter: drop-shadow(0 0.02em 0.04em rgba(0, 0, 0, 0.65)); }
+.sc-rayons { opacity: 0.9; }
+.sc-halo {
+  inset: 12%;
+  width: auto;
+  height: auto;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--sc-lueur) 0, transparent 68%);
+  opacity: 0.7;
+}
+.av-bordure .sc {
+  top: -0.34em;
+  width: 0.9em;
+  height: 0.9em;
+  margin: -0.45em 0 0 -0.45em;
+}
+/* La lueur qui fait le tour du cercle : un arc de lumière posé sur lui, qui
+   ne se montre que s'il tourne. */
+.sc-tour {
+  inset: -0.03em;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0 78%, var(--sc-lueur) 92%, #fff 95%, transparent 97%);
+  -webkit-mask: radial-gradient(closest-side, transparent 88%, #000 90%, #000 99%, transparent 100%);
+  mask: radial-gradient(closest-side, transparent 88%, #000 90%, #000 99%, transparent 100%);
+  opacity: 0;
+}
+/* Dans une liste, une puce, une phrase : figée, sans halo ni rayons, un peu plus grande. */
+.av.lb-avatar:not(.av-sujet) .sc,
+.player-chip .sc,
+.av-en-ligne .sc {
+  width: 1.15em;
+  height: 1.15em;
+  margin: -0.575em 0 0 -0.575em;
+}
+.av.lb-avatar:not(.av-sujet).av-bordure .sc,
+.player-chip .av-bordure .sc { top: -0.3em; }
+.av.lb-avatar:not(.av-sujet) :is(.sc-halo, .sc-rayons, .sc-tour),
+.player-chip :is(.sc-halo, .sc-rayons, .sc-tour),
+.av-en-ligne :is(.sc-halo, .sc-rayons, .sc-tour) { display: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .av-scelle .sc-rayons { animation: sc-rayons 24s linear infinite; }
+  .av-scelle .sc-halo { animation: sc-halo 3.2s ease-in-out infinite; }
+  .av-scelle .sc-tour {
+    opacity: 0.9;
+    animation: sc-tour 6s linear infinite;
+  }
+}
+@keyframes sc-rayons {
+  to { rotate: 360deg; }
+}
+@keyframes sc-halo {
+  0%, 100% { opacity: 0.45; scale: 0.85; }
+  50% { opacity: 0.95; scale: 1.2; }
+}
+@keyframes sc-tour {
+  to { rotate: 360deg; }
+}
+
 /* ── Le niveau, lisible au mur ─────────────────────────────────────────────
 
    Une pastille de 11 px avec un chiffre dedans ne se lit pas à cinq mètres :

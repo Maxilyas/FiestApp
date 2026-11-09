@@ -180,7 +180,7 @@ test('« Mon bilan » montre le légendaire porté, pas l’emoji de l’inscrip
   const bilan = readFileSync(new URL('../../client/src/views/BilanApp.tsx', import.meta.url), 'utf8')
   assert.match(
     bilan,
-    /<button key=\{p\.id\} className="bilan-chip" onClick=\{\(\) => onPick\(p\.id\)\}>\s*<Avatar className="lb-avatar" avatar=\{p\.avatar\} finition=\{p\.finition\} eclat=\{p\.eclat\} legendaire=\{p\.legendaire\} \/>/,
+    /<button key=\{p\.id\} className="bilan-chip" onClick=\{\(\) => onPick\(p\.id\)\}>\s*<Avatar className="lb-avatar" avatar=\{p\.avatar\} finition=\{p\.finition\} eclat=\{p\.eclat\} legendaire=\{p\.legendaire\} sceau=\{p\.sceau\} \/>/,
   )
 })
 

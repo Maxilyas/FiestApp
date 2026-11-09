@@ -25,7 +25,7 @@ import {
 } from '../../../shared/album'
 import { BRANCHES, brancheDe, portrait } from '../../../shared/branches'
 import { COLLECTION } from '../../../shared/avatars'
-import { legendaire } from '../../../shared/legendaires'
+import { estScellable, legendaire } from '../../../shared/legendaires'
 import { salleDuGardien } from '../../../shared/cabinet/salles'
 import { divin } from '../../../shared/divins'
 import { compagnonDe, formeDeCompagnon, nomDeLaForme } from '../../../shared/compagnons'
@@ -190,7 +190,14 @@ export function FicheDeLAvatar({
   const f = formeDeCompagnon(a.cle)
   const recit = a.sorte === 'divin' ? (profil.divins ?? []).find(d => d.key === a.cle) : undefined
   const inconnu = a.sorte === 'divin' && !recit
-  const aller = aLui ? null : ouAller(a.cle, voies)
+  // Son sceau : un légendaire qu'un raccourci donne aussi — le Cabinet — se scelle par son exploit (`estScellable`).
+  // Gagné par le raccourci seul, sa voie d'origine reste un but, sa jauge en vue : elle ne valait plus rien.
+  const scellable = aLui && !!l && estScellable(l)
+  const scelle = scellable && (profil.scelles ?? []).includes(a.cle)
+  const sceauAttendu = scellable && !scelle && !!profil.scelles
+  const raccourci = (e: EtapeDUneVoie) => e.lieu === 'cabinet' || e.lieu === 'expedition'
+  const voiesDuSceau = sceauAttendu ? voies.filter(v => !v.some(raccourci)) : []
+  const aller = aLui ? (sceauAttendu ? ouAller(a.cle, voiesDuSceau) : null) : ouAller(a.cle, voies)
   // Un Divin descendu n'éclate jamais, ni la métamorphose d'un compagnon, qui
   // n'a qu'une version ; ses autres formes, depuis leur ciel rare (le
   // 3 novembre 2026), dès que l'Éclat est tombé sur l'une d'elles
@@ -237,6 +244,12 @@ export function FicheDeLAvatar({
           </span>
         </p>
       )}
+      {scelle && (
+        <p className="small album-a-toi">
+          <Icon name="star" />
+          <span>Scellé : tu en tiens l’exploit. L’étoile du zénith couronne son cercle, et toute la salle la voit.</span>
+        </p>
+      )}
       {/* « Essayer », comme sous « À porter » à la fin d'une partie et dans le style : la loge s'ouvre, lui sur la carte. */}
       {aLui && !porte && (
         <a className="btn btn-small album-essayer" href={`?essayer=${encodeURIComponent(a.cle)}#avatar`}>
@@ -246,7 +259,8 @@ export function FicheDeLAvatar({
       {eclate && <ChoixDeLEclat brille={brilleChez(profil, a.cle)} busy={false} matiere={profil.matieresPortees?.[a.cle] ?? null} taillees={profil.matieres?.[a.cle]} />}
       {voies.length > 0 && (
         <>
-          <span className="label album-etiquette">{aLui ? 'Comment il se gagne' : 'Comment l’obtenir'}</span>
+          <span className="label album-etiquette">{sceauAttendu ? 'Son sceau' : aLui ? 'Comment il se gagne' : 'Comment l’obtenir'}</span>
+          {sceauAttendu && <p className="muted small">Gagné au Cabinet : son exploit lui donne encore son sceau, l’étoile du zénith que toute la salle voit.</p>}
           <ul className="album-voies">
             {voies.map((v, i) => (
               <li key={i}>
@@ -256,7 +270,7 @@ export function FicheDeLAvatar({
                   {v.map((e, j) => (
                     <Fragment key={j}>
                       {j > 0 && <span className="album-et">et</span>}
-                      <Etape etape={e} jauge={!aLui} />
+                      <Etape etape={e} jauge={!aLui || (sceauAttendu && !v.some(raccourci))} />
                     </Fragment>
                   ))}
                 </div>

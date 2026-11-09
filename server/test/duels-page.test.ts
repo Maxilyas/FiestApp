@@ -220,7 +220,7 @@ test('ce qu’il porte, partout sur la page des duels : son légendaire, pas l�
 
   // L'onglet du classement : chaque ligne comme au classement entier, sa bordure comprise ; le podium, ce qu'il porte.
   const page = readFileSync(client('views/Duels.tsx'), 'utf8')
-  assert.match(page, /<Avatar className="duels-rang-avatar" avatar=\{l\.avatar\} finition=\{l\.finition\} legendaire=\{l\.legendaire\} eclat=\{l\.eclat\} bordure=\{l\.bordure\} \/>/)
+  assert.match(page, /<Avatar className="duels-rang-avatar" avatar=\{l\.avatar\} finition=\{l\.finition\} legendaire=\{l\.legendaire\} sceau=\{l\.sceau\} eclat=\{l\.eclat\} bordure=\{l\.bordure\} \/>/)
   assert.match(page, /<Anneau key=\{l\.profileId\} avatar=\{l\.avatar\} apparence=\{ceQuIlPorte\(l\)\} ligue=\{l\.ligue\} petit \/>/)
   // La carte du verdict, les cartes d'un duel reçu, la partie elle-même : jamais l'emoji nu de qui porte quelque chose.
   const duel = readFileSync(client('views/Duel.tsx'), 'utf8')
