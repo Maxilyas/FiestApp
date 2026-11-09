@@ -1620,6 +1620,15 @@ export const quizModule: GameModule<QuizState> = {
       // Lu dans l'état de la partie, pas dans une mémoire de la page : la
       // barre du chef rechargée en cours de quiz l'oubliait.
       ...(st.pack && st.programme?.prochain === st.pack.id && !st.programme.ensuite && { dernierDuProgramme: true as const }),
+      // À chaque phase, pas aux seules questions : son absence se lit « au
+      // clic » sur la page. Pendant la photo à mémoriser, la console
+      // l'affichait alors que l'enchaînement était réglé — et un clic sur
+      // « au clic », qui se croyait déjà actif, n'envoyait rien. Au podium,
+      // la barre du chef le cochait quand dix secondes étaient réglées, et
+      // le quiz suivant, qui reprend le réglage, enchaînait seul (la tablée
+      // du 9 novembre 2026) ; pendant la mesure d'une estimation en direct,
+      // la console de même.
+      autoNextSeconds: st.autoNextSeconds,
     }
     if (st.phase === 'pickPack') return { ...base, packs: st.packs, ...(st.programme && { programme: st.programme }) }
     if (st.phase === 'getReady') return { ...base, deadline: st.deadline }
@@ -1644,7 +1653,6 @@ export const quizModule: GameModule<QuizState> = {
         intertitre: q.intertitre,
         ...(st.deadline > 0 && { deadline: st.deadline }),
         ...(q.note && { note: q.note }),
-        autoNextSeconds: st.autoNextSeconds,
       }
     }
     if (st.phase === 'observe' && st.pack) {
@@ -1657,10 +1665,6 @@ export const quizModule: GameModule<QuizState> = {
         deadline: st.deadline,
         duration: q.observeSeconds ?? 0,
         participantCount: joueurs(sess).length,
-        // Sans lui, la console affichait « au clic » pendant la photo alors
-        // que l'enchaînement était réglé — et un clic sur « au clic », qui se
-        // croyait déjà actif, n'envoyait rien.
-        autoNextSeconds: st.autoNextSeconds,
       }
     }
     if ((st.phase === 'question' || st.phase === 'reveal') && st.pack) {
@@ -1683,7 +1687,6 @@ export const quizModule: GameModule<QuizState> = {
         duration: q.duration,
         ...(q.note && { note: q.note }),
         ...(st.pausedMs !== null && { paused: true, remainingMs: st.pausedMs }),
-        autoNextSeconds: st.autoNextSeconds,
         ...(st.autoNextAt !== null && { autoNextAt: st.autoNextAt }),
         ...(st.phase === 'reveal' && st.autoNextSuspendu && { autoNextSuspendu: true }),
         answeredCount: Object.keys(st.responses).length,

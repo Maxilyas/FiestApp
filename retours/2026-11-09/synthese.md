@@ -158,6 +158,16 @@ La barre dit « Révéler 5/7 », la télé « 5 / 7 ont répondu » : nulle par
 deux prénoms qui manquent. Nadia n'a su qu'à la révélation que Lucas n'avait
 pas répondu.
 
+**Depuis (le 9 novembre 2026).** La barre du chef les nomme, toute la
+question, sur une ligne au-dessus de ses gestes : « On attend Lucas et
+Mamie », trois prénoms au plus puis « et 4 autres », les téléphones éteints
+d'abord, et « On n'attend plus que toi » quand c'est le chef que la salle
+attend (`phraseDesAttendus`, `shared/console.ts`) ; « ⋯ » les donne tous. La
+vue d'animateur les portait déjà, pour la console de l'écran commun ; aucun
+téléphone d'invité ne les reçoit, et la télé ne les affiche pas. Au
+passage : « Réponse enregistrée » se posait sous la barre, où le chef ne la
+lisait jamais — elle est remontée au-dessus.
+
 ### 6. « Question suivante » n'affiche pas ce qui vaut au podium — probable
 
 Passée de « Au clic » à « 10 s » pendant le premier quiz, Nadia a lu
@@ -166,6 +176,19 @@ révélation est partie avant la fin de son commentaire. Le menu lit le réglage
 dans la vue de la partie (`v.autoNextSeconds ?? null`, `BarreDuChef.tsx`) et
 un quiz neuf reprend celui du précédent (`lancement.autoNextSeconds`,
 `games/quiz.ts`). Pas rejoué.
+
+**Depuis (le 9 novembre 2026).** Confirmé, puis corrigé. La vue d'animateur
+ne portait l'enchaînement que pendant une question : au podium, au choix du
+quiz, au « Prêts ? » et pendant la mesure d'une estimation en direct, son
+absence se lisait « au clic ». Elle le porte à chaque phase
+(`enchainement.test.ts`), et le régler au podium vaut pour le quiz suivant.
+Un second défaut, à l'inverse, se cachait derrière : la barre reposait à
+chaque quiz — et à chaque rechargement de la page — le rythme choisi en
+ouvrant le salon, et un chef passé « au clic » en cours de route retrouvait
+ses cinq secondes au quiz d'après. Elle retient maintenant celui qu'il
+choisit dans « ⋯ ». Rejoué dans Chromium : dix secondes réglées à la
+première question, « 10 s » coché au podium, au second quiz, et page
+rechargée.
 
 ### 7. Au retour du réseau, « +190 pts » et « Trop tard » ensemble — probable
 

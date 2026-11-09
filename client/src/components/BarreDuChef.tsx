@@ -8,8 +8,8 @@ import { confirmDialog } from './Dialog'
 import { brancherLeChef, clore, commande, creerEquipe, equipesParDefaut, lancer, modifierEquipe, rangerInvite, retirerEquipe, terminer, useChef } from '../socketDuChef'
 import { FeuilleDEquipe } from './FeuilleDEquipe'
 import { MAX_EQUIPES } from '../../../shared/teams'
-import type { ReglagesDuChef } from '../chef'
-import { PALIERS_ENCHAINEMENT, gesteAccepte, revelationPrecoce } from '../../../shared/console'
+import { chefIci, retenirChef, type ReglagesDuChef } from '../chef'
+import { PALIERS_ENCHAINEMENT, gesteAccepte, nomsDesAttendus, phraseDesAttendus, revelationPrecoce } from '../../../shared/console'
 import { ecrireCode } from '../../../shared/space'
 import { lireNombre } from '../../../shared/nombres'
 
@@ -48,8 +48,11 @@ export const PODIUM_AVANT_LA_SUITE_MS = 2500
  * Rien de la question n'y paraît : la vue d'animateur porte la note de
  * l'animateur, et le chef qui joue répond comme les autres. Chargée à la
  * demande, sur le seul téléphone qui a ouvert le salon (`chef.ts`).
+ *
+ * `moi` : la fiche du chef dans la soirée — parmi ceux qu'on attend, il se
+ * lit « toi ».
  */
-export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
+export function BarreDuChef({ reglages, moi }: { reglages: ReglagesDuChef; moi: string }) {
   const c = useChef()
   const v = c.vue
   const [plus, setPlus] = useState(false)
@@ -94,13 +97,34 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
     commande({ type: 'selectPack', packId: prochain, multiplier })
   }, [v, c.sessionId])
 
-  // Le rythme choisi à l'ouverture du salon, une fois par quiz : la partie
-  // ne reprend que celui du quiz d'avant, et le premier partait au clic.
+  /**
+   * Le rythme du chef : celui du salon, puis celui qu'il choisit ici. Relu
+   * sur le téléphone, pas dans ce que la page a chargé : la barre remontée
+   * (le chef sorti de la soirée, puis rentré) reprenait celui de l'ouverture.
+   */
+  const [rythme, setRythme] = useState(() => (chefIci(reglages.slug) ?? reglages).rythme)
+
+  // Le rythme du chef, une fois par quiz : la partie ne reprend que celui du
+  // quiz d'avant, et le premier partait au clic.
   useEffect(() => {
     if (!v || !c.sessionId || v.phase === 'pickPack' || rythmePour.current === c.sessionId) return
     rythmePour.current = c.sessionId
-    if ((v.autoNextSeconds ?? null) !== reglages.rythme) commande({ type: 'autoNext', seconds: reglages.rythme })
-  }, [v, c.sessionId, reglages.rythme])
+    if ((v.autoNextSeconds ?? null) !== rythme) commande({ type: 'autoNext', seconds: rythme })
+  }, [v, c.sessionId, rythme])
+
+  /**
+   * Un palier choisi dans « ⋯ » se retient, comme celui du salon. La barre
+   * reposait à chaque quiz — et à chaque rechargement de la page — le rythme
+   * de l'ouverture : passé « au clic » en cours de route, le chef retrouvait
+   * ses cinq secondes au quiz d'après (la tablée du 9 novembre 2026, axe 6).
+   * Le serveur garde le réglage d'un quiz à l'autre ; le téléphone doit dire
+   * le même.
+   */
+  const choisirRythme = (p: number | null) => {
+    setRythme(p)
+    retenirChef({ ...reglages, rythme: p })
+    commande({ type: 'autoNext', seconds: p })
+  }
 
   /**
    * Le podium vient d'arriver : « Quiz suivant » prend la place de « Le
@@ -214,6 +238,15 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
     }
     commande({ type: 'next', ...visee })
   }
+  /**
+   * Ceux que la question attend encore, en une ligne au-dessus des gestes :
+   * « Révéler 5/7 » ne disait pas lesquels (la tablée du 9 novembre 2026,
+   * axe 5). Les prénoms ne disent rien de la question ; la vue d'animateur
+   * les porte pour la console de l'écran commun, et aucun téléphone d'invité
+   * ne les reçoit.
+   */
+  const enQuestion = v?.phase === 'question'
+  const attente = v && enQuestion ? phraseDesAttendus(v.attendus ?? [], v.attendusEnPlus ?? 0, moi) : null
   /** Ceux qui jouent sans équipe : le chef les range d'ici, même en plein quiz. */
   const sansEquipe = c.snapshot.players.filter(p => !p.teamId && !p.horsClassement)
   const aRanger = sansEquipe.find(p => p.id === aRangerId) ?? null
@@ -291,6 +324,10 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
   return (
     <>
       <nav className="barre-chef" aria-label="Le salon">
+        {/* Toute la question, même quand il n'y a plus personne à nommer :
+            une ligne qui paraîtrait à la cinquième réponse ferait sauter la
+            grille sous le pouce du chef qui choisit encore. */}
+        {enQuestion && <p className="barre-chef-attente">{attente ?? 'Tout le monde a répondu'}</p>}
         {!enJeu && (
           <button type="button" className="barre-chef-code" onClick={() => setQr(true)} aria-label={code ? `Le code du salon : ${ecrireCode(code)}. Montrer le QR` : 'Montrer le QR du salon'}>
             <span className="label">Code</span>
@@ -324,6 +361,16 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
 
       {plus && (
         <Feuille titre="La partie" onFermer={() => setPlus(false)}>
+          {/* Tous ceux qu'on attend : la ligne de la barre n'en nomme que trois. */}
+          {v && enQuestion && (v.attendus?.length ?? 0) > 0 && (
+            <>
+              <span className="label">{`On attend · ${v.attendus!.length + (v.attendusEnPlus ?? 0)}`}</span>
+              <p className="attendus-du-chef">
+                {nomsDesAttendus(v.attendus!, moi).join(', ')}
+                {(v.attendusEnPlus ?? 0) > 0 && ` et ${v.attendusEnPlus} autres`}
+              </p>
+            </>
+          )}
           {v && (
             <>
               <span className="label">Question suivante</span>
@@ -334,7 +381,7 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
                     type="button"
                     className={'pill-btn' + ((v.autoNextSeconds ?? null) === p ? ' active' : '')}
                     aria-pressed={(v.autoNextSeconds ?? null) === p}
-                    onClick={() => commande({ type: 'autoNext', seconds: p })}
+                    onClick={() => choisirRythme(p)}
                   >
                     {p === null ? 'Au clic' : `${p} s`}
                   </button>

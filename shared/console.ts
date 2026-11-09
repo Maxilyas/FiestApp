@@ -56,3 +56,42 @@ export function gesteAccepte(changement: number | null, maintenant: number): boo
 export function revelationPrecoce(repondu: number, attendus: number): boolean {
   return attendus >= 2 && repondu * 2 < attendus
 }
+
+/** Les prénoms que la barre du chef écrit en toutes lettres ; au-delà, deux et un compte. */
+export const ATTENDUS_NOMMES = 3
+
+/** Ce que la barre lit de chacun de ceux qu'on attend (`QuizAttendu`, `shared/games/quiz.ts`). */
+type Attendu = { playerId: string; name: string; horsLigne?: true }
+
+/**
+ * « On attend Lucas et Mamie » : ceux que la question attend encore, sur la
+ * barre du chef. Elle disait « Révéler 5/7 », la télé « 5 / 7 ont répondu »,
+ * et nulle part les deux prénoms qui manquaient — l'animatrice n'a su qu'à la
+ * révélation qui n'avait pas répondu (la tablée du 9 novembre 2026). La
+ * console de l'écran commun les montrait déjà (`Regie.tsx`) : même liste,
+ * celle de la vue d'animateur, les hors-ligne en tête.
+ *
+ * Une ligne de téléphone : trois prénoms au plus, sinon deux et « N autres »
+ * — la feuille « ⋯ » les donne tous. Le chef qui joue se lit « toi », en
+ * dernier ; seul attendu, c'est toute la salle qui l'attend, et la phrase le
+ * lui dit.
+ */
+export function phraseDesAttendus(attendus: readonly Attendu[], enPlus = 0, moi: string | null = null): string | null {
+  const total = attendus.length + enPlus
+  if (total === 0) return null
+  const noms = nomsDesAttendus(attendus, moi)
+  if (total === 1 && noms[0] === 'toi') return 'On n’attend plus que toi'
+  if (total <= ATTENDUS_NOMMES) return `On attend ${noms.length > 1 ? `${noms.slice(0, -1).join(', ')} et ${noms[noms.length - 1]}` : noms[0]}`
+  const montres = noms.slice(0, ATTENDUS_NOMMES - 1)
+  return `On attend ${montres.join(', ')} et ${total - montres.length} autres`
+}
+
+/**
+ * Leurs prénoms, tels que la barre les écrit — dans la ligne, et tous dans la
+ * feuille « ⋯ » : le téléphone éteint se dit (l'appeler ne sert à rien), et
+ * le chef se lit « toi », en dernier.
+ */
+export function nomsDesAttendus(attendus: readonly Attendu[], moi: string | null = null): string[] {
+  const noms = attendus.filter(a => a.playerId !== moi).map(a => (a.horsLigne ? `${a.name} (hors ligne)` : a.name))
+  return noms.length < attendus.length ? [...noms, 'toi'] : noms
+}
