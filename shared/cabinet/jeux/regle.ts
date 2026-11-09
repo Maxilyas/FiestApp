@@ -275,6 +275,12 @@ export const JEUX: Readonly<Record<CleDeJeu, DescriptionDUnJeu>> = {
  */
 export interface VerdictDUneManche {
   naturel: 0 | 1 | 2 | 3
+  /**
+   * Les étoiles que ses aides ont prises, déjà retirées de `naturel` — le Filet en deux temps seul en a
+   * (`filetEnDeuxTemps.ts`). Une aide coûte une étoile, jamais un cœur : réussie, une manche qu'elles laissent à
+   * zéro n'est pas ratée.
+   */
+  payees?: number
   pieces: { juste: boolean; choix: number | null; composee: string | null; etape?: 1 | 2 }[]
 }
 

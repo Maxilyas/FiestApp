@@ -168,7 +168,9 @@
       return {
         an: true, T, bonne: i, bonnes: [i],
         tranches: [0, 1, 2, 3].map(k => ({ de: debut + k * T, a: debut + (k + 1) * T - 1 })),
-        anneaux: [Math.max(1, Math.round(T / 12)), Math.round(T / 4)],
+        // À un douzième, à un quart de l'époque près, en années entières : 2 et 6 sur 25, 4 et 12 sur 50 — arrondi, le
+        // quart de 50 faisait 13, plus large que ce que la règle dit (`ANNEAUX_DES_EPOQUES`, la règle du code).
+        anneaux: [Math.floor(T / 12), Math.floor(T / 4)],
       }
     }
     // La tranche de la valeur : la plus haute borne de la suite 1, 3, 10, 30… qui ne la dépasse pas.

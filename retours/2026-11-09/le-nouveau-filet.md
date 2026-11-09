@@ -835,7 +835,14 @@ Ce qu'on en tire :
      **La stricte, complétée du panel à 50 %, tombe sur les trois manches
      sur quatre et triple l'acte I** : les deux signaux sont ceux que la
      passe du panel donnera en production (§ 5.6). Calée sur 25 lancers : à
-     revérifier à blanc, avec les autres notes du moteur ;
+     revérifier à blanc, avec les autres notes du moteur.
+
+     Les comptes de ce tableau viennent d'un échantillon. **Le panel passé
+     sur tout le vivier**, le soir du 9 novembre (§ 5.5), donne le compte
+     exact, au nouveau Filet — sans ce qui se calcule, une année avec 25 ans
+     de recul : **264 questions à l'acte I**, dont 121 que chaque Français
+     sait placer et 143 que le panel donne à 50 % et plus, pour 174 valeurs
+     distinctes ;
    - **le recul des années** : 25 ans au lieu de 46 rendent 16 années que
      chaque Français sait placer (décision 10) ;
    - **les dix-neuf questions du pilote, en production** : leurs lancers
@@ -992,12 +999,42 @@ peut poser (`reproductions/moteur-de-difficulte.ts vivier`) :
     général, mais des questions **connaissables au Filet** là où il en
     manque.
 
+**Le vivier entier, le soir du 9 novembre.** Le panel a noté les 1 194
+questions qui n'avaient pas de note, en huit lots de 159 ou 160, d'un agent
+chacun, la consigne de la première passe mot pour mot ; chaque lot portait
+dix étalons de la première passe — 80 en tout — pour mesurer sa dérive
+(`panel-du-vivier.json`, `reproductions/panel-du-vivier.mts`) :
+
+- **la seconde passe note plus haut** : 39,9 en moyenne sur les étalons
+  contre 36,9, et sept points de plus autour de 50, là où se joue l'acte I.
+  Elle se recale sur la première par les seuls étalons — même moyenne, même
+  dispersion — avant de servir : c'est la première que les vrais lancers ont
+  validée (§ 5.2). Sans recalage, l'acte I aurait pris 29 questions de plus ;
+- **le même panel, deux fois, classe 70 % des étalons au même acte**
+  (corrélation 0,84) : une note seule est bruitée, et ce sont les lancers qui
+  la corrigeront, question par question (§ 5.6) ;
+- **ce que chaque acte en tire**, au nouveau Filet — sans ce qui se
+  calcule, une année avec 25 ans de recul (`seTendEnDeuxTemps`) :
+
+  | Acte | Questions | Années | Grandeurs | Valeurs distinctes |
+  |---|---|---|---|---|
+  | I — chaque Français, ou le panel à 50 % et plus | 264 | 167 | 97 | 174 |
+  | II — le panel de 25 à 49 % | 422 | 225 | 197 | 317 |
+  | III — le panel sous 25 % | 803 | 217 | 586 | 692 |
+
+  Les 1 489 questions posables se partagent mal : l'acte I n'a que 2
+  questions en Nature, 5 en Cuisine, 6 en Arts & lettres et 7 en
+  Géographie, quand la Culture générale en a 51 et l'Histoire 50. Le tracé
+  de la carte ne peut y proposer le Filet à l'acte I (§ 6), et c'est là
+  qu'écrire paiera (§ 4.4).
+
 ### 5.6 Le mettre en service
 
 - **La passe sur la base** : les agents notent les 27 404 questions, par lots,
   sur l'abonnement, comme la génération de la base (`generer-campagne.ts`).
   - Le panel de cette nuit a noté 518 questions en six lots de 87, d'un
-    agent chacun.
+    agent chacun ; celui du soir, les 1 194 autres questions du vivier
+    (§ 5.5). Le vivier du Filet est noté en entier.
   - Les questions neuves sont notées à l'écriture (`redacteur-campagne`), et
     celles de la routine du matin à leur dépôt.
 - **À blanc d'abord**, comme Duolingo :
@@ -1012,8 +1049,8 @@ que chaque morceau devient.
 | Morceau | Ce qui change |
 |---|---|
 | `shared/cabinet/bareme.ts` | Les chiffres neufs, chacun sa ligne dans `baremes.md` (`documentation.test.ts`, `cabinet-catalogue.test.ts`) : les époques (`EPOQUES_DU_FILET` : 25, 50, 100 et leurs seuils), les anneaux (un douzième, un quart ; 6 % et 25 % de la réponse, l'écart lu au dixième), la suite des ordres de grandeur, les crans d'une tranche (deux cents au plus, ronds, un au moins pour une réponse entière), `AIDES_PAR_MANCHE` (2), ce qu'une aide payée retire (une étoile). `LARGEURS_DU_FILET`, `ETOILES_DU_FILET`, `POSITION_DE_LA_REPONSE`, `PISTE_DES_ANNEES`, `ZONE_DU_FILET` restent, pour les parties d'avant. |
-| `shared/cabinet/jeux/filet.ts` | La règle pure : le tirage (`FiletTire` : la question, la valeur, les quatre époques, la place de la réponse, les repères), l'état (l'époque touchée, les aides prises, les époques retirées), le geste (`repondre` : l'époque et le curseur ; `aide` : sa clé), le jugement à la distance (§ 3.3), ce qu'on montre et ce qu'on révèle (§ 3.9), la pièce (`composee` : « 1852\|1\|2 », le curseur, l'époque, les aides), le cartel. |
-| `VERSIONS_DU_DEPART` (`shared/cabinet/partie.ts`) | Une version de plus (la 4) : le pli jugerait autrement une partie déjà commencée. La règle d'avant reste, choisie par `d.v` ; son départ et son bilan écrits en dur dans `cabinet-regles.test.ts`. |
+| `shared/cabinet/jeux/filetEnDeuxTemps.ts` — **écrit le 9 novembre** (le lot 1, `server/test/cabinet-filet-en-deux-temps.test.ts`) | La règle pure, à côté de celle d'avant (`filet.ts`) : le tirage (`FiletEnDeuxTempsTire` : la question, la valeur, les quatre tranches et leurs crans, la ou les bonnes, les anneaux, les deux époques que l'aide retirerait, les repères, l'indice, le prix d'une aide — tout figé au départ), l'état (les aides prises, payées ou offertes ; l'époque touchée et le curseur, la page les tient), les gestes (`repondre` : l'époque et le curseur ; `aide` : sa clé), le jugement à la distance (§ 3.3, l'écart d'une grandeur lu au dixième, `ecartEnPourCent`), Éclairer qui offre une aide, ce qu'on montre et ce qu'on révèle (§ 3.9), la pièce (`composee` : « 1962\|1\|eI », le curseur, l'époque, les aides — minuscule payée, capitale offerte), le cartel ; et ce que le tireur appelle : les places possibles, les poids des places par acte (`poidsDesPlaces`), le tirage d'une place, les repères (`reperesDuFilet`), le tirage entier (`tirageEnDeuxTemps`). Une aide payée laisse `payees` au verdict : réussie à zéro étoile, la manche n'est pas ratée. |
+| La version du départ — **aucune** | Le cahier proposait une version 4 (`VERSIONS_DU_DEPART`) : le pli aurait choisi la règle par `d.v`. Le code préfère figer dans le tirage ce que le pli juge (la règle du Cabinet, comme `EpingleTiree.decalage`) : le tirage du nouveau Filet porte `deuxTemps`, ses tranches, ses anneaux et le prix d'une aide, et le registre choisit la règle par lui. Une partie commencée se juge comme elle a été tirée, un chiffre changé ne vaut que pour les parties qui commencent, et le Filet d'avant juge les parties d'avant — un tirage sans `deuxTemps`. |
 | `server/src/core/cabinet/tirages/filet.ts` | Le tirage par acte au lieu des marches (`MARCHES_DU_FILET_AUX_EPREUVES`, `_AUX_GARDIENS`) : l'acte I parmi ce que chaque Français sait placer (§ 4), les deux autres par la connaissabilité (§ 5.4) ; les époques et les repères figés dans le tirage, du hasard du serveur. |
 | Le tracé de la carte (`tracerLaCarte`, `shared/cabinet/traversee.ts`) | Une étape de Filet ne prend qu'une catégorie dont le vivier tient son acte — le serveur lui donne, comme il donne au Quiz ses thèmes (`themesDuQuiz`), les catégories qui en ont assez : la Cuisine, la Géographie et la Nature n'en ont pas à l'acte I (§ 5.5). |
 | Les repères | Un fichier de contenu (`server/content/cabinet/reperes.json`, rangé et jugé par `cabinet-contenu.ts`), et les siens lus du journal des réponses (`JournalDesReponses`, une dérivation de plus, comparée au SQL d'avant dans `journal-des-reponses.test.ts`). |
@@ -1025,7 +1062,9 @@ que chaque morceau devient.
 | Le calibrage (`calibrage-cabinet.ts --sections traversee`) | Le joueur modèle du Filet devient bimodal — il sait, il sait à peu près, il ne sait pas —, recalé sur les lancers réels. Les étoiles par manche du Filet passent de 0,67 à environ 1,1–1,8 : les gardiens tombent plus vite, à mesurer avant de toucher à leurs points de vie. |
 
 **Les tests à écrire**, dans `server/test/` (un comportement neuf arrive avec
-son test) :
+son test). La règle pure, le secret de ce qu'elle montre, les repères et la
+place de la réponse sont écrits (`cabinet-filet-en-deux-temps.test.ts`, le
+9 novembre) ; le reste vient avec le branchement, le tireur et l'écran :
 
 - la règle pure :
   - les époques (bornes, place de la réponse, jamais l'avenir) ;
