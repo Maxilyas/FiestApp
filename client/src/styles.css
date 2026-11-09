@@ -848,7 +848,12 @@ h3 > .icon {
   border-radius: 12px;
   background: var(--surface);
   border: 1px solid transparent;
-  animation: slide-in 0.35s ease-out both;
+  /* `backwards`, jamais `both` : l'entrée finie, la ligne est telle que sa
+     dernière image, et une animation qui garde sa fin garde aussi son calque
+     à la carte graphique — huit lignes, huit calques pour toujours. Sous un
+     thème peint, au téléphone Android, celui d'une ligne ne se dessinait
+     plus (`.lg-carte`, plus bas). */
+  animation: slide-in 0.35s ease-out backwards;
 }
 
 .lb-row.me { background: var(--accent-soft); border-color: var(--edge-strong); }
@@ -4825,10 +4830,22 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 
 .lg * { transform-box: view-box; }
 
-/* La carte penche sous le doigt, et se redresse en le quittant. */
+/* La carte penche sous le doigt, et se redresse en le quittant — là où elle
+   se prend en main seulement (`.lg-touche-libre`, en grand). Posée sur tous
+   les médaillons, la perspective, même à plat, faisait de chacun un calque
+   de la carte graphique, et de ce qui passe devant lui — la gemme de
+   l'Éclat, les bulles des Abysses — un autre : dans un classement sous un
+   thème peint, qui prend déjà la mémoire des tuiles, un téléphone Android ne
+   dessinait plus la ligne d'un joueur, ou y montrait de la friture, son
+   médaillon seul à sa place (le 9 novembre 2026, le classement du quiz du
+   jour sous Le Ciel). Ailleurs, elle garde son contexte d'empilement, sans
+   calque. */
 .lg-carte {
   position: absolute;
   inset: 0;
+  isolation: isolate;
+}
+.lg-touche-libre .lg-carte {
   transform: perspective(4em) rotateX(calc((var(--py) - 0.5) * -14deg)) rotateY(calc((var(--px) - 0.5) * 14deg));
   transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
 }

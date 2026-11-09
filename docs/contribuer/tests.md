@@ -297,6 +297,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/chiffres.test.ts` — la précision des QCM, le coup d'œil des estimations.
 - `server/test/design.test.ts` — le système de design.
 - `server/test/feuilles.test.ts` — une feuille, une carte ou un dialogue ouvert : la page de dessous ne défile plus, rien ne clignote à l’ouverture, rien ne se lit au travers, sous aucun thème, et le décor du thème se retire le temps qu’elle reste ouverte ; une feuille est une vraie fenêtre (le focus dedans, gardé quand on appuie sur son voile, le reste inerte, Échap).
+- `server/test/calques-des-listes.test.ts` — dans une liste, rien ne garde un calque de la carte graphique : une ligne de classement rend le sien une fois entrée, un légendaire ne penche que là où on le prend en main — au téléphone, sous un thème peint, la ligne d'un joueur ne se dessinait plus.
 - `server/test/typographie.test.ts` — élision, rang, espaces insécables.
 - `server/test/chemin-des-imports.ts` — pas un fichier de tests : ce qu'une page télécharge avec elle, ses imports statiques de proche en proche, que partagent ceux qui gardent un chemin léger.
 - `server/test/teintes.ts` — pas un fichier de tests : les couleurs de chaque thème lues dans sa feuille et le contraste qu'on en tire, une seule copie pour `server/test/design.test.ts` et `server/test/cabinet-ecran.test.ts`.
