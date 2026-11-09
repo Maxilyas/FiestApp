@@ -108,11 +108,15 @@ Pour faire jouer une soirée par des agents, suis la skill `tablee`.
   boutons « Quitter » se confondaient au pilote, la tête de la manche et la
   question. Les consignes et les fiches touchent « Quitter », puis
   « Quitter la partie » ou « Continuer ».
-- **L'animatrice arrive par un compte à activer** (`/api/admin/accounts`,
-  puis son lien `/activer`), le chemin d'avant le 3 octobre 2026 :
-  aujourd'hui, un animateur ouvre son salon depuis son profil (« Créer un
-  salon »), et `/admin` ne crée plus de compte. Ses retours sur son arrivée
-  parlent de ce chemin-là.
+- **L'animatrice de `consignes-animateur.md` arrive par un compte à
+  activer** (`/api/admin/accounts`, puis son lien `/activer`), le chemin
+  d'avant le 3 octobre 2026, et ses retours sur son arrivée parlent de
+  celui-là. Le chemin d'aujourd'hui — un profil, « Créer un salon », la télé
+  branchée par son code — se joue par `consignes-chef.md` et la fiche
+  `nadia-salon`, sous `--sans-animateur` (le 9 novembre 2026). **L'écran
+  commun est une page `/host` ou `/tele` qui montre `.join-url`**
+  (`lesTeles`, `regie.ts`) : la télé branchée n'était pas reconnue, et
+  `scanner` attendait sans fin un écran pourtant allumé.
 - **Ce que signalent les navigateurs ne s'écrit nulle part** : seul le geste
   `console` le lit, et le vide. Le dossier de la tablée garde
   `journal.jsonl` (les gestes, sans leur sortie — sauf les tirages du dé,

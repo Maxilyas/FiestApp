@@ -1092,7 +1092,9 @@ async function adresseDuQr(o: Onglet): Promise<string | null> {
  * L'écran commun, celui que toute la salle regarde : une page `/host` où
  * l'animateur est connecté, et qui montre donc l'adresse à scanner. Un
  * invité curieux qui ouvre `/host` sur son téléphone n'y voit qu'une page de
- * connexion : ce n'est pas la télé.
+ * connexion : ce n'est pas la télé. Ou une télé branchée par son code
+ * (`/tele`), le chemin d'un salon ouvert depuis un profil : tant qu'elle
+ * n'est pas branchée, elle ne montre que ce code, et aucune adresse.
  */
 interface Tele {
   p: Participant
@@ -1108,7 +1110,7 @@ async function lesTeles(salon?: string | null): Promise<Tele[]> {
     for (const o of p.onglets.values()) {
       let surHost = false
       try {
-        surHost = new URL(o.page.url()).pathname === '/host'
+        surHost = ['/host', '/tele'].includes(new URL(o.page.url()).pathname)
       } catch {
         // Une page encore vierge n'a pas d'adresse lisible.
       }

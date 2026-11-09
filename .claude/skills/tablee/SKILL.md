@@ -22,6 +22,7 @@ régler le temps de toutes ses questions d'un coup.
 | `server/scripts/tablee/regie.ts` | la régie : serveur jetable, Chromium, et la porte que poussent les agents (`npm run tablee`) |
 | `server/scripts/tablee/pilote.mjs` | le geste d'un agent : `node server/scripts/tablee/pilote.mjs <qui> <geste> …` (`… aide` les liste) |
 | `consignes-invite.md`, `consignes-animateur.md` | ce que chaque agent doit savoir, commun à tous |
+| `consignes-chef.md` | l'animateur d'aujourd'hui, à la place de `consignes-animateur.md` : un profil, « Créer un salon », la télé branchée par son code, la barre du chef — « Le salon ouvert depuis un profil » plus bas |
 | `personas/*.md` | une fiche par personnage : qui, quel appareil, quel scénario, quoi regarder |
 | `modele-retour.md` | le plan du retour que chaque agent écrit |
 | `consignes-expert.md`, `experts/*.md`, `modele-rapport.md` | les experts : une mission chacun (parcours, design, mots, accessibilité, performance…), leur atelier, le plan de leur rapport |
@@ -132,6 +133,32 @@ Dans `retours/<AAAA-MM-JJ>/` à la racine du dépôt :
   mots (PNG en taille CSS : quelques dizaines de Ko chacune).
 
 Puis `node server/scripts/tablee/pilote.mjs regie arreter`.
+
+## Le salon ouvert depuis un profil
+
+Depuis le 3 octobre 2026, un animateur n'a plus de compte à activer : il se
+crée un profil, touche « Créer un salon », branche la télé par le code
+qu'elle affiche (`/tele`) et anime depuis la barre de son téléphone, en
+jouant s'il le veut. C'est ce chemin que joue la fiche `nadia-salon`
+(identifiant `nadia`, sa télé `nadia-tele`), avec `consignes-chef.md` à la
+place de `consignes-animateur.md` — les fiches de ses invités ne changent
+pas. Sa régie ne crée aucun compte d'animateur :
+
+```bash
+npm run tablee -- --sans-animateur --profil "Camille/camille.d/🦊"
+```
+
+Le prompt de l'animatrice dit qu'elle part de l'accueil, sans lien
+d'activation. La régie tient pour écran commun une page `/host` ou une télé
+branchée (`/tele`) qui montre l'adresse à scanner : `scanner`, `tele` et
+`attendre --tele` des invités la trouvent comme l'autre. Un salon tire une
+adresse neutre (`s-…`) et un code à six chiffres : l'invitée qui n'a que
+« c'est chez Nadia » (`camille-m`) doit demander le code, et l'écran commun
+ne dit plus « Rejoindre » mais « Code 482 157 » — donne-lui ce mot à
+attendre dans ses valeurs du jour. Un quiz que l'application compose se joue
+à vingt secondes la question : l'animatrice doit le régler à 45–60 s avant
+de lancer (ses consignes le disent), sans quoi les agents n'ont pas le temps
+de répondre. La première : `retours/2026-11-09/`.
 
 ## Plusieurs salons
 
@@ -313,11 +340,13 @@ personnage.
   rythme. `coller` remplit d'un coup, comme un texte copié ailleurs.
 - Chromium seulement : ni Safari, ni Firefox. Le profil « iphone » n'en a
   que la taille et l'identité.
-- L'animatrice arrive par un compte que la régie crée à l'administration,
-  à activer par son lien : le chemin d'avant le 3 octobre 2026. Aujourd'hui,
-  un animateur ouvre son salon depuis son profil (« Créer un salon »), et
-  `/admin` ne crée plus de compte : ce que l'animatrice dit de son arrivée
-  parle de l'ancien chemin.
+- Avec `consignes-animateur.md`, l'animatrice arrive par un compte que la
+  régie crée à l'administration, à activer par son lien : le chemin d'avant
+  le 3 octobre 2026, et ce qu'elle dit de son arrivée parle de lui.
+  Aujourd'hui, un animateur ouvre son salon depuis son profil (« Créer un
+  salon »), et `/admin` ne crée plus de compte : pour ce chemin-là,
+  `consignes-chef.md` et la fiche `nadia-salon` (« Le salon ouvert depuis un
+  profil », plus haut).
 - La salle (`dire`) est commune à toute la tablée — ou à tout un salon, s'il y
   en a plusieurs : c'est une pièce, pas un espace de l'application.
 - **Le nombre d'agents et la réserve d'usage.** Une session ne mène que vingt
