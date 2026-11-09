@@ -22,12 +22,15 @@ Connecté à l'écran commun, ton profil y retrouve le même espace, ses quiz et
 
 À l'accueil, « Créer un salon » ouvre « Nouveau salon ». Il s'ouvre avec ton profil (sinon : « Me connecter » ou « Créer mon profil ») ; ton espace naît à ta première visite, sans rien d'autre à retenir.
 
-1. **« Les quiz »** : ceux de ce soir, dans l'ordre — « Ajouter un quiz » propose tes quiz prêts, le quiz tout prêt et les modèles.
-2. **« Où voit-on les questions ? »** : « Sur nos téléphones », ou « Sur une télé » ([plus bas](#la-télé)).
-3. **« Et toi ? »** : « Je joue aussi », ou « J'anime seulement ».
-4. **« Les équipes »** : « Chacun pour soi », ou « En équipes ».
-5. Replié dans **« Réglages »** : le rythme (« Question suivante » : « Au clic », « 5 s », « 10 s », « 20 s » — 5 s d'office) et les « Points » de chaque quiz, ×1, ×2 ou ×3.
-6. **« Ouvrir le salon »** enregistre le programme de ce soir, ouvre le salon et son code, et t'emmène dans ta soirée, ta barre en bas de l'écran.
+1. **« Le nom de la soirée »** : « Les 40 ans de Sam ». Tes invités le lisent en arrivant, la télé l'affiche, et l'historique range la soirée sous ce nom ; laissé vide, elle s'appelle « La soirée de *ton prénom* », et l'historique la range sous sa date. Il reste proposé la fois suivante : change-le, ou vide-le.
+2. **« Les quiz »** : ceux de ce soir, dans l'ordre — « Ajouter un quiz » propose tes quiz prêts, le quiz tout prêt et les modèles. Le crayon d'une carte ouvre ce quiz dans « Mes quiz » : ses questions, et le temps de chacune (« Régler tout le quiz »).
+3. **« Où voit-on les questions ? »** : « Sur nos téléphones », ou « Sur une télé » ([plus bas](#la-télé)).
+4. **« Et toi ? »** : « Je joue aussi », ou « J'anime seulement ».
+5. **« Les équipes »** : « Chacun pour soi », ou « En équipes ».
+6. Replié dans **« Réglages »** : le rythme (« Question suivante » : « Au clic », « 5 s », « 10 s », « 20 s » — 5 s d'office) et les « Points » de chaque quiz, ×1, ×2 ou ×3.
+7. **« Ouvrir le salon »** enregistre le nom et le programme de ce soir, ouvre le salon et son code, et t'emmène dans ta soirée, ta barre en bas de l'écran.
+
+Ce que tu prépares t'attend : pars régler un quiz, reviens demain, la page retrouve le nom, les quiz, les équipes et tes choix — sur ce téléphone, jusqu'à « Ouvrir le salon ».
 
 ### Ou ouvrir l'écran commun
 

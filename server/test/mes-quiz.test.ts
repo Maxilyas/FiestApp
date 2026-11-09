@@ -147,3 +147,85 @@ test('« Lancer » ouvre un salon sur ce quiz seul ; sinon, le programme d’hie
   assert.equal(quizDuSalon(liste, programme, 'q-vieux').length, 2)
   assert.equal(quizDuSalon(liste, programme, 'q-du-voisin').length, 2)
 })
+
+// La tablée du 9 novembre 2026 : Nadia a quitté « Nouveau salon » pour régler
+// le temps de ses questions dans « Mes quiz ». Au retour, plus rien — ni ses
+// quiz, ni ses équipes, ni la télé : cinq minutes sur dix de préparation.
+test('« Nouveau salon » garde sa préparation : un brouillon sur ce téléphone, jusqu’à l’ouverture', async () => {
+  const stock = new Map<string, string>()
+  Object.assign(globalThis, {
+    localStorage: {
+      getItem: (k: string) => stock.get(k) ?? null,
+      setItem: (k: string, v: string) => void stock.set(k, v),
+      removeItem: (k: string) => void stock.delete(k),
+    },
+  })
+  const { brouillonDuSalon, chefIci, oublierBrouillon, retenirBrouillon } = await import(new URL('../../client/src/chef.ts', import.meta.url).href)
+  const brouillon = {
+    slug: 's-abc234',
+    nom: 'Les 40 ans de Sam',
+    quiz: [{ id: 'q-rock', multiplicateur: 2 }, { id: 'q-cine', multiplicateur: 1 }],
+    ecran: 'tele',
+    joue: true,
+    rythme: null,
+    equipes: true,
+    equipesPreparees: [{ nom: 'Les Randonneurs', emoji: '🔥' }, { nom: 'Les Pizzaïolos', emoji: '🌶️' }],
+  }
+  assert.equal(brouillonDuSalon('s-abc234'), null, 'rien de préparé')
+  retenirBrouillon(brouillon)
+  assert.deepEqual(brouillonDuSalon('s-abc234'), brouillon)
+  assert.equal(brouillonDuSalon('chez-un-autre'), null, 'celui d’un autre espace ne vaut pas ici')
+  // Préparer un salon ne fait pas de ce téléphone celui du chef : la barre attend « Ouvrir le salon ».
+  assert.equal(chefIci('s-abc234'), null)
+  // Un brouillon abîmé ne fait pas tomber la page : ce qui se lit se garde, le reste revient à l'office.
+  stock.set('quizz.salon', JSON.stringify({ slug: 's-abc234', nom: 42, quiz: [{ id: 'q-rock', multiplicateur: 9 }, { id: 7 }, 'x'], ecran: 'cinema', rythme: 7, equipes: 'oui' }))
+  assert.deepEqual(brouillonDuSalon('s-abc234'), { slug: 's-abc234', nom: '', quiz: [{ id: 'q-rock', multiplicateur: 1 }], ecran: 'telephones', joue: true, rythme: null, equipes: false })
+  stock.set('quizz.salon', '{')
+  assert.equal(brouillonDuSalon('s-abc234'), null)
+  retenirBrouillon(brouillon)
+  oublierBrouillon()
+  assert.equal(brouillonDuSalon('s-abc234'), null, '« Ouvrir le salon » l’oublie : le programme et les réglages du chef le tiennent')
+
+  // Ses quiz passent devant le programme d'hier — mais pas devant « Lancer », qui ouvre un salon sur un quiz seul.
+  const { quizDuSalon } = await importer('views/SalonApp')
+  const liste: QuizSummary[] = [CINE, { ...CINE, id: 'q-rock', title: '🎸 Rock', readyCount: 8 }]
+  const programme = { entrees: [{ quizId: 'q-cine', multiplier: 3 }] } as unknown as Programme
+  assert.deepEqual(quizDuSalon(liste, programme, null, [{ id: 'q-rock', multiplicateur: 2 }, { id: 'supprime-depuis', multiplicateur: 1 }]), [
+    { id: 'q-rock', titre: '🎸 Rock', multiplicateur: 2 },
+  ])
+  assert.deepEqual(quizDuSalon(liste, programme, null, []), [], 'il avait tout retiré : le programme d’hier ne revient pas')
+  assert.deepEqual(quizDuSalon(liste, programme, 'q-cine', [{ id: 'q-rock', multiplicateur: 2 }]), [{ id: 'q-cine', titre: '🎬 Ciné des années 90', multiplicateur: 3 }])
+  // Le retour du détour : le crayon mène à « Mes quiz », d'où le chemin qui
+  // revient au salon est « Lancer ». Sur un quiz qu'elle préparait déjà, il
+  // lui rend son brouillon entier, pas ce quiz seul.
+  assert.deepEqual(
+    quizDuSalon(liste, programme, 'q-cine', [{ id: 'q-rock', multiplicateur: 2 }, { id: 'q-cine', multiplicateur: 1 }]),
+    [
+      { id: 'q-rock', titre: '🎸 Rock', multiplicateur: 2 },
+      { id: 'q-cine', titre: '🎬 Ciné des années 90', multiplicateur: 1 },
+    ],
+    '« Lancer » sur un quiz du brouillon garde les autres',
+  )
+
+  const salon = source('views/SalonApp.tsx')
+  // Ce que la page a chargé n'est pas un brouillon : il ne s'écrit qu'à partir du premier changement.
+  assert.ok(/if \(depart\.current === null\) \{\s*depart\.current = cle\s*return\s*\}/.test(salon), 'le chargement ne s’écrit pas')
+  assert.ok(salon.includes('retenirBrouillon(brouillon)'), 'chaque changement se retient')
+  const ouvrir = salon.slice(salon.indexOf('const ouvrir = async'), salon.indexOf('const jouables'))
+  // Une fois le salon ouvert, pas avant : un refus du serveur la laisse sur sa page, son brouillon intact.
+  assert.ok(ouvrir.includes('oublierBrouillon()') && ouvrir.indexOf('oublierBrouillon()') > ouvrir.indexOf('await api.joueur.salon('), 'ouvert, le salon n’a plus de brouillon')
+  // Et chaque quiz du salon mène à sa page, d'où l'on règle son temps par question : le brouillon attend.
+  assert.ok(salon.includes('href={`/edit?quiz=${encodeURIComponent(q.id)}`}'), 'la carte d’un quiz ouvre sa page')
+  // « Pas encore de quiz prêt » se lisait quand tous ses quiz étaient déjà dans le salon.
+  assert.ok(salon.includes('Tous tes quiz prêts sont déjà dans ce salon.'))
+})
+
+test('« Nouveau salon » demande le nom de la soirée, et l’écrit en ouvrant', () => {
+  const salon = source('views/SalonApp.tsx')
+  assert.ok(/<label className="label" htmlFor="salon-nom">\s*Le nom de la soirée\s*<\/label>/.test(salon))
+  assert.ok(!/id="salon-nom"[^>]*autoFocus/.test(salon), 'pas d’autoFocus : le clavier pousserait la page')
+  const ouvrir = salon.slice(salon.indexOf('const ouvrir = async'), salon.indexOf('const jouables'))
+  // Seulement s'il a changé : un salon rouvert tel quel n'écrit rien de plus.
+  assert.ok(ouvrir.includes('api.space.saveSettings(reglagesAuNom(nom, espace))'), 'le nom part avec l’ouverture, tous les réglages de l’espace avec lui')
+  assert.ok(ouvrir.indexOf('api.space.saveSettings(') < ouvrir.indexOf('api.joueur.salon('), 'avant que le salon s’ouvre : la télé et l’entrée le portent d’emblée')
+})

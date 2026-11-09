@@ -129,6 +129,14 @@ soirée, la même page se souvient de tout.
 ses questions sans les réponses (Nadia joue aussi, et l'éditeur les montre),
 et son temps par question.
 
+**Depuis (le 9 novembre 2026).** Le brouillon se garde : du premier
+changement à « Ouvrir le salon », la page écrit sa préparation sur le
+téléphone (`BrouillonDuSalon`, `client/src/chef.ts`) et la retrouve au
+retour — le nom, les quiz et leurs points, l'écran, les équipes. Le crayon
+d'une carte mène à ce quiz dans « Mes quiz ». Restent : voir les questions
+sans leurs réponses depuis le salon (l'éditeur les montre toujours à qui
+joue aussi), et régler le temps par question sans quitter la page.
+
 ### 4. Une soirée ouverte depuis un salon ne se nomme pas — confirmé
 
 La télé dit « La soirée de Nadia », le souvenir et le bilan « Soirée du
@@ -136,6 +144,13 @@ La télé dit « La soirée de Nadia », le souvenir et le bilan « Soirée du
 été l'intertitre d'une question. La barre du chef clôt sans titre
 (`clore()`, `socketDuChef.ts`, envoie une charge vide), quand l'écran commun
 en demande un. C'est le lien qu'on envoie à la famille.
+
+**Depuis (le 9 novembre 2026).** « Nouveau salon » s'ouvre sur « Le nom de
+la soirée » : écrit à « Ouvrir le salon », il fait le titre de l'entrée et
+de la télé (`reglagesAuNom`), et une clôture sans titre — la barre du chef,
+le dernier quiz d'un programme, le QG — range la soirée sous ce nom tant
+que l'historique ne lui en connaît qu'un automatique. Le nom reste celui de
+l'espace : il est proposé de nouveau à la soirée suivante.
 
 ### 5. Qui n'a pas répondu ? — idée
 

@@ -159,6 +159,30 @@ export function titreDeCloture(rangee: string | undefined, space: { title: strin
   return titreChoisi(space) ?? rangee ?? `Soirée du ${jour}`
 }
 
+/**
+ * Les réglages d'un espace quand on nomme sa soirée d'un seul champ — celui
+ * de « Nouveau salon » : le nom fait le titre (la télé, le souvenir, le
+ * bilan) et le grand titre de l'entrée, sous « La soirée ». Vidé, il rend le
+ * titre d'office. Un salon ouvert depuis un profil ne se nommait nulle part :
+ * « Les 40 ans de Sam » restait « La soirée de Nadia » au mur et « Soirée du
+ * 9 novembre 2026 » au souvenir (la tablée du 9 novembre 2026).
+ *
+ * Tous les réglages, pas le seul titre : le serveur les remplace d'un bloc
+ * (`AuthStore.updateSettings`), et la date ou le plafond d'invités d'un
+ * espace réglé dans « Mon compte » reviendraient à l'office.
+ */
+export function reglagesAuNom(nom: string, space: { name: string; dateLine: string; maxPlayers: number }): SpaceSettings {
+  const d = defaultSettings(space.name)
+  const titre = tronquer(nom.trim(), 80)
+  return {
+    title: titre || d.title,
+    eyebrow: d.eyebrow,
+    headline: titre ? tronquer(titre, 40) : d.headline,
+    dateLine: space.dateLine,
+    maxPlayers: space.maxPlayers,
+  }
+}
+
 /** Borne ce qui arrive du navigateur, et comble ce qui manque. */
 export function normalizeSettings(raw: unknown, name: string): SpaceSettings {
   const d = defaultSettings(name)
