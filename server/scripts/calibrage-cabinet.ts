@@ -2389,8 +2389,19 @@ function compterLeFilet(j: Joueur, acte: number, e: EtatDeLaPartie): void {
   }
 }
 
-/** Les thèmes que le contenu livré offre à la carte : les lieux de l'Épingle, les frises à thème. */
-const THEMES_DU_CONTENU = { epingle: [...new Set(LIEUX.map(l => l.theme))], frise: [...new Set(FRISES.map(f => f.theme))] }
+/**
+ * Les thèmes que le contenu livré offre à la carte : les lieux de l'Épingle, les frises à thème — et, au nouveau Filet,
+ * les catégories où chaque acte a de quoi tirer, comme le serveur les lui donne (`categoriesDuFilet`).
+ */
+const THEMES_DU_CONTENU = {
+  epingle: [...new Set(LIEUX.map(l => l.theme))],
+  frise: [...new Set(FRISES.map(f => f.theme))],
+  ...(DEUX_TEMPS && {
+    filet: F2.categoriesDuFilet(
+      [0, 1, 2].flatMap(acte => filetALActe(acte, P.anneeDuDepart({ jour: JOUR_MESURE })).questions.map(q => ({ categorie: q.question.categorie ?? '', acte, valeur: q.valeur }))),
+    ),
+  }),
+}
 
 /**
  * Une traversée entière, par les règles du code : ses gardiens et sa carte

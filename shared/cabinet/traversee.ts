@@ -424,6 +424,11 @@ export interface ThemesDuContenu {
   epingle: readonly string[]
   frise: readonly string[]
   quiz?: readonly ThemeDuQuiz[]
+  /**
+   * Au Filet en deux temps, acte par acte, les catégories où il a de quoi tirer une épreuve (`categoriesDuFilet`) : une
+   * épreuve du Filet n'en promet pas d'autre. Absent — le Filet d'avant, une carte d'essai — ou vide à un acte, toutes.
+   */
+  filet?: readonly (readonly Categorie[])[]
 }
 
 /** Ce qu'une traversée a déjà placé : les jeux les moins vus d'abord, et un thème du contenu jamais deux fois. */
@@ -497,8 +502,11 @@ function choixDuQuiz(usage: Usage, voisins: readonly (string | undefined)[], con
   return choix
 }
 
-/** Le thème d'une épreuve : celui de son jeu, un thème du contenu encore libre, celui du Quiz, ou une catégorie que ses voisines n'ont pas. */
-function themeDUneEpreuve(jeu: CleDeJeu, usage: Usage, voisins: readonly (string | undefined)[], contenu: ThemesDuContenu, hasard: () => number): ThemeDUneEpreuve {
+/**
+ * Le thème d'une épreuve : celui de son jeu, un thème du contenu encore libre, celui du Quiz, ou une catégorie que ses
+ * voisines n'ont pas — au Filet en deux temps, une où son acte a de quoi tirer (`ThemesDuContenu.filet`).
+ */
+function themeDUneEpreuve(jeu: CleDeJeu, acte: number, usage: Usage, voisins: readonly (string | undefined)[], contenu: ThemesDuContenu, hasard: () => number): ThemeDUneEpreuve {
   const fixe = THEMES_FIXES[jeu]
   if (fixe) return { theme: fixe }
   if (jeu === 'epingle' || jeu === 'frise') {
@@ -512,8 +520,12 @@ function themeDUneEpreuve(jeu: CleDeJeu, usage: Usage, voisins: readonly (string
   if (jeu === 'quiz') return { choix: choixDuQuiz(usage, voisins, contenu, hasard) }
   if (!JEUX_DE_LA_BASE.includes(jeu)) return {}
   const compte = (c: string) => usage.categories.get(c) ?? 0
-  const libres = CATEGORIES.filter(c => !voisins.includes(c))
-  const c = battre(libres, hasard).sort((a, b) => compte(a) - compte(b))[0]
+  // Sans liste du Filet, toutes les catégories, dans le même ordre : le hasard d'une carte d'avant reste le sien.
+  const duFilet = jeu === 'filet' ? contenu.filet?.[acte] : undefined
+  const permises = duFilet && duFilet.length > 0 ? duFilet : CATEGORIES
+  const libres = permises.filter(c => !voisins.includes(c))
+  // Ses permises toutes prises par les voisines : une voisine de plus vaut mieux qu'une catégorie sans de quoi tirer.
+  const c = battre(libres.length > 0 ? libres : permises, hasard).sort((a, b) => compte(a) - compte(b))[0]
   usage.categories.set(c, compte(c) + 1)
   return { theme: c }
 }
@@ -557,7 +569,7 @@ function tracerUnActe(acte: number, gardien: string, usage: Usage, contenu: Them
         continue
       }
       const jeu = sesJeux[k]
-      const { theme, sujet, emoji, choix } = themeDUneEpreuve(jeu, usage, themes, contenu, hasard)
+      const { theme, sujet, emoji, choix } = themeDUneEpreuve(jeu, acte, usage, themes, contenu, hasard)
       // Ses voisines évitent sa catégorie — chacune de ses catégories au choix, au Quiz.
       themes.push(theme, ...(choix ?? []).map(x => x.theme))
       etapes.push({

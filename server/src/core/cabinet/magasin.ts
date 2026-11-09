@@ -125,6 +125,8 @@ import { fichierDuCadrage } from '../details'
 import { contenuDuCabinetEnTranches } from './contenu'
 import { preparerLesTas, themesDuQuiz } from './tirages/tas'
 import { themeDuPlan, tirerLePlan } from './tirages/index'
+import { categoriesDuFiletALAnnee } from './tirages/filetEnDeuxTemps'
+import type { Categorie } from '../../../../shared/categories'
 import { CHANGEMENTS_PAR_PARTIE, DEPARTS_PAR_HEURE, MANCHES_PAR_PARTIE } from '../../../../shared/cabinet/bareme'
 import { lireLeBilan, lireUnGeste } from '../../../../shared/cabinet/lecture'
 import {
@@ -161,6 +163,7 @@ import {
   PARTIE_FINIE,
   VERSION_DU_DEPART,
   aidesDeLaPartie,
+  anneeDuDepart,
   bilanDe,
   chronoDuDepart,
   dureesDesManches,
@@ -1969,6 +1972,8 @@ export class CabinetStore {
     if (!this.departs.take(profileId)) throw new Error(TROP_DE_DEPARTS)
     // Les thèmes que le Quiz peut promettre, lus avant le verrou : les tas d'une liste neuve se préparent sans le retenir.
     const quiz = await this.themesPourLeQuiz()
+    // … et, au nouveau Filet, les catégories où chaque acte a de quoi tirer, à l'année du jour : la carte n'en promet pas d'autre.
+    const filet = this.reglages.filetEnDeuxTemps === true ? await this.categoriesPourLeFilet(anneeDuDepart({ jour: jourDe(recueLe) })) : undefined
     return this.porte.avecVerrou(profileId, async () => {
       for (let essai = 0; ; essai++) {
         const t = recueLe
@@ -1979,7 +1984,7 @@ export class CabinetStore {
         const gardiens = choisirLesGardiens(this.hasard, new Set(this.profils.legendairesOf(profileId)), halloween)
         // Lu en tranches : les tas l'ont lu d'ordinaire, mais le premier départ d'un processus ne le lirait pas d'une traite.
         const contenu = await contenuDuCabinetEnTranches()
-        const themes = { epingle: [...new Set(contenu.lieux.map(l => l.theme))], frise: [...new Set(contenu.frises.map(f => f.theme))], quiz }
+        const themes = { epingle: [...new Set(contenu.lieux.map(l => l.theme))], frise: [...new Set(contenu.frises.map(f => f.theme))], quiz, ...(filet && { filet }) }
         const depart: DepartDeLaTraversee = { v: VERSION_DE_LA_TRAVERSEE, jour, actes: tracerLaCarte(this.hasard, gardiens, themes, JEUX_PRETS) }
         const id = randomUUID()
         let lus: ResultSet[]
@@ -2017,6 +2022,22 @@ export class CabinetStore {
     } catch (e) {
       console.error('[cabinet] base de la campagne non lue, le Quiz ne promettra que des catégories :', e)
       return []
+    }
+  }
+
+  /**
+   * Au nouveau Filet, les catégories où chaque acte a de quoi tirer une épreuve, à l'année du départ
+   * (`categoriesDuFiletALAnnee`), sur les tas prêts. Aucune si la base ne se lit pas : la carte promet alors toutes les
+   * catégories, le tireur prend la promise d'abord, puis une autre, et la traversée part quand même.
+   */
+  private async categoriesPourLeFilet(annee: number): Promise<Categorie[][] | undefined> {
+    try {
+      const jouables = await this.porte.jouables()
+      await this.tasDe(jouables)
+      return categoriesDuFiletALAnnee({ porte: this.porte, jouables }, annee)
+    } catch (e) {
+      console.error('[cabinet] base de la campagne non lue, le Filet promettra toutes les catégories :', e)
+      return undefined
     }
   }
 

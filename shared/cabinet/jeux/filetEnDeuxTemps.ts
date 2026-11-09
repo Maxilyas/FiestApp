@@ -39,8 +39,10 @@ import {
   REPERE_A_LA_REPONSE,
   TRANCHES_DU_FILET,
   TRANCHES_RETIREES,
+  VALEURS_D_UN_THEME_DU_FILET,
   VALEUR_MIN_DU_FILET,
 } from '../bareme'
+import { CATEGORIES, type Categorie } from '../../categories'
 import { decimales, ecartEstimation } from '../../classement'
 import type { QuestionDuFilet } from '../contenu'
 import { GESTE_A_JUGER, SANS_REPONSE, auHasard, battre, champsDuGeste, estUnIndex, naturelDe, pieceDeLaQuestion, reponseEnvoyee, rienAEclairer, type QuestionTiree } from './outils'
@@ -285,6 +287,24 @@ export function seTendEnDeuxTemps(valeur: number, annee: boolean, anneeDuDepart:
 export function acteDuFilet(q: Pick<QuestionDuFilet, 'chacun' | 'panel'>): 0 | 1 | 2 {
   if (q.chacun || q.panel >= PANEL_DE_L_ACTE_I) return 0
   return q.panel >= PANEL_DE_L_ACTE_II ? 1 : 2
+}
+
+/**
+ * Les catégories où chaque acte a de quoi tirer une épreuve du Filet : au moins `VALEURS_D_UN_THEME_DU_FILET` valeurs
+ * distinctes — le tireur n'en pose jamais deux fois la même dans une partie —, parmi les questions que le Filet pose à
+ * l'année du départ. La carte d'une traversée n'en promet pas d'autre (`ThemesDuContenu.filet`) : une épreuve qui
+ * promettait la Nature à l'acte I, où elle n'avait que deux questions, en jouait une autre.
+ */
+export function categoriesDuFilet(questions: Iterable<{ categorie: string; acte: number; valeur: number }>): Categorie[][] {
+  const valeurs = Array.from({ length: 3 }, () => new Map<string, Set<number>>())
+  for (const q of questions) {
+    const parCategorie = valeurs[q.acte]
+    if (!parCategorie) continue
+    let siennes = parCategorie.get(q.categorie)
+    if (!siennes) parCategorie.set(q.categorie, (siennes = new Set()))
+    siennes.add(q.valeur)
+  }
+  return valeurs.map(parCategorie => CATEGORIES.filter(c => (parCategorie.get(c)?.size ?? 0) >= VALEURS_D_UN_THEME_DU_FILET))
 }
 
 // ── La place de la réponse ────────────────────────────────────────────────

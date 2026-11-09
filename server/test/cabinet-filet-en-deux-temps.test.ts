@@ -13,7 +13,8 @@ import { lireLaBase } from '../src/core/baseCampagne'
 import { contenuDuCabinet } from '../src/core/cabinet/contenu'
 import { valeurDuFilet } from '../src/core/cabinet/tirages/tas'
 import { tirerLePlan, type ContexteDuTirage } from '../src/core/cabinet/tirages/index'
-import type { Categorie } from '../../shared/categories'
+import { categoriesDuFiletALAnnee } from '../src/core/cabinet/tirages/filetEnDeuxTemps'
+import { CATEGORIES, type Categorie } from '../../shared/categories'
 import type { FiletTire } from '../../shared/cabinet/jeux/filet'
 import { ENJEU_ORDINAIRE } from '../../shared/cabinet/partie'
 import { VERSION_DE_LA_TRAVERSEE, etatDeLaTraversee, tracerLaCarte, type DepartDeLaTraversee, type GesteDeLaTraversee } from '../../shared/cabinet/traversee'
@@ -38,6 +39,7 @@ import {
   SANS_INDICE,
   acteDuFilet,
   borneDeGrandeur,
+  categoriesDuFilet,
   cransDe,
   ecartEnPourCent,
   etoilesDuLancer,
@@ -645,6 +647,51 @@ test('le tireur du Filet en deux temps : une question du contenu à l’acte de 
   assert.ok((tirerLePlan('filet', contexte(jouables, { enDeuxTemps: false }), 0) as FiletTire[]).every(t => 'piste' in t))
 })
 
+// ── Le tracé : un Filet seulement où son acte a de quoi tirer ─────────────
+
+test('les catégories du Filet, acte par acte : celles qui ont assez de valeurs distinctes pour une épreuve', () => {
+  const n = B.VALEURS_D_UN_THEME_DU_FILET
+  const valeurs = (categorie: string, acte: number, combien: number, depuis = 0) => Array.from({ length: combien }, (_, i) => ({ categorie, acte, valeur: depuis + i }))
+  const categories = categoriesDuFilet([
+    ...valeurs('Histoire', 0, n),
+    // Une valeur deux fois ne compte qu'une : le tireur ne la pose jamais deux fois dans une partie.
+    ...valeurs('Nature', 0, n - 1),
+    ...valeurs('Nature', 0, 1, n - 2),
+    ...valeurs('Nature', 1, n),
+    ...valeurs('Musique', 2, n + 5),
+    // Ce qui n'est ni une catégorie ni un acte ne compte pas.
+    ...valeurs('Rome', 0, n),
+    ...valeurs('Histoire', 3, n),
+  ])
+  assert.deepEqual(categories, [['Histoire'], ['Nature'], ['Musique']])
+  // Sur le contenu livré, à l'année du banc : l'acte I n'a pas de quoi tirer en Nature — deux questions —, les actes II
+  // et III ont toutes leurs catégories.
+  const jouables = [...LA_BASE.values()]
+  const livrees = categoriesDuFiletALAnnee({ porte: PORTE, jouables }, DEPART)
+  assert.ok(!livrees[0].includes('Nature') && livrees[0].includes('Histoire'), `l’acte I : ${livrees[0].join(', ')}`)
+  assert.deepEqual([livrees[1].length, livrees[2].length], [CATEGORIES.length, CATEGORIES.length])
+})
+
+test('la carte ne promet au nouveau Filet qu’une catégorie où son acte a de quoi tirer, et sans liste, celle d’avant', () => {
+  const gardiens = ['lg:renard', 'lg:sphinx', 'lg:dragon'] as const
+  const themes = { epingle: ['Rome'], frise: ['Rome'] }
+  const filet: Categorie[][] = [['Histoire', 'Musique'], ['Nature'], []]
+  const vues: Set<string>[] = [new Set(), new Set(), new Set()]
+  for (let n = 0; n < 60; n++) {
+    const actes = tracerLaCarte(hasardDe(`trace:${n}`), gardiens, { ...themes, filet })
+    actes.forEach((acte, a) => {
+      for (const e of acte.etapes.filter(x => x.jeu === 'filet' && x.sorte === 'epreuve')) {
+        vues[a].add(e.theme!)
+        if (filet[a].length > 0) assert.ok(filet[a].includes(e.theme as Categorie), `l’acte ${a + 1} promet « ${e.theme} » au Filet`)
+      }
+    })
+    // Une liste vide à un acte, ou pas de liste : toutes les catégories, et le même hasard — une carte d'avant reste la sienne.
+    assert.deepEqual(tracerLaCarte(hasardDe(`trace:${n}`), gardiens, { ...themes, filet: [[], [], []] }), tracerLaCarte(hasardDe(`trace:${n}`), gardiens, themes))
+  }
+  assert.deepEqual([vues[0].size, vues[1].size], [2, 1], 'les deux catégories de l’acte I, la seule de l’acte II')
+  assert.ok(vues[2].size > 4, `sans liste, l’acte III promet de tout : ${[...vues[2]].join(', ')}`)
+})
+
 // ── Par les routes ───────────────────────────────────────────────────────
 
 const ouverts: { close(): unknown }[] = []
@@ -740,4 +787,31 @@ test('une épreuve du Filet à l’acte II se tire à l’acte II : l’acte de 
   assert.deepEqual([(revelee.revelation?.corps as FiletEnDeuxTempsRevele).etoiles, (revelee.revelation?.corps as FiletEnDeuxTempsRevele).payees], [2, 1])
   // La note de la manche le dit : sans elle, deux étoiles pour un lancer pile dessus se lisaient comme un lancer à côté.
   assert.equal(revelee.manches[0].note, '−1 : ton aide')
+})
+
+test('une traversée qui commence ne promet au Filet, à chaque acte, qu’une catégorie où il a de quoi tirer', async () => {
+  // L'acte I n'a de quoi tirer qu'en Histoire et en Culture générale : les autres catégories n'y gardent que trois questions.
+  const gardees = new Map<string, number>()
+  const reelles = vraiesQuestionsDuFilet(1000).filter(q => {
+    if (acteDe(q.id) !== 0 || q.meta.categorie === 'Histoire' || q.meta.categorie === 'Culture générale') return true
+    const n = gardees.get(q.meta.categorie) ?? 0
+    gardees.set(q.meta.categorie, n + 1)
+    return n < 3
+  })
+  const attendues = categoriesDuFiletALAnnee({ porte: PORTE, jouables: baseDuCabinet(8, reelles).questions }, DEPART)
+  assert.deepEqual([...attendues[0]].sort(), ['Culture générale', 'Histoire'])
+  const b = await bancDuCabinet({ filetEnDeuxTemps: true, baseDeLaCampagne: baseDuCabinet(8, reelles) })
+  ouverts.push(b.banc)
+  // Quatre traversées : un Filet manque à l'acte I d'une carte une fois sur trente-cinq environ.
+  const promises: string[][] = [[], [], []]
+  for (const nom of ['ines', 'jules', 'kenza', 'lou']) {
+    const cookie = await inscrireProfil(b.banc.url, nom, nom)
+    const t = ok(await poster<PageDeLaTraversee>(b, cookie, '/api/cabinet/traversee', {}), 'la traversée').traversee!
+    t.actes.forEach((acte, a) => acte.etapes.filter(e => e.jeu === 'filet' && e.sorte === 'epreuve').forEach(e => promises[a].push(e.theme!)))
+  }
+  assert.ok(promises[0].length > 0, 'un Filet à l’acte I')
+  assert.ok(
+    promises[0].every(c => attendues[0].includes(c as Categorie)),
+    `l’acte I promet au Filet : ${promises[0].join(', ')}`,
+  )
 })

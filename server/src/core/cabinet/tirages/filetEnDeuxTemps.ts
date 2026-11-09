@@ -17,10 +17,11 @@
 // épuisé —, il tire à tous les actes : une épreuve qui ne partirait pas serait pire qu'une question d'un autre acte.
 import type { QuestionDeLaBase } from '../../baseCampagne'
 import { NIVEAUX, type Niveau } from '../../../../../shared/campagne'
-import { CATEGORIES } from '../../../../../shared/categories'
+import { CATEGORIES, type Categorie } from '../../../../../shared/categories'
 import type { QuestionDuFilet, RepereCommun } from '../../../../../shared/cabinet/contenu'
 import {
   acteDuFilet,
+  categoriesDuFilet,
   placesPossibles,
   poidsDesPlaces,
   reperesDuFilet,
@@ -71,6 +72,30 @@ function poidsDeLActe(ctx: Pick<ContexteDuTirage, 'porte' | 'jouables'>, filet: 
     parActe.set(cle, (poids = poidsDesPlaces(annees, annee)))
   }
   return poids
+}
+
+/**
+ * Les catégories où chaque acte a de quoi tirer une épreuve, à l'année du départ (`categoriesDuFilet`) : la carte d'une
+ * traversée n'en promet pas d'autre au Filet. Les questions sont celles que le tireur pose (`posable`, plus bas), lues
+ * dans les tas des valeurs, une fois par liste de jouables et par année.
+ */
+const CATEGORIES_DU_FILET = new WeakMap<readonly QuestionDeLaBase[], Map<number, Categorie[][]>>()
+export function categoriesDuFiletALAnnee(ctx: Pick<ContexteDuTirage, 'porte' | 'jouables'>, annee: number): Categorie[][] {
+  let parAnnee = CATEGORIES_DU_FILET.get(ctx.jouables)
+  if (!parAnnee) CATEGORIES_DU_FILET.set(ctx.jouables, (parAnnee = new Map()))
+  let categories = parAnnee.get(annee)
+  if (!categories) {
+    const filet = parIdentifiant(contenuDuCabinet().filet)
+    const questions: { categorie: Categorie; acte: number; valeur: number }[] = []
+    for (const categorie of CATEGORIES)
+      for (const q of valeursDeLaCategorie(ctx.porte, ctx.jouables, categorie)) {
+        const e = filet.get(q.id)
+        const v = e ? valeurDuFilet(q) : null
+        if (e && v && seTendEnDeuxTemps(v.valeur, v.annee, annee)) questions.push({ categorie, acte: acteDuFilet(e), valeur: v.valeur })
+      }
+    parAnnee.set(annee, (categories = categoriesDuFilet(questions)))
+  }
+  return categories
 }
 
 /** Une unité telle qu'elle se compare : sans capitale, et ses deux écritures de la base pour une (« minutes » et « min »). */

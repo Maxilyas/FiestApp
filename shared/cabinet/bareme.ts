@@ -478,6 +478,13 @@ export const MARCHES_DU_QUIZ: readonly Niveau[] = ['facile', 'moyen']
  * mentirait.
  */
 export const QCM_D_UN_THEME_DU_QUIZ = 40
+/**
+ * Le Filet en deux temps : les valeurs distinctes qu'une catégorie doit avoir, à l'acte d'une épreuve et à l'année du
+ * départ, pour que la carte la lui promette — trois manches et leurs rechanges, deux épreuves sans revoir une valeur.
+ * L'acte I n'avait que deux questions en Nature, quatre valeurs en Cuisine : l'épreuve promettait la Nature et jouait
+ * une autre catégorie. Sous ce nombre, elle n'est pas proposée à cet acte.
+ */
+export const VALEURS_D_UN_THEME_DU_FILET = 12
 
 /**
  * Les Indices : au plus tant d'indices comptés pour ★★★, puis ★★ ; au-delà, ★
