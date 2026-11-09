@@ -6,24 +6,36 @@ questions que la production a posées du 1er au 8 novembre 2026. Chaque
 question porte la note du moteur, un indice et un repère. Une page hors de
 l'application : rien ici n'est servi par FiestApp.
 
+C'est sa deuxième version, après la tablée du 9 novembre 2026
+(`../la-tablee-du-filet.md`) : quatre joueurs ont joué la première, et chaque
+retouche dit, dans le code, qui l'a demandée. Sa page « Ce que la tablée a
+changé » en fait la liste.
+
 - `index.html` : la page et ses styles, aux jetons de FiestApp (Velours, et
-  Ivoire en clair).
-- `jeu.js` : les deux Filets, les époques, les anneaux, les repères, les
-  aides, le tirage du moteur par acte, la révélation, le bilan, les pages
-  « Ce que disent les lancers » et « Les règles ».
+  Ivoire en clair) ; aucun texte d'une manche sous dix-sept pixels.
+- `jeu.js` : les deux Filets — le nouveau, et celui d'aujourd'hui recopié de
+  la production, ses mots compris —, les époques, la piste en crans ronds, les
+  anneaux, les repères, les aides, le tirage du moteur par acte, la
+  révélation, le bilan, les pages « Ce que la tablée a changé », « Ce que
+  disent les lancers » et « Les règles ».
 - `donnees.js` : écrit par `extraire.mts`.
 - `extraire.mts` : il lit la base livrée par la règle du tireur
   (`valeurDuFilet`) et rassemble :
-  - les questions posées (`questions-posees.json`) ;
+  - les questions posées (`questions-posees.json`), et marque celles qui se
+    calculent, que le nouveau Filet ne pose pas ;
   - la note du panel de l'IA (`panel-ia.json` : 518 questions, au Filet et en
     QCM) ;
-  - l'indice et le repère de chacune (`indices.json`, écrits par trois agents
-    puis relus) ;
+  - l'indice et le repère de chacune (`indices.json`) ;
   - des repères vérifiés ;
   - les chiffres de la production.
 
-  Il passe aussi chaque indice au juge : aucun nombre à moins de 15 ans
-  d'une année, ni à moins de 20 % d'une grandeur.
+  Il passe aussi chaque indice au juge de la lettre : aucun nombre à moins de
+  15 ans d'une année, ni à moins de 20 % d'une grandeur.
+- `juge-des-indices.json` : l'histoire de chaque indice — écrit par des
+  agents, relu par un juge à l'aveugle qui se met à la place d'un profane,
+  réécrit, rejugé, en trois passes —, chaque passe avec son verdict et ce que
+  le profane en tirait. Un indice vide est un choix : l'énoncé donne déjà
+  l'époque.
 
 Le téléphone retient au profil de la page (le `localStorage`, sous try/catch) :
 - les repères gagnés ;
@@ -42,5 +54,6 @@ retours/2026-11-09/maquette-filet/construire.sh /tmp/filet
 cd /tmp/filet && python3 -m http.server 8765   # puis http://localhost:8765/local.html
 ```
 
-Elle est aussi publiée en artefact privé : le lien est dans la conversation du
-9 novembre 2026.
+La page locale demande ses scripts sous une version : un navigateur déjà venu
+ne rejoue pas l'ancien `jeu.js`. Elle est aussi publiée en artefact privé : le
+lien est dans la conversation du 9 novembre 2026.

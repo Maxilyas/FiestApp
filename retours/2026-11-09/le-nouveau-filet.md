@@ -40,24 +40,34 @@ Trois causes, mesurées :
    trois étoiles, à 6 ans deux. Le curseur ne part de nulle part.
 3. **Des repères et deux aides.** Des dates connues sur la frise, et celles
    que le joueur a déjà su placer. Deux aides — « deux époques de moins », un
-   indice écrit —, qui coûtent chacune une étoile au plus haut de la manche.
+   indice écrit —, qui retirent chacune une étoile à ce que la manche
+   rapporte, sans jamais coûter le cœur.
 4. **Un moteur qui note chaque question pour chaque jeu.** Le Filet tire,
    acte par acte, des questions que les joueurs savent placer ; les loteries
-   attendent le dernier acte.
+   attendent le dernier acte, et ce qui se calcule ne se pose pas.
 
 **Ce que ça change, rejoué sur les lancers réels** (une borne basse : les
-curseurs ont été posés sous l'ancienne règle) :
+curseurs ont été posés sous l'ancienne règle ; la règle rejouée est celle du
+§ 3.3, mot pour mot) :
 
 | Règle | Manches réussies | Étoiles par manche | Au hasard | Ce que le savoir ajoute |
 |---|---|---|---|---|
 | Le Filet d'aujourd'hui | 43 % | 0,67 | 45 % | −2 points |
 | Le filet qui se resserre tout seul | 56 % | 1,12 | 45 % | +11 points |
-| En deux temps : l'époque, puis la valeur | 59 % | 1,12 | 25 % | +34 points |
-| En deux temps, questions du moteur (≥ 25 %) | 62 % | 1,30 | 25 % | +37 points |
-| En deux temps, questions du moteur (≥ 40 %) | **78 %** | **1,78** | 25 % | +53 points |
+| En deux temps : l'époque, puis la valeur | 62 % | 1,20 | 25 % | +37 points |
+| En deux temps, questions du moteur (≥ 25 %) | 66 % | 1,38 | 25 % | +41 points |
+| En deux temps, questions du moteur (≥ 40 %) | **74 %** | **1,74** | 25 % | +49 points |
 
 Le dernier palier est la zone que visent les jeux qui règlent leur
 difficulté : 65 à 80 % de réussite.
+
+**Joué par une tablée, deux tours** (`la-tablee-du-filet.md`) : quatre
+joueurs aux profils opposés — une institutrice de 72 ans au petit téléphone,
+un lycéen pressé, une stratège qui joue chaque soir, un daltonien — ont joué
+la maquette contre le Filet d'aujourd'hui, sur les vraies questions. Tous les
+quatre préfèrent le nouveau ; leurs retours ont changé une douzaine de choses,
+dont le prix des aides et la piste des grandeurs. Un juge à l'aveugle a relu
+chaque indice : 42 sur 140 donnaient la réponse, aucun aujourd'hui.
 
 ## 1. Ce que la production a montré
 
@@ -151,15 +161,25 @@ Un seul écran, de haut en bas :
    - la ligne de l'étape dit « la bonne : ★ ».
 3. **L'année** — ou la valeur :
    - la piste s'ouvre sur l'époque touchée, sans curseur : « Touche la
-     piste » ;
-   - le premier toucher pose le curseur ; les crans − et + l'ajustent ;
-   - les deux anneaux du filet (★★★, ★★) se dessinent autour du curseur ;
+     piste », et vient sous les yeux, au-dessus du bouton collé en bas ;
+   - **le premier toucher pose le curseur, partout, pile au milieu compris** :
+     c'est le réflexe de qui ne sait pas, et à la première version le milieu
+     ne répondait pas (les quatre joueurs de la tablée) ;
+   - les crans − et + l'ajustent d'un cran rond ; la piste est régulière et
+     graduée (§ 3.2) ;
+   - les deux anneaux du filet se dessinent autour du curseur — le grand en
+     tirets, le petit plein — et se disent en nombres dessous : « Ton filet
+     ★★★ de 1960 à 1964 · ★★ de 1956 à 1968 » ;
+   - les repères de l'époque ouverte descendent sur la piste ;
    - la ligne de l'étape dit « à 2 ans ★★★ · à 6 ans ★★ » ;
    - toucher une autre époque reste possible.
-4. **Les aides** (§ 3.6) et la ligne « Cette manche vaut au plus ★★★ ».
-5. **« Lancer le filet »**, éteint tant que l'époque et le curseur ne sont
-   pas posés — « Choisis d'abord une époque », puis « Pose ton curseur sur la
-   piste ».
+4. **Les aides** (§ 3.6) et ce qu'elles coûtent, en clair.
+5. **« Lancer le filet »**, collé au bas de l'écran, éteint tant que
+   l'époque et le curseur ne sont pas posés — « Choisis d'abord une époque »,
+   puis « Pose ton curseur sur la piste ».
+
+Chaque manche s'ouvre en haut, la question sous les yeux : à la première
+version, elle s'ouvrait là où « Manche suivante » avait laissé la page.
 
 Le chrono reste de 45 secondes (`DUREES_DES_JEUX.filet`). À l'échéance, la
 page lance ce qui est posé : l'époque seule vaut son étoile, si elle est la
@@ -181,12 +201,22 @@ bonne.
     1 000 à 3 000, de 3 000 à 10 000.
   - L'ordre de grandeur de la réponse commence à la plus haute borne qui ne
     la dépasse pas ; sa place parmi les quatre est tirée au hasard.
-  - La piste d'un ordre de grandeur est logarithmique : on pense en rapports,
-    pas en unités.
+  - **Une réponse pile sur une borne est des deux tranches qui la bordent** :
+    10 000 m² se range de 3 000 à 10 000 comme de 10 000 à 30 000 (« dans
+    quelle case ? », Huguette).
   - Des tranches centrées sur des nombres ronds (≈ 100) mettaient au milieu
     de la piste la réponse de toutes les questions qui en ont une ronde — vu
     à la maquette. Bornées par des nombres ronds, une réponse ronde tombe sur
-    une borne, et la règle à la distance (§ 3.3) la paie des deux côtés.
+    une borne.
+- **La piste d'une tranche est régulière**, en crans ronds, deux cents au
+  plus : d'un an pour une époque ; de 5 de 300 à 1 000, de 10 de 1 000 à
+  3 000 ; jamais moins d'un pour une réponse entière, d'un dixième sinon. Des
+  graduations la disent régulière à l'œil.
+  - La première version la voulait logarithmique (« on pense en rapports ») :
+    son milieu de 300 à 1 000 tombait vers 550 quand Claire visait 650, 625
+    ne se posait pas (624, puis 627), et « + » restait coincé à 1380 et à 62
+    — deux crans écrivaient le même nombre. Le rapport reste dans les
+    tranches, qui croissent par trois ; dedans, on vise en unités.
 - **Ce qui se tire se tire au départ** : les quatre époques, la place de la
   réponse et les repères se figent dans le plan de la partie (`FiletTire`),
   comme la piste aujourd'hui.
@@ -196,13 +226,19 @@ bonne.
 - **À la distance d'abord** :
   - une année : ★★★ à un douzième de l'époque près (2 ans sur 25, 4 sur 50,
     8 sur 100), ★★ à un quart (6, 12, 25 ans) ;
-  - une grandeur : ★★★ à 6 % près, ★★ à 25 %.
+  - une grandeur : ★★★ à 6 % de la réponse, ★★ à 25 % — l'écart en pour cent
+    de la réponse, lu au dixième, tel que l'écran l'écrit. La première
+    version jugeait en rapport (x / 1,25) et écrivait l'écart arrondi :
+    « Ton écart 24 % » sous « À 25 % près : non » (Huguette, 190 g pour
+    250 g), « 6 % » sous « À 6 % près : non » (Claire, 17 pour 16).
 - **Sinon, ★ pour la bonne époque**, ou le bon ordre de grandeur.
 - **Une réponse posée près d'une borne**, de l'autre côté, garde ses étoiles
-  de distance : 2 ans d'écart valent ★★★, quelle que soit l'époque touchée.
-- **Plafond** : les étoiles ne dépassent pas ce que les aides ont laissé
-  (§ 3.6).
-- **À zéro étoile, la manche coûte un cœur**, comme aujourd'hui. Une étoile
+  de distance : 2 ans d'écart valent ★★★, quelle que soit l'époque touchée ;
+  la révélation le dit (« La mauvaise époque, mais si près de la réponse que
+  la distance compte d'abord »).
+- **Les aides payées** retirent leur étoile de ce qui précède (§ 3.6).
+- **Ratée — aucune étoile de distance ni d'époque —, la manche coûte un
+  cœur**, comme aujourd'hui ; une aide ne le fait jamais perdre. Une étoile
   rapporte son or et frappe le gardien, comme aujourd'hui.
 
 Au hasard, un joueur trouve la bonne époque une fois sur quatre : le savoir
@@ -216,15 +252,26 @@ compte enfin.
 
 ### 3.5 Les repères
 
-- **Deux repères au plus** sur la frise des quatre époques :
+- **Deux repères au plus** sur la frise des quatre époques, et ceux de
+  l'époque ouverte descendent sur la piste (« comme Notre-Dame », 69 m, se
+  cherchait à tâtons — Samir) :
+  - **leur époque se tire d'abord, chacune la même chance**, un repère par
+    époque ; puis un repère de cette époque. Choisis parmi tous ceux qui
+    s'écartent de la réponse, ils tombaient rarement dans l'époque de la
+    réponse — moins de place autour d'elle — et deux repères dans deux
+    époques valaient « Deux époques de moins » gratuit (Claire : cinq repères
+    sur cinq hors de l'époque de la réponse). Mesuré sur mille tirages de
+    chaque année de la maquette : 0,34 repère par manche dans l'époque de la
+    réponse, 0,56 dans chacune des autres ; l'époque tirée d'abord, 0,50
+    partout (`reproductions/reperes-par-epoque.cjs`) ;
   - jamais à moins d'un quart d'époque de la réponse ;
   - jamais du même sujet que la question (aucun mot de cinq lettres ou plus
-    en commun) ;
-  - jamais deux trop proches l'un de l'autre.
-- **Les siens d'abord.** Une année que le joueur a placée à ★★ au moins
-  devient *son* repère : elle revient, dorée, sur la frise de ses prochaines
-  dates (« 1889 · La tour Eiffel (ton repère) »). Sa mémoire devient sa règle
-  graduée.
+    en commun).
+- **Les siens d'abord.** Une année que le joueur a placée à ★★ au moins,
+  **sans aide**, devient *son* repère : elle revient, dorée, sur la frise de
+  ses prochaines dates (« 1889 · La tour Eiffel (ton repère) »). Sa mémoire
+  devient sa règle graduée. Une année trouvée par l'indice n'est pas un
+  savoir : l'Atari « de l'indice » revenait à Huguette comme son repère.
   - En production, ils se lisent du journal des réponses : les pièces du
     Filet à ★★ au moins, et les questions de la base à une année exacte qu'il
     a trouvées en QCM.
@@ -234,9 +281,11 @@ compte enfin.
   - En production, un fichier de contenu du Cabinet (`reperes.json`), jugé
     au rangement comme les autres.
 - **Pour les grandeurs**, des repères de la même unité quand il y en a : la
-  tour Eiffel (330 m), une année (365 jours), un match de football
-  (90 minutes). Les unités de la base sont trop variées pour en avoir
-  souvent ; l'indice y fait le travail.
+  tour Eiffel (330 m), un marathon (42 km), un match de football
+  (90 minutes). Jamais la définition d'une unité : « 100 ans · Un siècle »,
+  pour l'âge d'Orson Welles, apprenait à Huguette ce qu'est un siècle. Les
+  unités de la base sont trop variées pour en avoir souvent ; l'indice y fait
+  le travail.
 
 ### 3.6 Les aides
 
@@ -245,12 +294,35 @@ compte enfin.
     mauvaises époques : le 50:50 du Millionnaire ;
   - **« Un indice »** donne une phrase pour s'orienter, jamais la valeur
     (§ 3.7).
-- **Chacune coûte une étoile au plus haut de la manche** : avec une aide,
-  elle vaut au plus ★★ ; avec les deux, ★.
-  - Une manche aidée peut encore réussir et sauver son cœur ; elle frappe
-    simplement moins fort le gardien et rapporte moins d'or.
+- **Chacune, payée, retire une étoile à ce que la manche rapporte** : ★★
+  moins une, ★. Ratée, la manche coûte un cœur comme toujours ; réussie, elle
+  garde le cœur même quand l'aide a pris sa seule étoile (« Ton aide a pris
+  l'étoile ; ton cœur reste »).
+  - **La première version abaissait un plafond** (« au plus ★★ ») : à qui ne
+    visait qu'une étoile, l'aide ne coûtait rien, et Claire a vu la faille —
+    « dès que je sèche, j'en prends une ; avec les deux, je ne perds
+    quasiment jamais de cœur ». Le calcul lui donne raison — sur une année
+    qu'on ignore tout à fait, un joueur qui choisit une époque au hasard et
+    pose au milieu : « Deux époques de moins » sous plafond faisait passer de
+    0,43 à 0,76 étoile en moyenne, et d'un cœur perdu trois fois sur quatre à
+    une fois sur deux, mieux sur les deux tableaux. Retirée, elle coûte
+    0,07 étoile en moyenne pour un quart de cœur sauvé : une vraie décision.
+    Les deux à la fois, sous plafond, rapportaient 0,95 étoile pour un cœur
+    perdu une fois sur vingt — l'assurance gratuite de Claire ; retirées,
+    0,19 étoile pour le même cœur sauvé (`reproductions/prix-des-aides.mjs`).
+  - L'indice, lui, reste rentable quand on sèche — s'il mène à la bonne
+    époque neuf fois sur dix, 0,65 étoile payée, contre 0,43 sans — et coûte
+    quand on sait à peu près : c'est ce qu'une aide doit être.
+  - Ce qu'elle coûte se dit en clair sous les boutons (« Tes aides : −1 ★
+    sur ce que la manche te rapportera »), et la révélation montre l'étoile
+    payée, barrée — Samir ne savait pas si c'était « une étoile retirée de
+    mon score, ou seulement le plafond qui baisse ».
   - Un prix en étoiles, pas en or : il se paie dans la manche même, sans un
     geste de plus, et l'or garde son seul usage, le marchand.
+- **Une question sans indice honnête ne propose que l'autre aide** : quand
+  l'énoncé donne déjà l'époque (un sous-marin allemand coule un paquebot ; la
+  trêve de Noël dans les tranchées), tout indice d'époque est la réponse
+  (§ 3.7).
 - **La carte Coup d'œil offre la première aide de chaque épreuve** :
   - elle remplace Éclairer au Filet, dont la zone dorée ne servait à
     personne ;
@@ -258,22 +330,46 @@ compte enfin.
 
 ### 3.7 Les indices
 
-- **Une phrase de 90 signes au plus par question** :
+- **Sa cible est la tranche, jamais la valeur** : une phrase de 100 signes au
+  plus, qui mène à l'époque ou à l'ordre de grandeur, et laisse encore à
+  savoir.
   - une année : son époque ou son contexte, par des repères que le public
-    connaît (« Sous le Second Empire », « Peu après la Libération ») ;
-  - une grandeur : une comparaison (« Bien plus qu'un échiquier, mais moins
-    que les jours d'une année »).
-- **Écrits par des agents, puis jugés**, comme le contenu du Cabinet
-  (`cabinet-contenu.ts`) :
-  - aucun nombre à moins de 15 ans d'une année, ni à moins de 20 % d'une
-    grandeur ;
-  - le nombre en toutes lettres non plus.
-- **Puis relus par un agent relecteur** pour ce qu'un script ne voit pas :
-  - les 156 indices de la maquette ont été écrits en trois lots ;
-  - le relecteur en a corrigé 6 : deux donnaient presque la valeur (« pense
-    au nombre de mois dans une année » pour 12), quatre étaient trompeurs
-    (« au temps où l'on lit Les Trois Mousquetaires » pour 1635 — le roman
-    date de 1844).
+    connaît (« Au temps du disco, quand les premières consoles entrent dans
+    les salons ») ;
+  - une grandeur : un encadrement large par des choses connues (« Nettement
+    plus haute que l'Arc de triomphe, mais bien moins que la tour Eiffel »).
+- **Écrits par des agents, puis jugés deux fois**, comme le contenu du
+  Cabinet (`cabinet-contenu.ts`) :
+  - **à la lettre, par un script** : aucun nombre à moins de 15 ans d'une
+    année, ni à moins de 20 % d'une grandeur ; le nombre en toutes lettres
+    non plus ;
+  - **au sens, par un juge à l'aveugle** : un agent qui se met à la place
+    d'un profane — rien du sujet, une culture d'école — et dit ce qu'il tire
+    de la question et de l'indice : la valeur, ★★ à coup sûr, la tranche,
+    rien, une erreur, une ambiguïté. Un indice qui mène à la valeur se
+    réécrit, puis repasse le juge.
+- **Ce que le juge a trouvé** (`maquette-filet/juge-des-indices.json`, chaque
+  passe et son verdict) : la tablée se plaignait d'indices qui donnaient la
+  réponse — le carré de 25, « fois cent, puis le quart » ; Minecraft, « une
+  puissance de deux entre seize et cent » ; les mineurs chiliens, « compte les
+  semaines ». Le juge l'a mesuré :
+
+  | Sur les 140 questions jouables | Premier jet | Après trois passes |
+  |---|---|---|
+  | Mènent à la tranche — la cible | 63 | 124 |
+  | ★★ à coup sûr | 26 | 9 |
+  | Donnent la valeur | 42 | 0 |
+  | Ne mènent à rien, ou à deux tranches | 7 | 3 |
+  | Ambigus (« bien plus que la majorité ») | 2 | 0 |
+  | Sans indice : l'énoncé donne déjà l'époque | — | 4 |
+
+  - Ce que le script ne voyait pas, c'est le calcul (« fais l'addition » :
+    bon quand il reste à savoir, mauvais quand il suffit de compter),
+    l'élimination (deux puissances de deux, un seul billet entre 300 et
+    1 000 €) et le fait daté de la même année (« l'année du premier Star
+    Wars » pour l'Atari).
+  - La première relecture, d'un agent qui écrivait aussi, n'en avait
+    corrigé que 6 : il faut un juge qui n'écrit pas.
 - **Rangement** : en production, un fichier de contenu du Cabinet, clé par
   question (`server/content/cabinet/indices-du-filet.json`) — ou un champ de
   la base, si l'on veut que la campagne s'en serve un jour.
@@ -281,16 +377,24 @@ compte enfin.
 ### 3.8 La révélation
 
 - **Le verdict** : « Pile dedans » ★★★, « Tout près » ★★, « La bonne
-  époque » ★, « À côté », et « La manche te coûte un cœur ».
-- **La frise** :
-  - la bonne époque en vert, la sienne entourée ;
-  - deux épingles, la réponse et le lancer ;
-  - les repères, dont la légende reste.
+  époque » ★ — « Le bon ordre de grandeur » pour une grandeur (« une époque,
+  pour du beurre ? », Huguette) —, « À côté », et « La manche te coûte un
+  cœur ». L'étoile payée pour une aide paraît barrée.
+- **La frise**, où chaque chose a sa forme et ses mots, jamais sa seule
+  couleur — Samir, daltonien, confondait quatre ronds de teintes voisines, et
+  le lancer se cachait sous la réponse :
+  - **▼ la réponse**, au-dessus de la frise ; **▲ ton lancer**, en dessous :
+    ils ne se chevauchent jamais ;
+  - **○ un repère**, **◆ le tien** ;
+  - la bonne époque écrit « la bonne », la sienne « ton choix » ;
+  - la légende reprend chaque forme en mots.
 - **« La réponse : 1898 · tu visais 1840 »**, puis les trois critères en
-  lignes (« La bonne époque — oui », « À 6 ans près — non »…), l'écart, et
-  le plafond des aides.
+  lignes (« La bonne époque — ★ oui », « À 6 ans près — non »…), l'écart, et
+  ce que les aides ont pris.
 - **L'anecdote**, toujours : c'est le moment où l'on apprend.
 - **Le repère gagné**, s'il y en a un.
+- **« Manche suivante »**, collé au bas de l'écran : sous un repère gagné, il
+  passait sous le pli (Claire).
 
 ### 3.9 Ce que voit le téléphone (invariant 1)
 
@@ -302,10 +406,10 @@ compte enfin.
   - « Deux époques de moins » renvoie les deux époques retirées, choisies au
     serveur ;
   - l'indice ne part qu'une fois pris ;
-  - les repères partent avec la manche. Ils ne disent de la réponse qu'une
-    chose : elle n'est pas tout contre eux, à moins d'un quart d'époque
-    (§ 3.5). C'est une fuite minime et voulue : un repère collé à la réponse
-    la donnerait.
+  - les repères partent avec la manche. Leur époque, tirée d'abord, ne dit
+    rien de celle de la réponse (§ 3.5) ; ils n'en disent qu'une chose : elle
+    n'est pas tout contre eux, à moins d'un quart d'époque. C'est une fuite
+    minime et voulue : un repère collé à la réponse la donnerait.
 - **La place de la réponse dans ses quatre époques se tire au serveur**, du
   hasard du serveur, jamais de la graine (`pisteDuFilet` aujourd'hui).
 
@@ -387,8 +491,20 @@ par question et jeu par jeu.
     - l'acte I tire au Filet ce que 40 % au moins savent placer ;
     - l'acte II, de 25 à 39 % ;
     - l'acte III, le reste.
-  - Le vivier de la maquette — les questions réellement posées — s'y répartit
-    en 44, 44 et 68.
+  - Le vivier de la maquette — les questions réellement posées, les calculs
+    écartés — s'y répartit en 35, 40 et 65.
+- **Écarter ce qui se calcule.** Un calcul (« le carré de 25 »), une
+  conversion d'unités (« les secondes d'une heure », « les mètres carrés d'un
+  hectare »), une question qui écrit de quoi trouver sa réponse (Verdun « du
+  21 février au 18 décembre ») : on la sait ou on la calcule, on ne l'estime
+  pas.
+  - Le moteur les donnait connues de tous (85 à 90 %) : l'acte I tournait au
+    cours de maths (« c'est pas fun », Théo), et l'indice d'un calcul en était
+    la solution — les 16 questions de cette sorte, sur 156, avaient toutes un
+    indice qui donnait la valeur.
+  - Le panel les marque en notant (une case de plus à sa consigne : « se
+    calcule à partir de l'énoncé ou d'une définition d'école »), et le tireur
+    du Filet ne les pose pas ; le QCM et le Quiz les gardent.
 - **Puis la chance de chacun** : la force du joueur dans la catégorie
   (modèle du savoir) contre la difficulté de la question dans ce jeu. Le
   Cabinet se joue seul : l'invariant 8 n'interdit pas d'y régler le jeu à la
@@ -447,16 +563,16 @@ que chaque morceau devient.
 
 | Morceau | Ce qui change |
 |---|---|
-| `shared/cabinet/bareme.ts` | Les chiffres neufs, chacun sa ligne dans `baremes.md` (`documentation.test.ts`, `cabinet-catalogue.test.ts`) : les époques (`EPOQUES_DU_FILET` : 25, 50, 100 et leurs seuils), les anneaux (un douzième, un quart ; 6 % et 25 %), la suite des ordres de grandeur, `AIDES_PAR_MANCHE` (2), ce qu'une aide coûte (une étoile au plus haut). `LARGEURS_DU_FILET`, `ETOILES_DU_FILET`, `POSITION_DE_LA_REPONSE`, `PISTE_DES_ANNEES`, `ZONE_DU_FILET` restent, pour les parties d'avant. |
+| `shared/cabinet/bareme.ts` | Les chiffres neufs, chacun sa ligne dans `baremes.md` (`documentation.test.ts`, `cabinet-catalogue.test.ts`) : les époques (`EPOQUES_DU_FILET` : 25, 50, 100 et leurs seuils), les anneaux (un douzième, un quart ; 6 % et 25 % de la réponse, l'écart lu au dixième), la suite des ordres de grandeur, les crans d'une tranche (deux cents au plus, ronds, un au moins pour une réponse entière), `AIDES_PAR_MANCHE` (2), ce qu'une aide payée retire (une étoile). `LARGEURS_DU_FILET`, `ETOILES_DU_FILET`, `POSITION_DE_LA_REPONSE`, `PISTE_DES_ANNEES`, `ZONE_DU_FILET` restent, pour les parties d'avant. |
 | `shared/cabinet/jeux/filet.ts` | La règle pure : le tirage (`FiletTire` : la question, la valeur, les quatre époques, la place de la réponse, les repères), l'état (l'époque touchée, les aides prises, les époques retirées), le geste (`repondre` : l'époque et le curseur ; `aide` : sa clé), le jugement à la distance (§ 3.3), ce qu'on montre et ce qu'on révèle (§ 3.9), la pièce (`composee` : « 1852\|1\|2 », le curseur, l'époque, les aides), le cartel. |
 | `VERSIONS_DU_DEPART` (`shared/cabinet/partie.ts`) | Une version de plus (la 4) : le pli jugerait autrement une partie déjà commencée. La règle d'avant reste, choisie par `d.v` ; son départ et son bilan écrits en dur dans `cabinet-regles.test.ts`. |
 | `server/src/core/cabinet/tirages/filet.ts` | Le tirage par la connaissabilité de l'acte (§ 4.4) au lieu des marches (`MARCHES_DU_FILET_AUX_EPREUVES`, `_AUX_GARDIENS`), les époques et les repères figés dans le tirage, du hasard du serveur. |
 | Le tracé de la carte (`tracerLaCarte`, `shared/cabinet/traversee.ts`) | Une étape de Filet ne prend qu'une catégorie dont le vivier tient son acte — le serveur lui donne, comme il donne au Quiz ses thèmes (`themesDuQuiz`), les catégories qui en ont assez : la Cuisine, la Géographie et la Nature n'en ont pas à l'acte I (§ 4.5). |
 | Les repères | Un fichier de contenu (`server/content/cabinet/reperes.json`, rangé et jugé par `cabinet-contenu.ts`), et les siens lus du journal des réponses (`JournalDesReponses`, une dérivation de plus, comparée au SQL d'avant dans `journal-des-reponses.test.ts`). |
-| Les indices | `server/content/cabinet/indices-du-filet.json`, une entrée par question, jugée (§ 3.7) ; une question sans indice ne propose pas l'aide. |
+| Les indices | `server/content/cabinet/indices-du-filet.json`, une entrée par question, jugée à la lettre par `cabinet-contenu.ts` et au sens par le juge à l'aveugle (§ 3.7) — un agent de plus dans la chaîne d'écriture, comme `relecteur-campagne`, qui n'écrit jamais ce qu'il juge ; une question sans indice ne propose pas l'aide. |
 | Les pouvoirs (`shared/cabinet/pouvoirs.ts`) | Éclairer, au Filet, devient la première aide offerte ; Changer et le temps en plus restent. `refusDuPouvoir` dit pourquoi une aide ne se prend pas (déjà prise, plus de place, la manche tranchée). |
-| La page (`client/src/views/cabinet/jeux/Filet.tsx`) | L'écran du § 3.1, ses classes `cab-filet-*` dans la section du Cabinet de `styles.css`. Aucun texte sous 17 pixels : `cabinet-ecran.test.ts` relit chaque taille, et la maquette en a à 13 — la frise passe ses libellés sur deux lignes. |
-| Le moteur | `core/modeleDuSavoir.ts` : une difficulté par question et par jeu, partie de la note a priori ; la note a priori dans la base (`meta.connaissabilite`, par jeu) ou dans une table du Cabinet ; les lancers du Filet lus en paliers. |
+| La page (`client/src/views/cabinet/jeux/Filet.tsx`) | L'écran du § 3.1, ses classes `cab-filet-*` dans la section du Cabinet de `styles.css`. Aucun texte sous 17 pixels : `cabinet-ecran.test.ts` relit chaque taille — la première maquette en écrivait à 13, « petites et pâles » pour Huguette ; la seconde tient 17 partout dans une manche, la frise sur deux ou trois lignes, et les grands nombres en mots (« 300 millions »). Le toucher pose le curseur où il tombe, par le doigt même (`pointerdown`) : un curseur natif ne dit rien quand on touche sa valeur, et le milieu d'une piste vierge ne répondait pas. Le bouton du lancer se colle au bas de l'écran, la piste ouverte vient au-dessus de lui (`scroll-padding-bottom`). |
+| Le moteur | `core/modeleDuSavoir.ts` : une difficulté par question et par jeu, partie de la note a priori ; la note a priori dans la base (`meta.connaissabilite`, par jeu) ou dans une table du Cabinet, avec la case « se calcule » qui écarte une question du Filet (§ 4.4) ; les lancers du Filet lus en paliers. |
 | Le QG | La page du Cabinet : la réussite de chaque jeu, la part des loteries tirées, la liste des questions à revoir. |
 | Le calibrage (`calibrage-cabinet.ts --sections traversee`) | Le joueur modèle du Filet devient bimodal — il sait, il sait à peu près, il ne sait pas —, recalé sur les lancers réels. Les étoiles par manche du Filet passent de 0,67 à environ 1,1–1,8 : les gardiens tombent plus vite, à mesurer avant de toucher à leurs points de vie. |
 
@@ -465,13 +581,21 @@ son test) :
 
 - la règle pure :
   - les époques (bornes, place de la réponse, jamais l'avenir) ;
-  - les ordres de grandeur (une valeur ronde sur une borne) ;
-  - le jugement à la distance de part et d'autre d'une borne ;
-  - le plafond des aides, le curseur absent à l'échéance ;
+  - les ordres de grandeur (une valeur ronde sur une borne : des deux
+    tranches) ;
+  - les crans d'une tranche : réguliers, ronds, chaque « + » change la
+    valeur jusqu'au bout — la maquette en a joué 18 manches au navigateur,
+    toucher du milieu compris, sans un cran coincé ;
+  - le jugement à la distance de part et d'autre d'une borne, l'écart au
+    dixième (17 pour 16 : 6,3 %, non) ;
+  - l'aide payée qui retire une étoile sans jamais coûter le cœur, le
+    curseur absent à l'échéance ;
 - le secret, à ajouter à `cabinet-secret.test.ts` : ni la valeur ni la bonne
   époque dans une vue, l'indice seulement une fois pris ;
-- les repères : jamais trop près, jamais du même sujet, les siens d'abord ;
-- le juge des indices ;
+- les repères : leur époque tirée d'abord (sur mille tirages, celle de la
+  réponse en reçoit autant que les autres, à un centième près), jamais trop
+  près, jamais du même sujet, les siens d'abord, gagnés sans aide ;
+- le juge des indices, et le tireur qui écarte ce qui se calcule ;
 - une partie de la version 3 relue telle qu'elle s'est jouée ;
 - le tirage par la connaissabilité ;
 - l'écran rendu (`cabinet-ecran-neufs.test.ts`).
@@ -502,7 +626,10 @@ un sondage du QG aux joueurs du Cabinet (`qg_annonce_questions`).
      réussies.
    - Le premier le ramène à 25 %, et paie le savoir approximatif.
 2. **Les aides** :
-   - une étoile chacune, la carte Coup d'œil offrant la première ;
+   - une étoile retirée chacune, la carte Coup d'œil offrant la première —
+     la proposition, après la tablée ;
+   - le plafond de la première version (« au plus ★★ ») était plus doux et
+     plus simple à dire, mais gratuit pour qui ne savait rien (§ 3.6) ;
    - ou une aide gratuite pour tous à l'acte I, le temps d'apprendre.
 3. **La couleur de piste** de chaque étape sur la carte de la traversée.
 4. **La passe du panel sur toute la base**, puis le moteur à blanc une
@@ -514,6 +641,15 @@ un sondage du QG aux joueurs du Cabinet (`qg_annonce_questions`).
 7. **Écrire des estimations connaissables** là où le vivier en manque : la
    Cuisine, la Géographie, la Nature, et les grandeurs en général (§ 4.5) —
    une centaine par catégorie, notées par le panel à l'écriture.
+8. **Le chrono** : deux gestes au lieu d'un, et un indice à lire. 45 secondes
+   suffisent à Claire, pas à Huguette (« remonter chercher la question,
+   choisir l'époque, toucher la piste, lire l'indice, et réfléchir ! »). À
+   garder, et à mesurer en production (le temps de chaque manche est déjà
+   écrit, `dureesDesManches`) avant d'y toucher ; la carte « Prendre son
+   temps » existe pour qui lit lentement.
+9. **Le pari perdu** : « il n'y a plus de risque à prendre » (Claire, qui
+   aimait le frisson du petit filet). Le frisson reste celui de la carte
+   Miser (Quitte ou double) ; un pari propre au Filet attend (§ 8).
 
 ## 8. Ce qui attend
 

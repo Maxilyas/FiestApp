@@ -20,6 +20,10 @@ const indices = new Map((lireJson('indices.json') as any[]).map(n => [n.id, n]))
 // ── Le juge des indices : un indice oriente, il ne donne jamais la valeur ───────────────────────────────────
 // Une année : aucun nombre de trois ou quatre chiffres à moins de 15 ans d'elle. Une grandeur : aucun nombre à moins
 // de 20 % d'elle, ni son nom en toutes lettres. Au-delà de cent signes, il ne tient plus sous la question.
+// Ce juge-ci ne lit que la lettre ; le sens, un juge qui lit à la place d'un profane l'a relu, en trois passes — 42
+// des 140 premiers indices lui donnaient la valeur (le carré de 25 « fois cent, puis le quart », Minecraft « une
+// puissance de deux entre seize et cent ») ; il n'y en a plus aucun (`juge-des-indices.json`). Un indice vide est un
+// choix : la question donne déjà l'époque (un sous-marin allemand, la trêve de Noël), et tout indice serait la réponse.
 const MOTS: Record<number, string> = { 10: 'dix', 11: 'onze', 12: 'douze', 13: 'treize', 14: 'quatorze', 15: 'quinze', 16: 'seize', 20: 'vingt', 30: 'trente', 40: 'quarante', 50: 'cinquante', 60: 'soixante', 100: 'cent', 1000: 'mille' }
 function nombresDe(texte: string): number[] {
   return [...texte.replace(/[  ]/g, ' ').matchAll(/\d[\d ]*(?:,\d+)?/g)].map(m => Number(m[0].replace(/ /g, '').replace(',', '.'))).filter(Number.isFinite)
@@ -36,6 +40,19 @@ function refusDeLIndice(indice: string, valeur: number, annee: boolean): string 
   return null
 }
 
+// ── Ce qui se calcule n'est pas une estimation ──────────────────────────────────────────────────────────────
+// Un calcul (le carré de 25), une conversion d'unités (les secondes d'une heure), une question qui écrit de quoi
+// trouver sa réponse (Verdun « du 21 février au 18 décembre ») : on la sait ou on la calcule, on ne l'estime pas.
+// Le moteur les donnait connues de tous, et l'acte I tournait au cours de maths (Théo, la tablée du 9 novembre
+// 2026) ; leur indice en était la solution (le juge des indices : 15 de ses 58 « valeur »). Le Filet d'aujourd'hui de
+// la maquette les pose encore, comme la production.
+const CALCULS = new Set([
+  'gwncegep', 'eq6d1uie', '3yiw4do8', 'ct92jdvr', // le carré de 25, un nombre abondant, six diviseurs, les carrés parfaits
+  'cb6v7fpw', 'gawi2k69', 'brg0edw0', 'm1tml875', 'j1ln7nbb', 'b1x00df9', 'hn1ubkxc', // secondes, millimètres, grammes, kilos, m², cm², jours d'une année
+  'ybtwkxdb', 'cxyvjgrc', '4t6omvq2', 'ksswsd14', // le tour complet, le triangle, l'équilatéral, les grades
+  '563gbevt', // Verdun : la question donne ses deux dates
+])
+
 const questions: any[] = []
 const refusés: string[] = []
 for (const id of lireJson('questions-posees.json') as string[]) {
@@ -43,11 +60,12 @@ for (const id of lireJson('questions-posees.json') as string[]) {
   if (!q || !n || n.estimation == null) continue
   const v = valeurDuFilet(q)
   if (!v) continue
-  const refus = ind ? refusDeLIndice(ind.indice, v.valeur, v.annee) : 'absent'
+  const refus = !ind ? 'absent' : ind.indice === '' ? null : refusDeLIndice(ind.indice, v.valeur, v.annee)
   if (refus) refusés.push(`${id} (${v.valeur}) : ${refus} — ${ind?.indice ?? ''}`)
   questions.push({
     id, t: q.texte, v: v.valeur, an: v.annee, u: v.unite ?? '', c: q.meta.categorie, d: q.meta.difficulte,
     a: q.anecdote ?? '', ia: n.estimation, qcm: n.qcm, i: refus ? '' : ind.indice, r: ind?.repere ?? '',
+    ...(CALCULS.has(id) ? { calcul: true } : {}),
   })
 }
 
@@ -77,9 +95,10 @@ const reperesGrandeurs = [
   ['m', 50, 'L’Arc de triomphe'], ['m', 69, 'Les tours de Notre-Dame'], ['m', 330, 'La tour Eiffel'], ['m', 828, 'Burj Khalifa'],
   ['m', 4806, 'Le mont Blanc'], ['m', 8849, 'L’Everest'], ['km', 42, 'Un marathon'], ['km', 777, 'La Seine'],
   ['km', 1006, 'La Loire'], ['km', 40075, 'Le tour de la Terre'], ['km', 384400, 'La Lune'], ['cm', 30, 'Une règle d’écolier'],
-  ['minutes', 90, 'Un match de football'], ['minutes', 60, 'Une heure'], ['jours', 365, 'Une année'], ['jours', 30, 'Un mois'],
-  ['°c', 100, 'L’eau qui bout'], ['°c', 37, 'Le corps humain'], ['kg', 1000, 'Une tonne'], ['ans', 100, 'Un siècle'],
+  ['minutes', 90, 'Un match de football'], ['°c', 100, 'L’eau qui bout'], ['°c', 37, 'Le corps humain'],
 ].map(([u, v, l]) => ({ u, v, l }))
+// Pas de définition d'unité (une heure, un siècle, une tonne) : « 100 ans · Un siècle », pour l'âge d'Orson Welles,
+// apprenait à Huguette ce qu'est un siècle (la tablée du 9 novembre 2026).
 
 // ── Les chiffres de la production (le cahier des charges, « Ce que disent les lancers ») ─────────────────────
 const production = {
@@ -88,9 +107,9 @@ const production = {
   regles: [
     { nom: 'Le Filet d’aujourd’hui (le filet choisi)', reussies: 43, etoiles: 0.67, aveugle: 45, savoir: -2 },
     { nom: 'Le filet qui se resserre tout seul', reussies: 56, etoiles: 1.12, aveugle: 45, savoir: 11 },
-    { nom: 'En deux temps : l’époque, puis la valeur', reussies: 59, etoiles: 1.12, aveugle: 25, savoir: 34 },
-    { nom: 'En deux temps, questions du moteur (≥ 25 %)', reussies: 62, etoiles: 1.3, aveugle: 25, savoir: 37, fort: true },
-    { nom: 'En deux temps, questions du moteur (≥ 40 %)', reussies: 78, etoiles: 1.78, aveugle: 25, savoir: 53, fort: true },
+    { nom: 'En deux temps : l’époque, puis la valeur', reussies: 62, etoiles: 1.2, aveugle: 25, savoir: 37 },
+    { nom: 'En deux temps, questions du moteur (≥ 25 %)', reussies: 66, etoiles: 1.38, aveugle: 25, savoir: 41, fort: true },
+    { nom: 'En deux temps, questions du moteur (≥ 40 %)', reussies: 74, etoiles: 1.74, aveugle: 25, savoir: 49, fort: true },
   ],
   pourquoi: [
     'Le pari sur la taille du filet se retourne contre les joueurs : ils prennent le moyen ou le petit 80 fois sur 169, et réussissent 43 % des manches quand le grand filet, posé au même endroit, en aurait réussi 56 %.',
@@ -118,5 +137,5 @@ const sortie = `// Écrit par extraire.mts : ${questions.length} questions du Fi
 fs.writeFileSync(path.join(ICI, 'donnees.js'), sortie)
 console.log(`${questions.length} questions (${questions.filter(q => q.an).length} années), ${questions.filter(q => q.i).length} indices retenus, ${refusés.length} refusés`)
 for (const r of refusés) console.log('  refusé', r)
-const parActe = [[40, 101], [25, 40], [0, 25]].map(([a, b]) => questions.filter(q => q.ia >= a && q.ia < b))
+const parActe = [[40, 101], [25, 40], [0, 25]].map(([a, b]) => questions.filter(q => !q.calcul && q.ia >= a && q.ia < b))
 console.log('par acte :', parActe.map((qs, i) => `${['I', 'II', 'III'][i]} ${qs.length} (${qs.filter(q => q.an).length} années)`).join(' · '))

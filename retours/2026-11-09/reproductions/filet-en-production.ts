@@ -79,26 +79,27 @@ if (quoi === 'lancers') {
 } else if (quoi === 'regles') {
   const paliers = (e: number, [a, b, c]: number[]) => (e <= a ? 3 : e <= b ? 2 : e <= c ? 1 : 0)
   const rapport = (l: Lancer, x: number) => Math.abs(Math.log(Math.max(x, l.piste.max / 1000) / l.valeur))
-  // Le Filet en deux temps, lu sur le curseur réel : quatre époques sur la piste d'une année, quatre tranches en ×3
-  // autour d'une grandeur (sa place tirée une fois, au même hasard), puis la distance — une borne basse.
-  let graine = 9112026
-  const hasard = () => ((graine = (graine * 16807) % 2147483647) / 2147483647)
-  const decalage = new Map<Lancer, number>()
+  // Le Filet en deux temps, à la règle même de la maquette (`jeu.js`, `naturelles`) et du cahier des charges (§ 3.3),
+  // lu sur le curseur réel — une borne basse. Une année : des époques alignées de 25 ans depuis 1800, de 50 de 1500 à
+  // 1799, d'un siècle avant ; ★★★ à un douzième, ★★ à un quart. Une grandeur : les tranches 1, 3, 10, 30…, une
+  // réponse pile sur une borne des deux ; ★★★ à 6 %, ★★ à 25 % de la réponse, l'écart lu au dixième comme l'écran
+  // l'écrit. La distance d'abord, puis la bonne tranche.
+  const borneDuDemi = (k: number) => (k % 2 === 0 ? 10 ** (k / 2) : 3 * 10 ** ((k - 1) / 2))
+  const trancheDe = (v: number) => { let k = 0; while (borneDuDemi(k + 1) <= v) k++; return k }
   function deuxTemps(l: Lancer, x: number): number {
     if (l.annee) {
-      const t = L(l) / 4, tr = (v: number) => Math.min(3, Math.floor((v - l.piste.min) / t))
+      const T = l.valeur >= 1800 ? 25 : l.valeur >= 1500 ? 50 : 100
       const e = Math.abs(x - l.valeur)
-      if (e <= 2) return 3
-      if (e <= 6) return 2
-      return tr(x) === tr(l.valeur) ? 1 : 0
+      if (e <= Math.max(1, Math.round(T / 12))) return 3
+      if (e <= Math.round(T / 4)) return 2
+      return Math.floor(x / T) === Math.floor(l.valeur / T) ? 1 : 0
     }
-    if (!decalage.has(l)) decalage.set(l, hasard() * 4)
-    const bas = l.valeur / Math.pow(3, decalage.get(l)!)
-    const tr = (v: number) => (v < bas || v >= bas * 81 ? -1 : Math.floor(Math.log(v / bas) / Math.log(3)))
-    const r = Math.abs(x - l.valeur) / l.valeur
-    if (x > 0 && r <= 0.05) return 3
-    if (x > 0 && r <= 0.2) return 2
-    return x > 0 && tr(x) === tr(l.valeur) ? 1 : 0
+    const p = Math.round((1000 * Math.abs(x - l.valeur)) / l.valeur) / 10
+    if (p <= 6) return 3
+    if (p <= 25) return 2
+    if (x < 1) return 0
+    const kx = trancheDe(x), kv = trancheDe(l.valeur)
+    return kx === kv || (l.valeur === borneDuDemi(kv) && kx === kv - 1) ? 1 : 0
   }
   const regles: [string, (l: Lancer, x: number, aveugle: boolean) => number][] = [
     ['Aujourd’hui (le filet choisi)', (l, x, aveugle) => { const t = aveugle ? 'grand' : l.taille; return ecart(l, x) <= DEMI[t] + 1e-9 ? ETOILES[t] : 0 }],
