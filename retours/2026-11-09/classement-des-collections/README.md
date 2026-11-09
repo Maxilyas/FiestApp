@@ -11,14 +11,21 @@ propositions de maquettes » (le propriétaire).
 Puis, sur les trois : « Fais-moi une maquette selon tes recommandations de ce
 qui rend le mieux. J'aimerais que les Divins soient comptabilisés aussi, c'est
 uniquement la condition d'obtention qui ne doit pas être dévoilée, mais
-justement en avoir un devrait être vraiment mis en avant » — la synthèse,
-plus bas.
+justement en avoir un devrait être vraiment mis en avant » — la synthèse.
+
+Puis, sur la synthèse : « Comment on voit le détail pour chaque catégorie
+(Cabinet, maître, etc.) ? J'aimais bien celui du palmarès. Aussi l'histoire
+de gagner sur quelqu'un en fonction des thèmes, je ne suis pas fan. Je
+préfère en termes de design le face-à-face du palmarès. Est-ce que les
+matières des légendaires, que l'on peut avoir en utilisant un Éclat, comptent
+bien aussi comme un légendaire ? Est-ce que légendaire et Éclat ont la même
+valeur ? » — la synthèse retouchée, plus bas.
 
 Une maquette : les propositions sont posées dans le vrai client — ses avatars
-peints, ses finitions, ses bordures de ligue, ses Divins, sa feuille, son
-menu —, derrière une page de maquette (`/classement?p=1`, `2`, `3`, et `4`
-pour la synthèse), photographiées au téléphone en 360 × 640 sur un serveur
-jetable, puis rangées sur une planche. Le prototype vit dans
+peints, ses finitions, ses bordures de ligue, ses Divins, ses matières, sa
+feuille, son menu —, derrière une page de maquette (`/classement?p=1`, `2`,
+`3`, et `4` pour la synthèse), photographiées au téléphone en 360 × 640 sur un
+serveur jetable, puis rangées sur une planche. Le prototype vit dans
 `maquette/prototype.patch` : sans lui, le code d'aujourd'hui, rien n'a
 changé.
 
@@ -26,57 +33,62 @@ Les joueurs sont inventés (`client/src/views/classement/donnees.ts`, dans le
 patch), à l'échelle de la production du début novembre : quatorze du haut du
 classement, sur 87. « Toi », c'est Léa, l'habituée des maquettes de la carte —
 niveau 23, le Phénix porté, maîtresse des mythologies et du grand écran :
-**12ᵉ sur 87, 559 carats**. Max mène (1869, dont 200 pour Hélios et Chronos),
-devant Zoé (1778, dont 100 pour le Lotus Sacré) et Nadia (1222).
+**12ᵉ sur 87, 579 carats**. Max mène (2049, dont 200 pour Hélios et Chronos
+et 225 pour ses neuf Éclats), devant Zoé (1898) et Nadia (1282).
 
 ## La planche
 
 Tout se regarde sur la planche Design, privée :
 <https://claude.ai/artifact/DL7Mmm4FgDZ1zHctHpJFbP>
 
-- **La synthèse · Les collectionneurs** — la page recommandée, entière, puis
-  chacun de ses moments : l'entrée, le premier écran, la salle des Divins, les
-  records, le classement, entre amis, le barème, sous Ivoire ; la vitrine de
-  Max et de Zoé, la bataille contre Malik et contre Max, un record ouvert.
+- **La synthèse, retouchée · Les collectionneurs** — la page recommandée :
+  quatre catégories en pleine page (la collection, les maîtres, le Cabinet,
+  les légendaires), puis chacun de ses moments — l'entrée, le premier écran,
+  les Éclats, le niveau, entre amis, la salle des Divins, la vitrine de Max
+  et de Zoé, le face-à-face avec Malik et avec Max, le barème, sous Ivoire.
 - **Les trois propositions, en un coup d'œil** et **la valeur d'une
-  collection** — le barème, les Divins comptés, ce qui deviendrait public, ce
-  qui reste à trancher.
+  collection** — le barème, les Divins et les Éclats comptés, ce qui
+  deviendrait public, ce qui reste à trancher.
 - **Proposition 1, 2, 3** — chacune dans ses états, telles que photographiées
-  d'abord (les Divins encore hors de la valeur).
+  d'abord (les Divins hors de la valeur, l'Éclat à 5).
 
 Les photos n'existent que là (et dans `export/`, qui ne se committe pas).
 
-## La synthèse — Les collectionneurs (recommandée)
+## La synthèse, retouchée — Les collectionneurs (recommandée)
 
-Une seule page, ce que chacune des trois faisait le mieux (`Collectionneurs.tsx`,
-`/classement?p=4`) :
+Une seule page (`Collectionneurs.tsx`, `/classement?p=4`) :
 
-- **ta place en tête** — la tête du tableau d'honneur (2), resserrée : « Tu es
-  12ᵉ sur 87 ▲2 », 559 carats, ton rang de collection (« La vitrine »), et ce
-  qu'il te manque pour passer le suivant (« Encore 16 carats pour passer
-  Malik ») ;
-- **le podium en cartes à collectionner** — de la galerie (3), ce qui rendait
-  le mieux : le cadre de sa ligue, son avatar dans l'illustration, son rang en
-  gemme, sa valeur ; l'opale autour de qui garde un Divin ;
-- **la salle des Divins**, sous le podium (plus bas) ;
-- **« Qui a le plus de… »** — les records du tableau d'honneur (2) sur une
-  étagère qui glisse de côté dans son cadre, comme celles de la boutique :
-  maîtres, légendaires, Cabinet, niveau, quiz du jour, thèmes, Éclats ; une
-  tuile ouvre son classement entier ;
-- **le classement** — la liste du palmarès (1) et « Tous · Mes amis », du 4ᵉ
-  au 10ᵉ (le podium dit les trois premiers), puis toi et tes voisins ;
+- **ta place en tête**, à la catégorie choisie : « Tu es 12ᵉ sur 87 ▲2 »,
+  579 carats, « La vitrine », « Encore 16 carats pour passer Malik » — aux
+  maîtres, « Tu es 7ᵉ · 2 maîtres sur 12 · Encore 2 maîtres pour passer
+  Sacha » ; sans rien de la catégorie, « Pas encore au classement » et ce qui
+  l'y fait entrer ;
+- **les Divins en bandeau**, juste dessous (plus bas) ;
+- **les six puces du palmarès** (1) — Collection, Niveau, Maîtres,
+  Légendaires, Cabinet, Éclats —, à côté de « Tous · Mes amis » : elles
+  changent **sur place** sa place, le podium et la liste, et chaque ligne dit
+  sa catégorie — les douze couronnes des sentiers et ses paliers sur 144, les
+  dix sceaux du Cabinet au métal de leur défi, ses premiers légendaires
+  peints. Qui n'a rien de la catégorie n'est pas classé : ni sur le podium,
+  ni « – » dans la liste — « Les autres n'ont pas encore de sceau d'or » ;
+- **le podium en cartes à collectionner** (3), à la catégorie choisie — « 9
+  sur 12 » aux maîtres —, l'opale autour de qui garde un Divin ;
+- **la liste** (1), du 4ᵉ au 10ᵉ, puis toi et tes voisins ;
 - **toucher un joueur ouvre sa vitrine** (3) : ses Divins d'abord, sur leurs
-  socles d'opale, puis ses plus belles pièces, sa collection gemme par gemme
-  à côté de la tienne, ses maîtres et ses sceaux ; « Confronter » ouvre **la
-  bataille** (3) — une manche par ligne, le verdict — et dessous, s'il est
-  devant toi, **ce qu'il te manque pour le passer** (2) : « Il te manque 16
-  carats : une seule de ces pièces suffit », chaque pièce à sa valeur et où
-  elle se gagne.
+  socles d'opale, puis ses plus belles pièces — sa matière peinte et dite
+  (« Légendaire · jade · 75 carats ») —, sa collection gemme par gemme à côté
+  de la tienne, ses maîtres et ses sceaux ;
+- **« Comparer » ouvre le face-à-face du palmarès** (1) : les deux avatars,
+  « À égalité : 3 lignes chacun », ligne à ligne la barre de chacun et l'or à
+  qui mène — les Divins d'abord, en opale ; **plus de thèmes** —, puis ce
+  qu'il a et pas toi — ses Divins d'abord —, et ce qu'il te manque pour le
+  passer (« une seule de ces pièces suffit »).
 
-Ce qu'elle laisse : les six puces du palmarès (l'étagère des records dit
-« qui a le plus de… » d'un coup d'œil, sans changer la liste), le face-à-face
-en barres (la bataille le remplace), le mur de cartes au-delà du podium (une
-liste se lit mieux à quatre-vingt-sept).
+Ce qu'elle a laissé, à la retouche : l'étagère des records (les puces le
+disent, sur place), la bataille des collections (le face-à-face du palmarès
+la remplace), et toute comparaison sur les thèmes — ils s'achètent, on ne se
+mesure pas à ce qu'on a payé (le propriétaire, le 9 novembre 2026). Ils
+restent dans la valeur, comme les fonds et les gerbes.
 
 ## Les Divins, comptés et mis en avant
 
@@ -86,27 +98,54 @@ propriétaire, le 9 novembre 2026). Les trois premières propositions les
 laissaient hors de la valeur, par prudence (invariant 21 : « pas même un
 compte de badges qui bougerait ») ; la synthèse les compte :
 
-- **cent carats chacun**, la plus haute gemme — quatre légendaires : six en
-  tout, et il fait changer de place ;
-- **la salle des Divins**, sous le podium, de nuit sous tous les thèmes :
-  « Les Divins · 3 descendus sur 6 · 100 carats chacun » ; ceux qui sont
+- **cent carats chacun**, la plus haute gemme — quatre légendaires ;
+- **leur bandeau**, sous ta place, de nuit sous tous les thèmes : « Les
+  Divins · 3 descendus sur 6 · 100 carats », les six, peints ou sous leur
+  voile, et qui les a, en petit ; **leur salle**, au toucher : ceux qui sont
   descendus, peints, rayons compris, leur nom et qui les a (le toucher ouvre
-  sa vitrine) ; les autres sous leur voile, sans nom, « Pas encore
+  sa vitrine), les autres sous leur voile, sans nom, « Pas encore
   descendu », comme dans l'album ; « Comment ils descendent ne se dit pas » ;
 - **l'opale** — la gemme des Divins dans l'album — autour de la carte du
   podium, en filet autour de la ligne, et en pastille, ses Divins peints en
   petit, à côté de son prénom ;
 - **la vitrine** : « 2 Divins veillent sur sa collection », ses Divins
-  d'abord, sur des socles d'opale ;
-- **la bataille** s'ouvre sur la manche des Divins dès que l'un des deux en a
-  un ; et dans « Pour passer Max », ses Divins d'abord, chacun « Comment il
-  descend ne se dit pas ».
+  d'abord ;
+- **le face-à-face** s'ouvre sur la ligne des Divins, en opale, dès que l'un
+  des deux en a un ; et dans « Ce que Max a et pas toi », ses Divins d'abord,
+  puis « Comment un Divin descend ne se dit pas ».
 
 Ce qui reste secret, partout : comment ils descendent, et quand — ni jauge,
 ni progression, ni date, ni récit (le récit, à son seul porteur, comme
 aujourd'hui). La carte d'un joueur montre déjà quels Divins il a : la valeur
 n'en dit pas plus. Pas de fil d'actualité non plus (« Max a reçu un Divin
 hier » dirait le quand).
+
+## L'Éclat et les matières
+
+« Est-ce que les matières des légendaires comptent bien aussi comme un
+légendaire ? Est-ce que légendaire et Éclat ont la même valeur ? » — la
+maquette comptait l'Éclat comme une rare (5) et oubliait les matières. Le
+code dit (règle `recompenses.md`) : un Éclat fait éclater un avatar ; tombé
+sur un avatar déjà éclaté, il attend en réserve, d'où il en fait éclater un
+autre ou **taille une matière** — porcelaine, corail, jade, obsidienne —
+dans un avatar éclaté, jamais un Divin ni un compagnon ; les quatre réunies
+offrent l'Opale, qu'aucun Éclat ne paie. La Pluie d'Éclats compte déjà
+ensemble les avatars éclatés et les matières taillées (`eclatsPosesOf`).
+
+D'où la règle de la synthèse :
+
+- **un Éclat vaut un légendaire, 25 carats** — qu'il fasse éclater un avatar
+  ou y taille une matière : chaque matière coûte un Éclat ;
+- **une matière n'est pas un avatar de plus** : le Phénix en jade reste un
+  légendaire dans les comptes (« 4 légendaires sur 32 ») ; il vaut ce qu'il a
+  coûté — la Chouette d'Argent de Zoé, éclatée puis taillée dans le jade :
+  25 + 25 + 25 = **75 carats** ;
+- **l'Opale ne compte pas** : offerte par les quatre, aucun Éclat ne la paie
+  — comme pour La Pluie d'Éclats.
+
+À noter : un légendaire taillé dans les quatre matières (cinq Éclats) vaut
+150 carats, plus qu'un Divin (100). Si le Divin doit rester la pièce la plus
+chère, il passe à 200.
 
 ## La valeur
 
@@ -120,70 +159,62 @@ dépense : une collection ne se vend pas.
 |---|---|
 | Un avatar de l'album — légendaire, portrait d'un sentier, forme d'un compagnon, emoji de collection —, à sa gemme : commune, peu commune, rare, épique, légendaire | 1 · 2 · 5 · 10 · 25 |
 | Un Divin | 100 |
-| Un Éclat, la version rare d'un avatar | +5 |
+| Un Éclat — un avatar qui éclate, ou une matière taillée ; l'Opale, offerte, ne compte pas | 25 |
 | Un maître de sentier — il vaut un légendaire | 25 |
 | Un défi d'une carte du Cabinet, au métal de son rang le plus haut : bronze, argent, or | 2 · 5 · 10 |
 | Un autre trophée — une étape de piste, un exploit, un prix —, un timbre du carnet des fêtes | 2 |
 | Un thème, à sa gemme ; un fond ; une gerbe ; une finition | 1 à 25 · 3 · 3 · 2 |
 | Une bordure de ligue, du bronze aux maîtres | 1 · 2 · 5 · 10 · 25 · 50 |
 
-Léa : 351 en avatars, 131 en trophées, 77 en style. Tout ce qui se gagne
-aujourd'hui vaut un peu plus de 3 900 carats — les 173 avatars de l'album en
-font 2 464, dont 600 pour les six Divins.
+Léa : 371 en avatars et Éclats, 131 en trophées, 77 en style. Les 173
+avatars de l'album font 2 464 carats, dont 600 pour les six Divins ; chaque
+Éclat en ajoute 25.
 
 **Ce qui ne se compte pas** : les emojis de l'inscription, à tout le monde ;
-les trouvailles, privées ; l'Expédition, dont le départ est fermé
+les trouvailles, privées ; l'Opale ; l'Expédition, dont le départ est fermé
 (`EXPEDITION_REMPLACEE`).
 
 **Ce qui deviendrait public.** La carte d'un autre ne dit aujourd'hui que ses
 légendaires, ses Divins descendus et ses sentiers (`CarteDeJoueur`,
-`core/carte.ts`). Le classement dirait **combien** il a de thèmes, de fonds,
-de sceaux du Cabinet — jamais lesquels, ni le thème et la gerbe qu'il porte,
-qui ne partent qu'à lui.
+`core/carte.ts`). Le classement dirait **combien** il a de sceaux du Cabinet
+ou d'Éclats, et sa valeur compterait ses thèmes, ses fonds — jamais lesquels,
+ni le thème et la gerbe qu'il porte, qui ne partent qu'à lui.
 
 ## L'entrée
 
 Un gros bouton de plus sur « Mon profil », entre « Ma collection » et « Mes
-soirées » : « Les collectionneurs », « 12ᵉ sur 87 · ta collection vaut 559
+soirées » : « Les collectionneurs », « 12ᵉ sur 87 · ta collection vaut 579
 carats », « Nouveau » le temps de le découvrir.
 
 ## Les trois propositions d'abord
 
-Photographiées avant la décision sur les Divins : ils n'y comptaient pas.
+Photographiées avant les décisions sur les Divins et l'Éclat : les Divins
+n'y comptaient pas, l'Éclat valait 5.
 
 ### Proposition 1 — Le palmarès (la plus sobre)
 
 Le classement des duels tourné vers la collection, avec ses pièces — les
-lignes `.lb-row`, la feuille, les onglets fins, les puces :
-
-- **sa place en tête**, et ce qu'il faut pour passer le suivant ;
-- **« Tous · 87 » ou « Mes amis · 6 »** ;
-- **six puces** qui changent ce qu'on classe : la collection, le niveau, les
-  maîtres des sentiers (douze points sous le prénom, d'or pour chaque maître),
-  les légendaires (les premiers, peints), le Cabinet (les dix cartes, au
-  métal de leur défi), le style ;
-- **ex æquo, même rang** (invariant 15) ; à zéro, « Pas encore au
-  classement » et ce qui l'y fait entrer — jamais « 87ᵉ avec 0 » ;
-- **toucher un nom ouvre le face-à-face** : ligne à ligne, l'or à qui mène,
-  puis ce qu'il a et pas toi.
+lignes `.lb-row`, la feuille, les onglets fins, les puces : sa place en
+tête ; « Tous » ou « Mes amis » ; six puces qui changent ce qu'on classe ; ex
+æquo, même rang (invariant 15) ; à zéro, « Pas encore au classement » ;
+toucher un nom ouvre le face-à-face. Ses puces et son face-à-face sont
+passés dans la synthèse.
 
 ### Proposition 2 — Le tableau d'honneur
 
-- **ta collection** : la valeur, le rang, ▲ depuis lundi ; un **rang de
-  collection**, nommé d'après ce qu'elle remplit — le tiroir, le coffret, la
-  vitrine, la galerie, le musée, le palais : il se dit de Léa comme de Max,
-  sans accord à faire — et sa jauge ; ce qui la fait, en trois couleurs ;
-- **les records**, une tuile chacun, qui ouvre son classement ;
-- **un nom ouvre la comparaison** : les familles en miroir, l'écart, puis ce
-  qu'il manque pour le passer, avec où le gagner (`ouIlSeGagne`).
+La valeur en relevé, un rang de collection nommé d'après ce qu'elle remplit
+— le tiroir, le coffret, la vitrine, la galerie, le musée, le palais : il se
+dit de Léa comme de Max, sans accord à faire —, les records en tuiles, une
+comparaison en miroir et ce qu'il manque pour passer quelqu'un, avec où le
+gagner (`ouIlSeGagne`). Sa tête et « pour le passer » sont passés dans la
+synthèse.
 
 ### Proposition 3 — La galerie (la plus créative)
 
-- **un mur de cartes à collectionner**, au cadre de sa ligue, les trois
-  premiers sur un podium ;
-- **une carte ouvre sa vitrine** : ses pièces maîtresses sur leurs socles ;
-- **« Confronter »** : sept manches, la manche à qui a le plus, rien de tiré
-  au sort — on peut être derrière au classement et gagner la bataille.
+Un mur de cartes à collectionner, au cadre de sa ligue, les trois premiers sur
+un podium ; une vitrine par joueur, ses pièces maîtresses sur leurs socles ;
+« Confronter » : sept manches, la manche à qui a le plus. Le podium et la
+vitrine sont passés dans la synthèse ; la bataille, non.
 
 ## Dans toutes
 
@@ -201,20 +232,22 @@ photos) : aucune page ne déborde de côté, aucun prénom n'est coupé.
 
 | | La page | Ce qui s'ouvre |
 |---|---|---|
-| La synthèse | 2 236 px ; ta place et le podium au premier écran, la salle des Divins au deuxième | une vitrine défile de 126 à 206 px, la bataille de 328 px (Malik) à 421 px (Max) |
+| La synthèse, retouchée | 1 745 px à la collection (1 559 aux maîtres, 1 259 au Cabinet, 1 751 aux légendaires) ; ta place, les Divins et les puces au premier écran | la salle des Divins tient en entier ; une vitrine défile de 191 px ; le face-à-face de 443 px (Malik) à 563 px (Max) |
 | 1 · Le palmarès | 1 547 px | le face-à-face défile de 539 px |
 | 2 · Le tableau d'honneur | 1 684 px | un record, 550 px de liste ; la comparaison, 47 px |
 | 3 · La galerie | 1 192 px | la vitrine défile de 126 px, la bataille de 187 px |
 
 ## À trancher
 
-1. **La synthèse** — la garder telle quelle, ou y reprendre une pièce des
-   trois (les puces du palmarès, le mur de cartes).
-2. **L'unité** — des carats, ou « points de collection ».
-3. **Le barème** — un Divin vaut-il bien quatre légendaires ? un maître, un
-   légendaire ? un Éclat, une rare ?
-4. **Qui est classé** — ceux qui ont joué ces quatre dernières semaines,
+1. **L'unité** — des carats, ou « points de collection ».
+2. **Le barème** — un Divin, quatre légendaires (ou huit, pour rester plus
+   cher qu'un légendaire taillé dans les quatre matières) ? un Éclat et un
+   maître, un légendaire chacun ?
+3. **Qui est classé** — ceux qui ont joué ces quatre dernières semaines,
    comme aux duels (la maquette dit « sur 87 »), ou tous les profils.
+4. **Les thèmes dans la valeur** — ils ne sont plus ni une puce ni une ligne
+   du face-à-face ; ils comptent encore dans les carats, comme les fonds et
+   les gerbes.
 
 ## Ce que la vraie version demandera
 
@@ -230,19 +263,21 @@ photos) : aucune page ne déborde de côté, aucun prénom n'est coupé.
   compterait d'une règle pure (`shared/`, à côté de `shared/collection.ts`),
   en fond et gardée, comme la moyenne des joueurs (`moyennesDesJoueurs`) —
   ses thèmes achetés, ses paliers des sentiers, ses bordures du journal des
-  duels, ses badges, ses Éclats, ses fonds, ses gerbes, ses Divins —, jamais
-  attendue par la page.
+  duels, ses badges, ses Éclats posés (`eclatsPosesOf`), ses fonds, ses
+  gerbes, ses Divins —, jamais attendue par la page.
 - **Une route** (et sa ligne dans `docs/reference/api-http.md`), réservée aux
   profils ; **ses constantes**, des choix de produit, dans
   `docs/reference/baremes.md`.
 - **Les classements par `shared/classement.ts`** (invariant 15), les
   homonymes par `nomsAffiches` (invariant 17), chaque ligne avec ce que le
-  joueur porte (`un-seul-avatar.test.ts`).
+  joueur porte, sa matière comprise (`un-seul-avatar.test.ts`,
+  `recompenses-montrees.test.ts`).
 - **Une page de plus** (`/classement`) : `ACCOUNT_PAGES`, `ACCOUNT`, `TITRES`,
   `RESERVED_SLUGS`, `pageDeLAdresse` pour que le QG la ferme, `LISENT_LE_PROFIL`
   et le préchargement de l'accueil d'un profil (règle `client.md`).
-- **Des tests** : un Divin compté une fois, ni masqué ni anonyme au
-  classement, les ex æquo.
+- **Des tests** : un Divin compté une fois, une matière comptée comme un Éclat
+  et jamais comme un avatar, l'Opale jamais, ni masqué ni anonyme au
+  classement, les ex æquo, qui n'a rien de la catégorie pas classé.
 
 ## Rejouer la maquette
 
@@ -257,12 +292,13 @@ cd server && npx tsx ../retours/2026-11-09/classement-des-collections/maquette/p
 
 Le patch posé, `npm run dev` puis `http://localhost:5173/classement?p=4` (la
 synthèse ; `1`, `2`, `3` pour les premières) ; `?vue=entree&p=4`, le profil
-où l'on y entre ; `&vitrine=max`, `&bataille=malik`, `&record=maitres`,
-`&amis` ouvrent ce qui s'ouvre au toucher. `git apply -R` du même patch le
-retire. Les trois premières, rephotographiées, comptent maintenant les Divins
-comme la synthèse : leurs photos de la planche sont celles d'avant.
+où l'on y entre ; `&axe=maitres` (ou `cabinet`, `legendaires`, `eclats`,
+`niveau`), `&amis`, `&vue=divins`, `&vitrine=zoe`, `&face=malik` ouvrent ce
+qui s'ouvre au toucher. `git apply -R` du même patch le retire. Les trois
+premières, rephotographiées, suivent le barème d'aujourd'hui : leurs photos
+de la planche sont celles d'avant.
 
 | Fichier | Ce qu'il est |
 |---|---|
 | `maquette/prototype.patch` | la page de maquette (`client/src/views/classement/` : `ClassementMaquette.tsx` — l'entrée et l'aiguillage —, `Collectionneurs.tsx` — la synthèse —, `Palmares.tsx`, `TableauDHonneur.tsx`, `Galerie.tsx`, `donnees.ts` — les joueurs inventés, le barème, les classements —, `classement.css`), son adresse (`shared/adresses.ts`, `main.tsx`, `titres.ts`) |
-| `maquette/photos.ts` | le serveur jetable et les trente-six états photographiés en 360 × 640 — le premier écran, la page entière, le bas des feuilles, défilée jusqu'à une section, sous Ivoire —, et `mesures.txt` (`s-` : la synthèse) |
+| `maquette/photos.ts` | le serveur jetable et les trente-neuf états photographiés en 360 × 640 — le premier écran, la page entière, le bas des feuilles, défilée jusqu'à une section, sous Ivoire —, et `mesures.txt` (`s-` : la synthèse) |

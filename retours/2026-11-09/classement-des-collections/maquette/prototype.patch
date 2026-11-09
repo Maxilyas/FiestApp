@@ -163,10 +163,10 @@ index 0000000..2429712
 +  j.moi ? `Toi, ${r ? rang(r) : 'pas encore au classement'}, ${dit}` : `${j.nom}, ${r ? rang(r) : 'pas encore au classement'}, ${dit} : comparer vos collections`
 diff --git a/client/src/views/classement/Collectionneurs.tsx b/client/src/views/classement/Collectionneurs.tsx
 new file mode 100644
-index 0000000..a048a3d
+index 0000000..8aa32fe
 --- /dev/null
 +++ b/client/src/views/classement/Collectionneurs.tsx
-@@ -0,0 +1,594 @@
+@@ -0,0 +1,649 @@
 +import { useState } from 'react'
 +import { Feuille, MenuBarre, PieceTete, Sortie } from '../../components/Pieces'
 +import { Avatar, Dessin } from '../../components/Avatar'
@@ -174,22 +174,23 @@ index 0000000..a048a3d
 +import { BlasonDeLigue } from '../../components/Blason'
 +import { gemmeDAvatar } from '../../gemmes'
 +import { formatNumber, rang } from '../../format'
-+import { avatarDeLAlbum, ouIlSeGagne } from '../../../../shared/album'
 +import { branche } from '../../../../shared/branches'
 +import { DIVINS, divin } from '../../../../shared/divins'
++import { NOM_DE_LA_MATIERE, estUneMatiere } from '../../../../shared/matieres'
 +import { Carats, DEPART, Pierre, SonAvatar, nomDeLaLigne } from './ClassementMaquette'
-+import { Couronnes, LeBareme, Sceaux, gemmeDe, nomDe } from './Palmares'
-+import { FeuilleDuRecord, Record } from './TableauDHonneur'
++import { Couronnes, LeBareme, Medaillons, Sceaux, gemmeDe, nomDe } from './Palmares'
 +import {
++  AXES,
 +  GEMMES,
 +  JOUEURS,
 +  JOUEURS_CLASSES,
 +  MOI,
 +  NOM_DE_LA_GEMME,
-+  avatarsDe,
++  bilanDuFaceAFace,
 +  celuiDevant,
 +  classer,
 +  divinsDe,
++  faceAFace,
 +  gemmesDe,
 +  joueur,
 +  rangDeCollection,
@@ -203,29 +204,45 @@ index 0000000..a048a3d
 +
 +// La synthèse (le 9 novembre 2026) : « Fais-moi une maquette selon tes
 +// recommandations de ce qui rend le mieux » (le propriétaire, sur les trois
-+// premières). Une seule page, ce que chacune faisait le mieux :
++// premières), puis, sur elle : « Comment on voit le détail pour chaque
++// catégorie (Cabinet, maître…) ? J'aimais bien celui du palmarès […]
++// L'histoire de gagner sur quelqu'un en fonction des thèmes, je ne suis pas
++// fan. Je préfère en termes de design le face-à-face du palmarès. »
 +//
-+// - de la 2, la tête — sa place, sa valeur, son rang de collection — et les
-+//   records, ici sur une étagère qui glisse de côté ;
-+// - de la 3, le podium en cartes à collectionner, la vitrine d'un joueur et
-+//   la bataille des collections ;
-+// - de la 1, la liste et « Tous · Mes amis » ;
-+// - de la 2 encore, ce qu'il manque pour passer quelqu'un, et où le gagner,
-+//   au pied de la bataille.
++// Une seule page :
 +//
-+// Et les Divins, comptés et mis en avant (« en avoir un devrait être
-+// vraiment mis en avant », le même jour) : cent carats chacun, leur propre
-+// salle sous le podium — ceux qui sont descendus, peints, et qui les a ; les
-+// autres sous leur voile, sans nom —, une opale sur la carte, la ligne et la
-+// vitrine de qui en a un. Rien ne dit comment ils descendent, ni quand.
++// - sa place en tête, à la catégorie choisie (le palmarès) ;
++// - les Divins tout de suite dessous, en bandeau — leur salle s'ouvre en
++//   feuille ;
++// - les six puces du palmarès, qui changent sur place sa place, le podium et
++//   la liste — chaque ligne dit sa catégorie : ses couronnes, ses sceaux, ses
++//   légendaires peints ;
++// - le podium en cartes à collectionner (la galerie), la liste et « Tous ·
++//   Mes amis » (le palmarès) ;
++// - toucher un joueur ouvre sa vitrine (la galerie), « Comparer » le
++//   face-à-face du palmarès — sans les thèmes —, et ce qui manque pour le
++//   passer.
++//
++// Les Divins comptent (cent carats) et se montrent : le bandeau et sa salle,
++// l'opale sur la carte, la ligne et la vitrine de qui en a un. Rien ne dit
++// comment ils descendent, ni quand.
 +
-+const RECORDS: readonly Axe[] = ['maitres', 'legendaires', 'cabinet', 'niveau', 'jour', 'style', 'eclats']
++/** Les puces : ce qui se gagne en jouant — plus les thèmes, qui s'achètent (le choix du propriétaire), mais les Éclats. */
++const PUCES: readonly Axe[] = ['collection', 'niveau', 'maitres', 'legendaires', 'cabinet', 'eclats']
 +
 +/** Qui a ce Divin, parmi les joueurs classés. */
 +const porteursDe = (cle: string): Collectionneur[] => JOUEURS.filter(j => divinsDe(j).includes(cle))
 +
-+/** Ses Divins en petit, peints, dans leur pastille d'opale — sur sa carte, sur sa ligne. */
-+function SesDivins({ j, avecNombre }: { j: Collectionneur; avecNombre?: boolean }) {
++/** Ce que la catégorie compte, au pied d'une carte ou d'un nombre : « carats », « sur 12 », « niveau ». */
++const uniteDe = (axe: Axe, v: number): string => {
++  const a = AXES[axe]
++  if (axe === 'collection') return v >= 2 ? 'carats' : 'carat'
++  if (axe === 'niveau') return 'niveau'
++  return a.sur ? `sur ${a.sur}` : a.unite[v >= 2 ? 1 : 0]
++}
++
++/** Ses Divins en petit, peints, dans leur pastille d'opale — sur sa carte, à côté de son prénom. */
++function SesDivins({ j }: { j: Collectionneur }) {
 +  const siens = divinsDe(j)
 +  if (siens.length === 0) return null
 +  return (
@@ -235,47 +252,131 @@ index 0000000..a048a3d
 +          <Dessin cle={c} />
 +        </span>
 +      ))}
-+      {avecNombre && <span aria-hidden="true">{`${siens.length} Divin${siens.length > 1 ? 's' : ''}`}</span>}
 +    </span>
 +  )
 +}
 +
-+/** Sa place, sa valeur, son rang de collection, et qui il passerait — d'un coup d'œil, en tête. */
-+function SaPlace({ places }: { places: readonly Place[] }) {
++/** Sa place dans la catégorie choisie, et qui il passerait — d'un coup d'œil, en tête. */
++function SaPlace({ places, axe, amis }: { places: readonly Place[]; axe: Axe; amis: boolean }) {
 +  const sienne = places.find(p => p.joueur.moi)!
 +  const devant = celuiDevant(places, MOI.id)
++  const a = AXES[axe]
 +  const v = valeurDe(MOI)
-+  const { rang: palier, suivant } = rangDeCollection(v)
 +  return (
 +    <section className="cl-sa-place" aria-label="Ta place">
 +      <SonAvatar j={MOI} />
 +      <span className="cl-sa-place-texte">
-+        <b>
-+          {`Tu es ${rang(sienne.rang!)}`}
-+          <span className="cl-sa-place-sur">{` sur ${JOUEURS_CLASSES}`}</span>
-+          {MOI.mouvement ? <span className="cl-mouvement monte">{`▲${MOI.mouvement}`}</span> : null}
-+        </b>
-+        <span className="cl-sa-place-valeur">
-+          <Carats n={v} />
-+          <span className="cl-sa-place-palier">
-+            <Icon name="landmark" />
-+            {palier.nom}
++        {sienne.rang ? (
++          <b>
++            {`Tu es ${rang(sienne.rang)}`}
++            <span className="cl-sa-place-sur">{` sur ${amis ? places.length : JOUEURS_CLASSES}`}</span>
++            {axe === 'collection' && MOI.mouvement ? <span className="cl-mouvement monte">{`▲${MOI.mouvement}`}</span> : null}
++          </b>
++        ) : (
++          <b>Pas encore au classement</b>
++        )}
++        {axe === 'collection' ? (
++          <span className="cl-sa-place-valeur">
++            <Carats n={v} />
++            <span className="cl-sa-place-palier">
++              <Icon name="landmark" />
++              {rangDeCollection(v).rang.nom}
++            </span>
 +          </span>
-+        </span>
-+        {devant && (
++        ) : (
++          <span className="muted small">{sienne.rang ? a.dit(MOI) : a.premier}</span>
++        )}
++        {sienne.rang && devant && (
 +          <span className="cl-ta-place-suivant">
 +            <Icon name="arrow-up" />
-+            {`Encore ${formatNumber(devant.manque)} carats pour passer ${devant.place.joueur.nom}`}
++            {`Encore ${formatNumber(devant.manque)} ${a.unite[devant.manque >= 2 ? 1 : 0]} pour passer ${devant.place.joueur.nom}`}
 +          </span>
 +        )}
-+        {!devant && suivant && <span className="muted small">{`${suivant.nom} à ${formatNumber(suivant.depuis)}`}</span>}
 +      </span>
 +    </section>
 +  )
 +}
 +
-+/** Une carte du podium : le cadre de sa ligue, son avatar, son rang en gemme, sa valeur — et ses Divins, en opale. */
-+function CarteDuPodium({ place: p, premier, onOuvrir }: { place: Place; premier?: boolean; onOuvrir: (id: string) => void }) {
++/** Les Divins en bandeau, sous sa place : les six, peints ou voilés, et qui les a — la salle s'ouvre au toucher. */
++function BandeauDesDivins({ onOuvrir }: { onOuvrir: () => void }) {
++  const descendus = DIVINS.filter(d => porteursDe(d.key).length > 0)
++  return (
++    <button type="button" className="cl-divins-bandeau" onClick={onOuvrir} aria-label={`Les Divins : ${descendus.length} descendus sur ${DIVINS.length}, ${descendus.map(d => `${d.nom} chez ${porteursDe(d.key)[0].nom}`).join(', ')}. Ouvrir leur salle`}>
++      <span className="cl-divins-bandeau-tete" aria-hidden="true">
++        <b className="cl-divins-titre cl-divins-titre-petit">Les Divins</b>
++        <span>{`${descendus.length} descendus sur ${DIVINS.length} · 100 carats`}</span>
++        <Icon name="chevron-down" className="cl-divins-bandeau-chevron" />
++      </span>
++      <span className="cl-divins-rangee" aria-hidden="true">
++        {DIVINS.map(d => {
++          const porteur = porteursDe(d.key)[0]
++          return (
++            <span key={d.key} className={'cl-divins-case' + (porteur ? '' : ' cl-divins-case-voile')}>
++              <span className="cl-divins-case-bijou">
++                <Dessin cle={d.key} verrouille={!porteur} grand={!!porteur} />
++              </span>
++              {porteur && <SonAvatar j={porteur} className="lb-avatar cl-divins-case-porteur" />}
++            </span>
++          )
++        })}
++      </span>
++    </button>
++  )
++}
++
++/**
++ * La salle des Divins, en feuille : les six, ceux qui sont descendus peints —
++ * leur nom, qui l'a —, les autres sous leur voile, sans nom, comme dans
++ * l'album. Toucher un porteur ouvre sa vitrine.
++ */
++function SalleDesDivins({ onVitrine, onFermer }: { onVitrine: (id: string) => void; onFermer: () => void }) {
++  const descendus = DIVINS.filter(d => porteursDe(d.key).length > 0).length
++  return (
++    <Feuille titre="Les Divins" onFermer={onFermer}>
++      <section className="cl-divins" aria-label={`${descendus} descendus sur ${DIVINS.length}`}>
++        <header className="cl-divins-tete">
++          <span className="cl-divins-titre">Les Divins</span>
++          <span>{`${descendus} descendus sur ${DIVINS.length} · 100 carats chacun`}</span>
++        </header>
++        <ul className="cl-divins-liste">
++          {DIVINS.map(d => {
++            const porteurs = porteursDe(d.key)
++            if (porteurs.length === 0) {
++              return (
++                <li key={d.key} className="cl-divin cl-divin-voile">
++                  <span className="cl-divin-bijou" aria-hidden="true">
++                    <Dessin cle={d.key} verrouille />
++                  </span>
++                  <span className="cl-divin-nom">Pas encore descendu</span>
++                </li>
++              )
++            }
++            const [premier, ...autres] = porteurs
++            return (
++              <li key={d.key} className="cl-divin">
++                <button type="button" onClick={() => onVitrine(premier.id)} aria-label={`${d.nom} : chez ${porteurs.map(p => p.nom).join(', ')}`}>
++                  <span className="cl-divin-bijou" aria-hidden="true">
++                    <Dessin cle={d.key} grand />
++                  </span>
++                  <span className="cl-divin-nom">{d.nom}</span>
++                  <span className="cl-divin-porteur">
++                    <SonAvatar j={premier} className="lb-avatar" />
++                    {premier.moi ? 'Toi' : premier.nom}
++                    {autres.length > 0 && <span className="muted">{` +${autres.length}`}</span>}
++                  </span>
++                </button>
++              </li>
++            )
++          })}
++        </ul>
++        <p className="cl-divins-secret">Comment ils descendent ne se dit pas.</p>
++      </section>
++    </Feuille>
++  )
++}
++
++/** Une carte du podium : le cadre de sa ligue, son avatar, son rang en gemme, et ce qu'on classe — ses Divins en opale. */
++function CarteDuPodium({ place: p, axe, premier, onOuvrir }: { place: Place; axe: Axe; premier?: boolean; onOuvrir: (id: string) => void }) {
 +  const j = p.joueur
 +  const divine = divinsDe(j).length > 0
 +  return (
@@ -283,20 +384,23 @@ index 0000000..a048a3d
 +      type="button"
 +      className={`cl-carte cadre-${j.ligue ?? 'aucune'} cl-carte-podium` + (premier ? ' cl-carte-premier' : '') + (divine ? ' cl-carte-divine' : '')}
 +      onClick={() => onOuvrir(j.id)}
-+      aria-label={`${j.nom}, ${rang(p.rang!)}, ${formatNumber(p.valeur)} carats${divine ? `, ${divinsDe(j).length} Divin${divinsDe(j).length > 1 ? 's' : ''}` : ''} : sa vitrine`}
++      aria-label={`${j.moi ? 'Toi' : j.nom}, ${p.rang ? rang(p.rang) : 'pas encore au classement'}, ${AXES[axe].dit(j)} : sa vitrine`}
 +    >
 +      <span className="cl-carte-dedans">
-+        <span className="cl-carte-rang" aria-hidden="true">
-+          <span>{p.rang}</span>
-+        </span>
++        {p.rang && (
++          <span className="cl-carte-rang" aria-hidden="true">
++            <span>{p.rang}</span>
++          </span>
++        )}
 +        {j.ligue && <BlasonDeLigue ligue={j.ligue} taille={16} decoratif className="cl-carte-blason" />}
 +        <span className="cl-carte-illu">
 +          <SonAvatar j={j} className="cl-carte-av" />
 +        </span>
-+        <span className="cl-carte-nom">{j.nom}</span>
++        <span className="cl-carte-nom">{j.moi ? 'Toi' : j.nom}</span>
 +        <span className="cl-carte-valeur">
-+          <Pierre gemme="carat" petite />
++          {axe === 'collection' && <Pierre gemme="carat" petite />}
 +          {formatNumber(p.valeur)}
++          {axe !== 'collection' && <span className="cl-carte-unite">{uniteDe(axe, p.valeur)}</span>}
 +        </span>
 +        <SesDivins j={j} />
 +      </span>
@@ -304,59 +408,39 @@ index 0000000..a048a3d
 +  )
 +}
 +
-+/**
-+ * La salle des Divins, sous le podium : les six, ceux qui sont descendus
-+ * peints — leur nom, qui l'a, ce qu'il vaut —, les autres sous leur voile,
-+ * sans nom, comme dans l'album. Toucher un porteur ouvre sa vitrine.
-+ */
-+function LesDivins({ onOuvrir }: { onOuvrir: (id: string) => void }) {
-+  const descendus = DIVINS.filter(d => porteursDe(d.key).length > 0).length
-+  return (
-+    <section className="cl-divins" aria-labelledby="cl-divins-titre">
-+      <header className="cl-divins-tete">
-+        <h2 id="cl-divins-titre" className="cl-divins-titre">
-+          Les Divins
-+        </h2>
-+        <span>{`${descendus} descendus sur ${DIVINS.length} · 100 carats chacun`}</span>
-+      </header>
-+      <ul className="cl-divins-liste">
-+        {DIVINS.map(d => {
-+          const porteurs = porteursDe(d.key)
-+          if (porteurs.length === 0) {
-+            return (
-+              <li key={d.key} className="cl-divin cl-divin-voile">
-+                <span className="cl-divin-bijou" aria-hidden="true">
-+                  <Dessin cle={d.key} verrouille />
-+                </span>
-+                <span className="cl-divin-nom">Pas encore descendu</span>
-+              </li>
-+            )
-+          }
-+          const [premier, ...autres] = porteurs
-+          return (
-+            <li key={d.key} className="cl-divin">
-+              <button type="button" onClick={() => onOuvrir(premier.id)} aria-label={`${d.nom} : chez ${porteurs.map(p => p.nom).join(', ')}`}>
-+                <span className="cl-divin-bijou" aria-hidden="true">
-+                  <Dessin cle={d.key} grand />
-+                </span>
-+                <span className="cl-divin-nom">{d.nom}</span>
-+                <span className="cl-divin-porteur">
-+                  <SonAvatar j={premier} className="lb-avatar" />
-+                  {premier.moi ? 'Toi' : premier.nom}
-+                  {autres.length > 0 && <span className="muted">{` +${autres.length}`}</span>}
-+                </span>
-+              </button>
-+            </li>
-+          )
-+        })}
-+      </ul>
-+      <p className="cl-divins-secret">Comment ils descendent ne se dit pas.</p>
-+    </section>
-+  )
++/** Ce que la ligne dit sous le prénom, selon la catégorie — le détail du palmarès. */
++function Detail({ axe, j }: { axe: Axe; j: Collectionneur }) {
++  switch (axe) {
++    case 'maitres':
++      return (
++        <span className="cl-detail">
++          <Couronnes j={j} />
++          <span>{`${j.paliers}/144`}</span>
++        </span>
++      )
++    case 'legendaires':
++      return (
++        <span className="cl-detail">
++          <Medaillons cles={j.legendaires} />
++        </span>
++      )
++    case 'cabinet':
++      return (
++        <span className="cl-detail">
++          <Sceaux j={j} />
++        </span>
++      )
++    case 'niveau':
++      return <span className="cl-detail">{`${formatNumber(valeurDe(j))} carats`}</span>
++    case 'eclats':
++      return <span className="cl-detail">{`${j.legendaires.length} légendaires · ${formatNumber(valeurDe(j))} carats`}</span>
++    default:
++      return <span className="cl-detail">{`${j.legendaires.length} légendaires · ${j.maitres.length} maître${j.maitres.length > 1 ? 's' : ''}`}</span>
++  }
 +}
 +
-+/** Une ligne du classement : sa place, son avatar, ses Divins en opale, ce qu'il a, sa valeur. */
-+function Ligne({ place: p, onOuvrir }: { place: Place; onOuvrir: (id: string) => void }) {
++/** Une ligne du classement : sa place, son avatar, ses Divins à côté de son prénom, le détail de la catégorie, son nombre. */
++function Ligne({ place: p, axe, onOuvrir }: { place: Place; axe: Axe; onOuvrir: (id: string) => void }) {
 +  const j = p.joueur
 +  const divine = divinsDe(j).length > 0
 +  return (
@@ -364,37 +448,38 @@ index 0000000..a048a3d
 +      <button
 +        type="button"
 +        className={'lb-row lb-ouvrable cl-ligne' + (j.moi ? ' me' : '') + (divine ? ' cl-ligne-divine' : '')}
-+        aria-label={nomDeLaLigne(j, p.rang, `${formatNumber(p.valeur)} carats`)}
++        aria-label={nomDeLaLigne(j, p.rang, AXES[axe].dit(j))}
 +        onClick={() => onOuvrir(j.id)}
 +      >
-+        <span className={'lb-rank' + (p.rang ? ` rank-${p.rang}` : '')}>{p.rang}</span>
++        <span className={'lb-rank' + (p.rang ? ` rank-${p.rang}` : '')}>{p.rang ?? '–'}</span>
 +        <SonAvatar j={j} className="lb-avatar" />
 +        <span className="cl-nom">
 +          <b>
 +            {j.moi ? 'Toi' : j.nom}
-+            {/* Ses Divins à côté du prénom, sur la ligne qu'on lit d'abord : sous lui, ils poussaient ses légendaires hors de la ligne. */}
++            {/* Ses Divins à côté du prénom, sur la ligne qu'on lit d'abord : sous lui, ils poussaient le détail hors de la ligne. */}
 +            <SesDivins j={j} />
-+            {j.mouvement ? (
++            {axe === 'collection' && j.mouvement ? (
 +              <span className={'cl-mouvement' + (j.mouvement > 0 ? ' monte' : ' descend')} aria-hidden="true">
 +                {j.mouvement > 0 ? `▲${j.mouvement}` : `▼${-j.mouvement}`}
 +              </span>
 +            ) : null}
 +          </b>
-+          <span className="cl-detail">{`${j.legendaires.length} légendaires · ${j.maitres.length} maître${j.maitres.length > 1 ? 's' : ''}`}</span>
++          <Detail axe={axe} j={j} />
 +        </span>
 +        <span className="cl-score">
 +          <span className="lb-score">{formatNumber(p.valeur)}</span>
-+          <span className="cl-unite">carats</span>
++          <span className="cl-unite">{uniteDe(axe, p.valeur)}</span>
 +        </span>
 +      </button>
 +    </li>
 +  )
 +}
 +
-+/** Une pièce maîtresse sur son socle : un Divin sur l'opale, rayons compris, les autres à la couleur de leur gemme. */
-+function Socle({ cle, eclat }: { cle: string; eclat?: unknown }) {
++/** Une pièce maîtresse sur son socle : un Divin sur l'opale, rayons compris ; les autres à la couleur de leur gemme, leur matière dite. */
++function Socle({ cle, eclat }: { cle: string; eclat?: boolean | string }) {
 +  const estDivin = !!divin(cle)
 +  const gemme = estDivin ? 'divin' : gemmeDe(cle)
++  const matiere = estUneMatiere(eclat) ? eclat : null
 +  return (
 +    <figure className={'cl-socle' + (estDivin ? ' cl-socle-divin' : '')} style={gemmeDAvatar(gemme)}>
 +      <span className="cl-socle-piece">
@@ -403,7 +488,8 @@ index 0000000..a048a3d
 +            <Dessin cle={cle} grand />
 +          </span>
 +        ) : (
-+          <Avatar className="cl-socle-av" avatar="✨" legendaire={cle} eclat={eclat ? true : undefined} />
++          // Sa matière, peinte : le Phénix en jade se montre en jade.
++          <Avatar className="cl-socle-av" avatar="✨" legendaire={cle} eclat={matiere ?? (eclat ? true : undefined)} />
 +        )}
 +      </span>
 +      <span className="cl-socle-pied" aria-hidden="true" />
@@ -411,7 +497,7 @@ index 0000000..a048a3d
 +        <b>{estDivin ? divin(cle)!.nom : nomDe(cle)}</b>
 +        <span className={estDivin ? 'cl-opale-texte' : undefined}>
 +          <Pierre gemme={gemme} petite /> {NOM_DE_LA_GEMME[gemme]}
-+          {eclat ? ' · éclaté' : ''}
++          {matiere ? ` · ${NOM_DE_LA_MATIERE[matiere].toLowerCase()}` : eclat ? ' · éclaté' : ''}
 +        </span>
 +        <span className="cl-socle-valeur">{`${valeurDeLaPiece(gemme, eclat)} carats`}</span>
 +      </figcaption>
@@ -420,9 +506,9 @@ index 0000000..a048a3d
 +}
 +
 +/** Sa vitrine : ses Divins d'abord, puis ses plus belles pièces ; sa collection gemme par gemme, à côté de la mienne. */
-+function Vitrine({ lui, onConfronter, onFermer }: { lui: Collectionneur; onConfronter: () => void; onFermer: () => void }) {
++function Vitrine({ lui, onComparer, onFermer }: { lui: Collectionneur; onComparer: () => void; onFermer: () => void }) {
 +  const place = classer('collection').find(p => p.joueur.id === lui.id)!
-+  const pieces = [...divinsDe(lui).map(cle => ({ cle, eclat: undefined })), ...lui.pieces.filter(p => !divin(p.cle))].slice(0, 3)
++  const pieces = [...divinsDe(lui).map(cle => ({ cle, eclat: undefined as boolean | string | undefined })), ...lui.pieces.filter(p => !divin(p.cle))].slice(0, 3)
 +  const siennes = gemmesDe(lui)
 +  const miennes = gemmesDe(MOI)
 +  return (
@@ -435,8 +521,8 @@ index 0000000..a048a3d
 +            <button type="button" className="btn">
 +              <Icon name="eye" /> Sa carte
 +            </button>
-+            <button type="button" className="btn btn-primary" onClick={onConfronter}>
-+              <Icon name="swords" /> Confronter
++            <button type="button" className="btn btn-primary" onClick={onComparer}>
++              <Icon name="users" /> Comparer
 +            </button>
 +          </div>
 +        )
@@ -456,9 +542,7 @@ index 0000000..a048a3d
 +      {divinsDe(lui).length > 0 && (
 +        <p className="cl-vitrine-divine">
 +          <Pierre gemme="divin" />
-+          {divinsDe(lui).length > 1
-+            ? `${divinsDe(lui).length} Divins veillent sur sa collection`
-+            : `Un Divin veille sur sa collection`}
++          {divinsDe(lui).length > 1 ? `${divinsDe(lui).length} Divins veillent sur sa collection` : 'Un Divin veille sur sa collection'}
 +        </p>
 +      )}
 +      <h3 className="label">Ses pièces maîtresses</h3>
@@ -518,78 +602,63 @@ index 0000000..a048a3d
 +  )
 +}
 +
-+interface Manche {
-+  nom: string
-+  icone: Parameters<typeof Icon>[0]['name']
-+  moi: number
-+  lui: number
-+  divine?: boolean
-+}
-+
 +/**
-+ * Les manches : ce qu'on a, puis ce qu'on a fait. Les Divins ouvrent la
-+ * bataille dès que l'un des deux en a un — ce que personne n'a ne se compare
-+ * pas.
++ * Le face-à-face, celui du palmarès (le choix du propriétaire, le même jour) :
++ * les deux avatars, qui mène sur combien de lignes, puis ligne à ligne la
++ * barre de chacun et l'or à qui mène — les Divins d'abord, en opale ; plus de
++ * thèmes. Puis ce qui manque pour le passer au classement, s'il est devant,
++ * et ce que chacun a que l'autre n'a pas : ses Divins d'abord — comment ils
++ * descendent ne se dit pas —, ses légendaires, ses maîtres.
 + */
-+function manches(moi: Collectionneur, lui: Collectionneur): Manche[] {
-+  const defis = (j: Collectionneur) => j.sceaux.or + j.sceaux.argent + j.sceaux.bronze
-+  const divines = divinsDe(moi).length + divinsDe(lui).length > 0
-+  return [
-+    ...(divines ? [{ nom: 'Divins', icone: 'sparkles' as const, moi: divinsDe(moi).length, lui: divinsDe(lui).length, divine: true }] : []),
-+    { nom: 'Avatars', icone: 'image', moi: avatarsDe(moi), lui: avatarsDe(lui) },
-+    { nom: 'Légendaires', icone: 'star', moi: moi.legendaires.length, lui: lui.legendaires.length },
-+    { nom: 'Maîtres', icone: 'crown', moi: moi.maitres.length, lui: lui.maitres.length },
-+    { nom: 'Paliers', icone: 'mountain', moi: moi.paliers, lui: lui.paliers },
-+    { nom: 'Défis du Cabinet', icone: 'landmark', moi: defis(moi), lui: defis(lui) },
-+    { nom: 'Thèmes', icone: 'palette', moi: moi.themes, lui: lui.themes },
-+    { nom: 'Niveau', icone: 'zap', moi: moi.niveau, lui: lui.niveau },
-+  ]
-+}
-+
-+/** Une carte de l'arène : petite, la même que celles du podium. */
-+function CarteDeLArene({ j }: { j: Collectionneur }) {
-+  const p = classer('collection').find(x => x.joueur.id === j.id)!
-+  return (
-+    <span className={`cl-carte cadre-${j.ligue ?? 'aucune'}` + (divinsDe(j).length > 0 ? ' cl-carte-divine' : '')}>
-+      <span className="cl-carte-dedans">
-+        <span className="cl-carte-rang" aria-hidden="true">
-+          <span>{p.rang}</span>
-+        </span>
-+        <span className="cl-carte-illu">
-+          <SonAvatar j={j} className="cl-carte-av" />
-+        </span>
-+        <span className="cl-carte-nom">{j.moi ? 'Toi' : j.nom}</span>
-+        <span className="cl-carte-valeur">
-+          <Pierre gemme="carat" petite />
-+          {formatNumber(p.valeur)}
-+        </span>
-+        <SesDivins j={j} />
-+      </span>
-+    </span>
-+  )
-+}
-+
-+/**
-+ * La bataille : les deux cartes face à face, une manche par ligne, la manche
-+ * à qui a le plus, le verdict ; puis, s'il est devant au classement, ce qui
-+ * manque pour le passer — ses Divins d'abord, dont la descente ne se dit
-+ * pas, puis ses maîtres et ses légendaires, et où les gagner.
-+ */
-+function Bataille({ lui, onFermer }: { lui: Collectionneur; onFermer: () => void }) {
-+  const ms = manches(MOI, lui)
-+  const miennes = ms.filter(m => m.moi > m.lui).length
-+  const siennes = ms.filter(m => m.lui > m.moi).length
-+  const nulles = ms.filter(m => m.moi === m.lui)
++function FaceAFace({ lui, onFermer }: { lui: Collectionneur; onFermer: () => void }) {
++  // Ce que ni l'un ni l'autre n'a ne se compare pas : « 0 contre 0 » ne disait rien de personne.
++  const lignes = faceAFace(MOI, lui).filter(l => l.moi > 0 || l.lui > 0)
++  const bilan = bilanDuFaceAFace(lignes)
 +  const ecart = valeurDe(lui) - valeurDe(MOI)
++  const verdict =
++    bilan.lui === bilan.moi
++      ? `À égalité : ${bilan.moi} lignes chacun`
++      : bilan.lui > bilan.moi
++        ? `${lui.nom} mène sur ${bilan.lui} lignes, toi sur ${bilan.moi}`
++        : `Tu mènes sur ${bilan.moi} lignes, ${lui.nom} sur ${bilan.lui}`
 +  const sesDivins = divinsDe(lui).filter(c => !divinsDe(MOI).includes(c))
-+  const maitres = sesMaitresEnPlus(MOI, lui)
-+  const legendaires = lui.legendaires.filter(c => !MOI.legendaires.includes(c))
++  const mesDivins = divinsDe(MOI).filter(c => !divinsDe(lui).includes(c))
++  const sesLegendaires = lui.legendaires.filter(c => !MOI.legendaires.includes(c))
++  const mesLegendaires = MOI.legendaires.filter(c => !lui.legendaires.includes(c))
++  const sesMaitres = sesMaitresEnPlus(MOI, lui)
++  const mesMaitres = sesMaitresEnPlus(lui, MOI)
 +  // Une seule pièce qui vaut l'écart à elle seule : on sait par où commencer.
-+  const plusBelle = Math.max(0, ...sesDivins.map(() => valeurDeLaPiece('divin')), ...maitres.map(() => 25), ...legendaires.map(c => valeurDeLaPiece(gemmeDe(c))))
-+  const suffit = plusBelle > ecart
++  const plusBelle = Math.max(0, ...sesDivins.map(() => valeurDeLaPiece('divin')), ...sesMaitres.map(() => 25), ...sesLegendaires.map(c => valeurDeLaPiece(gemmeDe(c))))
++  const pieces = (divins: readonly string[], legendaires: readonly string[], maitres: readonly string[], n: number) => (
++    <div className="cl-manque-pieces">
++      {divins.map(c => (
++        <span key={c} className="cl-piece cl-piece-divine">
++          <span className="cl-piece-dv" aria-hidden="true">
++            <Dessin cle={c} />
++          </span>
++          <span>{divin(c)!.nom}</span>
++          <span className="cl-opale-texte">Divin</span>
++        </span>
++      ))}
++      {legendaires.slice(0, Math.max(0, n - divins.length)).map(c => (
++        <span key={c} className="cl-piece">
++          <Avatar className="cl-piece-av" avatar="✨" legendaire={c} />
++          <span>{nomDe(c)}</span>
++        </span>
++      ))}
++      {maitres.slice(0, 3).map(b => (
++        <span key={b} className="cl-piece">
++          <span className="cl-couronne" aria-hidden="true">
++            <Icon name="crown" />
++          </span>
++          <span>{`Maître · ${branche(b)?.nom ?? b}`}</span>
++        </span>
++      ))}
++    </div>
++  )
 +  return (
 +    <Feuille
-+      titre={`Toi contre ${lui.nom}`}
++      titre={`Toi et ${lui.nom}`}
 +      onFermer={onFermer}
 +      pied={
 +        <div className="cl-pied">
@@ -597,140 +666,125 @@ index 0000000..a048a3d
 +            <Icon name="eye" /> Sa carte
 +          </button>
 +          <button type="button" className="btn btn-primary">
-+            <Icon name="swords" /> Défier en duel
++            <Icon name="swords" /> Défier
 +          </button>
 +        </div>
 +      }
 +    >
-+      <div className="cl-arene">
-+        <CarteDeLArene j={MOI} />
-+        <span className="cl-arene-vs" aria-hidden="true">
-+          VS
++      <div className="cl-vs">
++        <div className="cl-vs-cote">
++          <SonAvatar j={MOI} className="player-avatar big" />
++          <b>Toi</b>
++          <Carats n={valeurDe(MOI)} />
++        </div>
++        <span className="cl-vs-milieu" aria-hidden="true">
++          contre
 +        </span>
-+        <CarteDeLArene j={lui} />
++        <div className="cl-vs-cote">
++          <SonAvatar j={lui} className="player-avatar big" />
++          <b>{lui.nom}</b>
++          <Carats n={valeurDe(lui)} />
++        </div>
 +      </div>
-+      <p className={'cl-verdict-bataille' + (miennes > siennes ? ' cl-gagnee' : '')}>
-+        <Icon name={miennes > siennes ? 'trophy' : 'flag'} />
-+        {miennes > siennes ? `Tu l’emportes, ${miennes} manches à ${siennes}` : miennes < siennes ? `${lui.nom} l’emporte, ${siennes} manches à ${miennes}` : `Égalité, ${miennes} partout`}
-+        {nulles.length > 0 && <span>{nulles.length === 1 ? `Une manche nulle : ${nulles[0].nom}` : `${nulles.length} manches nulles`}</span>}
++      <p className="cl-verdict">
++        {verdict}
++        {bilan.egalites > 0 && ` · ${bilan.egalites === 1 ? 'une égalité' : `${bilan.egalites} égalités`}`}
 +      </p>
-+      <ol className="cl-manches">
-+        {ms.map(m => {
-+          const issue = m.moi > m.lui ? 'moi' : m.lui > m.moi ? 'lui' : 'nulle'
++      <ul className="cl-duel">
++        {lignes.map(l => {
++          const max = Math.max(l.moi, l.lui, 1)
++          const mene = l.moi > l.lui ? 'moi' : l.lui > l.moi ? 'lui' : 'egal'
 +          return (
-+            <li key={m.nom} className={`cl-manche cl-manche-${issue}` + (m.divine ? ' cl-manche-divine' : '')}>
-+              <span className="cl-manche-n cl-manche-gauche">
-+                {issue === 'moi' && <Icon name="check" />}
-+                {formatNumber(m.moi)}
++            <li key={l.nom} className={`cl-duel-ligne cl-mene-${mene}` + (l.nom === 'Divins' ? ' cl-duel-divine' : '')}>
++              <span className="cl-duel-moi">{formatNumber(l.moi)}</span>
++              <span className="cl-duel-milieu">
++                <span className="cl-duel-nom">
++                  {l.nom === 'Divins' && <Pierre gemme="divin" petite />}
++                  {l.nom}
++                </span>
++                <span className="cl-duel-barres" aria-hidden="true">
++                  <span className="cl-barre cl-barre-moi">
++                    <span style={{ width: `${(l.moi / max) * 100}%` }} />
++                  </span>
++                  <span className="cl-barre cl-barre-lui">
++                    <span style={{ width: `${(l.lui / max) * 100}%` }} />
++                  </span>
++                </span>
 +              </span>
-+              <span className="cl-manche-nom">
-+                {m.divine ? <Pierre gemme="divin" /> : <Icon name={m.icone} />}
-+                {m.nom}
-+              </span>
-+              <span className="cl-manche-n cl-manche-droite">
-+                {formatNumber(m.lui)}
-+                {issue === 'lui' && <Icon name="check" />}
-+              </span>
++              <span className="cl-duel-lui">{formatNumber(l.lui)}</span>
 +            </li>
 +          )
 +        })}
-+      </ol>
-+      {ecart > 0 ? (
++      </ul>
++      {(sesDivins.length > 0 || sesLegendaires.length > 0 || sesMaitres.length > 0) && (
 +        <section className="cl-manque">
-+          <h3 className="label">{`Pour passer ${lui.nom} au classement`}</h3>
-+          <p className="muted small cl-manque-phrase">{`Il te manque ${formatNumber(ecart + 1)} carats${suffit ? ' : une seule de ces pièces suffit.' : '.'}`}</p>
-+          <ul className="cl-a-gagner">
-+            {sesDivins.map(c => (
-+              <li key={c} className="cl-a-gagner-divin">
-+                <span className="cl-a-gagner-dv" aria-hidden="true">
-+                  <Dessin cle={c} />
-+                </span>
-+                <span className="cl-a-gagner-texte">
-+                  <b>
-+                    <Pierre gemme="divin" petite /> {divin(c)!.nom}
-+                  </b>
-+                  <span className="cl-opale-texte">Comment il descend ne se dit pas</span>
-+                </span>
-+                <span className="cl-a-gagner-valeur">+100</span>
-+              </li>
-+            ))}
-+            {maitres.slice(0, 1).map(b => (
-+              <li key={b}>
-+                <span className="cl-couronne" aria-hidden="true">
-+                  <Icon name="crown" />
-+                </span>
-+                <span className="cl-a-gagner-texte">
-+                  <b>{`Maître · ${branche(b)?.nom ?? b}`}</b>
-+                  <span className="muted">sur son sentier, au palier de maître</span>
-+                </span>
-+                <span className="cl-a-gagner-valeur">+25</span>
-+              </li>
-+            ))}
-+            {legendaires.slice(0, sesDivins.length ? 1 : 2).map(c => {
-+              const a = avatarDeLAlbum(c, true)
-+              return (
-+                <li key={c}>
-+                  <Avatar className="cl-a-gagner-av" avatar="✨" legendaire={c} />
-+                  <span className="cl-a-gagner-texte">
-+                    <b>
-+                      <Pierre gemme={gemmeDe(c)} petite /> {nomDe(c)}
-+                    </b>
-+                    <span className="muted">{a ? ouIlSeGagne(a, true) : ''}</span>
-+                  </span>
-+                  <span className="cl-a-gagner-valeur">{`+${valeurDeLaPiece(gemmeDe(c))}`}</span>
-+                </li>
-+              )
-+            })}
-+          </ul>
++          <h3 className="label">{`Ce que ${lui.nom} a et pas toi`}</h3>
++          {ecart > 0 && (
++            <p className="muted small cl-manque-phrase">{`Pour le passer, il te manque ${formatNumber(ecart + 1)} carats${plusBelle > ecart ? ' : une seule de ces pièces suffit.' : '.'}`}</p>
++          )}
++          {pieces(sesDivins, sesLegendaires, sesMaitres, 5)}
++          {sesDivins.length > 0 && <p className="cl-divins-secret cl-divins-secret-petit">Comment un Divin descend ne se dit pas.</p>}
 +        </section>
-+      ) : (
-+        <p className="muted small cl-bataille-note">{`Tu es devant ${lui.nom} au classement : ${formatNumber(valeurDe(MOI))} carats contre ${formatNumber(valeurDe(lui))}.`}</p>
++      )}
++      {(mesDivins.length > 0 || mesLegendaires.length > 0 || mesMaitres.length > 0) && (
++        <section className="cl-manque">
++          <h3 className="label">{`Ce que tu as et pas ${lui.nom}`}</h3>
++          {pieces(mesDivins, mesLegendaires, mesMaitres, 4)}
++        </section>
 +      )}
 +    </Feuille>
 +  )
 +}
 +
 +export function Collectionneurs() {
-+  const [vitrine, setVitrine] = useState<string | null>(DEPART.vitrine)
-+  const [bataille, setBataille] = useState<string | null>(DEPART.bataille)
-+  const [record, setRecord] = useState<Axe | null>(DEPART.record)
++  const [axe, setAxe] = useState<Axe>(DEPART.axe ?? 'collection')
 +  const [amis, setAmis] = useState(DEPART.amis)
-+  const places = classer('collection')
-+  const [premier, deuxieme, troisieme] = places
-+  const cercle = amis ? classer('collection', JOUEURS.filter(j => j.ami)) : places
-+  const i = cercle.findIndex(p => p.joueur.moi)
-+  // Le podium dit les trois premiers : la liste de tous reprend au quatrième, jusqu'au dixième, puis lui et ses voisins.
-+  const liste = amis ? cercle : cercle.slice(3, 10)
-+  const autour = !amis && i >= 10 ? cercle.slice(i - 1, i + 2) : []
++  const [vitrine, setVitrine] = useState<string | null>(DEPART.vitrine)
++  const [face, setFace] = useState<string | null>(DEPART.face)
++  const [salle, setSalle] = useState(DEPART.vue === 'divins')
++  const cercle = amis ? JOUEURS.filter(j => j.ami) : JOUEURS
++  const places = classer(axe, cercle)
++  // Qui n'a rien de ce qu'on classe n'est pas classé : ni sur le podium, ni « – » et « 0 sur 10 » dans la liste — l'absence, pas l'infériorité.
++  const classes = places.filter(p => p.rang !== null)
++  const [premier, deuxieme, troisieme] = classes
++  const i = classes.findIndex(p => p.joueur.moi)
++  // Le podium dit les trois premiers : la liste reprend au quatrième, jusqu'au dixième, puis lui et ses voisins — entre amis, tous.
++  const liste = amis ? classes.slice(3) : classes.slice(3, 10)
++  const autour = !amis && i >= 10 ? classes.slice(i - 1, i + 2) : []
++  const unite = AXES[axe].unite[0]
++  const personne = classes.length < places.length ? `Les autres n’ont pas encore ${/^[aeiouyéèêàâîôûÉ]/i.test(unite) ? 'd’' : 'de '}${unite}.` : null
 +  return (
 +    <div className="player-shell cl-page">
 +      <Sortie vers="Mon profil" href="/profil" />
 +      <PieceTete piece="Profil" titre="Les collectionneurs" />
-+      <SaPlace places={places} />
-+      <div className="cl-podium">
-+        <CarteDuPodium place={deuxieme} onOuvrir={setVitrine} />
-+        <CarteDuPodium place={premier} premier onOuvrir={setVitrine} />
-+        <CarteDuPodium place={troisieme} onOuvrir={setVitrine} />
++      <SaPlace places={places} axe={axe} amis={amis} />
++      <BandeauDesDivins onOuvrir={() => setSalle(true)} />
++      <div className="cl-classement-tete">
++        <h2 className="label">Le classement</h2>
++        <div className="onglets onglets-puces cl-cercle-petit" role="tablist" aria-label="Qui classer">
++          <button type="button" role="tab" aria-selected={!amis} className={'onglet' + (!amis ? ' actif' : '')} onClick={() => setAmis(false)}>
++            Tous
++          </button>
++          <button type="button" role="tab" aria-selected={amis} className={'onglet' + (amis ? ' actif' : '')} onClick={() => setAmis(true)}>
++            Mes amis
++          </button>
++        </div>
 +      </div>
-+      <LesDivins onOuvrir={setVitrine} />
-+      <h2 className="label cl-surtitre">Qui a le plus de…</h2>
-+      <div className="cl-etagere">
-+        {RECORDS.map(a => (
-+          <Record key={a} axe={a} onOuvrir={setRecord} />
++      <div className="onglets onglets-puces cl-puces" role="tablist" aria-label="Ce qu’on classe">
++        {PUCES.map(a => (
++          <button key={a} type="button" role="tab" aria-selected={axe === a} className={'onglet' + (axe === a ? ' actif' : '')} onClick={() => setAxe(a)}>
++            {AXES[a].court}
++          </button>
 +        ))}
 +      </div>
-+      <h2 className="label cl-surtitre">Le classement</h2>
-+      <div className="onglets onglets-fins cl-cercle" role="tablist" aria-label="Qui classer">
-+        <button type="button" role="tab" aria-selected={!amis} className={'onglet' + (!amis ? ' actif' : '')} onClick={() => setAmis(false)}>
-+          {`Tous · ${JOUEURS_CLASSES}`}
-+        </button>
-+        <button type="button" role="tab" aria-selected={amis} className={'onglet' + (amis ? ' actif' : '')} onClick={() => setAmis(true)}>
-+          {`Mes amis · ${JOUEURS.filter(j => j.ami).length}`}
-+        </button>
++      <div className="cl-podium">
++        {deuxieme && <CarteDuPodium place={deuxieme} axe={axe} onOuvrir={setVitrine} />}
++        {premier && <CarteDuPodium place={premier} axe={axe} premier onOuvrir={setVitrine} />}
++        {troisieme && <CarteDuPodium place={troisieme} axe={axe} onOuvrir={setVitrine} />}
 +      </div>
-+      <ol className="leaderboard cl-liste" start={amis ? 1 : 4}>
++      <ol className="leaderboard cl-liste">
 +        {liste.map(p => (
-+          <Ligne key={p.joueur.id} place={p} onOuvrir={setVitrine} />
++          <Ligne key={p.joueur.id} place={p} axe={axe} onOuvrir={setVitrine} />
 +        ))}
 +        {autour.length > 0 && (
 +          <>
@@ -738,25 +792,26 @@ index 0000000..a048a3d
 +              …
 +            </li>
 +            {autour.map(p => (
-+              <Ligne key={p.joueur.id} place={p} onOuvrir={setVitrine} />
++              <Ligne key={p.joueur.id} place={p} axe={axe} onOuvrir={setVitrine} />
 +            ))}
 +          </>
 +        )}
 +      </ol>
-+      <p className="muted small cl-legende">Touche un joueur : sa vitrine, et de quoi vous confronter.</p>
++      {personne && <p className="muted small cl-legende">{personne}</p>}
++      <p className="muted small cl-legende">Touche un joueur : sa vitrine, et de quoi vous comparer.</p>
 +      <LeBareme />
-+      {record && !vitrine && !bataille && <FeuilleDuRecord axe={record} onComparer={id => setVitrine(id)} onFermer={() => setRecord(null)} />}
-+      {vitrine && !bataille && (
++      {salle && !vitrine && !face && <SalleDesDivins onVitrine={id => setVitrine(id)} onFermer={() => setSalle(false)} />}
++      {vitrine && !face && (
 +        <Vitrine
 +          lui={joueur(vitrine)}
-+          onConfronter={() => {
-+            setBataille(vitrine)
++          onComparer={() => {
++            setFace(vitrine)
 +            setVitrine(null)
 +          }}
 +          onFermer={() => setVitrine(null)}
 +        />
 +      )}
-+      {bataille && <Bataille lui={joueur(bataille)} onFermer={() => setBataille(null)} />}
++      {face && <FaceAFace lui={joueur(face)} onFermer={() => setFace(null)} />}
 +      <MenuBarre ici="profil" />
 +    </div>
 +  )
@@ -1055,7 +1110,7 @@ index 0000000..4115ea4
 +}
 diff --git a/client/src/views/classement/Palmares.tsx b/client/src/views/classement/Palmares.tsx
 new file mode 100644
-index 0000000..fb11784
+index 0000000..e7ef13c
 --- /dev/null
 +++ b/client/src/views/classement/Palmares.tsx
 @@ -0,0 +1,389 @@
@@ -1390,7 +1445,7 @@ index 0000000..fb11784
 +        ))}
 +      </ul>
 +      <p className="muted small">
-+        {`Un maître de sentier vaut un légendaire (${BAREME.maitre}), un Éclat une rare (${BAREME.eclat}), un sceau du Cabinet ${BAREME.sceau.bronze}, ${BAREME.sceau.argent} ou ${BAREME.sceau.or} selon son métal, une bordure de 1 au bronze à 50 chez les maîtres. Un Divin vaut quatre légendaires — comment il descend ne se dit pas.`}
++        {`Un Éclat vaut un légendaire (${BAREME.eclat}), qu’il fasse éclater un avatar ou y taille une matière — l’Opale, offerte par les quatre, ne compte pas. Un maître de sentier vaut un légendaire aussi, un sceau du Cabinet ${BAREME.sceau.bronze}, ${BAREME.sceau.argent} ou ${BAREME.sceau.or} selon son métal, une bordure de 1 au bronze à 50 chez les maîtres. Un Divin vaut quatre légendaires — comment il descend ne se dit pas.`}
 +      </p>
 +    </details>
 +  )
@@ -1772,10 +1827,10 @@ index 0000000..4a4d4e5
 +}
 diff --git a/client/src/views/classement/classement.css b/client/src/views/classement/classement.css
 new file mode 100644
-index 0000000..07f5560
+index 0000000..a1ffded
 --- /dev/null
 +++ b/client/src/views/classement/classement.css
-@@ -0,0 +1,371 @@
+@@ -0,0 +1,419 @@
 +/* La maquette du classement des collections (le 9 novembre 2026) : ses
 +   classes en `cl-`, posées sur celles de l'application — `.lb-row`, les
 +   onglets, la feuille. Les jetons du thème partout, sauf sur les cartes de
@@ -2094,6 +2149,45 @@ index 0000000..07f5560
 +    radial-gradient(circle at 50% 32%, #2f2440, #120d16 78%);
 +}
 +.cl-carte .cl-opale-pastille { margin-top: 4px; }
++/* Ce que le podium classe, quand ce ne sont pas des carats : « sur 12 », « niveau ». */
++.cl-carte-unite { margin-left: 4px; color: #d9cbb0; font-family: var(--sans); font-size: var(--t-label, 0.6875rem); font-weight: 500; }
++
++/* Les Divins en bandeau, sous sa place : de nuit, l'opale autour, la salle au toucher. */
++.cl-divins-bandeau {
++  display: flex;
++  flex-direction: column;
++  gap: 6px;
++  width: 100%;
++  margin: 10px 0 4px;
++  padding: 10px 10px 8px;
++  border: 0;
++  border-radius: 16px;
++  background:
++    radial-gradient(ellipse at 50% 0%, rgba(201, 182, 255, 0.22), transparent 65%),
++    radial-gradient(ellipse at 10% 100%, rgba(159, 227, 255, 0.1), transparent 55%),
++    #140f18;
++  color: #f3ece2;
++  font: inherit;
++  text-align: left;
++  cursor: pointer;
++  box-shadow: inset 0 0 0 1px rgba(201, 182, 255, 0.45), 0 6px 18px rgba(0, 0, 0, 0.3);
++}
++.cl-divins-bandeau-tete { display: flex; align-items: baseline; gap: 8px; padding: 0 2px; }
++.cl-divins-bandeau-tete > span { color: #c4b8d2; font-size: 0.75rem; }
++.cl-divins-titre.cl-divins-titre-petit { font-size: 1.3rem; }
++.cl-divins-bandeau-chevron { width: 16px; height: 16px; margin-left: auto; align-self: center; color: #c4b8d2; transform: rotate(-90deg); }
++.cl-divins-rangee { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 2px; }
++.cl-divins-case { position: relative; display: grid; place-items: center; height: 3.4rem; }
++.cl-divins-case-bijou { font-size: 2.3rem; }
++.cl-divins-case-voile .cl-divins-case-bijou { font-size: 1.9rem; opacity: 0.85; }
++/* Qui l'a, en petit, au pied de son Divin. */
++.cl-divins-case .av.cl-divins-case-porteur { position: absolute; right: 2px; bottom: 0; font-size: 0.8rem; }
++
++/* « Le classement », et à côté, « Tous · Mes amis » en petit : une ligne de moins avant le podium. */
++.cl-classement-tete { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 18px 0 8px; }
++.cl-classement-tete .label { margin: 0; }
++.cl-cercle-petit { flex-wrap: nowrap; }
++.cl-cercle-petit .onglet { min-height: 32px; padding: 0 10px; }
 +
 +/* Une ligne qui garde un Divin : un filet d'opale. */
 +.lb-row.cl-ligne-divine { box-shadow: inset 0 0 0 1px rgba(201, 182, 255, 0.6), 0 0 16px rgba(201, 182, 255, 0.16); }
@@ -2147,12 +2241,21 @@ index 0000000..07f5560
 +.cl-manche-nom .cl-pierre { margin: 2px 0 3px; }
 +.cl-a-gagner-dv { display: grid; place-items: center; width: 2.4rem; font-size: 2rem; }
 +.cl-a-gagner-divin .cl-opale-texte { align-self: flex-start; font-size: var(--t-label, 0.6875rem); }
++
++/* Le face-à-face du palmarès : la ligne des Divins, en opale — sa barre, et le nombre de qui mène sur un sol de nuit. */
++.cl-duel-divine .cl-duel-nom { display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
++.cl-duel-divine .cl-barre > span { background: linear-gradient(90deg, #f7b8e8, #9fe3ff 40%, #fff1a6 70%, #c9b6ff); }
++.cl-duel-divine.cl-mene-moi .cl-duel-moi,
++.cl-duel-divine.cl-mene-lui .cl-duel-lui { justify-self: center; padding: 3px 8px; border-radius: var(--radius-pill); background: #1b1424; color: #eadfff; box-shadow: inset 0 0 0 1px rgba(201, 182, 255, 0.6); }
++.cl-piece-dv { display: grid; place-items: center; height: 2.6rem; font-size: 2.2rem; }
++.cl-piece-divine .cl-opale-texte { font-size: var(--t-label, 0.6875rem); }
++.cl-divins-secret.cl-divins-secret-petit { margin-top: 8px; color: var(--muted); font-size: 0.9rem; }
 diff --git a/client/src/views/classement/donnees.ts b/client/src/views/classement/donnees.ts
 new file mode 100644
-index 0000000..3b5944c
+index 0000000..440b5ad
 --- /dev/null
 +++ b/client/src/views/classement/donnees.ts
-@@ -0,0 +1,758 @@
+@@ -0,0 +1,771 @@
 +// Maquette — le classement des collections (le 9 novembre 2026).
 +//
 +// « On regarde souvent le classement des joueurs et ce qu'ils ont dans leur
@@ -2201,8 +2304,16 @@ index 0000000..3b5944c
 +
 +/** Le reste se range sur la même échelle. */
 +export const BAREME = {
-+  /** La version rare d'un avatar : une rare de plus. */
-+  eclat: 5,
++  /**
++   * Un Éclat posé vaut un légendaire (le propriétaire, le même jour : « est-ce
++   * que légendaire et Éclat ont la même valeur ? ») — qu'il fasse éclater un
++   * avatar ou y taille une matière : chaque matière coûte un Éclat, et La Pluie
++   * d'Éclats les compte déjà ensemble (`eclatsPosesOf`). Une matière n'est
++   * pas un avatar de plus — le Phénix en jade reste un légendaire —, mais elle
++   * vaut ce qu'elle a coûté. L'Opale, qu'aucun Éclat ne paie, ne compte pas.
++   * Il valait une rare (5), et les matières rien : la maquette les oubliait.
++   */
++  eclat: 25,
 +  /** Un palier de maître : ce qu'il coûte vaut un légendaire. */
 +  maitre: 25,
 +  /** Les sceaux des défis du Cabinet, au métal de leur rang. */
@@ -2254,7 +2365,7 @@ index 0000000..3b5944c
 +  paliers: number
 +  /** Les défis de ses cartes du Cabinet, au rang le plus haut tenu : dix cartes. */
 +  sceaux: { or: number; argent: number; bronze: number }
-+  /** Ses Éclats, ses autres trophées, ses timbres. */
++  /** Ses Éclats posés — avatars éclatés et matières taillées, comme La Pluie d'Éclats les compte —, ses autres trophées, ses timbres. */
 +  eclats: number
 +  trophees: number
 +  timbres: number
@@ -2691,7 +2802,11 @@ index 0000000..3b5944c
 +export const valeurDesDivins = (j: Collectionneur): number => divinsDe(j).length * VALEUR_DE_LA_GEMME.divin
 +
 +/** Ce que sa pièce vaut, pour la vitrine : sa gemme, et une rare de plus si elle a éclaté. */
-+export const valeurDeLaPiece = (gemme: Gemme, eclat?: unknown): number => VALEUR_DE_LA_GEMME[gemme] + (eclat ? BAREME.eclat : 0)
++export const valeurDeLaPiece = (gemme: Gemme, eclat?: unknown): number =>
++  VALEUR_DE_LA_GEMME[gemme] + (eclat ? BAREME.eclat : 0) + (typeof eclat === 'string' ? (eclat === 'opale' ? 4 : 1) * BAREME.eclat : 0)
++
++/** Combien d'Éclats une pièce a coûté : son Éclat, et une matière taillée chacune — l'Opale en demande quatre, et ne coûte rien de plus. */
++export const eclatsDeLaPiece = (eclat?: unknown): number => (eclat ? 1 : 0) + (typeof eclat === 'string' ? (eclat === 'opale' ? 4 : 1) : 0)
 +
 +// ── Les axes du classement ────────────────────────────────────────────────
 +
@@ -2867,7 +2982,8 @@ index 0000000..3b5944c
 +    { nom: 'Paliers des sentiers', moi: moi.paliers, lui: lui.paliers, sur: 144 },
 +    { nom: 'Sceaux d’or du Cabinet', moi: moi.sceaux.or, lui: lui.sceaux.or, sur: 10 },
 +    { nom: 'Éclats', moi: moi.eclats, lui: lui.eclats },
-+    { nom: 'Thèmes', moi: moi.themes, lui: lui.themes, sur: 35 },
++    // Pas de ligne pour les thèmes (le propriétaire, le même jour : « gagner sur quelqu'un en fonction des thèmes, je ne
++    // suis pas fan ») : ils s'achètent, et l'on ne se mesure pas à ce qu'on a payé. Ils restent dans la valeur.
 +    { nom: 'Trophées', moi: moi.trophees + moi.maitres.length, lui: lui.trophees + lui.maitres.length, sur: 283 },
 +    { nom: 'Niveau', moi: moi.niveau, lui: lui.niveau },
 +  ]
