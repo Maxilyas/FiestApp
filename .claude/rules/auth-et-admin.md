@@ -69,8 +69,10 @@ paths:
   même question.
 - **Une page de plus à la racine rejoint `RESERVED_SLUGS`** (`shared/space.ts`),
   un dossier servi aussi : `parseRoute` lit `ACCOUNT_PAGES` avant les
-  espaces, et un espace nommé comme une page — `duels`, qui y manque encore —
-  ou comme un dossier servi n'aurait plus d'adresse. Les dossiers des images
+  espaces, et un espace nommé comme une page ou comme un dossier servi
+  n'aurait plus d'adresse. Une page y est forcée par `portes.test.ts`, qui
+  relit `ACCOUNT_PAGES` (`duels` y a manqué jusqu'au 9 novembre 2026) ; un
+  dossier servi, par rien. Les dossiers des images
   peintes (`portraits`, `medaillons`, `compagnons`, `ornements`, `decors`,
   `cartes`) l'ont rejointe le 20 octobre 2026 (`ornements-peints.test.ts`).
   Seul l'administrateur choisit une adresse (« Renommer ») ; un salon tire la

@@ -37,9 +37,13 @@ paths:
   visée), une réponse sonde la liaison avant son renvoi (`verifierLiaison`
   rend la sonde en cours), et un prix de la grille se remet avec
   l'identifiant de son geste (`remise`, `client/src/remise.ts`) : un double
-  clic ne le remet qu'une fois. **Les gestes de la barre du chef, eux,
-  n'attendent pas d'accusé et ne se renvoient pas** (`socketDuChef.ts`) :
-  une liaison morte les perd encore.
+  clic ne le remet qu'une fois. Les gestes de partie de la barre du chef
+  (`commande`, `socketDuChef.ts`) partent de même depuis le 9 novembre 2026,
+  par sa liaison à elle et sa sonde à elle (`commandeVers`, `sondeurDe`,
+  `client/src/socket.ts` ; `liaison-morte.test.ts`). **Ses autres gestes —
+  lancer, terminer, clore, les équipes — n'ont pas d'accusé au serveur et
+  ne se renvoient pas** : une liaison morte les perd encore, et « Clore »
+  renvoyé à l'aveugle pourrait clore la soirée d'après.
 - **L'entrée paraît avant la liaison.** La page d'un invité précharge son
   état de départ (`/s/<espace>/entree.json`, `shared/depart.ts`) : ce que
   `party:watch` dirait, l'instantané des téléphones et le profil du cookie.

@@ -72,12 +72,16 @@ paths:
   les contournerait laisserait le souvenir en retard — une minute au plus en
   cours de soirée —, et une nouvelle source d'une page publique entre dans
   `empreinteDesPages`. La place d'une page porte toujours l'espace.
-- **« Terminer le quiz » sur le dernier quiz du programme clôt hors de
-  `cloreLaSoiree`** : `considererCloture` appelle `closeParty()` lui-même
-  (`core/space.ts`), et la mesure des inscriptions, les adresses vues et la
-  ligne de journal de la clôture n'y passent pas (le piège de `qg.md`). Une
-  porte de clôture de plus passe par `cloreLaSoiree` — celle-ci reste à y
-  ramener.
+- **Une porte de clôture de plus passe par `cloreLaSoiree`** (`sockets.ts`),
+  jamais par `closeParty()` seul : la mesure des inscriptions, les adresses
+  vues et la ligne de journal n'y passeraient pas (le piège de `qg.md`).
+  « Terminer le quiz » sur le dernier quiz du programme, que l'espace clôt
+  de lui-même (`considererCloture`, `core/space.ts`), y est revenu le
+  9 novembre 2026 par `SpaceDeps.clore`, composé dans `server.ts` comme
+  celui du QG ; refusée par le miroir, elle le dit aux écrans d'animateur
+  (« Rien n'a été effacé », un toast à `hosts:<espace>`) et rend à la barre
+  « Terminer la soirée » — l'échec ne partait qu'au journal
+  (`cloture-auto.test.ts`).
 - **« Joueurs » ne compte pas la même chose partout** : la fiche de
   l'historique, la soirée en cours (`currentSummary`) et le QG comptent les
   invités à qui une question a été posée ; la fin de soirée et le relevé,
@@ -128,8 +132,7 @@ paths:
     aussi depuis le QG (`POST /api/admin/soirees/:spaceId/clore`, règle
     `qg.md`), par le même chemin que l'écran commun et la barre du chef
     (`cloreLaSoiree`, `sockets.ts`) : une clôture qui contournerait ce chemin
-    oublierait la mesure des inscriptions de l'espace — c'est le cas,
-    aujourd'hui, de « Terminer le quiz » (piège plus haut). Pour un salon ouvert depuis un
+    oublierait la mesure des inscriptions de l'espace (piège plus haut). Pour un salon ouvert depuis un
     téléphone (`SalonStore.clotureAuto`), le verdict du dernier quiz de son
     programme n'arme rien : il annonce la fin du programme
     (`considererCloture`, `finDuProgramme` dans l'instantané), et la barre

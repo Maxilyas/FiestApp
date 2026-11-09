@@ -14,7 +14,8 @@ import { createClient } from '@libsql/client'
 import { connexionAnimateur, demarrer, ecrire, type Banc } from './banc'
 import { decrirePage } from '../src/core/apercus'
 import { ArchiveStore } from '../src/core/archive'
-import { parseRoute } from '../../shared/adresses'
+import { ACCOUNT_PAGES, parseRoute } from '../../shared/adresses'
+import { RESERVED_SLUGS } from '../../shared/space'
 
 let banc: Banc
 let admin: string
@@ -182,6 +183,17 @@ describe('les adresses tapées à la main', () => {
     assert.deepEqual(parseRoute('/Chez-Bruno'), { kind: 'join', slug: 'chez-bruno' })
     assert.deepEqual(parseRoute('/Chez%20Bruno/souvenir'), { kind: 'public', slug: 'chez-bruno', page: 'souvenir', archiveId: null })
     assert.deepEqual(parseRoute('/host'), { kind: 'account', page: 'host' })
+  })
+
+  test('chaque page sans espace est un nom réservé : aucun espace ne prend son adresse', async () => {
+    // Rien ne forçait la liste, et « duels » y manquait : `parseRoute` lit la
+    // page avant l'espace, et un espace renommé « duels » n'aurait plus eu
+    // d'adresse — ni son entrée, ni son souvenir.
+    for (const page of ACCOUNT_PAGES) assert.ok(RESERVED_SLUGS.has(page), `« ${page} » manque à RESERVED_SLUGS (shared/space.ts)`)
+    // Par la vraie porte : l'administrateur ne donne pas ce nom à un espace.
+    const refus = await ecrire(banc.url, '/api/admin/accounts', { login: 'duelliste', name: 'Duelliste', slug: 'duels' }, admin)
+    assert.equal(refus.status, 400)
+    assert.match(((await refus.json()) as { error: string }).error, /pas un mot réservé/)
   })
 
   test('la décision ne cherche jamais qu’un nom exact', () => {

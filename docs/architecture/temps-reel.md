@@ -72,7 +72,7 @@ sequenceDiagram
 
 Le serveur envoie un ping toutes les 10 secondes et attend la réponse 8 secondes (`pingInterval`, `pingTimeout`, `server/src/server.ts`) : une liaison morte se voit en 18 secondes au plus, des deux côtés. Les réglages par défaut, mesurés à 43,6 secondes, laissaient passer plus qu'une question entière, pendant laquelle un téléphone tombé du wifi ne voyait rien et l'écran commun le comptait encore.
 
-Un téléphone qui sort de veille garde pourtant souvent une liaison morte que socket.io croit vivante — un wifi sans internet, le passage du wifi à la 4G. Le client la **sonde** (`verifierLiaison`, `client/src/socket.ts`) : il demande l'heure au serveur (`time:sync`) et, sans réponse en deux secondes, ferme la liaison et la rouvre. Il sonde au retour au premier plan, au retour du réseau, et chaque fois qu'un accusé tarde ; une sonde en cours sert à tous ceux qui l'attendent, au lieu de repartir dans la liaison qu'elle est en train de condamner.
+Un téléphone qui sort de veille garde pourtant souvent une liaison morte que socket.io croit vivante — un wifi sans internet, le passage du wifi à la 4G. Le client la **sonde** (`verifierLiaison`, `client/src/socket.ts` — une sonde par liaison, `sondeurDe` : la barre du chef a la sienne) : il demande l'heure au serveur (`time:sync`) et, sans réponse en deux secondes, ferme la liaison et la rouvre. Il sonde au retour au premier plan, au retour du réseau, et chaque fois qu'un accusé tarde ; une sonde en cours sert à tous ceux qui l'attendent, au lieu de repartir dans la liaison qu'elle est en train de condamner.
 
 ### Tomber, revenir
 
@@ -132,7 +132,8 @@ Chaque geste `host:*` relit la session de la poignée de main (`requireHost`) : 
 | `horsLigneDuMemeNom` | `player:horsLigne` | de même | « personne » |
 | `sendPlayerAction` | `player:action` | quatre secondes (`ACTION_TIMEOUT_MS`) | le motif `timeout` ; puis, si c'est la dernière réponse et que sa question est encore ouverte, une sonde et un renvoi |
 | `envoyerCommande` | `host:command` | trois secondes (`COMMANDE_TIMEOUT_MS`) | une sonde, puis un renvoi |
-| la barre du chef (`client/src/socketDuChef.ts`) | `host:command`, `host:launch`, `host:endSession`, `host:closeParty`, les équipes | n'attend pas | ne renvoie pas |
+| `commande`, la barre du chef (`client/src/socketDuChef.ts`, par `commandeVers`) | `host:command` | trois secondes (`COMMANDE_TIMEOUT_MS`) | une sonde de sa liaison (`sondeurDe`), puis un renvoi |
+| les autres gestes de la barre du chef | `host:launch`, `host:endSession`, `host:closeParty`, les équipes | n'attend pas : le serveur ne les accuse pas | ne renvoie pas |
 
 `demander` n'écrit que sur une liaison qui a une chance d'aboutir, et une seule fois : confié à une liaison coupée, le message partait au retour du réseau, après que l'invité avait réessayé, et l'inscrivait deux fois — « Camille » et « Camille (2) ». `watchParty` et `helloHost` rejettent au lieu de répondre `ok: false`, qui voudrait dire « cette adresse ne mène à rien » ou « pas de session » : un serveur muet n'a rien dit de tel.
 

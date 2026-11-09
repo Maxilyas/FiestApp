@@ -114,7 +114,7 @@ En bas de ton téléphone, une fois entré dans ta soirée :
 - **Le geste du moment** : « Lancer le quiz », « Quiz suivant » (inerte deux secondes et demie après l'arrivée du podium, le temps qu'on le regarde), la pause, « Révéler » avec le compte des réponses (« 12/30 »), le champ « La bonne réponse » d'une estimation en direct, « Question suivante » ou « Le podium », « Ajouter un quiz » quand le programme est joué, et « Terminer la soirée » quand son dernier quiz a rendu son verdict.
 - **« ⋯ » (« La partie »)** : le rythme (« Au clic », « 5 s », « 10 s », « 20 s »), les équipes, et selon le moment : à la révélation, « Reposer la question » (sans confirmation) et « Annuler les points » (« Annuler les points de cette question ? » — « Personne ne gagne rien sur elle, et elle sort des statistiques. ») ; pendant un quiz, « Terminer le quiz » (« Terminer ce quiz ? » — « Les questions restantes ne seront pas posées. Ce qui a été joué compte. » ; sur le dernier quiz du programme, « Terminer ce quiz et la soirée ? ») ; hors d'un quiz, « Ajouter un quiz » et « Terminer la soirée ».
 
-Ta barre ne montre rien de la question : tu la lis sur la même page que tes invités. Ses gestes partent sans attendre de réponse et ne se renvoient pas : si le réseau hoquette au moment où tu touches et que la barre ne bouge pas, retouche — elle montre toujours où en est la partie.
+Ta barre ne montre rien de la question : tu la lis sur la même page que tes invités. Révéler, la suite et la pause, restés sans réponse trois secondes, sont renvoyés une fois, sans risque de jouer deux fois. Lancer un quiz, le terminer, clore la soirée et les équipes ne se renvoient pas : si le réseau hoquette au moment où tu touches et que la barre ne bouge pas, retouche — elle montre toujours où en est la partie.
 
 ### Jouer en animant, ou animer seulement
 
@@ -149,7 +149,7 @@ Personne n'est refusé ni renommé. À l'entrée, les avatars d'un homonyme sont
 ### Une coupure de réseau
 
 - **Chez un invité** : « Connexion perdue — reconnexion… », puis son téléphone revient seul et retrouve sa place, son équipe et ses points. Une réponse touchée pendant la coupure part au retour du réseau ; si la question s'est close entre-temps, il lit « Trop tard ! Ta réponse est arrivée après la fin. ». Il reste attendu à chaque question : « Ne plus l'attendre » évite à la salle de patienter jusqu'au bout du chrono.
-- **Chez toi** : « reconnexion… » dans la bande de l'écran ; le quiz, lui, continue au serveur. Un geste de la console sans réponse en trois secondes est renvoyé une fois, sans risque de jouer deux fois ; ceux de la barre du chef ne se renvoient pas : retouche si rien ne bouge.
+- **Chez toi** : « reconnexion… » dans la bande de l'écran ; le quiz, lui, continue au serveur. Un geste de partie sans réponse en trois secondes — depuis la console, la télécommande ou la barre du chef — est renvoyé une fois, sans risque de jouer deux fois ; lancer, terminer et clore depuis la barre ne se renvoient pas : retouche si rien ne bouge.
 
 ### Un serveur qui redémarre
 

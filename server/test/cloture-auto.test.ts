@@ -10,6 +10,7 @@
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import Database from 'better-sqlite3'
 import {
   attendre,
   connexionAnimateur,
@@ -169,6 +170,100 @@ test('le podium regardé, la fin du programme annoncée : « Terminer le quiz »
   const fin = attendre<any>(s.a.socket, 'soiree:fin', () => true, 'la fin de soirée, tout de suite', 5000)
   ;(s.ecran as any).emit('host:endSession', { sessionId })
   assert.ok((await fin).soiree)
+})
+
+/** Ce que le serveur écrit au journal pendant `f` : le banc tourne dans ce processus. */
+async function journal(f: () => Promise<unknown>): Promise<string[]> {
+  const lignes: string[] = []
+  const [log, warn] = [console.log, console.warn]
+  console.log = (...a: unknown[]) => void lignes.push(a.map(String).join(' '))
+  console.warn = (...a: unknown[]) => void lignes.push(a.map(String).join(' '))
+  try {
+    await f()
+    return lignes
+  } finally {
+    console.log = log
+    console.warn = warn
+  }
+}
+
+test('« Terminer le quiz » sur le dernier du programme tient les comptes de toute clôture', async () => {
+  // Cette clôture-là appelait `closeParty()` de son côté, hors du chemin des
+  // autres (`cloreLaSoiree`, `sockets.ts`) : ni mesure des inscriptions — les
+  // adresses vues passaient sur le compte de la soirée suivante de l'espace —,
+  // ni ligne au journal.
+  const s = await salon('chef7')
+  const sessionId = await jouerJusquAuPodium(s.ecran, s.quiz, s.a.socket)
+  await instantane<{ finDuProgramme?: true }>(s.ecran, x => x.finDuProgramme === true, 'la fin du programme')
+  const lignes = await journal(async () => {
+    ;(s.ecran as any).emit('host:endSession', { sessionId })
+    // La salle vide et plus de fin en route : la clôture a fini, ses comptes avec.
+    await instantane<{ players: unknown[]; finEnRoute?: string }>(s.ecran, x => x.players.length === 0 && !x.finEnRoute, 'la soirée close', 8000)
+  })
+  const mesure = lignes.filter(l => l.startsWith('[inscriptions] soirée finie'))
+  assert.equal(mesure.length, 1, `la mesure des inscriptions, une fois (vu : ${lignes.join(' | ')})`)
+  assert.ok(mesure[0].includes(`« ${s.slug} » : 2 invités`), mesure[0])
+  assert.ok(
+    lignes.some(l => /^\[soirée\] close en \d+ ms : 2 invités, 1 quiz, 1 questions/.test(l)),
+    `la ligne de la clôture au journal (vu : ${lignes.join(' | ')})`,
+  )
+})
+
+test('le miroir refuse d’effacer : « Terminer le quiz » sur le dernier le dit à l’animateur, et la soirée reste entière', async () => {
+  // L'échec ne partait qu'au journal du serveur : le chef, qui venait de
+  // confirmer « Terminer ce quiz et la soirée ? », ne lisait rien, devant une
+  // salle toujours là. La console et sa barre lisent « Rien n'a été effacé »,
+  // comme après « Clore la soirée » (`miroir.test.ts`), et il réessaie.
+  const avant = banc
+  banc = await demarrer({ miroir: { reessaisMs: [40, 80, 160], alerteMs: 400, delaiExtinctionMs: 3000 } })
+  const panne = (refuse: boolean) => {
+    const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+    try {
+      db.exec('CREATE TABLE IF NOT EXISTS panne_miroir (operation TEXT PRIMARY KEY)')
+      for (const table of ['party_players', 'party_teams', 'party_bonus', 'party_answers', 'party_scores', 'party_sessions', 'party_soiree']) {
+        db.exec(
+          `CREATE TRIGGER IF NOT EXISTS panne_${table}_delete BEFORE DELETE ON ${table}
+           WHEN EXISTS (SELECT 1 FROM panne_miroir) BEGIN SELECT RAISE(ABORT, 'panne simulée du miroir'); END`,
+        )
+      }
+      if (refuse) db.prepare("INSERT OR IGNORE INTO panne_miroir (operation) VALUES ('DELETE')").run()
+      else db.prepare('DELETE FROM panne_miroir').run()
+    } finally {
+      db.close()
+    }
+  }
+  try {
+    const s = await salon('chef8')
+    const sessionId = await jouerJusquAuPodium(s.ecran, s.quiz, s.a.socket)
+    await instantane<{ finDuProgramme?: true }>(s.ecran, x => x.finDuProgramme === true, 'la fin du programme')
+    let finie = false
+    s.a.socket.on('soiree:fin', () => (finie = true))
+    panne(true)
+    const refus = attendre<any>(s.ecran, 'toast', t => t.kind === 'error', 'le refus dit à l’écran', 20_000)
+    const erreurs = console.error
+    console.error = () => {}
+    try {
+      ;(s.ecran as any).emit('host:endSession', { sessionId })
+      assert.match((await refus).message, /^Rien n’a été effacé/)
+    } finally {
+      console.error = erreurs
+    }
+    // Le programme est joué, la soirée encore là : sa barre propose « Terminer la soirée », le geste pour réessayer.
+    const reste = await instantane<{ players: unknown[]; finEnRoute?: string; finDuProgramme?: true }>(
+      s.ecran,
+      x => !x.finEnRoute && x.finDuProgramme === true,
+      'la fin retombée, « Terminer la soirée » proposé',
+    )
+    assert.equal(reste.players.length, 2, 'la salle est toujours là')
+    assert.equal(finie, false, 'personne n’a lu « c’est fini »')
+    panne(false)
+    const fin = attendre<any>(s.a.socket, 'soiree:fin', () => true, 'la fin de soirée, la panne levée', 20_000)
+    ;(s.ecran as any).emit('host:closeParty', {}, () => {})
+    assert.ok((await fin).soiree)
+  } finally {
+    await banc.close()
+    banc = avant
+  }
 })
 
 test('la vue d’animateur dit si le quiz joué est le dernier du programme : la barre du chef le dit avant de le terminer', async () => {

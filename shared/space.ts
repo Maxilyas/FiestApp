@@ -27,6 +27,8 @@ export const RESERVED_SLUGS = new Set([
   'tele',
   'boutique',
   'campagne',
+  // Les duels, sortis de la campagne avec leur page : oubliés ici jusqu'au 9 novembre 2026, et `portes.test.ts` y force depuis chaque page sans espace.
+  'duels',
   'expedition',
   // Le Cabinet de curiosités : réservé dès ses routes, avant que sa page n'arrive — un espace à son nom n'aurait plus d'adresse.
   'cabinet',

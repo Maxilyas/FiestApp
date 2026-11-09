@@ -203,7 +203,7 @@ Le détail : [le temps réel](../architecture/temps-reel.md).
 
 **Décision** : la barre du chef ouvre une seconde liaison, celle de l'animateur, chargée à la demande sur le seul téléphone qui a ouvert le salon ; elle se présente par la session de son cookie et se déclare télécommande à chaque connexion ; de la vue d'animateur, elle ne lit rien de la question.
 
-**Conséquence** : le serveur n'a rien à apprendre — deux poignées de main ; la télé branchée garde ses coulisses pour la barre. Les gestes de la barre partent sans attendre leur accusé ni se renvoyer, à la différence de ceux de la console (`envoyerCommande`).
+**Conséquence** : le serveur n'a rien à apprendre — deux poignées de main ; la télé branchée garde ses coulisses pour la barre. Ses gestes de partie — révéler, la suite, la pause — partent comme ceux de la console depuis le 9 novembre 2026 : un accusé, une sonde de sa liaison à elle, un renvoi (`commandeVers`, `sondeurDe`). Les autres — lancer, terminer, clore, les équipes — n'ont pas d'accusé au serveur et ne se renvoient pas.
 
 *Fichiers : `client/src/socketDuChef.ts`, `client/src/components/BarreDuChef.tsx`, `client/src/chef.ts`*
 
@@ -261,7 +261,7 @@ Le détail : [après la soirée](../produit/apres-la-soiree.md).
 
 **Décision** : `finEnRoute` — un second « Clore » attend le premier et en reçoit l'issue, le geste contraire est refusé ; le miroir s'efface avant la base locale, et la fin de soirée ne part qu'une fois la soirée effacée (invariants 13 et 18). Toute porte de clôture passe par `cloreLaSoiree` — l'écran commun, la barre du chef, le QG.
 
-**Conséquence** : un miroir muet laisse la soirée entière, et la console dit « Rien n'a été effacé : … » ; on réessaie. Une exception reste à ramener : « Terminer le quiz » sur le dernier quiz d'un programme clôt par `considererCloture`, hors de `cloreLaSoiree`.
+**Conséquence** : un miroir muet laisse la soirée entière, et la console dit « Rien n'a été effacé : … » ; on réessaie. « Terminer le quiz » sur le dernier quiz d'un programme, que l'espace clôt de lui-même (`considererCloture`), passe par le même chemin depuis le 9 novembre 2026 (`SpaceDeps.clore`), et dit son refus aux écrans d'animateur.
 
 *Fichiers : `server/src/sockets.ts`, `server/src/core/space.ts`, `server/src/core/backup.ts`*
 
@@ -518,7 +518,7 @@ Le détail : [le client](../architecture/client.md).
 
 **Décision** : `parseRoute` (`shared/adresses.ts`) range toute adresse en cinq sortes ; le client y choisit sa page (`client/src/main.tsx`), le serveur son statut et ses balises (`decrirePage`). Pas de routeur : changer de page, c'est charger une page ; les écrans d'une page vivent dans le fragment.
 
-**Conséquence** : une page de plus se déclare dans `ACCOUNT_PAGES`, que le typecheck propage à `ACCOUNT` et `TITRES` — mais pas à `RESERVED_SLUGS`, qui reste à tenir à la main (`duels` y manque aujourd'hui).
+**Conséquence** : une page de plus se déclare dans `ACCOUNT_PAGES`, que le typecheck propage à `ACCOUNT` et `TITRES` — mais pas à `RESERVED_SLUGS`, qu'un test y force (`server/test/portes.test.ts` : `duels` y a manqué jusqu'au 9 novembre 2026). Un dossier servi avant la page s'y tient encore à la main.
 
 *Fichiers : `shared/adresses.ts`, `shared/space.ts`, `client/src/main.tsx`, `server/src/core/apercus.ts`*
 

@@ -59,6 +59,12 @@ async function moduleClient(port: number, instance: string): Promise<ModuleSocke
   return await import(`${new URL('../../client/src/socket.ts', import.meta.url).href}?${instance}`)
 }
 
+/** La liaison d'animateur du téléphone du chef (`client/src/socketDuChef.ts`), et le geste de sa barre. */
+interface ModuleDuChef {
+  brancherLeChef(): { disconnect(): void; on(ev: string, fn: (p: any) => void): void }
+  commande(command: Record<string, unknown>): void
+}
+
 async function relier(mod: ModuleSocket) {
   const connecte = new Promise<void>(r => mod.socket.once('connect', () => r()))
   mod.socket.connect()
@@ -142,6 +148,46 @@ test('« Révéler » touché à la télécommande dans une liaison morte révè
     assert.ok(Date.now() - debut < 10_000, `révélée en ${Date.now() - debut} ms`)
   } finally {
     mod?.socket.disconnect()
+    await r.fermer()
+    await banc.close()
+  }
+})
+
+test('« Révéler » touché sur la barre du chef dans une liaison morte révèle quand même la question', async () => {
+  // La barre du chef envoyait ses gestes sans attendre leur accusé : le
+  // téléphone du chef, au fond du jardin, perdait « Révéler » sans un mot, là
+  // où la console le renvoyait. Le même accusé, la même sonde, le même renvoi.
+  const banc = await demarrer()
+  const cookie = await connexionAnimateur(banc.url)
+  // Le relais joint le cookie de la console, comme le navigateur du chef.
+  const r = await relais(banc.server.port, { cookie })
+  let liaison: ReturnType<ModuleDuChef['brancherLeChef']> | undefined
+  try {
+    const quiz = await creerQuiz(banc.url, cookie, [qcm('Capitale de la France ?', ['Paris', 'Lyon'], 0, 60)])
+    // La télé, sur un réseau sain ; un invité qui ne répond pas.
+    const tele = await ecranCommun(banc.url, cookie)
+    await invite(banc.url, 'Bob', '🐻')
+
+    // Le module de la liaison du joueur d'abord, pour ce qu'il attend de la
+    // page : celui du chef le tire, et s'ouvre de lui-même à la même adresse.
+    await moduleClient(r.port, 'page-du-chef')
+    const chef: ModuleDuChef = await import(`${new URL('../../client/src/socketDuChef.ts', import.meta.url).href}?chef`)
+    liaison = chef.brancherLeChef()
+    // Ses écouteurs à lui passent avant celui-ci : quand la vue arrive ici, sa barre la tient.
+    const vueDuChef = new Promise<void>(ok => liaison!.on('session:view', p => p.view.phase === 'question' && ok()))
+
+    const sessionId = await lancerQuiz(tele, quiz)
+    await vueDuChef
+
+    assert.ok(r.trouNoir() > 0)
+    const debut = Date.now()
+    const revelee = attendre<any>(tele, 'session:view', p => p.sessionId === sessionId && p.view.phase === 'reveal', 'la révélation', 14_000)
+    // Le geste de la barre : il porte de lui-même la phase, la question et le tour que la barre montre (invariant 12).
+    chef.commande({ type: 'next' })
+    await revelee
+    assert.ok(Date.now() - debut < 10_000, `révélée en ${Date.now() - debut} ms`)
+  } finally {
+    liaison?.disconnect()
     await r.fermer()
     await banc.close()
   }
