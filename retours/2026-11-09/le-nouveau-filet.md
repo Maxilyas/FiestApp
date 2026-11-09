@@ -20,6 +20,9 @@ connaissance sont des personnes françaises. »
   publiée aussi en artefact privé.
 - Les mesures : `reproductions/`, en lecture seule sur la production, et sur
   la base livrée.
+- Le vivier du Filet classé question par question — ce que chaque Français
+  sait placer, l'ancrage, ce qui se calcule : `vivier-du-filet.json`, à part
+  de la base.
 - Ce que la tablée de la maquette en a dit : `la-tablee-du-filet.md`.
 
 ## En bref
@@ -45,8 +48,10 @@ Trois causes, mesurées :
    chaque Français sait se place à 2 % près sept fois plus souvent que le
    reste (42 % des lancers contre 6 %), et se réussit à 84 % en deux temps,
    contre 53 %. L'acte I ne pose plus que cela. C'est aussi le plus mince :
-   une question sur dix du vivier, presque rien en Sport, en Nature, en
-   Géographie. Il faut en écrire (§ 4).
+   classé question par question, le vivier en a 150 sur 1 790, dont 105 que
+   le Filet peut poser — une seule en Arts & lettres, une en Jeux. Et ce qui
+   manque ne s'écrit pas facilement : à l'essai, un fait sur quatre que tout
+   le monde connaît était déjà dans la base (§ 4.3 à 4.5).
 2. **D'abord l'époque, puis la valeur.** Quatre époques (ou quatre ordres de
    grandeur) ; la bonne vaut déjà une étoile.
 3. **Le filet se resserre tout seul.** Plus de taille à parier : à 2 ans près
@@ -323,7 +328,7 @@ compte enfin.
   | Une année (43 questions) | 21 % | 26 % | 53 % | 1,67 |
   | Une grandeur (96) | 13 % | 28 % | 59 % | 1,53 |
 
-  - C'est la largeur de l'anneau ★★ qui en décide (§ 8, décision 10), pas
+  - C'est la largeur de l'anneau ★★ qui en décide (§ 8, décision 11), pas
     la place du curseur au départ.
   - Le milieu d'une tranche tombe parfois sur une réponse ronde : 20 de 10 à
     30, 200 de 100 à 300 (« les moins de vingt ans » d'Aznavour, la hauteur
@@ -630,38 +635,56 @@ Les lancers réels rejugés en deux temps (§ 3.3), sans ce qui se calcule
 
 ### 4.3 Ce que le vivier en a
 
-Sur les 435 questions tirées au hasard du vivier
-(`reproductions/moteur-de-difficulte.ts vivier`), **10 % ± 3 sont de celles
-que chaque Français sait placer : environ 180 des 1 780** que le Filet peut
-poser — 13 % des années, 7 % des grandeurs. La première passe, plus large,
-en trouvait 25 % (environ 440).
+Les 1 790 questions de la base que le Filet peut poser, classées une à une
+— les 589 de la passe qui fait foi, puis les autres par sept agents, chacun
+à l'aveugle avec dix questions de cette passe glissées dans son lot : il
+s'en accorde à 93 % (kappa 0,85) — dans un fichier à part, la base n'en est
+pas touchée (`vivier-du-filet.json`, `reproductions/vivier-du-filet.mts`) :
 
-| Catégorie | Chaque Français | Dans le vivier |
-|---|---|---|
-| Histoire | 23 % | ~36 sur 153 |
-| Culture générale | 16 % | ~37 sur 233 |
-| Musique | 11 % | ~15 sur 141 |
-| Autour de la fête | 10 % | ~13 sur 129 |
-| Cinéma & séries | 10 % | ~14 sur 137 |
-| Arts & lettres | 7 % | ~8 sur 112 |
-| Jeux & pop culture | 7 % | ~14 sur 187 |
-| Sciences | 7 % | ~16 sur 216 |
-| Cuisine | 6 % | ~5 sur 83 |
-| Géographie | 4 % | ~5 sur 111 |
-| Nature | 4 % | ~4 sur 111 |
-| Sport | 3 % | ~5 sur 167 |
+- **150 sont de celles que chaque Français sait placer (8 %)**, 159 se
+  calculent ;
+- **105 seulement se posent à l'acte I** : le tireur du Filet écarte une
+  année sans 46 ans de recul et une grandeur sous dix (`seTendAuFilet`) — et
+  avec elles 38 des 76 années que chaque Français sait placer, la moitié
+  (1981, 1998, 2002) ;
+- 90 valeurs distinctes : le Filet ne pose jamais deux fois la même dans une
+  partie, et 1945 revient ;
+- d'où chaque Français le sait : la vie de tous les jours 43, l'école 40, la
+  culture populaire 35, l'actualité 32 ;
+- un sujet français l'est quinze fois sur cent (76 sur 501), un sujet du
+  monde six (71 sur 1 112), un sujet de l'étranger deux (3 sur 177).
 
-- **C'est peu : le levier le plus fort est aussi le plus mince.** L'acte I
-  d'une étape « Filet · Sport » n'aurait que cinq questions ; seules
-  l'Histoire et la Culture générale en ont de quoi tenir quelques semaines.
-- La Géographie, à 4 %, est le paradoxe : celle de la France est la plus
-  apprise de toutes (le mont Blanc, la Loire, les départements), et ses
-  questions françaises demandent des détails — l'altitude du puy Mary, du
-  pic du Midi de Bigorre, les sommets de plus de 4 000 mètres des Alpes —
-  plutôt que ce que tout le monde a appris.
+| Catégorie | Jouables au Filet | Chaque Français | Posables à l'acte I |
+|---|---|---|---|
+| Culture générale | 233 | 36 | 31 |
+| Histoire | 153 | 34 | 26 |
+| Musique | 141 | 12 | 9 |
+| Autour de la fête | 129 | 12 | 8 |
+| Sport | 167 | 9 | 7 |
+| Cinéma & séries | 137 | 11 | 6 |
+| Sciences | 216 | 10 | 5 |
+| Cuisine | 83 | 5 | 5 |
+| Géographie | 121 | 6 | 4 |
+| Nature | 111 | 3 | 2 |
+| Arts & lettres | 112 | 3 | 1 |
+| Jeux & pop culture | 187 | 9 | 1 |
+
+- **Le levier le plus fort est aussi le plus mince.** L'acte I d'une étape
+  « Filet · Arts & lettres » ou « Filet · Jeux » n'aurait qu'une question ;
+  seules la Culture générale et l'Histoire en ont de quoi tenir quelques
+  semaines. Les sept catégories du bas n'en ont pas dix.
+- La Géographie est le paradoxe : celle de la France est la plus apprise de
+  toutes (le mont Blanc, la Loire, les départements), et ses questions
+  françaises demandent des détails — l'altitude du puy Mary, du pic du Midi
+  de Bigorre, les sommets de plus de 4 000 mètres des Alpes — plutôt que ce
+  que tout le monde a appris.
 - Même la culture populaire française y est pointue : quatre questions sur
   Kaamelott (les jours de tournage, les épisodes), aucune que chaque
   Français sait placer.
+- L'échantillon de 435 questions en annonçait 10 % ± 3 : le compte exact
+  tient dans sa marge.
+- Au passage, une question à corriger : `48epyi2k` demande les épisodes
+  d'une saison 4 sans nommer la série.
 
 ### 4.4 Ce qu'il faut en faire
 
@@ -745,7 +768,8 @@ Ce qu'on en tire :
      — juste pour un QCM au mètre près, sans effet à 6 % près ;
    - le Filet ne pose une année qu'avec 46 ans de recul (`seTendAuFilet`) :
      208 des 702 années de son vivier, après 1980, ne se posent jamais — et
-     avec elles ce que les Français ont vécu (1981, 1998, 2002). Le nouveau Filet
+     avec elles ce que les Français ont vécu (1981, 1998, 2002) : 38 des 76
+     années que chaque Français sait placer, la moitié (§ 4.3). Le nouveau Filet
      pourrait les poser par une dernière époque qui finit aujourd'hui, au prix
      d'une place moins secrète : les quatre époques ne passent jamais dans
      l'avenir, et une réponse récente ne peut tomber que dans les dernières.
@@ -999,10 +1023,11 @@ un sondage du QG aux joueurs du Cabinet (`qg_annonce_questions`).
 6. **Les autres jeux après le Filet** : le Pari d'abord (64 % de manches à
    zéro étoile, 45 cœurs perdus), puis les Indices.
 7. **Le levier français** (§ 4) : l'acte I parmi ce que chaque Français sait
-   placer — environ 180 questions du vivier aujourd'hui, 440 à la règle plus
-   large de la première passe — et en écrire une cinquantaine par catégorie,
-   une centaine dans les plus minces (le Sport, la Nature, la Géographie, la
-   Cuisine), notées par le panel à l'écriture.
+   placer — 105 questions posables aujourd'hui, classées une à une — et en
+   écrire là où il en manque, notées par le panel à l'écriture. Le pilote
+   (§ 4.5) dit comment : à la règle stricte, l'écriture rend peu ; ce que
+   chaque Français sait **estimer** — les distances, les durées, les tailles
+   du quotidien — est le gisement à mesurer d'abord en production.
    - L'autre voie garde l'acte I à la seule note du panel (40 % ou plus) :
      plus fourni (environ 760 questions), mais ce qu'il y met sans que chaque
      Français le sache se réussit à 53 % (§ 4.2).
@@ -1022,7 +1047,12 @@ un sondage du QG aux joueurs du Cabinet (`qg_annonce_questions`).
 9. **Le pari perdu** : « il n'y a plus de risque à prendre » (Claire, qui
    aimait le frisson du petit filet). Le frisson reste celui de la carte
    Miser (Quitte ou double) ; un pari propre au Filet attend (§ 9).
-10. **La largeur de l'anneau ★★** : un quart d'époque. Dans la bonne époque,
+10. **Le recul des années** : 46 ans au Filet (`seTendAuFilet`). Il écarte
+    la moitié des années que chaque Français sait placer — 38 sur 76 :
+    1981, 1998, 2002 (§ 4.3). Le nouveau Filet pourrait les poser par une
+    dernière époque qui finit aujourd'hui, au prix d'une place moins
+    secrète pour une réponse récente : à mesurer avant d'y toucher.
+11. **La largeur de l'anneau ★★** : un quart d'époque. Dans la bonne époque,
     le milieu sans rien savoir y tombe 52 fois sur cent, et ★★★ 20 fois
     (`reproductions/prix-des-aides.mjs`) — « ★ pour la bonne époque vaut
     plutôt une étoile et demie » (Claire, au second tour). C'est aussi ce qui
@@ -1031,7 +1061,7 @@ un sondage du QG aux joueurs du Cabinet (`qg_annonce_questions`).
     mesurer au calibrage avant d'y toucher. Le curseur s'y pose désormais
     d'office (§ 3.4) : « Lancer » sitôt l'époque choisie rapporte ce que
     rapportait le toucher au milieu, ce qui rend la question visible.
-11. **Écartée : une étoile à moins d'une demi-tranche, même dans la tranche
+12. **Écartée : une étoile à moins d'une demi-tranche, même dans la tranche
     voisine** — « onze ans ou cent trente-trois, même tarif » (Samir).
     Rejouée sur les lancers réels : 71 % de manches réussies au lieu de 62,
     mais 83 % sur les questions connues, au-delà de la zone visée, et 68 %
