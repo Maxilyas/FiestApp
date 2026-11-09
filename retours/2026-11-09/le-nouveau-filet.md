@@ -767,8 +767,21 @@ Ce qu'on en tire :
    mémoire ») mesure le savoir ; le Filet paie le placement. Un second
    critère — ce que chaque Français sait **estimer**, par ce qu'il vit :
    les distances, les durées, les tailles du quotidien — serait le vrai
-   gisement à écrire. Les lancers d'aujourd'hui n'en disent rien : à mesurer
-   en production, sur le pilote d'abord, avant d'y écrire en nombre.
+   gisement à écrire. Un juge à l'aveugle l'a cherché parmi les 156
+   questions posées (`reproductions/estime-des-posees.json`), et les lancers
+   réels rejugés (`filet-en-production.ts estime`) vont dans son sens, sur
+   trop peu de lancers pour conclure :
+
+   | Sur 145 lancers | Lancers | « Il savait » | Réussies en deux temps | Étoiles par manche |
+   |---|---|---|---|---|
+   | Chaque Français la sait placer | 19 | 42 % | 84 % | 1,89 |
+   | Il la sait estimer, sans la savoir | 6 | 17 % | 67 % | 1,50 |
+   | Ni l'un ni l'autre | 120 | 5 % | 53 % | 0,92 |
+
+   Les questions posées sont presque toutes sues, ou hors de portée : il en
+   faut de cette sorte dans le jeu pour trancher. Le pilote en apporte —
+   les distances et les hauteurs de la géographie, puis le Sport — et se
+   mesure en production avant d'écrire en nombre.
 3. **Deux règles écartent des faits parfaits pour le Filet** :
    - la base refuse une mesure refaite (le mont Blanc, de 4 808 à 4 805 m)
      — juste pour un QCM au mètre près, sans effet à 6 % près ;
