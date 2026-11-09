@@ -17,7 +17,8 @@ import { spawnSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import Database from 'better-sqlite3'
-import { demarrer, inscrireProfil, relireJusqua } from '../test/banc'
+import { connexionAnimateur, demarrer, ecrire, inscrireProfil, relireJusqua } from '../test/banc'
+import { DESTINATIONS } from '../../shared/affiches'
 import { VERSION_BAREME } from '../src/auth/profiles'
 import { xpDuNiveau } from '../../shared/profil'
 import type { CleDeLigue } from '../../shared/duels'
@@ -239,6 +240,28 @@ try {
         await page.waitForTimeout(400)
         await page.screenshot({ path: path.join(sortie, `${e.nom}-bas.png`) })
       }
+    }
+  }
+  // L'affiche du QG, posée en dernier — Léa a déjà ouvert la page, avant elle : l'accueil l'annonce, et « Nouveau »
+  // s'allume sur le gros bouton de son profil jusqu'à sa prochaine visite.
+  if (retenu('18-affiche-accueil') || retenu('19-affiche-profil')) {
+    const admin = await connexionAnimateur(banc.url)
+    const { titre, phrase } = DESTINATIONS.collectionneurs
+    const posee = await ecrire(banc.url, '/api/admin/affiches', { id: 'collectionneurs', page: 'collectionneurs', titre, phrase, jours: 14, confettis: 50 }, admin)
+    if (posee.status !== 200) throw new Error(`affiche refusée : ${posee.status} ${await posee.text()}`)
+    for (const [nom, adresse, attente] of [
+      ['18-affiche-accueil', '/', '.accueil'],
+      ['19-affiche-profil', '/profil', '.profil-boutons'],
+    ] as const) {
+      if (!retenu(nom)) continue
+      await page.goto(`${banc.url}${adresse}`)
+      await page.waitForSelector(attente)
+      if (theme) await page.evaluate(`document.documentElement.dataset.theme = '${theme}'`)
+      await attendre()
+      const vu = await mesurer()
+      mesures.push(`${nom} : ${vu}`)
+      console.log(`${nom} : ${vu}`)
+      await page.screenshot({ path: path.join(sortie, `${nom}.png`) })
     }
   }
   writeFileSync(path.join(sortie, 'mesures.txt'), mesures.join('\n') + '\n')

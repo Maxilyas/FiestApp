@@ -1249,10 +1249,10 @@ La mémoire longue du QG : les chiffres de chaque jour fini, figés à son premi
 
 Les affiches des nouveautés (`/admin#affiches`, `shared/affiches.ts`) : une page mise en avant en haut de l'accueil de chaque profil, et « Nouveau » sur son bouton, jusqu'à ce qu'il y aille.
 
-- **Colonnes clés** : `id` (tiré par la page qui la pose : le même envoi refait ne repart pas), `page` (`cabinet`, `campagne`, `jour`, `duels` ou `boutique`), `titre`, `phrase`, `confettis` (ce que la première visite rapporte à chaque profil ; 0, rien), `created_at`, `fin` (indexée : l'accueil lit celles en cours), `retiree_le`.
+- **Colonnes clés** : `id` (tiré par la page qui la pose : le même envoi refait ne repart pas), `page` (`cabinet`, `campagne`, `jour`, `duels`, `boutique` ou `collectionneurs`), `titre`, `phrase`, `confettis` (ce que la première visite rapporte à chaque profil ; 0, rien), `created_at`, `fin` (indexée : l'accueil lit celles en cours), `retiree_le`.
 - **Espace** : non — elle parle à tout le serveur.
 - **Écrite par** : `ProfileStore` (`mettreALAffiche` : une seule en cours par page, l'instruction le vérifie ; `retirerLAffiche`, qui pose `retiree_le`).
-- **Lue par** : `ProfileStore` — l'accueil de chaque profil, dans le lot de ses dons (`achatsDe`), celles en cours ; la visite d'une page, une fois par réveil puis en mémoire (`affichesALaVisite`) ; la page du QG (`affichesAuQg`).
+- **Lue par** : `ProfileStore` — l'accueil de chaque profil, et sa page de profil (le « Nouveau » des collectionneurs), dans le lot de ses dons (`achatsDe`), celles en cours ; la visite d'une page, une fois par réveil puis en mémoire (`affichesALaVisite`) ; la page du QG (`affichesAuQg`).
 - **Effacée par** : rien — passée ou retirée, elle se tait ; ses confettis restent offerts.
 
 ### `profile_affiches`

@@ -159,8 +159,8 @@ export interface EffetsDesAnnonces {
 /** Une affiche se juge sur les quatorze jours qui suivent son jour, face aux quatorze d'avant (la revue). */
 export const JOURS_DE_L_EFFET_D_UNE_AFFICHE = 14
 
-/** Le mode qu'une page à l'affiche fait jouer — la feuille de présence le sait ; la boutique n'en est pas un. */
-export const MODE_DE_LA_PAGE: Record<PageALAffiche, ModeDuQg | null> = { cabinet: 'cabinet', campagne: 'campagne', jour: 'jour', duels: 'duel', boutique: null }
+/** Le mode qu'une page à l'affiche fait jouer — la feuille de présence le sait ; la boutique et les collectionneurs n'en sont pas. */
+export const MODE_DE_LA_PAGE: Record<PageALAffiche, ModeDuQg | null> = { cabinet: 'cabinet', campagne: 'campagne', jour: 'jour', duels: 'duel', boutique: null, collectionneurs: null }
 
 /** Ce que le calcul lit d'une affiche : sa pose, sa page, et les visites que `noterUneVisite` a notées (`profile_affiches.ouverte_le`). */
 export interface AffichePourSonEffet {
@@ -183,6 +183,11 @@ export interface EffetDUneAffiche {
    * d'entre eux qui ont rejoué à son mode un autre jour, après leur visite ; null pour la boutique, qui ne se joue pas.
    */
   revenus: { visiteurs: number; revenus: number } | null
+  /**
+   * Une page qui ne se joue ni ne vend — les collectionneurs : ses visiteurs depuis son jour, seuls. Ni ses
+   * joueurs, ni les achats de la boutique, qu'on lui aurait prêtés. Absent pour les autres pages.
+   */
+  visiteurs?: number
 }
 
 /**
@@ -200,6 +205,10 @@ export function effetDUneAffiche(a: AffichePourSonEffet, m: MemoireDesEffets & {
   const avant = joursAvant(jour, nAvant)
   const mode = MODE_DE_LA_PAGE[a.page]
   const avantConnu = sait(avant[0])
+  // Une page sans mode ni achats : ses visites seules, notées par le serveur — la mémoire n'en sait rien.
+  if (mode === null && a.page !== 'boutique') {
+    return { jours: k, joursAvant: nAvant, joueurs: null, achats: null, revenus: null, visiteurs: a.visites.filter(v => jourDe(v.le) >= jour).length }
+  }
   if (mode === null) {
     const somme = (jours: readonly string[]) => jours.reduce((t, j) => t + (m.jours.get(j)?.achats ?? 0), 0)
     return {
@@ -309,6 +318,7 @@ const COURT_D_UNE_PAGE: Record<PageALAffiche | PageEnMaintenance, string> = {
   jour: 'le quiz du jour',
   duels: 'les duels',
   boutique: 'la boutique',
+  collectionneurs: 'les collectionneurs',
   defi: 'le défi',
 }
 const MODE_D_UNE_PAGE_FERMABLE: Record<PageEnMaintenance, ModeDuQg | null> = { jour: 'jour', campagne: 'campagne', defi: 'campagne', duels: 'duel', cabinet: 'cabinet', boutique: null }

@@ -35,8 +35,9 @@ import { abonnerNiche, nicheActuelle, porterNiche } from '../niche'
 import { laNiche } from '../components/NicheHost'
 import { relireLesMissions } from '../missions'
 import { boutonsDesPages, cabinetIci } from '../maintenance'
-import { AfficheDeLaNouveaute } from '../components/AfficheDeLaNouveaute'
-import { ceQueMontreLAccueil } from '../../../shared/affiches'
+import { AfficheDeLaNouveaute, PastilleNouveau } from '../components/AfficheDeLaNouveaute'
+import { ceQueMontreLAccueil, type PageALAffiche } from '../../../shared/affiches'
+import { estUnePageEnMaintenance } from '../../../shared/maintenance'
 
 const ETAPE_REJOINDRE = 'fiestappRejoindre'
 
@@ -597,7 +598,7 @@ export function ProfilApp() {
     // ni le Cabinet là où il ne s'ouvre pas — son gros bouton y serait éteint, ou absent.
     const { grande, nouvelles } = ceQueMontreLAccueil(
       ('affiches' in profil ? profil.affiches : undefined) ?? [],
-      page => etats[page] !== 'maintenance' && etats[page] !== 'bientot' && (page !== 'cabinet' || cabinetIci()),
+      page => pageOuverte(page, etats),
       affichesRangees,
     )
     const rangerLAffiche = (id: string) => {
@@ -798,6 +799,10 @@ export function ProfilApp() {
   const pieceNeuve = plus ? premierePieceNeuve(plus.nouveautes) : null
   // « Mon compagnon » : son nom, sa forme, la jauge de son prochain but — ses bonnes réponses, la page les tient de sa boutique.
   const sonBouton = nicheIci && codeDeLaNiche?.ceQueDitSonBouton(nicheIci, profil.boutique?.compagnons?.find(a => a.compagnon === nicheIci.compagnon)?.justes)
+  // « Nouveau » sur le gros bouton d'une page à l'affiche qu'il n'a pas encore ouverte, comme à l'accueil — celui des
+  // collectionneurs, le seul de sa page (le souhait du propriétaire du 9 novembre 2026). L'affiche elle-même reste à l'accueil.
+  const { nouvelles } = ceQueMontreLAccueil(profil.affiches ?? [], page => pageOuverte(page, boutonsDesPages()))
+  const nouvelle = (page: PageALAffiche) => (nouvelles.includes(page) ? <PastilleNouveau /> : undefined)
   return (
     <div className="player-shell" onClick={suivreUnLien}>
       <h1 className="sr-only">Mon profil</h1>
@@ -844,7 +849,7 @@ export function ProfilApp() {
         />
         {/* Les collectionneurs (la maquette du 9 novembre 2026), juste sous ce qu'ils comptent : sa place et ce que vaut
             sa collection, au dernier relevé — dits avant qu'on le touche. Une page à part : un lien. */}
-        <GrosBouton icone={<Icon name="trophy" />} titre="Les collectionneurs" detail={detailDesCollectionneurs(profil.collectionneur)} href="/collectionneurs" />
+        <GrosBouton icone={<Icon name="trophy" />} titre="Les collectionneurs" detail={detailDesCollectionneurs(profil.collectionneur)} pastille={nouvelle('collectionneurs')} href="/collectionneurs" />
         <GrosBouton
           icone={<Icon name="book" />}
           titre="Mes soirées"
@@ -986,6 +991,18 @@ const VUE: 'accueil' | 'profil' | 'boutique' =
 
 /** L'écran d'où l'on a ouvert celui-ci, gardé dans l'historique — null : les tuiles. « ← » y revient d'un cran. */
 const DEPUIS = 'fiestappProfilDepuis'
+
+/**
+ * Une page à l'affiche est-elle ouverte à qui regarde : ni en maintenance, ni
+ * bientôt disponible sans qu'il l'essaie, ni le Cabinet là où il ne s'ouvre
+ * pas — son gros bouton y serait éteint, ou absent. Les collectionneurs, qui
+ * ne se ferment pas, toujours.
+ */
+function pageOuverte(page: PageALAffiche, etats: ReturnType<typeof boutonsDesPages>): boolean {
+  if (page === 'cabinet' && !cabinetIci()) return false
+  if (!estUnePageEnMaintenance(page)) return true
+  return etats[page] !== 'maintenance' && etats[page] !== 'bientot'
+}
 
 /**
  * Ce que le gros bouton des collectionneurs dit de lui : sa place et ce que

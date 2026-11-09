@@ -71,6 +71,7 @@ import { ecrireAttente, ecrireLeService, espaceDeLEntree, fermerLeCabinet, pageD
 import { parseRoute } from '../../shared/adresses'
 import { donneesDeDepart, type EntreeDeDepart } from '../../shared/depart'
 import { fermeePour, pageDeLAdresse } from '../../shared/maintenance'
+import { pageALAfficheDeLAdresse } from '../../shared/affiches'
 import { cloreLaSoiree, wireSockets } from './sockets'
 import { SERVEUR } from './racine'
 import type { IoServer } from './core/types'
@@ -1685,11 +1686,13 @@ export async function createQuizServer(opts: QuizServerOptions) {
         const fermee = !!service && !!ici && fermeePour(service, ici) !== null
         // Une page ouverte à un profil : si une affiche la montre, sa nouveauté a servi — l'affiche et la pastille se
         // taisent à son prochain accueil (`noterUneVisite`, `shared/affiches.ts`). D'où qu'il vienne : le lien de
-        // l'affiche, son gros bouton, un favori. Sa session se lit en mémoire, et la page n'attend rien.
-        if (ici && page.statut === 200 && !fermee && (ici !== 'cabinet' || cabinetEstOuvert)) {
+        // l'affiche, son gros bouton, un favori. Sa session se lit en mémoire, et la page n'attend rien. Lue par
+        // `pageALAfficheDeLAdresse`, pas `pageDeLAdresse` : les collectionneurs, à l'affiche, ne se ferment pas.
+        const affichee = pageALAfficheDeLAdresse(route)
+        if (affichee && page.statut === 200 && !fermee && (affichee !== 'cabinet' || cabinetEstOuvert)) {
           const jeton = readPlayerToken(req.header('cookie'))
           const profil = jeton ? profiles.sessionProfileId(jeton) : null
-          if (profil) profiles.noterUneVisite(profil, ici)
+          if (profil) profiles.noterUneVisite(profil, affichee)
         }
         // Ce que la page demandera dès son code arrivé part avec son script
         // (`shared/depart.ts`), et son attente est déjà écrite.

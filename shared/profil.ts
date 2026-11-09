@@ -1331,6 +1331,13 @@ export interface PublicProfileDetail extends PublicProfile {
    */
   collectionneur?: ResumeDuCollectionneur
   /**
+   * Les affiches des nouveautés en cours dont il n'a pas encore ouvert la page
+   * (`AfficheDAccueil`, comme son accueil) : « Nouveau » sur le gros bouton de
+   * leur page, sur son profil — celui des collectionneurs. Lues dans le lot de
+   * sa boutique ; absentes sans affiche, et d'un serveur d'avant.
+   */
+  affiches?: AfficheDAccueil[]
+  /**
    * Les bordures de ses ligues atteintes et leurs crans, relues dans ses
    * duels (`ReleveDesDuels.bordures`) : la loge les propose. Absentes d'un
    * serveur d'avant, ou si la base s'est tue.

@@ -21,6 +21,7 @@ const ICONES: Record<Exclude<PageALAffiche, 'cabinet'>, IconName> = {
   jour: 'sun',
   duels: 'swords',
   boutique: 'bag',
+  collectionneurs: 'trophy',
 }
 
 /** Le visuel d'une page : décoratif, tu à l'oreille par la scène qui le porte. */

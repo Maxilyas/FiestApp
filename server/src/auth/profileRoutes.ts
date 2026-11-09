@@ -141,8 +141,8 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     // dessus. Une base qui se tait ôte la boutique, pas la page.
     // Ses sentiers ouvrent ses portraits et ses titres de maître : une base
     // qui se tait les ôte, pas la page.
-    const [boutique, sentiers, duels, vusDeLaLoge] = await Promise.all([
-      profiles.boutiqueDe(rec, jourDe(deps.maintenant()), detail.soirees, campagne).catch(e => {
+    const [lue, sentiers, duels, vusDeLaLoge] = await Promise.all([
+      profiles.boutiqueEtDons(rec, jourDe(deps.maintenant()), { soirees: detail.soirees, campagne }).catch(e => {
         console.error('[profil] boutique illisible :', e)
         return undefined
       }),
@@ -169,11 +169,16 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     // à l'instant se voit dès cette page.
     const compagnons = profiles.compagnonsOf(rec.id)
     const collectionneur = deps.collectionneurs?.resume(rec.id)
+    const boutique = lue?.boutique
+    // Les affiches en cours dont il n'a pas encore ouvert la page, lues dans le même lot que sa boutique — rien de plus
+    // à lire : le « Nouveau » du gros bouton de leur page, sur son profil (les collectionneurs, le 9 novembre 2026).
+    const affiches = lue ? profiles.affichesDAccueil(lue.affiches) : []
     return {
       ...detail,
       legendaire: profiles.legendairePorte(rec),
       ...(compagnons.length > 0 && { compagnons }),
       ...(collectionneur && { collectionneur }),
+      ...(affiches.length > 0 && { affiches }),
       jour,
       prix: CATALOGUE_DES_PRIX.map(p => ({ ...p, fois: fois.get(p.key) ?? 0 })),
       ecussons: ecussonsDe(detail.categories),

@@ -181,11 +181,13 @@ test('le profil épuré : qui l’on est, puis quatre boutons — cinq avec un c
     ([, icone, titre, ecran]) => `${titre} (${icone}) → #${ecran}`,
   )
   assert.deepEqual(gestes, ['M’habiller (hanger) → #avatar', 'Ma collection (award) → #collection', 'Mes soirées (book) → #soirees', 'Ma carrière (bar-chart) → #carriere'])
-  // « Les collectionneurs », juste sous ce qu'ils comptent (la maquette du 9 novembre 2026) : un lien vers leur page, pas un écran du profil.
+  // « Les collectionneurs », juste sous ce qu'ils comptent (la maquette du 9 novembre 2026) : un lien vers leur page, pas
+  // un écran du profil — et « Nouveau » tant qu'une affiche du QG le montre et qu'il n'y est pas allé.
   assert.match(
     boutons,
-    /ouvrir\('collection'\)\}\s*\/>\s*\{\/\*[^*]*\*\/\}\s*<GrosBouton icone=\{<Icon name="trophy" \/>\} titre="Les collectionneurs" detail=\{detailDesCollectionneurs\(profil\.collectionneur\)\} href="\/collectionneurs" \/>\s*<GrosBouton\s+icone=\{<Icon name="book" \/>\}\s+titre="Mes soirées"/,
+    /ouvrir\('collection'\)\}\s*\/>\s*\{\/\*[^*]*\*\/\}\s*<GrosBouton icone=\{<Icon name="trophy" \/>\} titre="Les collectionneurs" detail=\{detailDesCollectionneurs\(profil\.collectionneur\)\} pastille=\{nouvelle\('collectionneurs'\)\} href="\/collectionneurs" \/>\s*<GrosBouton\s+icone=\{<Icon name="book" \/>\}\s+titre="Mes soirées"/,
   )
+  assert.match(page, /const nouvelle = \(page: PageALAffiche\) => \(nouvelles\.includes\(page\) \? <PastilleNouveau \/> : undefined\)/)
   // Et, juste après « M'habiller », « Mon compagnon » pour qui en a un : sa niche en petit dès que son code est là.
   assert.match(
     boutons,
