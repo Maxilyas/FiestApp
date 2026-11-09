@@ -302,8 +302,10 @@ compte enfin.
   - « Deux époques de moins » renvoie les deux époques retirées, choisies au
     serveur ;
   - l'indice ne part qu'une fois pris ;
-  - les repères partent avec la manche : ils ne disent rien de la réponse
-    (§ 3.5).
+  - les repères partent avec la manche. Ils ne disent de la réponse qu'une
+    chose : elle n'est pas tout contre eux, à moins d'un quart d'époque
+    (§ 3.5). C'est une fuite minime et voulue : un repère collé à la réponse
+    la donnerait.
 - **La place de la réponse dans ses quatre époques se tire au serveur**, du
   hasard du serveur, jamais de la graine (`pisteDuFilet` aujourd'hui).
 
