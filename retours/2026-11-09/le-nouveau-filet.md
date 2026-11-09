@@ -683,8 +683,14 @@ pas touchée (`vivier-du-filet.json`, `reproductions/vivier-du-filet.mts`) :
   Français sait placer.
 - L'échantillon de 435 questions en annonçait 10 % ± 3 : le compte exact
   tient dans sa marge.
-- Au passage, une question à corriger : `48epyi2k` demande les épisodes
-  d'une saison 4 sans nommer la série.
+- Au passage, des intitulés qui ne se comprennent pas seuls : écrits dans
+  un lot d'univers, ils taisaient la série — « Combien d'épisodes compte la
+  saison 4 ? », « Quel âge Merlin prétend-il avoir ? ». Le Filet les pose
+  hors de tout contexte : cinq corrigés sous leur identifiant (la série
+  nommée, et une anecdote de *Lost* aux dates fausses), parmi les questions
+  d'univers du vivier. Et un doublon que le juge des faits ne voit pas :
+  `k9n359l1` et `i3uqyd02` posent le même code de 108 minutes, sous deux
+  entités écrites autrement (« Le Cygne », « Station Cygne »).
 
 ### 4.4 Ce qu'il faut en faire
 
