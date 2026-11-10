@@ -63,6 +63,12 @@ node retours/2026-11-10/ecrans/reproductions/pouces.cjs export/releve/sonde   # 
 | Le choix des cartes d'une traversée du Cabinet (« Avant de partir — Choisis trois cartes ») | ses dix lignes de 90 à 112 px, leur description sur deux ou trois lignes : l'écran, 1 212 px pour 640, défilait de 652 px dans son cadre — on y voyait trois cartes —, de 426 en 390 × 844, de 333 encore en 412 × 915 | rien n'y change de place : les dix cartes et le bouton du pied sur un écran aux six tailles, des lignes de 47 px en 360 × 640 (7 px de jeu en tout), de 60 en 390 × 844 (52 sous l'encoche) ; la description d'une carte sur une ligne, coupée au bout — neuf sur dix en 360 de large, six en 390 —, sur deux dès 412 × 800 où toutes se lisent entières ; sa phrase entière reste dans « Voir » et à l'oreille ; aucun texte sous 17 px (`rendu-traversee.ts`, `SEULEMENT=cartes`) |
 | Une page dont le contenu tient, à moins d'une marge du bas de l'écran — la révélation d'une soirée au téléphone d'un invité, « Pas cette fois », une étape de parcours, la question bonus du quiz du jour, « Ton équipe », un duel reçu, une question du Cabinet | défilait de sa marge du bas, pour ne montrer que du vide : de 25 et 26 px à la révélation, 20 à « Pas cette fois », 28 à l'étape et à la question bonus, 25 à « Ton équipe », 17 au duel reçu, 19 au Cabinet (en 390 × 844, 22 à « Palier validé », 25 à « Entre amis ») | la marge se resserre — un ressort et une rallonge, la règle `.claude/rules/css.md` les raconte, `server/test/marge-du-bout.test.ts` les garde, `reproductions/marge-du-bout.cjs` rejoue la loi au pixel : 0 px dès que le contenu tient, et une page plus longue que l'écran garde sa marge au bout. Restent : la révélation à quatre lignes, qui dépasse vraiment de 19,5 px (39 px au lieu de 47 — la sonde lit le dernier texte, pas la dernière boîte) ; « Le Pari » du Cabinet sous une carte-bonus, sa quatrième réponse sous le pied collé (61 px) ; et sous l'encoche d'un iPhone, la marge d'un invité, qui est l'encoche même |
 
+| « Mes quiz », la liste (`/edit`) | trois quiz entiers sur dix (six en 390 × 844) : des cartes de 68 à 128 px — un nom sur trois lignes, ses faits sur deux, « à compléter » sur la sienne —, la première à 247 px du haut, sous un gros bouton « Créer un quiz » ; 799 px à faire défiler pour dix quiz | **ici la disposition change** — le propriétaire l'a permis pour cet onglet : « revoir l'onglet quiz […] modifier la disposition et l'aspect si tu trouves cela nécessaire ». « Créer un quiz » à côté du titre ; les quiz en lignes dans une seule carte (56 px, la première à 123), le nom sur une ligne, ses faits en morceaux entiers, ce qui presse d'abord : huit quiz entiers en 360 × 640, neuf en 390 × 844, dix en 412 × 915 — 176 px à faire défiler pour dix quiz (`rendu-mes-quiz.ts`, le cas `fournie`) |
+| La fiche d'un quiz (`/edit?fiche=…`) | sept gestes sur un écran et demi : elle défilait de 448 px, « Supprimer ce quiz » à 371 px sous le menu (406 px en 390 × 664, 348 en 360 × 740, 236 en 412 × 800, 226 en 390 × 844, 121 en 412 × 915) | tient sur un écran aux six tailles, et sur un portable en 1366 × 768 : l'emblème à côté du nom, « Lancer » et « Modifier » côte à côte sous 820 px de haut — « les questions » caché à l'œil seulement —, les gestes rares plus bas, leur nom seul sous 720 px (les cas `fiche`, `fiche-a-completer`, `fiche-vide`, `fiche-grand`) |
+| Les feuilles « Créer un quiz » et « Trier et filtrer » | défilaient dans leur cadre de 144 et de 76 px : « Importer un fichier » et « De A à Z » ne se voyaient pas | tous leurs choix sans défiler aux six tailles (les cas `creer`, `trier`) |
+| Les premiers pas d'une bibliothèque sans quiz prêt | « Coller une liste », « Importer le quiz d'un ami » et « Créer mon quiz » au bout d'une page de 2 698 px, sous tous les modèles | sous le quiz tout prêt, au-dessus des modèles : les quatre départs finissent à 494 px pour 575 visibles ; le catalogue des modèles, dessous, défile par nature (le cas `vide`) |
+| « Partir d'un modèle », rouvert depuis « Créer un quiz » | « Fermer les modèles » au bout du catalogue seulement, à 2 100 px du haut | « Fermer » à côté du titre aussi, sur le premier écran (le cas `modeles`) |
+
 Le geste « sous le pouce » : la règle `.claude/rules/css.md` le raconte,
 `server/test/sous-le-pouce.test.ts` le garde. Mesuré après : sur les
 quarante-sept écrans photographiés qui en ont un, il se voit en entier
@@ -77,8 +83,9 @@ changé au pixel.
   podium compris, tient depuis), l'historique et
   le classement des duels, le carnet et les parcours de thème, la carte des
   douze sentiers (530 à 800 — son bloc du haut tient l'écran, son geste
-  compris) et un sentier (1 090), « Mes quiz » et l'éditeur, les grilles de
-  la loge (ce qui les précède tient depuis).
+  compris) et un sentier (1 090), la liste de « Mes quiz » (en lignes
+  depuis : huit à dix quiz par écran ; sa fiche et ses feuilles tiennent) et
+  l'éditeur, les grilles de la loge (ce qui les précède tient depuis).
 - **Les récapitulatifs** : la fin du quiz du jour (1 100 à 1 700 : sa note, ses
   gains, le classement, la plume), le défi relevé, les corrections (« Mes
   réponses », 2 200 à 3 000), le souvenir d'une soirée.
@@ -125,6 +132,13 @@ changé au pixel.
   bout sur un téléphone étroit sont le prix du « tout sur un écran » : des
   phrases plus courtes, écrites pour la liste, tiendraient entières — un
   choix de mots, donc du propriétaire.
+- **« Mes quiz »** : dans la liste, le nom d'un quiz long se coupe au bout
+  (« Géographie des grandes vacan… ») — sa fiche le dit entier — ; dans la
+  fiche, la phrase d'un geste rare se coupe au bout sur un téléphone étroit,
+  et ne se dit plus qu'à l'oreille sous 720 px de haut. Le texte agrandi à
+  130 %, en 360 × 640 : la liste montre sept quiz, la fiche défile de 56 px,
+  « Créer un quiz » de 160 dans sa feuille. « Fermer », en tête de toute
+  feuille de l'application, fait 40 px de haut : d'avant, laissé.
 - **Sur un vrai téléphone** : la barre d'adresse d'un navigateur retire de la
   hauteur que Chromium sans écran ne retire pas. L'encoche, elle, se mesure
   (`ENCOCHE=47`) : l'accueil et le carrefour tiennent en 390 × 844,

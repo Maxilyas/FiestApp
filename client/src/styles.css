@@ -2252,65 +2252,111 @@ h3 > .icon {
 }
 
 /* ── Mes quiz ─────────────────────────────────────────────────────────────
-   Des cartes : la pastille du quiz dans la lueur de sa catégorie, son nom,
-   une ligne de faits, et ▶ pour le lancer. Le reste vit dans sa fiche. */
-.quiz-cartes { display: flex; flex-direction: column; gap: 8px; list-style: none; margin: 0; padding: 0; }
-.quiz-carte {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  border: 1px solid var(--edge);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
+   En lignes (le 10 novembre 2026 — le propriétaire : « revoir l'onglet quiz […] modifier la disposition et l'aspect si tu
+   trouves cela nécessaire ») : la pastille du quiz dans la lueur de sa catégorie, son nom, une ligne de faits, et ▶ pour
+   le lancer — dans une seule carte, un filet entre deux quiz, comme les gros boutons de l'accueil. Le reste vit dans sa
+   fiche. En 360 × 640, des cartes de 68 à 128 px — un nom sur trois lignes, les faits sur deux, « à compléter » sur la
+   sienne — sous 247 px de tête, de gros bouton et de recherche, n'en montraient que trois sur dix ; elles sont huit.
+   Ses mesures sont des variables posées sur la page, à trois pas de hauteur d'écran : un petit téléphone (moins de
+   720 px), un écran moyen ou un portable (moins de 820), et au-delà — un grand téléphone, une tablette — les plus
+   larges. `server/scripts/rendu-mes-quiz.ts` dit, taille par taille, combien de quiz se voient entiers, et sort en
+   erreur s'il y en a moins. */
+.mes-quiz {
+  /* La hauteur d'une ligne, sa pastille, son nom, ses faits, le rond de ▶ — sa cible, elle, garde 44 px. */
+  --quiz-rang: 64px;
+  --quiz-pastille: 44px;
+  --quiz-nom: 1.15rem;
+  --quiz-faits: 0.85rem;
+  --quiz-lancer: 40px;
+  /* L'écart entre les blocs de la page et de la fiche, et le haut de la page. */
+  --quiz-ecart: 14px;
+  --quiz-haut: 22px;
+  /* La fiche : son emblème, son titre, la hauteur de ses deux gestes, celle d'un geste rare. */
+  --quiz-embleme: 60px;
+  --quiz-titre: 1.5rem;
+  --quiz-geste: 54px;
+  --quiz-rare: 48px;
+  gap: var(--quiz-ecart);
+  padding-top: var(--quiz-haut);
+  /* Sous la page, la barre du menu garde déjà sa place sur le corps : les 70 px de l'éditeur, en plus, faisaient défiler
+     de 28 px une fiche qui tenait (390 × 844). */
+  --quiz-bas: 24px;
+  padding-bottom: var(--quiz-bas);
 }
+@media (max-height: 819px) {
+  .mes-quiz { --quiz-rang: 60px; --quiz-pastille: 40px; --quiz-nom: 1.1rem; --quiz-faits: 0.82rem; --quiz-ecart: 12px; --quiz-haut: 18px; --quiz-embleme: 56px; --quiz-titre: 1.4rem; --quiz-geste: 50px; --quiz-bas: 16px; }
+}
+/* Le bas à 6 px : le corps garde 72 px à une barre du menu qui en fait 65, et une fiche qui finit à 15 px du menu
+   défilait encore de 2 px à 10 (360 × 640). */
+@media (max-height: 719px) {
+  .mes-quiz { --quiz-rang: 56px; --quiz-pastille: 38px; --quiz-nom: 1.05rem; --quiz-faits: 0.8rem; --quiz-lancer: 36px; --quiz-ecart: 10px; --quiz-haut: 14px; --quiz-embleme: 52px; --quiz-titre: 1.3rem; --quiz-geste: 48px; --quiz-rare: 44px; --quiz-bas: 6px; }
+}
+.quiz-cartes { display: flex; flex-direction: column; list-style: none; margin: 0; padding: 0; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); }
+/* Une liste que la recherche ou un filtre a vidée ne laisse pas un cadre vide. */
+.quiz-cartes:empty { display: none; }
+.quiz-carte { display: flex; align-items: center; min-height: var(--quiz-rang); }
+.quiz-carte + .quiz-carte { border-top: 1px solid var(--edge); }
 .quiz-carte.is-archive { opacity: 0.8; }
 .quiz-carte-ouvrir {
   flex: 1;
   min-width: 0;
+  align-self: stretch;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
+  gap: 10px;
+  padding: 5px 6px 5px 12px;
   border: 0;
+  border-radius: var(--radius);
   background: transparent;
   color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
-  border-radius: var(--radius-sm);
 }
 .quiz-carte-ouvrir:hover b { color: var(--accent-text-hover); }
-.quiz-carte-texte { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.quiz-carte-texte b { font-family: var(--serif); font-weight: 600; font-size: 1.15rem; line-height: 1.2; overflow-wrap: anywhere; }
-.quiz-carte-faits { color: var(--muted); font-size: 0.85rem; }
+.quiz-carte-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+/* Son nom tient sur une ligne, coupé au bout : passé dessous, il rendait sa ligne plus haute que les autres. Sa fiche
+   le dit entier. */
+.quiz-carte-texte b { overflow: hidden; font-family: var(--serif); font-weight: 600; font-size: var(--quiz-nom); line-height: 1.2; white-space: nowrap; text-overflow: ellipsis; }
+/* Ses faits, en morceaux (`faitsDuQuiz`) : chacun entier ou pas du tout. Ils passent à la ligne quand ils ne tiennent
+   plus, et la ligne n'en montre qu'une — pas de phrase coupée au milieu d'un mot. Le premier, seul, se coupe au bout s'il
+   est plus long que la ligne. `clip` : rien n'y défile, pas même par une recherche dans la page. */
+.quiz-carte-faits { display: flex; flex-wrap: wrap; align-content: flex-start; height: 1.3em; overflow: clip; color: var(--muted); font-size: var(--quiz-faits); line-height: 1.3; }
+.quiz-fait { flex: none; white-space: pre; }
+.quiz-fait:first-child { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.quiz-fait > .icon { width: 1em; height: 1em; margin-right: 0.3em; vertical-align: -0.12em; }
 .quiz-carte-trouve { font-style: italic; }
 .quiz-pastille {
   flex: none;
   display: grid;
   place-items: center;
-  width: 46px;
-  height: 46px;
+  width: var(--quiz-pastille, 46px);
+  height: var(--quiz-pastille, 46px);
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--lueur) 22%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lueur) 45%, transparent);
   font-family: var(--serif);
-  font-size: 1.5rem;
+  font-size: calc(var(--quiz-pastille, 46px) * 0.52);
   font-weight: 600;
 }
+/* ▶ : un rond d'or plus petit que sa cible — 44 px sous le doigt, la bordure transparente autour de lui. */
 .quiz-carte-lancer {
   flex: none;
   display: grid;
   place-items: center;
+  box-sizing: border-box;
   width: 44px;
   height: 44px;
-  margin-right: 8px;
-  border-radius: var(--radius-pill);
-  background: var(--accent);
+  margin-right: 6px;
+  border: calc((44px - var(--quiz-lancer, 44px)) / 2) solid transparent;
+  border-radius: 50%;
+  background: var(--accent) padding-box;
   color: var(--on-accent);
 }
-.quiz-carte-lancer:hover { background: var(--accent-hover); }
+.quiz-carte-lancer:hover { background: var(--accent-hover) padding-box; }
+.quiz-carte-lancer > .icon { width: 16px; height: 16px; }
 /* La fiche d'un quiz : ce qu'il contient, Lancer et Modifier en grand, les gestes rares en liste calme. */
-.quiz-fiche { display: flex; flex-direction: column; gap: 14px; }
+.quiz-fiche { display: flex; flex-direction: column; gap: var(--quiz-ecart, 14px); }
 /* Son en-tête, dans un cadre teinté de sa catégorie : l'emblème qui luit, son nom, ce qu'il contient. */
 .quiz-heros { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 20px 14px 16px; border: 1px solid color-mix(in srgb, var(--lueur) 40%, transparent); border-radius: var(--radius); background: radial-gradient(110% 70% at 50% 0%, color-mix(in srgb, var(--lueur) 20%, transparent), transparent 70%), var(--surface); text-align: center; }
 .quiz-heros .quiz-pastille { width: 84px; height: 84px; border-radius: 26px; background: color-mix(in srgb, var(--lueur) 18%, var(--bg)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--lueur) 45%, transparent), 0 0 24px color-mix(in srgb, var(--lueur) 30%, transparent); font-size: 2.75rem; }
@@ -2337,12 +2383,63 @@ h3 > .icon {
 }
 .fiche-geste > .icon { flex: none; color: var(--zone, var(--accent-text)); }
 .fiche-geste + .fiche-geste { border-top: 1px solid var(--edge); border-radius: 0; }
-.fiche-geste > span { display: flex; flex-direction: column; gap: 1px; }
-.fiche-geste:hover:not(:disabled) { background: var(--accent-soft); }
+.fiche-geste > span { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+/* Au survol d'une souris seulement : sur un téléphone, le « survol » reste où le doigt a touché la liste, et le geste
+   venu sous lui à l'ouverture de la fiche — « Dupliquer » — s'allumait comme s'il était choisi. */
+@media (hover: hover) {
+  .fiche-geste:hover:not(:disabled) { background: var(--accent-soft); }
+}
 .fiche-geste:disabled { opacity: 0.55; cursor: default; }
 .fiche-supprimer { color: var(--alert); }
+/* Sur un téléphone, la fiche tient sur un écran (le 10 novembre 2026 : elle défilait de 448 px en 360 × 640, de 226 en
+   390 × 844). Son emblème passe à côté de son nom — au-dessus, centré, il prenait 106 px à lui seul —, ses deux gestes
+   et ses lignes prennent les mesures de la page (`.mes-quiz`), et ce que chaque geste rare dit sous son nom tient sur
+   une ligne. Sur le plus petit écran, son nom seul, et « Plus » se tait : cachés à l'œil comme `.sr-only`, jamais
+   retirés — le lecteur d'écran dit la même fiche à toutes les tailles. Rien n'y change de place ni de nom. Un écran
+   étroit ou court — un portable de 768 px de haut y laissait encore « Supprimer » à 139 px sous le menu — ; une
+   tablette, un grand écran gardent la fiche d'avant. */
+@media (max-width: 700px), (max-height: 819px) {
+  .quiz-heros { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 12px; row-gap: 3px; padding: 12px 14px; text-align: left; }
+  .quiz-heros .quiz-pastille { width: var(--quiz-embleme); height: var(--quiz-embleme); border-radius: 18px; font-size: calc(var(--quiz-embleme) * 0.5); }
+  .quiz-heros h1 { margin: 0; font-size: var(--quiz-titre); line-height: 1.15; }
+  /* Ce qu'il contient, ses catégories, quand il a été joué, ce qui l'attend : sous l'emblème et le nom, sur toute la
+     largeur — à côté de l'emblème, « 1 estimation » passait seul sur sa ligne. */
+  .quiz-heros > :not(.quiz-pastille, h1) { grid-column: 1 / -1; }
+  .quiz-heros .quiz-heros-contenu { margin-top: 4px; font-size: 0.9rem; }
+  .quiz-heros > .quiz-categories { justify-content: flex-start; margin-block: 3px 1px; }
+  .quiz-fiche-gestes .btn-big { min-height: var(--quiz-geste); }
+  .fiche-plus { gap: 0; padding: 6px 10px; }
+  .fiche-geste { min-height: var(--quiz-rare); padding-block: 4px; }
+  .fiche-geste-detail { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+}
+/* Sous 820 px de haut, « Lancer » et « Modifier les questions » côte à côte quand ils sont deux : l'un sous l'autre, ils
+   poussaient « Supprimer » sous le menu — de 30 px en 360 × 640, de 29 en 360 × 740. Le second n'y montre que son
+   verbe (« Modifier », « Compléter ») ; « les questions » se cache à l'œil, et son nom reste entier à l'oreille. Seul —
+   un quiz qui ne se lance pas —, il garde toute sa largeur et tout son nom. Sans `:has()`, l'un sous l'autre, entiers. */
+@media (max-height: 819px) {
+  .quiz-fiche-gestes:has(> :nth-child(2)) { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
+  .quiz-fiche-gestes:has(> :nth-child(2)) .btn-big { padding-inline: 8px; letter-spacing: 0.1em; }
+  .quiz-fiche-gestes:has(> :nth-child(2)) .fiche-suite { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+@media (max-height: 719px) {
+  .fiche-plus > .label,
+  .fiche-geste-detail { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
 
+/* La tête de « Mes quiz » : son titre, et « Créer un quiz » à côté de lui — sous lui, en gros bouton, il prenait 72 px
+   avant le premier quiz. Sur un téléphone, ce qu'elle dit de plus se tait à l'œil quand la hauteur manque : combien de
+   quiz (la liste le montre) sous 820 px, « Animer » sous 720 — le menu dit déjà où l'on est. */
 .bibliotheque-tete h1 { white-space: nowrap; }
+/* `wrap` : le texte agrandi sur un écran de 320 px de large, le bouton passe sous le titre plutôt que d'élargir la page. */
+.bibliotheque-titre { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; min-height: 44px; }
+.bibliotheque-creer { flex: none; }
+@media (max-height: 819px) {
+  .bibliotheque-compte { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+@media (max-height: 719px) {
+  .bibliotheque-tete > .label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .bibliotheque-tete h1 { font-size: 1.75rem; }
+}
 /* Les pages de l'animateur, en une ligne fine, la même partout (lot 12) :
    en tête de « Mes quiz », au-dessus de « Mon compte » et des comptes. */
 .nav-animateur { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 0.88rem; }
@@ -2365,6 +2462,8 @@ h3 > .icon {
 .filtres { display: flex; flex-wrap: wrap; gap: 6px; }
 .bibliotheque-vide { text-align: center; }
 .bibliotheque-pied { justify-content: center; }
+/* Ses deux feuilles — « Créer un quiz », « Trier et filtrer » — se resserrent plus bas, sous les règles de toute
+   feuille (`.carte-feuille`, `.choix-ligne`) : le bloc « Les deux feuilles de « Mes quiz » ». */
 
 
 /* Ce que l'historique sait d'une question, au pied de sa carte. */
@@ -8155,6 +8254,10 @@ textarea.signaler-anecdote { font-family: var(--sans); }
 
 /* Une bibliothèque vide : trois départs, empilés au téléphone. */
 .premiers-pas h2 { margin: 0 0 4px; }
+/* Les modèles rouverts depuis « Créer un quiz » : leur titre, et « Fermer » au bout de sa ligne. */
+.premiers-pas-tete { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.premiers-pas-tete h2 { min-width: 0; margin-bottom: 0; }
+.premiers-pas-tete .btn { flex: none; }
 .premiers-pas-choix { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 @media (max-width: 600px) {
   .premiers-pas-choix { flex-direction: column; }
@@ -8190,6 +8293,21 @@ textarea.signaler-anecdote { font-family: var(--sans); }
 .pour-qui-champ { display: grid; gap: 4px; flex: 1 1 160px; }
 @media (max-width: 600px) {
   .modele-tete { flex-direction: column; align-items: stretch; }
+}
+/* Sur un téléphone, les premiers pas montrent d'abord toutes les façons de commencer (le 10 novembre 2026 : le quiz tout
+   prêt, puis coller une liste, importer, écrire — `PremiersPas` les pose avant les modèles) : en 360 × 640, la carte et
+   ses quatre départs tiennent au-dessus du menu, et les modèles, un catalogue, se lisent dessous. Les mêmes boutons,
+   leurs écarts resserrés. */
+@media (max-width: 700px) {
+  .premiers-pas { padding: 14px; }
+  .premiers-pas h2 { margin-bottom: 2px; font-size: 1.35rem; }
+  .premiers-pas-tout-pret { margin-top: 8px; gap: 4px; padding: 8px 10px; }
+  .premiers-pas-choix { gap: 6px; margin-top: 8px; }
+  /* Des lignes, pas des pilules : « Coller une liste — tes notes, ou la réponse d'une IA » y tient sur deux. */
+  .premiers-pas-choix .btn { min-height: 44px; padding: 6px 14px; border-radius: var(--radius-sm); }
+  .premiers-pas .rayon { margin-top: 4px; }
+  .modeles { gap: 6px; margin-top: 8px; }
+  .modele { gap: 8px; padding: 8px 10px; }
 }
 
 /* ── Ce que la salle doit savoir, lisible du canapé ─────────────────────
@@ -8718,6 +8836,28 @@ span.case-avatar { cursor: default; }
 /* Un titre qui passe à la ligne s'y coupe en deux moitiés, jamais un mot seul dessous. */
 .gros-texte b { font-family: var(--serif); font-size: 1.35rem; font-weight: 600; line-height: 1.15; text-wrap: balance; }
 .gros-detail { color: var(--muted); font-size: 0.88rem; line-height: 1.35; }
+/* Les deux feuilles de « Mes quiz », sur un téléphone ou un écran court : leurs choix se voient tous sans défiler (le
+   10 novembre 2026 — en 360 × 640, « Créer un quiz » défilait de 144 px, son sixième choix hors de vue, et « Trier et
+   filtrer » de 76). Les mêmes lignes et les mêmes pastilles, leurs écarts resserrés ; une pastille garde ses 44 px sous
+   le doigt. Par leur classe : les autres feuilles de l'application gardent leurs mesures. Ici, sous les règles de toute
+   feuille qu'elles précisent — plus haut dans la feuille de style, elles passaient pour la règle de `.carte-corps`
+   aux yeux de `feuilles.test.ts`, qui lit la première. */
+@media (max-width: 700px), (max-height: 819px) {
+  .feuille-creer .carte-barre,
+  .feuille-trier .carte-barre { padding-block: 8px 7px; }
+  .feuille-creer .carte-corps { gap: 7px; padding: 10px 16px 12px; }
+  .feuille-creer .carte-corps > .label,
+  .feuille-trier .carte-corps > .label { margin-top: 0; }
+  .feuille-creer .choix-ligne { gap: 12px; padding: 6px 10px; }
+  .feuille-creer .gros-icone { width: 38px; height: 38px; }
+  .feuille-creer .gros-icone .icon { width: 20px; height: 20px; }
+  .feuille-creer .gros-texte { gap: 1px; }
+  .feuille-creer .gros-texte b { font-size: 1.2rem; }
+  .feuille-creer .gros-detail { font-size: 0.84rem; line-height: 1.25; }
+  .feuille-trier .carte-corps { gap: 6px; padding: 10px 16px 10px; }
+  .feuille-trier .filtres { gap: 4px 6px; }
+  .feuille-trier .carte-pied { padding-top: 8px; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+}
 /* Une recherche sobre : un trait, une loupe. Le champ garde l'anneau du focus. */
 .recherche-sobre { display: flex; align-items: center; gap: 8px; padding: 6px 2px; border-bottom: 1px solid var(--edge-strong); color: var(--muted); }
 .recherche-sobre:focus-within { border-bottom-color: var(--accent); color: var(--accent-text); }

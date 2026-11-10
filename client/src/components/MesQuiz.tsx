@@ -6,11 +6,18 @@ import { ecrireDuree, type QuizSummary } from '../../../shared/library'
 import { BRANCHES } from '../../../shared/branches'
 import { LUEUR } from './Atlas'
 
-// « Mes quiz » au pouce : la liste ne montre que des cartes — l'emoji du
+// « Mes quiz » au pouce : la liste ne montre que des lignes — l'emoji du
 // quiz, son nom, une ligne de faits, et ▶ pour le lancer. Chaque quiz a sa
 // fiche, où vivent les gestes rares. Ils attendaient sous un « ⋯ » par
 // ligne : un menu flottant qui s'ouvrait sous le pli au téléphone, et
 // « Supprimer » à un toucher de « Modifier ».
+//
+// En lignes depuis le 10 novembre 2026 (le propriétaire : « revoir l'onglet
+// quiz […] modifier la disposition et l'aspect si tu trouves cela
+// nécessaire ») : des cartes de 68 à 128 px — un nom sur trois lignes, les
+// faits sur deux, « à compléter » sur la sienne — n'en montraient que trois
+// sur dix en 360 × 640. Chaque quiz tient sur deux lignes de texte, dans une
+// seule carte, un filet entre eux, comme les gros boutons de l'accueil.
 
 const lueurDe = (q: QuizSummary): CSSProperties => {
   const b = BRANCHES.find(x => x.categorie === q.categories?.[0])
@@ -44,16 +51,46 @@ function Pastille({ q }: { q: QuizSummary }) {
   )
 }
 
-/** Une carte de la liste : elle ouvre sa fiche ; ▶ lance le quiz. */
+/** Un morceau de la ligne de faits d'un quiz : ce qu'il dit, et s'il alerte. */
+export interface FaitDuQuiz {
+  texte: string
+  /** Ce qui attend l'animateur — un brouillon, des questions à compléter : à la couleur de l'alerte, son icône devant. */
+  alerte?: IconName
+  /** Ce que la recherche a trouvé : en italique, comme une citation. */
+  trouve?: boolean
+}
+
+/**
+ * Ce que la ligne d'un quiz dit sous son nom, morceau par morceau, du plus
+ * pressant au plus accessoire : ce que la recherche y a trouvé — c'est ce
+ * qu'on cherche —, ce qui attend dans ce navigateur, ce qui reste à compléter,
+ * puis ses faits. La feuille n'en montre que les morceaux qui tiennent
+ * entiers sur une ligne (`.quiz-carte-faits`), comme la ligne d'un gros
+ * bouton de l'accueil : en 360 de large, « 10 questions · ≈ 5 min · jamais
+ * joué » tient, et derrière une alerte, « jamais joué » se tait plutôt que de
+ * passer dessous. Chaque morceau porte sa ponctuation : mis bout à bout, la
+ * phrase d'avant — la fiche du quiz redit tout.
+ */
+export function faitsDuQuiz(q: QuizSummary, brouillon: boolean): FaitDuQuiz[] {
+  const manque = manqueDe(q)
+  const faits: FaitDuQuiz[] = []
+  if (q.trouve) faits.push({ texte: `Trouvé dans « ${q.trouve} »`, trouve: true })
+  if (brouillon) faits.push({ texte: 'Des modifications attendent', alerte: 'edit' }, { texte: ' dans ce navigateur', alerte: 'edit' })
+  if (manque > 0) faits.push({ texte: `${manque} à compléter`, alerte: 'alert' })
+  // « 10 à compléter » dit déjà qu'aucune n'est prête : « 0 question » derrière lui ne disait rien de plus.
+  if (!(manque > 0 && q.readyCount === 0)) faits.push({ texte: q.questionCount === 0 ? 'Aucune question encore' : `${q.readyCount} question${q.readyCount > 1 ? 's' : ''}` })
+  if ((q.dureeS ?? 0) > 0) faits.push({ texte: ecrireDuree(q.dureeS!) })
+  // Pour ne pas reposer le même quiz aux mêmes amis sans s'en souvenir.
+  if (q.joue) faits.push({ texte: `joué ${q.joue.fois} fois` })
+  else if (q.readyCount > 0) faits.push({ texte: 'jamais joué' })
+  if (q.archivedAt) faits.push({ texte: 'Archivé' })
+  return faits
+}
+
+/** Une ligne de la liste : elle ouvre sa fiche ; ▶ lance le quiz. */
 export function CarteDeQuiz({ quiz: q, brouillon, onFiche }: { quiz: QuizSummary; brouillon: boolean; onFiche: () => void }) {
   const { nom } = separerTitre(q.title)
-  const manque = manqueDe(q)
-  const faits = [
-    q.questionCount === 0 ? 'Aucune question encore' : `${q.readyCount} question${q.readyCount > 1 ? 's' : ''}`,
-    (q.dureeS ?? 0) > 0 && ecrireDuree(q.dureeS!),
-    // Pour ne pas reposer le même quiz aux mêmes amis sans s'en souvenir.
-    q.joue ? `joué ${q.joue.fois} fois` : q.readyCount > 0 && 'jamais joué',
-  ].filter(Boolean)
+  const faits = faitsDuQuiz(q, brouillon)
   return (
     <li className={'quiz-carte' + (q.archivedAt ? ' is-archive' : '')}>
       {/* Le libellé commence par le mot affiché, qu'une commande vocale reconnaît. */}
@@ -61,19 +98,19 @@ export function CarteDeQuiz({ quiz: q, brouillon, onFiche }: { quiz: QuizSummary
         <Pastille q={q} />
         <span className="quiz-carte-texte">
           <b>{espacesFines(nom)}</b>
-          <span className="quiz-carte-faits">{faits.join(' · ')}</span>
-          {manque > 0 && (
-            <span className="warn small">
-              <Icon name="alert" /> {manque} à compléter
-            </span>
-          )}
-          {q.trouve && <span className="quiz-carte-faits quiz-carte-trouve">{espacesFines(`Trouvé dans « ${q.trouve} »`)}</span>}
-          {brouillon && (
-            <span className="warn small">
-              <Icon name="edit" /> Des modifications attendent dans ce navigateur
-            </span>
-          )}
-          {q.archivedAt && <span className="quiz-carte-faits">Archivé</span>}
+          <span className="quiz-carte-faits">
+            {faits.map((f, i) => {
+              // La suite d'une alerte (« dans ce navigateur ») s'y colle sans point ; tout autre morceau se sépare du précédent.
+              const colle = i > 0 && f.texte.startsWith(' ')
+              return (
+                <span key={i} className={'quiz-fait' + (f.alerte ? ' warn' : '') + (f.trouve ? ' quiz-carte-trouve' : '')}>
+                  {i > 0 && !colle && ' · '}
+                  {f.alerte && !colle && <Icon name={f.alerte} />}
+                  {espacesFines(f.texte)}
+                </span>
+              )
+            })}
+          </span>
         </span>
       </button>
       {seLance(q) && (
@@ -92,7 +129,8 @@ function Geste({ icone, titre, detail, onClick, disabled }: { icone: IconName; t
       <Icon name={icone} />
       <span>
         <b>{titre}</b>
-        <span className="muted small">{detail}</span>
+        {/* Ce qu'il fait, d'une ligne : sur le petit téléphone, son nom seul — la feuille le cache à l'œil, pas à l'oreille. */}
+        <span className="muted small fiche-geste-detail">{detail}</span>
       </span>
     </button>
   )
@@ -102,6 +140,13 @@ function Geste({ icone, titre, detail, onClick, disabled }: { icone: IconName; t
  * La fiche d'un quiz : ce qu'il contient, « Lancer » et « Modifier » en
  * grand, puis les gestes plus rares en liste calme — le danger tout en bas,
  * seul.
+ *
+ * Sur un téléphone, elle tient sur un écran (le 10 novembre 2026 : elle
+ * défilait de 448 px en 360 × 640, « Supprimer » à 371 px sous le menu) : son
+ * emblème passe à côté de son nom au lieu de le coiffer, ses deux gestes et
+ * ses lignes se resserrent, et sur le plus petit écran chaque geste rare ne
+ * garde que son nom. Rien n'y change de place ni de nom ; un grand écran
+ * garde la fiche d'avant (`styles.css`, « Mes quiz »).
  */
 export function FicheDeQuiz({
   quiz: q,
@@ -145,7 +190,7 @@ export function FicheDeQuiz({
       <div className="quiz-heros">
         <Pastille q={q} />
         <h1 id="fiche-titre">{espacesFines(nom)}</h1>
-        <p className="muted">{q.questionCount === 0 ? 'Aucune question encore' : contenu.join(' · ')}</p>
+        <p className="muted quiz-heros-contenu">{q.questionCount === 0 ? 'Aucune question encore' : contenu.join(' · ')}</p>
         {(q.categories?.length ?? 0) > 0 && (
           <ul className="quiz-categories" aria-label="Catégories">
             {q.categories!.map(c => (
@@ -178,7 +223,11 @@ export function FicheDeQuiz({
         )}
         <button type="button" className="btn btn-big btn-block" onClick={onModifier}>
           <Icon name="edit" />
-          {q.questionCount === 0 ? 'Écrire les questions' : manque > 0 ? 'Compléter les questions' : 'Modifier les questions'}
+          {/* Son verbe, puis « les questions » : à côté de « Lancer », sur un petit écran, la feuille ne montre que le verbe. */}
+          <span>
+            {q.questionCount === 0 ? 'Écrire' : manque > 0 ? 'Compléter' : 'Modifier'}
+            <span className="fiche-suite"> les questions</span>
+          </span>
         </button>
       </div>
 

@@ -17,7 +17,7 @@ paths:
 
 - `shared/library.ts` — le format d'un quiz et ses bornes (`MAX_TITRE`, `MAX_TEXT`, `MAX_QUESTIONS`…) ; `normalizeQuestions`, ce que le serveur garde d'une question — à la création, à l'enregistrement, à la lecture en base, à la reprise d'un brouillon ; `toPlayable` et `questionProblem`, jouable ou « à compléter », et pourquoi ; la durée estimée, la recherche et le résumé de « Mes quiz » ; la liste collée (`parseImportedQuestions`)
 - `core/quizStore.ts` · `server/src/api.ts` — la bibliothèque dans la base permanente (`quizzes`, `quiz_images`, `meta`) et ses routes, derrière la session de compte : `/api/quizzes…`, `/api/modeles…`, `/api/quiz-tout-pret…`, `/api/images`, `/api/programmes…` ; et `/media/image/:id`, public — l'UUID est la permission —, qui sert les photos **et** les extraits du blind test, rangés dans la même table
-- `client/src/views/EditorApp.tsx` · `components/MesQuiz.tsx` — « Mes quiz » (`/edit`) : des cartes, une fiche par quiz (`/edit?fiche=…` : « Lancer », « Modifier les questions », puis Dupliquer, Partager par un code, Exporter en fichier, Proposer au catalogue, Archiver, et « Supprimer ce quiz » seul en bas), deux feuilles (« Créer un quiz » et ses six choix, « Trier et filtrer ») ; l'éditeur (`/edit?quiz=…`), ses cartes, l'aperçu, « Régler tout le quiz », « Coller une liste » (`BulkImport`) et « Préparer la demande pour une IA ». ▶ et « Lancer » ouvrent un salon sur le quiz (`/salon?quiz=…`) : le programme de ce soir se choisit là, plus ici (`mes-quiz.test.ts`). Sans compte d'animateur, la page ouvre la console par le profil (`ouvrirParLeProfil`)
+- `client/src/views/EditorApp.tsx` · `components/MesQuiz.tsx` — « Mes quiz » (`/edit`) : « Créer un quiz » à côté du titre, ses quiz en lignes dans une seule carte — la pastille, le nom, ses faits en morceaux entiers (`faitsDuQuiz`), ▶ —, une fiche par quiz (`/edit?fiche=…` : « Lancer », « Modifier les questions », puis Dupliquer, Partager par un code, Exporter en fichier, Proposer au catalogue, Archiver, et « Supprimer ce quiz » seul en bas), deux feuilles (« Créer un quiz » et ses six choix, « Trier et filtrer »), et les premiers pas d'une bibliothèque sans quiz prêt (`PremiersPas`) — `server/scripts/rendu-mes-quiz.ts` les photographie et les mesure aux six tailles d'un téléphone ; l'éditeur (`/edit?quiz=…`), ses cartes, l'aperçu, « Régler tout le quiz », « Coller une liste » (`BulkImport`) et « Préparer la demande pour une IA ». ▶ et « Lancer » ouvrent un salon sur le quiz (`/salon?quiz=…`) : le programme de ce soir se choisit là, plus ici (`mes-quiz.test.ts`). Sans compte d'animateur, la page ouvre la console par le profil (`ouvrirParLeProfil`)
 - `shared/echange.ts` — un quiz qu'on emporte : le fichier d'export (questions, et toutes leurs pièces en clair — photos, extraits), celui de toute la bibliothèque (`fiestapp-bibliotheque`), sa lecture, et l'import, qui repasse par l'envoi d'image et la création de quiz — le navigateur et les tests par le même chemin
 - `shared/liste.ts` — « Coller une liste » vue d'ailleurs : le format complet qu'on copie pour un ami ou une IA, écrit à partir des bornes et des catégories, et la demande toute faite pour une IA (`demandePourIA`) ; les photos jointes qui rejoignent leur question par leur nom de fichier (`photoAttendue` en attendant) ; et l'inverse, `ecrireListe` (« Copier en liste »), que `liste.test.ts` recolle
 - `shared/brouillon.ts` · `client/src/brouillon.ts` — le brouillon d'un quiz : ce que l'éditeur garde dans le navigateur tant que le serveur n'a pas enregistré, relu comme le serveur relit (`normalizeQuestions`)
@@ -75,6 +75,72 @@ paths:
   `quizzes.questions` avance `updated_at`**, comme `create` et `save` : sans,
   et à longueur égale, la liste garderait le résumé d'avant
   (`bibliotheque.test.ts`).
+- **« Mes quiz » se lit en lignes, et sa fiche tient sur un écran** (le
+  10 novembre 2026 — le propriétaire : « revoir l'onglet quiz […] modifier la
+  disposition et l'aspect si tu trouves cela nécessaire » ; ici, donc, la
+  disposition a changé, pas seulement les mesures). En 360 × 640, la liste
+  ne montrait que trois quiz entiers sur dix (six en 390 × 844) : des cartes
+  de 68 à 128 px — un nom sur trois lignes, les faits sur deux, « à
+  compléter » sur la sienne —, la première à 247 px du haut, sous un gros
+  bouton « Créer un quiz » ; la fiche d'un quiz défilait de 448 px (226 en
+  390 × 844) pour sept gestes, la feuille « Créer un quiz » de 144,
+  « Trier et filtrer » de 76. Depuis :
+  **la liste** est une seule carte, une ligne par quiz (56, 60 ou 64 px
+  selon la hauteur de l'écran), son nom sur une ligne, coupé au bout — sa
+  fiche le dit entier —, puis ses faits en morceaux (`faitsDuQuiz`,
+  `.quiz-carte-faits`) : chacun entier ou pas du tout, jamais un « ≈ 2 mi… »,
+  et dans l'ordre de ce qui presse — ce que la recherche a trouvé, les
+  modifications qui attendent dans ce navigateur, « à compléter », puis les
+  questions, la durée, « joué 2 fois » ; « 10 à compléter » dit déjà
+  qu'aucune n'est prête, et « 0 question » ne le suit plus. Huit quiz
+  entiers en 360 × 640, neuf en 390 × 844, dix en 412 × 915.
+  **« Créer un quiz »** est à côté du titre, une pastille d'or de 44 px : la
+  niche du compagnon ne se pose pas sur cette page (`LISENT_LE_PROFIL`,
+  `main.tsx`), le coin est libre — le jour où elle y vient, il ne l'est
+  plus. Ce que la tête dit de plus se tait à l'œil quand la hauteur
+  manque : combien de quiz sous 820 px, « Animer » sous 720.
+  **La fiche**, étroite (700 px au plus) ou courte (moins de 820 px de
+  haut), pose son emblème à côté de son nom, « Lancer » et « Modifier »
+  côte à côte — « les questions » ne se cache qu'à l'œil (`.fiche-suite`),
+  et un quiz qui ne se lance pas garde son seul geste entier —, ses gestes
+  rares sur 48 px, leur phrase sur une ligne ; sous 720 px, sur 44, leur nom
+  seul, la phrase à l'oreille : elle ne défile plus, des six tailles d'un
+  téléphone à un portable en 1366 × 768. Une tablette garde la fiche
+  centrée d'avant.
+  **Les deux feuilles** se resserrent sous leur classe (`.feuille-creer`,
+  `.feuille-trier`, que `Feuille` pose) : leurs choix tiennent sans défiler.
+  **Ce bloc vit après les règles de base d'une feuille** : `feuilles.test.ts`
+  lit la première règle `.carte-corps {` de `styles.css`, et un
+  `.feuille-creer .carte-corps {` posé plus haut répondait à sa place —
+  l'épreuve rougissait pour une feuille qui n'avait pas changé.
+  **Les premiers pas** montent les trois autres départs (« Coller une
+  liste », « Importer le quiz d'un ami », « Créer mon quiz ») sous le quiz
+  tout prêt, au-dessus des modèles : les quatre finissent à 494 px pour 575
+  visibles en 360 × 640, le catalogue des modèles se lit dessous — il
+  défile par nature. « Créer mon quiz » n'y est plus d'or : celui de la tête
+  et celui du quiz tout prêt suffisent. Rouverts depuis « Créer un quiz »
+  (« Partir d'un modèle »), les modèles se referment d'en haut, « Fermer » à
+  côté de leur titre (`.premiers-pas-tete`, `aria-label="Fermer les
+  modèles"`) : leur seul bouton attendait au bout du catalogue, à 2 100 px
+  sur un téléphone ; il y est resté aussi, pour qui a tout lu.
+  Les mesures sont des variables posées sur `.mes-quiz` (`--quiz-*`), à deux
+  pas de hauteur (819 et 719 px) et pour toute largeur : un portable de
+  768 px de haut a la fiche d'un téléphone moyen. Un quiz touché au doigt
+  n'allume plus le geste venu sous lui (`.fiche-geste:hover`, sous
+  `@media (hover: hover)` : « Dupliquer » paraissait choisi à l'ouverture de
+  la fiche). `mes-quiz.test.ts` garde les morceaux, la feuille et ses pas ;
+  `server/scripts/rendu-mes-quiz.ts` compte, taille par taille, les quiz
+  entiers de la liste (`QUIZ_ENTIERS`) et sort en erreur s'il y en a moins,
+  si la fiche ou une feuille défile, si une cible descend sous 44 px ou un
+  texte sous 11. Ce qui reste : « Fermer », en tête de toute feuille de
+  l'application, fait 40 px (`Feuille`, d'avant) ; la phrase d'un geste rare
+  se coupe au bout sur un téléphone étroit (« Pour un ami d'un autre
+  serveur : les questio… ») ; le nom d'un quiz long ne se lit entier que
+  dans sa fiche ; et le texte agrandi à 130 %, en 360 × 640, la liste montre
+  sept quiz, la fiche défile de 56 px et « Créer un quiz » de 160 dans sa
+  feuille — leurs lignes grandissent avec le texte, c'est voulu. Sur un
+  écran de 320 px au texte agrandi, « Créer un quiz » passe sous le titre
+  (`.bibliotheque-titre`, `flex-wrap`) plutôt que d'élargir la page.
 - **Un réglage de plus à la liste collée** se lit dans
   `parseImportedQuestions`, s'annonce dans `FORMAT_DE_LISTE` et paraît dans
   son exemple, que `liste.test.ts` relit : le format copié pour une IA ne
