@@ -12,7 +12,8 @@ import { readFileSync } from 'node:fs'
 import React from 'react'
 import { AUCUNE_GERBE, gerbe } from '../../shared/gerbes'
 import { HAUTS_FAITS_DE_CARRIERE, HAUTS_FAITS_REGAGNABLES, type HautFaitVu } from '../../shared/hautsfaits'
-import { legendaire } from '../../shared/legendaires'
+import { LEGENDAIRES, estScellable, legendaire } from '../../shared/legendaires'
+import { LIGUES, NOM_DE_LA_BORDURE } from '../../shared/duels'
 import { brancheDe, portrait } from '../../shared/branches'
 import { fond } from '../../shared/fonds'
 import { NOM_FINITION, meilleureFinition } from '../../shared/profil'
@@ -705,4 +706,276 @@ test('la loge vient avec les panneaux, à la demande : l’accueil anonyme ne la
   assert.doesNotMatch(tete, /shared\/loge'|from '\.\/(Loge|Apparence|Trophees|Boutique|PanneauxDuProfil)'/)
   assert.match(tete, /^import \{ PIECES_DE_LA_LOGE, type PieceDeLaLoge \} from '\.\.\/\.\.\/\.\.\/shared\/piecesDeLaLoge'$/m)
   assert.doesNotMatch(readFileSync(new URL('../../shared/piecesDeLaLoge.ts', import.meta.url), 'utf8'), /^import /m)
+})
+
+// « J'aimerais que l'on puisse avoir tout sur le même écran ou presque » (le
+// propriétaire, le 10 novembre 2026, pour « M'habiller »). La pièce
+// « Avatar » d'une habituée — sa finition, sa bordure, son sceau — ne
+// montrait pas un seul de ses avatars sans défiler, sur aucun téléphone : la
+// première rangée de sa grille finissait à 886 px, pour 850 visibles
+// au-dessus du menu en 412 × 915. Rien n'a changé de place, ni un nom, ni un
+// geste : la loge se resserre par ses mesures, et ce que la bordure et le
+// sceau disent sous leur rangée tient sur une ligne. Ce qui tient se mesure
+// au navigateur (`server/scripts/rendu-loge.ts`) ; ici, la structure et la
+// feuille.
+
+/** Les règles d'un morceau de feuille, commentaires ôtés : leurs sélecteurs, leur corps. */
+const reglesDe = (morceau: string) => [...morceau.matchAll(/([^{}@]+)\{([^{}]*)\}/g)].map(([, sel, corps]) => ({ selecteurs: sel.split(',').map(s => s.trim()), corps }))
+type Regles = ReturnType<typeof reglesDe>
+/** Le corps de la règle qui porte ce sélecteur, la première. */
+function corpsDe(regles: Regles, selecteur: string): string {
+  const r = regles.find(r => r.selecteurs.includes(selecteur))
+  assert.ok(r, `la règle ${selecteur} existe`)
+  return r.corps
+}
+
+test('la loge tient sur un écran, ou presque : rien n’y change de place, et ce qu’un réglage dit sous sa rangée se dit en deux temps', async () => {
+  const piece = { essai: {}, essayer: () => {}, busy: false }
+  // Rien n'a changé de place, rien ne s'est ajouté : sa carte, la rangée des pièces, qui le voit, puis — pour
+  // « Avatar » — la finition, la bordure, le sceau, l'Éclat en réserve, les gemmes, leur grille et ce qui reste à gagner.
+  const habituee = { ...LEA, bordures: [{ ligue: 'or' as const, crans: 7 }], bordureChoisie: 'auto' as const, scelles: ['lg:phenix'], eclatsEnReserve: 1 }
+  const loge = await rendu('components/PanneauxDuProfil', 'PanneauLoge', { profil: habituee, piece: 'avatar', onPiece: () => {}, busy: false, enregistrer: async () => true })
+  const ordre = [
+    '<div class="loge-collante">',
+    '<div class="loge-pieces">',
+    '<p class="muted loge-qui">',
+    '<div class="loge-panneau"',
+    '<span class="loge-sous-titre" id="loge-finitions-titre">Finition</span>',
+    '<span class="loge-sous-titre" id="loge-bordures-titre">Bordure</span>',
+    '<span class="loge-sous-titre" id="loge-sceau-titre">Sceau</span>',
+    '<div class="loge-reserve"',
+    '<div class="gemmes gemmes-loge"',
+    '<div class="loge-grille',
+    '<a class="loge-a-gagner"',
+  ]
+  const places = ordre.map(bloc => loge.indexOf(bloc))
+  assert.ok(places.every(p => p >= 0), `chaque bloc d’avant est là : ${ordre.filter((_, i) => places[i] < 0).join(', ')}`)
+  assert.deepEqual(places, [...places].sort((a, b) => a - b), 'dans l’ordre d’avant')
+  // La loge n'a que ses blocs d'avant, l'un derrière l'autre : la carte, la rangée, qui le voit, le panneau.
+  assert.match(loge, /<\/button><\/div><\/div><div class="loge-pieces"><div class="loge-groupes" aria-hidden="true">/)
+  assert.match(loge, /<\/button><\/div><\/div><p class="muted loge-qui">/)
+  assert.match(loge, /<\/p><div class="loge-panneau" role="tabpanel"/)
+
+  /** La phrase d'un réglage telle qu'elle s'écrit : ses morceaux, l'essentiel d'abord — et rien hors d'eux. */
+  const morceaux = (html: string): string[] => {
+    const phrase = /<p class="muted small loge-bordure-phrase loge-a-suite">(.*?)<\/p>/.exec(html)?.[1]
+    assert.ok(phrase, 'la phrase du réglage est là')
+    const lus = [...phrase.matchAll(/<span class="(loge-essentiel|loge-suite)">(.*?)<\/span>/g)]
+    assert.equal(lus.map(m => m[0]).join(''), phrase, 'la phrase n’est faite que de ses morceaux')
+    assert.deepEqual(lus.map(m => m[1]), ['loge-essentiel', ...lus.slice(1).map(() => 'loge-suite')])
+    return lus.map(m => m[2])
+  }
+  // Ce qu'un téléphone montre d'une phrase : son essentiel, qui tient sur une ligne de 320 px — quarante-six caractères au plus.
+  const ESSENTIEL_MAX = 46
+
+  // La bordure : son nom et ses crans, puis ce qui manque pour la sertir — la phrase d'avant, mot pour mot, coupée à sa jointure.
+  // Où gagner ses crans se dit comme partout (`ouSeGagnentSesCrans`, le 10 novembre 2026) : « ou plus haut », sauf tout en haut.
+  const bordure = async (bordures: { ligue: string; crans: number }[], essai: object = {}) =>
+    morceaux(await rendu('components/Apparence', 'MesBordures', { ...piece, essai, profil: { ...LEA, bordures, bordureChoisie: 'auto' } }))
+  assert.deepEqual(await bordure([{ ligue: 'or', crans: 7 }]), ['Les Fleurons · 7 crans sur 12', ' : encore 5 victoires en ligue d’or ou plus haut pour la sertir.'])
+  assert.equal((await bordure([{ ligue: 'or', crans: 7 }])).join(''), 'Les Fleurons · 7 crans sur 12 : encore 5 victoires en ligue d’or ou plus haut pour la sertir.')
+  assert.deepEqual(await bordure([{ ligue: 'bronze', crans: 1 }]), ['Le Moletage · 1 cran sur 12', ' : encore 11 victoires en ligue de bronze ou plus haut pour la sertir.'])
+  assert.deepEqual(await bordure([{ ligue: 'or', crans: 11 }]), ['Les Fleurons · 11 crans sur 12', ' : encore 1 victoire en ligue d’or ou plus haut pour la sertir.'])
+  assert.deepEqual(await bordure([{ ligue: 'maitre', crans: 1 }], { bordure: 'maitre' }), ['Le Soleil noir · 1 cran sur 12', ' : encore 11 victoires en ligue des maîtres pour la sertir.'])
+  assert.deepEqual(await bordure([{ ligue: 'or', crans: 12 }]), ['Les Fleurons · sertie', ', ses douze crans gagnés.'])
+  // Sa ligue atteinte sans un cran encore : choisie, elle dit ce qui lui manque ; « Auto », qu'il n'en porte aucune.
+  assert.deepEqual(await bordure([{ ligue: 'bronze', crans: 0 }], { bordure: 'bronze' }), ['Le Moletage · aucun cran encore', ' : encore 12 victoires en ligue de bronze ou plus haut pour la sertir.'])
+  assert.deepEqual(await bordure([{ ligue: 'bronze', crans: 0 }]), ['Auto : ta plus haute bordure', ', dès que tu y gagnes un duel.'])
+  assert.deepEqual(await bordure([{ ligue: 'or', crans: 7 }], { bordure: 'aucune' }), ['Sans bordure', ' : ton avatar et sa finition, rien autour.'])
+  // La plus longue qu'une ligue puisse écrire tient encore.
+  for (const l of LIGUES) {
+    for (const crans of [0, 1, 11, 12]) {
+      const [essentiel] = await bordure([{ ligue: l.cle, crans }], { bordure: l.cle })
+      assert.ok(essentiel.startsWith(NOM_DE_LA_BORDURE[l.cle]) && [...essentiel].length <= ESSENTIEL_MAX, `« ${essentiel} » tient sur une ligne`)
+    }
+  }
+  // Sans duel classé, rien à régler : l'explication reste entière, son lien au bout — un nouveau venu la lit sur ses lignes.
+  const sansDuel = await rendu('components/Apparence', 'MesBordures', { ...piece, profil: { ...LEA, bordures: undefined } })
+  assert.match(sansDuel, /<p class="muted small">Ton premier duel classé ouvre la bordure de ta ligue ; chaque duel gagné dans la ligue, ou plus haut, y sertit un cran\. <a href="\/duels">Jouer un duel<\/a><\/p>/)
+  assert.doesNotMatch(sansDuel, /loge-a-suite/)
+
+  // Le sceau : ce qu'il en est du légendaire montré, puis pourquoi.
+  const sceau = async (profil: object, essai: object = {}) => morceaux(await rendu('components/Apparence', 'MonSceau', { ...piece, essai, profil: { ...LEA, scelles: ['lg:phenix'], ...profil } }))
+  assert.deepEqual(await sceau({}), ['Le Phénix est scellé', ' : tu tiens l’exploit qui l’ouvre', ', pas seulement le Cabinet.'])
+  assert.equal((await sceau({})).join(''), 'Le Phénix est scellé : tu tiens l’exploit qui l’ouvre, pas seulement le Cabinet.')
+  const scellable = LEGENDAIRES.find(l => estScellable(l) && l.key !== 'lg:phenix')!
+  assert.deepEqual(await sceau({ legendaire: scellable.key }), [`${scellable.nom} n’a pas encore son sceau`, ' : il se gagne par son exploit', ', hors du Cabinet.'])
+  const sansSceau = LEGENDAIRES.find(l => !estScellable(l))!
+  assert.deepEqual(await sceau({ legendaire: sansSceau.key }), [`${sansSceau.nom} n’a pas de sceau`, ' : il ne se gagne que d’une façon.'])
+  assert.deepEqual(await sceau({}, { sceau: false }), ['Masqué : ton sceau reste à toi', ', mais la salle ne le voit plus.'])
+  // Sous un emoji, ses scellés se comptent — un seul se dit au singulier : « Tes légendaire scellé porte », écrivait la phrase d'avant.
+  assert.deepEqual(await sceau({ legendaire: null }), ['Ton légendaire scellé', ' porte l’étoile du zénith', ', que toute la salle voit.'])
+  assert.deepEqual(await sceau({ legendaire: null, scelles: ['lg:phenix', 'lg:chouette'] }), ['Tes 2 légendaires scellés', ' portent l’étoile du zénith', ', que toute la salle voit.'])
+  // Le plus long des légendaires tient encore, scellé, à sceller ou sans sceau.
+  for (const l of LEGENDAIRES) {
+    const [essentiel] = await sceau({ legendaire: l.key, scelles: ['lg:phenix'] })
+    assert.ok(essentiel.startsWith(l.nom) && [...essentiel].length <= ESSENTIEL_MAX, `« ${essentiel} » tient sur une ligne`)
+  }
+  // Sans légendaire scellé, pas de sceau à régler : rien ne s'ajoute à qui débute.
+  assert.equal(await rendu('components/Apparence', 'MonSceau', { ...piece, profil: LEA }), '')
+})
+
+test('la loge se resserre par ses mesures : des variables posées sur sa page, à deux pas de hauteur — un grand écran garde celles d’avant, et ce qu’un écran court tait reste lu', () => {
+  const brut = source('styles.css')
+  const sansCommentaires = (morceau: string) => morceau.replace(/\/\*[\s\S]*?\*\//g, '')
+  // Ses pas vivent dans sa section, avant la campagne — pas en fin de feuille, où d'autres écrans écrivent les leurs.
+  const debut = brut.indexOf('/* ── La loge : « M\'habiller »')
+  const lesPas = brut.indexOf('/* ── La loge, à la hauteur d\'un téléphone')
+  const fin = brut.indexOf('/* ── La campagne solo')
+  assert.ok(debut > 0 && debut < lesPas && lesPas < fin, 'les pas de la loge vivent dans sa section')
+  const avant = reglesDe(sansCommentaires(brut.slice(debut, lesPas)))
+
+  // Ses mesures, des variables posées sur sa page — à leur valeur d'avant : un grand écran garde l'allure d'avant.
+  const variables = (corps: string): Record<string, string> => Object.fromEntries([...corps.matchAll(/(--loge-[\w-]+):\s*([^;]+);/g)].map(m => [m[1], m[2].trim()]))
+  const grand = variables(corpsDe(avant, '.loge-page'))
+  // Typées en dictionnaire : `assert.deepEqual` donnerait sinon à `grand` le type de ce littéral, que plus rien ne lirait par une clé.
+  const D_AVANT: Record<string, string> = {
+    '--loge-ecart': '12px',
+    '--loge-bloc': '14px',
+    '--loge-serre': '6px',
+    '--loge-fin': '4px',
+    '--loge-avatar': '2.7rem',
+    '--loge-carte-rang': '76px',
+    '--loge-carte-ecart': '8px',
+    '--loge-carte-pied': '12px',
+    '--loge-rond': '44px',
+    '--loge-pastille': '30px',
+    '--loge-case': '72px',
+    '--loge-gemme': '8px',
+  }
+  assert.deepEqual(grand, D_AVANT)
+  assert.match(corpsDe(avant, '.loge-page'), /gap: 14px;/, 'la tête de la page garde son écart : avec un compagnon, la carte commence sous sa niche')
+  // Chaque mesure est lue par sa règle : la retoucher d'un pas la change partout.
+  for (const [selecteur, lu] of [
+    ['.loge', 'gap: var(--loge-ecart);'],
+    ['.loge-avatars', 'gap: var(--loge-ecart);'],
+    ['.loge-panneau', 'gap: var(--loge-bloc);'],
+    ['.loge-pieces', 'gap: var(--loge-serre);'],
+    ['.loge-finitions', 'gap: var(--loge-serre);'],
+    ['.loge-bordures', 'gap: var(--loge-serre);'],
+    ['.loge-piece', 'gap: var(--loge-fin);'],
+    ['.finition-choix', 'gap: var(--loge-fin);'],
+    ['.loge-carte', 'gap: var(--loge-carte-ecart);'],
+    ['.loge-carte', 'padding: 10px 14px var(--loge-carte-pied);'],
+    ['.loge-carte-haut', 'min-height: var(--loge-carte-rang);'],
+    ['.loge-carte .player-avatar.big', 'font-size: var(--loge-avatar);'],
+    ['.loge-rond', 'width: var(--loge-rond); height: var(--loge-rond);'],
+    ['.finition-teinte', 'width: var(--loge-pastille); height: var(--loge-pastille);'],
+    ['.bordure-apercu', 'width: var(--loge-pastille); height: var(--loge-pastille);'],
+    ['.loge-case', 'height: var(--loge-case);'],
+    ['.loge-grille-emojis .loge-case', 'height: calc(var(--loge-case) - 14px);'],
+    ['.gemmes-loge .gemme', 'padding: var(--loge-gemme) 4px calc(var(--loge-gemme) - 2px);'],
+  ]) {
+    assert.ok(corpsDe(avant, selecteur).includes(lu), `${selecteur} lit sa mesure (${lu})`)
+  }
+
+  // Deux pas de hauteur d'écran, et rien qu'eux : tous les téléphones, puis le petit téléphone et un iPhone dans son navigateur.
+  const blocs: { condition: string; regles: Regles }[] = []
+  const morceau = sansCommentaires(brut.slice(lesPas, fin))
+  for (let i = morceau.indexOf('@media'); i >= 0; i = morceau.indexOf('@media', i)) {
+    const ouvre = morceau.indexOf('{', i)
+    let j = ouvre + 1
+    for (let niveau = 1; niveau > 0; j++) niveau += morceau[j] === '{' ? 1 : morceau[j] === '}' ? -1 : 0
+    blocs.push({ condition: morceau.slice(i + '@media'.length, ouvre).trim(), regles: reglesDe(morceau.slice(ouvre + 1, j - 1)) })
+    i = j
+  }
+  assert.deepEqual(blocs.map(b => b.condition), ['(max-height: 939px)', '(max-height: 759px)'])
+  assert.equal(reglesDe(morceau.replace(/@media[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '')).length, 0, 'hors de ses deux pas, cette partie de la feuille ne règle rien')
+  const [telephone, petit] = blocs
+  const toutes = blocs.flatMap(b => b.regles)
+
+  // Chaque pas ne fait que resserrer des mesures connues — et sur la page, il ne pose qu'elles.
+  const px = (valeur: string) => parseFloat(valeur) * (valeur.endsWith('rem') ? 16 : 1)
+  const auTelephone = { ...grand, ...variables(corpsDe(telephone.regles, '.loge-page')) }
+  const auPetit = { ...auTelephone, ...variables(corpsDe(petit.regles, '.loge-page')) }
+  assert.deepEqual(Object.keys(auPetit).sort(), Object.keys(grand).sort(), 'un pas ne pose aucune mesure de plus')
+  for (const cle of Object.keys(grand)) {
+    assert.ok(px(auTelephone[cle]) <= px(grand[cle]) && px(auPetit[cle]) <= px(auTelephone[cle]), `${cle} ne fait que se resserrer : ${grand[cle]}, ${auTelephone[cle]}, ${auPetit[cle]}`)
+  }
+  for (const b of blocs) assert.equal(corpsDe(b.regles, '.loge-page').replace(/--loge-[\w-]+:[^;]+;/g, '').trim(), '', 'sur sa page, un pas ne pose que des mesures')
+  assert.ok(Object.keys(grand).some(cle => auTelephone[cle] !== grand[cle]) && Object.keys(grand).some(cle => auPetit[cle] !== auTelephone[cle]), 'chaque pas resserre quelque chose')
+  // Les mesures de chaque pas, telles que le navigateur les a mesurées (`rendu-loge.ts`, que la CI ne lance pas) : sur le
+  // petit téléphone, tout ce qui précède la grille d'une habituée tient à deux pixels du menu. Une mesure retouchée se
+  // remesure là-bas, aux six tailles, avant de changer ici.
+  assert.deepEqual(variables(corpsDe(telephone.regles, '.loge-page')), {
+    '--loge-ecart': '6px',
+    '--loge-bloc': '8px',
+    '--loge-serre': '2px',
+    '--loge-fin': '2px',
+    '--loge-avatar': '2.4rem',
+    '--loge-carte-rang': '72px',
+    '--loge-carte-ecart': '6px',
+    '--loge-carte-pied': '8px',
+    '--loge-rond': '38px',
+    '--loge-case': '64px',
+    '--loge-gemme': '3px',
+  })
+  assert.deepEqual(variables(corpsDe(petit.regles, '.loge-page')), {
+    '--loge-ecart': '4px',
+    '--loge-bloc': '6px',
+    '--loge-avatar': '2.15rem',
+    '--loge-carte-rang': '64px',
+    '--loge-rond': '36px',
+    '--loge-pastille': '28px',
+  })
+
+  // Une cible de doigt ne descend pas sous 44 px, à aucun pas.
+  for (const mesures of [auTelephone, auPetit]) {
+    // Le bouton d'une pièce : deux pixels, son rond, son nom dessous — 0,78 rem, à 1,2 de hauteur de ligne.
+    assert.ok(2 + px(mesures['--loge-rond']) + px(mesures['--loge-fin']) + 0.78 * 16 * 1.2 >= 44, 'une pièce')
+    // Une pastille : ses quatre pixels du haut, son disque, son nom — une étiquette de 11 px, à 1,2.
+    assert.ok(4 + px(mesures['--loge-pastille']) + px(mesures['--loge-fin']) + 11 * 1.2 >= 44, 'une pastille')
+    // Une gemme : sa marge, sa pierre de 18 px, son nom et son compte.
+    assert.ok(px(mesures['--loge-gemme']) + 18 + 2 * (px(mesures['--loge-fin']) + 1 + 11 * 1.2) >= 44, 'une gemme')
+    // La case d'un emoji, la plus basse : quatorze pixels de moins que celle d'un médaillon.
+    assert.ok(px(mesures['--loge-case']) - 14 >= 44, 'la case d’un emoji')
+  }
+  // Aucun texte ne descend sous l'étiquette.
+  for (const r of toutes) {
+    for (const [, taille] of r.corps.matchAll(/font-size:\s*([^;]+);/g)) {
+      assert.ok(taille.includes('--t-label') || (taille.endsWith('rem') && parseFloat(taille) >= 0.6875), `${r.selecteurs.join(', ')} : ${taille}`)
+    }
+  }
+
+  // Ce qu'un écran court tait se cache à l'œil seulement — jamais par `display: none` : le lecteur d'écran le lit encore.
+  for (const r of toutes) assert.doesNotMatch(r.corps, /display:\s*none|visibility:\s*hidden/, r.selecteurs.join(', '))
+  // Le petit téléphone tait le niveau suivant et les confettis de la carte, que l'accueil et « Mon profil » disent en
+  // tête : les déclarations de `.sr-only`, mot pour mot — et rien d'autre ne se cache ainsi.
+  const declarations = (corps: string) => corps.split(';').map(d => d.trim()).filter(Boolean).sort()
+  assert.deepEqual(declarations(corpsDe(petit.regles, '.loge-carte > .xp-mince')), declarations(corpsDe(reglesDe(sansCommentaires(brut)), '.sr-only')))
+  assert.deepEqual(toutes.filter(r => /clip-path|width: 1px/.test(r.corps)).map(r => r.selecteurs.join(', ')), ['.loge-carte > .xp-mince'])
+  assert.equal(telephone.regles.some(r => r.selecteurs.some(s => s.includes('xp-mince'))), false, 'un téléphone d’aujourd’hui garde la jauge de sa carte')
+
+  // La phrase d'un réglage, sur une ligne : l'essentiel, puis ceux de ses morceaux qui tiennent entiers — une rangée qui
+  // passe à la ligne, haute d'une ligne. Hors de ce pas, rien ne la règle : un grand écran la lit entière, sur ses lignes.
+  assert.match(corpsDe(telephone.regles, '.loge-a-suite'), /display: flex; flex-wrap: wrap; align-content: flex-start; height: 1\.3em; line-height: 1\.3; overflow: clip;/)
+  assert.match(corpsDe(telephone.regles, '.loge-essentiel'), /min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;/)
+  assert.match(corpsDe(telephone.regles, '.loge-suite'), /flex: none; white-space: pre;/)
+  const laPhrase = /\.loge-(a-suite|essentiel|suite)\b/
+  assert.equal(avant.some(r => r.selecteurs.some(s => laPhrase.test(s))), false)
+  assert.equal(petit.regles.some(r => r.selecteurs.some(s => laPhrase.test(s))), false)
+
+  // Sans compagnon seulement, le haut de la page remonte : avec lui, sa carte passerait sous sa niche — ni la tête de la
+  // page ni la bande collée ne bougent d'un pas à l'autre.
+  for (const b of blocs) {
+    const haut = b.regles.filter(r => /padding-top/.test(r.corps))
+    assert.deepEqual(haut.map(r => r.selecteurs.join(', ')), ['body:not(.avec-niche) .loge-page'], b.condition)
+    assert.match(haut[0].corps, /^\s*padding-top: max\(\d+px, env\(safe-area-inset-top\)\); gap: \d+px;\s*$/)
+  }
+  assert.equal(toutes.some(r => r.selecteurs.some(s => /\.loge-(tete|collante)\b/.test(s))), false)
+
+  // Sur le petit téléphone, les cases de sa vitrine rapetissent, et sa place avec elles : rien ne saute quand elle arrive.
+  assert.match(corpsDe(petit.regles, '.loge-carte-vitrine'), /^\s*min-height: 24px;\s*$/)
+  assert.match(corpsDe(petit.regles, '.loge-vitrine-case'), /width: 24px; height: 24px;/)
+  // Et le haut de la carte ne se resserre à aucun pas : le lambrequin du théâtre y tient ses dix pixels.
+  assert.equal(toutes.some(r => r.selecteurs.includes('.loge-carte')), false)
+
+  // La barre de l'essai ne cache rien de plus que le menu qu'elle couvre : sa hauteur se compte comme la sienne — ses
+  // rangées de 58 px, son filet d'un pixel, et son pied, six pixels ou la barre d'accueil d'un iPhone. À 65 px plus la
+  // barre d'accueil, elle montait six pixels plus haut que lui.
+  const feuille = reglesDe(sansCommentaires(brut))
+  assert.match(corpsDe(feuille, '.menu-barre'), /padding: 0 6px max\(6px, env\(safe-area-inset-bottom\)\);[\s\S]*border-top: 1px solid/)
+  assert.match(corpsDe(feuille, '.menu-barre a'), /min-height: 58px;/)
+  assert.match(corpsDe(feuille, '.loge-barre'), /min-height: calc\(59px \+ max\(6px, env\(safe-area-inset-bottom\)\)\);/)
+  assert.match(corpsDe(feuille, '.loge-barre'), /box-sizing: border-box;/)
 })

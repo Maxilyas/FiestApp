@@ -239,7 +239,13 @@ function SaPlaceDans({ moi, vue, c, cachee }: { moi?: FicheDeCollectionneur; vue
       {place && devant && (
         <span className="cl-sa-place-suivant">
           <Icon name="arrow-up" />
-          {`Encore ${formatNumber(devant.manque)} ${CATEGORIE[c].unite[devant.manque >= 2 ? 1 : 0]} pour passer ${devant.fiche.nom}`}
+          {/* En deux morceaux, ce qui manque puis qui l'on passerait : sur un petit téléphone, sa rangée n'a qu'une ligne, et le
+              second n'y paraît qu'entier (`.cl-sa-place-manque`) — sur deux lignes dans une seule vue, il grandissait le bloc dans
+              toutes. Le lecteur d'écran lit toujours la phrase entière. */}
+          <span className="cl-sa-place-manque">
+            <span className="cl-sa-place-combien">{`Encore ${formatNumber(devant.manque)} ${CATEGORIE[c].unite[devant.manque >= 2 ? 1 : 0]}`}</span>
+            <span className="cl-sa-place-qui">{` pour passer ${devant.fiche.nom}`}</span>
+          </span>
         </span>
       )}
     </span>

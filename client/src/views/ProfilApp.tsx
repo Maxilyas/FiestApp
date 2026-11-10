@@ -764,7 +764,9 @@ export function ProfilApp() {
       )
     }
     return (
-      <div className="player-shell" onClick={suivreUnLien}>
+      // Chez lui, sa page a ses mesures (`.chez-page`, `styles.css`) — posées dès qu'on y est, avant même que son code
+      // n'arrive, et sans compagnon aussi : sa tête, resserrée sur un téléphone, ne bouge pas quand il arrive.
+      <div className={ecran === 'compagnon' ? 'player-shell chez-page' : 'player-shell'} onClick={suivreUnLien}>
         {sortie}
         {/* Chez lui, la tête est à lui : « Comment ça marche » s'y range, à côté du titre. */}
         {(ecran !== 'compagnon' || !codeDeChezLui) && <PieceTete piece={e.groupe} titre={e.nom} />}

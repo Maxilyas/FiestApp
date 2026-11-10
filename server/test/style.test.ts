@@ -286,10 +286,15 @@ test('dans la loge, les finitions et les bordures qu’il n’a pas se comptent 
   assert.match(bordures, /<div class="loge-finitions-rangee rangee-courte loge-bordures-rangee" role="group"/)
   // Sous la rangée, ce que dit celle qu'il porte : ses crans, et où gagner ceux qui manquent — dans sa ligue ou plus
   // haut (le 10 novembre 2026 : « en ligue d'argent » seule, il n'y serait jamais arrivé, l'argent quitté pour toujours).
-  assert.match(bordures, /<p class="muted small loge-bordure-phrase">Le Perlé · 3 crans sur 12 : encore 9 victoires en ligue d’argent ou plus haut pour la sertir\.<\/p>/)
+  // La phrase se dit en deux temps depuis le même jour (`PhraseDuReglage`, `loge.test.ts`) : l'essentiel, puis sa suite —
+  // mis bout à bout, les mêmes mots ; un téléphone ne montre que les morceaux qui tiennent entiers sur une ligne.
+  assert.match(
+    bordures,
+    /<p class="muted small loge-bordure-phrase loge-a-suite"><span class="loge-essentiel">Le Perlé · 3 crans sur 12<\/span><span class="loge-suite"> : encore 9 victoires en ligue d’argent ou plus haut pour la sertir\.<\/span><\/p>/,
+  )
   // Tout en haut, rien au-dessus : « en ligue des maîtres ».
   const maitre = await rendu('components/Apparence', 'MesBordures', { profil: { ...MAYA, bordures: LIGUES.map(l => ({ ligue: l.cle, crans: 1 })) }, ...loge })
-  assert.match(maitre, /Le Soleil noir · 1 cran sur 12 : encore 11 victoires en ligue des maîtres pour la sertir\./)
+  assert.match(maitre, /<span class="loge-essentiel">Le Soleil noir · 1 cran sur 12<\/span><span class="loge-suite"> : encore 11 victoires en ligue des maîtres pour la sertir\.<\/span>/)
   // Ses six ligues : rien à compter.
   const toutes = await rendu('components/Apparence', 'MesBordures', { profil: { ...MAYA, bordures: LIGUES.map(l => ({ ligue: l.cle, crans: 1 })) }, ...loge })
   assert.doesNotMatch(toutes, /pastille-a-gagner/)

@@ -57,6 +57,9 @@ node retours/2026-11-10/ecrans/reproductions/pouces.cjs export/releve/sonde   # 
 | La fin d'une série, d'une révision, d'un défi | « Rejouer », « Réviser encore », « Le classement du défi » : de 41 à 1356 px de page en trop selon les gains | sous le pouce |
 | La fin d'une épreuve de sentier, d'une étape de parcours | « Jouer le palier 10 », « Le porter », « Jouer l'étape 2 » : 196 à 527 px de page en trop | sous le pouce |
 | La campagne, l'onglet « Série » (le départ d'une série) | la ligne « Sur Toutes les catégories · Changer » sous l'écran : de 22 px pour qui n'a jamais joué, de 77 après ses bonnes réponses du jour, de 139 une série à reprendre — où « Une nouvelle série » y passait aussi, de 29 px (43 avec la niche du compagnon) | rien n'y change de place — les règles restent dans le panneau : sorties le matin dans une carte sous les gestes, le propriétaire les a voulues comme avant, « sobre », sans « un bloc en plus » — ; la page se resserre sur un téléphone et la ligne du choix ne grandit plus avec son texte : tout tient pour un nouveau venu et une habituée, « Mes records par catégorie » compris, de 360 × 640 à 412 × 915 ; une série à reprendre, le gros bouton et la ligne du choix partout, les records dès 740 px de haut (`rendu-serie.ts`) ; et l'attente a la forme de la page : plus rien n'y descend de 64 px à son arrivée |
+| Le classement des collections | son podium finissait sous le menu partout, sauf sur le plus grand téléphone : de 289 px en 360 × 640, de 230 en 390 × 664, de 189 en 360 × 740, de 82 en 412 × 800, de 50 en 390 × 844 | rien n'y change de place : sa place, les Divins, les puces et le podium au-dessus du menu aux six tailles — 21 px de libre en 360 × 640, 86 en 390 × 844 (35 sous l'encoche) ; les sept puces sur deux rangées au lieu de trois, le titre sur une ligne ; sa liste, elle, défile par nature (`rendu-collectionneurs.ts`, les états `25-…`) |
+| « M'habiller » (la loge), la pièce « Avatar » | une habituée ne voyait pas un seul de ses avatars sans défiler, sur aucun téléphone : ses gemmes finissaient à 802 px et la première rangée de sa grille à 886, pour 575 visibles en 360 × 640 (779 en 390 × 844, 850 en 412 × 915) | rien n'y change de place : sa finition, sa bordure, son sceau et ses gemmes tiennent partout (à 2 px du menu en 360 × 640, 227 dessous avant), puis une rangée de ses avatars en 360 × 740 et en 412 × 800, deux en 390 × 844, trois en 412 × 915 ; ce que la bordure et le sceau disent tient sur une ligne, en morceaux entiers (`rendu-loge.ts`) |
+| « Mon compagnon » | 951 px de page en 360 × 640 pour 575 visibles : 407 px à faire défiler — ses envies coupées de 4 px, son chemin et « Tes compagnons » dessous ; 973 pour 850 en 412 × 915 | rien n'y change de place : tout tient et la page ne défile plus dès 360 × 740 (8 px de libre, 51 en 390 × 844, 16 sous l'encoche, 44 en 412 × 915) ; en 360 × 640 et en 390 × 664, sa scène, ses envies et son chemin tiennent, « Tes compagnons » se lit dessous (99 et 90 px à faire défiler). Sa scène ne rapetisse pas : son cadre se rogne par le bas (`rendu-compagnon.ts`, la passe `tailles`) |
 
 Le geste « sous le pouce » : la règle `.claude/rules/css.md` le raconte,
 `server/test/sous-le-pouce.test.ts` le garde. Mesuré après : sur les
@@ -68,11 +71,12 @@ changé au pixel.
 
 - **Les listes et les albums** : la boutique (2 900 px), les albums de « Ma
   collection », une ligne dépliée (900 à 3 900 ; son carrefour, replié, tient
-  depuis), les collectionneurs (470 à 1 260), l'historique et
+  depuis), la liste des collectionneurs (470 à 1 260 — ce qui la précède,
+  podium compris, tient depuis), l'historique et
   le classement des duels, le carnet et les parcours de thème, la carte des
   douze sentiers (530 à 800 — son bloc du haut tient l'écran, son geste
-  compris) et un sentier (1 090), « Mes quiz » et l'éditeur, la loge (ses
-  grilles).
+  compris) et un sentier (1 090), « Mes quiz » et l'éditeur, les grilles de
+  la loge (ce qui les précède tient depuis).
 - **Les récapitulatifs** : la fin du quiz du jour (1 100 à 1 700 : sa note, ses
   gains, le classement, la plume), le défi relevé, les corrections (« Mes
   réponses », 2 200 à 3 000), le souvenir d'une soirée.
@@ -80,8 +84,6 @@ changé au pixel.
   question aux textes les plus longs (les « pires cas » de `rendu-ecran.ts`) ;
   un invité y suit l'écran commun, et rien ne s'y décide en bas de page.
 - **Le QG** : des tableaux de bord.
-- **« Mon compagnon »** (310 à 370) : sa scène et son geste tiennent l'écran ;
-  son chemin et « Tes compagnons » se lisent dessous.
 - **L'Expédition** : son départ est fermé (le Cabinet l'a remplacée) ; ses
   écrans ne sont plus servis à personne de neuf.
 - **Le Cabinet de curiosités** : tout tient déjà (0 px partout, son pied de
@@ -99,6 +101,18 @@ changé au pixel.
   la marge du bas (28 px) dépasse défile d'autant — la révélation d'une
   soirée (25 à 47 px), « Pas cette fois » (20), une manche du Cabinet (19 à
   61). Rien n'y est caché ; le corriger demande une marge qui se resserre.
+- **Le « presque » des trois écrans du profil**, sur les plus petits
+  téléphones : au classement des collections, sous un thème à police large,
+  le podium passe encore sous le menu en 360 × 640 (de 11 px sous le Carnet à
+  55 sous la Game Boy) ; dans la loge, la grille d'une habituée reste sous le
+  menu en 360 × 640 et en 390 × 664, et sa pièce la plus longue — douze
+  finitions, un Éclat en réserve, sept pages d'avatars — ne tient sur aucun
+  téléphone (3 px sous le menu en 412 × 915, 209 avant) ; chez le compagnon,
+  « Tes compagnons » reste dessous en 360 × 640 et en 390 × 664, et un
+  vétéran au bout de son chemin, ses trois envies à combler, a une ligne de
+  plus (« Amis pour la vie », sur deux) : en 360 × 740, le cadre de « Tes
+  compagnons » passe de 5 px sous le menu, sans une ligne de texte (l'état
+  `veteran` de `rendu-compagnon.ts`).
 - **Le texte agrandi à 130 %**, en 360 × 640 : l'accueil défile encore de
   125 px, le carrefour du profil de 42. Leurs lignes grandissent avec le
   texte, c'est voulu ; elles ne tiennent plus toutes. Au départ d'une série,

@@ -9041,12 +9041,46 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
    « ← Mon profil » et son titre ; sa carte collée en tête montre l'essai ;
    les six pièces sur une rangée — ce que la salle voit, puis ce que lui
    seul voit — ; le panneau de la pièce touchée ; et la barre de l'essai,
-   qui couvre le menu le temps de choisir : « Annuler », « Porter ». */
-.loge-page { gap: 14px; }
+   qui couvre le menu le temps de choisir : « Annuler », « Porter ».
+
+   Tout sur le même écran, ou presque (le propriétaire, le 10 novembre 2026 :
+   « j'aimerais que l'on puisse avoir tout sur le même écran ou presque »).
+   Rien n'y change de place, ni un nom, ni un geste : ses mesures sont des
+   variables posées sur sa page, à deux pas de hauteur d'écran — tous les
+   téléphones (sous 940 px), puis le petit téléphone et un iPhone dans son
+   navigateur (sous 760) —, et un grand écran garde les mesures d'avant.
+   Ce jour-là, la pièce « Avatar » d'une habituée — sa finition, sa bordure,
+   son sceau — ne montrait pas un seul de ses avatars sans défiler, sur aucun
+   téléphone : la première rangée de sa grille finissait à 886 px, pour 850
+   visibles au-dessus du menu en 412 × 915, et 575 en 360 × 640. Ce qui tient
+   se mesure au navigateur : `server/scripts/rendu-loge.ts`. */
+.loge-page {
+  /* Entre les blocs de la loge — sa carte, la rangée des pièces, « qui le voit », le panneau — et, dans la pièce
+     « Avatar », entre les gemmes et leur grille. */
+  --loge-ecart: 12px;
+  /* Entre les blocs du panneau de la pièce ouverte : la finition, la bordure, le sceau, les avatars. */
+  --loge-bloc: 14px;
+  /* Dans un bloc, entre son petit titre, sa rangée et sa phrase. */
+  --loge-serre: 6px;
+  /* Entre un rond ou une pastille et son nom. */
+  --loge-fin: 4px;
+  /* La carte : son avatar, la hauteur de sa première ligne, l'écart avant sa jauge, son pied. */
+  --loge-avatar: 2.7rem;
+  --loge-carte-rang: 76px;
+  --loge-carte-ecart: 8px;
+  --loge-carte-pied: 12px;
+  /* Le rond d'une pièce — sa cible reste le bouton entier, son nom compris —, la pastille d'une finition ou d'une
+     bordure, la case d'un avatar, la marge du haut d'une gemme. */
+  --loge-rond: 44px;
+  --loge-pastille: 30px;
+  --loge-case: 72px;
+  --loge-gemme: 8px;
+  gap: 14px;
+}
 .loge-tete { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
 .loge-tete .jour-sortie { margin: 0; }
 .loge-tete h1 { margin: 0; font-size: 1.6rem; line-height: 1.1; }
-.loge { display: flex; flex-direction: column; gap: 12px; }
+.loge { display: flex; flex-direction: column; gap: var(--loge-ecart); }
 /* Collée, la carte touche le haut de l'écran ; sa marge ne vaut qu'au repos.
    La bande ne peint rien : son fond uni posait un rectangle à angles droits
    sous les coins arrondis de la carte, plus sombre que le halo de la page et
@@ -9058,8 +9092,9 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px 14px 12px;
+  gap: var(--loge-carte-ecart);
+  /* Le haut ne se resserre pas : le lambrequin du théâtre y tient ses dix pixels (plus bas). */
+  padding: 10px 14px var(--loge-carte-pied);
   border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
   border-radius: var(--radius);
   /* Le sol à part du reste : sans `color-mix` (un vieux téléphone), l'image
@@ -9075,12 +9110,12 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
   isolation: isolate;
 }
 /* Son avatar et ce qui s'écrit à côté ; « Aperçu » ou la finition au coin, « Version rare » dessous. */
-.loge-carte-haut { position: relative; display: flex; align-items: center; gap: 14px; min-height: 76px; }
-.loge-carte .player-avatar.big { flex: none; font-size: 2.7rem; }
+.loge-carte-haut { position: relative; display: flex; align-items: center; gap: 14px; min-height: var(--loge-carte-rang); }
+.loge-carte .player-avatar.big { flex: none; font-size: var(--loge-avatar); }
 /* Le niveau suivant et les confettis, sur toute la largeur de la carte. */
 .loge-carte > .xp-mince { max-width: none; margin-top: 0; }
 .loge-carte-avatar { flex: none; border-radius: 50%; line-height: 0; }
-.loge-carte-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding-right: 56px; }
+.loge-carte-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: var(--loge-fin); padding-right: 56px; }
 .loge-carte-titre { max-width: 100%; font-family: var(--serif); font-style: italic; font-size: 1rem; line-height: 1.2; color: var(--accent-text); overflow-wrap: anywhere; }
 .loge-carte-titre.loge-sans { color: var(--muted); }
 .loge-carte-vitrine { display: inline-flex; gap: 5px; min-height: 28px; }
@@ -9114,23 +9149,23 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 }
 .loge-carte-ouvrir:active { background: rgba(var(--accent-rgb), 0.06); }
 .loge-carte-ouvrir:focus-visible { outline-offset: -3px; }
-.loge-pieces { display: flex; flex-direction: column; gap: 6px; }
+.loge-pieces { display: flex; flex-direction: column; gap: var(--loge-serre); }
 .loge-groupes { display: grid; grid-template-columns: 4fr 2fr; gap: 4px; font-size: var(--t-label); font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--zone, var(--muted)); }
 .loge-groupes span { text-align: center; }
 .loge-rangee { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
-.loge-piece { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; padding: 2px 0 4px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
-.loge-rond { position: relative; display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--edge); border-radius: 50%; background: var(--surface); color: var(--ink); transition: background 0.15s ease, border-color 0.15s ease; }
+.loge-piece { position: relative; display: flex; flex-direction: column; align-items: center; gap: var(--loge-fin); min-width: 0; padding: 2px 0 var(--loge-fin); border: 0; background: none; color: var(--muted); font: inherit; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
+.loge-rond { position: relative; display: grid; place-items: center; width: var(--loge-rond); height: var(--loge-rond); border: 1px solid var(--edge); border-radius: 50%; background: var(--surface); color: var(--ink); transition: background 0.15s ease, border-color 0.15s ease; }
 .loge-rond .icon { width: 20px; height: 20px; }
 .loge-piece:hover .loge-rond { border-color: var(--edge-strong); }
 .loge-piece[aria-selected='true'] { color: var(--accent-text); }
 .loge-piece[aria-selected='true'] .loge-rond { border-color: var(--accent); background: var(--accent); color: var(--on-accent); box-shadow: 0 0 16px rgba(var(--accent-rgb), 0.4); }
-/* Le filet entre ce que la salle voit et ce que lui seul voit. */
-.loge-rangee > .loge-pour-moi:nth-child(5)::before { content: ''; position: absolute; left: -3px; top: 6px; width: 1px; height: 36px; background: var(--edge); }
+/* Le filet entre ce que la salle voit et ce que lui seul voit, à la hauteur du rond : quatre pixels de moins en haut et en bas. */
+.loge-rangee > .loge-pour-moi:nth-child(5)::before { content: ''; position: absolute; left: -3px; top: 6px; width: 1px; height: calc(var(--loge-rond) - 8px); background: var(--edge); }
 /* Le neuf se dit en rouge, comme sur « Profil » et « M'habiller » : un point d'or se perdait dans l'or de la pièce choisie. */
 .loge-neuf { position: absolute; top: -1px; right: -1px; width: 11px; height: 11px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--bg); }
 .loge-qui { display: flex; align-items: center; gap: 6px; margin: 0 2px; font-size: 0.82rem; line-height: 1.3; }
 .loge-qui .icon { flex: none; width: 13px; height: 13px; }
-.loge-panneau { display: flex; flex-direction: column; gap: 14px; }
+.loge-panneau { display: flex; flex-direction: column; gap: var(--loge-bloc); }
 /* Dans la loge, les grilles se serrent — trois par rangée : ce qu'on a se
    voit d'un coup d'œil, sous la carte qui l'essaie. */
 .loge-panneau .finitions { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
@@ -9143,7 +9178,10 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 /* La page entière essaie le thème : sa fiche n'en redit pas l'aperçu en grand. */
 .loge-panneau .detail-theme .detail-apercu { display: none; }
 /* La barre de l'essai couvre le menu, à sa place et à sa hauteur : la page
-   ne saute pas, et l'on choisit avant de partir. */
+   ne saute pas, et l'on choisit avant de partir. Sa hauteur est celle du
+   menu, comptée comme lui — ses rangées de 58 px, son filet, et son pied : six
+   pixels, ou la barre d'accueil d'un iPhone. À 65 px plus la barre d'accueil,
+   elle montait six pixels plus haut que lui (`rendu-loge.ts`, `ENCOCHE=47`). */
 .loge-barre {
   position: fixed;
   left: 0;
@@ -9154,7 +9192,7 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
   align-items: center;
   gap: 8px;
   max-width: 560px;
-  min-height: calc(65px + env(safe-area-inset-bottom));
+  min-height: calc(59px + max(6px, env(safe-area-inset-bottom)));
   margin: 0 auto;
   padding: 8px 14px max(8px, env(safe-area-inset-bottom));
   border-top: 1px solid var(--edge-strong);
@@ -9189,7 +9227,7 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
    arrondies : la portée garde sa coche, l'essayée son halo d'or ; ce qui
    reste se compte dessous. La finition, au-dessus, en pastilles de couleur :
    la montrée cerclée d'or, ce qui reste compté au bout de la rangée. */
-.loge-avatars { display: flex; flex-direction: column; gap: 12px; }
+.loge-avatars { display: flex; flex-direction: column; gap: var(--loge-ecart); }
 /* Ses gemmes : autant que de pages où il a quelque chose — les offerts seuls
    le premier jour, sept au plus. Jusqu'à cinq, une rangée, réparties ; six ou
    sept ne tiennent pas sur une rangée en 360 sans descendre sous la taille
@@ -9201,7 +9239,7 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .gemmes.gemmes-loge { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 76px); justify-content: space-evenly; gap: 4px; }
 .gemmes.gemmes-loge:has(> :nth-child(6)) { grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 76px)); }
 .gemmes.gemmes-loge:has(> :nth-child(7)) { grid-template-columns: repeat(4, minmax(0, 76px)); }
-.gemmes-loge .gemme { gap: 5px; padding: 8px 4px 6px; white-space: nowrap; }
+.gemmes-loge .gemme { gap: calc(var(--loge-fin) + 1px); padding: var(--loge-gemme) 4px calc(var(--loge-gemme) - 2px); white-space: nowrap; }
 .gemmes-loge .gemme b { font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
 .loge-page-avatars { display: flex; flex-direction: column; gap: 10px; }
 /* Les onglets de l'application, en pastilles séparées : chacune sa largeur, son compte en clair. */
@@ -9212,8 +9250,8 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .onglets-puces .onglet.actif .onglet-pastille { color: inherit; }
 .loge-grille { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .loge-grille-emojis { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
-.loge-case { position: relative; display: grid; place-items: center; height: 72px; padding: 0; border: 1px solid var(--edge); border-radius: 16px; background: var(--surface-faint); color: var(--ink); cursor: pointer; }
-.loge-grille-emojis .loge-case { height: 58px; border-radius: 14px; }
+.loge-case { position: relative; display: grid; place-items: center; height: var(--loge-case); padding: 0; border: 1px solid var(--edge); border-radius: 16px; background: var(--surface-faint); color: var(--ink); cursor: pointer; }
+.loge-grille-emojis .loge-case { height: calc(var(--loge-case) - 14px); border-radius: 14px; }
 .loge-case .av { font-size: 2.9rem; }
 .loge-grille-emojis .loge-case .av { font-size: 1.75rem; }
 .loge-case.porte { border-color: var(--edge-strong); }
@@ -9243,13 +9281,14 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-a-gagner { display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 44px; color: var(--accent-text); font-size: 0.9rem; font-weight: 600; text-decoration: none; }
 .loge-a-gagner .icon { width: 16px; height: 16px; }
 .loge-sous-titre { font-size: var(--t-label); font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
-.loge-finitions { display: flex; flex-direction: column; gap: 6px; }
+.loge-finitions { display: flex; flex-direction: column; gap: var(--loge-serre); }
 .loge-finitions-rangee { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 0; }
 /* Huit pastilles sur une ligne en 360 — Auto et les sept finitions —, chacune
-   de la largeur de son nom : Constellation est long, Or est court. */
-.finition-choix { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 34px; padding: 4px 0 2px; border: 0; background: none; color: var(--muted); font: inherit; font-size: var(--t-label); font-weight: 600; text-decoration: none; cursor: pointer; }
+   de la largeur de son nom : Constellation est long, Or est court. Le haut
+   garde ses quatre pixels : l'anneau d'or de la pastille montrée s'y pose. */
+.finition-choix { position: relative; display: flex; flex-direction: column; align-items: center; gap: var(--loge-fin); min-width: 34px; padding: 4px 0 calc(var(--loge-fin) - 2px); border: 0; background: none; color: var(--muted); font: inherit; font-size: var(--t-label); font-weight: 600; text-decoration: none; cursor: pointer; }
 .finition-choix.selected { color: var(--accent-text); }
-.finition-teinte { position: relative; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18); }
+.finition-teinte { position: relative; display: grid; place-items: center; width: var(--loge-pastille); height: var(--loge-pastille); border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18); }
 .finition-teinte .icon { width: 15px; height: 15px; color: #fff; filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.7)); }
 .finition-choix.selected .finition-teinte { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
 .finition-choix.porte:not(.selected) .finition-teinte::after { content: '✓'; position: absolute; top: -5px; right: -6px; display: grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; line-height: 1; box-shadow: 0 0 0 2px var(--bg); }
@@ -9290,10 +9329,10 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .teinte-singularite { background: radial-gradient(circle, #050308 0 42%, #fff3d6 48%, #ff9a3c 56%, #5a1a08 72%); }
 /* La bordure de ligue, sous la finition : les mêmes pastilles, chacune son
    avatar dans la bordure, au métal de sa finition — on voit ce qu'on essaie. */
-.loge-bordures { display: flex; flex-direction: column; gap: 6px; }
+.loge-bordures { display: flex; flex-direction: column; gap: var(--loge-serre); }
 .loge-bordures > .muted { margin: 0; }
-.bordure-apercu { position: relative; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; font-size: 15px; line-height: 1; }
-.bordure-sans { display: block; width: 26px; height: 26px; box-sizing: border-box; border: 1.5px dashed var(--muted); border-radius: 50%; }
+.bordure-apercu { position: relative; display: grid; place-items: center; width: var(--loge-pastille); height: var(--loge-pastille); border-radius: 50%; font-size: calc(var(--loge-pastille) / 2); line-height: 1; }
+.bordure-sans { display: block; width: calc(var(--loge-pastille) - 4px); height: calc(var(--loge-pastille) - 4px); box-sizing: border-box; border: 1.5px dashed var(--muted); border-radius: 50%; }
 .bordure-choix.selected .bordure-apercu { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
 .bordure-choix.porte:not(.selected) .bordure-apercu::after { content: '✓'; position: absolute; top: -5px; right: -6px; z-index: 2; display: grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; line-height: 1; box-shadow: 0 0 0 2px var(--bg); }
 .bordure-choix.neuve .bordure-apercu::before { content: ''; position: absolute; top: -3px; left: -3px; z-index: 2; width: 9px; height: 9px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--bg); }
@@ -9309,6 +9348,42 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-version-case[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: var(--surface); }
 .loge-version-dessin { display: grid; place-items: center; width: 64px; height: 64px; font-size: 2.6rem; }
 .loge-version-nom { font-size: var(--t-label); font-weight: 600; }
+
+/* ── La loge, à la hauteur d'un téléphone ────────────────────────────────
+   Ses deux pas (les variables de `.loge-page`, en tête de la section) : rien
+   ne change de place, tout se resserre. */
+@media (max-height: 939px) {
+  .loge-page { --loge-ecart: 6px; --loge-bloc: 8px; --loge-serre: 2px; --loge-fin: 2px; --loge-avatar: 2.4rem; --loge-carte-rang: 72px; --loge-carte-ecart: 6px; --loge-carte-pied: 8px; --loge-rond: 38px; --loge-case: 64px; --loge-gemme: 3px; }
+  /* Sans compagnon, le haut de la page remonte ; avec lui, sa carte passerait sous sa niche. */
+  body:not(.avec-niche) .loge-page { padding-top: max(16px, env(safe-area-inset-top)); gap: 10px; }
+  /* Les petits titres et les noms sous les ronds et les pastilles, à leur hauteur de lettres. */
+  .loge-groupes,
+  .loge-sous-titre { line-height: 1.1; }
+  .loge-piece,
+  .finition-choix { line-height: 1.2; }
+  /* Ce qu'un réglage dit sous sa rangée tient sur une ligne : l'essentiel, puis ceux de ses morceaux qui tiennent
+     entiers — une rangée qui passe à la ligne, haute d'une ligne, comme la suite d'un gros bouton de l'accueil
+     (`PhraseDuReglage`, `Apparence.tsx`). Le lecteur d'écran lit toute la phrase. */
+  .loge-a-suite { display: flex; flex-wrap: wrap; align-content: flex-start; height: 1.3em; line-height: 1.3; overflow: clip; }
+  .loge-essentiel { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .loge-suite { flex: none; white-space: pre; }
+  /* L'Éclat en réserve : l'écart de la colonne suffit sous lui. */
+  .loge-reserve { margin-bottom: 0; }
+}
+@media (max-height: 759px) {
+  /* Deux pixels de moins entre les blocs : en 360 × 640, son compagnon dans sa niche, les gemmes d'une habituée
+     passaient encore de dix pixels sous le menu. */
+  .loge-page { --loge-ecart: 4px; --loge-bloc: 6px; --loge-avatar: 2.15rem; --loge-carte-rang: 64px; --loge-rond: 36px; --loge-pastille: 28px; }
+  body:not(.avec-niche) .loge-page { padding-top: max(12px, env(safe-area-inset-top)); gap: 8px; }
+  /* Son niveau suivant et ses confettis, que l'accueil et « Mon profil » disent en tête : cachés à l'œil seulement, comme
+     `.sr-only` — la carte, collée en haut, les gardait sous chaque pièce. */
+  .loge-carte > .xp-mince { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  /* Son prénom et sa vitrine un peu plus petits : la carte prend la hauteur de son avatar bordé. La place de la vitrine
+     garde celle d'une case — rien ne saute quand elle arrive. */
+  .loge-carte .identite-nom { font-size: 1.3rem; }
+  .loge-carte-vitrine { min-height: 24px; }
+  .loge-vitrine-case { width: 24px; height: 24px; font-size: 0.9rem; }
+}
 
 /* ── La campagne solo : un héros, puis ce qu'on choisit ─────────────────
    Le défi, le record, l'échelle et les règles sur la trame de l'atlas
@@ -13831,7 +13906,81 @@ body:has(.loge-collante, .sentier-tete, .cab-tete-partie) .niche.repliee { opaci
    ═══════════════════════════════════════════════════════════════════ */
 /* Il est là, en grand : la niche du coin s'efface sur sa page — deux fois lui, l'un au-dessus de l'autre, se disputaient le regard. */
 body:has(.chez-lui) .niche { opacity: 0; visibility: hidden; }
-.chez-lui { display: flex; flex-direction: column; gap: 14px; }
+
+/* ── Tout chez lui sur un écran, ou presque ──
+   « J'aimerais bien que tu regardes les écrans, m'habiller, mon compagnon, classement des collections. Dans la mesure
+   du possible j'aimerais que l'on puisse avoir tout sur le même écran ou presque » (le propriétaire, le 10 novembre
+   2026). Sa page faisait 951 px en 360 × 640 pour 575 visibles au-dessus du menu : sa scène, puis ses envies coupées de
+   4 px, son chemin et ses compagnons dessous ; 973 px en 412 × 915 pour 850, « Tes compagnons » coupé en deux. Rien n'y
+   change de place, ni un bouton, ni un nom, ni l'ordre : ses mesures sont des variables posées sur sa page
+   (`.chez-page`, la coquille que pose `ProfilApp.tsx` dès que l'écran est le sien — la tête ne bouge pas quand son code
+   arrive, ni quand on adopte son premier compagnon). Chacune va du plus serré, sur un téléphone, à l'allure d'avant, sur
+   un grand écran, le long d'une même pente : `--chez-aise`, ce que l'écran a de hauteur utile — sans l'encoche ni la
+   barre du bas — au-delà de 800 px, jusqu'à 280 de plus. Une pente, pas des pas de `min-height` : un iPhone, en
+   application installée, perd 81 px à son encoche et à sa barre, que `min-height` ne voit pas — au pas de 820 px, il
+   prenait en 390 × 844 les mesures d'un écran plus grand que lui, et « Tes compagnons » passait de 40 px sous le menu.
+   Chaque mesure s'écrit donc « le plus serré, plus ce qu'elle reprend au bout de la pente » : sur 280.
+   Ce que la feuille en fait se mesure au navigateur : `server/scripts/rendu-compagnon.ts`, la passe `tailles`. */
+.chez-page {
+  --chez-aise: clamp(0px, calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 800px), 280px);
+  /* La marge du haut de la page — sous `viewport-fit=cover`, l'encoche la garde quand elle est plus haute — et celle du
+     bas : aucune sur un téléphone, où la barre du menu garde déjà 7 px au-dessus d'elle. */
+  --chez-haut: calc(2px + var(--chez-aise) * 22 / 280);
+  --chez-bas: calc(0px + var(--chez-aise) * 24 / 280);
+  /* De « ← Mon profil » à son titre : sa boîte de 44 px, une cible de doigt, laisse 13 px de vide sous son texte — le titre y remonte. */
+  --chez-sous-le-retour: calc(-11px + var(--chez-aise) * 17 / 280);
+  /* Son titre : de 1,4 à 2 rem. */
+  --chez-grand-titre: calc(1.4rem + var(--chez-aise) * 9.6 / 280);
+  /* Entre ses blocs — sa tête, sa scène, ses trois cartes. */
+  --chez-ecart: calc(5px + var(--chez-aise) * 9 / 280);
+  /* Une carte : ses marges, l'écart sous son titre, son titre (de 1,1 à 1,25 rem), la hauteur de sa tête et de la
+     pastille qui s'y range, le texte de cette pastille (d'une étiquette, 0,6875 rem, à 0,75). */
+  --chez-carte-marge: calc(7px + var(--chez-aise) * 11 / 280);
+  --chez-carte-bord: calc(14px + var(--chez-aise) * 4 / 280);
+  --chez-carte-ecart: calc(6px + var(--chez-aise) * 6 / 280);
+  --chez-titre: calc(1.1rem + var(--chez-aise) * 2.4 / 280);
+  --chez-tete: calc(22px + var(--chez-aise) * 4 / 280);
+  --chez-puce: calc(0.6875rem + var(--chez-aise) * 1 / 280);
+  /* « Tous les voir » : sa ligne, basse comme les autres têtes — sa cible, elle, reste celle d'un doigt (`.chez-lien::before`). */
+  --chez-lien: calc(22px + var(--chez-aise) * 18 / 280);
+  /* Une envie : son rond — le bouton entier, son nom dessous, reste une cible de doigt — et l'écart sous lui. */
+  --chez-rond: calc(42px + var(--chez-aise) * 12 / 280);
+  --chez-rond-ecart: calc(2px + var(--chez-aise) * 4 / 280);
+  /* Une étape de son chemin : sa case, l'écart sous elle ; la marge au-dessus du fil, où luit le point de l'étape d'ici,
+     et ce dont le fil remonte dans l'écart de sa carte — cette marge le sépare déjà de son titre. */
+  --chez-etape: calc(44px + var(--chez-aise) * 6 / 280);
+  --chez-etape-ecart: calc(2px + var(--chez-aise) * 4 / 280);
+  --chez-chemin-haut: calc(8px + var(--chez-aise) * 4 / 280);
+  --chez-chemin-remonte: calc(-6px + var(--chez-aise) * 6 / 280);
+  /* Un de ses compagnons : la marge au-dessus de sa petite niche, l'écart entre elle, son nom et ce qu'un toucher fait. */
+  --chez-ami-marge: calc(3px + var(--chez-aise) * 3 / 280);
+  --chez-ami-ecart: calc(2px + var(--chez-aise) * 2 / 280);
+  /* Ce que sa page prend hors de sa scène et de la marge du haut, celle du bas comprise — mesuré, ses trois envies à
+     combler : la scène a ce que l'écran laisse (plus bas). */
+  --chez-reste: calc(417px + var(--chez-aise) * 267 / 280);
+  padding-top: max(var(--chez-haut), env(safe-area-inset-top));
+}
+/* `svh`, pas `vh` : la barre d'adresse du navigateur dépliée, ses mesures sont celles de l'écran qu'on voit. Sous
+   `@supports`, pas en seconde déclaration : une variable se garde telle qu'elle est écrite, et le navigateur qui ne
+   connaît pas `svh` ne retomberait pas sur `vh` — il jetterait au calcul chaque mesure qui la lit (règle `css.md`). */
+@supports (height: 100svh) {
+  .chez-page { --chez-aise: clamp(0px, calc(100svh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 800px), 280px); }
+}
+/* La marge du bas, sous sa dernière carte : celle d'une page à menu (24 px) faisait défiler de quelques pixels une page
+   qui tenait. Plus précise que `body.avec-menu .player-shell`, qu'elle resserre. */
+body.avec-menu .player-shell.chez-page { padding-bottom: var(--chez-bas); }
+/* « ← Mon profil », puis son titre : la marge du lien rentre déjà de 12 px dans l'écart de la page (18 px). Le titre
+   remonte sous son texte, dans sa boîte : le lien passe devant, pour garder ses 44 px sous le doigt. */
+.chez-page > .jour-sortie { position: relative; z-index: 1; margin-bottom: calc(var(--chez-sous-le-retour) - 18px); }
+.chez-page > .piece-tete h1,
+.chez-lui > .piece-tete h1 { font-size: var(--chez-grand-titre); }
+/* Sous 1080 px de haut, « Mon profil » ne se redit pas au-dessus du titre : « ← Mon profil », juste au-dessus, le dit
+   déjà. Caché à l'œil seulement, comme `.sr-only` — le lecteur d'écran lit encore où l'on est. */
+@media (max-height: 1079px) {
+  .chez-page > .piece-tete .label,
+  .chez-lui > .piece-tete .label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+.chez-lui { display: flex; flex-direction: column; gap: var(--chez-ecart); }
 .chez-lui > .piece-tete { position: relative; padding-right: 54px; }
 /* « Comment ça marche » : les règles, qui faisaient le mur de texte de l'ancienne page, derrière un rond. */
 .chez-info { position: absolute; right: 0; bottom: -2px; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid var(--edge-strong); border-radius: 50%; background: var(--surface); color: var(--accent-text); cursor: pointer; }
@@ -13851,6 +14000,23 @@ body:has(.chez-lui) .niche { opacity: 0; visibility: hidden; }
   /* Les plans de son jardin — le sol devant la niche, les grands objets derrière — se rangent ici, sans rien laisser passer sur la page. */
   isolation: isolate;
 }
+/* Sa scène a la hauteur de sa cour (280 à son échelle, que la page pose : `--k`) — jusqu'à ce que l'écran lui laisse
+   au-dessus du menu, une fois comptés la marge du haut et le reste de sa page (`--chez-reste`) : au-delà, elle se rogne
+   par le bas, où il n'y a que de la pelouse, et la pastille de ses gestes remonte avec son bord. Jamais sa niche, qui
+   garde son échelle : il reste aussi grand. Et jamais plus bas que ce qu'il lui faut — sa niche, sa plaque dessous, 8 px
+   d'air, la pastille : 180,6 à son échelle (46 + 112 × 62 / 54 + 6), puis 34 + 8 + 38 + 6 et ses deux bords. En
+   360 de large, sa cour est déjà à ce plancher ; en 412, elle rend jusqu'à 14 px. Passé 1080 px de haut, plus rien ne
+   la borne. `svh` sous `@supports`, pas en seconde déclaration (règle `css.md`). */
+@media (max-height: 1079px) {
+  .chez-scene { max-height: max(calc(var(--k) * 180.6px + 88px), calc(100vh - var(--haut-du-menu, 0px) - var(--haut-du-bandeau, 0px) - max(var(--chez-haut), env(safe-area-inset-top)) - var(--chez-reste))); }
+  @supports (height: 100svh) {
+    .chez-scene { max-height: max(calc(var(--k) * 180.6px + 88px), calc(100svh - var(--haut-du-menu, 0px) - var(--haut-du-bandeau, 0px) - max(var(--chez-haut), env(safe-area-inset-top)) - var(--chez-reste))); }
+  }
+}
+/* Son terrain s'arrête avec sa scène : plus haut qu'elle, il restait de quoi faire défiler son jardin de haut en bas —
+   pas au doigt, son cadre le coupe, mais par un script, ou un navigateur, qui y amène un bouton : tout son jardin
+   serait monté de quelques pixels dans son cadre. Il ne défile que de côté. */
+.chez-scene .jardin-terrain { max-height: 100%; }
 /* Le décor peint de sa forme, flouté : celui de son avatar, en grand derrière son jardin. */
 .chez-fond { position: absolute; inset: -46px; background-size: cover; background-position: center 34%; filter: blur(18px) saturate(1.2) brightness(0.58); transform: scale(1.04); }
 .chez-ombre { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(8, 10, 20, 0.08) 0%, rgba(8, 10, 20, 0) 42%, rgba(16, 11, 9, 0.5) 100%); pointer-events: none; }
@@ -13897,6 +14063,8 @@ body:has(.chez-lui) .niche { opacity: 0; visibility: hidden; }
 /* Une place libre : un « + » en pointillé. Sur sa page, petit — sa boîte de toucher, elle, a la taille d'un doigt. */
 .jardin-libre { position: absolute; z-index: 8; display: grid; place-items: center; padding: 0; border: 1.5px dashed rgba(244, 213, 141, 0.6); border-radius: 50%; background: rgba(18, 13, 11, 0.38); color: rgba(244, 213, 141, 0.9); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .jardin-libre::before { content: ''; position: absolute; inset: -9px; border-radius: 50%; }
+/* Sur sa page, onze pixels de chaque côté : à neuf, comptés depuis l'intérieur de son pointillé, la boîte de ce petit « + » ne faisait que 41 px. */
+.chez-scene .jardin-libre::before { inset: -11px; }
 .jardin-libre .icon { width: 13px; height: 13px; }
 .jardin-libre.grande { border-color: rgba(244, 213, 141, 0.75); background: rgba(18, 13, 11, 0.5); color: #f4d58d; }
 .jardin-libre.grande .icon { width: 17px; height: 17px; }
@@ -13907,6 +14075,8 @@ body:has(.chez-lui) .niche { opacity: 0; visibility: hidden; }
 .jardin-pleine.choisie { border-color: #f4d58d; box-shadow: 0 0 14px rgba(244, 213, 141, 0.45); }
 /* Ce qui dépasse de l'écran se dit : hors champ, le domaine passait inaperçu sur la maquette. */
 .jardin-fleche { position: absolute; bottom: 9px; z-index: 9; display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid rgba(217, 181, 106, 0.45); border-radius: 50%; background: rgba(18, 13, 11, 0.62); color: #e8cb8a; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); cursor: pointer; animation: jardin-appel 2.8s ease-in-out infinite; }
+/* Sur sa page, un rond de 34 px, sa boîte de toucher à 44. */
+.chez-scene .jardin-fleche::before { content: ''; position: absolute; inset: -6px; border-radius: 50%; }
 .jardin-fleche .icon { width: 16px; height: 16px; }
 .jardin-fleche.gauche { left: 8px; --sens: -3px; }
 .jardin-fleche.gauche .icon { transform: scaleX(-1); }
@@ -13959,6 +14129,8 @@ body:has(.chez-lui) .niche { opacity: 0; visibility: hidden; }
 /* Sa plaque, son nom sous sa niche : elle se touche pour le changer. Assez étroite pour laisser voir ce qui est posé de chaque côté. */
 .chez-plaque { position: absolute; z-index: 7; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 84px; height: 34px; padding: 0 11px 0 14px; border: 1px solid rgba(255, 240, 200, 0.7); border-radius: 11px; background: linear-gradient(180deg, #f7e4ad 0%, #ddb867 52%, #ad7f36 100%); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.6); color: #2a1d10; white-space: nowrap; cursor: pointer; transform: translateX(-50%); }
 .chez-plaque b { font-family: var(--serif); font-size: 1.25rem; font-weight: 700; line-height: 1; letter-spacing: 0.02em; }
+/* Haute de 34 px, sa boîte de toucher à 44 : six de plus dessus et dessous, dans l'air qui la sépare de sa niche et de la pastille. Sur son nom — ses propres `::before` et `::after` sont ses deux chaînes. */
+.chez-plaque b::before { content: ''; position: absolute; inset: -6px 0; }
 .chez-plaque.sans-nom b { font-family: var(--sans); font-size: 0.75rem; letter-spacing: 0; }
 .chez-plaque .icon { width: 14px; height: 14px; opacity: 0.7; }
 .chez-plaque::before,
@@ -14008,21 +14180,25 @@ a.chez-pastille.or:hover { color: #1a1412; }
 .chez-jauge-calin svg { flex: none; width: 16px; height: 16px; }
 
 /* ── Ses cartes : ses envies, son chemin, ses compagnons ── */
-.chez-carte { display: flex; flex-direction: column; gap: 12px; }
-.chez-carte-tete { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 26px; }
-.chez-carte-tete h2 { margin: 0; font-family: var(--serif); font-size: 1.25rem; font-weight: 600; line-height: 1.1; }
-.chez-complicite { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px 0 8px; border: 1px solid rgba(232, 115, 154, 0.4); border-radius: var(--radius-pill); background: rgba(232, 115, 154, 0.12); color: var(--ink); font-size: 0.75rem; font-weight: 600; white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
+/* Leurs mesures sont celles de sa page (`.chez-page`, plus haut) : une carte sous `.card`, qu'elle resserre — plus bas dans la feuille, à sa force. */
+.chez-carte { display: flex; flex-direction: column; gap: var(--chez-carte-ecart); padding: var(--chez-carte-marge) var(--chez-carte-bord); }
+.chez-carte-tete { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: var(--chez-tete); }
+.chez-carte-tete h2 { margin: 0; font-family: var(--serif); font-size: var(--chez-titre); font-weight: 600; line-height: 1.1; }
+/* Sur un téléphone, à la taille d'une étiquette : en 360 de large, à côté d'elle, « Ses envies du jour » passait sur deux lignes — 18 px de plus avant ses envies. */
+.chez-complicite { display: inline-flex; align-items: center; gap: 6px; height: var(--chez-tete); padding: 0 10px 0 8px; border: 1px solid rgba(232, 115, 154, 0.4); border-radius: var(--radius-pill); background: rgba(232, 115, 154, 0.12); color: var(--ink); font-size: var(--chez-puce); font-weight: 600; white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
 .chez-complicite svg { flex: none; width: 14px; height: 14px; }
 .chez-compte { display: inline-flex; align-items: center; gap: 5px; color: var(--or-text); font-size: 0.84rem; font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
 .chez-compte .icon { width: 15px; height: 15px; }
-.chez-lien { display: inline-flex; align-items: center; gap: 2px; min-height: 40px; font-size: 0.875rem; }
+/* « Tous les voir » : sa ligne à la hauteur de la tête de sa carte, sa cible à 46 px — une cible de doigt, et un pixel de chaque côté : elle déborde surtout vers le haut, dans la marge de la carte, où rien d'autre ne se touche. */
+.chez-lien { position: relative; display: inline-flex; align-items: center; gap: 2px; min-height: var(--chez-lien); font-size: 0.875rem; }
+.chez-lien::before { content: ''; position: absolute; inset: min(0px, calc((var(--chez-lien) - 46px) * 0.75)) -6px min(0px, calc((var(--chez-lien) - 46px) * 0.25)); }
 .chez-lien .icon { width: 15px; height: 15px; }
 /* Ses trois envies du jour, en ronds : une icône, un mot. Comblée, l'or et sa coche. */
 .chez-envies { display: flex; justify-content: space-between; gap: 8px; }
-.chez-envie { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 44px; padding: 2px 0 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.chez-envie { flex: 1; display: flex; flex-direction: column; align-items: center; gap: var(--chez-rond-ecart); min-height: 44px; padding: max(0px, calc(var(--chez-rond-ecart) - 4px)) 0 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .chez-envie:disabled { cursor: default; }
-.chez-envie-rond { position: relative; display: grid; place-items: center; width: 54px; height: 54px; border: 1.5px dashed color-mix(in srgb, var(--accent) 65%, transparent); border-radius: 50%; background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--accent-text); transition: transform 0.2s ease; }
-.chez-envie-rond .chez-icone { width: 26px; height: 26px; }
+.chez-envie-rond { position: relative; display: grid; place-items: center; width: var(--chez-rond); height: var(--chez-rond); border: 1.5px dashed color-mix(in srgb, var(--accent) 65%, transparent); border-radius: 50%; background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--accent-text); transition: transform 0.2s ease; }
+.chez-envie-rond .chez-icone { width: calc(var(--chez-rond) * 13 / 27); height: calc(var(--chez-rond) * 13 / 27); }
 .chez-envie:not(:disabled):active .chez-envie-rond { transform: scale(0.93); }
 .chez-envie.active .chez-envie-rond { border-style: solid; border-color: var(--accent); animation: chez-pouls 1.4s ease-in-out infinite; }
 @keyframes chez-pouls {
@@ -14041,8 +14217,8 @@ a.chez-pastille.or:hover { color: #1a1412; }
 .chez-pastilles.faites i { border: 0; background: linear-gradient(180deg, #ecd08e, #c99c4c); color: #2a1d10; }
 .chez-pastilles.faites i .icon { width: 14px; height: 14px; }
 /* Son cadeau l'attend : le paquet gigote, la ligne entière se touche. */
-.chez-cadeau-ligne { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 8px 12px 8px 8px; border: 1px solid color-mix(in srgb, var(--or-text) 60%, transparent); border-radius: 14px; background: linear-gradient(90deg, rgba(217, 181, 106, 0.2), rgba(217, 181, 106, 0.05)); color: inherit; font: inherit; text-align: left; cursor: pointer; }
-.chez-cadeau-icone { flex: none; display: grid; place-items: center; width: 48px; height: 48px; animation: chez-gigote 1.8s ease-in-out infinite; }
+.chez-cadeau-ligne { display: flex; align-items: center; gap: 12px; width: 100%; min-height: calc(var(--chez-rond) + 10px); padding: max(2px, calc(var(--chez-carte-ecart) - 4px)) 12px max(2px, calc(var(--chez-carte-ecart) - 4px)) 8px; border: 1px solid color-mix(in srgb, var(--or-text) 60%, transparent); border-radius: 14px; background: linear-gradient(90deg, rgba(217, 181, 106, 0.2), rgba(217, 181, 106, 0.05)); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.chez-cadeau-icone { flex: none; display: grid; place-items: center; width: calc(var(--chez-rond) - 6px); height: calc(var(--chez-rond) - 6px); animation: chez-gigote 1.8s ease-in-out infinite; }
 .chez-cadeau-icone svg { width: 100%; height: 100%; }
 @keyframes chez-gigote {
   0%, 70%, 100% { transform: rotate(0); }
@@ -14054,23 +14230,37 @@ a.chez-pastille.or:hover { color: #1a1412; }
 .chez-cadeau-texte { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .chez-cadeau-texte b { font-size: 0.92rem; }
 .chez-cadeau-texte span { color: var(--muted); font-size: 0.8rem; }
+/* Sous 1080 px de haut — tous les téléphones —, ce que la ligne ajoute sous son titre tient sur une ligne : l'essentiel,
+   puis ceux de ses morceaux qui tiennent entiers, jamais une phrase coupée au milieu d'un mot (`.trophee-detail`,
+   `.gros-a-suite`). Sur deux, sous un titre déjà sur deux, sa ligne faisait 16 px de plus que ses trois envies, et son
+   chemin et ses compagnons descendaient d'autant le jour du cadeau. Le lecteur d'écran lit toute la phrase ; un écran
+   plus haut la montre entière, « Comment ça marche » et la légende de « Décorer » la redisent. */
+@media (max-height: 1079px) {
+  .chez-cadeau-texte b { line-height: 1.25; }
+  .chez-cadeau-detail { display: flex; flex-wrap: wrap; align-content: flex-start; height: 1.3em; line-height: 1.3; overflow: clip; }
+  .chez-cadeau-essentiel { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .chez-cadeau-suite { flex: none; white-space: pre; }
+  /* Le nom d'une envie, un seul mot : sa ligne à sa hauteur, sans l'interligne d'un paragraphe. */
+  .chez-envie-nom { line-height: 1.2; }
+}
 .chez-cadeau-ligne > .icon { flex: none; width: 18px; height: 18px; color: var(--accent-text); }
 /* Son chemin sur un seul fil : ses formes, sa métamorphose, les ornements de sa niche — l'or jusqu'où ses bonnes réponses l'ont mené. Il défile de côté, bord à bord de sa carte. */
-.chez-chemin { margin: 0 -18px; padding: 12px 12px 2px; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 26px), transparent); mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 26px), transparent); }
+.chez-chemin { margin: var(--chez-chemin-remonte) calc(-1 * var(--chez-carte-bord)) 0; padding: var(--chez-chemin-haut) 12px 2px; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 26px), transparent); mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 26px), transparent); }
 .chez-chemin::-webkit-scrollbar { display: none; }
 .chez-piste { position: relative; display: flex; padding: 0 6px; }
-.chez-piste-trait { position: absolute; top: 24px; height: 0; border-top: 2px dotted color-mix(in srgb, var(--accent) 45%, transparent); }
-.chez-piste-or { position: absolute; top: 23px; height: 4px; border-radius: 4px; background: linear-gradient(90deg, #c99c4c, #f4d58d); box-shadow: 0 0 8px rgba(244, 213, 141, 0.45); }
-.chez-etape { position: relative; flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; width: 66px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+/* Le fil passe au milieu de ses cases, quelle que soit leur hauteur. */
+.chez-piste-trait { position: absolute; top: calc(var(--chez-etape) / 2 - 1px); height: 0; border-top: 2px dotted color-mix(in srgb, var(--accent) 45%, transparent); }
+.chez-piste-or { position: absolute; top: calc(var(--chez-etape) / 2 - 2px); height: 4px; border-radius: 4px; background: linear-gradient(90deg, #c99c4c, #f4d58d); box-shadow: 0 0 8px rgba(244, 213, 141, 0.45); }
+.chez-etape { position: relative; flex: none; display: flex; flex-direction: column; align-items: center; gap: var(--chez-etape-ecart); width: 66px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .chez-etape:disabled { cursor: default; }
-.chez-etape-visuel { position: relative; display: grid; place-items: center; width: 50px; height: 50px; }
+.chez-etape-visuel { position: relative; display: grid; place-items: center; width: var(--chez-etape); height: var(--chez-etape); }
 .chez-etape.avenir .niche-mini,
 .chez-etape.avenir .niche-apercu { opacity: 0.6; }
 .chez-etape[aria-pressed='true'] .niche-mini,
 .chez-etape[aria-pressed='true'] .niche-apercu { opacity: 1; }
 .chez-etape[aria-pressed='true'] .niche-cadre { border-color: #f4d58d; box-shadow: 0 0 0 2px rgba(244, 213, 141, 0.4), 0 0 14px rgba(244, 213, 141, 0.5); }
 .chez-etape.ici .niche-cadre { border-color: #f4d58d; box-shadow: 0 0 0 2px rgba(244, 213, 141, 0.35), 0 0 16px rgba(244, 213, 141, 0.45); }
-.chez-etape.ici::before { content: ''; position: absolute; top: -11px; left: 50%; width: 7px; height: 7px; margin-left: -3.5px; border-radius: 50%; background: #f4d58d; box-shadow: 0 0 8px #f4d58d; }
+.chez-etape.ici::before { content: ''; position: absolute; top: calc(1px - var(--chez-chemin-haut)); left: 50%; width: 7px; height: 7px; margin-left: -3.5px; border-radius: 50%; background: #f4d58d; box-shadow: 0 0 8px #f4d58d; }
 .chez-etape-nom { max-width: 64px; color: var(--muted); font-size: var(--t-label); line-height: 1.2; text-align: center; font-variant-numeric: lining-nums tabular-nums; }
 .chez-etape.atteinte .chez-etape-nom { color: var(--ink); }
 .chez-etape.ici .chez-etape-nom { color: var(--or-text); font-weight: 700; }
@@ -14082,15 +14272,15 @@ a.chez-pastille.or:hover { color: #1a1412; }
 .chez-verrou .niche-decor { filter: brightness(0.25) saturate(0.2); }
 .chez-verrou .niche-cadre { border-color: rgba(217, 181, 106, 0.4); }
 .chez-amis { display: flex; gap: 4px; }
-.chez-ami { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 2px 4px; border: 1px solid transparent; border-radius: 14px; background: none; color: inherit; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.chez-ami { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: var(--chez-ami-ecart); padding: var(--chez-ami-marge) 2px max(3px, calc(var(--chez-ami-marge) - 2px)); border: 1px solid transparent; border-radius: 14px; background: none; color: inherit; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .chez-ami[aria-pressed='true'] { border-color: var(--edge); background: var(--accent-soft); cursor: default; }
 .chez-ami[aria-pressed='true'] .niche-cadre { border-color: #f4d58d; box-shadow: 0 0 0 1px rgba(244, 213, 141, 0.45), 0 0 12px rgba(244, 213, 141, 0.5); }
 .chez-ami:disabled { cursor: progress; }
-.chez-ami-maison { position: absolute; top: 4px; right: 8px; z-index: 3; display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid #f4d58d; border-radius: 50%; background: #1a1412; color: #f4d58d; }
+.chez-ami-maison { position: absolute; top: calc(var(--chez-ami-marge) - 2px); right: 8px; z-index: 3; display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid #f4d58d; border-radius: 50%; background: #1a1412; color: #f4d58d; }
 .chez-ami-maison .icon { width: 11px; height: 11px; }
 .chez-ami-nom { max-width: 100%; overflow: hidden; font-size: 0.75rem; font-weight: 600; line-height: 1.2; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 .chez-ami[aria-pressed='true'] .chez-ami-nom { color: var(--accent-text); }
-.chez-ami-cond { display: inline-flex; align-items: center; height: 16px; color: var(--or-text); font-size: var(--t-label); font-weight: 700; white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
+.chez-ami-cond { display: inline-flex; align-items: center; height: calc(12px + var(--chez-ami-ecart)); color: var(--or-text); font-size: var(--t-label); font-weight: 700; white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
 .chez-ami-cond.en-expedition { color: var(--accent-text); }
 /* Ce qu'un geste vient de faire, dit une fois au-dessus du menu, centré par ses marges (règle `css.md`). */
 .chez-toast { position: fixed; left: 16px; right: 16px; bottom: calc(max(6px, env(safe-area-inset-bottom)) + 76px); z-index: 45; max-width: 528px; margin: 0 auto; padding: 12px 16px; border: 1px solid var(--edge-strong); border-radius: 16px; background: var(--bg-raised); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45); color: var(--ink); font-size: 0.875rem; line-height: 1.35; animation: chez-toast 0.25s ease-out; }
@@ -17507,6 +17697,60 @@ span.annonce-admin-merci { cursor: default; }
    Les jetons du thème partout, sauf sur les cartes du podium, nocturnes sous tous les thèmes
    comme la vraie carte, et l'opale des Divins, écrite en dur : aucun thème ne la repeint. */
 
+/* Le premier écran : sa place, les Divins, les puces et le podium se voient sans défiler (« j'aimerais que l'on puisse
+   avoir tout sur le même écran ou presque », le propriétaire, le 10 novembre 2026). Un classement défile par nature — sa
+   liste est son contenu —, mais son podium finissait sous la barre du menu partout, sauf sur le plus grand téléphone :
+   de 289 px en 360 × 640, de 230 en 390 × 664, de 189 en 360 × 740, de 82 en 412 × 800, de 50 en 390 × 844
+   (`rendu-collectionneurs.ts`, les états `25-…`). Rien n'a changé de place, ni un nom, ni un geste, ni leur ordre : ses
+   mesures sont des variables posées sur la page, à des pas de hauteur d'écran — ici le petit téléphone ; un écran moyen
+   (720 px) ; un grand (820 px) ; un très grand (900 px), où les puces reprennent leurs trois rangées ; une tablette ou
+   un ordinateur (1000 px), aux mesures d'avant. Chaque pas est le plus large qui montre le podium à sa plus petite
+   hauteur — et, dès 820 px, sous l'encoche d'un iPhone et au-dessus de sa barre d'accueil, qui prennent 51 px à la page
+   sans la changer de pas. Une variable ne se pose que sur la page, jamais sur une vue : ce qui se resserre ici garde
+   ce que la page promet plus bas — rien n'y bouge d'une puce à l'autre, à aucun pas. */
+.cl-page {
+  /* Le haut de la page, et l'écart entre ses blocs. */
+  --cl-haut: 12px;
+  --cl-ecart: 8px;
+  /* Ce que chaque bloc ajoute à l'écart : les marges d'avant, sur une tablette ou un ordinateur seulement. */
+  --cl-air: 0;
+  --cl-titre: 1.6rem;
+  /* Sa place : son retrait, son rang, son avatar, l'interligne de ce qu'elle dit. */
+  --cl-place: 8px;
+  --cl-place-rang: 1.2rem;
+  --cl-place-avatar: 1.4rem;
+  --cl-place-interligne: 1.3;
+  /* L'échelle de la rangée des Divins, et celle des cartes du podium : à 1, celles d'avant. */
+  --cl-divins: 0.76;
+  --cl-podium: 0.78;
+  /* L'encoche d'un téléphone garde sa place, comme sur toute coquille de page. */
+  padding-top: max(var(--cl-haut), env(safe-area-inset-top));
+  gap: var(--cl-ecart);
+}
+@media (min-height: 720px) {
+  .cl-page { --cl-haut: 16px; --cl-ecart: 10px; --cl-titre: 1.75rem; --cl-place: 10px; --cl-place-rang: 1.35rem; --cl-place-avatar: 1.6rem; --cl-place-interligne: 1.4; --cl-divins: 0.88; --cl-podium: 0.9; }
+}
+/* Dès 820 px, chaque bloc à sa taille d'avant. Le titre tient encore sur une ligne en 360 de large : à 2 rem, il lui
+   fallait 334 px pour 320, et sa seconde ligne en prenait 35 de haut. */
+@media (min-height: 820px) {
+  .cl-page { --cl-haut: 24px; --cl-ecart: 14px; --cl-titre: min(2rem, 8.2vw); --cl-divins: 1; --cl-podium: 1; }
+}
+@media (min-height: 900px) {
+  .cl-page { --cl-ecart: 16px; }
+}
+@media (min-height: 1000px) {
+  .cl-page { --cl-ecart: 18px; --cl-air: 1; }
+}
+/* « ← Mon profil » passe devant le titre : l'écart resserré, le bas de sa cible glissait sous lui — 38 px touchés sur
+   ses 44. */
+.cl-page > .jour-sortie { position: relative; z-index: 1; }
+.cl-page > .piece-tete h1 { font-size: var(--cl-titre); }
+/* Sur le petit téléphone, le surtitre de la pièce se tait à l'œil : « ← Mon profil », juste au-dessus, et la barre du
+   menu disent déjà où l'on est. Caché comme `.sr-only`, jamais retiré : le lecteur d'écran le lit à toutes les tailles. */
+@media (max-height: 719px) {
+  .cl-page > .piece-tete .label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+
 .cl-pierre {
   display: inline-block;
   flex: none;
@@ -17572,7 +17816,9 @@ span.annonce-admin-merci { cursor: default; }
 
 /* Le barème, replié sous le classement. */
 .cl-bareme { margin: 16px 0 0; padding: 10px 12px; border: 1px solid var(--edge); border-radius: 12px; background: var(--surface); }
-.cl-bareme summary { min-height: 28px; font-size: 0.86rem; font-weight: 600; cursor: pointer; }
+/* Son titre se touche sur toute sa boîte, pas sur sa seule ligne : haut de 28 px, il était plus bas qu'un doigt. Ses marges
+   rendent ce que son retrait prend : la boîte garde sa taille, repliée comme ouverte. */
+.cl-bareme summary { min-height: 48px; margin: -10px -12px; padding: 10px 12px; font-size: 0.86rem; font-weight: 600; cursor: pointer; }
 .cl-bareme p { margin: 6px 0; }
 /* Ouvert, trois vitrines plutôt qu'un paragraphe (« pas un gros pavé », le propriétaire, le 9 novembre 2026). */
 .cl-bareme-vitrines { display: grid; gap: 18px; margin: 12px 0 4px; }
@@ -17668,16 +17914,16 @@ span.annonce-admin-merci { cursor: default; }
 }
 
 /* Sa place, en tête : deux lignes et ce qui la ferait monter. Sur l'or pâle, le texte s'écrit en `--accent-text-hover` (règle `css.md`). */
-.cl-sa-place { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; padding: 10px 12px 10px 6px; border: 1px solid var(--edge-strong); border-radius: 16px; background: var(--accent-soft); }
-.cl-sa-place > .av { font-size: 1.6rem; }
+.cl-sa-place { display: flex; align-items: center; gap: 8px; margin: calc(10px * var(--cl-air)) 0 calc(4px * var(--cl-air)); padding: var(--cl-place) 12px var(--cl-place) 6px; border: 1px solid var(--edge-strong); border-radius: 16px; background: var(--accent-soft); }
+.cl-sa-place > .av { font-size: var(--cl-place-avatar); }
 /* Sa place dans chaque catégorie et chaque cercle, toutes dans la même case, une seule montrée : le bloc garde la
    hauteur de la plus haute. Écrite seule, elle faisait de 74 à 107 pixels d'une puce à l'autre, et les puces sautaient
    sous le doigt qui venait de les toucher (« ça a l'air de bouger quand on navigue dedans », le 9 novembre 2026). */
 .cl-sa-place-cases { display: grid; flex: 1; align-items: center; min-width: 0; }
 .cl-sa-place-cases > .cl-sa-place-texte { grid-area: 1 / 1; }
 .cl-sa-place-cases > [aria-hidden='true'] { visibility: hidden; }
-.cl-sa-place-texte { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.cl-sa-place-texte > b { display: flex; align-items: baseline; gap: 6px; font-family: var(--serif); font-size: 1.35rem; line-height: 1.1; font-variant-numeric: lining-nums; }
+.cl-sa-place-texte { display: flex; flex-direction: column; gap: 3px; min-width: 0; line-height: var(--cl-place-interligne); }
+.cl-sa-place-texte > b { display: flex; align-items: baseline; gap: 6px; font-family: var(--serif); font-size: var(--cl-place-rang); line-height: 1.1; font-variant-numeric: lining-nums; }
 .cl-sa-place-sur { color: var(--muted); font-family: var(--sans); font-size: 0.82rem; font-weight: 500; }
 .cl-sa-place-valeur { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
 .cl-sa-place .cl-carats b { color: var(--accent-text-hover); }
@@ -17685,16 +17931,46 @@ span.annonce-admin-merci { cursor: default; }
 .cl-sa-place-palier .icon { width: 14px; height: 14px; }
 .cl-sa-place-suivant { display: inline-flex; align-items: center; gap: 5px; margin-top: 2px; color: var(--accent-text-hover); font-size: 0.78rem; }
 .cl-sa-place-suivant .icon { width: 14px; height: 14px; flex: none; }
+/* Sur le petit téléphone, ce qui manque tient sur une ligne : « Encore 1 légendaire scellé », puis « pour passer Max »
+   s'il tient entier à sa suite — passé dessous, il ne se montre pas, et le lecteur d'écran le lit toujours (les morceaux
+   entiers de `.gros-a-suite`, à l'accueil). Sur deux lignes dans une seule des quatorze vues, il donnait sa hauteur au
+   bloc dans toutes : 97 px, pour 85. Celui à passer se voit juste dessous, sur le podium ou dans la liste ; dès 720 px
+   de haut, la phrase reprend ses deux lignes. */
+@media (max-height: 719px) {
+  .cl-sa-place-manque { display: flex; flex: 1; flex-wrap: wrap; align-content: flex-start; height: calc(1em * var(--cl-place-interligne)); min-width: 0; overflow: clip; }
+  .cl-sa-place-combien { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .cl-sa-place-qui { flex: none; white-space: pre; }
+}
 
-/* « Le classement », et à côté, « Tous · Mes amis » en petit : une ligne de moins avant le podium. */
-.cl-classement-tete { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 18px 0 8px; }
+/* « Le classement », et à côté, « Tous · Mes amis » en petit : une ligne de moins avant le podium. Dix pixels au moins
+   jusqu'aux puces : leurs cibles, qui débordent d'elles, ne se recouvrent pas. */
+.cl-classement-tete { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: calc(18px * var(--cl-air)) 0 max(calc(8px * var(--cl-air)), calc(10px - var(--cl-ecart))); }
 .cl-classement-tete .label { margin: 0; }
 .cl-cercle-petit { flex-wrap: nowrap; }
 .cl-cercle-petit .onglet { min-height: 32px; padding: 0 10px; }
-.cl-puces { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.onglets.cl-puces { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 6px; }
 .cl-puces .onglet { justify-content: center; }
 /* La valeur seule sur sa rangée, les six autres trois par trois : la septième puce, les scellés, laissait sinon les Éclats seuls en bas. */
 .cl-puces .onglet:first-child { grid-column: 1 / -1; }
+/* Sur un téléphone — sous 900 px de haut —, deux rangées : la valeur et ce que chacun a fait — le niveau, les maîtres,
+   le Cabinet —, puis ses avatars — les légendaires, les scellés, les Éclats. Les mêmes puces, dans le même ordre : leur
+   troisième rangée prenait 44 px au podium. Vingt-quatre colonnes, pour que la première rangée suive la largeur de ses
+   noms (7, 5, 6, 6) et la seconde aille par tiers ; le retrait d'une puce au plus bas, son nom centré dans sa case. */
+@media (max-height: 899px) {
+  .onglets.cl-puces { grid-template-columns: repeat(24, minmax(0, 1fr)); }
+  .cl-puces .onglet { grid-column: span 8; padding: 0 2px; }
+  .cl-puces .onglet:first-child { grid-column: span 7; }
+  .cl-puces .onglet:nth-child(2) { grid-column: span 5; }
+  .cl-puces .onglet:nth-child(3),
+  .cl-puces .onglet:nth-child(4) { grid-column: span 6; }
+}
+/* Une puce est plus basse qu'un doigt — 36 px, 32 pour « Tous · Mes amis » — : sa cible déborde d'elle, de quoi faire
+   44 px, comptés de l'intérieur de son bord. Les rangées se suivent à 44 px, huit d'écart : aucune cible n'en recouvre
+   une autre. */
+.cl-puces .onglet,
+.cl-cercle-petit .onglet { position: relative; }
+.cl-puces .onglet::after { position: absolute; inset: -5px 0; content: ''; }
+.cl-cercle-petit .onglet::after { position: absolute; inset: -7px 0; content: ''; }
 
 /* Une carte du podium, au cadre de sa ligue (`.cadre-<ligue>`, la vraie carte) ; sans ligue, le champagne de tous. */
 .cl-carte {
@@ -17747,12 +18023,16 @@ span.annonce-admin-merci { cursor: default; }
    dessous, qu'un Divin y soit ou non. */
 .cl-carte .cl-opale-pastille { position: absolute; z-index: 2; right: 0; bottom: -15px; left: 0; width: fit-content; margin: 0 auto; }
 
-.cl-podium { display: grid; grid-template-columns: 1fr 1.18fr 1fr; align-items: end; gap: 8px; margin: 18px 0 14px; }
-.cl-carte-podium .cl-carte-illu { height: 4.3rem; }
-.cl-carte-podium .cl-carte-av { font-size: 2.7rem; }
-.cl-carte-premier .cl-carte-dedans { padding-top: 18px; }
-.cl-carte-premier .cl-carte-illu { height: 5.4rem; }
-.cl-carte-premier .cl-carte-av { font-size: 3.4rem; }
+/* Sa marge du bas ne se resserre pas : elle garde la place de la pastille d'un Divin, à cheval sur le pied d'une carte.
+   À l'échelle du pas (`--cl-podium`), l'illustration d'une carte et son retrait seulement — son nom et sa valeur se
+   lisent, ils gardent leur taille. */
+.cl-podium { display: grid; grid-template-columns: 1fr 1.18fr 1fr; align-items: end; gap: 8px; margin: 0 0 14px; margin-top: calc(18px * var(--cl-air)); }
+.cl-carte-podium .cl-carte-dedans { padding-top: calc(14px * var(--cl-podium)); }
+.cl-carte-podium .cl-carte-illu { height: calc(4.3rem * var(--cl-podium)); }
+.cl-carte-podium .cl-carte-av { font-size: calc(2.7rem * var(--cl-podium)); }
+.cl-carte-premier .cl-carte-dedans { padding-top: calc(18px * var(--cl-podium)); }
+.cl-carte-premier .cl-carte-illu { height: calc(5.4rem * var(--cl-podium)); }
+.cl-carte-premier .cl-carte-av { font-size: calc(3.4rem * var(--cl-podium)); }
 .cl-carte-premier .cl-carte-valeur { font-size: 1.2rem; }
 .cl-carte-premier .cl-carte-rang { width: 26px; height: 26px; }
 .cl-carte-premier .cl-carte-rang span { font-size: 0.95rem; }
@@ -17782,10 +18062,10 @@ span.annonce-admin-merci { cursor: default; }
 .cl-divins-bandeau {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: calc(6px * var(--cl-divins));
   width: 100%;
-  margin: 10px 0 4px;
-  padding: 10px 10px 8px;
+  margin: calc(10px * var(--cl-air)) 0 calc(4px * var(--cl-air));
+  padding: calc(10px * var(--cl-divins)) 10px calc(8px * var(--cl-divins));
   border: 0;
   border-radius: 16px;
   background:
@@ -17802,12 +18082,14 @@ span.annonce-admin-merci { cursor: default; }
 .cl-divins-bandeau-tete { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; padding: 0 2px; }
 .cl-divins-bandeau-tete > span { grid-column: 1 / -1; color: #c4b8d2; font-size: 0.75rem; }
 .cl-divins-titre { margin: 0; background: linear-gradient(90deg, #f7b8e8, #9fe3ff 35%, #fff1a6 65%, #b9f5c6); -webkit-background-clip: text; background-clip: text; color: transparent; font-family: var(--serif); font-size: 1.8rem; font-weight: 600; line-height: 1.1; }
-.cl-divins-titre.cl-divins-titre-petit { font-size: 1.3rem; }
+/* À l'échelle du pas (`--cl-divins`), la rangée des six et le retrait du bandeau ; son titre ne rapetisse que de moitié,
+   et sa ligne pas du tout : ils se lisent. */
+.cl-divins-titre.cl-divins-titre-petit { font-size: calc(1.3rem * (1 + var(--cl-divins)) / 2); }
 .cl-divins-bandeau-chevron { width: 16px; height: 16px; color: #c4b8d2; transform: rotate(-90deg); }
 .cl-divins-rangee { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 2px; }
-.cl-divins-case { position: relative; display: grid; place-items: center; height: 3.4rem; }
-.cl-divins-case-bijou { font-size: 2.3rem; }
-.cl-divins-case-voile .cl-divins-case-bijou { font-size: 1.9rem; opacity: 0.85; }
+.cl-divins-case { position: relative; display: grid; place-items: center; height: calc(3.4rem * var(--cl-divins)); }
+.cl-divins-case-bijou { font-size: calc(2.3rem * var(--cl-divins)); }
+.cl-divins-case-voile .cl-divins-case-bijou { font-size: calc(1.9rem * var(--cl-divins)); opacity: 0.85; }
 /* Qui l'a, en petit, au pied de son Divin. */
 .cl-divins-case .av.cl-divins-case-porteur { position: absolute; right: 2px; bottom: 0; font-size: 0.8rem; }
 

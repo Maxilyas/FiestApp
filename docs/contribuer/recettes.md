@@ -219,7 +219,7 @@ Un légendaire, un compagnon ou un portrait de plus, dans une famille qui existe
 4. **Le client** : son champ dans `ChoixDuProfil` et sa phrase pour le lecteur d'écran (`annonceDuChoix`, `client/src/components/choix.ts`), dans le type de `api.joueur.enregistrer` (`client/src/api.ts`), son panneau dans `client/src/components/Loge.tsx`, son écran dans `ECRANS` (`client/src/views/ProfilApp.tsx`) pour que son adresse ouvre la loge sur elle.
 5. **Le piège** : `PUT /api/joueur/moi` rend le profil léger. Si seul le détail porte la pièce, `ProfilApp.enregistrer` doit la recopier de l'essai envoyé, comme le fond de carte — sinon la carte de la loge garde l'ancienne.
 6. **Si la salle la voit** : `badgeDe` et `distinctions` pour l'instantané, `carteDuProfil` pour la carte, la tête de la loge pour sa carte.
-7. **Les tests** : `server/test/loge.test.ts` (l'essai, la barre, « Porter » tout ou rien, le « Nouveau »), `server/test/profil-atlas.test.ts` (la tête de la loge et ses pièces) ; puis le rendu en 360 × 640 (`server/scripts/rendu-profil.ts`).
+7. **Les tests** : `server/test/loge.test.ts` (l'essai, la barre, « Porter » tout ou rien, le « Nouveau », les mesures de la loge), `server/test/profil-atlas.test.ts` (la tête de la loge et ses pièces) ; puis le rendu en 360 × 640 (`server/scripts/rendu-profil.ts`), et ce qui tient sur l'écran, taille par taille (`server/scripts/rendu-loge.ts`) : une septième pièce sur la rangée, ou un réglage de plus au-dessus d'une grille, y entre avec son cas — la loge tient sur un écran à quelques pixels.
 
 ## Les confettis et la boutique
 
