@@ -108,7 +108,11 @@ changé au pixel.
   menu en 360 × 640 et en 390 × 664, et sa pièce la plus longue — douze
   finitions, un Éclat en réserve, sept pages d'avatars — ne tient sur aucun
   téléphone (3 px sous le menu en 412 × 915, 209 avant) ; chez le compagnon,
-  « Tes compagnons » reste dessous en 360 × 640 et en 390 × 664.
+  « Tes compagnons » reste dessous en 360 × 640 et en 390 × 664, et un
+  vétéran au bout de son chemin, ses trois envies à combler, a une ligne de
+  plus (« Amis pour la vie », sur deux) : en 360 × 740, le cadre de « Tes
+  compagnons » passe de 5 px sous le menu, sans une ligne de texte (l'état
+  `veteran` de `rendu-compagnon.ts`).
 - **Le texte agrandi à 130 %**, en 360 × 640 : l'accueil défile encore de
   125 px, le carrefour du profil de 42. Leurs lignes grandissent avec le
   texte, c'est voulu ; elles ne tiennent plus toutes. Au départ d'une série,

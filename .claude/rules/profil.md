@@ -202,8 +202,14 @@ paths:
   défiler de nouveau : quoi que ce soit de plus sur sa page — une ligne, un
   bloc, un état de ses envies plus haut que ses trois ronds (103 px de carte
   au plus serré) —, en 360 × 740 d'abord, où elle tient à 8 px, et un pixel
-  près pour ne pas défiler. Un vétéran dont le chemin dit ses titres sur deux
-  lignes (« Amis pour la vie ») a 13 px de plus. Sous le bandeau du service
+  près pour ne pas défiler. **Un vétéran a 13 px de plus** : son chemin dit un
+  titre sur deux lignes (« Amis pour la vie », dans une colonne de 66 px — le
+  fil se trace à pas fixe, `PAS`, une colonne ne s'élargit pas pour son
+  titre). Ses trois envies à combler (l'état `veteran` du script), tout
+  tient à partir de 412 × 800 (15 px de libre ; 38 en 390 × 844, 3 sous
+  l'encoche) ; en 360 × 740, le cadre de « Tes compagnons » passe de 5 px
+  sous le menu, sans une ligne de texte, et la page défile de 12 ; en
+  360 × 640, son titre passe de 7 px dessous. Sous le bandeau du service
   (58 px, une panne que l'administrateur annonce), tout tient encore en
   390 × 844 et 412 × 915, à 2 et 1 px ; il manque 16 px en 412 × 800, 49 en
   360 × 740. Le texte agrandi à 130 %, la page défile de 29 à 171 px selon

@@ -534,12 +534,13 @@ let rate = 0
 
 /**
  * Sa page aux six tailles de téléphone, dans chacun de ses états : ce qui tient au-dessus du menu, bloc par bloc.
- * Six profils, pour que chaque état s'ouvre tel quel, sans rien rejouer : Inès et Croc, son loup adulte — rien de
+ * Sept profils, pour que chaque état s'ouvre tel quel, sans rien rejouer : Inès et Croc, son loup adulte — rien de
  * fait aujourd'hui : il dort au premier passage du jour, puis ses trois envies, le goûter, le câlin, une forme de son
  * chemin regardée — ; Paul et son loup au nom de seize lettres, ses trois envies comblées le septième jour — son
  * grand cadeau l'attend, la plus longue des lignes — ; Jade et son louveteau sans nom, son cadeau du jour ; Rose et
  * Mochi, sa chatte au bout de son chemin, sa niche ornée de partout, tout fait pour aujourd'hui, tous ses compagnons
- * adoptés sauf un ; Lou et son domaine, plus large que l'écran ; Noé, sans compagnon.
+ * adoptés sauf un ; Sam, la même chatte et rien de fait aujourd'hui, le plus haut de tous ; Lou et son domaine, plus
+ * large que l'écran ; Noé, sans compagnon.
  */
 async function tailles() {
   const maintenant = Date.now()
@@ -626,10 +627,29 @@ async function tailles() {
     false,
   )
   const noe = await profil('noe', 'Noé', '🐼', () => {}, false)
-  await relancer([ines, paul, rose, lou, jade, noe])
+  // Sam et sa chatte au bout de son chemin, comme celle de Rose — sa niche ornée, les titres de son chemin sur deux
+  // lignes —, mais rien de fait aujourd'hui : la plus haute des cartes d'envies au-dessus du plus haut des chemins.
+  // Le pire cas d'un téléphone : d'abord calculé seulement (5 px sous le menu en 360 × 740), il se mesure ici.
+  const sam = await profil(
+    'sam',
+    'Sam',
+    '🦁',
+    (db, id) => {
+      db.prepare('UPDATE profiles SET niche = ? WHERE id = ?').run('chat', id)
+      adopter(db, id, 'chat', 3, 'Mochi', 4)
+      adopter(db, id, 'loup', 3, 'Nox')
+      adopter(db, id, 'tortue', 2, null)
+      adopter(db, id, 'panda', 0, 'Petit Bambou Roux')
+      justesAvecLui(db, id, 'chat', 40)
+      complicite(db, id, 'chat', ['lanterne', 'pelote', 'tournesols', 'lune', 'gamelle', 'seau'], { s1: 'lanterne', s2: 'pelote', s3: 'gamelle', s4: 'tournesols', s5: 'lune' })
+    },
+    false,
+  )
+  await relancer([ines, paul, rose, lou, jade, noe, sam])
 
   /** Réveillé d'avance sur ce téléphone : sinon, au premier passage du jour, il dort. */
   const reveille = `try { localStorage.setItem('quizz.compagnon.reveil', ${JSON.stringify(`${jour}:loup`)}) } catch {}`
+  const reveilleLeChat = `try { localStorage.setItem('quizz.compagnon.reveil', ${JSON.stringify(`${jour}:chat`)}) } catch {}`
   type Etat = { nom: string; cookie: string; avant?: string; attendu: string; geste?: (page: any) => Promise<void> }
   const ETATS: Etat[] = [
     { nom: 'dort', cookie: ines, attendu: '.chez-ligne.endormi' },
@@ -669,6 +689,7 @@ async function tailles() {
     { nom: 'cadeau-du-jour', cookie: jade, attendu: '.chez-cadeau-ligne' },
     { nom: 'demain', cookie: rose, attendu: '.chez-ligne:not(.endormi)' },
     { nom: 'domaine', cookie: lou, attendu: '.chez-envies' },
+    { nom: 'veteran', cookie: sam, avant: reveilleLeChat, attendu: '.chez-envies' },
     { nom: 'sans', cookie: noe, attendu: '.profil-sans-compagnon' },
     // Sous le bandeau du service — une panne que l'administrateur annonce, 58 px de moins : mesuré, sans rien exiger.
     { nom: 'bandeau', cookie: ines, avant: reveille, attendu: '.chez-envies' },
@@ -731,6 +752,16 @@ async function tailles() {
 const TOUT_TIENT_DES = 740
 /** Et à partir de celle-ci, la page ne défile plus du tout : en 360 × 740, elle tient au pixel — un rien d'arrondi la ferait défiler d'un. */
 const NE_DEFILE_PLUS_DES = 800
+/**
+ * Un vétéran, lui — l'état `veteran` : un titre de son chemin sur deux lignes (« Amis pour la vie », dans une colonne
+ * de 66 px), ses trois envies à combler —, a treize pixels de plus dans la carte de son chemin : tout ne tient qu'à
+ * partir de 800 px de haut. En 360 × 740, le cadre de « Tes compagnons » passe de 5 px sous le menu, sans une ligne de
+ * texte avec lui (mesuré le 10 novembre 2026) : le script tient ce chiffre, il ne promet pas mieux. Plus bas, sa
+ * scène, ses envies et son chemin, comme tout le monde ; le titre de « Tes compagnons » passe dessous (7 px en
+ * 360 × 640).
+ */
+const UN_VETERAN_TIENT_DES = 800
+const CADRE_D_UN_VETERAN = 5
 /** Une cible de doigt, à un demi-pixel près : la sonde avance par demi-pixels. */
 const CIBLE = 44
 
@@ -764,8 +795,9 @@ function direLaMesure(n: string, etat: string, [, hauteur]: Ecran, m: Mesure) {
       doit('la pastille de ses gestes', m.gestes)
       doit('ses envies', m.envies)
       doit('son chemin', m.chemin)
-      if (hauteur >= TOUT_TIENT_DES) doit('« Tes compagnons »', m.amis)
-      else doit('le titre de « Tes compagnons »', m.titreDesAmis)
+      if (hauteur >= (etat === 'veteran' ? UN_VETERAN_TIENT_DES : TOUT_TIENT_DES)) doit('« Tes compagnons »', m.amis)
+      else if (etat !== 'veteran') doit('le titre de « Tes compagnons »', m.titreDesAmis)
+      else if (hauteur >= TOUT_TIENT_DES && (sous(m.amis) ?? Infinity) > CADRE_D_UN_VETERAN) manques.push(`« Tes compagnons » d’un vétéran : ${sous(m.amis)} px sous le menu, plus que son cadre (${CADRE_D_UN_VETERAN} px)`)
       if (m.gestesCoupes) manques.push('une pastille de ses gestes sort de sa scène')
       // Sa scène se rogne par le bas : jamais jusqu'à poser la pastille de ses gestes sur sa plaque, ni en laissant son jardin défiler de haut en bas.
       if (m.sousLaPlaque !== null && m.sousLaPlaque < 6) manques.push(`la pastille de ses gestes à ${m.sousLaPlaque} px de sa plaque`)
