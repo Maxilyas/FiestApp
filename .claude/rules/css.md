@@ -316,6 +316,37 @@ paths:
   52 Mo, c'est un bout de la page qui manque — son titre, son bouton du bas :
   elle pèse encore 48 Mo à la densité 2,625 sous Le Ciel, dont 37 pour le
   décor — et 10 en tout sous le Velours.
+- **Une couche du décor qui bouge se taille à ce qu'elle montre, et le
+  voile se peint sur le tableau.** Une couche fixe animée (`opacity`,
+  `transform`) garde un calque de la carte graphique à sa taille, et tout ce
+  qui passe au-dessus d'elle en devient un : au classement du quiz du jour, à
+  la densité 2,625, Le Sommet en tenait 82 Mo — la montagne, ses quatre
+  lueurs dans une couche à la taille de la montagne, le voile à part, la
+  neige débordant de 280 px — et les Très Riches Heures 42, un plein écran
+  pour huit points d'or (le 10 novembre 2026, relevé par
+  `retours/2026-11-09/reproductions/classement-sans-sa-ligne.ts`,
+  `THEME=sommet MEMS=512`). Depuis, 56 et 33
+  (`decors-peints.test.ts`). Ce qui a servi : le voile dans le `background`
+  du tableau, au-dessus de l'image, l'alpha dans ses couleurs ; une couche
+  animée à son cadre — ses dessins gardent leurs places mesurées par
+  `background-size` et `-position`, ou `mask-size` et `-position` — ; deux
+  petites couches plutôt qu'une grande quand ce qu'elles montrent est épars
+  (les camps de l'arête et le camp de base, les deux bords des Heures : même
+  animation, elles battent ensemble). **Une couche que le voile couvrait le
+  porte elle-même** : le voile par-dessus sa couleur, le tout découpé à sa
+  forme (`mask`), donne au pixel ce que le voile posé au-dessus donnait —
+  l'alpha de la forme, la couleur voilée. Pour une image, la poser plusieurs
+  fois sous le voile : découpé par elle, un bord à demi transparent comptait
+  deux fois sa transparence, et le liseré des drapeaux s'amincissait. Un
+  `mask` ne coûte pas de calque de plus au relevé. Le plancher : 31 Mo, le
+  document, un décor fixe et le contenu, trois plein-écrans — une couche
+  fixe garde son calque même quand rien ne bouge. Ce qui reste au Sommet,
+  c'est la neige, 21 Mo : un motif qui glisse d'un pas couvre l'écran plus
+  ce pas (240 px, en haut et à droite), et rien ne la réduit sans changer ce
+  qu'on voit — un motif plus petit, une neige moins haute : au propriétaire
+  d'en décider. Un avant/après se compare animations figées
+  (`reducedMotion: 'reduce'` au contexte de Playwright) : il ne reste que
+  quelques niveaux d'écart, le tableau recalé d'une fraction de pixel.
 - **Une classe assemblée couvre tout son préfixe** : la garde des classes
   mortes (S7, `design.test.ts`) tient pour vivante toute classe qui commence
   par un préfixe construit dans le code (`gerbe-${…}`) — `.gerbe-a-gagner`

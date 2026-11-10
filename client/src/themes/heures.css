@@ -16,7 +16,8 @@
    bordures longent les bords du téléphone, dans la marge que laissent les
    cartes ; au milieu, son vélin. Le décor vit dans les couches fixes
    (`body::before` : le folio ; `body::after` : la page du mois ;
-   `#root::after` : l'or qui scintille dans les rinceaux), qui ne captent
+   `#root::before`, `#root::after` : l'or qui scintille dans les rinceaux,
+   une bande par bord), qui ne captent
    jamais un doigt et ne bougent que par `transform` et `opacity`. Le texte
    reste lisible : la page du mois passe sous un voile de vélin et s'y fond
    vers le bas, et ce qui s'écrit sur la page garde un halo de vélin.
@@ -217,23 +218,41 @@
   z-index: 1;
 }
 
-/* L'or des rinceaux qui accroche la lumière, ici et là, le long des bords. */
+/* L'or des rinceaux qui accroche la lumière, ici et là, le long des bords.
+   Huit points, tous dans le dixième de l'écran que longe chaque bordure : une
+   couche qui scintille garde un calque de la carte graphique à sa taille, et
+   en plein écran elle en tenait un entier pour huit points (42 Mo la page du
+   classement à la densité d'un téléphone, le 10 novembre 2026, règle
+   `css.md`). Deux bandes, une par bord ; chaque point garde sa place, comptée
+   dans sa bande — 3 % de l'écran, 30 % de la bande de gauche. */
+:root[data-theme='heures'] #root::before,
 :root[data-theme='heures'] #root::after {
   content: '';
   position: fixed;
-  inset: 0;
+  top: 0;
+  bottom: 0;
+  width: 10%;
   z-index: -1;
   pointer-events: none;
-  background:
-    radial-gradient(2px 2px at 3% 22%, rgba(255, 236, 170, 0.95) 50%, transparent 51%),
-    radial-gradient(1.6px 1.6px at 2% 61%, rgba(255, 236, 170, 0.9) 50%, transparent 51%),
-    radial-gradient(2px 2px at 96% 30%, rgba(255, 236, 170, 0.95) 50%, transparent 51%),
-    radial-gradient(1.6px 1.6px at 97% 74%, rgba(255, 236, 170, 0.9) 50%, transparent 51%),
-    radial-gradient(2.2px 2.2px at 8% 3%, rgba(255, 236, 170, 0.95) 50%, transparent 51%),
-    radial-gradient(2px 2px at 91% 2.5%, rgba(255, 236, 170, 0.95) 50%, transparent 51%),
-    radial-gradient(2.2px 2.2px at 6% 96%, rgba(255, 236, 170, 0.95) 50%, transparent 51%),
-    radial-gradient(2px 2px at 93% 97%, rgba(255, 236, 170, 0.95) 50%, transparent 51%);
   animation: heures-or 4.5s ease-in-out infinite alternate;
+}
+
+:root[data-theme='heures'] #root::before {
+  left: 0;
+  background:
+    radial-gradient(2px 2px at 30% 22%, rgba(255, 236, 170, 0.95) 50%, transparent 51%),
+    radial-gradient(1.6px 1.6px at 20% 61%, rgba(255, 236, 170, 0.9) 50%, transparent 51%),
+    radial-gradient(2.2px 2.2px at 80% 3%, rgba(255, 236, 170, 0.95) 50%, transparent 51%),
+    radial-gradient(2.2px 2.2px at 60% 96%, rgba(255, 236, 170, 0.95) 50%, transparent 51%);
+}
+
+:root[data-theme='heures'] #root::after {
+  right: 0;
+  background:
+    radial-gradient(2px 2px at 60% 30%, rgba(255, 236, 170, 0.95) 50%, transparent 51%),
+    radial-gradient(1.6px 1.6px at 70% 74%, rgba(255, 236, 170, 0.9) 50%, transparent 51%),
+    radial-gradient(2px 2px at 10% 2.5%, rgba(255, 236, 170, 0.95) 50%, transparent 51%),
+    radial-gradient(2px 2px at 30% 97%, rgba(255, 236, 170, 0.95) 50%, transparent 51%);
 }
 
 /* Le texte posé sur la page, hors des cartes, garde un halo de vélin : la
@@ -369,6 +388,7 @@
 
 /* Moins de mouvement, demandé par le système : l'or ne scintille plus. */
 @media (prefers-reduced-motion: reduce) {
+  :root[data-theme='heures'] #root::before,
   :root[data-theme='heures'] #root::after {
     animation: none !important;
   }
