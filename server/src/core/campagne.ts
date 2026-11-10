@@ -1212,7 +1212,7 @@ export class CampagneStore {
    * Branchés au démarrage, comme les vies achetées.
    */
   profils?: Pick<ProfileStore, 'byIds' | 'avatarPorte' | 'legendairePorte' | 'apparenceDe'> &
-    Partial<Pick<ProfileStore, 'chercher' | 'enLigne' | 'compagnonsDeSoiree' | 'bordureDe' | 'cached' | 'compagnonDeLaNiche' | 'faireGrandir' | 'offrirUnCompagnon'>>
+    Partial<Pick<ProfileStore, 'chercher' | 'enLigne' | 'compagnonsDeSoiree' | 'bordureDe' | 'plaqueDe' | 'cached' | 'compagnonDeLaNiche' | 'faireGrandir' | 'offrirUnCompagnon'>>
   masque?: (profileId: string) => boolean
   laurierChange?: (profileId: string) => void
   /**
@@ -4363,6 +4363,8 @@ export class CampagneStore {
       const { niveau, finition, eclat, legendaire, sceau, laurier } = p.apparenceDe(j.profil)
       // Sa bordure de ligue, de mémoire : le classement ne l'attend pas.
       const bordure = p.bordureDe?.(j.profil, legendaire)
+      // La plaque de son nom, de mémoire aussi.
+      const plaque = p.plaqueDe?.(j.profil)
       return {
         profileId: j.profil.id,
         nom: nom(j),
@@ -4374,6 +4376,7 @@ export class CampagneStore {
         ...(eclat && { eclat }),
         ...(laurier && { laurier }),
         ...(bordure && { bordure }),
+        ...(plaque && { plaque }),
         justes: j.justes,
         rang,
         ...(j.enCours && { enCours: true as const }),
@@ -6180,6 +6183,8 @@ export class CampagneStore {
       const { niveau, finition, eclat, legendaire, sceau, laurier } = p.apparenceDe(j.profil)
       // Sa bordure de ligue, lue sur le même relevé que sa cote — jamais sous un Divin.
       const bordure = legendaire && divin(legendaire) ? null : bordurePortee(j.profil.bordure, j.releve.bordures)
+      // La plaque de son nom, de mémoire.
+      const plaque = p.plaqueDe?.(j.profil)
       const avant = auLundi.get(j)
       return {
         profileId: j.profil.id,
@@ -6192,6 +6197,7 @@ export class CampagneStore {
         ...(eclat && { eclat }),
         ...(laurier && { laurier }),
         ...(bordure && { bordure }),
+        ...(plaque && { plaque }),
         cote: j.releve.cote,
         ligue: ligueDe(j.releve.cote).cle,
         rang,

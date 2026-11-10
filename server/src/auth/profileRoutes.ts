@@ -777,6 +777,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
         bordure: req.body?.bordure,
         niche: req.body?.niche,
         sceau: req.body?.sceau,
+        plaque: req.body?.plaque,
       })
       // Sa finition et son légendaire se lisent en mémoire à chaque
       // instantané, mais rien ne le renvoyait : c'était la veille suivante

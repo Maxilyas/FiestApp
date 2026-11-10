@@ -969,6 +969,14 @@ export interface PublicProfile {
    * (`shared/gerbes.ts`), s'il en porte une. Pour lui seul, comme le thème.
    */
   gerbe?: string | null
+  /**
+   * La plaque de son nom dans les classements (`shared/plaques.ts`) : la clé
+   * du thème dont sa ligne prend les couleurs, celle que les autres voient ;
+   * null sans plaque. Absente d'un serveur d'avant.
+   */
+  plaque?: string | null
+  /** Ce qu'il a choisi : `auto` — celle du thème qu'il porte —, `aucune`, ou la clé d'un thème à lui. */
+  plaqueChoisie?: string
 }
 
 /**

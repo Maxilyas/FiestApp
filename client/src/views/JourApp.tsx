@@ -11,6 +11,7 @@ import { placeDuJour } from '../../../shared/course'
 import { showToast, useAppState } from '../state'
 import { QuizPlayer, type Envoi } from '../games/quiz/PlayerView'
 import { Avatar, AvatarsEnLigne, Dessin } from '../components/Avatar'
+import { MotifDeLaPlaque, classeDeLaPlaque } from '../components/Plaque'
 import { Flamme, Icon } from '../components/Icon'
 import { Niveau } from '../components/Niveau'
 import { Laurier, NomLaure, texteDuLaurier } from '../components/Laurier'
@@ -1550,7 +1551,7 @@ function LigneDuClassement({ ligne: l, moi, onOuvrir }: { ligne: LigneDuJour; mo
   return (
     <button
       type="button"
-      className={'lb-row lb-ouvrable' + (moi ? ' me' : '')}
+      className={'lb-row lb-ouvrable' + (moi ? ' me' : '') + classeDeLaPlaque(l.plaque)}
       // Le nom du bouton remplace tout son contenu : le rang et les points
       // doivent y être, comme au classement d'une soirée.
       aria-label={`La carte ${deNom(l.nom)}${l.laurier ? `, ${texteDuLaurier(l.laurier)}` : ''} — rang ${l.rang}, ${l.points} ${motPoints(l.points)}${l.enCours ? ', en cours' : ''}`}
@@ -1562,6 +1563,7 @@ function LigneDuClassement({ ligne: l, moi, onOuvrir }: { ligne: LigneDuJour; mo
         <NomLaure nom={l.nom} laurier={l.laurier} />
         {l.enCours && <span className="muted small"> · en cours</span>}
       </span>
+      <MotifDeLaPlaque plaque={l.plaque} />
       <Niveau niveau={l.niveau} />
       <Score n={l.points} texte={formatNumber(l.points)} />
     </button>

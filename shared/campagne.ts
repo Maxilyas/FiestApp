@@ -837,6 +837,8 @@ export interface LigneDuDefi {
   laurier?: LaurierPorte
   /** Sa bordure de ligue des duels, autour de son avatar (`ProfileStore.bordureDe`). */
   bordure?: BordureDeLigue
+  /** La plaque de son nom : la clé du thème dont sa ligne prend les couleurs (`ProfileStore.plaqueDe`). */
+  plaque?: string
   justes: number
   rang: number
   /** Sa tentative n'est pas finie : il peut encore monter. */
