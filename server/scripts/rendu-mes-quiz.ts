@@ -12,7 +12,7 @@
 // entière au-dessus du menu sans défiler, les deux feuilles sans défiler, les quatre départs d'une bibliothèque vide
 // au-dessus du menu, « Fermer » en tête des modèles rouverts ; et, partout, une page plus large que l'écran, une cible
 // de doigt sous 44 px, un texte sous 11 px.
-// L'éditeur d'un quiz (`/edit?quiz=…`) n'est pas photographié ici.
+// L'éditeur d'un quiz (`/edit?quiz=…`) a son script : `rendu-editeur.ts`.
 // Le client construit d'abord (`npm run build -w client`).
 //
 //   npx tsx scripts/rendu-mes-quiz.ts [dossier]     # sans dossier : export/mes-quiz

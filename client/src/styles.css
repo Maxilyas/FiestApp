@@ -3250,6 +3250,15 @@ h3 > .icon {
 .preview-stage .quiz-question { font-size: clamp(1.4rem, 3.4vw, 2.4rem); }
 .preview-stage .ans-btn { min-height: 76px; font-size: 1.15rem; }
 .preview-frame .row { justify-content: space-between; }
+/* Sur un téléphone, l'aperçu garde les deux colonnes de l'écran commun, en plus petit (le 10 novembre 2026) : à
+   18 px dans des cases de 132, une réponse d'un mot s'y coupait par syllabes — « Can-berra », « Mel-bour-ne » sur
+   trois lignes. Ses marges resserrées de même : c'est la question qu'on vient regarder. */
+@media (max-width: 600px) {
+  .preview-backdrop { padding: 12px; }
+  .preview-frame { padding: 16px; }
+  .preview-stage .ans-grid { gap: 8px; }
+  .preview-stage .ans-btn { min-height: 60px; gap: 8px; padding: 6px 10px; font-size: 0.95rem; }
+}
 
 /* Encoches et barres système des téléphones récents. */
 .player-shell { padding: max(24px, env(safe-area-inset-top)) 20px max(28px, env(safe-area-inset-bottom)); }

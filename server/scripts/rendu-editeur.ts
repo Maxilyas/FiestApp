@@ -415,6 +415,16 @@ try {
       if (attendu.encoche) await page.screenshot({ path: path.join(sortie, `${n}-defile.png`) })
       await page.evaluate('scrollTo(0, 0)')
     }
+    // L'aperçu : une réponse d'un seul mot s'y lit sur une ligne. Dans des cases trop étroites pour sa taille, elle se
+    // coupait par syllabes (« Can-berra », « Mel-bour-ne » sur trois lignes, au téléphone).
+    if (attendu.fenetre) {
+      m.reponsesCoupees = (await page.evaluate(`[...document.querySelectorAll('.preview-stage .ans-text')].filter(e => {
+        if (/\\s/.test(e.textContent.trim())) return false
+        const plage = document.createRange()
+        plage.selectNodeContents(e)
+        return new Set([...plage.getClientRects()].map(r => Math.round(r.top))).size > 1
+      }).map(e => e.textContent.trim())`)) as string[]
+    }
     m.cibles = (await page.evaluate(LES_CIBLES)) as { nom: string; n: number; h: number; l: number; vu: string; sorte: string }[]
     await page.waitForTimeout(150)
     await page.screenshot({ path: path.join(sortie, `${n}.png`) })
@@ -461,6 +471,7 @@ try {
     // Une cible de doigt, là où l'on touche : un portable se pilote à la souris.
     const basses = (m.cibles as { nom: string; h: number; l: number; vu: string }[]).filter(c => c.h < CIBLE || c.l < CIBLE)
     if (tactile && basses.length) fautes.push(`CIBLE SOUS ${CIBLE} PX : ${basses.map(c => `« ${c.nom} » ${c.l}×${c.h} (sa boîte ${c.vu})`).join(' ; ')}`)
+    if (m.reponsesCoupees?.length) fautes.push(`DANS L’APERÇU, UNE RÉPONSE D’UN MOT SE COUPE EN DEUX LIGNES : ${m.reponsesCoupees.join(' ; ')}`)
     if (m.petits.length) fautes.push(`TEXTE SOUS 11 PX : ${m.petits.join(' ; ')}`)
     if (tactile && m.champsPetits.length) fautes.push(`CHAMP SOUS ${CHAMP} PX : ${m.champsPetits.join(' ; ')}`)
     lignes.push(`   le plus petit texte : ${m.plusPetit ? `${m.plusPetit.taille} px (« ${m.plusPetit.dit} »)` : '—'} · ${m.cibles.length} sortes de cibles, la plus basse ${Math.min(...m.cibles.map((c: any) => c.h))} px, la plus étroite ${Math.min(...m.cibles.map((c: any) => c.l))} px`)

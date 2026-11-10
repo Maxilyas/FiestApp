@@ -4,13 +4,11 @@ paths:
   - "server/src/core/{estimation,memoire,partages,quizStore,quizToutPret,seed}.ts"
   - "server/src/partages.ts"
   - "server/content/quiz/**"
-  - "server/scripts/{migrate-library,rendu-quiz-tout-pret}.ts"
+  - "server/scripts/{migrate-library,rendu-quiz-tout-pret,rendu-mes-quiz,rendu-editeur}.ts"
   - "client/src/brouillon.ts"
-  - "server/scripts/rendu-editeur.ts"
-  - "server/test/editeur-telephone.test.ts"
   - "client/src/views/EditorApp.tsx"
   - "client/src/components/{MesQuiz,Partage,ChampNombre,QuizToutPret,QuizToutPretADemande}.tsx"
-  - "server/test/{bibliotheque,brouillon,echange,liste,editeur,editeur-allers-retours,editeur-pertes,enregistrement,entourage,partage,mes-quiz,categories,memoire,nombres,quiz-tout-pret,quiz-tout-pret-apercu,une-autre-question,console-tout-pret,tirage-sans-redite,emojis,gestes}.test.ts"
+  - "server/test/{bibliotheque,brouillon,echange,liste,editeur,editeur-allers-retours,editeur-pertes,editeur-telephone,enregistrement,entourage,partage,mes-quiz,categories,memoire,nombres,quiz-tout-pret,quiz-tout-pret-apercu,une-autre-question,console-tout-pret,tirage-sans-redite,emojis,gestes}.test.ts"
 ---
 
 # Les quiz : l'éditeur, la liste collée, l'import, le partage, la mémoire
@@ -19,7 +17,7 @@ paths:
 
 - `shared/library.ts` — le format d'un quiz et ses bornes (`MAX_TITRE`, `MAX_TEXT`, `MAX_QUESTIONS`…) ; `normalizeQuestions`, ce que le serveur garde d'une question — à la création, à l'enregistrement, à la lecture en base, à la reprise d'un brouillon ; `toPlayable` et `questionProblem`, jouable ou « à compléter », et pourquoi ; la durée estimée, la recherche et le résumé de « Mes quiz » ; la liste collée (`parseImportedQuestions`)
 - `core/quizStore.ts` · `server/src/api.ts` — la bibliothèque dans la base permanente (`quizzes`, `quiz_images`, `meta`) et ses routes, derrière la session de compte : `/api/quizzes…`, `/api/modeles…`, `/api/quiz-tout-pret…`, `/api/images`, `/api/programmes…` ; et `/media/image/:id`, public — l'UUID est la permission —, qui sert les photos **et** les extraits du blind test, rangés dans la même table
-- `client/src/views/EditorApp.tsx` · `components/MesQuiz.tsx` — « Mes quiz » (`/edit`) : « Créer un quiz » à côté du titre, ses quiz en lignes dans une seule carte — la pastille, le nom, ses faits en morceaux entiers (`faitsDuQuiz`), ▶ —, une fiche par quiz (`/edit?fiche=…` : « Lancer », « Modifier les questions », puis Dupliquer, Partager par un code, Exporter en fichier, Proposer au catalogue, Archiver, et « Supprimer ce quiz » seul en bas), deux feuilles (« Créer un quiz » et ses six choix, « Trier et filtrer »), et les premiers pas d'une bibliothèque sans quiz prêt (`PremiersPas`) — `server/scripts/rendu-mes-quiz.ts` les photographie et les mesure aux six tailles d'un téléphone ; l'éditeur (`/edit?quiz=…`), ses cartes, l'aperçu, « Régler tout le quiz », « Coller une liste » (`BulkImport`) et « Préparer la demande pour une IA ». ▶ et « Lancer » ouvrent un salon sur le quiz (`/salon?quiz=…`) : le programme de ce soir se choisit là, plus ici (`mes-quiz.test.ts`). Sans compte d'animateur, la page ouvre la console par le profil (`ouvrirParLeProfil`)
+- `client/src/views/EditorApp.tsx` · `components/MesQuiz.tsx` — « Mes quiz » (`/edit`) : « Créer un quiz » à côté du titre, ses quiz en lignes dans une seule carte — la pastille, le nom, ses faits en morceaux entiers (`faitsDuQuiz`), ▶ —, une fiche par quiz (`/edit?fiche=…` : « Lancer », « Modifier les questions », puis Dupliquer, Partager par un code, Exporter en fichier, Proposer au catalogue, Archiver, et « Supprimer ce quiz » seul en bas), deux feuilles (« Créer un quiz » et ses six choix, « Trier et filtrer »), et les premiers pas d'une bibliothèque sans quiz prêt (`PremiersPas`) — `server/scripts/rendu-mes-quiz.ts` les photographie et les mesure aux six tailles d'un téléphone ; l'éditeur (`/edit?quiz=…`), ses cartes — dans l'ordre où on les remplit, une question sur un écran de téléphone (`QuestionCard`, `CarteDeQuestion`) —, l'aperçu, « Régler tout le quiz », « Coller une liste » (`BulkImport`) et « Préparer la demande pour une IA » — `server/scripts/rendu-editeur.ts` le mesure à huit tailles. ▶ et « Lancer » ouvrent un salon sur le quiz (`/salon?quiz=…`) : le programme de ce soir se choisit là, plus ici (`mes-quiz.test.ts`). Sans compte d'animateur, la page ouvre la console par le profil (`ouvrirParLeProfil`)
 - `shared/echange.ts` — un quiz qu'on emporte : le fichier d'export (questions, et toutes leurs pièces en clair — photos, extraits), celui de toute la bibliothèque (`fiestapp-bibliotheque`), sa lecture, et l'import, qui repasse par l'envoi d'image et la création de quiz — le navigateur et les tests par le même chemin
 - `shared/liste.ts` — « Coller une liste » vue d'ailleurs : le format complet qu'on copie pour un ami ou une IA, écrit à partir des bornes et des catégories, et la demande toute faite pour une IA (`demandePourIA`) ; les photos jointes qui rejoignent leur question par leur nom de fichier (`photoAttendue` en attendant) ; et l'inverse, `ecrireListe` (« Copier en liste »), que `liste.test.ts` recolle
 - `shared/brouillon.ts` · `client/src/brouillon.ts` — le brouillon d'un quiz : ce que l'éditeur garde dans le navigateur tant que le serveur n'a pas enregistré, relu comme le serveur relit (`normalizeQuestions`)
@@ -133,9 +131,13 @@ paths:
   sous l'autre, et l'en-tête garde deux rangées collées : 633 px ; au texte
   agrandi à 130 %, 689 px, de même ; là où le navigateur ne connaît pas
   `field-sizing` (l'intitulé qui grandit avec son texte — Chromium depuis
-  2024), l'intitulé garde deux lignes et sa barre de défilement : 557 px ;
-  et l'aperçu d'une question, sur un téléphone, coupe les réponses par
-  syllabes (« Can-berra ») — d'avant, pas retouché.
+  2024), l'intitulé garde deux lignes et sa barre de défilement : 557 px.
+  **L'aperçu d'une question**, sur un téléphone, garde les deux colonnes de
+  l'écran commun en plus petit (15 px, des cases de 148 px, le bloc qui suit
+  `.preview-frame .row`) : à 18 px dans des cases de 132, une réponse d'un
+  mot s'y coupait par syllabes — « Can-berra », « Mel-bour-ne » sur trois
+  lignes ; le script le dit (« une réponse d'un mot se coupe »). Un mot de
+  plus de douze lettres s'y coupe encore.
 - **Un champ de plus à une question passe d'abord par `normalizeQuestions`** :
   sans lui, le serveur le jette à l'enregistrement, et le brouillon aussi.
   Puis par la liste collée (ci-dessous), par `PIECES_DE_QUESTION` si c'est une

@@ -68,6 +68,7 @@ node retours/2026-11-10/ecrans/reproductions/pouces.cjs export/releve/sonde   # 
 | Les feuilles « Créer un quiz » et « Trier et filtrer » | défilaient dans leur cadre de 144 et de 76 px : « Importer un fichier » et « De A à Z » ne se voyaient pas | tous leurs choix sans défiler aux six tailles (les cas `creer`, `trier`) |
 | Les premiers pas d'une bibliothèque sans quiz prêt | « Coller une liste », « Importer le quiz d'un ami » et « Créer mon quiz » au bout d'une page de 2 698 px, sous tous les modèles | sous le quiz tout prêt, au-dessus des modèles : les quatre départs finissent à 494 px pour 575 visibles ; le catalogue des modèles, dessous, défile par nature (le cas `vide`) |
 | « Partir d'un modèle », rouvert depuis « Créer un quiz » | « Fermer les modèles » au bout du catalogue seulement, à 2 100 px du haut | « Fermer » à côté du titre aussi, sur le premier écran (le cas `modeles`) |
+| L'éditeur d'un quiz (`/edit?quiz=…`) | un QCM à quatre réponses faisait 1 071 px de haut, un écran et deux tiers (1 125 dans un quiz qui mélange ses réponses) ; l'intitulé de la première question n'arrivait qu'à 588 px, au bas du premier écran, sous cinq rangées de numéro, de sortes et de gestes ; dix questions faisaient dix-neuf écrans (12 077 px) | **la disposition change ici aussi** : la carte se lit dans l'ordre où on la remplit — numéro et sorte sur une rangée, l'intitulé, les réponses, le temps et la catégorie, la photo et l'extrait, ce qui se règle rarement sous deux replis, ses gestes au pied en icônes. 541 px aux six tailles d'un téléphone, l'intitulé de la première question à 250 px, dix questions en 6 740 px ; un portable y gagne aussi (526 → 438 px). Aucun geste perdu ni renommé (`rendu-editeur.ts`, `editeur-telephone.test.ts`) |
 
 Le geste « sous le pouce » : la règle `.claude/rules/css.md` le raconte,
 `server/test/sous-le-pouce.test.ts` le garde. Mesuré après : sur les
@@ -85,7 +86,8 @@ changé au pixel.
   douze sentiers (530 à 800 — son bloc du haut tient l'écran, son geste
   compris) et un sentier (1 090), la liste de « Mes quiz » (en lignes
   depuis : huit à dix quiz par écran ; sa fiche et ses feuilles tiennent) et
-  l'éditeur, les grilles de la loge (ce qui les précède tient depuis).
+  l'éditeur (une question par écran depuis, la page restant aussi longue
+  que le quiz), les grilles de la loge (ce qui les précède tient depuis).
 - **Les récapitulatifs** : la fin du quiz du jour (1 100 à 1 700 : sa note, ses
   gains, le classement, la plume), le défi relevé, les corrections (« Mes
   réponses », 2 200 à 3 000), le souvenir d'une soirée.
@@ -139,6 +141,16 @@ changé au pixel.
   130 %, en 360 × 640 : la liste montre sept quiz, la fiche défile de 56 px,
   « Créer un quiz » de 160 dans sa feuille. « Fermer », en tête de toute
   feuille de l'application, fait 40 px de haut : d'avant, laissé.
+- **L'éditeur d'un quiz** : la tête d'une question tirée de la base prend
+  deux rangées au téléphone, sa marche à côté de son numéro (+ 40 px) ; une
+  question à photo, à extrait et à observation fait encore 1 049 px (1 846
+  avant) ; « Coller une liste », avec son mode d'emploi, 1 722 px, pas
+  retouchée ; en 320 de large, 633 px ; le texte agrandi à 130 %, 689 px.
+  L'aperçu d'une question coupait les réponses par syllabes sur un
+  téléphone (« Can-berra ») : ses cases sont plus larges et son texte plus
+  petit, un mot de plus de douze lettres s'y coupe encore. Rien n'y a été
+  regardé sur un vrai téléphone : Chromium sans écran ne montre ni le
+  clavier, ni Safari.
 - **Sur un vrai téléphone** : la barre d'adresse d'un navigateur retire de la
   hauteur que Chromium sans écran ne retire pas. L'encoche, elle, se mesure
   (`ENCOCHE=47`) : l'accueil et le carrefour tiennent en 390 × 844,

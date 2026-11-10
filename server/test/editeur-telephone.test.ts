@@ -487,6 +487,18 @@ test('« Régler tout le quiz », au téléphone : chaque réglage sous son nom,
   assert.match(auTelephone('.editeur-quiz .regler-tout > .row > .btn-small'), /flex:\s*none/)
 })
 
+test('l’aperçu d’une question, au téléphone : les deux colonnes de l’écran commun, en plus petit', () => {
+  // À 18 px dans des cases de 132, une réponse d'un mot se coupait par syllabes (« Can-berra », « Mel-bour-ne » sur
+  // trois lignes). Le bloc suit la règle de base de l'aperçu, et ne vaut que sous 600 px de large.
+  const apres = CSS.slice(CSS.indexOf('.preview-frame .row { justify-content: space-between; }'))
+  const bloc = /^[^@]*@media \(max-width: 600px\) \{([\s\S]*?)\n\}/.exec(apres)?.[1]
+  assert.ok(bloc, 'le bloc du téléphone suit les règles de l’aperçu')
+  assert.match(bloc, /\.preview-stage \.ans-btn \{ min-height: 60px; gap: 8px; padding: 6px 10px; font-size: 0\.95rem; \}/)
+  assert.match(bloc, /\.preview-stage \.ans-grid \{ gap: 8px; \}/)
+  // Deux colonnes toujours : c'est l'écran commun qu'on regarde, en réduction.
+  assert.doesNotMatch(bloc, /grid-template-columns/)
+})
+
 // ── Le script qui le mesure ─────────────────────────────────────────────────
 
 test('le script de rendu garde ce qui a été atteint, et sort par le code de sortie de Node', () => {
@@ -497,7 +509,7 @@ test('le script de rendu garde ce qui a été atteint, et sort par le code de so
   assert.ok(plafonds, 'les plafonds de la question type, par sorte d’écran')
   assert.ok(Number(plafonds[1]) < 620, `au téléphone, ${plafonds[1]} px au plus`)
   assert.ok(Number(plafonds[3]) < 526, `au portable, ${plafonds[3]} px au plus : moins qu’avant la retouche`)
-  for (const faute of ['LA QUESTION TYPE FAIT', 'SOUS LA MOITIÉ DE L’ÉCRAN', 'CIBLE SOUS', 'TEXTE SOUS 11 PX', 'CHAMP SOUS', 'LA PAGE DÉBORDE']) {
+  for (const faute of ['LA QUESTION TYPE FAIT', 'SOUS LA MOITIÉ DE L’ÉCRAN', 'CIBLE SOUS', 'TEXTE SOUS 11 PX', 'CHAMP SOUS', 'LA PAGE DÉBORDE', 'UNE RÉPONSE D’UN MOT SE COUPE']) {
     assert.ok(script.includes(faute), `le script sait dire « ${faute} »`)
   }
   assert.match(script, /process\.exitCode = 1/)
