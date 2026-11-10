@@ -1577,7 +1577,9 @@ function QuizEditor({
   }
 
   return (
-    <div className="editor">
+    // `editeur-quiz` : la page de l'éditeur seule — « Mes quiz », la liste, porte aussi `editor`, et ce que l'éditeur
+    // resserre au téléphone ne la touche pas (le bloc « L'éditeur d'un quiz, au téléphone » de `styles.css`).
+    <div className="editor editeur-quiz">
       {/* Collé en haut : « Enregistrer » et « Annuler » restaient au sommet
           d'une page de cinq à quarante-cinq écrans, et l'« Annuler » d'un
           déplacement vers la huitième question à 2 000 px de la carte. */}
@@ -1599,20 +1601,26 @@ function QuizEditor({
           placeholder="Titre du quiz"
           aria-label="Titre du quiz"
         />
-        <div className="row">
-          {aCompleter > 0 ? (
-            <button type="button" className="btn btn-ghost btn-small a-completer" onClick={suivanteACompleter}>
-              <Icon name="alert" />
-              {aCompleter} à compléter
-              <Icon name="arrow-down" />
-            </button>
-          ) : (
-            <span className="muted">
-              {ready}/{quiz.questions.length - deCote} prête{ready > 1 ? 's' : ''}
-              {deCote > 0 && ` · ${deCote} de côté`}
-            </span>
-          )}
-          {duree > 0 && <span className="muted duree-quiz" title="Temps de jeu estimé, révélations comprises">{ecrireDuree(duree)}</span>}
+        <div className="row editor-barre">
+          {/* Où en est le quiz, en deux temps : ce qui manque ou ce qui est prêt, puis sa durée. Au téléphone, la
+              durée ne se montre que si elle tient entière à leur suite, sur la ligne d'« Enregistrer » : passée
+              dessous, elle donnait deux rangées à la partie collée de l'en-tête — 85 px, puis 107 dès qu'une
+              question attendait, sur les 640 d'un petit téléphone. */}
+          <div className="editor-etat">
+            {aCompleter > 0 ? (
+              <button type="button" className="btn btn-ghost btn-small a-completer" onClick={suivanteACompleter}>
+                <Icon name="alert" />
+                {aCompleter} à compléter
+                <Icon name="arrow-down" />
+              </button>
+            ) : (
+              <span className="muted">
+                {ready}/{quiz.questions.length - deCote} prête{ready > 1 ? 's' : ''}
+                {deCote > 0 && ` · ${deCote} de côté`}
+              </span>
+            )}
+            {duree > 0 && <span className="muted duree-quiz" title="Temps de jeu estimé, révélations comprises">{ecrireDuree(duree)}</span>}
+          </div>
           <button className="btn btn-primary" onClick={() => save()} disabled={saving || !dirty}>
             {saving ? (
               reveil ? 'Réveil du serveur…' : 'Enregistrement…'
@@ -1694,50 +1702,29 @@ function QuizEditor({
             )}
           </p>
         )}
-        {savedAt && !dirty && <p className="muted">Enregistré {quand(savedAt)}</p>}
         {emojisDuTitre && (
           <p className="warn small">
             <Icon name="alert" /> {espacesFines(`Titre : ${emojisDuTitre}.`)}
           </p>
         )}
-        {/* La règle de l'expérience (invariant 19) se dit là où l'on écrit : un
-            quiz de quatre questions ne donne pas de podium, et personne ne
-            le savait avant la soirée. */}
-        {ready > 0 && ready < SEUILS.questionsQuiz && (
-          <p className="muted small">
-            <Icon name="alert" />{' '}
-            {espacesFines(
-              `${ready} question${ready > 1 ? 's' : ''} prête${ready > 1 ? 's' : ''} : le podium de ce quiz ne rapportera pas ` +
-                `d’expérience aux profils — il en faut ${SEUILS.questionsQuiz} au moins.`,
+        {/* Une seule rangée entre l'en-tête et la première question : « Régler tout le quiz », et l'heure du dernier
+            enregistrement à sa suite — sur sa propre ligne, elle descendait toutes les cartes de 36 px à chaque
+            « Enregistrer ». Ce que le quiz entier a à dire — son podium, ses bonnes réponses en premier — se lit
+            sous les questions, là où l'on en ajoute. */}
+        {(quiz.questions.length > 0 || (savedAt !== null && !dirty)) && (
+          <div className="row editor-outils">
+            {quiz.questions.length > 0 && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-small"
+                aria-expanded={reglerTout}
+                onClick={() => setReglerTout(v => !v)}
+              >
+                <Icon name="list" />
+                Régler tout le quiz
+              </button>
             )}
-          </p>
-        )}
-        {enPremier && !reglages.melangerReponses && (
-          <div className="row en-premier">
-            <p className="muted small">
-              <Icon name="alert" />{' '}
-              {espacesFines(
-                `La bonne réponse est la première dans ${enPremier.premiers} QCM sur ${enPremier.qcm} : ` +
-                  'la salle finira par le remarquer.',
-              )}
-            </p>
-            <button type="button" className="btn btn-small" onClick={() => changerReglages({ melangerReponses: true })}>
-              <Icon name="shuffle" />
-              Mélanger les réponses à chaque partie
-            </button>
-          </div>
-        )}
-        {quiz.questions.length > 0 && (
-          <div className="row">
-            <button
-              type="button"
-              className="btn btn-ghost btn-small"
-              aria-expanded={reglerTout}
-              onClick={() => setReglerTout(v => !v)}
-            >
-              <Icon name="list" />
-              Régler tout le quiz
-            </button>
+            {savedAt !== null && !dirty && <p className="muted small editor-enregistre">Enregistré {quand(savedAt)}</p>}
           </div>
         )}
         {reglerTout && (
@@ -1769,6 +1756,37 @@ function QuizEditor({
             actions={actions}
           />
         ))}
+
+        {/* La règle de l'expérience (invariant 19) se dit là où l'on écrit : un
+            quiz de quatre questions ne donne pas de podium, et personne ne
+            le savait avant la soirée. Sous les questions, au-dessus d'« Ajouter
+            une question » — ce qui lui manque s'ajoute là : au-dessus d'elles,
+            ses trois lignes repoussaient le texte de la première au bas du
+            premier écran d'un téléphone. */}
+        {ready > 0 && ready < SEUILS.questionsQuiz && (
+          <p className="muted small">
+            <Icon name="alert" />{' '}
+            {espacesFines(
+              `${ready} question${ready > 1 ? 's' : ''} prête${ready > 1 ? 's' : ''} : le podium de ce quiz ne rapportera pas ` +
+                `d’expérience aux profils — il en faut ${SEUILS.questionsQuiz} au moins.`,
+            )}
+          </p>
+        )}
+        {enPremier && !reglages.melangerReponses && (
+          <div className="row en-premier">
+            <p className="muted small">
+              <Icon name="alert" />{' '}
+              {espacesFines(
+                `La bonne réponse est la première dans ${enPremier.premiers} QCM sur ${enPremier.qcm} : ` +
+                  'la salle finira par le remarquer.',
+              )}
+            </p>
+            <button type="button" className="btn btn-small" onClick={() => changerReglages({ melangerReponses: true })}>
+              <Icon name="shuffle" />
+              Mélanger les réponses à chaque partie
+            </button>
+          </div>
+        )}
 
         <div className="row">
           <button
@@ -2602,8 +2620,11 @@ interface ActionsDesCartes {
   uneAutre: (id: string) => Promise<string | null>
 }
 
-/** La carte d'une question, qui ne se redessine que si ce qu'elle montre change. */
-const CarteDeQuestion = memo(function CarteDeQuestion({
+/**
+ * La carte d'une question, qui ne se redessine que si ce qu'elle montre change. Exportée pour son épreuve, qui la
+ * rend telle qu'un téléphone et un ordinateur la reçoivent (`editeur-telephone.test.ts`).
+ */
+export const CarteDeQuestion = memo(function CarteDeQuestion({
   actions,
   index,
   ...reste
@@ -2676,6 +2697,30 @@ function cocherBonne(q: QuizQuestionDef, i: number, bonne: boolean): QuizQuestio
 
 /** Ce qu'une case d'ordre attend, de la première à la dernière. */
 const PLACES_DE_L_ORDRE = ['Le premier', 'Le deuxième', 'Le troisième', 'Le quatrième (optionnel)']
+
+/**
+ * Un téléphone : la largeur sous laquelle la carte d'une question se range
+ * en une colonne (`styles.css`, « L'éditeur d'un quiz, au téléphone » — la
+ * même borne, 600 px). La feuille de style fait le reste ; la carte ne le
+ * demande que pour ce qu'un repli décide : ses réglages rares à plat ou
+ * sous « Plus de réglages », « Anecdote, note, intertitre » ouvert d'emblée
+ * ou pas. Un `<details>` fermé ne se rouvre pas par la feuille de style.
+ */
+const TELEPHONE = '(max-width: 600px)'
+const estUnTelephone = () => typeof window !== 'undefined' && !!window.matchMedia?.(TELEPHONE).matches
+function useTelephone(): boolean {
+  const [telephone, setTelephone] = useState(estUnTelephone)
+  useEffect(() => {
+    const media = typeof window !== 'undefined' ? window.matchMedia?.(TELEPHONE) : undefined
+    if (!media) return
+    // Un téléphone couché, une fenêtre qu'on élargit : la carte suit.
+    const suivre = () => setTelephone(media.matches)
+    suivre()
+    media.addEventListener?.('change', suivre)
+    return () => media.removeEventListener?.('change', suivre)
+  }, [])
+  return telephone
+}
 
 /** Un fichier en clair (`data:…`), tel que l'envoi d'image le reçoit. */
 function enClair(fichier: File): Promise<string> {
@@ -2822,8 +2867,76 @@ function QuestionCard({
       if (sonInput.current) sonInput.current.value = ''
     }
   }
-  /** Ce qui entoure la question : ouvert d'emblée s'il y a déjà quelque chose. */
+  /** Ce qui entoure la question : ouvert d'emblée s'il y a déjà quelque chose — à l'ordinateur ; au téléphone, son compte le dit. */
   const entourage = [question.anecdote, question.note, question.intertitre, question.imageRevelation].filter(Boolean).length
+  const telephone = useTelephone()
+  // L'ordre à retrouver se mélange toujours, un vrai ou faux jamais
+  // (`shared/hasard.ts`) : « Garder cet ordre » n'y voudrait rien dire.
+  const ordreAGarder = qcm && melange && !enOrdre && !estVraiFaux(question)
+  /** Les réglages rares qui sont posés : le compte que dit « Plus de réglages », replié. */
+  const raresPoses = [plusieurs, enOrdre, ordreAGarder && !!question.ordreFixe, !!question.deCote].filter(Boolean).length
+  /** « Plus de réglages », au téléphone : ouvert à l'arrivée si l'un d'eux est posé, puis comme on le laisse. */
+  const [plusOuvert, setPlusOuvert] = useState(raresPoses > 0)
+  /**
+   * Les réglages rares : la sorte d'un QCM, l'ordre qu'il garde, la mise de
+   * côté. À l'ordinateur, une rangée de pastilles ; au téléphone, où chacune
+   * prenait la sienne, ceux d'un QCM se rangent sous « Plus de réglages ».
+   */
+  const rares = (
+    <div className="question-rares">
+      {/* Dans un quiz qui mélange ses réponses, celles qui ont un ordre —
+          « Aucune de ces réponses » en dernier — le gardent. Un vrai ou faux
+          le garde toujours, et des nombres se rangent d'eux-mêmes. */}
+      {qcm && (
+        <div className="variantes" role="group" aria-label={`Sorte du QCM ${index + 1}`}>
+          <button
+            type="button"
+            className={'pill-btn' + (plusieurs ? ' active' : '')}
+            aria-pressed={plusieurs}
+            title="Plusieurs réponses sont bonnes : il faut les cocher toutes, et elles seules"
+            onClick={() => onChange(basculerPlusieurs)}
+          >
+            <Icon name="check-circle" />
+            Plusieurs bonnes réponses
+          </button>
+          <button
+            type="button"
+            className={'pill-btn' + (enOrdre ? ' active' : '')}
+            aria-pressed={enOrdre}
+            title="Les réponses, écrites dans le bon ordre, s’affichent mélangées : chacun les remet dans l’ordre"
+            onClick={() => onChange(q => ({ ...q, variante: q.variante === 'ordre' ? undefined : 'ordre', bonnes: undefined }))}
+          >
+            <Icon name="list" />
+            À remettre dans l’ordre
+          </button>
+          {ordreAGarder && (
+            <button
+              type="button"
+              className={'pill-btn' + (question.ordreFixe ? ' active' : '')}
+              aria-pressed={!!question.ordreFixe}
+              title="Les réponses de cette question restent dans l'ordre écrit"
+              onClick={() => onChange(q => ({ ...q, ordreFixe: !q.ordreFixe || undefined }))}
+            >
+              <Icon name="lock" />
+              Garder cet ordre
+            </button>
+          )}
+        </div>
+      )}
+      {/* Une question de réserve, ou trop dure pour ce soir : elle reste
+          écrite, et ne se joue pas. */}
+      <button
+        type="button"
+        className={'pill-btn' + (question.deCote ? ' active' : '')}
+        aria-pressed={!!question.deCote}
+        title="Garder la question dans le quiz, sans la jouer"
+        onClick={() => onChange(q => ({ ...q, deCote: !q.deCote || undefined }))}
+      >
+        <Icon name="archive" />
+        Mise de côté
+      </button>
+    </div>
+  )
 
   return (
     <div
@@ -2854,157 +2967,70 @@ function QuestionCard({
         pickImage(photo)
       }}
     >
+      {/* La tête : son numéro et sa sorte, rien d'autre — ce qu'on vient écrire commence juste dessous. Ses gestes
+          (monter, descendre, insérer, dupliquer, l'aperçu, supprimer) ferment la carte : en tête, sur deux rangées,
+          ils repoussaient l'intitulé à 287 px du haut de sa carte sur un téléphone. */}
       <div className="question-head">
-        <div className="row">
-          {total > 1 ? (
-            <button
-              ref={numberButton}
-              type="button"
-              className="pill pill-button"
-              title="Déplacer la question : lui donner un autre numéro"
-              aria-label={`Question ${index + 1} sur ${total}, déplacer`}
-              onClick={askMove}
-            >
-              <Icon name="hash" />
-              Question {index + 1}
-            </button>
-          ) : (
-            <span className="pill">Question {index + 1}</span>
-          )}
-          {/* Tirée de la base : sa marche, à côté de son numéro — l'ordre d'un quiz progressif est sa montée, et
-              rien ne le disait (l'expert du quiz tout prêt, le 11 octobre 2026). */}
-          {marche && (
-            <span className="pill pill-marche" title="Sa difficulté dans la base">
-              {NOM_NIVEAU[marche]}
-            </span>
-          )}
-          <div className="kind-toggle" role="group" aria-label={`Type de la question ${index + 1}`}>
-            <button
-              className={'pill-btn' + (qcm ? ' active' : '')}
-              aria-pressed={qcm}
-              onClick={() => onChange(q => ({ ...q, kind: 'choice', variante: q.variante === 'sondage' ? undefined : q.variante }))}
-            >
-              <Icon name="list" />
-              QCM
-            </button>
-            <button
-              className={'pill-btn' + (question.kind === 'number' ? ' active' : '')}
-              aria-pressed={question.kind === 'number'}
-              onClick={() => onChange(q => ({ ...q, kind: 'number' }))}
-            >
-              <Icon name="hash" />
-              Estimation
-            </button>
-            {/* « Qui dans la salle ? » : les invités sont les réponses, et
-                personne n'a raison — un vote, pour rire. */}
-            <button
-              className={'pill-btn' + (sondage ? ' active' : '')}
-              aria-pressed={sondage}
-              title="Chacun désigne un invité de la soirée, et l’écran montre qui la salle a choisi"
-              onClick={() => onChange(q => ({ ...q, kind: 'choice', variante: 'sondage', bonnes: undefined }))}
-            >
-              <Icon name="users" />
-              Qui dans la salle ?
-            </button>
-          </div>
-        </div>
-        <div className="row">
+        {total > 1 ? (
           <button
-            ref={upButton}
-            className="btn btn-ghost btn-small"
-            disabled={index === 0}
-            aria-label={`Monter la question ${index + 1}`}
-            title="Monter"
-            onClick={() => onMoveTo(index, 'up')}
+            ref={numberButton}
+            type="button"
+            className="pill pill-button question-numero"
+            title="Déplacer la question : lui donner un autre numéro"
+            aria-label={`Question ${index + 1} sur ${total}, déplacer`}
+            onClick={askMove}
           >
-            <Icon name="arrow-up" />
+            <Icon name="hash" />
+            <span className="question-mot">Question </span>
+            {index + 1}
+          </button>
+        ) : (
+          <span className="pill question-numero">
+            <span className="question-mot">Question </span>
+            {index + 1}
+          </span>
+        )}
+        {/* Tirée de la base : sa marche, à côté de son numéro — l'ordre d'un quiz progressif est sa montée, et
+            rien ne le disait (l'expert du quiz tout prêt, le 11 octobre 2026). */}
+        {marche && (
+          <span className="pill pill-marche" title="Sa difficulté dans la base">
+            {NOM_NIVEAU[marche]}
+          </span>
+        )}
+        <div className="kind-toggle" role="group" aria-label={`Type de la question ${index + 1}`}>
+          <button
+            className={'pill-btn' + (qcm ? ' active' : '')}
+            aria-pressed={qcm}
+            onClick={() => onChange(q => ({ ...q, kind: 'choice', variante: q.variante === 'sondage' ? undefined : q.variante }))}
+          >
+            <Icon name="list" />
+            QCM
           </button>
           <button
-            ref={downButton}
-            className="btn btn-ghost btn-small"
-            disabled={index === total - 1}
-            aria-label={`Descendre la question ${index + 1}`}
-            title="Descendre"
-            onClick={() => onMoveTo(index + 2, 'down')}
+            className={'pill-btn' + (question.kind === 'number' ? ' active' : '')}
+            aria-pressed={question.kind === 'number'}
+            onClick={() => onChange(q => ({ ...q, kind: 'number' }))}
           >
-            <Icon name="arrow-down" />
+            <Icon name="hash" />
+            Estimation
           </button>
+          {/* « Qui dans la salle ? » : les invités sont les réponses, et
+              personne n'a raison — un vote, pour rire. */}
           <button
-            className="btn btn-ghost btn-small"
-            aria-label={`Insérer une question après la question ${index + 1}`}
-            title={total >= MAX_QUESTIONS ? `Un quiz tient ${MAX_QUESTIONS} questions au plus` : 'Insérer une question après'}
-            disabled={total >= MAX_QUESTIONS}
-            onClick={onInsertAfter}
+            className={'pill-btn' + (sondage ? ' active' : '')}
+            aria-pressed={sondage}
+            title="Chacun désigne un invité de la soirée, et l’écran montre qui la salle a choisi"
+            onClick={() => onChange(q => ({ ...q, kind: 'choice', variante: 'sondage', bonnes: undefined }))}
           >
-            <Icon name="plus" />
-          </button>
-          <button
-            className="btn btn-ghost btn-small"
-            aria-label={`Dupliquer la question ${index + 1}`}
-            title={total >= MAX_QUESTIONS ? `Un quiz tient ${MAX_QUESTIONS} questions au plus` : 'Dupliquer'}
-            disabled={total >= MAX_QUESTIONS}
-            onClick={onDuplicate}
-          >
-            <Icon name="copy" />
-          </button>
-          <button className="btn btn-ghost btn-small" aria-label={`Aperçu de la question ${index + 1}`} onClick={() => setPreview(true)}>
-            <Icon name="eye" />
-            Aperçu
-          </button>
-          {/* Une question qu'on n'aime pas, dans un quiz tout prêt : sa voisine de la base plutôt qu'un quiz de quatorze. */}
-          {onUneAutre && (
-            <button
-              type="button"
-              className="btn btn-ghost btn-small"
-              aria-label={`Une autre question à la place de la question ${index + 1}`}
-              title="Une autre de la même catégorie et de la même difficulté, tirée de la base"
-              aria-busy={autreEnRoute || undefined}
-              disabled={autreEnRoute}
-              onClick={async () => {
-                setAutreEnRoute(true)
-                setErreurAutre('')
-                const coince = await onUneAutre()
-                setAutreEnRoute(false)
-                if (coince) setErreurAutre(coince)
-              }}
-            >
-              <Icon name="dice" />
-              {autreEnRoute ? 'Je cherche…' : 'Une autre'}
-            </button>
-          )}
-          <button
-            className="btn btn-ghost btn-small"
-            aria-label={`Supprimer la question ${index + 1}`}
-            onClick={async () => {
-              // Une question vide s'efface sans cérémonie ; une question écrite
-              // mérite qu'on demande — dix minutes de rédaction ne doivent pas
-              // partir sur un clic de trop.
-              const written = question.text.trim() || question.answers.some(a => a.trim()) || question.image
-              if (written) {
-                const ok = await confirmDialog({
-                  title: `Supprimer la question ${index + 1} ?`,
-                  message: question.text.trim() || 'Cette question et ses réponses seront perdues.',
-                  confirmLabel: 'Supprimer',
-                  danger: true,
-                })
-                if (!ok) return
-              }
-              onDelete()
-            }}
-          >
-            Supprimer
+            <Icon name="users" />
+            Qui dans la salle ?
           </button>
         </div>
       </div>
 
-      {erreurAutre && (
-        <p className="error" role="alert">
-          {erreurAutre}
-        </p>
-      )}
       <textarea
         ref={textArea}
-        className="input"
+        className="input question-texte"
         rows={2}
         maxLength={MAX_TEXT}
         placeholder="Ta question…"
@@ -3020,7 +3046,7 @@ function QuestionCard({
               {espacesFines('La bonne réponse se tape à la révélation, une fois mesurée : le poids du gâteau, les bonbons du bocal.')}
             </p>
           ) : (
-            <label className="row">
+            <label className="row number-cible">
               <span className="muted">Bonne réponse</span>
               <input
                 className="input"
@@ -3036,7 +3062,7 @@ function QuestionCard({
               />
             </label>
           )}
-          <label className="row">
+          <label className="row number-unite">
             <span className="muted">Unité</span>
             <input
               className="input unit-input"
@@ -3058,7 +3084,7 @@ function QuestionCard({
               En direct
             </button>
           </div>
-          <p className="muted">
+          <p className="muted number-note">
             Personne n'est bloqué : chacun propose un nombre, et plus il tombe près, plus il rapporte — la même
             distance, les mêmes points.
           </p>
@@ -3124,178 +3150,130 @@ function QuestionCard({
       </div>
       )}
 
-      {/* Dans un quiz qui mélange ses réponses, celles qui ont un ordre —
-          « Aucune de ces réponses » en dernier — le gardent. Un vrai ou faux
-          le garde toujours, et des nombres se rangent d'eux-mêmes. */}
-      {qcm && (
-        <div className="row variantes" role="group" aria-label={`Sorte du QCM ${index + 1}`}>
-          <button
-            type="button"
-            className={'pill-btn' + (plusieurs ? ' active' : '')}
-            aria-pressed={plusieurs}
-            title="Plusieurs réponses sont bonnes : il faut les cocher toutes, et elles seules"
-            onClick={() => onChange(basculerPlusieurs)}
-          >
-            <Icon name="check-circle" />
-            Plusieurs bonnes réponses
-          </button>
-          <button
-            type="button"
-            className={'pill-btn' + (enOrdre ? ' active' : '')}
-            aria-pressed={enOrdre}
-            title="Les réponses, écrites dans le bon ordre, s’affichent mélangées : chacun les remet dans l’ordre"
-            onClick={() => onChange(q => ({ ...q, variante: q.variante === 'ordre' ? undefined : 'ordre', bonnes: undefined }))}
-          >
-            <Icon name="list" />
-            À remettre dans l’ordre
-          </button>
-          {/* L'ordre à retrouver se mélange toujours, un vrai ou faux jamais
-              (`shared/hasard.ts`) : « Garder cet ordre » n'y voudrait rien dire. */}
-          {melange && !enOrdre && !estVraiFaux(question) && (
-            <button
-              type="button"
-              className={'pill-btn' + (question.ordreFixe ? ' active' : '')}
-              aria-pressed={!!question.ordreFixe}
-              title="Les réponses de cette question restent dans l'ordre écrit"
-              onClick={() => onChange(q => ({ ...q, ordreFixe: !q.ordreFixe || undefined }))}
+      {/* Ses réglages courants, côte à côte : le temps et la catégorie sur une rangée, la photo et l'extrait sur la
+          suivante. Une rangée chacun, avec la sorte du QCM et la mise de côté, ils en prenaient huit sous les
+          réponses d'un téléphone. */}
+      <div className="question-reglages">
+        <div className="question-champs">
+          <label className="row question-temps">
+            <span className="muted">Temps</span>
+            <ChampNombre
+              className="input duration-input"
+              min={MIN_DURATION}
+              max={MAX_DURATION}
+              aria-label="Temps de réponse, en secondes"
+              valeur={question.duration}
+              onValeur={duration => onChange(q => ({ ...q, duration }))}
+            />
+            {/* Les bornes se disent pendant qu'on tape ; en quittant le champ, elles s'appliquent. */}
+            {tempsDansLesBornes(question.duration) ? (
+              <span className="muted">s</span>
+            ) : (
+              <span className="warn small">
+                s · de {MIN_DURATION} à {MAX_DURATION}
+              </span>
+            )}
+          </label>
+          {/* La catégorie : une liste fixe, la même chez tous les animateurs —
+              c'est ce qui permet à la fiche d'un joueur de l'additionner d'une
+              soirée à l'autre. */}
+          <label className="row question-categorie">
+            <span className="muted">Catégorie</span>
+            <select
+              className="team-emoji-select categorie-select"
+              aria-label="Catégorie de la question"
+              value={question.category ?? ''}
+              onChange={e => onChange(q => ({ ...q, category: e.target.value || null }))}
             >
-              <Icon name="lock" />
-              Garder cet ordre
+              <option value="">Aucune</option>
+              {CATEGORIES.map(c => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="question-pieces">
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={e => pickImage(e.target.files?.[0])}
+          />
+          {question.image ? (
+            <div className="row">
+              <button
+                type="button"
+                className="thumb-btn"
+                title="Voir la photo en grand"
+                aria-label="Voir la photo en grand"
+                onClick={() => setLoupe(true)}
+              >
+                <img className="thumb" src={question.image} alt="" />
+                <Icon name="maximize" />
+              </button>
+              <button
+                className="btn btn-ghost btn-small"
+                onClick={() => onChange(q => ({ ...q, image: null, observeSeconds: null }))}
+              >
+                Retirer la photo
+              </button>
+            </div>
+          ) : (
+            <div className="row">
+              {/* La photo qu'une liste collée annonçait : son nom de fichier, ou
+                  ce qu'elle doit montrer — ce qu'il faut aller chercher. */}
+              {attendue && (
+                <span className="photo-attendue">
+                  {'Photo attendue\u00a0: '}
+                  <strong>{attendue}</strong>
+                </span>
+              )}
+              <button className="btn btn-small" disabled={busy} onClick={() => fileInput.current?.click()}>
+                {busy ? (
+                  'Envoi…'
+                ) : (
+                  <>
+                    <Icon name="camera" />
+                    {attendue ? 'Ajouter la photo' : 'Ajouter une photo'}
+                  </>
+                )}
+              </button>
+              {attendue && (
+                <button
+                  className="btn btn-ghost btn-small"
+                  title="Jouer la question sans photo"
+                  onClick={() => onChange(q => ({ ...q, photoAttendue: null, observeSeconds: null }))}
+                >
+                  Sans photo
+                </button>
+              )}
+            </div>
+          )}
+          {/* Le blind test : un extrait que l'écran commun joue pendant la
+              question — jamais les téléphones. */}
+          <input ref={sonInput} type="file" accept="audio/*" hidden onChange={e => pickSon(e.target.files?.[0])} />
+          {question.son ? (
+            <div className="row extrait-edit">
+              <audio className="extrait-audio" controls preload="none" src={question.son} aria-label="L’extrait de la question" />
+              <button className="btn btn-ghost btn-small" onClick={() => onChange(q => ({ ...q, son: null }))}>
+                Retirer l’extrait
+              </button>
+            </div>
+          ) : (
+            <button
+              className="btn btn-small"
+              disabled={busy}
+              title="Un extrait que l’écran commun joue pendant la question : un blind test"
+              onClick={() => sonInput.current?.click()}
+            >
+              <Icon name="music" />
+              Ajouter un son
             </button>
           )}
         </div>
-      )}
-
-      <div className="question-tools">
-        {/* Une question de réserve, ou trop dure pour ce soir : elle reste
-            écrite, et ne se joue pas. */}
-        <button
-          type="button"
-          className={'pill-btn' + (question.deCote ? ' active' : '')}
-          aria-pressed={!!question.deCote}
-          title="Garder la question dans le quiz, sans la jouer"
-          onClick={() => onChange(q => ({ ...q, deCote: !q.deCote || undefined }))}
-        >
-          <Icon name="archive" />
-          Mise de côté
-        </button>
-        {/* La catégorie : une liste fixe, la même chez tous les animateurs —
-            c'est ce qui permet à la fiche d'un joueur de l'additionner d'une
-            soirée à l'autre. */}
-        <label className="row">
-          <span className="muted">Catégorie</span>
-          <select
-            className="team-emoji-select categorie-select"
-            aria-label="Catégorie de la question"
-            value={question.category ?? ''}
-            onChange={e => onChange(q => ({ ...q, category: e.target.value || null }))}
-          >
-            <option value="">Aucune</option>
-            {CATEGORIES.map(c => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="row">
-          <span className="muted">Temps</span>
-          <ChampNombre
-            className="input duration-input"
-            min={MIN_DURATION}
-            max={MAX_DURATION}
-            aria-label="Temps de réponse, en secondes"
-            valeur={question.duration}
-            onValeur={duration => onChange(q => ({ ...q, duration }))}
-          />
-          {/* Les bornes se disent pendant qu'on tape ; en quittant le champ, elles s'appliquent. */}
-          {tempsDansLesBornes(question.duration) ? (
-            <span className="muted">s</span>
-          ) : (
-            <span className="warn small">
-              s · de {MIN_DURATION} à {MAX_DURATION}
-            </span>
-          )}
-        </label>
-
-        {/* Le blind test : un extrait que l'écran commun joue pendant la
-            question — jamais les téléphones. */}
-        <input ref={sonInput} type="file" accept="audio/*" hidden onChange={e => pickSon(e.target.files?.[0])} />
-        {question.son ? (
-          <div className="row extrait-edit">
-            <audio className="extrait-audio" controls preload="none" src={question.son} aria-label="L’extrait de la question" />
-            <button className="btn btn-ghost btn-small" onClick={() => onChange(q => ({ ...q, son: null }))}>
-              Retirer l’extrait
-            </button>
-          </div>
-        ) : (
-          <button
-            className="btn btn-small"
-            disabled={busy}
-            title="Un extrait que l’écran commun joue pendant la question : un blind test"
-            onClick={() => sonInput.current?.click()}
-          >
-            <Icon name="music" />
-            Ajouter un son
-          </button>
-        )}
-        <input
-          ref={fileInput}
-          type="file"
-          accept="image/*"
-          hidden
-          onChange={e => pickImage(e.target.files?.[0])}
-        />
-        {question.image ? (
-          <div className="row">
-            <button
-              type="button"
-              className="thumb-btn"
-              title="Voir la photo en grand"
-              aria-label="Voir la photo en grand"
-              onClick={() => setLoupe(true)}
-            >
-              <img className="thumb" src={question.image} alt="" />
-              <Icon name="maximize" />
-            </button>
-            <button
-              className="btn btn-ghost btn-small"
-              onClick={() => onChange(q => ({ ...q, image: null, observeSeconds: null }))}
-            >
-              Retirer la photo
-            </button>
-          </div>
-        ) : (
-          <div className="row">
-            {/* La photo qu'une liste collée annonçait : son nom de fichier, ou
-                ce qu'elle doit montrer — ce qu'il faut aller chercher. */}
-            {attendue && (
-              <span className="photo-attendue">
-                {'Photo attendue\u00a0: '}
-                <strong>{attendue}</strong>
-              </span>
-            )}
-            <button className="btn btn-small" disabled={busy} onClick={() => fileInput.current?.click()}>
-              {busy ? (
-                'Envoi…'
-              ) : (
-                <>
-                  <Icon name="camera" />
-                  {attendue ? 'Ajouter la photo' : 'Ajouter une photo'}
-                </>
-              )}
-            </button>
-            {attendue && (
-              <button
-                className="btn btn-ghost btn-small"
-                title="Jouer la question sans photo"
-                onClick={() => onChange(q => ({ ...q, photoAttendue: null, observeSeconds: null }))}
-              >
-                Sans photo
-              </button>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Photo « mémoire ». Réglage caché tant qu'il n'y a pas de photo : une
@@ -3337,73 +3315,93 @@ function QuestionCard({
         </div>
       )}
 
-      {/* Ce qui entoure la question : ce qu'on raconte à la révélation, ce
-          qu'on se note pour soi, la diapo qui la précède. Replié tant qu'il
-          est vide : une carte a déjà vingt commandes. */}
-      <details className="entourage" open={entourage > 0}>
-        <summary>
-          <Icon name="message" />
-          Anecdote, note, intertitre{entourage > 0 ? ` · ${entourage}` : ''}
-        </summary>
-        <label className="entourage-champ">
-          <span className="muted small">Le saviez-vous ? — racontée à la révélation, jamais avant</span>
-          <textarea
-            className="input"
-            rows={2}
-            maxLength={MAX_ANECDOTE}
-            value={question.anecdote ?? ''}
-            placeholder="Elle ne devait rester que vingt ans…"
-            onChange={e => onChange(q => ({ ...q, anecdote: e.target.value || null }))}
-          />
-        </label>
-        <label className="entourage-champ">
-          <span className="muted small">Note pour toi — à la télécommande seulement, jamais à l’écran</span>
-          <textarea
-            className="input"
-            rows={2}
-            maxLength={MAX_NOTE}
-            value={question.note ?? ''}
-            placeholder="Raconte le voyage à Rome"
-            onChange={e => onChange(q => ({ ...q, note: e.target.value || null }))}
-          />
-        </label>
-        <label className="entourage-champ">
-          <span className="muted small">Intertitre — une diapo avant la question, sans réponse</span>
+      {/* Ce qui se règle rarement, replié : au téléphone, les deux replis tiennent sur une rangée tant qu'ils sont
+          fermés. */}
+      <div className="question-replis">
+        {/* La sorte d'un QCM, l'ordre gardé, la mise de côté : quatre pastilles, une rangée chacune sur un
+            téléphone. Ouvert d'emblée dès que l'une est posée — un réglage en vigueur ne se cache pas —, puis
+            comme on le laisse : le replier quand la dernière s'éteint le fermait sous le doigt. Une estimation,
+            un « Qui dans la salle ? » n'ont que la mise de côté : elle se pose là, sans repli. */}
+        {qcm && telephone ? (
+          <details className="question-plus" open={plusOuvert} onToggle={e => setPlusOuvert(e.currentTarget.open)}>
+            <summary>
+              <Icon name="more" />
+              Plus de réglages{raresPoses > 0 ? ` · ${raresPoses}` : ''}
+            </summary>
+            {rares}
+          </details>
+        ) : (
+          rares
+        )}
+        {/* Ce qui entoure la question : ce qu'on raconte à la révélation, ce
+            qu'on se note pour soi, la diapo qui la précède. Replié tant qu'il
+            est vide : une carte a déjà vingt commandes. Au téléphone, replié
+            même rempli, son compte à côté de son nom : ouvert, il ajoutait
+            391 px à chaque question d'un quiz tout prêt, qui arrivent toutes
+            avec leur anecdote. */}
+        <details className="entourage" open={!telephone && entourage > 0}>
+          <summary>
+            <Icon name="message" />
+            Anecdote, note, intertitre{entourage > 0 ? ` · ${entourage}` : ''}
+          </summary>
+          <label className="entourage-champ">
+            <span className="muted small">Le saviez-vous ? — racontée à la révélation, jamais avant</span>
+            <textarea
+              className="input"
+              rows={2}
+              maxLength={MAX_ANECDOTE}
+              value={question.anecdote ?? ''}
+              placeholder="Elle ne devait rester que vingt ans…"
+              onChange={e => onChange(q => ({ ...q, anecdote: e.target.value || null }))}
+            />
+          </label>
+          <label className="entourage-champ">
+            <span className="muted small">Note pour toi — à la télécommande seulement, jamais à l’écran</span>
+            <textarea
+              className="input"
+              rows={2}
+              maxLength={MAX_NOTE}
+              value={question.note ?? ''}
+              placeholder="Raconte le voyage à Rome"
+              onChange={e => onChange(q => ({ ...q, note: e.target.value || null }))}
+            />
+          </label>
+          <label className="entourage-champ">
+            <span className="muted small">Intertitre — une diapo avant la question, sans réponse</span>
+            <input
+              className="input"
+              maxLength={MAX_INTERTITRE}
+              value={question.intertitre ?? ''}
+              placeholder="Manche 2 : le cinéma"
+              onChange={e => onChange(q => ({ ...q, intertitre: e.target.value || null }))}
+            />
+          </label>
           <input
-            className="input"
-            maxLength={MAX_INTERTITRE}
-            value={question.intertitre ?? ''}
-            placeholder="Manche 2 : le cinéma"
-            onChange={e => onChange(q => ({ ...q, intertitre: e.target.value || null }))}
+            ref={photoDeRevelation}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={e => pickImage(e.target.files?.[0], 'revelation')}
           />
-        </label>
-        <input
-          ref={photoDeRevelation}
-          type="file"
-          accept="image/*"
-          hidden
-          onChange={e => pickImage(e.target.files?.[0], 'revelation')}
-        />
-        <div className="row">
-          <span className="muted small">Photo de la révélation — le bébé, puis l’adulte</span>
-          {question.imageRevelation ? (
-            <>
-              <img className="thumb" src={question.imageRevelation} alt="" />
-              <button className="btn btn-ghost btn-small" onClick={() => onChange(q => ({ ...q, imageRevelation: null }))}>
-                Retirer
+          <div className="row">
+            <span className="muted small">Photo de la révélation — le bébé, puis l’adulte</span>
+            {question.imageRevelation ? (
+              <>
+                <img className="thumb" src={question.imageRevelation} alt="" />
+                <button className="btn btn-ghost btn-small" onClick={() => onChange(q => ({ ...q, imageRevelation: null }))}>
+                  Retirer
+                </button>
+              </>
+            ) : (
+              <button className="btn btn-small" disabled={busy} onClick={() => photoDeRevelation.current?.click()}>
+                <Icon name="image" />
+                Ajouter
               </button>
-            </>
-          ) : (
-            <button className="btn btn-small" disabled={busy} onClick={() => photoDeRevelation.current?.click()}>
-              <Icon name="image" />
-              Ajouter
-            </button>
-          )}
-        </div>
-      </details>
+            )}
+          </div>
+        </details>
+      </div>
 
-      {preview && <QuestionPreview question={question} onClose={() => setPreview(false)} />}
-      {loupe && question.image && <PhotoLoupe src={question.image} onClose={() => setLoupe(false)} />}
       {imageError && <p className="error">{imageError}</p>}
       {piecesDisparues.some(p => !question[p]) && (
         <p className="warn">
@@ -3427,6 +3425,112 @@ function QuestionCard({
         </p>
       )}
       {souvenir && <p className="muted small souvenir-question">{espacesFines(souvenirDeLaQuestion(souvenir))}</p>}
+      {erreurAutre && (
+        <p className="error" role="alert">
+          {erreurAutre}
+        </p>
+      )}
+
+      {/* Ses gestes, au pied de la carte : la déplacer, en ajouter une, la regarder, l'enlever. Au téléphone, une
+          seule rangée de cibles de 44 px — l'aperçu, « Une autre » et « Supprimer » y gardent leur nom pour qui
+          l'écoute (`.question-geste-nom`, caché à l'œil seulement), leur icône pour qui la regarde. */}
+      <div className="question-gestes">
+        <button
+          ref={upButton}
+          className="btn btn-ghost btn-small"
+          disabled={index === 0}
+          aria-label={`Monter la question ${index + 1}`}
+          title="Monter"
+          onClick={() => onMoveTo(index, 'up')}
+        >
+          <Icon name="arrow-up" />
+        </button>
+        <button
+          ref={downButton}
+          className="btn btn-ghost btn-small"
+          disabled={index === total - 1}
+          aria-label={`Descendre la question ${index + 1}`}
+          title="Descendre"
+          onClick={() => onMoveTo(index + 2, 'down')}
+        >
+          <Icon name="arrow-down" />
+        </button>
+        <button
+          className="btn btn-ghost btn-small"
+          aria-label={`Insérer une question après la question ${index + 1}`}
+          title={total >= MAX_QUESTIONS ? `Un quiz tient ${MAX_QUESTIONS} questions au plus` : 'Insérer une question après'}
+          disabled={total >= MAX_QUESTIONS}
+          onClick={onInsertAfter}
+        >
+          <Icon name="plus" />
+        </button>
+        <button
+          className="btn btn-ghost btn-small"
+          aria-label={`Dupliquer la question ${index + 1}`}
+          title={total >= MAX_QUESTIONS ? `Un quiz tient ${MAX_QUESTIONS} questions au plus` : 'Dupliquer'}
+          disabled={total >= MAX_QUESTIONS}
+          onClick={onDuplicate}
+        >
+          <Icon name="copy" />
+        </button>
+        <button
+          className="btn btn-ghost btn-small question-geste-fin"
+          aria-label={`Aperçu de la question ${index + 1}`}
+          title="Aperçu : la question telle qu’elle sera projetée"
+          onClick={() => setPreview(true)}
+        >
+          <Icon name="eye" />
+          <span className="question-geste-nom">Aperçu</span>
+        </button>
+        {/* Une question qu'on n'aime pas, dans un quiz tout prêt : sa voisine de la base plutôt qu'un quiz de quatorze. */}
+        {onUneAutre && (
+          <button
+            type="button"
+            className="btn btn-ghost btn-small"
+            aria-label={`Une autre question à la place de la question ${index + 1}`}
+            title="Une autre de la même catégorie et de la même difficulté, tirée de la base"
+            aria-busy={autreEnRoute || undefined}
+            disabled={autreEnRoute}
+            onClick={async () => {
+              setAutreEnRoute(true)
+              setErreurAutre('')
+              const coince = await onUneAutre()
+              setAutreEnRoute(false)
+              if (coince) setErreurAutre(coince)
+            }}
+          >
+            <Icon name="dice" />
+            <span className="question-geste-nom">{autreEnRoute ? 'Je cherche…' : 'Une autre'}</span>
+          </button>
+        )}
+        <button
+          className="btn btn-ghost btn-small"
+          aria-label={`Supprimer la question ${index + 1}`}
+          title="Supprimer"
+          onClick={async () => {
+            // Une question vide s'efface sans cérémonie ; une question écrite
+            // mérite qu'on demande — dix minutes de rédaction ne doivent pas
+            // partir sur un clic de trop.
+            const written = question.text.trim() || question.answers.some(a => a.trim()) || question.image
+            if (written) {
+              const ok = await confirmDialog({
+                title: `Supprimer la question ${index + 1} ?`,
+                message: question.text.trim() || 'Cette question et ses réponses seront perdues.',
+                confirmLabel: 'Supprimer',
+                danger: true,
+              })
+              if (!ok) return
+            }
+            onDelete()
+          }}
+        >
+          <Icon name="trash" />
+          <span className="question-geste-nom">Supprimer</span>
+        </button>
+      </div>
+
+      {preview && <QuestionPreview question={question} onClose={() => setPreview(false)} />}
+      {loupe && question.image && <PhotoLoupe src={question.image} onClose={() => setLoupe(false)} />}
     </div>
   )
 }

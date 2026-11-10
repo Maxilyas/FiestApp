@@ -453,6 +453,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/editeur.test.ts` — une question neuve reprend sa voisine.
 - `server/test/editeur-allers-retours.test.ts` — ce qu'un quiz perdait en voyageant.
 - `server/test/editeur-pertes.test.ts` — ce que l'éditeur perdait sans le dire.
+- `server/test/editeur-telephone.test.ts` — l'éditeur d'un quiz au téléphone : la carte d'une question rendue telle qu'un téléphone et un ordinateur la reçoivent — ce qu'on écrit d'abord, ses gestes au pied, chacun à son nom d'avant —, ses réglages rares sous « Plus de réglages », ouvert dès que l'un est posé, « Anecdote, note, intertitre » replié même rempli ; une seule rangée entre l'en-tête et la première question ; et la feuille — sous la classe de la page, des rangées de 44 px, rien d'écrit trop petit, ce qui se tait caché à l'œil seulement, le cache qui tient le titre sous l'encoche d'un iPhone, « Régler tout le quiz » sous ses noms. Ce que l'écran montre se mesure au navigateur (`server/scripts/rendu-editeur.ts`).
 - `server/test/liste.test.ts` — la liste collée et son format.
 - `server/test/memoire.test.ts` — la mémoire des quiz.
 - `server/test/mes-quiz.test.ts` — « Mes quiz » au pouce.
