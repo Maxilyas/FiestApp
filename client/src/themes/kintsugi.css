@@ -26,7 +26,7 @@
   --bg-halo: #262320;
   --bg-raised: #1a1917;
   --ink: #f5efe3;
-  --muted: #b5ab98;
+  --muted: #c2b8a6;
   --accent: #d4a73a;
   --accent-rgb: 212, 167, 58;
   --accent-hover: #ddba65;
@@ -80,6 +80,13 @@
   z-index: 0;
   inset: 0;
   background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='360' height='640' viewBox='0 0 360 640'><g fill='none' stroke='%23d9ad44' stroke-linecap='round' stroke-linejoin='round'><path d='M244 22l-16 7' stroke-width='1.1'/><path d='M178 179l-11 14' stroke-width='1.1'/><path d='M250 0L244 22L231 49L211 72L182 95L172 114L167 146L178 179' stroke-width='1.8'/><path d='M62 150l2 -18' stroke-width='1.1'/><path d='M81 151l11 -14' stroke-width='1.1'/><path d='M0 170L34 167L62 150L81 151L117 138L135 127L161 107' stroke-width='1.8'/><path d='M342 328l-7 -17' stroke-width='1.1'/><path d='M312 329l-9 16' stroke-width='1.1'/><path d='M287 325l-13 13' stroke-width='1.1'/><path d='M360 330L342 328L312 329L287 325L257 312L228 284L219 259L197 239' stroke-width='1.8'/><path d='M101 602l12 -13' stroke-width='1.1'/><path d='M111 554l-5 -17' stroke-width='1.1'/><path d='M177 501l6 -17' stroke-width='1.1'/><path d='M110 640L101 602L100 575L111 554L131 539L158 512L177 501' stroke-width='1.8'/><path d='M0 560L20 548L48 534L65 513L89 499L112 473' stroke-width='1.8'/></g></svg>") center / 100% 100% no-repeat;
+  /* Les fêlures ne brillent que dans les marges : sous la colonne où l'on
+     lit, elles s'estompent. En plein éclat, elles traversaient les titres
+     posés à même la page et les surfaces translucides — « La campagne
+     solo » à 1,67:1, « M'habiller » à 2,52:1 (le rendu du 10 novembre 2026,
+     `rendu-themes.ts kintsugi --contraste`). */
+  -webkit-mask-image: linear-gradient(90deg, #000 0, rgba(0, 0, 0, .26) max(18px, calc(50% - 300px)), rgba(0, 0, 0, .26) min(calc(100% - 18px), calc(50% + 300px)), #000 100%);
+  mask-image: linear-gradient(90deg, #000 0, rgba(0, 0, 0, .26) max(18px, calc(50% - 300px)), rgba(0, 0, 0, .26) min(calc(100% - 18px), calc(50% + 300px)), #000 100%);
   animation: kintsugi-lueur 4s ease-in-out infinite alternate;
 }
 
@@ -96,8 +103,10 @@
   box-shadow: 0 12px 26px rgba(0, 0, 0, .45);
 }
 
+/* La fêlure d'une carte passe sous ses lignes — « 10 questions » du quiz du
+   jour s'y lisait à 1,83:1 — : elle reste, à peine dorée (`stroke-opacity`). */
 :root[data-theme='kintsugi'] .card:where(:not(.carte-fond, .carte-fond *)) {
-  background: #1b1a18 url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='120' viewBox='0 0 300 120'><g fill='none' stroke='%23d9ad44' stroke-linecap='round' stroke-linejoin='round'><path d='M32 40L40 58' stroke-width='0.7'/><path d='M0 34L32 40L62 42L102 48L143 35L162 25' stroke-width='1.2'/><path d='M82 120L65 110L51 86L41 68L23 25L-7 4' stroke-width='1.2'/></g></svg>") center / 100% 100% no-repeat;
+  background: #1b1a18 url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='120' viewBox='0 0 300 120'><g fill='none' stroke='%23d9ad44' stroke-opacity='.26' stroke-linecap='round' stroke-linejoin='round'><path d='M32 40L40 58' stroke-width='0.7'/><path d='M0 34L32 40L62 42L102 48L143 35L162 25' stroke-width='1.2'/><path d='M82 120L65 110L51 86L41 68L23 25L-7 4' stroke-width='1.2'/></g></svg>") center / 100% 100% no-repeat;
 }
 
 :root[data-theme='kintsugi'] .ans-btn {
@@ -106,7 +115,7 @@
 }
 
 :root[data-theme='kintsugi'] .ans-btn:not(.correct):not(.chosen) {
-  background: #1b1a18 url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='640' height='110' viewBox='0 0 640 110'><g fill='none' stroke='%23d9ad44' stroke-linecap='round' stroke-linejoin='round'><path d='M77 6l5 -17' stroke-width='0.8'/><path d='M138 -26l18 -1' stroke-width='0.8'/><path d='M0 30L27 29L56 24L77 6L112 -1L138 -26L157 -43L166 -68L179 -95L184 -131' stroke-width='1.3'/><path d='M591 105l0 18' stroke-width='0.8'/><path d='M503 107l-14 -11' stroke-width='0.8'/><path d='M640 80L617 90L591 105L568 109L537 104L503 107L474 108L436 113L417 122' stroke-width='1.3'/></g></svg>") 0 0 / 640px 110px no-repeat;
+  background: #1b1a18 url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='640' height='110' viewBox='0 0 640 110'><g fill='none' stroke='%23d9ad44' stroke-opacity='.4' stroke-linecap='round' stroke-linejoin='round'><path d='M77 6l5 -17' stroke-width='0.8'/><path d='M138 -26l18 -1' stroke-width='0.8'/><path d='M0 30L27 29L56 24L77 6L112 -1L138 -26L157 -43L166 -68L179 -95L184 -131' stroke-width='1.3'/><path d='M591 105l0 18' stroke-width='0.8'/><path d='M503 107l-14 -11' stroke-width='0.8'/><path d='M640 80L617 90L591 105L568 109L537 104L503 107L474 108L436 113L417 122' stroke-width='1.3'/></g></svg>") 0 0 / 640px 110px no-repeat;
 }
 
 :root[data-theme='kintsugi'] .ans-grid > :nth-child(2) {
