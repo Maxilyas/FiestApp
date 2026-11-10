@@ -561,6 +561,40 @@ function lireIndex(brut: unknown, n: number): number[] | null {
 }
 
 /**
+ * Le renvoi d'une réponse que le serveur tient déjà, arrivé une fois sa
+ * question close : la même réponse, pour cette question et ce tour.
+ *
+ * Un téléphone qui n'a pas reçu son accusé renvoie sa réponse une fois
+ * (`sendPlayerAction`, `client/src/socket.ts`). Hors ligne, le navigateur
+ * garde la première dans la liaison morte et la livre quand le réseau
+ * revient : le serveur l'inscrit, l'accusé repart vers une liaison que la
+ * page a déjà abandonnée, et le renvoi arrive par la neuve. Si la question
+ * s'est close entre les deux — cette réponse était la dernière attendue, ou
+ * le chronomètre a sonné —, il s'entendait dire « Trop tard » : l'invité
+ * lisait ses points et le refus, ensemble (la tablée du 9 novembre 2026).
+ * Tant que la question est ouverte, le même renvoi se confirme déjà.
+ *
+ * Il dit la question et le tour qu'il vise : sans visée (une page d'avant),
+ * rien ne dit que c'est un renvoi, et une question reposée a changé de tour.
+ * Rien ne se réécrit — ni la réponse, ni son temps.
+ */
+function dejaInscrite(st: QuizState, playerId: string, action: QuizAction): boolean {
+  if (!st.pack || (st.phase !== 'reveal' && st.phase !== 'cible')) return false
+  if (typeof action?.qIndex !== 'number' || typeof action?.round !== 'number' || action.qIndex !== st.qIndex || action.round !== st.round) return false
+  const tenue = (horsJeu(st, playerId) ? st.horsReponses : st.responses)?.[playerId]
+  const q = st.pack.questions[st.qIndex]
+  if (!tenue || !q) return false
+  if (action.type === 'answer') return q.kind === 'choice' && tenue.choice !== null && tenue.choice === Number(action.choice)
+  if (action.type === 'guess') return q.kind === 'number' && tenue.value !== null && tenue.value === Number(action.value)
+  if (action.type !== 'answers' && action.type !== 'order') return false
+  if (q.kind !== 'choice' || !tenue.choix) return false
+  const lus = lireIndex(action.type === 'answers' ? action.choices : action.order, q.answers.length)
+  // Comme à l'inscription : des cases cochées se rangent, un ordre se garde tel quel.
+  const choix = lus && (action.type === 'answers' ? [...lus].sort((a, b) => a - b) : lus)
+  return !!choix && tenue.choix.length === choix.length && tenue.choix.every((c, i) => c === choix[i])
+}
+
+/**
  * Combien de participants la question en cours attend encore : ceux qui
  * pouvaient y répondre et ne l'ont pas fait. Un retardataire arrivé après
  * qu'elle a été posée n'est pas attendu — c'est le même filtre que le journal,
@@ -1208,8 +1242,9 @@ export const quizModule: GameModule<QuizState> = {
   onPlayerAction(sess, playerId, action: QuizAction, ctx) {
     const st = sess.state
     // L'ordre compte : une réponse arrivée après la révélation d'une question
-    // qu'on avait mise en pause est en retard, pas gelée.
-    if (st.phase !== 'question' || !st.pack) return 'too-late'
+    // qu'on avait mise en pause est en retard, pas gelée. Sauf le renvoi de
+    // celle qu'on tient déjà : elle est arrivée, et on le lui confirme.
+    if (st.phase !== 'question' || !st.pack) return dejaInscrite(st, playerId, action) ? undefined : 'too-late'
     // En retard aussi, la réponse qui visait une autre question : tapée sur la
     // précédente et retenue par une coupure, ou sur celle-ci avant qu'on la
     // repose. Acceptée, elle s'inscrivait sur une question que l'invité

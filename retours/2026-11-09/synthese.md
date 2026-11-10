@@ -197,6 +197,23 @@ tard — la question était finie » (`captures/karim-reseau-retabli.png`). La
 réponse était comptée. Le renvoi d'une réponse arrive sans doute après la
 révélation et dit son refus par-dessus l'accusé du premier envoi. Pas rejoué.
 
+**Depuis (le 10 novembre 2026).** Rejoué, confirmé, corrigé
+(`reproductions/reponse-reseau-coupe.mts`, qui écrit chaque trame). Hors
+ligne, Chromium garde la réponse dans l'ancienne liaison et la livre au
+retour du réseau : le serveur l'inscrit — Karim était le dernier attendu,
+la question se clôt —, et son accusé repart vers une liaison que la page a
+déjà abandonnée. Le renvoi arrive par la liaison neuve, après la
+révélation, et recevait « trop tard ». Le serveur confirme maintenant le
+renvoi de la réponse qu'il tient déjà, pour la même question et le même
+tour (`dejaInscrite`, `games/quiz.ts`) : Karim lit « Ta réponse est bien
+arrivée » et ses points. Une autre réponse que celle inscrite reste « trop
+tard ». Le cas ne tient pas au banc : un téléphone qui sort d'un tunnel
+laisse la même liaison à moitié morte derrière lui.
+
+Reste de son retour, non traité : « Envoi… » en bas de l'écran lui a paru
+trop discret pendant la coupure, et rien ne dit après une veille quelle
+question on a manquée.
+
 ### 8. Sans le code, « c'est chez Nadia » ne mène nulle part — non vérifié
 
 Un salon tire une adresse neutre (`s-6sxscz`) et un code à six chiffres. Sur
