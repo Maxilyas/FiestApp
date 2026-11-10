@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url'
 import { DOSSIER_DU_CONTENU, SORTES, ligneDe, trier, type EntreeDuContenu, type SorteDuContenu } from '../src/core/cabinet/contenu'
 
 /** Le champ qui ne vit que dans une sorte : il dit à quelle sorte une entrée appartient. */
-const CHAMP_DE_LA_SORTE: Readonly<Record<SorteDuContenu, string>> = { lieux: 'lat', fiches: 'cles', repliques: 'leurres', frises: 'evenements' }
+const CHAMP_DE_LA_SORTE: Readonly<Record<SorteDuContenu, string>> = { lieux: 'lat', fiches: 'cles', repliques: 'leurres', frises: 'evenements', filet: 'panel', reperes: 'unite' }
 
 function lire(fichier: string): unknown[] {
   const brut = JSON.parse(readFileSync(fichier, 'utf8')) as unknown
@@ -33,7 +33,7 @@ function sorteDuLot(fichier: string, entrees: readonly unknown[]): SorteDuConten
   const sortes = new Set(
     entrees.map(e => {
       const s = (Object.keys(CHAMP_DE_LA_SORTE) as SorteDuContenu[]).find(k => !!e && typeof e === 'object' && CHAMP_DE_LA_SORTE[k] in e)
-      if (!s) throw new Error(`${fichier} : une entrée qui n'est ni un lieu, ni une fiche, ni une réplique, ni une frise (${JSON.stringify(e).slice(0, 80)})`)
+      if (!s) throw new Error(`${fichier} : une entrée qui n'est ni un lieu, ni une fiche, ni une réplique, ni une frise, ni une question du Filet, ni un repère (${JSON.stringify(e).slice(0, 80)})`)
       return s
     }),
   )

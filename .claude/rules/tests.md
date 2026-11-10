@@ -29,7 +29,24 @@ paths:
   fichier) : un fichier qui approche la minute et demie se coupe par thème
   (`credits.test.ts`), sans rien changer à ses épreuves. Huit fichiers à la
   fois sur quatre cœurs le ralentissent encore : c'est sur ce pied-là qu'il
-  se mesure.
+  se mesure — et une machine de la CI va parfois une fois et demie moins
+  vite : un fichier à 75 s sur ce pied a passé les 120 (le 9 novembre 2026).
+  Un script que ses épreuves lancent à part paie son chargement à chaque
+  lancement : `calibrage-cabinet.ts` s'était mis à lire toute la base en se
+  chargeant — les catégories du nouveau Filet, une seconde et demie —,
+  quatorze fois dans `cabinet-calibrage.test.ts`, passé de 51 à 75 s. Ce
+  qu'un tel script ne joue pas toujours, il le calcule à son premier usage
+  (`themesDuContenu`).
+- **Une épreuve qui attend un tirage du serveur tire jusqu'à l'avoir**,
+  jamais un nombre fixe de fois, et compte sa chance avant de l'écrire.
+  « Une traversée ne promet au Filet qu'une catégorie où il a de quoi
+  tirer » traçait quatre cartes et voulait un Filet à l'acte I : « il en
+  manque une fois sur trente-cinq », disait son commentaire ; avec dix jeux
+  pour les huit épreuves d'un acte, une fois sur cinq — les quatre cartes
+  sans Filet une fois sur 625, tirée par la CI le 9 novembre 2026. Elle
+  trace désormais jusqu'à huit Filets promis (soixante cartes au plus), ce
+  qui la rend aussi plus sévère : une seule promesse tombait par hasard dans
+  les catégories permises une fois sur six.
 - **Un script qui écrit ne sort pas par `process.exit()`** : vers un tuyau,
   ce qu'il venait d'écrire n'était pas toujours parti — sous la charge, la
   liste de `tests.mjs --liste` s'arrêtait une fois sur trois au milieu, code

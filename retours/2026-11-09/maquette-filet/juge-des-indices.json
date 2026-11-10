@@ -1,0 +1,3997 @@
+[
+ {
+  "id": "09m3ut4g",
+  "question": "En quelle année Brasília est-elle devenue la capitale du Brésil ?",
+  "reponse": 1960,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "En pleine guerre froide, avant que l'homme ne marche sur la Lune.",
+    "verdict": "ordre",
+    "deduction": "Guerre froide avant 1969 : une tranche de 25 ans, entre 1947 et 1969."
+   },
+   {
+    "indice": "En pleine guerre froide, avant que l'homme ne marche sur la Lune.",
+    "verdict": "dans",
+    "deduction": "1947–1969 — guerre froide avant la Lune, un petit débord sous 1950",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "En pleine guerre froide, avant que l'homme ne marche sur la Lune."
+ },
+ {
+  "id": "4k805t59",
+  "question": "Quelle est la hauteur du monolithe d'Uluru au-dessus de la plaine australienne, en mètres ?",
+  "reponse": 348,
+  "unite": "m",
+  "passes": [
+   {
+    "indice": "Bien plus haut que la tour Montparnasse, au milieu du désert australien.",
+    "verdict": "ordre",
+    "deduction": "Plus de 210 m, en plein désert : quelques centaines de mètres."
+   },
+   {
+    "indice": "Bien plus haut que la tour Montparnasse, au milieu du désert australien.",
+    "verdict": "a-cheval",
+    "deduction": "250–500: enjambe 300 — « bien plus haut » que 210 m, borne basse floue",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus haut que la tour Eiffel, mais loin d'atteindre un kilomètre.",
+    "verdict": "dans, large",
+    "deduction": "330 à 1000 m — Au-dessus de la Eiffel, sous 1 km : tout le haut de la tranche, trop large pour viser.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Plus haut que la tour Eiffel, mais loin d'atteindre un kilomètre."
+ },
+ {
+  "id": "nd6zfflt",
+  "question": "Quelle hauteur, en mètres, la Space Needle de Seattle atteint-elle ?",
+  "reponse": 184,
+  "unite": "m",
+  "passes": [
+   {
+    "indice": "Nettement plus haute que l'Arc de triomphe, mais bien moins que la tour Eiffel.",
+    "verdict": "ordre",
+    "deduction": "Entre l'Arc (50 m) et la tour Eiffel (330 m) : une centaine de mètres."
+   },
+   {
+    "indice": "Nettement plus haute que l'Arc de triomphe, mais bien moins que la tour Eiffel.",
+    "verdict": "dans",
+    "deduction": "100–250 — entre l'Arc de triomphe et la tour Eiffel",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Nettement plus haute que l'Arc de triomphe, mais bien moins que la tour Eiffel."
+ },
+ {
+  "id": "r0z279y0",
+  "question": "En quelle année se court le premier Tourist Trophy sur l'île de Man ?",
+  "reponse": 1907,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Au temps des tout premiers motocyclistes, bien avant la Grande Guerre.",
+    "verdict": "ordre",
+    "deduction": "Début du XXe siècle, avant 1914."
+   },
+   {
+    "indice": "Au temps des tout premiers motocyclistes, bien avant la Grande Guerre.",
+    "verdict": "a-cheval",
+    "deduction": "1895–1913: enjambe 1900 — premiers motocyclistes, avant 14-18",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Né après le passage au XXe siècle, mais avant la Première Guerre mondiale.",
+    "verdict": "dans, proche",
+    "deduction": "1901 à 1914 — Après 1900, avant 1914 : milieu 1907-1908, ★★ quasi sûr.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Né après le passage au XXe siècle, mais avant la Première Guerre mondiale."
+ },
+ {
+  "id": "616x3aqo",
+  "question": "Quelle est la largeur de la surface de réparation d'un terrain de football, en mètres ?",
+  "reponse": 40.32,
+  "unite": "m",
+  "passes": [
+   {
+    "indice": "Bien plus large que le but, puisque la surface déborde largement de chaque côté.",
+    "verdict": "rien",
+    "deduction": "Plus large que le but (7 m) : 16 ou 40 m, rien ne tranche."
+   },
+   {
+    "indice": "Plus que la longueur d'un court de tennis, mais nettement moins que la largeur du terrain.",
+    "verdict": "ordre",
+    "deduction": "Entre un court de tennis (24 m) et la largeur du terrain (~70 m) : quelque part entre 30 et 60 m, sans pouvoir resserrer."
+   },
+   {
+    "indice": "Plus que la longueur d'un court de tennis, mais nettement moins que la largeur du terrain.",
+    "verdict": "dans",
+    "deduction": "30–50 — plus que 24 m, moins que 68 m",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Plus que la longueur d'un court de tennis, mais nettement moins que la largeur du terrain."
+ },
+ {
+  "id": "xs2x7c4q",
+  "question": "En quelle année le basket-ball entre-t-il au programme officiel des Jeux olympiques, à Berlin ?",
+  "reponse": 1936,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Aux Jeux de l'Allemagne nazie, quelques années avant la Seconde Guerre mondiale.",
+    "verdict": "valeur",
+    "deduction": "Jeux de Berlin sous les nazis = 1936, fait daté connu."
+   },
+   {
+    "indice": "Un sport inventé en 1891 aux États-Unis, devenu olympique quelques décennies plus tard.",
+    "verdict": "ordre",
+    "deduction": "Inventé en 1891, olympique 'quelques décennies' plus tard : entre 1915 et 1945, la bonne tranche sans plus."
+   },
+   {
+    "indice": "Un sport inventé en 1891 aux États-Unis, devenu olympique quelques décennies plus tard.",
+    "verdict": "a-cheval",
+    "deduction": "1910–1940: enjambe 1925 — quelques décennies après 1891",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Entre le krach de Wall Street et la fin de la Seconde Guerre mondiale.",
+    "verdict": "dans, large",
+    "deduction": "1929 à 1945 — Dans la tranche, mais 16 ans de large (demi-largeur 8 > 6).",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Entre le krach de Wall Street et la fin de la Seconde Guerre mondiale."
+ },
+ {
+  "id": "2e7xdv3h",
+  "question": "En quelle année l'Académie française a-t-elle été fondée ?",
+  "reponse": 1635,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Sous Louis XIII, au temps de Richelieu, bien avant le Roi-Soleil.",
+    "verdict": "proche",
+    "deduction": "Louis XIII et Richelieu : 1624-1642, donc vers 1633."
+   },
+   {
+    "indice": "Sous le père de Louis XIV, le roi qui précède le Roi-Soleil.",
+    "verdict": "ordre",
+    "deduction": "Règne de Louis XIII, 1610-1643 : tranche trouvée, mais 33 ans de fourchette."
+   },
+   {
+    "indice": "Sous le père de Louis XIV, le roi qui précède le Roi-Soleil.",
+    "verdict": "dans",
+    "deduction": "1610–1643 — Louis XIII",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Sous le père de Louis XIV, le roi qui précède le Roi-Soleil."
+ },
+ {
+  "id": "cm5xxha8",
+  "question": "Combien de jours a duré la Commune de Paris, en 1871 ?",
+  "reponse": 72,
+  "unite": "jours",
+  "passes": [
+   {
+    "indice": "Elle commence en mars et s'achève fin mai : compte les semaines.",
+    "verdict": "proche",
+    "deduction": "Mars à fin mai : environ 10 à 12 semaines, 70 à 85 jours."
+   },
+   {
+    "indice": "Un printemps seulement : plus d'un mois, bien moins que six mois.",
+    "verdict": "proche",
+    "deduction": "Un printemps, plus d'un mois : environ 2 à 3 mois, soit 60-90 jours, donc ★★ à coup sûr, ★★★ à la chance."
+   },
+   {
+    "indice": "Un printemps seulement : plus d'un mois, bien moins que six mois.",
+    "verdict": "dans",
+    "deduction": "60–100 — un printemps, environ trois mois",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Un printemps seulement : plus d'un mois, bien moins que six mois."
+ },
+ {
+  "id": "j40nupio",
+  "question": "En quelle année le canal du Midi a-t-il été achevé ?",
+  "reponse": 1681,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Au temps du Roi-Soleil, en plein règne de Louis XIV.",
+    "verdict": "ordre",
+    "deduction": "Plein règne de Louis XIV : entre 1661 et 1715."
+   },
+   {
+    "indice": "Au temps du Roi-Soleil, en plein règne de Louis XIV.",
+    "verdict": "a-cheval",
+    "deduction": "1643–1715: enjambe 1700 — tout le règne de Louis XIV",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Après la Fronde, avant la révocation de l'édit de Nantes.",
+    "verdict": "dans, large",
+    "deduction": "1653 à 1685 — Dans la tranche 1650-1699, 32 ans de large : demi-largeur 16 > 13.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Après la Fronde, avant la révocation de l'édit de Nantes."
+ },
+ {
+  "id": "8jb20jck",
+  "question": "Combien de jours dure une année sur Vénus ?",
+  "reponse": 225,
+  "unite": "jours",
+  "passes": [
+   {
+    "indice": "Plus proche du Soleil que nous, Vénus boucle son tour en moins d'une année terrestre.",
+    "verdict": "ordre",
+    "deduction": "Moins de 365 jours : quelques centaines de jours."
+   },
+   {
+    "indice": "Plus proche du Soleil que nous, Vénus boucle son tour en moins d'une année terrestre.",
+    "verdict": "a-cheval",
+    "deduction": "100–365: enjambe 300 — moins d'un an terrestre, borne haute 365",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un tour du Soleil plus court qu'une année terrestre : plus de quatre mois, moins de dix.",
+    "verdict": "dans, large",
+    "deduction": "120 à 300 jours — Dans 100-300 mais fourchette très large pour ±25 %.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Un tour du Soleil plus court qu'une année terrestre : plus de quatre mois, moins de dix."
+ },
+ {
+  "id": "5fop6rh3",
+  "question": "En quelle année a eu lieu la première émission officielle de télévision en France, depuis le ministère des PTT ?",
+  "reponse": 1935,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Entre les deux guerres, bien avant la télévision en couleur.",
+    "verdict": "ordre",
+    "deduction": "Entre 1919 et 1939, avant la couleur."
+   },
+   {
+    "indice": "Entre les deux guerres, bien avant la télévision en couleur.",
+    "verdict": "a-cheval",
+    "deduction": "1919–1939: enjambe 1925 — entre-deux-guerres déborde sur 1919–1924",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Entre le krach de Wall Street et la fin de la Seconde Guerre mondiale.",
+    "verdict": "dans, large",
+    "deduction": "1929 à 1945 — Dans la tranche, 16 ans de large.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Entre le krach de Wall Street et la fin de la Seconde Guerre mondiale."
+ },
+ {
+  "id": "ay4j9t2b",
+  "question": "Combien de titres du Grand Chelem en simple Serena Williams a-t-elle remportés avant de se retirer en 2022 ?",
+  "reponse": 23,
+  "unite": "titres",
+  "passes": [
+   {
+    "indice": "Bien plus de dix titres, mais bien moins de quarante.",
+    "verdict": "ordre",
+    "deduction": "Entre 10 et 40 titres."
+   },
+   {
+    "indice": "Bien plus de dix titres, mais bien moins de quarante.",
+    "verdict": "dans",
+    "deduction": "15–30 — bien plus de dix, bien moins de quarante",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Bien plus de dix titres, mais bien moins de quarante."
+ },
+ {
+  "id": "d00tnhpm",
+  "question": "Combien de cases compte le plateau du Scrabble ?",
+  "reponse": 225,
+  "unite": "cases",
+  "passes": [
+   {
+    "indice": "Bien plus qu'un échiquier, mais moins que les jours d'une année.",
+    "verdict": "ordre",
+    "deduction": "Entre 64 et 365 cases, quelques centaines."
+   },
+   {
+    "indice": "Bien plus qu'un échiquier, mais moins que les jours d'une année.",
+    "verdict": "a-cheval",
+    "deduction": "100–350: enjambe 300 — moins que 365 laisse monter au-delà de 300",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus de cases que deux échiquiers, mais moins que quatre.",
+    "verdict": "dans, proche",
+    "deduction": "128 à 256 cases — Deux à quatre échiquiers : milieu ~190, ★★ probable.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Plus de cases que deux échiquiers, mais moins que quatre."
+ },
+ {
+  "id": "1g9asmz8",
+  "question": "À quelle température, en degrés Celsius, l'or fond-il ?",
+  "reponse": 1064,
+  "unite": "°C",
+  "passes": [
+   {
+    "indice": "Bien au-dessus de l'eau qui bout, et bien au-dessus d'un four domestique.",
+    "verdict": "rien",
+    "deduction": "Au-dessus de 250 degrés sans plafond ; 600 ou 1000 restent possibles."
+   },
+   {
+    "indice": "Bien plus chaud qu'un four à pizza (autour de 450 °C), pas loin d'une coulée de lave.",
+    "verdict": "valeur",
+    "deduction": "Au-dessus de 450 °C et près d'une lave connue pour ~1000 °C : il vise 1000-1100, ★★★ (±6 %)."
+   },
+   {
+    "indice": "Le fer fond vers 1500 °C ; l'or fond plus bas, mais il lui faut une forge, pas un four de cuisine.",
+    "verdict": "rien",
+    "deduction": "Seulement 'sous 1500 °C, forge' : 300-1000 et 1000-3000 restent possibles, le profane ne tranche pas."
+   },
+   {
+    "indice": "Le fer fond vers 1500 °C ; l'or fond plus bas, mais il lui faut une forge, pas un four de cuisine.",
+    "verdict": "a-cheval",
+    "deduction": "600–1400: enjambe 1000 — plus bas que le fer à 1500, sans plancher net",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Le fer fond vers 1500 °C ; l'or fond plus bas, mais il lui faut une forge, pas un four de cuisine.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Le fer fond vers 1500 °C ; l'or fond plus bas, mais il lui faut une forge, pas un four de cuisine."
+ },
+ {
+  "id": "zmmcjdki",
+  "question": "Combien de coureurs prennent le départ du premier Tour de France, en 1903 ?",
+  "reponse": 60,
+  "unite": "coureurs",
+  "passes": [
+   {
+    "indice": "Moins de la moitié du peloton actuel (près de 180), mais plus d'une vingtaine.",
+    "verdict": "ordre",
+    "deduction": "Entre 20 et 90 coureurs."
+   },
+   {
+    "indice": "Moins de la moitié du peloton actuel (près de 180), mais plus d'une vingtaine.",
+    "verdict": "dans",
+    "deduction": "30–90 — moins de 90, plus d'une vingtaine",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Moins de la moitié du peloton actuel (près de 180), mais plus d'une vingtaine."
+ },
+ {
+  "id": "y0213uic",
+  "question": "En quelle année a eu lieu la première édition du festival de danse de Blackpool, grand rendez-vous de la danse de salon ?",
+  "reponse": 1920,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Peu après la fin de la Première Guerre mondiale, aux Années folles.",
+    "verdict": "valeur",
+    "deduction": "Peu après 1918, Années folles : 1920 quasi sûr."
+   },
+   {
+    "indice": "Un festival de plus d'un siècle d'existence, né avant la Seconde Guerre mondiale.",
+    "verdict": "ordre",
+    "deduction": "Plus d'un siècle (avant 1926) et avant 1939 : début du XXe, tranche 1900-1925, sans plus."
+   },
+   {
+    "indice": "Un festival de plus d'un siècle d'existence, né avant la Seconde Guerre mondiale.",
+    "verdict": "a-cheval",
+    "deduction": "1875–1925: enjambe 1900 — plus d'un siècle, début flou",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Dans le premier quart du XXe siècle, entre la Belle Époque et les années folles.",
+    "verdict": "dans",
+    "deduction": "Réécrit à la main : Entre le Titanic et le krach (1912–1929) enjambait 1925.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Dans le premier quart du XXe siècle, entre la Belle Époque et les années folles."
+ },
+ {
+  "id": "4elif5cv",
+  "question": "Combien de jours dure le tournage de « Kaamelott : Premier volet » ?",
+  "reponse": 42,
+  "unite": "jours",
+  "passes": [
+   {
+    "indice": "Plus d'un mois de travail, mais moins de deux mois.",
+    "verdict": "ordre",
+    "deduction": "Entre 30 et 60 jours."
+   },
+   {
+    "indice": "Plus d'un mois de travail, mais moins de deux mois.",
+    "verdict": "dans",
+    "deduction": "31–60 — entre un et deux mois",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Plus d'un mois de travail, mais moins de deux mois."
+ },
+ {
+  "id": "8semz46o",
+  "question": "En écrivant tous les nombres de 1 à 100, combien de fois écrit-on le chiffre 9 ?",
+  "reponse": 20,
+  "unite": "fois",
+  "passes": [
+   {
+    "indice": "Pense aux dizaines et aux unités : le 9 apparaît dans chacune de ces positions.",
+    "verdict": "valeur",
+    "deduction": "Dix 9 aux unités et dix aux dizaines : 20."
+   },
+   {
+    "indice": "Plus d'une dizaine, bien moins que cent : le 9 ne revient qu'à certains endroits.",
+    "verdict": "ordre",
+    "deduction": "Plus de 10, bien moins que 100 : entre 12 et 40, la tranche 10-30 sans plus."
+   },
+   {
+    "indice": "Plus d'une dizaine, bien moins que cent : le 9 ne revient qu'à certains endroits.",
+    "verdict": "a-cheval",
+    "deduction": "12–50: enjambe 30 — « bien moins que cent » sans borne nette",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Plus d'une dizaine, bien moins que cent : le 9 ne revient qu'à certains endroits.",
+  "calcul": true
+ },
+ {
+  "id": "yz00hbzf",
+  "question": "En quelle année la pâte rebondissante Silly Putty a-t-elle été commercialisée, dans de petits œufs en plastique ?",
+  "reponse": 1950,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Au début des Trente Glorieuses, peu après la Seconde Guerre mondiale.",
+    "verdict": "proche",
+    "deduction": "Début des Trente Glorieuses, peu après 1945 : 1946-1955."
+   },
+   {
+    "indice": "Un jouet né pendant la reconstruction après la Seconde Guerre mondiale, avant Mai 68.",
+    "verdict": "ordre",
+    "deduction": "Après-guerre, avant 1968 : entre 1945 et 1968, la bonne tranche de 25 ans."
+   },
+   {
+    "indice": "Un jouet né pendant la reconstruction après la Seconde Guerre mondiale, avant Mai 68.",
+    "verdict": "a-cheval",
+    "deduction": "1945–1968: enjambe 1950 — reconstruction d'après-guerre évoque 1945–1950",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un jouet né pendant la reconstruction après la Seconde Guerre mondiale, avant Mai 68.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Un jouet né pendant la reconstruction après la Seconde Guerre mondiale, avant Mai 68."
+ },
+ {
+  "id": "11qw0ijc",
+  "question": "À quelle température, en degrés Celsius, fond le sel de cuisine, ou chlorure de sodium ?",
+  "reponse": 801,
+  "unite": "°C",
+  "passes": [
+   {
+    "indice": "Moins chaud que l'or en fusion, mais bien plus qu'un four de cuisine.",
+    "verdict": "ordre",
+    "deduction": "Entre 250 et 1064 degrés : quelques centaines."
+   },
+   {
+    "indice": "Moins chaud que l'or en fusion, mais bien plus qu'un four de cuisine.",
+    "verdict": "dans",
+    "deduction": "400–1000 — moins que l'or, plus qu'un four",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Moins chaud que l'or en fusion, mais bien plus qu'un four de cuisine."
+ },
+ {
+  "id": "t5u6x3tx",
+  "question": "Combien de couleurs comptait la palette dite « web safe », sûre sur les écrans des débuts du Web ?",
+  "reponse": 216,
+  "unite": "couleurs",
+  "passes": [
+   {
+    "indice": "Trois canaux rouge-vert-bleu, avec très peu de niveaux chacun : multiplie.",
+    "verdict": "ordre",
+    "deduction": "Trois canaux à peu de niveaux : de 64 à 216 selon le nombre de niveaux, ordre de la centaine."
+   },
+   {
+    "indice": "Trois canaux rouge-vert-bleu, avec très peu de niveaux chacun : multiplie.",
+    "verdict": "a-cheval",
+    "deduction": "64–512: enjambe 100 et 300 — « très peu de niveaux » : 4, 5, 6 ou 8 par canal",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus d'une centaine de couleurs, mais moins de trois cents.",
+    "verdict": "dans, proche",
+    "deduction": "100 à 300 — Milieu ~200, ★★ ; ★★★ limite.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Plus d'une centaine de couleurs, mais moins de trois cents."
+ },
+ {
+  "id": "m5achlfm",
+  "question": "Combien d'États américains touchent la frontière avec le Canada, par la terre ou par les eaux ?",
+  "reponse": 13,
+  "unite": "États",
+  "passes": [
+   {
+    "indice": "Une minorité des cinquante États américains, tous situés au nord du pays.",
+    "verdict": "ordre",
+    "deduction": "Une minorité de 50 États : une dizaine à une vingtaine."
+   },
+   {
+    "indice": "Une minorité des cinquante États américains, tous situés au nord du pays.",
+    "verdict": "a-cheval",
+    "deduction": "5–25: enjambe 10 — minorité des cinquante, sans plancher",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus que les doigts des deux mains, mais moins que la moitié des cinquante États.",
+    "verdict": "dans, large",
+    "deduction": "10 à 25 États — Milieu ~17 vs 13 : hors ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Plus que les doigts des deux mains, mais moins que la moitié des cinquante États."
+ },
+ {
+  "id": "4nz4fpnj",
+  "question": "Combien de cloches faut-il au minimum pour qu'un ensemble porte le nom de carillon ?",
+  "reponse": 23,
+  "unite": "cloches",
+  "passes": [
+   {
+    "indice": "Bien plus qu'une sonnerie d'église, mais moins d'une cinquantaine de cloches.",
+    "verdict": "ordre",
+    "deduction": "Plus qu'une sonnerie, moins de 50 : une dizaine à quelques dizaines."
+   },
+   {
+    "indice": "Bien plus qu'une sonnerie d'église, mais moins d'une cinquantaine de cloches.",
+    "verdict": "a-cheval",
+    "deduction": "10–45: enjambe 30 — moins d'une cinquantaine déborde sur 30–100",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus qu'une dizaine de cloches, mais moins qu'une trentaine.",
+    "verdict": "dans, proche",
+    "deduction": "11 à 29 cloches — Milieu ~20 : ★★ (13 %).",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Plus qu'une dizaine de cloches, mais moins qu'une trentaine."
+ },
+ {
+  "id": "0b53mx4n",
+  "question": "Depuis 2011, combien de départements la France compte-t-elle, outre-mer compris ?",
+  "reponse": 101,
+  "unite": "départements",
+  "passes": [
+   {
+    "indice": "Presque tous en métropole ; l'outre-mer n'en ajoute qu'une poignée, dont Mayotte.",
+    "verdict": "valeur",
+    "deduction": "Environ 95 départements métropolitains plus une poignée d'outre-mer : environ 100."
+   },
+   {
+    "indice": "Bien plus que les 27 pays de l'Union, mais bien moins que les jours d'une année.",
+    "verdict": "ordre",
+    "deduction": "Entre 27 et 365, il vise l'ordre de la centaine ; la fourchette reste très large."
+   },
+   {
+    "indice": "Bien plus que les 27 pays de l'Union, mais bien moins que les jours d'une année.",
+    "verdict": "a-cheval",
+    "deduction": "40–250: enjambe 100 — plus que 27, moins que 365, la réponse est au bord",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Bien plus que les 27 pays de l'Union, mais bien moins que les jours d'une année.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Bien plus que les 27 pays de l'Union, mais bien moins que les jours d'une année."
+ },
+ {
+  "id": "4x9ncfaq",
+  "question": "Combien de lettres compte l'alphabet polonais ?",
+  "reponse": 32,
+  "unite": "lettres",
+  "passes": [
+   {
+    "indice": "Plus long que l'alphabet français, à cause de ses nombreuses lettres à signes.",
+    "verdict": "ordre",
+    "deduction": "Plus de 26 lettres : une trentaine."
+   },
+   {
+    "indice": "Plus long que l'alphabet français, à cause de ses nombreuses lettres à signes.",
+    "verdict": "a-cheval",
+    "deduction": "27–40: enjambe 30 — un peu plus que 26, la réponse est au bord de 30",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus long que l'alphabet français, à cause de ses nombreuses lettres à signes.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Plus long que l'alphabet français, à cause de ses nombreuses lettres à signes."
+ },
+ {
+  "id": "5mwfbzm7",
+  "question": "En quelle année Napoléon lance-t-il la Grande Armée à l'assaut de la Russie ?",
+  "reponse": 1812,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Sous le Premier Empire, quelques années avant la chute de Napoléon.",
+    "verdict": "valeur",
+    "deduction": "Premier Empire, quelques années avant 1814-1815 : 1812."
+   },
+   {
+    "indice": "À l'époque de Napoléon, entre la Révolution et la Restauration.",
+    "verdict": "ordre",
+    "deduction": "Entre la Révolution et la Restauration : 1799-1814, la tranche sans plus."
+   },
+   {
+    "indice": "À l'époque de Napoléon, entre la Révolution et la Restauration.",
+    "verdict": "dans",
+    "deduction": "1800–1815 — Napoléon, un petit débord sous 1800",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "À l'époque de Napoléon, entre la Révolution et la Restauration."
+ },
+ {
+  "id": "k7bvzlrl",
+  "question": "En quelle année Bonaparte fixe-t-il le « franc germinal », resté stable plus d'un siècle ?",
+  "reponse": 1803,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Sous le Consulat, peu avant que Bonaparte ne se couronne empereur.",
+    "verdict": "valeur",
+    "deduction": "Consulat, peu avant le sacre de 1804 : 1802-1803."
+   },
+   {
+    "indice": "Entre la Terreur et Waterloo : la Révolution vient de s'achever.",
+    "verdict": "proche",
+    "deduction": "Après la Terreur, Révolution achevée, Bonaparte pas encore empereur : 1799-1804, donc ★★ sûr, ★★★ probable."
+   },
+   {
+    "indice": "Entre la Terreur et Waterloo : la Révolution vient de s'achever.",
+    "verdict": "a-cheval",
+    "deduction": "1794–1815: enjambe 1800 — de la Terreur à Waterloo",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Entre la Terreur et Waterloo : la Révolution vient de s'achever.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Entre la Terreur et Waterloo : la Révolution vient de s'achever."
+ },
+ {
+  "id": "65hchm50",
+  "question": "Sous quelle température corporelle parle-t-on d'hypothermie ?",
+  "reponse": 35,
+  "unite": "°C",
+  "passes": [
+   {
+    "indice": "Seulement quelques degrés sous la température normale du corps.",
+    "verdict": "valeur",
+    "deduction": "Quelques degrés sous 37 : 34 ou 35."
+   },
+   {
+    "indice": "Plus que la température d'un frigo, moins que celle d'une douche bien chaude.",
+    "verdict": "rien",
+    "deduction": "Entre 4 et ~42 °C : n'ajoute rien à la question, qui donne déjà la température normale du corps."
+   },
+   {
+    "indice": "Une pièce confortable est à 20 °C ; un corps même refroidi reste nettement au-dessus.",
+    "verdict": "ordre",
+    "deduction": "Nettement au-dessus de 20 °C, et un corps tourne autour de 37 : tranche 30-100."
+   },
+   {
+    "indice": "Une pièce confortable est à 20 °C ; un corps même refroidi reste nettement au-dessus.",
+    "verdict": "dans",
+    "deduction": "30–36 — nettement au-dessus de 20 °C",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Une pièce confortable est à 20 °C ; un corps même refroidi reste nettement au-dessus."
+ },
+ {
+  "id": "kmuak5qp",
+  "question": "Combien de dollars l'étudiante Carolyn Davidson a-t-elle reçus, en 1971, pour avoir dessiné le logo de Nike ?",
+  "reponse": 35,
+  "unite": "dollars",
+  "passes": [
+   {
+    "indice": "Une somme dérisoire : de quoi s'offrir un repas, pas de quoi faire fortune.",
+    "verdict": "ordre",
+    "deduction": "Un repas : entre 10 et 100 dollars."
+   },
+   {
+    "indice": "Une somme dérisoire : de quoi s'offrir un repas, pas de quoi faire fortune.",
+    "verdict": "a-cheval",
+    "deduction": "10–40: enjambe 30 — un repas, somme dérisoire, bornes floues",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Quelques dizaines de dollars seulement : bien moins que cent.",
+    "verdict": "dans, large",
+    "deduction": "30 à 70 $ — \"Quelques dizaines\" : dans 30-100, milieu ~50 hors ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Quelques dizaines de dollars seulement : bien moins que cent."
+ },
+ {
+  "id": "5udydpw3",
+  "question": "Sous combien d'unités Dobson la couche d'ozone doit-elle descendre pour qu'on parle de « trou » ?",
+  "reponse": 220,
+  "unite": "DU",
+  "passes": [
+   {
+    "indice": "Le seuil est nettement sous la moyenne mondiale, d'environ 300 unités.",
+    "verdict": "proche",
+    "deduction": "Nettement sous 300 : 200 à 250."
+   },
+   {
+    "indice": "La couche vaut plusieurs centaines d'unités ; le trou, c'est quand il en manque une bonne part.",
+    "verdict": "ordre",
+    "deduction": "Quelques centaines au total, le trou en manque une bonne part : environ 100-300 DU, la tranche."
+   },
+   {
+    "indice": "La couche vaut plusieurs centaines d'unités ; le trou, c'est quand il en manque une bonne part.",
+    "verdict": "dans",
+    "deduction": "150–250 — il manque une bonne part de quelques centaines",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "La couche vaut plusieurs centaines d'unités ; le trou, c'est quand il en manque une bonne part."
+ },
+ {
+  "id": "ocemdr8i",
+  "question": "En quelle année, selon la tradition, Marie Harel aurait-elle mis au point le camembert ?",
+  "reponse": 1791,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Pendant la Révolution française, peu après la prise de la Bastille.",
+    "verdict": "valeur",
+    "deduction": "Révolution, peu après 1789 : 1790-1792."
+   },
+   {
+    "indice": "Dans le dernier quart du siècle de Voltaire, juste avant le XIXe siècle.",
+    "verdict": "proche",
+    "deduction": "Dernier quart du XVIIIe, juste avant 1800 : environ 1785-1799, donc ★★ à coup sûr, pas ★★★."
+   },
+   {
+    "indice": "Dans le dernier quart du siècle de Voltaire, juste avant le XIXe siècle.",
+    "verdict": "dans",
+    "deduction": "1775–1799 — dernier quart du XVIIIe",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Dans le dernier quart du siècle de Voltaire, juste avant le XIXe siècle."
+ },
+ {
+  "id": "kkkf38md",
+  "question": "En quelle année paraît le premier numéro du journal Tintin ?",
+  "reponse": 1946,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Peu après la fin de la Seconde Guerre mondiale.",
+    "verdict": "valeur",
+    "deduction": "Peu après 1945 : 1946-1947."
+   },
+   {
+    "indice": "Dans les vingt années qui suivent la Seconde Guerre mondiale.",
+    "verdict": "ordre",
+    "deduction": "Dans les vingt ans après 1945 : 1945-1965, la tranche sans plus."
+   },
+   {
+    "indice": "Dans les vingt années qui suivent la Seconde Guerre mondiale.",
+    "verdict": "a-cheval",
+    "deduction": "1945–1965: enjambe 1950 — vingt ans après la guerre, même défaut que le signalement",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Dans les vingt années qui suivent la Seconde Guerre mondiale.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Entre la crise de 1929 et la fin des années quarante.",
+    "verdict": "dans",
+    "deduction": "Réécrit à la main : 1929–1949 : la bonne époque ; « les vingt années qui suivent la guerre » menaient à 1950–1974, à neuf ans de la réponse.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Entre la crise de 1929 et la fin des années quarante."
+ },
+ {
+  "id": "0asc5jaf",
+  "question": "Depuis 1999, combien de voïvodies, ses régions, la Pologne compte-t-elle ?",
+  "reponse": 16,
+  "unite": "voïvodies",
+  "passes": [
+   {
+    "indice": "Moins que les 22 régions de métropole d'avant 2016, mais plus de dix.",
+    "verdict": "ordre",
+    "deduction": "Entre 11 et 21 régions."
+   },
+   {
+    "indice": "Moins que les 22 régions de métropole d'avant 2016, mais plus de dix.",
+    "verdict": "dans",
+    "deduction": "11–21 — plus de dix, moins de 22",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Moins que les 22 régions de métropole d'avant 2016, mais plus de dix."
+ },
+ {
+  "id": "fxznzq33",
+  "question": "En quelle année la reine Victoria a-t-elle fêté son jubilé de diamant ?",
+  "reponse": 1897,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Sous la IIIe République, dans les dernières années de l'ère victorienne.",
+    "verdict": "proche",
+    "deduction": "Fin de l'ère victorienne (morte 1901) : 1895-1900."
+   },
+   {
+    "indice": "Dans la seconde moitié du XIXe siècle, bien avant la Première Guerre mondiale.",
+    "verdict": "ordre",
+    "deduction": "Seconde moitié du XIXe, bien avant 1914 : 1850-1900, la tranche sans plus."
+   },
+   {
+    "indice": "Dans la seconde moitié du XIXe siècle, bien avant la Première Guerre mondiale.",
+    "verdict": "a-cheval",
+    "deduction": "1850–1914: enjambe 1875 et 1900 — seconde moitié du XIXe avant 14-18, fourchette trop large",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Dans le dernier quart du XIXe siècle.",
+    "verdict": "dans, large",
+    "deduction": "1876 à 1900 — Dernier quart du XIXe : dans la tranche, milieu 1888 trop loin.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Dans le dernier quart du XIXe siècle."
+ },
+ {
+  "id": "sj6exbfc",
+  "question": "Combien existe-t-il de solides d'Archimède, ces polyèdres convexes aux faces régulières de plusieurs sortes ?",
+  "reponse": 13,
+  "unite": "",
+  "passes": [
+   {
+    "indice": "Bien moins que les lettres de l'alphabet, mais plus que les doigts d'une main.",
+    "verdict": "ordre",
+    "deduction": "Entre 6 et 25 : une dizaine ou une vingtaine."
+   },
+   {
+    "indice": "Bien moins que les lettres de l'alphabet, mais plus que les doigts d'une main.",
+    "verdict": "a-cheval",
+    "deduction": "6–20: enjambe 10 — entre une main et l'alphabet",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus qu'une dizaine, mais moins qu'une trentaine.",
+    "verdict": "dans, large",
+    "deduction": "10 à 30 — Milieu 20 vs 13 : hors ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Plus qu'une dizaine, mais moins qu'une trentaine."
+ },
+ {
+  "id": "1hteero8",
+  "question": "En quelle année Georges Pralus met-il au point la cuisson sous vide d'un foie gras, pour les Troisgros ?",
+  "reponse": 1974,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "En pleine nouvelle cuisine, quelques années après Mai 68.",
+    "verdict": "proche",
+    "deduction": "Quelques années après 1968, nouvelle cuisine : 1971-1978."
+   },
+   {
+    "indice": "Une trouvaille de la nouvelle cuisine, un mouvement du dernier tiers du XXe siècle.",
+    "verdict": "ordre",
+    "deduction": "Nouvelle cuisine, dernier tiers du XXe : 1967-2000, la tranche mais large."
+   },
+   {
+    "indice": "Une trouvaille de la nouvelle cuisine, un mouvement du dernier tiers du XXe siècle.",
+    "verdict": "a-cheval",
+    "deduction": "1967–2000: enjambe 1975 — dernier tiers du XXe, la réponse est juste avant 1975",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Pendant les Trente Glorieuses, quand la nouvelle cuisine bouscule les grandes tables.",
+    "verdict": "dans",
+    "deduction": "Réécrit à la main : « Le dernier tiers du XXe siècle » envoyait dans 1975–1999 ; Hugo y a perdu un cœur.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Pendant les Trente Glorieuses, quand la nouvelle cuisine bouscule les grandes tables."
+ },
+ {
+  "id": "a1qdkwy5",
+  "question": "En quelle année Converse a-t-il lancé sa chaussure de basket en toile, la All Star ?",
+  "reponse": 1917,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "En pleine Première Guerre mondiale, de l'autre côté de l'Atlantique.",
+    "verdict": "valeur",
+    "deduction": "En pleine Première Guerre : 1914-1918, soit 1916 à ±2 ans."
+   },
+   {
+    "indice": "Plus d'un siècle d'existence, née avant le cinéma parlant.",
+    "verdict": "ordre",
+    "deduction": "Plus d'un siècle (avant 1926) et avant le parlant (1927) : 1900-1925, la tranche sans plus."
+   },
+   {
+    "indice": "Plus d'un siècle d'existence, née avant le cinéma parlant.",
+    "verdict": "dans",
+    "deduction": "1900–1926 — plus d'un siècle, avant le parlant",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Plus d'un siècle d'existence, née avant le cinéma parlant."
+ },
+ {
+  "id": "ur49x8py",
+  "question": "En quelle année le paquebot britannique Lusitania a-t-il été coulé par un sous-marin allemand ?",
+  "reponse": 1915,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "En plein cœur de la Première Guerre mondiale, avant l'entrée en guerre des Américains.",
+    "verdict": "valeur",
+    "deduction": "Cœur de la guerre avant l'entrée américaine de 1917 : 1915-1916."
+   },
+   {
+    "indice": "Un naufrage du début du XXe siècle, quand les paquebots géants sont rois de l'Atlantique.",
+    "verdict": "valeur",
+    "deduction": "Début du XXe + sous-marin allemand + paquebots : il pense à la Première Guerre, 1914-1918, et vise 1915-1916, ★★★."
+   },
+   {
+    "indice": "",
+    "verdict": "aucun",
+    "deduction": "La question donne déjà l'époque (sous-marin allemand qui coule un paquebot : Grande Guerre) ; tout indice d'époque devient la réponse."
+   }
+  ],
+  "retenu": ""
+ },
+ {
+  "id": "b583hyzk",
+  "question": "Combien d'éléphants Hannibal emmène-t-il dans sa traversée des Alpes, selon la tradition ?",
+  "reponse": 37,
+  "unite": "éléphants",
+  "passes": [
+   {
+    "indice": "Un petit troupeau : plus d'une dizaine, mais loin de cent.",
+    "verdict": "ordre",
+    "deduction": "Entre 10 et 100 éléphants, un petit troupeau."
+   },
+   {
+    "indice": "Un petit troupeau : plus d'une dizaine, mais loin de cent.",
+    "verdict": "a-cheval",
+    "deduction": "15–50: enjambe 30 — petit troupeau, borne haute floue",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un troupeau de plus d'une trentaine de bêtes, loin d'atteindre la centaine.",
+    "verdict": "dans, large",
+    "deduction": "30 à ~70 — Milieu ~50 vs 37 : hors ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Un troupeau de plus d'une trentaine de bêtes, loin d'atteindre la centaine."
+ },
+ {
+  "id": "fd8b08gy",
+  "question": "En quelle année le barman Harry Craddock a-t-il publié « The Savoy Cocktail Book » ?",
+  "reponse": 1930,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Entre les deux guerres, pendant que la Prohibition sévissait aux États-Unis.",
+    "verdict": "proche",
+    "deduction": "Entre deux guerres, pendant la Prohibition (1920-1933) : vers 1926."
+   },
+   {
+    "indice": "Paru entre les deux guerres, quand les barmen américains s'exilent à Londres.",
+    "verdict": "proche",
+    "deduction": "Entre les deux guerres, exil des barmen (Prohibition) : 1920-1933, donc ★★ à coup sûr, ★★★ pas assuré."
+   },
+   {
+    "indice": "Paru entre les deux guerres, quand les barmen américains s'exilent à Londres.",
+    "verdict": "a-cheval",
+    "deduction": "1919–1939: enjambe 1925 — entre-deux-guerres",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Entre la crise économique mondiale et la fin de la Seconde Guerre mondiale.",
+    "verdict": "dans, large",
+    "deduction": "1929 à 1945 — Dans la tranche ; milieu 1937 à 7 ans.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Entre la crise économique mondiale et la fin de la Seconde Guerre mondiale."
+ },
+ {
+  "id": "3f3uykd1",
+  "question": "Combien de caractères peut compter au maximum chaque partie d'un nom de domaine, entre deux points ?",
+  "reponse": 63,
+  "unite": "caractères",
+  "passes": [
+   {
+    "indice": "Bien plus que les lettres de l'alphabet, mais moins d'une centaine.",
+    "verdict": "ordre",
+    "deduction": "Entre 27 et 99 caractères."
+   },
+   {
+    "indice": "Bien plus que les lettres de l'alphabet, mais moins d'une centaine.",
+    "verdict": "dans",
+    "deduction": "30–99 — plus que 26, moins de cent",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Bien plus que les lettres de l'alphabet, mais moins d'une centaine."
+ },
+ {
+  "id": "gvoao6xy",
+  "question": "En quelle année Émile Zola publie-t-il dans L'Aurore sa lettre ouverte au président de la République, « J'accuse… ! » ?",
+  "reponse": 1898,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Pendant l'affaire Dreyfus, sous la Troisième République, bien avant la Grande Guerre.",
+    "verdict": "proche",
+    "deduction": "Affaire Dreyfus, IIIe République : 1894-1906."
+   },
+   {
+    "indice": "Dans le dernier quart du XIXe siècle, sous la Troisième République.",
+    "verdict": "ordre",
+    "deduction": "Dernier quart du XIXe, IIIe République : 1875-1900, la tranche sans plus."
+   },
+   {
+    "indice": "Dans le dernier quart du XIXe siècle, sous la Troisième République.",
+    "verdict": "dans",
+    "deduction": "1875–1900 — dernier quart du XIXe",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Dans le dernier quart du XIXe siècle, sous la Troisième République."
+ },
+ {
+  "id": "w025epqu",
+  "question": "En quelle année les ordonnances fondatrices de la Sécurité sociale ont-elles été signées en France ?",
+  "reponse": 1945,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "À la Libération, juste après la fin de l'Occupation.",
+    "verdict": "valeur",
+    "deduction": "À la Libération, juste après l'Occupation : 1944-1945."
+   },
+   {
+    "indice": "Une grande réforme sociale du milieu du XXe siècle, voulue par ceux qui reconstruisent la France.",
+    "verdict": "valeur",
+    "deduction": "'Ceux qui reconstruisent la France' + milieu du XXe : la Libération, 1944-1946 ; il vise 1945 ou 46, ★★★."
+   },
+   {
+    "indice": "Postérieure au Front populaire (congés payés) et antérieure à la guerre d'Algérie.",
+    "verdict": "rien",
+    "deduction": "Entre 1936 et 1954 : l'intervalle chevauche 1925-1949 et 1950-1974, deux tranches."
+   },
+   {
+    "indice": "Postérieure au Front populaire (congés payés) et antérieure à la guerre d'Algérie.",
+    "verdict": "a-cheval",
+    "deduction": "1937–1953: enjambe 1950 — après le Front populaire, avant l'Algérie",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Postérieure au Front populaire (congés payés) et antérieure à la guerre d'Algérie.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Postérieure au Front populaire (congés payés) et antérieure à la guerre d'Algérie."
+ },
+ {
+  "id": "tw12nhyb",
+  "question": "En quelle année les voitures électriques du circuit Scalextric, guidées par une fente, sont-elles apparues ?",
+  "reponse": 1957,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "À l'époque d'Elvis Presley, avant l'arrivée des Beatles.",
+    "verdict": "proche",
+    "deduction": "Elvis avant les Beatles : 1955-1962."
+   },
+   {
+    "indice": "Un jouet de l'après-guerre, né avant que l'homme ne marche sur la Lune.",
+    "verdict": "ordre",
+    "deduction": "Après-guerre, avant 1969 : 1945-1969, la tranche sans plus."
+   },
+   {
+    "indice": "Un jouet de l'après-guerre, né avant que l'homme ne marche sur la Lune.",
+    "verdict": "a-cheval",
+    "deduction": "1946–1969: enjambe 1950 — jouet d'après-guerre évoque 1945–1950",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Entre la guerre de Corée et l'homme sur la Lune.",
+    "verdict": "dans, proche",
+    "deduction": "1953 à 1969 — Milieu 1961 : ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Entre la guerre de Corée et l'homme sur la Lune."
+ },
+ {
+  "id": "n4nkmbgs",
+  "question": "En quelle année a-t-on découvert le premier squelette d'archéoptéryx, en Bavière ?",
+  "reponse": 1861,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "À l'époque du Second Empire, quand Darwin bouleversait la science.",
+    "verdict": "proche",
+    "deduction": "Second Empire et Darwin : 1859-1865."
+   },
+   {
+    "indice": "Un fossile exhumé au milieu du XIXe siècle, quand la paléontologie est toute jeune.",
+    "verdict": "ordre",
+    "deduction": "Milieu du XIXe : environ 1840-1865, la tranche sans plus."
+   },
+   {
+    "indice": "Un fossile exhumé au milieu du XIXe siècle, quand la paléontologie est toute jeune.",
+    "verdict": "a-cheval",
+    "deduction": "1840–1865: enjambe 1850 — milieu du XIXe",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Sous le Second Empire, avant la guerre contre la Prusse.",
+    "verdict": "dans, proche",
+    "deduction": "1852 à 1870 — Second Empire : milieu 1861, ★★ sûr.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Sous le Second Empire, avant la guerre contre la Prusse."
+ },
+ {
+  "id": "n8007l7o",
+  "question": "Combien de Rhapsodies hongroises Franz Liszt a-t-il écrites pour le piano ?",
+  "reponse": 19,
+  "unite": "rhapsodies",
+  "passes": [
+   {
+    "indice": "Un cycle plus long que le nombre de doigts de tes deux mains.",
+    "verdict": "rien",
+    "deduction": "Plus de 10 seulement, sans plafond."
+   },
+   {
+    "indice": "Plus que les symphonies de Beethoven, mais bien moins que celles de Haydn, plus de cent.",
+    "verdict": "ordre",
+    "deduction": "Plus que 9 (Beethoven), bien moins que 104 (Haydn) : entre 10 et 40, la tranche sans plus."
+   },
+   {
+    "indice": "Plus que les symphonies de Beethoven, mais bien moins que celles de Haydn, plus de cent.",
+    "verdict": "a-cheval",
+    "deduction": "10–50: enjambe 30 — moins que Haydn sans borne haute nette",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus d'une dizaine de rhapsodies, mais moins qu'une trentaine.",
+    "verdict": "dans, proche",
+    "deduction": "11 à 29 — Milieu 20 vs 19 : ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Plus d'une dizaine de rhapsodies, mais moins qu'une trentaine."
+ },
+ {
+  "id": "891qntqh",
+  "question": "En quelle année le Vogue américain a-t-il comparé la petite robe noire de Chanel à la Ford T, la voiture de tout le monde ?",
+  "reponse": 1926,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Pendant les Années folles, entre les deux guerres.",
+    "verdict": "proche",
+    "deduction": "Années folles : 1920-1929."
+   },
+   {
+    "indice": "Quand les femmes adoptent cheveux et jupes courts, entre les deux guerres.",
+    "verdict": "proche",
+    "deduction": "Cheveux et jupes courts entre deux guerres = les années folles, 1920-1929 : ★★ à coup sûr, ★★★ possible."
+   },
+   {
+    "indice": "Quand les femmes adoptent cheveux et jupes courts, entre les deux guerres.",
+    "verdict": "a-cheval",
+    "deduction": "1919–1930: enjambe 1925 — entre les deux guerres, jupes courtes",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Quand les femmes adoptent cheveux et jupes courts, entre les deux guerres.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Quand les femmes adoptent cheveux et jupes courts, entre les deux guerres."
+ },
+ {
+  "id": "eq6d1uie",
+  "question": "Quel est le plus petit nombre abondant, dont la somme des diviseurs propres dépasse le nombre lui-même ?",
+  "reponse": 12,
+  "unite": "",
+  "calcul": true,
+  "passes": [
+   {
+    "indice": "C'est un nombre des tables de 3, de 4 et de 6 à la fois, tout petit.",
+    "verdict": "valeur",
+    "deduction": "Dans les tables de 3, 4 et 6, tout petit : 12."
+   }
+  ],
+  "retenu": "C'est un nombre des tables de 3, de 4 et de 6 à la fois, tout petit."
+ },
+ {
+  "id": "ybtwkxdb",
+  "question": "Combien de degrés compte un tour complet autour d'un point ?",
+  "reponse": 360,
+  "unite": "degrés",
+  "calcul": true,
+  "passes": [
+   {
+    "indice": "Un angle droit fait un quart de tour : à toi de multiplier.",
+    "verdict": "valeur",
+    "deduction": "Angle droit 90 fois 4 : 360."
+   }
+  ],
+  "retenu": "Un angle droit fait un quart de tour : à toi de multiplier."
+ },
+ {
+  "id": "brg0edw0",
+  "question": "Combien de grammes compte un kilogramme ?",
+  "reponse": 1000,
+  "unite": "grammes",
+  "calcul": true,
+  "passes": [
+   {
+    "indice": "Pense au sens du préfixe « kilo », que tu retrouves dans kilomètre.",
+    "verdict": "valeur",
+    "deduction": "Kilo = mille : 1000."
+   }
+  ],
+  "retenu": "Pense au sens du préfixe « kilo », que tu retrouves dans kilomètre."
+ },
+ {
+  "id": "wjwucoxh",
+  "question": "Quelle est la valeur, en euros, du plus gros billet en euros jamais émis ?",
+  "reponse": 500,
+  "unite": "€",
+  "passes": [
+   {
+    "indice": "Il dépasse largement le billet de 200 euros, aujourd'hui le plus gros émis.",
+    "verdict": "valeur",
+    "deduction": "Au-dessus du 200 : le 500 euros que tout le monde connaît."
+   },
+   {
+    "indice": "Plus que le billet de 200 euros, moins qu'un salaire minimum mensuel.",
+    "verdict": "valeur",
+    "deduction": "Au-dessus de 200, sous le SMIC : 500 ou 1000, et il connaît le billet de 500 : ★★★ par élimination."
+   },
+   {
+    "indice": "",
+    "verdict": "aucun",
+    "deduction": "Entre 300 et 1 000 €, il n’y a qu’un billet : tout indice d’ordre de grandeur le désigne."
+   }
+  ],
+  "retenu": ""
+ },
+ {
+  "id": "sfdrpn2k",
+  "question": "Combien de fois un Seigneur du Temps peut-il se régénérer, selon la règle d'origine de « Doctor Who » ?",
+  "reponse": 12,
+  "unite": "fois",
+  "passes": [
+   {
+    "indice": "Plus que les neuf vies d'un chat, mais bien moins qu'une vingtaine.",
+    "verdict": "ordre",
+    "deduction": "Plus de 9, moins de 20 : de 10 à 16."
+   },
+   {
+    "indice": "Plus que les neuf vies d'un chat, mais bien moins qu'une vingtaine.",
+    "verdict": "dans",
+    "deduction": "10–15 — plus que neuf, bien moins que vingt",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Plus que les neuf vies d'un chat, mais bien moins qu'une vingtaine."
+ },
+ {
+  "id": "4mucz9tq",
+  "question": "En combien de langues « je t'aime » est-il écrit sur le mur des je t'aime, à Montmartre ?",
+  "reponse": 250,
+  "unite": "langues",
+  "passes": [
+   {
+    "indice": "Quelques centaines au plus, alors que le monde compte des milliers de langues.",
+    "verdict": "ordre",
+    "deduction": "Quelques centaines : 100 à 900."
+   },
+   {
+    "indice": "Quelques centaines au plus, alors que le monde compte des milliers de langues.",
+    "verdict": "a-cheval",
+    "deduction": "200–600: enjambe 300 — quelques centaines, sans borne",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus d'une centaine de langues, mais moins de trois cents.",
+    "verdict": "dans, proche",
+    "deduction": "100 à 300 — Milieu 200 vs 250 : ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Plus d'une centaine de langues, mais moins de trois cents."
+ },
+ {
+  "id": "8u2eq4gp",
+  "question": "En France, combien de grammes pèse la « livre » des marchés ?",
+  "reponse": 500,
+  "unite": "grammes",
+  "passes": [
+   {
+    "indice": "Bien plus lourde qu'une plaquette de beurre, bien moins qu'un kilo de sucre.",
+    "verdict": "valeur",
+    "deduction": "Entre 250 et 1000 g : une livre, c'est un demi-kilo, 500."
+   },
+   {
+    "indice": "Bien plus lourde qu'une tablette de chocolat, mais plus légère qu'un litre de lait.",
+    "verdict": "ordre",
+    "deduction": "Entre 100 g (tablette) et 1000 g (litre de lait) : vers 300-700 g, la tranche sans plus."
+   },
+   {
+    "indice": "Bien plus lourde qu'une tablette de chocolat, mais plus légère qu'un litre de lait.",
+    "verdict": "dans",
+    "deduction": "300–900 — plus qu'une tablette, moins qu'un litre",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Bien plus lourde qu'une tablette de chocolat, mais plus légère qu'un litre de lait."
+ },
+ {
+  "id": "69kbqa9m",
+  "question": "Combien de pays, au minimum, devaient ratifier l'accord de Paris sur le climat pour qu'il entre en vigueur ?",
+  "reponse": 55,
+  "unite": "pays",
+  "passes": [
+   {
+    "indice": "Moins du tiers des quelque deux cents pays que compte le monde.",
+    "verdict": "ordre",
+    "deduction": "Moins de 67 pays : une ou plusieurs dizaines."
+   },
+   {
+    "indice": "Moins du tiers des quelque deux cents pays que compte le monde.",
+    "verdict": "a-cheval",
+    "deduction": "20–66: enjambe 30 — moins du tiers de 200, sans plancher",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus qu'une trentaine de pays, mais moins que la moitié des pays du monde.",
+    "verdict": "dans, proche",
+    "deduction": "30 à ~97 pays — Milieu ~64 vs 55 : ★★ ; fourchette large, risque si il vise haut.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Plus qu'une trentaine de pays, mais moins que la moitié des pays du monde."
+ },
+ {
+  "id": "2mmr5i3n",
+  "question": "En quelle année Luis et Walter Alvarez ont-ils publié l'hypothèse d'un astéroïde responsable de la disparition des dinosaures ?",
+  "reponse": 1980,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Peu avant l'élection de François Mitterrand à la présidence.",
+    "verdict": "valeur",
+    "deduction": "Peu avant l'élection de 1981 : 1979-1980."
+   },
+   {
+    "indice": "Une hypothèse du dernier quart du XXe siècle, avant l'arrivée d'Internet pour tous.",
+    "verdict": "ordre",
+    "deduction": "Dernier quart du XXe, avant Internet pour tous : 1975-1995, la tranche sans plus."
+   },
+   {
+    "indice": "Une hypothèse du dernier quart du XXe siècle, avant l'arrivée d'Internet pour tous.",
+    "verdict": "dans",
+    "deduction": "1975–1995 — dernier quart du XXe avant Internet",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Une hypothèse du dernier quart du XXe siècle, avant l'arrivée d'Internet pour tous."
+ },
+ {
+  "id": "tyqc1ly4",
+  "question": "En quelle année un cœlacanthe vivant a-t-il été pêché au large de l'Afrique du Sud, alors qu'on croyait ce poisson disparu ?",
+  "reponse": 1938,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Peu avant que la Seconde Guerre mondiale n'éclate.",
+    "verdict": "valeur",
+    "deduction": "Peu avant 1939 : 1936-1938."
+   },
+   {
+    "indice": "Une surprise scientifique faite après la Première Guerre mondiale, avant la bombe atomique.",
+    "verdict": "ordre",
+    "deduction": "Après 1918, avant 1945 : 1918-1945, la tranche sans plus."
+   },
+   {
+    "indice": "Une surprise scientifique faite après la Première Guerre mondiale, avant la bombe atomique.",
+    "verdict": "a-cheval",
+    "deduction": "1919–1945: enjambe 1925 — après 14-18 avant la bombe, très large",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Après la crise économique mondiale, avant la bombe atomique.",
+    "verdict": "dans, proche",
+    "deduction": "1929 à 1945 — Milieu 1937 vs 1938 : ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Après la crise économique mondiale, avant la bombe atomique."
+ },
+ {
+  "id": "3yiw4do8",
+  "question": "Quel est le plus petit entier positif qui possède exactement six diviseurs ?",
+  "reponse": 12,
+  "unite": "",
+  "calcul": true,
+  "passes": [
+   {
+    "indice": "Un nombre à deux chiffres, pas très grand : liste les diviseurs des petits nombres.",
+    "verdict": "valeur",
+    "deduction": "Il liste les diviseurs de 12 et en trouve six : 12."
+   }
+  ],
+  "retenu": "Un nombre à deux chiffres, pas très grand : liste les diviseurs des petits nombres."
+ },
+ {
+  "id": "rsjsw59f",
+  "question": "Combien de minutes dure le court métrage « Dies iræ » (2003), pilote de « Kaamelott » ?",
+  "reponse": 14,
+  "unite": "minutes",
+  "passes": [
+   {
+    "indice": "Bien plus long qu'un épisode de la série, mais bien moins qu'une heure.",
+    "verdict": "rien",
+    "deduction": "Suppose de connaître la durée d'un épisode ; sinon entre 1 et 60 minutes."
+   },
+   {
+    "indice": "Plus long qu'une chanson, moins qu'un épisode de série d'une demi-heure.",
+    "verdict": "ordre",
+    "deduction": "Plus long qu'une chanson, moins qu'une demi-heure : 5-30 min, devine 10-20, la tranche sans plus."
+   },
+   {
+    "indice": "Plus long qu'une chanson, moins qu'un épisode de série d'une demi-heure.",
+    "verdict": "a-cheval",
+    "deduction": "5–25: enjambe 10 — plus qu'une chanson, moins que 30 min",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus de dix minutes, mais moins qu'un épisode d'une demi-heure.",
+    "verdict": "dans, large",
+    "deduction": "10 à 30 min — Milieu 20 vs 14 : hors ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Plus de dix minutes, mais moins qu'un épisode d'une demi-heure."
+ },
+ {
+  "id": "1j5ika99",
+  "question": "Quel âge Frodon fête-t-il peu avant de quitter la Comté avec l'Anneau, dans « La Communauté de l'Anneau » ?",
+  "reponse": 50,
+  "unite": "ans",
+  "passes": [
+   {
+    "indice": "Plus que la majorité des hobbits (33 ans), bien moins que Bilbo à sa fête (111 ans).",
+    "verdict": "ambigu",
+    "deduction": "Majorité : celle des hobbits (33) ou l'âge de la majorité (18) ? Fourchette 33 à 111 sinon."
+   },
+   {
+    "indice": "Adulte depuis longtemps, mais loin d'être vieux : les hobbits vivent plus longtemps que nous.",
+    "verdict": "ordre",
+    "deduction": "Adulte mais pas vieux, hobbits longévifs : 30-80 ans, la tranche 30-100 sans plus."
+   },
+   {
+    "indice": "Adulte depuis longtemps, mais loin d'être vieux : les hobbits vivent plus longtemps que nous.",
+    "verdict": "dans",
+    "deduction": "35–60 — adulte, pas vieux",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Adulte depuis longtemps, mais loin d'être vieux : les hobbits vivent plus longtemps que nous."
+ },
+ {
+  "id": "7709mozh",
+  "question": "Combien de chapitres numérotés compte le roman Moby Dick, sans compter l'épilogue ?",
+  "reponse": 135,
+  "unite": "chapitres",
+  "passes": [
+   {
+    "indice": "Des chapitres très courts, bien plus nombreux que les jours d'un mois, sous deux cents.",
+    "verdict": "ordre",
+    "deduction": "Entre 31 et 200 chapitres, une centaine."
+   },
+   {
+    "indice": "Des chapitres très courts, bien plus nombreux que les jours d'un mois, sous deux cents.",
+    "verdict": "a-cheval",
+    "deduction": "40–199: enjambe 100 — bien plus qu'un mois, sous deux cents",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Chapitres brefs : plus d'une centaine, mais pas trois cents.",
+    "verdict": "dans, large",
+    "deduction": "100 à 300 — Milieu 200 vs 135 : hors ★★ ; \"brefs\" ne resserre pas.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Chapitres brefs : plus d'une centaine, mais pas trois cents."
+ },
+ {
+  "id": "s0ogafoo",
+  "question": "En quelle année William Shakespeare est-il mort ?",
+  "reponse": 1616,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Peu après la mort d'Henri IV, au début du règne de Louis XIII.",
+    "verdict": "proche",
+    "deduction": "Peu après la mort d'Henri IV (1610) : 1611-1620."
+   },
+   {
+    "indice": "Mort dans la première moitié du XVIIe siècle, quand la Renaissance s'achève en Angleterre.",
+    "verdict": "ordre",
+    "deduction": "Première moitié du XVIIe : 1600-1650, la tranche de 50 ans sans plus."
+   },
+   {
+    "indice": "Mort dans la première moitié du XVIIe siècle, quand la Renaissance s'achève en Angleterre.",
+    "verdict": "dans",
+    "deduction": "1600–1650 — première moitié du XVIIe",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Mort dans la première moitié du XVIIe siècle, quand la Renaissance s'achève en Angleterre."
+ },
+ {
+  "id": "iobzipfn",
+  "question": "Combien d'années Rip Van Winkle dort-il dans la nouvelle de Washington Irving ?",
+  "reponse": 20,
+  "unite": "ans",
+  "passes": [
+   {
+    "indice": "Bien moins que la Belle au bois dormant, mais assez pour rater une révolution.",
+    "verdict": "ordre",
+    "deduction": "Moins de 100 ans, assez pour rater une révolution : 10 à 50."
+   },
+   {
+    "indice": "Bien moins que la Belle au bois dormant, mais assez pour rater une révolution.",
+    "verdict": "a-cheval",
+    "deduction": "10–50: enjambe 30 — bien moins que cent, plancher flou",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Il s'endort jeune et se réveille vieux : plus de dix ans, mais moins de trente.",
+    "verdict": "dans, proche",
+    "deduction": "10 à 30 ans — Milieu 20 = réponse (★★★ possible par chance), ★★ sûr.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Il s'endort jeune et se réveille vieux : plus de dix ans, mais moins de trente."
+ },
+ {
+  "id": "87l4v3kt",
+  "question": "Quelle est la largeur réglementaire d'un court de tennis pour le double ?",
+  "reponse": 10.97,
+  "unite": "m",
+  "passes": [
+   {
+    "indice": "Plus large qu'une route à deux voies, bien plus étroit qu'une piscine olympique n'est longue.",
+    "verdict": "ordre",
+    "deduction": "Entre 7 et 50 m, une dizaine de mètres."
+   },
+   {
+    "indice": "Plus large qu'une route à deux voies, bien plus étroit qu'une piscine olympique n'est longue.",
+    "verdict": "a-cheval",
+    "deduction": "8–25: enjambe 10 — plus large qu'une route, plancher vers 8",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus large qu'une route à deux voies, bien plus étroit qu'une piscine olympique n'est longue.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Plus large qu'une route à deux voies, bien plus étroit qu'une piscine olympique n'est longue."
+ },
+ {
+  "id": "4egteks7",
+  "question": "En quelle année ouvre le canal Érié, qui relie l'Hudson aux Grands Lacs ?",
+  "reponse": 1825,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Sous la Restauration, une dizaine d'années après la chute de Napoléon.",
+    "verdict": "valeur",
+    "deduction": "Environ dix ans après 1815 : 1825."
+   },
+   {
+    "indice": "Un grand chantier du début du XIXe siècle, quand le chemin de fer commence à peine.",
+    "verdict": "ordre",
+    "deduction": "Début du XIXe, chemin de fer naissant : 1805-1830, la tranche sans plus."
+   },
+   {
+    "indice": "Un grand chantier du début du XIXe siècle, quand le chemin de fer commence à peine.",
+    "verdict": "a-cheval",
+    "deduction": "1800–1830: enjambe 1825 — début XIXe, la réponse est au bord",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un grand chantier du début du XIXe siècle, quand le chemin de fer commence à peine.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Entre la chute de Napoléon et le milieu du siècle.",
+    "verdict": "dans",
+    "deduction": "Réécrit à la main : 1815–1850 : la bonne époque l’emporte ; « le début du XIXe siècle » menait à 1800–1824, à dix ans de la réponse.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Entre la chute de Napoléon et le milieu du siècle."
+ },
+ {
+  "id": "qltqncr2",
+  "question": "En quelle année s'est déroulée la toute première Tomatina de Buñol ?",
+  "reponse": 1945,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Au début de l'après-guerre, sous le régime de Franco.",
+    "verdict": "proche",
+    "deduction": "Début de l'après-guerre : 1945-1950."
+   },
+   {
+    "indice": "Une fête née sous la dictature de Franco, dans ses premières décennies.",
+    "verdict": "ordre",
+    "deduction": "Franco (1939-1975), premières décennies : 1940-1960, la tranche sans plus."
+   },
+   {
+    "indice": "Une fête née sous la dictature de Franco, dans ses premières décennies.",
+    "verdict": "a-cheval",
+    "deduction": "1939–1960: enjambe 1950 — premières décennies du franquisme",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Une fête née sous Franco, après la guerre civile espagnole, avant le milieu du siècle.",
+    "verdict": "dans, proche",
+    "deduction": "1939 à 1950 — Après 1939, avant 1950 : milieu 1944-45, ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Une fête née sous Franco, après la guerre civile espagnole, avant le milieu du siècle."
+ },
+ {
+  "id": "gawi2k69",
+  "question": "Combien de millimètres compte un mètre ?",
+  "reponse": 1000,
+  "unite": "millimètres",
+  "calcul": true,
+  "passes": [
+   {
+    "indice": "Un mètre fait cent centimètres, et chaque centimètre se découpe en petits traits.",
+    "verdict": "valeur",
+    "deduction": "100 cm de 10 mm chacun : 1000."
+   }
+  ],
+  "retenu": "Un mètre fait cent centimètres, et chaque centimètre se découpe en petits traits."
+ },
+ {
+  "id": "hn1ubkxc",
+  "question": "Combien de jours compte une année ordinaire, non bissextile ?",
+  "reponse": 365,
+  "unite": "jours",
+  "calcul": true,
+  "passes": [
+   {
+    "indice": "Pense à la durée d'un tour complet de la Terre autour du Soleil, en jours.",
+    "verdict": "valeur",
+    "deduction": "Un tour de Terre en jours : 365, connu."
+   }
+  ],
+  "retenu": "Pense à la durée d'un tour complet de la Terre autour du Soleil, en jours."
+ },
+ {
+  "id": "cb6v7fpw",
+  "question": "Combien de secondes compte une heure ?",
+  "reponse": 3600,
+  "unite": "s",
+  "calcul": true,
+  "passes": [
+   {
+    "indice": "Il y a soixante minutes dans l'heure : combien de secondes dans chacune ?",
+    "verdict": "valeur",
+    "deduction": "60 fois 60 : 3600."
+   }
+  ],
+  "retenu": "Il y a soixante minutes dans l'heure : combien de secondes dans chacune ?"
+ },
+ {
+  "id": "0x3ebq0x",
+  "question": "En quelle année la France a-t-elle interdit la fabrication et la vente de l'absinthe ?",
+  "reponse": 1915,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Au cœur de la Première Guerre mondiale, quelques années après la Suisse.",
+    "verdict": "valeur",
+    "deduction": "Cœur de la Première Guerre : 1914-1918."
+   },
+   {
+    "indice": "Une interdiction du premier quart du XXe siècle, quand l'alcool est accusé de ravager les familles.",
+    "verdict": "ordre",
+    "deduction": "Premier quart du XXe : 1900-1925, la tranche sans plus."
+   },
+   {
+    "indice": "Une interdiction du premier quart du XXe siècle, quand l'alcool est accusé de ravager les familles.",
+    "verdict": "dans",
+    "deduction": "1900–1925 — premier quart du XXe",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Une interdiction du premier quart du XXe siècle, quand l'alcool est accusé de ravager les familles."
+ },
+ {
+  "id": "ksswsd14",
+  "question": "Combien de grades un angle droit compte-t-il ?",
+  "reponse": 100,
+  "unite": "grades",
+  "calcul": true,
+  "passes": [
+   {
+    "indice": "Un nombre bien rond : le grade a été pensé pour compter en système décimal.",
+    "verdict": "valeur",
+    "deduction": "Angle droit de 90 degrés, nombre rond décimal : 100."
+   }
+  ],
+  "retenu": "Un nombre bien rond : le grade a été pensé pour compter en système décimal."
+ },
+ {
+  "id": "tkzb3i5u",
+  "question": "En quelle année Atari a-t-il lancé la console Atari 2600, d'abord nommée Video Computer System ?",
+  "reponse": 1977,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Au temps du disco et du premier Star Wars, bien avant la PlayStation.",
+    "verdict": "proche",
+    "deduction": "Disco et premier Star Wars : 1977 pour qui le sait, sinon les années 1970."
+   },
+   {
+    "indice": "Au temps du disco, quand les premières consoles de jeux entrent dans les salons.",
+    "verdict": "proche",
+    "deduction": "Le disco, c'est la fin des années 70 : 1973-1980, ★★ à coup sûr, ★★★ pas garanti."
+   },
+   {
+    "indice": "Au temps du disco, quand les premières consoles de jeux entrent dans les salons.",
+    "verdict": "dans",
+    "deduction": "1975–1980 — disco",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Au temps du disco, quand les premières consoles de jeux entrent dans les salons."
+ },
+ {
+  "id": "zd19j5l8",
+  "question": "En quelle année se dispute la première saison de la Coupe du monde de ski alpin, remportée par Jean-Claude Killy ?",
+  "reponse": 1967,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Au temps des Beatles, juste avant les Jeux olympiques de Grenoble.",
+    "verdict": "valeur",
+    "deduction": "Juste avant Grenoble 1968 : 1967."
+   },
+   {
+    "indice": "Née au temps des Trente Glorieuses, quand les stations de ski poussent comme des champignons.",
+    "verdict": "ordre",
+    "deduction": "Trente Glorieuses (1945-1975), stations de ski : 1950-1975, la tranche sans plus."
+   },
+   {
+    "indice": "Née au temps des Trente Glorieuses, quand les stations de ski poussent comme des champignons.",
+    "verdict": "dans",
+    "deduction": "1950–1975 — Trente Glorieuses, stations de ski",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Née au temps des Trente Glorieuses, quand les stations de ski poussent comme des champignons."
+ },
+ {
+  "id": "ct92jdvr",
+  "question": "Combien de carrés parfaits, comme 1, 4 ou 9, compte-t-on entre 1 et 1 000, bornes comprises ?",
+  "reponse": 31,
+  "unite": "",
+  "calcul": true,
+  "passes": [
+   {
+    "indice": "Cherche la racine carrée de mille, entre celle de cent et celle de dix mille.",
+    "verdict": "valeur",
+    "deduction": "Racine de 1000 : environ 31."
+   }
+  ],
+  "retenu": "Cherche la racine carrée de mille, entre celle de cent et celle de dix mille."
+ },
+ {
+  "id": "6h4arq3c",
+  "question": "En quelle année le volcan Tambora, en Indonésie, a-t-il connu sa gigantesque éruption ?",
+  "reponse": 1815,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "À l'époque où s'achève l'épopée de Napoléon.",
+    "verdict": "valeur",
+    "deduction": "Fin de Napoléon, Waterloo : 1815."
+   },
+   {
+    "indice": "Une éruption du début du XIXe siècle, avant la photographie : il ne reste que des récits.",
+    "verdict": "ordre",
+    "deduction": "Début du XIXe, avant la photographie (1839) : 1800-1830, la tranche sans plus."
+   },
+   {
+    "indice": "Une éruption du début du XIXe siècle, avant la photographie : il ne reste que des récits.",
+    "verdict": "dans",
+    "deduction": "1800–1830 — début XIXe, un débord minime",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Une éruption du début du XIXe siècle, avant la photographie : il ne reste que des récits."
+ },
+ {
+  "id": "fc1qdew9",
+  "question": "Combien d'États fédérés le Nigeria compte-t-il ?",
+  "reponse": 36,
+  "unite": "États",
+  "passes": [
+   {
+    "indice": "Moins que les cinquante États américains, mais bien plus que les régions françaises.",
+    "verdict": "ordre",
+    "deduction": "Moins de 50, plus qu'une quinzaine : 20 à 45."
+   },
+   {
+    "indice": "Moins que les cinquante États américains, mais bien plus que les régions françaises.",
+    "verdict": "a-cheval",
+    "deduction": "20–49: enjambe 30 — moins que 50, plus que les régions",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Une fédération de plus d'une trentaine d'États, mais de moins d'une centaine.",
+    "verdict": "dans, large",
+    "deduction": "30 à 100 — Indice = la tranche ; milieu ~65 vs 36.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Une fédération de plus d'une trentaine d'États, mais de moins d'une centaine."
+ },
+ {
+  "id": "o8txvq2w",
+  "question": "Combien de fables compte en tout le recueil des Fables de La Fontaine ?",
+  "reponse": 243,
+  "unite": "fables",
+  "passes": [
+   {
+    "indice": "Plus d'une centaine, mais bien moins d'un millier.",
+    "verdict": "ordre",
+    "deduction": "Entre 100 et 500 fables."
+   },
+   {
+    "indice": "Plus d'une centaine, mais bien moins d'un millier.",
+    "verdict": "a-cheval",
+    "deduction": "100–600: enjambe 300 — moins d'un millier laisse monter",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus d'une centaine de fables, mais moins de trois cents.",
+    "verdict": "dans, proche",
+    "deduction": "100 à 300 — Milieu 200 vs 243 : ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Plus d'une centaine de fables, mais moins de trois cents."
+ },
+ {
+  "id": "v9rlm2rb",
+  "question": "Combien d'épisodes « Le Muppet Show » a-t-il comptés en tout, de 1976 à 1981 ?",
+  "reponse": 120,
+  "unite": "épisodes",
+  "passes": [
+   {
+    "indice": "Cinq saisons, d'environ deux douzaines d'épisodes chacune.",
+    "verdict": "valeur",
+    "deduction": "5 saisons de 24 épisodes : 120."
+   },
+   {
+    "indice": "Une série à l'ancienne sur cinq saisons : loin d'un épisode par semaine toute l'année.",
+    "verdict": "ordre",
+    "deduction": "Cinq saisons, moins de 52 épisodes par an : environ 50-250 épisodes, devine ~100-120, la tranche sans plus."
+   },
+   {
+    "indice": "Une série à l'ancienne sur cinq saisons : loin d'un épisode par semaine toute l'année.",
+    "verdict": "a-cheval",
+    "deduction": "60–250: enjambe 100 — cinq saisons, borne basse floue",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus d'une centaine d'épisodes, mais loin de trois cents.",
+    "verdict": "dans, large",
+    "deduction": "100 à ~200 — Milieu ~150 vs 120 : pile à la limite des 25 %.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Plus d'une centaine d'épisodes, mais loin de trois cents."
+ },
+ {
+  "id": "gwncegep",
+  "question": "Quel est le carré de 25, soit 25 × 25 ?",
+  "reponse": 625,
+  "unite": "",
+  "calcul": true,
+  "passes": [
+   {
+    "indice": "Calcule vingt-cinq fois cent, puis prends-en le quart.",
+    "verdict": "valeur",
+    "deduction": "25 fois 100 divisé par 4 : 625."
+   }
+  ],
+  "retenu": "Calcule vingt-cinq fois cent, puis prends-en le quart."
+ },
+ {
+  "id": "m1uw0xsg",
+  "question": "Combien de mois le parmigiano reggiano doit-il vieillir au minimum avant d'être vendu ?",
+  "reponse": 12,
+  "unite": "mois",
+  "passes": [
+   {
+    "indice": "Bien plus que quelques semaines : le fromage traverse plusieurs saisons.",
+    "verdict": "ordre",
+    "deduction": "Plusieurs saisons : de 9 à 24 mois."
+   },
+   {
+    "indice": "Bien plus que quelques semaines : le fromage traverse plusieurs saisons.",
+    "verdict": "a-cheval",
+    "deduction": "6–18: enjambe 10 — plusieurs saisons, sans borne nette",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus de dix mois d'affinage, mais moins de deux ans.",
+    "verdict": "dans, large",
+    "deduction": "10 à 24 mois — Milieu ~17 vs 12 : hors ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Plus de dix mois d'affinage, mais moins de deux ans."
+ },
+ {
+  "id": "lelo29o9",
+  "question": "À quel âge Jeanne Calment, la Française à la plus longue vie connue, est-elle morte en 1997 ?",
+  "reponse": 122,
+  "unite": "ans",
+  "passes": [
+   {
+    "indice": "Née au début de la Troisième République, morte sous Chirac : calcule.",
+    "verdict": "valeur",
+    "deduction": "Née début IIIe République (1870-1880), morte 1997 : 117 à 127."
+   },
+   {
+    "indice": "Plus qu'un siècle, mais bien moins que deux : c'est le record de longévité humaine.",
+    "verdict": "proche",
+    "deduction": "Plus d'un siècle, record de longévité humaine : 110-125 ans, donc ★★ à coup sûr, ★★★ probable."
+   },
+   {
+    "indice": "Plus qu'un siècle, mais bien moins que deux : c'est le record de longévité humaine.",
+    "verdict": "dans",
+    "deduction": "100–150 — plus d'un siècle, moins de deux",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Plus qu'un siècle, mais bien moins que deux : c'est le record de longévité humaine."
+ },
+ {
+  "id": "56lpy4vd",
+  "question": "Quelle est la contenance, en millilitres, d'une canette de soda standard en Europe ?",
+  "reponse": 330,
+  "unite": "mL",
+  "passes": [
+   {
+    "indice": "Moins qu'une demi-bouteille d'un litre, plus qu'un verre d'eau ordinaire.",
+    "verdict": "ordre",
+    "deduction": "Entre 200 et 500 ml."
+   },
+   {
+    "indice": "Moins qu'une demi-bouteille d'un litre, plus qu'un verre d'eau ordinaire.",
+    "verdict": "a-cheval",
+    "deduction": "200–500: enjambe 300 — entre un verre et une demi-bouteille",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Moins qu'une demi-bouteille d'un litre, plus qu'un verre d'eau ordinaire.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Moins qu'une demi-bouteille d'un litre, plus qu'un verre d'eau ordinaire."
+ },
+ {
+  "id": "9393y7iz",
+  "question": "Combien de syllabes compte au total un haïku classique, ce poème bref venu du Japon ?",
+  "reponse": 17,
+  "unite": "syllabes",
+  "passes": [
+   {
+    "indice": "Trois vers dont aucun n'atteint la longueur d'un alexandrin : fais l'addition.",
+    "verdict": "ordre",
+    "deduction": "Trois vers de moins de 12 syllabes : jusqu'à 33, une quinzaine ou vingtaine."
+   },
+   {
+    "indice": "Trois vers dont aucun n'atteint la longueur d'un alexandrin : fais l'addition.",
+    "verdict": "dans",
+    "deduction": "15–24 — trois vers de moins de douze syllabes",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Trois vers dont aucun n'atteint la longueur d'un alexandrin : fais l'addition."
+ },
+ {
+  "id": "97ezhkfb",
+  "question": "Combien d'anneaux faut-il ramasser pour gagner une vie supplémentaire dans les premiers jeux Sonic ?",
+  "reponse": 100,
+  "unite": "anneaux",
+  "passes": [
+   {
+    "indice": "C'est un nombre rond, bien plus que dix et bien moins que mille.",
+    "verdict": "valeur",
+    "deduction": "Nombre rond entre 10 et 1000 : 100."
+   },
+   {
+    "indice": "Une vie coûte plus qu'une vingtaine d'anneaux, mais bien moins qu'un millier.",
+    "verdict": "ordre",
+    "deduction": "Plus de 20, bien moins que 1000 : vise la centaine, la tranche sans plus."
+   },
+   {
+    "indice": "Une vie coûte plus qu'une vingtaine d'anneaux, mais bien moins qu'un millier.",
+    "verdict": "a-cheval",
+    "deduction": "30–300: enjambe 100 — plus que vingt, sans borne haute nette",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Une vie coûte plus qu'une vingtaine d'anneaux, mais bien moins qu'un millier.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Une vie coûte plus qu'une vingtaine d'anneaux, mais bien moins qu'un millier."
+ },
+ {
+  "id": "ypjdn6yh",
+  "question": "Jusqu'à combien de degrés une chouette peut-elle tourner la tête ?",
+  "reponse": 270,
+  "unite": "degrés",
+  "passes": [
+   {
+    "indice": "Bien plus qu'un demi-tour, mais pas un tour complet.",
+    "verdict": "ordre",
+    "deduction": "Entre 180 et 360 degrés."
+   },
+   {
+    "indice": "Bien plus qu'un demi-tour, mais pas un tour complet.",
+    "verdict": "a-cheval",
+    "deduction": "200–350: enjambe 300 — entre un demi-tour et un tour",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Bien plus qu'un demi-tour, mais pas un tour complet.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Bien plus qu'un demi-tour, mais pas un tour complet."
+ },
+ {
+  "id": "nehlvlax",
+  "question": "En 2010, pendant combien de jours le puits de la plateforme Deepwater Horizon a-t-il laissé fuir du pétrole dans le golfe du Mexique ?",
+  "reponse": 87,
+  "unite": "jours",
+  "passes": [
+   {
+    "indice": "La fuite commence au printemps et s'arrête en plein été : compte les semaines.",
+    "verdict": "ordre",
+    "deduction": "Du printemps à plein été : 30 à 150 jours."
+   },
+   {
+    "indice": "La fuite commence au printemps et s'arrête en plein été : compte les semaines.",
+    "verdict": "a-cheval",
+    "deduction": "60–120: enjambe 100 — du printemps à l'été, en semaines",
+    "juge": "tranche"
+   },
+   {
+    "indice": "La fuite commence au printemps et s'arrête en plein été : compte les semaines.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus d’un mois, mais bien moins qu’une demi-année.",
+    "verdict": "dans",
+    "deduction": "Réécrit à la main : 30–180 jours : l’ordre de grandeur sans le calcul ; « compte les semaines » donnait presque la valeur (Théo).",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Plus d’un mois, mais bien moins qu’une demi-année."
+ },
+ {
+  "id": "f641rzbv",
+  "question": "Environ combien d'œufs une femelle de poisson-lune peut-elle pondre en une seule fois ?",
+  "reponse": 300000000,
+  "unite": "œufs",
+  "passes": [
+   {
+    "indice": "Bien plus que la population de la France entière, mais moins qu'un milliard.",
+    "verdict": "ordre",
+    "deduction": "Entre 70 millions et 1 milliard."
+   },
+   {
+    "indice": "Bien plus que la population de la France entière, mais moins qu'un milliard.",
+    "verdict": "a-cheval",
+    "deduction": "100 M–900 M: enjambe 300 M — plus que la France, moins qu'un milliard",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Bien plus que la population de la France entière, mais moins qu'un milliard.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Bien plus que la population de la France entière, mais moins qu'un milliard."
+ },
+ {
+  "id": "kuvgb8qi",
+  "question": "Combien de secondes dure le premier vol motorisé des frères Wright, en décembre 1903 ?",
+  "reponse": 12,
+  "unite": "secondes",
+  "passes": [
+   {
+    "indice": "Moins d'une minute : à peine le temps de lire quelques lignes.",
+    "verdict": "ordre",
+    "deduction": "Moins d'une minute, quelques lignes à lire : 5 à 40 secondes."
+   },
+   {
+    "indice": "Moins d'une minute : à peine le temps de lire quelques lignes.",
+    "verdict": "a-cheval",
+    "deduction": "5–40: enjambe 10 et 30 — moins d'une minute, très large",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus de dix secondes, mais moins d'une demi-minute.",
+    "verdict": "dans, large",
+    "deduction": "10 à 30 s — Milieu 20 vs 12 : hors ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Plus de dix secondes, mais moins d'une demi-minute."
+ },
+ {
+  "id": "9saluy1v",
+  "question": "En quelle année se joue la première édition du Championnat d'Europe de football ?",
+  "reponse": 1960,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Au début de la Ve République, sous la présidence du général de Gaulle.",
+    "verdict": "proche",
+    "deduction": "Début de la Ve République de Gaulle : 1959-1964."
+   },
+   {
+    "indice": "Né dans l'Europe d'après-guerre, quand le football passe à la télévision en noir et blanc.",
+    "verdict": "ordre",
+    "deduction": "Europe d'après-guerre, télé en noir et blanc : 1950-1970, la tranche sans plus."
+   },
+   {
+    "indice": "Né dans l'Europe d'après-guerre, quand le football passe à la télévision en noir et blanc.",
+    "verdict": "dans",
+    "deduction": "1950–1970 — football à la télé en noir et blanc",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Né dans l'Europe d'après-guerre, quand le football passe à la télévision en noir et blanc."
+ },
+ {
+  "id": "x4jquoja",
+  "question": "En quelle année ouvre Angelina, le salon de thé de la rue de Rivoli, à Paris, connu pour son chocolat chaud ?",
+  "reponse": 1903,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Sous la Belle Époque, quand le métro parisien est encore tout neuf.",
+    "verdict": "valeur",
+    "deduction": "Belle Époque, métro tout neuf de 1900 : 1900-1905."
+   },
+   {
+    "indice": "Ouvert à Paris à la Belle Époque, avant la Grande Guerre.",
+    "verdict": "ordre",
+    "deduction": "Belle Époque, avant 1914 : 1890-1914, la tranche sans plus."
+   },
+   {
+    "indice": "Ouvert à Paris à la Belle Époque, avant la Grande Guerre.",
+    "verdict": "a-cheval",
+    "deduction": "1880–1914: enjambe 1900 — Belle Époque avant 14-18",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un salon de thé né dans les premières années du XXe siècle, avant la Grande Guerre.",
+    "verdict": "dans, proche",
+    "deduction": "1901 à 1914 — Milieu ~1907 vs 1903 : ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Un salon de thé né dans les premières années du XXe siècle, avant la Grande Guerre."
+ },
+ {
+  "id": "qj969gnj",
+  "question": "Jusqu'à combien de battements par minute le cœur d'un colibri peut-il battre en vol ?",
+  "reponse": 1200,
+  "unite": "battements",
+  "passes": [
+   {
+    "indice": "Plus de dix fois le pouls d'un humain au repos.",
+    "verdict": "rien",
+    "deduction": "Plus de 700 battements seulement, pas de plafond."
+   },
+   {
+    "indice": "Bien plus que le cœur d'une souris, déjà plus de cinq cents par minute, mais loin de dix mille.",
+    "verdict": "ordre",
+    "deduction": "Plus de 500 (souris), loin de 10 000 : milliers, vise 1000-3000, la tranche sans plus."
+   },
+   {
+    "indice": "Bien plus que le cœur d'une souris, déjà plus de cinq cents par minute, mais loin de dix mille.",
+    "verdict": "a-cheval",
+    "deduction": "600–5000: enjambe 1000 et 3000 — plus qu'une souris, loin de 10000",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un cœur d'une rapidité folle : plus de mille battements par minute, moins de trois mille.",
+    "verdict": "dans, large",
+    "deduction": "1000 à 3000 — Indice = la tranche ; milieu ~2000 vs 1200.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Un cœur d'une rapidité folle : plus de mille battements par minute, moins de trois mille."
+ },
+ {
+  "id": "zgwpvts7",
+  "question": "Combien de jours dure en moyenne la gestation d'une jument ?",
+  "reponse": 340,
+  "unite": "jours",
+  "passes": [
+   {
+    "indice": "Bien plus long qu'une grossesse humaine, sans atteindre une année.",
+    "verdict": "proche",
+    "deduction": "Plus de 9 mois (280 j), moins d'un an : 300 à 365."
+   },
+   {
+    "indice": "Plus longue que chez l'humain, mais bien plus courte que chez l'éléphante.",
+    "verdict": "ordre",
+    "deduction": "Plus que l'humain (280 j), bien moins que l'éléphante (~660 j) : 300-500 jours, la tranche sans plus."
+   },
+   {
+    "indice": "Plus longue que chez l'humain, mais bien plus courte que chez l'éléphante.",
+    "verdict": "dans",
+    "deduction": "300–500 — plus que l'humain, moins que l'éléphante",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Plus longue que chez l'humain, mais bien plus courte que chez l'éléphante."
+ },
+ {
+  "id": "rnr2h1g5",
+  "question": "Combien d'arêtes un cube possède-t-il ?",
+  "reponse": 12,
+  "unite": "arêtes",
+  "passes": [
+   {
+    "indice": "Un carré a quatre côtés : imagine le dessus, le dessous, puis les montants.",
+    "verdict": "valeur",
+    "deduction": "4 arêtes dessus, 4 dessous, 4 montants : 12."
+   },
+   {
+    "indice": "Pense à un dé : plus d'arêtes que de faces, mais bien moins que cent.",
+    "verdict": "valeur",
+    "deduction": "Il imagine un dé, compte les arêtes (4 dessus, 4 dessous, 4 verticales) et sait que c'est plus de 6 : 12, ★★★."
+   },
+   {
+    "indice": "Plus nombreuses que les huit sommets, mais moins de trente.",
+    "verdict": "ordre",
+    "deduction": "Plus que 8 et moins que 30 : 10-30 en pratique (9 seul tomberait en 3-10)."
+   },
+   {
+    "indice": "Plus nombreuses que les huit sommets, mais moins de trente.",
+    "verdict": "dans",
+    "deduction": "9–29 — plus que huit, moins de trente",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Plus nombreuses que les huit sommets, mais moins de trente."
+ },
+ {
+  "id": "kf4hyu5o",
+  "question": "Combien de pièces compte un jeu de dominos classique, du double blanc au double six ?",
+  "reponse": 28,
+  "unite": "pièces",
+  "passes": [
+   {
+    "indice": "Pense aux paires : sept valeurs, chaque paire possible une fois, doubles compris.",
+    "verdict": "valeur",
+    "deduction": "7 valeurs, paires avec doubles : 7×8/2 = 28."
+   },
+   {
+    "indice": "Plus qu'une main de belote, mais moins qu'un jeu de cinquante-deux cartes.",
+    "verdict": "ordre",
+    "deduction": "Plus de 8, moins de 52 : entre 10 et 50, la tranche sans plus."
+   },
+   {
+    "indice": "Plus qu'une main de belote, mais moins qu'un jeu de cinquante-deux cartes.",
+    "verdict": "a-cheval",
+    "deduction": "9–51: enjambe 30 — entre une main de belote et 52 cartes",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus qu'une main de belote, mais moins qu'un jeu de cinquante-deux cartes.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Plus qu'une main de belote, mais moins qu'un jeu de cinquante-deux cartes."
+ },
+ {
+  "id": "563gbevt",
+  "question": "Combien de jours dure la bataille de Verdun, du 21 février au 18 décembre 1916 ?",
+  "reponse": 300,
+  "unite": "jours",
+  "calcul": true,
+  "passes": [
+   {
+    "indice": "Bien plus qu'un semestre, mais moins qu'une année entière.",
+    "verdict": "valeur",
+    "deduction": "Du 21 février au 18 décembre, environ 10 mois : 300 (la question donne les dates)."
+   }
+  ],
+  "retenu": "Bien plus qu'un semestre, mais moins qu'une année entière."
+ },
+ {
+  "id": "01961i1i",
+  "question": "Quelle est la largeur d'un lit deux places standard en France, en centimètres ?",
+  "reponse": 140,
+  "unite": "cm",
+  "passes": [
+   {
+    "indice": "Plus large qu'un lit d'une place (90 cm), moins qu'un très grand lit (180 cm).",
+    "verdict": "ordre",
+    "deduction": "Entre 90 et 180 cm : 120 à 160."
+   },
+   {
+    "indice": "Plus large qu'un lit d'une place (90 cm), moins qu'un très grand lit (180 cm).",
+    "verdict": "dans",
+    "deduction": "100–180 — entre 90 et 180 cm",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Plus large qu'un lit d'une place (90 cm), moins qu'un très grand lit (180 cm)."
+ },
+ {
+  "id": "qhx7trzc",
+  "question": "En quelle année la poupée Barbie a-t-elle été présentée, date dont on fête chaque 9 mars l'anniversaire ?",
+  "reponse": 1959,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Peu avant l'élection de Kennedy, à la fin de l'ère Eisenhower.",
+    "verdict": "valeur",
+    "deduction": "Peu avant l'élection de Kennedy (1960) : 1959."
+   },
+   {
+    "indice": "Une poupée d'après-guerre, née dans l'Amérique du baby-boom, avant l'homme sur la Lune.",
+    "verdict": "ordre",
+    "deduction": "Après-guerre, baby-boom, avant 1969 : 1946-1969, la tranche sans plus."
+   },
+   {
+    "indice": "Une poupée d'après-guerre, née dans l'Amérique du baby-boom, avant l'homme sur la Lune.",
+    "verdict": "a-cheval",
+    "deduction": "1946–1969: enjambe 1950 — baby-boom d'après-guerre",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Entre la guerre de Corée et l'homme sur la Lune.",
+    "verdict": "dans, proche",
+    "deduction": "1953 à 1969 — Milieu 1961 vs 1959 : ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Entre la guerre de Corée et l'homme sur la Lune."
+ },
+ {
+  "id": "878nfkzj",
+  "question": "Combien de pouces mesure une poupée Barbie classique ?",
+  "reponse": 11.5,
+  "unite": "pouces",
+  "passes": [
+   {
+    "indice": "À peu près la hauteur d'une feuille A4, sachant qu'un pouce fait environ 2,5 cm.",
+    "verdict": "valeur",
+    "deduction": "Feuille A4 (29,7 cm) divisée par 2,5 : environ 11,9 pouces."
+   },
+   {
+    "indice": "Compte en pouces de 2,5 cm : bien plus grande qu'un stylo, bien moins qu'un mètre.",
+    "verdict": "ordre",
+    "deduction": "Entre un stylo (~6 pouces) et un mètre (~40 pouces) : vers 10-20 pouces, la tranche sans plus."
+   },
+   {
+    "indice": "Compte en pouces de 2,5 cm : bien plus grande qu'un stylo, bien moins qu'un mètre.",
+    "verdict": "a-cheval",
+    "deduction": "6–30: enjambe 10 — pouces, du stylo au mètre",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Compte en pouces de 2,5 cm : bien plus grande qu'un stylo, bien moins qu'un mètre.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Compte en pouces de 2,5 cm : bien plus grande qu'un stylo, bien moins qu'un mètre."
+ },
+ {
+  "id": "nywwpgdr",
+  "question": "Combien de cases compte le plateau du Monopoly, case Départ comprise ?",
+  "reponse": 40,
+  "unite": "cases",
+  "passes": [
+   {
+    "indice": "Moins que les 64 cases d'un échiquier, mais bien plus qu'une douzaine.",
+    "verdict": "ordre",
+    "deduction": "Entre 13 et 63 cases."
+   },
+   {
+    "indice": "Moins que les 64 cases d'un échiquier, mais bien plus qu'une douzaine.",
+    "verdict": "a-cheval",
+    "deduction": "20–60: enjambe 30 — moins que 64, plus qu'une douzaine",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus qu'une trentaine de cases, mais moins d'une centaine.",
+    "verdict": "dans, large",
+    "deduction": "30 à 100 — Indice = la tranche ; milieu ~65 vs 40.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Plus qu'une trentaine de cases, mais moins d'une centaine."
+ },
+ {
+  "id": "2sfv3yxp",
+  "question": "Dans Minecraft, combien de blocs de terre peut-on empiler au maximum dans une seule case d'inventaire ?",
+  "reponse": 64,
+  "unite": "blocs",
+  "passes": [
+   {
+    "indice": "Une puissance de deux, comme souvent en informatique, entre seize et cent.",
+    "verdict": "valeur",
+    "deduction": "Puissance de deux entre 16 et 100 : 32 ou 64."
+   },
+   {
+    "indice": "Plus qu'une vingtaine d'objets, mais loin d'atteindre un millier : une pile reste maniable.",
+    "verdict": "ordre",
+    "deduction": "Plus qu'une vingtaine, loin de 1000 : entre 30 et 300, la tranche à peu près."
+   },
+   {
+    "indice": "Plus qu'une vingtaine d'objets, mais loin d'atteindre un millier : une pile reste maniable.",
+    "verdict": "a-cheval",
+    "deduction": "25–200: enjambe 100 — loin d'un millier ne borne pas à 100",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Une pile d'objets bien rangée : plus d'une trentaine, moins d'une centaine.",
+    "verdict": "dans, proche",
+    "deduction": "30 à 100 — Milieu ~65 vs 64 : ★★ (★★★ par chance).",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Une pile d'objets bien rangée : plus d'une trentaine, moins d'une centaine."
+ },
+ {
+  "id": "ummt6z52",
+  "question": "En quelle année l'Opéra Garnier de Paris a-t-il été inauguré ?",
+  "reponse": 1875,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Quelques années après la chute de Napoléon III, au début de la IIIe République.",
+    "verdict": "valeur",
+    "deduction": "Quelques années après 1870, début IIIe République : 1873-1877."
+   },
+   {
+    "indice": "Un chantier commencé sous Napoléon III, mais ouvert plus tard, sous la IIIe République.",
+    "verdict": "proche",
+    "deduction": "Ouvert après 1870 (IIIe République), chantier long : 1870-1885, donc ★★ à coup sûr, ★★★ pas garanti."
+   },
+   {
+    "indice": "Un chantier commencé sous Napoléon III, mais ouvert plus tard, sous la IIIe République.",
+    "verdict": "a-cheval",
+    "deduction": "1871–1890: enjambe 1875 — ouvert sous la IIIe République, la réponse est au bord",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un chantier commencé sous Napoléon III, mais ouvert plus tard, sous la IIIe République.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Un chantier commencé sous Napoléon III, mais ouvert plus tard, sous la IIIe République."
+ },
+ {
+  "id": "cxyvjgrc",
+  "question": "Quelle est la somme des angles d'un triangle plan, en degrés ?",
+  "reponse": 180,
+  "unite": "degrés",
+  "calcul": true,
+  "passes": [
+   {
+    "indice": "Pense à un demi-tour : les trois angles mis bout à bout forment une ligne droite.",
+    "verdict": "valeur",
+    "deduction": "Demi-tour : 180."
+   }
+  ],
+  "retenu": "Pense à un demi-tour : les trois angles mis bout à bout forment une ligne droite."
+ },
+ {
+  "id": "6mrfr2y8",
+  "question": "Combien de mètres mesure le Ben Nevis, point culminant du Royaume-Uni ?",
+  "reponse": 1345,
+  "unite": "m",
+  "passes": [
+   {
+    "indice": "Plus de trois fois la tour Eiffel, mais nettement plus bas que le mont Blanc.",
+    "verdict": "ordre",
+    "deduction": "Plus de 1000 m, bien sous le mont Blanc : 1000 à 3000."
+   },
+   {
+    "indice": "Plus de trois fois la tour Eiffel, mais nettement plus bas que le mont Blanc.",
+    "verdict": "dans",
+    "deduction": "1000–3000 — plus de trois Eiffel, sous le mont Blanc",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Plus de trois fois la tour Eiffel, mais nettement plus bas que le mont Blanc."
+ },
+ {
+  "id": "c7k0i5g4",
+  "question": "Quelle masse, en kilogrammes, pèse en moyenne un lion mâle adulte ?",
+  "reponse": 190,
+  "unite": "kg",
+  "passes": [
+   {
+    "indice": "Plus lourd qu'un homme adulte, mais bien plus léger qu'un cheval.",
+    "verdict": "ordre",
+    "deduction": "Entre 80 et 500 kg, une centaine."
+   },
+   {
+    "indice": "Plus lourd qu'un homme adulte, mais bien plus léger qu'un cheval.",
+    "verdict": "a-cheval",
+    "deduction": "80–450: enjambe 100 et 300 — entre un homme et un cheval",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un fauve de plus de cent kilos, mais de moins de trois cents.",
+    "verdict": "dans, proche",
+    "deduction": "100 à 300 kg — Milieu 200 vs 190 : ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Un fauve de plus de cent kilos, mais de moins de trois cents."
+ },
+ {
+  "id": "5yr5adfl",
+  "question": "Jusqu'à combien d'yeux la coquille Saint-Jacques peut-elle porter au bord de son manteau ?",
+  "reponse": 200,
+  "unite": "yeux",
+  "passes": [
+   {
+    "indice": "Bien plus que les huit yeux d'une araignée, mais encore loin de mille.",
+    "verdict": "rien",
+    "deduction": "Entre 8 et 1000 : 90 ou 200, rien ne tranche."
+   },
+   {
+    "indice": "Un liseré d'yeux minuscules sur chaque valve : des dizaines, parfois plusieurs centaines.",
+    "verdict": "trompe",
+    "deduction": "'Parfois plusieurs centaines' suggère 300-500 alors que le maximum est ~200 : risque de viser la mauvaise tranche."
+   },
+   {
+    "indice": "Les mieux dotées en portent plus d'une centaine, mais pas trois cents.",
+    "verdict": "ordre",
+    "deduction": "Plus de 100, moins de 300 : tranche 100-300."
+   },
+   {
+    "indice": "Les mieux dotées en portent plus d'une centaine, mais pas trois cents.",
+    "verdict": "dans",
+    "deduction": "100–300 — plus d'une centaine, pas trois cents",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Les mieux dotées en portent plus d'une centaine, mais pas trois cents."
+ },
+ {
+  "id": "kclvqds4",
+  "question": "Quelle taille, en centimètres, mesure environ un manchot empereur adulte ?",
+  "reponse": 115,
+  "unite": "cm",
+  "passes": [
+   {
+    "indice": "À peu près la taille d'un enfant d'école primaire.",
+    "verdict": "proche",
+    "deduction": "Taille d'un écolier : 110 à 140 cm."
+   },
+   {
+    "indice": "Bien plus grand qu'un chat, sans atteindre la taille d'un adulte humain.",
+    "verdict": "ordre",
+    "deduction": "Entre un chat et un adulte : 60-170 cm, il vise ~100-140, la tranche sans plus."
+   },
+   {
+    "indice": "Bien plus grand qu'un chat, sans atteindre la taille d'un adulte humain.",
+    "verdict": "a-cheval",
+    "deduction": "60–160: enjambe 100 — plus qu'un chat, moins qu'un adulte",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Bien plus grand qu'un chat, sans atteindre la taille d'un adulte humain.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Bien plus grand qu'un chat, sans atteindre la taille d'un adulte humain."
+ },
+ {
+  "id": "q0t3hbfs",
+  "question": "Combien de sélections Lilian Thuram a-t-il disputées en équipe de France de football ?",
+  "reponse": 142,
+  "unite": "sélections",
+  "passes": [
+   {
+    "indice": "Quatorze ans de carrière en Bleu, avec plus de cent matchs au compteur.",
+    "verdict": "ordre",
+    "deduction": "Plus de 100 matchs en 14 ans : 100 à 200."
+   },
+   {
+    "indice": "Quatorze ans de carrière en Bleu, avec plus de cent matchs au compteur.",
+    "verdict": "dans",
+    "deduction": "100–200 — plus de cent matchs en quatorze ans",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Quatorze ans de carrière en Bleu, avec plus de cent matchs au compteur."
+ },
+ {
+  "id": "empebbj0",
+  "question": "Combien de règles compte la grammaire de base de l'espéranto, fixée dans le Fundamento ?",
+  "reponse": 16,
+  "unite": "règles",
+  "passes": [
+   {
+    "indice": "Peu de règles : moins que les 26 lettres de l'alphabet, mais plus qu'une demi-douzaine.",
+    "verdict": "ordre",
+    "deduction": "Entre 7 et 25 règles."
+   },
+   {
+    "indice": "Peu de règles : moins que les 26 lettres de l'alphabet, mais plus qu'une demi-douzaine.",
+    "verdict": "a-cheval",
+    "deduction": "7–25: enjambe 10 — moins que 26, plus que six",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Une grammaire minuscule : plus d'une dizaine de règles, moins que les lettres de l'alphabet.",
+    "verdict": "dans, proche",
+    "deduction": "11 à 26 — Milieu ~18 vs 16 : ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Une grammaire minuscule : plus d'une dizaine de règles, moins que les lettres de l'alphabet."
+ },
+ {
+  "id": "k9n359l1",
+  "question": "Dans « Lost », toutes les combien de minutes faut-il entrer le code dans la trappe ?",
+  "reponse": 108,
+  "unite": "minutes",
+  "passes": [
+   {
+    "indice": "Plus long qu'un épisode de série, plus court que trois heures de film.",
+    "verdict": "ordre",
+    "deduction": "Entre 45 et 180 minutes."
+   },
+   {
+    "indice": "Plus long qu'un épisode de série, plus court que trois heures de film.",
+    "verdict": "a-cheval",
+    "deduction": "50–180: enjambe 100 — plus qu'un épisode, moins que trois heures",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus long qu'un épisode de série, plus court que trois heures de film.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Plus long qu'un épisode de série, plus court que trois heures de film."
+ },
+ {
+  "id": "qkqe6etk",
+  "question": "Combien d'épisodes compte au total la sitcom « The Big Bang Theory » (2007-2019) ?",
+  "reponse": 279,
+  "unite": "épisodes",
+  "passes": [
+   {
+    "indice": "Douze saisons, avec un peu plus de vingt épisodes dans chacune.",
+    "verdict": "valeur",
+    "deduction": "12 saisons de 22 à 24 épisodes : 264 à 288."
+   },
+   {
+    "indice": "Une sitcom de plus de dix ans, avec bien plus d'une centaine d'épisodes, mais loin d'un millier.",
+    "verdict": "ordre",
+    "deduction": "Plus de 100, loin de 1000 : entre 150 et 500, la tranche sans plus."
+   },
+   {
+    "indice": "Une sitcom de plus de dix ans, avec bien plus d'une centaine d'épisodes, mais loin d'un millier.",
+    "verdict": "a-cheval",
+    "deduction": "100–600: enjambe 300 — loin d'un millier ne borne pas à 300",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Une sitcom de plus de dix ans, avec bien plus d'une centaine d'épisodes, mais loin d'un millier.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Une sitcom de plus de dix ans, avec bien plus d'une centaine d'épisodes, mais loin d'un millier."
+ },
+ {
+  "id": "a0qrj9a3",
+  "question": "Quel âge avait Orson Welles à la sortie de « Citizen Kane », en 1941 ?",
+  "reponse": 25,
+  "unite": "ans",
+  "passes": [
+   {
+    "indice": "Un prodige : bien plus que la majorité, mais bien avant d'avoir quarante ans.",
+    "verdict": "ambigu",
+    "deduction": "« Plus que la majorité » : l'âge de la majorité (18) ou la plupart des gens ? Sinon entre 18 et 40."
+   },
+   {
+    "indice": "Un prodige : plus âgé qu'un lycéen, mais encore loin d'avoir quarante ans.",
+    "verdict": "ordre",
+    "deduction": "Plus qu'un lycéen, loin de 40 ans : environ 20-30 ans, la tranche sans plus."
+   },
+   {
+    "indice": "Un prodige : plus âgé qu'un lycéen, mais encore loin d'avoir quarante ans.",
+    "verdict": "a-cheval",
+    "deduction": "18–35: enjambe 30 — plus qu'un lycéen, loin de quarante",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un prodige encore très jeune : majeur, mais pas encore trentenaire.",
+    "verdict": "dans, proche",
+    "deduction": "18 à 29 ans — Milieu ~24 vs 25 : ★★ sûr.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Un prodige encore très jeune : majeur, mais pas encore trentenaire."
+ },
+ {
+  "id": "xxd5v4kb",
+  "question": "Quelle taille, en centimètres, mesure environ un girafon à la naissance ?",
+  "reponse": 180,
+  "unite": "cm",
+  "passes": [
+   {
+    "indice": "Dès sa naissance, il dépasse un enfant de dix ans.",
+    "verdict": "ordre",
+    "deduction": "Plus qu'un enfant de 10 ans : au-delà de 140 cm."
+   },
+   {
+    "indice": "Dès sa naissance, il dépasse un enfant de dix ans.",
+    "verdict": "dans",
+    "deduction": "140–250 — dépasse un enfant de dix ans",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Dès sa naissance, il dépasse un enfant de dix ans."
+ },
+ {
+  "id": "45ymj4it",
+  "question": "Combien de titres compte l'album « Random Access Memories » de Daft Punk ?",
+  "reponse": 13,
+  "unite": "titres",
+  "passes": [
+   {
+    "indice": "Un album classique : plus de dix titres, mais bien moins que vingt.",
+    "verdict": "proche",
+    "deduction": "Plus de 10, bien moins que 20 : 11 à 15."
+   },
+   {
+    "indice": "Plus qu'un mini-album de cinq ou six titres, mais bien moins qu'une trentaine.",
+    "verdict": "ordre",
+    "deduction": "Plus de 6 titres, moins de 30 : entre 8 et 20, la tranche sans plus."
+   },
+   {
+    "indice": "Plus qu'un mini-album de cinq ou six titres, mais bien moins qu'une trentaine.",
+    "verdict": "a-cheval",
+    "deduction": "7–20: enjambe 10 — plus que cinq, bien moins que trente",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un album : plus d'une dizaine de titres, mais loin d'une trentaine.",
+    "verdict": "dans, proche",
+    "deduction": "11 à ~20 — Milieu ~15 vs 13 : ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Un album : plus d'une dizaine de titres, mais loin d'une trentaine."
+ },
+ {
+  "id": "6gufim5e",
+  "question": "Du plateau de Langres à la Manche, combien de kilomètres la Seine parcourt-elle ?",
+  "reponse": 777,
+  "unite": "km",
+  "passes": [
+   {
+    "indice": "Plus longue que la Garonne (500 km et un peu), moins que la Loire (plus de 1000 km).",
+    "verdict": "ordre",
+    "deduction": "Entre 500 et 1000 km."
+   },
+   {
+    "indice": "Plus longue que la Garonne (500 km et un peu), moins que la Loire (plus de 1000 km).",
+    "verdict": "dans",
+    "deduction": "500–1000 — entre la Garonne et la Loire",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Plus longue que la Garonne (500 km et un peu), moins que la Loire (plus de 1000 km)."
+ },
+ {
+  "id": "4tq7abbf",
+  "question": "Pendant combien d'heures le monde entier fête-t-il successivement la nouvelle année, du premier fuseau horaire au dernier ?",
+  "reponse": 26,
+  "unite": "heures",
+  "passes": [
+   {
+    "indice": "Moins de deux jours, mais plus qu'un tour de cadran, car les fuseaux extrêmes s'écartent.",
+    "verdict": "proche",
+    "deduction": "Plus de 24 h, moins de 48, écart des fuseaux : 25 à 30 h."
+   },
+   {
+    "indice": "Les fuseaux s'étalent sur plus d'une demi-journée, mais bien moins que trois jours.",
+    "verdict": "ordre",
+    "deduction": "Plus d'une demi-journée, moins de trois jours : vise environ 24 h, la tranche sans plus."
+   },
+   {
+    "indice": "Les fuseaux s'étalent sur plus d'une demi-journée, mais bien moins que trois jours.",
+    "verdict": "a-cheval",
+    "deduction": "13–40: enjambe 30 — plus d'une demi-journée, moins de trois jours",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus d'une demi-journée, mais moins d'une journée et quart.",
+    "verdict": "dans, proche",
+    "deduction": "12 à 30 h — Milieu ~21-24 vs 26 : ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Plus d'une demi-journée, mais moins d'une journée et quart."
+ },
+ {
+  "id": "dvfdi5r0",
+  "question": "En 2010, combien de jours les 33 mineurs chiliens de la mine San José restent-ils bloqués sous terre ?",
+  "reponse": 69,
+  "unite": "jours",
+  "passes": [
+   {
+    "indice": "Piégés début août, ils sortent à la mi-octobre : compte les semaines.",
+    "verdict": "proche",
+    "deduction": "Début août à mi-octobre : environ 70 à 75 jours."
+   },
+   {
+    "indice": "Plus qu'un mois, moins qu'une année : une attente interminable pour les familles.",
+    "verdict": "rien",
+    "deduction": "Entre un mois et un an : couvre deux tranches, ne dit rien de plus."
+   },
+   {
+    "indice": "Moins de quatre mois sous terre, mais plus d'un mois.",
+    "verdict": "ordre",
+    "deduction": "Entre un mois et quatre mois (30 à 120 jours) : 30-100 pour l'essentiel, sans valeur précise."
+   },
+   {
+    "indice": "Moins de quatre mois sous terre, mais plus d'un mois.",
+    "verdict": "a-cheval",
+    "deduction": "30–120: enjambe 100 — entre un et quatre mois",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus d'un mois sous terre, mais moins de trois.",
+    "verdict": "dans, proche",
+    "deduction": "30 à 90 jours — Milieu 60 vs 69 : ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Plus d'un mois sous terre, mais moins de trois."
+ },
+ {
+  "id": "4t6omvq2",
+  "question": "Combien de degrés mesure chacun des angles d'un triangle équilatéral ?",
+  "reponse": 60,
+  "unite": "degrés",
+  "calcul": true,
+  "passes": [
+   {
+    "indice": "Trois angles égaux qui, bout à bout, forment un demi-tour : partage en trois.",
+    "verdict": "valeur",
+    "deduction": "180 divisé par 3 : 60."
+   }
+  ],
+  "retenu": "Trois angles égaux qui, bout à bout, forment un demi-tour : partage en trois."
+ },
+ {
+  "id": "z67icnh1",
+  "question": "Combien de grammes pèse la plaquette de beurre classique vendue en France ?",
+  "reponse": 250,
+  "unite": "g",
+  "passes": [
+   {
+    "indice": "Plus lourd qu'une tablette de chocolat, moins qu'un kilo de sucre.",
+    "verdict": "ordre",
+    "deduction": "Entre 100 et 1000 g."
+   },
+   {
+    "indice": "Plus lourd qu'une tablette de chocolat, moins qu'un kilo de sucre.",
+    "verdict": "a-cheval",
+    "deduction": "150–900: enjambe 300 — entre une tablette et un kilo",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus lourde qu'une tablette de chocolat, mais moins que trois cents grammes.",
+    "verdict": "dans, proche",
+    "deduction": "100 à 300 g — Milieu ~200 vs 250 : ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Plus lourde qu'une tablette de chocolat, mais moins que trois cents grammes."
+ },
+ {
+  "id": "zv332gt9",
+  "question": "Combien de millilitres contient une canette standard de Coca-Cola en France ?",
+  "reponse": 330,
+  "unite": "ml",
+  "passes": [
+   {
+    "indice": "Moins qu'une petite bouteille d'un demi-litre, mais plus qu'un grand verre.",
+    "verdict": "ordre",
+    "deduction": "Entre 200 et 500 ml."
+   },
+   {
+    "indice": "Moins qu'une petite bouteille d'un demi-litre, mais plus qu'un grand verre.",
+    "verdict": "a-cheval",
+    "deduction": "250–500: enjambe 300 — entre un grand verre et un demi-litre",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Moins qu'une petite bouteille d'un demi-litre, mais plus qu'un grand verre.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Moins qu'une petite bouteille d'un demi-litre, mais plus qu'un grand verre."
+ },
+ {
+  "id": "h49qqorc",
+  "question": "En quelle année Nicolas Appert publie-t-il son livre sur l'art de conserver les aliments en bocaux de verre chauffés ?",
+  "reponse": 1810,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Sous Napoléon Ier, des décennies avant Pasteur.",
+    "verdict": "proche",
+    "deduction": "Sous Napoléon Ier (1804-1815) : 1804-1814."
+   },
+   {
+    "indice": "Publié quand la France cherche à nourrir ses armées, entre la Révolution et la Restauration.",
+    "verdict": "ordre",
+    "deduction": "Armées à nourrir, entre Révolution et Restauration : 1795-1814, la tranche sans plus."
+   },
+   {
+    "indice": "Publié quand la France cherche à nourrir ses armées, entre la Révolution et la Restauration.",
+    "verdict": "dans",
+    "deduction": "1800–1814 — armées de Napoléon, débord minime",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Publié quand la France cherche à nourrir ses armées, entre la Révolution et la Restauration."
+ },
+ {
+  "id": "guas6s89",
+  "question": "Quelle est la hauteur, en mètres, de la statue de la Liberté, du sol du socle à la flamme de la torche ?",
+  "reponse": 93,
+  "unite": "m",
+  "passes": [
+   {
+    "indice": "Bien moins haute que la tour Eiffel, mais plus qu'un immeuble de dix étages.",
+    "verdict": "ordre",
+    "deduction": "Entre 30 m et 330 m."
+   },
+   {
+    "indice": "Bien moins haute que la tour Eiffel, mais plus qu'un immeuble de dix étages.",
+    "verdict": "a-cheval",
+    "deduction": "40–200: enjambe 100 — moins que l'Eiffel, plus que dix étages",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Bien moins haute que la tour Eiffel, mais plus qu'un immeuble de dix étages.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Bien moins haute que la tour Eiffel, mais plus qu'un immeuble de dix étages."
+ },
+ {
+  "id": "73k4a9wk",
+  "question": "En quelle année la Seconde Guerre mondiale se termine-t-elle entièrement, avec la capitulation du Japon ?",
+  "reponse": 1945,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Quelques mois après la chute du Troisième Reich et la mort d'Hitler.",
+    "verdict": "valeur",
+    "deduction": "Quelques mois après la chute du Reich (1945) : 1945."
+   },
+   {
+    "indice": "Il y a plus de trois quarts de siècle, quand tes arrière-grands-parents étaient jeunes.",
+    "verdict": "rien",
+    "deduction": "'Plus de trois quarts de siècle' n'ajoute rien : la question donne déjà la fin de la Seconde Guerre."
+   },
+   {
+    "indice": "",
+    "verdict": "aucun",
+    "deduction": "La question donne déjà la fin de la Seconde Guerre mondiale ; tout indice d'époque devient la réponse."
+   }
+  ],
+  "retenu": ""
+ },
+ {
+  "id": "1f6txzvp",
+  "question": "En quelle année Rouget de Lisle a-t-il composé La Marseillaise ?",
+  "reponse": 1792,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Pendant la Révolution, quelques mois avant la chute de la monarchie.",
+    "verdict": "valeur",
+    "deduction": "Révolution, avant la chute de la monarchie : 1791-1792."
+   },
+   {
+    "indice": "Un chant de guerre de la fin du siècle de Voltaire, né quand la France change de régime.",
+    "verdict": "valeur",
+    "deduction": "Fin du XVIIIe, la France change de régime = la Révolution : 1789-1792, il vise 1790-1792, ★★★."
+   },
+   {
+    "indice": "Après le règne de Louis XV et avant l'Empire de Napoléon.",
+    "verdict": "ordre",
+    "deduction": "Entre 1774 et l'Empire (1804) : tranche 1750-1799, la Révolution aidant."
+   },
+   {
+    "indice": "Après le règne de Louis XV et avant l'Empire de Napoléon.",
+    "verdict": "dans",
+    "deduction": "1775–1804 — après Louis XV, avant l'Empire, débord minime",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Après le règne de Louis XV et avant l'Empire de Napoléon."
+ },
+ {
+  "id": "p7sw38zb",
+  "question": "En quelle année les soldats des tranchées du front ouest ont-ils improvisé la célèbre trêve de Noël ?",
+  "reponse": 1914,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "À Noël, quelques mois seulement après le début de la Grande Guerre.",
+    "verdict": "valeur",
+    "deduction": "Noël, quelques mois après août 1914 : 1914."
+   },
+   {
+    "indice": "Une pause fraternelle dans la guerre des tranchées, quand chacun croyait encore la guerre brève.",
+    "verdict": "valeur",
+    "deduction": "Tranchées + 'encore brève' = premier Noël de la Grande Guerre, 1914 : ★★★."
+   },
+   {
+    "indice": "",
+    "verdict": "aucun",
+    "deduction": "La question donne déjà l'époque (tranchées du front ouest, trêve de Noël : Grande Guerre) ; tout indice d'époque devient la réponse."
+   }
+  ],
+  "retenu": ""
+ },
+ {
+  "id": "1fbuto0a",
+  "question": "Combien de mètres mesure l'avenue des Champs-Élysées, envahie par la foule à minuit le 31 décembre ?",
+  "reponse": 1910,
+  "unite": "m",
+  "passes": [
+   {
+    "indice": "Une promenade à pied d'environ vingt minutes, de la Concorde à l'Étoile.",
+    "verdict": "proche",
+    "deduction": "Vingt minutes de marche à 4-5 km/h : 1300 à 1700 m."
+   },
+   {
+    "indice": "Plus de trois fois la hauteur de la tour Eiffel, mais bien moins que dix kilomètres.",
+    "verdict": "ordre",
+    "deduction": "Plus de 1000 m (3 tours Eiffel), moins de 10 km : 1000-5000 m, la tranche sans plus."
+   },
+   {
+    "indice": "Plus de trois fois la hauteur de la tour Eiffel, mais bien moins que dix kilomètres.",
+    "verdict": "a-cheval",
+    "deduction": "1000–5000: enjambe 3000 — plus de trois Eiffel, moins de dix km",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Une avenue de plus d'un kilomètre, mais de moins de trois.",
+    "verdict": "dans, proche",
+    "deduction": "1000 à 3000 m — Milieu ~2000 vs 1910 : ★★ (★★★ par chance).",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Une avenue de plus d'un kilomètre, mais de moins de trois."
+ },
+ {
+  "id": "bkcnmkup",
+  "question": "Combien d'années de règne Elizabeth II a-t-elle fêtées lors de son jubilé de platine, en 2022 ?",
+  "reponse": 70,
+  "unite": "ans",
+  "passes": [
+   {
+    "indice": "Plus que les cinquante ans d'un jubilé d'or : elle règne depuis l'après-guerre.",
+    "verdict": "proche",
+    "deduction": "Règne depuis l'après-guerre : 70 à 77 ans."
+   },
+   {
+    "indice": "Plus long qu'une carrière entière : montée très jeune sur le trône, elle y est restée à vie.",
+    "verdict": "ordre",
+    "deduction": "Plus long qu'une carrière, montée très jeune : 50-90 ans, la tranche sans plus."
+   },
+   {
+    "indice": "Plus long qu'une carrière entière : montée très jeune sur le trône, elle y est restée à vie.",
+    "verdict": "dans",
+    "deduction": "50–90 — carrière entière, montée jeune",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Plus long qu'une carrière entière : montée très jeune sur le trône, elle y est restée à vie."
+ },
+ {
+  "id": "m0zij2hq",
+  "question": "Combien de jours le roquefort doit-il être affiné au minimum avant d'être vendu ?",
+  "reponse": 90,
+  "unite": "jours",
+  "passes": [
+   {
+    "indice": "Plus qu'un mois, mais moins que six mois.",
+    "verdict": "ordre",
+    "deduction": "Entre 30 et 180 jours."
+   },
+   {
+    "indice": "Plus qu'un mois, mais moins que six mois.",
+    "verdict": "a-cheval",
+    "deduction": "30–180: enjambe 100 — entre un mois et six mois",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus qu'un mois, mais moins que six mois.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Plus qu'un mois, mais moins que six mois."
+ },
+ {
+  "id": "gji1oemr",
+  "question": "Combien de pièces pour piano compte le recueil « Les Saisons » de Tchaïkovski ?",
+  "reponse": 12,
+  "unite": "pièces",
+  "passes": [
+   {
+    "indice": "Le titre trompe : pense au calendrier plutôt qu'aux saisons.",
+    "verdict": "valeur",
+    "deduction": "Le calendrier : 12 mois."
+   },
+   {
+    "indice": "Un cycle de miniatures pour piano : plus de cinq pièces, loin d'une cinquantaine.",
+    "verdict": "ordre",
+    "deduction": "Plus de 5, loin de 50 : entre 6 et 30, la tranche sans plus."
+   },
+   {
+    "indice": "Un cycle de miniatures pour piano : plus de cinq pièces, loin d'une cinquantaine.",
+    "verdict": "a-cheval",
+    "deduction": "6–35: enjambe 10 et 30 — plus de cinq, loin de cinquante",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un cycle de miniatures : plus d'une dizaine de pièces, moins qu'une trentaine.",
+    "verdict": "dans, large",
+    "deduction": "10 à 30 — Milieu 20 vs 12 : hors ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Un cycle de miniatures : plus d'une dizaine de pièces, moins qu'une trentaine."
+ },
+ {
+  "id": "7e7pfqkx",
+  "question": "Combien de pièces chaque joueur dispose-t-il au début d'une partie de Stratego ?",
+  "reponse": 40,
+  "unite": "pièces",
+  "passes": [
+   {
+    "indice": "Bien plus que les 16 pièces d'un joueur d'échecs, mais moins que cent.",
+    "verdict": "ordre",
+    "deduction": "Entre 17 et 99 pièces."
+   },
+   {
+    "indice": "Bien plus que les 16 pièces d'un joueur d'échecs, mais moins que cent.",
+    "verdict": "dans",
+    "deduction": "25–99 — plus que 16, moins que cent",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Bien plus que les 16 pièces d'un joueur d'échecs, mais moins que cent."
+ },
+ {
+  "id": "pebp51p4",
+  "question": "Combien de doigts un chat ordinaire a-t-il en tout, aux quatre pattes réunies ?",
+  "reponse": 18,
+  "unite": "doigts",
+  "passes": [
+   {
+    "indice": "Plus que les doigts de tes deux mains, mais moins que trente.",
+    "verdict": "ordre",
+    "deduction": "Entre 11 et 29 doigts."
+   },
+   {
+    "indice": "Plus que les doigts de tes deux mains, mais moins que trente.",
+    "verdict": "dans",
+    "deduction": "11–29 — plus que dix, moins que trente",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Plus que les doigts de tes deux mains, mais moins que trente."
+ },
+ {
+  "id": "pqgzmekj",
+  "question": "En quelle année l'okapi, girafide des forêts du Congo, a-t-il été décrit par les scientifiques ?",
+  "reponse": 1901,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Au tout début du XXe siècle, à la Belle Époque.",
+    "verdict": "valeur",
+    "deduction": "Début du XXe siècle, Belle Époque : 1900-1905."
+   },
+   {
+    "indice": "Un animal découvert pour la science à l'ère des explorations coloniales, avant 14-18.",
+    "verdict": "ordre",
+    "deduction": "Ère des explorations coloniales, avant 1914 : 1880-1914, la tranche sans plus."
+   },
+   {
+    "indice": "Un animal découvert pour la science à l'ère des explorations coloniales, avant 14-18.",
+    "verdict": "a-cheval",
+    "deduction": "1870–1914: enjambe 1900 — explorations coloniales avant 14-18",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Après le passage au XXe siècle, mais avant la Première Guerre mondiale.",
+    "verdict": "dans, large",
+    "deduction": "1901 à 1914 — Dans la tranche ; milieu ~1907 à 6 ans, juste hors ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Après le passage au XXe siècle, mais avant la Première Guerre mondiale."
+ },
+ {
+  "id": "m1tml875",
+  "question": "Combien de kilogrammes y a-t-il dans une tonne ?",
+  "reponse": 1000,
+  "unite": "kg",
+  "calcul": true,
+  "passes": [
+   {
+    "indice": "Le même facteur que du gramme au kilogramme.",
+    "verdict": "valeur",
+    "deduction": "Même facteur que gramme à kilogramme : 1000."
+   }
+  ],
+  "retenu": "Le même facteur que du gramme au kilogramme."
+ },
+ {
+  "id": "1552e3be",
+  "question": "Combien de soldats spartiates accompagnaient le roi Léonidas aux Thermopyles, selon la tradition ?",
+  "reponse": 300,
+  "unite": "soldats",
+  "passes": [
+   {
+    "indice": "Bien plus qu'une classe d'école, mais moins que mille.",
+    "verdict": "ordre",
+    "deduction": "Entre 50 et 900 soldats."
+   },
+   {
+    "indice": "Bien plus qu'une classe d'école, mais moins que mille.",
+    "verdict": "a-cheval",
+    "deduction": "100–900: enjambe 300 — plus qu'une classe, moins que mille, la réponse est au bord",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Bien plus qu'une classe d'école, mais moins que mille.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Bien plus qu'une classe d'école, mais moins que mille."
+ },
+ {
+  "id": "vanuqrxl",
+  "question": "Combien de phrases différentes la Magic 8 Ball, la boule noire marquée d'un 8, peut-elle afficher ?",
+  "reponse": 20,
+  "unite": "phrases",
+  "passes": [
+   {
+    "indice": "Dedans flotte un dé, avec plus de faces qu'un dé ordinaire, qui en a six.",
+    "verdict": "ordre",
+    "deduction": "Un dé de plus de 6 faces : 8, 12 ou 20."
+   },
+   {
+    "indice": "Dedans flotte un dé, avec plus de faces qu'un dé ordinaire, qui en a six.",
+    "verdict": "a-cheval",
+    "deduction": "7–30: enjambe 10 — plus de six faces",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un dé à bien plus de faces que le dé ordinaire : plus de dix, moins de trente.",
+    "verdict": "dans, proche",
+    "deduction": "10 à 30 — Milieu 20 = réponse (par chance), ★★ sûr.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Un dé à bien plus de faces que le dé ordinaire : plus de dix, moins de trente."
+ },
+ {
+  "id": "hjz640tq",
+  "question": "Au début de « La Haine » (1995), de combien d'étages tombe l'homme de l'histoire racontée en voix off ?",
+  "reponse": 50,
+  "unite": "étages",
+  "passes": [
+   {
+    "indice": "Bien plus que dix étages, mais bien moins que les plus hauts gratte-ciel du monde.",
+    "verdict": "ordre",
+    "deduction": "Entre 20 et 80 étages."
+   },
+   {
+    "indice": "Bien plus que dix étages, mais bien moins que les plus hauts gratte-ciel du monde.",
+    "verdict": "a-cheval",
+    "deduction": "20–100: enjambe 30 — plus que dix, moins qu'un gratte-ciel",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus de trente étages, mais moins d'une centaine.",
+    "verdict": "dans, large",
+    "deduction": "30 à 100 étages — Milieu ~65 vs 50 : hors ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Plus de trente étages, mais moins d'une centaine."
+ },
+ {
+  "id": "38lc9wt9",
+  "question": "En combien de livres sont réparties les Fables de La Fontaine ?",
+  "reponse": 12,
+  "unite": "livres",
+  "passes": [
+   {
+    "indice": "Publiées en trois recueils, avec plus de livres que de doigts à une main.",
+    "verdict": "rien",
+    "deduction": "Plus de 5 livres seulement, sans plafond."
+   },
+   {
+    "indice": "Plus de six livres, mais loin d'une cinquantaine : on les lit souvent par petits recueils.",
+    "verdict": "ordre",
+    "deduction": "Plus de 6, loin de 50 : entre 7 et 30, la tranche sans plus."
+   },
+   {
+    "indice": "Plus de six livres, mais loin d'une cinquantaine : on les lit souvent par petits recueils.",
+    "verdict": "a-cheval",
+    "deduction": "7–30: enjambe 10 — plus de six, loin de cinquante",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un recueil en plusieurs livres : plus qu'une dizaine, moins qu'une trentaine.",
+    "verdict": "dans, large",
+    "deduction": "10 à 30 — Milieu 20 vs 12 : hors ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Un recueil en plusieurs livres : plus qu'une dizaine, moins qu'une trentaine."
+ },
+ {
+  "id": "pe6ktmxm",
+  "question": "En quelle année est créé le Centre national de la cinématographie, le CNC, qui soutient le cinéma français ?",
+  "reponse": 1946,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "À la naissance de la IVe République, juste après la Seconde Guerre mondiale.",
+    "verdict": "valeur",
+    "deduction": "Naissance de la IVe République, juste après 1945 : 1946."
+   },
+   {
+    "indice": "Un organisme d'État né dans les vingt ans qui suivent la Libération de la France.",
+    "verdict": "ordre",
+    "deduction": "Dans les vingt ans après la Libération : 1944-1964, la tranche sans plus."
+   },
+   {
+    "indice": "Un organisme d'État né dans les vingt ans qui suivent la Libération de la France.",
+    "verdict": "a-cheval",
+    "deduction": "1944–1964: enjambe 1950 — le défaut signalé : vingt ans après la Libération",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un organisme d'État né dans les vingt ans qui suivent la Libération de la France.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un organisme d’État créé entre la crise de 1929 et la fin des années quarante.",
+    "verdict": "dans",
+    "deduction": "Réécrit à la main : 1929–1949 : la bonne époque ; « les vingt ans qui suivent la Libération » menaient à 1950–1974 — le cœur perdu de Samir.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Un organisme d’État créé entre la crise de 1929 et la fin des années quarante."
+ },
+ {
+  "id": "3rv9n9xk",
+  "question": "Quelle est la hauteur, en centimètres, des haies du 400 m haies féminin ?",
+  "reponse": 76.2,
+  "unite": "cm",
+  "passes": [
+   {
+    "indice": "Plus bas qu'un mètre, mais plus haut qu'un demi-mètre.",
+    "verdict": "ordre",
+    "deduction": "Entre 50 et 100 cm."
+   },
+   {
+    "indice": "Plus bas qu'un mètre, mais plus haut qu'un demi-mètre.",
+    "verdict": "dans",
+    "deduction": "50–100 — moins d'un mètre, plus d'un demi",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Plus bas qu'un mètre, mais plus haut qu'un demi-mètre."
+ },
+ {
+  "id": "but0gfkk",
+  "question": "Combien d'étoiles de puissance peut-on récolter dans Super Mario 64 ?",
+  "reponse": 120,
+  "unite": "étoiles",
+  "passes": [
+   {
+    "indice": "Bien plus que cinquante, mais moins que deux cents.",
+    "verdict": "ordre",
+    "deduction": "Entre 60 et 190 étoiles."
+   },
+   {
+    "indice": "Bien plus que cinquante, mais moins que deux cents.",
+    "verdict": "a-cheval",
+    "deduction": "60–190: enjambe 100 — plus que cinquante, moins que deux cents",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus d'une centaine d'étoiles, mais moins de trois cents.",
+    "verdict": "dans, large",
+    "deduction": "100 à 300 — Milieu 200 vs 120 : hors ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Plus d'une centaine d'étoiles, mais moins de trois cents."
+ },
+ {
+  "id": "2ctbaj05",
+  "question": "En 1959, la réforme Berthoin prolonge l'instruction obligatoire en France : jusqu'à quel âge ?",
+  "reponse": 16,
+  "unite": "ans",
+  "passes": [
+   {
+    "indice": "Au-delà du collège, mais avant la majorité.",
+    "verdict": "valeur",
+    "deduction": "Après le collège (15) et avant 18 : 16 ou 17."
+   },
+   {
+    "indice": "Bien plus que l'âge d'entrée au CP, bien moins que celui de la fin d'un master.",
+    "verdict": "ordre",
+    "deduction": "Plus que 6 ans, moins qu'un master : entre 12 et 22, il vise 14-16, la tranche."
+   },
+   {
+    "indice": "Bien plus que l'âge d'entrée au CP, bien moins que celui de la fin d'un master.",
+    "verdict": "a-cheval",
+    "deduction": "8–20: enjambe 10 — plus que six ans, moins que vingt-trois",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Un âge d'élève : plus de dix ans, pas encore vingt.",
+    "verdict": "dans, proche",
+    "deduction": "10 à 20 ans — Âge scolaire : ~15-16 attendu, ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Un âge d'élève : plus de dix ans, pas encore vingt."
+ },
+ {
+  "id": "ss8nmuzo",
+  "question": "En quelle année le premier aquarium public a-t-il ouvert, au zoo de Londres ?",
+  "reponse": 1853,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "En pleine époque victorienne, vers le temps de la Grande Exposition de Londres.",
+    "verdict": "valeur",
+    "deduction": "Vers la Grande Exposition de 1851 : 1851-1855."
+   },
+   {
+    "indice": "Une première mondiale du temps de la reine Victoria, avant l'invention de l'ampoule électrique.",
+    "verdict": "ordre",
+    "deduction": "Règne de Victoria, avant l'ampoule (1879) : 1837-1879, la tranche sans plus."
+   },
+   {
+    "indice": "Une première mondiale du temps de la reine Victoria, avant l'invention de l'ampoule électrique.",
+    "verdict": "a-cheval",
+    "deduction": "1837–1879: enjambe 1850 — temps de Victoria avant l'ampoule",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Une première mondiale du temps de la reine Victoria, avant l'invention de l'ampoule électrique.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Une première mondiale du temps de la reine Victoria, avant l'invention de l'ampoule électrique."
+ },
+ {
+  "id": "420pez3r",
+  "question": "À son lancement en 2006, combien de caractères au plus un message de Twitter pouvait-il contenir ?",
+  "reponse": 140,
+  "unite": "caractères",
+  "passes": [
+   {
+    "indice": "Sa limite s'inspirait du SMS, avant d'être doublée bien plus tard.",
+    "verdict": "proche",
+    "deduction": "SMS = 160, ou moitié de 280 : 140 à 160."
+   },
+   {
+    "indice": "Bien plus qu'un prénom, bien moins qu'une page entière de texte.",
+    "verdict": "rien",
+    "deduction": "Plus qu'un prénom, moins qu'une page : fourchette énorme, n'ajoute rien."
+   },
+   {
+    "indice": "Pensé pour tenir dans un SMS : plus de cent signes, mais pas trois cents.",
+    "verdict": "ordre",
+    "deduction": "Plus de 100, moins de 300 : tranche 100-300."
+   },
+   {
+    "indice": "Pensé pour tenir dans un SMS : plus de cent signes, mais pas trois cents.",
+    "verdict": "dans",
+    "deduction": "100–200 — plus de cent, pas trois cents",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Pensé pour tenir dans un SMS : plus de cent signes, mais pas trois cents."
+ },
+ {
+  "id": "8mrkf3nu",
+  "question": "Combien de centimètres mesurait le pied du roi, unité de longueur de la France d'avant le système métrique ?",
+  "reponse": 32.48,
+  "unite": "cm",
+  "passes": [
+   {
+    "indice": "Un peu plus long que le pied d'un homme d'aujourd'hui.",
+    "verdict": "proche",
+    "deduction": "Un peu plus qu'un pied d'homme (27 cm) : 29 à 33 cm."
+   },
+   {
+    "indice": "Un peu plus long qu'une chaussure d'adulte, mais bien plus court qu'une jambe entière.",
+    "verdict": "valeur",
+    "deduction": "Un peu plus qu'une chaussure d'adulte (~28 cm) : environ 30-34 cm, ★★★."
+   },
+   {
+    "indice": "Entre un quart et un demi-mètre.",
+    "verdict": "rien",
+    "deduction": "25 à 50 cm chevauche les tranches 10-30 et 30-100."
+   },
+   {
+    "indice": "Entre un quart et un demi-mètre.",
+    "verdict": "a-cheval",
+    "deduction": "25–50: enjambe 30 — entre un quart et un demi-mètre",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Entre un quart et un demi-mètre.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Entre un quart et un demi-mètre."
+ },
+ {
+  "id": "pwogtbeb",
+  "question": "Combien de watts vaut un cheval-vapeur, l'unité de puissance des moteurs ? Réponse arrondie à l'unité.",
+  "reponse": 735,
+  "unite": "W",
+  "passes": [
+   {
+    "indice": "Plus que la puissance d'un cycliste (environ 200 W), mais moins qu'un kilowatt.",
+    "verdict": "ordre",
+    "deduction": "Entre 200 et 1000 W."
+   },
+   {
+    "indice": "Plus que la puissance d'un cycliste (environ 200 W), mais moins qu'un kilowatt.",
+    "verdict": "dans",
+    "deduction": "300–1000 — plus qu'un cycliste, moins qu'un kilowatt",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Plus que la puissance d'un cycliste (environ 200 W), mais moins qu'un kilowatt."
+ },
+ {
+  "id": "ed8dj7dk",
+  "question": "Combien de lettres compte l'alphabet hawaïen ?",
+  "reponse": 13,
+  "unite": "lettres",
+  "passes": [
+   {
+    "indice": "Bien moins que l'alphabet français : peu de consonnes, peu de voyelles.",
+    "verdict": "ordre",
+    "deduction": "Bien moins de 26 lettres : 8 à 15."
+   },
+   {
+    "indice": "Bien moins que l'alphabet français : peu de consonnes, peu de voyelles.",
+    "verdict": "a-cheval",
+    "deduction": "5–20: enjambe 10 — bien moins que 26, sans plancher",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Bien moins fourni que l'alphabet français, mais plus de dix lettres.",
+    "verdict": "dans, proche",
+    "deduction": "11 à ~20 — Milieu ~15 vs 13 : ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Bien moins fourni que l'alphabet français, mais plus de dix lettres."
+ },
+ {
+  "id": "rfgsd64t",
+  "question": "Combien de kilomètres la Garonne mesure-t-elle ?",
+  "reponse": 529,
+  "unite": "km",
+  "passes": [
+   {
+    "indice": "Plus courte que la Seine et la Loire, mais plus longue que Paris-Lille.",
+    "verdict": "ordre",
+    "deduction": "Entre 220 et 777 km."
+   },
+   {
+    "indice": "Plus courte que la Seine et la Loire, mais plus longue que Paris-Lille.",
+    "verdict": "a-cheval",
+    "deduction": "250–750: enjambe 300 — plus que Paris-Lille, moins que la Seine",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus courte que la Seine, mais plus longue que trois cents kilomètres.",
+    "verdict": "dans, proche",
+    "deduction": "300 à 777 km — Entre 300 et la Seine : milieu ~540 vs 529 : ★★.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Plus courte que la Seine, mais plus longue que trois cents kilomètres."
+ },
+ {
+  "id": "0e1vfxp0",
+  "question": "Combien de livres compte l'ensemble des Fables de La Fontaine ?",
+  "reponse": 12,
+  "unite": "livres",
+  "passes": [
+   {
+    "indice": "Trois recueils étalés sur vingt-cinq ans : plus de cinq livres, moins de vingt-quatre.",
+    "verdict": "ordre",
+    "deduction": "Entre 6 et 23 livres."
+   },
+   {
+    "indice": "Trois recueils étalés sur vingt-cinq ans : plus de cinq livres, moins de vingt-quatre.",
+    "verdict": "a-cheval",
+    "deduction": "6–23: enjambe 10 — plus de cinq, moins de 24",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Trois recueils en tout, qui forment plus d'une dizaine de livres, mais pas trente.",
+    "verdict": "dans, large",
+    "deduction": "10 à 30 — Milieu 20 vs 12 : hors ★★ ; \"trois recueils\" ne resserre pas.",
+    "juge": "tranche et valeur"
+   }
+  ],
+  "retenu": "Trois recueils en tout, qui forment plus d'une dizaine de livres, mais pas trente."
+ },
+ {
+  "id": "i3uqyd02",
+  "question": "Toutes les combien de minutes Desmond doit-il taper le code dans la station Cygne ?",
+  "reponse": 108,
+  "unite": "minutes",
+  "passes": [
+   {
+    "indice": "Plus d'une heure, mais moins que trois heures.",
+    "verdict": "ordre",
+    "deduction": "Entre 60 et 180 minutes."
+   },
+   {
+    "indice": "Plus d'une heure, mais moins que trois heures.",
+    "verdict": "a-cheval",
+    "deduction": "60–180: enjambe 100 — entre une et trois heures",
+    "juge": "tranche"
+   },
+   {
+    "indice": "Plus d'une heure, mais moins que trois heures.",
+    "verdict": "a-cheval (réponse contre une frontière)",
+    "deduction": "Gardé : la réponse touche une frontière, un indice dans la tranche serait presque la valeur ; la distance y paie des deux côtés.",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Plus d'une heure, mais moins que trois heures."
+ },
+ {
+  "id": "j1ln7nbb",
+  "question": "Combien de mètres carrés compte un hectare ?",
+  "reponse": 10000,
+  "unite": "m²",
+  "calcul": true,
+  "passes": [
+   {
+    "indice": "Pense au carré dont le côté est la longueur d'un terrain de football.",
+    "verdict": "valeur",
+    "deduction": "100 m de côté : 100 × 100 = 10000."
+   }
+  ],
+  "retenu": "Pense au carré dont le côté est la longueur d'un terrain de football."
+ },
+ {
+  "id": "4cby72ma",
+  "question": "Quelle est la hauteur, en mètres, du Grand Sphinx de Gizeh ?",
+  "reponse": 20,
+  "unite": "m",
+  "passes": [
+   {
+    "indice": "Plus haut qu'une maison à deux étages, mais bien moins que l'Arc de triomphe.",
+    "verdict": "ordre",
+    "deduction": "Entre 8 m et 40 m, une vingtaine de mètres."
+   },
+   {
+    "indice": "Plus haut qu'une maison à deux étages, mais bien moins que l'Arc de triomphe.",
+    "verdict": "dans",
+    "deduction": "10–30 — maison à deux étages, bien moins que l'Arc",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Plus haut qu'une maison à deux étages, mais bien moins que l'Arc de triomphe."
+ },
+ {
+  "id": "f1281fcq",
+  "question": "En quelle année les cartons jaune et rouge font-ils leur apparition en Coupe du monde de football ?",
+  "reponse": 1970,
+  "unite": "année",
+  "passes": [
+   {
+    "indice": "Au temps de Pelé en pleine gloire, peu après les premiers pas sur la Lune.",
+    "verdict": "valeur",
+    "deduction": "Peu après la Lune de 1969, Pelé : 1970."
+   },
+   {
+    "indice": "Une idée née dans les Trente Glorieuses, pour que tous les joueurs comprennent l'arbitre.",
+    "verdict": "ordre",
+    "deduction": "Trente Glorieuses (1945-1975) : 1950-1975, la tranche sans plus."
+   },
+   {
+    "indice": "Une idée née dans les Trente Glorieuses, pour que tous les joueurs comprennent l'arbitre.",
+    "verdict": "dans",
+    "deduction": "1950–1975 — Trente Glorieuses",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Une idée née dans les Trente Glorieuses, pour que tous les joueurs comprennent l'arbitre."
+ },
+ {
+  "id": "ryja9p0g",
+  "question": "Dans « La Bohème », Charles Aznavour parle d'un temps que les moins de combien d'années ne peuvent pas connaître ?",
+  "reponse": 20,
+  "unite": "ans",
+  "passes": [
+   {
+    "indice": "Un âge rond, celui de la jeunesse tout juste sortie de l'adolescence.",
+    "verdict": "valeur",
+    "deduction": "Âge rond au sortir de l'adolescence : 20."
+   },
+   {
+    "indice": "Un âge de jeune, plus que celui d'un collégien, moins que celui d'un trentenaire.",
+    "verdict": "ordre",
+    "deduction": "Entre un collégien et un trentenaire : 15-29 ans, vise 20, la tranche sans plus."
+   },
+   {
+    "indice": "Un âge de jeune, plus que celui d'un collégien, moins que celui d'un trentenaire.",
+    "verdict": "dans",
+    "deduction": "14–29 — plus qu'un collégien, moins qu'un trentenaire",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Un âge de jeune, plus que celui d'un collégien, moins que celui d'un trentenaire."
+ },
+ {
+  "id": "2ul5w0l2",
+  "question": "Quelle taille mesurait Édith Piaf, en centimètres ?",
+  "reponse": 147,
+  "unite": "cm",
+  "passes": [
+   {
+    "indice": "Nettement plus petite qu'une femme de taille moyenne : son surnom, « la Môme », le dit.",
+    "verdict": "proche",
+    "deduction": "Nettement plus petite qu'une femme moyenne (162) : 140 à 155 cm."
+   },
+   {
+    "indice": "Bien plus grande qu'un enfant d'école primaire, mais plus petite que la plupart des femmes.",
+    "verdict": "proche",
+    "deduction": "Plus grande qu'un écolier, plus petite que la plupart des femmes : 140-160 cm, ★★ sûr, ★★★ probable."
+   },
+   {
+    "indice": "Bien plus grande qu'un enfant d'école primaire, mais plus petite que la plupart des femmes.",
+    "verdict": "dans",
+    "deduction": "130–160 — entre un écolier et la plupart des femmes",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Bien plus grande qu'un enfant d'école primaire, mais plus petite que la plupart des femmes."
+ },
+ {
+  "id": "7un1intu",
+  "question": "À quel âge Paul McCartney se demande-t-il si on l'aimera encore, dans une chanson des Beatles de 1967 ?",
+  "reponse": 64,
+  "unite": "ans",
+  "passes": [
+   {
+    "indice": "Un âge de retraité, vu de très loin par un jeune homme.",
+    "verdict": "valeur",
+    "deduction": "Âge de retraité : 60 à 65."
+   },
+   {
+    "indice": "Le grand âge, vu d'un jeune de vingt ans : loin d'un siècle, mais au-delà de la cinquantaine.",
+    "verdict": "ordre",
+    "deduction": "Au-delà de la cinquantaine, loin d'un siècle : 55-80 ans, la tranche sans plus."
+   },
+   {
+    "indice": "Le grand âge, vu d'un jeune de vingt ans : loin d'un siècle, mais au-delà de la cinquantaine.",
+    "verdict": "dans",
+    "deduction": "55–80 — au-delà de cinquante, loin d'un siècle",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Le grand âge, vu d'un jeune de vingt ans : loin d'un siècle, mais au-delà de la cinquantaine."
+ },
+ {
+  "id": "b1x00df9",
+  "question": "Combien de centimètres carrés compte un mètre carré ?",
+  "reponse": 10000,
+  "unite": "",
+  "calcul": true,
+  "passes": [
+   {
+    "indice": "Un mètre de côté fait une longueur en centimètres : multiplie-la par elle-même.",
+    "verdict": "valeur",
+    "deduction": "100 × 100 : 10000."
+   }
+  ],
+  "retenu": "Un mètre de côté fait une longueur en centimètres : multiplie-la par elle-même."
+ },
+ {
+  "id": "4x34b69x",
+  "question": "Quelle longueur, en centimètres, peut atteindre la langue d'une girafe ?",
+  "reponse": 50,
+  "unite": "cm",
+  "passes": [
+   {
+    "indice": "Bien plus longue qu'une règle d'écolier (30 cm), mais moins d'un mètre.",
+    "verdict": "ordre",
+    "deduction": "Entre 40 et 90 cm."
+   },
+   {
+    "indice": "Bien plus longue qu'une règle d'écolier (30 cm), mais moins d'un mètre.",
+    "verdict": "dans",
+    "deduction": "35–90 — plus qu'une règle, moins d'un mètre",
+    "juge": "tranche"
+   }
+  ],
+  "retenu": "Bien plus longue qu'une règle d'écolier (30 cm), mais moins d'un mètre."
+ }
+]

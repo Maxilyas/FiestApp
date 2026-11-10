@@ -180,6 +180,76 @@ test('le chef range un invité sans équipe depuis sa barre, même en plein quiz
   assert.match((await mot).message, /t'a placé·e dans l'équipe/)
 })
 
+// ── Qui n'a pas répondu, et le rythme qui vaut (la tablée du 9 novembre 2026, axes 5 et 6) ──
+
+test('pendant une question, la barre dit qui l’on attend encore — le chef compris, tutoyé', async () => {
+  const barre = source('components/BarreDuChef.tsx')
+  // « Révéler 5/7 » ne disait pas lesquels : la vue d'animateur les porte
+  // déjà, pour la console de l'écran commun (`Regie.tsx`).
+  assert.ok(/import \{[^}]*\bnomsDesAttendus\b[^}]*\bphraseDesAttendus\b[^}]*\} from '..\/..\/..\/shared\/console'/.test(barre), 'la barre lit la phrase de la console')
+  assert.ok(barre.includes('phraseDesAttendus(v.attendus ?? [], v.attendusEnPlus ?? 0, moi)'), 'la liste du serveur, et le chef par son identifiant')
+  // La ligne tient toute la question, même vide : paraître à la cinquième
+  // réponse ferait sauter la grille sous le pouce du chef qui choisit encore.
+  assert.ok(/\{enQuestion && <p className="barre-chef-attente">\{attente \?\? '[^']+'\}<\/p>\}/.test(barre), 'présente du début à la fin de la question')
+  assert.ok(source('views/PlayerApp.tsx').includes('<laBarre.BarreDuChef reglages={chef} moi={moi.playerId} />'), 'la page dit à la barre qui est le chef')
+  // La page lui laisse sa hauteur : la dernière réponse ne passe pas dessous.
+  const css = source('styles.css')
+  assert.ok(/body\.avec-chef:has\(\.barre-chef-attente\) \.player-shell:has\(\.ans-grid\) \{ padding-bottom: calc\(46px \+ 88px\); \}/.test(css), 'la question garde sa place au-dessus de la barre haute')
+  // « Réponse enregistrée » se pose dans la marge du bas de la page : sous la
+  // barre, où le chef ne la lisait pas — elle monte au-dessus, à ses deux hauteurs.
+  assert.ok(css.includes('body.avec-chef .player-shell:has(.ans-grid) .ans-grid + .hint { bottom: calc(64px + 6px); }'))
+  assert.ok(css.includes('body.avec-chef:has(.barre-chef-attente) .player-shell:has(.ans-grid) .ans-grid + .hint { bottom: calc(88px + 6px); }'))
+
+  // Par la vraie liaison de la barre : les prénoms arrivent, et suivent les réponses.
+  const { phraseDesAttendus } = await import(new URL('../../shared/console.ts', import.meta.url).href)
+  const profil = await inscrireProfil(banc.url, 'attend', 'Nadia', '🦉')
+  const espace = await ecrire(banc.url, '/api/joueur/espace', {}, profil)
+  const console_ = cookieDe(espace)
+  const { espace: { slug } } = (await espace.json()) as { espace: { slug: string } }
+  const quiz = await creerQuiz(banc.url, console_, [qcm('Un ?')], 'Le quiz de Nadia')
+  assert.ok((await ecrire(banc.url, '/api/programmes', { titre: 'Ce soir', entrees: [{ quizId: quiz, multiplier: 1 }] }, console_)).ok)
+  await ecrire(banc.url, '/api/joueur/salon', {}, profil)
+  const cookies = `${profil}; ${console_}`
+  const nadia = await invite(banc.url, 'Nadia', '🦉', { slug, cookie: cookies })
+  const lucas = await invite(banc.url, 'Lucas', '🐸', { slug })
+  await invite(banc.url, 'Mamie', '🐢', { slug })
+  const liaison = connecter(banc.url, cookies)
+  assert.equal((await emitAck<{ ok: boolean }>(liaison, 'host:hello', {})).ok, true)
+  const choix = attendre<any>(liaison, 'session:view', p => p.view.phase === 'pickPack', 'le choix du quiz')
+  ;(liaison as any).emit('host:launch', { depuis: null })
+  const { sessionId, view } = await choix
+  const question = attendre<any>(liaison, 'session:view', p => p.view.phase === 'question', 'la question, à la barre')
+  ;(liaison as any).emit('host:command', { sessionId, command: { type: 'selectPack', packId: quiz, multiplier: 1, phase: 'pickPack', qIndex: 0, round: view.round } }, () => {})
+  const posee = (await question).view
+  assert.equal(phraseDesAttendus(posee.attendus, posee.attendusEnPlus ?? 0, nadia.playerId), 'On attend Lucas, Mamie et toi')
+
+  const apresLucas = attendre<any>(liaison, 'session:view', p => p.view.phase === 'question' && p.view.answeredCount === 1, 'la réponse de Lucas')
+  assert.equal((await emitAck<any>(lucas.socket, 'player:action', { sessionId, action: { type: 'answer', choice: 0, qIndex: 0, round: posee.round } })).ok, true)
+  const v1 = (await apresLucas).view
+  assert.equal(phraseDesAttendus(v1.attendus, v1.attendusEnPlus ?? 0, nadia.playerId), 'On attend Mamie et toi')
+  // Un téléphone ne l'apprend pas : la salle n'a pas à savoir qui traîne (invariant 1).
+  const chezLucas = attendre<any>(lucas.socket, 'session:view', p => p.view.phase === 'reveal', 'la révélation, chez Lucas')
+  ;(liaison as any).emit('host:command', { sessionId, command: { type: 'next', phase: 'question', qIndex: 0, round: posee.round } }, () => {})
+  assert.equal((await chezLucas).view.attendus, undefined)
+})
+
+test('le rythme choisi dans « ⋯ » est retenu sur le téléphone : ni le quiz suivant, ni la page rechargée ne remettent celui du salon', () => {
+  const barre = source('components/BarreDuChef.tsx')
+  // La barre reposait à chaque quiz — et à chaque rechargement — le rythme
+  // choisi en ouvrant le salon : passé « au clic » en cours de route, le
+  // chef retrouvait ses cinq secondes au quiz d'après.
+  const debut = barre.indexOf('const choisirRythme')
+  const choisir = barre.slice(debut, barre.indexOf('\n  }\n', debut))
+  assert.ok(debut > 0 && choisir.length < 400, 'le geste des paliers')
+  assert.ok(choisir.includes('retenirChef({ ...reglages, rythme: p })'), 'le choix se retient, comme celui du salon')
+  assert.ok(choisir.includes("commande({ type: 'autoNext', seconds: p })"))
+  assert.ok(barre.includes('onClick={() => choisirRythme(p)}'), 'chaque palier passe par ce geste')
+  assert.ok(barre.includes("if ((v.autoNextSeconds ?? null) !== rythme) commande({ type: 'autoNext', seconds: rythme })"), 'au lancement d’un quiz, c’est le rythme retenu qui se compare')
+  assert.ok(!barre.includes('!== reglages.rythme'), 'plus celui de l’ouverture du salon')
+  // Remontée — le chef sorti puis rentré —, la barre relit le téléphone, pas la page qui l'a chargée.
+  assert.ok(barre.includes('useState(() => (chefIci(reglages.slug) ?? reglages).rythme)'))
+})
+
 test('l’invitation en tête de la salle d’attente du chef : le code en grand et le QR, sur son seul téléphone', () => {
   const barre = source('components/BarreDuChef.tsx')
   // La barre pose l'invitation dans la place que la salle d'attente garde ;

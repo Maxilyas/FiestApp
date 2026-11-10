@@ -16,6 +16,8 @@ const ICONE_DU_SUJET: Record<string, IconName> = {
   'mythes-legendes': 'sparkles',
   'terre-espace': 'volcan',
   'grands-rendez-vous': 'medal',
+  equitation: 'fer-a-cheval',
+  plongee: 'masque',
   'petit-ecran': 'monitor',
   danse: 'dancer',
   sante: 'stethoscope',

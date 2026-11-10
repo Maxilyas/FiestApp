@@ -66,7 +66,7 @@ Rangés par famille : l'horloge, l'invité, l'écran d'animateur et la partie, l
 - **Qui l'émet** : l'invité, à chaque réponse (`sendPlayerAction`, `client/src/socket.ts`).
 - **Charge** : `{ sessionId, action, slug?, token? }`. `action` est une `QuizAction` (`shared/games/quiz.ts`) — `answer { choice }`, `guess { value }`, `answers { choices }` ou `order { order }` —, avec `qIndex` et `round`, la question et le tour qu'elle vise (invariant 12). `slug` et `token` permettent à une connexion encore anonyme de se rattacher.
 - **Accusé** (`ActionAck`) : `{ ok: true }`, ou `{ ok: false, reason, error }`. Panne : le motif `error`.
-- **Effet** : une connexion qui ne suit aucun espace s'y rattache par `slug`, une connexion qui n'incarne personne incarne la fiche du `token` — c'est la réponse tapée pendant une coupure, que socket.io rejoue sur la connexion neuve avant que la page se re-présente. Puis le moteur la juge (`GameEngine.handlePlayerAction`, `server/src/core/engine.ts` ; les règles dans `server/src/games/quiz.ts`) : le dernier envoi fait foi, heure comprise, et un envoi identique au précédent est confirmé sans rien réécrire.
+- **Effet** : une connexion qui ne suit aucun espace s'y rattache par `slug`, une connexion qui n'incarne personne incarne la fiche du `token` — c'est la réponse tapée pendant une coupure, que socket.io rejoue sur la connexion neuve avant que la page se re-présente. Puis le moteur la juge (`GameEngine.handlePlayerAction`, `server/src/core/engine.ts` ; les règles dans `server/src/games/quiz.ts`) : le dernier envoi fait foi, heure comprise, et un envoi identique au précédent est confirmé sans rien réécrire — même arrivé une fois la question close, tant qu'il vise cette question et ce tour (`dejaInscrite`) : c'est le renvoi d'une réponse dont l'accusé s'est perdu.
 - **Refus** :
 
   | Motif | Quand | Ce que lit l'invité |
@@ -75,7 +75,7 @@ Rangés par famille : l'horloge, l'invité, l'écran d'animateur et la partie, l
   | `unknown-player` | ni identité ni jeton reconnu | « Ta réponse n'est pas partie — reconnexion en cours, réessaie » |
   | `ended` | `sessionId` n'est pas la partie en cours — celle d'un autre espace comprise | « Ce quiz est terminé » |
   | `not-participant` | l'invité n'est pas de la partie, ou n'y joue qu'à partir de la question suivante (arrivé quand celle-ci était close) | « Tu n'es pas dans cette partie — tu joues à la prochaine question » |
-  | `too-late` | la question n'est pas ouverte — pas encore (prêts, photo à mémoriser, intertitre) ou plus —, ou la réponse vise une autre question ou un autre tour | « Trop tard — la question était finie » |
+  | `too-late` | la question n'est pas ouverte — pas encore (prêts, photo à mémoriser, intertitre) ou plus —, ou la réponse vise une autre question ou un autre tour. Jamais le renvoi de la réponse déjà inscrite, à la révélation de sa question : il est confirmé | « Trop tard — la question était finie » |
   | `paused` | le chronomètre est figé | « Le quiz est en pause — regarde l'écran commun » |
   | `invalid` | ni un choix valable, ni un nombre | « Réponse non comprise — réessaie » |
   | `error` | une panne du serveur | « Erreur serveur — réessaie » |

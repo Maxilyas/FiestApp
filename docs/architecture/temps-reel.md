@@ -178,6 +178,8 @@ sequenceDiagram
 
 Le renvoi ne peut pas compter double : un envoi identique au précédent est confirmé sans rien réécrire, et une réponse qui vise une question passée reçoit `too-late` au lieu de s'inscrire sur la suivante.
 
+Il ne se contredit pas non plus. Hors ligne, le navigateur garde la première réponse dans la liaison morte et la livre quand le réseau revient : le serveur l'inscrit, son accusé repart vers une liaison que la page a abandonnée, et le renvoi arrive par la neuve. Si la question s'est close entre les deux — cette réponse était la dernière attendue —, le renvoi de la même réponse, pour la même question et le même tour, est confirmé lui aussi (`dejaInscrite`, `server/src/games/quiz.ts`) : il recevait `too-late`, et l'invité lisait ses points et « Trop tard » ensemble (`retours/2026-11-09/reproductions/reponse-reseau-coupe.mts`).
+
 ## L'instantané
 
 L'instantané (`PartySnapshot`, `shared/types.ts`) dit la salle : les invités et leur score de la soirée, les équipes et leurs points, les prix remis, la partie en cours et ses participants, l'adresse et le code pour entrer. Chaque champ est décrit dans [la référence](../reference/evenements-temps-reel.md#partysnapshot). Il est construit par `SpaceRuntime` (`server/src/core/space.ts`) et en part **deux versions** :
@@ -255,8 +257,8 @@ Un invité est une **fiche** (`PlayerRec`, `server/src/core/party.ts`) : un iden
 Le chef d'un salon anime depuis son téléphone de joueur, avec une barre en bas de l'écran (`client/src/components/BarreDuChef.tsx`), chargée à la demande sur le seul téléphone qui a ouvert le salon (`chefIci`, `client/src/chef.ts`). Elle passe par une **seconde liaison**, celle de l'animateur (`client/src/socketDuChef.ts`) : une seule ne tient pas les deux rôles — les vues de partie arriveraient en double, sans dire à quel rôle elles s'adressent, et une session d'animateur qui tombe couperait aussi le joueur. Deux liaisons, deux poignées de main : le serveur n'a rien à apprendre de plus.
 
 - Elle n'apparaît que si sa liaison s'est présentée (`host:hello`), et se déclare **télécommande** à chaque connexion : la télé branchée garde les coulisses pour elle, et ne propose pas de se piloter tant qu'elle est là.
-- De la vue d'animateur, elle ne lit rien de la question — ni texte, ni réponses, ni note — : sa phase, son tour, le compte des réponses, le programme, l'enchaînement, la pause, et si le quiz est le dernier du programme (`server/test/barre-du-chef.test.ts`).
-- Ses commandes portent d'office la visée de sa vue au moment de l'envoi. Une fois la partie lancée, elle choisit seule le prochain quiz du programme, à son multiplicateur, et pose le rythme choisi au salon, une fois par partie.
+- De la vue d'animateur, elle ne lit rien de la question — ni texte, ni réponses, ni note — : sa phase, son tour, le compte des réponses et ceux qu'on attend encore (`attendus`, qu'aucun téléphone d'invité ne reçoit — `phraseDesAttendus`, `shared/console.ts`), le programme, l'enchaînement — que la vue porte à chaque phase, podium et choix du quiz compris —, la pause, et si le quiz est le dernier du programme (`server/test/barre-du-chef.test.ts`).
+- Ses commandes portent d'office la visée de sa vue au moment de l'envoi. Une fois la partie lancée, elle choisit seule le prochain quiz du programme, à son multiplicateur, et pose le rythme du chef, une fois par partie : celui du salon, puis celui qu'il choisit dans « ⋯ », retenu sur son téléphone (`quizz.chef`).
 - Ses gestes partent sans attendre l'accusé ni se renvoyer (voir [les accusés](#au-client--qui-attend-quoi)).
 - **« J'anime seulement »** : le téléphone du chef le redit à chaque `player:join` (`horsClassement`) ; le serveur ne l'écoute que du profil qui tient l'espace, le garde en mémoire, l'oublie à la fin de la soirée, et le fige au lancement de chaque partie. Le chef répond alors pour le plaisir : ni points, ni journal, ni attente, ni classement.
 

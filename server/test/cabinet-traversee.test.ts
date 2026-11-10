@@ -53,6 +53,7 @@ import {
   lireLeDepartDeLaTraversee,
   lireLesCartesChoisies,
   lireUnGesteDeLaTraversee,
+  mancheConclue,
   nomAuNiveau,
   offrables,
   paradesDeLActe,
@@ -646,6 +647,48 @@ test('une épreuve en cours ne compte que ses manches jugées : la vue d’une m
   const enCours = consequencesDe(t.depart, t.etat, { etape, partie: 'p1', manches: manches([2, null, null]), enCours: true })
   assert.equal(enCours.etat.coeurs, t.etat.coeurs, 'une manche à venir ne coûte rien')
   assert.equal(enCours.bilan.or, 2 * B.OR_PAR_ETOILE + B.OR_DE_LA_CAGNOTTE[1])
+})
+
+test('une aide du Filet en deux temps coûte une étoile, jamais un cœur : réussie à zéro étoile, la manche n’est pas ratée', () => {
+  // « Ton aide a pris l'étoile ; ton cœur reste » (le cahier du nouveau Filet, § 3.6). Sans Parade : rien d'autre ne
+  // couvre une manche ratée, et la seule qui coûte un cœur est celle qui l'était.
+  const t = new Traversee(['cagnotte', 'panacee', 'echange'])
+  const avant = t.etat.coeurs
+  const reussiesAvant = t.etat.reussies
+  const etape = t.vers('epreuve')
+  t.joue({ quoi: 'epreuve', etape, partie: 'p1' })
+  t.joue({
+    quoi: 'conclure',
+    partie: 'p1',
+    manches: [
+      { etoiles: 0, misee: false, payees: 1 },
+      { etoiles: 0, misee: true, payees: 2 },
+      { etoiles: 0, misee: false },
+    ],
+  })
+  const b = t.etat.derniere!
+  assert.deepEqual(
+    b.manches.map(m => m.coeurs),
+    [0, 0, 1],
+    'réussies à zéro, même misée, elles ne coûtent rien ; la ratée, son cœur',
+  )
+  assert.deepEqual(
+    b.manches.map(m => m.or),
+    [0, 0, 0],
+    'ni or ni Cagnotte : l’aide a pris ce que la manche rapportait',
+  )
+  assert.equal(t.etat.coeurs, avant - 1)
+  assert.equal(t.etat.reussies, reussiesAvant + 2)
+  // Le serveur la conclut d'une seule copie : les aides seulement s'il y en a, et la manche quittée comptée nulle quand il le demande.
+  assert.deepEqual(mancheConclue({ naturel: 0, misee: false, payees: 1, fin: 'jugee' }), { etoiles: 0, misee: false, payees: 1 })
+  assert.deepEqual(mancheConclue({ naturel: 2, misee: true, payees: 0, fin: 'jugee' }), { etoiles: 2, misee: true })
+  assert.deepEqual(mancheConclue({ naturel: 2, misee: false, payees: 0, fin: 'quittee' }, true), { etoiles: null, misee: false })
+  // Relu du journal : `payees` de une à trois, absent d'une épreuve d'avant.
+  const conclue = (payees: unknown) => ({ quoi: 'conclure', partie: 'p1', manches: [{ etoiles: 0, misee: false, payees }, { etoiles: 2, misee: false }, { etoiles: null, misee: false }] })
+  const lu = lireUnGesteDeLaTraversee(conclue(1), true)
+  assert.ok(lu?.quoi === 'conclure')
+  assert.deepEqual(lu.manches, [{ etoiles: 0, misee: false, payees: 1 }, { etoiles: 2, misee: false }, { etoiles: null, misee: false }])
+  for (const payees of [0, 4, 1.5, '1']) assert.equal(lireUnGesteDeLaTraversee(conclue(payees), true), null, String(payees))
 })
 
 test('le départ et les gestes se relisent à leur forme ; la page n’écrit ni `epreuve` ni `conclure`', () => {

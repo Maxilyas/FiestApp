@@ -129,6 +129,9 @@ export type IconName =
   | 'avion'
   | 'pupitre'
   | 'dinosaure'
+  // L'équitation et la plongée (le 9 novembre 2026).
+  | 'fer-a-cheval'
+  | 'masque'
   // Les duels : le temps qui reste, sans chrono, l'aide, une vie, un résultat qui attend.
   | 'hourglass'
   | 'infinity'
@@ -926,6 +929,26 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
       <>
         <path d="M3 14c3-.2 5.5-4.5 10-4.5 1.2 0 2.2.2 3 .5V5.5a1 1 0 0 1 1-1h2a1 1 0 0 1 0 2h-1V13c0 1.6-1.4 2.5-3.5 2.5H8.5C6 15.5 4.2 15 3 14Z" />
         <path d="M9 15.5V20M15.5 15.5V20" />
+      </>
+    ),
+  },
+  // Le fer et ses clous, plutôt qu'une tête de cheval : au trait et à cette taille, une tête de cheval est le cavalier
+  // des échecs. Ses talons se resserrent — à branches droites, il se lisait comme une arche — et ses clous ont un
+  // trait plus fin : à 1,8, ils comblaient la bande. Le masque avec son tuba, plutôt qu'une bouteille : c'est aussi
+  // ce que porte un apnéiste.
+  'fer-a-cheval': {
+    paths: (
+      <>
+        <path d="M6.2 21C4.2 18 3.2 14.5 3.2 11a8.8 8.8 0 0 1 17.6 0c0 3.5-1 7-3 10h-3.4c1.1-3.3 1.6-6.7 1.6-10a4 4 0 0 0-8 0c0 3.3.5 6.7 1.6 10H6.2Z" />
+        <path strokeWidth={1.3} d="M8.3 5.8v.01M15.7 5.8v.01M5.8 9.4v.01M18.2 9.4v.01M5.7 14v.01M18.3 14v.01" />
+      </>
+    ),
+  },
+  masque: {
+    paths: (
+      <>
+        <path d="M2.5 9.5A2.5 2.5 0 0 1 5 7h9.5A2.5 2.5 0 0 1 17 9.5v3a2.5 2.5 0 0 1-2.5 2.5h-1.9L11 12.8a1.2 1.2 0 0 0-1.9 0L7.5 15H5a2.5 2.5 0 0 1-2.5-2.5v-3Z" />
+        <path d="M11 18.5h6.5a3 3 0 0 0 3-3v-12" />
       </>
     ),
   },

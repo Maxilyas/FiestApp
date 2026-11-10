@@ -136,6 +136,28 @@ export const SUJETS: readonly Sujet[] = [
     sousThemes: { Sport: ['olympisme'] },
     etiquettes: ['jeux-olympiques', 'coupe-du-monde', 'tour-de-france'],
   },
+  // L'équitation et la plongée (le souhait du propriétaire du 9 novembre
+  // 2026) : deux disciplines que la base ne posait pas, chacune son
+  // sous-thème neuf en Sport, dont elle tient la rubrique, et l'inventaire de
+  // ses familles (`server/src/core/inventaires.ts`). Sans étiquette : une
+  // épreuve équestre des Jeux se range chez elle, et « Le Grand Bleu » reste
+  // un film. L'apnée est de la plongée, le plongeon reste aux Jeux.
+  {
+    cle: 'equitation',
+    nom: 'L’équitation',
+    famille: 'theme',
+    description: 'Dressage, saut d’obstacles, courses hippiques et chevaux de légende',
+    sousThemes: { Sport: ['equitation'] },
+    categorie: 'Sport',
+  },
+  {
+    cle: 'plongee',
+    nom: 'La plongée',
+    famille: 'theme',
+    description: 'Bouteilles, apnée, épaves et pionniers des profondeurs',
+    sousThemes: { Sport: ['plongee'] },
+    categorie: 'Sport',
+  },
   // Les séries vivent au cinéma, la télévision dans les jeux et la pop
   // culture : deux catégories pour un seul écran, celui du salon.
   {

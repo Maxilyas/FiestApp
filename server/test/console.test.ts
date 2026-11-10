@@ -3,7 +3,41 @@
 // serveur (`games/quiz.ts`) les lisent tous deux.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { ENCHAINEMENT_MAX_S, GARDE_APRES_PHASE_MS, PALIERS_ENCHAINEMENT, gesteAccepte, revelationPrecoce } from '../../shared/console'
+import {
+  ATTENDUS_NOMMES,
+  ENCHAINEMENT_MAX_S,
+  GARDE_APRES_PHASE_MS,
+  PALIERS_ENCHAINEMENT,
+  gesteAccepte,
+  nomsDesAttendus,
+  phraseDesAttendus,
+  revelationPrecoce,
+} from '../../shared/console'
+
+// La tablée du 9 novembre 2026 : la barre du chef disait « Révéler 5/7 », la
+// télé « 5 / 7 ont répondu » — nulle part les deux prénoms qui manquaient.
+// L'animatrice n'a su qu'à la révélation que Lucas n'avait pas répondu.
+test('la barre du chef nomme ceux qu’on attend encore', () => {
+  const a = (playerId: string, name: string, horsLigne = false) => ({ playerId, name, ...(horsLigne && { horsLigne: true as const }) })
+  assert.equal(phraseDesAttendus([], 0), null, 'tout le monde a répondu : rien à dire')
+  assert.equal(phraseDesAttendus([a('l', 'Lucas')], 0), 'On attend Lucas')
+  assert.equal(phraseDesAttendus([a('l', 'Lucas'), a('m', 'Mamie')], 0), 'On attend Lucas et Mamie')
+  assert.equal(phraseDesAttendus([a('l', 'Lucas'), a('m', 'Mamie'), a('h', 'Hugo')], 0), 'On attend Lucas, Mamie et Hugo')
+  // Au-delà, deux prénoms et un compte : la ligne tient sur un téléphone, et la feuille « ⋯ » donne les autres.
+  assert.equal(ATTENDUS_NOMMES, 3)
+  assert.equal(phraseDesAttendus([a('l', 'Lucas'), a('m', 'Mamie'), a('h', 'Hugo'), a('k', 'Karim')], 0), 'On attend Lucas, Mamie et 2 autres')
+  assert.equal(phraseDesAttendus([a('l', 'Lucas'), a('m', 'Mamie'), a('h', 'Hugo')], 147), 'On attend Lucas, Mamie et 148 autres', 'une grande salle : la liste du serveur est bornée')
+  // Le téléphone éteint se dit : celui-là, l'appeler ne sert à rien — le serveur le range en tête.
+  assert.equal(phraseDesAttendus([a('l', 'Lucas', true), a('m', 'Mamie')], 0), 'On attend Lucas (hors ligne) et Mamie')
+  // La marque d'homonymie vient du serveur, telle quelle (invariant 17).
+  assert.equal(phraseDesAttendus([a('c', 'Camille (2)')], 0), 'On attend Camille (2)')
+  // Le chef qui joue est sur son propre téléphone : tutoyé, et en dernier.
+  assert.equal(phraseDesAttendus([a('n', 'Nadia'), a('l', 'Lucas')], 0, 'n'), 'On attend Lucas et toi')
+  assert.equal(phraseDesAttendus([a('n', 'Nadia')], 0, 'n'), 'On n’attend plus que toi', 'toute la salle attend celle qui commente')
+  assert.equal(phraseDesAttendus([a('n', 'Nadia'), a('l', 'Lucas'), a('m', 'Mamie'), a('h', 'Hugo')], 0, 'n'), 'On attend Lucas, Mamie et 2 autres')
+  // La feuille « ⋯ » les donne tous, écrits de même.
+  assert.deepEqual(nomsDesAttendus([a('n', 'Nadia'), a('l', 'Lucas', true), a('m', 'Mamie'), a('h', 'Hugo')], 'n'), ['Lucas (hors ligne)', 'Mamie', 'Hugo', 'toi'])
+})
 
 // La tablée du 9 novembre 2026 : Nadia a touché « Révéler » alors qu'elle
 // seule avait répondu, et six invités ont perdu la question. Moins de la

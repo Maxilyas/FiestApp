@@ -104,3 +104,38 @@ test('le quiz suivant garde l’enchaînement du précédent, et le choix dit ce
     assert.equal(q.autoNextSeconds, null, 'la soirée suivante repart au clic')
     ;(host as any).emit('host:endSession', { sessionId: nouvelle })
   }))
+
+// La tablée du 9 novembre 2026 : passée de « Au clic » à « 10 s » pendant son
+// premier quiz, l'animatrice a lu « Au clic » coché au podium — la vue du
+// podium ne portait pas le réglage, et la page prenait son absence pour « au
+// clic ». Le quiz suivant a enchaîné seul, à dix secondes, pendant qu'elle
+// commentait. Même silence au choix du quiz, au « Prêts ? » et pendant la
+// mesure d'une estimation en direct.
+test('au podium, puis au choix du quiz suivant, la console lit l’enchaînement qui vaut — et le régler là compte', () =>
+  avecBanc(async banc => {
+    const cookie = await connexionAnimateur(banc.url)
+    const premier = await creerQuiz(banc.url, cookie, [qcm('Première ?', ['Oui', 'Non'], 0, 60)], 'Le premier')
+    const second = await creerQuiz(banc.url, cookie, [qcm('Seconde ?', ['Oui', 'Non'], 0, 60)], 'Le second')
+    await invite(banc.url, 'Alice')
+    const host = await ecranCommun(banc.url, cookie)
+
+    const sessionId = await lancerQuiz(host, premier)
+    await vue(host, v => v.phase === 'question', 'la question')
+    commande(host, sessionId, { type: 'autoNext', seconds: 10 })
+    await vue(host, v => v.phase === 'question' && v.autoNextSeconds === 10, 'l’enchaînement réglé')
+    commande(host, sessionId, { type: 'next' })
+    await vue(host, v => v.phase === 'reveal', 'la révélation')
+    commande(host, sessionId, { type: 'next' })
+    const podium = await vue(host, v => v.phase === 'finished', 'le podium')
+    assert.equal(podium.autoNextSeconds, 10, 'le podium dit l’enchaînement réglé, pas « au clic »')
+
+    // Réglé au podium, il vaut pour le quiz suivant : c'est là qu'on y pense.
+    commande(host, sessionId, { type: 'autoNext', seconds: 20 })
+    await vue(host, v => v.phase === 'finished' && v.autoNextSeconds === 20, 'l’enchaînement réglé au podium')
+
+    const choix = vue(host, v => v.phase === 'pickPack', 'le choix du quiz suivant')
+    const prets = vue(host, v => v.phase === 'getReady', '« Prêts ? »')
+    await lancerQuiz(host, second)
+    assert.equal((await choix).autoNextSeconds, 20, 'le choix du quiz dit déjà ce qui vaudra')
+    assert.equal((await prets).autoNextSeconds, 20, '« Prêts ? » aussi : la barre du chef y compare le rythme du salon')
+  }))

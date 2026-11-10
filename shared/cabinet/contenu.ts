@@ -91,6 +91,32 @@ export interface FriseATheme {
   categorie: Categorie
 }
 
+/**
+ * Une question de la base que le Filet en deux temps pose (`retours/2026-11-09/le-nouveau-filet.md`, § 4 et § 3.7) : son
+ * identifiant dans la base — la question, sa valeur et sa réponse y restent —, ce qui la range à un acte, et ce que le
+ * Filet y ajoute. Ce qui se calcule n'y entre pas.
+ */
+export interface QuestionDuFilet {
+  id: string
+  /** Chaque Français la sait-il placer ? Le classement du vivier, une question à la fois (`vivier-du-filet.json`). */
+  chacun: boolean
+  /** La note du panel : la part des joueurs qui placeraient sa valeur à 5 % près (une année : à 5 ans), de 0 à 100. */
+  panel: number
+  /** Une phrase qui mène à la tranche du jeu, jamais à la valeur ; null quand l'énoncé donne déjà l'époque. */
+  indice: string | null
+  /** L'étiquette de son fait sur une frise (« La tour Eiffel »), quand il deviendra le repère de qui l'a su placer. */
+  repere: string | null
+}
+
+/** Un repère que tout le monde connaît : une date d'école ou vécue (`unite` null), ou une grandeur du quotidien dans son unité. */
+export interface RepereCommun {
+  id: string
+  valeur: number
+  /** « La prise de la Bastille », « La tour Eiffel ». */
+  texte: string
+  unite: string | null
+}
+
 // ── Ce que les textes peuvent être, que le juge applique à chaque entrée ──
 
 /** Une clé d'une fiche (`CLES_MAX` au plus) : en minuscules sans accents, de trois lettres au moins — `arc` en est une. */

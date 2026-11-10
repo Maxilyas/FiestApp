@@ -8,6 +8,8 @@
 import { randomInt } from 'node:crypto'
 import type { Niveau } from '../../../shared/campagne'
 import type { ContenuTire } from '../../../shared/cabinet/jeux/index'
+import { acteDuFilet } from '../../../shared/cabinet/jeux/filetEnDeuxTemps'
+import { contenuDuCabinet } from '../../src/core/cabinet/contenu'
 
 /** Où toucher dans un élément, en pour cent de sa boîte : de gauche à droite, de haut en bas. */
 export interface Visee {
@@ -194,7 +196,9 @@ export function lancerLeDe(
 // un seuil par marche ne se jouerait pas. La régie la lit au plan figé de la
 // partie, à l'indice que la vue dit (`VueDeLaPartie.tirage`), et ne dit
 // qu'elle, pour le dé — jamais la catégorie du plan, qui dirait d'avance aux
-// Indices qui chercher.
+// Indices qui chercher. Au nouveau Filet, le calibrage lit l'acte de la
+// question, pas sa marche (`saitLEpoque`) : la régie dit l'acte, que le
+// contenu du Filet range (`acteDuFilet`).
 
 /** Ce que la régie retient d'une vue de partie du Cabinet qu'a reçue la page : de quoi lire sa manche au plan figé, rien d'autre. */
 export interface PartieVueParLaPage {
@@ -243,11 +247,20 @@ export function retenirLaPartie(avant: PartieVueParLaPage | null, lue: PartieVue
   return avant && avant.maintenant > lue.maintenant ? avant : lue
 }
 
-/** Ce qu'il faut savoir dans une manche, à sa marche : « de la question », facile. */
+/** Ce qu'il faut savoir dans une manche, à sa marche : « de la question », facile — ou, au nouveau Filet, à son acte. */
 export interface ChoseASavoir {
   quoi: string
   marches: Niveau[]
+  /**
+   * Au nouveau Filet, l'acte de sa question (`acteDuFilet`, de 0 à 2) : le calibrage y tire ce que sait son joueur à
+   * l'acte, pas à la marche (`saitLEpoque`, `classesSures`) — l'époque d'abord, puis l'anneau.
+   */
+  acte?: 0 | 1 | 2
 }
+
+/** L'acte de chaque question du contenu du Filet, lu une fois : la régie le dit pour le dé. */
+let ACTES_DU_FILET: ReadonlyMap<string, 0 | 1 | 2> | null = null
+const acteDuContenu = (id: string): 0 | 1 | 2 => (ACTES_DU_FILET ??= new Map(contenuDuCabinet().filet.map(e => [e.id, acteDuFilet(e)]))).get(id) ?? 0
 
 /**
  * La marche de ce qu'il faut savoir dans la manche que joue ce contenu du
@@ -266,6 +279,8 @@ export function marchesASavoir(tire: ContenuTire, etape: number | null): ChoseAS
     case 'mot':
       return { quoi: 'du mot', marches: [tire.question.niveau] }
     case 'filet':
+      // Le nouveau Filet se sait à l'acte de sa question, comme au calibrage ; celui d'avant, à la marche de sa valeur.
+      if ('deuxTemps' in tire) return { quoi: 'de la question', marches: [], acte: acteDuContenu(tire.question.id) }
       return { quoi: 'de la valeur', marches: [tire.question.niveau] }
     default:
       return null
@@ -275,7 +290,11 @@ export function marchesASavoir(tire: ContenuTire, etape: number | null): ChoseAS
 /** La marche dite comme les consignes l'écrivent : c'est « la marche », au féminin. */
 const MARCHE_DITE: Readonly<Record<Niveau, string>> = { facile: 'facile', moyen: 'moyenne', difficile: 'difficile', expert: 'experte' }
 
-/** La ligne que la régie pose en tête de l'écran d'une manche : la marche seule, jamais ce qu'elle cache. */
+/** L'acte dit comme les consignes l'écrivent, en chiffres romains. */
+const ACTE_DIT = ['I', 'II', 'III'] as const
+
+/** La ligne que la régie pose en tête de l'écran d'une manche : la marche seule — ou l'acte —, jamais ce qu'elle cache. */
 export function ligneDeLaMarche(c: ChoseASavoir): string {
+  if (c.acte !== undefined) return `🎲 Pour ton dé, l’acte ${c.quoi} : ${ACTE_DIT[c.acte]} — le banc te le dit, l’écran ne le montre pas.`
   return `🎲 Pour ton dé, la marche ${c.quoi} : ${c.marches.map(m => MARCHE_DITE[m]).join(', ')} — le banc te la dit, l’écran ne la montre pas.`
 }

@@ -63,6 +63,7 @@ import { etoilesApresLesPouvoirs, mancheProtegee, refusDuPouvoir, type CleDePouv
 import { regleDe, type ContenuTire } from './jeux/index'
 import { eclairerSertEncore } from './jeux/outils'
 import type { TailleDuFilet } from './jeux/filet'
+import type { CleDAideDuFilet } from './jeux/filetEnDeuxTemps'
 import { trancheLaManche, type CleDeJeu, type VerdictDUneManche } from './jeux/regle'
 
 // ── Le départ ─────────────────────────────────────────────────────────────
@@ -291,7 +292,8 @@ export const estDUnJourDAvant = (d: Pick<DepartDUnePartie, 'jour'>, jour: string
 export type ReponseDUnJeu =
   | { pari: { choix: number } }
   | { eclair: { reponses: (boolean | null)[] } }
-  | { filet: { x: number; taille: TailleDuFilet } }
+  /** Le Filet d'avant : le curseur et la taille du filet ; le Filet en deux temps : l'époque choisie et le curseur dans sa piste. */
+  | { filet: { x: number; taille: TailleDuFilet } | { epoque: number; x: number } }
   | { detail: { titre: number } }
   | { frise: { ordre: number[] } }
   | { epingle: { lat: number; lon: number } }
@@ -316,6 +318,8 @@ export type GesteDuCabinet =
   | { quoi: 'garder'; manche: Manche }
   | { quoi: 'parier'; manche: Manche }
   | { quoi: 'mot'; manche: Manche; choix: number }
+  /** Une aide du Filet en deux temps, payée d'une étoile : « Deux époques de moins », « Un indice ». Offerte, elle passe par Éclairer. */
+  | { quoi: 'aide'; manche: Manche; aide: CleDAideDuFilet }
   | { quoi: 'repondre'; manche: Manche; auto?: true; reponse?: ReponseDUnJeu }
   | { quoi: 'quitter' }
   | { quoi: 'clore'; pourquoi: 'lendemain' }
@@ -808,6 +812,11 @@ export interface EtoilesDUneManche {
   naturel: number | null
   /** Après Protéger et Miser. */
   etoiles: number | null
+  /**
+   * Les étoiles que ses aides ont prises, déjà retirées de `naturel` (le Filet en deux temps, `VerdictDUneManche.payees`) :
+   * réussie à zéro étoile, la manche n'est pas ratée — une aide coûte une étoile, jamais un cœur.
+   */
+  payees: number
   protegee: boolean
   misee: boolean
   fin: FinDUneManche | null
@@ -843,7 +852,7 @@ export function etoilesDesManches(d: DepartDUnePartie, e: EtatDeLaPartie): Etoil
     return Array.from({ length: MANCHES_PAR_PARTIE }, (_, k) => {
       const m = e.manches[k]
       const n = m?.verdict?.naturel ?? null
-      return { naturel: n, etoiles: n, protegee: false, misee: m?.misee === true, fin: m?.fin ?? null }
+      return { naturel: n, etoiles: n, payees: m?.verdict?.payees ?? 0, protegee: false, misee: m?.misee === true, fin: m?.fin ?? null }
     })
   }
   const naturel = Array.from({ length: MANCHES_PAR_PARTIE }, (_, k) => e.manches[k]?.verdict?.naturel ?? null)
@@ -851,7 +860,14 @@ export function etoilesDesManches(d: DepartDUnePartie, e: EtatDeLaPartie): Etoil
   const gardees = Array.from({ length: MANCHES_PAR_PARTIE }, (_, k) => gardee(e.manches[k]))
   const etoiles = etoilesApresLesPouvoirs(naturel, d.carte, e.misee, repondues, gardees)
   const protegee = mancheProtegee(naturel, d.carte, repondues, gardees)
-  return naturel.map((n, k) => ({ naturel: n, etoiles: etoiles[k], protegee: protegee === k, misee: e.misee === k, fin: e.manches[k]?.fin ?? null }))
+  return naturel.map((n, k) => ({
+    naturel: n,
+    etoiles: etoiles[k],
+    payees: e.manches[k]?.verdict?.payees ?? 0,
+    protegee: protegee === k,
+    misee: e.misee === k,
+    fin: e.manches[k]?.fin ?? null,
+  }))
 }
 
 /**

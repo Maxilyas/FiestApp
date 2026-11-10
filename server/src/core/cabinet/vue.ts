@@ -184,7 +184,7 @@ function revelationDe(d: DepartDUnePartie, e: EtatDeLaPartie, m: MancheDuPli): R
 
 /**
  * Ce que vaut chaque manche à présent, et pourquoi ses étoiles diffèrent de
- * ses naturelles — « +3 : mise gagnée », « +1 : protégée » —, ou pourquoi ses
+ * ses naturelles — « +3 : mise gagnée », « +1 : protégée », « −1 : ton aide » —, ou pourquoi ses
  * trois étoiles ne dorent pas de cadre : une manche aidée le dit (« éclairée »,
  * « changée », « temps en plus »). À la tablée du 25 octobre 2026, un 9 sur 9
  * entrait sans cadre doré sans un mot, et « +2 : mise gagnée » se lisait comme
@@ -201,6 +201,9 @@ function manchesDe(d: DepartDUnePartie, e: EtatDeLaPartie): MancheVue[] {
     if (x.naturel !== null && x.etoiles !== null) {
       if (x.misee) notes.push(x.naturel === ETOILES_PAR_MANCHE ? `+${x.etoiles - ETOILES_PAR_MANCHE} : mise gagnée${auDelaDuPlafond ? `, au-delà de ${ETOILES_D_UNE_PARTIE}` : ''}` : 'Mise perdue')
       else if (x.protegee && x.etoiles > x.naturel) notes.push(`+${x.etoiles - x.naturel} : protégée`)
+      // Le Filet en deux temps : ce que ses aides payées ont pris, déjà ôté de ses étoiles — sans un mot, ★★ devenues ★ se
+      // lisaient comme un lancer raté.
+      if (x.payees > 0) notes.push(`−${x.payees} : ${x.payees > 1 ? 'tes aides' : 'ton aide'}`)
       if (m?.etapes.some(s => s.eclairee)) notes.push('éclairée')
       if (m && m.tirage >= MANCHES_PAR_PARTIE) notes.push('changée')
       if (m?.etapes.some(s => s.tempsEnPlus)) notes.push('temps en plus')

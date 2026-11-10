@@ -20,6 +20,14 @@
 // L'anglais et l'espagnol ont pris chacun le leur le même jour : une série
 // de Culture générale y gagne des questions de langue, quatre sous-thèmes
 // sur douze, et une série de toutes les catégories presque rien.
+//
+// La plongée et l'équitation (le souhait du propriétaire du 9 novembre
+// 2026 : « rajouter deux thèmes », l'un sur « la discipline plongée »,
+// l'autre sur l'équitation) ont chacune le leur en Sport : la base n'en
+// posait presque rien — une question sur les épreuves équestres de 1956,
+// aucune sur la plongée —, et rangées dans glisse ou olympisme, leurs cent
+// trente-cinq questions en auraient fait plus du tiers. Une série de Sport
+// leur donne deux tours sur onze.
 
 import type { Categorie } from './categories'
 
@@ -121,6 +129,8 @@ export const SOUS_THEMES: Record<Categorie, readonly SousTheme[]> = {
     { cle: "mecaniques", nom: "Sports mécaniques" },
     { cle: "glisse", nom: "Montagne, glisse et voile" },
     { cle: "combat", nom: "Sports de combat" },
+    { cle: "equitation", nom: "Équitation et courses hippiques" },
+    { cle: "plongee", nom: "Plongée et apnée" },
   ],
   "Cuisine": [
     { cle: "france", nom: "Spécialités françaises" },

@@ -106,6 +106,20 @@
 // carte ++ à 45 pièces (`PRIX_DU_MARCHAND=auPlusHaut:45`) —, et ses nombres
 // (`COEURS_DE_DEPART`, `OR_PAR_ETOILE`, `NIVEAU_OFFERT`) dans le fichier, le
 // temps de la mesure.
+//
+// Le Filet est celui que le serveur tire (`FILET_EN_DEUX_TEMPS`) ; `--filet
+// avant` ou `--filet deux-temps` choisit, pour comparer. Le nouveau se tire de
+// vraies questions, celles de son contenu, à l'acte de l'épreuve — l'acte I hors
+// d'une traversée —, et son joueur modèle ne lit que l'acte : la loi des étoiles
+// des vrais lancers, rejoués en deux temps acte par acte
+// (`LOI_DU_FILET_PAR_ACTE`). Qui ne sait pas l'époque la touche au hasard, sauf
+// s'il prend l'indice — ou « Deux époques de moins » quand la question n'a pas
+// d'indice honnête — : d'office, il le prend, une étoile pour garder son cœur ;
+// `--aides jamais`, il n'en prend que d'Éclairer. Les vraies parties diront ce
+// que font les joueurs ; d'ici là, les deux bornent ce que le nouveau Filet
+// change.
+//
+//   npx tsx scripts/calibrage-cabinet.ts --sections traversee [--filet avant|deux-temps] [--aides sans-savoir|jamais]
 import type { Niveau } from '../../shared/campagne'
 import type { Lieu, Fiche, Replique, FriseATheme } from '../../shared/cabinet/contenu'
 import type { ContenuTire } from '../../shared/cabinet/jeux/index'
@@ -115,6 +129,8 @@ import type { PariMontre, PariTire } from '../../shared/cabinet/jeux/pari'
 import type { EclairMontre, EclairTire } from '../../shared/cabinet/jeux/eclair'
 import type { MotMontre, MotTire } from '../../shared/cabinet/jeux/mot'
 import type { FiletMontre, FiletTire, TailleDuFilet } from '../../shared/cabinet/jeux/filet'
+import type { CleDAideDuFilet, FiletEnDeuxTempsMontre, FiletEnDeuxTempsTire, LancerEnDeuxTemps } from '../../shared/cabinet/jeux/filetEnDeuxTemps'
+import type { QuestionDeLaBase } from '../src/core/baseCampagne'
 import type { DetailMontre, DetailTire, TableauDuCabinet } from '../../shared/cabinet/jeux/detail'
 import type { FriseMontree, FriseTiree } from '../../shared/cabinet/jeux/frise'
 import type { DecalageDeLaZone, EpingleMontree, EpingleTiree } from '../../shared/cabinet/jeux/epingle'
@@ -133,6 +149,7 @@ import type {
   GesteDeLaTraversee,
   GesteDeLaTraverseeEcrit,
   MancheConclue,
+  ThemesDuContenu,
 } from '../../shared/cabinet/traversee'
 import type { Point } from '../../shared/cabinet/france'
 import type { CleDePouvoir, Force } from '../../shared/cabinet/pouvoirs'
@@ -187,6 +204,20 @@ const SANS_MUSEE = ARGS.includes('--sans-musee')
 const enSection = (s: (typeof SECTIONS)[number]) => (sectionsDemandees ? sectionsDemandees.includes(s) : s !== 'traversee' && !(SANS_MUSEE && s === 'musee'))
 /** Les traversées de chaque joueur (`--sections traversee`) : chaque trio des dix cartes autant de fois, à quelques-unes près. */
 const TRAVERSEES = entier('traversees', 600)
+/**
+ * Le Filet que le calibrage joue : d'office celui que le serveur tire (`FILET_EN_DEUX_TEMPS`) ; l'autre, pour comparer —
+ * `avant`, son modèle de toujours ; `avant-joue`, tel que les joueurs l'ont joué (`LOI_DU_FILET_D_AVANT_PAR_MARCHE`), pour
+ * comparer deux règles sur les mêmes joueurs.
+ */
+const FILET_DEMANDE = valeursDe('filet').at(-1)
+if (FILET_DEMANDE !== undefined && !['avant', 'avant-joue', 'deux-temps'].includes(FILET_DEMANDE)) arreter(`--filet : avant, avant-joue ou deux-temps, pas « ${FILET_DEMANDE} »`)
+const FILET_JOUE = FILET_DEMANDE === 'avant-joue'
+/**
+ * Au nouveau Filet, qui ne sait pas l'époque prend l'indice — sinon « Deux époques de moins » —, une étoile pour garder
+ * son cœur (`sans-savoir`, d'office) ; ou il n'en prend jamais, qu'offertes par Éclairer (`jamais`).
+ */
+const AIDES_DU_JOUEUR = valeursDe('aides').at(-1) ?? 'sans-savoir'
+if (AIDES_DU_JOUEUR !== 'sans-savoir' && AIDES_DU_JOUEUR !== 'jamais') arreter(`--aides : sans-savoir ou jamais, pas « ${AIDES_DU_JOUEUR} »`)
 /**
  * Sa carrière (`--carriere 200`, rien d'office) : ses traversées l'une après l'autre, ses gardiens tirés parmi ceux qui
  * lui manquent, comme au serveur — la traversée où chaque étape des pistes du Cabinet lui tombe. Demandée seulement : deux
@@ -277,7 +308,7 @@ const { DANS_LA_FRANCE, dansLaFrance, distanceKm } = await import('../../shared/
 const { affirmationDe } = await import('../../shared/cabinet/jeux/eclair')
 // La question du pari plus haute que la première : la règle du tireur, importée — recopiée ici, elle s'en serait écartée.
 const { marchesDuPari } = await import('../../shared/cabinet/jeux/pari')
-const { pisteDuFilet } = await import('../../shared/cabinet/jeux/filet')
+const { pisteDuFilet, dansLeFilet } = await import('../../shared/cabinet/jeux/filet')
 const { detailTire } = await import('../../shared/cabinet/jeux/detail')
 const { estUneFriseSerree, friseEnVagues } = await import('../../shared/cabinet/jeux/frise')
 const { REGLE_DE_L_EPINGLE, epingleTiree, etoilesDeLaDistance, pointADistance, zoneDEclairer } = await import('../../shared/cabinet/jeux/epingle')
@@ -308,7 +339,13 @@ const D = await import('../../shared/cabinet/defis')
 const S = await import('../../shared/cabinet/sceaux')
 const R = await import('../../shared/cabinet/resume')
 const E = await import('../../shared/cabinet/exploits')
-const { JEUX_PRETS } = await import('../../shared/cabinet/ouverture')
+const { JEUX_PRETS, FILET_EN_DEUX_TEMPS } = await import('../../shared/cabinet/ouverture')
+/** Le nouveau Filet, ou celui d'avant (`--filet`). */
+const DEUX_TEMPS = FILET_DEMANDE === undefined ? FILET_EN_DEUX_TEMPS : FILET_DEMANDE === 'deux-temps'
+const F2 = await import('../../shared/cabinet/jeux/filetEnDeuxTemps')
+// Le nouveau Filet se tire de vraies questions de la base : leurs valeurs, leurs tranches et leur indice comptent.
+const { lireLaBase } = await import('../src/core/baseCampagne')
+const { valeurDuFilet } = await import('../src/core/cabinet/tirages/tas')
 
 const {
   ACTES_D_UNE_TRAVERSEE,
@@ -483,6 +520,33 @@ const MODELE = {
   repliqueQui: 0.33,
 }
 
+/**
+ * Le Filet en deux temps, hors du modèle — des lois, pas des parts : `MODELE` ne tient que des nombres et des listes,
+ * que la tablée relit (`tablee.test.ts`). La loi des étoiles, de zéro à trois, des vrais lancers du 1er au 8 novembre
+ * 2026 rejoués en deux temps, acte par acte — sans ce qui se calcule, à l'acte que le classement d'aujourd'hui donne à
+ * leur question : 24, 51 et 68 lancers (`retours/2026-11-09/reproductions/filet-en-production.ts actes`). Une borne
+ * basse : le curseur d'avant se posait sur une longue piste, et qui ne savait pas le laissait au milieu, souvent hors
+ * de la bonne époque. Sur si peu de lancers, les actes II et III ne se distinguent pas. Le joueur moyen la tient ; un
+ * plus fort sait l'époque plus souvent, et vise mieux (`saitLEpoque`, `classesSures`).
+ */
+const LOI_DU_FILET_PAR_ACTE: readonly (readonly number[])[] = [
+  [0.25, 0.125, 0.25, 0.375],
+  [0.451, 0.275, 0.216, 0.059],
+  [0.456, 0.206, 0.265, 0.074],
+]
+/**
+ * Le Filet d'avant tel que les joueurs l'ont joué (`--filet avant-joue`) : la loi des étoiles des mêmes lancers, à sa
+ * règle, marche par marche — 15, 87, 50 et 17 lancers. Le modèle d'avant (`filetSait`, `filetFlou`) lui donnait plus
+ * que les joueurs : le moyen y faisait 4,9 étoiles sur neuf en partie libre, les joueurs 3,4 ; 28 traversées sur cent,
+ * eux 26 (le 9 novembre 2026). Comparer le nouveau Filet à ce modèle-là aurait mesuré le modèle, pas la règle.
+ */
+const LOI_DU_FILET_D_AVANT_PAR_MARCHE: Readonly<Record<Niveau, readonly number[]>> = {
+  facile: [0.267, 0.067, 0.267, 0.4],
+  moyen: [0.644, 0.195, 0.115, 0.046],
+  difficile: [0.64, 0.26, 0.1, 0],
+  expert: [0.294, 0.529, 0.176, 0],
+}
+
 /** Une question de série au joueur moyen, lecture de l'anecdote comprise — le chiffre de `calibrage-sentiers.ts`… */
 const SECONDES_PAR_QUESTION_DE_SERIE = 20
 /** … dont l'anecdote, que le Cabinet lit à la révélation : le même temps. */
@@ -504,6 +568,8 @@ const SECONDES = {
   eclairAffirmation: 5,
   motEssai: 12,
   filet: 14,
+  // Le nouveau Filet : l'époque touchée, puis le curseur — deux gestes au lieu d'un ; l'indice pris se lit à part (`indiceLu`).
+  filetEnDeuxTemps: 16,
   detailRegard: 6,
   friseBase: 8,
   friseParVenu: 6,
@@ -589,6 +655,26 @@ const rangSelonLaForce = (parts: readonly number[], j: Joueur, r: Hasard) => 1 +
 /** Le Filet : la part des valeurs qu'il sait d'une question de cette marche, décalée comme la campagne la décale d'une question moyenne. */
 const filetSait = (j: Joueur, n: Niveau) => (j.theta === null ? 0 : chance(MODELE.filetSait, j.theta + logit(TAUX_DU_CALIBRAGE[n]) - logit(TAUX_DU_CALIBRAGE.moyen)))
 
+/** La loi des étoiles du nouveau Filet à cet acte, au joueur moyen (`LOI_DU_FILET_PAR_ACTE`). */
+const loiDuFilet = (acte: number): readonly number[] => LOI_DU_FILET_PAR_ACTE[Math.min(LOI_DU_FILET_PAR_ACTE.length - 1, Math.max(0, acte))]
+/**
+ * La part des joueurs moyens qui ne savent pas l'époque : ceux qui la ratent, et ceux qui la trouvent au hasard — une
+ * fois sur quatre, quatre époques à l'écran. Ce sont eux qui ont une aide à prendre.
+ */
+const neSaventPasLEpoque = (acte: number) => Math.min(0.999, loiDuFilet(acte)[0] / (1 - 1 / BAREME.TRANCHES_DU_FILET))
+/** Il sait l'époque : la part du joueur moyen, décalée de son logit ; le joueur au hasard, jamais. */
+const saitLEpoque = (j: Joueur, acte: number) => (j.theta === null ? 0 : chance(1 - neSaventPasLEpoque(acte), j.theta))
+/**
+ * Qui sait l'époque, de ★★★ à ★ : la loi des lancers, sans ceux qui l'ont trouvée au hasard. Le premier rang vise
+ * ★★★ ; un plus fort y monte (`rangSelonLaForce`).
+ */
+function classesSures(acte: number): number[] {
+  const [, une, deux, trois] = loiDuFilet(acte)
+  const sansLeHasard = Math.max(0, une - neSaventPasLEpoque(acte) / BAREME.TRANCHES_DU_FILET)
+  const n = trois + deux + sansLeHasard
+  return [trois / n, deux / n, sansLeHasard / n]
+}
+
 // ── Le contenu ────────────────────────────────────────────────────────────
 
 const CONTENU = contenuDuCabinet()
@@ -597,6 +683,74 @@ const LIEUX: readonly Lieu[] = CONTENU.lieux
 const FICHES: readonly Fiche[] = CONTENU.fiches
 const REPLIQUES: readonly Replique[] = CONTENU.repliques
 const FRISES: readonly FriseATheme[] = CONTENU.frises
+
+/** Une question que le nouveau Filet pose : de la base, avec l'indice que son contenu y ajoute. */
+interface QuestionDuNouveauFilet {
+  question: QuestionTiree
+  valeur: number
+  annee: boolean
+  unite?: string
+  indice: string | null
+}
+/** L'acte de chaque question du contenu du Filet (`acteDuFilet`) : le joueur modèle n'en lit que cela. */
+const ACTE_DU_FILET = new Map(CONTENU.filet.map(e => [e.id, F2.acteDuFilet(e)]))
+const INDICE_DU_FILET = new Map(CONTENU.filet.map(e => [e.id, e.indice]))
+let BASE_DU_FILET: readonly QuestionDeLaBase[] | null = null
+/** Les questions de la base que le contenu du Filet range, lues une fois — seulement si le nouveau Filet se joue. */
+const baseDuFilet = () => (BASE_DU_FILET ??= lireLaBase().questions.filter(q => ACTE_DU_FILET.has(q.id) && !(q.meta.aRelire ?? []).length))
+const FILETS_PAR_ACTE = new Map<string, { questions: QuestionDuNouveauFilet[]; poids: Record<number, number[]> }>()
+/**
+ * Les questions que le nouveau Filet pose à cet acte l'année de la mesure, et les poids de la place de la réponse,
+ * calculés sur ses années : comme le tireur du serveur (`tirerUnFiletEnDeuxTemps`, `poidsDeLActe`).
+ */
+function filetALActe(acte: number, annee: number) {
+  const cle = `${acte}|${annee}`
+  let x = FILETS_PAR_ACTE.get(cle)
+  if (!x) {
+    const questions: QuestionDuNouveauFilet[] = []
+    for (const q of baseDuFilet()) {
+      const v = ACTE_DU_FILET.get(q.id) === acte ? valeurDuFilet(q) : null
+      if (!v || !F2.seTendEnDeuxTemps(v.valeur, v.annee, annee)) continue
+      questions.push({
+        // Telle que la base l'écrit : l'ordre de ses réponses ne compte pas au Filet, et un mélange ferait varier la mesure.
+        question: { id: q.id, texte: q.texte, reponses: [...q.reponses], bonne: q.bonne, categorie: q.meta.categorie, anecdote: q.anecdote, niveau: 'moyen' },
+        valeur: v.valeur,
+        annee: v.annee,
+        ...(v.unite !== undefined && { unite: v.unite }),
+        indice: INDICE_DU_FILET.get(q.id) ?? null,
+      })
+    }
+    x = { questions, poids: F2.poidsDesPlaces(questions.filter(q => q.annee).map(q => q.valeur), annee) }
+    FILETS_PAR_ACTE.set(cle, x)
+  }
+  return x
+}
+/**
+ * Des manches du nouveau Filet, comme son tireur : une question de l'acte au hasard — un acte sans assez de valeurs en
+ * prend aux autres —, la place de la réponse avec ses poids, les deux époques que l'aide retirerait ; jamais deux fois
+ * la même valeur dans une partie. Sans repères : le joueur modèle ne les lit pas.
+ */
+function tirerLeNouveauFilet(n: number, r: Hasard, annee: number, acte: number): FiletEnDeuxTempsTire[] {
+  const tirages: FiletEnDeuxTempsTire[] = []
+  const valeurs = new Set<number>()
+  for (const a of [acte, ...[0, 1, 2].filter(k => k !== acte)]) {
+    const { questions, poids } = filetALActe(a, annee)
+    for (let essai = 0; tirages.length < n && questions.length > 0 && essai < 50 * n; essai++) {
+      const x = auHasard(questions, r)
+      if (valeurs.has(x.valeur)) continue
+      const place = F2.tirerLaPlace(F2.placesPossibles(x.valeur, x.annee, annee), r, x.annee ? poids : undefined)
+      const t =
+        place === null
+          ? null
+          : F2.tirageEnDeuxTemps({ question: x.question, valeur: x.valeur, annee: x.annee, ...(x.unite !== undefined && { unite: x.unite }), place, anneeDuDepart: annee, reperes: [], indice: x.indice }, r)
+      if (!t) continue
+      valeurs.add(x.valeur)
+      tirages.push(t)
+    }
+    if (tirages.length === n) return tirages
+  }
+  return arreter(`Le nouveau Filet n'a pas ${n} valeurs à poser à l'acte ${acte + 1} en ${annee}`)
+}
 
 /**
  * Des tableaux d'essai, d'années voisines : le Détail ne se joue ici qu'au
@@ -628,9 +782,9 @@ const distincts = <T>(tas: readonly T[], n: number, r: Hasard): T[] => battre(ta
 /**
  * Ce qu'un départ tire, comme le tireur du serveur : les trois manches, puis les rechanges de Changer — aux marches que
  * l'enjeu de l'œuvre visée y ajoute (`marchesDeLEnjeu`), une frise serrée pour une épique (`estUneFriseSerree`), la
- * question du pari plus haute que la première.
+ * question du pari plus haute que la première. Le nouveau Filet tire à l'acte de l'épreuve, l'acte I hors d'une traversée.
  */
-function tirer(jeu: CleDeJeu, n: number, r: Hasard, anneeDuDepart: number, enjeu: EnjeuDuTirage): ContenuTire[] {
+function tirer(jeu: CleDeJeu, n: number, r: Hasard, anneeDuDepart: number, enjeu: EnjeuDuTirage, acte = 0): ContenuTire[] {
   const aLEnjeu = (marches: readonly Niveau[]) => P.marchesDeLEnjeu(marches, enjeu)
   switch (jeu) {
     case 'pari':
@@ -646,6 +800,7 @@ function tirer(jeu: CleDeJeu, n: number, r: Hasard, anneeDuDepart: number, enjeu
         return { jeu, question: question(uneMarche(aLEnjeu(MARCHES_DU_MOT), r), r), lettres, affiche: lettres[0] + lettres.slice(1).toLowerCase() }
       })
     case 'filet':
+      if (DEUX_TEMPS) return tirerLeNouveauFilet(n, r, anneeDuDepart, acte)
       return Array.from({ length: n }, (): FiletTire => {
         for (;;) {
           // Trois sur cinq des années, le reste des estimations, de dix à cent mille.
@@ -948,6 +1103,8 @@ const MODELES: Partial<Record<CleDeJeu, (j: Joueur, enjeu: EnjeuDuTirage) => Mod
     ]
   },
   filet: (j, enjeu) => {
+    // Une partie libre tire le nouveau Filet à l'acte I.
+    if (DEUX_TEMPS) return modeleDuNouveauFilet(j, 0)
     const marches = P.marchesDeLEnjeu(MARCHES_DU_FILET, enjeu)
     const sait = marches.reduce((n, k) => n + filetSait(j, k), 0) / marches.length
     return [
@@ -1289,8 +1446,10 @@ function filetLance(p: Partie, m: Manche, ecart: number): TailleDuFilet {
   return meilleurDes(TAILLES, t => prise(t, ecart) * p.attente(m, ici(t)) + (1 - prise(t, ecart)) * p.attente(m, 0), moyenne)
 }
 
-/** Le Filet : son estimation, puis le filet qui l'approche le plus de son but (`filetLance`). */
+/** Le Filet : son estimation, puis le filet qui l'approche le plus de son but (`filetLance`) ; le nouveau, à part. */
 function mancheDuFilet(p: Partie, m: Manche): void {
+  if ('deuxTemps' in p.tiree<FiletTire | FiletEnDeuxTempsTire>()) return mancheDuFiletEnDeuxTemps(p, m)
+  if (FILET_JOUE && p.j.theta !== null) return mancheDuFiletJoue(p, m)
   const t = p.tiree<FiletTire>()
   const s = p.savoir(p.manche.tirage, () => p.oui(filetSait(p.j, t.question.niveau)))
   if (p.changer(m, !s, SECONDES.filet)) return mancheDuFilet(p, m)
@@ -1305,6 +1464,125 @@ function mancheDuFilet(p: Partie, m: Manche): void {
   const surLePas = Number((piste.min + Math.round((Math.min(Math.max(x, piste.min), piste.max) - piste.min) / piste.pas) * piste.pas).toFixed(decimales(piste.pas)))
   const lance = Math.min(Math.max(surLePas, piste.min), piste.max)
   p.repondre(m, { filet: { x: lance, taille: filetLance(p, m, ecart) } }, SECONDES.filet, true)
+}
+
+/** Les filets, du plus petit au plus grand : ce qu'il lance pour trois, deux ou une étoile. */
+const FILET_DES_ETOILES = (etoiles: number): TailleDuFilet => TAILLES.find(t => ETOILES_DU_FILET[t] === etoiles)!
+
+/**
+ * Le Filet d'avant tel que les joueurs l'ont joué (`--filet avant-joue`) : ses étoiles tirées de la loi des vrais
+ * lancers à la marche de la question (`LOI_DU_FILET_D_AVANT_PAR_MARCHE`), un plus fort plus haut ; raté d'avance, il change
+ * de question s'il le peut, et éclaire — la zone dorée, que les lancers réels ne disent pas, se joue au modèle d'avant
+ * (`lancerEclaire`). Puis le filet de ces étoiles, la réponse dedans ; à zéro, le grand, la réponse dehors.
+ */
+function mancheDuFiletJoue(p: Partie, m: Manche): void {
+  const t = p.tiree<FiletTire>()
+  const etoiles = p.savoir(p.manche.tirage, () => {
+    const [zero, une, deux, trois] = LOI_DU_FILET_D_AVANT_PAR_MARCHE[t.question.niveau]
+    return [3, 2, 1, 0][rangSelonLaForce([trois, deux, une, zero], p.j, p.r) - 1]
+  })
+  if (p.changer(m, etoiles === 0, SECONDES.filet)) return mancheDuFiletJoue(p, m)
+  if (etoiles === 0 && p.peut('eclairer')) {
+    p.eclairer(m)
+    if (p.tranchee()) return
+    return lancerEclaire(p, m, t)
+  }
+  const { piste } = p.vue<FiletMontre>()
+  const surLaPiste = (x: number) => Math.min(Math.max(Number((piste.min + Math.round((x - piste.min) / piste.pas) * piste.pas).toFixed(decimales(piste.pas))), piste.min), piste.max)
+  const pas = Array.from({ length: Math.round((piste.max - piste.min) / piste.pas) + 1 }, (_, i) => surLaPiste(piste.min + i * piste.pas))
+  const taille = FILET_DES_ETOILES(Math.max(1, etoiles))
+  const places = pas.filter(x => dansLeFilet(x, taille, t.valeur, piste) === etoiles > 0)
+  // Le pas plus large que le filet : le plus près de la réponse, ou le plus loin.
+  const x = places.length > 0 ? auHasard(places, p.r) : meilleurDes(pas, x => (etoiles > 0 ? -1 : 1) * Math.abs(x - t.valeur))
+  p.repondre(m, { filet: { x, taille } }, SECONDES.filet, true)
+}
+
+/** Éclairé sans savoir : son estimation gardée dans la zone dorée, le filet qui l'approche le plus de son but — le modèle d'avant. */
+function lancerEclaire(p: Partie, m: Manche, t: FiletTire): void {
+  const { piste, zone } = p.vue<FiletMontre>()
+  const longueur = piste.max - piste.min
+  const flou = flouDuFilet(p.j)
+  const ecart = zone ? Math.min(flou, ZONE_DU_FILET / Math.sqrt(12)) : flou
+  let x = t.valeur + normale(p.r) * flou * longueur
+  if (zone) x = Math.min(Math.max(x, zone.de), zone.a)
+  const surLePas = Number((piste.min + Math.round((Math.min(Math.max(x, piste.min), piste.max) - piste.min) / piste.pas) * piste.pas).toFixed(decimales(piste.pas)))
+  p.repondre(m, { filet: { x: Math.min(Math.max(surLePas, piste.min), piste.max), taille: filetLance(p, m, ecart) } }, SECONDES.filet, true)
+}
+
+/** Ce qu'il sait d'une manche du nouveau Filet : l'époque, et alors l'anneau où tombe son lancer ; sinon rien. */
+interface SavoirDuNouveauFilet {
+  epoque: boolean
+  etoiles: 1 | 2 | 3
+}
+
+/**
+ * Le nouveau Filet. Il sait l'époque, et vise l'anneau que la loi des vrais lancers lui donne. Sinon il change de
+ * question s'il le peut ; il éclaire — l'indice d'abord, « Deux époques de moins » sans indice honnête — ou paie la
+ * même aide (`--aides`) ; puis il touche une époque au hasard parmi celles qui restent — la bonne, l'indice pris — et
+ * laisse le curseur où elle le pose, en son milieu. Le vrai pli juge le lancer et ce que les aides en prennent.
+ */
+function mancheDuFiletEnDeuxTemps(p: Partie, m: Manche): void {
+  const t = p.tiree<FiletEnDeuxTempsTire>()
+  const acte = ACTE_DU_FILET.get(t.question.id) ?? 0
+  const s = p.savoir(
+    p.manche.tirage,
+    (): SavoirDuNouveauFilet => ({ epoque: p.oui(saitLEpoque(p.j, acte)), etoiles: (4 - rangSelonLaForce(classesSures(acte), p.j, p.r)) as 1 | 2 | 3 }),
+  )
+  if (p.changer(m, !s.epoque, SECONDES.filetEnDeuxTemps)) return mancheDuFiletEnDeuxTemps(p, m)
+  let secondes = SECONDES.filetEnDeuxTemps
+  if (!s.epoque) {
+    const aide: CleDAideDuFilet = p.vue<FiletEnDeuxTempsMontre>().aides.some(a => a.cle === 'indice') ? 'indice' : 'epoques'
+    if (p.peut('eclairer')) p.eclairer(m, F2.AIDES_DU_FILET.indexOf(aide))
+    else if (AIDES_DU_JOUEUR === 'sans-savoir') p.geste({ quoi: 'aide', manche: m, aide }, SECONDES.pouvoir)
+    // L'échéance passée pendant ce geste : la page a envoyé ce qu'elle avait, rien.
+    if (p.tranchee()) return
+    if (p.vue<FiletEnDeuxTempsMontre>().indice !== null) secondes += SECONDES.indiceLu
+  }
+  p.repondre(m, { filet: lancerDuNouveauFilet(t, p.vue<FiletEnDeuxTempsMontre>(), s, p.r) }, secondes, true)
+}
+
+/**
+ * Son lancer : qui sait l'époque la touche, et pose le curseur sur un cran de l'anneau que la loi lui donne — ★★★, ★★,
+ * ou la bonne époque seulement ; qui ne la sait pas touche une époque au hasard parmi celles qui restent — la bonne, si
+ * l'indice la lui a dite — et laisse le curseur en son milieu.
+ */
+function lancerDuNouveauFilet(t: FiletEnDeuxTempsTire, v: FiletEnDeuxTempsMontre, s: SavoirDuNouveauFilet, r: Hasard): LancerEnDeuxTemps {
+  const bonne = t.bonnes[0]
+  if (!s.epoque) {
+    const ouvertes = v.indice !== null ? [bonne] : t.tranches.map((_, i) => i).filter(i => !v.retirees.includes(i))
+    const epoque = auHasard(ouvertes, r)
+    return { epoque, x: F2.milieuDeLaTranche(t.tranches[epoque]) }
+  }
+  const tranche = t.tranches[bonne]
+  const crans = Array.from({ length: F2.cransDe(tranche) + 1 }, (_, i) => F2.valeurAuCran(tranche, i))
+  const vises = crans.filter(x => F2.etoilesDuLancer(t, { epoque: bonne, x }) === s.etoiles)
+  // Aucun cran dans cet anneau — un pas plus large que lui : le plus près de la réponse.
+  return { epoque: bonne, x: vises.length > 0 ? auHasard(vises, r) : meilleurDes(crans, x => -Math.abs(x - t.valeur)) }
+}
+
+/**
+ * Ce qu'il saura d'une manche du nouveau Filet, pour la mise d'une partie libre (`Avenir`), à l'acte qu'elle tire. Qui
+ * sait l'époque vise son anneau ; qui ne la sait pas trouve la bonne une fois sur quatre — l'aide payée la lui donne,
+ * mais reprend l'étoile qu'elle vaut.
+ */
+function modeleDuNouveauFilet(j: Joueur, acte: number): ModeleDeManche {
+  const sait = saitLEpoque(j, acte)
+  const [trois, deux, une] = partsSelonLaForce(classesSures(acte), j)
+  const auHasardJuste = 1 / BAREME.TRANCHES_DU_FILET
+  return [
+    { part: sait * trois, lancers: [[[3, 1]]] },
+    { part: sait * deux, lancers: [[[2, 1]]] },
+    { part: sait * une, lancers: [[[1, 1]]] },
+    {
+      part: 1 - sait,
+      lancers: [
+        [
+          [1, auHasardJuste],
+          [0, 1 - auHasardJuste],
+        ],
+      ],
+    },
+  ]
 }
 
 /**
@@ -2062,7 +2340,7 @@ function jouerLEpreuve(j: Joueur, e: EtatDeLaTraversee, traversee: DepartDeLaTra
     cartes,
     chrono: P.chronoDuDepart(visee.jeu, cartes),
     graine: `${racine}:graine`,
-    tirages: tirer(visee.jeu, MANCHES_PAR_PARTIE + rechanges, hasardDe(`${racine}:depart`), P.anneeDuDepart({ jour: JOUR_MESURE }), enjeu),
+    tirages: tirer(visee.jeu, MANCHES_PAR_PARTIE + rechanges, hasardDe(`${racine}:depart`), P.anneeDuDepart({ jour: JOUR_MESURE }), enjeu, T.acteDe(etape.id)),
   }
   ENJEUX_DES_DEPARTS.set(d, enjeu)
   const relus = RELUS_DES_EPREUVES.get(d.jeu) ?? 0
@@ -2078,12 +2356,58 @@ function jouerLEpreuve(j: Joueur, e: EtatDeLaTraversee, traversee: DepartDeLaTra
     if (!P.mancheEnCours(p.e)?.verdict) throw new Error(`${d.jeu} : la manche ${m} de l'épreuve ne s'est pas tranchée`)
     p.t += SECONDES.revelation * 1000
   }
+  if (d.jeu === 'filet') compterLeFilet(j, T.acteDe(etape.id), p.e)
   // Ce qui a servi, comme le serveur l'écrit au geste qui conclut l'épreuve : les défis de ses cartes le lisent.
   return { manches: P.etoilesDesManches(d, p.e).map(x => ({ etoiles: x.naturel, misee: x.misee })), aides: P.aidesDeLaPartie(p.e), minutes: (p.t - T_MESURE) / 60_000 }
 }
 
-/** Les thèmes que le contenu livré offre à la carte : les lieux de l'Épingle, les frises à thème. */
-const THEMES_DU_CONTENU = { epingle: [...new Set(LIEUX.map(l => l.theme))], frise: [...new Set(FRISES.map(f => f.theme))] }
+/** Le Filet dans la traversée, acte par acte : ses manches, ses réussies, ses étoiles, ses aides payées et offertes. */
+interface FiletDeLaTraversee {
+  manches: number
+  reussies: number
+  etoiles: number
+  payees: number
+  offertes: number
+}
+const FILET_DE_LA_TRAVERSEE = new Map<string, FiletDeLaTraversee[]>()
+/**
+ * Les manches d'une épreuve du Filet, comptées à son joueur : réussie dès que le lancer valait une étoile — à zéro, ses
+ * aides ont tout pris, et la manche garde son cœur (`VerdictDUneManche.payees`).
+ */
+function compterLeFilet(j: Joueur, acte: number, e: EtatDeLaPartie): void {
+  const cle = cleDuSavoir(j)
+  const parActe = FILET_DE_LA_TRAVERSEE.get(cle) ?? Array.from({ length: ACTES_D_UNE_TRAVERSEE }, () => ({ manches: 0, reussies: 0, etoiles: 0, payees: 0, offertes: 0 }))
+  FILET_DE_LA_TRAVERSEE.set(cle, parActe)
+  const c = parActe[acte]
+  for (const m of e.manches) {
+    if (!m.verdict) continue
+    c.manches++
+    c.etoiles += m.verdict.naturel
+    if (m.verdict.naturel + (m.verdict.payees ?? 0) > 0) c.reussies++
+    const aides = (m.etat as { aides?: readonly { offerte: boolean }[] } | null)?.aides ?? []
+    c.payees += aides.filter(a => !a.offerte).length
+    c.offertes += aides.filter(a => a.offerte).length
+  }
+}
+
+let THEMES_DU_CONTENU: ThemesDuContenu | null = null
+/**
+ * Les thèmes que le contenu livré offre à la carte : les lieux de l'Épingle, les frises à thème — et, au nouveau Filet,
+ * les catégories où chaque acte a de quoi tirer, comme le serveur les lui donne (`categoriesDuFilet`). À la première
+ * carte tracée, pas au chargement : ces catégories lisent toute la base (`baseDuFilet`), une seconde et demie que
+ * chaque lancement payait, même pour refuser un essai ou mesurer un jeu seul — `cabinet-calibrage.test.ts` le
+ * lançait quatorze fois, et a passé les deux minutes d'un fichier sur la CI le 9 novembre 2026.
+ */
+const themesDuContenu = (): ThemesDuContenu =>
+  (THEMES_DU_CONTENU ??= {
+    epingle: [...new Set(LIEUX.map(l => l.theme))],
+    frise: [...new Set(FRISES.map(f => f.theme))],
+    ...(DEUX_TEMPS && {
+      filet: F2.categoriesDuFilet(
+        [0, 1, 2].flatMap(acte => filetALActe(acte, P.anneeDuDepart({ jour: JOUR_MESURE })).questions.map(q => ({ categorie: q.question.categorie ?? '', acte, valeur: q.valeur }))),
+      ),
+    }),
+  })
 
 /**
  * Une traversée entière, par les règles du code : ses gardiens et sa carte
@@ -2122,7 +2446,7 @@ function jouerUneTraversee(j: Joueur, cartes: readonly CleDeCarte[], racine: str
   }
   const r = hasardDe(`${racine}:choix`)
   const gardiens = T.choisirLesGardiens(hasardDe(`${racine}:gardiens`), possedes, false)
-  const depart: DepartDeLaTraversee = { v: T.VERSION_DE_LA_TRAVERSEE, jour: JOUR_MESURE, actes: T.tracerLaCarte(hasardDe(`${racine}:carte`), gardiens, THEMES_DU_CONTENU, JEUX_PRETS) }
+  const depart: DepartDeLaTraversee = { v: T.VERSION_DE_LA_TRAVERSEE, jour: JOUR_MESURE, actes: T.tracerLaCarte(hasardDe(`${racine}:carte`), gardiens, themesDuContenu(), JEUX_PRETS) }
   x.depart = depart
   let e = T.etatDuDepart(depart)
   let t = T_MESURE
@@ -2551,7 +2875,13 @@ if (enSection('musee')) {
 // 6. La traversée, d'un bout à l'autre : trop facile ? Ses cartes au plus haut trop tôt ? Ce que chacune apporte.
 if (enSection('traversee')) {
   console.log(
-    `La traversée, d'un bout à l'autre — ${formatNumber(TRAVERSEES)} traversées par joueur, chaque trio des ${T.CLES_DES_CARTES.length} cartes autant de fois, ses gardiens et sa carte tirés comme au serveur, chaque épreuve jouée manche par manche, ses cartes à leur niveau`,
+    `La traversée, d'un bout à l'autre — ${formatNumber(TRAVERSEES)} traversées par joueur, chaque trio des ${T.CLES_DES_CARTES.length} cartes autant de fois, ses gardiens et sa carte tirés comme au serveur, chaque épreuve jouée manche par manche, ses cartes à leur niveau ; le Filet ${
+      DEUX_TEMPS
+        ? `en deux temps, ses aides ${AIDES_DU_JOUEUR === 'jamais' ? 'jamais payées' : 'payées quand il ne sait pas l’époque'}`
+        : FILET_JOUE
+          ? 'd’avant, tel que les joueurs l’ont joué'
+          : 'd’avant'
+    }`,
   )
   console.log(
     `  ses choix : le chemin du coffre, sinon une épreuve au hasard ; à chaque amélioration, sa carte la moins haute ; chez le marchand, un cœur s'il lui en manque deux, des améliorations tant que l'or le permet, puis des cœurs ; Quitte ou double à quatre cœurs et plus, s'il sait au moins ce que sait le joueur moyen — la cible de l'Expédition : une traversée sur trois au joueur moyen, huit sur dix au fort`,
@@ -2590,6 +2920,14 @@ if (enSection('traversee')) {
         return n === 0 ? '—' : `${enPourcent(ys.reduce((s, x) => s + x.ratees[ou][k], 0) / n)} (${arrondi(moyenne(ys.map(x => x.perdus[ou][k])))} c.)`
       }).join(' · ')
     console.log(`    manches ratées, et cœurs perdus, acte ${ACTES_DITS.join(' · ')} : aux épreuves ${pression('epreuves')} ; contre le gardien ${pression('gardien')}`)
+    // Le Filet, épreuves et assauts mêlés : réussi dès qu'un lancer vaut une étoile, même reprise par une aide.
+    const filet = FILET_DE_LA_TRAVERSEE.get(cleDuSavoir(j)) ?? []
+    const auFilet = (f: (c: FiletDeLaTraversee) => string) => filet.map(c => (c.manches === 0 ? '—' : f(c))).join(' · ')
+    console.log(
+      `    le Filet, acte ${ACTES_DITS.join(' · ')} : ${auFilet(c => `${enPourcent(c.reussies / c.manches)} réussies, ${arrondi(c.etoiles / c.manches, 2)} ★`)}${
+        DEUX_TEMPS ? ` ; aides par manche, payées et offertes : ${auFilet(c => `${arrondi(c.payees / c.manches, 2)} et ${arrondi(c.offertes / c.manches, 2)}`)}` : ''
+      }`,
+    )
     const am = (k: keyof TraverseeJouee['ameliorations']) => arrondi(moyenne(xs.map(x => x.ameliorations[k])))
     const avecLeSouffle = xs.filter(x => x.cartes.includes('second-souffle'))
     console.log(
