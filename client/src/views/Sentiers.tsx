@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
 import { api, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Shape } from '../components/Shape'
-import { Feuille, GesteDuBas, Sortie } from '../components/Pieces'
+import { Feuille, GesteDuBas, Sortie, SousLePouce } from '../components/Pieces'
 import { LegendaireOuvert } from '../components/Ouverts'
 import { SerieCorrigee } from '../components/SerieCorrigee'
 import { APorter, CeQueTuGagnes, MissionsAccomplies, NouveauxTrophees, emojisAPorter, useNiveauRelu } from '../components/Gains'
@@ -1561,9 +1561,13 @@ function EcranDEpreuve({
                 </span>
               </p>
             )}
-            <button type="button" className="btn btn-primary btn-big btn-block" onClick={onSuivante}>
-              {r.epreuve.finie ? 'Voir le résultat' : 'Question suivante'}
-            </button>
+            {/* Sous le pouce : la question, le verdict et l'anecdote le poussaient sous le pli d'un petit téléphone (139 px de
+                page en trop en 360 × 640). */}
+            <SousLePouce>
+              <button type="button" className="btn btn-primary btn-big btn-block" onClick={onSuivante}>
+                {r.epreuve.finie ? 'Voir le résultat' : 'Question suivante'}
+              </button>
+            </SousLePouce>
             {!r.epreuve.finie && !valide && reste > 0 && reste <= 2 && (
               <p className="epreuve-encore">{`Plus qu’${reste === 1 ? 'une bonne réponse' : 'deux bonnes réponses'} pour ${pourQuoi}`}</p>
             )}
@@ -1766,9 +1770,12 @@ function FinDEpreuve({
         {fin.porte ? (
           <p className="muted small centre">C’est lui que la salle verra.</p>
         ) : (
-          <button type="button" className="btn btn-primary btn-big btn-block" onClick={() => void porter({ legendaire: portrait.key }, `Tu portes ${nomDansLaPhrase(portrait.nom)}`)}>
-            Le porter
-          </button>
+          // Sous le pouce : son portrait gagné, ce qu'il rapporte et ce qu'il ouvre le poussaient à 527 px sous l'écran.
+          <SousLePouce>
+            <button type="button" className="btn btn-primary btn-big btn-block" onClick={() => void porter({ legendaire: portrait.key }, `Tu portes ${nomDansLaPhrase(portrait.nom)}`)}>
+              Le porter
+            </button>
+          </SousLePouce>
         )}
         <button type="button" className="btn btn-block" onClick={onSentier}>
           Continuer le sentier
@@ -1838,10 +1845,13 @@ function FinDEpreuve({
             Racheter des vies
           </button>
         ) : (
-          <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={onSuivant}>
-            <Icon name="play" />
-            {suivant === PALIER_DU_MAITRE ? 'Tenter le maître' : `Jouer le palier ${suivant}`}
-          </button>
+          // Sous le pouce : un niveau gagné, un avatar à essayer, et il passait sous l'écran (196 px de page en trop).
+          <SousLePouce>
+            <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={onSuivant}>
+              <Icon name="play" />
+              {suivant === PALIER_DU_MAITRE ? 'Tenter le maître' : `Jouer le palier ${suivant}`}
+            </button>
+          </SousLePouce>
         )
       )}
       {/* Les étoiles qui manquent paient : le rejeu, gratuit, se propose ici. */}

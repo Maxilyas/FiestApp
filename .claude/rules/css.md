@@ -2,7 +2,7 @@
 paths:
   - "client/src/**/*.css"
   - "shared/typographie.ts"
-  - "server/test/{design,typographie,feuilles,calques-des-listes}.test.ts"
+  - "server/test/{design,typographie,feuilles,calques-des-listes,hauteur-des-pages}.test.ts"
 ---
 
 # Le CSS du client, et la typographie
@@ -62,18 +62,52 @@ paths:
   règle `profil.md` —, et `server/scripts/rendu-niche.ts` dit ce qui passe
   encore dessous.
 - **Une page à menu qui doit tenir sur l'écran retranche la barre de sa
-  hauteur.** `.player-shell` prend au moins l'écran (`min-height: 100dvh`)
-  et la barre du menu pose son retrait sur le corps (`body.avec-menu`,
-  72 px et l'encoche du bas) : l'un sur l'autre, la page défile toujours de
-  la hauteur de la barre, même à moitié vide. L'accueil d'un profil, qui
-  tient sur un écran depuis le 9 novembre 2026 (règle `profil.md`), prend
-  l'écran moins la barre, et moins le bandeau du service
-  (`body.avec-menu .accueil` : `100svh - 72px - env(safe-area-inset-bottom)
-  - var(--haut-du-bandeau, 0px)`) — `svh`, pas `dvh` : la barre d'adresse
-  du navigateur dépliée, tout tient encore. Ce qui s'y partage la hauteur
-  garde sa base à son contenu (`flex: 1 0 auto`, jamais `flex: 1`), et ce
-  qu'il resserre d'un composant partagé se règle en fin de feuille, sous
-  son propre cadre (`.accueil-gestes`) : les pièges de la règle `profil.md`.
+  hauteur — et toute coquille de page le fait d'elle-même**, depuis le
+  10 novembre 2026. `.player-shell` prenait au moins l'écran
+  (`min-height: 100dvh`) et la barre du menu pose son retrait sur le corps
+  (`body.avec-menu`, 72 px et l'encoche du bas) : l'un sur l'autre, toute
+  page à menu défilait de la hauteur de la barre, même à moitié vide —
+  « Mes soirées » d'un nouveau venu de 72 px, avec 325 px de libre
+  au-dessus du menu —, et de 58 px de plus sous le bandeau du service,
+  jusque sur l'écran d'une page en maintenance, qui n'a pas de menu. Le
+  bloc « Une page prend l'écran, pas plus », en fin de `styles.css` : le
+  corps dit ce que la barre lui prend (`--haut-du-menu`, la valeur même de
+  son `padding-bottom`, le panier de la boutique compris), le bandeau sa
+  hauteur mesurée (`--haut-du-bandeau`, `BandeauxDuService`), et les quatre
+  coquilles qui prennent l'écran (`.center-page`, `.join`, `.player-shell`,
+  `.filet`) les retranchent : `calc(100dvh - var(--haut-du-menu, 0px) -
+  var(--haut-du-bandeau, 0px))`. Une règle à une seule classe, à la force
+  de leur règle d'origine : elle la remplace, et toute règle plus précise
+  garde la main — une question (`.player-shell:has(.ans-grid)`), le QG, un
+  formulaire posé dans une autre page. Une page longue défile de ce qui
+  dépasse, comme avant. Trois choses la tiennent. **Une hauteur qui lit
+  une variable se replie sous `@supports`, jamais en seconde
+  déclaration** : une déclaration qui contient `var()` est tenue pour
+  valide à la lecture, et le navigateur qui ne connaît pas `dvh` ne retombe
+  pas sur le `vh` écrit au-dessus — il la jette au calcul, et la coquille
+  n'a plus de hauteur du tout (vérifié dans Chromium, sur une unité
+  inconnue). **La barre pose sa classe avant que la page ne se dessine**
+  (`MenuBarre`, `useLayoutEffect`) : posée après, une page qui partage
+  l'écran entre ses lignes se mesurait une image sans elle, puis se
+  reprenait sous le doigt. **Et le bandeau que le serveur écrit avant la
+  racine n'est pas encore mesuré** le temps du chargement : tant qu'il est
+  l'enfant direct du corps, la racine prend ce qu'il laisse
+  (`body:has(> .bandeau-du-service)`) — l'attente écrite dans la page
+  défilait de 58 px, et « Chargement… » remontait de 29 à l'arrivée de la
+  page. L'accueil d'un profil et le carrefour du profil, qui tiennent sur
+  un écran (règle `profil.md`), prennent l'écran moins la barre et le
+  bandeau, jusqu'à un plafond (`body.avec-menu .accueil`,
+  `body.avec-menu .profil-carrefour`), en `svh`, pas `dvh` : la barre
+  d'adresse du navigateur dépliée, tout tient encore. Ce qui s'y partage la
+  hauteur garde sa base à son contenu (`flex: 1 0 auto`, jamais `flex: 1`),
+  et ce qu'ils resserrent d'un composant partagé se règle en fin de
+  feuille, sous leur propre cadre (`.accueil-gestes`, `.profil-boutons`) :
+  les pièges de la règle `profil.md`. `hauteur-des-pages.test.ts` garde la
+  feuille ; ce qui défile ne se voit qu'au navigateur —
+  `server/scripts/rendu-carrefour.ts` ouvre ces pages aux deux tailles et
+  sort en erreur si l'une défile alors que sa coquille n'est pas plus haute
+  que son minimum. Une barre de plus au bas d'une page dit sa hauteur dans
+  `--haut-du-menu`, à côté du retrait qu'elle pose sur le corps.
 - **En CSS, `transform` se compose APRÈS `rotate`**, et une animation qui pose
   `transform` écrase celui de l'élément : le toast, centré par
   `translateX(-50%)`, partait sur la droite. Centre par marges.
@@ -217,3 +251,28 @@ paths:
   partagées qu'elle pose, sous `.cab-page` — et n'écrit aucun texte sous
   dix-sept pixels : `cabinet-ecran.test.ts` relit chaque sélecteur et chaque
   taille (règle `cabinet.md`).
+- **Le geste principal d'un écran plus long que le téléphone reste sous le
+  pouce** (`SousLePouce`, `components/Pieces.tsx`, `.sous-le-pouce` — la revue
+  de tous les écrans du 10 novembre 2026, en 360 × 640 : « Question
+  suivante » passait sous le pli après chaque réponse d'une révision, d'une
+  épreuve ou d'un duel, 122 à 139 px de page en trop ; « Jouer le duel »
+  était au pli sous « Défier Tom », « Ouvrir le salon » à 365 px sous
+  l'écran, « Un autre duel » à 656 sous ce qu'un duel venait de rapporter).
+  Une anecdote, une liste de gains, une liste d'amis ne se bornent pas :
+  c'est le geste qui reste en vue. À sa place tant que la page tient — ni
+  marge, ni fond, rien n'y change —, collé au bas de l'écran sinon
+  (`position: sticky`), où il prend son voile, le fond de la page fondu vers
+  le haut (`.colle`, que la pièce pose quand le navigateur le dit collé) ;
+  jamais à sa place : sur un thème peint, une bande unie y couperait le
+  décor, comme sous la carte de la loge. Ce qui le tient : **un seul geste
+  par cadre**, le principal — deux boutons collés prendraient le quart d'un
+  petit écran — ; **enfant direct de la colonne de la page** — collé dans un
+  cadre plus petit, il ne peut pas en sortir : le geste d'un duel fini a
+  quitté la colonne des gestes du bas pour ça (`.duels-geste-principal`) — ;
+  et **aucune coquille de page ne coupe ni ne fait défiler ce qu'elle
+  contient** (`.player-shell`, `.quiz-player` : un `overflow` sur l'une
+  d'elles, et chaque geste se collerait à elle, pas à l'écran).
+  `sous-le-pouce.test.ts` garde la pièce, sa feuille et chaque écran qui le
+  tient ; ce qui se voit — le bouton entier dans l'écran — se mesure au
+  navigateur. Un écran de plus dont le geste principal peut passer sous le
+  pli le prend, et entre dans l'épreuve.

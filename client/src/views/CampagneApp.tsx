@@ -11,7 +11,7 @@ import { EnJeu, ceQuIlPorte, scoreDeRencontre, type ContreEnJeu } from './Rencon
 import { Visage } from '../components/Avatar'
 import { nomDesCategories, nomDuChoix } from '../../../shared/nomDuChoix'
 import { Shape } from '../components/Shape'
-import { GesteDuBas, PieceTete, Sortie } from '../components/Pieces'
+import { GesteDuBas, PieceTete, Sortie, SousLePouce } from '../components/Pieces'
 import { Vies } from '../components/Vies'
 import { EclatTombe, LegendaireOuvert } from '../components/Ouverts'
 import { SerieCorrigee } from '../components/SerieCorrigee'
@@ -1192,19 +1192,23 @@ export function CampagneApp() {
         <GainsDeCampagne fin={ecran} profil={profil} />
         {erreur && <p className="error">{erreur}</p>}
         {carnet && encore > 0 ? (
-          <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={() => void reviserEncore(false, visee)}>
-            <Icon name="rotate" />
-            {`Réviser encore · ${questions(Math.min(encore, QUESTIONS_PAR_REVISION))}`}
-          </button>
+          <SousLePouce>
+            <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={() => void reviserEncore(false, visee)}>
+              <Icon name="rotate" />
+              {`Réviser encore · ${questions(Math.min(encore, QUESTIONS_PAR_REVISION))}`}
+            </button>
+          </SousLePouce>
         ) : carnet && carnet.aRevoir > 0 ? (
           <>
             {/* Ce qu'elle visait est revu : la suite reprend tout le carnet, et le dit. */}
             {nomDeLaVisee && <p className="muted small centre">{espacesFines(`${nomDeLaVisee} : rien de plus à revoir aujourd’hui.`)}</p>}
-            <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={() => void reviserEncore()}>
-              <Icon name="rotate" />
-              {/* Dix au plus, quoi qu'elle ait posé : une révision visée n'en posait parfois que trois. */}
-              {`Réviser encore · ${questions(Math.min(carnet.aRevoir, QUESTIONS_PAR_REVISION))}`}
-            </button>
+            <SousLePouce>
+              <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={() => void reviserEncore()}>
+                <Icon name="rotate" />
+                {/* Dix au plus, quoi qu'elle ait posé : une révision visée n'en posait parfois que trois. */}
+                {`Réviser encore · ${questions(Math.min(carnet.aRevoir, QUESTIONS_PAR_REVISION))}`}
+              </button>
+            </SousLePouce>
           </>
         ) : (
           carnet && (
@@ -1398,11 +1402,14 @@ export function CampagneApp() {
           )
         ) : ecran.defi ? (
           <>
-            {/* Une seule tentative : ni « Rejouer », ni la correction, qui attend la clôture. */}
-            <button type="button" className="btn btn-primary btn-big btn-block" onClick={() => void relire()}>
-              <Icon name="trophy" />
-              Le classement du défi
-            </button>
+            {/* Une seule tentative : ni « Rejouer », ni la correction, qui attend la clôture. Sous le pouce : ce que le défi
+                rapporte — un Éclat, des trophées — le poussait à 663 px sous l'écran d'un petit téléphone. */}
+            <SousLePouce>
+              <button type="button" className="btn btn-primary btn-big btn-block" onClick={() => void relire()}>
+                <Icon name="trophy" />
+                Le classement du défi
+              </button>
+            </SousLePouce>
             <p className="muted small centre">La correction s’ouvre lundi, à la clôture : elle soufflerait les réponses à ceux qui jouent encore.</p>
             <a className="btn btn-block" href="/">
               <Icon name="home" />
@@ -1562,17 +1569,21 @@ export function CampagneApp() {
                 </span>
               </p>
             )}
-            <button type="button" className="btn btn-primary btn-big btn-block" onClick={suivante}>
-              {r.finie
-                ? ecran.revision
-                  ? 'Voir ma révision'
-                  : ecran.rencontre || r.contre
-                    ? 'Voir qui a gagné'
-                    : ecran.contre
-                      ? 'Voir mon duel'
-                      : 'Voir ma série'
-                : 'Question suivante'}
-            </button>
+            {/* Sous le pouce : après chaque réponse, il passait sous le pli d'un petit téléphone — la question, le verdict
+                et l'anecdote le poussaient (122 px de trop en révision, 129 contre Automate, en 360 × 640). */}
+            <SousLePouce>
+              <button type="button" className="btn btn-primary btn-big btn-block" onClick={suivante}>
+                {r.finie
+                  ? ecran.revision
+                    ? 'Voir ma révision'
+                    : ecran.rencontre || r.contre
+                      ? 'Voir qui a gagné'
+                      : ecran.contre
+                        ? 'Voir mon duel'
+                        : 'Voir ma série'
+                  : 'Question suivante'}
+              </button>
+            </SousLePouce>
             <button
               type="button"
               className="lien-signaler link-inline small"
@@ -1684,10 +1695,13 @@ export function SuiteDeLaSerie({
   const jouees = nomDuChoix(categories, sujet)
   return (
     <>
-      <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={onRejouer}>
-        <Icon name="rotate" />
-        {jouees ? `Rejouer · ${jouees}` : 'Rejouer'}
-      </button>
+      {/* Sous le pouce : ce qu'une série rapporte — un niveau, un trophée, une mission — le poussait sous l'écran. */}
+      <SousLePouce>
+        <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={onRejouer}>
+          <Icon name="rotate" />
+          {jouees ? `Rejouer · ${jouees}` : 'Rejouer'}
+        </button>
+      </SousLePouce>
       <button type="button" className="btn btn-block" onClick={onChanger}>
         <Icon name="list" />
         {sujet ? 'Changer de sujet' : 'Changer de catégorie'}

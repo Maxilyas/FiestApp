@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Icon, type IconName } from './Icon'
 import { retenirLeFocus, useModale } from '../modale'
 import { nouveautesAPorter } from '../../../shared/piecesDeLaLoge'
@@ -58,6 +58,48 @@ export function GesteDuBas({ icone, children, onClick, busy, danger }: { icone: 
       <Icon name={icone} />
       {children}
     </button>
+  )
+}
+
+/**
+ * Le geste principal d'un écran, sous le pouce (la revue de tous les écrans du
+ * 10 novembre 2026 — le propriétaire : « que tu modifies ceux que tu trouves
+ * trop longs, ou [où] ça serait logique de tout voir sans scroller ») : à sa
+ * place dans la page tant qu'elle tient sur l'écran — rien n'y change —, collé
+ * au bas de l'écran dès que sa place est plus bas. En 360 × 640, « Question
+ * suivante » passait sous le pli après chaque réponse d'une révision, d'une
+ * épreuve ou d'un duel (122 à 139 px de page en trop : la question, le
+ * verdict, l'anecdote), « Jouer le duel » sous « Défier Tom », « Ouvrir le
+ * salon » à 365 px sous l'écran, « Un autre duel » sous ce qu'un duel venait
+ * de rapporter. La longueur d'une anecdote ou d'une liste de gains ne se borne
+ * pas : c'est le geste qui reste en vue, le reste défile dessous.
+ *
+ * Collé, il prend un voile — le fond de la page, qui cache ce qui défile sous
+ * lui. Jamais à sa place : sur un thème peint, une bande unie y couperait le
+ * décor (la carte de la loge, règle `css.md`). La page le sait par ce que le
+ * navigateur lui dit : collé, le bas du geste dépasse d'un pixel sa ligne de
+ * collage ; entier au-dessus, il est à sa place. Sans `IntersectionObserver`,
+ * il se colle quand même — sans son voile.
+ */
+export function SousLePouce({ children, className }: { children: ReactNode; /** Ce que sa page lui ajoute — ses écarts dans une colonne sans `gap`. */ className?: string }) {
+  const geste = useRef<HTMLDivElement>(null)
+  const [colle, setColle] = useState(false)
+  useEffect(() => {
+    const el = geste.current
+    if (!el || typeof IntersectionObserver === 'undefined') return
+    // Sa ligne de collage : son `bottom`, que l'encoche du bas d'un téléphone relève.
+    const ligne = parseFloat(getComputedStyle(el).bottom) || 0
+    const veille = new IntersectionObserver(([vu]) => setColle(vu.intersectionRatio < 1 && vu.boundingClientRect.top > 0), {
+      rootMargin: `0px 0px -${Math.ceil(ligne) + 1}px 0px`,
+      threshold: 1,
+    })
+    veille.observe(el)
+    return () => veille.disconnect()
+  }, [])
+  return (
+    <div ref={geste} className={'sous-le-pouce' + (className ? ` ${className}` : '') + (colle ? ' colle' : '')}>
+      {children}
+    </div>
   )
 }
 
@@ -145,8 +187,9 @@ export function Choix({ icone, titre, detail, onClick, disabled }: { icone: Icon
  *
  * Sa ligne peut se dire en deux temps (`suite`, l'accueil compact du
  * 9 novembre 2026) : l'essentiel, puis ce qu'elle ajoute là où le bouton a
- * la place. Sur l'accueil, où chaque bouton est une rangée d'une seule
- * ligne, la feuille ne montre que les morceaux qui tiennent entiers —
+ * la place. Sur l'accueil — et au carrefour du profil, depuis le lendemain —,
+ * où chaque bouton est une rangée d'une seule ligne, la feuille ne montre
+ * que les morceaux qui tiennent entiers —
  * « Ligue d'or · cote 1084 » en 360 de large, « · encore 3 duels pour ta
  * récompense » sur une rangée plus large — au lieu de couper la phrase au
  * milieu d'un mot ; ailleurs, la phrase passe à la ligne, comme avant. Le
@@ -319,7 +362,14 @@ export function MenuBarre({
    */
   nouveautes?: number
 }) {
-  useEffect(() => {
+  // Avant que la page ne se dessine (`useLayoutEffect`), pas après : la feuille
+  // retranche la barre de la hauteur des pages par cette classe
+  // (`--haut-du-menu`, en fin de `styles.css`), et celles qui partagent
+  // l'écran entre leurs lignes — l'accueil, le carrefour du profil — se
+  // mesuraient une image sans elle. Posée après coup, elle laissait le
+  // carrefour prendre tout l'écran le temps d'une image, ses lignes de 68 px
+  // hautes de 123 en 390 × 844, puis reprises sous le doigt (le 10 novembre 2026).
+  useLayoutEffect(() => {
     // La page ne passe jamais sous la barre ; et elle prend la couleur de sa
     // pièce — son titre, ses icônes, le filet de la barre —, sans que chaque
     // page la pose elle-même.

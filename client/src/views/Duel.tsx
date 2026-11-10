@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { api, motifDe } from '../api'
 import { Icon, type IconName } from '../components/Icon'
-import { Feuille, Sortie } from '../components/Pieces'
+import { Feuille, Sortie, SousLePouce } from '../components/Pieces'
 import { SerieCorrigee } from '../components/SerieCorrigee'
 import { BoutonCopier, BoutonPartager } from '../components/Partage'
 import { BlasonDeLigue } from '../components/Blason'
@@ -305,13 +305,18 @@ export function VerdictDuDuel({
           {erreur}
         </p>
       )}
-      <GestesDuBas>
-        {suite && (
+      {/* Son geste principal, sous le pouce (`SousLePouce`) : ce qu'un duel rapporte — l'expérience, de quoi s'habiller, une
+          mission — poussait « Un autre duel » à 656 px sous l'écran d'un petit téléphone. Il sort de la colonne des
+          gestes du bas, qu'il précède aux mêmes écarts (`.duels-geste-principal`). */}
+      {suite && (
+        <SousLePouce className="duels-geste-principal">
           <button type="button" className="btn btn-primary btn-big btn-block btn-duel" aria-disabled={busy || undefined} onClick={suite.onClick}>
             <Icon name={suite.icone} />
             {suite.texte}
           </button>
-        )}
+        </SousLePouce>
+      )}
+      <GestesDuBas>
         <div className="duels-gestes-paire">
           <a className="btn duels-contour" href="/">
             <Icon name="home" />
@@ -402,11 +407,14 @@ export function DuelEnvoye({
         </p>
       )}
       {extra && <div className="duels-extra">{extra}</div>}
-      <GestesDuBas>
+      {/* Sous le pouce, comme le geste d'un verdict : une mission accomplie le poussait à 336 px sous l'écran. */}
+      <SousLePouce className="duels-geste-principal">
         <a className="btn btn-primary btn-big btn-block btn-duel" href="/">
           <Icon name="home" />
           Accueil
         </a>
+      </SousLePouce>
+      <GestesDuBas>
         <a className="btn btn-block duels-contour" href={PAGE_DES_DUELS} onClick={surPlace(onMesDuels)}>
           <Icon name="swords" />
           Mes duels

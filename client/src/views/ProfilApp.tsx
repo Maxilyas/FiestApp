@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore, type MouseEvent, type ReactNode, type SyntheticEvent } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type MouseEvent, type ReactNode, type SyntheticEvent } from 'react'
 import { Glossaire } from '../components/Glossaire'
 import { api, auReveil, currentMe, motifDe } from '../api'
 import { Patience } from '../annonce'
@@ -804,8 +804,15 @@ export function ProfilApp() {
   // collectionneurs, le seul de sa page (le souhait du propriétaire du 9 novembre 2026). L'affiche elle-même reste à l'accueil.
   const { nouvelles } = ceQueMontreLAccueil(profil.affiches ?? [], page => pageOuverte(page, boutonsDesPages()))
   const nouvelle = (page: PageALAffiche) => (nouvelles.includes(page) ? <PastilleNouveau /> : undefined)
+  // Un carrefour se lit d'un coup d'œil (la revue des écrans du 10 novembre 2026, le lendemain de l'accueil en lignes) :
+  // empilés, chacun sur deux ou trois lignes de texte, ses six gros boutons faisaient 630 px en 360 × 640 et la page
+  // 829, pour 575 visibles au-dessus du menu — « Mes soirées » et « Ma carrière » restaient dessous. Les mêmes boutons,
+  // les mêmes noms, les mêmes gestes, dans le même ordre : en lignes dans une carte, comme à l'accueil (`.jouer-carte`),
+  // une ligne de texte chacun, et la page prend l'écran au-dessus du menu (`.profil-carrefour`, en fin de feuille). Le
+  // compte de ses lignes borne ce qu'elles se partagent : au-delà, elles seraient plus hautes que les gros boutons d'avant.
+  const lignes = nicheIci ? 6 : 5
   return (
-    <div className="player-shell" onClick={suivreUnLien}>
+    <div className="player-shell profil-carrefour" style={{ '--carrefour-lignes': lignes } as CSSProperties} onClick={suivreUnLien}>
       <h1 className="sr-only">Mon profil</h1>
       {/* Soi-même en tête, comme à l'accueil : un toucher ouvre sa carte, comme la salle l'ouvre en touchant son nom. */}
       <IdentiteLigne profil={profil} onCarte={() => setCarteOuverte(true)} />
@@ -818,14 +825,18 @@ export function ProfilApp() {
       )}
       {regionDAnnonce}
 
-      <div className="profil-boutons">
+      {/* Une carte, ses boutons en lignes, un filet entre eux (`.jouer-carte`, celle des sections de l'accueil). Chaque ligne
+          se dit en deux temps (`GrosBouton` `suite`) : l'essentiel, puis ce que la phrase ajoute là où la ligne a la place —
+          entière au lecteur d'écran, jamais coupée au milieu d'un mot. */}
+      <div className="profil-boutons jouer-carte">
         {/* Ce qu'il a de neuf à porter, compté en rouge comme les défis reçus (le souhait du propriétaire du
             14 octobre 2026) — la pastille dorée « Nouveau » se fondait parmi les autres —, et la loge
             s'ouvre sur la première pièce qui en a. */}
         <GrosBouton
           icone={<Icon name="hanger" />}
           titre="M’habiller"
-          detail="Avatar, titre, vitrine, fond, thème, gerbe"
+          detail="Avatar, titre, vitrine"
+          suite={[', fond', ', thème', ', gerbe']}
           compteur={plus && plus.nouveautes.nouveautes > 0 ? { n: plus.nouveautes.nouveautes, label: nouveautesAPorter(plus.nouveautes.nouveautes) } : undefined}
           onClick={() => ouvrir(pieceNeuve ?? 'avatar')}
         />
@@ -837,6 +848,7 @@ export function ProfilApp() {
             jauge={sonBouton?.jauge ?? 0}
             compte={sonBouton?.compte}
             detail={sonBouton?.detail ?? 'Sa niche, son nom, ses ornements'}
+            suite={sonBouton?.suite}
             onClick={() => ouvrir('compagnon')}
           />
         )}
@@ -845,22 +857,25 @@ export function ProfilApp() {
           titre="Ma collection"
           jauge={plus ? plus.collection.acquis / Math.max(1, plus.collection.total) : 0}
           compte={plus && `${formatNumber(plus.collection.acquis)} sur ${formatNumber(plus.collection.total)}`}
-          detail="Avatars, thèmes, trophées — et où gagner le reste"
+          detail="Avatars, thèmes, trophées"
+          suite={[' — et où gagner le reste']}
           onClick={() => ouvrir('collection')}
         />
         {/* Les collectionneurs (la maquette du 9 novembre 2026), juste sous ce qu'ils comptent : sa place et ce que vaut
             sa collection, au dernier relevé — dits avant qu'on le touche. Une page à part : un lien. */}
-        <GrosBouton icone={<Icon name="trophy" />} titre={TITRE_DES_COLLECTIONNEURS} detail={detailDesCollectionneurs(profil.collectionneur)} pastille={nouvelle('collectionneurs')} href="/collectionneurs" />
+        <GrosBouton icone={<Icon name="trophy" />} titre={TITRE_DES_COLLECTIONNEURS} {...ligneDesCollectionneurs(profil.collectionneur)} pastille={nouvelle('collectionneurs')} href="/collectionneurs" />
         <GrosBouton
           icone={<Icon name="book" />}
           titre="Mes soirées"
-          detail={profil.soirees.length === 0 ? 'Aucune encore' : `${profil.soirees.length} soirée${profil.soirees.length > 1 ? 's' : ''}, jouées ou animées`}
+          detail={profil.soirees.length === 0 ? 'Aucune encore' : `${profil.soirees.length} soirée${profil.soirees.length > 1 ? 's' : ''}`}
+          suite={profil.soirees.length === 0 ? undefined : [', jouées ou animées']}
           onClick={() => ouvrir('soirees')}
         />
         <GrosBouton
           icone={<Icon name="bar-chart" />}
           titre="Ma carrière"
-          detail={precision !== null ? `Précision ${precision} % · tes courbes` : 'Tes chiffres, tes courbes'}
+          detail={precision !== null ? `Précision ${precision} %` : 'Tes chiffres'}
+          suite={[precision !== null ? ' · tes courbes' : ', tes courbes']}
           onClick={() => ouvrir('carriere')}
         />
       </div>
@@ -1006,15 +1021,20 @@ function pageOuverte(page: PageALAffiche, etats: ReturnType<typeof boutonsDesPag
 }
 
 /**
- * Ce que le gros bouton des collectionneurs dit de lui : sa place et ce que
- * vaut sa collection au dernier relevé ; rien de chiffré tant que le serveur
- * ne l'a pas relu, ni pour qui n'a encore rien à classer.
+ * Ce que le gros bouton des collectionneurs dit de lui, en deux temps comme
+ * une ligne de l'accueil (`GrosBouton` `suite`) : sa place, puis ce que vaut
+ * sa collection, au dernier relevé ; rien de chiffré tant que le serveur ne
+ * l'a pas relu, ni pour qui n'a encore rien à classer. Classé, ses carats
+ * seuls suivent sa place : « 4ᵉ sur 87 · ta collection vaut 579 carats »
+ * passait sur deux ou trois lignes en 360 de large, et sur une seule, coupée
+ * à sa jointure, un téléphone n'en aurait lu que la place — son bouton
+ * s'appelle « Classement des collections », et dit déjà de quoi.
  */
-function detailDesCollectionneurs(r: PublicProfileDetail['collectionneur']): string {
-  if (!r) return 'Ta place, et ce que vaut ta collection'
+export function ligneDesCollectionneurs(r: PublicProfileDetail['collectionneur']): { detail: string; suite?: string[] } {
+  if (!r) return { detail: 'Ta place', suite: [', et ce que vaut ta collection'] }
   // Le nombre et son unité d'un bloc : « carats » restait seul sur sa ligne en 360 de large.
-  const valeur = `ta collection vaut ${formatNumber(r.carats)}\u00a0carat${r.carats >= 2 ? 's' : ''}`
-  return r.rang ? `${rang(r.rang)} sur\u00a0${formatNumber(r.classes)} · ${valeur}` : `${valeur.charAt(0).toUpperCase()}${valeur.slice(1)}`
+  const carats = `${formatNumber(r.carats)}\u00a0carat${r.carats >= 2 ? 's' : ''}`
+  return r.rang ? { detail: `${rang(r.rang)} sur\u00a0${formatNumber(r.classes)}`, suite: [` · ${carats}`] } : { detail: `Ta collection vaut ${carats}` }
 }
 
 /**

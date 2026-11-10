@@ -130,10 +130,16 @@ jour a sa notification (règle `rappel-et-installation.md`).
   gagné, le verdict disant déjà ce que le duel a fait) ; la ligne et la
   bannière de l'accueil dans `components/AccueilDesRoles.tsx`
   (`boutonDesDuels`, `BanniereDuResultat` — une tuile jusqu'à l'accueil en
-  lignes du 9 novembre 2026 : sa ligne dit l'essentiel, « Ligue d'or · cote
-  1084 », et ce que sa semaine attend encore, « · encore 3 duels pour ta
-  récompense », seulement là où la rangée a la place — une tablette, un
-  ordinateur —, règle `profil.md`) ; la bordure portée dans
+  lignes du 9 novembre 2026 : tant qu'il lui reste des duels à jouer pour
+  sa récompense de lundi, sa ligne dit d'abord ce que sa semaine attend
+  encore, « Encore 3 duels pour ta récompense » — « Encore 1 duel… » au
+  singulier —, puis sa ligue et sa cote, « · ligue d'or », « · cote 1084 »,
+  là où la rangée a la place ; sa récompense acquise, « Ligue d'or · cote
+  1084 », puis « · +30 confettis lundi ». Jusqu'au 10 novembre 2026, sa
+  ligue et sa cote passaient devant et la relance venait à leur suite :
+  58 caractères, pour une rangée de téléphone qui en montre 35 à 40 — elle
+  ne paraissait que sur une tablette ou un ordinateur —, règle
+  `profil.md`) ; la bordure portée dans
   `ProfileStore` (`update` la valide, `bordureDe` la lit de mémoire), son
   choix dans la loge (règle `profil.md`), son dessin (règle `medaillons.md`) ;
   sa ligue sur la carte (`core/carte.ts`)

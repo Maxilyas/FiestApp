@@ -150,7 +150,11 @@ test('la ligne de chaque bouton : ce qui l’attend en peu de mots, le reste à 
   // Les duels : ce qu'on lui a envoyé d'abord, puis sa ligue et sa cote — et ce que sa semaine attend encore, à la suite.
   const habituee = { cote: 1084, ligue: 'or', joues: 14, semaine: { duels: 0, ligue: 'or' } }
   assert.deepEqual(ligne(boutonDesDuels(undefined)), ['Défie qui tu veux', ', ou Automate', ' : monte de ligue'])
-  assert.deepEqual(ligne(boutonDesDuels(habituee)), ['Ligue d’or · cote 1084', ' · encore 3 duels pour ta récompense'])
+  // Ce que sa semaine attend encore passe devant sa ligue et sa cote : à leur suite, « · encore 3 duels pour ta récompense »
+  // ne tenait sur aucun téléphone — 58 caractères pour une quarantaine —, et ne se lisait que sur une tablette (le
+  // 10 novembre 2026). Son blason dit déjà sa ligue. Sa récompense acquise, sa ligue et sa cote reprennent la ligne.
+  assert.deepEqual(ligne(boutonDesDuels(habituee)), ['Encore 3 duels pour ta récompense', ' · ligue d’or', ' · cote 1084'])
+  assert.deepEqual(ligne(boutonDesDuels({ ...habituee, semaine: { duels: 2, ligue: 'or' } })), ['Encore 1 duel pour ta récompense', ' · ligue d’or', ' · cote 1084'])
   assert.deepEqual(ligne(boutonDesDuels({ ...habituee, semaine: { duels: 3, ligue: 'or' } })), ['Ligue d’or · cote 1084', ' · +30 confettis lundi'])
   assert.deepEqual(ligne(boutonDesDuels({ ...habituee, semainePassee: { ligue: 'or', confettis: 30 } })), ['+30 confettis pour ta semaine', ' en ligue d’or', ' · encore 3 duels pour la prochaine'])
   assert.deepEqual(ligne(boutonDesDuels({ ...habituee, enCours: { nom: 'Tom' } })), ['Ton duel contre Tom', ' t’attend'])
@@ -163,7 +167,7 @@ test('la ligne de chaque bouton : ce qui l’attend en peu de mots, le reste à 
   assert.deepEqual(ligne(boutonDuCabinet({ acte: 2, coeurs: 4 })), ['Acte 2 sur 3 · 4 cœurs'])
 
   // La phrase reste une phrase, pour qui l'écoute : l'essentiel et ses suites se lisent d'un trait.
-  assert.equal(phrase(boutonDesDuels(habituee)), 'Ligue d’or · cote 1084 · encore 3 duels pour ta récompense')
+  assert.equal(phrase(boutonDesDuels(habituee)), 'Encore 3 duels pour ta récompense · ligue d’or · cote 1084')
   assert.equal(phrase(boutonDesDuels(undefined)), 'Défie qui tu veux, ou Automate : monte de ligue')
   assert.equal(phrase(boutonDuDefi({ joueurs: 3, enCours: { justes: 4 } })), '4 bonnes réponses : reprends-le')
 
@@ -179,7 +183,8 @@ test('la ligne de chaque bouton : ce qui l’attend en peu de mots, le reste à 
     boutonDuDefi({ joueurs: 128 }),
     boutonDuDefi({ joueurs: 128, releve: { justes: 18, rang: 12 } }),
     boutonDesDuels(undefined),
-    boutonDesDuels({ ...habituee, ligue: 'diamant', cote: 2140 }),
+    boutonDesDuels(habituee),
+    boutonDesDuels({ ...habituee, ligue: 'diamant', cote: 2140, semaine: { duels: 3, ligue: 'diamant' } }),
     boutonDesDuels({ ...habituee, semainePassee: { ligue: 'or', confettis: 120 } }),
     boutonDuCabinet(undefined),
     boutonDuCabinet({ acte: 3, coeurs: 5 }),
@@ -192,7 +197,15 @@ test('la feuille : la page tient entre le haut de l’écran et la barre du menu
   const bloc = (selecteur: string) => css.match(new RegExp(`(?:^|\\n)${selecteur.replace(/[.*+?()[\]]/g, '\\$&')} \\{([^}]*)\\}`))?.[1] ?? ''
   // `min-height: 100dvh`, sous le retrait que la barre pose sur le corps, faisait toujours défiler la page de la hauteur de
   // la barre : l'accueil prend l'écran moins elle (et moins le bandeau du service, s'il y en a un), jusqu'à son plafond.
-  assert.match(bloc('body.avec-menu .accueil'), /min-height: min\(calc\(100svh - 72px - env\(safe-area-inset-bottom\) - var\(--haut-du-bandeau, 0px\)\), var\(--accueil-plafond\)\);/)
+  // En `svh` — la barre d'adresse du navigateur dépliée, tout tient encore —, écrit sous `@supports` : en seconde
+  // déclaration, le navigateur qui ne le connaît pas ne retombait pas sur le `vh` d'au-dessus (une déclaration qui lit
+  // une variable se jette au calcul), et l'accueil n'avait plus de hauteur du tout.
+  assert.match(bloc('body.avec-menu .accueil'), /min-height: min\(calc\(100vh - 72px - env\(safe-area-inset-bottom\) - var\(--haut-du-bandeau, 0px\)\), var\(--accueil-plafond\)\);/)
+  assert.doesNotMatch(bloc('body.avec-menu .accueil'), /svh/)
+  assert.match(
+    css,
+    /@supports \(min-height: 100svh\) \{\n  body\.avec-menu \.accueil \{ min-height: min\(calc\(100svh - 72px - env\(safe-area-inset-bottom\) - var\(--haut-du-bandeau, 0px\)\), var\(--accueil-plafond\)\); \}\n\}/,
+  )
   // Une ligne ne descend pas sous 48 px, une cible de doigt ; elle part de là et grandit avec les autres.
   assert.match(bloc('.accueil'), /--accueil-rang: 48px;/)
   assert.match(bloc('.accueil-gestes .gros-bouton'), /min-height: var\(--accueil-rang\);/)

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { api, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Shape } from '../components/Shape'
-import { Feuille, Sortie } from '../components/Pieces'
+import { Feuille, Sortie, SousLePouce } from '../components/Pieces'
 import { Onglets } from '../components/Onglets'
 import { LegendaireOuvert } from '../components/Ouverts'
 import { SerieCorrigee } from '../components/SerieCorrigee'
@@ -472,9 +472,12 @@ function EcranDeLEtape({
                 </span>
               </p>
             )}
-            <button type="button" className="btn btn-primary btn-big btn-block" onClick={onSuivante}>
-              {r.epreuve.finie ? 'Voir le résultat' : 'Question suivante'}
-            </button>
+            {/* Sous le pouce, comme après chaque réponse de la campagne (`SousLePouce`). */}
+            <SousLePouce>
+              <button type="button" className="btn btn-primary btn-big btn-block" onClick={onSuivante}>
+                {r.epreuve.finie ? 'Voir le résultat' : 'Question suivante'}
+              </button>
+            </SousLePouce>
             <button type="button" className="lien-signaler link-inline small" onClick={onSignaler}>
               Signaler une erreur dans cette question
             </button>
@@ -547,10 +550,13 @@ export function FinDeLEtape({
       <MissionsAccomplies key={e.id} profil />
       {erreur && <p className="error">{erreur}</p>}
       {validee && !derniere && !e.rejeu ? (
-        <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={onSuivant}>
-          <Icon name="play" />
-          {`Jouer l’étape ${e.palier + 1}`}
-        </button>
+        // Sous le pouce : une mission accomplie, un niveau gagné, et il passait sous l'écran (233 px de page en trop).
+        <SousLePouce>
+          <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={onSuivant}>
+            <Icon name="play" />
+            {`Jouer l’étape ${e.palier + 1}`}
+          </button>
+        </SousLePouce>
       ) : !validee ? (
         <>
           <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={onRejouer}>

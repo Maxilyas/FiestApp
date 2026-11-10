@@ -7,7 +7,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import React from 'react'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import Database from 'better-sqlite3'
@@ -351,9 +351,19 @@ test('l’affiche et la pastille, rendues : le bouton mène à la page, ses conf
   const vraie = renderToStaticMarkup(React.createElement(AfficheDeLaNouveaute, { affiche, onRanger: () => {} }))
   assert.match(vraie, /^<section class="affiche affiche-cabinet" aria-labelledby="affiche-titre-cabinet-ouvre">/)
   assert.match(vraie, /<h2 class="affiche-titre" id="affiche-titre-cabinet-ouvre">Le Cabinet ouvre<\/h2>/)
-  assert.match(vraie, /<a class="affiche-aller" href="\/cabinet">.*Visiter le Cabinet.*\+50 confettis à ta première visite.*<\/a>/)
+  const lien = /<a class="affiche-aller" href="\/cabinet">(.*?)<\/a>/.exec(vraie)?.[1] ?? ''
+  assert.match(lien, /Visiter le Cabinet/)
+  // Ses confettis en deux temps, dans le lien : couchée en bandeau, l'affiche ne montre que ce qui tient entier sur sa
+  // ligne — « +50 confettis », puis « à ta première visite » —, et la phrase reste une phrase pour qui l'écoute.
+  assert.match(lien, /<span class="affiche-cadeau"><span class="affiche-cadeau-combien">\+50\xa0confettis<\/span><span class="affiche-cadeau-quand"> à ta première visite<\/span><\/span>/)
+  assert.match(lien.replace(/<[^>]+>/g, ''), /\+50\xa0confettis à ta première visite$/)
   assert.match(vraie, /<button type="button" class="affiche-plus-tard">Plus tard<\/button>/)
   assert.match(vraie, /<div class="affiche-scene" aria-hidden="true">/, 'la scène peinte est décorative')
+  // Couchée en bandeau — un téléphone, où l'affiche en grand faisait défiler l'accueil — : la même affiche, les mêmes
+  // mots, le même lien ; une classe de plus, et rien d'autre.
+  const bandeau = renderToStaticMarkup(React.createElement(AfficheDeLaNouveaute, { affiche, onRanger: () => {}, forme: 'bandeau' }))
+  assert.equal(bandeau, vraie.replace('class="affiche affiche-cabinet"', 'class="affiche affiche-cabinet affiche-bandeau"'))
+  assert.equal(renderToStaticMarkup(React.createElement(AfficheDeLaNouveaute, { affiche, onRanger: () => {}, forme: 'affiche' })), vraie)
   // L'aperçu du QG : rien ne s'y touche, rien ne mène nulle part ; sans confettis, il n'en promet pas.
   const apercu = renderToStaticMarkup(React.createElement(AfficheDeLaNouveaute, { affiche: { ...affiche, confettis: 0 } }))
   assert.doesNotMatch(apercu, /<a |<button/)
@@ -384,4 +394,50 @@ test('l’affiche et la pastille, rendues : le bouton mène à la page, ses conf
   assert.match(bouton(occupe, 'Le Cabinet de curiosités'), /En route/)
   assert.match(bouton(occupe, 'Les duels'), /Résultat/)
   assert.doesNotMatch(occupe, /pastille-nouveaute/)
+})
+
+test('couchée en bandeau, l’affiche tient à la place d’« À la une » : le bandeau entier mène à sa page, sa phrase se lit encore, rien n’y est coupé au milieu', () => {
+  // En grand, elle faisait défiler l'accueil d'un téléphone — 179 px en 360 × 640, 67 en 390 × 844, le relevé du
+  // 9 novembre 2026 — : le dernier cas où un téléphone d'aujourd'hui défilait encore. Ce qui tient se mesure au
+  // navigateur (`rendu-accueil.ts`, le cas `affiche`) ; ici, ce que la feuille ne doit pas perdre en la couchant.
+  const css = readFileSync(new URL('../../client/src/styles.css', import.meta.url), 'utf8')
+  const bloc = (selecteur: string) => css.match(new RegExp(`(?:^|\\n) *${selecteur.replace(/[.*+?()[\]]/g, '\\$&')} \\{([^}]*)\\}`))?.[1] ?? ''
+  // La page choisit la forme sur la taille de l'écran : sous 940 px de haut ou 600 de large — tous les téléphones —,
+  // le bandeau ; au-delà — une tablette debout, un grand écran —, l'affiche entière, qui y a sa place.
+  const composant = readFileSync(new URL('../../client/src/components/AfficheDeLaNouveaute.tsx', import.meta.url), 'utf8')
+  assert.match(composant, /'\(max-height: 939px\), \(max-width: 599px\)'/)
+  // Une rangée : la scène et « Nouveau » à gauche, le titre et le geste à droite.
+  assert.match(bloc('.affiche-bandeau'), /display: grid;[^}]*grid-template-columns: auto minmax\(0, 1fr\);/)
+  // Le bandeau entier mène à la page : le lien se tend sur lui — comme « À la une », qu'il remplace —, « Plus tard »
+  // par-dessus. L'anneau du focus reste celui de l'application (`design.test.ts`, A2), à l'or de l'affiche : celui du
+  // thème, sombre sous l'Ivoire, se perdrait dans sa nuit.
+  assert.match(bloc('.affiche-bandeau .affiche-aller::after'), /content: ''; position: absolute; inset: 0;/)
+  assert.match(bloc('.affiche-bandeau .affiche-plus-tard'), /position: absolute;[^}]*z-index: 3;/)
+  assert.match(bloc('.affiche-bandeau .affiche-aller:focus-visible'), /outline-color: #f3d488; outline-offset: 2px;/)
+  // Sa phrase ne se montre qu'en grand : cachée à l'œil, jamais retirée — le lecteur d'écran la lit toujours.
+  assert.match(bloc('.affiche-bandeau .affiche-phrase'), /clip-path: inset\(50%\);/)
+  assert.doesNotMatch(bloc('.affiche-bandeau .affiche-phrase'), /display: none/)
+  // Son titre : sa rangée a toujours la hauteur de deux lignes — court ou long, le bandeau fait la même taille —, et il
+  // n'est jamais coupé : le QG refuse un titre trop long plutôt que de le couper, le bandeau ne le coupe pas non plus.
+  assert.match(bloc('.affiche-bandeau'), /grid-template-rows: minmax\(calc\(var\(--affiche-titre\) \* 2\.2\), auto\) auto;/)
+  assert.match(bloc('.affiche-bandeau .affiche-titre'), /font-size: var\(--affiche-titre\); line-height: 1\.1;/)
+  assert.doesNotMatch(bloc('.affiche-bandeau .affiche-titre'), /overflow|max-height|line-clamp|ellipsis/)
+  // Ce que la visite rapporte : des morceaux entiers ou rien (`flex-wrap`, une seule ligne de haut) — sous le nom du
+  // bouton d'or, et sur le petit téléphone à la suite de son geste, qui s'y écrit sans bouton.
+  assert.match(bloc('.affiche-bandeau .affiche-cadeau'), /display: flex; flex-wrap: wrap;[^}]*height: 1\.25em; overflow: clip;/)
+  const petit = css.match(/@media \(max-height: 719px\) \{\n  \.affiche-bandeau \{[^@]*/)?.[0] ?? ''
+  assert.match(petit, /\.affiche-bandeau \.affiche-aller-texte \{ flex-direction: row; flex-wrap: wrap;[^}]*height: 1\.3em; overflow: clip;/)
+  assert.match(petit, /\.affiche-bandeau \.affiche-cadeau \{ display: contents;/)
+  // Aucun texte sous le plus petit de l'application (`--t-label`, 0,6875 rem).
+  const tailles = [...css.matchAll(/--affiche-(?:titre|geste|cadeau|plus-tard): ([\d.]+)rem;/g)].map(m => Number(m[1]))
+  assert.ok(tailles.length >= 8, `${tailles.length} tailles lues`)
+  assert.ok(Math.min(...tailles) >= 0.6875, `la plus petite : ${Math.min(...tailles)} rem`)
+  // Sur le petit téléphone, une soirée où revenir prend aussi sa place, comme celle d'« À la une » : on revient là pour
+  // retourner jouer. La pastille « Nouveau » de son bouton reste, et l'affiche revient après la soirée.
+  assert.match(petit, /\n  \.accueil:has\(\.gros-principal\) \.affiche \{ display: none; \}\n/)
+  // Un peu plus haute qu'« À la une », dont elle prend la place : la page se resserre entre ses blocs plutôt que de défiler.
+  assert.match(css, /\.accueil:has\(\.affiche-bandeau\) \{ --accueil-ecart: 8px; --accueil-serre: 5px; \}/)
+  // Et « Nouveau », sur la ligne de sa page, perd son étincelle là où elle ferait passer « Le Cabinet de curiosités » sur
+  // deux lignes : sa rangée, plus haute que les autres, poussait « Entre amis » sous le menu.
+  assert.match(css, /@media \(max-width: 411px\) \{\n  \.accueil-gestes \.pastille-nouveaute \.icon \{ display: none; \}\n\}/)
 })

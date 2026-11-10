@@ -27,8 +27,11 @@ export function useSommaire(selecteur: string, cle: unknown): TitreDeSection[] {
     let image = 0
     const lire = () => {
       image = 0
+      // Ni le titre d'une fenêtre, ni celui d'un aperçu (`aria-hidden`) : l'affiche que la page des nouveautés montre telle
+      // que les joueurs la verront titre comme une section, et son titre entrait au sommaire — deux fois depuis qu'elle a
+      // deux aperçus.
       const lus = [...racine.querySelectorAll<HTMLHeadingElement>('h2[id]')]
-        .filter(h => !h.closest('[role="dialog"]'))
+        .filter(h => !h.closest('[role="dialog"], [aria-hidden="true"]'))
         .map(h => ({ id: h.id, texte: (h.textContent ?? '').trim() }))
         .filter(t => t.texte)
       setTitres(avant => (avant.length === lus.length && avant.every((t, i) => t.id === lus[i].id && t.texte === lus[i].texte) ? avant : lus))

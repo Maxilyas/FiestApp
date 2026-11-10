@@ -19,8 +19,10 @@
 //   npm run build -w client
 //   cd server && npx tsx scripts/rendu-accueil.ts ../export/accueil
 //
-// `SEULEMENT=habituee,chargee` ne photographie que ces cas. Le script sort en
-// erreur si un cas qui doit tenir — l'habituée, le débutant, l'Ivoire — défile
+// `SEULEMENT=habituee,chargee` ne photographie que ces cas ; `ENCOCHE=47` pose
+// l'encoche d'un iPhone et sa barre d'accueil — l'application installée, où la
+// page perd 81 px de hauteur. Le script sort en erreur si un cas qui doit
+// tenir — l'habituée, le débutant, l'Ivoire, l'affiche d'une nouveauté — défile
 // ou déborde en largeur ; les autres disent ce qui passe dessous.
 import { createRequire } from 'node:module'
 import { spawnSync } from 'node:child_process'
@@ -32,6 +34,7 @@ import { baseDEssai, demarrer, ecrire, inscrireProfil } from '../test/banc'
 import { ProfileStore } from '../src/auth/profiles'
 import { CATEGORIES } from '../../shared/categories'
 import { VIES } from '../../shared/campagne'
+import { DESTINATIONS, type PageALAffiche } from '../../shared/affiches'
 
 const Database = createRequire(import.meta.url)('better-sqlite3')
 const ici = path.dirname(fileURLToPath(import.meta.url))
@@ -46,6 +49,16 @@ const TOUS_LES_ECRANS: Ecran[] = [[360, 640], [360, 740], [390, 844], [412, 915]
 const DEUX_ECRANS: Ecran[] = [[360, 640], [390, 844]]
 const PETIT: Ecran[] = [[360, 640]]
 const TABLETTE: Ecran[] = [[768, 1024]]
+/**
+ * Les écrans hauts, pour l'affiche d'une nouveauté : haut mais étroit (360 × 940, moins de 600 de large), elle reste
+ * couchée en bandeau ; sur une tablette debout, elle se montre en grand.
+ */
+const GRANDS: Ecran[] = [[360, 940], [768, 1024]]
+/**
+ * L'encoche d'un iPhone, en pixels (`ENCOCHE=47`, comme `rendu-niche.ts`) : l'application installée y perd l'encoche en
+ * haut et la barre d'accueil en bas — une hauteur d'écran de 844 px n'en laisse que 763 à la page.
+ */
+const ENCOCHE = Number(process.env.ENCOCHE ?? 0)
 /** Chrome sur Android : la page y propose d'installer l'application, au pied de l'accueil. */
 const ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36'
 
@@ -117,6 +130,31 @@ const MESURES = `(() => {
     const montrees = [...el.querySelectorAll('.gros-suite')].filter(s => Math.abs(s.getBoundingClientRect().top - ligne) < 2)
     return el.querySelector('.gros-essentiel').textContent + ' [' + montrees.map(s => s.textContent).join('') + ']'
   })
+  // L'affiche d'une nouveauté : sa forme, sa hauteur, son titre s'il ne tient pas sur ses deux lignes, et ce que la ligne
+  // de son geste a la place de dire de ses confettis — des morceaux entiers, sur la ligne du bouton.
+  const laffiche = (() => {
+    const el = document.querySelector('.affiche')
+    if (!el || el.getBoundingClientRect().height === 0) return null
+    const titre = el.querySelector('.affiche-titre')
+    // Ses confettis : les morceaux que leur rangée montre — celle du cadeau sous le nom du bouton d'or, ou toute la ligne
+    // du geste sur le petit téléphone, où le cadeau s'y fond (display: contents).
+    const cadeau = el.querySelector('.affiche-cadeau')
+    const rangee = cadeau && getComputedStyle(cadeau).display !== 'contents' ? cadeau : el.querySelector('.affiche-aller-texte')
+    const cadre = rangee ? rangee.getBoundingClientRect() : null
+    const dits = [...el.querySelectorAll('.affiche-cadeau-combien, .affiche-cadeau-quand')].filter(s => {
+      const r = s.getBoundingClientRect()
+      return !!cadre && r.top < cadre.bottom - 2 && r.bottom > cadre.top + 2 && r.right <= cadre.right + 1
+    })
+    const plusTard = el.querySelector('.affiche-plus-tard')
+    const boite = plusTard ? plusTard.getBoundingClientRect() : null
+    return {
+      forme: el.classList.contains('affiche-bandeau') ? 'bandeau' : 'affiche',
+      haut: Math.round(el.getBoundingClientRect().height),
+      lignesDuTitre: titre ? Math.round(titre.getBoundingClientRect().height / parseFloat(getComputedStyle(titre).lineHeight)) : 0,
+      confettis: dits.map(s => s.textContent).join('').trim(),
+      plusTard: boite ? Math.round(boite.width) + ' × ' + Math.round(boite.height) : '',
+    }
+  })()
   return {
     ecran: window.innerWidth + '×' + window.innerHeight,
     pli: Math.round(pli),
@@ -128,13 +166,18 @@ const MESURES = `(() => {
     lignes,
     titresSurDeuxLignes,
     suites,
+    laffiche,
     blocs,
   }
 })()`
 
 const rapport: Record<string, any> = {}
-/** Les cas qui doivent tenir sur l'écran, sans défiler ni déborder : s'ils ne tiennent plus, le script sort en erreur. */
-const DOIVENT_TENIR = ['habituee', 'debutant', 'ivoire']
+/**
+ * Les cas qui doivent tenir sur l'écran, sans défiler ni déborder : s'ils ne tiennent plus, le script sort en erreur.
+ * L'affiche d'une nouveauté en est depuis le 10 novembre 2026 : couchée en bandeau sur un téléphone, elle tient à la
+ * place d'« À la une » ; en grand, là où l'écran a sa hauteur.
+ */
+const DOIVENT_TENIR = ['habituee', 'debutant', 'ivoire', 'affiche']
 try {
   const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
   const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐻')
@@ -193,9 +236,11 @@ try {
     /** Dans un navigateur d'Android, l'application pas installée, au lendemain d'une soirée : la ligne du lendemain et celle de l'installation. */
     navigateur?: boolean
     /** L'affiche d'une nouveauté, à la place d'« À la une », et « Nouveau » sur le bouton de sa page — tant qu'il n'y est pas allé ni ne l'a rangée. */
-    affiche?: boolean
+    affiche?: { page: PageALAffiche; titre: string; phrase: string; confettis: number }
     /** Le texte agrandi, en pour cent. */
     texte?: number
+    /** Un jeudi sans duel de la semaine : la ligne des duels dit ce que sa semaine attend encore — sa relance, la plus longue des lignes (33 caractères). */
+    relance?: boolean
   }
   const photographier = async (nom: string, cas: Cas, ecrans: Ecran[]) => {
     for (const [largeur, hauteur] of ecrans) {
@@ -244,11 +289,19 @@ try {
         requestAnimationFrame(voir)
       })()`)
       const page = await ctx.newPage()
+      // L'encoche d'un iPhone et sa barre d'accueil (34 px en bas), posées avant que la page n'ouvre rien : l'application
+      // installée leur rend de la hauteur, que Chromium sans écran ne retire pas de lui-même.
+      if (ENCOCHE) {
+        const cdp = await ctx.newCDPSession(page)
+        await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: ENCOCHE, topMax: ENCOCHE, bottom: 34, bottomMax: 34, left: 0, leftMax: 0, right: 0, rightMax: 0 } })
+      }
       page.on('pageerror', (e: Error) => console.error('[page]', e.message))
-      if (cas.chargee || cas.affiche) {
+      if (cas.chargee || cas.affiche || cas.relance) {
         await page.route(/\/api\/joueur\/moi\?accueil/, async (route: any) => {
           const reponse = await route.fetch()
           const j = await reponse.json()
+          // Ni le bilan du lundi, ni un duel de la semaine : il lui en reste trois à jouer pour sa récompense.
+          if (cas.relance) j.profile.duels = { ...j.profile.duels, semainePassee: undefined, semaine: { ...j.profile.duels?.semaine, duels: 0 } }
           if (cas.chargee) {
             j.enCours = [{ nom: 'Hugo', slug: 'chez-hugo' }]
             j.profile.duels = { ...j.profile.duels, semainePassee: undefined, resultats: { n: 1, de: 'Hugo', code: 'ABCD' }, defisRecus: { n: 2, de: 'Zoé' } }
@@ -256,9 +309,7 @@ try {
             j.profile.defi = { ...j.profile.defi, enCours: { justes: 4 } }
             j.profile.cabinet = { acte: 2, coeurs: 4 }
           }
-          if (cas.affiche) {
-            j.profile.affiches = [{ id: 'rendu', page: 'cabinet', titre: 'Le Cabinet de curiosités ouvre', phrase: 'Dix jeux, trois gardiens, un musée à remplir.', confettis: 50, rangee: false }]
-          }
+          if (cas.affiche) j.profile.affiches = [{ id: 'rendu', ...cas.affiche, rangee: false }]
           await route.fulfill({ response: reponse, json: j })
         })
       }
@@ -288,8 +339,20 @@ try {
     ['habituee', { cookie: lea }, TOUS_LES_ECRANS],
     ['debutant', { cookie: tom }, DEUX_ECRANS],
     ['chargee', { cookie: lea, chargee: true }, DEUX_ECRANS],
+    // La relance des duels, « Encore 3 duels pour ta récompense » : la plus longue des lignes, entière sur le petit téléphone.
+    ['relance', { cookie: lea, relance: true }, DEUX_ECRANS],
     ['navigateur', { cookie: lea, navigateur: true }, DEUX_ECRANS],
-    ['affiche', { cookie: lea, affiche: true }, DEUX_ECRANS],
+    // L'affiche du Cabinet telle que le QG la propose (son titre de 41 caractères, 50 confettis), couchée en bandeau à
+    // chaque taille de téléphone ; celle des duels, sans peinture ni confettis ; la plus longue qu'on puisse écrire — un
+    // titre de 48 caractères larges, 500 confettis — ; puis en grand, là où l'écran a sa hauteur.
+    ['affiche', { cookie: lea, affiche: { page: 'cabinet', titre: DESTINATIONS.cabinet.titre, phrase: DESTINATIONS.cabinet.phrase, confettis: 50 } }, TOUS_LES_ECRANS],
+    ['affiche-duels', { cookie: lea, affiche: { page: 'duels', titre: DESTINATIONS.duels.titre, phrase: DESTINATIONS.duels.phrase, confettis: 0 } }, DEUX_ECRANS],
+    [
+      'affiche-longue',
+      { cookie: lea, affiche: { page: 'collectionneurs', titre: 'Mesdames et Messieurs, le Grand Classement ouvre', phrase: DESTINATIONS.collectionneurs.phrase, confettis: 500 } },
+      DEUX_ECRANS,
+    ],
+    ['affiche-entiere', { cookie: lea, affiche: { page: 'cabinet', titre: DESTINATIONS.cabinet.titre, phrase: DESTINATIONS.cabinet.phrase, confettis: 50 } }, GRANDS],
     ['tablette', { cookie: lea }, TABLETTE],
     ['agrandi', { cookie: lea, texte: 130 }, PETIT],
   ]
@@ -304,7 +367,8 @@ try {
   writeFileSync(path.join(sortie, 'mesures.json'), JSON.stringify(rapport, null, 2))
   let rate = 0
   for (const [n, m] of Object.entries(rapport)) {
-    const doitTenir = DOIVENT_TENIR.some(c => n.startsWith(`${c}-`))
+    // Avec une encoche, seuls les grands écrans doivent tenir : aucun téléphone de 640 ou de 740 px de haut n'en a une.
+    const doitTenir = DOIVENT_TENIR.some(c => n.startsWith(`${c}-`)) && (!ENCOCHE || Number(n.match(/x(\d+)$/)?.[1]) >= 800)
     // Ce dont la page défile : le contenu passé sous la barre du menu, et la marge qu'elle garde sous son dernier bloc.
     const verdict = m.large
       ? 'DÉBORDE EN LARGEUR'
@@ -317,6 +381,12 @@ try {
     if (m.coupes.length) console.log(`   coupé au bout : ${m.coupes.join(' ; ')}`)
     if (m.titresSurDeuxLignes.length) console.log(`   titre sur deux lignes : ${m.titresSurDeuxLignes.join(' ; ')}`)
     if (m.suites.length) console.log(`   suites montrées : ${m.suites.join(' ; ')}`)
+    if (m.laffiche) {
+      const a = m.laffiche
+      console.log(
+        `   l'affiche : ${a.forme === 'bandeau' ? 'en bandeau' : 'en grand'}, ${a.haut} px${a.forme === 'bandeau' && a.lignesDuTitre > 2 ? ` · son titre sur ${a.lignesDuTitre} lignes` : ''}${a.confettis ? ` · ses confettis : « ${a.confettis} »` : ''} · « Plus tard » : ${a.plusTard} px`,
+      )
+    }
     // Ce qui précède peut changer de hauteur sans rien pousser (la place gardée devient le haut) : seul compte où tombe la section.
     // Un pixel d'écart est un arrondi (une police qui arrive) : il ne se voit pas.
     const tombes = (m.hauts as string[]).map(h => Number(h.split(' ')[0]))

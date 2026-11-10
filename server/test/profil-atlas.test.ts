@@ -174,7 +174,11 @@ test('le profil épuré : qui l’on est, puis quatre boutons — cinq avec un c
   // La page : soi-même en tête — un toucher ouvre sa carte, comme la salle —, puis quatre gros boutons, dans cet ordre.
   const page = app.slice(app.indexOf("// ── Le profil : qui l'on est, puis ses gros boutons ──"), app.indexOf('/**\n * Un onglet qui arrive'))
   assert.match(page, /<IdentiteLigne profil=\{profil\} onCarte=\{\(\) => setCarteOuverte\(true\)\} \/>\s*\{carteOuverte && laCarte && laCarte !== 'perdu' && <laCarte\.CarteJoueur adresse="\/api\/joueur\/carte" onFermer=\{\(\) => setCarteOuverte\(false\)\} \/>\}/)
-  const boutons = page.slice(page.indexOf('<div className="profil-boutons">'), page.indexOf('<Glossaire'))
+  // Empilés jusqu'au 10 novembre 2026, ils tiennent depuis en lignes dans une carte (`profil-carrefour.test.ts`) : les
+  // mêmes boutons, les mêmes gestes, dans le même ordre.
+  const debutDesBoutons = page.indexOf('<div className="profil-boutons jouer-carte">')
+  assert.ok(debutDesBoutons > 0, 'ses boutons se lisent dans leur carte')
+  const boutons = page.slice(debutDesBoutons, page.indexOf('<Glossaire'))
   // « M'habiller » ouvre la loge sur la première pièce qui a du neuf, l'avatar d'office. Chaque bouton se lit jusqu'à son
   // geste sans passer au suivant : « Les collectionneurs », un lien sans `onClick`, y prenait celui de « Mes soirées ».
   const gestes = [...boutons.matchAll(/<GrosBouton\s+icone=\{<Icon name="([\w-]+)" \/>\}\s+titre="([^"]+)"(?:(?!<GrosBouton)[\s\S])*?onClick=\{\(\) => ouvrir\((?:pieceNeuve \?\? )?'(\w+)'\)\}/g)].map(
@@ -185,7 +189,7 @@ test('le profil épuré : qui l’on est, puis quatre boutons — cinq avec un c
   // un écran du profil — et « Nouveau » tant qu'une affiche du QG le montre et qu'il n'y est pas allé.
   assert.match(
     boutons,
-    /ouvrir\('collection'\)\}\s*\/>\s*\{\/\*[^*]*\*\/\}\s*<GrosBouton icone=\{<Icon name="trophy" \/>\} titre=\{TITRE_DES_COLLECTIONNEURS\} detail=\{detailDesCollectionneurs\(profil\.collectionneur\)\} pastille=\{nouvelle\('collectionneurs'\)\} href="\/collectionneurs" \/>\s*<GrosBouton\s+icone=\{<Icon name="book" \/>\}\s+titre="Mes soirées"/,
+    /ouvrir\('collection'\)\}\s*\/>\s*\{\/\*[^*]*\*\/\}\s*<GrosBouton icone=\{<Icon name="trophy" \/>\} titre=\{TITRE_DES_COLLECTIONNEURS\} \{\.\.\.ligneDesCollectionneurs\(profil\.collectionneur\)\} pastille=\{nouvelle\('collectionneurs'\)\} href="\/collectionneurs" \/>\s*<GrosBouton\s+icone=\{<Icon name="book" \/>\}\s+titre="Mes soirées"/,
   )
   assert.match(page, /const nouvelle = \(page: PageALAffiche\) => \(nouvelles\.includes\(page\) \? <PastilleNouveau \/> : undefined\)/)
   // Et, juste après « M'habiller », « Mon compagnon » pour qui en a un : sa niche en petit dès que son code est là.
