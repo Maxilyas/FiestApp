@@ -161,9 +161,22 @@ import { sansAccent } from '../../shared/homonymes'
  * leurs relecteurs ne lisaient pas ensemble — 242 rangées : 27 786. Puis
  * un lot de complément, les faciles et les moyennes qui manquaient encore
  * aux deux montées de leur parcours, 29 rangées sur 30 : 27 815 — 135
- * questions d'équitation, 136 de plongée.
+ * questions d'équitation, 136 de plongée. Le 10 novembre 2026, le juge des
+ * faits reconnaît deux réponses chiffrées de même grandeur (`grandeurDe`,
+ * `core/memeFait.ts` : « 50 ans » et « 50 », « 40 h » et « 40 heures »,
+ * « 1 litre » et « 100 cl ») : il en relevait dix-neuf paires dans la base,
+ * dix-huit vrais doublons — les noces d'or et d'argent, les 24 carats de
+ * l'or pur, les 230 V du secteur, la chope de l'Oktoberfest, le magnum… —,
+ * dont une question sort : celle que le Filet du Cabinet ne pose pas, sinon
+ * la moins bien notée de son panel, sauf deux que les frises datent (c'est
+ * alors leur jumelle qui sort) : 27 797. La dix-neuvième, le quinquennat et
+ * le mandat du président, pose deux faits : elle reste. Les réponses
+ * chiffrées retournées que le même juge relevait ce jour-là — une question
+ * à nombre dont la réponse est écrite dans l'intitulé d'une autre, sur le
+ * même sujet — restent aussi : la règle ne vaut que pour les questions
+ * neuves, le choix du propriétaire, la plupart servant au Filet.
  */
-const AU_MOINS = 27815
+const AU_MOINS = 27797
 
 const { questions, refusees } = lireLaBase()
 

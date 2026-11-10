@@ -220,6 +220,62 @@ test('le dépôt écarte un fait que la base ou ce dépôt pose déjà : sous un
     assert.match(retournee.corps.ecartees[0].motif, /^pose sans doute le même fait que « Quel oiseau tambourine sur les troncs/)
   }))
 
+test('le dépôt écarte une réponse chiffrée qu’un intitulé écrit déjà, et dit à celle qui l’écrit quoi retirer', () =>
+  avecBanc({ jetonDeLaReserve: JETON }, async banc => {
+    // Le 9 novembre 2026, le juge laissait passer la question à nombre : l'autre ne lit pas sa réponse en retour.
+    const echassier = 'Quel grand échassier gris, haut d’environ 120 centimètres, traverse la France en V à l’automne ?'
+    const premier = await routine(banc, '/api/campagne/base', {
+      corps: {
+        categorie: 'Nature',
+        entrees: [
+          entree(echassier, { reponses: ['La grue cendrée', 'La cigogne blanche', 'Le héron cendré', 'Le flamant rose'] }),
+          // Sa réponse est écrite dans l'intitulé d'avant, qui a pour réponse ce dont elle demande la hauteur.
+          {
+            ...entree('Quelle hauteur atteint une grue cendrée dressée, en centimètres ?', {
+              reponses: ['120 cm', '80 cm', '100 cm', '150 cm'],
+              entites: [{ nom: 'Grue cendrée', type: 'espece', description: 'grand échassier migrateur' }],
+            }),
+            valeur: { nombre: 120, unite: 'cm' },
+          },
+        ],
+      },
+    })
+    assert.equal(premier.status, 200, premier.corps.error)
+    assert.equal(premier.corps.ajoutees, 1, JSON.stringify(premier.corps.ecartees))
+    assert.deepEqual(
+      premier.corps.ecartees.map((e: any) => e.motif),
+      [`pose sans doute le même fait que « ${echassier} » (Nature) : écris-en un autre`],
+    )
+    // Dans l'autre sens : la question à nombre est rangée, celle qui écrit sa réponse arrive. Elle pose un autre fait — le
+    // motif lui dit le nombre à retirer, pas d'en changer.
+    const loup = [{ nom: 'Loup gris', type: 'espece', description: 'grand canidé sauvage' }]
+    const retour = 'En quelle année le loup est-il revenu en France, par les Alpes du Sud ?'
+    const annee = await routine(banc, '/api/campagne/base', {
+      corps: {
+        categorie: 'Nature',
+        entrees: [{ ...entree(retour, { sousTheme: 'mammiferes', reponses: ['1992', '1975', '1984', '2001'], entites: loup }), valeur: { nombre: 1992, unite: '' } }],
+      },
+    })
+    assert.equal(annee.corps.ajoutees, 1, JSON.stringify(annee.corps.ecartees))
+    const massif = await routine(banc, '/api/campagne/base', {
+      corps: {
+        categorie: 'Nature',
+        entrees: [
+          entree('Dans quel massif le loup, venu d’Italie, est-il revu en France en 1992 ?', {
+            sousTheme: 'mammiferes',
+            reponses: ['Le Mercantour', 'Le Vercors', 'Les Écrins', 'Le Queyras'],
+            entites: loup,
+          }),
+        ],
+      },
+    })
+    assert.equal(massif.corps.ajoutees, 0)
+    assert.deepEqual(
+      massif.corps.ecartees.map((e: any) => e.motif),
+      [`donne dans son intitulé la réponse (1992) de « ${retour} » (Nature) : retire-la de l’intitulé, ou écris une autre question`],
+    )
+  }))
+
 test('le dépôt : relu par le juge de la base, les doublons écartés, le reste jouable tout de suite et gardé au réveil', () =>
   avecBanc({ jetonDeLaReserve: JETON }, async banc => {
     const admin = await connexionAnimateur(banc.url)

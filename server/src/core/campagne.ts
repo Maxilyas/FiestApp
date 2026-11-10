@@ -7679,7 +7679,7 @@ export class CampagneStore {
                   : vues.has(q.empreinte)
                     ? 'deux fois dans ce dépôt'
                     : memeFait
-                      ? motifDuMemeFait(memeFait)
+                      ? motifDuMemeFait(memeFait, q)
                       : place <= 0
                         ? `la catégorie a reçu ses ${PLAFOND_PAR_CATEGORIE_ET_PAR_JOUR} questions du jour`
                         : null
