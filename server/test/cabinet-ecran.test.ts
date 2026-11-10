@@ -890,9 +890,10 @@ test('le bouton de l’accueil dit sa traversée en route — « Acte 2 sur 3 ·
   assert.match(enRoute, /<span class="pastille-attente">En route<\/span>/)
   assert.doesNotMatch(enRoute, /class="icon chevron"/)
   // Le serveur n'en dit rien — une traversée qu'il n'a pas lue depuis son réveil, finie, ou jamais partie : l'accueil ne paie pas
-  // un aller-retour pour elle —, la ligne de toujours, et le chevron.
+  // un aller-retour pour elle —, la ligne de toujours, et le chevron. Ce qu'on y gagne d'abord, depuis l'accueil en lignes du
+  // 9 novembre 2026 : « Trois actes, trois gardiens, un légendaire au bout », coupée au bout de sa rangée, perdait son légendaire.
   const sans = await accueil({})
-  assert.match(texte(sans), /Trois actes, trois gardiens, un légendaire au bout/)
+  assert.match(texte(sans), /Un légendaire au bout · trois actes, trois gardiens/)
   assert.doesNotMatch(sans, /En route/)
   assert.match(sans, /class="icon chevron"/)
   // Fermé pour bientôt, la raison passe devant la traversée, sans pastille.

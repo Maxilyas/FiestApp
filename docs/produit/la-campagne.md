@@ -14,7 +14,7 @@ La campagne se joue seul, à ton rythme, sans chronomètre ni animateur. Elle vi
 | « Les sentiers » | `/campagne#sentiers` | Les sentiers du savoir ([leur page](les-sentiers-du-savoir.md)) |
 | « Apprendre » | `/campagne#carnet` | Le carnet de révision, puis les parcours de thème |
 
-Le défi de la semaine — la même série pour tous, une tentative par semaine — a sa page à lui, `/campagne#defi`, sans ces onglets : on y vient de l'accueil, où il partage une tuile avec le quiz du jour ([plus bas](#le-défi-de-la-semaine)).
+Le défi de la semaine — la même série pour tous, une tentative par semaine — a sa page à lui, `/campagne#defi`, sans ces onglets : on y vient de l'accueil, où il a sa ligne, sous celle du quiz du jour ([plus bas](#le-défi-de-la-semaine)).
 
 Les sentiers font monter une catégorie en douze paliers, puis un palier de maître, et ouvrent les portraits des avatars du savoir. Les parcours de thème font monter un sujet en six étapes. Les duels, contre Automate ou contre quelqu'un, ont leur page, `/duels` (voir [les duels](les-duels.md)). Tous ces modes puisent dans la même base de questions, rapportent la même chose par bonne réponse et remplissent le même carnet.
 
@@ -25,7 +25,7 @@ Chaque valeur citée ici a sa ligne dans [les barèmes](../reference/baremes.md)
 
 ## Une partie
 
-**À l'accueil**, le gros bouton de la campagne te mène d'abord à une épreuve de sentier laissée en route, puis aux questions de ton carnet à revoir aujourd'hui, et enfin au sentier que tu avances. Le défi de la semaine n'y est plus : il a son onglet, à côté du quiz du jour.
+**À l'accueil**, la ligne de la campagne te mène d'abord à une épreuve de sentier laissée en route (« Épreuve en cours »), puis aux questions de ton carnet à revoir aujourd'hui (« 7 questions de ton carnet », « À revoir »), et enfin au sentier que tu avances (« Palier 5 de la forêt · 12 vies ») ; tant que tu n'en avances aucun, elle dit les deux modes, « Une série sans fin, des portraits ». Le défi de la semaine n'y est plus : il a sa ligne, sous celle du quiz du jour.
 
 **L'onglet « La série »** montre ton record. Sous « Commencer une série », une ligne dit sur quoi tu joues (« Sur Toutes les catégories », « Histoire et Sport », un sujet). « Changer › » ouvre la feuille « Sur quoi ? » : toutes les catégories, une ou plusieurs des douze, ou, dans l'onglet « Thèmes », un sujet — les thèmes en tuiles, chacun son emblème, les époques sur une frise, dans l'ordre du temps, et les fils rouges en pastilles. Une catégorie choisie seule s'affine : sa case s'ouvre comme un onglet sur un panneau où sont incrustées ses **rubriques**, chacun de ses sous-thèmes (« Sport », puis « Football »), « Toute la catégorie » en tête. Ton choix est retenu sur ce téléphone.
 
@@ -119,7 +119,7 @@ Dans l'onglet « Apprendre », le carnet transforme chaque erreur en rendez-vous
 
 Un même défi pour tout le serveur, du lundi au dimanche minuit, heure de Paris : une série à trois vies, sans chronomètre, et **une seule tentative**. Laissée en route, la tentative se reprend, mais elle ne s'abandonne pas.
 
-**Où le trouver.** Sur l'accueil, il partage une tuile avec le quiz du jour, sous deux onglets — « Quiz du jour », ouvert d'office, et « Défi de la semaine » (depuis le 19 octobre 2026 : au troisième onglet de la campagne, beaucoup ne savaient pas qu'il existait). Sa tuile dit combien l'ont relevé (« 9 joueurs l'ont relevé · jusqu'à dimanche », « À relever »), tes bonnes réponses s'il t'attend (« À finir »), puis ta place une fois relevé (« 8 bonnes réponses · 4ᵉ place sur 10 ») ; tant qu'il t'attend, un point d'or le dit sur son onglet. Elle ouvre sa page, `/campagne#defi`, « ← Accueil » en tête : ses règles, « Relever le défi », son classement et la semaine dernière. Ce que dit la tuile se compte comme le classement de la page, aux mêmes règles.
+**Où le trouver.** Sur l'accueil, dans la carte « Seul », il a sa ligne, sous celle du quiz du jour : les deux se voient d'un coup d'œil. Il a quitté le troisième onglet de la campagne le 19 octobre 2026 — beaucoup ne savaient pas qu'il existait — pour une tuile à deux onglets, partagée avec le quiz du jour et ouverte sur lui ; depuis le 9 novembre 2026, l'accueil range ses boutons en lignes, et il n'y a plus d'onglet à toucher pour le voir ([l'accueil](le-profil.md#laccueil)). Sa ligne dit combien l'ont relevé (« 9 joueurs l'ont relevé », « À relever » — « À toi d'ouvrir le bal » tant que personne ne l'a fait), tes bonnes réponses s'il t'attend (« 4 bonnes réponses : reprends-le », « À finir »), puis ta place une fois relevé (« Relevé · 4ᵉ place sur 10 ») ; là où elle a la place, sur une tablette ou un ordinateur, elle ajoute « · jusqu'à dimanche », ou tes bonnes réponses après ta place. Elle ouvre sa page, `/campagne#defi`, « ← Accueil » en tête : ses règles, « Relever le défi », son classement et la semaine dernière. Ce que dit la ligne se compte comme le classement de la page, aux mêmes règles.
 
 | Règle | Ce qu'il en est |
 |---|---|

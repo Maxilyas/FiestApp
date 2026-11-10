@@ -61,6 +61,19 @@ paths:
   ligne s'y arrête — le bloc « Sa place, page par page » de `styles.css`,
   règle `profil.md` —, et `server/scripts/rendu-niche.ts` dit ce qui passe
   encore dessous.
+- **Une page à menu qui doit tenir sur l'écran retranche la barre de sa
+  hauteur.** `.player-shell` prend au moins l'écran (`min-height: 100dvh`)
+  et la barre du menu pose son retrait sur le corps (`body.avec-menu`,
+  72 px et l'encoche du bas) : l'un sur l'autre, la page défile toujours de
+  la hauteur de la barre, même à moitié vide. L'accueil d'un profil, qui
+  tient sur un écran depuis le 9 novembre 2026 (règle `profil.md`), prend
+  l'écran moins la barre, et moins le bandeau du service
+  (`body.avec-menu .accueil` : `100svh - 72px - env(safe-area-inset-bottom)
+  - var(--haut-du-bandeau, 0px)`) — `svh`, pas `dvh` : la barre d'adresse
+  du navigateur dépliée, tout tient encore. Ce qui s'y partage la hauteur
+  garde sa base à son contenu (`flex: 1 0 auto`, jamais `flex: 1`), et ce
+  qu'il resserre d'un composant partagé se règle en fin de feuille, sous
+  son propre cadre (`.accueil-gestes`) : les pièges de la règle `profil.md`.
 - **En CSS, `transform` se compose APRÈS `rotate`**, et une animation qui pose
   `transform` écrase celui de l'élément : le toast, centré par
   `translateX(-50%)`, partait sur la droite. Centre par marges.

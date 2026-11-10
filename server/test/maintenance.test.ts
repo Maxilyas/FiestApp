@@ -554,7 +554,7 @@ test('le quiz du jour en maintenance, le rappel du soir attend : rouvert avant l
 
 // ── 5. L'accueil ──────────────────────────────────────────────────────────
 
-test('à l’accueil, une page en maintenance éteint son bouton et le dit ; le défi fermé seul éteint sa tuile, sous son onglet', async () => {
+test('à l’accueil, une page en maintenance éteint son bouton et le dit ; le défi fermé seul éteint sa ligne, sous celle du quiz du jour', async () => {
   // Le client lit son adresse une fois, au chargement : posée avant l'import, après les serveurs du banc.
   Object.assign(globalThis, { window: { location: { pathname: '/', search: '', hash: '', origin: 'http://banc' }, opener: null } })
   const module = await import(new URL('../../client/src/components/AccueilDesRoles.tsx', import.meta.url).href)
@@ -574,31 +574,40 @@ test('à l’accueil, une page en maintenance éteint son bouton et le dit ; le 
       }),
     )
   const bouton = (html: string, titre: string) => html.split('<a ').find(x => x.includes(`<b>${titre}</b>`))!
+  // La ligne d'un bouton, lue en entier, balises ôtées : depuis l'accueil en lignes du 9 novembre 2026, elle se dit en
+  // morceaux — « En maintenance », puis « : reviens un peu plus tard » là où la rangée a la place (`GrosBouton` `suite`,
+  // `accueil-compact.test.ts`) —, et le lecteur d'écran la lit d'un trait.
+  const phrase = (b: string) => (b.match(/<span class="gros-detail(?: gros-a-suite)?">(.*?)<\/span><\/span>/)?.[1] ?? '').replace(/<[^>]+>/g, '')
 
   const ouvert = accueil([])
   assert.doesNotMatch(ouvert, /gros-ferme|En maintenance/)
   assert.match(bouton(ouvert, 'Le défi de la semaine'), /href="\/campagne#defi".*<span class="pastille-attente">À relever<\/span>/)
-  assert.match(ouvert, /, à relever<\/span>/)
+  // Ce qui attend le défi se dit là, sur sa ligne, visible sans rien toucher : le point d'or de son onglet, qui le
+  // redisait au lecteur d'écran (« , à relever »), s'en est allé avec la tuile à deux onglets du 19 octobre 2026, que
+  // deux lignes ont remplacée le 9 novembre 2026 — « j'aimerais que tout soit visible sans avoir à scroll plus bas », le
+  // propriétaire (`retours/2026-11-09/accueil-compact/`). Sa pastille est dans le lien même : elle se lit avec lui.
+  assert.match(bouton(ouvert, 'Le défi de la semaine'), /<span class="pastille-attente">À relever<\/span><\/a>/)
 
   const ferme = accueil(['jour', 'duels'])
   for (const titre of ['Le quiz du jour', 'Les duels']) {
     const b = bouton(ferme, titre)
     assert.match(b, /class="gros-bouton gros-ferme"/, titre)
-    assert.match(b, /<span class="gros-detail">En maintenance : reviens un peu plus tard<\/span>/, titre)
+    assert.equal(phrase(b), 'En maintenance\xa0: reviens un peu plus tard', titre)
   }
   // Ni « À jouer », ni les défis reçus comptés en rouge : ils inviteraient à entrer.
   assert.doesNotMatch(bouton(ferme, 'Le quiz du jour'), /À jouer/)
   assert.doesNotMatch(bouton(ferme, 'Les duels'), /gros-compteur/)
   assert.doesNotMatch(bouton(ferme, 'La campagne'), /gros-ferme/)
 
-  // Le défi fermé seul : sa tuile s'éteint sous son onglet, sans pastille ni point — elle inviterait à entrer. La
+  // Le défi fermé seul : sa ligne s'éteint, sous celle du quiz du jour, sans pastille — elle inviterait à entrer. La
   // campagne, elle, reste ouverte.
   const sansLeDefi = accueil(['defi'])
-  const tuile = bouton(sansLeDefi, 'Le défi de la semaine')
-  assert.match(tuile, /^class="gros-bouton gros-ferme" href="\/campagne#defi"/)
-  assert.match(tuile, /<span class="gros-detail">En maintenance : reviens un peu plus tard<\/span>/)
-  assert.doesNotMatch(tuile, /À relever/)
-  assert.doesNotMatch(sansLeDefi, /, à relever<\/span>/)
+  const ligne = bouton(sansLeDefi, 'Le défi de la semaine')
+  assert.match(ligne, /^class="gros-bouton gros-ferme" href="\/campagne#defi"/)
+  assert.equal(phrase(ligne), 'En maintenance\xa0: reviens un peu plus tard')
+  assert.doesNotMatch(ligne, /À relever/)
+  // Ni aucune autre pastille : le point d'or de son onglet, qui s'éteignait avec elle, n'a plus d'onglet où se poser.
+  assert.doesNotMatch(ligne, /pastille-attente/)
   assert.doesNotMatch(bouton(sansLeDefi, 'La campagne'), /gros-ferme/, 'le reste de la campagne reste ouvert')
   assert.match(bouton(accueil(['campagne']), 'La campagne'), /class="gros-bouton gros-ferme" href="\/campagne"/)
 })
@@ -617,7 +626,7 @@ test('à l’accueil, une page bientôt disponible s’éteint pour qui attend, 
     )
   const bouton = (html: string, titre: string) => html.split('<a ').find(x => x.includes(`<b>${titre}</b>`))!
 
-  // Qui attend : le bouton s'éteint, sans rouge — rien n'y est cassé —, la tuile du défi bientôt disponible aussi, sous son onglet.
+  // Qui attend : le bouton s'éteint, sans rouge — rien n'y est cassé —, la ligne du défi bientôt disponible aussi, sous celle du quiz du jour.
   const attend = accueil({ duels: 'bientot', defi: 'bientot' })
   for (const [titre, href] of [
     ['Les duels', '/duels'],
@@ -627,7 +636,9 @@ test('à l’accueil, une page bientôt disponible s’éteint pour qui attend, 
     assert.match(b, new RegExp(`^class="gros-bouton gros-ferme gros-bientot" href="${href}"`), titre)
     assert.match(b, /<span class="gros-detail">Bientôt disponible<\/span>/, titre)
   }
-  assert.doesNotMatch(attend, /, à relever<\/span>/)
+  // Sans pastille : rien n'y invite à entrer. Le point d'or de son onglet (« , à relever »), qui s'éteignait de même,
+  // s'en est allé avec la tuile à deux onglets, que deux lignes ont remplacée le 9 novembre 2026.
+  assert.doesNotMatch(bouton(attend, 'Le défi de la semaine'), /pastille-attente/)
   // « À relever » reste au défi qu'il essaie, comme « À jouer » au quiz du jour.
   assert.match(bouton(accueil({ defi: 'avant-premiere' }), 'Le défi de la semaine'), /<span class="pastille-attente">À relever<\/span>/)
   // Son testeur : ouvert, et il le sait.

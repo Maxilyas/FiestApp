@@ -364,6 +364,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/proches.test.ts` — « Les plus proches ».
 - `server/test/premier-haut-fait.test.ts` — le titre et la vitrine d'un débutant.
 - `server/test/menu.test.ts` — la barre du menu.
+- `server/test/accueil-compact.test.ts` — l'accueil d'un profil tenu sur un écran : une carte par section, ses boutons en lignes, le quiz du jour et le défi de la semaine tous les deux sous les yeux, sans onglets ; la ligne de chaque bouton, l'essentiel en une trentaine de caractères et sa suite là où la rangée a la place ; la feuille — la page entre le haut de l'écran et la barre du menu, des lignes de 48 px au moins qui se partagent le reste, trois pas de hauteur, la place gardée du haut. Ce qui passe sous le menu se mesure au navigateur (`server/scripts/rendu-accueil.ts`).
 - `server/test/mots-du-solo.test.ts` — les mots du jeu solo.
 - `server/test/compagnons.test.ts` — les compagnons de la boutique.
 - `server/test/nouveautes.test.ts` — la pastille rouge des nouveautés : ce que le serveur retient qu'un profil a vu dans sa loge, pour tous ses appareils, et chaque nouveauté de la pièce « Avatar » marquée jusqu'à sa case.

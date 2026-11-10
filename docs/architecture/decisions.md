@@ -683,6 +683,15 @@ Le détail : [le profil](../produit/le-profil.md).
 
 *Fichiers : `client/src/views/ProfilApp.tsx`, `client/src/main.tsx`, `client/src/components/PanneauxDuProfil.tsx`*
 
+### L'accueil d'un profil tient sur un écran, ses boutons en lignes
+**Contexte** : « J'aimerais revoir la visualisation de l'accueil pour qu'elle soit plus compacte. Je ne veux pas revoir le style car je trouve cela bien mais j'aimerais que tout soit visible sans avoir à Scroll plus bas » (le propriétaire, le 9 novembre 2026). En 360 × 640, l'accueil d'une habituée faisait 1 096 pixels pour 575 visibles au-dessus de la barre du menu : le haut — soi, « À la une », les missions — en prenait 285 avant le premier bouton, et chaque gros bouton passait sur deux ou trois lignes de texte. Une maquette posée dans le vrai code proposait deux dispositions, les lignes ou les tuiles (`retours/2026-11-09/accueil-compact/`) ; le même jour : « Je valide les lignes, tu peux les implémenter. Suit tes recommandations ».
+
+**Décision** : une carte par section, ses boutons en lignes, un filet entre eux, une seule ligne de texte sous chaque titre — les mêmes boutons, les mêmes noms, les mêmes adresses, dans le même ordre, et rien du style. Le quiz du jour et le défi de la semaine sont deux lignes, toutes deux visibles : la tuile à deux onglets du 19 octobre 2026 montrait le défi sans prendre un bouton de plus ; en lignes, les deux tiennent dans sa place, et elle s'en va. La ligne d'un bouton se dit en deux temps — l'essentiel, une trentaine de caractères, puis une suite dont la feuille ne montre que les morceaux qui tiennent entiers ; le lecteur d'écran lit toute la phrase. La page prend la hauteur de l'écran au-dessus du menu, et ses lignes, de 48 pixels au moins, se partagent ce qui reste, à trois pas de hauteur d'écran. Écartés : les tuiles deux par deux — des titres sur deux lignes en 360 de large, une pastille à une place nouvelle, et la disposition qui tient le moins bien au texte agrandi — ; une place au-dessus des boutons pour la ligne du lendemain et « Installer l'application », des lignes de passage, laissées dessous sur le petit téléphone.
+
+**Conséquence** : tout tient à quelques pixels sur le petit téléphone — treize entre le dernier bouton et le menu. Un mode de plus est une ligne de 48 pixels qui passe dessous ; une ligne de plus dans la page se regarde aux quatre tailles (`server/scripts/rendu-accueil.ts`, qui sort en erreur si l'habituée, le débutant ou l'Ivoire défilent). Ce qu'il faut lire au téléphone ne va jamais dans la suite d'une ligne : « · encore 3 duels pour ta récompense » ne paraît que sur une tablette ou un ordinateur. Sur un téléphone de moins de 720 pixels de haut, une soirée où revenir prend la place d'« À la une » ; et le texte agrandi à 130 % fait encore défiler la page, de 125 pixels au lieu de 835.
+
+*Fichiers : `client/src/components/AccueilDesRoles.tsx`, `client/src/components/Pieces.tsx`, `client/src/styles.css`, `server/scripts/rendu-accueil.ts`, `server/test/accueil-compact.test.ts`, `retours/2026-11-09/accueil-compact/README.md`*
+
 ### La loge essaie avant de porter
 **Contexte** : six pages, une par pièce, enregistraient à chaque toucher — on portait pour de bon ce qu'on voulait seulement regarder, et l'on ne voyait pas le reste de sa tenue.
 
@@ -1296,7 +1305,7 @@ Le détail : [les duels](../produit/les-duels.md).
 ### Rien ne sonne : l'accueil dit ce qui attend, et la page le montre
 **Contexte** : les duels envoyaient des notifications ; seul le quiz du jour garde son rappel du soir.
 
-**Décision** : aucune notification pour les duels ; la tuile de l'accueil compte en rouge les résultats à voir et les duels à relever, une bannière annonce un résultat une fois, et ce que l'accueil compte, l'onglet « En cours » le montre — par la même règle (`sesDuelsContre`).
+**Décision** : aucune notification pour les duels ; leur ligne de l'accueil compte en rouge les résultats à voir et les duels à relever, une bannière annonce un résultat une fois, et ce que l'accueil compte, l'onglet « En cours » le montre — par la même règle (`sesDuelsContre`).
 
 **Conséquence** : la page lit tous les duels en route, pas seulement les dix derniers (un duel plus ancien, compté en rouge, y était introuvable) ; la première lecture d'un résultat par son auteur l'écrit vu (`vu_le`), et la page d'un duel ne se précharge donc jamais.
 

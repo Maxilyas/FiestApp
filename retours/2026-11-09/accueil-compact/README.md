@@ -5,6 +5,126 @@ compacte. Je ne veux pas revoir le style car je trouve cela bien mais
 j'aimerais que tout soit visible sans avoir à scroll plus bas » (le
 propriétaire).
 
+## La décision : les lignes
+
+« Je valide les lignes, tu peux les implémenter. Suit tes recommandations »
+(le propriétaire, le 9 novembre 2026). C'est fait, le lendemain : la
+proposition 1 est dans l'application — plus derrière le drapeau
+`quizz.maquette`, que le code livré n'a pas. Tout ce qui suit cette section
+est la maquette telle qu'elle a été présentée, gardée comme trace, sous un
+titre ajouté pour l'en séparer (« La maquette ») ; une seule phrase y a été
+corrigée, et elle le dit (« Les lignes courtes »).
+
+Ce que les cinq points « À trancher » sont devenus, par les recommandations :
+
+1. **Les lignes.** Une carte par section (`.jouer-carte`), ses boutons
+   dedans, un filet entre eux, une seule ligne de texte sous chaque titre ;
+   « Entre amis », une carte coupée en deux (`.jouer-carte.jouer-duo`) :
+   « Créer un salon » et « Rejoindre une soirée » côte à côte, leur nom seul
+   sous 720 pixels de haut — leur ligne cachée à l'œil, encore lue par le
+   lecteur d'écran —, leur ligne au-delà. Mêmes boutons, mêmes noms, mêmes
+   adresses, même ordre.
+2. **Les onglets s'en vont.** Le quiz du jour et le défi de la semaine sont
+   deux lignes de la carte « Seul », toutes deux visibles, chacune sa
+   pastille (« À jouer », « À relever », « À finir »). La tuile à deux
+   onglets (`components/JourEtDefi.tsx`, `.jour-defi`) est supprimée, avec le
+   point d'or d'un onglet (`Onglet.point`, `.onglet-point`), qui n'avait pas
+   d'autre lecteur. La décision du 19 octobre 2026 — montrer le défi sans
+   prendre un bouton de plus — est tenue autrement : en lignes, les deux
+   tiennent dans la place de la tuile, sans onglet à toucher. Le défi fermé
+   seul (maintenance) éteint sa ligne, sans pastille.
+3. **Les mots du tableau, en deux temps** (`LigneDuBouton` ; `GrosBouton`
+   `suite`) : `detail`, l'essentiel — une trentaine de caractères au plus, qui
+   tiennent à côté d'une pastille en 360 de large — ; `suite`, ce que la
+   phrase ajoute, morceau par morceau. Sur l'accueil, la feuille ne montre
+   que les morceaux qui tiennent entiers sur la ligne — jamais une phrase
+   coupée au milieu d'un mot —, et le lecteur d'écran lit toute la phrase.
+   Une phrase d'avant dont le début disait l'essentiel est restée, coupée à
+   ses jointures (« Ligue d'or · cote 1084 » | « · encore 3 duels pour ta
+   récompense » ; « 9 joueurs l'ont relevé » | « · jusqu'à dimanche » ;
+   « Défie qui tu veux » | « , ou Automate » | « : monte de ligue » ; « En
+   maintenance » | « : reviens un peu plus tard ») ; les autres ont pris les
+   mots du tableau (« Palier 5 de la forêt » | « · 12 vies » ; « Une série
+   sans fin, des portraits » | « à gagner » ; « Épreuve en cours » |
+   « · 12 vies » | « · palier 5 de la forêt » ; « Série de 12 jours », « Dix
+   questions pour tous », « Joué · série de 13 jours », « 🎃 Un timbre à
+   gagner » | « · série de 12 jours » ; « Relevé · 4ᵉ place sur 10 » |
+   « · 8 bonnes réponses », « À toi d'ouvrir le bal » | « · jusqu'à
+   dimanche » ; « Un légendaire au bout » | « · trois actes, trois
+   gardiens » ; « Tu lances les quiz » | « : tu joues, ou tu animes » ;
+   « Code ou QR de l'hôte »). « encore 3 duels pour ta récompense » revient
+   donc là où la rangée a la place — mesuré : sur une tablette ou un
+   ordinateur, pas sur un téléphone.
+4. **Dans un navigateur, sur le petit téléphone, la ligne du lendemain et
+   « Installer l'application » restent sous les boutons** : des lignes de
+   passage — sept jours pour l'une, jusqu'à l'installation pour l'autre. La
+   page défile pour elles de 78 pixels en 360 × 640, de rien en 390 × 844.
+5. **Une soirée où revenir, sur le petit téléphone** (moins de 720 pixels de
+   haut) : « Revenir chez Hugo » prend la place d'« À la une » le temps de la
+   soirée (`.accueil:has(.gros-principal) .une-cadre`) — avec elle, 39 pixels
+   passaient sous le menu.
+
+Où vit le code, maintenant :
+
+- `client/src/components/AccueilDesRoles.tsx` — `AccueilJouer`, la ligne de
+  chaque bouton (`LigneDuBouton`, `boutonDeLaCampagne`, `boutonDuJour`,
+  `boutonDuDefi`, `boutonDesDuels`, `boutonDuCabinet`) ;
+  `client/src/components/Pieces.tsx` — `GrosBouton` et sa `suite`.
+- `client/src/styles.css`, le bloc « L'accueil compact », en fin de feuille :
+  tout se règle par des variables posées sur `.accueil` (`--accueil-rang`,
+  48 pixels, la hauteur minimale d'une ligne ; `--accueil-plafond`, 800…), à
+  trois pas de hauteur — le petit téléphone, un écran moyen (720 et plus), un
+  grand (820 et plus), où le haut reprend ses tailles d'avant tant que rien
+  ne s'ajoute à la page. La page prend la hauteur de l'écran au-dessus de la
+  barre du menu, et ses lignes, élastiques, se partagent ce qui reste.
+- `server/test/accueil-compact.test.ts` — la structure en cartes, l'absence
+  d'onglets, les mots de chaque ligne, les gardes de la feuille.
+- `server/scripts/rendu-accueil.ts` — les photos et les mesures, à la place
+  de `maquette/photos.ts` : `cd server && npx tsx scripts/rendu-accueil.ts
+  ../export/accueil`, le client construit d'abord (`SEULEMENT=habituee,chargee`
+  pour quelques cas). Il photographie chaque cas à chaque taille, dit ce qui
+  passe sous le menu, la hauteur des lignes, ce qui est coupé au bout, les
+  suites montrées, et sort en erreur si un cas qui doit tenir — l'habituée,
+  le débutant, l'Ivoire — défile ou déborde.
+- La règle `.claude/rules/profil.md` en garde le détail et les pièges ; la
+  décision, `docs/architecture/decisions.md` (« L'accueil d'un profil tient
+  sur un écran, ses boutons en lignes »).
+
+Mesuré au navigateur sur la version livrée (`rendu-accueil.ts`), en pixels.
+« Avant » reprend le tableau « Ce qui défile encore », plus bas : le contenu
+sous la barre du menu. « Livré » est ce dont la page défile : ce contenu, et
+les 13 pixels de marge sous le dernier bloc.
+
+| Cas | Écran | Avant | Livré |
+|---|---|---|---|
+| Léa, l'habituée | 360 × 640 | 521 | 0 — des lignes de 48-49 px |
+| | 360 × 740 | 421 | 0 — 57-58 px |
+| | 390 × 844 | 213 | 0 — 65-66 px |
+| | 412 × 915 | 123 | 0 — 70-71 px, la page s'arrête à son plafond |
+| Tom, le débutant | 360 × 640 | 475 | 0 |
+| | 390 × 844 | 202 | 0 |
+| Léa sous l'Ivoire | 360 × 640 | 521 | 0 |
+| Une journée chargée | 360 × 640 | 600 | 0 — 39 à la maquette (le point 5) |
+| | 390 × 844 | 317 | 0 |
+| Dans un navigateur, au lendemain d'une soirée | 360 × 640 | 638 | 78 — les 65 de la maquette, et la marge (le point 4) |
+| | 390 × 844 | 331 | 0 |
+| Le texte agrandi à 130 % | 360 × 640 | 835 | 125 — les 112 de la maquette, et la marge |
+| L'affiche d'une nouveauté, à la place d'« À la une » | 360 × 640 | pas mesuré | 179 — les duels à moitié, le Cabinet et « Entre amis » dessous |
+| | 390 × 844 | pas mesuré | 67 — « Entre amis » |
+
+L'affiche d'une nouveauté est le seul cas que la maquette n'avait pas
+photographié, et le seul qui fasse encore défiler un téléphone d'aujourd'hui :
+une grande affiche, voulue telle (le 1er novembre 2026), le temps qu'on aille
+sur sa page ou qu'on la range (« Plus tard »). À côté de sa pastille
+« Nouveau », « Le Cabinet de curiosités » passe aussi sur deux lignes. La
+resserrer sur le petit téléphone reste à décider.
+
+Le prototype (`maquette/prototype.patch`) ne s'applique plus sur le code
+livré : pour revoir les tuiles, la proposition écartée, « Rejouer la
+maquette », en bas, dans un arbre à part aux commits qu'elle cite.
+
+## La maquette
+
 Une maquette : deux dispositions compactes posées dans le vrai code de
 l'accueil, derrière un drapeau du téléphone (`quizz.maquette` : `lignes`,
 `tuiles`), photographiées sur un serveur jetable du petit téléphone de
@@ -124,8 +244,13 @@ Les photos n'existent que là (et dans `export/`, qui ne se committe pas).
 
 Ce qui se perd : « jusqu'à dimanche », « les mêmes pour tous », « reprends-le »,
 et surtout « encore 3 duels pour ta récompense » — ce que la semaine attend
-encore de lui. Une rangée de 390 de large a la place de le redire ; une tuile,
-non.
+encore de lui. Une rangée de téléphone n'a pas la place de le redire, une
+tuile encore moins : la phrase entière fait 58 caractères, et une rangée de
+390 de large en montre une quarantaine. Il ne revient que sur une tablette ou
+un ordinateur, où la rangée est assez large. (Corrigé à la livraison, le
+9 novembre 2026, sur ce que `server/scripts/rendu-accueil.ts` a mesuré : la
+maquette disait « Une rangée de 390 de large a la place de le redire ; une
+tuile, non. »)
 
 ## Proposition 1 — Les lignes
 
