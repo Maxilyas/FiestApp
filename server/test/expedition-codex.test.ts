@@ -359,6 +359,43 @@ test('en production, telle que le code la démarre : le détenteur de L’Explor
   }
 })
 
+// Le Globe-trotter compte les tampons du passeport de l'Expédition : effacée (`EXPEDITION_REMPLACEE`, le 31 octobre
+// 2026), plus personne n'en gagne un, et l'album le montrait encore à tous, « 0 sur 3 », sous « Jouer une série » qui ne
+// l'avance pas (relevé le 10 novembre 2026). Il se tait comme L'Explorateur là où le Cabinet est fermé : à qui n'en a
+// aucun palier, là où l'Expédition ne répond plus ; ses détenteurs le gardent cité (invariant 22).
+test('l’Expédition effacée, le Globe-trotter se tait à qui n’en a aucun palier ; son détenteur le garde cité, et là où elle répond tous le voient', async () => {
+  const globe = async (cookie: string, b: Banc) =>
+    ((await lire(cookie, '/api/joueur/moi', b)).corps.profile.hautsFaits as { key: string; fois: number; prochain: number | null }[]).find(h => h.key === 'hf:globe-trotter')
+  const ranger = (b: Banc, profil: string) =>
+    base(
+      db =>
+        db
+          .prepare(`INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, 'hf:globe-trotter:1', '#campagne:une-expedition', '', '🧳', 'Le Globe-trotter', 1)`)
+          .run(profil),
+      true,
+      b,
+    )
+  // Le banc garde l'Expédition à ses épreuves : cité à qui n'a rien, comme avant.
+  const ici = await inscrireProfil(banc.url, 'sans-passeport', 'Sans')
+  assert.equal((await globe(ici, banc))?.fois, 0, 'là où l’Expédition répond')
+
+  const effacee = await demarrer({ baseDeLaCampagne: BASE, expeditionRemplacee: true })
+  try {
+    const neuf = await inscrireProfil(effacee.url, 'sans-passeport', 'Sans')
+    const detenteur = await inscrireProfil(effacee.url, 'voyageur', 'Voyageur')
+    ranger(effacee, (await lire(detenteur, '/api/joueur/moi', effacee)).corps.profile.id as string)
+    // Relu au démarrage : le profil sait ce qu'il a.
+    await effacee.redemarrer()
+    const hautsFaits = (await lire(neuf, '/api/joueur/moi', effacee)).corps.profile.hautsFaits as { key: string }[]
+    assert.ok(!hautsFaits.some(h => h.key === 'hf:globe-trotter'), 'tu à qui n’a aucun palier')
+    assert.ok(hautsFaits.some(h => h.key === 'hf:marathonien'), 'les autres pistes de la campagne, si')
+    const garde = await globe(detenteur, effacee)
+    assert.deepEqual([garde?.fois, garde?.prochain], [1, 40], 'son bronze reste cité')
+  } finally {
+    await effacee.close()
+  }
+})
+
 test('l’Ascension : une expédition menée au bout l’ouvre ; son cran se fige au départ parmi ceux qu’il a ouverts — demandé plus haut, le plus haut des siens —, le bilan le garde, et une victoire à son plus haut cran ouvre le suivant', async () => {
   const c = await inscrireProfil(banc.url, 'ascension', 'Ascension')
   const finie = await unPasPuisAbandon(c)

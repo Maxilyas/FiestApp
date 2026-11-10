@@ -201,8 +201,24 @@ import { sansAccent } from '../../shared/homonymes'
  * de Harry Potter, « Astérix et Obélix : Au service de Sa Majesté » —,
  * retirées, et un « (2001) » ôté d'un intitulé sur La Communauté de
  * l'anneau, qui soufflait l'année demandée ailleurs : 28 307.
+ * Le même jour encore, deux séries validées avec ces univers, Friends et
+ * Game of Thrones : 25 et 29 questions de la base étiquetées, puis 213
+ * écrites à partir de faits relevés sur Wikipédia en français — douze lots
+ * d'une seule vague, un par facette (qui est qui, chaque groupe de saisons,
+ * les coulisses, les romans), chacun son fichier de faits —, 3 retirées et
+ * une vingtaine corrigées à la relecture, 28 retirées à la lecture de tous
+ * les lots ensemble (ce que deux facettes posaient l'une et l'autre —
+ * Gunther, Mélisandre, la Banque de Fer —, deux révélations de l'intrigue,
+ * une réponse hors de l'univers) : 182 rangées, 28 489. Et « Langues et
+ * écritures du monde », tombée à cinquante-cinq questions et sans rubrique
+ * depuis que le français, l'anglais et l'espagnol avaient pris les leurs :
+ * 150 écrites en six familles, 6 retirées et 8 corrigées à la relecture (le
+ * picard et le breton, qui sont au français), 7 retirées au coup d'œil —
+ * sept « Quelle langue parle-t-on à… ? » dont trois de trop, le yiddish et
+ * le copte posés par deux familles, un outil que les sources nomment de
+ * deux façons — : 137 rangées, 28 626.
  */
-const AU_MOINS = 28307
+const AU_MOINS = 28626
 
 const { questions, refusees } = lireLaBase()
 

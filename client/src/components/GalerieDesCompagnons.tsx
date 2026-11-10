@@ -41,9 +41,11 @@ import { CABINET_EN_PRODUCTION } from '../../../shared/cabinet/ouverture'
  * sa fiche et « Tes compagnons » (`MonCompagnon.tsx`) le disent de même. Le
  * Cabinet ouvert, sa première salle complète d'abord ; l'expédition tant que
  * l'album dit sa voie — ce que `voiesMontrees` en décide pour les légendaires
- * qu'elle garde, la lecture de l'album (`lieuxDeSaVenue`, `shared/album.ts`),
- * qui ne se tire pas ici : le jour où son départ ferme, la luciole la tait avec
- * eux. Le Cabinet fermé, l'expédition seule, comme avant lui.
+ * qu'elle garde : le jour où son départ ferme, la luciole la tait avec eux.
+ * Le Cabinet fermé, l'expédition seule, comme avant lui. L'album, lui, n'a
+ * plus de voie pour un tel compagnon depuis le 10 novembre 2026 (`SA_VENUE`,
+ * `shared/album.ts`) : celui qui se gagnerait y écrit la sienne, et reprend
+ * ce chemin-ci — la page du Cabinet n'a plus de salle à compléter.
  */
 export function venuesDeLaLuciole(cabinet: boolean): { enExpedition: boolean; dites: string; mot: string } {
   const enExpedition = !cabinet || LEGENDAIRES.some(l => voiesMontrees(l, cabinet).some(estUneVoieDExpedition))

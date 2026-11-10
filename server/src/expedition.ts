@@ -33,10 +33,13 @@ interface ExpeditionDeps {
   /**
    * L'Expédition a-t-elle laissé place au Cabinet de curiosités
    * (`EXPEDITION_REMPLACEE`, lu une fois par `server.ts`, que l'option du
-   * serveur force au banc) ? Son seul départ se ferme — refusé en mots, et la
-   * page le dit (`departFerme`) — ; toutes les autres routes servent : une
-   * expédition en route se finit, ou s'abandonne, et « Mes réponses » se
-   * relit. Obligatoire : un montage qui l'oublierait rouvrirait le départ.
+   * serveur force au banc) ? Effacée depuis le 31 octobre 2026, ces routes ne
+   * sont alors pas montées du tout (`api.ts` : chacune répond 404). Monté avec
+   * le drapeau à vrai — le lot d'avant l'effacement, que des épreuves rejouent
+   * encore —, son seul départ se ferme, refusé en mots, et la page le dit
+   * (`departFerme`) ; les autres routes servent : une expédition en route se
+   * finit, ou s'abandonne, et « Mes réponses » se relit. Obligatoire : un
+   * montage qui l'oublierait rouvrirait le départ.
    */
   remplacee: boolean
 }

@@ -281,13 +281,16 @@ export function compagnonDe(f: FormeDeCompagnon): Compagnon {
 export const avecLui = (c: Compagnon) => (c.le === 'la' ? 'avec elle' : 'avec lui')
 
 /**
- * Ce qui amène la luciole, en mots : la Première traversée, et depuis le
- * 25 octobre 2026 la première salle complète du Cabinet de curiosités : son
- * départ fermé, l'Expédition ne l'amènerait plus à personne de neuf.
- * Le Cabinet fermé en production (`CABINET_EN_PRODUCTION`), sa voie ne se dit
- * pas : elle enverrait chercher une page qui n'y répond pas — la préproduction
- * la tait donc aussi d'ici l'ouverture, comme la voie de ses gardiens dans
- * l'album (`voiesMontrees`). L'expédition, elle, se tait quand l'album la tait
+ * Ce qui amenait la luciole, en mots, tant qu'elle se gagnait : la Première
+ * traversée, et depuis le 25 octobre 2026 la première salle complète du
+ * Cabinet de curiosités. Elle s'achète depuis le 31 octobre 2026, et plus
+ * aucun compagnon ne se gagne (`Compagnon.gagne`) : ce chemin ne se dit plus à
+ * personne, et ne vaudrait que pour un compagnon qui se gagnerait — à
+ * réécrire alors, la page du Cabinet n'ayant plus de salle à compléter.
+ * Le Cabinet fermé en production (`CABINET_EN_PRODUCTION`, ouvert depuis le
+ * 31 octobre 2026), sa voie ne se dirait pas : elle enverrait chercher une
+ * page qui n'y répond pas, comme la voie de ses gardiens dans l'album
+ * (`voiesMontrees`). L'expédition, elle, se tait quand l'album la tait
  * (`voieDeLExpeditionDite`, son départ fermé : `EXPEDITION_REMPLACEE`) — le
  * Cabinet ouvert seulement : sans lui, elle reste la seule à dire, comme dans
  * la galerie (`venuesDeLaLuciole`). Écrite en dur, elle se serait dite au refus

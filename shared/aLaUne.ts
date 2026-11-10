@@ -48,7 +48,8 @@ const BEAUX = new Set(['rare', 'epique', 'legendaire'])
 export function aLaUne(boutique: Pick<BoutiqueDuProfil, 'possedes' | 'jour' | 'compagnons' | 'fondsAchetes'>): ALaUne[] {
   const n = rangDuJour(boutique.jour)
   const adoptes = new Set((boutique.compagnons ?? []).map(c => c.compagnon))
-  // Ceux de la boutique seulement : la luciole se gagne en Expédition, le bandeau la vendrait.
+  // Ceux de la boutique seulement — tous aujourd'hui, la luciole comprise : elle s'y achète depuis le 31 octobre 2026.
+  // Un compagnon qui se gagnerait (`Compagnon.gagne`) n'en serait pas : le bandeau le vendrait.
   const compagnons: ALaUne[] = tournee(
     COMPAGNONS_DE_LA_BOUTIQUE.filter(c => !adoptes.has(c.key)),
     n,
