@@ -431,9 +431,11 @@ test('la loge dit la pièce qui a du nouveau, à l’œil et à l’oreille', as
   assert.deepEqual(panneaux.nouveautesDuProfil(LEA), { nouveautes: 0, pieces: {} })
 
   const APP = source('views/ProfilApp.tsx')
+  // Ses six pièces, dites en deux temps depuis que le carrefour du profil tient en lignes (le 10 novembre 2026,
+  // `profil-carrefour.test.ts`) : les trois premières, puis les autres là où la ligne a la place — et son compteur rouge.
   assert.match(
     APP,
-    /titre="M’habiller"\s*detail="Avatar, titre, vitrine, fond, thème, gerbe"\s*compteur=\{plus && plus\.nouveautes\.nouveautes > 0 \? \{ n: plus\.nouveautes\.nouveautes, label: nouveautesAPorter\(plus\.nouveautes\.nouveautes\) \} : undefined\}/,
+    /titre="M’habiller"\s*detail="Avatar, titre, vitrine"\s*suite=\{\[', fond', ', thème', ', gerbe'\]\}\s*compteur=\{plus && plus\.nouveautes\.nouveautes > 0 \? \{ n: plus\.nouveautes\.nouveautes, label: nouveautesAPorter\(plus\.nouveautes\.nouveautes\) \} : undefined\}/,
   )
   // La loge retient ce qu'il a vu chez le serveur, pour tous ses appareils — et, la première fois qu'un
   // profil paraît, tout se retient (la boutique comprise) ; la page garde ce qu'elle vient de retenir.

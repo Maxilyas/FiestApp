@@ -8900,7 +8900,8 @@ body.avec-chef .toast:not(.player-shell > .toast) { bottom: calc(84px + env(safe
   line-height: 1;
   font-variant-numeric: lining-nums tabular-nums;
 }
-/* La page ne passe jamais sous la barre. */
+/* La page ne passe jamais sous la barre — et sa coquille retranche ce retrait de sa hauteur, sans quoi elle défilait
+   toujours d'une barre : le bloc « Une page prend l'écran, pas plus », en fin de feuille. */
 body.avec-menu { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
 /* Ce que la page fait défiler jusqu'à soi — la fiche ouverte d'un thème,
    d'un avatar — s'arrête au-dessus de la barre : le lien ou le bouton au bas
@@ -9015,13 +9016,15 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
   white-space: nowrap;
 }
 /* Sur l'accueil, ces boutons se rangent en lignes dans la carte de leur section : le bloc « L'accueil compact », en fin de
-   feuille. Ceux du profil et du Cabinet gardent les mesures d'ici. */
+   feuille. Au carrefour du profil aussi, depuis le 10 novembre 2026 : son bloc, après lui. Ceux du Cabinet gardent les
+   mesures d'ici. */
 
 /* ── Le profil : qui l'on est, puis quatre gros boutons ─────────────────
    Épuré : « M'habiller » (la loge, sur son écran), « Ma collection » — sa
    jauge et son compte —, « Mes soirées », « Ma carrière ». Les gros boutons
-   de l'accueil, la même main. */
-.profil-boutons { display: flex; flex-direction: column; gap: 10px; }
+   de l'accueil, la même main — et comme eux en lignes dans une carte
+   (`.profil-boutons.jouer-carte`) : le bloc « Le carrefour du profil », en
+   fin de feuille. Empilés (`gap: 10px`), ils faisaient un écran et demi. */
 /* Une jauge sous le titre d'un gros bouton, son compte au bout ; la ligne
    garde sa hauteur tant que le compte n'est pas arrivé. */
 .gros-jauge { display: flex; align-items: center; gap: 10px; min-height: 1.2rem; }
@@ -18068,4 +18071,148 @@ body.avec-menu .accueil {
    amis » sous le menu (`rendu-accueil.ts`, les cas `affiche`). */
 @media (max-width: 411px) {
   .accueil-gestes .pastille-nouveaute .icon { display: none; }
+}
+
+/* ── Une page prend l'écran, pas plus : la barre du menu et le bandeau du service comptés ──
+   Une coquille prenait au moins l'écran (`min-height: 100dvh`) sans regarder ce que la page pose autour d'elle. La barre
+   du menu pose son retrait sur le corps (`body.avec-menu`, 72 px et l'encoche du bas) : l'un sur l'autre, toute page à
+   menu défilait de la hauteur de la barre, même à moitié vide — « Mes soirées » d'un nouveau venu de 72 px, avec 325 px
+   de libre au-dessus du menu, « Mon compagnon » sans compagnon de même (la revue des écrans du 10 novembre 2026, en
+   360 × 640). Le bandeau du service, posé au-dessus de la page, s'y ajoutait : 58 px de plus sous lui, et autant sur
+   l'écran d'une page en maintenance, qui n'a pas de menu. La coquille retranche les deux : une page dont le contenu
+   tient ne défile plus, une page longue défile de ce qui dépasse — rien n'y change. Sans menu ni bandeau, elle prend
+   l'écran, comme avant.
+   En fin de feuille, à la force de leur règle d'origine, une seule classe : elles la remplacent, et toute règle plus
+   précise garde la main — l'accueil et le carrefour du profil, qui tiennent sur un écran et comptent en `svh`, une
+   question (`.player-shell:has(.ans-grid)`), le QG, un formulaire dans la porte de la télé. */
+/* Ce que la barre du menu prend au bas de la page, et le panier de la boutique au-dessus d'elle : le retrait même que le
+   corps se pose (`body.avec-menu`, `body.avec-menu.avec-panier`), dit une fois à ce qui se mesure sur lui. La barre pose
+   sa classe avant que la page ne se dessine (`MenuBarre`, `useLayoutEffect`) : posée après, une page qui partage l'écran
+   entre ses lignes — l'accueil, le carrefour du profil — se mesurait une image sans elle, puis se reprenait. */
+body.avec-menu { --haut-du-menu: calc(72px + env(safe-area-inset-bottom)); }
+body.avec-menu.avec-panier { --haut-du-menu: calc(72px + 76px + env(safe-area-inset-bottom)); }
+.center-page,
+.join,
+.player-shell,
+.filet {
+  min-height: calc(100vh - var(--haut-du-menu, 0px) - var(--haut-du-bandeau, 0px));
+}
+/* `dvh` sous `@supports`, pas en seconde déclaration : une déclaration qui lit une variable est tenue pour valide à la
+   lecture, et le navigateur qui ne connaît pas `dvh` ne retomberait pas sur `vh` — il la jetterait au calcul, et la
+   coquille n'aurait plus de hauteur du tout. */
+@supports (min-height: 100dvh) {
+  .center-page,
+  .join,
+  .player-shell,
+  .filet {
+    min-height: calc(100dvh - var(--haut-du-menu, 0px) - var(--haut-du-bandeau, 0px));
+  }
+  /* Le bandeau tel que le serveur le pose, avant la racine, le temps du chargement : sa hauteur n'est pas encore
+     mesurée (`--haut-du-bandeau`, `BandeauxDuService`), et l'attente écrite dans la page (`ecrireAttente`) prendrait
+     tout l'écran sous lui. La racine prend ce qu'il laisse, l'attente avec elle : la page ne défile pas, et
+     « Chargement… » ne monte pas d'un demi-bandeau quand la page le reprend et le mesure. */
+  body:has(> .bandeau-du-service) { display: flex; flex-direction: column; min-height: 100dvh; }
+  body:has(> .bandeau-du-service) > #root { display: flex; flex: 1 0 auto; flex-direction: column; min-height: 0; }
+  body:has(> .bandeau-du-service) > #root > .center-page { flex: 1 0 auto; min-height: 0; }
+}
+
+/* ── Le carrefour du profil : tout sur un écran ──────────────────────────
+   « Mon profil » (`/profil`) est un carrefour : soi en tête, puis cinq gros boutons — six avec un compagnon. Empilés,
+   chacun sur deux ou trois lignes de texte, ils faisaient 630 px en 360 × 640, et la page 829 pour 575 visibles
+   au-dessus du menu : « Mes soirées » et « Ma carrière » restaient dessous (la revue des écrans du 10 novembre 2026 :
+   « ceux que tu trouves trop longs / ou ça serait logique de tout voir sans scroller », le propriétaire). Comme à
+   l'accueil la veille, sans rien changer au style, ni un nom, ni un geste, ni leur ordre : les mêmes gros boutons, en
+   lignes dans une carte (`.jouer-carte`, celle des sections de l'accueil), une ligne de texte sous chaque titre, et
+   la page qui prend l'écran au-dessus du menu, ses lignes se partageant ce qui reste. Les règles de l'accueil vivent
+   sous `.accueil-gestes`, que lui seul porte ; le carrefour a son cadre (`.profil-carrefour`, la page) et ses variables,
+   aux mêmes mesures, aux mêmes trois pas de hauteur. `server/scripts/rendu-carrefour.ts` dit, taille par taille, ce qui
+   passe encore sous le menu. */
+.profil-carrefour {
+  /* La hauteur d'une ligne : son minimum — une cible de doigt —, d'où elles grandissent ensemble. */
+  --carrefour-rang: 48px;
+  --carrefour-icone: 32px;
+  --carrefour-bord: 12px;
+  --carrefour-pas: 10px;
+  --carrefour-titre: 1.12rem;
+  --carrefour-detail: 0.75rem;
+  --carrefour-ecart: 10px;
+  /* Au-delà, ses lignes seraient plus hautes que celles de l'accueil à son plafond, et que les gros boutons d'avant
+     (76 px) : la page s'arrête là, le fond continue. 72 px par ligne (`--carrefour-lignes`, que pose la page : cinq,
+     six avec un compagnon), et ce qui n'est pas la carte — soi, les écarts, le glossaire, 188 px sur un grand
+     téléphone. En `rem` : au texte agrandi, le plafond grandit avec ses lignes. */
+  --carrefour-plafond: calc(11.75rem + var(--carrefour-lignes, 5) * 4.5rem);
+  gap: var(--carrefour-ecart);
+}
+/* La page prend la hauteur de l'écran au-dessus de la barre du menu, et sous le bandeau du service s'il y en a un,
+   jusqu'à son plafond. `svh`, pas `dvh`, comme l'accueil : la barre d'adresse du navigateur dépliée, tout tient encore. */
+body.avec-menu .profil-carrefour {
+  min-height: min(calc(100vh - var(--haut-du-menu, 0px) - var(--haut-du-bandeau, 0px)), var(--carrefour-plafond));
+  padding-bottom: 6px;
+}
+@supports (min-height: 100svh) {
+  body.avec-menu .profil-carrefour { min-height: min(calc(100svh - var(--haut-du-menu, 0px) - var(--haut-du-bandeau, 0px)), var(--carrefour-plafond)); }
+}
+/* Seules les lignes s'étirent, à partir de leur contenu (`flex: 1 0 auto`, celui de `.jouer-carte > .gros-bouton`) : une
+   base à zéro les écraserait sous leur texte agrandi au lieu de laisser la page défiler. */
+.profil-carrefour > * { flex: none; }
+.profil-carrefour > .profil-boutons { flex: 1 0 auto; }
+/* Soi, en tête : la hauteur de son avatar bordé gardée d'avance — un médaillon (1,12 em) et les deux marges de sa
+   bordure (0,45 em), puis les 2 px de la ligne de part et d'autre. La bordure de ligue se pose après la page : la
+   ligne grandissait alors de 9 à 27 px, et toute la carte bougeait sous le doigt. */
+.profil-carrefour > .identite-ligne { min-height: calc(2.4rem * 2.02 + 4px); }
+/* Le glossaire, replié sous la carte : l'écart de la page lui suffit. */
+.profil-carrefour > .glossaire { margin-top: 0; }
+
+/* Une ligne : la pastille ronde, le titre d'un cran dessous, une seule ligne de texte sous lui. Sous `.profil-boutons`,
+   la carte, pas sous la page : sa carte de joueur s'ouvre dans la page, et garde ses mesures. */
+.profil-boutons > .gros-bouton { gap: var(--carrefour-pas); min-height: var(--carrefour-rang); padding: 5px var(--carrefour-bord); }
+.profil-boutons .gros-icone { width: var(--carrefour-icone); height: var(--carrefour-icone); }
+.profil-boutons .gros-icone .icon { width: calc(var(--carrefour-icone) * 0.56); height: calc(var(--carrefour-icone) * 0.56); }
+.profil-boutons .gros-texte { gap: 0; }
+.profil-boutons > .gros-bouton .gros-texte b { font-size: var(--carrefour-titre); line-height: 1.12; }
+.profil-boutons > .gros-bouton .chevron { width: 16px; height: 16px; }
+/* Sa ligne tient sur une ligne : coupée au bout plutôt que passée dessous. En deux temps (`GrosBouton` `suite`), ses
+   suites paraissent entières ou pas du tout — elles passent à la ligne quand elles ne tiennent plus, et la ligne n'en
+   montre qu'une ; le lecteur d'écran lit toujours toute la phrase. */
+.profil-boutons .gros-detail { overflow: hidden; font-size: var(--carrefour-detail); line-height: 1.25; white-space: nowrap; text-overflow: ellipsis; }
+.profil-boutons .gros-a-suite { display: flex; flex-wrap: wrap; align-content: flex-start; height: 1.25em; overflow: clip; }
+.profil-boutons .gros-essentiel { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.profil-boutons .gros-suite { flex: none; white-space: pre; }
+/* « Ma collection », « Mon compagnon » : la jauge et son compte gardent leur ligne, entre le titre et la sienne, à la
+   taille de celle-ci — et sa hauteur tant que le compte n'est pas arrivé. */
+.profil-boutons .gros-jauge { min-height: calc(var(--carrefour-detail) * 1.25); }
+.profil-boutons .gros-compte { font-size: var(--carrefour-detail); line-height: 1.25; }
+/* Le compteur rouge de « M'habiller » se pose sur l'épaule de la pastille ronde, comme sur une ligne de l'accueil : à
+   cheval sur le coin du bouton, il sortirait de la carte. Tenu par sa droite, à 7 px du rond : il grandit avec le
+   texte et pour « 9+ », et tenu par sa gauche il mordait alors sur le titre (au texte agrandi à 130 %). */
+.profil-boutons .gros-compteur { top: calc(50% - var(--carrefour-icone) / 2 - 6px); right: calc(100% - var(--carrefour-bord) - var(--carrefour-icone) - 7px); left: auto; box-shadow: 0 0 0 2px var(--surface); }
+
+/* « Nouveau », sur la ligne d'une page à l'affiche — le classement des collections —, sans son étincelle sur un
+   téléphone, comme à l'accueil : avec elle, ce titre, le plus long du carrefour, passait sur deux lignes jusqu'à 414 px
+   de large ; sans elle, il tient sur une dès 402. Plus étroit, il en prend deux, et sa ligne leur hauteur
+   (`rendu-carrefour.ts`, le cas `tout`). */
+@media (max-width: 429px) {
+  .profil-boutons .pastille-nouveaute .icon { display: none; }
+}
+
+/* Un écran moyen, puis un grand : les lignes d'un cran au-dessus, aux pas de l'accueil. */
+@media (min-height: 720px) {
+  .profil-carrefour {
+    --carrefour-rang: 50px;
+    --carrefour-icone: 36px;
+    --carrefour-titre: 1.15rem;
+    --carrefour-detail: 0.8rem;
+    --carrefour-ecart: 12px;
+  }
+}
+@media (min-height: 820px) {
+  .profil-carrefour {
+    --carrefour-rang: 54px;
+    --carrefour-icone: 40px;
+    --carrefour-bord: 14px;
+    --carrefour-pas: 12px;
+    --carrefour-titre: 1.22rem;
+    --carrefour-detail: 0.84rem;
+    --carrefour-ecart: 16px;
+  }
 }

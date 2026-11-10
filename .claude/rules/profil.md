@@ -8,8 +8,8 @@ paths:
   - "client/src/components/{AccueilDesRoles,Pieces,Apparence,Trophees,Collection,AlbumDesTrophees,AlbumDuStyle,Gemmes,LigneDeCollection,PanneauxDuProfil,CarteJoueur,Identite,Atlas,AlbumDesAvatars,ProfilForm,Loge,LogeTete,RayonDesCompagnons,Niche,NicheHost,Ornements,MonCompagnon,Jardin,Trouvaille,Decorer,GalerieDesCompagnons,Cueillette,CadeauDuCompagnon}.tsx"
   - "client/src/components/{choix,ornements-peints,jardin}.ts"
   - "client/src/{nouveautes,niche}.ts"
-  - "server/scripts/{rendu-niche,rendu-compagnon,rendu-accueil}.ts"
-  - "server/test/{profil,profil-atlas,profil-charge,accueil-compact,collection,ma-collection,album-des-avatars,carte,carte-du-solo,carte-savoir,carte-a-collectionner,proches,premier-haut-fait,avatars-des-pages,menu,mots-du-solo,loge,grille-avatars,compagnons,niche,ma-niche,niche-paliers,ornements-peints,trophees,style,nouveautes,jardin,soins,collectionneurs,collectionneurs-page,collectionneurs-fond,collectionneurs-index,collectionneurs-stable}.test.ts"
+  - "server/scripts/{rendu-niche,rendu-compagnon,rendu-accueil,rendu-carrefour}.ts"
+  - "server/test/{profil,profil-atlas,profil-carrefour,profil-charge,accueil-compact,collection,ma-collection,album-des-avatars,carte,carte-du-solo,carte-savoir,carte-a-collectionner,proches,premier-haut-fait,avatars-des-pages,menu,mots-du-solo,loge,grille-avatars,compagnons,niche,ma-niche,niche-paliers,ornements-peints,trophees,style,nouveautes,jardin,soins,collectionneurs,collectionneurs-page,collectionneurs-fond,collectionneurs-index,collectionneurs-stable}.test.ts"
 ---
 
 # Le profil : l'accueil, ce qu'on porte, la carte, la collection
@@ -269,3 +269,66 @@ paths:
   au lieu de laisser la page défiler. Et ce qui n'est pas une ligne ne
   s'étire pas (`flex: none` : la tête, « À la une », les missions, les
   titres des sections, ce qui s'ajoute dessous).
+- **Le carrefour de « Mon profil » tient sur un écran, ses gros boutons en
+  lignes — et il y tient à quelques pixels** (la revue des écrans du
+  10 novembre 2026, au lendemain de l'accueil en lignes ; le propriétaire :
+  « que tu modifies ceux que tu trouves trop longs / ou ça serait logique
+  de tout voir sans scroller »). Les mêmes boutons qu'empilés — leurs noms,
+  leurs gestes, leur ordre, le compteur rouge de « M'habiller », la jauge et
+  le compte de « Ma collection » et de « Mon compagnon », sa niche en petit,
+  « Nouveau » sur le classement des collections —, dans une carte
+  (`profil-boutons jouer-carte`, celle des sections de l'accueil), une seule
+  ligne de texte sous chaque titre, dite en deux temps comme à l'accueil
+  (`GrosBouton` `detail`, puis `suite`, dont la feuille ne montre que les
+  morceaux qui tiennent entiers) : « Avatar, titre, vitrine » | « , fond » |
+  « , thème » | « , gerbe » ; « Croc » | « , le loup adulte »
+  (`ceQueDitSonBouton`, `components/Niche.tsx`) ; « Avatars, thèmes,
+  trophées » | « — et où gagner le reste » ; « 4ᵉ sur 87 » | « · 579
+  carats » (`ligneDesCollectionneurs` — « 4ᵉ sur 87 · ta collection vaut
+  579 carats » avant : 41 caractères, dont un téléphone n'aurait montré
+  que la place) ; « 12 soirées » | « , jouées ou animées » ; « Précision
+  64 % » | « · tes courbes ». Empilés, chacun sur deux ou trois lignes de
+  texte, ils faisaient 630 px en 360 × 640 et la page 829, pour 575
+  visibles au-dessus du menu : « Mes soirées » et « Ma carrière » restaient
+  dessous. **Ses règles ont leur cadre et leurs variables, en fin de
+  feuille** (le bloc « Le carrefour du profil », `client/src/styles.css` :
+  `--carrefour-rang`, 48 px au moins, `--carrefour-icone`,
+  `--carrefour-titre`, `--carrefour-detail`…, aux trois pas de hauteur de
+  l'accueil) : la page (`.profil-carrefour`) par ses enfants directs, les
+  boutons sous la carte (`.profil-boutons`) — jamais sous la page, où
+  s'ouvre sa carte de joueur, ni sous `.accueil-gestes`, que seul l'accueil
+  porte. Elle prend l'écran au-dessus du menu et sous le bandeau du service
+  (`body.avec-menu .profil-carrefour`, en `svh`), jusqu'à un plafond qui
+  compte ses lignes (`--carrefour-lignes`, que la page pose : cinq, six avec
+  un compagnon ; 72 px par ligne — au-delà, elles seraient plus hautes que
+  les gros boutons d'avant), et ses lignes, élastiques, se partagent ce qui
+  reste. Mesuré ce jour-là (`server/scripts/rendu-carrefour.ts`, le client
+  construit d'abord, depuis `server/` :
+  `npx tsx scripts/rendu-carrefour.ts ../export/carrefour` ;
+  `SEULEMENT=habituee,tout` pour quelques cas) :
+  l'habituée — six boutons, sa bordure de ligue —, 13 px de libre au-dessus
+  du menu en 360 × 640 (des lignes de 59 à 75 px, les plus hautes celles
+  qui ont une jauge), 61 en 360 × 740 (67-84, la page déjà à son plafond),
+  165 en 390 × 844 (66-82) et 236 en 412 × 915 ; le débutant, cinq boutons,
+  33 et 237 ; tout à la fois — le laurier d'hier, le compteur rouge,
+  « Nouveau », un compagnon au nom de seize lettres —, 13 en 360 × 640, des
+  lignes de 51 à 72 px ; sous le bandeau du service, 13 (50-66) ; le texte
+  agrandi à 130 %, 42 px de défilement (478 avant). Ce qui le ferait
+  défiler sur le petit téléphone : un bouton de plus (48 px), une ligne de
+  plus au-dessus de la carte, un titre plus long — « Classement des
+  collections », le plus long, passe déjà sur deux lignes à côté de
+  « Nouveau » sous 402 px de large, sa pastille sans son étincelle (sous
+  430 px), et sa ligne prend leur hauteur. **Rien n'y bouge pendant le
+  chargement** : la ligne de soi garde d'avance la hauteur de son avatar
+  bordé (`.profil-carrefour > .identite-ligne` — la bordure de ligue se
+  pose après la page), la jauge sa hauteur avant son compte, et la barre du
+  menu pose sa classe avant que la page ne se dessine (`MenuBarre`,
+  `useLayoutEffect`, règle `css.md`) — posée après, la page prenait tout
+  l'écran le temps d'une image, ses lignes de 68 px hautes de 123 en
+  390 × 844. Le script suit la carte image par image (« LA CARTE A BOUGÉ »)
+  et sort en erreur pour elle, comme pour un cas qui doit tenir et défile
+  (l'habituée, le débutant, tout à la fois, le bandeau, l'Ivoire) ;
+  `profil-carrefour.test.ts` garde la structure, les lignes et la feuille.
+  Sur un navigateur neuf, « Mon compagnon » n'arrive encore qu'une image
+  après les autres (sa niche se pose dans un effet, `porterNiche`) : c'est
+  d'avant, et le script ne le compte pas.

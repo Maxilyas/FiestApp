@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Icon, type IconName } from './Icon'
 import { retenirLeFocus, useModale } from '../modale'
 import { nouveautesAPorter } from '../../../shared/piecesDeLaLoge'
@@ -187,8 +187,9 @@ export function Choix({ icone, titre, detail, onClick, disabled }: { icone: Icon
  *
  * Sa ligne peut se dire en deux temps (`suite`, l'accueil compact du
  * 9 novembre 2026) : l'essentiel, puis ce qu'elle ajoute là où le bouton a
- * la place. Sur l'accueil, où chaque bouton est une rangée d'une seule
- * ligne, la feuille ne montre que les morceaux qui tiennent entiers —
+ * la place. Sur l'accueil — et au carrefour du profil, depuis le lendemain —,
+ * où chaque bouton est une rangée d'une seule ligne, la feuille ne montre
+ * que les morceaux qui tiennent entiers —
  * « Ligue d'or · cote 1084 » en 360 de large, « · encore 3 duels pour ta
  * récompense » sur une rangée plus large — au lieu de couper la phrase au
  * milieu d'un mot ; ailleurs, la phrase passe à la ligne, comme avant. Le
@@ -361,7 +362,14 @@ export function MenuBarre({
    */
   nouveautes?: number
 }) {
-  useEffect(() => {
+  // Avant que la page ne se dessine (`useLayoutEffect`), pas après : la feuille
+  // retranche la barre de la hauteur des pages par cette classe
+  // (`--haut-du-menu`, en fin de `styles.css`), et celles qui partagent
+  // l'écran entre leurs lignes — l'accueil, le carrefour du profil — se
+  // mesuraient une image sans elle. Posée après coup, elle laissait le
+  // carrefour prendre tout l'écran le temps d'une image, ses lignes de 68 px
+  // hautes de 123 en 390 × 844, puis reprises sous le doigt (le 10 novembre 2026).
+  useLayoutEffect(() => {
     // La page ne passe jamais sous la barre ; et elle prend la couleur de sa
     // pièce — son titre, ses icônes, le filet de la barre —, sans que chaque
     // page la pose elle-même.

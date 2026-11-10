@@ -1217,15 +1217,18 @@ export function SaNicheSEmbellit({
  * qu'il montre, et la jauge de son prochain but — sa forme suivante, puis le
  * palier suivant de sa niche (`prochainSeuil`). `justes` : ses bonnes
  * réponses données avec lui, que la page tient de sa boutique ; sans elles,
- * la jauge garde sa place.
+ * la jauge garde sa place. Sa ligne en deux temps (`GrosBouton` `suite`) : son
+ * nom, puis sa forme là où le bouton a la place — d'un seul tenant, un nom de
+ * seize lettres et « le loup des étoiles » se coupaient au milieu d'un mot sur
+ * la ligne du carrefour, en 360 de large.
  */
-export function ceQueDitSonBouton(niche: NicheVue, justes: number | undefined): { detail: string; jauge: number; compte?: string } {
+export function ceQueDitSonBouton(niche: NicheVue, justes: number | undefined): { detail: string; suite?: string[]; jauge: number; compte?: string } {
   const forme = formeDe(niche)
-  const detail = forme ? (niche.nom ? `${niche.nom}, ${forme.nom.charAt(0).toLowerCase()}${forme.nom.slice(1)}` : forme.nom) : (niche.nom ?? '')
-  if (justes === undefined) return { detail, jauge: 0 }
+  const ligne = forme && niche.nom ? { detail: niche.nom, suite: [`, ${forme.nom.charAt(0).toLowerCase()}${forme.nom.slice(1)}`] } : { detail: forme?.nom ?? niche.nom ?? '' }
+  if (justes === undefined) return { ...ligne, jauge: 0 }
   const seuil = prochainSeuil(niche)
-  if (seuil === null) return { detail, jauge: 1, compte: titreDeLAmitie(ORNEMENTS.length) }
-  return { detail, jauge: Math.min(1, justes / seuil), compte: `${formatNumber(justes)} sur ${formatNumber(seuil)}` }
+  if (seuil === null) return { ...ligne, jauge: 1, compte: titreDeLAmitie(ORNEMENTS.length) }
+  return { ...ligne, jauge: Math.min(1, justes / seuil), compte: `${formatNumber(justes)} sur ${formatNumber(seuil)}` }
 }
 
 /**

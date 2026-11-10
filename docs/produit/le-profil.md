@@ -66,17 +66,28 @@ Au lecteur d'écran, la page a son titre de premier niveau, que l'œil ne voit p
 
 ## La page du profil
 
-![La page du profil au téléphone : Léa, niveau 14, sa barre d'expérience et l'œil qui ouvre sa carte, puis M'habiller, Ma collection et son compte, Mes soirées, Ma carrière](../vitrine/captures/telephone-profil.jpg)
+![La page du profil au téléphone, tout sur un écran : Léa, niveau 14, sa barre d'expérience et l'œil qui ouvre sa carte, son loup dans sa niche, puis, en lignes dans une carte, M'habiller, Mon compagnon et sa jauge, Ma collection et son compte, Classement des collections, Mes soirées, Ma carrière](../vitrine/captures/telephone-profil.jpg)
 
-`/profil` met ta ligne en tête : touchée, l'œil au bout, elle ouvre **ta carte**, telle que la salle la voit. Ton laurier, si tu as gagné hier (« Vainqueur du quiz du jour d'hier », « Vainqueur du défi de la semaine dernière »). Puis cinq boutons, et « Que veulent dire ces mots ? », le glossaire des mots maison :
+`/profil` met ta ligne en tête : touchée, l'œil au bout, elle ouvre **ta carte**, telle que la salle la voit. Ton laurier, si tu as gagné hier (« Vainqueur du quiz du jour d'hier », « Vainqueur du défi de la semaine dernière »). Puis cinq boutons — six si tu as un compagnon —, en lignes dans une carte, et « Que veulent dire ces mots ? », le glossaire des mots maison :
 
 | Bouton | Sous son titre | Ouvre |
 |---|---|---|
-| « M'habiller » | « Avatar, titre, vitrine, fond, thème, gerbe » ; un compteur rouge quand la loge a du neuf | `/profil#avatar`, ou la première pièce qui a du neuf |
-| « Ma collection » | sa jauge et « N sur M » ; « Avatars, thèmes, trophées — et où gagner le reste » | `/profil#collection` |
-| « Classement des collections » | « 4ᵉ sur 87 · ta collection vaut 579 carats », au dernier relevé ; « Nouveau » tant qu'une affiche du QG le montre | `/collectionneurs` |
+| « M'habiller » | « Avatar, titre, vitrine », puis « , fond, thème, gerbe » là où la ligne a la place ; un compteur rouge quand la loge a du neuf | `/profil#avatar`, ou la première pièce qui a du neuf |
+| « Mon compagnon », si tu en as un | sa niche en petit, sa jauge et « 350 sur 500 » ; son nom, puis sa forme (« Croc, le loup adulte ») | `/profil#compagnon` |
+| « Ma collection » | sa jauge et « N sur M » ; « Avatars, thèmes, trophées », puis « — et où gagner le reste » sur un écran large | `/profil#collection` |
+| « Classement des collections » | « 4ᵉ sur 87 · 579 carats », au dernier relevé ; « Nouveau » tant qu'une affiche du QG le montre | `/collectionneurs` |
 | « Mes soirées » | « Aucune encore », ou « 12 soirées, jouées ou animées » | `/profil#soirees` |
 | « Ma carrière » | « Précision 64 % · tes courbes » | `/profil#carriere` |
+
+**Tout tient sur un écran, sans défiler** (depuis le 10 novembre 2026, au lendemain de l'accueil en lignes ; le propriétaire : « que tu modifies ceux que tu trouves trop longs, ou [où] ça serait logique de tout voir sans scroller »). Les mêmes boutons, leurs noms, leurs gestes, leur ordre : empilés, chacun sur deux ou trois lignes de texte, ils prenaient 630 pixels sur un petit téléphone (360 × 640) et la page 829, pour 575 visibles au-dessus du menu — « Mes soirées » et « Ma carrière » restaient dessous. En lignes, comme à l'accueil : une icône dans son rond, un titre, **une seule ligne** dessous — l'essentiel, puis sa suite là où elle tient entière, jamais coupée au milieu d'un mot ; le lecteur d'écran lit toujours la phrase entière —, la jauge de « Ma collection » et de « Mon compagnon » entre les deux. Les lignes se partagent la hauteur de l'écran, 48 pixels au moins : de 59 à 75 sur le petit téléphone, où il reste 13 pixels au-dessus du menu, de 66 à 82 sur un téléphone d'aujourd'hui (390 × 844), où il en reste 165.
+
+- **La ligne du classement des collections s'est raccourcie** : « 4ᵉ sur 87 · ta collection vaut 579 carats » ne tenait pas sur une ligne de téléphone ; son titre dit déjà de quoi les carats sont la valeur. Sans place au classement, « Ta collection vaut 579 carats » ; avant le premier relevé, « Ta place, et ce que vaut ta collection ».
+- **Ce qui passe encore sous le menu** : le texte agrandi à 130 %, de 42 pixels sur le petit téléphone (478 avant). Et à côté de « Nouveau », « Classement des collections », le plus long des titres, prend deux lignes sous 402 pixels de large : sa ligne est plus haute, tout tient encore.
+- **Rien ne bouge pendant que la page se charge** : ta ligne garde d'avance la hauteur de ton avatar bordé — la bordure de ligue arrive après la page —, et une jauge la place de son compte.
+
+Ce qui tient se mesure au navigateur (`server/scripts/rendu-carrefour.ts`, du petit téléphone au grand, sous le bandeau du service, en Ivoire) ; `server/test/profil-carrefour.test.ts` garde les boutons, leurs lignes et la feuille.
+
+**Et une page à menu ne défile plus quand son contenu tient** (le même jour). Chaque page prenait au moins la hauteur de l'écran, et la barre du menu s'y ajoutait : « Mes soirées » d'un nouveau venu défilait de 72 pixels, avec 325 pixels de libre au-dessus du menu ; sous le bandeau rouge du service, de 58 de plus — jusque sur l'écran d'une page en maintenance. Une page prend désormais l'écran moins la barre du menu et le bandeau ; une page longue défile de ce qui dépasse, comme avant (`server/test/hauteur-des-pages.test.ts`).
 
 Chaque écran a son adresse et « ← », qui ramène d'où tu viens ; les adresses d'avant (`#avatars`, `#style-…`, `#carte-…`, `#trophees`) mènent à l'écran qui les a reprises. L'identifiant, le mot de passe et « Me déconnecter » vivent dans « Compte ».
 
