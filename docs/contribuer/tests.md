@@ -514,7 +514,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/signalement-en-points.test.ts` — un signalement en plusieurs points, composé au téléphone : la phrase, l'ordre des points, la correction montrée dans le texte même — chaque retouche à sa place —, le texte relu après le geste, pas sous le doigt, rien quand rien ne change, la coupe à 280 caractères qui épargne les corrections.
 - `server/test/meme-fait.test.ts` — le même fait sous deux intitulés.
 - `server/test/generer-campagne.test.ts` — la génération en nombre : vagues, dédoublonnage, relecture rejouée.
-- `server/test/inventaires.test.ts` — les inventaires de la danse, de la santé, de la langue française, de l'anglais et de l'espagnol : la consigne qui les donne, la commande famille par famille, la couverture et ce qui reste sans question.
+- `server/test/inventaires.test.ts` — les inventaires de la danse, de la santé, de la langue française, de l'anglais, de l'espagnol, de l'équitation et de la plongée : la consigne qui les donne, la commande famille par famille, la couverture et ce qui reste sans question.
 - `server/test/faits-wikidata.test.ts` — les faits de Wikidata, sans réseau.
 - `server/test/reponses-soufflees.test.ts` — les réponses soufflées par leur racine.
 

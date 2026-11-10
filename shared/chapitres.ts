@@ -84,9 +84,11 @@ const THEMES: Readonly<Record<CleDeBranche, readonly (readonly [string, readonly
   ],
   stade: [
     ['Football et rugby', ['football', 'rugby']],
-    ['Jeux olympiques et tennis', ['olympisme', 'tennis']],
+    // L'équitation avec les Jeux, dont elle est une discipline ; la plongée avec la glisse et la voile, les sports
+    // de pleine nature (le 9 novembre 2026). Le dernier chapitre est plein : quatre sous-thèmes au plus.
+    ['Olympisme, tennis et équitation', ['olympisme', 'tennis', 'equitation']],
     ['Cyclisme et sports collectifs', ['cyclisme', 'equipes']],
-    ['Moteurs, glisse et combat', ['mecaniques', 'glisse', 'combat']],
+    ['Moteurs, glisse, plongée et combat', ['mecaniques', 'glisse', 'plongee', 'combat']],
   ],
   brigade: [
     ['Spécialités françaises et desserts', ['france', 'desserts']],

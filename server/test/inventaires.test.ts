@@ -15,7 +15,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { INVENTAIRES, couverture, inventaireDe, inventairesDuTheme, lireLeSujet, repartirLesFamilles, type QuestionCouverte } from '../src/core/inventaires'
-import { consigneDEcriture } from '../src/core/consigneCampagne'
+import { consigneDEcriture, type QuotaDEcriture } from '../src/core/consigneCampagne'
 import { lireQuestionDeLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import { SUJETS, sujetParCle } from '../../shared/sujets'
@@ -229,6 +229,34 @@ test('ce qui manque : un sujet sans question, une question, nommé dans sa famil
   for (const l of plan) for (const x of l.quotas) assert.equal(x.n, x.sujets!.length, `${l.id} : une question par sujet`)
 })
 
+// L'équitation et la plongée (le souhait du propriétaire du 9 novembre 2026) :
+// deux disciplines que la base ne posait pas, chacune son sous-thème neuf en
+// Sport et son inventaire. Leurs poids font cent trente — à peu près ce qu'un
+// thème neuf demande pour monter deux fois son parcours : chaque famille
+// reçoit son poids en questions, tient dans un lot, et les douze s'écrivent
+// d'une seule vague.
+test('l’équitation et la plongée : un inventaire chacune, en Sport ; cent trente questions, chaque famille son poids, une seule vague', () => {
+  for (const cle of ['equitation', 'plongee']) {
+    const theme = sujetParCle(cle)!
+    const inventaires = inventairesDuTheme(theme)
+    assert.deepEqual(inventaires.map(i => `${i.categorie} › ${i.sousTheme}`), [`Sport › ${cle}`])
+    assert.equal(theme.categorie, 'Sport', `${cle} tient la rubrique de son sous-thème`)
+    for (const { famille, n } of repartirLesFamilles(inventaires, 130)) {
+      assert.equal(n, famille.poids, `${cle} › ${famille.nom}`)
+      assert.ok(n <= QUESTIONS_PAR_LOT, `${cle} › ${famille.nom} : un seul lot`)
+    }
+  }
+  // Ce que chacune laisse à ses voisins se lit dans son périmètre : le plongeon reste aux Jeux, le cheval sauvage à la nature.
+  assert.match(inventaireDe('Sport', 'plongee')!.perimetre, /plongeon[^;]*→ Sport \(olympisme\)/)
+  assert.match(inventaireDe('Sport', 'equitation')!.perimetre, /cheval sauvage[^;]*→ Nature \(mammiferes\)/)
+  const commandes = new Map<Categorie, QuotaDEcriture[]>()
+  for (const cle of ['equitation', 'plongee']) for (const [c, lignes] of commandeDeLInventaire(sujetParCle(cle)!, 130)) commandes.set(c, [...(commandes.get(c) ?? []), ...lignes])
+  const vagues = planDeLaGeneration([], { nom: 'ep', questions: 0, commandes })
+  assert.equal(vagues.length, 1, 'deux familles d’un sous-thème se partagent une vague')
+  assert.equal(vagues[0].lots.length, 12)
+  assert.equal(vagues[0].lots.reduce((s, l) => s + l.quotas.reduce((t, q) => t + q.n, 0), 0), 260)
+})
+
 test('préparer par l’inventaire : --questions ou --manques, jamais avec --theme, et deux thèmes dans les mêmes vagues', () => {
   const contexte = (): Contexte => ({ dossier: mkdtempSync(path.join(tmpdir(), 'inventaire-')), base: [], livres: new Set(), dire: () => {} })
   const ctx = contexte()
@@ -243,7 +271,7 @@ test('préparer par l’inventaire : --questions ou --manques, jamais avec --the
     assert.throws(() => preparer(contexte(), { inventaire: 'danse' }), /--questions=<nombre>, ou avec --manques/)
     assert.throws(() => preparer(contexte(), { inventaire: 'danse', questions: 10, manques: true }), /l’un ou l’autre/)
     assert.throws(() => preparer(contexte(), { manques: true, questions: 10 }), /--manques ne va qu’avec --inventaire/)
-    assert.throws(() => preparer(contexte(), { inventaire: 'animaux', questions: 10 }), /des thèmes qui ont un inventaire \(danse, sante, francais, anglais, espagnol\)/)
+    assert.throws(() => preparer(contexte(), { inventaire: 'animaux', questions: 10 }), /des thèmes qui ont un inventaire \(equitation, plongee, danse, sante, francais, anglais, espagnol\)/)
     assert.throws(() => preparer(contexte(), { inventaire: 'danse,animaux', questions: 10 }), /des thèmes qui ont un inventaire/)
     const manques = preparer(contexte(), { inventaire: 'danse', manques: true, nom: 'm1' })
     assert.equal(manques.generation.demandees, inventairesDuTheme(danse).flatMap(i => i.familles.flatMap(f => f.sujets)).length)
