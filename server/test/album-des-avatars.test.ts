@@ -574,6 +574,13 @@ test('la luciole, le Cabinet ouvert ou fermé : en boutique, comme les autres �
   assert.equal(dit('cp:luciole-constellation'), 'en boutique, puis à 500 bonnes réponses avec elle')
   assert.equal(dit('cp:luciole-aurore'), 'en boutique, puis à 500 bonnes réponses avec elle et par l’Éclat')
   assert.equal(dit('cp:loup-louveteau'), 'en boutique')
+  // Plus aucun compagnon ne se gagne (`Compagnon.gagne`) : l'album gardait pour un tel compagnon une voie prête, que rien
+  // n'atteignait — « Complète une salle de ton musée », « En expédition : la Première traversée » —, deux pages qui
+  // n'existent plus. Elle est partie le 10 novembre 2026 ; un compagnon qui se gagnerait écrit sa voie dans l'album
+  // (`shared/album.ts`) avant de porter `gagne`, sans quoi sa fiche dirait « En boutique ».
+  assert.ok(COMPAGNONS.every(c => !c.gagne), 'un compagnon qui se gagne : sa voie est à écrire dans l’album')
+  const album = readFileSync(new URL('../../shared/album.ts', import.meta.url), 'utf8')
+  assert.doesNotMatch(album, /Complète une salle de ton musée|compléter une salle`|la Première traversée'/, 'une voie du musée ou de l’Expédition, que rien n’atteint')
 })
 
 test('l’Expédition effacée, l’album n’en dit plus rien : ni lieu, ni voie, sous aucun drapeau du Cabinet', () => {

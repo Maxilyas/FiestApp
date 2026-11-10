@@ -56,7 +56,7 @@ import { NOM_PALIER, clePalier, hautFait, origineDe, regleDuPalier } from './hau
 import { saison } from './saisons'
 import { recompensesDe } from './proches'
 import { formatNumber } from './typographie'
-import { COMPAGNONS, JUSTES_DES_FORMES, PRIX_D_UN_COMPAGNON, avecLui, compagnonDe, formeDeCompagnon, formesOuvertes, type Compagnon } from './compagnons'
+import { COMPAGNONS, JUSTES_DES_FORMES, PRIX_D_UN_COMPAGNON, avecLui, compagnonDe, formeDeCompagnon, formesOuvertes } from './compagnons'
 import { CHANCE_ECLAT, CHANCE_ECLAT_DU_DEFI, type PublicProfileDetail } from './profil'
 
 /** Les pages de l'album : les cinq raretés des thèmes, et les Divins à part. */
@@ -146,24 +146,18 @@ export const lieuxDuLegendaire = (l: Legendaire, cabinet: boolean = CABINET_EN_P
 ]
 
 /**
- * L'album dit-il encore la voie de l'Expédition ? Ce qu'en décide
- * `voiesMontrees` pour les légendaires qu'elle garde, et rien d'autre : la
- * luciole, qu'elle amène aussi, ne dit jamais une voie qu'ils taisent. Le jour
- * où son départ ferme et où leur voie se tait, la sienne se tait avec, sans un
- * drapeau de plus à suivre ici. La galerie des compagnons lit la même chose
- * (`venuesDeLaLuciole`, `GalerieDesCompagnons.tsx`).
+ * D'où vient la première forme d'un compagnon : la boutique, pour tous — la
+ * luciole comprise depuis le 31 octobre 2026, l'Expédition qui l'amenait
+ * effacée. L'album tenait prête, pour un compagnon qui se gagnerait
+ * (`Compagnon.gagne`, que plus aucun ne porte), une voie par lieu — « Au
+ * Cabinet : compléter une salle » de son musée, « En expédition : la Première
+ * traversée » : deux pages qui n'existent plus, et un texte que rien
+ * n'atteignait. Elle est partie le 10 novembre 2026. Un compagnon qui se
+ * gagnerait écrit ici sa voie avant de porter `gagne` :
+ * `album-des-avatars.test.ts` le réclame. La galerie des compagnons garde son
+ * propre chemin pour lui (`venuesDeLaLuciole`, `GalerieDesCompagnons.tsx`).
  */
-const laVoieDeLExpeditionSeDit = (cabinet: boolean): boolean => LEGENDAIRES.some(l => voiesMontrees(l, cabinet).some(estUneVoieDExpedition))
-
-/**
- * D'où vient la première forme d'un compagnon : la boutique — la luciole
- * comprise depuis le 31 octobre 2026, l'Expédition qui l'amenait effacée. Un
- * compagnon qui ne s'achèterait pas (`Compagnon.gagne`) dirait son lieu — et,
- * le Cabinet ouvert, le Cabinet d'abord, l'expédition tant que l'album dit sa
- * voie (`cheminDeLaLuciole`, `shared/compagnons.ts`).
- */
-const lieuxDeSaVenue = (c: Compagnon, cabinet: boolean): LieuDAvatar[] =>
-  c.gagne === 'expedition' && cabinet ? ['cabinet', ...(laVoieDeLExpeditionSeDit(cabinet) ? (['expedition'] as const) : [])] : [c.gagne ?? 'boutique']
+const SA_VENUE: readonly LieuDAvatar[] = ['boutique']
 
 const avatar = (cle: string, sorte: SorteDAvatar, rarete: RareteDAvatar, lieux: readonly LieuDAvatar[]): AvatarDeLAlbum => ({ cle, sorte, rarete, lieux })
 
@@ -178,13 +172,10 @@ function lAlbum(cabinet: boolean): readonly AvatarDeLAlbum[] {
   return [
     ...LEGENDAIRES.map(l => avatar(l.key, 'legendaire', 'legendaire', lieuxDuLegendaire(l, cabinet))),
     ...PORTRAITS.map(p => avatar(p.key, 'portrait', RARETE_DU_RANG[p.rang], ['sentiers'])),
-    ...COMPAGNONS.flatMap(c => {
-      const vient = lieuxDeSaVenue(c, cabinet)
-      return [
-        ...c.formes.map(f => avatar(f.key, 'compagnon', f.rarete, f.rang === 0 ? vient : [...vient, 'niche'])),
-        ...(c.lumiere ? [avatar(c.lumiere.key, 'compagnon', c.lumiere.rarete, [...vient, 'niche', 'eclat'])] : []),
-      ]
-    }),
+    ...COMPAGNONS.flatMap(c => [
+      ...c.formes.map(f => avatar(f.key, 'compagnon', f.rarete, f.rang === 0 ? SA_VENUE : [...SA_VENUE, 'niche'])),
+      ...(c.lumiere ? [avatar(c.lumiere.key, 'compagnon', c.lumiere.rarete, [...SA_VENUE, 'niche', 'eclat'])] : []),
+    ]),
     ...COLLECTION.map(c => avatar(c.emoji, 'emoji', rareteDeLEmoji(c.niveau), ['niveau'])),
     ...DIVINS.map(d => avatar(d.key, 'divin', 'divin', [])),
   ]
@@ -244,8 +235,8 @@ export function ouIlSeGagne(a: AvatarDeLAlbum, cabinet: boolean = CABINET_EN_PRO
   const f = formeDeCompagnon(a.cle)
   if (f) {
     const c = compagnonDe(f)
-    // En boutique, la luciole comprise (le 31 octobre 2026) ; un compagnon qui se gagnerait dirait son lieu.
-    const vient = dite(lieuxDeSaVenue(c, cabinet).map(x => DANS[x]), 'ou')
+    // En boutique, la luciole comprise (le 31 octobre 2026).
+    const vient = dite(SA_VENUE.map(x => DANS[x]), 'ou')
     if (f.metamorphose) return `${vient}, puis à ${JUSTES_DES_FORMES[f.rang]} bonnes réponses ${avecLui(c)} et par l’Éclat`
     return f.rang === 0 ? vient : `${vient}, puis à ${JUSTES_DES_FORMES[f.rang]} bonnes réponses ${avecLui(c)}`
   }
@@ -484,29 +475,20 @@ export function voiesDeLAvatar(cle: string, p: ProfilDesVoies, cabinet: boolean 
     ]
   }
   if (a.sorte === 'compagnon') {
-    // L'acheter — la luciole aussi, depuis le 31 octobre 2026 ; un compagnon
-    // qui se gagnerait, une voie par lieu (`lieuxDeSaVenue`) —, puis le faire
+    // L'acheter — la luciole aussi, depuis le 31 octobre 2026 —, puis le faire
     // grandir dans sa niche — et, pour sa métamorphose, l'Éclat sur lui.
     const f = formeDeCompagnon(cle)!
     const c = compagnonDe(f)
     const sien = (p.compagnons ?? []).find(x => x.compagnon === c.key)
-    const il = c.le === 'la' ? 'elle' : 'il'
-    // Sans jauge, et tenue dès qu'il est à lui, par où qu'il soit venu : une salle est complète ou non, une
-    // expédition va au bout ou non — une fois suffit.
-    const venue = (lieu: LieuDAvatar): EtapeDUneVoie =>
-      lieu === 'cabinet'
-        ? { lieu, titre: `${OU.cabinet} : compléter une salle`, regle: `Complète une salle de ton musée : ${il} te rejoint, puis grandit avec toi`, tenue: !!sien, progres: null }
-        : lieu === 'expedition'
-          ? {
-              lieu,
-              titre: 'En expédition : la Première traversée',
-              regle: `Mène une expédition au bout — le troisième gardien vaincu — : ${il} te rejoint, puis grandit avec toi`,
-              tenue: !!sien,
-              progres: null,
-            }
-          : { lieu: 'boutique', titre: `En boutique : ${formatNumber(PRIX_D_UN_COMPAGNON)} confettis`, regle: `${c.nom} s’achète à sa première forme, puis grandit avec toi`, tenue: !!sien, progres: null }
-    const venues = lieuxDeSaVenue(c, cabinet).map(venue)
-    if (f.rang === 0) return venues.map(v => [v])
+    // Sans jauge, et tenue dès qu'il est à lui, par où qu'il soit venu — un coffre, un cadeau : une fois suffit.
+    const venue: EtapeDUneVoie = {
+      lieu: 'boutique',
+      titre: `En boutique : ${formatNumber(PRIX_D_UN_COMPAGNON)} confettis`,
+      regle: `${c.nom} s’achète à sa première forme, puis grandit avec toi`,
+      tenue: !!sien,
+      progres: null,
+    }
+    if (f.rang === 0) return [[venue]]
     const requis = JUSTES_DES_FORMES[f.rang]
     const tenue = !!sien && sien.rang >= f.rang
     const justes = p.boutique?.compagnons?.find(x => x.compagnon === c.key)?.justes ?? 0
@@ -518,8 +500,8 @@ export function voiesDeLAvatar(cle: string, p: ProfilDesVoies, cabinet: boolean 
       // Une forme atteinte le reste, même si ses bonnes réponses ont redescendu.
       progres: sien ? compte(tenue ? requis : Math.min(justes, requis), requis) : null,
     }
-    // Chaque voie le fait venir, puis grandir : « ou » entre elles, « et » entre leurs étapes.
-    if (!f.metamorphose) return venues.map(v => [v, grandir])
+    // Une seule voie : le faire venir, puis grandir — « et » entre ses étapes.
+    if (!f.metamorphose) return [[venue, grandir]]
     // Pas de jauge : un tirage, qui tombe sur ce qu'il porte (`cibleEclat`).
     const eclat: EtapeDUneVoie = {
       lieu: 'eclat',
@@ -528,7 +510,7 @@ export function voiesDeLAvatar(cle: string, p: ProfilDesVoies, cabinet: boolean 
       tenue: !!sien?.eclat,
       progres: null,
     }
-    return venues.map(v => [v, grandir, eclat])
+    return [[venue, grandir, eclat]]
   }
   const l = legendaire(cle)!
   const s = l.saison && saison(l.saison)

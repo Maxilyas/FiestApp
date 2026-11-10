@@ -150,6 +150,19 @@ paths:
   jeux, ses exploits et les défis des cartes (`PISTES_DU_CABINET`,
   `shared/pagesDesTrophees.ts`), et sa fiche mène au Cabinet, pas à une
   série (`ouJouer`, `shared/trophees.ts`).
+- **Un trophée qu'on ne peut plus gagner se tait à qui ne l'a pas, jamais à
+  ses détenteurs** (le Globe-trotter, le 10 novembre 2026, le choix du
+  propriétaire) : il compte les tampons du passeport de l'Expédition, effacée
+  le 31 octobre — l'album le montrait encore à tous, « 0 sur 3 », sous
+  « Jouer une série », qui n'a jamais tamponné un passeport. Il porte
+  `enExpedition` et `montreParLeServeur` : le serveur ne le cite qu'où
+  l'Expédition répond (`ProfileStore.expedition`, posé par `server.ts` de
+  `expeditionRemplacee` — le banc la garde, ses épreuves le voient), sauf à
+  qui en a un palier rangé (`hautsFaitsVus`, invariant 22) ; l'album ne lui
+  fait de case que cité, et sa fiche ne mène nulle part (`ouJouer`,
+  `voieDeLExpeditionDite`). Ni seuil, ni règle, ni `VERSION_BAREME` : rien ne
+  se reprend, rien ne se recalcule. Un mode qu'on efface relit ses trophées
+  de la même façon (`expedition-codex.test.ts`, `trophees.test.ts`).
 - **Le sceau d'un légendaire se dérive, il ne se range pas** (le 9 novembre
   2026, `retours/2026-11-09/legendaires-du-cabinet.md` et la planche
   `sceau/`) : le Cabinet donnait vingt et un légendaires, un par traversée

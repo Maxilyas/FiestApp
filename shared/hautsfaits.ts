@@ -98,10 +98,19 @@ export interface HautFaitDeCarriere {
    */
   auCabinet?: true
   /**
+   * Ce qu'il compte ne se fait qu'en expédition — les tampons du passeport,
+   * le Globe-trotter. Là où elle est effacée (`EXPEDITION_REMPLACEE`, le
+   * 31 octobre 2026), plus rien ne le fait monter : le serveur ne le cite
+   * plus qu'à ses détenteurs (`montreParLeServeur`, `ProfileStore.expedition`),
+   * et sa fiche ne mène plus à une série, qui ne l'a jamais avancé (`ouJouer`).
+   */
+  enExpedition?: true
+  /**
    * Il ne se montre que là où le serveur le cite (`PublicProfileDetail.hautsFaits`)
    * : L'Explorateur, là où le Cabinet de curiosités reste fermé — ses
    * traversées ne s'y jouent pas, et le même code sert les serveurs où il
-   * s'ouvre. Le serveur le tait et ne le décerne pas —
+   * s'ouvre —, et le Globe-trotter, là où l'Expédition est effacée
+   * (`enExpedition`). Le serveur le tait et ne le décerne pas —
    * sauf à qui en a déjà un palier, qu'il cite partout : un palier rangé ne se
    * cache pas ; l'album ne bâtit pas sa case sans lui.
    */
@@ -858,6 +867,12 @@ export const HAUTS_FAITS_DE_CARRIERE: HautFaitDeCarriere[] = [
   // pointu trouvé, une fois chacun (`StatsDeCampagne.tampons`) — quatre-vingt-
   // douze sujets dans l'onglet des thèmes ce jour-là, l'or au passeport
   // complet. Il tombe au bout d'une expédition, avec ceux de la campagne.
+  // L'Expédition effacée (le 31 octobre 2026), plus personne ne gagne un
+  // tampon, et l'album le montrait encore à tous, « 0 sur 3 » : depuis le
+  // 10 novembre 2026 (le choix du propriétaire), il ne se cite plus qu'à ses
+  // détenteurs là où elle ne répond plus (`enExpedition`, `montreParLeServeur`)
+  // — ses paliers rangés restent, et se montrent (invariant 22). Sa règle ne
+  // change pas : là où elle répondrait encore, il se gagne comme avant.
   {
     key: 'hf:globe-trotter',
     famille: 'carriere',
@@ -868,6 +883,8 @@ export const HAUTS_FAITS_DE_CARRIERE: HautFaitDeCarriere[] = [
     paliers: [10, 40, 92],
     valeur: c => c.campagne.tampons,
     deCampagne: 'tampons',
+    enExpedition: true,
+    montreParLeServeur: true,
   },
   // Les traversées gagnées au Cabinet de curiosités (le 1er novembre 2026), une,
   // cinq, quinze (`StatsDeCampagne.traversees`) : « quelque chose que la

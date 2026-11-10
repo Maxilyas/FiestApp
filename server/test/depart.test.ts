@@ -583,3 +583,15 @@ test('`npm run mesure` attend, au Cabinet, un élément que sa page rend : la tr
   for (const classe of classes) assert.match(traversee, new RegExp(`className="[^"]*\\b${classe}\\b[^"]*"`), `.${classe}, que la traversée ne pose pas`)
   assert.doesNotMatch(ligne, /musée/i, 'son nom au tableau')
 })
+
+test('`npm run mesure` ne mesure que des pages qui existent en ligne : plus celles de l’Expédition, effacée', () => {
+  // Elle en ouvrait deux — son départ, et le plan d'une expédition en route —, que seul le banc sert encore : il garde
+  // l'Expédition à ses épreuves (`expeditionRemplacee: false`), quand la production et la préproduction renvoient
+  // `/expedition` au Cabinet depuis le 31 octobre 2026. Deux lignes du tableau mesuraient ce qu'aucun joueur n'attend plus.
+  const script = readFileSync(new URL('../scripts/mesure-pages.ts', import.meta.url), 'utf8')
+  const pages = script.slice(script.indexOf('const PAGES: PageMesuree[] = ['), script.indexOf(']\n', script.indexOf('const PAGES: PageMesuree[] = [')))
+  const chemins = [...pages.matchAll(/chemin: [`']([^`']+)[`']/g)].map(m => m[1])
+  assert.ok(chemins.includes('/cabinet') && chemins.includes('/jour'), chemins.join(' '))
+  assert.ok(!chemins.some(c => c.startsWith('/expedition')), 'une page de l’Expédition')
+  assert.doesNotMatch(script, /\/api\/expedition/, 'ni une expédition partie pour la remplir')
+})

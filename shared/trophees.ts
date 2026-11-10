@@ -39,6 +39,8 @@ import {
 } from './hautsfaits'
 import { ABSORBES, ceQuOuvreLeTrophee, etapesDeLaPiste, rareteMesuree, type Recompense } from './pistes'
 import type { Rarete } from './badges'
+// Le fichier qui n'importe rien : le drapeau de l'Expédition, sans tirer ses règles.
+import { voieDeLExpeditionDite } from './jokers'
 import { PAGES } from './calendrier'
 import { BRANCHES, type CleDeBranche } from './branches'
 import { PALIER_DU_MAITRE, titreDeMaitre } from './sentiers'
@@ -249,6 +251,8 @@ export const OU_JOUER: Readonly<Partial<Record<PageDesTrophees, { nom: string; h
 
 /** L'écran du Cabinet de curiosités : sa page, et ses pistes (`PISTES_DU_CABINET`), qu'une série n'avance pas. */
 const AU_CABINET = { nom: 'Aller au Cabinet', href: '/cabinet' }
+/** Le départ de l'Expédition, pour le trophée qui ne se gagne qu'en elle — là où elle se dit encore. */
+const EN_EXPEDITION = { nom: 'Partir en expédition', href: '/expedition' }
 
 /**
  * L'écran où aller gagner un trophée de cette page : le Cabinet pour ses
@@ -256,9 +260,17 @@ const AU_CABINET = { nom: 'Aller au Cabinet', href: '/cabinet' }
  * tient du serveur — `cabinetIci` —, jamais d'une constante : la préproduction
  * l'ouvre), aucun : le serveur cite quand même L'Explorateur à ses détenteurs
  * (`montreParLeServeur`), et ni la page fermée, ni une série ne l'avancent.
+ * Un trophée qui ne se gagne qu'en expédition (`enExpedition`, le
+ * Globe-trotter) mène à son départ là où elle se dit encore, nulle part
+ * depuis qu'elle est effacée (`expedition`, le drapeau du code d'office —
+ * `voieDeLExpeditionDite`, la règle de l'album et de l'accueil) : rangé sur la
+ * page de la campagne, il promettait « Jouer une série », qui n'a jamais
+ * tamponné un passeport.
  */
-export function ouJouer(cle: string, page: PageDesTrophees, cabinet = true): { nom: string; href: string } | undefined {
+export function ouJouer(cle: string, page: PageDesTrophees, cabinet = true, expedition: boolean = voieDeLExpeditionDite()): { nom: string; href: string } | undefined {
   if (PISTES_DU_CABINET.has(cle) || page === 'cabinet') return cabinet ? AU_CABINET : undefined
+  const h = hautFait(cle)
+  if (h?.famille === 'carriere' && h.enExpedition) return expedition ? EN_EXPEDITION : undefined
   return OU_JOUER[page]
 }
 
