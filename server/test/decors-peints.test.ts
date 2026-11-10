@@ -256,6 +256,51 @@ test('le ciel suit les moments de Paris, et passe de l’un à l’autre en fond
   assert.deepEqual(a(21, 10), { ciel: 'crepuscule', vers: 'nuit', fondu: 40 / 60 })
 })
 
+// Le retour du 10 novembre 2026, une photo d'un téléphone Android sous Le
+// Ciel, à 18 h 15 : au quiz du jour joué, le haut du classement en friture,
+// deux lignes perdues. En plein fondu vers le crépuscule, le décor tenait
+// trois calques plein écran — le tableau, celui qui vient, le voile — en plus
+// de la page et de son contenu : 52 Mo à la densité d'un téléphone. Node n'a
+// pas de carte graphique : ce test garde la feuille, et
+// `retours/2026-11-10/reproductions/classement-en-friture.ts` compte les
+// calques dans un Chromium (31 Mo depuis, à toute heure du jour).
+test('le Ciel tient tout son décor dans une seule couche fixe, même en plein fondu', () => {
+  const ciel = readFileSync(client('themes/ciel.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+  const regles = [...ciel.matchAll(/([^{}@]+)\{([^{}]*)\}/g)].map(m => ({ selecteurs: m[1].split(',').map(s => s.trim()), corps: m[2] }))
+  const de = (motif: RegExp) => regles.filter(r => r.selecteurs.some(s => motif.test(s)))
+  // Le voile n'a plus de couche à lui : il se peint sur le tableau, sa force dans l'alpha de ses couleurs.
+  assert.equal(de(/#root::before/).length, 0, 'aucune règle ne pose `#root::before`')
+  assert.match(ciel, /--voile-peint:\s*linear-gradient\([^;]*rgb\(14 20 48 \/ var\(--voile\)\)/)
+  assert.match(ciel, /--voile:\s*calc\(var\(--voile-de\) \+ \(var\(--voile-vers\) - var\(--voile-de\)\) \* var\(--ciel-fondu, 0\)\)/)
+  const tableau = de(/body::before$/)
+  assert.ok(tableau.some(r => /background-image:\s*var\(--voile-peint\), var\(--tableau\)/.test(r.corps)))
+  // Rien dans cette couche ne la ferait recomposer : ni opacité, ni animation, ni transition.
+  for (const r of tableau) assert.doesNotMatch(r.corps, /opacity|animation|transition|transform/, r.selecteurs.join(', '))
+  // Pendant une bascule, les deux tableaux se fondent dans la même couche…
+  assert.match(
+    ciel,
+    /@supports \(background-image: -webkit-cross-fade\([^{]*\{\s*:root\[data-theme='ciel'\]\[data-ciel-vers\] body::before \{\s*background-image: var\(--voile-peint\), -webkit-cross-fade\(var\(--tableau\), var\(--tableau-vers\), var\(--ciel-fondu, 0\)\);\s*\}\s*:root\[data-theme='ciel'\]\[data-ciel-vers\] body::after \{\s*content: none;/,
+  )
+  // … et la couche du second n'existe, pour qui ne sait pas les fondre, que pendant une bascule.
+  for (const r of de(/body::after$/)) {
+    for (const s of r.selecteurs.filter(s => /body::after$/.test(s))) assert.match(s, /\[data-ciel-vers|\[data-heure-suivie\]/, s)
+  }
+  // Un moment ne cite que son tableau : un téléphone n'en télécharge qu'un, deux pendant un fondu.
+  for (const r of regles) {
+    const cites = r.corps.match(/var\(--decor-\w+\)/g) ?? []
+    assert.ok(cites.length <= 1, `${r.selecteurs.join(', ')} cite ${cites.length} tableaux`)
+  }
+  // La lueur du soleil bas, animée, garde un calque : il a la taille de sa tache, pas celle de l'écran.
+  for (const moment of ['aube', 'crepuscule']) {
+    const [lueur] = de(new RegExp(`^:root\\[data-theme='ciel'\\]\\[data-ciel='${moment}'\\] #root::after$`)).filter(r => r.selecteurs.length === 1)
+    assert.ok(lueur, `la lueur : ${moment}`)
+    const marges = /inset:\s*([\d.]+)% ([\d.]+)% ([\d.]+)% ([\d.]+)%/.exec(lueur.corps)
+    assert.ok(marges, `la lueur de ${moment} dit sa place`)
+    const [haut, droite, bas, gauche] = marges.slice(1).map(Number)
+    assert.ok(((100 - haut - bas) * (100 - droite - gauche)) / 100 < 20, `la lueur de ${moment} prend moins d'un cinquième de l'écran`)
+  }
+})
+
 test('les feuilles lisent ce que l’horloge pose : chaque moment du ciel, les deux aiguilles', () => {
   const ciel = readFileSync(client('themes/ciel.css'), 'utf8')
   for (const moment of ['aube', 'jour', 'crepuscule', 'nuit']) {
