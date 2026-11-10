@@ -1,0 +1,99 @@
+# La revue des écrans : ce qui défile au téléphone
+
+> « J'aimerais que tu passes en revue tous les écrans de l'application et que
+> tu modifies ceux que tu trouves trop longs, ou [où] ça serait logique de tout
+> voir sans scroller. » — le propriétaire, le 10 novembre 2026, au lendemain de
+> l'accueil en lignes (`retours/2026-11-09/accueil-compact/`).
+
+## Comment c'est mesuré
+
+Chaque script de rendu de `server/scripts/` a été lancé tel quel, une sonde
+préchargée (`reproductions/sonde.cjs`, par `NODE_OPTIONS=--require`) : à
+chaque photo d'une page, elle note ce dont l'écran défile — le bas de ce que
+la page montre vraiment (ce qu'un cadre coupe ou fait défiler en lui-même ne
+compte pas, ni ce qui est fixe), comparé au pli : le bas de l'écran, moins la
+barre du menu. Pour une feuille ouverte, ce dont elle défile en elle-même ;
+pour le geste principal d'un écran, s'il se voit en entier.
+
+Trente et un scripts (tous, sauf le QG, les thèmes et la vitrine), près de
+sept cents photos de téléphone, presque toutes en 360 × 640 — le petit
+téléphone de référence. Ce que la sonde ne voit pas : la barre d'adresse d'un
+navigateur et l'encoche (Chromium sans écran n'en a pas), et un écran
+qu'aucun script ne visite. Elle compte aussi ce qui est dans la page sans se
+voir (le glossaire replié du profil) : un chiffre surprenant se vérifie sur
+la photo.
+
+```bash
+npm run build -w client
+retours/2026-11-10/ecrans/reproductions/releve.sh export/releve rendu-campagne.ts rendu-duels.ts
+node retours/2026-11-10/ecrans/reproductions/ecrans.cjs export/releve/sonde   # écran par écran
+node retours/2026-11-10/ecrans/reproductions/pouces.cjs export/releve/sonde   # le geste principal : vu, collé, caché
+```
+
+## Le critère
+
+- **Un carrefour** (où aller), **un écran où l'on décide** (préparer un duel,
+  ouvrir un salon) et **l'écran d'après une réponse** : ce qu'on vient y
+  faire se voit sans défiler.
+- **Une liste, un album, un catalogue, un classement, un historique, une
+  correction, le récapitulatif de ce qu'une partie rapporte, un tableau du
+  QG** défilent par nature : leur longueur est leur contenu. On n'y touche
+  pas — mais le geste qui les suit ne doit pas se cacher dessous.
+
+## Ce qui a été changé
+
+| L'écran | Avant, en 360 × 640 | Après |
+|---|---|---|
+| L'accueil, l'affiche d'une nouveauté à la place d'« À la une » | la page défilait de 179 px (67 en 390 × 844) | l'affiche se couche en bandeau : 0 px sous le menu aux quatre tailles de téléphone (`rendu-accueil.ts`, les cas `affiche`) |
+| L'accueil, la ligne des duels | « · encore 3 duels pour ta récompense » ne se montrait que sur tablette | la relance passe devant : « Encore 3 duels pour ta récompense » |
+| Après une réponse — révision, série, duel au dé ou contre quelqu'un, épreuve de sentier, étape de parcours, quiz du jour | « Question suivante » sous le pli : 122 px de page en trop en révision, 129 contre Automate, 139 en épreuve | le geste reste sous le pouce (`SousLePouce`) : collé au bas de l'écran quand la page est plus longue, à sa place sinon |
+| « Défier Tom » (préparer un duel) | « Jouer le duel » au pli, 113 à 158 px de page en trop ; sous toute la liste des amis tant qu'on choisit (666 à 785 px) | sous le pouce |
+| « Nouveau salon » | « Ouvrir le salon » à 365 px sous l'écran, 800 les équipes préparées | sous le pouce |
+| La fin d'un duel (le verdict) | « Un autre duel », « Revanche » : de 54 à 656 px sous l'écran selon ce que le duel rapporte | sous le pouce |
+| « Duel envoyé » | « Accueil » de 64 à 336 px sous l'écran | sous le pouce |
+| La fin d'une série, d'une révision, d'un défi | « Rejouer », « Réviser encore », « Le classement du défi » : de 41 à 1356 px de page en trop selon les gains | sous le pouce |
+| La fin d'une épreuve de sentier, d'une étape de parcours | « Jouer le palier 10 », « Le porter », « Jouer l'étape 2 » : 196 à 527 px de page en trop | sous le pouce |
+
+Le geste « sous le pouce » : la règle `.claude/rules/css.md` le raconte,
+`server/test/sous-le-pouce.test.ts` le garde. Mesuré après : sur les
+quarante-sept écrans photographiés qui en ont un, il se voit en entier
+partout — collé sur trente-trois, à sa place sur quatorze, où rien n'a
+changé au pixel.
+
+## Ce qui défile par nature (relevé, laissé)
+
+- **Les listes et les albums** : la boutique (2 900 px), « Ma collection » et
+  ses albums (600 à 3 900), les collectionneurs (470 à 1 260), l'historique et
+  le classement des duels, le carnet et les parcours de thème, la carte des
+  douze sentiers (530 à 800 — son bloc du haut tient l'écran, son geste
+  compris) et un sentier (1 090), « Mes quiz » et l'éditeur, la loge (ses
+  grilles).
+- **Les récapitulatifs** : la fin du quiz du jour (1 100 à 1 700 : sa note, ses
+  gains, le classement, la plume), le défi relevé, les corrections (« Mes
+  réponses », 2 200 à 3 000), le souvenir d'une soirée.
+- **La salle** : la salle d'attente, le podium d'un quiz, la révélation d'une
+  question aux textes les plus longs (les « pires cas » de `rendu-ecran.ts`) ;
+  un invité y suit l'écran commun, et rien ne s'y décide en bas de page.
+- **Le QG** : des tableaux de bord.
+- **« Mon compagnon »** (310 à 370) : sa scène et son geste tiennent l'écran ;
+  son chemin et « Tes compagnons » se lisent dessous.
+- **L'Expédition** : son départ est fermé (le Cabinet l'a remplacée) ; ses
+  écrans ne sont plus servis à personne de neuf.
+- **Le Cabinet de curiosités** : tout tient déjà (0 px partout, son pied de
+  partie collé).
+
+## Ce qui reste
+
+- **La campagne, onglet « Série »** : « Commencer une série » se voit, mais la
+  ligne de ce qu'elle joue (« Sur Toutes les catégories · Changer ») est à
+  moitié sous le pli (le rappel des règles, quatre pastilles, la pousse). La
+  remonter demande de déplacer ces pastilles sous le geste : un changement de
+  mise en page, à décider.
+- **Les quelques pixels de marge** : une page dont le contenu tient mais dont
+  la marge du bas (28 px) dépasse défile d'autant — la révélation d'une
+  soirée (25 à 47 px), « Pas cette fois » (20), une manche du Cabinet (19 à
+  61). Rien n'y est caché ; le corriger demande une marge qui se resserre.
+- **Sur un vrai téléphone** : l'encoche et la barre d'adresse retirent de la
+  hauteur que Chromium sans écran ne retire pas. Les pas de hauteur de
+  l'accueil (720, 820) et le bandeau (940) se regardent aussi dans le
+  navigateur et dans l'application installée.
