@@ -424,19 +424,49 @@ export interface SemaineJouee {
 // Le souhait du propriétaire du 12 octobre 2026, sur la maquette des
 // alliages : chaque ligue atteinte ouvre sa bordure crantée autour de
 // l'avatar — la ligue en donne la forme et la pierre, la finition le métal —,
-// et chaque duel gagné dans cette ligue en sertit un cran. Rien ne se tient à
-// côté : comme la cote, les crans se relisent dans le journal des duels
-// (`releverLesDuels`), et ne font que monter — redescendre de ligue ne
-// reprend ni la bordure ni ses crans. Seul le choix de celle qu'on porte
+// et chaque duel gagné dans cette ligue ou plus haut en sertit un cran. Rien
+// ne se tient à côté : comme la cote, les crans se relisent dans le journal
+// des duels (`releverLesDuels`), et ne font que monter — redescendre de ligue
+// ne reprend ni la bordure ni ses crans. Seul le choix de celle qu'on porte
 // s'enregistre (`profiles.bordure`).
+//
+// « Ou plus haut » depuis le 10 novembre 2026 (le propriétaire : « comme on
+// ne peut pas redescendre dans certaines ligues, on ne peut pas compléter
+// l'entièreté de la bordure »). Une victoire ne comptait que dans la ligue où
+// elle s'était jouée — la règle du 12 octobre, deux jours avant la montée.
+// Depuis elle, cent points sous l'Or se traversent en six victoires au dé,
+// sept au mieux contre quelqu'un, et l'Argent, l'Or et la Platine atteints,
+// on n'y revient pas : le Moletage et le Perlé s'arrêtaient à six crans sur
+// douze pour tout le monde, et les Fleurons pour qui traversait l'Or trop
+// vite — sertis par huit joueurs sur dix qui gagnent quatre duels sur dix,
+// par un sur six qui en gagne six : plus on gagnait, moins on la finissait
+// (simulé au dé, avec `apresLeDuel`). Une victoire compte donc aussi pour les
+// ligues d'en dessous : qui gagne en Or aurait gagné en Bronze. Le Bronze se
+// sertit à la douzième victoire, l'Argent à la douzième dès l'Argent, et
+// ainsi de suite — le rythme que la règle visait. L'autre chemin proposé —
+// un cran qui ne descend qu'une fois sa ligue sertie, une victoire, un cran
+// — finissait le Bronze en dernier, vers le cent-vingtième duel. La règle ne
+// fait qu'ajouter : relue sur le même journal, aucune bordure n'a perdu un
+// cran. Un cran ne monte jamais : le Diamant et les Maîtres se gagnent chez
+// eux.
 
-/** Les crans d'une bordure : un par duel gagné dans sa ligue — au douzième, elle est sertie. */
+/** Les crans d'une bordure : un par duel gagné dans sa ligue ou plus haut — au douzième, elle est sertie. */
 export const CRANS_D_UNE_BORDURE = 12
 
-/** La bordure d'une ligue atteinte : ses crans sertis, ses duels gagnés dans la ligue (`CRANS_D_UNE_BORDURE` au plus). */
+/** La bordure d'une ligue atteinte : ses crans sertis, ses duels gagnés dans la ligue ou plus haut (`CRANS_D_UNE_BORDURE` au plus). */
 export interface BordureDeLigue {
   ligue: CleDeLigue
   crans: number
+}
+
+/**
+ * Où se gagnent les crans d'une bordure, dans une phrase : « en ligue d’or ou
+ * plus haut » — et « en ligue des maîtres » : il n'y a rien au-dessus d'elle.
+ * La loge, l'album du style et celui des trophées le disent des mêmes mots.
+ */
+export function ouSeGagnentSesCrans(ligue: CleDeLigue): string {
+  const l = ligueParCle(ligue)
+  return `en ${l.nom.toLowerCase()}${ligueSuivante(l) ? ' ou plus haut' : ''}`
 }
 
 /** Le nom de la bordure de chaque ligue, dans une phrase comme sur une pastille. */
@@ -514,9 +544,9 @@ export interface ReleveDesDuels {
  * Paris) retient ses duels et la meilleure cote qu'elle a vue — celle qu'il
  * avait en y entrant comprise : il était dans sa ligue avant de jouer, et un
  * duel perdu le lundi ne lui reprend pas sa récompense. Un duel gagné sertit
- * un cran de la ligue où il l'a joué — celle de sa cote avant le duel —, et
- * la plus haute cote atteinte ouvre les bordures de toutes les ligues jusqu'à
- * elle.
+ * un cran de la ligue où il l'a joué — celle de sa cote avant le duel — et de
+ * chaque ligue d'en dessous, et la plus haute cote atteinte ouvre les
+ * bordures de toutes les ligues jusqu'à elle.
  */
 export function releverLesDuels(duels: readonly DuelJoue[], semaineDe: (instant: number) => string): ReleveDesDuels {
   const ordre = [...duels].sort((a, b) => a.finiLe - b.finiLe || (a.serie < b.serie ? -1 : a.serie > b.serie ? 1 : 0))
@@ -546,6 +576,15 @@ export function releverLesDuels(duels: readonly DuelJoue[], semaineDe: (instant:
     semaines.set(semaine, { duels: s.duels + 1, meilleure: Math.max(s.meilleure, cote), debut: s.debut })
   })
   const atteintes = ordre.length > 0 ? LIGUES.slice(0, LIGUES.indexOf(ligueDe(plusHaute)) + 1) : []
+  // Une victoire compte pour sa ligue et pour celles d'en dessous : comptée chez elle seule, les ligues gardées,
+  // qu'on traverse en six victoires sans jamais y revenir, ne se sertissaient pas (le choix du 10 novembre 2026,
+  // plus haut). De la plus haute à la plus basse, chaque bordure prend donc ses victoires et celles de plus haut.
+  const crans = new Map<CleDeLigue, number>()
+  let dePlusHaut = 0
+  for (let i = atteintes.length - 1; i >= 0; i--) {
+    dePlusHaut += victoires.get(atteintes[i].cle) ?? 0
+    crans.set(atteintes[i].cle, Math.min(CRANS_D_UNE_BORDURE, dePlusHaut))
+  }
   return {
     cote,
     cachee,
@@ -555,7 +594,7 @@ export function releverLesDuels(duels: readonly DuelJoue[], semaineDe: (instant:
     semaines,
     premierLe: ordre.length > 0 ? ordre[0].finiLe : null,
     dernierLe: ordre.length > 0 ? ordre[ordre.length - 1].finiLe : null,
-    bordures: atteintes.map(l => ({ ligue: l.cle, crans: Math.min(CRANS_D_UNE_BORDURE, victoires.get(l.cle) ?? 0) })),
+    bordures: atteintes.map(l => ({ ligue: l.cle, crans: crans.get(l.cle) ?? 0 })),
   }
 }
 

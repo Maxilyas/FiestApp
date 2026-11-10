@@ -131,7 +131,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Cote figée | Les cotes de chacun des deux joueurs — celle qu'on voit et la cachée —, écrites au lancement d'un duel contre quelqu'un : l'autre bouge contre elles | `campagne_duels.cote_auteur`, `cote_cachee_auteur` |
 | Coulisses | Ce que l'écran projeté laisse à la télécommande : la liste des quiz, la grille des prix | `coulissesAilleurs` (`client/src/views/HostApp.tsx`) |
 | Coup d'œil | La part de la salle qu'une estimation bat ou égale ; celui d'un joueur est la moyenne des siens | `coupDOeil` (`server/src/core/journal.ts`) |
-| Cran (d'une bordure) | Un duel gagné dans une ligue, serti sur sa bordure ; douze la sertissent | `CRANS_D_UNE_BORDURE` |
+| Cran (d'une bordure) | Un duel gagné dans une ligue ou plus haut, serti sur sa bordure ; douze la sertissent | `CRANS_D_UNE_BORDURE` |
 | Cran (d'une estimation) | L'unité du dernier chiffre de la bonne réponse d'une estimation (1 pour 1 994, 0,1 pour 7,5) | `CRANS_TOLERES` |
 
 ## D
