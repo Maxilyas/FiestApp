@@ -32,6 +32,7 @@ import { baseDEssai, demarrer, ecrire, inscrireProfil } from '../test/banc'
 import { ProfileStore } from '../src/auth/profiles'
 import { CATEGORIES } from '../../shared/categories'
 import { VIES } from '../../shared/campagne'
+import { DESTINATIONS, type PageALAffiche } from '../../shared/affiches'
 
 const Database = createRequire(import.meta.url)('better-sqlite3')
 const ici = path.dirname(fileURLToPath(import.meta.url))
@@ -46,6 +47,8 @@ const TOUS_LES_ECRANS: Ecran[] = [[360, 640], [360, 740], [390, 844], [412, 915]
 const DEUX_ECRANS: Ecran[] = [[360, 640], [390, 844]]
 const PETIT: Ecran[] = [[360, 640]]
 const TABLETTE: Ecran[] = [[768, 1024]]
+/** Là où l'affiche d'une nouveauté se montre en grand : dès 940 px de haut — le plus étroit qu'on puisse imaginer, et une tablette. */
+const GRANDS: Ecran[] = [[360, 940], [768, 1024]]
 /** Chrome sur Android : la page y propose d'installer l'application, au pied de l'accueil. */
 const ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36'
 
@@ -117,6 +120,31 @@ const MESURES = `(() => {
     const montrees = [...el.querySelectorAll('.gros-suite')].filter(s => Math.abs(s.getBoundingClientRect().top - ligne) < 2)
     return el.querySelector('.gros-essentiel').textContent + ' [' + montrees.map(s => s.textContent).join('') + ']'
   })
+  // L'affiche d'une nouveauté : sa forme, sa hauteur, son titre s'il ne tient pas sur ses deux lignes, et ce que la ligne
+  // de son geste a la place de dire de ses confettis — des morceaux entiers, sur la ligne du bouton.
+  const laffiche = (() => {
+    const el = document.querySelector('.affiche')
+    if (!el || el.getBoundingClientRect().height === 0) return null
+    const titre = el.querySelector('.affiche-titre')
+    // Ses confettis : les morceaux que leur rangée montre — celle du cadeau sous le nom du bouton d'or, ou toute la ligne
+    // du geste sur le petit téléphone, où le cadeau s'y fond (display: contents).
+    const cadeau = el.querySelector('.affiche-cadeau')
+    const rangee = cadeau && getComputedStyle(cadeau).display !== 'contents' ? cadeau : el.querySelector('.affiche-aller-texte')
+    const cadre = rangee ? rangee.getBoundingClientRect() : null
+    const dits = [...el.querySelectorAll('.affiche-cadeau-combien, .affiche-cadeau-quand')].filter(s => {
+      const r = s.getBoundingClientRect()
+      return !!cadre && r.top < cadre.bottom - 2 && r.bottom > cadre.top + 2 && r.right <= cadre.right + 1
+    })
+    const plusTard = el.querySelector('.affiche-plus-tard')
+    const boite = plusTard ? plusTard.getBoundingClientRect() : null
+    return {
+      forme: el.classList.contains('affiche-bandeau') ? 'bandeau' : 'affiche',
+      haut: Math.round(el.getBoundingClientRect().height),
+      lignesDuTitre: titre ? Math.round(titre.getBoundingClientRect().height / parseFloat(getComputedStyle(titre).lineHeight)) : 0,
+      confettis: dits.map(s => s.textContent).join('').trim(),
+      plusTard: boite ? Math.round(boite.width) + ' × ' + Math.round(boite.height) : '',
+    }
+  })()
   return {
     ecran: window.innerWidth + '×' + window.innerHeight,
     pli: Math.round(pli),
@@ -128,13 +156,18 @@ const MESURES = `(() => {
     lignes,
     titresSurDeuxLignes,
     suites,
+    laffiche,
     blocs,
   }
 })()`
 
 const rapport: Record<string, any> = {}
-/** Les cas qui doivent tenir sur l'écran, sans défiler ni déborder : s'ils ne tiennent plus, le script sort en erreur. */
-const DOIVENT_TENIR = ['habituee', 'debutant', 'ivoire']
+/**
+ * Les cas qui doivent tenir sur l'écran, sans défiler ni déborder : s'ils ne tiennent plus, le script sort en erreur.
+ * L'affiche d'une nouveauté en est depuis le 10 novembre 2026 : couchée en bandeau sur un téléphone, elle tient à la
+ * place d'« À la une » ; en grand, là où l'écran a sa hauteur.
+ */
+const DOIVENT_TENIR = ['habituee', 'debutant', 'ivoire', 'affiche']
 try {
   const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
   const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐻')
@@ -193,7 +226,7 @@ try {
     /** Dans un navigateur d'Android, l'application pas installée, au lendemain d'une soirée : la ligne du lendemain et celle de l'installation. */
     navigateur?: boolean
     /** L'affiche d'une nouveauté, à la place d'« À la une », et « Nouveau » sur le bouton de sa page — tant qu'il n'y est pas allé ni ne l'a rangée. */
-    affiche?: boolean
+    affiche?: { page: PageALAffiche; titre: string; phrase: string; confettis: number }
     /** Le texte agrandi, en pour cent. */
     texte?: number
   }
@@ -256,9 +289,7 @@ try {
             j.profile.defi = { ...j.profile.defi, enCours: { justes: 4 } }
             j.profile.cabinet = { acte: 2, coeurs: 4 }
           }
-          if (cas.affiche) {
-            j.profile.affiches = [{ id: 'rendu', page: 'cabinet', titre: 'Le Cabinet de curiosités ouvre', phrase: 'Dix jeux, trois gardiens, un musée à remplir.', confettis: 50, rangee: false }]
-          }
+          if (cas.affiche) j.profile.affiches = [{ id: 'rendu', ...cas.affiche, rangee: false }]
           await route.fulfill({ response: reponse, json: j })
         })
       }
@@ -289,7 +320,17 @@ try {
     ['debutant', { cookie: tom }, DEUX_ECRANS],
     ['chargee', { cookie: lea, chargee: true }, DEUX_ECRANS],
     ['navigateur', { cookie: lea, navigateur: true }, DEUX_ECRANS],
-    ['affiche', { cookie: lea, affiche: true }, DEUX_ECRANS],
+    // L'affiche du Cabinet telle que le QG la propose (son titre de 41 caractères, 50 confettis), couchée en bandeau à
+    // chaque taille de téléphone ; celle des duels, sans peinture ni confettis ; la plus longue qu'on puisse écrire — un
+    // titre de 48 caractères larges, 500 confettis — ; puis en grand, là où l'écran a sa hauteur.
+    ['affiche', { cookie: lea, affiche: { page: 'cabinet', titre: DESTINATIONS.cabinet.titre, phrase: DESTINATIONS.cabinet.phrase, confettis: 50 } }, TOUS_LES_ECRANS],
+    ['affiche-duels', { cookie: lea, affiche: { page: 'duels', titre: DESTINATIONS.duels.titre, phrase: DESTINATIONS.duels.phrase, confettis: 0 } }, DEUX_ECRANS],
+    [
+      'affiche-longue',
+      { cookie: lea, affiche: { page: 'collectionneurs', titre: 'Mesdames et Messieurs, le Grand Classement ouvre', phrase: DESTINATIONS.collectionneurs.phrase, confettis: 500 } },
+      DEUX_ECRANS,
+    ],
+    ['affiche-entiere', { cookie: lea, affiche: { page: 'cabinet', titre: DESTINATIONS.cabinet.titre, phrase: DESTINATIONS.cabinet.phrase, confettis: 50 } }, GRANDS],
     ['tablette', { cookie: lea }, TABLETTE],
     ['agrandi', { cookie: lea, texte: 130 }, PETIT],
   ]
@@ -317,6 +358,12 @@ try {
     if (m.coupes.length) console.log(`   coupé au bout : ${m.coupes.join(' ; ')}`)
     if (m.titresSurDeuxLignes.length) console.log(`   titre sur deux lignes : ${m.titresSurDeuxLignes.join(' ; ')}`)
     if (m.suites.length) console.log(`   suites montrées : ${m.suites.join(' ; ')}`)
+    if (m.laffiche) {
+      const a = m.laffiche
+      console.log(
+        `   l'affiche : ${a.forme === 'bandeau' ? 'en bandeau' : 'en grand'}, ${a.haut} px${a.forme === 'bandeau' && a.lignesDuTitre > 2 ? ` · son titre sur ${a.lignesDuTitre} lignes` : ''}${a.confettis ? ` · ses confettis : « ${a.confettis} »` : ''} · « Plus tard » : ${a.plusTard} px`,
+      )
+    }
     // Ce qui précède peut changer de hauteur sans rien pousser (la place gardée devient le haut) : seul compte où tombe la section.
     // Un pixel d'écart est un arrondi (une police qui arrive) : il ne se voit pas.
     const tombes = (m.hauts as string[]).map(h => Number(h.split(' ')[0]))

@@ -226,9 +226,18 @@ export function QgAffiches({ maintenance }: { maintenance: EtatDeLaMaintenance |
         <div className="qg-carte-tete">
           <h2 id="affiches-nouvelle">Une affiche</h2>
         </div>
-        {/* Telle que les joueurs la verront, à mesure qu'on l'écrit. */}
-        <div className="affiche-apercu" aria-hidden="true">
-          <AfficheDeLaNouveaute affiche={{ id: 'apercu', page: cible, titre: titreEcrit || 'Son titre', phrase: phraseEcrite || 'Sa phrase', confettis }} />
+        {/* Telle que les joueurs la verront, à mesure qu'on l'écrit : couchée en bandeau sur un téléphone, où elle prend la
+            place d'« À la une » sans faire défiler l'accueil — son titre et son geste, sa phrase n'y est que lue —, en
+            grand sur une tablette ou un grand écran. */}
+        <div className="affiche-apercus" aria-hidden="true">
+          <div className="affiche-apercu">
+            <span className="label">Sur un téléphone</span>
+            <AfficheDeLaNouveaute forme="bandeau" affiche={{ id: 'apercu-bandeau', page: cible, titre: titreEcrit || 'Son titre', phrase: phraseEcrite || 'Sa phrase', confettis }} />
+          </div>
+          <div className="affiche-apercu">
+            <span className="label">Sur une tablette, un grand écran</span>
+            <AfficheDeLaNouveaute forme="affiche" affiche={{ id: 'apercu', page: cible, titre: titreEcrit || 'Son titre', phrase: phraseEcrite || 'Sa phrase', confettis }} />
+          </div>
         </div>
         <span className="label" id="affiche-page">
           La page qu’elle montre

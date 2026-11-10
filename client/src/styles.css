@@ -16587,8 +16587,109 @@ span.annonce-admin-merci { cursor: default; }
 .affiche-cadeau { color: #5c3f0b; font-size: 0.75rem; font-weight: 700; line-height: 1.2; font-variant-numeric: lining-nums tabular-nums; }
 .affiche-plus-tard { flex: none; display: inline-flex; align-items: center; min-height: 48px; padding: 0 10px; border: 0; background: none; color: #cbbda6; font: inherit; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
 .affiche-plus-tard:hover { color: #f6ecd9; }
-/* Au QG, l'aperçu : la taille d'un téléphone, pas toute la largeur d'une carte d'ordinateur. */
-.affiche-apercu { max-width: 400px; margin: 4px 0 14px; }
+/* ── Couchée en bandeau (`AfficheDeLaNouveaute` `forme`, `ECRAN_COURT` : sous 940 px de haut ou 600 de large, tous les
+   téléphones) ──
+   L'affiche prend la place d'« À la une » sans allonger la page : en grand, elle faisait défiler l'accueil de 179 px
+   en 360 × 640 et de 67 en 390 × 844 — le dernier cas où un téléphone d'aujourd'hui défilait encore (le relevé du
+   9 novembre 2026, règle `profil.md`). La même affiche — sa nuit, son or, ses gardiens, les mêmes mots, le même lien —
+   sur une rangée : sa scène et « Nouveau » à gauche, son titre sur deux lignes au plus et son geste à droite, « Plus
+   tard » au coin. Le bandeau entier mène à la page, comme « À la une » : le lien se tend sur lui. Sa phrase ne se
+   montre qu'en grand ; cachée à l'œil, pas retirée — le lecteur d'écran la lit toujours. Deux pas, ceux de l'accueil :
+   le petit téléphone (sous 720 px de haut), où son geste s'écrit sans son bouton d'or, et au-delà. Sa première rangée a
+   toujours la hauteur de deux lignes de titre : un titre court ou long, le bandeau fait la même taille.
+   `rendu-accueil.ts` mesure ce qui tient, les cas `affiche`. */
+.affiche-bandeau {
+  --affiche-medaillon: 48px;
+  --affiche-titre: 1.1rem;
+  --affiche-geste: 0.84rem;
+  --affiche-cadeau: 0.72rem;
+  --affiche-plus-tard: 0.8rem;
+  --affiche-cale: 3.8rem;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: minmax(calc(var(--affiche-titre) * 2.2), auto) auto;
+  align-items: center;
+  gap: 3px 12px;
+  padding: 5px 12px 5px 10px;
+  border-radius: 18px;
+  box-shadow: inset 0 1px 0 rgba(255, 235, 190, 0.08);
+  text-align: left;
+}
+/* Sa scène, sur toute la hauteur du bandeau : les trois gardiens serrés — celui du milieu devant, les deux autres à demi
+   derrière lui —, et « Nouveau » en ruban à leur pied. L'un et l'autre se posent depuis le milieu de la rangée : le
+   groupe reste centré quelle que soit la hauteur de ce qu'il côtoie. */
+.affiche-bandeau .affiche-scene { grid-area: 1 / 1 / 3 / 2; justify-self: center; width: calc(var(--affiche-medaillon) * 1.6); height: var(--affiche-medaillon); transform: translateY(-6px); }
+.affiche-bandeau .affiche-scene::before { inset: -6px -8px -8px; }
+.affiche-bandeau .affiche-medaillon { border-width: 1.5px; box-shadow: 0 0 0 2px rgba(233, 196, 106, 0.16), 0 4px 10px rgba(0, 0, 0, 0.5); }
+.affiche-bandeau .affiche-medaillon-1,
+.affiche-bandeau .affiche-medaillon-3 { top: auto; bottom: 0; width: calc(var(--affiche-medaillon) * 0.68); height: calc(var(--affiche-medaillon) * 0.68); }
+.affiche-bandeau .affiche-medaillon-1 { left: 0; }
+.affiche-bandeau .affiche-medaillon-3 { right: 0; }
+.affiche-bandeau .affiche-medaillon-2,
+.affiche-bandeau .affiche-medaillon-seul { top: 0; left: calc(50% - var(--affiche-medaillon) / 2); width: var(--affiche-medaillon); height: var(--affiche-medaillon); }
+.affiche-bandeau .affiche-medaillon-seul .icon { width: calc(var(--affiche-medaillon) * 0.5); height: calc(var(--affiche-medaillon) * 0.5); }
+.affiche-bandeau .affiche-sur { position: relative; top: auto; left: auto; grid-area: 1 / 1 / 3 / 2; justify-self: center; gap: 4px; padding: 2px 8px; letter-spacing: 0.08em; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4); transform: translateY(calc(var(--affiche-medaillon) / 2 - 3px)); }
+.affiche-bandeau .affiche-sur .icon { display: none; }
+/* Son titre : deux lignes, dont sa rangée a toujours la hauteur. Sa première ligne s'arrête avant « Plus tard », posé au
+   coin — une cale flottante lui en garde la place —, la seconde court jusqu'au bord : la cale est moins haute qu'une
+   ligne (à sa hauteur juste, un arrondi la faisait mordre sur la seconde, et « Le Cabinet de curiosités ouvre ses
+   portes » en prenait trois). Jamais coupé — le QG le refuse trop long plutôt que de le couper (`lireLAffiche`) : le
+   plus long qu'il accepte, en lettres larges, prend une troisième ligne et grandit le bandeau d'autant. */
+.affiche-bandeau .affiche-titre { grid-area: 1 / 2; margin: 0; font-size: var(--affiche-titre); line-height: 1.1; text-wrap: wrap; }
+.affiche-bandeau .affiche-titre::before { content: ''; float: right; width: var(--affiche-cale); height: 0.9em; }
+.affiche-bandeau .affiche-phrase { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+/* Son geste : le lien se tend sur tout le bandeau, « Plus tard » par-dessus. L'anneau du focus reste celui de toute
+   l'application, autour du lien, dans le cadre du bandeau — à l'or de l'affiche : celui du thème, sombre sous l'Ivoire,
+   se perdrait dans sa nuit. */
+.affiche-bandeau .affiche-gestes { grid-area: 2 / 2; justify-content: flex-start; min-width: 0; margin: 0; }
+.affiche-bandeau .affiche-aller { min-height: 30px; padding: 4px 14px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55); }
+.affiche-bandeau .affiche-aller::after { content: ''; position: absolute; inset: 0; z-index: 1; }
+.affiche-bandeau .affiche-aller:focus-visible { outline-color: #f3d488; outline-offset: 2px; }
+/* Dans son bouton d'or, sous son nom, ce que la visite rapporte, morceau par morceau — « +50 confettis », « à ta première
+   visite » — : chacun entier ou pas du tout, comme la suite d'une ligne de l'accueil (`.gros-a-suite`) — une rangée
+   `flex-wrap` haute d'une seule ligne, jamais une phrase coupée au milieu d'un mot. */
+.affiche-bandeau .affiche-aller-texte { gap: 0; font-size: var(--affiche-geste); line-height: 1.25; }
+.affiche-bandeau .affiche-aller-ligne { flex: none; gap: 5px; font-size: inherit; line-height: inherit; white-space: nowrap; }
+.affiche-bandeau .affiche-aller .icon { width: 1.1em; height: 1.1em; }
+.affiche-bandeau .affiche-cadeau { display: flex; flex-wrap: wrap; justify-content: center; align-content: flex-start; max-width: 100%; height: 1.25em; overflow: clip; font-size: var(--affiche-cadeau); line-height: 1.25; }
+.affiche-bandeau .affiche-cadeau-combien,
+.affiche-bandeau .affiche-cadeau-quand { flex: none; white-space: pre; }
+.affiche-bandeau .affiche-plus-tard { position: absolute; top: 0; right: 0; z-index: 3; align-items: flex-start; min-height: 40px; padding: 8px 12px 0 10px; font-size: var(--affiche-plus-tard); line-height: 1.2; }
+/* Un écran large de 384 px et plus : son titre d'un cran au-dessus, et l'étincelle de « Nouveau ». En 360 de large, le
+   titre que le QG propose pour le Cabinet — 41 caractères — ne tenait pas sur ses deux lignes. */
+@media (min-width: 384px) and (min-height: 720px) {
+  .affiche-bandeau { --affiche-medaillon: 52px; --affiche-titre: 1.2rem; }
+  .affiche-bandeau .affiche-sur { padding: 2px 8px 2px 6px; }
+  .affiche-bandeau .affiche-sur .icon { display: block; width: 11px; height: 11px; }
+}
+@media (max-height: 719px) {
+  .affiche-bandeau {
+    --affiche-medaillon: 36px;
+    --affiche-titre: 1.04rem;
+    --affiche-geste: 0.78rem;
+    --affiche-cadeau: 0.78rem;
+    --affiche-plus-tard: 0.75rem;
+    --affiche-cale: 3.5rem;
+    gap: 1px 10px;
+    padding: 4px 12px 4px 10px;
+    border-radius: 16px;
+  }
+  .affiche-bandeau .affiche-sur { padding: 1px 7px; letter-spacing: 0.06em; }
+  /* Son geste s'écrit, sans son bouton d'or : la rangée du bas à la hauteur d'une ligne de texte, ce que la visite
+     rapporte à la suite — « · +50 confettis » —, là où la ligne a la place. */
+  .affiche-bandeau .affiche-aller { justify-content: flex-start; min-height: 0; padding: 0; border-radius: 0; background: none; box-shadow: none; color: #f3d488; }
+  .affiche-bandeau .affiche-aller-texte { flex-direction: row; flex-wrap: wrap; align-content: flex-start; justify-content: flex-start; height: 1.3em; overflow: clip; line-height: 1.3; }
+  .affiche-bandeau .affiche-cadeau { display: contents; color: #dccfba; line-height: inherit; }
+  .affiche-bandeau .affiche-cadeau-combien::before { content: ' · '; }
+  .affiche-bandeau .affiche-plus-tard { min-height: 34px; padding-top: 6px; }
+  /* Une soirée où revenir prend aussi sa place, comme celle d'« À la une » (plus bas, « L'accueil compact ») : on revient
+     là pour retourner jouer. La pastille « Nouveau » de son bouton reste, et l'affiche revient après la soirée. */
+  .accueil:has(.gros-principal) .affiche { display: none; }
+}
+/* Au QG, ses deux aperçus, côte à côte là où la carte a la place — le bandeau d'un téléphone, l'affiche d'un grand
+   écran — : chacun à la taille d'un téléphone, pas toute la largeur d'une carte d'ordinateur. */
+.affiche-apercus { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 20px; margin: 4px 0 14px; }
+.affiche-apercu { flex: 1 1 300px; display: flex; flex-direction: column; gap: 6px; min-width: 0; max-width: 400px; }
 /* « Nouveau » sur le gros bouton d'une page à l'affiche : ses étincelles luisent ; le fond de la pastille reste celui du thème, où son texte se lit. */
 .pastille-nouveaute { display: inline-flex; align-items: center; gap: 4px; }
 .pastille-nouveaute .icon { width: 11px; height: 11px; animation: affiche-etincelle 2.4s ease-in-out infinite; }
@@ -17937,4 +18038,19 @@ body.avec-menu .accueil {
 @media (max-height: 719px) {
   .accueil:has(.gros-principal) .une-cadre { display: none; }
   .accueil:has(.gros-principal) .haut-en-chemin { height: var(--accueil-missions); }
+}
+/* L'affiche d'une nouveauté, couchée en bandeau à la place d'« À la une » (`.affiche-bandeau`, plus haut), est un peu plus
+   haute qu'elle : la page se resserre de deux pixels entre ses blocs plutôt que de défiler — sur le petit téléphone et
+   l'écran moyen ; un grand a la place. */
+@media (max-height: 819px) {
+  .accueil:has(.affiche-bandeau) { --accueil-ecart: 8px; --accueil-serre: 5px; }
+}
+@media (min-height: 720px) and (max-height: 819px) {
+  .accueil:has(.affiche-bandeau) { --accueil-ecart: 10px; --accueil-serre: 6px; }
+}
+/* « Nouveau », sur la ligne d'une page à l'affiche : sans son étincelle sous 412 px de large. Avec elle, « Le Cabinet de
+   curiosités » passait sur deux lignes à côté de sa pastille, et sa rangée, plus haute que les autres, poussait « Entre
+   amis » sous le menu (`rendu-accueil.ts`, les cas `affiche`). */
+@media (max-width: 411px) {
+  .accueil-gestes .pastille-nouveaute .icon { display: none; }
 }
