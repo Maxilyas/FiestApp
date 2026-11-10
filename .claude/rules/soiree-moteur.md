@@ -81,6 +81,17 @@ paths:
   change la phase s'y range, sinon un double clic la joue deux fois. Et
   `cancel` désarme l'enchaînement : la révélation d'une question annulée
   attend le clic.
+- **Le renvoi d'une réponse déjà inscrite se confirme, même la question
+  close** (`dejaInscrite`, la tablée du 9 novembre 2026) : hors ligne, le
+  navigateur livre la première réponse par la liaison morte au retour du
+  réseau, son accusé se perd, et le renvoi du téléphone arrive par la
+  neuve — après la révélation quand cette réponse était la dernière
+  attendue. Refusé « trop tard », il faisait lire les points et le refus
+  ensemble. La même réponse, la même question, le même tour, dits par le
+  geste : une autre réponse, une page sans visée ou une question reposée
+  restent « trop tard », et rien ne se réécrit (`protocole.test.ts`). Un
+  refus de plus dans `onPlayerAction` se pose la question : la réponse
+  est-elle déjà là ?
 - **Le barème des QCM sert aussi le quiz du jour** : `core/jour.ts` importe
   `pointsDuChoix`, `tempsDeLecture`, `GRACE_MS`, `bonusDeRapidite` et
   `POINTS_MAX_PAR_QUESTION`, la base de son expérience. Retoucher

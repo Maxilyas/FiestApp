@@ -332,7 +332,7 @@ Chaque fête donne aussi **un timbre par an** — le timbre Pâques 2027, puis P
 
 « Ma collection » le range dans **le carnet des fêtes**, à côté de l'album des trophées : une page par année depuis Halloween 2026, la première fête du carnet ; chaque timbre gagné, tamponné de son année ; la fête en cours, en couleurs, et jusqu'à quand ; celles à venir, éteintes, avec leurs dates ; celles passées sans lui, « Manqué » — une fête manquée ne se rattrape pas, elle revient l'an d'après. La page de l'année suivante s'ouvre dès que sa première fête commence. Le carnet se compte sur ses pages, l'année en cours entière.
 
-Les timbres sont dessinés, pas peints : un seul dessin par fête, sans image à télécharger (`client/src/components/Timbre.tsx`). L'accueil le rappelle pendant une fête — « 🐣 Pâques : un timbre à gagner » sur le quiz du jour, tant que celui de l'année n'est pas gagné —, et la fin d'une partie ou d'une soirée qui le fait tomber le montre, avec le lien vers le carnet. Les timbres d'Halloween 2026 joués avant le carnet se sont rangés d'eux-mêmes, au démarrage qui l'a apporté (`VERSION_BAREME` 8, `VERSION_DES_JOURS` 2).
+Les timbres sont dessinés, pas peints : un seul dessin par fête, sans image à télécharger (`client/src/components/Timbre.tsx`). L'accueil le rappelle pendant une fête — « 🐣 Un timbre à gagner » sur la ligne du quiz du jour, l'emoji de la fête devant, tant que celui de l'année n'est pas gagné —, et la fin d'une partie ou d'une soirée qui le fait tomber le montre, avec le lien vers le carnet. Les timbres d'Halloween 2026 joués avant le carnet se sont rangés d'eux-mêmes, au démarrage qui l'a apporté (`VERSION_BAREME` 8, `VERSION_DES_JOURS` 2).
 
 ## Les écussons de savoir
 

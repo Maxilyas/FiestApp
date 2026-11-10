@@ -364,6 +364,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/proches.test.ts` — « Les plus proches ».
 - `server/test/premier-haut-fait.test.ts` — le titre et la vitrine d'un débutant.
 - `server/test/menu.test.ts` — la barre du menu.
+- `server/test/accueil-compact.test.ts` — l'accueil d'un profil tenu sur un écran : une carte par section, ses boutons en lignes, le quiz du jour et le défi de la semaine tous les deux sous les yeux, sans onglets ; la ligne de chaque bouton, l'essentiel en une trentaine de caractères et sa suite là où la rangée a la place ; la feuille — la page entre le haut de l'écran et la barre du menu, des lignes de 48 px au moins qui se partagent le reste, trois pas de hauteur, la place gardée du haut. Ce qui passe sous le menu se mesure au navigateur (`server/scripts/rendu-accueil.ts`).
 - `server/test/mots-du-solo.test.ts` — les mots du jeu solo.
 - `server/test/compagnons.test.ts` — les compagnons de la boutique.
 - `server/test/nouveautes.test.ts` — la pastille rouge des nouveautés : ce que le serveur retient qu'un profil a vu dans sa loge, pour tous ses appareils, et chaque nouveauté de la pièce « Avatar » marquée jusqu'à sa case.
@@ -513,7 +514,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/campagne-routine.test.ts` — le dépôt du matin, relu par le juge, plafonné.
 - `server/test/campagne-signalements.test.ts` — les signalements : garder, retirer, corriger.
 - `server/test/signalement-en-points.test.ts` — un signalement en plusieurs points, composé au téléphone : la phrase, l'ordre des points, la correction montrée dans le texte même — chaque retouche à sa place —, le texte relu après le geste, pas sous le doigt, rien quand rien ne change, la coupe à 280 caractères qui épargne les corrections.
-- `server/test/meme-fait.test.ts` — le même fait sous deux intitulés.
+- `server/test/meme-fait.test.ts` — le même fait sous deux intitulés : posé deux fois, retourné, une réponse chiffrée écrite dans l'intitulé d'une autre, la même grandeur dans une autre unité.
 - `server/test/generer-campagne.test.ts` — la génération en nombre : vagues, dédoublonnage, relecture rejouée.
 - `server/test/inventaires.test.ts` — les inventaires de la danse, de la santé, de la langue française, de l'anglais, de l'espagnol, de l'équitation et de la plongée : la consigne qui les donne, la commande famille par famille, la couverture et ce qui reste sans question.
 - `server/test/faits-wikidata.test.ts` — les faits de Wikidata, sans réseau.

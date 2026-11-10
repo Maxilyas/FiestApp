@@ -9014,25 +9014,8 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
   font-variant-numeric: lining-nums tabular-nums;
   white-space: nowrap;
 }
-/* Le quiz du jour et le défi de la semaine : une tuile, deux onglets fins
-   (`JourEtDefi`, le choix du propriétaire du 19 octobre 2026). La tuile du
-   quiz du jour garde sa forme : son cadre passe à la tuile entière, les
-   onglets la coiffent, et le gros bouton de l'onglet ouvert la remplit. */
-.jour-defi { border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); }
-.jour-defi:has(.gros-bouton:hover) { border-color: var(--edge-strong); }
-/* L'onglet ouvert mène à une page fermée : le cadre prend les pointillés d'un gros bouton fermé, que la tuile efface. */
-.jour-defi:has(> .jour-defi-panneaux > :not([aria-hidden='true']) .gros-ferme) { border-style: dashed; }
-.jour-defi .onglets-fins { padding: 0 10px; }
-.jour-defi .onglets-fins .onglet { min-height: 42px; }
-.jour-defi .gros-bouton { border: 0; border-radius: 0 0 var(--radius) var(--radius); background: none; }
-/* Les deux panneaux tiennent la même case, l'autre caché : la tuile garde la
-   hauteur du plus grand, rien ne saute dessous quand on change d'onglet. */
-.jour-defi-panneaux { display: grid; }
-.jour-defi-panneaux > [role='tabpanel'] { grid-area: 1 / 1; display: flex; }
-.jour-defi-panneaux > [aria-hidden='true'] { visibility: hidden; }
-/* Le point d'or d'un onglet : ce qui l'attend derrière, sans compte — l'or de
-   la pastille « À jouer », pas le rouge de ce que d'autres lui ont envoyé. */
-.onglet-point { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+/* Sur l'accueil, ces boutons se rangent en lignes dans la carte de leur section : le bloc « L'accueil compact », en fin de
+   feuille. Ceux du profil et du Cabinet gardent les mesures d'ici. */
 
 /* ── Le profil : qui l'on est, puis quatre gros boutons ─────────────────
    Épuré : « M'habiller » (la loge, sur son écran), « Ma collection » — sa
@@ -17719,3 +17702,239 @@ span.annonce-admin-merci { cursor: default; }
 .cl-piece-av { font-size: 1.9rem; }
 .cl-piece-dv { display: grid; place-items: center; height: 2.6rem; font-size: 2.2rem; }
 .cl-piece-divine .cl-opale-texte { font-size: var(--t-label); }
+
+/* ── L'accueil compact : tout sur un écran (`retours/2026-11-09/accueil-compact/`) ──
+   « J'aimerais que tout soit visible sans avoir à scroll plus bas », sans rien
+   changer au style (le propriétaire, le 9 novembre 2026 ; la maquette « Les
+   lignes », validée le même jour). En 360 × 640, l'accueil d'une habituée
+   faisait 1096 px pour 575 visibles au-dessus de la barre du menu : le haut —
+   soi, « À la une », les missions — en prenait 285 avant le premier bouton, et
+   chaque gros bouton passait sur deux ou trois lignes de texte. Les mêmes
+   composants et les mêmes jetons, à d'autres mesures et à une autre place :
+   une carte par section, ses boutons en lignes, un filet entre eux. Trois pas
+   de hauteur — le petit téléphone, un écran moyen (720 px et plus), un grand
+   (820 et plus), où le haut reprend ses tailles d'avant. Tout se règle par
+   les variables de `.accueil`, que seul l'accueil d'un profil porte : les
+   gros boutons du profil et du Cabinet gardent leurs mesures. En fin de
+   feuille : ses règles départagent à égalité celles qu'elles resserrent.
+   `server/scripts/rendu-accueil.ts` dit, taille par taille, ce qui passe
+   encore sous le menu. */
+.accueil {
+  /* La hauteur d'une ligne, et d'un bouton d'« Entre amis » : leur minimum — une cible de doigt —, d'où elles grandissent ensemble. */
+  --accueil-rang: 48px;
+  --accueil-ami: 50px;
+  --accueil-icone: 32px;
+  --accueil-bord: 12px;
+  --accueil-pas: 10px;
+  --accueil-titre: 1.12rem;
+  --accueil-detail: 0.75rem;
+  --accueil-ecart: 10px;
+  --accueil-serre: 6px;
+  /* Au-delà, les lignes seraient plus hautes que les gros boutons d'avant : la page s'arrête là, le fond continue. */
+  --accueil-plafond: 800px;
+  /* Le haut — soi, « À la une », les missions —, serré sur le petit téléphone. La niche du compagnon tient le coin jusqu'à
+     82 pixels du haut : la ligne de soi s'arrête avec elle. */
+  --accueil-tete: 58px;
+  --accueil-tete-ecart: 10px;
+  --accueil-avatar: 1.9rem;
+  --accueil-nom: 1.3rem;
+  --accueil-amis: 38px;
+  /* En `rem`, comme la ligne des missions : au texte agrandi, l'affiche grandit avec ses lignes. */
+  --accueil-une: 3.375rem;
+  --accueil-une-echelle: 0.62;
+  --accueil-une-retrait: 68px;
+  --accueil-une-nom: 1.12rem;
+  --accueil-une-detail: 0.74rem;
+  --accueil-une-lignes: 1;
+  --accueil-une-fleche: none;
+  --accueil-haut-ecart: 8px;
+  --accueil-missions: 2.75rem;
+  --accueil-missions-icone: 30px;
+  --accueil-missions-titre: 0.9rem;
+  --accueil-missions-detail: 0.74rem;
+  gap: var(--accueil-ecart);
+}
+/* La page prend la hauteur de l'écran, au-dessus de la barre du menu — `min-height: 100dvh`, sous le retrait que la barre
+   pose sur le corps, la faisait toujours défiler de la hauteur de la barre —, et sous le bandeau du service, s'il y en a
+   un. `svh`, pas `dvh` : la barre d'adresse du navigateur dépliée, tout tient encore. Ses lignes se partagent ce qui
+   reste : chacune part de son minimum et grandit avec les autres. Ce qui s'ajoute — une soirée où revenir, la ligne du
+   lendemain, l'application à installer — les resserre d'abord ; la page ne défile que si leur minimum même ne tient plus. */
+body.avec-menu .accueil {
+  min-height: min(calc(100vh - 72px - env(safe-area-inset-bottom) - var(--haut-du-bandeau, 0px)), var(--accueil-plafond));
+  min-height: min(calc(100svh - 72px - env(safe-area-inset-bottom) - var(--haut-du-bandeau, 0px)), var(--accueil-plafond));
+  padding-bottom: 6px;
+}
+/* Seules les lignes s'étirent : dans une colonne qui s'étire, une base à zéro les écraserait sous leur contenu — chacune
+   garde sa base à son contenu (`auto`) et ne fait que grandir. */
+.accueil > * { flex: none; }
+.accueil > .accueil-gestes { flex: 1 0 auto; gap: var(--accueil-ecart); }
+.accueil-gestes > * { flex: none; }
+.accueil-gestes > .jouer-section { flex: var(--jouer-part, 1) 0 auto; gap: var(--accueil-serre); }
+.accueil-gestes .jouer-section > * { flex: none; }
+.accueil-gestes .jouer-section > .jouer-carte { flex: 1 0 auto; }
+/* Sous la page, l'application à installer : repliée, à la hauteur d'une ligne. */
+.accueil > .installer:not(.ouverte) { padding-block: 0; }
+.accueil > .installer:not(.ouverte) .installer-tete { min-height: 42px; }
+.accueil > .installer:not(.ouverte) .installer-icone { width: 26px; height: 26px; }
+
+/* Un bouton, resserré : sa pastille ronde, son titre d'un cran dessous, une seule ligne sous lui. Sous `.accueil-gestes`,
+   pas sous `.accueil` : une feuille ouverte sur l'accueil — ses amis, les missions — garde ses lignes de choix. */
+.accueil-gestes .gros-bouton { gap: var(--accueil-pas); min-height: var(--accueil-rang); padding: 5px var(--accueil-bord); }
+.accueil-gestes .gros-icone { width: var(--accueil-icone); height: var(--accueil-icone); }
+.accueil-gestes .gros-icone .icon { width: calc(var(--accueil-icone) * 0.56); height: calc(var(--accueil-icone) * 0.56); }
+.accueil-gestes .gros-texte { gap: 0; }
+.accueil-gestes .gros-bouton .gros-texte b { font-size: var(--accueil-titre); line-height: 1.12; }
+.accueil-gestes .gros-bouton .chevron { width: 16px; height: 16px; }
+/* Sa ligne tient sur une ligne : coupée au bout plutôt que passée dessous, où elle rendrait sa rangée plus haute que les
+   autres. */
+.accueil-gestes .gros-detail { overflow: hidden; font-size: var(--accueil-detail); line-height: 1.25; white-space: nowrap; text-overflow: ellipsis; }
+/* En deux temps (`GrosBouton` `suite`) : l'essentiel, puis ses suites, chacune entière ou pas du tout. Elles passent à la
+   ligne quand elles ne tiennent plus, et la ligne n'en montre qu'une : pas de phrase coupée au milieu d'un mot, et le
+   lecteur d'écran lit toujours tout. `clip` : rien n'y défile, pas même par une recherche dans la page. */
+.accueil-gestes .gros-a-suite { display: flex; flex-wrap: wrap; align-content: flex-start; height: 1.25em; overflow: clip; }
+.accueil-gestes .gros-essentiel { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.accueil-gestes .gros-suite { flex: none; white-space: pre; }
+
+/* Une carte par section, ses boutons dedans, un filet entre eux : le cadre que tenait la tuile à onglets du quiz du jour
+   et du défi, étendu à toute la section. */
+.jouer-carte { display: flex; flex-direction: column; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); }
+.jouer-carte:has(> .gros-bouton:hover) { border-color: var(--edge-strong); }
+.jouer-carte > .gros-bouton { flex: 1 0 auto; border: 0; border-radius: 0; background: none; }
+.jouer-carte > .gros-bouton + .gros-bouton { border-top: 1px solid var(--edge); }
+.jouer-carte > .gros-bouton:first-child { border-radius: var(--radius) var(--radius) 0 0; }
+.jouer-carte > .gros-bouton:last-child { border-radius: 0 0 var(--radius) var(--radius); }
+/* Allumée, la ligne garde son or ; son halo, lui, mordrait sur ses voisines. */
+.jouer-carte > .gros-bouton.gros-allume { background: rgba(var(--accent-rgb), 0.1); animation: none; }
+/* Son compteur rouge se pose sur l'épaule de la pastille ronde, comme celui de « Profil » dans le menu : à cheval sur le
+   coin, il passerait sur la ligne du dessus. */
+.jouer-carte .gros-compteur { top: calc(50% - var(--accueil-icone) / 2 - 6px); right: auto; left: calc(var(--accueil-bord) + var(--accueil-icone) - 15px); box-shadow: 0 0 0 2px var(--surface); }
+
+/* « Entre amis » : une carte elle aussi, coupée en deux par un filet — deux boutons côte à côte. Chacun est étroit : sa
+   pastille ronde et son titre se règlent sur la largeur de l'écran, pas sur sa hauteur, et sa ligne passe dessous, sur
+   toute sa largeur. */
+.jouer-duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.jouer-duo > .gros-bouton {
+  --accueil-icone: 32px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: center;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 3px;
+  min-height: var(--accueil-ami);
+  padding: 5px 10px;
+}
+.jouer-duo > .gros-bouton + .gros-bouton { border-top: 0; border-left: 1px solid var(--edge); }
+.jouer-duo > .gros-bouton:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+.jouer-duo > .gros-bouton:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+.jouer-duo > .gros-bouton > .gros-texte { display: contents; }
+.jouer-duo > .gros-bouton .gros-texte b { grid-area: 1 / 2; font-size: 1.12rem; }
+.jouer-duo > .gros-bouton .gros-detail { grid-area: 2 / 1 / 3 / 3; }
+.jouer-duo > .gros-bouton .chevron { display: none; }
+@media (min-width: 384px) {
+  .jouer-duo > .gros-bouton { --accueil-icone: 36px; }
+  .jouer-duo > .gros-bouton .gros-texte b { font-size: 1.2rem; }
+}
+/* Sur le petit téléphone, leur nom seul : leur ligne n'y a pas sa place. Cachée à l'œil comme `.sr-only`, pas retirée —
+   le lecteur d'écran dit le même bouton à toutes les tailles. */
+@media (max-height: 719px) {
+  .jouer-duo > .gros-bouton .gros-detail { position: absolute; width: 1px; clip-path: inset(50%); }
+}
+
+/* Soi : la ligne et « Amis », à la taille du pas. Par l'enfant direct : la feuille des amis s'ouvre dans cette tête. */
+/* Sa hauteur est gardée d'avance : la bordure de ligue d'un avatar se pose après la page, avec 0,45 em de marge de chaque
+   côté, et la ligne grandissait sous le doigt — 8 px sur un grand écran, où rien d'autre ne la tient
+   (`rendu-accueil.ts` le voit image par image). 1,9 em d'avatar : l'avatar et ses deux marges. */
+.accueil-tete { min-height: max(var(--accueil-tete), calc(var(--accueil-avatar) * 1.9)); }
+.accueil-tete > .identite-ligne { gap: var(--accueil-tete-ecart); padding: 0; }
+.accueil-tete > .identite-ligne .player-avatar.big { font-size: var(--accueil-avatar); }
+.accueil-tete > .identite-ligne .identite-nom { font-size: var(--accueil-nom); }
+.accueil-tete > .identite-ligne .identite-texte { gap: 2px; }
+.accueil-tete > .identite-ligne .xp-mince { margin-top: 2px; }
+.accueil-tete > .bouton-des-amis { min-width: calc(var(--accueil-amis) + 6px); gap: 2px; }
+.accueil-tete > .bouton-des-amis .bouton-des-amis-rond { width: var(--accueil-amis); height: var(--accueil-amis); }
+.accueil-tete > .bouton-des-amis .bouton-des-amis-rond .icon { width: 18px; height: 18px; }
+/* « À la une » : la même affiche, à la hauteur d'une ligne — son dessin à l'échelle, ses trois lignes serrées. Sa place
+   gardée (`.haut-en-chemin`) lit les mêmes variables : rien ne saute quand elle arrive, à aucun pas. */
+.accueil .haut-accueil { gap: var(--accueil-haut-ecart); }
+.accueil .haut-en-chemin { height: calc(var(--accueil-une) + var(--accueil-haut-ecart) + var(--accueil-missions)); }
+.accueil .haut-en-chemin.sans-une { height: var(--accueil-missions); }
+.accueil .une { height: var(--accueil-une); padding: 0 12px 0 var(--accueil-une-retrait); border-radius: calc(10px + 8px * var(--accueil-une-echelle)); }
+.accueil .une .une-visuel { scale: var(--accueil-une-echelle); transform-origin: left bottom; }
+.accueil .une .une-texte { gap: 0; }
+.accueil .une .une-nom { font-size: var(--accueil-une-nom); }
+.accueil .une .une-detail { -webkit-line-clamp: var(--accueil-une-lignes); font-size: var(--accueil-une-detail); }
+.accueil .une .une-aller { display: var(--accueil-une-fleche); }
+/* Les missions : deux lignes serrées, la seconde coupée au bout. */
+.accueil .missions-ligne { gap: 10px; min-height: var(--accueil-missions); padding: 5px 12px; }
+.accueil .missions-ligne .missions-icone { width: var(--accueil-missions-icone); height: var(--accueil-missions-icone); }
+.accueil .missions-ligne .missions-icone .icon { width: calc(var(--accueil-missions-icone) * 0.56); height: calc(var(--accueil-missions-icone) * 0.56); }
+.accueil .missions-ligne .missions-texte { gap: 0; }
+.accueil .missions-ligne .missions-tete b { font-size: var(--accueil-missions-titre); line-height: 1.2; }
+.accueil .missions-ligne .missions-detail { overflow: hidden; font-size: var(--accueil-missions-detail); line-height: 1.25; white-space: nowrap; text-overflow: ellipsis; }
+.accueil .missions-ligne .mission-anneau { width: calc(var(--accueil-missions-icone) * 0.56); height: calc(var(--accueil-missions-icone) * 0.56); }
+
+/* Un écran moyen : les boutons d'un cran au-dessus, le haut moyen, et « Entre amis » dit sa ligne. */
+@media (min-height: 720px) {
+  .accueil {
+    --accueil-rang: 50px;
+    --accueil-ami: 56px;
+    --accueil-icone: 36px;
+    /* « Le Cabinet de curiosités » tient encore sur sa ligne à côté d'une pastille, en 360 de large. */
+    --accueil-titre: 1.15rem;
+    --accueil-detail: 0.8rem;
+    --accueil-ecart: 12px;
+    --accueil-serre: 8px;
+    --accueil-une: 4.125rem;
+    --accueil-une-echelle: 0.78;
+    --accueil-une-retrait: 84px;
+    --accueil-une-nom: 1.2rem;
+    --accueil-une-detail: 0.76rem;
+    --accueil-une-fleche: grid;
+    --accueil-missions: 3.25rem;
+    --accueil-missions-icone: 32px;
+    --accueil-missions-titre: 0.92rem;
+    --accueil-missions-detail: 0.76rem;
+  }
+}
+/* Un grand écran : les lignes au large, et le haut d'avant, à ses mesures — sauf quand quelque chose s'ajoute à la page
+   (une soirée où revenir, la ligne du lendemain, l'application à installer, une annonce, l'affiche d'une nouveauté) : il
+   reste alors moyen, plutôt que de pousser « Entre amis » sous le menu. */
+@media (min-height: 820px) {
+  .accueil {
+    --accueil-rang: 54px;
+    --accueil-ami: 60px;
+    --accueil-icone: 40px;
+    --accueil-bord: 14px;
+    --accueil-pas: 12px;
+    --accueil-titre: 1.22rem;
+    --accueil-detail: 0.84rem;
+    --accueil-ecart: 16px;
+    --accueil-serre: 10px;
+  }
+  .accueil:not(:has(.gros-principal, .lendemain, .installer, .annonces-admin, .affiche)) {
+    --accueil-tete: 0px;
+    --accueil-tete-ecart: 14px;
+    --accueil-avatar: 2.4rem;
+    --accueil-nom: 1.45rem;
+    --accueil-amis: 44px;
+    --accueil-une: 5rem;
+    --accueil-une-echelle: 1;
+    --accueil-une-retrait: 100px;
+    --accueil-une-nom: 1.3rem;
+    --accueil-une-detail: 0.78rem;
+    --accueil-une-lignes: 2;
+    --accueil-haut-ecart: 10px;
+    --accueil-missions: 3.75rem;
+    --accueil-missions-icone: 36px;
+    --accueil-missions-titre: 0.95rem;
+    --accueil-missions-detail: 0.8rem;
+  }
+}
+/* Une soirée où revenir, sur le petit téléphone : sa ligne prend la place d'« À la une » le temps de la soirée — avec
+   elle, le bas d'« Entre amis » passait sous le menu (39 px en 360 × 640). On revient là pour retourner jouer, pas pour
+   la boutique ; dès 720 px de haut, tout tient et « À la une » reste. */
+@media (max-height: 719px) {
+  .accueil:has(.gros-principal) .une-cadre { display: none; }
+  .accueil:has(.gros-principal) .haut-en-chemin { height: var(--accueil-missions); }
+}

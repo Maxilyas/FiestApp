@@ -21,6 +21,15 @@ Object.assign(globalThis, {
 })
 const client = (f: string) => new URL(`../../client/src/${f}`, import.meta.url)
 
+// La ligne d'un gros bouton de l'accueil se dit en morceaux depuis l'accueil en lignes du 9 novembre 2026
+// (`retours/2026-11-09/accueil-compact/`) : l'essentiel, puis ses suites, que la rangée ne montre que là où elles
+// tiennent — ce qu'`accueil-compact.test.ts` vérifie. Les épreuves d'ici lisent la phrase entière, celle qu'un lecteur
+// d'écran entend d'un trait.
+/** La phrase entière de ce que rend la fonction d'un bouton (`LigneDuBouton`) : l'essentiel, puis ses suites. */
+const phraseDe = (ligne: { detail: string; suite?: readonly string[] }) => ligne.detail + (ligne.suite ?? []).join('')
+/** La même, lue dans un gros bouton rendu : le texte de sa ligne, balises ôtées. */
+const phraseRendue = (bouton: string) => (bouton.match(/<span class="gros-detail(?: gros-a-suite)?">(.*?)<\/span><\/span>/)?.[1] ?? '').replace(/<[^>]+>/g, '')
+
 test('la campagne s’ouvre sur sa page, pas sur « Chargement… » : le défi et les règles d’abord', async () => {
   const module = await import(client('views/CampagneApp.tsx').href)
   const { renderToStaticMarkup } = await import('react-dom/server')
@@ -591,50 +600,52 @@ test('sur l’accueil, le bouton de la campagne dit le sentier qu’on avance et
   const bouton = (campagne?: object) => {
     const html = renderToStaticMarkup(React.createElement(module.AccueilJouer, { enCours: [], onRejoindre: () => {}, lendemain: null, campagne }))
     const a = html.split('<a ').find(x => x.includes('<b>La campagne</b>'))!
-    return { href: a.match(/href="([^"]*)"/)![1], detail: a.match(/<span class="gros-detail">([^<]*)<\/span>/)![1] }
+    return { href: a.match(/href="([^"]*)"/)![1], detail: phraseRendue(a) }
   }
   // Rien de commencé, ou une base qui s'est tue : les deux modes, la série d'abord.
-  const deuxModes = { href: '/campagne', detail: 'Une série sans fin, ou des portraits à gagner' }
+  const deuxModes = { href: '/campagne', detail: 'Une série sans fin, des portraits à gagner' }
   assert.deepEqual(bouton(), deuxModes)
   assert.deepEqual(bouton({ vies: 12, avance: null }), deuxModes)
   assert.deepEqual(bouton({ vies: 11, avance: { branche: 'foret', palier: 8, laissee: false } }), {
     href: '/campagne#sentiers',
-    detail: 'Vers le palier\u00a08 de la forêt · 11\u00a0vies',
+    detail: 'Palier\u00a08 de la forêt · 11\u00a0vies',
   })
   assert.deepEqual(bouton({ vies: 1, avance: { branche: 'mythes', palier: 3, laissee: true } }), {
     href: '/campagne#sentiers',
-    detail: 'Ton épreuve t’attend\u00a0: palier\u00a03 des mythologies · 1\u00a0vie',
+    detail: 'Épreuve en cours · 1\u00a0vie · palier\u00a03 des mythologies',
   })
   assert.deepEqual(bouton({ vies: 0, avance: { branche: 'espace', palier: 13, laissee: true } }), {
     href: '/campagne#sentiers',
-    detail: 'Ton épreuve t’attend\u00a0: palier de maître de l’espace · plus de vie avant minuit',
+    detail: 'Épreuve en cours · plus de vie avant minuit · palier de maître de l’espace',
   })
   // Le carnet qui attend passe devant le sentier — pas devant une épreuve laissée — : le rendez-vous du
   // lendemain, que seul l'onglet du carnet comptait (l'experte du jeu solo, le 11 octobre 2026).
   const { boutonDeLaCampagne } = module
   assert.deepEqual(boutonDeLaCampagne({ vies: 11, avance: { branche: 'foret', palier: 8, laissee: false }, aRevoir: 4 }), {
     href: '/campagne#carnet',
-    detail: '4 questions de ton carnet t’attendent : revois-les pour les apprendre',
+    detail: '4\xa0questions de ton carnet',
+    suite: [' t’attendent', '\xa0: revois-les pour les apprendre'],
     pastille: 'À revoir',
   })
-  assert.equal(boutonDeLaCampagne({ vies: 12, avance: null, aRevoir: 1 }).detail, 'Une question de ton carnet t’attend : revois-la pour l’apprendre')
+  assert.equal(phraseDe(boutonDeLaCampagne({ vies: 12, avance: null, aRevoir: 1 })), 'Une question de ton carnet t’attend : revois-la pour l’apprendre')
   assert.equal(boutonDeLaCampagne({ vies: 1, avance: { branche: 'mythes', palier: 3, laissee: true }, aRevoir: 4 }).href, '/campagne#sentiers', 'l’épreuve laissée d’abord')
   // L'accueil le lit dans son profil léger, que le serveur remplit (`sentiers.test.ts`).
   assert.match(readFileSync(client('views/ProfilApp.tsx'), 'utf8'), /campagne=\{'campagne' in profil \? profil\.campagne : undefined\}/)
 
-  // Le défi de la semaine a quitté ce bouton pour son onglet, à côté du quiz du jour (le choix du propriétaire du
-  // 19 octobre 2026) : il ne le lit plus, même d'un serveur d'avant qui le lui donnerait encore. Les défis de ses
-  // amis l'ont quitté pour le bouton des duels, sous le quiz du jour.
+  // Le défi de la semaine a quitté ce bouton pour le sien, sous le quiz du jour (le choix du propriétaire du
+  // 19 octobre 2026 — un onglet d'abord, sa ligne depuis le 9 novembre 2026) : il ne le lit plus, même d'un serveur
+  // d'avant qui le lui donnerait encore. Les défis de ses amis l'ont quitté pour le bouton des duels, sous le quiz du jour.
   const foret = { branche: 'foret', palier: 8, laissee: false }
   assert.deepEqual(boutonDeLaCampagne({ vies: 11, avance: foret, defi: { joueurs: 12, neuf: true, commence: true } }), {
     href: '/campagne#sentiers',
-    detail: 'Vers le palier 8 de la forêt · 11 vies',
+    detail: 'Palier\xa08 de la forêt',
+    suite: [' · 11\xa0vies'],
   })
-  assert.deepEqual(boutonDeLaCampagne({ vies: 12, avance: null, defisRecus: { n: 2, de: 'Léa' } }), deuxModes)
+  assert.deepEqual(boutonDeLaCampagne({ vies: 12, avance: null, defisRecus: { n: 2, de: 'Léa' } }), { href: '/campagne', detail: 'Une série sans fin, des portraits', suite: [' à gagner'] })
   const accueil = readFileSync(client('components/AccueilDesRoles.tsx'), 'utf8')
   const duBouton = accueil.slice(accueil.indexOf('export function boutonDeLaCampagne'))
   assert.doesNotMatch(duBouton.slice(0, duBouton.indexOf('\n}\n')), /\bdefi|défi/i, 'ni le défi de la semaine, ni ceux des amis')
-  // L'onglet du défi n'a qu'une adresse sur l'accueil : celle de la page du défi de la semaine.
+  // La ligne du défi n'a qu'une adresse sur l'accueil : celle de la page du défi de la semaine.
   assert.equal(accueil.match(/campagne#defi/g)?.length, 1)
 })
 
@@ -642,55 +653,60 @@ test('sur l’accueil, le bouton de la campagne dit le sentier qu’on avance et
 // le défi de la semaine au même endroit […] faire comme une sorte d'onglet
 // avec le quiz du jour, tout en gardant par défaut le quiz du jour » — au
 // troisième onglet de la campagne, beaucoup ne savaient pas que le défi
-// existait. La maquette validée : la tuile à deux onglets
-// (`retours/2026-10-19/jour-et-defi/`).
-test('sur l’accueil, le quiz du jour et le défi de la semaine se partagent une tuile à deux onglets, le quiz du jour d’office', async () => {
+// existait. La maquette validée alors : la tuile à deux onglets
+// (`retours/2026-10-19/jour-et-defi/`). Le 9 novembre 2026, elle a laissé
+// place à deux lignes de la même carte — le quiz du jour d'abord, le défi
+// juste dessous, visible sans onglet à toucher : « j'aimerais que tout soit
+// visible sans avoir à scroll plus bas » (le propriétaire ;
+// `retours/2026-11-09/accueil-compact/`). La carte, ses lignes et leurs
+// mots : `accueil-compact.test.ts` ; ici, ce qui tient au défi — sa place, ce
+// qui l'attend, où il mène.
+test('sur l’accueil, le quiz du jour et le défi de la semaine ont chacun leur ligne, le quiz du jour d’abord, le défi juste dessous', async () => {
   const module = await import(client('components/AccueilDesRoles.tsx').href)
   const { renderToStaticMarkup } = await import('react-dom/server')
   const html = (props: object) => renderToStaticMarkup(React.createElement(module.AccueilJouer, { enCours: [], onRejoindre: () => {}, lendemain: null, ...props }))
   const bouton = (h: string, titre: string) => h.split('<a ').find(x => x.includes(`<b>${titre}</b>`))!
-  const onglet = (h: string, nom: string) => h.match(new RegExp(`<button [^>]*role="tab"[^>]*>${nom}.*?</button>`))![0]
-  const point = (h: string, nom: string) => onglet(h, nom).match(/<span class="onglet-point" aria-hidden="true"><\/span><span class="sr-only">, ([^<]*)<\/span>/)?.[1]
+  /** Ce qui attend sur une ligne : le texte de sa pastille, rien si elle garde son chevron. */
+  const pastille = (h: string, titre: string) => bouton(h, titre).match(/<span class="pastille-attente">([^<]*)<\/span>/)?.[1]
   const aJouer = { jour: { serie: 12, jours: [{ jour: '2026-10-20' }] }, aujourdhui: '2026-10-21' }
   const tout = html({ ...aJouer, defi: { joueurs: 9 } })
-  // Le quiz du jour ouvert d'office, à sa place — sous la campagne, au-dessus des duels — ; le défi derrière son onglet.
-  assert.match(onglet(tout, 'Quiz du jour'), /aria-selected="true"/)
-  assert.match(onglet(tout, 'Défi de la semaine'), /aria-selected="false"/)
-  assert.match(tout, /<div id="jour-defi-panneau-defi" role="tabpanel" aria-labelledby="jour-defi-defi" aria-hidden="true">/)
-  assert.doesNotMatch(tout, /<div id="jour-defi-panneau-jour"[^>]*aria-hidden/)
-  assert.ok(tout.indexOf('<b>La campagne</b>') < tout.indexOf('role="tablist"'))
+  // Le quiz du jour à sa place — sous la campagne, au-dessus des duels —, et le défi sur la ligne d'après. La tuile
+  // ouvrait le quiz du jour d'office et gardait le défi derrière son onglet, dans un panneau caché : il n'y a plus ni
+  // onglet ni panneau (`accueil-compact.test.ts`) — le lien du défi suit celui du quiz du jour, sans rien entre eux.
+  assert.ok(tout.indexOf('<b>La campagne</b>') < tout.indexOf('<b>Le quiz du jour</b>'))
+  assert.match(tout, /<b>Le quiz du jour<\/b>(?:(?!<a ).)*<\/a><a class="gros-bouton" href="\/campagne#defi">/)
   assert.ok(tout.indexOf('<b>Le défi de la semaine</b>') < tout.indexOf('<b>Les duels</b>'))
-  // Chaque tuile garde sa forme de gros bouton, et mène à sa page.
+  // Chaque ligne garde sa forme de gros bouton, et mène à sa page.
   assert.match(bouton(tout, 'Le quiz du jour'), /^class="gros-bouton" href="\/jour"/)
   assert.match(bouton(tout, 'Le défi de la semaine'), /^class="gros-bouton" href="\/campagne#defi"/)
-  // Ce qui attend : la pastille sur la tuile, et un point d'or sur l'onglet — qu'on le voie sans l'ouvrir —, dit au lecteur d'écran.
-  assert.match(bouton(tout, 'Le quiz du jour'), /<span class="pastille-attente">À jouer<\/span>/)
-  assert.match(bouton(tout, 'Le défi de la semaine'), /<span class="pastille-attente">À relever<\/span>/)
-  assert.equal(point(tout, 'Quiz du jour'), 'à jouer')
-  assert.equal(point(tout, 'Défi de la semaine'), 'à relever')
-  assert.equal(point(html({ ...aJouer, defi: { joueurs: 9, enCours: { justes: 4 } } }), 'Défi de la semaine'), 'à finir')
-  // Relevé, joué : plus rien n'attend, plus de point.
+  // Ce qui attend : la pastille de la ligne, et elle seule. Le point d'or de l'onglet la redisait — à l'œil, et au
+  // lecteur d'écran — pour qu'on le voie sans ouvrir l'onglet du défi : sa ligne se voit d'emblée, il s'en est allé.
+  assert.equal(pastille(tout, 'Le quiz du jour'), 'À jouer')
+  assert.equal(pastille(tout, 'Le défi de la semaine'), 'À relever')
+  assert.equal(pastille(html({ ...aJouer, defi: { joueurs: 9, enCours: { justes: 4 } } }), 'Le défi de la semaine'), 'À finir')
+  // Relevé, joué : plus rien n'attend, plus de pastille.
   const fait = html({ jour: { serie: 13, jours: [{ jour: '2026-10-21' }] }, aujourdhui: '2026-10-21', defi: { joueurs: 10, releve: { justes: 8, rang: 4 } } })
-  assert.equal(point(fait, 'Quiz du jour'), undefined)
-  assert.equal(point(fait, 'Défi de la semaine'), undefined)
-  assert.match(bouton(fait, 'Le quiz du jour'), /<span class="gros-detail">Joué aujourd’hui · série de 13 jours<\/span>/)
-  // Une base qui s'est tue : la tuile du défi reste, sans chiffre ni point — sa page dira le reste.
-  assert.equal(point(html(aJouer), 'Défi de la semaine'), undefined)
-  assert.match(bouton(html(aJouer), 'Le défi de la semaine'), /<span class="gros-detail">La même série pour tous, jusqu’à dimanche<\/span>/)
+  assert.equal(pastille(fait, 'Le quiz du jour'), undefined)
+  assert.equal(pastille(fait, 'Le défi de la semaine'), undefined)
+  assert.match(bouton(fait, 'Le quiz du jour'), /<span class="gros-detail">Joué · série de 13 jours<\/span>/)
+  // Une base qui s'est tue : la ligne du défi reste, sans chiffre ni pastille — sa page dira le reste.
+  assert.equal(pastille(html(aJouer), 'Le défi de la semaine'), undefined)
+  assert.equal(phraseRendue(bouton(html(aJouer), 'Le défi de la semaine')), 'La même série pour tous, jusqu’à dimanche')
 
-  // Ce que dit la tuile du défi : qui l'a relevé, le sien à reprendre, sa place — en deux lignes en 360, un nombre
-  // jamais séparé de ses mots, « 4ᵉ place sur 10 » d'un bloc.
+  // Ce que dit la ligne du défi : qui l'a relevé, le sien à reprendre, sa place — l'essentiel d'abord, le reste à la
+  // suite (`LigneDuBouton`) —, un nombre jamais séparé de ses mots, « 4ᵉ place sur 10 » d'un bloc.
   const { boutonDuDefi } = module
-  assert.deepEqual(boutonDuDefi({ joueurs: 9 }), { detail: '9 joueurs l’ont relevé · jusqu’à dimanche', pastille: 'À relever' })
-  assert.deepEqual(boutonDuDefi({ joueurs: 1 }), { detail: 'Un joueur l’a relevé · jusqu’à dimanche', pastille: 'À relever' })
-  assert.deepEqual(boutonDuDefi({ joueurs: 0 }), { detail: 'La même série pour tous : à toi d’ouvrir le bal', pastille: 'À relever' })
-  assert.deepEqual(boutonDuDefi({ joueurs: 3, enCours: { justes: 4 } }), { detail: '4 bonnes réponses : reprends-le', pastille: 'À finir' })
-  assert.deepEqual(boutonDuDefi({ joueurs: 3, enCours: { justes: 1 } }), { detail: '1 bonne réponse : reprends-le', pastille: 'À finir' })
-  assert.deepEqual(boutonDuDefi({ joueurs: 3, enCours: { justes: 0 } }), { detail: 'Ton défi t’attend : reprends-le', pastille: 'À finir' })
-  assert.deepEqual(boutonDuDefi({ joueurs: 10, releve: { justes: 8, rang: 4 } }), { detail: '8 bonnes réponses · 4ᵉ place sur 10' })
-  assert.deepEqual(boutonDuDefi({ joueurs: 12, releve: { justes: 11, rang: 1 } }), { detail: '11 bonnes réponses · 1ʳᵉ place sur 12' })
+  assert.deepEqual(boutonDuDefi({ joueurs: 9 }), { detail: '9\xa0joueurs l’ont relevé', suite: [' · jusqu’à dimanche'], pastille: 'À relever' })
+  assert.deepEqual(boutonDuDefi({ joueurs: 1 }), { detail: 'Un joueur l’a relevé', suite: [' · jusqu’à dimanche'], pastille: 'À relever' })
+  assert.deepEqual(boutonDuDefi({ joueurs: 0 }), { detail: 'À toi d’ouvrir le bal', suite: [' · jusqu’à dimanche'], pastille: 'À relever' })
+  assert.deepEqual(boutonDuDefi({ joueurs: 3, enCours: { justes: 4 } }), { detail: '4\xa0bonnes réponses', suite: ['\xa0: reprends-le'], pastille: 'À finir' })
+  assert.deepEqual(boutonDuDefi({ joueurs: 3, enCours: { justes: 1 } }), { detail: '1\xa0bonne réponse', suite: ['\xa0: reprends-le'], pastille: 'À finir' })
+  assert.deepEqual(boutonDuDefi({ joueurs: 3, enCours: { justes: 0 } }), { detail: 'Ton défi t’attend', suite: ['\xa0: reprends-le'], pastille: 'À finir' })
+  // Relevé : sa place d'abord — c'est elle qu'on vient lire —, ses bonnes réponses à la suite.
+  assert.deepEqual(boutonDuDefi({ joueurs: 10, releve: { justes: 8, rang: 4 } }), { detail: 'Relevé · 4ᵉ\xa0place\xa0sur\xa010', suite: [' · 8\xa0bonnes réponses'] })
+  assert.deepEqual(boutonDuDefi({ joueurs: 12, releve: { justes: 11, rang: 1 } }), { detail: 'Relevé · 1ʳᵉ\xa0place\xa0sur\xa012', suite: [' · 11\xa0bonnes réponses'] })
   // Loin des premiers : ni place ni rang, comme à la fin d'un quiz (`placeDuJour`).
-  assert.deepEqual(boutonDuDefi({ joueurs: 10, releve: { justes: 2, rang: 9 } }), { detail: 'Relevé : 2 bonnes réponses' })
+  assert.deepEqual(boutonDuDefi({ joueurs: 10, releve: { justes: 2, rang: 9 } }), { detail: 'Relevé\xa0: 2\xa0bonnes réponses' })
   // L'accueil le lit dans son profil léger, que le serveur remplit (`campagne-defi.test.ts`).
   assert.match(readFileSync(client('views/ProfilApp.tsx'), 'utf8'), /defi=\{'defi' in profil \? profil\.defi : undefined\}/)
 
@@ -718,21 +734,21 @@ test('sur l’accueil, le bouton des duels, sous le quiz du jour : qui le défie
   assert.match(bouton(), /href="\/duels"/)
   // Avant son premier duel : qu'on défie qui l'on veut, ou Automate — « Un joueur de ton niveau » promettait un adversaire qu'un
   // petit serveur n'a pas toujours, « un joueur au hasard » quelqu'un, quand le dé ne joue que contre Automate (le 13 octobre 2026).
-  assert.match(bouton(), /<span class="gros-detail">Défie qui tu veux, ou Automate : monte de ligue<\/span>/)
+  assert.equal(phraseRendue(bouton()), 'Défie qui tu veux, ou Automate\xa0: monte de ligue')
   const habitue = { cote: 1184, ligue: 'argent', joues: 12, semaine: { duels: 1, ligue: 'argent' } }
   // Un défi qu'un ami lui a envoyé passe devant : qui le défie (`campagne-amis.test.ts`), et combien l'attendent, en rouge (l'épreuve d'après).
   const unDefi = bouton({ ...habitue, defisRecus: { n: 1, de: 'Léa' } })
-  assert.match(unDefi, /<span class="gros-detail">Léa te défie : à toi de jouer<\/span>/)
-  assert.match(bouton({ ...habitue, defisRecus: { n: 3, de: 'Tom' } }), /Tom te défie, et 2 autres : à toi de jouer<\/span>/)
+  assert.equal(phraseRendue(unDefi), 'Léa te défie\xa0: à toi de jouer')
+  assert.equal(phraseRendue(bouton({ ...habitue, defisRecus: { n: 3, de: 'Tom' } })), 'Tom te défie, et 2 autres\xa0: à toi de jouer')
   // Puis son duel laissé en route.
-  assert.match(bouton({ ...habitue, enCours: { nom: 'Tom' } }), /<span class="gros-detail">Ton duel contre Tom t’attend<\/span>/)
+  assert.equal(phraseRendue(bouton({ ...habitue, enCours: { nom: 'Tom' } })), 'Ton duel contre Tom t’attend')
   // Sinon sa ligue, sa cote, et ce qui manque à sa récompense de lundi — ou ce qu'elle rapportera ; son blason à la place de l'icône.
-  assert.match(bouton(habitue), /<span class="gros-detail">Ligue d’argent · cote\u00a01184 · encore 2\u00a0duels pour ta récompense<\/span>/)
+  assert.equal(phraseRendue(bouton(habitue)), 'Ligue d’argent · cote\u00a01184 · encore 2\u00a0duels pour ta récompense')
   assert.match(bouton(habitue), /class="blason blason-argent"/)
   assert.match(bouton({ ...habitue, semaine: { duels: 3, ligue: 'or' } }), /\+30\u00a0confettis lundi/, 'la meilleure ligue de sa semaine')
-  // Le lundi, ce que la semaine pass\u00e9e vient de verser, tant que la nouvelle n'a pas son premier duel.
+  // Le lundi, ce que la semaine passée vient de verser, tant que la nouvelle n'a pas son premier duel.
   const lundi = { ...habitue, semaine: { duels: 0, ligue: 'argent' }, semainePassee: { ligue: 'or', confettis: 30 } }
-  assert.match(bouton(lundi), /<span class="gros-detail">\+30\u00a0confettis pour ta semaine en ligue d\u2019or \u00b7 encore 3\u00a0duels pour la prochaine<\/span>/)
+  assert.equal(phraseRendue(bouton(lundi)), '+30\u00a0confettis pour ta semaine en ligue d’or · encore 3\u00a0duels pour la prochaine')
   assert.match(bouton({ ...lundi, semaine: { duels: 1, ligue: 'argent' } }), /encore 2\u00a0duels pour ta r\u00e9compense/, 'son premier duel jou\u00e9, la semaine qui vient')
   assert.match(readFileSync(client('views/ProfilApp.tsx'), 'utf8'), /duels=\{'duels' in profil \? profil\.duels : undefined\}/)
 })
@@ -803,9 +819,9 @@ test('sur l’accueil, le duel qu’il a lancé et que l’autre vient de jouer 
   assert.match(un, /<span class="gros-compteur" aria-hidden="true">1<\/span><span class="sr-only">, un résultat à voir<\/span>/)
   // Devant les défis reçus — c'est ce qui vient d'arriver —, et compté avec eux.
   const avecDefis = bouton({ ...habitue, resultats: { n: 2, de: 'Hugo', code: 'K7M2QX' }, defisRecus: { n: 3, de: 'Léa' } })
-  assert.match(avecDefis, /<span class="gros-detail">Hugo et 1 autre ont joué tes duels<\/span>/)
+  assert.equal(phraseRendue(avecDefis), 'Hugo et 1 autre ont joué tes duels')
   assert.match(avecDefis, /<span class="gros-compteur" aria-hidden="true">5<\/span><span class="sr-only">, 2 résultats à voir et 3 défis à relever<\/span>/)
-  assert.equal(module.boutonDesDuels({ ...habitue, resultats: { n: 3, de: 'Hugo', code: 'X' } }).detail, 'Hugo et 2 autres ont joué tes duels')
+  assert.equal(phraseDe(module.boutonDesDuels({ ...habitue, resultats: { n: 3, de: 'Hugo', code: 'X' } })), 'Hugo et 2 autres ont joué tes duels')
   // Rien à voir, rien ne luit : ni la tuile, ni sa pastille.
   for (const d of [undefined, habitue, { ...habitue, defisRecus: { n: 1, de: 'Léa' } }, { ...habitue, resultats: { n: 0, de: 'Hugo', code: 'X' } }]) {
     assert.doesNotMatch(bouton(d), /gros-allume|pastille-resultat/, JSON.stringify(d))

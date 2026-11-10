@@ -472,8 +472,8 @@ async function entreDeuxSoirees(navigateur: any, photo: Photo, journal: (l: stri
       await ouvrir('/', 3000)
       const legende = THEMES.find(t => t.key === theme)?.nom ?? theme
       if (theme === 'velours') {
-        const carteDuJour = page.locator('#jour-defi-panneau-jour a, #jour-defi-panneau-jour button').first()
-        await photo(page, 'accueil', { toucher: carteDuJour, legende })
+        const ligneDuJour = page.locator('.jouer-carte a[href="/jour"]')
+        await photo(page, 'accueil', { toucher: ligneDuJour, legende })
       } else await photo(page, `theme-${theme}`, { legende })
     }
 
@@ -516,12 +516,15 @@ async function entreDeuxSoirees(navigateur: any, photo: Photo, journal: (l: stri
     // La page entière : le montage la fait défiler jusqu'à ce qu'elle rapporte.
     await photo(page, 'jour-fin', { attente: 2500, pleine: true })
 
-    // Le défi de la semaine : son onglet à l'accueil, sa page et son classement, une question, sa fin.
+    // Le défi de la semaine : sa ligne à l'accueil, sous celle du quiz du jour, sa page et son classement, une question, sa fin.
     await ouvrir('/')
-    const ongletDuDefi = page.getByRole('tab', { name: /Défi de la semaine/ })
-    await photo(page, 'accueil-2', { toucher: ongletDuDefi })
-    await ongletDuDefi.tap()
-    await photo(page, 'accueil-defi', { toucher: page.locator('#jour-defi-panneau-defi a, #jour-defi-panneau-defi button').first(), attente: 900 })
+    // Plus d'onglet à toucher pour le voir : la tuile à deux onglets a laissé place à deux lignes le 9 novembre 2026
+    // (`retours/2026-11-09/accueil-compact/`). Le montage garde ses deux prises (`PISTE_TEL`, `montage.html`) — l'accueil
+    // qui revient, puis le doigt sur la ligne du défi — : la première ne retient plus de toucher, le doigt n'y passe pas.
+    const ligneDuDefi = page.locator('.jouer-carte a[href="/campagne#defi"]')
+    await ligneDuDefi.waitFor()
+    await photo(page, 'accueil-2')
+    await photo(page, 'accueil-defi', { toucher: ligneDuDefi, attente: 900 })
     await ouvrir('/campagne#defi')
     await page.reload()
     await page.waitForSelector('.defi-heros')

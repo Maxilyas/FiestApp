@@ -20,7 +20,7 @@ Les sentiers, comme toute la campagne, se jouent avec un profil : ce que tu y ga
 ## Où les trouver
 
 - Dans la campagne, le deuxième onglet, « Les sentiers » (« Sentiers » au téléphone) : `/campagne#sentiers`. Chaque sentier a son adresse : `/campagne#sentier-foret`, `/campagne#sentier-stade`…
-- Sur l'accueil, le bouton de la campagne dit le sentier que tu avances et tes vies (« Vers le palier 8 de la forêt · 11 vies ») et ouvre les sentiers ; le défi de la semaine et ton carnet à revoir passent devant, jamais devant une épreuve laissée en route (voir [la campagne](la-campagne.md)).
+- Sur l'accueil, la ligne de la campagne dit le sentier que tu avances et tes vies (« Palier 8 de la forêt · 11 vies ») et ouvre les sentiers ; ton carnet à revoir passe devant, jamais devant une épreuve laissée en route, « Épreuve en cours » (voir [la campagne](la-campagne.md)).
 
 ## La carte des sentiers
 

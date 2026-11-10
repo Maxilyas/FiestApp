@@ -246,6 +246,47 @@ describe('la question visée', { concurrency: true }, () => {
     assert.equal((await repondre(bob, sessionId, reposee, 0)).ok, true)
   })
 
+  // La tablée du 9 novembre 2026 (axe 7) : Karim a répondu réseau coupé. Sa
+  // réponse est restée dans l'ancienne liaison, que le navigateur a livrée au
+  // retour du réseau ; le serveur l'a inscrite — elle a clos la question, il
+  // était le dernier attendu —, et son accusé est reparti vers une liaison
+  // que la page avait abandonnée. Le renvoi, arrivé par la liaison neuve
+  // après la révélation, s'est entendu dire « Trop tard » : ses points et le
+  // refus, ensemble à l'écran (`retours/2026-11-09/reproductions/reponse-reseau-coupe.mts`).
+  test('le renvoi d’une réponse déjà inscrite, arrivé après la révélation, est confirmé — pas « trop tard »', async () => {
+    const { host, invites, sessionId } = await soiree([qcm('Une ?', ['Oui', 'Non'], 1), qcm('Deux ?')], ['Alice', 'Bob', 'Chloé'])
+    const [alice, bob, chloe] = invites
+    const q0 = await vue(alice.socket, v => v.phase === 'question' && v.qIndex === 0, 'Q1')
+    assert.equal((await repondre(alice, sessionId, q0, 1)).ok, true)
+    assert.equal((await repondre(bob, sessionId, q0, 0)).ok, true)
+    const ecran = await vue(host, v => v.phase === 'question' && v.answeredCount === 2, 'les deux réponses comptées')
+    commande(host, sessionId, { type: 'next', ...viseeDe(ecran) })
+    const revelation = await vue(host, v => v.phase === 'reveal', 'révélation Q1')
+    const gagne = await vue(alice.socket, v => v.phase === 'reveal', 'la révélation, chez Alice')
+    assert.ok(gagne.yourPoints > 0)
+
+    // Le renvoi de la même réponse, pour la même question : elle est là.
+    const renvoi = await repondre(alice, sessionId, q0, 1)
+    assert.equal(renvoi.ok, true, 'la réponse est inscrite : le renvoi le confirme')
+    assert.equal(renvoi.reason, undefined)
+    // Rien ne se réécrit : ni ses points, ni son temps.
+    await barriere(host, sessionId)
+    assert.equal(vues.get(alice.socket).yourPoints, gagne.yourPoints)
+
+    // Une autre réponse que celle inscrite n'a pas compté : elle, est trop tard.
+    assert.equal((await repondre(alice, sessionId, q0, 0)).reason, 'too-late', 'se raviser après la révélation reste refusé')
+    // Comme celle de qui n'avait rien répondu…
+    assert.equal((await repondre(chloe, sessionId, q0, 1)).reason, 'too-late')
+    // … et celle d'une page d'avant, qui ne dit pas la question qu'elle vise.
+    const sansVisee = await emitAck<any>(alice.socket, 'player:action', { sessionId, action: { type: 'answer', choice: 1 } })
+    assert.equal(sansVisee.reason, 'too-late', 'sans visée, rien ne dit que c’est un renvoi')
+
+    // La question suivante posée, ce renvoi vise une question passée.
+    commande(host, sessionId, { type: 'next', ...viseeDe(revelation) })
+    await vue(bob.socket, v => v.phase === 'question' && v.qIndex === 1, 'Q2')
+    assert.equal((await repondre(alice, sessionId, q0, 1)).reason, 'too-late')
+  })
+
   test('un téléphone resté sur l’ancienne page répond et commande comme avant', async () => {
     const { host, invites, sessionId } = await soiree([qcm('Une ?'), qcm('Deux ?')], ['Alice', 'Bob'])
     const [alice] = invites

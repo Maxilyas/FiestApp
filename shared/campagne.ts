@@ -868,7 +868,7 @@ export interface DefiDeLaSemaine {
 }
 
 /**
- * Le défi de la semaine sur l'accueil, à tout profil, dans son onglet à côté
+ * Le défi de la semaine sur l'accueil, à tout profil, sur sa ligne, sous celle
  * du quiz du jour (`CampagneStore.defiDAccueil`) : ceux qui l'ont relevé,
  * comptés comme son classement, et sa tentative — ouverte, ou finie avec sa
  * place. Ce que l'onglet dit, la page du défi le montre.

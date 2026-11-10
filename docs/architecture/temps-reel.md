@@ -178,6 +178,8 @@ sequenceDiagram
 
 Le renvoi ne peut pas compter double : un envoi identique au précédent est confirmé sans rien réécrire, et une réponse qui vise une question passée reçoit `too-late` au lieu de s'inscrire sur la suivante.
 
+Il ne se contredit pas non plus. Hors ligne, le navigateur garde la première réponse dans la liaison morte et la livre quand le réseau revient : le serveur l'inscrit, son accusé repart vers une liaison que la page a abandonnée, et le renvoi arrive par la neuve. Si la question s'est close entre les deux — cette réponse était la dernière attendue —, le renvoi de la même réponse, pour la même question et le même tour, est confirmé lui aussi (`dejaInscrite`, `server/src/games/quiz.ts`) : il recevait `too-late`, et l'invité lisait ses points et « Trop tard » ensemble (`retours/2026-11-09/reproductions/reponse-reseau-coupe.mts`).
+
 ## L'instantané
 
 L'instantané (`PartySnapshot`, `shared/types.ts`) dit la salle : les invités et leur score de la soirée, les équipes et leurs points, les prix remis, la partie en cours et ses participants, l'adresse et le code pour entrer. Chaque champ est décrit dans [la référence](../reference/evenements-temps-reel.md#partysnapshot). Il est construit par `SpaceRuntime` (`server/src/core/space.ts`) et en part **deux versions** :

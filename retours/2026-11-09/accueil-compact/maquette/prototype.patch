@@ -1,0 +1,564 @@
+diff --git a/client/src/components/AccueilDesRoles.tsx b/client/src/components/AccueilDesRoles.tsx
+index 170fc7f..283f067 100644
+--- a/client/src/components/AccueilDesRoles.tsx
++++ b/client/src/components/AccueilDesRoles.tsx
+@@ -1,4 +1,4 @@
+-import { useEffect, useState, type ReactNode } from 'react'
++import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+ import { Icon } from './Icon'
+ import { GrosBouton } from './Pieces'
+ import { LienConsole } from './LienConsole'
+@@ -81,7 +81,7 @@ export function JAnime({ espace }: { espace: PublicSpace }) {
+  * (`boutonDuDefi`) ; les défis de ses amis sont au bouton des duels
+  * (`boutonDesDuels`).
+  */
+-export function boutonDeLaCampagne(c: SentiersDAccueil | undefined): { detail: string; href: string; pastille?: string } {
++export function boutonDeLaCampagne(c: SentiersDAccueil | undefined): { detail: string; court: string; href: string; pastille?: string } {
+   const b = branche(c?.avance?.branche)
+   // Le carnet passe devant le sentier — pas devant une épreuve laissée en route : c'est le rendez-vous du lendemain,
+   // que seul l'onglet comptait, deux écrans plus loin. L'adresse du carnet (`ADRESSE_DU_CARNET`) écrite ici, comme celle des sentiers.
+@@ -91,18 +91,22 @@ export function boutonDeLaCampagne(c: SentiersDAccueil | undefined): { detail: s
+       detail: espacesFines(
+         n > 1 ? `${n} questions de ton carnet t’attendent : revois-les pour les apprendre` : 'Une question de ton carnet t’attend : revois-la pour l’apprendre',
+       ),
++      // Sa pastille dit déjà « À revoir ».
++      court: n > 1 ? `${n} questions de ton carnet` : 'Une question de ton carnet',
+       href: '/campagne#carnet',
+       pastille: 'À revoir',
+     }
+   }
+   // « les sentiers de tes avatars » : quels avatars, et qu'est-ce qu'un sentier ? (l'experte du jeu solo, le 11 octobre 2026)
+   // Ce qu'on y gagne, en deux lignes au téléphone.
+-  if (!c?.avance || !b) return { detail: 'Une série sans fin, ou des portraits à gagner', href: '/campagne' }
++  if (!c?.avance || !b) return { detail: 'Une série sans fin, ou des portraits à gagner', court: 'Une série sans fin, des portraits', href: '/campagne' }
+   // Un nombre ne quitte pas son mot à la ligne : « 11 » d'un côté, « vies » de l'autre.
+   const palier = c.avance.palier === PALIER_DU_MAITRE ? `palier de maître ${deLaBranche(b)}` : `palier\u00a0${c.avance.palier} ${deLaBranche(b)}`
+   const vies = c.vies > 0 ? `${c.vies}\u00a0vie${c.vies > 1 ? 's' : ''}` : 'plus de vie avant minuit'
+   return {
+     detail: espacesFines(`${c.avance.laissee ? `Ton épreuve t’attend : ${palier}` : `Vers le ${palier}`} · ${vies}`),
++    // Maquette : la même ligne, sans « Vers le » — une rangée fine n'a qu'une ligne.
++    court: espacesFines(`${c.avance.laissee ? 'Épreuve en cours' : palier.charAt(0).toUpperCase() + palier.slice(1)} · ${c.vies > 0 ? vies : '0 vie'}`),
+     // L'adresse des sentiers (`ADRESSE_DES_SENTIERS`), écrite ici : l'importer
+     // ferait venir toute la page des sentiers dans celle de l'accueil.
+     href: '/campagne#sentiers',
+@@ -118,19 +122,24 @@ const bonnesReponses = (n: number) => `${n} bonne${n > 1 ? 's' : ''} réponse${
+  * ce que sa page montre (`defiDAccueil`). Deux lignes au plus en 360 de
+  * large : son titre en prend déjà deux, à côté de sa pastille.
+  */
+-export function boutonDuDefi(d: DefiDAccueil | undefined): { detail: string; pastille?: string } {
++export function boutonDuDefi(d: DefiDAccueil | undefined): { detail: string; court?: string; pastille?: string } {
+   // Une base qui s'en est tue : ce qu'il est, sans un chiffre — sa page dira le reste.
+-  if (!d) return { detail: 'La même série pour tous, jusqu’à dimanche' }
++  if (!d) return { detail: 'La même série pour tous, jusqu’à dimanche', court: 'Jusqu’à dimanche' }
+   if (d.releve) {
+     // « 4ᵉ place sur 10 » d'un bloc : coupée, elle laissait « 10 » seul sur sa ligne. Loin des premiers, ni place ni rang.
+     const place = placeDuJour(d.releve.rang, d.joueurs, d.releve.justes)
+-    return { detail: espacesFines(place ? `${bonnesReponses(d.releve.justes)} · ${place.replace(/ /g, '\xa0')}` : `Relevé : ${bonnesReponses(d.releve.justes)}`) }
++    return { court: place ? `Relevé · ${place.replace(/ /g, '\xa0')}` : `Relevé : ${bonnesReponses(d.releve.justes)}`, detail: espacesFines(place ? `${bonnesReponses(d.releve.justes)} · ${place.replace(/ /g, '\xa0')}` : `Relevé : ${bonnesReponses(d.releve.justes)}`) }
+   }
+   if (d.enCours) {
+-    return { detail: espacesFines(d.enCours.justes > 0 ? `${bonnesReponses(d.enCours.justes)} : reprends-le` : 'Ton défi t’attend : reprends-le'), pastille: 'À finir' }
++    return {
++      detail: espacesFines(d.enCours.justes > 0 ? `${bonnesReponses(d.enCours.justes)} : reprends-le` : 'Ton défi t’attend : reprends-le'),
++      court: d.enCours.justes > 0 ? bonnesReponses(d.enCours.justes) : 'Ton défi t’attend',
++      pastille: 'À finir',
++    }
+   }
+   const n = d.joueurs
+   return {
++    court: n > 1 ? `${n} joueurs l’ont relevé` : n === 1 ? 'Un joueur l’a relevé' : 'À toi d’ouvrir le bal',
+     detail: espacesFines(n > 1 ? `${n} joueurs l’ont relevé · jusqu’à dimanche` : n === 1 ? 'Un joueur l’a relevé · jusqu’à dimanche' : 'La même série pour tous : à toi d’ouvrir le bal'),
+     pastille: 'À relever',
+   }
+@@ -151,12 +160,13 @@ const aRelever = (n: number) => (n > 9 ? 'plus de 9 défis à relever' : n > 1 ?
+  * récompense de lundi — ou ce qu'elle rapportera. Avant son premier duel, ce
+  * qu'on y fait.
+  */
+-export function boutonDesDuels(d: DuelsDAccueil | undefined): { detail: string; compteur?: { n: number; label: string }; allume?: true } {
++export function boutonDesDuels(d: DuelsDAccueil | undefined): { detail: string; court: string; compteur?: { n: number; label: string }; allume?: true } {
+   if (d?.resultats && d.resultats.n > 0) {
+     const { n, de } = d.resultats
+     const recus = d.defisRecus?.n ?? 0
+     return {
+       detail: espacesFines(n > 1 ? `${de} et ${n - 1} autre${n > 2 ? 's' : ''} ont joué tes duels` : `${de} a joué ton duel`),
++      court: espacesFines(n > 1 ? `${de} et ${n - 1} autre${n > 2 ? 's' : ''} ont joué` : `${de} a joué ton duel`),
+       compteur: { n: n + recus, label: recus > 0 ? `${aVoir(n)} et ${aRelever(recus)}` : aVoir(n) },
+       allume: true,
+     }
+@@ -167,15 +177,16 @@ export function boutonDesDuels(d: DuelsDAccueil | undefined): { detail: string;
+     // « et 2 autres », sans « amis » : on peut être défié par qui l'on ne connaît pas encore.
+     return {
+       detail: espacesFines(`${d.defisRecus.de} te défie${autres > 0 ? `, et ${autres} autre${autres > 1 ? 's' : ''}` : ''} : à toi de jouer`),
++      court: espacesFines(`${d.defisRecus.de} te défie${autres > 0 ? `, et ${autres} autre${autres > 1 ? 's' : ''}` : ''}`),
+       // Blanc sur rouge, en haut à droite, comme des messages qui attendent (le souhait du propriétaire du 12 octobre
+       // 2026) : la pastille dorée « 3 défis » se fondait parmi « À relever » et « À jouer », sur les boutons du dessus.
+       // Le serveur n'en lit que dix (`DEFIS_RECUS_MONTRES`) : passé neuf, il peut y en avoir plus.
+       compteur: { n, label: aRelever(n) },
+     }
+   }
+-  if (d?.enCours) return { detail: espacesFines(`Ton duel contre ${d.enCours.nom} t’attend`) }
++  if (d?.enCours) return { detail: espacesFines(`Ton duel contre ${d.enCours.nom} t’attend`), court: espacesFines(`Contre ${d.enCours.nom} : à finir`) }
+   // Le dé ne joue que contre Automate (le 13 octobre 2026) : « un joueur au hasard » promettait quelqu'un.
+-  if (!d || d.joues === 0) return { detail: espacesFines('Défie qui tu veux, ou Automate : monte de ligue') }
++  if (!d || d.joues === 0) return { detail: espacesFines('Défie qui tu veux, ou Automate : monte de ligue'), court: 'Défie qui tu veux' }
+   const manque = DUELS_POUR_LA_RECOMPENSE - d.semaine.duels
+   // Le lundi, ce que la semaine passée vient de verser — tant que la nouvelle n'a pas son premier duel :
+   // sans lui, la récompense arrivait au solde sans un mot, et la tuile redisait « encore 3 duels ».
+@@ -185,10 +196,12 @@ export function boutonDesDuels(d: DuelsDAccueil | undefined): { detail: string;
+       detail: espacesFines(
+         `+${d.semainePassee.confettis}\u00a0confettis pour ta semaine en ${ligue.charAt(0).toLowerCase()}${ligue.slice(1)} · encore ${manque}\u00a0duels pour la prochaine`,
+       ),
++      court: espacesFines(`${ligueParCle(d.ligue).nom} · +${d.semainePassee.confettis} confettis reçus`),
+     }
+   }
+   // Un nombre ne quitte pas son mot à la ligne : « cote » d'un côté, « 1084 » de l'autre.
+   return {
++    court: espacesFines(`${ligueParCle(d.ligue).nom} · cote ${d.cote}`),
+     detail: espacesFines(
+       `${ligueParCle(d.ligue).nom} · cote\u00a0${d.cote} · ${manque > 0 ? `encore ${manque}\u00a0duel${manque > 1 ? 's' : ''} pour ta récompense` : `+${ligueParCle(d.semaine.ligue).confettis}\u00a0confettis lundi`}`,
+     ),
+@@ -201,12 +214,27 @@ export function boutonDesDuels(d: DuelsDAccueil | undefined): { detail: string;
+  * (`ProfilDAccueil.cabinet`) : sinon, la ligne de toujours, ce qu'on y fait,
+  * plutôt qu'un aller-retour de plus à chaque accueil.
+  */
+-export function boutonDuCabinet(c: CabinetDAccueil | undefined): { detail: string; pastille?: string } {
+-  if (!c) return { detail: 'Trois actes, trois gardiens, un légendaire au bout' }
++export function boutonDuCabinet(c: CabinetDAccueil | undefined): { detail: string; court?: string; pastille?: string } {
++  if (!c) return { detail: 'Trois actes, trois gardiens, un légendaire au bout', court: 'Un légendaire au bout' }
+   // « sur 3 » et « 4 cœurs » d'un bloc chacun : coupée ailleurs, la ligne laissait un chiffre seul en 360, à côté de la pastille.
+   return { detail: `Acte ${c.acte} sur 3 · ${c.coeurs} ${c.coeurs > 1 ? 'cœurs' : 'cœur'}`, pastille: 'En route' }
+ }
+ 
++/**
++ * Maquette (`retours/2026-11-09/accueil-compact/`) : la disposition compacte
++ * essayée sur ce téléphone — `localStorage.setItem('quizz.maquette', 'lignes')`
++ * ou `'tuiles'`. Rien sans le drapeau : l'accueil de tous ne change pas.
++ */
++export type MaquetteDeLAccueil = 'lignes' | 'tuiles'
++export function maquetteDeLAccueil(): MaquetteDeLAccueil | null {
++  try {
++    const m = localStorage.getItem('quizz.maquette')
++    return m === 'lignes' || m === 'tuiles' ? m : null
++  } catch {
++    return null
++  }
++}
++
+ /** Rien de fermé, rien d'essayé avant tout le monde. */
+ const RIEN_DE_FERME: Partial<Record<PageEnMaintenance, BoutonDeLaPage>> = {}
+ /** Aucune page à l'affiche. */
+@@ -247,7 +275,10 @@ export function AccueilJouer({
+   cabinet = cabinetIci(),
+   remplacee = EXPEDITION_REMPLACEE,
+   nouvelles = RIEN_DE_NOUVEAU,
++  maquette = null,
+ }: {
++  /** Maquette : la disposition compacte essayée (`maquetteDeLAccueil`). */
++  maquette?: MaquetteDeLAccueil | null
+   enCours: { nom: string; slug: string }[]
+   onRejoindre: () => void
+   lendemain: ReactNode
+@@ -302,6 +333,139 @@ export function AccueilJouer({
+   // ses jours comptés. Gagné, elle redit sa phrase de toujours.
+   const laFete = fete && !fete.timbre ? saison(fete.cle) : undefined
+   const duJour = joueAujourdhui ? `Joué aujourd’hui${serie}` : laFete ? `${laFete.emoji} ${laFete.court} : un timbre à gagner${serie}` : `Dix questions, les mêmes pour tous${serie}`
++  // ── Maquette : l'accueil compact (`retours/2026-11-09/accueil-compact/`) ──
++  // Les mêmes boutons, les mêmes noms, les mêmes adresses : seules la ligne de chacun, plus courte, et leur place changent.
++  // Le quiz du jour et le défi de la semaine se montrent tous les deux : compacts, ils tiennent la place de la tuile à onglets.
++  if (maquette) {
++    const tuiles = maquette === 'tuiles'
++    const serieCourte = jour && jour.serie > 1 ? `série de ${jour.serie} jours` : ''
++    const duJourCourt = joueAujourdhui
++      ? `Joué${serieCourte ? ` · ${serieCourte}` : ' aujourd’hui'}`
++      : laFete
++        ? `${laFete.emoji} Un timbre à gagner`
++        : serieCourte
++          ? serieCourte.charAt(0).toUpperCase() + serieCourte.slice(1)
++          : 'Dix questions pour tous'
++    const laCampagneVue = eteinte('campagne') ? (
++      <GrosBouton icone={<Icon name="target" />} titre="La campagne" detail={pourquoi('campagne')} ferme={eteinte('campagne')} href="/campagne" />
++    ) : (
++      <GrosBouton
++        icone={<Icon name="target" />}
++        titre="La campagne"
++        detail={laCampagne.court}
++        pastille={laCampagne.pastille ?? enAvantPremiere('campagne') ?? nouveau('campagne')}
++        href={laCampagne.href}
++      />
++    )
++    const leJourVu = (
++      <GrosBouton
++        icone={<Icon name="sun" />}
++        titre="Le quiz du jour"
++        detail={eteinte('jour') ? pourquoi('jour') : espacesFines(duJourCourt)}
++        pastille={eteinte('jour') ? undefined : jour && !joueAujourdhui ? 'À jouer' : (enAvantPremiere('jour') ?? nouveau('jour'))}
++        ferme={eteinte('jour')}
++        href="/jour"
++      />
++    )
++    const leDefiVu = (
++      <GrosBouton
++        icone={<Icon name="trophy" />}
++        titre="Le défi de la semaine"
++        detail={eteinte('defi') ? pourquoi('defi') : espacesFines(leDefi.court ?? leDefi.detail)}
++        pastille={eteinte('defi') ? undefined : (leDefi.pastille ?? enAvantPremiere('defi'))}
++        ferme={eteinte('defi')}
++        href="/campagne#defi"
++      />
++    )
++    const lesDuelsVus = eteinte('duels') ? (
++      <GrosBouton icone={<Icon name="swords" />} titre="Les duels" detail={pourquoi('duels')} ferme={eteinte('duels')} href="/duels" />
++    ) : (
++      <GrosBouton
++        icone={duels && duels.joues > 0 ? <BlasonDeLigue ligue={duels.ligue} taille={22} decoratif /> : <Icon name="swords" />}
++        titre="Les duels"
++        detail={lesDuels.court}
++        pastille={
++          lesDuels.allume ? (
++            <span className="pastille-resultat">
++              <Icon name="spark" />
++              Résultat
++            </span>
++          ) : (
++            (enAvantPremiere('duels') ?? nouveau('duels'))
++          )
++        }
++        compteur={lesDuels.compteur}
++        allume={lesDuels.allume}
++        href="/duels"
++      />
++    )
++    const lExpeditionVue = EXPEDITION_EN_PRODUCTION && !remplacee && (
++      <GrosBouton icone={<Icon name="flag" />} titre="L’Expédition" detail="Trois gardiens, un légendaire" href="/expedition" />
++    )
++    const leCabinetVu = cabinet && (
++      <GrosBouton
++        icone={<Icon name="landmark" />}
++        titre="Le Cabinet de curiosités"
++        detail={eteinte('cabinet') ? pourquoi('cabinet') : (leCabinet.court ?? leCabinet.detail)}
++        pastille={eteinte('cabinet') ? undefined : (leCabinet.pastille ?? enAvantPremiere('cabinet') ?? nouveau('cabinet'))}
++        ferme={eteinte('cabinet')}
++        href="/cabinet"
++      />
++    )
++    // La part de hauteur de chaque section, quand l'écran en a de reste : une ligne en vaut une, une rangée de tuiles un peu plus.
++    const tuilesSeul = 3 + (lExpeditionVue ? 1 : 0) + (leCabinetVu ? 1 : 0)
++    const rangeesDeTuiles = Math.ceil(tuilesSeul / 2)
++    const part = (n: number) => ({ '--maq-part': n }) as CSSProperties
++    return (
++      <div className="accueil-gestes">
++        {enCours.map(e => (
++          <GrosBouton key={e.slug} principal icone={<Icon name="rotate" />} titre={`Revenir chez ${e.nom}`} detail="Ta soirée continue" href={spacePath(e.slug)} />
++        ))}
++        <section
++          className="jouer-section"
++          aria-labelledby="jouer-seul"
++          style={tuiles ? ({ '--maq-part': 1 + 1.35 * rangeesDeTuiles, '--maq-part-des-tuiles': 1.35 * rangeesDeTuiles } as CSSProperties) : part(1 + tuilesSeul)}
++        >
++          <span className="label" id="jouer-seul">
++            Seul
++          </span>
++          {tuiles ? (
++            <>
++              {/* La campagne garde sa rangée, en tête comme aujourd'hui ; les quatre autres, deux par deux. */}
++              {laCampagneVue}
++              <div className="maq-grille">
++                {leJourVu}
++                {leDefiVu}
++                {lesDuelsVus}
++                {lExpeditionVue}
++                {leCabinetVu}
++              </div>
++            </>
++          ) : (
++            // Une seule carte, ses lignes dedans : le cadre de la tuile à onglets, étendu à toute la section.
++            <div className="maq-carte">
++              {laCampagneVue}
++              {leJourVu}
++              {leDefiVu}
++              {lesDuelsVus}
++              {lExpeditionVue}
++              {leCabinetVu}
++            </div>
++          )}
++        </section>
++        <section className="jouer-section" aria-labelledby="jouer-amis" style={part(1.2)}>
++          <span className="label" id="jouer-amis">
++            Entre amis
++          </span>
++          <div className="maq-grille maq-amis">
++            <GrosBouton icone={<Icon name="plus" />} titre="Créer un salon" detail="Tu lances les quiz" href="/salon" />
++            <GrosBouton icone={<Icon name="users" />} titre="Rejoindre une soirée" detail="Code ou QR de l’hôte" onClick={onRejoindre} />
++          </div>
++        </section>
++        {lendemain}
++      </div>
++    )
++  }
+   return (
+     <div className="accueil-gestes">
+       {/* Il joue déjà quelque part : on y revient d'un toucher, avant tout. */}
+diff --git a/client/src/styles.css b/client/src/styles.css
+index faad878..84eea88 100644
+--- a/client/src/styles.css
++++ b/client/src/styles.css
+@@ -17601,3 +17601,220 @@ span.annonce-admin-merci { cursor: default; }
+ .cl-piece-av { font-size: 1.9rem; }
+ .cl-piece-dv { display: grid; place-items: center; height: 2.6rem; font-size: 2.2rem; }
+ .cl-piece-divine .cl-opale-texte { font-size: var(--t-label); }
++
++/* ── Maquette : l'accueil compact (`retours/2026-11-09/accueil-compact/`) ──
++   Tout ce qu'on vient y faire sur un écran, sans défiler (« j'aimerais que
++   tout soit visible sans avoir à scroll plus bas », le propriétaire, le
++   9 novembre 2026) — et sans rien changer au style : la ligne de soi, « À la
++   une », les missions, des boutons à pastille ronde et titre en serif. Seules
++   leurs mesures et leur place changent. Trois pas de hauteur : le petit
++   téléphone (640), un écran moyen (720 et plus), un grand (820 et plus), qui
++   reprend le haut d'aujourd'hui. Derrière le drapeau du téléphone
++   (`quizz.maquette` : `lignes`, `tuiles`). */
++.accueil.maq {
++  /* La hauteur d'une rangée, d'une tuile, d'un bouton « Entre amis » : leur minimum — elles grandissent ensemble. */
++  --maq-rang: 48px;
++  --maq-tuile: 70px;
++  --maq-ami: 50px;
++  --maq-icone: 32px;
++  --maq-titre: 1.12rem;
++  --maq-detail: 0.75rem;
++  --maq-ecart: 10px;
++  --maq-serre: 6px;
++  /* Au-delà, les rangées seraient plus hautes que les gros boutons d'aujourd'hui : la page s'arrête là, le fond continue. */
++  --maq-plafond: 800px;
++  gap: var(--maq-ecart);
++}
++.accueil.maq-tuiles { --maq-plafond: 744px; }
++/* La page prend la hauteur de l'écran, au-dessus de la barre du menu — `min-height: 100dvh`, sous le retrait que la
++   barre pose sur le corps, la faisait toujours défiler de la hauteur de la barre —, et ses rangées se partagent ce
++   qui reste : chacune part de son minimum et grandit avec les autres. Ce qui s'ajoute — une soirée où revenir, la
++   ligne du lendemain, l'application à installer — les resserre d'abord ; la page ne défile que si leur minimum même
++   ne tient plus. */
++body.avec-menu .accueil.maq {
++  min-height: min(calc(100vh - 72px - env(safe-area-inset-bottom)), var(--maq-plafond));
++  min-height: min(calc(100svh - 72px - env(safe-area-inset-bottom)), var(--maq-plafond));
++  padding-bottom: 6px;
++}
++.accueil.maq > * { flex: none; }
++.accueil.maq > .accueil-gestes { flex: 1 0 auto; gap: var(--maq-ecart); }
++.accueil.maq .accueil-gestes > * { flex: none; }
++.accueil.maq .accueil-gestes > .jouer-section { flex: var(--maq-part, 1) 0 auto; gap: var(--maq-serre); }
++.accueil.maq .jouer-section > * { flex: none; }
++/* Ses lignes sous la page : l'application à installer, à la hauteur d'une rangée. */
++.accueil.maq > .installer { padding-block: 0; }
++.accueil.maq > .installer .installer-tete { min-height: 42px; }
++.accueil.maq > .installer .installer-icone { width: 26px; height: 26px; }
++
++/* Un bouton, resserré : sa pastille ronde, son titre d'un cran dessous, une seule ligne sous lui. */
++.accueil.maq .gros-bouton { gap: 10px; min-height: var(--maq-rang); padding: 5px 12px; }
++.accueil.maq .gros-icone { width: var(--maq-icone); height: var(--maq-icone); }
++.accueil.maq .gros-icone .icon { width: calc(var(--maq-icone) * 0.56); height: calc(var(--maq-icone) * 0.56); }
++.accueil.maq .gros-bouton .gros-texte { gap: 0; }
++.accueil.maq .gros-bouton .gros-texte b { font-size: var(--maq-titre); line-height: 1.12; }
++.accueil.maq .gros-detail { overflow: hidden; font-size: var(--maq-detail); line-height: 1.25; white-space: nowrap; text-overflow: ellipsis; }
++.accueil.maq .gros-bouton .chevron { width: 16px; height: 16px; }
++
++/* Proposition 1 — les lignes : une seule carte par section, ses boutons dedans, un filet entre eux. Le cadre de la
++   tuile à onglets (`.jour-defi`), étendu à toute la section. */
++.maq-carte { display: flex; flex-direction: column; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); }
++.accueil.maq .jouer-section > .maq-carte { flex: 1 0 auto; }
++.maq-carte > .gros-bouton { flex: 1 0 auto; border: 0; border-radius: 0; background: none; }
++.maq-carte > .gros-bouton + .gros-bouton { border-top: 1px solid var(--edge); }
++.maq-carte > .gros-bouton:first-child { border-radius: var(--radius) var(--radius) 0 0; }
++.maq-carte > .gros-bouton:last-child { border-radius: 0 0 var(--radius) var(--radius); }
++/* Allumée, la ligne garde son or ; son halo, lui, mordrait sur ses voisines. */
++.maq-carte > .gros-bouton.gros-allume { background: rgba(var(--accent-rgb), 0.1); animation: none; }
++/* Son compteur rouge se pose sur l'épaule de la pastille, comme celui de « Profil » dans le menu : au coin, il passerait sur la ligne du dessus. */
++.maq-carte .gros-compteur { top: calc(50% - var(--maq-icone) / 2 - 6px); right: auto; left: calc(12px + var(--maq-icone) - 15px); box-shadow: 0 0 0 2px var(--surface); }
++
++/* Proposition 2 — les tuiles : deux par rangée. La pastille ronde et le titre sur une ligne, ce qui s'y passe dessous,
++   sur toute la largeur ; ce qui attend (« À jouer ») à cheval sur le bord du haut, comme le compteur rouge sur le coin. */
++.maq-grille { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: 8px; }
++.accueil.maq .jouer-section > .maq-grille { flex: 1 0 auto; }
++/* La campagne garde sa rangée, en tête ; les tuiles prennent la part de leurs rangées, plus hautes qu'elle. */
++.maq-tuiles .jouer-section > .gros-bouton { flex: 1 0 auto; }
++.maq-tuiles .jouer-section > .maq-grille:not(.maq-amis) { flex-grow: var(--maq-part-des-tuiles, 2.7); }
++/* La pastille à cheval dépasse de neuf pixels : la rangée du dessus — la campagne, une autre tuile — lui en laisse douze. */
++.maq-tuiles .jouer-section > .maq-grille:not(.maq-amis) { row-gap: 12px; margin-top: calc(12px - var(--maq-serre)); }
++/* Une tuile seule sur sa rangée — cinq modes, un de fermé — la prend entière. */
++.maq-grille > :last-child:nth-child(odd) { grid-column: 1 / -1; }
++.accueil.maq .maq-grille > .gros-bouton {
++  /* Une tuile est étroite : sa pastille ronde et son titre se règlent sur la largeur de l'écran, pas sur sa hauteur.
++     Réglés sur la hauteur, « Le Cabinet de curiosités » passait sur trois lignes en 360 × 740. */
++  --maq-icone: 32px;
++  display: grid;
++  grid-template-columns: auto minmax(0, 1fr);
++  align-content: center;
++  align-items: center;
++  column-gap: 8px;
++  row-gap: 3px;
++  min-height: var(--maq-tuile);
++  padding: 8px 10px;
++}
++.maq-grille > .gros-bouton > .gros-texte { display: contents; }
++.accueil.maq .maq-grille > .gros-bouton .gros-texte b { grid-area: 1 / 2; font-size: 1.12rem; }
++@media (min-width: 384px) {
++  .accueil.maq .maq-grille > .gros-bouton { --maq-icone: 36px; }
++  .accueil.maq .maq-grille > .gros-bouton .gros-texte b { font-size: 1.2rem; }
++}
++.accueil.maq .maq-grille > .gros-bouton .gros-detail { grid-area: 2 / 1 / 3 / 3; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; }
++.maq-grille > .gros-bouton .chevron { display: none; }
++.maq-grille > .gros-bouton > .pastille-attente { position: absolute; top: -9px; right: 10px; box-shadow: 0 0 0 2px var(--bg); }
++.maq-grille > .gros-bouton > .gros-compteur + .sr-only + .pastille-attente,
++.maq-grille > .gros-bouton:has(.gros-compteur) > .pastille-attente { right: 22px; }
++/* Sous les lignes, « Entre amis » est une carte elle aussi, coupée en deux par un filet : une carte par section. */
++.maq-lignes .maq-amis { gap: 0; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); }
++.accueil.maq-lignes .maq-amis > .gros-bouton { border: 0; border-radius: var(--radius) 0 0 var(--radius); background: none; }
++.accueil.maq-lignes .maq-amis > .gros-bouton + .gros-bouton { border-left: 1px solid var(--edge); border-radius: 0 var(--radius) var(--radius) 0; }
++/* « Entre amis » : deux boutons côte à côte, leur nom seul tant que l'écran est petit. */
++.accueil.maq .maq-amis > .gros-bouton { min-height: var(--maq-ami); padding-block: 5px; }
++.accueil.maq .maq-amis > .gros-bouton .gros-detail { display: none; -webkit-line-clamp: 1; }
++
++/* Le haut — soi, « À la une », les missions —, à trois tailles : serré sur le petit téléphone, moyen, et celui
++   d'aujourd'hui dès que l'écran en a la place. Ses mesures sont des variables : une soirée où revenir, sur un grand
++   écran, le ramène à la taille moyenne plutôt que de pousser « Entre amis » sous le menu. */
++.accueil.maq {
++  --maq-tete: 58px;
++  --maq-tete-ecart: 10px;
++  --maq-avatar: 1.9rem;
++  --maq-nom: 1.3rem;
++  --maq-amis: 38px;
++  /* En `rem`, comme la ligne des missions d'aujourd'hui : au texte agrandi, l'affiche grandit avec ses trois lignes. */
++  --maq-une: 3.375rem;
++  --maq-une-echelle: 0.62;
++  --maq-une-retrait: 68px;
++  --maq-une-nom: 1.12rem;
++  --maq-une-detail: 0.74rem;
++  --maq-une-fleche: none;
++  --maq-missions: 2.75rem;
++  --maq-missions-icone: 30px;
++  --maq-missions-titre: 0.9rem;
++  --maq-missions-detail: 0.74rem;
++}
++/* Soi : la niche du compagnon tient le coin jusqu'à 82 pixels du haut — la ligne s'arrête avec elle. */
++.accueil.maq .accueil-tete { min-height: var(--maq-tete); }
++.accueil.maq .identite-ligne { gap: var(--maq-tete-ecart); padding: 0; }
++.accueil.maq .identite-ligne .player-avatar.big { font-size: var(--maq-avatar); }
++.accueil.maq .identite-nom { font-size: var(--maq-nom); }
++.accueil.maq .identite-texte { gap: 2px; }
++.accueil.maq .xp-mince { margin-top: 2px; }
++.accueil.maq .bouton-des-amis { min-width: calc(var(--maq-amis) + 6px); gap: 2px; }
++.accueil.maq .bouton-des-amis-rond { width: var(--maq-amis); height: var(--maq-amis); }
++.accueil.maq .bouton-des-amis-rond .icon { width: 18px; height: 18px; }
++/* « À la une » : la même affiche, à la hauteur d'une rangée — son dessin à l'échelle, ses trois lignes serrées. */
++.accueil.maq .haut-accueil { gap: 8px; }
++.accueil.maq .haut-en-chemin { height: calc(var(--maq-une) + 8px + var(--maq-missions)); }
++.accueil.maq .haut-en-chemin.sans-une { height: var(--maq-missions); }
++.accueil.maq .une { height: var(--maq-une); padding: 0 12px 0 var(--maq-une-retrait); border-radius: calc(10px + 8px * var(--maq-une-echelle)); }
++.accueil.maq .une-visuel { scale: var(--maq-une-echelle); transform-origin: left bottom; }
++.accueil.maq .une-texte { gap: 0; }
++.accueil.maq .une-nom { font-size: var(--maq-une-nom); }
++.accueil.maq .une-detail { display: block; overflow: hidden; font-size: var(--maq-une-detail); white-space: nowrap; text-overflow: ellipsis; }
++.accueil.maq .une-aller { display: var(--maq-une-fleche); }
++/* Les missions : deux lignes serrées, la seconde coupée au bout. */
++.accueil.maq .missions-ligne { gap: 10px; min-height: var(--maq-missions); padding: 5px 12px; }
++.accueil.maq .missions-icone { width: var(--maq-missions-icone); height: var(--maq-missions-icone); }
++.accueil.maq .missions-icone .icon { width: calc(var(--maq-missions-icone) * 0.56); height: calc(var(--maq-missions-icone) * 0.56); }
++.accueil.maq .missions-texte { gap: 0; }
++.accueil.maq .missions-tete b { font-size: var(--maq-missions-titre); line-height: 1.2; }
++.accueil.maq .missions-detail { overflow: hidden; font-size: var(--maq-missions-detail); line-height: 1.25; white-space: nowrap; text-overflow: ellipsis; }
++.accueil.maq .mission-anneau { width: calc(var(--maq-missions-icone) * 0.56); height: calc(var(--maq-missions-icone) * 0.56); }
++
++/* Un écran moyen : les boutons d'un cran au-dessus, le haut moyen. */
++@media (min-height: 720px) {
++  .accueil.maq {
++    --maq-rang: 50px;
++    --maq-tuile: 78px;
++    --maq-ami: 56px;
++    --maq-icone: 36px;
++    /* « Le Cabinet de curiosités » tient encore sur sa ligne à côté d'une pastille, en 360 de large. */
++    --maq-titre: 1.15rem;
++    --maq-detail: 0.8rem;
++    --maq-ecart: 12px;
++    --maq-serre: 8px;
++    --maq-une: 4.125rem;
++    --maq-une-echelle: 0.78;
++    --maq-une-retrait: 84px;
++    --maq-une-nom: 1.2rem;
++    --maq-une-detail: 0.76rem;
++    --maq-une-fleche: grid;
++    --maq-missions: 3.25rem;
++    --maq-missions-icone: 32px;
++    --maq-missions-titre: 0.92rem;
++    --maq-missions-detail: 0.76rem;
++  }
++  .accueil.maq .maq-amis > .gros-bouton .gros-detail { display: -webkit-box; }
++}
++/* Un grand écran : le haut d'aujourd'hui, à ses mesures. */
++@media (min-height: 820px) {
++  .accueil.maq {
++    --maq-rang: 54px;
++    --maq-tuile: 84px;
++    --maq-ami: 60px;
++    --maq-icone: 40px;
++    --maq-titre: 1.22rem;
++    --maq-detail: 0.84rem;
++    --maq-ecart: 16px;
++    --maq-serre: 10px;
++  }
++  .accueil.maq:not(:has(.gros-principal, .lendemain, .installer, .annonces-admin)) {
++    --maq-tete: 0px;
++    --maq-tete-ecart: 14px;
++    --maq-avatar: 2.4rem;
++    --maq-nom: 1.45rem;
++    --maq-amis: 44px;
++    --maq-une: 5rem;
++    --maq-une-echelle: 1;
++    --maq-une-retrait: 100px;
++    --maq-une-nom: 1.3rem;
++    --maq-une-detail: 0.78rem;
++    --maq-missions: 3.75rem;
++    --maq-missions-icone: 36px;
++    --maq-missions-titre: 0.95rem;
++    --maq-missions-detail: 0.8rem;
++  }
++  .accueil.maq .gros-bouton { gap: 12px; padding: 5px 14px; }
++  .accueil.maq .maq-grille > .gros-bouton { column-gap: 10px; row-gap: 5px; padding: 10px 12px; }
++  .accueil.maq .maq-grille > .gros-bouton .gros-detail { font-size: 0.8rem; }
++}
+diff --git a/client/src/views/ProfilApp.tsx b/client/src/views/ProfilApp.tsx
+index f155c99..32f7a97 100644
+--- a/client/src/views/ProfilApp.tsx
++++ b/client/src/views/ProfilApp.tsx
+@@ -26,7 +26,7 @@ import { hautFait } from '../../../shared/hautsfaits'
+ import { route } from '../routes'
+ import { derniereSoireeGardee } from '../state'
+ import { Lendemain } from '../components/Lendemain'
+-import { AccueilJouer, AnnoncesDeLAdministrateur, BanniereDuResultat, JAnime } from '../components/AccueilDesRoles'
++import { AccueilJouer, AnnoncesDeLAdministrateur, BanniereDuResultat, JAnime, maquetteDeLAccueil } from '../components/AccueilDesRoles'
+ import { Installer } from '../components/Installer'
+ import type { PublicSpace } from '../../../shared/space'
+ import { porterTheme } from '../themeJoueur'
+@@ -595,6 +595,8 @@ export function ProfilApp() {
+   // ── L'accueil : qui l'on est en une ligne, puis ce qu'on vient faire ──
+   if (VUE === 'accueil') {
+     const etats = boutonsDesPages()
++    // Maquette : la disposition compacte essayée sur ce téléphone (`quizz.maquette`), rien sans le drapeau.
++    const maquette = maquetteDeLAccueil()
+     // Une affiche ne mène qu'à une page qui lui est ouverte : ni en maintenance, ni bientôt disponible sans qu'il l'essaie,
+     // ni le Cabinet là où il ne s'ouvre pas — son gros bouton y serait éteint, ou absent.
+     const { grande, nouvelles } = ceQueMontreLAccueil(
+@@ -610,7 +612,7 @@ export function ProfilApp() {
+     return (
+       // `player-shell` : la même mise en page que le téléphone d'un invité —
+       // c'est le même écran, tenu dans la même main.
+-      <div className="player-shell accueil">
++      <div className={'player-shell accueil' + (maquette ? ` maq maq-${maquette}` : '')}>
+         {/* Le titre de la page, pour l'oreille, comme « Mon profil » au profil : l'accueil connecté n'en avait aucun (Hugo, la
+             tablée du 26 octobre 2026). Caché : sa ligne, en tête, dit déjà où l'on est. */}
+         <h1 className="sr-only">Accueil</h1>
+@@ -658,6 +660,7 @@ export function ProfilApp() {
+           etats={etats}
+           cabinet={cabinetIci()}
+           nouvelles={nouvelles}
++          maquette={maquette}
+         />
+         {/* Sous ce qu'on vient faire : l'application à installer — et, installée, le rappel du soir. */}
+         <Installer avecProfil />

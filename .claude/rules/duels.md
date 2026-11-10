@@ -127,9 +127,13 @@ jour a sa notification (règle `rappel-et-installation.md`).
   verdict, puis ce qui est tombé par l'écran des gains de toute la campagne
   (`GainsDeCampagne` `duel`, règle `recompenses.md` : ses trophées et ce
   qu'ils ouvrent à porter ; « Ce que tu gagnes » seulement à un niveau
-  gagné, le verdict disant déjà ce que le duel a fait) ; la tuile et la
+  gagné, le verdict disant déjà ce que le duel a fait) ; la ligne et la
   bannière de l'accueil dans `components/AccueilDesRoles.tsx`
-  (`boutonDesDuels`, `BanniereDuResultat`) ; la bordure portée dans
+  (`boutonDesDuels`, `BanniereDuResultat` — une tuile jusqu'à l'accueil en
+  lignes du 9 novembre 2026 : sa ligne dit l'essentiel, « Ligue d'or · cote
+  1084 », et ce que sa semaine attend encore, « · encore 3 duels pour ta
+  récompense », seulement là où la rangée a la place — une tablette, un
+  ordinateur —, règle `profil.md`) ; la bordure portée dans
   `ProfileStore` (`update` la valide, `bordureDe` la lit de mémoire), son
   choix dans la loge (règle `profil.md`), son dessin (règle `medaillons.md`) ;
   sa ligue sur la carte (`core/carte.ts`)

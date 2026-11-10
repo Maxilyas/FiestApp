@@ -4,8 +4,8 @@
 // trois gros boutons toujours sans défiler —, l'accueil d'un profil, le quiz
 // du jour et les duels fermés, le Cabinet bientôt disponible, sa niche sous
 // le bandeau ; l'écran d'une page fermée, celui d'une page qui arrive ; la
-// page du défi fermée seule, et sa tuile éteinte à l'accueil, sous son
-// onglet ; une question de la campagne, où le bandeau se
+// page du défi fermée seule, et sa ligne éteinte à l'accueil, sous le quiz
+// du jour ; une question de la campagne, où le bandeau se
 // tait ; la même page fermée pour l'administrateur, qui y entre encore ;
 // l'accueil et le Cabinet de son testeur, sous le bandeau ; et la page du
 // QG — ses testeurs, la recherche d'un autre —, au téléphone et en
@@ -161,15 +161,15 @@ try {
     await page.goto(`${banc.url}/cabinet`)
     await page.waitForSelector('.en-bientot')
     await photo(page, '03b-cabinet-bientot')
-    // 4. Le défi seul fermé : sa page le dit, le reste de la campagne reste ouvert ; à l'accueil, sa tuile s'éteint
-    // sous son onglet, à côté du quiz du jour.
+    // 4. Le défi seul fermé : sa page le dit, le reste de la campagne reste ouvert ; à l'accueil, sa ligne s'éteint,
+    // sous celle du quiz du jour — sans rien à toucher pour la voir : la tuile à deux onglets, dont il fallait ouvrir
+    // le second, a laissé place à deux lignes le 9 novembre 2026 (`retours/2026-11-09/accueil-compact/`).
     console.log('défi :', await poser('/api/admin/maintenance/pages/defi', { fermee: true }))
     await page.goto(`${banc.url}/campagne#defi`)
     await page.waitForSelector('.en-maintenance')
     await photo(page, '04-defi-en-maintenance')
     await page.goto(`${banc.url}/`)
-    await page.click('#jour-defi-defi')
-    await page.waitForSelector('#jour-defi-panneau-defi:not([aria-hidden]) .gros-ferme')
+    await page.waitForSelector('.jouer-carte a.gros-ferme[href="/campagne#defi"]')
     await photo(page, '04b-accueil-defi-en-maintenance')
     // 5. Une question de la campagne : le bandeau se tait, la page tient l'écran.
     await page.goto(`${banc.url}/campagne`)
