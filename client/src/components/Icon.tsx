@@ -132,6 +132,11 @@ export type IconName =
   // L'équitation et la plongée (le 9 novembre 2026).
   | 'fer-a-cheval'
   | 'masque'
+  // Astérix, Tintin, Pokémon, Mario et Nintendo (le 10 novembre 2026).
+  | 'casque-aile'
+  | 'fusee'
+  | 'carte-eclair'
+  | 'champignon'
   // Les duels : le temps qui reste, sans chrono, l'aide, une vie, un résultat qui attend.
   | 'hourglass'
   | 'infinity'
@@ -949,6 +954,44 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
       <>
         <path d="M2.5 9.5A2.5 2.5 0 0 1 5 7h9.5A2.5 2.5 0 0 1 17 9.5v3a2.5 2.5 0 0 1-2.5 2.5h-1.9L11 12.8a1.2 1.2 0 0 0-1.9 0L7.5 15H5a2.5 2.5 0 0 1-2.5-2.5v-3Z" />
         <path d="M11 18.5h6.5a3 3 0 0 0 3-3v-12" />
+      </>
+    ),
+  },
+  // Quatre univers, chacun un objet que tout le monde lui prête sans en copier le dessin : un casque ailé de Gaulois
+  // — ses ailes à deux plumes : d'une seule courbe, elles se lisaient comme des oreilles de chat —, une fusée, une
+  // carte à collectionner frappée d'un éclair, un champignon à pois.
+  'casque-aile': {
+    paths: (
+      <>
+        <path d="M6 16a6 6 0 0 1 12 0M4.5 16h15M12 10V8.2" />
+        <path d="M6.9 12.6C4.7 11.5 3.2 9.2 2.8 6c1.4.2 2.6.8 3.6 1.7C6.5 6.4 7 5.2 7.8 4c1.4 1.8 2 3.9 1.9 6.4M17.1 12.6c2.2-1.1 3.7-3.4 4.1-6.6-1.4.2-2.6.8-3.6 1.7-.1-1.3-.6-2.5-1.4-3.7-1.4 1.8-2 3.9-1.9 6.4" />
+      </>
+    ),
+  },
+  fusee: {
+    paths: (
+      <>
+        <path d="M12 2.5c3 2.6 4.5 6 4.5 10v4h-9v-4c0-4 1.5-7.4 4.5-10Z" />
+        <circle cx="12" cy="10" r="1.7" />
+        <path d="M7.5 12.5 4.5 16.5V20l3-3.5M16.5 12.5l3 4V20l-3-3.5M10 19c.3 1.2 1 2.1 2 2.6 1-.5 1.7-1.4 2-2.6" />
+      </>
+    ),
+  },
+  'carte-eclair': {
+    paths: (
+      <>
+        <rect x="5.5" y="2.5" width="13" height="19" rx="2" />
+        <path d="M12.9 6.8 9.4 12.6h2.7l-1 4.6 3.5-5.8h-2.7l1-4.6Z" />
+      </>
+    ),
+  },
+  champignon: {
+    paths: (
+      <>
+        <path d="M3.5 12.5a8.5 8.5 0 0 1 17 0c0 .8-.7 1.5-1.5 1.5H5c-.8 0-1.5-.7-1.5-1.5Z" />
+        <path d="M9 14v4.5a3 3 0 0 0 6 0V14" />
+        <circle cx="12" cy="8.3" r="1.7" />
+        <path d="M7 10.6v.01M17 10.6v.01" />
       </>
     ),
   },
