@@ -46,6 +46,8 @@ node retours/2026-11-10/ecrans/reproductions/pouces.cjs export/releve/sonde   # 
 |---|---|---|
 | L'accueil, l'affiche d'une nouveauté à la place d'« À la une » | la page défilait de 179 px (67 en 390 × 844) | l'affiche se couche en bandeau : 0 px sous le menu aux quatre tailles de téléphone (`rendu-accueil.ts`, les cas `affiche`) |
 | L'accueil, la ligne des duels | « · encore 3 duels pour ta récompense » ne se montrait que sur tablette | la relance passe devant : « Encore 3 duels pour ta récompense » |
+| « Mon profil », le carrefour (`/profil`) | ses six gros boutons empilés : la page défilait de 285 px, « Mes soirées » et « Ma carrière » sous le menu (72 px en 390 × 844) | en lignes dans une carte, comme à l'accueil : tout tient — 13 px au-dessus du menu en 360 × 640, 165 en 390 × 844 (`rendu-carrefour.ts`) |
+| Toute page à menu, et toute page sous le bandeau du service | défilait de 72 px même à moitié vide (« Mes soirées » d'un nouveau venu, avec 325 px de libre), et de 58 de plus sous le bandeau — jusque sur l'écran d'une page en maintenance | la coquille de la page retranche la barre et le bandeau : une page dont le contenu tient ne défile plus, une page longue défile de ce qui dépasse |
 | Après une réponse — révision, série, duel au dé ou contre quelqu'un, épreuve de sentier, étape de parcours, quiz du jour | « Question suivante » sous le pli : 122 px de page en trop en révision, 129 contre Automate, 139 en épreuve | le geste reste sous le pouce (`SousLePouce`) : collé au bas de l'écran quand la page est plus longue, à sa place sinon |
 | « Défier Tom » (préparer un duel) | « Jouer le duel » au pli, 113 à 158 px de page en trop ; sous toute la liste des amis tant qu'on choisit (666 à 785 px) | sous le pouce |
 | « Nouveau salon » | « Ouvrir le salon » à 365 px sous l'écran, 800 les équipes préparées | sous le pouce |
@@ -93,7 +95,16 @@ changé au pixel.
   la marge du bas (28 px) dépasse défile d'autant — la révélation d'une
   soirée (25 à 47 px), « Pas cette fois » (20), une manche du Cabinet (19 à
   61). Rien n'y est caché ; le corriger demande une marge qui se resserre.
-- **Sur un vrai téléphone** : l'encoche et la barre d'adresse retirent de la
-  hauteur que Chromium sans écran ne retire pas. Les pas de hauteur de
-  l'accueil (720, 820) et le bandeau (940) se regardent aussi dans le
-  navigateur et dans l'application installée.
+- **Le texte agrandi à 130 %**, en 360 × 640 : l'accueil défile encore de
+  125 px, le carrefour du profil de 42. Leurs lignes grandissent avec le
+  texte, c'est voulu ; elles ne tiennent plus toutes.
+- **Sur un vrai téléphone** : la barre d'adresse d'un navigateur retire de la
+  hauteur que Chromium sans écran ne retire pas. L'encoche, elle, se mesure
+  (`ENCOCHE=47`) : l'accueil et le carrefour tiennent en 390 × 844,
+  l'application installée. Les pas de hauteur de l'accueil (720, 820) et le
+  bandeau (940) se regardent aussi dans le navigateur.
+- **Relevé en passant, laissé** : sur un navigateur neuf, « Mon compagnon »
+  arrive au carrefour une image après les autres boutons (la niche se pose
+  après le premier dessin) ; le QG, à l'ordinateur, défile encore de la
+  hauteur du bandeau du service ; avec l'encoche, un bouton du rayon des
+  compagnons de la boutique passe sous la niche.

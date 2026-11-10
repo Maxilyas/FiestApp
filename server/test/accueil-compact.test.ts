@@ -197,7 +197,15 @@ test('la feuille : la page tient entre le haut de l’écran et la barre du menu
   const bloc = (selecteur: string) => css.match(new RegExp(`(?:^|\\n)${selecteur.replace(/[.*+?()[\]]/g, '\\$&')} \\{([^}]*)\\}`))?.[1] ?? ''
   // `min-height: 100dvh`, sous le retrait que la barre pose sur le corps, faisait toujours défiler la page de la hauteur de
   // la barre : l'accueil prend l'écran moins elle (et moins le bandeau du service, s'il y en a un), jusqu'à son plafond.
-  assert.match(bloc('body.avec-menu .accueil'), /min-height: min\(calc\(100svh - 72px - env\(safe-area-inset-bottom\) - var\(--haut-du-bandeau, 0px\)\), var\(--accueil-plafond\)\);/)
+  // En `svh` — la barre d'adresse du navigateur dépliée, tout tient encore —, écrit sous `@supports` : en seconde
+  // déclaration, le navigateur qui ne le connaît pas ne retombait pas sur le `vh` d'au-dessus (une déclaration qui lit
+  // une variable se jette au calcul), et l'accueil n'avait plus de hauteur du tout.
+  assert.match(bloc('body.avec-menu .accueil'), /min-height: min\(calc\(100vh - 72px - env\(safe-area-inset-bottom\) - var\(--haut-du-bandeau, 0px\)\), var\(--accueil-plafond\)\);/)
+  assert.doesNotMatch(bloc('body.avec-menu .accueil'), /svh/)
+  assert.match(
+    css,
+    /@supports \(min-height: 100svh\) \{\n  body\.avec-menu \.accueil \{ min-height: min\(calc\(100svh - 72px - env\(safe-area-inset-bottom\) - var\(--haut-du-bandeau, 0px\)\), var\(--accueil-plafond\)\); \}\n\}/,
+  )
   // Une ligne ne descend pas sous 48 px, une cible de doigt ; elle part de là et grandit avec les autres.
   assert.match(bloc('.accueil'), /--accueil-rang: 48px;/)
   assert.match(bloc('.accueil-gestes .gros-bouton'), /min-height: var\(--accueil-rang\);/)

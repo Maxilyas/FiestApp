@@ -17834,7 +17834,8 @@ span.annonce-admin-merci { cursor: default; }
    de hauteur — le petit téléphone, un écran moyen (720 px et plus), un grand
    (820 et plus), où le haut reprend ses tailles d'avant. Tout se règle par
    les variables de `.accueil`, que seul l'accueil d'un profil porte : les
-   gros boutons du profil et du Cabinet gardent leurs mesures. En fin de
+   gros boutons du Cabinet gardent leurs mesures, et ceux du carrefour du
+   profil ont leur propre bloc, aux mêmes mesures (plus bas). En fin de
    feuille : ses règles départagent à égalité celles qu'elles resserrent.
    `server/scripts/rendu-accueil.ts` dit, taille par taille, ce qui passe
    encore sous le menu. */
@@ -17880,8 +17881,13 @@ span.annonce-admin-merci { cursor: default; }
    lendemain, l'application à installer — les resserre d'abord ; la page ne défile que si leur minimum même ne tient plus. */
 body.avec-menu .accueil {
   min-height: min(calc(100vh - 72px - env(safe-area-inset-bottom) - var(--haut-du-bandeau, 0px)), var(--accueil-plafond));
-  min-height: min(calc(100svh - 72px - env(safe-area-inset-bottom) - var(--haut-du-bandeau, 0px)), var(--accueil-plafond));
   padding-bottom: 6px;
+}
+/* `svh` sous `@supports`, pas en seconde déclaration : une déclaration qui lit une variable est tenue pour valide à la
+   lecture, et le navigateur qui ne connaît pas `svh` ne retombait pas sur le `vh` écrit au-dessus — il la jetait au
+   calcul, et l'accueil n'avait plus de hauteur du tout (le même piège que les coquilles de page, règle `css.md`). */
+@supports (min-height: 100svh) {
+  body.avec-menu .accueil { min-height: min(calc(100svh - 72px - env(safe-area-inset-bottom) - var(--haut-du-bandeau, 0px)), var(--accueil-plafond)); }
 }
 /* Seules les lignes s'étirent : dans une colonne qui s'étire, une base à zéro les écraserait sous leur contenu — chacune
    garde sa base à son contenu (`auto`) et ne fait que grandir. */
