@@ -146,19 +146,27 @@ export const ETIQUETTES: readonly FamilleDEtiquettes[] = [
     ],
   },
   // Les univers (le même jour) : les sagas qui traversent les livres, les
-  // films, les jeux et les chansons. Pas Astérix, Tintin, Nintendo ni
-  // Pokémon : trois quarts et plus de leurs questions vivaient dans un thème
-  // déjà là — la BD, les jeux vidéo —, et le propriétaire ne voulait plus de
-  // thèmes qui se recoupent.
+  // films, les jeux et les chansons. Astérix, Tintin, Nintendo et Pokémon
+  // n'en étaient pas : trois quarts et plus de leurs questions vivaient dans
+  // un thème déjà là — la BD, les jeux vidéo —, et le propriétaire ne voulait
+  // plus de thèmes qui se recoupent. Ils ont le leur depuis le 10 novembre
+  // 2026 : entre-temps (le 1er novembre), un univers a pu vivre dans un thème
+  // plus large, comme un zoom sur lui, et le propriétaire voulait « des
+  // thèmes que les gens ont envie de tester ». Pokémon n'entre pas dans
+  // Nintendo : deux univers ne se contiennent pas.
   {
     famille: "Les univers",
     etiquettes: [
+      { cle: "asterix", nom: "Astérix", definition: "les albums de Goscinny et Uderzo, leurs films et leurs dessins animés, leurs personnages, le parc Astérix. Pas les Gaulois de l'histoire (Vercingétorix, Alésia), hors de la série" },
       { cle: "disney", nom: "Disney et Pixar", definition: "leurs films, leurs personnages, leurs chansons et leurs parcs. Pas Star Wars ni Marvel, qui ont le leur, ni un conte avant que Disney ne l'adapte (Perrault, Grimm, Collodi)" },
       { cle: "harry-potter", nom: "Harry Potter", definition: "les livres de J. K. Rowling, leurs films et leurs suites, leurs personnages et leurs lieux (Poudlard)" },
       { cle: "james-bond", nom: "James Bond", definition: "les romans de Ian Fleming et les films de 007 : leurs acteurs dans le rôle, leurs chansons, leurs méchants, leurs gadgets" },
       { cle: "marvel", nom: "Marvel", definition: "ses super-héros en bande dessinée et au cinéma (les Avengers, Spider-Man, les X-Men). Pas DC (Batman, Superman), ni Thor le dieu nordique" },
+      { cle: "nintendo", nom: "Mario et Nintendo", definition: "les jeux et les héros de Nintendo — Mario, Zelda, Donkey Kong, Kirby, Metroid, Animal Crossing —, ses consoles (NES, Game Boy, Wii, Switch) et ceux qui les ont faits (Shigeru Miyamoto). Pas Pokémon, qui a le sien, ni Sonic ou la PlayStation" },
+      { cle: "pokemon", nom: "Pokémon", definition: "ses jeux, son dessin animé, ses cartes et ses films : ses créatures, ses dresseurs, ses régions, Pokémon GO" },
       { cle: "seigneur-des-anneaux", nom: "Le Seigneur des anneaux", definition: "la Terre du Milieu de Tolkien — Le Hobbit compris — et ses films" },
       { cle: "star-wars", nom: "Star Wars", definition: "ses films, ses séries, ses personnages, ses planètes et ceux qui l'ont fait (George Lucas, la musique de John Williams pour la saga)" },
+      { cle: "tintin", nom: "Tintin", definition: "les albums d'Hergé, leurs personnages (Haddock, Tournesol, les Dupondt, Milou), leurs lieux, leurs adaptations, et Hergé pour cette œuvre. Pas les autres séries du journal Tintin" },
       // Le 1er novembre 2026, à la demande du propriétaire : une saga de fans,
       // écrite d'un bloc — la base n'en posait rien. La mythologie égyptienne
       // n'en est pas : Râ et Anubis restent aux mythes, sauf en Goa'uld.

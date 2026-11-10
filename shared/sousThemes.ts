@@ -26,8 +26,8 @@
 // l'autre sur l'équitation) ont chacune le leur en Sport : la base n'en
 // posait presque rien — une question sur les épreuves équestres de 1956,
 // aucune sur la plongée —, et rangées dans glisse ou olympisme, leurs cent
-// trente-cinq questions en auraient fait plus du tiers. Une série de Sport
-// leur donne deux tours sur onze.
+// trente questions en auraient fait plus du tiers. Une série de Sport leur
+// donne deux tours sur onze.
 
 import type { Categorie } from './categories'
 
