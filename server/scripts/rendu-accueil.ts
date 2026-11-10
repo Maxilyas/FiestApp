@@ -19,8 +19,10 @@
 //   npm run build -w client
 //   cd server && npx tsx scripts/rendu-accueil.ts ../export/accueil
 //
-// `SEULEMENT=habituee,chargee` ne photographie que ces cas. Le script sort en
-// erreur si un cas qui doit tenir — l'habituée, le débutant, l'Ivoire — défile
+// `SEULEMENT=habituee,chargee` ne photographie que ces cas ; `ENCOCHE=47` pose
+// l'encoche d'un iPhone et sa barre d'accueil — l'application installée, où la
+// page perd 81 px de hauteur. Le script sort en erreur si un cas qui doit
+// tenir — l'habituée, le débutant, l'Ivoire, l'affiche d'une nouveauté — défile
 // ou déborde en largeur ; les autres disent ce qui passe dessous.
 import { createRequire } from 'node:module'
 import { spawnSync } from 'node:child_process'
@@ -47,8 +49,16 @@ const TOUS_LES_ECRANS: Ecran[] = [[360, 640], [360, 740], [390, 844], [412, 915]
 const DEUX_ECRANS: Ecran[] = [[360, 640], [390, 844]]
 const PETIT: Ecran[] = [[360, 640]]
 const TABLETTE: Ecran[] = [[768, 1024]]
-/** Là où l'affiche d'une nouveauté se montre en grand : dès 940 px de haut — le plus étroit qu'on puisse imaginer, et une tablette. */
+/**
+ * Les écrans hauts, pour l'affiche d'une nouveauté : haut mais étroit (360 × 940, moins de 600 de large), elle reste
+ * couchée en bandeau ; sur une tablette debout, elle se montre en grand.
+ */
 const GRANDS: Ecran[] = [[360, 940], [768, 1024]]
+/**
+ * L'encoche d'un iPhone, en pixels (`ENCOCHE=47`, comme `rendu-niche.ts`) : l'application installée y perd l'encoche en
+ * haut et la barre d'accueil en bas — une hauteur d'écran de 844 px n'en laisse que 763 à la page.
+ */
+const ENCOCHE = Number(process.env.ENCOCHE ?? 0)
 /** Chrome sur Android : la page y propose d'installer l'application, au pied de l'accueil. */
 const ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36'
 
@@ -229,6 +239,8 @@ try {
     affiche?: { page: PageALAffiche; titre: string; phrase: string; confettis: number }
     /** Le texte agrandi, en pour cent. */
     texte?: number
+    /** Un jeudi sans duel de la semaine : la ligne des duels dit ce que sa semaine attend encore — sa relance, la plus longue des lignes (33 caractères). */
+    relance?: boolean
   }
   const photographier = async (nom: string, cas: Cas, ecrans: Ecran[]) => {
     for (const [largeur, hauteur] of ecrans) {
@@ -277,11 +289,19 @@ try {
         requestAnimationFrame(voir)
       })()`)
       const page = await ctx.newPage()
+      // L'encoche d'un iPhone et sa barre d'accueil (34 px en bas), posées avant que la page n'ouvre rien : l'application
+      // installée leur rend de la hauteur, que Chromium sans écran ne retire pas de lui-même.
+      if (ENCOCHE) {
+        const cdp = await ctx.newCDPSession(page)
+        await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: ENCOCHE, topMax: ENCOCHE, bottom: 34, bottomMax: 34, left: 0, leftMax: 0, right: 0, rightMax: 0 } })
+      }
       page.on('pageerror', (e: Error) => console.error('[page]', e.message))
-      if (cas.chargee || cas.affiche) {
+      if (cas.chargee || cas.affiche || cas.relance) {
         await page.route(/\/api\/joueur\/moi\?accueil/, async (route: any) => {
           const reponse = await route.fetch()
           const j = await reponse.json()
+          // Ni le bilan du lundi, ni un duel de la semaine : il lui en reste trois à jouer pour sa récompense.
+          if (cas.relance) j.profile.duels = { ...j.profile.duels, semainePassee: undefined, semaine: { ...j.profile.duels?.semaine, duels: 0 } }
           if (cas.chargee) {
             j.enCours = [{ nom: 'Hugo', slug: 'chez-hugo' }]
             j.profile.duels = { ...j.profile.duels, semainePassee: undefined, resultats: { n: 1, de: 'Hugo', code: 'ABCD' }, defisRecus: { n: 2, de: 'Zoé' } }
@@ -319,6 +339,8 @@ try {
     ['habituee', { cookie: lea }, TOUS_LES_ECRANS],
     ['debutant', { cookie: tom }, DEUX_ECRANS],
     ['chargee', { cookie: lea, chargee: true }, DEUX_ECRANS],
+    // La relance des duels, « Encore 3 duels pour ta récompense » : la plus longue des lignes, entière sur le petit téléphone.
+    ['relance', { cookie: lea, relance: true }, DEUX_ECRANS],
     ['navigateur', { cookie: lea, navigateur: true }, DEUX_ECRANS],
     // L'affiche du Cabinet telle que le QG la propose (son titre de 41 caractères, 50 confettis), couchée en bandeau à
     // chaque taille de téléphone ; celle des duels, sans peinture ni confettis ; la plus longue qu'on puisse écrire — un
@@ -345,7 +367,8 @@ try {
   writeFileSync(path.join(sortie, 'mesures.json'), JSON.stringify(rapport, null, 2))
   let rate = 0
   for (const [n, m] of Object.entries(rapport)) {
-    const doitTenir = DOIVENT_TENIR.some(c => n.startsWith(`${c}-`))
+    // Avec une encoche, seuls les grands écrans doivent tenir : aucun téléphone de 640 ou de 740 px de haut n'en a une.
+    const doitTenir = DOIVENT_TENIR.some(c => n.startsWith(`${c}-`)) && (!ENCOCHE || Number(n.match(/x(\d+)$/)?.[1]) >= 800)
     // Ce dont la page défile : le contenu passé sous la barre du menu, et la marge qu'elle garde sous son dernier bloc.
     const verdict = m.large
       ? 'DÉBORDE EN LARGEUR'

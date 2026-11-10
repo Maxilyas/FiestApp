@@ -15,6 +15,12 @@ est la maquette telle qu'elle a été présentée, gardée comme trace, sous un
 titre ajouté pour l'en séparer (« La maquette ») ; une seule phrase y a été
 corrigée, et elle le dit (« Les lignes courtes »).
 
+Deux suites, le 10 novembre 2026, sur ce que la livraison avait mesuré (le
+propriétaire : « applique aussi tes recommandations ») : la ligne des duels
+dit d'abord ce que la semaine attend encore (le point 3), et l'affiche d'une
+nouveauté se couche en bandeau sur un téléphone (« L'affiche, couchée en
+bandeau », sous le tableau des mesures).
+
 Ce que les cinq points « À trancher » sont devenus, par les recommandations :
 
 1. **Les lignes.** Une carte par section (`.jouer-carte`), ses boutons
@@ -41,9 +47,10 @@ Ce que les cinq points « À trancher » sont devenus, par les recommandations :
    coupée au milieu d'un mot —, et le lecteur d'écran lit toute la phrase.
    Une phrase d'avant dont le début disait l'essentiel est restée, coupée à
    ses jointures (« Ligue d'or · cote 1084 » | « · encore 3 duels pour ta
-   récompense » ; « 9 joueurs l'ont relevé » | « · jusqu'à dimanche » ;
-   « Défie qui tu veux » | « , ou Automate » | « : monte de ligue » ; « En
-   maintenance » | « : reviens un peu plus tard ») ; les autres ont pris les
+   récompense » — jusqu'au 10 novembre 2026, plus bas ; « 9 joueurs l'ont
+   relevé » | « · jusqu'à dimanche » ; « Défie qui tu veux » | « , ou
+   Automate » | « : monte de ligue » ; « En maintenance » | « : reviens un
+   peu plus tard ») ; les autres ont pris les
    mots du tableau (« Palier 5 de la forêt » | « · 12 vies » ; « Une série
    sans fin, des portraits » | « à gagner » ; « Épreuve en cours » |
    « · 12 vies » | « · palier 5 de la forêt » ; « Série de 12 jours », « Dix
@@ -52,9 +59,16 @@ Ce que les cinq points « À trancher » sont devenus, par les recommandations :
    « · 8 bonnes réponses », « À toi d'ouvrir le bal » | « · jusqu'à
    dimanche » ; « Un légendaire au bout » | « · trois actes, trois
    gardiens » ; « Tu lances les quiz » | « : tu joues, ou tu animes » ;
-   « Code ou QR de l'hôte »). « encore 3 duels pour ta récompense » revient
+   « Code ou QR de l'hôte »). « encore 3 duels pour ta récompense » revenait
    donc là où la rangée a la place — mesuré : sur une tablette ou un
-   ordinateur, pas sur un téléphone.
+   ordinateur, pas sur un téléphone. **Corrigé le 10 novembre 2026**, à la
+   demande du propriétaire : ce que la semaine attend encore ne se lisait
+   sur aucun téléphone. Tant qu'il reste des duels à jouer pour la
+   récompense de lundi, c'est elle que la ligne dit d'abord — « Encore
+   3 duels pour ta récompense » | « · ligue d'or » | « · cote 1084 »
+   (« Encore 1 duel… » au singulier) : le blason de la ligne dit déjà la
+   ligue ; la récompense acquise, « Ligue d'or · cote 1084 » | « · +30
+   confettis lundi », comme avant (`boutonDesDuels`).
 4. **Dans un navigateur, sur le petit téléphone, la ligne du lendemain et
    « Installer l'application » restent sous les boutons** : des lignes de
    passage — sept jours pour l'une, jusqu'à l'installation pour l'autre. La
@@ -85,7 +99,13 @@ Où vit le code, maintenant :
   pour quelques cas). Il photographie chaque cas à chaque taille, dit ce qui
   passe sous le menu, la hauteur des lignes, ce qui est coupé au bout, les
   suites montrées, et sort en erreur si un cas qui doit tenir — l'habituée,
-  le débutant, l'Ivoire — défile ou déborde.
+  le débutant, l'Ivoire, et depuis le 10 novembre 2026 l'affiche d'une
+  nouveauté — défile ou déborde.
+- `client/src/components/AfficheDeLaNouveaute.tsx` — l'affiche d'une
+  nouveauté et ses deux formes (`forme`, `ECRAN_COURT`) ; son bandeau dans
+  `client/src/styles.css` (« Couchée en bandeau ») ;
+  `server/test/affiches.test.ts` garde ce que la feuille ne doit pas perdre
+  en la couchant.
 - La règle `.claude/rules/profil.md` en garde le détail et les pièges ; la
   décision, `docs/architecture/decisions.md` (« L'accueil d'un profil tient
   sur un écran, ses boutons en lignes »).
@@ -109,15 +129,57 @@ les 13 pixels de marge sous le dernier bloc.
 | Dans un navigateur, au lendemain d'une soirée | 360 × 640 | 638 | 78 — les 65 de la maquette, et la marge (le point 4) |
 | | 390 × 844 | 331 | 0 |
 | Le texte agrandi à 130 % | 360 × 640 | 835 | 125 — les 112 de la maquette, et la marge |
-| L'affiche d'une nouveauté, à la place d'« À la une » | 360 × 640 | pas mesuré | 179 — les duels à moitié, le Cabinet et « Entre amis » dessous |
-| | 390 × 844 | pas mesuré | 67 — « Entre amis » |
+| L'affiche d'une nouveauté, à la place d'« À la une » | 360 × 640 | pas mesuré | 179 — les duels à moitié, le Cabinet et « Entre amis » dessous ; 0 depuis le 10 novembre, en bandeau |
+| | 390 × 844 | pas mesuré | 67 — « Entre amis » ; 0 depuis le 10 novembre, en bandeau |
 
-L'affiche d'une nouveauté est le seul cas que la maquette n'avait pas
-photographié, et le seul qui fasse encore défiler un téléphone d'aujourd'hui :
-une grande affiche, voulue telle (le 1er novembre 2026), le temps qu'on aille
-sur sa page ou qu'on la range (« Plus tard »). À côté de sa pastille
-« Nouveau », « Le Cabinet de curiosités » passe aussi sur deux lignes. La
-resserrer sur le petit téléphone reste à décider.
+L'affiche d'une nouveauté était le seul cas que la maquette n'avait pas
+photographié, et le seul qui faisait encore défiler un téléphone
+d'aujourd'hui : une grande affiche, voulue telle (le 1er novembre 2026), le
+temps qu'on aille sur sa page ou qu'on la range (« Plus tard »). À côté de sa
+pastille « Nouveau », « Le Cabinet de curiosités » passait aussi sur deux
+lignes. La resserrer sur le petit téléphone restait à décider.
+
+### L'affiche, couchée en bandeau (le 10 novembre 2026)
+
+« Applique aussi tes recommandations » (le propriétaire, le 10 novembre
+2026). Sous 940 pixels de haut ou 600 de large — tous les téléphones —,
+l'affiche se couche en bandeau à la place d'« À la une »
+(`AfficheDeLaNouveaute`, `forme`, `ECRAN_COURT` ; `.affiche-bandeau`) : la
+même affiche — sa nuit, son or, ses gardiens, les mêmes mots, le même lien —
+sur une rangée, sa scène et « Nouveau » à gauche, son titre et son geste à
+droite, « Plus tard » au coin ; le bandeau entier mène à la page. Sa phrase
+ne se montre qu'en grand, le lecteur d'écran la lit toujours ; ses confettis
+se disent en deux temps (« +50 confettis », « à ta première visite »), des
+morceaux entiers ou rien ; un titre n'est jamais coupé. Au-delà — une
+tablette debout, un grand écran —, l'affiche entière.
+
+Avec elle, sur l'accueil : la page se resserre de deux pixels entre ses blocs
+quand le bandeau s'y montre (`.accueil:has(.affiche-bandeau)`, sous 820
+pixels de haut) ; « Nouveau », sur la ligne d'une page à l'affiche, perd son
+étincelle sous 412 pixels de large — avec elle, « Le Cabinet de curiosités »
+passait sur deux lignes, et sa rangée poussait « Entre amis » sous le menu ;
+et sur le petit téléphone, une soirée où revenir prend la place de l'affiche
+comme celle d'« À la une ».
+
+Mesuré le 10 novembre 2026 (`rendu-accueil.ts`, les cas `affiche`,
+`affiche-duels`, `affiche-longue` et `affiche-entiere`), en pixels :
+
+| Affiche | Écran | Sa hauteur | Sous le menu |
+|---|---|---|---|
+| Celle du Cabinet, telle que le QG la propose — un titre de 41 caractères, 50 confettis | 360 × 640 | 64, en bandeau — « · +50 confettis » à la suite de son geste | 0 — des lignes de 48-49 px |
+| | 360 × 740 | 93 — « +50 confettis à ta première visite » dans son bouton d'or | 0 — 54-55 px |
+| | 390 × 844 | 96 | 0 — 65-66 px |
+| | 412 × 915 | 96 | 0 — 69-70 px |
+| Celle des duels, sans peinture ni confettis | 360 × 640 | 64 | 0 |
+| | 390 × 844 | 87 | 0 |
+| La plus longue qu'on puisse écrire — un titre de 48 caractères en lettres larges, 500 confettis | 360 × 640 | 64 | 0 |
+| | 390 × 844 | 118 — son titre sur trois lignes | 0 |
+| En grand | 768 × 1024 | 237, l'affiche entière | 0 — il reste 132 px au-dessus du menu |
+
+En 360 × 940, que le script photographie aussi, l'écran est haut mais
+étroit : c'est encore le bandeau. Le script sort désormais en erreur si l'un
+de ces cas défile ou déborde : l'affiche fait partie de ceux qui doivent
+tenir.
 
 Le prototype (`maquette/prototype.patch`) ne s'applique plus sur le code
 livré : pour revoir les tuiles, la proposition écartée, « Rejouer la
@@ -250,7 +312,8 @@ tuile encore moins : la phrase entière fait 58 caractères, et une rangée de
 un ordinateur, où la rangée est assez large. (Corrigé à la livraison, le
 9 novembre 2026, sur ce que `server/scripts/rendu-accueil.ts` a mesuré : la
 maquette disait « Une rangée de 390 de large a la place de le redire ; une
-tuile, non. »)
+tuile, non. » Et depuis le 10 novembre 2026, il ne se perd plus : c'est lui
+que la ligne des duels dit d'abord — « La décision », le point 3.)
 
 ## Proposition 1 — Les lignes
 
