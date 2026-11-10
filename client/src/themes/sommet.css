@@ -7,15 +7,27 @@
    montagne à l'aube, ses quatre camps qui luisent sur l'arête, et à part,
    détourés, les drapeaux de prière, pour qu'ils flottent au vent.
 
-   Le décor vit dans les couches fixes (`html::before` : la montagne ;
-   `body::before` : la lueur des camps ; `body::after` : les drapeaux ;
-   `#root::before` : le voile ; `#root::after` : la neige qui vole), qui ne
-   captent jamais un doigt et ne bougent que par `transform` et `opacity`.
-   La montagne et la lueur des camps partagent une boîte au rapport du
-   tableau, calée en haut de l'écran : sur tout écran, chaque lueur tombe sur
-   son camp. Le texte reste lisible : un voile de nuit, épais en haut où
-   s'écrivent l'en-tête et la question, et un halo sous ce qui s'écrit sur la
-   page. `design.test.ts` en mesure les contrastes.
+   Le décor vit dans les couches fixes (`html::before` : la montagne sous
+   son voile ; `body::before` : la lueur des camps ; `body::after` : les
+   drapeaux ; `#root::after` : la neige qui vole), qui ne captent jamais un
+   doigt et ne bougent que par `transform` et `opacity`. Chaque lueur tombe
+   sur son camp, sur tout écran : elle se place dans la boîte de la montagne,
+   au rapport du tableau, calée en haut de l'écran. Le texte reste lisible :
+   un voile de nuit, épais en haut où s'écrivent l'en-tête et la question, et
+   un halo sous ce qui s'écrit sur la page. `design.test.ts` en mesure les
+   contrastes.
+
+   Chaque couche qui bouge garde un calque de la carte graphique, à sa
+   taille : à la densité d'un téléphone, cinq couches plein écran en
+   prenaient 82 Mo, et le classement du quiz du jour se dessinait « en
+   friture » (le 10 novembre 2026, règle `css.md`). Depuis, une seule est
+   peinte en plein écran — la montagne, le voile sur elle, dans ses
+   couleurs — ; la lueur s'arrête à ses camps (`#root::before` : celle du
+   camp de base, à part), les drapeaux à leur corde, et la neige ne déborde
+   que du pas de son motif. La lueur et les
+   drapeaux, que le voile couvrait, le portent eux-mêmes, découpé à leur
+   forme (`mask-image`) : ce qu'on voit n'a pas changé
+   (`decors-peints.test.ts`).
 
    Rien n'y peint une carte à fond : chaque règle qui la toucherait s'en
    écarte (`:where(:not(.carte-fond, .carte-fond *))`), et son décor reste
@@ -85,46 +97,93 @@
      couvre l'écran, calée en haut, et déborde en bas ou sur les côtés. */
   --sommet-l: max(100vw, calc(100vh * 720 / 1290));
   --sommet-h: max(calc(100vw * 1290 / 720), 100vh);
+  /* Le voile de nuit, du haut au bas de l'écran. */
+  --sommet-voile: linear-gradient(180deg, rgba(11, 19, 34, 0.7) 0%, rgba(11, 19, 34, 0.6) 40%, rgba(11, 19, 34, 0.36) 68%, rgba(11, 19, 34, 0.24) 100%);
 }
 
 :root[data-theme='sommet'] body {
   background-color: #0b1322;
 }
 
-/* La montagne et la lueur de ses camps, dans la même boîte. */
-:root[data-theme='sommet']::before,
-:root[data-theme='sommet'] body::before {
+/* La montagne, et sur elle le voile : la nuit de l'application, épaisse en
+   haut où s'écrivent l'en-tête et la question, légère en bas où l'arête et
+   ses camps se montrent. Peints ensemble, sur une seule couche à la taille de
+   l'écran : le voile à part, c'était un plein écran de plus à tenir. */
+:root[data-theme='sommet']::before {
   content: '';
   position: fixed;
-  top: 0;
-  left: 50%;
-  width: var(--sommet-l);
-  height: var(--sommet-h);
-  margin-left: calc(var(--sommet-l) / -2);
+  inset: 0;
   pointer-events: none;
   z-index: 0;
-}
-
-:root[data-theme='sommet']::before {
-  background: var(--decor-montagne) 0 0 / 100% 100% no-repeat;
+  background:
+    var(--sommet-voile) 0 0 / 100% 100% no-repeat,
+    var(--decor-montagne) 50% 0 / var(--sommet-l) var(--sommet-h) no-repeat;
 }
 
 /* Les quatre camps, aux places mesurées sur le tableau : le camp de base,
-   puis les trois autres le long de l'arête. Leurs lanternes vacillent. */
-:root[data-theme='sommet'] body::before {
-  background:
-    radial-gradient(4.5% 2.2% at 16.5% 93.2%, rgba(255, 176, 90, 0.7), rgba(255, 150, 70, 0) 100%),
-    radial-gradient(3.4% 1.7% at 29.3% 69.6%, rgba(255, 176, 90, 0.75), rgba(255, 150, 70, 0) 100%),
-    radial-gradient(3% 1.5% at 52.9% 63.9%, rgba(255, 176, 90, 0.75), rgba(255, 150, 70, 0) 100%),
-    radial-gradient(3% 1.5% at 80.7% 50.4%, rgba(255, 176, 90, 0.8), rgba(255, 150, 70, 0) 100%);
+   puis les trois autres le long de l'arête. Leurs lanternes vacillent.
+   Une couche qui vacille garde un calque à sa taille : à celle de la
+   montagne, c'était un plein écran pour quatre lueurs. Deux petites, à leur
+   cadre dans la boîte de la montagne (`--camps-x`, `-y`, `-l`, `-h`, en parts
+   de la boîte) : les trois camps de l'arête, et le camp de base, seul en bas.
+   Les lueurs gardent leurs places mesurées — dessinées à la taille de la
+   boîte, décalées du coin de leur cadre. Et elles passaient sous le voile :
+   chaque couche est la couleur des lanternes sous le voile, découpée par
+   les lueurs (`mask`), ce que le voile posé par-dessus donnait à voir. */
+:root[data-theme='sommet'] body::before,
+:root[data-theme='sommet'] #root::before {
+  --lueurs:
+    radial-gradient(4.5% 2.2% at 16.5% 93.2%, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0) 100%),
+    radial-gradient(3.4% 1.7% at 29.3% 69.6%, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0) 100%),
+    radial-gradient(3% 1.5% at 52.9% 63.9%, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0) 100%),
+    radial-gradient(3% 1.5% at 80.7% 50.4%, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0) 100%);
+  --camps-haut: calc(var(--sommet-h) * var(--camps-y));
+  content: '';
+  position: fixed;
+  top: var(--camps-haut);
+  left: 50%;
+  width: calc(var(--sommet-l) * var(--camps-l));
+  height: calc(var(--sommet-h) * var(--camps-h));
+  margin-left: calc(var(--sommet-l) * (var(--camps-x) - 0.5));
+  pointer-events: none;
+  background: var(--sommet-voile) 0 calc(var(--camps-haut) * -1) / 100% 100vh no-repeat, rgb(255, 176, 90);
+  -webkit-mask: var(--lueurs);
+  mask: var(--lueurs);
+  -webkit-mask-size: var(--sommet-l) var(--sommet-h);
+  mask-size: var(--sommet-l) var(--sommet-h);
+  -webkit-mask-position: calc(var(--sommet-l) * var(--camps-x) * -1) calc(var(--camps-haut) * -1);
+  mask-position: calc(var(--sommet-l) * var(--camps-x) * -1) calc(var(--camps-haut) * -1);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
   animation: sommet-lanternes 2.8s ease-in-out infinite alternate;
 }
 
-/* Les drapeaux de prière, tendus au-dessus du sentier, que le vent soulève. */
+:root[data-theme='sommet'] body::before {
+  --camps-x: 0.255;
+  --camps-y: 0.485;
+  --camps-l: 0.59;
+  --camps-h: 0.23;
+  z-index: 0;
+}
+
+:root[data-theme='sommet'] #root::before {
+  --camps-x: 0.115;
+  --camps-y: 0.905;
+  --camps-l: 0.1;
+  --camps-h: 0.055;
+  z-index: -1;
+}
+
+/* Les drapeaux de prière, tendus au-dessus du sentier, que le vent soulève.
+   Le voile passait sur eux aussi : il est peint sur leur image, et découpé
+   par elle (`mask`). L'image est posée six fois sous lui : découpé par elle,
+   un bord à demi transparent comptait deux fois sa transparence, et le
+   liseré clair des drapeaux s'amincissait ; six fois, il est plein. */
 :root[data-theme='sommet'] body::after {
   /* Tendus d'un bord à l'autre d'un téléphone ; sur un grand écran, pas plus
      haut qu'un cinquième de la page. */
   --drapeaux-l: min(112vw, 72vh);
+  --drapeaux: var(--decor-drapeaux) center top / 100% auto no-repeat;
   content: '';
   position: fixed;
   top: -1.5vw;
@@ -134,7 +193,9 @@
   margin-left: calc(var(--drapeaux-l) / -2);
   pointer-events: none;
   z-index: 0;
-  background: var(--decor-drapeaux) center top / 100% auto no-repeat;
+  background: var(--sommet-voile) 0 1.5vw / 100% 100vh no-repeat, var(--drapeaux), var(--drapeaux), var(--drapeaux), var(--drapeaux), var(--drapeaux), var(--drapeaux);
+  -webkit-mask: var(--drapeaux);
+  mask: var(--drapeaux);
   transform-origin: 50% 0;
   animation: sommet-vent 4.2s ease-in-out infinite alternate;
 }
@@ -144,28 +205,21 @@
   z-index: 1;
 }
 
-/* Le voile : la nuit de l'application, épais en haut où s'écrivent l'en-tête
-   et la question, léger en bas où l'arête et ses camps se montrent. */
-:root[data-theme='sommet'] #root::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background: linear-gradient(180deg, rgba(11, 19, 34, 0.7) 0%, rgba(11, 19, 34, 0.6) 40%, rgba(11, 19, 34, 0.36) 68%, rgba(11, 19, 34, 0.24) 100%);
-}
-
-/* La neige qui vole, poussée par le vent des crêtes. */
+/* La neige qui vole, poussée par le vent des crêtes. Son motif se répète
+   tous les 240 pixels et glisse d'un pas, vers le bas et la gauche : la
+   couche ne dépasse l'écran que de ce pas, en haut et à droite — 40 pixels de
+   plus de chaque côté, c'était de la mémoire pour rien. Le motif garde son
+   calage d'avant (`background-position`). */
 :root[data-theme='sommet'] #root::after {
   content: '';
   position: fixed;
   top: -240px;
-  left: -40px;
+  left: 0;
   right: -240px;
-  bottom: -40px;
+  bottom: 0;
   z-index: -1;
   pointer-events: none;
-  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'><g fill='%23ffffff'><circle cx='18' cy='30' r='1.3' opacity='.8'/><circle cx='70' cy='12' r='0.9' opacity='.6'/><circle cx='130' cy='44' r='1.6' opacity='.7'/><circle cx='200' cy='20' r='1' opacity='.55'/><circle cx='40' cy='96' r='1.1' opacity='.65'/><circle cx='104' cy='118' r='0.8' opacity='.5'/><circle cx='176' cy='88' r='1.4' opacity='.75'/><circle cx='226' cy='140' r='0.9' opacity='.55'/><circle cx='22' cy='170' r='1.5' opacity='.7'/><circle cx='88' cy='196' r='1' opacity='.6'/><circle cx='150' cy='168' r='1.2' opacity='.65'/><circle cx='206' cy='222' r='1.6' opacity='.8'/><circle cx='120' cy='232' r='0.8' opacity='.5'/><circle cx='60' cy='146' r='0.7' opacity='.45'/></g></svg>") 0 0 / 240px 240px repeat;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'><g fill='%23ffffff'><circle cx='18' cy='30' r='1.3' opacity='.8'/><circle cx='70' cy='12' r='0.9' opacity='.6'/><circle cx='130' cy='44' r='1.6' opacity='.7'/><circle cx='200' cy='20' r='1' opacity='.55'/><circle cx='40' cy='96' r='1.1' opacity='.65'/><circle cx='104' cy='118' r='0.8' opacity='.5'/><circle cx='176' cy='88' r='1.4' opacity='.75'/><circle cx='226' cy='140' r='0.9' opacity='.55'/><circle cx='22' cy='170' r='1.5' opacity='.7'/><circle cx='88' cy='196' r='1' opacity='.6'/><circle cx='150' cy='168' r='1.2' opacity='.65'/><circle cx='206' cy='222' r='1.6' opacity='.8'/><circle cx='120' cy='232' r='0.8' opacity='.5'/><circle cx='60' cy='146' r='0.7' opacity='.45'/></g></svg>") -40px 0 / 240px 240px repeat;
   opacity: 0.7;
   animation: sommet-neige 7s linear infinite;
 }
@@ -290,6 +344,7 @@
 @media (prefers-reduced-motion: reduce) {
   :root[data-theme='sommet'] body::before,
   :root[data-theme='sommet'] body::after,
+  :root[data-theme='sommet'] #root::before,
   :root[data-theme='sommet'] #root::after {
     animation: none !important;
   }

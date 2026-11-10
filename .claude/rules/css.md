@@ -334,9 +334,35 @@ paths:
   et en plein fondu, 33 à l'aube et au crépuscule, 37 la nuit ; la photo la
   même au pixel (`decors-peints.test.ts` garde la feuille,
   `retours/2026-11-10/reproductions/classement-en-friture.ts` compte les
-  calques, à l'heure et sur la page qu'on veut). Restent à alléger, relevés
-  ce jour-là sur la même page : Le Sommet, 82 Mo (cinq couches, dont trois
-  animées), les Heures, 42.
+  calques, à l'heure et sur la page qu'on veut). Le Sommet et les Heures, relevés
+  ce jour-là sur la même page à 82 et 42 Mo, ont suivi : 56 et 33 (le piège
+  suivant). Reste la neige du Sommet, 21 Mo.
+- **Une couche du décor que le voile couvrait le porte elle-même, et la
+  neige du Sommet a son plancher.** Le Sommet tenait cinq couches — la
+  montagne, ses quatre lueurs dans une couche à la taille de la montagne, les
+  drapeaux, le voile, la neige débordant de 280 px —, les Très Riches Heures
+  un plein écran pour huit points d'or. Le voile peint sur la montagne, il ne
+  couvrait plus les lueurs ni les drapeaux, qui passaient sous lui : chacun
+  le porte — le voile par-dessus sa couleur, le tout découpé à sa forme
+  (`mask`) —, ce qui donne au pixel ce que le voile posé au-dessus donnait,
+  l'alpha de la forme et la couleur voilée. Pour une image, la poser
+  plusieurs fois sous le voile : découpé par elle, un bord à demi
+  transparent comptait deux fois sa transparence, et le liseré des drapeaux
+  s'amincissait. Un `mask` ne coûte pas de calque de plus au relevé. Une
+  couche animée garde les places mesurées de ses dessins dans un cadre plus
+  petit par `background-size` et `-position` (ou `mask-size` et
+  `-position`) ; **deux petites couches plutôt qu'une grande** quand ce
+  qu'elles montrent est épars — les camps de l'arête et le camp de base, les
+  deux bords des Heures : même animation, elles battent ensemble. Le
+  plancher d'un thème à décor : 31 Mo, le document, un décor fixe et le
+  contenu — une couche fixe garde son calque même quand rien ne bouge. Les
+  21 Mo de la neige : un motif qui glisse d'un pas couvre l'écran plus ce
+  pas (240 px, en haut et à droite), et rien ne la réduit sans changer ce
+  qu'on voit — un motif plus petit, une neige moins haute : au propriétaire
+  d'en décider. Un avant/après se compare animations figées
+  (`reducedMotion: 'reduce'` au contexte de Playwright) : il ne reste que
+  quelques niveaux d'écart, le tableau recalé d'une fraction de pixel
+  (`decors-peints.test.ts` garde les deux feuilles).
 - **Une classe assemblée couvre tout son préfixe** : la garde des classes
   mortes (S7, `design.test.ts`) tient pour vivante toute classe qui commence
   par un préfixe construit dans le code (`gerbe-${…}`) — `.gerbe-a-gagner`

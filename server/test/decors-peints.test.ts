@@ -202,6 +202,107 @@ test('ce qu’un thème peint fait télécharger à la fois tient dans quelques 
   }
 })
 
+/**
+ * Les couches fixes du décor d'un thème — `html::before`, `body::before`…
+ * `#root::after` —, chacune avec ce que sa feuille lui déclare, toutes règles
+ * fondues. Sans les images clés ni le bloc du mouvement réduit, qui coupe
+ * les animations.
+ */
+function couchesFixes(cle: string): Map<string, Record<string, string>> {
+  const css = readFileSync(client(`themes/${cle}.css`), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+  const regles = css.slice(0, css.indexOf('@keyframes'))
+  const couches = new Map<string, Record<string, string>>()
+  for (const [, selecteurs, corps] of regles.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    for (const selecteur of selecteurs.split(',')) {
+      const m = new RegExp(`^:root\\[data-theme='${cle}'\\](?: (body|#root))?::(before|after)$`).exec(selecteur.trim())
+      if (!m) continue
+      const nom = `${m[1] ?? 'html'}::${m[2]}`
+      const couche = couches.get(nom) ?? {}
+      // Une déclaration finit sa ligne : le motif de la neige, en SVG, porte ses propres deux-points.
+      for (const declaration of corps.split(/;\s*\n/)) {
+        const i = declaration.indexOf(':')
+        if (i > 0) couche[declaration.slice(0, i).trim()] = declaration.slice(i + 1).trim()
+      }
+      couches.set(nom, couche)
+    }
+  }
+  return couches
+}
+
+/** Une couche qui bouge : la carte graphique lui garde un calque à sa taille, tant qu'elle bouge. */
+const animees = (couches: Map<string, Record<string, string>>) => [...couches].filter(([, c]) => c.animation).map(([nom]) => nom)
+
+test('le Sommet ne peint qu’une couche en plein écran, et celles qui bougent à la taille de ce qu’elles montrent', () => {
+  // Au classement du quiz du jour, sur un téléphone à la densité 2,625, son
+  // décor tenait 82 Mo de calques : la montagne, ses lueurs à la taille de la
+  // montagne, le voile et la neige, quatre plein-écrans et plus (le
+  // 10 novembre 2026, règle `css.md`). 56 depuis, dont 21 pour la neige.
+  const couches = couchesFixes('sommet')
+  assert.deepEqual([...couches.keys()].sort(), ['#root::after', '#root::before', 'body::after', 'body::before', 'html::before'])
+  const pleinEcran = [...couches].filter(([, c]) => c.inset === '0').map(([nom]) => nom)
+  assert.deepEqual(pleinEcran, ['html::before'], 'une seule couche couvre l’écran : la montagne')
+  // Le voile est peint sur le tableau, dans ses couleurs : ni couche à lui, ni `opacity`.
+  const montagne = couches.get('html::before')!
+  assert.match(montagne.background, /^var\(--sommet-voile\)[^,]*,\s*var\(--decor-montagne\)/, 'le voile sur la montagne, dans la même couche')
+  assert.equal(montagne.animation, undefined, 'la montagne ne bouge pas')
+  assert.equal(montagne.opacity, undefined)
+  assert.deepEqual(animees(couches).sort(), ['#root::after', '#root::before', 'body::after', 'body::before'])
+  // Les lueurs des camps : deux cadres dans la boîte de la montagne, pas la boîte entière.
+  for (const nom of ['body::before', '#root::before']) {
+    const lueur = couches.get(nom)!
+    assert.match(lueur.animation, /^sommet-lanternes /, nom)
+    assert.equal(lueur.width, 'calc(var(--sommet-l) * var(--camps-l))', nom)
+    assert.equal(lueur.height, 'calc(var(--sommet-h) * var(--camps-h))', nom)
+    const part = Number(lueur['--camps-l']) * Number(lueur['--camps-h'])
+    assert.ok(part > 0 && part <= 0.15, `${nom} : ${part} de la boîte de la montagne`)
+    // Le voile passait sur elles : chacune le porte, découpé par ses lueurs.
+    assert.match(lueur.background, /^var\(--sommet-voile\)/, nom)
+    assert.equal(lueur.mask, 'var(--lueurs)', nom)
+  }
+  // Chaque camp tombe dans un des deux cadres, sa lueur entière.
+  const cadres = ['body::before', '#root::before'].map(nom => {
+    const c = couches.get(nom)!
+    const [x, y, l, h] = ['x', 'y', 'l', 'h'].map(k => Number(c[`--camps-${k}`]) * 100)
+    return { x, y, l, h }
+  })
+  const lueurs = [...couches.get('body::before')!['--lueurs'].matchAll(/radial-gradient\(([\d.]+)% ([\d.]+)% at ([\d.]+)% ([\d.]+)%/g)].map(m => m.slice(1).map(Number))
+  assert.equal(lueurs.length, 4, 'quatre camps')
+  for (const [rx, ry, x, y] of lueurs) {
+    assert.ok(
+      cadres.some(c => x - rx >= c.x && x + rx <= c.x + c.l && y - ry >= c.y && y + ry <= c.y + c.h),
+      `le camp à ${x} % · ${y} % sort de son cadre`,
+    )
+  }
+  // Les drapeaux, à leur taille de toujours, portent le voile de même.
+  const drapeaux = couches.get('body::after')!
+  assert.match(drapeaux.animation, /^sommet-vent /)
+  assert.equal(drapeaux.width, 'var(--drapeaux-l)')
+  assert.match(drapeaux.background, /^var\(--sommet-voile\)/)
+  assert.equal(drapeaux.mask, 'var(--drapeaux)')
+  // La neige ne dépasse l'écran que du pas de son motif, du côté d'où elle vient.
+  const neige = couches.get('#root::after')!
+  assert.match(neige.animation, /^sommet-neige /)
+  assert.deepEqual([neige.top, neige.right, neige.bottom, neige.left], ['-240px', '-240px', '0', '0'])
+  assert.match(neige.background, / \/ 240px 240px repeat$/)
+  assert.match(readFileSync(client('themes/sommet.css'), 'utf8'), /@keyframes sommet-neige \{\s*to \{\s*transform: translate\(-240px, 240px\);/)
+})
+
+test('l’or des Heures scintille dans deux bandes, le long des bords, pas sur tout l’écran', () => {
+  // Huit points d'or sur une couche en plein écran : un calque entier que la
+  // carte graphique gardait pour eux (42 Mo la page, 33 depuis).
+  const couches = couchesFixes('heures')
+  assert.deepEqual(animees(couches).sort(), ['#root::after', '#root::before'])
+  for (const nom of animees(couches)) {
+    const bande = couches.get(nom)!
+    assert.match(bande.animation, /^heures-or /, nom)
+    assert.equal(bande.inset, undefined, `${nom} : une couche qui scintille en plein écran`)
+    assert.equal(bande.width, '10%', nom)
+    assert.equal(bande.background.match(/radial-gradient\(/g)?.length, 4, `${nom} : ses quatre points`)
+  }
+  assert.equal(couches.get('#root::before')!.left, '0')
+  assert.equal(couches.get('#root::after')!.right, '0')
+})
+
 test('le serveur les sert pour un an, et un décor absent est un 404', async () => {
   // Le client compilé n'existe qu'après le build : un dossier d'une page et d'un décor suffit.
   const dist = mkdtempSync(path.join(tmpdir(), 'quizz-dist-'))
