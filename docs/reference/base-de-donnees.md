@@ -991,7 +991,7 @@ lit en un lot froid par profil et par réveil (`lecturesDuMusee`, `tables.ts`),
 et les écrit dans des lots gardés (`server/src/core/cabinet/ecriture.ts`) : un
 départ par sa ligne de `cabinet_profils`, un geste par son rang — chaque autre
 instruction du lot n'agit que si ce geste-là est en base. Construit en
-préproduction, il est ouvert en production depuis le 31 octobre 2026
+préproduction, ouvert en production depuis le 31 octobre 2026
 (`CABINET_EN_PRODUCTION`).
 
 ### `cabinet_gestes`

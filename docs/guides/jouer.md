@@ -143,7 +143,7 @@ Ces pages sont publiques : leur lien se partage. Le détail : [Après la soirée
 
 ## Garder ta progression
 
-Un profil garde, d'une soirée à l'autre, ton prénom, ton avatar et ce que tu gagnes : ton niveau, tes trophées — prix compris —, tes avatars. Il ouvre aussi ce qui se joue entre deux soirées — le quiz du jour, la campagne, les duels, [le Cabinet de curiosités](#le-cabinet-de-curiosités). Il ne donne aucun avantage dans une partie : ce soir, tu marques comme tout le monde.
+Un profil garde, d'une soirée à l'autre, ton prénom, ton avatar et ce que tu gagnes : ton niveau, tes trophées — prix compris —, tes avatars. Il ouvre aussi ce qui se joue entre deux soirées — le quiz du jour, la campagne, les duels et [le Cabinet de curiosités](#le-cabinet-de-curiosités). Il ne donne aucun avantage dans une partie : ce soir, tu marques comme tout le monde.
 
 ### Créer ton profil
 
@@ -171,16 +171,15 @@ Il n'y a ni adresse e-mail ni lien à recevoir. Sans ton code, demande à l'admi
 
 ## Le Cabinet de curiosités
 
-Avec un profil, entre deux soirées, seul : une traversée en trois actes, que le gros bouton de ton accueil ouvre. Au bout, un avatar légendaire.
+Avec un profil, entre deux soirées, seul : une traversée en trois actes, que le bouton « Le Cabinet de curiosités » ouvre, dans la carte « Seul » de ton accueil. Le Cabinet est ouvert à tous les profils depuis le 31 octobre 2026, à la place de l'Expédition ; sur un serveur qui le fermerait, le bouton ne paraîtrait pas, et sa page dirait « Le Cabinet de curiosités ouvre bientôt : reviens dans quelques jours ».
 
-1. **Tes trois gardiens d'abord** : la traversée commence devant eux — l'un des trois sera à toi au bout. Ceux que tu n'as pas encore passent devant.
-2. **Trois cartes parmi dix** : touche une carte pour la prendre, « Voir » ouvre sa fiche — ce qu'elle fait, et le défi écrit à son dos. Ce sont les seules du voyage : tu ne fais que les améliorer en route.
-3. **La carte de l'acte** : chaque chemin est un jeu sur un thème (« Le Pari · Histoire »). Choisis une étape dans le panneau sous la carte, puis « Jouer au Pari ».
-4. **Une épreuve** : trois manches de trois étoiles. Chaque étoile rapporte de l'or ; une manche sans étoile coûte un cœur. Le chrono tourne au serveur : recharger la page reprend la manche où elle en était.
-5. **Le coffre, le marchand, le gardien** : le coffre offre une amélioration à l'une de tes cartes ; le marchand vend un cœur et des améliorations, contre ton or ; le gardien se bat en assauts de trois manches, et chaque étoile lui retire un point de vie. Vaincu, il te rend tes cœurs, et l'acte suivant s'ouvre.
-6. **Les trois gardiens vaincus, choisis-en un** : il devient ton avatar légendaire. Plus de cœur avant le bout, la traversée s'arrête : la suivante repart de l'acte I.
+1. **Tes trois gardiens d'abord**, puis **trois cartes à choisir parmi dix** : les seules du voyage. Tu n'en gagnes pas d'autre en route — le coffre, le gardien vaincu et le marchand améliorent les tiennes.
+2. **La carte de l'acte** : le panneau sous elle propose les étapes à ta portée — un jeu sur un thème (« Le Pari · Histoire »), un coffre, puis le marchand, puis le gardien. Choisis-en une, puis touche « Jouer au Pari », par exemple.
+3. **Une épreuve** : trois manches d'un même jeu, trois étoiles chacune. Chaque étoile rapporte de l'or ; une manche sans étoile coûte un cœur. Le chrono tourne au serveur : recharger la page reprend la manche où elle en était.
+4. **Le marchand**, avant chaque gardien, vend un cœur et l'amélioration de tes cartes. **Le gardien** s'affronte en assauts de trois manches : chaque étoile lui retire un point de vie. Vaincu, il te rend tes cœurs, et l'acte suivant s'ouvre.
+5. **Au bout des trois actes**, l'un des trois gardiens vaincus est à toi : un avatar légendaire, à choisir. Plus de cœur, la traversée s'arrête : la suivante repart de l'acte I.
 
-« Quitter » met la manche en pause dix secondes, le temps de confirmer : les manches qui restent comptent comme ratées — la confirmation le dit, en cœurs —, et l'épreuve ne se rejoue pas. Une traversée laissée en route se reprend où tu l'as laissée, même sur un autre téléphone. « Comment ça marche ? » redit tout. Le détail : [Le Cabinet de curiosités](../produit/le-cabinet.md).
+Une seule traversée en route à la fois : elle se reprend où tu l'as laissée, sur ce téléphone ou un autre. Quitter une épreuve compte les manches qui restent comme ratées — la confirmation le dit, en cœurs. « Comment ça marche ? » redit tout. Le détail : [Le Cabinet de curiosités](../produit/le-cabinet.md).
 
 ## Pour aller plus loin
 
