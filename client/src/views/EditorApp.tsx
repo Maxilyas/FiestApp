@@ -667,9 +667,27 @@ export function EditorApp() {
       {!ficheOuverte && (
         <header className="piece-tete bibliotheque-tete">
           <span className="label">Animer</span>
-          <h1>Mes quiz</h1>
+          {/* « Créer un quiz » à côté du titre, plus sous lui (le 10 novembre 2026) : en gros bouton sur sa ligne, il prenait
+              72 px avant le premier quiz, sur une page où l'on vient d'abord en lancer un. Le même bouton, le même nom. */}
+          <div className="bibliotheque-titre">
+            <h1>Mes quiz</h1>
+            {list && (
+              <button
+                type="button"
+                className="btn btn-primary bibliotheque-creer"
+                onClick={() => {
+                  // La feuille du quiz tout prêt arrive pendant qu'on lit celle-ci.
+                  quizToutPret.charger().catch(() => {})
+                  setFeuille('creer')
+                }}
+              >
+                <Icon name="plus" />
+                Créer un quiz
+              </button>
+            )}
+          </div>
           {list && list.length > 0 && (
-            <p className="muted">
+            <p className="muted bibliotheque-compte">
               {actifs.length} quiz, prêt{actifs.length > 1 ? 's' : ''} à lancer ou à retoucher.
             </p>
           )}
@@ -700,21 +718,6 @@ export function EditorApp() {
           />
         ) : (
           <>
-            {list && (
-              <button
-                type="button"
-                className="btn btn-primary btn-big btn-block"
-                onClick={() => {
-                  // La feuille du quiz tout prêt arrive pendant qu'on lit celle-ci.
-                  quizToutPret.charger().catch(() => {})
-                  setFeuille('creer')
-                }}
-              >
-                <Icon name="plus" />
-                Créer un quiz
-              </button>
-            )}
-
             {list && (aucunPret || voirModeles) && (
               <PremiersPas
                 debut={aucunPret}
@@ -806,7 +809,7 @@ export function EditorApp() {
       </main>
 
       {feuille === 'creer' && (
-        <Feuille titre="Créer un quiz" onFermer={() => setFeuille(null)}>
+        <Feuille titre="Créer un quiz" className="feuille-creer" onFermer={() => setFeuille(null)}>
           <span className="label">Sans rien écrire</span>
           <Choix
             icone="dice"
@@ -851,6 +854,7 @@ export function EditorApp() {
       {feuille === 'trier' && (
         <Feuille
           titre="Trier et filtrer"
+          className="feuille-trier"
           onFermer={() => setFeuille(null)}
           pied={
             <button type="button" className="btn btn-primary btn-block" onClick={() => setFeuille(null)}>
@@ -3517,9 +3521,23 @@ function PremiersPas({
     }
   }
 
+  const titre = <h2>{debut ? 'Ton premier quiz' : 'Partir d’un modèle'}</h2>
   return (
     <section className="card premiers-pas">
-      <h2>{debut ? 'Ton premier quiz' : 'Partir d’un modèle'}</h2>
+      {/* Rouverts depuis « Créer un quiz », les modèles se referment aussi d'en haut (le 10 novembre 2026) : leur seul
+          « Fermer les modèles » attendait au bout du catalogue, à 2 100 px sur un téléphone — sous onze modèles qu'on
+          venait de décider de ne pas prendre. Son libellé commence par le mot affiché, pour la commande vocale. */}
+      {onFermer ? (
+        <div className="premiers-pas-tete">
+          {titre}
+          <button type="button" className="btn btn-ghost btn-small" aria-label="Fermer les modèles" onClick={onFermer}>
+            <Icon name="x" />
+            Fermer
+          </button>
+        </div>
+      ) : (
+        titre
+      )}
       <p className="muted small">
         {debut
           ? 'Aucun de tes quiz n’est encore prêt à jouer. Compose un quiz tout prêt, pars d’un modèle que tu retoucheras à ton goût, ou écris le tien.'
@@ -3537,6 +3555,27 @@ function PremiersPas({
           <button className="btn btn-primary" onClick={onToutPret}>
             <Icon name="dice" />
             Composer un quiz tout prêt
+          </button>
+        </div>
+      )}
+      {/* Les trois autres départs, juste sous le premier (le 10 novembre 2026) : au bout des onze modèles, ils attendaient
+          à quatre écrans de téléphone — 2 536 px de page en 360 × 640. Toutes les façons de commencer se voient d'abord ;
+          les modèles, un catalogue, se lisent dessous. */}
+      {debut && (
+        <div className="premiers-pas-choix">
+          <button className="btn" onClick={onListe}>
+            <Icon name="clipboard" />
+            Coller une liste — tes notes, ou la réponse d’une IA
+          </button>
+          <button className="btn" disabled={occupe} onClick={onImporter}>
+            <Icon name="download" />
+            Importer le quiz d'un ami
+          </button>
+          {/* Plus en or : au bout de la page, il en était le geste final ; juste sous « Composer un quiz tout prêt », et
+              « Créer un quiz » en tête, cela faisait trois boutons d'or sur un écran. */}
+          <button className="btn" onClick={onCreer}>
+            <Icon name="plus" />
+            Créer mon quiz
           </button>
         </div>
       )}
@@ -3620,22 +3659,6 @@ function PremiersPas({
               </li>
             ))}
           </ul>
-        </div>
-      )}
-      {debut && (
-        <div className="premiers-pas-choix">
-          <button className="btn" onClick={onListe}>
-            <Icon name="clipboard" />
-            Coller une liste — tes notes, ou la réponse d’une IA
-          </button>
-          <button className="btn" disabled={occupe} onClick={onImporter}>
-            <Icon name="download" />
-            Importer le quiz d'un ami
-          </button>
-          <button className="btn btn-primary" onClick={onCreer}>
-            <Icon name="plus" />
-            Créer mon quiz
-          </button>
         </div>
       )}
       {onFermer && (

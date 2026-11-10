@@ -10,7 +10,9 @@ Tout se passe dans « Mes quiz » (`/edit`). Chaque espace a sa bibliothèque, q
 
 ## La liste et la fiche d'un quiz
 
-Chaque quiz est une carte : sa pastille (l'emoji de son titre, sinon l'initiale), son nom, « 10 questions · ≈ 10 min · joué 2 fois », ce qui reste à compléter, et « Des modifications attendent dans ce navigateur » s'il y a lieu. Son ▶ ouvre un salon sur ce quiz ; la toucher ouvre **sa fiche** : son contenu, ses catégories, quand il a été joué et modifié, « Lancer » et « Modifier les questions » en grand, puis sous « Plus » : « Dupliquer », « Partager par un code », « Exporter en fichier », « Proposer au catalogue », « Archiver ». « Supprimer ce quiz », seul en bas, suggère d'archiver plutôt : archivé, un quiz quitte la liste et le choix de la soirée sans rien perdre.
+« Créer un quiz » est à côté du titre de la page. Dessous, chaque quiz est une ligne : sa pastille (l'emoji de son titre, sinon l'initiale), son nom — sur une ligne, coupé au bout s'il est long —, puis ce qu'il faut en savoir, dans l'ordre de ce qui presse : « Des modifications attendent dans ce navigateur » s'il y a lieu, ce qui reste à compléter, « 10 questions · ≈ 10 min · joué 2 fois ». Sur un écran étroit, la ligne montre ce qui tient, toujours des mots entiers. Son ▶ ouvre un salon sur ce quiz ; la toucher ouvre **sa fiche** : son nom entier, son contenu, ses catégories, quand il a été joué et modifié, « Lancer » et « Modifier les questions » en grand, puis sous « Plus » : « Dupliquer », « Partager par un code », « Exporter en fichier », « Proposer au catalogue », « Archiver ». « Supprimer ce quiz », seul en bas, suggère d'archiver plutôt : archivé, un quiz quitte la liste et le choix de la soirée sans rien perdre.
+
+Sur un téléphone, la liste montre huit à dix quiz d'un coup, et la fiche tient sur un écran, sans défiler : « Lancer » et « Modifier » y sont côte à côte, et sur le plus petit écran les gestes de « Plus » ne montrent que leur nom.
 
 « Chercher un quiz » lit les titres, les intitulés et les réponses — jamais l'anecdote ni la note —, sans casse ni accent, et dit quelle question l'a fait trouver. « Trier » ouvre « Trier et filtrer » : Tous, À compléter, Jamais joués, Avec photos, Avec estimations, les six catégories les plus présentes, Archivés ; puis « Les plus récents », « Les derniers joués » ou « De A à Z », que le navigateur retient. « Exporter tous mes quiz » paraît dès deux quiz non vides.
 
@@ -25,7 +27,7 @@ Chaque quiz est une carte : sa pastille (l'emoji de son titre, sinon l'initiale)
 | Récupérer | « Recevoir par un code » | la copie qu'un animateur de ce serveur te partage |
 | Récupérer | « Importer un fichier » | un quiz exporté, ou toute une bibliothèque |
 
-Tant qu'aucun quiz n'est prêt, la bibliothèque s'ouvre sur « Ton premier quiz » : le quiz tout prêt, les modèles, le catalogue, puis de quoi coller une liste, importer le quiz d'un ami ou « Créer mon quiz ». Un quiz créé puis quitté sans question ni titre s'efface.
+Tant qu'aucun quiz n'est prêt, la bibliothèque s'ouvre sur « Ton premier quiz » : le quiz tout prêt, puis de quoi coller une liste, importer le quiz d'un ami ou « Créer mon quiz » — ces quatre départs se voient sans défiler —, et dessous les modèles et le catalogue. « Partir d’un modèle » rouvre ces modèles au-dessus de la liste ; « Fermer », à côté de leur titre ou au bout du catalogue, les range. Un quiz créé puis quitté sans question ni titre s'efface.
 
 ## L'éditeur
 
