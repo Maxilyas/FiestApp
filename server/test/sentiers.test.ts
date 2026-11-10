@@ -417,8 +417,8 @@ test('l’accueil dit ses vies et le sentier qu’il avance, lus avec le reste',
     const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐻')
     const accueil = async () => (await lire(banc, tom, '/api/joueur/moi?accueil')).corps.profile.campagne
     assert.deepEqual(await accueil(), { vies: VIES_PAR_JOUR, avance: null }, 'rien de commencé')
-    // L'épreuve laissée en cours, c'est elle qui l'attend. Le défi de la semaine n'y est plus : il a son onglet à
-    // l'accueil, à côté du quiz du jour (`campagne-defi.test.ts`).
+    // L'épreuve laissée en cours, c'est elle qui l'attend. Le défi de la semaine n'y est plus : il a sa ligne à
+    // l'accueil, sous celle du quiz du jour (`campagne-defi.test.ts`).
     const p1 = (await poster(banc, tom, '/api/campagne/sentiers/epreuve', { branche: 'foret', palier: 1 })).corps
     assert.deepEqual(await accueil(), { vies: VIES_PAR_JOUR, avance: { branche: 'foret', palier: 1, laissee: true } })
     // Validée : le palier suivant.

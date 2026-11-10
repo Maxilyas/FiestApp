@@ -122,26 +122,29 @@ test('l’accueil d’un profil n’a pas de carte « J’anime » : chacune de 
 test('l’accueil d’un profil : une soirée en cours d’abord, puis la campagne, le quiz du jour et le défi, les duels, le Cabinet, un salon, rejoindre — en gros boutons, à la même place', async () => {
   const accueil = (props: object) =>
     rendu('components/AccueilDesRoles', 'AccueilJouer', { enCours: [], onRejoindre: () => {}, lendemain: null, ...props })
+  // Chaque geste : son nom, sa ligne lue en entier — l'essentiel puis ses suites, d'un trait, comme un lecteur d'écran
+  // (`GrosBouton` `suite`, l'accueil en lignes du 9 novembre 2026) —, et où il mène.
   const toujours = [
-    'La campagneUne série sans fin, ou des portraits à gagner → /campagne',
-    // Le quiz du jour et le défi de la semaine, une tuile à deux onglets (le choix du propriétaire du 19 octobre
-    // 2026) : les onglets d'abord, puis la tuile de chacun — celle du défi cachée tant que son onglet n'est pas touché.
-    'Quiz du jour [bouton]',
-    'Défi de la semaine [bouton]',
-    'Le quiz du jourDix questions, les mêmes pour tous → /jour',
+    'La campagneUne série sans fin, des portraits à gagner → /campagne',
+    // Le quiz du jour puis le défi de la semaine, chacun sa ligne, visibles tous les deux : la tuile à deux onglets du
+    // 19 octobre 2026 — ses onglets d'abord, la tuile du défi cachée tant que le sien n'était pas touché — a laissé
+    // place à deux lignes le 9 novembre 2026 (« j'aimerais que tout soit visible sans avoir à scroll plus bas », le
+    // propriétaire ; `retours/2026-11-09/accueil-compact/`).
+    'Le quiz du jourDix questions pour tous → /jour',
     'Le défi de la semaineLa même série pour tous, jusqu’à dimanche → /campagne#defi',
     // Sous le quiz du jour (le souhait du propriétaire du 11 octobre 2026) : défier un joueur, sorti de la campagne.
     'Les duelsDéfie qui tu veux, ou Automate\u00a0: monte de ligue → /duels',
     // L'Expédition avait son bouton ici, avec ses jokers (le 17 octobre 2026) ; effacée le 31 octobre 2026, le Cabinet de
     // curiosités prend sa place, là où le serveur l'ouvre (`cabinetIci`) — partout, et un rendu de test n'a pas de
     // balise qui le ferme (`cabinet-ouverture.test.ts` éprouve l'accueil sous les deux drapeaux). Sans traversée en route
-    // que le serveur ait en mémoire, il dit ce qu'on y fait.
-    'Le Cabinet de curiositésTrois actes, trois gardiens, un légendaire au bout → /cabinet',
-    'Créer un salonTu lances les quiz : tu joues, ou tu animes → /salon',
-    'Rejoindre une soiréeAvec son code, ou le QR de l’hôte [bouton]',
+    // que le serveur ait en mémoire, il dit ce qu'on y gagne, puis ce qu'on y fait.
+    'Le Cabinet de curiositésUn légendaire au bout · trois actes, trois gardiens → /cabinet',
+    // « : » tient à son mot (`espacesFines`) depuis que la ligne se dit en deux morceaux.
+    'Créer un salonTu lances les quiz\xa0: tu joues, ou tu animes → /salon',
+    'Rejoindre une soiréeCode ou QR de l’hôte [bouton]',
   ]
 
-  // Rien en cours : les six gestes, aucun principal — l'ordre ne dépend ni
+  // Rien en cours : les sept gestes, aucun principal — l'ordre ne dépend ni
   // de l'heure ni des rôles, contrairement à « Je joue » et « Ce soir ».
   const libre = await accueil({})
   assert.deepEqual(gestes(libre), toujours)
@@ -157,7 +160,7 @@ test('l’accueil d’un profil : une soirée en cours d’abord, puis la campag
   const carriere = (jours: string[]) => ({ joues: jours.length, serie: 4, record: 4, medailles: { or: 0, argent: 0, bronze: 0 }, meilleurScore: 0, podiums: 0, victoires: 0, jours: jours.map(jour => ({ jour })) })
   const aJouer = await accueil({ jour: carriere(['2026-01-01']) })
   // « 4 jours » d'un bloc, par une espace insécable : en 360 de large, « jours » passait seul à la ligne.
-  assert.match(aJouer, /Dix questions, les mêmes pour tous · série de 4\xa0jours.*<span class="pastille-attente">À jouer<\/span>/)
+  assert.match(aJouer, /Série de 4\xa0jours.*<span class="pastille-attente">À jouer<\/span>/)
   // La pastille prend la place du chevron : les deux serraient le titre, et
   // « jour » passait seul à la ligne en 360 de large. Les autres le gardent.
   const bouton = (href: string) => new RegExp(`<a class="gros-bouton" href="${href}">.*?</a>`).exec(aJouer)?.[0] ?? ''
@@ -165,11 +168,11 @@ test('l’accueil d’un profil : une soirée en cours d’abord, puis la campag
   assert.doesNotMatch(bouton('/jour'), /chevron/)
   assert.match(bouton('/salon'), /class="icon chevron"/)
   const joue = await accueil({ jour: carriere([jourDe(Date.now())]) })
-  assert.match(joue, /Joué aujourd’hui · série de 4\xa0jours/)
+  assert.match(joue, /Joué · série de 4\xa0jours/)
   assert.doesNotMatch(joue, /À jouer/)
   // Le jour de Paris vient du serveur quand il le dit : calculé ici, son
   // `Intl` chargeait les données du français avant le premier écran.
-  assert.match(await accueil({ jour: carriere(['2031-05-04']), aujourdhui: '2031-05-04' }), /Joué aujourd’hui/)
+  assert.match(await accueil({ jour: carriere(['2031-05-04']), aujourdhui: '2031-05-04' }), /Joué · série de 4\xa0jours/)
   assert.match(await accueil({ jour: carriere([jourDe(Date.now())]), aujourdhui: '2031-05-04' }), /À jouer/, 'le jour du serveur l’emporte')
 
   // Inscrit chez Alice : y revenir passe devant tout, et seul en principal.

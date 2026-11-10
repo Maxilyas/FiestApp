@@ -16,7 +16,7 @@ Trois portes, au choix :
 
 - **Le QR code** de l'écran commun, ou celui que l'animateur montre sur son téléphone : ton appareil photo ouvre la soirée.
 - **Le lien** que l'animateur t'a envoyé (« Copier le lien », sur sa barre) : l'adresse du serveur suivie du code du salon, du genre `…/482157` — ou, chez un animateur d'avant les salons, l'adresse de son espace, du genre `…/chez-nadia`.
-- **Le code du salon**, six chiffres (« 482 157 ») : sur l'accueil de FiestApp — l'adresse du serveur, sans rien derrière —, touche « Jouer sans compte », tape les chiffres dans « Le code du salon », puis « Rejoindre la soirée ». Avec un profil, c'est le gros bouton « Rejoindre une soirée ».
+- **Le code du salon**, six chiffres (« 482 157 ») : sur l'accueil de FiestApp — l'adresse du serveur, sans rien derrière —, touche « Jouer sans compte », tape les chiffres dans « Le code du salon », puis « Rejoindre la soirée ». Avec un profil, c'est le bouton « Rejoindre une soirée », dans la carte « Entre amis » de ton accueil.
 
 > [!TIP]
 > Un code faux, ou celui d'une soirée finie : « Le code 482 157 ne mène à aucun salon — ou plus. » Vérifie-le avec ton hôte, ou scanne à nouveau le QR. Après une vingtaine de codes faux d'affilée, même le bon ne passe plus : attends une minute avant de réessayer.
@@ -171,7 +171,7 @@ Il n'y a ni adresse e-mail ni lien à recevoir. Sans ton code, demande à l'admi
 
 ## Le Cabinet de curiosités
 
-Avec un profil, entre deux soirées, seul : une traversée en trois actes, que le gros bouton de ton accueil ouvre. Le Cabinet est ouvert à tous les profils depuis le 31 octobre 2026, à la place de l'Expédition ; sur un serveur qui le fermerait, le bouton ne paraîtrait pas, et sa page dirait « Le Cabinet de curiosités ouvre bientôt : reviens dans quelques jours ».
+Avec un profil, entre deux soirées, seul : une traversée en trois actes, que le bouton « Le Cabinet de curiosités » ouvre, dans la carte « Seul » de ton accueil. Le Cabinet est ouvert à tous les profils depuis le 31 octobre 2026, à la place de l'Expédition ; sur un serveur qui le fermerait, le bouton ne paraîtrait pas, et sa page dirait « Le Cabinet de curiosités ouvre bientôt : reviens dans quelques jours ».
 
 1. **Tes trois gardiens d'abord**, puis **trois cartes à choisir parmi dix** : les seules du voyage. Tu n'en gagnes pas d'autre en route — le coffre, le gardien vaincu et le marchand améliorent les tiennes.
 2. **La carte de l'acte** : le panneau sous elle propose les étapes à ta portée — un jeu sur un thème (« Le Pari · Histoire »), un coffre, puis le marchand, puis le gardien. Choisis-en une, puis touche « Jouer au Pari », par exemple.

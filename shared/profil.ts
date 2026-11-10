@@ -1379,7 +1379,7 @@ export type ProfilDAccueil = PublicProfile &
   Pick<PublicProfileDetail, 'jour' | 'boutique'> & {
     /** Ses vies et le sentier qu'il avance, pour le bouton de la campagne ; absent si la base s'est tue. */
     campagne?: SentiersDAccueil
-    /** Le défi de la semaine, pour son onglet à côté du quiz du jour ; absent si la base s'est tue. */
+    /** Le défi de la semaine, pour sa ligne sous celle du quiz du jour ; absent si la base s'est tue. */
     defi?: DefiDAccueil
     /** Sa ligue, sa cote, sa semaine et les défis de ses amis, pour le bouton des duels ; absent si la base s'est tue. */
     duels?: DuelsDAccueil

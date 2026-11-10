@@ -20,7 +20,7 @@ Dix-sept pages, l'accueil compris, dont l'adresse ne porte pas d'espace : celui 
 
 | Adresse | Page | Pour qui | Fichier |
 |---|---|---|---|
-| `/` | L'accueil : sans profil, trois gros boutons (« Jouer sans compte », « Me connecter », « Créer un profil ») ; avec un profil, ses gros boutons de jeu | tout le monde | `client/src/views/ProfilApp.tsx` |
+| `/` | L'accueil : sans profil, trois gros boutons (« Jouer sans compte », « Me connecter », « Créer un profil ») ; avec un profil, ses boutons de jeu en lignes, sur un seul écran | tout le monde | `client/src/views/ProfilApp.tsx` |
 | `/profil` | « Mon profil » : sa ligne, puis « M'habiller », « Ma collection », « Classement des collections », « Mes soirées », « Ma carrière » ; sans profil, les trois gros boutons | profil | `client/src/views/ProfilApp.tsx` |
 | `/boutique` | La boutique, d'un seul tenant : « À la une », les thèmes, les compagnons, les fonds, le comptoir des objets — et l'essai de ce qui s'y prête, avec son panier | profil | `client/src/views/ProfilApp.tsx` |
 | `/jour` | Le quiz du jour ; sans profil, une page qui le présente | profil | `client/src/views/JourApp.tsx` |
@@ -51,7 +51,7 @@ Chaque page sans espace pose le titre de son onglet dès le premier rendu (« Me
 | `/#missions` | l'accueil, la feuille des missions du jour ouverte — la fin d'une partie et la fiche d'un objet du trésor y mènent ; le fragment s'efface une fois lu |
 | `/boutique#themes`, `#compagnons`, `#fonds`, `#objets`, `#objet-<objet>`, `#theme-<clé>`, `#compagnon-<clé>`, `#fond-<clé>` | la page descendue jusqu'à un rayon — les puces de la boutique réécrivent l'adresse, sans entrée d'historique —, la fiche d'un objet ; `#theme-aurore`, la fiche du thème, dans sa feuille (le bandeau « À la une » de l'accueil y mène) ; `#compagnon-tortue`, la sienne (« À la une » et l'album des avatars y mènent) ; `#fond-jazz`, le rayon des fonds, le fond essayé sur sa carte (« À la une » et la fiche d'un fond des savoirs, dans « Ma collection », y mènent) — une seule règle les lit (`ceQueLAdresseOuvre`, `LaBoutique.tsx`) |
 | `/jour#classement`, `#classement-hier`, `#classement-mois`, `#correction` | le classement d'une période, la correction de sa partie |
-| `/campagne#sentiers`, `#sentier-<branche>`, `#defi`, `#carnet` | les sentiers, un sentier, le défi de la semaine — sa page, sans les onglets de la campagne, que la tuile de l'accueil ouvre —, le carnet |
+| `/campagne#sentiers`, `#sentier-<branche>`, `#defi`, `#carnet` | les sentiers, un sentier, le défi de la semaine — sa page, sans les onglets de la campagne, que sa ligne de l'accueil ouvre —, le carnet |
 | `/duels#duel-<code>`, `#defier`, `#defier-<id>` | un duel entre amis, en préparer un, défier quelqu'un |
 | `/compte#historique` | l'historique de l'espace, dans la page |
 | `/admin#profils`, `#salons`… | une page du QG par sujet |

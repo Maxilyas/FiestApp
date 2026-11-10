@@ -683,6 +683,15 @@ Le détail : [le profil](../produit/le-profil.md).
 
 *Fichiers : `client/src/views/ProfilApp.tsx`, `client/src/main.tsx`, `client/src/components/PanneauxDuProfil.tsx`*
 
+### L'accueil d'un profil tient sur un écran, ses boutons en lignes
+**Contexte** : « J'aimerais revoir la visualisation de l'accueil pour qu'elle soit plus compacte. Je ne veux pas revoir le style car je trouve cela bien mais j'aimerais que tout soit visible sans avoir à Scroll plus bas » (le propriétaire, le 9 novembre 2026). En 360 × 640, l'accueil d'une habituée faisait 1 096 pixels pour 575 visibles au-dessus de la barre du menu : le haut — soi, « À la une », les missions — en prenait 285 avant le premier bouton, et chaque gros bouton passait sur deux ou trois lignes de texte. Une maquette posée dans le vrai code proposait deux dispositions, les lignes ou les tuiles (`retours/2026-11-09/accueil-compact/`) ; le même jour : « Je valide les lignes, tu peux les implémenter. Suit tes recommandations ».
+
+**Décision** : une carte par section, ses boutons en lignes, un filet entre eux, une seule ligne de texte sous chaque titre — les mêmes boutons, les mêmes noms, les mêmes adresses, dans le même ordre, et rien du style. Le quiz du jour et le défi de la semaine sont deux lignes, toutes deux visibles : la tuile à deux onglets du 19 octobre 2026 montrait le défi sans prendre un bouton de plus ; en lignes, les deux tiennent dans sa place, et elle s'en va. La ligne d'un bouton se dit en deux temps — l'essentiel, une trentaine de caractères, puis une suite dont la feuille ne montre que les morceaux qui tiennent entiers ; le lecteur d'écran lit toute la phrase. La page prend la hauteur de l'écran au-dessus du menu, et ses lignes, de 48 pixels au moins, se partagent ce qui reste, à trois pas de hauteur d'écran. Écartés : les tuiles deux par deux — des titres sur deux lignes en 360 de large, une pastille à une place nouvelle, et la disposition qui tient le moins bien au texte agrandi — ; une place au-dessus des boutons pour la ligne du lendemain et « Installer l'application », des lignes de passage, laissées dessous sur le petit téléphone.
+
+**Conséquence** : tout tient à quelques pixels sur le petit téléphone — treize entre le dernier bouton et le menu. Un mode de plus est une ligne de 48 pixels qui passe dessous ; une ligne de plus dans la page se regarde aux quatre tailles (`server/scripts/rendu-accueil.ts`, qui sort en erreur si l'habituée, le débutant ou l'Ivoire défilent). Ce qu'il faut lire au téléphone ne va jamais dans la suite d'une ligne : « · encore 3 duels pour ta récompense » ne paraît que sur une tablette ou un ordinateur. Sur un téléphone de moins de 720 pixels de haut, une soirée où revenir prend la place d'« À la une » ; et le texte agrandi à 130 % fait encore défiler la page, de 125 pixels au lieu de 835.
+
+*Fichiers : `client/src/components/AccueilDesRoles.tsx`, `client/src/components/Pieces.tsx`, `client/src/styles.css`, `server/scripts/rendu-accueil.ts`, `server/test/accueil-compact.test.ts`, `retours/2026-11-09/accueil-compact/README.md`*
+
 ### La loge essaie avant de porter
 **Contexte** : six pages, une par pièce, enregistraient à chaque toucher — on portait pour de bon ce qu'on voulait seulement regarder, et l'on ne voyait pas le reste de sa tenue.
 
@@ -1059,6 +1068,15 @@ Le détail : [la campagne](../produit/la-campagne.md).
 
 *Fichiers : `server/src/core/campagne.ts`, `server/src/core/jumelles.ts`*
 
+### Une spécialité passe une fois quand les autres passent trois fois
+**Contexte** : un sous-thème par savoir donne à chacun un tour entier dans sa catégorie. Avec l'équitation et la plongée, onze sous-thèmes en Sport : une série de Sport posait l'une ou l'autre une fois sur six ; en Culture générale, l'anglais, l'espagnol et les métiers de la santé faisaient une question sur quatre. Ce sont des savoirs qu'on vient chercher, pas ceux qu'une salle attend d'un quiz de sport. Les sortir du tour, proposé d'abord, le propriétaire l'a refusé le 10 novembre 2026 — « une sorte de "pro rata" afin de garder quand même certaines questions ».
+
+**Décision** : le tour des sous-thèmes est pondéré. Chaque sous-thème avance de son pas quand il sert, et le moins avancé de sa catégorie passe : un pour presque tous, trois pour une spécialité (`TOURS_D_UNE_SPECIALITE`), marquée dans le catalogue (`specialite`). Sept le sont — l'équitation, la plongée, l'anglais, l'espagnol, les métiers de la santé, les danses, le ballet ; la langue française et les bals gardent leur tour entier. Chaque spécialité tire, derrière le battage, le tour où elle entre : sans ce tirage, le pas ne pèserait rien dans une série de toutes les catégories, où aucun sous-thème ne repasse. Les catégories tournent comme avant, et le pas ne joue qu'entre les sous-thèmes d'une même catégorie. La série, le défi, les duels et le quiz tout prêt font ce tour ; les sentiers, dont les chapitres nomment leurs sous-thèmes, l'Expédition et le Cabinet gardent le leur.
+
+**Conséquence** : 7 % d'équitation et de plongée dans une série de Sport au lieu de 17, 10 % de spécialités en Culture générale au lieu de 25, près de trois fois moins dans une série de toutes les catégories — et jamais zéro : une série de leur catégorie en pose toujours. Choisie pour elle-même, une spécialité n'a personne à laisser passer : sa rubrique et son thème restent les siens (dans « La danse », une question par série passe des danses à un autre sous-thème de la Musique, du thème lui aussi). La fraîcheur passe toujours devant : qui aurait tout vu d'une catégorie y verrait d'abord ses nouveautés, spécialités comprises. Une liste sans spécialité ne tire pas un nombre de plus, et sa série reste, au même hasard, celle d'avant ; le poids ne vaut que pour les parties tirées ensuite.
+
+*Fichiers : `shared/sousThemes.ts`, `server/src/core/campagne.ts`, `server/src/core/quizToutPret.ts`, `server/test/tirage-pondere.test.ts`, `server/test/tirage-prepare.test.ts`*
+
 ### Le carnet se recalcule à partir du journal des réponses, avec des rendez-vous espacés
 **Contexte** : un joueur voulait « un mode qui incite à l'apprentissage, où l'on gagne toujours quelque chose ». La série, elle, punit l'erreur d'une vie en moins.
 
@@ -1296,7 +1314,7 @@ Le détail : [les duels](../produit/les-duels.md).
 ### Rien ne sonne : l'accueil dit ce qui attend, et la page le montre
 **Contexte** : les duels envoyaient des notifications ; seul le quiz du jour garde son rappel du soir.
 
-**Décision** : aucune notification pour les duels ; la tuile de l'accueil compte en rouge les résultats à voir et les duels à relever, une bannière annonce un résultat une fois, et ce que l'accueil compte, l'onglet « En cours » le montre — par la même règle (`sesDuelsContre`).
+**Décision** : aucune notification pour les duels ; leur ligne de l'accueil compte en rouge les résultats à voir et les duels à relever, une bannière annonce un résultat une fois, et ce que l'accueil compte, l'onglet « En cours » le montre — par la même règle (`sesDuelsContre`).
 
 **Conséquence** : la page lit tous les duels en route, pas seulement les dix derniers (un duel plus ancien, compté en rouge, y était introuvable) ; la première lecture d'un résultat par son auteur l'écrit vu (`vu_le`), et la page d'un duel ne se précharge donc jamais.
 
@@ -1655,7 +1673,7 @@ Le détail : [le Cabinet de curiosités](../produit/le-cabinet.md), et la propos
 ### Le bouton de l'accueil ne lit le musée qu'en mémoire
 **Contexte** : la conception promet sur le bouton « Ton musée : 27 œuvres sur 84 » et la pastille « À jouer » tant que la visite du jour n'est pas faite. Le dire de chaque profil, c'est lire son musée à chaque accueil : un lot froid par profil et par réveil de l'hébergeur, au quota de Turso, pour des profils dont la plupart n'ouvrent jamais le Cabinet. L'accueil ne devait coûter aucun aller-retour de plus (`jour-charge.test.ts`, `profil-charge.test.ts`).
 
-**Décision** : prise pendant la construction, le 25 octobre 2026, pour la sobriété — à confirmer par le propriétaire. Le serveur ne dit le musée que s'il l'a en mémoire (`CabinetStore.accueil`, `accueilDuCabinet`, `ProfilDAccueil.cabinet`) ; sinon, le bouton garde sa ligne de toujours — « Un musée à remplir, des œuvres à gagner en jouant » alors, « Trois actes, trois gardiens, un légendaire au bout » depuis que la page n'est plus que la traversée (`boutonDuCabinet`), dont il dit de même, de la mémoire seule, l'acte et les cœurs, et « En route ». La pastille suivait la règle même du musée (`visiteAJouer`, que le code n'a plus).
+**Décision** : prise pendant la construction, le 25 octobre 2026, pour la sobriété — à confirmer par le propriétaire. Le serveur ne dit le musée que s'il l'a en mémoire (`CabinetStore.accueil`, `accueilDuCabinet`, `ProfilDAccueil.cabinet`) ; sinon, le bouton garde sa ligne de toujours — « Un musée à remplir, des œuvres à gagner en jouant » alors ; depuis l'accueil en lignes du 9 novembre 2026, « Un légendaire au bout », et « · trois actes, trois gardiens » là où sa ligne a la place (`boutonDuCabinet`). Le musée parti de la page, il dit de même, de la mémoire seule, la traversée en route : son acte, ses cœurs, « En route ». La pastille suivait la règle même du musée (`visiteAJouer`, que le code n'a plus).
 
 **Conséquence** : la production dort chaque nuit, la préproduction dès qu'on la laisse : après chaque réveil, le bouton se tait jusqu'à la première page du Cabinet, et le premier passage du jour à l'accueil — celui où le rappel servirait le plus — n'a pas son « À jouer » ; le texte du bouton change d'un passage à l'autre pour un même musée. Si la pastille compte plus que l'aller-retour, l'accueil peut ajouter à ses lectures de front une lecture minimale du Cabinet (le compte de ses œuvres et ses parties du jour) : une décision du propriétaire, qui réécrit l'épreuve « pas un aller-retour de plus » de `cabinet-charge.test.ts`.
 

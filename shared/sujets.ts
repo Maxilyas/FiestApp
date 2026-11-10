@@ -362,18 +362,25 @@ export const SUJETS: readonly Sujet[] = [
   // « Les univers »), posée sur la base comme celle des pays, puis écrite là où
   // il manquait de quoi faire cent questions. Astérix, Tintin, Nintendo et
   // Pokémon tenaient aux trois quarts dans la BD ou les jeux vidéo : des
-  // thèmes qui se recoupent, ce que le propriétaire ne voulait plus.
+  // thèmes qui se recoupent, ce que le propriétaire ne voulait plus. Ils ont
+  // le leur depuis le 10 novembre 2026 — un univers peut vivre dans un thème
+  // plus large depuis le 1er, et ce sont « des thèmes que les gens ont envie
+  // de tester » —, dans l'ordre de l'alphabet avec les autres.
+  { cle: 'asterix', nom: 'Astérix', famille: 'univers', description: 'Le village gaulois, la potion magique et les Romains, des albums aux films', etiquettes: ['asterix'] },
   { cle: 'disney', nom: 'Disney et Pixar', famille: 'univers', description: 'Des princesses aux jouets de Toy Story, les films et les parcs', etiquettes: ['disney'] },
   { cle: 'harry-potter', nom: 'Harry Potter', famille: 'univers', description: 'Poudlard, les sorciers, les livres et les films', etiquettes: ['harry-potter'] },
   { cle: 'james-bond', nom: 'James Bond', famille: 'univers', description: '007, ses films, ses acteurs, ses chansons et ses méchants', etiquettes: ['james-bond'] },
   // Le 1er novembre 2026, à la suite de Stargate : deux séries de fans, leurs deux cents questions écrites pour elles.
   { cle: 'kaamelott', nom: 'Kaamelott', famille: 'univers', description: 'Arthur, la Table ronde et le Graal, de la série aux films', etiquettes: ['kaamelott'] },
   { cle: 'lost', nom: 'Lost', famille: 'univers', description: 'L’île, les rescapés du vol Oceanic 815 et ses mystères', etiquettes: ['lost'] },
+  { cle: 'nintendo', nom: 'Mario et Nintendo', famille: 'univers', description: 'Mario, Zelda, Donkey Kong et les consoles de Nintendo', etiquettes: ['nintendo'] },
   { cle: 'marvel', nom: 'Marvel', famille: 'univers', description: 'Les Avengers, Spider-Man et les X-Men, en BD et au cinéma', etiquettes: ['marvel'] },
+  { cle: 'pokemon', nom: 'Pokémon', famille: 'univers', description: 'Pikachu, les dresseurs et les arènes, des jeux aux cartes', etiquettes: ['pokemon'] },
   { cle: 'seigneur-des-anneaux', nom: 'Le Seigneur des anneaux', famille: 'univers', description: 'La Terre du Milieu, de Tolkien à Peter Jackson', etiquettes: ['seigneur-des-anneaux'] },
   { cle: 'star-wars', nom: 'Star Wars', famille: 'univers', description: 'Les Jedi, l’Empire et la Force, au cinéma et au-delà', etiquettes: ['star-wars'] },
   // Le 1er novembre 2026 : la porte des étoiles, du film aux trois séries — ses deux cents questions écrites pour lui.
   { cle: 'stargate', nom: 'Stargate', famille: 'univers', description: 'SG-1, Atlantis et Universe : la porte, les Goa’uld et les Wraith', etiquettes: ['stargate'] },
+  { cle: 'tintin', nom: 'Tintin', famille: 'univers', description: 'Les albums d’Hergé : Haddock, Tournesol, les Dupondt et Milou', etiquettes: ['tintin'] },
   // Les pays (le 17 octobre 2026, « apporter beaucoup de choix ») : une
   // étiquette chacun (`ETIQUETTES`, « Les pays »), posée sur les questions que
   // la base avait déjà, relues une à une — l'Italie de la pizza et de Fellini,

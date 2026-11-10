@@ -12,6 +12,7 @@ import {
   type ChoixDuQuiz,
   type DifficulteDuQuiz,
 } from '../../../shared/quizToutPret'
+import { entreeDansLeTour, pasDuSousTheme } from '../../../shared/sousThemes'
 import { rubriqueDe, sujetParCle } from '../../../shared/sujets'
 import { QUESTIONS_D_UNE_TRANCHE, dUneTraite, type CalculEnTranches } from '../../../shared/tranches'
 import type { QuestionDeLaBase } from './baseCampagne'
@@ -183,7 +184,14 @@ export function dejaDansLEspace(bibliotheque: readonly Pick<QuizDef, 'questions'
   return { ids, empreintes, posees }
 }
 
-/** Combien de fois chaque catégorie et chaque sous-thème ont déjà servi, d'une marche à l'autre — et les questions déjà prises, pour reconnaître leurs jumelles. */
+/**
+ * Combien de fois chaque catégorie a déjà servi et où en est chaque
+ * sous-thème dans le tour de la sienne, d'une marche à l'autre — et les
+ * questions déjà prises, pour reconnaître leurs jumelles. Un sous-thème avance
+ * de son pas quand il sert (`pasDuSousTheme`) : une spécialité, de trois, et
+ * elle part du tour tiré à la composition (`entreeDansLeTour`) — comme dans
+ * une série de la campagne (`TourDeRole`).
+ */
 interface Servies {
   categories: Map<string, number>
   sousThemes: Map<string, number>
@@ -198,10 +206,11 @@ const cleDuSousTheme = (q: QuestionDeLaBase) => `${q.meta.categorie}\u0000${q.me
  * du quiz d'abord, d'une marche à l'autre : sans ce compte commun, chaque
  * marche repartait de zéro, et l'histoire pouvait ouvrir les trois pendant
  * que le sport n'en avait aucune —, puis dans chacune son sous-thème le
- * moins servi, et, de ce sous-thème, une question qui n'est la jumelle
- * d'aucune déjà prise (`jumelles`) : un quiz de géographie de vingt
- * questions posait deux capitales, un quiz de cinéma deux « Qui a réalisé le
- * film… » (le 12 octobre 2026). À égalité, l'ordre reçu.
+ * moins avancé dans le tour — une spécialité y passe une fois quand les
+ * autres passent trois fois (`Servies`) —, et, de ce sous-thème, une question
+ * qui n'est la jumelle d'aucune déjà prise (`jumelles`) : un quiz de
+ * géographie de vingt questions posait deux capitales, un quiz de cinéma deux
+ * « Qui a réalisé le film… » (le 12 octobre 2026). À égalité, l'ordre reçu.
  */
 function aTourDeRole(dispo: readonly QuestionDeLaBase[], n: number, servies: Servies): QuestionDeLaBase[] {
   const files = new Map<string, QuestionDeLaBase[]>()
@@ -234,7 +243,7 @@ function aTourDeRole(dispo: readonly QuestionDeLaBase[], n: number, servies: Ser
     const [q] = file.splice(k < 0 ? premiere : k, 1)
     tirees.push(q)
     servies.categories.set(categorie, compte(servies.categories, categorie) + 1)
-    servies.sousThemes.set(cleDuSousTheme(q), compte(servies.sousThemes, cleDuSousTheme(q)) + 1)
+    servies.sousThemes.set(cleDuSousTheme(q), compte(servies.sousThemes, cleDuSousTheme(q)) + pasDuSousTheme(q.meta.categorie, q.meta.sousTheme))
     servies.deja.prendre(q)
   }
   return tirees
@@ -358,6 +367,8 @@ export function* composerUnQuizEnTranches(
   const niveaux = new Map<string, Niveau>()
   const cibles = new Map<string, { target: number; unit: string }>()
   const marchesDesEstimations = new Set(MARCHES_DES_ESTIMATIONS[choix.difficulte])
+  // Les spécialités que ce quiz peut poser, et leur pas, dans l'ordre où le battage les montre.
+  const specialites = new Map<string, number>()
   const battues = battre(questions, aleatoire)
   for (let i = 0; i < battues.length; i++) {
     if (i > 0 && i % QUESTIONS_D_UNE_TRANCHE === 0) yield
@@ -371,6 +382,8 @@ export function* composerUnQuizEnTranches(
     if (niveau === 'expert' && q.reponses.length === 2) continue
     niveaux.set(q.id, niveau)
     parNiveau.get(niveau)!.push(q)
+    const pas = pasDuSousTheme(q.meta.categorie, q.meta.sousTheme)
+    if (pas > 1 && !specialites.has(cleDuSousTheme(q))) specialites.set(cleDuSousTheme(q), pas)
     const cible = choix.estimations && marchesDesEstimations.has(niveau) ? cibleDeLEstimation(q) : null
     if (cible) {
       cibles.set(q.id, cible)
@@ -400,6 +413,10 @@ export function* composerUnQuizEnTranches(
   }
   const prises = new Set<string>()
   const servies: Servies = { categories: new Map(), sousThemes: new Map(), deja: new DejaPrises() }
+  // Chaque spécialité tire le tour où elle entre, derrière le battage : un
+  // quiz sans spécialité — une catégorie qui n'en a pas, un sujet à lui — ne
+  // tire rien de plus, et reste, au même hasard, le quiz d'avant.
+  for (const [cle, pas] of specialites) servies.sousThemes.set(cle, entreeDansLeTour(pas, aleatoire))
   /** Les questions de chaque marche du plan, passe après passe — chacune son tour de boucle ; une marche qui manque emprunte à sa voisine — jamais hors de `permises`. */
   function* tirerLePlan(
     plan: readonly { niveau: Niveau; n: number }[],

@@ -98,6 +98,7 @@ import { CATEGORIES } from '../../../shared/categories'
 import { savoirDesLignes, type Savoir } from '../../../shared/ecussons'
 import { BRANCHES, branche as brancheParCle, deLaBranche, type CleDeBranche, type Paliers } from '../../../shared/branches'
 import { SOUS_THEMES } from '../../../shared/etiquettes'
+import { entreeDansLeTour, pasDuSousTheme } from '../../../shared/sousThemes'
 import { chapitreDuPalier } from '../../../shared/chapitres'
 import { QUESTIONS_POUR_UNE_RUBRIQUE, SUJETS, SUJETS_ET_RUBRIQUES, SUJETS_REMPLACES, aUnParcours, estRemplace, sujetParCle, sujetsEtRubriqueDe } from '../../../shared/sujets'
 import type { BaseDuQuizToutPret } from '../../../shared/quizToutPret'
@@ -6887,7 +6888,7 @@ export class CampagneStore {
    * l'onglet le comptait, deux écrans plus loin (l'experte du jeu solo, le
    * 11 octobre 2026). Compté sans la base, qu'un démarrage n'a peut-être pas
    * encore lue : seules les questions retirées en sortent. Le défi de la
-   * semaine a son onglet à côté du quiz du jour (`defiDAccueil`), les défis
+   * semaine a sa ligne sous celle du quiz du jour (`defiDAccueil`), les défis
    * des amis le bouton des duels (`duelsDAccueil`). Lu dans le lot de
    * l'accueil (`accueilDe`) : ses sentiers, ses épreuves ratées et celle
    * laissée en route, et le journal rattrapé au bout — après un réveil, le lot
@@ -6923,8 +6924,8 @@ export class CampagneStore {
   }
 
   /**
-   * Le défi de la semaine sur l'accueil, à tout profil, dans son onglet à
-   * côté du quiz du jour (le choix du propriétaire du 19 octobre 2026 : rangé
+   * Le défi de la semaine sur l'accueil, à tout profil, sur sa ligne, sous
+   * celle du quiz du jour (le choix du propriétaire du 19 octobre 2026 : rangé
    * au troisième onglet de la campagne, beaucoup ne savaient pas qu'il
    * existait) — ceux qui l'ont relevé, et sa tentative, ouverte ou finie avec
    * sa place. Comptés comme son classement (`classementDesTentatives`) : une
@@ -7679,7 +7680,7 @@ export class CampagneStore {
                   : vues.has(q.empreinte)
                     ? 'deux fois dans ce dépôt'
                     : memeFait
-                      ? motifDuMemeFait(memeFait)
+                      ? motifDuMemeFait(memeFait, q)
                       : place <= 0
                         ? `la catégorie a reçu ses ${PLAFOND_PAR_CATEGORIE_ET_PAR_JOUR} questions du jour`
                         : null
@@ -11658,13 +11659,17 @@ export function parFraicheur<T extends { id: string }>(questions: readonly T[], 
 
 /**
  * Ce que les marches d'un même tirage tiennent en commun : combien chaque
- * catégorie et chaque sous-thème ont servi, par leur indice dans le tirage
- * (`FileDuTour`), et, si l'on veut, les questions déjà prises, pour
- * reconnaître leurs jumelles (`DejaPrises`).
+ * catégorie a servi et où en est chaque sous-thème dans le tour de la sienne,
+ * par leur indice dans le tirage (`FileDuTour`), et, si l'on veut, les
+ * questions déjà prises, pour reconnaître leurs jumelles (`DejaPrises`). Un
+ * sous-thème avance de son pas chaque fois qu'il sert (`pas`, un chacun sans
+ * lui) : son compte n'est le nombre de ses questions que pour qui avance
+ * d'un, et une spécialité part d'un tour tiré (`entreeDansLeTour`).
  */
 interface Servies<T> {
   categories: number[]
   sousThemes: number[]
+  pas?: readonly number[]
   deja?: { jumelle(q: T): boolean; prendre(q: T): void }
 }
 
@@ -11713,6 +11718,14 @@ const REGARD_DES_JUMELLES = 12
  * l'ordre où elle les pose, puis le reste. Chaque classe de fraîcheur ne se
  * bâtit qu'à son ouverture (`classes`) — une fois la précédente vide : une
  * marche qui a des jamais vues ne range jamais ses vues.
+ *
+ * Le tour des sous-thèmes est pondéré (le 10 novembre 2026,
+ * `shared/sousThemes.ts`) : chacun avance de son pas quand il sert, le moins
+ * avancé de sa catégorie passe, et une spécialité — l'équitation, l'anglais,
+ * le ballet —, qui avance de trois, laisse passer les autres trois fois. À
+ * tour égal, une série de Sport posait de l'équitation ou de la plongée une
+ * fois sur six. Les catégories, elles, tournent comme avant : le poids ne
+ * joue qu'entre les sous-thèmes d'une même catégorie.
  */
 class TourDeRole<T> {
   private classe = -1
@@ -11725,7 +11738,7 @@ class TourDeRole<T> {
 
   /** Les `n` questions suivantes de la marche, moins quand elle n'en a plus. */
   prendre(n: number): T[] {
-    const { categories, sousThemes, deja } = this.servies
+    const { categories, sousThemes, pas, deja } = this.servies
     const tirees: T[] = []
     while (tirees.length < n) {
       const choix = this.suivante()
@@ -11735,7 +11748,7 @@ class TourDeRole<T> {
       const q = this.ouverte!.question(rang)
       tirees.push(q)
       categories[file.categorie]++
-      sousThemes[file.sousTheme]++
+      sousThemes[file.sousTheme] += pas ? pas[file.sousTheme] : 1
       deja?.prendre(q)
     }
     return tirees
@@ -11744,7 +11757,7 @@ class TourDeRole<T> {
   private suivante(): { file: FileDuTour; i: number } | null {
     const { categories, sousThemes, deja } = this.servies
     for (;;) {
-      // Les files de la catégorie la moins servie, et de son sous-thème le moins servi.
+      // Les files de la catégorie la moins servie, et de son sous-thème le moins avancé dans le tour.
       let moinsDeCategorie = Infinity
       let moinsDeSousTheme = Infinity
       let egales: FileDuTour[] = []
@@ -11794,7 +11807,9 @@ class TourDeRole<T> {
  * Une marche seule, catégories et sous-thèmes à tour de rôle (`TourDeRole`),
  * dans l'ordre reçu : le rang d'une question est sa place dans sa classe de
  * fraîcheur. Ne range que les `max` premières : une série n'en lit pas plus,
- * et la base en compte des milliers par marche.
+ * et la base en compte des milliers par marche. Chaque sous-thème y avance
+ * d'un, spécialités comprises : leur poids demande un tour d'entrée tiré, et
+ * elle ne tire rien — le tirage d'une série le fait (`PreparationDuTirage`).
  */
 export function aTourDeRole<T extends { id: string; meta: { categorie: string; sousTheme: string } }>(
   questions: readonly T[],
@@ -11858,6 +11873,7 @@ export function tirerUneSerie(
 interface FilesDuTirage {
   files: Int32Array
   categorieDeLaFile: number[]
+  pasDeLaFile: number[]
   nombreDeCategories: number
   parId: Map<string, number> | null
 }
@@ -11889,6 +11905,7 @@ function* preparerLeTirage(
   if (reprises) return { marches, files: reprises }
   const files = new Int32Array(n)
   const categorieDeLaFile: number[] = []
+  const pasDeLaFile: number[] = []
   const categories = new Map<string, number>()
   const filesParCategorie = new Map<string, Map<string, number>>()
   const parId = new Map<string, number>()
@@ -11906,12 +11923,13 @@ function* preparerLeTirage(
     if (f === undefined) {
       parSousTheme.set(sousTheme, (f = categorieDeLaFile.length))
       categorieDeLaFile.push(categories.get(categorie)!)
+      pasDeLaFile.push(pasDuSousTheme(categorie, sousTheme))
     }
     files[i] = f
     if (parId.has(q.id)) doublon = true
     else parId.set(q.id, i)
   }
-  return { marches, files: { files, categorieDeLaFile, nombreDeCategories: categories.size, parId: doublon ? null : parId } }
+  return { marches, files: { files, categorieDeLaFile, pasDeLaFile, nombreDeCategories: categories.size, parId: doublon ? null : parId } }
 }
 
 /**
@@ -11932,7 +11950,10 @@ function* preparerLeTirage(
  * un autre de la même marche et de la même classe — la place au battage
  * pour les jamais vues, la place parmi les vues triées pour les autres,
  * dans l'ordre même des rangs d'avant (`tirage-prepare.test.ts` les
- * compare).
+ * compare). Depuis le 10 novembre 2026, une liste qui tient une spécialité
+ * tire en plus, derrière le battage, le tour où chacune entre
+ * (`entreeDansLeTour`) : la référence du test fait de même, et une liste
+ * sans spécialité ne tire rien de plus — sa série reste celle d'avant.
  */
 export class PreparationDuTirage {
   /** La marche de chaque question (son indice dans `NIVEAUX`), à cette mesure. */
@@ -11941,6 +11962,9 @@ export class PreparationDuTirage {
   private readonly files: Int32Array
   /** La catégorie de chaque file, par son indice. */
   private readonly categorieDeLaFile: number[]
+  /** Le pas de chaque file dans le tour de sa catégorie (`pasDuSousTheme`), et celles qui en ont un à elles : les spécialités. */
+  private readonly pasDeLaFile: number[]
+  private readonly specialites: readonly number[]
   private readonly nombreDeCategories: number
   /** Chaque question par son identifiant ; null quand deux le partagent — les vues se lisent alors question par question. */
   private readonly parId: Map<string, number> | null
@@ -11960,6 +11984,8 @@ export class PreparationDuTirage {
     this.marches = faite.marches
     this.files = faite.files.files
     this.categorieDeLaFile = faite.files.categorieDeLaFile
+    this.pasDeLaFile = faite.files.pasDeLaFile
+    this.specialites = this.pasDeLaFile.flatMap((pas, f) => (pas > 1 ? [f] : []))
     this.nombreDeCategories = faite.files.nombreDeCategories
     this.parId = faite.files.parId
   }
@@ -11982,7 +12008,13 @@ export class PreparationDuTirage {
 
   /** Ce que la préparation des mêmes jouables à une autre mesure prête à la suivante. */
   private filesDuTirage(): FilesDuTirage {
-    return { files: this.files, categorieDeLaFile: this.categorieDeLaFile, nombreDeCategories: this.nombreDeCategories, parId: this.parId }
+    return {
+      files: this.files,
+      categorieDeLaFile: this.categorieDeLaFile,
+      pasDeLaFile: this.pasDeLaFile,
+      nombreDeCategories: this.nombreDeCategories,
+      parId: this.parId,
+    }
   }
 
   /** Ses files, si elle prépare ces jouables-là : `preparerLeTirage` ne les refait pas. */
@@ -12009,6 +12041,10 @@ export class PreparationDuTirage {
       ordre[i] = ordre[j]
       ordre[j] = x
     }
+    // Le tour où chaque spécialité entre, tiré derrière le battage, dans
+    // l'ordre de ses files ; les autres sous-thèmes partent de zéro.
+    const ouEnEst = new Array<number>(nombreDeFiles).fill(0)
+    for (const f of this.specialites) ouEnEst[f] = entreeDansLeTour(this.pasDeLaFile[f], Math.random)
     // Ce qu'il a vu, et quand : depuis ses vues — quelques centaines —, pas depuis la base.
     const classe = new Uint8Array(n)
     const vueLe = new Float64Array(n)
@@ -12062,7 +12098,8 @@ export class PreparationDuTirage {
     }
     const servies: Servies<QuestionDeLaBase> = {
       categories: new Array(this.nombreDeCategories).fill(0),
-      sousThemes: new Array(nombreDeFiles).fill(0),
+      sousThemes: ouEnEst,
+      pas: this.pasDeLaFile,
       deja: new DejaPrises(),
     }
     const tours = NIVEAUX.map((_, m) => new TourDeRole<QuestionDeLaBase>(c => classeDeLaMarche(m, c), servies))

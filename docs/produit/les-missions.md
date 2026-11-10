@@ -100,12 +100,12 @@ Ce qu'il a donné compte aussitôt comme du neuf à porter : le compteur rouge d
 
 ## Sur l'accueil
 
-Sous la ligne de son identité, deux éléments fins, au-dessus des gros boutons de jeu (la maquette C) :
+Sous la ligne de son identité, deux éléments fins, au-dessus des boutons de jeu (la maquette C) :
 
 - **« À la une »** — trois objets de la boutique qu'il n'a pas, un de chaque sorte : un compagnon qui déborde du bandeau, un thème en photo de son écran — celui de la saison d'abord, qui partira avec elle (« De saison »), puis les plus beaux —, un fond des savoirs en carte penchée. Une sorte dont il a tout laisse sa place aux deux autres. Tirés pour la journée — chaque sorte avance d'un cran chaque jour —, ils passent l'un après l'autre toutes les six secondes et demie — jamais sous le doigt, sous la souris ou au clavier, et pas du tout si le téléphone demande moins de mouvement ; un geste ou un point touché ne l'arrête pas, il reprend son tour ; le bandeau se glisse aussi du doigt, de côté, et ses points mènent chacun à son objet (la question du propriétaire du 15 octobre 2026 : « c'est fait exprès qu'il ne puisse pas être slidé ? »). « À ta portée » quand son solde le paie. Un toucher mène à sa place dans la boutique (`/boutique#compagnon-<clé>`, sa fiche ; `/boutique#theme-<clé>`, celle du thème ; `/boutique#fond-<clé>`, le fond posé sur sa carte). Rien s'il a tout ;
 - **la ligne des missions** — « Missions du jour », trois anneaux, ce qui reste à gagner aujourd'hui ; un toucher ouvre leur feuille : les trois missions, où chacune en est, ce que paient les trois, la carte de la semaine, et un coffre qui attend en tête.
 
-Leur place est gardée tant qu'ils arrivent : rien ne saute sous le doigt.
+Leur place est gardée tant qu'ils arrivent : rien ne saute sous le doigt. Depuis le 9 novembre 2026, où l'accueil tient sur un écran ([le profil](le-profil.md#laccueil)), tous deux se règlent sur la hauteur du téléphone : serrés sur un petit — « À la une » à la hauteur d'une ligne, son dessin réduit à l'échelle, les missions en deux lignes dont la seconde se coupe au bout —, à leur taille d'avant sur un grand, tant que rien d'autre ne s'ajoute à la page. Sur un petit téléphone, la soirée où il joue déjà prend la place de « À la une » le temps de la soirée.
 
 ## À la fin de chaque partie
 
