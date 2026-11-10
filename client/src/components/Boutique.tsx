@@ -8,6 +8,7 @@ import { enConfettis, themesEnRayon } from '../../../shared/rayons'
 import type { PublicProfileDetail } from '../../../shared/profil'
 import { AGagner } from './LigneDeCollection'
 import { apercuDe } from '../apercus'
+import { MaPlaque } from './MaPlaque'
 import type { PropsDUnePiece } from './choix'
 
 // Les thèmes : ce qui habille toutes ses pages — la soirée, son profil, ses
@@ -326,6 +327,8 @@ export function MesThemes({ profil, essai, essayer, neufs }: PropsDUnePiece) {
           )
         })}
       </div>
+      {/* Sa plaque, après ses thèmes : c'est d'eux qu'elle vient. */}
+      <MaPlaque profil={profil} essai={essai} essayer={essayer} />
       {/* Ce qu'il n'a pas encore, en deux liens : la boutique pour ce qui
           s'achète, la collection pour ce qui se gagne — et où. L'écran ne
           montre que ce qu'on porte. */}

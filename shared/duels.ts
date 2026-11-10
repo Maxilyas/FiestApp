@@ -810,6 +810,8 @@ export interface LigneDesDuels {
   laurier?: LaurierPorte
   /** La bordure de ligue qu'il porte, s'il en porte une (`bordurePortee`). */
   bordure?: BordureDeLigue
+  /** La plaque de son nom : la clé du thème dont sa ligne prend les couleurs (`ProfileStore.plaqueDe`). */
+  plaque?: string
   cote: number
   ligue: CleDeLigue
   rang: number

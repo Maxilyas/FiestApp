@@ -3,6 +3,7 @@ import { api, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Sortie } from '../components/Pieces'
 import { Avatar, Nommes } from '../components/Avatar'
+import { MotifDeLaPlaque, classeDeLaPlaque } from '../components/Plaque'
 import { Niveau } from '../components/Niveau'
 import { Laurier, NomLaure, texteDuLaurier } from '../components/Laurier'
 import { Rank } from '../components/Rank'
@@ -248,6 +249,7 @@ export function LigneDuDefiVue({ ligne: l, moi, onOuvrir }: { ligne: LigneDuDefi
         <NomLaure nom={l.nom} laurier={l.laurier} />
         {l.enCours && <span className="muted small"> · en cours</span>}
       </span>
+      <MotifDeLaPlaque plaque={l.plaque} />
       <Niveau niveau={l.niveau} />
       <span className="lb-score">
         {l.justes}
@@ -258,11 +260,11 @@ export function LigneDuDefiVue({ ligne: l, moi, onOuvrir }: { ligne: LigneDuDefi
   const quoi = `${l.laurier ? `, ${texteDuLaurier(l.laurier)}` : ''} — rang ${l.rang}, ${bonnes(l.justes)}${l.enCours ? ', en cours' : ''}`
   return onOuvrir ? (
     // Le nom du bouton remplace tout son contenu : le rang et le score doivent y être, comme au classement du jour.
-    <button type="button" className={'lb-row lb-ouvrable' + (moi ? ' me' : '')} aria-label={`La carte ${deNom(l.nom)}${quoi}`} onClick={() => onOuvrir(l.profileId)}>
+    <button type="button" className={'lb-row lb-ouvrable' + (moi ? ' me' : '') + classeDeLaPlaque(l.plaque)} aria-label={`La carte ${deNom(l.nom)}${quoi}`} onClick={() => onOuvrir(l.profileId)}>
       {contenu}
     </button>
   ) : (
-    <div className={'lb-row' + (moi ? ' me' : '')} role="group" aria-label={`${l.nom}${quoi}`}>
+    <div className={'lb-row' + (moi ? ' me' : '') + classeDeLaPlaque(l.plaque)} role="group" aria-label={`${l.nom}${quoi}`}>
       {contenu}
     </div>
   )

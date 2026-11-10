@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body style="margin:0">
+<title>Plaques de nom</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+  /* Mise en page : une colonne de lecture, les téléphones de la maquette côte à côte, puis le catalogue en grille.
+     Un seul monde, voulu : la nuit et l'or du Velours, le thème par défaut de l'application. */
+  :root {
+    color-scheme: dark;
+    --bg: #1a1412;
+    --bg-raised: #241c18;
+    --ink: #f3ece2;
+    --muted: #b3a593;
+    --accent: #d9b56a;
+    --edge: rgba(217, 181, 106, 0.22);
+    --edge-strong: rgba(217, 181, 106, 0.55);
+    --surface: rgba(255, 255, 255, 0.04);
+    --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+    --sans: Figtree, 'Segoe UI', system-ui, sans-serif;
+  }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 400 16px/1.55 var(--sans);
+    padding-block: 28px 64px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .page { max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 44px; }
+  header, section { display: flex; flex-direction: column; gap: 14px; }
+  h1, h2 { font-family: var(--serif); font-weight: 600; line-height: 1.1; margin: 0; text-wrap: balance; }
+  h1 { font-size: 2.6rem; }
+  h2 { font-size: 1.8rem; }
+  h3 { font: 600 1rem/1.3 var(--sans); margin: 0; }
+  p { margin: 0; max-width: 66ch; }
+  .label { font: 700 0.6875rem/1 var(--sans); letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); }
+  .muted { color: var(--muted); }
+  .small { font-size: 0.875rem; }
+  b { font-weight: 600; }
+
+  /* Les trois téléphones */
+  .essais { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; align-items: start; }
+  .essai { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .essai > p { min-height: 2.9em; }
+  .essai-tete { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .choix { font: 700 0.6875rem/1 var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: #1a1412; background: var(--accent); padding: 4px 8px; border-radius: 999px; }
+  .tel { background: var(--bg-raised); border: 1px solid var(--edge); border-radius: 22px; padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; }
+  .tel h3 { font: 600 1.25rem/1.1 var(--serif); }
+  .lb { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+
+  /* Une ligne de classement, comme dans l'application (.lb-row) */
+  .row { position: relative; display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 6px 12px; border-radius: 12px;
+    background: var(--surface); border: 1px solid transparent; overflow: hidden; }
+  .rank { width: 18px; text-align: center; font-weight: 700; font-variant-numeric: lining-nums tabular-nums; color: var(--muted); flex: none; }
+  .av { font-size: 1.2rem; line-height: 1; flex: none; }
+  .name { flex: 1; min-width: 0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .score { font-weight: 700; font-variant-numeric: lining-nums tabular-nums; flex: none; }
+  .toi { font: 700 0.625rem/1 var(--sans); letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 6px; border-radius: 999px; border: 1px solid currentColor; flex: none; }
+  .row > * { position: relative; z-index: 1; }
+
+  /* A — le liseré : une bande à gauche, une teinte à peine posée */
+  .t-a .row.p { border-color: color-mix(in srgb, var(--p-accent) 35%, transparent); background: color-mix(in srgb, var(--p-accent) 10%, var(--bg-raised)); padding-left: 16px; }
+  .t-a .row.p::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 5px; background: var(--p-accent); z-index: 0; }
+
+  /* B — la plaque : le fond, l'encre et le filet du thème ; le motif reste à droite du nom, jamais sous un texte */
+  .t-b .row.p, .plaque { background: linear-gradient(100deg, var(--p-bg), var(--p-raised)); color: var(--p-ink); border-color: var(--p-accent); }
+  .t-b .row.p .rank, .plaque .rank { color: var(--p-ink); opacity: 0.75; }
+  /* Le motif est une pièce de la ligne, entre le prénom et le score : il prend la place qui reste, et un prénom long le réduit. */
+  .motif { display: none; }
+  .t-b .row.p .motif, .plaque .motif { display: block; flex: 1 1 0; min-width: 0; align-self: stretch; margin-block: -6px; background: var(--p-motif);
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 30%, #000 70%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 30%, #000 70%, transparent); }
+  .t-b .row.p .name, .plaque .name { flex: 0 1 auto; }
+
+  /* C — le cartouche : seul le prénom prend les couleurs du thème */
+  .t-c .row.p .name { flex: 0 1 auto; padding: 3px 10px; border-radius: 999px; background: var(--p-bg); color: var(--p-ink); border: 1px solid var(--p-accent); }
+  .t-c .row.p .score { margin-left: auto; }
+
+  /* Les motifs, tous tracés à la couleur d'accent du thème */
+  .m-points   { --p-motif: radial-gradient(circle, var(--p-accent) 1.3px, transparent 1.8px) 0 0 / 11px 11px; }
+  .m-etoiles  { --p-motif: radial-gradient(circle, var(--p-accent) 1px, transparent 1.5px) 3px 5px / 23px 19px, radial-gradient(circle, var(--p-accent) 1.6px, transparent 2.2px) 12px 13px / 37px 29px; }
+  .m-rayures  { --p-motif: repeating-linear-gradient(115deg, var(--p-accent) 0 2px, transparent 2px 10px); }
+  .m-carreaux { --p-motif: linear-gradient(var(--p-accent) 1px, transparent 1px) 0 0 / 12px 12px, linear-gradient(90deg, var(--p-accent) 1px, transparent 1px) 0 0 / 12px 12px; }
+  .m-vagues   { --p-motif: radial-gradient(circle at 50% 120%, transparent 9px, var(--p-accent) 9px 10.5px, transparent 10.5px) 0 0 / 22px 15px; }
+  .m-losanges { --p-motif: linear-gradient(45deg, var(--p-accent) 12%, transparent 12% 88%, var(--p-accent) 88%) 0 0 / 14px 14px; }
+  .m-felures  { --p-motif: linear-gradient(118deg, transparent 47%, var(--p-accent) 47% 50%, transparent 50%) 0 0 / 46px 100%, linear-gradient(62deg, transparent 48%, var(--p-accent) 48% 50.5%, transparent 50.5%) 18px 0 / 64px 100%; }
+  .m-rayons   { --p-motif: repeating-conic-gradient(from 0deg at 100% 50%, var(--p-accent) 0 4deg, transparent 4deg 14deg); }
+
+  /* Le catalogue */
+  .rayon { display: flex; flex-direction: column; gap: 10px; }
+  .rayon-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--edge); padding-bottom: 6px; }
+  .grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(236px, 1fr)); gap: 8px; }
+
+  /* Les listes de décisions */
+  .lignes { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--edge); }
+  .lignes li { display: grid; grid-template-columns: minmax(0, 15rem) minmax(0, 1fr); gap: 6px 20px; padding: 12px 0; border-bottom: 1px solid var(--edge); }
+  .lignes li > :first-child { font-weight: 600; }
+  @media (max-width: 620px) { .lignes li { grid-template-columns: 1fr; } h1 { font-size: 2.1rem; } }
+  .encart { border: 1px solid var(--edge-strong); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+</style>
+
+<div class="page">
+  <header>
+    <span class="label">Maquette · boutique</span>
+    <h1>Les plaques de nom</h1>
+    <p>Une plaque habille la ligne d’un joueur dans les classements, aux couleurs d’un thème qu’il possède. C’est la part d’un thème que les autres voient : aujourd’hui un thème ne change que son propre téléphone, et il s’en est vendu six.</p>
+    <p class="muted small">Les prénoms et les scores sont des exemples. Les couleurs sont celles des vrais thèmes ; les motifs sont des esquisses.</p>
+  </header>
+
+  <section>
+    <span class="label">Trois façons de la poser</span>
+    <h2>Le classement du jour, trois fois</h2>
+    <p>Le même classement, huit joueurs dont trois sans plaque. Léa est celle qui regarde. Un joueur sans plaque garde la ligne d’aujourd’hui, sans rien de moins.</p>
+    <div class="essais" id="essais"></div>
+    <div class="encart">
+      <h3>Ma recommandation : B, la plaque</h3>
+      <p>C’est la seule qu’on remarque assez pour demander « c’est quoi, ça ? ». A est élégant mais se confond avec la ligne de celui qui regarde ; C coupe les prénoms longs. Deux règles la tiennent lisible : le prénom s’écrit à l’encre du thème sur le fond du thème, un couple déjà mesuré par les tests, et le motif a sa propre place entre le prénom et le score, jamais sous un texte : c’est la leçon du Kintsugi de ce matin.</p>
+    </div>
+  </section>
+
+  <section>
+    <span class="label">Ce qu’on ajoute</span>
+    <h2>Trente-quatre plaques, une par thème</h2>
+    <p>Aucun article de plus à vendre : chaque thème vient avec sa plaque, au même prix. Ceux qui possèdent déjà un thème reçoivent la sienne.</p>
+    <div id="catalogue" style="display:flex;flex-direction:column;gap:22px"></div>
+  </section>
+
+  <section>
+    <span class="label">Où elle se voit</span>
+    <h2>Là où l’on joue vraiment</h2>
+    <ul class="lignes">
+      <li><span>Le classement du quiz du jour</span><span class="muted">L’écran le plus fréquenté : 27 des 30 joueurs actifs ce mois-ci. Le jour, hier et le mois.</span></li>
+      <li><span>Le défi de la semaine</span><span class="muted">Son classement, et la liste des vainqueurs d’un défi clos.</span></li>
+      <li><span>Les duels</span><span class="muted">Le classement des ligues, et la ligne de l’adversaire avant et après un duel.</span></li>
+      <li><span>Les collectionneurs et la liste des amis</span><span class="muted">Dans un second temps : même pièce, mêmes règles.</span></li>
+      <li><span>Pas en soirée</span><span class="muted">L’écran commun et les téléphones d’une soirée ne changent pas.</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <span class="label">Dans l’application</span>
+    <h2>Ce que ça change, écran par écran</h2>
+    <ul class="lignes">
+      <li><span>La boutique</span><span class="muted">La fiche d’un thème montre sa plaque avec le prénom du joueur, dans un bout de classement : « Les autres te verront comme ça ».</span></li>
+      <li><span>La loge</span><span class="muted">Dans la pièce « Thème », sans septième pièce : la plaque se choisit parmi celles de ses thèmes, ou « Aucune ».</span></li>
+      <li><span>La collection</span><span class="muted">Les plaques comptent avec leur thème, sans ligne à part : le total de 561 ne bouge pas.</span></li>
+      <li><span>Les prix et les gains</span><span class="muted">Inchangés. Aucun avantage de jeu.</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <span class="label">À toi de trancher</span>
+    <h2>Quatre décisions</h2>
+    <ul class="lignes">
+      <li><span>1. Le traitement</span><span class="muted">A, B ou C. Je recommande B.</span></li>
+      <li><span>2. La plaque suit-elle le thème porté ?</span><span class="muted">Je recommande un choix à part : on peut jouer en Ciel du jour et se montrer en Kintsugi. Chaque thème possédé garde ainsi une utilité, même rangé.</span></li>
+      <li><span>3. Une plaque offerte à tous ?</span><span class="muted">Je recommande l’Ivoire offerte : tout le monde découvre la pièce dans la loge, et voit ce que les thèmes payants apportent.</span></li>
+      <li><span>4. Par où commencer ?</span><span class="muted">Je recommande le quiz du jour, le défi et les duels d’emblée ; les collectionneurs et les amis ensuite.</span></li>
+    </ul>
+  </section>
+</div>
+
+<script>
+  // [clé, nom, fond, fond relevé, encre, accent, motif]
+  const T = {
+    ivoire: ['Ivoire', '#f9f5ec', '#fffdf8', '#2a201b', '#b08a3a', 'points'],
+    cahier: ['Cahier d’écolier', '#fdfdf8', '#ffffff', '#1d2b6b', '#2f5bd3', 'carreaux'],
+    carnet: ['Carnet de voyage', '#e8d9ba', '#f7efdd', '#2b2118', '#b5452f', 'rayures'],
+    guinguette: ['Guinguette', '#14213d', '#1b2a4a', '#fdf6e3', '#ffcb47', 'points'],
+    pyjama: ['Pyjama', '#1f1b3a', '#28234a', '#f4f0ff', '#ffd9a0', 'etoiles'],
+    stade: ['Stade', '#0e2616', '#133020', '#f5fff5', '#e8ff47', 'rayures'],
+    jungle: ['Jungle', '#0e2419', '#15301f', '#f4f8e9', '#f4b63a', 'vagues'],
+    ocean: ['Océan', '#03202b', '#072a36', '#e8fbff', '#3ff0d0', 'vagues'],
+    patisserie: ['Pâtisserie', '#fff7f0', '#ffffff', '#4a2c2a', '#f7a8b8', 'points'],
+    gameboy: ['Game Boy', '#9bbc0f', '#8bac0f', '#0f380f', '#0f380f', 'carreaux'],
+    foret: ['Forêt rousse', '#f7ead8', '#fffaf2', '#3a2014', '#b8481a', 'losanges'],
+    carnaval: ['Carnaval', '#fff6e9', '#ffffff', '#2d1b3d', '#7a2fb5', 'losanges'],
+    plage: ['Plage', '#fff4dc', '#ffffff', '#0f3b4a', '#ffb347', 'vagues'],
+    licorne: ['Licorne', '#fbf6ff', '#ffffff', '#3a2150', '#d7a8ff', 'etoiles'],
+    heros: ['Héros', '#fff4c7', '#ffffff', '#141414', '#d61f26', 'rayons'],
+    grimoire: ['Grimoire', '#efe2c2', '#fbf5e4', '#2e1f10', '#8b1e1e', 'losanges'],
+    filmnoir: ['Film noir', '#111111', '#1a1a1a', '#f2f2f2', '#ededed', 'rayures'],
+    disco: ['Disco', '#1a0b2e', '#22103b', '#fff4ff', '#ffcf3f', 'carreaux'],
+    halloween: ['Halloween', '#120a18', '#1d1026', '#fbefe1', '#ff8c1a', 'felures'],
+    neige: ['Neige', '#0b1627', '#132540', '#eef6ff', '#bfe6ff', 'etoiles'],
+    cerisiers: ['Cerisiers', '#fff4f6', '#ffffff', '#3a2230', '#f4a6bd', 'points'],
+    neon: ['Néon', '#0b0616', '#150a26', '#f7f2ff', '#ff3fd8', 'carreaux'],
+    olympe: ['Olympe', '#f4f2ee', '#ffffff', '#1f2a36', '#c9a23a', 'rayures'],
+    braises: ['Braises', '#140806', '#1c0c08', '#fff3e8', '#ff6a1a', 'felures'],
+    cosmos: ['Cosmos', '#070b1f', '#0e1433', '#eef1ff', '#8f7bff', 'etoiles'],
+    feudartifice: ['Feu d’artifice', '#0a0f2c', '#10173a', '#f5f7ff', '#ffcf5a', 'rayons'],
+    aurore: ['Aurore boréale', '#06141f', '#0a1e2a', '#eafff7', '#4dffb5', 'vagues'],
+    kintsugi: ['Kintsugi', '#121110', '#1a1917', '#f5efe3', '#d4a73a', 'felures'],
+    theatre: ['Grand théâtre', '#1c0508', '#260a0e', '#fff4e6', '#e0b34a', 'rayures'],
+    babel: ['Babel', '#15110d', '#1e1812', '#f2e9d8', '#c9a14a', 'carreaux'],
+    horloge: ['L’Horloge astronomique', '#0a1024', '#0f1733', '#f5efe0', '#d9b45c', 'rayons'],
+    ciel: ['Le Ciel du jour', '#0e1430', '#141b3d', '#f6f3ff', '#f3c46a', 'etoiles'],
+    heures: ['Les Très Riches Heures', '#f3e8cf', '#fcf7ec', '#2b1d14', '#c19a3e', 'losanges'],
+    sommet: ['Le Sommet', '#0b1322', '#111b2e', '#f4f6fb', '#f2a65a', 'vagues'],
+  }
+  const style = k => { const t = T[k]; return `--p-bg:${t[1]};--p-raised:${t[2]};--p-ink:${t[3]};--p-accent:${t[4]}` }
+  const ligne = (rang, av, nom, score, k, moi) =>
+    `<div class="row${k ? ` p m-${T[k][5]}` : ''}"${k ? ` style="${style(k)}"` : ''}><span class="rank">${rang}</span><span class="av">${av}</span><span class="name">${nom}</span><span class="motif"></span>${moi ? '<span class="toi">toi</span>' : ''}<span class="score">${score}</span></div>`
+
+  const JOUEURS = [
+    ['🦊', 'Camille', 9120, 'kintsugi'], ['🐼', 'Hugo', 8840, 'carnet'], ['🦉', 'Léa', 8610, 'ciel', true], ['🐙', 'Tom', 8300, null],
+    ['🐸', 'Inès', 7950, 'neon'], ['🦁', 'Malik', 7420, 'gameboy'], ['🐢', 'Noé', 6980, null], ['🐝', 'Jade', 6510, 'aurore'],
+  ]
+  const ESSAIS = [
+    ['a', 'A · Le liseré', 'Une bande de couleur et une teinte légère. Discret.', false],
+    ['b', 'B · La plaque', 'Toute la ligne prend le fond, l’encre et le motif du thème.', true],
+    ['c', 'C · Le cartouche', 'Seul le prénom s’habille ; la ligne reste celle de tous.', false],
+  ]
+  document.getElementById('essais').innerHTML = ESSAIS.map(([c, titre, dit, choisi]) => `
+    <div class="essai">
+      <div class="essai-tete"><h3>${titre}</h3>${choisi ? '<span class="choix">recommandé</span>' : ''}</div>
+      <p class="muted small">${dit}</p>
+      <div class="tel t-${c}"><h3>Le classement du jour</h3><span class="muted small">8 joueurs · se fige à minuit</span>
+        <div class="lb">${JOUEURS.map((j, i) => ligne(i + 1, j[0], j[1], j[2], j[3], j[4])).join('')}</div></div>
+    </div>`).join('')
+
+  const RAYONS = [
+    ['Offerte à tous', 'gratuite', ['ivoire']],
+    ['Thèmes communs', '150 confettis, plaque comprise', ['cahier', 'carnet', 'guinguette', 'pyjama', 'stade']],
+    ['Peu communs', '250', ['jungle', 'ocean', 'patisserie', 'gameboy', 'foret', 'carnaval', 'plage']],
+    ['Rares', '400', ['licorne', 'heros', 'grimoire', 'filmnoir', 'disco', 'halloween', 'neige', 'cerisiers']],
+    ['Épiques', '650', ['neon', 'olympe', 'braises', 'cosmos', 'feudartifice']],
+    ['Légendaires', '1 000', ['aurore', 'kintsugi', 'theatre']],
+    ['Thèmes qui se gagnent', 'jamais en vente', ['babel', 'horloge', 'ciel', 'heures', 'sommet']],
+  ]
+  document.getElementById('catalogue').innerHTML = RAYONS.map(([nom, prix, cles]) => `
+    <div class="rayon"><div class="rayon-tete"><h3>${nom} <span class="muted" style="font-weight:400">· ${cles.length}</span></h3><span class="muted small">${prix}</span></div>
+      <div class="grille">${cles.map(k => `<div class="row plaque m-${T[k][5]}" style="${style(k)}"><span class="rank">1</span><span class="av">🦊</span><span class="name">${T[k][0]}</span><span class="motif"></span><span class="score">9120</span></div>`).join('')}</div></div>`).join('')
+</script>
+
+</body>
+</html>

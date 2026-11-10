@@ -316,37 +316,53 @@ paths:
   52 Mo, c'est un bout de la page qui manque — son titre, son bouton du bas :
   elle pèse encore 48 Mo à la densité 2,625 sous Le Ciel, dont 37 pour le
   décor — et 10 en tout sous le Velours.
-- **Une couche du décor qui bouge se taille à ce qu'elle montre, et le
-  voile se peint sur le tableau.** Une couche fixe animée (`opacity`,
-  `transform`) garde un calque de la carte graphique à sa taille, et tout ce
-  qui passe au-dessus d'elle en devient un : au classement du quiz du jour, à
-  la densité 2,625, Le Sommet en tenait 82 Mo — la montagne, ses quatre
-  lueurs dans une couche à la taille de la montagne, le voile à part, la
-  neige débordant de 280 px — et les Très Riches Heures 42, un plein écran
-  pour huit points d'or (le 10 novembre 2026, relevé par
-  `retours/2026-11-09/reproductions/classement-sans-sa-ligne.ts`,
-  `THEME=sommet MEMS=512`). Depuis, 56 et 33
-  (`decors-peints.test.ts`). Ce qui a servi : le voile dans le `background`
-  du tableau, au-dessus de l'image, l'alpha dans ses couleurs ; une couche
-  animée à son cadre — ses dessins gardent leurs places mesurées par
-  `background-size` et `-position`, ou `mask-size` et `-position` — ; deux
-  petites couches plutôt qu'une grande quand ce qu'elles montrent est épars
-  (les camps de l'arête et le camp de base, les deux bords des Heures : même
-  animation, elles battent ensemble). **Une couche que le voile couvrait le
-  porte elle-même** : le voile par-dessus sa couleur, le tout découpé à sa
-  forme (`mask`), donne au pixel ce que le voile posé au-dessus donnait —
-  l'alpha de la forme, la couleur voilée. Pour une image, la poser plusieurs
-  fois sous le voile : découpé par elle, un bord à demi transparent comptait
-  deux fois sa transparence, et le liseré des drapeaux s'amincissait. Un
-  `mask` ne coûte pas de calque de plus au relevé. Le plancher : 31 Mo, le
-  document, un décor fixe et le contenu, trois plein-écrans — une couche
-  fixe garde son calque même quand rien ne bouge. Ce qui reste au Sommet,
-  c'est la neige, 21 Mo : un motif qui glisse d'un pas couvre l'écran plus
-  ce pas (240 px, en haut et à droite), et rien ne la réduit sans changer ce
+- **Le décor d'un thème tient dans le moins de couches fixes possible.**
+  Chaque couche fixe plein écran est un calque de 10 Mo à la densité d'un
+  téléphone, et le contenu de la page, qui passe devant, en devient un de
+  plus. Le lendemain, même téléphone, même thème : à 18 h 15, le haut du
+  classement du jour joué en friture, deux lignes perdues (le retour du
+  10 novembre 2026) — en plein fondu du Ciel, cinq plein-écrans, 52 Mo. Ce
+  qui en retire : **un voile se peint sur son tableau**, sa force dans
+  l'alpha de ses couleurs (`--voile-peint`), jamais dans l'`opacity` d'une
+  couche à lui ; **deux images se fondent dans la même couche**
+  (`-webkit-cross-fade`, sous `@supports` — Firefox garde sa seconde
+  couche), pas à pas plutôt qu'en transition ; **une couche qui ne montre
+  rien n'existe pas** (`opacity: 0` la garde, `content` absent non) ; et
+  **ce qui s'anime a la taille de ce qu'il montre** — la lueur du soleil
+  bas, un septième de l'écran, y tenait un plein-écran (son
+  `transform-origin` la fait respirer comme avant). Le Ciel : 31 Mo de jour
+  et en plein fondu, 33 à l'aube et au crépuscule, 37 la nuit ; la photo la
+  même au pixel (`decors-peints.test.ts` garde la feuille,
+  `retours/2026-11-10/reproductions/classement-en-friture.ts` compte les
+  calques, à l'heure et sur la page qu'on veut). Le Sommet et les Heures, relevés
+  ce jour-là sur la même page à 82 et 42 Mo, ont suivi : 56 et 33 (le piège
+  suivant). Reste la neige du Sommet, 21 Mo.
+- **Une couche du décor que le voile couvrait le porte elle-même, et la
+  neige du Sommet a son plancher.** Le Sommet tenait cinq couches — la
+  montagne, ses quatre lueurs dans une couche à la taille de la montagne, les
+  drapeaux, le voile, la neige débordant de 280 px —, les Très Riches Heures
+  un plein écran pour huit points d'or. Le voile peint sur la montagne, il ne
+  couvrait plus les lueurs ni les drapeaux, qui passaient sous lui : chacun
+  le porte — le voile par-dessus sa couleur, le tout découpé à sa forme
+  (`mask`) —, ce qui donne au pixel ce que le voile posé au-dessus donnait,
+  l'alpha de la forme et la couleur voilée. Pour une image, la poser
+  plusieurs fois sous le voile : découpé par elle, un bord à demi
+  transparent comptait deux fois sa transparence, et le liseré des drapeaux
+  s'amincissait. Un `mask` ne coûte pas de calque de plus au relevé. Une
+  couche animée garde les places mesurées de ses dessins dans un cadre plus
+  petit par `background-size` et `-position` (ou `mask-size` et
+  `-position`) ; **deux petites couches plutôt qu'une grande** quand ce
+  qu'elles montrent est épars — les camps de l'arête et le camp de base, les
+  deux bords des Heures : même animation, elles battent ensemble. Le
+  plancher d'un thème à décor : 31 Mo, le document, un décor fixe et le
+  contenu — une couche fixe garde son calque même quand rien ne bouge. Les
+  21 Mo de la neige : un motif qui glisse d'un pas couvre l'écran plus ce
+  pas (240 px, en haut et à droite), et rien ne la réduit sans changer ce
   qu'on voit — un motif plus petit, une neige moins haute : au propriétaire
   d'en décider. Un avant/après se compare animations figées
   (`reducedMotion: 'reduce'` au contexte de Playwright) : il ne reste que
-  quelques niveaux d'écart, le tableau recalé d'une fraction de pixel.
+  quelques niveaux d'écart, le tableau recalé d'une fraction de pixel
+  (`decors-peints.test.ts` garde les deux feuilles).
 - **Une classe assemblée couvre tout son préfixe** : la garde des classes
   mortes (S7, `design.test.ts`) tient pour vivante toute classe qui commence
   par un préfixe construit dans le code (`gerbe-${…}`) — `.gerbe-a-gagner`

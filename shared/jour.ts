@@ -510,6 +510,8 @@ export interface LigneDuJour {
   laurier?: LaurierPorte
   /** Sa bordure de ligue des duels, autour de son avatar (`ProfileStore.bordureDe`). */
   bordure?: BordureDeLigue
+  /** La plaque de son nom : la clé du thème dont sa ligne prend les couleurs (`ProfileStore.plaqueDe`). */
+  plaque?: string
   points: number
   rang: number
   /** Sa partie n'est pas finie : ses points peuvent encore monter. */

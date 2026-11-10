@@ -921,6 +921,143 @@ h3 > .icon {
   .lb-row > .guess-value { grid-area: val; }
 }
 
+/* ── Les plaques de nom ─────────────────────────── */
+/* La ligne d'un joueur aux couleurs d'un thème qu'il possède
+   (`shared/plaques.ts`, la maquette validée le 10 novembre 2026) : la part
+   d'un thème que les autres voient, aux classements du quiz du jour, du défi
+   et des duels. Une plaque est un petit thème posé sur sa seule ligne : elle
+   redit les jetons que la ligne lit (`--ink`, `--muted`, `--accent-text`), et
+   ce qu'elle contient — le rang, le prénom, le score — suit sans rien
+   savoir. Ses couleurs s'écrivent en dur, celles de son thème
+   (`plaques.test.ts` les compare à ses jetons, et mesure l'encre sur le
+   fond) : elle ne suit jamais le thème de celui qui regarde.
+   Plus forte que la ligne d'un thème, « la mienne » comprise
+   (`:root[data-theme] .lb-row.me`) : les thèmes repeignent `.lb-row`, et la
+   plaque d'un autre ne se repeint pas. */
+:root body .lb-row.plaque:not(.team-row) {
+  --ink: var(--p-ink);
+  --muted: var(--p-muted);
+  --accent-text: var(--p-or);
+  background: var(--p-bg);
+  border: 1px solid var(--p-trait);
+  box-shadow: none;
+  color: var(--p-ink);
+}
+/* La sienne : l'anneau du thème de celui qui regarde, autour de sa plaque —
+   le fond d'or pâle de `.lb-row.me` y céderait la place à sa plaque. */
+:root body .lb-row.plaque.me:not(.team-row) { box-shadow: 0 0 0 3px var(--edge-strong); }
+
+/* La pastille de niveau prend les couleurs de la plaque, sans fond : peinte
+   par le thème de celui qui regarde, elle posait le chiffre de la plaque sur
+   le disque du thème — brun sur bleu nuit sous Le Ciel, pour une plaque
+   claire (le rendu du 10 novembre 2026). La pierre d'un niveau 30 garde la
+   sienne, qu'aucun thème ne repeint. */
+:root body .lb-row.plaque .niveau:not(.pierre) {
+  background: transparent;
+  border: 1px solid var(--p-or);
+  color: var(--p-or);
+  font-weight: 600;
+}
+/* Une place perdue depuis lundi s'écrit à l'alerte du thème de celui qui regarde : sur une plaque, à son encre atténuée. */
+.lb-row.plaque .duels-moins { color: var(--p-muted); }
+
+/* Le motif est une pièce de la ligne, entre le prénom et la suite : il prend
+   la place qui reste, jamais celle d'un texte. Fondu aux deux bouts dans le
+   fond de la plaque, par un dégradé et pas par un masque — dans une liste,
+   rien ne garde un calque de la carte graphique (règle `css.md`). */
+.plaque-motif { display: none; }
+.lb-row.plaque > .lb-name { flex: 0 1 auto; }
+.lb-row.plaque > .plaque-motif {
+  display: block;
+  flex: 1 1 0;
+  min-width: 0;
+  align-self: stretch;
+  margin-block: -8px;
+  background: linear-gradient(90deg, var(--p-bg), transparent 30%, transparent 70%, var(--p-bg)), var(--p-motif);
+  opacity: 0.85;
+}
+/* Sur deux étages, la ligne n'a plus de place à lui donner. */
+@container (max-width: 17rem) {
+  .lb-row.plaque > .plaque-motif { display: none; }
+}
+
+/* Les couleurs de chaque plaque : le fond, l'encre, l'encre atténuée, l'or du
+   texte et le trait de son thème (`--bg`, `--ink`, `--muted`, `--accent-text`,
+   `--accent`). Un thème qui change les siens les change ici aussi. */
+.plaque-ivoire { --p-bg: #f9f5ec; --p-ink: #2a201b; --p-muted: #7a6b5a; --p-or: #836420; --p-trait: #ac8536; }
+.plaque-cahier { --p-bg: #fdfdf8; --p-ink: #1d2b6b; --p-muted: #56608a; --p-or: #2342a8; --p-trait: #2f5bd3; }
+.plaque-carnet { --p-bg: #e8d9ba; --p-ink: #2b2118; --p-muted: #5a4a36; --p-or: #9a3522; --p-trait: #b5452f; }
+.plaque-guinguette { --p-bg: #14213d; --p-ink: #fdf6e3; --p-muted: #b8c0d4; --p-or: #ffd166; --p-trait: #ffcb47; }
+.plaque-pyjama { --p-bg: #1f1b3a; --p-ink: #f4f0ff; --p-muted: #bdb4e0; --p-or: #ffdcaa; --p-trait: #ffd9a0; }
+.plaque-stade { --p-bg: #0e2616; --p-ink: #f5fff5; --p-muted: #a8c7ae; --p-or: #e8ff6a; --p-trait: #e8ff47; }
+.plaque-jungle { --p-bg: #0e2419; --p-ink: #f4f8e9; --p-muted: #a9c29f; --p-or: #f6c052; --p-trait: #f4b63a; }
+.plaque-ocean { --p-bg: #03202b; --p-ink: #e8fbff; --p-muted: #8fc3cf; --p-or: #5ff2da; --p-trait: #3ff0d0; }
+.plaque-patisserie { --p-bg: #fff7f0; --p-ink: #4a2c2a; --p-muted: #7a5a52; --p-or: #b0305a; --p-trait: #f7a8b8; }
+.plaque-gameboy { --p-bg: #9bbc0f; --p-ink: #0f380f; --p-muted: #1e4a1e; --p-or: #0f380f; --p-trait: #0f380f; }
+.plaque-foret { --p-bg: #f7ead8; --p-ink: #3a2014; --p-muted: #6e4a35; --p-or: #a8420f; --p-trait: #b8481a; }
+.plaque-carnaval { --p-bg: #fff6e9; --p-ink: #2d1b3d; --p-muted: #5e4a70; --p-or: #6a24a0; --p-trait: #7a2fb5; }
+.plaque-plage { --p-bg: #fff4dc; --p-ink: #0f3b4a; --p-muted: #48656f; --p-or: #a14f00; --p-trait: #ffb347; }
+.plaque-licorne { --p-bg: #fbf6ff; --p-ink: #3a2150; --p-muted: #76608a; --p-or: #9b2fc0; --p-trait: #d7a8ff; }
+.plaque-heros { --p-bg: #fff4c7; --p-ink: #141414; --p-muted: #4a4334; --p-or: #b3151b; --p-trait: #d61f26; }
+.plaque-grimoire { --p-bg: #efe2c2; --p-ink: #2e1f10; --p-muted: #5a4629; --p-or: #8b1e1e; --p-trait: #8b1e1e; }
+.plaque-filmnoir { --p-bg: #111111; --p-ink: #f2f2f2; --p-muted: #a6a6a6; --p-or: #ff4a4a; --p-trait: #ededed; }
+.plaque-disco { --p-bg: #1a0b2e; --p-ink: #fff4ff; --p-muted: #cdb6e6; --p-or: #ffd866; --p-trait: #ffcf3f; }
+.plaque-halloween { --p-bg: #120a18; --p-ink: #fbefe1; --p-muted: #bba5b8; --p-or: #ffa347; --p-trait: #ff8c1a; }
+.plaque-neige { --p-bg: #0b1627; --p-ink: #eef6ff; --p-muted: #9db2c9; --p-or: #a8dcff; --p-trait: #bfe6ff; }
+.plaque-cerisiers { --p-bg: #fff4f6; --p-ink: #3a2230; --p-muted: #74566a; --p-or: #a82d5a; --p-trait: #f4a6bd; }
+.plaque-neon { --p-bg: #0b0616; --p-ink: #f7f2ff; --p-muted: #b0a3d4; --p-or: #ff7ce8; --p-trait: #ff3fd8; }
+.plaque-olympe { --p-bg: #f4f2ee; --p-ink: #1f2a36; --p-muted: #56606b; --p-or: #7d5f0c; --p-trait: #c9a23a; }
+.plaque-braises { --p-bg: #140806; --p-ink: #fff3e8; --p-muted: #d4a898; --p-or: #ff8a3d; --p-trait: #ff6a1a; }
+.plaque-cosmos { --p-bg: #070b1f; --p-ink: #eef1ff; --p-muted: #a9b0d6; --p-or: #aa9bff; --p-trait: #8f7bff; }
+.plaque-feudartifice { --p-bg: #0a0f2c; --p-ink: #f5f7ff; --p-muted: #aab2d9; --p-or: #ffd873; --p-trait: #ffcf5a; }
+.plaque-aurore { --p-bg: #06141f; --p-ink: #eafff7; --p-muted: #9cc4b8; --p-or: #6bffc2; --p-trait: #4dffb5; }
+.plaque-kintsugi { --p-bg: #121110; --p-ink: #f5efe3; --p-muted: #c2b8a6; --p-or: #e0b54a; --p-trait: #d4a73a; }
+.plaque-theatre { --p-bg: #1c0508; --p-ink: #fff4e6; --p-muted: #d9b3a6; --p-or: #efc35c; --p-trait: #e0b34a; }
+.plaque-babel { --p-bg: #15110d; --p-ink: #f2e9d8; --p-muted: #bba98d; --p-or: #dbb75e; --p-trait: #c9a14a; }
+.plaque-horloge { --p-bg: #0a1024; --p-ink: #f5efe0; --p-muted: #b4b9cc; --p-or: #e4c06a; --p-trait: #d9b45c; }
+.plaque-ciel { --p-bg: #0e1430; --p-ink: #f6f3ff; --p-muted: #b9bfdc; --p-or: #f6cd78; --p-trait: #f3c46a; }
+.plaque-heures { --p-bg: #f3e8cf; --p-ink: #2b1d14; --p-muted: #4e3b29; --p-or: #1e4091; --p-trait: #c19a3e; }
+.plaque-sommet { --p-bg: #0b1322; --p-ink: #f4f6fb; --p-muted: #b6c0d2; --p-or: #f6b475; --p-trait: #f2a65a; }
+
+/* Les motifs : huit familles, tracées au trait du thème. Des dégradés, pas
+   d'image — une plaque ne télécharge rien. */
+.plaque-ivoire, .plaque-guinguette, .plaque-patisserie, .plaque-cerisiers {
+  --p-motif: radial-gradient(circle, var(--p-trait) 1.3px, transparent 1.8px) 0 0 / 11px 11px;
+}
+.plaque-cahier, .plaque-gameboy, .plaque-disco, .plaque-neon, .plaque-babel {
+  --p-motif: linear-gradient(var(--p-trait) 1px, transparent 1px) 0 0 / 12px 12px, linear-gradient(90deg, var(--p-trait) 1px, transparent 1px) 0 0 / 12px 12px;
+}
+.plaque-carnet, .plaque-stade, .plaque-filmnoir, .plaque-olympe, .plaque-theatre {
+  --p-motif: repeating-linear-gradient(115deg, var(--p-trait) 0 2px, transparent 2px 10px);
+}
+.plaque-pyjama, .plaque-licorne, .plaque-neige, .plaque-cosmos, .plaque-ciel {
+  --p-motif: radial-gradient(circle, var(--p-trait) 1px, transparent 1.5px) 3px 5px / 23px 19px, radial-gradient(circle, var(--p-trait) 1.6px, transparent 2.2px) 12px 13px / 37px 29px;
+}
+.plaque-jungle, .plaque-ocean, .plaque-plage, .plaque-aurore, .plaque-sommet {
+  --p-motif: radial-gradient(circle at 50% 120%, transparent 9px, var(--p-trait) 9px 10.5px, transparent 10.5px) 0 0 / 22px 15px;
+}
+.plaque-foret, .plaque-carnaval, .plaque-grimoire, .plaque-heures {
+  --p-motif: linear-gradient(45deg, var(--p-trait) 12%, transparent 12% 88%, var(--p-trait) 88%) 0 0 / 14px 14px;
+}
+.plaque-heros, .plaque-feudartifice, .plaque-horloge {
+  --p-motif: repeating-conic-gradient(from 0deg at 100% 50%, var(--p-trait) 0 4deg, transparent 4deg 14deg);
+}
+.plaque-halloween, .plaque-braises, .plaque-kintsugi {
+  --p-motif: linear-gradient(118deg, transparent 47%, var(--p-trait) 47% 50%, transparent 50%) 0 0 / 46px 100%, linear-gradient(62deg, transparent 48%, var(--p-trait) 48% 50.5%, transparent 50.5%) 18px 0 / 64px 100%;
+}
+
+/* Là où elle se choisit (la loge, pièce « Thème » : `MaPlaque`) et là où
+   elle se vend (la fiche d'un thème : `LigneDePlaque`) : sa propre ligne,
+   telle qu'un classement la montrerait. Elle n'entre pas en glissant — on la
+   regarde, on ne la découvre pas. */
+.ma-plaque,
+.presentoir-plaque { display: flex; flex-direction: column; gap: 6px; }
+.ma-plaque .leaderboard { margin-top: 2px; }
+.lb-row.plaque-choix,
+.lb-row.plaque-apercu { min-height: 44px; animation: none; }
+.plaque-choix-nom { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 0.82rem; font-weight: 600; }
+.plaque-choix-nom .icon { flex: none; width: 14px; height: 14px; }
+
 /* ── Écran commun ───────────────────────────────── */
 /* L'écran commun se lit à la hauteur de l'écran : 16 px en 768, 22,5 en
    1080. Les tailles plafonnaient vers 1 300 px de large, et la même télé

@@ -44,6 +44,8 @@ export type ChoixDuProfil = {
   niche?: string | null
   /** Le sceau de ses légendaires se montre (`true`, d'office) ou se masque. */
   sceau?: boolean
+  /** La plaque de son nom aux classements : `auto` — celle de son thème —, `aucune`, ou la clé d'un thème à lui. */
+  plaque?: string
 }
 
 /**
@@ -81,7 +83,7 @@ export interface PropsDUnePiece {
 }
 
 /** Les champs d'un enregistrement, dans l'ordre où l'annonce les dit : celui de la rangée de la loge. */
-const CHAMPS = ['avatar', 'eclat', 'eclatDeReserve', 'matiereDeReserve', 'legendaire', 'sceau', 'finition', 'bordure', 'titre', 'vitrine', 'fond', 'theme', 'gerbe', 'niche'] as const
+const CHAMPS = ['avatar', 'eclat', 'eclatDeReserve', 'matiereDeReserve', 'legendaire', 'sceau', 'finition', 'bordure', 'titre', 'vitrine', 'fond', 'theme', 'plaque', 'gerbe', 'niche'] as const
 
 /**
  * Ce qu'un choix enregistré a changé, une phrase par pièce, pour le lecteur
@@ -124,6 +126,11 @@ function annonceDUnChamp(choix: ChoixDuProfil): string {
   if (choix.gerbe !== undefined) {
     const nom = gerbe(choix.gerbe)?.nom
     return nom ? `Ta gerbe : ${nom.charAt(0).toLowerCase()}${nom.slice(1)}.` : 'Sans gerbe.'
+  }
+  if (choix.plaque !== undefined) {
+    if (choix.plaque === 'auto') return 'Ta plaque suit ton thème.'
+    const nom = theme(choix.plaque)?.nom
+    return nom ? `Ta plaque : ${nom}.` : 'Sans plaque.'
   }
   if (choix.theme !== undefined) {
     const nom = choix.theme ? theme(choix.theme)?.nom : undefined

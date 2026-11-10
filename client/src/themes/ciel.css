@@ -13,9 +13,11 @@
    fondue (`--ciel-fondu`, de 0 à 1). Seule la règle du moment cite son
    tableau : un téléphone n'en télécharge qu'un, deux pendant un fondu.
 
-   Le décor vit dans les couches fixes (`body::before` : le moment ;
-   `body::after` : celui vers lequel il fond ; `#root::before` : le voile ;
-   `#root::after` : les étoiles qui scintillent, la lueur du soleil bas), qui
+   Le décor vit dans les couches fixes (`body::before` : le tableau du
+   moment sous son voile, fondu pendant une bascule avec celui qui vient ;
+   `body::after` : ce second tableau, pour le seul navigateur qui ne sait pas
+   les fondre ; `#root::after` : les étoiles qui scintillent, la lueur du
+   soleil bas), qui
    ne captent jamais un doigt et ne bougent que par `transform` et `opacity`.
    Le texte reste lisible : un voile de nuit, plus épais en haut où l'on
    écrit, plus épais à l'aube claire qu'à la nuit noire, et un halo sous ce
@@ -109,10 +111,42 @@
   background-color: #0e1430;
 }
 
-/* Les deux tableaux, posés de la même façon, le paysage calé en bas : sur un
-   écran plus haut, le ciel se prolonge ; plus large, ses côtés se perdent. */
+/* Le tableau du moment, et celui vers lequel il fond : seule la règle du
+   moment cite le sien. */
+:root[data-theme='ciel'] { --tableau: var(--decor-jour); }
+:root[data-theme='ciel'][data-ciel='aube'] { --tableau: var(--decor-aube); }
+:root[data-theme='ciel'][data-ciel='crepuscule'] { --tableau: var(--decor-crepuscule); }
+:root[data-theme='ciel'][data-ciel='nuit'] { --tableau: var(--decor-nuit); }
+:root[data-theme='ciel'][data-ciel-vers='aube'] { --tableau-vers: var(--decor-aube); }
+:root[data-theme='ciel'][data-ciel-vers='jour'] { --tableau-vers: var(--decor-jour); }
+:root[data-theme='ciel'][data-ciel-vers='crepuscule'] { --tableau-vers: var(--decor-crepuscule); }
+:root[data-theme='ciel'][data-ciel-vers='nuit'] { --tableau-vers: var(--decor-nuit); }
+
+/* Le voile : la nuit de l'application, épais en haut où s'écrivent l'en-tête
+   et la question, léger en bas où le paysage se montre entre les cartes. Sa
+   force est dans l'alpha de ses couleurs, pas dans une opacité : il se peint
+   ainsi dans la couche de son tableau, sans calque à lui. */
+:root[data-theme='ciel'] {
+  --voile: calc(var(--voile-de) + (var(--voile-vers) - var(--voile-de)) * var(--ciel-fondu, 0));
+  --voile-peint: linear-gradient(
+    180deg,
+    rgb(14 20 48 / var(--voile)) 0%,
+    rgb(14 20 48 / calc(0.94 * var(--voile))) 34%,
+    rgb(14 20 48 / calc(0.82 * var(--voile))) 60%,
+    rgb(14 20 48 / calc(0.46 * var(--voile))) 100%
+  );
+}
+
+/* Tout le décor dans une seule couche fixe — le voile sur le tableau, le
+   paysage calé en bas : sur un écran plus haut, le ciel se prolonge ; plus
+   large, ses côtés se perdent. Le voile avait la sienne (`#root::before`),
+   le tableau du fondu aussi, posée même hors d'une bascule : avec la page et
+   son contenu, cinq calques plein écran à la carte graphique — 52 Mo à la
+   densité d'un téléphone Android, où le classement du jour se dessinait en
+   friture, deux lignes perdues, à 18 h 15, en plein fondu vers le crépuscule
+   (le retour du 10 novembre 2026, règle `css.md`). */
 :root[data-theme='ciel'] body::before,
-:root[data-theme='ciel'] body::after {
+:root[data-theme='ciel'][data-ciel-vers] body::after {
   content: '';
   position: fixed;
   inset: 0;
@@ -121,43 +155,37 @@
   background: center bottom / cover no-repeat;
 }
 
-:root[data-theme='ciel'] body::before { background-image: var(--decor-jour); }
-:root[data-theme='ciel'][data-ciel='aube'] body::before { background-image: var(--decor-aube); }
-:root[data-theme='ciel'][data-ciel='crepuscule'] body::before { background-image: var(--decor-crepuscule); }
-:root[data-theme='ciel'][data-ciel='nuit'] body::before { background-image: var(--decor-nuit); }
+:root[data-theme='ciel'] body::before { background-image: var(--voile-peint), var(--tableau); }
 
-/* Celui vers lequel il fond : invisible hors d'une bascule, sans image à
-   télécharger ; pendant, sa part grandit minute après minute. */
-:root[data-theme='ciel'] body::after { opacity: 0; }
-:root[data-theme='ciel'][data-ciel-vers] body::after { opacity: var(--ciel-fondu, 0); }
-:root[data-theme='ciel'][data-ciel-vers='aube'] body::after { background-image: var(--decor-aube); }
-:root[data-theme='ciel'][data-ciel-vers='jour'] body::after { background-image: var(--decor-jour); }
-:root[data-theme='ciel'][data-ciel-vers='crepuscule'] body::after { background-image: var(--decor-crepuscule); }
-:root[data-theme='ciel'][data-ciel-vers='nuit'] body::after { background-image: var(--decor-nuit); }
+/* Pendant une bascule, les deux tableaux se fondent dans cette même couche,
+   la part du second grandissant minute après minute : un soixantième par
+   pas, que l'œil ne voit pas sauter. */
+@supports (background-image: -webkit-cross-fade(linear-gradient(#000, #000), linear-gradient(#fff, #fff), 0.5)) {
+  :root[data-theme='ciel'][data-ciel-vers] body::before {
+    background-image: var(--voile-peint), -webkit-cross-fade(var(--tableau), var(--tableau-vers), var(--ciel-fondu, 0));
+  }
 
-/* Entre deux minutes, la lumière glisse au lieu de sauter. Seulement quand
-   l'heure suit depuis plus d'une minute (`data-heure-suivie`) : à
-   l'ouverture de la page, le ciel est déjà le bon. */
-:root[data-theme='ciel'][data-heure-suivie] body::after,
-:root[data-theme='ciel'][data-heure-suivie] #root::before {
+  :root[data-theme='ciel'][data-ciel-vers] body::after {
+    content: none;
+  }
+}
+
+/* Un navigateur qui ne sait pas fondre deux images (Firefox) garde le second
+   tableau dans sa couche, sous le même voile, et la lumière y glisse entre
+   deux minutes — seulement quand l'heure suit depuis plus d'une minute
+   (`data-heure-suivie`) : à l'ouverture de la page, le ciel est déjà le bon. */
+:root[data-theme='ciel'][data-ciel-vers] body::after {
+  background-image: var(--voile-peint), var(--tableau-vers);
+  opacity: var(--ciel-fondu, 0);
+}
+
+:root[data-theme='ciel'][data-heure-suivie] body::after {
   transition: opacity 60s linear;
 }
 
 :root[data-theme='ciel'] #root {
   position: relative;
   z-index: 1;
-}
-
-/* Le voile : la nuit de l'application, épais en haut où s'écrivent l'en-tête
-   et la question, léger en bas où le paysage se montre entre les cartes. */
-:root[data-theme='ciel'] #root::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background: linear-gradient(180deg, #0e1430 0%, rgba(14, 20, 48, 0.94) 34%, rgba(14, 20, 48, 0.82) 60%, rgba(14, 20, 48, 0.46) 100%);
-  opacity: calc(var(--voile-de) + (var(--voile-vers) - var(--voile-de)) * var(--ciel-fondu, 0));
 }
 
 /* La nuit, quelques étoiles scintillent au-dessus du village ; à l'aube et au
@@ -188,13 +216,21 @@
   animation: ciel-scintille 3.6s ease-in-out infinite alternate;
 }
 
+/* La lueur ne prend que la place de sa tache : animée, elle garde un calque,
+   et plein écran il pesait autant que le tableau pour un halo d'un septième
+   de l'écran. Elle respire toujours autour du centre de l'écran
+   (`transform-origin`), comme quand elle le couvrait. */
 :root[data-theme='ciel'][data-ciel='aube'] #root::after {
-  background: radial-gradient(42% 16% at 61% 62%, rgba(255, 200, 150, 0.32), rgba(255, 200, 150, 0) 72%);
+  inset: 50.48% 8.76% 26.48% 30.76%;
+  transform-origin: 31.8% -2.1%;
+  background: radial-gradient(closest-side, rgba(255, 200, 150, 0.32), rgba(255, 200, 150, 0));
   animation: ciel-souffle 8s ease-in-out infinite alternate;
 }
 
 :root[data-theme='ciel'][data-ciel='crepuscule'] #root::after {
-  background: radial-gradient(44% 17% at 54% 63%, rgba(255, 150, 80, 0.34), rgba(255, 150, 80, 0) 72%);
+  inset: 50.76% 14.32% 24.76% 22.32%;
+  transform-origin: 43.7% -3.1%;
+  background: radial-gradient(closest-side, rgba(255, 150, 80, 0.34), rgba(255, 150, 80, 0));
   animation: ciel-souffle 8s ease-in-out infinite alternate;
 }
 
@@ -319,8 +355,7 @@
     animation: none !important;
   }
 
-  :root[data-theme='ciel'][data-heure-suivie] body::after,
-  :root[data-theme='ciel'][data-heure-suivie] #root::before {
+  :root[data-theme='ciel'][data-heure-suivie] body::after {
     transition: none;
   }
 }
