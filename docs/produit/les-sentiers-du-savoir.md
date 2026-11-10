@@ -12,6 +12,7 @@
 - **Douze vies par jour** pour tous les sentiers : seul un palier raté en coûte une, et rejouer un palier validé ne coûte rien.
 - **Des étoiles** sur chaque palier validé ; la deuxième et la troisième paient des confettis.
 - **Des trophées** : trois pistes — tes paliers, tes étoiles, tes sentiers menés au palier 8 — et deux exploits, L'Impeccable et Contre toute attente.
+- **L'aventure du jour, un jour sur deux** (depuis le 10 novembre 2026) : une mission du jour y mène, en alternance avec le Cabinet de curiosités — tenter une épreuve sur le sentier de son choix ou sur celui d'une catégorie, ou trouver dix bonnes réponses sur les sentiers, validée ou non —, et une mission de catégorie (« Trouve 5 bonnes réponses en Histoire ») ouvre son sentier ([les missions](les-missions.md)).
 
 Les sentiers, comme toute la campagne, se jouent avec un profil : ce que tu y gagnes y reste. Sans profil, la campagne propose de se connecter ou d'en créer un — une soirée, elle, se joue toujours sans compte.
 
