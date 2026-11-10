@@ -70,7 +70,7 @@ export class TriDesEntrees {
     if (this.dansLaBase.has(q.empreinte)) return { refus: 'déjà dans la base', sorte: 'base' }
     if (this.livres.has(q.empreinte)) return { refus: 'déjà dans un quiz livré', sorte: 'livre' }
     const memeFait = this.faits.chercher(q)
-    if (memeFait) return { refus: motifDuMemeFait(memeFait), sorte: 'fait' }
+    if (memeFait) return { refus: motifDuMemeFait(memeFait, q), sorte: 'fait' }
     this.retenir(q, ou)
     return { question: q }
   }
