@@ -311,7 +311,8 @@ export function Presentoir({
           </span>
         )}
         {o && <span className={`presentoir-image presentoir-objet objet-dessin objet-${o.cle}`}>{o.dessin()}</span>}
-        <div className="presentoir-texte">
+        {/* Feuilleté par ses flèches, le présentoir reste la même fenêtre : le lecteur d'écran n'entendrait rien du suivant. */}
+        <div className="presentoir-texte" aria-live="polite">
           <span className="presentoir-sorte">
             {t && <i className="article-gemme" aria-hidden="true" />}
             {t ? `Thème · ${NOM_DE_RARETE[t.rarete]}${fin && enVente ? ` · ${fin}` : ''}` : f ? `Fond de carte · ${f.savoir}` : o!.pour}

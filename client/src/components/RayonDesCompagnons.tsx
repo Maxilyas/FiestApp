@@ -188,7 +188,8 @@ export function FicheDuCompagnon({
             </span>
           )}
         </button>
-        <div className="presentoir-texte">
+        {/* Une forme touchée, le compagnon suivant : ce qui change ici se dit à l'oreille, la fenêtre restant la même. */}
+        <div className="presentoir-texte" aria-live="polite">
           <span className="presentoir-sorte" style={gemme(forme.rarete)}>
             <i className="article-gemme" aria-hidden="true" />
             {`Compagnon · ${NOM_RARETE[forme.rarete]}`}

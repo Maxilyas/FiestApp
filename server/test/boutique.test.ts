@@ -239,6 +239,8 @@ test('le rayon des thèmes : une grille de tuiles, du moins cher au plus cher �
     ),
   )
   assert.match(ocean!.corps, /l’écran commun garde le sien\./)
+  // Feuilleté, il reste la même fenêtre : ce qu'il dit de l'article s'annonce à l'oreille.
+  assert.match(ocean!.corps, /<div class="presentoir-texte" aria-live="polite"><span class="presentoir-sorte">/)
   // Un thème offert n'a pas de présentoir ; hors de sa saison, ou qui se gagne, il dit pourquoi rien ne s'y achète —
   // et n'a ni flèches, ni étoile : il n'est pas en rayon.
   assert.equal(feuille(await boutique('#theme-velours')), null)
