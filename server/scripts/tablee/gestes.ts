@@ -139,6 +139,50 @@ export function imagesPasPretes(n: number): string {
   return `⏳ ${combien} : une case vide sur la photo vient du banc, pas de l’application — refais-la dans un instant.`
 }
 
+/** Une fenêtre de l'application ouverte par-dessus la page : son titre, et ce qu'on peut y toucher. */
+export interface FenetreOuverte {
+  titre: string
+  boutons: string[]
+}
+
+/**
+ * Ce que la page évalue pour dire la fenêtre qui la couvre : un dialogue, une
+ * feuille, la carte d'un joueur — tout ce qui se dit `role="dialog"` et
+ * `aria-modal`, et rend inerte ce qu'il couvre (`useModale`). Celle du dessus :
+ * une feuille que couvre une confirmation est inerte elle aussi.
+ *
+ * La régie lit le téléphone par ses classes (`LIRE_TELEPHONE`), donc aussi
+ * sous une fenêtre, où un invité ne voit ni ne touche rien. Lucas avait fait
+ * « retour » : « Quitter la soirée ? » est restée ouverte sur la question
+ * suivante, que `question` lui a lue et que `repondre 450` a cru remplir — le
+ * champ était inerte, rien n'est parti, et son retour a décrit une estimation
+ * « avalée » par l'application (la tablée du 9 novembre 2026, axe 13). Une
+ * chaîne, comme les autres scripts de la régie : l'épreuve l'évalue telle
+ * quelle, sur de fausses fenêtres.
+ */
+export const LIRE_LA_FENETRE = `(() => {
+  const txt = el => (el && el.textContent ? el.textContent : '').replace(/\\s+/g, ' ').trim()
+  const ouvertes = [...document.querySelectorAll('[role="dialog"][aria-modal="true"]')].filter(f => !f.closest('[inert]'))
+  const f = ouvertes[ouvertes.length - 1]
+  if (!f) return null
+  return { titre: txt(f.querySelector('h1, h2, h3')) || txt(f).slice(0, 80), boutons: [...f.querySelectorAll('button, a[href]')].map(txt).filter(Boolean).slice(0, 6) }
+})()`
+
+/**
+ * Ce que la régie en dit à l'agent : la fenêtre par son titre, ses boutons, et
+ * quoi faire — à `question`, sans lui lire la question qu'il ne voit pas ; à
+ * `repondre`, en refus ; et en tête de chaque écran (`ecran`), parce que
+ * l'instantané liste la fenêtre après toute la page qu'elle couvre, encore
+ * écrite comme si on pouvait la toucher : c'est là que Lucas l'a manquée.
+ */
+export function ligneDeLaFenetre(f: FenetreOuverte, geste: 'question' | 'repondre' | 'ecran'): string {
+  const fenetre = `« ${f.titre} »${f.boutons.length ? ` (${f.boutons.map(b => `« ${b} »`).join(', ')})` : ''}`
+  if (geste === 'ecran') return `🔲 Une fenêtre est ouverte sur ton écran : ${fenetre}. Ce qu'elle couvre ne se touche pas tant qu'elle est là.`
+  return geste === 'question'
+    ? `⚠ Une question est posée, mais une fenêtre la couvre sur ton téléphone : ${fenetre}. Tant qu'elle est ouverte, tu ne peux ni la lire ni y répondre, et le chronomètre tourne : touche un de ses boutons, puis « question ».`
+    : `Une fenêtre couvre la question : ${fenetre}. Ta réponse n’irait nulle part : touche un de ses boutons d’abord.`
+}
+
 /**
  * Les dés lancés d'un geste, au plus : de quoi tirer d'avance toute une partie
  * de l'Éclair (`AFFIRMATIONS_DE_L_ECLAIR` × `MANCHES_PAR_PARTIE`, quinze

@@ -32,7 +32,9 @@ import {
   DES_PAR_GESTE_MAX,
   imagesPasPretes,
   lancerLeDe,
+  ligneDeLaFenetre,
   ligneDeLaMarche,
+  LIRE_LA_FENETRE,
   lireLeDe,
   lireLeToucher,
   marchesASavoir,
@@ -325,6 +327,68 @@ test('la photo attend les images qu’elle montre : la page entière, ses paress
   assert.equal(imagesPasPretes(0), '', 'rien à dire')
   assert.match(imagesPasPretes(1), /^⏳ Une image n’était pas encore peinte : [^\n]*vient du banc[^\n]*refais-la/)
   assert.match(imagesPasPretes(3), /^⏳ 3 images n’étaient pas encore peintes/)
+})
+
+// ── Ce que la tablée du 9 novembre 2026 a pris pour l'application ──────────
+
+/** Une fausse fenêtre de l'application (`role="dialog"`, `aria-modal`) : son titre, ses boutons, et si une autre la couvre. */
+function fausseFenetre(titre: string, boutons: string[], o: { couverte?: boolean; sansTitre?: boolean } = {}) {
+  return {
+    textContent: `${titre} ${boutons.join(' ')}`,
+    closest: (sel: string) => (sel === '[inert]' && o.couverte ? {} : null),
+    querySelector: (sel: string) => (/h2/.test(sel) && !o.sansTitre ? { textContent: `  ${titre}\n` } : null),
+    querySelectorAll: (sel: string) => (/button/.test(sel) ? boutons.map(b => ({ textContent: b })) : []),
+  }
+}
+/** Ce que la page répond au script de la régie : la fenêtre du dessus, ou rien. */
+function fenetreDans(fenetres: ReturnType<typeof fausseFenetre>[]) {
+  const document = { querySelectorAll: (sel: string) => (sel === '[role="dialog"][aria-modal="true"]' ? fenetres : []) }
+  return new Function('document', `return ${LIRE_LA_FENETRE}`)(document)
+}
+
+test('une fenêtre ouverte couvre la question : « question » le dit, « repondre » le refuse', () => {
+  // L'estimation « avalée » de Lucas (`retours/2026-11-09/synthese.md`, axe 13). Il avait fait « retour » juste après sa
+  // réponse à la question 2 : « Quitter la soirée ? » s'est ouverte, et il ne lui a pas répondu. La régie lisait le
+  // téléphone par ses classes, sous la fenêtre : `question` lui a lu l'estimation, `repondre 450` a touché un champ que
+  // la fenêtre couvrait — le refus du toucher était avalé —, tapé dans le vide, et son « Entrée » a fermé la fenêtre. Rien
+  // n'est parti, et six lignes de son retour ont décrit une réponse perdue par l'application.
+  assert.equal(fenetreDans([]), null, 'rien d’ouvert : la page se lit comme avant')
+  const quitter = { titre: 'Quitter la soirée ?', boutons: ['Rester', 'Quitter'] }
+  assert.deepEqual(fenetreDans([fausseFenetre('Quitter la soirée ?', ['Rester', 'Quitter'])]), quitter)
+  // Celle du dessus : une feuille que couvre la confirmation ouverte sur elle est inerte, comme la page.
+  assert.equal(
+    fenetreDans([fausseFenetre('La partie', ['Fermer'], { couverte: true }), fausseFenetre('Terminer ce quiz ?', ['Annuler', 'Terminer le quiz'])]).titre,
+    'Terminer ce quiz ?',
+  )
+  assert.equal(fenetreDans([fausseFenetre('La carte de Sofia', ['Fermer'], { sansTitre: true })]).titre, 'La carte de Sofia Fermer', 'sans titre, son texte')
+
+  // Ce que l'agent en lit : la fenêtre par son titre, ses boutons, et quoi faire. Jamais la question — il ne la voit pas.
+  const aLaQuestion = ligneDeLaFenetre(quitter, 'question')
+  assert.match(aLaQuestion, /^⚠ Une question est posée, mais une fenêtre la couvre sur ton téléphone : « Quitter la soirée \? » \(« Rester », « Quitter »\)\./)
+  assert.match(aLaQuestion, /touche un de ses boutons, puis « question »/)
+  assert.match(ligneDeLaFenetre(quitter, 'repondre'), /^Une fenêtre couvre la question : « Quitter la soirée \? » \(« Rester », « Quitter »\)\. Ta réponse n’irait nulle part/)
+
+  // En tête de chaque écran aussi : l'instantané range la fenêtre après toute la page qu'elle couvre, et c'est après son
+  // « retour » que Lucas l'a manquée.
+  assert.match(ligneDeLaFenetre(quitter, 'ecran'), /^🔲 Une fenêtre est ouverte sur ton écran : « Quitter la soirée \? » \(« Rester », « Quitter »\)\. Ce qu'elle couvre ne se touche pas/)
+  const ecran = fonctionDe('ecran')
+  assert.ok(ecran.indexOf("ligneDeLaFenetre(fenetre, 'ecran')") >= 0 && ecran.indexOf("ligneDeLaFenetre(fenetre, 'ecran')") < ecran.indexOf('await arbre(o.page)'), 'dite avant l’écran')
+
+  // La régie le branche : `question` avant de retenir la question lue, `repondre` avant le premier toucher.
+  assert.match(fonctionDe('fenetreOuverte'), /page\.evaluate\(LIRE_LA_FENETRE\)/)
+  const question = casDe('question')
+  const dite = question.indexOf("ligneDeLaFenetre(fenetre, 'question')")
+  assert.ok(dite >= 0 && dite < question.indexOf('p.question = {'), '« question » dit la fenêtre, et ne retient pas la question qu’elle couvre')
+  const repondre = casDe('repondre')
+  const refus = repondre.indexOf("throw new Refus(ligneDeLaFenetre(fenetre, 'repondre'))")
+  assert.ok(refus >= 0 && refus < repondre.indexOf('await toucher('), '« repondre » refuse avant de toucher quoi que ce soit')
+  // Et une estimation qui n'est pas entrée dans le champ ne se dit plus « proposée » : quoi qui l'en ait empêchée.
+  const tapee = repondre.indexOf('await taper(champ, voulu)')
+  const relue = repondre.indexOf('await champ.inputValue()')
+  assert.ok(tapee >= 0 && relue > tapee && relue < repondre.indexOf("await champ.press('Enter')"), 'le champ est relu entre la frappe et « Entrée »')
+  // L'aide et les consignes des invités le disent : une fenêtre ouverte se ferme d'abord.
+  assert.match(AIDE, /fenêtre/)
+  assert.match(lire(`${SKILL}/consignes-invite.md`).replace(/\s+/g, ' '), /Une fenêtre ouverte .* couvre ta question/)
 })
 
 test('une lettre seule vise la touche de ce nom, jamais un nom qui la contient', () => {
