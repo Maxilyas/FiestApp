@@ -137,6 +137,9 @@ export type IconName =
   | 'fusee'
   | 'carte-eclair'
   | 'champignon'
+  // Friends et Game of Thrones (le 10 novembre 2026).
+  | 'canape'
+  | 'trone'
   // Les duels : le temps qui reste, sans chrono, l'aide, une vie, un résultat qui attend.
   | 'hourglass'
   | 'infinity'
@@ -992,6 +995,26 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
         <path d="M9 14v4.5a3 3 0 0 0 6 0V14" />
         <circle cx="12" cy="8.3" r="1.7" />
         <path d="M7 10.6v.01M17 10.6v.01" />
+      </>
+    ),
+  },
+  // Deux séries, chacune son meuble : le canapé où six amis se retrouvent — la couture entre ses deux coussins le
+  // sépare d'un fauteuil —, et un trône au dossier de lames. Trois épées droites derrière l'assise, essayées
+  // d'abord, se lisaient comme trois croix sur un banc.
+  canape: {
+    paths: (
+      <>
+        <path d="M5.5 10.5V7.5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v3M12 5.5v5.5" />
+        <path d="M2.5 12.5a2 2 0 0 1 4 0v2.5h11v-2.5a2 2 0 0 1 4 0V18h-19v-5.5Z" />
+        <path d="M5.5 18v2M18.5 18v2" />
+      </>
+    ),
+  },
+  trone: {
+    paths: (
+      <>
+        <path d="M8 13.5V7.5L10 9l2-5.5L14 9l2-1.5v6M8 13.5h8" />
+        <path d="M4.5 11v5.5h15V11M6.5 16.5V21M17.5 16.5V21" />
       </>
     ),
   },
