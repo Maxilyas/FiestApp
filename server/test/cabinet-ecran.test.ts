@@ -47,6 +47,7 @@ import { MIDI, Partie as PartieAuPli, S, carte as carteDuPlan, departDe, ouvrir 
 import { importsStatiques } from './chemin-des-imports'
 import { contraste, surFond, teinte, themesDuClient } from './teintes'
 import {
+  CARTES_D_UNE_TRAVERSEE,
   CHASSES_PAR_JOUR,
   ERREURS_D_UN_OUBLI,
   ESSAIS_DU_MOT,
@@ -73,6 +74,9 @@ import { PLUS_DE_PAUSE, bilanDe, etoilesDesManches } from '../../shared/cabinet/
 import { POUVOIRS, ceQueFaitLaCarte } from '../../shared/cabinet/pouvoirs'
 import { ORDRE_DE_LA_TOUR } from '../../shared/cabinet/montee'
 import { GARDIENS, GARDIENS_DES_SALLES, SALLES } from '../../shared/cabinet/salles'
+import { defiDeLaCarte } from '../../shared/cabinet/defis'
+import { cleDuRang, defisTenus } from '../../shared/cabinet/sceaux'
+import { CARTES, VERSION_DE_LA_TRAVERSEE } from '../../shared/cabinet/traversee'
 import { fondreLesReveils, type CaseVue, type Cartel, type PageDuCabinet, type ReveilDesGardiens, type SalleVue, type VueDeLaPartie } from '../../shared/cabinet/vues'
 import { COMPAGNON_DE_L_EXPEDITION, compagnon as leCompagnon } from '../../shared/compagnons'
 import { DEPART, donneesDeDepart } from '../../shared/depart'
@@ -4598,4 +4602,209 @@ test('« Quitter ? » compte ses étoiles par l’accord du Cabinet, et la tête
   assert.match(partie, /import \{[^}]*\betoilesDites\b[^}]*\} from '\.\/EnEtoiles'/)
   assert.doesNotMatch(partie, /étoile\$\{/, 'un accord écrit à la main')
   assert.doesNotMatch(partie, /const etoilesDites\b/, 'une seconde `etoilesDites`')
+})
+
+// ── 20. Le choix des cartes, tenu sur un écran ────────────────────────────
+//
+// « Pareil pour le choix des cartes dans le cabinet des curiosités, je pense que l'on peut faire tenir tout sur le même
+// écran » (le propriétaire, le 10 novembre 2026). Ses dix lignes faisaient de 90 à 112 px en 360 de large, leur description sur
+// deux ou trois lignes : l'écran, 1212 px pour 640, défilait de 652 px — de 333 encore en 412 × 915. Rien n'a changé de place,
+// ni un mot, ni un geste : les mêmes lignes, plus basses, la description bornée à une ligne — sa phrase entière dans sa fiche et à
+// l'oreille. Ce qui tient, taille par taille, ne se voit qu'au navigateur : `server/scripts/rendu-traversee.ts` le mesure
+// (`SEULEMENT=cartes`), et sort en erreur si une carte passe sous le pied.
+
+/** L'écran du choix, rendu : les cartes déjà prises, les défis que le profil tient. */
+const leChoixDesCartes = (choix: readonly string[] = [], tenus: readonly string[] = []) =>
+  rendu('views/cabinet/Traversee', 'ChoixDesCartes', { v: VERSION_DE_LA_TRAVERSEE, defis: defisTenus(tenus), choix, busy: false, onChoisir: rien, onRetour: rien, onPartir: rien })
+/** Les lignes de l'écran, telles qu'elles sont écrites : leur classe, leur case, ce qu'elles disent à l'oreille et à l'œil, « Voir ». */
+const lignesDuChoix = (html: string) =>
+  [
+    ...html.matchAll(
+      /<li class="(cab-tv-ligne[^"]*)" style="--peinture:url\([^"]*\)"><button type="button" class="cab-tv-ligne-choix" aria-pressed="(true|false)"( aria-disabled="true")? aria-label="([^"]*)"><span class="cab-tv-case" aria-hidden="true">([^<]*)<\/span><span class="cab-tv-ligne-texte"><b>([^<]+)<span class="cab-tv-sceaux" aria-hidden="true">((?:<span class="[^"]*"><\/span>){3})<\/span><\/b><small>([^<]*)<\/small><\/span><\/button><button type="button" class="cab-tv-ligne-voir" aria-haspopup="dialog" aria-label="([^"]*)"><span>Voir<\/span><\/button><\/li>/g,
+    ),
+  ].map(m => ({ classe: m[1], prise: m[2] === 'true', fermee: !!m[3], aLOreille: enClair(m[4]), coche: m[5], nom: m[6], sceauxTenus: (m[7].match(/cab-tv-sceau-tenu/g) ?? []).length, enBref: enClair(m[8]), voir: enClair(m[9]) }))
+
+test('le choix des cartes : la même tête, les dix lignes dans l’ordre du catalogue — sa case, son nom, sa phrase en bref, « Voir », sa phrase entière à l’oreille —, le même bouton', async () => {
+  const html = await leChoixDesCartes()
+  // L'écran porte son nom : ses mesures se règlent sur lui, les autres écrans pleins de la traversée gardent les leurs.
+  assert.match(html, /^<div class="cab-tv-ecran cab-tv-choix"><div class="cab-tv-colonne">/)
+  // Rien n'a changé de place : la sortie, la tête — son surtitre, son titre, sa phrase —, la liste, puis le pied collé.
+  const places = [
+    '<a class="lien-discret jour-sortie" href="/cabinet">',
+    '<header class="cab-tv-tete-ecran"><p class="cab-tv-sur">Avant de partir</p><h2 tabindex="-1">Choisis trois cartes</h2><p class="cab-tv-pale cab-tv-choix-phrase">',
+    '</header><ul class="cab-tv-lignes">',
+    '</ul></div><div class="cab-tv-pied">',
+  ].map(morceau => html.indexOf(morceau))
+  assert.ok(
+    places.every((place, k) => place >= 0 && (k === 0 || place > places[k - 1])),
+    `la sortie, la tête, la liste, le pied, dans cet ordre (${places.join(', ')})`,
+  )
+  assert.match(texte(html), /^ Tes gardiens Avant de partir Choisis trois cartes Les seules de ta traversée : touche une carte pour la prendre, « Voir » pour sa fiche\. Coup d’œil /)
+  // Sa phrase, la même, en deux temps : ce qu'un écran moyen en garde, puis sa suite, que la feuille cache à l'œil sans l'ôter —
+  // le lecteur d'écran lit toujours la phrase entière.
+  assert.match(html, /<p class="cab-tv-pale cab-tv-choix-phrase">Les seules de ta traversée<span class="cab-tv-choix-suite"> : touche une carte pour la prendre, « Voir » pour sa fiche\.<\/span><\/p>/)
+
+  // Les dix du catalogue, dans son ordre : c'est lui qui fixe ce que l'écran doit tenir.
+  const lignes = lignesDuChoix(html)
+  assert.equal(CARTES.length, 10)
+  assert.deepEqual(
+    lignes.map(l => l.nom),
+    CARTES.map(c => c.nom),
+  )
+  assert.equal((html.match(/<li /g) ?? []).length, CARTES.length, 'pas une ligne de plus')
+  for (const [k, c] of CARTES.entries()) {
+    const l = lignes[k]
+    assert.deepEqual([l.classe, l.prise, l.fermee, l.coche, l.sceauxTenus], ['cab-tv-ligne', false, false, '', 0], c.nom)
+    // À l'œil, ce qu'elle fait en bref — une ligne, que la feuille coupe au bout sur un téléphone ; à l'oreille, sa phrase
+    // entière, composée du barème : celle de sa fiche, que « Voir » ouvre.
+    assert.equal(l.enBref, espacesFines(c.enBref), c.nom)
+    assert.equal(l.aLOreille, `${c.nom}, défi ${defiDeLaCarte(c.cle)!.nom} : ${c.dit(1, VERSION_DE_LA_TRAVERSEE)}`)
+    assert.equal(l.voir, `Voir la carte ${c.nom}`)
+  }
+  // Le bouton du pied dit ce qui reste à choisir, puis où l'on en est : les mêmes mots, que la feuille pose sur une ligne.
+  assert.match(html, /<div class="cab-tv-pied"><button type="button" class="cab-tv-cta" aria-disabled="true">Encore 3 à choisir<small>0 sur 3<\/small><\/button><\/div><\/div>$/)
+  assert.equal(CARTES_D_UNE_TRAVERSEE, 3)
+})
+
+test('le choix des cartes, trois prises : elles se cochent, les autres s’effacent sans se fermer à « Voir », les sceaux tenus se colorent, et le bouton dit « Partir »', async () => {
+  const html = await leChoixDesCartes(['coup-d-oeil', 'parade', 'cagnotte'], [cleDuRang('parade', 1), cleDuRang('cagnotte', 2), cleDuRang('panacee', 3)])
+  const lignes = lignesDuChoix(html)
+  assert.equal(lignes.length, CARTES.length)
+  const ligne = (nom: string) => lignes.find(l => l.nom === nom)!
+  assert.deepEqual(
+    lignes.filter(l => l.prise).map(l => [l.nom, l.coche]),
+    [
+      ['Coup d’œil', '✓'],
+      ['Parade', '✓'],
+      ['Cagnotte', '✓'],
+    ],
+  )
+  // Ses trois cartes prises, les sept autres ne se prennent plus — leur fiche s'ouvre encore.
+  assert.equal(lignes.filter(l => l.fermee && l.classe.includes('cab-tv-terne')).length, 7)
+  assert.ok(lignes.every(l => l.voir.startsWith('Voir la carte ')))
+  // Un défi tenu : ses sceaux en couleur, son rang dit à l'oreille, et dès l'Argent son liseré doré.
+  assert.deepEqual([ligne('Parade').classe, ligne('Parade').sceauxTenus], ['cab-tv-ligne cab-tv-prise', 1])
+  assert.match(ligne('Parade').aLOreille, /^Parade, défi [^:]+ tenu au Bronze : /)
+  assert.deepEqual([ligne('Cagnotte').classe, ligne('Cagnotte').sceauxTenus], ['cab-tv-ligne cab-tv-prise cab-tv-ligne-doree', 2])
+  assert.deepEqual([ligne('Panacée').classe, ligne('Panacée').sceauxTenus], ['cab-tv-ligne cab-tv-terne cab-tv-ligne-doree', 3])
+  assert.match(html, /<div class="cab-tv-pied"><button type="button" class="cab-tv-cta">Partir<small>3 sur 3<\/small><\/button><\/div><\/div>$/)
+})
+
+test('le choix des cartes, dans la feuille : trois pas de hauteur sous 1080 px, des lignes d’au moins 46 px qui se partagent l’écran, la description bornée, et ce qu’un écran court tait se lit encore', () => {
+  // Mesuré au navigateur le 10 novembre 2026 (`rendu-traversee.ts`, `SEULEMENT=cartes`) : les dix cartes et le bouton sur un
+  // écran aux six tailles d'un téléphone — des lignes de 46,7 px en 360 × 640, de 49 en 390 × 664, de 50 en 360 × 740, de 47 à
+  // 68 en 412 × 800 (quatre descriptions sur deux lignes), de 60 en 390 × 844 (52 sous l'encoche d'un iPhone), de 55 à 77 en
+  // 412 × 915.
+  const css = readFileSync(path.join(client, 'styles.css'), 'utf8')
+  const debut = css.indexOf('/* Le choix des cartes tient sur un écran')
+  assert.ok(debut > css.indexOf('/* ── Le Cabinet de curiosités') && debut < css.indexOf('/* ── Les animations de la traversée'), 'son bloc, dans la section du Cabinet')
+  const bloc = css.slice(debut, css.indexOf("/* La fiche d'une carte", debut)).replace(/\/\*[\s\S]*?\*\//g, '')
+  // Tout y vit sous un pas de hauteur : à 1080 px et plus, l'écran garde l'allure d'avant, qui y tient.
+  const pas = new Map([...bloc.matchAll(/@media ([^{]+?) \{((?:[^{}]*\{[^{}]*\})+)\s*\}/g)].map(m => [m[1], m[2]]))
+  assert.deepEqual([...pas.keys()], ['(max-height: 1079px)', '(min-width: 412px) and (min-height: 800px)', '(max-height: 899px)', '(max-height: 719px)'])
+  assert.equal(bloc.replace(/@media [^{]+\{(?:[^{}]*\{[^{}]*\})+\s*\}/g, '').trim(), '', 'aucune règle hors d’un pas de hauteur')
+  const sous = (condition: string) => pas.get(condition) ?? ''
+  // Ses mesures sont des variables posées sur lui, que chaque pas resserre.
+  for (const condition of ['(max-height: 1079px)', '(max-height: 899px)', '(max-height: 719px)']) assert.match(sous(condition), /^\s*\.cab-tv-choix \{\s*(?:--choix-[a-z]+: [^;]+;\s*)+\}/, condition)
+  // Une ligne ne descend jamais sous 46 px — une cible de doigt de 44 px entre ses deux filets —, et c'est son minimum : les dix
+  // se partagent la hauteur qui reste, chacune à partir de son contenu (`flex: 1 0 auto` : à zéro, une ligne au texte agrandi
+  // serait écrasée au lieu de laisser l'écran défiler).
+  assert.deepEqual(
+    [...bloc.matchAll(/--choix-rang: (\d+)px/g)].map(m => Number(m[1])),
+    [46],
+  )
+  assert.match(sous('(max-height: 1079px)'), /\.cab-tv-choix \.cab-tv-lignes \{ display: flex; flex-direction: column; flex: 1 0 auto; gap: var\(--choix-entre\); \}/)
+  assert.match(sous('(max-height: 1079px)'), /\.cab-tv-choix \.cab-tv-ligne \{ flex: 1 0 auto; min-height: var\(--choix-rang\); \}/)
+  // « Voir » et le bouton du pied restent des cibles de doigt, à chaque pas.
+  assert.ok(Number(/\.cab-tv-choix \.cab-tv-ligne-voir \{ min-width: (\d+)px;/.exec(bloc)?.[1]) >= 44)
+  const boutons = [...bloc.matchAll(/--choix-bouton: (\d+)px/g)].map(m => Number(m[1]))
+  assert.ok(boutons.length >= 2 && boutons.every(h => h >= 44), `le bouton du pied, à chaque pas : ${boutons.join(', ')}`)
+  assert.match(sous('(max-height: 1079px)'), /\.cab-tv-choix > \.cab-tv-pied \.cab-tv-cta \{ min-height: var\(--choix-bouton\); grid-auto-flow: column;/)
+  // « ← Tes gardiens » aussi, sur ses 44 px entiers : la tête reprend sous lui (`--choix-sortie`) plus que l'écart de la colonne
+  // au pas le plus serré, et se pose alors sur le bas de sa cible — 6 px en 360 × 640, que le doigt lui rendait. Là où elle
+  // mord, elle laisse passer le doigt : rien ne s'y touche.
+  const lesPas = ['(max-height: 1079px)', '(max-height: 899px)', '(max-height: 719px)']
+  /** Une mesure à un pas : celle du pas le plus serré qui la pose, jusqu'à lui. */
+  const mesureAuPas = (nom: string, k: number) => {
+    for (let i = k; i >= 0; i--) {
+      const m = new RegExp(`--choix-${nom}: (-?[\\d.]+)px;`).exec(sous(lesPas[i]))
+      if (m) return Number(m[1])
+    }
+    return NaN
+  }
+  const mord = lesPas.map((_, k) => -(mesureAuPas('sortie', k) + mesureAuPas('ecart', k)))
+  assert.ok(mord.every(Number.isFinite), `ce que la tête reprend sous la sortie, à chaque pas : ${mord.join(', ')} px`)
+  for (const [k, condition] of lesPas.entries()) {
+    if (mord[k] > 0) assert.match(sous(condition), /\.cab-tv-choix \.cab-tv-tete-ecran \{[^}]*pointer-events: none; \}/, `${condition} : la tête mord de ${mord[k]} px sur la sortie`)
+  }
+  // La description : une ligne, coupée au bout ; deux là où l'écran a la place des quatre qui en demandent deux.
+  assert.match(sous('(max-height: 1079px)'), /\.cab-tv-choix \.cab-tv-ligne-texte small \{ display: -webkit-box; overflow: hidden; line-height: var\(--choix-dit\); -webkit-box-orient: vertical; -webkit-line-clamp: var\(--choix-lignes\); \}/)
+  assert.match(sous('(max-height: 1079px)'), /--choix-lignes: 1;/)
+  // Deux lignes sur un grand téléphone — et une seule dès que la page, qui les a essayées, a vu l'écran défiler (l'épreuve suivante).
+  assert.match(sous('(min-width: 412px) and (min-height: 800px)'), /^\s*\.cab-tv-choix \{ --choix-lignes: 2; \}\s*\.cab-tv-choix\[data-lignes='une'\] \{ --choix-lignes: 1; \}\s*$/)
+  // Son nom et les sceaux de son défi tiennent sur une ligne : passés dessous, ils grandissaient la leur.
+  assert.match(sous('(max-height: 1079px)'), /\.cab-tv-choix \.cab-tv-ligne-texte b \{ flex-wrap: nowrap;[^}]*white-space: nowrap; \}/)
+  // Aucun texte sous dix-sept pixels : la place se gagne ailleurs que sur sa taille.
+  assert.doesNotMatch(bloc, /font-size: [\d.]/)
+  const titres = [...bloc.matchAll(/--choix-titre: ([\d.]+)rem/g)].map(m => Number(m[1]) * 16)
+  assert.ok(titres.length >= 2 && titres.every(t => t >= 17), `le titre, à chaque pas : ${titres.join(', ')} px`)
+  // Ce qu'un écran court tait — la suite de la phrase sous 900 px, la phrase sous 720 — n'est caché qu'à l'œil, comme `.sr-only` :
+  // sous `display: none`, le lecteur d'écran ne le lirait plus.
+  assert.match(sous('(max-height: 899px)'), /\.cab-tv-choix-suite \{ position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset\(50%\); white-space: nowrap; \}/)
+  assert.match(sous('(max-height: 719px)'), /\.cab-tv-choix-phrase \{ position: absolute; top: 100%; width: 1px; height: 1px; overflow: hidden; clip-path: inset\(50%\); white-space: nowrap; \}/)
+  assert.doesNotMatch(bloc, /display: none|visibility: hidden/)
+  // L'encoche d'un iPhone reste comptée, en haut comme en bas : une règle plus précise qui l'oublie ferait passer la tête dessous.
+  assert.match(sous('(max-height: 1079px)'), /\.cab-tv-choix > \.cab-tv-colonne \{[^}]*padding-top: calc\(var\(--choix-haut\) \+ env\(safe-area-inset-top, 0px\)\);/)
+  assert.match(sous('(max-height: 1079px)'), /\.cab-tv-choix > \.cab-tv-pied \{[^}]*padding-bottom: calc\(var\(--choix-bas\) \+ env\(safe-area-inset-bottom, 0px\)\); \}/)
+})
+
+test('le choix des cartes ne donne deux lignes à une description que si l’écran tient encore : la page les essaie et le mesure, jamais une taille écrite pour une police', async () => {
+  // Mesuré sous les trente-cinq thèmes, le 10 novembre 2026, aux six tailles : tout tenait partout, sauf sous le Carnet — sa
+  // machine à écrire, à chasse fixe, donne deux lignes aux dix descriptions là où la police de tous en donne à quatre, et l'écran
+  // défilait de 111 px en 412 × 800, de 54 en 412 × 915. Aucune taille écrite ne couvre trente-cinq polices, ni l'encoche d'un
+  // iPhone, ni le texte agrandi : l'écran mesure, comme la tête d'une partie pour le mot de « Quitter ». Le module est en TSX :
+  // sa fonction se lit sans ses types, que ce projet ne compile pas.
+  const { poserLesLignesDuChoix } = (await import(url('views/cabinet/Traversee.tsx'))) as {
+    poserLesLignesDuChoix(ecran: { readonly scrollHeight: number; readonly clientHeight: number; readonly dataset: { lignes?: string } }): void
+  }
+  /** Un écran de 738 px de haut : ce que font ses dix lignes selon que la description en prend deux ou une, et ce qu'on y a mesuré. */
+  const ecran = (aDeuxLignes: number, aUneLigne = 738, dejaPose?: string) => {
+    const dataset: { lignes?: string } = dejaPose ? { lignes: dejaPose } : {}
+    const vu: string[] = []
+    return {
+      dataset,
+      vu,
+      clientHeight: 738,
+      get scrollHeight() {
+        vu.push(dataset.lignes ?? 'deux essayées')
+        return dataset.lignes === 'une' ? aUneLigne : aDeuxLignes
+      },
+    }
+  }
+  const tient = ecran(738)
+  poserLesLignesDuChoix(tient)
+  assert.equal(tient.dataset.lignes, undefined, 'les deux lignes tiennent : elles restent')
+  const sousLeCarnet = ecran(849)
+  poserLesLignesDuChoix(sousLeCarnet)
+  assert.equal(sousLeCarnet.dataset.lignes, 'une', 'l’écran défilerait de 111 px : une ligne')
+  assert.deepEqual(sousLeCarnet.vu, ['deux essayées'], 'mesuré les deux lignes essayées, jamais ce qu’il montrait')
+  // Un pixel suffit : il défilerait déjà.
+  const aUnPixel = ecran(739)
+  poserLesLignesDuChoix(aUnPixel)
+  assert.equal(aUnPixel.dataset.lignes, 'une')
+  // Revenu à une ligne, il les réessaie à chaque mesure : l'écran agrandi — le téléphone tourné, la barre d'adresse repliée —,
+  // elles reviennent ; toujours trop juste, il garde sa ligne.
+  const agrandi = ecran(738, 700, 'une')
+  poserLesLignesDuChoix(agrandi)
+  assert.deepEqual([agrandi.dataset.lignes, agrandi.vu], [undefined, ['deux essayées']])
+  const toujoursJuste = ecran(849, 738, 'une')
+  poserLesLignesDuChoix(toujoursJuste)
+  assert.deepEqual([toujoursJuste.dataset.lignes, toujoursJuste.vu], ['une', ['deux essayées']])
+  // L'écran le mesure avant de se peindre, puis à chaque changement de sa taille, et quand une police du thème arrive après lui.
+  const traversee = source('views/cabinet/Traversee.tsx')
+  assert.match(traversee, /const ecran = useRef<HTMLDivElement>\(null\)\s*useLesLignesDuChoix\(ecran\)\s*return \(\s*<div className="cab-tv-ecran cab-tv-choix" ref=\{ecran\}>/)
+  assert.match(traversee, /function useLesLignesDuChoix\([^)]*\) \{\s*useLayoutEffect\(\(\) => \{[\s\S]*?poser\(\)\s*const suivi = [^\n]*new ResizeObserver\(poser\)[\s\S]*?document\.fonts\?\.addEventListener\('loadingdone', poser\)/)
+  // Et la feuille l'écoute, là où elle donne deux lignes — sans elle, la mesure ne changerait rien.
+  const css = readFileSync(path.join(client, 'styles.css'), 'utf8')
+  assert.match(css, /@media \(min-width: 412px\) and \(min-height: 800px\) \{\s*\.cab-tv-choix \{ --choix-lignes: 2; \}\s*\.cab-tv-choix\[data-lignes='une'\] \{ --choix-lignes: 1; \}\s*\}/)
 })
