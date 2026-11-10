@@ -28,6 +28,7 @@ import type { Collectionneurs } from '../core/collectionneurs'
 import { accueilDuCabinet } from '../core/cabinet/vue'
 import type { CabinetDAccueil } from '../../../shared/cabinet/vues'
 import { jourDe } from '../../../shared/jour'
+import { lireEnvie } from '../../../shared/envie'
 import { millesimeDe, periodeDu } from '../../../shared/saisons'
 import { cleDuTimbre } from '../../../shared/timbres'
 import { lireEquipesPreparees, type EquipePreparee } from '../../../shared/teams'
@@ -880,6 +881,30 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       const jour = jourDe(deps.maintenant())
       const enReserve = await profiles.acheterUnEclat(me.id, jour)
       res.json({ enReserve, confettis: (await profiles.boutiqueDe(me, jour)).confettis })
+    }),
+  )
+
+  /**
+   * « Mon envie » : poser l'article de la boutique pour lequel il économise
+   * (`{ envie: { sorte, cle } }`, `shared/envie.ts`), ou la retirer
+   * (`{ envie: null }`). Une à la fois : la nouvelle remplace l'ancienne.
+   * Rend celle qu'il a retenue ; sa boutique la relit ensuite à chaque
+   * affichage, tant qu'elle tient (`BoutiqueDuProfil.envie`). Ni un achat ni
+   * une porte de la boutique : elle ne dépense rien.
+   */
+  app.put(
+    '/api/joueur/envie',
+    small,
+    wrap(async (req, res) => {
+      noStore(res)
+      const me = await current(req)
+      if (!me) return res.status(401).json({ error: 'Connexion requise' })
+      const envoyee: unknown = req.body?.envie
+      const envie = envoyee === null ? null : lireEnvie(envoyee)
+      // Seul un `null` écrit en toutes lettres la retire : lu comme lui, un corps sans le champ — une page qui
+      // l'oublierait — effacerait son envie sans un mot. Ce qui n'en a pas la forme se refuse comme l'article inconnu.
+      if (envoyee !== null && !envie) throw new Error('Cet article ne se vend pas à la boutique : choisis-en un autre.')
+      res.json({ envie: await profiles.poserEnvie(me.id, envie, jourDe(deps.maintenant())) })
     }),
   )
 

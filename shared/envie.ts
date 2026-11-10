@@ -63,7 +63,8 @@ export function prixDeLEnvie(e: Envie): number | null {
   }
   if (e.sorte === 'compagnon') return COMPAGNONS_DE_LA_BOUTIQUE.some(c => c.key === e.cle) ? PRIX_D_UN_COMPAGNON : null
   if (e.sorte === 'fond') return FONDS_EN_BOUTIQUE.some(f => f.key === e.cle) ? PRIX_D_UN_FOND : null
-  return PRIX_DES_OBJETS[e.cle] ?? null
+  // Par `Object.hasOwn` : « constructor » a la forme d'une clé, et lu tel quel son « prix » était une fonction — l'envie tenait.
+  return Object.hasOwn(PRIX_DES_OBJETS, e.cle) ? PRIX_DES_OBJETS[e.cle] : null
 }
 
 /** Ce qu'il a déjà de ce que la boutique vend : ses thèmes, ses compagnons, ses fonds. */
@@ -82,7 +83,11 @@ export function refusDeLEnvie(e: Envie, a: CeQuIlADeLaBoutique, jour: string): s
   if (e.sorte === 'theme') {
     const t = theme(e.cle)!
     if (a.themes.includes(e.cle)) return `${t.nom} est déjà à toi.`
-    if (!enBoutique(t, jour)) return `${t.nom} n’est en boutique que ${t.saison?.periode ?? 'pendant sa saison'} : choisis-en un autre.`
+    if (!enBoutique(t, jour)) {
+      // « qu’en février », « que du 25 octobre au 1er novembre » : « que » s'élide devant une voyelle.
+      const periode = t.saison?.periode ?? 'pendant sa saison'
+      return `${t.nom} n’est en boutique ${/^[aeiouy]/i.test(periode) ? 'qu’' : 'que '}${periode} : choisis-en un autre.`
+    }
     return null
   }
   if (e.sorte === 'compagnon') return a.compagnons.includes(e.cle) ? 'Ce compagnon est déjà à toi.' : null
