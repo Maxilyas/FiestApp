@@ -73,7 +73,7 @@ export const PAGES_FERMABLES: Record<PageEnMaintenance, { nom: string; ferme: st
   },
   cabinet: {
     nom: 'Le Cabinet de curiosités',
-    ferme: 'Sa page, le départ d’une partie, les achats et l’échange d’un jeu ; la partie en cours se finit',
+    ferme: 'Sa page et le départ d’une traversée ; la traversée en cours se finit',
     titre: 'Le Cabinet de curiosités est en maintenance',
     bientot: 'Le Cabinet de curiosités arrive bientôt',
   },

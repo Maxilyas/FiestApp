@@ -19,13 +19,16 @@
 // ni règle, ni lieu, ni progression (invariant 21).
 //
 // Depuis le 25 octobre 2026, le Cabinet de curiosités est un lieu de plus :
-// vingt gardiens s'y réveillent, les trois de saison à leur fête — la luciole
-// y vient en cadeau à la première salle complète, sans que l'album en fasse une
-// voie : elle s'achète. L'album le tait tant qu'il est fermé en
-// production (`CABINET_EN_PRODUCTION`, le drapeau du code, comme
-// `voiesMontrees`) : il mènerait à une page qui n'y répond pas. Chaque lecture
-// qui en dépend prend le drapeau (`cabinet`), pour lire l'album tel qu'il
-// sera à l'ouverture.
+// vingt gardiens s'y gagnent — et, depuis le soir du 31 octobre 2026, par la
+// traversée seule : on le choisit au bout, parmi les trois gardiens vaincus.
+// Le musée d'avant (une salle à compléter, à dorer, la poussière d'or) n'a
+// plus d'écran, et l'album l'a dit jusqu'au 10 novembre 2026 : sa fiche
+// envoyait compléter une salle que plus aucune page ne montre. Des trois de
+// saison, la Citrouille seule y garde un acte, à Halloween. Le Cabinet est
+// ouvert en production depuis le 31 octobre 2026 (`CABINET_EN_PRODUCTION`, le
+// drapeau du code, comme `voiesMontrees`) ; chaque lecture qui en dépend prend
+// encore le drapeau (`cabinet`) : les épreuves lisent ainsi l'album sans lui
+// et avec lui.
 //
 // Une dérivation pure de ce que la page du profil reçoit déjà : « Ma
 // collection » compte ses avatars par elle (`compteDeLaCollection`), une seule
@@ -48,11 +51,6 @@ import {
   type Legendaire,
   type SimpleCondition,
 } from './legendaires'
-// Les salles et leurs mots, pour dire ce qui réveille un gardien : l'album vient à la demande, dans « Ma collection »
-// et la loge — l'accueil, la soirée et la page du profil ne le tirent pas (`album-des-avatars.test.ts` parcourt leurs
-// imports), le Cabinet n'y part pas avec eux.
-import { AUTRES_GARDIENS, GARDIENS_DES_SALLES, GARDIENS_DE_SAISON, conditionDuGardien, salle, salleDuGardien } from './cabinet/salles'
-import { OEUVRES_DE_DEPART, oeuvresDeLaSalle } from './cabinet/oeuvres'
 import { CABINET_EN_PRODUCTION } from './cabinet/ouverture'
 import { NOM_PALIER, clePalier, hautFait, origineDe, regleDuPalier } from './hautsfaits'
 import { saison } from './saisons'
@@ -122,16 +120,29 @@ function lieuDuHautFait(cle: string): LieuDAvatar {
   return (h && origineDe(h)) ?? 'soiree'
 }
 
-/** Un gardien de saison : le Cabinet range sa condition même (`saison:halloween`) d'une œuvre gagnée en jouant à sa fête. */
-const gardienDeSaison = (l: Legendaire) => GARDIENS_DE_SAISON.includes(l.key)
+/**
+ * Les gardiens de saison que la traversée fait garder un acte à leur fête, et
+ * ce que leur règle en dit : la Citrouille seule, l'acte I d'une traversée
+ * partie à Halloween, une fois sur deux si elle lui manque (`choisirLesGardiens`,
+ * `GARDIEN_D_HALLOWEEN`). Choisie au bout, le Cabinet range sa condition même
+ * (`saison:halloween`). Ni le Sapin ni le Bouquet final : le musée rangeait
+ * leur fête d'une œuvre gagnée en jouant, la traversée ne les tire jamais, et
+ * l'album leur promettait encore le Cabinet. Écrit ici plutôt que lu de
+ * `shared/cabinet/traversee.ts` — toute la traversée viendrait avec l'album
+ * pour une clé — : `album-des-avatars.test.ts` compare les deux.
+ */
+const GARDE_A_SA_FETE: Readonly<Record<string, string>> = {
+  'lg:citrouille': 'la choisir au bout d’une traversée du Cabinet partie ces jours-là, si elle y garde un acte',
+}
 
 /**
  * Les lieux d'un légendaire, voie après voie, sans doublon. Un gardien de
  * saison n'a pas de voie du Cabinet — c'est sa saison qu'on y range —, mais
- * le Cabinet ouvert, il s'y gagne aussi : son lieu se dit au bout.
+ * le Cabinet ouvert, celui qui y garde un acte à sa fête s'y gagne aussi : son
+ * lieu se dit au bout.
  */
 export const lieuxDuLegendaire = (l: Legendaire, cabinet: boolean = CABINET_EN_PRODUCTION): LieuDAvatar[] => [
-  ...new Set([...voiesMontrees(l, cabinet).flatMap(partiesDe).map(c => lieuDuHautFait(c.hautFait)), ...(cabinet && gardienDeSaison(l) ? (['cabinet'] as const) : [])]),
+  ...new Set([...voiesMontrees(l, cabinet).flatMap(partiesDe).map(c => lieuDuHautFait(c.hautFait)), ...(cabinet && l.key in GARDE_A_SA_FETE ? (['cabinet'] as const) : [])]),
 ]
 
 /**
@@ -370,30 +381,19 @@ const OU: Record<LieuDAvatar, string> = {
 const compte = (acquis: number, requis: number, avant = '') => ({ acquis, requis, dit: `${avant}${formatNumber(acquis)} sur ${formatNumber(requis)}` })
 
 /**
- * Ce que le Cabinet demande pour réveiller un gardien, en mots : sa salle à
- * compléter — le premier —, ou à dorer — le second —, la série, le musée
- * entier. Les chiffres viennent du Cabinet (ses salles, ses œuvres) : une
- * œuvre peinte de plus se compte d'elle-même. La série et le musée entier se
- * disent dans les mots du Cabinet (`conditionDuGardien`) : une série qui
- * compterait autre chose ne laisserait pas l'album dire l'ancienne. Null pour
- * ce qui ne garde rien.
+ * Ce que le Cabinet demande pour un gardien, en mots : le choisir au bout
+ * d'une traversée gagnée dont il garde un acte — la même phrase pour les
+ * vingt, qui gardent tous un acte (`GARDIENS_DES_ACTES`, ce que
+ * `album-des-avatars.test.ts` vérifie) ; sans dire lequel, pour que la fiche
+ * ne mente pas le jour où un gardien change d'acte (le choix du propriétaire,
+ * le 10 novembre 2026). Jusque-là, elle disait le musée — « compléter la salle
+ * du Rempart », « dorer… », « revenir chaque jour », « compléter tout le
+ * musée », la poussière d'or —, que plus aucun écran ne permet depuis le soir
+ * du 31 octobre 2026.
  */
-function ceQueDemandeLeCabinet(gardien: string): { quoi: string; regle: string } | null {
-  const s = salle(salleDuGardien(gardien))
-  if (s) {
-    const oeuvres = oeuvresDeLaSalle(s.cle)
-    if (GARDIENS_DES_SALLES[s.cle][1] === gardien) return { quoi: `dorer ${s.laSalle}`, regle: `Ses ${oeuvres.length} cadres dorés, chacun en jouant sans faute ou avec la poussière d’or` }
-    // Les œuvres de départ sont au Vestibule, à tout le monde sans rien faire : « gagnées en jouant ou achetées » ne
-    // les disait pas — leur cartel dit « Offerte à ton arrivée ».
-    const offertes = oeuvres.filter(o => OEUVRES_DE_DEPART.includes(o.cle)).length
-    const facons = 'gagnées en jouant ou achetées avec la poussière d’or'
-    return { quoi: `compléter ${s.laSalle}`, regle: offertes ? `Ses ${oeuvres.length} œuvres : ${offertes} offertes à ton arrivée, les autres ${facons}` : `Ses ${oeuvres.length} œuvres, ${facons}` }
-  }
-  const reveil = AUTRES_GARDIENS.find(a => a.legendaire === gardien)?.reveil
-  const regle = conditionDuGardien(gardien)
-  if (reveil && regle && 'serie' in reveil) return { quoi: 'revenir chaque jour', regle }
-  if (reveil && regle && 'tout' in reveil) return { quoi: 'compléter tout le musée', regle }
-  return null
+const AU_BOUT_D_UNE_TRAVERSEE = {
+  quoi: 'le choisir au bout d’une traversée',
+  regle: 'Quand il garde un acte, gagne la traversée — ses trois gardiens vaincus —, puis choisis-le parmi eux',
 }
 
 /**
@@ -417,13 +417,12 @@ function etapeDuHautFait(c: SimpleCondition, recompenses: ReadonlyMap<string, nu
     }
   }
   if (lieu === 'cabinet') {
-    // Pas de jauge non plus : l'album ne reçoit pas le musée — la page du Cabinet dit où en est chaque salle. Le Djinn
-    // n'a pas de salle : ses dix défis, que la page de la traversée dit, carte par carte.
+    // Pas de jauge non plus : une traversée se gagne ou non, et il y garde un acte ou non — une fois suffit. Le Djinn
+    // ne garde rien : ses dix défis, que la page de la traversée dit, carte par carte.
     if (c.hautFait === cleDuCabinet(LEGENDAIRE_DES_DEFIS)) {
       return { lieu, titre: `${OU.cabinet} : tenir les dix défis de tes cartes à l’Or`, regle: 'Le défi au dos de chacune des dix cartes, à son plus haut rang', tenue: tenu, progres: null }
     }
-    const demande = ceQueDemandeLeCabinet(legendaireDuCabinet(c.hautFait)!.key)
-    return { lieu, titre: `${OU.cabinet} : ${demande?.quoi ?? 'le réveiller'}`, regle: demande?.regle ?? '', tenue: tenu, progres: null }
+    return { lieu, titre: `${OU.cabinet} : ${AU_BOUT_D_UNE_TRAVERSEE.quoi}`, regle: AU_BOUT_D_UNE_TRAVERSEE.regle, tenue: tenu, progres: null }
   }
   const h = hautFait(c.hautFait)
   const nom = `« ${h?.title ?? c.hautFait} »`
@@ -536,11 +535,12 @@ export function voiesDeLAvatar(cle: string, p: ProfilDesVoies, cabinet: boolean 
   if (s) {
     // Un légendaire de saison ne se gagne qu'à sa période : sa règle se dit en dates, sans jauge — gardé au bout d'une
     // expédition partie ces jours-là aussi, qui le met en gardien de l'acte 3, quand sa voie se montre (`voiesMontrees`),
-    // et, le Cabinet ouvert, d'une œuvre gagnée en jouant ces jours-là : il y range sa saison même, sans voie à lui.
+    // et, le Cabinet ouvert, choisi au bout d'une traversée partie ces jours-là, s'il y garde un acte (`GARDE_A_SA_FETE`) :
+    // le Cabinet y range sa saison même, sans voie à lui.
     const facons = [
       `${s.jours} jours de quiz du jour`,
       'une soirée ces jours-là',
-      ...(cabinet && gardienDeSaison(l) ? ['une œuvre gagnée en jouant au Cabinet ces jours-là'] : []),
+      ...(cabinet && l.key in GARDE_A_SA_FETE ? [GARDE_A_SA_FETE[l.key]] : []),
       ...(voiesMontrees(l, cabinet).some(estUneVoieDExpedition) ? ['le garder au bout d’une expédition partie ces jours-là'] : []),
     ]
     return [[{ lieu: 'saison', titre: `Pour ${s.nom}, ${s.periode}`, regle: dite(facons, 'ou', ','), tenue: p.legendaires.includes(l.key), progres: null }]]

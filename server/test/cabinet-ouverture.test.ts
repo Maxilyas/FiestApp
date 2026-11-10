@@ -2,9 +2,10 @@
 // production sous son drapeau (`cabinetOuvert`) — la page ne le lit pas, le
 // serveur le lui dit (`<meta name="cabinet" content="ferme">`), et chacune de
 // ses routes répond 404 en mots. Puis la maintenance du QG : le Cabinet en
-// maintenance, ou bientôt disponible, ferme son départ (`POST
-// /api/cabinet/partie`), ses achats, ses dorures et son échange — jamais un
-// geste : une partie commencée se finit.
+// maintenance, ou bientôt disponible, ferme le départ d'une traversée (`POST
+// /api/cabinet/traversee`) et les portes du musée qui dort — son départ, ses
+// achats, ses dorures, son échange — ; jamais un geste : une traversée en
+// route va au bout, une partie commencée se finit.
 //
 // Puis l'effacement de l'Expédition (le choix du propriétaire du 31 octobre
 // 2026) : sous son drapeau (`EXPEDITION_REMPLACEE`, que l'option
@@ -32,7 +33,7 @@ import { EXPEDITION_EN_PRODUCTION, EXPEDITION_REMPLACEE } from '../../shared/jok
 import { cleDeLExpedition, estUneVoieDExpedition, legendaire, legendairesDebloques, voiesMontrees } from '../../shared/legendaires'
 import { DEPART_FERME, type PageDeLExpedition, type VueDeLExpedition } from '../../shared/expedition'
 import { cheminDeLaLuciole } from '../../shared/compagnons'
-import type { PageDuCabinet } from '../../shared/cabinet/vues'
+import type { PageDeLaTraversee, PageDuCabinet } from '../../shared/cabinet/vues'
 
 after(fermerLesMagasins)
 
@@ -114,13 +115,33 @@ test('fermé, sa page ne prépare rien : ni la base de la campagne, ni les tas d
   }
 })
 
-test('en maintenance, le Cabinet ferme son départ, ses achats et son échange — jamais un geste : la partie commencée se finit', async () => {
+test('en maintenance, le Cabinet ferme le départ d’une traversée, et les portes du musée qui dort — jamais un geste : la traversée en route va au bout', async () => {
   assert.ok(PAGES_EN_MAINTENANCE.includes('cabinet'))
-  // Ce qui recommence quelque chose : une partie, une dépense de poussière d'or, un jeu de la visite changé (le lot C3 y a
-  // ajouté l'achat, la dorure et l'échange, nés avec leurs routes).
-  assert.deepEqual(PORTES_DES_PAGES.cabinet, ['POST /api/cabinet/partie', 'POST /api/cabinet/oeuvre/:cle/achat', 'POST /api/cabinet/oeuvre/:cle/dorure', 'POST /api/cabinet/visite/echange'])
+  // Ce qui recommence quelque chose. Le départ d'une traversée d'abord, la seule porte que la page ouvre encore : jusqu'au
+  // 10 novembre 2026 elle n'y était pas, et la page fermée, un départ envoyé à la main passait. Puis celles du musée, que
+  // plus aucun écran n'appelle mais dont le serveur répond encore : une partie, une dépense de poussière d'or, un jeu de la
+  // visite changé (le lot C3).
+  assert.deepEqual(PORTES_DES_PAGES.cabinet, [
+    'POST /api/cabinet/traversee',
+    'POST /api/cabinet/partie',
+    'POST /api/cabinet/oeuvre/:cle/achat',
+    'POST /api/cabinet/oeuvre/:cle/dorure',
+    'POST /api/cabinet/visite/echange',
+  ])
+  // Ce que le QG en dit à l'administrateur : la traversée, plus les achats ni l'échange d'un jeu, qu'aucun écran ne montre.
+  assert.match(PAGES_FERMABLES.cabinet.ferme, /le départ d’une traversée/)
+  assert.match(PAGES_FERMABLES.cabinet.ferme, /la traversée en cours se finit/)
+  assert.doesNotMatch(PAGES_FERMABLES.cabinet.ferme, /achat|échange|partie/)
   // Sa panne se dit sous son nom : la page, son départ, un geste, et ce qui dépense la poussière.
-  for (const source of ['GET /api/cabinet', 'POST /api/cabinet/partie', 'POST /api/cabinet/partie/:id/geste', 'GET /api/cabinet/oeuvre/:cle', 'POST /api/cabinet/oeuvre/:cle/achat'])
+  for (const source of [
+    'GET /api/cabinet',
+    'POST /api/cabinet/traversee',
+    'POST /api/cabinet/traversee/:id/geste',
+    'POST /api/cabinet/partie',
+    'POST /api/cabinet/partie/:id/geste',
+    'GET /api/cabinet/oeuvre/:cle',
+    'POST /api/cabinet/oeuvre/:cle/achat',
+  ])
     assert.equal(modeDeLaSource(source), 'cabinet', source)
 
   const b = await bancDuCabinet()
@@ -128,13 +149,29 @@ test('en maintenance, le Cabinet ferme son départ, ses achats et son échange �
     const admin = await connexionAnimateur(b.banc.url)
     const lea = await inscrireProfil(b.banc.url, 'lea', 'Léa')
     const tom = await inscrireProfil(b.banc.url, 'tom', 'Tom')
+    const zoe = await inscrireProfil(b.banc.url, 'zoe', 'Zoé')
     const tomId = (await lire(b, tom, '/api/joueur/moi?leger')).corps.profile.id as string
     const enRoute = ok(await commencer(b, lea, { origine: 'libre', jeu: 'pari', carte: null }), 'une partie commencée avant')
+    // La traversée de Zoé, partie avant la maintenance : ses cartes ne sont pas encore choisies.
+    const partir = (cookie: string) => poster<PageDeLaTraversee>(b, cookie, '/api/cabinet/traversee', {})
+    const geste = (cookie: string, t: { id: string; rang: number }, g: Record<string, unknown>) =>
+      poster<PageDeLaTraversee>(b, cookie, `/api/cabinet/traversee/${t.id}/geste`, { rang: t.rang, geste: g })
+    const partie = ok(await partir(zoe), 'une traversée partie avant').traversee!
     const changer = (etat: string) => ecrire(b.banc.url, '/api/admin/maintenance/pages/cabinet', { etat }, admin, 'PUT')
     assert.equal((await changer('maintenance')).status, 200)
 
-    const refus = await commencer(b, tom, { origine: 'libre', jeu: 'pari', carte: null })
     const enMaintenance = [423, { error: `${PAGES_FERMABLES.cabinet.titre} : reviens un peu plus tard`, maintenance: 'cabinet' }]
+    // Le départ d'une traversée se ferme : rien n'a commencé pour Tom.
+    const sansDepart = await partir(tom)
+    assert.deepEqual([sansDepart.status, sansDepart.corps], enMaintenance, 'le départ d’une traversée')
+    assert.equal(ok(await lire<PageDeLaTraversee>(b, tom, '/api/cabinet/traversee'), 'se relire ne recommence rien').traversee, null)
+    // Celle de Zoé va au bout : ses cartes, puis une épreuve où elle entre — la maintenance ne coupe personne en route.
+    const cartes = ok(await geste(zoe, partie, { quoi: 'cartes', cartes: ['coup-d-oeil', 'echange', 'panacee'] }), 'ses cartes, en pleine maintenance').traversee!
+    const etape = cartes.actes[0].etapes.find(e => cartes.atteignables.includes(e.id) && e.sorte === 'epreuve')!
+    const entree = ok(await geste(zoe, cartes, { quoi: 'aller', etape: etape.id, ...(etape.choix && { theme: 0 }) }), 'une épreuve où elle entre')
+    assert.equal(entree.traversee!.ou.sorte, 'epreuve')
+
+    const refus = await commencer(b, tom, { origine: 'libre', jeu: 'pari', carte: null })
     assert.deepEqual([refus.status, refus.corps], enMaintenance)
     for (const [chemin, corps] of [
       ['/api/cabinet/oeuvre/bastion/achat', { prix: 400 }],
@@ -159,6 +196,13 @@ test('en maintenance, le Cabinet ferme son départ, ses achats et son échange �
     const attend = await commencer(b, lea, { origine: 'libre', jeu: 'pari', carte: null })
     assert.deepEqual([attend.status, attend.corps], [423, { error: `${PAGES_FERMABLES.cabinet.bientot} : reviens dans quelques jours`, bientot: 'cabinet' }])
     assert.equal((await commencer(b, tom, { origine: 'libre', jeu: 'pari', carte: null })).status, 200, 'son testeur part')
+    // La traversée de même : qui attend ne part pas, son testeur si — un autre profil que Tom, qu'une partie du musée attend.
+    const attendLaTraversee = await partir(lea)
+    assert.deepEqual([attendLaTraversee.status, attendLaTraversee.corps], [423, { error: `${PAGES_FERMABLES.cabinet.bientot} : reviens dans quelques jours`, bientot: 'cabinet' }])
+    const max = await inscrireProfil(b.banc.url, 'max', 'Max')
+    const maxId = (await lire(b, max, '/api/joueur/moi?leger')).corps.profile.id as string
+    assert.equal((await ecrire(b.banc.url, `/api/admin/maintenance/pages/cabinet/testeurs/${maxId}`, undefined, admin, 'PUT')).status, 200)
+    assert.equal(ok(await partir(max), 'son testeur part en traversée').traversee?.ou.sorte, 'cartes')
   } finally {
     await b.banc.close()
   }

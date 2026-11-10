@@ -2957,7 +2957,8 @@ export class ProfileStore {
       const c = compagnonDuCatalogue(cle)
       if (!c) throw new Error('Ce compagnon n’existe pas')
       if (this.compagnons.get(id)?.has(c.key)) throw new Error(`${c.nom} est déjà à toi`)
-      // La luciole ne se vend pas : seul un appel forgé la demanderait, la boutique ne la montre pas.
+      // Un compagnon qui se gagnerait ne se vend pas. Plus aucun depuis le 31 octobre 2026 : la luciole, que cette garde
+      // refusait, s'achète comme les autres (`Compagnon.gagne`, que personne ne porte plus).
       if (c.gagne) throw new Error(`${c.nom} ne s’achète pas : ${c.le === 'la' ? 'elle' : 'il'} rejoint qui ${cheminDeLaLuciole()}`)
       const manque = PRIX_D_UN_COMPAGNON - (await this.boutiqueDe(rec, jour)).confettis.solde
       if (manque > 0) throw new Error(`Il te manque ${nConfettis(manque)} pour ${nomDansLaPhrase(c.nom)}`)

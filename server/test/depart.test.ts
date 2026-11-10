@@ -566,3 +566,20 @@ test('les sentiers partent avec la campagne, une fois ; les onglets du profil av
   // jamais l'accueil, qui n'en montre rien (`campagne-ouverture.test.ts`).
   assert.match(source('views/ProfilApp.tsx'), /^if \(VUE === 'boutique' \|\| VUE === 'profil'\) void panneaux\.charger\(\)/m)
 })
+
+test('`npm run mesure` attend, au Cabinet, un élément que sa page rend : la traversée, plus les portes du musée', () => {
+  // La page n'est plus que la traversée depuis le soir du 31 octobre 2026, et la mesure y attendait encore
+  // `.cab-portes .cab-porte`, que seul le musée posait : soixante secondes, puis « l'écran utile ne vient pas », et une
+  // ligne de tirets au tableau (relevé le 10 novembre 2026). Chaque classe qu'elle attend est posée par l'écran de la
+  // traversée, celui que `CabinetApp` rend à un profil.
+  const script = readFileSync(new URL('../scripts/mesure-pages.ts', import.meta.url), 'utf8')
+  const ligne = script.split('\n').find(l => l.includes("cle: 'cabinet'"))
+  assert.ok(ligne, 'la page du Cabinet se mesure encore')
+  const pret = ligne.match(/pret: '([^']+)'/)?.[1] ?? ''
+  const classes = [...pret.matchAll(/\.([\w-]+)/g)].map(m => m[1])
+  assert.ok(classes.length > 0, pret)
+  assert.match(source('views/CabinetApp.tsx'), /<Traversee page=\{etat\.page\}/, 'la page rend la traversée')
+  const traversee = source('views/cabinet/Traversee.tsx')
+  for (const classe of classes) assert.match(traversee, new RegExp(`className="[^"]*\\b${classe}\\b[^"]*"`), `.${classe}, que la traversée ne pose pas`)
+  assert.doesNotMatch(ligne, /musée/i, 'son nom au tableau')
+})

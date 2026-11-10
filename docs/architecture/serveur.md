@@ -434,9 +434,10 @@ question arrivait le chrono entamé. Seul le plafond des départs
 derrière `/api/cabinet` ; son oubli d'un profil **avant** celui de la campagne
 (`supprimerProfil` : ses gestes se trouvent par les séries du profil, que la
 campagne efface) ; la balise du Cabinet fermé dans la page servie. Ses routes
-passent derrière `fermerLesPortes` : le QG peut fermer le départ, l'achat, la
-dorure et l'échange (`PORTES_DES_PAGES.cabinet`), et une partie commencée se
-finit. Le détail des tables : [Les données](./donnees.md#le-cabinet-de-curiosités) ;
+passent derrière `fermerLesPortes` : le QG peut fermer le départ d'une
+traversée — jamais son geste : une traversée en route va au bout —, et les
+portes du musée qui dort, le départ d'une partie, l'achat, la dorure et
+l'échange (`PORTES_DES_PAGES.cabinet`) ; une partie commencée se finit. Le détail des tables : [Les données](./donnees.md#le-cabinet-de-curiosités) ;
 les pièges du code : `.claude/rules/cabinet.md`.
 
 ## Les tâches de fond

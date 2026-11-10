@@ -201,7 +201,8 @@ export function mountApi(app: Express, deps: ApiDeps) {
   // Effacée, ses adresses répondent « introuvable » à tous — sans cela, la porte des animateurs, plus bas, les prenait
   // pour les siennes et répondait « Connexion requise » à un joueur connecté à son profil.
   else app.use('/api/expedition', (_req, res) => res.status(404).json({ error: 'Introuvable' }))
-  // Le Cabinet de curiosités, qu'on joue seul avec son profil : en préproduction d'abord, fermé en production tant que son drapeau le ferme.
+  // Le Cabinet de curiosités, qu'on joue seul avec son profil : en préproduction d'abord, ouvert en production depuis le
+  // 31 octobre 2026 (`CABINET_EN_PRODUCTION`) — son drapeau refermé, chacune de ses routes y répondrait 404.
   mountCabinet(app, { cabinet: deps.cabinet.magasin, profiles: deps.profiles, ouvert: deps.cabinet.ouvert })
   // Ses missions du jour et le coffre de la semaine, de même.
   mountMissions(app, { missions: deps.missions, profiles: deps.profiles })
