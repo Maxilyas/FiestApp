@@ -245,12 +245,18 @@ const DOIVENT_TENIR = ['sans-niche', 'debutant', 'avatar', 'commune', 'pieces', 
  * Une habituée qui a ses trois réglages — finition, bordure, sceau — et son compagnon : tout tient avant la grille à
  * chaque taille — à deux pixels du menu sur le petit téléphone de référence, où sa niche tient la carte à 86 px du
  * haut —, une rangée d'avatars dès 740 px de haut, deux dès 844, trois en 915. Un nouveau venu — une seule gemme, des
- * cases d'emoji plus basses — : deux rangées sur le petit téléphone, trois dès 740, quatre dès 800, cinq en 915. Les
+ * cases d'emoji plus basses — : deux rangées sur le petit téléphone, trois dès 740, quatre dès 844, cinq en 915. Les
  * cinq autres pièces : ce qu'elles disent avant leur grille, et une rangée au moins.
+ *
+ * La quatrième rangée d'un nouveau venu se voyait dès 800 px le matin du 10 novembre 2026 : ce que sa bordure lui dit
+ * tenait sur deux lignes en 412 de large. Le même jour, la règle des crans y a ajouté « , ou plus haut, » — « chaque
+ * duel gagné dans la ligue, ou plus haut, y sertit un cran » : trois lignes à toutes les largeurs de téléphone, 19 px
+ * de plus, et la quatrième rangée finit 7 px sous le menu en 412 × 800. La phrase reste entière — un nouveau venu
+ * n'a qu'elle pour comprendre ses bordures — : c'est le compte qui suit, pas elle qui se coupe.
  */
 const DOIT_TENIR = (hauteur: number, nom: string, piece: PieceDeLaLoge): number => {
   if (piece !== 'avatar') return 1
-  if (nom === 'debutant') return hauteur >= 900 ? 5 : hauteur >= 800 ? 4 : hauteur >= 740 ? 3 : 2
+  if (nom === 'debutant') return hauteur >= 900 ? 5 : hauteur >= 844 ? 4 : hauteur >= 740 ? 3 : 2
   return hauteur >= 900 ? 3 : hauteur >= 844 ? 2 : hauteur >= 740 ? 1 : 0
 }
 /**

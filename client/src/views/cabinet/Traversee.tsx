@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { aLaDemande, useALaDemande } from '../../aLaDemande'
 import { confirmDialog } from '../../components/Dialog'
 import { Icon } from '../../components/Icon'
@@ -949,7 +949,57 @@ function LesGardiens({ t, possedes, onChoisirLesCartes }: { t: VueDeLaTraversee;
   )
 }
 
-function ChoixDesCartes({
+/** L'écran du choix des cartes, tel que `poserLesLignesDuChoix` le lit et y écrit : l'élément même, ou son double dans une épreuve. */
+export interface EcranDuChoix {
+  readonly scrollHeight: number
+  readonly clientHeight: number
+  readonly dataset: { lignes?: string }
+}
+
+/**
+ * La description d'une carte prend deux lignes là où la feuille les lui donne (`--choix-lignes`, un grand téléphone)
+ * — tant que l'écran tient encore : les deux lignes essayées, l'écran dit s'il défile, et elle revient alors à une
+ * (`data-lignes="une"`, `styles.css`). Aucune taille d'écran écrite ne le sait d'avance : la place dépend de la police
+ * du thème porté. Sous la machine à écrire du Carnet, à chasse fixe, les dix descriptions demandaient deux lignes au
+ * lieu de quatre, et l'écran défilait de 111 px en 412 × 800, de 54 en 412 × 915 (mesuré sous les trente-cinq thèmes,
+ * le 10 novembre 2026) ; l'encoche d'un iPhone, que les requêtes de média ne voient pas, et le texte agrandi prennent
+ * leur part aussi. La page mesure, comme pour le mot de « Quitter » (`poserLeMotDeQuitter`, `bande.ts`).
+ */
+export function poserLesLignesDuChoix(ecran: EcranDuChoix): void {
+  delete ecran.dataset.lignes
+  if (ecran.scrollHeight > ecran.clientHeight) ecran.dataset.lignes = 'une'
+}
+
+/**
+ * Les lignes du choix, remesurées quand l'écran change de taille — le téléphone tourné, la barre d'adresse du
+ * navigateur qui se replie —, et quand une police du thème arrive après lui (`font-display: swap`), qui élargit ses
+ * phrases sans changer sa taille. L'écran observé ne grandit pas avec ce qu'il contient : l'observateur ne boucle pas.
+ */
+function useLesLignesDuChoix(ecran: RefObject<HTMLDivElement | null>) {
+  useLayoutEffect(() => {
+    const el = ecran.current
+    if (!el) return
+    const poser = () => poserLesLignesDuChoix(el)
+    poser()
+    const suivi = typeof ResizeObserver === 'function' ? new ResizeObserver(poser) : null
+    suivi?.observe(el)
+    document.fonts?.addEventListener('loadingdone', poser)
+    return () => {
+      suivi?.disconnect()
+      document.fonts?.removeEventListener('loadingdone', poser)
+    }
+  }, [ecran])
+}
+
+/**
+ * Le choix de ses trois cartes, sur un écran (« je pense que l'on peut faire tenir tout sur le même écran », le
+ * propriétaire, le 10 novembre 2026) : la même tête, les dix lignes, le même bouton, à leur place — c'est la feuille qui
+ * les resserre, sous 1080 px de haut (`.cab-tv-choix`, ses mesures à trois pas de hauteur d'écran). L'écran porte son
+ * nom pour elle : les autres écrans pleins de la traversée gardent leurs mesures. `server/scripts/rendu-traversee.ts`
+ * dit ce qui tient, taille par taille. Exporté pour ses épreuves (`cabinet-ecran.test.ts`) : la page ne le pose que par
+ * `Traversee`.
+ */
+export function ChoixDesCartes({
   v,
   defis,
   choix,
@@ -968,14 +1018,21 @@ function ChoixDesCartes({
 }) {
   const complet = choix.length === CARTES_D_UNE_TRAVERSEE
   const [vue, setVue] = useState<CleDeCarte | null>(null)
+  const ecran = useRef<HTMLDivElement>(null)
+  useLesLignesDuChoix(ecran)
   return (
-    <div className="cab-tv-ecran">
+    <div className="cab-tv-ecran cab-tv-choix" ref={ecran}>
       <div className="cab-tv-colonne">
         <Sortie vers="Tes gardiens" href="/cabinet" onClick={onRetour} />
         <header className="cab-tv-tete-ecran">
           <p className="cab-tv-sur">Avant de partir</p>
           <h2 tabIndex={-1}>Choisis trois cartes</h2>
-          <p className="cab-tv-pale">{espacesFines('Les seules de ta traversée : touche une carte pour la prendre, « Voir » pour sa fiche.')}</p>
+          {/* La même phrase, en deux temps : ce qu'un écran moyen en garde, puis sa suite, que la feuille cache à l'œil là où
+              elle prendrait la place d'une carte — jamais ôtée, le lecteur d'écran la lit entière à toutes les tailles. */}
+          <p className="cab-tv-pale cab-tv-choix-phrase">
+            Les seules de ta traversée
+            <span className="cab-tv-choix-suite">{espacesFines(' : touche une carte pour la prendre, « Voir » pour sa fiche.')}</span>
+          </p>
         </header>
         <ul className="cab-tv-lignes">
           {CARTES.map(c => (

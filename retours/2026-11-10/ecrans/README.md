@@ -60,6 +60,7 @@ node retours/2026-11-10/ecrans/reproductions/pouces.cjs export/releve/sonde   # 
 | Le classement des collections | son podium finissait sous le menu partout, sauf sur le plus grand téléphone : de 289 px en 360 × 640, de 230 en 390 × 664, de 189 en 360 × 740, de 82 en 412 × 800, de 50 en 390 × 844 | rien n'y change de place : sa place, les Divins, les puces et le podium au-dessus du menu aux six tailles — 21 px de libre en 360 × 640, 86 en 390 × 844 (35 sous l'encoche) ; les sept puces sur deux rangées au lieu de trois, le titre sur une ligne ; sa liste, elle, défile par nature (`rendu-collectionneurs.ts`, les états `25-…`) |
 | « M'habiller » (la loge), la pièce « Avatar » | une habituée ne voyait pas un seul de ses avatars sans défiler, sur aucun téléphone : ses gemmes finissaient à 802 px et la première rangée de sa grille à 886, pour 575 visibles en 360 × 640 (779 en 390 × 844, 850 en 412 × 915) | rien n'y change de place : sa finition, sa bordure, son sceau et ses gemmes tiennent partout (à 2 px du menu en 360 × 640, 227 dessous avant), puis une rangée de ses avatars en 360 × 740 et en 412 × 800, deux en 390 × 844, trois en 412 × 915 ; ce que la bordure et le sceau disent tient sur une ligne, en morceaux entiers (`rendu-loge.ts`) |
 | « Mon compagnon » | 951 px de page en 360 × 640 pour 575 visibles : 407 px à faire défiler — ses envies coupées de 4 px, son chemin et « Tes compagnons » dessous ; 973 pour 850 en 412 × 915 | rien n'y change de place : tout tient et la page ne défile plus dès 360 × 740 (8 px de libre, 51 en 390 × 844, 16 sous l'encoche, 44 en 412 × 915) ; en 360 × 640 et en 390 × 664, sa scène, ses envies et son chemin tiennent, « Tes compagnons » se lit dessous (99 et 90 px à faire défiler). Sa scène ne rapetisse pas : son cadre se rogne par le bas (`rendu-compagnon.ts`, la passe `tailles`) |
+| Le choix des cartes d'une traversée du Cabinet (« Avant de partir — Choisis trois cartes ») | ses dix lignes de 90 à 112 px, leur description sur deux ou trois lignes : l'écran, 1 212 px pour 640, défilait de 652 px dans son cadre — on y voyait trois cartes —, de 426 en 390 × 844, de 333 encore en 412 × 915 | rien n'y change de place : les dix cartes et le bouton du pied sur un écran aux six tailles, des lignes de 47 px en 360 × 640 (7 px de jeu en tout), de 60 en 390 × 844 (52 sous l'encoche) ; la description d'une carte sur une ligne, coupée au bout — neuf sur dix en 360 de large, six en 390 —, sur deux dès 412 × 800 où toutes se lisent entières ; sa phrase entière reste dans « Voir » et à l'oreille ; aucun texte sous 17 px (`rendu-traversee.ts`, `SEULEMENT=cartes`) |
 
 Le geste « sous le pouce » : la règle `.claude/rules/css.md` le raconte,
 `server/test/sous-le-pouce.test.ts` le garde. Mesuré après : sur les
@@ -86,8 +87,10 @@ changé au pixel.
 - **Le QG** : des tableaux de bord.
 - **L'Expédition** : son départ est fermé (le Cabinet l'a remplacée) ; ses
   écrans ne sont plus servis à personne de neuf.
-- **Le Cabinet de curiosités** : tout tient déjà (0 px partout, son pied de
-  partie collé).
+- **Le Cabinet de curiosités** : ses pages tiennent (0 px partout, son pied
+  de partie collé). La sonde n'y mesurait que ce dont la page défile : le
+  choix des cartes d'une traversée, lui, défilait dans son cadre — de 652 px
+  en 360 × 640 —, et la revue l'avait dit tenu. Il est au tableau plus haut.
 
 ## Ce qui reste
 
@@ -117,7 +120,14 @@ changé au pixel.
   125 px, le carrefour du profil de 42. Leurs lignes grandissent avec le
   texte, c'est voulu ; elles ne tiennent plus toutes. Au départ d'une série,
   une série à reprendre, la ligne du choix passe de 52 px sous l'écran ; le
-  gros bouton reste entier.
+  gros bouton reste entier. Le choix des cartes du Cabinet défile encore de
+  89 px (1 114 avant), son bouton collé au pied.
+- **Le choix des cartes du Cabinet, sous 633 px de haut** en 360 de large —
+  un petit téléphone dans un navigateur, ses barres dépliées — : la liste
+  défile dans son cadre de ce qui manque. Et ses descriptions coupées au
+  bout sur un téléphone étroit sont le prix du « tout sur un écran » : des
+  phrases plus courtes, écrites pour la liste, tiendraient entières — un
+  choix de mots, donc du propriétaire.
 - **Sur un vrai téléphone** : la barre d'adresse d'un navigateur retire de la
   hauteur que Chromium sans écran ne retire pas. L'encoche, elle, se mesure
   (`ENCOCHE=47`) : l'accueil et le carrefour tiennent en 390 × 844,

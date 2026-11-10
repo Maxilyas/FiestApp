@@ -12373,6 +12373,110 @@ button.cab-tv-carte { cursor: pointer; }
 .cab-tv-ligne-texte b { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; font-family: var(--font-display, Georgia, serif); font-size: 1.125rem; font-weight: 700; line-height: 1.2; }
 .cab-tv-ligne-texte small { font-size: 1.0625rem; line-height: 1.3; color: var(--cab-tv-pale); }
 .cab-tv-ligne-voir { flex: none; min-width: 72px; padding: 0 10px; border: 0; border-radius: 0 14px 14px 0; background: none; color: var(--cab-tv-or-clair); font: inherit; font-size: 1.0625rem; font-weight: 700; cursor: pointer; touch-action: manipulation; }
+/* Le choix des cartes tient sur un écran (`ChoixDesCartes`, `.cab-tv-choix` ; « je pense que l'on peut faire tenir tout sur le
+   même écran », le propriétaire, le 10 novembre 2026). En 360 × 640, ses dix lignes faisaient de 90 à 112 px — leur description
+   sur deux ou trois lignes —, et l'écran 1212 px pour 640 : il défilait de 652 px, de 333 encore en 412 × 915. Rien n'a changé de
+   place, ni un mot, ni un geste : les mêmes lignes, plus basses, sous 1080 px de haut — au-delà, l'allure d'avant, qui y tient.
+   Ses mesures sont des variables posées sur lui, à trois pas de hauteur d'écran : un grand téléphone, une tablette (900 px et
+   plus) ; un écran moyen (720 px), où la tête se serre et ne garde de sa phrase que « Les seules de ta traversée » ; le petit
+   téléphone, où elle la tait. Les dix lignes se partagent la hauteur qui reste, chacune à partir de son minimum. La description
+   d'une carte tient sur une ligne, coupée au bout — sur deux là où l'écran a la place des quatre qui en demandent deux, dès
+   412 × 800 — : sa phrase entière, composée du barème, se lit dans sa fiche (« Voir ») et à l'oreille (`aria-label`). Ce qu'un
+   écran court tait n'est caché qu'à l'œil, comme `.sr-only`. Aucun texte n'y change de taille, sauf le titre, de 28 à 24 px.
+   `server/scripts/rendu-traversee.ts` dit, taille par taille, où finit la dernière carte, et sort en erreur si elle passe sous
+   le pied. */
+@media (max-height: 1079px) {
+  .cab-tv-choix {
+    /* La hauteur d'une ligne, son minimum : une cible de doigt de 44 px entre ses deux filets. */
+    --choix-rang: 46px;
+    --choix-entre: 4px;
+    --choix-marge: 1px;
+    --choix-haut: 8px;
+    --choix-ecart: 8px;
+    /* Ce que la tête reprend sous « ← Tes gardiens », dont la cible garde ses 44 px. */
+    --choix-sortie: -4px;
+    --choix-tete: 3px;
+    --choix-sur: 1.3;
+    --choix-titre: 1.75rem;
+    --choix-nom: 1.15;
+    --choix-dit: 1.24;
+    --choix-lignes: 1;
+    --choix-pied: 6px;
+    --choix-bas: 8px;
+    --choix-bouton: 48px;
+  }
+  /* L'encoche reste comptée, en haut comme en bas : ces deux règles reprennent la marge de `.cab-tv-colonne` et de `.cab-tv-pied`. */
+  .cab-tv-choix > .cab-tv-colonne { gap: var(--choix-ecart); padding-top: calc(var(--choix-haut) + env(safe-area-inset-top, 0px)); padding-bottom: var(--choix-ecart); }
+  .cab-tv-choix .jour-sortie { margin-bottom: var(--choix-sortie); }
+  /* Une seule colonne, qui ne s'élargit jamais à son contenu : la suite de la phrase, cachée, l'élargissait à ses 430 px. */
+  .cab-tv-choix .cab-tv-tete-ecran { grid-template-columns: minmax(0, 1fr); gap: var(--choix-tete); }
+  .cab-tv-choix .cab-tv-tete-ecran .cab-tv-sur { line-height: var(--choix-sur); }
+  .cab-tv-choix .cab-tv-tete-ecran h2 { font-size: var(--choix-titre); }
+  /* Les lignes se partagent ce qui reste, chacune à partir de son contenu (`flex: 1 0 auto`) : à zéro, une ligne au texte agrandi
+     serait écrasée sous lui au lieu de laisser l'écran défiler. */
+  .cab-tv-choix .cab-tv-lignes { display: flex; flex-direction: column; flex: 1 0 auto; gap: var(--choix-entre); }
+  .cab-tv-choix .cab-tv-ligne { flex: 1 0 auto; min-height: var(--choix-rang); }
+  /* La case, « Voir » et leurs marges, au plus juste : chaque pixel rendu à la phrase en laisse une de plus entière — à 248 px,
+     « Plus de temps à chaque manche. » perdait son dernier mot pour un dixième de pixel. */
+  .cab-tv-choix .cab-tv-ligne-choix { gap: 8px; padding: var(--choix-marge) 2px var(--choix-marge) 8px; }
+  .cab-tv-choix .cab-tv-case { width: 24px; height: 24px; }
+  .cab-tv-choix .cab-tv-ligne-texte { gap: 0; }
+  /* Son nom et les sceaux de son défi sur une ligne : passés dessous — « Quitte ou double », en 360 de large, sous la police
+     large d'un téléphone —, ils grandissaient la leur. */
+  .cab-tv-choix .cab-tv-ligne-texte b { flex-wrap: nowrap; line-height: var(--choix-nom); white-space: nowrap; }
+  /* Ce qu'elle fait, borné : une ligne, deux sur un grand téléphone (`--choix-lignes`), les points de suspension au bout. */
+  .cab-tv-choix .cab-tv-ligne-texte small { display: -webkit-box; overflow: hidden; line-height: var(--choix-dit); -webkit-box-orient: vertical; -webkit-line-clamp: var(--choix-lignes); }
+  .cab-tv-choix .cab-tv-ligne-voir { min-width: 56px; padding: 0 3px; }
+  .cab-tv-choix .cab-tv-ligne-voir span { padding: 3px 7px; }
+  .cab-tv-choix > .cab-tv-pied { padding-top: var(--choix-pied); padding-bottom: calc(var(--choix-bas) + env(safe-area-inset-bottom, 0px)); }
+  /* Le fondu du pied s'arrête à la marge de la liste : à ses 28 px, il assombrissait le bas de la dernière carte. */
+  .cab-tv-choix > .cab-tv-pied::before { height: var(--choix-ecart); }
+  /* Le bouton du pied sur une ligne — « Encore 3 à choisir », puis « 0 sur 3 » — : par l'enfant direct du pied, celui de la
+     fiche d'une carte, ouverte dans cet écran, garde ses mesures. */
+  .cab-tv-choix > .cab-tv-pied .cab-tv-cta { min-height: var(--choix-bouton); grid-auto-flow: column; justify-content: center; align-items: baseline; column-gap: 10px; }
+}
+/* Un grand téléphone — 412 px de large, 800 de haut — a la place de deux lignes pour les quatre descriptions qui les demandent
+   (l'Échange, Quitte ou double, la Parade, le Second souffle) : toutes s'y lisent entières. Plus étroit, sept puis dix en
+   demanderaient deux, et un iPhone perd 81 px à son encoche : une ligne. Et deux lignes ne valent que si l'écran tient encore,
+   ce qu'aucune taille écrite ne sait : la page les essaie, mesure, et revient à une ligne s'il défile (`data-lignes`,
+   `poserLesLignesDuChoix`, `Traversee.tsx`) — sous la police à chasse fixe du Carnet, les dix descriptions en demandaient
+   deux, et l'écran défilait de 111 px en 412 × 800. */
+@media (min-width: 412px) and (min-height: 800px) {
+  .cab-tv-choix { --choix-lignes: 2; }
+  .cab-tv-choix[data-lignes='une'] { --choix-lignes: 1; }
+}
+/* Un écran moyen : la tête se serre, son titre d'un cran dessous, et sa phrase s'arrête à « Les seules de ta traversée » — sa
+   suite cachée à l'œil seulement. */
+@media (max-height: 899px) {
+  .cab-tv-choix {
+    --choix-sortie: -6px;
+    --choix-tete: 2px;
+    --choix-sur: 1.2;
+    --choix-titre: 1.5rem;
+  }
+  .cab-tv-choix-suite { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+/* Le petit téléphone : tout au plus serré, et la phrase de la tête tue — cachée à l'œil seulement, et posée au bas de la tête : à
+   sa place dans le fil, sa ligne, longue même cachée, passait pour un texte sous la niche du compagnon (`SOUS_LA_NICHE` relève
+   la boîte d'une ligne, pas ce qu'on en voit). */
+@media (max-height: 719px) {
+  .cab-tv-choix {
+    --choix-entre: 2px;
+    --choix-marge: 0px;
+    --choix-haut: 4px;
+    --choix-ecart: 4px;
+    --choix-sortie: -10px;
+    --choix-nom: 1.12;
+    --choix-dit: 1.18;
+    --choix-pied: 4px;
+    --choix-bas: 6px;
+    --choix-bouton: 46px;
+  }
+  /* La tête mord de 6 px sur la cible de « ← Tes gardiens » : rien ne s'y touche, elle laisse passer le doigt, et la sortie garde
+     ses 44 px entiers. */
+  .cab-tv-choix .cab-tv-tete-ecran { position: relative; pointer-events: none; }
+  .cab-tv-choix-phrase { position: absolute; top: 100%; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
 /* La fiche d'une carte (`FicheDeLaCarte`) : sa peinture en grand, ce qu'elle fait, son défi en entier. */
 .cab-tv-fiche { display: grid; gap: 10px; justify-items: start; }
 .cab-tv-fiche-peinture { display: block; width: 100%; aspect-ratio: 4 / 3; max-height: 24vh; overflow: hidden; border-radius: 14px; border: 2px solid rgba(247, 220, 154, 0.35); background: #000; }
