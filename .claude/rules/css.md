@@ -316,6 +316,27 @@ paths:
   52 Mo, c'est un bout de la page qui manque — son titre, son bouton du bas :
   elle pèse encore 48 Mo à la densité 2,625 sous Le Ciel, dont 37 pour le
   décor — et 10 en tout sous le Velours.
+- **Le décor d'un thème tient dans le moins de couches fixes possible.**
+  Chaque couche fixe plein écran est un calque de 10 Mo à la densité d'un
+  téléphone, et le contenu de la page, qui passe devant, en devient un de
+  plus. Le lendemain, même téléphone, même thème : à 18 h 15, le haut du
+  classement du jour joué en friture, deux lignes perdues (le retour du
+  10 novembre 2026) — en plein fondu du Ciel, cinq plein-écrans, 52 Mo. Ce
+  qui en retire : **un voile se peint sur son tableau**, sa force dans
+  l'alpha de ses couleurs (`--voile-peint`), jamais dans l'`opacity` d'une
+  couche à lui ; **deux images se fondent dans la même couche**
+  (`-webkit-cross-fade`, sous `@supports` — Firefox garde sa seconde
+  couche), pas à pas plutôt qu'en transition ; **une couche qui ne montre
+  rien n'existe pas** (`opacity: 0` la garde, `content` absent non) ; et
+  **ce qui s'anime a la taille de ce qu'il montre** — la lueur du soleil
+  bas, un septième de l'écran, y tenait un plein-écran (son
+  `transform-origin` la fait respirer comme avant). Le Ciel : 31 Mo de jour
+  et en plein fondu, 33 à l'aube et au crépuscule, 37 la nuit ; la photo la
+  même au pixel (`decors-peints.test.ts` garde la feuille,
+  `retours/2026-11-10/reproductions/classement-en-friture.ts` compte les
+  calques, à l'heure et sur la page qu'on veut). Restent à alléger, relevés
+  ce jour-là sur la même page : Le Sommet, 82 Mo (cinq couches, dont trois
+  animées), les Heures, 42.
 - **Une classe assemblée couvre tout son préfixe** : la garde des classes
   mortes (S7, `design.test.ts`) tient pour vivante toute classe qui commence
   par un préfixe construit dans le code (`gerbe-${…}`) — `.gerbe-a-gagner`
