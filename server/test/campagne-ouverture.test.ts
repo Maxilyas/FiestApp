@@ -39,10 +39,26 @@ test('la campagne s’ouvre sur sa page, pas sur « Chargement… » : le défi 
   assert.match(html, /ton record/, 'la place du record, sans rien décaler quand il arrive')
   assert.match(html, /aria-disabled="true"[^>]*>.*Commencer une série/, 'le bouton attend la série à reprendre')
   assert.doesNotMatch(html, /Chargement…/)
+  // L'attente a la forme de la page (le 10 novembre 2026) : ses onglets, le panneau, le gros bouton, la ligne du
+  // choix retenu sur ce téléphone, puis les règles. Sans ses onglets, tout descendait de 64 px à l'arrivée de la
+  // page — le gros bouton sous le doigt compris —, et les règles, passées sous la ligne du choix, auraient sauté
+  // d'une ligne de plus (`rendu-serie.ts` le suit image par image).
+  const enAttente = renderToStaticMarkup(
+    React.createElement(module.CampagneEnChemin, { onglets: React.createElement('nav', { id: 'ses-onglets' }), choix: React.createElement('button', { id: 'son-choix' }) }),
+  )
+  const places = ['id="ses-onglets"', 'campagne-heros', 'Commencer une série', 'id="son-choix"', 'campagne-puces'].map(quoi => enAttente.indexOf(quoi))
+  assert.ok(
+    places.every((place, i) => place > 0 && (i === 0 || place > places[i - 1])),
+    `les onglets, le panneau, le gros bouton, le choix, puis les règles (${places.join(', ')})`,
+  )
   // Et c'est elle que la page rend tant que le serveur n'a pas répondu —
   // ouverte sur les sentiers (`#sentiers`), la place de leurs tuiles.
   const page = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
-  assert.match(page, /if \(ecran\.e === 'chargement'\) return <CampagneEnChemin \/>/)
+  assert.match(
+    page,
+    /if \(ecran\.e === 'chargement'\) return <CampagneEnChemin onglets=\{onglets\} choix=\{<LigneDuChoix categories=\{categories\} sujet=\{sujet\} sur onChanger=\{\(\) => setChoixOuvert\(true\)\} \/>\} \/>/,
+    'la page en attente : ses onglets, et son choix retenu — « Changer » touché en l’attendant ouvre la feuille à son arrivée',
+  )
   assert.match(page, /if \(ecran\.e === 'chargement' && mode === 'sentiers'\) return <SentiersEnChemin onglets=\{onglets\} \/>/)
 })
 
@@ -53,7 +69,7 @@ test('la campagne s’ouvre sur sa page, pas sur « Chargement… » : le défi 
 // attente : c'est elle que l'attente rend.
 test('ouverte sur le carnet ou le défi, la campagne s’esquisse sur eux, pas sur la série — et lit le carnet une fois', () => {
   const page = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
-  const attente = page.indexOf("if (ecran.e === 'chargement') return <CampagneEnChemin />")
+  const attente = page.indexOf("if (ecran.e === 'chargement') return <CampagneEnChemin ")
   const carnet = page.indexOf("if (surSonOnglet && mode === 'carnet')")
   const defi = page.indexOf("if (surSonOnglet && mode === 'defi')")
   assert.ok(carnet > 0 && defi > 0 && carnet < attente && defi < attente, 'le carnet et le défi passent avant l’attente de la série')
@@ -182,6 +198,19 @@ test('la fin d’une série à sujet le rejoue, et le téléphone retient le suj
   const ligne = accueil.indexOf('<LigneDuChoix')
   const records = accueil.indexOf('<RecordsParCategorie')
   assert.ok(bouton > 0 && ligne > bouton && records > ligne, 'Commencer, puis « Sur … · Changer », puis les records')
+  // Ce qu'on fait d'abord, ce qu'on lit dessous (la revue des écrans du 10 novembre 2026, en 360 × 640) : sous le
+  // panneau, la série à reprendre, le gros bouton et la ligne du choix ; puis ce que la journée a rapporté, les
+  // règles et les records. Les règles dans le panneau et « Aujourd'hui » au-dessus du bouton, la ligne du choix
+  // passait de 22 à 139 px sous l'écran, et « Une nouvelle série » de 29 px, une série à reprendre
+  // (`server/scripts/rendu-serie.ts` le mesure, cas par cas).
+  const panneau = accueil.indexOf('<Heros etat={etat} />')
+  const reprendre = accueil.indexOf('Reprendre ma série')
+  const regles = accueil.indexOf('<ReglesDeLaSerie>')
+  const aujourdhui = accueil.indexOf('campagne-xp-du-jour')
+  assert.ok(panneau > 0 && reprendre > panneau && bouton > reprendre, 'le panneau, la série à reprendre, puis le gros bouton')
+  assert.ok(regles > ligne && records > regles, 'sous la ligne du choix, les règles, puis les records')
+  // « Aujourd'hui » en tête de la carte des règles — elle parle de la dernière —, plus entre le panneau et le bouton.
+  assert.ok(aujourdhui > regles && aujourdhui < accueil.indexOf('</ReglesDeLaSerie>'), '« Aujourd’hui » dans la carte des règles')
 })
 
 // Le souhait du propriétaire du 12 octobre 2026 : les catégories, quand on

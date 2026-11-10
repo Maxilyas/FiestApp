@@ -9333,6 +9333,12 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .campagne-puces li { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid color-mix(in srgb, var(--lueur) 30%, transparent); border-radius: var(--radius-pill); font-size: 0.8rem; color: var(--ink); }
 .campagne-puces .icon { width: 14px; height: 14px; color: var(--lueur); }
 .campagne-puces .vies .coeur { width: 12px; height: 12px; }
+/* Les règles d'une série, sous ses gestes (`ReglesDeLaSerie`, le 10 novembre 2026 : dans le panneau, au-dessus du
+   gros bouton, elles poussaient la ligne du choix sous l'écran d'un petit téléphone), dans une carte : le sol que
+   chaque thème lui donne — à même la page, elles passaient sur son décor. Au milieu, comme la ligne du jour qui les
+   précède : rangées à gauche, elles laissaient un vide à droite sous un bouton de toute la largeur. */
+.campagne-regles { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; }
+.campagne-regles .campagne-puces { justify-content: center; }
 .categories-grille { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 4px 0 2px; }
 .categorie-case { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; padding: 6px 4px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface); color: var(--muted); font: inherit; font-size: var(--t-label); font-weight: 600; line-height: 1.2; text-align: center; cursor: pointer; }
 .categorie-case .icon { width: 20px; height: 20px; }
@@ -9448,7 +9454,9 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .quoi-description { margin: 0 0 8px; }
 /* « Choisir · Les grands rendez-vous du sport » : en capitales et sur une ligne, comme un gros bouton, il sortait de l'écran. */
 .quoi-choisir { min-height: 52px; padding: 8px 18px; font-weight: 600; line-height: 1.25; white-space: normal; text-align: center; }
-.campagne-xp-du-jour { margin: 0; text-align: center; }
+/* Ce que la journée a rapporté, en tête de la carte des règles : sur deux lignes en 360 de large, partagées —
+   « double » restait seul sur la seconde. */
+.campagne-xp-du-jour { margin: 0; text-align: center; text-wrap: balance; }
 .vies { display: inline-flex; gap: 2px; color: var(--alert); }
 .vies .coeur { width: 20px; height: 20px; }
 .vies .coeur.perdu { color: var(--muted); }

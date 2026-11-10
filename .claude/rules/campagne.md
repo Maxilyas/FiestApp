@@ -6,7 +6,7 @@ paths:
   - "client/src/views/{CampagneApp,Defi,Carnet}.tsx"
   - "client/src/components/{ChoixDuTheme,SerieCorrigee}.tsx"
   - "client/src/iconeDuSujet.ts"
-  - "server/scripts/rendu-campagne.ts"
+  - "server/scripts/{rendu-campagne,rendu-serie}.ts"
   - "server/test/{campagne,campagne-abandon,campagne-carnet,campagne-charge,campagne-defi,campagne-en-tete,campagne-familles,campagne-index,campagne-mesure,campagne-modes,campagne-ouverture,campagne-recompenses,campagne-sujets,campagne-variete,tirage-sans-redite,tirage-prepare,tirage-a-la-piece,bareme-du-solo,journal-des-reponses,hors-de-la-base,porte-de-la-campagne,rang-de-la-bonne}.test.ts"
 ---
 
@@ -537,3 +537,30 @@ paths:
   espaces insécables : coupé, il se lit « Contre Automate · », puis
   « question 1 », et le texte ne change pas (`TeteDeLaQuestion`,
   `campagne-en-tete.test.ts`). Une forme neuve de l'en-tête fait de même.
+- **Au départ d'une série, ce qu'on fait d'abord, ce qu'on lit dessous**
+  (la revue des écrans du 10 novembre 2026, `retours/2026-11-10/ecrans/`) :
+  sous le panneau — le défi, le record, l'échelle —, la série à reprendre,
+  le gros bouton et la ligne du choix ; puis la carte des règles
+  (`ReglesDeLaSerie` : ce que la journée a rapporté en tête, les quatre
+  pastilles) et les records repliés. Les règles dans le panneau et
+  « Aujourd'hui » au-dessus du bouton, la ligne du choix passait sous
+  l'écran en 360 × 640 — de 22 px pour qui n'a jamais joué, de 77 après ses
+  bonnes réponses du jour, de 139 une série à reprendre, où « Une nouvelle
+  série » y passait aussi de 29, 43 avec la niche du compagnon ; elle a
+  depuis de 27 à 103 px de libre. Une ligne de plus se pose donc sous les
+  gestes, jamais dans le panneau ni entre lui et le gros bouton. Et à même
+  la page, un texte passe sur le décor du thème — « un confetti par bonne
+  réponse » à 1,62:1 sur l'enluminure des Heures, « sans chrono » à 2,17:1
+  sur la planète du Cosmos — : les règles ont le sol d'une carte, et leur
+  lueur à elles (`--lueur`, que leur filet lit : sans elle, il ne se
+  dessinait plus). L'attente a la forme de la page (`CampagneEnChemin` : ses
+  onglets, le panneau, le gros bouton, le choix retenu sur ce téléphone, les
+  règles) : sans ses onglets, tout descendait de 64 px à l'arrivée de la
+  page ; « Changer », touché en l'attendant, ouvre la feuille dès qu'elle
+  arrive. Ce qui bouge encore à l'arrivée ne se sait pas d'avance : la série
+  à reprendre, qui pousse le gros bouton, et la ligne du jour. `heros.test.ts`
+  et `campagne-ouverture.test.ts` gardent l'ordre ; ce qui se voit se mesure
+  au navigateur — `server/scripts/rendu-serie.ts` sort en erreur si le gros
+  bouton ou la ligne du choix passent sous l'écran, cas par cas —, et le
+  contraste sous chaque thème par `rendu-themes.ts <clés> --ecrans=campagne
+  --contraste`.
