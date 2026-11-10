@@ -9414,7 +9414,11 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
    10 novembre 2026 — sorties le matin dans une carte sous les gestes, « un bloc en plus […] ça encombre l'écran »).
    Son panneau seul : ceux du défi et du carnet gardent leurs mesures. */
 @media (max-height: 899px) {
-  .campagne:has(> .campagne-heros:not(.carnet-heros, .defi-heros)) { gap: 12px; padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+  .campagne:has(> .campagne-heros:not(.carnet-heros, .defi-heros)) { gap: 12px; padding-bottom: max(16px, env(safe-area-inset-bottom)); --ecart-de-la-colonne: 12px; --marge-du-bout: max(0px, calc(16px - env(safe-area-inset-bottom, 0px))); }
+  /* Son écart et sa marge du bas, redits au ressort de la page (`--ecart-de-la-colonne`, `--marge-du-bout` : le bloc « La
+     marge du bout se resserre », en fin de feuille) dans la règle même qui les pose, ici et au pas suivant — pas sous
+     une requête de plus : le départ d'une série n'a que deux pas de hauteur, et `heros.test.ts` les compte. Sans eux, le
+     ressort reprendrait les 28 px et l'écart de toute coquille, et la page finirait douze pixels avant son contenu. */
   .campagne > .campagne-heros:not(.carnet-heros, .defi-heros) { gap: 8px; padding: 14px 16px; }
   /* Avec un compagnon, ses onglets restent où ils étaient (10 px sous leur ligne, `body.avec-niche .onglets-campagne`,
      plus ce que l'écart leur reprend) : remontés avec lui, ils passaient sous sa niche. */
@@ -9426,7 +9430,7 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
    Le haut de la page ne remonte que sans compagnon : avec lui, ses onglets passeraient sous sa niche. */
 @media (max-height: 759px) {
   body:not(.avec-niche) .campagne:has(> .campagne-heros:not(.carnet-heros, .defi-heros)) { padding-top: max(14px, env(safe-area-inset-top)); }
-  .campagne:has(> .campagne-heros:not(.carnet-heros, .defi-heros)) { gap: 10px; }
+  .campagne:has(> .campagne-heros:not(.carnet-heros, .defi-heros)) { gap: 10px; --ecart-de-la-colonne: 10px; }
   .campagne > .campagne-heros:not(.carnet-heros, .defi-heros) { gap: 6px; padding: 12px 14px; }
   .campagne > .campagne-heros:not(.carnet-heros, .defi-heros) h1 { font-size: 1.7rem; }
   .campagne > .campagne-heros:not(.carnet-heros, .defi-heros) .campagne-record-hud b { font-size: 3rem; }
@@ -18699,5 +18703,107 @@ body.avec-menu .profil-carrefour {
     --carrefour-titre: 1.22rem;
     --carrefour-detail: 0.84rem;
     --carrefour-ecart: 16px;
+  }
+}
+
+/* ── La marge du bout se resserre : une page qui tient ne défile plus pour elle ──
+   La marge du bas d'une coquille vit dans sa boîte (`padding-bottom` : 28 px au téléphone d'un invité, 24 au-dessus de la
+   barre du menu ou de celle du chef, 36 sous un formulaire). Un contenu qui tenait sur l'écran, mais à moins d'une marge
+   de son bord, faisait donc défiler la page d'autant, pour ne montrer que du vide : la révélation d'une soirée de
+   25 px, « Pas cette fois » de 20, une étape de parcours de 28, « Ton équipe » de 25 — et la page bougeait sous le
+   doigt à chaque réponse d'une soirée (« Ce qui reste », la revue des écrans du 10 novembre 2026, en 360 × 640 ; en
+   390 × 844, « Palier validé » de 22 et les duels entre amis de 25).
+   Chaque règle garde la marge qu'elle pose, rien n'y est réécrit : deux pièces en font un ressort.
+   **Le ressort** (`::after`, le dernier de la colonne) reprend à la coquille, par sa marge négative, ce que sa marge du
+   bas peut rendre (`--marge-du-bout`), et le lui rend en grandissant, avant quiconque (`flex-grow: 9999`), dès que la
+   colonne a de la place. Large, la page est au pixel celle d'avant : ce qui s'étire (`.quiz-player`), ce qui est
+   poussé en bas (`.join-grow`, le geste d'un duel) s'arrête où il s'arrêtait. Juste, la marge se resserre, jusqu'à
+   rien, et la coquille garde sa hauteur d'écran : la page ne défile plus. Une colonne sépare aussi ses enfants de
+   lui : il reprend cet écart (`--ecart-de-la-colonne`, redit ici pour chaque coquille qui pose le sien).
+   **La rallonge** (`::before`, hors du flux, sous la coquille) rend sa marge au bout d'une page plus longue que
+   l'écran : ce dont la coquille dépasse sa hauteur d'écran, jusqu'à la marge entière. Trois pixels de trop font
+   défiler de six ; passé une marge, tout est comme avant. Sa hauteur lit celle de la coquille (`100%`), qui en
+   devient le repère (`position: relative`) ; elle se pose sous ce que le corps garde à la barre du menu, et reprend
+   le fond de la coquille — sous un thème peint, le sol plein d'une page du Cabinet va jusqu'au bout.
+   Ce que la marge ne rend jamais : l'encoche du bas d'un téléphone (`env(safe-area-inset-bottom)`), où rien ne doit se
+   poser, et la barre du chef, que sa coquille compte dans sa marge.
+   Sous `@supports` : sans `:has()`, les coquilles qui gardent leur marge ne se liraient pas ; sans `dvh`, la rallonge
+   n'aurait pas de hauteur d'écran à quoi se comparer (le piège du bloc « Une page prend l'écran, pas plus »). Un
+   navigateur d'avant garde la page d'avant, entière. `server/test/marge-du-bout.test.ts` garde la feuille ; ce qui
+   défile ne se voit qu'au navigateur (la sonde de `retours/2026-11-10/ecrans/`). */
+@supports selector(:has(a)) and (min-height: 100dvh) {
+  /* Ce que la marge du bas de chaque coquille peut rendre, et l'écart de sa colonne. `--pieces-du-bout` pose les deux
+     pièces (leur `content`), `--repere-du-bout` fait de la coquille le repère de la rallonge. */
+  .player-shell { --marge-du-bout: max(0px, calc(28px - env(safe-area-inset-bottom, 0px))); --ecart-de-la-colonne: 18px; --pieces-du-bout: ''; --repere-du-bout: relative; }
+  .join { --marge-du-bout: max(0px, calc(36px - env(safe-area-inset-bottom, 0px))); --ecart-de-la-colonne: 26px; --pieces-du-bout: ''; --repere-du-bout: relative; }
+  /* Au-dessus de la barre du menu, le corps garde déjà l'encoche ; au-dessus de celle du chef, la coquille garde la
+     hauteur de la barre (64 px, 88 pendant une question) : dans les deux cas, 24 px d'air à rendre. */
+  body.avec-menu .player-shell,
+  body.avec-chef .player-shell { --marge-du-bout: 24px; }
+  /* Chez le compagnon, la marge du bas suit la hauteur de l'écran (`--chez-bas`, le bloc « Tout chez lui sur un écran,
+     ou presque ») : rien sur un téléphone, 24 px sur un grand écran. Le ressort ne reprend que ce qu'elle a — à 24 px
+     sur une page qui n'en a plus, jusqu'à 24 px de « Tes compagnons » passaient derrière le menu sans que la page
+     défile. */
+  body.avec-menu .player-shell.chez-page { --marge-du-bout: var(--chez-bas); }
+  /* Une question du Cabinet hérite des 46 px où une soirée écrit « Réponse enregistrée » ; elle n'y écrit rien, et sa
+     page défile (`.cab-partie:has(.ans-grid)`) : toute cette marge se rend. */
+  .cab-partie:has(.ans-grid) { --marge-du-bout: max(0px, calc(46px - env(safe-area-inset-bottom, 0px))); }
+  /* L'écart de chaque coquille qui pose le sien, dans l'ordre et à la force de la règle qui le pose (`gap`) : le même
+     l'emporte des deux côtés. Le départ d'une série, qui se resserre sous deux hauteurs d'écran, redit le sien — et sa
+     marge du bas, 16 px — dans sa règle même (`.campagne:has(> .campagne-heros…)`) : des jumelles posées ici, sous les
+     mêmes requêtes, feraient quatre pas de hauteur là où `heros.test.ts` en compte deux. */
+  .join.entree { --ecart-de-la-colonne: 14px; }
+  @media (min-width: 700px) and (min-height: 600px) {
+    .player-shell:has(.quiz-player) { --ecart-de-la-colonne: 22px; }
+  }
+  .loge-page { --ecart-de-la-colonne: 14px; }
+  /* La loge se resserre à deux pas de hauteur d'écran, sans compagnon dans sa niche (« La loge tient sur un écran, ou
+     presque ») : le ressort suit. */
+  @media (max-height: 939px) {
+    body:not(.avec-niche) .loge-page { --ecart-de-la-colonne: 10px; }
+  }
+  @media (max-height: 759px) {
+    body:not(.avec-niche) .loge-page { --ecart-de-la-colonne: 8px; }
+  }
+  .player-shell.duels,
+  .player-shell.duels-defi,
+  .player-shell.duels-envoye { --ecart-de-la-colonne: 0px; }
+  .fin-soiree { --ecart-de-la-colonne: 14px; }
+  /* Le classement des collections pose son écart par sa propre variable, qui suit la hauteur de l'écran : la même. */
+  .cl-page { --ecart-de-la-colonne: var(--cl-ecart); }
+  /* Celles qui gardent leur marge telle quelle, sans les deux pièces. Une question tient l'écran au pixel près, et sa
+     marge porte « Réponse enregistrée » — pas celle du Cabinet. Le pied d'une partie du Cabinet reprend déjà la marge
+     à son compte (`.cab-pied-partie`). L'accueil et le carrefour du profil partagent leur hauteur entre leurs lignes ;
+     le QG et l'Expédition ont leurs marges à eux ; le verdict d'un duel tient déjà son halo dans `::before` ; un
+     formulaire posé dans une autre page ne prend pas l'écran. */
+  .player-shell:has(.ans-grid):not(.cab-partie),
+  .player-shell:has(> .cab-pied-partie),
+  .player-shell.accueil,
+  .player-shell.profil-carrefour,
+  .player-shell.qg,
+  .player-shell.expedition,
+  .player-shell.duels-verdict,
+  .join.cab-nom,
+  .porte-ecran .join { --pieces-du-bout: initial; --repere-du-bout: initial; }
+  /* Sans force (`:where`) : une coquille déjà positionnée le reste, et une règle qui la positionne garde la main. */
+  :where(.player-shell, .join) { position: var(--repere-du-bout, static); }
+  .player-shell::after,
+  .join::after {
+    content: var(--pieces-du-bout);
+    flex: 9999 1 0px;
+    min-height: 0;
+    max-height: var(--marge-du-bout);
+    margin: calc(-1 * var(--ecart-de-la-colonne)) 0 calc(-1 * var(--marge-du-bout));
+  }
+  .player-shell:not(.duels-verdict)::before,
+  .join::before {
+    content: var(--pieces-du-bout);
+    position: absolute;
+    top: calc(100% + var(--haut-du-menu, 0px));
+    right: 0;
+    left: 0;
+    height: clamp(0px, calc(100% - (100dvh - var(--haut-du-menu, 0px) - var(--haut-du-bandeau, 0px))), var(--marge-du-bout));
+    background: inherit;
+    pointer-events: none;
   }
 }
