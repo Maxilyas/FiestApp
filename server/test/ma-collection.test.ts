@@ -244,6 +244,83 @@ test('la collection : son total, trois familles, une ligne par collection — re
   assert.doesNotMatch(html, /Le porter|<button[^>]*aria-pressed/)
 })
 
+// « Ma collection » en lignes (la revue des écrans du 10 novembre 2026, à la suite de l'accueil et de « Mon
+// profil ») : le dernier carrefour qui défilait — en 360 × 640, 587 px sous le menu, ses huit lignes hautes de 84 à
+// 125 px, le nom sur deux lignes et la description sur trois. Rien du style ne change, ni un nom, ni une adresse, ni
+// l'ordre : chaque ligne dit la sienne en deux temps, comme un gros bouton de l'accueil — l'essentiel, puis ses
+// suites, dont la feuille ne montre que les morceaux qui tiennent entiers —, et la phrase d'avant reste entière à
+// l'oreille. Ce qui tient, taille par taille, se mesure au navigateur (`server/scripts/rendu-carrefour.ts`).
+test('la collection en lignes : chaque ligne dit l’essentiel puis ses suites, la même phrase à l’oreille, et la note passe sous les listes', async () => {
+  lieu.hash = ''
+  const html = await rendu('components/Collection', 'MaCollection', { profil: { ...LEA, carnet: { timbres: ['halloween:2026'], jour: '2026-12-31' } } })
+  const lignes = [
+    ...html.matchAll(
+      /<span class="trophee-texte"><b>([^<]+)<\/b><span class="muted small trophee-detail"><span class="trophee-essentiel">([^<]+)<\/span>((?:<span class="trophee-suite">[^<]+<\/span>)*)<\/span><\/span>/g,
+    ),
+  ].map(m => ({ nom: m[1], essentiel: m[2], suites: [...m[3].matchAll(/<span class="trophee-suite">([^<]+)<\/span>/g)].map(s => s[1]) }))
+  // La phrase entière, celle d'avant, mot pour mot : un lecteur d'écran la lit d'un trait.
+  assert.deepEqual(
+    lignes.map(l => `${l.nom} — ${l.essentiel}${l.suites.join('')}`),
+    [
+      'L’album des avatars — Légendaires, portraits, compagnons, emojis : par rareté',
+      'L’album des trophées — Ce que tu as réussi, mode par mode',
+      'Le carnet des fêtes — Un timbre par fête, chaque année',
+      'Thèmes — Ils habillent toutes tes pages',
+      'Fonds de carte — Derrière ta carte, quand on touche ton nom',
+      'Gerbes — Ce qui éclate à chaque bonne réponse',
+      'Finitions — Le cercle de ton avatar, au fil des niveaux',
+      'Bordures de ligue — Autour de ton avatar, une par ligue de duel',
+    ],
+  )
+  // L'essentiel tient sur la ligne d'un téléphone, à côté du compte et du chevron : 24 caractères au plus — au-delà, il se
+  // couperait au bout. Et chaque ligne a une suite : ce qu'un écran plus large ajoute, morceau par morceau.
+  for (const l of lignes) {
+    assert.ok(l.essentiel.length <= 24, `« ${l.essentiel} » (${l.essentiel.length} caractères) tient à côté du compte`)
+    assert.ok(l.suites.length > 0 && l.suites.every(s => /^[ ,:]/.test(s)), `« ${l.nom} » : ses suites commencent par leur ponctuation`)
+  }
+  // La tête ne garde que le total et sa jauge : ses trois lignes d'explication prenaient 56 px au-dessus des listes — elles
+  // se lisent dessous, une fois les huit lignes vues.
+  const tete = html.slice(html.indexOf('<div class="collection-tete">'), html.indexOf('<section class="collection-famille"'))
+  assert.match(tete, /^<div class="collection-tete"><p class="collection-total"><b>26<\/b> sur 432<\/p><span class="jauge-fine" aria-hidden="true"><span style="width:\d+%"><\/span><\/span><\/div>$/)
+  const note = html.indexOf('<p class="muted small collection-note">Touche une ligne')
+  assert.ok(note > html.lastIndexOf('</section>'), 'la note, sous la dernière famille')
+})
+
+// Ce que la feuille en fait. Mesuré au navigateur le 10 novembre 2026 (`rendu-carrefour.ts`, les cas `collection`) :
+// ses huit lignes au-dessus du menu aux quatre tailles — 9 px de libre en 360 × 640 (des lignes de 44 px, sans titre de
+// famille), 35 en 360 × 740 (46 px), 14 en 390 × 844 (52 px, chacune sa phrase), 29 en 412 × 915 (58 px).
+test('la collection en lignes, dans la feuille : une ligne reste une cible de doigt, sa phrase tient sur une ligne, et ce qu’un écran court tait se lit encore', () => {
+  const css = source('client/src/styles.css')
+  const bloc = css.slice(css.indexOf('/* ── Ma collection, en lignes'), css.indexOf('/* ── La carrière'))
+  assert.ok(bloc.length > 0, 'son bloc, de son titre à celui de la carrière')
+  // Ses mesures sont des variables posées sur elle, à quatre pas de hauteur d'écran ; une ligne ne descend jamais sous
+  // 44 px, et c'est sa hauteur minimale — son contenu, plus haut, la grandit.
+  assert.deepEqual(
+    [...bloc.matchAll(/--collection-rang: (\d+)px/g)].map(m => Number(m[1])),
+    [44, 46, 52, 58],
+  )
+  assert.deepEqual(
+    [...bloc.matchAll(/@media \(min-height: (\d+)px\) \{\s*\.collection \{/g)].map(m => Number(m[1])),
+    [720, 820, 900],
+  )
+  assert.match(bloc, /\.trophee-ligne \{[^}]*min-height: var\(--collection-rang\)/)
+  // Son nom sur une ligne : « L'album des avatars » passait sur deux en 360 de large.
+  assert.match(bloc, /\.trophee-texte b \{[^}]*overflow: hidden; white-space: nowrap; text-overflow: ellipsis;/)
+  // Sa phrase : une rangée haute d'une ligne, où ses morceaux passent entiers ou pas du tout.
+  assert.match(bloc, /\.trophee-detail \{ display: flex; flex-wrap: wrap; align-content: flex-start; height: 1\.3em; line-height: 1\.3; overflow: clip; \}/)
+  assert.match(bloc, /\.trophee-essentiel \{ min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; \}/)
+  assert.match(bloc, /\.trophee-suite \{ flex: none; white-space: pre; \}/)
+  // Ce qu'un écran court tait — la phrase et le titre d'une famille d'une seule ligne sous 820 px, tous les titres sous
+  // 720 — n'est caché qu'à l'œil, comme `.sr-only` : sous `display: none`, le lecteur d'écran ne le lirait plus.
+  const caches = [
+    ...bloc.matchAll(/@media \(max-height: (\d+)px\) \{\s*([^{}]+?)\s*\{ position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset\(50%\); white-space: nowrap; \}\s*\}/g),
+  ].map(m => `${m[1]} : ${m[2].replace(/\s+/g, ' ')}`)
+  assert.deepEqual(caches, ['819 : .collection .trophee-detail, .collection-famille:has(.trophee:only-child) > h2', '719 : .collection-famille > h2'])
+  assert.doesNotMatch(bloc, /display: none/)
+  // Sous 820 px, le total tient sur la ligne de sa jauge.
+  assert.match(bloc, /@media \(max-height: 819px\) \{\s*\.collection-tete \{ flex-direction: row-reverse; align-items: center; gap: 12px; \}/)
+})
+
 // Le carnet des fêtes (le 1er novembre 2026) : un timbre par fête et par an,
 // à côté de l'album des trophées. Un serveur d'avant ne le dit pas : pas de ligne.
 test('le carnet des fêtes : sa ligne avec les trophées, une page par année, chaque timbre dit ce qu’il en est', async () => {

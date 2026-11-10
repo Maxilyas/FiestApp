@@ -332,3 +332,41 @@ paths:
   Sur un navigateur neuf, « Mon compagnon » n'arrive encore qu'une image
   après les autres (sa niche se pose dans un effet, `porterNiche`) : c'est
   d'avant, et le script ne le compte pas.
+- **Le carrefour de « Ma collection » tient sur un écran, ses huit lignes
+  repliées** (la suite de la même revue, le 10 novembre 2026 : la première
+  des pistes proposées au propriétaire, « Enchaîne sur 1 et 2 »). Les mêmes
+  lignes — leurs noms, leurs
+  adresses, leur ordre, leur compte et leur jauge, chacune se déplie sur
+  place —, plus basses : leur nom passait sur deux lignes et leur
+  description sur trois, elles faisaient de 84 à 125 px en 360 de large, et
+  la dernière finissait à 1162 px pour 575 visibles au-dessus du menu. Leur
+  phrase se dit en deux temps, comme la ligne d'un gros bouton
+  (`LigneDeCollection` `detail`, puis `suite` : « Légendaires, portraits » |
+  « , compagnons » | « , emojis » | « : par rareté » ; « Ils habillent » |
+  « toutes tes pages »…) : la phrase d'avant mot pour mot, coupée à ses
+  jointures, l'essentiel en 24 caractères au plus — ce qui tient à côté du
+  compte —, et la feuille ne montre que les morceaux qui tiennent entiers
+  (`.trophee-detail`, une rangée `flex-wrap` haute d'une ligne). **Ses
+  mesures sont des variables posées sur `.collection`**
+  (`--collection-rang`, `--collection-embleme`, `--collection-ecart`…, le
+  bloc « Ma collection, en lignes » de `styles.css`), à quatre pas de
+  hauteur d'écran : le petit téléphone — des lignes de 44 px, le total sur
+  la ligne de sa jauge, les familles sans titre, trois cartes — ; 720 px —
+  46 px, les familles de plusieurs lignes reprennent leur titre (celle
+  d'une seule ligne le tait : sa ligne le redit, avec le même compte) — ;
+  820 px — 52 px, le total en grand chiffre, tous les titres, et la phrase
+  de chaque ligne — ; 900 px, 58 px. Ce qu'un écran court tait n'est caché
+  qu'à l'œil, comme `.sr-only` : le lecteur d'écran lit la phrase et les
+  titres à toutes les tailles. La phrase d'explication (« Touche une
+  ligne… », `.collection-note`) a quitté la tête pour le dessous des
+  listes : ses trois lignes prenaient 56 px avant la première ligne à
+  toucher. Mesuré ce jour-là (`rendu-carrefour.ts`, les cas `collection` et
+  `collection-debutant`, qui sortent en erreur si une ligne passe sous le
+  menu, descend sous 44 px ou coupe son nom) : 9 px au-dessus du menu en
+  360 × 640, 35 en 360 × 740, 14 en 390 × 844, 29 en 412 × 915 ; le texte
+  agrandi à 130 %, la dernière ligne 8 px sous le menu. Ce qui le ferait
+  défiler sur le petit téléphone : une ligne de plus (44 px) — une
+  collection neuve, plus bas dans ce fichier « Une pièce de plus à la
+  collection » —, ou quoi que ce soit au-dessus des listes. Une ligne
+  ouverte déplie son album : la page défile alors de ce qu'il montre, par
+  nature. `ma-collection.test.ts` garde les phrases, la note et la feuille.

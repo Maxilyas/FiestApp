@@ -47,6 +47,7 @@ node retours/2026-11-10/ecrans/reproductions/pouces.cjs export/releve/sonde   # 
 | L'accueil, l'affiche d'une nouveauté à la place d'« À la une » | la page défilait de 179 px (67 en 390 × 844) | l'affiche se couche en bandeau : 0 px sous le menu aux quatre tailles de téléphone (`rendu-accueil.ts`, les cas `affiche`) |
 | L'accueil, la ligne des duels | « · encore 3 duels pour ta récompense » ne se montrait que sur tablette | la relance passe devant : « Encore 3 duels pour ta récompense » |
 | « Mon profil », le carrefour (`/profil`) | ses six gros boutons empilés : la page défilait de 285 px, « Mes soirées » et « Ma carrière » sous le menu (72 px en 390 × 844) | en lignes dans une carte, comme à l'accueil : tout tient — 13 px au-dessus du menu en 360 × 640, 165 en 390 × 844 (`rendu-carrefour.ts`) |
+| « Ma collection », le carrefour (`/profil#collection`) | ses huit lignes hautes de 84 à 125 px, trois lignes d'explication au-dessus : la dernière finissait à 1 162 px pour 575 visibles (587 px sous le menu, 319 en 390 × 844) | en lignes : le nom, le compte et la jauge, la phrase de chaque ligne sur un grand écran seulement, l'explication sous les listes — ses huit lignes au-dessus du menu, 9 px de libre en 360 × 640, 14 en 390 × 844 (`rendu-carrefour.ts`, les cas `collection`) |
 | Toute page à menu, et toute page sous le bandeau du service | défilait de 72 px même à moitié vide (« Mes soirées » d'un nouveau venu, avec 325 px de libre), et de 58 de plus sous le bandeau — jusque sur l'écran d'une page en maintenance | la coquille de la page retranche la barre et le bandeau : une page dont le contenu tient ne défile plus, une page longue défile de ce qui dépasse |
 | Après une réponse — révision, série, duel au dé ou contre quelqu'un, épreuve de sentier, étape de parcours, quiz du jour | « Question suivante » sous le pli : 122 px de page en trop en révision, 129 contre Automate, 139 en épreuve | le geste reste sous le pouce (`SousLePouce`) : collé au bas de l'écran quand la page est plus longue, à sa place sinon |
 | « Défier Tom » (préparer un duel) | « Jouer le duel » au pli, 113 à 158 px de page en trop ; sous toute la liste des amis tant qu'on choisit (666 à 785 px) | sous le pouce |
@@ -65,8 +66,9 @@ changé au pixel.
 
 ## Ce qui défile par nature (relevé, laissé)
 
-- **Les listes et les albums** : la boutique (2 900 px), « Ma collection » et
-  ses albums (600 à 3 900), les collectionneurs (470 à 1 260), l'historique et
+- **Les listes et les albums** : la boutique (2 900 px), les albums de « Ma
+  collection », une ligne dépliée (900 à 3 900 ; son carrefour, replié, tient
+  depuis), les collectionneurs (470 à 1 260), l'historique et
   le classement des duels, le carnet et les parcours de thème, la carte des
   douze sentiers (530 à 800 — son bloc du haut tient l'écran, son geste
   compris) et un sentier (1 090), « Mes quiz » et l'éditeur, la loge (ses
