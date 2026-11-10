@@ -17506,6 +17506,60 @@ span.annonce-admin-merci { cursor: default; }
    Les jetons du thème partout, sauf sur les cartes du podium, nocturnes sous tous les thèmes
    comme la vraie carte, et l'opale des Divins, écrite en dur : aucun thème ne la repeint. */
 
+/* Le premier écran : sa place, les Divins, les puces et le podium se voient sans défiler (« j'aimerais que l'on puisse
+   avoir tout sur le même écran ou presque », le propriétaire, le 10 novembre 2026). Un classement défile par nature — sa
+   liste est son contenu —, mais son podium finissait sous la barre du menu partout, sauf sur le plus grand téléphone :
+   de 289 px en 360 × 640, de 230 en 390 × 664, de 189 en 360 × 740, de 82 en 412 × 800, de 50 en 390 × 844
+   (`rendu-collectionneurs.ts`, les états `25-…`). Rien n'a changé de place, ni un nom, ni un geste, ni leur ordre : ses
+   mesures sont des variables posées sur la page, à des pas de hauteur d'écran — ici le petit téléphone ; un écran moyen
+   (720 px) ; un grand (820 px) ; un très grand (900 px), où les puces reprennent leurs trois rangées ; une tablette ou
+   un ordinateur (1000 px), aux mesures d'avant. Chaque pas est le plus large qui montre le podium à sa plus petite
+   hauteur — et, dès 820 px, sous l'encoche d'un iPhone et au-dessus de sa barre d'accueil, qui prennent 51 px à la page
+   sans la changer de pas. Une variable ne se pose que sur la page, jamais sur une vue : ce qui se resserre ici garde
+   ce que la page promet plus bas — rien n'y bouge d'une puce à l'autre, à aucun pas. */
+.cl-page {
+  /* Le haut de la page, et l'écart entre ses blocs. */
+  --cl-haut: 12px;
+  --cl-ecart: 8px;
+  /* Ce que chaque bloc ajoute à l'écart : les marges d'avant, sur une tablette ou un ordinateur seulement. */
+  --cl-air: 0;
+  --cl-titre: 1.6rem;
+  /* Sa place : son retrait, son rang, son avatar, l'interligne de ce qu'elle dit. */
+  --cl-place: 8px;
+  --cl-place-rang: 1.2rem;
+  --cl-place-avatar: 1.4rem;
+  --cl-place-interligne: 1.3;
+  /* L'échelle de la rangée des Divins, et celle des cartes du podium : à 1, celles d'avant. */
+  --cl-divins: 0.76;
+  --cl-podium: 0.78;
+  /* L'encoche d'un téléphone garde sa place, comme sur toute coquille de page. */
+  padding-top: max(var(--cl-haut), env(safe-area-inset-top));
+  gap: var(--cl-ecart);
+}
+@media (min-height: 720px) {
+  .cl-page { --cl-haut: 16px; --cl-ecart: 10px; --cl-titre: 1.75rem; --cl-place: 10px; --cl-place-rang: 1.35rem; --cl-place-avatar: 1.6rem; --cl-place-interligne: 1.4; --cl-divins: 0.88; --cl-podium: 0.9; }
+}
+/* Dès 820 px, chaque bloc à sa taille d'avant. Le titre tient encore sur une ligne en 360 de large : à 2 rem, il lui
+   fallait 334 px pour 320, et sa seconde ligne en prenait 35 de haut. */
+@media (min-height: 820px) {
+  .cl-page { --cl-haut: 24px; --cl-ecart: 14px; --cl-titre: min(2rem, 8.2vw); --cl-divins: 1; --cl-podium: 1; }
+}
+@media (min-height: 900px) {
+  .cl-page { --cl-ecart: 16px; }
+}
+@media (min-height: 1000px) {
+  .cl-page { --cl-ecart: 18px; --cl-air: 1; }
+}
+/* « ← Mon profil » passe devant le titre : l'écart resserré, le bas de sa cible glissait sous lui — 38 px touchés sur
+   ses 44. */
+.cl-page > .jour-sortie { position: relative; z-index: 1; }
+.cl-page > .piece-tete h1 { font-size: var(--cl-titre); }
+/* Sur le petit téléphone, le surtitre de la pièce se tait à l'œil : « ← Mon profil », juste au-dessus, et la barre du
+   menu disent déjà où l'on est. Caché comme `.sr-only`, jamais retiré : le lecteur d'écran le lit à toutes les tailles. */
+@media (max-height: 719px) {
+  .cl-page > .piece-tete .label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+
 .cl-pierre {
   display: inline-block;
   flex: none;
@@ -17571,7 +17625,9 @@ span.annonce-admin-merci { cursor: default; }
 
 /* Le barème, replié sous le classement. */
 .cl-bareme { margin: 16px 0 0; padding: 10px 12px; border: 1px solid var(--edge); border-radius: 12px; background: var(--surface); }
-.cl-bareme summary { min-height: 28px; font-size: 0.86rem; font-weight: 600; cursor: pointer; }
+/* Son titre se touche sur toute sa boîte, pas sur sa seule ligne : haut de 28 px, il était plus bas qu'un doigt. Ses marges
+   rendent ce que son retrait prend : la boîte garde sa taille, repliée comme ouverte. */
+.cl-bareme summary { min-height: 48px; margin: -10px -12px; padding: 10px 12px; font-size: 0.86rem; font-weight: 600; cursor: pointer; }
 .cl-bareme p { margin: 6px 0; }
 /* Ouvert, trois vitrines plutôt qu'un paragraphe (« pas un gros pavé », le propriétaire, le 9 novembre 2026). */
 .cl-bareme-vitrines { display: grid; gap: 18px; margin: 12px 0 4px; }
@@ -17667,16 +17723,16 @@ span.annonce-admin-merci { cursor: default; }
 }
 
 /* Sa place, en tête : deux lignes et ce qui la ferait monter. Sur l'or pâle, le texte s'écrit en `--accent-text-hover` (règle `css.md`). */
-.cl-sa-place { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; padding: 10px 12px 10px 6px; border: 1px solid var(--edge-strong); border-radius: 16px; background: var(--accent-soft); }
-.cl-sa-place > .av { font-size: 1.6rem; }
+.cl-sa-place { display: flex; align-items: center; gap: 8px; margin: calc(10px * var(--cl-air)) 0 calc(4px * var(--cl-air)); padding: var(--cl-place) 12px var(--cl-place) 6px; border: 1px solid var(--edge-strong); border-radius: 16px; background: var(--accent-soft); }
+.cl-sa-place > .av { font-size: var(--cl-place-avatar); }
 /* Sa place dans chaque catégorie et chaque cercle, toutes dans la même case, une seule montrée : le bloc garde la
    hauteur de la plus haute. Écrite seule, elle faisait de 74 à 107 pixels d'une puce à l'autre, et les puces sautaient
    sous le doigt qui venait de les toucher (« ça a l'air de bouger quand on navigue dedans », le 9 novembre 2026). */
 .cl-sa-place-cases { display: grid; flex: 1; align-items: center; min-width: 0; }
 .cl-sa-place-cases > .cl-sa-place-texte { grid-area: 1 / 1; }
 .cl-sa-place-cases > [aria-hidden='true'] { visibility: hidden; }
-.cl-sa-place-texte { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.cl-sa-place-texte > b { display: flex; align-items: baseline; gap: 6px; font-family: var(--serif); font-size: 1.35rem; line-height: 1.1; font-variant-numeric: lining-nums; }
+.cl-sa-place-texte { display: flex; flex-direction: column; gap: 3px; min-width: 0; line-height: var(--cl-place-interligne); }
+.cl-sa-place-texte > b { display: flex; align-items: baseline; gap: 6px; font-family: var(--serif); font-size: var(--cl-place-rang); line-height: 1.1; font-variant-numeric: lining-nums; }
 .cl-sa-place-sur { color: var(--muted); font-family: var(--sans); font-size: 0.82rem; font-weight: 500; }
 .cl-sa-place-valeur { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
 .cl-sa-place .cl-carats b { color: var(--accent-text-hover); }
@@ -17684,16 +17740,46 @@ span.annonce-admin-merci { cursor: default; }
 .cl-sa-place-palier .icon { width: 14px; height: 14px; }
 .cl-sa-place-suivant { display: inline-flex; align-items: center; gap: 5px; margin-top: 2px; color: var(--accent-text-hover); font-size: 0.78rem; }
 .cl-sa-place-suivant .icon { width: 14px; height: 14px; flex: none; }
+/* Sur le petit téléphone, ce qui manque tient sur une ligne : « Encore 1 légendaire scellé », puis « pour passer Max »
+   s'il tient entier à sa suite — passé dessous, il ne se montre pas, et le lecteur d'écran le lit toujours (les morceaux
+   entiers de `.gros-a-suite`, à l'accueil). Sur deux lignes dans une seule des quatorze vues, il donnait sa hauteur au
+   bloc dans toutes : 97 px, pour 85. Celui à passer se voit juste dessous, sur le podium ou dans la liste ; dès 720 px
+   de haut, la phrase reprend ses deux lignes. */
+@media (max-height: 719px) {
+  .cl-sa-place-manque { display: flex; flex: 1; flex-wrap: wrap; align-content: flex-start; height: calc(1em * var(--cl-place-interligne)); min-width: 0; overflow: clip; }
+  .cl-sa-place-combien { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .cl-sa-place-qui { flex: none; white-space: pre; }
+}
 
-/* « Le classement », et à côté, « Tous · Mes amis » en petit : une ligne de moins avant le podium. */
-.cl-classement-tete { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 18px 0 8px; }
+/* « Le classement », et à côté, « Tous · Mes amis » en petit : une ligne de moins avant le podium. Dix pixels au moins
+   jusqu'aux puces : leurs cibles, qui débordent d'elles, ne se recouvrent pas. */
+.cl-classement-tete { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: calc(18px * var(--cl-air)) 0 max(calc(8px * var(--cl-air)), calc(10px - var(--cl-ecart))); }
 .cl-classement-tete .label { margin: 0; }
 .cl-cercle-petit { flex-wrap: nowrap; }
 .cl-cercle-petit .onglet { min-height: 32px; padding: 0 10px; }
-.cl-puces { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.onglets.cl-puces { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 6px; }
 .cl-puces .onglet { justify-content: center; }
 /* La valeur seule sur sa rangée, les six autres trois par trois : la septième puce, les scellés, laissait sinon les Éclats seuls en bas. */
 .cl-puces .onglet:first-child { grid-column: 1 / -1; }
+/* Sur un téléphone — sous 900 px de haut —, deux rangées : la valeur et ce que chacun a fait — le niveau, les maîtres,
+   le Cabinet —, puis ses avatars — les légendaires, les scellés, les Éclats. Les mêmes puces, dans le même ordre : leur
+   troisième rangée prenait 44 px au podium. Vingt-quatre colonnes, pour que la première rangée suive la largeur de ses
+   noms (7, 5, 6, 6) et la seconde aille par tiers ; le retrait d'une puce au plus bas, son nom centré dans sa case. */
+@media (max-height: 899px) {
+  .onglets.cl-puces { grid-template-columns: repeat(24, minmax(0, 1fr)); }
+  .cl-puces .onglet { grid-column: span 8; padding: 0 2px; }
+  .cl-puces .onglet:first-child { grid-column: span 7; }
+  .cl-puces .onglet:nth-child(2) { grid-column: span 5; }
+  .cl-puces .onglet:nth-child(3),
+  .cl-puces .onglet:nth-child(4) { grid-column: span 6; }
+}
+/* Une puce est plus basse qu'un doigt — 36 px, 32 pour « Tous · Mes amis » — : sa cible déborde d'elle, de quoi faire
+   44 px, comptés de l'intérieur de son bord. Les rangées se suivent à 44 px, huit d'écart : aucune cible n'en recouvre
+   une autre. */
+.cl-puces .onglet,
+.cl-cercle-petit .onglet { position: relative; }
+.cl-puces .onglet::after { position: absolute; inset: -5px 0; content: ''; }
+.cl-cercle-petit .onglet::after { position: absolute; inset: -7px 0; content: ''; }
 
 /* Une carte du podium, au cadre de sa ligue (`.cadre-<ligue>`, la vraie carte) ; sans ligue, le champagne de tous. */
 .cl-carte {
@@ -17746,12 +17832,16 @@ span.annonce-admin-merci { cursor: default; }
    dessous, qu'un Divin y soit ou non. */
 .cl-carte .cl-opale-pastille { position: absolute; z-index: 2; right: 0; bottom: -15px; left: 0; width: fit-content; margin: 0 auto; }
 
-.cl-podium { display: grid; grid-template-columns: 1fr 1.18fr 1fr; align-items: end; gap: 8px; margin: 18px 0 14px; }
-.cl-carte-podium .cl-carte-illu { height: 4.3rem; }
-.cl-carte-podium .cl-carte-av { font-size: 2.7rem; }
-.cl-carte-premier .cl-carte-dedans { padding-top: 18px; }
-.cl-carte-premier .cl-carte-illu { height: 5.4rem; }
-.cl-carte-premier .cl-carte-av { font-size: 3.4rem; }
+/* Sa marge du bas ne se resserre pas : elle garde la place de la pastille d'un Divin, à cheval sur le pied d'une carte.
+   À l'échelle du pas (`--cl-podium`), l'illustration d'une carte et son retrait seulement — son nom et sa valeur se
+   lisent, ils gardent leur taille. */
+.cl-podium { display: grid; grid-template-columns: 1fr 1.18fr 1fr; align-items: end; gap: 8px; margin: 0 0 14px; margin-top: calc(18px * var(--cl-air)); }
+.cl-carte-podium .cl-carte-dedans { padding-top: calc(14px * var(--cl-podium)); }
+.cl-carte-podium .cl-carte-illu { height: calc(4.3rem * var(--cl-podium)); }
+.cl-carte-podium .cl-carte-av { font-size: calc(2.7rem * var(--cl-podium)); }
+.cl-carte-premier .cl-carte-dedans { padding-top: calc(18px * var(--cl-podium)); }
+.cl-carte-premier .cl-carte-illu { height: calc(5.4rem * var(--cl-podium)); }
+.cl-carte-premier .cl-carte-av { font-size: calc(3.4rem * var(--cl-podium)); }
 .cl-carte-premier .cl-carte-valeur { font-size: 1.2rem; }
 .cl-carte-premier .cl-carte-rang { width: 26px; height: 26px; }
 .cl-carte-premier .cl-carte-rang span { font-size: 0.95rem; }
@@ -17781,10 +17871,10 @@ span.annonce-admin-merci { cursor: default; }
 .cl-divins-bandeau {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: calc(6px * var(--cl-divins));
   width: 100%;
-  margin: 10px 0 4px;
-  padding: 10px 10px 8px;
+  margin: calc(10px * var(--cl-air)) 0 calc(4px * var(--cl-air));
+  padding: calc(10px * var(--cl-divins)) 10px calc(8px * var(--cl-divins));
   border: 0;
   border-radius: 16px;
   background:
@@ -17801,12 +17891,14 @@ span.annonce-admin-merci { cursor: default; }
 .cl-divins-bandeau-tete { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; padding: 0 2px; }
 .cl-divins-bandeau-tete > span { grid-column: 1 / -1; color: #c4b8d2; font-size: 0.75rem; }
 .cl-divins-titre { margin: 0; background: linear-gradient(90deg, #f7b8e8, #9fe3ff 35%, #fff1a6 65%, #b9f5c6); -webkit-background-clip: text; background-clip: text; color: transparent; font-family: var(--serif); font-size: 1.8rem; font-weight: 600; line-height: 1.1; }
-.cl-divins-titre.cl-divins-titre-petit { font-size: 1.3rem; }
+/* À l'échelle du pas (`--cl-divins`), la rangée des six et le retrait du bandeau ; son titre ne rapetisse que de moitié,
+   et sa ligne pas du tout : ils se lisent. */
+.cl-divins-titre.cl-divins-titre-petit { font-size: calc(1.3rem * (1 + var(--cl-divins)) / 2); }
 .cl-divins-bandeau-chevron { width: 16px; height: 16px; color: #c4b8d2; transform: rotate(-90deg); }
 .cl-divins-rangee { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 2px; }
-.cl-divins-case { position: relative; display: grid; place-items: center; height: 3.4rem; }
-.cl-divins-case-bijou { font-size: 2.3rem; }
-.cl-divins-case-voile .cl-divins-case-bijou { font-size: 1.9rem; opacity: 0.85; }
+.cl-divins-case { position: relative; display: grid; place-items: center; height: calc(3.4rem * var(--cl-divins)); }
+.cl-divins-case-bijou { font-size: calc(2.3rem * var(--cl-divins)); }
+.cl-divins-case-voile .cl-divins-case-bijou { font-size: calc(1.9rem * var(--cl-divins)); opacity: 0.85; }
 /* Qui l'a, en petit, au pied de son Divin. */
 .cl-divins-case .av.cl-divins-case-porteur { position: absolute; right: 2px; bottom: 0; font-size: 0.8rem; }
 

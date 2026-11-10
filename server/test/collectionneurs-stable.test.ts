@@ -23,6 +23,10 @@
 // Pas de navigateur : le vrai classement du serveur, la vue pure que la page
 // en tire, ses composants rendus en HTML, et la feuille de style. Le rendu se
 // regarde par le script ; ici, ce qui le décide. Chaque épreuve échouait avant.
+//
+// Depuis le 10 novembre 2026, il garde aussi le premier écran (plus bas) : la
+// page s'est resserrée pour montrer son podium sans défiler, et ce qui se
+// resserre ne devait rien faire bouger de plus.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -251,4 +255,133 @@ test('la vitrine s’ouvre sur son nom, sa collection arrive d’un bloc : rien 
   // Sa feuille a sa hauteur dès l'ouverture : elle ne grandit pas quand sa collection arrive.
   assert.match(regle('.carte-feuille.cl-vitrine-feuille'), /height:\s*92%/)
   assert.match(regle('.carte-feuille'), /max-height:\s*92%/, 'la hauteur que la feuille ne dépasse jamais')
+})
+
+// ── Le premier écran ──────────────────────────────────────────────────────
+//
+// « J'aimerais bien que tu regardes les écrans, m'habiller, mon compagnon, classement des collections. Dans la mesure du
+// possible j'aimerais que l'on puisse avoir tout sur le même écran ou presque » (le propriétaire, le 10 novembre 2026).
+// Un classement défile par nature : sa liste est son contenu. Le « presque », ici : sa place, les Divins, les puces et
+// le podium au-dessus de la barre du menu. Mesuré au navigateur ce jour-là (`rendu-collectionneurs.ts`, les états
+// `25-…`), le podium finissait dessous partout, sauf sur le plus grand téléphone : de 289 px en 360 × 640, de 230 en
+// 390 × 664, de 189 en 360 × 740, de 82 en 412 × 800, de 50 en 390 × 844. Il tient depuis aux six tailles — 21, 45, 39,
+// 112, 86 et 113 px au-dessus du menu —, et sous l'encoche d'un iPhone (35 px, `ENCOCHE=47`). Rien n'a changé de place,
+// ni un nom, ni un geste : ce qui s'est resserré, ce sont des mesures, et rien ne bouge davantage d'une puce à l'autre
+// — le script le mesure dans les quatorze vues de chaque taille. Ici, ce que la feuille en décide.
+
+/** La section des collectionneurs de la feuille, ses commentaires compris. */
+const FEUILLE = source('styles.css')
+const BLOC = FEUILLE.slice(FEUILLE.indexOf('/* ── Les collectionneurs'), FEUILLE.indexOf("/* ── L'accueil compact"))
+/** Ce que cette section règle à un pas de hauteur d'écran : le corps de chaque `@media (min-height …)` ou `(max-height …)`. */
+const PAS = [...BLOC.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/@media \((min|max)-height: (\d+)px\) \{([\s\S]*?)\n\}/g)].map(m => ({ sens: m[1], de: Number(m[2]), corps: m[3] }))
+
+test('le premier écran se règle par des variables posées sur la page, à des pas de hauteur d’écran — et une tablette garde les mesures d’avant', () => {
+  assert.ok(BLOC.length > 1000, 'la section des collectionneurs, de son titre à celui de l’accueil compact')
+  // Le petit téléphone d'abord, puis quatre pas : chacun redit ce que la page a de plus large.
+  const base = /\n\.cl-page \{([^}]*)\}/.exec(BLOC.replace(/\/\*[\s\S]*?\*\//g, ''))?.[1] ?? ''
+  const pas = PAS.filter(p => p.sens === 'min' && /^\s*\.cl-page \{/.test(p.corps))
+  assert.deepEqual(
+    pas.map(p => p.de),
+    [720, 820, 900, 1000],
+  )
+  /** Les valeurs d'une variable, du petit téléphone au plus grand écran : là où elle change. */
+  const suite = (variable: string) => [base, ...pas.map(p => p.corps)].flatMap(corps => new RegExp(`--cl-${variable}: ([^;]+);`).exec(corps)?.[1] ?? [])
+  // L'écart entre ses blocs ne fait que grandir ; les marges d'avant ne reviennent qu'à 1000 px de haut — une tablette,
+  // un ordinateur : sur un téléphone, même grand, l'encoche et la barre d'accueil prennent leur place.
+  assert.deepEqual(suite('ecart'), ['8px', '10px', '14px', '16px', '18px'])
+  assert.deepEqual(suite('air'), ['0', '1'])
+  assert.match(pas[3].corps, /--cl-air: 1;/)
+  assert.deepEqual(suite('haut'), ['12px', '16px', '24px'])
+  // La rangée des Divins et les cartes du podium, à l'échelle : à leur taille d'avant dès 820 px.
+  assert.deepEqual(suite('divins'), ['0.76', '0.88', '1'])
+  assert.deepEqual(suite('podium'), ['0.78', '0.9', '1'])
+  assert.match(pas[1].corps, /--cl-divins: 1; --cl-podium: 1;/)
+  // Le titre tient sur une ligne en 360 de large à chaque pas : à 2 rem, il lui fallait 334 px pour 320.
+  assert.deepEqual(suite('titre'), ['1.6rem', '1.75rem', 'min(2rem, 8.2vw)'])
+  // La page les lit — et garde la place d'une encoche, comme toute coquille.
+  assert.match(base, /padding-top: max\(var\(--cl-haut\), env\(safe-area-inset-top\)\);/)
+  assert.match(base, /gap: var\(--cl-ecart\);/)
+  assert.match(regle('.cl-page > .piece-tete h1'), /font-size: var\(--cl-titre\)/)
+  assert.match(regle('.cl-sa-place'), /padding: var\(--cl-place\) 12px var\(--cl-place\) 6px/)
+  assert.match(regle('.cl-divins-case'), /height: calc\(3\.4rem \* var\(--cl-divins\)\)/)
+  assert.match(regle('.cl-carte-premier .cl-carte-illu'), /height: calc\(5\.4rem \* var\(--cl-podium\)\)/)
+  assert.match(regle('.cl-carte-podium .cl-carte-illu'), /height: calc\(4\.3rem \* var\(--cl-podium\)\)/)
+  // Une variable ne se pose que sur la page, jamais sur une vue ni sur un bloc : sa valeur ne dépend que de l'écran, et
+  // rien ne change de taille d'une puce à l'autre.
+  const posent = REGLES.filter(r => /(^|[;{\s])--cl-[\w-]+:/.test(r.corps)).flatMap(r => r.selecteurs)
+  assert.deepEqual([...new Set(posent)], ['.cl-page'])
+  // Ce qui se lit ne passe pas à l'échelle : aucun texte de la section sous le plancher (`--t-label`, 0,6875 rem).
+  const tailles = [...BLOC.matchAll(/font-size: ([\d.]+)rem/g)].map(m => Number(m[1]))
+  assert.ok(tailles.length > 20 && Math.min(...tailles) >= 0.6875, `le plus petit texte de la section : ${Math.min(...tailles)} rem`)
+  assert.match(regle('.cl-carte-nom'), /font-size: 0\.8rem/, 'le nom d’une carte du podium garde sa taille')
+  assert.doesNotMatch(regle('.cl-carte-valeur'), /var\(--cl-podium\)/, 'sa valeur aussi')
+})
+
+test('sur un téléphone, les sept puces tiennent en deux rangées, dans leur ordre : la valeur et ce que chacun a fait, puis ses avatars', () => {
+  // L'ordre des puces est celui des catégories : il n'a pas changé.
+  assert.deepEqual([...CATEGORIES_DE_COLLECTION], ['collection', 'niveau', 'maitres', 'cabinet', 'legendaires', 'scelles', 'eclats'])
+  // Au large — une tablette, un téléphone de 900 px de haut —, la valeur seule sur sa rangée, les six autres trois par trois.
+  assert.match(regle('.onglets.cl-puces'), /grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/)
+  assert.match(regle('.cl-puces .onglet:first-child'), /grid-column: 1 \/ -1/)
+  // Dessous, deux rangées : leur troisième prenait 44 px au podium.
+  const telephone = PAS.find(p => p.sens === 'max' && p.de === 899 && p.corps.includes('.onglets.cl-puces'))
+  assert.ok(telephone, 'les puces se rangent autrement sous 900 px de haut')
+  const colonnes = Number(/\.onglets\.cl-puces \{ grid-template-columns: repeat\((\d+), minmax\(0, 1fr\)\); \}/.exec(telephone.corps)?.[1])
+  const prend = (selecteur: string) => Number(new RegExp(`${selecteur.replace(/[.()]/g, '\\$&')} \\{ grid-column: span (\\d+);`).exec(telephone.corps)?.[1])
+  const [toutes, valeur, niveau, maitresEtCabinet] = [prend('.cl-puces .onglet'), prend('.cl-puces .onglet:first-child'), prend('.cl-puces .onglet:nth-child(2)'), prend('.cl-puces .onglet:nth-child(4)')]
+  // La première rangée s'arrête au Cabinet, pile au bord ; la seconde va par tiers. « Collection », le plus long de ses
+  // noms, a la plus large de ses cases.
+  assert.equal(valeur + niveau + 2 * maitresEtCabinet, colonnes, 'quatre puces font la première rangée')
+  assert.equal(3 * toutes, colonnes, 'trois font la seconde')
+  assert.ok(valeur > maitresEtCabinet && maitresEtCabinet > niveau, `des cases à la largeur de leur nom : ${valeur}, ${niveau}, ${maitresEtCabinet}, ${maitresEtCabinet}`)
+  assert.match(telephone.corps, /\.cl-puces \.onglet:nth-child\(3\),\s*\.cl-puces \.onglet:nth-child\(4\) \{/)
+})
+
+test('une puce plus basse qu’un doigt se touche sur 44 px, sans mordre sur sa voisine — le barème et le retour aussi', () => {
+  const px = (corps: string, propriete: string) => Number(new RegExp(`(?:^|[;\\s])${propriete}:\\s*(-?\\d+)px`).exec(corps)?.[1])
+  // Une puce fait 36 px de haut, « Tous · Mes amis » 32 : leur cible déborde d'elles, comptée de l'intérieur de leur bord.
+  const bord = px(regle('.onglets-puces .onglet'), 'border')
+  const touche = (hauteur: number, deborde: number) => hauteur - 2 * bord + 2 * deborde
+  const [puce, cercle] = [px(regle('.onglets-puces .onglet'), 'min-height'), px(regle('.cl-cercle-petit .onglet'), 'min-height')]
+  const [autourDUnePuce, autourDuCercle] = [-px(regle('.cl-puces .onglet::after'), 'inset'), -px(regle('.cl-cercle-petit .onglet::after'), 'inset')]
+  assert.deepEqual([bord, puce, cercle], [1, 36, 32])
+  assert.ok(touche(puce, autourDUnePuce) >= 44, `une puce se touche sur ${touche(puce, autourDUnePuce)} px`)
+  assert.ok(touche(cercle, autourDuCercle) >= 44, `« Tous · Mes amis » se touche sur ${touche(cercle, autourDuCercle)} px`)
+  for (const s of ['.cl-puces .onglet::after', '.cl-cercle-petit .onglet::after']) assert.match(regle(s), /position: absolute;[^}]*content: ''/)
+  assert.match(regle('.cl-puces .onglet'), /justify-content: center/)
+  assert.ok(REGLES.some(r => r.selecteurs.includes('.cl-puces .onglet') && r.selecteurs.includes('.cl-cercle-petit .onglet') && /position: relative/.test(r.corps)), 'leur cible se pose sur elles')
+  // D'une rangée de puces à l'autre, les cibles se suivent sans se recouvrir…
+  const [, entreRangees] = /gap: (\d+)px \d+px/.exec(regle('.onglets.cl-puces')) ?? []
+  assert.ok(Number(entreRangees) >= 2 * (autourDUnePuce - bord), `${entreRangees} px entre deux rangées, ${autourDUnePuce - bord} px de cible de part et d’autre`)
+  // … et de « Tous · Mes amis » aux puces, dix pixels au moins, quel que soit l'écart de la page.
+  assert.equal(autourDuCercle - bord + (autourDUnePuce - bord), 10)
+  assert.match(regle('.cl-classement-tete'), /margin: [^;]*calc\(10px - var\(--cl-ecart\)\)\)/)
+  // Le titre du barème se touche sur toute sa boîte, pas sur sa seule ligne (28 px).
+  assert.equal(px(regle('.cl-bareme summary'), 'min-height'), 48)
+  // « ← Mon profil » garde ses 44 px : le titre, remonté sous lui, ne passe pas devant sa cible.
+  assert.equal(px(regle('.jour-sortie'), 'min-height'), 44)
+  assert.match(regle('.cl-page > .jour-sortie'), /position: relative; z-index: 1/)
+})
+
+test('ce qu’un petit écran tait reste dit à l’oreille : le surtitre de la page, et qui l’on passerait', async () => {
+  // « Encore 2 niveaux pour passer Jules » en deux morceaux : ce qui manque, puis qui — la phrase d'avant, mot pour mot.
+  const { etat, fiches } = await classement(id(10), [id(0)])
+  const html = await rendu('SaPlace', { moi: fiches.get(etat.moi), vues: vuesDuClassement(etat, fiches), c: 'niveau', cercle: 'tous' })
+  assert.match(html, /<span class="cl-sa-place-manque"><span class="cl-sa-place-combien">Encore 2 niveaux<\/span><span class="cl-sa-place-qui"> pour passer Jules<\/span><\/span>/)
+  const dites = [...html.matchAll(/<span class="cl-sa-place-combien">([^<]*)<\/span><span class="cl-sa-place-qui">([^<]*)<\/span>/g)].map(m => m[1] + m[2])
+  assert.ok(dites.includes('Encore 11 niveaux pour passer Agathe') && dites.every(d => /^Encore \d+ \S.* pour passer \S/.test(d)), dites.join(' | '))
+  // Sous 720 px de haut, sa rangée n'a qu'une ligne : « pour passer Jules » s'y montre entier, ou passe dessous — jamais
+  // coupé au milieu d'un prénom. Sur deux lignes dans une seule des quatorze vues, il donnait sa hauteur au bloc dans toutes.
+  const petit = PAS.filter(p => p.sens === 'max' && p.de === 719).map(p => p.corps).join('\n')
+  assert.match(petit, /\.cl-sa-place-manque \{ display: flex; flex: 1; flex-wrap: wrap; align-content: flex-start; height: calc\(1em \* var\(--cl-place-interligne\)\); min-width: 0; overflow: clip; \}/)
+  assert.match(petit, /\.cl-sa-place-combien \{ min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; \}/)
+  assert.match(petit, /\.cl-sa-place-qui \{ flex: none; white-space: pre; \}/)
+  // Au-delà, la phrase reprend ses deux lignes : ses morceaux ne sont réglés nulle part ailleurs.
+  assert.equal(REGLES.filter(r => r.selecteurs.some(s => /\.cl-sa-place-(manque|combien|qui)\b/.test(s))).length, 3)
+  // Le surtitre de la page, caché à l'œil seulement — les déclarations de `.sr-only` : sous `display: none`, le lecteur
+  // d'écran ne le lirait plus.
+  assert.match(petit, /\.cl-page > \.piece-tete \.label \{ position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset\(50%\); white-space: nowrap; \}/)
+  // Et aucun pas de hauteur de la section ne retire quoi que ce soit.
+  assert.ok(PAS.length >= 6, `les pas de hauteur de la section sont lus (${PAS.length})`)
+  for (const p of PAS) assert.doesNotMatch(p.corps, /display:\s*none|visibility:\s*hidden/, `sous ${p.sens}-height: ${p.de}px`)
 })

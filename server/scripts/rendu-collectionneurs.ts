@@ -7,13 +7,27 @@
 // thème, ses duels —, et huit figurants pour que la liste passe le dixième
 // (« Voir la suite »), le serveur relu, le relevé de tous attendu. Le client
 // construit d'abord (`npm run build -w client`). À chaque photo, ce qui
-// élargit la page et les noms coupés ; et pour finir la page filmée, d'une
-// puce à l'autre et à l'ouverture d'une vitrine : ce qui bouge (`bouge`).
+// élargit la page et les noms coupés ; puis la page filmée, d'une puce à
+// l'autre et à l'ouverture d'une vitrine : ce qui bouge (`24-ce-qui-bouge`).
+//
+// Et pour finir, ce qui tient sur le premier écran (« tout sur le même écran
+// ou presque », le propriétaire, le 10 novembre 2026 ; les états `25-…`) : à
+// six tailles, de 360 × 640 à 412 × 915, pour Léa, classée, pour Noé, un
+// nouveau venu qui ne l'est pas, et sans aucun Divin descendu, où finit chaque
+// bloc dans chacune des quatorze vues — sa place, les Divins, les puces, le
+// podium, la première ligne de la liste —, ce que le doigt touche de chaque
+// geste, ce qu'un écran court tait à l'œil. Le script sort en erreur si le
+// podium passe sous la barre du menu, si quoi que ce soit change de place
+// d'une vue à l'autre, si un geste se touche sur moins de 44 px, si un texte
+// passe sous le plancher, si une puce est plus étroite que son nom, ou si la
+// page déborde de côté.
 //
 //   npx tsx scripts/rendu-collectionneurs.ts ../export/collectionneurs [mots,…]
 //
-// `THEME=ivoire` photographie tout sous l'Ivoire ; le second argument ne garde
-// que les états dont le nom contient l'un de ses mots.
+// `THEME=ivoire` photographie tout sous l'Ivoire ; `ENCOCHE=47` pose l'encoche
+// d'un iPhone et sa barre d'accueil sur les états `25-…`, en 390 × 844 ; le
+// second argument ne garde que les états dont le nom contient l'un de ses
+// mots (`25-` : le premier écran seul ; `25-lea-360x640` : une seule taille).
 import { createRequire } from 'node:module'
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
@@ -167,9 +181,140 @@ const ETATS: readonly Etat[] = [
   { nom: '23-face-a-face-trophees-et-style', adresse: '/collectionneurs', toucher: ['.cl-carte-premier', { bouton: 'Comparer' }], defilerFeuille: '.cl-duel-ligne:nth-child(6)' },
 ]
 
+type Ecran = readonly [number, number]
+/**
+ * Les six tailles où la page se mesure : le petit téléphone de référence, un iPhone dans Safari — ses barres dépliées —,
+ * un téléphone moyen, un grand Android dans Chrome, un iPhone d'aujourd'hui, un grand Android.
+ */
+const SIX_ECRANS: readonly Ecran[] = [[360, 640], [390, 664], [360, 740], [412, 800], [390, 844], [412, 915]]
+/**
+ * L'encoche d'un iPhone et sa barre d'accueil, 34 px en bas — l'application installée : Chromium sans écran les tient à
+ * zéro, et la page y perd de la hauteur aux deux bouts sans changer de pas (skill `regarder-le-rendu`). Elle ne se pose
+ * que sur l'écran qui en a une : un iPhone d'aujourd'hui, 390 × 844.
+ */
+const encoche = Number(process.env.ENCOCHE ?? 0)
+
+/**
+ * Ce que le premier écran montre, bloc par bloc : où chacun commence et finit dans la page, et le pli — le haut de la
+ * barre du menu. Avec lui, ce qu'une photo ne dit pas : le titre sur combien de lignes, un nom coupé au bout, un texte
+ * sous le plancher (`--t-label`, 11 px au texte ordinaire), la page plus large que l'écran. En texte : `tsx` glisserait
+ * dans une fonction des `__name` que la page ne connaît pas.
+ */
+const LE_PREMIER_ECRAN = `(() => {
+  const menu = document.querySelector('.menu-barre')
+  const pli = Math.round(menu ? menu.getBoundingClientRect().top : innerHeight)
+  const boite = e => {
+    if (!e) return null
+    const r = e.getBoundingClientRect()
+    return r.width > 0 && r.height > 0 ? { haut: Math.round(r.top + scrollY), bas: Math.round(r.bottom + scrollY) } : null
+  }
+  const un = s => boite(document.querySelector(s))
+  const tous = s => [...document.querySelectorAll(s)].map(boite).filter(Boolean)
+  const etendue = bs => (bs.length ? { haut: Math.min(...bs.map(b => b.haut)), bas: Math.max(...bs.map(b => b.bas)) } : null)
+  // Les lignes d'un texte : ses boîtes de ligne, comptées par leur haut.
+  const lignesDe = e => {
+    if (!e) return 0
+    const plage = document.createRange()
+    plage.selectNodeContents(e)
+    return new Set([...plage.getClientRects()].filter(r => r.width > 1).map(r => Math.round(r.top))).size
+  }
+  // Ce qui se lit à l'œil : ni ce qu'une case cache (sa place dans les treize autres vues), ni ce qui n'est dit qu'à
+  // l'oreille (\`.sr-only\`, ou ses déclarations : une boîte d'un pixel), ni l'emoji d'un avatar, qui est un dessin.
+  const lu = el => {
+    if (el.closest('.menu-barre, .sr-only, .av, script, style')) return false
+    if (el.checkVisibility && !el.checkVisibility({ visibilityProperty: true })) return false
+    const r = el.getBoundingClientRect()
+    return r.width > 2 && r.height > 2
+  }
+  const plancher = parseFloat(getComputedStyle(document.documentElement).fontSize) * 0.6875
+  const petits = new Set()
+  const marcheur = document.createTreeWalker(document.querySelector('.cl-page'), NodeFilter.SHOW_TEXT)
+  for (let t = marcheur.nextNode(); t; t = marcheur.nextNode()) {
+    const el = t.parentElement
+    if (!el || !t.textContent.trim() || !lu(el)) continue
+    const taille = parseFloat(getComputedStyle(el).fontSize)
+    if (taille < plancher - 0.05) petits.add('« ' + [...t.textContent.trim()].slice(0, 24).join('') + ' » à ' + Math.round(taille * 10) / 10 + ' px')
+  }
+  const titre = document.querySelector('.cl-page .piece-tete h1')
+  // Ce que cet écran tait à l'œil, et que l'oreille entend encore : le surtitre de la page, réduit à un pixel, et la fin
+  // de « Encore N … pour passer X », passée sous la ligne que sa rangée montre.
+  const surtitre = document.querySelector('.cl-page > .piece-tete .label')
+  const rangee = document.querySelector('.cl-sa-place-texte:not([aria-hidden]) .cl-sa-place-manque')
+  const qui = rangee && rangee.querySelector('.cl-sa-place-qui')
+  const tu = {
+    surtitre: surtitre && surtitre.getBoundingClientRect().width <= 2 ? '« ' + surtitre.textContent.trim() + ' »' : null,
+    qui: qui && qui.getBoundingClientRect().top >= rangee.getBoundingClientRect().bottom - 1 ? '«' + qui.textContent + ' »' : null,
+  }
+  const deborde = e => lu(e) && e.scrollWidth > e.clientWidth + 1
+  const dit = e => '« ' + [...e.textContent.trim()].slice(0, 32).join('') + ' »'
+  return {
+    ecran: innerWidth + '×' + innerHeight,
+    pli,
+    page: document.documentElement.scrollHeight,
+    large: Math.max(0, document.documentElement.scrollWidth - innerWidth),
+    choisis: [...document.querySelectorAll('.cl-page [role=tab][aria-selected=true]')].map(o => o.textContent.trim()),
+    retour: un('.cl-page > .jour-sortie'),
+    titre: boite(titre),
+    lignesDuTitre: lignesDe(titre),
+    place: un('.cl-sa-place'),
+    // Ce que sa place dit, dans la vue montrée : ses lignes, une par une.
+    saPlace: [...document.querySelectorAll('.cl-sa-place-texte:not([aria-hidden]) > *')].filter(lu).map(e => e.textContent.trim().replace(/\\s+/g, ' ')),
+    divins: un('.cl-divins-bandeau'),
+    tete: un('.cl-classement-tete'),
+    puces: un('.cl-puces'),
+    rangeesDePuces: new Set([...document.querySelectorAll('.cl-puces .onglet')].map(o => Math.round(o.getBoundingClientRect().top))).size,
+    podium: etendue(tous('.cl-podium .cl-carte')),
+    pastilles: etendue(tous('.cl-podium .cl-opale-pastille')),
+    lignes: tous('.cl-liste .cl-ligne'),
+    tu,
+    // Un nom plus long que sa case se coupe au bout, c'est voulu ; le nom d'une puce plus large qu'elle, non.
+    coupes: [...document.querySelectorAll('.cl-carte-nom, .cl-nom > b, .cl-detail, .cl-sa-place-texte:not([aria-hidden]) .cl-sa-place-combien')].filter(deborde).map(dit),
+    etroites: [...document.querySelectorAll('.cl-puces .onglet, .cl-cercle-petit .onglet')].filter(deborde).map(dit),
+    petits: [...petits],
+  }
+})()`
+
+/**
+ * Ce que le doigt touche vraiment de chaque geste de la page, en hauteur : pas sa boîte, ce que la page répond au point
+ * touché (`elementFromPoint`) — une puce peut être plus basse que sa cible, qui déborde d'elle. Chaque geste amené au
+ * milieu de l'écran, loin de la barre du menu, puis la page rendue à son haut. Par groupe, le plus bas.
+ */
+const LES_CIBLES = `(() => {
+  const touchee = el => {
+    el.scrollIntoView({ block: 'center' })
+    const r = el.getBoundingClientRect()
+    const x = r.left + r.width / 2, milieu = r.top + r.height / 2
+    const a = y => { const e = document.elementFromPoint(x, y); return !!e && (e === el || el.contains(e)) }
+    if (!a(milieu)) return Math.round(r.height)
+    let h = milieu, b = milieu
+    while (milieu - h < 40 && a(h - 1)) h--
+    while (b - milieu < 40 && a(b + 1)) b++
+    return Math.round(b - h + 1)
+  }
+  const gestes = {
+    '« ← Mon profil »': '.cl-page > .jour-sortie',
+    'les Divins': '.cl-divins-bandeau',
+    '« Tous · Mes amis »': '.cl-cercle-petit .onglet',
+    'une puce': '.cl-puces .onglet',
+    'une carte du podium': '.cl-podium .cl-carte',
+    'une ligne': '.cl-liste .cl-ligne',
+    '« Voir la suite »': '.cl-suite',
+    'le barème': '.cl-bareme summary',
+  }
+  const vu = {}
+  for (const [nom, s] of Object.entries(gestes)) {
+    const els = [...document.querySelectorAll(s)].filter(e => e.getBoundingClientRect().width > 0)
+    if (els.length) vu[nom] = Math.min(...els.map(touchee))
+  }
+  scrollTo(0, 0)
+  return vu
+})()`
+
 const banc = await demarrer()
 const navigateur = await chromium.launch({ headless: true })
 const mesures: string[] = []
+/** Ce qui devait tenir sur le premier écran et n'y tient plus, ou ce qui bouge : le script sort en erreur. */
+let rate = 0
 try {
   const cookies: Record<string, string> = {}
   for (const j of JOUEURS) cookies[j.login] = await inscrireProfil(banc.url, j.login, j.nom, j.avatar)
@@ -255,12 +400,12 @@ try {
     console.log(`${e.nom} : ${vu}`)
     await page.screenshot({ path: path.join(sortie, `${e.nom}.png`) })
     if (e.entiere) {
-      // La page entière dans un écran aussi haut qu'elle : en `fullPage`, la barre du menu, fixe, restait au milieu de la photo.
-      const haut = (await page.evaluate('document.documentElement.scrollHeight')) as number
-      await page.setViewportSize({ width: 360, height: haut })
-      await page.waitForTimeout(400)
-      await page.screenshot({ path: path.join(sortie, `${e.nom}-entiere.png`) })
-      await page.setViewportSize({ width: 360, height: 640 })
+      // La page entière, à la taille de ce téléphone : dans un écran aussi haut qu'elle — c'est ainsi qu'elle se prenait
+      // jusqu'au 10 novembre 2026 —, les pas de hauteur de sa feuille la montreraient au large, pas telle qu'il la fait
+      // défiler. La barre du menu, fixe, se poserait au milieu de la photo : elle s'efface le temps de la prendre.
+      const style = await page.addStyleTag({ content: '.menu-barre { display: none !important; }' })
+      await page.screenshot({ path: path.join(sortie, `${e.nom}-entiere.png`), fullPage: true })
+      await style.evaluate((s: any) => s.remove())
     }
     if (e.feuilleEntiere) {
       const defile = await page.evaluate(`(() => { const c = document.querySelector('.carte-corps'); if (!c || c.scrollHeight <= c.clientHeight + 1) return false; c.scrollTop = c.scrollHeight; return true })()`)
@@ -360,8 +505,189 @@ try {
     console.log(`24-ce-qui-bouge : ${vu}`)
     await anime.close()
   }
+  // Ce qui tient sur le premier écran (« j'aimerais que l'on puisse avoir tout sur le même écran ou presque », le
+  // propriétaire, le 10 novembre 2026). Un classement défile par nature : sa liste est son contenu. Le « presque », ici :
+  // sa place, les Divins, les puces et le podium au-dessus de la barre du menu, aux six tailles — le podium se voit sans
+  // défiler. Mesuré dans chacune des quatorze vues (sept catégories, deux cercles), pour un profil classé, pour un
+  // nouveau venu qui ne l'est pas, avec et sans Divin descendu : où finit chaque bloc, ce qui change de place d'une vue à
+  // l'autre — rien ne doit, à aucune taille —, ce que le doigt touche de chaque geste, le plus petit texte, ce qu'un
+  // écran court tait à l'œil.
+  const CAS: { nom: string; dit: string; login: string; sansDivin?: boolean }[] = [
+    { nom: 'lea', dit: 'Léa, classée', login: 'lea' },
+    { nom: 'sans-divin', dit: 'Léa, aucun Divin descendu', login: 'lea', sansDivin: true },
+    { nom: 'nouveau', dit: 'Noé, pas encore classé', login: 'noe' },
+  ]
+  const ecransMesures: readonly Ecran[] = encoche ? [[390, 844]] : SIX_ECRANS
+  const premiersEcrans = CAS.flatMap(cas => ecransMesures.map(ecran => ({ cas, ecran, n: `25-${cas.nom}-${ecran[0]}x${ecran[1]}${encoche ? '-encoche' : ''}` }))).filter(e => retenu(e.n))
+  if (premiersEcrans.length > 0) {
+    // Un nouveau venu, inscrit après le relevé de tous et les photos d'avant, qui n'en disent rien : il n'a rien à
+    // classer, sa page n'a pas de fiche de lui — « Pas encore au classement » dans chaque catégorie, sans avatar.
+    cookies.noe = await inscrireProfil(banc.url, 'noe', 'Noé', '🚀')
+    const CERCLES: [string, string][] = [['Tous', 'tous'], ['Mes amis', 'amis']]
+    const PUCES: [string, string][] = [['Collection', 'collection'], ['Niveau', 'niveau'], ['Maîtres', 'maitres'], ['Cabinet', 'cabinet'], ['Légendaires', 'legendaires'], ['Scellés', 'scelles'], ['Éclats', 'eclats']]
+    type Boite = { haut: number; bas: number }
+    type Vue = {
+      pli: number
+      page: number
+      large: number
+      choisis: string[]
+      retour: Boite | null
+      titre: Boite | null
+      lignesDuTitre: number
+      place: Boite | null
+      saPlace: string[]
+      divins: Boite | null
+      tete: Boite | null
+      puces: Boite | null
+      rangeesDePuces: number
+      podium: Boite | null
+      pastilles: Boite | null
+      lignes: Boite[]
+      tu: { surtitre: string | null; qui: string | null }
+      coupes: string[]
+      etroites: string[]
+      petits: string[]
+    }
+    const ecart = (xs: (number | undefined)[]) => {
+      const vus = xs.filter((x): x is number => x !== undefined)
+      return vus.length ? Math.max(...vus) - Math.min(...vus) : 0
+    }
+    const haut = (b: Boite | null) => (b ? b.bas - b.haut : 0)
+    const releve: Record<string, unknown> = {}
+    for (const { cas, ecran: [largeur, hauteur], n } of premiersEcrans) {
+      const ctx = await navigateur.newContext({ viewport: { width: largeur, height: hauteur }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, reducedMotion: 'reduce' })
+      const [cle, jeton] = cookies[cas.login].split('=')
+      await ctx.addCookies([{ name: cle, value: jeton, url: banc.url }])
+      const p = await ctx.newPage()
+      p.on('pageerror', (e: Error) => console.error('[page]', e.message))
+      if (encoche) {
+        const cdp = await ctx.newCDPSession(p)
+        await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: encoche, topMax: encoche, bottom: 34, bottomMax: 34, left: 0, leftMax: 0, right: 0, rightMax: 0 } })
+      }
+      // Aucun Divin descendu : la réponse du classement réécrite en route — leur bandeau n'a plus que des voiles, et
+      // personne ne porte d'opale. Sa hauteur ne doit pas en dépendre.
+      if (cas.sansDivin) {
+        await p.route(/\/api\/collectionneurs$/, async (route: any) => {
+          const reponse = await route.fetch()
+          const j = await reponse.json()
+          j.divins = []
+          for (const f of j.fiches) {
+            f.divins = []
+            if (typeof f.legendaire === 'string' && f.legendaire.startsWith('dv:')) f.legendaire = null
+          }
+          await route.fulfill({ response: reponse, json: j })
+        })
+      }
+      await p.goto(`${banc.url}/collectionneurs`)
+      await p.waitForSelector('.cl-sa-place')
+      if (theme) await p.evaluate(`document.documentElement.dataset.theme = '${theme}'`)
+      await p.waitForLoadState('networkidle').catch(() => {})
+      await p.evaluate('Promise.all([...document.images].map(i => i.decode().catch(() => {})))')
+      await p.waitForTimeout(700)
+      // Par un clic écrit dans la page, pas un toucher de Playwright : il ferait défiler la page pour amener la puce à
+      // l'écran, et la mesure se prend page en haut.
+      const choisir = (onglet: string) =>
+        p.evaluate(`(() => { const o = [...document.querySelectorAll('.cl-page [role=tab]')].find(x => x.textContent.trim() === ${JSON.stringify(onglet)}); if (!o) throw new Error('pas d’onglet « ' + ${JSON.stringify(onglet)} + ' »'); o.click() })()`)
+      /** Une vue choisie, mesurée une fois que la page la montre : relue jusque-là, jamais derrière une pause fixe — une machine chargée la ferait mentir. */
+      const montrer = async (cercle: string, puce: string): Promise<Vue> => {
+        await choisir(cercle)
+        await choisir(puce)
+        for (let essai = 0; ; essai++) {
+          await p.waitForTimeout(40)
+          const m = (await p.evaluate(LE_PREMIER_ECRAN)) as Vue
+          if (m.choisis.join(' · ') === `${cercle} · ${puce}`) return m
+          if (essai >= 75) throw new Error(`${n} : la page montre « ${m.choisis.join(' · ')} », pas « ${cercle} · ${puce} »`)
+        }
+      }
+      const vues: (Vue & { cercle: string; puce: string })[] = []
+      for (const [cercle, c] of CERCLES) {
+        for (const [puce, x] of PUCES) {
+          vues.push({ ...(await montrer(cercle, puce)), cercle, puce })
+          // Chaque vue du premier écran, pour l'œil : sur le petit téléphone et sur un iPhone d'aujourd'hui.
+          if (cas.nom === 'lea' && ((largeur === 360 && hauteur === 640) || (largeur === 390 && hauteur === 844)) && !(c === 'tous' && x === 'collection')) {
+            await p.screenshot({ path: path.join(sortie, `${n}-${c}-${x}.png`) })
+          }
+        }
+      }
+      await montrer('Tous', 'Collection')
+      const cibles = (await p.evaluate(LES_CIBLES)) as Record<string, number>
+      await p.waitForTimeout(150)
+      await p.screenshot({ path: path.join(sortie, `${n}.png`) })
+      const [d] = vues
+      if (d.page > hauteur) {
+        // La page entière, à cette taille d'écran — pas dans un écran aussi haut qu'elle, où les pas de hauteur de sa
+        // feuille la montreraient au large — : la barre du menu, fixe, se poserait au milieu, elle s'efface, et un
+        // trait marque le pli.
+        await p.addStyleTag({ content: '.menu-barre { display: none !important; }' })
+        await p.evaluate(
+          `(() => { const trait = document.createElement('div'); trait.style.cssText = 'position: absolute; z-index: 99; top: ${d.pli}px; left: 0; right: 0; border-top: 2px dashed #ff5a5a; pointer-events: none'; document.body.appendChild(trait) })()`,
+        )
+        await p.screenshot({ path: path.join(sortie, `${n}-entiere.png`), fullPage: true })
+      }
+      await ctx.close()
+
+      // Ce qui est au-dessus du podium ne dépend pas de la vue ; le podium et la liste, quand il y en a, non plus.
+      const blocs = ['retour', 'titre', 'place', 'divins', 'tete', 'puces'] as const
+      const avecPodium = vues.filter(v => v.podium)
+      const deplaces = [
+        ...blocs.map(b => [b, Math.max(ecart(vues.map(v => v[b]?.haut)), ecart(vues.map(v => v[b]?.bas)))] as const),
+        ['podium', Math.max(ecart(avecPodium.map(v => v.podium?.haut)), ecart(avecPodium.map(v => v.podium?.bas)))] as const,
+        ['liste', ecart(avecPodium.map(v => v.lignes[0]?.haut))] as const,
+      ].filter(([, de]) => de > 0)
+      const podium = avecPodium.length ? Math.max(...avecPodium.map(v => v.podium!.bas)) : null
+      const pastilles = Math.max(0, ...vues.map(v => v.pastilles?.bas ?? 0))
+      const larges = vues.filter(v => v.large > 0)
+      const petits = [...new Set(vues.flatMap(v => v.petits))]
+      const coupes = [...new Set(vues.flatMap(v => v.coupes))]
+      const etroites = [...new Set(vues.flatMap(v => v.etroites))]
+      const tus = [...new Set([...vues.flatMap(v => (v.tu.surtitre ? [v.tu.surtitre] : [])), ...vues.flatMap(v => (v.tu.qui ? [`${v.tu.qui} (${v.cercle} · ${v.puce})`] : []))])]
+      const basses = Object.entries(cibles).filter(([, de]) => de < 44)
+      const entieres = d.lignes.filter(l => l.bas <= d.pli).length
+      const sous = podium === null ? 0 : podium - d.pli
+      // Ce qui doit tenir : le podium au-dessus du menu, rien qui change de place d'une vue à l'autre, pas un geste
+      // plus bas qu'un doigt, pas un texte sous le plancher, pas une puce plus étroite que son nom, rien de côté.
+      const rateIci = sous > 0 || deplaces.length > 0 || larges.length > 0 || petits.length > 0 || basses.length > 0 || etroites.length > 0
+      if (rateIci) rate++
+      const laListe = !d.lignes[0]
+        ? 'pas de liste'
+        : entieres > 0
+          ? `${entieres} ligne${entieres > 1 ? 's' : ''} de la liste entière${entieres > 1 ? 's' : ''}`
+          : d.lignes[0].haut < d.pli
+            ? `la première ligne de la liste se voit sur ${d.pli - d.lignes[0].haut} px de ses ${haut(d.lignes[0])}`
+            : `la liste commence ${d.lignes[0].haut - d.pli} px sous le menu`
+      const verdict =
+        podium === null
+          ? `pas de podium — les puces finissent à ${d.puces?.bas}, le pli à ${d.pli}`
+          : sous > 0
+            ? `LE PODIUM PASSE DE ${sous} PX SOUS LE MENU`
+            : `le podium tient, ${-sous} px au-dessus du menu${pastilles > d.pli ? ` (une pastille de Divin ${pastilles - d.pli} px dessous)` : ''} · ${laListe}`
+      const ligne = `${n} (${cas.dit}) — ${verdict}`
+      mesures.push(ligne)
+      console.log(ligne)
+      console.log(
+        `   où finit chaque bloc, le pli à ${d.pli} : « ← Mon profil » ${d.retour?.bas} · le titre ${d.titre?.bas} (${d.lignesDuTitre} ligne${d.lignesDuTitre > 1 ? 's' : ''}) · sa place ${d.place?.bas} · les Divins ${d.divins?.bas} · « Le classement » ${d.tete?.bas} · les puces ${d.puces?.bas} (${d.rangeesDePuces} rangées)${podium === null ? '' : ` · le podium ${podium}`}${d.lignes[0] ? ` · la première ligne ${d.lignes[0].bas}` : ''} · la page ${d.page}`,
+      )
+      console.log(`   leur hauteur : sa place ${haut(d.place)} · les Divins ${haut(d.divins)} · les puces ${haut(d.puces)}${d.podium ? ` · le podium ${haut(d.podium)}` : ''}${d.lignes[0] ? ` · une ligne ${haut(d.lignes[0])}` : ''}`)
+      // La mesure s'arrête à 40 px de part et d'autre du milieu : au-delà de 80, un geste est simplement « haut ».
+      console.log(`   ce que le doigt touche, en hauteur : ${Object.entries(cibles).map(([quoi, de]) => `${quoi} ${de > 80 ? 'plus de 80' : de}`).join(' · ')}`)
+      if (tus.length) console.log(`   tu à l’œil, dit à l’oreille : ${tus.join(' ; ')}`)
+      if (coupes.length) console.log(`   coupé au bout : ${coupes.join(' ; ')}`)
+      if (deplaces.length) console.log(`   ÇA BOUGE d’une vue à l’autre : ${deplaces.map(([quoi, de]) => `${quoi} de ${de} px`).join(', ')}`)
+      if (larges.length) console.log(`   DÉBORDE EN LARGEUR de ${Math.max(...larges.map(v => v.large))} px (${larges.map(v => `${v.cercle} · ${v.puce}`).join(', ')})`)
+      if (basses.length) console.log(`   UNE CIBLE SOUS 44 PX : ${basses.map(([quoi, de]) => `${quoi} ${de}`).join(', ')}`)
+      if (etroites.length) console.log(`   UNE PUCE PLUS ÉTROITE QUE SON NOM : ${etroites.join(' ; ')}`)
+      if (petits.length) console.log(`   UN TEXTE SOUS LE PLANCHER : ${petits.join(' ; ')}`)
+      releve[n] = { cas: cas.nom, ecran: [largeur, hauteur], pli: d.pli, podium, pastilles: pastilles || null, sous, entieres, deplaces, cibles, tus, petits, coupes, etroites, vues }
+    }
+    writeFileSync(path.join(sortie, 'ce-qui-tient.json'), JSON.stringify(releve, null, 2))
+  }
   writeFileSync(path.join(sortie, 'mesures.txt'), mesures.join('\n') + '\n')
   console.log(`\n${mesures.length} états photographiés dans ${sortie}`)
+  // Par le code de sortie de Node, pas `process.exit()` : ce qui vient de s'écrire part d'abord (règle `tests.md`).
+  if (rate > 0) {
+    console.log(`${rate} état${rate > 1 ? 's' : ''} où le premier écran ne tient pas ce qu’il doit`)
+    process.exitCode = 1
+  }
 } finally {
   await navigateur.close()
   await banc.close()
