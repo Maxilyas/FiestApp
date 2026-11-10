@@ -12,7 +12,7 @@ paths:
   - "client/src/views/CabinetApp.tsx"
   - "client/src/views/cabinet/**"
 ---
-# Le Cabinet de curiosités : la traversée, ses épreuves, les neuf jeux — et le musée qui dort au serveur
+# Le Cabinet de curiosités : la traversée, ses épreuves, les dix jeux — et le musée qui dort au serveur
 
 La refonte de l'Expédition, validée le 24 octobre 2026 (`retours/2026-10-24/le-cabinet.md` ; le pourquoi de chaque choix, `docs/architecture/decisions.md`, « Le Cabinet de curiosités ») : d'abord un musée à remplir — les 84 cartes peintes en neuf salles —, neuf jeux de trois manches, une carte-bonus à emporter, des gardiens légendaires. Une partie est une série de la campagne (`mode = 'cabinet'`). Ouvert en production le 31 octobre 2026 (`CABINET_EN_PRODUCTION`), à la place de l'Expédition, effacée (`EXPEDITION_REMPLACEE`) ; le même jour, une tour pour y entrer, puis une barre de quatre pièces.
 
