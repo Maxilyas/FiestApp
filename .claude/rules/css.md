@@ -2,7 +2,7 @@
 paths:
   - "client/src/**/*.css"
   - "shared/typographie.ts"
-  - "server/test/{design,typographie,feuilles,calques-des-listes,hauteur-des-pages}.test.ts"
+  - "server/test/{design,typographie,feuilles,calques-des-listes,hauteur-des-pages,marge-du-bout}.test.ts"
 ---
 
 # Le CSS du client, et la typographie
@@ -108,6 +108,84 @@ paths:
   sort en erreur si l'une défile alors que sa coquille n'est pas plus haute
   que son minimum. Une barre de plus au bas d'une page dit sa hauteur dans
   `--haut-du-menu`, à côté du retrait qu'elle pose sur le corps.
+- **La marge du bas d'une coquille se resserre : un ressort et une rallonge,
+  jamais une marge réécrite** (« Ce qui reste », la revue des écrans du
+  10 novembre 2026). `padding-bottom` vit dans la boîte : un contenu qui
+  tenait sur l'écran, à moins d'une marge de son bord, faisait défiler la
+  page d'autant, pour ne montrer que du vide — en 360 × 640, la révélation
+  d'une soirée de 25 et 26 px, « Pas cette fois » de 20, une étape de
+  parcours et la question bonus de 28, « Ton équipe » de 25, un duel reçu
+  de 17 ; en 390 × 844, « Palier validé » de 22. Une marge ne sait pas
+  rétrécir, et une coquille à hauteur libre ne rétrécit rien : le bloc « La
+  marge du bout se resserre », en fin de `styles.css`, laisse chaque marge où
+  sa règle la pose et lui ajoute deux pièces. **Le ressort** (`::after`, le
+  dernier de la colonne) la reprend par sa marge négative
+  (`--marge-du-bout`) et la rend en grandissant, avant quiconque
+  (`flex: 9999 1 0px`, jamais plus qu'elle) : large, la page est au pixel
+  celle d'avant — ce qui s'étire, ce qui est poussé en bas s'arrête où il
+  s'arrêtait — ; juste, la marge se resserre jusqu'à rien et la coquille
+  garde sa hauteur d'écran. **La rallonge** (`::before`, en absolu sous la
+  coquille, qui en devient le repère) rend au bout d'une page plus longue
+  que l'écran ce dont elle dépasse, jusqu'à la marge entière : 3 px de trop
+  font défiler de 6, et passé une marge tout est comme avant. Ce qui le
+  tient. **L'écart de la colonne** : une colonne en `flex` sépare aussi ses
+  enfants du ressort, qui reprend cet écart (`--ecart-de-la-colonne`) — une
+  coquille, ou une classe posée à côté de `player-shell`, qui pose son `gap`
+  le redit dans le bloc, à la même valeur et dans le même ordre ; plus
+  petit, la page finit trop bas, plus grand, la coquille est plus courte
+  que son contenu. **Ce qu'une marge rend** : jamais l'encoche du bas d'un
+  téléphone, ni la barre du chef, que sa coquille compte dans sa marge ; une
+  règle de plus qui pose la marge du bas ou la hauteur d'une coquille dit
+  dans le bloc ce qu'elle rend, ou rejoint celles qui gardent leur marge
+  telle quelle — une question (sa marge porte « Réponse enregistrée »), le
+  pied d'une partie du Cabinet (il reprend déjà la marge à son compte),
+  l'accueil et le carrefour du profil, le QG, l'Expédition, un formulaire
+  posé dans une autre page. Le départ d'une série, resserré le même jour sur
+  un téléphone (16 px de marge, un écart de 12 puis de 10), le redit au
+  ressort dans sa règle même, pas dans le bloc : sous les mêmes requêtes
+  d'écran, des jumelles y auraient fait quatre pas de hauteur là où
+  `heros.test.ts` en compte deux. L'épreuve a rougi pour lui dès que les deux
+  se sont croisés — sans ces deux variables, le ressort lui reprenait 28 px,
+  et sa page finissait douze pixels avant son contenu — ; elle vérifie aussi
+  qu'une règle qui parle au ressort hors du bloc l'emporte par sa force sur
+  chacune de ses jumelles, sa place dans la feuille n'étant plus la leur.
+  **Une page qui pose sa propre marge du bas la dit au ressort.** Celle du
+  compagnon, resserrée le même jour, n'en a plus sur un téléphone
+  (`--chez-bas`, de rien à 24 px passé 800 px de haut, règle `profil.md`) :
+  le ressort lui en reprenait 24, et ce dont son contenu dépassait l'écran,
+  jusqu'à 24 px, passait derrière le menu sans que la page défile — le cadre
+  de « Tes compagnons » d'un vétéran, 5 px, en 360 × 740 (mesuré à
+  l'intégration : `rendu-compagnon.ts` sort en erreur dès que ce qui passe
+  sous le menu dépasse ce dont la page défile). Sa jumelle lit la même
+  variable ; la loge et le classement des collections, resserrés ce jour-là
+  aussi, ont la leur pour leur écart (10 puis 8 px sans compagnon,
+  `--cl-ecart`). L'épreuve ne voyait pas la page du compagnon : sa coquille
+  choisit ses classes (`className={… ? 'player-shell chez-page' :
+  'player-shell'}`), et elle ne lisait que le premier texte d'un
+  `className` — elle les lit tous ; une coquille dont les classes viennent
+  d'une variable lui échapperait encore.
+  **Les deux pseudo-éléments sont pris** sur une coquille à ressort : le
+  verdict d'un duel, qui tient son halo dans `::before`, garde sa marge.
+  **Et tout le bloc vit sous `@supports`**
+  (`selector(:has(a)) and (min-height: 100dvh)`) : sans `:has()`, les
+  exceptions ne se liraient pas ; un navigateur d'avant garde la page
+  d'avant, entière. `marge-du-bout.test.ts` garde la feuille ; la loi
+  se rejoue au pixel, sans serveur, dans Chromium
+  (`retours/2026-11-10/ecrans/reproductions/marge-du-bout.cjs`, le client
+  construit d'abord ; `--avant=<dépôt>` compare deux feuilles : jamais plus de
+  défilement, aucun bloc qui bouge). **La sonde de la revue lit le dernier
+  texte, pas la dernière boîte** : la révélation à quatre lignes et titre
+  sur deux, sous la niche, « tenait » à 639 px quand sa carte finit à 659,5
+  — elle dépasse vraiment de 19,5 px, et défile de 39 au lieu de 47. **Et
+  d'un relevé à l'autre, des pages changent toutes seules** : la carte
+  « Mission accomplie » d'une fin de duel suit les missions tirées pour son
+  profil, neuf à chaque lancement (`rendu-duels.ts`, `rendu-niche.ts` : 241 px
+  de plus ou de moins sous un verdict), et une traversée du Cabinet tire son
+  jeu et ses questions — un avant/après ne se lit qu'à contenu égal, la
+  coquille et ses enfants comparés. Ce qui reste : cette révélation-là ; une
+  question du Cabinet sous une carte-bonus, dont la quatrième réponse passe
+  sous le pied collé (61 px, « Le Pari ») ; et sous l'encoche d'un iPhone,
+  l'application installée, la marge d'un invité, qui est l'encoche même.
 - **En CSS, `transform` se compose APRÈS `rotate`**, et une animation qui pose
   `transform` écrase celui de l'élément : le toast, centré par
   `translateX(-50%)`, partait sur la droite. Centre par marges.

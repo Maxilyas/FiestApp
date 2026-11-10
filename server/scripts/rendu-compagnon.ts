@@ -812,6 +812,13 @@ function direLaMesure(n: string, etat: string, [, hauteur]: Ecran, m: Mesure) {
     if (m.petit && m.petit.taille < 11) manques.push('un texte sous 11 px')
     if (dessous.length) manques.push('quelque chose passe sous la niche')
   }
+  // Ce qui passe sous le menu doit pouvoir remonter : la page défile au moins d'autant — à toute taille, sous le
+  // bandeau et le texte agrandi aussi. Le ressort des marges (le bloc « La marge du bout se resserre », `styles.css`)
+  // reprenait 24 px à cette page, qui n'en a plus sur un téléphone : le cadre de « Tes compagnons » d'un vétéran
+  // passait de 5 px sous le menu en 360 × 740, et la page ne défilait plus du tout (mesuré le 10 novembre 2026, avant
+  // que sa marge ne se dise au ressort : `--chez-bas`).
+  const dessousDuMenu = Math.max(0, ...[m.scene, m.envies, m.chemin, m.amis, m.sans].map(b => sous(b) ?? 0))
+  if (dessousDuMenu > m.defile) manques.push(`${dessousDuMenu} px passent sous le menu, et la page ne défile que de ${m.defile}`)
   if (manques.length) rate++
   const blocs = etat === 'sans' ? [dit('ceux à adopter', m.sans)] : [dit('la scène', m.scene), dit('ses envies', m.envies), dit('son chemin', m.chemin), dit('ses compagnons', m.amis)]
   console.log(`${n} — pli à ${m.pli} px · ${blocs.filter(Boolean).join(' · ')} · défile de ${m.defile} px${m.bandeau ? ` · bandeau ${m.bandeau} px` : ''}${manques.length ? ` — DEVAIT TENIR : ${manques.join(' ; ')}` : ''}`)

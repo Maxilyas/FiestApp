@@ -198,7 +198,12 @@ paths:
   ses morceaux posent autrement). **Sur le petit téléphone, « Tes
   compagnons » ne peut pas tenir** : sa scène ne se rogne pas en 360 de
   large, et tout le
-  reste est à son minimum — il faudrait le rapetisser. Ce qui la ferait
+  reste est à son minimum — il faudrait le rapetisser. **Sa marge du bas
+  se dit au ressort des marges** (`--chez-bas`, de rien sur un téléphone :
+  `body.avec-menu .player-shell.chez-page { --marge-du-bout }`, le bloc « La
+  marge du bout se resserre », règle `css.md`) — sans quoi il lui reprend
+  les 24 px d'une page à menu, et ce qui dépasse l'écran passe derrière le
+  menu sans que la page défile. Ce qui la ferait
   défiler de nouveau : quoi que ce soit de plus sur sa page — une ligne, un
   bloc, un état de ses envies plus haut que ses trois ronds (103 px de carte
   au plus serré) —, en 360 × 740 d'abord, où elle tient à 8 px, et un pixel
