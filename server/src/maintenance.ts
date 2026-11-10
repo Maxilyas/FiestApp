@@ -24,9 +24,18 @@ export const PORTES_DES_PAGES: Record<PageEnMaintenance, readonly string[]> = {
   campagne: ['POST /api/campagne/serie', 'POST /api/campagne/revision', 'POST /api/campagne/sentiers/epreuve', 'POST /api/campagne/sujets/epreuve', 'POST /api/campagne/defi'],
   defi: ['POST /api/campagne/defi'],
   duels: ['POST /api/campagne/duel', 'POST /api/campagne/duel/:code', 'POST /api/campagne/rencontre'],
-  // Le départ d'une partie, et ce qui dépense la poussière d'or ou change la visite — un achat, une dorure, un échange,
-  // qui recommencent quelque chose ; jamais un geste : une partie commencée se finit, sa poussière et son œuvre avec.
-  cabinet: ['POST /api/cabinet/partie', 'POST /api/cabinet/oeuvre/:cle/achat', 'POST /api/cabinet/oeuvre/:cle/dorure', 'POST /api/cabinet/visite/echange'],
+  // Le départ d'une traversée, la seule porte que la page ouvre depuis le soir du 31 octobre 2026 — jusqu'au 10 novembre,
+  // elle manquait ici : la page fermée, un départ envoyé à la main passait. Jamais son geste (le choix du propriétaire, le
+  // 10 novembre 2026) : une traversée en route va au bout, ses épreuves et son légendaire avec. Puis les portes du musée
+  // qui dort, que plus aucun écran n'appelle mais dont le serveur répond encore : le départ d'une partie, et ce qui
+  // dépense la poussière d'or ou change la visite — un achat, une dorure, un échange ; elles s'en iront avec lui.
+  cabinet: [
+    'POST /api/cabinet/traversee',
+    'POST /api/cabinet/partie',
+    'POST /api/cabinet/oeuvre/:cle/achat',
+    'POST /api/cabinet/oeuvre/:cle/dorure',
+    'POST /api/cabinet/visite/echange',
+  ],
   boutique: ['POST /api/joueur/themes', 'POST /api/joueur/compagnons', 'POST /api/joueur/fonds'],
 }
 

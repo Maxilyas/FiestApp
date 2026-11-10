@@ -847,6 +847,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // L'Explorateur ne se cite que là où le Cabinet s'ouvre, comme il ne s'y gagne que là — sauf à ses détenteurs, qui
   // l'ont gagné au niveau d'explorateur, en production aussi : ils le gardent cité partout.
   profiles.cabinet = cabinetEstOuvert
+  // Le Globe-trotter, lui, là où l'Expédition répond encore : effacée, plus rien ne tamponne son passeport.
+  profiles.expedition = !expeditionRemplacee
   // Sa ligue des duels, sur sa carte.
   profiles.duelsDe = id => campagne.coteDe(id)
   // Sa bordure de ligue, que la salle lit de mémoire à chaque diffusion :

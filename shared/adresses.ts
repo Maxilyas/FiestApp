@@ -16,10 +16,11 @@ export type PublicPage = 'souvenir' | 'stats' | 'bilan' | 'bilan/fiches' | 'soir
  * tel qu'on le tape sur une télé, pour y lire le code qui la branche.
  * « boutique » : les thèmes d'un profil, une pièce du menu ; « campagne » : la
  * série solo d'un profil ; « duels » : ses duels classés et ses défis entre
- * amis, sortis de la campagne ; « expedition » : l'Expédition, trois actes et
- * un légendaire au bout ; « cabinet » : le Cabinet de curiosités, un musée à
- * remplir en jouant ; « collectionneurs » : la valeur des collections, et la
- * place de chacun.
+ * amis, sortis de la campagne ; « expedition » : l'Expédition, effacée le
+ * 31 octobre 2026 — son adresse mène au Cabinet ; « cabinet » : le Cabinet de
+ * curiosités, la traversée — trois actes, trois gardiens, un légendaire au
+ * bout — depuis le même soir, un musée à remplir en jouant avant ;
+ * « collectionneurs » : la valeur des collections, et la place de chacun.
  */
 export type AccountPage =
   | 'host'

@@ -8,8 +8,9 @@
 // trouvent nulle part ailleurs : ils pèsent double dans leur rareté, pour
 // que le coffre donne d'abord ce que la boutique ne vend pas. Un thème et un
 // compagnon de la boutique y entrent aussi, offerts — pas un thème qui se
-// gagne (il dirait faux sur son exploit), ni la luciole, qui se gagne au bout
-// d'une expédition, ni un thème de saison hors de sa saison (il ne serait
+// gagne (il dirait faux sur son exploit), ni un compagnon qui se gagnerait —
+// la luciole jusqu'au 31 octobre 2026 : elle s'achète depuis, et le coffre
+// l'offre comme les autres —, ni un thème de saison hors de sa saison (il ne serait
 // plus rare). Jamais ce qu'il a déjà : une rareté où il a tout descend d'un
 // cran, et tout en dernier, ce sont des confettis.
 

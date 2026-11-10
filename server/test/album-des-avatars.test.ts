@@ -22,9 +22,8 @@ import {
 import { compteDeLaCollection } from '../../shared/collection'
 import { LEGENDAIRES, LEGENDAIRES_DU_CABINET, estUneVoieDExpedition, voiesMontrees, LEGENDAIRE_DES_DEFIS } from '../../shared/legendaires'
 import { CABINET_EN_PRODUCTION } from '../../shared/cabinet/ouverture'
-import { GARDIENS_DE_SAISON, conditionDuGardien } from '../../shared/cabinet/salles'
-import { OEUVRES, OEUVRES_DE_DEPART, oeuvresDeLaSalle } from '../../shared/cabinet/oeuvres'
-import { JOURS_DU_SCARABEE } from '../../shared/cabinet/bareme'
+import { GARDIENS_DE_SAISON } from '../../shared/cabinet/salles'
+import { GARDIENS_DES_ACTES, GARDIENS_DE_LA_TRAVERSEE, GARDIEN_D_HALLOWEEN } from '../../shared/cabinet/traversee'
 import { DIVINS } from '../../shared/divins'
 import { BRANCHES, PORTRAITS } from '../../shared/branches'
 import { AVATARS, COLLECTION } from '../../shared/avatars'
@@ -439,13 +438,18 @@ test('un Divin ne dit pas comment il descend : ni voie, ni lieu, ni progression 
 })
 
 // ── Le Cabinet de curiosités ───────────────────────────────────────────────
-// Vingt gardiens s'y réveillent, les trois de saison à leur fête, et la luciole
-// à la première salle complète (le 25 octobre 2026). L'album tait la voie tant
-// que le Cabinet est fermé en production (`voiesMontrees`, le drapeau du code,
-// comme l'Expédition) ; forcé, il se lit tel qu'il sera à l'ouverture.
+// Vingt gardiens s'y gagnent, choisis au bout d'une traversée gagnée dont ils
+// gardent un acte, et la Citrouille de même à Halloween (la traversée, depuis
+// le soir du 31 octobre 2026 : le musée d'avant — une salle à compléter, à
+// dorer, la poussière d'or — n'a plus d'écran, et l'album le disait encore le
+// 10 novembre 2026). Le drapeau du code (`voiesMontrees`) est ouvert depuis le
+// 31 octobre 2026 ; les épreuves le forcent, ouvert ou fermé, pour lire l'un et
+// l'autre album.
 
-/** Les vingt-trois gardiens : les vingt à voie, et les trois de saison, dont le Cabinet range la condition même. */
-const GARDIENS = [...LEGENDAIRES_DU_CABINET, ...GARDIENS_DE_SAISON]
+/** Les gardiens de saison que la traversée fait garder un acte à leur fête : la Citrouille seule (`choisirLesGardiens`). */
+const GARDENT_A_LEUR_FETE = GARDIENS_DE_SAISON.filter(g => GARDIENS_DE_LA_TRAVERSEE.some(t => t.cle === g))
+/** Les vingt et un qui se gagnent au Cabinet : les vingt à voie, et la Citrouille, dont il range la condition même. */
+const GARDIENS = [...LEGENDAIRES_DU_CABINET, ...GARDENT_A_LEUR_FETE]
 
 /**
  * Le Cabinet ouvert, l'album dit-il encore la voie de l'Expédition ? Ce qu'en
@@ -457,7 +461,12 @@ const EXPEDITION_DITE = LEGENDAIRES.some(l => voiesMontrees(l, true).some(estUne
 const EN_EXPEDITION = EXPEDITION_DITE ? (['expedition'] as const) : []
 
 test('le Cabinet ouvert, chaque gardien s’y gagne aussi : son lieu, sa phrase, voie après voie', () => {
-  assert.equal(GARDIENS.length, 23)
+  assert.deepEqual(GARDENT_A_LEUR_FETE, [GARDIEN_D_HALLOWEEN])
+  assert.equal(GARDIENS.length, 21)
+  // Ce que l'album promet « au Cabinet », la traversée le tient : chacun y garde un acte — sinon sa fiche enverrait
+  // chercher un gardien qu'aucune traversée ne tire.
+  assert.deepEqual([...GARDIENS].sort(), GARDIENS_DE_LA_TRAVERSEE.map(g => g.cle).sort())
+  assert.deepEqual([...LEGENDAIRES_DU_CABINET].sort(), GARDIENS_DES_ACTES.flat().sort())
   for (const l of LEGENDAIRES) {
     const ferme = avatarDeLAlbum(l.key, false)!.lieux
     const ouvert = avatarDeLAlbum(l.key, true)!.lieux
@@ -467,6 +476,8 @@ test('le Cabinet ouvert, chaque gardien s’y gagne aussi : son lieu, sa phrase,
   }
   assert.deepEqual(avatarDeLAlbum('lg:phenix', true)!.lieux, ['soiree', 'jour', ...EN_EXPEDITION, 'cabinet'])
   assert.deepEqual(avatarDeLAlbum('lg:citrouille', true)!.lieux, ['saison', ...EN_EXPEDITION, 'cabinet'], 'sa fête, au Cabinet aussi')
+  // Le Sapin et le Bouquet final ne gardent aucun acte : le musée rangeait leur fête d'une œuvre gagnée, la traversée non.
+  for (const cle of ['lg:sapin', 'lg:bouquet']) assert.deepEqual(avatarDeLAlbum(cle, true)!.lieux, ['saison', ...EN_EXPEDITION], cle)
   assert.deepEqual(avatarDeLAlbum('lg:licorne', true)!.lieux, ['soiree', 'jour'], 'sans joker, pas de gardien')
   const dit = (cle: string) => ouIlSeGagne(avatarDeLAlbum(cle, true)!, true)
   assert.equal(dit('lg:phenix'), EXPEDITION_DITE ? 'en soirée, au quiz du jour, en expédition ou au Cabinet' : 'en soirée, au quiz du jour ou au Cabinet')
@@ -478,38 +489,24 @@ test('le Cabinet ouvert, chaque gardien s’y gagne aussi : son lieu, sa phrase,
   assert.equal(dit('lg:citrouille'), 'pour Halloween', 'un légendaire de saison se dit par sa fête')
 })
 
-test('comment l’obtenir au Cabinet : la salle à compléter ou à dorer, la série, le musée entier — sans jauge, tenu s’il a le légendaire', () => {
+test('comment l’obtenir au Cabinet : le choisir au bout d’une traversée gagnée — sans jauge, tenu s’il a le légendaire, plus un mot du musée', () => {
   const auCabinet = (cle: string, p = LEA) => voiesDeLAvatar(cle, p, true).flat().filter(e => e.lieu === 'cabinet')
-  // Le premier gardien d'une salle, quand elle est complète ; le second, ses cadres tous dorés.
-  const rempart = oeuvresDeLaSalle('rempart').length
-  assert.deepEqual(auCabinet('lg:phenix'), [
-    { lieu: 'cabinet', titre: 'Au Cabinet : compléter la salle du Rempart', regle: `Ses ${rempart} œuvres, gagnées en jouant ou achetées avec la poussière d’or`, tenue: true, progres: null },
-  ])
-  assert.deepEqual(auCabinet('lg:ouroboros'), [
-    { lieu: 'cabinet', titre: 'Au Cabinet : dorer la salle du Rempart', regle: `Ses ${rempart} cadres dorés, chacun en jouant sans faute ou avec la poussière d’or`, tenue: false, progres: null },
-  ])
-  // Le Vestibule se dit seul, au masculin, et compte ses vingt œuvres — les quatre de départ comprises, qu'il a sans
-  // rien faire : « gagnées en jouant ou achetées » ne les disait pas (leur cartel : « Offerte à ton arrivée »).
-  const vestibule = oeuvresDeLaSalle('vestibule').length
-  assert.equal(OEUVRES_DE_DEPART.length, 4)
-  assert.ok(OEUVRES_DE_DEPART.every(cle => oeuvresDeLaSalle('vestibule').some(o => o.cle === cle)), 'les quatre de départ sont au Vestibule')
-  assert.equal(auCabinet('lg:coq')[0].titre, 'Au Cabinet : compléter le Vestibule')
-  assert.equal(auCabinet('lg:coq')[0].regle, `Ses ${vestibule} œuvres : 4 offertes à ton arrivée, les autres gagnées en jouant ou achetées avec la poussière d’or`)
-  assert.equal(auCabinet('lg:chimere')[0].titre, 'Au Cabinet : dorer le Vestibule')
-  assert.equal(auCabinet('lg:chimere')[0].regle, `Ses ${vestibule} cadres dorés, chacun en jouant sans faute ou avec la poussière d’or`)
-  assert.equal(auCabinet('lg:chouette')[0].titre, 'Au Cabinet : compléter la salle de l’Érudit')
-  // La série et le musée entier : leur règle dans les mots du Cabinet (`conditionDuGardien`), qu'une série retouchée
-  // là-bas ne laisse pas dire l'ancienne ici.
-  assert.deepEqual(auCabinet('lg:scarabee')[0], {
-    lieu: 'cabinet',
-    titre: 'Au Cabinet : revenir chaque jour',
-    regle: `${JOURS_DU_SCARABEE} jours d’affilée à répondre à une manche de visite ou de chasse`,
-    tenue: false,
-    progres: null,
-  })
-  assert.equal(auCabinet('lg:scarabee')[0].regle, conditionDuGardien('lg:scarabee'))
-  assert.deepEqual(auCabinet('lg:trou-noir')[0], { lieu: 'cabinet', titre: 'Au Cabinet : compléter tout le musée', regle: `Le Cabinet entier : les ${OEUVRES.length} œuvres`, tenue: false, progres: null })
-  assert.equal(auCabinet('lg:trou-noir')[0].regle, conditionDuGardien('lg:trou-noir'))
+  // Une seule phrase pour les vingt : le gardien d'une salle comme le Scarabée et le Trou noir, que le musée réveillait
+  // d'une série et de toutes ses œuvres. Plus aucun écran ne complète une salle, ne dore un cadre ni ne dépense de poussière.
+  const titre = 'Au Cabinet : le choisir au bout d’une traversée'
+  const regle = 'Quand il garde un acte, gagne la traversée — ses trois gardiens vaincus —, puis choisis-le parmi eux'
+  assert.deepEqual(auCabinet('lg:phenix'), [{ lieu: 'cabinet', titre, regle, tenue: true, progres: null }])
+  for (const cle of ['lg:ouroboros', 'lg:coq', 'lg:chimere', 'lg:chouette', 'lg:scarabee', 'lg:trou-noir']) {
+    assert.deepEqual(auCabinet(cle), [{ lieu: 'cabinet', titre, regle, tenue: false, progres: null }], cle)
+  }
+  // Les étapes que le Cabinet touche — la sienne, et la fête d'un gardien de saison : un haut fait de soirée, lui, parle de
+  // « la salle » sans rien dire du musée.
+  for (const l of LEGENDAIRES) {
+    for (const e of voiesDeLAvatar(l.key, LEA, true).flat()) {
+      if (e.lieu !== 'cabinet' && e.lieu !== 'saison') continue
+      assert.doesNotMatch(`${e.titre} ${e.regle}`, /musée|salle|Vestibule|dor(er|é)|œuvre|poussière|revenir chaque jour/i, l.key)
+    }
+  }
   // Une voie à elle, au bout : celle de l'Expédition reste, l'une ou l'autre suffit.
   const phenix = voiesDeLAvatar('lg:phenix', LEA, true)
   assert.deepEqual(phenix.slice(0, -1), voiesDeLAvatar('lg:phenix', LEA, false))
@@ -525,20 +522,26 @@ test('comment l’obtenir au Cabinet : la salle à compléter ou à dorer, la s�
   for (const l of LEGENDAIRES) {
     for (const e of voiesDeLAvatar(l.key, LEA, true).flat()) assert.doesNotMatch(e.titre, /\b(hf|saison|expedition|cabinet):/, l.key)
   }
-  // Ceux de saison n'ont pas de voie à eux : leur fête se gagne aussi au Cabinet, dite dans ses dates.
+  // Ceux de saison n'ont pas de voie à eux. La Citrouille garde l'acte I d'une traversée partie à Halloween, une fois sur
+  // deux : choisie au bout, le Cabinet range sa fête même — sa règle le dit dans ses dates.
   assert.deepEqual(voiesDeLAvatar('lg:citrouille', LEA, true), [
     [
       {
         lieu: 'saison',
         titre: 'Pour Halloween, du 25 octobre au 1er novembre',
         regle: EXPEDITION_DITE
-          ? '3 jours de quiz du jour, une soirée ces jours-là, une œuvre gagnée en jouant au Cabinet ces jours-là, ou le garder au bout d’une expédition partie ces jours-là'
-          : '3 jours de quiz du jour, une soirée ces jours-là, ou une œuvre gagnée en jouant au Cabinet ces jours-là',
+          ? '3 jours de quiz du jour, une soirée ces jours-là, la choisir au bout d’une traversée du Cabinet partie ces jours-là, si elle y garde un acte, ou le garder au bout d’une expédition partie ces jours-là'
+          : '3 jours de quiz du jour, une soirée ces jours-là, ou la choisir au bout d’une traversée du Cabinet partie ces jours-là, si elle y garde un acte',
         tenue: false,
         progres: null,
       },
     ],
   ])
+  // Le Sapin et le Bouquet final : ni acte à garder, ni œuvre à gagner — le Cabinet ouvert ne change rien à leur fiche.
+  for (const cle of ['lg:sapin', 'lg:bouquet']) {
+    assert.deepEqual(voiesDeLAvatar(cle, LEA, true), voiesDeLAvatar(cle, LEA, false), cle)
+    assert.doesNotMatch(voiesDeLAvatar(cle, LEA, true)[0][0].regle, /Cabinet/, cle)
+  }
   // Ni l'Aigle, ni la Licorne, ni l'Éléphant : ils ne gardent rien. Un Divin, toujours rien (invariant 21).
   for (const cle of ['lg:aigle', 'lg:licorne', 'lg:elephant']) assert.deepEqual(voiesDeLAvatar(cle, LEA, true), voiesDeLAvatar(cle, LEA, false), cle)
   for (const d of DIVINS) {
@@ -571,6 +574,13 @@ test('la luciole, le Cabinet ouvert ou fermé : en boutique, comme les autres �
   assert.equal(dit('cp:luciole-constellation'), 'en boutique, puis à 500 bonnes réponses avec elle')
   assert.equal(dit('cp:luciole-aurore'), 'en boutique, puis à 500 bonnes réponses avec elle et par l’Éclat')
   assert.equal(dit('cp:loup-louveteau'), 'en boutique')
+  // Plus aucun compagnon ne se gagne (`Compagnon.gagne`) : l'album gardait pour un tel compagnon une voie prête, que rien
+  // n'atteignait — « Complète une salle de ton musée », « En expédition : la Première traversée » —, deux pages qui
+  // n'existent plus. Elle est partie le 10 novembre 2026 ; un compagnon qui se gagnerait écrit sa voie dans l'album
+  // (`shared/album.ts`) avant de porter `gagne`, sans quoi sa fiche dirait « En boutique ».
+  assert.ok(COMPAGNONS.every(c => !c.gagne), 'un compagnon qui se gagne : sa voie est à écrire dans l’album')
+  const album = readFileSync(new URL('../../shared/album.ts', import.meta.url), 'utf8')
+  assert.doesNotMatch(album, /Complète une salle de ton musée|compléter une salle`|la Première traversée'/, 'une voie du musée ou de l’Expédition, que rien n’atteint')
 })
 
 test('l’Expédition effacée, l’album n’en dit plus rien : ni lieu, ni voie, sous aucun drapeau du Cabinet', () => {
@@ -605,7 +615,7 @@ test('la fiche de l’album, le Cabinet ouvert : son étape sous l’arche du Ca
   const arche = await rendu('Icon', 'Icon', { name: 'landmark' })
   // Les espaces insécables de `espacesFines`, lues comme des espaces.
   const ouroboros = (await ficheDeLAlbum('lg:ouroboros', true)).replace(/[  ]/g, ' ')
-  assert.ok(ouroboros.includes(`<span class="album-etape-icone" aria-hidden="true">${arche}</span><span class="album-etape-texte"><b>Au Cabinet : dorer la salle du Rempart</b>`), 'l’étape du Cabinet, sous son arche')
+  assert.ok(ouroboros.includes(`<span class="album-etape-icone" aria-hidden="true">${arche}</span><span class="album-etape-texte"><b>Au Cabinet : le choisir au bout d’une traversée</b>`), 'l’étape du Cabinet, sous son arche')
   assert.match(ouroboros, /<span class="album-ou">ou<\/span><div class="album-voie">(?:(?!album-ou).)*Au Cabinet/, 'une voie de plus, après un « ou »')
   assert.doesNotMatch(await ficheDeLAlbum('lg:ouroboros', false), /Cabinet/)
   // La luciole : la boutique, sous les deux drapeaux — elle s'achète depuis le 31 octobre 2026, l'Expédition effacée.
@@ -613,10 +623,11 @@ test('la fiche de l’album, le Cabinet ouvert : son étape sous l’arche du Ca
     assert.match(await ficheDeLAlbum('cp:luciole-ver', cabinet), /<a class="btn btn-small album-aller" href="\/boutique#compagnon-luciole">Aller à la boutique<\/a>/)
   }
   // Un gardien mène à la première voie qui reste et qui a un écran : l'expédition tant que l'album la dit — sa voie
-  // passe devant celle du Cabinet —, puis la salle qu'il garde, qui dit ce qui lui manque.
+  // passe devant celle du Cabinet —, puis le Cabinet, sa traversée ; plus à la salle qu'il gardait (`#salle-devin`), que
+  // la page n'a plus.
   const oracle = await ficheDeLAlbum('lg:oracle', true)
   if (EXPEDITION_DITE) assert.match(oracle, /<a class="btn btn-small album-aller" href="\/expedition">Partir en expédition<\/a>/)
-  else assert.match(oracle, /<a class="btn btn-small album-aller" href="\/cabinet#salle-devin">Aller au Cabinet<\/a>/)
+  else assert.match(oracle, /<a class="btn btn-small album-aller" href="\/cabinet">Aller au Cabinet<\/a>/)
 })
 
 test('l’album, le Cabinet ouvert : la luciole sous la pastille de la boutique, l’arche à ses gardiens seuls — fermé, rien de lui', async () => {

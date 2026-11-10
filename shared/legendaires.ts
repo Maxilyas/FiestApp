@@ -47,9 +47,12 @@
 // et nulle part ailleurs (invariant 21) : le client importe ce fichier.
 //
 // Depuis le 25 octobre 2026, vingt d'entre eux veillent aussi sur le Cabinet
-// de curiosités : une salle complète, ses cadres tous dorés, le Cabinet
-// entier, trente jours d'affilée les réveillent (`avecLeCabinet`) — une voie de
-// plus, rangée comme celle de l'Expédition, qui reste.
+// de curiosités (`avecLeCabinet`) — une voie de plus, rangée comme celle de
+// l'Expédition, qui reste. Une salle complète, ses cadres tous dorés, le
+// Cabinet entier, trente jours d'affilée les réveillaient au musée ; depuis le
+// soir du 31 octobre 2026, la page n'est plus que la traversée, et l'on gagne
+// l'un d'eux en le choisissant au bout, parmi ses trois gardiens vaincus — le
+// musée n'a plus d'écran, son serveur range encore la même ligne.
 
 import { clePalier } from './hautsfaits'
 import { portrait } from './branches'
@@ -156,12 +159,14 @@ export const LEGENDAIRE_DES_DEFIS = 'lg:djinn'
 export const estUneVoieDuCabinet = (c: Condition): boolean => !('toutes' in c) && c.hautFait.startsWith('cabinet:')
 
 /**
- * Chaque gardien du Cabinet qui n'est pas de saison se gagne aussi en le
- * réveillant (le 25 octobre 2026) : une voie de plus (`aussi`), qui lit la
- * ligne `cabinet:…` que la réconciliation range (`core/cabinet/gardiens.ts`),
- * comme celle de l'Expédition — qui reste, pour qui l'a gardé là-bas
- * (invariant 22). Le Cabinet fermé en production (`CABINET_EN_PRODUCTION`), elle
- * ne se montre pas (`voiesMontrees`).
+ * Chaque gardien du Cabinet qui n'est pas de saison s'y gagne aussi (le
+ * 25 octobre 2026) : une voie de plus (`aussi`), qui lit la ligne `cabinet:…`
+ * — rangée au choix du légendaire qui gagne une traversée, depuis le soir du
+ * 31 octobre 2026, et par la réconciliation du musée qui dort
+ * (`core/cabinet/gardiens.ts`) —, comme celle de l'Expédition, qui reste, pour
+ * qui l'a gardé là-bas (invariant 22). Elle se montre depuis que le Cabinet
+ * est ouvert en production, le 31 octobre 2026 (`CABINET_EN_PRODUCTION`,
+ * `voiesMontrees`) ; le drapeau refermé, elle se tairait.
  */
 const avecLeCabinet = (legendaires: Legendaire[]): Legendaire[] =>
   legendaires.map(l => (LEGENDAIRES_DU_CABINET.includes(l.key) ? { ...l, aussi: [...(l.aussi ?? []), { hautFait: cleDuCabinet(l.key), fois: 1 }] } : l))
@@ -473,12 +478,13 @@ export function voiesDe(l: Legendaire): readonly Condition[] {
  * fermée en production (`EXPEDITION_EN_PRODUCTION`, ouverte depuis ses
  * jokers) ou que son départ a laissé place au Cabinet (`EXPEDITION_REMPLACEE`,
  * partout : on ne garde plus de gardien au bout d'une expédition qu'on ne peut
- * plus commencer), et celle du Cabinet tant qu'il l'est (`CABINET_EN_PRODUCTION`) :
- * l'album mènerait à une page qui n'y répond pas. La préproduction la tait donc
- * aussi d'ici l'ouverture : un drapeau du code ne la sait pas, et c'est un
- * texte. Elles comptent quand même : qui garde ou réveille un légendaire en
- * préproduction l'a (`legendairesDebloques`). `cabinet` et `remplacee` forcent
- * les deux drapeaux, pour qui veut lire l'album tel qu'il sera. La voie de
+ * plus commencer), et celle du Cabinet quand il est fermé en production
+ * (`CABINET_EN_PRODUCTION`, ouvert depuis le 31 octobre 2026 : elle se dit
+ * donc partout) : l'album mènerait à une page qui n'y répond pas. Un drapeau
+ * du code ne sait pas la préproduction, qui la taisait aussi jusqu'à
+ * l'ouverture. Tue, une voie compte quand même : qui garde ou gagne un
+ * légendaire l'a (`legendairesDebloques`). `cabinet` et `remplacee` forcent
+ * les deux drapeaux, pour lire l'album sous l'un et l'autre. La voie de
  * l'Expédition se décide par `voieDeLExpeditionDite` (`shared/jokers.ts`), que
  * le chemin de la luciole lit aussi : l'un ne la tait pas sans l'autre.
  */

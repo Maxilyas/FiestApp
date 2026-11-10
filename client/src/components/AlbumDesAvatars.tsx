@@ -26,7 +26,6 @@ import {
 import { BRANCHES, brancheDe, portrait } from '../../../shared/branches'
 import { COLLECTION } from '../../../shared/avatars'
 import { estScellable, legendaire } from '../../../shared/legendaires'
-import { salleDuGardien } from '../../../shared/cabinet/salles'
 import { divin } from '../../../shared/divins'
 import { compagnonDe, formeDeCompagnon, nomDeLaForme } from '../../../shared/compagnons'
 import { aLEclat, brilleChez, eclatChez, type PublicProfileDetail } from '../../../shared/profil'
@@ -107,8 +106,9 @@ function ceQueDitLaCase(a: AvatarDeLAlbum, aLui: boolean, porte: boolean, cabine
  * ses jours : « Jouer le quiz du jour » en juin ne la rapprocherait de rien.
  * Un compagnon à acheter mène à la boutique ; acheté, il grandit en le
  * portant — partout : rien à ouvrir de plus que « Mon avatar », que sa fiche
- * cite déjà. Un gardien du Cabinet mène à la salle qu'il garde, qui dit ce qui
- * lui manque (`#salle-rempart`) ; les autres, au musée.
+ * cite déjà. Un gardien du Cabinet mène au Cabinet, sa traversée : il menait à
+ * la salle qu'il gardait (`#salle-rempart`), que la page n'a plus depuis le
+ * soir du 31 octobre 2026.
  */
 function ouAller(cle: string, voies: EtapeDUneVoie[][]): { nom: string; href: string } | null {
   for (const e of voies.flat()) {
@@ -117,10 +117,7 @@ function ouAller(cle: string, voies: EtapeDUneVoie[][]): { nom: string; href: st
     if (e.lieu === 'campagne') return { nom: 'Aller à la campagne', href: '/campagne' }
     if (e.lieu === 'sentiers') return { nom: 'Aller au sentier', href: `/campagne#sentier-${portrait(cle)?.branche ?? ''}` }
     if (e.lieu === 'expedition') return { nom: 'Partir en expédition', href: '/expedition' }
-    if (e.lieu === 'cabinet') {
-      const s = salleDuGardien(cle)
-      return { nom: 'Aller au Cabinet', href: s ? `/cabinet#salle-${s}` : '/cabinet' }
-    }
+    if (e.lieu === 'cabinet') return { nom: 'Aller au Cabinet', href: '/cabinet' }
     if (e.lieu === 'boutique') {
       // La vitrine s'ouvre sur lui : les deux autres se font glisser.
       const f = formeDeCompagnon(cle)
