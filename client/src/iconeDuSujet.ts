@@ -39,6 +39,8 @@ const ICONE_DU_SUJET: Record<string, IconName> = {
   pokemon: 'carte-eclair',
   nintendo: 'champignon',
   disney: 'chateau',
+  friends: 'canape',
+  'game-of-thrones': 'trone',
   'harry-potter': 'baguette',
   'james-bond': 'noeud',
   marvel: 'bouclier',

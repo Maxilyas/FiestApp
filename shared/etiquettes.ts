@@ -174,6 +174,11 @@ export const ETIQUETTES: readonly FamilleDEtiquettes[] = [
       { cle: "kaamelott", nom: "Kaamelott", definition: "la série d'Alexandre Astier (2005-2009) et ses films (2021 et suivants) : ses personnages, ses répliques, ses acteurs, la quête du Graal telle qu'elle la raconte. Pas la légende arthurienne hors de la série" },
       { cle: "lost", nom: "Lost", definition: "la série « Lost : Les Disparus » (2004-2010) : ses personnages, l'île, ses mystères, ses acteurs et ceux qui l'ont faite. Pas un autre « lost » (Lost in Translation, Lost River)" },
       { cle: "stargate", nom: "Stargate", definition: "le film de 1994, les séries SG-1, Atlantis et Universe, leurs téléfilms, leurs personnages, leurs races et leurs planètes, ceux qui les jouent et les font. Pas les dieux égyptiens ni l'Atlantide des mythes, hors de la saga" },
+      // Le 10 novembre 2026 : deux séries parmi les plus connues, écrites de
+      // même. Ce que leurs acteurs ont joué ailleurs n'en est pas — la leçon de
+      // Stargate : une question d'univers a sa réponse dans l'univers.
+      { cle: "friends", nom: "Friends", definition: "la série (1994-2004) : ses six amis, leurs proches, leurs appartements et le Central Perk, ses répliques, ses acteurs dans leur rôle, ceux qui l'ont faite, ses retrouvailles de 2021 et sa suite « Joey ». Pas ce que ses acteurs ont joué ailleurs" },
+      { cle: "game-of-thrones", nom: "Game of Thrones", definition: "la série (2011-2019), les romans du « Trône de fer » de George R. R. Martin dont elle est tirée, et « House of the Dragon » : leurs personnages, leurs maisons, leurs lieux (Westeros, le Mur), leurs répliques, leurs acteurs dans leur rôle et ceux qui les ont faits. Pas ce que ses acteurs ont joué ailleurs" },
     ],
   },
 ]

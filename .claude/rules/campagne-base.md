@@ -214,6 +214,55 @@ Pour agrandir la base (un lot, sa relecture, son rangement — ou des milliers d
   étiquette, et relis les paires : la moitié posent deux faits (Yoda et
   deux répliques), l'autre le même. Enfin la fiche de relecture ne montre
   pas les étiquettes : un relecteur a cru qu'elles manquaient.
+- **Un univers en une seule vague : une facette et un fichier de faits par
+  lot** (Friends et Game of Thrones, le 10 novembre 2026, 213 écrites, 182
+  rangées). `--sujet` suit la répartition d'un sujet : presque tout dans
+  `series`, donc un lot par vague, quatre vagues. À la place, des lots à la
+  main (`base-campagne.ts consigne "Cinéma & séries" series:21 --lot=fr2`),
+  tous écrits ensemble, chacun sa facette — qui est qui, un groupe de
+  saisons, les coulisses, les romans — et, au bout de sa consigne, la
+  section « CE LOT EN PARTICULIER » : l'étiquette de l'univers, la facette et
+  celles des autres, les difficultés, ce que la base pose déjà sous
+  l'étiquette, et un fichier de faits à lire en entier, le seul hors de la
+  consigne (`.lots-campagne/sources/lot-<nom>.txt`). Les faits viennent de
+  Wikipédia en français, en texte brut (`index.php?title=…&action=raw`, une
+  demande toutes les trois secondes : plus vite, un 429 ; dans le cloud,
+  la Wikipédia en anglais n'est pas joignable), nettoyés et coupés à 60–85 Ko
+  par lot : la page des personnages, une page par saison — titre, invités et
+  résumé de chaque épisode —, l'article de la série sans sa distribution.
+  Douze rédacteurs, zéro refus chacun ; les relecteurs, à qui la mission
+  donne le même fichier, ont retiré 3 questions et récrit une vingtaine
+  d'anecdotes ou d'intitulés (cinq intitulés d'un lot ne nommaient pas la
+  série). Ce qu'on en a appris : les facettes se recoupent sur les
+  personnages qui reviennent — Gunther, Janice, Mélisandre, Olenna, le
+  Silure, la Banque de Fer —, plus de vingt des vingt-huit questions
+  retirées à la lecture de tous les lots ; la prochaine fois, la section des lots de
+  saisons dit de laisser « qui est qui » à son lot. `verifier` sur tous les
+  lots ensemble en montre la moitié avant la relecture : dans un univers,
+  toutes les questions partagent l'entité de la série, et deux questions de
+  même réponse y passent pour le même fait (Brienne, deux fois ; un canard,
+  deux fois) — une réponse ne sert qu'une fois par univers. Les autres ne se
+  voient qu'à l'œil, réponse par réponse : la même chanson sous son titre
+  français et son titre original, deux pages qui nomment un feuilleton de
+  deux façons, une question qui contient sa réponse. Un relecteur rend sa
+  fiche en vingt secondes et ne cherche que ce qu'on lui nomme : la règle
+  sur les révélations de l'intrigue (ni mort d'un personnage principal, ni
+  traître, ni fin) se dit dans la consigne **et** dans la mission de
+  relecture, et se relit quand même (deux de plus retirées).
+- **Un sous-thème sans thème s'étoffe par familles, à la main** (« Langues
+  et écritures du monde », le même jour : 55 questions, 150 écrites, 137
+  rangées, 192). `--inventaire` ne commande que l'inventaire d'un thème
+  (`inventairesDuTheme`, `inventaires.test.ts`), et ce sous-thème n'en a
+  pas : six lots `consigne "Culture générale" langue:25`, une famille
+  chacun dans sa section — qui parle quoi, les familles de langues, les
+  alphabets d'aujourd'hui, les écritures anciennes, les codes et les
+  signes, les mots des autres langues —, avec ses sujets, ce qu'elle laisse
+  aux sous-thèmes voisins (les langues de France au français, le ñ à
+  l'espagnol, l'ASCII à `techno`) et ses difficultés : le sous-thème
+  n'avait que douze faciles. Un seul refus entre lots (le yiddish). Les
+  relecteurs ont retiré ce qui revenait au français (le picard, le breton) ;
+  le coup d'œil, un gabarit — sept « Quelle langue parle-t-on à… ? » dans un
+  lot, malgré « pas plus de trois » — et deux faits posés par deux familles.
 - **Une réponse chiffrée retournée se refuse, et la base garde les siennes**
   (les 9 et 10 novembre 2026, des lots pour le premier acte du nouveau
   Filet — des années et des grandeurs que la plupart des Français placent,
