@@ -351,7 +351,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 
 - `server/test/profil.test.ts` — ce que la page du profil relit.
 - `server/test/profil-atlas.test.ts` — les écrans du profil.
-- `server/test/loge.test.ts` — la loge : essayer, puis « Porter ».
+- `server/test/loge.test.ts` — la loge : essayer, puis « Porter » ; et la loge tenue sur un écran, ou presque, sans rien déplacer : l'ordre de ses blocs, ce que la bordure et le sceau disent sous leur rangée, en deux temps — l'essentiel en 46 caractères au plus, la phrase d'avant mot pour mot —, et la feuille : ses mesures en variables posées sur sa page, à deux pas de hauteur d'écran qui ne font que resserrer, un grand écran aux mesures d'avant, ce qu'un écran court tait caché à l'œil seulement, la carte laissée sous la niche, la barre de l'essai à la hauteur du menu. Ce qui tient se mesure au navigateur (`server/scripts/rendu-loge.ts`).
 - `server/test/grille-avatars.test.ts` — la grille des avatars.
 - `server/test/album-des-avatars.test.ts` — l'album rangé par rareté.
 - `server/test/ma-collection.test.ts` — tout ce qui se gagne : trois familles, les albums des avatars, des trophées et des thèmes, les adresses d'avant ; et le carrefour en lignes — la phrase de chaque ligne en deux temps, la note sous les listes, la feuille à quatre pas de hauteur.

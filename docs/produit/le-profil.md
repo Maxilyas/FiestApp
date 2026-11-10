@@ -95,7 +95,7 @@ Chaque écran a son adresse et « ← », qui ramène d'où tu viens ; les adres
 
 ![La loge au téléphone : la carte de Léa en tête, « Version rare » à côté de son avatar, les six pièces sur une rangée, puis ses finitions — « +3 à gagner » au bout de la rangée — et sa bordure](../vitrine/captures/telephone-loge.jpg)
 
-« M'habiller » ouvre la loge : tout ce que tu portes, au même endroit. En tête, **ta carte**, collée en haut pendant que tu choisis — ton fond, ton avatar, ton titre (« Sans titre » sinon), ta vitrine, ta finition —, puis ta barre d'expérience et tes confettis. Dessous, six pièces sur une rangée, et qui voit celle qui est ouverte :
+« M'habiller » ouvre la loge : tout ce que tu portes, au même endroit. En tête, **ta carte**, collée en haut pendant que tu choisis — ton fond, ton avatar, ton titre (« Sans titre » sinon), ta vitrine, ta finition —, puis ta barre d'expérience et tes confettis (un petit téléphone les tait : « Tout sur le même écran », plus bas). Dessous, six pièces sur une rangée, et qui voit celle qui est ouverte :
 
 | Pièce | Sous la rangée | Ce qu'on y choisit |
 |---|---|---|
@@ -120,6 +120,22 @@ Chaque écran a son adresse et « ← », qui ramène d'où tu viens ; les adres
 - **Fond, Thème, Gerbe** : leurs catalogues sont dans [la boutique](la-boutique.md).
 
 **« Nouveau »** : ce que tu as gagné à porter depuis ton dernier passage dans la loge se compte en rouge, comme les défis reçus des duels — sur « Profil », dans la barre du menu de chaque page, sur « M'habiller », qui ouvre la loge sur la première pièce qui a du neuf, puis d'un point rouge jusqu'à la chose même : sur la pièce, puis, dans « Avatar », sur la rareté qui le range — tant que tu n'y es pas — et sur sa case ; un Éclat neuf, sur l'avatar où il est tombé ; une finition, une bordure atteinte ou sertie, sur sa pastille. Le point d'une pièce s'éteint dès que tu l'as regardée, **sur tous tes appareils** : le serveur retient ce que tu as vu ; ceux de ses cases restent le temps de ta visite. Ta première visite compte tout comme déjà vu. **La fin d'une partie** range sous « À porter » ce qu'elle vient d'ouvrir — un fond, une gerbe, un thème, un emoji de collection — : « Essayer » ouvre la loge, l'essai déjà sur ta carte (`/profil?essayer=nuit#fond`), seulement s'il est à toi — de même « Essayer », dans une fiche de « Ma collection ».
+
+**Tout sur le même écran, ou presque** (le 10 novembre 2026 ; le propriétaire : « j'aimerais que l'on puisse avoir tout sur le même écran ou presque »). La pièce « Avatar » d'une habituée — sa finition, sa bordure, son sceau — ne montrait aucun de ses avatars sans défiler, sur aucun téléphone. Rien n'a changé de place, ni un nom, ni un geste, et rien ne s'est ajouté : la loge se resserre, à deux pas de hauteur d'écran.
+
+- **Sur un téléphone** (moins de 940 pixels de haut) : les écarts se resserrent ; les ronds des pièces, l'avatar de ta carte et les cases des avatars sont un peu plus petits ; et ce que ta bordure et ton sceau disent sous leur rangée tient sur une ligne — l'essentiel, puis ce qui tient entier : « Les Fleurons · 7 crans sur 12 », « Le Phénix est scellé : tu tiens l'exploit qui l'ouvre ». La phrase entière se lit sur un grand écran, le lecteur d'écran la lit toujours, et sa suite se retrouve dans « Ma collection » : la fiche d'une bordure dit ses crans, celle d'un légendaire son sceau. Sans duel classé, l'explication de la bordure reste entière, son lien au bout.
+- **Sur un petit téléphone** (moins de 760 pixels : un 360 × 640, un iPhone dans Safari) : ta carte tait en plus ta barre d'expérience et tes confettis — l'accueil et « Mon profil » les disent en tête, et ta carte, collée en haut, les gardait sous chaque pièce —, ses pastilles sont un peu plus petites, et les écarts perdent encore deux pixels.
+- **Sur une tablette ou un ordinateur** : rien n'a changé.
+
+| Écran | Avant : l'habituée, sa pièce « Avatar » | Après |
+|---|---|---|
+| 360 × 640 | ses gemmes 227 pixels sous le menu | tout ce qu'on règle avant la grille se voit — à 2 pixels du menu avec un compagnon, dont la niche tient la carte à 86 pixels du haut, 20 de libre sans — ; ses avatars restent dessous |
+| 390 × 664, un iPhone dans Safari | 203 pixels sous le menu | tout ce qu'on règle avant la grille se voit, 26 pixels de libre ; ses avatars restent dessous |
+| 360 × 740, 412 × 800 | 127 et 67 pixels sous le menu | une rangée de ses avatars |
+| 390 × 844 | 23 pixels sous le menu | deux rangées — une sous l'encoche d'un iPhone installé |
+| 412 × 915 | ses gemmes, et aucun avatar | trois rangées |
+
+Un nouveau venu voit ses emojis dès le petit téléphone — deux rangées, cinq sur un grand — ; les cinq autres pièces montrent ce qu'elles disent et leur première rangée à toutes les tailles. Une grille de ce qu'on a défile par nature quand elle est longue : c'est le « presque » — comme celle d'une habituée sur les deux plus petits écrans, et tout au plus long (les douze finitions du niveau 50, un Éclat en réserve, sept pages d'avatars), dont les gemmes passent encore sous le menu sur tout téléphone, de 3 pixels sur le plus grand. La barre de l'essai, elle, a exactement la hauteur du menu qu'elle couvre — sous la barre d'accueil d'un iPhone, elle montait six pixels plus haut. Ce qui tient se mesure au navigateur (`server/scripts/rendu-loge.ts`, six tailles, avec et sans compagnon) ; `server/test/loge.test.ts` garde l'ordre des blocs, les phrases et la feuille.
 
 ## Ma collection
 

@@ -9041,12 +9041,46 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
    « ← Mon profil » et son titre ; sa carte collée en tête montre l'essai ;
    les six pièces sur une rangée — ce que la salle voit, puis ce que lui
    seul voit — ; le panneau de la pièce touchée ; et la barre de l'essai,
-   qui couvre le menu le temps de choisir : « Annuler », « Porter ». */
-.loge-page { gap: 14px; }
+   qui couvre le menu le temps de choisir : « Annuler », « Porter ».
+
+   Tout sur le même écran, ou presque (le propriétaire, le 10 novembre 2026 :
+   « j'aimerais que l'on puisse avoir tout sur le même écran ou presque »).
+   Rien n'y change de place, ni un nom, ni un geste : ses mesures sont des
+   variables posées sur sa page, à deux pas de hauteur d'écran — tous les
+   téléphones (sous 940 px), puis le petit téléphone et un iPhone dans son
+   navigateur (sous 760) —, et un grand écran garde les mesures d'avant.
+   Ce jour-là, la pièce « Avatar » d'une habituée — sa finition, sa bordure,
+   son sceau — ne montrait pas un seul de ses avatars sans défiler, sur aucun
+   téléphone : la première rangée de sa grille finissait à 886 px, pour 850
+   visibles au-dessus du menu en 412 × 915, et 575 en 360 × 640. Ce qui tient
+   se mesure au navigateur : `server/scripts/rendu-loge.ts`. */
+.loge-page {
+  /* Entre les blocs de la loge — sa carte, la rangée des pièces, « qui le voit », le panneau — et, dans la pièce
+     « Avatar », entre les gemmes et leur grille. */
+  --loge-ecart: 12px;
+  /* Entre les blocs du panneau de la pièce ouverte : la finition, la bordure, le sceau, les avatars. */
+  --loge-bloc: 14px;
+  /* Dans un bloc, entre son petit titre, sa rangée et sa phrase. */
+  --loge-serre: 6px;
+  /* Entre un rond ou une pastille et son nom. */
+  --loge-fin: 4px;
+  /* La carte : son avatar, la hauteur de sa première ligne, l'écart avant sa jauge, son pied. */
+  --loge-avatar: 2.7rem;
+  --loge-carte-rang: 76px;
+  --loge-carte-ecart: 8px;
+  --loge-carte-pied: 12px;
+  /* Le rond d'une pièce — sa cible reste le bouton entier, son nom compris —, la pastille d'une finition ou d'une
+     bordure, la case d'un avatar, la marge du haut d'une gemme. */
+  --loge-rond: 44px;
+  --loge-pastille: 30px;
+  --loge-case: 72px;
+  --loge-gemme: 8px;
+  gap: 14px;
+}
 .loge-tete { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
 .loge-tete .jour-sortie { margin: 0; }
 .loge-tete h1 { margin: 0; font-size: 1.6rem; line-height: 1.1; }
-.loge { display: flex; flex-direction: column; gap: 12px; }
+.loge { display: flex; flex-direction: column; gap: var(--loge-ecart); }
 /* Collée, la carte touche le haut de l'écran ; sa marge ne vaut qu'au repos.
    La bande ne peint rien : son fond uni posait un rectangle à angles droits
    sous les coins arrondis de la carte, plus sombre que le halo de la page et
@@ -9058,8 +9092,9 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px 14px 12px;
+  gap: var(--loge-carte-ecart);
+  /* Le haut ne se resserre pas : le lambrequin du théâtre y tient ses dix pixels (plus bas). */
+  padding: 10px 14px var(--loge-carte-pied);
   border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
   border-radius: var(--radius);
   /* Le sol à part du reste : sans `color-mix` (un vieux téléphone), l'image
@@ -9075,12 +9110,12 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
   isolation: isolate;
 }
 /* Son avatar et ce qui s'écrit à côté ; « Aperçu » ou la finition au coin, « Version rare » dessous. */
-.loge-carte-haut { position: relative; display: flex; align-items: center; gap: 14px; min-height: 76px; }
-.loge-carte .player-avatar.big { flex: none; font-size: 2.7rem; }
+.loge-carte-haut { position: relative; display: flex; align-items: center; gap: 14px; min-height: var(--loge-carte-rang); }
+.loge-carte .player-avatar.big { flex: none; font-size: var(--loge-avatar); }
 /* Le niveau suivant et les confettis, sur toute la largeur de la carte. */
 .loge-carte > .xp-mince { max-width: none; margin-top: 0; }
 .loge-carte-avatar { flex: none; border-radius: 50%; line-height: 0; }
-.loge-carte-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding-right: 56px; }
+.loge-carte-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: var(--loge-fin); padding-right: 56px; }
 .loge-carte-titre { max-width: 100%; font-family: var(--serif); font-style: italic; font-size: 1rem; line-height: 1.2; color: var(--accent-text); overflow-wrap: anywhere; }
 .loge-carte-titre.loge-sans { color: var(--muted); }
 .loge-carte-vitrine { display: inline-flex; gap: 5px; min-height: 28px; }
@@ -9114,23 +9149,23 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 }
 .loge-carte-ouvrir:active { background: rgba(var(--accent-rgb), 0.06); }
 .loge-carte-ouvrir:focus-visible { outline-offset: -3px; }
-.loge-pieces { display: flex; flex-direction: column; gap: 6px; }
+.loge-pieces { display: flex; flex-direction: column; gap: var(--loge-serre); }
 .loge-groupes { display: grid; grid-template-columns: 4fr 2fr; gap: 4px; font-size: var(--t-label); font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--zone, var(--muted)); }
 .loge-groupes span { text-align: center; }
 .loge-rangee { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
-.loge-piece { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; padding: 2px 0 4px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
-.loge-rond { position: relative; display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--edge); border-radius: 50%; background: var(--surface); color: var(--ink); transition: background 0.15s ease, border-color 0.15s ease; }
+.loge-piece { position: relative; display: flex; flex-direction: column; align-items: center; gap: var(--loge-fin); min-width: 0; padding: 2px 0 var(--loge-fin); border: 0; background: none; color: var(--muted); font: inherit; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
+.loge-rond { position: relative; display: grid; place-items: center; width: var(--loge-rond); height: var(--loge-rond); border: 1px solid var(--edge); border-radius: 50%; background: var(--surface); color: var(--ink); transition: background 0.15s ease, border-color 0.15s ease; }
 .loge-rond .icon { width: 20px; height: 20px; }
 .loge-piece:hover .loge-rond { border-color: var(--edge-strong); }
 .loge-piece[aria-selected='true'] { color: var(--accent-text); }
 .loge-piece[aria-selected='true'] .loge-rond { border-color: var(--accent); background: var(--accent); color: var(--on-accent); box-shadow: 0 0 16px rgba(var(--accent-rgb), 0.4); }
-/* Le filet entre ce que la salle voit et ce que lui seul voit. */
-.loge-rangee > .loge-pour-moi:nth-child(5)::before { content: ''; position: absolute; left: -3px; top: 6px; width: 1px; height: 36px; background: var(--edge); }
+/* Le filet entre ce que la salle voit et ce que lui seul voit, à la hauteur du rond : quatre pixels de moins en haut et en bas. */
+.loge-rangee > .loge-pour-moi:nth-child(5)::before { content: ''; position: absolute; left: -3px; top: 6px; width: 1px; height: calc(var(--loge-rond) - 8px); background: var(--edge); }
 /* Le neuf se dit en rouge, comme sur « Profil » et « M'habiller » : un point d'or se perdait dans l'or de la pièce choisie. */
 .loge-neuf { position: absolute; top: -1px; right: -1px; width: 11px; height: 11px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--bg); }
 .loge-qui { display: flex; align-items: center; gap: 6px; margin: 0 2px; font-size: 0.82rem; line-height: 1.3; }
 .loge-qui .icon { flex: none; width: 13px; height: 13px; }
-.loge-panneau { display: flex; flex-direction: column; gap: 14px; }
+.loge-panneau { display: flex; flex-direction: column; gap: var(--loge-bloc); }
 /* Dans la loge, les grilles se serrent — trois par rangée : ce qu'on a se
    voit d'un coup d'œil, sous la carte qui l'essaie. */
 .loge-panneau .finitions { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
@@ -9143,7 +9178,10 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 /* La page entière essaie le thème : sa fiche n'en redit pas l'aperçu en grand. */
 .loge-panneau .detail-theme .detail-apercu { display: none; }
 /* La barre de l'essai couvre le menu, à sa place et à sa hauteur : la page
-   ne saute pas, et l'on choisit avant de partir. */
+   ne saute pas, et l'on choisit avant de partir. Sa hauteur est celle du
+   menu, comptée comme lui — ses rangées de 58 px, son filet, et son pied : six
+   pixels, ou la barre d'accueil d'un iPhone. À 65 px plus la barre d'accueil,
+   elle montait six pixels plus haut que lui (`rendu-loge.ts`, `ENCOCHE=47`). */
 .loge-barre {
   position: fixed;
   left: 0;
@@ -9154,7 +9192,7 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
   align-items: center;
   gap: 8px;
   max-width: 560px;
-  min-height: calc(65px + env(safe-area-inset-bottom));
+  min-height: calc(59px + max(6px, env(safe-area-inset-bottom)));
   margin: 0 auto;
   padding: 8px 14px max(8px, env(safe-area-inset-bottom));
   border-top: 1px solid var(--edge-strong);
@@ -9189,7 +9227,7 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
    arrondies : la portée garde sa coche, l'essayée son halo d'or ; ce qui
    reste se compte dessous. La finition, au-dessus, en pastilles de couleur :
    la montrée cerclée d'or, ce qui reste compté au bout de la rangée. */
-.loge-avatars { display: flex; flex-direction: column; gap: 12px; }
+.loge-avatars { display: flex; flex-direction: column; gap: var(--loge-ecart); }
 /* Ses gemmes : autant que de pages où il a quelque chose — les offerts seuls
    le premier jour, sept au plus. Jusqu'à cinq, une rangée, réparties ; six ou
    sept ne tiennent pas sur une rangée en 360 sans descendre sous la taille
@@ -9201,7 +9239,7 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .gemmes.gemmes-loge { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 76px); justify-content: space-evenly; gap: 4px; }
 .gemmes.gemmes-loge:has(> :nth-child(6)) { grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 76px)); }
 .gemmes.gemmes-loge:has(> :nth-child(7)) { grid-template-columns: repeat(4, minmax(0, 76px)); }
-.gemmes-loge .gemme { gap: 5px; padding: 8px 4px 6px; white-space: nowrap; }
+.gemmes-loge .gemme { gap: calc(var(--loge-fin) + 1px); padding: var(--loge-gemme) 4px calc(var(--loge-gemme) - 2px); white-space: nowrap; }
 .gemmes-loge .gemme b { font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
 .loge-page-avatars { display: flex; flex-direction: column; gap: 10px; }
 /* Les onglets de l'application, en pastilles séparées : chacune sa largeur, son compte en clair. */
@@ -9212,8 +9250,8 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .onglets-puces .onglet.actif .onglet-pastille { color: inherit; }
 .loge-grille { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .loge-grille-emojis { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
-.loge-case { position: relative; display: grid; place-items: center; height: 72px; padding: 0; border: 1px solid var(--edge); border-radius: 16px; background: var(--surface-faint); color: var(--ink); cursor: pointer; }
-.loge-grille-emojis .loge-case { height: 58px; border-radius: 14px; }
+.loge-case { position: relative; display: grid; place-items: center; height: var(--loge-case); padding: 0; border: 1px solid var(--edge); border-radius: 16px; background: var(--surface-faint); color: var(--ink); cursor: pointer; }
+.loge-grille-emojis .loge-case { height: calc(var(--loge-case) - 14px); border-radius: 14px; }
 .loge-case .av { font-size: 2.9rem; }
 .loge-grille-emojis .loge-case .av { font-size: 1.75rem; }
 .loge-case.porte { border-color: var(--edge-strong); }
@@ -9243,13 +9281,14 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-a-gagner { display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 44px; color: var(--accent-text); font-size: 0.9rem; font-weight: 600; text-decoration: none; }
 .loge-a-gagner .icon { width: 16px; height: 16px; }
 .loge-sous-titre { font-size: var(--t-label); font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
-.loge-finitions { display: flex; flex-direction: column; gap: 6px; }
+.loge-finitions { display: flex; flex-direction: column; gap: var(--loge-serre); }
 .loge-finitions-rangee { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 0; }
 /* Huit pastilles sur une ligne en 360 — Auto et les sept finitions —, chacune
-   de la largeur de son nom : Constellation est long, Or est court. */
-.finition-choix { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 34px; padding: 4px 0 2px; border: 0; background: none; color: var(--muted); font: inherit; font-size: var(--t-label); font-weight: 600; text-decoration: none; cursor: pointer; }
+   de la largeur de son nom : Constellation est long, Or est court. Le haut
+   garde ses quatre pixels : l'anneau d'or de la pastille montrée s'y pose. */
+.finition-choix { position: relative; display: flex; flex-direction: column; align-items: center; gap: var(--loge-fin); min-width: 34px; padding: 4px 0 calc(var(--loge-fin) - 2px); border: 0; background: none; color: var(--muted); font: inherit; font-size: var(--t-label); font-weight: 600; text-decoration: none; cursor: pointer; }
 .finition-choix.selected { color: var(--accent-text); }
-.finition-teinte { position: relative; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18); }
+.finition-teinte { position: relative; display: grid; place-items: center; width: var(--loge-pastille); height: var(--loge-pastille); border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18); }
 .finition-teinte .icon { width: 15px; height: 15px; color: #fff; filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.7)); }
 .finition-choix.selected .finition-teinte { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
 .finition-choix.porte:not(.selected) .finition-teinte::after { content: '✓'; position: absolute; top: -5px; right: -6px; display: grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; line-height: 1; box-shadow: 0 0 0 2px var(--bg); }
@@ -9290,10 +9329,10 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .teinte-singularite { background: radial-gradient(circle, #050308 0 42%, #fff3d6 48%, #ff9a3c 56%, #5a1a08 72%); }
 /* La bordure de ligue, sous la finition : les mêmes pastilles, chacune son
    avatar dans la bordure, au métal de sa finition — on voit ce qu'on essaie. */
-.loge-bordures { display: flex; flex-direction: column; gap: 6px; }
+.loge-bordures { display: flex; flex-direction: column; gap: var(--loge-serre); }
 .loge-bordures > .muted { margin: 0; }
-.bordure-apercu { position: relative; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; font-size: 15px; line-height: 1; }
-.bordure-sans { display: block; width: 26px; height: 26px; box-sizing: border-box; border: 1.5px dashed var(--muted); border-radius: 50%; }
+.bordure-apercu { position: relative; display: grid; place-items: center; width: var(--loge-pastille); height: var(--loge-pastille); border-radius: 50%; font-size: calc(var(--loge-pastille) / 2); line-height: 1; }
+.bordure-sans { display: block; width: calc(var(--loge-pastille) - 4px); height: calc(var(--loge-pastille) - 4px); box-sizing: border-box; border: 1.5px dashed var(--muted); border-radius: 50%; }
 .bordure-choix.selected .bordure-apercu { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
 .bordure-choix.porte:not(.selected) .bordure-apercu::after { content: '✓'; position: absolute; top: -5px; right: -6px; z-index: 2; display: grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; line-height: 1; box-shadow: 0 0 0 2px var(--bg); }
 .bordure-choix.neuve .bordure-apercu::before { content: ''; position: absolute; top: -3px; left: -3px; z-index: 2; width: 9px; height: 9px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--bg); }
@@ -9309,6 +9348,42 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-version-case[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: var(--surface); }
 .loge-version-dessin { display: grid; place-items: center; width: 64px; height: 64px; font-size: 2.6rem; }
 .loge-version-nom { font-size: var(--t-label); font-weight: 600; }
+
+/* ── La loge, à la hauteur d'un téléphone ────────────────────────────────
+   Ses deux pas (les variables de `.loge-page`, en tête de la section) : rien
+   ne change de place, tout se resserre. */
+@media (max-height: 939px) {
+  .loge-page { --loge-ecart: 6px; --loge-bloc: 8px; --loge-serre: 2px; --loge-fin: 2px; --loge-avatar: 2.4rem; --loge-carte-rang: 72px; --loge-carte-ecart: 6px; --loge-carte-pied: 8px; --loge-rond: 38px; --loge-case: 64px; --loge-gemme: 3px; }
+  /* Sans compagnon, le haut de la page remonte ; avec lui, sa carte passerait sous sa niche. */
+  body:not(.avec-niche) .loge-page { padding-top: max(16px, env(safe-area-inset-top)); gap: 10px; }
+  /* Les petits titres et les noms sous les ronds et les pastilles, à leur hauteur de lettres. */
+  .loge-groupes,
+  .loge-sous-titre { line-height: 1.1; }
+  .loge-piece,
+  .finition-choix { line-height: 1.2; }
+  /* Ce qu'un réglage dit sous sa rangée tient sur une ligne : l'essentiel, puis ceux de ses morceaux qui tiennent
+     entiers — une rangée qui passe à la ligne, haute d'une ligne, comme la suite d'un gros bouton de l'accueil
+     (`PhraseDuReglage`, `Apparence.tsx`). Le lecteur d'écran lit toute la phrase. */
+  .loge-a-suite { display: flex; flex-wrap: wrap; align-content: flex-start; height: 1.3em; line-height: 1.3; overflow: clip; }
+  .loge-essentiel { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .loge-suite { flex: none; white-space: pre; }
+  /* L'Éclat en réserve : l'écart de la colonne suffit sous lui. */
+  .loge-reserve { margin-bottom: 0; }
+}
+@media (max-height: 759px) {
+  /* Deux pixels de moins entre les blocs : en 360 × 640, son compagnon dans sa niche, les gemmes d'une habituée
+     passaient encore de dix pixels sous le menu. */
+  .loge-page { --loge-ecart: 4px; --loge-bloc: 6px; --loge-avatar: 2.15rem; --loge-carte-rang: 64px; --loge-rond: 36px; --loge-pastille: 28px; }
+  body:not(.avec-niche) .loge-page { padding-top: max(12px, env(safe-area-inset-top)); gap: 8px; }
+  /* Son niveau suivant et ses confettis, que l'accueil et « Mon profil » disent en tête : cachés à l'œil seulement, comme
+     `.sr-only` — la carte, collée en haut, les gardait sous chaque pièce. */
+  .loge-carte > .xp-mince { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  /* Son prénom et sa vitrine un peu plus petits : la carte prend la hauteur de son avatar bordé. La place de la vitrine
+     garde celle d'une case — rien ne saute quand elle arrive. */
+  .loge-carte .identite-nom { font-size: 1.3rem; }
+  .loge-carte-vitrine { min-height: 24px; }
+  .loge-vitrine-case { width: 24px; height: 24px; font-size: 0.9rem; }
+}
 
 /* ── La campagne solo : un héros, puis ce qu'on choisit ─────────────────
    Le défi, le record, l'échelle et les règles sur la trame de l'atlas
