@@ -6887,7 +6887,7 @@ export class CampagneStore {
    * l'onglet le comptait, deux écrans plus loin (l'experte du jeu solo, le
    * 11 octobre 2026). Compté sans la base, qu'un démarrage n'a peut-être pas
    * encore lue : seules les questions retirées en sortent. Le défi de la
-   * semaine a son onglet à côté du quiz du jour (`defiDAccueil`), les défis
+   * semaine a sa ligne sous celle du quiz du jour (`defiDAccueil`), les défis
    * des amis le bouton des duels (`duelsDAccueil`). Lu dans le lot de
    * l'accueil (`accueilDe`) : ses sentiers, ses épreuves ratées et celle
    * laissée en route, et le journal rattrapé au bout — après un réveil, le lot
@@ -6923,8 +6923,8 @@ export class CampagneStore {
   }
 
   /**
-   * Le défi de la semaine sur l'accueil, à tout profil, dans son onglet à
-   * côté du quiz du jour (le choix du propriétaire du 19 octobre 2026 : rangé
+   * Le défi de la semaine sur l'accueil, à tout profil, sur sa ligne, sous
+   * celle du quiz du jour (le choix du propriétaire du 19 octobre 2026 : rangé
    * au troisième onglet de la campagne, beaucoup ne savaient pas qu'il
    * existait) — ceux qui l'ont relevé, et sa tentative, ouverte ou finie avec
    * sa place. Comptés comme son classement (`classementDesTentatives`) : une

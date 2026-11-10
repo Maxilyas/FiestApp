@@ -224,7 +224,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
         console.error('[profil] sentiers illisibles :', e)
         return undefined
       }),
-      // Et le défi de la semaine, pour son onglet à côté du quiz du jour : une base qui s'en tait n'ôte que lui.
+      // Et le défi de la semaine, pour sa ligne sous celle du quiz du jour : une base qui s'en tait n'ôte que lui.
       deLaCampagne.defi.catch(e => {
         console.error('[profil] défi de l’accueil illisible :', e)
         return undefined

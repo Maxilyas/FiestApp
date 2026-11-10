@@ -16,7 +16,7 @@ Trois portes, au choix :
 
 - **Le QR code** de l'écran commun, ou celui que l'animateur montre sur son téléphone : ton appareil photo ouvre la soirée.
 - **Le lien** que l'animateur t'a envoyé (« Copier le lien », sur sa barre) : l'adresse du serveur suivie du code du salon, du genre `…/482157` — ou, chez un animateur d'avant les salons, l'adresse de son espace, du genre `…/chez-nadia`.
-- **Le code du salon**, six chiffres (« 482 157 ») : sur l'accueil de FiestApp — l'adresse du serveur, sans rien derrière —, touche « Jouer sans compte », tape les chiffres dans « Le code du salon », puis « Rejoindre la soirée ». Avec un profil, c'est le gros bouton « Rejoindre une soirée ».
+- **Le code du salon**, six chiffres (« 482 157 ») : sur l'accueil de FiestApp — l'adresse du serveur, sans rien derrière —, touche « Jouer sans compte », tape les chiffres dans « Le code du salon », puis « Rejoindre la soirée ». Avec un profil, c'est le bouton « Rejoindre une soirée », dans la carte « Entre amis » de ton accueil.
 
 > [!TIP]
 > Un code faux, ou celui d'une soirée finie : « Le code 482 157 ne mène à aucun salon — ou plus. » Vérifie-le avec ton hôte, ou scanne à nouveau le QR. Après une vingtaine de codes faux d'affilée, même le bon ne passe plus : attends une minute avant de réessayer.

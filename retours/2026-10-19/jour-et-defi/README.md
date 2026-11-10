@@ -24,6 +24,14 @@ son adresse (`/campagne#defi`), sans les onglets de la campagne ; « série de
 attendent une suite : le quiz du jour reste ouvert d'office, et la tuile du
 défi ouvre sa page.
 
+Depuis le 9 novembre 2026, l'accueil range ses boutons en lignes pour tenir
+sur un écran (`retours/2026-11-09/accueil-compact/`) : le quiz du jour et le
+défi de la semaine y sont deux lignes, toutes deux visibles, et la tuile à
+deux onglets est partie (`JourEtDefi.tsx`, `.jour-defi`, le point d'or d'un
+onglet). Ce qui a été décidé ici — montrer le défi sur l'accueil sans prendre
+un bouton de plus — est tenu autrement : les deux tiennent dans la place de
+la tuile, sans onglet à toucher.
+
 Léa, la joueuse photographiée, joue le quiz du jour depuis douze jours et n'a
 jamais ouvert la campagne ; neuf joueurs ont relevé le défi. C'est le cas où,
 aujourd'hui, le défi ne paraît **nulle part** sur l'accueil : le bouton de la

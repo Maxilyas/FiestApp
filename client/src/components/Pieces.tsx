@@ -142,11 +142,21 @@ export function Choix({ icone, titre, detail, onClick, disabled }: { icone: Icon
  * de ce qu'on y trouve. Un toucher de plus qu'une carte qui montrait tout,
  * mais un écran qu'on lit d'un coup d'œil. Un lien s'il mène à une page —
  * il s'ouvre dans un onglet, il se copie —, un bouton sinon.
+ *
+ * Sa ligne peut se dire en deux temps (`suite`, l'accueil compact du
+ * 9 novembre 2026) : l'essentiel, puis ce qu'elle ajoute là où le bouton a
+ * la place. Sur l'accueil, où chaque bouton est une rangée d'une seule
+ * ligne, la feuille ne montre que les morceaux qui tiennent entiers —
+ * « Ligue d'or · cote 1084 » en 360 de large, « · encore 3 duels pour ta
+ * récompense » sur une rangée plus large — au lieu de couper la phrase au
+ * milieu d'un mot ; ailleurs, la phrase passe à la ligne, comme avant. Le
+ * lecteur d'écran la lit toujours entière.
  */
 export function GrosBouton({
   icone,
   titre,
   detail,
+  suite,
   pastille,
   compteur,
   principal,
@@ -160,6 +170,8 @@ export function GrosBouton({
   icone: ReactNode
   titre: ReactNode
   detail?: ReactNode
+  /** Ce que sa ligne ajoute après l'essentiel, morceau par morceau, chacun avec sa ponctuation (« · jusqu'à dimanche », « : reprends-le »). */
+  suite?: readonly string[]
   /** Ce qui attend : « À jouer », « 3 nouveaux ». */
   pastille?: ReactNode
   /**
@@ -205,7 +217,19 @@ export function GrosBouton({
             {compte && <span className="gros-compte">{compte}</span>}
           </span>
         )}
-        {detail && <span className="gros-detail">{detail}</span>}
+        {detail &&
+          (suite && suite.length > 0 ? (
+            <span className="gros-detail gros-a-suite">
+              <span className="gros-essentiel">{detail}</span>
+              {suite.map(morceau => (
+                <span key={morceau} className="gros-suite">
+                  {morceau}
+                </span>
+              ))}
+            </span>
+          ) : (
+            <span className="gros-detail">{detail}</span>
+          ))}
       </span>
       {/* La pastille prend la place du chevron : les deux serraient le titre, et
           « Le quiz du jour » laissait « jour » seul sur sa ligne en 360 de large. */}

@@ -18,8 +18,8 @@ import type { CorrectionDeCampagne, DefiDeLaSemaine, LigneDuDefi, SerieDeCampagn
 
 /**
  * L'adresse de la page du défi, servie par la campagne — qui en joue la
- * partie — sans ses onglets : l'accueil y mène, depuis l'onglet du défi à côté
- * du quiz du jour.
+ * partie — sans ses onglets : l'accueil y mène, depuis la ligne du défi, sous
+ * celle du quiz du jour.
  */
 export const ADRESSE_DU_DEFI = '#defi'
 
@@ -41,8 +41,9 @@ function cloture(minutes: number): string {
  * portent le laurier d'argent, sa place à soi et sa correction — qui n'ouvre
  * qu'à la clôture, pour ne rien souffler à ceux qui jouent encore. Elle a
  * quitté les onglets de la campagne pour une page à elle, « ← Accueil » en
- * tête : on y vient de son onglet, à côté du quiz du jour (le choix du
- * propriétaire du 19 octobre 2026).
+ * tête : on y vient de sa ligne de l'accueil, sous celle du quiz du jour (le
+ * choix du propriétaire du 19 octobre 2026 ; un onglet d'abord, sa ligne
+ * depuis l'accueil en lignes du 9 novembre 2026).
  *
  * La partie elle-même se joue sur l'écran de la série (`CampagneApp`) : une
  * question, sa révélation, la suivante — la page lui passe la tentative.

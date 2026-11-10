@@ -165,6 +165,7 @@ Le test : jouer la route dans le scénario de la première épreuve de `server/t
 8. **Les tests**, qui échouent avant : ses données de départ dans `server/test/depart.test.ts` ; ce qu'elle ne doit pas télécharger (la liaison temps réel, les dessins…) dans `server/test/medaillons.test.ts` ; son statut, s'il a quelque chose de particulier, dans `server/test/portes.test.ts`.
 9. **La documentation** — sa ligne dans `docs/reference/adresses.md` (`server/test/documentation.test.ts` exige chaque page de `ACCOUNT_PAGES`) et, si elle précharge, dans la table de `docs/architecture/client.md`.
 10. **Regarde-la** en 360 × 640 (skill `regarder-le-rendu`), et mesure-la avant et après (`npm run mesure`, sa page et le sélecteur de son écran utile ajoutés à `PAGES`, dans `server/scripts/mesure-pages.ts`).
+11. **Son bouton sur l'accueil d'un profil**, si elle en a un : une ligne de plus dans sa carte (`AccueilJouer`, `client/src/components/AccueilDesRoles.tsx`) — l'essentiel en une trentaine de caractères, le reste en `suite` —, comptée dans la part de hauteur de sa section. L'accueil tient sur un écran à quelques pixels près : une ligne de 48 pixels de plus passe sous le menu en 360 × 640, et se regarde du petit téléphone au grand (`server/scripts/rendu-accueil.ts` ; [la décision](../architecture/decisions.md#laccueil-dun-profil-tient-sur-un-écran-ses-boutons-en-lignes)).
 
 ### Garder quelque chose sur l'appareil
 

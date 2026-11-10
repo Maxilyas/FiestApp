@@ -1,7 +1,7 @@
 // Les écrans des récompenses de la campagne et du quiz du jour, photographiés
 // sur un serveur jetable : les records par catégorie, une fin de série qui
 // fait tomber hauts faits, paliers et légendaire, le défi de la semaine
-// (son onglet à l'accueil, à côté du quiz du jour — à relever, puis relevé —,
+// (sa ligne à l'accueil, sous celle du quiz du jour — à relever, puis relevé —,
 // avant, pendant, après — l'Éclat de sa fin, forcé —, sa clôture et sa
 // correction), le laurier d'argent sur le profil — au téléphone, en
 // 360 × 640 —, et l'entrée en scène du champion du mois à l'écran commun, en
@@ -137,12 +137,16 @@ try {
     .catch(() => console.error('médaillon non chargé'))
   await photo('2-fin-de-serie', true)
 
-  // 3. Le défi : son onglet à l'accueil, à côté du quiz du jour ouvert d'office ; puis sa page, la partie, la fin, le classement.
+  // 3. Le défi : sa ligne à l'accueil, sous celle du quiz du jour — les deux se voient d'emblée, la tuile à deux onglets
+  // ayant laissé place à deux lignes le 9 novembre 2026 (`retours/2026-11-09/accueil-compact/`) ; puis sa page, la
+  // partie, la fin, le classement.
   await page.goto(`${banc.url}/`)
-  await page.waitForSelector('.jour-defi')
+  const ligneDuDefi = page.locator('.jouer-carte a[href="/campagne#defi"]')
+  await ligneDuDefi.waitFor()
   await photo('3a-accueil-quiz-du-jour')
-  await page.getByRole('tab', { name: /Défi de la semaine/ }).click()
-  await photo('3b-accueil-defi-a-relever')
+  // Sa ligne seule, de près, « À relever » : sans onglet à toucher, une seconde photo de l'écran serait la même.
+  await ligneDuDefi.screenshot({ path: path.join(sortie, '3b-accueil-defi-a-relever.png') })
+  console.log(path.join(sortie, '3b-accueil-defi-a-relever.png'))
   // Une ancre seule ne recharge pas la page : on recharge.
   await page.goto(`${banc.url}/campagne#defi`)
   await page.reload()
@@ -161,10 +165,9 @@ try {
   await page.click('text=Le classement du défi')
   await page.waitForSelector('.defi-classement .lb-row')
   await photo('6-defi-apres', true)
-  // Relevé : sa place sur l'onglet de l'accueil, et plus de point.
+  // Relevé : sa place sur sa ligne de l'accueil, et plus de pastille.
   await page.goto(`${banc.url}/`)
-  await page.waitForSelector('.jour-defi')
-  await page.getByRole('tab', { name: /Défi de la semaine/ }).click()
+  await ligneDuDefi.waitFor()
   await photo('6b-accueil-defi-releve')
 
   // 4. Lundi : la clôture, le laurier d'argent, la semaine passée.
