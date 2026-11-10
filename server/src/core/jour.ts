@@ -2899,6 +2899,8 @@ export class JourStore {
       const { niveau, finition, eclat, legendaire, sceau, laurier } = this.deps.profiles.apparenceDe(j.profil)
       // Sa bordure de ligue, de mémoire : le classement ne l'attend pas.
       const bordure = this.deps.profiles.bordureDe(j.profil, legendaire)
+      // La plaque de son nom, de mémoire aussi.
+      const plaque = this.deps.profiles.plaqueDe(j.profil)
       return {
         profileId: j.profil.id,
         nom: nom(j),
@@ -2910,6 +2912,7 @@ export class JourStore {
         ...(eclat && { eclat }),
         ...(laurier && { laurier }),
         ...(bordure && { bordure }),
+        ...(plaque && { plaque }),
         points: j.points,
         rang,
         ...(j.enCours && { enCours: true as const }),

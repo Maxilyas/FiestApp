@@ -5,6 +5,7 @@ import { Feuille, Sortie } from '../components/Pieces'
 import { SerieCorrigee } from '../components/SerieCorrigee'
 import { Onglets, ongletVise } from '../components/Onglets'
 import { Avatar, Visage } from '../components/Avatar'
+import { MotifDeLaPlaque, classeDeLaPlaque } from '../components/Plaque'
 import { NomLaure, texteDuLaurier } from '../components/Laurier'
 import { Rank } from '../components/Rank'
 import { BlasonDeLigue } from '../components/Blason'
@@ -1311,7 +1312,7 @@ function LigneDuClassement({ ligne: l, moi, enCours, onOuvrir }: { ligne: LigneD
   return (
     <button
       type="button"
-      className={'lb-row lb-ouvrable duels-ligne' + (moi ? ' me' : '')}
+      className={'lb-row lb-ouvrable duels-ligne' + (moi ? ' me' : '') + classeDeLaPlaque(l.plaque)}
       // Le nom du bouton remplace tout son contenu : le rang, la ligue, la cote, les places depuis lundi et le duel en cours doivent y être.
       aria-label={`La carte ${deNom(l.nom)}${l.laurier ? `, ${texteDuLaurier(l.laurier)}` : ''} — rang ${l.rang}, ${ligue.nom.toLowerCase()}, cote ${l.cote}${motDuMouvement(l.progression)}${enCours ? ', un duel en cours entre vous' : ''}`}
       onClick={() => onOuvrir(l.profileId)}
@@ -1321,6 +1322,7 @@ function LigneDuClassement({ ligne: l, moi, enCours, onOuvrir }: { ligne: LigneD
       <span className="lb-name">
         <NomLaure nom={l.nom} laurier={l.laurier} />
       </span>
+      <MotifDeLaPlaque plaque={l.plaque} />
       {enCours && (
         <span className="duels-ligne-en-cours" aria-hidden="true">
           <Icon name="hourglass" />

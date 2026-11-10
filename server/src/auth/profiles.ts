@@ -64,6 +64,7 @@ import {
 } from '../../../shared/hautsfaits'
 import { fond, fondsOuverts, FONDS_EN_BOUTIQUE, PRIX_D_UN_FOND, type CleDeFond } from '../../../shared/fonds'
 import { AUCUNE_GERBE, GERBE_PAR_DEFAUT, gerbe, gerbeOuverte, gerbesOuvertes, type CleDeGerbe } from '../../../shared/gerbes'
+import { AUCUNE_PLAQUE, choixDePlaque, plaqueDuTheme, plaquePortee } from '../../../shared/plaques'
 import {
   ceQueDonnentLesConfettis,
   confettisDeSoiree,
@@ -303,6 +304,13 @@ export interface ProfileRec {
    * plus, comme la version d'origine d'un avatar éclaté.
    */
   sceau: 'cache' | null
+  /**
+   * La plaque de son nom dans les classements (`shared/plaques.ts`) : null,
+   * celle du thème qu'il porte, d'office ; `AUCUNE_PLAQUE`, aucune ; sinon la
+   * clé d'un thème qu'il possédait en la choisissant — vérifiée là, puis
+   * crue, comme le thème : un achat ne se reprend jamais.
+   */
+  plaque: string | null
   /**
    * Son envie : l'article de la boutique pour lequel il économise, tel qu'il
    * s'écrit (`theme:aurore`, `shared/envie.ts`) — null : aucune. Relue à
@@ -1792,6 +1800,8 @@ export class ProfileStore {
     await ajouterColonne(this.client, 'profiles', 'niche', 'TEXT')
     // Le sceau de ses légendaires : null, il se montre ; `cache`, il l'a masqué.
     await ajouterColonne(this.client, 'profiles', 'sceau', 'TEXT')
+    // La plaque de son nom : null, celle du thème qu'il porte ; `aucune` ; ou la clé d'un thème à lui.
+    await ajouterColonne(this.client, 'profiles', 'plaque', 'TEXT')
     // Ce qu'il règle de chacun, dans sa niche : son nom, et la forme qu'il y
     // montre quand ce n'est pas la plus haute (null : la plus haute, qui suit
     // sa croissance).
@@ -2191,6 +2201,16 @@ export class ProfileStore {
   /** Le thème qui habille son téléphone : celui qu'il porte, s'il existe encore ; null, Velours. */
   themePorte(p: ProfileRec): string | null {
     return themeDuCatalogue(p.theme)?.key ?? null
+  }
+
+  /**
+   * La plaque de son nom, telle que les classements la montrent
+   * (`plaquePortee`) : celle qu'il a choisie, sinon celle du thème qu'il
+   * porte ; null sans plaque. De mémoire, comme sa bordure : un classement ne
+   * l'attend pas.
+   */
+  plaqueDe(p: ProfileRec): string | null {
+    return plaquePortee(p.plaque, this.themePorte(p))
   }
 
   /**
@@ -4083,6 +4103,9 @@ export class ProfileStore {
       ...(champion && { champion }),
       theme: this.themePorte(p),
       gerbe: this.gerbePortee(p),
+      // Toujours dites, même sans plaque : la page fond ce profil dans celui qu'elle tient.
+      plaque: this.plaqueDe(p),
+      plaqueChoisie: choixDePlaque(p.plaque),
     }
   }
 
@@ -4439,6 +4462,7 @@ export class ProfileStore {
       bordure: null,
       niche: null,
       sceau: null,
+      plaque: null,
       envie: null,
       passwordHash: await hashPassword(input.password),
       recoveryHash: await hashPassword(normalizeRecovery(recovery)),
@@ -4503,6 +4527,7 @@ export class ProfileStore {
       bordure: null,
       niche: null,
       sceau: null,
+      plaque: null,
       envie: null,
       passwordHash: compte.passwordHash,
       recoveryHash: await hashPassword(normalizeRecovery(newRecoveryCode())),
@@ -4600,6 +4625,22 @@ export class ProfileStore {
   }
 
   /**
+   * Ce thème est à lui : offert, acheté, ou gagné — sinon le refus dit
+   * comment l'avoir. Le thème qu'il porte et la plaque de son nom passent par
+   * la même porte : une plaque vient avec son thème, jamais sans lui.
+   */
+  private async verifierQuIlALeTheme(id: string, choisi: NonNullable<ReturnType<typeof themeDuCatalogue>>): Promise<void> {
+    if (choisi.gagne) {
+      const maitres = 'maitres' in choisi.gagne.par ? maitresDe(await this.paliersDe(id)).length : 0
+      if (!themeGagne(choisi, { maitres, recompenses: this.recompensesOf(id) })) {
+        throw new Error(`Le thème ${choisi.nom} se gagne avec ${choisi.gagne.regle}`)
+      }
+    } else if (choisi.rarete !== 'offert' && !(await this.achatsDe(id)).themes.has(choisi.key)) {
+      throw new Error(`Le thème ${choisi.nom} s’achète d’abord, en confettis`)
+    }
+  }
+
+  /**
    * Change ce qu'un joueur choisit lui-même : son prénom, son emoji, sa
    * finition, son avatar légendaire ou divin.
    *
@@ -4624,6 +4665,8 @@ export class ProfileStore {
       niche?: unknown
       /** Le sceau de ses légendaires se montre-t-il ? `false` le masque. */
       sceau?: unknown
+      /** La plaque de son nom aux classements : `auto` (ou null), `aucune`, ou la clé d'un thème à lui. */
+      plaque?: unknown
       /** L'avatar sur lequel il dépense un Éclat en réserve (`donnerUnEclat`) : définitif. */
       eclatDeReserve?: unknown
       /** La matière qu'il taille avec un Éclat en réserve dans un avatar déjà éclaté (`{ cle, matiere }`, `shared/matieres.ts`) : définitif. */
@@ -4634,7 +4677,7 @@ export class ProfileStore {
     // Seules les colonnes demandées s'écrivent : la mémoire ne suit qu'après
     // coup, et un prénom changé sur le téléphone pendant que la tablette
     // change l'emoji ne doit pas revenir en arrière.
-    const champs: Partial<Pick<ProfileRec, 'name' | 'avatar' | 'finition' | 'legendaire' | 'titre' | 'vitrine' | 'fond' | 'theme' | 'gerbe' | 'bordure' | 'niche' | 'sceau'>> = {}
+    const champs: Partial<Pick<ProfileRec, 'name' | 'avatar' | 'finition' | 'legendaire' | 'titre' | 'vitrine' | 'fond' | 'theme' | 'gerbe' | 'bordure' | 'niche' | 'sceau' | 'plaque'>> = {}
     if (patch.name !== undefined) {
       const name = cleanName(patch.name)
       if (!name) throw new Error('Il faut un prénom')
@@ -4727,15 +4770,21 @@ export class ProfileStore {
       if (!vide && !choisi) throw new Error('Ce thème n’existe pas')
       if (!choisi || choisi.key === 'velours') champs.theme = null
       else {
-        if (choisi.gagne) {
-          const maitres = 'maitres' in choisi.gagne.par ? maitresDe(await this.paliersDe(id)).length : 0
-          if (!themeGagne(choisi, { maitres, recompenses: this.recompensesOf(id) })) {
-            throw new Error(`Le thème ${choisi.nom} se gagne avec ${choisi.gagne.regle}`)
-          }
-        } else if (choisi.rarete !== 'offert' && !(await this.achatsDe(id)).themes.has(choisi.key)) {
-          throw new Error(`Le thème ${choisi.nom} s’achète d’abord, en confettis`)
-        }
+        await this.verifierQuIlALeTheme(id, choisi)
         champs.theme = choisi.key
+      }
+    }
+    // La plaque de son nom : celle d'un thème qu'il a, vérifiée comme le
+    // thème ; `auto` s'écrit null — elle suit alors le thème porté.
+    if (patch.plaque !== undefined) {
+      if (patch.plaque === null || patch.plaque === '' || patch.plaque === 'auto') champs.plaque = null
+      else if (patch.plaque === AUCUNE_PLAQUE) champs.plaque = AUCUNE_PLAQUE
+      else {
+        const cle = plaqueDuTheme(patch.plaque)
+        const choisi = cle ? themeDuCatalogue(cle) : undefined
+        if (!choisi) throw new Error('Cette plaque n’existe pas')
+        await this.verifierQuIlALeTheme(id, choisi)
+        champs.plaque = choisi.key
       }
     }
     // Une gerbe : seulement l'une de celles qu'il a gagnées ; null, celle de
@@ -7037,6 +7086,7 @@ export class ProfileStore {
       bordure: typeof r.bordure === 'string' && r.bordure ? r.bordure : null,
       niche: typeof r.niche === 'string' && r.niche ? r.niche : null,
       sceau: r.sceau === 'cache' ? 'cache' : null,
+      plaque: typeof r.plaque === 'string' && r.plaque ? r.plaque : null,
       envie: typeof r.envie === 'string' && r.envie ? r.envie : null,
       passwordHash: String(r.password_hash),
       recoveryHash: String(r.recovery_hash),

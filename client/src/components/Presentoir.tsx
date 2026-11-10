@@ -5,6 +5,7 @@ import { Feuille } from './Pieces'
 import { etatDuTheme, gemme } from './Boutique'
 import { FicheDuCompagnon, dansLaPhrase } from './RayonDesCompagnons'
 import { SaCarte, etatDuFond } from './RayonDesFonds'
+import { LigneDePlaque } from './MaPlaque'
 import { OBJETS } from './Objets'
 import type { Comptoir } from './Comptoir'
 import type { ChoixDuProfil } from './choix'
@@ -17,6 +18,7 @@ import { PRIX_D_UN_COMPAGNON, compagnon as leCompagnon, formesDeLEclat } from '.
 import type { Envie } from '../../../shared/envie'
 import { PRIX_D_UN_FOND, fond as leFond } from '../../../shared/fonds'
 import type { EssaiDeLaBoutique } from '../../../shared/panier'
+import { plaqueDuTheme } from '../../../shared/plaques'
 import type { PublicProfileDetail } from '../../../shared/profil'
 import { enConfettis, gestesDuPresentoir, rangDansLeRayon, voisinDansLeRayon, type EtapeDuPresentoir, type EtatDeLArticle, type GesteDuPresentoir } from '../../../shared/rayons'
 import { avatarDeLApercu } from '../../../shared/sonAvatar'
@@ -364,6 +366,13 @@ export function Presentoir({
             </button>
           </span>
           <span className="small">{`${o.compte(nombre)} · ${enConfettis(prix)}`}</span>
+        </div>
+      )}
+      {/* Sa plaque : la part du thème que les autres voient, montrée sur sa propre ligne (`shared/plaques.ts`). */}
+      {t && plaqueDuTheme(t.key) && (
+        <div className="presentoir-plaque">
+          <span className="label">Sa plaque · les autres te verront ainsi</span>
+          <LigneDePlaque profil={profil} plaque={t.key} />
         </div>
       )}
       {t && enVente && (
