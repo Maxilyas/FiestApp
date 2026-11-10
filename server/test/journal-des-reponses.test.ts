@@ -134,6 +134,11 @@ const AVANT = {
            FROM campagne_reponses r LEFT JOIN campagne_series s ON s.id = r.serie_id
            WHERE ${sqlDansLaBase('r.reserve_id')}
            GROUP BY r.reserve_id`,
+  // Ce qu'il a placé au nouveau Filet, juste et sans aide, né au journal le 9 novembre 2026 pour ses repères à soi
+  // (`placesAuFiletDe`) — sans SQL d'avant, écrit ici à part : une pièce en deux temps, son époque au bout et rien après
+  // (« 1962|1 ») ; avec une aide (« 1962|1|e ») ou au Filet d'avant (« 1852|moyen »), non.
+  placesAuFilet: `SELECT DISTINCT r.reserve_id AS question FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
+                  WHERE s.profile_id = ? AND r.forme = 'filet' AND r.juste = 1 AND r.composee GLOB '*|[0-3]' ORDER BY question`,
   // Celui-ci tel qu'il était le 3 novembre 2026, sans sa semaine de marge sur le début des parties, qui ne servait qu'un
   // index : sans statistiques, il parcourait toutes les réponses — 60 000 lignes à chaque ouverture de l'économie du QG.
   justesDeTous: `SELECT CAST(r.repondue_le / ${HEURE_MS} AS INTEGER) AS heure, COUNT(*) AS n
@@ -206,7 +211,9 @@ const BRANCHES = ['foret', 'ocean', 'cosmos']
 const NIVEAUX = ['facile', 'moyen', 'difficile', 'expert']
 // « parade » et « bastion » : des cartes du second essai, que le carnet tient pour ratées.
 const JOKERS = ['parade', 'cinquante', 'indice', 'bastion']
-const FORMES = ['vrai-faux', 'six', 'devoilement', '']
+const FORMES = ['vrai-faux', 'six', 'devoilement', '', 'filet']
+/** Les pièces d'un lancer du Filet : en deux temps sans aide, puis avec, offerte ou payée, et d'avant. */
+const COMPOSEES_DU_FILET = ['1962|1', '1962|1|e', '1852|moyen', '1987|3', '1987|2|I']
 /** Le compagnon de sa niche quand il a répondu : souvent aucun. */
 const COMPAGNONS = [null, null, 'loup', 'chat', 'tortue']
 /** Le lundi d'un défi : celui de la semaine qui court à `MAINTENANT` — le jeudi 22 octobre 2026 —, deux d'avant, et pas de semaine. */
@@ -269,10 +276,10 @@ function remplir(fichier: string, hasard: () => number, { series: nombre, depart
       `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, semaine, duel, branche, palier, rejeu)
        VALUES (?, ?, ?, 0, 3, 0, ?, NULL, ?, ?, ?, ?, ?, ?)`,
     )
-    const reponse = db.prepare(`INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, joker, forme, compagnon) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    const reponse = db.prepare(`INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, joker, forme, compagnon, composee) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     const duel = db.prepare(`INSERT OR IGNORE INTO campagne_duels (code, auteur, questions, cree_le, ferme_le) VALUES (?, 'p0', '[]', ?, ?)`)
     const tire = <T>(liste: readonly T[]) => liste[Math.floor(hasard() * liste.length)]
-    const reponses: [string, number, string, number | null, number, number, string | null, string | null, string | null][] = []
+    const reponses: [string, number, string, number | null, number, number, string | null, string | null, string | null, string | null][] = []
     db.transaction(() => {
       for (const d of DUELS) if (d.fermeLe !== null) duel.run(d.code, d.fermeLe - 7 * JOUR_MS, d.fermeLe)
       for (let k = 0; k < nombre; k++) {
@@ -316,7 +323,7 @@ function remplir(fichier: string, hasard: () => number, { series: nombre, depart
           if (hasard() < 0.85) le += Math.floor(hasard() * 40 * 60_000)
           if (le > MAINTENANT) break
           const aide = hasard()
-          reponses.push([
+          const lue = [
             id,
             p,
             questionAuHasard(hasard),
@@ -326,13 +333,15 @@ function remplir(fichier: string, hasard: () => number, { series: nombre, depart
             aide < 0.1 ? tire(JOKERS) : null,
             aide > 0.9 ? tire(FORMES) : null,
             tire(COMPAGNONS),
-          ])
+          ] as const
+          // Une pièce du Filet garde son lancer, tiré de son instant : le hasard d'avant reste le même.
+          reponses.push([...lue, lue[7] === 'filet' ? COMPOSEES_DU_FILET[le % COMPOSEES_DU_FILET.length] : null])
         }
       }
       // Dans l'ordre du temps, comme les écrit le serveur : chaque joueur répond l'une après l'autre.
       for (const r of reponses.sort((a, b) => a[5] - b[5])) reponse.run(...r)
       // Sans série : leur profil est la série même (`COALESCE(profile_id, serie_id)`), et elles ne sont pas une révision.
-      for (let k = 0; k < 15; k++) reponse.run(`orpheline${k % 4}`, depart + k, `r${Math.floor(hasard() * 45)}`, 0, hasard() < 0.5 ? 1 : 0, MAINTENANT - Math.floor(hasard() * 5 * JOUR_MS), null, null, tire(COMPAGNONS))
+      for (let k = 0; k < 15; k++) reponse.run(`orpheline${k % 4}`, depart + k, `r${Math.floor(hasard() * 45)}`, 0, hasard() < 0.5 ? 1 : 0, MAINTENANT - Math.floor(hasard() * 5 * JOUR_MS), null, null, tire(COMPAGNONS), null)
     })()
   } finally {
     db.close()
@@ -353,7 +362,12 @@ async function lire(client: Client, journal: JournalDesReponses, limite: number)
 /** Chaque dérivation du journal contre le SQL d'avant : rend les sortes de pièces dont le dépli a ajouté ou rajeuni une vue. */
 async function comparer(client: Client, journal: JournalDesReponses, profils: readonly string[], nom: string): Promise<Set<string>> {
   const depliees = new Set<string>()
+  let placees = 0
   for (const p of profils) {
+    // Ses repères à soi : ce qu'il a placé au nouveau Filet, juste et sans aide.
+    const places = (await client.execute({ sql: AVANT.placesAuFilet, args: [p] })).rows.map(r => String(r.question))
+    placees += places.length
+    assert.deepEqual([...journal.placesAuFiletDe(p)].sort(), places, `${nom} · ${p} : ce qu’il a placé au Filet, sans aide`)
     // Ce qu'il a vu, déplié, et sa première réponse à chacune, telle quelle (`lireLesVues`).
     const vues = objet((await client.execute({ sql: AVANT.vues, args: [p] })).rows[0]?.vues)
     const lues = new Map<string, number>()
@@ -420,6 +434,7 @@ async function comparer(client: Client, journal: JournalDesReponses, profils: re
       `${nom} · ${p} : ses réponses des missions`,
     )
   }
+  assert.ok(placees > 0, `${nom} : des années placées au Filet à comparer`)
   // Le modèle du savoir : les premières réponses de tous.
   const deTous = new Map((await client.execute(AVANT.savoirDeTous)).rows.map(r => [String(r.profile_id), new Map(Object.entries(objet(r.premieres)).map(([id, j]) => [id, Number(j) === 1]))]))
   assert.deepEqual(new Map(journal.joueurs().map(p => [p, journal.premieresJustesDe(p)]).filter(([, m]) => (m as Map<string, boolean>).size > 0) as [string, Map<string, boolean>][]), deTous, `${nom} : les premières réponses de tous`)
@@ -523,6 +538,7 @@ const reponseDuJournal = (r: Pick<ReponseDuJournal, 'n' | 'question' | 'juste' |
   compagnon: null,
   epreuve: null,
   choisie: null,
+  composee: null,
   ...r,
 })
 

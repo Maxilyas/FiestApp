@@ -24,6 +24,7 @@ import path from 'node:path'
 import { inscrireProfil } from './banc'
 import {
   DIX_HEURES,
+  aLaMain,
   bancDuCabinet,
   commencer,
   departEnBase,
@@ -50,6 +51,7 @@ import type { DetailTire } from '../../shared/cabinet/jeux/detail'
 import type { FriseTiree } from '../../shared/cabinet/jeux/frise'
 import type { MotMontre, MotRevele, MotTire } from '../../shared/cabinet/jeux/mot'
 import { REGLE_DU_FILET, type EtatDuFilet, type FiletMontre, type FiletRevele, type FiletTire } from '../../shared/cabinet/jeux/filet'
+import { placesPossibles, tirageEnDeuxTemps, type FiletEnDeuxTempsMontre, type FiletEnDeuxTempsRevele, type FiletEnDeuxTempsTire } from '../../shared/cabinet/jeux/filetEnDeuxTemps'
 import { epingleTiree, zoneDEclairer, type EpingleMontree, type EpingleRevelee, type EpingleTiree } from '../../shared/cabinet/jeux/epingle'
 import type { IndicesMontres, IndicesReveles, IndicesTires } from '../../shared/cabinet/jeux/indices'
 import type { RepliqueMontreeAuMot, RepliqueRevelee, RepliqueTiree } from '../../shared/cabinet/jeux/replique'
@@ -336,6 +338,56 @@ test('le Filet : ni la valeur, ni les réponses de sa question, ni son anecdote 
   const revelee = ok(await jouer(b, sam, eclairee, { quoi: 'repondre', manche: 0, reponse: { filet: { x: t.valeur, taille: 'moyen' } } }), 'lancer')
   jamais(d, revelee, 'révélée')
   assert.equal((revelee.revelation?.corps as FiletRevele).valeur, t.valeur)
+})
+
+test('le Filet en deux temps : ni la valeur, ni la bonne époque, ni les époques que l’aide retire, ni l’indice avant qu’il le prenne — par les routes', async () => {
+  const noa = await inscrireProfil(b.banc.url, 'noa', 'Noa')
+  // Le tireur pose encore le Filet d'avant : le plan d'une partie se récrit à la main sous la forme nouvelle, derrière le dos
+  // du serveur, qui le relit au redémarrage — et le joue par la règle que son tirage choisit (`filets.ts`).
+  const v0 = ok(await commencer(b, noa, { origine: 'libre', jeu: 'filet', carte: 'coup-d-oeil' }), 'commencer')
+  const avant = departEnBase(b.fichier, v0.id)
+  const annee = Number(avant.jour.slice(0, 4))
+  const tirages = avant.tirages.map((x, k) => {
+    const t = x as FiletTire
+    const nouveau = tirageEnDeuxTemps(
+      { question: t.question, valeur: t.valeur, annee: t.annee, ...(t.unite !== undefined && { unite: t.unite }), place: placesPossibles(t.valeur, t.annee, annee)[0], anneeDuDepart: annee, reperes: [], indice: `Un indice d’essai, le ${k + 1}` },
+      hasardDe(`secret:${k}`),
+    )
+    assert.ok(nouveau, `${t.valeur} se pose en deux temps`)
+    return nouveau
+  })
+  const d: DepartDUnePartie = { ...avant, tirages }
+  aLaMain(b.fichier, `UPDATE campagne_series SET cabinet = '${JSON.stringify(d).replace(/'/g, "''")}' WHERE id = '${v0.id}'`)
+  await b.banc.redemarrer()
+  const t = tirages[0] as FiletEnDeuxTempsTire
+  /** Ce que la manche garde jusqu'à son verdict : la valeur, la bonne époque, celles que l'aide retirerait, ses réponses, l'indice pas pris. */
+  const sansLeSecret = (x: unknown, ou: string, indicePris = false) => {
+    const s = texte(x)
+    assert.doesNotMatch(s, /"valeur"|"bonnes"|"retirables"|"reponses"|"reponse"|"lancer"/, `${ou} : un champ de la réponse`)
+    for (const r of t.question.reponses) assert.ok(!s.includes(`"${r}"`), `${ou} : « ${r} », une réponse de la question`)
+    sansSaReponse(t.question, x, ou)
+    if (!indicePris) assert.ok(!s.includes(t.indice!), `${ou} : l’indice avant d’être pris`)
+    jamais(d, x, ou)
+  }
+  const vue = ok(await laPage(b, noa), 'la page').enCours!
+  sansLeSecret(vue, 'la page')
+  const montree = vue.enCours as FiletEnDeuxTempsMontre
+  assert.equal(montree.deuxTemps, true)
+  assert.deepEqual(montree.tranches, t.tranches, 'les quatre époques, elles, se montrent')
+  assert.deepEqual(montree.retirees, [])
+  // « Deux époques de moins », payée : les deux mauvaises qu'elle retire, figées au tirage — jamais la bonne.
+  const aidee = ok(await jouer(b, noa, vue, { quoi: 'aide', manche: 0, aide: 'epoques' }), 'deux époques de moins')
+  sansLeSecret(aidee, 'après l’aide')
+  assert.deepEqual((aidee.enCours as FiletEnDeuxTempsMontre).retirees, [...t.retirables])
+  // Éclairer offre l'indice : il ne part qu'à cet instant.
+  const eclairee = ok(await jouer(b, noa, aidee, { quoi: 'eclairer', manche: 0, affirmation: 1 }), 'éclairer')
+  sansLeSecret(eclairee, 'éclairée', true)
+  assert.equal((eclairee.enCours as FiletEnDeuxTempsMontre).indice, t.indice)
+  // Le verdict : la révélation dit la valeur, et ce que l'aide payée a pris — l'offerte, rien.
+  const revelee = ok(await jouer(b, noa, eclairee, { quoi: 'repondre', manche: 0, reponse: { filet: { epoque: t.bonnes[0], x: t.valeur } } }), 'lancer')
+  jamais(d, revelee, 'révélée')
+  const corps = revelee.revelation?.corps as FiletEnDeuxTempsRevele
+  assert.deepEqual([corps.valeur, corps.avantLesAides, corps.payees, corps.etoiles], [t.valeur, 3, 1, 2])
 })
 
 /** Tous les nombres d'une réponse, où qu'ils soient : une coordonnée ne se cherche pas en texte, une autre la contiendrait. */

@@ -130,19 +130,40 @@ import { sansAccent } from '../../shared/homonymes'
  * la base et écrite là où elle vit (`preparer --sujet`), 144 rangées sur
  * 150 : 27 405. Le lendemain, une question de Stargate retirée — elle
  * donnait Halla pour planète-mère des Asgard, qui est Othala — : 27 404.
- * Le 9 novembre 2026, l'équitation et la plongée, deux disciplines que la
+ * Le 9 novembre 2026, un lot pilote de géographie à nombre que chaque
+ * Français saurait placer, pour le nouveau Filet : 47 faits essayés, 13 déjà
+ * dans la base, 10 écrits et rangés (une anecdote corrigée, la Loire
+ * « jamais endiguée ») : 27 414. Puis sa seconde moitié, en sport, ce que
+ * chaque Français saurait estimer : 37 faits essayés, 12 déjà dans la base,
+ * 10 écrits, 9 rangés (la longueur d'un terrain de football retirée : les
+ * lois du jeu en laissent une fourchette) : 27 423. Le même jour, un
+ * doublon que le juge des faits ne voyait pas retiré — deux questions de
+ * Lost sur le code de 108 minutes, sous deux entités écrites autrement
+ * (« Le Cygne », « Station Cygne ») ; i3uqyd02 s'en va, k9n359l1 reste :
+ * 27 422. Le soir, quatre lots pour le premier acte du nouveau Filet, là où
+ * il n'avait pas de quoi tirer — la Nature, la Cuisine, les Arts & lettres,
+ * la Géographie —, des années et des grandeurs que la plupart des Français
+ * placeraient : 140 écrites ; 37 redites que le vérificateur ne voyait pas
+ * — leur réponse chiffrée déjà écrite dans l'intitulé d'une autre question
+ * sur le même sujet, ou la canette de 330 ml en centilitres —, remplacées
+ * dans trois lots, retirées de la cuisine ; 15 retirées pour un gabarit
+ * répété (des morts d'auteurs étrangers, les apports de référence des
+ * étiquettes) et 7 à la relecture : 110 rangées, 27 532. Puis un second
+ * lot de géographie, à qui il manquait une valeur : 12 écrites et rangées,
+ * la longueur de l'équateur passée aux Sciences : 27 544.
+ * Le même jour encore, l'équitation et la plongée, deux disciplines que la
  * base ne posait pas : un sous-thème neuf chacune en Sport et un inventaire
  * de six familles, 260 questions écrites en douze lots d'une seule vague —
  * 4 refusées entre lots comme un fait déjà posé, 9 retirées et 20 corrigées
  * à la relecture (Salinero donné pour le cheval d'Anky van Grunsven dès
  * 2000, qui était Bonfire), 5 retirées encore au coup d'œil sur tous les
  * lots : le mot « apnée » et les palmes, demandés par trois familles que
- * leurs relecteurs ne lisaient pas ensemble — 242 rangées : 27 646. Puis
+ * leurs relecteurs ne lisaient pas ensemble — 242 rangées : 27 786. Puis
  * un lot de complément, les faciles et les moyennes qui manquaient encore
- * aux deux montées de leur parcours, 29 rangées sur 30 : 27 675 — 135
+ * aux deux montées de leur parcours, 29 rangées sur 30 : 27 815 — 135
  * questions d'équitation, 136 de plongée.
  */
-const AU_MOINS = 27675
+const AU_MOINS = 27815
 
 const { questions, refusees } = lireLaBase()
 

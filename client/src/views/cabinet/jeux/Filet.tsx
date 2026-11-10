@@ -6,10 +6,12 @@ import { questionSizeClass } from '../../../games/quiz/questionSize'
 import { toucher } from '../../../toucher'
 import { ETOILES_DU_FILET } from '../../../../../shared/cabinet/bareme'
 import { TAILLES_DU_FILET, demiLargeur, milieuDeLaPiste, type FiletMontre, type FiletRevele, type PisteDuFilet, type TailleDuFilet } from '../../../../../shared/cabinet/jeux/filet'
+import type { FiletEnDeuxTempsMontre, FiletEnDeuxTempsRevele } from '../../../../../shared/cabinet/jeux/filetEnDeuxTemps'
 import type { FinDUneManche } from '../../../../../shared/cabinet/partie'
 import { decimales } from '../../../../../shared/classement'
 import { uniteAccordee } from '../../../../../shared/unites'
 import type { JeuALEcran, PropsDUneManche } from '../Partie'
+import { FILET_EN_DEUX_TEMPS, type LocalDuFiletEnDeuxTemps } from './FiletEnDeuxTemps'
 
 // Le Filet à l'écran (§ 3.5) : une année ou une estimation de la base, sur une
 // piste tirée au départ. Il place son curseur — au doigt sur la piste, cran
@@ -274,4 +276,30 @@ export const FILET: JeuALEcran<FiletMontre, FiletRevele, LocalDuFilet> = {
   // Pas de `sousEcranDe` : rien ne bouge sous le doigt sans une vue neuve — le curseur et le filet glissent sous lui, il les y mène.
   Manche: MancheDuFilet,
   Revelation: RevelationDuFilet,
+}
+
+/** Une manche, ou sa révélation, du Filet en deux temps : la vue le dit (`deuxTemps`), comme le serveur le lit au tirage. */
+const enDeuxTemps = <T extends object>(x: T): boolean => 'deuxTemps' in x && x.deuxTemps === true
+
+/**
+ * Les deux Filets, que le registre des écrans charge ensemble (`ECRANS.filet`, `Partie.tsx`) : chaque manche choisit le
+ * sien par sa forme, comme le registre du serveur choisit la règle par celle du tirage (`shared/cabinet/jeux/filets.ts`)
+ * — une partie commencée avant le nouveau Filet garde son écran jusqu'au bout. Chacun rendu comme un composant à part :
+ * appelés comme des fonctions, l'un aurait pris les crochets de l'autre.
+ */
+export const FILETS: JeuALEcran<FiletMontre | FiletEnDeuxTempsMontre, FiletRevele | FiletEnDeuxTempsRevele, LocalDuFilet | LocalDuFiletEnDeuxTemps> = {
+  localDe: m => (enDeuxTemps(m) ? FILET_EN_DEUX_TEMPS.localDe(m as FiletEnDeuxTempsMontre) : FILET.localDe(m as FiletMontre)),
+  cleDe: m => (enDeuxTemps(m) ? FILET_EN_DEUX_TEMPS.cleDe(m as FiletEnDeuxTempsMontre) : FILET.cleDe(m as FiletMontre)),
+  aLEcheance: (m, l) => (enDeuxTemps(m) ? FILET_EN_DEUX_TEMPS.aLEcheance(m as FiletEnDeuxTempsMontre, l as LocalDuFiletEnDeuxTemps) : FILET.aLEcheance(m as FiletMontre, l as LocalDuFilet)),
+  // Le Filet d'avant n'a rien à viser : Éclairer y pose sa zone dorée.
+  cibleDEclairer: (m, l) => (enDeuxTemps(m) ? FILET_EN_DEUX_TEMPS.cibleDEclairer?.(m as FiletEnDeuxTempsMontre, l as LocalDuFiletEnDeuxTemps) : undefined),
+  // Rien ne glisse sous le doigt au Filet d'avant ; au nouveau, la piste qu'une époque ouvre.
+  sousEcranDe: (m, l) => (enDeuxTemps(m) ? (FILET_EN_DEUX_TEMPS.sousEcranDe?.(m as FiletEnDeuxTempsMontre, l as LocalDuFiletEnDeuxTemps) ?? '') : ''),
+  Manche: p =>
+    enDeuxTemps(p.montree) ? (
+      <FILET_EN_DEUX_TEMPS.Manche {...(p as PropsDUneManche<FiletEnDeuxTempsMontre, LocalDuFiletEnDeuxTemps>)} />
+    ) : (
+      <FILET.Manche {...(p as PropsDUneManche<FiletMontre, LocalDuFilet>)} />
+    ),
+  Revelation: p => (enDeuxTemps(p.corps) ? <FILET_EN_DEUX_TEMPS.Revelation {...p} corps={p.corps as FiletEnDeuxTempsRevele} /> : <FILET.Revelation {...p} corps={p.corps as FiletRevele} />),
 }

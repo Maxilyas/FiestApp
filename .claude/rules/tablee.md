@@ -82,8 +82,12 @@ Pour faire jouer une soirée par des agents, suis la skill `tablee`.
   cadrage, aux Indices l'indice, et ne se refait pas : relancé au tableau
   plus grand, le Détail se reconnaissait presque toujours, au-dessus de sa
   ligne. Une question de la base se sait à sa marche, comme au calibrage
-  (`sait`, `filetSait`) : un seuil par marche — un seul pour toutes, et
-  Ophélie faisait 9 sur 9 à un Mot épique aux questions difficiles. L'écran
+  (`sait`) : un seuil par marche — un seul pour toutes, et
+  Ophélie faisait 9 sur 9 à un Mot épique aux questions difficiles. Le
+  nouveau Filet, lui, se sait à l'acte de sa question, que son contenu range
+  (`saitLEpoque`, `classesSures`, `LOI_DU_FILET_PAR_ACTE`) : deux tirages,
+  l'époque puis l'anneau, et la régie dit l'acte (« 🎲 Pour ton dé, l’acte
+  de la question : II », `ChoseASavoir.acte`). L'écran
   ne montre pas la marche, la vue n'en porte rien : la régie lit au passage
   chaque partie que la page reçoit (`partieDeLaReponse`, sans un
   aller-retour de plus), relit le plan figé à l'indice que la vue dit

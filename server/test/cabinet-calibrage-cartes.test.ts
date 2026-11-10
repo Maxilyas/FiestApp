@@ -75,7 +75,15 @@ test('Changer paie la lecture de ce qu’il a vu, à chaque jeu où il sert', ()
   assert.ok(signature, 'la méthode qui joue Changer')
   assert.doesNotMatch(signature[1], /=/, `pas de lecture d'office : changer(${signature[1]})`)
   const appels = appelsDe(code, 'p.changer(')
-  assert.equal(appels.length, CLES_DES_JEUX.filter(j => JEUX[j].changeable).length, 'un Changer à chaque jeu où il sert')
+  // Le Filet s'y joue de trois façons — celle d'avant, telle que les joueurs l'ont jouée, et le nouveau (`--filet`) —,
+  // chacune son Changer.
+  const filetsDePlus = ['mancheDuFiletJoue', 'mancheDuFiletEnDeuxTemps']
+  for (const nom of filetsDePlus) {
+    const debut = code.indexOf(`function ${nom}(`)
+    const fin = code.indexOf('\nfunction ', debut + 1)
+    assert.ok(debut >= 0 && code.slice(debut, fin < 0 ? undefined : fin).includes('p.changer('), `${nom} : son Changer`)
+  }
+  assert.equal(appels.length, CLES_DES_JEUX.filter(j => JEUX[j].changeable).length + filetsDePlus.length, 'un Changer à chaque jeu où il sert')
   for (const args of appels) {
     assert.equal(args.length, 3, `p.changer(${args.join(', ')}) : la lecture manque`)
     assert.match(args[2], /SECONDES\.\w+/, `p.changer(${args.join(', ')}) : la lecture se lit au temps du jeu`)

@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import type { InStatement } from '@libsql/client'
+import { lancerDeLaComposee } from '../../../shared/cabinet/jeux/filetEnDeuxTemps'
 import { deplier, estDuCabinet, idDuTableau } from '../../../shared/cabinet/pieces'
 import { deplieePourLeCabinet, vuesDuCabinet } from '../../../shared/cabinet/vues'
 import { bitDuMode } from '../../../shared/campagne'
@@ -93,6 +94,11 @@ export interface ReponseDuJournal {
    * Cabinet (`choix` −1). Les leurres de l'Éclair la lisent (`leurresChoisis`).
    */
   choisie: string | null
+  /**
+   * La pièce composée d'un lancer juste du Filet — « 1962|1 » au nouveau, ses aides au bout (« 1962|1|e ») ; « 1852|moyen »
+   * à celui d'avant —, et rien d'autre : ses repères à soi la lisent (`placesAuFiletDe`).
+   */
+  composee: string | null
 }
 
 /**
@@ -109,16 +115,20 @@ export interface ReponseDuJournal {
  * son rejeu (`reponsesDesEpreuves`). D'une réponse
  * fausse, le texte qu'il a choisi (`choisie`), sous la même garde et sous
  * `choix >= 0` : un chemin `[-1]` est une erreur de SQLite, pas un NULL, et
- * ferait échouer toute la lecture.
+ * ferait échouer toute la lecture. D'un lancer juste du Filet, sa pièce
+ * composée (`composee`, « 1962|1 », ses aides au bout) : ses repères à soi
+ * la lisent (`placesAuFiletDe`) — seule la pièce juste, pour que la lecture
+ * ne grossisse que de ce qui sert.
  */
 export function lectureDuJournal(depuis: number, limite = REPONSES_PAR_LECTURE): InStatement {
   return { sql: LECTURE_DU_JOURNAL, args: [depuis, limite] }
 }
 
 const LECTURE_DU_JOURNAL = `SELECT COUNT(*) AS lues, MAX(n) AS jusqua,
-                 json_group_array(json_array(n, qui, serie, question, juste, le, repondue, joker, forme, mode, commencee, semaine, duel, ferme, json(detail), compagnon, json(epreuve), choisie)) AS lignes
+                 json_group_array(json_array(n, qui, serie, question, juste, le, repondue, joker, forme, mode, commencee, semaine, duel, ferme, json(detail), compagnon, json(epreuve), choisie, composee)) AS lignes
           FROM (SELECT r.rowid AS n, s.profile_id AS qui, r.serie_id AS serie, r.reserve_id AS question, r.juste AS juste, r.repondue_le AS le,
                        r.choix IS NOT NULL AS repondue, r.joker AS joker, r.forme AS forme, r.compagnon AS compagnon, s.mode AS mode, s.commencee_le AS commencee,
+                       CASE WHEN r.forme = 'filet' AND r.juste = 1 THEN r.composee END AS composee,
                        s.semaine AS semaine, s.duel AS duel, d.ferme_le AS ferme,
                        CASE WHEN json_valid(s.questions)
                             THEN json_extract(s.questions, '$[' || r.position || '].carnet', '$[' || r.position || '].categorie', '$[' || r.position || '].niveau', '$[' || r.position || '].cabinet.montre')
@@ -216,7 +226,7 @@ export function lireLeJournal(ligne: Record<string, unknown> | undefined, limite
   const lues = Number(ligne?.lues ?? 0)
   const texte = ligne?.lignes
   const brutes = typeof texte === 'string' ? (JSON.parse(texte) as unknown[][]) : []
-  const reponses = brutes.map(([n, qui, serie, question, juste, le, repondue, joker, forme, mode, commencee, semaine, duel, ferme, detail, compagnon, epreuve, choisie]): ReponseDuJournal => {
+  const reponses = brutes.map(([n, qui, serie, question, juste, le, repondue, joker, forme, mode, commencee, semaine, duel, ferme, detail, compagnon, epreuve, choisie, composee]): ReponseDuJournal => {
     const [carnet, categorie, niveau, montre] = Array.isArray(detail) ? detail : [null, null, null, null]
     const montrees = Array.isArray(montre) ? montre.filter((id): id is string => typeof id === 'string') : []
     const sonJoker = texteOuNull(joker)
@@ -245,6 +255,7 @@ export function lireLeJournal(ligne: Record<string, unknown> | undefined, limite
       epreuve: Array.isArray(epreuve) ? { palier: Number(epreuve[0]), branche: texteOuNull(epreuve[1]), rejeu: Number(epreuve[2]) === 1 } : null,
       // Un texte seulement : un chemin qui tombe sur un objet ou un nombre — une série d'une forme à elle — ne dit pas de leurre.
       choisie: typeof choisie === 'string' ? choisie : null,
+      composee: typeof composee === 'string' ? composee : null,
     }
   })
   return { reponses, jusqua: ligne?.jusqua === null || ligne?.jusqua === undefined ? 0 : Number(ligne.jusqua), aSuivre: lues >= limite }
@@ -399,6 +410,8 @@ class Dossier {
   vuesDuCabinet: Map<string, number> | null = null
   /** Ses réponses lues jusqu'ici (`versionDe`) : ce qui se tire de ses réponses ne change qu'avec elles. */
   lues = 0
+  /** Les questions qu'il a su placer au nouveau Filet, juste et sans aide (`placesAuFiletDe`). */
+  readonly placesAuFilet = new Set<string>()
   /**
    * Ses premières réponses changées en place (`retouchesDe`) : une réponse
    * plus ancienne lue après une plus récente à la même question. Ce qui tient
@@ -410,6 +423,15 @@ class Dossier {
 
 /** Un joueur sans une réponse n'a rien vu : la même carte vide pour tous, que personne ne change. */
 const SANS_VUES: ReadonlyMap<string, number> = new Map()
+/** … ni rien placé au Filet. */
+const SANS_PLACES: ReadonlySet<string> = new Set()
+
+/**
+ * Un lancer du nouveau Filet placé sans aide : son époque et son curseur, rien au bout (« 1962|1 »). Une aide prise
+ * (« 1962|1|e », « 1962|1|I ») l'a aidé à le placer — même offerte par Éclairer ; une pièce du Filet d'avant
+ * (« 1852|moyen ») n'a pas d'époque : elle ne disait pas qu'il savait placer l'année, mais quel filet il lançait.
+ */
+const placeeSansAide = (composee: string | null): boolean => composee !== null && lancerDeLaComposee(composee) !== null && composee.split('|').length === 2
 
 /**
  * Une réponse neuve sur sa carte du Cabinet déjà lue : ce qu'elle a montré, à
@@ -547,6 +569,7 @@ export class JournalDesReponses {
     const d = this.dossier(r.qui)
     d.lues++
     for (const id of r.montre ?? []) if (r.le > (d.montrees.get(id) ?? -Infinity)) d.montrees.set(id, r.le)
+    if (r.juste && r.forme === 'filet' && placeeSansAide(r.composee)) d.placesAuFilet.add(r.question)
     let p = d.paires.get(r.question)
     // Son carnet, avant que la question ne retienne l'instant de cette réponse : il dit si elle arrive dans l'ordre.
     this.auCarnet(d, r, p?.le)
@@ -641,6 +664,15 @@ export class JournalDesReponses {
    * `maintenant`. Null : une de ses réponses est arrivée dans le désordre, la
    * base le dira (`carnetIncertain`).
    */
+  /**
+   * Les questions qu'il a su placer au nouveau Filet, juste — ★★ au moins — et sans aide : leurs années deviennent ses
+   * repères (`RepereDuFilet.sien`, le cahier du nouveau Filet, § 3.5 : « une année qu'il a déjà su placer »). Une
+   * réponse ne change jamais : l'ensemble ne fait que grandir, et relu de zéro, il dit la même chose.
+   */
+  placesAuFiletDe(qui: string): ReadonlySet<string> {
+    return this.dossiers.get(qui)?.placesAuFilet ?? SANS_PLACES
+  }
+
   carnetDe(qui: string, semaine: string, maintenant: number): Map<string, SuiviDeRevision> | null {
     const suivis = new Map<string, SuiviDeRevision>()
     const d = this.dossiers.get(qui)

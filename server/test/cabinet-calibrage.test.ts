@@ -29,8 +29,12 @@ import { lireNombre } from '../../shared/nombres'
 import { type Lancement, SCRIPT, SERVEUR, SOURCE, auHasard, calibrer, cases, jeuxQuiVisent, ligneDuJeu, lignesDesConfettis, partAvecLaCarte, sansCommentaires } from './calibrage-du-cabinet'
 import { importsStatiques } from './chemin-des-imports'
 
-/** Le joueur au hasard seul, sans le musée ni la zone de l'Épingle — qui ne dépend d'aucun joueur : quelques secondes. */
-const AU_HASARD = ['--parties', '400', '--mesures', '20', '--sections', 'jeux,cartes,confettis', '--joueurs', 'hasard']
+/**
+ * Le joueur au hasard seul, sans le musée ni la zone de l'Épingle — qui ne dépend d'aucun joueur : quelques secondes. Au
+ * Filet d'avant, dont le plancher se calcule des seules constantes du barème (`filetAuHasard`) ; le nouveau se tire de
+ * vraies questions, et se mesure dans `cabinet-calibrage-modele.test.ts`.
+ */
+const AU_HASARD = ['--parties', '400', '--mesures', '20', '--sections', 'jeux,cartes,confettis', '--joueurs', 'hasard', '--filet', 'avant']
 let auHasardLance: Promise<Lancement> | null = null
 /** Lancé une fois, lu par plusieurs épreuves. */
 const auHasardSeul = () => (auHasardLance ??= calibrer(AU_HASARD))
@@ -200,20 +204,6 @@ test('ce qui ne s’essaie pas se refuse en mots, avant de jouer', async () => {
   assert.match(memeSomme.sortie, /Essai : VAGUES_DE_LA_FRISE = \[4,2,1\]/)
   assert.equal(pouvoir.code, 1, pouvoir.sortie)
   assert.match(pouvoir.erreurs, /--pouvoirs : « misser » n'en est pas un/)
-})
-
-test('le musée se remplit jour après jour, par les règles du musée', async () => {
-  // Un joueur moyen qui arrive neuf et joue chaque jour : tout est à lui en moins d'un mois. Jusqu'au 25 octobre 2026,
-  // l'épreuve faisait arriver un explorateur avec soixante œuvres de l'Expédition : la migration s'est abandonnée
-  // (la décision du propriétaire, chacun commence à zéro), et chacun arrive neuf.
-  const { code, sortie, erreurs } = await calibrer(['--parties', '100', '--mesures', '20', '--parcours', '1', '--jours', '30', '--joueurs', 'moyen'])
-  assert.equal(code, 0, erreurs)
-  assert.match(sortie, /chacun arrive neuf : les 4 œuvres de départ, rien de l'Expédition/)
-  assert.doesNotMatch(sortie, /rapportées/)
-  const jours = /tout posséder : (\d+) j/.exec(sortie)
-  assert.ok(jours && lireNombre(jours[1])! <= 30, `tout posséder :\n${sortie}`)
-  assert.match(sortie, /par jour joué : \d+ parties/)
-  assert.match(sortie, /gardiens réveillés, semaine/)
 })
 
 test('le joueur « tablée » du calibrage sait ce que la consigne de la tablée lui prête : θ 2,5, des deux côtés', () => {

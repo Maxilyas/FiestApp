@@ -114,6 +114,8 @@ export async function demarrer(opts: Partial<QuizServerOptions> = {}): Promise<B
   // Ce que l'accueil garde d'un joueur aussi (`fraicheurDesLecturesMs`) : ses épreuves validées, ses bonnes réponses du jour.
   // Et le départ de l'Expédition ouvert, quoi que dise son drapeau (`EXPEDITION_REMPLACEE`) : le jour où le Cabinet prend sa
   // place, les fichiers qui partent en expédition ne tombent pas ; `cabinet-ouverture.test.ts` le ferme, et le rouvre au drapeau.
+  // Et le Filet d'avant, quoi que dise son drapeau (`FILET_EN_DEUX_TEMPS`) : les fichiers qui le jouent par les routes ne tombent
+  // pas le jour où le nouveau se tire ; ses épreuves le rouvrent (`filetEnDeuxTemps: true`, `cabinet-filet-en-deux-temps.test.ts`).
   // Et le point du matin arrêté (`pointDuMatinMs`) : passé 8 h 40, il aurait écrit la mémoire du QG en fond, au milieu des
   // lectures qu'une épreuve compte ; `qg-memoire.test.ts` le lance, l'horloge à la main.
   // Et les dépôts de la routine publiés tout de suite (`publicationDesAjoutsMs`) : ses épreuves jouent ce qu'elles viennent
@@ -121,7 +123,7 @@ export async function demarrer(opts: Partial<QuizServerOptions> = {}): Promise<B
   let reglages = opts
   const lancer = () =>
     // Sur une ligne : `cabinet-ouverture.test.ts` lit cet appel tel quel.
-    createQuizServer({ port, dbPath, quizDbUrl, admin: ADMIN, questionAuCentre: false, expeditionRemplacee: false, prechauffageAuProfil: false, fraicheurDesDuelsMs: 0, fraicheurDesLecturesMs: 0, pointDuMatinMs: null, publicationDesAjoutsMs: 0, ...reglages })
+    createQuizServer({ port, dbPath, quizDbUrl, admin: ADMIN, questionAuCentre: false, expeditionRemplacee: false, filetEnDeuxTemps: false, prechauffageAuProfil: false, fraicheurDesDuelsMs: 0, fraicheurDesLecturesMs: 0, pointDuMatinMs: null, publicationDesAjoutsMs: 0, ...reglages })
   let server = await lancer()
   port = server.port
   const banc: Banc = {

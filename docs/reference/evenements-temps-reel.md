@@ -237,7 +237,7 @@ Rangés par famille : l'horloge, l'invité, l'écran d'animateur et la partie, l
 
 ### `host:assignPlayer`
 
-- **Qui l'émet** : un écran d'animateur — le menu d'équipe d'une puce de la salle d'attente (`client/src/views/HostApp.tsx`).
+- **Qui l'émet** : un écran d'animateur — le menu d'équipe d'une puce de la salle d'attente (`client/src/views/HostApp.tsx`) ; la barre du chef, sous « Sans équipe », à tout moment de la soirée (`rangerInvite`, `client/src/socketDuChef.ts`).
 - **Charge** : `{ playerId, teamId }` — `null` pour sortir l'invité de son équipe.
 - **Accusé** : aucun.
 - **Effet** : déplace l'invité, y compris pendant un quiz — les questions déjà jouées gardent l'équipe de leur moment ; l'instantané part regroupé ; son téléphone, et lui seul, reçoit un `toast` au nom de l'animateur : « Bob t'a placé·e dans l'équipe 💃 Les Salseras », ou « Bob t'a sorti·e de ton équipe ».
@@ -265,7 +265,7 @@ Rangés par famille : l'horloge, l'invité, l'écran d'animateur et la partie, l
 ### `host:closeParty`
 
 - **Qui l'émet** : un écran d'animateur — « Clore la soirée », avec le titre de sa boîte (`client/src/views/HostApp.tsx`) ; « Terminer la soirée » dans la barre du chef, sans titre.
-- **Charge** : `{ title? }` ; sans titre, la soirée garde celui qu'elle porte.
+- **Charge** : `{ title? }` ; sans titre, la soirée prend celui que l'animateur a donné à son espace (`titreChoisi` — le nom tapé dans « Nouveau salon », « L'affiche » de « Mon compte ») tant que l'historique ne lui en connaît qu'un automatique (« Soirée du … »), sinon elle garde celui qu'elle porte.
 - **Accusé** : aucun.
 - **Effet** : clôt la soirée par `cloreLaSoiree` (`server/src/sockets.ts`), le chemin que prend aussi le QG (invariant 18) : archive sous ce titre, crédits de clôture, soirée effacée — le miroir d'abord —, `soiree:fin` à chaque téléphone, `soiree:cloture` aux écrans. Une seconde clôture pendant la première attend son issue. L'issue revient à cet écran en `toast` : « « *titre* » est close — la soirée suivante peut commencer », ou « Soirée vierge — rien n'avait été joué » (sans rien de joué, la soirée s'efface comme un essai). Le détail : [Après la soirée](../produit/apres-la-soiree.md).
 - **Refus**, en `toast` d'erreur : « L'essai est en train de s'effacer — attends qu'il ait fini » ; « Rien n'a été effacé : … », quand la base permanente refuse — la soirée continue, entière.

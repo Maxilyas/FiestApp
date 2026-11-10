@@ -153,7 +153,7 @@ La mémoire suit chaque question par son identifiant : « Dupliquer » le garde 
 
 ## Le programme de la soirée
 
-Il se prépare au salon : « Lancer » et le ▶ d'une carte ouvrent « Nouveau salon » (`/salon`) sur ce quiz. « Ajouter un autre quiz » y propose tes quiz prêts, le quiz tout prêt et les modèles jouables tels quels ; « Réglages » donne à chacun ses points (×1, ×2 ou ×3) ; « Ouvrir le salon » enregistre l'ordre de ce soir, que la console propose ensuite quiz après quiz. Un salon s'ouvre avec un profil : un compte d'animateur sans profil lance ses quiz à l'écran commun.
+Il se prépare au salon : « Lancer » et le ▶ d'une carte ouvrent « Nouveau salon » (`/salon`) sur ce quiz. « Ajouter un autre quiz » y propose tes quiz prêts, le quiz tout prêt et les modèles jouables tels quels ; le crayon d'une carte rouvre ce quiz ici, dans « Mes quiz », et le salon garde sa préparation pendant ce détour ; « Réglages » donne à chacun ses points (×1, ×2 ou ×3) ; « Ouvrir le salon » enregistre l'ordre de ce soir, que la console propose ensuite quiz après quiz. Un salon s'ouvre avec un profil : un compte d'animateur sans profil lance ses quiz à l'écran commun.
 
 ## Les catégories
 

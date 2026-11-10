@@ -159,7 +159,7 @@ Pour agrandir la base (un lot, sa relecture, son rangement — ou des milliers d
   famille (`--inventaire=equitation,plongee --questions=130`), 4 refusées
   entre lots, 9 retirées et 20 corrigées à la relecture, 5 retirées au coup
   d'œil — 242 rangées —, puis un complément de 30, 29 rangées : 135 et 136
-  questions, jusqu'à 27 675. Ce qu'on en a appris : `--inventaire` dose les
+  questions, jusqu'à 27 815. Ce qu'on en a appris : `--inventaire` dose les
   difficultés pour la base, pas pour un parcours qui naît
   (`PALIERS_DES_SUJETS` : 42 faciles, 48 moyennes et 30 difficiles pour le
   monter deux fois) — une section « CE LOT EN PARTICULIER » au bout de
@@ -177,3 +177,26 @@ Pour agrandir la base (un lot, sa relecture, son rangement — ou des milliers d
   bouger (les Preakness Stakes, hors de Pimlico en 2026) et deux palmarès
   faux (le cheval d'Anky van Grunsven en 2000, l'or de Rio en concours
   complet aussi).
+- **Une réponse chiffrée retournée passe le vérificateur** (le 9 novembre
+  2026, des lots pour le premier acte du nouveau Filet — des années et des
+  grandeurs que la plupart des Français placent, en Nature, en Cuisine, en
+  Arts & lettres et en Géographie ; règle `cabinet.md`) : « En quelle année
+  Delacroix peint-il La Liberté guidant le peuple ? » quand la base a « Quel
+  peintre a représenté la révolution de Juillet 1830 dans La Liberté guidant
+  le peuple ? » — `memeFait` ne retourne deux questions que si chacune écrit
+  la réponse entière de l'autre, et « Eugène Delacroix » n'est pas écrit.
+  37 des 140 premières questions en étaient, rattrapées par un contrôle à
+  part — la réponse cherchée dans les intitulés qui partagent un nom propre
+  avec la question, chaque résultat relu : un nom commun par hasard (la tour
+  Montparnasse et le « Tour de France 1973 ») n'en est pas une —, à refaire
+  sur tout lot à nombre avant de le ranger, tant que le juge ne les refuse
+  pas lui-même. Les faits connus de tous sont presque tous dans la base, la
+  date d'une œuvre souvent dans l'intitulé qui demande son auteur ; à court,
+  un rédacteur retombe sur un seul gabarit (vingt « En quelle année
+  meurt… », dix « apports de référence » des étiquettes), que le rangement
+  réduit à quelques-unes. Et la section « CE LOT EN PARTICULIER » dit ce
+  qu'elle renverse de la consigne `--nombres` (« jamais un nombre que tout
+  le monde sait par cœur », « un tiers d'années au plus », « préfère les
+  faits moins courus »), sans rien lâcher de ce qu'elle garde : un petit
+  entier facile ne se joue pas au plus près (`lireLEstimation`), et une
+  question d'alcool (`aRelire: ["sensible"]`) n'entre pas au Cabinet.

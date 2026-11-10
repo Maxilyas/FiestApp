@@ -376,6 +376,61 @@ export const VALEUR_MIN_DU_FILET = 10
 /** Le Filet : la marche des questions qu'il pose, et ce que l'enjeu y ajoute (`MARCHES_DES_ENJEUX`). */
 export const MARCHES_DU_FILET: readonly Niveau[] = ['facile', 'moyen']
 
+// Le Filet en deux temps (`jeux/filetEnDeuxTemps.ts`, le cahier des charges `retours/2026-11-09/le-nouveau-filet.md`) :
+// l'époque, puis la valeur. Chacun de ces chiffres se fige au tirage — les tranches, les anneaux, le prix d'une aide :
+// changé, il ne vaut que pour les parties qui commencent, sans version du départ.
+
+/** Le Filet en deux temps : les tranches d'une frise, de gauche à droite… */
+export const TRANCHES_DU_FILET = 4
+/** … et celles que « Deux époques de moins » en retire, tirées au départ parmi les mauvaises : le 50:50 du Millionnaire. */
+export const TRANCHES_RETIREES = 2
+/**
+ * Le Filet en deux temps : la largeur des époques d'une année, celle de l'époque de sa réponse — dès 1800, 25 ans ; dès
+ * 1500, 50 ; avant, un siècle. On date plus grossièrement ce qui est loin. Leurs bornes sont rondes : 1775–1799.
+ */
+export const EPOQUES_DU_FILET: readonly (readonly [depuis: number, ans: number])[] = [
+  [1800, 25],
+  [1500, 50],
+  [1000, 100],
+]
+/** Le Filet en deux temps : une année vaut ★★★ à un douzième de son époque près, ★★ à un quart — 2 et 6 ans sur 25, 4 et 12 sur 50, 8 et 25 sur 100. */
+export const ANNEAUX_DES_EPOQUES: Readonly<Record<'trois' | 'deux', number>> = { trois: 12, deux: 4 }
+/** … une grandeur, ★★★ à 6 % de la réponse, ★★ à 25 % — l'écart lu au dixième, tel que l'écran l'écrit. */
+export const ANNEAUX_DES_GRANDEURS: Readonly<Record<'trois' | 'deux', number>> = { trois: 6, deux: 25 }
+/** Le Filet en deux temps : les bornes des ordres de grandeur dans une décade — 1 et 3, puis 10, 30, 100, 300… */
+export const ORDRES_DE_GRANDEUR: readonly number[] = [1, 3]
+/** Le Filet en deux temps : la piste d'une tranche, régulière, en tant de crans au plus… */
+export const CRANS_D_UNE_TRANCHE = 200
+/** … jamais plus fins qu'un pour une réponse entière, qu'un dixième sinon. */
+export const CRAN_LE_PLUS_FIN: Readonly<Record<'entiere' | 'decimale', number>> = { entiere: 1, decimale: 0.1 }
+/** Le Filet en deux temps : ce qu'une aide payée retire à la manche — jamais un cœur. */
+export const ETOILES_D_UNE_AIDE = 1
+/** Le Filet en deux temps : une année ne s'y pose qu'avec tant d'ans de recul au départ. */
+export const RECUL_DES_ANNEES_DU_FILET = 25
+/** Le Filet en deux temps : les repères d'une frise, au plus… */
+export const REPERES_DU_FILET = 2
+/** … dont tant des siens — une année qu'il a déjà su placer à ★★, sans aide. */
+export const REPERES_SIENS_DU_FILET = 1
+/** Le Filet en deux temps : un repère de grandeur à moins de tant de la réponse, en part d'elle, est la réponse même — il ne vient pas. */
+export const REPERE_A_LA_REPONSE = 0.02
+/** Le Filet en deux temps : un repère qui partage avec la question un mot d'au moins tant de lettres en est le sujet — il ne vient pas. */
+export const LETTRES_D_UN_MOT_DU_SUJET = 5
+/**
+ * Le Filet en deux temps : l'acte I tire ce que chaque Français sait placer, ou que le panel donne à tant de pour cent
+ * et plus (la part des joueurs qui placeraient la valeur à 5 % près) ; l'acte II, de…
+ */
+export const PANEL_DE_L_ACTE_I = 50
+/** … tant à l'acte I ; l'acte III, sous tant. */
+export const PANEL_DE_L_ACTE_II = 25
+/** Le Filet en deux temps : un indice tient en tant de signes au plus — une phrase qui mène à la tranche. */
+export const INDICE_DU_FILET_MAX = 100
+/** … et un repère, l'étiquette d'un fait sur la frise (« La tour Eiffel »), en tant. */
+export const REPERE_DU_FILET_MAX = 40
+/** Le Filet en deux temps : un indice n'écrit aucun nombre à moins de tant d'années de la réponse, en chiffres ni en lettres… */
+export const ANS_PRES_D_UN_INDICE = 15
+/** … ni, pour une grandeur, à moins de cette part d'elle. */
+export const PART_PRES_D_UN_INDICE = 0.2
+
 /**
  * Le Pari : garder ses étoiles, ou les parier sur une question plus difficile —
  * réussie, ★★★ ; ratée, rien. Garder en valait une jusqu'au calibrage du
@@ -423,6 +478,13 @@ export const MARCHES_DU_QUIZ: readonly Niveau[] = ['facile', 'moyen']
  * mentirait.
  */
 export const QCM_D_UN_THEME_DU_QUIZ = 40
+/**
+ * Le Filet en deux temps : les valeurs distinctes qu'une catégorie doit avoir, à l'acte d'une épreuve et à l'année du
+ * départ, pour que la carte la lui promette — trois manches et leurs rechanges, deux épreuves sans revoir une valeur.
+ * L'acte I n'avait que deux questions en Nature, quatre valeurs en Cuisine : l'épreuve promettait la Nature et jouait
+ * une autre catégorie. Sous ce nombre, elle n'est pas proposée à cet acte.
+ */
+export const VALEURS_D_UN_THEME_DU_FILET = 12
 
 /**
  * Les Indices : au plus tant d'indices comptés pour ★★★, puis ★★ ; au-delà, ★

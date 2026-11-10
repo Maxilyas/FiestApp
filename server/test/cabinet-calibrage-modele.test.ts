@@ -49,7 +49,8 @@ test('aux Indices, le rang où l’on reconnaît suit la force : le complétionn
 
 test('au Filet, ce que le joueur sait suit la marche de la question', async () => {
   // `--essai MARCHES_DU_FILET=moyen/difficile` rendait la même sortie au chiffre près : le modèle ne lisait pas la marche.
-  const filet = ['--sections', 'jeux', '--jeux', 'filet', '--joueurs', 'moyen', '--parties', '800']
+  // Le Filet d'avant : le nouveau se tire à l'acte, pas à la marche (l'épreuve d'après).
+  const filet = ['--sections', 'jeux', '--jeux', 'filet', '--joueurs', 'moyen', '--parties', '800', '--filet', 'avant']
   const [duCode, essai] = await Promise.all([calibrer(filet), calibrer([...filet, '--essai', 'MARCHES_DU_FILET=moyen/difficile'])])
   assert.equal(duCode.code, 0, duCode.erreurs)
   assert.equal(essai.code, 0, essai.erreurs)
@@ -57,6 +58,38 @@ test('au Filet, ce que le joueur sait suit la marche de la question', async () =
   const [avant, apres] = [parts(duCode.sortie), parts(essai.sortie)]
   // Plus difficiles, ses questions se savent moins : la commune et l'épique s'éloignent.
   assert.ok(apres[0] < avant[0] - 0.05 && apres[2] < avant[2] - 0.05, `le Filet du moyen : ${avant.join(' · ')} au code, ${apres.join(' · ')} à l'essai`)
+})
+
+/** La ligne du Filet d'une traversée, acte par acte : ses réussies, ses étoiles par manche, ses aides payées par manche. */
+function filetDeLaTraversee(sortie: string): { reussies: number; etoiles: number; payees: number }[] {
+  const ligne = /le Filet, acte I · II · III : (.*)/.exec(sortie)
+  assert.ok(ligne, `la ligne du Filet :\n${sortie}`)
+  const [jeu, aides] = ligne[1].split(' ; aides par manche, payées et offertes : ')
+  const payees = (aides ?? '').split(' · ').map(x => lireNombre(x.split(' et ')[0])!)
+  return jeu.split(' · ').map((x, k) => {
+    const m = /([\d,]+) % réussies, ([\d,]+) ★/.exec(x)
+    assert.ok(m, `l'acte ${k + 1} du Filet : ${x}`)
+    return { reussies: lireNombre(m[1])! / 100, etoiles: lireNombre(m[2])!, payees: payees[k] ?? 0 }
+  })
+}
+
+test('au nouveau Filet, ce que le joueur sait suit l’acte de l’épreuve, et l’indice pris garde son cœur', async () => {
+  // Le nouveau Filet se tire à l'acte de l'épreuve, de vraies questions de son contenu, et son joueur modèle tient la loi
+  // des vrais lancers de cet acte, rejoués en deux temps (`LOI_DU_FILET_PAR_ACTE`) : ce que chaque Français sait placer,
+  // à l'acte I, rapporte plus. Qui ne sait pas l'époque et prend l'indice touche la bonne : la manche, réussie, garde son
+  // cœur, même quand l'aide en reprend l'étoile (`VerdictDUneManche.payees`).
+  const traversee = ['--sections', 'traversee', '--traversees', '240', '--joueurs', 'moyen', '--filet', 'deux-temps']
+  const [avec, sans] = await Promise.all([calibrer(traversee), calibrer([...traversee, '--aides', 'jamais'])])
+  assert.equal(avec.code, 0, avec.erreurs)
+  assert.equal(sans.code, 0, sans.erreurs)
+  const [i, ii, iii] = filetDeLaTraversee(sans.sortie)
+  assert.ok(i.etoiles > ii.etoiles + 0.3 && i.etoiles > iii.etoiles + 0.3, `les étoiles du Filet, acte par acte : ${i.etoiles} · ${ii.etoiles} · ${iii.etoiles}`)
+  const aides = filetDeLaTraversee(avec.sortie)
+  filetDeLaTraversee(sans.sortie).forEach((x, k) => {
+    assert.equal(x.payees, 0, `--aides jamais : aucune aide payée à l'acte ${k + 1}`)
+    assert.ok(aides[k].payees > 0, `l'acte ${k + 1} : des aides payées`)
+    assert.ok(aides[k].reussies > x.reussies + 0.1, `l'acte ${k + 1} : ${aides[k].reussies} réussies avec l'indice, ${x.reussies} sans`)
+  })
 })
 
 test('une question du Pari se répond au temps d’une question de série', async () => {

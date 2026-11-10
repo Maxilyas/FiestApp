@@ -13,7 +13,7 @@ import type { CleDeJeu, RegleDuJeu } from './regle'
 import { REGLE_DU_DETAIL, type DetailMontre, type DetailRevele, type DetailTire, type EtatDuDetail, type GesteDuDetail } from './detail'
 import { REGLE_DE_L_ECLAIR, type EclairMontre, type EclairRevele, type EclairTire, type EtatDeLEclair, type GesteDeLEclair } from './eclair'
 import { REGLE_DE_L_EPINGLE, type EpingleMontree, type EpingleRevelee, type EpingleTiree, type EtatDeLEpingle, type GesteDeLEpingle } from './epingle'
-import { REGLE_DU_FILET, type EtatDuFilet, type FiletMontre, type FiletRevele, type FiletTire, type GesteDuFilet } from './filet'
+import { REGLE_DES_FILETS, type EtatDUnFilet, type GesteDUnFilet, type MontreDUnFilet, type ReveleDUnFilet, type TirageDuFilet } from './filets'
 import { REGLE_DE_LA_FRISE, type EtatDeLaFrise, type FriseMontree, type FriseRevelee, type FriseTiree, type GesteDeLaFrise } from './frise'
 import { REGLE_DES_INDICES, type EtatDesIndices, type GesteDesIndices, type IndicesMontres, type IndicesReveles, type IndicesTires } from './indices'
 import { REGLE_DU_MOT, type EtatDuMot, type GesteDuMot, type MotMontre, type MotRevele, type MotTire } from './mot'
@@ -27,7 +27,8 @@ export interface TypesDesJeux {
   frise: { tiree: FriseTiree; etat: EtatDeLaFrise; geste: GesteDeLaFrise; montree: FriseMontree; revelee: FriseRevelee }
   mot: { tiree: MotTire; etat: EtatDuMot; geste: GesteDuMot; montree: MotMontre; revelee: MotRevele }
   detail: { tiree: DetailTire; etat: EtatDuDetail; geste: GesteDuDetail; montree: DetailMontre; revelee: DetailRevele }
-  filet: { tiree: FiletTire; etat: EtatDuFilet; geste: GesteDuFilet; montree: FiletMontre; revelee: FiletRevele }
+  /** Deux Filets sous une clé, la règle choisie par la forme du tirage (`filets.ts`) : celui d'avant, et le Filet en deux temps. */
+  filet: { tiree: TirageDuFilet; etat: EtatDUnFilet; geste: GesteDUnFilet; montree: MontreDUnFilet; revelee: ReveleDUnFilet }
   pari: { tiree: PariTire; etat: EtatDuPari; geste: GesteDuPari; montree: PariMontre; revelee: PariRevele }
   eclair: { tiree: EclairTire; etat: EtatDeLEclair; geste: GesteDeLEclair; montree: EclairMontre; revelee: EclairRevele }
   indices: { tiree: IndicesTires; etat: EtatDesIndices; geste: GesteDesIndices; montree: IndicesMontres; revelee: IndicesReveles }
@@ -44,7 +45,7 @@ export const REGLES: { readonly [J in CleDeJeu]: RegleDe<J> } = {
   frise: REGLE_DE_LA_FRISE,
   mot: REGLE_DU_MOT,
   detail: REGLE_DU_DETAIL,
-  filet: REGLE_DU_FILET,
+  filet: REGLE_DES_FILETS,
   pari: REGLE_DU_PARI,
   eclair: REGLE_DE_L_ECLAIR,
   indices: REGLE_DES_INDICES,

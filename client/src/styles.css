@@ -11727,6 +11727,83 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-filet-revele { display: flex; flex-direction: column; gap: 10px; }
 .cab-filet-reponse { font-family: var(--serif); font-size: 1.45rem; font-weight: 700; line-height: 1.2; font-variant-numeric: lining-nums tabular-nums; }
 .cab-filet-lance { display: flex; align-items: center; gap: 8px; }
+/* Le Filet en deux temps (`jeux/FiletEnDeuxTemps.tsx` ; sa maquette, `retours/2026-11-09/maquette-filet/`) : une consigne d'une
+   ligne ; les quatre époques en frise, des boutons qui disent leurs bornes, l'état par `aria-pressed` ; les repères au-dessus,
+   chacun sa forme — un rond pour ceux de tout le monde, un losange pour les siens ; dès qu'une époque est touchée, la valeur en
+   grand, ce que couvrent les deux anneaux, la piste et ses traits ; les aides ; « Lancer le filet ». À la révélation, la réponse
+   au-dessus de la frise, le lancer dessous, la bonne époque et la sienne écrites dans leur case : rien ne se dit par sa seule
+   couleur — Samir, daltonien, confondait quatre ronds de teintes voisines (la tablée du 9 novembre 2026). La bonne époque prend
+   l'or, comme une bonne réponse partout ailleurs (`.ans-btn.correct`). */
+.cab-filet-etape { display: flex; flex-direction: column; gap: 8px; }
+.cab-filet-consigne { font-weight: 700; }
+.cab-filet-consigne span { font-weight: 400; color: var(--muted); }
+.cab-epoques { position: relative; padding-top: 24px; }
+.cab-epoques.cab-epoques-nue { padding-top: 0; }
+.cab-filet-revele .cab-epoques { padding-bottom: 24px; }
+.cab-tranches { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1.5px solid var(--edge-strong); border-radius: var(--radius-sm); overflow: hidden; }
+.cab-tranche { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; min-height: 62px; padding: 6px 2px; border: 0; border-left: 1px solid var(--edge); background: var(--surface); color: var(--ink); font: inherit; font-size: 1.0625rem; line-height: 1.15; font-variant-numeric: lining-nums tabular-nums; overflow-wrap: anywhere; cursor: pointer; touch-action: manipulation; }
+.cab-tranche:first-child { border-left: 0; }
+.cab-tranche-de { font-weight: 700; }
+.cab-tranche-a { color: var(--muted); }
+.cab-tranche-dit { margin-top: 3px; font-weight: 700; line-height: 1.1; text-align: center; }
+.cab-tranche[aria-pressed='true'] { background: var(--accent); color: var(--on-accent); }
+.cab-tranche[aria-pressed='true'] .cab-tranche-a { color: var(--on-accent); }
+.cab-tranche[aria-disabled='true'] { cursor: default; }
+/* Une époque retirée s'efface et se barre, et le dit à l'oreille (« retirée ») : son pâle seul ne disait rien à Samir. */
+.cab-tranche.cab-tranche-retiree { opacity: 0.35; text-decoration: line-through; }
+.cab-tranche.cab-tranche-bonne { background: var(--accent-soft); color: var(--accent-text-hover); }
+.cab-tranche.cab-tranche-bonne .cab-tranche-a { color: var(--accent-text-hover); }
+.cab-tranche.cab-tranche-bonne.cab-tranche-choisie { background: var(--accent); color: var(--on-accent); }
+.cab-tranche.cab-tranche-bonne.cab-tranche-choisie .cab-tranche-a { color: var(--on-accent); }
+.cab-tranche.cab-tranche-choisie:not(.cab-tranche-bonne) { box-shadow: inset 0 0 0 3px var(--alert); }
+.cab-epoques-marques,
+.cab-epoques-marques-bas { position: absolute; left: 0; right: 0; height: 24px; pointer-events: none; }
+.cab-epoques-marques { top: 0; }
+.cab-epoques-marques-bas { bottom: 0; }
+.cab-epoques-repere { position: absolute; top: 12px; width: 2px; height: 14px; margin-left: -1px; border-radius: 1px; background: var(--muted); }
+.cab-epoques-repere::before { content: ''; position: absolute; top: -10px; left: -6px; width: 14px; height: 14px; box-sizing: border-box; border: 2.5px solid var(--muted); border-radius: 50%; background: var(--bg); }
+.cab-epoques-repere.cab-epoques-sien { background: var(--accent-text); }
+.cab-epoques-repere.cab-epoques-sien::before { border: 0; border-radius: 0; background: var(--accent-text); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.cab-epoques-reponse { position: absolute; top: 12px; z-index: 1; width: 3px; height: 14px; margin-left: -1.5px; background: var(--ink); }
+.cab-epoques-reponse::before { content: ''; position: absolute; top: -12px; left: -9px; width: 21px; height: 14px; background: var(--ink); clip-path: polygon(0 0, 100% 0, 50% 100%); }
+.cab-epoques-lancer { position: absolute; bottom: 12px; width: 3px; height: 14px; margin-left: -1.5px; background: var(--accent-text); }
+.cab-epoques-lancer::before { content: ''; position: absolute; bottom: -12px; left: -9px; width: 21px; height: 14px; background: var(--accent-text); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.cab-epoques-legende { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; padding: 0; list-style: none; }
+.cab-epoques-legende li { display: inline-flex; align-items: baseline; gap: 6px; min-width: 0; }
+.cab-epoques-legende i { flex: none; width: 1.1em; font-style: normal; font-weight: 700; text-align: center; }
+/* Ce que couvrent les deux anneaux, chacun ses étoiles devant sa fourchette, les deux morceaux jamais coupés : des étoiles seules en
+   fin de ligne se lisaient avec la fourchette d'au-dessus (Huguette). */
+.cab-filet-anneaux { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 24px; text-align: center; font-variant-numeric: lining-nums tabular-nums; }
+.cab-filet-anneaux > span { display: inline-flex; align-items: center; gap: 6px; }
+.cab-filet-anneaux .sentier-etoiles svg { width: 17px; height: 17px; }
+/* Sur le rail, les traits des grands pas sous la ligne ; le grand anneau en tirets, le petit plein — leur bord les sépare, pas une
+   nuance de beige (Samir) ; les repères de l'époque descendus de la frise, chacun sa forme. */
+.cab-filet-trait { position: absolute; top: 28px; width: 1.5px; height: 9px; margin-left: -0.75px; background: var(--edge-strong); }
+.cab-filet-anneau { position: absolute; top: 7px; height: 30px; border-radius: 8px; pointer-events: none; }
+.cab-filet-anneau-deux { border: 2px dashed var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.cab-filet-anneau-trois { top: 12px; height: 20px; border: 2px solid var(--accent-text); background: color-mix(in srgb, var(--accent) 55%, transparent); }
+.cab-filet-repere { position: absolute; top: 0; width: 2px; height: 44px; margin-left: -1px; background: var(--muted); }
+.cab-filet-repere::before { content: ''; position: absolute; top: -4px; left: -5px; width: 12px; height: 12px; box-sizing: border-box; border: 2.5px solid var(--muted); border-radius: 50%; background: var(--bg); }
+.cab-filet-repere.cab-filet-sien { background: var(--accent-text); }
+.cab-filet-repere.cab-filet-sien::before { border: 0; border-radius: 0; background: var(--accent-text); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.cab-filet-restent { font-weight: 700; }
+/* Les deux aides côte à côte, chacune son prix dessous ; prise, son bord en tirets. Une question sans indice honnête n'en a qu'une. */
+.cab-filet-aides { display: flex; flex-direction: column; gap: 8px; }
+.cab-filet-aides-rangee { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.cab-filet-aides-rangee.cab-filet-aides-une { grid-template-columns: minmax(0, 1fr); }
+.cab-filet-aide { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; min-height: 56px; padding: 8px 12px; border: 1.5px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: inherit; font-size: 1.0625rem; text-align: left; overflow-wrap: anywhere; cursor: pointer; touch-action: manipulation; }
+.cab-filet-aide b { line-height: 1.2; }
+.cab-filet-aide small { color: var(--muted); font-size: 1.0625rem; }
+.cab-filet-aide[aria-disabled='true'] { border-style: dashed; cursor: default; }
+.cab-filet-prix { color: var(--muted); }
+.cab-filet-vise-dit { display: block; font-family: var(--sans); font-size: 1.0625rem; font-weight: 500; color: var(--muted); }
+/* D'où viennent les étoiles, en une ligne : chaque critère sa marque et ses mots. */
+.cab-filet-juge { display: flex; flex-wrap: wrap; gap: 2px 14px; }
+.cab-filet-juge > span { white-space: nowrap; }
+.cab-filet-juge i { margin-right: 4px; font-style: normal; font-weight: 700; }
+.cab-filet-oui i { color: var(--accent-text); }
+.cab-filet-non { color: var(--muted); }
+.cab-filet-indice-dit { color: var(--muted); }
 /* La carte de France (`CarteDeFrance.tsx`), à l'Épingle et sur tes murs : de toute la largeur — 324 pixels en 360 × 640 pour un
    dessin de 362 —, 460 au plus sur un ordinateur, centrée : la carte qu'on touche est aussi large que son dessin — plus large,
    elle laissait de chaque côté une bande vide où le doigt plantait au bord du cadre de l'Épingle, dans l'Atlantique. La mer d'une
@@ -12259,7 +12336,16 @@ button.cab-tv-carte { cursor: pointer; }
 }
 .cab-cartes-en-jeu { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; align-items: start; }
 .cab-cartes-en-jeu .cab-carte-ligne { grid-column: 1 / -1; }
-.cab-carte-en-jeu { display: grid; gap: 4px; min-width: 0; }
+.cab-carte-en-jeu { display: grid; gap: 4px; min-width: 0; container-type: inline-size; }
+/* Une carte trop étroite pour sa ligne passe « encore 1 » sous son nom, sans son point. Sur la ligne du nom, l'icône, le nom et le
+   compteur demandent quelque 275 pixels : côte à côte en 360 de large, Coup d'œil et Échange en avaient 156 chacune, et le pied
+   débordait de 30 pixels à droite, le compteur cassé en trois lignes (le rendu du 9 novembre 2026, une épreuve du Filet). Une
+   carte seule, ou un écran large, garde sa ligne : le pied collé ne grandit pas pour rien. */
+@container (max-width: 280px) {
+  .cab-carte-en-jeu .cab-pouvoir { flex-wrap: wrap; column-gap: 0; row-gap: 0; padding-inline: 12px; }
+  .cab-carte-en-jeu .cab-reste { flex-basis: 100%; }
+  .cab-carte-en-jeu .cab-reste-point { display: none; }
+}
 @media (prefers-reduced-motion: reduce) {
   .cab-tv-verre,
   .cab-tv-regard,
@@ -17235,6 +17321,10 @@ span.annonce-admin-merci { cursor: default; }
 .cl-legende { margin: 10px 0 0; text-align: center; }
 
 .cl-ligne { gap: 10px; }
+/* Ses lignes n'entrent pas en glissant, comme celles des autres classements (`.lb-row`, `slide-in`) : d'une catégorie
+   à l'autre, les mêmes joueurs changent de place, et seules les lignes que la page déplaçait rejouaient leur entrée —
+   deux sur sept, jamais les mêmes —, les autres immobiles (le 9 novembre 2026). */
+.cl-liste .lb-row { animation: none; }
 .cl-nom { display: flex; flex: 1; flex-direction: column; gap: 3px; min-width: 0; }
 .cl-nom > b { display: flex; align-items: center; gap: 6px; overflow: hidden; font-weight: 600; white-space: nowrap; text-overflow: ellipsis; }
 .cl-detail { display: flex; align-items: center; gap: 6px; overflow: hidden; color: var(--muted); font-size: 0.75rem; white-space: nowrap; }
@@ -17370,6 +17460,12 @@ span.annonce-admin-merci { cursor: default; }
 /* Sa place, en tête : deux lignes et ce qui la ferait monter. Sur l'or pâle, le texte s'écrit en `--accent-text-hover` (règle `css.md`). */
 .cl-sa-place { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; padding: 10px 12px 10px 6px; border: 1px solid var(--edge-strong); border-radius: 16px; background: var(--accent-soft); }
 .cl-sa-place > .av { font-size: 1.6rem; }
+/* Sa place dans chaque catégorie et chaque cercle, toutes dans la même case, une seule montrée : le bloc garde la
+   hauteur de la plus haute. Écrite seule, elle faisait de 74 à 107 pixels d'une puce à l'autre, et les puces sautaient
+   sous le doigt qui venait de les toucher (« ça a l'air de bouger quand on navigue dedans », le 9 novembre 2026). */
+.cl-sa-place-cases { display: grid; flex: 1; align-items: center; min-width: 0; }
+.cl-sa-place-cases > .cl-sa-place-texte { grid-area: 1 / 1; }
+.cl-sa-place-cases > [aria-hidden='true'] { visibility: hidden; }
 .cl-sa-place-texte { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .cl-sa-place-texte > b { display: flex; align-items: baseline; gap: 6px; font-family: var(--serif); font-size: 1.35rem; line-height: 1.1; font-variant-numeric: lining-nums; }
 .cl-sa-place-sur { color: var(--muted); font-family: var(--sans); font-size: 0.82rem; font-weight: 500; }
@@ -17434,9 +17530,14 @@ span.annonce-admin-merci { cursor: default; }
 /* Sa carte, d'un anneau à l'or de l'accent — pas d'un contour : le seul contour plein est celui du focus (`design.test.ts`, A2). */
 .cl-carte-moi { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent), 0 6px 16px rgba(0, 0, 0, 0.35); }
 .cl-carte-moi .cl-carte-nom { color: #f6dd94; }
-.cl-carte .cl-opale-pastille { margin-top: 4px; }
+/* Ses Divins, à cheval sur le pied de sa carte, comme un sceau : hors du flux, ils ne la grandissent pas. Posés sous
+   sa valeur, ils lui ajoutaient 26 pixels — le troisième, un Divin à lui, montait plus haut que le deuxième, un premier
+   ex æquo plus haut que la carte du milieu, et le podium passait de 162 à 187 pixels d'une catégorie à l'autre, la
+   liste poussée d'autant (le 9 novembre 2026). Centrés par marges (règle `css.md`) ; le podium leur garde la place
+   dessous, qu'un Divin y soit ou non. */
+.cl-carte .cl-opale-pastille { position: absolute; z-index: 2; right: 0; bottom: -15px; left: 0; width: fit-content; margin: 0 auto; }
 
-.cl-podium { display: grid; grid-template-columns: 1fr 1.18fr 1fr; align-items: end; gap: 8px; margin: 18px 0 4px; }
+.cl-podium { display: grid; grid-template-columns: 1fr 1.18fr 1fr; align-items: end; gap: 8px; margin: 18px 0 14px; }
 .cl-carte-podium .cl-carte-illu { height: 4.3rem; }
 .cl-carte-podium .cl-carte-av { font-size: 2.7rem; }
 .cl-carte-premier .cl-carte-dedans { padding-top: 18px; }
@@ -17528,7 +17629,9 @@ span.annonce-admin-merci { cursor: default; }
 .cl-divins-secret { margin: 10px 0 0; color: #b3a6c2; font-family: var(--serif); font-size: 1rem; font-style: italic; text-align: center; }
 .cl-divins-secret.cl-divins-secret-petit { margin-top: 8px; color: var(--muted); font-size: 0.9rem; }
 
-/* La vitrine. */
+/* La vitrine. Sa feuille garde sa hauteur : elle s'ouvre sur son nom, sa collection arrive d'un bloc derrière
+   (`VitrineOuverte`), et à la taille de son contenu elle aurait grandi sous les yeux. */
+.carte-feuille.cl-vitrine-feuille { height: 92%; }
 .cl-vitrine-tete { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; margin-bottom: 14px; }
 .cl-vitrine-tete > span:nth-child(2) { display: flex; flex-direction: column; min-width: 0; }
 .cl-vitrine-valeur { display: flex; flex-direction: column; align-items: flex-end; }

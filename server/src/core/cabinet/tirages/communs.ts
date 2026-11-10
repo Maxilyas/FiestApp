@@ -61,7 +61,17 @@ export interface ContexteDuTirage {
    * ailleurs, comme toujours — une épreuve qui ne partirait pas serait pire
    * qu'un thème voisin.
    */
-  vise?: { categorie: Categorie | null; theme: string | null; sujet?: string | null }
+  vise?: { categorie: Categorie | null; theme: string | null; sujet?: string | null; acte?: 0 | 1 | 2 }
+  /**
+   * Le Filet se tire-t-il en deux temps (`ReglagesDuCabinet.filetEnDeuxTemps`) ? Son tireur pose alors le nouveau
+   * Filet, à l'acte de l'épreuve (`vise.acte`, le premier hors d'une traversée) ; sinon celui d'avant.
+   */
+  filetEnDeuxTemps?: boolean
+  /**
+   * Au nouveau Filet, les questions qu'il a su placer, juste et sans aide (`JournalDesReponses.placesAuFiletDe`) : leurs
+   * années deviennent ses repères (`RepereDuFilet.sien`).
+   */
+  placesAuFilet?: ReadonlySet<string>
 }
 
 /** Les marches d'un jeu sous l'enjeu de la partie : les siennes, et ce que l'œuvre visée y ajoute. */

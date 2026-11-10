@@ -18,7 +18,7 @@ Connecte-toi depuis l'accueil (`ouvrir /`), puis va au Cabinet.
 
 **Comment elle joue** : la visite du jour, puis des parties libres de ces
 jeux, qu'elle tient à essayer : **le Mot mystère** (les lettres bien placées,
-mal placées, absentes), **le Filet** (la piste, les tailles de filet),
+mal placées, absentes), **le Filet** (les quatre époques en couleur, la piste, les anneaux),
 **l'Éclair** (vrai ou faux), **la Frise**. Elle joue posément.
 
 **Ce qu'elle regarde** : tout ce qui repose sur la couleur — les lettres du

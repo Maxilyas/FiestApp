@@ -15,7 +15,7 @@
 // la plus haute gemme. Rien ici ne dit comment ils descendent, ni quand.
 //
 // Pur et partagé : le serveur compte et classe en fond, la page reclasse ses
-// amis et dit ce qui manque pour passer quelqu'un. Les constantes sont des
+// amis et dit ce qui manque pour passer quelqu'un (`vueDuClassement`). Les constantes sont des
 // choix de produit (`docs/reference/baremes.md`) : relues à chaque relevé,
 // elles changent d'un coup la valeur de tous, sans rien écrire.
 
@@ -375,6 +375,102 @@ export interface SuiteDuClassement {
   fiches: FicheDeCollectionneur[]
   /** Combien y sont classés à l'heure de ce paquet : la page sait s'il en reste. */
   classes: number
+}
+
+// ── Ce que la page montre d'un classement ─────────────────────────────────
+
+/** Les deux cercles qu'on classe : tout le monde, ou ses amis et lui. */
+export type CercleDeCollection = 'tous' | 'amis'
+
+export const CERCLES_DE_COLLECTION: readonly CercleDeCollection[] = ['tous', 'amis']
+
+/** Une place, sa fiche à la main. */
+export interface PlaceLue {
+  fiche: FicheDeCollectionneur
+  rang: number
+  valeur: number
+}
+
+export interface VueDuClassement {
+  /** Combien y sont classés, et sur combien — ce que « Les autres n'ont pas encore de maître » compare. */
+  classes: number
+  tous: number
+  /** Le podium puis la liste, dans l'ordre. */
+  tete: PlaceLue[]
+  /** Sa place, s'il y est classé. */
+  place?: PlaceLue
+  /** Ses voisins, tant que la liste ne descend pas jusqu'à lui — jamais quelqu'un qu'elle montre déjà. */
+  autour: PlaceLue[]
+  /** Le plus proche devant lui, parmi ce que la page a sous les yeux, et ce qui lui manque pour le passer. */
+  devant: { fiche: FicheDeCollectionneur; manque: number } | null
+  /** Ce que « Voir la suite » peut encore apporter. */
+  restants: number
+}
+
+/** La suite qu'une page a déjà lue d'une catégorie (`SuiteDuClassement`), et si elle l'a vue jusqu'au bout. */
+export interface SuiteLue {
+  places?: readonly PlaceDeCollectionneur[]
+  finie?: boolean
+}
+
+/**
+ * Ce que la page montre d'une catégorie, dans un cercle : pour tous, les
+ * places du serveur — sa tête, puis la suite lue, chacun une fois, même si le
+ * relevé a bougé entre deux paquets — ; entre amis, reclassés ici, lui
+ * compris. Pure, et la même pour les quatorze vues de la page : sa place se
+ * rend d'avance dans chacune, pour que rien ne bouge quand on en change
+ * (`SaPlace`, `client/src/views/Collectionneurs.tsx`).
+ */
+export function vueDuClassement(
+  etat: ClassementDesCollections,
+  fiches: ReadonlyMap<string, FicheDeCollectionneur>,
+  c: CategorieDeCollection,
+  cercle: CercleDeCollection,
+  suite: SuiteLue = {},
+): VueDuClassement {
+  const valeur = (f: FicheDeCollectionneur) => valeurDansLaCategorie(f, c)
+  const aPasser = (places: readonly PlaceLue[]) => {
+    const i = places.findIndex(p => p.fiche.id === etat.moi)
+    const devant = i >= 0 ? celuiAPasser(places.map(p => ({ item: p.fiche, rang: p.rang })), i, valeur) : null
+    return devant && { fiche: devant.item, manque: devant.manque }
+  }
+  if (cercle === 'amis') {
+    const amis = [...new Set([etat.moi, ...etat.amis])].flatMap(id => fiches.get(id) ?? [])
+    const tete = classerLesCollectionneurs(amis, c).map(x => ({ fiche: x.item, rang: x.rang, valeur: valeur(x.item) }))
+    return { classes: tete.length, tous: amis.length, tete, place: tete.find(p => p.fiche.id === etat.moi), autour: [], devant: aPasser(tete), restants: 0 }
+  }
+  const lire = (p: PlaceDeCollectionneur): PlaceLue[] => {
+    const f = fiches.get(p.id)
+    return f ? [{ fiche: f, rang: p.rang, valeur: p.valeur }] : []
+  }
+  const cat = etat.categories[c]
+  const vus = new Set<string>()
+  const tete = [...cat.tete, ...(suite.places ?? [])].flatMap(lire).filter(p => !vus.has(p.fiche.id) && (vus.add(p.fiche.id), true))
+  // Onzième, son premier voisin est le dixième, que la liste montre déjà : il s'écrivait deux fois, de part et d'autre de « Voir la suite ».
+  const autour = vus.has(etat.moi) ? [] : cat.autour.flatMap(lire).filter(p => !vus.has(p.fiche.id))
+  return {
+    classes: cat.classes,
+    tous: etat.categories.collection.classes,
+    tete,
+    place: cat.moi ? lire(cat.moi)[0] : undefined,
+    autour,
+    devant: aPasser([...tete, ...autour]),
+    restants: suite.finie ? 0 : Math.max(0, cat.classes - cat.tete.length - (suite.places?.length ?? 0)),
+  }
+}
+
+/** Les vues de la page : une par cercle et par catégorie. */
+export type VuesDuClassement = Record<CercleDeCollection, Record<CategorieDeCollection, VueDuClassement>>
+
+/** Toutes les vues de la page, d'un coup — la suite que la page a lue de chaque catégorie, s'il y en a une. */
+export function vuesDuClassement(
+  etat: ClassementDesCollections,
+  fiches: ReadonlyMap<string, FicheDeCollectionneur>,
+  suiteDe: (c: CategorieDeCollection) => SuiteLue = () => ({}),
+): VuesDuClassement {
+  const de = (cercle: CercleDeCollection) =>
+    Object.fromEntries(CATEGORIES_DE_COLLECTION.map(c => [c, vueDuClassement(etat, fiches, c, cercle, suiteDe(c))])) as Record<CategorieDeCollection, VueDuClassement>
+  return { tous: de('tous'), amis: de('amis') }
 }
 
 /** Une pièce de sa vitrine : sa clé, sa gemme, la version qu'elle montre — rare, ou la matière qu'il en porte —, ses matières taillées, son sceau, ce qu'elle vaut. */

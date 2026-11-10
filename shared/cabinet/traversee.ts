@@ -68,7 +68,7 @@ import { jourValide } from '../jour'
 import type { Sujet } from '../sujets'
 import { auHasard, battre } from './jeux/outils'
 import { CLES_DES_JEUX, JEUX, type CleDeJeu } from './jeux/regle'
-import type { CarteDuDepart } from './partie'
+import type { CarteDuDepart, EtoilesDUneManche } from './partie'
 import type { CleDePouvoir, Force } from './pouvoirs'
 
 // ── Les dix cartes ────────────────────────────────────────────────────────
@@ -424,6 +424,11 @@ export interface ThemesDuContenu {
   epingle: readonly string[]
   frise: readonly string[]
   quiz?: readonly ThemeDuQuiz[]
+  /**
+   * Au Filet en deux temps, acte par acte, les catégories où il a de quoi tirer une épreuve (`categoriesDuFilet`) : une
+   * épreuve du Filet n'en promet pas d'autre. Absent — le Filet d'avant, une carte d'essai — ou vide à un acte, toutes.
+   */
+  filet?: readonly (readonly Categorie[])[]
 }
 
 /** Ce qu'une traversée a déjà placé : les jeux les moins vus d'abord, et un thème du contenu jamais deux fois. */
@@ -497,8 +502,11 @@ function choixDuQuiz(usage: Usage, voisins: readonly (string | undefined)[], con
   return choix
 }
 
-/** Le thème d'une épreuve : celui de son jeu, un thème du contenu encore libre, celui du Quiz, ou une catégorie que ses voisines n'ont pas. */
-function themeDUneEpreuve(jeu: CleDeJeu, usage: Usage, voisins: readonly (string | undefined)[], contenu: ThemesDuContenu, hasard: () => number): ThemeDUneEpreuve {
+/**
+ * Le thème d'une épreuve : celui de son jeu, un thème du contenu encore libre, celui du Quiz, ou une catégorie que ses
+ * voisines n'ont pas — au Filet en deux temps, une où son acte a de quoi tirer (`ThemesDuContenu.filet`).
+ */
+function themeDUneEpreuve(jeu: CleDeJeu, acte: number, usage: Usage, voisins: readonly (string | undefined)[], contenu: ThemesDuContenu, hasard: () => number): ThemeDUneEpreuve {
   const fixe = THEMES_FIXES[jeu]
   if (fixe) return { theme: fixe }
   if (jeu === 'epingle' || jeu === 'frise') {
@@ -512,8 +520,12 @@ function themeDUneEpreuve(jeu: CleDeJeu, usage: Usage, voisins: readonly (string
   if (jeu === 'quiz') return { choix: choixDuQuiz(usage, voisins, contenu, hasard) }
   if (!JEUX_DE_LA_BASE.includes(jeu)) return {}
   const compte = (c: string) => usage.categories.get(c) ?? 0
-  const libres = CATEGORIES.filter(c => !voisins.includes(c))
-  const c = battre(libres, hasard).sort((a, b) => compte(a) - compte(b))[0]
+  // Sans liste du Filet, toutes les catégories, dans le même ordre : le hasard d'une carte d'avant reste le sien.
+  const duFilet = jeu === 'filet' ? contenu.filet?.[acte] : undefined
+  const permises = duFilet && duFilet.length > 0 ? duFilet : CATEGORIES
+  const libres = permises.filter(c => !voisins.includes(c))
+  // Ses permises toutes prises par les voisines : une voisine de plus vaut mieux qu'une catégorie sans de quoi tirer.
+  const c = battre(libres.length > 0 ? libres : permises, hasard).sort((a, b) => compte(a) - compte(b))[0]
   usage.categories.set(c, compte(c) + 1)
   return { theme: c }
 }
@@ -557,7 +569,7 @@ function tracerUnActe(acte: number, gardien: string, usage: Usage, contenu: Them
         continue
       }
       const jeu = sesJeux[k]
-      const { theme, sujet, emoji, choix } = themeDUneEpreuve(jeu, usage, themes, contenu, hasard)
+      const { theme, sujet, emoji, choix } = themeDUneEpreuve(jeu, acte, usage, themes, contenu, hasard)
       // Ses voisines évitent sa catégorie — chacune de ses catégories au choix, au Quiz.
       themes.push(theme, ...(choix ?? []).map(x => x.theme))
       etapes.push({
@@ -716,7 +728,24 @@ export function lireLesCartesChoisies(brut: unknown): CleDeCarte[] | string {
 export interface MancheConclue {
   etoiles: number | null
   misee: boolean
+  /**
+   * Les étoiles que les aides du Filet en deux temps ont prises, déjà retirées des siennes : réussie à zéro étoile, la
+   * manche ne coûte pas de cœur — une aide coûte une étoile, jamais un cœur. Absent : aucune (toute épreuve d'avant).
+   */
+  payees?: number
 }
+
+/**
+ * Une manche d'une partie d'épreuve, telle que la traversée la conclut et la lit en route (`etoilesDesManches`) : ses
+ * étoiles naturelles, sa mise, et ce que ses aides ont pris, seulement s'il y en a. Une seule copie : le serveur la
+ * recopiait en quatre endroits, et chacun aurait dû apprendre les aides — une copie qui les oublie fait payer un cœur
+ * à une manche réussie. `sansLaQuittee` : la manche qu'il quittait ne compte pas — ce que valait l'épreuve au « Quitter ? ».
+ */
+export const mancheConclue = (m: Pick<EtoilesDUneManche, 'naturel' | 'misee' | 'payees' | 'fin'>, sansLaQuittee = false): MancheConclue => ({
+  etoiles: sansLaQuittee && m.fin === 'quittee' ? null : m.naturel,
+  misee: m.misee,
+  ...(m.payees > 0 && { payees: m.payees }),
+})
 
 /**
  * Ce qui a servi dans une épreuve finie, tel que sa partie le sait (`EtatDeLaPartie.servis`, et ses étapes jouées
@@ -1114,7 +1143,8 @@ export function cheminsVers(d: Pick<DepartDeLaTraversee, 'actes'>, depuis: reado
  * elles se sont jouées. Une manche réussie (une étoile au moins) rapporte
  * l'or de ses étoiles, la Cagnotte en plus — multiplié par la mise —, et
  * frappe le gardien d'autant ; une manche ratée coûte un cœur — deux, misée —,
- * sauf si la Parade la couvre. Au dernier cœur, le Second souffle relève une
+ * sauf si la Parade la couvre. Celle que ses aides ont laissée à zéro (le Filet
+ * en deux temps, `MancheConclue.payees`) n'est pas ratée : ni or, ni cœur. Au dernier cœur, le Second souffle relève une
  * fois ; sinon la traversée est perdue, et rien ne compte plus. Le gardien à
  * terre, les manches d'après ne comptent pas : l'assaut s'arrête là.
  *
@@ -1171,6 +1201,13 @@ export function consequencesDe(
         if (pv <= 0) vaincu = true
       }
       manches.push({ ...nulle, or: gain, coups, comptee: true })
+      continue
+    }
+    // Réussie, mais ses aides ont pris ses étoiles (le Filet en deux temps) : ni or ni coup, et pas de cœur — une aide
+    // coûte une étoile, jamais un cœur. La Parade ne s'y use pas : la manche n'est pas ratée.
+    if (m.etoiles !== null && (m.payees ?? 0) > 0) {
+      reussies++
+      manches.push({ ...nulle, comptee: true })
       continue
     }
     const paree = parees < paresMax && parees < resteALActe
@@ -1470,7 +1507,11 @@ export function lireLeDepartDeLaTraversee(brut: unknown): DepartDeLaTraversee | 
 
 const lesManches = (x: unknown): MancheConclue[] | null => {
   if (!Array.isArray(x) || x.length !== MANCHES_PAR_PARTIE) return null
-  const manches = x.map(m => (objet(m) && (m.etoiles === null || entier(m.etoiles, 0, 3)) && typeof m.misee === 'boolean' ? { etoiles: m.etoiles as number | null, misee: m.misee } : null))
+  const manches = x.map(m =>
+    objet(m) && (m.etoiles === null || entier(m.etoiles, 0, 3)) && typeof m.misee === 'boolean' && (m.payees === undefined || entier(m.payees, 1, 3))
+      ? { etoiles: m.etoiles as number | null, misee: m.misee, ...(m.payees !== undefined && { payees: m.payees as number }) }
+      : null,
+  )
   return manches.every(m => m !== null) ? (manches as MancheConclue[]) : null
 }
 

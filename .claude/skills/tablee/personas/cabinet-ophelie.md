@@ -20,7 +20,12 @@ marche que le banc dit pendant la manche, un tirage qui ne se refait pas :
 | Ce qu'il faut savoir, à sa marche | facile | moyenne | difficile | experte |
 |---|---|---|---|---|
 | La question du Pari (puis, après « Parier », celle du pari), une affirmation de l'Éclair, le mot du Mot mystère | 8 | 3 | jamais | jamais |
-| La valeur du Filet | 4 | 1 | jamais | jamais |
+
+| Le Filet, à l'acte de sa question | I | II | III |
+|---|---|---|---|
+| L'époque | 7 | 3 | 3 |
+| … sue : pile dessus | 5 | 1 | 1 |
+| … sue : à un quart d'époque, ou mieux | 11 | 7 | 10 |
 
 | Ce qu'il faut savoir, sans marche | Au plus |
 |---|---|
