@@ -742,14 +742,17 @@ test('sur l’accueil, le bouton des duels, sous le quiz du jour : qui le défie
   assert.equal(phraseRendue(bouton({ ...habitue, defisRecus: { n: 3, de: 'Tom' } })), 'Tom te défie, et 2 autres\xa0: à toi de jouer')
   // Puis son duel laissé en route.
   assert.equal(phraseRendue(bouton({ ...habitue, enCours: { nom: 'Tom' } })), 'Ton duel contre Tom t’attend')
-  // Sinon sa ligue, sa cote, et ce qui manque à sa récompense de lundi — ou ce qu'elle rapportera ; son blason à la place de l'icône.
-  assert.equal(phraseRendue(bouton(habitue)), 'Ligue d’argent · cote\u00a01184 · encore 2\u00a0duels pour ta récompense')
+  // Sinon ce qui manque à sa récompense de lundi, puis sa ligue et sa cote — sa récompense acquise : sa ligue, sa cote, et ce
+  // qu'elle rapportera ; son blason à la place de l'icône.
+  // Tant qu'il lui reste des duels à jouer cette semaine, ce qui manque à sa récompense passe devant : au téléphone, la rangée
+  // n'a pas la place de le dire après sa ligue et sa cote (le 10 novembre 2026 ; `accueil-compact.test.ts`).
+  assert.equal(phraseRendue(bouton(habitue)), 'Encore 2\xa0duels pour ta récompense · ligue d’argent · cote\xa01184')
   assert.match(bouton(habitue), /class="blason blason-argent"/)
   assert.match(bouton({ ...habitue, semaine: { duels: 3, ligue: 'or' } }), /\+30\u00a0confettis lundi/, 'la meilleure ligue de sa semaine')
   // Le lundi, ce que la semaine passée vient de verser, tant que la nouvelle n'a pas son premier duel.
   const lundi = { ...habitue, semaine: { duels: 0, ligue: 'argent' }, semainePassee: { ligue: 'or', confettis: 30 } }
   assert.equal(phraseRendue(bouton(lundi)), '+30\u00a0confettis pour ta semaine en ligue d’or · encore 3\u00a0duels pour la prochaine')
-  assert.match(bouton({ ...lundi, semaine: { duels: 1, ligue: 'argent' } }), /encore 2\u00a0duels pour ta r\u00e9compense/, 'son premier duel jou\u00e9, la semaine qui vient')
+  assert.match(bouton({ ...lundi, semaine: { duels: 1, ligue: 'argent' } }), /Encore 2\xa0duels pour ta r\xe9compense/, 'son premier duel jou\u00e9, la semaine qui vient')
   assert.match(readFileSync(client('views/ProfilApp.tsx'), 'utf8'), /duels=\{'duels' in profil \? profil\.duels : undefined\}/)
 })
 

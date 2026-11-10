@@ -150,7 +150,11 @@ test('la ligne de chaque bouton : ce qui l’attend en peu de mots, le reste à 
   // Les duels : ce qu'on lui a envoyé d'abord, puis sa ligue et sa cote — et ce que sa semaine attend encore, à la suite.
   const habituee = { cote: 1084, ligue: 'or', joues: 14, semaine: { duels: 0, ligue: 'or' } }
   assert.deepEqual(ligne(boutonDesDuels(undefined)), ['Défie qui tu veux', ', ou Automate', ' : monte de ligue'])
-  assert.deepEqual(ligne(boutonDesDuels(habituee)), ['Ligue d’or · cote 1084', ' · encore 3 duels pour ta récompense'])
+  // Ce que sa semaine attend encore passe devant sa ligue et sa cote : à leur suite, « · encore 3 duels pour ta récompense »
+  // ne tenait sur aucun téléphone — 58 caractères pour une quarantaine —, et ne se lisait que sur une tablette (le
+  // 10 novembre 2026). Son blason dit déjà sa ligue. Sa récompense acquise, sa ligue et sa cote reprennent la ligne.
+  assert.deepEqual(ligne(boutonDesDuels(habituee)), ['Encore 3 duels pour ta récompense', ' · ligue d’or', ' · cote 1084'])
+  assert.deepEqual(ligne(boutonDesDuels({ ...habituee, semaine: { duels: 2, ligue: 'or' } })), ['Encore 1 duel pour ta récompense', ' · ligue d’or', ' · cote 1084'])
   assert.deepEqual(ligne(boutonDesDuels({ ...habituee, semaine: { duels: 3, ligue: 'or' } })), ['Ligue d’or · cote 1084', ' · +30 confettis lundi'])
   assert.deepEqual(ligne(boutonDesDuels({ ...habituee, semainePassee: { ligue: 'or', confettis: 30 } })), ['+30 confettis pour ta semaine', ' en ligue d’or', ' · encore 3 duels pour la prochaine'])
   assert.deepEqual(ligne(boutonDesDuels({ ...habituee, enCours: { nom: 'Tom' } })), ['Ton duel contre Tom', ' t’attend'])
@@ -163,7 +167,7 @@ test('la ligne de chaque bouton : ce qui l’attend en peu de mots, le reste à 
   assert.deepEqual(ligne(boutonDuCabinet({ acte: 2, coeurs: 4 })), ['Acte 2 sur 3 · 4 cœurs'])
 
   // La phrase reste une phrase, pour qui l'écoute : l'essentiel et ses suites se lisent d'un trait.
-  assert.equal(phrase(boutonDesDuels(habituee)), 'Ligue d’or · cote 1084 · encore 3 duels pour ta récompense')
+  assert.equal(phrase(boutonDesDuels(habituee)), 'Encore 3 duels pour ta récompense · ligue d’or · cote 1084')
   assert.equal(phrase(boutonDesDuels(undefined)), 'Défie qui tu veux, ou Automate : monte de ligue')
   assert.equal(phrase(boutonDuDefi({ joueurs: 3, enCours: { justes: 4 } })), '4 bonnes réponses : reprends-le')
 
@@ -179,7 +183,8 @@ test('la ligne de chaque bouton : ce qui l’attend en peu de mots, le reste à 
     boutonDuDefi({ joueurs: 128 }),
     boutonDuDefi({ joueurs: 128, releve: { justes: 18, rang: 12 } }),
     boutonDesDuels(undefined),
-    boutonDesDuels({ ...habituee, ligue: 'diamant', cote: 2140 }),
+    boutonDesDuels(habituee),
+    boutonDesDuels({ ...habituee, ligue: 'diamant', cote: 2140, semaine: { duels: 3, ligue: 'diamant' } }),
     boutonDesDuels({ ...habituee, semainePassee: { ligue: 'or', confettis: 120 } }),
     boutonDuCabinet(undefined),
     boutonDuCabinet({ acte: 3, coeurs: 5 }),

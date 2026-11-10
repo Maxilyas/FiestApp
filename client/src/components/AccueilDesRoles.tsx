@@ -226,13 +226,24 @@ export function boutonDesDuels(d: DuelsDAccueil | undefined): LigneDuBouton & { 
       suite: [` en ${ligue.charAt(0).toLowerCase()}${ligue.slice(1)}`, ` · encore ${manque}\u00a0duels pour la prochaine`],
     }
   }
-  // Un nombre ne quitte pas son mot à la ligne : « cote » d'un côté, « 1084 » de l'autre.
+  const ligue = ligueParCle(d.ligue).nom
+  // Tant qu'il lui reste des duels à jouer pour sa récompense de lundi, c'est elle que sa ligne dit d'abord : au téléphone,
+  // la rangée n'a pas la place de la dire après sa ligue et sa cote — 58 caractères pour une quarantaine
+  // (`rendu-accueil.ts`) —, et elle ne se lisait plus que sur une tablette. C'est ce que sa semaine attend de lui ; son
+  // blason dit déjà sa ligue. Sa ligue et sa cote à la suite, là où la rangée a la place (le 10 novembre 2026 : la
+  // maquette de l'accueil en lignes croyait qu'elle tiendrait sur une rangée de 390 de large, et le propriétaire a fait
+  // appliquer la correction).
+  if (manque > 0) {
+    return {
+      detail: `Encore ${manque} duel${manque > 1 ? 's' : ''} pour ta récompense`,
+      suite: [` · ${ligue.charAt(0).toLowerCase()}${ligue.slice(1)}`, ` · cote ${d.cote}`],
+    }
+  }
+  // Sa récompense acquise : sa ligue et sa cote, et ce que lundi lui versera. Un nombre ne quitte pas son mot à la ligne :
+  // « cote » d'un côté, « 1084 » de l'autre.
   return {
-    detail: `${ligueParCle(d.ligue).nom} · cote\u00a0${d.cote}`,
-    // Ce que sa semaine attend encore de lui, à la suite : la phrase entière fait 58 caractères, une rangée de téléphone en
-    // montre une quarantaine (`rendu-accueil.ts`). Elle paraît là où la rangée a la place — une tablette, un ordinateur —, et
-    // se lit toujours à l'oreille.
-    suite: [` · ${manque > 0 ? `encore ${manque}\u00a0duel${manque > 1 ? 's' : ''} pour ta récompense` : `+${ligueParCle(d.semaine.ligue).confettis}\u00a0confettis lundi`}`],
+    detail: `${ligue} · cote\u00a0${d.cote}`,
+    suite: [` · +${ligueParCle(d.semaine.ligue).confettis}\u00a0confettis lundi`],
   }
 }
 
