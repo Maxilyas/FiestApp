@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { api, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Onglets } from '../components/Onglets'
@@ -978,7 +978,8 @@ export function CampagneApp() {
       </>
     )
   }
-  if (ecran.e === 'chargement') return <CampagneEnChemin />
+  // En l'attendant, la page a déjà sa forme : ses onglets, et son choix retenu — « Changer » touché là ouvre la feuille dès qu'elle arrive.
+  if (ecran.e === 'chargement') return <CampagneEnChemin onglets={onglets} choix={<LigneDuChoix categories={categories} sujet={sujet} sur onChanger={() => setChoixOuvert(true)} />} />
   if (ecran.e !== 'anonyme' && ecran.e !== 'erreur' && mode === 'sentiers') {
     return (
       <>
@@ -1097,13 +1098,9 @@ export function CampagneApp() {
         <Sortie />
         {onglets}
         <Heros etat={etat} />
-        {/* Ce que la journée a déjà rapporté, et ce qui paie encore double : sans plafond, il n'y a plus de « plein » à annoncer. */}
-        {etat.xpAujourdhui > 0 && (
-          <p className="muted small campagne-xp-du-jour">
-            Aujourd’hui : +{etat.xpAujourdhui} XP
-            {doubles > 0 && ` · encore ${doubles} bonne${doubles > 1 ? 's' : ''} réponse${doubles > 1 ? 's' : ''} au double`}
-          </p>
-        )}
+        {/* Ce qu'on fait d'abord — reprendre, commencer, sur quoi —, ce qu'on lit dessous : en 360 × 640, les règles
+            dans le panneau et « Aujourd'hui » au-dessus du bouton poussaient la ligne du choix de 22 à 139 px sous
+            l'écran, et « Une nouvelle série » de 29, une série à reprendre (la revue des écrans du 10 novembre 2026). */}
         {pret ? (
           <>
             {erreur && (
@@ -1145,6 +1142,15 @@ export function CampagneApp() {
         ) : (
           <p className="muted">La campagne n’a pas encore de questions à poser : reviens bientôt — ou joue le quiz du jour.</p>
         )}
+        <ReglesDeLaSerie>
+          {/* Ce que la journée a déjà rapporté, et ce qui paie encore double : sans plafond, il n'y a plus de « plein » à annoncer. */}
+          {etat.xpAujourdhui > 0 && (
+            <p className="muted small campagne-xp-du-jour">
+              Aujourd’hui : +{etat.xpAujourdhui} XP
+              {doubles > 0 && ` · encore ${doubles} bonne${doubles > 1 ? 's' : ''} réponse${doubles > 1 ? 's' : ''} au double`}
+            </p>
+          )}
+        </ReglesDeLaSerie>
         {etat.records && etat.categories.length > 1 && <RecordsParCategorie records={etat.records} categories={etat.categories.map(c => c.categorie)} />}
         {pret && aChoisir && choixOuvert && (
           <FeuilleDuChoix
@@ -1740,25 +1746,33 @@ function DuelsSansLeurCode({ perdu }: { perdu: boolean }) {
  * La page qui s'ouvre tout de suite : le défi et les règles d'abord, son
  * record et sa série à reprendre dès que le serveur les a dits. Elle
  * attendait derrière « Chargement… » — 3,5 s au premier joueur après un
- * déploiement, le temps que le serveur lise sa base.
+ * déploiement, le temps que le serveur lise sa base. Elle a la forme de la
+ * page qui vient : ses onglets, le panneau, le gros bouton, la ligne du
+ * choix retenu sur ce téléphone, puis les règles — sans ses onglets, tout
+ * descendait de 64 px à l'arrivée de la page, le gros bouton sous le doigt
+ * compris (mesuré le 10 novembre 2026, `server/scripts/rendu-serie.ts`).
  */
-export function CampagneEnChemin() {
+export function CampagneEnChemin({ onglets, choix }: { onglets?: ReactNode; choix?: ReactNode }) {
   return (
     <div className="player-shell campagne" aria-busy="true">
       <Sortie />
+      {onglets}
       <Heros etat={null} />
       <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled="true">
         <Icon name="play" />
         Commencer une série
       </button>
+      {choix}
+      <ReglesDeLaSerie />
     </div>
   )
 }
 
 /**
- * Le héros de la page : le défi, le record, l'échelle et les règles d'un coup
- * d'œil, sur la trame de l'atlas. Sans son état encore — la page s'ouvre
- * avant lui —, le record attend sa place, sans rien décaler.
+ * Le héros de la page : le défi, le record et l'échelle d'un coup d'œil, sur
+ * la trame de l'atlas. Sans son état encore — la page s'ouvre avant lui —, le
+ * record attend sa place, sans rien décaler. Les règles n'y sont plus : elles
+ * se lisent sous les gestes (`ReglesDeLaSerie`).
  */
 function Heros({ etat }: { etat: EtatDeCampagne | null }) {
   return (
@@ -1786,7 +1800,29 @@ function Heros({ etat }: { etat: EtatDeCampagne | null }) {
           </li>
         ))}
       </ol>
-      <ul className="campagne-puces">
+    </section>
+  )
+}
+
+/**
+ * Les règles d'une série, en quatre pastilles, sous les gestes : dans le
+ * panneau, au-dessus du gros bouton, elles tenaient 125 px en 360 de large et
+ * poussaient la ligne du choix sous l'écran d'un petit téléphone — de 22 px
+ * pour qui n'a jamais joué, de 139 une série à reprendre, où « Une nouvelle
+ * série » y passait aussi (la revue des écrans du 10 novembre 2026). On vient
+ * ici lancer une série : ce qu'on fait d'abord, ce qu'on lit dessous — ce que
+ * la journée a déjà rapporté en tête (`children`), qui parle de la dernière
+ * règle. Hors du panneau, deux choses le remplacent : une carte, le sol que
+ * chaque thème lui donne — à même la page, elles passaient sur son décor, la
+ * planète du Cosmos, les vagues de la Plage, l'enluminure des Heures (1,62:1
+ * pour « un confetti par bonne réponse ») — ; et leur lueur, que leur filet
+ * et leurs icônes lisent : sans elle, le filet ne se dessinait plus.
+ */
+function ReglesDeLaSerie({ children }: { children?: ReactNode }) {
+  return (
+    <div className="card campagne-regles" style={lueur(OR)}>
+      {children}
+      <ul className="campagne-puces" aria-label="Les règles">
         <li>
           {/* Les cœurs pour l'œil, les mots pour tous : « 3 vies sur 3, trois vies » se lisait deux fois. */}
           <span aria-hidden="true">
@@ -1802,7 +1838,7 @@ function Heros({ etat }: { etat: EtatDeCampagne | null }) {
           <Icon name="zap" /> {XP_PAR_JUSTE} XP par bonne réponse, sans limite — le double pour les {JUSTES_DOUBLEES_PAR_JOUR} premières du jour
         </li>
       </ul>
-    </section>
+    </div>
   )
 }
 
