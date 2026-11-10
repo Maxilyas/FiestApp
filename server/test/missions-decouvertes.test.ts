@@ -5,13 +5,15 @@
 // même chance que les autres », et un duel lancé à quelqu'un sur un thème
 // précis. Le tirage, ce
 // qu'elles lisent de la journée, ce que la page en dit ; puis chacune faite
-// pour de vrai, par les routes de son mode.
+// pour de vrai, par les routes de son mode. Depuis le 10 novembre 2026, les
+// sentiers et le Cabinet ne sont plus des découvertes : ils ont l'aventure,
+// chaque jour (`missions-aventure.test.ts`) ; ce qu'ils lisent et ce qui les
+// fait reste éprouvé ici.
 import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
 import { baseDEssai, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
-import { aLaMain, bancDuCabinet, baseDuCabinet, fermerLesMagasins, jouerUnQuiz, lire as lireAuCabinet, ok, poster as posterAuCabinet } from './cabinet-banc'
-import { CATEGORIES } from '../../shared/categories'
+import { aLaMain, bancDuCabinet, baseDuCabinet, fermerLesMagasins, jouerUnQuiz, lire as lireAuCabinet, ok, ouvrir, poster as posterAuCabinet } from './cabinet-banc'
 import { BRANCHES } from '../../shared/branches'
 import { sujetParCle, estRemplace } from '../../shared/sujets'
 import {
@@ -36,19 +38,22 @@ after(fermerLesMagasins)
 
 /** Tout se propose : le Cabinet ouvert, quelqu'un à défier, les thèmes du catalogue. */
 const TOUT: ContexteDuTirage = {
-  quizDuJourJoue: false,
-  joursDuJour: 0,
   decouvertesJouees: new Set(),
   defiFini: false,
   aRevoir: 0,
   hier: [],
+  avantHier: [],
   cabinet: true,
   adversaires: true,
   themes: THEMES_DES_DEFIS,
 }
 
 const tirages = (c: Partial<ContexteDuTirage>, n = 600) => Array.from({ length: n }, (_, i) => tirerLesMissions(`p${i}|2026-11-02`, { ...TOUT, ...c }))
-const decouvertes = (c: Partial<ContexteDuTirage>, n = 600) => tirages(c, n).map(m => m[2])
+/** Les troisièmes missions qui sont des découvertes — deux jours sur cinq, c'est un savoir. */
+const decouvertes = (c: Partial<ContexteDuTirage>, n = 600) =>
+  tirages(c, n)
+    .map(m => m[2])
+    .filter(m => DECOUVERTES.includes(m.sorte))
 
 // ── Le tirage, pur ─────────────────────────────────────────────────────────
 
@@ -64,7 +69,7 @@ test('les thèmes d’un duel à lancer : les thèmes et les univers du catalogu
   assert.ok(THEMES_DES_DEFIS.some(t => t.cle === 'animaux') && THEMES_DES_DEFIS.some(t => t.cle === 'harry-potter'))
 })
 
-test('la découverte vise ce qui se joue : le sentier d’une catégorie, le Cabinet là où il s’ouvre, un thème à qui a quelqu’un à défier', () => {
+test('la découverte vise ce qui se joue : un thème à qui a quelqu’un à défier — ni les sentiers ni le Cabinet, qui ont l’aventure', () => {
   const toutes = decouvertes({})
   // Chaque découverte se tire — la révision attend son carnet.
   const tirees = new Set(toutes.map(m => m.sorte))
@@ -72,45 +77,37 @@ test('la découverte vise ce qui se joue : le sentier d’une catégorie, le Cab
     DECOUVERTES.filter(s => !tirees.has(s)),
     ['revision'],
   )
+  assert.ok(!DECOUVERTES.includes('sentier') && !DECOUVERTES.includes('cabinet'), DECOUVERTES.join(' '))
   for (const m of toutes) {
-    if (m.sorte === 'sentier') assert.ok((CATEGORIES as readonly string[]).includes(m.categorie!), JSON.stringify(m))
     if (m.sorte === 'defier') {
       assert.ok(THEMES_DES_DEFIS.some(t => t.cle === m.sujet && t.nom === m.nomDuSujet), JSON.stringify(m))
       assert.equal(m.cible, 1)
     }
-    if (m.sorte === 'cabinet') assert.deepEqual(m, { sorte: 'cabinet', cible: 1 })
     // Ce qu'elle porte se relit tel quel : rien ne se perd entre le tirage et la base.
     assert.deepEqual(lireLaMission(JSON.parse(JSON.stringify(m))), m)
   }
-  // Chaque catégorie a son sentier, et chacune sort.
-  assert.equal(new Set(toutes.filter(m => m.sorte === 'sentier').map(m => m.categorie)).size, CATEGORIES.length)
-  // Le Cabinet fermé ici, en maintenance ou bientôt disponible : jamais. Personne à défier, ou aucun thème : jamais de duel à lancer.
-  assert.ok(decouvertes({ cabinet: false }).every(m => m.sorte !== 'cabinet'))
+  // Personne à défier, ou aucun thème : jamais de duel à lancer.
   assert.ok(decouvertes({ adversaires: false }).every(m => m.sorte !== 'defier'))
   assert.ok(decouvertes({ themes: [] }).every(m => m.sorte !== 'defier'))
-  // Le savoir et l'habitude d'un jour restent ceux d'avant : seule la découverte change.
-  const avant = { ...TOUT, cabinet: false, adversaires: false, themes: [] }
-  for (const [i, m] of tirages({}).entries()) assert.deepEqual(m.slice(0, 2), tirerLesMissions(`p${i}|2026-11-02`, avant).slice(0, 2))
 })
 
-test('le Cabinet sort aussi souvent qu’une autre découverte, et comme elles plus souvent à qui ne le joue pas', () => {
-  // Voulu « plus rare » d'abord, puis, le même soir, avec « la même chance que les autres » (le propriétaire, le 1er novembre 2026).
+test('un duel à lancer sort aussi souvent qu’une autre découverte, et comme elles plus souvent à qui ne le joue pas', () => {
   const comptes = (c: Partial<ContexteDuTirage>) => {
     const n = new Map<SorteDeMission, number>()
     for (const m of decouvertes(c, 6000)) n.set(m.sorte, (n.get(m.sorte) ?? 0) + 1)
     return n
   }
-  // Rien de joué ces sept jours : chaque découverte pèse trois, le Cabinet aussi.
+  // Rien de joué ces sept jours : chaque découverte pèse trois, le duel à lancer aussi.
   const n = comptes({})
-  const autres = [...n].filter(([s]) => s !== 'cabinet').map(([, k]) => k)
+  const autres = [...n].filter(([s]) => s !== 'defier').map(([, k]) => k)
   const moyenne = autres.reduce((a, b) => a + b, 0) / autres.length
-  const part = (n.get('cabinet') ?? 0) / moyenne
-  assert.ok(Math.abs(part - 1) < 0.12, `le Cabinet ${n.get('cabinet')} fois, ${part.toFixed(2)} d’une autre (${Math.round(moyenne)})`)
-  // Le Cabinet joué cette semaine, le reste non : il ne sort presque plus.
-  const habitue = comptes({ decouvertesJouees: new Set<SorteDeMission>(['cabinet']) })
-  assert.ok((habitue.get('cabinet') ?? 0) < (n.get('cabinet') ?? 0) / 2, `${habitue.get('cabinet')} contre ${n.get('cabinet')}`)
-  // Hier, le Cabinet : pas aujourd'hui.
-  assert.ok(decouvertes({ hier: [{ sorte: 'jour', cible: 1 }, { sorte: 'justes', cible: 10 }, { sorte: 'cabinet', cible: 1 }] }).every(m => m.sorte !== 'cabinet'))
+  const part = (n.get('defier') ?? 0) / moyenne
+  assert.ok(Math.abs(part - 1) < 0.12, `le duel à lancer ${n.get('defier')} fois, ${part.toFixed(2)} d’une autre (${Math.round(moyenne)})`)
+  // Lancé cette semaine, le reste non : il ne sort presque plus.
+  const habitue = comptes({ decouvertesJouees: new Set<SorteDeMission>(['defier']) })
+  assert.ok((habitue.get('defier') ?? 0) < (n.get('defier') ?? 0) / 2, `${habitue.get('defier')} contre ${n.get('defier')}`)
+  // Hier, un duel à lancer : pas aujourd'hui.
+  assert.ok(decouvertes({ hier: [{ sorte: 'jour', cible: 1 }, { sorte: 'sentier', cible: 1 }, { sorte: 'defier', cible: 1 }] }).every(m => m.sorte !== 'defier'))
 })
 
 // ── Ce qu'elles lisent de la journée ───────────────────────────────────────
@@ -180,13 +177,13 @@ test('une mission relue : l’épreuve d’avant sans catégorie, le duel et son
 test('ce que la page en dit : chaque nouvelle mission, son titre, son aide, et où la faire d’un toucher', () => {
   const vue = (m: Mission) => vueDeLaMission(2, m, AUCUNE_ACTIVITE, false)
   const sentier = vue({ sorte: 'sentier', cible: 1, categorie: 'Histoire' })
-  assert.deepEqual([sentier.famille, sentier.titre, sentier.lien], ['decouverte', 'Tente une épreuve en Histoire', { href: '/campagne#sentier-mythes', libelle: 'Le sentier' }])
+  assert.deepEqual([sentier.famille, sentier.titre, sentier.lien], ['aventure', 'Tente une épreuve en Histoire', { href: '/campagne#sentier-mythes', libelle: 'Le sentier' }])
   assert.match(sentier.aide, /« Les mythologies »/)
   // Chaque catégorie mène à son sentier.
   for (const b of BRANCHES) assert.equal(vue({ sorte: 'sentier', cible: 1, categorie: b.categorie }).lien.href, `/campagne#sentier-${b.key}`)
   assert.deepEqual(vue({ sorte: 'sentier', cible: 1 }).lien, { href: '/campagne#sentiers', libelle: 'Les sentiers' })
   const cabinet = vue({ sorte: 'cabinet', cible: 1 })
-  assert.deepEqual([cabinet.famille, cabinet.titre, cabinet.lien], ['decouverte', 'Joue une épreuve au Cabinet de curiosités', { href: '/cabinet', libelle: 'Le Cabinet' }])
+  assert.deepEqual([cabinet.famille, cabinet.titre, cabinet.lien], ['aventure', 'Joue une épreuve au Cabinet de curiosités', { href: '/cabinet', libelle: 'Le Cabinet' }])
   const defier = vue({ sorte: 'defier', cible: 1, sujet: 'animaux', nomDuSujet: 'Les animaux' })
   assert.deepEqual(
     [defier.famille, defier.titre, defier.lien],
@@ -203,7 +200,8 @@ test('le tirage du serveur : le Cabinet tant qu’il se joue ici, un duel à lan
       profiles: {
         lecturesDesMissions: async () => ({ lignes: [], soirees: [], auxTrois: [], ouverts: new Set<string>(), offerts: [] }),
         tirerLesMissions: async (_: string, jour: string, ms: readonly Mission[]): Promise<LigneDeMission[]> => {
-          tirees.push(ms[2])
+          // Son aventure et sa troisième mission : le Cabinet est de l'une, le duel à lancer de l'autre.
+          tirees.push(ms[1], ms[2])
           return [...ms.map((mission, rang) => ({ jour, rang, mission, faiteLe: null })), { jour, rang: 3, mission: null, faiteLe: null }]
         },
         accomplirDesMissions: async () => [],
@@ -220,9 +218,9 @@ test('le tirage du serveur : le Cabinet tant qu’il se joue ici, un duel à lan
     return tirees.map(m => m.sorte)
   }
   const ferme = await tireesPour(false, false)
-  assert.ok(!ferme.includes('cabinet') && !ferme.includes('defier'), ferme.join(' '))
+  assert.ok(!ferme.includes('cabinet') && !ferme.includes('cabinet-justes') && !ferme.includes('defier'), ferme.join(' '))
   const ouvert = await tireesPour(true, true)
-  assert.ok(ouvert.includes('cabinet') && ouvert.includes('defier'), ouvert.join(' '))
+  assert.ok(ouvert.includes('cabinet') && ouvert.includes('cabinet-justes') && ouvert.includes('defier'), ouvert.join(' '))
 })
 
 // ── Pour de vrai, par les routes ───────────────────────────────────────────
@@ -244,9 +242,9 @@ function base<T>(fichier: string, fn: (db: Database.Database) => T): T {
   }
 }
 
-/** Ses missions du jour, posées d'avance — le tirage dépend de son identifiant — : le quiz du jour, cent bonnes réponses, et la découverte qu'on éprouve. */
-function poserLesMissions(fichier: string, profileId: string, jour: string, decouverte: Mission, quand: number) {
-  const missions: Mission[] = [{ sorte: 'jour', cible: 1 }, { sorte: 'justes', cible: 100 }, decouverte]
+/** Ses missions du jour, posées d'avance — le tirage dépend de son identifiant — : le quiz du jour, cent bonnes réponses — ou une autre deuxième mission à éprouver —, et la découverte qu'on éprouve. */
+function poserLesMissions(fichier: string, profileId: string, jour: string, decouverte: Mission, quand: number, deuxieme: Mission = { sorte: 'justes', cible: 100 }) {
+  const missions: Mission[] = [{ sorte: 'jour', cible: 1 }, deuxieme, decouverte]
   base(fichier, db => {
     const inserer = db.prepare('INSERT INTO profile_missions (profile_id, jour, rang, mission, tiree_le) VALUES (?, ?, ?, ?, ?)')
     missions.forEach((m, rang) => inserer.run(profileId, jour, rang, JSON.stringify(m), quand))
@@ -254,11 +252,11 @@ function poserLesMissions(fichier: string, profileId: string, jour: string, deco
   })
 }
 
-/** La découverte du jour, telle que l'accueil la lit : son titre, où il en est, faite ou non, et si cette lecture vient de la retenir. */
-async function laDecouverte(banc: Banc, cookie: string) {
+/** La découverte du jour — ou la mission d'un autre rang —, telle que l'accueil la lit : son titre, où il en est, faite ou non, et si cette lecture vient de la retenir. */
+async function laDecouverte(banc: Banc, cookie: string, rang = 2) {
   const m = (await lire(banc, cookie, '/api/joueur/missions')).corps
-  const d = m.missions.find((x: any) => x.rang === 2)
-  return { titre: d.titre as string, avance: d.avance as number, faite: d.faite as boolean, lien: d.lien, nouvelle: (m.nouvelles as number[]).includes(2) }
+  const d = m.missions.find((x: any) => x.rang === rang)
+  return { titre: d.titre as string, avance: d.avance as number, faite: d.faite as boolean, lien: d.lien, nouvelle: (m.nouvelles as number[]).includes(rang) }
 }
 
 const idDe = async (banc: Banc, cookie: string) => (await lire(banc, cookie, '/api/joueur/moi?leger')).corps.profile.id as string
@@ -342,12 +340,13 @@ test('un duel lancé sur son thème, contre quelqu’un : la mission est faite �
   }
 })
 
-test('une épreuve du Cabinet : entrée sans répondre, rien ; à sa première réponse, la mission est faite', async () => {
+test('une épreuve du Cabinet : entrée sans répondre, rien ; à sa première réponse, la mission est faite — et ses manches à deux étoiles, une à une', async () => {
   const b = await bancDuCabinet({ baseDeLaCampagne: baseDuCabinet(16) })
   try {
     const cookie = await inscrireProfil(b.banc.url, 'curieuse', 'Inès')
     const profil = await idDe(b.banc, cookie)
-    poserLesMissions(b.fichier, profil, '2026-10-24', { sorte: 'cabinet', cible: 1 }, b.horloge.t)
+    // L'aventure qui compte ses manches réussies au rang 1, celle qui se fait en jouant au rang 2.
+    poserLesMissions(b.fichier, profil, '2026-10-24', { sorte: 'cabinet', cible: 1 }, b.horloge.t, { sorte: 'cabinet-justes', cible: 2 })
     const avant = await laDecouverte(b.banc, cookie)
     assert.deepEqual([avant.titre, avant.avance, avant.lien], ['Joue une épreuve au Cabinet de curiosités', 0, { href: '/cabinet', libelle: 'Le Cabinet' }])
     // Une traversée écrite à la main, ses cartes choisies, sa première étape un Quiz sur l'Histoire (`cabinet-quiz.test.ts`).
@@ -382,9 +381,18 @@ test('une épreuve du Cabinet : entrée sans répondre, rien ; à sa première r
     // Entrée, pas encore répondu : l'épreuve n'est pas jouée.
     assert.equal((await laDecouverte(b.banc, cookie)).faite, false)
     // Sa première manche répondue — ratée, peu importe : la mission est faite.
-    await jouerUnQuiz(b, cookie, partie, 0, false)
+    const apresUne = await jouerUnQuiz(b, cookie, partie, 0, false)
     const apres = await laDecouverte(b.banc, cookie)
     assert.deepEqual([apres.avance, apres.faite, apres.nouvelle], [1, true, true])
+    // Ratée, elle n'est pas une manche à deux étoiles : l'autre aventure attend les siennes, une par manche réussie.
+    const manches = await laDecouverte(b.banc, cookie, 1)
+    assert.deepEqual([manches.titre, manches.avance, manches.faite], ['Au Cabinet, réussis 2 manches à 2 étoiles ou plus', 0, false])
+    const apresDeux = await jouerUnQuiz(b, cookie, await ouvrir(b, cookie, apresUne, 1), 1, true)
+    const uneDeFaite = await laDecouverte(b.banc, cookie, 1)
+    assert.deepEqual([uneDeFaite.avance, uneDeFaite.faite], [1, false])
+    await jouerUnQuiz(b, cookie, await ouvrir(b, cookie, apresDeux, 2), 2, true)
+    const faite = await laDecouverte(b.banc, cookie, 1)
+    assert.deepEqual([faite.avance, faite.faite, faite.nouvelle], [2, true, true])
   } finally {
     await b.banc.close()
   }

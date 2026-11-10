@@ -29,14 +29,13 @@ import { ProfileStore } from '../src/auth/profiles'
 
 ProfileStore.tirageEclat = () => false
 
-// Ni Cabinet ni personne à défier : les découvertes d'avant le 1er novembre 2026 (`missions-decouvertes.test.ts` tire les autres).
+// Ni Cabinet ni personne à défier : l'aventure sur les sentiers, les découvertes de toujours (`missions-aventure.test.ts` et `missions-decouvertes.test.ts` tirent le reste).
 const CONTEXTE: ContexteDuTirage = {
-  quizDuJourJoue: false,
-  joursDuJour: 0,
   decouvertesJouees: new Set(),
   defiFini: false,
   aRevoir: 0,
   hier: [],
+  avantHier: [],
   cabinet: false,
   adversaires: false,
   themes: [],
@@ -44,40 +43,39 @@ const CONTEXTE: ContexteDuTirage = {
 
 // ── Le tirage, pur ─────────────────────────────────────────────────────────
 
-test('trois missions par jour : une habitude, un savoir, une découverte — les mêmes pour la même graine', () => {
+test('trois missions par jour : une habitude, une aventure, puis un savoir ou une découverte — les mêmes pour la même graine', () => {
   for (let i = 0; i < 200; i++) {
     const graine = `profil-${i}|2026-10-15`
     const m = tirerLesMissions(graine, CONTEXTE)
     assert.deepEqual(m, tirerLesMissions(graine, CONTEXTE), 'deux lectures ensemble tirent les mêmes')
     assert.equal(m.length, 3)
-    assert.ok(['jour', 'jour-etoiles'].includes(m[0].sorte), m[0].sorte)
-    assert.ok(['justes', 'categorie'].includes(m[1].sorte), m[1].sorte)
-    assert.ok(DECOUVERTES.includes(m[2].sorte), m[2].sorte)
-    if (m[1].sorte === 'categorie') assert.ok((CATEGORIES as readonly string[]).includes(m[1].categorie!))
-    // Sans carnet à revoir ni habitude du quiz du jour : ni révision, ni étoiles.
-    assert.notEqual(m[2].sorte, 'revision')
-    assert.equal(m[0].sorte, 'jour')
+    // Chaque mission se fait en jouant (le 31 octobre 2026) : l'habitude ne vise jamais d'étoiles, qu'une seule partie ratée rendait impossibles.
+    assert.deepEqual(m[0], { sorte: 'jour', cible: 1 })
+    // Sans Cabinet ici, l'aventure est un sentier.
+    assert.ok(['sentier', 'sentier-justes'].includes(m[1].sorte), m[1].sorte)
+    assert.ok(['justes', 'categorie', ...DECOUVERTES].includes(m[2].sorte), m[2].sorte)
+    if (m[2].sorte === 'categorie') assert.ok((CATEGORIES as readonly string[]).includes(m[2].categorie!))
+    // Sans carnet à revoir ni personne à défier : ni révision, ni duel à lancer.
+    assert.ok(m[2].sorte !== 'revision' && m[2].sorte !== 'defier', m[2].sorte)
   }
 })
 
-test('le tirage tient compte de ce qu’il a fait : le défi fini, le quiz du jour déjà joué, la découverte d’hier', () => {
-  const tirages = (c: Partial<ContexteDuTirage>) => Array.from({ length: 300 }, (_, i) => tirerLesMissions(`p${i}|2026-10-15`, { ...CONTEXTE, ...c }))
+test('le tirage tient compte de ce qu’il a fait : le défi fini, la découverte d’hier, son carnet, ce qu’il ne joue pas', () => {
+  const tirages = (c: Partial<ContexteDuTirage>) => Array.from({ length: 600 }, (_, i) => tirerLesMissions(`p${i}|2026-10-15`, { ...CONTEXTE, ...c }))
   assert.ok(tirages({ defiFini: true }).every(m => m[2].sorte !== 'defi'), 'le défi ne se relève pas deux fois')
   assert.ok(tirages({}).some(m => m[2].sorte === 'defi'))
-  // Chaque mission se fait en jouant (le 31 octobre 2026) : l'habitude ne vise plus jamais d'étoiles,
-  // qu'une seule partie ratée rendait impossibles — même pour l'habitué.
-  assert.ok(tirages({ quizDuJourJoue: true, joursDuJour: 7 }).every(m => m[0].sorte === 'jour'))
-  assert.ok(tirages({ joursDuJour: 7 }).every(m => m[0].sorte === 'jour' && m[0].cible === 1))
   // La découverte d'hier ne revient pas le lendemain.
-  assert.ok(tirages({ hier: [{ sorte: 'jour', cible: 1 }, { sorte: 'justes', cible: 10 }, { sorte: 'duel', cible: 1 }] }).every(m => m[2].sorte !== 'duel'))
+  assert.ok(tirages({ hier: [{ sorte: 'jour', cible: 1 }, { sorte: 'sentier', cible: 1 }, { sorte: 'duel', cible: 1 }] }).every(m => m[2].sorte !== 'duel'))
   // Un carnet à revoir propose la révision, au plus cinq questions.
   const revisions = tirages({ aRevoir: 12 }).filter(m => m[2].sorte === 'revision')
   assert.ok(revisions.length > 0)
   assert.ok(revisions.every(m => m[2].cible === 5))
-  // Ce qu'il ne joue jamais passe trois fois plus souvent que ce qu'il joue.
-  const joue = new Set(DECOUVERTES.filter(s => s !== 'sentier'))
-  const sentiers = tirages({ decouvertesJouees: joue }).filter(m => m[2].sorte === 'sentier').length
-  assert.ok(sentiers > 300 / 5, `${sentiers} épreuves sur 300`)
+  // Ce qu'il ne joue jamais passe trois fois plus souvent que ce qu'il joue : seul des découvertes à peser trois contre
+  // trois fois un, le parcours fait la moitié d'elles — un quart sans cela.
+  const joue = new Set(DECOUVERTES.filter(s => s !== 'parcours'))
+  const decouvertes = tirages({ decouvertesJouees: joue }).filter(m => DECOUVERTES.includes(m[2].sorte))
+  const parcours = decouvertes.filter(m => m[2].sorte === 'parcours').length
+  assert.ok(parcours > decouvertes.length * 0.4, `${parcours} parcours sur ${decouvertes.length} découvertes`)
 })
 
 test('ce que chaque mission lit de sa journée', () => {
