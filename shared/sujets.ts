@@ -368,6 +368,10 @@ export const SUJETS: readonly Sujet[] = [
   // de tester » —, dans l'ordre de l'alphabet avec les autres.
   { cle: 'asterix', nom: 'Astérix', famille: 'univers', description: 'Le village gaulois, la potion magique et les Romains, des albums aux films', etiquettes: ['asterix'] },
   { cle: 'disney', nom: 'Disney et Pixar', famille: 'univers', description: 'Des princesses aux jouets de Toy Story, les films et les parcs', etiquettes: ['disney'] },
+  // Le 10 novembre 2026, à la suite des quatre univers ouverts le même jour : deux séries parmi les plus connues, que
+  // le propriétaire a validées avec eux, écrites à partir de faits relevés sur Wikipédia, comme Lost et Kaamelott.
+  { cle: 'friends', nom: 'Friends', famille: 'univers', description: 'Rachel, Ross, Monica, Chandler, Joey et Phoebe, du Central Perk à leurs appartements', etiquettes: ['friends'] },
+  { cle: 'game-of-thrones', nom: 'Game of Thrones', famille: 'univers', description: 'Westeros, ses maisons et ses dragons, des romans à la série', etiquettes: ['game-of-thrones'] },
   { cle: 'harry-potter', nom: 'Harry Potter', famille: 'univers', description: 'Poudlard, les sorciers, les livres et les films', etiquettes: ['harry-potter'] },
   { cle: 'james-bond', nom: 'James Bond', famille: 'univers', description: '007, ses films, ses acteurs, ses chansons et ses méchants', etiquettes: ['james-bond'] },
   // Le 1er novembre 2026, à la suite de Stargate : deux séries de fans, leurs deux cents questions écrites pour elles.
@@ -531,9 +535,10 @@ export const cleDeRubrique = (categorie: string, sousTheme: string): string => `
  * Sous ce nombre de questions jouables, une rubrique ne se propose pas. Un
  * thème se garde au test de la base livrée (`campagne-sujets.test.ts` : cent
  * questions, cinq à chaque marche) ; une rubrique, à la lecture : « Langues
- * et écritures du monde », cinquante-cinq questions depuis que le français,
- * l'anglais et l'espagnol ont pris les leurs, reviendra d'elle-même quand
- * elle les aura.
+ * et écritures du monde », tombée à cinquante-cinq questions quand le
+ * français, l'anglais et l'espagnol ont pris les leurs, est restée sans la
+ * sienne jusqu'au 10 novembre 2026 — étoffée ce jour-là à cent
+ * quatre-vingt-douze, elle est revenue d'elle-même.
  */
 export const QUESTIONS_POUR_UNE_RUBRIQUE = 100
 

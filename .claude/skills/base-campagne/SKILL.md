@@ -122,7 +122,11 @@ moins qu'une réécriture.
    le sien après ses deux-points (`--sujet=harry-potter:40,james-bond:75`),
    ce qui lui manque pour ses cent questions. Un gros
    morceau d'un seul sous-thème (les mythes, six questions sur dix du
-   thème) s'écrit sur plusieurs vagues.
+   thème) s'écrit sur plusieurs vagues — ou en une seule, à la main : un
+   lot par facette (`base-campagne.ts consigne`, plus haut), chacun sa
+   section « CE LOT EN PARTICULIER » et, pour une série, son fichier de
+   faits relevés (Friends, Game of Thrones, « Langues et écritures du
+   monde » : règle `campagne-base.md`, « Un univers en une seule vague »).
 2. **L'écriture** : un agent `redacteur-campagne` par mission, sa mission telle
    quelle, en arrière-plan, une dizaine à la fois.
 3. **La suite** : `npx tsx scripts/generer-campagne.ts suite`, après chaque
