@@ -143,7 +143,7 @@ Ces pages sont publiques : leur lien se partage. Le détail : [Après la soirée
 
 ## Garder ta progression
 
-Un profil garde, d'une soirée à l'autre, ton prénom, ton avatar et ce que tu gagnes : ton niveau, tes trophées — prix compris —, tes avatars. Il ouvre aussi ce qui se joue entre deux soirées — le quiz du jour, la campagne, les duels, l'Expédition, et bientôt [le Cabinet de curiosités](#le-cabinet-de-curiosités). Il ne donne aucun avantage dans une partie : ce soir, tu marques comme tout le monde.
+Un profil garde, d'une soirée à l'autre, ton prénom, ton avatar et ce que tu gagnes : ton niveau, tes trophées — prix compris —, tes avatars. Il ouvre aussi ce qui se joue entre deux soirées — le quiz du jour, la campagne, les duels et [le Cabinet de curiosités](#le-cabinet-de-curiosités). Il ne donne aucun avantage dans une partie : ce soir, tu marques comme tout le monde.
 
 ### Créer ton profil
 
@@ -171,15 +171,15 @@ Il n'y a ni adresse e-mail ni lien à recevoir. Sans ton code, demande à l'admi
 
 ## Le Cabinet de curiosités
 
-Avec un profil, entre deux soirées, seul : un musée à remplir, que le gros bouton de ton accueil ouvre — là où il est ouvert : il se construit en préproduction, et reste fermé en production jusqu'à son ouverture.
+Avec un profil, entre deux soirées, seul : une traversée en trois actes, que le bouton « Le Cabinet de curiosités » ouvre, dans la carte « Seul » de ton accueil. Le Cabinet est ouvert à tous les profils depuis le 31 octobre 2026, à la place de l'Expédition ; sur un serveur qui le fermerait, le bouton ne paraîtrait pas, et sa page dirait « Le Cabinet de curiosités ouvre bientôt : reviens dans quelques jours ».
 
-1. **La visite du jour** : trois petites parties, trois jeux. Touche « Jouer au Pari », par exemple : l'annonce dit le jeu, ses étoiles, l'œuvre en jeu sans la nommer (« Peut te faire gagner une œuvre rare de la salle du Devin ») et le seuil à atteindre. Rien n'est consommé avant « Commencer ».
-2. **Une partie** : trois manches de trois étoiles. À l'annonce, emporte une carte-bonus — une de tes œuvres : son pouvoir t'aide (Éclairer, Prendre son temps…) et ne s'use jamais. Le chrono tourne au serveur : recharger la page reprend la manche où elle en était.
-3. **Assez d'étoiles, l'œuvre entre dans ton musée**, avec son cartel — ce que la partie t'a appris. Chaque partie de visite ou de chasse où tu as répondu rapporte aussi de la poussière d'or, gagnée ou non ; et une case manquée se retente au même jeu, pour une chasse.
-4. **Deux chasses par jour** : touche un cadre vide de ton musée — il dit où se trouve son œuvre (« Elle se trouve au Filet ») — et pars la chercher.
-5. **La poussière d'or** achète une œuvre qui te manque, ou un cadre doré. Une salle complète réveille son gardien, un légendaire.
+1. **Tes trois gardiens d'abord**, puis **trois cartes à choisir parmi dix** : les seules du voyage. Tu n'en gagnes pas d'autre en route — le coffre, le gardien vaincu et le marchand améliorent les tiennes.
+2. **La carte de l'acte** : le panneau sous elle propose les étapes à ta portée — un jeu sur un thème (« Le Pari · Histoire »), un coffre, puis le marchand, puis le gardien. Choisis-en une, puis touche « Jouer au Pari », par exemple.
+3. **Une épreuve** : trois manches d'un même jeu, trois étoiles chacune. Chaque étoile rapporte de l'or ; une manche sans étoile coûte un cœur. Le chrono tourne au serveur : recharger la page reprend la manche où elle en était.
+4. **Le marchand**, avant chaque gardien, vend un cœur et l'amélioration de tes cartes. **Le gardien** s'affronte en assauts de trois manches : chaque étoile lui retire un point de vie. Vaincu, il te rend tes cœurs, et l'acte suivant s'ouvre.
+5. **Au bout des trois actes**, l'un des trois gardiens vaincus est à toi : un avatar légendaire, à choisir. Plus de cœur, la traversée s'arrête : la suivante repart de l'acte I.
 
-« Quitter » met la manche en pause dix secondes, le temps de confirmer : la partie compte ce que tu as répondu, et ne se rejoue pas. « Comment ça marche ? », au musée, redit tout. Le détail : [Le Cabinet de curiosités](../produit/le-cabinet.md).
+Une seule traversée en route à la fois : elle se reprend où tu l'as laissée, sur ce téléphone ou un autre. Quitter une épreuve compte les manches qui restent comme ratées — la confirmation le dit, en cœurs. « Comment ça marche ? » redit tout. Le détail : [Le Cabinet de curiosités](../produit/le-cabinet.md).
 
 ## Pour aller plus loin
 
