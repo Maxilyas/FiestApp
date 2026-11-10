@@ -9,7 +9,7 @@ import { gemme } from '../gemmes'
 import { objetsDuStyle, type LieuDuStyle, type ObjetDuStyle, type PartieDuStyle } from '../../../shared/style'
 import { OU_JOUER } from '../../../shared/trophees'
 import { gerbe } from '../../../shared/gerbes'
-import { CRANS_D_UNE_BORDURE, ligueParCle, type CleDeLigue } from '../../../shared/duels'
+import { CRANS_D_UNE_BORDURE, ligueParCle, ouSeGagnentSesCrans, type CleDeLigue } from '../../../shared/duels'
 import { divin } from '../../../shared/divins'
 import { NOM_RARETE } from '../../../shared/badges'
 import { avatarDeLApercu, sonAvatar } from '../../../shared/sonAvatar'
@@ -30,7 +30,7 @@ const CE_QU_IL_HABILLE: Record<PartieDuStyle, string> = {
   fonds: 'Derrière ta carte, quand quelqu’un touche ton nom.',
   gerbes: 'Elle éclate sur ton téléphone à chaque bonne réponse : toi seul la vois.',
   finitions: 'Le cercle de ton avatar, partout où la salle le voit.',
-  bordures: 'Autour de ton avatar : chaque duel gagné dans sa ligue en sertit un cran.',
+  bordures: 'Autour de ton avatar : chaque duel gagné dans sa ligue, ou plus haut, en sertit un cran.',
 }
 
 /** Ce qu'il est, à la place d'une rareté dans sa fiche : le style n'en a pas. */
@@ -216,7 +216,7 @@ export function FicheDuStyle({ o, partie, visuel }: { o: ObjetDuStyle; partie: P
         <p className="muted small">
           {crans >= CRANS_D_UNE_BORDURE
             ? 'Sertie : ses douze crans gagnés.'
-            : espacesFines(`${crans} cran${crans > 1 ? 's' : ''} sur ${CRANS_D_UNE_BORDURE} : encore ${CRANS_D_UNE_BORDURE - crans} victoire${CRANS_D_UNE_BORDURE - crans > 1 ? 's' : ''} dans sa ligue pour la sertir.`)}
+            : espacesFines(`${crans} cran${crans > 1 ? 's' : ''} sur ${CRANS_D_UNE_BORDURE} : encore ${CRANS_D_UNE_BORDURE - crans} victoire${CRANS_D_UNE_BORDURE - crans > 1 ? 's' : ''} ${ouSeGagnentSesCrans(o.cle as CleDeLigue)} pour la sertir.`)}
         </p>
       )}
       {/* Ce qu'il porte déjà, l'essayer ne montrerait rien de neuf. */}

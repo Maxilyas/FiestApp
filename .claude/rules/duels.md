@@ -35,7 +35,8 @@ jour a sa notification (règle `rappel-et-installation.md`).
   relecture du journal (`releverLesDuels` : les deux cotes, le plancher,
   chaque semaine, les crans des bordures), la récompense du lundi (`recompenseDeLaSemaine`,
   `confettisDesLigues`, dans le solde par `CampagneStore.duProfil`), la
-  bordure portée (`bordurePortee`), le bilan et l'historique
+  bordure portée (`bordurePortee`) et où gagner ses crans
+  (`ouSeGagnentSesCrans`), le bilan et l'historique
   (`bilanDesDuels`, `pageDeLHistoire`), les types de la page
   (`EtatDesDuels`, `DuelsDAccueil`). Ses constantes de cote et de ligues sont
   des choix de produit (CLAUDE.md).
@@ -228,6 +229,28 @@ jour a sa notification (règle `rappel-et-installation.md`).
   sans fin en battant des bronzes —, ni par les cotes cachées : au-dessus
   de la Platine, la cote ne départagerait plus personne, et l'enjeu les
   trahirait (`duels-montee.test.ts`).
+- **Une victoire sertit sa ligue et celles d'en dessous** (le choix du
+  propriétaire du 10 novembre 2026 : « une victoire compte aussi pour les
+  ligues d'en dessous »). Les crans d'une bordure sont les duels gagnés dans
+  sa ligue **ou plus haut**, douze au plus (`releverLesDuels`, le cumul de la
+  plus haute à la plus basse). Comptée dans la seule ligue où elle s'était
+  jouée — la règle du 12 octobre, deux jours avant la montée —, une victoire
+  laissait le Moletage et le Perlé à six crans pour tout le monde : sous
+  l'Or, cent points se traversent en six victoires au dé, sept au mieux
+  contre quelqu'un, et une ligue gardée ne se retrouve pas ; les Fleurons,
+  eux, échappaient à qui traversait l'Or trop vite — plus on gagnait, moins
+  on la finissait. Une règle des ligues gardées, de la montée ou des crans
+  se relit donc avec les bordures : toute bordure d'une ligue gardée doit
+  rester finissable d'où l'on est (`bordures.test.ts` joue une carrière au
+  dé). Ne compte jamais vers le haut — le Diamant et les Maîtres se gagnent
+  chez eux —, et ne reprends rien : la règle ne fait qu'ajouter, les crans
+  ne font que monter. L'autre chemin proposé, le trop-plein (un cran ne
+  descend qu'une fois sa ligue sertie), finissait le bronze en dernier, vers
+  le 118ᵉ duel. Où gagner ce qui manque se dit d'une seule façon, « en ligue
+  d'or ou plus haut » (`ouSeGagnentSesCrans` : la loge, l'album du style,
+  celui des trophées), et « en ligue des maîtres » tout en haut. Une bordure
+  sertie est un trophée de la collection : une règle de crans qui change
+  monte `VERSION_DU_RELEVE` (règle `profil.md`).
 - **Contre quelqu'un, seules les cotes d'en face sont figées.** Chacun bouge
   contre les cotes de l'autre au lancement — sa cote qu'on voit contre la
   sienne (`DuelJoue.coteAdverse`), sa cachée contre sa cachée

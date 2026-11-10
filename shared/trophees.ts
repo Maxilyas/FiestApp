@@ -44,7 +44,7 @@ import { voieDeLExpeditionDite } from './jokers'
 import { PAGES } from './calendrier'
 import { BRANCHES, type CleDeBranche } from './branches'
 import { PALIER_DU_MAITRE, titreDeMaitre } from './sentiers'
-import { CRANS_D_UNE_BORDURE, LIGUES, NOM_DE_LA_BORDURE, type CleDeLigue } from './duels'
+import { CRANS_D_UNE_BORDURE, LIGUES, NOM_DE_LA_BORDURE, ouSeGagnentSesCrans, type CleDeLigue } from './duels'
 import { SEUILS_ECUSSON, prochainSeuil } from './ecussons'
 import { titreDuChampion } from './jour'
 import { formatNumber } from './typographie'
@@ -505,7 +505,7 @@ export function albumDesTrophees(p: ProfilDeLAlbumDesTrophees): PageDeTrophees[]
       section(
         'bordures',
         'Les bordures serties',
-        `Chaque duel gagné dans une ligue sertit un cran de sa bordure : ${CRANS_D_UNE_BORDURE} crans, et elle est sertie.`,
+        `Chaque duel gagné sertit un cran de la bordure de ta ligue, et de celles d’en dessous : ${CRANS_D_UNE_BORDURE} crans, et elle est sertie.`,
         LIGUES.map(l => {
           const crans = Math.min(CRANS_D_UNE_BORDURE, bordures.find(b => b.ligue === l.cle)?.crans ?? 0)
           const atteinte = bordures.some(b => b.ligue === l.cle)
@@ -514,7 +514,7 @@ export function albumDesTrophees(p: ProfilDeLAlbumDesTrophees): PageDeTrophees[]
             sorte: 'bordure' as const,
             emoji: '',
             titre: NOM_DE_LA_BORDURE[l.cle],
-            regle: `${CRANS_D_UNE_BORDURE} duels gagnés en ${l.nom.toLowerCase()}`,
+            regle: `${CRANS_D_UNE_BORDURE} duels gagnés ${ouSeGagnentSesCrans(l.cle)}`,
             aLui: crans >= CRANS_D_UNE_BORDURE,
             rarete: null,
             ligue: l.cle,
