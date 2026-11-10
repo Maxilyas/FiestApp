@@ -2222,11 +2222,17 @@ h3 > .icon {
    d'un téléphone. */
 .editor-header .editor-alerte { flex-basis: 100%; margin: 0; }
 .editor-header .conflit-carte { max-height: 45vh; overflow-y: auto; }
+/* Où en est le quiz — ce qui est prêt ou ce qui manque, puis sa durée —, à côté d'« Enregistrer ». */
+.editor-etat { display: flex; align-items: center; gap: 10px; }
 @media (max-width: 600px) {
   /* Au téléphone, le titre prend sa ligne et s'en va avec la page : un `top`
-     négatif de sa hauteur (10 + 44 + 8 px) ne laisse collés que « prêtes »,
-     « Retour », « Enregistrer » et l'annulation — une ligne sur 640 px. */
-  .editor-header.is-collant { gap: 8px; padding-bottom: 8px; top: -62px; }
+     négatif de sa hauteur (10 + 44 + 8 px) ne laisse collée qu'une rangée —
+     le retour, où en est le quiz, « Enregistrer » —, et l'annulation dessous
+     quand il y en a une : 53 px sur 640. Sous l'encoche d'un iPhone,
+     l'application installée, la rangée collée s'arrête sous elle, et le
+     titre, qui remonte derrière l'heure, y passe sous le cache de la page
+     (`.editeur-quiz::before`, plus bas). */
+  .editor-header.is-collant { gap: 8px; padding-bottom: 8px; top: calc(env(safe-area-inset-top, 0px) - 62px); }
   /* Le titre passe devant et s'en va avec la page ; le retour reste collé,
      sa flèche seule, devant « prêtes » et « Enregistrer ». Son nom reste
      celui qu'on entend. */
@@ -2240,7 +2246,24 @@ h3 > .icon {
     clip-path: inset(50%);
     white-space: nowrap;
   }
-  .editor-header.is-collant > .row { flex: 1 1 0; min-width: 0; }
+  .editor-header.is-collant > .row { flex: 1 1 0; min-width: 0; gap: 8px; }
+  /* La rangée collée n'en fait qu'une. Où en est le quiz se dit en deux temps, sur une ligne haute d'une cible de
+     doigt : ce qui est prêt ou ce qui manque, puis sa durée, qui ne se montre que si elle tient entière à sa suite
+     (une rangée qui passe à la ligne, haute d'une seule, comme `.gros-a-suite` à l'accueil) — passée sous elle,
+     elle donnait deux rangées à la partie collée, 85 px, et trois dès qu'une question attendait, 107. Le lecteur
+     d'écran la lit toujours, et « Mes quiz » la dit sur la ligne du quiz. Sa base à zéro et son minimum à ce qui
+     ne se coupe pas : « Enregistrer » reste sur la rangée tant que l'essentiel y tient, et passe dessous sinon —
+     « Réveil du serveur… », le temps d'un réveil. */
+  .editor-etat { flex: 1 1 0; flex-wrap: wrap; min-width: min-content; height: 44px; gap: 0 10px; overflow: clip; font-size: 0.875rem; }
+  .editor-etat > * { flex: none; }
+  /* « 2 à compléter » sans sa flèche, cachée à l'œil seulement : avec elle, et « Enregistré » à côté, la rangée
+     passait 336 px. Sa marge resserrée de même. */
+  .editor-header .a-completer { padding: 0 10px; gap: 6px; }
+  .editor-header .a-completer > .icon:last-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .editor-header.is-collant > .row > .btn-primary { flex: none; padding: 0 14px; }
+  /* « Annuler », au fil de sa ligne : une cible de doigt, pas un mot de 18 px de haut. */
+  .editor-header .undo-line { align-items: center; }
+  .editor-header .undo-line .link-btn { display: inline-flex; align-items: center; min-height: 44px; padding: 0 8px; }
 }
 
 .title-input {
@@ -2469,12 +2492,12 @@ h3 > .icon {
 /* Ce que l'historique sait d'une question, au pied de sa carte. */
 .souvenir-question { margin: 0; }
 
-/* Ce qui entoure une question, replié sur sa carte tant qu'il est vide. */
-.entourage { border-top: 1px dashed var(--edge); padding-top: 8px; }
+/* Ce qui entoure une question, replié sur sa carte tant qu'il est vide. Sans filet au-dessus de lui : il partage
+   sa rangée avec les réglages rares (`.question-replis`), et le seul filet de la carte est celui de ses gestes. */
 .entourage > summary { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--muted); font-size: 0.88rem; min-height: 32px; }
 .entourage[open] > summary { margin-bottom: 8px; }
 .entourage-champ { display: grid; gap: 4px; margin-bottom: 8px; }
-.entourage-champ textarea { resize: vertical; }
+.entourage-champ textarea { resize: vertical; field-sizing: content; min-height: 60px; }
 .de-cote-note { margin: 0; font-style: italic; }
 
 /* L'intertitre : une diapo, en grand, sans rien d'autre. En rem : sur grand
@@ -2626,17 +2649,21 @@ h3 > .icon {
   .bibliotheque-tete h1 { font-size: 1.8rem; }
 }
 
+/* La carte d'une question, de haut en bas : son numéro et sa sorte, ce qu'on y écrit — l'intitulé, les réponses —,
+   ses réglages courants, les rares, ce qui l'entoure, ce qu'elle a à dire, et ses gestes au pied. */
 .question-card { display: flex; flex-direction: column; gap: 12px; }
 
 .question-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
   flex-wrap: wrap;
 }
 
 .kind-toggle { display: flex; flex-wrap: wrap; gap: 6px; }
+/* L'intitulé grandit avec ce qu'on y écrit, là où le navigateur le sait (`field-sizing`) : une longue question se
+   lisait deux lignes à la fois, derrière une barre de défilement. Ailleurs, ses deux lignes d'avant. */
+.question-texte { field-sizing: content; min-height: 60px; }
 
 .answers-edit { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
 /* La consigne de l'ordre, sur toute la largeur : dans une case, elle décalait les éléments. */
@@ -2666,13 +2693,31 @@ h3 > .icon {
 .number-edit .input { max-width: 220px; }
 .unit-input { max-width: 120px; }
 
-.question-tools {
+/* Ses réglages courants — le temps et la catégorie d'un côté, la photo et l'extrait de l'autre —, sur une rangée
+   quand la carte est large. */
+.question-reglages {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px 18px;
   flex-wrap: wrap;
 }
+.question-champs,
+.question-pieces { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; }
+/* Ses réglages rares : la sorte d'un QCM, l'ordre gardé, la mise de côté — des pastilles sur une rangée, à
+   12 px de marge : à 14, sous le doigt d'une tablette, la quatrième passait à la ligne. Puis ce qui l'entoure,
+   à leur suite quand la rangée a la place — la mise de côté d'une estimation —, dessous sinon, et dès qu'il
+   s'ouvre. */
+.question-rares,
+.variantes { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.question-rares .pill-btn { padding-inline: 12px; }
+.question-replis { display: flex; align-items: center; gap: 10px 18px; flex-wrap: wrap; }
+.question-replis > .entourage { flex: 1 1 14rem; min-width: 0; }
+.question-replis > .entourage[open] { flex-basis: 100%; }
+/* Ses gestes, au pied de la carte, sous un filet : la déplacer et en ajouter une à gauche, la regarder et
+   l'enlever à droite. */
+.question-gestes { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-top: 10px; border-top: 1px solid var(--edge); }
+.question-geste-fin { margin-left: auto; }
 
 .duration-input { width: 84px; padding: 9px 10px; text-align: center; }
 /* Un nombre hors bornes, ou illisible, pendant qu'on le tape (`ChampNombre`) :
@@ -2773,6 +2818,181 @@ h3 > .icon {
 
 /* « à partir du n° » : un numéro, court, comme le temps de réponse. */
 .position-input { width: 84px; padding: 9px 10px; text-align: center; }
+
+/* ── L'éditeur d'un quiz, au téléphone ──────────────────────────────────
+   « Est ce que tu peux revoir l'onglet quiz maintenant ? Tu peux si tu le
+   souhaites modifier la disposition et l'aspect si tu trouves cela
+   nécessaire » (le propriétaire, le 10 novembre 2026). On vient ici écrire
+   une question et ses réponses : c'est ce qui se voit d'abord, et une
+   question tient sur un écran. Avant, en 360 × 640, un QCM à quatre réponses
+   faisait 1071 px de haut — 1125 dans un quiz qui mélange ses réponses, une
+   pastille de plus —, son intitulé à 287 px du haut de sa carte, sous cinq
+   rangées : son numéro, deux de sortes, deux de gestes ; celui de la
+   première question n'arrivait qu'à 588 px, au bas du premier écran, et un
+   quiz de dix questions faisait dix-neuf écrans (12 077 px), vingt-cinq
+   s'il était tiré de la base (15 956).
+
+   Aucun geste n'a disparu, aucun n'a changé de nom ; leur place, si. La
+   carte, de haut en bas : son numéro et sa sorte sur une rangée — le numéro
+   en pastille ronde, la sorte en sélecteur segmenté —, l'intitulé, les
+   réponses sur des lignes de 44 px, le temps et la catégorie côte à côte, la
+   photo et l'extrait côte à côte, ses deux replis côte à côte — « Plus de
+   réglages » (la sorte du QCM, l'ordre gardé, la mise de côté) et
+   « Anecdote, note, intertitre » —, puis ses gestes au pied, sur une rangée
+   d'icônes. Ses mesures sont des variables posées sur la page de l'éditeur
+   (`.editeur-quiz` — « Mes quiz », la liste, porte `.editor` aussi et ne
+   change pas) ; un ordinateur garde les siennes, et la même carte dans le
+   même ordre. `server/scripts/rendu-editeur.ts` mesure chaque carte, taille
+   par taille, et sort en erreur si la question type grandit, si l'intitulé
+   de la première repasse sous la moitié de l'écran, si une cible descend
+   sous 44 px ou si la page déborde ; `editeur-telephone.test.ts` garde la
+   structure et cette feuille. */
+@media (max-width: 600px) {
+  .editeur-quiz {
+    /* Entre deux blocs de la page ou d'une carte, puis entre deux rangées de réglages. */
+    --eq-ecart: 10px;
+    --eq-serre: 8px;
+    /* La marge de la page, celle d'une carte : à 12 px chacune, une carte a 310 px pour ses rangées en 360 de large
+       — les sept gestes d'une question tirée de la base (7 × 44 = 308 px) y tiennent sur une ligne. */
+    --eq-marge: 12px;
+    /* Une cible de doigt : la hauteur d'une rangée, jamais moins. */
+    --eq-rang: 44px;
+    gap: var(--eq-ecart);
+    /* 12 px au-dessus du titre, ou l'encoche quand elle est plus haute : c'est alors le cache qui les tient. */
+    padding: max(0px, 12px - env(safe-area-inset-top, 0px)) var(--eq-marge) 70px;
+  }
+  /* Sous l'encoche d'un iPhone, l'application installée (la page va jusqu'en haut de l'écran) : un cache de la
+     hauteur de l'encoche, de la couleur de la page, collé en haut, devant l'en-tête. Au repos, il tient le titre
+     sous l'heure ; la page défilée, la rangée collée de l'en-tête s'arrête juste sous lui, et le titre, qui s'en
+     va, passe derrière au lieu de se lire à moitié sous l'heure. Sans encoche, il ne fait aucune hauteur, et rend
+     l'écart qu'il prendrait à la colonne. Avant, le titre commençait à 22 px, sous l'encoche, et la rangée collée
+     s'y glissait. */
+  .editeur-quiz::before { content: ''; position: sticky; top: 0; z-index: 6; flex: none; height: env(safe-area-inset-top, 0px); margin: 0 calc(-1 * var(--eq-marge)) calc(-1 * var(--eq-ecart)); background: var(--bg); }
+  /* Entre l'en-tête et la première question : « Régler tout le quiz », et l'heure du dernier enregistrement à sa suite. */
+  .editeur-quiz .editor-outils { justify-content: space-between; gap: var(--eq-serre); }
+  .editeur-quiz .editor-enregistre { margin-left: auto; }
+
+  .editeur-quiz .question-card { gap: var(--eq-ecart); padding: var(--eq-marge) var(--eq-marge) 6px; }
+
+  /* Ce qu'un téléphone tait à l'œil, et que le lecteur d'écran lit encore (les déclarations de `.sr-only`) : le
+     mot « Question » devant son numéro, le nom de l'aperçu, d'« Une autre » et de « Supprimer » sous leur icône.
+     Les icônes du numéro et des sortes, décoratives, s'effacent de même : leur mot suffit, et la rangée y gagne
+     de quoi tenir. */
+  .editeur-quiz .question-mot,
+  .editeur-quiz .question-geste-nom,
+  .editeur-quiz .question-numero > .icon,
+  .editeur-quiz .kind-toggle .icon { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+  /* La tête, sur une rangée : son numéro, puis sa sorte. Le numéro, une pastille ronde de 32 px, se touche sur 44
+     (sa boîte déborde d'elle, `::after`) ; au texte agrandi ou sous une police large, la sorte passe dessous. */
+  .editeur-quiz .question-head { gap: var(--eq-serre); }
+  .editeur-quiz .question-numero { position: relative; flex: none; justify-content: center; min-width: 32px; min-height: 32px; padding: 0 8px; font-size: 0.875rem; font-weight: 600; letter-spacing: 0; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .editeur-quiz .pill-button.question-numero::after { content: ''; position: absolute; inset: -7px; }
+  /* Sa sorte, en sélecteur segmenté : un seul cadre, trois segments qui se partagent sa largeur à proportion de
+     leur nom. En pastilles, « Qui dans la salle ? » passait seule sur sa rangée. */
+  .editeur-quiz .kind-toggle { flex: 1 1 auto; gap: 0; min-width: 0; border: 1px solid var(--edge); border-radius: 23px; overflow: clip; }
+  .editeur-quiz .kind-toggle .pill-btn { flex: 1 1 auto; justify-content: center; min-width: var(--eq-rang); min-height: var(--eq-rang); padding: 0 8px; border: 0; border-radius: 0; white-space: nowrap; outline-offset: -3px; }
+  .editeur-quiz .kind-toggle .pill-btn + .pill-btn { border-left: 1px solid var(--edge); }
+
+  /* L'intitulé : une ligne tant qu'il y tient, puis ce qu'on écrit. L'anecdote et la note de même. */
+  .editeur-quiz .question-texte { min-height: var(--eq-rang); padding: 10px 12px; }
+  .editeur-quiz .entourage-champ textarea { min-height: var(--eq-rang); }
+
+  /* Une réponse par ligne, à la hauteur de son champ : la bonne se coche à gauche, sa forme à côté, et c'est son
+     champ qui se teinte. Encadrée autour de son champ, chacune faisait 62 px. */
+  .editeur-quiz .answers-edit { gap: 6px; }
+  .editeur-quiz .answer-edit { gap: var(--eq-serre); min-height: var(--eq-rang); padding: 0 0 0 4px; border: 0; border-radius: 0; }
+  .editeur-quiz .answer-edit.is-correct { background: none; }
+  .editeur-quiz .answer-edit.is-correct .input { border-color: var(--edge-strong); background: var(--accent-soft); }
+  .editeur-quiz .answer-edit .input { min-width: 0; min-height: var(--eq-rang); padding: 8px 12px; }
+  .editeur-quiz .answer-edit input[type='radio'],
+  .editeur-quiz .answer-edit input[type='checkbox'] { flex: none; width: 24px; height: 24px; accent-color: var(--accent); }
+  .editeur-quiz .answer-edit .rang-ordre { width: 28px; height: 28px; }
+
+  /* Une estimation : sa bonne réponse et son unité côte à côte, chacune sous son nom. */
+  .editeur-quiz .number-edit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 7rem); gap: var(--eq-serre); }
+  .editeur-quiz .number-edit > * { grid-column: 1 / -1; }
+  .editeur-quiz .number-edit > .number-cible { grid-column: 1; }
+  .editeur-quiz .number-edit > .number-cible + .number-unite { grid-column: 2; }
+  .editeur-quiz .number-cible,
+  .editeur-quiz .number-unite { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 3px; font-size: 0.82rem; }
+  .editeur-quiz .number-edit .input { max-width: none; }
+  /* En direct, la bonne réponse se tape à la révélation : l'unité, seule sur sa ligne, garde sa largeur. */
+  .editeur-quiz .number-edit > .en-direct-note + .number-unite .input { max-width: 7rem; }
+  .editeur-quiz .number-note,
+  .editeur-quiz .en-direct-note,
+  .editeur-quiz .sondage-note { font-size: 0.82rem; }
+
+  /* Ses réglages courants, deux rangées : le temps et la catégorie, puis la photo et l'extrait. */
+  .editeur-quiz .question-reglages { flex-direction: column; align-items: stretch; gap: var(--eq-serre); }
+  .editeur-quiz .question-champs,
+  .editeur-quiz .question-pieces { gap: var(--eq-serre); }
+  .editeur-quiz .question-temps,
+  .editeur-quiz .question-categorie { flex-wrap: nowrap; gap: 6px; font-size: 0.82rem; }
+  .editeur-quiz .question-temps { flex: none; }
+  /* La catégorie prend ce qui reste de la rangée, et passe dessous quand le temps dit ses bornes. */
+  .editeur-quiz .question-categorie { flex: 1 1 8.5rem; min-width: 0; }
+  .editeur-quiz .question-temps .duration-input { width: 3.5rem; padding-inline: 6px; }
+  .editeur-quiz .categorie-select { flex: 1 1 0; min-width: 0; min-height: var(--eq-rang); padding: 0 8px; }
+  .editeur-quiz .question-pieces > * { flex: 1 1 auto; }
+  .editeur-quiz .question-pieces .btn-small { flex: 1 1 auto; padding: 0 10px; }
+  .editeur-quiz .extrait-edit .extrait-audio { flex: 1 1 100%; min-width: 0; max-width: none; height: var(--eq-rang); }
+  /* La photo qui disparaît : sa case sur une ligne de la hauteur d'un doigt. */
+  .editeur-quiz .observe-edit { gap: 4px; padding: 2px 12px 8px; }
+  .editeur-quiz .observe-edit > .row { min-height: var(--eq-rang); flex-wrap: nowrap; }
+
+  /* Ses deux replis, côte à côte tant qu'ils sont fermés : « Plus de réglages », puis « Anecdote, note,
+     intertitre », dont le nom passe sur deux lignes quand la rangée manque. Ouvert, un repli prend sa rangée. Une
+     estimation, un « Qui dans la salle ? » n'ont que la mise de côté à ranger : sa pastille tient la place du
+     premier repli. */
+  .editeur-quiz .question-replis { align-items: flex-start; gap: 0 var(--eq-ecart); }
+  .editeur-quiz .question-replis > .question-plus { flex: 0 1 auto; min-width: 0; }
+  .editeur-quiz .question-replis > .entourage { flex: 1 1 0; }
+  .editeur-quiz .question-replis > details[open] { flex-basis: 100%; }
+  .editeur-quiz .question-replis > .question-rares { flex: none; min-height: var(--eq-rang); }
+  .editeur-quiz .question-plus > summary,
+  .editeur-quiz .entourage > summary { display: flex; align-items: center; gap: 6px; min-height: var(--eq-rang); margin-bottom: 0; color: var(--muted); font-size: 0.82rem; line-height: 1.25; cursor: pointer; }
+  .editeur-quiz .question-plus > summary > .icon,
+  .editeur-quiz .entourage > summary > .icon { flex: none; }
+  .editeur-quiz .question-plus[open],
+  .editeur-quiz .entourage[open] { padding-bottom: 6px; }
+  /* Ouvert, ses réglages rares sur deux colonnes, leur nom sur deux lignes s'il le faut : une rangée chacun, les
+     quatre en prenaient quatre. */
+  .editeur-quiz .question-plus > .question-rares { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--eq-serre); }
+  .editeur-quiz .question-plus .variantes { display: contents; }
+  .editeur-quiz .question-rares .pill-btn { min-height: var(--eq-rang); padding: 4px 12px; line-height: 1.2; text-align: left; }
+
+  /* Ses gestes, sur une rangée d'icônes de 44 px, sans leur cadre : sept cadres ronds côte à côte faisaient une
+     grille, pas une barre d'outils. */
+  .editeur-quiz .question-gestes { gap: 0; padding-top: 2px; }
+  .editeur-quiz .question-gestes .btn-small { position: relative; min-width: var(--eq-rang); min-height: var(--eq-rang); padding: 0; border-color: transparent; }
+  .editeur-quiz .question-gestes .btn-small .icon { width: 20px; height: 20px; }
+
+  /* « Régler tout le quiz » : chaque réglage sous son nom, ses deux choix côte à côte. */
+  .editeur-quiz .regler-tout { gap: var(--eq-serre); padding: var(--eq-marge); }
+  .editeur-quiz .regler-tout > .row { gap: var(--eq-serre); }
+  .editeur-quiz .regler-tout > .row > label.row { flex: 1 1 0; min-width: 0; flex-wrap: nowrap; gap: 6px; }
+  .editeur-quiz .regler-tout > .row > .btn-small { flex: none; }
+  .editeur-quiz .regler-tout > .row[role='group'] > .muted { flex-basis: 100%; font-size: 0.82rem; }
+  .editeur-quiz .regler-tout > .row[role='group'] > .pill-btn { flex: 1 1 0; min-width: 0; padding: 4px 12px; line-height: 1.2; text-align: left; }
+  .editeur-quiz .regler-tout > .row[role='group'] > label.row { flex-basis: 100%; }
+
+  /* La liste collée s'écrit à 16 px : en dessous, iOS agrandit la page dès qu'on touche le champ. */
+  .editeur-quiz .import-area { font-size: 1rem; }
+}
+
+/* Une tablette garde la carte d'un ordinateur, sous le doigt : ce qui s'y touche fait 44 px aussi. La catégorie
+   (27 px), le repli de ce qui entoure la question (32), la case de la photo qui disparaît (24), l'extrait (37)
+   et « Annuler » (23) n'y arrivaient pas. Le repli garde sa hauteur à l'œil — sa boîte de toucher dépasse de
+   lui, dans les écarts de sa rangée. */
+@media (pointer: coarse) and (min-width: 601px) {
+  .editeur-quiz .categorie-select { min-height: 44px; }
+  .editeur-quiz .entourage > summary { position: relative; }
+  .editeur-quiz .entourage > summary::after { content: ''; position: absolute; inset: -6px 0; }
+  .editeur-quiz .observe-edit > .row { min-height: 44px; }
+  .editeur-quiz .extrait-edit .extrait-audio { height: 44px; }
+  .editeur-quiz .undo-line .link-btn { display: inline-flex; align-items: center; min-height: 44px; padding: 0 8px; }
+}
 
 /* ═══════════════════════════════════════════════════════════════════
    ANIMATIONS
@@ -3030,6 +3250,15 @@ h3 > .icon {
 .preview-stage .quiz-question { font-size: clamp(1.4rem, 3.4vw, 2.4rem); }
 .preview-stage .ans-btn { min-height: 76px; font-size: 1.15rem; }
 .preview-frame .row { justify-content: space-between; }
+/* Sur un téléphone, l'aperçu garde les deux colonnes de l'écran commun, en plus petit (le 10 novembre 2026) : à
+   18 px dans des cases de 132, une réponse d'un mot s'y coupait par syllabes — « Can-berra », « Mel-bour-ne » sur
+   trois lignes. Ses marges resserrées de même : c'est la question qu'on vient regarder. */
+@media (max-width: 600px) {
+  .preview-backdrop { padding: 12px; }
+  .preview-frame { padding: 16px; }
+  .preview-stage .ans-grid { gap: 8px; }
+  .preview-stage .ans-btn { min-height: 60px; gap: 8px; padding: 6px 10px; font-size: 0.95rem; }
+}
 
 /* Encoches et barres système des téléphones récents. */
 .player-shell { padding: max(24px, env(safe-area-inset-top)) 20px max(28px, env(safe-area-inset-bottom)); }

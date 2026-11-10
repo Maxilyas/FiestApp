@@ -31,9 +31,11 @@ Tant qu'aucun quiz n'est prêt, la bibliothèque s'ouvre sur « Ton premier quiz
 
 ## L'éditeur
 
-**L'en-tête** reste collé en haut : « ← Mes quiz », le titre (80 caractères), « 2 à compléter ↓ » — qui mène à la prochaine question incomplète — ou « 8/10 prêtes », la durée estimée et « Enregistrer ». « Annuler » y défait le dernier déplacement, la dernière suppression, ou le temps et la catégorie donnés à tout le quiz. L'éditeur prévient d'un emoji que Windows 10 dessine en carré, d'un quiz de moins de cinq questions prêtes — son podium ne rapportera pas d'expérience —, et d'une bonne réponse trop souvent la première (60 % des QCM, dès quatre), avec « Mélanger les réponses à chaque partie ».
+**L'en-tête** reste collé en haut : « ← Mes quiz », le titre (80 caractères), « 2 à compléter ↓ » — qui mène à la prochaine question incomplète — ou « 8/10 prêtes », la durée estimée et « Enregistrer ». « Annuler » y défait le dernier déplacement, la dernière suppression, ou le temps et la catégorie donnés à tout le quiz. Sur un téléphone, le titre s'en va avec la page et une seule rangée reste collée : la flèche du retour, où en est le quiz — sa durée seulement si elle y tient —, « Enregistrer ». Juste dessous, « Régler tout le quiz », et l'heure du dernier enregistrement à sa suite. L'éditeur prévient d'un emoji que Windows 10 dessine en carré, et, sous les questions, d'un quiz de moins de cinq questions prêtes — son podium ne rapportera pas d'expérience — et d'une bonne réponse trop souvent la première (60 % des QCM, dès quatre), avec « Mélanger les réponses à chaque partie ».
 
-**Chaque carte** porte « Question 3 », qui se touche pour taper un autre numéro, son type (« QCM », « Estimation », « Qui dans la salle ? »), ↑ ↓, « + » (une question vide juste après), sa copie, « Aperçu » — la question telle que l'écran commun la projettera — et « Supprimer ». Une question neuve prend le temps et la catégorie de sa voisine ; une photo se colle ou se glisse sur sa carte.
+**Chaque carte** se lit de haut en bas, dans l'ordre où on la remplit : « Question 3 », qui se touche pour taper un autre numéro, et son type (« QCM », « Estimation », « Qui dans la salle ? ») ; l'intitulé ; les réponses ; le temps et la catégorie, la photo et l'extrait ; ce qui se règle rarement — les sortes d'un QCM, « Garder cet ordre », « Mise de côté », puis « Anecdote, note, intertitre » — ; et ses gestes au pied : ↑ ↓, « + » (une question vide juste après), sa copie, « Aperçu » — la question telle que l'écran commun la projettera — et « Supprimer ». Une question neuve prend le temps et la catégorie de sa voisine ; une photo se colle ou se glisse sur sa carte.
+
+**Sur un téléphone** (600 px de large au plus), un QCM à quatre réponses tient sur un écran — 541 px de haut, 1071 avant le 10 novembre 2026 —, et l'intitulé de la première question se lit dès l'arrivée. Le numéro est une pastille, le type un sélecteur d'un seul tenant, chaque réponse une ligne, et les gestes des icônes, dont le nom reste lu par un lecteur d'écran. Ce qui se règle rarement se range sous deux replis côte à côte : « Plus de réglages » — les sortes d'un QCM, « Garder cet ordre », « Mise de côté » —, qui arrive ouvert dès que l'un d'eux est posé et dit combien (« · 1 »), et « Anecdote, note, intertitre », replié même rempli, qui dit ce qu'il porte (« · 2 »). Une estimation et un « Qui dans la salle ? » n'ont que « Mise de côté » : elle reste en vue.
 
 **« Régler tout le quiz »** donne le même temps ou la même catégorie à toutes les questions, et règle le hasard : les réponses « Dans l’ordre écrit » ou « Mélangées à chaque partie », les questions « Dans l’ordre écrit » ou « Tirées dans un autre ordre », « Toutes les questions » ou « Un tirage au hasard » de N questions — cinq au moins (`TIRAGE_MIN`), les jamais posées d'abord. Le hasard se tire une fois au lancement, le même pour toute la salle ; « Garder cet ordre », sur une carte, en exempte une question. Un quiz neuf, une copie de modèle et un quiz tout prêt mélangent leurs réponses d'office.
 
@@ -66,7 +68,7 @@ Une question incomplète s'enregistre telle quelle, dit sur sa carte ce qui lui 
 
 ### Ce qui entoure une question
 
-Toute sorte peut porter ceci ; les quatre derniers se replient sous « Anecdote, note, intertitre » tant qu'ils sont vides.
+Toute sorte peut porter ceci ; les quatre derniers se replient sous « Anecdote, note, intertitre » tant qu'ils sont vides — sur un téléphone, même remplis : le repli dit alors combien il en porte.
 
 | Élément | Ce qu'on écrit | Qui le voit |
 |---|---|---|
@@ -167,6 +169,7 @@ Une liste fixe, la même chez tous les animateurs : Culture générale, Histoire
 - **La bibliothèque en mémoire.** Le moteur de jeu lit une copie des quiz jouables de chaque espace — ni archivés, ni sans question prête —, relue après chaque écriture ; de deux relectures qui se croisent, seule la dernière partie compte. Une partie lancée garde sa propre copie.
 - **Les pièces d'une question** — la photo, celle de la révélation, l'extrait — vivent à part, chacune sous une adresse `/media/image/…` publique : les téléphones les chargent sans session, et l'identifiant, impossible à deviner, tient lieu de permission. Ce qui emporte une question — l'export, un code, le catalogue — les emporte toutes.
 - **Le ménage**, après chaque enregistrement ou suppression d'un quiz, n'efface une pièce qu'une heure après qu'aucun quiz ne la cite plus, et jamais celle qu'une partie encore sur le disque, une soirée archivée ou un partage vivant cite : le bilan d'une soirée passée garde ses photos.
+- **La carte d'une question** (`QuestionCard`, `client/src/views/EditorApp.tsx`) a le même ordre sur tous les écrans ; ce qu'un téléphone resserre vit dans un bloc de `client/src/styles.css` (« L'éditeur d'un quiz, au téléphone », sous la classe `.editeur-quiz`), et la carte ne lit la largeur de l'écran que pour ses deux replis. `server/scripts/rendu-editeur.ts` la mesure à huit tailles et sort en erreur si elle regrandit ; `server/test/editeur-telephone.test.ts` garde ses gestes, leur nom et leur ordre.
 
 Le détail des deux bases et des archives : [Les données](../architecture/donnees.md).
 

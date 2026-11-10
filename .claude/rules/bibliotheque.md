@@ -4,11 +4,11 @@ paths:
   - "server/src/core/{estimation,memoire,partages,quizStore,quizToutPret,seed}.ts"
   - "server/src/partages.ts"
   - "server/content/quiz/**"
-  - "server/scripts/{migrate-library,rendu-quiz-tout-pret}.ts"
+  - "server/scripts/{migrate-library,rendu-quiz-tout-pret,rendu-mes-quiz,rendu-editeur}.ts"
   - "client/src/brouillon.ts"
   - "client/src/views/EditorApp.tsx"
   - "client/src/components/{MesQuiz,Partage,ChampNombre,QuizToutPret,QuizToutPretADemande}.tsx"
-  - "server/test/{bibliotheque,brouillon,echange,liste,editeur,editeur-allers-retours,editeur-pertes,enregistrement,entourage,partage,mes-quiz,categories,memoire,nombres,quiz-tout-pret,quiz-tout-pret-apercu,une-autre-question,console-tout-pret,tirage-sans-redite,emojis,gestes}.test.ts"
+  - "server/test/{bibliotheque,brouillon,echange,liste,editeur,editeur-allers-retours,editeur-pertes,editeur-telephone,enregistrement,entourage,partage,mes-quiz,categories,memoire,nombres,quiz-tout-pret,quiz-tout-pret-apercu,une-autre-question,console-tout-pret,tirage-sans-redite,emojis,gestes}.test.ts"
 ---
 
 # Les quiz : l'éditeur, la liste collée, l'import, le partage, la mémoire
@@ -17,7 +17,7 @@ paths:
 
 - `shared/library.ts` — le format d'un quiz et ses bornes (`MAX_TITRE`, `MAX_TEXT`, `MAX_QUESTIONS`…) ; `normalizeQuestions`, ce que le serveur garde d'une question — à la création, à l'enregistrement, à la lecture en base, à la reprise d'un brouillon ; `toPlayable` et `questionProblem`, jouable ou « à compléter », et pourquoi ; la durée estimée, la recherche et le résumé de « Mes quiz » ; la liste collée (`parseImportedQuestions`)
 - `core/quizStore.ts` · `server/src/api.ts` — la bibliothèque dans la base permanente (`quizzes`, `quiz_images`, `meta`) et ses routes, derrière la session de compte : `/api/quizzes…`, `/api/modeles…`, `/api/quiz-tout-pret…`, `/api/images`, `/api/programmes…` ; et `/media/image/:id`, public — l'UUID est la permission —, qui sert les photos **et** les extraits du blind test, rangés dans la même table
-- `client/src/views/EditorApp.tsx` · `components/MesQuiz.tsx` — « Mes quiz » (`/edit`) : « Créer un quiz » à côté du titre, ses quiz en lignes dans une seule carte — la pastille, le nom, ses faits en morceaux entiers (`faitsDuQuiz`), ▶ —, une fiche par quiz (`/edit?fiche=…` : « Lancer », « Modifier les questions », puis Dupliquer, Partager par un code, Exporter en fichier, Proposer au catalogue, Archiver, et « Supprimer ce quiz » seul en bas), deux feuilles (« Créer un quiz » et ses six choix, « Trier et filtrer »), et les premiers pas d'une bibliothèque sans quiz prêt (`PremiersPas`) — `server/scripts/rendu-mes-quiz.ts` les photographie et les mesure aux six tailles d'un téléphone ; l'éditeur (`/edit?quiz=…`), ses cartes, l'aperçu, « Régler tout le quiz », « Coller une liste » (`BulkImport`) et « Préparer la demande pour une IA ». ▶ et « Lancer » ouvrent un salon sur le quiz (`/salon?quiz=…`) : le programme de ce soir se choisit là, plus ici (`mes-quiz.test.ts`). Sans compte d'animateur, la page ouvre la console par le profil (`ouvrirParLeProfil`)
+- `client/src/views/EditorApp.tsx` · `components/MesQuiz.tsx` — « Mes quiz » (`/edit`) : « Créer un quiz » à côté du titre, ses quiz en lignes dans une seule carte — la pastille, le nom, ses faits en morceaux entiers (`faitsDuQuiz`), ▶ —, une fiche par quiz (`/edit?fiche=…` : « Lancer », « Modifier les questions », puis Dupliquer, Partager par un code, Exporter en fichier, Proposer au catalogue, Archiver, et « Supprimer ce quiz » seul en bas), deux feuilles (« Créer un quiz » et ses six choix, « Trier et filtrer »), et les premiers pas d'une bibliothèque sans quiz prêt (`PremiersPas`) — `server/scripts/rendu-mes-quiz.ts` les photographie et les mesure aux six tailles d'un téléphone ; l'éditeur (`/edit?quiz=…`), ses cartes — dans l'ordre où on les remplit, une question sur un écran de téléphone (`QuestionCard`, `CarteDeQuestion`) —, l'aperçu, « Régler tout le quiz », « Coller une liste » (`BulkImport`) et « Préparer la demande pour une IA » — `server/scripts/rendu-editeur.ts` le mesure à huit tailles. ▶ et « Lancer » ouvrent un salon sur le quiz (`/salon?quiz=…`) : le programme de ce soir se choisit là, plus ici (`mes-quiz.test.ts`). Sans compte d'animateur, la page ouvre la console par le profil (`ouvrirParLeProfil`)
 - `shared/echange.ts` — un quiz qu'on emporte : le fichier d'export (questions, et toutes leurs pièces en clair — photos, extraits), celui de toute la bibliothèque (`fiestapp-bibliotheque`), sa lecture, et l'import, qui repasse par l'envoi d'image et la création de quiz — le navigateur et les tests par le même chemin
 - `shared/liste.ts` — « Coller une liste » vue d'ailleurs : le format complet qu'on copie pour un ami ou une IA, écrit à partir des bornes et des catégories, et la demande toute faite pour une IA (`demandePourIA`) ; les photos jointes qui rejoignent leur question par leur nom de fichier (`photoAttendue` en attendant) ; et l'inverse, `ecrireListe` (« Copier en liste »), que `liste.test.ts` recolle
 - `shared/brouillon.ts` · `client/src/brouillon.ts` — le brouillon d'un quiz : ce que l'éditeur garde dans le navigateur tant que le serveur n'a pas enregistré, relu comme le serveur relit (`normalizeQuestions`)
@@ -46,6 +46,98 @@ paths:
   essai plus ancien que le dernier écrit ne réécrit rien : il rend le quiz
   en base. Ce dernier essai (`derniers`) ne vit qu'en mémoire : après un
   redémarrage, un faux conflit reste possible, que le brouillon rattrape.
+- **La carte d'une question se lit dans l'ordre où on la remplit, et tient
+  sur l'écran d'un téléphone** (le 10 novembre 2026 — le propriétaire : « Est
+  ce que tu peux revoir l'onglet quiz maintenant ? Tu peux si tu le souhaites
+  modifier la disposition et l'aspect si tu trouves cela nécessaire » ; ici
+  aussi la disposition a changé, pas seulement les mesures). En 360 × 640,
+  un QCM à quatre réponses faisait 1071 px de haut — un écran et deux tiers,
+  1125 dans un quiz qui mélange ses réponses —, son intitulé à 287 px du
+  haut de sa carte, sous cinq rangées : son numéro, deux de sortes, deux de
+  gestes ; celui de la première question n'arrivait qu'à 588 px, au bas du
+  premier écran, et un quiz de dix questions faisait dix-neuf écrans
+  (12 077 px), vingt-cinq tiré de la base (15 956). Depuis : 541 px aux six
+  tailles d'un téléphone, l'intitulé à 69 px du haut de sa carte, celui de
+  la première question à 250 px (39 % de l'écran), dix questions en
+  6 740 px, environ 6 600 tirées de la base.
+  **La carte, de haut en bas** (`QuestionCard`), le même ordre sur tous les
+  écrans : son numéro et sa sorte (`.question-head`), l'intitulé, les
+  réponses, ses réglages courants deux à deux — le temps et la catégorie, la
+  photo et l'extrait (`.question-reglages`) —, ce qui se règle rarement
+  (`.question-replis`), ce qu'elle a à dire, puis ses gestes au pied, sous
+  un filet (`.question-gestes` : monter, descendre, insérer, dupliquer,
+  l'aperçu, « Une autre », supprimer). Un ordinateur y gagne aussi : 438 px
+  au lieu de 526, 480 dans un quiz qui mélange.
+  **Au téléphone** (600 px au plus), tout se resserre dans un seul bloc de
+  `styles.css`, « L'éditeur d'un quiz, au téléphone », sous la classe de la
+  page (`.editeur-quiz` — « Mes quiz » porte `.editor` aussi, et n'en sait
+  rien), ses mesures en variables (`--eq-rang`, 44 px, la hauteur d'une
+  rangée) : le numéro en pastille ronde, la sorte en sélecteur segmenté, une
+  réponse par ligne sans cadre autour de son champ — c'est le champ de la
+  bonne qui se teinte —, les gestes en icônes. Ce qu'il tait se cache à
+  l'œil seulement (les déclarations de `.sr-only`) : « Question » devant son
+  numéro, le nom d'« Aperçu », d'« Une autre » et de « Supprimer » sous leur
+  icône (`.question-geste-nom`).
+  **Un repli ne se décide pas dans la feuille de style** — un `<details>`
+  fermé ne se rouvre pas par elle. La carte lit donc la largeur
+  (`useTelephone`, la même borne), pour deux choses seulement : les réglages
+  rares d'un QCM — ses sortes, « Garder cet ordre », « Mise de côté » — à
+  plat à l'ordinateur, sous « Plus de réglages » au téléphone, où chaque
+  pastille prenait sa rangée ; il arrive ouvert dès que l'un est posé — un
+  réglage en vigueur ne se cache pas —, puis reste comme on le laisse : le
+  refermer quand le dernier s'éteint le fermait sous le doigt. Et « Anecdote,
+  note, intertitre », ouvert d'emblée à l'ordinateur s'il est rempli, replié
+  au téléphone, son compte à côté de son nom (« · 2 ») : ouvert, il ajoutait
+  391 px à chaque question d'un quiz tout prêt, qui arrivent toutes avec
+  leur anecdote (1570 px la carte). La lecture vit dans la carte, pas dans
+  la page : les cartes restent mémorisées (`CarteDeQuestion`).
+  **La page** : une seule rangée entre l'en-tête et la première question —
+  « Régler tout le quiz », et l'heure du dernier enregistrement à sa suite
+  (sur sa ligne, elle descendait chaque carte de 36 px à chaque
+  « Enregistrer ») ; ce que le quiz entier a à dire — son podium, ses bonnes
+  réponses en premier — se lit sous les questions, au-dessus d'« Ajouter une
+  question ». L'en-tête ne garde collée qu'une rangée, 53 px au lieu de 85 à
+  107 : sa durée ne s'y montre que si elle tient à la suite de « prêtes »
+  (`.editor-etat`, une rangée qui passe à la ligne, haute d'une seule) —
+  « Mes quiz » la dit sur la ligne du quiz. Sous l'encoche d'un iPhone,
+  l'application installée, le titre commençait à 22 px, sous elle, et la
+  rangée collée s'y glissait : un cache de la hauteur de l'encoche, collé
+  en haut de la page (`.editeur-quiz::before`), tient le titre dessous au
+  repos et le couvre quand il s'en va ; la rangée collée s'arrête sous lui.
+  Sans encoche, il ne fait aucune hauteur. Un vide laissé sous le titre
+  l'aurait tenu aussi — 39 px de trou entre le titre et sa rangée, au
+  repos.
+  **Ce qui le tient** : `editeur-telephone.test.ts` rend la carte telle qu'un
+  téléphone et un ordinateur la reçoivent (`CarteDeQuestion`, exportée pour
+  elle) — chaque geste à son nom d'avant, dans son ordre — et relit la
+  feuille ; `server/scripts/rendu-editeur.ts` mesure chaque carte à huit
+  tailles et sort en erreur si la question type dépasse ce qui est atteint
+  (`PLAFONDS`), si l'intitulé de la première question passe sous la moitié
+  de l'écran, si une cible descend sous 44 px — six téléphones et une
+  tablette ; cinq n'y arrivaient pas : la catégorie (27 px), le repli (32),
+  l'extrait (37), « Annuler » (23), la case de la photo qui disparaît
+  (24) —, un texte sous 11, un champ sous 16 (la liste collée s'écrivait à
+  14,4 px), ou si la page déborde de côté. Ses photos d'une page entière ne
+  passent pas par `fullPage`, qui rend au téléphone émulé un pointeur de
+  souris (skill `regarder-le-rendu`). Un réglage de plus sur la carte prend
+  sa place dans cet ordre — courant ou rare —, pas une rangée de plus sous
+  la tête.
+  **Ce qui reste** : la tête d'une question tirée de la base prend deux
+  rangées au téléphone — sa marche à côté de son numéro, la sorte dessous
+  (+ 40 px) ; une question à photo, à extrait et à observation fait encore
+  1049 px (1846 avant) ; « Coller une liste », avec son mode d'emploi et son
+  exemple, 1722 ; sur le plus étroit des téléphones (320 × 568), rien ne
+  déborde, mais la sorte passe sous le numéro, la photo et l'extrait l'un
+  sous l'autre, et l'en-tête garde deux rangées collées : 633 px ; au texte
+  agrandi à 130 %, 689 px, de même ; là où le navigateur ne connaît pas
+  `field-sizing` (l'intitulé qui grandit avec son texte — Chromium depuis
+  2024), l'intitulé garde deux lignes et sa barre de défilement : 557 px.
+  **L'aperçu d'une question**, sur un téléphone, garde les deux colonnes de
+  l'écran commun en plus petit (15 px, des cases de 148 px, le bloc qui suit
+  `.preview-frame .row`) : à 18 px dans des cases de 132, une réponse d'un
+  mot s'y coupait par syllabes — « Can-berra », « Mel-bour-ne » sur trois
+  lignes ; le script le dit (« une réponse d'un mot se coupe »). Un mot de
+  plus de douze lettres s'y coupe encore.
 - **Un champ de plus à une question passe d'abord par `normalizeQuestions`** :
   sans lui, le serveur le jette à l'enregistrement, et le brouillon aussi.
   Puis par la liste collée (ci-dessous), par `PIECES_DE_QUESTION` si c'est une
