@@ -41,6 +41,7 @@ import { enAttendantLeReveil, type Attente } from '../../shared/reveil'
 import type { BonusDuJour, ClassementDuJour, PartieDuJour, ReglagesDesNotifications, RevelationDuJour } from '../../shared/jour'
 import type { PropositionDuJoueur, PropositionsAuQg, QuestionProposee, VoteDuBonus } from '../../shared/propositions'
 import type { BoutiqueDuProfil, SoldeDeConfettis } from '../../shared/themes'
+import type { Envie } from '../../shared/envie'
 import type { NouveautesDeLaLoge, VusDeLaLoge } from '../../shared/piecesDeLaLoge'
 import type { MissionsDuJour } from '../../shared/missions'
 import type { CoffreOuvert } from '../../shared/coffre'
@@ -563,6 +564,14 @@ export const api = {
     /** Acheter un Éclat : il attend en réserve dans la loge. La réserve et le solde reviennent. */
     acheterUnEclat: () =>
       req<{ enReserve: number; confettis: { gagnes: number; depenses: number; solde: number } }>('/api/joueur/eclat', { method: 'POST', body: '{}' }),
+    /**
+     * Poser son envie — l'article de la boutique pour lequel il économise —,
+     * ou la retirer (`null`). Une à la fois : la nouvelle remplace l'ancienne.
+     * Le serveur refuse en clair ce qui ne se vend pas, ce qu'il a déjà, un
+     * thème hors de sa saison, et rend celle qu'il a retenue.
+     */
+    envie: (envie: Envie | null) =>
+      req<{ envie: Envie | null }>('/api/joueur/envie', { method: 'PUT', body: JSON.stringify({ envie }) }),
     /**
      * Changer son mot de passe : il faut l'actuel, ou le code de secours pour
      * qui l'a oublié. La session seule ne suffit pas — un téléphone se prête

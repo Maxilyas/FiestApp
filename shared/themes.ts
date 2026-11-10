@@ -27,6 +27,7 @@ import { pagesOuvertes, PAGES } from './calendrier'
 import { soireeQuiCompte, type GainSoiree, type ReleveSoiree } from './profil'
 import { formatNumber } from './typographie'
 import type { CompagnonAcquis } from './compagnons'
+import type { Envie } from './envie'
 
 export type RareteDeTheme = 'offert' | Rarete
 
@@ -345,6 +346,12 @@ export interface BoutiqueDuProfil {
    * achat, et d'un serveur d'avant.
    */
   fondsAchetes?: string[]
+  /**
+   * Son envie : l'article pour lequel il économise (`shared/envie.ts`), tant
+   * qu'elle tient — achetée ou sortie de sa saison, elle ne part plus. Absente
+   * sans envie, et d'un serveur d'avant.
+   */
+  envie?: Envie
 }
 
 /**
