@@ -117,9 +117,11 @@ test('le compte de la collection : trois familles, leurs lignes, un total — ce
     // rouge et l'Éclair ; au quiz du jour, la page de janvier ; partout, le
     // bronze de l'écusson d'histoire. Onze de plus à gagner depuis le
     // 15 octobre 2026 : les trois pistes et les deux exploits des sentiers ;
-    // trois depuis le 18 : Le Globe-trotter, le passeport de l'expédition ;
+    // trois depuis le 18 : Le Globe-trotter, le passeport de l'expédition —
+    // et trois de moins depuis le 10 novembre : l'Expédition effacée, le
+    // serveur ne le cite plus qu'à ses détenteurs, et Léa n'en est pas ;
     // trois depuis le 2 novembre 2026 : La Plume, les questions du public jouées.
-    ['trophees', '7/149', ['trophees 7/149']],
+    ['trophees', '7/146', ['trophees 7/146']],
     // Le style, et ses bordures de ligue depuis le 13 octobre 2026 : la loge
     // les proposait, la collection ne les rangeait nulle part. Sans duel
     // classé, le serveur les tait : zéro sur six, pas absentes. Les six fonds
@@ -129,14 +131,14 @@ test('le compte de la collection : trois familles, leurs lignes, un total — ce
     // finitions du 30 au 50 le même jour.
     ['style', '9/103', ['themes 3/35', 'fonds 1/25', 'gerbes 2/25', 'finitions 3/12', 'bordures 0/6']],
   ])
-  assert.deepEqual(total, { acquis: 25, total: 425 })
+  assert.deepEqual(total, { acquis: 25, total: 422 })
   assert.deepEqual(
     compteDeLaCollection({ ...LEA, bordures: [{ ligue: 'bronze', crans: 12 }, { ligue: 'argent', crans: 3 }] } as any)
       .familles.find(f => f.famille === 'style')!
       .parties.find(p => p.partie === 'bordures'),
     { partie: 'bordures', acquis: 2, total: 6 },
   )
-  assert.deepEqual(compteDesTrophees(LEA as any), { acquis: 7, total: 149 })
+  assert.deepEqual(compteDesTrophees(LEA as any), { acquis: 7, total: 146 })
   // Les vingt-quatre emojis de l'inscription sont à tout le monde : ils ne se comptent pas.
   // Et ce qu'un serveur d'avant ne dit pas ne se compte pas : le total n'annonce jamais ce que la page ne montrerait pas.
   const avant = compteDeLaCollection({ ...LEA, boutique: undefined, fonds: undefined, gerbes: undefined, calendrier: undefined } as any)
@@ -190,8 +192,16 @@ test('les trophées se rangent par où ils se gagnent : une page par mode, ses p
   // Les pistes se rangent par ce qu'elles comptent : le niveau et les Éclats, de partout, à part.
   const pistes = (page: string, section = 'pistes') => pages.find(p => p.page === page)!.sections.find(s => s.cle === section)!.cases.map(c => c.cle).sort()
   assert.deepEqual(pistes('jour'), ['hf:assidu', 'hf:champion-du-jour', 'hf:elite', 'hf:infatigable', 'hf:plume', 'hf:sans-faute'])
-  // Le passeport de l'expédition, depuis le 18 octobre 2026 : sa piste se range avec celles de la campagne, qui la compte.
-  assert.deepEqual(pistes('campagne'), ['hf:alpiniste', 'hf:erudit', 'hf:globe-trotter', 'hf:marathonien'])
+  // Le passeport de l'expédition, depuis le 18 octobre 2026 : sa piste se range avec celles de la campagne, qui la compte
+  // — là où le serveur la cite. L'Expédition effacée, il ne la cite plus qu'à ses détenteurs (le 10 novembre 2026) : la
+  // page de Léa ne lui fait pas de case, celle d'un détenteur si.
+  assert.deepEqual(pistes('campagne'), ['hf:alpiniste', 'hf:erudit', 'hf:marathonien'])
+  const citee = { key: 'hf:globe-trotter', famille: 'carriere', emoji: '🧳', title: 'Le Globe-trotter', rule: 'tampons au passeport de l’expédition', ton: 'eclat', fois: 1, valeur: 12, prochain: 40 }
+  const pagesDuDetenteur = albumDesTrophees({ ...LEA, hautsFaits: [...LEA.hautsFaits, citee] } as any)
+  assert.deepEqual(
+    pagesDuDetenteur.find(p => p.page === 'campagne')!.sections.find(s => s.cle === 'pistes')!.cases.map(c => c.cle).sort(),
+    ['hf:alpiniste', 'hf:erudit', 'hf:globe-trotter', 'hf:marathonien'],
+  )
   // Ce qui se valide en épreuve, sur la page des sentiers — que la campagne compte pourtant.
   assert.deepEqual(pistes('sentiers'), ['hf:cartographe', 'hf:constellation', 'hf:randonneur'])
   assert.deepEqual(pistes('sentiers', 'exploits'), ['hf:contre-toute-attente', 'hf:impeccable'])
@@ -209,9 +219,9 @@ test('les trophées se rangent par où ils se gagnent : une page par mode, ses p
 test('la collection : son total, trois familles, une ligne par collection — repliées, sans rien à porter', async () => {
   lieu.hash = ''
   const html = await rendu('components/Collection', 'MaCollection', { profil: LEA })
-  assert.match(html, /<p class="collection-total"><b>25<\/b> sur 425<\/p>/)
+  assert.match(html, /<p class="collection-total"><b>25<\/b> sur 422<\/p>/)
   const familles = [...html.matchAll(/<h2 id="famille-\w+">([^<]+)<span class="collection-compte">([^<]+)<\/span><\/h2>/g)].map(m => `${m[1].trim()} ${m[2]}`)
-  assert.deepEqual(familles, ['Avatars 9 sur 173', 'Trophées 7 sur 149', 'Style 9 sur 103'])
+  assert.deepEqual(familles, ['Avatars 9 sur 173', 'Trophées 7 sur 146', 'Style 9 sur 103'])
   const lignes = [...html.matchAll(/<span class="trophee-texte"><b>([^<]+)<\/b>/g)].map(m => m[1])
   assert.deepEqual(lignes, [
     // Trois lignes — le savoir, les légendaires et les Divins, les emojis —
@@ -241,10 +251,10 @@ test('le carnet des fêtes : sa ligne avec les trophées, une page par année, c
   const trophees = compteDeLaCollection(AVEC_LE_CARNET as any).familles.find(f => f.famille === 'trophees')!
   // 2026 : Halloween et Noël ; 2027, ouverte par le Nouvel An en cours : ses huit fêtes.
   assert.deepEqual(trophees.parties, [
-    { partie: 'trophees', acquis: 7, total: 149 },
+    { partie: 'trophees', acquis: 7, total: 146 },
     { partie: 'timbres', acquis: 1, total: 10 },
   ])
-  assert.deepEqual(compteDeLaCollection(AVEC_LE_CARNET as any).total, { acquis: 26, total: 435 })
+  assert.deepEqual(compteDeLaCollection(AVEC_LE_CARNET as any).total, { acquis: 26, total: 432 })
 
   lieu.hash = '#collection-timbres'
   const html = await rendu('components/Collection', 'MaCollection', { profil: AVEC_LE_CARNET })
