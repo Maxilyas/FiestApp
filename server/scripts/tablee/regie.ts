@@ -52,7 +52,9 @@ import {
   attenteDesImages,
   imagesPasPretes,
   lancerLeDe,
+  ligneDeLaFenetre,
   ligneDeLaMarche,
+  LIRE_LA_FENETRE,
   lireLeDe,
   lireLeToucher,
   marchesASavoir,
@@ -61,6 +63,7 @@ import {
   pointVise,
   retenirLaPartie,
   UN_CURSEUR_NE_SE_TAPE_PAS,
+  type FenetreOuverte,
   type PartieVueParLaPage,
   type Visee,
 } from './gestes'
@@ -946,7 +949,10 @@ async function marcheDuDe(o: Onglet): Promise<string | null> {
 
 async function ecran(p: Participant, o: Onglet, message?: string): Promise<string> {
   const tete = await entete(p, o)
-  return [message, tete, '', await arbre(o.page)].filter(x => x !== undefined).join('\n')
+  // Dite avant l'écran : l'instantané la range après toute la page qu'elle
+  // couvre, encore écrite comme si on pouvait la toucher.
+  const fenetre = await fenetreOuverte(o.page)
+  return [message, tete, fenetre ? ligneDeLaFenetre(fenetre, 'ecran') : undefined, '', await arbre(o.page)].filter(x => x !== undefined).join('\n')
 }
 
 /**
@@ -1077,6 +1083,15 @@ async function toucher(p: Participant, el: Element, visee: Visee | null = null) 
     if (/Timeout/i.test(m)) throw new Refus('Ce bouton ne réagit pas (rien ne s’est passé en 4 s).')
     throw e
   }
+}
+
+/**
+ * La fenêtre de l'application ouverte sur cette page, s'il y en a une : la
+ * régie lit le téléphone par ses classes, donc aussi sous elle, où un invité
+ * ne voit ni ne touche rien (`LIRE_LA_FENETRE`, `gestes.ts`).
+ */
+async function fenetreOuverte(page: Page): Promise<FenetreOuverte | null> {
+  return (await page.evaluate(LIRE_LA_FENETRE).catch(() => null)) as FenetreOuverte | null
 }
 
 async function adresseDuQr(o: Onglet): Promise<string | null> {
@@ -1488,6 +1503,12 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
         throw new Refus(`Pas de nouvelle question en ${secondes(Date.now() - debut)} (ton téléphone : ${etat.etat}). Redemande « question » pour attendre encore.`)
       }
       if (e.etat === 'qcm' || e.etat === 'estimation') {
+        // Une fenêtre la couvre — « Quitter la soirée ? », après un « retour »
+        // resté sans réponse : il ne la voit pas. La lui lire, c'était lui
+        // faire répondre dans le vide (la tablée du 9 novembre 2026). Elle
+        // n'est pas retenue : la fenêtre fermée, « question » la lui rendra.
+        const fenetre = await fenetreOuverte(page)
+        if (fenetre) return `${await entete(p, o)}\n\n${ligneDeLaFenetre(fenetre, 'question')}`
         p.question = { cle: `${e.label}|${e.question}`, vueA: Date.now(), repondu: false }
         p.podiumAnnonce = false
         return `${await entete(p, o)}\n\n${lireQuestion(e)}\n→ « repondre <${e.etat === 'qcm' ? 'numéro' : 'nombre'}> » (ou « capture » pour voir l'écran)`
@@ -1523,6 +1544,10 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
         if (e.pause && p.question?.cle === `${e.label}|${e.question}`) p.question.enPause = true
         throw new Refus(e.pause ? 'La question est en pause : les réponses sont bloquées.' : 'Trop tard : les réponses sont closes.')
       }
+      // Sous une fenêtre, la question est inerte : un toucher n'y arrive pas,
+      // une frappe part ailleurs — et « Entrée » ferme la fenêtre.
+      const fenetre = await fenetreOuverte(page)
+      if (fenetre) throw new Refus(ligneDeLaFenetre(fenetre, 'repondre'))
       const lue = p.question && p.question.cle === `${e.label}|${e.question}` ? p.question : null
       const depuis = lue ? Date.now() - lue.vueA : null
       const delai = depuis === null ? '' : ` — ${secondes(depuis)} après l'apparition de la question`
@@ -1583,6 +1608,11 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
       const champ = page.locator('.quiz-player .guess-form input')
       if (APPAREILS[p.appareil].tactile) await toucher(p, champ).catch(() => {})
       await taper(champ, voulu)
+      // Ce qui n'est pas entré dans le champ ne partira pas : le toucher qui
+      // précède échoue en silence, et « Tu proposes 450 » se disait d'un
+      // champ resté vide.
+      const ecrit = (await champ.inputValue().catch(() => '')).trim()
+      if (ecrit !== voulu) throw new Refus(`Ce que tu tapes n’arrive pas dans le champ (il affiche « ${ecrit} ») : rien n’est parti. Regarde ton écran (« voir »).`)
       await champ.press('Enter')
       // Ce qu'il ne lit pas, le téléphone le dit sous le champ. Sans cette
       // lecture, la régie attendait un accusé qui ne viendrait pas — ou prenait

@@ -254,6 +254,35 @@ Une estimation sur trois, tapée 1,8 s après l'ouverture au profil iPhone,
 n'a pas été enregistrée (« Pas de réponse »). Ma tentative de la rejouer n'a
 rien conclu. Une réponse perdue serait grave : à reprendre.
 
+**Depuis (le 10 novembre 2026). Écarté : aucune réponse perdue, cela vient
+du banc.** Le journal de la tablée donne le geste qui manquait au retour de
+Lucas : un `retour`, 0,4 s après sa réponse à la question 2. Il ouvre
+« Quitter la soirée ? » (la garde du geste retour, `client/src/retour.ts`),
+et Lucas n'y a pas répondu. La fenêtre est restée une trentaine de secondes : la
+révélation, puis l'estimation sont arrivées dessous, où rien ne se touche.
+La régie, elle, lisait le téléphone par ses classes, fenêtre ou pas :
+`question` lui a lu l'estimation, et `repondre 450` a touché un champ
+couvert — le refus du toucher était avalé —, tapé dans le vide, puis son
+« Entrée » a fermé la fenêtre (« Rester »). Rien n'est parti. Les 8,5 s du
+geste au journal sont ses deux attentes : quatre secondes pour le toucher,
+quatre pour un accusé qui ne pouvait pas venir.
+
+Rejoué geste pour geste (`reproductions/estimation-sous-une-fenetre.mts`) :
+avec le « retour », le champ reste vide et le serveur attend toujours
+Lucas ; sans lui, les mêmes gestes à 1,8 s inscrivent 450. « 1,8 s » et
+« iPhone » n'y étaient pour rien. Un vrai joueur, lui, voit la fenêtre : il
+touche « Rester » et répond.
+
+La régie est corrigée (`server/scripts/tablee/gestes.ts`) : `question`
+nomme la fenêtre sans lire la question qu'elle couvre, `repondre` refuse,
+une estimation qui n'est pas entrée dans le champ ne se dit plus
+« proposée », et chaque écran dit en tête qu'une fenêtre est ouverte —
+l'instantané la rangeait après toute la page couverte.
+
+Une question de produit reste, hors de cet axe : un retour involontaire
+laisse « Quitter la soirée ? » sur la question suivante, chronomètre
+tournant, tant qu'on ne lui a pas répondu.
+
 ### 14. Détails
 
 - Les points d'équipe : « 2 membres · 2535 pts au total » à côté de
@@ -297,6 +326,11 @@ rien conclu. Une réponse perdue serait grave : à reprendre.
   s'écrivait « 2 » : c'était son texte.
 - Nadia a répondu « un poumon » parce que `repondre "2"` vise la deuxième
   réponse ; son `voir` ne rendait pas de références.
+- **L'estimation « avalée » de Lucas** (axe 13) : il avait fait `retour`,
+  et la régie a lu puis « rempli » la question sous « Quitter la soirée ? »
+  restée ouverte. Rien n'est parti du téléphone
+  (`reproductions/estimation-sous-une-fenetre.mts`). **Corrigé dans la
+  régie.**
 
 ## Ce qui plaît, et qu'il ne faut pas casser
 
@@ -324,6 +358,9 @@ rien conclu. Une réponse perdue serait grave : à reprendre.
 
 - La régie tient une télé branchée (`/tele`) pour un écran commun.
 - Le geste `question` rend une question reposée à qui n'y avait pas répondu.
+- Une fenêtre ouverte sur le téléphone se dit : en tête de chaque écran, à
+  `question` (qui ne lit plus la question qu'elle couvre) et à `repondre`
+  (qui refuse) ; une estimation se relit dans son champ avant « Entrée ».
 - Une fiche et des consignes pour ce chemin : `personas/nadia-salon.md`,
   `consignes-chef.md`.
 

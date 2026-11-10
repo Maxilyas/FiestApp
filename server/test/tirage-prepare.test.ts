@@ -10,6 +10,14 @@
 // Une retouche du tirage se vérifie au même hasard contre l'ancien, question
 // pour question (règle `campagne.md`) : l'ancien est recopié ici, la
 // référence.
+//
+// Le 10 novembre 2026, le tour des sous-thèmes est devenu pondéré
+// (`shared/sousThemes.ts`) : une série qui tient une spécialité n'est plus
+// celle du 16 octobre, et c'est voulu. La référence a donc appris la même
+// règle, écrite à sa façon — le pas de chaque sous-thème, le tour d'entrée de
+// chaque spécialité tiré derrière le battage, dans l'ordre où la liste les
+// montre — ; sans spécialité, elle reste mot pour mot celle d'avant.
+// `tirage-pondere.test.ts` dit ce que la règle donne.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync } from 'node:fs'
@@ -23,8 +31,9 @@ import { CampagneStore, MESURES_GARDEES_MS, PreparationDuTirage, VUE_RECENTE_MS,
 import { JourStore } from '../src/core/jour'
 import { DejaPrises } from '../src/core/jumelles'
 import { NIVEAUX, QUESTIONS_PAR_MARCHE, QUESTIONS_PAR_SERIE, niveauDeQuestion, ordreDeSerie, type MesureDUneQuestion, type Niveau } from '../../shared/campagne'
+import { pasDuSousTheme } from '../../shared/sousThemes'
 
-// ── L'ancien tirage, tel qu'il était le 16 octobre 2026 : la référence ─────
+// ── L'ancien tirage, tel qu'il était le 16 octobre 2026, et le pas de ses sous-thèmes : la référence ─────
 
 const REGARD_DES_JUMELLES = 12
 const classeDeFraicheur = (le: number | undefined, maintenant: number): 0 | 1 | 2 => (le === undefined ? 0 : maintenant - le < VUE_RECENTE_MS ? 2 : 1)
@@ -87,7 +96,7 @@ class TourDAvant<T extends { id: string; meta: { categorie: string; sousTheme: s
       file.rangs.splice(i, 1)
       tirees.push(q)
       categories.set(file.categorie, (categories.get(file.categorie) ?? 0) + 1)
-      sousThemes.set(file.cle, (sousThemes.get(file.cle) ?? 0) + 1)
+      sousThemes.set(file.cle, (sousThemes.get(file.cle) ?? 0) + pasDuSousTheme(q.meta.categorie, q.meta.sousTheme))
       deja?.prendre(q)
     }
     return tirees
@@ -158,8 +167,15 @@ function tirageDAvant(
   maintenant = 0,
 ): { question: QuestionDeLaBase; niveau: Niveau }[] {
   const parNiveau: Record<Niveau, QuestionDeLaBase[]> = { facile: [], moyen: [], difficile: [], expert: [] }
-  for (const q of parFraicheur(melanger(jouables), vues, maintenant)) parNiveau[niveauDeQuestion(q.meta.difficulte, mesure.get(q.id))].push(q)
+  const battues = melanger(jouables)
   const servies: Servies<QuestionDeLaBase> = { categories: new Map(), sousThemes: new Map(), deja: new DejaPrises() }
+  // Chaque spécialité de la liste, dans l'ordre où la liste — pas le battage — la montre, tire le tour où elle entre.
+  for (const { meta } of jouables) {
+    const cle = `${meta.categorie}\u0000${meta.sousTheme}`
+    const pas = pasDuSousTheme(meta.categorie, meta.sousTheme)
+    if (pas > 1 && !servies.sousThemes.has(cle)) servies.sousThemes.set(cle, Math.floor(Math.random() * pas))
+  }
+  for (const q of parFraicheur(battues, vues, maintenant)) parNiveau[niveauDeQuestion(q.meta.difficulte, mesure.get(q.id))].push(q)
   const tours = new Map(NIVEAUX.map(n => [n, new TourDAvant(parNiveau[n], vues, maintenant, servies)]))
   const marches: Record<Niveau, QuestionDeLaBase[]> = { facile: [], moyen: [], difficile: [], expert: [] }
   for (const n of NIVEAUX) marches[n].push(...tours.get(n)!.prendre(QUESTIONS_PAR_MARCHE))
@@ -231,11 +247,14 @@ test('sur la vraie base, la série préparée est celle d’avant, question pour
   const base = laBase()
   const parCategorie = base.filter(q => q.meta.categorie === 'Histoire')
   const surUnSujet = base.filter(q => sujetsDeLaQuestion(q).includes('annees-80'))
+  // Deux spécialités sur onze sous-thèmes, et trois sur douze : là où le pas pèse le plus.
+  const avecSpecialites = base.filter(q => q.meta.categorie === 'Sport' || q.meta.categorie === 'Culture générale')
   const joueurs = inventeur(11)
   for (const [nom, jouables] of [
     ['toute la base', base],
     ['une catégorie', parCategorie],
     ['un sujet', surUnSujet],
+    ['deux catégories à spécialités', avecSpecialites],
   ] as const) {
     const mesure = joueurs.mesure(jouables)
     // Une préparation gardée, comme le serveur la garde, et tirée pour chacun.
@@ -255,11 +274,14 @@ test('sur la vraie base, la série préparée est celle d’avant, question pour
 test('une petite base épuisée de jamais vues : les vues, puis celles de ces vingt-quatre heures, dans le même ordre qu’avant', () => {
   const joueurs = inventeur(5)
   const categories = ['Histoire', 'Sport', 'Musique', 'Cuisine']
+  // Deux vraies spécialités parmi les sous-thèmes inventés : leur pas se suit aussi d'une classe de fraîcheur à l'autre.
+  const specialites: Record<string, string> = { 'Sport\u0000st0': 'equitation', 'Musique\u0000st1': 'danses' }
   for (let essai = 0; essai < 300; essai++) {
     const n = 1 + Math.floor(joueurs.hasard() * 120)
     const jouables = Array.from({ length: n }, (_, i) => {
       const categorie = categories[Math.floor(joueurs.hasard() * categories.length)]
-      const sousTheme = `st${Math.floor(joueurs.hasard() * 4)}`
+      const invente = `st${Math.floor(joueurs.hasard() * 4)}`
+      const sousTheme = specialites[`${categorie}\u0000${invente}`] ?? invente
       // Des formes et des réponses qui se répètent : les jumelles se cherchent.
       const forme = Math.floor(joueurs.hasard() * 6)
       return {

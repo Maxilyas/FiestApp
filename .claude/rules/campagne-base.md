@@ -177,6 +177,43 @@ Pour agrandir la base (un lot, sa relecture, son rangement — ou des milliers d
   bouger (les Preakness Stakes, hors de Pimlico en 2026) et deux palmarès
   faux (le cheval d'Anky van Grunsven en 2000, l'or de Rio en concours
   complet aussi).
+- **Quatre licences étoffées, quatre univers ouverts** (le 10 novembre
+  2026, « des thèmes que les gens ont envie de tester ») : Harry Potter,
+  Star Wars, Marvel et le Seigneur des anneaux, 80 de plus chacun
+  (`--sujet=harry-potter:80,…`, deux vagues), 304 rangées sur 320 ; puis
+  Astérix, Tintin, Pokémon, Mario et Nintendo — leur étiquette posée par un
+  tri (468 candidates de mots-clés, 269 posées : nintendo en gardait 112
+  sur 283), puis `--sujet=asterix:65,tintin:80,pokemon:90,nintendo:25`,
+  trois vagues, 235 rangées sur 260 —, jusqu'à 28 336. Ce qu'on en a
+  appris : une question d'univers se joue aussi hors de son thème, et son
+  intitulé nomme sa saga ou un personnage que tout le monde y rattache —
+  « le gorille géant de L'Île noire » ne dit Tintin à personne ; les
+  relecteurs, prévenus, en ont corrigé une quinzaine, un contrôle par
+  mots-repères trente de plus : la section « CE LOT EN PARTICULIER » d'un
+  lot d'univers le demande désormais d'emblée. Un intitulé corrigé pour
+  nommer sa saga peut retomber sur un fait de la base (deux formules de
+  Harry Potter) : `verifier` après chaque `appliquer`. À la troisième
+  vague d'un univers, un rédacteur à court retombe sur un gabarit — huit
+  « dans les traductions anglaises, comment s'appelle… », huit « dans
+  quelle ville de Kanto… », quatre numéros de Pokédex — : les cinq
+  premiers mots de chaque intitulé, comptés sur tous les lots, les
+  montrent (14 retirées). Et le juge des faits ne voit pas une redite
+  écrite d'autres mots quand ses entités diffèrent : « Quelle formule
+  allume une lumière au bout de la baguette ? » passait à côté de « quel
+  sortilège fait jaillir de la lumière… », Lumos dans les deux — 22
+  questions rangées puis retirées (`retirer`), et 5 de l'équitation et de
+  la plongée de la veille, que la géographie et la nature posaient déjà
+  (le département de Deauville, le parc des Calanques) : 28 309 ; puis
+  le juge des réponses chiffrées retournées, arrivé de `main` le même jour
+  (plus bas), en a relevé trois à la fusion — deux années déjà écrites dans
+  un intitulé de la base, retirées, un « (2001) » ôté d'un intitulé : 28 307.
+  Une branche qui range des questions relance `voisines` après avoir
+  fusionné `main` : le juge a pu apprendre entre-temps. Avant de
+  ranger un lot écrit pour un sujet qui a déjà ses questions, compare
+  chaque bonne réponse neuve à celles que la base porte sous la même
+  étiquette, et relis les paires : la moitié posent deux faits (Yoda et
+  deux répliques), l'autre le même. Enfin la fiche de relecture ne montre
+  pas les étiquettes : un relecteur a cru qu'elles manquaient.
 - **Une réponse chiffrée retournée se refuse, et la base garde les siennes**
   (les 9 et 10 novembre 2026, des lots pour le premier acte du nouveau
   Filet — des années et des grandeurs que la plupart des Français placent,

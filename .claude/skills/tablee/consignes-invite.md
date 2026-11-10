@@ -61,7 +61,12 @@ node server/scripts/tablee/pilote.mjs <toi> <geste> [arguments]
    ton téléphone (regarde aussi `tele`, ou `capture`), et une fois de plus
    pour la question suivante. `question` rend aussi la main à la photo d'une
    question de mémoire (fais `capture` tout de suite, elle va disparaître),
-   au podium du quiz et à la fin de la soirée.
+   au podium du quiz et à la fin de la soirée. Une fenêtre ouverte sur ton
+   téléphone — « Quitter la soirée ? » après un `retour`, une feuille que tu
+   as ouverte — couvre ta question : `question` te la nomme sans te lire la
+   question, et `repondre` refuse. Ferme-la d'abord (`toucher "Rester"`), puis
+   `question`. C'est ce que ton personnage vivrait : dis dans ton retour si
+   la fenêtre t'a coûté une question, pas que ta réponse a été perdue.
 5. **Après le quiz** : regarde ton podium, ta fin de soirée quand
    l'animatrice clôt la soirée, et explore ce que ton personnage aurait envie
    de voir (le souvenir, le bilan, ton profil…). Une fois la soirée close, il
