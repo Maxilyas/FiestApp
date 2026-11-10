@@ -79,16 +79,14 @@ function minuitDuJour(jour: string): number {
   return minuitDe(Date.UTC(a, m - 1, j, 12))
 }
 
-/** Les découvertes qu'une journée a jouées : le tirage vise d'abord les autres. */
+/** Les découvertes qu'une journée a jouées : le tirage vise d'abord les autres. Ni les sentiers ni le Cabinet : ils ont l'aventure, chaque jour (`DECOUVERTES`). */
 function decouvertesDe(a: ActiviteDuJour): SorteDeMission[] {
   return [
     ...(a.meilleureSerie > 0 ? (['serie'] as const) : []),
     ...(a.duels > 0 ? (['duel'] as const) : []),
-    ...(a.epreuves > 0 ? (['sentier'] as const) : []),
     ...(a.etapes > 0 ? (['parcours'] as const) : []),
     ...(a.defis > 0 ? (['defi'] as const) : []),
     ...(a.revues > 0 ? (['revision'] as const) : []),
-    ...(a.cabinet > 0 ? (['cabinet'] as const) : []),
     ...(a.duelsLances > 0 ? (['defier'] as const) : []),
   ]
 }
@@ -324,7 +322,7 @@ export class Missions {
     ]).then(([aRevoir, adversaires]) => ({ aRevoir, adversaires }))
   }
 
-  /** Ce que le tirage du jour sait de lui : ses sept derniers jours, son défi, son carnet, ses missions d'hier, le Cabinet, qui défier. */
+  /** Ce que le tirage du jour sait de lui : ses sept derniers jours, son défi, son carnet, ses missions d'hier et d'avant-hier, le Cabinet, qui défier. */
   private contexte(
     aujourdhui: string,
     lundi: string,
@@ -334,14 +332,14 @@ export class Missions {
     lu: { aRevoir: number; adversaires: boolean },
   ): ContexteDuTirage {
     const septJours = Array.from({ length: 7 }, (_, i) => activites.get(jourAvant(aujourdhui, i + 1)) ?? AUCUNE_ACTIVITE)
-    const hier = jourAvant(aujourdhui, 1)
+    // Ses lignes remontent au lundi de la semaine passée (`depuis`) : hier et avant-hier y sont toujours.
+    const tireesLe = (jour: string) => lignes.filter(l => l.jour === jour && l.mission).map(l => l.mission!)
     return {
-      quizDuJourJoue: !!activites.get(aujourdhui)?.quizDuJour,
-      joursDuJour: septJours.filter(a => a.quizDuJour).length,
       decouvertesJouees: new Set(septJours.flatMap(decouvertesDe)),
       defiFini: series.some(s => s.mode === 'defi' && s.finieLe !== null && jourDe(s.finieLe) >= lundi),
       aRevoir: lu.aRevoir,
-      hier: lignes.filter(l => l.jour === hier && l.mission).map(l => l.mission!),
+      hier: tireesLe(jourAvant(aujourdhui, 1)),
+      avantHier: tireesLe(jourAvant(aujourdhui, 2)),
       cabinet: this.deps.cabinetOuvert?.() ?? false,
       adversaires: lu.adversaires,
       themes: THEMES_DES_DEFIS,

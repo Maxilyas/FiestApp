@@ -37,11 +37,13 @@ const ICONE: Readonly<Record<SorteDeMission, IconName>> = {
   serie: 'target',
   duel: 'swords',
   sentier: 'mountain',
+  'sentier-justes': 'mountain',
   parcours: 'book',
   defi: 'trophy',
   revision: 'rotate',
   // Celle du gros bouton du Cabinet sur l'accueil, et les épées des duels : la mission se reconnaît à son mode.
   cabinet: 'landmark',
+  'cabinet-justes': 'landmark',
   defier: 'swords',
 }
 

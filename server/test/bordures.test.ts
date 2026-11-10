@@ -1,9 +1,16 @@
 // Les bordures de ligue (le souhait du propriétaire du 12 octobre 2026, sur
 // la maquette des alliages : « Go pour implémenter ça ») : chaque ligue
 // atteinte en duel ouvre sa bordure crantée autour de l'avatar, chaque duel
-// gagné dans la ligue en sertit un cran, douze la sertissent. La ligue donne
-// la forme et la pierre, la finition le métal. Rien ne se tient à côté : les
-// crans se relisent dans le journal des duels, seul le choix s'enregistre.
+// gagné dans la ligue ou plus haut en sertit un cran, douze la sertissent. La
+// ligue donne la forme et la pierre, la finition le métal. Rien ne se tient à
+// côté : les crans se relisent dans le journal des duels, seul le choix
+// s'enregistre.
+//
+// « Ou plus haut » depuis le 10 novembre 2026 (le propriétaire : « une
+// victoire compte aussi pour les ligues d'en dessous ») : comptée dans sa
+// seule ligue, une victoire laissait le bronze et l'argent à six crans sur
+// douze pour tout le monde — cent points, dix-sept par victoire, et gardées,
+// on n'y revient pas.
 //
 // Ce qui sort d'un médaillon passe par-dessus elle (« je veux garder ce truc
 // pour les avatars ») ; la lumière des finitions 15, 20 et 25 garde son
@@ -18,7 +25,7 @@ import { ADMIN, baseDEssai, connexionAnimateur, demarrer, ecranCommun, ecrire, i
 import { CATEGORIES } from '../../shared/categories'
 import { VIES, semaineDe } from '../../shared/campagne'
 import { jourDe } from '../../shared/jour'
-import { AUCUNE_BORDURE, CRANS_D_UNE_BORDURE, bordurePortee, choixDeBordure, coteDuScore, releverLesDuels, type BordureDeLigue, type DuelJoue } from '../../shared/duels'
+import { AUCUNE_BORDURE, CRANS_D_UNE_BORDURE, bordurePortee, choixDeBordure, coteDuScore, ligueDe, ouSeGagnentSesCrans, releverLesDuels, type BordureDeLigue, type DuelJoue } from '../../shared/duels'
 import { ProfileStore } from '../src/auth/profiles'
 
 ProfileStore.tirageEclat = () => false
@@ -55,40 +62,98 @@ const VICTOIRES_AU_DE = 14
 const victoiresAuJournal = (banc: Banc, profileId: string) => {
   for (let i = 0; i < VICTOIRES_AU_DE; i++) duelAuJournal(banc, profileId, 16, 15, DEBUT - (VICTOIRES_AU_DE - i) * 3_600_000)
 }
+/** Ce qu'elles sertissent : chacune compte pour sa ligue et celles d'en dessous — les quatorze en bronze, huit dès l'argent, deux en or. */
 const BORDURES_DU_DE: BordureDeLigue[] = [
-  { ligue: 'bronze', crans: 6 },
-  { ligue: 'argent', crans: 6 },
+  { ligue: 'bronze', crans: 12 },
+  { ligue: 'argent', crans: 8 },
   { ligue: 'or', crans: 2 },
 ]
 
+/** Un duel au dé, tel que le journal le relit : sans cote figée en face — à chances égales, sur la cote qu'on voit. */
+const auDe = (i: number, justes: number, sesJustes: number): DuelJoue => ({ serie: `s${String(i).padStart(3, '0')}`, justes, sesJustes, finiLe: DEBUT + i * 60_000 })
+
+const cransDe = (duels: DuelJoue[]) => Object.fromEntries(releverLesDuels(duels, semaine).bordures.map(b => [b.ligue, b.crans]))
+
 // ── 1. Les crans se relisent dans le journal ──────────────────────────────
 
-test('un duel gagné sertit un cran de la ligue où il s’est joué ; rien ne se reprend en redescendant', () => {
+test('un duel gagné sertit un cran de sa ligue et de celles d’en dessous ; rien ne se reprend en redescendant', () => {
   // Aucun duel : aucune bordure — l'absence, pas une bordure de bronze.
   assert.deepEqual(releverLesDuels([], semaine).bordures, [])
-  // Chaque victoire compte dans la ligue de sa cote avant le duel ; atteindre l'or ouvre sa bordure.
+  // Chaque victoire compte dans la ligue de sa cote avant le duel — quatre en bronze, quatre en argent, deux en or — et
+  // dans celles d'en dessous ; atteindre l'or ouvre sa bordure.
   const dix = releverLesDuels(DIX_VICTOIRES, semaine)
   assert.equal(dix.cote, 1241)
   assert.deepEqual(dix.bordures, [
-    { ligue: 'bronze', crans: 4 },
-    { ligue: 'argent', crans: 4 },
+    { ligue: 'bronze', crans: 10 },
+    { ligue: 'argent', crans: 6 },
     { ligue: 'or', crans: 2 },
   ])
   // Une défaite, une égalité ne sertissent rien — mais le premier duel ouvre la bordure de sa ligue.
   assert.deepEqual(releverLesDuels([duel(0, 3, 14), duel(1, 8, 8)], semaine).bordures, [{ ligue: 'bronze', crans: 0 }])
-  // Monté en diamant, redescendre en platine ne reprend ni le diamant ni ses crans ; une victoire en platine y sertit
-  // le sien. (L'argent, l'or et la platine, une fois atteints, ne se perdent plus — la platine depuis le 17 octobre
-  // 2026 : c'est du diamant qu'on redescend.)
+  // Monté en diamant, redescendre en platine ne reprend ni le diamant ni ses crans ; une victoire en platine sertit
+  // la platine, jamais le diamant : un cran ne monte pas. (L'argent, l'or et la platine, une fois atteints, ne se
+  // perdent plus — la platine depuis le 17 octobre 2026 : c'est du diamant qu'on redescend.)
   const montee = [...DIX_VICTOIRES, ...Array.from({ length: 10 }, (_, k) => duel(10 + k, 21, 20))]
   const chute = [...montee, ...[20, 21, 22, 23].map(i => duel(i, 1, 9))]
   const apres = releverLesDuels(chute, semaine)
   assert.ok(apres.cote >= 1300 && apres.cote < 1400, `redescendu en platine (${apres.cote})`)
   assert.deepEqual(apres.bordures.find(b => b.ligue === 'diamant'), { ligue: 'diamant', crans: 2 })
+  // Cinq victoires en platine, et les deux du diamant, qui comptent pour elle.
+  assert.deepEqual(apres.bordures.find(b => b.ligue === 'platine'), { ligue: 'platine', crans: 7 })
   const relevee = releverLesDuels([...chute, duel(24, 16, 15)], semaine)
-  assert.deepEqual(relevee.bordures.find(b => b.ligue === 'platine'), { ligue: 'platine', crans: 6 })
+  assert.deepEqual(relevee.bordures.find(b => b.ligue === 'platine'), { ligue: 'platine', crans: 8 })
+  assert.deepEqual(relevee.bordures.find(b => b.ligue === 'diamant'), { ligue: 'diamant', crans: 2 })
   // Douze crans au plus : treize victoires en bronze la sertissent, sans rien de plus.
   const treize = releverLesDuels([...Array(13)].map((_, i) => duel(i, 3, 0)), semaine)
   assert.deepEqual(treize.bordures, [{ ligue: 'bronze', crans: CRANS_D_UNE_BORDURE }])
+})
+
+test('une ligue gardée se sertit d’en haut : le bronze et l’argent, qu’on traverse en six victoires, ne restent plus à six crans', () => {
+  // Rien que des victoires au dé : dix-sept points chacune sous l'Or, la sixième fait quitter le bronze — pour
+  // toujours, l'argent se garde. Comptées dans leur seule ligue, le Moletage s'arrêtait là, à six crans sur douze.
+  const victoires = (n: number) => [...Array(n)].map((_, i) => auDe(i, 9, 8))
+  assert.deepEqual(cransDe(victoires(6)), { bronze: 6, argent: 0 })
+  // Les suivantes se jouent en argent, puis en or : elles comptent aussi pour le bronze, qui se sertit à la douzième.
+  assert.deepEqual(cransDe(victoires(11)), { bronze: 11, argent: 5 })
+  assert.deepEqual(cransDe(victoires(12)), { bronze: 12, argent: 6, or: 0 })
+  assert.deepEqual(cransDe(victoires(14)), { bronze: 12, argent: 8, or: 2 })
+  // L'argent se finit en or : douze victoires dès l'argent — la dix-huitième de toutes.
+  assert.deepEqual(cransDe(victoires(18)), { bronze: 12, argent: 12, or: 6 })
+  // Une défaite ou une égalité en or ne sertit rien, ni chez elle ni plus bas.
+  assert.deepEqual(cransDe([...victoires(14), auDe(14, 3, 9), auDe(15, 8, 8)]), { bronze: 12, argent: 8, or: 2 })
+
+  // Les crans ne font que monter, duel après duel, et chaque bordure a au moins les victoires de sa ligue : la
+  // règle n'a rien repris à personne. Une carrière au hasard, toujours la même — quatre cents duels au dé.
+  let graine = 20261110
+  const hasard = () => (graine = (graine * 1103515245 + 12345) % 2147483648) / 2147483648
+  const carriere = [...Array(400)].map((_, i) => (hasard() < 0.45 ? auDe(i, 9, 8) : auDe(i, 3, 9)))
+  let avant: Record<string, number> = {}
+  for (let n = 1; n <= carriere.length; n++) {
+    const crans = cransDe(carriere.slice(0, n))
+    for (const [ligue, c] of Object.entries(avant)) assert.ok(crans[ligue] >= c, `au duel ${n}, ${ligue} redescend de ${c} à ${crans[ligue]}`)
+    avant = crans
+  }
+  // Au bout, les ligues gardées sont serties ; chaque bordure tient les victoires de sa ligue et de plus haut.
+  const releve = releverLesDuels(carriere, semaine)
+  const jouees = new Map<string, number>()
+  let cote = 1000
+  for (const d of carriere) {
+    const e = releve.ecarts.get(d.serie)!
+    assert.equal(e.avant, cote)
+    if (d.justes > d.sesJustes) jouees.set(ligueDe(cote).cle, (jouees.get(ligueDe(cote).cle) ?? 0) + 1)
+    cote += e.ecart
+  }
+  let dePlusHaut = 0
+  for (const b of [...releve.bordures].reverse()) {
+    dePlusHaut += jouees.get(b.ligue) ?? 0
+    assert.equal(b.crans, Math.min(CRANS_D_UNE_BORDURE, dePlusHaut), `${b.ligue} : ses victoires et celles de plus haut`)
+  }
+  for (const ligue of ['bronze', 'argent', 'or']) assert.equal(avant[ligue], CRANS_D_UNE_BORDURE, `${ligue} sertie`)
+
+  // Ce que la loge et les albums en disent, des mêmes mots : « ou plus haut », sauf tout en haut.
+  assert.equal(ouSeGagnentSesCrans('bronze'), 'en ligue de bronze ou plus haut')
+  assert.equal(ouSeGagnentSesCrans('or'), 'en ligue d’or ou plus haut')
+  assert.equal(ouSeGagnentSesCrans('maitre'), 'en ligue des maîtres')
 })
 
 test('la bordure portée : auto, la plus haute qui a un cran ; une ligue choisie, même vide ; aucune', () => {
@@ -300,11 +365,12 @@ test('la loge propose ses bordures ; le serveur garde son choix, refuse une ligu
     assert.equal(argent.status, 200, argent.corps.error)
     assert.equal(argent.corps.profile.bordureChoisie, 'argent')
     const carte = (await lire(banc, tom, `/api/joueur/carte/${idLea}`)).corps
-    // Portée avec son avatar, comme sa finition : pas recopiée dans son profil.
-    assert.deepEqual(carte.bordure, { ligue: 'argent', crans: 6 })
+    // Portée avec son avatar, comme sa finition : pas recopiée dans son profil. Ses crans : six victoires en argent,
+    // deux en or.
+    assert.deepEqual(carte.bordure, { ligue: 'argent', crans: 8 })
     assert.equal(carte.profil.bordure, undefined)
     assert.deepEqual(carte.profil.duels, { ligue: 'or', cote: 1230 }, 'sa ligue et sa cote, sans ses bordures recopiées')
-    assert.deepEqual((await ligneDe(tom)).bordure, { ligue: 'argent', crans: 6 })
+    assert.deepEqual((await ligneDe(tom)).bordure, { ligue: 'argent', crans: 8 })
 
     // Une ligue qu'elle n'a pas atteinte, ou qui n'existe pas : refusées en clair, rien n'est écrit.
     const platine = await porter(banc, lea, 'platine')

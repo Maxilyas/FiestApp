@@ -1,7 +1,9 @@
 // Les missions du jour et le coffre de la semaine, photographiés au téléphone
 // (360 × 640) sur un serveur jetable : l'accueil d'un profil — « À la une »,
-// la ligne des missions —, leur feuille, une série jouée qui en fait deux et
-// sa fin (« Missions accomplies »), puis, de lundi en lundi, un coffre de
+// la ligne des missions —, leur feuille — le quiz du jour, une aventure, une
+// découverte —, puis la même sous cinq autres journées, chaque aventure et un
+// savoir compris, une série jouée qui en fait une et sa fin (« Mission
+// accomplie »), puis, de lundi en lundi, un coffre de
 // chaque rang ouvert acte par acte — le repos, la charge, l'éclair, la
 // révélation — sur chaque sorte d'objet : un compagnon, un fond de carte, un
 // thème, une gerbe, des confettis ; enfin, au QG, le coffre ouvert pour voir,
@@ -62,16 +64,24 @@ try {
       )
       for (const j of jours) ins.run(id, j, maintenant, maintenant)
     })
-  // Ses missions de ce jeudi, posées d'avance — le tirage dépend de son identifiant — : une série, des bonnes réponses, l'Histoire.
+  // Ses missions de ce jeudi, posées d'avance — le tirage dépend de son identifiant — : le quiz du jour, l'aventure au
+  // titre le plus long, et une série, que la suite joue.
   base(db => {
     const ins = db.prepare('INSERT INTO profile_missions (profile_id, jour, rang, mission, tiree_le) VALUES (?, ?, ?, ?, ?)')
     const missions = [
+      { sorte: 'jour', cible: 1 },
+      { sorte: 'cabinet-justes', cible: 3 },
       { sorte: 'serie', cible: 3 },
-      { sorte: 'justes', cible: 4 },
-      { sorte: 'categorie', cible: 3, categorie: 'Histoire' },
     ]
     missions.forEach((m, rang) => ins.run(id, '2026-10-15', rang, JSON.stringify(m), maintenant))
   })
+  /** Une autre journée sur la même feuille : son aventure et sa troisième mission, récrites tant que rien n'est fait. */
+  const poserLaJournee = (aventure: object, troisieme: object) =>
+    base(db => {
+      const maj = db.prepare("UPDATE profile_missions SET mission = ? WHERE profile_id = ? AND jour = '2026-10-15' AND rang = ?")
+      maj.run(JSON.stringify(aventure), id, 1)
+      maj.run(JSON.stringify(troisieme), id, 2)
+    })
   // Lundi, mardi et mercredi : trois tampons déjà sur la carte.
   tamponner(['2026-10-12', '2026-10-13', '2026-10-14'])
 
@@ -148,8 +158,26 @@ try {
   await photo('2-feuille')
   await page.locator('.feuille-des-missions .carte-corps').evaluate((e: any) => e.scrollTo(0, e.scrollHeight))
   await photo('2-feuille-bas')
+  // D'autres journées, sur la même feuille : chaque aventure — les sentiers, le Cabinet —, un savoir, une découverte,
+  // aux titres les plus longs. La journée de la série revient à la fin.
+  const journees: [string, object, object][] = [
+    ['sentier-au-choix', { sorte: 'sentier', cible: 1 }, { sorte: 'justes', cible: 15 }],
+    ['sentier-d-une-categorie', { sorte: 'sentier', cible: 1, categorie: 'Jeux & pop culture' }, { sorte: 'defier', cible: 1, sujet: 'animaux', nomDuSujet: 'Les animaux' }],
+    ['bonnes-reponses-des-sentiers', { sorte: 'sentier-justes', cible: 10 }, { sorte: 'categorie', cible: 5, categorie: 'Autour de la fête' }],
+    ['deux-epreuves-du-cabinet', { sorte: 'cabinet', cible: 2 }, { sorte: 'categorie', cible: 5, categorie: 'Histoire' }],
+    ['une-epreuve-du-cabinet', { sorte: 'cabinet', cible: 1 }, { sorte: 'parcours', cible: 1 }],
+  ]
+  for (const [n, aventure, troisieme] of journees) {
+    poserLaJournee(aventure, troisieme)
+    // D'une page vide : l'adresse `#missions` s'efface une fois servie, et de l'accueil à lui-même la page ne se rechargerait pas.
+    await page.goto('about:blank')
+    await page.goto(`${banc.url}/#missions`)
+    await page.waitForSelector('.feuille-des-missions .missions-liste')
+    await photo(`2-feuille-${n}`)
+  }
+  poserLaJournee({ sorte: 'cabinet-justes', cible: 3 }, { sorte: 'serie', cible: 3 })
 
-  // 3. Une série jouée : cinq bonnes réponses, puis des fautes — la série et les bonnes réponses sont faites, pas l'Histoire.
+  // 3. Une série jouée : cinq bonnes réponses, puis des fautes — la série est faite, ni le quiz du jour ni l'aventure.
   await page.goto(`${banc.url}/campagne`)
   await page.waitForSelector('text=Commencer une série')
   await page.click('text=Commencer une série')

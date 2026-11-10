@@ -6,7 +6,7 @@ import { AGagner } from './LigneDeCollection'
 import { PremierHautFait } from './Trophees'
 import { gemmeDAvatar } from '../gemmes'
 import { AVATARS, COLLECTION, COLLECTION_HAUTE } from '../../../shared/avatars'
-import { AUCUNE_BORDURE, CRANS_D_UNE_BORDURE, LIGUES, NOM_DE_LA_BORDURE, bordurePortee, ligueParCle, type BordureDeLigue, type ChoixDeBordure } from '../../../shared/duels'
+import { AUCUNE_BORDURE, CRANS_D_UNE_BORDURE, LIGUES, NOM_DE_LA_BORDURE, bordurePortee, ligueParCle, ouSeGagnentSesCrans, type BordureDeLigue, type ChoixDeBordure } from '../../../shared/duels'
 import { hautsFaitsGagnes } from '../../../shared/hautsfaits'
 import { recompensesDe } from '../../../shared/proches'
 import { estScellable, legendaire } from '../../../shared/legendaires'
@@ -594,7 +594,7 @@ function phraseDeLaBordure(b: BordureDeLigue): PhraseEnDeuxTemps {
   if (b.crans >= CRANS_D_UNE_BORDURE) return [`${nom} · sertie`, ', ses douze crans gagnés.']
   const reste = CRANS_D_UNE_BORDURE - b.crans
   const crans = b.crans === 0 ? 'aucun cran encore' : `${b.crans} cran${b.crans > 1 ? 's' : ''} sur ${CRANS_D_UNE_BORDURE}`
-  return [`${nom} · ${crans}`, ` : encore ${reste} victoire${reste > 1 ? 's' : ''} en ${ligueParCle(b.ligue).nom.toLowerCase()} pour la sertir.`]
+  return [`${nom} · ${crans}`, ` : encore ${reste} victoire${reste > 1 ? 's' : ''} ${ouSeGagnentSesCrans(b.ligue)} pour la sertir.`]
 }
 
 /**
@@ -620,7 +620,7 @@ export function MesBordures({ profil, essai, essayer, neufs }: PropsDUnePiece) {
       <div className="loge-bordures">
         <span className="loge-sous-titre">Bordure</span>
         <p className="muted small">
-          Ton premier duel classé ouvre la bordure de ta ligue ; chaque duel gagné dans la ligue y sertit un cran. <a href="/duels">Jouer un duel</a>
+          Ton premier duel classé ouvre la bordure de ta ligue ; chaque duel gagné dans la ligue, ou plus haut, y sertit un cran. <a href="/duels">Jouer un duel</a>
         </p>
       </div>
     )

@@ -111,9 +111,12 @@ const CLE_DU_RELEVE = 'collectionneurs'
  * (l'étoile du zénith, le 9 novembre 2026) : une fiche d'avant n'en a pas. La
  * 3 garde les comptes de son style dans sa fiche (le même jour : sa vitrine
  * les montre, le face-à-face les compare) — une fiche d'avant n'en a que la
- * valeur.
+ * valeur. La 4 compte les bordures serties à la règle du 10 novembre 2026 —
+ * une victoire sertit aussi les ligues d'en dessous (`releverLesDuels`) : le
+ * relevé d'avant aurait classé six heures chacun à sa valeur de la veille,
+ * contre sa propre fiche, refaite à sa visite avec ses bordures neuves.
  */
-const VERSION_DU_RELEVE = 3
+const VERSION_DU_RELEVE = 4
 
 /**
  * Le barème avec lequel un relevé a été compté : relu sous un autre — une

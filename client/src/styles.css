@@ -17074,6 +17074,7 @@ span.annonce-admin-merci { cursor: default; }
 .mission-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .mission-famille { font-size: var(--t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
 /* Chaque famille sa teinte, mêlée à l'encre du thème : claire sur le Velours, sombre sur l'Ivoire. */
+.mission-famille-aventure { color: color-mix(in srgb, #e8963f 60%, var(--ink)); }
 .mission-famille-savoir { color: color-mix(in srgb, #5fa8ff 60%, var(--ink)); }
 .mission-famille-decouverte { color: color-mix(in srgb, #3fbf9f 60%, var(--ink)); }
 .mission-aide { font-size: 0.8rem; line-height: 1.35; color: var(--muted); }

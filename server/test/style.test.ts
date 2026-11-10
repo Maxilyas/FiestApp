@@ -232,7 +232,8 @@ test('l’album du style : ce qu’il a en couleur, ce qui reste éteint — la 
   const perle = await fiche('bordures', 'argent')
   assert.match(perle, /À toi, et tu la portes\./)
   assert.doesNotMatch(perle, /album-essayer/)
-  assert.match(perle, /3 crans sur 12\s: encore 9 victoires dans sa ligue pour la sertir\./)
+  // Ses victoires de plus haut y comptent aussi (le 10 novembre 2026) : gardée, on ne revient pas dans sa ligue.
+  assert.match(perle, /3 crans sur 12\s: encore 9 victoires en ligue d’argent ou plus haut pour la sertir\./)
   assert.match(perle, /<span class="album-detail-rarete">Bordure de ligue · Argent<\/span>/)
   // Une gerbe touchée éclate, même à gagner : on sait ce qu'on vise.
   assert.match(source('components/AlbumDuStyle.tsx'), /if \(partie === 'gerbes'\) setEclat\(e => \(\{ cle: o\.cle, n: \(e\?\.n \?\? 0\) \+ 1 \}\)\)/)
@@ -283,6 +284,17 @@ test('dans la loge, les finitions et les bordures qu’il n’a pas se comptent 
   )
   // Peu de pastilles : à gauche.
   assert.match(bordures, /<div class="loge-finitions-rangee rangee-courte loge-bordures-rangee" role="group"/)
+  // Sous la rangée, ce que dit celle qu'il porte : ses crans, et où gagner ceux qui manquent — dans sa ligue ou plus
+  // haut (le 10 novembre 2026 : « en ligue d'argent » seule, il n'y serait jamais arrivé, l'argent quitté pour toujours).
+  // La phrase se dit en deux temps depuis le même jour (`PhraseDuReglage`, `loge.test.ts`) : l'essentiel, puis sa suite —
+  // mis bout à bout, les mêmes mots ; un téléphone ne montre que les morceaux qui tiennent entiers sur une ligne.
+  assert.match(
+    bordures,
+    /<p class="muted small loge-bordure-phrase loge-a-suite"><span class="loge-essentiel">Le Perlé · 3 crans sur 12<\/span><span class="loge-suite"> : encore 9 victoires en ligue d’argent ou plus haut pour la sertir\.<\/span><\/p>/,
+  )
+  // Tout en haut, rien au-dessus : « en ligue des maîtres ».
+  const maitre = await rendu('components/Apparence', 'MesBordures', { profil: { ...MAYA, bordures: LIGUES.map(l => ({ ligue: l.cle, crans: 1 })) }, ...loge })
+  assert.match(maitre, /<span class="loge-essentiel">Le Soleil noir · 1 cran sur 12<\/span><span class="loge-suite"> : encore 11 victoires en ligue des maîtres pour la sertir\.<\/span>/)
   // Ses six ligues : rien à compter.
   const toutes = await rendu('components/Apparence', 'MesBordures', { profil: { ...MAYA, bordures: LIGUES.map(l => ({ ligue: l.cle, crans: 1 })) }, ...loge })
   assert.doesNotMatch(toutes, /pastille-a-gagner/)

@@ -769,15 +769,17 @@ test('la loge tient sur un écran, ou presque : rien n’y change de place, et c
   const ESSENTIEL_MAX = 46
 
   // La bordure : son nom et ses crans, puis ce qui manque pour la sertir — la phrase d'avant, mot pour mot, coupée à sa jointure.
+  // Où gagner ses crans se dit comme partout (`ouSeGagnentSesCrans`, le 10 novembre 2026) : « ou plus haut », sauf tout en haut.
   const bordure = async (bordures: { ligue: string; crans: number }[], essai: object = {}) =>
     morceaux(await rendu('components/Apparence', 'MesBordures', { ...piece, essai, profil: { ...LEA, bordures, bordureChoisie: 'auto' } }))
-  assert.deepEqual(await bordure([{ ligue: 'or', crans: 7 }]), ['Les Fleurons · 7 crans sur 12', ' : encore 5 victoires en ligue d’or pour la sertir.'])
-  assert.equal((await bordure([{ ligue: 'or', crans: 7 }])).join(''), 'Les Fleurons · 7 crans sur 12 : encore 5 victoires en ligue d’or pour la sertir.')
-  assert.deepEqual(await bordure([{ ligue: 'bronze', crans: 1 }]), ['Le Moletage · 1 cran sur 12', ' : encore 11 victoires en ligue de bronze pour la sertir.'])
-  assert.deepEqual(await bordure([{ ligue: 'or', crans: 11 }]), ['Les Fleurons · 11 crans sur 12', ' : encore 1 victoire en ligue d’or pour la sertir.'])
+  assert.deepEqual(await bordure([{ ligue: 'or', crans: 7 }]), ['Les Fleurons · 7 crans sur 12', ' : encore 5 victoires en ligue d’or ou plus haut pour la sertir.'])
+  assert.equal((await bordure([{ ligue: 'or', crans: 7 }])).join(''), 'Les Fleurons · 7 crans sur 12 : encore 5 victoires en ligue d’or ou plus haut pour la sertir.')
+  assert.deepEqual(await bordure([{ ligue: 'bronze', crans: 1 }]), ['Le Moletage · 1 cran sur 12', ' : encore 11 victoires en ligue de bronze ou plus haut pour la sertir.'])
+  assert.deepEqual(await bordure([{ ligue: 'or', crans: 11 }]), ['Les Fleurons · 11 crans sur 12', ' : encore 1 victoire en ligue d’or ou plus haut pour la sertir.'])
+  assert.deepEqual(await bordure([{ ligue: 'maitre', crans: 1 }], { bordure: 'maitre' }), ['Le Soleil noir · 1 cran sur 12', ' : encore 11 victoires en ligue des maîtres pour la sertir.'])
   assert.deepEqual(await bordure([{ ligue: 'or', crans: 12 }]), ['Les Fleurons · sertie', ', ses douze crans gagnés.'])
   // Sa ligue atteinte sans un cran encore : choisie, elle dit ce qui lui manque ; « Auto », qu'il n'en porte aucune.
-  assert.deepEqual(await bordure([{ ligue: 'bronze', crans: 0 }], { bordure: 'bronze' }), ['Le Moletage · aucun cran encore', ' : encore 12 victoires en ligue de bronze pour la sertir.'])
+  assert.deepEqual(await bordure([{ ligue: 'bronze', crans: 0 }], { bordure: 'bronze' }), ['Le Moletage · aucun cran encore', ' : encore 12 victoires en ligue de bronze ou plus haut pour la sertir.'])
   assert.deepEqual(await bordure([{ ligue: 'bronze', crans: 0 }]), ['Auto : ta plus haute bordure', ', dès que tu y gagnes un duel.'])
   assert.deepEqual(await bordure([{ ligue: 'or', crans: 7 }], { bordure: 'aucune' }), ['Sans bordure', ' : ton avatar et sa finition, rien autour.'])
   // La plus longue qu'une ligue puisse écrire tient encore.
@@ -789,7 +791,7 @@ test('la loge tient sur un écran, ou presque : rien n’y change de place, et c
   }
   // Sans duel classé, rien à régler : l'explication reste entière, son lien au bout — un nouveau venu la lit sur ses lignes.
   const sansDuel = await rendu('components/Apparence', 'MesBordures', { ...piece, profil: { ...LEA, bordures: undefined } })
-  assert.match(sansDuel, /<p class="muted small">Ton premier duel classé ouvre la bordure de ta ligue ; chaque duel gagné dans la ligue y sertit un cran\. <a href="\/duels">Jouer un duel<\/a><\/p>/)
+  assert.match(sansDuel, /<p class="muted small">Ton premier duel classé ouvre la bordure de ta ligue ; chaque duel gagné dans la ligue, ou plus haut, y sertit un cran\. <a href="\/duels">Jouer un duel<\/a><\/p>/)
   assert.doesNotMatch(sansDuel, /loge-a-suite/)
 
   // Le sceau : ce qu'il en est du légendaire montré, puis pourquoi.
