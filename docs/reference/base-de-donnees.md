@@ -326,11 +326,11 @@ Les Éclats achetés en boutique (`PRIX_D_UN_ECLAT`), une ligne par achat : l'É
 
 ### `profile_compagnons`
 
-Les compagnons achetés — ou offerts à prix nul : tirés d'un coffre, ou la luciole, que la Première traversée amène, ou la première salle complète du Cabinet (`core/cabinet/gardiens.ts`) —, la plus haute forme que chacun a atteinte, les paliers de sa niche, et ce qu'il en a réglé depuis sa niche.
+Les compagnons achetés — la luciole comprise, en boutique depuis le 31 octobre 2026 — ou offerts à prix nul : tirés d'un coffre, ou la luciole d'avant, que la Première traversée de l'Expédition amenait, puis la première salle complète du musée du Cabinet (`core/cabinet/gardiens.ts`, que le serveur joue encore sans qu'une page complète une salle) —, la plus haute forme que chacun a atteinte, les paliers de sa niche, et ce qu'il en a réglé depuis sa niche.
 
 - **Colonnes clés** : `profile_id` et `compagnon` (la clé), `prix`, `rang` (ne fait que monter), `created_at` (indexée : la page de l'économie du QG lit les achats par date) ; `nom`, le nom qu'il lui a donné (NULL : aucun ; l'instantané de la salle ne le dit jamais, la carte qu'on ouvre en touchant son nom, si — depuis le 19 octobre 2026), et `montree`, le rang de la forme qu'il montre dans sa niche quand ce n'est pas la plus haute, ou 4 pour sa métamorphose (`MONTREE_DE_LA_METAMORPHOSE` : relu à sa forme ultime, montré tant que l'Éclat brille sur lui) (NULL : la plus haute, qui suit sa croissance — une forme atteinte la remet à NULL) ; `paliers`, les paliers de sa niche atteints avec lui après sa forme ultime, de 0 à 4 (`PALIERS_DE_LA_NICHE`, NULL vaut 0 : ne fait que monter, comme `rang`, et ne remet pas `montree` à NULL), et `ornements`, ce qu'il a réglé de ses ornements quand ce n'est pas le style d'office, en JSON (`{"guirlande":"cache","lierre":"dessin"}` : caché, ou dessiné comme sur la maquette ; NULL : tous montrés, peints — le Féerique, `STYLE_D_OFFICE`, depuis le 20 octobre 2026 ; un style inconnu s'y lit comme celui d'office) ; `jardin`, son jardin autour de sa niche, en JSON — la trouvaille de chaque place occupée (`{"s1":"lanterne","s5":"cerfvolant"}`, `shared/trouvailles.ts` ; NULL : rien de posé), lu par sa page seule (`GET /api/joueur/soins`), jamais avec le profil, et relu à sa complicité du jour (`jardinMontre`).
 - **Espace** : non.
-- **Écrite par** : `ProfileStore` (l'achat — qui l'installe aussi dans sa niche, `profiles.niche`, sauf `installer: false` —, le coffre, `offrirUnCompagnon` — la luciole, à la fin d'une expédition menée au bout et au rattrapage du démarrage, ou à la première salle complète du Cabinet (`core/cabinet/gardiens.ts`), dans une niche vide seulement —, la croissance et les paliers, `reglerCompagnon` pour `nom`, `montree` et `ornements`, `ecrireLeJardin` pour `jardin`, vérifié par `core/soins.ts`).
+- **Écrite par** : `ProfileStore` (l'achat — qui l'installe aussi dans sa niche, `profiles.niche`, sauf `installer: false` —, le coffre, `offrirUnCompagnon` — la luciole, du temps où elle ne s'achetait pas : à la fin d'une expédition menée au bout et au rattrapage du démarrage, ou à la première salle complète du musée du Cabinet (`core/cabinet/gardiens.ts`), dans une niche vide seulement ; l'Expédition effacée et le musée hors de la page depuis le 31 octobre 2026, aucun écran ne mène plus une expédition au bout ni ne complète une salle —, la croissance et les paliers, `reglerCompagnon` pour `nom`, `montree` et `ornements`, `ecrireLeJardin` pour `jardin`, vérifié par `core/soins.ts`).
 - **Lue par** : `ProfileStore` ; la page de l'économie du QG (`economieDepuis`, `ventesDepuis`) ; les soins (`lignesDesSoins`).
 - **Effacée par** : la suppression du profil.
 
@@ -820,6 +820,10 @@ pioche — ne s'écrit nulle part : il se replie de son départ
 (`pliDeLExpedition`, `shared/expedition.ts`) — les écus d'un dévoilement, de
 l'heure de sa réponse (`campagne_reponses.repondue_le`) ; la pioche, les
 offres, l'étal et ce que cache l'inconnu se tirent au hasard de sa graine.
+L'Expédition effacée le 31 octobre 2026 (`EXPEDITION_REMPLACEE`), plus aucune
+route ne l'écrit ni ne la lit en production ni en préproduction : la table
+garde les expéditions d'avant, en route comprises, et seul le banc des tests
+la remplit encore.
 
 - **Colonnes clés** : `serie_id` et `rang` (la clé : un geste dit le rang qu'il suit, un second au même rang est refusé), `geste` (JSON : `{ quoi: 'avancer', vers }`, `{ quoi: 'jouer', joker, position?, categorie?, montre? }` — joué sur une question, il porte sa position : le pli ne la juge qu'après lui —, `{ quoi: 'prendre', jokers, talisman?, fiole? }`, `{ quoi: 'camper', retirer?, ameliorer? }` — l'un ou l'autre, jamais les deux —, `{ quoi: 'acheter', article, joker?, prix }` — le prix payé, que le journal garde : un barème qui change ne refait pas un achat ; `article` vaut `fiole` pour la fiole d'une échoppe, `ameliorer` pour une carte améliorée (`joker`, sa clé) —, `{ quoi: 'voir', mise, position }`, `{ quoi: 'boire', fiole, position? }` — une fiole bue, au codex : pendant une question, sa position, comme un joker —, `{ quoi: 'essai', position, choix? }` — la première réponse d'une question, fausse sous un second essai (la version 14) : la clé de `campagne_reponses` n'a de place que pour une réponse par question, et la seconde s'y écrit ; `choix`, la réponse ratée, que la vue efface — à composer et sur une frise, aucun. Le serveur seul l'écrit : envoyé par une page, il est refusé —, `{ quoi: 'garder', legendaire }`, `{ quoi: 'abandonner' }`), `fait_le`.
 - **Espace** : non.
@@ -966,19 +970,29 @@ parvenir.
 - **Effacée par** : un nouvel ajout du même ami ; la suppression du profil, d'un côté ou de l'autre.
 
 **Le Cabinet de curiosités** (`server/src/core/cabinet/`) — par profil, sans
-espace. Une partie est une série de la campagne (`campagne_series`, `mode =
+espace. Une partie — une épreuve de la traversée, ou une partie du musée
+d'avant — est une série de la campagne (`campagne_series`, `mode =
 'cabinet'`) : son départ figé dans sa colonne `cabinet`, ses pièces jugées dans
-`questions`, leurs réponses dans `campagne_reponses`. Ses trois tables à lui
+`questions`, leurs réponses dans `campagne_reponses`. Ses six tables à lui
 gardent ce que la campagne n'a pas, borné par profil — aucune lecture qui
-grandisse avec l'histoire. Elles naissent au réveil de la campagne, dans son
+grandisse avec l'histoire : les gestes d'une partie (`cabinet_gestes`) et la
+ligne du profil (`cabinet_profils`), que la traversée partage avec le musée ;
+la traversée et ses gestes (`cabinet_traversees`,
+`cabinet_traversee_gestes`), ce que la page joue depuis le soir du 31 octobre
+2026 ; et ce qui n'est plus qu'au musée, hors de la page depuis ce soir-là et
+encore servi — ses œuvres (`cabinet_oeuvres`), le record de sa tour
+(`cabinet_records`), et, dans la ligne du profil, la poussière, la série et
+les visites ([ce que le musée laisse](../produit/le-cabinet.md#ce-que-le-musée-laisse)).
+Elles naissent au réveil de la campagne, dans son
 premier lot (`REVEIL_DU_CABINET`, `server/src/core/cabinet/tables.ts`) : le
 Cabinet n'a pas d'`init` à lui, et un réveil n'attend pas un aller-retour de
 plus. Son magasin (`CabinetStore`, `server/src/core/cabinet/magasin.ts`) les
 lit en un lot froid par profil et par réveil (`lecturesDuMusee`, `tables.ts`),
 et les écrit dans des lots gardés (`server/src/core/cabinet/ecriture.ts`) : un
 départ par sa ligne de `cabinet_profils`, un geste par son rang — chaque autre
-instruction du lot n'agit que si ce geste-là est en base. En construction, en
-préproduction d'abord ; fermé en production (`CABINET_EN_PRODUCTION`).
+instruction du lot n'agit que si ce geste-là est en base. Construit en
+préproduction, il est ouvert en production depuis le 31 octobre 2026
+(`CABINET_EN_PRODUCTION`).
 
 ### `cabinet_gestes`
 

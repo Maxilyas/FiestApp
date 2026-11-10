@@ -319,6 +319,16 @@ qui ne tient que la soirée. Le magasin et ses lots : [Le
 serveur](./serveur.md#le-cabinet-de-curiosités) ; chaque table, colonne par
 colonne : [La base de données](../reference/base-de-donnees.md#cabinet_gestes).
 
+Depuis le soir du 31 octobre 2026, la page ne joue que **la traversée** : une
+ligne de `cabinet_traversees`, ses gestes dans `cabinet_traversee_gestes`, et
+son état — l'or, les cœurs, les cartes et leur niveau, les gardiens vaincus —
+replié de son départ et de ces gestes (`etatDeLaTraversee`,
+`shared/cabinet/traversee.ts`), comme une partie. Chacune de ses étapes est
+une partie du Cabinet, telle que cette section la décrit. Le musée d'avant —
+ses œuvres, la poussière d'or, la visite, la série — n'a plus d'écran : ses
+lignes restent, et ce qui suit sur lui dit ce que le serveur garde et sert
+encore ([ce que le musée laisse](../produit/le-cabinet.md#ce-que-le-musée-laisse)).
+
 **Une partie est une série de la campagne d'un autre mode** — une ligne de
 `campagne_series`, `mode = 'cabinet'` :
 
@@ -368,14 +378,18 @@ sujet, les questions qui nomment un tableau du Détail, ce que la pièce a
 montré de plus qu'elle (`cabinet.montre` : les leurres du Détail, ce que
 « Changer » a remplacé) — jamais dans ses premières réponses.
 
-**Trois tables à lui**, créées dans le premier lot du réveil de la campagne
-(`REVEIL_DU_CABINET`, `server/src/core/cabinet/tables.ts`) :
+**Six tables à lui** — trois à sa naissance, le record de la tour puis les
+deux de la traversée le 31 octobre 2026 —, créées dans le premier lot du
+réveil de la campagne (`REVEIL_DU_CABINET`, `server/src/core/cabinet/tables.ts`) :
 
 | Table | Ce qu'elle garde | Pourquoi |
 |---|---|---|
 | `cabinet_gestes` | les gestes de chaque partie, par `(serie_id, rang)`, avec l'`uid` du lot qui l'a écrit | le pli d'une partie, et la garde de chaque lot : une instruction ne s'écrit que si son geste est en base |
 | `cabinet_profils` | une ligne par profil : la poussière gagnée, la série et son record, les visites figées des trois derniers jours, la partie en cours | ce qui se résume de ses parties, tenu à jour dans les lots qui le changent — jamais une somme relue à chaque page |
 | `cabinet_oeuvres` | une ligne par œuvre entrée, 84 au plus : son origine, sa saison, la partie que son cartel garde, son prix et celui de sa dorure | ce qu'il possède ; un achat garde le prix payé, et le solde se relit de sa ligne de profil moins le prix de ses œuvres, dans l'instruction même qui dépense |
+| `cabinet_records` | le record de la tour d'un profil, une ligne : l'étage atteint, ses étoiles, la partie qui l'a établi | une montée ne vivait qu'un jour, relue de ses parties : seul son record lui survivait — la tour a quitté la page avec le musée |
+| `cabinet_traversees` | une ligne par traversée : son départ figé (`DepartDeLaTraversee`, en JSON versionné), sa fin, son issue, son résumé | une seule en route par profil, recomptée par l'instruction même qui la commence ; le résumé écrit à sa fin sert le QG et les pistes du Cabinet |
+| `cabinet_traversee_gestes` | les gestes de chaque traversée, par `(traversee_id, rang)` | son pli, et la garde de chaque lot — comme `cabinet_gestes` pour une partie |
 
 Et dans `campagne_meta`, **le secret du Cabinet** (`secret_du_cabinet`) :
 tiré une fois, au premier réveil, relu à chaque réveil dans le même lot. La
@@ -403,9 +417,12 @@ tirage ; ce que le pli juge au barème du code se garde sous une version :
 `VERSIONS_DU_DEPART` et `VERSIONS_DU_BILAN_DU_CABINET` (`shared/cabinet/partie.ts`),
 écrites en dur, dont aucune ne quitte la liste — chaque départ et chaque bilan
 se relisent à la leur (`shared/cabinet/lecture.ts`), et une version inconnue se
-refuse. Toutes deux valent 1 : aucune partie ne s'est jouée hors des bases
-jetables avant la préproduction, et dès lors toute retouche du pli ou de la
-lecture monte la version. Rien ne se relit au démarrage : une règle de gardien
+refuse. Le bilan vaut 1 ; le départ, 3 — la tour (la version 2), puis la
+traversée (la 3), chacune une origine de plus — : aucune partie ne s'est jouée
+hors des bases jetables avant la préproduction, et dès lors toute retouche du
+pli ou de la lecture monte la version. Une traversée a les siennes
+(`VERSIONS_DE_LA_TRAVERSEE`, `shared/cabinet/traversee.ts`), et se relit à
+celle de son départ. Rien ne se relit au démarrage : une règle de gardien
 changée vaut à la lecture froide suivante de chaque musée, qui réconcilie ses
 gardiens sans rien reprendre — il n'y a pas de version du Cabinet à relire.
 Le pourquoi : [les décisions](./decisions.md#le-cabinet-de-curiosités).
