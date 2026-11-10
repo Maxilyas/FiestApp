@@ -144,7 +144,7 @@ test('l’accueil d’un profil : une soirée en cours d’abord, puis la campag
     'Rejoindre une soiréeCode ou QR de l’hôte [bouton]',
   ]
 
-  // Rien en cours : les six gestes, aucun principal — l'ordre ne dépend ni
+  // Rien en cours : les sept gestes, aucun principal — l'ordre ne dépend ni
   // de l'heure ni des rôles, contrairement à « Je joue » et « Ce soir ».
   const libre = await accueil({})
   assert.deepEqual(gestes(libre), toujours)

@@ -277,8 +277,9 @@ test('toucher un nom du classement du défi ouvre sa carte — même sans quiz d
 // Le constat 5 de l'experte du jeu solo (le 11 octobre 2026) : le défi de la
 // semaine, neuf chaque lundi, ne se trouvait qu'au troisième onglet de la
 // campagne. Le bouton de la campagne l'a d'abord dit, à qui l'avait déjà
-// jouée ; depuis le 19 octobre 2026, il a son onglet à l'accueil, à côté du
-// quiz du jour — « beaucoup de gens ne savent pas qu'il y a le défi de la
+// jouée ; depuis le 19 octobre 2026, il a sa place à l'accueil — un onglet à
+// côté du quiz du jour d'abord, sa ligne sous la sienne depuis le 9 novembre
+// 2026 — :« beaucoup de gens ne savent pas qu'il y a le défi de la
 // semaine car il est caché dans la campagne » (le propriétaire) —, qui le
 // dit à tout profil, sa place comprise une fois sa tentative finie
 // (`campagne-ouverture.test.ts` : ce que l'onglet en fait).
