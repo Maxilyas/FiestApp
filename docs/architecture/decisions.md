@@ -1059,6 +1059,15 @@ Le détail : [la campagne](../produit/la-campagne.md).
 
 *Fichiers : `server/src/core/campagne.ts`, `server/src/core/jumelles.ts`*
 
+### Une spécialité passe une fois quand les autres passent trois fois
+**Contexte** : un sous-thème par savoir donne à chacun un tour entier dans sa catégorie. Avec l'équitation et la plongée, onze sous-thèmes en Sport : une série de Sport posait l'une ou l'autre une fois sur six ; en Culture générale, l'anglais, l'espagnol et les métiers de la santé faisaient une question sur quatre. Ce sont des savoirs qu'on vient chercher, pas ceux qu'une salle attend d'un quiz de sport. Les sortir du tour, proposé d'abord, le propriétaire l'a refusé le 10 novembre 2026 — « une sorte de "pro rata" afin de garder quand même certaines questions ».
+
+**Décision** : le tour des sous-thèmes est pondéré. Chaque sous-thème avance de son pas quand il sert, et le moins avancé de sa catégorie passe : un pour presque tous, trois pour une spécialité (`TOURS_D_UNE_SPECIALITE`), marquée dans le catalogue (`specialite`). Sept le sont — l'équitation, la plongée, l'anglais, l'espagnol, les métiers de la santé, les danses, le ballet ; la langue française et les bals gardent leur tour entier. Chaque spécialité tire, derrière le battage, le tour où elle entre : sans ce tirage, le pas ne pèserait rien dans une série de toutes les catégories, où aucun sous-thème ne repasse. Les catégories tournent comme avant, et le pas ne joue qu'entre les sous-thèmes d'une même catégorie. La série, le défi, les duels et le quiz tout prêt font ce tour ; les sentiers, dont les chapitres nomment leurs sous-thèmes, l'Expédition et le Cabinet gardent le leur.
+
+**Conséquence** : 7 % d'équitation et de plongée dans une série de Sport au lieu de 17, 10 % de spécialités en Culture générale au lieu de 25, près de trois fois moins dans une série de toutes les catégories — et jamais zéro : une série de leur catégorie en pose toujours. Choisie pour elle-même, une spécialité n'a personne à laisser passer : sa rubrique et son thème restent les siens (dans « La danse », une question par série passe des danses à un autre sous-thème de la Musique, du thème lui aussi). La fraîcheur passe toujours devant : qui aurait tout vu d'une catégorie y verrait d'abord ses nouveautés, spécialités comprises. Une liste sans spécialité ne tire pas un nombre de plus, et sa série reste, au même hasard, celle d'avant ; le poids ne vaut que pour les parties tirées ensuite.
+
+*Fichiers : `shared/sousThemes.ts`, `server/src/core/campagne.ts`, `server/src/core/quizToutPret.ts`, `server/test/tirage-pondere.test.ts`, `server/test/tirage-prepare.test.ts`*
+
 ### Le carnet se recalcule à partir du journal des réponses, avec des rendez-vous espacés
 **Contexte** : un joueur voulait « un mode qui incite à l'apprentissage, où l'on gagne toujours quelque chose ». La série, elle, punit l'erreur d'une vie en moins.
 

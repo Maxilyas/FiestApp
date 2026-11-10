@@ -525,6 +525,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Souffle | Les 0,7 s entre la dernière réponse attendue et la révélation, relancées par un changement d'avis | `SETTLE_MS` |
 | Source | Une escale de l'expédition qui repose une question du carnet : retrouvée, elle rend une vie ; ratée, elle ne coûte rien. Comme en révision, ni la mesure ni les écussons ne comptent sa réponse | `sorte: 'source'`, `QuestionDeSerie.carnet` |
 | Souvenir | La page publique d'une soirée : podium, équipes, prix remis, palmarès, trophées, chiffres | `buildRecap` (`server/src/core/recap.ts`) |
+| Spécialité | Un sous-thème qu'on vient chercher — l'équitation, la plongée, l'anglais, l'espagnol, les métiers de la santé, les danses, le ballet : dans une série ou un quiz tout prêt, il passe une fois quand les autres sous-thèmes de sa catégorie passent trois fois | `SousTheme.specialite`, `TOURS_D_UNE_SPECIALITE` (`shared/sousThemes.ts`) |
 | Style (d'expédition) | La famille de cartes qu'on choisit au départ d'une expédition, parmi celles que son niveau ouvre — le Rempart, l'Érudit et le Devin au niveau 1, puis le Flambeur, l'Élan, le Métamorphe, le Sophiste et le Téméraire, un par niveau jusqu'au 6 : ses deux cartes de départ prennent la place de deux cartes de base, chaque récompense en propose une, et la catégorie fétiche va avec l'Érudit. Figé avec l'expédition | `StyleDeJeu`, `CARTES_DE_DEPART_DU_STYLE`, `DepartDExpedition.style`, `ChoixDuStyle` |
 | Suivi du jour | Ce que la page du quiz du jour au QG montre à côté de la réserve : le tirage d'aujourd'hui question par question, le classement du mois, les séries qui tiennent, le rappel du soir | `SuiviDuJour` |
 | Sujet | Un choix de série qui traverse les catégories : un thème, une époque ou un fil rouge | `shared/sujets.ts` |
@@ -554,7 +555,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Titre de maître | « Maître de la forêt » : le titre que donne le palier de maître, porté sous le prénom comme celui d'un haut fait | `cleDeMaitre` |
 | Titulaire | Le profil qui tient un espace : se connecter à lui ouvre la console de cet espace | `accounts.profile_id` |
 | Tour | Le numéro de pose d'une question, qui avance aussi quand on la repose : il dit quelle pose un geste ou une réponse visait | `round` |
-| Tour de rôle | La règle qui fait alterner les catégories, puis leurs sous-thèmes, dans une série | `TourDeRole` |
+| Tour de rôle | La règle qui fait alterner les catégories, puis leurs sous-thèmes, dans une série ; une spécialité y passe une fois quand les autres sous-thèmes de sa catégorie passent trois fois | `TourDeRole` |
 | Tournée | Le passage du rappel du soir, une fois par jour entre 18 h et 22 h, chaque téléphone réservé en base avant l'envoi ; son bilan du soir se garde pour le QG | `jour_rappels_tournees` |
 | Tout revoir | Une révision qui repasse aussi les questions en attente de leur rendez-vous et celles déjà apprises | `commencerRevision` (`tout`) |
 | Toute la catégorie | La règle des paliers 9 à 13 : chaque sous-thème de la catégorie a sa question avant qu'un autre en ait deux | `touteLaCategorie` |
