@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { Icon } from '../components/Icon'
-import { Sortie } from '../components/Pieces'
+import { Sortie, SousLePouce } from '../components/Pieces'
 import { FeuilleDuChoix, LigneDuChoix } from '../components/ChoixDuTheme'
 import { OR, lueur } from '../components/Atlas'
 import { useCarteDUnProfil } from '../components/CarteDUnProfil'
@@ -235,16 +235,20 @@ export function LancerUnDefi({
           {erreur}
         </p>
       )}
-      <button
-        type="button"
-        className="btn btn-primary btn-big btn-block"
-        aria-disabled={busy || !choisi || !!dit || undefined}
-        onClick={() => choisi && !dit && onLancer(sujet ? [] : categories, sujet, choisi, enjeu ?? undefined)}
-      >
-        <Icon name="swords" />
-        {/* Le prénom dans la phrase dessous : en capitales, un long prénom faisait déborder le gros bouton. */}
-        Jouer le duel
-      </button>
+      {/* Sous le pouce : contre quelqu'un de choisi, il était au pli d'un petit téléphone (113 px de page en trop en
+          360 × 640), et sous toute la liste de ses amis tant qu'il choisissait. */}
+      <SousLePouce>
+        <button
+          type="button"
+          className="btn btn-primary btn-big btn-block"
+          aria-disabled={busy || !choisi || !!dit || undefined}
+          onClick={() => choisi && !dit && onLancer(sujet ? [] : categories, sujet, choisi, enjeu ?? undefined)}
+        >
+          <Icon name="swords" />
+          {/* Le prénom dans la phrase dessous : en capitales, un long prénom faisait déborder le gros bouton. */}
+          Jouer le duel
+        </button>
+      </SousLePouce>
       <p className="muted small centre">
         {espacesFines(
           dit

@@ -1,4 +1,4 @@
-import { Feuille, Sortie } from '../components/Pieces'
+import { Feuille, Sortie, SousLePouce } from '../components/Pieces'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { api, motifDe, refusDuServeur, UnauthorizedError, type CorrectionDuJour } from '../api'
 import { resetClock, serverNow } from '../clock'
@@ -527,17 +527,20 @@ export function JourApp() {
       <div className="player-shell">
         {bandeau(revelation.cumul)}
         <Revelation r={revelation} profil={profil} />
-        <button
-          className="btn btn-primary btn-big btn-block"
-          disabled={occupe}
-          // Pas plus qu'une réponse dans la demi-seconde : un double toucher
-          // sur la réponse sautait sinon la révélation et son anecdote.
-          onClick={() => {
-            if (gesteAccepte(changement.current, performance.now())) void geste(revelation.derniere ? api.jour.etat : api.jour.suivante)
-          }}
-        >
-          {revelation.derniere ? 'Voir mon résultat' : 'Question suivante'}
-        </button>
+        {/* Sous le pouce : une longue anecdote, le texte agrandi, et il passait sous le pli (`SousLePouce`). */}
+        <SousLePouce>
+          <button
+            className="btn btn-primary btn-big btn-block"
+            disabled={occupe}
+            // Pas plus qu'une réponse dans la demi-seconde : un double toucher
+            // sur la réponse sautait sinon la révélation et son anecdote.
+            onClick={() => {
+              if (gesteAccepte(changement.current, performance.now())) void geste(revelation.derniere ? api.jour.etat : api.jour.suivante)
+            }}
+          >
+            {revelation.derniere ? 'Voir mon résultat' : 'Question suivante'}
+          </button>
+        </SousLePouce>
         {/* Sa propre question ne se signale pas : il ne l'a pas jouée, et le serveur ne prend un signalement que d'une réponse. */}
         {!revelation.tienne && (
           <button className="lien-signaler link-inline small" aria-haspopup="dialog" onClick={() => setASignaler(revelation)}>

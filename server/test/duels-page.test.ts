@@ -123,10 +123,11 @@ test('la carte du verdict : scellée quand il découvre le résultat, ouverte qu
   assert.match(scellee, /<span class="num duels-dos-titre">Hugo a joué<\/span><span class="duels-dos-aide">Touche pour retourner<\/span>/)
   // Sa semaine sous la carte, en losanges : deux joués, le dernier qui luit.
   assert.match(scellee, /<span class="duels-losanges" role="img" aria-label="2 duels sur 3 cette semaine"><i class="joue"><\/i><i class="joue dernier"><\/i><i><\/i><\/span>/)
-  // Ce qui suit : le geste d'or, l'accueil, ses réponses ; la croix ramène à ses duels.
+  // Ce qui suit : le geste d'or — sous le pouce (`SousLePouce` : ce que le duel rapporte le poussait sous l'écran), dans
+  // son cadre à lui —, puis l'accueil et ses réponses dans la colonne des gestes du bas ; la croix ramène à ses duels.
   assert.match(
     scellee,
-    /<\/svg>Revanche<\/button><div class="duels-gestes-paire"><a class="btn duels-contour" href="\/"><svg[^>]*>.*?<\/svg>Accueil<\/a><button type="button" class="btn duels-contour"><svg[^>]*>.*?<\/svg>Réponses<\/button>/,
+    /<div class="sous-le-pouce duels-geste-principal"><button type="button" class="btn btn-primary btn-big btn-block btn-duel"><svg[^>]*>.*?<\/svg>Revanche<\/button><\/div><div class="duels-gestes-bas"><div class="duels-gestes-paire"><a class="btn duels-contour" href="\/"><svg[^>]*>.*?<\/svg>Accueil<\/a><button type="button" class="btn duels-contour"><svg[^>]*>.*?<\/svg>Réponses<\/button>/,
   )
   assert.match(scellee, /aria-label="Fermer : mes duels"/)
   assert.doesNotMatch(carte(false), /Réponses/, 'ses réponses ouvertes, le bouton s’en va')

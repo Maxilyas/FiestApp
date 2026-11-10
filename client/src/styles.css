@@ -9479,6 +9479,15 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
    abandonner une épreuve — : la même pilule partout, pleine largeur, comme
    « Recommencer une révision » au carnet (`GesteDuBas`). Partir est en haut,
    « ← Partir », comme toute sortie. Ce qui coûte une vie le dit d'un filet. */
+/* ── Le geste principal sous le pouce (`SousLePouce`, `components/Pieces.tsx`) ──
+   À sa place dans la page tant qu'elle tient sur l'écran — sans marge, sans fond : rien n'y change —, collé au bas de
+   l'écran dès que sa place est plus bas : « Question suivante » après une réponse, « Jouer le duel », « Ouvrir le
+   salon », le geste qui suit une fin de partie. Collé (`.colle`, que la page pose), il prend un voile, le fond de la
+   page fondu vers le haut : ce qui défile dessous ne se lit pas à travers ses bords. Jamais à sa place — sur un thème
+   peint, une bande unie y couperait le décor. Le voile déborde jusqu'aux bords de la colonne (ses 20 px de marge) et
+   jusqu'au bas de l'écran, sans rien pousser : il est hors du flux. */
+.sous-le-pouce { position: sticky; bottom: max(12px, env(safe-area-inset-bottom)); z-index: 2; isolation: isolate; display: flex; flex-direction: column; gap: 8px; }
+.sous-le-pouce.colle::before { content: ''; position: absolute; inset: -18px -20px calc(-1 * max(12px, env(safe-area-inset-bottom))); z-index: -1; background: linear-gradient(transparent, var(--bg) 18px); pointer-events: none; }
 .geste-du-bas { margin-top: 6px; color: var(--muted); }
 .geste-du-bas:hover { color: var(--ink); }
 .geste-du-bas.geste-qui-coute { color: var(--alert); border-color: rgba(var(--alert-rgb), 0.45); }
@@ -9684,6 +9693,12 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .duels-contour .icon { width: 18px; height: 18px; color: var(--accent-text); }
 .duels-gestes-bas { display: flex; flex-direction: column; gap: 14px; margin-top: auto; margin-bottom: 8px; padding-top: 24px; }
 .duels-gestes-bas .btn-duel { min-height: 60px; }
+/* Le geste principal d'un duel fini, sous le pouce (`SousLePouce`) : sorti de la colonne des gestes du bas pour pouvoir
+   se coller au bas de l'écran — collé dans sa colonne, il ne pourrait pas la quitter —, il la précède aux mêmes écarts :
+   c'est lui qui se pousse en bas de la page, et elle le suit à ses 14 px. */
+.sous-le-pouce.duels-geste-principal { margin-top: auto; padding-top: 24px; }
+.sous-le-pouce.duels-geste-principal .btn-duel { min-height: 60px; }
+.sous-le-pouce.duels-geste-principal + .duels-gestes-bas { margin-top: 14px; padding-top: 0; }
 .duels-gestes-paire { display: flex; gap: 12px; }
 .duels-gestes-paire > .btn { flex: 1 1 0; min-width: 0; }
 .duels-anneau { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--bg-raised); font-size: 24px; line-height: 1; box-shadow: 0 0 0 2px var(--lueur, rgba(var(--accent-rgb), 0.3)); }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Icon, type IconName } from './Icon'
 import { retenirLeFocus, useModale } from '../modale'
 import { nouveautesAPorter } from '../../../shared/piecesDeLaLoge'
@@ -58,6 +58,48 @@ export function GesteDuBas({ icone, children, onClick, busy, danger }: { icone: 
       <Icon name={icone} />
       {children}
     </button>
+  )
+}
+
+/**
+ * Le geste principal d'un écran, sous le pouce (la revue de tous les écrans du
+ * 10 novembre 2026 — le propriétaire : « que tu modifies ceux que tu trouves
+ * trop longs, ou [où] ça serait logique de tout voir sans scroller ») : à sa
+ * place dans la page tant qu'elle tient sur l'écran — rien n'y change —, collé
+ * au bas de l'écran dès que sa place est plus bas. En 360 × 640, « Question
+ * suivante » passait sous le pli après chaque réponse d'une révision, d'une
+ * épreuve ou d'un duel (122 à 139 px de page en trop : la question, le
+ * verdict, l'anecdote), « Jouer le duel » sous « Défier Tom », « Ouvrir le
+ * salon » à 365 px sous l'écran, « Un autre duel » sous ce qu'un duel venait
+ * de rapporter. La longueur d'une anecdote ou d'une liste de gains ne se borne
+ * pas : c'est le geste qui reste en vue, le reste défile dessous.
+ *
+ * Collé, il prend un voile — le fond de la page, qui cache ce qui défile sous
+ * lui. Jamais à sa place : sur un thème peint, une bande unie y couperait le
+ * décor (la carte de la loge, règle `css.md`). La page le sait par ce que le
+ * navigateur lui dit : collé, le bas du geste dépasse d'un pixel sa ligne de
+ * collage ; entier au-dessus, il est à sa place. Sans `IntersectionObserver`,
+ * il se colle quand même — sans son voile.
+ */
+export function SousLePouce({ children, className }: { children: ReactNode; /** Ce que sa page lui ajoute — ses écarts dans une colonne sans `gap`. */ className?: string }) {
+  const geste = useRef<HTMLDivElement>(null)
+  const [colle, setColle] = useState(false)
+  useEffect(() => {
+    const el = geste.current
+    if (!el || typeof IntersectionObserver === 'undefined') return
+    // Sa ligne de collage : son `bottom`, que l'encoche du bas d'un téléphone relève.
+    const ligne = parseFloat(getComputedStyle(el).bottom) || 0
+    const veille = new IntersectionObserver(([vu]) => setColle(vu.intersectionRatio < 1 && vu.boundingClientRect.top > 0), {
+      rootMargin: `0px 0px -${Math.ceil(ligne) + 1}px 0px`,
+      threshold: 1,
+    })
+    veille.observe(el)
+    return () => veille.disconnect()
+  }, [])
+  return (
+    <div ref={geste} className={'sous-le-pouce' + (className ? ` ${className}` : '') + (colle ? ' colle' : '')}>
+      {children}
+    </div>
   )
 }
 

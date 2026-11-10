@@ -530,7 +530,12 @@ test('défier quelqu’un : contre qui, sur quoi, puis on joue — la page des d
   assert.match(envoye, /<span class="duels-anneau ligue-argent" aria-hidden="true">🦊<\/span>.*<span class="duels-anneau ligue-platine en-face" aria-hidden="true">🐻<\/span>/)
   assert.match(envoye, /Chez Tom, <span>ton score caché<\/span>/)
   assert.match(envoye, /<\/svg>Verdict quand Tom aura joué<\/p>/)
-  assert.match(envoye, /<a class="btn btn-primary btn-big btn-block btn-duel" href="\/"><svg[^>]*>.*?<\/svg>Accueil<\/a><a class="btn btn-block duels-contour" href="\/duels"><svg[^>]*>.*?<\/svg>Mes duels<\/a>/)
+  // Ses gestes, dans l'ordre : « Accueil » d'abord — sous le pouce (`SousLePouce` : une mission accomplie le poussait
+  // sous l'écran), dans son cadre à lui —, puis « Mes duels » dans la colonne des gestes du bas.
+  assert.match(
+    envoye,
+    /<div class="sous-le-pouce duels-geste-principal"><a class="btn btn-primary btn-big btn-block btn-duel" href="\/"><svg[^>]*>.*?<\/svg>Accueil<\/a><\/div><div class="duels-gestes-bas"><a class="btn btn-block duels-contour" href="\/duels"><svg[^>]*>.*?<\/svg>Mes duels<\/a>/,
+  )
   assert.doesNotMatch(envoye, /duel-lien|Envoie ce défi|son code|Voir le duel/)
   const campagne = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
   assert.match(campagne, /if \(ecran\.e === 'fin' && ecran\.classe && laPageDesDuels && laPageDesDuels !== 'perdu'\) \{/)

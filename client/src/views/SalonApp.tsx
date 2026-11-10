@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api, currentMe, motifDe } from '../api'
 import { Icon } from '../components/Icon'
-import { Choix, Feuille, PieceTete, Sortie } from '../components/Pieces'
+import { Choix, Feuille, PieceTete, Sortie, SousLePouce } from '../components/Pieces'
 import { FeuilleDuQuizToutPretADemande, quizToutPret } from '../components/QuizToutPretADemande'
 import { FeuilleDEquipe } from '../components/FeuilleDEquipe'
 import { brouillonDuSalon, chefIci, demanderEntree, oublierBrouillon, retenirBrouillon, retenirChef, type BrouillonDuSalon } from '../chef'
@@ -544,10 +544,14 @@ export function SalonApp() {
         </p>
       )}
 
-      <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || quiz.length === 0 || undefined} onClick={() => void ouvrir()}>
-        <Icon name="play" />
-        Ouvrir le salon
-      </button>
+      {/* Sous le pouce : au bout de ce qu'on prépare — le nom, les quiz, la télé, les équipes —, il était à 365 px sous
+          l'écran d'un petit téléphone, 800 les équipes préparées. */}
+      <SousLePouce>
+        <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || quiz.length === 0 || undefined} onClick={() => void ouvrir()}>
+          <Icon name="play" />
+          Ouvrir le salon
+        </button>
+      </SousLePouce>
 
       {choisir && (
         <Feuille titre="Ajouter un quiz" onFermer={() => setChoisir(false)}>

@@ -217,3 +217,28 @@ paths:
   partagées qu'elle pose, sous `.cab-page` — et n'écrit aucun texte sous
   dix-sept pixels : `cabinet-ecran.test.ts` relit chaque sélecteur et chaque
   taille (règle `cabinet.md`).
+- **Le geste principal d'un écran plus long que le téléphone reste sous le
+  pouce** (`SousLePouce`, `components/Pieces.tsx`, `.sous-le-pouce` — la revue
+  de tous les écrans du 10 novembre 2026, en 360 × 640 : « Question
+  suivante » passait sous le pli après chaque réponse d'une révision, d'une
+  épreuve ou d'un duel, 122 à 139 px de page en trop ; « Jouer le duel »
+  était au pli sous « Défier Tom », « Ouvrir le salon » à 365 px sous
+  l'écran, « Un autre duel » à 656 sous ce qu'un duel venait de rapporter).
+  Une anecdote, une liste de gains, une liste d'amis ne se bornent pas :
+  c'est le geste qui reste en vue. À sa place tant que la page tient — ni
+  marge, ni fond, rien n'y change —, collé au bas de l'écran sinon
+  (`position: sticky`), où il prend son voile, le fond de la page fondu vers
+  le haut (`.colle`, que la pièce pose quand le navigateur le dit collé) ;
+  jamais à sa place : sur un thème peint, une bande unie y couperait le
+  décor, comme sous la carte de la loge. Ce qui le tient : **un seul geste
+  par cadre**, le principal — deux boutons collés prendraient le quart d'un
+  petit écran — ; **enfant direct de la colonne de la page** — collé dans un
+  cadre plus petit, il ne peut pas en sortir : le geste d'un duel fini a
+  quitté la colonne des gestes du bas pour ça (`.duels-geste-principal`) — ;
+  et **aucune coquille de page ne coupe ni ne fait défiler ce qu'elle
+  contient** (`.player-shell`, `.quiz-player` : un `overflow` sur l'une
+  d'elles, et chaque geste se collerait à elle, pas à l'écran).
+  `sous-le-pouce.test.ts` garde la pièce, sa feuille et chaque écran qui le
+  tient ; ce qui se voit — le bouton entier dans l'écran — se mesure au
+  navigateur. Un écran de plus dont le geste principal peut passer sous le
+  pli le prend, et entre dans l'épreuve.
