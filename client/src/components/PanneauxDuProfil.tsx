@@ -31,11 +31,12 @@ export { Loge as PanneauLoge, nouveautesDuProfil, retenirLesPremiersVus } from '
 export { MaCollection as PanneauCollection } from './Collection'
 
 /**
- * La boutique, d'un seul tenant : « À la une », puis ses quatre rayons à la
- * suite — les thèmes, les compagnons, les fonds, le comptoir des objets —, et
- * l'essai de ce qui s'y prête, avec son panier (`LaBoutique.tsx`).
+ * La boutique, d'un seul tenant : ses quatre rayons à la suite, en grilles —
+ * les thèmes, les compagnons, les fonds, le comptoir des objets —, le
+ * présentoir de chaque article, l'essai de ce qui s'y prête, et la feuille
+ * que son solde ouvre (`LaBoutique.tsx`).
  */
-export { PanneauBoutique } from './LaBoutique'
+export { PanneauBoutique, FeuilleDesConfettis } from './LaBoutique'
 
 export function PanneauCarriere({ profil }: { profil: PublicProfileDetail }) {
   return <CarriereAtlas profil={profil} />

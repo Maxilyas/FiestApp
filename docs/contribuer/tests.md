@@ -426,8 +426,9 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 ### Les thèmes et la boutique
 
 - `server/test/a-la-une.test.ts` — « À la une » : un compagnon, un thème, un fond, et le bandeau qui se glisse.
-- `server/test/boutique.test.ts` — la boutique d'un seul tenant : « À la une », les puces, les quatre rayons, leurs adresses, le comptoir des objets, et le panier d'essai (`shared/panier.ts`).
+- `server/test/boutique.test.ts` — la boutique en grilles : la rangée des rayons, les quatre rayons et leur ligne (`shared/rayons.ts`), leurs adresses, le présentoir de chaque sorte d'article, l'achat en deux touchers (`gestesDuPresentoir`), son envie en tête, la barre de l'essai (`shared/panier.ts`), « Tes confettis » — et « À la une », qui l'a quittée.
 - `server/test/decors-peints.test.ts` — les décors peints.
+- `server/test/envie.test.ts` — « Mon envie », l'article de la boutique pour lequel on économise : ses règles pures (`shared/envie.ts`), puis au banc la poser, la remplacer, la retirer, ses refus, et la boutique qui ne la rend plus une fois achetée ou hors de sa saison.
 - `server/test/fonds.test.ts` — les fonds de carte.
 - `server/test/fonds-des-savoirs.test.ts` — les fonds des savoirs : l'achat, ses refus, le QG, la suppression.
 - `server/test/gerbes.test.ts` — les gerbes.

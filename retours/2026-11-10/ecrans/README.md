@@ -78,7 +78,9 @@ changé au pixel.
 
 ## Ce qui défile par nature (relevé, laissé)
 
-- **Les listes et les albums** : la boutique (2 900 px), les albums de « Ma
+- **Les listes et les albums** : la boutique (2 900 px ; en grilles depuis,
+  1 500, et neuf thèmes à l'arrivée au lieu d'un — `../boutique/`), les
+  albums de « Ma
   collection », une ligne dépliée (900 à 3 900 ; son carrefour, replié, tient
   depuis), la liste des collectionneurs (470 à 1 260 — ce qui la précède,
   podium compris, tient depuis), l'historique et

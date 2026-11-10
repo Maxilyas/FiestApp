@@ -30,8 +30,9 @@ Object.assign(globalThis, { React, window: { location: lieu }, location: lieu })
 
 const source = (fichier: string) => readFileSync(new URL(`../../${fichier}`, import.meta.url), 'utf8')
 
-/** Les cartes d'une vitrine de thèmes, par ce que chacune dit d'elle à l'oreille. */
-const casesDe = (html: string) => [...html.matchAll(/<button\b[^>]*class="theme-vitrine[^"]*"[^>]*aria-label="([^"]*)"/g)].map(m => m[1])
+/** Les cartes d'une vitrine de thèmes — les tuiles du rayon, à la boutique —, par ce que chacune dit d'elle à l'oreille. */
+const casesDe = (html: string) =>
+  [...html.matchAll(/<button\b[^>]*class="(?:theme-vitrine|article-boutique article-theme)[^"]*"[^>]*aria-label="([^"]*)"/g)].map(m => m[1])
 
 async function rendu(fichier: string, composant: string, props: object): Promise<string> {
   const module = await import(new URL(`../../client/src/${fichier}.tsx`, import.meta.url).href)
@@ -680,7 +681,7 @@ test('une fiche de la collection ne porte rien : ni bouton ni « Le porter » �
 })
 
 test('la boutique ne montre que ce qui se vend : ceux qui se gagnent ont leur lieu dans leur fiche, dans « Ma collection »', async () => {
-  const html = await rendu('components/Boutique', 'RayonDesThemes', { profil: LEA, busy: false, acheter: async () => null })
+  const html = await rendu('components/Boutique', 'RayonDesThemes', { profil: LEA, onOuvrir: () => {} })
   // Ni carte ni ligne : un thème qui ne s'achète pas n'a rien à faire dans
   // une boutique, et la collection les montre (la remarque du 6 octobre 2026).
   assert.doesNotMatch(html, /se gagne|ne se vendent pas|theme-a-gagner/)
@@ -688,7 +689,7 @@ test('la boutique ne montre que ce qui se vend : ceux qui se gagnent ont leur li
   assert.ok(vendus.length > 0)
   for (const t of THEMES.filter(t => t.gagne)) assert.ok(!vendus.some(nom => nom.startsWith(`${t.nom},`)), t.key)
   // Ce qu'elle a se porte dans « Mon thème ».
-  assert.match(html, /déjà à toi : <a class="link-inline" href="\/profil#theme">les porter<\/a>/)
+  assert.match(html, /déjà à toi · <a class="link-inline" href="\/profil#theme">les porter<\/a>/)
   // La fiche de chacun : ce qu'il faut, sans prix, et le lieu qui le donne.
   const lieux: string[] = []
   for (const t of THEMES.filter(t => t.gagne)) {

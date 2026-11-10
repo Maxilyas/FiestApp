@@ -125,7 +125,7 @@ try {
   await photo('5-correction')
   await photo('5-correction-entiere', true)
 
-  // 4. La boutique : son comptoir, puis la fiche du sablier, dans sa feuille.
+  // 4. La boutique : son comptoir, puis le présentoir du sablier.
   await page.goto(`${banc.url}/boutique#objets`)
   await page.reload()
   await page.waitForTimeout(1200)
@@ -133,14 +133,14 @@ try {
   const sablier = page.locator('.comptoir-objet', { hasText: 'Sablier' })
   if (await sablier.count()) {
     await sablier.first().click()
-    await page.waitForSelector('.feuille-boutique #fiche-objet')
-    await page.waitForTimeout(300)
+    await page.waitForSelector('.feuille-boutique .presentoir-objet')
+    await page.waitForTimeout(500)
     await photo('7-fiche-sablier')
     await page.click('.feuille-boutique .carte-fermer')
   }
   await page.goto(`${banc.url}/boutique#objet-vie`)
   await page.reload()
-  await page.waitForSelector('#fiche-objet')
+  await page.waitForSelector('.feuille-boutique .presentoir-objet')
   await photo('8-fiche-vie')
 } finally {
   await navigateur.close()

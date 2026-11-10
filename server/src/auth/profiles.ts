@@ -76,6 +76,8 @@ import {
   type BoutiqueDuProfil,
   type ConfettisDeLaFin,
 } from '../../../shared/themes'
+// Sous un autre nom : ici, `Envie` est déjà l'envie du jour d'un compagnon (`shared/soins.ts`).
+import { ecrireEnvie, envieTenue, lireEnvie, refusDeLEnvie, type CeQuIlADeLaBoutique, type Envie as EnvieDeLaBoutique } from '../../../shared/envie'
 import { cleDeSaison, saison, type Saison } from '../../../shared/saisons'
 import { etiquetteDuTimbre, timbreDe, timbresDe } from '../../../shared/timbres'
 import { lireLOrigine, type OrigineLue } from '../../../shared/origines'
@@ -301,6 +303,13 @@ export interface ProfileRec {
    * plus, comme la version d'origine d'un avatar éclaté.
    */
   sceau: 'cache' | null
+  /**
+   * Son envie : l'article de la boutique pour lequel il économise, tel qu'il
+   * s'écrit (`theme:aurore`, `shared/envie.ts`) — null : aucune. Relue à
+   * chaque affichage (`envieTenue`), comme le fond : achetée ou sortie de sa
+   * saison, elle ne se montre plus, sans que rien ne soit réécrit.
+   */
+  envie: string | null
   passwordHash: string
   /** Le code de secours, haché lui aussi : la base qui fuit ne rend personne. */
   recoveryHash: string
@@ -1812,6 +1821,9 @@ export class ProfileStore {
     // L'écran où il est né (`shared/origines.ts`), que la page des joueurs du QG compte. NULL : un profil d'avant le
     // 4 novembre 2026, qui ne le dit pas — jamais deviné. Sur `profiles`, dont le schéma est déjà lu plus haut.
     await ajouterColonne(this.client, 'profiles', 'origine', 'TEXT')
+    // Son envie, l'article de la boutique pour lequel il économise (`shared/envie.ts`) : NULL, aucune. Sur `profiles`
+    // aussi, sans lecture de plus — et sans rapport avec `profile_envies`, les envies du jour de ses compagnons.
+    await ajouterColonne(this.client, 'profiles', 'envie', 'TEXT')
     await this.garderLesLegendairesAcquis()
     await this.garderLesNiveauxAtteints()
     await this.installerLesNiches()
@@ -2377,16 +2389,21 @@ export class ProfileStore {
       confettisDesDefis(this.recompensesOf(p.id))
     const somme = (prix: Map<string, number>) => [...prix.values()].reduce((n, x) => n + x, 0)
     const depenses = somme(achats.themes) + achats.vies + achats.sabliers + achats.eclats + achats.compagnons + somme(achats.fonds)
-    const fondsAchetes = FONDS_EN_BOUTIQUE.filter(f => achats.fonds.has(f.key)).map(f => f.key)
+    const sien = this.ceQuIlADeLaBoutique(p, achats, maitresDe(deCampagne.paliers).length)
+    // Son envie, relue sur ce qu'il a ce jour-là : la boutique que rend l'achat de l'article visé ne la porte déjà
+    // plus, et rien n'a eu à l'effacer. Sa ligne est en mémoire : pas une lecture de plus.
+    const envie = envieTenue(lireEnvie(p.envie), sien, jour)
     return {
       boutique: {
         confettis: { gagnes, depenses, solde: gagnes - depenses },
-        possedes: this.themesPossedes(p, achats.themes, maitresDe(deCampagne.paliers).length),
+        possedes: sien.themes,
         porte: this.themePorte(p),
         jour,
         // Absents sans compagnon ni fond acheté : rien de plus à lire pour qui n'en a pas.
         ...(compagnons.length > 0 && { compagnons }),
-        ...(fondsAchetes.length > 0 && { fondsAchetes }),
+        ...(sien.fonds.length > 0 && { fondsAchetes: sien.fonds }),
+        // Absente de même, sans envie qui tienne : jamais un `null` que la page prendrait pour une envie retirée.
+        ...(envie && { envie }),
       },
       dons: achats.dons,
       aTous: achats.aTous,
@@ -2402,6 +2419,22 @@ export class ProfileStore {
   /** Les thèmes qu'il a : les offerts, ceux qu'il a achetés, ceux que ses trophées et ses maîtres ouvrent. */
   private themesPossedes(p: ProfileRec, achetes: ReadonlyMap<string, number>, maitres: number): string[] {
     return THEMES.filter(t => t.rarete === 'offert' || achetes.has(t.key) || themeGagne(t, { maitres, recompenses: this.recompensesOf(p.id) })).map(t => t.key)
+  }
+
+  /**
+   * Ce qu'il a déjà de sa boutique, dans l'ordre des catalogues : ses thèmes
+   * — offerts et gagnés compris, ceux qu'elle rend (`possedes`) —, ses
+   * compagnons adoptés, ses fonds des savoirs achetés. Son envie s'y juge
+   * (`refusDeLEnvie`), posée comme relue, par cette seule règle : jugée de
+   * deux façons, sa boutique pourrait taire l'envie que la route vient
+   * d'accepter.
+   */
+  private ceQuIlADeLaBoutique(p: ProfileRec, achats: Pick<AchatsLus, 'themes' | 'fonds'>, maitres: number) {
+    return {
+      themes: this.themesPossedes(p, achats.themes, maitres),
+      compagnons: COMPAGNONS.filter(c => this.compagnons.get(p.id)?.has(c.key)).map(c => c.key),
+      fonds: FONDS_EN_BOUTIQUE.filter(f => achats.fonds.has(f.key)).map(f => f.key),
+    } satisfies CeQuIlADeLaBoutique
   }
 
   /**
@@ -3383,6 +3416,34 @@ export class ProfileStore {
       reserve.add(cle)
       return reserve.size
     })
+  }
+
+  /**
+   * Pose son envie — l'article de la boutique pour lequel il économise
+   * (`shared/envie.ts`) —, ou la retire (`null`). Une à la fois : la nouvelle
+   * remplace l'ancienne. Elle ne donne rien et ne réserve rien — un choix,
+   * comme un titre —, et sa boutique la relit à chaque affichage
+   * (`boutiqueEtDons`) : achetée ou sortie de sa saison, elle ne se montre
+   * plus, sans que rien ne s'efface ici. Refusée en clair, des mots que la
+   * page aurait montrés (`refusDeLEnvie`) : ce qui ne se vend pas, ce qu'il a
+   * déjà, un thème hors de sa saison. Rend celle qu'il a retenue.
+   *
+   * Hors d'`unAchatALaFois` : elle ne dépense rien, et posée pendant l'achat
+   * de l'article même, elle se tairait à la lecture suivante.
+   */
+  async poserEnvie(id: string, envie: EnvieDeLaBoutique | null, jour: string): Promise<EnvieDeLaBoutique | null> {
+    const rec = await this.require(id)
+    if (envie) {
+      // Ce qu'il a, lu comme sa boutique le lit — sans son solde ni ses soirées : une envie se pose sans un confetti.
+      const [achats, campagne] = await Promise.all([this.achatsDe(id), this.lectureDeCampagne(id)])
+      const refus = refusDeLEnvie(envie, this.ceQuIlADeLaBoutique(rec, achats, maitresDe(campagne.paliers).length), jour)
+      if (refus) throw new Error(refus)
+    }
+    const ecrite = envie && ecrireEnvie(envie)
+    await this.client.execute({ sql: 'UPDATE profiles SET envie = ? WHERE id = ?', args: [ecrite, id] })
+    rec.envie = ecrite
+    // Telle que sa boutique la relira : la sorte et la clé, rien de ce qu'on aurait passé de plus.
+    return lireEnvie(ecrite)
   }
 
   /** Toutes les vies qu'il a achetées : la campagne en retire celles qu'il a prises (`viesDe`). */
@@ -4378,6 +4439,7 @@ export class ProfileStore {
       bordure: null,
       niche: null,
       sceau: null,
+      envie: null,
       passwordHash: await hashPassword(input.password),
       recoveryHash: await hashPassword(normalizeRecovery(recovery)),
       xp: 0,
@@ -4441,6 +4503,7 @@ export class ProfileStore {
       bordure: null,
       niche: null,
       sceau: null,
+      envie: null,
       passwordHash: compte.passwordHash,
       recoveryHash: await hashPassword(normalizeRecovery(newRecoveryCode())),
       xp: 0,
@@ -6974,6 +7037,7 @@ export class ProfileStore {
       bordure: typeof r.bordure === 'string' && r.bordure ? r.bordure : null,
       niche: typeof r.niche === 'string' && r.niche ? r.niche : null,
       sceau: r.sceau === 'cache' ? 'cache' : null,
+      envie: typeof r.envie === 'string' && r.envie ? r.envie : null,
       passwordHash: String(r.password_hash),
       recoveryHash: String(r.recovery_hash),
       xp: Number(r.xp ?? 0),

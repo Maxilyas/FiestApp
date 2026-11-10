@@ -498,7 +498,9 @@ test('D21 · l’or du décor, les petites boîtes et le plus petit texte ont le
     '.atlas-orbe-nom',
     '.soiree-gain small',
     '.gemme',
-    '.theme-saison',
+    // La marque d'une tuile de la boutique — « de saison », « à l'essai », son envie — : elle a repris la pastille de
+    // la saison (`.theme-saison`), partie avec les cartes de l'étagère le 10 novembre 2026.
+    '.article-marque',
     '.ecusson-nom',
     '.ecusson-legende',
     '.nouveau-pastille',

@@ -156,18 +156,35 @@ test('sa fiche sort de la niche : la niche passe au-dessus d’un voile léger, 
   assert.match(regle('.niche-fiche'), /background: [^;]*#1a1412;/, 'un sol plein, qu’aucun thème ne repeint')
 })
 
-/** Le rayon des compagnons, rendu pour ce profil : son étagère, puis la fiche de chacun, telle que sa feuille l'ouvre. */
-async function rayon(profil: object, installer?: (cle: string) => void): Promise<string> {
+/** Le rayon des compagnons, rendu pour ce profil : sa rangée, puis le présentoir de chacun, tel que son médaillon l'ouvre. */
+async function rayon(profil: object, enregistrer?: (patch: object) => void): Promise<string> {
   Object.assign(globalThis, { React })
   const module = await import(new URL('../../client/src/components/RayonDesCompagnons.tsx', import.meta.url).href)
+  const { Presentoir } = await import(new URL('../../client/src/components/Presentoir.tsx', import.meta.url).href)
   const { renderToStaticMarkup } = await import('react-dom/server')
-  const etagere = renderToStaticMarkup(React.createElement(module.RayonDesCompagnons, { profil, onOuvrir: () => {} }))
+  const rangee = renderToStaticMarkup(React.createElement(module.RayonDesCompagnons, { profil, onOuvrir: () => {} }))
+  const rien = async () => null
   const fiches = ['loup', 'tortue'].map(cle =>
     renderToStaticMarkup(
-      React.createElement(module.FicheDuCompagnon, { profil, cle, busy: false, essaye: false, onEssayer: () => {}, acheter: async () => null, installer, onFermer: () => {} }),
+      React.createElement(Presentoir, {
+        profil,
+        ouvert: { sorte: 'compagnon', cle },
+        rayon: ['loup', 'tortue'],
+        essai: {},
+        busy: false,
+        comptoir: { possede: () => null, maximum: () => 1, acheter: async () => {} },
+        onVoisin: () => {},
+        onEssayer: () => {},
+        onEnvie: rien,
+        acheter: rien,
+        acheterCompagnon: rien,
+        acheterFond: rien,
+        enregistrer,
+        onFermer: () => {},
+      }),
     ),
   )
-  return etagere + fiches.join('')
+  return rangee + fiches.join('')
 }
 
 test('la boutique dit qui vit dans sa niche, et installe les autres d’un toucher', async () => {
