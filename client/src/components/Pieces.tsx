@@ -125,12 +125,19 @@ export function SousLePouce({ children, className }: { children: ReactNode; /** 
 export function Feuille({
   titre,
   onFermer,
+  barre,
   pied,
   className,
   children,
 }: {
   titre: string
   onFermer: () => void
+  /**
+   * Ce que sa barre montre à la place de son titre — le présentoir de la
+   * boutique y pose ses flèches et son étoile. Le titre reste son nom, à
+   * l'oreille (`aria-label`), et « Fermer » sa place.
+   */
+  barre?: ReactNode
   /** Collé en bas, toujours en vue. */
   pied?: ReactNode
   /** Sa mise en page à elle — une hauteur fixe, quand son contenu change sous le doigt. */
@@ -151,7 +158,7 @@ export function Feuille({
         onClick={e => e.stopPropagation()}
       >
         <header className="carte-barre">
-          <b className="feuille-titre">{titre}</b>
+          {barre ?? <b className="feuille-titre">{titre}</b>}
           <button type="button" className="carte-fermer" onClick={onFermer}>
             <Icon name="x" />
             Fermer

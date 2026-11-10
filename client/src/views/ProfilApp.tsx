@@ -142,6 +142,8 @@ export function ProfilApp() {
   const [carteOuverte, setCarteOuverte] = useState(false)
   const laCarte = useALaDemande(carteJoueur, carteOuverte)
   const ouvrirLaCarte = () => setCarteOuverte(true)
+  /** « Tes confettis », ouverte en touchant son solde, en tête de la boutique. */
+  const [confettis, setConfettis] = useState(false)
   /** L'écran ouvert depuis un bouton du profil (`/profil#collection`), ou ses boutons. */
   const [ecran, setEcranOuvert] = useState<EcranDuProfil | null>(lireEcran)
   /** L'écran montré, pour le retour du navigateur, qu'on écoute une fois pour toutes. */
@@ -686,14 +688,14 @@ export function ProfilApp() {
   if (VUE === 'boutique') {
     return (
       <div className="player-shell">
-        {/* Le titre et le solde sur une ligne : la place va aux thèmes. */}
+        {/* Le titre et le solde sur une ligne : la place va aux rayons. Son solde se touche : il dit d'où viennent les confettis. */}
         <header className="boutique-tete">
           <h1>Boutique</h1>
           {profil.boutique && (
-            <span className="solde-puce" title="Une bonne réponse, un confetti">
+            <button type="button" className="solde-puce" aria-haspopup="dialog" title="Une bonne réponse, un confetti" onClick={() => setConfettis(true)}>
               <span aria-hidden="true">🎊</span> {formatNumber(profil.boutique.confettis.solde)}
               <span className="sr-only"> confettis</span>
-            </span>
+            </button>
           )}
         </header>
         {regionDAnnonce}
@@ -710,10 +712,19 @@ export function ProfilApp() {
                 p?.boutique ? { ...p, boutique: { ...p.boutique, confettis: { ...p.boutique.confettis, solde, depenses: p.boutique.confettis.gagnes - solde } } } : p,
               )
             }
+            onEnvie={envie =>
+              setProfil(p => {
+                if (!p?.boutique) return p
+                // Retirée, elle quitte la boutique : le champ s'absente, comme le serveur le rend.
+                const { envie: _avant, ...sansEnvie } = p.boutique
+                return { ...p, boutique: envie ? { ...sansEnvie, envie } : sansEnvie }
+              })
+            }
           />
         ) : (
           enChemin
         )}
+        {confettis && pret && profil.boutique && <pret.FeuilleDesConfettis solde={profil.boutique.confettis.solde} onFermer={() => setConfettis(false)} />}
         {erreur && <p className="error">{erreur}</p>}
         {menu('boutique')}
       </div>

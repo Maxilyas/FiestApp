@@ -8250,8 +8250,8 @@ textarea.signaler-anecdote { font-family: var(--sans); }
 }
 /* Le rayon montré garde l'espacement de la page : la vitrine en était un
    enfant direct. */
-/* Un rayon de la boutique : sa tête, son étagère ; descendu par sa puce, son titre s'arrête sous les puces collées. */
-.rayon-de-la-boutique { display: flex; flex-direction: column; gap: 14px; scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 64px); }
+/* Un rayon de la boutique : sa tête, sa grille ; descendu par son segment, son titre s'arrête sous la rangée collée. */
+.rayon-de-la-boutique { display: flex; flex-direction: column; gap: 8px; scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 72px); }
 /* Le panneau des onglets du classement du jour : l'espacement de la page. */
 .classement-periode { display: flex; flex-direction: column; gap: 18px; }
 
@@ -13259,16 +13259,17 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .soiree-carte .link-inline { font-size: 0.8rem; }
 .soiree-gain small { font-family: var(--sans); font-size: var(--t-label); color: var(--muted); }
 
-/* ── La boutique, d'un seul tenant ───────────────────────────────────────
-   Le titre et le solde sur une ligne, « À la une » en grandes cartes qu'on
-   fait glisser, puis les quatre rayons à la suite, une rangée de puces collée
-   en haut qui y mène (la refonte du 1er novembre 2026). Les thèmes, une
-   étagère par rareté, en cartes — l'écran d'une question sous chaque thème ;
-   « Mes thèmes », dans la loge, reprend les mêmes cartes, en grille. Les
-   gemmes servent à la loge et aux albums. */
+/* ── La boutique, en grilles ─────────────────────────────────────────────
+   Le titre et le solde sur une ligne, la rangée des rayons collée en haut,
+   son envie, puis les quatre rayons à la suite, en tuiles serrées (la
+   refonte du 10 novembre 2026, `retours/2026-11-10/boutique/`) : rien n'y
+   glisse de côté. « Mes thèmes », dans la loge, garde ses grandes cartes —
+   l'écran d'une question sous chaque thème. Les gemmes servent à la loge et
+   aux albums. */
 .boutique-tete { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .boutique-tete h1 { margin: 0; font-size: 2rem; }
-.solde-puce { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); font-family: var(--serif); font-size: 1.2rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
+/* Son solde se touche — il ouvre « Tes confettis » — : une cible de doigt, sur l'or pâle (`--accent-text-hover`, règle `css.md`). */
+.solde-puce { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: var(--accent-soft); font-family: var(--serif); font-size: 1.2rem; font-weight: 600; color: var(--accent-text-hover); font-variant-numeric: lining-nums tabular-nums; cursor: pointer; }
 .gemmes { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
 .gemme { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 2px 6px; border: 1px solid transparent; border-radius: var(--radius-sm); background: none; color: var(--muted); font: inherit; font-size: var(--t-label); font-weight: 600; line-height: 1.2; text-align: center; cursor: pointer; }
 .gemme i { width: 18px; height: 18px; transform: rotate(45deg); border-radius: 4px; background: linear-gradient(135deg, color-mix(in srgb, var(--gemme) 30%, white), var(--gemme) 55%, color-mix(in srgb, var(--gemme) 60%, black)); opacity: 0.55; transition: transform 0.2s ease, opacity 0.2s ease; }
@@ -13295,13 +13296,14 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 /* Trop cher : l'aperçu s'éteint, et ce qui manque se lit à la place du prix. */
 .theme-cher .theme-vitrine-image { filter: saturate(0.5) brightness(0.75); }
 .theme-cher .theme-vitrine-prix { color: var(--muted); }
-.theme-saison { position: absolute; top: 8px; left: 8px; padding: 2px 8px; border-radius: var(--radius-pill); background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; }
 .theme-fiche { grid-column: 1 / -1; }
 /* Le thème qu'on vient d'acheter : sa carte a quitté le rayon, on dit où il est passé. */
 .theme-achete { margin: 0; text-align: center; border-color: var(--accent); }
 .lien-boutique { align-self: center; display: inline-flex; align-items: center; gap: 6px; text-align: center; }
 .lien-boutique .icon { flex: none; width: 15px; height: 15px; }
-.la-boutique { display: flex; flex-direction: column; gap: 26px; }
+/* Remontée sous sa tête : la rangée des rayons s'arrête 4 px sous la niche, et la troisième rangée de thèmes tient
+   au-dessus du menu en 360 × 640 (`rendu-boutique.ts`). */
+.la-boutique { display: flex; flex-direction: column; gap: 18px; margin-top: -12px; }
 /* Les rayons, collés en haut : un sélecteur segmenté — des liens vers la
    suite de la page, pas des onglets : rien ne se cache, on y descend. Ses
    quatre rayons tiennent en entier sur un téléphone de 360 de large, la niche
@@ -13315,8 +13317,8 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
   position: sticky;
   top: env(safe-area-inset-top, 0px);
   z-index: 5;
-  margin-bottom: -14px;
-  padding: 8px 0;
+  margin-bottom: -10px;
+  padding: 4px 0 8px;
   background: var(--bg);
 }
 .boutique-rayons-defile {
@@ -13329,95 +13331,125 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
   scrollbar-width: none;
 }
 .boutique-rayons-defile::-webkit-scrollbar { display: none; }
-.boutique-rayons a { flex: 1 0 auto; display: inline-flex; align-items: center; justify-content: center; min-height: 36px; padding: 0 8px; border-radius: var(--radius-pill); color: var(--ink); font-size: 0.8125rem; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.boutique-rayons a { flex: 1 0 auto; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 8px; border-radius: var(--radius-pill); color: var(--ink); font-size: 0.8125rem; font-weight: 600; text-decoration: none; white-space: nowrap; }
 .boutique-rayons a[aria-current='true'] { background: var(--ink); color: var(--bg); }
-.rayon-tete { display: flex; flex-direction: column; gap: 4px; }
-.rayon-tete h2 { margin: 0; font-family: var(--serif); font-size: 1.75rem; font-weight: 600; line-height: 1.1; }
-.rayon-tete p { margin: 0; }
-/* « À la une » : de grandes cartes qu'on fait glisser, la suivante au bord.
-   Des objets peints, nocturnes sous tous les thèmes, comme la scène d'un
-   compagnon : leur nuit et leur or s'écrivent en dur. */
-.une-boutique { display: flex; gap: 12px; margin: 0; padding: 2px 2px 6px; list-style: none; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; }
-.une-boutique::-webkit-scrollbar { display: none; }
-.une-boutique-carte {
-  position: relative;
-  isolation: isolate;
-  flex: 0 0 86%;
-  min-height: 200px;
-  scroll-snap-align: center;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 16px;
-  border-radius: var(--radius);
-  overflow: hidden;
-  background: radial-gradient(120% 90% at 85% 10%, #3a2b22, #120d0b 70%);
-  color: #f3ece2;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+/* La tête d'un rayon : son nom, et à droite ce qu'on vient y chercher, en une ligne (« 22, dont 9 à ta portée »). */
+.rayon-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.rayon-tete h2 { margin: 0; font-family: var(--serif); font-size: 1.45rem; font-weight: 600; line-height: 1.1; }
+.rayon-tete p { margin: 0; color: var(--muted); font-size: 0.8rem; text-align: right; font-variant-numeric: lining-nums tabular-nums; }
+/* Son envie, en tête : ce qu'il vise, sa jauge, ce qui manque encore. */
+.carte-envie { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; box-sizing: border-box; padding: 8px 12px 8px 8px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.carte-envie .panier-vignette { width: 44px; height: 44px; }
+.carte-envie-texte { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.carte-envie-nom { font-size: 0.86rem; overflow-wrap: anywhere; }
+.carte-envie-nom b { font-weight: 600; }
+.carte-envie-reste { display: flex; flex-direction: column; align-items: flex-end; color: var(--muted); font-size: 0.78rem; font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
+.carte-envie-reste b { color: var(--accent-text); font-size: 0.95rem; font-weight: 600; }
+/* Les grilles : trois thèmes par rangée sur un téléphone — neuf à l'arrivée en 360 × 640 —, quatre fonds ; un écran plus
+   large en montre davantage, sans que rien ne glisse de côté. */
+.rayon-grille { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.rayon-grille > li { display: flex; min-width: 0; }
+.grille-themes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grille-fonds { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (min-width: 520px) {
+  .grille-themes { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .grille-fonds { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 }
-.une-boutique-carte:only-child { flex-basis: 100%; }
-.une-boutique-theme { background: radial-gradient(110% 90% at 90% 0%, color-mix(in srgb, var(--gemme) 45%, #1a1412), #110c0a 72%); }
-.une-boutique-compagnon {
-  background:
-    radial-gradient(46% 52% at 80% 40%, color-mix(in srgb, var(--aura) 42%, transparent), transparent 72%),
-    radial-gradient(130% 95% at 50% 0%, var(--scene), var(--nuit));
-}
-.une-boutique-visuel { position: absolute; z-index: -1; pointer-events: none; }
-.une-boutique-theme .une-boutique-visuel { top: 16px; right: 16px; }
-.une-boutique-theme .une-boutique-visuel img { display: block; width: 92px; height: 115px; object-fit: cover; object-position: top; border: 1px solid color-mix(in srgb, var(--gemme) 70%, transparent); border-radius: 10px; transform: rotate(6deg); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45); }
-.une-boutique-compagnon .une-boutique-visuel { top: 14px; right: 12px; font-size: 5.75rem; line-height: 0; }
-.une-boutique-fond .une-boutique-visuel { inset: 0; }
-.une-boutique-visuel .une-boutique-decor { position: absolute; inset: 0; display: block; }
-/* Le décor d'un fond tapisse toute la carte ; un voile monte sous le texte. */
-.une-boutique-fond::after { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(10, 6, 4, 0.05) 20%, rgba(10, 6, 4, 0.85) 78%); pointer-events: none; }
-.une-boutique-texte { display: flex; flex-direction: column; gap: 2px; max-width: 60%; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); }
-.une-boutique-fond .une-boutique-texte { max-width: none; }
-.une-boutique-sur { font-size: var(--t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #e6c47c; }
-.une-boutique-nom { font-family: var(--serif); font-size: 1.7rem; font-weight: 600; line-height: 1.05; }
-.une-boutique-detail { font-size: 0.85rem; color: #d8ccbd; font-variant-numeric: lining-nums tabular-nums; }
-.une-boutique-gestes { display: flex; flex-wrap: wrap; gap: 8px; }
-.une-boutique-gestes .btn { min-height: 44px; padding: 0 18px; }
-.une-boutique-gestes .btn-ghost { border: 1px solid rgba(255, 255, 255, 0.45); background: rgba(8, 6, 10, 0.35); color: #f3ece2; }
+.rayon-suite { margin: 0; color: var(--muted); font-size: 0.82rem; text-align: center; }
+.rayon-suite .link-inline { display: inline-flex; align-items: center; min-height: 44px; }
+/* Une tuile : son image, son nom entier — sur deux lignes s'il le faut, jamais coupé —, son prix. */
+.article-boutique { position: relative; display: flex; flex-direction: column; flex: 1; min-width: 0; padding: 0; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface); color: inherit; font: inherit; text-align: left; overflow: hidden; cursor: pointer; }
+.article-boutique:hover { border-color: var(--edge-strong); }
+.article-image { display: block; height: 64px; background: var(--surface-strong); overflow: hidden; }
+.article-image img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.article-pied { flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 2px; min-width: 0; padding: 5px 7px 6px; }
+.article-nom { font-size: 0.82rem; font-weight: 600; line-height: 1.15; overflow-wrap: anywhere; }
+/* Le prix : à l'or quand son solde le paie, en gris sinon. */
+.article-prix { display: inline-flex; align-items: center; gap: 4px; color: var(--accent-text); font-size: 0.8rem; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
+.article-prix-loin { color: var(--muted); font-weight: 500; }
+/* La gemme de sa rareté, à la couleur que sa tuile lui donne (`gemme()`). */
+.article-gemme { flex: none; width: 7px; height: 7px; margin: 0 2px 0 1px; border-radius: 1.5px; transform: rotate(45deg); background: var(--gemme); }
+/* À l'essai : le pointillé de l'essai, comme dans la loge. */
+.article-essayee { border: 1px dashed var(--accent); }
+.article-marque { position: absolute; top: 5px; right: 5px; display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; border-radius: var(--radius-pill); background: var(--bg-raised); color: var(--accent-text); font-size: var(--t-label); font-weight: 600; line-height: 1.3; }
+.article-marque .icon { width: 0.9em; height: 0.9em; fill: currentColor; }
+/* Un fond : sa carte en petit, son avatar posé sur le décor ; son savoir dessous. */
+.article-carte { display: grid; place-items: center; aspect-ratio: 3 / 4; padding-bottom: 18%; box-sizing: border-box; }
+.article-carte-avatar { font-size: 1.5rem; }
+/* « Géographie », dix lettres, tient entier dans sa tuile de 77 px sous une police à chasse fixe. */
+.article-fond .article-pied { padding: 5px 2px 6px; align-items: center; }
+.article-fond .article-nom { font-size: 0.72rem; text-align: center; }
+.article-fond .article-marque { padding: 3px; }
+/* Le présentoir : la feuille d'un article, la même pour les quatre rayons.
+   Sa barre feuillette le rayon et porte l'étoile de son envie ; son image à
+   gauche, ce qu'il est et son prix à droite ; ses gestes au pied, sous le
+   pouce — deux au plus, de même largeur : « L'acheter » puis « Confirmer »
+   tombent au même endroit. */
+.presentoir-barre { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+.presentoir-rond { flex: none; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid var(--edge); border-radius: 50%; background: none; color: var(--muted); cursor: pointer; }
+.presentoir-rond .icon { width: 18px; height: 18px; }
+/* Son envie : l'étoile pleine, à l'or. */
+.presentoir-etoile[aria-pressed='true'] { border-color: var(--edge-strong); color: var(--accent-text); }
+.presentoir-etoile[aria-pressed='true'] .icon { fill: currentColor; }
+.presentoir-rang { flex: 1; min-width: 0; color: var(--muted); font-size: 0.8rem; text-align: center; font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
+.presentoir-corps { display: flex; flex-direction: column; gap: 12px; }
+.presentoir-fiche { display: grid; grid-template-columns: 124px minmax(0, 1fr); gap: 14px; align-items: start; }
+.presentoir-image { display: block; width: 124px; box-sizing: border-box; border: 1px solid var(--edge); border-radius: var(--radius-sm); overflow: hidden; }
+.presentoir-apercu { border-color: color-mix(in srgb, var(--gemme) 55%, var(--edge)); background: var(--bg); }
+.presentoir-apercu img { display: block; width: 100%; height: auto; }
+/* Sa carte, posée sur le fond : la carte de la loge en petit, son décor nocturne sous tous les thèmes. */
+.presentoir-carte { border: 0; }
+.presentoir-carte .fond-carte-grande { width: 100%; box-sizing: border-box; padding: 10px 8px; box-shadow: none; }
+.presentoir-carte .fond-carte-grande .fond-carte-tete b { font-size: 1.05rem; }
+.presentoir-carte .fond-carte-avatar { font-size: 2.4rem; }
+/* Plus précis que `.objet-dessin`, posé plus bas dans la feuille : son rond prend la place de l'image. */
+.presentoir-image.presentoir-objet { width: 124px; height: 124px; margin: 0; border: 0; }
+.presentoir-image.presentoir-objet svg { width: 56px; height: 56px; }
+.presentoir-texte { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.presentoir-texte p { margin: 0; color: var(--muted); font-size: 0.88rem; line-height: 1.35; }
+.presentoir-texte p b { color: var(--ink); font-weight: 600; }
+.presentoir-sorte { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: var(--t-label); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; }
+.presentoir-nom { margin: 0; font-family: var(--serif); font-size: 1.6rem; font-weight: 600; line-height: 1.05; text-wrap: balance; overflow-wrap: anywhere; }
+.presentoir-prix { display: flex; flex-direction: column; gap: 1px; margin-top: 2px; }
+.presentoir-prix b { color: var(--accent-text); font-family: var(--serif); font-size: 1.5rem; font-weight: 700; line-height: 1.1; font-variant-numeric: lining-nums tabular-nums; }
+.presentoir-prix span { color: var(--muted); font-size: 0.8rem; font-variant-numeric: lining-nums tabular-nums; }
+.presentoir-prix .presentoir-manque { color: var(--ink); }
+.presentoir-texte .presentoir-possede { color: var(--ink); font-size: 0.82rem; font-variant-numeric: lining-nums tabular-nums; }
+.presentoir-texte .presentoir-a-toi { display: flex; align-items: flex-start; gap: 6px; color: var(--ink); font-weight: 600; }
+.presentoir-a-toi .icon { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--accent-text); }
+.presentoir-dit { margin: 0; color: var(--muted); font-size: 0.86rem; line-height: 1.35; }
+.presentoir-quantite { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+/* Ses deux pas, sur une cible de doigt (36 px sur la page des sentiers, d'où ils viennent). */
+.presentoir-quantite .vies-pas-btn { width: 44px; height: 44px; }
+/* Ce qu'il vient d'acheter : une coche, son nom, ce qui lui reste. */
+.presentoir-acquis { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 0 2px; text-align: center; }
+.presentoir-acquis p { margin: 0; color: var(--muted); font-size: 0.9rem; font-variant-numeric: lining-nums tabular-nums; }
+.presentoir-coche { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: var(--accent); color: var(--on-accent); }
+.presentoir-coche .icon { width: 28px; height: 28px; stroke-width: 2.6; }
+/* Le geste attendu, à droite, a la plus grande part : « Confirmer · 🎊 1000 » y tient sous une police large, en 360
+   de large — à parts égales, il se coupait. Les mêmes parts à chaque étape : « Confirmer » tombe sous « L'acheter ». */
+.presentoir-gestes { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 8px; }
+.presentoir-geste-seul { grid-template-columns: minmax(0, 1fr); }
+.presentoir-gestes .btn { min-width: 0; min-height: 48px; padding: 0 8px; gap: 6px; white-space: nowrap; }
+.presentoir-gestes .btn .icon { flex: none; width: 16px; height: 16px; }
+.feuille-boutique .carte-pied .error { margin: 0 0 8px; }
 /* Un interrupteur garde son nom (`aria-pressed`) : une coche le dit à l'œil. */
-.une-boutique-gestes .btn[aria-pressed='true']::before,
-.fiche-gestes .btn[aria-pressed='true']::before,
-.feuille-boutique .carte-pied > .btn[aria-pressed='true']::before { content: '✓'; margin-right: 6px; font-weight: 700; }
-/* Les étagères : une rangée qui glisse de côté dans son cadre, jamais la page. */
-.etagere-rarete { display: flex; flex-direction: column; gap: 8px; }
-.etagere-titre { display: flex; align-items: center; gap: 8px; margin: 0; font-family: var(--sans); font-size: 0.95rem; font-weight: 600; }
-.etagere-titre i { flex: none; width: 10px; height: 10px; transform: rotate(45deg); border-radius: 2px; background: linear-gradient(135deg, color-mix(in srgb, var(--gemme) 30%, white), var(--gemme) 55%, color-mix(in srgb, var(--gemme) 60%, black)); box-shadow: 0 0 8px var(--gemme); }
-.etagere-titre .muted { font-weight: 500; }
-.etagere { display: flex; gap: 10px; margin: 0; padding: 2px 2px 8px; list-style: none; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: none; }
-.etagere::-webkit-scrollbar { display: none; }
-.etagere > li { flex: none; display: flex; scroll-snap-align: start; }
-.etagere .theme-vitrine { width: 136px; }
-.etagere .theme-vitrine-pied b { font-size: 1rem; }
-/* La fiche d'un thème, d'un compagnon, d'un objet : dans une feuille, ses gestes au pied, sous le pouce. */
-.fiche-boutique { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
-.fiche-boutique p { margin: 0; }
-.fiche-apercu { display: block; width: min(200px, 60%); aspect-ratio: 4 / 5; overflow: hidden; border: 1px solid var(--gemme); border-radius: var(--radius); background: var(--bg); box-shadow: 0 0 0 1px color-mix(in srgb, var(--gemme) 40%, transparent), 0 12px 30px rgba(0, 0, 0, 0.35); }
-.fiche-apercu img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
-.fiche-achete { font-weight: 600; }
-.fiche-gestes { display: flex; gap: 8px; }
-.fiche-gestes .btn { flex: 1 1 0; min-width: 0; min-height: 48px; }
+.presentoir-gestes .btn[aria-pressed='true']::before { content: '✓'; font-weight: 700; }
 /* L'essayer est un geste à part entière, pas un renoncement : il se lit à l'encre, dans son filet. */
-.fiche-gestes .btn-ghost,
-.feuille-boutique .carte-pied > .btn-ghost { border: 1px solid var(--edge-strong); color: var(--ink); }
-/* Un geste éteint — trop cher, rien de coché — se lit éteint : l'or plein promettait un achat. */
-.la-boutique .btn[aria-disabled='true'] { border-color: var(--edge); background: var(--surface-strong); color: var(--muted); cursor: default; }
-.feuille-boutique .compagnon-carte { border: 0; background: none; }
+.presentoir-gestes .btn-ghost { border: 1px solid var(--edge-strong); color: var(--ink); }
+/* Un geste éteint — ce qui manque, un essai trop cher à garder — se lit éteint : l'or plein promettait un achat. */
+.feuille-boutique .btn[aria-disabled='true'] { border-color: var(--edge); background: var(--surface-strong); color: var(--muted); cursor: default; }
+/* « Tes confettis » : son solde en grand, et d'où ils viennent, ligne par ligne. */
+.confettis-solde { margin: 0; color: var(--accent-text); font-family: var(--serif); font-size: 2rem; font-weight: 700; line-height: 1.1; font-variant-numeric: lining-nums tabular-nums; }
+.confettis-sources { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; border: 1px solid var(--edge); border-radius: var(--radius); }
+.confettis-sources li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 10px 12px; font-size: 0.9rem; }
+.confettis-sources li + li { border-top: 1px solid var(--edge); }
+.confettis-sources li > span:last-child { flex: none; color: var(--muted); font-size: 0.82rem; text-align: right; font-variant-numeric: lining-nums tabular-nums; }
 
-/* Le rayon des fonds : sa carte en grand — l'avatar et le prénom de celui
-   qui regarde, comme la salle les voit quand elle touche son nom —, posée
-   sur le fond qu'il essaie, puis les douze décors en pastilles. Le savoir du
-   fond, au pied de la carte, à l'or du décor : il reste nocturne sous tous
-   les thèmes. */
-.rayon-fonds { display: flex; flex-direction: column; gap: 14px; }
-.cabine-des-fonds { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
-.cabine-des-fonds p { margin: 0; }
-.cabine-texte { display: flex; flex-direction: column; gap: 2px; }
-.cabine-nom { font-family: var(--serif); font-size: 1.35rem; font-weight: 600; line-height: 1.15; }
+/* Sa carte sur un fond, dans le présentoir : l'avatar et le prénom de celui
+   qui regarde, comme la salle les voit quand elle touche son nom. Le savoir
+   du fond, au pied de la carte, à l'or du décor : il reste nocturne sous
+   tous les thèmes. */
 .fond-carte { display: flex; flex-direction: column; justify-content: space-between; aspect-ratio: 2 / 3; padding: 10px; }
 .fond-carte-tete { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .fond-carte-tete b { min-width: 0; font-family: var(--serif); font-size: 1rem; font-weight: 600; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -13426,11 +13458,6 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .fond-carte-grande .fond-carte-tete { flex-direction: column; gap: 6px; }
 .fond-carte-grande .fond-carte-tete b { font-size: 1.35rem; white-space: normal; text-align: center; overflow-wrap: anywhere; }
 .fond-carte-avatar { font-size: 3rem; }
-.fonds-pastilles { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin: 0; padding: 0; list-style: none; }
-.fond-pastille { display: block; width: 100%; aspect-ratio: 3 / 4; padding: 0; border: 1px solid var(--edge); border-radius: var(--radius-xs); cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; }
-.fond-pastille[aria-pressed='true'] { box-shadow: 0 0 0 2px var(--accent); transform: translateY(-2px); }
-/* À lui : sa coche, sur le décor — en elle-même, pas dans un pseudo-élément : les siens peignent le décor. */
-.fond-pastille-coche { position: absolute; top: 2px; right: 3px; color: var(--fond-or); font-size: var(--t-label); font-weight: 700; line-height: 1; }
 /* « Ma collection » : les thèmes en album — une page par rareté, chaque
    thème en vignette, à sa place du catalogue : en couleur ceux qu'on a, en
    gris ceux qui restent, bordés de leur gemme. Huit par rangée au téléphone,
@@ -13689,61 +13716,59 @@ a.trophee-tombe:hover b { color: var(--accent-text-hover); }
 .fin-record { position: relative; z-index: 1; display: flex; align-items: flex-start; gap: 8px; margin: 0; font-size: 0.9rem; }
 .fin-record .icon { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--accent-text); }
 .fin-record b { font-weight: 600; }
-/* Les compagnons de la boutique : une étagère de cartes, chacune la scène de
-   son compagnon en petit, son nom, ce qu'il est pour lui — puis sa fiche,
-   dans une feuille : sa scène en grand. La scène est à ses couleurs
+/* Les compagnons de la boutique : les cinq sur une rangée, chacun dans son
+   médaillon, son nom en un mot, son prix ou sa coche — puis sa fiche, dans le
+   présentoir : lui en plus grand. Sa scène est à ses couleurs
    (`teintesDuCompagnon` : le bleu de nuit du loup, la prune du chat, le lagon
-   de la tortue), nocturne sous tous les thèmes ; il y flotte en grand, son
-   monde vivant autour de lui, et sautille quand on le touche — des cœurs
-   s'envolent. Ses quatre formes dessous, chacune la teinte de sa rareté et ce
-   qu'elle demande, figées dans leur disque : en toucher une la montre en
-   grand. Adopté, la fiche dit où il en est. */
-.compagnon-vitrine { position: relative; display: flex; flex-direction: column; width: 160px; padding: 0; border: 1px solid color-mix(in srgb, var(--aura) 35%, var(--edge)); border-radius: var(--radius); background: var(--surface); color: inherit; font: inherit; text-align: left; overflow: hidden; cursor: pointer; transition: box-shadow 0.2s ease; }
-.compagnon-vitrine:hover { box-shadow: 0 0 0 1px var(--aura), 0 6px 22px color-mix(in srgb, var(--aura) 30%, transparent); }
-.compagnon-vitrine.compagnon-essaye { box-shadow: 0 0 0 2px var(--accent), 0 6px 22px rgba(var(--accent-rgb), 0.35); }
+   de la tortue), nocturne sous tous les thèmes ; il y flotte, et sautille
+   quand on le touche — des cœurs s'envolent. Ses quatre formes dessous,
+   chacune la teinte de sa rareté et ce qu'elle demande, figées dans leur
+   disque : en toucher une la montre à sa place. Adopté, la fiche dit où il en
+   est. */
+.rang-des-compagnons { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin: 0; padding: 0; list-style: none; }
+.rang-des-compagnons > li { display: flex; min-width: 0; }
+.compagnon-vitrine { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; padding: 4px 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
 .compagnon-vitrine-scene {
   display: grid;
   place-items: center;
-  height: 140px;
+  width: 100%;
+  max-width: 64px;
+  aspect-ratio: 1;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, var(--aura) 55%, var(--edge-strong));
+  border-radius: 50%;
   background:
     radial-gradient(48% 40% at 50% 50%, color-mix(in srgb, var(--aura) 42%, transparent), transparent 72%),
     radial-gradient(130% 95% at 50% 0%, var(--scene), var(--nuit));
-  font-size: 5.5rem;
+  font-size: 3.1rem;
   line-height: 0;
+  overflow: hidden;
 }
-/* Dans l'étagère, il tient dans son disque et ne bouge pas : sa scène en grand est dans sa fiche. */
+/* À l'essai dans sa niche : le pointillé de l'essai. */
+.compagnon-vitrine.compagnon-essaye .compagnon-vitrine-scene { border: 2px dashed var(--accent); }
+/* Dans son médaillon, il tient dans son disque et ne bouge pas : il vit dans sa fiche. */
 .compagnon-vitrine-scene .pt-debord,
 .compagnon-vitrine-scene .pt-aura,
 .compagnon-vitrine-scene .pt-etoile { display: none; }
 .compagnon-vitrine-scene .pt * { animation: none; }
-.compagnon-vitrine-pied { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px 10px; }
-.compagnon-vitrine-pied b { font-family: var(--serif); font-size: 1.05rem; font-weight: 600; line-height: 1.15; }
-.compagnon-vitrine-prix { font-size: 0.85rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
-.compagnon-a-toi .compagnon-vitrine-prix { color: var(--ink); }
-.compagnon-carte {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding-bottom: 16px;
-  border: 1px solid color-mix(in srgb, var(--aura) 35%, var(--edge));
-  border-radius: var(--radius);
-  background: var(--surface);
-  overflow: hidden;
-}
+.compagnon-vitrine-nom { max-width: 100%; font-size: 0.82rem; font-weight: 600; line-height: 1.2; overflow-wrap: anywhere; text-align: center; }
+.compagnon-vitrine-a-toi { display: inline-flex; align-items: center; gap: 3px; color: var(--accent-text); font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
+.compagnon-vitrine-a-toi .icon { width: 1em; height: 1em; stroke-width: 2.4; }
 .compagnon-scene {
   position: relative;
   display: grid;
   place-items: center;
-  height: 290px;
+  height: 124px;
   padding: 0;
-  border: 0;
+  border-color: color-mix(in srgb, var(--aura) 55%, var(--edge-strong));
+  border-radius: 50%;
   background:
     radial-gradient(48% 40% at 50% 50%, color-mix(in srgb, var(--aura) 42%, transparent), transparent 72%),
     radial-gradient(130% 95% at 50% 0%, var(--scene), var(--nuit));
   cursor: pointer;
   overflow: hidden;
 }
-.compagnon-bete { display: block; font-size: 9.5rem; line-height: 0; animation: compagnon-flotte 4.2s ease-in-out infinite; }
+.compagnon-bete { display: block; font-size: 6rem; line-height: 0; animation: compagnon-flotte 4.2s ease-in-out infinite; }
 /* Caressé : un bond, puis il reprend son vol tranquille. */
 .compagnon-bete.saute { animation: compagnon-saute 0.7s cubic-bezier(0.3, 1.5, 0.5, 1), compagnon-flotte 4.2s ease-in-out 0.7s infinite; }
 @keyframes compagnon-flotte {
@@ -13770,11 +13795,13 @@ a.trophee-tombe:hover b { color: var(--accent-text-hover); }
   20% { opacity: 1; }
   100% { opacity: 0; transform: translate(calc(-50% + var(--x)), var(--y)) scale(var(--e)); }
 }
-.compagnon-texte { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 0 16px; text-align: center; }
-.compagnon-texte p { margin: 2px 0 0; }
-.compagnon-nom { font-family: var(--serif); font-size: 1.55rem; font-weight: 600; line-height: 1.1; }
-.compagnon-forme-nom { font-size: 0.85rem; font-weight: 600; color: color-mix(in srgb, var(--gemme) 65%, var(--ink)); }
-.compagnon-formes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0 12px; list-style: none; }
+/* Dans son médaillon du présentoir, les cœurs s'envolent sans en sortir. */
+.compagnon-scene .compagnon-envols i:nth-child(1) { --x: -36px; --y: -40px; }
+.compagnon-scene .compagnon-envols i:nth-child(2) { --x: -18px; --y: -52px; }
+.compagnon-scene .compagnon-envols i:nth-child(3) { --x: 2px; --y: -58px; }
+.compagnon-scene .compagnon-envols i:nth-child(4) { --x: 22px; --y: -50px; }
+.compagnon-scene .compagnon-envols i:nth-child(5) { --x: 38px; --y: -38px; }
+.compagnon-formes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
 .compagnon-forme { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; padding: 10px 4px 8px; border: 1px solid transparent; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--gemme) 12%, transparent); color: inherit; font: inherit; cursor: pointer; }
 .compagnon-forme[aria-pressed='true'] { border-color: var(--gemme); box-shadow: 0 0 14px color-mix(in srgb, var(--gemme) 40%, transparent); }
 .compagnon-petit { font-size: 2.75rem; line-height: 0; }
@@ -13786,17 +13813,12 @@ a.trophee-tombe:hover b { color: var(--accent-text-hover); }
 /* Une forme qu'il a atteinte : sa coche dans le coin. */
 .compagnon-atteinte { position: relative; }
 .compagnon-atteinte::after { content: '✓'; position: absolute; top: 4px; right: 6px; font-size: var(--t-label); font-weight: 700; color: var(--accent-text); }
-.compagnon-sien { display: flex; flex-direction: column; gap: 8px; padding: 0 16px; }
+.compagnon-sien { display: flex; flex-direction: column; gap: 8px; }
 .compagnon-sien p { display: flex; align-items: center; gap: 6px; margin: 0; }
 .compagnon-sien .icon { width: 15px; height: 15px; color: var(--accent-text); }
 /* Un compagnon adopté qui n'est pas dans sa niche : de quoi l'y installer, sous sa forme. */
 .compagnon-installer { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; }
 .compagnon-jauge { display: flex; flex-direction: column; gap: 4px; }
-.compagnon-achat { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 16px; }
-.compagnon-prix { flex: none; font-family: var(--serif); font-size: 1.4rem; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
-.compagnon-economies { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; max-width: 60%; }
-.compagnon-economies .jauge-fine { width: 100%; }
-.compagnon-astuce { margin: 0; padding: 0 16px; }
 @media (prefers-reduced-motion: reduce) {
   .compagnon-bete,
   .compagnon-bete.saute { animation: none; }
@@ -15101,38 +15123,20 @@ body.avec-niche .player-shell.duels-envoye { padding-top: max(92px, calc(env(saf
 body.avec-niche .duels-defi > .duels-surtitre { margin-top: 30px; }
 /* La croix du verdict était sous elle : la toucher ouvrait « Ma niche ». Elle prend le coin d'en face, où les autres écrans d'un duel ont leur sortie (« ← Les duels ») : collée à sa gauche, on la prenait pour celle du compagnon. */
 body.avec-niche .duels-fermer { right: auto; left: 12px; }
-/* Le comptoir des objets : une grande case par objet, à sa couleur — son
-   dessin dans un rond, ce qu'il change pour lui, ce qu'il en a, son prix ;
-   l'Éclat montre son avatar tel qu'il est, puis éclaté. La fiche de celui
-   qu'on touche monte dans une feuille. */
-.comptoir { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
-.comptoir-objet {
-  position: relative;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px 14px;
-  width: 100%;
-  padding: 16px;
-  border: 1px solid color-mix(in srgb, var(--objet) 40%, var(--edge));
-  border-radius: var(--radius);
-  background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--objet) 16%, transparent), transparent 62%), var(--surface);
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-.comptoir-objet:hover { border-color: color-mix(in srgb, var(--objet) 70%, transparent); box-shadow: 0 6px 22px color-mix(in srgb, var(--objet) 22%, transparent); }
-.comptoir-objet .objet-dessin { width: 64px; height: 64px; margin: 0; }
-.comptoir-objet .objet-dessin svg { width: 36px; height: 36px; }
-.comptoir-texte { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.comptoir-pour { font-size: var(--t-label); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
-.comptoir-texte .objet-nom { font-family: var(--serif); font-size: 1.4rem; font-weight: 600; line-height: 1.1; }
-.comptoir-accroche { font-size: 0.9rem; line-height: 1.3; }
-.comptoir-a-toi { font-size: 0.8rem; color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
-.comptoir-objet .objet-prix { align-self: start; font-family: var(--serif); font-size: 1.15rem; white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
-.comptoir-eclat { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: 14px; padding-top: 4px; font-size: 2.6rem; }
+/* Le comptoir des objets : trois lignes dans une carte — son dessin dans un
+   rond, à sa couleur, son nom, ce qu'il change pour lui et ce qu'il en a,
+   son prix. Le présentoir de celui qu'on touche monte du bas. */
+.comptoir { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); }
+.comptoir > li + li { border-top: 1px solid var(--edge); }
+.comptoir-objet { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; align-items: center; gap: 12px; width: 100%; min-height: 62px; box-sizing: border-box; padding: 8px 12px 8px 10px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.comptoir-objet .objet-dessin { width: 42px; height: 42px; margin: 0; }
+.comptoir-objet .objet-dessin svg { width: 22px; height: 22px; }
+.comptoir-texte { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.comptoir-texte .objet-nom { font-family: var(--serif); font-size: 1.2rem; font-weight: 600; line-height: 1.1; }
+.comptoir-accroche { color: var(--muted); font-size: 0.8rem; line-height: 1.25; }
+.comptoir-a-toi { font-variant-numeric: lining-nums tabular-nums; }
+/* L'Éclat, dans son présentoir : son avatar tel qu'il est, puis éclaté. */
+.comptoir-eclat { display: flex; align-items: center; justify-content: center; gap: 14px; font-size: 2.6rem; }
 .comptoir-eclat > .icon { width: 20px; height: 20px; color: var(--muted); }
 .objet-vie { --objet: var(--alert); }
 .objet-sablier { --objet: var(--or-text); }
@@ -15146,22 +15150,12 @@ body.avec-niche .duels-fermer { right: auto; left: 12px; }
 .objet-dessin .sablier-plein { color: inherit; }
 .coeur-de-vie { fill: currentColor; }
 .objet-nom { font-size: 0.9rem; font-weight: 700; line-height: 1.2; }
-.objet-prix { font-size: 0.82rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
-.fiche-objet { align-self: stretch; align-items: stretch; gap: 10px; margin: 0; }
-.fiche-objet-tete { display: flex; align-items: center; gap: 12px; }
-.fiche-objet-titre { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.objet-dessin-grand { width: 64px; height: 64px; margin: 0; }
-.objet-dessin-grand svg { width: 36px; height: 36px; }
-.fiche-objet-quantite { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-/* Un objet qui ne s'achète qu'à l'unité (l'Éclat) n'a pas de quantité à choisir. */
-.fiche-objet-quantite[hidden] { display: none; }
-@media (prefers-reduced-motion: reduce) { .comptoir-objet, .compagnon-vitrine, .fond-pastille { transition: none; } }
 @media (prefers-reduced-motion: reduce) { .gemme i, .theme-vitrine { transition: none; } }
 
 /* La barre de l'essai, juste au-dessus du menu, tant qu'il y a de quoi
-   acheter : ce qu'on essaie, « Annuler », « Tout prendre ». Elle laisse le
-   menu en vue — on part de la boutique sans rien perdre que l'essai — et la
-   page ne passe jamais dessous (`avec-panier`). */
+   acheter : la vignette de ce qu'on essaie, son nom, la croix qui le retire,
+   « Garder ». Elle laisse le menu en vue — on part de la boutique sans rien
+   perdre que l'essai — et la page ne passe jamais dessous (`avec-panier`). */
 .boutique-panier {
   position: fixed;
   left: 0;
@@ -15174,38 +15168,36 @@ body.avec-niche .duels-fermer { right: auto; left: 12px; }
   width: calc(100% - 20px);
   max-width: 540px;
   margin: 0 auto;
-  padding: 8px 8px 8px 14px;
+  padding: 6px 6px 6px 8px;
   border: 1px solid var(--edge-strong);
   border-radius: var(--radius);
   background: var(--bg-raised);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
   box-sizing: border-box;
 }
-.boutique-panier-annuler { flex: none; display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 1px solid var(--edge-strong); border-radius: 50%; background: none; color: var(--ink); cursor: pointer; }
+.boutique-panier > .panier-vignette { flex: none; width: 40px; height: 40px; }
+.boutique-panier-sur { color: var(--muted); font-size: 0.75rem; font-weight: 600; line-height: 1.3; font-variant-numeric: lining-nums tabular-nums; }
+.boutique-panier-annuler { flex: none; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid var(--edge); border-radius: 50%; background: none; color: var(--muted); cursor: pointer; }
 .boutique-panier-annuler .icon { width: 18px; height: 18px; }
 .boutique-panier-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.boutique-panier-texte b,
-.boutique-panier-texte .small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.boutique-panier-texte b { font-family: var(--serif); font-size: 1.1rem; font-weight: 600; line-height: 1.2; }
+.boutique-panier-texte b { font-size: 0.9rem; font-weight: 600; line-height: 1.2; overflow-wrap: anywhere; }
 .boutique-panier .btn { flex: none; min-height: 44px; padding: 0 14px; }
 body.avec-menu.avec-panier { padding-bottom: calc(72px + 76px + env(safe-area-inset-bottom)); }
 html:has(> body.avec-panier) { scroll-padding-bottom: calc(72px + 76px + env(safe-area-inset-bottom)); }
-/* Le panier : une ligne par article, sa vignette, sa case ; le total ; le porter tout de suite. */
+/* Ce qu'on essaie : une ligne par article, sa vignette, la croix qui le retire ; le total. */
 .panier-lignes { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.panier-ligne { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 8px 10px 8px 8px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface); cursor: pointer; }
-.panier-vignette { display: grid; place-items: center; width: 48px; height: 60px; overflow: hidden; border-radius: var(--radius-xs); background: var(--bg); }
+.panier-ligne { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 6px 6px 6px 8px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface); }
+/* La vignette d'un article : l'aperçu d'un thème, un compagnon à sa première forme, le décor d'un fond, le dessin d'un objet. */
+.panier-vignette { display: grid; place-items: center; width: 48px; height: 48px; overflow: hidden; border-radius: var(--radius-xs); background: var(--bg); }
 .panier-vignette img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
-.panier-vignette-compagnon { font-size: 2.6rem; line-height: 0; }
+.panier-vignette-compagnon { font-size: 2.4rem; line-height: 0; }
 .panier-vignette-compagnon .pt * { animation: none; }
+.panier-vignette-objet { margin: 0; border-radius: 50%; }
+.panier-vignette-objet svg { width: 22px; height: 22px; }
 .panier-ligne-texte { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .panier-ligne-texte b { font-family: var(--serif); font-size: 1.1rem; font-weight: 600; line-height: 1.15; }
-.panier-ligne input,
-.panier-porter input { width: 22px; height: 22px; margin: 0; accent-color: var(--accent); }
 .panier-total { display: flex; align-items: baseline; justify-content: space-between; margin: 0; padding: 0 4px; }
 .panier-total b { font-family: var(--serif); font-size: 1.5rem; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
-.panier-porter { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--surface); cursor: pointer; }
-.panier-porter input { order: 2; }
-.panier-porter > span { display: flex; flex-direction: column; gap: 2px; }
 
 /* ── Le compte : quelques lignes, chacune sa feuille ─────────────────────
    Le titre et l'identifiant sur une ligne, « Mon salon » sur une trame

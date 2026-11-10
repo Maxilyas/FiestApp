@@ -285,22 +285,24 @@ try {
   await page.waitForSelector('.mes-themes')
   console.log('retour :', new URL(page.url()).hash)
 
-  // La boutique, d'un seul tenant : « À la une », les puces, les quatre rayons à la suite — ceux qui se gagnent n'y sont plus.
+  // La boutique, en grilles : la rangée des rayons, les quatre rayons à la suite — ceux qui se gagnent n'y sont plus.
+  // Ce qui y tient à l'écran se mesure à part (`rendu-boutique.ts`).
   await page.goto(`${banc.url}/boutique`)
-  await page.waitForSelector('.etagere .theme-vitrine')
+  await page.waitForSelector('.grille-themes .article-theme')
   await photo('8-boutique')
   await photo('8-boutique-pleine', true)
-  // Un thème : sa fiche dans une feuille, puis « L'essayer » — toute la page le porte, la barre de l'essai au-dessus du menu —, puis le panier.
-  await page.click('.etagere-rarete:last-of-type .theme-vitrine')
-  await page.waitForSelector('.feuille-boutique .fiche-apercu')
+  // Un thème : son présentoir, puis « L'essayer » — toute la page le porte, la barre de l'essai au-dessus du menu —,
+  // puis « Garder », qui le rouvre.
+  await page.click('.grille-themes > li:last-child .article-theme')
+  await page.waitForSelector('.feuille-boutique .presentoir-apercu')
   await photo('8-boutique-fiche-theme', false, 600)
-  await page.click('.feuille-boutique .fiche-gestes .btn-ghost')
+  await page.click('.feuille-boutique .presentoir-gestes .btn-ghost')
   await page.waitForSelector('.boutique-panier')
   await photo('8-boutique-essai-theme', false, 900)
   await page.click('.boutique-panier .btn-primary')
-  await page.waitForSelector('.feuille-du-panier .panier-ligne')
+  await page.waitForSelector('.feuille-boutique .presentoir-gestes')
   await photo('8-boutique-panier', false, 600)
-  await page.click('.feuille-du-panier .carte-fermer')
+  await page.click('.feuille-boutique .carte-fermer')
   await page.click('.boutique-panier-annuler')
 
   // La carte de la loge habillée : un titre porté, et sous la nuit étoilée —
@@ -321,14 +323,14 @@ try {
     .run(id)
   avecCompagnons.close()
   await page.goto(`${banc.url}/boutique#compagnons`)
-  await page.waitForSelector('.etagere-compagnons .compagnon-vitrine')
+  await page.waitForSelector('.rang-des-compagnons .compagnon-vitrine')
   await photo('10-boutique-compagnons')
   await photo('10-boutique-compagnons-pleine', true)
-  /** La fiche d'un compagnon de l'étagère, dans sa feuille. */
+  /** Le présentoir d'un compagnon de la rangée. */
   const ficheDuCompagnon = async (nom: string) => {
     if (await page.$('.feuille-boutique')) await page.click('.feuille-boutique .carte-fermer')
     await page.click(`.compagnon-vitrine[aria-label^="${nom}"]`)
-    await page.waitForSelector('.feuille-boutique .compagnon-carte')
+    await page.waitForSelector('.feuille-boutique .compagnon-formes')
   }
   // Sa fiche : caressé, il bondit et des cœurs s'envolent ; sa forme ultime en grand ; la tortue.
   await ficheDuCompagnon('Le Loup')
@@ -337,7 +339,7 @@ try {
   await page.click('.feuille-boutique .compagnon-forme[aria-label^="Le loup des étoiles"]')
   await photo('10-boutique-compagnon-ultime', false, 1200)
   // Essayé dans sa niche : elle l'accueille à sa première forme, la barre de l'essai au-dessus du menu.
-  await page.click('.feuille-boutique .carte-pied .btn')
+  await page.click('.feuille-boutique .presentoir-gestes .btn-ghost')
   await page.waitForSelector('.niche.niche-essai')
   await photo('10-boutique-compagnon-essai', false, 900)
   await page.click('.boutique-panier-annuler')
@@ -404,15 +406,16 @@ try {
   await page.waitForSelector('.carte-loupe')
   await photo('10-carte-loup-en-grand')
 
-  // Les fonds des savoirs : le rayon, sa carte en grand et les douze décors ;
-  // le vitrail essayé sur sa carte ; acheté et porté, dans la loge ; puis la
-  // collection, ses vingt-cinq fonds — ceux de la boutique à leur prix.
+  // Les fonds des savoirs : le rayon, sa carte en petit sur les douze décors ;
+  // le vitrail dans son présentoir, sa carte posée dessus ; acheté et porté,
+  // dans la loge ; puis la collection, ses vingt-cinq fonds — ceux de la
+  // boutique à leur prix.
   await page.goto(`${banc.url}/boutique#fonds`)
-  await page.waitForSelector('.fonds-pastilles .fond-pastille')
+  await page.waitForSelector('.grille-fonds .article-fond')
   await photo('11-boutique-fonds', false, 1500)
   await photo('11-boutique-fonds-pleine', true)
-  await page.click('.fond-pastille[aria-label^="Le Vitrail"]')
-  await page.waitForSelector('.cabine-des-fonds .fond-vitrail')
+  await page.click('.article-fond[aria-label^="Le Vitrail"]')
+  await page.waitForSelector('.feuille-boutique .fond-vitrail')
   await photo('11-boutique-fond-essai', false, 1200)
   await ecrire(banc.url, '/api/joueur/fonds', { fond: 'vitrail' }, cookie)
   await page.goto(`${banc.url}/profil#fond`)

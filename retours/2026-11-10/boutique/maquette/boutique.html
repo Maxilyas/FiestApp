@@ -1,0 +1,675 @@
+<title>Maquette de la boutique</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Disposition : une seule page dense. Chaque rayon est une grille serrée, sans rien qui glisse de côté ; toucher un
+   article fait monter son présentoir du bas ; ce qu'on essaie attend dans une barre au-dessus du menu. */
+:root {
+  color-scheme: dark;
+  /* Le Velours de l'application : ses jetons, tels quels. Un thème à l'essai les remplace sur la racine. */
+  --bg: #1a1412; --bg-halo: #2b211b; --bg-raised: #241c18;
+  --ink: #f3ece2; --muted: #a89b8a;
+  --accent: #d9b56a; --accent-hover: #e8cb8a; --accent-text: var(--accent); --accent-text-hover: var(--accent-hover); --on-accent: #1a1412;
+  --alert: #e06c6c;
+  --surface: rgba(255, 255, 255, 0.035); --surface-faint: rgba(255, 255, 255, 0.02); --surface-strong: rgba(255, 255, 255, 0.06);
+  --track: rgba(255, 255, 255, 0.1);
+  --edge: rgba(217, 181, 106, 0.22); --edge-strong: rgba(217, 181, 106, 0.55);
+  --accent-soft: rgba(217, 181, 106, 0.12);
+  --backdrop: rgba(12, 8, 7, 0.72);
+  /* Les cinq raretés, et ce qui est acquis : des conventions, qu'aucun thème ne repeint. */
+  --commune: #b9c3cf; --peucommune: #7fbf95; --rare: #7fa6dd; --epique: #a99ad6; --legendaire: #e0935a;
+  --acquis: #6fd08c;
+  --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+  --sans: Figtree, 'Segoe UI', system-ui, sans-serif;
+  --r: 14px; --r-s: 10px;
+  /* La colonne du téléphone, sur un grand écran. */
+  --col: 420px;
+  --menu: 64px;
+}
+html { background: var(--bg); }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.4; -webkit-font-smoothing: antialiased; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bg); }
+button { font: inherit; color: inherit; }
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+svg.i { width: 1.25em; height: 1.25em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+.ecran { box-sizing: border-box; max-width: var(--col); margin: 0 auto; padding-block: 8px calc(var(--menu) + 96px); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 12px; background: radial-gradient(120% 420px at 50% -80px, var(--bg-halo), transparent 70%); }
+
+/* Ce qui n'est pas la boutique : les réglages de la maquette. */
+.demo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 6px 10px; border: 1px dashed var(--edge-strong); border-radius: var(--r-s); color: var(--muted); font-size: 0.78rem; }
+.demo b { color: var(--ink); font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.7rem; }
+.demo-groupe { display: inline-flex; align-items: center; gap: 6px; }
+.demo-choix { display: inline-flex; border: 1px solid var(--edge); border-radius: 999px; overflow: hidden; }
+.demo-choix button { min-height: 36px; padding: 0 12px; border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 0.78rem; }
+.demo-choix button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-text-hover); font-weight: 600; }
+
+/* La tête : où l'on est, ce qu'on a, et son compagnon dans sa niche. */
+.tete { display: flex; align-items: center; gap: 10px; min-height: 54px; }
+.tete h1 { margin: 0; font-family: var(--serif); font-size: 1.9rem; font-weight: 600; line-height: 1; }
+.solde { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border: 1px solid var(--edge-strong); border-radius: 999px; background: var(--accent-soft); color: var(--accent-text-hover); font-family: var(--serif); font-size: 1.25rem; font-weight: 700; font-variant-numeric: lining-nums tabular-nums; cursor: pointer; }
+#niche { flex: none; display: block; }
+.niche { display: block; box-sizing: border-box; width: 46px; height: 54px; border: 2px solid var(--edge-strong); border-radius: 23px 23px 8px 8px; overflow: hidden; }
+.niche.essai { border-style: dashed; border-color: var(--accent); }
+.niche img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; transform: scale(1.55); transform-origin: 58% 8%; }
+
+/* Les rayons : la même rangée qu'aujourd'hui, collée en haut. */
+.rayons { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; margin: 0 -6px; padding: 6px; background: var(--bg); }
+.rayons-dedans { display: grid; grid-template-columns: 1fr 1.35fr 0.9fr 0.95fr; padding: 3px; border: 1px solid var(--edge); border-radius: 999px; background: var(--surface); }
+.rayons a { display: flex; align-items: center; justify-content: center; min-height: 44px; border-radius: 999px; color: var(--ink); font-size: 0.82rem; font-weight: 600; text-decoration: none; }
+.rayons a[aria-current="true"] { background: var(--ink); color: var(--bg); }
+
+/* Son envie : ce pour quoi on économise. */
+.envie { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; box-sizing: border-box; padding: 8px 12px 8px 8px; border: 1px solid var(--edge); border-radius: var(--r); background: var(--surface); text-align: left; cursor: pointer; }
+.envie-image { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; object-position: top; }
+.envie-texte { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.envie-nom { font-size: 0.86rem; }
+.envie-nom b { font-weight: 600; }
+.jauge { height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; }
+.jauge i { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
+.envie-reste { font-size: 0.78rem; color: var(--muted); text-align: right; font-variant-numeric: lining-nums tabular-nums; }
+.envie-reste b { display: block; color: var(--accent-text); font-size: 0.95rem; }
+
+/* Un rayon : son nom, ce qu'il faut en savoir en une ligne, sa grille. */
+.rayon { display: flex; flex-direction: column; gap: 8px; scroll-margin-top: calc(60px + env(safe-area-inset-top, 0px)); }
+.rayon-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.rayon-tete h2 { margin: 0; font-family: var(--serif); font-size: 1.45rem; font-weight: 600; line-height: 1.1; }
+.rayon-tete p { margin: 0; color: var(--muted); font-size: 0.8rem; text-align: right; }
+.grille { display: grid; gap: 8px; }
+.g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+.tuile { position: relative; display: flex; flex-direction: column; min-width: 0; padding: 0; border: 1px solid var(--edge); border-radius: var(--r-s); background: var(--surface); text-align: left; overflow: hidden; cursor: pointer; }
+.tuile-image { display: block; width: 100%; height: 66px; object-fit: cover; object-position: top; background: var(--surface-strong); }
+.g4 .tuile-image { height: 54px; }
+.tuile-pied { flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 1px; min-width: 0; padding: 5px 7px 6px; }
+.tuile-nom { font-size: 0.82rem; font-weight: 600; line-height: 1.15; overflow-wrap: anywhere; }
+.g4 .tuile-nom { font-size: 0.76rem; }
+.prix { display: inline-flex; align-items: center; gap: 4px; color: var(--accent-text); font-size: 0.8rem; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
+.prix.loin { color: var(--muted); font-weight: 500; }
+.gemme { flex: none; width: 7px; height: 7px; margin: 0 2px 0 1px; border-radius: 1.5px; transform: rotate(45deg); background: var(--commune); }
+.gemme.peucommune { background: var(--peucommune); } .gemme.rare { background: var(--rare); } .gemme.epique { background: var(--epique); } .gemme.legendaire { background: var(--legendaire); }
+.tuile.a-l-essai { border: 1px dashed var(--accent); }
+.marque { position: absolute; top: 5px; right: 5px; display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; border-radius: 999px; background: var(--bg-raised); color: var(--accent-text); font-size: 0.7rem; font-weight: 600; }
+.marque svg.i { width: 0.9em; height: 0.9em; fill: currentColor; }
+.suite { margin: 0; color: var(--muted); font-size: 0.82rem; text-align: center; }
+.suite button { min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--accent-text); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+
+/* Les compagnons : les cinq sur une rangée. */
+.rang5 { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.compagnon { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; padding: 4px 0; border: 0; background: none; cursor: pointer; }
+.medaillon { display: block; width: 100%; max-width: 64px; aspect-ratio: 1; border: 1px solid var(--edge-strong); border-radius: 50%; overflow: hidden; }
+.medaillon img { display: block; width: 100%; height: 100%; object-fit: contain; transform: scale(1.12) translateY(5%); }
+.compagnon.a-l-essai .medaillon { border: 2px dashed var(--accent); }
+.compagnon-nom { font-size: 0.82rem; font-weight: 600; }
+.a-toi { display: inline-flex; align-items: center; gap: 3px; color: var(--acquis); font-size: 0.78rem; font-weight: 600; }
+.a-toi svg.i { width: 1em; height: 1em; stroke-width: 2.4; }
+
+/* Les fonds : sa carte en petit, sur chaque décor. */
+.fond-carte { position: relative; display: block; }
+.fond-carte img { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; }
+.fond-avatar { position: absolute; left: 50%; top: 34%; transform: translate(-50%, -50%); display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: rgba(12, 8, 7, 0.45); font-size: 17px; line-height: 1; }
+.tuile.fond .tuile-pied { padding: 5px 4px 6px; align-items: center; }
+.tuile.fond .tuile-nom { font-size: 0.76rem; text-align: center; }
+
+/* Le comptoir : des lignes dans une carte. */
+.comptoir { display: flex; flex-direction: column; border: 1px solid var(--edge); border-radius: var(--r); background: var(--surface); }
+.objet { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 62px; padding: 8px 12px 8px 10px; border: 0; background: none; text-align: left; cursor: pointer; }
+.objet + .objet { border-top: 1px solid var(--edge); }
+.objet-icone { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text-hover); }
+.objet-icone svg.i { width: 22px; height: 22px; }
+.objet-texte { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.objet-texte b { font-family: var(--serif); font-size: 1.2rem; font-weight: 600; line-height: 1.1; }
+.objet-texte span { color: var(--muted); font-size: 0.8rem; line-height: 1.25; }
+
+/* Le menu de l'application, tel qu'il est. */
+.menu { position: fixed; left: 50%; bottom: 0; z-index: 40; transform: translateX(-50%); box-sizing: border-box; width: min(100%, var(--col)); display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 0 max(6px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px)); border-top: 1px solid var(--edge); background: var(--bg-raised); }
+.menu span { position: relative; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; height: 58px; color: var(--muted); font-size: 0.7rem; }
+.menu span svg.i { width: 20px; height: 20px; }
+.menu span.ici { color: var(--accent-text); }
+.menu span.ici::before { content: ""; position: absolute; top: 0; width: 26px; height: 2px; border-radius: 1px; background: var(--accent); }
+
+/* Ce qu'on essaie, juste au-dessus du menu. */
+.essai { position: fixed; left: 50%; bottom: calc(var(--menu) + max(6px, env(safe-area-inset-bottom, 0px)) + 6px); z-index: 41; transform: translateX(-50%); box-sizing: border-box; width: min(calc(100% - 2 * max(12px, env(safe-area-inset-left, 0px))), calc(var(--col) - 24px)); display: grid; grid-template-columns: 40px minmax(0, 1fr) auto auto; align-items: center; gap: 8px; padding: 6px 6px 6px 8px; border: 1px solid var(--edge-strong); border-radius: 16px; background: var(--bg-raised); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); }
+.essai-image { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; object-position: top; background: var(--surface-strong); }
+.essai-texte { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.essai-texte small { color: var(--muted); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.essai-texte b { font-size: 0.9rem; font-weight: 600; overflow-wrap: anywhere; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; box-sizing: border-box; min-height: 46px; padding: 0 12px; white-space: nowrap; border: 1px solid var(--edge-strong); border-radius: 999px; background: none; color: var(--ink); font-size: 0.92rem; font-weight: 600; cursor: pointer; text-decoration: none; }
+.btn-or { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+.btn[disabled] { opacity: 0.5; cursor: default; }
+.btn-rond { width: 44px; min-height: 44px; padding: 0; border-color: var(--edge); color: var(--muted); }
+.btn-rond.actif { color: var(--accent-text); border-color: var(--edge-strong); }
+.btn-rond.actif svg.i { fill: currentColor; }
+
+/* Le présentoir : il monte du bas, la page reste derrière lui. */
+.voile { position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-end; justify-content: center; background: var(--backdrop); }
+.feuille { box-sizing: border-box; width: min(100%, var(--col)); max-height: 92%; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 12px; padding: 8px max(16px, env(safe-area-inset-right, 0px)) calc(14px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); border: 1px solid var(--edge-strong); border-bottom: 0; border-radius: 20px 20px 0 0; background: var(--bg-raised); }
+.feuille:focus { outline: none; }
+.feuille-tete { display: flex; align-items: center; gap: 6px; min-height: 44px; }
+.feuille-tete .rang { flex: 1; text-align: center; color: var(--muted); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.fiche { display: grid; grid-template-columns: 124px minmax(0, 1fr); gap: 14px; align-items: start; }
+.fiche-image { display: block; width: 124px; border: 1px solid var(--edge); border-radius: 12px; overflow: hidden; }
+.fiche-image img { display: block; width: 100%; }
+.fiche-image.rond { aspect-ratio: 1; border-radius: 50%; border-color: var(--edge-strong); }
+.fiche-image.rond img { height: 100%; object-fit: contain; transform: scale(1.12) translateY(5%); }
+.fiche-image.carte { position: relative; }
+.fiche-image.carte img { aspect-ratio: 3 / 4; object-fit: cover; }
+.fiche-image.carte .fond-avatar { width: 52px; height: 52px; font-size: 30px; top: 36%; }
+.fiche-image.carte .fond-prenom { position: absolute; left: 0; right: 0; top: 56%; text-align: center; font-family: var(--serif); font-size: 1.15rem; font-weight: 600; color: #f3ece2; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8); }
+.fiche-image.icone { display: grid; place-items: center; aspect-ratio: 1; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text-hover); }
+.fiche-image.icone svg.i { width: 52px; height: 52px; stroke-width: 1.4; }
+.fiche-texte { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.fiche-sorte { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; }
+.fiche-texte h3 { margin: 0; font-family: var(--serif); font-size: 1.6rem; font-weight: 600; line-height: 1.05; text-wrap: balance; }
+.fiche-texte p { margin: 0; color: var(--muted); font-size: 0.88rem; line-height: 1.35; }
+.fiche-prix { display: flex; flex-direction: column; gap: 1px; margin-top: 2px; }
+.fiche-prix b { color: var(--accent-text); font-family: var(--serif); font-size: 1.5rem; font-weight: 700; line-height: 1.1; font-variant-numeric: lining-nums tabular-nums; }
+.fiche-prix span { color: var(--muted); font-size: 0.8rem; }
+.fiche-prix span.manque { color: var(--ink); }
+.formes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.forme { display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--muted); font-size: 0.72rem; text-align: center; line-height: 1.2; }
+.forme .medaillon { max-width: 52px; }
+.forme b { color: var(--ink); font-weight: 600; }
+.gestes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.gestes.seul { grid-template-columns: minmax(0, 1fr); }
+.acquis { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 0 2px; text-align: center; }
+.acquis .coche { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: var(--acquis); color: #12210f; }
+.acquis .coche svg.i { width: 28px; height: 28px; stroke-width: 2.6; }
+.acquis h3 { margin: 0; font-family: var(--serif); font-size: 1.6rem; font-weight: 600; line-height: 1.1; text-wrap: balance; }
+.acquis p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+.lignes { display: flex; flex-direction: column; border: 1px solid var(--edge); border-radius: var(--r); }
+.ligne { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 56px; padding: 6px 6px 6px 8px; }
+.ligne + .ligne { border-top: 1px solid var(--edge); }
+.ligne-texte { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.ligne-texte b { font-weight: 600; font-size: 0.92rem; }
+.ligne-texte span { color: var(--muted); font-size: 0.8rem; }
+.total { display: flex; align-items: baseline; justify-content: space-between; padding: 0 4px; }
+.total b { color: var(--accent-text); font-family: var(--serif); font-size: 1.4rem; font-variant-numeric: lining-nums tabular-nums; }
+.sources { display: flex; flex-direction: column; gap: 0; margin: 0; padding: 0; list-style: none; border: 1px solid var(--edge); border-radius: var(--r); }
+.sources li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 10px 12px; font-size: 0.9rem; }
+.sources li + li { border-top: 1px solid var(--edge); }
+.sources li span { color: var(--muted); font-size: 0.82rem; text-align: right; }
+.feuille h3.titre { margin: 0; font-family: var(--serif); font-size: 1.5rem; font-weight: 600; }
+.feuille p.dit { margin: 0; color: var(--muted); font-size: 0.9rem; }
+
+.toast { position: fixed; left: 50%; top: calc(12px + env(safe-area-inset-top, 0px)); z-index: 70; transform: translateX(-50%); box-sizing: border-box; max-width: min(calc(100% - 32px), calc(var(--col) - 32px)); padding: 10px 14px; border: 1px solid var(--edge-strong); border-radius: 12px; background: var(--bg-raised); color: var(--ink); font-size: 0.86rem; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .feuille { animation: monte 0.22s ease-out; }
+  .essai { animation: monte 0.2s ease-out; }
+  @keyframes monte { from { transform: translateY(24px); opacity: 0.6; } }
+  .essai { animation-name: monte-barre; }
+  @keyframes monte-barre { from { transform: translate(-50%, 16px); opacity: 0.6; } }
+}
+</style>
+
+<div class="ecran" id="ecran">
+  <div class="demo" id="demo">
+    <b>Maquette</b>
+    <span class="demo-groupe">Voir comme
+      <span class="demo-choix" role="group" aria-label="Le profil de démonstration">
+        <button type="button" id="demo-lea" data-profil="lea" aria-pressed="true">Léa · 1 400</button>
+        <button type="button" id="demo-tom" data-profil="tom" aria-pressed="false">Tom · 80</button>
+      </span>
+    </span>
+    <span class="demo-groupe">Thèmes par rangée
+      <span class="demo-choix" role="group" aria-label="Le nombre de thèmes par rangée">
+        <button type="button" id="demo-3" data-colonnes="3" aria-pressed="true">3</button>
+        <button type="button" id="demo-4" data-colonnes="4" aria-pressed="false">4</button>
+      </span>
+    </span>
+  </div>
+
+  <header class="tete">
+    <h1>Boutique</h1>
+    <button type="button" class="solde" id="solde" data-agir="solde" aria-label="Tes confettis"></button>
+    <span id="niche"></span>
+  </header>
+
+  <nav class="rayons" aria-label="Les rayons de la boutique">
+    <div class="rayons-dedans" id="rayons">
+      <a href="#themes" data-rayon="themes">Thèmes</a>
+      <a href="#compagnons" data-rayon="compagnons">Compagnons</a>
+      <a href="#fonds" data-rayon="fonds">Fonds</a>
+      <a href="#objets" data-rayon="objets">Objets</a>
+    </div>
+  </nav>
+
+  <div id="envie"></div>
+
+  <section class="rayon" id="themes" aria-labelledby="t-themes">
+    <div class="rayon-tete"><h2 id="t-themes">Thèmes</h2><p id="d-themes"></p></div>
+    <div class="grille g3" id="g-themes"></div>
+    <p class="suite" id="s-themes"></p>
+  </section>
+
+  <section class="rayon" id="compagnons" aria-labelledby="t-compagnons">
+    <div class="rayon-tete"><h2 id="t-compagnons">Compagnons</h2><p id="d-compagnons"></p></div>
+    <div class="rang5" id="g-compagnons"></div>
+  </section>
+
+  <section class="rayon" id="fonds" aria-labelledby="t-fonds">
+    <div class="rayon-tete"><h2 id="t-fonds">Fonds</h2><p id="d-fonds"></p></div>
+    <div class="grille g4" id="g-fonds"></div>
+  </section>
+
+  <section class="rayon" id="objets" aria-labelledby="t-objets">
+    <div class="rayon-tete"><h2 id="t-objets">Le comptoir</h2><p>ce qui sert en jeu</p></div>
+    <div class="comptoir" id="g-objets"></div>
+  </section>
+</div>
+
+<div class="essai" id="essai" hidden></div>
+
+<nav class="menu" aria-label="Le menu de l’application (inerte dans la maquette)">
+  <span><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/></svg>Accueil</span>
+  <span><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1-4L16 5l3 3L8 19z"/></svg>Mes quiz</span>
+  <span><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1-4 4-5.500 7-5.500s6 1.500 7 5.500"/></svg>Profil</span>
+  <span class="ici"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8h12l-1 12H7z"/><path d="M9 8V6a3 3 0 016 0v2"/></svg>Boutique</span>
+  <span><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.600 5.600l2.100 2.100M16.300 16.300l2.100 2.100M5.600 18.400l2.100-2.100M16.300 7.700l2.100-2.100"/></svg>Compte</span>
+</nav>
+
+<div class="voile" id="voile" hidden>
+  <div class="feuille" id="feuille" role="dialog" aria-modal="true" aria-labelledby="feuille-titre" tabindex="-1"></div>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script src="donnees.js"></script>
+<script>
+(() => {
+  const D = window.BOUTIQUE
+  const $ = id => document.getElementById(id)
+  // Comme l'application : les milliers ne se groupent qu'à cinq chiffres (« 1400 », « 12 000 »).
+  const nombre = n => (n < 10000 ? String(n) : n.toLocaleString('fr-FR'))
+  const C = '🎊'
+  const svg = d => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`
+  const I = {
+    x: svg('<path d="M6 6l12 12M18 6L6 18"/>'),
+    gauche: svg('<path d="M15 5l-7 7 7 7"/>'),
+    droite: svg('<path d="M9 5l7 7-7 7"/>'),
+    etoile: svg('<path d="M12 3.500l2.600 5.300 5.900.900-4.300 4.100 1 5.800L12 16.900 6.800 19.600l1-5.800L3.500 9.700l5.900-.900z"/>'),
+    coche: svg('<path d="M5 12.500l4.500 4.500L19 7.500"/>'),
+    vie: svg('<path d="M12 20s-7-4.300-7-9.500A4 4 0 0112 8a4 4 0 017 2.500c0 5.200-7 9.500-7 9.500z"/>'),
+    sablier: svg('<path d="M7 4h10M7 20h10M8 4c0 4 8 4.500 8 8s-8 4-8 8M16 4c0 4-8 4.500-8 8s8 4 8 8"/>'),
+    eclat: svg('<path d="M12 3l2.300 6.700L21 12l-6.700 2.300L12 21l-2.300-6.700L3 12l6.700-2.300z"/>'),
+  }
+
+  /** Deux profils de démonstration : une habituée qui peut s'offrir presque tout, un nouveau venu qui économise. */
+  const PROFILS = {
+    lea: { prenom: 'Léa', avatar: '🦊', solde: 1400, themes: ['ocean', 'guinguette'], compagnons: ['loup'], niche: 'loup', rangs: { loup: 1 }, fonds: [], objets: { vie: 0, sablier: 1, eclat: 0 }, envie: null },
+    tom: { prenom: 'Tom', avatar: '🐼', solde: 80, themes: [], compagnons: [], niche: null, rangs: {}, fonds: [], objets: { vie: 0, sablier: 0, eclat: 0 }, envie: { sorte: 'theme', key: 'jungle' } },
+  }
+  const RARETES = { commune: 'Commune', peucommune: 'Peu commune', rare: 'Rare', epique: 'Épique', legendaire: 'Légendaire' }
+  const SEUILS = ['À l’achat', '100 bonnes réponses', '300', '500']
+
+  let e = null          // l'état de la maquette
+  let colonnes = 3
+  let dernierOuvreur = null
+
+  // ── Ce qui se vend ────────────────────────────────────────────────────────
+  const listeDe = sorte =>
+    sorte === 'theme' ? D.themes.filter(t => !e.themes.includes(t.key))
+    : sorte === 'compagnon' ? D.compagnons
+    : sorte === 'fond' ? D.fonds.filter(f => !e.fonds.includes(f.key))
+    : D.objets
+  const source = sorte => (sorte === 'theme' ? D.themes : sorte === 'compagnon' ? D.compagnons : sorte === 'fond' ? D.fonds : D.objets)
+  const article = (sorte, key) => source(sorte).find(a => a.key === key)
+  const aLui = (sorte, key) => (sorte === 'theme' ? e.themes : sorte === 'compagnon' ? e.compagnons : sorte === 'fond' ? e.fonds : []).includes(key)
+  const image = (sorte, key, rang = 0) => (sorte === 'theme' ? `img/t-${key}.webp` : sorte === 'compagnon' ? `img/c-${key}-${rang}.webp` : sorte === 'fond' ? `img/f-${key}.webp` : '')
+  const ciel = c => `background: radial-gradient(circle at 50% 35%, ${c.ciel[0]}, ${c.ciel[1]})`
+  const prix = (a, gemme) => `<span class="prix${a.prix > e.solde ? ' loin' : ''}">${gemme ? `<i class="gemme ${gemme}"></i>` : ''}${C} ${nombre(a.prix)}</span>`
+  const estSonEnvie = (sorte, key) => !!e.envie && e.envie.sorte === sorte && e.envie.key === key
+  const essais = () => ['theme', 'compagnon'].filter(s => e.essai[s]).map(s => ({ sorte: s, ...article(s, e.essai[s]) }))
+
+  // ── Le thème de la page : celui qu'on porte, ou celui qu'on essaie ────────
+  const JETONS = [...new Set(Object.values(D.jetons).flatMap(Object.keys))]
+  function habiller() {
+    const cle = e.essai.theme || e.porte
+    const racine = document.documentElement.style
+    for (const j of JETONS) racine.removeProperty(j)
+    if (cle && D.jetons[cle]) for (const [j, v] of Object.entries(D.jetons[cle])) racine.setProperty(j, v)
+  }
+
+  // ── Le rendu ──────────────────────────────────────────────────────────────
+  function tete() {
+    $('solde').innerHTML = `<span aria-hidden="true">${C}</span>${nombre(e.solde)}<span class="sr"> confettis</span>`
+    const dans = e.essai.compagnon || e.niche
+    $('niche').innerHTML = dans
+      ? `<span class="niche${e.essai.compagnon ? ' essai' : ''}" style="${ciel(article('compagnon', dans))}" title="${e.essai.compagnon ? 'À l’essai dans ta niche' : 'Ta niche'}"><img src="${image('compagnon', dans, e.essai.compagnon ? 0 : e.rangs[dans] || 0)}" alt="${article('compagnon', dans).nom}${e.essai.compagnon ? ', à l’essai dans ta niche' : ', dans ta niche'}"></span>`
+      : ''
+  }
+
+  function envie() {
+    const boite = $('envie')
+    if (!e.envie || aLui(e.envie.sorte, e.envie.key)) return (boite.innerHTML = '')
+    const a = article(e.envie.sorte, e.envie.key)
+    const reste = Math.max(0, a.prix - e.solde)
+    const part = Math.min(100, Math.round((100 * e.solde) / a.prix))
+    const vignette = e.envie.sorte === 'objet' ? `<span class="objet-icone">${I[a.key]}</span>` : `<img class="envie-image" src="${image(e.envie.sorte, a.key)}" alt="" ${e.envie.sorte === 'compagnon' ? `style="${ciel(a)};object-fit:contain"` : ''}>`
+    boite.innerHTML = `<button type="button" class="envie" data-ouvrir="${e.envie.sorte}:${a.key}">
+      ${vignette}
+      <span class="envie-texte"><span class="envie-nom">Ton envie · <b>${a.nom}</b></span><span class="jauge" role="img" aria-label="${part} % économisés"><i style="width:${part}%"></i></span></span>
+      <span class="envie-reste">${reste ? `encore<b>${C} ${nombre(reste)}</b>` : `<b>À ta portée</b>`}</span>
+    </button>`
+  }
+
+  function themes() {
+    const liste = listeDe('theme')
+    const portee = liste.filter(t => t.prix <= e.solde).length
+    $('d-themes').textContent = portee === liste.length ? `${liste.length}, tous à ta portée` : portee ? `${liste.length}, dont ${portee} à ta portée` : `${liste.length} · le premier à ${nombre(liste[0].prix)}`
+    $('g-themes').className = `grille g${colonnes}`
+    $('g-themes').innerHTML = liste.map(t => `<button type="button" class="tuile${e.essai.theme === t.key ? ' a-l-essai' : ''}" data-ouvrir="theme:${t.key}" aria-label="${t.nom}, ${RARETES[t.rarete].toLowerCase()}, ${t.prix} confettis">
+      <img class="tuile-image" src="${image('theme', t.key)}" alt="" loading="lazy">
+      ${e.essai.theme === t.key ? '<span class="marque">à l’essai</span>' : estSonEnvie('theme', t.key) ? `<span class="marque">${I.etoile}envie</span>` : ''}
+      <span class="tuile-pied"><span class="tuile-nom">${t.nom}</span>${prix(t, t.rarete)}</span>
+    </button>`).join('')
+    const n = e.themes.length
+    $('s-themes').innerHTML = n ? `${n} thème${n > 1 ? 's' : ''} déjà à toi · <button type="button" data-agir="loge">les porter</button>` : ''
+    $('s-themes').hidden = !n
+  }
+
+  function compagnons() {
+    const aSoi = e.compagnons.length
+    $('d-compagnons').textContent = `${nombre(1000)} chacun${aSoi ? ` · ${aSoi} à toi` : ''}`
+    $('g-compagnons').innerHTML = D.compagnons.map(c => {
+      const sien = e.compagnons.includes(c.key)
+      return `<button type="button" class="compagnon${e.essai.compagnon === c.key ? ' a-l-essai' : ''}" data-ouvrir="compagnon:${c.key}" aria-label="${c.nom}${sien ? ', à toi' : `, ${c.prix} confettis`}">
+        <span class="medaillon" style="${ciel(c)}"><img src="${image('compagnon', c.key, sien ? e.rangs[c.key] || 0 : 0)}" alt="" loading="lazy"></span>
+        <span class="compagnon-nom">${c.court}</span>
+        ${sien ? `<span class="a-toi">${I.coche}à toi</span>` : prix(c)}
+      </button>`
+    }).join('')
+  }
+
+  function fonds() {
+    const liste = listeDe('fond')
+    $('d-fonds').textContent = `${nombre(250)} chacun · derrière ta carte`
+    $('g-fonds').innerHTML = liste.map(f => `<button type="button" class="tuile fond" data-ouvrir="fond:${f.key}" aria-label="${f.nom}, le fond de ${f.savoir}, ${f.prix} confettis">
+      <span class="fond-carte"><img src="${image('fond', f.key)}" alt="" loading="lazy"><span class="fond-avatar" aria-hidden="true">${e.avatar}</span></span>
+      ${estSonEnvie('fond', f.key) ? `<span class="marque">${I.etoile}</span>` : ''}
+      <span class="tuile-pied"><span class="tuile-nom">${f.court}</span></span>
+    </button>`).join('')
+  }
+
+  function objets() {
+    $('g-objets').innerHTML = D.objets.map(o => `<button type="button" class="objet" data-ouvrir="objet:${o.key}">
+      <span class="objet-icone">${I[o.key]}</span>
+      <span class="objet-texte"><b>${o.nom}</b><span>${o.accroche}${e.objets[o.key] ? ` Tu en as ${e.objets[o.key]}.` : ''}</span></span>
+      ${prix(o)}
+    </button>`).join('')
+  }
+
+  function barreDEssai() {
+    const barre = $('essai')
+    const es = essais()
+    barre.hidden = !es.length || !!e.ouvert
+    if (!es.length) return (barre.innerHTML = '')
+    const total = es.reduce((s, a) => s + a.prix, 0)
+    const un = es.length === 1 ? es[0] : null
+    barre.innerHTML = `<img class="essai-image" src="${image(es[0].sorte, es[0].key)}" alt="" ${es[0].sorte === 'compagnon' ? `style="${ciel(es[0])};object-fit:contain"` : ''}>
+      <span class="essai-texte"><small>À l’essai</small><b>${un ? un.nom : `${es.length} articles`}</b></span>
+      <button type="button" class="btn btn-rond" data-agir="retirer" aria-label="${un ? `Retirer ${un.nom} de l’essai` : 'Tout retirer de l’essai'}">${I.x}</button>
+      <button type="button" class="btn btn-or" data-agir="${un ? `garder:${un.sorte}:${un.key}` : 'essai'}">${un ? 'Garder' : 'Voir'} · ${C} ${nombre(total)}</button>`
+  }
+
+  // ── Le présentoir ─────────────────────────────────────────────────────────
+  function feuilleTete(sorte, a) {
+    const liste = listeDe(sorte)
+    const i = liste.findIndex(x => x.key === a.key)
+    const feuilletable = i >= 0 && liste.length > 1 && e.etape === 'fiche'
+    const envieOk = !aLui(sorte, a.key)
+    return `<div class="feuille-tete">
+      ${feuilletable ? `<button type="button" class="btn btn-rond" data-agir="voisin:-1" aria-label="Le précédent">${I.gauche}</button><button type="button" class="btn btn-rond" data-agir="voisin:1" aria-label="Le suivant">${I.droite}</button>` : ''}
+      <span class="rang">${feuilletable ? `${i + 1} sur ${liste.length}` : ''}</span>
+      ${envieOk ? `<button type="button" class="btn btn-rond${estSonEnvie(sorte, a.key) ? ' actif' : ''}" data-agir="envie" aria-pressed="${estSonEnvie(sorte, a.key)}" aria-label="En faire mon envie">${I.etoile}</button>` : ''}
+      <button type="button" class="btn btn-rond" data-agir="fermer" aria-label="Fermer">${I.x}</button>
+    </div>`
+  }
+  const ceQuIlReste = a => (a.prix <= e.solde ? `<span>Il t’en restera ${C} ${nombre(e.solde - a.prix)}</span>` : `<span class="manque">Encore ${C} ${nombre(a.prix - e.solde)} à gagner</span>`)
+  const lePrix = a => `<div class="fiche-prix"><b>${C} ${nombre(a.prix)}</b>${ceQuIlReste(a)}</div>`
+
+  function gestes(sorte, a, essayer) {
+    const sien = aLui(sorte, a.key)
+    if (sien) return `<div class="gestes seul"><button type="button" class="btn" data-agir="fermer">Fermer</button></div>`
+    if (e.etape === 'confirmer') return `<div class="gestes"><button type="button" class="btn" data-agir="annuler">Annuler</button><button type="button" class="btn btn-or" data-agir="confirmer">Confirmer · ${C} ${nombre(a.prix)}</button></div>`
+    const cher = a.prix > e.solde
+    const aLEssai = e.essai[sorte] === a.key
+    const premier = essayer ? `<button type="button" class="btn" data-agir="essayer">${aLEssai ? 'Retirer l’essai' : essayer}</button>` : ''
+    const second = cher
+      ? `<button type="button" class="btn${estSonEnvie(sorte, a.key) ? '' : ' btn-or'}" data-agir="envie">${I.etoile}${estSonEnvie(sorte, a.key) ? 'C’est ton envie' : 'J’en ai envie'}</button>`
+      : `<button type="button" class="btn btn-or" data-agir="acheter">${sorte === 'compagnon' ? 'L’adopter' : 'L’acheter'} · ${C} ${nombre(a.prix)}</button>`
+    return `<div class="gestes${premier ? '' : ' seul'}">${premier}${second}</div>`
+  }
+
+  function feuille() {
+    const voile = $('voile')
+    const f = $('feuille')
+    if (!e.ouvert) {
+      voile.hidden = true
+      f.innerHTML = ''
+      return
+    }
+    const { sorte, key } = e.ouvert
+    let html = ''
+    if (sorte === 'solde') {
+      html = `<div class="feuille-tete"><span class="rang"></span><button type="button" class="btn btn-rond" data-agir="fermer" aria-label="Fermer">${I.x}</button></div>
+        <h3 class="titre" id="feuille-titre">Tes confettis : ${C} ${nombre(e.solde)}</h3>
+        <p class="dit">Une bonne réponse, un confetti. Ils ne se perdent pas, et servent ici.</p>
+        <ul class="sources">
+          <li>Le quiz du jour <span>jusqu’à 10 par jour</span></li>
+          <li>La campagne, les sentiers, les duels <span>1 par bonne réponse</span></li>
+          <li>Une soirée entre amis <span>1 par bonne réponse</span></li>
+          <li>Les missions du jour, le coffre de la semaine <span>en plus</span></li>
+        </ul>
+        <div class="gestes seul"><button type="button" class="btn btn-or" data-agir="jouer">Jouer le quiz du jour</button></div>`
+    } else if (sorte === 'essai') {
+      const es = essais()
+      const total = es.reduce((s, a) => s + a.prix, 0)
+      html = `<div class="feuille-tete"><span class="rang"></span><button type="button" class="btn btn-rond" data-agir="fermer" aria-label="Fermer">${I.x}</button></div>
+        <h3 class="titre" id="feuille-titre">Ce que tu essaies</h3>
+        <div class="lignes">${es.map(a => `<div class="ligne"><img class="essai-image" src="${image(a.sorte, a.key)}" alt="" ${a.sorte === 'compagnon' ? `style="${ciel(a)};object-fit:contain"` : ''}><span class="ligne-texte"><b>${a.nom}</b><span>${a.sorte === 'theme' ? 'Thème' : 'Compagnon'} · ${C} ${nombre(a.prix)}</span></span><button type="button" class="btn btn-rond" data-agir="retirer:${a.sorte}" aria-label="Retirer ${a.nom} de l’essai">${I.x}</button></div>`).join('')}</div>
+        <div class="total"><span>Total</span><b>${C} ${nombre(total)}</b></div>
+        ${total > e.solde ? `<p class="dit">Il te manque ${C} ${nombre(total - e.solde)} pour tout garder.</p>` : ''}
+        <div class="gestes"><button type="button" class="btn" data-agir="retirer">Tout retirer</button><button type="button" class="btn btn-or" data-agir="tout-garder" ${total > e.solde ? 'disabled' : ''}>Tout garder · ${C} ${nombre(total)}</button></div>`
+    } else {
+      const a = article(sorte, key)
+      if (e.etape === 'achete') {
+        const suite = sorte === 'theme' ? ['Le porter', 'porter'] : sorte === 'compagnon' ? ['L’installer', 'porter'] : sorte === 'fond' ? ['Le poser', 'porter'] : null
+        html = `<div class="feuille-tete"><span class="rang"></span><button type="button" class="btn btn-rond" data-agir="fermer" aria-label="Fermer">${I.x}</button></div>
+          <div class="acquis"><span class="coche">${I.coche}</span>
+            <h3 id="feuille-titre">${sorte === 'objet' ? `${a.nom} : tu en as ${e.objets[a.key]}` : `${a.nom} est à toi`}</h3>
+            <p>Il te reste ${C} ${nombre(e.solde)}.</p></div>
+          <div class="gestes${suite ? '' : ' seul'}">${suite ? `<button type="button" class="btn" data-agir="fermer">Plus tard</button><button type="button" class="btn btn-or" data-agir="${suite[1]}">${suite[0]}</button>` : `<button type="button" class="btn btn-or" data-agir="fermer">Fermer</button>`}</div>`
+      } else if (sorte === 'theme') {
+        html = `${feuilleTete(sorte, a)}
+          <div class="fiche"><span class="fiche-image"><img src="${image(sorte, key)}" alt="Une question sous le thème ${a.nom}"></span>
+            <div class="fiche-texte"><span class="fiche-sorte"><i class="gemme ${a.rarete}"></i>Thème · ${RARETES[a.rarete]}</span><h3 id="feuille-titre">${a.nom}</h3><p>${a.humeur}</p>${lePrix(a)}</div></div>
+          ${gestes(sorte, a, 'L’essayer')}`
+      } else if (sorte === 'compagnon') {
+        const sien = aLui(sorte, key)
+        const rang = sien ? e.rangs[key] || 0 : 0
+        html = `${feuilleTete(sorte, a)}
+          <div class="fiche"><span class="fiche-image rond" style="${ciel(a)}"><img src="${image(sorte, key, rang)}" alt="${a.formes[rang]}"></span>
+            <div class="fiche-texte"><span class="fiche-sorte">Compagnon</span><h3 id="feuille-titre">${a.nom}</h3><p>${a.phrase}</p>${sien ? `<span class="a-toi">${I.coche}À toi · ${a.formes[rang].toLowerCase()}</span>` : lePrix(a)}</div></div>
+          <div class="formes" aria-label="Ses quatre formes">${a.formes.map((nom, i) => `<span class="forme"><span class="medaillon" style="${ciel(a)}"><img src="${image(sorte, key, i)}" alt="${nom}"></span><b>${i === 0 ? 'À l’achat' : SEUILS[i].replace(' bonnes réponses', '')}</b>${i === 1 ? 'bonnes réponses' : i === 0 ? '' : ''}</span>`).join('')}</div>
+          <p class="dit">Il vit dans ta niche, en haut de tes pages, et grandit avec tes bonnes réponses.</p>
+          ${gestes(sorte, a, 'L’essayer')}`
+      } else if (sorte === 'fond') {
+        html = `${feuilleTete(sorte, a)}
+          <div class="fiche"><span class="fiche-image carte"><img src="${image(sorte, key)}" alt="Ta carte sur ${a.nom}"><span class="fond-avatar" aria-hidden="true">${e.avatar}</span><span class="fond-prenom" aria-hidden="true">${e.prenom}</span></span>
+            <div class="fiche-texte"><span class="fiche-sorte">Fond de carte · ${a.savoir}</span><h3 id="feuille-titre">${a.nom}</h3><p>Le décor de ta carte, quand quelqu’un touche ton nom.</p>${lePrix(a)}</div></div>
+          ${gestes(sorte, a, '')}`
+      } else {
+        const plein = a.max && e.objets[a.key] >= a.max
+        html = `${feuilleTete(sorte, a)}
+          <div class="fiche"><span class="fiche-image icone">${I[a.key]}</span>
+            <div class="fiche-texte"><span class="fiche-sorte">${a.ou}</span><h3 id="feuille-titre">${a.nom}</h3><p>${a.accroche}${a.max ? ` ${a.max > 1 ? `${a.max} au plus à la fois` : 'Un seul à la fois'} : tu en as ${e.objets[a.key]}.` : e.objets[a.key] ? ` Tu en as ${e.objets[a.key]}.` : ''}</p>${lePrix(a)}</div></div>
+          ${plein ? `<div class="gestes seul"><button type="button" class="btn" data-agir="fermer">Tu en as déjà ${a.max > 1 ? a.max : 'un'}</button></div>` : gestes(sorte, a, '')}`
+      }
+    }
+    f.innerHTML = html
+    voile.hidden = false
+  }
+
+  function tout() {
+    habiller()
+    tete(); envie(); themes(); compagnons(); fonds(); objets(); barreDEssai(); feuille()
+  }
+
+  // ── Les gestes ────────────────────────────────────────────────────────────
+  let minuterie = 0
+  function dire(texte) {
+    const t = $('toast')
+    t.textContent = texte
+    t.hidden = false
+    clearTimeout(minuterie)
+    minuterie = setTimeout(() => (t.hidden = true), 2600)
+  }
+  function ouvrir(sorte, key, ouvreur) {
+    dernierOuvreur = ouvreur ? ouvreur.getAttribute('data-ouvrir') || ouvreur.id : null
+    e.ouvert = { sorte, key }
+    e.etape = 'fiche'
+    tout()
+    $('feuille').focus({ preventScroll: true })
+  }
+  function fermer() {
+    e.ouvert = null
+    tout()
+    const retour = dernierOuvreur && (document.querySelector(`[data-ouvrir="${dernierOuvreur}"]`) || $(dernierOuvreur))
+    if (retour) retour.focus({ preventScroll: true })
+  }
+  function acheter(sorte, key) {
+    const a = article(sorte, key)
+    if (a.prix > e.solde) return false
+    if (estSonEnvie(sorte, key)) e.envie = null
+    e.solde -= a.prix
+    if (sorte === 'theme') e.themes.push(key)
+    else if (sorte === 'compagnon') { e.compagnons.push(key); e.rangs[key] = 0; if (!e.niche) e.niche = key }
+    else if (sorte === 'fond') e.fonds.push(key)
+    else e.objets[key]++
+    return true
+  }
+
+  function agir(quoi, bouton) {
+    const [verbe, ...reste] = quoi.split(':')
+    const o = e.ouvert
+    if (verbe === 'fermer') return fermer()
+    if (verbe === 'solde') return ouvrir('solde', '', bouton)
+    if (verbe === 'essai') return ouvrir('essai', '', bouton)
+    if (verbe === 'loge') return dire('Dans l’application : « M’habiller », où l’on porte ce qu’on a.')
+    if (verbe === 'jouer') return dire('Dans l’application : le quiz du jour s’ouvre.')
+    if (verbe === 'voisin') {
+      const liste = listeDe(o.sorte)
+      const i = liste.findIndex(x => x.key === o.key)
+      e.ouvert = { sorte: o.sorte, key: liste[(i + Number(reste[0]) + liste.length) % liste.length].key }
+      tout()
+      return $('feuille').querySelector(`[data-agir="voisin:${reste[0]}"]`)?.focus({ preventScroll: true })
+    }
+    if (verbe === 'envie') {
+      e.envie = estSonEnvie(o.sorte, o.key) ? null : { sorte: o.sorte, key: o.key }
+      tout()
+      return dire(e.envie ? `${article(o.sorte, o.key).nom} : la boutique te dira quand tu peux te l’offrir.` : 'Ce n’est plus ton envie.')
+    }
+    if (verbe === 'essayer') {
+      const deja = e.essai[o.sorte] === o.key
+      if (deja) delete e.essai[o.sorte]
+      else e.essai[o.sorte] = o.key
+      const nom = article(o.sorte, o.key).nom
+      e.ouvert = null
+      tout()
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return dire(deja ? `${nom} : essai retiré.` : o.sorte === 'theme' ? `${nom} habille la page. Dans l’application, ses polices et son décor aussi.` : `${nom} est dans ta niche, le temps de ta visite.`)
+    }
+    if (verbe === 'retirer') {
+      if (reste[0]) delete e.essai[reste[0]]
+      else e.essai = {}
+      if (o && o.sorte === 'essai' && !essais().length) e.ouvert = null
+      return tout()
+    }
+    if (verbe === 'garder') {
+      e.ouvert = { sorte: reste[0], key: reste[1] }
+      e.etape = article(reste[0], reste[1]).prix > e.solde ? 'fiche' : 'confirmer'
+      tout()
+      return $('feuille').focus({ preventScroll: true })
+    }
+    if (verbe === 'tout-garder') {
+      const es = essais()
+      for (const a of es) acheter(a.sorte, a.key)
+      const theme = es.find(a => a.sorte === 'theme')
+      const compagnon = es.find(a => a.sorte === 'compagnon')
+      if (theme) e.porte = theme.key
+      if (compagnon) e.niche = compagnon.key
+      e.essai = {}
+      e.ouvert = null
+      tout()
+      return dire(`${es.map(a => a.nom).join(' et ')} : à toi, et tu les portes.`)
+    }
+    if (verbe === 'acheter') { e.etape = 'confirmer'; tout(); return $('feuille').querySelector('[data-agir="confirmer"]')?.focus({ preventScroll: true }) }
+    if (verbe === 'annuler') { e.etape = 'fiche'; return tout() }
+    if (verbe === 'confirmer') {
+      if (!acheter(o.sorte, o.key)) return
+      e.etape = 'achete'
+      tout()
+      return $('feuille').focus({ preventScroll: true })
+    }
+    if (verbe === 'porter') {
+      if (o.sorte === 'theme') { e.porte = o.key; if (e.essai.theme === o.key) delete e.essai.theme }
+      if (o.sorte === 'compagnon') { e.niche = o.key; if (e.essai.compagnon === o.key) delete e.essai.compagnon }
+      const nom = article(o.sorte, o.key).nom
+      e.ouvert = null
+      tout()
+      return dire(o.sorte === 'theme' ? `Tu portes ${nom}.` : o.sorte === 'compagnon' ? `${nom} vit dans ta niche.` : `${nom} est derrière ta carte.`)
+    }
+  }
+
+  document.addEventListener('click', ev => {
+    const cible = ev.target.closest('[data-ouvrir], [data-agir], [data-profil], [data-colonnes], [data-rayon]')
+    if (!cible) {
+      if (ev.target === $('voile')) fermer()
+      return
+    }
+    if (cible.dataset.ouvrir) { const [s, k] = cible.dataset.ouvrir.split(':'); return ouvrir(s, k, cible) }
+    if (cible.dataset.agir) return agir(cible.dataset.agir, cible)
+    if (cible.dataset.profil) return partir(cible.dataset.profil)
+    if (cible.dataset.colonnes) {
+      colonnes = Number(cible.dataset.colonnes)
+      $('demo-3').setAttribute('aria-pressed', String(colonnes === 3))
+      $('demo-4').setAttribute('aria-pressed', String(colonnes === 4))
+      return themes()
+    }
+    if (cible.dataset.rayon) {
+      ev.preventDefault()
+      const doux = !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      $(cible.dataset.rayon).scrollIntoView({ block: 'start', behavior: doux ? 'smooth' : 'auto' })
+    }
+  })
+  document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && e.ouvert) fermer() })
+
+  // La puce du rayon à l'écran s'allume au fil du défilement.
+  let image_ = 0
+  function rayonALEcran() {
+    image_ = 0
+    const ids = ['themes', 'compagnons', 'fonds', 'objets']
+    let ici = ids[0]
+    if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) ici = ids[ids.length - 1]
+    else for (const id of ids) if ($(id).getBoundingClientRect().top <= 130) ici = id
+    for (const a of $('rayons').children) a.setAttribute('aria-current', String(a.dataset.rayon === ici))
+  }
+  window.addEventListener('scroll', () => { if (!image_) image_ = requestAnimationFrame(rayonALEcran) }, { passive: true })
+
+  function partir(qui) {
+    const p = PROFILS[qui]
+    e = { ...JSON.parse(JSON.stringify(p)), qui, porte: null, essai: {}, ouvert: null, etape: 'fiche' }
+    $('demo-lea').setAttribute('aria-pressed', String(qui === 'lea'))
+    $('demo-tom').setAttribute('aria-pressed', String(qui === 'tom'))
+    tout()
+    rayonALEcran()
+  }
+
+  // `#photo` : la maquette sans ses réglages, pour la photographier ; `#tom` : le nouveau venu d'emblée.
+  if (location.hash.includes('photo')) $('demo').hidden = true
+  partir(location.hash.includes('tom') ? 'tom' : 'lea')
+})()
+</script>

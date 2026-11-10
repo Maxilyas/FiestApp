@@ -248,21 +248,22 @@ async function solo() {
   await photo(page, '08-carriere')
   await aller('/boutique', '.boutique-tete')
   await photo(page, '09-boutique')
-  await aller('/boutique#compagnons', '.etagere-compagnons')
+  await aller('/boutique#compagnons', '.rang-des-compagnons')
   await photo(page, '10-boutique-compagnons')
-  // Adopter le chat, le loup dans sa niche : l'y installer, ou l'adopter seulement — jamais le porter.
-  await aller('/boutique#compagnon-chat', '.feuille-boutique .compagnon-carte')
-  await page.locator('.feuille-boutique .compagnon-achat .btn-primary').click()
-  await page.waitForSelector('.dialog-backdrop')
+  // Adopter le chat, le loup dans sa niche : « L'adopter », puis « Confirmer », au même endroit — jamais le porter.
+  // Rien n'est confirmé ici : le loup garde sa niche pour la suite.
+  await aller('/boutique#compagnon-chat', '.feuille-boutique .compagnon-formes')
+  await page.locator('.feuille-boutique .presentoir-gestes .btn-primary').click()
+  await page.waitForSelector('.feuille-boutique .presentoir-gestes .btn-primary:has-text("Confirmer")')
   await patienter(500)
   await page.screenshot({ path: path.join(sortie, '10b-boutique-adopter.png') })
-  await page.keyboard.press('Escape')
+  await page.locator('.feuille-boutique .presentoir-gestes .btn-ghost').click()
   // L'essayer dans sa niche, à la place du loup : la niche le montre, en pointillé, le temps de la visite.
-  await page.locator('.feuille-boutique .carte-pied .btn').click()
+  await page.locator('.feuille-boutique .presentoir-gestes .btn-ghost').click()
   await page.waitForSelector('.niche.niche-essai')
   await photo(page, '10c-boutique-essai-niche')
   await page.locator('.boutique-panier-annuler').click()
-  await aller('/boutique#compagnons', '.etagere-compagnons')
+  await aller('/boutique#compagnons', '.rang-des-compagnons')
   // Le repli : la page défile, la niche se fait petite au coin.
   await page.mouse.wheel(0, 420)
   await patienter(700)

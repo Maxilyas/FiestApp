@@ -201,11 +201,11 @@ try {
   await page.waitForSelector('.campagne-heros')
   await photo('11-serie')
 
-  // La boutique, d'un seul tenant : les thèmes en tête, puis, par sa puce, le
-  // comptoir des objets, où se vend la vie des sentiers (`RayonDesObjets`).
+  // La boutique, d'un seul tenant : les thèmes en tête, puis, par son segment,
+  // le comptoir des objets, où se vend la vie des sentiers (`RayonDesObjets`).
   await page.goto(`${banc.url}/boutique`)
   await page.waitForSelector('.boutique-rayons')
-  await page.waitForSelector('.etagere .theme-vitrine')
+  await page.waitForSelector('.grille-themes .article-theme')
   await photo('12-boutique-themes')
   await page.click('.boutique-rayons a:has-text("Objets")')
   await page.waitForSelector('.comptoir .comptoir-objet')

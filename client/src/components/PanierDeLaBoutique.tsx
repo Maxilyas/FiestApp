@@ -1,31 +1,69 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Icon } from './Icon'
 import { Feuille } from './Pieces'
 import { Compagnon } from './Compagnon'
 import './compagnons-peints'
 import { apercuDe } from '../apercus'
-import { espacesFines, formatNumber } from '../format'
+import { espacesFines } from '../format'
+import { OBJETS } from './Objets'
 import { compagnon as leCompagnon } from '../../../shared/compagnons'
+import type { SorteDEnvie } from '../../../shared/envie'
 import { ceQuiManque, totalDuPanier, type LigneDuPanier } from '../../../shared/panier'
+import { enConfettis } from '../../../shared/rayons'
 
-// Le panier d'essai de la boutique (`shared/panier.ts`) : ce qu'on essaie —
-// un thème sur toute la page, un fond sur sa carte, un compagnon dans sa
-// niche — s'additionne dans une barre, juste au-dessus du menu, tant qu'il y
-// a de quoi acheter. « Tout prendre » ouvre le panier : chaque ligne cochée,
-// le total, ce qui manque, « Les porter tout de suite » ; « Annuler » rend la
-// page, la carte et la niche d'avant. Rien ne s'achète sans ce dernier geste,
-// et chaque achat part au serveur l'un après l'autre (`unAchatALaFois`).
-
-const enConfettis = (n: number) => `🎊 ${formatNumber(n)}`
+// L'essai de la boutique (`shared/panier.ts`) : ce qu'on essaie — un thème
+// sur toute la page, un compagnon dans sa niche — attend dans une barre, juste
+// au-dessus du menu, tant qu'il y a de quoi acheter. Un seul article : sa
+// vignette, son prix et son nom, la croix qui le retire, et « Garder », qui
+// ouvre son présentoir sur « Confirmer » — le premier toucher de l'achat est
+// donné.
+// Plusieurs : « Voir », et la feuille de ce qu'on essaie, ligne par ligne, le
+// total, « Tout retirer » ou « Tout garder ». Rien ne s'achète sans ce dernier
+// geste, et chaque achat part au serveur l'un après l'autre
+// (`unAchatALaFois`).
+//
+// Des cases à cocher et « Les porter tout de suite », dans la feuille d'avant,
+// faisaient cinq choses à lire pour garder ce qu'on voyait déjà sur soi (la
+// refonte du 10 novembre 2026) : ce qu'on garde d'ici, on le porte — c'est ce
+// que la page montre.
 
 /**
- * La barre de l'essai, au-dessus du menu : la croix qui rend tout, ce qu'on
- * essaie — une ligne par son nom, plusieurs comptées —, et « Prendre », le
- * total au bout. « Annuler » en toutes lettres ne laissait au nom que quatre
- * lettres en 360 de large (« Auro… »). Elle pose `avec-panier` sur la page,
- * qui ne passe jamais dessous.
+ * Le dessin d'un article, en petit — dans la barre de l'essai, sur une ligne
+ * de ce qu'on essaie, sur la carte de son envie : l'aperçu du thème, le
+ * compagnon à sa première forme, le décor du fond, le dessin de l'objet.
  */
-export function BarreDuPanier({ lignes, onAnnuler, onPrendre }: { lignes: readonly LigneDuPanier[]; onAnnuler: () => void; onPrendre: () => void }) {
+export function VignetteDeLArticle({ article }: { article: { sorte: SorteDEnvie; cle: string } }) {
+  if (article.sorte === 'theme') {
+    const image = apercuDe(article.cle)
+    return <span className="panier-vignette">{image && <img src={image} alt="" width={180} height={225} decoding="async" />}</span>
+  }
+  if (article.sorte === 'fond') return <span className={`panier-vignette carte-fond fond-${article.cle}`} />
+  if (article.sorte === 'objet') {
+    const objet = OBJETS.find(o => o.cle === article.cle)
+    return <span className={`panier-vignette panier-vignette-objet objet-dessin objet-${article.cle}`}>{objet?.dessin()}</span>
+  }
+  const forme = leCompagnon(article.cle)?.formes[0]
+  return <span className="panier-vignette panier-vignette-compagnon">{forme && <Compagnon cle={forme.key} />}</span>
+}
+
+/**
+ * La barre de l'essai, au-dessus du menu. Elle pose `avec-panier` sur la
+ * page, qui ne passe jamais dessous.
+ */
+export function BarreDuPanier({
+  lignes,
+  onRetirer,
+  onGarder,
+  onVoir,
+}: {
+  lignes: readonly LigneDuPanier[]
+  /** Tout retirer : la page et la niche d'avant reviennent. */
+  onRetirer: () => void
+  /** Un seul article : son présentoir, sur « Confirmer ». */
+  onGarder: (ligne: LigneDuPanier) => void
+  /** Plusieurs : la feuille de ce qu'on essaie. */
+  onVoir: () => void
+}) {
   useEffect(() => {
     document.body.classList.add('avec-panier')
     return () => document.body.classList.remove('avec-panier')
@@ -33,44 +71,33 @@ export function BarreDuPanier({ lignes, onAnnuler, onPrendre }: { lignes: readon
   const une = lignes.length === 1 ? lignes[0] : null
   return (
     <div className="boutique-panier" role="region" aria-label="Ton essai">
-      <button type="button" className="boutique-panier-annuler" aria-label="Annuler l’essai" onClick={onAnnuler}>
+      <VignetteDeLArticle article={lignes[0]} />
+      {/* Son prix au-dessus de son nom, pas dans le bouton : « Garder · 🎊 1000 » ne laissait au nom du Chat des lanternes
+          que cinquante pixels, en 360 de large sous une police large — cinq lignes. */}
+      <span className="boutique-panier-texte">
+        <span className="boutique-panier-sur">{`À l’essai · ${enConfettis(totalDuPanier(lignes))}`}</span>
+        <b>{une ? une.nom : `${lignes.length} articles`}</b>
+      </span>
+      <button type="button" className="boutique-panier-annuler" aria-label={une ? `Retirer ${une.nom} de l’essai` : 'Tout retirer de l’essai'} onClick={onRetirer}>
         <Icon name="x" />
       </button>
-      <span className="boutique-panier-texte">
-        <b>{une ? une.nom : `${lignes.length} à l’essai`}</b>
-        <span className="muted small">{une ? 'À l’essai' : lignes.map(l => l.nom).join(' · ')}</span>
-      </span>
-      <button type="button" className="btn btn-primary" aria-haspopup="dialog" onClick={onPrendre}>
-        {`${une ? 'Prendre' : 'Tout prendre'} · ${enConfettis(totalDuPanier(lignes))}`}
+      <button type="button" className="btn btn-primary" aria-haspopup="dialog" onClick={() => (une ? onGarder(une) : onVoir())}>
+        {une ? 'Garder' : 'Voir'}
       </button>
     </div>
   )
 }
 
-/** Le dessin d'une ligne, en petit : l'aperçu du thème, la carte à son fond, le compagnon à sa première forme. */
-function Vignette({ ligne }: { ligne: LigneDuPanier }) {
-  if (ligne.sorte === 'theme') {
-    const image = apercuDe(ligne.cle)
-    return <span className="panier-vignette">{image && <img src={image} alt="" width={180} height={225} decoding="async" />}</span>
-  }
-  if (ligne.sorte === 'fond') return <span className={`panier-vignette carte-fond fond-${ligne.cle}`} />
-  const forme = leCompagnon(ligne.cle)?.formes[0]
-  return <span className="panier-vignette panier-vignette-compagnon">{forme && <Compagnon cle={forme.key} />}</span>
-}
-
-/** « Aurore boréale, Le Vitrail et Le Loup » : la virgule entre les premiers, « et » devant le dernier. */
+/** « Aurore boréale et Le Loup » : la virgule entre les premiers, « et » devant le dernier. */
 function aLaFrancaise(noms: readonly string[]): string {
   return noms.length > 1 ? `${noms.slice(0, -1).join(', ')} et ${noms[noms.length - 1]}` : (noms[0] ?? '')
 }
 
-/** Ce que « porter » fait de chaque sorte, dit sous la case. */
-const CE_QUE_FAIT_PORTER = { theme: 'le thème habille tes pages', fond: 'le fond tapisse ta carte', compagnon: 'le compagnon s’installe dans ta niche' }
-
 /**
- * Le panier : chaque ligne, cochée d'office, le total de ce qui est coché, ce
- * qui manque à son solde — « décoche ce qui peut attendre » —, et s'il les
- * porte tout de suite. « Prendre » rend la main à la boutique, qui achète
- * ligne après ligne et s'arrête au premier refus, dit ici.
+ * Ce qu'on essaie, quand il y en a plusieurs : chaque ligne et la croix qui
+ * la retire, le total, ce qui manque à son solde, puis « Tout retirer » ou
+ * « Tout garder » — qui rend la main à la boutique : elle achète ligne après
+ * ligne et s'arrête au premier refus, dit ici.
  */
 export function FeuilleDuPanier({
   lignes,
@@ -78,7 +105,8 @@ export function FeuilleDuPanier({
   busy,
   erreur,
   pris,
-  onPrendre,
+  onRetirer,
+  onGarder,
   onFermer,
 }: {
   lignes: readonly LigneDuPanier[]
@@ -86,90 +114,77 @@ export function FeuilleDuPanier({
   busy: boolean
   /** Le refus d'un achat, dit ici. */
   erreur?: string
-  /** Ce qui vient d'être pris, et s'il le porte : le panier le dit avant de se fermer. */
-  pris: { lignes: readonly LigneDuPanier[]; porter: boolean } | null
-  onPrendre: (lignes: readonly LigneDuPanier[], porter: boolean) => void
+  /** Ce qui vient d'être gardé : la feuille le dit avant de se fermer. */
+  pris: readonly LigneDuPanier[] | null
+  /** Retire une sorte de l'essai, ou tout. */
+  onRetirer: (sorte?: LigneDuPanier['sorte']) => void
+  onGarder: (lignes: readonly LigneDuPanier[]) => void
   onFermer: () => void
 }) {
-  // Les sortes décochées : ce qui reste coché suit le panier, une ligne prise s'en va d'elle-même.
-  const [decochees, setDecochees] = useState<ReadonlySet<string>>(() => new Set())
-  const [porter, setPorter] = useState(true)
-  const cochees = lignes.filter(l => !decochees.has(l.sorte))
-  const manque = ceQuiManque(cochees, solde)
-  const plusieurs = cochees.length > 1
-  const effets = cochees.map(l => CE_QUE_FAIT_PORTER[l.sorte]).join(', ')
-  const ceQuIlFait = effets ? `${effets.charAt(0).toUpperCase()}${effets.slice(1)}. Sinon, ta loge ${plusieurs ? 'les' : 'le'} garde.` : 'Rien de coché.'
-  const basculer = (sorte: string) =>
-    setDecochees(d => {
-      const n = new Set(d)
-      if (n.has(sorte)) n.delete(sorte)
-      else n.add(sorte)
-      return n
-    })
+  const manque = ceQuiManque(lignes, solde)
+  const total = totalDuPanier(lignes)
   return (
     <Feuille
-      titre="Ton essai"
+      titre="Ce que tu essaies"
       onFermer={onFermer}
       className="feuille-boutique feuille-du-panier"
       pied={
-        lignes.length > 0 && (
-          <button type="button" className="btn btn-primary btn-block" aria-disabled={busy || manque > 0 || cochees.length === 0 || undefined} onClick={() => !busy && manque === 0 && cochees.length > 0 && onPrendre(cochees, porter)}>
-            {cochees.length === 0
-              ? 'Rien de coché'
-              : manque > 0
-                ? `Il te manque ${formatNumber(manque)} confetti${manque > 1 ? 's' : ''}`
-                : `${plusieurs ? `Prendre les ${cochees.length}` : 'Le prendre'} · ${enConfettis(totalDuPanier(cochees))}`}
-          </button>
-        )
+        <>
+          {erreur && (
+            <p className="error" role="alert">
+              {erreur}
+            </p>
+          )}
+          {lignes.length > 0 ? (
+            <div className="presentoir-gestes">
+              <button type="button" className="btn btn-ghost" onClick={() => onRetirer()}>
+                Tout retirer
+              </button>
+              <button type="button" className="btn btn-primary" aria-disabled={busy || manque > 0 || undefined} onClick={() => !busy && manque === 0 && onGarder(lignes)}>
+                {`Tout garder · ${enConfettis(total)}`}
+              </button>
+            </div>
+          ) : (
+            <div className="presentoir-gestes presentoir-geste-seul">
+              <button type="button" className="btn btn-primary" onClick={onFermer}>
+                Fermer
+              </button>
+            </div>
+          )}
+        </>
       }
     >
-      {pris && pris.lignes.length > 0 && (
+      {pris && pris.length > 0 && (
         <p className="card theme-achete" role="status">
-          {espacesFines(
-            `${aLaFrancaise(pris.lignes.map(l => l.nom))} ${pris.lignes.length > 1 ? 'sont' : 'est'} à toi${pris.porter ? '.' : ` : ta loge ${pris.lignes.length > 1 ? 'les' : 'le'} garde, à porter quand tu veux.`}`,
-          )}
+          {espacesFines(`${aLaFrancaise(pris.map(l => l.nom))} ${pris.length > 1 ? 'sont à toi, et tu les portes.' : 'est à toi, et tu le portes.'}`)}
         </p>
       )}
       {lignes.length > 0 && (
         <>
           <ul className="panier-lignes">
             {lignes.map(l => (
-              <li key={l.sorte}>
-                <label className="panier-ligne">
-                  <Vignette ligne={l} />
-                  <span className="panier-ligne-texte">
-                    <b>{l.nom}</b>
-                    <span className="muted small">{`${l.detail} · ${enConfettis(l.prix)}`}</span>
-                  </span>
-                  <input type="checkbox" checked={!decochees.has(l.sorte)} onChange={() => basculer(l.sorte)} />
-                </label>
+              <li key={l.sorte} className="panier-ligne">
+                <VignetteDeLArticle article={l} />
+                <span className="panier-ligne-texte">
+                  <b>{l.nom}</b>
+                  <span className="muted small">{`${l.detail} · ${enConfettis(l.prix)}`}</span>
+                </span>
+                <button type="button" className="boutique-panier-annuler" aria-label={`Retirer ${l.nom} de l’essai`} onClick={() => onRetirer(l.sorte)}>
+                  <Icon name="x" />
+                </button>
               </li>
             ))}
           </ul>
           <p className="panier-total">
             <span>Total</span>
-            <b>{enConfettis(totalDuPanier(cochees))}</b>
+            <b>{enConfettis(total)}</b>
           </p>
           {manque > 0 && (
             <p className="muted small" role="status">
-              {cochees.length > 1
-                ? espacesFines(`Il te manque ${formatNumber(manque)} confetti${manque > 1 ? 's' : ''} : décoche ce qui peut attendre.`)
-                : espacesFines(`Il te manque ${formatNumber(manque)} confetti${manque > 1 ? 's' : ''} : une bonne réponse, un confetti.`)}
+              {espacesFines(`Il te manque ${enConfettis(manque)} pour tout garder : retire ce qui peut attendre.`)}
             </p>
           )}
-          <label className="panier-porter">
-            <input type="checkbox" checked={porter} onChange={() => setPorter(p => !p)} />
-            <span>
-              <b>{plusieurs ? 'Les porter tout de suite' : 'Le porter tout de suite'}</b>
-              <span className="muted small">{espacesFines(ceQuIlFait)}</span>
-            </span>
-          </label>
         </>
-      )}
-      {erreur && (
-        <p className="error" role="alert">
-          {erreur}
-        </p>
       )}
     </Feuille>
   )

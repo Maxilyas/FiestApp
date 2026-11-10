@@ -42,6 +42,7 @@ import {
 } from '../../shared/themes'
 import { gainVide, releveVide } from '../../shared/profil'
 import { BRANCHES } from '../../shared/branches'
+import { gestesDuPresentoir } from '../../shared/rayons'
 
 // L'Éclat se tire une chance sur quarante, et le premier fait tomber un
 // palier : ici, le hasard ne décide de rien.
@@ -244,9 +245,9 @@ const JEANNE = {
 const laBoutique = (profil: typeof JEANNE = JEANNE) => rendu('components/Boutique', 'RayonDesThemes', { profil, onOuvrir: () => {} })
 const mesThemes = (profil: typeof JEANNE = JEANNE) => rendu('components/Boutique', 'MesThemes', { profil, essai: {}, essayer: () => {}, busy: false, enregistrer: () => {} })
 
-/** Les cartes d'une vitrine, et ce que chacune dit d'elle à l'oreille. */
+/** Les cartes d'une vitrine — les tuiles du rayon, à la boutique —, et ce que chacune dit d'elle à l'oreille. */
 const casesDe = (html: string) =>
-  [...html.matchAll(/<button\b[^>]*class="theme-vitrine[^"]*"[^>]*>/g)].map(m => ({
+  [...html.matchAll(/<button\b[^>]*class="(?:theme-vitrine|article-boutique article-theme)[^"]*"[^>]*>/g)].map(m => ({
     balise: m[0],
     nom: /aria-label="([^"]*)"/.exec(m[0])?.[1],
   }))
@@ -255,8 +256,8 @@ test('dans la boutique, toucher un thème ouvre sa fiche : aucun ne se porte ni 
   // Un thème se portait d'un toucher, enregistré : le doigt qui voulait le
   // regarder habillait déjà toute la page, pour de bon. Le geste est celui de
   // « Mes avatars » — dans la loge, le toucher l'essaie aussi, sans rien
-  // enregistrer ; « Porter », dans sa barre, le garde. À la boutique, la
-  // carte ouvre sa fiche dans une feuille, où il s'essaie et s'achète.
+  // enregistrer ; « Porter », dans sa barre, le garde. À la boutique, sa
+  // tuile ouvre son présentoir, où il s'essaie et s'achète.
   for (const [html, ouvre] of [
     [await laBoutique(), /aria-haspopup="dialog"/],
     [await mesThemes(), /aria-expanded="false"/],
@@ -284,20 +285,37 @@ test('dans la boutique, toucher un thème ouvre sa fiche : aucun ne se porte ni 
   const mes = source.slice(source.indexOf('export function MesThemes'), source.indexOf('export function DetailTheme'))
   assert.match(mes, /const toucher = \(cle: string\) => \{\s*setOuvert\(o => \(o === cle \? null : cle\)\)\s*essayer\(\{ theme: cle === 'velours' \? null : cle \}\)\s*\}/)
   assert.doesNotMatch(mes, /\benregistrer\(|onPorter=/)
-  const carte = source.slice(source.indexOf('function CarteDeTheme'), source.indexOf('export function RayonDesThemes'))
-  assert.deepEqual(
-    [...carte.matchAll(/onClick=\{([^}]*)\}/g)].map(m => m[1].trim()),
-    ['onToucher'],
-  )
+  // La tuile de la boutique et la carte de la loge : un seul geste chacune, celui qu'on leur passe.
+  for (const [debut, fin] of [
+    ['function TuileDeTheme', 'function CarteDeTheme'],
+    ['function CarteDeTheme', 'export function RayonDesThemes'],
+  ]) {
+    const piece = source.slice(source.indexOf(debut), source.indexOf(fin))
+    assert.deepEqual(
+      [...piece.matchAll(/onClick=\{([^}]*)\}/g)].map(m => m[1].trim()),
+      ['onToucher'],
+      debut,
+    )
+  }
   const corps = source.slice(source.indexOf('export function RayonDesThemes'), source.indexOf('export function DetailTheme'))
   assert.deepEqual(
     [...corps.matchAll(/onToucher=\{([^}]*)\}/g)].map(m => m[1].trim()),
     ['() => onOuvrir(t.key)', '() => toucher(t.key)'],
   )
-  // Dans sa feuille, deux gestes : l'essayer — un interrupteur, toute la page le porte — et l'acheter, seulement à sa portée.
-  const fiche = source.slice(source.indexOf('export function FicheDuTheme'), source.indexOf('export function MesThemes'))
-  assert.match(fiche, /aria-pressed=\{essaye\} onClick=\{onEssayer\}/)
-  assert.match(fiche, /onClick=\{\(\) => etat === 'a-vendre' && onAcheter\(\)\}/)
+  // Dans son présentoir, deux gestes : l'essayer — un interrupteur, toute la page le porte — et l'acheter, seulement à
+  // sa portée ; trop cher, son envie à la place. Et « L'acheter » n'achète pas : il mène à « Confirmer ».
+  assert.deepEqual(gestesDuPresentoir({ sorte: 'theme', etape: 'fiche', etat: 'a-vendre', prix: 250 }), [
+    { geste: 'essayer', nom: 'L’essayer', presse: false },
+    { geste: 'acheter', nom: 'L’acheter · 🎊 250', principal: true },
+  ])
+  assert.deepEqual(
+    gestesDuPresentoir({ sorte: 'theme', etape: 'fiche', etat: 'trop-cher', prix: 1000, aLEssai: true }).map(g => [g.geste, g.presse]),
+    [['essayer', true], ['envie', false]],
+  )
+  const presentoir = readFileSync(new URL('../../client/src/components/Presentoir.tsx', import.meta.url), 'utf8')
+  assert.match(presentoir, /aria-pressed=\{g\.presse\}/)
+  assert.match(presentoir, /if \(g\.geste === 'acheter'\) return aller\('confirmer'\)/)
+  assert.match(presentoir, /if \(g\.geste === 'confirmer'\) return void confirmer\(\)/)
   assert.doesNotMatch(source.slice(source.indexOf('export function RayonDesThemes'), source.indexOf('export function MesThemes')), /\benregistrer\(/)
 })
 
@@ -363,12 +381,27 @@ test('la fiche d’un thème : « Le porter », « L’acheter », ou ce qui man
 test('le rayon montre toutes les raretés à la suite, du Commun au Légendaire, et une rareté toute achetée quitte la boutique', async () => {
   // Une rareté à la fois, choisie sur une rangée de gemmes, cachait les quatre
   // autres (la refonte du 1er novembre 2026) ; et son dernier thème acheté, la
-  // page lisait le prix d'un thème qui n'était plus là, et tombait.
-  const etageres = (html: string) => [...html.matchAll(/<h3 class="etagere-titre"><i aria-hidden="true"><\/i>([^<]+)</g)].map(m => m[1])
-  assert.deepEqual(etageres(await laBoutique()), ['Commune', 'Peu commune', 'Rare', 'Épique', 'Légendaire'])
+  // page lisait le prix d'un thème qui n'était plus là, et tombait. Depuis le
+  // 10 novembre 2026, une seule grille : une étagère par rareté, qu'on faisait
+  // glisser de côté, montrait deux cartes sur cinq.
+  const ORDRE = ['Commune', 'Peu commune', 'Rare', 'Épique', 'Légendaire']
+  const raretes = (html: string) => casesDe(html).map(c => /, (Commune|Peu commune|Rare|Épique|Légendaire), /.exec(c.nom!)![1])
+  const html = await laBoutique()
+  const suite = raretes(html)
+  // Les cinq, chacune d'un bloc, du moins cher au plus cher : jamais une rareté ne revient après une plus chère.
+  assert.deepEqual([...new Set(suite)], ORDRE)
+  assert.deepEqual(suite, [...suite].sort((a, b) => ORDRE.indexOf(a) - ORDRE.indexOf(b)))
+  // Une seule grille, où rien ne glisse de côté ; chaque tuile porte la gemme de sa rareté devant son prix.
+  assert.equal(html.match(/<ul class="rayon-grille grille-themes" aria-label="Les thèmes">/g)?.length, 1)
+  assert.doesNotMatch(html, /etagere/)
+  assert.equal(html.match(/<span class="article-prix[^"]*"><i class="article-gemme" aria-hidden="true"><\/i>🎊 \d+<\/span>/g)?.length, suite.length)
+  assert.match(html, /style="--gemme:[^"]+"[^>]*aria-label="Aurore boréale, Légendaire, 1000 confettis, encore 580"/)
+  // À sa portée, le prix à l'or ; au-delà de ses 420 confettis, en gris.
+  assert.match(html, /aria-label="Océan, Peu commune, 250 confettis".*?<span class="article-prix"><i/)
+  assert.match(html, /aria-label="Aurore boréale, Légendaire, 1000 confettis, encore 580".*?<span class="article-prix article-prix-loin"><i/)
   const communes = THEMES.filter(t => t.rarete === 'commune').map(t => t.key)
   const sansCommunes = { ...JEANNE, boutique: { ...JEANNE.boutique, possedes: [...JEANNE.boutique.possedes, ...communes] } }
-  assert.deepEqual(etageres(await laBoutique(sansCommunes)), ['Peu commune', 'Rare', 'Épique', 'Légendaire'])
+  assert.deepEqual([...new Set(raretes(await laBoutique(sansCommunes)))], ORDRE.slice(1))
   // Un thème de saison n'y paraît que pendant la sienne ; ceux qui se gagnent, jamais.
   assert.doesNotMatch(await laBoutique(), /aria-label="Halloween,|aria-label="Babel,/)
 })
@@ -547,11 +580,17 @@ test('un thème s’achète aussi sans se porter : celui qu’on aime reste sur 
     assert.equal((await porter(banc, cookie, 'cahier')).corps.profile.theme, 'cahier')
     // Sans le drapeau — une page d'avant —, acheter porte, comme avant.
     assert.equal((await acheter(banc, cookie, 'carnet')).corps.profile.theme, 'carnet')
-    // La boutique offre les deux gestes, et dit où est passé le thème gardé.
-    const BOUTIQUE = readFileSync(new URL('../../client/src/components/Boutique.tsx', import.meta.url), 'utf8')
-    assert.match(BOUTIQUE, /confirmLabel: `Acheter et porter · \$\{enConfettis\(prix\)\}`,\s*alternative: \{ label: 'L’acheter seulement' \}/)
-    assert.match(BOUTIQUE, /const refus = await acheter\(t\.key, porter\)/)
-    assert.match(BOUTIQUE, /est à toi : `\}\s*<a className="link-inline" href="\/profil#theme">/)
+    // La boutique l'achète sans le porter, puis offre les deux gestes — « Le porter », « Plus tard » —, et dit où est
+    // passé le thème gardé. Depuis le 10 novembre 2026, dans son présentoir : un dialogue posé sur la feuille demandait
+    // de choisir entre « Acheter et porter » et « L'acheter seulement » avant d'avoir rien acheté.
+    const PRESENTOIR = readFileSync(new URL('../../client/src/components/Presentoir.tsx', import.meta.url), 'utf8')
+    assert.match(PRESENTOIR, /if \(t\) return acheter\(t\.key, false\)/)
+    assert.deepEqual(gestesDuPresentoir({ sorte: 'theme', etape: 'achete', etat: 'a-toi', prix: 150, aPorter: true }), [
+      { geste: 'fermer', nom: 'Plus tard' },
+      { geste: 'porter', nom: 'Le porter', principal: true },
+    ])
+    assert.match(PRESENTOIR, /const pris = await enregistrer\(t \? \{ theme: t\.key \}/)
+    assert.match(PRESENTOIR, /\{'À toi : '\}\s*<a className="link-inline" href="\/profil#theme">/)
   }))
 
 /**

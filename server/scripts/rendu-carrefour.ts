@@ -469,7 +469,7 @@ try {
       ['mon-compagnon-sans', '/profil#compagnon', tom, '.player-shell'],
       ['ma-collection', '/profil#collection', lea, '.collection'],
       ['la-loge', '/profil#avatar', lea, '.loge-panneau .loge-page-avatars'],
-      ['boutique', '/boutique', lea, '.etagere .theme-vitrine'],
+      ['boutique', '/boutique', lea, '.grille-themes .article-theme'],
       ['mes-quiz', '/edit', tom, '.menu-barre'],
       ['compte', '/compte', tom, '.menu-barre'],
       ['collectionneurs', '/collectionneurs', tom, '.menu-barre'],
