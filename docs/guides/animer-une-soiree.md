@@ -153,7 +153,7 @@ Personne n'est refusé ni renommé. À l'entrée, les avatars d'un homonyme sont
 
 ### Une coupure de réseau
 
-- **Chez un invité** : « Connexion perdue — reconnexion… », puis son téléphone revient seul et retrouve sa place, son équipe et ses points. Une réponse touchée pendant la coupure part au retour du réseau ; si la question s'est close entre-temps, il lit « Trop tard ! Ta réponse est arrivée après la fin. ». Il reste attendu à chaque question : « Ne plus l'attendre » évite à la salle de patienter jusqu'au bout du chrono.
+- **Chez un invité** : « Connexion perdue — reconnexion… », puis son téléphone revient seul et retrouve sa place, son équipe et ses points. Une réponse touchée pendant la coupure part au retour du réseau : arrivée, il lit « Ta réponse est bien arrivée » ; si la question s'est close avant, « Trop tard ! Ta réponse est arrivée après la fin. » — l'un ou l'autre, jamais ses points et « trop tard » ensemble. Il reste attendu à chaque question : « Ne plus l'attendre » évite à la salle de patienter jusqu'au bout du chrono.
 - **Chez toi** : « reconnexion… » dans la bande de l'écran ; le quiz, lui, continue au serveur. Un geste de partie sans réponse en trois secondes — depuis la console, la télécommande ou la barre du chef — est renvoyé une fois, sans risque de jouer deux fois ; lancer, terminer et clore depuis la barre ne se renvoient pas : retouche si rien ne bouge.
 
 ### Un serveur qui redémarre
