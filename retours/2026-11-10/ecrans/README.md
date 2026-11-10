@@ -56,7 +56,7 @@ node retours/2026-11-10/ecrans/reproductions/pouces.cjs export/releve/sonde   # 
 | « Duel envoyé » | « Accueil » de 64 à 336 px sous l'écran | sous le pouce |
 | La fin d'une série, d'une révision, d'un défi | « Rejouer », « Réviser encore », « Le classement du défi » : de 41 à 1356 px de page en trop selon les gains | sous le pouce |
 | La fin d'une épreuve de sentier, d'une étape de parcours | « Jouer le palier 10 », « Le porter », « Jouer l'étape 2 » : 196 à 527 px de page en trop | sous le pouce |
-| La campagne, l'onglet « Série » (le départ d'une série) | la ligne « Sur Toutes les catégories · Changer » sous l'écran : de 22 px pour qui n'a jamais joué, de 77 après ses bonnes réponses du jour, de 139 une série à reprendre — où « Une nouvelle série » y passait aussi, de 29 px (43 avec la niche du compagnon) | ce qu'on fait d'abord, ce qu'on lit dessous : les règles et « Aujourd'hui » dans une carte, sous la ligne du choix, qui a de 27 à 103 px de libre (`rendu-serie.ts`) ; et l'attente a la forme de la page : plus rien n'y descend de 64 px à son arrivée |
+| La campagne, l'onglet « Série » (le départ d'une série) | la ligne « Sur Toutes les catégories · Changer » sous l'écran : de 22 px pour qui n'a jamais joué, de 77 après ses bonnes réponses du jour, de 139 une série à reprendre — où « Une nouvelle série » y passait aussi, de 29 px (43 avec la niche du compagnon) | rien n'y change de place — les règles restent dans le panneau : sorties le matin dans une carte sous les gestes, le propriétaire les a voulues comme avant, « sobre », sans « un bloc en plus » — ; la page se resserre sur un téléphone et la ligne du choix ne grandit plus avec son texte : tout tient pour un nouveau venu et une habituée, « Mes records par catégorie » compris, de 360 × 640 à 412 × 915 ; une série à reprendre, le gros bouton et la ligne du choix partout, les records dès 740 px de haut (`rendu-serie.ts`) ; et l'attente a la forme de la page : plus rien n'y descend de 64 px à son arrivée |
 
 Le geste « sous le pouce » : la règle `.claude/rules/css.md` le raconte,
 `server/test/sous-le-pouce.test.ts` le garde. Mesuré après : sur les
@@ -89,10 +89,12 @@ changé au pixel.
 
 ## Ce qui reste
 
-- **Le départ d'une série, sous le bandeau du service** (58 px, posé par
-  l'administrateur en cas de panne) : une série à reprendre et la niche du
-  compagnon, la ligne du choix passe encore de 31 px sous l'écran en
-  360 × 640 ; le gros bouton reste entier (79 px de libre).
+- **Le départ d'une série, une série à reprendre** : sous 740 px de haut,
+  « Mes records par catégorie » passe sous l'écran (47 px en 360 × 640, 23
+  dans Safari sur un iPhone) — un bouton de plus au-dessus du gros. Et sous
+  le bandeau du service (58 px, posé par l'administrateur en cas de panne),
+  avec la niche du compagnon, la ligne du choix passe de 56 px sous l'écran
+  en 360 × 640 ; le gros bouton reste entier.
 - **Les quelques pixels de marge** : une page dont le contenu tient mais dont
   la marge du bas (28 px) dépasse défile d'autant — la révélation d'une
   soirée (25 à 47 px), « Pas cette fois » (20), une manche du Cabinet (19 à
@@ -100,7 +102,7 @@ changé au pixel.
 - **Le texte agrandi à 130 %**, en 360 × 640 : l'accueil défile encore de
   125 px, le carrefour du profil de 42. Leurs lignes grandissent avec le
   texte, c'est voulu ; elles ne tiennent plus toutes. Au départ d'une série,
-  une série à reprendre, la ligne du choix passe de 32 px sous l'écran ; le
+  une série à reprendre, la ligne du choix passe de 52 px sous l'écran ; le
   gros bouton reste entier.
 - **Sur un vrai téléphone** : la barre d'adresse d'un navigateur retire de la
   hauteur que Chromium sans écran ne retire pas. L'encoche, elle, se mesure

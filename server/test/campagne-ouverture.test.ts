@@ -39,24 +39,23 @@ test('la campagne s’ouvre sur sa page, pas sur « Chargement… » : le défi 
   assert.match(html, /ton record/, 'la place du record, sans rien décaler quand il arrive')
   assert.match(html, /aria-disabled="true"[^>]*>.*Commencer une série/, 'le bouton attend la série à reprendre')
   assert.doesNotMatch(html, /Chargement…/)
-  // L'attente a la forme de la page (le 10 novembre 2026) : ses onglets, le panneau, le gros bouton, la ligne du
-  // choix retenu sur ce téléphone, puis les règles. Sans ses onglets, tout descendait de 64 px à l'arrivée de la
-  // page — le gros bouton sous le doigt compris —, et les règles, passées sous la ligne du choix, auraient sauté
-  // d'une ligne de plus (`rendu-serie.ts` le suit image par image).
+  // L'attente a la forme de la page (le 10 novembre 2026) : ses onglets, le panneau et ses règles, le gros bouton, la
+  // ligne du choix retenu sur ce téléphone. Sans ses onglets, tout descendait de 64 px à l'arrivée de la page — le
+  // gros bouton sous le doigt compris (`rendu-serie.ts` le suit image par image).
   const enAttente = renderToStaticMarkup(
     React.createElement(module.CampagneEnChemin, { onglets: React.createElement('nav', { id: 'ses-onglets' }), choix: React.createElement('button', { id: 'son-choix' }) }),
   )
-  const places = ['id="ses-onglets"', 'campagne-heros', 'Commencer une série', 'id="son-choix"', 'campagne-puces'].map(quoi => enAttente.indexOf(quoi))
+  const places = ['id="ses-onglets"', 'campagne-heros', 'campagne-puces', 'Commencer une série', 'id="son-choix"'].map(quoi => enAttente.indexOf(quoi))
   assert.ok(
     places.every((place, i) => place > 0 && (i === 0 || place > places[i - 1])),
-    `les onglets, le panneau, le gros bouton, le choix, puis les règles (${places.join(', ')})`,
+    `les onglets, le panneau et ses règles, le gros bouton, puis le choix (${places.join(', ')})`,
   )
   // Et c'est elle que la page rend tant que le serveur n'a pas répondu —
   // ouverte sur les sentiers (`#sentiers`), la place de leurs tuiles.
   const page = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
   assert.match(
     page,
-    /if \(ecran\.e === 'chargement'\) return <CampagneEnChemin onglets=\{onglets\} choix=\{<LigneDuChoix categories=\{categories\} sujet=\{sujet\} sur onChanger=\{\(\) => setChoixOuvert\(true\)\} \/>\} \/>/,
+    /if \(ecran\.e === 'chargement'\) return <CampagneEnChemin onglets=\{onglets\} choix=\{<LigneDuChoix categories=\{categories\} sujet=\{sujet\} sur uneLigne onChanger=\{\(\) => setChoixOuvert\(true\)\} \/>\} \/>/,
     'la page en attente : ses onglets, et son choix retenu — « Changer » touché en l’attendant ouvre la feuille à son arrivée',
   )
   assert.match(page, /if \(ecran\.e === 'chargement' && mode === 'sentiers'\) return <SentiersEnChemin onglets=\{onglets\} \/>/)
@@ -187,7 +186,10 @@ test('la fin d’une série à sujet le rejoue, et le téléphone retient le suj
   // La feuille vit à part, la même pour la série et pour « Défier quelqu'un » (`ChoixDuTheme.tsx`) :
   // chaque famille — un thème, une époque, un fil rouge — sa rangée nommée (`FAMILLES_DE_SUJETS`).
   assert.match(page, /<FeuilleDuChoix\s+categoriesJouables=\{etat\.categories\.map\(c => c\.categorie\)\}\s+sujets=\{sujets\}\s+categories=\{categories\}\s+sujet=\{sujetJouable\}/)
-  assert.match(page, /<LigneDuChoix categories=\{categories\} sujet=\{sujetJouable\} sur onChanger=\{\(\) => setChoixOuvert\(true\)\} \/>/)
+  // Ce qu'elle dit sous le choix tient sur une ligne, coupé au bout (`uneLigne`) : la description d'un sujet, six
+  // catégories nommées la faisaient passer de 56 à 109 px, et « Mes records par catégorie » partait sous l'écran —
+  // « quand on choisit une catégorie où il y a un peu de texte, ça fait scroller » (le propriétaire, le 10 novembre 2026).
+  assert.match(page, /<LigneDuChoix categories=\{categories\} sujet=\{sujetJouable\} sur uneLigne onChanger=\{\(\) => setChoixOuvert\(true\)\} \/>/)
   const grille = readFileSync(client('components/ChoixDuTheme.tsx'), 'utf8')
   assert.match(grille, /FAMILLES_DE_SUJETS\.map\(\(\{ famille, nom: nomDeLaFamille \}\) =>/)
   assert.match(grille, /role="group" aria-label=\{nomDeLaFamille\}/)
@@ -198,19 +200,18 @@ test('la fin d’une série à sujet le rejoue, et le téléphone retient le suj
   const ligne = accueil.indexOf('<LigneDuChoix')
   const records = accueil.indexOf('<RecordsParCategorie')
   assert.ok(bouton > 0 && ligne > bouton && records > ligne, 'Commencer, puis « Sur … · Changer », puis les records')
-  // Ce qu'on fait d'abord, ce qu'on lit dessous (la revue des écrans du 10 novembre 2026, en 360 × 640) : sous le
-  // panneau, la série à reprendre, le gros bouton et la ligne du choix ; puis ce que la journée a rapporté, les
-  // règles et les records. Les règles dans le panneau et « Aujourd'hui » au-dessus du bouton, la ligne du choix
-  // passait de 22 à 139 px sous l'écran, et « Une nouvelle série » de 29 px, une série à reprendre
-  // (`server/scripts/rendu-serie.ts` le mesure, cas par cas).
+  // L'ordre d'avant, et rien de plus (le retour du propriétaire du 10 novembre 2026 : ses règles dans le panneau, pas
+  // de bloc en plus) : le panneau, ce que la journée a rapporté, la série à reprendre, le gros bouton, la ligne du
+  // choix, les records — rien entre la ligne du choix et eux. Ce qui tient, taille par taille, se mesure au navigateur
+  // (`server/scripts/rendu-serie.ts`).
   const panneau = accueil.indexOf('<Heros etat={etat} />')
-  const reprendre = accueil.indexOf('Reprendre ma série')
-  const regles = accueil.indexOf('<ReglesDeLaSerie>')
   const aujourdhui = accueil.indexOf('campagne-xp-du-jour')
-  assert.ok(panneau > 0 && reprendre > panneau && bouton > reprendre, 'le panneau, la série à reprendre, puis le gros bouton')
-  assert.ok(regles > ligne && records > regles, 'sous la ligne du choix, les règles, puis les records')
-  // « Aujourd'hui » en tête de la carte des règles — elle parle de la dernière —, plus entre le panneau et le bouton.
-  assert.ok(aujourdhui > regles && aujourdhui < accueil.indexOf('</ReglesDeLaSerie>'), '« Aujourd’hui » dans la carte des règles')
+  const reprendre = accueil.indexOf('Reprendre ma série')
+  assert.ok(panneau > 0 && aujourdhui > panneau && reprendre > aujourdhui && bouton > reprendre, 'le panneau, « Aujourd’hui », la série à reprendre, puis le gros bouton')
+  assert.match(accueil.slice(ligne, records).replace(/\{\/\*[\s\S]*?\*\/\}/g, ''), /^<LigneDuChoix[^\n]*\/>\}\s*<\/>\s*\) : \(\s*<p className="muted">[^<]*<\/p>\s*\)\}\s*\{etat\.records && etat\.categories\.length > 1 && $/, 'rien entre la ligne du choix et les records')
+  // « Aujourd'hui » en deux morceaux : sur un écran très court, la feuille la tient sur une ligne et n'y montre ce
+  // qui paie encore double que s'il tient entier ; ailleurs et à l'oreille, la même phrase.
+  assert.match(accueil, /<span className="campagne-xp-essentiel">Aujourd’hui : \+\{etat\.xpAujourdhui\} XP<\/span>\s*\{doubles > 0 && <span className="campagne-xp-suite">/)
 })
 
 // Le souhait du propriétaire du 12 octobre 2026 : les catégories, quand on

@@ -3,32 +3,39 @@
 // « J'aimerais que tu passes en revue tous les écrans de l'application et que
 // tu modifies ceux que tu trouves trop longs / ou ça serait logique de tout
 // voir sans scroller » (le propriétaire, le 10 novembre 2026). On vient ici
-// lancer une série, et dire sur quoi : le gros bouton et la ligne « Sur
-// Toutes les catégories · Changer » se voient sans défiler. La ligne passait
-// à moitié sous l'écran en 360 × 640 — les quatre pastilles des règles
-// tenaient 125 px au-dessus du bouton ; elles se lisent dessous depuis.
+// lancer une série, et dire sur quoi : le gros bouton, la ligne « Sur Toutes
+// les catégories · Changer » et « Mes records par catégorie » se voient sans
+// défiler. Sans rien déplacer : les règles restent dans le panneau du haut.
+// Sorties le matin dans une carte sous les gestes, le propriétaire les a
+// voulues comme avant le jour même — « je trouvais ça sobre et bien. Là avoir
+// un bloc en plus […] ça encombre l'écran » ; et « quand on choisit une
+// catégorie où il y a un peu de texte, ça fait scroller sur "mes records par
+// catégories" ». La place se gagne dans la feuille : la page se resserre sur
+// un téléphone, et la ligne du choix ne grandit plus avec son texte.
 //
 // Ce qui ne se voit qu'au navigateur se mesure ici, sur un serveur jetable.
-// Chaque cas photographié du petit téléphone de référence (360 × 640) au
-// grand (412 × 915) : Tom, qui n'a jamais joué ; Léa, une habituée, après ses
-// bonnes réponses du jour (« Aujourd'hui : +40 XP · encore 16 bonnes réponses
-// au double », sur deux lignes en 360 de large) ; sa série laissée en route
-// (« Reprendre ma série » au-dessus du gros bouton) ; six catégories choisies,
-// la ligne du choix au plus haut ; son compagnon dans sa niche ; sous le
-// bandeau du service ; le texte agrandi à 130 % ; l'Ivoire. À chaque photo :
-// où finissent le gros bouton et la ligne du choix, combien de règles se
-// lisent sans défiler, ce qui passe sous la niche — et, la réponse du serveur
-// retenue une seconde, la page qui s'esquisse en l'attendant : ce qui bouge
-// quand elle arrive (« A BOUGÉ »).
+// Chaque cas photographié à six tailles, du petit téléphone de référence
+// (360 × 640) au grand (412 × 915), dont un iPhone dans Safari (390 × 664) et
+// un grand Android dans Chrome (412 × 800) : Tom, qui n'a jamais joué ; Léa,
+// une habituée, après ses bonnes réponses du jour (« Aujourd'hui : +40 XP ·
+// encore 16 bonnes réponses au double ») ; six catégories choisies ; sa série
+// laissée en route (« Reprendre ma série » au-dessus du gros bouton) ; son
+// compagnon dans sa niche ; sous le bandeau du service ; le texte agrandi à
+// 130 % ; l'Ivoire. À chaque photo : où finissent le gros bouton, la ligne du
+// choix et les records, la hauteur de la ligne du choix, ce qui passe sous la
+// niche — et, la réponse du serveur retenue une seconde, la page qui
+// s'esquisse en l'attendant : ce qui bouge quand elle arrive (« A BOUGÉ »).
 //
 //   npm run build -w client
 //   cd server && npx tsx scripts/rendu-serie.ts ../export/serie
 //
 // `SEULEMENT=nouveau,a-reprendre` ne joue que ces cas. Le script sort en
-// erreur si le gros bouton ou la ligne du choix passent sous l'écran dans un
-// cas qui doit tenir — le nouveau venu, l'habituée, la série à reprendre, le
-// compagnon, l'Ivoire —, si la page déborde en largeur, ou si le gros bouton
-// d'un nouveau venu bouge à l'arrivée de la page.
+// erreur si, dans un cas qui doit tenir — le nouveau venu, l'habituée, six
+// catégories, la série à reprendre, le compagnon, l'Ivoire —, le gros bouton
+// ou la ligne du choix passent sous l'écran, si les records y passent là où
+// ils doivent tenir (`DOIT_TENIR`), si la ligne du choix grandit avec son
+// texte, si les règles quittent le panneau, ou si le gros bouton d'un nouveau
+// venu bouge à l'arrivée de la page.
 import { createRequire } from 'node:module'
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
@@ -47,8 +54,11 @@ ProfileStore.tirageEclat = () => false
 const { chromium } = createRequire(path.join(spawnSync('npm', ['root', '-g'], { encoding: 'utf8' }).stdout.trim(), 'rendu.js'))('playwright')
 
 type Ecran = [number, number]
-/** Le petit téléphone de référence, un moyen, un iPhone d'aujourd'hui, un grand Android. */
-const TOUS_LES_ECRANS: Ecran[] = [[360, 640], [360, 740], [390, 844], [412, 915]]
+/**
+ * Le petit téléphone de référence, un moyen, un iPhone dans Safari (ses barres dépliées), un grand Android dans Chrome,
+ * un iPhone d'aujourd'hui en application installée, un grand Android.
+ */
+const TOUS_LES_ECRANS: Ecran[] = [[360, 640], [360, 740], [390, 664], [412, 800], [390, 844], [412, 915]]
 const DEUX_ECRANS: Ecran[] = [[360, 640], [390, 844]]
 const PETIT: Ecran[] = [[360, 640]]
 
@@ -109,8 +119,19 @@ const navigateur = await chromium.launch({ headless: true })
 const seulement = (process.env.SEULEMENT ?? '').split(',').filter(Boolean)
 const retenu = (nom: string) => !seulement.length || seulement.includes(nom)
 const rapport: Record<string, any> = {}
-/** Les cas où le gros bouton et la ligne du choix doivent se voir sans défiler : sinon, le script sort en erreur. */
-const DOIVENT_TENIR = ['nouveau', 'habituee', 'a-reprendre', 'compagnon', 'ivoire']
+/** Les cas où ce qu'on vient faire doit se voir sans défiler : sinon, le script sort en erreur. */
+const DOIVENT_TENIR = ['nouveau', 'habituee', 'a-reprendre', 'compagnon', 'ivoire', 'six-categories']
+/** La ligne du choix, « Sur », son nom et une ligne dessous : jamais plus haute, quoi qu'on ait choisi. */
+const CHOIX_AU_PLUS = 78
+/**
+ * Ce qui doit tenir, cas par cas : le gros bouton et la ligne du choix, partout ; « Mes records par catégorie » aussi,
+ * sauf une série à reprendre sur un écran de moins de 740 px de haut — un bouton de plus au-dessus du gros, il n'y a
+ * pas la place (mesuré le 10 novembre 2026 : 47 px sous l'écran en 360 × 640, 23 dans Safari sur un iPhone).
+ */
+const DOIT_TENIR = (_largeur: number, hauteur: number, nom: string): { choix: boolean; records: boolean } => ({
+  choix: true,
+  records: hauteur >= 740 || nom === 'nouveau' || nom === 'habituee' || nom === 'six-categories',
+})
 let rate = 0
 const base = () => new Database(banc.quizDbUrl.replace(/^file:/, ''))
 
@@ -199,12 +220,24 @@ try {
       const sous = (b: { bas: number } | null) => (b ? b.bas - m.pli : null)
       const geste = sous(m.geste)
       const choix = sous(m.choix)
+      const records = sous(m.records)
+      const hautDuChoix = m.choix ? m.choix.bas - m.choix.haut : 0
       const dit = (quoi: string, de: number | null) => (de === null ? `pas de ${quoi}` : de > 0 ? `${quoi} ${de} px SOUS L’ÉCRAN` : `${quoi} entier (${-de} px de libre)`)
-      const rateIci = DOIVENT_TENIR.includes(nom) && (m.large || geste === null || geste > 0 || choix === null || choix > 0)
+      // Ce qui doit tenir : le gros bouton partout ; la ligne du choix et les records selon la taille (`DOIT_TENIR`) ; et la
+      // ligne du choix ne grandit pas avec son texte — six catégories nommées ne la font pas plus haute que « Toutes ».
+      const attendu = DOIVENT_TENIR.includes(nom) ? DOIT_TENIR(largeur, hauteur, nom) : null
+      const rateIci =
+        !!attendu && (m.large || geste === null || geste > 0 || (attendu.choix && (choix === null || choix > 0)) || (attendu.records && (records === null || records > 0)))
+      const tropHaute = hautDuChoix > CHOIX_AU_PLUS
       if (rateIci) rate++
+      if (tropHaute) rate++
       console.log(
-        `${n} — ${m.large ? 'DÉBORDE EN LARGEUR · ' : ''}${dit('le gros bouton', geste)} · ${dit('la ligne du choix', choix)} · règles ${m.reglesDansLeHeros ? 'dans le héros' : 'sous le choix'}, ${m.reglesLues} sur ${m.reglesEnTout} lues sans défiler · défile de ${m.defile} px${m.bandeau ? ` · bandeau ${m.bandeau} px` : ''}${rateIci ? ' — DEVAIT TENIR' : ''}`,
+        `${n} — ${m.large ? 'DÉBORDE EN LARGEUR · ' : ''}${dit('le gros bouton', geste)} · ${dit('la ligne du choix', choix)} (${hautDuChoix} px de haut) · ${dit('les records', records)} · règles ${m.reglesDansLeHeros ? 'dans le panneau' : 'HORS DU PANNEAU'} · défile de ${m.defile} px${m.bandeau ? ` · bandeau ${m.bandeau} px` : ''}${rateIci ? ' — DEVAIT TENIR' : ''}${tropHaute ? ` — LA LIGNE DU CHOIX A GRANDI (${CHOIX_AU_PLUS} px au plus)` : ''}`,
       )
+      if (!m.reglesDansLeHeros) {
+        rate++
+        console.log('   LES RÈGLES ONT QUITTÉ LE PANNEAU : le propriétaire les y veut, sans bloc de plus')
+      }
       const dessous = (m.sousLaNiche as string[]).filter(x => x !== '(pas de niche)')
       if (dessous.length) console.log(`   SOUS LA NICHE — ${dessous.join(' · ')}`)
       // Ce qui bouge quand la page arrive : le héros, le gros bouton, la ligne du choix, les règles — d'une image à l'autre.
