@@ -27,16 +27,20 @@ import type { PublicProfileDetail } from '../../../shared/profil'
 // l'écran qui le porte. Les écrans où l'on choisit ne montrent que ce qu'on a ; c'est ici
 // que vit tout le reste.
 
-/** Ce que chaque ligne dit d'elle. */
-const LIGNES: Record<PartieDeLaCollection, { emoji: string; nom: string; detail: string; couleur: string }> = {
-  avatars: { emoji: '🐉', nom: 'L’album des avatars', detail: 'Légendaires, portraits, compagnons, emojis : par rareté', couleur: OR },
-  trophees: { emoji: '🏆', nom: 'L’album des trophées', detail: 'Ce que tu as réussi, mode par mode', couleur: OR },
-  timbres: { emoji: '📮', nom: 'Le carnet des fêtes', detail: 'Un timbre par fête, chaque année', couleur: '#e0935a' },
-  themes: { emoji: '🎨', nom: 'Thèmes', detail: 'Ils habillent toutes tes pages', couleur: LILAS },
-  fonds: { emoji: '🖼️', nom: 'Fonds de carte', detail: 'Derrière ta carte, quand on touche ton nom', couleur: '#5fa8ff' },
-  gerbes: { emoji: '🎉', nom: 'Gerbes', detail: 'Ce qui éclate à chaque bonne réponse', couleur: '#ff9f5a' },
-  finitions: { emoji: '✨', nom: 'Finitions', detail: 'Le cercle de ton avatar, au fil des niveaux', couleur: '#ffd36e' },
-  bordures: { emoji: '⚔️', nom: 'Bordures de ligue', detail: 'Autour de ton avatar, une par ligue de duel', couleur: '#7dd3c0' },
+/**
+ * Ce que chaque ligne dit d'elle, en deux temps (`LigneDeCollection`) : l'essentiel, 24 caractères au plus — ce qui
+ * tient à côté de son compte sur un téléphone —, puis ses suites, la phrase d'avant coupée à ses jointures. La phrase
+ * entière se lit toujours à l'oreille ; à l'œil, ce qui tient entier sur la ligne.
+ */
+const LIGNES: Record<PartieDeLaCollection, { emoji: string; nom: string; detail: string; suite: readonly string[]; couleur: string }> = {
+  avatars: { emoji: '🐉', nom: 'L’album des avatars', detail: 'Légendaires, portraits', suite: [', compagnons', ', emojis', ' : par rareté'], couleur: OR },
+  trophees: { emoji: '🏆', nom: 'L’album des trophées', detail: 'Ce que tu as réussi', suite: [', mode par mode'], couleur: OR },
+  timbres: { emoji: '📮', nom: 'Le carnet des fêtes', detail: 'Un timbre par fête', suite: [', chaque année'], couleur: '#e0935a' },
+  themes: { emoji: '🎨', nom: 'Thèmes', detail: 'Ils habillent', suite: [' toutes tes pages'], couleur: LILAS },
+  fonds: { emoji: '🖼️', nom: 'Fonds de carte', detail: 'Derrière ta carte', suite: [', quand on touche ton nom'], couleur: '#5fa8ff' },
+  gerbes: { emoji: '🎉', nom: 'Gerbes', detail: 'Ce qui éclate', suite: [' à chaque bonne réponse'], couleur: '#ff9f5a' },
+  finitions: { emoji: '✨', nom: 'Finitions', detail: 'Le cercle de ton avatar', suite: [', au fil des niveaux'], couleur: '#ffd36e' },
+  bordures: { emoji: '⚔️', nom: 'Bordures de ligue', detail: 'Autour de ton avatar', suite: [', une par ligue de duel'], couleur: '#7dd3c0' },
 }
 
 const NOM_DE_FAMILLE: Record<FamilleDeLaCollection, string> = { avatars: 'Avatars', trophees: 'Trophées', style: 'Style' }
@@ -283,6 +287,7 @@ export function MaCollection({ profil }: { profil: PublicProfileDetail }) {
         emoji={l.emoji}
         nom={l.nom}
         detail={l.detail}
+        suite={l.suite}
         compte={`${c.acquis}/${c.total}`}
         part={c.acquis / Math.max(1, c.total)}
         couleur={l.couleur}
@@ -301,10 +306,6 @@ export function MaCollection({ profil }: { profil: PublicProfileDetail }) {
           <b>{formatNumber(total.acquis)}</b> sur {formatNumber(total.total)}
         </p>
         <JaugeFine part={total.acquis / Math.max(1, total.total)} />
-        <p className="muted small">
-          {/* « Ma carte » n'existe plus : chaque pièce a sa place dans la loge, derrière « M'habiller ». */}
-          {espacesFines('Touche une ligne : ce que tu as, ce qui reste, et où le gagner. On n’y change rien — ce qui est à toi se porte depuis « M’habiller », sur ton profil.')}
-        </p>
       </div>
       {familles.map(f => (
         <section key={f.famille} className="collection-famille" aria-labelledby={`famille-${f.famille}`}>
@@ -314,6 +315,12 @@ export function MaCollection({ profil }: { profil: PublicProfileDetail }) {
           <ul className="trophees-liste">{f.parties.map(ligne)}</ul>
         </section>
       ))}
+      {/* Sous les listes, plus au-dessus : ses trois lignes prenaient 56 px avant la première ligne à toucher, sur un
+          écran qui en a 575 — on la lit une fois les huit collections vues (la revue des écrans du 10 novembre 2026). */}
+      <p className="muted small collection-note">
+        {/* « Ma carte » n'existe plus : chaque pièce a sa place dans la loge, derrière « M'habiller ». */}
+        {espacesFines('Touche une ligne : ce que tu as, ce qui reste, et où le gagner. On n’y change rien — ce qui est à toi se porte depuis « M’habiller », sur ton profil.')}
+      </p>
     </div>
   )
 }

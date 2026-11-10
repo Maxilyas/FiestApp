@@ -354,7 +354,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/loge.test.ts` — la loge : essayer, puis « Porter ».
 - `server/test/grille-avatars.test.ts` — la grille des avatars.
 - `server/test/album-des-avatars.test.ts` — l'album rangé par rareté.
-- `server/test/ma-collection.test.ts` — tout ce qui se gagne : trois familles, les albums des avatars, des trophées et des thèmes, les adresses d'avant.
+- `server/test/ma-collection.test.ts` — tout ce qui se gagne : trois familles, les albums des avatars, des trophées et des thèmes, les adresses d'avant ; et le carrefour en lignes — la phrase de chaque ligne en deux temps, la note sous les listes, la feuille à quatre pas de hauteur.
 - `server/test/trophees.test.ts` — l'album des trophées : une page par mode, chaque piste et ce que chaque étape ouvre, relus contre les règles des fonds, des gerbes, des thèmes et des légendaires ; la page du Cabinet — ses pistes, ses dix jeux, ses exploits payés selon leur rareté, le défi de chaque carte en trois métaux —, là seulement où le serveur la dit, et rendue : la peinture de chaque carte, éteinte tant qu'il ne la tient pas, et plus aucune épreuve de maître.
 - `server/test/collection.test.ts` — les emojis de collection, réservés aux profils.
 - `server/test/carte.test.ts` — la carte d'un joueur.

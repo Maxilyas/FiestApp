@@ -8,33 +8,29 @@ import { readFileSync } from 'node:fs'
 
 const source = (fichier: string) => readFileSync(new URL(`../../client/src/${fichier}`, import.meta.url), 'utf8')
 
-test('la campagne s’ouvre sur son défi : le record et l’échelle dans un même panneau, les règles sous les gestes', () => {
+test('la campagne s’ouvre sur son défi : le record, l’échelle et les règles dans un même panneau', () => {
   const page = source('views/CampagneApp.tsx')
   const heros = page.slice(page.indexOf('<section className="atlas-branche campagne-heros"'), page.indexOf('</section>', page.indexOf('campagne-heros')))
   assert.ok(heros.length > 0, 'le panneau')
   assert.match(heros, /<h1>Jusqu’où iras-tu&nbsp;\?<\/h1>/)
   assert.match(heros, /<b>\{etat\.record\}<\/b>/)
   assert.match(heros, /<ol className="campagne-echelle" aria-label="La difficulté monte">/)
-  // Les règles n'y sont plus (la revue des écrans du 10 novembre 2026) : leurs quatre pastilles, 125 px en 360 de
-  // large, poussaient la ligne du choix sous l'écran — et le gros bouton avec elle, une série à reprendre. Elles se
-  // lisent sous les gestes (`campagne-ouverture.test.ts` en garde l'ordre), dans leur pièce.
-  assert.doesNotMatch(heros, /campagne-puces/, 'plus de règles dans le panneau : elles repousseraient le gros bouton')
-  const debut = page.indexOf('function ReglesDeLaSerie(')
-  const regles = page.slice(debut, page.indexOf('\n}\n', debut))
-  assert.ok(debut > 0 && regles.length > 0, 'les règles, dans leur pièce')
-  // Hors du panneau, deux choses le remplacent. Une carte : le sol que chaque thème lui donne — à même la page, les
-  // pastilles passaient sur son décor (« un confetti par bonne réponse » à 1,62:1 sur l'enluminure des Heures,
-  // « sans chrono » à 2,17:1 sur la planète du Cosmos : `rendu-themes.ts --ecrans=campagne --contraste`). Et leur
-  // lueur : leur filet et leurs icônes la lisent (`--lueur`), et sans elle le filet — une couleur invalide au calcul —
-  // ne se dessinait plus du tout.
-  assert.match(regles, /<div className="card campagne-regles" style=\{lueur\(OR\)\}>\s*\{children\}\s*<ul className="campagne-puces" aria-label="Les règles">/)
-  const css = source('styles.css')
-  assert.match(css, /\.campagne-puces li \{[^}]*border: 1px solid color-mix\(in srgb, var\(--lueur\) 30%, transparent\)/, 'le filet d’une pastille lit la lueur')
   // L'expérience et son plafond restent dits avant de jouer — et les vingt
   // premières du jour, qui paient double (le 6 octobre 2026).
-  assert.match(regles, /\{XP_PAR_JUSTE\} XP par bonne réponse, sans limite — le double pour les \{JUSTES_DOUBLEES_PAR_JOUR\} premières du jour/)
+  assert.match(heros, /\{XP_PAR_JUSTE\} XP par bonne réponse, sans limite — le double pour les \{JUSTES_DOUBLEES_PAR_JOUR\} premières du jour/)
   // Les cœurs ne se lisent pas deux fois à l'oreille.
-  assert.match(regles, /<span aria-hidden="true">\s*<Vies restantes=\{VIES\} \/>\s*<\/span>/)
+  assert.match(heros, /<span aria-hidden="true">\s*<Vies restantes=\{VIES\} \/>\s*<\/span>/)
+  // Les règles restent dans ce panneau, et rien d'autre ne les redit. Le 10 novembre 2026, la revue des écrans les
+  // avait sorties dans une carte sous les gestes, pour remonter la ligne du choix sur un petit téléphone ; le
+  // propriétaire, le jour même : « je préférais que les infos soient comme avant dans le haut, je trouvais ça sobre et
+  // bien. Là avoir un bloc en plus où on voit trois vies etc. […] ça encombre l'écran ». La place se gagne dans la
+  // feuille : la page se resserre sur un écran court, son panneau seul — ceux du défi et du carnet gardent leurs mesures.
+  assert.doesNotMatch(page, /ReglesDeLaSerie|campagne-regles/, 'pas de bloc de plus pour les règles')
+  assert.equal(page.match(/className="campagne-puces"/g)?.length, 1, 'les pastilles des règles, une seule fois : dans le panneau')
+  const css = source('styles.css')
+  assert.doesNotMatch(css, /campagne-regles/)
+  const pas = [...css.matchAll(/@media \(max-height: (\d+)px\) \{\s*(?:body:not\(\.avec-niche\) )?\.campagne:has\(> \.campagne-heros:not\(\.carnet-heros, \.defi-heros\)\)/g)].map(m => Number(m[1]))
+  assert.deepEqual(pas, [899, 759], 'deux pas : un téléphone, puis un écran très court')
   // Les catégories se choisissent dans une feuille, derrière « Changer » (`FeuilleDuChoix`, le 12 octobre
   // 2026). La grille d'avant, l'emblème de chacune — celui des écussons —, et « Toutes » d'un toucher,
   // qui quitte aussi un sujet choisi, sert encore le quiz tout prêt : sur un sujet, aucune catégorie ne se dit choisie.

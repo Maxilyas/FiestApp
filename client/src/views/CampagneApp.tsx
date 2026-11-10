@@ -979,7 +979,7 @@ export function CampagneApp() {
     )
   }
   // En l'attendant, la page a déjà sa forme : ses onglets, et son choix retenu — « Changer » touché là ouvre la feuille dès qu'elle arrive.
-  if (ecran.e === 'chargement') return <CampagneEnChemin onglets={onglets} choix={<LigneDuChoix categories={categories} sujet={sujet} sur onChanger={() => setChoixOuvert(true)} />} />
+  if (ecran.e === 'chargement') return <CampagneEnChemin onglets={onglets} choix={<LigneDuChoix categories={categories} sujet={sujet} sur uneLigne onChanger={() => setChoixOuvert(true)} />} />
   if (ecran.e !== 'anonyme' && ecran.e !== 'erreur' && mode === 'sentiers') {
     return (
       <>
@@ -1098,9 +1098,15 @@ export function CampagneApp() {
         <Sortie />
         {onglets}
         <Heros etat={etat} />
-        {/* Ce qu'on fait d'abord — reprendre, commencer, sur quoi —, ce qu'on lit dessous : en 360 × 640, les règles
-            dans le panneau et « Aujourd'hui » au-dessus du bouton poussaient la ligne du choix de 22 à 139 px sous
-            l'écran, et « Une nouvelle série » de 29, une série à reprendre (la revue des écrans du 10 novembre 2026). */}
+        {/* Ce que la journée a déjà rapporté, et ce qui paie encore double : sans plafond, il n'y a plus de « plein » à annoncer.
+            En deux morceaux : sur un écran très court, la feuille garde la ligne sur une seule, et n'y montre ce qui paie
+            encore double que s'il tient entier — la phrase reste la même partout ailleurs, et à l'oreille. */}
+        {etat.xpAujourdhui > 0 && (
+          <p className="muted small campagne-xp-du-jour">
+            <span className="campagne-xp-essentiel">Aujourd’hui : +{etat.xpAujourdhui} XP</span>
+            {doubles > 0 && <span className="campagne-xp-suite">{` · encore ${doubles} bonne${doubles > 1 ? 's' : ''} réponse${doubles > 1 ? 's' : ''} au double`}</span>}
+          </p>
+        )}
         {pret ? (
           <>
             {erreur && (
@@ -1136,21 +1142,15 @@ export function CampagneApp() {
               <Icon name="play" />
               {etat.enCours ? 'Une nouvelle série' : 'Commencer une série'}
             </button>
-            {/* Sur quoi, en une ligne sous le gros bouton : la grille dépliée ici, douze catégories et vingt-cinq sujets, faisait trois écrans. */}
-            {aChoisir && <LigneDuChoix categories={categories} sujet={sujetJouable} sur onChanger={() => setChoixOuvert(true)} />}
+            {/* Sur quoi, en une ligne sous le gros bouton : la grille dépliée ici, douze catégories et vingt-cinq sujets, faisait trois écrans.
+                Ce qu'elle dit dessous tient sur une ligne, coupé au bout (`uneLigne`) : la description d'un sujet ou six catégories
+                nommées la faisaient passer de 56 à 109 px, et « Mes records par catégorie » partait sous l'écran — « quand on
+                choisit une catégorie où il y a un peu de texte, ça fait scroller » (le propriétaire, le 10 novembre 2026). */}
+            {aChoisir && <LigneDuChoix categories={categories} sujet={sujetJouable} sur uneLigne onChanger={() => setChoixOuvert(true)} />}
           </>
         ) : (
           <p className="muted">La campagne n’a pas encore de questions à poser : reviens bientôt — ou joue le quiz du jour.</p>
         )}
-        <ReglesDeLaSerie>
-          {/* Ce que la journée a déjà rapporté, et ce qui paie encore double : sans plafond, il n'y a plus de « plein » à annoncer. */}
-          {etat.xpAujourdhui > 0 && (
-            <p className="muted small campagne-xp-du-jour">
-              Aujourd’hui : +{etat.xpAujourdhui} XP
-              {doubles > 0 && ` · encore ${doubles} bonne${doubles > 1 ? 's' : ''} réponse${doubles > 1 ? 's' : ''} au double`}
-            </p>
-          )}
-        </ReglesDeLaSerie>
         {etat.records && etat.categories.length > 1 && <RecordsParCategorie records={etat.records} categories={etat.categories.map(c => c.categorie)} />}
         {pret && aChoisir && choixOuvert && (
           <FeuilleDuChoix
@@ -1748,9 +1748,9 @@ function DuelsSansLeurCode({ perdu }: { perdu: boolean }) {
  * attendait derrière « Chargement… » — 3,5 s au premier joueur après un
  * déploiement, le temps que le serveur lise sa base. Elle a la forme de la
  * page qui vient : ses onglets, le panneau, le gros bouton, la ligne du
- * choix retenu sur ce téléphone, puis les règles — sans ses onglets, tout
- * descendait de 64 px à l'arrivée de la page, le gros bouton sous le doigt
- * compris (mesuré le 10 novembre 2026, `server/scripts/rendu-serie.ts`).
+ * choix retenu sur ce téléphone — sans ses onglets, tout descendait de 64 px
+ * à l'arrivée de la page, le gros bouton sous le doigt compris (mesuré le
+ * 10 novembre 2026, `server/scripts/rendu-serie.ts`).
  */
 export function CampagneEnChemin({ onglets, choix }: { onglets?: ReactNode; choix?: ReactNode }) {
   return (
@@ -1763,16 +1763,21 @@ export function CampagneEnChemin({ onglets, choix }: { onglets?: ReactNode; choi
         Commencer une série
       </button>
       {choix}
-      <ReglesDeLaSerie />
     </div>
   )
 }
 
 /**
- * Le héros de la page : le défi, le record et l'échelle d'un coup d'œil, sur
- * la trame de l'atlas. Sans son état encore — la page s'ouvre avant lui —, le
- * record attend sa place, sans rien décaler. Les règles n'y sont plus : elles
- * se lisent sous les gestes (`ReglesDeLaSerie`).
+ * Le héros de la page : le défi, le record, l'échelle et les règles d'un coup
+ * d'œil, sur la trame de l'atlas. Sans son état encore — la page s'ouvre
+ * avant lui —, le record attend sa place, sans rien décaler. **Les règles
+ * restent dans ce panneau** : sorties un jour dans une carte sous les gestes
+ * (la revue des écrans du 10 novembre 2026, pour remonter la ligne du choix
+ * sur un petit téléphone), elles y sont revenues le jour même — « je
+ * préférais que les infos soient comme avant dans le haut, je trouvais ça
+ * sobre et bien. Là avoir un bloc en plus […] ça encombre l'écran » (le
+ * propriétaire). La place se gagne autrement : la page se resserre sur un
+ * écran court, et la ligne du choix ne grandit plus avec son texte.
  */
 function Heros({ etat }: { etat: EtatDeCampagne | null }) {
   return (
@@ -1800,29 +1805,7 @@ function Heros({ etat }: { etat: EtatDeCampagne | null }) {
           </li>
         ))}
       </ol>
-    </section>
-  )
-}
-
-/**
- * Les règles d'une série, en quatre pastilles, sous les gestes : dans le
- * panneau, au-dessus du gros bouton, elles tenaient 125 px en 360 de large et
- * poussaient la ligne du choix sous l'écran d'un petit téléphone — de 22 px
- * pour qui n'a jamais joué, de 139 une série à reprendre, où « Une nouvelle
- * série » y passait aussi (la revue des écrans du 10 novembre 2026). On vient
- * ici lancer une série : ce qu'on fait d'abord, ce qu'on lit dessous — ce que
- * la journée a déjà rapporté en tête (`children`), qui parle de la dernière
- * règle. Hors du panneau, deux choses le remplacent : une carte, le sol que
- * chaque thème lui donne — à même la page, elles passaient sur son décor, la
- * planète du Cosmos, les vagues de la Plage, l'enluminure des Heures (1,62:1
- * pour « un confetti par bonne réponse ») — ; et leur lueur, que leur filet
- * et leurs icônes lisent : sans elle, le filet ne se dessinait plus.
- */
-function ReglesDeLaSerie({ children }: { children?: ReactNode }) {
-  return (
-    <div className="card campagne-regles" style={lueur(OR)}>
-      {children}
-      <ul className="campagne-puces" aria-label="Les règles">
+      <ul className="campagne-puces">
         <li>
           {/* Les cœurs pour l'œil, les mots pour tous : « 3 vies sur 3, trois vies » se lisait deux fois. */}
           <span aria-hidden="true">
@@ -1838,7 +1821,7 @@ function ReglesDeLaSerie({ children }: { children?: ReactNode }) {
           <Icon name="zap" /> {XP_PAR_JUSTE} XP par bonne réponse, sans limite — le double pour les {JUSTES_DOUBLEES_PAR_JOUR} premières du jour
         </li>
       </ul>
-    </div>
+    </section>
   )
 }
 

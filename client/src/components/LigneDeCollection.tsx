@@ -75,13 +75,22 @@ export function EtapeDuChemin({
 
 /**
  * Une ligne d'une collection : son emblème, son nom, ce qu'on y trouve, son
- * compte et sa jauge — elle se déplie sur place, sous son nom.
+ * compte et sa jauge — elle se déplie sur place, sous son nom. Ce qu'on y
+ * trouve se dit en deux temps, comme la ligne d'un gros bouton de l'accueil
+ * (`GrosBouton`) : `detail`, l'essentiel, qui tient à côté du compte sur un
+ * téléphone ; `suite`, ce que la phrase ajoute, morceau par morceau, chacun
+ * avec sa ponctuation. La feuille ne montre que les morceaux qui tiennent
+ * entiers sur une ligne, et rien sur un écran court — le lecteur d'écran lit
+ * toujours la phrase entière. Sur deux et trois lignes, ces phrases faisaient
+ * des lignes de 84 à 125 px, et le carrefour de « Ma collection » deux écrans
+ * (la revue des écrans du 10 novembre 2026).
  */
 export function LigneDeCollection({
   id,
   emoji,
   nom,
   detail,
+  suite,
   compte,
   part,
   couleur,
@@ -93,6 +102,8 @@ export function LigneDeCollection({
   emoji: string
   nom: string
   detail: string
+  /** Ce que sa ligne ajoute après l'essentiel, morceau par morceau, chacun avec sa ponctuation (« , mode par mode »). */
+  suite?: readonly string[]
   compte: string
   part: number
   couleur: string
@@ -108,7 +119,14 @@ export function LigneDeCollection({
         </span>
         <span className="trophee-texte">
           <b>{nom}</b>
-          <span className="muted small">{detail}</span>
+          <span className="muted small trophee-detail">
+            <span className="trophee-essentiel">{detail}</span>
+            {suite?.map(morceau => (
+              <span key={morceau} className="trophee-suite">
+                {morceau}
+              </span>
+            ))}
+          </span>
         </span>
         <span className="trophee-compte">
           {compte}

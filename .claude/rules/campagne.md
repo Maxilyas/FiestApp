@@ -537,30 +537,48 @@ paths:
   espaces insécables : coupé, il se lit « Contre Automate · », puis
   « question 1 », et le texte ne change pas (`TeteDeLaQuestion`,
   `campagne-en-tete.test.ts`). Une forme neuve de l'en-tête fait de même.
-- **Au départ d'une série, ce qu'on fait d'abord, ce qu'on lit dessous**
-  (la revue des écrans du 10 novembre 2026, `retours/2026-11-10/ecrans/`) :
-  sous le panneau — le défi, le record, l'échelle —, la série à reprendre,
-  le gros bouton et la ligne du choix ; puis la carte des règles
-  (`ReglesDeLaSerie` : ce que la journée a rapporté en tête, les quatre
-  pastilles) et les records repliés. Les règles dans le panneau et
-  « Aujourd'hui » au-dessus du bouton, la ligne du choix passait sous
-  l'écran en 360 × 640 — de 22 px pour qui n'a jamais joué, de 77 après ses
-  bonnes réponses du jour, de 139 une série à reprendre, où « Une nouvelle
-  série » y passait aussi de 29, 43 avec la niche du compagnon ; elle a
-  depuis de 27 à 103 px de libre. Une ligne de plus se pose donc sous les
-  gestes, jamais dans le panneau ni entre lui et le gros bouton. Et à même
-  la page, un texte passe sur le décor du thème — « un confetti par bonne
-  réponse » à 1,62:1 sur l'enluminure des Heures, « sans chrono » à 2,17:1
-  sur la planète du Cosmos — : les règles ont le sol d'une carte, et leur
-  lueur à elles (`--lueur`, que leur filet lit : sans elle, il ne se
-  dessinait plus). L'attente a la forme de la page (`CampagneEnChemin` : ses
-  onglets, le panneau, le gros bouton, le choix retenu sur ce téléphone, les
-  règles) : sans ses onglets, tout descendait de 64 px à l'arrivée de la
+- **Au départ d'une série, les règles restent dans le panneau, et la page
+  se resserre pour tenir** (le 10 novembre 2026, `retours/2026-11-10/ecrans/`).
+  La revue des écrans les avait sorties le matin dans une carte sous les
+  gestes, avec « Aujourd'hui », pour remonter la ligne du choix sur un petit
+  téléphone ; le propriétaire, le jour même : « je préférais que les infos
+  soient comme avant dans le haut, je trouvais ça sobre et bien. Là avoir un
+  bloc en plus où on voit trois vies etc. […] ça encombre l'écran » — et
+  « quand on choisit une catégorie où il y a un peu de texte, ça fait
+  scroller sur "mes records par catégories" ». L'ordre est celui d'avant, et
+  rien de plus : le panneau (le défi, le record, l'échelle, les quatre
+  pastilles), ce que la journée a rapporté, la série à reprendre, le gros
+  bouton, la ligne du choix, les records repliés. **Aucun bloc ne s'ajoute à
+  cet écran pour gagner de la place** : elle se gagne dans la feuille, sans
+  rien déplacer. La ligne du choix ne grandit plus avec son texte
+  (`LigneDuChoix` `uneLigne` : ce qu'elle dit dessous tient sur une ligne,
+  coupé au bout — la description d'un sujet, six catégories nommées la
+  faisaient passer de 56 à 109 px). Et la page se resserre à deux pas de
+  hauteur d'écran, son panneau seul — ceux du défi et du carnet gardent leurs
+  mesures (`.campagne:has(> .campagne-heros:not(.carnet-heros,
+  .defi-heros))`) : sous 900 px, les écarts entre ses blocs et dans son
+  panneau, son pied ; sous 760 — le petit téléphone, un iPhone dans Safari —,
+  un cran de plus, le titre et le record un peu plus petits, les pastilles et
+  le gros bouton plus bas, « Sur » caché à l'œil au-dessus du choix, et
+  « Aujourd'hui » sur une seule ligne, ce qui paie encore double montré
+  seulement s'il tient entier. Avec un compagnon, ses onglets gardent leur
+  place sous sa niche (`body.avec-niche … > .onglets-campagne` : la marge de
+  la niche, plus ce que l'écart leur reprend — une règle plus précise qui
+  l'oublie les fait passer dessous). Mesuré ce jour-là
+  (`server/scripts/rendu-serie.ts`, six tailles de 360 × 640 à 412 × 915,
+  dont un iPhone dans Safari, 390 × 664, et un grand Android dans Chrome,
+  412 × 800) : pour qui n'a jamais joué et pour une habituée, tout tient à
+  toutes les tailles, « Mes records par catégorie » compris (7 px de libre en
+  360 × 640 pour l'habituée) ; une série à reprendre, le gros bouton et la
+  ligne du choix se voient partout (2 px de libre en 360 × 640 avec la
+  niche), les records dès 740 px de haut (47 px sous l'écran en 360 × 640,
+  23 en 390 × 664). Le script sort en erreur si l'un d'eux ne tient plus là
+  où il doit, si la ligne du choix grandit (78 px au plus), ou si les règles
+  quittent le panneau. L'attente a la forme de la page (`CampagneEnChemin` :
+  ses onglets, le panneau, le gros bouton, le choix retenu sur ce
+  téléphone) : sans ses onglets, tout descendait de 64 px à l'arrivée de la
   page ; « Changer », touché en l'attendant, ouvre la feuille dès qu'elle
   arrive. Ce qui bouge encore à l'arrivée ne se sait pas d'avance : la série
-  à reprendre, qui pousse le gros bouton, et la ligne du jour. `heros.test.ts`
-  et `campagne-ouverture.test.ts` gardent l'ordre ; ce qui se voit se mesure
-  au navigateur — `server/scripts/rendu-serie.ts` sort en erreur si le gros
-  bouton ou la ligne du choix passent sous l'écran, cas par cas —, et le
-  contraste sous chaque thème par `rendu-themes.ts <clés> --ecrans=campagne
-  --contraste`.
+  à reprendre, qui pousse le gros bouton, et la ligne du jour.
+  `heros.test.ts` et `campagne-ouverture.test.ts` gardent l'ordre, l'absence
+  de bloc en plus et les deux pas de la feuille.

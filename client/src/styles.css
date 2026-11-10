@@ -9333,12 +9333,38 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .campagne-puces li { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid color-mix(in srgb, var(--lueur) 30%, transparent); border-radius: var(--radius-pill); font-size: 0.8rem; color: var(--ink); }
 .campagne-puces .icon { width: 14px; height: 14px; color: var(--lueur); }
 .campagne-puces .vies .coeur { width: 12px; height: 12px; }
-/* Les règles d'une série, sous ses gestes (`ReglesDeLaSerie`, le 10 novembre 2026 : dans le panneau, au-dessus du
-   gros bouton, elles poussaient la ligne du choix sous l'écran d'un petit téléphone), dans une carte : le sol que
-   chaque thème lui donne — à même la page, elles passaient sur son décor. Au milieu, comme la ligne du jour qui les
-   précède : rangées à gauche, elles laissaient un vide à droite sous un bouton de toute la largeur. */
-.campagne-regles { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; }
-.campagne-regles .campagne-puces { justify-content: center; }
+/* Le départ d'une série sur un téléphone (sous 900 px de haut). La page se resserre — entre ses blocs, dans son
+   panneau, au pied — plutôt que de pousser la ligne du choix et « Mes records par catégorie » sous l'écran. Rien n'y
+   change de place : les règles restent dans le panneau, comme le propriétaire les veut (« sobre et bien », le
+   10 novembre 2026 — sorties le matin dans une carte sous les gestes, « un bloc en plus […] ça encombre l'écran »).
+   Son panneau seul : ceux du défi et du carnet gardent leurs mesures. */
+@media (max-height: 899px) {
+  .campagne:has(> .campagne-heros:not(.carnet-heros, .defi-heros)) { gap: 12px; padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+  .campagne > .campagne-heros:not(.carnet-heros, .defi-heros) { gap: 8px; padding: 14px 16px; }
+  /* Avec un compagnon, ses onglets restent où ils étaient (10 px sous leur ligne, `body.avec-niche .onglets-campagne`,
+     plus ce que l'écart leur reprend) : remontés avec lui, ils passaient sous sa niche. */
+  body.avec-niche .campagne:has(> .campagne-heros:not(.carnet-heros, .defi-heros)) > .onglets-campagne { margin-top: 16px; }
+}
+/* Sous 760 px de haut — le petit téléphone, un iPhone dans Safari, ses barres dépliées —, un cran de plus : le titre et
+   le record un peu plus petits, les pastilles et les boutons plus bas, et « Sur », au-dessus du choix, caché à l'œil
+   (le lecteur d'écran le lit encore) : sous le gros bouton, « Toutes les catégories · Changer » se comprend sans lui.
+   Le haut de la page ne remonte que sans compagnon : avec lui, ses onglets passeraient sous sa niche. */
+@media (max-height: 759px) {
+  body:not(.avec-niche) .campagne:has(> .campagne-heros:not(.carnet-heros, .defi-heros)) { padding-top: max(14px, env(safe-area-inset-top)); }
+  .campagne:has(> .campagne-heros:not(.carnet-heros, .defi-heros)) { gap: 10px; }
+  .campagne > .campagne-heros:not(.carnet-heros, .defi-heros) { gap: 6px; padding: 12px 14px; }
+  .campagne > .campagne-heros:not(.carnet-heros, .defi-heros) h1 { font-size: 1.7rem; }
+  .campagne > .campagne-heros:not(.carnet-heros, .defi-heros) .campagne-record-hud b { font-size: 3rem; }
+  .campagne > .campagne-heros:not(.carnet-heros, .defi-heros) .campagne-puces { gap: 5px; }
+  .campagne > .campagne-heros:not(.carnet-heros, .defi-heros) .campagne-puces li { padding: 3px 9px; }
+  .campagne:has(> .campagne-heros:not(.carnet-heros, .defi-heros)) > .btn-big { min-height: 52px; }
+  .campagne:has(> .campagne-heros:not(.carnet-heros, .defi-heros)) > .quoi-ligne .quoi-texte > .small:first-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  body.avec-niche .campagne:has(> .campagne-heros:not(.carnet-heros, .defi-heros)) > .onglets-campagne { margin-top: 18px; }
+  /* Ce que la journée a rapporté tient sur une ligne : ce qui paie encore double ne s'y montre que s'il tient entier
+     (une rangée qui passe à la ligne, haute d'une ligne, comme la suite d'un gros bouton de l'accueil). */
+  .campagne-xp-du-jour { display: flex; flex-wrap: wrap; justify-content: center; align-content: flex-start; height: 1.4em; line-height: 1.4; overflow: clip; }
+  .campagne-xp-suite { flex: none; white-space: pre; }
+}
 .categories-grille { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 4px 0 2px; }
 .categorie-case { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; padding: 6px 4px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface); color: var(--muted); font: inherit; font-size: var(--t-label); font-weight: 600; line-height: 1.2; text-align: center; cursor: pointer; }
 .categorie-case .icon { width: 20px; height: 20px; }
@@ -9454,7 +9480,7 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .quoi-description { margin: 0 0 8px; }
 /* « Choisir · Les grands rendez-vous du sport » : en capitales et sur une ligne, comme un gros bouton, il sortait de l'écran. */
 .quoi-choisir { min-height: 52px; padding: 8px 18px; font-weight: 600; line-height: 1.25; white-space: normal; text-align: center; }
-/* Ce que la journée a rapporté, en tête de la carte des règles : sur deux lignes en 360 de large, partagées —
+/* Ce que la journée a rapporté, entre le panneau et le gros bouton : sur deux lignes en 360 de large, partagées —
    « double » restait seul sur la seconde. */
 .campagne-xp-du-jour { margin: 0; text-align: center; text-wrap: balance; }
 .vies { display: inline-flex; gap: 2px; color: var(--alert); }
@@ -12552,18 +12578,56 @@ button.cab-tv-carte { cursor: pointer; }
 .style-valeur { max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent-text); font-size: 0.9rem; }
 .style-chevron { flex: none; color: var(--muted); transform: rotate(-90deg); }
 
-/* ── Ma collection, en listes ────────────────────────────────────────────
-   Trois familles — avatars, style, trophées —, une ligne par collection
-   qu'on déplie sur place : une seule ouverte par famille, la page tient en
-   un écran. Les trophées gardent leurs sept lignes. */
-.collection { display: flex; flex-direction: column; gap: 20px; }
+/* ── Ma collection, en lignes ────────────────────────────────────────────
+   Trois familles — avatars, trophées, style —, une ligne par collection
+   qu'on déplie sur place. Un carrefour : ses huit lignes se voient d'un coup
+   d'œil, comme celles de l'accueil et de « Mon profil » (la revue des écrans
+   du 10 novembre 2026 : en 360 × 640, il finissait à 1162 px pour 575
+   visibles au-dessus du menu — ses lignes hautes de 84 à 125 px, leur nom
+   sur deux lignes et leur description sur trois, et trois lignes
+   d'explication au-dessus d'elles). Rien du style n'a changé, ni un nom, ni
+   une adresse, ni l'ordre : ses mesures sont des variables posées sur lui, à
+   quatre pas de hauteur d'écran, ceux de l'accueil et un de plus — le petit
+   téléphone ; un écran moyen (720 px), où les familles reprennent leur
+   titre ; un grand (820 px), où le total reprend son grand chiffre et chaque
+   ligne dit ce qu'on y trouve ; un très grand (900 px), aux mesures d'avant.
+   Une ligne ouverte déplie son album : la page défile alors de ce qu'il
+   montre, par nature. */
+.collection {
+  /* La hauteur d'une ligne : une cible de doigt, jamais moins. */
+  --collection-rang: 44px;
+  --collection-embleme: 30px;
+  --collection-ecart: 12px;
+  --collection-famille: 1.15rem;
+  --collection-chiffre: 1.25rem;
+  --collection-marge: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--collection-ecart);
+}
+@media (min-height: 720px) {
+  .collection { --collection-rang: 46px; --collection-embleme: 32px; --collection-ecart: 14px; }
+}
+@media (min-height: 820px) {
+  .collection { --collection-rang: 52px; --collection-embleme: 36px; --collection-ecart: 16px; --collection-famille: 1.4rem; --collection-chiffre: 2.3rem; --collection-marge: 6px; }
+}
+@media (min-height: 900px) {
+  .collection { --collection-rang: 58px; --collection-embleme: 40px; --collection-ecart: 20px; --collection-marge: 8px; }
+}
 .collection-tete { display: flex; flex-direction: column; gap: 6px; }
-.collection-tete p { margin: 0; }
+.collection-tete p, .collection-note { margin: 0; }
 .collection-total { color: var(--muted); font-size: 0.95rem; }
-.collection-total b { margin-right: 4px; font-family: var(--serif); font-size: 2.3rem; font-weight: 600; line-height: 1; color: var(--ink); }
+.collection-total b { margin-right: 4px; font-family: var(--serif); font-size: var(--collection-chiffre); font-weight: 600; line-height: 1; color: var(--ink); font-variant-numeric: lining-nums tabular-nums; }
 .collection-tete .jauge-fine { height: 6px; }
-.collection-famille { display: flex; flex-direction: column; gap: 8px; scroll-margin-top: 12px; }
-.collection-famille h2 { display: flex; align-items: baseline; gap: 8px; margin: 0; font-size: 1.4rem; }
+/* Sous 820 px de haut, le total tient sur la ligne de sa jauge, son compte au bout — comme une ligne de la collection :
+   en grand chiffre au-dessus d'elle, il prenait 48 px avant la première ligne à toucher. */
+@media (max-height: 819px) {
+  .collection-tete { flex-direction: row-reverse; align-items: center; gap: 12px; }
+  .collection-tete .jauge-fine { flex: 1; }
+  .collection-total { flex: none; white-space: nowrap; font-size: 0.85rem; }
+}
+.collection-famille { display: flex; flex-direction: column; gap: 6px; scroll-margin-top: 12px; }
+.collection-famille h2 { display: flex; align-items: baseline; gap: 8px; margin: 0; font-size: var(--collection-famille); }
 .collection-compte { margin-left: auto; font-family: var(--sans); font-size: 0.85rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: tabular-nums; }
 .trophees-liste .trophee { scroll-margin-top: 12px; }
 
@@ -12576,11 +12640,31 @@ button.cab-tv-carte { cursor: pointer; }
 .trophees-proches { margin: 0 0 12px; }
 .trophees-liste { list-style: none; margin: 0; padding: 0; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
 .trophee + .trophee { border-top: 1px solid var(--edge); }
-.trophee-ligne { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 12px 12px 14px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-.trophee-emoji { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: color-mix(in srgb, var(--lueur) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lueur) 40%, transparent); font-size: 20px; line-height: 1; }
+.trophee-ligne { display: flex; align-items: center; gap: 10px; width: 100%; min-height: var(--collection-rang); padding: var(--collection-marge) 10px var(--collection-marge) 12px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.trophee-emoji { flex: none; display: grid; place-items: center; width: var(--collection-embleme); height: var(--collection-embleme); border-radius: 50%; background: color-mix(in srgb, var(--lueur) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lueur) 40%, transparent); font-size: calc(var(--collection-embleme) / 2); line-height: 1; }
 .trophee-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.trophee-texte b { font-weight: 600; }
-.trophee-compte { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 56px; white-space: nowrap; color: var(--accent-text); font-size: 0.85rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+/* Son nom tient sur une ligne : « L'album des avatars » passait sur deux en 360 de large, à côté d'un emblème de 40 px. */
+.trophee-texte b { font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+/* Ce qu'on y trouve, sur une seule ligne : une rangée qui passe à la ligne, haute d'une ligne — l'essentiel, puis ceux
+   de ses morceaux qui tiennent entiers, jamais une phrase coupée au milieu d'un mot (`LigneDeCollection`, comme
+   `.gros-a-suite` à l'accueil). */
+.trophee-detail { display: flex; flex-wrap: wrap; align-content: flex-start; height: 1.3em; line-height: 1.3; overflow: clip; }
+.trophee-essentiel { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.trophee-suite { flex: none; white-space: pre; }
+/* Sous 820 px de haut, la ligne ne garde que son nom, son compte et sa jauge — huit lignes de 52 px ne tiennent pas
+   au-dessus du menu d'un téléphone dans son navigateur —, et une famille d'une seule ligne tait son titre, que sa ligne
+   redit avec le même compte (« Avatars 17 sur 173 », « L'album des avatars 17/173 »). Sous 720, toutes le taisent : trois
+   cartes, que leur écart sépare — leurs deux titres de plus poussaient « Finitions » et « Bordures de ligue » sous le
+   menu en 360 × 640. Cachés à l'œil seulement, comme `.sr-only` : le lecteur d'écran lit la phrase et le titre à toutes
+   les tailles. */
+@media (max-height: 819px) {
+  .collection .trophee-detail,
+  .collection-famille:has(.trophee:only-child) > h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+@media (max-height: 719px) {
+  .collection-famille > h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+.trophee-compte { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 48px; white-space: nowrap; color: var(--accent-text); font-size: 0.85rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 .trophee-compte .jauge-fine { width: 100%; }
 .trophee-chevron { flex: none; color: var(--muted); transition: transform 0.2s ease; }
 .trophee-ouvert { background: color-mix(in srgb, var(--lueur) 5%, transparent); }

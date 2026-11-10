@@ -21,6 +21,10 @@
 //    suites montrées, le compteur rouge à sa place, ce qui passe sous la
 //    niche — et, suivie image par image pendant que la page se charge, la
 //    carte : où elle tombe, la hauteur de chaque ligne (« LA CARTE A BOUGÉ »).
+//    Et « Ma collection » (`/profil#collection`), l'autre carrefour du profil :
+//    ses huit lignes repliées, au-dessus du menu aux quatre tailles — Léa, Tom,
+//    une tablette, le texte agrandi —, leur hauteur, un nom coupé au bout, ce
+//    que chaque ligne montre de sa phrase, les titres de famille qui se voient.
 // 2. Les pages à menu et les coquilles sous le bandeau : « Mes soirées », « Ma
 //    carrière », « Mon compagnon » sans compagnon, la collection, la loge, la
 //    boutique, « Mes quiz », « Compte », les collectionneurs, puis, le
@@ -35,8 +39,10 @@
 // d'un iPhone et sa barre d'accueil, en 390 × 844. Le script sort en erreur si
 // un cas qui doit tenir — l'habituée, le débutant, tout à la fois, le bandeau,
 // l'Ivoire — défile ou déborde en largeur, si la carte du carrefour a bougé
-// pendant le chargement, ou si une page défile pour rien : sa coquille à son
-// minimum, c'est lui qui dépasse l'écran, pas son contenu.
+// pendant le chargement, si une ligne de « Ma collection » passe sous le menu,
+// descend sous 44 px ou coupe son nom (`collection`, `collection-debutant`), ou
+// si une page défile pour rien : sa coquille à son minimum, c'est lui qui
+// dépasse l'écran, pas son contenu.
 import { createRequire } from 'node:module'
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
@@ -151,6 +157,29 @@ const LE_CARREFOUR = `(() => {
   }
 })()`
 
+/**
+ * Ce que « Ma collection » mesure en plus : ses lignes — leur hauteur, où finit la dernière —, un nom coupé au bout, ce
+ * que chaque ligne montre de sa phrase (l'essentiel et ceux de ses morceaux qui tiennent sur la ligne), les titres de
+ * famille qui se voient.
+ */
+const LA_COLLECTION = `(() => {
+  const visible = el => el.getBoundingClientRect().width > 2
+  const lignes = [...document.querySelectorAll('.collection .trophee-ligne')]
+  const montre = el => {
+    const haut = el.querySelector('.trophee-essentiel').getBoundingClientRect().top
+    return [...el.children].filter(s => Math.abs(s.getBoundingClientRect().top - haut) < 2).map(s => s.textContent).join('')
+  }
+  return {
+    lignes: lignes.map(el => Math.round(el.getBoundingClientRect().height)),
+    derniere: lignes.length ? Math.round(lignes[lignes.length - 1].getBoundingClientRect().bottom + window.scrollY) : 0,
+    coupes: [...document.querySelectorAll('.collection .trophee-texte b, .collection .trophee-essentiel')]
+      .filter(el => visible(el) && el.scrollWidth > el.clientWidth + 1)
+      .map(el => '« ' + el.textContent.trim() + ' »'),
+    phrases: [...document.querySelectorAll('.collection .trophee-detail')].filter(visible).map(montre),
+    familles: [...document.querySelectorAll('.collection-famille > h2')].filter(visible).map(el => el.textContent.trim().replace(/\\s+/g, ' ')),
+  }
+})()`
+
 const banc = await demarrer()
 const navigateur = await chromium.launch({ headless: true })
 const seulement = (process.env.SEULEMENT ?? '').split(',').filter(Boolean)
@@ -161,6 +190,8 @@ const reels = (ecrans: Ecran[]): Ecran[] => (encoche ? [[390, 844]] : ecrans)
 const rapport: Record<string, any> = {}
 /** Les cas du carrefour qui doivent tenir sur l'écran, sans défiler ni déborder : s'ils ne tiennent plus, le script sort en erreur. */
 const DOIVENT_TENIR = ['habituee', 'debutant', 'tout', 'bandeau', 'ivoire']
+/** Ceux de « Ma collection » : ses huit lignes au-dessus du menu, aucune sous 44 px, aucun nom coupé au bout. */
+const COLLECTIONS_A_TENIR = ['collection', 'collection-debutant']
 let rate = 0
 
 try {
@@ -350,6 +381,48 @@ try {
   await carrefour('tout', { cookie: lea, tout: true }, TOUS_LES_ECRANS)
   await carrefour('tablette', { cookie: lea, tout: true }, TABLETTE)
   await carrefour('agrandi', { cookie: lea, texte: 130 }, PETIT)
+
+  // ── 1 bis. « Ma collection », l'autre carrefour du profil ───────────────
+  /**
+   * Ses huit lignes — sept pour un serveur d'avant le carnet des fêtes —, qui se déplient sur place : repliées, elles se
+   * voient toutes au-dessus du menu (la revue des écrans du 10 novembre 2026 : la dernière finissait à 1162 px en
+   * 360 × 640, pour 575 visibles). Sa note, sous les listes, peut passer sous le menu : elle se lit après.
+   */
+  const collection = async (nom: string, cas: Cas, ecrans: Ecran[]) => {
+    if (!retenu(nom)) return
+    for (const ecran of reels(ecrans)) {
+      const { ctx, page } = await ouvrir(cas, ecran)
+      await page.goto(`${banc.url}/profil#collection`)
+      await attendre(page, '.collection .trophees-liste .trophee')
+      if (cas.texte) {
+        await page.addStyleTag({ content: `html { font-size: ${cas.texte}% !important; }` })
+        await page.waitForTimeout(600)
+      }
+      const n = `${nom}-${ecran[0]}x${ecran[1]}`
+      const m = { ...((await page.evaluate(LA_PAGE)) as object), ...((await page.evaluate(LA_COLLECTION)) as object), sousLaNiche: (await page.evaluate(SOUS_LA_NICHE)) as string[] } as any
+      rapport[n] = m
+      await photographier(page, n, m.defile)
+      await ctx.close()
+      const sous = m.derniere - m.pli
+      const basse = Math.min(...(m.lignes as number[]))
+      const rateIci = COLLECTIONS_A_TENIR.includes(nom) && (m.large || sous > 0 || basse < 44 || m.coupes.length > 0)
+      if (rateIci) rate++
+      const hauteurs = [...new Set(m.lignes as number[])].sort((a, b) => a - b)
+      const verdict = m.large ? 'DÉBORDE EN LARGEUR' : sous > 0 ? `sa dernière ligne ${sous} px SOUS LE MENU` : `ses lignes tiennent (${-sous} px au-dessus du menu)`
+      console.log(
+        `${n} — ${verdict} · ${m.lignes.length} lignes de ${hauteurs[0]}${hauteurs.length > 1 ? ` à ${hauteurs[hauteurs.length - 1]}` : ''} px · ${m.familles.length} titre${m.familles.length > 1 ? 's' : ''} de famille${m.bandeau ? ` · bandeau ${m.bandeau} px` : ''}${rateIci ? ' — DEVAIT TENIR' : ''}`,
+      )
+      if (basse < 44) console.log(`   UNE LIGNE SOUS 44 PX : ${m.lignes.join(', ')}`)
+      if (m.coupes.length) console.log(`   coupé au bout : ${m.coupes.join(' ; ')}`)
+      if (m.phrases.length) console.log(`   ce que les lignes disent : ${m.phrases.join(' ; ')}`)
+      const dessous = (m.sousLaNiche as string[]).filter(x => x !== '(pas de niche)')
+      if (dessous.length) console.log(`   SOUS LA NICHE — ${dessous.join(' · ')}`)
+    }
+  }
+  await collection('collection', { cookie: lea }, TOUS_LES_ECRANS)
+  await collection('collection-debutant', { cookie: tom }, DEUX_ECRANS)
+  await collection('collection-tablette', { cookie: lea }, TABLETTE)
+  await collection('collection-agrandie', { cookie: lea, texte: 130 }, PETIT)
 
   // ── 2. Les pages à menu ─────────────────────────────────────────────────
   /** Une page : son adresse, qui la regarde, ce qu'on y attend. */
