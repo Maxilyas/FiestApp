@@ -16,7 +16,7 @@ Pour faire jouer une soirée par des agents, suis la skill `tablee`.
 ## Les fichiers
 
 - `server/scripts/tablee/regie.ts` · `pilote.mjs` — la tablée : un serveur jetable, un Chromium, et les gestes des agents qui y jouent une soirée — ou plusieurs à la fois, un salon par animateur (`chez <animateur>`) — la marche à suivre, les personnages, les experts et leurs consignes dans `.claude/skills/tablee/` (`/tablee`), l'agent des personnages dans `.claude/agents/convive.md`
-- `server/scripts/tablee/gestes.ts` — ce que la régie lit sans navigateur : où toucher (`lireLeToucher`, `pointVise`), le nom que vise une lettre seule (`nomDUnSigneSeul`), le refus d'écrire dans un curseur (`UN_CURSEUR_NE_SE_TAPE_PAS`), le script qui fait attendre une photo et ce qu'elle dit des images encore vides (`attenteDesImages`, `imagesPasPretes`), le dé (`lireLeDe`, `lancerLeDe` : sa sortie et ce que le journal en garde), la partie du Cabinet que la page reçoit (`partieDeLaReponse`, `retenirLaPartie`) et la marche de ce qu'il faut savoir dans sa manche (`marchesASavoir`, `ligneDeLaMarche`) · `server/test/tablee.test.ts` — eux, leurs branchements dans la régie, la marche lue par le vrai serveur, la chronologie des dés, et chaque geste de la régie dit dans l'aide du pilote et dans les consignes ; les personnages du Cabinet, leurs domaines d'ignorance, et les seuils du dé recalculés du modèle du calibrage — ceux des consignes au joueur « tablée », ceux d'Ophélie à l'occasionnel
+- `server/scripts/tablee/gestes.ts` — ce que la régie lit sans navigateur : où toucher (`lireLeToucher`, `pointVise`), le nom que vise une lettre seule (`nomDUnSigneSeul`), le refus d'écrire dans un curseur (`UN_CURSEUR_NE_SE_TAPE_PAS`), le script qui fait attendre une photo et ce qu'elle dit des images encore vides (`attenteDesImages`, `imagesPasPretes`), la fenêtre ouverte par-dessus la page et ce que la régie en dit (`LIRE_LA_FENETRE`, `ligneDeLaFenetre`), le dé (`lireLeDe`, `lancerLeDe` : sa sortie et ce que le journal en garde), la partie du Cabinet que la page reçoit (`partieDeLaReponse`, `retenirLaPartie`) et la marche de ce qu'il faut savoir dans sa manche (`marchesASavoir`, `ligneDeLaMarche`) · `server/test/tablee.test.ts` — eux, leurs branchements dans la régie, la marche lue par le vrai serveur, la chronologie des dés, et chaque geste de la régie dit dans l'aide du pilote et dans les consignes ; les personnages du Cabinet, leurs domaines d'ignorance, et les seuils du dé recalculés du modèle du calibrage — ceux des consignes au joueur « tablée », ceux d'Ophélie à l'occasionnel
 - `server/scripts/tablee/chronologie.mjs` — le journal d'une tablée en une page, les dés de chacun compris ; sans argument, celle que désigne `export/tablee/courante.json` : une seconde régie (`--fiche`) se lit en lui donnant son dossier
 
 ## Les pièges
@@ -134,6 +134,23 @@ Pour faire jouer une soirée par des agents, suis la skill `tablee`.
   et par un `repondre` arrivé trop tard) et la rend quand elle se rouvre.
   Un « bug » que toute la salle rapporte se cherche d'abord dans le journal :
   qui était dans quel geste, à quelle heure.
+- **La régie lit le téléphone par ses classes, donc aussi sous une fenêtre**
+  — un dialogue, une feuille, la carte d'un joueur : tout ce qui rend la page
+  inerte (`useModale`), où un invité ne voit ni ne touche rien. Lucas avait
+  fait `retour` : « Quitter la soirée ? » est restée ouverte sur la question
+  suivante, que `question` lui a lue et que `repondre 450` a cru remplir —
+  le toucher refusé était avalé, la frappe est partie dans le vide, et son
+  « Entrée » a fermé la fenêtre. Son retour a décrit « une estimation
+  avalée » (le 9 novembre 2026, axe 13 ;
+  `retours/2026-11-09/reproductions/estimation-sous-une-fenetre.mts`). La
+  fenêtre se lit à part (`LIRE_LA_FENETRE`, `ligneDeLaFenetre`,
+  `gestes.ts`) : `ecran` la dit en tête — l'instantané la range après toute
+  la page couverte —, `question` la nomme sans lire la question, `repondre`
+  refuse, et une estimation se relit dans son champ avant « Entrée ». Un
+  raccourci de plus qui lit ou touche la page par ses classes se pose la
+  question (`fenetreOuverte`). Et une réponse « perdue » se cherche dans le
+  journal avant le code : un geste de quatre secondes de trop est un toucher
+  qui n'est pas arrivé.
 - **Ce que signalent les navigateurs ne s'écrit nulle part** : seul le geste
   `console` le lit, et le vide. Le dossier de la tablée garde
   `journal.jsonl` (les gestes, sans leur sortie — sauf les tirages du dé,
