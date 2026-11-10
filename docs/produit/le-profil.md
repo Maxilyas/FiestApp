@@ -267,6 +267,19 @@ Le prix, les formes et ce qui les fait grandir sont dans [la boutique](la-boutiq
 
 La page « Mon compagnon » (`/profil#compagnon`) est **chez lui** (la maquette validée par le propriétaire le 20 octobre 2026 : « trop de texte et pas assez visuel » ; « réfléchir pour faire comme un mini jeu de s'occuper de son compagnon. Que ce soit fun et qu'à la fin on puisse avoir des choses supplémentaires ») : sa niche en grand au milieu de son jardin, son nom sur sa plaque, et tout ce qui se fait d'un toucher. Rien ne s'y gagne en confettis ni en expérience, rien n'y donne d'avantage de jeu, et ce qu'on y gagne ne se voit que chez lui.
 
+**Sa page tient sur un écran, ou presque** (depuis le 10 novembre 2026 ; le propriétaire : « Dans la mesure du possible j'aimerais que l'on puisse avoir tout sur le même écran ou presque »). Rien n'y a changé de place, ni un bouton, ni un nom : sa scène, ses envies, son chemin, « Tes compagnons », dans cet ordre — plus serrés sur un téléphone, à leurs mesures d'avant sur un grand écran (1080 px de haut et plus). Entre les deux, chaque mesure suit la hauteur utile de l'écran, sans l'encoche ni la barre du bas : un iPhone en application installée est servi comme l'écran qu'il a vraiment. Sa scène ne rapetisse pas — il reste aussi grand — : quand la place manque, son cadre perd un peu de pelouse par le bas. Sur un téléphone, « Mon profil » ne se redit plus au-dessus du titre (« ← Mon profil », juste au-dessus, le dit), et la ligne de son cadeau dit l'essentiel sur une ligne (« Sept jours de complicité », puis la suite si elle tient entière) ; le lecteur d'écran lit toujours tout.
+
+| Écran | Avant | Depuis |
+|---|---|---|
+| 360 × 640, le petit téléphone de référence | sa scène ; ses envies coupées de 4 px ; 407 px à faire défiler | sa scène, ses envies, son chemin et le titre de « Tes compagnons » ; leur rangée dessous, 99 px à faire défiler |
+| 390 × 664, un iPhone dans Safari | sa scène et ses envies ; 388 px | de même ; 90 px |
+| 360 × 740 | son chemin coupé de 78 px ; 307 px | tout, 8 px de libre au-dessus du menu ; la page ne défile plus |
+| 412 × 800, un grand Android dans Chrome | son chemin coupé de 40 px ; 269 px | tout, 28 px de libre |
+| 390 × 844 | « Tes compagnons » coupé de 177 px ; 208 px | tout, 51 px de libre — 16 sous l'encoche d'un iPhone |
+| 412 × 915 | « Tes compagnons » coupé de 123 px ; 154 px | tout, 44 px de libre |
+
+De même quand il dort, pendant le goûter et le câlin, quand son cadeau attend et quand tout est fait ; sans compagnon, ceux qu'on peut adopter tiennent partout. Sur le petit téléphone, « Tes compagnons » ne peut pas tenir sans le rapetisser, lui : il se lit juste dessous. Ce qui tient se mesure au navigateur (`server/scripts/rendu-compagnon.ts`, la passe `tailles`, qui sort en erreur si l'un de ces écrans ne tient plus) ; `server/test/ma-niche.test.ts` garde l'ordre de la page et sa feuille.
+
 - **Ses envies du jour** : un goûter (sa friandise s'envole jusqu'à lui), un câlin (on le caresse du doigt jusqu'à ce qu'il ronronne), une partie de cueillette. Au premier passage du jour, il dort, volets fermés : on le réveille en touchant sa niche. Un jour sans venir ne retire rien — il ne boude jamais, et le lendemain ses envies sont neuves.
 - **La cueillette**, son jeu : trente secondes pour attraper ses friandises au vol en le guidant du doigt — une étoile vaut trois, un nuage le mouille et le ralentit. Trois étoiles à 10, 20 et 30 points, son record avec chaque compagnon. La première partie du jour comble son envie ; les suivantes, pour le plaisir et le record.
 - **Son cadeau** : ses trois envies comblées, il te rapporte une trouvaille pour son jardin, et votre complicité gagne un jour. Tous les sept jours de complicité, **le grand cadeau** : une rare ou une épique. Il apprend aussi des tours — la pirouette à 3 jours, le salut à 10, la danse à 20, le grand saut à 40 —, qu'il fait quand on le caresse.

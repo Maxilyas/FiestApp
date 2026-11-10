@@ -80,8 +80,9 @@ test('l’accueil, le profil et la boutique sont la même page, qui lit son adre
   assert.match(profil, /if \(history\.state\?\.\[DEPUIS\] !== undefined\) return history\.back\(\)/)
   // Ouvert d'un lien, il remplace l'adresse par les tuiles : le retour ne sort pas du profil.
   assert.match(profil, /history\.replaceState\(history\.state, '', `\$\{window\.location\.pathname\}\$\{window\.location\.search\}`\)\s*setEcranOuvert\(null\)/)
-  // Un lien d'un écran vers un autre passe par la même porte.
-  assert.match(profil, /<div className="player-shell" onClick=\{suivreUnLien\}>/)
+  // Un lien d'un écran vers un autre passe par la même porte — la coquille de ses écrans, qui porte aussi les mesures de
+  // « Mon compagnon » quand l'écran est le sien (`.chez-page`, `ma-niche.test.ts`).
+  assert.match(profil, /<div className=\{ecran === 'compagnon' \? 'player-shell chez-page' : 'player-shell'\} onClick=\{suivreUnLien\}>/)
   // Les adresses d'avant mènent à la page qui les a reprises — chaque pièce
   // de « Ma carte » et de « Mon style » à la sienne.
   for (const [avant, ecran] of [

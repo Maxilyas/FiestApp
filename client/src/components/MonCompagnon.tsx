@@ -70,6 +70,17 @@ function Lune() {
   )
 }
 
+/**
+ * Ce que la ligne de son cadeau dit sous son titre, en morceaux : l'essentiel, puis ses suites, chacune avec son
+ * espace et sa ponctuation — mis bout à bout, la phrase d'avant, mot pour mot, que le lecteur d'écran lit d'un trait.
+ * Sur un téléphone, la feuille n'en montre que les morceaux qui tiennent entiers sur une ligne (`.chez-cadeau-detail`,
+ * comme la ligne d'un gros bouton de l'accueil) : sur deux, sous un titre déjà sur deux, le jour du cadeau poussait
+ * son chemin et ses compagnons de 16 px vers le menu. L'essentiel tient en 360 de large, à côté du paquet : une
+ * trentaine de caractères au plus.
+ */
+export const CE_QUE_DIT_LE_GRAND_CADEAU: readonly string[] = ['Sept jours de complicité', ' de plus', ' : une rare ou une épique']
+export const ceQueDitLeCadeau = (jours: number): readonly string[] => ['Ses trois envies sont comblées', ` · grand cadeau à ${jours} jours`]
+
 /** Une étape de son chemin : une forme, sa métamorphose, un ornement de sa niche. */
 interface Etape {
   cle: string
@@ -755,7 +766,14 @@ export function MonCompagnon({
             </span>
             <span className="chez-cadeau-texte">
               <b>{grand ? `${Nom} a un grand cadeau pour toi` : `${Nom} a un cadeau pour toi`}</b>
-              <span>{grand ? 'Sept jours de complicité de plus : une rare ou une épique' : `Ses trois envies sont comblées · grand cadeau à ${prochainGrandCadeau(complicite)} jours`}</span>
+              {/* La phrase d'avant, mot pour mot, coupée à ses jointures : sur un téléphone, la feuille n'en montre que les morceaux qui tiennent entiers sur une ligne (`.chez-cadeau-detail`). */}
+              <span className="chez-cadeau-detail">
+                {(grand ? CE_QUE_DIT_LE_GRAND_CADEAU : ceQueDitLeCadeau(prochainGrandCadeau(complicite))).map((morceau, i) => (
+                  <span key={morceau} className={i === 0 ? 'chez-cadeau-essentiel' : 'chez-cadeau-suite'}>
+                    {morceau}
+                  </span>
+                ))}
+              </span>
             </span>
             <Icon name="chevron-right" />
           </button>

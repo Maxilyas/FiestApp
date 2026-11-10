@@ -124,6 +124,110 @@ paths:
   partait se cacher au coin de l'écran. Les composants de sa page ont pris
   des noms à eux (`sans-nom`, `dans-la-niche`, `en-expedition`, `passe`).
 
+- **« Mon compagnon » tient sur un écran, ou presque — et ses mesures
+  suivent une pente, pas des pas** (le 10 novembre 2026 ; le propriétaire :
+  « J'aimerais bien que tu regardes les écrans, m'habiller, mon compagnon,
+  classement des collections. Dans la mesure du possible j'aimerais que l'on
+  puisse avoir tout sur le même écran ou presque »). Sa page faisait 951 px
+  en 360 × 640 pour 575 visibles au-dessus du menu — sa scène, ses envies
+  coupées de 4 px, son chemin et « Tes compagnons » dessous, 407 px à faire
+  défiler — et 973 en 412 × 915 pour 850. **Rien n'y a changé de place, rien
+  ne s'y est ajouté ni renommé** : sa tête et « Comment ça marche », sa
+  scène, ses envies, son chemin, ses compagnons, les mêmes boutons. La place
+  se gagne sur ses mesures, des variables posées sur sa page (`.chez-page`,
+  le bloc « Tout chez lui sur un écran, ou presque » de `styles.css` ; la
+  coquille que `ProfilApp.tsx` pose dès que l'écran est le sien, avant même
+  que son code n'arrive et sans compagnon aussi : posées par `.chez-lui`, sa
+  tête aurait bougé à son arrivée). Chacune s'écrit « le plus serré, plus ce
+  qu'elle reprend au bout de la pente » —
+  `calc(5px + var(--chez-aise) * 9 / 280)` : un écart de 5 px sur un
+  téléphone, de 14 comme avant sur un grand écran — : `--chez-aise` est ce
+  que l'écran a de hauteur **utile** au-delà
+  de 800 px, jusqu'à 280 de plus (`100svh` moins l'encoche et la barre du
+  bas). **Une pente, pas des pas de `min-height`** : un iPhone en application
+  installée perd 81 px à son encoche et à sa barre, que `min-height` ne voit
+  pas — au pas de 820 px, il prenait en 390 × 844 les mesures d'un écran plus
+  grand que lui, et « Tes compagnons » passait de 40 px sous le menu (mesuré,
+  `ENCOCHE=47`). Au plus serré : 2 px au-dessus de « ← Mon profil », dont la
+  boîte de 44 px laisse le titre remonter sous son texte (le lien passe
+  devant, pour garder ses 44 px sous le doigt) ; « Mon profil », au-dessus du
+  titre, caché à l'œil seulement sous 1080 px de haut — le lien d'au-dessus
+  le dit déjà — ; un titre de 1,4 rem, 5 px entre ses blocs, des cartes à
+  7 px de marge, le rond d'une envie de 42 px (le bouton entier, son nom
+  dessous, reste une cible de doigt), une étape de 44, le fil de son chemin
+  remonté de 6 px dans l'écart de sa carte, « Tous les voir » sur une ligne
+  de 22 px, sa cible à 46. La pastille de leur complicité s'écrit à la taille
+  d'une étiquette sur un téléphone : en 360 de large, à côté d'elle, « Ses
+  envies du jour » passait sur deux lignes, 18 px de plus avant ses envies.
+  **La ligne de son cadeau se dit en morceaux** sous 1080 px de haut
+  (`CE_QUE_DIT_LE_GRAND_CADEAU`, `ceQueDitLeCadeau`, `.chez-cadeau-detail`,
+  comme la ligne d'un gros bouton) : l'essentiel — « Sept jours de
+  complicité », « Ses trois envies sont comblées » —, puis ceux de ses
+  morceaux qui tiennent entiers ; sur deux lignes sous un titre déjà sur
+  deux, elle faisait 16 px de plus que ses trois envies, et tout descendait
+  le jour du cadeau. Le lecteur d'écran lit la phrase entière, un grand écran
+  la montre, « Comment ça marche » et la légende de « Décorer » la redisent.
+  **Sa scène ne rapetisse jamais : elle se rogne** (`.chez-scene`,
+  `max-height`) — l'échelle de sa cour (`--k`, `useEchelle`) reste celle de
+  sa largeur, et son cadre, haut de 280 à cette échelle, s'arrête à ce que
+  l'écran lui laisse au-dessus du menu, le reste de sa page compté
+  (`--chez-reste`) : il perd de la pelouse par le bas, et la pastille de ses
+  gestes, posée sur son bord, remonte avec lui. Jamais sous son plancher —
+  sa niche, sa plaque, 8 px d'air, la pastille : `--k` × 180,6 + 88 px. En
+  360 de large, sa cour y est déjà (248 px) ; en 390, elle rend 9 px dans
+  Safari ; en 412, jusqu'à 14. Une pièce de plus au pied de sa niche, ou une
+  pastille plus haute, bouge ce plancher. Mesuré ce jour-là
+  (`server/scripts/rendu-compagnon.ts`, la passe `tailles`, le client
+  construit d'abord, depuis `server/` :
+  `SEULEMENT=tailles npx tsx scripts/rendu-compagnon.ts ../export/compagnon` ;
+  `ETATS=chez,cadeau` pour quelques états), ses trois envies à combler : en
+  360 × 640, sa scène, ses
+  envies, son chemin (41 px de libre) et le titre de « Tes compagnons »
+  au-dessus du menu, sa rangée dessous — la page défile de 99 px ; en
+  390 × 664, un iPhone dans Safari, de même (50 px de libre, 90 à défiler) ;
+  en 360 × 740, toute sa page, 8 px de libre, sans défiler ; en 412 × 800,
+  28 ; en 390 × 844, 51 — 16 sous l'encoche, où le chemin passait de 30 px
+  sous le menu — ; en 412 × 915, 44. De même quand il dort, pendant le
+  goûter et le câlin, une forme regardée, son grand cadeau prêt (un nom de
+  seize lettres : 7 px de libre en 360 × 740), tout fait pour aujourd'hui,
+  un domaine qui défile ; sans compagnon, ceux qu'on peut adopter tiennent
+  partout. Sur une tablette (768 × 1024), tout tient, 33 px de libre —
+  « Tes compagnons » y passait de 75 px sous le menu ; passé 1080 px de haut,
+  la page d'avant, au pixel (photos comparées en 412 × 1100 et 768 × 1100 —
+  seul bouge l'anticrénelage d'un deux-points, dans la ligne du cadeau, que
+  ses morceaux posent autrement). **Sur le petit téléphone, « Tes
+  compagnons » ne peut pas tenir** : sa scène ne se rogne pas en 360 de
+  large, et tout le
+  reste est à son minimum — il faudrait le rapetisser. Ce qui la ferait
+  défiler de nouveau : quoi que ce soit de plus sur sa page — une ligne, un
+  bloc, un état de ses envies plus haut que ses trois ronds (103 px de carte
+  au plus serré) —, en 360 × 740 d'abord, où elle tient à 8 px, et un pixel
+  près pour ne pas défiler. Un vétéran dont le chemin dit ses titres sur deux
+  lignes (« Amis pour la vie ») a 13 px de plus. Sous le bandeau du service
+  (58 px, une panne que l'administrateur annonce), tout tient encore en
+  390 × 844 et 412 × 915, à 2 et 1 px ; il manque 16 px en 412 × 800, 49 en
+  360 × 740. Le texte agrandi à 130 %, la page défile de 29 à 171 px selon
+  l'écran : ses titres grandissent avec lui, c'est voulu. Le script sort en
+  erreur si ce qui doit tenir ne tient plus — sa scène, ses envies, son
+  chemin et le titre de « Tes compagnons » partout, toute sa page dès 740 px
+  de haut, sans défiler dès 800 —, si la pastille de ses gestes touche sa
+  plaque, si son jardin a de quoi défiler de haut en bas dans sa scène
+  (rognée, son terrain s'arrête avec elle : `.chez-scene .jardin-terrain`),
+  si l'essentiel de la ligne de son cadeau se coupe au bout, si son titre
+  bouge pendant que la page se charge, pour une cible de doigt sous 44 px ou
+  un texte sous 11 : il sonde chaque bouton au demi-pixel
+  (`elementFromPoint`), et la plaque de son nom (34 px), les flèches de son
+  jardin (34), ses places libres (41) et « Tous les voir » (40) n'y étaient
+  pas — chacune a pris sa boîte de toucher, sans rien changer à l'œil, sur
+  sa page seulement : « Décorer » garde les siennes
+  (`.chez-plaque b::before`, `.chez-scene .jardin-fleche::before`,
+  `.chez-scene .jardin-libre::before`, `.chez-lien::before`).
+  `ma-niche.test.ts` garde l'ordre de sa page, la pente — chaque mesure, du
+  plus serré à celle d'avant —, le plancher de sa scène et ce qui n'est
+  caché qu'à l'œil.
+  Relevé en passant, laissé : sur une tablette, où son échelle plafonne
+  (1,25), sa cour reste calée à gauche d'une scène plus large qu'elle.
+
 - **Une tête de page de plus laisse son coin à la niche.** La niche est
   posée par-dessus la page, en position fixe : rien ne la pousse, c'est la
   page qui s'arrête avant elle (`body.avec-niche`, le bloc « Sa place, page

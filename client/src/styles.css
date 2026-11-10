@@ -13906,7 +13906,81 @@ body:has(.loge-collante, .sentier-tete, .cab-tete-partie) .niche.repliee { opaci
    ═══════════════════════════════════════════════════════════════════ */
 /* Il est là, en grand : la niche du coin s'efface sur sa page — deux fois lui, l'un au-dessus de l'autre, se disputaient le regard. */
 body:has(.chez-lui) .niche { opacity: 0; visibility: hidden; }
-.chez-lui { display: flex; flex-direction: column; gap: 14px; }
+
+/* ── Tout chez lui sur un écran, ou presque ──
+   « J'aimerais bien que tu regardes les écrans, m'habiller, mon compagnon, classement des collections. Dans la mesure
+   du possible j'aimerais que l'on puisse avoir tout sur le même écran ou presque » (le propriétaire, le 10 novembre
+   2026). Sa page faisait 951 px en 360 × 640 pour 575 visibles au-dessus du menu : sa scène, puis ses envies coupées de
+   4 px, son chemin et ses compagnons dessous ; 973 px en 412 × 915 pour 850, « Tes compagnons » coupé en deux. Rien n'y
+   change de place, ni un bouton, ni un nom, ni l'ordre : ses mesures sont des variables posées sur sa page
+   (`.chez-page`, la coquille que pose `ProfilApp.tsx` dès que l'écran est le sien — la tête ne bouge pas quand son code
+   arrive, ni quand on adopte son premier compagnon). Chacune va du plus serré, sur un téléphone, à l'allure d'avant, sur
+   un grand écran, le long d'une même pente : `--chez-aise`, ce que l'écran a de hauteur utile — sans l'encoche ni la
+   barre du bas — au-delà de 800 px, jusqu'à 280 de plus. Une pente, pas des pas de `min-height` : un iPhone, en
+   application installée, perd 81 px à son encoche et à sa barre, que `min-height` ne voit pas — au pas de 820 px, il
+   prenait en 390 × 844 les mesures d'un écran plus grand que lui, et « Tes compagnons » passait de 40 px sous le menu.
+   Chaque mesure s'écrit donc « le plus serré, plus ce qu'elle reprend au bout de la pente » : sur 280.
+   Ce que la feuille en fait se mesure au navigateur : `server/scripts/rendu-compagnon.ts`, la passe `tailles`. */
+.chez-page {
+  --chez-aise: clamp(0px, calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 800px), 280px);
+  /* La marge du haut de la page — sous `viewport-fit=cover`, l'encoche la garde quand elle est plus haute — et celle du
+     bas : aucune sur un téléphone, où la barre du menu garde déjà 7 px au-dessus d'elle. */
+  --chez-haut: calc(2px + var(--chez-aise) * 22 / 280);
+  --chez-bas: calc(0px + var(--chez-aise) * 24 / 280);
+  /* De « ← Mon profil » à son titre : sa boîte de 44 px, une cible de doigt, laisse 13 px de vide sous son texte — le titre y remonte. */
+  --chez-sous-le-retour: calc(-11px + var(--chez-aise) * 17 / 280);
+  /* Son titre : de 1,4 à 2 rem. */
+  --chez-grand-titre: calc(1.4rem + var(--chez-aise) * 9.6 / 280);
+  /* Entre ses blocs — sa tête, sa scène, ses trois cartes. */
+  --chez-ecart: calc(5px + var(--chez-aise) * 9 / 280);
+  /* Une carte : ses marges, l'écart sous son titre, son titre (de 1,1 à 1,25 rem), la hauteur de sa tête et de la
+     pastille qui s'y range, le texte de cette pastille (d'une étiquette, 0,6875 rem, à 0,75). */
+  --chez-carte-marge: calc(7px + var(--chez-aise) * 11 / 280);
+  --chez-carte-bord: calc(14px + var(--chez-aise) * 4 / 280);
+  --chez-carte-ecart: calc(6px + var(--chez-aise) * 6 / 280);
+  --chez-titre: calc(1.1rem + var(--chez-aise) * 2.4 / 280);
+  --chez-tete: calc(22px + var(--chez-aise) * 4 / 280);
+  --chez-puce: calc(0.6875rem + var(--chez-aise) * 1 / 280);
+  /* « Tous les voir » : sa ligne, basse comme les autres têtes — sa cible, elle, reste celle d'un doigt (`.chez-lien::before`). */
+  --chez-lien: calc(22px + var(--chez-aise) * 18 / 280);
+  /* Une envie : son rond — le bouton entier, son nom dessous, reste une cible de doigt — et l'écart sous lui. */
+  --chez-rond: calc(42px + var(--chez-aise) * 12 / 280);
+  --chez-rond-ecart: calc(2px + var(--chez-aise) * 4 / 280);
+  /* Une étape de son chemin : sa case, l'écart sous elle ; la marge au-dessus du fil, où luit le point de l'étape d'ici,
+     et ce dont le fil remonte dans l'écart de sa carte — cette marge le sépare déjà de son titre. */
+  --chez-etape: calc(44px + var(--chez-aise) * 6 / 280);
+  --chez-etape-ecart: calc(2px + var(--chez-aise) * 4 / 280);
+  --chez-chemin-haut: calc(8px + var(--chez-aise) * 4 / 280);
+  --chez-chemin-remonte: calc(-6px + var(--chez-aise) * 6 / 280);
+  /* Un de ses compagnons : la marge au-dessus de sa petite niche, l'écart entre elle, son nom et ce qu'un toucher fait. */
+  --chez-ami-marge: calc(3px + var(--chez-aise) * 3 / 280);
+  --chez-ami-ecart: calc(2px + var(--chez-aise) * 2 / 280);
+  /* Ce que sa page prend hors de sa scène et de la marge du haut, celle du bas comprise — mesuré, ses trois envies à
+     combler : la scène a ce que l'écran laisse (plus bas). */
+  --chez-reste: calc(417px + var(--chez-aise) * 267 / 280);
+  padding-top: max(var(--chez-haut), env(safe-area-inset-top));
+}
+/* `svh`, pas `vh` : la barre d'adresse du navigateur dépliée, ses mesures sont celles de l'écran qu'on voit. Sous
+   `@supports`, pas en seconde déclaration : une variable se garde telle qu'elle est écrite, et le navigateur qui ne
+   connaît pas `svh` ne retomberait pas sur `vh` — il jetterait au calcul chaque mesure qui la lit (règle `css.md`). */
+@supports (height: 100svh) {
+  .chez-page { --chez-aise: clamp(0px, calc(100svh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 800px), 280px); }
+}
+/* La marge du bas, sous sa dernière carte : celle d'une page à menu (24 px) faisait défiler de quelques pixels une page
+   qui tenait. Plus précise que `body.avec-menu .player-shell`, qu'elle resserre. */
+body.avec-menu .player-shell.chez-page { padding-bottom: var(--chez-bas); }
+/* « ← Mon profil », puis son titre : la marge du lien rentre déjà de 12 px dans l'écart de la page (18 px). Le titre
+   remonte sous son texte, dans sa boîte : le lien passe devant, pour garder ses 44 px sous le doigt. */
+.chez-page > .jour-sortie { position: relative; z-index: 1; margin-bottom: calc(var(--chez-sous-le-retour) - 18px); }
+.chez-page > .piece-tete h1,
+.chez-lui > .piece-tete h1 { font-size: var(--chez-grand-titre); }
+/* Sous 1080 px de haut, « Mon profil » ne se redit pas au-dessus du titre : « ← Mon profil », juste au-dessus, le dit
+   déjà. Caché à l'œil seulement, comme `.sr-only` — le lecteur d'écran lit encore où l'on est. */
+@media (max-height: 1079px) {
+  .chez-page > .piece-tete .label,
+  .chez-lui > .piece-tete .label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+.chez-lui { display: flex; flex-direction: column; gap: var(--chez-ecart); }
 .chez-lui > .piece-tete { position: relative; padding-right: 54px; }
 /* « Comment ça marche » : les règles, qui faisaient le mur de texte de l'ancienne page, derrière un rond. */
 .chez-info { position: absolute; right: 0; bottom: -2px; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid var(--edge-strong); border-radius: 50%; background: var(--surface); color: var(--accent-text); cursor: pointer; }
@@ -13926,6 +14000,23 @@ body:has(.chez-lui) .niche { opacity: 0; visibility: hidden; }
   /* Les plans de son jardin — le sol devant la niche, les grands objets derrière — se rangent ici, sans rien laisser passer sur la page. */
   isolation: isolate;
 }
+/* Sa scène a la hauteur de sa cour (280 à son échelle, que la page pose : `--k`) — jusqu'à ce que l'écran lui laisse
+   au-dessus du menu, une fois comptés la marge du haut et le reste de sa page (`--chez-reste`) : au-delà, elle se rogne
+   par le bas, où il n'y a que de la pelouse, et la pastille de ses gestes remonte avec son bord. Jamais sa niche, qui
+   garde son échelle : il reste aussi grand. Et jamais plus bas que ce qu'il lui faut — sa niche, sa plaque dessous, 8 px
+   d'air, la pastille : 180,6 à son échelle (46 + 112 × 62 / 54 + 6), puis 34 + 8 + 38 + 6 et ses deux bords. En
+   360 de large, sa cour est déjà à ce plancher ; en 412, elle rend jusqu'à 14 px. Passé 1080 px de haut, plus rien ne
+   la borne. `svh` sous `@supports`, pas en seconde déclaration (règle `css.md`). */
+@media (max-height: 1079px) {
+  .chez-scene { max-height: max(calc(var(--k) * 180.6px + 88px), calc(100vh - var(--haut-du-menu, 0px) - var(--haut-du-bandeau, 0px) - max(var(--chez-haut), env(safe-area-inset-top)) - var(--chez-reste))); }
+  @supports (height: 100svh) {
+    .chez-scene { max-height: max(calc(var(--k) * 180.6px + 88px), calc(100svh - var(--haut-du-menu, 0px) - var(--haut-du-bandeau, 0px) - max(var(--chez-haut), env(safe-area-inset-top)) - var(--chez-reste))); }
+  }
+}
+/* Son terrain s'arrête avec sa scène : plus haut qu'elle, il restait de quoi faire défiler son jardin de haut en bas —
+   pas au doigt, son cadre le coupe, mais par un script, ou un navigateur, qui y amène un bouton : tout son jardin
+   serait monté de quelques pixels dans son cadre. Il ne défile que de côté. */
+.chez-scene .jardin-terrain { max-height: 100%; }
 /* Le décor peint de sa forme, flouté : celui de son avatar, en grand derrière son jardin. */
 .chez-fond { position: absolute; inset: -46px; background-size: cover; background-position: center 34%; filter: blur(18px) saturate(1.2) brightness(0.58); transform: scale(1.04); }
 .chez-ombre { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(8, 10, 20, 0.08) 0%, rgba(8, 10, 20, 0) 42%, rgba(16, 11, 9, 0.5) 100%); pointer-events: none; }
@@ -13972,6 +14063,8 @@ body:has(.chez-lui) .niche { opacity: 0; visibility: hidden; }
 /* Une place libre : un « + » en pointillé. Sur sa page, petit — sa boîte de toucher, elle, a la taille d'un doigt. */
 .jardin-libre { position: absolute; z-index: 8; display: grid; place-items: center; padding: 0; border: 1.5px dashed rgba(244, 213, 141, 0.6); border-radius: 50%; background: rgba(18, 13, 11, 0.38); color: rgba(244, 213, 141, 0.9); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .jardin-libre::before { content: ''; position: absolute; inset: -9px; border-radius: 50%; }
+/* Sur sa page, onze pixels de chaque côté : à neuf, comptés depuis l'intérieur de son pointillé, la boîte de ce petit « + » ne faisait que 41 px. */
+.chez-scene .jardin-libre::before { inset: -11px; }
 .jardin-libre .icon { width: 13px; height: 13px; }
 .jardin-libre.grande { border-color: rgba(244, 213, 141, 0.75); background: rgba(18, 13, 11, 0.5); color: #f4d58d; }
 .jardin-libre.grande .icon { width: 17px; height: 17px; }
@@ -13982,6 +14075,8 @@ body:has(.chez-lui) .niche { opacity: 0; visibility: hidden; }
 .jardin-pleine.choisie { border-color: #f4d58d; box-shadow: 0 0 14px rgba(244, 213, 141, 0.45); }
 /* Ce qui dépasse de l'écran se dit : hors champ, le domaine passait inaperçu sur la maquette. */
 .jardin-fleche { position: absolute; bottom: 9px; z-index: 9; display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid rgba(217, 181, 106, 0.45); border-radius: 50%; background: rgba(18, 13, 11, 0.62); color: #e8cb8a; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); cursor: pointer; animation: jardin-appel 2.8s ease-in-out infinite; }
+/* Sur sa page, un rond de 34 px, sa boîte de toucher à 44. */
+.chez-scene .jardin-fleche::before { content: ''; position: absolute; inset: -6px; border-radius: 50%; }
 .jardin-fleche .icon { width: 16px; height: 16px; }
 .jardin-fleche.gauche { left: 8px; --sens: -3px; }
 .jardin-fleche.gauche .icon { transform: scaleX(-1); }
@@ -14034,6 +14129,8 @@ body:has(.chez-lui) .niche { opacity: 0; visibility: hidden; }
 /* Sa plaque, son nom sous sa niche : elle se touche pour le changer. Assez étroite pour laisser voir ce qui est posé de chaque côté. */
 .chez-plaque { position: absolute; z-index: 7; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 84px; height: 34px; padding: 0 11px 0 14px; border: 1px solid rgba(255, 240, 200, 0.7); border-radius: 11px; background: linear-gradient(180deg, #f7e4ad 0%, #ddb867 52%, #ad7f36 100%); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.6); color: #2a1d10; white-space: nowrap; cursor: pointer; transform: translateX(-50%); }
 .chez-plaque b { font-family: var(--serif); font-size: 1.25rem; font-weight: 700; line-height: 1; letter-spacing: 0.02em; }
+/* Haute de 34 px, sa boîte de toucher à 44 : six de plus dessus et dessous, dans l'air qui la sépare de sa niche et de la pastille. Sur son nom — ses propres `::before` et `::after` sont ses deux chaînes. */
+.chez-plaque b::before { content: ''; position: absolute; inset: -6px 0; }
 .chez-plaque.sans-nom b { font-family: var(--sans); font-size: 0.75rem; letter-spacing: 0; }
 .chez-plaque .icon { width: 14px; height: 14px; opacity: 0.7; }
 .chez-plaque::before,
@@ -14083,21 +14180,25 @@ a.chez-pastille.or:hover { color: #1a1412; }
 .chez-jauge-calin svg { flex: none; width: 16px; height: 16px; }
 
 /* ── Ses cartes : ses envies, son chemin, ses compagnons ── */
-.chez-carte { display: flex; flex-direction: column; gap: 12px; }
-.chez-carte-tete { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 26px; }
-.chez-carte-tete h2 { margin: 0; font-family: var(--serif); font-size: 1.25rem; font-weight: 600; line-height: 1.1; }
-.chez-complicite { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px 0 8px; border: 1px solid rgba(232, 115, 154, 0.4); border-radius: var(--radius-pill); background: rgba(232, 115, 154, 0.12); color: var(--ink); font-size: 0.75rem; font-weight: 600; white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
+/* Leurs mesures sont celles de sa page (`.chez-page`, plus haut) : une carte sous `.card`, qu'elle resserre — plus bas dans la feuille, à sa force. */
+.chez-carte { display: flex; flex-direction: column; gap: var(--chez-carte-ecart); padding: var(--chez-carte-marge) var(--chez-carte-bord); }
+.chez-carte-tete { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: var(--chez-tete); }
+.chez-carte-tete h2 { margin: 0; font-family: var(--serif); font-size: var(--chez-titre); font-weight: 600; line-height: 1.1; }
+/* Sur un téléphone, à la taille d'une étiquette : en 360 de large, à côté d'elle, « Ses envies du jour » passait sur deux lignes — 18 px de plus avant ses envies. */
+.chez-complicite { display: inline-flex; align-items: center; gap: 6px; height: var(--chez-tete); padding: 0 10px 0 8px; border: 1px solid rgba(232, 115, 154, 0.4); border-radius: var(--radius-pill); background: rgba(232, 115, 154, 0.12); color: var(--ink); font-size: var(--chez-puce); font-weight: 600; white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
 .chez-complicite svg { flex: none; width: 14px; height: 14px; }
 .chez-compte { display: inline-flex; align-items: center; gap: 5px; color: var(--or-text); font-size: 0.84rem; font-weight: 700; font-variant-numeric: lining-nums tabular-nums; }
 .chez-compte .icon { width: 15px; height: 15px; }
-.chez-lien { display: inline-flex; align-items: center; gap: 2px; min-height: 40px; font-size: 0.875rem; }
+/* « Tous les voir » : sa ligne à la hauteur de la tête de sa carte, sa cible à 46 px — une cible de doigt, et un pixel de chaque côté : elle déborde surtout vers le haut, dans la marge de la carte, où rien d'autre ne se touche. */
+.chez-lien { position: relative; display: inline-flex; align-items: center; gap: 2px; min-height: var(--chez-lien); font-size: 0.875rem; }
+.chez-lien::before { content: ''; position: absolute; inset: min(0px, calc((var(--chez-lien) - 46px) * 0.75)) -6px min(0px, calc((var(--chez-lien) - 46px) * 0.25)); }
 .chez-lien .icon { width: 15px; height: 15px; }
 /* Ses trois envies du jour, en ronds : une icône, un mot. Comblée, l'or et sa coche. */
 .chez-envies { display: flex; justify-content: space-between; gap: 8px; }
-.chez-envie { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 44px; padding: 2px 0 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.chez-envie { flex: 1; display: flex; flex-direction: column; align-items: center; gap: var(--chez-rond-ecart); min-height: 44px; padding: max(0px, calc(var(--chez-rond-ecart) - 4px)) 0 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .chez-envie:disabled { cursor: default; }
-.chez-envie-rond { position: relative; display: grid; place-items: center; width: 54px; height: 54px; border: 1.5px dashed color-mix(in srgb, var(--accent) 65%, transparent); border-radius: 50%; background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--accent-text); transition: transform 0.2s ease; }
-.chez-envie-rond .chez-icone { width: 26px; height: 26px; }
+.chez-envie-rond { position: relative; display: grid; place-items: center; width: var(--chez-rond); height: var(--chez-rond); border: 1.5px dashed color-mix(in srgb, var(--accent) 65%, transparent); border-radius: 50%; background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--accent-text); transition: transform 0.2s ease; }
+.chez-envie-rond .chez-icone { width: calc(var(--chez-rond) * 13 / 27); height: calc(var(--chez-rond) * 13 / 27); }
 .chez-envie:not(:disabled):active .chez-envie-rond { transform: scale(0.93); }
 .chez-envie.active .chez-envie-rond { border-style: solid; border-color: var(--accent); animation: chez-pouls 1.4s ease-in-out infinite; }
 @keyframes chez-pouls {
@@ -14116,8 +14217,8 @@ a.chez-pastille.or:hover { color: #1a1412; }
 .chez-pastilles.faites i { border: 0; background: linear-gradient(180deg, #ecd08e, #c99c4c); color: #2a1d10; }
 .chez-pastilles.faites i .icon { width: 14px; height: 14px; }
 /* Son cadeau l'attend : le paquet gigote, la ligne entière se touche. */
-.chez-cadeau-ligne { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 8px 12px 8px 8px; border: 1px solid color-mix(in srgb, var(--or-text) 60%, transparent); border-radius: 14px; background: linear-gradient(90deg, rgba(217, 181, 106, 0.2), rgba(217, 181, 106, 0.05)); color: inherit; font: inherit; text-align: left; cursor: pointer; }
-.chez-cadeau-icone { flex: none; display: grid; place-items: center; width: 48px; height: 48px; animation: chez-gigote 1.8s ease-in-out infinite; }
+.chez-cadeau-ligne { display: flex; align-items: center; gap: 12px; width: 100%; min-height: calc(var(--chez-rond) + 10px); padding: max(2px, calc(var(--chez-carte-ecart) - 4px)) 12px max(2px, calc(var(--chez-carte-ecart) - 4px)) 8px; border: 1px solid color-mix(in srgb, var(--or-text) 60%, transparent); border-radius: 14px; background: linear-gradient(90deg, rgba(217, 181, 106, 0.2), rgba(217, 181, 106, 0.05)); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.chez-cadeau-icone { flex: none; display: grid; place-items: center; width: calc(var(--chez-rond) - 6px); height: calc(var(--chez-rond) - 6px); animation: chez-gigote 1.8s ease-in-out infinite; }
 .chez-cadeau-icone svg { width: 100%; height: 100%; }
 @keyframes chez-gigote {
   0%, 70%, 100% { transform: rotate(0); }
@@ -14129,23 +14230,37 @@ a.chez-pastille.or:hover { color: #1a1412; }
 .chez-cadeau-texte { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .chez-cadeau-texte b { font-size: 0.92rem; }
 .chez-cadeau-texte span { color: var(--muted); font-size: 0.8rem; }
+/* Sous 1080 px de haut — tous les téléphones —, ce que la ligne ajoute sous son titre tient sur une ligne : l'essentiel,
+   puis ceux de ses morceaux qui tiennent entiers, jamais une phrase coupée au milieu d'un mot (`.trophee-detail`,
+   `.gros-a-suite`). Sur deux, sous un titre déjà sur deux, sa ligne faisait 16 px de plus que ses trois envies, et son
+   chemin et ses compagnons descendaient d'autant le jour du cadeau. Le lecteur d'écran lit toute la phrase ; un écran
+   plus haut la montre entière, « Comment ça marche » et la légende de « Décorer » la redisent. */
+@media (max-height: 1079px) {
+  .chez-cadeau-texte b { line-height: 1.25; }
+  .chez-cadeau-detail { display: flex; flex-wrap: wrap; align-content: flex-start; height: 1.3em; line-height: 1.3; overflow: clip; }
+  .chez-cadeau-essentiel { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .chez-cadeau-suite { flex: none; white-space: pre; }
+  /* Le nom d'une envie, un seul mot : sa ligne à sa hauteur, sans l'interligne d'un paragraphe. */
+  .chez-envie-nom { line-height: 1.2; }
+}
 .chez-cadeau-ligne > .icon { flex: none; width: 18px; height: 18px; color: var(--accent-text); }
 /* Son chemin sur un seul fil : ses formes, sa métamorphose, les ornements de sa niche — l'or jusqu'où ses bonnes réponses l'ont mené. Il défile de côté, bord à bord de sa carte. */
-.chez-chemin { margin: 0 -18px; padding: 12px 12px 2px; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 26px), transparent); mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 26px), transparent); }
+.chez-chemin { margin: var(--chez-chemin-remonte) calc(-1 * var(--chez-carte-bord)) 0; padding: var(--chez-chemin-haut) 12px 2px; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 26px), transparent); mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 26px), transparent); }
 .chez-chemin::-webkit-scrollbar { display: none; }
 .chez-piste { position: relative; display: flex; padding: 0 6px; }
-.chez-piste-trait { position: absolute; top: 24px; height: 0; border-top: 2px dotted color-mix(in srgb, var(--accent) 45%, transparent); }
-.chez-piste-or { position: absolute; top: 23px; height: 4px; border-radius: 4px; background: linear-gradient(90deg, #c99c4c, #f4d58d); box-shadow: 0 0 8px rgba(244, 213, 141, 0.45); }
-.chez-etape { position: relative; flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; width: 66px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+/* Le fil passe au milieu de ses cases, quelle que soit leur hauteur. */
+.chez-piste-trait { position: absolute; top: calc(var(--chez-etape) / 2 - 1px); height: 0; border-top: 2px dotted color-mix(in srgb, var(--accent) 45%, transparent); }
+.chez-piste-or { position: absolute; top: calc(var(--chez-etape) / 2 - 2px); height: 4px; border-radius: 4px; background: linear-gradient(90deg, #c99c4c, #f4d58d); box-shadow: 0 0 8px rgba(244, 213, 141, 0.45); }
+.chez-etape { position: relative; flex: none; display: flex; flex-direction: column; align-items: center; gap: var(--chez-etape-ecart); width: 66px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .chez-etape:disabled { cursor: default; }
-.chez-etape-visuel { position: relative; display: grid; place-items: center; width: 50px; height: 50px; }
+.chez-etape-visuel { position: relative; display: grid; place-items: center; width: var(--chez-etape); height: var(--chez-etape); }
 .chez-etape.avenir .niche-mini,
 .chez-etape.avenir .niche-apercu { opacity: 0.6; }
 .chez-etape[aria-pressed='true'] .niche-mini,
 .chez-etape[aria-pressed='true'] .niche-apercu { opacity: 1; }
 .chez-etape[aria-pressed='true'] .niche-cadre { border-color: #f4d58d; box-shadow: 0 0 0 2px rgba(244, 213, 141, 0.4), 0 0 14px rgba(244, 213, 141, 0.5); }
 .chez-etape.ici .niche-cadre { border-color: #f4d58d; box-shadow: 0 0 0 2px rgba(244, 213, 141, 0.35), 0 0 16px rgba(244, 213, 141, 0.45); }
-.chez-etape.ici::before { content: ''; position: absolute; top: -11px; left: 50%; width: 7px; height: 7px; margin-left: -3.5px; border-radius: 50%; background: #f4d58d; box-shadow: 0 0 8px #f4d58d; }
+.chez-etape.ici::before { content: ''; position: absolute; top: calc(1px - var(--chez-chemin-haut)); left: 50%; width: 7px; height: 7px; margin-left: -3.5px; border-radius: 50%; background: #f4d58d; box-shadow: 0 0 8px #f4d58d; }
 .chez-etape-nom { max-width: 64px; color: var(--muted); font-size: var(--t-label); line-height: 1.2; text-align: center; font-variant-numeric: lining-nums tabular-nums; }
 .chez-etape.atteinte .chez-etape-nom { color: var(--ink); }
 .chez-etape.ici .chez-etape-nom { color: var(--or-text); font-weight: 700; }
@@ -14157,15 +14272,15 @@ a.chez-pastille.or:hover { color: #1a1412; }
 .chez-verrou .niche-decor { filter: brightness(0.25) saturate(0.2); }
 .chez-verrou .niche-cadre { border-color: rgba(217, 181, 106, 0.4); }
 .chez-amis { display: flex; gap: 4px; }
-.chez-ami { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 2px 4px; border: 1px solid transparent; border-radius: 14px; background: none; color: inherit; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.chez-ami { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: var(--chez-ami-ecart); padding: var(--chez-ami-marge) 2px max(3px, calc(var(--chez-ami-marge) - 2px)); border: 1px solid transparent; border-radius: 14px; background: none; color: inherit; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .chez-ami[aria-pressed='true'] { border-color: var(--edge); background: var(--accent-soft); cursor: default; }
 .chez-ami[aria-pressed='true'] .niche-cadre { border-color: #f4d58d; box-shadow: 0 0 0 1px rgba(244, 213, 141, 0.45), 0 0 12px rgba(244, 213, 141, 0.5); }
 .chez-ami:disabled { cursor: progress; }
-.chez-ami-maison { position: absolute; top: 4px; right: 8px; z-index: 3; display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid #f4d58d; border-radius: 50%; background: #1a1412; color: #f4d58d; }
+.chez-ami-maison { position: absolute; top: calc(var(--chez-ami-marge) - 2px); right: 8px; z-index: 3; display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid #f4d58d; border-radius: 50%; background: #1a1412; color: #f4d58d; }
 .chez-ami-maison .icon { width: 11px; height: 11px; }
 .chez-ami-nom { max-width: 100%; overflow: hidden; font-size: 0.75rem; font-weight: 600; line-height: 1.2; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 .chez-ami[aria-pressed='true'] .chez-ami-nom { color: var(--accent-text); }
-.chez-ami-cond { display: inline-flex; align-items: center; height: 16px; color: var(--or-text); font-size: var(--t-label); font-weight: 700; white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
+.chez-ami-cond { display: inline-flex; align-items: center; height: calc(12px + var(--chez-ami-ecart)); color: var(--or-text); font-size: var(--t-label); font-weight: 700; white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
 .chez-ami-cond.en-expedition { color: var(--accent-text); }
 /* Ce qu'un geste vient de faire, dit une fois au-dessus du menu, centré par ses marges (règle `css.md`). */
 .chez-toast { position: fixed; left: 16px; right: 16px; bottom: calc(max(6px, env(safe-area-inset-bottom)) + 76px); z-index: 45; max-width: 528px; margin: 0 auto; padding: 12px 16px; border: 1px solid var(--edge-strong); border-radius: 16px; background: var(--bg-raised); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45); color: var(--ink); font-size: 0.875rem; line-height: 1.35; animation: chez-toast 0.25s ease-out; }

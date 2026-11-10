@@ -301,6 +301,162 @@ test('sa fiche dit ses envies du jour sans un reproche, et son cadeau quand il a
   for (let i = 0; i < 20; i++) assert.ok(['pirouette', 'salut'].includes(gesteDeLaCaresse(10, 2)), 'un des tours qu’il sait')
 })
 
+// ── Chez lui, tout sur un écran — ou presque ──────────────────────────────
+// « J'aimerais bien que tu regardes les écrans, m'habiller, mon compagnon, classement des collections. Dans la mesure
+// du possible j'aimerais que l'on puisse avoir tout sur le même écran ou presque » (le propriétaire, le 10 novembre
+// 2026). Sa page faisait 951 px en 360 × 640, pour 575 visibles au-dessus du menu : sa scène, ses envies coupées de
+// 4 px, son chemin et ses compagnons dessous. Rien n'y change de place, rien ne s'y ajoute, rien ne s'y renomme : la
+// place se gagne sur ses mesures. Ce qui tient, taille par taille, se mesure au navigateur
+// (`server/scripts/rendu-compagnon.ts`, la passe `tailles`).
+
+test('chez lui, sur un écran : rien n’y change de place, sa page porte ses mesures dès qu’on y est, et la ligne de son cadeau se dit en morceaux — la phrase d’avant à l’oreille', async () => {
+  // L'ordre d'avant, ses boutons par leur nom : sa tête et « Comment ça marche », sa scène — sa niche, sa plaque,
+  // « Décorer » —, ses envies, son chemin, ses compagnons et « Tous les voir ». Trois cartes, pas une de plus.
+  const page = await chezLui({ compagnon: 'loup', rang: 2 })
+  const reperes = [
+    '<h1>Mon compagnon</h1>',
+    'aria-label="Comment ça marche"',
+    'class="chez-scene"',
+    'aria-label="Caresser ton loup"',
+    'aria-label="Lui donner un nom"',
+    'Décorer</button>',
+    'id="chez-envies">Ses envies du jour</h2>',
+    'id="chez-chemin">Son chemin</h2>',
+    'id="chez-amis">Tes compagnons</h2>',
+    'Tous les voir',
+    'aria-label="Tes compagnons : touche l’un des tiens pour l’installer dans ta niche"',
+  ]
+  const places = reperes.map(r => page.indexOf(r))
+  assert.ok(places.every(p => p >= 0), `chaque repère y est : ${reperes.filter((_, i) => places[i] < 0).join(' ; ')}`)
+  assert.deepEqual(places, [...places].sort((a, b) => a - b), 'dans l’ordre d’avant')
+  assert.equal(page.match(/<section class="card chez-carte"/g)?.length, 3, 'ses envies, son chemin, ses compagnons : aucun bloc de plus')
+  // Sa page porte ses mesures dès qu'on y est (`.chez-page`, sur la coquille) : avant même que son code n'arrive, et sans
+  // compagnon aussi — posées par sa page à lui (`.chez-lui`), la tête aurait bougé à son arrivée.
+  const profilApp = readFileSync(new URL('../../client/src/views/ProfilApp.tsx', import.meta.url), 'utf8')
+  assert.match(profilApp, /<div className=\{ecran === 'compagnon' \? 'player-shell chez-page' : 'player-shell'\} onClick=\{suivreUnLien\}>/)
+  // La ligne de son cadeau, sous son titre : l'essentiel, puis ses suites, chacune avec son espace et sa ponctuation.
+  // Bout à bout, la phrase d'avant, mot pour mot — le lecteur d'écran la lit d'un trait, un grand écran la montre entière.
+  const { CE_QUE_DIT_LE_GRAND_CADEAU, ceQueDitLeCadeau } = await import(client('components/MonCompagnon.tsx'))
+  assert.equal(CE_QUE_DIT_LE_GRAND_CADEAU.join(''), 'Sept jours de complicité de plus : une rare ou une épique')
+  assert.equal(ceQueDitLeCadeau(14).join(''), 'Ses trois envies sont comblées · grand cadeau à 14 jours')
+  for (const morceaux of [CE_QUE_DIT_LE_GRAND_CADEAU, ceQueDitLeCadeau(14), ceQueDitLeCadeau(105)] as string[][]) {
+    // En 360 de large, à côté du paquet et du chevron, la ligne montre une trentaine de caractères : au-delà, l'essentiel se couperait au bout.
+    assert.ok(morceaux[0].length <= 30, `« ${morceaux[0]} » (${morceaux[0].length} caractères) tient à côté du paquet`)
+    assert.ok(morceaux.length > 1 && morceaux.slice(1).every(s => s.startsWith(' ')), 'ses suites commencent par leur espace')
+  }
+  const source = readFileSync(new URL('../../client/src/components/MonCompagnon.tsx', import.meta.url), 'utf8')
+  assert.match(
+    source,
+    /<span className="chez-cadeau-detail">\s*\{\(grand \? CE_QUE_DIT_LE_GRAND_CADEAU : ceQueDitLeCadeau\(prochainGrandCadeau\(complicite\)\)\)\.map\(\(morceau, i\) => \(\s*<span key=\{morceau\} className=\{i === 0 \? 'chez-cadeau-essentiel' : 'chez-cadeau-suite'\}>/,
+  )
+})
+
+// Ce que la feuille en fait. Mesuré au navigateur le 10 novembre 2026 (`rendu-compagnon.ts`, la passe `tailles`), ses
+// trois envies à combler : en 360 × 640, sa scène, ses envies, son chemin et le titre de « Tes compagnons » au-dessus du
+// menu (41 px de libre sous son chemin ; la page défilait de 407 px, elle défile de 99) ; en 390 × 664, de même ; en
+// 360 × 740, 412 × 800, 390 × 844 et 412 × 915, tout tient et la page ne défile plus — 8, 28, 51 et 44 px de libre,
+// 16 sous l'encoche d'un iPhone en 390 × 844.
+test('chez lui, dans la feuille : ses mesures suivent la hauteur utile de l’écran, sa scène se rogne sans le rapetisser, et ce qu’un téléphone tait se lit encore', async () => {
+  const css = readFileSync(new URL('../../client/src/styles.css', import.meta.url), 'utf8')
+  const section = css.slice(css.indexOf('CHEZ LUI — « MON COMPAGNON »'), css.indexOf('/* ── « Décorer » : son jardin et sa niche, en deux onglets ── */'))
+  const bloc = section.slice(section.indexOf('/* ── Tout chez lui sur un écran, ou presque ──'), section.indexOf('.chez-lui { display: flex;'))
+  assert.ok(section.length > 0 && bloc.length > 0, 'sa section, et le bloc de ses mesures')
+  // Une pente, pas des pas de `min-height` : ce que l'écran a de hauteur utile au-delà de 800 px, jusqu'à 280 de plus —
+  // sans l'encoche ni la barre du bas, que `min-height` ne voit pas. Un iPhone en application installée (390 × 844,
+  // 81 px d'encoche et de barre) prenait au pas de 820 px les mesures d'un écran plus grand que lui : « Tes compagnons »
+  // passait de 40 px sous le menu. `svh` sous `@supports` : une variable qui lit `svh` ne retombe pas sur `vh`.
+  assert.match(bloc, /\.chez-page \{\s*--chez-aise: clamp\(0px, calc\(100vh - env\(safe-area-inset-top\) - env\(safe-area-inset-bottom\) - 800px\), 280px\);/)
+  assert.match(bloc, /@supports \(height: 100svh\) \{\s*\.chez-page \{ --chez-aise: clamp\(0px, calc\(100svh - env\(safe-area-inset-top\) - env\(safe-area-inset-bottom\) - 800px\), 280px\); \}\s*\}/)
+  assert.doesNotMatch(bloc, /@media \(min-height/)
+  // Chaque mesure : le plus serré, plus ce qu'elle reprend au bout de la pente — où elle retrouve celle d'avant, au pixel.
+  const enPixels = (n: string, unite: string) => Math.round(Number(n) * (unite === 'rem' ? 16 : 1) * 100) / 100
+  const mesures = Object.fromEntries(
+    [...bloc.matchAll(/--chez-([a-z-]+): calc\((-?[\d.]+)(px|rem) \+ var\(--chez-aise\) \* ([\d.]+) \/ 280\);/g)].map(m => [m[1], [enPixels(m[2], m[3]), Math.round((enPixels(m[2], m[3]) + Number(m[4])) * 100) / 100]]),
+  )
+  assert.deepEqual(mesures, {
+    // La page : ses marges, de « ← Mon profil » à son titre, son titre (1,4 à 2 rem), l'écart entre ses blocs.
+    haut: [2, 24],
+    bas: [0, 24],
+    'sous-le-retour': [-11, 6],
+    'grand-titre': [22.4, 32],
+    ecart: [5, 14],
+    // Une carte : ses marges, l'écart sous son titre, son titre (1,1 à 1,25 rem), sa tête, le texte de sa pastille — jamais sous une étiquette (`--t-label`, 11 px).
+    'carte-marge': [7, 18],
+    'carte-bord': [14, 18],
+    'carte-ecart': [6, 12],
+    titre: [17.6, 20],
+    tete: [22, 26],
+    puce: [11, 12],
+    lien: [22, 40],
+    // Ses envies, son chemin, ses compagnons.
+    rond: [42, 54],
+    'rond-ecart': [2, 6],
+    etape: [44, 50],
+    'etape-ecart': [2, 6],
+    'chemin-haut': [8, 12],
+    'chemin-remonte': [-6, 0],
+    'ami-marge': [3, 6],
+    'ami-ecart': [2, 4],
+    // Ce que sa page prend hors de sa scène : sa scène a ce que l'écran laisse.
+    reste: [417, 684],
+  })
+  // Aucune mesure de sa page n'échappe à la pente, et chacune est lue par sa règle.
+  assert.equal(bloc.match(/^\s+--chez-(?!aise)[a-z-]+:/gm)?.length, Object.keys(mesures).length, 'chaque variable du bloc suit la pente')
+  const regles = section.replace(/--chez-[a-z-]+:[^;]*;/g, '')
+  for (const nom of Object.keys(mesures)) assert.ok(regles.includes(`var(--chez-${nom})`), `--chez-${nom} est lue par une règle`)
+  assert.match(bloc, /\.chez-page \{[^}]*padding-top: max\(var\(--chez-haut\), env\(safe-area-inset-top\)\);/)
+  assert.match(bloc, /body\.avec-menu \.player-shell\.chez-page \{ padding-bottom: var\(--chez-bas\); \}/)
+  assert.match(section, /\.chez-lui \{ display: flex; flex-direction: column; gap: var\(--chez-ecart\); \}/)
+  assert.match(section, /\.chez-carte \{ display: flex; flex-direction: column; gap: var\(--chez-carte-ecart\); padding: var\(--chez-carte-marge\) var\(--chez-carte-bord\); \}/)
+  // Une cible de doigt ne descend pas sous 44 px. Le bouton d'une envie garde les siens — son rond n'est que son dessin —,
+  // « ← Mon profil » passe devant le titre qui remonte dans sa boîte, « Tous les voir » déborde de sa ligne, et la plaque
+  // de son nom, les flèches de son jardin et ses places libres, qui en faisaient 34, 34 et 41, les atteignent.
+  assert.match(section, /\.chez-envie \{[^}]*min-height: 44px;/)
+  assert.match(section, /\.chez-envie-rond \{[^}]*width: var\(--chez-rond\); height: var\(--chez-rond\);/)
+  assert.match(bloc, /\.chez-page > \.jour-sortie \{ position: relative; z-index: 1; margin-bottom: calc\(var\(--chez-sous-le-retour\) - 18px\); \}/)
+  assert.match(section, /\.chez-lien \{ position: relative;[^}]*min-height: var\(--chez-lien\);/)
+  assert.match(section, /\.chez-lien::before \{ content: ''; position: absolute; inset: min\(0px, calc\(\(var\(--chez-lien\) - 46px\) \* 0\.75\)\) -6px min\(0px, calc\(\(var\(--chez-lien\) - 46px\) \* 0\.25\)\); \}/)
+  assert.match(section, /\.chez-plaque \{[^}]*height: 34px;/)
+  assert.match(section, /\.chez-plaque b::before \{ content: ''; position: absolute; inset: -6px 0; \}/)
+  assert.match(section, /\.jardin-fleche \{[^}]*width: 34px; height: 34px;/)
+  assert.match(section, /\.chez-scene \.jardin-fleche::before \{ content: ''; position: absolute; inset: -6px; border-radius: 50%; \}/)
+  assert.match(section, /\.jardin-libre::before \{ content: ''; position: absolute; inset: -9px; border-radius: 50%; \}\n[^\n]*\n\.chez-scene \.jardin-libre::before \{ inset: -11px; \}/)
+  // Sa scène : la hauteur de sa cour, jusqu'à ce que l'écran lui laisse au-dessus du menu — puis elle se rogne par le bas,
+  // jamais sous ce qu'il lui faut (sa niche, sa plaque, 8 px d'air, la pastille de ses gestes : 180,6 à son échelle, et
+  // 88 px), et jamais en changeant son échelle : il reste aussi grand. Passé 1080 px de haut, rien ne la borne.
+  const plancher = 'calc(var(--k) * 180.6px + 88px)'
+  const laisse = (h: string) => `calc(${h} - var(--haut-du-menu, 0px) - var(--haut-du-bandeau, 0px) - max(var(--chez-haut), env(safe-area-inset-top)) - var(--chez-reste))`
+  const borne = section.slice(section.indexOf('@media (max-height: 1079px) {\n  .chez-scene {'))
+  assert.ok(borne.startsWith(`@media (max-height: 1079px) {\n  .chez-scene { max-height: max(${plancher}, ${laisse('100vh')}); }\n  @supports (height: 100svh) {\n    .chez-scene { max-height: max(${plancher}, ${laisse('100svh')}); }\n  }\n}`), borne.slice(0, 600))
+  // Rognée, son terrain s'arrête avec elle : plus haut que son cadre, son jardin aurait de quoi défiler de haut en bas.
+  assert.match(section, /\.chez-scene \.jardin-terrain \{ max-height: 100%; \}/)
+  // Ce plancher est celui de sa cour : le haut de sa plaque à son échelle — sa niche (`NICHE`, `jardin.ts` : 46, puis
+  // 112 × 62 / 54 de haut), sa plaque 6 plus bas (`MonCompagnon.tsx`) —, puis, en pixels, sa plaque (34), 8 d'air, la
+  // pastille de ses gestes (38), à 6 du bord, et les deux bords de la scène. Une niche déplacée, une plaque ou une
+  // pastille plus haute : le plancher suit, ici et dans la feuille.
+  const { NICHE } = await import(client('components/jardin.ts'))
+  assert.equal(Math.round((NICHE.haut + (NICHE.l * 62) / 54 + 6) * 10) / 10, 180.6)
+  assert.ok(readFileSync(new URL('../../client/src/components/MonCompagnon.tsx', import.meta.url), 'utf8').includes('top: (NICHE.haut + (NICHE.l * 62) / 54 + 6) * k'))
+  assert.match(section, /\.chez-gestes \{[^}]*bottom: 6px;/)
+  assert.match(section, /\.chez-pastille \{[^}]*height: 38px;/)
+  assert.match(section, /\.chez-scene \{[^}]*border: 1px solid/)
+  assert.equal(34 + 8 + 38 + 6 + 2, 88)
+  // Ce qu'un téléphone tait n'est caché qu'à l'œil, comme `.sr-only` : « Mon profil », au-dessus du titre, que
+  // « ← Mon profil » dit déjà juste au-dessus. Jamais `display: none` : le lecteur d'écran ne le lirait plus.
+  const cache = '{ position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }'
+  assert.ok(bloc.includes(`@media (max-height: 1079px) {\n  .chez-page > .piece-tete .label,\n  .chez-lui > .piece-tete .label ${cache}\n}`))
+  assert.doesNotMatch(bloc, /display: none/)
+  // La ligne de son cadeau : une rangée haute d'une ligne, où ses morceaux passent entiers ou pas du tout — sur un
+  // téléphone ; passé 1080 px de haut, la phrase entière, comme avant.
+  const cadeau = section.slice(section.indexOf('@media (max-height: 1079px) {\n  .chez-cadeau-texte b'))
+  assert.ok(
+    cadeau.startsWith(
+      '@media (max-height: 1079px) {\n  .chez-cadeau-texte b { line-height: 1.25; }\n  .chez-cadeau-detail { display: flex; flex-wrap: wrap; align-content: flex-start; height: 1.3em; line-height: 1.3; overflow: clip; }\n  .chez-cadeau-essentiel { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }\n  .chez-cadeau-suite { flex: none; white-space: pre; }\n',
+    ),
+    cadeau.slice(0, 500),
+  )
+})
+
 // ── Sur un serveur jetable ────────────────────────────────────────────────
 
 /** Samedi 26 septembre 2026, 10 h à Paris : aucune saison. */
