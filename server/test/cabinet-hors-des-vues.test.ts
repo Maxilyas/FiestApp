@@ -87,17 +87,35 @@ test('les cinq questions qu’une manche de l’Éclair a révélées comptent v
   )
 })
 
+/** Les questions de la base qui nomment ce tableau : aucune pour un tableau venu de Wikidata seul (le 11 novembre 2026). */
+const questionsDe = (qid: string | undefined): readonly string[] => tableauxDuDetail().find(x => x.qid === qid)?.questions ?? []
+
+/**
+ * Une partie libre du Détail dont la première manche convient, tirée jusqu'à l'avoir (règle `tests.md`), un profil par
+ * essai : depuis le 11 novembre 2026, un tableau sur deux n'a pas de question dans la base, et le tirage ne se commande
+ * pas. Celles qui ne conviennent pas se quittent — chacune n'écrit que chez son profil.
+ */
+async function partieDuDetail(m: MagasinDEssai, convient: (t: DetailTire) => boolean) {
+  for (let essai = 1; essai <= 80; essai++) {
+    const qui = `qui-${essai}`
+    const p = await m.cabinet.commencer(qui, { origine: 'libre', jeu: 'detail', carte: null })
+    const t = p.depart.tirages[0] as DetailTire
+    if (convient(t)) return { qui, p, t }
+    await m.cabinet.geste(qui, p.id, p.etat.rang, { quoi: 'quitter' })
+  }
+  throw new Error('quatre-vingts parties du Détail sans la manche attendue')
+}
+
 test('le tableau qu’une manche du Détail a nommé : les questions de la base qui le demandent comptent vues', async () => {
   const horloge = { t: DIX_HEURES }
   const m = await magasinDEssai(path.join(dossierDEssai(), 'detail.db'), horloge)
-  const p = await m.cabinet.commencer('qui', { origine: 'libre', jeu: 'detail', carte: null })
-  const t = p.depart.tirages[0] as DetailTire
+  const { qui, p, t } = await partieDuDetail(m, x => questionsDe(x.tableau.qid).length > 0)
   // La partie quittée d'emblée : la manche ouverte s'écrit sans réponse, et sa révélation le nomme quand même.
-  const fin = await m.cabinet.geste('qui', p.id, p.etat.rang, { quoi: 'quitter' })
+  const fin = await m.cabinet.geste(qui, p.id, p.etat.rang, { quoi: 'quitter' })
   assert.ok('partie' in fin)
-  const questions = tableauxDuDetail().find(x => x.qid === t.tableau.qid)!.questions
+  const questions = questionsDe(t.tableau.qid)
   assert.ok(questions.length > 0, `${t.tableau.titre} : ses questions de la base`)
-  const { vues, premieres } = await ceQuIlAVu(m, 'qui')
+  const { vues, premieres } = await ceQuIlAVu(m, qui)
   assert.equal(vues.get(idDuTableau(t.tableau.qid)), horloge.t, 'la pièce elle-même')
   assert.deepEqual(
     questions.filter(id => vues.get(id) !== horloge.t),
@@ -113,7 +131,7 @@ test('le tableau qu’une manche du Détail a nommé : les questions de la base 
   // au hasard parmi les autres, il pouvait être un leurre — montré avec son peintre, il compte vu depuis la deuxième
   // tablée (plus bas).
   const montres = new Set(t.titres.map(x => x.titre))
-  const autre = tableauxDuDetail().find(x => !montres.has(x.titre) && x.questions.every(q => !questions.includes(q)))!
+  const autre = tableauxDuDetail().find(x => !montres.has(x.titre) && x.questions.length > 0 && x.questions.every(q => !questions.includes(q)))!
   assert.deepEqual(
     autre.questions.filter(id => vues.has(id)),
     [],
@@ -130,19 +148,19 @@ test('les trois leurres d’une manche du Détail, montrés avec leur peintre, c
   // partie libre du Détail, illimitée, soufflait neuf réponses de peintre que le duel classé posait ensuite comme neuves.
   const horloge = { t: DIX_HEURES }
   const m = await magasinDEssai(path.join(dossierDEssai(), 'detail-leurres.db'), horloge)
-  const p = await m.cabinet.commencer('qui', { origine: 'libre', jeu: 'detail', carte: null })
-  const t = p.depart.tirages[0] as DetailTire
+  // Une manche dont un leurre au moins a sa question de la base : c'est elle que la manche soufflait.
+  const { qui, p, t } = await partieDuDetail(m, x => x.titres.some((l, i) => i !== x.bonne && questionsDe(l.qid).length > 0))
   const montre = REGLES.detail.montrer(t, p.etat.manches[0].etat as never) as { titres: { titre: string; peintre: string }[] }
   assert.ok(montre.titres.length === 4 && montre.titres.every(x => x.peintre.length > 0), 'quatre titres, chacun avec son peintre, dès l’ouverture')
   horloge.t += 4_000
   // Il répond un leurre : la révélation redit les quatre.
-  const r = await m.cabinet.geste('qui', p.id, p.etat.rang, { quoi: 'repondre', manche: 0, reponse: { detail: { titre: (t.bonne + 1) % 4 } } })
+  const r = await m.cabinet.geste(qui, p.id, p.etat.rang, { quoi: 'repondre', manche: 0, reponse: { detail: { titre: (t.bonne + 1) % 4 } } })
   assert.ok('partie' in r, JSON.stringify(r))
   const leurres = t.titres.filter((_, i) => i !== t.bonne).map(tableauDuTitre)
   assert.equal(leurres.length, 3)
-  const { vues, premieres } = await ceQuIlAVu(m, 'qui')
+  assert.ok(leurres.some(l => l.questions.length > 0), 'un leurre au moins a sa question de la base')
+  const { vues, premieres } = await ceQuIlAVu(m, qui)
   for (const l of leurres) {
-    assert.ok(l.questions.length > 0, `${l.titre} : sa question de la base`)
     assert.equal(vues.get(idDuTableau(l.qid)), horloge.t, `${l.titre} : le tableau lui-même, que la fraîcheur du Détail lit`)
     assert.deepEqual(
       l.questions.filter(id => vues.get(id) !== horloge.t),
@@ -156,7 +174,7 @@ test('les trois leurres d’une manche du Détail, montrés avec leur peintre, c
     )
   }
   // Et la série les lit vues, comme le bon.
-  const serie = await ceQueLaSerieLit(m.campagne, 'qui')
+  const serie = await ceQueLaSerieLit(m.campagne, qui)
   assert.deepEqual(
     leurres.flatMap(l => l.questions).filter(id => !serie.has(id)),
     [],

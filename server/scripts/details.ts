@@ -228,6 +228,131 @@ const DETAILS: Record<string, [number, number]> = {
   Q1212737: [0.62, 0.85], // Femmes d'Alger dans leur appartement : le narguilé
   Q1217187: [0.50, 0.32], // La Calomnie d'Apelle : la statue dans sa niche
   Q16333797: [0.25, 0.62], // Vertumne : le lys
+  // ── Le deuxième lot, le 11 novembre 2026 : ceux que la base pose et qu'on n'avait pas regardés, puis les célèbres de
+  // Wikidata. Chaque détail choisi sur sa planche puis regardé découpé, par un agent qui ne voyait que l'image
+  // (`retours/2026-11-11/le-contenu-du-cabinet.md`) ; sur l'image rognée, pour ceux de `ROGNAGES`.
+  Q328523: [0.47, 0.72], // Impression, soleil levant : la barque et son rameur
+  Q1044742: [0.71, 0.83], // Un dimanche après-midi à l'île de la Grande Jatte : le singe en laisse et le petit chien
+  Q2629559: [0.20, 0.54], // Les Hasards heureux de l'escarpolette : le soulier qui s'envole
+  Q687182: [0.60, 0.50], // Arrangement en gris et noir n° 1 : les mains et le mouchoir de dentelle
+  Q6609268: [0.47, 0.45], // Stańczyk : les mains jointes
+  Q697332: [0.30, 0.50], // Les Jeux d'enfants : les galipettes derrière la barrière rouge
+  Q4429116: [0.18, 0.64], // La Pie : le bas de la barrière dans la neige
+  Q1764395: [0.22, 0.22], // Vision après le sermon : la petite vache
+  Q2275610: [0.28, 0.30], // Le Cirque : les spectateurs des gradins
+  Q2426058: [0.80, 0.12], // Pallas et le Centaure : la hallebarde
+  Q1213453: [0.12, 0.52], // Le Supplice de Jane Grey : la dame de compagnie évanouie
+  Q23915: [0.83, 0.46], // Portrait d'un vieillard et d'un jeune garçon : le paysage à la fenêtre
+  Q23922: [0.85, 0.90], // La Femme au miroir : la main sur le flacon
+  Q2915406: [0.70, 0.26], // Broadway Boogie-Woogie : un grand pavé bleu, rouge et jaune
+  Q3556817: [0.88, 0.85], // Diane sortant du bain : le gibier lié à l'arc
+  Q3829156: [0.42, 0.86], // Les Trois Âges de la femme : les pieds nus sur les motifs dorés
+  Q1437492: [0.45, 0.73], // Femme au chapeau : l'éventail
+  Q2273890: [0.85, 0.29], // Miracle de l'esclave : le juge penché sur son estrade
+  Q3234845: [0.66, 0.80], // Les Poseuses : le chapeau et les vêtements posés
+  Q579455: [0.17, 0.70], // Carré blanc sur fond blanc : un angle du carré
+  Q1523789: [0.15, 0.83], // Autoportrait avec la Mort jouant du violon : la main qui tient le pinceau
+  Q2909916: [0.24, 0.55], // Bonaparte visitant les pestiférés de Jaffa : les porteurs de pain en turban
+  Q3332564: [0.37, 0.77], // La Vierge de l'Annonciation : la main levée
+  Q3937570: [0.67, 0.12], // Portrait d'Irène Cahen d'Anvers : le ruban bleu dans les cheveux
+  Q921429: [0.17, 0.20], // La Desserte rouge : les arbres en fleurs à la fenêtre
+  Q14127232: [0.20, 0.62], // Labourage nivernais : le laboureur au chapeau et le second attelage
+  Q219344: [0.76, 0.87], // Le Négrier : la jambe enchaînée, les poissons et les mouettes
+  Q2902188: [0.62, 0.86], // La Raie verte : le col à pois
+  Q3222585: [0.53, 0.13], // Le Désespéré : la main crispée dans les cheveux
+  Q5121363: [0.50, 0.86], // Circe invidiosa : les pieds nus sur l'eau
+  Q1224572: [0.74, 0.40], // Bonaparte franchissant les Alpes : le guide au chapeau
+  Q19363211: [0.71, 0.38], // Autoportrait à l'oreille bandée : l'estampe japonaise au mur
+  Q2415259: [0.22, 0.40], // Saint Michel et le Dragon : la ville en feu et la procession dorée
+  Q293990: [0.90, 0.61], // Œdipe et le Sphinx : le vase aux griffons sur sa colonne
+  Q3202169: [0.35, 0.71], // L'Apothéose d'Homère : la femme en rouge assise
+  Q3745698: [0.46, 0.85], // Fenêtre ouverte, Collioure : le pot de fleurs en terre cuite
+  Q3794124: [0.57, 0.37], // Le Jardin de l'artiste à Giverny : la maison entre les arbres
+  Q4693305: [0.68, 0.82], // Agnus Dei : les pattes liées
+  Q1115514: [0.50, 0.13], // La Tragédie de Lucrèce : la statue au sommet de la colonne
+  Q1193312: [0.49, 0.53], // Le Tricheur à l'as de carreau : le verre de vin et le collier de perles
+  Q1433194: [0.40, 0.12], // La Nativité avec saint François et saint Laurent : le bras levé de l'ange et son aile
+  Q1848811: [0.37, 0.90], // L'Homme au gant : la main à la bague, l'index tendu
+  Q2892964: [0.56, 0.82], // Le Prêteur et sa Femme : le miroir bombé
+  Q2990634: [0.62, 0.12], // Composition VII : l'ovale rouge et bleu
+  Q3228069: [0.20, 0.72], // Le Verrou : la pomme sur la table
+  Q49985736: [0.73, 0.84], // La Gare Saint-Lazare : les silhouettes sur les voies
+  Q743643: [0.71, 0.44], // Saint Joseph charpentier : la main de l'enfant devant la flamme
+  Q2335560: [0.51, 0.79], // Le Pont de l'Europe : le chien
+  Q3387944: [0.24, 0.79], // Pierrot : l'âne
+  Q3231771: [0.19, 0.45], // Les Coquelicots : la femme et l'enfant en haut du talus
+  Q24283: [0.42, 0.74], // Le Pont de Narni : le chemin et les buissons de la rive
+  Q1150997: [0.48, 0.40], // Saturne dévorant un de ses fils : les mains agrippées au corps
+  Q2665048: [0.60, 0.20], // Dante et Virgile : le démon aux bras croisés
+  Q1240092: [0.38, 0.67], // Portrait d'Innocent X : la main à la bague
+  Q3937621: [0.71, 0.56], // Marie-Antoinette et ses enfants : le berceau vide
+  Q3212142: [0.21, 0.57], // La Raie : le chat sur les huîtres
+  Q1752990: [0.22, 0.45], // La Mort de Socrate : la femme qui salue dans l'escalier
+  Q1091086: [0.61, 0.72], // Tres de mayo : la lanterne
+  Q634122: [0.55, 0.70], // Champ de blé aux corbeaux : le chemin
+  Q636537: [0.47, 0.90], // La Mort de Marat : la main et la plume
+  Q563727: [0.84, 0.67], // La Vierge, l'Enfant Jésus et sainte Anne : l'agneau
+  Q604761: [0.28, 0.76], // L'Enfant bleu : la plume du chapeau
+  Q674846: [0.33, 0.13], // Le Café de nuit : l'horloge
+  Q1070896: [0.43, 0.86], // La Neuvième Vague : les naufragés sur le mât
+  Q1213917: [0.18, 0.80], // L'Église d'Auvers-sur-Oise : la paysanne sur le chemin
+  Q500812: [0.80, 0.27], // Vénus endormie : le village sur la colline
+  Q175628: [0.76, 0.39], // Les Bateliers de la Volga : la barge
+  Q783215: [0.73, 0.30], // Saint Jean-Baptiste : la main à l'index levé
+  Q930137: [0.30, 0.60], // La Tempête : les deux colonnes brisées
+  Q544315: [0.50, 0.67], // L'Astronome : la main posée près du livre
+  Q766782: [0.54, 0.72], // La Fiancée juive : la main aux bracelets sur la robe rouge
+  Q185255: [0.46, 0.79], // Les Noces de Cana : les musiciens
+  Q2246489: [0.33, 0.55], // La Tempête sur la mer de Galilée : les marins agrippés à la voile
+  Q3869871: [0.10, 0.28], // Quand te maries-tu ? : les deux promeneurs au loin
+  Q586035: [0.63, 0.86], // La Ruelle : les enfants qui jouent devant le banc
+  Q2666439: [0.67, 0.67], // Un matin dans une forêt de pins : l'ourson dressé
+  Q471289: [0.42, 0.57], // L'Ange blessé : les mains et le bouquet de perce-neige
+  Q512755: [0.20, 0.88], // Le Retour du fils prodigue : le pied nu et la sandale usée
+  Q920030: [0.87, 0.48], // La Famille de Charles IV : le nourrisson dans les bras
+  Q984058: [0.52, 0.84], // Les Fileuses : le chat endormi
+  Q1215604: [0.45, 0.90], // La Source : les pieds dans l'écume
+  Q1651874: [0.15, 0.36], // Philosophe faisant un exposé sur le planétaire : la main qui prend des notes
+  Q2470123: [0.90, 0.31], // Judith décapitant Holopherne : la vieille servante
+  Q2629423: [0.57, 0.43], // La Liseuse : la collerette blanche
+  Q318947: [0.84, 0.56], // Le Souper à Emmaüs : la coquille du pèlerin
+  Q603751: [0.24, 0.37], // Le Repas de noce : le joueur de cornemuse
+  Q2735507: [0.16, 0.80], // La Maja vêtue : les mules dorées
+  Q877191: [0.53, 0.60], // Les Trois Philosophes : les mains qui tiennent l'équerre et le compas
+  Q883994: [0.38, 0.61], // Vue de Tolède : le pont et sa tour
+  Q1217003: [0.23, 0.87], // L'Inconnue : le manchon de fourrure et le bracelet
+  Q1219263: [0.80, 0.82], // La Bohémienne endormie : la mandoline
+  Q2293953: [0.90, 0.68], // Vénus et Mars : le petit satyre dans la cuirasse
+  Q2354251: [0.13, 0.65], // La Barque de Dante : le damné qui s'agrippe avec les dents
+  Q2521909: [0.83, 0.13], // Le Dernier Jour de Pompéi : les statues qui basculent
+  Q597114: [0.68, 0.78], // La Mort de la Vierge : la femme en pleurs, penchée sur ses genoux
+  Q700251: [0.42, 0.88], // La Liseuse à la fenêtre : la coupe de fruits
+  Q775407: [0.76, 0.44], // Le Balcon : les mains gantées et l'ombrelle verte
+  Q969367: [0.36, 0.60], // La Femme à la balance : les perles du coffret
+  Q1167796: [0.63, 0.58], // Une Expérience sur un oiseau dans une pompe à air : les deux fillettes effrayées
+  Q1167932: [0.76, 0.62], // Le Festin de Balthazar : la coupe d'or qui se renverse
+  Q2011510: [0.58, 0.86], // Bacchus : la corbeille de fruits
+  Q2610675: [0.80, 0.82], // La Diseuse de bonne aventure : la main gantée sur la garde de l'épée
+  Q166937: [0.16, 0.58], // La Femme en bleu lisant une lettre : la chaise cloutée
+  Q210277: [0.47, 0.84], // La Musique aux Tuileries : les deux fillettes qui jouent
+  Q2360329: [0.84, 0.25], // Les Trois Grâces : les deux boules dorées dans les mains
+  Q2395218: [0.27, 0.62], // La Femme à l'ombrelle : l'enfant au chapeau dans l'herbe
+  Q2627056: [0.42, 0.75], // David avec la tête de Goliath : la chemise blanche nouée à la taille
+  Q432253: [0.34, 0.54], // Terrasse à Sainte-Adresse : le couple à l'ombrelle jaune devant le voilier
+  Q45130: [0.18, 0.72], // Le Géographe : le tapis froissé sur la table
+  Q663133: [0.15, 0.84], // Les Tricheurs : le trictrac et son cornet à dés
+  Q1118456: [0.10, 0.54], // La Balançoire : la fillette au chapeau de paille
+  Q2270938: [0.42, 0.62], // Les Grandes Baigneuses : le clocher et les deux silhouettes de l'autre rive
+  Q509806: [0.24, 0.52], // Washington traversant le Delaware : le rameur qui repousse la glace à la proue
+  Q776175: [0.57, 0.86], // Les Moissonneurs : le dormeur au pied de l'arbre
+  Q846213: [0.80, 0.15], // Flaming June : la branche de laurier-rose
+  Q1123378: [0.38, 0.43], // Charles Quint à cheval à Mühlberg : le gantelet qui tient la lance
+  Q2404992: [0.66, 0.75], // Aristote contemplant le buste d'Homère : la main posée sur la chaîne d'or
+  Q2471800: [0.12, 0.55], // Vieille faisant frire des œufs : le melon ficelé dans le bras du garçon
+  Q2734892: [0.32, 0.78], // Femmes au jardin : le bouquet sur la robe brodée
+  Q9295442: [0.82, 0.52], // Hylas et les nymphes : la nymphe de droite et sa main sur un nénuphar
+  Q1170480: [0.50, 0.71], // Le Syndic de la guilde des drapiers : le livre ouvert sur le tapis rouge
+  Q1212920: [0.10, 0.63], // La Flagellation du Christ : Pilate assis sous son chapeau pointu
 }
 
 /** Les candidats écartés à l'œil, et pourquoi. */
@@ -243,6 +368,16 @@ const ECARTES: Record<string, string> = {
   Q2045726: "La Bataille d'Anghiari : une copie de Rubens : l'original de Léonard est perdu",
   Q2343778: "La Belle Jardinière : l'arc du cadre doré se voit en haut",
   Q557000: "Les Meules : une série de vingt-cinq toiles : la question ne dit pas laquelle",
+  // ── Le deuxième lot, le 11 novembre 2026.
+  Q1227359: "Le Triomphe de la chasteté : deux panneaux côte à côte (les deux triomphes au revers du diptyque d'Urbino), séparés par une bande noire, et l'image est petite",
+  Q3210253: "La Madeleine à la veilleuse : la reproduction de Commons a les couleurs faussées, ses ombres virent au violet",
+  Q3646498: "Le Bœuf écorché : les deux coins du haut montrent le bois nu du panneau cintré, hors de la peinture",
+  Q39926338: "Lilith : un nu frontal enlacé par un serpent, trop sensuel pour un jeu ouvert dès dix ans",
+  Q1065493: "Ophélie : le haut cintré laisse deux grands coins blancs, hors de la peinture, en haut à gauche et à droite",
+  Q2030685: "Le Mariage de la Vierge : panneau cintré : les deux coins du haut sont un aplat gris hors peinture, bordé d'un épais liseré sombre en arc",
+  Q2324643: "Judith I : le cadre doré d'origine entoure la peinture, et sa bande gravée du haut fait 12 % de la hauteur : trop pour un rognage",
+  Q680128: "Le Portement de Croix : son attribution à Bosch est contestée, et sa date avec elle",
+  Q2528477: "Le Sabbat des sorcières : trois Peintures noires de Goya sont déjà là, de la même année : une quatrième ferait une fenêtre d'un seul peintre",
 }
 
 /**
@@ -253,7 +388,28 @@ const ECARTES: Record<string, string> = {
  * qu'on ne regrette pas : un haut cintré, lui, ne se rogne pas — il faudrait couper le tableau (« Ophélie »). Le
  * centre d'un détail (`DETAILS`) se lit sur l'image rognée, celle que la planche montre.
  */
-const ROGNAGES: Record<string, [number, number, number, number]> = {}
+const ROGNAGES: Record<string, [number, number, number, number]> = {
+  Q3556817: [0.023, 0.035, 0.010, 0.013], // Diane sortant du bain : les ornements du cadre doré, en haut au milieu et dans trois coins
+  Q1437492: [0.010, 0.012, 0.010, 0.012], // Femme au chapeau : le bord de la toile, un liseré brun tout autour
+  Q3332564: [0.032, 0.016, 0.024, 0.021], // La Vierge de l'Annonciation : la baguette de bois du cadre
+  Q293990: [0.038, 0.022, 0.034, 0.017], // Œdipe et le Sphinx : un fond noir et la baguette du cadre
+  Q3745698: [0.014, 0.012, 0.014, 0.012], // Fenêtre ouverte, Collioure : un cadre de bois clair, et le mur derrière
+  Q1752990: [0.017, 0.024, 0.018, 0.022], // La Mort de Socrate : la toile photographiée nue sur fond noir, son bord effrangé
+  Q563727: [0.065, 0.013, 0.080, 0.000], // La Vierge, l'Enfant Jésus et sainte Anne : les deux bandes ajoutées au panneau, hors de la composition
+  Q512755: [0.008, 0.012, 0.008, 0.010], // Le Retour du fils prodigue : photographié dans son cadre, un ornement doré mord sur le haut
+  Q210277: [0.014, 0.012, 0.013, 0.008], // La Musique aux Tuileries
+  Q2360329: [0.026, 0.022, 0.026, 0.030], // Les Trois Grâces : les bords sombres du panneau
+  Q2395218: [0.004, 0.006, 0.006, 0.006], // La Femme à l'ombrelle
+  Q432253: [0.005, 0.004, 0.003, 0.003], // Terrasse à Sainte-Adresse
+  Q45130: [0.016, 0.018, 0.032, 0.026], // Le Géographe : la toile photographiée avec ses bords de tension
+  Q663133: [0.005, 0.006, 0.005, 0.005], // Les Tricheurs
+  Q1118456: [0.002, 0.004, 0.008, 0.004], // La Balançoire
+  Q2270938: [0.004, 0.003, 0.006, 0.006], // Les Grandes Baigneuses
+  Q509806: [0.008, 0.014, 0.010, 0.020], // Washington traversant le Delaware : une marge noire
+  Q776175: [0.004, 0.004, 0.002, 0.002], // Les Moissonneurs
+  Q846213: [0.008, 0.004, 0.010, 0.004], // Flaming June
+  Q1123378: [0.005, 0.005, 0.006, 0.003], // Charles Quint à cheval à Mühlberg
+}
 
 /** Le rectangle gardé d'une miniature, en fractions : x, y, largeur, hauteur — tout, sans rognage. */
 function gardeDeLaMiniature(qid: string): [number, number, number, number] {
@@ -358,6 +514,7 @@ export const ANNEES_A_LA_MAIN: Record<string, number> = {
   Q883994: 1600, // Vue de Tolède : vers 1599-1600, le Metropolitan Museum — Wikidata : 1596
   Q3821820: 1876, // La Classe de danse : la toile du musée d'Orsay, 1873-1876 — Wikidata : 1871, celle de New York
   Q2627056: 1610, // David avec la tête de Goliath : celui de la Galerie Borghèse, 1609-1610 — Wikidata : 1605
+  Q2610675: 1598, // La Diseuse de bonne aventure : celle du Louvre, vers 1595-1598 — Wikidata : 1594, la date de celle du Capitole
   Q921429: 1908, // La Desserte rouge : « toile de 1908 », dit sa question — Wikidata : 1907
   Q3222585: 1845, // Le Désespéré : « vers 1843-1845 », dit sa question — Wikidata : 1840
   Q3212142: 1726, // La Raie : vers 1725-1726, le Louvre — Wikidata : 1727

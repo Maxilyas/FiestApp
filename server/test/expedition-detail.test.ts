@@ -93,9 +93,11 @@ test('un détail : deux crans reconnu avant la moitié de ses cadrages, un aprè
 const LA_BASE = lireLaBase()
 const PAR_ID = new Map(LA_BASE.questions.map(q => [q.id, q]))
 
-test('les tableaux livrés : cent, chacun ses quatre cadrages ; dans la vraie base, presque tous ont leur question « Qui a peint… ? », jamais une question de dimensions ou de musée', () => {
+test('les tableaux livrés : chacun ses quatre cadrages ; dans la vraie base, presque tous ceux de l’Expédition ont leur question « Qui a peint… ? », jamais une question de dimensions ou de musée', () => {
   const tableaux = tableauxDuDetail()
-  assert.equal(tableaux.length, 100)
+  // Cent à la version 15 ; le Cabinet en a ajouté le 11 novembre 2026, dont ceux de Wikidata seul, que l'Expédition ne
+  // pose pas — sans question de la base, ils n'entrent pas dans `detailsDeLaBase`.
+  assert.ok(tableaux.length >= 100, `${tableaux.length} tableaux`)
   for (const t of tableaux) for (let k = 1; k <= CADRAGES_DU_DETAIL; k++) assert.ok(readFileSync(fichierDuCadrage(t.qid, k)).length > 1000, `${t.qid}-${k}`)
   const details = detailsDeLaBase(PAR_ID)
   assert.ok(details.length >= 95, `${details.length} tableaux posables`)
