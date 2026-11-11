@@ -344,6 +344,18 @@ export const ETOILES_AU_CADRAGE: readonly number[] = [3, 2, 1, 0]
  * 25 octobre 2026).
  */
 export const TITRES_DU_DETAIL = 4
+/**
+ * Le Détail ne se promet sur la carte d'une traversée, ni chez ses gardiens,
+ * qu'à qui il reste de quoi tirer du neuf : tant de fenêtres sans un tableau
+ * commun, dont aucun n'a été vu ces `JOURS_SANS_REDITE` jours — deux épreuves
+ * de trois manches. En production, du 1er au 10 novembre 2026, le joueur le
+ * plus assidu avait vu les cent tableaux d'alors : quatre de ses manches sur
+ * dix étaient des redites, plus de la moitié vues la veille, réussies à 71 %
+ * contre 44 % sur un tableau neuf (`retours/2026-11-08/le-cabinet-en-production.md`).
+ * Le jeu qu'on sait déjà par cœur attend que ses tableaux aient passé la
+ * semaine ; les neuf autres font sa carte.
+ */
+export const FENETRES_POUR_PROMETTRE_LE_DETAIL = 6
 /** Éclairer au Détail, au Pari et à la Réplique : ce qu'il efface de propositions, au plus, dans une manche ou une étape… */
 export const EFFACES_AU_PLUS = 2
 /**

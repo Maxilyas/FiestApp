@@ -121,11 +121,12 @@ import { enTranches } from '../tourniquet'
 import { commencer, enFond, pendant, sousLeNom } from '../gels'
 import type { CalculEnTranches } from '../../../../shared/tranches'
 import type { PieceAuQg, TraverseeAuQg } from '../../../../shared/qgCabinet'
-import { fichierDuCadrage } from '../details'
+import { fichierDuCadrage, tableauxDuDetailEnTranches } from '../details'
 import { contenuDuCabinetEnTranches } from './contenu'
 import { preparerLesTas, themesDuQuiz } from './tirages/tas'
 import { themeDuPlan, tirerLePlan } from './tirages/index'
 import { categoriesDuFiletALAnnee } from './tirages/filetEnDeuxTemps'
+import { leDetailSePromet } from './tirages/detail'
 import type { Categorie } from '../../../../shared/categories'
 import { CHANGEMENTS_PAR_PARTIE, DEPARTS_PAR_HEURE, MANCHES_PAR_PARTIE } from '../../../../shared/cabinet/bareme'
 import { lireLeBilan, lireUnGeste } from '../../../../shared/cabinet/lecture'
@@ -1987,7 +1988,12 @@ export class CabinetStore {
         // Lu en tranches : les tas l'ont lu d'ordinaire, mais le premier départ d'un processus ne le lirait pas d'une traite.
         const contenu = await contenuDuCabinetEnTranches()
         const themes = { epingle: [...new Set(contenu.lieux.map(l => l.theme))], frise: [...new Set(contenu.frises.map(f => f.theme))], quiz, ...(filet && { filet }) }
-        const depart: DepartDeLaTraversee = { v: VERSION_DE_LA_TRAVERSEE, jour, actes: tracerLaCarte(this.hasard, gardiens, themes, JEUX_PRETS) }
+        // Le Détail ne se promet qu'à qui il reste des tableaux pas vus de la semaine (`leDetailSePromet`) : sans eux, le tireur
+        // lui reposerait ceux de la veille — en production, quatre manches sur dix du joueur le plus assidu, réussies de mémoire.
+        // Ni sur la carte, ni chez ses gardiens ; figé avec la carte, comme le reste.
+        const { journal } = await this.porte.lireAvecLeJournal([])
+        const jeux = leDetailSePromet(journal.vuesDuCabinetDe(profileId), t, await tableauxDuDetailEnTranches()) ? JEUX_PRETS : JEUX_PRETS.filter(j => j !== 'detail')
+        const depart: DepartDeLaTraversee = { v: VERSION_DE_LA_TRAVERSEE, jour, actes: tracerLaCarte(this.hasard, gardiens, themes, jeux) }
         const id = randomUUID()
         let lus: ResultSet[]
         try {

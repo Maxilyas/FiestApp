@@ -68,7 +68,7 @@ import type { Fiche, FriseATheme, Lieu, Replique } from '../../shared/cabinet/co
  * maladroite ferait rougir ce test, pas un joueur qui retombe sur les mêmes
  * lieux.
  */
-const AU_MOINS: Readonly<Record<SorteDuContenu, number>> = { lieux: 90, fiches: 66, repliques: 66, frises: 18, filet: 1600, reperes: 80 }
+const AU_MOINS: Readonly<Record<SorteDuContenu, number>> = { lieux: 90, fiches: 138, repliques: 66, frises: 18, filet: 1600, reperes: 80 }
 
 const brut = (s: SorteDuContenu): unknown[] => JSON.parse(readFileSync(path.join(DOSSIER_DU_CONTENU, SORTES[s].fichier), 'utf8'))
 
