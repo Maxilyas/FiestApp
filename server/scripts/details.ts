@@ -353,6 +353,93 @@ const DETAILS: Record<string, [number, number]> = {
   Q9295442: [0.82, 0.52], // Hylas et les nymphes : la nymphe de droite et sa main sur un nénuphar
   Q1170480: [0.50, 0.71], // Le Syndic de la guilde des drapiers : le livre ouvert sur le tapis rouge
   Q1212920: [0.10, 0.63], // La Flagellation du Christ : Pilate assis sous son chapeau pointu
+  Q1787143: [0.19, 0.87], // Falaises de craie sur l'île de Rügen : la femme en rouge
+  Q241455: [0.82, 0.33], // La Bataille d'Alexandre : le soleil sur les montagnes
+  Q2914912: [0.90, 0.54], // Les Casseurs de pierres : la marmite et la cuillère
+  Q7769644: [0.72, 0.45], // Le Dresseur de tortues : le tambour sur le dos
+  Q1212098: [0.22, 0.68], // Le Chemin de fer : le chiot endormi et le livre
+  Q123935: [0.53, 0.82], // Le Triomphe de Bacchus : la cruche et la coupe de verre au sol
+  Q1432536: [0.48, 0.88], // Amandier en fleurs : les grosses branches du bas
+  Q1619527: [0.10, 0.76], // Les Époux Andrews : le chien
+  Q247282: [0.78, 0.84], // La Forge de Vulcain : l'armure au sol
+  Q2622172: [0.85, 0.22], // La Famille Bellelli : la pendule de la cheminée
+  Q2636368: [0.38, 0.62], // La Bataille de Grunwald : l'homme au capuchon rouge
+  Q3205872: [0.56, 0.76], // Clair de lune sur le Dniepr : le reflet sur le fleuve et la cabane
+  Q3642171: [0.49, 0.61], // Bonjour Monsieur Courbet : le chien
+  Q630121: [0.22, 0.90], // Les Deux Sœurs : le panier de pelotes de laine
+  Q74339: [0.15, 0.80], // La Loge : la main gantée et les jumelles dorées
+  Q1206860: [0.25, 0.71], // Bacchus et Ariane : les deux guépards
+  Q2052008: [0.67, 0.77], // Le Songe de Jacob : la main posée au sol
+  Q689236: [0.43, 0.54], // Le Combat de Carnaval et Carême : le couple vu de dos mené par le fou
+  Q1118295: [0.11, 0.19], // La Chaise de Vincent avec sa pipe : les oignons de la caisse
+  Q1214313: [0.78, 0.50], // Les Âges de la vie : les deux voiliers au loin
+  Q1313605: [0.78, 0.10], // Napoléon dans son cabinet de travail : le cadran de l'horloge
+  Q1766454: [0.90, 0.62], // Les Raboteurs de parquet : la bouteille et le verre de vin
+  Q4156438: [0.50, 0.58], // La Jeune Fille aux pêches : le nœud noir à pois et l'œillet rouge
+  Q500936: [0.70, 0.77], // Le Chien : la pente sombre
+  Q536024: [0.90, 0.29], // Nana : le monsieur au chapeau haut de forme
+  Q594406: [0.45, 0.74], // La Chute des anges rebelles : le monstre aux ailes de papillon
+  Q6402081: [0.63, 0.87], // Le Chevalier à la main sur la poitrine : la garde de l'épée
+  Q2594673: [0.87, 0.28], // Samson et Dalila : les soldats à la porte
+  Q2899286: [0.46, 0.63], // Berthe Morisot au bouquet de violettes : le ruban noir au cou et le col blanc
+  Q3172226: [0.79, 0.80], // Le Bain : le broc
+  Q3181999: [0.80, 0.21], // La Grèce sur les ruines de Missolonghi : le soldat au turban
+  Q3607521: [0.67, 0.18], // Au Moulin-Rouge : la femme qui se recoiffe au fond
+  Q4157667: [0.46, 0.74], // Le Démon assis : les mains jointes
+  Q556553: [0.48, 0.80], // Le Pays de Cocagne : l'œuf à la coque qui marche
+  Q960447: [0.10, 0.57], // Surpris ! : la queue du tigre
+  Q970968: [0.68, 0.90], // Symphonie en blanc n° 1 : la tête de la peau de bête
+  Q2841473: [0.66, 0.67], // Procession nuptiale sur le Hardangerfjord : l'église en bois sur la rive
+  Q334604: [0.30, 0.80], // Le Cœur des Andes : la croix au bord du sentier
+  Q375216: [0.62, 0.80], // Le Dénombrement de Bethléem : Marie sur l'âne
+  Q4068125: [0.10, 0.63], // Apothéose de la guerre : le corbeau sur un crâne
+  Q4451145: [0.20, 0.92], // La Danse à Bougival : le bouquet de violettes tombé au sol
+  Q532486: [0.19, 0.36], // Judith et sa servante : la main sur la garde de l'épée
+  Q6065609: [0.70, 0.56], // Promenade au bord de la mer : le chapeau de paille à la main
+  Q646337: [0.35, 0.87], // Nocturne en noir et or : la fusée qui retombe : la silhouette d'un spectateur
+  Q965124: [0.72, 0.70], // Le Cavalier riant : les broderies de la manche
+  Q977777: [0.30, 0.47], // Proserpine : la main qui serre le poignet
+  Q17001535: [0.74, 0.25], // La Mort et la Vie : la vieille femme au fichu bleu
+  Q17512050: [0.20, 0.52], // Le Rêve de l'architecte : l'église gothique
+  Q1787460: [0.38, 0.62], // Watson et le requin : les deux marins qui tendent les bras
+  Q2619037: [0.72, 0.60], // Madame Récamier : les pieds nus au bout de la méridienne
+  Q2909909: [0.11, 0.87], // Bonaparte devant le Sphinx : les ombres de l'escorte et les sabots du cheval
+  Q2985455: [0.52, 0.90], // Portrait de monsieur Bertin : la main posée sur la cuisse
+  Q3206722: [0.66, 0.55], // La Bohémienne : le col de la chemise et la bretelle rouge
+  Q3212360: [0.60, 0.32], // La Robe rose : les maisons du village
+  Q3220204: [0.74, 0.66], // Le Baiser à la dérobée : l'écharpe rayée sur le guéridon
+  Q3373691: [0.47, 0.86], // Paysage d'hiver avec patineurs : la barque prise dans la glace et le joueur de crosse
+  Q3940915: [0.55, 0.42], // Romulus et Rémus : le pic qui apporte des cerises
+  Q40432: [0.88, 0.36], // Le Marché aux chevaux : les badauds sur le talus
+  Q8874171: [0.40, 0.70], // L'Espérance : les pieds nus sur le globe
+  Q941549: [0.18, 0.46], // La Grenouillère : les baigneurs près de la passerelle
+  Q3027255: [0.28, 0.80], // Didon construisant Carthage : les garçons au bord de l'eau
+  Q3138984: [0.70, 0.46], // Mardi gras : la batte et la ceinture d'Arlequin
+  Q3818263: [0.86, 0.14], // L'Arbre rouge : la lune entre les branches
+  Q548141: [0.62, 0.66], // Le Rêve : les deux lions dans les feuilles
+  Q3055367: [0.76, 0.82], // L'Entrée des croisés à Constantinople : la jeune femme blonde penchée sur sa compagne
+  Q3454959: [0.84, 0.42], // Régates à Argenteuil : la maison rouge sur la berge
+  Q3821820: [0.43, 0.87], // La Classe de danse : le petit chien aux pieds de la danseuse
+  Q972295: [0.28, 0.43], // Léonidas aux Thermopyles : les couronnes de fleurs tendues
+  Q1747282: [0.74, 0.58], // Duel au gourdin : la colline rousse à l'horizon
+  Q18208623: [0.37, 0.44], // Anxiété : l'homme au haut-de-forme
+  Q2943415: [0.18, 0.90], // La Cour du tailleur de pierre : l'enfant tombé et sa mère qui accourt
+  Q2980775: [0.65, 0.82], // Cléopâtre essayant des poisons sur des condamnés à mort : le léopard couché
+  Q3207251: [0.10, 0.78], // La Charmeuse de serpents : l'oiseau rose au bord de l'eau
+  Q3757652: [0.27, 0.62], // Deux Femmes à la fenêtre : la main sur le volet
+  Q3842349: [0.18, 0.60], // Mademoiselle La La au cirque Fernando : les bottines
+  Q3956440: [0.70, 0.34], // La Corbeille de pommes : l'assiette de biscuits
+  Q429753: [0.84, 0.53], // Le Derby d'Epsom : le dernier jockey, en casaque jaune
+  Q1197647: [0.14, 0.12], // La Tour des chevaux bleus : l'arc-en-ciel
+  Q3210835: [0.10, 0.63], // La Mort de Léonard de Vinci : le livre, la croix et la clochette sur la table
+  Q3228387: [0.42, 0.78], // Le Chapeau de paille : les mains croisées et la bague
+  Q325981: [0.58, 0.87], // Réunion de famille : le bouquet, le chapeau et l'ombrelle posés à terre
+  Q3622074: [0.49, 0.88], // Arearea : la tête du chien rouge et la fleur blanche
+  Q3640080: [0.12, 0.47], // Petite Fille dans un fauteuil bleu : le petit chien endormi
+  Q3937485: [0.61, 0.57], // Charles Ier à la chasse : la tête du cheval et sa bride
+  Q3947218: [0.17, 0.78], // San Giorgio Maggiore au crépuscule : le reflet du clocher sur l'eau
+  Q398126: [0.36, 0.67], // La Cathédrale de Salisbury vue des prés : la charrette dans le gué
+  Q4657050: [0.47, 0.10], // La Petite Fille à l'arrosoir : le nœud rouge dans les cheveux
 }
 
 /** Les candidats écartés à l'œil, et pourquoi. */
@@ -378,6 +465,8 @@ const ECARTES: Record<string, string> = {
   Q2324643: "Judith I : le cadre doré d'origine entoure la peinture, et sa bande gravée du haut fait 12 % de la hauteur : trop pour un rognage",
   Q680128: "Le Portement de Croix : son attribution à Bosch est contestée, et sa date avec elle",
   Q2528477: "Le Sabbat des sorcières : trois Peintures noires de Goya sont déjà là, de la même année : une quatrième ferait une fenêtre d'un seul peintre",
+  Q477764: "La Jeune Aveugle : la toile est photographiée nue, ses coins du haut arrondis : la rogner couperait le ciel et la signature",
+  Q10322900: "La Japonaise : la reproduction de Commons est agrandie et lissée, ses couleurs forcées : sans la touche du tableau",
 }
 
 /**
@@ -409,6 +498,66 @@ const ROGNAGES: Record<string, [number, number, number, number]> = {
   Q776175: [0.004, 0.004, 0.002, 0.002], // Les Moissonneurs
   Q846213: [0.008, 0.004, 0.010, 0.004], // Flaming June
   Q1123378: [0.005, 0.005, 0.006, 0.003], // Charles Quint à cheval à Mühlberg
+  // ── La suite du deuxième lot. La plupart ne sont qu'un filet sombre d'un à cinq pixels, mesuré à la luminance des
+  // premières lignes et colonnes : au cadrage le plus serré, il ferait un trait noir au bord du détail.
+  Q1787143: [0.003, 0.000, 0.000, 0.000], // Falaises de craie sur l'île de Rügen
+  Q2914912: [0.010, 0.003, 0.014, 0.000], // Les Casseurs de pierres
+  Q7769644: [0.005, 0.000, 0.005, 0.000], // Le Dresseur de tortues
+  Q123935: [0.000, 0.004, 0.000, 0.005], // Le Triomphe de Bacchus
+  Q1432536: [0.002, 0.004, 0.000, 0.000], // Amandier en fleurs
+  Q247282: [0.000, 0.000, 0.000, 0.004], // La Forge de Vulcain
+  Q2622172: [0.000, 0.000, 0.002, 0.002], // La Famille Bellelli
+  Q2636368: [0.004, 0.006, 0.000, 0.006], // La Bataille de Grunwald
+  Q74339: [0.004, 0.004, 0.004, 0.004], // La Loge
+  Q1206860: [0.005, 0.000, 0.002, 0.007], // Bacchus et Ariane
+  Q2052008: [0.004, 0.003, 0.002, 0.003], // Le Songe de Jacob
+  Q689236: [0.004, 0.005, 0.004, 0.004], // Le Combat de Carnaval et Carême
+  Q1118295: [0.010, 0.005, 0.000, 0.000], // La Chaise de Vincent avec sa pipe
+  Q1214313: [0.003, 0.000, 0.000, 0.004], // Les Âges de la vie
+  Q500936: [0.004, 0.003, 0.006, 0.003], // Le Chien
+  Q536024: [0.004, 0.002, 0.007, 0.006], // Nana
+  Q594406: [0.004, 0.004, 0.004, 0.005], // La Chute des anges rebelles : un bord effrangé
+  Q6402081: [0.004, 0.003, 0.011, 0.004], // Le Chevalier à la main sur la poitrine : une bande noire de quinze pixels à droite
+  Q2899286: [0.003, 0.003, 0.003, 0.003], // Berthe Morisot au bouquet de violettes
+  Q3172226: [0.000, 0.000, 0.003, 0.002], // Le Bain
+  Q4157667: [0.004, 0.004, 0.003, 0.002], // Le Démon assis
+  Q556553: [0.004, 0.018, 0.012, 0.006], // Le Pays de Cocagne : photographié au musée, l'ombre du cadre en haut et à droite
+  Q960447: [0.004, 0.003, 0.002, 0.004], // Surpris !
+  Q970968: [0.000, 0.002, 0.000, 0.002], // Symphonie en blanc n° 1
+  Q2841473: [0.005, 0.004, 0.005, 0.004], // Procession nuptiale sur le Hardangerfjord
+  Q334604: [0.000, 0.000, 0.003, 0.000], // Le Cœur des Andes
+  Q375216: [0.002, 0.000, 0.000, 0.003], // Le Dénombrement de Bethléem
+  Q4068125: [0.000, 0.000, 0.007, 0.002], // Apothéose de la guerre : une ombre à droite
+  Q532486: [0.000, 0.004, 0.000, 0.000], // Judith et sa servante
+  Q6065609: [0.000, 0.000, 0.003, 0.003], // Promenade au bord de la mer
+  Q17001535: [0.003, 0.003, 0.003, 0.003], // La Mort et la Vie
+  Q17512050: [0.006, 0.000, 0.002, 0.003], // Le Rêve de l'architecte : le bord de la toile et le fond, à gauche
+  Q2985455: [0.002, 0.000, 0.002, 0.000], // Portrait de monsieur Bertin
+  Q3212360: [0.002, 0.002, 0.004, 0.004], // La Robe rose
+  Q3220204: [0.002, 0.003, 0.006, 0.004], // Le Baiser à la dérobée
+  Q3373691: [0.004, 0.004, 0.004, 0.006], // Paysage d'hiver avec patineurs
+  Q3940915: [0.028, 0.026, 0.022, 0.012], // Romulus et Rémus : la baguette du cadre tout autour
+  Q40432: [0.004, 0.005, 0.004, 0.005], // Le Marché aux chevaux
+  Q3027255: [0.002, 0.003, 0.002, 0.004], // Didon construisant Carthage
+  Q3138984: [0.000, 0.004, 0.000, 0.000], // Mardi gras
+  Q3818263: [0.008, 0.008, 0.006, 0.010], // L'Arbre rouge
+  Q548141: [0.003, 0.004, 0.004, 0.004], // Le Rêve
+  Q3055367: [0.003, 0.003, 0.004, 0.003], // L'Entrée des croisés à Constantinople
+  Q3454959: [0.003, 0.003, 0.005, 0.008], // Régates à Argenteuil
+  Q3821820: [0.002, 0.002, 0.003, 0.003], // La Classe de danse
+  Q1747282: [0.002, 0.002, 0.002, 0.012], // Duel au gourdin
+  Q18208623: [0.003, 0.004, 0.004, 0.004], // Anxiété
+  Q2943415: [0.003, 0.003, 0.003, 0.004], // La Cour du tailleur de pierre
+  Q3207251: [0.000, 0.000, 0.003, 0.000], // La Charmeuse de serpents
+  Q3757652: [0.004, 0.004, 0.003, 0.003], // Deux Femmes à la fenêtre
+  Q3956440: [0.000, 0.000, 0.000, 0.003], // La Corbeille de pommes
+  Q3210835: [0.020, 0.022, 0.022, 0.018], // La Mort de Léonard de Vinci : la baguette du cadre tout autour
+  Q325981: [0.005, 0.014, 0.000, 0.000], // Réunion de famille
+  Q3622074: [0.000, 0.000, 0.003, 0.003], // Arearea
+  Q3640080: [0.000, 0.008, 0.000, 0.000], // Petite Fille dans un fauteuil bleu
+  Q3947218: [0.004, 0.004, 0.004, 0.005], // San Giorgio Maggiore au crépuscule
+  Q398126: [0.008, 0.008, 0.008, 0.010], // La Cathédrale de Salisbury vue des prés
+  Q4657050: [0.000, 0.000, 0.004, 0.003], // La Petite Fille à l'arrosoir
 }
 
 /** Le rectangle gardé d'une miniature, en fractions : x, y, largeur, hauteur — tout, sans rognage. */
@@ -523,7 +672,6 @@ export const ANNEES_A_LA_MAIN: Record<string, number> = {
   Q3234845: 1888, // Les Poseuses : « achevé en 1888 », dit sa question
   Q2915406: 1943, // Broadway Boogie-Woogie : « de 1942-1943 », dit sa question
   Q175628: 1873, // Les Bateliers de la Volga : 1870-1873
-  Q1065493: 1852, // Ophélie : 1851-1852
   Q2622172: 1869, // La Famille Bellelli : entre 1858 et 1869, le musée d'Orsay
   Q17001535: 1915, // La Mort et la Vie : 1908-1915, reprise après son premier prix
   Q2735507: 1807, // La Maja vêtue : 1800-1807, le Prado
@@ -551,7 +699,6 @@ export const ANNEES_A_LA_MAIN: Record<string, number> = {
   Q663133: 1595, // Les Tricheurs : vers 1595, le musée Kimbell
   Q597114: 1606, // La Mort de la Vierge : 1601-1606
   Q2594673: 1610, // Samson et Dalila : 1609-1610
-  Q3210253: 1645, // La Madeleine à la veilleuse : vers 1640-1645
   Q1240092: 1650, // Portrait d'Innocent X : peint à Rome en 1650
   Q700251: 1659, // La Liseuse à la fenêtre : 1657-1659
   Q984058: 1660, // Les Fileuses : 1655-1660, le Prado
@@ -570,7 +717,6 @@ export const ANNEES_A_LA_MAIN: Record<string, number> = {
  * titre d'un tableau de la base ne se retouche pas ici : c'est celui que sa question écrit.
  */
 export const A_LA_MAIN: Record<string, { titre?: string; peintre?: string }> = {
-  Q2282256: { titre: 'Les Iris' }, // « Iris »
   Q1150997: { titre: 'Saturne dévorant un de ses fils' }, // « … un de ses enfants »
   Q2666439: { peintre: 'Ivan Chichkine' }, // Constantin Savitski n'y a peint que les oursons
   Q1215604: { peintre: 'Jean-Auguste-Dominique Ingres' }, // Alexandre Desgoffe et Paul Balze l'ont aidé à l'achever
@@ -592,6 +738,7 @@ export const A_LA_MAIN: Record<string, { titre?: string; peintre?: string }> = {
   Q3818263: { titre: "L'Arbre rouge" }, // « Arbre rouge »
   Q17001535: { titre: 'La Mort et la Vie' }, // « La Vie et la Mort » : « Tod und Leben »
   Q6402081: { titre: 'Le Chevalier à la main sur la poitrine' }, // « Le Gentilhomme … »
+  Q2841473: { peintre: 'Adolph Tidemand et Hans Gude' }, // peint à deux : Tidemand les personnages, Gude le fjord, qu'il a signé
 }
 
 const norme = (s: string) =>
