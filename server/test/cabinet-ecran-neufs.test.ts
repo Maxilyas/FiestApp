@@ -42,7 +42,7 @@ import type { Lieu } from '../../shared/cabinet/contenu'
 import type { FiletMontre, FiletRevele } from '../../shared/cabinet/jeux/filet'
 import type { IndicesMontres, IndicesReveles } from '../../shared/cabinet/jeux/indices'
 import type { RepliqueMontree, RepliqueRevelee } from '../../shared/cabinet/jeux/replique'
-import { CLES_DES_JEUX } from '../../shared/cabinet/jeux/regle'
+import { CLES_DES_JEUX, motsDesIndicesDeLEpingle } from '../../shared/cabinet/jeux/regle'
 import type { MursDuCabinet, VueDeLaPartie } from '../../shared/cabinet/vues'
 import { espacesFines } from '../../shared/typographie'
 
@@ -428,7 +428,14 @@ test('une manche de l’Épingle : la date, le thème, le récit, la question, l
   const pied = piedDe(html)
   assert.ok(pied.startsWith('<div class="cab-pied-partie"><button type="button" class="btn btn-block cab-pouvoir">'), 'la carte-bonus d’abord')
   assert.doesNotMatch(pied, /cab-ou-est|cab-pas-de-l-epingle/)
-  assert.match(pied, /<div class="cab-planter-ici"><button type="button" class="btn cab-pas-a-pas" aria-expanded="false">Pas à pas<\/button><button type="button" class="btn btn-primary btn-big cab-planter" aria-disabled="true">Planter ici<\/button><\/div>/)
+  // Entre les deux, depuis le 11 novembre 2026, le bouton d'un indice : son nom dit ce qu'il coûte, dans les mots du barème.
+  assert.match(
+    pied,
+    new RegExp(
+      `<div class="cab-planter-ici"><button type="button" class="btn cab-pas-a-pas" aria-expanded="false">Pas à pas</button><button type="button" class="btn cab-demander-un-indice" aria-label="${echapper(motsDesIndicesDeLEpingle(0).nom)}">.*?</button><button type="button" class="btn btn-primary btn-big cab-planter" aria-disabled="true">Planter ici</button></div>`,
+    ),
+  )
+  assert.doesNotMatch(html, /cab-indice-colle/, 'aucun indice demandé : rien sous la question')
   assert.match(html, /<p class="cab-ligne cab-consigne-carte" aria-live="polite">Touche la carte de France pour planter ton épingle\.<\/p>/)
   // Jamais le lieu : ni sa commune, ni son département, ni ses coordonnées, ni sa place sur le dessin. Le dessin et la tête n'en
   // disent rien — le même dessin à la troisième manche, d'un autre lieu ; la même tête aux Indices, qui n'en ont pas —, et la
@@ -444,6 +451,64 @@ test('une manche de l’Épingle : la date, le thème, le récit, la question, l
   const fuite = `<p data-lieu="${lieu.lat},${lieu.lon}">${lieu.commune} (${lieu.departement})</p><g transform="translate(${ici.x} ${ici.y})"></g>`
   assert.equal((await ceQuiDitLeLieu(html.replace('</h2>', `</h2>${fuite}`), lieu)).length, 5, 'chaque secret glissé se trouve')
   sansJargon(html, 'une manche de l’Épingle', [m.recit, m.question, m.theme])
+})
+
+test('les indices de l’Épingle à l’écran : le bouton au pied, le dernier indice collé sous la question, seul — jamais le lieu, jamais une adresse', async () => {
+  // En 360 × 640, la carte amenée à l'écran, la consigne passe sous la question collée : posés à côté d'elle, le bouton et
+  // l'indice n'y étaient plus (le rendu du 11 novembre 2026). Le bouton est au pied, l'indice dans le titre de la question.
+  const v = vues.epingle
+  const m = v.enCours as EpingleMontree
+  const lieu = epingleDe(b, v.id, v.tirage!).lieu
+  const [premier, second] = lieu.indices!
+  assert.deepEqual([m.indices, m.aDemander, m.enJeu], [[], 2, 3])
+  const lyon = { lat: 45.76, lon: 4.84 }
+  const sousLaQuestion = (html: string) => texte(/<h2 class="quiz-question cab-question[^"]*">(.*?)<\/h2>/.exec(html)![1]).trim()
+  const question = texte(m.question.replace(/'/g, '’')).trim()
+  const boutons = (html: string) => [...piedDe(html).matchAll(/<button type="button" class="btn( btn-primary btn-big)? cab-([a-z-]+)"/g)].map(x => x[2])
+
+  // Un indice demandé : il se colle sous la question, l'épingle se dit toujours au-dessus de la carte, le bouton pour le suivant.
+  const avecUn = { ...v, enCours: { ...m, indices: [premier], enJeu: 2, aDemander: 1 } }
+  const un = await laPartie(avecUn, { local: { epingle: lyon } })
+  assert.equal(sousLaQuestion(un), `${question} Indice : ${telQuIlSeLit(premier).trim()}`)
+  assert.match(un, /<span class="cab-indice-colle" aria-live="polite"><svg /)
+  const ouEstLEpingle = (html: string) => texte(/<p class="cab-ligne cab-consigne-carte cab-ou-est" aria-live="polite">(.*?)<\/p>/.exec(html)![1]).trim()
+  assert.equal(ouEstLEpingle(un), 'Ton épingle : Près de Lyon')
+  assert.deepEqual(boutons(un), ['pas-a-pas', 'demander-un-indice', 'planter'])
+  assert.match(piedDe(un), new RegExp(`class="btn cab-demander-un-indice" aria-label="${echapper(motsDesIndicesDeLEpingle(1).nom)}"`))
+  assert.ok(!texte(un).includes(telQuIlSeLit(second).trim()), 'le second indice ne se lit nulle part avant sa demande')
+
+  // Les deux : le second à la place du premier, seul — l'un sous l'autre, la carte n'avait plus sa place — ; plus de bouton.
+  // Et rien d'autre sous la question : la première version y disait la place de l'épingle dans les mots d'un indice
+  // calculé (« À 170 km à l'ouest de Paris. »), et il ne restait qu'à mener l'une sur l'autre — « il n'y a plus aucune
+  // réflexion » (le propriétaire, le 11 novembre 2026). La consigne garde son rôle d'avant : où est l'épingle.
+  const avecDeux = { ...v, enCours: { ...m, indices: [premier, second], enJeu: 1, aDemander: 0 } }
+  const deux = await laPartie(avecDeux, { local: { epingle: lyon } })
+  assert.equal(sousLaQuestion(deux), `${question} Indice : ${telQuIlSeLit(second).trim()}`)
+  assert.ok(!sousLaQuestion(deux).includes(telQuIlSeLit(premier).trim()), 'le premier a laissé sa place au second')
+  assert.deepEqual(boutons(deux), ['pas-a-pas', 'planter'], 'plus d’indice à demander : plus de bouton')
+  assert.equal(ouEstLEpingle(deux), 'Ton épingle : Près de Lyon')
+  const sansEpingle = await laPartie(avecDeux)
+  assert.equal(sousLaQuestion(sansEpingle), `${question} Indice : ${telQuIlSeLit(second).trim()}`)
+  assert.match(texte(sansEpingle), /Touche la carte de France pour planter ton épingle\./)
+
+  // Jamais le lieu, indices compris (invariant 1) : ni sa commune, ni son département, ni ses coordonnées.
+  for (const html of [un, deux, sansEpingle]) assert.deepEqual(await ceQuiDitLeLieu(html, lieu), [], 'les indices ne disent rien du lieu')
+  // Une manche d'avant les indices — une partie en route à la mise en ligne, une vue gardée : ni bouton, ni rien sous la question.
+  const { indices: _i, enJeu: _e, aDemander: _a, ...dAvant } = m
+  const avant = await laPartie({ ...v, enCours: dAvant as EpingleMontree }, { local: { epingle: lyon } })
+  assert.deepEqual(boutons(avant), ['pas-a-pas', 'planter'])
+  assert.doesNotMatch(avant, /cab-indice-colle|cab-demander-un-indice/)
+
+  // La révélation dit pourquoi une épingle tout près n'a pas ses trois étoiles, et redit le texte qui s'est déroulé.
+  const { EPINGLE } = await import(url('views/cabinet/jeux/Epingle.tsx'))
+  const React = await import('react')
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const corps = vues.epingleSurLeLieu.revelation!.corps as EpingleRevelee
+  const revelee = (indices: string[]) => texte(renderToStaticMarkup(React.createElement(EPINGLE.Revelation as React.FC<Record<string, unknown>>, { corps: { ...corps, indices }, partie: v.id })))
+  // Les étoiles en glyphes pour l'œil, en mots pour l'oreille (`EnEtoiles`).
+  assert.match(revelee([premier, second]), new RegExp(`Avec deux indices : ★ 1 étoile au plus\\. ${lu(premier)} ${lu(second)}`))
+  assert.match(revelee([premier]), /Avec un indice : ★★ 2 étoiles au plus\./)
+  assert.doesNotMatch(revelee([]), /indice/i, 'sans indice, la révélation n’en dit rien')
 })
 
 test('l’Épingle posée : sur la carte à sa place, dite par sa ville repère, « Planter ici » qui la plante — et elle part d’elle-même à l’échéance', async () => {

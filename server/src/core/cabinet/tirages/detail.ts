@@ -1,6 +1,7 @@
 // Le tireur du Détail : une fenêtre de quatre tableaux consécutifs dans le
-// temps, parmi les cent de `server/content/details/` (`tableauxDuDetail`, ses
-// quatre cadrages découpés d'avance) — la jamais vue d'abord, puis la plus
+// temps, parmi ceux de `server/content/details/` (`tableauxDuDetail`, ses
+// quatre cadrages découpés d'avance ; cent jusqu'au 11 novembre 2026, trois
+// fois plus depuis) — la jamais vue d'abord, puis la plus
 // anciennement vue (`laFenetreLaMoinsVue`) —, et le bon au hasard parmi ses
 // quatre, par la règle du jeu (`detailDUneFenetre`), au hasard du serveur. Vu,
 // c'est l'avoir eu au Cabinet (`cab:tableau:<QID>`, en bon ou, depuis le
@@ -28,10 +29,11 @@
 // aussi) : les missions la lisent.
 import { tableauxDuDetail, type TableauDuDetail } from '../../details'
 import { CATEGORIE_DU_DETAIL } from '../../../../../shared/expedition'
+import { FENETRES_POUR_PROMETTRE_LE_DETAIL, TITRES_DU_DETAIL } from '../../../../../shared/cabinet/bareme'
 import { detailDUneFenetre, fenetresDuDetail, type DetailTire } from '../../../../../shared/cabinet/jeux/detail'
 import { auHasard } from '../../../../../shared/cabinet/jeux/outils'
 import { idDuTableau } from '../../../../../shared/cabinet/pieces'
-import type { ContexteDuTirage, Posees } from './communs'
+import { FENETRE_DU_CABINET_MS, type ContexteDuTirage, type Posees } from './communs'
 import { litLaBase, questionsDesTableaux } from './tas'
 
 /** La dernière fois qu'il l'a vu : au Cabinet, ou par une question de la base qui le nomme. Jamais : undefined. */
@@ -66,10 +68,41 @@ function laFenetreLaMoinsVue(
   return ex.length > 0 ? auHasard(ex, hasard) : undefined
 }
 
+/**
+ * Les fenêtres neuves de ces tableaux, sans un tableau commun : chaque suite de tableaux qui se suivent dans le temps
+ * et dont aucun n'a été vu depuis `depuis` en fait autant qu'elle a de fois `TITRES_DU_DETAIL` tableaux. Le tirage
+ * prend sa fenêtre au hasard parmi les neuves, pas au bord de sa suite : il en joue un peu moins que ce compte, jamais
+ * plus.
+ */
+export function fenetresNeuves(tableaux: readonly TableauDuDetail[], vus: ReadonlyMap<string, number | undefined>, depuis: number): number {
+  let fenetres = 0
+  let suite = 0
+  // L'ordre des fenêtres, un seul tableau par titre (`fenetresDuDetail`) : la première de chacune suit le temps.
+  for (const t of fenetresDuDetail(tableaux).map((f, i, toutes) => (i + 1 < toutes.length ? [f[0]] : f)).flat()) {
+    const vuLe = vus.get(t.qid)
+    if (vuLe !== undefined && vuLe >= depuis) {
+      fenetres += Math.floor(suite / TITRES_DU_DETAIL)
+      suite = 0
+    } else suite++
+  }
+  return fenetres + Math.floor(suite / TITRES_DU_DETAIL)
+}
+
+/**
+ * Le Détail se promet-il à ce joueur — sur la carte d'une traversée qui commence, et chez ses gardiens ? Tant qu'il
+ * lui reste `FENETRES_POUR_PROMETTRE_LE_DETAIL` fenêtres dont il n'a rien vu ces sept jours (`FENETRE_DU_CABINET_MS`),
+ * au Cabinet ou par une question de la base qui nomme le tableau. Sans elles, le tireur lui reposerait ce qu'il vient
+ * de voir — la fenêtre la plus anciennement vue, faute de neuve.
+ */
+export function leDetailSePromet(vues: ContexteDuTirage['vues'], maintenant: number, tableaux: readonly TableauDuDetail[] = tableauxDuDetail()): boolean {
+  const vus = new Map(tableaux.map(t => [t.qid, vuLe(t, vues)]))
+  return fenetresNeuves(tableaux, vus, maintenant - FENETRE_DU_CABINET_MS) >= FENETRES_POUR_PROMETTRE_LE_DETAIL
+}
+
 export function tirerUnDetail(ctx: ContexteDuTirage, posees: Posees): DetailTire | null {
   const tableaux = tableauxDuDetail()
   const libres = tableaux.filter(t => !posees.ids.has(idDuTableau(t.qid)))
-  // Un titre déjà montré ne revient pas — tant qu'il en reste : cent tableaux, six manches au plus dans un plan.
+  // Un titre déjà montré ne revient pas — tant qu'il en reste : trois cents tableaux, six manches au plus dans un plan.
   const neufs = libres.filter(t => !posees.titres.has(t.titre))
   const vus = new Map(tableaux.map(t => [t.qid, vuLe(t, ctx.vues)]))
   const fenetre = laFenetreLaMoinsVue(neufs, vus, ctx.hasard) ?? laFenetreLaMoinsVue(libres, vus, ctx.hasard)

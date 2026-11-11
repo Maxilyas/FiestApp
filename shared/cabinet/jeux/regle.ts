@@ -22,6 +22,7 @@ import {
   ESSAIS_DES_ETOILES,
   ESSAIS_DU_MOT,
   ETOILES_AU_CADRAGE,
+  ETOILES_AUX_INDICES_DE_L_EPINGLE,
   ETOILES_D_UNE_JUSTE,
   ETOILES_DE_LA_REPLIQUE,
   ETOILES_DU_FILET,
@@ -156,6 +157,26 @@ export function motsDuPari(e: Readonly<Record<'garder' | 'parier', number>>) {
 /** Les mots du Pari, au barème du code. */
 export const MOTS_DU_PARI = motsDuPari(ETOILES_DU_PARI)
 
+/**
+ * Les mots des indices de l'Épingle, au barème (`ETOILES_AUX_INDICES_DE_L_EPINGLE`), pour qui en a demandé tant : une
+ * seule source, que la page lit pour son bouton et sa révélation — écrits à l'écran, « −★ » et « ★★ au plus » auraient
+ * survécu à un barème changé.
+ */
+export function motsDesIndicesDeLEpingle(demandes: number) {
+  const bareme = ETOILES_AUX_INDICES_DE_L_EPINGLE
+  const enJeu = bareme[Math.min(Math.max(0, demandes), bareme.length - 1)]
+  const ensuite = bareme[Math.min(Math.max(0, demandes) + 1, bareme.length - 1)]
+  return {
+    /** Le bouton, puis ce qu'il coûte : « Indice », « −★ » — à part : un écran étroit ne garde que l'ampoule et le prix. */
+    mot: 'Indice',
+    cout: `−${etoiles(enJeu - ensuite)}`,
+    /** Son nom à l'oreille : ce qu'il coûte, et ce que la manche vaudra ensuite. */
+    nom: `Un indice, contre ${enLettres(enJeu - ensuite, 'feminin')} étoile${enJeu - ensuite > 1 ? 's' : ''} : la manche en vaudra ${enLettres(ensuite, 'feminin')} au plus`,
+    /** La révélation : « Avec un indice : ★★ au plus. » — pourquoi une épingle tout près n'a pas ses trois étoiles ; null sans indice. */
+    revelation: demandes > 0 ? `Avec ${demandes === 1 ? 'un indice' : `${enLettres(demandes)} indices`} : ${etoiles(enJeu)} au plus.` : null,
+  }
+}
+
 /** « un quart », « un douzième » : la part d'une époque, en mots — une fraction se lit, elle ne se déchiffre pas. */
 const PARTS: Readonly<Record<number, string>> = { 2: 'une moitié', 3: 'un tiers', 4: 'un quart', 5: 'un cinquième', 6: 'un sixième', 8: 'un huitième', 10: 'un dixième', 12: 'un douzième' }
 const part = (n: number) => PARTS[n] ?? `un ${n}ᵉ`
@@ -190,8 +211,10 @@ export const JEUX: Readonly<Record<CleDeJeu, DescriptionDUnJeu>> = {
     cle: 'epingle',
     nom: 'L’Épingle',
     a: 'à l’Épingle',
-    geste: 'Un récit, puis « Où ? » : plante ton épingle sur la carte de France.',
-    bareme: KM_DE_L_EPINGLE.map((km, i) => `${i === 0 ? 'à moins de ' : ''}${km} km ${etoiles(3 - i)}`).join(' · '),
+    geste: 'Un récit, puis « Où ? » : plante ton épingle sur la carte de France. Un indice aide, et retire une étoile du jeu.',
+    bareme: `${KM_DE_L_EPINGLE.map((km, i) => `${i === 0 ? 'à moins de ' : ''}${km} km ${etoiles(3 - i)}`).join(' · ')} — ${ETOILES_AUX_INDICES_DE_L_EPINGLE.slice(1)
+      .map((e, i) => `${enLettres(i + 1)} indice${i > 0 ? 's' : ''}, ${etoiles(e)} au plus`)
+      .join(' · ')}`,
     eclairer: `entoure une grande zone (${RAYON_D_ECLAIRER_KM} km) qui contient le lieu`,
     changeable: true,
     etapes: 1,

@@ -9,6 +9,13 @@
 // leur heure par la route du détail (invariant 1). Les règles pures :
 // `shared/expedition.ts` (« Le détail ») ; le brief :
 // `retours/2026-10-20/le-detail.md`.
+//
+// Le Détail du Cabinet de curiosités les tire aussi, et lui demande leur
+// titre, pas leur peintre (`core/cabinet/tirages/detail.ts`) : depuis le
+// 11 novembre 2026, la fiche tient en plus des tableaux célèbres que la base
+// ne pose pas (`questions` vide, `server/scripts/details.ts`) — l'Expédition
+// ne les posait pas (`detailsDeLaBase`), le Cabinet si, sans anecdote : trois
+// cents tableaux en tout, dont la moitié sans question.
 
 import fs from 'node:fs'
 import path from 'node:path'

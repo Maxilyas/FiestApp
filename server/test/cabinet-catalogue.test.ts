@@ -450,7 +450,12 @@ test('dix jeux, chacun ses mots, son chrono et son barème dit', () => {
   assert.deepEqual(CLES_DES_JEUX.filter(j => !JEUX[j].changeable), ['frise'])
   // Le barème dit à l'annonce est celui du code, pour les neuf : chacun se compose des chiffres de `bareme.ts`.
   const etoiles = (n: number) => '★'.repeat(n)
-  assert.equal(JEUX.epingle.bareme, `à moins de ${B.KM_DE_L_EPINGLE[0]} km ★★★ · ${B.KM_DE_L_EPINGLE[1]} km ★★ · ${B.KM_DE_L_EPINGLE[2]} km ★`)
+  // … et ce que ses indices laissent en jeu, depuis le 11 novembre 2026 (`ETOILES_AUX_INDICES_DE_L_EPINGLE`).
+  assert.deepEqual(B.ETOILES_AUX_INDICES_DE_L_EPINGLE, [3, 2, 1])
+  assert.equal(
+    JEUX.epingle.bareme,
+    `à moins de ${B.KM_DE_L_EPINGLE[0]} km ★★★ · ${B.KM_DE_L_EPINGLE[1]} km ★★ · ${B.KM_DE_L_EPINGLE[2]} km ★ — un indice, ${etoiles(B.ETOILES_AUX_INDICES_DE_L_EPINGLE[1])} au plus · deux indices, ${etoiles(B.ETOILES_AUX_INDICES_DE_L_EPINGLE[2])} au plus`,
+  )
   // La Frise, depuis le calibrage du 25 octobre 2026 : deux erreurs ne valent plus une étoile, et l'annonce ne dit
   // pas le palier qui n'existe plus (« deux à une ★ », lu tel quel des bornes [0, 1, 1]).
   assert.equal(JEUX.frise.bareme, 'sans faute ★★★ · une erreur ★★')

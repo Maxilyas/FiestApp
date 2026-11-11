@@ -1,9 +1,12 @@
-// Les images du « détail » de l'Expédition (`scripts/details.ts`) : la fiche
-// livrée dans `server/content/details/` et ses images. Quatre cadrages par
-// tableau, emboîtés, du détail au tableau entier, 40 Ko au plus chacun ; un
-// peintre mort en 1955 au plus tard, soixante-dix ans révolus ; ni doublon ni
-// image sans fiche ; et chaque tableau demandé par une question de la base,
-// d'où la forme tirera ses leurres.
+// Les images du « détail » de l'Expédition, puis du Détail du Cabinet de
+// curiosités (`scripts/details.ts`) : la fiche livrée dans
+// `server/content/details/` et ses images. Quatre cadrages par tableau,
+// emboîtés, du détail au tableau entier, 40 Ko au plus chacun ; un peintre
+// mort en 1955 au plus tard, soixante-dix ans révolus ; ni doublon, ni deux
+// tableaux du même titre, ni image sans fiche. Les cent premiers sont demandés
+// par une question de la base, d'où la forme de l'Expédition tirait ses
+// leurres ; ceux venus de Wikidata seul, le 11 novembre 2026, n'en ont pas — le
+// Cabinet demande leur titre, pas leur peintre.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
@@ -33,10 +36,13 @@ test("les images restent hors du client : servies d'avance, le tableau entier se
   assert.ok(!existsSync(publics))
 })
 
-test('chaque tableau est demandé par une question de la base, qui le nomme', () => {
+test('une question que la fiche cite est dans la base et nomme son tableau ; cent tableaux au moins en ont une', () => {
   const parId = new Map(lireLaBase().questions.map(q => [q.id, q]))
-  for (const t of fiche) {
-    assert.ok(t.questions.length > 0, t.titre)
+  // Ceux de l'Expédition, qui ne posait qu'eux (`detailsDeLaBase`) : ses épreuves tournent encore sur le banc. Un tableau
+  // sans question se pose au Cabinet seul, sans anecdote à sa révélation.
+  const avecQuestion = fiche.filter(t => t.questions.length > 0)
+  assert.ok(avecQuestion.length >= 100, `${avecQuestion.length} tableaux ont leur question`)
+  for (const t of avecQuestion) {
     for (const id of t.questions) {
       const q = parId.get(id)
       assert.ok(q, `${t.titre} : la question ${id} n'est plus dans la base`)

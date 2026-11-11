@@ -12479,6 +12479,32 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-consigne-carte { min-height: calc(2 * 1.45em); font-weight: 600; }
 .cab-consigne-carte.cab-souffle { justify-content: flex-start; }
 .cab-consigne-carte.cab-ou-est { display: flex; align-items: center; justify-content: flex-start; gap: 8px; font-weight: 700; }
+/* Les indices de l'Épingle (le 11 novembre 2026). Le dernier demandé se colle sous la question, dans son titre, de l'encre de
+   l'accent. La carte amenée à l'écran, le récit a défilé et la consigne passe sous la question collée — en 360 × 640, c'est
+   tout ce qui se lit en visant. Sa taille et sa police sont celles d'une ligne, pas celles du titre qui le porte. Un fait
+   à déduire, cent signes au plus (`INDICE_DE_L_EPINGLE_MAX`) : trois lignes en 360 pixels, son ampoule dans le fil du texte
+   — en colonne à sa gauche, elle prenait à chaque ligne la place de trois lettres, et la quatrième ligne venait. Le dernier
+   seul : l'un sous l'autre, la carte tombait sous 160 pixels de large sous une question de trois lignes. La révélation les
+   redit, en liste. La question grandit au toucher du bouton, et la carte se resserre d'autant (`--cab-place`) : jamais sous
+   le doigt qui vise.
+   Le bouton est au pied, entre « Pas à pas » et « Planter ici » : posé à droite de la consigne, il passait avec elle sous la
+   question collée, invisible (le rendu du même jour). Sous 400 pixels de large, il ne garde que son ampoule et son prix — son
+   mot se dit encore à l'oreille (`aria-label`) — : « Planter ici » n'aurait plus tenu sur sa ligne. */
+.cab-indice-colle { display: block; margin-top: 6px; font-family: var(--sans); font-size: 1.0625rem; font-weight: 600; line-height: 1.4; letter-spacing: 0; text-wrap: wrap; color: var(--accent-text); }
+.cab-indice-colle > .icon { width: 20px; height: 20px; margin-right: 6px; vertical-align: -0.2em; }
+.cab-page .cab-demander-un-indice { flex: none; display: inline-flex; align-items: center; gap: 6px; padding-inline: 12px; white-space: nowrap; }
+.cab-demander-un-indice .icon { flex: none; width: 20px; height: 20px; }
+.cab-demander-un-indice[aria-disabled='true'] { opacity: 0.5; }
+@media (max-width: 399px) {
+  .cab-mot-de-l-indice { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+/* Au plus étroit des téléphones (320), l'ampoule seule, un carré de doigt : avec son prix, « Planter ici » passait sur deux lignes. */
+@media (max-width: 349px) {
+  .cab-cout-de-l-indice { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .cab-page .cab-demander-un-indice { min-width: 44px; justify-content: center; padding-inline: 10px; }
+}
+.cab-lieu-indices { color: var(--muted); }
+.cab-lieu-indices ul { margin: 4px 0 0; padding-left: 1.2em; }
 .cab-manche:has(.cab-carte-jouable) > .cab-question { position: sticky; top: var(--cab-tete, 0px); z-index: 1; background: var(--bg); box-shadow: 0 -8px 0 var(--bg), 0 8px 0 var(--bg); }
 .cab-carte-de-france { --cab-carte-l: 362; --cab-carte-h: 316; }
 /* La carte, un point d'arrêt du défilement : sa fin s'arrête sur le pied collé (`scroll-snap-align: end`), ses marges d'arrêt la

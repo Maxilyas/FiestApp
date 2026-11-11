@@ -56,6 +56,7 @@ import { DANS_LA_FRANCE, distanceKm, type Point } from '../../shared/cabinet/fra
 import {
   DECALAGE_DE_LA_ZONE_KM,
   DUREES_DES_JEUX,
+  ETOILES_AUX_INDICES_DE_L_EPINGLE,
   ETOILES_DE_LA_REPLIQUE,
   GRACE_D_UNE_MANCHE_MS,
   INDICES_DES_ETOILES,
@@ -974,10 +975,12 @@ test('le tirage de l’Épingle : trois lieux d’un même thème, ses rechanges
     for (const t of plan) {
       assert.deepEqual(t.lieu, CONTENU.lieux.find(l => l.id === t.lieu.id), 'le lieu tel que le contenu livré le dit')
       assert.ok(t.decalage.km >= DECALAGE_DE_LA_ZONE_KM[0] && t.decalage.km <= DECALAGE_DE_LA_ZONE_KM[1])
+      // Ses deux indices, figés avec lui, et leur barème (`cabinet-epingle-indices.test.ts`).
+      assert.deepEqual([t.lieu.indices?.length, t.etoilesAuxIndices], [2, ETOILES_AUX_INDICES_DE_L_EPINGLE])
     }
   }
   // Le décalage de sa zone et l'ordre des propositions de la Réplique viennent du hasard du tirage — celui du serveur, que le
-  // magasin lui donne —, par la règle du jeu : le même hasard, le même tirage.
+  // magasin lui donne —, par la règle du jeu : le même hasard, le même tirage. Ses indices n'y tirent rien.
   const [e] = lEpingle({ hasard: toujours(0.25) })
   assert.deepEqual(e, epingleTiree(e.lieu, toujours(0.25)))
   const [r] = tirerLePlan('replique', surLeContenu({ hasard: toujours(0.25) }), 0) as RepliqueTiree[]
@@ -1075,8 +1078,8 @@ test('par les routes : l’Épingle d’un bout à l’autre — sur le lieu, à
     const lea = await inscrireProfil(b.banc.url, 'lea', 'Léa')
     let v = ok(await commencer(b, lea, { origine: 'libre', jeu: 'epingle', carte: null }), 'l’Épingle')
     const t0 = epingleDe(b, v.id, 0)
-    // La date, le thème, le récit, la question : ni le lieu, ni rien qui le situe.
-    assert.deepEqual(v.enCours, { jeu: 'epingle', date: t0.lieu.date, theme: t0.lieu.theme, recit: t0.lieu.recit, question: t0.lieu.question, zone: null })
+    // La date, le thème, le récit, la question : ni le lieu, ni rien qui le situe — pas un indice qu'il n'a pas demandé.
+    assert.deepEqual(v.enCours, { jeu: 'epingle', date: t0.lieu.date, theme: t0.lieu.theme, recit: t0.lieu.recit, question: t0.lieu.question, zone: null, indices: [], enJeu: 3, aDemander: 2 })
     // Hors de France — Madrid —, l'épingle se refuse en mots, et la manche continue : rien ne s'écrit.
     const MADRID = { lat: 40.4168, lon: -3.7038 }
     const dehors = await unGeste(b, lea, v, { quoi: 'repondre', manche: 0, reponse: { epingle: MADRID } })

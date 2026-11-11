@@ -1,5 +1,5 @@
 // Le tireur de l'Épingle : trois lieux d'un même thème (`server/content/cabinet/lieux.json`,
-// dix thèmes de neuf lieux) — « 1429 · Les grands sièges » se lit comme un fil,
+// dix-neuf thèmes de neuf lieux) — « 1429 · Les grands sièges » se lit comme un fil,
 // d'une manche à l'autre —, et ses rechanges d'un autre thème : Changer ôte
 // un lieu qu'il ne situe pas, et un voisin du même fil lui aurait demandé ce
 // qu'il ignore déjà. Le thème se fige au départ avec le plan
@@ -11,12 +11,15 @@
 // s'enchaînent pas tant qu'un autre attend —, le hasard du serveur entre les
 // égaux. Dans son thème, ses trois lieux les moins vus (`laMoinsVue`) : un
 // lieu se compte vu par son identifiant au journal (`cab:lieu:<id>`), d'un jeu
-// à l'autre. Dix thèmes de neuf, trois parties par jour au même jeu au pire :
+// à l'autre. Dix-neuf thèmes de neuf, trois parties par jour au même jeu au pire :
 // sept jours sans un lieu revu (`cabinet-contenu.test.ts`).
 //
 // Chaque lieu tiré emporte le décalage de sa zone d'Éclairer, du hasard du
 // tireur (`epingleTiree`) — celui du serveur, jamais la graine de la partie :
 // qui saurait le décalage remonterait du centre de la zone au lieu.
+//
+// Ses deux indices (le 11 novembre 2026) voyagent avec lui : écrits dans le
+// contenu (`Lieu.indices`), figés dans le tirage avec le lieu entier.
 import { laMoinsVue, passeAvant } from '../../tirageALaPiece'
 import { contenuDuCabinet } from '../contenu'
 import { MANCHES_PAR_PARTIE } from '../../../../../shared/cabinet/bareme'
