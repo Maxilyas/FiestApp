@@ -105,6 +105,8 @@ export interface TableauDuDetail {
   statut: 'domaine public'
   /** Quatre cadrages, du détail au tableau entier, en fractions de l'image : x, y, largeur, hauteur. */
   cadrages: [number, number, number, number][]
+  /** Ce qu'on a rogné de sa miniature avant de la découper (`ROGNAGES`) : à gauche, en haut, à droite, en bas. */
+  rognage?: [number, number, number, number]
   /** Les questions de la base qui le demandent ; aucune pour un tableau venu de Wikidata seul (`celebres`). */
   questions: string[]
 }
@@ -241,6 +243,28 @@ const ECARTES: Record<string, string> = {
   Q2045726: "La Bataille d'Anghiari : une copie de Rubens : l'original de Léonard est perdu",
   Q2343778: "La Belle Jardinière : l'arc du cadre doré se voit en haut",
   Q557000: "Les Meules : une série de vingt-cinq toiles : la question ne dit pas laquelle",
+}
+
+/**
+ * Ce qu'on rogne d'une miniature avant de la découper, en fractions de l'image : à gauche, en haut, à droite, en bas.
+ * Commons photographie souvent la toile avec ce qui l'entoure — un liseré noir, le bord effrangé, un pan du cadre, les
+ * ajouts d'un panneau —, et les onze premiers écartés l'étaient presque tous pour cela ; au deuxième lot, « La Mort de
+ * Socrate » et « Le Retour du fils prodigue » y passaient. Un rognage ne coupe que hors de la peinture, ou une frange
+ * qu'on ne regrette pas : un haut cintré, lui, ne se rogne pas — il faudrait couper le tableau (« Ophélie »). Le
+ * centre d'un détail (`DETAILS`) se lit sur l'image rognée, celle que la planche montre.
+ */
+const ROGNAGES: Record<string, [number, number, number, number]> = {}
+
+/** Le rectangle gardé d'une miniature, en fractions : x, y, largeur, hauteur — tout, sans rognage. */
+function gardeDeLaMiniature(qid: string): [number, number, number, number] {
+  const [gauche, haut, droite, bas] = ROGNAGES[qid] ?? [0, 0, 0, 0]
+  return [gauche, haut, 1 - gauche - droite, 1 - haut - bas]
+}
+
+/** Un cadrage du tableau, reporté sur sa miniature : le tableau n'en est que la part gardée. */
+function surLaMiniature(qid: string, r: readonly [number, number, number, number]): [number, number, number, number] {
+  const [x, y, l, h] = gardeDeLaMiniature(qid)
+  return [x + r[0] * l, y + r[1] * h, r[2] * l, r[3] * h]
 }
 
 /**
@@ -639,14 +663,15 @@ const dataUrl = (fichier: string) => `data:image/${fichier.endsWith('.png') ? 'p
 // et un cadrage réduit à sa taille, encodé de moins en moins fort jusqu'à son
 // poids. Le quadrillage donne à l'œil le centre d'un détail en fractions.
 const OUTILS = String.raw`
-async function vignette(src, cote, titre) {
+async function vignette(src, cote, titre, garde) {
   const img = await charger(src)
-  const k = cote / Math.max(img.naturalWidth, img.naturalHeight)
-  const l = Math.round(img.naturalWidth * k), h = Math.round(img.naturalHeight * k)
+  const sx = garde[0] * img.naturalWidth, sy = garde[1] * img.naturalHeight, sl = garde[2] * img.naturalWidth, sh = garde[3] * img.naturalHeight
+  const k = cote / Math.max(sl, sh)
+  const l = Math.round(sl * k), h = Math.round(sh * k)
   const c = toile(l, h + 22), x = c.getContext('2d')
   x.imageSmoothingQuality = 'high'
   x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height)
-  x.drawImage(img, 0, 0, l, h)
+  x.drawImage(img, sx, sy, sl, sh, 0, 0, l, h)
   x.font = '13px sans-serif'
   for (let i = 1; i < 10; i++) {
     x.strokeStyle = i === 5 ? 'rgba(255,0,0,.9)' : 'rgba(255,255,0,.7)'
@@ -701,7 +726,7 @@ async function planches() {
   if (aFaire.length > 0) {
     await avecLaPage(async page => {
       for (const c of aFaire) {
-        const d = await dansLaPage<string>(page, 'vignette', dataUrl(path.join(CACHE, 'images', imageDuCache(c.qid)!)), 600, `${c.qid} ${c.titre} — ${c.peintre}`)
+        const d = await dansLaPage<string>(page, 'vignette', dataUrl(path.join(CACHE, 'images', imageDuCache(c.qid)!)), 600, `${c.qid} ${c.titre} — ${c.peintre}`, gardeDeLaMiniature(c.qid))
         writeFileSync(path.join(dossier, `${c.qid}.png`), deDataUrl(d))
       }
     })
@@ -732,7 +757,8 @@ async function decouper() {
   const livres = new Map<string, TableauDuDetail>(existsSync(FICHE_DES_DETAILS) ? (JSON.parse(readFileSync(FICHE_DES_DETAILS, 'utf8')) as TableauDuDetail[]).map(t => [t.qid, t]) : [])
   const garde = (c: Candidat) => {
     const t = livres.get(c.qid)
-    return !tout && t !== undefined && livre(c.qid) && JSON.stringify(t.cadrages) === JSON.stringify(cadragesDe(DETAILS[c.qid])) ? t : undefined
+    const memeDecoupe = t !== undefined && JSON.stringify(t.cadrages) === JSON.stringify(cadragesDe(DETAILS[c.qid])) && JSON.stringify(t.rognage ?? null) === JSON.stringify(ROGNAGES[c.qid] ?? null)
+    return !tout && memeDecoupe && livre(c.qid) ? t : undefined
   }
   const sansImage = candidats.filter(c => !garde(c) && !imageDuCache(c.qid))
   if (sansImage.length > 0) throw new Error(`${sansImage.map(c => c.qid).join(', ')} : pas de miniature dans le cache, lance telecharger`)
@@ -753,7 +779,7 @@ async function decouper() {
       const cadrages = cadragesDe(DETAILS[c.qid])
       for (const [i, r] of cadrages.entries()) {
         const nom = `${c.qid}-${i + 1}.webp`
-        writeFileSync(path.join(DOSSIER_DES_DETAILS, nom), deDataUrl(await dansLaPage<string>(page, 'cadrage', src, r, LARGEUR, HAUTEUR_MAX, POIDS_MAX)))
+        writeFileSync(path.join(DOSSIER_DES_DETAILS, nom), deDataUrl(await dansLaPage<string>(page, 'cadrage', src, surLaMiniature(c.qid, r), LARGEUR, HAUTEUR_MAX, POIDS_MAX)))
         voulus.add(nom)
       }
       fiche.push({
@@ -767,6 +793,8 @@ async function decouper() {
         page: `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(c.fichier)}`,
         statut: 'domaine public',
         cadrages,
+        // Ce qu'on a rogné de la miniature, pour qu'un découpage refait le sache : les cadrages se lisent sur l'image rognée.
+        ...(ROGNAGES[c.qid] && { rognage: ROGNAGES[c.qid] }),
         questions: c.questions,
       })
     }
