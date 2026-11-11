@@ -112,6 +112,48 @@ export const pts = (n: number) => `${formatNumber(n)} ${Math.abs(n) >= 2 ? 'pts'
 export const points = (n: number) => `${formatNumber(n)} ${Math.abs(n) >= 2 ? 'points' : 'point'}`
 
 /**
+ * Une suite de groupes de chiffres qu'une seule espace sépare — ordinaire,
+ * insécable ou fine : « 2 100 », « 1994 300 », « 06 12 34 56 78 ». La suite
+ * entière, toujours : elle commence à un chiffre que rien ne précède, et prend
+ * tout ce qui suit. Sans assertion arrière (`(?<!…)`) : avant sa version 16.4,
+ * Safari refuse le fichier entier pour une seule d'entre elles, et la page
+ * d'un vieil iPhone resterait noire.
+ */
+const SUITE_DE_CHIFFRES = /\d+(?:[ \u00a0\u202f]\d+)+/g
+
+/**
+ * Ce qui, d'une telle suite, est un nombre : un à trois chiffres sans zéro en
+ * tête, puis des groupes de trois, exactement. Une année peut le précéder
+ * (« En 1994 3 000 personnes ») ; elle reste à part, sur son espace.
+ */
+const NOMBRE_A_MILLIERS = /^(\d{4}[ \u00a0\u202f])?([1-9]\d{0,2}(?:[ \u00a0\u202f]\d{3})+)$/
+
+/**
+ * Les milliers d'un nombre écrit dans un texte, collés d'une espace fine
+ * insécable — celle de `formatNumber` : le même nombre ne s'écrit pas de deux
+ * largeurs selon qu'on l'a tapé ou calculé.
+ *
+ * Le contenu écrit ses nombres d'une espace ordinaire (« à plus de 2 100
+ * mètres », mille trois cents fois dans la base de la campagne), et la ligne
+ * se coupait entre le « 2 » et le « 100 » : l'Épingle du Cabinet en
+ * 360 × 640, le 11 novembre 2026.
+ *
+ * Une suite ne se colle que si elle s'écrit **tout entière** comme un nombre.
+ * Dans le doute, rien : « en 1994 300 personnes » collé se lirait comme un
+ * seul nombre, quand un vrai nombre laissé tel quel ne fait que se couper
+ * comme avant. Restent donc intacts « 1994 300 » (quatre chiffres devant),
+ * « 1 2 3 », un téléphone (« 06 12 34 56 78 », « 0 800 123 456 » : des groupes
+ * de deux, un zéro en tête), « Formule 1 1950 ». Ce que rien ne distingue d'un
+ * nombre se colle : « en 800 300 hommes », qu'une virgule aurait dû séparer.
+ */
+function milliersColles(texte: string): string {
+  return texte.replace(SUITE_DE_CHIFFRES, suite => {
+    const nombre = NOMBRE_A_MILLIERS.exec(suite)
+    return nombre ? `${nombre[1] ?? ''}${nombre[2].replace(/[ \u00a0\u202f]/g, MILLIERS)}` : suite
+  })
+}
+
+/**
  * Les espaces insécables de la typographie française, posées à l'affichage.
  *
  * Une espace ordinaire avant « ? » laissait le point d'interrogation seul en
@@ -121,11 +163,13 @@ export const points = (n: number) => `${formatNumber(n)} ${Math.abs(n) >= 2 ? 'p
  * en pose toujours à l'intérieur des guillemets français, qui n'existent que
  * dans un texte français. Le trait d'union de l'inversion (« a-t-il »,
  * « est-elle », « va-t-on ») ne se coupe plus : le mur lisait « Sam a- » en
- * fin de ligne et « t-il marché ? » sous lui. Idempotente : repasser un texte
- * déjà traité ne le change plus.
+ * fin de ligne et « t-il marché ? » sous lui. Un nombre écrit avec ses
+ * milliers (« 2 100 mètres ») ne se coupe plus entre ses groupes
+ * (`milliersColles`). Idempotente : repasser un texte déjà traité ne le change
+ * plus.
  */
 export function espacesFines(texte: string): string {
-  return texte
+  return milliersColles(texte)
     .replace(/[   ]+([?!;])/g, `${FINE}$1`)
     .replace(/[   ]+:/g, `${INSECABLE}:`)
     .replace(/«[   ]*/g, `«${FINE}`)

@@ -49,6 +49,29 @@ paths:
   sans rien changer — le trait d'union insécable U+2011 n'est ni dans
   Figtree ni dans Cormorant : il viendrait d'une autre police, ou en carré
   sous Windows 10.
+  Elle colle aussi les milliers d'un nombre **écrit dans un texte**
+  (`milliersColles`), d'une espace fine insécable, celle de `formatNumber` :
+  le contenu les écrit d'une espace ordinaire — mille trois cents fois dans
+  la base de la campagne —, et l'Épingle du Cabinet coupait « à plus de
+  2 100 mètres » entre le « 2 » et le « 100 » (le rendu en 360 × 640, le
+  11 novembre 2026). Une suite de chiffres ne se colle que si elle s'écrit
+  **tout entière** comme un nombre — un à trois chiffres sans zéro en tête,
+  puis des groupes de trois exactement —, une année devant lui restant à
+  part (« En 1994 3 000 personnes ») : « 1994 300 », « 1 2 3 », un téléphone
+  (« 06 12 34 56 78 », « 0 800 123 456 »), « Formule 1 1950 » ne bougent
+  pas. Dans le doute, rien : collé à tort, « 1994 300 » se lirait comme un
+  seul nombre. Ce que rien ne distingue d'un nombre se colle (« en 800 300
+  hommes ») : au texte de porter sa virgule. L'espace devant l'unité
+  (« 3 000 °C ») reste ordinaire. Sans assertion arrière (`(?<!…)`) :
+  Safari d'avant 16.4 refuse le fichier entier pour une seule, et ce
+  module est dans la page d'entrée. `typographie.test.ts` relit chaque texte
+  du contenu livré : une suite qui s'y couperait encore devant trois
+  chiffres se récrit sans équivoque. La coupe ne se voit qu'à la largeur
+  où le nombre tombe en bout de ligne — « 36 000 ans » de 326 à 350 px à
+  la grotte Chauvet, pas à 360 — :
+  `retours/2026-11-11/reproductions/nombre-coupe.ts` ouvre une vraie
+  Épingle sur un lieu à nombre et relève, de 320 à 430 px, ce qui se coupe
+  avant et après.
   `formatNumber` s'écrit sans `Intl` (règle `client.md`) et ne groupe les
   milliers qu'à cinq chiffres : « 1889 » reste une année. Un rang s'écrit
   au féminin (« 1ʳᵉ place »). `typographie.test.ts` compare `formatNumber`

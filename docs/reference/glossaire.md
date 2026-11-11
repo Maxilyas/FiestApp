@@ -197,7 +197,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Escale | Une étape d'un plan de l'expédition : une question, une élite, une source, un coffre, une échoppe, l'inconnu, un campement, le gardien | `EscaleDeLaCarte`, `SorteDEscale` |
 | Escale proposée | Une escale où l'on peut aller au pas suivant — reliée à la sienne, ou ouverte par un joker de route —, entourée sur l'acte en petit, et en carte au bas de l'écran : sa sorte, son nom, sa chance, ce qu'elle rapporte ; seule l'escale où l'on est brille | `VueDeLExpedition.permises`, `CarteDEscale`, `exp-a-portee` |
 | Espace | Tout ce qui appartient à un animateur — quiz, photos, soirée en cours, historique, réglages —, désigné par son adresse | `space_id` |
-| Espace fine | L'espace insécable étroite posée à l'affichage devant ? ! ; et à l'intérieur des guillemets « » | `shared/typographie.ts` |
+| Espace fine | L'espace insécable étroite posée à l'affichage devant ? ! ; à l'intérieur des guillemets « », et entre les milliers d'un nombre (« 2 100 »), calculé ou écrit dans un texte | `shared/typographie.ts` |
 | Espace par défaut | Celui de l'administrateur, où mènent les anciennes adresses ; il ne se supprime pas | `default_space` (`meta`) |
 | Essai | Ce qu'on a touché dans la loge sans l'enregistrer : la carte le montre, « Porter » l'enregistre d'un seul envoi, tout ou rien | `essayer` |
 | « Essayer » | Le bouton qui ouvre la loge avec un objet déjà sur la carte, sans rien enregistrer : sous « À porter » à la fin d'une partie, et dans la fiche d'un avatar ou d'un objet du style de « Ma collection » qu'on a sans le porter ; une adresse n'essaie que ce qui est à lui | `essaiDemande` (`shared/loge.ts`), `?essayer=finition:or#avatar` |
