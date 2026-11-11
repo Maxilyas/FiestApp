@@ -45,7 +45,6 @@ import {
 } from './cabinet-banc'
 import { tirerLePlan, themeDuPlan, type ContexteDuTirage } from '../src/core/cabinet/tirages/index'
 import { ENJEU_ORDINAIRE } from '../../shared/cabinet/partie'
-import { indicesDuLieu } from '../src/core/cabinet/tirages/epingle'
 import { uneFicheSouffleLAutre } from '../src/core/cabinet/tirages/indices'
 import { uneRepliqueSouffleLAutre } from '../src/core/cabinet/tirages/replique'
 import { contenuDuCabinet } from '../src/core/cabinet/contenu'
@@ -57,6 +56,7 @@ import { DANS_LA_FRANCE, distanceKm, type Point } from '../../shared/cabinet/fra
 import {
   DECALAGE_DE_LA_ZONE_KM,
   DUREES_DES_JEUX,
+  ETOILES_AUX_INDICES_DE_L_EPINGLE,
   ETOILES_DE_LA_REPLIQUE,
   GRACE_D_UNE_MANCHE_MS,
   INDICES_DES_ETOILES,
@@ -975,15 +975,14 @@ test('le tirage de l’Épingle : trois lieux d’un même thème, ses rechanges
     for (const t of plan) {
       assert.deepEqual(t.lieu, CONTENU.lieux.find(l => l.id === t.lieu.id), 'le lieu tel que le contenu livré le dit')
       assert.ok(t.decalage.km >= DECALAGE_DE_LA_ZONE_KM[0] && t.decalage.km <= DECALAGE_DE_LA_ZONE_KM[1])
-      // Ses deux indices, figés avec lui : sa piste, puis son repère (`cabinet-epingle-indices.test.ts`).
-      assert.deepEqual(t.indices, indicesDuLieu(t.lieu))
-      assert.deepEqual([t.indices?.length, t.indices?.[0]], [2, t.lieu.piste])
+      // Ses deux indices, figés avec lui, et leur barème (`cabinet-epingle-indices.test.ts`).
+      assert.deepEqual([t.lieu.indices?.length, t.etoilesAuxIndices], [2, ETOILES_AUX_INDICES_DE_L_EPINGLE])
     }
   }
   // Le décalage de sa zone et l'ordre des propositions de la Réplique viennent du hasard du tirage — celui du serveur, que le
   // magasin lui donne —, par la règle du jeu : le même hasard, le même tirage. Ses indices n'y tirent rien.
   const [e] = lEpingle({ hasard: toujours(0.25) })
-  assert.deepEqual(e, epingleTiree(e.lieu, toujours(0.25), indicesDuLieu(e.lieu)))
+  assert.deepEqual(e, epingleTiree(e.lieu, toujours(0.25)))
   const [r] = tirerLePlan('replique', surLeContenu({ hasard: toujours(0.25) }), 0) as RepliqueTiree[]
   assert.deepEqual(r, repliqueTiree(r.replique, toujours(0.25)))
 })

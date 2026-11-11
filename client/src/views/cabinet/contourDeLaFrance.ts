@@ -14,11 +14,7 @@
 // `cabinet-ecran-neufs.test.ts` les lit tels quels.
 
 import { DANS_LA_FRANCE, deprojeter, distanceKm, projeter, type Point } from '../../../../shared/cabinet/france'
-import { CONTOUR_DE_LA_CORSE, MILIEU_DE_LA_CORSE, PRES_D_UNE_VILLE_KM, VILLES_DE_LA_CARTE, ouEstCePoint } from '../../../../shared/cabinet/villesReperes'
-
-// Les villes, la Corse et la façon de dire un point vivent dans `shared/` depuis le 11 novembre 2026 : le serveur dit
-// le second indice d'un lieu dans les mots mêmes où la page dit l'épingle. Redits d'ici, pour qui les lisait ici.
-export { CONTOUR_DE_LA_CORSE, MILIEU_DE_LA_CORSE, PRES_D_UNE_VILLE_KM }
+import { formatNumber } from '../../../../shared/typographie'
 
 /** Un point d'un contour, comme la maquette l'écrit : la longitude, puis la latitude, en degrés. */
 export type PointDuContour = readonly [lon: number, lat: number]
@@ -34,6 +30,9 @@ export const CONTOUR_DE_LA_FRANCE: readonly PointDuContour[] = [
   [4.85, 50.15], [4.2, 49.98], [3.7, 50.3], [3.1, 50.8],
 ]
 
+/** La Corse, du cap Corse à Bonifacio, puis la côte ouest : la décision du propriétaire la veut sur la carte dès la V1. */
+export const CONTOUR_DE_LA_CORSE: readonly PointDuContour[] = [[9.35, 43.0], [9.55, 42.6], [9.4, 41.4], [8.8, 41.5], [8.6, 42.0], [8.7, 42.6]]
+
 /**
  * Une ville repère : où l'œil se pose pour situer un lieu. Son nom se pose à
  * droite de son point, ou dessous — Strasbourg, collé à droite, sortait du
@@ -45,8 +44,18 @@ export interface VilleRepere extends Point {
   nomA: 'droite' | 'dessous'
 }
 
-const NOMS_DESSOUS: readonly string[] = ['Marseille', 'Strasbourg']
-export const VILLES_REPERES: readonly VilleRepere[] = VILLES_DE_LA_CARTE.map(v => ({ ...v, nomA: NOMS_DESSOUS.includes(v.nom) ? 'dessous' : 'droite' }))
+export const VILLES_REPERES: readonly VilleRepere[] = [
+  { nom: 'Paris', lon: 2.35, lat: 48.86, nomA: 'droite' },
+  { nom: 'Lyon', lon: 4.84, lat: 45.76, nomA: 'droite' },
+  { nom: 'Marseille', lon: 5.37, lat: 43.3, nomA: 'dessous' },
+  { nom: 'Bordeaux', lon: -0.58, lat: 44.84, nomA: 'droite' },
+  { nom: 'Lille', lon: 3.06, lat: 50.63, nomA: 'droite' },
+  { nom: 'Nantes', lon: -1.55, lat: 47.22, nomA: 'droite' },
+  { nom: 'Strasbourg', lon: 7.75, lat: 48.58, nomA: 'dessous' },
+]
+
+/** Le milieu de la Corse, dans son contour : d'où « Partir de… » y pose l'épingle, et d'où se dit une épingle dans l'île. */
+export const MILIEU_DE_LA_CORSE: Point = { lat: 42.15, lon: 9.1 }
 
 /**
  * D'où « Partir de… » pose l'épingle, du nord au sud : chaque ville repère, sur son point dessiné, et la Corse, en son milieu —
@@ -153,6 +162,59 @@ export function deplacer(p: Point, fleche: Fleche, grand = false): Point {
  */
 export const KM_D_UN_PAS = Math.round(distanceKm(MILIEU_DE_LA_FRANCE, deplacer(MILIEU_DE_LA_FRANCE, 'ArrowUp')))
 
+/** Assez près d'une ville repère pour se dire « près de » elle : à cette distance, une épingle ne se distingue plus de son point. */
+export const PRES_D_UNE_VILLE_KM = 25
+
+/** Les huit directions, du nord dans le sens des aiguilles d'une montre, et la façon de les dire devant « de Lyon ». */
+const DIRECTIONS = ['au nord', 'au nord-est', 'à l’est', 'au sud-est', 'au sud', 'au sud-ouest', 'à l’ouest', 'au nord-ouest'] as const
+
+/** La direction où l'on va de `a` vers `b`, en degrés (le nord à 0, l'est à 90) : le cap initial d'un grand cercle. */
+function capDe(a: Point, b: Point): number {
+  const r = Math.PI / 180
+  const y = Math.sin((b.lon - a.lon) * r) * Math.cos(b.lat * r)
+  const x = Math.cos(a.lat * r) * Math.sin(b.lat * r) - Math.sin(a.lat * r) * Math.cos(b.lat * r) * Math.cos((b.lon - a.lon) * r)
+  return ((Math.atan2(y, x) / r) % 360 + 360) % 360
+}
+
+/** Une distance et sa direction, de `a` vers `p` : « 120 km au sud-ouest », à dix kilomètres près, jamais moins de dix. */
+function distanceEtDirection(a: Point, p: Point, km: number): string {
+  return `${formatNumber(Math.max(10, Math.round(km / 10) * 10))} km ${DIRECTIONS[Math.round(capDe(a, p) / 45) % DIRECTIONS.length]}`
+}
+
+/** Un degré de latitude, en kilomètres — et un degré de longitude au milieu de la Corse. */
+const KM_PAR_DEGRE = distanceKm({ lat: 0, lon: 0 }, { lat: 1, lon: 0 })
+const KM_PAR_DEGRE_EN_CORSE = KM_PAR_DEGRE * Math.cos((MILIEU_DE_LA_CORSE.lat * Math.PI) / 180)
+
+/** Un point en kilomètres, sur un plan posé au milieu de la Corse : à l'échelle d'une île de 180 km, la Terre y est plate. */
+const surLePlanDeLaCorse = (p: Point) => ({ x: (p.lon - MILIEU_DE_LA_CORSE.lon) * KM_PAR_DEGRE_EN_CORSE, y: (p.lat - MILIEU_DE_LA_CORSE.lat) * KM_PAR_DEGRE })
+
+/** Les côtés du contour dessiné de la Corse, sur son plan. */
+const COTES_DE_LA_CORSE = CONTOUR_DE_LA_CORSE.map(([lon, lat], i) => {
+  const [lon2, lat2] = CONTOUR_DE_LA_CORSE[(i + 1) % CONTOUR_DE_LA_CORSE.length]
+  return [surLePlanDeLaCorse({ lat, lon }), surLePlanDeLaCorse({ lat: lat2, lon: lon2 })] as const
+})
+
+/**
+ * Où est l'épingle par rapport à la Corse dessinée : dedans, ou le point de sa côte le plus proche — la côte du dessin, celle que
+ * l'œil voit : une épingle posée juste hors du trait se dit « près de la Corse », comme elle se voit.
+ */
+function laCorseVue(p: Point): { dedans: true } | { dedans: false; cote: Point } {
+  const q = surLePlanDeLaCorse(p)
+  let dedans = false
+  let plusPres = { d: Infinity, x: 0, y: 0 }
+  for (const [a, b] of COTES_DE_LA_CORSE) {
+    // Le rayon vers l'est croise-t-il ce côté ? Un nombre impair de fois : dedans.
+    if (a.y > q.y !== b.y > q.y && q.x < a.x + ((q.y - a.y) * (b.x - a.x)) / (b.y - a.y)) dedans = !dedans
+    const l2 = (b.x - a.x) ** 2 + (b.y - a.y) ** 2
+    const t = Math.max(0, Math.min(1, ((q.x - a.x) * (b.x - a.x) + (q.y - a.y) * (b.y - a.y)) / l2))
+    const x = a.x + t * (b.x - a.x)
+    const y = a.y + t * (b.y - a.y)
+    const d = (q.x - x) ** 2 + (q.y - y) ** 2
+    if (d < plusPres.d) plusPres = { d, x, y }
+  }
+  return dedans ? { dedans } : { dedans, cote: { lat: MILIEU_DE_LA_CORSE.lat + plusPres.y / KM_PAR_DEGRE, lon: MILIEU_DE_LA_CORSE.lon + plusPres.x / KM_PAR_DEGRE_EN_CORSE } }
+}
+
 /**
  * Où est l'épingle, en mots : par la ville repère la plus proche — « Près de
  * Lyon », sinon sa distance à dix kilomètres près et sa direction (« À 120 km
@@ -164,8 +226,18 @@ export const KM_D_UN_PAS = Math.round(distanceKm(MILIEU_DE_LA_FRANCE, deplacer(M
  * l'est de Marseille », et chaque pas autour de l'île aussi (la relecture du
  * lot, le 26 octobre 2026). Le lecteur d'écran le dit à chaque pas de flèche,
  * et l'écran l'écrit au-dessus de la carte : sous le doigt qui la plante,
- * l'épingle ne se voit pas. La règle est celle de `shared/cabinet/villesReperes.ts`
- * (`ouEstCePoint`), que le serveur lit aussi : le second indice d'un lieu se dit
- * dans ces mots-là, et l'épingle se mène dessus.
+ * l'épingle ne se voit pas. La distance passe par `formatNumber`, jamais par
+ * `Intl` (règle `client.md`).
  */
-export const ouEstLEpingle = (p: Point): string => ouEstCePoint(p)
+export function ouEstLEpingle(p: Point): string {
+  const corse = laCorseVue(p)
+  if (corse.dedans) {
+    const km = distanceKm(MILIEU_DE_LA_CORSE, p)
+    return km < PRES_D_UNE_VILLE_KM ? 'Au milieu de la Corse' : `En Corse, à ${distanceEtDirection(MILIEU_DE_LA_CORSE, p, km)} de son milieu`
+  }
+  const [proche] = VILLES_REPERES.map(v => ({ v, km: distanceKm(v, p) })).sort((a, b) => a.km - b.km)
+  const aLaCorse = distanceKm(corse.cote, p)
+  if (aLaCorse < proche.km) return aLaCorse < PRES_D_UNE_VILLE_KM ? 'Près de la Corse' : `À ${distanceEtDirection(corse.cote, p, aLaCorse)} de la Corse`
+  if (proche.km < PRES_D_UNE_VILLE_KM) return `Près de ${proche.v.nom}`
+  return `À ${distanceEtDirection(proche.v, p, proche.km)} de ${proche.v.nom}`
+}

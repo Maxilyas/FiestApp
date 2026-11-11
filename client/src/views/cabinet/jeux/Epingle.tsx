@@ -57,11 +57,13 @@ import { pasRetenus, retenirLesPas } from '../retenu'
 // serveur — la page n'en sait aucun d'avance (invariant 1). Demandé, il se
 // colle sous la question (`IndiceColle`) : c'est tout ce qu'on lit en visant,
 // en 360 × 640 — le bouton d'abord posé à droite de la consigne y passait sous
-// la question collée, invisible (le rendu du 11 novembre 2026). Le second, le
-// repère, prend la place du premier et se dit dans les mots mêmes de l'épingle
-// (« À 260 km au sud-est de Paris. ») : la question les tient alors l'un sous
-// l'autre, et il n'y a plus qu'à mener l'épingle dessus. La question grandit
-// au toucher du bouton, jamais sous le doigt qui vise ; la carte se resserre
+// la question collée, invisible (le rendu du 11 novembre 2026). Ce sont des
+// faits à déduire, écrits avec le lieu, jamais une adresse : le second, d'abord
+// calculé (« À 170 km à l'ouest de Paris. »), se lisait sous la place de
+// l'épingle dite dans les mêmes mots, et il ne restait qu'à mener l'une sur
+// l'autre — « il n'y a plus aucune réflexion » (le propriétaire, le même jour).
+// Le second prend la place du premier, et se suffit. La question grandit au
+// toucher du bouton, jamais sous le doigt qui vise ; la carte se resserre
 // d'autant. La révélation redit ceux qu'il a demandés.
 
 /** Ce que la page tient d'une manche de l'Épingle : l'épingle posée, pas encore plantée, et ses boutons de direction. */
@@ -140,18 +142,10 @@ export function tourDeLaZone(z: ZoneDEclairer): Point[] {
  *
  * Ses indices ne s'y disent pas : en 360 × 640, la carte amenée à l'écran, la
  * consigne passe sous la question collée — ils se collent sous la question
- * (`IndiceColle`). Le repère demandé, la place de l'épingle y est déjà, sous
- * lui : ici, ce qu'il reste à faire.
+ * (`IndiceColle`).
  */
 function Consigne({ m, local }: { m: EpingleMontree; local: LocalDeLEpingle }) {
   const epingle = local.epingle
-  if (repereDe(m) !== undefined) {
-    return (
-      <p className="cab-ligne cab-consigne-carte" aria-live="polite">
-        {espacesFines(epingle ? 'Mène ton épingle là où les deux lignes disent la même chose.' : 'Touche la carte : ton épingle se dira comme l’indice, mène-la jusqu’à lui.')}
-      </p>
-    )
-  }
   if (epingle && (!m.zone || local.zoneConnue)) {
     return (
       <p className="cab-ligne cab-consigne-carte cab-ou-est" aria-live="polite">
@@ -177,46 +171,25 @@ function Consigne({ m, local }: { m: EpingleMontree; local: LocalDeLEpingle }) {
 }
 
 /**
- * Le repère du lieu, son dernier indice, une fois tous demandés : il se dit dans les mots de l'épingle, et c'est à lui
- * qu'on la mène. Une manche d'avant les indices, ou une vue gardée d'avant eux, n'en porte pas.
- */
-function repereDe(m: EpingleMontree): string | undefined {
-  const indices = m.indices ?? []
-  return indices.length > 1 && !m.aDemander ? indices[indices.length - 1] : undefined
-}
-
-/**
  * Le dernier indice demandé, collé sous la question — dans son titre même, qui se colle sous la tête : la carte amenée à
  * l'écran, c'est tout ce qui se lit au-dessus d'elle en 360 × 640 (le récit a défilé, la consigne est sous la question).
- * Le dernier seul, le repère à la place de la piste : l'un sous l'autre, avec la place de l'épingle, ils prenaient quatre
- * lignes, et sous une question de trois la carte tombait à 160 pixels de large — et redits dans le récit, ils se lisaient
- * deux fois sur un grand téléphone, où le récit reste en vue (les rendus du 11 novembre 2026). Le repère demandé, la place
- * de l'épingle se dit sous lui, dans les mêmes mots : il n'y a plus qu'à mener l'une sur l'autre. La question grandit de
- * deux lignes, la carte se resserre d'autant (`bande.ts`), au toucher du bouton — jamais sous le doigt qui vise.
+ * Le dernier seul, le second à la place du premier — écrit pour se suffire : l'un sous l'autre, ils prenaient six lignes,
+ * et sous une question de trois la carte tombait sous 160 pixels de large — et redits dans le récit, ils se lisaient deux
+ * fois sur un grand téléphone, où le récit reste en vue (les rendus du 11 novembre 2026). La question grandit de trois
+ * lignes au plus (`INDICE_DE_L_EPINGLE_MAX`), la carte se resserre d'autant (`bande.ts`), au toucher du bouton — jamais
+ * sous le doigt qui vise.
  */
-function IndiceColle({ m, local }: { m: EpingleMontree; local: LocalDeLEpingle }) {
+function IndiceColle({ m }: { m: EpingleMontree }) {
   const indices = m.indices ?? []
   const dernier = indices[indices.length - 1]
   if (dernier === undefined) return null
-  const repere = repereDe(m)
   return (
     <span className="cab-indice-colle" aria-live="polite">
-      <span className="cab-indice-ligne">
-        <Icon name="bulb" />
-        <span>
-          <span className="sr-only">{repere ? 'Le lieu : ' : 'Indice : '}</span>
-          {espacesFines(dernier)}
-        </span>
+      <Icon name="bulb" />
+      <span>
+        <span className="sr-only">Indice : </span>
+        {espacesFines(dernier)}
       </span>
-      {repere && local.epingle && (
-        <span className="cab-indice-ligne cab-indice-epingle">
-          <IconeDeLEpingle />
-          <span>
-            <span className="sr-only">Ton épingle : </span>
-            {espacesFines(ouEstLEpingle(local.epingle))}
-          </span>
-        </span>
-      )}
     </span>
   )
 }
@@ -254,7 +227,7 @@ function MancheDeLEpingle({ montree: m, local, setLocal, envoyer, gardeDeLEcran,
       <p className="cab-ligne cab-recit">{espacesFines(m.recit)}</p>
       <h2 className={'quiz-question cab-question' + questionSizeClass(m.question)}>
         {espacesFines(m.question)}
-        <IndiceColle m={m} local={local} />
+        <IndiceColle m={m} />
       </h2>
       <Consigne m={m} local={local} />
       <CarteDeFrance nom="La carte de France" jouable={{ epingle: local.epingle, poser, planter, aide }}>
@@ -442,7 +415,7 @@ function RevelationDeLEpingle({ corps: r }: { corps: EpingleRevelee }) {
           <p className="cab-ligne">
             <EnEtoiles texte={espacesFines(avecIndices)} />
           </p>
-          {/* Le texte qui s'est déroulé : en jouant, le repère avait pris la place de la piste. */}
+          {/* Le texte qui s'est déroulé : en jouant, le second indice avait pris la place du premier. */}
           <ul>
             {(r.indices ?? []).map((indice, i) => (
               <li key={i} className="cab-ligne">

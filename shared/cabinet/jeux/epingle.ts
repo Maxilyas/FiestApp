@@ -20,17 +20,21 @@
 //
 // Les indices (le 11 novembre 2026 — « c'est parfois des choses qu'on n'arrive
 // pas à savoir », et l'idée du propriétaire : un texte qui se déroule, de plus
-// en plus précis, pendant que les étoiles baissent). Deux par lieu, qu'il
-// demande quand il veut, comme un pas en arrière au Détail : sa piste, écrite —
-// le coin de France —, puis son repère, calculé au tirage — sa place dite par
-// une ville de la carte, dans les mots mêmes où la page dit celle de l'épingle
-// (`villesReperes.ts`). Chacun retire une étoile de ce que la manche met en jeu
-// (`ETOILES_AUX_INDICES_DE_L_EPINGLE`) ; la distance décide sous ce plafond. Ils
-// se figent dans le tirage (`EpingleTiree.indices`) : un tirage d'avant n'en a
-// pas, et sa manche se rejoue telle qu'elle s'est jouée — aucune version du
-// départ. Demandés, pas minutés : un indice qui tomberait de lui-même prendrait
-// une étoile à qui vise encore, et un plafond qui baisse avec le temps voudrait
-// un chrono par indice, que le serveur seul peut tenir.
+// en plus précis, pendant que les étoiles baissent). Deux par lieu, écrits avec
+// lui (`Lieu.indices`), qu'il demande quand il veut, comme un pas en arrière au
+// Détail : des faits de l'endroit, à déduire — ce qui s'y est passé, ce qu'on y
+// trouve d'autre, qui en vient —, le premier pour qui réfléchit, le second pour
+// presque tous. Jamais une adresse : la première version disait le coin de
+// France, puis calculait la place du lieu depuis une ville de la carte (« À
+// 170 km à l'ouest de Paris. »), et « il n'y a plus aucune réflexion » (le
+// propriétaire, le même jour). Chacun retire une étoile de ce que la manche met
+// en jeu (`ETOILES_AUX_INDICES_DE_L_EPINGLE`) ; la distance décide sous ce
+// plafond. Ils se figent dans le tirage avec le lieu, et leur barème avec eux
+// (`etoilesAuxIndices`) : un tirage d'avant n'en a pas, et sa manche se rejoue
+// telle qu'elle s'est jouée — aucune version du départ. Demandés, pas minutés :
+// un indice qui tomberait de lui-même prendrait une étoile à qui vise encore, et
+// un plafond qui baisse avec le temps voudrait un chrono par indice, que le
+// serveur seul peut tenir.
 
 import { DECALAGE_DE_LA_ZONE_KM, DUREES_DES_JEUX, ETOILES_AUX_INDICES_DE_L_EPINGLE, KM_DE_L_EPINGLE, RAYON_D_ECLAIRER_KM } from '../bareme'
 import type { Lieu } from '../contenu'
@@ -61,13 +65,10 @@ export interface EpingleTiree {
   /** Avec le centre de la zone, que la page reçoit, il redonnerait le lieu : il ne part jamais. */
   decalage: DecalageDeLaZone
   /**
-   * Ses indices, du plus large au plus précis, figés au tirage : la piste du lieu, puis son repère. Absents d'un tirage
-   * d'avant le 11 novembre 2026, ou d'un lieu sans piste : la manche se joue sans, comme avant.
-   */
-  indices?: readonly string[]
-  /**
-   * Ce que la manche met en jeu sans indice, puis après chacun (`ETOILES_AUX_INDICES_DE_L_EPINGLE`), figé avec eux :
-   * une partie jouée se relit à son barème — son cartel, « Mes réponses » —, quel que soit celui du jour.
+   * Ce que la manche met en jeu sans indice, puis après chacun (`ETOILES_AUX_INDICES_DE_L_EPINGLE`), figé avec les
+   * indices du lieu (`lieu.indices`) : une partie jouée se relit à son barème — son cartel, « Mes réponses » —, quel
+   * que soit celui du jour. Absent d'un tirage d'avant le 11 novembre 2026, dont le lieu n'a pas d'indice : la manche
+   * se joue sans, comme avant.
    */
   etoilesAuxIndices?: readonly number[]
 }
@@ -119,8 +120,15 @@ export interface EpingleRevelee {
   savais: string
 }
 
-/** Les indices qu'un tirage porte : aucun pour un tirage d'avant eux. */
-const indicesDe = (t: EpingleTiree): readonly string[] => t.indices ?? []
+/**
+ * Les indices qu'un lieu porte, et que son juge exige (`refusDuLieu`) : ce que la manche a d'étoiles à leur céder sans
+ * tomber à zéro. Tiré du barème ici, pas dans `bareme.ts` : le calibrage, qui essaie un barème avant de charger les
+ * règles, ne suivrait pas une constante que le barème tirerait de lui-même (`cabinet-calibrage.test.ts`).
+ */
+export const INDICES_D_UN_LIEU = ETOILES_AUX_INDICES_DE_L_EPINGLE.length - 1
+
+/** Les indices qu'un tirage porte, ceux de son lieu : aucun pour un tirage d'avant eux. */
+const indicesDe = (t: EpingleTiree): readonly string[] => t.lieu.indices ?? []
 /** Ceux qu'il a demandés, bornés à ceux du tirage. */
 const demandes = (t: EpingleTiree, e: EtatDeLEpingle): string[] => indicesDe(t).slice(0, e.indices ?? 0)
 
@@ -186,19 +194,18 @@ export function pointADistance(depart: Point, km: number, capDegres: number): Po
  * jamais. `hasard` est celui du tireur, que la page ne peut pas refaire —
  * jamais celui de la graine de la partie : qui la saurait referait le
  * décalage, et du centre de la zone remonterait au lieu. Elle est un secret du
- * serveur ; figé ici, le décalage ne tient même pas à ce secret. Ses indices,
- * le tireur les donne — la piste du lieu, puis le repère qu'il calcule
- * (`indicesDuLieu`, `core/cabinet/tirages/epingle.ts`) — : sans eux, rien ne
- * change au hasard tiré, et un plan d'essai garde le sien.
+ * serveur ; figé ici, le décalage ne tient même pas à ce secret. Ses indices
+ * voyagent avec le lieu ; s'il en a, le barème du jour se fige avec eux — ils
+ * ne changent rien au hasard tiré.
  */
-export function epingleTiree(lieu: Lieu, hasard: () => number, indices?: readonly string[]): EpingleTiree {
+export function epingleTiree(lieu: Lieu, hasard: () => number): EpingleTiree {
   const cap = hasard() * 360
   const [pres, loin] = DECALAGE_DE_LA_ZONE_KM
   return {
     jeu: 'epingle',
     lieu,
     decalage: { cap, km: pres + hasard() * (loin - pres), rayonKm: RAYON_D_ECLAIRER_KM },
-    ...(indices && indices.length > 0 && { indices: [...indices], etoilesAuxIndices: [...ETOILES_AUX_INDICES_DE_L_EPINGLE] }),
+    ...(lieu.indices && lieu.indices.length > 0 && { etoilesAuxIndices: [...ETOILES_AUX_INDICES_DE_L_EPINGLE] }),
   }
 }
 

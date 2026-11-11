@@ -140,11 +140,52 @@ relu une dernière fois à la main.
   (une douzaine de dates, autant de directions, cinq coordonnées corrigées),
   puis recoupés par le calcul : commune, département et coordonnées contre
   Wikidata — 79 sur 81 confirmés d'office, les deux autres à la main, et les 90
-  anciens de même —, et chaque piste qui dit une direction ou une distance
-  depuis une ville de la carte, contre les coordonnées du lieu.
-- **Une piste pour chacun des 171 lieux**, le premier indice de la manche ;
-  vingt des quatre-vingt-dix premières réécrites à la relecture (« à mi-chemin
-  entre Paris et Lyon » pour Bourges, qui est plein sud de Paris).
+  anciens de même.
+
+## Les indices de l'Épingle, écrits deux fois
+
+La première version, le matin : pour chaque lieu une « piste » qui disait le
+coin de France (« En Normandie, sur la côte de la Manche, à deux heures de
+Paris. »), puis un second indice calculé de ses coordonnées (« À 170 km à
+l'ouest de Paris. »). Le propriétaire, en la voyant : « Pour moi les indices
+doivent être beaucoup plus subtils, et soit relater un fait où se situe le
+point, ou alors même son histoire. Par exemple, c'est ici que la tour Eiffel
+se trouve — en bien plus élaboré et pas trop direct bien sûr. Mais je trouve
+dommage d'avoir des "à 100 km de Paris", y a plus aucune réflexion. »
+
+La seconde, l'après-midi : **deux faits à déduire par lieu, 342 en tout**, et
+plus rien de calculé.
+
+- **Sept rédacteurs** (27 lieux chacun au plus), sur une consigne : l'indice 1
+  fait déduire sans nommer ni région, ni massif, ni mer ; l'indice 2 suffit à
+  un Français moyen pour viser à 150 km près, et se suffit à lui-même. Ils ont
+  tous écrit de mémoire, sans une recherche, et l'ont dit.
+- **Sept relecteurs**, qui n'avaient rien écrit, sur trois épreuves : est-ce
+  vrai, cela aide-t-il à poser l'épingle, est-ce au bon niveau. **118 indices
+  réécrits ou retouchés sur 342, dans 87 lieux**, et près de cinquante faits
+  vérifiés par une recherche (les comptes par épreuve sont ceux de leurs
+  rapports).
+  - *N'aide pas à poser l'épingle* (une cinquantaine) — le défaut que les
+    rédacteurs ne voient pas : un fait vrai sur la ville, qui ne dit rien de
+    sa place à qui connaît déjà son nom. « En 843, un traité y partage
+    l'empire de Charlemagne » pour Verdun ; « une petite chouette de pierre y
+    porte bonheur » pour Dijon ; « Renoir y est né » pour Limoges.
+  - *Faux, approximatif ou invérifiable* (près de trente) : Mouton rangé parmi les premiers
+    crus de 1855 (il ne l'est que depuis 1973) ; Drouet reconnaissant le roi
+    « à Valmy » (à Sainte-Menehould) ; « Pêcheur d'Islande » sur la mauvaise
+    côte ; un « voisin » à cinquante kilomètres.
+  - *Pas au bon niveau, ou ne se suffit pas* (une vingtaine) : un second
+    indice qui dit « ce même duc », « cette cathédrale », quand il remplace le
+    premier à l'écran ; une ville de la carte prise pour repère.
+- **Une dernière relecture à la main**, les 342 un à un : seize lieux
+  retouchés — une redite du récit (la villa de l'impératrice, à Biarritz), un
+  fait qui datera (la résidence d'un président), un indice trop obscur (les
+  neuf prêtresses de l'île de Sein, remplacées par le phare d'Ar-Men).
+
+Ce qui reste fragile : la plupart des faits tiennent à la mémoire de deux
+agents et à ma relecture, une cinquantaine seulement à une recherche. Aucun
+n'envoie loin s'il est faux — ils disent un fait, plus une direction —, mais
+un fait faux reste une faute devant un joueur.
 
 ## Ce qui reste
 

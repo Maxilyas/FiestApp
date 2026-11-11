@@ -453,42 +453,43 @@ test('une manche de l’Épingle : la date, le thème, le récit, la question, l
   sansJargon(html, 'une manche de l’Épingle', [m.recit, m.question, m.theme])
 })
 
-test('les indices de l’Épingle à l’écran : le bouton au pied, le dernier indice collé sous la question, le repère au-dessus de la place de l’épingle — jamais le lieu', async () => {
+test('les indices de l’Épingle à l’écran : le bouton au pied, le dernier indice collé sous la question, seul — jamais le lieu, jamais une adresse', async () => {
   // En 360 × 640, la carte amenée à l'écran, la consigne passe sous la question collée : posés à côté d'elle, le bouton et
   // l'indice n'y étaient plus (le rendu du 11 novembre 2026). Le bouton est au pied, l'indice dans le titre de la question.
   const v = vues.epingle
   const m = v.enCours as EpingleMontree
   const lieu = epingleDe(b, v.id, v.tirage!).lieu
-  const [piste, repere] = epingleDe(b, v.id, v.tirage!).indices!
+  const [premier, second] = lieu.indices!
   assert.deepEqual([m.indices, m.aDemander, m.enJeu], [[], 2, 3])
   const lyon = { lat: 45.76, lon: 4.84 }
   const sousLaQuestion = (html: string) => texte(/<h2 class="quiz-question cab-question[^"]*">(.*?)<\/h2>/.exec(html)![1]).trim()
   const question = texte(m.question.replace(/'/g, '’')).trim()
   const boutons = (html: string) => [...piedDe(html).matchAll(/<button type="button" class="btn( btn-primary btn-big)? cab-([a-z-]+)"/g)].map(x => x[2])
 
-  // Un indice demandé : la piste sous la question, l'épingle encore dite au-dessus de la carte, le bouton pour le suivant.
-  const avecUn = { ...v, enCours: { ...m, indices: [piste], enJeu: 2, aDemander: 1 } }
+  // Un indice demandé : il se colle sous la question, l'épingle se dit toujours au-dessus de la carte, le bouton pour le suivant.
+  const avecUn = { ...v, enCours: { ...m, indices: [premier], enJeu: 2, aDemander: 1 } }
   const un = await laPartie(avecUn, { local: { epingle: lyon } })
-  assert.equal(sousLaQuestion(un), `${question} Indice : ${telQuIlSeLit(piste).trim()}`)
-  assert.match(un, /<span class="cab-indice-colle" aria-live="polite"><span class="cab-indice-ligne">/)
-  assert.equal(texte(/<p class="cab-ligne cab-consigne-carte cab-ou-est" aria-live="polite">(.*?)<\/p>/.exec(un)![1]).trim(), 'Ton épingle : Près de Lyon')
+  assert.equal(sousLaQuestion(un), `${question} Indice : ${telQuIlSeLit(premier).trim()}`)
+  assert.match(un, /<span class="cab-indice-colle" aria-live="polite"><svg /)
+  const ouEstLEpingle = (html: string) => texte(/<p class="cab-ligne cab-consigne-carte cab-ou-est" aria-live="polite">(.*?)<\/p>/.exec(html)![1]).trim()
+  assert.equal(ouEstLEpingle(un), 'Ton épingle : Près de Lyon')
   assert.deepEqual(boutons(un), ['pas-a-pas', 'demander-un-indice', 'planter'])
   assert.match(piedDe(un), new RegExp(`class="btn cab-demander-un-indice" aria-label="${echapper(motsDesIndicesDeLEpingle(1).nom)}"`))
-  assert.ok(!texte(un).includes(telQuIlSeLit(repere).trim()), 'le second indice ne se lit nulle part avant sa demande')
+  assert.ok(!texte(un).includes(telQuIlSeLit(second).trim()), 'le second indice ne se lit nulle part avant sa demande')
 
-  // Les deux : le repère à la place de la piste, et sous lui la place de l'épingle, dans les mêmes mots ; plus de bouton ; la
-  // consigne dit ce qu'il reste à faire. Deux lignes sous la question, jamais plus : la carte garde sa place.
-  const avecDeux = { ...v, enCours: { ...m, indices: [piste, repere], enJeu: 1, aDemander: 0 } }
+  // Les deux : le second à la place du premier, seul — l'un sous l'autre, la carte n'avait plus sa place — ; plus de bouton.
+  // Et rien d'autre sous la question : la première version y disait la place de l'épingle dans les mots d'un indice
+  // calculé (« À 170 km à l'ouest de Paris. »), et il ne restait qu'à mener l'une sur l'autre — « il n'y a plus aucune
+  // réflexion » (le propriétaire, le 11 novembre 2026). La consigne garde son rôle d'avant : où est l'épingle.
+  const avecDeux = { ...v, enCours: { ...m, indices: [premier, second], enJeu: 1, aDemander: 0 } }
   const deux = await laPartie(avecDeux, { local: { epingle: lyon } })
-  assert.equal(sousLaQuestion(deux), `${question} Le lieu : ${telQuIlSeLit(repere).trim()} Ton épingle : Près de Lyon`)
-  assert.equal([...deux.matchAll(/class="cab-indice-ligne/g)].length, 2)
-  assert.ok(!sousLaQuestion(deux).includes(telQuIlSeLit(piste).trim()), 'la piste a laissé sa place au repère')
+  assert.equal(sousLaQuestion(deux), `${question} Indice : ${telQuIlSeLit(second).trim()}`)
+  assert.ok(!sousLaQuestion(deux).includes(telQuIlSeLit(premier).trim()), 'le premier a laissé sa place au second')
   assert.deepEqual(boutons(deux), ['pas-a-pas', 'planter'], 'plus d’indice à demander : plus de bouton')
-  assert.match(deux, /<p class="cab-ligne cab-consigne-carte" aria-live="polite">Mène ton épingle là où les deux lignes disent la même chose\.<\/p>/)
-  // Sans épingle encore, le repère seul, et la consigne dit comment s'en servir.
+  assert.equal(ouEstLEpingle(deux), 'Ton épingle : Près de Lyon')
   const sansEpingle = await laPartie(avecDeux)
-  assert.equal(sousLaQuestion(sansEpingle), `${question} Le lieu : ${telQuIlSeLit(repere).trim()}`)
-  assert.match(texte(sansEpingle), /Touche la carte : ton épingle se dira comme l’indice, mène-la jusqu’à lui\./)
+  assert.equal(sousLaQuestion(sansEpingle), `${question} Indice : ${telQuIlSeLit(second).trim()}`)
+  assert.match(texte(sansEpingle), /Touche la carte de France pour planter ton épingle\./)
 
   // Jamais le lieu, indices compris (invariant 1) : ni sa commune, ni son département, ni ses coordonnées.
   for (const html of [un, deux, sansEpingle]) assert.deepEqual(await ceQuiDitLeLieu(html, lieu), [], 'les indices ne disent rien du lieu')
@@ -505,8 +506,8 @@ test('les indices de l’Épingle à l’écran : le bouton au pied, le dernier 
   const corps = vues.epingleSurLeLieu.revelation!.corps as EpingleRevelee
   const revelee = (indices: string[]) => texte(renderToStaticMarkup(React.createElement(EPINGLE.Revelation as React.FC<Record<string, unknown>>, { corps: { ...corps, indices }, partie: v.id })))
   // Les étoiles en glyphes pour l'œil, en mots pour l'oreille (`EnEtoiles`).
-  assert.match(revelee([piste, repere]), new RegExp(`Avec deux indices : ★ 1 étoile au plus\\. ${lu(piste)} ${lu(repere)}`))
-  assert.match(revelee([piste]), /Avec un indice : ★★ 2 étoiles au plus\./)
+  assert.match(revelee([premier, second]), new RegExp(`Avec deux indices : ★ 1 étoile au plus\\. ${lu(premier)} ${lu(second)}`))
+  assert.match(revelee([premier]), /Avec un indice : ★★ 2 étoiles au plus\./)
   assert.doesNotMatch(revelee([]), /indice/i, 'sans indice, la révélation n’en dit rien')
 })
 

@@ -12481,18 +12481,17 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-consigne-carte.cab-ou-est { display: flex; align-items: center; justify-content: flex-start; gap: 8px; font-weight: 700; }
 /* Les indices de l'Épingle (le 11 novembre 2026). Le dernier demandé se colle sous la question, dans son titre, de l'encre de
    l'accent. La carte amenée à l'écran, le récit a défilé et la consigne passe sous la question collée — en 360 × 640, c'est
-   tout ce qui se lit en visant. Sa taille et sa police sont celles d'une ligne, pas celles du titre qui le porte. Le repère
-   demandé, la place de l'épingle se lit sous lui, dans les mêmes mots : deux lignes, jamais plus — tous l'un sous l'autre,
-   la carte tombait à 160 pixels de large sous une question de trois lignes. La révélation les redit, en liste. La question
-   grandit au toucher du bouton, et la carte se resserre d'autant (`--cab-place`) : jamais sous le doigt qui vise.
+   tout ce qui se lit en visant. Sa taille et sa police sont celles d'une ligne, pas celles du titre qui le porte. Un fait
+   à déduire, cent signes au plus (`INDICE_DE_L_EPINGLE_MAX`) : trois lignes en 360 pixels, son ampoule dans le fil du texte
+   — en colonne à sa gauche, elle prenait à chaque ligne la place de trois lettres, et la quatrième ligne venait. Le dernier
+   seul : l'un sous l'autre, la carte tombait sous 160 pixels de large sous une question de trois lignes. La révélation les
+   redit, en liste. La question grandit au toucher du bouton, et la carte se resserre d'autant (`--cab-place`) : jamais sous
+   le doigt qui vise.
    Le bouton est au pied, entre « Pas à pas » et « Planter ici » : posé à droite de la consigne, il passait avec elle sous la
    question collée, invisible (le rendu du même jour). Sous 400 pixels de large, il ne garde que son ampoule et son prix — son
    mot se dit encore à l'oreille (`aria-label`) — : « Planter ici » n'aurait plus tenu sur sa ligne. */
-.cab-indice-colle { display: block; margin-top: 6px; font-family: var(--sans); font-size: 1.0625rem; font-weight: 600; line-height: 1.45; letter-spacing: 0; text-wrap: wrap; color: var(--accent-text); }
-.cab-indice-ligne { display: flex; gap: 8px; }
-.cab-indice-epingle { color: var(--ink); }
-.cab-indice-ligne > .icon { flex: none; width: 20px; height: 20px; margin-top: 0.15em; }
-.cab-indice-ligne > .cab-icone-carte { margin-top: 0; }
+.cab-indice-colle { display: block; margin-top: 6px; font-family: var(--sans); font-size: 1.0625rem; font-weight: 600; line-height: 1.4; letter-spacing: 0; text-wrap: wrap; color: var(--accent-text); }
+.cab-indice-colle > .icon { width: 20px; height: 20px; margin-right: 6px; vertical-align: -0.2em; }
 .cab-page .cab-demander-un-indice { flex: none; display: inline-flex; align-items: center; gap: 6px; padding-inline: 12px; white-space: nowrap; }
 .cab-demander-un-indice .icon { flex: none; width: 20px; height: 20px; }
 .cab-demander-un-indice[aria-disabled='true'] { opacity: 0.5; }

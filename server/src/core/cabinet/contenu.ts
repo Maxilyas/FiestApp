@@ -39,7 +39,7 @@ import {
   MOTS_D_UNE_IDENTITE_MAX,
   MOTS_D_UNE_REPLIQUE_MAX,
   PART_PRES_D_UN_INDICE,
-  PISTE_MAX,
+  INDICE_DE_L_EPINGLE_MAX,
   QUESTION_MAX,
   RECIT_MAX,
   REPERE_DU_FILET_MAX,
@@ -55,6 +55,7 @@ import {
   type RepereCommun,
   type Replique,
 } from '../../../../shared/cabinet/contenu'
+import { INDICES_D_UN_LIEU } from '../../../../shared/cabinet/jeux/epingle'
 import { bonneIdentite, motsDe, motsUtiles, proches } from '../../../../shared/cabinet/jeux/indices'
 import { borneDeGrandeur, largeurDesEpoques } from '../../../../shared/cabinet/jeux/filetEnDeuxTemps'
 
@@ -164,7 +165,40 @@ const premier = (...regles: (() => string | null)[]) => {
 
 // ── Les juges ───────────────────────────────────────────────────────────────
 
-const CHAMPS_DU_LIEU = ['id', 'theme', 'nom', 'commune', 'departement', 'lat', 'lon', 'annee', 'date', 'recit', 'question', 'piste', 'savais', 'categorie'] as const
+const CHAMPS_DU_LIEU = ['id', 'theme', 'nom', 'commune', 'departement', 'lat', 'lon', 'annee', 'date', 'recit', 'question', 'indices', 'savais', 'categorie'] as const
+
+/**
+ * Ce qu'un indice de l'Épingle n'écrit jamais : une distance, une durée de
+ * trajet, une direction. Les premiers indices disaient le coin de France
+ * (« En Normandie, à deux heures de Paris. »), et le second se calculait (« À
+ * 170 km à l'ouest de Paris. ») : « il n'y a plus aucune réflexion » (le
+ * propriétaire, le 11 novembre 2026). Un indice raconte un fait de l'endroit,
+ * et c'est le joueur qui en tire le coin de France. « À l'est de », jamais
+ * « est de » seul : « la ville est de celles qui… » n'est pas une direction.
+ */
+const UNE_ADRESSE =
+  /\bkm\b|kilom[èe]tres?|\b(?:heures?|minutes?) d[eu] (?:route|train|voiture|vol|tgv)\b|\b(?:nord|sud)(?:-(?:est|ouest))? d(?:e\b|u\b|es\b|['’])|(?:à|de|dans|vers) l['’](?:est|ouest) d(?:e\b|u\b|es\b|['’])|\bmi-chemin\b/i
+
+/**
+ * Pourquoi ces indices ne se posent pas — null : ils se posent. Deux par lieu
+ * (`INDICES_D_UN_LIEU`), du plus subtil au plus parlant, chacun une phrase qui
+ * raconte un fait, deux faits différents. Que le fait soit vrai, qu'il mène
+ * quelque part et qu'il ne redise ni le récit ni le « Le savais-tu ? », c'est
+ * la relecture qui le juge : ici, ce qu'un programme peut voir.
+ */
+function refusDesIndicesDuLieu(indices: unknown): string | null {
+  if (!Array.isArray(indices) || indices.length !== INDICES_D_UN_LIEU) return `ses indices : ${INDICES_D_UN_LIEU} textes, du plus subtil au plus parlant`
+  for (const [i, indice] of indices.entries()) {
+    const quoi = `son indice ${i + 1}`
+    const refus = premier(
+      () => refusDuTexte(quoi, indice, INDICE_DE_L_EPINGLE_MAX),
+      () => (/[.!]$/.test(indice as string) && !(indice as string).includes('?') ? null : `${quoi} : une phrase qui raconte un fait, et finit par un point — pas une question`),
+      () => (UNE_ADRESSE.test(indice as string) ? `${quoi} : ni distance, ni durée de trajet, ni direction — un fait à déduire, pas une adresse` : null),
+    )
+    if (refus) return refus
+  }
+  return new Set((indices as string[]).map(empreinte)).size === indices.length ? null : 'ses indices : deux faits, pas deux fois le même'
+}
 
 /**
  * Pourquoi ce lieu ne se pose pas — null : il se pose. Dans le cadre de la
@@ -176,12 +210,12 @@ const CHAMPS_DU_LIEU = ['id', 'theme', 'nom', 'commune', 'departement', 'lat', '
  * voyait fuir une partie sur quatre-vingt-dix ; un lieu rond, elle ne le
  * verrait plus fuir pour de bon (`cabinet-secret.test.ts`). Sa commune et son
  * département nommés, et jamais dans ce que la manche montre avant son
- * verdict — le thème, la date, le récit, la question, la piste —, puisqu'ils
- * sont la réponse. Le nom du lieu, lui, peut s'y dire : « Où se trouve la place
- * Stanislas ? » demande de savoir où est Nancy. Sa piste — le premier indice,
- * qu'il demande contre une étoile (le 11 novembre 2026) — est une phrase qui
- * dit le coin de France, pas une question de plus : un lieu du Nord n'y dit pas
- * « dans le nord », ni un lieu de la Manche « sur la Manche ».
+ * verdict — le thème, la date, le récit, la question, les indices —,
+ * puisqu'ils sont la réponse. Le nom du lieu, lui, peut s'y dire : « Où se
+ * trouve la place Stanislas ? » demande de savoir où est Nancy. Ses deux
+ * indices, qu'il demande chacun contre une étoile (le 11 novembre 2026), sont
+ * des faits à déduire (`refusDesIndicesDuLieu`) : un lieu du Nord n'y écrit pas
+ * « le nord », ni un lieu de la Manche « la Manche ».
  */
 export function refusDuLieu(brut: unknown): string | null {
   const champs = refusDesChamps(brut, CHAMPS_DU_LIEU)
@@ -203,12 +237,12 @@ export function refusDuLieu(brut: unknown): string | null {
     () => refusDuTexte('son récit', l.recit, RECIT_MAX),
     () => refusDuTexte('sa question', l.question, QUESTION_MAX),
     () => (DEMANDE_OU.test(l.question as string) ? null : 'sa question demande où : « Où … ? »'),
-    () => refusDuTexte('sa piste', l.piste, PISTE_MAX),
-    () => (/[.!]$/.test(l.piste as string) && !(l.piste as string).includes('?') ? null : 'sa piste : une phrase qui dit le coin de France, et finit par un point — pas une question'),
+    () => refusDesIndicesDuLieu(l.indices),
     () => refusDuTexte('son « Le savais-tu ? »', l.savais, SAVAIS_MAX),
     () => refusDeLaCategorie(l.categorie),
     () => {
-      for (const [quoi, texte] of [['son thème', l.theme], ['sa date', l.date], ['son récit', l.recit], ['sa question', l.question], ['sa piste', l.piste]] as const) {
+      const indices = (l.indices as string[]).map((indice, i) => [`son indice ${i + 1}`, indice] as const)
+      for (const [quoi, texte] of [['son thème', l.theme], ['sa date', l.date], ['son récit', l.recit], ['sa question', l.question], ...indices] as const) {
         for (const nom of [l.commune, l.departement] as string[]) {
           if (ecritDans(texte as string, nom)) return `${quoi} dit « ${nom} » : la manche le montre avant son verdict, ce serait la réponse`
         }

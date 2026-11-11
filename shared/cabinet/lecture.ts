@@ -254,11 +254,12 @@ const uneCategorie = (x: unknown): x is Lieu['categorie'] => parmi(x, CATEGORIES
 
 function leLieu(l: unknown): Lieu | null {
   if (!objet(l)) return null
-  const { id, theme, nom, commune, departement, lat, lon, annee, date, recit, question, piste, savais, categorie } = l
+  const { id, theme, nom, commune, departement, lat, lon, annee, date, recit, question, indices, savais, categorie } = l
   if (![id, theme, nom, commune, departement, date, recit, question, savais].every(chaine) || !fini(lat) || !fini(lon) || !Number.isInteger(annee) || !uneCategorie(categorie)) return null
-  // Sa piste, absente d'un lieu tiré avant elle (le 11 novembre 2026) : il se relit sans.
-  if (!(piste === undefined || chaine(piste))) return null
-  return { id, theme, nom, commune, departement, lat, lon, annee, date, recit, question, ...(piste !== undefined && { piste }), savais, categorie } as Lieu
+  // Ses indices, tels que le tirage les a figés — leur nombre, jamais celui du barème du jour ; absents d'un lieu tiré avant eux
+  // (le 11 novembre 2026), qui se relit sans.
+  if (!(indices === undefined || (Array.isArray(indices) && indices.length > 0 && indices.length <= ELEMENTS_D_UNE_REPONSE_MAX && indices.every(chaine)))) return null
+  return { id, theme, nom, commune, departement, lat, lon, annee, date, recit, question, ...(indices !== undefined && { indices: [...(indices as string[])] }), savais, categorie } as Lieu
 }
 
 function lEpingle(x: Brut): EpingleTiree | null {
@@ -266,17 +267,13 @@ function lEpingle(x: Brut): EpingleTiree | null {
   const d = x.decalage
   // Le rayon se relit avec le décalage, plus grand que lui : le lieu reste dans la zone, quel que soit le barème du jour.
   if (!lieu || !objet(d) || !fini(d.cap) || !fini(d.km) || d.km < 0 || !fini(d.rayonKm) || d.rayonKm <= d.km) return null
-  // Ses indices, tels que le tirage les a figés — leur nombre, jamais celui du barème du jour ; absents d'un tirage d'avant eux.
-  const indices = x.indices
-  if (!(indices === undefined || (Array.isArray(indices) && indices.length > 0 && indices.length <= ELEMENTS_D_UNE_REPONSE_MAX && indices.every(chaine)))) return null
-  // … et ce qu'ils laissent en jeu, figé avec eux : des étoiles, de zéro à trois.
+  // Ce que les indices du lieu laissent en jeu, figé avec eux : des étoiles, de zéro à trois ; absent d'un tirage d'avant eux.
   const enJeu = x.etoilesAuxIndices
   if (!(enJeu === undefined || (Array.isArray(enJeu) && enJeu.length > 0 && enJeu.length <= ELEMENTS_D_UNE_REPONSE_MAX && enJeu.every(n => entier(n, 0, 3))))) return null
   return {
     jeu: 'epingle',
     lieu,
     decalage: { cap: d.cap, km: d.km, rayonKm: d.rayonKm },
-    ...(indices !== undefined && { indices: [...(indices as string[])] }),
     ...(enJeu !== undefined && { etoilesAuxIndices: [...(enJeu as number[])] }),
   }
 }

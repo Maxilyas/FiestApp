@@ -299,11 +299,11 @@ export const RAYON_D_ECLAIRER_KM = 300
 export const DECALAGE_DE_LA_ZONE_KM: readonly [number, number] = [120, 294]
 /**
  * L'Épingle : ce qu'une manche met en jeu selon les indices qu'il a demandés — aucun ★★★, un ★★, deux ★ —, la distance
- * décidant sous ce plafond (`KM_DE_L_EPINGLE`). Deux indices par lieu : sa piste, écrite — le coin de France —, puis son
- * repère, calculé — sa distance et sa direction depuis une ville de la carte. Le jeu était le plus évité après la Frise
- * (pris 19 fois sur cent quand la carte le proposait, du 1er au 8 novembre 2026), un tiers de ses manches justes et 28 %
- * à zéro : « c'est parfois des choses qu'on n'arrive pas à savoir » (le propriétaire, le 11 novembre 2026). Au second
- * indice, l'étoile est presque acquise : on y gagne peu, on n'y perd plus un cœur sur un lieu qu'on ne pouvait pas savoir.
+ * décidant sous ce plafond (`KM_DE_L_EPINGLE`). Deux indices par lieu, écrits avec lui : des faits à déduire, le
+ * premier pour qui réfléchit, le second pour presque tous — jamais une distance ni une direction. Le jeu était le plus
+ * évité après la Frise (pris 19 fois sur cent quand la carte le proposait, du 1er au 8 novembre 2026), un tiers de ses
+ * manches justes et 28 % à zéro : « c'est parfois des choses qu'on n'arrive pas à savoir » (le propriétaire, le
+ * 11 novembre 2026). Une étoile par indice : savoir sans aide reste ce qui paie, et l'aide ne coûte jamais la manche.
  */
 export const ETOILES_AUX_INDICES_DE_L_EPINGLE: readonly [number, number, number] = [3, 2, 1]
 
@@ -567,8 +567,8 @@ export const REPONSE_MAX_DU_QCM = 34
 export const RECIT_MAX = 200
 /** … sa question « Où ? »… */
 export const QUESTION_MAX = 80
-/** … sa piste, le premier indice qu'il peut demander : deux lignes au plus au-dessus de la carte, en 360 pixels… */
-export const PISTE_MAX = 80
+/** … chacun de ses deux indices, un fait à déduire qu'il demande contre une étoile : trois lignes au plus sous la question, en 360 pixels… */
+export const INDICE_DE_L_EPINGLE_MAX = 100
 /** … et « Le savais-tu ? », de chaque entrée. */
 export const SAVAIS_MAX = 180
 /**
