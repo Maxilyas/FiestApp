@@ -12479,6 +12479,26 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-consigne-carte { min-height: calc(2 * 1.45em); font-weight: 600; }
 .cab-consigne-carte.cab-souffle { justify-content: flex-start; }
 .cab-consigne-carte.cab-ou-est { display: flex; align-items: center; justify-content: flex-start; gap: 8px; font-weight: 700; }
+/* Les indices de l'Épingle (le 11 novembre 2026). La consigne et « Indice −★ » sur une rangée, qui garde trois lignes dès
+   l'ouverture d'une manche qui a des indices : une piste de quatre-vingts signes y tient à côté du bouton, en 360 de large, et
+   rien ne change de hauteur quand elle arrive, ni quand l'épingle posée la remplace — deux lignes, elle en aurait pris quatre,
+   et la carte serait remontée de cinquante pixels sous le doigt qui venait de la toucher. Le bouton garde sa largeur, la
+   consigne prend le reste. Tous les indices demandés, le bouton part : le repère du lieu et la place de l'épingle se lisent
+   alors l'un sous l'autre, chacun sa ligne, dans les mêmes mots. Demandé, un indice s'ajoute aussi au récit, à la ligne, de
+   l'encre de l'accent : c'est le même texte qui se déroule. */
+.cab-rangee-de-l-indice { display: flex; align-items: center; gap: 8px; min-height: calc(3 * 1.45em); }
+.cab-rangee-de-l-indice > .cab-consigne-carte { flex: 1 1 0; min-width: 0; min-height: 0; }
+.cab-page .cab-demander-un-indice { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding-inline: 12px; white-space: nowrap; }
+.cab-demander-un-indice .icon { flex: none; width: 20px; height: 20px; }
+.cab-demander-un-indice[aria-disabled='true'] { opacity: 0.5; }
+.cab-consigne-carte.cab-souffle > .icon, .cab-indice-du-lieu > .icon, .cab-repere-du-lieu > .icon { flex: none; align-self: flex-start; margin-top: 0.15em; }
+.cab-consigne-carte.cab-deux-reperes { flex-direction: column; align-items: flex-start; justify-content: center; gap: 0; }
+.cab-deux-reperes > span { display: flex; align-items: center; gap: 8px; }
+.cab-repere-du-lieu { color: var(--accent-text); }
+.cab-repere-du-lieu > .icon { width: 20px; height: 20px; }
+.cab-indice-du-lieu { display: flex; gap: 8px; margin-top: 6px; color: var(--accent-text); font-weight: 600; }
+.cab-indice-du-lieu > .icon { width: 20px; height: 20px; }
+.cab-lieu-indices { color: var(--muted); }
 .cab-manche:has(.cab-carte-jouable) > .cab-question { position: sticky; top: var(--cab-tete, 0px); z-index: 1; background: var(--bg); box-shadow: 0 -8px 0 var(--bg), 0 8px 0 var(--bg); }
 .cab-carte-de-france { --cab-carte-l: 362; --cab-carte-h: 316; }
 /* La carte, un point d'arrêt du défilement : sa fin s'arrête sur le pied collé (`scroll-snap-align: end`), ses marges d'arrêt la

@@ -57,6 +57,7 @@ import {
   LIEUX_VOISINS_KM,
   MANCHES_PAR_PARTIE,
   MOTS_D_UNE_REPLIQUE_MAX,
+  PISTE_MAX,
   QUESTION_MAX,
   RECIT_MAX,
   SAVAIS_MAX,
@@ -73,7 +74,7 @@ import type { Fiche, FriseATheme, Lieu, Replique } from '../../shared/cabinet/co
  * maladroite ferait rougir ce test, pas un joueur qui retombe sur les mêmes
  * lieux.
  */
-const AU_MOINS: Readonly<Record<SorteDuContenu, number>> = { lieux: 90, fiches: 138, repliques: 66, frises: 18, filet: 1600, reperes: 80 }
+const AU_MOINS: Readonly<Record<SorteDuContenu, number>> = { lieux: 171, fiches: 138, repliques: 137, frises: 18, filet: 1600, reperes: 80 }
 
 const brut = (s: SorteDuContenu): unknown[] => JSON.parse(readFileSync(path.join(DOSSIER_DU_CONTENU, SORTES[s].fichier), 'utf8'))
 
@@ -458,6 +459,7 @@ const LIEU: Lieu = {
   date: '1443',
   recit: "Le chancelier d'un puissant duc et sa femme fondent un hôpital pour les pauvres.",
   question: 'Où se trouve cet hôpital aux toits multicolores ?',
+  piste: 'En Bourgogne, à mi-chemin entre Paris et Lyon.',
   savais: 'Ses vins sont vendus aux enchères depuis 1859.',
   categorie: 'Arts & lettres',
 }
@@ -504,6 +506,30 @@ test('un lieu : dans la France, sa commune et son département jamais dits avant
     [(({ savais: _, ...l }) => l)(LIEU), /^il manque savais/, 'un champ qui manque'],
     [null, /^pas une entrée/, 'pas un objet'],
   ] as [unknown, RegExp, string][]) assert.match(refusDuLieu(lieu) ?? 'il se pose', motif, pourquoi)
+})
+
+test('la piste d’un lieu : une phrase courte qui dit le coin de France, jamais sa commune ni son département — pas même par un mot à double sens', () => {
+  // Le premier indice d'une manche (le 11 novembre 2026) : la manche le montre avant son verdict, à qui le demande. Il
+  // passe donc au crible du récit et de la question — et un lieu du Nord ne se dit pas « dans le nord », qui écrirait
+  // son département.
+  assert.equal(refusDuLieu(LIEU), null)
+  for (const [lieu, motif, pourquoi] of [
+    [(({ piste: _, ...l }) => l)(LIEU), /^il manque piste/, 'un lieu livré a sa piste'],
+    [{ ...LIEU, piste: '' }, /^sa piste : un texte/, 'une piste vide'],
+    [{ ...LIEU, piste: `En Bourgogne, ${'très '.repeat(PISTE_MAX / 5)}loin.` }, /^sa piste : \d+ signes, pour \d+ au plus/, 'une piste qui ne tiendrait pas au-dessus de la carte'],
+    [{ ...LIEU, piste: 'En Bourgogne, entre Paris et Lyon' }, /^sa piste : une phrase/, 'sans son point'],
+    [{ ...LIEU, piste: 'Entre Paris et Lyon, mais où ?' }, /^sa piste : une phrase/, 'une question de plus'],
+    [{ ...LIEU, piste: 'En Bourgogne, tout près de Beaune.' }, /^sa piste dit « Beaune »/, 'la commune'],
+    [{ ...LIEU, piste: 'En Côte-d’Or, au pays des grands crus.' }, /^sa piste dit « Côte-d'Or »/, 'le département'],
+    [{ ...LIEU, commune: 'Bergues', departement: 'Nord', piste: 'Dans le nord, tout près de la Belgique.' }, /^sa piste dit « Nord »/, 'le département, par un mot à double sens'],
+    [{ ...LIEU, commune: 'Villedieu', departement: 'Manche', piste: 'En Normandie, au bord de la Manche.' }, /^sa piste dit « Manche »/, 'la mer qui porte le nom du département'],
+    [{ ...LIEU, piste: 'En Bourgogne 🍷, entre Paris et Lyon.' }, /^sa piste : pas d'emoji/, 'un emoji'],
+  ] as [unknown, RegExp, string][]) assert.match(refusDuLieu(lieu) ?? 'il se pose', motif, pourquoi)
+  // Une région, une côte, une ville de la carte : rien de cela n'est la réponse.
+  assert.equal(refusDuLieu({ ...LIEU, commune: 'Bergues', departement: 'Nord', piste: 'Tout en haut de la carte, au bord de la mer, collée à la Belgique.' }), null)
+  assert.equal(refusDuLieu({ ...LIEU, commune: 'Le Havre', departement: 'Seine-Maritime', piste: "En Normandie, sur la Manche, à l'embouchure de la Seine." }), null, 'un mot du département ne le dit pas')
+  // Chaque lieu livré a la sienne : sans elle, sa manche n'aurait aucun indice à donner.
+  for (const l of contenuDuCabinet().lieux) assert.ok(l.piste && l.piste.length <= PISTE_MAX, `${l.id} : sa piste`)
 })
 
 const FICHE: Fiche = {

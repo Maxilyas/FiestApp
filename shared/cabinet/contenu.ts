@@ -33,6 +33,12 @@ export interface Lieu {
   date: string
   recit: string
   question: string
+  /**
+   * Son premier indice, que la manche montre s'il le demande : le coin de France, pour qui n'en a aucune idée (« En
+   * Bourgogne, à mi-chemin entre Paris et Lyon. ») — jamais la commune ni le département. Chaque lieu livré a la sienne
+   * (`refusDuLieu`) ; un lieu relu d'une partie d'avant le 11 novembre 2026 n'en a pas, et sa manche se joue sans indice.
+   */
+  piste?: string
   /** « Le savais-tu ? » de la révélation. */
   savais: string
   categorie: Categorie

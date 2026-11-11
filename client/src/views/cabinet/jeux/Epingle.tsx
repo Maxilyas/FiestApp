@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { useId, useLayoutEffect, useRef } from 'react'
 import { Icon, type IconName } from '../../../components/Icon'
 import { espacesFines } from '../../../format'
 import { questionSizeClass } from '../../../games/quiz/questionSize'
@@ -8,6 +8,8 @@ import { pointADistance, type EpingleMontree, type EpingleRevelee, type ZoneDEcl
 import { QUESTION_COLLEE, bandeALEcran, type BoiteALEcran } from '../bande'
 import { CarteDeFrance, DessinDeLEpingle, DessinDeLaZone, DessinDuLieu, DessinDuTrait, IconeDeLEpingle, IconeDuLieu } from '../CarteDeFrance'
 import { DEPARTS_DE_L_EPINGLE, GRAND_PAS, KM_D_UN_PAS, MILIEU_DE_LA_FRANCE, deplacer, departDeLEpingle, departNomme, ouEstLEpingle, type Fleche } from '../contourDeLaFrance'
+import { motsDesIndicesDeLEpingle } from '../../../../../shared/cabinet/jeux/regle'
+import { EnEtoiles } from '../EnEtoiles'
 import type { JeuALEcran, PropsDUneManche } from '../Partie'
 import { pasRetenus, retenirLesPas } from '../retenu'
 
@@ -47,6 +49,19 @@ import { pasRetenus, retenirLesPas } from '../retenu'
 // Ce que la page tient — l'épingle posée — part d'elle-même à l'échéance ; sans
 // épingle, rien ne part, et la manche se juge « Pas d'épingle ». Recharger la
 // perd : rien de cela ne disait la réponse (§ 2.8).
+//
+// Les indices (le 11 novembre 2026 : « c'est parfois des choses qu'on n'arrive
+// pas à savoir », et l'idée du propriétaire d'un texte qui se déroule, de plus
+// en plus précis, pendant que les étoiles baissent). « Indice −★ », à droite de
+// la consigne, en demande un au serveur — la page n'en sait aucun d'avance
+// (invariant 1). Demandé, il s'ajoute au récit, qui se déroule d'autant, et se
+// dit dans la ligne au-dessus de la carte tant que l'épingle n'a pas bougé :
+// c'est là qu'on regarde en visant. Le second, le repère, se dit dans les mots
+// mêmes de l'épingle (« À 260 km au sud-est de Paris. ») : la ligne les tient
+// alors l'un sous l'autre, et il n'y a plus qu'à mener l'épingle dessus. La
+// rangée garde trois lignes dès l'ouverture d'une manche qui a des indices —
+// une piste de quatre-vingts signes y tient à côté du bouton — : rien ne change
+// de hauteur quand un indice arrive, ni quand l'épingle le remplace.
 
 /** Ce que la page tient d'une manche de l'Épingle : l'épingle posée, pas encore plantée, et ses boutons de direction. */
 export interface LocalDeLEpingle {
@@ -57,15 +72,17 @@ export interface LocalDeLEpingle {
   readonly pasAPas: boolean
   /** La zone d'Éclairer était déjà là quand l'épingle a bougé pour la dernière fois : la consigne dit la plus neuve des deux. */
   readonly zoneConnue?: boolean
+  /** Les indices qu'il avait quand l'épingle a bougé pour la dernière fois : un de plus depuis, et c'est lui que la consigne dit. */
+  readonly indicesConnus?: number
 }
 
 /**
  * L'épingle posée là — d'un toucher, d'une flèche, d'un pas —, et si la zone
- * d'Éclairer était déjà là : arrivée après, c'est elle que la consigne dit
- * d'abord.
+ * d'Éclairer était déjà là, et combien d'indices : arrivés après, c'est eux que
+ * la consigne dit d'abord.
  */
-export function poserLEpingle(l: LocalDeLEpingle, p: Point, m: Pick<EpingleMontree, 'zone'>): LocalDeLEpingle {
-  return { ...l, epingle: p, zoneConnue: !!m.zone }
+export function poserLEpingle(l: LocalDeLEpingle, p: Point, m: Pick<EpingleMontree, 'zone'> & Partial<Pick<EpingleMontree, 'indices'>>): LocalDeLEpingle {
+  return { ...l, epingle: p, zoneConnue: !!m.zone, indicesConnus: m.indices?.length ?? 0 }
 }
 
 /**
@@ -121,15 +138,58 @@ export function tourDeLaZone(z: ZoneDEclairer): Point[] {
  * Une région qui se dit (`aria-live`), le même élément d'un état à l'autre :
  * chaque épingle posée — d'un toucher, d'une flèche, d'un pas — s'entend, et
  * la carte le redit à qui y revient (`aide`).
+ *
+ * Un indice demandé s'y dit de même, tant que l'épingle n'a pas bougé depuis :
+ * le plus neuf des trois. Tous demandés, le dernier — le repère du lieu — reste
+ * au-dessus de l'épingle, dans ses mots : « À 260 km au sud-est de Paris. »,
+ * puis où est l'épingle.
  */
 function Consigne({ m, local }: { m: EpingleMontree; local: LocalDeLEpingle }) {
   const epingle = local.epingle
-  if (epingle && (!m.zone || local.zoneConnue)) {
+  // Une manche d'avant les indices, ou une vue gardée d'avant eux, n'en porte pas.
+  const indices = m.indices ?? []
+  const dernier = indices[indices.length - 1]
+  const indiceNeuf = dernier !== undefined && indices.length > (local.indicesConnus ?? 0)
+  const zoneNeuve = !!m.zone && !local.zoneConnue
+  if (epingle && !indiceNeuf && !zoneNeuve) {
+    // Le repère ne se montre ainsi qu'une fois tous ses indices demandés : le bouton parti, la rangée a sa largeur pour deux lignes.
+    const repere = indices.length > 1 && !m.aDemander ? dernier : undefined
+    if (repere) {
+      return (
+        <p className="cab-ligne cab-consigne-carte cab-ou-est cab-deux-reperes" aria-live="polite">
+          <span className="cab-repere-du-lieu">
+            <Icon name="bulb" />
+            <span>
+              <span className="sr-only">Le lieu : </span>
+              {espacesFines(repere)}
+            </span>
+          </span>
+          <span className="cab-repere-de-l-epingle">
+            <IconeDeLEpingle />
+            <span>
+              <span className="sr-only">Ton épingle : </span>
+              {espacesFines(ouEstLEpingle(epingle))}
+            </span>
+          </span>
+        </p>
+      )
+    }
     return (
       <p className="cab-ligne cab-consigne-carte cab-ou-est" aria-live="polite">
         <IconeDeLEpingle />
         <span className="sr-only">Ton épingle : </span>
         {espacesFines(ouEstLEpingle(epingle))}
+      </p>
+    )
+  }
+  if (indiceNeuf) {
+    return (
+      <p className="cab-ligne cab-consigne-carte cab-souffle" aria-live="polite">
+        <Icon name="bulb" />
+        <span>
+          <span className="sr-only">Indice : </span>
+          {espacesFines(dernier)}
+        </span>
       </p>
     )
   }
@@ -148,11 +208,36 @@ function Consigne({ m, local }: { m: EpingleMontree; local: LocalDeLEpingle }) {
   )
 }
 
-function MancheDeLEpingle({ montree: m, local, setLocal, envoyer, gardeDeLEcran, busy }: PropsDUneManche<EpingleMontree, LocalDeLEpingle>) {
+/**
+ * Le bouton d'un indice : ce qu'il coûte se lit dessus, et ce que la manche vaudra ensuite se dit à l'oreille — ses mots
+ * viennent du barème même du serveur (`motsDesIndicesDeLEpingle`), jamais écrits ici. Il part quand il n'en reste plus à demander.
+ */
+function BoutonDeLIndice({ m, demander, busy }: { m: EpingleMontree; demander: () => unknown; busy: boolean }) {
+  const mots = motsDesIndicesDeLEpingle(m.indices?.length ?? 0)
+  return (
+    <button type="button" className="btn cab-demander-un-indice" aria-label={mots.nom} aria-disabled={busy || undefined} {...toucher(demander)}>
+      <Icon name="bulb" />
+      <EnEtoiles texte={mots.bouton} />
+    </button>
+  )
+}
+
+function MancheDeLEpingle({ montree: m, local, setLocal, envoyer, garde, gardeDeLEcran, busy }: PropsDUneManche<EpingleMontree, LocalDeLEpingle>) {
   // Posée dans la demi-seconde d'un écran neuf, l'épingle visait la manche d'avant : le second toucher d'un double sur « Manche
   // suivante » tombe sur la carte.
   const poser = (p: Point) => !busy && gardeDeLEcran() && setLocal(poserLEpingle(local, p, m))
   const planter = () => !busy && local.epingle && envoyer({ quoi: 'repondre', reponse: { epingle: local.epingle } })
+  const indices = m.indices ?? []
+  const aDemander = m.aDemander ?? 0
+  // Sa garde à chaque vue neuve : un double toucher en demanderait deux, et la seconde étoile avec.
+  const demander = () => aDemander > 0 && !busy && garde() && envoyer({ quoi: 'indice' })
+  // L'indice demandé allonge le récit, au-dessus de la question collée : là où le navigateur ne retient pas ce qu'on regarde
+  // (Safari), la carte descendait d'autant sous le pied. Elle revient entière, comme après « Partir de… ».
+  const lus = useRef(indices.length)
+  useLayoutEffect(() => {
+    if (indices.length > lus.current) amenerLaCarte()
+    lus.current = indices.length
+  }, [indices.length])
   // Revenu sur la carte, le lecteur d'écran entend la consigne, ce que fait un pas, ce qui la mène sans clavier — fermé, « Pas à
   // pas » ne se devine pas —, puis où est l'épingle : la ligne au-dessus l'a dite en la posant, une fois.
   const aide = espacesFines(
@@ -163,9 +248,29 @@ function MancheDeLEpingle({ montree: m, local, setLocal, envoyer, gardeDeLEcran,
       <div className="cab-tete-question">
         <span className="cab-surtitre">{espacesFines(`${m.date} · ${m.theme}`)}</span>
       </div>
-      <p className="cab-ligne cab-recit">{espacesFines(m.recit)}</p>
+      {/* Le récit et ses indices d'un seul tenant : c'est le même texte qui se déroule, et ce qui se lit juste au-dessus de la
+          question collée reste un seul élément (`LU_AU_DESSUS_DE_LA_QUESTION`, `bande.ts`). */}
+      <p className="cab-ligne cab-recit">
+        {espacesFines(m.recit)}
+        {indices.map((indice, i) => (
+          <span key={i} className="cab-indice-du-lieu">
+            <Icon name="bulb" />
+            <span>
+              <span className="sr-only">Indice : </span>
+              {espacesFines(indice)}
+            </span>
+          </span>
+        ))}
+      </p>
       <h2 className={'quiz-question cab-question' + questionSizeClass(m.question)}>{espacesFines(m.question)}</h2>
-      <Consigne m={m} local={local} />
+      {indices.length > 0 || aDemander > 0 ? (
+        <div className="cab-rangee-de-l-indice">
+          <Consigne m={m} local={local} />
+          {aDemander > 0 && <BoutonDeLIndice m={m} demander={demander} busy={busy} />}
+        </div>
+      ) : (
+        <Consigne m={m} local={local} />
+      )}
       <CarteDeFrance nom="La carte de France" jouable={{ epingle: local.epingle, poser, planter, aide }}>
         {m.zone && <DessinDeLaZone tour={tourDeLaZone(m.zone)} />}
         {local.epingle && <DessinDeLEpingle point={local.epingle} />}
@@ -326,10 +431,17 @@ function PlanterIci({ montree: m, local, setLocal, envoyer, garde, gardeDeLEcran
  */
 function RevelationDeLEpingle({ corps: r }: { corps: EpingleRevelee }) {
   const l = r.lieu
+  // Les indices demandés disent pourquoi une épingle tout près n'a pas ses trois étoiles : les mots du barème du serveur.
+  const avecIndices = motsDesIndicesDeLEpingle(r.indices?.length ?? 0).revelation
   return (
     <section className="cab-lieu-revele" aria-label="Le lieu">
       <p className="cab-lieu-nom">{espacesFines(l.nom)}</p>
       <p className="cab-ligne cab-lieu-ou">{espacesFines(`${l.commune} (${l.departement}) · ${l.date}`)}</p>
+      {avecIndices && (
+        <p className="cab-ligne cab-lieu-indices">
+          <EnEtoiles texte={espacesFines(avecIndices)} />
+        </p>
+      )}
       <CarteDeFrance nom={r.epingle ? 'Le lieu et ton épingle, sur la carte de France' : 'Le lieu, sur la carte de France'}>
         {r.zone && <DessinDeLaZone tour={tourDeLaZone(r.zone)} />}
         {r.epingle && <DessinDuTrait de={r.epingle} a={l} />}

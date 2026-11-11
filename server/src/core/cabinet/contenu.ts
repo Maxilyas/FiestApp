@@ -39,6 +39,7 @@ import {
   MOTS_D_UNE_IDENTITE_MAX,
   MOTS_D_UNE_REPLIQUE_MAX,
   PART_PRES_D_UN_INDICE,
+  PISTE_MAX,
   QUESTION_MAX,
   RECIT_MAX,
   REPERE_DU_FILET_MAX,
@@ -163,7 +164,7 @@ const premier = (...regles: (() => string | null)[]) => {
 
 // ── Les juges ───────────────────────────────────────────────────────────────
 
-const CHAMPS_DU_LIEU = ['id', 'theme', 'nom', 'commune', 'departement', 'lat', 'lon', 'annee', 'date', 'recit', 'question', 'savais', 'categorie'] as const
+const CHAMPS_DU_LIEU = ['id', 'theme', 'nom', 'commune', 'departement', 'lat', 'lon', 'annee', 'date', 'recit', 'question', 'piste', 'savais', 'categorie'] as const
 
 /**
  * Pourquoi ce lieu ne se pose pas — null : il se pose. Dans le cadre de la
@@ -175,9 +176,12 @@ const CHAMPS_DU_LIEU = ['id', 'theme', 'nom', 'commune', 'departement', 'lat', '
  * voyait fuir une partie sur quatre-vingt-dix ; un lieu rond, elle ne le
  * verrait plus fuir pour de bon (`cabinet-secret.test.ts`). Sa commune et son
  * département nommés, et jamais dans ce que la manche montre avant son
- * verdict — le thème, la date, le récit, la question —, puisqu'ils sont la
- * réponse. Le nom du lieu, lui, peut s'y dire : « Où se trouve la place
- * Stanislas ? » demande de savoir où est Nancy.
+ * verdict — le thème, la date, le récit, la question, la piste —, puisqu'ils
+ * sont la réponse. Le nom du lieu, lui, peut s'y dire : « Où se trouve la place
+ * Stanislas ? » demande de savoir où est Nancy. Sa piste — le premier indice,
+ * qu'il demande contre une étoile (le 11 novembre 2026) — est une phrase qui
+ * dit le coin de France, pas une question de plus : un lieu du Nord n'y dit pas
+ * « dans le nord », ni un lieu de la Manche « sur la Manche ».
  */
 export function refusDuLieu(brut: unknown): string | null {
   const champs = refusDesChamps(brut, CHAMPS_DU_LIEU)
@@ -199,10 +203,12 @@ export function refusDuLieu(brut: unknown): string | null {
     () => refusDuTexte('son récit', l.recit, RECIT_MAX),
     () => refusDuTexte('sa question', l.question, QUESTION_MAX),
     () => (DEMANDE_OU.test(l.question as string) ? null : 'sa question demande où : « Où … ? »'),
+    () => refusDuTexte('sa piste', l.piste, PISTE_MAX),
+    () => (/[.!]$/.test(l.piste as string) && !(l.piste as string).includes('?') ? null : 'sa piste : une phrase qui dit le coin de France, et finit par un point — pas une question'),
     () => refusDuTexte('son « Le savais-tu ? »', l.savais, SAVAIS_MAX),
     () => refusDeLaCategorie(l.categorie),
     () => {
-      for (const [quoi, texte] of [['son thème', l.theme], ['sa date', l.date], ['son récit', l.recit], ['sa question', l.question]] as const) {
+      for (const [quoi, texte] of [['son thème', l.theme], ['sa date', l.date], ['son récit', l.recit], ['sa question', l.question], ['sa piste', l.piste]] as const) {
         for (const nom of [l.commune, l.departement] as string[]) {
           if (ecritDans(texte as string, nom)) return `${quoi} dit « ${nom} » : la manche le montre avant son verdict, ce serait la réponse`
         }
