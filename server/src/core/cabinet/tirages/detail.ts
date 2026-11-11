@@ -102,7 +102,7 @@ export function leDetailSePromet(vues: ContexteDuTirage['vues'], maintenant: num
 export function tirerUnDetail(ctx: ContexteDuTirage, posees: Posees): DetailTire | null {
   const tableaux = tableauxDuDetail()
   const libres = tableaux.filter(t => !posees.ids.has(idDuTableau(t.qid)))
-  // Un titre déjà montré ne revient pas — tant qu'il en reste : cent tableaux, six manches au plus dans un plan.
+  // Un titre déjà montré ne revient pas — tant qu'il en reste : trois cents tableaux, six manches au plus dans un plan.
   const neufs = libres.filter(t => !posees.titres.has(t.titre))
   const vus = new Map(tableaux.map(t => [t.qid, vuLe(t, ctx.vues)]))
   const fenetre = laFenetreLaMoinsVue(neufs, vus, ctx.hasard) ?? laFenetreLaMoinsVue(libres, vus, ctx.hasard)

@@ -36,7 +36,7 @@ export function cabinetOuvert({ online, env }: { online: boolean; env: string })
  * qu'eux, et le cadre vide d'une œuvre d'un autre jeu dit « bientôt ». Ils
  * se sont ouverts un à un, chacun avec son tireur (`server/src/core/cabinet/tirages/`)
  * et son écran : le Pari et l'Éclair d'abord, qui tirent leurs questions de la
- * base de la campagne ; puis le Détail, ses cent tableaux, et la Frise, ses
+ * base de la campagne ; puis le Détail, ses cent tableaux d'alors, et la Frise, ses
  * frises à thème et celles des sujets de la base ; puis le Mot mystère et le
  * Filet, qui y tirent un mot à taper et une valeur à viser ; enfin l'Épingle,
  * les Indices et la Réplique, du contenu écrit pour le Cabinet

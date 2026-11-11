@@ -14,7 +14,8 @@
 // titre, pas leur peintre (`core/cabinet/tirages/detail.ts`) : depuis le
 // 11 novembre 2026, la fiche tient en plus des tableaux célèbres que la base
 // ne pose pas (`questions` vide, `server/scripts/details.ts`) — l'Expédition
-// ne les posait pas (`detailsDeLaBase`), le Cabinet si, sans anecdote.
+// ne les posait pas (`detailsDeLaBase`), le Cabinet si, sans anecdote : trois
+// cents tableaux en tout, dont la moitié sans question.
 
 import fs from 'node:fs'
 import path from 'node:path'

@@ -50,7 +50,7 @@ réservoirs écrits à la main :
    un désert mal situé, un record qui pouvait tomber). L'indice 4 doit suffire
    à la plupart des Français, le 5 à tous. Aucun souverain à chiffre romain :
    « Louis 14 », tapé au téléphone, ne trouverait pas « Louis XIV ».
-2. **Le Détail : de 100 à NOMBRE tableaux.** Voir plus bas.
+2. **Le Détail : de 100 à 309 tableaux.** Voir plus bas.
 3. **Le Détail ne se promet plus qu'à qui a du neuf.** Au départ d'une
    traversée, s'il reste moins de six fenêtres sans un tableau vu de la semaine
    (`FENETRES_POUR_PROMETTRE_LE_DETAIL`), ni la carte ni les gardiens ne le
@@ -68,24 +68,58 @@ peintre mort à temps et hors de la base —, choisis à la main dans cette
 liste : la plus liée n'est pas la plus connue d'un joueur français (une
 vingtaine de Madones avant « La Classe de danse »).
 
-DÉTAIL_DES_TABLEAUX
+Deux cent vingt tableaux regardés un à un — 56 que la base pose et que la
+première passe n'avait pas pris, 164 célèbres de Wikidata —, par neuf lots,
+et un dixième pour reprendre ceux qu'un bord avait fait écarter : 209 gardés,
+11 écartés avec leur raison (`ECARTES` : un haut cintré, une
+reproduction aux couleurs faussées, un nu trop cru pour un jeu ouvert dès dix
+ans, une attribution contestée, un quatrième Goya de la même année). Pour
+chacun, le détail choisi à l'œil sur sa planche puis vérifié découpé
+(`DETAILS`) : ni signature, ni date, ni inscription, et rien qui nomme le
+tableau à lui seul avant d'avoir regardé.
+
+- **309 tableaux, 107 peintres**, du XVe au XXe siècle (18, 47, 46, 23, 152,
+  23) : le XIXe en tient la moitié, comme la mémoire d'un joueur français ;
+  aucun peintre n'en a plus de douze.
+- **78 se rognent avant de se découper** (`ROGNAGES`) : Commons photographie
+  souvent la toile avec son bord, un filet sombre ou la baguette de son
+  cadre, et trois des onze écartés d'octobre l'étaient pour un cadre. Huit
+  tableaux d'abord écartés pour leur bord sont revenus ainsi.
+- **1 236 images, 41 Mo** dans le dépôt (13 Mo pour les cent premiers), 40 ko
+  au plus chacune, servies une à une à leur heure comme avant.
+- **153 n'ont pas de question dans la base** : leur révélation dit ce qu'ils
+  sont — le titre, le peintre, l'année —, sans « Le savais-tu ? ».
 
 Ce que Wikidata dit de travers s'écrit à la main dans le script, avec ce qui
-le fonde : cinquante-trois années (« Le Pays de Cocagne », 1550 pour 1567 ;
+le fonde : cinquante-deux années (« Le Pays de Cocagne », 1550 pour 1567 ;
 « L'Astronome », 1664 pour 1668 ; un intervalle daté de sa première année),
 vingt-deux titres ou peintres (« June flamboyante », « La Source — Alexandre
-Desgoffe »).
+Desgoffe », la « Procession nuptiale sur le Hardangerfjord » peinte à deux).
 
-Un tableau venu de Wikidata seul n'a pas de question dans la base : sa
-révélation dit ce qu'il est, sans « Le savais-tu ? ».
+## Ce que le Détail tient maintenant
+
+Joué par son vrai tireur, sous la garde de la carte, vingt joueurs pendant
+quatre semaines (`reproductions/le-detail-au-rythme.mts`) :
+
+| Traversées par jour | Manches redites | La première traversée sans Détail | Sans Détail, sur quatre semaines |
+|---|---|---|---|
+| 1 | 0 sur 2 800 | jamais | aucune |
+| 2 | 0 sur 4 865 | le septième jour | une sur huit |
+| 3 — les plus grosses journées du plus assidu | 0 sur 5 105 | le cinquième jour | quatre sur dix |
+
+Plus aucune redite, à aucun rythme : là où les tableaux manquent, c'est le
+jeu qui s'absente de la carte, et un autre prend sa place.
 
 ## Ce qui reste
 
 - **La Réplique (60 répliques vues sur 66 par le plus assidu) et l'Épingle
   (67 lieux sur 90)** approchent du bout sans redite encore. À doubler de même.
 - **Aux plus grosses journées du joueur le plus assidu — trois traversées —,
-  seuls les Indices tiennent la semaine** ; le Détail en tient cinq jours,
-  puis quitte sa carte le temps que ses tableaux reviennent.
+  seuls les Indices tiennent la semaine** ; le Détail en tient quatre jours,
+  puis quitte sa carte quatre fois sur dix, le temps que ses tableaux
+  reviennent.
+- **« Les Iris » de Van Gogh manquent** : choisis dans la liste, ils ne sont
+  pas sortis candidats de la chaîne — à reprendre avec le prochain lot.
 - **Des anecdotes pour les tableaux sans question** : les écrire, c'est écrire
   leur « Qui a peint… ? » dans la base (skill `base-campagne`).
 - **Rien de tout cela ne répond au décrochage** des joueurs qui n'ont jamais

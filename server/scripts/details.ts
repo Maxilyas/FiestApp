@@ -472,8 +472,9 @@ const ECARTES: Record<string, string> = {
 /**
  * Ce qu'on rogne d'une miniature avant de la découper, en fractions de l'image : à gauche, en haut, à droite, en bas.
  * Commons photographie souvent la toile avec ce qui l'entoure — un liseré noir, le bord effrangé, un pan du cadre, les
- * ajouts d'un panneau —, et les onze premiers écartés l'étaient presque tous pour cela ; au deuxième lot, « La Mort de
- * Socrate » et « Le Retour du fils prodigue » y passaient. Un rognage ne coupe que hors de la peinture, ou une frange
+ * ajouts d'un panneau —, et trois des onze premiers écartés l'étaient pour un cadre (« Le Printemps », « La Belle
+ * Jardinière », « L'Origine du monde ») ; au deuxième lot, « La Mort de Socrate » et « Le Retour du fils prodigue » y
+ * passaient. Un rognage ne coupe que hors de la peinture, ou une frange
  * qu'on ne regrette pas : un haut cintré, lui, ne se rogne pas — il faudrait couper le tableau (« Ophélie »). Le
  * centre d'un détail (`DETAILS`) se lit sur l'image rognée, celle que la planche montre.
  */
