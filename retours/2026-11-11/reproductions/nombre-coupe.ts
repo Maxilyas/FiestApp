@@ -14,13 +14,15 @@
 // deux photos de la première largeur où l'écran d'avant en coupait un.
 //
 // Ce qu'il a montré, `espacesFines` corrigée (`milliersColles`,
-// `shared/typographie.ts`) : à la grotte Chauvet, « il y a environ 36 000
-// ans » se coupait dans le récit de 326 à 350 px de large ; au four solaire
-// d'Odeillo, « 3 000 °C » de 374 à 380. Après, à aucune largeur. Aucun des
-// deux ne tombe sur la coupe à 360 px juste : elle tient au mot près.
+// `shared/typographie.ts`) : au col du Tourmalet — le lieu du constat —,
+// « à plus de 2 100 mètres » se coupait dans le récit de 332 à 362 px de
+// large, 360 compris ; à la grotte Chauvet, « il y a environ 36 000 ans » de
+// 326 à 350 ; au four solaire d'Odeillo, « 3 000 °C » de 374 à 380. Après, à
+// aucune largeur. La coupe tient au mot près : un lieu ne la montre qu'aux
+// largeurs où son nombre tombe en bout de ligne.
 //
 //   npm run build -w client
-//   cd server && [LIEU="Le grand four solaire d'Odeillo"] [QUESTION="…"] npx tsx ../retours/2026-11-11/reproductions/nombre-coupe.ts [dossier]
+//   cd server && [LIEU="La grotte Chauvet"] [QUESTION="…"] npx tsx ../retours/2026-11-11/reproductions/nombre-coupe.ts [dossier]
 //
 // `QUESTION`, `RECIT` : un texte d'essai à la place de celui du lieu. Sans
 // dossier, les photos vont dans `export/rendus/nombre`, que git ignore.
@@ -47,7 +49,7 @@ interface Lieu {
   question: string
 }
 const lieux = JSON.parse(readFileSync(path.join(RACINE, 'server/content/cabinet/lieux.json'), 'utf8')) as Lieu[]
-const voulu = process.env.LIEU ?? 'La grotte Chauvet'
+const voulu = process.env.LIEU ?? 'Le col du Tourmalet'
 const lieu = lieux.find(l => l.nom === voulu)
 if (!lieu) throw new Error(`Aucun lieu « ${voulu} » dans le contenu.`)
 const recit = process.env.RECIT ?? lieu.recit

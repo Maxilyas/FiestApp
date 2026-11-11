@@ -66,12 +66,12 @@ paths:
   Safari d'avant 16.4 refuse le fichier entier pour une seule, et ce
   module est dans la page d'entrée. `typographie.test.ts` relit chaque texte
   du contenu livré : une suite qui s'y couperait encore devant trois
-  chiffres se récrit sans équivoque. La coupe ne se voit qu'à la largeur
-  où le nombre tombe en bout de ligne — « 36 000 ans » de 326 à 350 px à
-  la grotte Chauvet, pas à 360 — :
-  `retours/2026-11-11/reproductions/nombre-coupe.ts` ouvre une vraie
-  Épingle sur un lieu à nombre et relève, de 320 à 430 px, ce qui se coupe
-  avant et après.
+  chiffres se récrit sans équivoque. La coupe ne se voit qu'aux largeurs
+  où le nombre tombe en bout de ligne — « 2 100 mètres » de 332 à 362 px
+  au col du Tourmalet, « 36 000 ans » de 326 à 350 à la grotte Chauvet,
+  pas à 360 — : `retours/2026-11-11/reproductions/nombre-coupe.ts` ouvre
+  une vraie Épingle sur un lieu à nombre et relève, de 320 à 430 px, ce qui
+  se coupe avant et après.
   `formatNumber` s'écrit sans `Intl` (règle `client.md`) et ne groupe les
   milliers qu'à cinq chiffres : « 1889 » reste une année. Un rang s'écrit
   au féminin (« 1ʳᵉ place »). `typographie.test.ts` compare `formatNumber`
