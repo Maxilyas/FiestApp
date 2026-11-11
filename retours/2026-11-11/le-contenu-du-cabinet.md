@@ -110,14 +110,55 @@ quatre semaines (`reproductions/le-detail-au-rythme.mts`) :
 Plus aucune redite, à aucun rythme : là où les tableaux manquent, c'est le
 jeu qui s'absente de la carte, et un autre prend sa place.
 
+## La Réplique et l'Épingle, le même jour
+
+Le propriétaire, au vu de ce qui précède : « Pourrais-tu envoyer des agents
+avec un plus petit modèle (adapté à la tâche selon toi) pour la Réplique et
+l'Épingle ? » — et, pour l'Épingle : « trop dur, c'est parfois des choses
+qu'on n'arrive pas à savoir », avec l'idée d'indices qui se déroulent pendant
+que les étoiles baissent, et la question de rester en France (la décision :
+`docs/architecture/decisions.md`, « Les indices de l'Épingle »).
+
+Rédacteurs et relecteurs : des agents d'un modèle plus petit que celui qui a
+mené le chantier, chaque lot relu par un autre agent que son rédacteur, puis
+relu une dernière fois à la main.
+
+- **La Réplique : 66 → 137.** Quatre-vingts écrites en cinq lots (cinéma
+  français, cinéma et séries du monde, lettres, chanson, mots de l'histoire),
+  71 gardées. Ce que la relecture a écarté ou corrigé dit où un rédacteur se
+  trompe : la **traduction littérale** d'une réplique étrangère (« Personne ne
+  met Bébé dans un coin », « Pourquoi tant de sérieux ? », « Mange mon
+  short ! »), la **citation déformée** que tout le monde répète (« Luke, je
+  suis ton père »), la forme française d'un mot historique (« Et pourtant,
+  elle bouge »), un leurre qui était une variante courante, un « autre » qui
+  avait aussi dit la phrase ; et, relu à la main, une marque ou un personnage
+  nommés dans la phrase même (« Un Mars et ça repart » : qui l'a dit ?).
+- **L'Épingle : 90 → 171 lieux**, neuf thèmes neufs de lieux que tout Français
+  connaît : les monuments que le monde nous envie, le bord de mer, les
+  châteaux, les sommets, le sport, « D'où ça vient ? », l'histoire en un lieu,
+  les capitales d'un savoir-faire, les villes en fête. Les 81 ont été relus
+  (une douzaine de dates, autant de directions, cinq coordonnées corrigées),
+  puis recoupés par le calcul : commune, département et coordonnées contre
+  Wikidata — 79 sur 81 confirmés d'office, les deux autres à la main, et les 90
+  anciens de même —, et chaque piste qui dit une direction ou une distance
+  depuis une ville de la carte, contre les coordonnées du lieu.
+- **Une piste pour chacun des 171 lieux**, le premier indice de la manche ;
+  vingt des quatre-vingt-dix premières réécrites à la relecture (« à mi-chemin
+  entre Paris et Lyon » pour Bourges, qui est plein sud de Paris).
+
 ## Ce qui reste
 
-- **La Réplique (60 répliques vues sur 66 par le plus assidu) et l'Épingle
-  (67 lieux sur 90)** approchent du bout sans redite encore. À doubler de même.
 - **Aux plus grosses journées du joueur le plus assidu — trois traversées —,
-  seuls les Indices tiennent la semaine** ; le Détail en tient quatre jours,
-  puis quitte sa carte quatre fois sur dix, le temps que ses tableaux
-  reviennent.
+  les Indices, la Réplique et l'Épingle tiennent maintenant la semaine** (105
+  manches de chacun en sept jours) ; le Détail en tient quatre jours, puis
+  quitte sa carte quatre fois sur dix, le temps que ses tableaux reviennent.
+- **Les indices de l'Épingle ne sont pas mesurés** : le calibrage de la
+  traversée joue encore le jeu sans indice. À relever sur les vraies manches :
+  combien en demandent un, deux, et ce que le jeu fait alors au taux de
+  victoire.
+- **Un nombre se coupe au milieu** : « 2 100 mètres » passe à la ligne entre
+  ses deux morceaux, à l'Épingle comme ailleurs (`espacesFines` ne colle pas
+  les milliers). Vu au rendu, pas corrigé ici.
 - **« Les Iris » de Van Gogh manquent** : choisis dans la liste, ils ne sont
   pas sortis candidats de la chaîne — à reprendre avec le prochain lot.
 - **Des anecdotes pour les tableaux sans question** : les écrire, c'est écrire

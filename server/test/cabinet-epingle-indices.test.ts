@@ -155,8 +155,8 @@ test('les indices se figent dans le tirage, et se relisent tels quels — un tir
 })
 
 test('les mots des indices viennent du barème : le bouton, son nom à l’oreille, la révélation, l’annonce', () => {
-  assert.deepEqual(motsDesIndicesDeLEpingle(0), { bouton: 'Indice −★', nom: 'Un indice, contre une étoile : la manche en vaudra deux au plus', revelation: null })
-  assert.deepEqual(motsDesIndicesDeLEpingle(1), { bouton: 'Indice −★', nom: 'Un indice, contre une étoile : la manche en vaudra une au plus', revelation: 'Avec un indice : ★★ au plus.' })
+  assert.deepEqual(motsDesIndicesDeLEpingle(0), { mot: 'Indice', cout: '−★', nom: 'Un indice, contre une étoile : la manche en vaudra deux au plus', revelation: null })
+  assert.deepEqual(motsDesIndicesDeLEpingle(1), { mot: 'Indice', cout: '−★', nom: 'Un indice, contre une étoile : la manche en vaudra une au plus', revelation: 'Avec un indice : ★★ au plus.' })
   assert.equal(motsDesIndicesDeLEpingle(2).revelation, 'Avec deux indices : ★ au plus.')
   assert.match(JEUX.epingle.geste, /Un indice aide, et retire une étoile du jeu\.$/)
   assert.match(JEUX.epingle.bareme, /— un indice, ★★ au plus · deux indices, ★ au plus$/)

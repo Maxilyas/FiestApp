@@ -167,8 +167,9 @@ export function motsDesIndicesDeLEpingle(demandes: number) {
   const enJeu = bareme[Math.min(Math.max(0, demandes), bareme.length - 1)]
   const ensuite = bareme[Math.min(Math.max(0, demandes) + 1, bareme.length - 1)]
   return {
-    /** Le bouton, et ce qu'il coûte : « Indice −★ ». */
-    bouton: `Indice −${etoiles(enJeu - ensuite)}`,
+    /** Le bouton, puis ce qu'il coûte : « Indice », « −★ » — à part : un écran étroit ne garde que l'ampoule et le prix. */
+    mot: 'Indice',
+    cout: `−${etoiles(enJeu - ensuite)}`,
     /** Son nom à l'oreille : ce qu'il coûte, et ce que la manche vaudra ensuite. */
     nom: `Un indice, contre ${enLettres(enJeu - ensuite, 'feminin')} étoile${enJeu - ensuite > 1 ? 's' : ''} : la manche en vaudra ${enLettres(ensuite, 'feminin')} au plus`,
     /** La révélation : « Avec un indice : ★★ au plus. » — pourquoi une épingle tout près n'a pas ses trois étoiles ; null sans indice. */

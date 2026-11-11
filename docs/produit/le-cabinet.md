@@ -60,7 +60,7 @@ Après chaque manche, **la révélation** : les étoiles et ce qui les a faites,
 
 | Jeu | Le geste | Une manche | Coup d'œil |
 |---|---|---|---|
-| **L'Épingle** | un récit daté, puis « Où ? » : on plante l'épingle sur la carte de France | à moins de 40 km ★★★ · 120 km ★★ · 300 km ★ | entoure une zone de 300 km qui contient le lieu, son centre à 120 à 294 km de lui |
+| **L'Épingle** | un récit daté, puis « Où ? » : on plante l'épingle sur la carte de France. Qui ne sait pas demande un indice, puis un second, chacun contre une étoile : le coin de France, en mots (« En Bourgogne, à mi-chemin entre Paris et Lyon. »), puis sa place dite comme celle de l'épingle (« À 140 km au nord de Lyon. ») — il n'y a plus qu'à mener l'une sur l'autre | à moins de 40 km ★★★ · 120 km ★★ · 300 km ★ — un indice, ★★ au plus · deux, ★ au plus | entoure une zone de 300 km qui contient le lieu, son centre à 120 à 294 km de lui |
 | **La Frise** | une seule frise qui grandit — trois événements, puis cinq, puis sept —, du plus ancien au plus récent | sans faute ★★★ · une erreur ★★ | dévoile l'année d'un nouveau venu |
 | **Le Mot mystère** | un mot à trouver, la question pour indice, cinq essais en deux minutes, les couleurs de chaque essai | en 1 ou 2 essais ★★★ · 3 ou 4 ★★ · 5 ★ | souffle une lettre à sa place |
 | **Le Détail** | un tableau en quatre cadrages ; « Reculer d'un pas » en montre plus et coûte une étoile ; quatre titres de tableaux qui se suivent dans le temps | au premier coup d'œil ★★★ · un pas ★★ · deux ★ | efface un mauvais titre |
@@ -200,7 +200,7 @@ Le bouton dit la traversée en route — « Acte 2 sur 3 · 4 cœurs », « En r
 | Une traversée de la version 1, commencée avant la 2 | ses chiffres d'alors, jusqu'au bout : 5 cœurs, 5 pièces l'étoile, des gardiens à 6, 8, 10, la carte ++ offerte et à 45, la Parade à 1, 1, 2 et contre les gardiens dès la Parade + |
 | La difficulté | acte I facile, II moyen, III difficile ; un cran au-dessus contre les gardiens |
 | Une épreuve | 3 manches de 3 étoiles, une manche réussie à 2 étoiles naturelles |
-| Les durées | l'Épingle 45 s, la Frise 60, le Mot mystère 120, le Détail 45, le Filet 45, le Pari 35 par étape, l'Éclair 55, les Indices 75, la Réplique 25 par étape |
+| Les durées | l'Épingle 60 s, la Frise 60, le Mot mystère 120, le Détail 45, le Filet 45, le Pari 35 par étape, l'Éclair 55, les Indices 75, la Réplique 25 par étape |
 | La grâce, la pause | 1,5 s après l'échéance ; 10 s de pause au plus par manche |
 | La fraîcheur | rien ne revient avant 7 jours |
 
