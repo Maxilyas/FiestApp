@@ -17,8 +17,26 @@
 // Éclairer n'y entre pas. Deux remèdes qui se cumulent : la graine de ce
 // hasard est un secret du serveur (`DepartDUnePartie.graine`), et la zone ne
 // tient même pas à elle.
+//
+// Les indices (le 11 novembre 2026 — « c'est parfois des choses qu'on n'arrive
+// pas à savoir », et l'idée du propriétaire : un texte qui se déroule, de plus
+// en plus précis, pendant que les étoiles baissent). Deux par lieu, écrits avec
+// lui (`Lieu.indices`), qu'il demande quand il veut, comme un pas en arrière au
+// Détail : des faits de l'endroit, à déduire — ce qui s'y est passé, ce qu'on y
+// trouve d'autre, qui en vient —, le premier pour qui réfléchit, le second pour
+// presque tous. Jamais une adresse : la première version disait le coin de
+// France, puis calculait la place du lieu depuis une ville de la carte (« À
+// 170 km à l'ouest de Paris. »), et « il n'y a plus aucune réflexion » (le
+// propriétaire, le même jour). Chacun retire une étoile de ce que la manche met
+// en jeu (`ETOILES_AUX_INDICES_DE_L_EPINGLE`) ; la distance décide sous ce
+// plafond. Ils se figent dans le tirage avec le lieu, et leur barème avec eux
+// (`etoilesAuxIndices`) : un tirage d'avant n'en a pas, et sa manche se rejoue
+// telle qu'elle s'est jouée — aucune version du départ. Demandés, pas minutés :
+// un indice qui tomberait de lui-même prendrait une étoile à qui vise encore, et
+// un plafond qui baisse avec le temps voudrait un chrono par indice, que le
+// serveur seul peut tenir.
 
-import { DECALAGE_DE_LA_ZONE_KM, DUREES_DES_JEUX, KM_DE_L_EPINGLE, RAYON_D_ECLAIRER_KM } from '../bareme'
+import { DECALAGE_DE_LA_ZONE_KM, DUREES_DES_JEUX, ETOILES_AUX_INDICES_DE_L_EPINGLE, KM_DE_L_EPINGLE, RAYON_D_ECLAIRER_KM } from '../bareme'
 import type { Lieu } from '../contenu'
 import { dansLaFrance, distanceKm, type Point } from '../france'
 import { idDuLieu } from '../pieces'
@@ -46,6 +64,13 @@ export interface EpingleTiree {
   lieu: Lieu
   /** Avec le centre de la zone, que la page reçoit, il redonnerait le lieu : il ne part jamais. */
   decalage: DecalageDeLaZone
+  /**
+   * Ce que la manche met en jeu sans indice, puis après chacun (`ETOILES_AUX_INDICES_DE_L_EPINGLE`), figé avec les
+   * indices du lieu (`lieu.indices`) : une partie jouée se relit à son barème — son cartel, « Mes réponses » —, quel
+   * que soit celui du jour. Absent d'un tirage d'avant le 11 novembre 2026, dont le lieu n'a pas d'indice : la manche
+   * se joue sans, comme avant.
+   */
+  etoilesAuxIndices?: readonly number[]
 }
 
 /** La zone qu'Éclairer entoure : un cercle qui contient le lieu, sans être centré sur lui. */
@@ -53,18 +78,17 @@ export interface ZoneDEclairer extends Point {
   rayonKm: number
 }
 
-/** Ce que le serveur sait d'une manche avant sa réponse : la zone éclairée, s'il l'a demandée. L'épingle, la page la tient seule. */
+/** Ce que le serveur sait d'une manche avant sa réponse : la zone éclairée, s'il l'a demandée, et ses indices demandés. L'épingle, la page la tient seule. */
 export interface EtatDeLEpingle {
   zone: ZoneDEclairer | null
+  /** Combien d'indices il a demandés ; absent : aucun. */
+  indices?: number
 }
 
-/** « Planter ici », ou l'envoi de l'échéance : l'épingle posée, ou aucune. */
-export interface GesteDeLEpingle {
-  quoi: 'repondre'
-  epingle: Point | null
-}
+/** « Planter ici », ou l'envoi de l'échéance : l'épingle posée, ou aucune ; « Un indice », qui ne tranche rien. */
+export type GesteDeLEpingle = { quoi: 'repondre'; epingle: Point | null } | { quoi: 'indice' }
 
-/** Ce que la page reçoit : « 1429 · Les grands sièges », le récit, la question — jamais le lieu, ni ce qui le situe. */
+/** Ce que la page reçoit : « 1429 · Les grands sièges », le récit, la question — jamais le lieu, ni ce qui le situe au-delà des indices qu'il a demandés. */
 export interface EpingleMontree {
   jeu: 'epingle'
   date: string
@@ -72,6 +96,12 @@ export interface EpingleMontree {
   recit: string
   question: string
   zone: ZoneDEclairer | null
+  /** Les indices qu'il a demandés, dans l'ordre : ceux-là seuls — le suivant ne part qu'à sa demande. */
+  indices: string[]
+  /** Ce que la manche met en jeu à présent, la distance décidant dessous. */
+  enJeu: number
+  /** Les indices qu'il peut encore demander. */
+  aDemander: number
 }
 
 /** La révélation : la distance, le lieu, l'épingle et le trait qui les joint. */
@@ -84,9 +114,35 @@ export interface EpingleRevelee {
   epingle: Point | null
   lieu: { nom: string; commune: string; departement: string; date: string; lat: number; lon: number }
   zone: ZoneDEclairer | null
+  /** Les indices qu'il avait demandés : ce que la manche mettait en jeu se lit à leur nombre. */
+  indices: string[]
   /** « Le savais-tu ? » */
   savais: string
 }
+
+/**
+ * Les indices qu'un lieu porte, et que son juge exige (`refusDuLieu`) : ce que la manche a d'étoiles à leur céder sans
+ * tomber à zéro. Tiré du barème ici, pas dans `bareme.ts` : le calibrage, qui essaie un barème avant de charger les
+ * règles, ne suivrait pas une constante que le barème tirerait de lui-même (`cabinet-calibrage.test.ts`).
+ */
+export const INDICES_D_UN_LIEU = ETOILES_AUX_INDICES_DE_L_EPINGLE.length - 1
+
+/** Les indices qu'un tirage porte, ceux de son lieu : aucun pour un tirage d'avant eux. */
+const indicesDe = (t: EpingleTiree): readonly string[] => t.lieu.indices ?? []
+/** Ceux qu'il a demandés, bornés à ceux du tirage. */
+const demandes = (t: EpingleTiree, e: EtatDeLEpingle): string[] => indicesDe(t).slice(0, e.indices ?? 0)
+
+/**
+ * Ce qu'une manche met en jeu après tant d'indices (`ETOILES_AUX_INDICES_DE_L_EPINGLE`) : trois étoiles sans aucun, une
+ * de moins à chacun, jamais zéro — un indice coûte une étoile, pas la manche. Au barème que le tirage a figé, quand il
+ * en porte un.
+ */
+export function etoilesEnJeu(indices: number, bareme: readonly number[] = ETOILES_AUX_INDICES_DE_L_EPINGLE): VerdictDUneManche['naturel'] {
+  return naturelDe(bareme[Math.min(Math.max(0, indices), bareme.length - 1)])
+}
+
+/** Ce que cette manche met en jeu, au barème de son tirage. */
+const enJeuDe = (t: EpingleTiree, e: EtatDeLEpingle) => etoilesEnJeu(demandes(t, e).length, t.etoilesAuxIndices)
 
 /**
  * Les étoiles d'une épingle plantée à tant de kilomètres du lieu : à moins de
@@ -138,12 +194,19 @@ export function pointADistance(depart: Point, km: number, capDegres: number): Po
  * jamais. `hasard` est celui du tireur, que la page ne peut pas refaire —
  * jamais celui de la graine de la partie : qui la saurait referait le
  * décalage, et du centre de la zone remonterait au lieu. Elle est un secret du
- * serveur ; figé ici, le décalage ne tient même pas à ce secret.
+ * serveur ; figé ici, le décalage ne tient même pas à ce secret. Ses indices
+ * voyagent avec le lieu ; s'il en a, le barème du jour se fige avec eux — ils
+ * ne changent rien au hasard tiré.
  */
 export function epingleTiree(lieu: Lieu, hasard: () => number): EpingleTiree {
   const cap = hasard() * 360
   const [pres, loin] = DECALAGE_DE_LA_ZONE_KM
-  return { jeu: 'epingle', lieu, decalage: { cap, km: pres + hasard() * (loin - pres), rayonKm: RAYON_D_ECLAIRER_KM } }
+  return {
+    jeu: 'epingle',
+    lieu,
+    decalage: { cap, km: pres + hasard() * (loin - pres), rayonKm: RAYON_D_ECLAIRER_KM },
+    ...(lieu.indices && lieu.indices.length > 0 && { etoilesAuxIndices: [...ETOILES_AUX_INDICES_DE_L_EPINGLE] }),
+  }
 }
 
 /**
@@ -172,8 +235,12 @@ function relue(c: string | null | undefined): { epingle: Point; km: number } | n
 /** La réponse dite, au journal et au cartel : « Orléans (Loiret), 1429 ». */
 const reponseDite = (l: Lieu) => `${l.commune} (${l.departement}), ${l.date}`
 
-/** Plantée hors du cadre, l'épingle se refuse en mots (`apresLeGeste`) : il la replante, et la manche continue. */
-const tranche = (g: GesteDeLEpingle) => g.epingle === null || dansLaFrance(g.epingle)
+/** Plantée hors du cadre, l'épingle se refuse en mots (`apresLeGeste`) : il la replante, et la manche continue. Un indice ne tranche rien. */
+const tranche = (g: GesteDeLEpingle) => g.quoi === 'repondre' && (g.epingle === null || dansLaFrance(g.epingle))
+
+/** Les refus d'un indice : la page n'en propose pas quand il n'en reste pas, et un double toucher sur le dernier arrive quand même. */
+export const PLUS_D_INDICE = 'Plus d’indice : plante ton épingle'
+export const PAS_D_INDICE = 'Pas d’indice pour ce lieu'
 
 export const REGLE_DE_L_EPINGLE: RegleQuiTranche<EpingleTiree, EtatDeLEpingle, GesteDeLEpingle, EpingleMontree, EpingleRevelee> = {
   cle: 'epingle',
@@ -184,6 +251,7 @@ export const REGLE_DE_L_EPINGLE: RegleQuiTranche<EpingleTiree, EtatDeLEpingle, G
 
   lireLeGeste(brut) {
     const g = champsDuGeste(brut)
+    if (g?.quoi === 'indice') return { quoi: 'indice' }
     if (g?.quoi !== 'repondre') return null
     const r = reponseEnvoyee(g, 'epingle')
     // Rien de planté : la page envoie à l'échéance ce qu'elle a, et parfois rien.
@@ -197,14 +265,23 @@ export const REGLE_DE_L_EPINGLE: RegleQuiTranche<EpingleTiree, EtatDeLEpingle, G
 
   tranche: (_t, _e, g) => tranche(g),
 
-  apresLeGeste: (_t, _e, g) => (tranche(g) ? GESTE_A_JUGER : 'Plante ton épingle en France'),
+  apresLeGeste(t, e, g) {
+    if (g.quoi === 'indice') {
+      const combien = indicesDe(t).length
+      const deja = e.indices ?? 0
+      if (deja >= combien) return combien === 0 ? PAS_D_INDICE : PLUS_D_INDICE
+      return { ...e, indices: deja + 1 }
+    }
+    return tranche(g) ? GESTE_A_JUGER : 'Plante ton épingle en France'
+  },
 
-  juger(t, _e, reponse) {
+  juger(t, e, reponse) {
     // Expirée, quittée, ou sans épingle : ce que la page tenait, le serveur ne l'a jamais eu.
-    const epingle = typeof reponse === 'object' ? reponse.epingle : null
+    const epingle = typeof reponse === 'object' && reponse.quoi === 'repondre' ? reponse.epingle : null
     if (!epingle) return { naturel: 0, pieces: [{ juste: false, choix: null, composee: null }] }
     const km = distanceKm(epingle, t.lieu)
-    const naturel = etoilesDeLaDistance(km)
+    // La distance décide, sous ce que ses indices ont laissé en jeu : au second, une étoile au plus.
+    const naturel = naturelDe(Math.min(etoilesDeLaDistance(km), enJeuDe(t, e)))
     const juste = justeDeLaPiece(naturel, 'epingle') === true
     return { naturel, pieces: [{ juste, choix: choixDe(true, juste), composee: composee(epingle, km) }] }
   },
@@ -219,6 +296,9 @@ export const REGLE_DE_L_EPINGLE: RegleQuiTranche<EpingleTiree, EtatDeLEpingle, G
     recit: t.lieu.recit,
     question: t.lieu.question,
     zone: e.zone ? { ...e.zone } : null,
+    indices: demandes(t, e),
+    enJeu: enJeuDe(t, e),
+    aDemander: indicesDe(t).length - demandes(t, e).length,
   }),
 
   reveler(t, e, v) {
@@ -232,6 +312,7 @@ export const REGLE_DE_L_EPINGLE: RegleQuiTranche<EpingleTiree, EtatDeLEpingle, G
       epingle: lu?.epingle ?? null,
       lieu: { nom: l.nom, commune: l.commune, departement: l.departement, date: l.date, lat: l.lat, lon: l.lon },
       zone: e.zone ? { ...e.zone } : null,
+      indices: demandes(t, e),
       savais: l.savais,
     }
   },

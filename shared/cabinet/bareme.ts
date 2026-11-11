@@ -230,10 +230,12 @@ export const CHANGEMENTS_PAR_PARTIE: Readonly<Record<Force, number>> = { 1: 1, 2
  * sans rien changer à ses étoiles. Le Quiz, 80 s pour ses quatre questions :
  * vingt secondes chacune — le calibrage en prête quatorze à une question du
  * Pari au joueur moyen, et une minute aurait pris de court quiconque lit moins
- * vite que lui.
+ * vite que lui. L'Épingle, de 45 à 60 s le 11 novembre 2026, avec ses indices :
+ * en demander un, le lire, puis viser de nouveau prend le temps d'une seconde
+ * manche — la médiane d'une manche sans indice était de 18 s en production.
  */
 export const DUREES_DES_JEUX: Readonly<Record<CleDeJeu, number>> = {
-  epingle: 45,
+  epingle: 60,
   frise: 60,
   mot: 120,
   detail: 45,
@@ -295,6 +297,15 @@ export const RAYON_D_ECLAIRER_KM = 300
  * lui rapporte encore une étoile par manche (le calibrage corrigé du même jour).
  */
 export const DECALAGE_DE_LA_ZONE_KM: readonly [number, number] = [120, 294]
+/**
+ * L'Épingle : ce qu'une manche met en jeu selon les indices qu'il a demandés — aucun ★★★, un ★★, deux ★ —, la distance
+ * décidant sous ce plafond (`KM_DE_L_EPINGLE`). Deux indices par lieu, écrits avec lui : des faits à déduire, le
+ * premier pour qui réfléchit, le second pour presque tous — jamais une distance ni une direction. Le jeu était le plus
+ * évité après la Frise (pris 19 fois sur cent quand la carte le proposait, du 1er au 8 novembre 2026), un tiers de ses
+ * manches justes et 28 % à zéro : « c'est parfois des choses qu'on n'arrive pas à savoir » (le propriétaire, le
+ * 11 novembre 2026). Une étoile par indice : savoir sans aide reste ce qui paie, et l'aide ne coûte jamais la manche.
+ */
+export const ETOILES_AUX_INDICES_DE_L_EPINGLE: readonly [number, number, number] = [3, 2, 1]
 
 /** La Frise : les nouveaux venus de chaque manche — trois, puis deux, puis deux : une frise qui grandit jusqu'à sept. */
 export const VAGUES_DE_LA_FRISE: readonly number[] = [3, 2, 2]
@@ -344,6 +355,18 @@ export const ETOILES_AU_CADRAGE: readonly number[] = [3, 2, 1, 0]
  * 25 octobre 2026).
  */
 export const TITRES_DU_DETAIL = 4
+/**
+ * Le Détail ne se promet sur la carte d'une traversée, ni chez ses gardiens,
+ * qu'à qui il reste de quoi tirer du neuf : tant de fenêtres sans un tableau
+ * commun, dont aucun n'a été vu ces `JOURS_SANS_REDITE` jours — deux épreuves
+ * de trois manches. En production, du 1er au 10 novembre 2026, le joueur le
+ * plus assidu avait vu les cent tableaux d'alors : quatre de ses manches sur
+ * dix étaient des redites, plus de la moitié vues la veille, réussies à 71 %
+ * contre 44 % sur un tableau neuf (`retours/2026-11-08/le-cabinet-en-production.md`).
+ * Le jeu qu'on sait déjà par cœur attend que ses tableaux aient passé la
+ * semaine ; les neuf autres font sa carte.
+ */
+export const FENETRES_POUR_PROMETTRE_LE_DETAIL = 6
 /** Éclairer au Détail, au Pari et à la Réplique : ce qu'il efface de propositions, au plus, dans une manche ou une étape… */
 export const EFFACES_AU_PLUS = 2
 /**
@@ -544,6 +567,8 @@ export const REPONSE_MAX_DU_QCM = 34
 export const RECIT_MAX = 200
 /** … sa question « Où ? »… */
 export const QUESTION_MAX = 80
+/** … chacun de ses deux indices, un fait à déduire qu'il demande contre une étoile : trois lignes au plus sous la question, en 360 pixels… */
+export const INDICE_DE_L_EPINGLE_MAX = 100
 /** … et « Le savais-tu ? », de chaque entrée. */
 export const SAVAIS_MAX = 180
 /**

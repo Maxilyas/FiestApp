@@ -38,9 +38,13 @@ import { valeurDuFilet } from '../src/core/cabinet/tirages/tas'
 import { acteDuFilet } from '../../shared/cabinet/jeux/filetEnDeuxTemps'
 import { traiterLesLots } from '../scripts/cabinet-contenu'
 import { tirerLePlan } from '../src/core/cabinet/tirages/index'
+import { leDetailSePromet } from '../src/core/cabinet/tirages/detail'
 import { ENJEU_ORDINAIRE } from '../../shared/cabinet/partie'
 import { regleDe } from '../../shared/cabinet/jeux/index'
 import type { EpingleTiree } from '../../shared/cabinet/jeux/epingle'
+import type { DetailTire } from '../../shared/cabinet/jeux/detail'
+import { idDuTableau } from '../../shared/cabinet/pieces'
+import { tableauxDuDetail } from '../src/core/details'
 import {
   CASES_DE_LA_VISITE,
   CHASSES_PAR_JOUR,
@@ -56,6 +60,7 @@ import {
   QUESTION_MAX,
   RECIT_MAX,
   SAVAIS_MAX,
+  TITRES_DU_DETAIL,
 } from '../../shared/cabinet/bareme'
 import { CLES_DES_JEUX, type CleDeJeu } from '../../shared/cabinet/jeux/regle'
 import { bonneIdentite } from '../../shared/cabinet/jeux/indices'
@@ -68,7 +73,7 @@ import type { Fiche, FriseATheme, Lieu, Replique } from '../../shared/cabinet/co
  * maladroite ferait rougir ce test, pas un joueur qui retombe sur les mêmes
  * lieux.
  */
-const AU_MOINS: Readonly<Record<SorteDuContenu, number>> = { lieux: 90, fiches: 66, repliques: 66, frises: 18, filet: 1600, reperes: 80 }
+const AU_MOINS: Readonly<Record<SorteDuContenu, number>> = { lieux: 171, fiches: 138, repliques: 137, frises: 18, filet: 1600, reperes: 80 }
 
 const brut = (s: SorteDuContenu): unknown[] => JSON.parse(readFileSync(path.join(DOSSIER_DU_CONTENU, SORTES[s].fichier), 'utf8'))
 
@@ -288,6 +293,61 @@ test('l’Épingle, les Indices et la Réplique tiennent sept jours, joués par 
   }
 })
 
+/**
+ * Ce qu'une traversée menée au bout joue de manches d'un même jeu, épreuves et assauts de ses gardiens ensemble : de
+ * 3,8 à 5 selon le jeu, en production du 1er au 8 novembre 2026 (`retours/2026-11-08/le-cabinet-en-production.md`,
+ * « Consommé par traversée »). Une mesure, pas un barème : la carte ne plafonne que ses épreuves (`EPREUVES_D_UN_JEU_MAX`),
+ * et les gardiens tirent leurs jeux au départ.
+ */
+const MANCHES_D_UN_JEU_PAR_TRAVERSEE = 5
+
+test('chaque jeu du contenu neuf tient sept jours sans redite au rythme de la traversée : une par jour, cinq manches de chaque jeu', () => {
+  // Les trois épreuves d'au-dessus comptent au rythme du musée — une visite, deux chasses, cinq libres —, et la page
+  // n'est plus que la traversée depuis le 31 octobre 2026 : dimensionné pour lui, le contenu neuf ne disait rien d'elle.
+  // Le Détail y manquait de loin : chacune de ses manches compte vus ses quatre titres (`TITRES_DU_DETAIL`, les leurres
+  // avec le bon), vingt tableaux par traversée, et les cent d'alors n'en tenaient que cinq — en production, les trois
+  // joueurs les plus assidus en avaient vu 100, 84 et 72, et quatre manches sur dix étaient des redites.
+  //
+  // Une traversée par jour, pas les trois des plus grosses journées du joueur le plus assidu : à ce rythme-là, seuls les
+  // Indices tiennent la semaine, et ce test ne le promet pas des autres. Ce qui ne tient pas se dit sur la carte — le
+  // Détail ne s'y promet plus à qui n'a plus de tableau neuf (`leDetailSePromet`, `cabinet-detail-promis.test.ts`).
+  const contenu = contenuDuCabinet()
+  const tient: [CleDeJeu, number, number][] = [
+    ['epingle', contenu.lieux.length, 1],
+    ['indices', contenu.fiches.length, 1],
+    ['replique', contenu.repliques.length, 1],
+    ['detail', tableauxDuDetail().length, TITRES_DU_DETAIL],
+  ]
+  for (const [jeu, n, parManche] of tient) {
+    const faut = JOURS_SANS_REDITE * MANCHES_D_UN_JEU_PAR_TRAVERSEE * parManche
+    assert.ok(n >= faut, `${jeu} : ${n} contenus pour ${faut}`)
+  }
+  // L'Épingle joue ses trois lieux d'un même thème : cinq manches en prennent deux thèmes par traversée.
+  const parties = partiesDEpingleATheme(contenu.lieux)
+  assert.ok(parties >= JOURS_SANS_REDITE * Math.ceil(MANCHES_D_UN_JEU_PAR_TRAVERSEE / MANCHES_PAR_PARTIE), `${parties} parties d'Épingle à thème`)
+})
+
+test('le Détail tient sept jours de traversée, joué par son tireur : aucun des quatre titres d’une manche n’a déjà été montré', () => {
+  // Le compte d'au-dessus dit qu'il y a de quoi ; ici, le tireur même joue la semaine — une traversée par jour, ses manches
+  // du Détail par épreuves de trois. Il prend sa fenêtre au hasard parmi les jamais vues, pas au bord de sa suite : des
+  // fenêtres prises au hasard en laissent entre elles de trop courtes, et la semaine doit tenir quand même.
+  const JOUR = 24 * 3_600_000
+  const debut = Date.UTC(2026, 10, 11, 8, 0)
+  const vues = new Map<string, number>()
+  const parties = Math.ceil((JOURS_SANS_REDITE * MANCHES_D_UN_JEU_PAR_TRAVERSEE) / MANCHES_PAR_PARTIE)
+  for (let p = 0; p < parties; p++) {
+    const t = debut + Math.floor((p * MANCHES_PAR_PARTIE) / MANCHES_D_UN_JEU_PAR_TRAVERSEE) * JOUR + p * 60_000
+    const plan = tirerLePlan('detail', { porte: { deLaCategorie: () => [] }, jouables: [], mesures: new Map(), vues, maintenant: t, hasard: Math.random, enjeu: ENJEU_ORDINAIRE, leurres: new Map() }, 0)
+    assert.ok(plan, `partie ${p + 1} : rien à tirer`)
+    for (const tiree of plan as DetailTire[]) {
+      for (const x of tiree.titres) assert.equal(vues.get(idDuTableau(x.qid!)), undefined, `partie ${p + 1} : « ${x.titre} » revient`)
+      for (const x of tiree.titres) vues.set(idDuTableau(x.qid!), t)
+    }
+  }
+  // Et la semaine jouée, la carte le promet encore : il lui reste de quoi tirer du neuf, où que ses fenêtres soient tombées.
+  assert.equal(leDetailSePromet(vues, debut + JOURS_SANS_REDITE * JOUR - 1), true)
+})
+
 test('une frise ne souffle pas l’Épingle : un événement de l’année d’un lieu ne dit ni sa commune ni son département', () => {
   // « Napoléon III est fait prisonnier à Sedan », 1870 : la frise jouée la
   // veille répondait à « Où Napoléon III fut-il fait prisonnier en 1870 ? ».
@@ -398,6 +458,7 @@ const LIEU: Lieu = {
   date: '1443',
   recit: "Le chancelier d'un puissant duc et sa femme fondent un hôpital pour les pauvres.",
   question: 'Où se trouve cet hôpital aux toits multicolores ?',
+  indices: ["Le duc en question régnait jusqu'en Flandre, mais sa capitale était la ville de la moutarde.", 'La ville se dit capitale des vins de Bourgogne, au milieu de vignes de grands crus.'],
   savais: 'Ses vins sont vendus aux enchères depuis 1859.',
   categorie: 'Arts & lettres',
 }
@@ -444,6 +505,23 @@ test('un lieu : dans la France, sa commune et son département jamais dits avant
     [(({ savais: _, ...l }) => l)(LIEU), /^il manque savais/, 'un champ qui manque'],
     [null, /^pas une entrée/, 'pas un objet'],
   ] as [unknown, RegExp, string][]) assert.match(refusDuLieu(lieu) ?? 'il se pose', motif, pourquoi)
+})
+
+test('les indices d’un lieu ne disent jamais sa commune ni son département — pas même par un mot à double sens', () => {
+  // Les deux indices d'une manche (le 11 novembre 2026) : elle les montre avant son verdict, à qui les demande. Ils
+  // passent donc au crible du récit et de la question — et un lieu du Nord n'écrit pas « le nord », qui serait son
+  // département. Ce qu'un indice est — un fait à déduire, jamais une adresse —, `cabinet-epingle-indices.test.ts` le juge.
+  assert.equal(refusDuLieu(LIEU), null)
+  const [premier, second] = LIEU.indices!
+  for (const [lieu, motif, pourquoi] of [
+    [{ ...LIEU, indices: [premier, ''] }, /^son indice 2 : un texte/, 'un indice vide'],
+    [{ ...LIEU, indices: ['Un chanoine devenu maire y a donné son nom à un apéritif 🍷.', second] }, /^son indice 1 : pas d'emoji/, 'un emoji'],
+    [{ ...LIEU, commune: 'Bergues', departement: 'Nord', indices: [premier, 'Un film de 2008 a fait rire la France avec les gens du nord.'] }, /^son indice 2 dit « Nord »/, 'le département, par un mot à double sens'],
+    [{ ...LIEU, commune: 'Villedieu', departement: 'Manche', indices: ['Ses plages regardent la Manche, et ses cloches sonnent partout.', second] }, /^son indice 1 dit « Manche »/, 'la mer qui porte le nom du département'],
+  ] as [unknown, RegExp, string][]) assert.match(refusDuLieu(lieu) ?? 'il se pose', motif, pourquoi)
+  // Une région, une mer, un mot du département qui n'en est pas le nom : rien de cela n'est la réponse.
+  assert.equal(refusDuLieu({ ...LIEU, commune: 'Bergues', departement: 'Nord', indices: [premier, 'On y a tourné en 2008 le film qui a fait aimer les Ch’tis à toute la France.'] }), null)
+  assert.equal(refusDuLieu({ ...LIEU, commune: 'Le Havre', departement: 'Seine-Maritime', indices: [premier, 'Ce port de Normandie garde l’embouchure de la Seine.'] }), null, 'un mot du département ne le dit pas')
 })
 
 const FICHE: Fiche = {

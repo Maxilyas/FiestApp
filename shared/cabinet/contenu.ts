@@ -33,6 +33,14 @@ export interface Lieu {
   date: string
   recit: string
   question: string
+  /**
+   * Ses deux indices, que la manche montre un à un s'il les demande, chacun contre une étoile : des faits de l'endroit,
+   * à déduire — le premier pour qui réfléchit (« Le duc en question régnait jusqu'en Flandre, mais sa capitale était la
+   * ville de la moutarde. »), le second pour presque tous (« La ville se dit capitale des vins de Bourgogne. ») —,
+   * jamais une distance, une direction, la commune ni le département. Chaque lieu livré a les siens (`refusDuLieu`) ; un
+   * lieu relu d'une partie d'avant le 11 novembre 2026 n'en a pas, et sa manche se joue sans indice.
+   */
+  indices?: readonly string[]
   /** « Le savais-tu ? » de la révélation. */
   savais: string
   categorie: Categorie

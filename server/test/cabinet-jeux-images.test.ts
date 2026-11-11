@@ -1214,14 +1214,17 @@ test('le tirage du Détail : de partie en partie, ce qu’il se rappelle ne dés
   // anciennement vu des quatre — 100 % dès la trente-quatrième partie pour qui notait l'ordre de ses révélations ; la
   // file des jamais vus fondait, ses bouts désignaient le bon (41 % aux dernières parties du premier tour) et ses quatre
   // titres s'écartaient d'un siècle et demi ; un titre déjà proposé dans la partie y revenait en leurre, jamais en
-  // réponse. Ici, des joueurs qui ne regardent jamais l'image, cent parties libres de suite par le vrai tireur, chacun
-  // ce dont il se souvient, et ce qu'un joueur qui sait le catalogue en tirerait.
+  // réponse. Ici, des joueurs qui ne regardent jamais l'image, trois tours du catalogue en parties libres de suite par
+  // le vrai tireur, chacun ce dont il se souvient, et ce qu'un joueur qui sait le catalogue en tirerait.
   const tableaux = tableauxDuDetail()
   const parTitre = new Map(tableaux.map(t => [t.titre, t]))
   const dansLeTemps = [...tableaux].sort(avantDansLeTemps)
   const UN_TOUR = Math.floor(tableaux.length / MANCHES_PAR_PARTIE)
-  const JOUEURS = 40
-  const PARTIES = 100
+  // Le nombre de parties suit le catalogue : écrit en dur à cent — trois tours des cent tableaux d'alors —, il ne
+  // sortait plus du premier tour des trois cents du 11 novembre 2026, et « aux suivants » ne mesurait plus rien (NaN).
+  // Les joueurs, eux, se comptent pour garder les quatre mille parties d'alors : autant de manches par tour, au moins.
+  const PARTIES = 3 * UN_TOUR
+  const JOUEURS = Math.ceil(4000 / PARTIES)
   type Joueur = (quatre: readonly TableauDuDetail[], m: { revele: ReadonlyMap<string, number>; proposes: ReadonlySet<string> }) => readonly TableauDuDetail[]
   /** Combien de fenêtres de quatre de cette file contiennent ce tableau : le bon tiré d'abord, moins il y en a, plus c'était lui. */
   const fenetresDe = (file: readonly TableauDuDetail[], t: TableauDuDetail) => {
