@@ -85,7 +85,7 @@ Deux règles de lecture complètent le tableau :
 - Une classe qu'on retire se cherche à la main : la garde des classes mortes tient pour vivante toute classe qui commence par un préfixe assemblé dans le code (`gerbe-${…}`).
 
 ### Le texte
-- La typographie se pose à l'affichage, jamais en base (`shared/typographie.ts`) : `espacesFines` rend insécables les espaces déjà là devant ? ! ; : — « Why? » reste tel quel —, en pose toujours dans « », colle l'inversion (« a-t-il ») par un gluon U+2060 — le trait d'union insécable U+2011 n'est ni dans Figtree ni dans Cormorant —, et se repasse sans rien changer.
+- La typographie se pose à l'affichage, jamais en base (`shared/typographie.ts`) : `espacesFines` rend insécables les espaces déjà là devant ? ! ; : — « Why? » reste tel quel —, en pose toujours dans « », colle l'inversion (« a-t-il ») par un gluon U+2060 — le trait d'union insécable U+2011 n'est ni dans Figtree ni dans Cormorant —, et se repasse sans rien changer. Elle colle aussi, d'une espace fine insécable, les milliers d'un nombre écrit dans un texte (« 2 100 mètres » se coupait entre le « 2 » et le « 100 ») — quand la suite de chiffres s'écrit tout entière comme un nombre : un à trois chiffres sans zéro en tête, puis des groupes de trois, une année devant lui restant à part. « En 1994 300 personnes », « 1 2 3 », un numéro de téléphone ne bougent pas.
 - `formatNumber` écrit un nombre à la française sans `Intl` — le premier `toLocaleString` coûtait 94 ms au processeur d'un téléphone moyen — et ne groupe les milliers qu'à cinq chiffres : « 1889 », « 35 000 ». Un rang s'écrit au féminin (« 1ʳᵉ place »).
 - Un emoji, dans le code comme dans un `content:`, est antérieur à Unicode 13.
 

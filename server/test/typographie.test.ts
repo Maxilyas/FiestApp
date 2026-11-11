@@ -6,7 +6,7 @@
 // sont que des textes — mais toute la famille les lit.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { de, deNom, espacesFines, formatNumber, place, rang } from '../../shared/typographie'
 import { defaultSettings, normalizeSettings, reglagesAuNom, titreChoisi, titreDeCloture } from '../../shared/space'
 
@@ -131,6 +131,101 @@ test('le trait d’union de « a-t-il » ne se coupe plus en fin de ligne', () =
   assert.equal(espacesFines(une), une, 'idempotente')
   // Le gluon ne change pas ce qu'on lit : sans lui, le texte est celui tapé.
   assert.equal(une.replaceAll(GLUON, '').replaceAll(FINE, ' '), 'Qui a-t-il vu ?')
+})
+
+// Le rendu de l'Épingle du Cabinet en 360 × 640 (le 11 novembre 2026) : « à
+// plus de 2 100 mètres » finissait sa ligne sur « 2 », et « 100 mètres »
+// ouvrait la suivante. Le contenu écrit ses milliers d'une espace ordinaire —
+// mille trois cents fois dans la base de la campagne — et rien ne la collait.
+const MILLIERS = '\u202f'
+
+test('un nombre à milliers écrit dans un texte ne se coupe plus entre ses groupes', () => {
+  // Les phrases mêmes du contenu du Cabinet (`server/content/cabinet/`).
+  assert.equal(espacesFines('peints il y a environ 36 000 ans, ils y dormaient jusqu’en 1994.'), `peints il y a environ 36${MILLIERS}000 ans, ils y dormaient jusqu’en 1994.`)
+  assert.equal(espacesFines('Le 29 septembre 1973, environ 100 000 personnes défilèrent à Besançon'), `Le 29 septembre 1973, environ 100${MILLIERS}000 personnes défilèrent à Besançon`)
+  assert.equal(espacesFines('Je suis né il y a plus de 2 500 ans, dans le petit État de Lu.'), `Je suis né il y a plus de 2${MILLIERS}500 ans, dans le petit État de Lu.`)
+  assert.equal(espacesFines('à son foyer, la chaleur dépasse 3 000 °C.'), `à son foyer, la chaleur dépasse 3${MILLIERS}000 °C.`)
+  // Tous les groupes d'un grand nombre, et chaque nombre d'une phrase.
+  assert.equal(espacesFines('1 234 567 habitants'), `1${MILLIERS}234${MILLIERS}567 habitants`)
+  assert.equal(espacesFines('De 2 100 à 12 000 mètres, soit 9 900 de plus'), `De 2${MILLIERS}100 à 12${MILLIERS}000 mètres, soit 9${MILLIERS}900 de plus`)
+  assert.equal(espacesFines('3 000'), `3${MILLIERS}000`, 'une réponse qui n’est qu’un nombre')
+  assert.equal(espacesFines('(près de 35 000)'), `(près de 35${MILLIERS}000)`)
+  assert.equal(espacesFines('1 500,5 km'), `1${MILLIERS}500,5 km`, 'la virgule des décimales ne gêne pas')
+  assert.equal(espacesFines('1/299 792 458 de seconde'), `1/299${MILLIERS}792${MILLIERS}458 de seconde`)
+  // Avec le reste de la typographie, dans la même phrase.
+  assert.equal(espacesFines('Combien : 3 000 ou 30 000 ?'), `Combien${INSECABLE}: 3${MILLIERS}000 ou 30${MILLIERS}000${FINE}?`)
+  // L'espace insécable pleine que quelqu'un aurait tapée devient la fine, celle
+  // de `formatNumber` : le même nombre ne s'écrit pas de deux largeurs.
+  assert.equal(espacesFines(`35${INSECABLE}000 spectateurs`), `35${MILLIERS}000 spectateurs`)
+  assert.equal(espacesFines(`Tu as ${formatNumber(1234567)} points`), `Tu as ${formatNumber(1234567)} points`, 'ce que formatNumber écrit ne bouge pas')
+  const une = espacesFines('Entre 2 100 et 36 000 ans : 1 000 000 de visiteurs !')
+  assert.equal(espacesFines(une), une, 'idempotente')
+  assert.equal(une.replaceAll(MILLIERS, ' ').replace(`${INSECABLE}:`, ' :'), 'Entre 2 100 et 36 000 ans : 1 000 000 de visiteurs !', 'on lit ce qui était écrit')
+})
+
+test('ce qui n’est pas un nombre à milliers ne se colle pas', () => {
+  for (const texte of [
+    // Une année puis un nombre : « 1994 300 » n'est pas un nombre.
+    'En 1994 300 personnes y entrèrent',
+    'de 1889 à 1890, puis 1900 2000',
+    // Une suite, un compte à rebours.
+    'la suite 1 2 3',
+    '3 2 1 partez',
+    '10 20 30 40',
+    // Un numéro de téléphone, en France et ailleurs.
+    'Appelle le 06 12 34 56 78',
+    'le 0 800 123 456, gratuit',
+    'le 06 12 345 678',
+    '+33 6 12 34 56 78',
+    '+1 800 555 0199',
+    '555 123 4567',
+    // Un groupe qui n'a pas trois chiffres, un zéro en tête.
+    'le lot 12 3456',
+    'les numéros 1 23 456',
+    'l’agent 007 300 fois',
+    '0 500',
+    // Ce que le contenu écrit déjà : une saison de Formule 1, une locomotive.
+    'Championnat du monde de Formule 1 1950',
+    'LNER Class A4 4468 Mallard',
+    // Deux espaces de suite ne sont pas un séparateur de milliers.
+    '2  100',
+    // Rien à coller.
+    'En 1889',
+    'Rendez-vous à 20:30, salle 12',
+  ]) {
+    assert.equal(espacesFines(texte), texte, texte)
+  }
+})
+
+test('une année devant un nombre reste à part, et le nombre se colle', () => {
+  assert.equal(espacesFines('En 1994 3 000 personnes y entrèrent'), `En 1994 3${MILLIERS}000 personnes y entrèrent`)
+  assert.equal(espacesFines('En 1973 100 000 personnes défilèrent'), `En 1973 100${MILLIERS}000 personnes défilèrent`)
+  const une = espacesFines('En 1994 3 000 personnes')
+  assert.equal(espacesFines(une), une, 'idempotente')
+})
+
+// Rien ne vaut les textes livrés : chaque suite de chiffres à espaces du
+// contenu, relue. Ce qui s'écrit comme un nombre doit sortir collé, et ce qui
+// reste tel quel doit ne pas en être un — une liste courte, qu'on lit ici.
+test('dans le contenu livré, tout nombre à milliers sort collé', () => {
+  const dossiers = ['cabinet', 'campagne', 'quiz', 'curiosites', 'details', 'frises']
+  const textes: string[] = []
+  const cueillir = (v: unknown): void => {
+    if (typeof v === 'string') textes.push(v)
+    else if (Array.isArray(v)) v.forEach(cueillir)
+    else if (v && typeof v === 'object') Object.values(v).forEach(cueillir)
+  }
+  for (const dossier of dossiers) {
+    const racine = new URL(`../content/${dossier}/`, import.meta.url)
+    for (const fichier of readdirSync(racine, { recursive: true, encoding: 'utf8' })) {
+      if (fichier.endsWith('.json')) cueillir(JSON.parse(readFileSync(new URL(fichier, racine), 'utf8')))
+    }
+  }
+  const SECABLE = /\d[ \u00a0]\d{3}(?!\d)/
+  const avec = textes.filter(t => SECABLE.test(t))
+  assert.ok(avec.length > 500, `le contenu écrit des nombres à milliers (${avec.length} textes)`)
+  const restes = [...new Set(avec.map(espacesFines).filter(t => SECABLE.test(t)))]
+  assert.deepEqual(restes, [], 'une suite de chiffres du contenu se coupe encore devant trois chiffres : si c’est un nombre, écris-le sans équivoque (une virgule après l’année)')
 })
 
 test('une année s’écrit « 1889 » : les milliers ne se groupent qu’à partir de cinq chiffres', () => {

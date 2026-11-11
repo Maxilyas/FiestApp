@@ -1,6 +1,6 @@
 import { Icon, type IconName } from './Icon'
 import { enumerer } from '../../../shared/classement'
-import { formatNumber, place, rang, pts } from '../format'
+import { espacesFines, formatNumber, place, rang, pts } from '../format'
 import { formatPercent, formatSeconds, questionLabel } from '../../../shared/review'
 import type { HighlightKind, ReviewHighlight, ReviewPlayer, ReviewQuestion } from '../../../shared/review'
 import { QuestionCard, type BilanCtx } from './BilanQuestion'
@@ -51,9 +51,11 @@ export function PlayerReview({ ctx, player }: { ctx: BilanCtx; player: ReviewPla
     null,
   )
   const bestShotQ = bestShot ? ctx.questionByKey.get(bestShot.questionKey) : undefined
+  // L'intitulé passe par `espacesFines`, comme dans le détail question par question : ici seulement, « 36 000 ans » se coupait
+  // encore entre ses groupes, et le « ? » d'une question tombait seul en début de ligne.
   const questionRef = (key: string) => {
     const q = ctx.questionByKey.get(key)
-    return q ? `${questionLabel(q)} · ${q.text}` : ''
+    return q ? espacesFines(`${questionLabel(q)} · ${q.text}`) : ''
   }
   // Plusieurs questions sur une ligne : le numéro suffit, avec le quiz s'il y en a plusieurs.
   const shortRef = (q: ReviewQuestion) =>

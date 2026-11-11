@@ -199,7 +199,11 @@ un fait faux reste une faute devant un joueur.
   victoire.
 - **Un nombre se coupe au milieu** : « 2 100 mètres » passe à la ligne entre
   ses deux morceaux, à l'Épingle comme ailleurs (`espacesFines` ne colle pas
-  les milliers). Vu au rendu, pas corrigé ici.
+  les milliers). Vu au rendu, pas corrigé ici. **Corrigé le même jour** :
+  `espacesFines` colle les milliers d'un nombre écrit dans un texte
+  (`milliersColles`, règle `css.md`), sans toucher au contenu — au col du
+  Tourmalet, la coupe tombait de 332 à 362 px de large, et plus à aucune
+  (`reproductions/nombre-coupe.ts`).
 - **« Les Iris » de Van Gogh manquent** : choisis dans la liste, ils ne sont
   pas sortis candidats de la chaîne — à reprendre avec le prochain lot.
 - **Des anecdotes pour les tableaux sans question** : les écrire, c'est écrire
