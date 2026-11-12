@@ -73,7 +73,7 @@ import type { Fiche, FriseATheme, Lieu, Replique } from '../../shared/cabinet/co
  * maladroite ferait rougir ce test, pas un joueur qui retombe sur les mêmes
  * lieux.
  */
-const AU_MOINS: Readonly<Record<SorteDuContenu, number>> = { lieux: 171, fiches: 138, repliques: 137, frises: 18, filet: 1600, reperes: 80 }
+const AU_MOINS: Readonly<Record<SorteDuContenu, number>> = { lieux: 171, fiches: 138, repliques: 137, frises: 18, filet: 1850, reperes: 80 }
 
 const brut = (s: SorteDuContenu): unknown[] => JSON.parse(readFileSync(path.join(DOSSIER_DU_CONTENU, SORTES[s].fichier), 'utf8'))
 
@@ -158,9 +158,10 @@ test('le Filet en deux temps : chaque question de son contenu est une question d
   assert.deepEqual(tropPres, [], 'des indices qui écrivent un nombre trop près de la réponse')
   // Chaque acte a de quoi tenir, et les repères de quoi poser une frise : des années, et des grandeurs dans leur unité.
   // Ce que chaque acte pose depuis le décalage du 12 novembre 2026 (`sePoseALActe`) : l'acte I, les seules questions que
-  // chaque Français sait placer — le levier le plus fort, et le plus mince, 152 ; l'acte II, elles et le panel à 50 % et
-  // plus ; l'acte III, de 25 à 49. Deux cents à chaque acte avant lui, l'acte I comptant aussi ce panel-là.
-  const AU_MOINS = [150, 340, 480]
+  // chaque Français sait placer — le levier le plus fort, et le plus mince, 152 le 12 novembre 2026, 233 après les
+  // questions neuves de l'acte I (`retours/2026-11-12/acte-i-du-filet.md`) ; l'acte II, elles et le panel à 50 % et plus
+  // (435) ; l'acte III, de 25 à 49 (512). Deux cents à chaque acte avant lui, l'acte I comptant aussi ce panel-là.
+  const AU_MOINS = [230, 425, 500]
   for (const acte of [0, 1, 2] as const) assert.ok(filet.filter(q => sePoseALActe(q, acte)).length >= AU_MOINS[acte], `l’acte ${acte + 1}`)
   // Ce que le Filet ne pose plus reste au contenu, sans acte : le panel sous son plancher.
   assert.ok(filet.some(q => acteDuFilet(q) === null) && filet.every(q => acteDuFilet(q) !== null || !sePoseALActe(q, 0)))

@@ -718,15 +718,21 @@ test('les catégories du Filet, acte par acte : celles qui ont assez de valeurs 
     ...valeurs('Histoire', 3, n),
   ])
   assert.deepEqual(categories, [['Histoire'], ['Nature'], ['Musique']])
-  // Sur le contenu livré, à l'année du banc, depuis le décalage du 12 novembre 2026 : l'acte I, qui ne pose plus que ce
-  // que chaque Français sait placer, n'a de quoi tirer qu'en Histoire et en Culture générale — deux valeurs en Nature ;
-  // l'acte II, qui pose aussi ce que l'acte I pose, a les siennes et d'autres, toujours pas la Nature ; l'acte III les a
-  // toutes.
+  // Sur le contenu livré, à l'année du banc : l'acte I, qui ne pose que ce que chaque Français sait placer, n'avait de
+  // quoi tirer qu'en Histoire et en Culture générale depuis le décalage du 12 novembre 2026 ; les questions neuves du
+  // même jour (`retours/2026-11-12/acte-i-du-filet.md`) lui en donnent six de plus — la Musique, le Cinéma & séries, le
+  // Sport, les Sciences, Autour de la fête et la Géographie, les deux dernières à douze valeurs, au seuil. Pas le Jeux & pop
+  // culture (10), la Cuisine (9), les Arts & lettres (7) ni la Nature (3). L'acte II, qui pose aussi ce que l'acte I pose,
+  // y ajoute le Jeux & pop culture et les Arts & lettres, toujours pas la Cuisine ni la Nature ; l'acte III les a toutes.
   const jouables = [...LA_BASE.values()]
   const livrees = categoriesDuFiletALAnnee({ porte: PORTE, jouables }, DEPART)
-  assert.deepEqual([...livrees[0]].sort(), ['Culture générale', 'Histoire'], `l’acte I : ${livrees[0].join(', ')}`)
+  assert.deepEqual(
+    [...livrees[0]].sort(),
+    ['Autour de la fête', 'Cinéma & séries', 'Culture générale', 'Géographie', 'Histoire', 'Musique', 'Sciences', 'Sport'],
+    `l’acte I : ${livrees[0].join(', ')}`,
+  )
   assert.ok(livrees[0].every(c => livrees[1].includes(c)) && livrees[1].length > livrees[0].length, `l’acte II : ${livrees[1].join(', ')}`)
-  assert.ok(!livrees[1].includes('Nature'), 'l’acte II n’a pas de quoi tirer en Nature')
+  assert.ok(!livrees[1].includes('Nature') && !livrees[1].includes('Cuisine'), 'l’acte II n’a pas de quoi tirer en Nature ni en Cuisine')
   assert.equal(livrees[2].length, CATEGORIES.length)
 })
 

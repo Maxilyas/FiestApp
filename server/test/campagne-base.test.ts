@@ -216,9 +216,16 @@ import { sansAccent } from '../../shared/homonymes'
  * picard et le breton, qui sont au français), 7 retirées au coup d'œil —
  * sept « Quelle langue parle-t-on à… ? » dont trois de trop, le yiddish et
  * le copte posés par deux familles, un outil que les sources nomment de
- * deux façons — : 137 rangées, 28 626.
+ * deux façons — : 137 rangées, 28 626. Puis les faits que chaque Français
+ * sait placer, pour le premier acte du Filet (le 12 novembre 2026,
+ * `retours/2026-11-12/acte-i-du-filet.md`), en trois tours : des lots à pistes
+ * (32 rangées), des faits criblés par script puis classés à l'aveugle (57),
+ * le rattrapage de ceux que le crible croyait bloqués (6) — 95 rangées,
+ * 28 721. Deux doublons que ni `verifier` ni `voisines` ne voyaient, trouvés
+ * par un recoupement des mots et des réponses avec la base, sont partis : les
+ * régions de 2016 et le match de football à 90 minutes.
  */
-const AU_MOINS = 28626
+const AU_MOINS = 28721
 
 const { questions, refusees } = lireLaBase()
 
