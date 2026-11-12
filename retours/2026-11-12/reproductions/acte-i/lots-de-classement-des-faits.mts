@@ -32,7 +32,22 @@ const base = (lireLaBase() as any).questions as any[]
 const categories = new Set(faits.map(f => f.categorie))
 const candidats = base.filter(q => reference.has(q.id) && classe.has(q.id) && valeurDuFilet(q) && !(q.meta.aRelire ?? []).length)
 const prendre = (oui: boolean, n: number, source = candidats) => battre(source.filter(q => !!classe.get(q.id).chacun === oui && !classe.get(q.id).calcul)).slice(0, n)
-const etalons = [...prendre(true, 6), ...prendre(false, 6, candidats.filter(q => categories.has(q.meta.categorie)))]
+// Des exemples visibles — quatorze « chacun » avec la raison que la passe de référence en donnait, quatorze qui ne le sont pas —
+// pour que la consigne se cale sur elle (le 12 novembre 2026 : sans eux, cinq agents ne retrouvaient que 2 des 6 vrais « chacun »,
+// la fenêtre de 6 ans se gagnant en connaissant l'époque, pas l'année exacte) ; puis des étalons AVEUGLES, pris hors d'eux.
+const exemples = [...prendre(true, 14), ...prendre(false, 14, candidats.filter(q => categories.has(q.meta.categorie)))]
+const sansExemple = (q: any) => !exemples.includes(q)
+const etalons = [...prendre(true, 6, candidats.filter(sansExemple)), ...prendre(false, 6, candidats.filter(q => sansExemple(q) && categories.has(q.meta.categorie)))]
+fs.writeFileSync(path.join(SORTIE, 'classer.exemples.md'), [
+  'EXEMPLES DE LA PASSE DE RÉFÉRENCE (leur classement fait foi : cale-toi dessus, et écris les tiens avec la même mesure)',
+  '',
+  'Chaque Français les sait placer (chacun = true) :',
+  ...exemples.filter(q => classe.get(q.id).chacun).map(q => `- ${q.texte} → ${q.reponses[q.bonne]}  [${classe.get(q.id).source} : ${classe.get(q.id).pourquoi}]`),
+  '',
+  'Pas « chacun » (chacun = false) :',
+  ...exemples.filter(q => !classe.get(q.id).chacun).map(q => `- ${q.texte} → ${q.reponses[q.bonne]}`),
+  '',
+].join('\n'))
 const montreQ = (q: any) => ({ id: q.id, categorie: q.meta.categorie, texte: q.texte, reponse: q.reponses[q.bonne], forme: valeurDuFilet(q)!.annee ? 'année' : 'grandeur' })
 const montreF = (f: any) => ({ id: f.id, categorie: f.categorie, texte: f.texte, reponse: f.reponse, forme: f.unite ? 'grandeur' : 'année' })
 const attendu = Object.fromEntries(etalons.map(q => [q.id, { chacun: !!classe.get(q.id).chacun, ancrage: classe.get(q.id).ancrage, calcul: !!classe.get(q.id).calcul }]))
