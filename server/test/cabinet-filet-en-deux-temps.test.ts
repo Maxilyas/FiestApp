@@ -49,6 +49,7 @@ import {
   placesPossibles,
   poidsDesPlaces,
   reperesDuFilet,
+  sePoseALActe,
   seTendEnDeuxTemps,
   tirageEnDeuxTemps,
   tirerLaPlace,
@@ -369,7 +370,7 @@ test('le Filet en deux temps : rien de ce qui dit où est la réponse ne part av
 
 // ── Les repères ─────────────────────────────────────────────────────────
 
-test('le Filet en deux temps : les repères — leur époque tirée d’abord, sans regarder la réponse ; un des siens au plus', () => {
+test('le Filet en deux temps : les repères — un par époque, sans regarder la réponse ; un des siens au plus ; aucun si le sujet en vide une', () => {
   const q = { texte: 'En quelle année l’Algérie devient-elle indépendante ?', valeur: 1962, annee: true, tranches: tirage(1962, true, 1).tranches }
   const communs: RepereDuFilet[] = [
     { valeur: 1936, texte: 'Les congés payés' },
@@ -399,9 +400,27 @@ test('le Filet en deux temps : les repères — leur époque tirée d’abord, s
     assert.equal(new Set(tranches).size, tranches.length, 'un par époque')
     for (const i of tranches) parTranche[i]++
   }
-  // Chaque époque la même chance, celle de la réponse comprise : choisis parmi ceux qui s'écartaient d'elle, ils
-  // tombaient rarement dans sa case (0,34 par manche, contre 0,56 ailleurs, dans la maquette).
-  for (const k of parTranche) assert.ok(Math.abs(k / N - 0.5) < 0.04, `${parTranche.map(k => (k / N).toFixed(2)).join(' · ')}`)
+  // Chaque époque a le sien, celle de la réponse comprise (`REPERES_DU_FILET`, un par ligne depuis le 12 novembre 2026) :
+  // choisis parmi ceux qui s'écartaient d'elle, ils tombaient rarement dans sa case (0,34 par manche, contre 0,56
+  // ailleurs, dans la maquette du 9) ; deux au plus, tirés époque d'abord, chaque époque en avait un une fois sur deux.
+  assert.equal(B.REPERES_DU_FILET, B.TRANCHES_DU_FILET)
+  assert.deepEqual(parTranche, [N, N, N, N], `${parTranche.map(k => (k / N).toFixed(2)).join(' · ')}`)
+  // Le sujet de la question écarte le seul repère d'une époque qui en avait un : sa ligne muette serait celle de la
+  // réponse. Aucune époque n'en montre alors — seuls les siens restent, qui ne disent rien d'elle.
+  const louis = { texte: 'En quelle année meurt Louis XIV, après soixante-douze ans de règne ?', valeur: 1715, annee: true, tranches: tirage(1715, true, 2).tranches }
+  const anciens: RepereDuFilet[] = [
+    { valeur: 1610, texte: 'L’assassinat d’Henri IV' },
+    { valeur: 1682, texte: 'La cour s’installe à Versailles' },
+    { valeur: 1715, texte: 'La mort de Louis XIV' },
+    { valeur: 1789, texte: 'La prise de la Bastille' },
+  ]
+  for (let n = 0; n < 50; n++) {
+    assert.deepEqual(reperesDuFilet(louis, { siens: [], communs: anciens }, hasardDe(`videe:${n}`)), [], 'une époque vidée par le sujet : aucun repère commun')
+    assert.deepEqual(reperesDuFilet(louis, { siens: [{ valeur: 1789, texte: 'La prise de la Bastille' }], communs: anciens }, hasardDe(`videe:${n}`)), [{ valeur: 1789, texte: 'La prise de la Bastille', sien: true }])
+    // Une époque sans repère au contenu ne dit rien de la réponse : les autres gardent le leur.
+    const sansLe1715 = reperesDuFilet(louis, { siens: [], communs: anciens.filter(r => r.valeur !== 1715) }, hasardDe(`videe:${n}`))
+    assert.deepEqual(sansLe1715.map(r => r.valeur), [1610, 1682, 1789])
+  }
   // Les siens d'abord, un au plus, et jamais quand il donnerait la réponse : Brasília, 1960, ne vient pas pour 1960.
   const siens: RepereDuFilet[] = [
     { valeur: 1981, texte: 'L’abolition de la peine de mort' },
@@ -412,7 +431,9 @@ test('le Filet en deux temps : les repères — leur époque tirée d’abord, s
     const r = reperesDuFilet(q, { siens, communs }, hasardDe(`siens:${n}`))
     assert.equal(r.filter(x => x.sien).length, 1, JSON.stringify(r))
     assert.ok(r.every(x => x.valeur !== 1962))
-    assert.equal(r.length, 2)
+    // Le sien tient la ligne de son époque, les trois autres ont le leur.
+    assert.equal(r.length, B.TRANCHES_DU_FILET)
+    assert.equal(new Set(r.map(x => q.tranches.findIndex(t => x.valeur >= t.de && x.valeur <= t.a))).size, B.TRANCHES_DU_FILET)
   }
   // Une grandeur : jamais la réponse à 2 % près, et un repère pile sur une borne ne se tire qu'une fois.
   const g = { texte: 'Quelle est la hauteur du Sphinx de Gizeh ?', valeur: 20, annee: false, tranches: tirage(20, false, 0).tranches }
@@ -621,7 +642,7 @@ test('le tireur du Filet en deux temps : une question du contenu à l’acte de 
         const e = CONTENU.get(t.question.id)
         assert.ok(e, `${t.question.id} : une question hors du contenu du Filet`)
         assert.equal(t.deuxTemps, true)
-        assert.equal(acteDuFilet(e), acte, `${t.question.id} : de l’acte ${acteDuFilet(e) + 1}`)
+        assert.ok(sePoseALActe(e, acte), `${t.question.id} ne se pose pas à l’acte ${acte + 1} : son premier acte est ${acteDuFilet(e)} (de zéro à deux ; null, plus posée)`)
         assert.equal(t.indice, e.indice, 'l’indice jugé du contenu, ou rien')
         const v = valeurDuFilet(LA_BASE.get(t.question.id)!)!
         assert.deepEqual([t.valeur, t.annee, t.unite], [v.valeur, v.annee, v.unite])
@@ -697,12 +718,16 @@ test('les catégories du Filet, acte par acte : celles qui ont assez de valeurs 
     ...valeurs('Histoire', 3, n),
   ])
   assert.deepEqual(categories, [['Histoire'], ['Nature'], ['Musique']])
-  // Sur le contenu livré, à l'année du banc : l'acte I n'a pas de quoi tirer en Nature — deux questions —, les actes II
-  // et III ont toutes leurs catégories.
+  // Sur le contenu livré, à l'année du banc, depuis le décalage du 12 novembre 2026 : l'acte I, qui ne pose plus que ce
+  // que chaque Français sait placer, n'a de quoi tirer qu'en Histoire et en Culture générale — deux valeurs en Nature ;
+  // l'acte II, qui pose aussi ce que l'acte I pose, a les siennes et d'autres, toujours pas la Nature ; l'acte III les a
+  // toutes.
   const jouables = [...LA_BASE.values()]
   const livrees = categoriesDuFiletALAnnee({ porte: PORTE, jouables }, DEPART)
-  assert.ok(!livrees[0].includes('Nature') && livrees[0].includes('Histoire'), `l’acte I : ${livrees[0].join(', ')}`)
-  assert.deepEqual([livrees[1].length, livrees[2].length], [CATEGORIES.length, CATEGORIES.length])
+  assert.deepEqual([...livrees[0]].sort(), ['Culture générale', 'Histoire'], `l’acte I : ${livrees[0].join(', ')}`)
+  assert.ok(livrees[0].every(c => livrees[1].includes(c)) && livrees[1].length > livrees[0].length, `l’acte II : ${livrees[1].join(', ')}`)
+  assert.ok(!livrees[1].includes('Nature'), 'l’acte II n’a pas de quoi tirer en Nature')
+  assert.equal(livrees[2].length, CATEGORIES.length)
 })
 
 test('la carte ne promet au nouveau Filet qu’une catégorie où son acte a de quoi tirer, et sans liste, celle d’avant', () => {
@@ -809,10 +834,11 @@ test('une épreuve du Filet à l’acte II se tire à l’acte II : l’acte de 
   const partie = entree.partie as VueDeLaPartie
   assert.equal(partie.jeu, 'filet')
   const tirages = departEnBase(b.fichier, partie.id).tirages as FiletEnDeuxTempsTire[]
+  // L'acte II pose ce que le panel donne à 50 % et plus, et ce que l'acte I pose (`sePoseALActe`) — jamais l'acte III.
   assert.deepEqual(
-    tirages.map(x => [x.deuxTemps, acteDe(x.question.id)]),
-    tirages.map(() => [true, 1]),
-    'chaque manche, et chaque rechange, de l’acte II',
+    tirages.map(x => [x.deuxTemps, sePoseALActe(CONTENU.get(x.question.id)!, 1)]),
+    tirages.map(() => [true, true]),
+    `chaque manche, et chaque rechange, de ce que l’acte II pose : ${tirages.map(x => acteDe(x.question.id)).join(', ')}`,
   )
   // Une aide payée, puis le lancer juste : deux étoiles, et la traversée lira l'aide payée.
   const aidee = ok(await unGeste(b, cookie, partie, { quoi: 'aide', manche: 0, aide: 'epoques' }), 'l’aide')
@@ -855,10 +881,12 @@ test('une traversée qui commence ne promet au Filet, à chaque acte, qu’une c
 })
 
 test('par les routes : l’année placée sans aide revient en repère à soi à la partie suivante ; celle placée avec une aide, non', async () => {
-  // Des années de l'acte I d'une même époque, 1950–1974 : la frise de chacune tient toutes les autres.
-  const epoque = ANNEES_DE_L_ACTE_I.filter(q => valeurDuFilet(q)!.valeur >= 1950 && valeurDuFilet(q)!.valeur <= 1974)
+  // Des années de l'acte I d'une même époque, 1975–1999 : la frise de chacune tient toutes les autres. De 1950 à 1974
+  // jusqu'au décalage du 12 novembre 2026 : l'acte I ne pose plus que ce que chaque Français sait placer, et cette
+  // époque-là n'en garde pas six de valeurs distinctes.
+  const epoque = ANNEES_DE_L_ACTE_I.filter(q => valeurDuFilet(q)!.valeur >= 1975 && valeurDuFilet(q)!.valeur <= 1999)
   // Deux parties de trois manches sans revoir une question : six au moins.
-  assert.ok(epoque.length >= 6, `${epoque.length} années de 1950 à 1974 à l’acte I`)
+  assert.ok(epoque.length >= 6, `${epoque.length} années de 1975 à 1999 à l’acte I`)
   const b = await bancDuCabinet({ filetEnDeuxTemps: true, baseDeLaCampagne: baseDuCabinet(8, epoque) })
   ouverts.push(b.banc)
   const lou = await inscrireProfil(b.banc.url, 'lou', 'Lou')

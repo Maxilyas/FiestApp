@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 import { Etoiles } from '../../../components/Etoiles'
 import { Icon } from '../../../components/Icon'
 import { espacesFines, formatNumber } from '../../../format'
@@ -22,11 +22,18 @@ import type { FinDUneManche } from '../../../../../shared/cabinet/partie'
 import { uniteAccordee } from '../../../../../shared/unites'
 import type { JeuALEcran, PropsDUneManche } from '../Partie'
 
-// Le Filet en deux temps à l'écran (le cahier des charges, `retours/2026-11-09/le-nouveau-filet.md`, § 3.1 ; sa maquette
-// jouée par trois tours de tablée, `maquette-filet/`) : un seul écran, de haut en bas — la question ; les quatre époques
-// en frise, deux repères au plus au-dessus ; ce qu'une aide a donné ; dès qu'une époque est touchée, le gros chiffre, ce
-// que le filet couvre et la piste de cette époque, le curseur posé en son milieu ; les aides et leur prix ; « Lancer le
-// filet ». Rien ne se colle au bas de l'écran : le bouton du lancer y cachait la piste d'un petit écran (Huguette, Samir).
+// Le Filet en deux temps à l'écran, une décision par écran depuis le 12 novembre 2026
+// (`retours/2026-11-12/le-filet-en-deux-ecrans.md`, sa maquette jugée par le propriétaire) : d'abord l'époque — la
+// question, puis quatre lignes qui disent leurs bornes et le repère que chacune porte, les aides collées au pied ; une
+// époque touchée, l'année — la question en rappel, l'époque choisie et de quoi en changer, le nombre entre « − » et « + »,
+// la piste de toute la largeur, son repère écrit dessus, « Lancer le filet » collé sous le pouce.
+//
+// Un seul écran portait tout jusque-là (le cahier des charges, `retours/2026-11-09/le-nouveau-filet.md`, § 3.1) : la
+// frise, deux repères piqués au-dessus et redits en légende, l'indice, la piste, les aides et leur prix, le bouton. En
+// 360 × 640, une époque touchée, il faisait une fois et demie à deux fois l'écran, treize à quinze cibles, « Lancer le
+// filet » toujours sous le pli — « il y a énormément d'infos à l'écran, avec en plus un timer qui tourne », le retour que
+// le propriétaire rapportait. En production, du 10 au 12 novembre, neuf lancers sur vingt et un partaient du milieu de
+// l'époque, le curseur jamais touché, et les aides, sous le pli, n'avaient servi qu'à quatre manches.
 //
 // La page ne connaît jamais la valeur (invariant 1) : ni la bonne époque, ni celles que l'aide retirerait, ni l'indice
 // avant qu'il le prenne. Elle tient l'époque choisie et le curseur, et les envoie au lancer — ou d'elle-même à
@@ -37,6 +44,16 @@ import type { JeuALEcran, PropsDUneManche } from '../Partie'
 export interface LocalDuFiletEnDeuxTemps {
   readonly epoque: number | null
   readonly x: number | null
+  /** « Changer d'époque » : l'écran des époques rouvert, la sienne gardée — la toucher, ou une autre, rouvre la piste. */
+  readonly rechoisit?: true
+}
+
+/**
+ * L'écran où en est la manche : l'époque, puis la valeur dès qu'une époque est touchée — sauf s'il rouvre les époques,
+ * ou si « Deux époques de moins » a retiré la sienne : le choix revient à faire.
+ */
+export function ecranDe(m: Pick<FiletEnDeuxTempsMontre, 'retirees'>, l: LocalDuFiletEnDeuxTemps): 'epoque' | 'valeur' {
+  return l.epoque !== null && l.x !== null && !l.rechoisit && !m.retirees.includes(l.epoque) ? 'valeur' : 'epoque'
 }
 
 /** Un nombre tel qu'on le lit : « 1962 », « 12 500 km », « 1 jour » — son unité accordée, jamais par `Intl` (règle `client.md`). */
@@ -53,13 +70,19 @@ export const etoilesPayees = (m: Pick<FiletEnDeuxTempsMontre, 'aides' | 'prixDUn
 
 /**
  * Toucher une époque : le curseur s'y pose au milieu — le propriétaire, au matin du 9 novembre 2026, « elle devrait se
- * placer directement au milieu » —, ou garde sa valeur si elle y tient encore. Une époque retirée ne se touche pas.
+ * placer directement au milieu » —, ou garde sa valeur si elle y tient encore, et la piste s'ouvre. Une époque retirée
+ * ne se touche pas.
  */
 export function choisirLEpoque(m: Pick<FiletEnDeuxTempsMontre, 'tranches' | 'retirees'>, l: LocalDuFiletEnDeuxTemps, i: number): LocalDuFiletEnDeuxTemps {
   const t = m.tranches[i]
   if (!t || m.retirees.includes(i)) return l
   const x = l.x !== null && l.x >= t.de && l.x <= t.a ? valeurAuCran(t, cranDe(t, l.x)) : milieuDeLaTranche(t)
   return { epoque: i, x }
+}
+
+/** « Changer d'époque » : les quatre époques reviennent, la sienne pressée, son curseur gardé. */
+export function rouvrirLesEpoques(l: LocalDuFiletEnDeuxTemps): LocalDuFiletEnDeuxTemps {
+  return l.epoque === null ? l : { epoque: l.epoque, x: l.x, rechoisit: true }
 }
 
 /** Le curseur posé au cran `i` de la piste ouverte ; sans époque, rien ne bouge. */
@@ -82,21 +105,29 @@ const NOMS_DES_AIDES = (m: Pick<FiletEnDeuxTempsMontre, 'annee'>): Readonly<Reco
   indice: 'Un indice',
 })
 
-/** Ce qu'une aide coûte, ou ce qu'elle a coûté : « Coûte une étoile », « Prise · une étoile en moins », « Prise · offerte ». */
-function prixDe(a: AideMontree, m: Pick<FiletEnDeuxTempsMontre, 'prixDUneAide'>): string {
-  if (a.prise === 'offerte') return 'Prise · offerte'
-  if (a.prise === 'payee') return `Prise · ${etoilesEnMots(m.prixDUneAide)} en moins`
-  return `Coûte ${etoilesEnMots(m.prixDUneAide)}`
+/**
+ * Ce que les aides coûtent, en une phrase au-dessus d'elles : ce qu'elle coûte, et ce qu'elle ne coûte jamais — Claire et
+ * Samir ne l'apprenaient qu'à la révélation ; offerte, elle le dit (Huguette, sous « Prise · offerte », croyait avoir
+ * payé) ; et tant que la carte qui éclaire peut servir, qu'elle offre la prochaine — la carte n'a plus de bouton à elle.
+ * Chacune tient sur une ligne en 360 de large : sur deux, le pied collé mangeait la quatrième époque.
+ */
+export function phraseDesAides(m: Pick<FiletEnDeuxTempsMontre, 'aides' | 'prixDUneAide'>, eclaire?: { nom: string; jouable: boolean }): string {
+  const payees = etoilesPayees(m)
+  if (m.aides.some(a => a.prise === null) && eclaire?.jouable) return `${eclaire.nom} t’offre ta prochaine aide.`
+  if (payees > 0) return `${m.aides.filter(a => a.prise === 'payee').length > 1 ? 'Tes aides' : 'Ton aide'} : ${etoilesEnMots(payees)}, jamais un cœur.`
+  if (m.aides.some(a => a.prise === 'offerte')) return 'Ton aide était offerte.'
+  return `Une aide : ${etoilesEnMots(m.prixDUneAide)}, jamais un cœur.`
 }
 
 /**
- * Le rang d'une aide que la carte Coup d'œil peut offrir : l'indice d'abord, s'il y en a un et qu'il reste ; sinon
- * l'autre. Plus rien : rien à viser — le serveur dit alors qu'il n'y a plus rien à éclairer.
+ * Une aide prise, sous son nom, accordée à lui : « pris » ou « offert » sous « Un indice », « retirées » ou « offertes » sous
+ * « Deux époques de moins » — des ordres, au masculin. Ce qu'elles ont coûté ensemble se dit dans leur phrase.
  */
-export function aideAOffrir(m: Pick<FiletEnDeuxTempsMontre, 'aides'>): number | undefined {
-  const libres = m.aides.filter(a => a.prise === null).map(a => a.cle)
-  const cle = libres.includes('indice') ? 'indice' : libres[0]
-  return cle === undefined ? undefined : AIDES_DU_FILET.indexOf(cle)
+function priseDite(a: AideMontree, m: Pick<FiletEnDeuxTempsMontre, 'annee'>): string | null {
+  if (a.prise === null) return null
+  if (a.cle === 'indice') return a.prise === 'payee' ? 'pris' : 'offert'
+  const e = m.annee ? 'es' : 's'
+  return a.prise === 'payee' ? `retiré${e}` : `offert${e}`
 }
 
 /**
@@ -118,9 +149,10 @@ const surLaPiste = (m: Pick<FiletEnDeuxTempsMontre, 'annee'>, t: TrancheDuFilet,
   Math.min(100, Math.max(0, m.annee ? (100 * (x - t.de + 0.5)) / (t.a + 1 - t.de) : (100 * (x - t.de)) / (t.a - t.de)))
 
 /**
- * La frise des quatre tranches : des boutons qui disent leurs bornes et lequel est pressé, les repères au-dessus — un rond
- * pour ceux de tout le monde, un losange pour les siens —, et à la révélation la réponse (▼, au-dessus) et le lancer (▲,
- * dessous) : chaque chose a sa forme et ses mots, jamais sa seule couleur (Samir, daltonien, confondait quatre ronds).
+ * La frise des quatre tranches, à la révélation : chacune ses bornes, la bonne et son choix écrits dans leur case, les
+ * repères au-dessus — un rond pour ceux de tout le monde, un losange pour les siens —, la réponse (▼, au-dessus) et le
+ * lancer (▲, dessous) : chaque chose a sa forme et ses mots, jamais sa seule couleur (Samir, daltonien, confondait quatre
+ * ronds). Pendant la manche, les époques sont des lignes (`LesEpoques`).
  */
 function Frise({
   m,
@@ -214,19 +246,75 @@ function Legende({ m, revele }: { m: Pick<FiletEnDeuxTempsMontre, 'reperes' | 'u
 const ecartDit = (m: Pick<FiletEnDeuxTempsMontre, 'annee'>, ecart: number) => (m.annee ? `${ecart}\u{a0}an${ecart > 1 ? 's' : ''}` : `${formatNumber(ecart)}\u{a0}%`)
 
 /**
- * Ce que le filet couvre autour du curseur, en nombres, chaque anneau ses étoiles — « 1960–1964 » pour trois, « 1956–1968 »
- * pour deux : la règle se lit aussi sur la piste (Claire, à la tablée). Une aide payée y retire son étoile, avant le
- * lancer (Samir ne savait pas si c'était « une étoile retirée de mon score, ou seulement le plafond qui baisse »). Deux
- * morceaux qui ne se coupent pas : des étoiles seules en fin de ligne se lisaient avec la fourchette d'au-dessus
- * (Huguette). Sur une toute petite piste, les deux anneaux couvrent la même chose : un seul. Les anneaux portent le nom
- * de leurs étoiles (`AnneauxDuFilet`).
+ * Les bornes d'une tranche comme on les lit sur sa ligne : « 1975 – 1999 », d'un seul tenant ; une grandeur dit son unité,
+ * « 10 – 30 ans », « 1 000 – 3 000 m » — nue, « 10 – 30 » ne disait pas de quoi (le rendu du 12 novembre 2026).
+ */
+const bornesDites = (m: Pick<FiletEnDeuxTempsMontre, 'annee' | 'unite'>, t: TrancheDuFilet) =>
+  `${borneDite(m, t.de)}\u{a0}–\u{a0}${borneDite(m, t.a)}${m.unite ? `\u{a0}${uniteAccordee(m.unite, t.a)}` : ''}`
+/** … et à l'oreille : « De 1975 à 1999 », « De 10 à 30 ans ». */
+const bornesALOreille = (m: Pick<FiletEnDeuxTempsMontre, 'annee' | 'unite'>, t: TrancheDuFilet) => `${borneDite(m, t.de)} à ${dire(m, t.a)}`
+
+/** Le repère qu'une tranche porte : un par époque au plus (`REPERES_DU_FILET`) — le premier, pour une partie d'avant qui en aurait deux. */
+const repereDe = (m: Pick<FiletEnDeuxTempsMontre, 'reperes'>, t: TrancheDuFilet): RepereDuFilet | undefined => m.reperes.find(r => r.valeur >= t.de && r.valeur <= t.a)
+
+/**
+ * Ce qu'un repère dit sur la ligne de son époque : son fait seul pour une année — la ligne dit déjà ses bornes, et l'année
+ * en plus la faisait passer sur deux lignes —, sa grandeur devant pour une grandeur (« 330 m · La tour Eiffel ») : c'est
+ * elle qui situe.
+ */
+const repereDit = (m: Pick<FiletEnDeuxTempsMontre, 'annee' | 'unite'>, r: RepereDuFilet) => (m.annee ? r.texte : `${dire(m, r.valeur)} · ${r.texte}`)
+
+/**
+ * Les quatre époques, une ligne chacune : ses bornes, et le repère qu'elle porte — une date que tout le monde connaît, ou
+ * la sienne, marquée d'un losange. Des boutons qui disent tout cela à l'oreille et lequel est pressé ; une époque retirée
+ * se replie sur ses bornes barrées. En frise de quatre cases jusqu'au 12 novembre 2026, deux repères piqués au-dessus et
+ * redits en légende : « 1975 1999 » ne disait rien à personne, et la légende coûtait deux lignes.
+ */
+function LesEpoques({ m, epoque, onChoisir }: { m: Pick<FiletEnDeuxTempsMontre, 'tranches' | 'annee' | 'unite' | 'reperes' | 'retirees'>; epoque: number | null; onChoisir: (i: number) => void }) {
+  return (
+    // Sans un seul repère — une grandeur dont l'unité n'en a pas, le plus souvent —, les lignes sont plus basses (`styles.css`).
+    <div className={m.tranches.some((t, i) => !m.retirees.includes(i) && repereDe(m, t)) ? 'cab-epoques-liste' : 'cab-epoques-liste cab-epoques-nues'} role="group" aria-label={m.annee ? 'Quatre époques' : 'Quatre ordres de grandeur'}>
+      {m.tranches.map((t, i) => {
+        const retiree = m.retirees.includes(i)
+        const r = retiree ? undefined : repereDe(m, t)
+        const dit = r ? `, ${r.sien ? 'ton repère' : 'repère'} : ${repereDit(m, r)}` : ''
+        return (
+          <button
+            key={i}
+            type="button"
+            className={retiree ? 'cab-epoque cab-epoque-retiree' : 'cab-epoque'}
+            aria-pressed={epoque === i}
+            aria-label={`De ${bornesALOreille(m, t)}${retiree ? ', retirée' : dit}`}
+            aria-disabled={retiree || undefined}
+            {...toucher(() => !retiree && onChoisir(i))}
+          >
+            <b aria-hidden="true">{bornesDites(m, t)}</b>
+            {r && (
+              <span className={r.sien ? 'cab-epoque-repere cab-epoque-sien' : 'cab-epoque-repere'} aria-hidden="true">
+                {espacesFines(repereDit(m, r))}
+              </span>
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/**
+ * Ce que le filet prend autour du curseur, chaque anneau ses étoiles. Une année : « à 2 ans », « à 6 ans », qui ne bouge
+ * pas avec le curseur — deux fourchettes récrites à chaque cran faisaient quatre nombres de plus à lire, le chrono
+ * courant. Une grandeur : les réponses qu'il prendrait, en nombres (« 125–141 ») — « à 25 %, il faut le calculer de
+ * tête » (Claire, à la tablée du 9 novembre 2026). Une aide payée y retire son étoile, avant le lancer (Samir ne savait
+ * pas si c'était « une étoile retirée de mon score, ou seulement le plafond qui baisse »). Des morceaux qui ne se coupent
+ * pas ; sur une toute petite piste, les deux anneaux couvrent la même chose : un seul.
  */
 function Couvre({ m, x, t }: { m: FiletEnDeuxTempsMontre; x: number; t: TrancheDuFilet }) {
-  const c = ceQueCouvreLeFilet(m, x, t.pas >= 1)
   const payees = etoilesPayees(m)
+  const c = ceQueCouvreLeFilet(m, x, t.pas >= 1)
   const morceau = (r: { de: number; a: number }) => (r.de === r.a ? `pile sur ${borneDite(m, r.de)}` : `${borneDite(m, r.de)}–${borneDite(m, r.a)}`)
-  const trois = morceau(c.trois)
-  const deux = morceau(c.deux)
+  const trois = m.annee ? `à ${ecartDit(m, m.anneaux.trois)}` : morceau(c.trois)
+  const deux = m.annee ? `à ${ecartDit(m, m.anneaux.deux)}` : morceau(c.deux)
   return (
     <p className="cab-filet-anneaux">
       <span className="cab-insecable">
@@ -244,12 +332,13 @@ function Couvre({ m, x, t }: { m: FiletEnDeuxTempsMontre; x: number; t: TrancheD
 }
 
 /**
- * La piste de l'époque choisie : le gros chiffre, ce que couvre le filet, la piste régulière — ses deux anneaux autour du
- * curseur, le grand en tirets, le petit plein, et les repères de cette époque descendus sur elle (« comme Notre-Dame »,
- * 69 m, se cherchait à tâtons — Samir) —, « − » et « + » d'un cran, et les grands pas d'une graduation. Le doigt pose le
- * curseur où il touche, et lui donne le focus : c'est le curseur même du navigateur.
+ * La piste de l'époque choisie : le nombre en grand entre « − » et « + », la piste de toute la largeur — entre ses deux
+ * boutons, elle n'avait que 216 pixels sur 360 —, ses deux anneaux autour du curseur, le grand en tirets, le petit plein,
+ * et le repère de l'époque écrit au-dessus de son mât (« comme Notre-Dame », 69 m, se cherchait à tâtons — Samir) ; ce que
+ * le filet prend ; les grands pas d'une graduation. Le doigt pose le curseur où il touche, et lui donne le focus : c'est
+ * le curseur même du navigateur. `curseur` : où le focus se pose quand la piste s'ouvre.
  */
-function PisteDeLEpoque({ m, t, x, poser, busy }: { m: FiletEnDeuxTempsMontre; t: TrancheDuFilet; x: number; poser: (i: number) => void; busy: boolean }) {
+function PisteDeLEpoque({ m, t, x, poser, busy, curseur }: { m: FiletEnDeuxTempsMontre; t: TrancheDuFilet; x: number; poser: (i: number) => void; busy: boolean; curseur: RefObject<HTMLInputElement | null> }) {
   const n = cransDe(t)
   const i = cranDe(t, x)
   const grand = cransDUnGrandPas(t)
@@ -267,19 +356,33 @@ function PisteDeLEpoque({ m, t, x, poser, busy }: { m: FiletEnDeuxTempsMontre; t
   const enHaut = i >= n
   return (
     <section className="cab-filet-etape" aria-label={m.annee ? 'L’année' : 'La valeur'}>
-      <div className="cab-filet-vise">
+      <div className="cab-filet-nombre">
+        <button type="button" className="cab-cran" aria-label="Un cran de moins" aria-disabled={enBas || busy || undefined} {...toucher(() => !busy && !enBas && poser(i - 1))}>
+          <span aria-hidden="true">−</span>
+        </button>
         {/* Son unité à part, plus petite que son nombre : en grand, une unité longue sortait de l'écran (`styles.css`). */}
         <output className="cab-filet-valeur" aria-live="off">
           {borneDite(m, x)}
           {m.unite && <span className="cab-filet-unite">{` ${uniteAccordee(m.unite, x)}`}</span>}
         </output>
-      </div>
-      <Couvre m={m} x={x} t={t} />
-      <div className="cab-filet-curseur">
-        <button type="button" className="cab-cran" aria-label="Un cran de moins" aria-disabled={enBas || busy || undefined} {...toucher(() => !busy && !enBas && poser(i - 1))}>
-          <span aria-hidden="true">−</span>
+        <button type="button" className="cab-cran" aria-label="Un cran de plus" aria-disabled={enHaut || busy || undefined} {...toucher(() => !busy && !enHaut && poser(i + 1))}>
+          <span aria-hidden="true">+</span>
         </button>
-        <div className="cab-filet-piste">
+      </div>
+      <div className="cab-filet-piste">
+        {/* Le repère de l'époque, écrit : il glisse avec sa place — à gauche au début de la piste, à droite au bout —, son mât
+            dessous. Décalé par `left`, jamais par une marge : elle lui prenait sa largeur, et un repère du bout de la piste
+            s'écrivait un mot par ligne (« La fin de la Seconde Guerre mondiale », en six lignes, au rendu du 12 novembre 2026). */}
+        {reperes.map(r => {
+          const g = surLaPiste(m, t, r.valeur)
+          return (
+            <p key={`${r.valeur}|${r.texte}`} className={'cab-filet-drapeau' + (r.sien ? ' cab-filet-drapeau-sien' : '')} style={{ left: `${g.toFixed(2)}%`, transform: `translateX(-${g.toFixed(2)}%)` }}>
+              <b>{borneDite(m, r.valeur)}</b>
+              {espacesFines(` · ${r.texte}${r.sien ? ' (ton repère)' : ''}`)}
+            </p>
+          )
+        })}
+        <div className="cab-filet-glissiere">
           <div className="cab-filet-rail" aria-hidden="true">
             {traits.map(g => (
               <span key={g} className="cab-filet-trait" style={{ left: `${g.toFixed(2)}%` }} />
@@ -291,6 +394,7 @@ function PisteDeLEpoque({ m, t, x, poser, busy }: { m: FiletEnDeuxTempsMontre; t
             ))}
           </div>
           <input
+            ref={curseur}
             type="range"
             className="cab-curseur"
             min={t.de}
@@ -302,10 +406,8 @@ function PisteDeLEpoque({ m, t, x, poser, busy }: { m: FiletEnDeuxTempsMontre; t
             onChange={e => !busy && poser(cranDe(t, e.currentTarget.valueAsNumber))}
           />
         </div>
-        <button type="button" className="cab-cran" aria-label="Un cran de plus" aria-disabled={enHaut || busy || undefined} {...toucher(() => !busy && !enHaut && poser(i + 1))}>
-          <span aria-hidden="true">+</span>
-        </button>
       </div>
+      <Couvre m={m} x={x} t={t} />
       <div className="cab-grands-pas">
         <button type="button" className="cab-cran cab-grand-pas" aria-label={`${grandDit} de moins`} aria-disabled={enBas || busy || undefined} {...toucher(() => !busy && !enBas && poser(i - grand))}>
           <span aria-hidden="true">{espacesFines(`−\u{a0}${grandDit}`)}</span>
@@ -314,37 +416,6 @@ function PisteDeLEpoque({ m, t, x, poser, busy }: { m: FiletEnDeuxTempsMontre; t
           <span aria-hidden="true">{espacesFines(`+\u{a0}${grandDit}`)}</span>
         </button>
       </div>
-    </section>
-  )
-}
-
-/**
- * Les aides et leur prix, en une phrase : ce qu'elle coûte, et ce qu'elle ne coûte jamais — Claire et Samir ne
- * l'apprenaient qu'à la révélation ; offerte, elle le dit (Huguette, sous « Prise · offerte », croyait avoir payé). La
- * carte Coup d'œil, posée sous la manche, en offre une (`cibleDEclairer`).
- */
-function Aides({ m, aider, busy }: { m: FiletEnDeuxTempsMontre; aider: (cle: CleDAideDuFilet) => void; busy: boolean }) {
-  const noms = NOMS_DES_AIDES(m)
-  const payees = etoilesPayees(m)
-  const offerte = m.aides.some(a => a.prise === 'offerte')
-  const qui = m.aides.filter(a => a.prise === 'payee').length > 1 ? 'Tes aides' : 'Ton aide'
-  const phrase =
-    payees > 0
-      ? `${qui} : ${etoilesEnMots(payees)} en moins, jamais un cœur.`
-      : offerte
-        ? 'Ton aide était offerte : elle ne te coûte rien.'
-        : `Une aide coûte ${etoilesEnMots(m.prixDUneAide)}, jamais un cœur.`
-  return (
-    <section className="cab-filet-aides" aria-label="Les aides">
-      <div className={'cab-filet-aides-rangee' + (m.aides.length === 1 ? ' cab-filet-aides-une' : '')}>
-        {m.aides.map(a => (
-          <button key={a.cle} type="button" className="cab-filet-aide" aria-disabled={a.prise !== null || busy || undefined} {...toucher(() => a.prise === null && aider(a.cle))}>
-            <b>{noms[a.cle]}</b>
-            <small>{espacesFines(prixDe(a, m))}</small>
-          </button>
-        ))}
-      </div>
-      <p className="cab-ligne cab-filet-prix">{espacesFines(phrase)}</p>
     </section>
   )
 }
@@ -358,52 +429,128 @@ function useFocusQuandIlParait(cle: string | null) {
   return ref
 }
 
-function MancheEnDeuxTemps({ montree: m, local: l, setLocal, envoyer, garde, busy }: PropsDUneManche<FiletEnDeuxTempsMontre, LocalDuFiletEnDeuxTemps>) {
+/** L'indice pris, sous la question, où l'on choisit comme où l'on vise : sous les aides, il passait derrière le bouton du bas (Samir). */
+function Indice({ m }: { m: Pick<FiletEnDeuxTempsMontre, 'indice'> }) {
+  const ref = useFocusQuandIlParait(m.indice)
+  if (!m.indice) return null
+  return (
+    <p ref={ref} className="cab-souffle cab-filet-indice" tabIndex={-1}>
+      <Icon name="bulb" />
+      <span>{espacesFines(`Indice : ${m.indice}`)}</span>
+    </p>
+  )
+}
+
+function MancheEnDeuxTemps({ montree: m, local: l, setLocal, garde, busy }: PropsDUneManche<FiletEnDeuxTempsMontre, LocalDuFiletEnDeuxTemps>) {
+  const vise = ecranDe(m, l) === 'valeur'
   // « Deux époques de moins » a pu retirer celle qu'il avait touchée : le choix revient à faire.
   const epoque = l.epoque !== null && !m.retirees.includes(l.epoque) ? l.epoque : null
-  const t = epoque !== null ? m.tranches[epoque] : null
-  const x = t && l.x !== null ? l.x : null
   const choisir = (i: number) => !busy && garde() && setLocal(choisirLEpoque(m, l, i))
   // Un cran se joue vite : deux touchers en font deux, sans la demi-seconde de garde — rien ne bouge sous le doigt.
-  const poser = (i: number) => !busy && setLocal(poserAuCran(m, { epoque, x }, i))
-  const aider = (cle: CleDAideDuFilet) => !busy && garde() && envoyer({ quoi: 'aide', aide: cle })
-  const lancer = () => !busy && garde() && epoque !== null && x !== null && envoyer({ quoi: 'repondre', reponse: { filet: { epoque, x } } })
+  const poser = (i: number) => !busy && setLocal(poserAuCran(m, l, i))
+  const rouvrir = () => !busy && garde() && setLocal(rouvrirLesEpoques(l))
   const restent = m.retirees.length > 0 ? m.tranches.filter((_, i) => !m.retirees.includes(i)) : []
   const restentDit = restent.length > 0 ? `Il reste ${restent.map(u => `${borneDite(m, u.de)}–${borneDite(m, u.a)}`).join(' et ')}.` : null
-  const indice = useFocusQuandIlParait(m.indice)
   const reste = useFocusQuandIlParait(restentDit)
+  // D'un écran à l'autre, le focus suit : le curseur quand la piste s'ouvre — il dit sa valeur, et les flèches le
+  // déplacent —, l'époque gardée quand les époques reviennent. Jamais à l'ouverture de la manche : le cadre y pose le sien.
+  const curseur = useRef<HTMLInputElement>(null)
+  const choisie = useRef<HTMLDivElement>(null)
+  const dAvant = useRef(vise)
+  useEffect(() => {
+    if (dAvant.current === vise) return
+    dAvant.current = vise
+    if (vise) curseur.current?.focus()
+    else choisie.current?.querySelector<HTMLElement>('[aria-pressed="true"]')?.focus()
+  }, [vise])
+  // La même question d'un écran à l'autre, sous une clé : le cadre y a posé le focus à l'ouverture de la manche.
+  const question = (
+    <h2 key="question" className={'quiz-question cab-question' + questionSizeClass(m.texte) + (vise ? ' cab-filet-rappel' : '')}>
+      {espacesFines(m.texte)}
+    </h2>
+  )
+  if (vise && epoque !== null && l.x !== null) {
+    const t = m.tranches[epoque]
+    return (
+      <>
+        {question}
+        <button
+          type="button"
+          className="cab-filet-choisie"
+          aria-label={`${m.annee ? 'Époque choisie' : 'Ordre de grandeur choisi'} : de ${bornesALOreille(m, t)}. ${m.annee ? 'Changer d’époque' : 'Changer d’ordre de grandeur'}`}
+          aria-disabled={busy || undefined}
+          {...toucher(rouvrir)}
+        >
+          <b aria-hidden="true">{bornesDites(m, t)}</b>
+          <span aria-hidden="true">{m.annee ? 'changer d’époque' : 'changer'}</span>
+        </button>
+        <Indice m={m} />
+        <PisteDeLEpoque m={m} t={t} x={l.x} poser={poser} busy={busy} curseur={curseur} />
+      </>
+    )
+  }
   const quoi = m.annee ? 'l’époque' : 'l’ordre de grandeur'
-  // La bonne époque vaut une étoile, tant qu'une aide ne l'a pas prise.
-  const vaut = etoilesPayees(m) === 0 ? ', la bonne vaut une étoile' : ''
+  // La bonne époque vaut une étoile — le bon ordre de grandeur —, tant qu'une aide ne l'a pas prise.
+  const vaut = etoilesPayees(m) === 0 ? (m.annee ? ', la bonne vaut une étoile' : ', le bon vaut une étoile') : ''
   return (
     <>
-      <div className="cab-tete-question">{m.categorie && <span className="label quiz-categorie">{m.categorie}</span>}</div>
-      <h2 className={'quiz-question cab-question' + questionSizeClass(m.texte)}>{espacesFines(m.texte)}</h2>
-      <section className="cab-filet-etape">
+      {/* L'indice pris prend la place de la catégorie : il l'a lue en ouvrant la manche, et les deux ensemble poussaient la
+          quatrième époque sous le pied. */}
+      {!m.indice && <div className="cab-tete-question">{m.categorie && <span className="label quiz-categorie">{m.categorie}</span>}</div>}
+      {question}
+      <Indice m={m} />
+      <section className="cab-filet-etape" ref={choisie}>
         <p className="cab-filet-consigne">
-          {epoque === null ? `Choisis ${quoi}` : m.annee ? 'L’époque' : 'L’ordre de grandeur'}
+          {`Choisis ${quoi}`}
           {vaut && <span>{espacesFines(vaut)}</span>}
         </p>
-        <Frise m={m} epoque={epoque} onChoisir={choisir} />
-        <Legende m={m} />
+        <LesEpoques m={m} epoque={epoque} onChoisir={choisir} />
       </section>
+      {/* Ce qui reste, dit à l'oreille, où le focus se pose : à l'œil, les époques retirées se sont repliées. */}
       {restentDit && (
-        <p ref={reste} className="cab-ligne cab-filet-restent" tabIndex={-1}>
+        <p ref={reste} className="sr-only cab-filet-restent" tabIndex={-1}>
           {espacesFines(restentDit)}
         </p>
       )}
-      {m.indice && (
-        <p ref={indice} className="cab-souffle" tabIndex={-1}>
-          <Icon name="bulb" />
-          {espacesFines(`Indice : ${m.indice}`)}
-        </p>
-      )}
-      {t && x !== null && <PisteDeLEpoque m={m} t={t} x={x} poser={poser} busy={busy} />}
-      <Aides m={m} aider={aider} busy={busy} />
-      <button type="button" className="btn btn-primary btn-big btn-block cab-lancer" aria-disabled={busy || epoque === null || undefined} {...toucher(lancer)}>
-        {epoque === null ? `Choisis d’abord ${m.annee ? 'une époque' : 'un ordre de grandeur'}` : 'Lancer le filet'}
-      </button>
     </>
+  )
+}
+
+/**
+ * Le pied collé de la manche, sous le pouce. Aux époques, les aides : leur phrase — ce qu'une aide coûte, jamais un cœur,
+ * ou que la carte qui éclaire offre la prochaine —, puis une chacune ; offerte, elle part par Éclairer, qui la vise par
+ * son rang, sinon elle se paie. Sous la piste, « Lancer le filet » : sous le pli, il ne se voyait qu'en défilant.
+ */
+export function PiedEnDeuxTemps({ montree: m, local: l, envoyer, garde, busy, eclaire }: PropsDUneManche<FiletEnDeuxTempsMontre, LocalDuFiletEnDeuxTemps>) {
+  if (ecranDe(m, l) === 'valeur' && l.epoque !== null && l.x !== null) {
+    const lancer = { epoque: l.epoque, x: l.x }
+    return (
+      <button type="button" className="btn btn-primary btn-big btn-block cab-lancer" aria-disabled={busy || undefined} {...toucher(() => !busy && garde() && envoyer({ quoi: 'repondre', reponse: { filet: lancer } }))}>
+        Lancer le filet
+      </button>
+    )
+  }
+  const noms = NOMS_DES_AIDES(m)
+  const offerte = eclaire?.jouable === true
+  const aider = (cle: CleDAideDuFilet) => {
+    if (busy || !garde()) return
+    envoyer(offerte ? { quoi: 'eclairer', affirmation: AIDES_DU_FILET.indexOf(cle) } : { quoi: 'aide', aide: cle })
+  }
+  return (
+    <section className="cab-filet-aides" aria-label="Les aides">
+      <p className="cab-filet-prix">{espacesFines(phraseDesAides(m, eclaire))}</p>
+      <div className={'cab-filet-aides-rangee' + (m.aides.length === 1 ? ' cab-filet-aides-une' : '')}>
+        {m.aides.map(a => {
+          const prise = priseDite(a, m)
+          return (
+            <button key={a.cle} type="button" className="cab-filet-aide" aria-disabled={a.prise !== null || busy || undefined} {...toucher(() => a.prise === null && aider(a.cle))}>
+              <b>{noms[a.cle]}</b>
+              {prise && <small>{espacesFines(prise)}</small>}
+            </button>
+          )
+        })}
+      </div>
+    </section>
   )
 }
 
@@ -422,6 +569,10 @@ function RevelationEnDeuxTemps({ corps: r, fin }: { corps: FiletEnDeuxTempsRevel
     </span>
   )
   const pres = (n: number) => (r.annee ? `à ${ecartDit(r, n)} près` : `à ${n}\u{a0}% près`)
+  // Les repères de la bonne époque et de celle qu'il a choisie, pas les quatre : un par ligne pendant la manche, ils
+  // feraient ici quatre lignes de légende sous une frise qui en porte déjà deux.
+  const concernees = [...r.bonnes, ...(r.lancer ? [r.lancer.epoque] : [])]
+  const montre = { ...r, reperes: r.reperes.filter(x => concernees.some(k => x.valeur >= r.tranches[k].de && x.valeur <= r.tranches[k].a)) }
   return (
     <section className="cab-filet-revele" aria-label="La frise">
       <p className="cab-ligne cab-rappel">{espacesFines(r.texte)}</p>
@@ -431,8 +582,8 @@ function RevelationEnDeuxTemps({ corps: r, fin }: { corps: FiletEnDeuxTempsRevel
           {espacesFines(!r.lancer || r.ecart === null ? 'tu n’as pas lancé' : `tu visais ${dire(r, r.lancer.x)} · ${r.ecart === 0 ? 'pile dessus' : `${ecartDit(r, r.ecart)} d’écart`}`)}
         </span>
       </p>
-      <Frise m={r} epoque={null} revele={r} />
-      <Legende m={r} revele={r} />
+      <Frise m={montre} epoque={null} revele={r} />
+      <Legende m={montre} revele={r} />
       {r.lancer && (
         <p className="cab-filet-juge">
           {critere(r.criteres.epoque, r.annee ? 'la bonne époque' : 'le bon ordre de grandeur')}
@@ -454,18 +605,19 @@ function RevelationEnDeuxTemps({ corps: r, fin }: { corps: FiletEnDeuxTempsRevel
 }
 
 export const FILET_EN_DEUX_TEMPS: JeuALEcran<FiletEnDeuxTempsMontre, FiletEnDeuxTempsRevele, LocalDuFiletEnDeuxTemps> = {
-  // Rien de touché : l'époque se choisit d'abord, et le curseur ne paraît qu'alors, en son milieu.
+  // Rien de touché : l'époque se choisit d'abord, et la piste ne s'ouvre qu'alors, le curseur en son milieu.
   localDe: () => ({ epoque: null, x: null }),
   // La question et ses tranches : « Changer » en pose d'autres ; une aide n'y change rien, l'époque touchée reste.
   cleDe: m => `${m.texte}|${m.tranches.map(t => `${t.de}-${t.a}`).join(',')}`,
-  // Ce qui est posé part à l'échéance, tel quel : l'époque seule vaut son étoile ; rien de touché, rien ne part.
+  // Ce qui est posé part à l'échéance, tel quel, les époques rouvertes ou non : l'époque seule vaut son étoile ; rien de touché, rien ne part.
   aLEcheance: (m, l) => (l.epoque !== null && l.x !== null && !m.retirees.includes(l.epoque) ? { filet: { epoque: l.epoque, x: l.x } } : undefined),
-  // La carte Coup d'œil offre une aide : l'indice d'abord, s'il en reste un.
-  cibleDEclairer: m => aideAOffrir(m),
-  // Une époque touchée ouvre sa piste sous la frise : les aides et « Lancer le filet » glissent vers le bas, et un second
-  // toucher pressé tomberait sur ce qui vient sous le doigt — le cadre relance sa demi-seconde de garde. Un cran ne bouge
-  // rien ; une aide rend une vue neuve, que le cadre garde de lui-même.
-  sousEcranDe: (_m, l) => String(l.epoque),
+  // La carte qui éclaire offre une aide, celle qu'il touche : ses deux boutons le disent, la carte n'a pas le sien.
+  tientEclairer: () => true,
+  // Une époque touchée change l'écran — la piste à la place des époques, « Lancer le filet » à celle des aides —, et
+  // « changer d'époque » le rend : un second toucher pressé tomberait sur ce qui vient sous le doigt, le cadre relance sa
+  // demi-seconde de garde. Un cran ne bouge rien ; une aide rend une vue neuve, que le cadre garde de lui-même.
+  sousEcranDe: (m, l) => `${ecranDe(m, l)}|${l.epoque}`,
   Manche: MancheEnDeuxTemps,
+  Pied: PiedEnDeuxTemps,
   Revelation: RevelationEnDeuxTemps,
 }

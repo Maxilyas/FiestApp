@@ -43,20 +43,24 @@ dé qui dit ce que ton personnage sait (« Répondre comme ton personnage »).
   vrai retour à faire.
 - **Ce qui se vise se touche au doigt, là où tu vises** : `toucher` touche le
   centre d'un élément, et `--a` dit où, en pour cent de sa largeur puis de sa
-  hauteur — vise sur ta capture. Au Filet, touche d'abord l'époque — un
-  bouton par époque, « De 1950 à 1974 » (un ordre de grandeur pour une
-  grandeur, « De 100 à 300 ») — : le curseur se pose en son milieu. Puis il se
+  hauteur — vise sur ta capture. Au Filet, deux écrans. Touche d'abord
+  l'époque — une ligne par époque, dont le nom commence par ses bornes,
+  « De 1950 à 1974 » (un ordre de grandeur pour une grandeur, « De 100 à
+  300 »), et dit le repère qu'elle porte ; les aides sont au pied de cet
+  écran-là — : l'écran de la valeur s'ouvre, le curseur en son milieu. Il se
   pose où tu le touches : `toucher "L’année" --a 30%` le pose vers 30 % de la
   piste de l'époque, à peu près (« La valeur » pour une grandeur) — l'écran
   d'après dit la valeur, corrige aux crans ou aux flèches —, et « Lancer le
-  filet » l'envoie. La carte de France aussi se vise : `toucher "La carte de France" --a 60%,55%` y plante
+  filet » l'envoie ; le bouton de l'époque choisie (« changer d’époque »)
+  rend les quatre époques. La carte de France aussi se vise : `toucher "La carte de France" --a 60%,55%` y plante
   l'épingle à 60 % de sa largeur et 55 % de sa hauteur. Une décimale s'écrit
   avec un point (`--a 12.5%`), et `--a` hors des guillemets. Un curseur ne se
   tape pas (`ecrire` le refuse). Au clavier, il s'atteint par Tab avant les
-  flèches : le toucher ne lui donne pas le focus. Au Filet, le bouton juste
-  avant lui est « Un cran de moins », qui recule d'un cran : touche-le, puis
-  `touche Tab` (le curseur a le focus), puis `touche ArrowRight` — la
-  première flèche rattrape ce cran.
+  flèches : le toucher ne lui donne pas le focus. Au Filet, la piste qui
+  s'ouvre le lui donne : `touche ArrowRight` le déplace aussitôt. Si tu l'as
+  perdu, le bouton juste avant lui est « Un cran de plus », qui avance d'un
+  cran : touche-le, puis `touche Tab` (le curseur a le focus), puis
+  `touche ArrowLeft` — la première flèche rattrape ce cran.
 - **Deux boutons parlent de quitter** : « Quitter », en tête d'une manche,
   pose la question ; à la question, « Quitter la partie » quitte pour de bon,
   « Continuer » revient au jeu.
@@ -132,7 +136,7 @@ chaque réponse, deux règles, dans l'ordre — elles ne se discutent pas :
    | Le Filet, à l'acte de sa question | I | II | III |
    |---|---|---|---|
    | L'époque | 12 | 11 | 11 |
-   | … sue : pile dessus | 11 | 8 | 9 |
+   | … sue : pile dessus | 11 | 10 | 10 |
    | … sue : à un quart d'époque, ou mieux | 12 | 12 | 12 |
 
    Il sait l'époque : il la touche, puis le second dé — au plus le seuil

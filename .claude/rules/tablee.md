@@ -47,8 +47,9 @@ Pour faire jouer une soirée par des agents, suis la skill `tablee`.
   décimale à la française, se lisait 62 % de large et 5 % de haut, l'épingle
   au bord nord de la carte ; `--a` pris dans les guillemets de la cible se
   refuse en mots. Chromium pose un curseur sous le doigt sans lui donner le
-  focus : au clavier, il s'atteint par Tab — au Filet, depuis « Un cran de
-  moins », qu'on touche et qui recule d'un cran. `ecrire` et `coller`
+  focus : au clavier, il s'atteint par Tab — au Filet, la piste qui s'ouvre le
+  lui donne depuis le 12 novembre 2026, et sinon depuis « Un cran de plus »,
+  qu'on touche et qui avance d'un cran. `ecrire` et `coller`
   refusent un curseur en mots, avant de le toucher : Playwright le vide
   d'abord (`fill('')`), qu'il y refuse — « Malformed value », lu comme un bug
   du Filet.

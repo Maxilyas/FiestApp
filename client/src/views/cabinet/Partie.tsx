@@ -97,6 +97,12 @@ export interface PropsDUneManche<M, L> extends OuEstLaManche {
    */
   gardeDeLEcran: () => boolean
   busy: boolean
+  /**
+   * La carte qui éclaire, quand l'écran du jeu dit lui-même ce qu'elle offre (`JeuALEcran.tientEclairer`) : son nom —
+   * Coup d'œil dans une épreuve, Éclairer au musée — et si elle peut servir maintenant. Absente : la partie n'en a pas, ou
+   * le cadre pose son bouton comme pour les autres jeux.
+   */
+  eclaire?: { nom: string; jouable: boolean }
 }
 
 /**
@@ -120,6 +126,12 @@ export interface JeuALEcran<M, R, L> {
   aLEcheance(m: M, l: L): ReponseDUnJeu | undefined
   /** Ce qu'Éclairer vise, quand le jeu le demande : l'affirmation sous les yeux, à l'Éclair. */
   cibleDEclairer?(m: M, l: L): number | undefined
+  /**
+   * Le jeu dit lui-même ce que la carte qui éclaire offre, et envoie son geste : le cadre ne pose pas son bouton, et lui
+   * passe ce qu'elle peut (`PropsDUneManche.eclaire`). Au Filet en deux temps, elle offre une des deux aides : leurs
+   * boutons le disent — un bouton « Coup d'œil » à côté d'eux faisait deux fois la même aide (le 12 novembre 2026).
+   */
+  tientEclairer?(m: M): boolean
   /** Un geste fait sur place, que le serveur ne connaît pas encore : « Changer » vient avant (l'Éclair, une réponse donnée). */
   aJoueSurPlace?(m: M, l: L): boolean
   /**
@@ -140,6 +152,8 @@ export interface JeuALEcran<M, R, L> {
    * même bas que la carte-bonus, et l'un aurait couvert l'autre.
    */
   Pied?(p: PropsDUneManche<M, L>): ReactNode
+  /** Cette manche a-t-elle un pied ? Absent : toujours. Les deux Filets partagent un écran, et celui d'avant n'en colle pas. */
+  aUnPied?(m: M): boolean
   /**
    * La révélation d'une manche, et comment elle s'est tranchée (`fin`) :
    * quittée au bon mot, la Réplique se titre « Le bon mot » et ne rapporte
@@ -486,7 +500,7 @@ function TeteDeLaPartie({ vue, chrono, onQuitter }: { vue: VueDeLaPartie; chrono
   useLeMotDeQuitter(rangee)
   const tv = vue.traversee
   return (
-    <header className="cab-tete-partie">
+    <header className={tv ? 'cab-tete-partie cab-tete-epreuve' : 'cab-tete-partie'}>
       {/* Une épreuve de traversée dit ce qu'elle vaut déjà : les cœurs et l'or qu'il lui reste, le gardien et ses points de vie.
           Sa sortie est une croix ronde en tête de ligne, en haut à gauche comme toute sortie : en pilule au bout de la rangée des
           manches, elle tombait au milieu de la tête, la niche posée (le retour du propriétaire, le 1er novembre 2026). */}
@@ -597,8 +611,7 @@ function CarteDeLaManche({
   const enPlus = useDansLeTempsEnPlus(chrono)
   if (!vue.enCours) return null
   const icone = <Icon name={ICONE_DU_POUVOIR[c.pouvoir]} />
-  // Une épreuve dit le nom de la carte qu'il a choisie — Coup d'œil, Échange —, le musée celui du pouvoir.
-  const nom = vue.origine === 'traversee' ? (carteDeLaTraversee(c.cle)?.nom ?? POUVOIRS[c.pouvoir].nom) : POUVOIRS[c.pouvoir].nom
+  const nom = nomDeLaCarte(vue, c)
   if (c.pouvoir !== 'eclairer' && c.pouvoir !== 'changer') {
     const dit = c.pouvoir === 'temps' && enPlus && viseLeCadreDore(vue, cadreDejaDore) ? TEMPS_EN_PLUS_DIT : c.dit
     return (
@@ -632,6 +645,10 @@ function CarteDeLaManche({
   // Une carte d'épreuve garde sa raison sous elle, dans sa case : deux cartes côte à côte ne se mêlent pas leurs refus.
   return vue.origine === 'traversee' ? <div className="cab-carte-en-jeu">{contenu}</div> : contenu
 }
+
+/** Une épreuve dit le nom de la carte qu'il a choisie — Coup d'œil, Échange —, le musée celui du pouvoir. */
+const nomDeLaCarte = (vue: Pick<VueDeLaPartie, 'origine'>, c: CarteVue): string =>
+  vue.origine === 'traversee' ? (carteDeLaTraversee(c.cle)?.nom ?? POUVOIRS[c.pouvoir].nom) : POUVOIRS[c.pouvoir].nom
 
 /**
  * Les cartes qui jouent dans une manche : la carte-bonus d'une partie du musée,
@@ -915,6 +932,9 @@ export function EcranDeLaPartie(p: PropsDeLEcran) {
     quoi = 'manche'
     // Une étape par écran du jeu (`etapeDe`) : « Changer » la garde — un autre tableau, un autre lieu, à la même taille.
     cleDeLaBande = `${vue.id}:${vue.manche}:${etapeDe(vue)}`
+    // La carte qui éclaire, quand le jeu dit lui-même ce qu'elle offre : son bouton ne se pose pas, le jeu a ce qu'elle peut.
+    const toutes = cartesEnJeu(vue)
+    const quiEclaire = ecran.tientEclairer?.(vue.enCours) ? toutes.find(c => c.carte.pouvoir === 'eclairer') : undefined
     const manche: PropsDUneManche<MancheMontree, unknown> = {
       montree: vue.enCours,
       partie: vue.id,
@@ -925,17 +945,18 @@ export function EcranDeLaPartie(p: PropsDeLEcran) {
       garde: p.garde,
       gardeDeLEcran: p.gardeDeLEcran,
       busy: p.busy,
+      ...(quiEclaire && { eclaire: { nom: nomDeLaCarte(vue, quiEclaire.carte), jouable: quiEclaire.maintenant?.jouable === true } }),
     }
     corps = <ecran.Manche {...manche} />
     // La carte-bonus reste sous le pouce tant qu'elle peut servir ; sans carte, pas de pied, qui collait un bandeau vide au bas de l'écran.
     // Les cartes d'une épreuve se rangent côte à côte, sous le pouce tant que l'une d'elles sert.
-    const enJeu = cartesEnJeu(vue)
+    const enJeu = quiEclaire ? toutes.filter(c => c !== quiEclaire) : toutes
     const lesCartes = enJeu.map(({ carte: c, maintenant }) => (
       <CarteDeLaManche key={c.cle} vue={vue} carte={c} maintenant={maintenant} ecran={ecran} local={p.local} busy={p.busy} chrono={p.chrono} cadreDejaDore={p.cadreDejaDore} onGeste={p.onGeste} />
     ))
     const carte = enJeu.length === 0 ? null : vue.cartes ? <div className="cab-cartes-en-jeu">{lesCartes}</div> : lesCartes
     const sert = enJeu.some(c => c.maintenant?.jouable)
-    if (ecran.Pied) {
+    if (ecran.Pied && (ecran.aUnPied?.(vue.enCours) ?? true)) {
       // Le pied du jeu reste collé, la carte-bonus qui sert encore au-dessus de lui ; une qui ne sert plus se pose sous la manche.
       pied = (
         <>

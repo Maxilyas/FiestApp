@@ -194,10 +194,16 @@ export function vraiesQuestionsDuFilet(parActe = 10, { avecIndice = false } = {}
   const base = new Map(lireLaBase().questions.map(q => [q.id, q]))
   const parActes: QuestionDeLaBase[][] = [[], [], []]
   const valeurs = new Set<number>()
-  for (const e of contenuDuCabinet().filet) {
+  // L'acte I d'abord : ses questions sont les plus rares — ce que chaque Français sait placer, et rien d'autre —, et une
+  // valeur prise par une question d'un autre acte, rangée avant elle dans le contenu, lui ôtait la sienne.
+  const parActeDAbord = [...contenuDuCabinet().filet].sort((a, b) => (acteDuFilet(a) ?? 3) - (acteDuFilet(b) ?? 3))
+  for (const e of parActeDAbord) {
     const q = base.get(e.id)
     const v = q && valeurDuFilet(q)
-    const tas = parActes[acteDuFilet(e)]
+    // Ce que le Filet ne pose plus — le panel sous son plancher — n'est d'aucun acte.
+    const acte = acteDuFilet(e)
+    if (acte === null) continue
+    const tas = parActes[acte]
     if (!q || !v || (avecIndice && !e.indice) || valeurs.has(v.valeur) || !seTendEnDeuxTemps(v.valeur, v.annee, annee) || tas.length >= parActe) continue
     valeurs.add(v.valeur)
     tas.push(q)

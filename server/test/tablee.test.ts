@@ -212,8 +212,9 @@ test('un geste se dit à trois endroits : la régie, l’aide du pilote, les con
   assert.match(CONSIGNES, /--a 60%,55%/)
   assert.match(CONSIGNES, /12\.5%/, 'une décimale après un point')
   assert.match(CONSIGNES, /touche Tab/, 'un curseur s’atteint par Tab avant les flèches')
-  // Au Filet, le bouton d'avant le curseur est « Un cran de moins » : y partir recule d'un cran.
-  assert.match(CONSIGNES_EN_LIGNE, /« Un cran de moins »[^.]*recule d['’]un cran/, 'partir de « Un cran de moins » recule d’un cran : les consignes le disent')
+  // Au Filet, la piste qui s'ouvre donne le focus au curseur ; perdu, le bouton d'avant lui est « Un cran de plus » depuis le
+  // 12 novembre 2026 — le nombre se lit entre « − » et « + », la piste dessous : y partir avance d'un cran.
+  assert.match(CONSIGNES_EN_LIGNE, /« Un cran de plus »[^.]*avance d['’]un cran/, 'partir de « Un cran de plus » avance d’un cran : les consignes le disent')
   assert.match(CONSIGNES, /`de 12`/)
 })
 

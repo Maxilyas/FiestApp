@@ -12116,6 +12116,26 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-tete-ligne[data-mot='cache'] .cab-quitter .icon { margin-right: 0; }
 .cab-tete-partie .timer { gap: 10px; }
 .cab-tete-partie .timer-seconds { min-width: 36px; font-size: 1.75rem; }
+/* Le chrono se tait jusqu'aux secondes qui pressent : la barre seule, puis son chiffre et son sablier aux dix dernières
+   (`SECONDES_QUI_PRESSENT`) — « énormément d'infos à l'écran, avec en plus un timer qui tourne », le retour que le propriétaire
+   rapportait le 12 novembre 2026 : un grand chiffre qui change chaque seconde se lit malgré soi. En pause, il reste : on sait
+   combien il en restera à la reprise. Son nom à l'oreille dit toujours les secondes. */
+.cab-tete-partie .timer-seconds:not(.urgent):not(.paused) { display: none; }
+/* La tête d'une épreuve tient sur une rangée : sa sortie, ses cœurs et son or, puis ses trois manches au bout, la barre du temps
+   dessous — 71 pixels au lieu de 152, un quart d'un écran de 640. Contre un gardien, ses points de vie passent sur une rangée
+   à eux, à droite, sous celle-là — 83 à 98 pixels : dans leur boîte, ils renvoyaient aussi les manches à la ligne, et trois
+   parties du Filet sur quatre sont des assauts. La boîte des cœurs s'efface (`display: contents`) pour que tout se range d'une seule
+   rangée qui passe à la ligne ; l'ordre garde les manches devant les points de vie. Plus de cœurs ou d'or que la rangée n'en
+   tient — six cœurs, mille pièces —, et les manches rejoignent les points de vie dessous. */
+/* Huit pixels entre ses morceaux et des manches de 22 : cinq cœurs — la Panacée — et un or à deux chiffres y tiennent encore
+   en 360 de large (à dix et vingt-quatre, les manches passaient dessous, 46 pixels de plus). */
+.cab-tete-epreuve { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 2px 8px; }
+.cab-tete-epreuve .cab-tete-traversee { display: contents; }
+.cab-tete-epreuve .cab-tete-ligne { order: 1; flex: 0 0 auto; min-height: 44px; margin-left: auto; }
+.cab-tete-epreuve .cab-points { gap: 4px; }
+.cab-tete-epreuve .cab-point { width: 22px; height: 22px; }
+.cab-tete-epreuve .cab-tv-pv { order: 2; }
+.cab-tete-epreuve .timer { order: 3; flex: 1 0 100%; }
 .cab-manche { gap: 14px; }
 .cab-tete-question { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
 /* Chaque `.label` de la page et de ses feuilles — la catégorie d'une manche, la tête de chaque écran, « Ce que tu gagnes » —, à
@@ -12362,10 +12382,11 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-filet-revele { display: flex; flex-direction: column; gap: 10px; }
 .cab-filet-reponse { font-family: var(--serif); font-size: 1.45rem; font-weight: 700; line-height: 1.2; font-variant-numeric: lining-nums tabular-nums; }
 .cab-filet-lance { display: flex; align-items: center; gap: 8px; }
-/* Le Filet en deux temps (`jeux/FiletEnDeuxTemps.tsx` ; sa maquette, `retours/2026-11-09/maquette-filet/`) : une consigne d'une
-   ligne ; les quatre époques en frise, des boutons qui disent leurs bornes, l'état par `aria-pressed` ; les repères au-dessus,
-   chacun sa forme — un rond pour ceux de tout le monde, un losange pour les siens ; dès qu'une époque est touchée, la valeur en
-   grand, ce que couvrent les deux anneaux, la piste et ses traits ; les aides ; « Lancer le filet ». À la révélation, la réponse
+/* Le Filet en deux temps (`jeux/FiletEnDeuxTemps.tsx` ; sa maquette, `retours/2026-11-09/maquette-filet/`), une décision par
+   écran depuis le 12 novembre 2026 (plus bas) : une consigne d'une ligne et les quatre époques, l'état par `aria-pressed` ; une
+   époque touchée, la valeur en grand, la piste et ses traits, ce que couvrent les deux anneaux ; les aides, puis « Lancer le
+   filet », au pied collé. À la révélation, la frise de quatre cases, les repères au-dessus, chacun sa forme — un rond pour ceux
+   de tout le monde, un losange pour les siens —, la réponse
    au-dessus de la frise, le lancer dessous, la bonne époque et la sienne écrites dans leur case : rien ne se dit par sa seule
    couleur — Samir, daltonien, confondait quatre ronds de teintes voisines (la tablée du 9 novembre 2026). La bonne époque prend
    l'or, comme une bonne réponse partout ailleurs (`.ans-btn.correct`). */
@@ -12422,15 +12443,50 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-filet-repere.cab-filet-sien { background: var(--accent-text); }
 .cab-filet-repere.cab-filet-sien::before { border: 0; border-radius: 0; background: var(--accent-text); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
 .cab-filet-restent { font-weight: 700; }
-/* Les deux aides côte à côte, chacune son prix dessous ; prise, son bord en tirets. Une question sans indice honnête n'en a qu'une. */
-.cab-filet-aides { display: flex; flex-direction: column; gap: 8px; }
+/* Les deux aides au pied collé de l'écran des époques, sous le pouce (le 12 novembre 2026 : sous la piste, elles passaient sous le
+   pli, et n'ont servi qu'à quatre manches sur vingt et une en production) : leur phrase d'abord — ce qu'une aide coûte, jamais un
+   cœur —, puis une chacune, son nom et, prise, ce qu'elle a coûté à sa suite ; son bord en tirets. Une question sans indice
+   honnête n'en a qu'une. */
+.cab-filet-aides { display: flex; flex-direction: column; gap: 6px; }
 .cab-filet-aides-rangee { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .cab-filet-aides-rangee.cab-filet-aides-une { grid-template-columns: minmax(0, 1fr); }
-.cab-filet-aide { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; min-height: 56px; padding: 8px 12px; border: 1.5px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface); color: var(--ink); font: inherit; font-size: 1.0625rem; text-align: left; overflow-wrap: anywhere; cursor: pointer; touch-action: manipulation; }
-.cab-filet-aide b { line-height: 1.2; }
-.cab-filet-aide small { color: var(--muted); font-size: 1.0625rem; }
-.cab-filet-aide[aria-disabled='true'] { border-style: dashed; cursor: default; }
-.cab-filet-prix { color: var(--muted); }
+.cab-filet-aide { display: block; min-width: 0; min-height: 48px; padding: 6px 12px; border: 1.5px solid var(--edge-strong); border-radius: var(--radius-sm); background: var(--surface-strong); color: var(--ink); font: inherit; line-height: 1.2; text-align: left; cursor: pointer; }
+.cab-filet-aide small { display: block; color: var(--muted); font-size: 1.0625rem; }
+.cab-filet-aide[aria-disabled='true'] { border-style: dashed; background: none; cursor: default; }
+.cab-filet-prix { margin: 0; color: var(--muted); line-height: 1.25; }
+.cab-pied-partie:has(.cab-filet-aides) { padding-top: 10px; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+/* Le Filet en deux écrans (`retours/2026-11-12/le-filet-en-deux-ecrans.md`). L'écran des époques : une ligne chacune, ses bornes
+   et le repère qu'elle porte — en frise de quatre cases, « 1975 1999 » ne disait rien à personne, et ses deux repères se
+   relisaient en légende, deux lignes de plus. Pressée, elle prend l'or des choix ; retirée, elle se replie sur ses bornes barrées
+   et s'efface, dite à l'oreille (« retirée ») : son pâle seul ne disait rien à Samir. Quatre lignes de 48 px tiennent avec une
+   question de quatre lignes, la consigne et le pied en 360 × 640 ; à 52, la quatrième passait sous le pied. */
+.cab-epoques-liste { display: flex; flex-direction: column; gap: 6px; }
+.cab-epoque { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; min-width: 0; min-height: 48px; padding: 2px 14px; border: 1.5px solid var(--edge-strong); border-radius: var(--radius-sm); background: var(--surface-strong); color: var(--ink); font: inherit; line-height: 1.2; text-align: left; cursor: pointer; }
+.cab-epoque b { font-size: 1.2rem; font-variant-numeric: lining-nums tabular-nums; }
+/* Aucune ligne n'a de repère — une grandeur dont l'unité n'en a pas : elles n'ont que leurs bornes, 44 px leur suffisent, et sa
+   consigne, plus longue, tient ses deux lignes au-dessus d'elles. */
+.cab-epoques-nues .cab-epoque { min-height: 44px; }
+.cab-epoque-repere { color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
+.cab-epoque-sien::before { content: '◆ '; color: var(--accent-text); }
+.cab-epoque[aria-pressed='true'] { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+.cab-epoque[aria-pressed='true'] .cab-epoque-repere, .cab-epoque[aria-pressed='true'] .cab-epoque-sien::before { color: var(--on-accent); }
+.cab-epoque.cab-epoque-retiree { min-height: 30px; padding-top: 2px; padding-bottom: 2px; opacity: 0.4; cursor: default; }
+.cab-epoque.cab-epoque-retiree b { font-size: 1.0625rem; text-decoration: line-through; }
+/* L'écran de la valeur : la question en rappel, plus petite — il l'a lue pour choisir son époque — ; l'époque choisie, qui rouvre les
+   époques ; l'indice, à gauche sur ses deux lignes ; le nombre entre « − » et « + » ; la piste de toute la largeur — 310 pixels au
+   lieu de 216 entre ses deux boutons —, le repère de l'époque écrit au-dessus de son mât. */
+.cab-manche .cab-question.cab-filet-rappel { font-size: 1.3rem; line-height: 1.25; }
+.cab-filet-choisie { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 12px; min-height: 44px; padding: 8px 14px; border: 2px solid var(--accent); border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--ink); font: inherit; line-height: 1.2; text-align: left; cursor: pointer; }
+.cab-filet-choisie b { font-size: 1.2rem; font-variant-numeric: lining-nums tabular-nums; }
+.cab-filet-choisie span { color: var(--accent-text); font-weight: 700; text-decoration: underline; }
+.cab-souffle.cab-filet-indice { align-items: flex-start; justify-content: flex-start; margin: 0; line-height: 1.3; text-align: left; }
+.cab-filet-indice .icon { flex: none; margin-top: 2px; }
+.cab-filet-nombre { display: flex; align-items: center; justify-content: center; gap: 20px; }
+.cab-filet-nombre .cab-filet-valeur { min-width: 0; text-align: center; }
+.cab-filet-glissiere { position: relative; }
+.cab-filet-drapeau { position: relative; width: fit-content; max-width: 100%; margin: 0; color: var(--muted); line-height: 1.2; font-variant-numeric: lining-nums tabular-nums; }
+.cab-filet-drapeau b { color: var(--ink); }
+.cab-filet-drapeau-sien b { color: var(--accent-text); }
 .cab-filet-vise-dit { display: block; font-family: var(--sans); font-size: 1.0625rem; font-weight: 500; color: var(--muted); }
 /* D'où viennent les étoiles, en une ligne : chaque critère sa marque et ses mots. */
 .cab-filet-juge { display: flex; flex-wrap: wrap; gap: 2px 14px; }

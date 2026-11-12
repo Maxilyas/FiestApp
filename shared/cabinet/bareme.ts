@@ -233,13 +233,17 @@ export const CHANGEMENTS_PAR_PARTIE: Readonly<Record<Force, number>> = { 1: 1, 2
  * vite que lui. L'Épingle, de 45 à 60 s le 11 novembre 2026, avec ses indices :
  * en demander un, le lire, puis viser de nouveau prend le temps d'une seconde
  * manche — la médiane d'une manche sans indice était de 18 s en production.
+ * Le Filet, de 45 à 60 s le 12 novembre 2026 : deux décisions et un indice à
+ * lire — en production, du 10 au 12, quatre manches sur vingt et une allaient
+ * jusqu'à l'échéance, dont les deux où l'indice avait été pris, quand le
+ * lancer part en 19 s en médiane (`retours/2026-11-12/le-filet-en-deux-ecrans.md`).
  */
 export const DUREES_DES_JEUX: Readonly<Record<CleDeJeu, number>> = {
   epingle: 60,
   frise: 60,
   mot: 120,
   detail: 45,
-  filet: 45,
+  filet: 60,
   pari: 35,
   eclair: 55,
   indices: 75,
@@ -430,8 +434,12 @@ export const CRAN_LE_PLUS_FIN: Readonly<Record<'entiere' | 'decimale', number>> 
 export const ETOILES_D_UNE_AIDE = 1
 /** Le Filet en deux temps : une année ne s'y pose qu'avec tant d'ans de recul au départ. */
 export const RECUL_DES_ANNEES_DU_FILET = 25
-/** Le Filet en deux temps : les repères d'une frise, au plus… */
-export const REPERES_DU_FILET = 2
+/**
+ * Le Filet en deux temps : les repères d'une frise, au plus — un par époque, que sa ligne porte. Deux jusqu'au
+ * 12 novembre 2026, piqués au-dessus de la frise et redits en légende : « énormément d'infos à l'écran », et les indices
+ * devaient parler « de choses que les gens connaissent » (`retours/2026-11-12/le-filet-en-deux-ecrans.md`).
+ */
+export const REPERES_DU_FILET = 4
 /** … dont tant des siens — une année qu'il a déjà su placer à ★★, sans aide. */
 export const REPERES_SIENS_DU_FILET = 1
 /** Le Filet en deux temps : un repère de grandeur à moins de tant de la réponse, en part d'elle, est la réponse même — il ne vient pas. */
@@ -439,12 +447,17 @@ export const REPERE_A_LA_REPONSE = 0.02
 /** Le Filet en deux temps : un repère qui partage avec la question un mot d'au moins tant de lettres en est le sujet — il ne vient pas. */
 export const LETTRES_D_UN_MOT_DU_SUJET = 5
 /**
- * Le Filet en deux temps : l'acte I tire ce que chaque Français sait placer, ou que le panel donne à tant de pour cent
- * et plus (la part des joueurs qui placeraient la valeur à 5 % près) ; l'acte II, de…
+ * Le Filet en deux temps : l'acte I ne tire que ce que chaque Français sait placer (le classement du vivier) ; l'acte II,
+ * ce que le panel donne à tant de pour cent et plus (la part des joueurs qui placeraient la valeur à 5 % près)…
+ *
+ * Décalé d'un cran le 12 novembre 2026 : l'acte I prenait aussi ce panel-là, l'acte II le suivant, l'acte III le reste.
+ * En production, du 10 au 12 novembre, quinze manches sur vingt et une tombaient à l'acte II — la mort de Stradivari,
+ * « Un chant de Noël » de Dickens — : dix ratées, la bonne époque une fois sur trois, une sur quatre au hasard
+ * (`retours/2026-11-12/le-filet-en-deux-ecrans.md`).
  */
-export const PANEL_DE_L_ACTE_I = 50
-/** … tant à l'acte I ; l'acte III, sous tant. */
-export const PANEL_DE_L_ACTE_II = 25
+export const PANEL_DE_L_ACTE_II = 50
+/** … l'acte III, de tant à l'acte II ; sous tant, le Filet ne la pose plus — « les loteries » du cahier, la moitié du vivier. */
+export const PANEL_DE_L_ACTE_III = 25
 /** Le Filet en deux temps : un indice tient en tant de signes au plus — une phrase qui mène à la tranche. */
 export const INDICE_DU_FILET_MAX = 100
 /** … et un repère, l'étiquette d'un fait sur la frise (« La tour Eiffel »), en tant. */
