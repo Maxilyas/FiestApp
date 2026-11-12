@@ -341,17 +341,18 @@ Toutes les commandes se lancent depuis `server/`. La skill `base-campagne` (`.cl
 - **Pour des faits tirés de Wikidata**, passe par `server/scripts/faits-wikidata.ts` (`vues-des-dumps`, `extraire`, `lots`, puis `fusionner`). Chaque lot se relit quand même.
 - **L'abonnement** : aucune vague ne se lance dans l'heure qui précède la routine du matin, qui partage l'abonnement.
 - **Les fichiers de décisions d'un lot Wikidata** se nomment avec un point, `<nom>.NN.decisions.json`, pour que `ranger <nom>-*.json` ne les prenne pas pour un lot.
-- **Une correction faite hors d'un lot** (« Corriger » à l'administration, ou une coquille corrigée à la main) ne repasse pas par le contrôle du même fait : lance `voisines` après.
-- **Une question à nombre** dont la réponse est déjà écrite dans l'intitulé d'une question de la base sur le même sujet est refusée, comme un même fait. La date d'une œuvre célèbre est presque toujours dans l'intitulé qui demande son auteur : préfère un fait que la base ne date pas encore.
+- **Une correction faite hors d'un lot** (« Corriger » à l'administration, ou une coquille corrigée à la main) ne repasse pas par le contrôle du même fait : lance `voisines` après, et `faces` si elle montre deux faces d'un fait à garder.
+- **Une question à nombre** dont la réponse est déjà écrite dans l'intitulé d'une question de la base sur le même sujet n'est plus refusée (depuis le 12 novembre 2026) : c'est une autre face du même fait. `verifier` la signale (`↔ FACE`), `ranger` la lie à sa sœur (`faceDe`), et le tirage ne les pose jamais ensemble. Deux faces d'un fait écrites dans les mêmes lots ne se rangent pas du même coup : la seconde entre au rangement suivant.
 - **Pour retirer une question** (`npx tsx scripts/base-campagne.ts retirer <id> …`), cherche d'abord son identifiant dans `server/content/` :
   - le Filet du Cabinet la pose peut-être (`server/content/cabinet/filet.json`) : retire sa ligne du vivier (`retours/2026-11-09/vivier-du-filet.json`), puis refais le contenu avec `node --import tsx ../retours/2026-11-09/reproductions/contenu-du-filet.mts` ;
   - une frise la date peut-être (`server/content/frises/evenements.json`) : son événement se tairait ;
   - puis baisse `AU_MOINS`, avec la ligne qui dit pourquoi.
 
 Les tests qui gardent la base :
-- `server/test/campagne-base.test.ts` : aucune entrée défectueuse, le plancher `AU_MOINS`, toutes les marches représentées, 150 questions par catégorie et 15 par sous-thème au moins, aucune question des quiz livrés ;
+- `server/test/campagne-base.test.ts` : aucune entrée défectueuse, le plancher `AU_MOINS`, toutes les marches représentées, 150 questions par catégorie et 15 par sous-thème au moins, aucune question des quiz livrés, chaque paire que le juge des faits relie liée ;
 - `server/test/campagne-sujets.test.ts` : chaque sujet a de quoi faire une série ;
-- `server/test/meme-fait.test.ts` : le contrôle du même fait — posé deux fois, retourné, une réponse chiffrée écrite dans un autre intitulé, la même grandeur dans une autre unité.
+- `server/test/meme-fait.test.ts` : le contrôle du même fait — posé deux fois, retourné, une réponse chiffrée écrite dans un autre intitulé, la même grandeur dans une autre unité ;
+- `server/test/faces.test.ts` : les faces d'un même fait — liées au rangement, jamais posées ensemble, vues l'une pour l'autre, écartées de la mesure.
 
 ### Ajouter un haut fait de campagne
 

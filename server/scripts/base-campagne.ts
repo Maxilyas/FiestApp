@@ -6,6 +6,7 @@
 //   npx tsx scripts/base-campagne.ts ranger <lot.json> …                        range des lots vérifiés dans la base
 //   npx tsx scripts/base-campagne.ts stats                                      la base, par catégorie, sous-thème et difficulté
 //   npx tsx scripts/base-campagne.ts voisines [<lot.json> …]                    les questions qui posent sans doute le même fait, et les intitulés presque pareils
+//   npx tsx scripts/base-campagne.ts faces                                      lie les paires du même fait que la base garde : deux faces, jamais posées ensemble
 //   npx tsx scripts/base-campagne.ts racines                                    les questions dont l'intitulé souffle la bonne réponse par sa racine, à relire
 //   npx tsx scripts/base-campagne.ts fiche <lot.json> …                         la fiche de relecture : l'essentiel de chaque question, une ligne ou trois
 //   npx tsx scripts/base-campagne.ts appliquer <decisions.json>                 ce que la relecture a décidé : retirer, corriger une phrase ou une difficulté
@@ -18,9 +19,10 @@
 // selon la consigne — à la main, ou par milliers par `generer-campagne.ts`.
 // Le rangement tire l'identifiant de chacune, écarte ce que la base, les
 // quiz livrés ou le lot lui-même ont déjà — le même intitulé, ou le même
-// fait sous un autre (`core/memeFait.ts`) —, et réécrit les fichiers de la
-// base, une question par ligne : une relecture de PR s'y fait question par
-// question.
+// fait sous un autre (`core/memeFait.ts`) ; une autre face d'un fait de la
+// base, elle, entre, liée à lui (`faceDe`, `core/faces.ts`) —, et réécrit les
+// fichiers de la base, une question par ligne : une relecture de PR s'y fait
+// question par question.
 
 import { randomBytes } from 'node:crypto'
 import { existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync } from 'node:fs'
@@ -29,7 +31,7 @@ import { DOSSIER_DE_LA_BASE, entreeDeLaBase, fichierDeCategorie, lireLaBase, lir
 import { REPONSE_CONSEILLEE, TEXTE_CONSEILLE, consigneDEcriture, empreintesDesLivres } from '../src/core/consigneCampagne'
 import { lireLEstimation } from '../src/core/estimation'
 import { rangsPossibles } from '../src/core/rangDeLaBonne'
-import { IndexDesFaits, presquePareils, traitsDe, type TraitsDUnIntitule } from '../src/core/memeFait'
+import { IndexDesFaits, faitDe, lienEntre, presquePareils, traitsDe, type TraitsDUnIntitule } from '../src/core/memeFait'
 import { couverture, inventairesDuTheme, lireLeSujet, repartirLesFamilles } from '../src/core/inventaires'
 import { CATEGORIES } from '../../shared/categories'
 import { AGES, SOUS_THEMES } from '../../shared/etiquettes'
@@ -68,6 +70,8 @@ function verifier(fichiers: string[], { nombres = false } = {}): number {
       }
       const q = jugee.question
       total++
+      // Pas un refus : une autre face d'un fait de la base se range, liée à elle, et le jeu ne les pose jamais ensemble.
+      for (const f of jugee.faces ?? []) console.log(`↔ FACE ${ou} « ${texte} » — une autre face du fait de « ${f.texte} » (${f.meta.categorie}, ${f.id}) : elle se rangera liée à elle`)
       parSousTheme.set(q.meta.sousTheme, (parSousTheme.get(q.meta.sousTheme) ?? 0) + 1)
       parDifficulte.set(q.meta.difficulte, (parDifficulte.get(q.meta.difficulte) ?? 0) + 1)
       const avertir = (motif: string) => {
@@ -163,7 +167,14 @@ function retirer(ids: string[]) {
   const inconnus = ids.filter(id => !base.some(q => q.id === id))
   if (inconnus.length > 0) throw new Error(`identifiant(s) absent(s) de la base : ${inconnus.join(', ')}`)
   const sortir = new Set(ids)
-  ecrireLaBase(new Map(CATEGORIES.map(c => [c, base.filter(q => q.meta.categorie === c && !sortir.has(q.id))])))
+  // Une sœur retirée ne se nomme plus (`faceDe`, `core/faces.ts`) : le lien ne garderait plus rien.
+  const sansLesRetirees = (q: QuestionDeLaBase): QuestionDeLaBase => {
+    if (!q.faceDe?.some(id => sortir.has(id))) return q
+    const { faceDe, ...reste } = q
+    const gardees = faceDe.filter(id => !sortir.has(id))
+    return gardees.length > 0 ? { ...reste, faceDe: gardees } : reste
+  }
+  ecrireLaBase(new Map(CATEGORIES.map(c => [c, base.filter(q => q.meta.categorie === c && !sortir.has(q.id)).map(sansLesRetirees)])))
   console.log(`${sortir.size} question(s) retirée(s). La base en compte ${base.length - sortir.size}.`)
 }
 
@@ -190,11 +201,20 @@ function voisines(fichiers: string[]) {
   const dire = (q: QuestionDeLaBase) => `${ou.get(q)} [${q.meta.categorie}] « ${q.texte} » → ${q.reponses[q.bonne]}`
   // Sans lot, toute la base ; avec, chaque paire qui touche un lot.
   const vise = ([a, b]: [QuestionDeLaBase, QuestionDeLaBase]) => nouvelles.size === 0 || nouvelles.has(a) || nouvelles.has(b)
+  // Deux faces déjà liées (`faceDe`) ont été lues : le tirage ne les pose jamais ensemble.
+  const liees = ([a, b]: [QuestionDeLaBase, QuestionDeLaBase]) => !!a.faceDe?.includes(b.id) || !!b.faceDe?.includes(a.id)
   let memes = 0
+  let faces = 0
   for (const paire of new IndexDesFaits([...base, ...lots]).paires()) {
     if (!vise(paire)) continue
+    if (liees(paire)) {
+      faces++
+      continue
+    }
     memes++
-    console.log(`${dire(paire[0])}\n${dire(paire[1])}\n`)
+    // Une autre face d'un fait de la base se range, liée à lui : à relire tout de même — un faux ami se lit à l'œil.
+    const lien = lienEntre(faitDe(paire[0])!, faitDe(paire[1])!)
+    console.log(`${lien === 'face' ? '↔ deux faces du même fait\n' : ''}${dire(paire[0])}\n${dire(paire[1])}\n`)
   }
   const parSousTheme = new Map<string, { q: QuestionDeLaBase; traits: TraitsDUnIntitule }[]>()
   for (const q of [...base, ...lots]) {
@@ -214,7 +234,44 @@ function voisines(fichiers: string[]) {
       }
     }
   }
-  console.log(`${memes} paire(s) sur le même fait, ${pareils} paire(s) d'intitulés presque pareils, sur ${base.length + lots.length} questions.`)
+  console.log(
+    `${memes} paire(s) sur le même fait, ${pareils} paire(s) d'intitulés presque pareils, sur ${base.length + lots.length} questions${faces > 0 ? ` — et ${faces} paire(s) de faces déjà liées` : ''}.`,
+  )
+}
+
+/**
+ * Lie les paires du même fait que la base garde (`IndexDesFaits.paires`) :
+ * chacune devient deux faces d'un même fait (`faceDe`, `core/faces.ts`) — le
+ * tirage ne les pose plus dans la même partie, une face vue compte pour vue
+ * chez l'autre, et la mesure écarte ce que l'une a soufflé à l'autre. Toutes,
+ * pas seulement les réponses chiffrées retournées que le juge range désormais
+ * comme des faces : la base a gardé les autres après relecture — deux faits
+ * que le juge confond, la girafe et nous à sept vertèbres —, et deux questions
+ * qu'il relie ne gagnent rien à se suivre. La seconde de chaque paire nomme la
+ * première ; rien d'autre ne change, et une paire déjà liée ne bouge pas. Le
+ * 12 novembre 2026 : 343 paires, dont 333 de réponses différentes.
+ */
+function lierLesFaces() {
+  const { questions: base, refusees } = lireLaBase()
+  if (refusees.length > 0) throw new Error(`La base a ${refusees.length} entrée(s) défectueuse(s) : corrige-les avant de lier.`)
+  const aLier = new Map<string, Set<string>>()
+  let paires = 0
+  let dejaLiees = 0
+  for (const [a, b] of new IndexDesFaits(base).paires()) {
+    paires++
+    if (a.faceDe?.includes(b.id) || b.faceDe?.includes(a.id)) {
+      dejaLiees++
+      continue
+    }
+    const siennes = aLier.get(b.id) ?? aLier.set(b.id, new Set()).get(b.id)!
+    siennes.add(a.id)
+  }
+  const liee = (q: QuestionDeLaBase): QuestionDeLaBase => {
+    const en = aLier.get(q.id)
+    return en ? { ...q, faceDe: [...new Set([...(q.faceDe ?? []), ...en])] } : q
+  }
+  ecrireLaBase(new Map(CATEGORIES.map(c => [c, base.filter(q => q.meta.categorie === c).map(liee)])))
+  console.log(`${paires} paire(s) du même fait : ${paires - dejaLiees} liée(s), ${dejaLiees} déjà liée(s) ; ${aLier.size} question(s) nomment désormais une sœur.`)
 }
 
 /**
@@ -397,6 +454,8 @@ if (commande === 'verifier') {
   stats()
 } else if (commande === 'voisines') {
   voisines(args)
+} else if (commande === 'faces') {
+  lierLesFaces()
 } else if (commande === 'fiche') {
   fiche(args)
 } else if (commande === 'appliquer') {
@@ -442,5 +501,5 @@ if (commande === 'verifier') {
 } else if (commande === 'couverture') {
   couvertureDuTheme(args[0], args.slice(1))
 } else {
-  console.log('base-campagne.ts consigne | verifier | ranger | stats | voisines | racines | fiche | appliquer | retirer | reclasser | inventaire | couverture')
+  console.log('base-campagne.ts consigne | verifier | ranger | stats | voisines | faces | racines | fiche | appliquer | retirer | reclasser | inventaire | couverture')
 }

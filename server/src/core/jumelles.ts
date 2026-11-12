@@ -8,6 +8,7 @@
 // leurres (l'experte du jeu solo, le 11 octobre 2026) ; dans une série du
 // petit écran, cinq « Qui a créé la série… » sur vingt questions.
 import { sansAccent } from '../../../shared/homonymes'
+import { soeursDe } from './faces'
 import { preparationDe } from './preparees'
 
 /** Les mots qui ne disent rien de la forme d'un intitulé. */
@@ -29,7 +30,8 @@ export function gabaritDe(texte: string): string {
 /** Une réponse comparable : sans casse, sans accents, sans son article — « Le chevreau » et « chevreau » sont la même. */
 const reponseNette = (r: string) => sansAccent(r).replace(/^(le|la|les|l'|l’|un|une)\s*/, '')
 
-export type Intitule = { texte: string; reponses: readonly string[] }
+/** Un intitulé et ses réponses ; et son identifiant, quand on le sait : une autre face de son fait se reconnaît par lui (`DejaPrises.memeFait`). */
+export type Intitule = { texte: string; reponses: readonly string[]; id?: string }
 type Signe = { forme: string; reponses: string[] } | null
 
 /**
@@ -112,13 +114,29 @@ export class DejaPrises {
   /** Chaque réponse nette, et les prises qui la proposent. */
   private parReponse = new Map<string, number[]>()
   private prises = 0
+  /** Les identifiants des prises qui en ont un : une autre face de leur fait se reconnaît par ses sœurs (`memeFait`). */
+  private ids = new Set<string>()
 
   prendre(q: Intitule) {
+    if (q.id) this.ids.add(q.id)
     const s = signeDe(q)
     const i = this.prises++
     if (!s) return
     this.formes.add(s.forme)
     for (const r of s.reponses) (this.parReponse.get(r) ?? this.parReponse.set(r, []).get(r)!).push(i)
+  }
+
+  /**
+   * Une autre face du fait d'une question déjà prise (`core/faces.ts`) : l'une
+   * soufflerait la réponse de l'autre — « En quelle année Delacroix peint-il
+   * La Liberté guidant le peuple ? » derrière « Quel peintre a représenté
+   * Juillet 1830 dans La Liberté guidant le peuple ? ». Plus qu'une jumelle :
+   * chaque tirage ne la prend qu'en tout dernier recours.
+   */
+  memeFait(q: object): boolean {
+    if (this.ids.size === 0) return false
+    const soeurs = soeursDe(q)
+    return soeurs !== undefined && soeurs.some(id => this.ids.has(id))
   }
 
   jumelle(q: Intitule): boolean {

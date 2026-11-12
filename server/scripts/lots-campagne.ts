@@ -33,14 +33,22 @@ export function ecrireLot(fichier: string, entrees: readonly unknown[]) {
 /** Pourquoi une entrée n'entrerait pas : le juge de la base, ou ce qui la double. */
 export type SorteDeRefus = 'juge' | 'doublon' | 'base' | 'livre' | 'fait'
 
-export type Jugement = { question: QuestionDeLaBase } | { refus: string; sorte: SorteDeRefus }
+/**
+ * Une entrée acceptée — et, si elle est une autre face du fait de questions de
+ * la base, celles-ci (`faces`), que sa question nomme (`faceDe`) —, ou son refus.
+ */
+export type Jugement = { question: QuestionDeLaBase; faces?: QuestionDeLaBase[] } | { refus: string; sorte: SorteDeRefus }
 
 /**
  * Ce que le rangement refuserait, dans l'ordre où il le vérifie : le juge de
  * la base (`lireQuestionDeLaBase`), puis le même intitulé — dans les lots
  * jugés ensemble, dans la base, dans un quiz livré —, puis le même fait sous
- * un autre (`IndexDesFaits`). Une entrée acceptée rejoint ce qu'elle tient à
- * l'écart : deux lots jugés ensemble ne se doublent pas.
+ * un autre (`IndexDesFaits.relever`). Une autre face du fait d'une question de
+ * la base entre, liée à elle (`QuestionDeLaBase.faceDe`, `core/faces.ts`) ;
+ * celle d'une entrée des lots, pas encore rangée et sans identifiant, se
+ * refuse comme avant : deux faces d'un fait ne se rangent pas du même coup.
+ * Une entrée acceptée rejoint ce qu'elle tient à l'écart : deux lots jugés
+ * ensemble ne se doublent pas.
  */
 export class TriDesEntrees {
   private readonly dansLaBase: ReadonlySet<string>
@@ -69,11 +77,29 @@ export class TriDesEntrees {
     if (deja) return { refus: `doublon de ${deja}`, sorte: 'doublon' }
     if (this.dansLaBase.has(q.empreinte)) return { refus: 'déjà dans la base', sorte: 'base' }
     if (this.livres.has(q.empreinte)) return { refus: 'déjà dans un quiz livré', sorte: 'livre' }
-    const memeFait = this.faits.chercher(q)
-    if (memeFait) return { refus: motifDuMemeFait(memeFait, q), sorte: 'fait' }
-    this.retenir(q, ou)
-    return { question: q }
+    const releve = this.faits.relever(q)
+    if (releve.doublon) return { refus: motifDuMemeFait(releve.doublon, q), sorte: 'fait' }
+    const duLot = releve.faces.find(f => !f.id)
+    if (duLot) return { refus: motifDUneFaceDuLot(duLot, this.vues.get(duLot.empreinte)), sorte: 'fait' }
+    // Ses faces, le juge seul les dit : un `faceDe` écrit dans l'entrée nommerait peut-être une question partie depuis.
+    const { faceDe: _ecrites, ...sansLien } = q
+    if (releve.faces.length === 0) {
+      this.retenir(sansLien, ou)
+      return { question: sansLien }
+    }
+    const liee: QuestionDeLaBase = { ...sansLien, faceDe: [...new Set(releve.faces.map(f => f.id))] }
+    this.retenir(liee, ou)
+    return { question: liee, faces: releve.faces }
   }
+}
+
+/**
+ * Le motif d'une autre face du fait d'une entrée des lots jugés ensemble : elle
+ * n'a pas encore d'identifiant à nommer. La première se range ; la seconde
+ * entrera, liée à elle, au rangement suivant.
+ */
+function motifDUneFaceDuLot(deja: QuestionDeLaBase, ou: string | undefined): string {
+  return `une autre face du fait de « ${deja.texte} »${ou ? ` (${ou})` : ''}, pas encore rangée : range l’une, l’autre entrera ensuite, liée à elle`
 }
 
 /** Une question d'un lot en attente, et où elle est. */

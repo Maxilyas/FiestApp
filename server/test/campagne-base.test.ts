@@ -14,6 +14,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { DOSSIER_DE_LA_BASE, QUESTIONS_PAR_TRANCHE, fichierDeCategorie, lireLaBase, lireLaBaseSansBloquer, lireQuestionDeLaBase } from '../src/core/baseCampagne'
 import { empreinteDe } from '../src/core/jour'
+import { IndexDesFaits } from '../src/core/memeFait'
 import { SERVEUR } from '../src/racine'
 import { CATEGORIES } from '../../shared/categories'
 import { SOUS_THEMES } from '../../shared/etiquettes'
@@ -271,6 +272,27 @@ test('chaque marche a de quoi composer des séries, en tout et dans chaque caté
       assert.ok(k >= 10, `${c} › ${n} : ${k} questions, 10 au moins`)
     }
   }
+})
+
+/**
+ * Deux questions que le juge des faits relie ne se posent pas ensemble : la
+ * base les lie (`faceDe`, `core/faces.ts`), et le tirage les garde l'une de
+ * l'autre. Le rangement lie lui-même les faces qu'il range ; une paire qui
+ * entre autrement — une correction qui écrit une année dans un intitulé, une
+ * paire gardée après relecture — se lie par `base-campagne.ts faces`. Le
+ * 12 novembre 2026, la base en gardait 343 (les réponses chiffrées retournées
+ * d'avant la règle, dix de même réponse que la relecture avait jugées deux
+ * faits), toutes liées ce jour-là.
+ */
+test('chaque paire que le juge des faits relie dans la base est liée : le tirage ne la pose jamais ensemble', () => {
+  const parId = new Map(questions.map(q => [q.id, q]))
+  const nonLiees = [...new IndexDesFaits(questions).paires()]
+    .filter(([a, b]) => !a.faceDe?.includes(b.id) && !b.faceDe?.includes(a.id))
+    .map(([a, b]) => `${a.id} « ${a.texte} » / ${b.id} « ${b.texte} »`)
+  assert.deepEqual(nonLiees.slice(0, 10), [], `${nonLiees.length} paire(s) à lier : npx tsx scripts/base-campagne.ts faces`)
+  // Et un lien ne nomme qu'une question de la base : une sœur retirée ne compte plus, et se retire de la ligne.
+  const orphelins = questions.flatMap(q => (q.faceDe ?? []).filter(id => !parId.has(id)).map(id => `${q.id} → ${id}`))
+  assert.deepEqual(orphelins, [])
 })
 
 test('les douze fichiers de catégorie sont là', () => {
