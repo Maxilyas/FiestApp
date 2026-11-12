@@ -35,7 +35,7 @@ import {
 } from '../src/core/cabinet/contenu'
 import { lireLaBase } from '../src/core/baseCampagne'
 import { valeurDuFilet } from '../src/core/cabinet/tirages/tas'
-import { acteDuFilet } from '../../shared/cabinet/jeux/filetEnDeuxTemps'
+import { acteDuFilet, sePoseALActe } from '../../shared/cabinet/jeux/filetEnDeuxTemps'
 import { traiterLesLots } from '../scripts/cabinet-contenu'
 import { tirerLePlan } from '../src/core/cabinet/tirages/index'
 import { leDetailSePromet } from '../src/core/cabinet/tirages/detail'
@@ -157,7 +157,13 @@ test('le Filet en deux temps : chaque question de son contenu est une question d
   assert.deepEqual(sansValeur, [], 'des questions que le Filet ne vise pas')
   assert.deepEqual(tropPres, [], 'des indices qui écrivent un nombre trop près de la réponse')
   // Chaque acte a de quoi tenir, et les repères de quoi poser une frise : des années, et des grandeurs dans leur unité.
-  for (const acte of [0, 1, 2] as const) assert.ok(filet.filter(q => acteDuFilet(q) === acte).length >= 200, `l’acte ${acte + 1}`)
+  // Ce que chaque acte pose depuis le décalage du 12 novembre 2026 (`sePoseALActe`) : l'acte I, les seules questions que
+  // chaque Français sait placer — le levier le plus fort, et le plus mince, 152 ; l'acte II, elles et le panel à 50 % et
+  // plus ; l'acte III, de 25 à 49. Deux cents à chaque acte avant lui, l'acte I comptant aussi ce panel-là.
+  const AU_MOINS = [150, 340, 480]
+  for (const acte of [0, 1, 2] as const) assert.ok(filet.filter(q => sePoseALActe(q, acte)).length >= AU_MOINS[acte], `l’acte ${acte + 1}`)
+  // Ce que le Filet ne pose plus reste au contenu, sans acte : le panel sous son plancher.
+  assert.ok(filet.some(q => acteDuFilet(q) === null) && filet.every(q => acteDuFilet(q) !== null || !sePoseALActe(q, 0)))
   assert.ok(reperes.filter(r => r.unite === null).length >= 60, 'des dates')
   assert.ok(reperes.filter(r => r.unite !== null).length >= 10, 'des grandeurs')
 })

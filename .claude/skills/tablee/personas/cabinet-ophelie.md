@@ -23,9 +23,9 @@ marche que le banc dit pendant la manche, un tirage qui ne se refait pas :
 
 | Le Filet, à l'acte de sa question | I | II | III |
 |---|---|---|---|
-| L'époque | 7 | 3 | 3 |
-| … sue : pile dessus | 5 | 1 | 1 |
-| … sue : à un quart d'époque, ou mieux | 11 | 7 | 10 |
+| L'époque | 8 | 3 | 3 |
+| … sue : pile dessus | 4 | 2 | 2 |
+| … sue : à un quart d'époque, ou mieux | 10 | 8 | 8 |
 
 | Ce qu'il faut savoir, sans marche | Au plus |
 |---|---|

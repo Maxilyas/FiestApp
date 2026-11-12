@@ -11,7 +11,7 @@ import type { FinDUneManche } from '../../../../../shared/cabinet/partie'
 import { decimales } from '../../../../../shared/classement'
 import { uniteAccordee } from '../../../../../shared/unites'
 import type { JeuALEcran, PropsDUneManche } from '../Partie'
-import { FILET_EN_DEUX_TEMPS, type LocalDuFiletEnDeuxTemps } from './FiletEnDeuxTemps'
+import { FILET_EN_DEUX_TEMPS, PiedEnDeuxTemps, type LocalDuFiletEnDeuxTemps } from './FiletEnDeuxTemps'
 
 // Le Filet à l'écran (§ 3.5) : une année ou une estimation de la base, sur une
 // piste tirée au départ. Il place son curseur — au doigt sur la piste, cran
@@ -291,8 +291,8 @@ export const FILETS: JeuALEcran<FiletMontre | FiletEnDeuxTempsMontre, FiletRevel
   localDe: m => (enDeuxTemps(m) ? FILET_EN_DEUX_TEMPS.localDe(m as FiletEnDeuxTempsMontre) : FILET.localDe(m as FiletMontre)),
   cleDe: m => (enDeuxTemps(m) ? FILET_EN_DEUX_TEMPS.cleDe(m as FiletEnDeuxTempsMontre) : FILET.cleDe(m as FiletMontre)),
   aLEcheance: (m, l) => (enDeuxTemps(m) ? FILET_EN_DEUX_TEMPS.aLEcheance(m as FiletEnDeuxTempsMontre, l as LocalDuFiletEnDeuxTemps) : FILET.aLEcheance(m as FiletMontre, l as LocalDuFilet)),
-  // Le Filet d'avant n'a rien à viser : Éclairer y pose sa zone dorée.
-  cibleDEclairer: (m, l) => (enDeuxTemps(m) ? FILET_EN_DEUX_TEMPS.cibleDEclairer?.(m as FiletEnDeuxTempsMontre, l as LocalDuFiletEnDeuxTemps) : undefined),
+  // Au Filet d'avant, Éclairer pose sa zone dorée, par le bouton de la carte ; au nouveau, il offre une aide, que ses boutons disent.
+  tientEclairer: m => enDeuxTemps(m),
   // Rien ne glisse sous le doigt au Filet d'avant ; au nouveau, la piste qu'une époque ouvre.
   sousEcranDe: (m, l) => (enDeuxTemps(m) ? (FILET_EN_DEUX_TEMPS.sousEcranDe?.(m as FiletEnDeuxTempsMontre, l as LocalDuFiletEnDeuxTemps) ?? '') : ''),
   Manche: p =>
@@ -301,5 +301,8 @@ export const FILETS: JeuALEcran<FiletMontre | FiletEnDeuxTempsMontre, FiletRevel
     ) : (
       <FILET.Manche {...(p as PropsDUneManche<FiletMontre, LocalDuFilet>)} />
     ),
+  // Le nouveau Filet colle son pied — ses aides, puis « Lancer le filet » ; celui d'avant n'en a pas.
+  aUnPied: m => enDeuxTemps(m),
+  Pied: p => (enDeuxTemps(p.montree) ? <PiedEnDeuxTemps {...(p as PropsDUneManche<FiletEnDeuxTempsMontre, LocalDuFiletEnDeuxTemps>)} /> : null),
   Revelation: p => (enDeuxTemps(p.corps) ? <FILET_EN_DEUX_TEMPS.Revelation {...p} corps={p.corps as FiletEnDeuxTempsRevele} /> : <FILET.Revelation {...p} corps={p.corps as FiletRevele} />),
 }

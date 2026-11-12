@@ -523,16 +523,20 @@ const MODELE = {
 /**
  * Le Filet en deux temps, hors du modèle — des lois, pas des parts : `MODELE` ne tient que des nombres et des listes,
  * que la tablée relit (`tablee.test.ts`). La loi des étoiles, de zéro à trois, des vrais lancers du 1er au 8 novembre
- * 2026 rejoués en deux temps, acte par acte — sans ce qui se calcule, à l'acte que le classement d'aujourd'hui donne à
- * leur question : 24, 51 et 68 lancers (`retours/2026-11-09/reproductions/filet-en-production.ts actes`). Une borne
- * basse : le curseur d'avant se posait sur une longue piste, et qui ne savait pas le laissait au milieu, souvent hors
- * de la bonne époque. Sur si peu de lancers, les actes II et III ne se distinguent pas. Le joueur moyen la tient ; un
- * plus fort sait l'époque plus souvent, et vise mieux (`saitLEpoque`, `classesSures`).
+ * 2026 rejoués en deux temps — sans ce qui se calcule —, au premier acte où leur question se pose (`acteDuFilet`,
+ * décalé d'un cran le 12 novembre 2026) : ce que chaque Français sait placer, 19 lancers ; puis le panel à 25 % et
+ * plus, d'une seule loi pour l'acte II et l'acte III — 5 et 50 lancers, 55 ensemble : cinq lancers ne font pas une loi,
+ * et hors de ce classement la note du panel ne trie presque rien (40 et 54 % de manches réussies)
+ * (`retours/2026-11-12/reproductions/le-filet-en-production.ts actes`). Une borne basse : le curseur d'avant se posait
+ * sur une longue piste, et qui ne savait pas le laissait au milieu, souvent hors de la bonne époque. Le joueur moyen la
+ * tient ; un plus fort sait l'époque plus souvent, et vise mieux (`saitLEpoque`, `classesSures`). Il lit l'acte de la
+ * question, pas celui de l'épreuve : à l'acte II, qui pose aussi ce que l'acte I pose (`sePoseALActe`), une question
+ * que chaque Français sait placer se joue à sa loi.
  */
 const LOI_DU_FILET_PAR_ACTE: readonly (readonly number[])[] = [
-  [0.25, 0.125, 0.25, 0.375],
-  [0.451, 0.275, 0.216, 0.059],
-  [0.456, 0.206, 0.265, 0.074],
+  [0.158, 0.158, 0.316, 0.368],
+  [0.473, 0.255, 0.182, 0.091],
+  [0.473, 0.255, 0.182, 0.091],
 ]
 /**
  * Le Filet d'avant tel que les joueurs l'ont joué (`--filet avant-joue`) : la loi des étoiles des mêmes lancers, à sa
@@ -694,10 +698,16 @@ interface QuestionDuNouveauFilet {
 }
 /** L'acte de chaque question du contenu du Filet (`acteDuFilet`) : le joueur modèle n'en lit que cela. */
 const ACTE_DU_FILET = new Map(CONTENU.filet.map(e => [e.id, F2.acteDuFilet(e)]))
+/** … et les actes où elle se pose (`sePoseALActe`) : l'acte II pose aussi ce que l'acte I pose. */
+const ENTREE_DU_FILET = new Map(CONTENU.filet.map(e => [e.id, e]))
+const sePoseALActe = (id: string, acte: number) => {
+  const e = ENTREE_DU_FILET.get(id)
+  return e !== undefined && F2.sePoseALActe(e, acte)
+}
 const INDICE_DU_FILET = new Map(CONTENU.filet.map(e => [e.id, e.indice]))
 let BASE_DU_FILET: readonly QuestionDeLaBase[] | null = null
 /** Les questions de la base que le contenu du Filet range, lues une fois — seulement si le nouveau Filet se joue. */
-const baseDuFilet = () => (BASE_DU_FILET ??= lireLaBase().questions.filter(q => ACTE_DU_FILET.has(q.id) && !(q.meta.aRelire ?? []).length))
+const baseDuFilet = () => (BASE_DU_FILET ??= lireLaBase().questions.filter(q => (ACTE_DU_FILET.get(q.id) ?? null) !== null && !(q.meta.aRelire ?? []).length))
 const FILETS_PAR_ACTE = new Map<string, { questions: QuestionDuNouveauFilet[]; poids: Record<number, number[]> }>()
 /**
  * Les questions que le nouveau Filet pose à cet acte l'année de la mesure, et les poids de la place de la réponse,
@@ -709,7 +719,7 @@ function filetALActe(acte: number, annee: number) {
   if (!x) {
     const questions: QuestionDuNouveauFilet[] = []
     for (const q of baseDuFilet()) {
-      const v = ACTE_DU_FILET.get(q.id) === acte ? valeurDuFilet(q) : null
+      const v = sePoseALActe(q.id, acte) ? valeurDuFilet(q) : null
       if (!v || !F2.seTendEnDeuxTemps(v.valeur, v.annee, annee)) continue
       questions.push({
         // Telle que la base l'écrit : l'ordre de ses réponses ne compte pas au Filet, et un mélange ferait varier la mesure.

@@ -1,5 +1,6 @@
 // L'écran du Filet en deux temps (`client/src/views/cabinet/jeux/FiletEnDeuxTemps.tsx` ; le cahier des charges,
-// `retours/2026-11-09/le-nouveau-filet.md`, § 3.1, 3.6 et 3.8), rendu en HTML (`renderToStaticMarkup`) sur les vues qu'un
+// `retours/2026-11-09/le-nouveau-filet.md`, § 3.1, 3.6 et 3.8 ; une décision par écran depuis le 12 novembre 2026,
+// `retours/2026-11-12/le-filet-en-deux-ecrans.md`), rendu en HTML (`renderToStaticMarkup`) sur les vues qu'un
 // vrai serveur rend à une joueuse qui joue par les routes — le serveur tire le nouveau Filet sur de vraies questions de
 // son contenu, les réponses lues dans le plan en base —, et l'aiguillage des deux Filets (`FILETS`, `Filet.tsx`) : une
 // partie commencée avant le nouveau garde son écran. Un fichier à part de `cabinet-ecran.test.ts` et de
@@ -67,6 +68,8 @@ type Ecran = {
   cleDe: (m: unknown) => string
   aLEcheance: (m: unknown, l: unknown) => unknown
   cibleDEclairer?: (m: unknown, l: unknown) => number | undefined
+  tientEclairer?: (m: unknown) => boolean
+  aUnPied?: (m: unknown) => boolean
   sousEcranDe?: (m: unknown, l: unknown) => string
   Manche: (p: object) => React.ReactNode
   Revelation: (p: object) => React.ReactNode
@@ -135,34 +138,52 @@ async function laPartie(vue: VueDeLaPartie, plus: Record<string, unknown> = {}) 
 
 /** Le corps d'une manche rendue, de sa question à la fin : la tête — son chrono, ses comptes — n'en est pas. */
 const corpsDe = (html: string) => html.slice(html.indexOf('<h2 class="quiz-question'))
-/** Les boutons des quatre époques, dans l'ordre : leur nom à l'oreille, et s'ils sont pressés ou éteints. */
+/** Les quatre époques de la révélation, en frise, dans l'ordre : leur nom à l'oreille, la bonne et son choix. */
 const epoquesDe = (html: string) => [...html.matchAll(/<button type="button" class="(cab-tranche[^"]*)"([^>]*)>/g)].map(m => ({ classes: m[1], attributs: m[2] }))
+/** Les quatre époques de la manche, une ligne chacune : leur nom à l'oreille, si elles sont pressées ou éteintes, ce qu'elles écrivent. */
+const lignesDe = (html: string) =>
+  [...html.matchAll(/<button type="button" class="(cab-epoque[^"]*)"([^>]*)>([\s\S]*?)<\/button>/g)].map(m => ({ classes: m[1], attributs: m[2], dedans: m[3] }))
+/** Le pied collé de la partie : ce que le jeu y pose, sous le pouce. */
+const piedDe = (html: string) => /<div class="cab-pied-partie">([\s\S]*)$/.exec(html)?.[1] ?? ''
+/** Le repère qu'une tranche porte, comme sa ligne le dit : son fait pour une année, sa grandeur devant pour une grandeur. */
+const repereDe = (m: FiletEnDeuxTempsMontre, u: TrancheDuFilet) => {
+  const r = m.reperes.find(x => x.valeur >= u.de && x.valeur <= u.a)
+  return r ? (m.annee ? r.texte : `${dire(m, r.valeur)} · ${r.texte}`) : null
+}
 const attribut = (attributs: string, nom: string) => new RegExp(`${nom}="([^"]*)"`).exec(attributs)?.[1]
 
 // ── La manche ────────────────────────────────────────────────────────────
 
-test('la manche du Filet en deux temps : la question, quatre époques qui disent leurs bornes, les aides et leur prix en mots — rien de la réponse (invariant 1)', async () => {
+test('l’écran des époques : la question, quatre lignes qui disent leurs bornes et leur repère, les aides au pied — rien de la réponse (invariant 1)', async () => {
   const m = vues.manche.enCours as FiletEnDeuxTempsMontre
   assert.equal(m.deuxTemps, true)
   const t = tirages[0]
   const html = await laPartie(vues.manche)
   const corps = texte(corpsDe(html))
   assert.match(corps, new RegExp(echapper(lu(m.texte))))
-  // Une ligne de consigne, puis quatre boutons qui disent leurs bornes, aucun pressé.
-  assert.match(corps, new RegExp(`Choisis ${m.annee ? 'l’époque' : 'l’ordre de grandeur'} , la bonne vaut une étoile`))
-  const epoques = epoquesDe(html)
-  assert.deepEqual(
-    epoques.map(e => [attribut(e.attributs, 'aria-label'), attribut(e.attributs, 'aria-pressed')]),
-    m.tranches.map(u => [`De ${borne(m, u.de)} à ${borne(m, u.a)}`, 'false']),
-  )
-  // Les aides, chacune son prix en mots — jamais un signe d'étoile, que le lecteur d'écran disait « moins un, une étoile ».
-  assert.match(corps, new RegExp(`${m.annee ? 'Deux époques de moins' : 'Deux ordres de moins'} Coûte une étoile`))
-  assert.match(corps, /Un indice Coûte une étoile/)
-  assert.match(corps, /Une aide coûte une étoile, jamais un cœur\./)
+  // Une ligne de consigne, puis quatre lignes qui disent leurs bornes et le repère qu'elles portent, aucune pressée.
+  assert.match(corps, new RegExp(m.annee ? 'Choisis l’époque , la bonne vaut une étoile' : 'Choisis l’ordre de grandeur , le bon vaut une étoile'))
+  const lignes = lignesDe(html)
+  assert.equal(lignes.length, m.tranches.length)
+  m.tranches.forEach((u, k) => {
+    const repere = repereDe(m, u)
+    assert.equal(attribut(lignes[k].attributs, 'aria-pressed'), 'false')
+    // Une grandeur dit son unité, sur sa ligne comme à l'oreille : « 10 – 30 ans », « De 10 à 30 ans ».
+    assert.equal(lu(attribut(lignes[k].attributs, 'aria-label') ?? ''), lu(`De ${borne(m, u.de)} à ${dire(m, u.a)}${repere ? `, repère : ${repere}` : ''}`))
+    assert.ok(texte(lignes[k].dedans).includes(texte(`${borne(m, u.de)} – ${dire(m, u.a)}`)), texte(lignes[k].dedans))
+    if (repere) assert.ok(texte(lignes[k].dedans).includes(lu(repere).trim()), `${texte(lignes[k].dedans)} : ${repere}`)
+  })
+  assert.ok(m.reperes.length <= m.tranches.length, 'un repère par époque, au plus')
+  // Plus de frise ni de légende pendant la manche : les repères sont sur leurs lignes.
+  assert.doesNotMatch(html, /cab-tranches|cab-epoques-legende/)
+  // Les aides, au pied collé : leur phrase, puis une chacune, son nom. Léa a emporté Éclairer : sa prochaine aide est
+  // offerte, les deux boutons le disent, et la carte n'a pas le sien — elle faisait deux fois la même aide.
+  const pied = texte(piedDe(html))
+  assert.match(pied, new RegExp(`^ ?Éclairer t’offre ta prochaine aide\\. ${m.annee ? 'Deux époques de moins' : 'Deux ordres de moins'} Un indice ?$`), pied)
+  assert.doesNotMatch(html, /cab-pouvoir/, 'pas de bouton pour la carte qui éclaire')
   // Rien à lancer sans époque, et pas de piste avant elle.
-  assert.match(html, /<button type="button" class="btn btn-primary btn-big btn-block cab-lancer" aria-disabled="true"[^>]*>Choisis d’abord (une époque|un ordre de grandeur)<\/button>/)
-  assert.doesNotMatch(html, /cab-curseur|cab-filet-anneaux/)
-  // Ni la valeur — sauf si elle est une borne, que la frise écrit pour tout le monde —, ni l'indice avant qu'il le prenne.
+  assert.doesNotMatch(html, /cab-lancer|cab-curseur|cab-filet-anneaux/)
+  // Ni la valeur — sauf si elle est une borne, que sa ligne écrit pour tout le monde —, ni l'indice avant qu'il le prenne.
   if (!m.tranches.some(u => u.de === t.valeur || u.a === t.valeur))
     assert.doesNotMatch(corps, new RegExp(`(?<![\\d,])${echapper(texte(formatNumber(t.valeur)))}(?![\\d]|,\\d)`), 'la valeur')
   assert.ok(t.indice && !corps.includes(lu(t.indice).trim()), 'l’indice')
@@ -170,7 +191,7 @@ test('la manche du Filet en deux temps : la question, quatre époques qui disent
   assert.doesNotMatch(corps, /★/, 'les étoiles se dessinent ou se disent')
 })
 
-test('une époque touchée : le curseur en son milieu, ce que couvrent les deux anneaux, la piste et ses traits, les grands pas', async () => {
+test('une époque touchée, l’écran de la valeur : l’époque choisie, le nombre entre ses deux crans, la piste et son repère, ce que le filet prend, « Lancer le filet » au pied', async () => {
   const { choisirLEpoque, cransDUnGrandPas, FILET_EN_DEUX_TEMPS } = await lesEcrans()
   const m = vues.manche.enCours as FiletEnDeuxTempsMontre
   const k = 1
@@ -178,21 +199,31 @@ test('une époque touchée : le curseur en son milieu, ce que couvrent les deux 
   const local = choisirLEpoque(m, FILET_EN_DEUX_TEMPS.localDe(m), k) as { epoque: number; x: number }
   assert.deepEqual(local, { epoque: k, x: milieuDeLaTranche(u) }, 'le milieu, d’emblée : « elle devrait se placer directement au milieu »')
   const html = await laPartie(vues.manche, { local })
-  const corps = texte(corpsDe(html))
-  assert.equal(attribut(epoquesDe(html)[k].attributs, 'aria-pressed'), 'true')
-  assert.match(corps, new RegExp(`${m.annee ? 'L’époque' : 'L’ordre de grandeur'} , la bonne vaut une étoile`))
-  // La valeur en grand, et ce que couvrent les deux anneaux : trois étoiles pour le petit, deux pour le grand, dessinées.
-  assert.match(html, new RegExp(`<output class="cab-filet-valeur" aria-live="off">${echapper(borne(m, local.x))}`))
+  // Un autre écran : la question en rappel, l'époque choisie et de quoi en changer — plus les quatre lignes, ni les aides.
+  assert.match(html, /<h2 class="quiz-question cab-question[^"]* cab-filet-rappel"/)
+  assert.equal(lignesDe(html).length, 0)
+  assert.doesNotMatch(html, /cab-filet-aides|cab-filet-consigne/)
+  const choisie = /<button type="button" class="cab-filet-choisie"([^>]*)>([\s\S]*?)<\/button>/.exec(html)
+  assert.ok(choisie, 'l’époque choisie')
+  assert.equal(lu(attribut(choisie[1], 'aria-label') ?? ''), lu(`${m.annee ? 'Époque choisie' : 'Ordre de grandeur choisi'} : de ${borne(m, u.de)} à ${dire(m, u.a)}. ${m.annee ? 'Changer d’époque' : 'Changer d’ordre de grandeur'}`))
+  assert.ok(texte(choisie[2]).includes(texte(`${borne(m, u.de)} – ${dire(m, u.a)}`)) && texte(choisie[2]).includes(m.annee ? 'changer d’époque' : 'changer'), texte(choisie[2]))
+  // La valeur en grand, entre « − » et « + ».
+  assert.match(html, new RegExp(`aria-label="Un cran de moins"[\\s\\S]*?<output class="cab-filet-valeur" aria-live="off">${echapper(borne(m, local.x))}[\\s\\S]*?aria-label="Un cran de plus"`))
+  // Ce que le filet prend : trois étoiles pour le petit anneau, deux pour le grand, dessinées — « à tant d'ans » pour une
+  // année, qui ne bouge pas avec le curseur ; les réponses qu'il prendrait, en nombres, pour une grandeur.
   const c = ceQueCouvreLeFilet(m, local.x, u.pas >= 1)
   const anneaux = /<p class="cab-filet-anneaux">([\s\S]*?)<\/p>/.exec(html)?.[1] ?? ''
+  const ans = (n: number) => `à ${n} an${n > 1 ? 's' : ''}`
   const morceau = (r: { de: number; a: number }) => (r.de === r.a ? `pile sur ${borne(m, r.de)}` : `${borne(m, r.de)}–${borne(m, r.a)}`)
-  assert.match(texte(anneaux), new RegExp(echapper(texte(morceau(c.trois)))))
+  const trois = m.annee ? ans(m.anneaux.trois) : morceau(c.trois)
+  const deux = m.annee ? ans(m.anneaux.deux) : morceau(c.deux)
+  assert.match(texte(anneaux), new RegExp(echapper(texte(trois))))
   assert.match(anneaux, /aria-label="3 étoiles sur 3"/)
-  if (morceau(c.deux) !== morceau(c.trois)) {
-    assert.match(texte(anneaux), new RegExp(echapper(texte(morceau(c.deux)))))
+  if (deux !== trois) {
+    assert.match(texte(anneaux), new RegExp(echapper(texte(deux))))
     assert.match(anneaux, /aria-label="2 étoiles sur 3"/)
   }
-  // La piste de l'époque : ses bornes, son cran, sa vraie valeur dite ; un trait à chaque grand pas ; « − » et « + », les grands pas.
+  // La piste de l'époque : ses bornes, son cran, sa vraie valeur dite ; un trait à chaque grand pas ; les grands pas.
   const curseur = /<input type="range" class="cab-curseur"([^>]*)\/>/.exec(html)?.[1] ?? ''
   assert.deepEqual(
     ['min', 'max', 'step', 'value', 'aria-label', 'aria-valuetext'].map(a => attribut(curseur, a)),
@@ -202,13 +233,20 @@ test('une époque touchée : le curseur en son milieu, ce que couvrent les deux 
   assert.equal((html.match(/class="cab-filet-trait"/g) ?? []).length, Math.ceil(cransDe(u) / grand) - 1)
   const grandDit = m.annee ? `${grand * u.pas} ans` : dire(m, grand * u.pas)
   assert.match(texte(html), new RegExp(`− ${echapper(texte(grandDit))} \\+ ${echapper(texte(grandDit))}`))
-  assert.ok(html.includes(`aria-label="${grandDit.replace(' ', ' ')} de plus"`) || html.includes(`aria-label="${grandDit} de plus"`), 'un grand pas dit sa taille')
-  assert.match(html, /<button type="button" class="btn btn-primary btn-big btn-block cab-lancer"[^>]*>Lancer le filet<\/button>/)
-  assert.doesNotMatch(/<button type="button" class="btn btn-primary btn-big btn-block cab-lancer"([^>]*)>/.exec(html)?.[1] ?? '', /aria-disabled/)
+  assert.ok(html.includes(`aria-label="${grandDit.replace(' ', '\u{a0}')} de plus"`) || html.includes(`aria-label="${grandDit} de plus"`), 'un grand pas dit sa taille')
+  // Le repère de l'époque, écrit au-dessus de son mât : sa valeur, puis son fait.
+  const repere = m.reperes.find(x => x.valeur >= u.de && x.valeur <= u.a)
+  if (repere) {
+    const drapeau = texte(/<p class="cab-filet-drapeau[^"]*"[^>]*>([\s\S]*?)<\/p>/.exec(html)?.[1] ?? '')
+    assert.ok(drapeau.includes(texte(borne(m, repere.valeur))) && drapeau.includes(lu(repere.texte).trim()), drapeau)
+    assert.equal((html.match(/class="cab-filet-repere/g) ?? []).length, 1)
+  } else assert.doesNotMatch(html, /cab-filet-drapeau|class="cab-filet-repere/)
+  // « Lancer le filet », seul au pied collé, sous le pouce : sous la piste, il passait sous le pli.
+  assert.match(piedDe(html), /^<button type="button" class="btn btn-primary btn-big btn-block cab-lancer">Lancer le filet<\/button><\/div>/)
 })
 
 test('ce que la page tient : l’époque touchée garde la valeur qui y tient, un grand pas d’une graduation ronde, ce qui part à l’échéance', async () => {
-  const { choisirLEpoque, poserAuCran, cransDUnGrandPas, FILET_EN_DEUX_TEMPS, aideAOffrir } = await lesEcrans()
+  const { choisirLEpoque, poserAuCran, rouvrirLesEpoques, ecranDe, phraseDesAides, cransDUnGrandPas, FILET_EN_DEUX_TEMPS } = await lesEcrans()
   const annees: Pick<FiletEnDeuxTempsMontre, 'tranches' | 'retirees' | 'annee'> = {
     annee: true,
     retirees: [],
@@ -235,62 +273,95 @@ test('ce que la page tient : l’époque touchée garde la valeur qui y tient, u
   assert.equal(FILET_EN_DEUX_TEMPS.aLEcheance(m, rienDeTouche), undefined)
   assert.deepEqual(FILET_EN_DEUX_TEMPS.aLEcheance(m, au1937), { filet: { epoque: 1, x: 1937 } })
   assert.equal(FILET_EN_DEUX_TEMPS.aLEcheance({ ...m, retirees: [1, 3] }, au1937), undefined)
-  // La carte Coup d'œil offre l'indice d'abord, puis l'autre aide ; plus rien, rien à viser.
-  const aides = (indice: 'payee' | null, epoques: 'payee' | null) => ({
+  // Les deux écrans : les époques tant que rien n'est touché, la valeur ensuite ; « changer d'époque » rend les époques, la
+  // sienne et son curseur gardés — ce qui part à l'échéance n'en change pas —, et la toucher de nouveau rouvre la piste.
+  assert.equal(ecranDe(m, rienDeTouche), 'epoque')
+  assert.equal(ecranDe(m, au1937), 'valeur')
+  const rouvertes = rouvrirLesEpoques(au1937)
+  assert.deepEqual(rouvertes, { epoque: 1, x: 1937, rechoisit: true })
+  assert.equal(ecranDe(m, rouvertes), 'epoque')
+  assert.deepEqual(FILET_EN_DEUX_TEMPS.aLEcheance(m, rouvertes), { filet: { epoque: 1, x: 1937 } })
+  assert.deepEqual(choisirLEpoque(annees, rouvertes, 1), au1937)
+  assert.deepEqual(rouvrirLesEpoques(rienDeTouche), rienDeTouche)
+  // « Deux époques de moins » a retiré la sienne : le choix revient à faire, aux époques.
+  assert.equal(ecranDe({ ...m, retirees: [1, 3] }, au1937), 'epoque')
+  // Ce que les aides coûtent, en une phrase : la carte qui éclaire offre la prochaine tant qu'elle peut servir et qu'il en
+  // reste une ; payée, ce qu'elle a pris, jamais un cœur ; offerte seule, rien.
+  const aides = (indice: 'payee' | 'offerte' | null, epoques: 'payee' | 'offerte' | null) => ({
+    prixDUneAide: 1,
     aides: [
       { cle: 'epoques', prise: epoques },
       { cle: 'indice', prise: indice },
     ],
   })
-  assert.equal(aideAOffrir(aides(null, null)), AIDES_DU_FILET.indexOf('indice'))
-  assert.equal(aideAOffrir(aides('payee', null)), AIDES_DU_FILET.indexOf('epoques'))
-  assert.equal(aideAOffrir(aides('payee', 'payee')), undefined)
-  assert.equal(aideAOffrir({ aides: [{ cle: 'epoques', prise: null }] }), AIDES_DU_FILET.indexOf('epoques'), 'sans indice honnête, l’autre')
-  // Une époque touchée ouvre sa piste, et ce qui était sous le doigt glisse : le cadre relance sa garde. Un cran, non.
+  const coupDOeil = (jouable: boolean) => ({ nom: 'Coup d’œil', jouable })
+  assert.equal(phraseDesAides(aides(null, null)), 'Une aide : une étoile, jamais un cœur.')
+  assert.equal(phraseDesAides(aides(null, null), coupDOeil(true)), 'Coup d’œil t’offre ta prochaine aide.')
+  assert.equal(phraseDesAides(aides(null, null), coupDOeil(false)), 'Une aide : une étoile, jamais un cœur.')
+  assert.equal(phraseDesAides(aides('offerte', null), coupDOeil(false)), 'Ton aide était offerte.')
+  assert.equal(phraseDesAides(aides('payee', null), coupDOeil(true)), 'Coup d’œil t’offre ta prochaine aide.')
+  assert.equal(phraseDesAides(aides('payee', 'offerte'), coupDOeil(false)), 'Ton aide : une étoile, jamais un cœur.')
+  assert.equal(phraseDesAides(aides('payee', 'payee'), coupDOeil(true)), 'Tes aides : deux étoiles, jamais un cœur.', 'plus rien à offrir')
+  // Une époque touchée change l'écran, et « changer d'époque » le rend : le cadre relance sa garde. Un cran, non.
   const sous = FILET_EN_DEUX_TEMPS.sousEcranDe!
   assert.notEqual(sous(m, rienDeTouche), sous(m, au1937))
+  assert.notEqual(sous(m, au1937), sous(m, rouvertes))
   assert.equal(sous(m, au1937), sous(m, poserAuCran(annees, au1937, 3)))
   // « Changer » pose une autre question : la page repart de zéro ; une aide n'y change rien.
   assert.equal(FILET_EN_DEUX_TEMPS.cleDe(vues.aidee.enCours), FILET_EN_DEUX_TEMPS.cleDe(vues.manche.enCours))
   assert.notEqual(FILET_EN_DEUX_TEMPS.cleDe(vues.troisieme.enCours), FILET_EN_DEUX_TEMPS.cleDe(vues.manche.enCours))
 })
 
-test('après « Deux époques de moins » : ce qui reste se dit, les retirées se barrent, l’aide dit ce qu’elle a pris — jamais un cœur', async () => {
+test('après « Deux époques de moins » : les retirées se replient, barrées, ce qui reste se dit à l’oreille, l’aide dit qu’elle a servi', async () => {
   const m = vues.aidee.enCours as FiletEnDeuxTempsMontre
   const t = tirages[0]
   assert.deepEqual(m.retirees, [...t.retirables])
   const html = await laPartie(vues.aidee)
   const corps = texte(corpsDe(html))
   const restent = m.tranches.filter((_, i) => !m.retirees.includes(i)).map(u => `${borne(m, u.de)}–${borne(m, u.a)}`)
-  assert.match(html, /<p class="cab-ligne cab-filet-restent" tabindex="-1">/, 'le focus s’y pose')
+  // Ce qui reste, à l'oreille, où le focus se pose : à l'œil, les lignes retirées se sont repliées.
+  assert.match(html, /<p class="sr-only cab-filet-restent" tabindex="-1">/, 'le focus s’y pose')
   assert.match(corps, new RegExp(echapper(texte(`Il reste ${restent.join(' et ')}.`))))
-  const epoques = epoquesDe(html)
-  for (const i of m.retirees) {
-    assert.match(epoques[i].classes, /cab-tranche-retiree/)
-    assert.match(attribut(epoques[i].attributs, 'aria-label') ?? '', /, retirée$/)
-    assert.equal(attribut(epoques[i].attributs, 'aria-disabled'), 'true')
-  }
-  assert.match(corps, /Prise · une étoile en moins/)
-  // Une aide payée : « Ton aide » — « Tes aides » dès la seconde.
-  assert.match(corps, /Ton aide : une étoile en moins, jamais un cœur\./)
+  const lignes = lignesDe(html)
+  m.tranches.forEach((u, i) => {
+    if (!m.retirees.includes(i)) return assert.doesNotMatch(lignes[i].classes, /cab-epoque-retiree/)
+    assert.match(lignes[i].classes, /cab-epoque-retiree/)
+    assert.equal(lu(attribut(lignes[i].attributs, 'aria-label') ?? ''), lu(`De ${borne(m, u.de)} à ${dire(m, u.a)}, retirée`))
+    assert.equal(attribut(lignes[i].attributs, 'aria-disabled'), 'true')
+    assert.doesNotMatch(lignes[i].dedans, /cab-epoque-repere/, 'une époque retirée ne garde que ses bornes')
+  })
+  // L'aide dit qu'elle a servi, sous son nom, accordée à lui ; l'autre reste à prendre, et la carte de Léa l'offre encore.
+  const pied = texte(piedDe(html))
+  assert.match(pied, new RegExp(`${m.annee ? 'Deux époques de moins retirées' : 'Deux ordres de moins retirés'} Un indice ?$`), pied)
+  assert.match(pied, /Éclairer t’offre ta prochaine aide\./)
   // L'étoile de l'époque, l'aide l'a prise : la consigne ne la promet plus.
   assert.doesNotMatch(corps, /la bonne vaut une étoile/)
 })
 
-test('Éclairer offre l’indice : il paraît sous la frise, le focus s’y pose, et l’aide dit qu’elle était offerte', async () => {
+test('Éclairer offre l’indice : il paraît sous la question, le focus s’y pose, et l’aide dit qu’elle était offerte', async () => {
   const m = vues.eclairee.enCours as FiletEnDeuxTempsMontre
   const t = tirages[0]
   assert.equal(m.indice, t.indice)
   const html = await laPartie(vues.eclairee)
   const corps = texte(corpsDe(html))
-  assert.match(html, /<p class="cab-souffle" tabindex="-1">/)
+  assert.match(html, /<p class="cab-souffle cab-filet-indice" tabindex="-1">/)
   assert.ok(corps.includes(lu(`Indice : ${t.indice}`).trim()), corps)
-  assert.match(corps, /Un indice Prise · offerte/)
-  // L'aide payée avant parle toujours : ce qu'elle a pris, jamais un cœur — l'offerte n'en est pas une de plus.
-  assert.match(corps, /Ton aide : une étoile en moins, jamais un cœur\./)
-  // L'ordre de l'écran : la frise, ce qui reste, l'indice, puis les aides — sous les aides, l'indice passait derrière le bouton du bas.
-  const ici = (s: string) => html.indexOf(s)
-  assert.ok(ici('class="cab-tranches"') < ici('cab-filet-restent') && ici('cab-filet-restent') < ici('class="cab-souffle"') && ici('class="cab-souffle"') < ici('class="cab-filet-aides"'))
+  const pied = texte(piedDe(html))
+  assert.match(pied, /Un indice offert ?$/, pied)
+  // L'aide payée avant parle toujours : ce qu'elle a pris, jamais un cœur — l'offerte n'en est pas une de plus, et la carte a servi.
+  assert.match(pied, /^ ?Ton aide : une étoile, jamais un cœur\./, pied)
+  // L'ordre de l'écran : la question, l'indice, les époques, et les aides au pied — sous les aides, l'indice passait
+  // derrière le bouton du bas. Il prend la place de la catégorie, que la manche a dite en s'ouvrant.
+  const ici = (x: string) => html.indexOf(x)
+  assert.ok(ici('class="quiz-question') < ici('cab-filet-indice') && ici('cab-filet-indice') < ici('class="cab-epoques-liste') && ici('class="cab-epoques-liste') < ici('class="cab-filet-aides"'))
+  assert.doesNotMatch(html, /quiz-categorie/)
+  assert.match(await laPartie(vues.manche), /quiz-categorie/)
+  // Sur l'écran de la valeur, il reste sous les yeux, entre l'époque choisie et le nombre.
+  const { choisirLEpoque, FILET_EN_DEUX_TEMPS } = await lesEcrans()
+  const libre = m.tranches.findIndex((_, i) => !m.retirees.includes(i))
+  const valeur = await laPartie(vues.eclairee, { local: choisirLEpoque(m, FILET_EN_DEUX_TEMPS.localDe(m), libre) })
+  const la = (x: string) => valeur.indexOf(x)
+  assert.ok(la('cab-filet-choisie') < la('cab-filet-indice') && la('cab-filet-indice') < la('cab-filet-valeur'))
 })
 
 // ── La révélation ────────────────────────────────────────────────────────
@@ -353,16 +424,27 @@ test('l’aiguillage des deux Filets : chaque manche prend son écran par sa for
   assert.deepEqual(FILETS.localDe(nouveau), FILET_EN_DEUX_TEMPS.localDe(nouveau))
   assert.equal(FILETS.cleDe(avant), FILET.cleDe(avant))
   assert.equal(FILETS.cleDe(nouveau), FILET_EN_DEUX_TEMPS.cleDe(nouveau))
-  assert.equal(FILETS.cibleDEclairer?.(avant, FILET.localDe(avant)), undefined, 'au Filet d’avant, Éclairer ne vise rien')
-  assert.equal(FILETS.cibleDEclairer?.(nouveau, FILETS.localDe(nouveau)), AIDES_DU_FILET.indexOf('indice'))
+  // Au Filet d'avant, Éclairer pose sa zone dorée par le bouton de la carte, que le cadre garde ; au nouveau, il offre une
+  // aide que ses boutons disent, et le jeu colle son pied.
+  assert.equal(FILETS.cibleDEclairer, undefined, 'Éclairer ne vise plus rien de lui-même : l’aide touchée dit son rang')
+  assert.deepEqual([FILETS.tientEclairer?.(avant), FILETS.tientEclairer?.(nouveau)], [false, true])
+  assert.deepEqual([FILETS.aUnPied?.(avant), FILETS.aUnPied?.(nouveau)], [false, true])
   assert.equal(FILETS.sousEcranDe?.(avant, FILET.localDe(avant)), '', 'rien ne glisse sous le doigt au Filet d’avant')
   const { renderToStaticMarkup } = await import('react-dom/server')
   const manche = (montree: unknown) =>
     renderToStaticMarkup(React.createElement(FILETS.Manche, { montree, local: FILETS.localDe(montree), setLocal: rien, envoyer: rien, garde: () => true, gardeDeLEcran: () => true, busy: false, partie: 'p' }))
   assert.match(manche(avant), /cab-tailles/, 'les trois filets d’avant')
-  assert.doesNotMatch(manche(avant), /cab-tranches/)
-  assert.match(manche(nouveau), /cab-tranches/)
+  assert.doesNotMatch(manche(avant), /cab-epoques-liste/)
+  assert.match(manche(nouveau), /cab-epoques-liste/)
   assert.doesNotMatch(manche(nouveau), /cab-tailles/)
+  // Par le cadre : une partie du Filet d'avant garde le bouton de sa carte, et aucun pied de jeu.
+  const { EcranDeLaPartie, chronoMontre } = await import(url('views/cabinet/Partie.tsx'))
+  const dAvant = { ...vues.manche, enCours: avant }
+  const html = renderToStaticMarkup(
+    React.createElement(EcranDeLaPartie, { vue: dAvant, ecran: FILETS, local: FILETS.localDe(avant), setLocal: rien, chrono: chronoMontre(dAvant, dAvant.maintenant), busy: false, miser: null, garde: () => true, gardeDeLEcran: () => true, onGeste: rien, onQuitter: rien, onSuivante: rien, onMiser: rien, onSignaler: rien, onMusee: rien }),
+  )
+  assert.match(html, /cab-pouvoir/, 'le bouton de la carte qui éclaire')
+  assert.doesNotMatch(html, /cab-filet-aides/)
   // La page le charge à la demande, comme avant.
   assert.match(source('views/cabinet/Partie.tsx'), /filet: aLaDemande\(\(\) => import\('\.\/jeux\/Filet'\)\.then\(m => m\.FILETS/)
 })
@@ -389,6 +471,6 @@ test('l’écran du Filet en deux temps : de sa règle des types et ce qui ne ju
   // `.cab-frise` est la Frise : la frise des époques a ses classes à elle (`.cab-epoques`), et la feuille les pose toutes.
   assert.doesNotMatch(s, /cab-frise/)
   const feuille = readFileSync(path.join(client, 'styles.css'), 'utf8')
-  for (const classe of new Set([...s.matchAll(/cab-(?:epoques|tranche|filet-(?:anneau|trait|repere|aide|juge|oui|non|consigne|restent|etape))[a-z-]*/g)].map(m => m[0])))
+  for (const classe of new Set([...s.matchAll(/cab-(?:epoques?|tranche|filet-(?:anneau|trait|repere|aide|juge|oui|non|consigne|restent|etape|choisie|nombre|glissiere|drapeau|indice|rappel|prix))[a-z-]*/g)].map(m => m[0])))
     assert.match(feuille, new RegExp(`\\.${classe}\\b`), `.${classe} a sa règle`)
 })

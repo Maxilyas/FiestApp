@@ -31,8 +31,8 @@ import {
   ETOILES_D_UNE_AIDE,
   LETTRES_D_UN_MOT_DU_SUJET,
   ORDRES_DE_GRANDEUR,
-  PANEL_DE_L_ACTE_I,
   PANEL_DE_L_ACTE_II,
+  PANEL_DE_L_ACTE_III,
   RECUL_DES_ANNEES_DU_FILET,
   REPERES_DU_FILET,
   REPERES_SIENS_DU_FILET,
@@ -279,14 +279,33 @@ export function seTendEnDeuxTemps(valeur: number, annee: boolean, anneeDuDepart:
 }
 
 /**
- * L'acte où une question se pose, de zéro à deux : l'acte I, ce que chaque Français sait placer, ou que le panel donne à
- * 50 % et plus — le levier le plus fort, « des questions que chacun connaisse » (le propriétaire, au matin du
- * 9 novembre 2026) : sur les vrais lancers, elles se placent à 2 % près sept fois plus souvent que les autres ; l'acte
- * II, le panel de 25 à 49 % ; l'acte III, sous 25.
+ * Le premier acte où une question se pose, de zéro à deux, ou null — le Filet ne la pose plus : l'acte I, ce que chaque
+ * Français sait placer, et rien d'autre — le levier le plus fort, « des questions que chacun connaisse » (le
+ * propriétaire, au matin du 9 novembre 2026) : sur les vrais lancers, elles se placent à 2 % près sept fois plus
+ * souvent que les autres ; l'acte II, ce que le panel donne à 50 % et plus ; l'acte III, de 25 à 49 ; sous 25, « les
+ * loteries » du cahier, plus rien.
+ *
+ * Décalé d'un cran le 12 novembre 2026 (« c'est toujours trop dur, des questions trop difficiles », le retour rapporté
+ * par le propriétaire) : l'acte I prenait aussi le panel à 50 % ; l'acte II, de 25 à 49 — en production, du 10 au
+ * 12 novembre, dix manches ratées sur quinze, la bonne époque une fois sur trois ; l'acte III, les loteries
+ * (`retours/2026-11-12/le-filet-en-deux-ecrans.md`).
  */
-export function acteDuFilet(q: Pick<QuestionDuFilet, 'chacun' | 'panel'>): 0 | 1 | 2 {
-  if (q.chacun || q.panel >= PANEL_DE_L_ACTE_I) return 0
-  return q.panel >= PANEL_DE_L_ACTE_II ? 1 : 2
+export function acteDuFilet(q: Pick<QuestionDuFilet, 'chacun' | 'panel'>): 0 | 1 | 2 | null {
+  if (q.chacun) return 0
+  if (q.panel >= PANEL_DE_L_ACTE_II) return 1
+  return q.panel >= PANEL_DE_L_ACTE_III ? 2 : null
+}
+
+/**
+ * Une question se pose-t-elle à cet acte ? Au sien, et à l'acte II ce que l'acte I pose aussi : chaque acte a pris le
+ * réservoir de celui d'avant, et l'acte II celui de l'acte I tout entier. Au-delà de ce que chaque Français sait placer,
+ * la note du panel ne trie presque rien — sur les lancers du 1er au 8 novembre rejoués en deux temps, 84 % de manches
+ * réussies pour ce classement, une sur deux pour le panel à 50 % et plus comme pour celui de 25 à 49
+ * (`retours/2026-11-12/reproductions/le-filet-en-production.ts actes`) : sans elles, l'acte II serait resté aussi dur.
+ */
+export function sePoseALActe(q: Pick<QuestionDuFilet, 'chacun' | 'panel'>, acte: number): boolean {
+  const sien = acteDuFilet(q)
+  return sien !== null && (sien === acte || (sien === 0 && acte === 1))
 }
 
 /**
@@ -370,15 +389,22 @@ function motsDuSujet(texte: string): string[] {
 }
 
 /**
- * Les repères d'une frise, tirés sans regarder où est la réponse : un des siens au plus — une année qu'il a déjà su
- * placer —, puis des dates que tout le monde connaît, deux au plus en tout, rangés de gauche à droite. L'époque d'un
- * repère se tire d'abord, chacune la même chance, puis un repère de cette époque : choisis parmi ceux qui
- * s'écartaient de la réponse, ils tombaient rarement dans sa case, et deux repères dans deux époques valaient « Deux
- * époques de moins » gratuit (Claire, au premier tour) ; tenus à un quart d'époque d'elle, ils disaient où elle
- * n'était pas — « avec 1870 sur la piste, elle ne pouvait être qu'entre 1850 et 1863 » (Claire, au troisième).
- * Jamais du même sujet que la question, jamais la réponse elle-même : « 1969 · Le premier pas sur la Lune » pour une
- * question sur la Lune. Les candidats viennent du tireur — les siens, du journal ; les autres, du contenu du Cabinet,
- * de la même unité pour une grandeur —, le hasard aussi.
+ * Les repères d'une frise, tirés sans regarder où est la réponse : un par époque au plus (`REPERES_DU_FILET`), que sa
+ * ligne porte à l'écran — un des siens d'abord, une année qu'il a déjà su placer, puis des dates que tout le monde
+ * connaît —, rangés de gauche à droite. Deux en tout jusqu'au 12 novembre 2026 : choisis parmi ceux qui s'écartaient de
+ * la réponse, ils tombaient rarement dans sa case, et deux repères dans deux époques valaient « Deux époques de moins »
+ * gratuit (Claire, au premier tour de la tablée du 9) ; tenus à un quart d'époque d'elle, ils disaient où elle n'était
+ * pas — « avec 1870 sur la piste, elle ne pouvait être qu'entre 1850 et 1863 » (Claire, au troisième). Jamais du même
+ * sujet que la question, jamais la réponse elle-même : « 1969 · Le premier pas sur la Lune » pour une question sur la
+ * Lune.
+ *
+ * Un repère par époque fait d'une ligne sans repère un signe : si le sujet de la question en écarte tous ceux d'une
+ * époque qui en avait — « La mort de Louis XIV », le seul de 1700 à 1749, pour qui demande l'année de sa mort —, la
+ * ligne muette serait celle de la réponse. Aucune époque n'en montre alors : seuls les siens restent, qui ne disent
+ * rien d'elle. Une époque sans repère au contenu, elle, ne dit rien non plus.
+ *
+ * Les candidats viennent du tireur — les siens, du journal ; les autres, du contenu du Cabinet, de la même unité pour
+ * une grandeur —, le hasard aussi.
  */
 export function reperesDuFilet(
   q: { texte: string; valeur: number; annee: boolean; tranches: readonly TrancheDuFilet[] },
@@ -395,12 +421,14 @@ export function reperesDuFilet(
     const tranche = trancheDe(r.valeur)
     if (tranche >= 0) pris.push({ repere: { ...r, sien: true }, tranche })
   }
+  const dans = (r: RepereDuFilet, tranche: number) => r.valeur >= q.tranches[tranche].de && r.valeur <= q.tranches[tranche].a
+  // Le sujet de la question a-t-il vidé une époque de ses repères ? Aucun commun ne vient alors (plus haut).
+  const videe = RANGS.some(tranche => candidats.communs.some(r => dans(r, tranche)) && !candidats.communs.some(r => dans(r, tranche) && permis(r)))
   for (const tranche of battre(RANGS, hasard)) {
-    if (pris.length >= REPERES_DU_FILET) break
+    if (videe || pris.length >= REPERES_DU_FILET) break
     if (pris.some(p => p.tranche === tranche)) continue
     // Un repère pile sur une borne (30 cm, entre 10–30 et 30–100) est des deux tranches : il ne se tire qu'une fois.
-    const { de, a } = q.tranches[tranche]
-    const ici = candidats.communs.filter(r => permis(r) && r.valeur >= de && r.valeur <= a && !pris.some(p => p.repere.valeur === r.valeur))
+    const ici = candidats.communs.filter(r => permis(r) && dans(r, tranche) && !pris.some(p => p.repere.valeur === r.valeur))
     if (ici.length > 0) {
       const r = auHasard(ici, hasard)
       pris.push({ repere: { valeur: r.valeur, texte: r.texte }, tranche })
@@ -586,8 +614,8 @@ function titreDuVerdict(t: FiletEnDeuxTempsTire, lancer: LancerEnDeuxTemps | nul
 export const REGLE_DU_FILET_EN_DEUX_TEMPS: RegleDuJeu<FiletEnDeuxTempsTire, EtatDuFiletEnDeuxTemps, GesteDuFiletEnDeuxTemps, FiletEnDeuxTempsMontre, FiletEnDeuxTempsRevele> = {
   cle: 'filet',
   etapes: 1,
-  // Le chrono du Filet d'avant : deux gestes au lieu d'un et un indice à lire, mais 45 secondes suffisaient à Claire.
-  // À mesurer en production avant d'y toucher (`dureesDesManches`) ; « Prendre son temps » existe pour qui lit lentement.
+  // Soixante secondes depuis le 12 novembre 2026 (`DUREES_DES_JEUX`) : deux décisions et un indice à lire. À 45, une
+  // manche sur cinq allait jusqu'à l'échéance en production — les deux où l'indice avait été pris comprises.
   dureeMs: () => DUREES_DES_JEUX.filet * 1000,
 
   ouvrir: () => ({ aides: [] }),

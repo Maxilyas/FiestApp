@@ -75,8 +75,8 @@ function filetDeLaTraversee(sortie: string): { reussies: number; etoiles: number
 
 test('au nouveau Filet, ce que le joueur sait suit l’acte de l’épreuve, et l’indice pris garde son cœur', async () => {
   // Le nouveau Filet se tire à l'acte de l'épreuve, de vraies questions de son contenu, et son joueur modèle tient la loi
-  // des vrais lancers de cet acte, rejoués en deux temps (`LOI_DU_FILET_PAR_ACTE`) : ce que chaque Français sait placer,
-  // à l'acte I, rapporte plus. Qui ne sait pas l'époque et prend l'indice touche la bonne : la manche, réussie, garde son
+  // des vrais lancers au premier acte de sa question, rejoués en deux temps (`LOI_DU_FILET_PAR_ACTE`) : ce que chaque
+  // Français sait placer, seul à l'acte I, rapporte plus. Qui ne sait pas l'époque et prend l'indice touche la bonne : la manche, réussie, garde son
   // cœur, même quand l'aide en reprend l'étoile (`VerdictDUneManche.payees`).
   const traversee = ['--sections', 'traversee', '--traversees', '240', '--joueurs', 'moyen', '--filet', 'deux-temps']
   const [avec, sans] = await Promise.all([calibrer(traversee), calibrer([...traversee, '--aides', 'jamais'])])
@@ -88,7 +88,10 @@ test('au nouveau Filet, ce que le joueur sait suit l’acte de l’épreuve, et 
   filetDeLaTraversee(sans.sortie).forEach((x, k) => {
     assert.equal(x.payees, 0, `--aides jamais : aucune aide payée à l'acte ${k + 1}`)
     assert.ok(aides[k].payees > 0, `l'acte ${k + 1} : des aides payées`)
-    assert.ok(aides[k].reussies > x.reussies + 0.1, `l'acte ${k + 1} : ${aides[k].reussies} réussies avec l'indice, ${x.reussies} sans`)
+    // Dix points de plus aux actes II et III. À l'acte I, depuis le décalage du 12 novembre 2026, ce que chaque Français sait
+    // placer se réussit déjà neuf fois sur dix sans aide : l'indice n'y a plus dix points à rendre, seulement ce qui reste.
+    const deMieux = k === 0 ? 0.03 : 0.1
+    assert.ok(aides[k].reussies > x.reussies + deMieux, `l'acte ${k + 1} : ${aides[k].reussies} réussies avec l'indice, ${x.reussies} sans`)
   })
 })
 

@@ -1,10 +1,10 @@
 // Le tireur du Filet en deux temps (`shared/cabinet/jeux/filetEnDeuxTemps.ts` ; le cahier des charges,
 // `retours/2026-11-09/le-nouveau-filet.md`) : une question du contenu du Filet (`server/content/cabinet/filet.json` —
 // le vivier classé une question à la fois, la note du panel, un indice jugé à l'aveugle), tirée à l'acte de l'épreuve
-// plutôt qu'à une marche : l'acte I parmi ce que chaque Français sait placer, ou que le panel donne à 50 % et plus —
-// le levier le plus fort, « des questions que chacun connaisse », le propriétaire, au matin du 9 novembre 2026 —,
-// l'acte II de 25 à 49, l'acte III sous 25 (`acteDuFilet`). Ce qui se calcule n'y entre pas : « les grammes d'un
-// kilogramme » se trouvent sans rien savoir.
+// plutôt qu'à une marche : l'acte I parmi ce que chaque Français sait placer — le levier le plus fort, « des questions
+// que chacun connaisse », le propriétaire, au matin du 9 novembre 2026 —, l'acte II parmi elles et ce que le panel donne
+// à 50 % et plus, l'acte III de 25 à 49 ; sous 25, plus rien (`acteDuFilet`, `sePoseALActe`, décalés d'un cran le
+// 12 novembre 2026). Ce qui se calcule n'y entre pas : « les grammes d'un kilogramme » se trouvent sans rien savoir.
 //
 // Ce qui se tire se tire ici, du hasard du serveur (`ctx.hasard`), jamais de la graine que la page ne voit pas : la
 // place de la réponse parmi ses quatre époques — avec les poids de l'acte, calculés sur les années qu'il pose à l'année
@@ -15,6 +15,7 @@
 // Jamais deux fois la même valeur dans une partie, rechanges comprises — la révélation d'une manche aurait donné la
 // suivante —, et les manches tournent sur les catégories. Sans rien à l'acte — un thème promis qui n'en a pas, un acte
 // épuisé —, il tire à tous les actes : une épreuve qui ne partirait pas serait pire qu'une question d'un autre acte.
+// Jamais ce que le Filet ne pose plus (`acteDuFilet` null), même là.
 import type { QuestionDeLaBase } from '../../baseCampagne'
 import { NIVEAUX, type Niveau } from '../../../../../shared/campagne'
 import { CATEGORIES, type Categorie } from '../../../../../shared/categories'
@@ -25,6 +26,7 @@ import {
   placesPossibles,
   poidsDesPlaces,
   reperesDuFilet,
+  sePoseALActe,
   seTendEnDeuxTemps,
   tirageEnDeuxTemps,
   tirerLaPlace,
@@ -37,6 +39,9 @@ import { jourDe } from '../../../../../shared/jour'
 import { contenuDuCabinet } from '../contenu'
 import { commeLaPartieLaGarde, uneQuestionDesCategories, type ContexteDuTirage, type Posees } from './communs'
 import { valeurDuFilet, valeursDeLaCategorie } from './tas'
+
+/** Les trois actes d'une traversée, de zéro à deux. */
+const ACTES = [0, 1, 2] as const
 
 /** Toutes les marches : l'acte trie, pas la marche mesurée (`acteDuFilet`). */
 const TOUTES_LES_MARCHES: readonly Niveau[] = NIVEAUX
@@ -66,7 +71,7 @@ function poidsDeLActe(ctx: Pick<ContexteDuTirage, 'porte' | 'jouables'>, filet: 
     for (const c of CATEGORIES)
       for (const q of valeursDeLaCategorie(ctx.porte, ctx.jouables, c)) {
         const e = filet.get(q.id)
-        const v = e && acteDuFilet(e) === acte ? valeurDuFilet(q) : null
+        const v = e && sePoseALActe(e, acte) ? valeurDuFilet(q) : null
         if (v?.annee && seTendEnDeuxTemps(v.valeur, true, annee)) annees.push(v.valeur)
       }
     parActe.set(cle, (poids = poidsDesPlaces(annees, annee)))
@@ -91,7 +96,9 @@ export function categoriesDuFiletALAnnee(ctx: Pick<ContexteDuTirage, 'porte' | '
       for (const q of valeursDeLaCategorie(ctx.porte, ctx.jouables, categorie)) {
         const e = filet.get(q.id)
         const v = e ? valeurDuFilet(q) : null
-        if (e && v && seTendEnDeuxTemps(v.valeur, v.annee, annee)) questions.push({ categorie, acte: acteDuFilet(e), valeur: v.valeur })
+        if (!e || !v || !seTendEnDeuxTemps(v.valeur, v.annee, annee)) continue
+        // À chaque acte où elle se pose : ce que chaque Français sait placer compte à l'acte I et à l'acte II.
+        for (const acte of ACTES) if (sePoseALActe(e, acte)) questions.push({ categorie, acte, valeur: v.valeur })
       }
     parAnnee.set(annee, (categories = categoriesDuFilet(questions)))
   }
@@ -135,7 +142,7 @@ export function tirerUnFiletEnDeuxTemps(ctx: ContexteDuTirage, posees: Posees): 
   const ecartees = new Set<string>()
   const posable = (q: QuestionDeLaBase, aLActe: boolean) => {
     const e = filet.get(q.id)
-    if (!e || (aLActe && acteDuFilet(e) !== acte) || ecartees.has(q.id)) return false
+    if (!e || acteDuFilet(e) === null || (aLActe && !sePoseALActe(e, acte)) || ecartees.has(q.id)) return false
     const v = valeurDuFilet(q)
     return v !== null && seTendEnDeuxTemps(v.valeur, v.annee, annee) && !posees.reponses.has(String(v.valeur))
   }
@@ -151,7 +158,9 @@ export function tirerUnFiletEnDeuxTemps(ctx: ContexteDuTirage, posees: Posees): 
     const q = tiree.question
     const v = valeurDuFilet(q)
     const e = filet.get(q.id)
-    const place = v && tirerLaPlace(placesPossibles(v.valeur, v.annee, annee), ctx.hasard, v.annee ? poidsDeLActe(ctx, filet, e ? acteDuFilet(e) : acte, annee) : undefined)
+    // Les poids de l'acte qui la pose : celui de l'épreuve, ou le sien quand elle vient d'un autre acte, faute de mieux.
+    const acteDesPoids = e && !sePoseALActe(e, acte) ? (acteDuFilet(e) ?? acte) : acte
+    const place = v && tirerLaPlace(placesPossibles(v.valeur, v.annee, annee), ctx.hasard, v.annee ? poidsDeLActe(ctx, filet, acteDesPoids, annee) : undefined)
     const cadre = v && place !== null ? tranchesDuFilet(v.valeur, v.annee, place, annee) : null
     if (!v || !e || place === null || !cadre) {
       ecartees.add(q.id)

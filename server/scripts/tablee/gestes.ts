@@ -304,7 +304,14 @@ export interface ChoseASavoir {
 
 /** L'acte de chaque question du contenu du Filet, lu une fois : la régie le dit pour le dé. */
 let ACTES_DU_FILET: ReadonlyMap<string, 0 | 1 | 2> | null = null
-const acteDuContenu = (id: string): 0 | 1 | 2 => (ACTES_DU_FILET ??= new Map(contenuDuCabinet().filet.map(e => [e.id, acteDuFilet(e)]))).get(id) ?? 0
+const acteDuContenu = (id: string): 0 | 1 | 2 =>
+  (ACTES_DU_FILET ??= new Map(
+    contenuDuCabinet().filet.flatMap(e => {
+      // Ce que le Filet ne pose plus n'est d'aucun acte : la régie ne le lira jamais dans un plan.
+      const acte = acteDuFilet(e)
+      return acte === null ? [] : [[e.id, acte] as const]
+    }),
+  )).get(id) ?? 0
 
 /**
  * La marche de ce qu'il faut savoir dans la manche que joue ce contenu du
