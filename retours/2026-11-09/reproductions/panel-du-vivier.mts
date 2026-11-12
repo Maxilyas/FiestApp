@@ -21,7 +21,10 @@ import { seTendEnDeuxTemps } from '../../../shared/cabinet/jeux/filetEnDeuxTemps
 
 const ICI = path.dirname(fileURLToPath(import.meta.url))
 type Passe = { qcm: number; estimation: number }
-type Note = { id: string; p1?: Passe; p2?: Passe; p3?: Passe; p4?: Passe; etalon?: true; etalon3?: true; etalon4?: true; estimation: number }
+// Les passes d'après la deuxième portent chacune leurs champs (`p3`… `p12`, `etalon3`…) : une clé par passe, jamais plus
+// de dix-sept champs fixes (le 12 novembre 2026, les passes 5 et suivantes notent les questions neuves de l'acte I,
+// `../../2026-11-12/reproductions/acte-i/`).
+type Note = { id: string; p1?: Passe; p2?: Passe; etalon?: true; estimation: number; [cle: string]: Passe | true | string | number | undefined }
 const notes = JSON.parse(fs.readFileSync(path.resolve(ICI, '../panel-du-vivier.json'), 'utf8')) as Note[]
 const classe = new Map((JSON.parse(fs.readFileSync(path.resolve(ICI, '../vivier-du-filet.json'), 'utf8')) as any[]).map(a => [a.id, a]))
 
@@ -44,9 +47,9 @@ console.log(`  recalée = ${moyenne(a).toFixed(1)} + ${k.toFixed(3)} × (brute �
 // chacune en un lot, avec vingt étalons de la première passe pris sur toute son échelle — un recalage est une droite,
 // qui se tient aux deux bouts. Chacune se recale de même, sur ses seuls étalons (`etalon3`, `etalon4`) : deux appels
 // au panel ont chacun leur dérive.
-const PASSES_D_APRES = [3, 4] as const
-const NOMS = { 3: 'troisième', 4: 'quatrième' } as const
-const sa = (n: Note, p: (typeof PASSES_D_APRES)[number]) => n[`p${p}`]
+const PASSES_D_APRES = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const
+const NOMS: Record<(typeof PASSES_D_APRES)[number], string> = { 3: 'troisième', 4: 'quatrième', 5: 'cinquième', 6: 'sixième', 7: 'septième', 8: 'huitième', 9: 'neuvième', 10: 'dixième', 11: 'onzième', 12: 'douzième' }
+const sa = (n: Note, p: (typeof PASSES_D_APRES)[number]) => n[`p${p}`] as Passe | undefined
 const recalages = new Map<number, (x: number) => number>()
 for (const p of PASSES_D_APRES) {
   const ets = notes.filter(n => n[`etalon${p}`] && n.p1 && sa(n, p))
