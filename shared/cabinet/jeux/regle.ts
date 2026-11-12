@@ -137,13 +137,20 @@ export function baremeDesErreurs(bornes: readonly number[]): string {
  * pour ses boutons : l'accord se décidait à deux endroits, chacun à sa façon,
  * et « Garder ★ » écrit en dur à l'écran en aurait promis une de moins.
  */
-export function motsDuPari(e: Readonly<Record<'garder' | 'parier', number>>) {
+export function motsDuPari(e: Readonly<{ garder: number; parier: number; perdu?: number }>) {
   const une = e.garder === 1
+  const perdu = e.perdu ?? 0
   return {
     /** L'annonce : « Juste : garde deux étoiles, ou parie-les sur une question plus difficile. » */
     geste: `Juste : ${une ? 'garde une étoile, ou parie-la' : `garde ${enLettres(e.garder, 'feminin')} étoiles, ou parie-les`} sur une question plus difficile.`,
-    /** La première question juste, au choix. */
-    auChoix: `Juste ! Tu gardes ${etoiles(e.garder)}, ou tu paries pour ${etoiles(e.parier)} sur une question plus difficile. Raté, la manche ne rapporte rien.`,
+    /**
+     * La première question juste, au choix, et ce qu'un pari perdu laisse — un pari perdu ne laissait rien, et l'écran
+     * taisait le cœur qu'une manche sans étoile coûte dans une traversée (`retours/2026-11-12/le-pari.md`). Une manche
+     * qui garde une étoile n'en coûte jamais. La page le compose au barème du tirage de sa manche (`PariMontre.perdu`).
+     */
+    auChoix: `Juste ! Tu gardes ${etoiles(e.garder)}, ou tu paries pour ${etoiles(e.parier)} sur une question plus difficile. ${
+      perdu > 0 ? `Perdu, il t’en reste ${etoiles(perdu)}, jamais un cœur.` : 'Raté, la manche ne rapporte rien.'
+    }`,
     /** Les deux boutons du choix. */
     garder: `Garder ${etoiles(e.garder)}`,
     parier: `Parier → ${etoiles(e.parier)}`,
@@ -265,7 +272,7 @@ export const JEUX: Readonly<Record<CleDeJeu, DescriptionDUnJeu>> = {
     nom: 'Le Pari',
     a: 'au Pari',
     geste: MOTS_DU_PARI.geste,
-    bareme: `garder ${etoiles(ETOILES_DU_PARI.garder)} · parier et réussir ${etoiles(ETOILES_DU_PARI.parier)}`,
+    bareme: `garder ${etoiles(ETOILES_DU_PARI.garder)} · parier et réussir ${etoiles(ETOILES_DU_PARI.parier)} · perdre le pari ${etoiles(ETOILES_DU_PARI.perdu)}`,
     eclairer: 'efface une mauvaise réponse',
     changeable: true,
     etapes: 2,

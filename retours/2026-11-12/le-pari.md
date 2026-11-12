@@ -4,8 +4,8 @@ Le relevé du Filet (`le-filet-en-deux-ecrans.md`) montrait un second jeu au
 fond du tableau : depuis le 2 novembre, 64 % des manches du Pari ne rapportent
 aucune étoile, contre 34 % pour les dix jeux. Le propriétaire : « Tu parlais
 aussi d'un autre jeu qui est très en dessous ? » — puis, à la proposition du
-même relevé : « oui stp ». Rien n'est changé au jeu ici : ce qu'il montre,
-d'abord.
+même relevé : « oui stp ». Ce qu'il montre d'abord, puis ce qui en a été fait
+le même jour.
 
 ## Ce que la production dit
 
@@ -89,34 +89,57 @@ traversée, la première question prend la marche de l'acte (`MARCHES_DES_ACTES`
 actes II et III. La difficulté, que le jeu mettait dans le pari — au choix —,
 est passée dans la question qu'on ne peut pas éviter.
 
-## Les pistes
+## Ce qui a été fait
 
-Aucune n'est décidée ; chacune touche un barème.
+Le propriétaire, au vu du relevé : « Applique tes recommandations. »
 
-1. **Rendre la première question à ce que le jeu annonce.** Un cran sous les
-   autres jeux, comme le Filet et l'Éclair : facile, facile, moyenne aux
-   épreuves ; facile, moyenne, moyenne aux assauts. Aux taux mesurés sur le
-   Quiz, la première question passerait d'une juste sur deux à trois sur
-   quatre, là où le Pari s'est joué. La difficulté de l'acte resterait dans la
-   question du pari.
-2. **Un pari qui ne coûte pas tout.** Perdu, il laisserait une étoile au lieu
-   de zéro : plus de cœur perdu pour avoir tenté. Rejoué sur les 154 manches
-   sans rien changer d'autre : 51 % de manches à zéro au lieu de 64 %, 0,94
-   étoile au lieu de 0,81 — sans compter que l'on parierait plus.
-3. **Un écran du choix qui dit vrai** : ce qu'un pari perdu coûte, et « Garder »
-   au même rang que « Parier ».
+1. **La première question un cran plus bas dans la traversée**
+   (`MARCHES_DU_PARI_AUX_EPREUVES`, `MARCHES_DU_PARI_AUX_GARDIENS`) : facile,
+   facile, moyenne aux épreuves ; facile, moyenne, moyenne aux assauts, comme le
+   Filet. La question du pari reste difficile ou experte (`marchesDuPari`). Aux
+   taux d'une question du Quiz, la première passerait d'une juste sur deux
+   (54 %) à trois sur quatre (75 %), là où le Pari s'est joué.
+2. **Un pari perdu laisse une étoile** (`ETOILES_DU_PARI.perdu`) : une manche qui
+   en a une ne coûte pas de cœur. Laissé au temps aussi ; quitté, rien, comme
+   toute manche quittée. Figé au tirage (`PariTire.perdu`, `unPari`) : un pari
+   tiré avant, sans lui, garde sa règle. Rejoué sur les 154 manches : 51 % de
+   manches à zéro au lieu de 64 %, 0,94 étoile au lieu de 0,81 — sans compter
+   qu'on parierait plus.
+3. **L'écran du choix dit ce qu'un pari perdu laisse** — « Perdu, il t'en reste
+   ★, jamais un cœur » —, au barème du tirage de sa manche (`PariMontre.perdu`),
+   et « Garder » et « Parier » sont au même rang : aucun des deux n'est plus le
+   bouton doré. L'annonce le dit aussi : « perdre le pari ★ ».
+
+Au calibrage de la traversée (`docs/reference/baremes.md`, « Le calibrage du
+Cabinet »), trois mille traversées par joueur :
+
+| Traversées gagnées | Avant | Après |
+|---|---|---|
+| L'occasionnel | 8,8 % | 12,2 % |
+| Le moyen | 34,1 % | 43,7 % |
+| Le fort | 88,4 % | 93,5 % |
+
+- **Tout vient de la première question** : le joueur modèle garde toujours ses
+  étoiles devant une question difficile ou experte, et l'étoile du pari perdu
+  n'y change rien. Les vrais joueurs ont parié 33 fois sur 76 : c'est sur eux
+  qu'elle se mesurera.
+- **Le moyen passe la cible d'une traversée sur trois de dix points.** La
+  production gagnait moins que le modèle : 12 traversées sur 42 finies du 2 au
+  12 novembre, 29 % (`le-pari-en-production.ts traversees`). Les points de vie
+  des gardiens n'ont pas bougé.
 
 ## Les limites
 
 - 154 manches, dont la moitié d'un seul joueur ; 33 paris.
 - Les deux estimations rejouent les manches réelles ou des taux mesurés
   ailleurs : elles ne disent pas comment on jouerait sous d'autres règles.
-- Le calibrage de la traversée n'a pas été rejoué.
+- Le calibrage ne mesure que la première question : son joueur ne parie jamais
+  à ces marches.
 
 ## Les reproductions
 
 - `reproductions/le-pari-en-production.ts` — d'où viennent les zéros, par acte
   et par marche, garder ou parier, le temps ; chaque question posée ; les
-  questions du Quiz une à une.
+  questions du Quiz une à une ; les traversées finies par issue.
 - `reproductions/rendu-du-pari.ts` — les écrans photographiés et mesurés sur un
   serveur jetable.

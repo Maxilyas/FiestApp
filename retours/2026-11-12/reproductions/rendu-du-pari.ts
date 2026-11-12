@@ -137,7 +137,7 @@ try {
   await reponses.nth(plan[0].q1.bonne).tap()
   await page.locator('.cab-choix-du-pari').waitFor()
   await photo('manche-1-garder-ou-parier', true)
-  await page.locator('.cab-choix-du-pari .btn-primary').tap()
+  await page.locator('.cab-choix-du-pari .btn').last().tap()
   await page.locator('.cab-surtitre').waitFor()
   await photo('manche-1-la-question-du-pari', true)
   await reponses.nth((plan[0].q2.bonne + 1) % 4).tap()
@@ -154,7 +154,7 @@ try {
   await page.locator('.cab-choix-du-pari').waitFor()
   // La demi-seconde de garde du cadre : un toucher trop pressé tomberait dans le vide.
   await page.waitForTimeout(800)
-  await page.locator('.cab-choix-du-pari .btn:not(.btn-primary)').tap()
+  await page.locator('.cab-choix-du-pari .btn').first().tap()
   await page.locator('.cab-titre-revele').waitFor()
   await photo('manche-3-les-etoiles-gardees')
 } catch (e) {

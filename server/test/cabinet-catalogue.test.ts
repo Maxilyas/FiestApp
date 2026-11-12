@@ -471,8 +471,9 @@ test('dix jeux, chacun ses mots, son chrono et son barème dit', () => {
   )
   assert.deepEqual([B.ANNEAUX_DES_EPOQUES.deux, B.ANNEAUX_DES_EPOQUES.trois], [4, 12], 'la phrase dit « un quart », « un douzième »')
   if (FILET_EN_DEUX_TEMPS) assert.match(JEUX.filet.geste, /^Choisis l’époque/)
-  assert.equal(JEUX.pari.bareme, `garder ${etoiles(B.ETOILES_DU_PARI.garder)} · parier et réussir ${etoiles(B.ETOILES_DU_PARI.parier)}`)
-  assert.equal(JEUX.pari.bareme, 'garder ★★ · parier et réussir ★★★')
+  // Ce qu'un pari perdu laisse se dit à l'annonce depuis le 12 novembre 2026 : une étoile, et plus de cœur perdu pour avoir tenté.
+  assert.equal(JEUX.pari.bareme, `garder ${etoiles(B.ETOILES_DU_PARI.garder)} · parier et réussir ${etoiles(B.ETOILES_DU_PARI.parier)} · perdre le pari ${etoiles(B.ETOILES_DU_PARI.perdu)}`)
+  assert.equal(JEUX.pari.bareme, 'garder ★★ · parier et réussir ★★★ · perdre le pari ★')
   // Le geste du Pari dit les étoiles gardées au nombre du barème : « garde une étoile » en promettait une de moins.
   assert.equal(JEUX.pari.geste, 'Juste : garde deux étoiles, ou parie-les sur une question plus difficile.')
   assert.equal(JEUX.eclair.bareme, '5 justes ★★★ · 4 ★★ · 3 ★')
@@ -501,7 +502,7 @@ test('dix jeux, chacun ses mots, son chrono et son barème dit', () => {
   assert.deepEqual(B.ERREURS_DE_LA_FRISE, [0, 1, 1])
   assert.deepEqual(B.ETOILES_AU_CADRAGE, [3, 2, 1, 0])
   assert.deepEqual(B.ETOILES_DU_FILET, { petit: 3, moyen: 2, grand: 1 })
-  assert.deepEqual(B.ETOILES_DU_PARI, { garder: 2, parier: 3 })
+  assert.deepEqual(B.ETOILES_DU_PARI, { garder: 2, parier: 3, perdu: 1 })
   assert.deepEqual(B.ETOILES_DE_LA_REPLIQUE, { mot: 2, qui: 1 })
 })
 
@@ -528,6 +529,12 @@ test('les mots du Pari disent ses étoiles au nombre du barème, d’une seule s
     gardeOuParie: 'Garde ton étoile, ou parie-la',
     gardees: 'Étoile gardée',
   })
+  // Ce qu'un pari perdu laisse, dit au choix (le 12 novembre 2026) : l'écran taisait le cœur qu'une manche sans étoile coûte.
+  assert.equal(
+    motsDuPari({ garder: 2, parier: 3, perdu: 1 }).auChoix,
+    'Juste ! Tu gardes ★★, ou tu paries pour ★★★ sur une question plus difficile. Perdu, il t’en reste ★, jamais un cœur.',
+  )
+  // Sans lui — le barème d'avant, ou une manche tirée avant lui —, la phrase d'avant.
   assert.deepEqual(motsDuPari({ garder: 2, parier: 3 }), {
     geste: 'Juste : garde deux étoiles, ou parie-les sur une question plus difficile.',
     auChoix: 'Juste ! Tu gardes ★★, ou tu paries pour ★★★ sur une question plus difficile. Raté, la manche ne rapporte rien.',

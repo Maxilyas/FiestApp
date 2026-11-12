@@ -12,6 +12,7 @@ import { legendaire } from '../../shared/legendaires'
 import { voieDuGardien } from '../../shared/cabinet/salles'
 import { CATEGORIES } from '../../shared/categories'
 import { CLES_DES_JEUX } from '../../shared/cabinet/jeux/regle'
+import { marchesDuPari } from '../../shared/cabinet/jeux/pari'
 import { lireLeDepart } from '../../shared/cabinet/lecture'
 import { chronoDuDepart, etoilesDesManches, pliDeLaPartie, refusDuGeste, type DepartDUnePartie } from '../../shared/cabinet/partie'
 import {
@@ -787,6 +788,35 @@ test('le Filet dans la traversée : un cran sous les autres jeux aux épreuves, 
   const filets = actes.flatMap(a => a.etapes).filter(e => e.sorte === 'epreuve' && e.jeu === 'filet')
   assert.ok(filets.length > 0, 'la carte pose des Filets')
   for (const e of filets) assert.deepEqual(viseeDeLEtape(d, e, 1)?.marches, B.MARCHES_DU_FILET_AUX_EPREUVES[Number(e.id[1])])
+})
+
+test('la première question du Pari dans la traversée : un cran sous les autres jeux, comme le Filet — la question du pari reste difficile ou experte', () => {
+  // En production, du 1er au 12 novembre 2026, 85 premières questions sur 154 étaient difficiles, justes 39 % du temps, et
+  // 80 % des manches à zéro venaient d'elle (`retours/2026-11-12/le-pari.md`) : elle prenait la marche de l'acte.
+  assert.deepEqual(B.MARCHES_DU_PARI_AUX_EPREUVES, [['facile'], ['facile'], ['moyen']])
+  assert.deepEqual(B.MARCHES_DU_PARI_AUX_GARDIENS, [['facile'], ['moyen'], ['moyen']])
+  const RANG = { facile: 0, moyen: 1, difficile: 2, expert: 3 } as const
+  for (let acte = 0; acte < 3; acte++) {
+    assert.deepEqual(marchesDeLEpreuve('pari', acte), B.MARCHES_DU_PARI_AUX_EPREUVES[acte])
+    assert.deepEqual(marchesDuGardien('pari', acte), B.MARCHES_DU_PARI_AUX_GARDIENS[acte])
+    assert.ok(RANG[marchesDuGardien('pari', acte)[0]] >= RANG[marchesDeLEpreuve('pari', acte)[0]], 'le gardien n’est pas plus facile que ses épreuves')
+    for (const m of [...marchesDeLEpreuve('pari', acte), ...marchesDuGardien('pari', acte)]) {
+      assert.ok(m === 'facile' || m === 'moyen', `l’acte ${acte + 1} : une première question ${m}`)
+      // La difficulté reste au choix : la question du pari, toujours plus haute qu'elle, difficile ou experte.
+      assert.deepEqual(marchesDuPari(m), ['difficile', 'expert'])
+    }
+  }
+  // La visée d'une épreuve du Pari, et celle d'un assaut, le portent au tirage (`enjeu.marches`).
+  const actes = tracerLaCarte(graine(4), ['lg:renard', 'lg:sphinx', 'lg:dragon'], { epingle: ['Rome'], frise: ['Rome'] })
+  const d: DepartDeLaTraversee = { v: VERSION_DE_LA_TRAVERSEE, jour: '2026-11-12', actes }
+  const paris = actes.flatMap(a => a.etapes).filter(e => e.sorte === 'epreuve' && e.jeu === 'pari')
+  assert.ok(paris.length > 0, 'la carte pose des Paris')
+  for (const e of paris) assert.deepEqual(viseeDeLEtape(d, e, 1)?.marches, B.MARCHES_DU_PARI_AUX_EPREUVES[Number(e.id[1])])
+  for (const [k, acte] of actes.entries()) {
+    const gardien = acte.etapes.find(e => e.sorte === 'gardien')!
+    for (let assaut = 1; assaut <= 9; assaut++)
+      if (jeuDeLAssaut(acte, assaut) === 'pari') assert.deepEqual(viseeDeLEtape(d, gardien, assaut)?.marches, B.MARCHES_DU_PARI_AUX_GARDIENS[k])
+  }
 })
 
 test('chaque carte se dit en bref, sans un chiffre : le choix du départ, une ligne par carte — le détail dans sa fiche', () => {

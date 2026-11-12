@@ -4,7 +4,8 @@ import { Shape } from '../../../components/Shape'
 import { espacesFines } from '../../../format'
 import { answersSizeClass, questionSizeClass } from '../../../games/quiz/questionSize'
 import { toucher } from '../../../toucher'
-import { MOTS_DU_PARI } from '../../../../../shared/cabinet/jeux/regle'
+import { ETOILES_DU_PARI } from '../../../../../shared/cabinet/bareme'
+import { MOTS_DU_PARI, motsDuPari } from '../../../../../shared/cabinet/jeux/regle'
 import type { PariMontre, PariRevele } from '../../../../../shared/cabinet/jeux/pari'
 import { EnEtoiles, aLOreille } from '../EnEtoiles'
 import type { JeuALEcran, PropsDUneManche } from '../Partie'
@@ -55,13 +56,20 @@ function MancheDuPari({ montree: m, envoyer, garde, busy }: PropsDUneManche<Pari
 }
 
 /**
- * Juste à la première question : sa réponse, ce que valent garder et parier,
- * et les deux gestes. Ils prennent la place des réponses sous le doigt : au
- * lever du doigt seulement (`toucher`), le `click` qui suit la réponse touchée
- * ne garde pas à sa place.
+ * Juste à la première question : sa réponse, ce que valent garder, parier et
+ * perdre le pari, et les deux gestes. Ils prennent la place des réponses sous
+ * le doigt : au lever du doigt seulement (`toucher`), le `click` qui suit la
+ * réponse touchée ne garde pas à sa place.
+ *
+ * Les deux gestes au même rang depuis le 12 novembre 2026 : « Parier » était le
+ * bouton doré, celui que l'écran désigne, quand parier perdait en moyenne —
+ * gagné 13 fois sur 33 en production, 1,18 étoile contre deux gardées
+ * (`retours/2026-11-12/le-pari.md`). Ce qu'un pari perdu laisse se dit au
+ * barème du tirage de la manche (`PariMontre.perdu`), pas à celui du code.
  */
 function AuChoix({ m, envoyer, garde, busy }: { m: PariMontre; envoyer: PropsDUneManche<PariMontre, null>['envoyer']; garde: () => boolean; busy: boolean }) {
   const choix = m.choix ?? 0
+  const mots = motsDuPari({ ...ETOILES_DU_PARI, perdu: m.perdu })
   return (
     <>
       <h2 className="quiz-question cab-question cab-question-faite">{espacesFines(m.question.texte)}</h2>
@@ -72,7 +80,7 @@ function AuChoix({ m, envoyer, garde, busy }: { m: PariMontre; envoyer: PropsDUn
         <span className="sr-only"> : juste</span>
       </p>
       <p className="cab-ligne cab-au-choix">
-        <EnEtoiles texte={espacesFines(MOTS_DU_PARI.auChoix)} />
+        <EnEtoiles texte={espacesFines(mots.auChoix)} />
       </p>
       {/* Leurs étoiles, à l'oreille, se disent en mots : « Garder 2 étoiles », pas « Garder étoile noire, étoile noire » (Hugo, à la
           tablée du 25 octobre 2026). Les nombres viennent du barème, comme les mots. */}
@@ -88,7 +96,7 @@ function AuChoix({ m, envoyer, garde, busy }: { m: PariMontre; envoyer: PropsDUn
         </button>
         <button
           type="button"
-          className="btn btn-primary btn-big"
+          className="btn btn-big"
           aria-label={aLOreille(MOTS_DU_PARI.parier)}
           aria-disabled={busy || undefined}
           {...toucher(() => !busy && garde() && envoyer({ quoi: 'parier' }))}

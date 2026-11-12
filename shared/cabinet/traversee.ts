@@ -43,6 +43,8 @@ import {
   MARCHES_DES_GARDIENS_SANS_CHOIX,
   MARCHES_DU_FILET_AUX_EPREUVES,
   MARCHES_DU_FILET_AUX_GARDIENS,
+  MARCHES_DU_PARI_AUX_EPREUVES,
+  MARCHES_DU_PARI_AUX_GARDIENS,
   MISES_PAR_EPREUVE,
   MULTIPLICATEUR_DE_LA_MISE,
   OR_DE_LA_CAGNOTTE,
@@ -965,14 +967,26 @@ export interface ViseeDUneEtape {
 }
 
 /**
- * Les marches d'un assaut : un cran au-dessus de l'acte, sauf aux jeux sans choix (`JEUX_SANS_CHOIX`). Lues à l'entrée
- * de chaque assaut : celui qui est en cours garde ses questions, le suivant d'une traversée en route descend déjà.
+ * Les marches d'un assaut : un cran au-dessus de l'acte, sauf aux jeux sans choix (`JEUX_SANS_CHOIX`), au Filet et au
+ * Pari. Lues à l'entrée de chaque assaut : celui qui est en cours garde ses questions, le suivant d'une traversée en
+ * route descend déjà.
  */
 export const marchesDuGardien = (jeu: CleDeJeu, acte: number): readonly Niveau[] =>
-  (jeu === 'filet' ? MARCHES_DU_FILET_AUX_GARDIENS : (JEUX_SANS_CHOIX as readonly CleDeJeu[]).includes(jeu) ? MARCHES_DES_GARDIENS_SANS_CHOIX : MARCHES_DES_GARDIENS)[acte]
+  (jeu === 'filet'
+    ? MARCHES_DU_FILET_AUX_GARDIENS
+    : jeu === 'pari'
+      ? MARCHES_DU_PARI_AUX_GARDIENS
+      : (JEUX_SANS_CHOIX as readonly CleDeJeu[]).includes(jeu)
+        ? MARCHES_DES_GARDIENS_SANS_CHOIX
+        : MARCHES_DES_GARDIENS)[acte]
 
-/** Les marches d'une épreuve : celles de l'acte, le Filet un cran dessous (`MARCHES_DU_FILET_AUX_EPREUVES`). Lues à son entrée. */
-export const marchesDeLEpreuve = (jeu: CleDeJeu, acte: number): readonly Niveau[] => (jeu === 'filet' ? MARCHES_DU_FILET_AUX_EPREUVES : MARCHES_DES_ACTES)[acte]
+/**
+ * Les marches d'une épreuve : celles de l'acte, le Filet et la première question du Pari un cran dessous
+ * (`MARCHES_DU_FILET_AUX_EPREUVES`, `MARCHES_DU_PARI_AUX_EPREUVES`) — au Pari, la question du pari garde les siennes,
+ * difficiles ou expertes (`marchesDuPari`). Lues à son entrée.
+ */
+export const marchesDeLEpreuve = (jeu: CleDeJeu, acte: number): readonly Niveau[] =>
+  (jeu === 'filet' ? MARCHES_DU_FILET_AUX_EPREUVES : jeu === 'pari' ? MARCHES_DU_PARI_AUX_EPREUVES : MARCHES_DES_ACTES)[acte]
 
 /**
  * La visée d'une épreuve, ou du prochain assaut de son gardien ; null : une étape qui ne se joue pas. `choisi` : le

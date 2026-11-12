@@ -8,6 +8,8 @@
 //   manches     d'où viennent les zéros ; par acte, épreuve ou assaut ; par marche ; garder ou parier ; le temps
 //   questions   chaque question posée, sa marche, ce qu'on y a répondu — rien d'un joueur
 //   quiz        les questions du Quiz, une à une, marche par marche : le même QCM de la base, sans rien à parier
+//   traversees  les traversées commencées depuis le 2 novembre (ou la date donnée), par issue : ce que le calibrage
+//               compare à son joueur moyen
 //
 // Jamais `QUIZ_DB_URL` : `PROD_LECTURE_URL` et `PROD_LECTURE_TOKEN`, un jeton en lecture seule.
 import { createRequire } from 'node:module'
@@ -219,6 +221,13 @@ if (quoi === 'manches') {
   for (const k of MARCHES) if (parMarche.has(k)) console.log(`  ${k.padEnd(12)} ${String(parMarche.get(k)!.n).padStart(4)} questions, ${pct(parMarche.get(k)!.justes, parMarche.get(k)!.n).trim()} justes`)
   console.log('… et là où elles se posent :')
   for (const [k, x] of [...parLieu].sort()) console.log(`  ${k.padEnd(20)} ${String(x.n).padStart(4)} questions, ${pct(x.justes, x.n).trim()} justes`)
+} else if (quoi === 'traversees') {
+  const depuis = Date.parse(process.argv[3] ?? '2026-11-02T00:00:00+01:00')
+  const issues = await lire(`SELECT issue, COUNT(*) AS n FROM cabinet_traversees WHERE commencee_le >= ? GROUP BY issue`, [depuis])
+  const joueurs = await lire(`SELECT COUNT(DISTINCT profile_id) AS n FROM cabinet_traversees WHERE commencee_le >= ?`, [depuis])
+  const n = (k: string | null) => Number(issues.find(r => r.issue === k)?.n ?? 0)
+  const finies = n('gagnee') + n('perdue') + n('abandonnee')
+  console.log(`Depuis le ${new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris' }).format(new Date(depuis))} : ${joueurs[0].n} joueurs, ${finies} traversées finies — ${n('gagnee')} gagnées (${pct(n('gagnee'), finies).trim()}), ${n('perdue')} perdues, ${n('abandonnee')} abandonnées —, ${n(null)} en route`)
 } else {
-  throw new Error(`« ${quoi} » : manches, questions ou quiz`)
+  throw new Error(`« ${quoi} » : manches, questions, quiz ou traversees`)
 }

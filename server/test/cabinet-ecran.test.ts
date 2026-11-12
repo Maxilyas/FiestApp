@@ -1356,9 +1356,12 @@ test('le Pari éclairé, juste au choix, parié : la réponse effacée barrée, 
   const auChoix = await laPartie(vues.auChoix)
   assert.match(aLOeil(auChoix), new RegExp(echapper(MOTS_DU_PARI.auChoix)))
   // Les deux gestes montrent les mots du barème — à l'oreille, ils se nomment en mots (« Garder 2 étoiles », section 18).
-  const gesteDuChoix = (classe: string) => aLOeil(new RegExp(`<button type="button" class="${classe}" aria-label="[^"]+"[^>]*>(.*?)</button>`).exec(auChoix)?.[1] ?? '').trim()
-  assert.equal(gesteDuChoix('btn btn-big'), MOTS_DU_PARI.garder)
-  assert.equal(gesteDuChoix('btn btn-primary btn-big'), MOTS_DU_PARI.parier)
+  // Au même rang depuis le 12 novembre 2026 : la même classe, « Garder » puis « Parier ».
+  const gestesDuChoix = [...auChoix.matchAll(/<button type="button" class="btn btn-big" aria-label="[^"]+"[^>]*>(.*?)<\/button>/g)].map(m => aLOeil(m[1]).trim())
+  assert.deepEqual(gestesDuChoix, [MOTS_DU_PARI.garder, MOTS_DU_PARI.parier])
+  // Ce qu'un pari perdu laisse, au barème du tirage de la manche — le banc tire par `unPari` : une étoile, jamais un cœur.
+  assert.equal((vues.auChoix.enCours as { perdu?: number }).perdu, ETOILES_DU_PARI.perdu)
+  assert.match(aLOeil(auChoix), /Perdu, il t’en reste ★, jamais un cœur\./)
   // Entre « Juste ! » et le choix, aucun chrono ne court, et aucune réponse ne se touche.
   assert.doesNotMatch(auChoix, /role="timer"/)
   assert.doesNotMatch(auChoix, /class="ans-btn/)
@@ -4173,9 +4176,11 @@ test('les étoiles se disent à l’oreille : leurs glyphes cachés, « 2 étoil
   const choix = auChoix.slice(auChoix.indexOf('class="quiz-player cab-manche"'))
   assert.match(choix, /<span aria-hidden="true">★+<\/span><span class="sr-only">/, 'le choix du Pari')
   assert.doesNotMatch(sansLeCache(choix), /★/, 'le choix du Pari : une étoile que l’oreille lirait en glyphe')
-  // Les deux gestes du Pari se nomment en mots : « Garder 2 étoiles ».
+  // Les deux gestes du Pari se nomment en mots : « Garder 2 étoiles ». Au même rang depuis le 12 novembre 2026 : « Parier »
+  // était le bouton doré, celui que l'écran désigne, quand parier perdait en moyenne (`retours/2026-11-12/le-pari.md`).
   assert.match(choix, new RegExp(`<button type="button" class="btn btn-big" aria-label="${echapper(aLOreille(MOTS_DU_PARI.garder))}"`))
-  assert.match(choix, new RegExp(`<button type="button" class="btn btn-primary btn-big" aria-label="Parier pour ${etoilesDites(ETOILES_DU_PARI.parier)}"`))
+  assert.match(choix, new RegExp(`<button type="button" class="btn btn-big" aria-label="Parier pour ${etoilesDites(ETOILES_DU_PARI.parier)}"`))
+  assert.doesNotMatch(choix, /btn-primary/, 'aucun des deux gestes n’est désigné')
   // Le nom de « Parier » vient du barème, comme son voisin : la flèche s'y entend « pour ». Écrit à la main, le verbe avait deux
   // sources, et un « Parier » retouché dans `motsDuPari` n'aurait pas changé ce qu'entend l'oreille (la relecture du lot page-2).
   assert.equal(aLOreille(MOTS_DU_PARI.parier), `Parier pour ${etoilesDites(ETOILES_DU_PARI.parier)}`)
