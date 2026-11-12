@@ -108,10 +108,12 @@ function laQuestion(x: unknown): QuestionTiree | null {
   return { id, texte, reponses: [...reponses], bonne, categorie, anecdote, niveau, ...(sousTheme !== undefined && { sousTheme }) }
 }
 
+/** Un Pari : ses deux questions, et ce qu'un pari perdu laisse — absent avant le 12 novembre 2026, rien ; présent, un nombre d'étoiles d'une manche. */
 function lePari(x: Brut): PariTire | null {
   const q1 = laQuestion(x.q1)
   const q2 = laQuestion(x.q2)
-  return q1 && q2 ? { jeu: 'pari', q1, q2 } : null
+  if (x.perdu !== undefined && !entier(x.perdu, 0, ETOILES_D_UNE_PARTIE / MANCHES_PAR_PARTIE)) return null
+  return q1 && q2 ? { jeu: 'pari', q1, q2, ...(x.perdu !== undefined && { perdu: x.perdu }) } : null
 }
 
 function lEclair(x: Brut): EclairTire | null {

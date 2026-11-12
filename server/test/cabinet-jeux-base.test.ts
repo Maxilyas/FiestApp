@@ -58,7 +58,7 @@ import { refusDuPouvoir, effacablesAuPlus } from '../../shared/cabinet/pouvoirs'
 import { deplier, idDeLEclair, PREFIXE_DU_CABINET } from '../../shared/cabinet/pieces'
 import { MOTS_DU_PARI, justeDeLaPiece, trancheLaManche, type CleDeJeu, type RegleDuJeu, type VerdictDUneManche } from '../../shared/cabinet/jeux/regle'
 import { GESTE_A_JUGER, eclairerSertEncore, type QuestionTiree } from '../../shared/cabinet/jeux/outils'
-import { REGLE_DU_PARI, marchesDuPari, type EtatDuPari, type PariTire } from '../../shared/cabinet/jeux/pari'
+import { REGLE_DU_PARI, marchesDuPari, unPari, type EtatDuPari, type PariTire } from '../../shared/cabinet/jeux/pari'
 import { REGLE_DE_L_ECLAIR, affirmationDe, type EclairTire } from '../../shared/cabinet/jeux/eclair'
 import { REGLE_DU_MOT, couleursDuMot, etatDesTouches, longueurRefusee, motDeLaQuestion, type MotMontre, type MotRevele, type MotTire } from '../../shared/cabinet/jeux/mot'
 import {
@@ -222,6 +222,31 @@ test('le Pari : laissé au choix puis quitté, ses étoiles sont gardées ; quit
   assert.deepEqual(r.juger(PARI, ouvert, 'expiree').pieces[0].choix, null)
 })
 
+test('le Pari : un pari perdu laisse ce que son tirage a figé — une étoile depuis le 12 novembre 2026 ; quitté, rien ; un tirage d’avant, rien', () => {
+  const r = REGLE_DU_PARI
+  // Le tireur du serveur et le calibrage tirent par `unPari` : le barème du jour, figé avec les deux questions.
+  const neuf = unPari(PARI.q1, PARI.q2)
+  assert.equal(B.ETOILES_DU_PARI.perdu, 1)
+  assert.equal(neuf.perdu, B.ETOILES_DU_PARI.perdu)
+  const auChoix = etatDe(jouer(r, neuf, r.ouvrir(neuf), repondre(1)))
+  const pari = etatDe(jouer(r, neuf, auChoix, { quoi: 'parier' }))
+  // Perdu : une étoile — dans une traversée, une manche qui en a une ne coûte pas de cœur —, la seconde pièce fausse.
+  const perdu = verdictDe(jouer(r, neuf, pari, repondre(0)))
+  assert.equal(perdu.naturel, B.ETOILES_DU_PARI.perdu)
+  assert.deepEqual(perdu.pieces.map(p => [p.juste, p.choix]), [[true, 1], [false, 0]])
+  assert.equal(r.reveler(neuf, pari, perdu).titre, 'Pari perdu')
+  // Laissé au temps, la même étoile ; quitté, rien, comme toute manche quittée.
+  assert.equal(r.juger(neuf, pari, 'expiree').naturel, B.ETOILES_DU_PARI.perdu)
+  assert.equal(r.juger(neuf, pari, 'quittee').naturel, 0)
+  // Gagné et gardé ne changent pas ; la première ratée non plus : zéro.
+  assert.equal(verdictDe(jouer(r, neuf, pari, repondre(3))).naturel, B.ETOILES_DU_PARI.parier)
+  assert.equal(verdictDe(jouer(r, neuf, auChoix, { quoi: 'garder' })).naturel, B.ETOILES_DU_PARI.garder)
+  assert.equal(verdictDe(jouer(r, neuf, r.ouvrir(neuf), repondre(0))).naturel, 0)
+  // Un tirage d'avant, sans ce champ, garde sa règle : un pari perdu ne laisse rien.
+  assert.equal(PARI.perdu, undefined)
+  assert.equal(verdictDe(jouer(r, PARI, etatDe(jouer(r, PARI, etatDe(jouer(r, PARI, r.ouvrir(PARI), repondre(1))), { quoi: 'parier' })), repondre(0))).naturel, 0)
+})
+
 test('le Pari : chaque geste à son moment, refusé en mots sinon', () => {
   const r = REGLE_DU_PARI
   const ouvert = r.ouvrir(PARI)
@@ -272,7 +297,9 @@ test('le Pari : sa seconde question, tirée au départ, ne part jamais avant « 
     assert.ok(!/"bonne"/.test(vue), 'jamais la bonne réponse')
   }
   // Avant sa réponse, ni la bonne ni rien qui la désigne ; au choix, la sienne — juste, le serveur l'a dit.
-  assert.deepEqual(r.montrer(PARI, ouvert), { jeu: 'pari', etape: 1, auChoix: false, question: { texte: PARI.q1.texte, reponses: PARI.q1.reponses, categorie: 'Géographie' }, effacees: [] })
+  // Ce qu'un pari perdu laisse à cette manche, que l'écran du choix dit : un tirage d'avant le 12 novembre 2026, rien.
+  assert.deepEqual(r.montrer(PARI, ouvert), { jeu: 'pari', etape: 1, auChoix: false, question: { texte: PARI.q1.texte, reponses: PARI.q1.reponses, categorie: 'Géographie' }, effacees: [], perdu: 0 })
+  assert.equal(r.montrer(unPari(PARI.q1, PARI.q2), ouvert).perdu, B.ETOILES_DU_PARI.perdu)
   assert.equal(r.montrer(PARI, auChoix).choix, 1)
   // Parier montre la question tirée au départ, telle quelle : rien ne se tire à « Parier ».
   const pari = etatDe(jouer(r, PARI, auChoix, { quoi: 'parier' }))
@@ -1177,7 +1204,8 @@ test('par les routes : le Pari et l’Éclair d’un bout à l’autre — neuf 
     assert.equal(parfait.bilan?.issue, 'libre', 'une partie libre ne gagne pas d’œuvre')
     assert.equal(parfait.bilan?.poussiere, 9 * B.POUSSIERE_PAR_ETOILE)
 
-    // Le pari perdu, puis les étoiles gardées, puis une manche ratée : 0, 2, 0.
+    // Le pari perdu, puis les étoiles gardées, puis une manche ratée : 1, 2, 0 — un pari perdu laisse une étoile depuis le
+    // 12 novembre 2026, figée au tirage (`unPari`).
     let v = ok(await commencer(b, lea, { origine: 'libre', jeu: 'pari', carte: null }), 'le Pari')
     v = await jouerUnPari(b, lea, v, 0, 'parier-faux')
     assert.equal(v.revelation?.corps.jeu, 'pari')
@@ -1186,7 +1214,7 @@ test('par les routes : le Pari et l’Éclair d’un bout à l’autre — neuf 
     v = await jouerUnPari(b, lea, v, 1, 'garder')
     v = await ouvrirLaManche(b, lea, v, 2)
     v = await jouerUnPari(b, lea, v, 2, 'rater')
-    assert.deepEqual(v.bilan?.etoiles, [0, B.ETOILES_DU_PARI.garder, 0])
+    assert.deepEqual(v.bilan?.etoiles, [B.ETOILES_DU_PARI.perdu, B.ETOILES_DU_PARI.garder, 0])
 
     // L'Éclair : trois manches justes, neuf étoiles.
     let e = ok(await commencer(b, lea, { origine: 'libre', jeu: 'eclair', carte: null }), 'l’Éclair')

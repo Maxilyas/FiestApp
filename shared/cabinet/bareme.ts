@@ -469,15 +469,23 @@ export const PART_PRES_D_UN_INDICE = 0.2
 
 /**
  * Le Pari : garder ses étoiles, ou les parier sur une question plus difficile —
- * réussie, ★★★ ; ratée, rien. Garder en valait une jusqu'au calibrage du
+ * réussie, ★★★ ; perdue, ★. Garder en valait une jusqu'au calibrage du
  * 25 octobre 2026 : trois manches gardées faisaient trois étoiles, et une
  * commune exigeait trois premières questions justes et un pari gagné sur une
  * question difficile — 3,1 % des parties de l'occasionnel. À deux, trois
  * premières justes la font : 24,6 %, au hasard 3,7 %, et pas un confetti de
  * plus (une pièce est juste à sa bonne réponse, pas aux étoiles). Ses mots
  * s'accordent au nombre d'ici, d'une seule source (`MOTS_DU_PARI`).
+ *
+ * Un pari perdu ne rapportait rien jusqu'au 12 novembre 2026 : dans une
+ * traversée, une manche sans étoile coûte un cœur, et parier, gagné 13 fois
+ * sur 33 en production, rapportait 1,18 étoile en moyenne contre deux gardées
+ * — et coûtait un cœur six fois sur dix (`retours/2026-11-12/le-pari.md`). À
+ * une étoile, il ne coûte plus de cœur, et vaut encore moins que garder tant
+ * qu'on ne gagne pas un pari sur deux. Figé au tirage (`PariTire.perdu`) : un
+ * pari d'avant, sans lui, ne laisse rien.
  */
-export const ETOILES_DU_PARI: Readonly<Record<'garder' | 'parier', number>> = { garder: 2, parier: 3 }
+export const ETOILES_DU_PARI: Readonly<Record<'garder' | 'parier' | 'perdu', number>> = { garder: 2, parier: 3, perdu: 1 }
 /**
  * Le Pari : la marche mesurée de sa première question — et ce que l'enjeu y
  * ajoute (`MARCHES_DES_ENJEUX`) —, puis de celle du pari : « difficile » doit
@@ -686,6 +694,17 @@ export const MARCHES_DES_GARDIENS_SANS_CHOIX: readonly (readonly Niveau[])[] = [
 export const MARCHES_DU_FILET_AUX_EPREUVES: readonly (readonly Niveau[])[] = [['facile'], ['facile'], ['moyen']]
 /** … et contre un gardien : jamais plus facile que les épreuves de son acte, jamais difficile. */
 export const MARCHES_DU_FILET_AUX_GARDIENS: readonly (readonly Niveau[])[] = [['facile'], ['moyen'], ['moyen']]
+/**
+ * La première question du Pari dans la traversée, un cran sous les autres jeux comme le Filet : aux épreuves, acte par
+ * acte… Le jeu se dit « une question facile ou moyenne, et la difficile au choix » (`MARCHES_DU_PARI`), mais elle prenait
+ * la marche de l'acte, et c'était elle qui décidait : juste, la manche se joue ; fausse, elle vaut zéro et coûte un cœur.
+ * En production, du 1er au 12 novembre 2026, 85 premières questions sur 154 étaient difficiles, justes 39 % du temps, et
+ * 80 % des manches à zéro venaient d'elle (`retours/2026-11-12/le-pari.md`). La question du pari, elle, reste difficile
+ * ou experte (`marchesDuPari`).
+ */
+export const MARCHES_DU_PARI_AUX_EPREUVES: readonly (readonly Niveau[])[] = [['facile'], ['facile'], ['moyen']]
+/** … et contre un gardien : jamais plus facile que les épreuves de son acte, jamais difficile — 48 manches à l'assaut de l'acte II, la première juste une fois sur trois. */
+export const MARCHES_DU_PARI_AUX_GARDIENS: readonly (readonly Niveau[])[] = [['facile'], ['moyen'], ['moyen']]
 /** Les jeux qui tirent leurs marches de `MARCHES_DES_GARDIENS_SANS_CHOIX` contre un gardien. */
 export const JEUX_SANS_CHOIX: readonly ('eclair' | 'filet')[] = ['eclair', 'filet']
 /** Quitte ou double : les mises par épreuve, niveau par niveau… */

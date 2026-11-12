@@ -1,10 +1,14 @@
 // Le Pari : une question facile ou moyenne — difficile aussi quand l'enjeu le
-// demande ; juste, il garde deux étoiles, ou les parie sur une question plus
-// difficile de la même catégorie (`marchesDuPari`) — réussie, trois
-// étoiles ; ratée, rien. Garder n'en valait qu'une jusqu'au calibrage du
-// 25 octobre 2026 : une commune y était presque hors d'atteinte, et les mots
-// de l'écran suivent le barème (`ETOILES_DU_PARI`), d'une seule source qui
-// les accorde (`MOTS_DU_PARI`, `regle.ts`), jamais un nombre écrit en dur.
+// demande ; dans la traversée, un cran sous les autres jeux
+// (`MARCHES_DU_PARI_AUX_EPREUVES`) ; juste, il garde deux étoiles, ou les
+// parie sur une question plus difficile de la même catégorie (`marchesDuPari`)
+// — réussie, trois étoiles ; perdue, une, depuis le 12 novembre 2026 : rien
+// jusque-là, et une manche sans étoile coûte un cœur dans une traversée
+// (`retours/2026-11-12/le-pari.md`). Garder n'en valait qu'une jusqu'au
+// calibrage du 25 octobre 2026 : une commune y était presque hors d'atteinte,
+// et les mots de l'écran suivent le barème (`ETOILES_DU_PARI`), d'une seule
+// source qui les accorde (`motsDuPari`, `regle.ts`), jamais un nombre écrit en
+// dur.
 // Pur : la partie tire les deux questions au départ
 // (`PariTire`), et rien ne se tire à « Parier » — la seconde est figée, et une
 // reprise après un redémarrage redonne la même.
@@ -58,7 +62,21 @@ export interface PariTire {
   jeu: 'pari'
   q1: QuestionTiree
   q2: QuestionTiree
+  /**
+   * Les étoiles qu'un pari perdu laisse (`ETOILES_DU_PARI.perdu`), figées au tirage : un barème changé ne vaut que pour
+   * les parties qui commencent, sans version du départ. Absent — une partie tirée avant le 12 novembre 2026 —, rien.
+   */
+  perdu?: number
 }
+
+/** Ce qu'un pari perdu laisse, au barème du code : seules les manches qui se tirent le lisent. */
+const PERDU = ETOILES_DU_PARI.perdu
+
+/** Une manche du Pari, telle que le tireur du serveur et le calibrage la tirent : ses deux questions, et ce qu'un pari perdu laisse, au barème du jour. */
+export const unPari = (q1: QuestionTiree, q2: QuestionTiree): PariTire => ({ jeu: 'pari', q1, q2, perdu: PERDU })
+
+/** Ce qu'un pari perdu laisse à cette manche : son barème du tirage, ou rien. */
+export const etoilesDuPariPerdu = (t: Pick<PariTire, 'perdu'>): number => t.perdu ?? 0
 
 export interface EtatDuPari {
   /** La question en jeu : la première, puis celle du pari. */
@@ -84,6 +102,8 @@ export interface PariMontre {
   effacees: number[]
   /** Au choix, sa réponse juste — le serveur vient de la dire juste. */
   choix?: number
+  /** Ce qu'un pari perdu laisse à cette manche, que l'écran du choix dit : le barème de son tirage, pas celui du code. */
+  perdu: number
 }
 
 export interface PariRevele {
@@ -161,7 +181,11 @@ export const REGLE_DU_PARI: RegleDuJeu<PariTire, EtatDuPari, GesteDuPari, PariMo
     const repondue = typeof reponse === 'object' && reponse.quoi === 'repondre' ? reponse.choix : null
     if (e.etape === 2) {
       const q2 = pieceJugee(t.q2, repondue, 2)
-      return { naturel: q2.juste ? PARIER : 0, pieces: [pieceJugee(t.q1, e.choix1, 1), q2] }
+      // Perdu, il laisse ce que son tirage a figé — une étoile depuis le 12 novembre 2026 —, laissé au temps aussi ;
+      // quitté, rien, comme toute manche quittée : seul un Pari laissé au choix garde ses étoiles.
+      const quittee = reponse === 'quittee'
+      const perdu = quittee ? 0 : etoilesDuPariPerdu(t)
+      return { naturel: q2.juste ? PARIER : naturelDe(perdu), pieces: [pieceJugee(t.q1, e.choix1, 1), q2] }
     }
     // Juste au premier coup, laissée au choix : il les avait gagnées, les étoiles sont gardées.
     if (e.auChoix) return { naturel: GARDER, pieces: [pieceJugee(t.q1, e.choix1, 1)] }
@@ -188,6 +212,7 @@ export const REGLE_DU_PARI: RegleDuJeu<PariTire, EtatDuPari, GesteDuPari, PariMo
       question: { texte: q.texte, reponses: [...q.reponses], categorie: q.categorie },
       effacees: [...e.effacees[e.etape - 1]],
       ...(e.auChoix && e.choix1 !== null && { choix: e.choix1 }),
+      perdu: etoilesDuPariPerdu(t),
     }
   },
 
