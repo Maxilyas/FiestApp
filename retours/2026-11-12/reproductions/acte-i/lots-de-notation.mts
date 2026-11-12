@@ -38,7 +38,9 @@ const montrer = (q: any) => ({ id: q.id, categorie: q.meta.categorie, texte: q.t
 // Étalons du classement : de la passe qui fait foi (`maquette-filet/ancrage.json`), dans les catégories des questions neuves.
 const reference = new Set((JSON.parse(fs.readFileSync(path.resolve(NEUF, 'maquette-filet/ancrage.json'), 'utf8')) as any[]).map(a => a.id))
 const categories = new Set(sans.map(q => q.meta.categorie))
-const candidats = vivier.filter(q => reference.has(q.id) && classe.has(q.id) && !sans.includes(q))
+// Hors des exemples visibles de la consigne (`lots-de-classement-des-faits.mts` les écrit) : un étalon est aveugle.
+const exemples = new Set<string>(fs.existsSync(path.join(SORTIE, 'classer.exemples-ids.json')) ? JSON.parse(fs.readFileSync(path.join(SORTIE, 'classer.exemples-ids.json'), 'utf8')) : [])
+const candidats = vivier.filter(q => reference.has(q.id) && classe.has(q.id) && !sans.includes(q) && !exemples.has(q.id))
 const prendre = (oui: boolean, n: number, source = candidats) => battre(source.filter(q => !!classe.get(q.id).chacun === oui && !classe.get(q.id).calcul)).slice(0, n)
 const etalonsDuClassement = [...prendre(true, 6), ...prendre(false, 6, candidats.filter(q => categories.has(q.meta.categorie)))]
 fs.writeFileSync(path.join(SORTIE, 'classer-etalons.json'), JSON.stringify(Object.fromEntries(etalonsDuClassement.map(q => [q.id, { chacun: !!classe.get(q.id).chacun, ancrage: classe.get(q.id).ancrage, calcul: !!classe.get(q.id).calcul }])), null, 1))

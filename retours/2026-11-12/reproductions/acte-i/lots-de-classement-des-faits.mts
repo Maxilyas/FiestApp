@@ -42,6 +42,7 @@ const prendre = (oui: boolean, n: number, source = candidats) => battre(source.f
 const exemples = [...prendre(true, 14), ...prendre(false, 14, candidats.filter(q => categories.has(q.meta.categorie)))]
 const sansExemple = (q: any) => !exemples.includes(q)
 const etalons = [...prendre(true, 6, candidats.filter(sansExemple)), ...prendre(false, 6, candidats.filter(q => sansExemple(q) && categories.has(q.meta.categorie)))]
+fs.writeFileSync(path.join(SORTIE, 'classer.exemples-ids.json'), JSON.stringify(exemples.map(q => q.id)))
 fs.writeFileSync(path.join(SORTIE, 'classer.exemples.md'), [
   'EXEMPLES DE LA PASSE DE RÉFÉRENCE (leur classement fait foi : cale-toi dessus, et écris les tiens avec la même mesure)',
   '',
