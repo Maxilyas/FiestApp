@@ -6,6 +6,7 @@
 //
 //   cd server && ICI=/chemin/du/dossier node --import tsx ../retours/2026-11-12/reproductions/acte-i/lots-de-notation.mts [--par-lot=110] [--simuler=40]
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { lireLaBase } from '../../../../server/src/core/baseCampagne.ts'
@@ -13,7 +14,7 @@ import { valeurDuFilet } from '../../../../server/src/core/cabinet/tirages/tas.t
 
 const ICI_DU_SCRIPT = path.dirname(fileURLToPath(import.meta.url))
 const NEUF = path.resolve(ICI_DU_SCRIPT, '../../../2026-11-09')
-const SORTIE = process.env.ICI ?? '/home/user/FiestApp/.lots-campagne/notation'
+const SORTIE = process.env.ICI ?? path.join(os.tmpdir(), 'acte-i-du-filet')
 const arg = (nom: string, defaut: number) => Number(process.argv.find(a => a.startsWith(`--${nom}=`))?.split('=')[1] ?? defaut)
 const PAR_LOT = arg('par-lot', 110)
 const SIMULER = arg('simuler', 0)

@@ -6,11 +6,12 @@
 //   cd server && ICI=/chemin node --import tsx ../retours/2026-11-12/reproductions/acte-i/lire-le-classement.mts faits <faits-N-lu.json…>
 //   cd server && ICI=/chemin node --import tsx ../retours/2026-11-12/reproductions/acte-i/lire-le-classement.mts questions [--verser] <classer-N-lu.json…>
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const NEUF = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../2026-11-09')
-const SORTIE = process.env.ICI ?? '/home/user/FiestApp/.lots-campagne/notation'
+const SORTIE = process.env.ICI ?? path.join(os.tmpdir(), 'acte-i-du-filet')
 const [genre, ...reste] = process.argv.slice(2)
 const PREFIXE = process.env.PREFIXE ?? 'faits'
 const verser = reste.includes('--verser')

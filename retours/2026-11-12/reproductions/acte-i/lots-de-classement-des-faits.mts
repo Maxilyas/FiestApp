@@ -4,13 +4,15 @@
 //
 //   cd server && ICI=/chemin node --import tsx ../retours/2026-11-12/reproductions/acte-i/lots-de-classement-des-faits.mts [--par-lot=130]
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { lireLaBase } from '../../../../server/src/core/baseCampagne.ts'
 import { valeurDuFilet } from '../../../../server/src/core/cabinet/tirages/tas.ts'
 
 const NEUF = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../2026-11-09')
-const LOTS = '/home/user/FiestApp/.lots-campagne'
+// Les fichiers `gis-<cat>.gardees.json` et `gis-<cat>.bloquees.json` que le crible écrit, dans `LOTS`.
+const LOTS = process.env.LOTS ?? path.join(os.tmpdir(), 'acte-i-du-filet')
 const SORTIE = process.env.ICI ?? path.join(LOTS, 'notation')
 // `--bloquees` : les faits que le crible a écartés parce que la base les pose déjà (`gis-<cat>.bloquees.json`), classés de même — pour savoir
 // combien de faits connus de chaque Français la règle des redites chiffrées ferme.

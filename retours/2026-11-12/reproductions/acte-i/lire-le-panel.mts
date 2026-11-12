@@ -3,11 +3,12 @@
 //
 //   cd server && ICI=/chemin node --import tsx ../retours/2026-11-12/reproductions/acte-i/lire-le-panel.mts <N> <panel-K-lu.json> [--verser]
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const NEUF = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../2026-11-09')
-const SORTIE = process.env.ICI ?? '/home/user/FiestApp/.lots-campagne/notation'
+const SORTIE = process.env.ICI ?? path.join(os.tmpdir(), 'acte-i-du-filet')
 const [passe, fichier, ...options] = process.argv.slice(2)
 const p = Number(passe)
 const etalons = JSON.parse(fs.readFileSync(path.join(SORTIE, 'panel-etalons.json'), 'utf8')) as Record<string, number>
