@@ -76,3 +76,35 @@ test('dans une liste, un avatar ne pose rien qui fasse un calque', () => {
   }
   assert.match(fige.corps, /animation:\s*none/)
 })
+
+// Le troisième retour du même téléphone, le 13 novembre 2026, sous la
+// Guinguette : les six premières lignes du classement du jour en friture — le
+// compagnon de la niche recopié en mosaïque à leur place —, les médaillons
+// seuls par-dessus. Ni les calques des lignes (le 9) ni ceux du décor (le 10)
+// n'y avaient rien changé. Ce qui reste de singulier dans ces lignes : la
+// pellicule d'un légendaire, mêlée à ce qui est dessous (`mix-blend-mode`),
+// qui fait relire à la carte graphique ce qu'elle vient de peindre. Un
+// soupçon, que rien ici ne reproduit ; à cette taille elle ne se voyait pas.
+test('dans une liste, rien ne se mêle à ce qui est dessous', () => {
+  const retire = REGLES.find(r => r.selecteurs.includes('.av.lb-avatar:not(.av-sujet) .lg-feuille'))
+  assert.ok(retire, 'la règle qui retire les fusions d’un médaillon dans une liste')
+  assert.match(retire.corps, /display:\s*none/)
+  // Toute pièce d'un médaillon, d'une lumière ou d'une bordure qui fusionne s'y retire, sur une ligne comme sur une puce.
+  const fusionnent = new Set<string>()
+  for (const r of REGLES) {
+    if (!/mix-blend-mode|backdrop-filter/.test(r.corps)) continue
+    for (const s of r.selecteurs) {
+      const piece = /\.(?:lg|dv|pt|lu|bo|sc|av)-[\w-]+/.exec(s.split(/\s+/).at(-1) ?? '')?.[0]
+      if (piece) fusionnent.add(piece)
+    }
+  }
+  assert.deepEqual([...fusionnent].sort(), ['.dv-or', '.lg-diffraction', '.lg-feuille', '.lg-paillettes', '.lg-reflet'])
+  for (const piece of fusionnent) {
+    assert.ok(retire.selecteurs.includes(`.av.lb-avatar:not(.av-sujet) ${piece}`), `.lb-avatar ${piece}`)
+    assert.ok(retire.selecteurs.includes(`.player-chip ${piece}`), `.player-chip ${piece}`)
+  }
+  // Et ni une ligne ni son motif n'en posent.
+  for (const r of REGLES) {
+    if (r.selecteurs.some(s => /\.lb-row(?![\w-])|\.plaque-motif/.test(s))) assert.doesNotMatch(r.corps, /mix-blend-mode|backdrop-filter/, r.selecteurs.join(', '))
+  }
+})
