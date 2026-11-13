@@ -224,9 +224,14 @@ import { sansAccent } from '../../shared/homonymes'
  * le rattrapage de ceux que le crible croyait bloqués (6) — 95 rangées,
  * 28 721. Deux doublons que ni `verifier` ni `voisines` ne voyaient, trouvés
  * par un recoupement des mots et des réponses avec la base, sont partis : les
- * régions de 2016 et le match de football à 90 minutes.
+ * régions de 2016 et le match de football à 90 minutes. Puis, le lendemain,
+ * les années de ce premier acte que le juge fermait comme redites — une face
+ * de plus d'un fait que la base pose déjà, liée à ses sœurs (`faceDe`) :
+ * 83 faits, 76 questions écrites, 3 retirées à la relecture (deux années
+ * possibles chacune), une redite des premiers jeux Pokémon au recoupement —
+ * 73 rangées, 28 794.
  */
-const AU_MOINS = 28721
+const AU_MOINS = 28794
 
 const { questions, refusees } = lireLaBase()
 

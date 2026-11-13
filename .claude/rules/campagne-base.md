@@ -39,8 +39,15 @@ Pour agrandir la base (un lot, sa relecture, son rangement — ou des milliers d
   sœurs (`soeursDesLiees` : de proche en proche, une grappe de la base en
   comptait onze), et les retient par la question même (`retenirLesSoeurs`,
   comme `preparationDe`) : chaque tirage les lit (`soeursDe`, `vueDuFait`,
-  `DejaPrises.memeFait`, règle `campagne.md`). Les autres doublons restent
-  refusés, retournées comprises (Charlot et Chaplin) — commencer petit.
+  `DejaPrises.memeFait`, règle `campagne.md`). Une face le reste quand
+  chacune écrit la réponse de l'autre — l'année de l'alunissage nomme la
+  Lune, que l'autre demande — et quand ce dont elles parlent porte le nombre
+  dans son nom (les « Jeux olympiques d'été de 1936 » de Jesse Owens et de la
+  télévision de Berlin) : jugées retournées d'abord, 22 des 83 années de
+  l'acte I se refusaient encore le lendemain (`sujetsRetournes`, puis
+  `chiffreeEcrite`, puis `intitulesRetournes`). Les autres doublons restent
+  refusés, retournées sans nombre comprises (Charlot et Chaplin, le dragon
+  du Bhoutan) — commencer petit.
   **La base livrée a lié ses 343 paires le même jour** (`base-campagne.ts
   faces` : 333 de réponses différentes — les réponses chiffrées retournées
   gardées le 10 novembre, et trois retournées par l'intitulé —, et dix de

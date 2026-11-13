@@ -721,14 +721,16 @@ test('les catégories du Filet, acte par acte : celles qui ont assez de valeurs 
   // Sur le contenu livré, à l'année du banc : l'acte I, qui ne pose que ce que chaque Français sait placer, n'avait de
   // quoi tirer qu'en Histoire et en Culture générale depuis le décalage du 12 novembre 2026 ; les questions neuves du
   // même jour (`retours/2026-11-12/acte-i-du-filet.md`) lui en donnent six de plus — la Musique, le Cinéma & séries, le
-  // Sport, les Sciences, Autour de la fête et la Géographie, les deux dernières à douze valeurs, au seuil. Pas le Jeux & pop
-  // culture (10), la Cuisine (9), les Arts & lettres (7) ni la Nature (3). L'acte II, qui pose aussi ce que l'acte I pose,
-  // y ajoute le Jeux & pop culture et les Arts & lettres, toujours pas la Cuisine ni la Nature ; l'acte III les a toutes.
+  // Sport, les Sciences, Autour de la fête et la Géographie, les deux dernières à douze valeurs, au seuil. Le lendemain,
+  // les années que le juge des faits fermait (`retours/2026-11-13/annees-de-l-acte-i.md`) y mettent le Jeux & pop culture,
+  // au seuil (12), et Autour de la fête passe à 18 ; la Géographie reste à 12. Pas la Cuisine (9), les Arts & lettres (10)
+  // ni la Nature (3). L'acte II, qui pose aussi ce que l'acte I
+  // pose, y ajoute les Arts & lettres, toujours pas la Cuisine ni la Nature ; l'acte III les a toutes.
   const jouables = [...LA_BASE.values()]
   const livrees = categoriesDuFiletALAnnee({ porte: PORTE, jouables }, DEPART)
   assert.deepEqual(
     [...livrees[0]].sort(),
-    ['Autour de la fête', 'Cinéma & séries', 'Culture générale', 'Géographie', 'Histoire', 'Musique', 'Sciences', 'Sport'],
+    ['Autour de la fête', 'Cinéma & séries', 'Culture générale', 'Géographie', 'Histoire', 'Jeux & pop culture', 'Musique', 'Sciences', 'Sport'],
     `l’acte I : ${livrees[0].join(', ')}`,
   )
   assert.ok(livrees[0].every(c => livrees[1].includes(c)) && livrees[1].length > livrees[0].length, `l’acte II : ${livrees[1].join(', ')}`)
