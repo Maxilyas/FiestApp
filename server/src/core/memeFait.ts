@@ -260,14 +260,13 @@ export function faitDe(q: AvecUnFait): Fait | null {
 /** La même réponse, ou la même grandeur écrite autrement : « 50 ans » et « 50 », « 33 cl » et « 330 ml ». */
 const memeReponse = (a: Fait, b: Fait) => a.reponse === b.reponse || (a.grandeur !== null && a.grandeur === b.grandeur)
 
-/**
- * Retournées : chacune a pour réponse ce dont parle l'autre — Charlot et
- * Charlie Chaplin, le canal de Suez et Ferdinand de Lesseps. Ou chacune écrit
- * dans son intitulé la réponse de l'autre, et elles parlent de la même
- * chose : le dragon du drapeau du Bhoutan.
- */
-const retournees = (a: Fait, b: Fait) =>
-  (a.entites.has(b.reponse) && b.entites.has(a.reponse)) || (ecrit(a.intitule, b.reponse) && ecrit(b.intitule, a.reponse) && [...a.entites].some(e => b.entites.has(e)))
+/** Retournées par leurs sujets : chacune a pour réponse ce dont parle l'autre — Charlot et Charlie Chaplin, le canal de Suez et Ferdinand de Lesseps. */
+const sujetsRetournes = (a: Fait, b: Fait) => a.entites.has(b.reponse) && b.entites.has(a.reponse)
+
+/** Retournées par l'intitulé : chacune écrit dans son intitulé la réponse de l'autre, et elles parlent de la même chose — le dragon du drapeau du Bhoutan. */
+const intitulesRetournes = (a: Fait, b: Fait) => ecrit(a.intitule, b.reponse) && ecrit(b.intitule, a.reponse) && [...a.entites].some(e => b.entites.has(e))
+
+const retournees = (a: Fait, b: Fait) => sujetsRetournes(a, b) || intitulesRetournes(a, b)
 
 /**
  * La réponse chiffrée de `a` est-elle écrite dans l'intitulé de `b`, qui
@@ -312,16 +311,32 @@ function chiffreeEcrite(a: Fait, b: Fait): boolean {
  * connu n'existait que sous une face, et l'acte I du Filet perdait 115 des 129
  * années que chaque Français sait placer. Une face se range, liée à sa sœur
  * (`QuestionDeLaBase.faceDe`), et c'est le tirage qui ne les pose jamais
- * ensemble. Les autres retournées restent des doublons — Charlot et Charlie
- * Chaplin, le dragon du Bhoutan : le choix du propriétaire de commencer petit.
+ * ensemble — même quand chacune écrit la réponse de l'autre, l'année de la
+ * Lune et l'astre de 1969. Les retournées sans réponse chiffrée restent des
+ * doublons — Charlot et Charlie Chaplin, le dragon du Bhoutan : le choix du
+ * propriétaire de commencer petit.
  */
 export type LienEntreDeuxFaits = 'doublon' | 'face'
 
 /** Le lien entre deux faits (`LienEntreDeuxFaits`) ; null : ce ne sont pas les mêmes. */
 export function lienEntre(a: Fait, b: Fait): LienEntreDeuxFaits | null {
   if (!memeReponse(a, b)) {
-    if (retournees(a, b)) return 'doublon'
-    return chiffreeEcrite(a, b) || chiffreeEcrite(b, a) ? 'face' : null
+    if (sujetsRetournes(a, b)) return 'doublon'
+    // Une face même quand elle écrit en retour la réponse de l'autre : l'année
+    // d'un fait connu se demande en nommant ce fait, que l'autre a pour réponse
+    // — « En quelle année Neil Armstrong pose-t-il le pied sur la Lune ? » quand
+    // la base demande l'astre de juillet 1969. Jugées retournées d'abord, elles
+    // se refusaient, et 22 des 83 années de l'acte I du Filet avec elles, le
+    // 13 novembre 2026 ; « Eugène Delacroix » écrit en entier refusait l'année
+    // de La Liberté, que « Delacroix » laissait entrer.
+    if (chiffreeEcrite(a, b) || chiffreeEcrite(b, a)) return 'face'
+    if (!intitulesRetournes(a, b)) return null
+    // Retournées par l'intitulé, l'une a pour réponse un nombre que l'autre
+    // écrit : une face encore, même quand ce dont elles parlent porte ce nombre
+    // dans son nom, que `chiffreeEcrite` écarte — Jesse Owens « aux Jeux de
+    // Berlin », 1936, et la ville des Jeux de 1936, Berlin, toutes deux sur les
+    // « Jeux olympiques d'été de 1936 ».
+    return a.chiffres.length > 0 || b.chiffres.length > 0 ? 'face' : 'doublon'
   }
   for (const e of a.entites) if (b.entites.has(e)) return 'doublon'
   if (a.chiffree || b.chiffree) return null

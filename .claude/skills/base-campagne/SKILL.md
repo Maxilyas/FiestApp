@@ -38,7 +38,8 @@ un neuf — est dans la règle `campagne-base.md`. Les commandes se lancent depu
 5. **Les doublons** : `verifier` et `ranger` refusent le même fait sous un
    autre intitulé, ou retourné, et la même grandeur dans une autre unité.
    Une réponse chiffrée déjà écrite dans l'intitulé d'une question de la base
-   sur le même sujet, elle, entre : c'est une autre face du même fait
+   sur le même sujet, elle, entre, même quand elle nomme en retour la
+   réponse de l'autre : c'est une autre face du même fait
    (`verifier` la signale `↔ FACE`, `ranger` la lie à sa sœur par `faceDe`,
    et le jeu ne les pose jamais ensemble — règle `campagne-base.md`) ; deux
    faces d'un fait dans les mêmes lots ne se rangent pas du même coup.

@@ -276,6 +276,75 @@ test('le juge des faits : une réponse chiffrée que l’autre écrit est une au
   assert.deepEqual(index.relever(seule(5)), { faces: [] })
 })
 
+// Le 13 novembre 2026, les rédacteurs de l'acte I du Filet ont vu refuser 22
+// années sur 83 : l'année d'un fait connu se demande en nommant ce fait, et
+// l'autre l'a souvent pour réponse — chacune écrivait la réponse de l'autre, le
+// juge les disait retournées avant de voir la réponse chiffrée.
+test('le juge des faits : l’année reste une face quand elle écrit en retour la réponse de l’autre ; sans nombre, les retournées restent des doublons', () => {
+  const enEntier = question('entier30', 'En quelle année Eugène Delacroix peint-il La Liberté guidant le peuple ?', ['1830', '1815', '1848', '1871'], {
+    categorie: 'Arts & lettres',
+    entites: [
+      ['Eugène Delacroix', 'personne'],
+      ['La Liberté guidant le peuple', 'oeuvre'],
+    ],
+    valeur: { nombre: 1830, unite: '' },
+  })
+  assert.equal(lienEntre(faitDe(enEntier)!, faitDe(peintre)!), 'face', '« Eugène Delacroix » en entier, comme « Delacroix »')
+  assert.equal(lienEntre(faitDe(peintre)!, faitDe(enEntier)!), 'face', 'dans les deux sens')
+  // L'œuvre que l'autre demande : son année ne se demande qu'en la nommant.
+  const manga = question('manga084', 'Quel manga d’Akira Toriyama paraît pour la première fois en 1984 ?', ['Dragon Ball', 'One Piece', 'Naruto', 'Astro Boy'], {
+    categorie: 'Arts & lettres',
+    entites: [['Akira Toriyama', 'personne']],
+  })
+  const parution = question('paru1984', 'En quelle année paraît le premier chapitre de Dragon Ball, d’Akira Toriyama ?', ['1984', '1979', '1989', '1994'], {
+    categorie: 'Arts & lettres',
+    entites: [
+      ['Dragon Ball', 'oeuvre'],
+      ['Akira Toriyama', 'personne'],
+    ],
+    valeur: { nombre: 1984, unite: '' },
+  })
+  assert.deepEqual(new IndexDesFaits([manga]).relever(parution), { faces: [manga] })
+  assert.deepEqual(new IndexDesFaits([parution]).relever(manga), { faces: [parution] }, 'quelle que soit celle qui arrive')
+  // Ce dont elles parlent porte l'année dans son nom : les Jeux de 1936.
+  const jeux: Entite = ['Jeux olympiques d’été de 1936', 'evenement']
+  const television = question('tele1936', 'Aux Jeux de quelle ville les images sont-elles diffusées pour la première fois à la télévision, en 1936 ?', ['Berlin', 'Paris', 'Londres', 'Amsterdam'], {
+    categorie: 'Sport',
+    entites: [jeux],
+  })
+  const owens = question('owen1936', 'En quelle année Jesse Owens remporte-t-il quatre médailles d’or aux Jeux de Berlin ?', ['1936', '1928', '1932', '1948'], {
+    categorie: 'Sport',
+    entites: [['Jesse Owens', 'personne'], jeux],
+    valeur: { nombre: 1936, unite: '' },
+  })
+  assert.deepEqual(new IndexDesFaits([television]).relever(owens), { faces: [television] })
+  // Sans réponse chiffrée, rien ne change : le dragon du Bhoutan, Charlot et Chaplin.
+  const dragon = question('dragon01', 'Quel animal fabuleux figure sur le drapeau du Bhoutan ?', ['Dragon', 'Phénix', 'Griffon', 'Licorne'], {
+    categorie: 'Culture générale',
+    entites: [
+      ['Drapeau du Bhoutan', 'objet'],
+      ['Himalaya', 'lieu'],
+    ],
+  })
+  const bhoutan = question('bhoutan1', 'Quel pays de l’Himalaya a un dragon blanc sur son drapeau ?', ['Bhoutan', 'Népal', 'Tibet', 'Sikkim'], {
+    categorie: 'Géographie',
+    entites: [
+      ['Drapeau du Bhoutan', 'objet'],
+      ['Himalaya', 'lieu'],
+    ],
+  })
+  assert.equal(lienEntre(faitDe(bhoutan)!, faitDe(dragon)!), 'doublon', 'retournées par l’intitulé')
+  const chaplin = question('chaplin1', 'Quel acteur britannique a créé le personnage du vagabond Charlot ?', ['Charlie Chaplin', 'Buster Keaton', 'Harold Lloyd', 'Stan Laurel'], {
+    categorie: 'Cinéma & séries',
+    entites: [['Charlot', 'personnage']],
+  })
+  const charlot = question('charlot1', 'Quel nom les Français donnent-ils au vagabond incarné par Charlie Chaplin ?', ['Charlot', 'Fantômas', 'Arsène', 'Gavroche'], {
+    categorie: 'Jeux & pop culture',
+    entites: [['Charlie Chaplin', 'personne']],
+  })
+  assert.equal(lienEntre(faitDe(charlot)!, faitDe(chaplin)!), 'doublon', 'retournées par leurs sujets')
+})
+
 /** Une entrée telle qu'un lot l'écrit : sans identifiant. */
 const enLot = (q: QuestionDeLaBase) => {
   const { id: _id, ...entree } = entreeDeLaBase(q)
