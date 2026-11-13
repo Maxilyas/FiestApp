@@ -339,6 +339,27 @@ paths:
   52 Mo, c'est un bout de la page qui manque — son titre, son bouton du bas :
   elle pèse encore 48 Mo à la densité 2,625 sous Le Ciel, dont 37 pour le
   décor — et 10 en tout sous le Velours.
+- **Dans une liste, rien ne se mêle à ce qui est dessous** (`mix-blend-mode`,
+  `backdrop-filter`). Le même téléphone Android, une troisième fois, le
+  13 novembre 2026, sous la Guinguette — une page de 10 Mo, un seul calque :
+  les six premières lignes du classement du jour en friture, le compagnon de
+  la niche recopié en mosaïque à leur place, les médaillons seuls par-dessus.
+  Alléger les calques des lignes (le 9) puis ceux du décor (le 10) n'y avait
+  donc rien changé : ces deux pièges tiennent pour ce qu'ils mesurent, pas
+  comme la cause de cette friture. Le soupçon : la pellicule d'un légendaire
+  (`.lg-feuille`, `.lg-diffraction`, `.lg-reflet`, `.lg-paillettes`) et l'or
+  d'un Divin (`.dv-or`) fusionnent avec ce qui est peint dessous, ce qui le
+  fait relire à la carte graphique — et sur les trois captures la friture
+  s'arrête juste après un médaillon. Elles se retirent des listes
+  (`.lb-avatar:not(.av-sujet)`, `.player-chip` ; à 26 px la planche avant et
+  après ne diffère qu'à la loupe) et restent où le médaillon est le sujet.
+  **Rien ici ne reproduit cette friture** — le Chromium des rendus dessine
+  tout, à tous les budgets : tant que ce téléphone ne l'a pas confirmé, c'est
+  un soupçon. S'il revient : son modèle, sa version de Chrome et
+  `chrome://gpu` d'abord, puis ce qui reste de singulier dans une ligne — les
+  filtres des lumières sous l'Ivoire, le `drop-shadow` du sceau, l'opacité du
+  motif d'une plaque. `calques-des-listes.test.ts` refuse une fusion de plus
+  dans un médaillon qui ne se retirerait pas des listes.
 - **Le décor d'un thème tient dans le moins de couches fixes possible.**
   Chaque couche fixe plein écran est un calque de 10 Mo à la densité d'un
   téléphone, et le contenu de la page, qui passe devant, en devient un de
