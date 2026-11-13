@@ -83,7 +83,15 @@ test('au nouveau Filet, ce que le joueur sait suit l’acte de l’épreuve, et 
   assert.equal(avec.code, 0, avec.erreurs)
   assert.equal(sans.code, 0, sans.erreurs)
   const [i, ii, iii] = filetDeLaTraversee(sans.sortie)
-  assert.ok(i.etoiles > ii.etoiles + 0.3 && i.etoiles > iii.etoiles + 0.3, `les étoiles du Filet, acte par acte : ${i.etoiles} · ${ii.etoiles} · ${iii.etoiles}`)
+  // L'acte I ne pose que ce que chaque Français sait placer, l'acte III que le panel de 25 à 49, rien de l'acte I : leur
+  // écart dit que le joueur modèle sait selon l'acte. L'acte II, depuis le décalage du 12 novembre 2026, reprend tout le
+  // réservoir de l'acte I avec le panel à 50 % et plus : il tombe entre les deux, d'autant plus près de l'acte I que
+  // celui-ci grandit — sur 2 000 traversées, 0,34 étoile sous lui le 12 novembre, 0,23 le 13 avec les années qui lui
+  // manquaient (`retours/2026-11-13/annees-de-l-acte-i.md`) : un écart fixe entre les deux ne mesurait que leur mélange.
+  assert.ok(
+    i.etoiles > ii.etoiles && ii.etoiles > iii.etoiles && i.etoiles > iii.etoiles + 0.3,
+    `les étoiles du Filet, acte par acte : ${i.etoiles} · ${ii.etoiles} · ${iii.etoiles}`,
+  )
   const aides = filetDeLaTraversee(avec.sortie)
   filetDeLaTraversee(sans.sortie).forEach((x, k) => {
     assert.equal(x.payees, 0, `--aides jamais : aucune aide payée à l'acte ${k + 1}`)

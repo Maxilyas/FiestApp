@@ -125,6 +125,28 @@ La chaîne de la veille, sans rien y changer (`../2026-11-12/reproductions/acte-
 - `contenu-du-filet.mts` a refait le contenu ; `cabinet-contenu.test.ts` en relève les planchers (1 930 questions ; 295,
   500 et 510 par acte), `cabinet-filet-en-deux-temps.test.ts` attend le Jeux & pop culture à l'acte I.
 
+## Ce que ça change à l'acte II : un Filet un peu plus facile
+
+L'acte II reprend tout le réservoir de l'acte I depuis le décalage du 12 novembre, avec le panel à 50 % et plus : quand l'acte I
+grandit d'un tiers, la part de ce que chaque Français sait placer y grandit aussi, de 56 à 62 % des questions posables. Le
+calibrage de la traversée (`calibrage-cabinet.ts --sections traversee --joueurs moyen --filet deux-temps --aides jamais`,
+2 000 traversées) le mesure :
+
+| Acte | Le 12 au soir | Le 13 |
+|---|---|---|
+| I | 91,6 % réussies, 2,08 ★ | 91,2 %, 2,07 ★ |
+| II | 82,3 %, 1,74 ★ | **86 %, 1,84 ★** |
+| III | 70,9 %, 1,32 ★ | 72,1 %, 1,34 ★ |
+
+Une manche du Filet à l'acte II rapporte un dixième d'étoile de plus, et se réussit quatre fois de plus sur cent. C'est dans
+le sens du retour du propriétaire du 12 novembre (« c'est toujours trop dur »), et la traversée reste dans ses bornes
+(`cabinet-calibrage.test.ts`). Mais `cabinet-calibrage-modele.test.ts` exigeait 0,3 étoile entre l'acte I et l'acte II :
+un seuil posé le 9 novembre, quand l'acte II ne reprenait rien de l'acte I. Il passait à 0,34, il tombe à 0,23. L'épreuve
+exige désormais l'ordre des trois actes et 0,3 étoile entre l'acte I et l'acte III, deux réservoirs disjoints : un écart
+fixe entre l'acte I et l'acte II ne mesurait que leur mélange, et chaque question « chaque Français » de plus le ferait
+encore baisser. Si l'acte II doit garder sa difficulté, c'est le tirage qu'il faut changer : y préférer le panel à ce que
+l'acte I pose déjà. Une décision du propriétaire, que ce travail n'a pas prise.
+
 ## Ce que ça a coûté
 
 Dix-huit agents, et huit relances : neuf rédacteurs (Sonnet), relancés sur leurs seuls refus une fois le juge corrigé —
