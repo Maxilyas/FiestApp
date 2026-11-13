@@ -9,6 +9,7 @@ import { sansAccent } from '../../../shared/homonymes'
 // Partagée : l'écran de l'administrateur, qui corrige une question, borne ses champs à la même mesure.
 import { MAX_REPONSE } from '../../../shared/campagne'
 import { empreinteDe } from './jour'
+import { retenirLesSoeurs, soeursDesLiees } from './faces'
 import { retenirLaPreparation, type PreparationDUneQuestion } from './preparees'
 import { QUESTIONS_PAR_TRANCHE, enTranches, rendreLaMain } from './tourniquet'
 import { QUESTIONS_D_UNE_TRANCHE, dUneTraite, type CalculEnTranches } from '../../../shared/tranches'
@@ -56,6 +57,14 @@ export interface QuestionDeLaBase {
    * doit pas faire attendre. Le quiz tout prêt ne la prend qu'en dernier recours.
    */
   soufflee: boolean
+  /**
+   * Les questions de la base dont elle est une autre face — le même fait sous
+   * une autre forme, l'année d'une œuvre quand l'autre en demande l'auteur
+   * (`core/faces.ts`) —, par leur identifiant. Le rangement les pose quand le
+   * juge des faits les relève (`IndexDesFaits.relever`) ; absent pour une
+   * question seule à poser son fait, presque toutes.
+   */
+  faceDe?: string[]
 }
 
 const ID = /^[a-z0-9]{8}$/
@@ -214,6 +223,14 @@ export function lireQuestionDeLaBase(brut: unknown, { sansId = false } = {}): { 
     if (Array.from(anecdote).length > MAX_ANECDOTE) return { refus: `anecdote de plus de ${MAX_ANECDOTE} caractères` }
   }
 
+  // Les questions dont elle est une autre face (`core/faces.ts`) : des identifiants de la base, que le rangement pose.
+  let faceDe: string[] | undefined
+  if (b.faceDe !== undefined) {
+    if (!Array.isArray(b.faceDe) || b.faceDe.some(x => typeof x !== 'string' || !ID.test(x))) return { refus: 'faceDe : une liste d’identifiants de questions de la base' }
+    const autres = [...new Set(b.faceDe as string[])].filter(x => x !== id)
+    if (autres.length > 0) faceDe = autres
+  }
+
   // Nulle part dans l'entrée, pas même un leurre ou une explication : l'écran
   // commun tourne sous Windows 10, et `emojis.test.ts` relit tout le dossier.
   const emoji = JSON.stringify(b).match(EMOJI)
@@ -252,7 +269,18 @@ export function lireQuestionDeLaBase(brut: unknown, { sansId = false } = {}): { 
   if (meta.leurres.some(l => sansAccent(l) === juste)) return { refus: 'la bonne réponse est parmi les leurres' }
 
   return {
-    question: { id, texte, reponses, bonne, anecdote, meta, empreinte: empreinteDe(texte), soufflee: souffleeParSaRacine({ texte, reponses, bonne }).length > 0 },
+    question: {
+      id,
+      texte,
+      reponses,
+      bonne,
+      anecdote,
+      meta,
+      empreinte: empreinteDe(texte),
+      soufflee: souffleeParSaRacine({ texte, reponses, bonne }).length > 0,
+      // Seulement quand elle en a : la base préparée la range telle quelle, et `base-preparee.test.ts` la compare à elle-même.
+      ...(faceDe && { faceDe }),
+    },
   }
 }
 
@@ -285,6 +313,8 @@ export function entreeDeLaBase(q: QuestionDeLaBase): Record<string, unknown> {
     source: m.source,
     confiance: m.confiance,
     aRelire: m.aRelire,
+    // Au bout, et seulement quand elle en a : les autres lignes de la base ne bougent pas.
+    ...(q.faceDe && q.faceDe.length > 0 && { faceDe: q.faceDe }),
   }
 }
 
@@ -391,9 +421,11 @@ export const BASE_PREPAREE: string | null =
  * Le format de la base préparée : celle d'un autre format s'écarte, et le
  * dossier se relit et se vérifie. 2, le 3 novembre 2026 : ce que le build
  * calcule de chaque question, en colonnes (`core/preparees.ts`) ; 3, le même
- * soir : la signature de ses jumelles et ce qui s'apprend par cœur avec.
+ * soir : la signature de ses jumelles et ce qui s'apprend par cœur avec ; 4,
+ * le 12 novembre 2026 : une question y porte les faces de son fait
+ * (`QuestionDeLaBase.faceDe`), qu'une base d'avant tairait.
  */
-const VERSION_DE_LA_BASE_PREPAREE = 3
+const VERSION_DE_LA_BASE_PREPAREE = 4
 
 /** Ce qui dit qu'une base préparée est celle du dossier : chacun de ses fichiers, sa taille et sa date. */
 type SignatureDuDossier = { fichier: string; taille: number; modifie: number }[]
@@ -590,11 +622,19 @@ export class BaseDeLaCampagne {
   readonly questions: readonly QuestionDeLaBase[]
   readonly parId: ReadonlyMap<string, QuestionDeLaBase>
   readonly empreintes: ReadonlySet<string>
+  /**
+   * Les sœurs de chaque question liée — les autres faces de son fait, dans les
+   * deux sens (`core/faces.ts`) —, par identifiant : la mesure des difficultés
+   * les lit (`horsDeLaMesure`). Chaque tirage, lui, les lit sur la question
+   * même (`soeursDe`), que cette base a retenues.
+   */
+  readonly soeurs: ReadonlyMap<string, readonly string[]>
 
   constructor(questions: readonly QuestionDeLaBase[], index: IndexDeLaBase = dUneTraite(indexDeLaBase(questions, Infinity))) {
     this.questions = questions
     this.parId = index.parId
     this.empreintes = index.empreintes
+    this.soeurs = index.soeurs
   }
 
   /**
@@ -634,20 +674,38 @@ export class BaseDeLaCampagne {
   }
 }
 
-/** Ce que la base indexe : chaque question par son identifiant, et les empreintes de leurs intitulés. */
+/** Ce que la base indexe : chaque question par son identifiant, les empreintes de leurs intitulés, et les sœurs des questions liées. */
 interface IndexDeLaBase {
   parId: Map<string, QuestionDeLaBase>
   empreintes: Set<string>
+  soeurs: Map<string, string[]>
 }
 
-/** Les index de la base, en tranches de `tranche` questions : la dernière d'un identifiant l'emporte, à la place de la première. */
+/**
+ * Les index de la base, en tranches de `tranche` questions : la dernière d'un
+ * identifiant l'emporte, à la place de la première. Puis les sœurs de chaque
+ * question, retenues par la question même (`retenirLesSoeurs`) — et oubliées
+ * de celle qui n'en a plus : chaque tirage les lit d'elle (`core/faces.ts`).
+ */
 function* indexDeLaBase(questions: readonly QuestionDeLaBase[], tranche: number): CalculEnTranches<IndexDeLaBase> {
   const parId = new Map<string, QuestionDeLaBase>()
   const empreintes = new Set<string>()
+  const liees: QuestionDeLaBase[] = []
   for (let i = 0; i < questions.length; i++) {
     if (i > 0 && i % tranche === 0) yield
     parId.set(questions[i].id, questions[i])
     empreintes.add(questions[i].empreinte)
+    if (questions[i].faceDe) liees.push(questions[i])
   }
-  return { parId, empreintes }
+  // Les liées de celles qui l'emportent : une question remplacée sous son identifiant ne lie plus rien.
+  const soeurs = soeursDesLiees(
+    liees.filter(q => parId.get(q.id) === q),
+    id => parId.has(id),
+  )
+  let i = 0
+  for (const [id, q] of parId) {
+    if (++i % tranche === 0) yield
+    retenirLesSoeurs(q, soeurs.get(id))
+  }
+  return { parId, empreintes, soeurs }
 }

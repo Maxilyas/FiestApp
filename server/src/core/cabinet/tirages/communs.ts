@@ -77,7 +77,7 @@ export interface ContexteDuTirage {
 /** Les marches d'un jeu sous l'enjeu de la partie : les siennes, et ce que l'œuvre visée y ajoute. */
 export const marchesDuTirage = (ctx: Pick<ContexteDuTirage, 'enjeu'>, marches: readonly Niveau[]): Niveau[] => marchesDeLEnjeu(marches, ctx.enjeu)
 
-/** Ce que la partie a déjà tiré : ni le même contenu deux fois, ni sa jumelle, et ses catégories tournent. */
+/** Ce que la partie a déjà tiré : ni le même contenu deux fois, ni sa jumelle, ni une autre face de son fait, et ses catégories tournent. */
 export class Posees {
   readonly ids = new Set<string>()
   readonly intitules: Intitule[] = []
@@ -98,7 +98,8 @@ export class Posees {
 
   prendre(q: QuestionTiree) {
     this.ids.add(q.id)
-    this.intitules.push({ texte: q.texte, reponses: q.reponses })
+    // Son identifiant avec : une autre face de son fait passe en tout dernier (`DejaPrises.memeFait`, `core/faces.ts`).
+    this.intitules.push({ texte: q.texte, reponses: q.reponses, id: q.id })
   }
 }
 

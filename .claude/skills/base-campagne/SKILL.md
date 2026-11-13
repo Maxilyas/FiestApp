@@ -36,16 +36,19 @@ un neuf — est dans la règle `campagne-base.md`. Les commandes se lancent depu
    donne le chemin de la consigne. Il écrit ses fichiers et les vérifie
    jusqu'à zéro refus.
 5. **Les doublons** : `verifier` et `ranger` refusent le même fait sous un
-   autre intitulé, ou retourné — une réponse chiffrée déjà écrite dans
-   l'intitulé d'une question sur le même sujet aussi, et la même grandeur
-   dans une autre unité ; `npx tsx scripts/base-campagne.ts voisines
-   ../.lots-campagne/<nom>-*.json` montre en plus les intitulés presque
-   pareils d'un sous-thème, que rien ne refuse. Sans lot, `voisines` relit
-   toute la base — elle y montre aussi les réponses chiffrées retournées que
-   la base avait avant la règle, et qu'elle garde —, et `retirer <id> …` en
-   sort un doublon : cherche d'abord son identifiant dans `server/content/`
-   (le Filet et les frises désignent des questions de la base, règle
-   `campagne-base.md`).
+   autre intitulé, ou retourné, et la même grandeur dans une autre unité.
+   Une réponse chiffrée déjà écrite dans l'intitulé d'une question de la base
+   sur le même sujet, elle, entre : c'est une autre face du même fait
+   (`verifier` la signale `↔ FACE`, `ranger` la lie à sa sœur par `faceDe`,
+   et le jeu ne les pose jamais ensemble — règle `campagne-base.md`) ; deux
+   faces d'un fait dans les mêmes lots ne se rangent pas du même coup.
+   `npx tsx scripts/base-campagne.ts voisines ../.lots-campagne/<nom>-*.json`
+   montre en plus les intitulés presque pareils d'un sous-thème, que rien ne
+   refuse. Sans lot, `voisines` relit toute la base — les faces déjà liées
+   n'y paraissent plus, elle les compte —, `faces` lie une paire que la base
+   garde sans lien, et `retirer <id> …` en sort un doublon : cherche d'abord
+   son identifiant dans `server/content/` (le Filet et les frises désignent
+   des questions de la base, règle `campagne-base.md`).
 6. **La relecture des faits** : `npx tsx scripts/base-campagne.ts fiche
    ../.lots-campagne/<nom>-*.json > ../.lots-campagne/<nom>.fiche.txt`, puis un
    agent `relecteur-campagne`, dont la mission donne la fiche et le fichier de

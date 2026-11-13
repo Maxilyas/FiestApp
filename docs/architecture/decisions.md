@@ -1068,6 +1068,15 @@ Le détail : [la campagne](../produit/la-campagne.md).
 
 *Fichiers : `server/src/core/campagne.ts`, `server/src/core/jumelles.ts`*
 
+### Deux faces d'un même fait entrent toutes deux, et c'est le tirage qui les sépare
+**Contexte** : le juge des faits refusait à l'écriture toute question qui posait un fait déjà dans la base, réponse chiffrée retournée comprise : « En quelle année Delacroix peint-il La Liberté guidant le peuple ? » quand la base demandait déjà le peintre de 1830. Chaque fait connu n'existait donc que sous une face, rarement celle qu'un jeu voulait : le premier acte du Filet, qui demande des années que chaque Français sait placer, a perdu 115 faits sur 129 le 12 novembre 2026. Les rédacteurs, à court, se rabattaient sur des faits moins connus et sur des gabarits répétés. Le risque que le juge gardait n'était pas que les deux questions existent, mais qu'un même joueur les croise de près : l'une souffle la réponse de l'autre, et la réponse donnée après la sœur ne mesure plus rien.
+
+**Décision** : une réponse chiffrée que l'autre écrit dans son intitulé est une autre face du même fait, pas un doublon (`lienEntre`). Elle entre, liée à ses sœurs par leur identifiant (`faceDe`, posé par le rangement et par le dépôt de la routine, jamais par celui qui écrit). Le tirage garde le joueur : jamais deux faces d'un fait dans une partie, sauf en tout dernier recours ; une face vue compte pour vue chez ses sœurs, à la même heure ; et la mesure des difficultés écarte la première réponse de qui avait répondu à une sœur. Les sœurs d'une question sont celles qu'un lien nomme, dans les deux sens, jamais les sœurs de ses sœurs. Les autres doublons restent refusés, retournées comprises : le choix du propriétaire de commencer petit. La base livrée a lié ce jour-là les 343 paires qu'elle gardait, et le quiz du jour reste à part.
+
+**Conséquence** : le juge ne coûte plus un fait célèbre à chaque nouvelle forme de jeu. En échange, le tirage a une contrainte de plus, et la base porte des liens à tenir : `retirer` les ôte de la ligne d'une sœur retirée, une correction les garde, et `campagne-base.test.ts` refuse une paire que le juge relie sans qu'elle soit liée (`base-campagne.ts faces` la lie). La mesure du modèle du savoir, elle, compte encore ces réponses.
+
+*Fichiers : `server/src/core/faces.ts`, `server/src/core/memeFait.ts`, `server/src/core/jumelles.ts`, `server/src/core/journalDesReponses.ts`*
+
 ### Une spécialité passe une fois quand les autres passent trois fois
 **Contexte** : un sous-thème par savoir donne à chacun un tour entier dans sa catégorie. Avec l'équitation et la plongée, onze sous-thèmes en Sport : une série de Sport posait l'une ou l'autre une fois sur six ; en Culture générale, l'anglais, l'espagnol et les métiers de la santé faisaient une question sur quatre. Ce sont des savoirs qu'on vient chercher, pas ceux qu'une salle attend d'un quiz de sport. Les sortir du tour, proposé d'abord, le propriétaire l'a refusé le 10 novembre 2026 — « une sorte de "pro rata" afin de garder quand même certaines questions ».
 

@@ -32,6 +32,7 @@ import {
 } from './journalDesReponses'
 import { JournalDesDuels, type DuelsARelire, type LigneDuJournalDesDuels } from './journalDesDuels'
 import { ForceTenue, type LesQuestions } from './forceTenue'
+import { soeursDe, vueDuFait } from './faces'
 import { DejaPrises } from './jumelles'
 import type { CeQueLeReveilAjoute, ExpeditionQuiChange, FinDUnePartie, PorteDeLaCampagne, ReponsesEcrites, StatsEnPlus } from './porteDeLaCampagne'
 import { seRange } from './rangDeLaBonne'
@@ -2044,7 +2045,17 @@ export class CampagneStore {
    * quota de Turso toutes les dix minutes d'activité (le 22 octobre 2026).
    */
   private async mesuresBrutes(): Promise<{ brutes: Map<string, { justes: number; total: number }>; premieres: Map<string, { justes: number; total: number }> }> {
-    return (await this.rattraperLeJournal()).mesures()
+    const [journal, base] = await Promise.all([this.rattraperLeJournal(), this.base()])
+    // Ce qu'une autre face du même fait avait soufflé (`horsDeLaMesure`, `core/faces.ts`) sort des deux comptes. Relevé
+    // d'abord, en tranches, puis les comptes recopiés : une réponse arrivée entre les deux reste comptée, rien ne passe
+    // sous zéro.
+    const ecartees = await enTranches(journal.horsDeLaMesure(base.soeurs, this.tranche))
+    const lues = journal.mesures()
+    for (const [question, e] of ecartees) {
+      retirerDuCompte(lues.brutes, question, e)
+      retirerDuCompte(lues.premieres, question, e)
+    }
+    return lues
   }
 
   // ── Le journal des réponses (`core/journalDesReponses.ts`) ──────────────
@@ -7638,8 +7649,9 @@ export class CampagneStore {
    * (`lireQuestionDeLaBase`), comme une ligne du dépôt ; écartée, avec sa
    * raison, si elle est d'une autre catégorie, déjà dans la base, dans la
    * réserve du quiz du jour ou dans un quiz livré, si elle pose un fait que
-   * la base ou ce dépôt pose déjà (`IndexDesFaits`), ou si la catégorie a
-   * atteint son plafond du jour. Rangée sous un identifiant neuf, et jouable
+   * la base ou ce dépôt pose déjà (`IndexDesFaits.relever`) — une autre face
+   * de ce fait, elle, entre, liée à lui (`faceDe`, `core/faces.ts`) —, ou si
+   * la catégorie a atteint son plafond du jour. Rangée sous un identifiant neuf, et jouable
    * tout de suite. Un dépôt à la fois : deux routines lancées ensemble ne
    * passeraient pas le plafond, ni ne rangeraient deux fois le même intitulé.
    */
@@ -7673,7 +7685,10 @@ export class CampagneStore {
           continue
         }
         const q = lu.question
-        const memeFait = faits.chercher(q) ?? dansCeDepot.chercher(q)
+        // Une autre face du fait d'une question déjà là entre, liée à elle (`core/faces.ts`) ; un doublon se refuse.
+        const deLaBase = faits.relever(q)
+        const deCeDepot = dansCeDepot.relever(q)
+        const memeFait = deLaBase.doublon ?? deCeDepot.doublon
         const motif =
           q.meta.categorie !== c
             ? `d’une autre catégorie (${q.meta.categorie}) : dépose-la avec la sienne`
@@ -7696,7 +7711,10 @@ export class CampagneStore {
         }
         vues.add(q.empreinte)
         place--
-        const rangee = { ...q, id: nouvelIdentifiant(ids) }
+        // Ses faces, le juge seul les dit : un `faceDe` que la routine aurait écrit ne compte pas.
+        const faces = [...new Set([...deLaBase.faces, ...deCeDepot.faces].map(f => f.id))]
+        const { faceDe: _ecrites, ...sansLien } = q
+        const rangee: QuestionDeLaBase = { ...sansLien, id: nouvelIdentifiant(ids), ...(faces.length > 0 && { faceDe: faces }) }
         dansCeDepot.ajouter(rangee)
         acceptees.push(rangee)
       }
@@ -11373,6 +11391,20 @@ function relireUneEntree(brut: unknown): { question: QuestionDeLaBase } | { refu
 }
 
 /**
+ * Retire d'un compte de la mesure ce qu'une autre face avait soufflé
+ * (`horsDeLaMesure`) — jamais sous zéro, ni plus de justes que de réponses :
+ * une première réponse lue en retard peut avoir changé entre le relevé et la
+ * copie des comptes. Vide, la question n'a plus de mesure.
+ */
+function retirerDuCompte(comptes: Map<string, { justes: number; total: number }>, question: string, ecarte: { justes: number; total: number }) {
+  const c = comptes.get(question)
+  if (!c) return
+  c.total = Math.max(0, c.total - ecarte.total)
+  c.justes = Math.max(0, Math.min(c.total, c.justes - ecarte.justes))
+  if (c.total === 0) comptes.delete(question)
+}
+
+/**
  * Les corrections de l'administrateur, sur la base du dépôt et de la
  * routine : les remplaçantes d'abord — une question neuve, sous son propre
  * identifiant —, puis les corrections sur place, qui prennent la place de la
@@ -11676,7 +11708,7 @@ interface Servies<T> {
   categories: number[]
   sousThemes: number[]
   pas?: readonly number[]
-  deja?: { jumelle(q: T): boolean; prendre(q: T): void }
+  deja?: { jumelle(q: T): boolean; prendre(q: T): void; memeFait?(q: T): boolean }
 }
 
 /**
@@ -11785,21 +11817,36 @@ class TourDeRole<T> {
       if (!deja) return { file: egales[0], i: 0 }
       // La question reçue la première parmi celles qui ne sont pas des
       // jumelles : les rangs d'une file montent, et une file dont la tête
-      // vient après la meilleure trouvée n'a rien de mieux.
+      // vient après la meilleure trouvée n'a rien de mieux. Une autre face du
+      // fait d'une question déjà prise (`memeFait`, `core/faces.ts`) ne se
+      // prend jamais tant qu'il reste autre chose : l'une soufflerait l'autre.
       const question = this.ouverte!.question
+      const memeFait = (q: T) => deja.memeFait?.(q) === true
       let meilleure: { file: FileDuTour; i: number } | null = null
+      let deSecours: { file: FileDuTour; i: number } | null = null
       for (const f of egales) {
         if (meilleure && f.rangs[0] > meilleure.file.rangs[meilleure.i]) break
         for (let i = 0; i < Math.min(f.rangs.length, REGARD_DES_JUMELLES); i++) {
           if (meilleure && f.rangs[i] > meilleure.file.rangs[meilleure.i]) break
-          if (!deja.jumelle(question(f.rangs[i]))) {
+          const q = question(f.rangs[i])
+          if (memeFait(q)) continue
+          if (!deja.jumelle(q)) {
             meilleure = { file: f, i }
             break
           }
+          // Toutes jumelles : la première venue, comme toujours — sauf une autre face d'un fait pris.
+          deSecours ??= { file: f, i }
         }
       }
-      return meilleure ?? { file: egales[0], i: 0 }
+      return meilleure ?? deSecours ?? this.horsDesFaitsPris(egales, memeFait)
     }
+  }
+
+  /** Rien qu'une autre face d'un fait pris parmi les premières de chaque file : la première qui n'en est pas une, plus loin ; sinon la tête, faute de mieux. */
+  private horsDesFaitsPris(egales: readonly FileDuTour[], memeFait: (q: T) => boolean): { file: FileDuTour; i: number } {
+    const question = this.ouverte!.question
+    for (const f of egales) for (let i = 0; i < f.rangs.length; i++) if (!memeFait(question(f.rangs[i]))) return { file: f, i }
+    return { file: egales[0], i: 0 }
   }
 
   private ouvrirLaClasseSuivante(): boolean {
@@ -11875,13 +11922,15 @@ export function tirerUneSerie(
   return new PreparationDuTirage(jouables, mesure).tirer(vues, maintenant)
 }
 
-/** Ce que la préparation d'un tirage lit d'une liste de jouables, sans la mesure : ses files, ses identifiants. */
+/** Ce que la préparation d'un tirage lit d'une liste de jouables, sans la mesure : ses files, ses identifiants, ses questions qui ont des sœurs. */
 interface FilesDuTirage {
   files: Int32Array
   categorieDeLaFile: number[]
   pasDeLaFile: number[]
   nombreDeCategories: number
   parId: Map<string, number> | null
+  /** Les questions qui ont des sœurs — d'autres faces de leur fait (`core/faces.ts`) —, par leur indice : quelques centaines. */
+  liees: Int32Array
 }
 
 /** Une préparation calculée : les marches à cette mesure, et les files de ces jouables. */
@@ -11915,6 +11964,7 @@ function* preparerLeTirage(
   const categories = new Map<string, number>()
   const filesParCategorie = new Map<string, Map<string, number>>()
   const parId = new Map<string, number>()
+  const liees: number[] = []
   let doublon = false
   for (let i = 0; i < n; i++) {
     if (i % tranche === 0 && n > tranche) yield
@@ -11934,8 +11984,12 @@ function* preparerLeTirage(
     files[i] = f
     if (parId.has(q.id)) doublon = true
     else parId.set(q.id, i)
+    if (soeursDe(q)) liees.push(i)
   }
-  return { marches, files: { files, categorieDeLaFile, pasDeLaFile, nombreDeCategories: categories.size, parId: doublon ? null : parId } }
+  return {
+    marches,
+    files: { files, categorieDeLaFile, pasDeLaFile, nombreDeCategories: categories.size, parId: doublon ? null : parId, liees: Int32Array.from(liees) },
+  }
 }
 
 /**
@@ -11974,6 +12028,8 @@ export class PreparationDuTirage {
   private readonly nombreDeCategories: number
   /** Chaque question par son identifiant ; null quand deux le partagent — les vues se lisent alors question par question. */
   private readonly parId: Map<string, number> | null
+  /** Les questions qui ont des sœurs (`core/faces.ts`), par leur indice : vue sous une face, chacune l'est aussi. */
+  private readonly liees: Int32Array
 
   /**
    * `avant`, la préparation des mêmes jouables à une autre mesure : leurs
@@ -11994,6 +12050,7 @@ export class PreparationDuTirage {
     this.specialites = this.pasDeLaFile.flatMap((pas, f) => (pas > 1 ? [f] : []))
     this.nombreDeCategories = faite.files.nombreDeCategories
     this.parId = faite.files.parId
+    this.liees = faite.files.liees
   }
 
   /**
@@ -12020,6 +12077,7 @@ export class PreparationDuTirage {
       pasDeLaFile: this.pasDeLaFile,
       nombreDeCategories: this.nombreDeCategories,
       parId: this.parId,
+      liees: this.liees,
     }
   }
 
@@ -12065,6 +12123,9 @@ export class PreparationDuTirage {
           if (i !== undefined) marquer(i, le)
         }
       } else for (let i = 0; i < n; i++) marquer(i, vues.get(questions[i].id))
+      // Une face d'un fait qu'il a vu sous une autre l'est aussi, à la même heure (`vueDuFait`, `core/faces.ts`) —
+      // même quand l'autre est hors de ces jouables : une autre catégorie, un autre sujet.
+      for (const i of this.liees) marquer(i, vueDuFait(questions[i], vues))
     }
     // Les jamais vues, dans l'ordre du battage, chacune dans la file de sa
     // marche ; les vues à part, dans ce même ordre, pour leurs classes.
@@ -12196,15 +12257,18 @@ export function* tirerUneEpreuveEnTranches(
   // sous-thème égaux, jamais devant une jamais vue ; enfin la plus
   // anciennement vue. Une question par cœur de trop passe juste après la
   // fraîcheur : une épreuve de cinéma posait six réalisateurs.
+  // Et avant tout, une autre face du fait d'une question déjà prise passe en tout dernier (`core/faces.ts`) : l'une
+  // soufflerait l'autre ; une face d'un fait qu'il a vu sous une autre compte pour vue (`fraicheurDe`).
   let parCoeurPris = 0
   const rang = (q: QuestionDeLaBase): number[] => {
     const servi = usage.get(q.meta.sousTheme) ?? 0
-    const f = fraicheur(q.id)
+    const f = fraicheur(q)
     const jumelle = deja.jumelle(q) ? 1 : 0
+    const memeFait = deja.memeFait(q) ? 1 : 0
     const deTrop = regle.parCoeurMax !== undefined && parCoeurPris >= regle.parCoeurMax && parCoeurDe(q) ? 1 : 0
-    if (regle.touteLaCategorie) return [f.recente, servi, f.vue, deTrop, jumelle, f.le]
-    if (duChapitre.size > 0) return [f.recente, duChapitre.has(q.meta.sousTheme) ? 0 : 1, f.vue, deTrop, servi, jumelle, f.le]
-    return [f.recente, f.vue, deTrop, servi, jumelle, f.le]
+    if (regle.touteLaCategorie) return [memeFait, f.recente, servi, f.vue, deTrop, jumelle, f.le]
+    if (duChapitre.size > 0) return [memeFait, f.recente, duChapitre.has(q.meta.sousTheme) ? 0 : 1, f.vue, deTrop, servi, jumelle, f.le]
+    return [memeFait, f.recente, f.vue, deTrop, servi, jumelle, f.le]
   }
   const tirees: { question: QuestionDeLaBase; niveau: Niveau }[] = []
   let examinees = 0

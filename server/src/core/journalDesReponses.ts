@@ -8,6 +8,7 @@ import { horsDeLaBase } from '../../../shared/horsDeLaBase'
 import { jourDe } from '../../../shared/jour'
 import { CARTES_DU_SECOND_ESSAI } from '../../../shared/rencontres'
 import { apresUnPassage, type SuiviDeRevision } from '../../../shared/revision'
+import { QUESTIONS_D_UNE_TRANCHE, type CalculEnTranches } from '../../../shared/tranches'
 import { questionsDuTableau } from './details'
 
 // Le journal des réponses de campagne, gardé en mémoire et lu par différence.
@@ -940,6 +941,54 @@ export class JournalDesReponses {
   mesures(): { brutes: Map<string, Compte>; premieres: Map<string, Compte> } {
     const copie = (comptes: Map<string, Compte>) => new Map([...comptes].map(([q, c]) => [q, { justes: c.justes, total: c.total }]))
     return { brutes: copie(this.brutes), premieres: copie(this.premieres) }
+  }
+
+  /**
+   * Ce que la mesure ne doit pas compter d'une question qui a des sœurs —
+   * d'autres faces de son fait (`core/faces.ts`), par identifiant : la
+   * première réponse hors révision de qui avait déjà répondu à l'une d'elles.
+   * Il avait lu l'autre face, et souvent sa correction : comptée, sa réponse
+   * ferait passer pour facile la question qu'il a trouvée pour avoir vu sa
+   * sœur. Seule sa première réponse s'écarte, celle que la mesure compte en
+   * brut et en première (`mesures`) — une première aidée n'y était déjà pas,
+   * et les suivantes redisent la première, comme pour toute question. Joueur
+   * par joueur, en tranches (`CalculEnTranches`) : chacun ne relit que ses
+   * questions qui ont des sœurs, ou les questions liées s'il en a plus. La
+   * mesure les retire ensuite de ce qu'elle lit (`CampagneStore.mesuresBrutes`).
+   */
+  *horsDeLaMesure(soeurs: ReadonlyMap<string, readonly string[]>, tranche = QUESTIONS_D_UNE_TRANCHE): CalculEnTranches<Map<string, Compte>> {
+    const ecartees = new Map<string, Compte>()
+    if (soeurs.size === 0) return ecartees
+    const juger = (d: Dossier, question: string, p: Paire, siennes: readonly string[]) => {
+      const juste = premiereReponse(p.premiereHorsRevision)
+      if (juste === null) return
+      // Une paire garde l'instant de sa première réponse dans son code (`premiereReponse`) : quatre fois l'instant, plus deux bits.
+      const le = Math.floor(p.premiereHorsRevision / 4)
+      for (const s of siennes) {
+        const soeur = d.paires.get(s)
+        if (soeur && Math.floor(soeur.premiere / 4) < le) {
+          compter(ecartees, question, juste === 1)
+          return
+        }
+      }
+    }
+    let lues = 0
+    for (const d of this.dossiers.values()) {
+      if (d.paires.size <= soeurs.size) {
+        for (const [question, p] of d.paires) {
+          if (++lues % tranche === 0) yield
+          const siennes = soeurs.get(question)
+          if (siennes) juger(d, question, p, siennes)
+        }
+      } else {
+        for (const [question, siennes] of soeurs) {
+          if (++lues % tranche === 0) yield
+          const p = d.paires.get(question)
+          if (p) juger(d, question, p, siennes)
+        }
+      }
+    }
+    return ecartees
   }
 
   /**

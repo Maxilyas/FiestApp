@@ -168,14 +168,15 @@ Les sous-commandes de `base-campagne.ts` :
 | Sous-commande | Ce qu'elle fait |
 |---|---|
 | `consigne <Catégorie> <sous-thème>:<n> …` | La consigne d'un lot, à donner à une IA ; `--nombres` : des questions à nombre |
-| `verifier [--nombres] <lot.json> …` | Ce que le rangement refuserait, et pourquoi |
+| `verifier [--nombres] <lot.json> …` | Ce que le rangement refuserait, et pourquoi ; et les autres faces d'un fait de la base, qu'il rangera liées à lui (`↔ FACE`) |
 | `fiche <lot.json> …` | La fiche de relecture : l'essentiel de chaque question |
 | `appliquer <decisions.json>` | Ce que la relecture a décidé : retirer, corriger une phrase ou une difficulté |
-| `ranger <lot.json> …` | Range des lots vérifiés dans la base : identifiants tirés, doublons écartés, fichiers réécrits une question par ligne |
-| `voisines [<lot.json> …]` | Les questions qui posent sans doute le même fait, et les intitulés presque pareils |
+| `ranger <lot.json> …` | Range des lots vérifiés dans la base : identifiants tirés, doublons écartés, autres faces d'un fait liées à lui (`faceDe`), fichiers réécrits une question par ligne |
+| `voisines [<lot.json> …]` | Les questions qui posent sans doute le même fait, et les intitulés presque pareils — sans les faces déjà liées, qu'il compte |
+| `faces` | Lie les paires que le juge des faits relie et que la base garde : deux faces d'un fait, que le tirage ne pose jamais ensemble. Rien d'autre ne change ; une paire déjà liée ne bouge pas |
 | `racines` | Les questions dont l'intitulé souffle la bonne réponse par sa racine, à relire |
 | `stats` | La base par catégorie, sous-thème et difficulté |
-| `retirer <id> …` | Retire des questions de la base, par identifiant |
+| `retirer <id> …` | Retire des questions de la base, par identifiant — et leur nom des faces qui les nommaient |
 | `reclasser <reclassements.json>` | Change la catégorie, le sous-thème ou les étiquettes de questions de la base, sous leur identifiant : `[{ "id", "categorie"?, "sousTheme"?, "etiquettes"?, "ajouter"? }]`, chacune repassée au juge — un refus, et rien ne s'écrit |
 | `inventaire <thème>` | L'inventaire d'un thème en clair, à relire : chaque famille, ce qu'une commande de six cents questions lui donnerait, et ses sujets |
 | `couverture <thème> [<lot.json> …]` | Les sujets de l'inventaire qu'aucune question du thème n'aborde encore, ou une seule — la base, et les lots nommés |

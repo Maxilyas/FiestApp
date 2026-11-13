@@ -20,6 +20,7 @@
 // d'avant, gardé dans `tirage-a-la-piece.test.ts`.
 
 import type { QuestionDeLaBase } from './baseCampagne'
+import { vueDuFait } from './faces'
 import { DejaPrises, type Intitule } from './jumelles'
 import { reponsesAuRangTire } from './rangDeLaBonne'
 import { niveauDeQuestion, type MesureDUneQuestion, type Niveau } from '../../../shared/campagne'
@@ -96,10 +97,15 @@ export const VUE_RECENTE_MS = 24 * 3600_000
 export const classeDeFraicheur = (le: number | undefined, maintenant: number, fenetreMs = VUE_RECENTE_MS): 0 | 1 | 2 =>
   le === undefined ? 0 : maintenant - le < fenetreMs ? 2 : 1
 
-/** Ce qu'un joueur a vu d'une question : jamais, ou quand pour la dernière fois — et si c'était dans la fenêtre, vingt-quatre heures d'office. */
+/**
+ * Ce qu'un joueur a vu d'une question : jamais, ou quand pour la dernière fois
+ * — et si c'était dans la fenêtre, vingt-quatre heures d'office. Une autre face
+ * de son fait vue compte pour elle (`vueDuFait`, `core/faces.ts`) : l'année
+ * d'un tableau, le soir où il a répondu qui l'a peint en 1830.
+ */
 export function fraicheurDe(vues: Pick<ReadonlyMap<string, number>, 'get'>, maintenant: number, fenetreMs = VUE_RECENTE_MS) {
-  return (id: string): { recente: number; vue: number; le: number } => {
-    const le = vues.get(id)
+  return (q: { id: string }): { recente: number; vue: number; le: number } => {
+    const le = vueDuFait(q, vues)
     return le === undefined ? { recente: 0, vue: 0, le: 0 } : { recente: classeDeFraicheur(le, maintenant, fenetreMs) === 2 ? 1 : 0, vue: 1, le }
   }
 }
@@ -152,8 +158,10 @@ class OrdreParesseux {
 /**
  * Les questions d'une escale de l'expédition — une, ou celles d'un
  * gardien —, choisies comme celles d'une épreuve (`tirerUneEpreuve`) : à sa
- * marche, empruntée au voisin si elle est vide (`EMPRUNTS`) ; jamais vues
- * d'abord, une vue ces vingt-quatre heures en dernier ; puis le sous-thème le
+ * marche, empruntée au voisin si elle est vide (`EMPRUNTS`) ; une autre face
+ * du fait d'une question déjà prise en tout dernier (`DejaPrises.memeFait`) ;
+ * jamais vues d'abord — ce fait jamais vu sous aucune face —, une vue ces
+ * vingt-quatre heures en dernier ; puis le sous-thème le
  * moins servi du tirage ; puis la jumelle d'une question déjà prise après les
  * autres — celles que l'expédition a déjà posées comprises (`posees`) ; puis
  * la plus anciennement vue. Le tas se lit au hasard, dans un ordre tiré à
@@ -237,9 +245,10 @@ export function tirerPourUneEscale(
   const deja = new DejaPrises()
   for (const q of posees) deja.prendre(q)
   const fraicheur = fraicheurDe(vues, maintenant, fenetreMs)
+  // Une autre face d'un fait déjà posé passe derrière tout le reste, fraîcheur comprise : l'une soufflerait l'autre (`core/faces.ts`).
   const rang = (q: QuestionDeLaBase): number[] => {
-    const f = fraicheur(q.id)
-    return [f.recente, f.vue, usage.get(q.meta.sousTheme) ?? 0, deja.jumelle(q) ? 1 : 0, f.le]
+    const f = fraicheur(q)
+    return [deja.memeFait(q) ? 1 : 0, f.recente, f.vue, usage.get(q.meta.sousTheme) ?? 0, deja.jumelle(q) ? 1 : 0, f.le]
   }
   const tirees: { question: QuestionDeLaBase; niveau: Niveau }[] = []
   for (let place = 0; place < combien; place++) {

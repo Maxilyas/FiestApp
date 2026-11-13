@@ -18,6 +18,7 @@ import { QUESTIONS_D_UNE_TRANCHE, dUneTraite, type CalculEnTranches } from '../.
 import type { QuestionDeLaBase } from './baseCampagne'
 import { cibleDeLEstimation, lireLEstimation } from './estimation'
 import { empreinteDe } from './jour'
+import { vueDuFait } from './faces'
 import { DejaPrises } from './jumelles'
 import { reponsesAuRangTire } from './rangDeLaBonne'
 
@@ -211,6 +212,9 @@ const cleDuSousTheme = (q: QuestionDeLaBase) => `${q.meta.categorie}\u0000${q.me
  * qui n'est la jumelle d'aucune déjà prise (`jumelles`) : un quiz de
  * géographie de vingt questions posait deux capitales, un quiz de cinéma deux
  * « Qui a réalisé le film… » (le 12 octobre 2026). À égalité, l'ordre reçu.
+ * Jamais une autre face du fait d'une question déjà prise tant que le
+ * sous-thème a autre chose (`DejaPrises.memeFait`, `core/faces.ts`) : la
+ * salle lirait dans l'une la réponse de l'autre.
  */
 function aTourDeRole(dispo: readonly QuestionDeLaBase[], n: number, servies: Servies): QuestionDeLaBase[] {
   const files = new Map<string, QuestionDeLaBase[]>()
@@ -229,18 +233,22 @@ function aTourDeRole(dispo: readonly QuestionDeLaBase[], n: number, servies: Ser
     const file = files.get(categorie)!
     let moins = Infinity
     for (const q of file) moins = Math.min(moins, compte(servies.sousThemes, cleDuSousTheme(q)))
-    // La première du sous-thème le moins servi qui n'est pas une jumelle ; toutes jumelles, la première.
+    // La première du sous-thème le moins servi qui n'est pas une jumelle ; toutes jumelles, la première — qui n'est
+    // pas une autre face d'un fait déjà pris, s'il y en a une.
     let k = -1
     let premiere = -1
+    let horsDesFaits = -1
     for (let i = 0; i < file.length; i++) {
       if (compte(servies.sousThemes, cleDuSousTheme(file[i])) !== moins) continue
       if (premiere < 0) premiere = i
+      if (servies.deja.memeFait(file[i])) continue
+      if (horsDesFaits < 0) horsDesFaits = i
       if (!servies.deja.jumelle(file[i])) {
         k = i
         break
       }
     }
-    const [q] = file.splice(k < 0 ? premiere : k, 1)
+    const [q] = file.splice(k >= 0 ? k : horsDesFaits >= 0 ? horsDesFaits : premiere, 1)
     tirees.push(q)
     servies.categories.set(categorie, compte(servies.categories, categorie) + 1)
     servies.sousThemes.set(cleDuSousTheme(q), compte(servies.sousThemes, cleDuSousTheme(q)) + pasDuSousTheme(q.meta.categorie, q.meta.sousTheme))
@@ -390,7 +398,9 @@ export function* composerUnQuizEnTranches(
       estimables.get(niveau)!.push(q)
     }
   }
-  const poseeLe = (q: QuestionDeLaBase) => deja.posees.get(idDansLeQuiz(q.id))
+  // Posée sous une autre face de son fait, elle l'est aussi (`vueDuFait`, `core/faces.ts`) : la salle en a lu la réponse.
+  const posees = { get: (id: string) => deja.posees.get(idDansLeQuiz(id)) }
+  const poseeLe = (q: QuestionDeLaBase) => vueDuFait(q, posees)
   // Une réponse soufflée par sa racine — « Les Deux Fridas » pour Frida Kahlo — ne vient qu'en dernier recours,
   // après tout le reste, déjà posé compris : la salle la trouve sans la savoir (l'expert du quiz tout prêt, le
   // 11 octobre 2026). Ce n'est pas un refus : une sur quatre, à peu près, ne souffle rien.
@@ -514,16 +524,20 @@ export function uneAutreQuestion(
     if (q && id !== remplacee.id) autres.prendre(q)
   }
   let meilleure: { q: QuestionDeLaBase; rang: number[] } | null = null
+  // Posée sous une autre face de son fait, elle l'est aussi (`vueDuFait`, `core/faces.ts`).
+  const posees = { get: (x: string) => deja.posees.get(idDansLeQuiz(x)) }
   for (const q of battre(questions, aleatoire)) {
     const id = idDansLeQuiz(q.id)
     if (q === origine || exclues.has(id) || deja.ids.has(id) || deja.empreintes.has(q.empreinte)) continue
     if (q.meta.categorie !== origine.meta.categorie || q.meta.ageMin > origine.meta.ageMin || niveauDe(q) !== niveau) continue
     if (estimation ? !cibleDeLEstimation(q) : niveau === 'expert' && q.reponses.length === 2) continue
     const lesSiens = sujetsDe(q)
-    const posee = deja.posees.get(id)
-    // Le plus petit gagne : ses sujets manquants, la jumelle, une autre rubrique, la réponse soufflée par sa racine,
-    // puis jamais posée, puis la plus anciennement posée.
+    const posee = vueDuFait(q, posees)
+    // Le plus petit gagne : une autre face du fait d'une autre question du quiz en tout dernier — la salle lirait dans
+    // l'une la réponse de l'autre —, puis ses sujets manquants, la jumelle, une autre rubrique, la réponse soufflée par
+    // sa racine, puis jamais posée, puis la plus anciennement posée.
     const rang = [
+      autres.memeFait(q) ? 1 : 0,
       sesSujets.filter(s => !lesSiens.includes(s)).length,
       autres.jumelle(q) ? 1 : 0,
       rubriqueDe(q.meta) === saRubrique ? 0 : 1,

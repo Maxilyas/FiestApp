@@ -221,6 +221,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 
 | Terme | Ce que c'est | Dans le code |
 |---|---|---|
+| Face (d'un fait) | Une question de la base qui pose le même fait qu'une autre sous une autre forme : une réponse chiffrée que l'autre écrit dans son intitulé — l'année d'une œuvre quand l'autre en demande l'auteur. Elle entre, liée à ses sœurs ; le tirage ne pose jamais deux faces d'un fait dans une partie, une face vue compte pour vue chez ses sœurs, et la mesure écarte ce que l'une a soufflé à l'autre | `faceDe`, `soeursDe`, `vueDuFait` (`server/src/core/faces.ts`) |
 | Famille (de faits) | Une sorte de faits tirés de Wikidata (tableaux, films, prix Goncourt…), dont un script fait des fiches à rédiger | `FAMILLES`, `server/scripts/faits-wikidata.ts` |
 | Famille (d'une question) | Les questions de la campagne d'une même catégorie et d'une même difficulté estimée ; ou, pour une réponse qui est une année, un autre nombre ou un vrai ou faux, toutes celles de cette forme et de cette difficulté. De la 1 à la 3, une question part de la part que sa famille trouve | `familleDeQuestion`, `mesuresEnFamille` |
 | Faute de trop | La faute qui franchit la ligne d'or et rate l'épreuve : la septième, la huitième au maître | `issueDe` |
@@ -336,7 +337,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Meilleures ventes | Les thèmes et les compagnons les plus vendus, ces trente jours d'abord puis depuis toujours, sur la page de l'économie du QG — huit au plus ; un thème à prix nul n'est pas une vente | `meilleuresVentes` (`shared/qgEconomie.ts`) |
 | Mélange | La répartition des seize questions d'un palier entre faciles, moyennes, difficiles et expertes : celle du code, ou celle que l'administrateur règle au QG pour les douze sentiers | `Melange`, `PALIERS`, `sentier_melanges` |
 | Mélange (d'une escale) | Une escale de l'expédition qui mêle deux ou trois catégories : sa question vient de l'une d'elles | `ThemeDEscale`, `PART_DES_MELANGES` |
-| Même fait | Deux intitulés différents qui posent le même fait : la même réponse (ou la même grandeur, « 50 ans » et « 50 ») et une entité commune, deux questions retournées, ou une réponse chiffrée déjà écrite dans l'intitulé d'une autre question qui parle de la même chose. Ils sont refusés comme un doublon | `memeFait` |
+| Même fait | Deux intitulés différents qui posent le même fait : la même réponse (ou la même grandeur, « 50 ans » et « 50 ») et une entité commune, ou deux questions retournées — refusés comme un doublon ; ou une réponse chiffrée déjà écrite dans l'intitulé d'une autre question qui parle de la même chose — deux faces du même fait, qui entrent liées | `memeFait`, `lienEntre` |
 | Mémoire des quiz | Ce que l'historique sait de chaque quiz et de chaque question — joué combien de fois, trouvée par combien —, dérivé des fiches des soirées | `server/src/core/memoire.ts` |
 | Ménage | L'effacement des pièces que plus aucun quiz ne cite, une heure après, jamais celles d'une partie, d'une soirée archivée ou d'un partage vivant | `pruneImages` |
 | « Mes trophées » | Le panneau de la pièce « Vitrine » de la loge : les trophées gagnés, à toucher jusqu'à trois, dans l'ordre où la carte les montrera — « Mes hauts faits » jusqu'au 13 octobre 2026 | `MaVitrine` (`client/src/components/Trophees.tsx`) |

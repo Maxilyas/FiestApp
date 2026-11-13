@@ -9,6 +9,7 @@
 // se jouent tout de suite, sans déploiement, et survivent au réveil.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import Database from 'better-sqlite3'
 import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import {
   CIBLE_DES_DIFFICULTES,
@@ -220,10 +221,25 @@ test('le dépôt écarte un fait que la base ou ce dépôt pose déjà : sous un
     assert.match(retournee.corps.ecartees[0].motif, /^pose sans doute le même fait que « Quel oiseau tambourine sur les troncs/)
   }))
 
-test('le dépôt écarte une réponse chiffrée qu’un intitulé écrit déjà, et dit à celle qui l’écrit quoi retirer', () =>
+/** Ce que la base permanente garde des dépôts de la routine, entrée par entrée, sous son intitulé. */
+function lesAjouts(banc: Banc): Map<string, { id: string; faceDe?: string[] }> {
+  const db = new Database(banc.quizDbUrl.slice('file:'.length), { readonly: true })
+  try {
+    const lignes = db.prepare('SELECT entree FROM campagne_ajouts').all() as { entree: string }[]
+    return new Map(lignes.map(l => JSON.parse(l.entree)).map((e: { texte: string; id: string; faceDe?: string[] }) => [e.texte, e]))
+  } finally {
+    db.close()
+  }
+}
+
+test('le dépôt range une réponse chiffrée qu’un intitulé écrit déjà comme une autre face de ce fait, liée à lui, dans les deux sens', () =>
   avecBanc({ jetonDeLaReserve: JETON }, async banc => {
-    // Le 9 novembre 2026, le juge laissait passer la question à nombre : l'autre ne lit pas sa réponse en retour.
+    // Le 9 novembre 2026, le juge laissait passer la question à nombre : l'autre ne lit pas sa réponse en retour. Le lendemain,
+    // il la refusait comme le même fait, et la date d'une œuvre, écrite dans l'intitulé qui demande son auteur, fermait toutes
+    // les années connues au Filet. Depuis le 12 novembre 2026, elle entre, liée à sa sœur (`faceDe`, `core/faces.ts`) : le
+    // tirage ne les pose jamais ensemble.
     const echassier = 'Quel grand échassier gris, haut d’environ 120 centimètres, traverse la France en V à l’automne ?'
+    const hauteur = 'Quelle hauteur atteint une grue cendrée dressée, en centimètres ?'
     const premier = await routine(banc, '/api/campagne/base', {
       corps: {
         categorie: 'Nature',
@@ -231,25 +247,24 @@ test('le dépôt écarte une réponse chiffrée qu’un intitulé écrit déjà,
           entree(echassier, { reponses: ['La grue cendrée', 'La cigogne blanche', 'Le héron cendré', 'Le flamant rose'] }),
           // Sa réponse est écrite dans l'intitulé d'avant, qui a pour réponse ce dont elle demande la hauteur.
           {
-            ...entree('Quelle hauteur atteint une grue cendrée dressée, en centimètres ?', {
+            ...entree(hauteur, {
               reponses: ['120 cm', '80 cm', '100 cm', '150 cm'],
               entites: [{ nom: 'Grue cendrée', type: 'espece', description: 'grand échassier migrateur' }],
             }),
             valeur: { nombre: 120, unite: 'cm' },
+            // Ce que la routine écrirait d'elle-même ne compte pas : le juge seul lie deux faces.
+            faceDe: ['zzzzzzzz'],
           },
         ],
       },
     })
     assert.equal(premier.status, 200, premier.corps.error)
-    assert.equal(premier.corps.ajoutees, 1, JSON.stringify(premier.corps.ecartees))
-    assert.deepEqual(
-      premier.corps.ecartees.map((e: any) => e.motif),
-      [`pose sans doute le même fait que « ${echassier} » (Nature) : écris-en un autre`],
-    )
-    // Dans l'autre sens : la question à nombre est rangée, celle qui écrit sa réponse arrive. Elle pose un autre fait — le
-    // motif lui dit le nombre à retirer, pas d'en changer.
+    assert.equal(premier.corps.ajoutees, 2, JSON.stringify(premier.corps.ecartees))
+    assert.deepEqual(premier.corps.ecartees, [])
+    // Dans l'autre sens : la question à nombre est rangée, celle qui écrit sa réponse arrive, à un autre dépôt — liée de même.
     const loup = [{ nom: 'Loup gris', type: 'espece', description: 'grand canidé sauvage' }]
     const retour = 'En quelle année le loup est-il revenu en France, par les Alpes du Sud ?'
+    const massif = 'Dans quel massif le loup, venu d’Italie, est-il revu en France en 1992 ?'
     const annee = await routine(banc, '/api/campagne/base', {
       corps: {
         categorie: 'Nature',
@@ -257,23 +272,19 @@ test('le dépôt écarte une réponse chiffrée qu’un intitulé écrit déjà,
       },
     })
     assert.equal(annee.corps.ajoutees, 1, JSON.stringify(annee.corps.ecartees))
-    const massif = await routine(banc, '/api/campagne/base', {
+    const revu = await routine(banc, '/api/campagne/base', {
       corps: {
         categorie: 'Nature',
-        entrees: [
-          entree('Dans quel massif le loup, venu d’Italie, est-il revu en France en 1992 ?', {
-            sousTheme: 'mammiferes',
-            reponses: ['Le Mercantour', 'Le Vercors', 'Les Écrins', 'Le Queyras'],
-            entites: loup,
-          }),
-        ],
+        entrees: [entree(massif, { sousTheme: 'mammiferes', reponses: ['Le Mercantour', 'Le Vercors', 'Les Écrins', 'Le Queyras'], entites: loup })],
       },
     })
-    assert.equal(massif.corps.ajoutees, 0)
-    assert.deepEqual(
-      massif.corps.ecartees.map((e: any) => e.motif),
-      [`donne dans son intitulé la réponse (1992) de « ${retour} » (Nature) : retire-la de l’intitulé, ou écris une autre question`],
-    )
+    assert.equal(revu.corps.ajoutees, 1, JSON.stringify(revu.corps.ecartees))
+    assert.deepEqual(revu.corps.ecartees, [])
+    // La base permanente garde le lien : chaque face nomme celle qui était là avant elle.
+    const ajouts = lesAjouts(banc)
+    assert.deepEqual(ajouts.get(hauteur)?.faceDe, [ajouts.get(echassier)!.id])
+    assert.equal(ajouts.get(echassier)?.faceDe, undefined)
+    assert.deepEqual(ajouts.get(massif)?.faceDe, [ajouts.get(retour)!.id])
   }))
 
 test('le dépôt : relu par le juge de la base, les doublons écartés, le reste jouable tout de suite et gardé au réveil', () =>

@@ -59,6 +59,13 @@ import { rendreLaMain } from './tourniquet'
 // propriétaire, le 10 novembre 2026 : 176 de ces 218 questions servent au
 // Filet du Cabinet —, et la règle ne vaut que pour ce qui arrive.
 //
+// Depuis le 12 novembre 2026, ce ne sont plus des doublons mais deux faces du
+// même fait (`lienEntre`, `core/faces.ts`) : l'une se range, liée à l'autre, et
+// le tirage ne les pose jamais ensemble — la date d'une œuvre écrite dans
+// l'intitulé qui demande son auteur fermait au Filet toutes les années que
+// chaque Français sait placer. La base a lié les siennes le même jour
+// (`base-campagne.ts faces`).
+//
 // Et deux réponses chiffrées qui disent la même grandeur sont la même réponse
 // (`grandeurDe`) : la base avait les noces d'or en « 50 ans » et en « 50 »,
 // la semaine du Front populaire en « 40 h » et en « 40 heures », la chope de
@@ -296,13 +303,35 @@ function chiffreeEcrite(a: Fait, b: Fait): boolean {
   return (retournee || a.chiffres.some(n => n.length >= 3)) && a.chiffres.every(n => b.intitule.includes(` ${n} `))
 }
 
-/** Ces deux faits sont-ils le même — posé deux fois, ou retourné ? */
+/**
+ * Ce que deux questions qui posent le même fait sont l'une pour l'autre : un
+ * doublon — le même fait posé deux fois, ou retourné, ce qui se refuse —, ou
+ * deux faces du même fait (`core/faces.ts`) : une réponse chiffrée que l'autre
+ * écrit dans son intitulé, l'année d'une œuvre quand l'autre en demande
+ * l'auteur. Le juge les refusait aussi, jusqu'au 12 novembre 2026 : chaque fait
+ * connu n'existait que sous une face, et l'acte I du Filet perdait 115 des 129
+ * années que chaque Français sait placer. Une face se range, liée à sa sœur
+ * (`QuestionDeLaBase.faceDe`), et c'est le tirage qui ne les pose jamais
+ * ensemble. Les autres retournées restent des doublons — Charlot et Charlie
+ * Chaplin, le dragon du Bhoutan : le choix du propriétaire de commencer petit.
+ */
+export type LienEntreDeuxFaits = 'doublon' | 'face'
+
+/** Le lien entre deux faits (`LienEntreDeuxFaits`) ; null : ce ne sont pas les mêmes. */
+export function lienEntre(a: Fait, b: Fait): LienEntreDeuxFaits | null {
+  if (!memeReponse(a, b)) {
+    if (retournees(a, b)) return 'doublon'
+    return chiffreeEcrite(a, b) || chiffreeEcrite(b, a) ? 'face' : null
+  }
+  for (const e of a.entites) if (b.entites.has(e)) return 'doublon'
+  if (a.chiffree || b.chiffree) return null
+  if (aucunNombreCommun(a.nombres, b.nombres)) return null
+  return proximite(a.mots, b.mots) >= PROXIMITE_DU_MEME_FAIT ? 'doublon' : null
+}
+
+/** Ces deux faits sont-ils le même — posé deux fois, retourné, ou sous une autre face ? */
 export function memeFait(a: Fait, b: Fait): boolean {
-  if (!memeReponse(a, b)) return retournees(a, b) || chiffreeEcrite(a, b) || chiffreeEcrite(b, a)
-  for (const e of a.entites) if (b.entites.has(e)) return true
-  if (a.chiffree || b.chiffree) return false
-  if (aucunNombreCommun(a.nombres, b.nombres)) return false
-  return proximite(a.mots, b.mots) >= PROXIMITE_DU_MEME_FAIT
+  return lienEntre(a, b) !== null
 }
 
 interface Entree<Q> {
@@ -349,12 +378,34 @@ export class IndexDesFaits<Q extends AvecUnFait> {
     }
   }
 
-  /** La question qui pose déjà ce fait, s'il y en a une. */
+  /** La question qui pose déjà ce fait, s'il y en a une — en doublon ou sous une autre face. */
   chercher(q: AvecUnFait): Q | undefined {
     const fait = faitDe(q)
     if (!fait) return undefined
     for (const x of this.candidates(fait)) if (memeFait(fait, x.fait)) return x.question
     return undefined
+  }
+
+  /**
+   * Ce que la base dit d'une question qui arrive : celle qu'elle doublerait —
+   * elle se refuse —, ou celles dont elle serait une autre face — elle se
+   * range, liée à elles (`QuestionDeLaBase.faceDe`). Un doublon l'emporte :
+   * une face qui en double une autre ne se range pas.
+   */
+  relever(q: AvecUnFait): { doublon?: Q; faces: Q[] } {
+    const fait = faitDe(q)
+    const faces: Q[] = []
+    if (!fait) return { faces }
+    // Deux entités en commun font croiser deux fois la même candidate.
+    const vues = new Set<number>()
+    for (const x of this.candidates(fait)) {
+      if (vues.has(x.rang)) continue
+      vues.add(x.rang)
+      const lien = lienEntre(fait, x.fait)
+      if (lien === 'doublon') return { doublon: x.question, faces: [] }
+      if (lien === 'face') faces.push(x.question)
+    }
+    return { faces }
   }
 
   /** Toutes les paires de la base qui posent le même fait, chacune une fois : deux questions qui partagent deux entités se croisent deux fois. */

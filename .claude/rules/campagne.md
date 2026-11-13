@@ -186,6 +186,30 @@ paths:
   `rang-de-la-bonne.test.ts` relit la répartition sur la base livrée — 26,
   25, 24, 25 %, et la plus proche de la moyenne, qui trouvait 64 % des
   années, sous le tiers.
+- **Deux faces d'un même fait : jamais dans une partie, vues l'une pour
+  l'autre, mesurées à part** (`core/faces.ts`, le 12 novembre 2026 ; la
+  base et le juge : règle `campagne-base.md`). Une question liée a ses sœurs
+  par la question même (`soeursDe`, retenues par la base qui l'a lue) ; un
+  tirage n'a rien à recevoir de plus. **Dans une partie**, `DejaPrises`
+  retient l'identifiant de chaque prise (`Intitule.id` — le Cabinet le met à
+  ses `Posees`) et reconnaît une autre face d'un fait pris (`memeFait`) : en
+  tête du rang de l'épreuve, de l'escale et du Cabinet, de « Une autre » au
+  quiz tout prêt, avant la fraîcheur ; sautée par le tour de rôle d'une série
+  (`TourDeRole`, `horsDesFaitsPris` faute de mieux) et du quiz tout prêt —
+  en tout dernier recours, jamais un refus : une partie se joue toujours.
+  **Vue sous une face, la sœur l'est aussi**, à la même heure (`vueDuFait`) :
+  `fraicheurDe` la lit pour l'épreuve et l'escale, la préparation d'une série
+  marque ses questions liées depuis leurs sœurs, même hors de ses jouables
+  (`PreparationDuTirage.liees`), le quiz tout prêt ses posées. **La mesure**
+  écarte la première réponse hors révision de qui avait répondu à une sœur
+  (`JournalDesReponses.horsDeLaMesure`, relevé avant la copie des comptes
+  dans `mesuresBrutes` : jamais sous zéro) ; le modèle du savoir, lui, les
+  compte encore. Une question sans sœur — presque toutes — ne change rien au
+  tirage, au même hasard : les tests qui comparent au tirage d'avant tirent
+  sur des bases sans lien, ou sur `lireLaBase()`, qui ne retient pas de
+  sœurs — seule `BaseDeLaCampagne` les retient. Un tirage de plus lit
+  `memeFait` et `vueDuFait`, ou il pose deux faces ensemble
+  (`faces.test.ts`).
 - **Le tirage à la pièce vit à part** (`core/tirageALaPiece.ts`, le
   25 octobre 2026, pour que le Cabinet de curiosités tire sans
   `CampagneStore`) : la fraîcheur que tous les tirages partagent
