@@ -4232,6 +4232,30 @@ h3 > .icon {
   line-height: 1;
 }
 
+/* Le point sans lissage d'un avatar dessiné (`SansLissage`, `Avatar.tsx`) :
+   au centre, sous l'emoji ou le médaillon, hors du flux. Il doit se peindre
+   pour compter — jamais `display: none` ni `visibility: hidden` là où il
+   sert : c'est sa présence dans le calque qui fait renoncer Chrome au
+   multi-échantillonnage, où un téléphone Android perdait ses tuiles (règle
+   `css.md`). L'écran commun garde sa façon de peindre : un PC sous Windows,
+   que cette panne ne concerne pas. */
+/* `.av >` : plus fort que la règle d'une page qui dimensionne ses dessins (`.timbre svg`, `.courbes svg`). */
+.av > .av-sans-lissage { position: absolute; left: 50%; top: 50%; width: 1px; height: 1px; pointer-events: none; }
+.host .av-sans-lissage { display: none; }
+
+/* Les essais sur le téléphone d'un joueur (`?sans=…`, `poserLEssai`,
+   `main.tsx`) : ôter une pièce des avatars d'une liste, le temps d'une page,
+   pour voir laquelle change ce qu'il voit — une panne de sa carte graphique
+   ne se rejoue sur aucune machine d'ici. Rien n'est écrit, rien ne se garde.
+   `!important` : un essai passe devant toute règle, d'où qu'elle vienne — la
+   gemme d'un médaillon de liste se montre par une règle aussi forte, plus bas. */
+:root[data-sans~='sonde'] .av-sans-lissage { display: none !important; }
+:root[data-sans~='lumiere'] :is(.lb-avatar, .player-chip) .lu { display: none !important; }
+:root[data-sans~='bordure'] :is(.lb-avatar, .player-chip) .bo { display: none !important; }
+:root[data-sans~='medaillon'] :is(.lb-avatar, .player-chip) :is(.lg, .pt, .dv, .sc) { display: none !important; }
+:root[data-sans~='gemme'] :is(.lb-avatar, .player-chip .av).av-eclat::after { display: none !important; }
+:root[data-sans~='motif'] .lb-row.plaque > .plaque-motif { display: none !important; }
+
 /* Dans une phrase (`AvatarEnLigne`) — les vainqueurs du défi, le bilan,
    l'historique : un médaillon n'a pas de ligne de base, et se posait
    au-dessus du texte. Centré sur lui, comme l'emoji. */
@@ -6406,33 +6430,6 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .player-chip .lg-debord,
 .player-chip .dv-rayons,
 .player-chip .dv-etincelles {
-  display: none;
-}
-
-/* Dans une liste, rien ne se mêle à ce qui est dessous (`mix-blend-mode`) :
-   la pellicule d'un légendaire, sa trame, son reflet, ses paillettes, l'éclat
-   qui glisse sur l'or d'un Divin. Une fusion fait relire à la carte graphique
-   ce qu'elle vient de peindre, et c'est ce qu'on soupçonne sur un téléphone
-   Android : au classement du quiz du jour, les lignes du haut en friture —
-   leurs prénoms, leurs points, jusqu'au compagnon de la niche recopié en
-   mosaïque —, les médaillons seuls restant par-dessus, et la friture
-   s'arrêtant chaque fois après l'un d'eux (trois retours du même téléphone,
-   les 9, 10 et 13 novembre 2026, sous Le Ciel puis la Guinguette : alléger
-   les calques des lignes, puis ceux du décor, n'y avait rien changé). Rien
-   ici ne le reproduit : c'est la seule opération de ces lignes qui relit ce
-   qui est peint. À 26 px, figée, la pellicule ne se voyait pas — un
-   cinquième d'opacité sur un disque de la taille d'un ongle. Elle reste là
-   où le médaillon est le sujet (`av-sujet`), la carte, le profil, la loge. */
-.av.lb-avatar:not(.av-sujet) .lg-feuille,
-.av.lb-avatar:not(.av-sujet) .lg-diffraction,
-.av.lb-avatar:not(.av-sujet) .lg-reflet,
-.av.lb-avatar:not(.av-sujet) .lg-paillettes,
-.av.lb-avatar:not(.av-sujet) .dv-or,
-.player-chip .lg-feuille,
-.player-chip .lg-diffraction,
-.player-chip .lg-reflet,
-.player-chip .lg-paillettes,
-.player-chip .dv-or {
   display: none;
 }
 

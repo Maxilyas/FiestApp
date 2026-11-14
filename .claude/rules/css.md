@@ -339,27 +339,47 @@ paths:
   52 Mo, c'est un bout de la page qui manque — son titre, son bouton du bas :
   elle pèse encore 48 Mo à la densité 2,625 sous Le Ciel, dont 37 pour le
   décor — et 10 en tout sous le Velours.
-- **Dans une liste, rien ne se mêle à ce qui est dessous** (`mix-blend-mode`,
-  `backdrop-filter`). Le même téléphone Android, une troisième fois, le
-  13 novembre 2026, sous la Guinguette — une page de 10 Mo, un seul calque :
-  les six premières lignes du classement du jour en friture, le compagnon de
-  la niche recopié en mosaïque à leur place, les médaillons seuls par-dessus.
-  Alléger les calques des lignes (le 9) puis ceux du décor (le 10) n'y avait
-  donc rien changé : ces deux pièges tiennent pour ce qu'ils mesurent, pas
-  comme la cause de cette friture. Le soupçon : la pellicule d'un légendaire
-  (`.lg-feuille`, `.lg-diffraction`, `.lg-reflet`, `.lg-paillettes`) et l'or
-  d'un Divin (`.dv-or`) fusionnent avec ce qui est peint dessous, ce qui le
-  fait relire à la carte graphique — et sur les trois captures la friture
-  s'arrête juste après un médaillon. Elles se retirent des listes
-  (`.lb-avatar:not(.av-sujet)`, `.player-chip` ; à 26 px la planche avant et
-  après ne diffère qu'à la loupe) et restent où le médaillon est le sujet.
-  **Rien ici ne reproduit cette friture** — le Chromium des rendus dessine
-  tout, à tous les budgets : tant que ce téléphone ne l'a pas confirmé, c'est
-  un soupçon. S'il revient : son modèle, sa version de Chrome et
-  `chrome://gpu` d'abord, puis ce qui reste de singulier dans une ligne — les
-  filtres des lumières sous l'Ivoire, le `drop-shadow` du sceau, l'opacité du
-  motif d'une plaque. `calques-des-listes.test.ts` refuse une fusion de plus
-  dans un médaillon qui ne se retirerait pas des listes.
+- **Un avatar dessiné fait peindre son calque sans multi-échantillonnage**
+  (`SansLissage`, `Avatar.tsx` ; `.av-sans-lissage`). Le même téléphone
+  Android, quatre fois du 9 au 14 novembre 2026 : au classement du quiz du
+  jour, des tuiles entières en friture — les lignes, leurs prénoms, leurs
+  points, et à leur place ce qui traînait dans la mémoire de la carte
+  graphique, jusqu'au compagnon de la niche recopié en mosaïque —, les
+  médaillons et les motifs des plaques seuls par-dessus. Trois corrections à
+  côté : les calques des lignes (le 9), ceux du décor du Ciel (le 10) — deux
+  pièges qui tiennent pour ce qu'ils mesurent, pas comme la cause —, puis les
+  fusions des médaillons (le 13, `mix-blend-mode` : retiré depuis, le
+  téléphone l'a démenti). Ce qui a tranché : son `chrome://gpu` (un Redmi,
+  Mali-G52, pilote r49p1 « bet0 », Android 16, Chrome 157, Skia en GL par
+  ANGLE, `EXT_multisampled_render_to_texture`), et les captures relues tuile
+  par tuile — la friture couvre, chaque fois, exactement les tuiles que
+  touche l'avatar d'un même joueur, aux Abysses : une le 10, deux le 13 où
+  son médaillon chevauchait leur frontière, sa seule ligne le 9 quand chaque
+  ligne avait son calque ; d'autres médaillons éclatés, à gemme, sur des
+  tuiles propres. Ses méduses ont des tentacules en traits, et Chrome ne
+  trace un trait qu'en multi-échantillonnage (MSAA dynamique) quand le calque
+  s'y prête : la tuile passe alors d'une texture simple à une texture
+  multi-échantillonnée en cours de dessin, et tout indique que ce pilote y
+  perd ce qui était déjà peint (le relevé : `retours/2026-11-14/friture.md`). **Chrome renonce au MSAA pour tout calque qui contient un
+  dessin sans lissage** : l'avatar dessiné en pose un, un pixel à deux
+  centièmes d'opacité sous lui (`shape-rendering: crispEdges`, la seule
+  façon de le dire). Relevé dans un Chromium tracé
+  (`retours/2026-11-14/reproductions/passes-msaa.mts`) : des centaines de
+  traits tracés en MSAA au classement sans le point (562 à 874 selon l'essai),
+  aucun avec, et la photo la même à l'œil.
+  **Rien ici ne rejoue cette friture** : ce que le point change sur ce
+  téléphone ne se lit que sur lui. D'où les essais (`?sans=…`,
+  `poserLEssai`, `main.tsx`, `docs/reference/adresses.md`) : un lien ôte une
+  pièce des avatars d'une liste le temps d'une page — `sonde`, le point
+  lui-même, `lumiere`, `bordure`, `medaillon`, `gemme`, `motif` —, et son
+  joueur dit ce qui change. Ce qui le tient : le point se peint (jamais
+  `display: none` ni opacité nulle là où il sert — l'écran commun seul
+  l'ôte, un PC que la panne ne concerne pas) ; il est dans le calque de
+  l'avatar (son enfant direct) ; un emoji nu n'en porte pas (invariant 8 :
+  l'invité anonyme rend un emoji et rien d'autre). Une page où des traits se
+  tracent sans avatar — une icône seule sur un calque à part — garde le
+  MSAA : si la friture y paraît, le point s'y pose de même.
+  `sans-lissage.test.ts`.
 - **Le décor d'un thème tient dans le moins de couches fixes possible.**
   Chaque couche fixe plein écran est un calque de 10 Mo à la densité d'un
   téléphone, et le contenu de la page, qui passe devant, en devient un de

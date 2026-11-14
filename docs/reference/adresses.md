@@ -59,6 +59,8 @@ Chaque page sans espace pose le titre de son onglet dès le premier rendu (« Me
 | `/<espace>/bilan#p=<invité>`, `#salle` | le bilan d'un invité, le bilan de la soirée |
 | `/activer#t=<jeton>` | le jeton d'activation, que le navigateur garde pour lui |
 
+Toute page lit aussi `?sans=<pièce>[,<pièce>]` (`poserLEssai`, `client/src/main.tsx`) : un essai sur le téléphone d'un joueur, pour une panne d'affichage qui ne se rejoue pas ailleurs. Le temps de cette page, il ôte une pièce des avatars d'une liste — `lumiere`, `bordure`, `medaillon`, `gemme`, `motif` (celui d'une plaque de nom), ou `sonde`, le point sans lissage d'un avatar dessiné (`/jour?sans=sonde#classement`). Rien n'est écrit ni gardé, et le serveur n'en lit rien.
+
 Les fragments d'avant mènent à l'écran qui les a repris : sur `/profil`, `#avatars`, `#style-…`, `#carte-…`, `#trophees` (et `#mes-themes`, vers `/boutique`) ; dans « Ma collection », les trois lignes d'avatars d'avant (`#collection-legendaires`, `#collection-savoir`, `#collection-emojis`) mènent à leur page de l'album des avatars, et les dix lignes de trophées d'avant (`#collection-paliers`, `#collection-jour`…) à la page de leur mode dans l'album des trophées ; sur `/campagne`, `#duel-<code>` et `#defier`, réécrits sur `/duels` ; sur `/boutique`, `#vies`, la fiche de la vie.
 
 ## Les pages d'un espace
