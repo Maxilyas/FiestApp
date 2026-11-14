@@ -211,6 +211,27 @@ if (App !== HostApp) installerClavier()
 if (App !== HostApp) ecouterLInstallation()
 
 /**
+ * Un essai sur le téléphone d'un joueur : `?sans=lumiere` ôte, le temps de
+ * cette page, une pièce des avatars d'une liste (`:root[data-sans~='…']`,
+ * `styles.css`) — `lumiere`, `bordure`, `medaillon`, `gemme`, `motif`, et
+ * `sonde`, le point sans lissage d'un avatar dessiné. Une panne de carte
+ * graphique ne se rejoue pas ici : le classement en friture d'un téléphone
+ * Android a pris quatre retours, dont trois corrections à côté (du 9 au
+ * 14 novembre 2026) ; un lien à ouvrir, et son joueur dit ce qui change.
+ * Rien n'est écrit ni gardé : sans le paramètre, la page est celle de tous.
+ */
+function poserLEssai() {
+  try {
+    const sans = new URLSearchParams(window.location.search).get('sans')
+    const pieces = (sans ?? '').split(',').filter(piece => /^[a-z]+$/.test(piece))
+    if (pieces.length) document.documentElement.dataset.sans = pieces.join(' ')
+  } catch {
+    // Une adresse illisible : la page de tous.
+  }
+}
+poserLEssai()
+
+/**
  * Le bandeau d'environnement.
  *
  * Le serveur pose `<meta name="app-env">` dans la page hors production. Deux

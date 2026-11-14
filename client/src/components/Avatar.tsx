@@ -91,6 +91,36 @@ interface Props {
  * par page, et pas de remède bon marché — attendre retarderait son arrivée
  * chez tout le monde, précharger ferait tout télécharger à chacun.
  */
+/**
+ * Un point sans lissage, sous l'avatar dessiné — invisible : un pixel à deux
+ * centièmes d'opacité, que l'emoji ou le médaillon recouvre.
+ *
+ * Il ne dessine rien : il change la façon dont Chrome peint le calque qui le
+ * porte. Un calque riche en tracés se peint en multi-échantillonnage (MSAA),
+ * sauf s'il contient un dessin sans lissage — Chrome y renonce alors pour
+ * tout le calque, et lisse chaque tracé à part. Or tout indique que c'est
+ * dans ce mode qu'un téléphone Android (Mali-G52, pilote r49p1 « bet0 »,
+ * Chrome 157) perdait ses tuiles : au classement du quiz du jour, toute
+ * tuile que touchait un avatar aux Abysses — les tentacules de ses méduses
+ * sont des traits, que Chrome trace en MSAA — rendait à la place de ses
+ * lignes ce qui traînait dans la mémoire de la carte graphique (quatre
+ * retours du même téléphone, du 9 au 14 novembre 2026 ; la panne ne se
+ * rejoue pas ici : règle `css.md`, `retours/2026-11-14/friture.md`).
+ *
+ * `shape-rendering` est la seule façon de dire « sans lissage » à un dessin.
+ * Un composant, pas une constante : un JSX évalué au chargement du module
+ * demande React avant que la page l'ait posé. La feuille l'ôte de l'écran
+ * commun (`.host`), que rien de cela ne concerne, et `?sans=sonde` l'ôte
+ * d'une page pour vérifier ce qu'il change (`main.tsx`).
+ */
+function SansLissage() {
+  return (
+    <svg className="av-sans-lissage" width="1" height="1" viewBox="0 0 1 1" aria-hidden="true" focusable="false">
+      <rect width="1" height="1" fill="currentColor" fillOpacity="0.02" shapeRendering="crispEdges" />
+    </svg>
+  )
+}
+
 export function Avatar({ avatar, finition, eclat, legendaire, className, grand, bordure, sceau }: Props) {
   const divin = legendaire && divinDe(legendaire) ? legendaire : null
   const porte = !divin && legendaire && legendaireDe(legendaire) ? legendaire : null
@@ -156,6 +186,8 @@ export function Avatar({ avatar, finition, eclat, legendaire, className, grand, 
       {scelle && Sceau && <Sceau finition={finition ?? 'mat'} />}
     </>
   )
+  // Tout ce qui se dessine en vecteurs autour de l'emoji ou à sa place : un emoji nu n'en a pas.
+  const dessine = !!lumiere || !!cadre || classes.includes('av-divin') || classes.includes('av-legendaire') || classes.includes('av-portrait') || !!matiere
   return (
     <span className={classes.join(' ')}>
       {lumiere && Lumiere ? (
@@ -165,6 +197,8 @@ export function Avatar({ avatar, finition, eclat, legendaire, className, grand, 
       ) : (
         dedans
       )}
+      {/* En dernier : sous l'emoji et le médaillon quand même (`z-index`), et rien de ce qui précède ne change de place. */}
+      {dessine && <SansLissage />}
     </span>
   )
 }
