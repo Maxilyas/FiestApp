@@ -1,20 +1,20 @@
-// La frise de l'Expédition (l'étape 5 de « La question au centre », le
-// 20 octobre 2026) : quatre événements à remettre dans l'ordre, du plus ancien
-// au plus récent — « des événements à remettre dans l'ordre », disait le
-// testeur. Le brief : `retours/2026-10-20/la-frise.md`.
+// La frise (née avec celle de l'Expédition, l'étape 5 de « La question au
+// centre », le 20 octobre 2026) : des événements à remettre dans l'ordre, du
+// plus ancien au plus récent — « des événements à remettre dans l'ordre »,
+// disait le testeur. Le brief : `retours/2026-10-20/la-frise.md`.
 //
 // Ses événements viennent de la base de la campagne : chacun est une question
 // datée, récrite en une ligne (`server/content/frises/evenements.json`). Son
 // année est celle de la question, déjà relue — la ligne ne fait que dire ce
 // qui s'est passé, jamais quand.
 //
-// Ici, ce qui ne dépend que d'elle : ce qu'une ligne doit être, le choix de
-// ses événements — quatre ; sept au Cabinet de curiosités, dont la frise
-// grandit de manche en manche —, l'ordre où la page les montre, ce que le
-// téléphone envoie et ce que le serveur juge. Le générateur pose la forme sur
-// la carte (`carteDUnActe`), le serveur tire la frise (`server/src/core/frises.ts`).
-
-import type { Niveau } from './campagne'
+// Ici, ce qui ne dépend que d'elle et que le Cabinet de curiosités lit : ce
+// qu'une ligne doit être, le choix des sept événements d'une frise à thème, ce
+// que le téléphone envoie (`lireUnOrdre`) et ce que le serveur relit d'une
+// frise jouée (`ordreGarde`). Le 16 novembre 2026, le choix de quatre
+// événements, l'ordre montré et le jugement de l'Expédition
+// (`choisirLaFrise`, `ordreMontre`, `friseJuste`…) sont partis avec elle : plus
+// aucun lecteur que leurs épreuves.
 
 /** Un événement de la frise, tel que le serveur le tient : sa ligne, et l'année et la catégorie de sa question. */
 export interface EvenementDeLaFrise {
@@ -24,18 +24,6 @@ export interface EvenementDeLaFrise {
   annee: number
   categorie: string
 }
-
-/** Les événements d'une frise : trois se trouveraient une fois sur six au hasard ; quatre, une sur vingt-quatre. */
-export const EVENEMENTS_D_UNE_FRISE = 4
-
-/**
- * L'écart, en années, entre deux événements voisins d'une frise, à chaque
- * marche : la facile se range d'intuition — « le téléphone vient avant
- * l'avion » —, la difficile demande de savoir. Une catégorie trop serrée pour
- * l'écart demandé le divise par deux, jamais sous un an (`choisirLaFrise`).
- * Des choix de produit.
- */
-export const ECART_DE_LA_FRISE: Readonly<Record<Niveau, number>> = { facile: 30, moyen: 10, difficile: 3, expert: 1 }
 
 /** La question d'une frise, toujours la même : ce qui change, ce sont ses événements. */
 export const QUESTION_DE_LA_FRISE = 'Remets ces événements dans l’ordre, du plus ancien au plus récent'
@@ -77,45 +65,12 @@ export function refusDuLibelle(brut: unknown): string | null {
 }
 
 /**
- * Quatre événements de ces candidats, assez écartés pour la marche — dans
- * l'ordre du temps. Ceux qu'il n'a jamais vus dans une frise d'abord, au
- * hasard, puis les autres ; un candidat se garde s'il est à `ecart` ans au
- * moins de chacun de ceux déjà gardés. Trop serrés, l'écart se divise par
- * deux, jamais sous un an : deux événements de la même année ne se rangent
- * pas. Null : ils n'en ont pas quatre d'années différentes. Le Cabinet, qui
- * en veut sept sans jamais descendre sous l'écart, tire par
- * `choisirLaFriseSansRepli`.
- */
-export function choisirLaFrise(
-  candidats: readonly EvenementDeLaFrise[],
-  ecart: number,
-  hasard: () => number,
-  dejaVu: (id: string) => boolean = () => false,
-): EvenementDeLaFrise[] | null {
-  const melanges = (tas: EvenementDeLaFrise[]) => {
-    for (let i = tas.length - 1; i > 0; i--) {
-      const j = Math.floor(hasard() * (i + 1))
-      ;[tas[i], tas[j]] = [tas[j], tas[i]]
-    }
-    return tas
-  }
-  const ordre = [...melanges(candidats.filter(e => !dejaVu(e.id))), ...melanges(candidats.filter(e => dejaVu(e.id)))]
-  for (let e = Math.max(1, Math.floor(ecart)); ; e = Math.max(1, Math.floor(e / 2))) {
-    const gardes: EvenementDeLaFrise[] = []
-    for (const x of ordre) {
-      if (gardes.every(g => Math.abs(g.annee - x.annee) >= e)) gardes.push(x)
-      if (gardes.length === EVENEMENTS_D_UNE_FRISE) return gardes.sort((a, b) => a.annee - b.annee)
-    }
-    if (e === 1) return null
-  }
-}
-
-/**
  * `n` événements de ces candidats à `ecart` ans au moins l'un de l'autre,
  * jamais moins, dans l'ordre du temps : la frise du Cabinet de curiosités,
  * sept événements qui grandissent de manche en manche, et que sa règle refuse
  * dès que deux années se serrent (`friseEnVagues`). Gardés un à un dans un
- * ordre tiré, puis l'écart divisé (`choisirLaFrise`), ils passaient à côté de
+ * ordre tiré, puis l'écart divisé (le choix de l'ancienne Expédition, parti
+ * avec elle), ils passaient à côté de
  * la suite qui existait : sur « 1900-1918 », neuf frises sur dix sortaient à
  * un ou deux ans (la relecture du lot A3, le 25 octobre 2026). Ici, toutes
  * les suites qui tiennent l'écart se comptent, sur les années triées : celles
@@ -187,22 +142,6 @@ export function choisirLaFriseSansRepli(
 }
 
 /**
- * L'ordre où la page montre les événements d'une frise : `montre[i]`, le rang
- * dans le temps de la carte montrée en `i`e. Jamais le bon ordre — il se
- * jouerait sans un geste —, tiré au hasard avec la question et gardé avec elle.
- */
-export function ordreMontre(n: number, hasard: () => number): number[] {
-  const montre = Array.from({ length: n }, (_, i) => i)
-  do {
-    for (let i = n - 1; i > 0; i--) {
-      const j = Math.floor(hasard() * (i + 1))
-      ;[montre[i], montre[j]] = [montre[j], montre[i]]
-    }
-  } while (n > 1 && montre.every((x, i) => x === i))
-  return montre
-}
-
-/**
  * Ce que le téléphone envoie : les cartes montrées, de la plus ancienne à la
  * plus récente, par leur rang à l'écran — chacune une fois. Null : ce n'est pas
  * une frise remplie.
@@ -213,12 +152,6 @@ export function lireUnOrdre(brut: unknown, n: number): number[] | null {
   return new Set(brut).size === n ? (brut as number[]) : null
 }
 
-/** L'ordre qu'il a donné, en rangs dans le temps : ce que le journal garde (`campagne_reponses.composee`, « 1032 »). */
-export const ordreDansLeTemps = (ordre: readonly number[], montre: readonly number[]) => ordre.map(i => montre[i])
-
-/** Juste : chaque événement à sa place, en entier. */
-export const friseJuste = (dansLeTemps: readonly number[]) => dansLeTemps.every((x, i) => x === i)
-
 /** L'ordre gardé au journal (« 1032 »), relu ; null : illisible. */
 export function ordreGarde(composee: string | null | undefined, n: number): number[] | null {
   if (typeof composee !== 'string' || composee.length !== n || !/^\d+$/.test(composee)) return null
@@ -228,20 +161,3 @@ export function ordreGarde(composee: string | null | undefined, n: number): numb
 
 /** Une année telle que la frise la dit : « 1789 », « 52 av. J.-C. ». */
 export const anneeDite = (annee: number) => (annee < 0 ? `${-annee} av. J.-C.` : String(annee))
-
-/**
- * Les événements qu'une carte date sur une frise, par leur rang dans le temps
- * — une carte qui effacerait des réponses date des événements : autant que
- * de réponses effacées, deux au plus (`effaceesDuTour`), et ici jamais tous —
- * la frise se rangerait seule. Au hasard de la graine et du rang de la
- * question, dans le même ordre pour toutes les cartes, comme les réponses
- * effacées (`reponsesEffacees`).
- */
-export function evenementsDates(hasard: () => number, n: number, combien: number): number[] {
-  const rangs = Array.from({ length: n }, (_, i) => i)
-  for (let i = rangs.length - 1; i > 0; i--) {
-    const j = Math.floor(hasard() * (i + 1))
-    ;[rangs[i], rangs[j]] = [rangs[j], rangs[i]]
-  }
-  return rangs.slice(0, Math.max(0, Math.min(combien, n - 1))).sort((a, b) => a - b)
-}

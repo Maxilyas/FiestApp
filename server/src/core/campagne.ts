@@ -376,7 +376,7 @@ interface QuestionDeSerie extends QuestionDeLaPartie {
   arretLe?: number
   /**
    * À composer (v11) : ses tuiles, mélangées au tirage — les lettres de sa
-   * bonne réponse et `LETTRES_EN_TROP` de trop (`tuilesDe`) —, et le rang de
+   * bonne réponse et trois de trop (l'ancien tirage de l'Expédition) —, et le rang de
    * celles de trop, que la page ne reçoit jamais (invariant 1). Ses
    * `reponses` restent celles de la base, que la page ne reçoit pas non plus :
    * Simplifier en repose un vrai ou faux, la correction en dit la bonne.

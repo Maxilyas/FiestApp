@@ -13,7 +13,7 @@ import * as campagne from '../src/core/campagne'
 import { DejaPrises, jumelles, type Intitule } from '../src/core/jumelles'
 import { VUE_RECENTE_MS, laMoinsVue, tirerPourUneEscale, versQuestionDeSerie } from '../src/core/tirageALaPiece'
 import type { QuestionDeLaBase } from '../src/core/baseCampagne'
-import { choisirLaFrise, choisirLaFriseSansRepli, type EvenementDeLaFrise } from '../../shared/frise'
+import { choisirLaFriseSansRepli, type EvenementDeLaFrise } from '../../shared/frise'
 import { ECART_DES_ANNEES_DE_LA_FRISE, EVENEMENTS_D_UNE_FRISE_A_THEME, JOURS_SANS_REDITE } from '../../shared/cabinet/bareme'
 import { NIVEAUX, niveauDeQuestion, type MesureDUneQuestion, type Niveau } from '../../shared/campagne'
 
@@ -162,26 +162,6 @@ function laMoinsVueDAvant<T>(candidats: readonly T[], idDe: (x: T) => string, vu
 function versQuestionDAvant(q: QuestionDeLaBase, niveau: Niveau) {
   const ordre = q.reponses.length === 2 ? [0, 1] : melangerDAvant(q.reponses.map((_, i) => i))
   return { id: q.id, texte: q.texte, reponses: ordre.map(i => q.reponses[i]), bonne: ordre.indexOf(q.bonne), categorie: q.meta.categorie, anecdote: q.anecdote, niveau, sousTheme: q.meta.sousTheme }
-}
-
-/** Le choix d'une frise d'avant `n` : toujours quatre événements. */
-function friseDAvant(candidats: readonly EvenementDeLaFrise[], ecart: number, hasard: () => number, dejaVu: (id: string) => boolean = () => false): EvenementDeLaFrise[] | null {
-  const melanges = (tas: EvenementDeLaFrise[]) => {
-    for (let i = tas.length - 1; i > 0; i--) {
-      const j = Math.floor(hasard() * (i + 1))
-      ;[tas[i], tas[j]] = [tas[j], tas[i]]
-    }
-    return tas
-  }
-  const ordre = [...melanges(candidats.filter(e => !dejaVu(e.id))), ...melanges(candidats.filter(e => dejaVu(e.id)))]
-  for (let e = Math.max(1, Math.floor(ecart)); ; e = Math.max(1, Math.floor(e / 2))) {
-    const gardes: EvenementDeLaFrise[] = []
-    for (const x of ordre) {
-      if (gardes.every(g => Math.abs(g.annee - x.annee) >= e)) gardes.push(x)
-      if (gardes.length === 4) return gardes.sort((a, b) => a.annee - b.annee)
-    }
-    if (e === 1) return null
-  }
 }
 
 // ── Le même hasard des deux côtés, et de quoi inventer des tas ──────────────
@@ -463,7 +443,7 @@ test('la frise sans repli : sept événements à trois ans d’écart au moins, 
     tient(friseDuCabinet(candidats, hasard), `essai ${essai}`)
   }
   // Un tous les deux ans, de 1900 à 1924 : une seule suite tient. Gardés un à un dans un ordre tiré, puis l'écart divisé
-  // (`choisirLaFrise`), neuf frises sur dix sortaient à deux ans — 1900, 1904, 1906… — sur un sujet que le tas accepte.
+  // (le choix de l'ancienne Expédition), neuf frises sur dix sortaient à deux ans — 1900, 1904, 1906… — sur un sujet que le tas accepte.
   const deuxAns = evenements(Array.from({ length: 13 }, (_, i) => 1900 + 2 * i))
   const chaqueAnnee = evenements(Array.from({ length: 19 }, (_, i) => 1900 + i))
   for (let essai = 0; essai < 300; essai++) {
@@ -519,16 +499,5 @@ test('la frise sans repli : le plus de jamais vus possible, puis chaque suite qu
     const dit = `essai ${essai} : ${tries.map(e => `${e.annee}${vu.has(e.id) ? '' : '*'}`).join(' ')}`
     if (meilleure < 0) assert.equal(frise, null, dit)
     else assert.equal(tient(frise, dit).filter(e => !vu.has(e.id)).length, meilleure, dit)
-  }
-})
-
-test('choisirLaFrise d’office : quatre événements, au même hasard qu’avant — la frise de l’Expédition ne change pas', () => {
-  const hasard = inventeur(41)
-  for (let essai = 0; essai < 300; essai++) {
-    const candidats = evenements(Array.from({ length: Math.floor(hasard() * 25) }, () => 1500 + Math.floor(hasard() * 500)))
-    const vus = new Set(candidats.filter(() => hasard() < 0.4).map(e => e.id))
-    const ecart = [30, 10, 3, 1][essai % 4]
-    const graine = 100 + essai
-    assert.deepEqual(choisirLaFrise(candidats, ecart, inventeur(graine), id => vus.has(id)), friseDAvant(candidats, ecart, inventeur(graine), id => vus.has(id)), `essai ${essai}`)
   }
 })

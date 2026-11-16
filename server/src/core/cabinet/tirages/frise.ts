@@ -4,8 +4,9 @@
 // écrites pour le Cabinet (`server/content/cabinet/frises.json`), et celles des
 // sujets de la base, dont chaque événement est une question datée
 // (`frisesDesSujets`), sept tirées par `choisirLaFriseSansRepli` — jamais sous
-// l'écart, jamais par `choisirLaFrise`, celle de l'Expédition, qui le
-// resserre : la règle refuserait ensuite deux années trop proches.
+// l'écart : jamais de choix qui le resserre, la règle refuserait ensuite deux
+// années trop proches (celui de l'ancienne Expédition le faisait ; parti le
+// 16 novembre 2026).
 //
 // L'une et l'autre en alternance de fraîcheur : une frise à thème est fraîche
 // s'il ne l'a pas rangée ces sept jours (`JOURS_SANS_REDITE`), celle d'un sujet

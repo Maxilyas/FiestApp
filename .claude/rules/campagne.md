@@ -239,9 +239,10 @@ paths:
   lit).
   La frise n'y passe pas : elle se tire avec ses règles (`shared/frise.ts`).
   Les sept événements du Cabinet tiennent l'écart, ou ne se tirent pas
-  (`choisirLaFriseSansRepli`) ; `choisirLaFrise`, celle de l'ancienne Expédition,
-  resserre l'écart plutôt que de rendre null, et la Frise du Cabinet
-  refuserait ensuite deux années trop proches (`friseEnVagues`). Une
+  (`choisirLaFriseSansRepli`) : la Frise du Cabinet refuserait ensuite deux
+  années trop proches (`friseEnVagues`), et resserrer l'écart pour tirer
+  quand même — le choix de l'ancienne Expédition, parti avec elle le
+  16 novembre 2026 — ne rendrait jamais null. Une
   question tirée par une partie a un seul cœur (`QuestionDeLaPartie`) :
   `QuestionDeSerie` l'étend, et ce que le Cabinet en garde s'y lie par le
   typage, pas par une copie. Aucune fonction n'y prend de graine : le

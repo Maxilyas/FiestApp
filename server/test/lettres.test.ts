@@ -1,22 +1,20 @@
 // Ce qui se compose d'une réponse (`shared/lettres.ts`) : son gabarit — deux
 // mots au plus, de quatre à douze lettres, l'article devant, les signes posés
 // d'office —, la règle qui dit si une question s'y prête, sur la vraie base,
-// et ses tuiles. Né avec les questions à composer de l'Expédition (la version
-// 11, le 19 octobre 2026, `retours/2026-10-19/les-coups-de-pouce.md`), que le
-// Mot mystère du Cabinet lit aujourd'hui (`shared/cabinet/jeux/mot.ts`) ; la
-// correction d'une expédition d'avant redit encore ce qu'on y avait composé
+// et ce qu'on en a composé. Né avec les questions à composer de l'Expédition
+// (la version 11, le 19 octobre 2026, `retours/2026-10-19/les-coups-de-pouce.md`),
+// que le Mot mystère du Cabinet lit aujourd'hui (`shared/cabinet/jeux/mot.ts`) ;
+// la correction d'une expédition d'avant redit encore ce qu'on y avait composé
 // (`compositionDite`, `CampagneStore.correction`).
 //
-// Ces trois épreuves viennent d'`expedition-coups-de-pouce.test.ts`, parti
-// avec l'Expédition le 16 novembre 2026 : mot pour mot, rien n'en a changé.
+// Ces épreuves viennent d'`expedition-coups-de-pouce.test.ts`, parti avec
+// l'Expédition le 16 novembre 2026. Celle des tuiles (`tuilesDe`) et la
+// lecture d'une composition envoyée (`lireUneComposition`) sont parties le
+// même jour avec le code mort qu'elles éprouvaient : plus aucun lecteur.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { lireLaBase } from '../src/core/baseCampagne'
-import { hasardDe } from '../../shared/missions'
-import { LETTRES_A_COMPOSER_MAX, LETTRES_EN_TROP, compositionDite, gabaritDe, lireUneComposition, seCompose, tuilesDe } from '../../shared/lettres'
-
-/** Un hasard tiré d'une graine : celui du tirage, rejoué. */
-const graine = (g: string) => hasardDe(`essai:${g}`)
+import { LETTRES_A_COMPOSER_MAX, compositionDite, gabaritDe, seCompose } from '../../shared/lettres'
 
 test('une réponse se compose de deux mots au plus et de quatre à douze lettres : ses cases, ses signes posés d’office, son article devant', () => {
   assert.deepEqual(gabaritDe('Victor Hugo'), { mots: [Array(6).fill(null), Array(4).fill(null)], lettres: 'VICTORHUGO' })
@@ -32,9 +30,6 @@ test('une réponse se compose de deux mots au plus et de quatre à douze lettres
   for (const r of ['Jean-Paul Sartre', 'Zoé', 'Le Petit Prince Charmant', 'Apollo 11', '1515', 'Ørsted', 'Saint-', 'Rock & roll']) assert.equal(gabaritDe(r), null, r)
   assert.equal(gabaritDe('Le Petit Prince')!.lettres, 'PETITPRINCE', 'deux mots après l’article')
   assert.equal(LETTRES_A_COMPOSER_MAX, 12)
-  // Ce que le téléphone envoie : ses lettres, autant que de cases.
-  assert.equal(lireUneComposition('VICTORHUGO', 10), 'VICTORHUGO')
-  for (const x of ['VICTOR HUGO', 'victorhugo', 'VICTORHUG', 3, null, ['V']]) assert.equal(lireUneComposition(x, 10), null, String(x))
   assert.equal(compositionDite(gabaritDe('Saint-Exupéry')!.mots, 'SAINTEXUPERY'), 'SAINT-EXUPERY')
   assert.equal(compositionDite(gabaritDe('Victor Hugo')!.mots, 'VICTORHUGE'), 'VICTOR HUGE')
 })
@@ -52,20 +47,4 @@ test('une question se pose à composer si sa bonne réponse se compose et que so
   const choix = questions.filter(x => x.reponses.length > 2)
   const part = choix.filter(seCompose).length / choix.length
   assert.ok(part > 0.55 && part < 0.66, `${(part * 100).toFixed(1)} % de la base se compose`)
-})
-
-test('ses tuiles : ses lettres et trois de trop qu’elle n’a pas, mélangées — jamais dans l’ordre de la réponse', () => {
-  for (const reponse of ['Victor Hugo', 'NASA', 'Elle', 'Saint-Exupéry', 'La cochenille']) {
-    const { lettres } = gabaritDe(reponse)!
-    for (let k = 0; k < 300; k++) {
-      const { tuiles, enTrop } = tuilesDe(lettres, graine(`${reponse}:${k}`))
-      assert.equal(tuiles.length, lettres.length + LETTRES_EN_TROP)
-      assert.equal(enTrop.length, LETTRES_EN_TROP)
-      const deTrop = enTrop.map(i => tuiles[i])
-      assert.ok(deTrop.every(l => !lettres.includes(l)), `${reponse} : une lettre de trop qu’elle n’a pas`)
-      const siennes = tuiles.filter((_, i) => !enTrop.includes(i))
-      assert.deepEqual([...siennes].sort(), [...lettres].sort(), `${reponse} : toutes ses lettres`)
-      assert.notEqual(siennes.join(''), lettres, `${reponse} : jamais dans l’ordre`)
-    }
-  }
 })

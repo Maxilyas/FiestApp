@@ -184,7 +184,7 @@ const EVENEMENTS_DES_VAGUES = VAGUES_DE_LA_FRISE.reduce((n, vague) => n + vague,
  * au serveur — jamais d'une graine que la page connaîtrait ; les
  * trois premiers font la première vague, les deux suivants la deuxième, les
  * deux derniers la troisième — chaque vague dans l'ordre même du battage, qui
- * est l'ordre montré. Pas l'ordre montré de l'Expédition (`ordreMontre`),
+ * est l'ordre montré. Pas l'ordre montré de l'ancienne Expédition,
  * jamais le bon : sur une vague de deux, « jamais le bon », c'est toujours à
  * rebours — l'ordre se lirait sans rien savoir. Ici, chaque nouveau venu se
  * pose de toute façon : l'ordre du temps peut se montrer, au hasard comme les
