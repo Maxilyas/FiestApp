@@ -1086,6 +1086,8 @@ Le détail : [la campagne](../produit/la-campagne.md).
 
 *Fichiers : `shared/sousThemes.ts`, `server/src/core/campagne.ts`, `server/src/core/quizToutPret.ts`, `server/test/tirage-pondere.test.ts`, `server/test/tirage-prepare.test.ts`*
 
+*Mise à jour du 16 novembre 2026 : l'équitation, l'une de ces spécialités, a perdu ses courses hippiques à la demande du propriétaire (« enlever des questions sur les courses dans le thème équitation »). Le sous-thème s'appelle « Équitation » au lieu d'« Équitation et courses hippiques » ; la décision ci-dessus ne change pas.*
+
 ### Le carnet se recalcule à partir du journal des réponses, avec des rendez-vous espacés
 **Contexte** : un joueur voulait « un mode qui incite à l'apprentissage, où l'on gagne toujours quelque chose ». La série, elle, punit l'erreur d'une vie en moins.
 
