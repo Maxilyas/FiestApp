@@ -27,11 +27,14 @@ export function SignalerLaQuestion({
   question: q,
   onEnvoyer,
   onFermer,
+  className,
 }: {
   question: QuestionSignalee
   /** Envoie la phrase ; rejetée, son motif se dit dans la feuille, qui reste ouverte. */
   onEnvoyer: (texte: string) => Promise<void>
   onFermer: () => void
+  /** La classe de la page qui l'ouvre, en plus de la sienne : le Cabinet relève ses feuilles à dix-sept pixels (`.cab-feuille`). */
+  className?: string
 }) {
   const [bonne, setBonne] = useState(q.bonne)
   const [texte, setTexte] = useState(q.texte)
@@ -77,7 +80,7 @@ export function SignalerLaQuestion({
     <Feuille
       titre="Qu’est-ce qui cloche ?"
       onFermer={onFermer}
-      className="signaler-feuille"
+      className={className ? `signaler-feuille ${className}` : 'signaler-feuille'}
       pied={
         <button type="button" className="btn btn-primary btn-block" disabled={n === 0 || envoi} onClick={() => void envoyer()}>
           {n === 0 ? 'Touche ce qui ne va pas' : n === 1 ? 'Envoyer ma correction' : `Envoyer mes ${n} corrections`}
