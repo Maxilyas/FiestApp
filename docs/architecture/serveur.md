@@ -163,7 +163,7 @@ base permanente. Ce qui ne vit qu'en mémoire part à chaque redémarrage.
 | `SalonStore` | `server/src/core/salons.ts` | Le code à six chiffres d'un salon | permanente (`salons`), mémoire |
 | `ArchiveStore` | `server/src/core/archive.ts` | L'historique des soirées | permanente (`soirees`) |
 | `JourStore` · `RappelStore` | `server/src/core/jour.ts`, `server/src/core/rappels.ts` | Le quiz du jour ; le rappel du soir | permanente (`jour_*`) |
-| `CampagneStore` | `server/src/core/campagne.ts` | Campagne, défi, sentiers, parcours, duels, amis, expédition | permanente (`campagne_*`, `sentier_acquis`, `sentier_melanges`) ; ses questions dans `server/content/campagne/` |
+| `CampagneStore` | `server/src/core/campagne.ts` | Campagne, défi, sentiers, parcours, duels, amis ; lit encore les parties d'avant de l'Expédition | permanente (`campagne_*`, `sentier_acquis`, `sentier_melanges`) ; ses questions dans `server/content/campagne/` |
 | `CabinetStore` | `server/src/core/cabinet/magasin.ts` | Le Cabinet de curiosités : les musées et les parties en cours, par la porte de la campagne ([plus bas](#le-cabinet-de-curiosités)) | permanente (`cabinet_*`, ses parties dans `campagne_series`), mémoire ; son contenu neuf dans `server/content/cabinet/` |
 | `JournalDesGestes` · `SanteDuServeur` | `server/src/core/journalDesGestes.ts`, `server/src/core/santeDuServeur.ts` | Le journal du QG ; la santé du serveur sur sept jours, et chaque erreur serveur en détail (`server/src/core/erreurs.ts`) | permanente (`qg_*`) |
 | `PagesPubliques` | `server/src/core/pages.ts` | Souvenir et bilan calculés une fois, gardés compressés | mémoire |
@@ -367,13 +367,13 @@ repassé à non, il ne répondrait plus en production.
 
 **La porte de la campagne.** Le magasin de la campagne fait près de onze
 mille lignes, et ses pièges se paient sans un bruit — une réponse écrite sans
-prévenir l'expédition en route, sans se numéroter pour le journal, sans
+se numéroter pour le journal, sans
 créditer son expérience. Le Cabinet ne l'importe donc pas : il reçoit
 `campagne.porte()` (`PorteDeLaCampagne`) — le client de la base, l'heure de
 la campagne, le verrou du profil, les questions jouables et leur mesure, le
 journal des réponses rattrapé au bout d'un lot (`lireAvecLeJournal`), le
 secret du Cabinet, et le rituel d'une réponse en une fonction
-(`ecrireDesReponses`) : l'expédition prévenue, le lot — à la fin d'une
+(`ecrireDesReponses`) : le lot — à la fin d'une
 partie qui a une juste, les lectures de l'expérience au bout, le journal
 compris —, la réponse numérotée, puis, si le lot a écrit la fin de la partie
 (`FinDUnePartie.ecrite`, lu sur la ligne de son geste), l'expérience
@@ -381,10 +381,9 @@ créditée une fois, les gardiens (`avantLesPaliers`), les paliers de la
 campagne, le compagnon. Un geste qui ne tranche aucune pièce et ne finit
 rien — ouvrir une manche, Éclairer, une pause, un essai sans verdict —
 n'écrit aucune réponse : son lot part seul, par le client de la porte. La
-campagne ne connaît du Cabinet que quatre crochets, déclarés dans le même fichier : ce qu'il
+campagne ne connaît du Cabinet que trois crochets, déclarés dans le même fichier : ce qu'il
 ajoute à son réveil, à ses paliers (les traversées gagnées que L'Explorateur
-compte, lues dans le lot de `statsDe`), l'expédition qui part ou finit, en
-mémoire, et la base prête — au réveil, ou qui vient de changer : les dépôts de
+compte, lues dans le lot de `statsDe`), et la base prête — au réveil, ou qui vient de changer : les dépôts de
 la routine du matin, une question corrigée, reclassée ou retirée au QG
 (`baseRenouvelee` : le Cabinet refait ses tas en fond, avant le premier
 départ) ; et la porte lui offre de juger ces paliers hors d'une fin de partie,

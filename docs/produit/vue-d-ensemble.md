@@ -19,7 +19,6 @@ Entre deux soirées, les joueurs qui ont un **profil** continuent seuls ou entre
 | **La campagne** | Des séries à trois vies, sans chronomètre ; un carnet qui fait revenir ce qu'on rate ; un défi chaque semaine | les profils | `/campagne` | [La campagne](la-campagne.md) |
 | **Les sentiers du savoir** | Douze branches, des paliers à valider, des portraits peints à gagner | les profils | `/campagne#sentiers` | [Les sentiers du savoir](les-sentiers-du-savoir.md) |
 | **Les duels** | Une cote, des ligues, des défis à ses amis, et Automate, toujours disponible | les profils | `/duels` | [Les duels](les-duels.md) |
-| **L'Expédition** | Une aventure en trois actes, ses légendaires en jokers — effacée le 31 octobre 2026 : le Cabinet de curiosités l'a remplacée, et ce qu'elle a donné reste | plus personne | `/expedition`, qui mène au Cabinet | [L'Expédition](l-expedition.md), telle qu'elle était |
 | **Le Cabinet de curiosités** | Une traversée en trois actes : trois cartes choisies parmi dix, dix petits jeux, trois gardiens légendaires à battre, et l'un d'eux à gagner — ouvert en production depuis le 31 octobre 2026, à la place de l'Expédition | les profils | `/cabinet` | [Le Cabinet de curiosités](le-cabinet.md) |
 
 Les questions des soirées viennent de la bibliothèque de l'animateur — écrites dans l'éditeur, collées depuis une liste, importées, partagées, ou composées d'un geste par le **quiz tout prêt** dans la base de questions relues de la campagne ([Les quiz](les-quiz.md)).

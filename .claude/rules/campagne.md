@@ -7,7 +7,7 @@ paths:
   - "client/src/components/{ChoixDuTheme,SerieCorrigee,Vies}.tsx"
   - "client/src/iconeDuSujet.ts"
   - "server/scripts/{rendu-campagne,rendu-serie}.ts"
-  - "server/test/{campagne,campagne-abandon,campagne-carnet,campagne-charge,campagne-defi,campagne-en-tete,campagne-familles,campagne-index,campagne-mesure,campagne-modes,campagne-ouverture,campagne-recompenses,campagne-sujets,campagne-variete,tirage-sans-redite,tirage-prepare,tirage-a-la-piece,bareme-du-solo,journal-des-reponses,hors-de-la-base,porte-de-la-campagne,rang-de-la-bonne}.test.ts"
+  - "server/test/{apres-l-expedition,campagne,campagne-abandon,campagne-carnet,campagne-charge,campagne-defi,campagne-en-tete,campagne-familles,campagne-index,campagne-mesure,campagne-modes,campagne-ouverture,campagne-recompenses,campagne-sujets,campagne-variete,tirage-sans-redite,tirage-prepare,tirage-a-la-piece,bareme-du-solo,journal-des-reponses,hors-de-la-base,porte-de-la-campagne,rang-de-la-bonne}.test.ts"
 ---
 
 # La campagne solo et le défi de la semaine
@@ -239,7 +239,7 @@ paths:
   lit).
   La frise n'y passe pas : elle se tire avec ses règles (`shared/frise.ts`).
   Les sept événements du Cabinet tiennent l'écart, ou ne se tirent pas
-  (`choisirLaFriseSansRepli`) ; `choisirLaFrise`, celle de l'Expédition,
+  (`choisirLaFriseSansRepli`) ; `choisirLaFrise`, celle de l'ancienne Expédition,
   resserre l'écart plutôt que de rendre null, et la Frise du Cabinet
   refuserait ensuite deux années trop proches (`friseEnVagues`). Une
   question tirée par une partie a un seul cœur (`QuestionDeLaPartie`) :
@@ -410,7 +410,25 @@ paths:
   bloque rien : chaque mode cherche sa partie en cours par son mode. Une
   lecture qui cesserait de les compter reprendrait quelque chose à des
   joueurs qui ne les rejoueront jamais : `apres-l-expedition.test.ts` les lit
-  aux nombres mesurés sur le code d'avant.
+  aux nombres mesurés sur le code d'avant. Quatre règles qui valent encore
+  pour ce qui les lit :
+  - **Une réponse aidée ne mesure rien** : la mesure des difficultés, le
+    modèle du savoir, les écussons, la précision et L'Érudit ne lisent que les
+    réponses nues (`reponseNue`, `premiereReponse`, `core/journalDesReponses.ts`)
+    — une lecture neuve de `campagne_reponses` qui mesure un savoir écarte
+    les aidées, et celles d'une source reprise du carnet (`HORS_DU_CARNET`).
+  - **Une comparaison à `forme` ou à `joker` se fait sans NULL**
+    (`COALESCE(r.forme, '') = 'vrai-faux'`) : une colonne vide rendait NULL
+    tout le filtre du carnet, et chaque bonne réponse nue en sortait.
+  - **La vue d'une question choisit ses champs un à un** (`questionMontree`,
+    invariant 1) : un champ neuf de la question gardée n'y part jamais de
+    lui-même — ne l'étale pas. La bonne réponse d'un vrai ou faux tiré d'un
+    quatre choix (`QuestionDeSerie.bonneReponse`, `bonneReponseDuVraiOuFaux`)
+    n'arrive qu'à la correction, la proposée fausse.
+  - **Un champ neuf de la correction se lit aussi à la page** :
+    `SerieCorrigee` est la seule liste, et ce que l'intitulé désigne — les
+    emojis d'un rébus — se pose juste sous lui (`Corrige` `sous`) ; le serveur
+    les envoyait et « Mes réponses » ne les montrait pas.
 - **Le Cabinet de curiosités passe par une porte** (`core/porteDeLaCampagne.ts`,
   `CampagneStore.porte()`, le 25 octobre 2026) : il n'importe pas ce magasin,
   et ce magasin ne connaît de lui que trois crochets, déclarés dans ce

@@ -207,7 +207,7 @@ sequenceDiagram
   son lot, et chaque autre instruction sous lui. Un double toucher, ou l'autre
   serveur d'une mise en ligne, n'écrivent rien de plus. Seul un lot qui écrit
   une réponse passe par la porte de la campagne, qui tient son rituel —
-  l'expédition prévenue, le journal des réponses averti — ; un geste qui ne
+  le journal des réponses averti — ; un geste qui ne
   tranche rien n'écrit que lui-même.
   → [Le serveur](./serveur.md#le-cabinet-de-curiosités),
   [Les données](./donnees.md#le-cabinet-de-curiosités)
@@ -327,14 +327,13 @@ disparaissait sans un mot. → [Le temps réel](./temps-reel.md)
 
 **8. Un profil ne donne aucun avantage de jeu face aux autres, et un invité
 anonyme n'affiche rien** — ni « Niv. 0 », ni pastille grise : l'absence, pas
-l'infériorité ; le chemin sans compte reste la valeur de l'application. Seuls
-l'Expédition et le Cabinet de curiosités, qu'on joue seul, font servir ce
-qu'on a gagné, et rien n'en sort : aujourd'hui, l'or, les cœurs et les cartes
-d'une traversée du Cabinet, qui ne servent qu'à elle ; avant le 31 octobre
-2026, les légendaires en jokers de l'Expédition, effacée depuis, et les
-œuvres et les gardiens en cartes-bonus du musée. Un profil reconnu ne
-rechoisit jamais prénom ni avatar.
-→ [Le profil](../produit/le-profil.md) · [L'Expédition](../produit/l-expedition.md) ·
+l'infériorité ; le chemin sans compte reste la valeur de l'application. Seul
+le Cabinet de curiosités, qu'on joue seul, fait servir ce qu'on a gagné, et
+rien n'en sort : l'or, les cœurs et les cartes d'une traversée, qui ne servent
+qu'à elle ; avant le 31 octobre 2026, les légendaires en jokers de
+l'Expédition, effacée depuis, et les œuvres et les gardiens en cartes-bonus
+du musée. Un profil reconnu ne rechoisit jamais prénom ni avatar.
+→ [Le profil](../produit/le-profil.md) ·
 [Le Cabinet de curiosités](../produit/le-cabinet.md)
 
 **9. La fiche du serveur fait foi.** Une re-présentation par jeton ignore le
@@ -420,7 +419,6 @@ avec un `new Error('…')` nu ([Les routes](./serveur.md#les-routes),
 | Le quiz du jour, le rappel | `server/src/core/jour.ts`, `server/src/quizDuJour.ts`, `server/src/core/rappels.ts`, `client/src/views/JourApp.tsx` | [Le quiz du jour](../produit/le-quiz-du-jour.md) | [Le serveur](./serveur.md#les-tâches-de-fond) |
 | La campagne, le défi | `server/src/core/campagne.ts`, `server/src/campagne.ts`, `server/content/campagne/`, `client/src/views/CampagneApp.tsx` | [La campagne](../produit/la-campagne.md) | [Les données](./donnees.md) |
 | Les sentiers du savoir | `shared/sentiers.ts`, `shared/branches.ts`, `client/src/views/Sentiers.tsx` | [Les sentiers](../produit/les-sentiers-du-savoir.md) | [Les barèmes](../reference/baremes.md) |
-| L'Expédition — effacée le 31 octobre 2026, son code parti le 16 novembre 2026 : ses parties restent dans les bases et se lisent comme avant, ses adresses répondent 404 et `/expedition` mène au Cabinet | `server/test/apres-l-expedition.test.ts` (ce qui en reste) | [L'Expédition](../produit/l-expedition.md) | [Les barèmes](../reference/baremes.md#lexpédition) |
 | Le Cabinet de curiosités | `shared/cabinet/`, `server/src/core/cabinet/`, `server/src/core/porteDeLaCampagne.ts`, `server/src/cabinet.ts`, `client/src/views/CabinetApp.tsx`, `client/src/views/cabinet/` | [Le Cabinet de curiosités](../produit/le-cabinet.md) | [Le serveur](./serveur.md#le-cabinet-de-curiosités), [Les données](./donnees.md#le-cabinet-de-curiosités) |
 | Les duels | `shared/duels.ts`, `server/src/core/modeleDuSavoir.ts`, `client/src/views/Duels.tsx` | [Les duels](../produit/les-duels.md) | [Les barèmes](../reference/baremes.md) |
 | La bibliothèque | `shared/library.ts`, `server/src/core/quizStore.ts`, `server/src/api.ts`, `client/src/views/EditorApp.tsx` | [Les quiz](../produit/les-quiz.md) | [L'API HTTP](../reference/api-http.md) |
