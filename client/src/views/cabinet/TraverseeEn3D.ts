@@ -56,6 +56,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+import { OR_PALE, dessinerLaMedaille, ecrire, pastille } from './toile'
 
 /** Une étape telle que la carte la dessine : sa place, sa sorte, et ce que son étiquette écrit. */
 export interface EtapeDessinee {
@@ -128,7 +129,6 @@ const hache = (s: string) => {
   }
   return ((h >>> 0) % 10000) / 10000
 }
-const EMOJI_POLICE = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif'
 
 interface IleDessinee {
   e: EtapeDessinee
@@ -260,26 +260,9 @@ export function creerLaTraversee(
     const cle = `${emoji}:${teinte}`
     const deja = medailles.get(cle)
     if (deja) return deja
-    const t = toile(256, 256, g => {
-      const d = g.createRadialGradient(128, 110, 10, 128, 128, 120)
-      d.addColorStop(0, `hsl(${teinte} 45% 30%)`)
-      d.addColorStop(1, `hsl(${teinte} 55% 10%)`)
-      g.beginPath()
-      g.arc(128, 128, 116, 0, Math.PI * 2)
-      g.fillStyle = d
-      g.fill()
-      const o = g.createLinearGradient(0, 0, 256, 256)
-      o.addColorStop(0, '#fff1c4')
-      o.addColorStop(0.5, '#c8963f')
-      o.addColorStop(1, '#fbe3a0')
-      g.lineWidth = 10
-      g.strokeStyle = o
-      g.stroke()
-      g.font = `118px ${EMOJI_POLICE}`
-      g.textAlign = 'center'
-      g.textBaseline = 'middle'
-      g.fillText(emoji, 128, 138)
-    })
+    // Dessinée hors d'ici (`toile.ts`) : son emoji s'y écrit d'une encre pleine — sous le dégradé du disque, un iPhone
+    // montrait la médaille vide.
+    const t = toile(256, 256, g => dessinerLaMedaille(g, emoji, teinte))
     medailles.set(cle, t)
     return t
   }
@@ -343,19 +326,18 @@ export function creerLaTraversee(
       g.fillStyle = 'rgba(14,9,24,.78)'
       g.strokeStyle = o.bord ?? 'rgba(247,220,154,.75)'
       g.lineWidth = 4
-      g.beginPath()
-      g.roundRect(2, 2, l - 4, h - 4, 30)
+      // Sa pastille et ses deux lignes passent par `toile.ts`, comme tout ce que la carte trace et écrit : `roundRect`
+      // manque à un iPhone d'avant iOS 16, et un texte s'écrit toujours d'une encre pleine.
+      pastille(g, 2, 2, l - 4, h - 4, 30)
       g.fill()
       g.stroke()
       g.textAlign = 'center'
       g.textBaseline = 'middle'
       g.font = `${T}px ${titrePolice}`
-      g.fillStyle = o.couleur ?? '#f7dc9a'
-      g.fillText(titre, l / 2, sous ? 44 : h / 2 + 3)
+      ecrire(g, titre, l / 2, sous ? 44 : h / 2 + 3, o.couleur ?? OR_PALE)
       if (sous) {
         g.font = `700 ${S}px ${textePolice}`
-        g.fillStyle = '#cfc3dd'
-        g.fillText(sous, l / 2, 92)
+        ecrire(g, sous, l / 2, 92, '#cfc3dd')
       }
     })
     const sp = new Sprite(garder(new SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false })))
