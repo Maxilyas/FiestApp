@@ -589,9 +589,9 @@ test('`npm run mesure` attend, au Cabinet, un élément que sa page rend : la tr
 })
 
 test('`npm run mesure` ne mesure que des pages qui existent en ligne : plus celles de l’Expédition, effacée', () => {
-  // Elle en ouvrait deux — son départ, et le plan d'une expédition en route —, que seul le banc sert encore : il garde
-  // l'Expédition à ses épreuves (`expeditionRemplacee: false`), quand la production et la préproduction renvoient
-  // `/expedition` au Cabinet depuis le 31 octobre 2026. Deux lignes du tableau mesuraient ce qu'aucun joueur n'attend plus.
+  // Elle en ouvrait deux — son départ, et le plan d'une expédition en route —, que seul le banc servait encore, jusqu'au
+  // 16 novembre 2026, quand la production et la préproduction renvoyaient `/expedition` au Cabinet depuis le 31 octobre.
+  // Deux lignes du tableau mesuraient ce qu'aucun joueur n'attend plus.
   const script = readFileSync(new URL('../scripts/mesure-pages.ts', import.meta.url), 'utf8')
   const pages = script.slice(script.indexOf('const PAGES: PageMesuree[] = ['), script.indexOf(']\n', script.indexOf('const PAGES: PageMesuree[] = [')))
   const chemins = [...pages.matchAll(/chemin: [`']([^`']+)[`']/g)].map(m => m[1])

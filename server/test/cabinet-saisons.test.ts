@@ -12,7 +12,7 @@ import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { inscrireProfil } from './banc'
 import { aLaMain, bancDuCabinet, commencer, enBase, fermerLesMagasins, laPage, lire, ok, poster, unPariParfait, type BancDuCabinet } from './cabinet-banc'
-import { calendrierDesExpeditions, calendrierDesSoirees, calendrierDuCabinet } from '../src/core/saisons'
+import { calendrierDesSoirees, calendrierDuCabinet } from '../src/core/saisons'
 import { periodeDu } from '../../shared/saisons'
 import { PRIX_D_UNE_DORURE, PRIX_D_UNE_OEUVRE } from '../../shared/cabinet/bareme'
 import type { PageDuCabinet, VueDeLaPartie } from '../../shared/cabinet/vues'
@@ -68,10 +68,9 @@ async function gagner(cookie: string, oeuvre: string): Promise<VueDeLaPartie> {
   return fin
 }
 
-test('le calendrier du Cabinet est seul rouvert : les soirées et les expéditions ne voient pas la fête', () => {
+test('le calendrier du Cabinet est seul rouvert : les soirées ne voient pas la fête', () => {
   assert.equal(calendrierDuCabinet.periodeDu('2026-10-26')?.saison.key, 'halloween')
   assert.equal(calendrierDesSoirees.periodeDu('2026-10-26'), null)
-  assert.equal(calendrierDesExpeditions.periodeDu('2026-10-26'), null)
 })
 
 test('la première œuvre gagnée en jouant pendant Halloween réveille la Citrouille, rangée sous #cabinet — une fois', async () => {

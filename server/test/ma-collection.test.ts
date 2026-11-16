@@ -193,15 +193,20 @@ test('les trophées se rangent par où ils se gagnent : une page par mode, ses p
   // Les pistes se rangent par ce qu'elles comptent : le niveau et les Éclats, de partout, à part.
   const pistes = (page: string, section = 'pistes') => pages.find(p => p.page === page)!.sections.find(s => s.cle === section)!.cases.map(c => c.cle).sort()
   assert.deepEqual(pistes('jour'), ['hf:assidu', 'hf:champion-du-jour', 'hf:elite', 'hf:infatigable', 'hf:plume', 'hf:sans-faute'])
-  // Le passeport de l'expédition, depuis le 18 octobre 2026 : sa piste se range avec celles de la campagne, qui la compte
-  // — là où le serveur la cite. L'Expédition effacée, il ne la cite plus qu'à ses détenteurs (le 10 novembre 2026) : la
-  // page de Léa ne lui fait pas de case, celle d'un détenteur si.
+  // Le Globe-trotter, le passeport de l'Expédition, se rangeait ici du 18 octobre au 16 novembre 2026 — cité à ses seuls
+  // détenteurs depuis le 10 novembre. Parti du catalogue avec elle : même cité par un serveur d'avant, le temps d'une mise
+  // en ligne, l'album ne lui fait plus de case — il ne bâtit que ce que son catalogue connaît.
   assert.deepEqual(pistes('campagne'), ['hf:alpiniste', 'hf:erudit', 'hf:marathonien'])
   const citee = { key: 'hf:globe-trotter', famille: 'carriere', emoji: '🧳', title: 'Le Globe-trotter', rule: 'tampons au passeport de l’expédition', ton: 'eclat', fois: 1, valeur: 12, prochain: 40 }
-  const pagesDuDetenteur = albumDesTrophees({ ...LEA, hautsFaits: [...LEA.hautsFaits, citee] } as any)
+  const pagesDUnServeurDAvant = albumDesTrophees({ ...LEA, hautsFaits: [...LEA.hautsFaits, citee] } as any)
   assert.deepEqual(
-    pagesDuDetenteur.find(p => p.page === 'campagne')!.sections.find(s => s.cle === 'pistes')!.cases.map(c => c.cle).sort(),
-    ['hf:alpiniste', 'hf:erudit', 'hf:globe-trotter', 'hf:marathonien'],
+    pagesDUnServeurDAvant.find(p => p.page === 'campagne')!.sections.find(s => s.cle === 'pistes')!.cases.map(c => c.cle).sort(),
+    ['hf:alpiniste', 'hf:erudit', 'hf:marathonien'],
+  )
+  assert.deepEqual(
+    pagesDUnServeurDAvant.map(p => [p.page, p.acquis, p.total]),
+    pages.map(p => [p.page, p.acquis, p.total]),
+    'ni case, ni compte : la collection ne bouge pas',
   )
   // Ce qui se valide en épreuve, sur la page des sentiers — que la campagne compte pourtant.
   assert.deepEqual(pistes('sentiers'), ['hf:cartographe', 'hf:constellation', 'hf:randonneur'])

@@ -3,7 +3,7 @@
 // mois, chacune son légendaire peint, sa gerbe, et un timbre par an dans le
 // carnet des fêtes (`shared/timbres.ts`), que les trois d'avant ont aussi.
 // Ni joker ni gardien pour les cinq neuves : le quiz du jour et la soirée les
-// ouvrent, rien d'autre (`cabinet-catalogue.test.ts`, `expedition-saison.test.ts`).
+// ouvrent, rien d'autre (`cabinet-catalogue.test.ts`).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'

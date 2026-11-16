@@ -102,6 +102,35 @@ test('un rébus de l’expédition garde ses emojis sous son intitulé, avant se
   assert.match(regle('.corrige-rebus'), /text-align:\s*center/, 'au centre, comme ses réponses')
 })
 
+// Les deux épreuves qui suivent viennent d'`expedition-frise.test.ts` et
+// d'`expedition-detail.test.ts`, partis avec l'Expédition le 16 novembre
+// 2026 : elles y relisaient « Mes réponses » d'une expédition jouée par les
+// routes. Une expédition d'avant se relit toujours (invariant 22) : la même
+// liste, sur la correction que le serveur en rend encore
+// (`apres-l-expedition.test.ts`).
+test('une frise de l’expédition se relit rangée, chaque année, et ratée, où il avait mis chacun — sans bonne réponse à encadrer', async () => {
+  const frise = { texte: 'Range ces événements du plus ancien au plus récent', reponses: ['La découverte', 'La prise', 'La tour', 'Le premier pas'], bonne: 0, choix: -1, juste: false, composee: '3210' }
+  const html = await serieCorrigee([question({ ...frise, frise: { annees: [1492, 1789, 1889, 1969], sienne: [3, 2, 1, 0] } }), question({ ...frise, choix: 0, juste: true, composee: '0123', frise: { annees: [1492, 1789, 1889, 1969] } })])
+  // Une question par corrigé : la frise rangée a ses propres lignes.
+  const [ratee, trouvee] = html.split('<li class="corrige ').slice(1)
+  const lu = (h: string) => h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
+  assert.match(ratee, /class="frise-rangee"/)
+  assert.match(lu(ratee), /tu l’avais en 4ᵉ/, 'le plus ancien, mis en dernier')
+  assert.doesNotMatch(ratee, /corrige-bonne/, 'pas de bonne réponse à encadrer')
+  for (const annee of [1492, 1789, 1889, 1969]) assert.ok(lu(ratee).includes(String(annee)), `${annee}`)
+  assert.match(trouvee, /class="frise-rangee"/)
+  assert.doesNotMatch(lu(trouvee), /tu l’avais/, 'trouvée : rien à redire')
+})
+
+test('un détail de l’expédition se relit avec son tableau entier, nommé, sous son intitulé', async () => {
+  const detail = { titre: 'La Nuit étoilée', peintre: 'Vincent van Gogh', annee: 1889, image: '/api/expedition/une-expedition/detail/3/4' }
+  const [avecSonTableau, autre] = (await serieCorrigee([question({ texte: 'Qui a peint ce tableau ?', reponses: ['Vincent van Gogh', 'Claude Monet', 'Paul Cézanne', 'Edgar Degas'], detail }), question()])).split('<li class="corrige ').slice(1)
+  assert.match(avecSonTableau, /class="tableau-entier"/)
+  assert.ok(avecSonTableau.replace(/<[^>]+>/g, ' ').includes(detail.titre))
+  assert.ok(avecSonTableau.indexOf('corrige-texte') < avecSonTableau.indexOf('tableau-entier') && avecSonTableau.indexOf('tableau-entier') < avecSonTableau.indexOf('corrige-reponses'), 'sous l’intitulé, avant ses réponses')
+  assert.doesNotMatch(autre, /tableau-entier/)
+})
+
 test('les réponses se centrent, comme à la révélation, et la sienne se distingue de la bonne sans la couleur', () => {
   assert.match(regle('.corrige-reponses'), /align-items:\s*center/)
   assert.match(regle('.corrige-reponse'), /text-align:\s*center/)

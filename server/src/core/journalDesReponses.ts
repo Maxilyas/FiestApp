@@ -854,7 +854,7 @@ export class JournalDesReponses {
     return d.paires.size
   }
 
-  /** Ses premières réponses, chacune avec son instant, sauf aidées : sa chance sur les sentiers (`forceSurLesSentiers`). */
+  /** Ses premières réponses, chacune avec son instant, sauf aidées : sa chance sur les sentiers (`forceTenue`). */
   premieresDe(qui: string): Map<string, { le: number; juste: boolean }> {
     const premieres = new Map<string, { le: number; juste: boolean }>()
     for (const [question, p] of this.dossiers.get(qui)?.paires ?? []) {

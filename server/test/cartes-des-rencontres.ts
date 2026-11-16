@@ -4,16 +4,16 @@
 //
 // Le Cabinet recopie ces cartes plutôt que de les importer (`OEUVRES`,
 // `shared/cabinet/oeuvres.ts`), et son test comparait la copie à
-// `shared/rencontres.ts`, qui partira avec l'Expédition. Comparée à cet
+// `shared/rencontres.ts`, parti avec l'Expédition ce jour-là. Comparée à cet
 // instantané, la copie reste tenue aussi serré — une carte de plus ou de
 // moins, un nom retouché, une famille ou une rareté changée rougissent
 // encore —, sans que le Cabinet ait besoin des rencontres. Une œuvre ne se
 // retire jamais (invariant 22) : l'instantané ne se réécrit pas, il ne fait
 // qu'ajouter, et le dire.
 //
-// Écrit une fois de `CARTES_DES_RENCONTRES` et de `FAMILLES_DE_CARTES` : tant
-// qu'elles existent, `expedition-rencontres.test.ts` le compare à elles. Le
-// lot qui retirera `shared/rencontres.ts` n'aura qu'à retirer cette épreuve-là.
+// Écrit une fois de `CARTES_DES_RENCONTRES` et de `FAMILLES_DE_CARTES`, et
+// comparé à elles par `expedition-rencontres.test.ts` jusqu'à leur départ :
+// chaque carte, chaque famille y était.
 import type { FamilleDeCartes, RareteDeCarte } from '../../shared/cabinet/oeuvres'
 
 export interface CarteDesRencontres {

@@ -55,7 +55,7 @@ paths:
 - **La partie en cours d'un mode se cherche par le profil et le mode**
   (`LA_PLUS_RECENTE`, `ORDER BY +commencee_le DESC LIMIT 1`) : la série, la
   révision laissée, la rencontre du dé — l'accueil et le dé —, l'épreuve,
-  l'étape d'un parcours, l'expédition en route. Triées par leur date, sans
+  l'étape d'un parcours. Triées par leur date, sans
   statistiques, elles partaient de l'index du profil, rangé par date, qui
   épargnait le tri à SQLite : sans partie en cours — le cas ordinaire —,
   elles relisaient toutes les parties du profil, de tous les modes, à
@@ -147,7 +147,7 @@ paths:
   les duels, le dé) et le quiz tout prêt (son `aTourDeRole`,
   `core/quizToutPret.ts`) font ce tour ; `aTourDeRole` d'ici, la marche
   seule des épreuves, n'a pas de pas — c'est le témoin du tour égal — ; les
-  sentiers (`usage`), l'Expédition et le Cabinet ne le lisent pas. Mesuré
+  sentiers (`usage`) et le Cabinet ne le lisent pas. Mesuré
   sur la base : 17 puis 7 % de spécialités dans une série de Sport, 25 puis
   10 % en Culture générale, 2,7 puis 1 par série de toutes les catégories ;
   jamais zéro dans une série de leur catégorie (`tirage-pondere.test.ts`).
@@ -168,7 +168,7 @@ paths:
   dans le milieu » — rangées, la bonne était la deuxième ou la troisième 97
   fois sur cent pour les années, 91 pour les nombres, 84 pour les jours).
   `versQuestionDeSerie` — la série, l'épreuve, le défi, le duel, la
-  révision, l'Expédition, le Cabinet, sauf l'Éclair, qui ne montre qu'une
+  révision, le Cabinet, sauf l'Éclair, qui ne montre qu'une
   réponse et y cherche la mauvaise la plus choisie parmi les écrites
   (`telleQuEcrite`, `telleQuElleEstEcrite`) — et le quiz tout prêt (`versLeQuiz`,
   qui garde la version écrite quand le tirage laisserait la bonne seule dans
@@ -181,8 +181,7 @@ paths:
   hasard (`tirage-a-la-piece.test.ts`). Une partie garde ce qu'elle a posé ;
   ce qui la compare à la base passe par `seRange` : `memeVersion` (le
   signalement) admet tout leurre de la question, sinon chaque signalement
-  d'une question chiffrée passerait pour une version d'avant ; le six choix
-  (`leurresDuSixChoix`) écarte les réponses posées, pas celles de la base.
+  d'une question chiffrée passerait pour une version d'avant.
   `rang-de-la-bonne.test.ts` relit la répartition sur la base livrée — 26,
   25, 24, 25 %, et la plus proche de la moyenne, qui trouvait 64 % des
   années, sous le tiers.
@@ -236,8 +235,8 @@ paths:
   pour une question jamais vue et pas encore servie — un rang qui n'atteint
   presque jamais zéro, le sous-thème servi dans toute la partie par
   exemple, fait relire tout le tas à chaque tirage — le gardien,
-  vingt-cinq mille questions (`expedition-tirage.test.ts` compte ce qu'il
-  lit, règle `expedition.md`).
+  vingt-cinq mille questions (`tirage-d-une-escale.test.ts` compte ce qu'il
+  lit).
   La frise n'y passe pas : elle se tire avec ses règles (`shared/frise.ts`).
   Les sept événements du Cabinet tiennent l'écart, ou ne se tirent pas
   (`choisirLaFriseSansRepli`) ; `choisirLaFrise`, celle de l'Expédition,
@@ -248,9 +247,9 @@ paths:
   typage, pas par une copie. Aucune fonction n'y prend de graine : le
   hasard d'un tirage est celui du serveur, et une graine que la page connaît
   lui dirait ce que la partie va poser (invariant 1). Les formes de
-  l'Expédition (`aSaForme`, `seLaissePoser`) restent au magasin : le tirage
-  à la pièce n'en sait rien, et l'Éclair du Cabinet récrit ses affirmations
-  par sa règle à lui (`affirmationDe`).
+  l'Expédition sont parties avec elle (le 16 novembre 2026) : le tirage
+  à la pièce n'en a jamais rien su, et l'Éclair du Cabinet récrit ses
+  affirmations par sa règle à lui (`affirmationDe`).
 - **Le journal des réponses se garde en mémoire, et se lit par
   différence** (`core/journalDesReponses.ts`, `JournalDesReponses`, le
   22 octobre 2026 : 333 millions de lignes lues au quota de Turso sur les
@@ -336,8 +335,8 @@ paths:
   complète qu'il a reçue (`fraisDepuis`) ; une requête qui commence n'a
   rien à relire si une lecture est partie après elle, et chaque écriture
   d'une réponse prend son numéro (`reponseEcrite`) — une porte neuve qui
-  écrit dans `campagne_reponses` l'appelle après son lot, comme
-  `vuAilleurs`. Une réponse ne change jamais : seul `oublierProfil` en
+  écrit dans `campagne_reponses` l'appelle après son lot. Une réponse ne
+  change jamais : seul `oublierProfil` en
   efface, et refait le journal entier.
 - **Le réveil relit les tranches gardées du journal, pas toute la base**
   (`campagne_tranches`, le 24 octobre 2026 : la première lecture de chaque
@@ -399,26 +398,29 @@ paths:
   échappe. La lecture du journal n'en dépend pas — le carnet les écarte au
   repli : un préfixe de plus ne relit rien au réveil
   (`VERSION_DES_TRANCHES` ne bouge pas).
-- **Une réponse de campagne écrite prévient l'expédition** (`vuAilleurs`,
-  avant le lot de la série et de ses modes, de l'épreuve, du parcours) :
-  l'expédition en route garde en mémoire ce qu'il a vu, lu à son départ, et
-  ne le relit qu'ainsi (règle `expedition.md`). Une porte neuve qui écrit
-  dans `campagne_reponses` l'appelle aussi : sans, l'escale suivante
-  pourrait reposer, comme jamais vue, la question qu'il vient de voir.
+- **Les parties de l'Expédition se lisent, plus rien ne les écrit** (le
+  16 novembre 2026, son code parti) : une série `mode = 'expedition'` et ses
+  réponses comptent comme avant à l'expérience, aux confettis, à la
+  précision, aux écussons, au carnet, à la mesure, au compagnon — `expedition`
+  reste dans `MODES_DE_SERIE`, `SE_JOUE_EN_QCM` et ce que le journal des
+  réponses filtre (ses réponses aidées, `joker` ; ses formes, `forme` ; ce
+  qu'une source reprenait du carnet, `carnet`) —, et sa correction redit
+  chaque forme (`correction` : un vrai ou faux et sa proposée, un rébus, une
+  frise, un détail). Une expédition restée en route (`finie_le` NULL) ne
+  bloque rien : chaque mode cherche sa partie en cours par son mode. Une
+  lecture qui cesserait de les compter reprendrait quelque chose à des
+  joueurs qui ne les rejoueront jamais : `apres-l-expedition.test.ts` les lit
+  aux nombres mesurés sur le code d'avant.
 - **Le Cabinet de curiosités passe par une porte** (`core/porteDeLaCampagne.ts`,
   `CampagneStore.porte()`, le 25 octobre 2026) : il n'importe pas ce magasin,
-  et ce magasin ne connaît de lui que quatre crochets, déclarés dans ce
+  et ce magasin ne connaît de lui que trois crochets, déclarés dans ce
   fichier — son réveil (`init(REVEIL_DU_CABINET)` : ses trois tables et son
   secret dans le **premier** lot, sa colonne `campagne_series.cabinet` par
   `ajouterColonne`, qui garde le schéma déjà lu pour les nôtres : pas un
   aller-retour de plus au réveil, un `ALTER` au premier), ses paliers
   (`statsEnPlus` : ses lectures dans le lot de `statsDe`, et ce qu'il en tire
   — ses seuls champs, `ChampsDuCabinet` : aucun compte de la campagne, que le
-  typage refuse et que `statsDe` étale par-dessus) et l'expédition qui part
-  ou finit (`expeditionChange`, `partirEnExpedition` et
-  `recompenserLExpedition`, où passe toute fin, écrite : en mémoire, sous le
-  verrou du profil, pour la seule ligne « Ton expédition t'attend » de sa
-  page, qui ne la montre plus depuis le 16 novembre 2026 ; ce qui y tombe se dit au journal sans faire tomber le geste), et la
+  typage refuse et que `statsDe` étale par-dessus), et la
   base prête — à la fin du préchauffage du réveil, et quand elle vient de
   changer : les dépôts de la routine du matin publiés, une question corrigée,
   reclassée ou retirée au QG (`baseRenouvelee`, appelé par `prechauffer` et
@@ -426,11 +428,11 @@ paths:
   `CabinetStore.preparerSesTas`, avant que son premier départ ne les
   attende — 8,3 s le 5 novembre 2026, 6,5 s le 6 au premier départ d'après
   une mise en ligne, et le même soir deux gels sous une traversée après trois
-  corrections). Rien ne s'en rapporte : la fin d'une expédition qui rapportait ses œuvres est
-  partie avec la migration (abandonnée le 25 octobre 2026, `decisions.md`) —
-  n'y remets ni lecture ni écriture. Le
+  corrections). Un quatrième crochet disait au Cabinet l'expédition qui
+  partait ou finissait, pour la ligne « Ton expédition t'attend » de sa
+  page : parti avec l'Expédition, le 16 novembre 2026. Le
   rituel d'une réponse y tient en une fonction (`ecrireDesReponses`), dans
-  l'ordre de `repondre` : `vuAilleurs`, le lot — et à la fin d'une partie qui
+  l'ordre de `repondre` : le lot — et à la fin d'une partie qui
   a des justes, les lectures de l'expérience au bout —, `reponseEcrite` même
   si le lot échoue (écrit ou non, on ne le sait pas), puis, à la fin
   seulement et si le lot l'a écrite (`FinDUnePartie.ecrite`, que le Cabinet

@@ -1,13 +1,11 @@
 // La porte de la campagne (`core/porteDeLaCampagne.ts`) : le seul passage du
 // Cabinet de curiosités vers `CampagneStore`, éprouvé sur le magasin même.
 //
-// Ses pièges se payaient sans un bruit : une porte qui écrivait une réponse
-// sans `vuAilleurs` laissait l'expédition en route reposer, comme jamais vue,
-// la question tout juste vue ; sans `reponseEcrite`, une lecture du journal
-// partie avant elle passait pour fraîche ; un aller-retour de plus au réveil,
-// c'est 30 à 225 ms avant que le port s'ouvre, sept réveils par jour. On compte
-// comme `expedition-charge.test.ts` : chaque `execute` et chaque `batch` sur le
-// fichier `file:` qui tient lieu de Turso est un aller-retour.
+// Ses pièges se payaient sans un bruit : sans `reponseEcrite`, une lecture du
+// journal partie avant une réponse passait pour fraîche ; un aller-retour de
+// plus au réveil, c'est 30 à 225 ms avant que le port s'ouvre, sept réveils par
+// jour. On compte chaque `execute` et chaque `batch` sur le fichier `file:` qui
+// tient lieu de Turso : un aller-retour chacun.
 import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync } from 'node:fs'
@@ -24,7 +22,6 @@ import { cleDeSerie } from '../src/auth/profiles'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import { CATEGORIES, type Categorie } from '../../shared/categories'
 import { xpDeLaBonneReponse, xpDuJourDeCampagne } from '../../shared/campagne'
-import type { VueDeLExpedition } from '../../shared/expedition'
 import type { StatsDeCampagne } from '../../shared/profil'
 
 // ── Le compteur ───────────────────────────────────────────────────────────
@@ -184,6 +181,9 @@ const traverseesDe = (stats: StatsDeCampagne) => stats.traversees
 
 // ── Le réveil ─────────────────────────────────────────────────────────────
 
+/** Les allers-retours du réveil de la campagne sur une base qui a déjà tout — huit jusqu'au retrait de l'Expédition (mesuré sur le code d'avant, le 16 novembre 2026). */
+const REVEIL_ORDINAIRE = 7
+
 /** Les `ALTER` qu'un réveil a envoyés : une colonne ajoutée, un aller-retour chacun. */
 const altersDe = (m: { lots: string[][] }) => m.lots.flat().filter(s => /^ALTER TABLE/.test(s))
 
@@ -202,6 +202,10 @@ test('le Cabinet naît dans le premier lot de la campagne : pas un aller-retour 
   const avec = await mesurer(() => magasin('reveil-avec.db').init(REVEIL_DU_CABINET))
   const sans = await mesurer(() => magasin('reveil-sans.db').init())
   assert.equal(avec.appels, sans.appels, `${avec.appels} allers-retours au réveil avec le Cabinet, ${sans.appels} sans`)
+  // Et un de moins depuis le 16 novembre 2026 : la table des gestes de l'Expédition ne se crée plus, elle avait son
+  // aller-retour à elle à chaque réveil. Le compte s'écrit en dur : un `CREATE TABLE` de plus hors d'un lot le relèverait.
+  assert.equal(avec.appels, REVEIL_ORDINAIRE, `${avec.appels} allers-retours au réveil ordinaire`)
+  assert.ok(!avec.lots.flat().some(s => /expedition_gestes/.test(s)), 'plus rien ne crée ni ne lit la table des gestes de l’Expédition')
 
   // Tout dans le premier lot : ses trois tables, son secret proposé, puis relu.
   const premier = avec.lots[0]
@@ -256,56 +260,15 @@ test('le secret du Cabinet se tire une fois : un second serveur, un réveil reli
 
 // ── Le rituel d'une réponse ──────────────────────────────────────────────
 
-const sorteDe = (v: VueDeLExpedition, id: string) => v.carte!.escales.find(e => e.id === id)?.sorte
-
-/** Le pas vers une question : le premier étage n'a que des questions, et une source relirait le carnet. */
-const versUneQuestion = (v: VueDeLExpedition) =>
-  v.permises.find(id => sorteDe(v, id) === 'question') ?? v.permises.find(id => sorteDe(v, id) !== 'source' && sorteDe(v, id) !== 'inconnu') ?? v.permises[0]
-
-test('une réponse écrite par la porte : l’expédition en route relit ce qu’il a vu, et le journal sait qu’il a du retard', async () => {
+test('une réponse écrite par la porte : le journal sait qu’il a du retard, et la rattrape', async () => {
+  // Jusqu'au 16 novembre 2026, cette épreuve passait par une expédition en route, que le rituel prévenait d'une réponse
+  // écrite ailleurs (`vuAilleurs`) et qui disait au Cabinet son départ et sa fin (`expeditionChange`) : les deux sont
+  // partis avec elle. Reste ce que le rituel doit au journal, compté de même.
   const jeu = magasin('rituel.db')
   await jeu.init(REVEIL_DU_CABINET)
   const porte = jeu.porte()
-  const avancer = (v: VueDeLExpedition) => jeu.gesteDExpedition(QUI, v.id, v.rang + 1, { quoi: 'avancer', vers: versUneQuestion(v) })
-  /** Ce qui attend un geste avant le pas suivant — une offre, le campement —, sans le compter. */
-  const pretAAvancer = async (v: VueDeLExpedition) => {
-    for (let pas = 0; pas < 5 && (v.offre || v.campement); pas++) {
-      v = (await jeu.gesteDExpedition(QUI, v.id, v.rang + 1, v.offre ? { quoi: 'prendre', jokers: [] } : { quoi: 'camper' })).expedition
-    }
-    return v
-  }
 
-  // Une première expédition, un pas puis abandonnée : la base, la mesure et le journal se lisent une fois — ce n'est pas
-  // ce qu'on compte. Rien ne s'en rapporte au Cabinet (la décision du propriétaire du 25 octobre 2026) ; il apprend
-  // seulement qu'elle part et qu'elle finit, pour la ligne « Ton expédition t'attend » de sa page (`expeditionChange`) :
-  // en mémoire, sur-le-champ — aucun aller-retour de plus, le compte d'après le dit.
-  const dites: [string, string | null][] = []
-  jeu.expeditionChange = (profileId, enRoute) => dites.push([profileId, enRoute])
-  const essai = await jeu.partirEnExpedition(QUI)
-  assert.deepEqual(dites, [[QUI, essai.id]], 'partie : elle l’attend')
-  await avancer(essai)
-  await jeu.abandonnerLExpedition(QUI, essai.id)
-  assert.deepEqual(dites, [[QUI, essai.id], [QUI, null]], 'finie : plus rien ne l’attend')
-  // Un crochet qui tombe ne fait tomber ni le départ ni la fin, déjà écrits : il se dit au journal du serveur.
-  jeu.expeditionChange = () => {
-    throw new Error('le Cabinet est muet')
-  }
-  const { resultat: muette, dits } = await enEcoutantLeJournal(async () => {
-    const e = await jeu.partirEnExpedition(QUI)
-    await jeu.abandonnerLExpedition(QUI, e.id)
-    return e
-  })
-  assert.ok(muette.id)
-  assert.equal(dits.filter(d => d.includes('le Cabinet est muet')).length, 2, dits.join('\n'))
-  jeu.expeditionChange = undefined
-
-  const v = await jeu.partirEnExpedition(QUI)
-  const escale = await mesurer(() => avancer(v))
-  assert.equal(escale.appels, 1, `${escale.appels} allers-retours pour une escale : ce qu'il a vu, gardé du départ`)
-  const q = escale.resultat.expedition.question!
-  const apres = await pretAAvancer((await jeu.repondreEnExpedition(QUI, v.id, q.index, 0)).expedition)
-
-  // Le journal rattrapé : la réponse de l'expédition y est, plus rien à relire tant qu'aucune n'est écrite.
+  // Le journal lu une première fois : plus rien à relire tant qu'aucune réponse n'est écrite.
   await porte.lireAvecLeJournal([])
   const frais = await mesurer(() => porte.lireAvecLeJournal([]))
   assert.equal(frais.appels, 0, 'lu depuis la dernière réponse écrite : le tirage d’un départ ne paie rien')
@@ -321,16 +284,14 @@ test('une réponse écrite par la porte : l’expédition en route relit ce qu�
   const enRetard = await mesurer(() => porte.lireAvecLeJournal([]))
   assert.equal(enRetard.appels, 1, 'une réponse écrite depuis : le journal se rattrape')
   assert.ok(enRetard.resultat.journal.vuesDe(QUI).vues.has(vue.id), 'et la sait')
-
-  // L'escale suivante relit ce qu'il a vu : la question du Cabinet ne revient pas comme jamais vue.
-  const suivante = await mesurer(() => avancer(apres))
-  assert.equal(suivante.appels, 2, `${suivante.appels} allers-retours : ce qu'il a vu se relit, puis l'escale s'écrit`)
+  // Rattrapé, il n'a de nouveau plus rien à relire.
+  assert.equal((await mesurer(() => porte.lireAvecLeJournal([]))).appels, 0)
 })
 
 /** L'étagère des profils, pour voir ce que la fin d'une partie y range — et dans quel ordre, avec ce qui s'y écrit d'autre (`ordre`). */
 function etagere(ordre: string[] = []) {
   const rangees: { sous: string; cles: string[]; quand: number | undefined }[] = []
-  const paliers: { sous: string; justes: number; tampons: number; traversees: number | undefined }[] = []
+  const paliers: { sous: string; justes: number; traversees: number | undefined }[] = []
   const recompenses: RecompensesDeCampagne = {
     ranger: async (_id, sous, cles, quand) => {
       ordre.push('ranger')
@@ -340,7 +301,7 @@ function etagere(ordre: string[] = []) {
     recompensesOf: () => new Map(),
     accorderPaliersDeCampagne: async (_id, sous, stats) => {
       ordre.push('paliers')
-      paliers.push({ sous, justes: stats.justes, tampons: stats.tampons, traversees: traverseesDe(stats) })
+      paliers.push({ sous, justes: stats.justes, traversees: traverseesDe(stats) })
       return ['hf:marathonien:1']
     },
     legendairesOuverts: () => [],
@@ -426,7 +387,7 @@ test('la fin d’une partie : son expérience créditée une fois, ses gardiens,
   // Ses paliers, rangés sous la partie, sur des stats qui comptent ses justes et ce que le Cabinet y ajoute.
   assert.deepEqual(rangees, [{ sous: cleDeSerie('partie-fin'), cles: [], quand: MAINTENANT }])
   assert.equal(oeuvresLues, 2, 'il lit ce que ses lectures ont rendu')
-  assert.deepEqual(paliers, [{ sous: cleDeSerie('partie-fin'), justes: 21, tampons: 0, traversees: 2 }])
+  assert.deepEqual(paliers, [{ sous: cleDeSerie('partie-fin'), justes: 21, traversees: 2 }])
   assert.deepEqual(
     ecrit.resultat.recompenses.recompenses?.map(r => r.key),
     ['hf:marathonien:1'],
@@ -574,14 +535,14 @@ test('ce que le Cabinet ajoute aux paliers part dans le lot de statsDe, sans un 
   assert.equal(traverseesDe(sans.resultat), 0)
   assert.equal(traverseesDe(avec.resultat), 4, 'et ce qu’il en tire s’ajoute aux paliers')
 
-  // Un compte de la campagne rendu par erreur — les tampons du Globe-trotter, les bonnes réponses du Marathonien —
+  // Un compte de la campagne rendu par erreur — les expertes de L'Érudit, les bonnes réponses du Marathonien —
   // changerait en silence les paliers de tout le monde. Le typage le refuse…
   // @ts-expect-error — un compte de la campagne n'est pas un champ du Cabinet (`ChampsDuCabinet`)
-  const tricheur: StatsEnPlus['lire'] = () => ({ tampons: 7, justes: 900 })
+  const tricheur: StatsEnPlus['lire'] = () => ({ expertes: 7, justes: 900 })
   // … et rendu quand même, la campagne compte par-dessus.
   stats.statsEnPlus = { lectures: () => [], lire: tricheur }
   const triche = await stats.statsDe(QUI)
-  assert.equal(triche.tampons, 0, 'les tampons restent ceux du passeport')
+  assert.equal(triche.expertes, 0, 'les expertes restent celles du journal')
   assert.equal(triche.justes, 0, 'les bonnes réponses, celles du journal')
 })
 
@@ -596,7 +557,7 @@ test('des paliers jugés hors d’une fin de partie : rangés sous ce qui les fa
   hors.statsEnPlus = { lectures: () => [], lire: () => sesTraversees(1) }
   const { resultat: cles, appels } = await mesurer(() => hors.porte().accorderLesPaliers(QUI, 'traversee-gagnee'))
   assert.deepEqual(cles, ['hf:marathonien:1'], 'il rend les clés neuves')
-  assert.deepEqual(paliers, [{ sous: cleDeSerie('traversee-gagnee'), justes: 0, tampons: 0, traversees: 1 }], 'sous la traversée, comme une partie sous sa série')
+  assert.deepEqual(paliers, [{ sous: cleDeSerie('traversee-gagnee'), justes: 0, traversees: 1 }], 'sous la traversée, comme une partie sous sa série')
   assert.deepEqual(ordre, ['paliers'], 'ses paliers seuls : ni expérience, ni gardiens, ni compagnon')
   assert.deepEqual(rangees, [])
   assert.equal(appels, 1, 'le lot de statsDe, et rien de plus')

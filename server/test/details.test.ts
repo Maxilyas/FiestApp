@@ -13,6 +13,8 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { lireLaBase } from '../src/core/baseCampagne'
 import { DOSSIER_DES_DETAILS, ECHELLES, FICHE_DES_DETAILS, MORT_AU_PLUS_TARD, cadragesDe, refusDeLaFiche, type TableauDuDetail } from '../scripts/details'
+import { demandeLePeintre, detailsDeLaBase, fichierDuCadrage, tableauxDuDetail } from '../src/core/details'
+import { CADRAGES_DU_DETAIL, CATEGORIE_DU_DETAIL } from '../../shared/cabinet/jeux/detail'
 
 const fiche: TableauDuDetail[] = JSON.parse(readFileSync(FICHE_DES_DETAILS, 'utf8'))
 const images = readdirSync(DOSSIER_DES_DETAILS).filter(f => f.endsWith('.webp'))
@@ -38,8 +40,8 @@ test("les images restent hors du client : servies d'avance, le tableau entier se
 
 test('une question que la fiche cite est dans la base et nomme son tableau ; cent tableaux au moins en ont une', () => {
   const parId = new Map(lireLaBase().questions.map(q => [q.id, q]))
-  // Ceux de l'Expédition, qui ne posait qu'eux (`detailsDeLaBase`) : ses épreuves tournent encore sur le banc. Un tableau
-  // sans question se pose au Cabinet seul, sans anecdote à sa révélation.
+  // Ceux de l'Expédition, qui ne posait qu'eux (`detailsDeLaBase`) : le Cabinet y lit l'anecdote de leur révélation. Un
+  // tableau sans question s'y pose sans anecdote.
   const avecQuestion = fiche.filter(t => t.questions.length > 0)
   assert.ok(avecQuestion.length >= 100, `${avecQuestion.length} tableaux ont leur question`)
   for (const t of avecQuestion) {
@@ -49,6 +51,28 @@ test('une question que la fiche cite est dans la base et nomme son tableau ; cen
       assert.ok((q.meta.entites ?? []).some(e => e.nom === t.titre), `${t.titre} : la question ${id} ne le nomme pas`)
     }
   }
+})
+
+// Venue d'`expedition-detail.test.ts`, parti avec l'Expédition le 16 novembre 2026, mot pour mot : le Cabinet lit les
+// mêmes tableaux (`tableauxDuDetail`) et la question « Qui a peint… ? » de chacun pour son anecdote (`detailsDeLaBase`).
+test('les tableaux livrés : chacun ses quatre cadrages ; dans la vraie base, presque tous ceux de l’Expédition ont leur question « Qui a peint… ? », jamais une question de dimensions ou de musée', () => {
+  const laBase = lireLaBase()
+  const tableaux = tableauxDuDetail()
+  // Cent à la version 15 de l'Expédition ; le Cabinet en a ajouté le 11 novembre 2026, dont ceux de Wikidata seul — sans
+  // question de la base, ils n'entrent pas dans `detailsDeLaBase`.
+  assert.ok(tableaux.length >= 100, `${tableaux.length} tableaux`)
+  for (const t of tableaux) for (let k = 1; k <= CADRAGES_DU_DETAIL; k++) assert.ok(readFileSync(fichierDuCadrage(t.qid, k)).length > 1000, `${t.qid}-${k}`)
+  const details = detailsDeLaBase(new Map(laBase.questions.map(q => [q.id, q])))
+  assert.ok(details.length >= 95, `${details.length} tableaux posables`)
+  for (const d of details) {
+    assert.ok(demandeLePeintre(d.question), d.question.texte)
+    assert.equal(d.question.meta.categorie, CATEGORIE_DU_DETAIL, d.question.id)
+    // La base écrit parfois le peintre autrement (« Pierre-Auguste Renoir ») : son nom de famille, au moins.
+    const nom = d.tableau.peintre.split(' ').pop()!.toLowerCase().slice(0, 4)
+    assert.ok(d.question.reponses[d.question.bonne].toLowerCase().includes(nom), `${d.tableau.peintre} / ${d.question.reponses[d.question.bonne]}`)
+  }
+  const dimensions = laBase.questions.find(q => q.texte.startsWith('Combien de mètres de large mesure Le Sacre'))
+  if (dimensions) assert.equal(demandeLePeintre(dimensions), false)
 })
 
 test('les cadrages : emboîtés, au rapport du tableau, même pour un détail posé au bord', () => {

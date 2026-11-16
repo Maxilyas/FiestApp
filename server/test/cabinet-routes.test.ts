@@ -98,7 +98,8 @@ test('la page du Cabinet : un profil seulement, et ce que son musée montre, jam
   assert.deepEqual(page.libres, { paientEncore: LIBRES_QUI_PAIENT, parJour: LIBRES_QUI_PAIENT })
   assert.equal(page.poussiere, 0)
   assert.equal(page.enCours, null)
-  assert.equal(page.expedition, null)
+  // Plus un mot d'une expédition : le champ qui disait « Ton expédition t'attend » est parti avec elle.
+  assert.equal('expedition' in page, false)
   assert.deepEqual(page.jeux, [...JEUX_PRETS])
 
   // Préchargée avec la page servie — sans l'en-tête de la page —, elle le dit : son heure se mesure sur le préchargement.

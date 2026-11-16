@@ -18,7 +18,7 @@
 // d'écriture, et à toute garde qui n'a rien écrit (`rowsAffected = 0`), le
 // musée et la partie s'oublient : écrite ou non, on ne le sait pas, et la base
 // fait foi — le magasin relit à froid et rejoue le geste une fois sur l'état
-// vrai (le gabarit `ecrireLExpedition`).
+// vrai (le gabarit des écritures de l'Expédition, d'où il vient).
 //
 // La fin d'une partie, un achat, une dorure et le musée lu à froid
 // réconcilient ses gardiens (`gardiens.ts`) : rien de dû et pas rangé, rien
@@ -234,11 +234,6 @@ export interface ReglagesDuCabinet {
    */
   hasard?: () => number
   /**
-   * L'Expédition effacée (`EXPEDITION_REMPLACEE`, le 31 octobre 2026) : ses routes ne répondent plus, et
-   * `/expedition` mène ici. « Ton expédition t'attend : la finir » ferait tourner en rond qui en avait une en route.
-   */
-  expeditionEffacee?: boolean
-  /**
    * Le Filet se tire-t-il en deux temps (`FILET_EN_DEUX_TEMPS`, que l'option du serveur passe outre) ? Le tireur pose
    * alors le nouveau Filet — à l'acte d'une épreuve (`ContexteDuTirage.vise.acte`) —, sinon celui d'avant. Absent : celui
    * d'avant, comme un magasin construit à la main par un test.
@@ -252,8 +247,6 @@ interface MuseeGarde {
   oeuvres: Map<string, LigneDOeuvre>
   duJour: { jour: string; parties: PartieDuJour[] }
   enCours: { id: string; jeu: CleDeJeu } | null
-  /** L'expédition qui l'attend, lue au lot froid, puis tenue à jour par la campagne quand elle part ou finit (`expeditionChange`). */
-  expeditionEnRoute: string | null
   /** Les saisons rangées sous `#cabinet`, relues à froid puis tenues à jour par la réconciliation (`reconcilier`). */
   sousLeCabinet: Set<string>
   /** Le record de la tour, relu à froid puis tenu à jour par la fin qui le bat (`retenirLaFin`). */
@@ -306,7 +299,6 @@ export interface LectureDuCabinet {
   /** Le jeu qu'un échange donnerait aujourd'hui (`jeuDeLEchange`) : la règle des échanges le lit, la graine reste ici. */
   jeuDeLEchange: CleDeJeu | null
   enCours: PartieLue | null
-  expeditionEnRoute: boolean
   /** La fête du jour, au calendrier du Cabinet. */
   fete: Saison | null
   jeux: readonly CleDeJeu[]
@@ -721,7 +713,6 @@ export class CabinetStore {
         oeuvres: new Map(lu.oeuvres.map(l => [l.oeuvre, l])),
         duJour: { jour, parties: lu.parties },
         enCours: enCours ? { id: enCours.id, jeu: enCours.depart.jeu } : null,
-        expeditionEnRoute: lu.expeditionEnRoute,
         sousLeCabinet: new Set(lu.saisonsSousLeCabinet),
         record: lu.record,
       },
@@ -934,7 +925,6 @@ export class CabinetStore {
       jour: jourDe(t),
       ...lectureDeLaVisite(musee, visite, this.graineDe(profileId)),
       enCours: enCours && !enCours.etat.fin ? { ...enCours, lueA: t } : null,
-      expeditionEnRoute: !this.reglages.expeditionEffacee && garde.expeditionEnRoute !== null,
       fete: this.reglages.calendrier.periodeDu(jourDe(t))?.saison ?? null,
       rangees: this.rangeesDe(profileId),
       tour,
@@ -1634,20 +1624,6 @@ export class CabinetStore {
       this.tas = { jouables, prets }
     }
     return this.tas.prets
-  }
-
-  /**
-   * Son expédition part ou finit (`ExpeditionQuiChange`, que la campagne
-   * appelle sous le verrou du profil) : la ligne « Ton expédition t'attend »
-   * de sa page suit, en mémoire. Le lot froid la lit une fois par réveil ;
-   * gardée telle quelle, une expédition finie la laissait jusqu'au
-   * redémarrage — et, le départ fermé, elle menait à une page qui renvoie ici.
-   * Un musée qui n'est pas en mémoire n'a rien à oublier : son lot froid lira
-   * la base, écrite avant ce mot.
-   */
-  expeditionChange(profileId: string, enRoute: string | null): void {
-    const garde = this.musees.get(profileId)
-    if (garde) garde.expeditionEnRoute = enRoute
   }
 
   // ── La traversée ──────────────────────────────────────────────────────

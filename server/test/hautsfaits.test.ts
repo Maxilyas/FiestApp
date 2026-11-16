@@ -370,7 +370,7 @@ test('chaque légendaire a sa légende, et se gagne par un haut fait qui existe'
       continue
     }
     // La voie de l'expédition lit une ligne rangée au bout de l'acte 3, pas un
-    // haut fait du catalogue : `expedition-legendaires.test.ts` la vérifie ;
+    // haut fait du catalogue : `legendaires.test.ts` la vérifie, figée ;
     // celle du Cabinet, une ligne rangée au réveil d'un gardien
     // (`cabinet-gardiens.test.ts`). Toute autre, un haut fait qui existe.
     for (const voie of voiesDe(l).filter(v => !estUneVoieDExpedition(v) && !estUneVoieDuCabinet(v))) {

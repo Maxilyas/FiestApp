@@ -765,7 +765,8 @@ function tirerLeNouveauFilet(n: number, r: Hasard, annee: number, acte: number):
 /**
  * Des tableaux d'essai, d'années voisines : le Détail ne se joue ici qu'au
  * cadrage où il reconnaît, et ce que ses titres disent n'y change rien — les
- * cent vrais tirent `shared/expedition.ts` avec eux.
+ * vrais tiraient avec eux le module de l'Expédition, parti le 16 novembre
+ * 2026, et ceux d'essai suffisent à la mesure.
  */
 const TABLEAUX: readonly TableauDuCabinet[] = Array.from({ length: 40 }, (_, i) => ({ qid: `Q${1000 + i}`, titre: `Le tableau ${i}`, peintre: `Le peintre ${i % 13}`, annee: 1420 + i * 13 }))
 

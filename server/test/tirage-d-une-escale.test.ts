@@ -1,16 +1,19 @@
-// Le tirage d'une escale de l'expédition (`tirerPourUneEscale`, le 17
-// octobre 2026). Il battait tout son tas, comme une épreuve, pour n'en
+// Le tirage d'une escale (`tirerPourUneEscale`, `core/tirageALaPiece.ts`, le
+// 17 octobre 2026) : né pour l'Expédition — d'où « l'escale », « le gardien »
+// —, c'est par lui que le Cabinet de curiosités tire aujourd'hui chaque
+// question de la base. Il battait tout son tas, comme une épreuve, pour n'en
 // prendre qu'une question — le gardien, les vingt-cinq mille de la base :
 // 17 ms de processeur à chaque gardien, dix fois plus au dixième de cœur de
 // l'hébergeur. Il lit désormais le tas dans un ordre tiré à mesure, et
 // s'arrête à la première question qui ne peut être battue. On compte ce
 // qu'il lit — on ne chronomètre pas (règle `tests.md`) —, et on garde ses
 // règles : la marche, jamais vues d'abord, une vue d'hier soir en dernier,
-// sans vrai ou faux pour le gardien, sans jumelle de ce que l'expédition a
-// déjà posé tant qu'il en a d'autres.
+// sans vrai ou faux pour le gardien, sans jumelle de ce que la partie a
+// déjà posé tant qu'il en a d'autres. (`expedition-tirage.test.ts` jusqu'au
+// 16 novembre 2026 : ses épreuves n'ont pas changé.)
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { tirerPourUneEscale } from '../src/core/campagne'
+import { tirerPourUneEscale } from '../src/core/tirageALaPiece'
 import type { QuestionDeLaBase } from '../src/core/baseCampagne'
 import type { Niveau } from '../../shared/campagne'
 

@@ -88,8 +88,8 @@ flowchart TD
 7. **Les branchements.** Le quiz du jour et la campagne reçoivent les profils
    à leur construction, le Cabinet la porte de la campagne
    (`campagne.porte()`) et les profils, et la campagne les crochets du
-   Cabinet — ses paliers (`statsEnPlus`, là seulement où il s'ouvre),
-   l'expédition qui part ou finit (`expeditionChange`) ; ce qui ne relie les magasins qu'à la lecture se
+   Cabinet — ses paliers (`statsEnPlus`, là seulement où il s'ouvre), la base
+   prête (`baseRenouvelee`) ; ce qui ne relie les magasins qu'à la lecture se
    branche une fois tous ouverts, par des fonctions —
    `profiles.statsDuJour = id => jour.statsDuJour(id)`, le laurier, les paliers
    des sentiers, les confettis de la campagne… Puis `adopterLesComptes` donne
@@ -191,7 +191,7 @@ base permanente. Ce qui ne vit qu'en mémoire part à chaque redémarrage.
 | `server/src/auth/profileRoutes.ts` | `/api/joueur/*` | `mountProfileApi` |
 | `server/src/quizDuJour.ts` | `/api/jour/*`, dont la réserve de la routine ; `/api/admin/jour/*` | `mountJour`, `mountReserve`, `mountJourAdmin` |
 | `server/src/campagne.ts` | `/api/campagne/*`, `/api/duels/*`, dont la base de la routine ; `/api/admin/campagne*` | `mountCampagne`, `mountBaseDeLaCampagne`, `mountCampagneAdmin` |
-| `server/src/expedition.ts` | `/api/expedition*` | `mountExpedition` |
+| `server/src/api.ts` | `/api/expedition*` — plus une route depuis le 16 novembre 2026 : 404 « Introuvable » à tous, avant la porte des comptes | (dans `mountApi`) |
 | `server/src/cabinet.ts` | `/api/cabinet*` | `mountCabinet` |
 | `server/src/partages.ts` | `/api/partages/*`, `/api/catalogue*`, `/api/admin/catalogue*`, le partage d'un quiz | `mountPartages` |
 | `server/src/profilsAdmin.ts` | `/api/admin/profils*`, `/api/admin/espaces*` | `mountProfilsAdmin` |

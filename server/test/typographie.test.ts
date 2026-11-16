@@ -208,7 +208,16 @@ test('une année devant un nombre reste à part, et le nombre se colle', () => {
 // contenu, relue. Ce qui s'écrit comme un nombre doit sortir collé, et ce qui
 // reste tel quel doit ne pas en être un — une liste courte, qu'on lit ici.
 test('dans le contenu livré, tout nombre à milliers sort collé', () => {
-  const dossiers = ['cabinet', 'campagne', 'quiz', 'curiosites', 'details', 'frises']
+  // Tous les dossiers du contenu livré — les curiosités de l'Expédition, ses rébus et ses plats, sont parties avec elle le
+  // 16 novembre 2026 : un dossier de plus y entre, la liste se compare au disque.
+  const dossiers = ['cabinet', 'campagne', 'details', 'frises', 'quiz']
+  assert.deepEqual(
+    readdirSync(new URL('../content/', import.meta.url), { withFileTypes: true })
+      .filter(e => e.isDirectory())
+      .map(e => e.name)
+      .sort(),
+    dossiers,
+  )
   const textes: string[] = []
   const cueillir = (v: unknown): void => {
     if (typeof v === 'string') textes.push(v)

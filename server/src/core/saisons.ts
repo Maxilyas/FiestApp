@@ -31,16 +31,6 @@ import type { PrixDeSoiree } from '../auth/profiles'
 export const calendrierDesSoirees: { periodeDu: typeof periodeDu } = { periodeDu }
 
 /**
- * Le calendrier des expéditions : la saison d'un départ, à l'heure de Paris
- * (le 18 octobre 2026) — sa fête plus souvent sur les cartes
- * (`PART_DE_LA_FETE`), son légendaire en gardien de l'acte 3. Le banc et le
- * smoke le ferment comme celui des soirées : du 25 octobre au 1er novembre,
- * chaque expédition des tests aurait mis la Citrouille au bout de l'acte 3.
- * `expedition-saison.test.ts` le rouvre.
- */
-export const calendrierDesExpeditions: { periodeDu: typeof periodeDu } = { periodeDu }
-
-/**
  * Le calendrier du Cabinet de curiosités : la saison d'une œuvre gagnée en
  * jouant, au jour de Paris du départ de sa partie — comme sa case et sa
  * poussière, même close à la page du lendemain —, et la première de la fête

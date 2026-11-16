@@ -150,7 +150,6 @@ import {
   compagnon as compagnonDuCatalogue,
   compagnonDe,
   avecLui,
-  cheminDeLaLuciole,
   compagnonDeLaNiche,
   formeDeCompagnon,
   formesOuvertes,
@@ -1339,16 +1338,6 @@ export class ProfileStore {
    * comptait le niveau d'explorateur.
    */
   cabinet = false
-
-  /**
-   * L'Expédition répond sur ce serveur (ses routes montées : pas
-   * `EXPEDITION_REMPLACEE`, que le banc garde à faux pour ses épreuves). Le
-   * trophée qui ne se gagne qu'en elle (`enExpedition` — le Globe-trotter, les
-   * tampons de son passeport) ne part qu'alors dans la page du profil et la
-   * loge, sauf à qui en a déjà un palier, partout (`hautsFaitsVus`). Posé au
-   * démarrage comme `cabinet` ; un serveur qui ne le dit pas le tait.
-   */
-  expedition = false
 
   /**
    * Sa ligue des duels, sa cote et ses bordures de ligue (`CampagneStore.coteDe`),
@@ -3020,9 +3009,6 @@ export class ProfileStore {
       const c = compagnonDuCatalogue(cle)
       if (!c) throw new Error('Ce compagnon n’existe pas')
       if (this.compagnons.get(id)?.has(c.key)) throw new Error(`${c.nom} est déjà à toi`)
-      // Un compagnon qui se gagnerait ne se vend pas. Plus aucun depuis le 31 octobre 2026 : la luciole, que cette garde
-      // refusait, s'achète comme les autres (`Compagnon.gagne`, que personne ne porte plus).
-      if (c.gagne) throw new Error(`${c.nom} ne s’achète pas : ${c.le === 'la' ? 'elle' : 'il'} rejoint qui ${cheminDeLaLuciole()}`)
       const manque = PRIX_D_UN_COMPAGNON - (await this.boutiqueDe(rec, jour)).confettis.solde
       if (manque > 0) throw new Error(`Il te manque ${nConfettis(manque)} pour ${nomDansLaPhrase(c.nom)}`)
       // Celui qui y vit la garde en toutes lettres : laissée à la règle, la
@@ -4392,13 +4378,11 @@ export class ProfileStore {
     // Un trophée réservé au Cabinet ne se cite que là où il s'ouvre, sauf à qui en a un palier rangé : l'album ne lui
     // fait pas de case sans lui. L'Explorateur s'est gagné en production quand il comptait le niveau d'explorateur ; le
     // taire à ses détenteurs tant que le Cabinet y est fermé leur aurait caché ce que leur étagère montre encore
-    // (invariant 22 — un palier validé ne se perd jamais, ni de vue). Le Globe-trotter de même, là où l'Expédition est
-    // effacée (`enExpedition`) : plus aucune page ne tamponne son passeport.
+    // (invariant 22 — un palier validé ne se perd jamais, ni de vue).
     const carrieres: HautFaitVu[] = HAUTS_FAITS_DE_CARRIERE.flatMap((h): HautFaitVu[] => {
       let palier = 0
       for (let i = 1; i <= 3; i++) if ((recompenses.get(clePalier(h.key, i)) ?? 0) > 0) palier = i
-      const citeIci = h.enExpedition ? this.expedition : this.cabinet
-      if (h.montreParLeServeur && !citeIci && palier === 0) return []
+      if (h.montreParLeServeur && !this.cabinet && palier === 0) return []
       const porte = palier > 0 ? rarete.get(clePalier(h.key, palier)) : undefined
       const origine = origineDe(h)
       return [

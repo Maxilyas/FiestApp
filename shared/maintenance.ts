@@ -25,7 +25,7 @@ import type { Route } from './adresses'
 /**
  * Les pages qui se mettent en maintenance, dans l'ordre où le QG les montre.
  * L'Expédition en est sortie le 1er novembre 2026 : remplacée par le Cabinet de
- * curiosités (`EXPEDITION_REMPLACEE`), son départ fermé partout, sa ligne au QG
+ * curiosités, son départ fermé partout, sa ligne au QG
  * ne fermait plus rien. Une ligne `expedition` restée dans `qg_maintenance` ou
  * `qg_testeurs` se tait à la lecture (`estUnePageEnMaintenance`).
  */

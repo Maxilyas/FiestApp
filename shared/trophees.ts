@@ -256,16 +256,9 @@ const AU_CABINET = { nom: 'Aller au Cabinet', href: '/cabinet' }
  * tient du serveur — `cabinetIci` —, jamais d'une constante : la préproduction
  * l'ouvre), aucun : le serveur cite quand même L'Explorateur à ses détenteurs
  * (`montreParLeServeur`), et ni la page fermée, ni une série ne l'avancent.
- * Un trophée qui ne se gagnait qu'en expédition (`enExpedition`, le
- * Globe-trotter) ne mène nulle part : l'Expédition est effacée, sa page partie
- * avec son code le 16 novembre 2026 — et rangé sur la page de la campagne, il
- * promettait « Jouer une série », qui n'a jamais tamponné un passeport. Sa
- * fiche le montre encore à qui le tient.
  */
 export function ouJouer(cle: string, page: PageDesTrophees, cabinet = true): { nom: string; href: string } | undefined {
   if (PISTES_DU_CABINET.has(cle) || page === 'cabinet') return cabinet ? AU_CABINET : undefined
-  const h = hautFait(cle)
-  if (h?.famille === 'carriere' && h.enExpedition) return undefined
   return OU_JOUER[page]
 }
 

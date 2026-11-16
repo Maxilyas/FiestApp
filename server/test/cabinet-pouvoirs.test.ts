@@ -84,7 +84,15 @@ import type { FiletMontre, FiletTire } from '../../shared/cabinet/jeux/filet'
 import type { MotMontre, MotTire } from '../../shared/cabinet/jeux/mot'
 import type { VueDeLaPartie } from '../../shared/cabinet/vues'
 import { cleDeLExpedition } from '../../shared/legendaires'
-import { JOKERS_QUI_AIDENT } from '../../shared/jokers'
+
+/**
+ * Les jokers qui aidaient à trouver, à l'Expédition : la colonne `joker` des
+ * réponses de la production porte encore leurs clés, que le journal des
+ * réponses lit comme une aide (`aidee`). Figés ici le 16 novembre 2026, avec
+ * le retrait de leur catalogue : un pouvoir du Cabinet ne s'écrit jamais sous
+ * l'une d'elles — il se lirait comme le joker d'une expédition d'avant.
+ */
+const JOKERS_QUI_AIDENT: ReadonlySet<string> = new Set(['coup-d-oeil', 'sagesse', 'tout-ou-rien', 'echolocation', 'double-chance', 'enigme', 'prediction', 'deux-visages', 'passe-muraille'])
 
 let b: BancDuCabinet
 /** Un joueur à qui ses gardiens se sont réveillés ailleurs — la Chouette, Janus, le Phénix — et qu'un Divin a visité. */

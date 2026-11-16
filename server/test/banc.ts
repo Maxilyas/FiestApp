@@ -11,7 +11,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { createQuizServer, type QuizServerOptions } from '../src/server'
-import { calendrierDesExpeditions, calendrierDesSoirees, calendrierDuCabinet } from '../src/core/saisons'
+import { calendrierDesSoirees, calendrierDuCabinet } from '../src/core/saisons'
 import { BaseDeLaCampagne, lireQuestionDeLaBase } from '../src/core/baseCampagne'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import { appliquerLeChangement, type ChangementDeLaSalle } from '../../shared/salle'
@@ -24,13 +24,11 @@ export type { Socket }
 // Noël ou le Nouvel An, elle ouvrirait son légendaire de saison, et chaque
 // épreuve qui compte ce qui tombe à la clôture échouerait dix-neuf jours par
 // an. Le banc ferme le calendrier des soirées ; `saisons.test.ts` le rouvre.
-// Celui des expéditions aussi, qui mettrait le légendaire de la saison au
-// bout de l'acte 3 ; `expedition-saison.test.ts` le rouvre. Et celui du
-// Cabinet, où la première œuvre gagnée pendant la fête réveillerait la
-// Citrouille — du 25 octobre au 1er novembre 2026, dès son premier jour.
-// `calendrier.test.ts` vérifie que chacun est fermé, ici et au smoke.
+// Et celui du Cabinet, où la première œuvre gagnée pendant la fête
+// réveillerait la Citrouille — du 25 octobre au 1er novembre 2026, dès son
+// premier jour. `calendrier.test.ts` vérifie que chacun est fermé, ici et au
+// smoke.
 calendrierDesSoirees.periodeDu = () => null
-calendrierDesExpeditions.periodeDu = () => null
 calendrierDuCabinet.periodeDu = () => null
 
 /**
@@ -106,14 +104,10 @@ export async function demarrer(opts: Partial<QuizServerOptions> = {}): Promise<B
   // Le premier démarrage prend un port libre ; les suivants reprennent le
   // même, pour qu'un téléphone qui se reconnecte tout seul retrouve le serveur.
   let port = 0
-  // Le banc ferme la question au centre de l'expédition (la version 10), comme le calendrier : les épreuves des
-  // rencontres d'avant elle partent en version 9, telles que la production les joue ; les siennes la rouvrent.
-  // Et le préchauffage au premier profil : parti en fond derrière un accueil, il lirait la base et ses mesures au
+  // Le banc ferme le préchauffage au premier profil : parti en fond derrière un accueil, il lirait la base et ses mesures au
   // milieu des allers-retours qu'une épreuve compte (`campagne-charge.test.ts` le rouvre).
   // Et le journal des duels relu à chaque lecture : les épreuves écrivent des duels à la main, dans la base, entre deux requêtes.
   // Ce que l'accueil garde d'un joueur aussi (`fraicheurDesLecturesMs`) : ses épreuves validées, ses bonnes réponses du jour.
-  // Et le départ de l'Expédition ouvert, quoi que dise son drapeau (`EXPEDITION_REMPLACEE`) : le jour où le Cabinet prend sa
-  // place, les fichiers qui partent en expédition ne tombent pas ; `cabinet-ouverture.test.ts` le ferme, et le rouvre au drapeau.
   // Et le Filet d'avant, quoi que dise son drapeau (`FILET_EN_DEUX_TEMPS`) : les fichiers qui le jouent par les routes ne tombent
   // pas le jour où le nouveau se tire ; ses épreuves le rouvrent (`filetEnDeuxTemps: true`, `cabinet-filet-en-deux-temps.test.ts`).
   // Et le point du matin arrêté (`pointDuMatinMs`) : passé 8 h 40, il aurait écrit la mémoire du QG en fond, au milieu des
@@ -123,7 +117,7 @@ export async function demarrer(opts: Partial<QuizServerOptions> = {}): Promise<B
   let reglages = opts
   const lancer = () =>
     // Sur une ligne : `cabinet-ouverture.test.ts` lit cet appel tel quel.
-    createQuizServer({ port, dbPath, quizDbUrl, admin: ADMIN, questionAuCentre: false, expeditionRemplacee: false, filetEnDeuxTemps: false, prechauffageAuProfil: false, fraicheurDesDuelsMs: 0, fraicheurDesLecturesMs: 0, pointDuMatinMs: null, publicationDesAjoutsMs: 0, ...reglages })
+    createQuizServer({ port, dbPath, quizDbUrl, admin: ADMIN, filetEnDeuxTemps: false, prechauffageAuProfil: false, fraicheurDesDuelsMs: 0, fraicheurDesLecturesMs: 0, pointDuMatinMs: null, publicationDesAjoutsMs: 0, ...reglages })
   let server = await lancer()
   port = server.port
   const banc: Banc = {

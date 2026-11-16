@@ -250,9 +250,9 @@ test('un légendaire gagné avant le durcissement reste à son porteur — et à
   }))
 
 test('un légendaire gardé au bout d’une expédition reste à son porteur, l’Expédition effacée — il le porte toujours', async () => {
-  // Le serveur tel que la production le démarre : l'Expédition remplacée, aucune de ses routes montée. La ligne qu'elle avait
+  // Le serveur tel que la production le démarre : l'Expédition partie, aucune de ses routes. La ligne qu'elle avait
   // rangée — `expedition:sphinx`, sous sa série, comme en production — donne encore le Sphinx, qui se porte.
-  const banc = await demarrer({ expeditionRemplacee: true })
+  const banc = await demarrer()
   try {
     const cookie = await inscrireProfil(banc.url, 'ines', 'Inès', '🦉')
     const id = (await moi(banc, cookie)).id as string
