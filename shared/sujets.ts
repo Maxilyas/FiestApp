@@ -146,7 +146,7 @@ export const SUJETS: readonly Sujet[] = [
     cle: 'equitation',
     nom: 'L’équitation',
     famille: 'theme',
-    description: 'Dressage, saut d’obstacles, courses hippiques et chevaux de légende',
+    description: 'Dressage, saut d’obstacles, concours complet et chevaux de légende',
     sousThemes: { Sport: ['equitation'] },
     categorie: 'Sport',
   },

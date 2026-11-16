@@ -158,7 +158,7 @@ export const SOUS_THEMES: Record<Categorie, readonly SousTheme[]> = {
     { cle: "mecaniques", nom: "Sports mécaniques" },
     { cle: "glisse", nom: "Montagne, glisse et voile" },
     { cle: "combat", nom: "Sports de combat" },
-    { cle: "equitation", nom: "Équitation et courses hippiques", specialite: true },
+    { cle: "equitation", nom: "Équitation", specialite: true },
     { cle: "plongee", nom: "Plongée et apnée", specialite: true },
   ],
   "Cuisine": [

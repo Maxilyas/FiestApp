@@ -42,6 +42,7 @@ import {
   NIVEAUX,
   NOM_NIVEAU,
   QUESTIONS_POUR_JOUER,
+  QUESTION_A_LA_MARCHE,
   RECORD_DU_TOUR_DU_MONDE,
   JUSTES_DOUBLEES_PAR_JOUR,
   VIES,
@@ -213,8 +214,6 @@ const lancement = aLaDemande(() => import('./LancerUnDefi'))
  * à l'ouverture suivante.
  */
 let choixEnRoute: Promise<ChoixDeLaCampagne> | null = null
-/** La marche d'une question, accordée à « une question » : « trop dure pour une facile », « pour une experte ». */
-const QUESTION_A_LA_MARCHE: Record<Niveau, string> = { facile: 'facile', moyen: 'moyenne', difficile: 'difficile', expert: 'experte' }
 
 function lesChoix(): Promise<ChoixDeLaCampagne> {
   choixEnRoute ??= api.campagne.choix().catch(e => {

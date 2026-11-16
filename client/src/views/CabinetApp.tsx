@@ -8,6 +8,7 @@ import { porterGerbe } from '../gerbe'
 import { porterNiche } from '../niche'
 import { retenirLeNiveau } from '../niveauVu'
 import { showToast, useAppState } from '../state'
+import { gardeDansLEntree } from '../retour'
 import { porterTheme } from '../themeJoueur'
 import { titreDePage } from '../titres'
 import { arreterLEcho } from '../toucher'
@@ -250,6 +251,56 @@ export function CabinetApp() {
     relire()
   }, [relire])
 
+  /**
+   * L'entrée d'historique d'un assaut qu'on quitte pour de bon, comme celle d'une épreuve finie (`quitterLEpreuveFinie`) — mais
+   * après la garde de sa manche, si elle est encore dessus : la partie démontée la lève d'elle-même d'un recul, et les deux
+   * reculs croisés n'en faisaient parfois qu'un, l'entrée de l'assaut restée sous le retour suivant. Une garde qui ne se lève
+   * pas dans la seconde ne s'attend plus.
+   */
+  const quitterLEntreeDeLAssaut = (partie: string) => {
+    const quitter = () => {
+      if (quitterLEpreuveFinie(window.history, window.location.hash, partie, conclueRef.current)) {
+        conclueRef.current = partie
+        setConclue(partie)
+      }
+    }
+    if (!gardeDansLEntree(window.history.state)) return quitter()
+    const apres = () => {
+      clearTimeout(delai)
+      window.removeEventListener('popstate', apres)
+      if (!gardeDansLEntree(window.history.state)) quitter()
+    }
+    const delai = setTimeout(apres, 1000)
+    window.addEventListener('popstate', apres)
+  }
+
+  /**
+   * S'en aller de la traversée en plein assaut d'un gardien : une intention, à son rang, qui nomme l'assaut qu'elle quitte — le
+   * serveur le quitte, le conclut et décide (abandonnée, ou perdue au dernier cœur). Un double toucher, une page d'avant, un assaut
+   * fini entre-temps : passé, rien ne bouge, et la page relue le dit. L'assaut parti, son entrée d'historique se quitte comme celle
+   * d'une épreuve finie (`quitterLEpreuveFinie`), et la carte dit son bilan, puis la fin.
+   */
+  const abandonnerDepuisLEpreuve = async (partie: string): Promise<boolean> => {
+    const t = page?.traversee
+    if (!t || busy) return false
+    setBusy(true)
+    try {
+      const r = await api.cabinet.enRoute(t.id, t.rang, { quoi: 'abandonner', partie })
+      if (r.passe) showToast({ kind: 'info', message: r.passe })
+      // La page ne porte plus l'assaut : il est quitté et conclu — par ce geste, ou avant lui.
+      const partiDeLAssaut = r.page.traversee?.partie?.id !== partie
+      if (partiDeLAssaut) quitterLEntreeDeLAssaut(partie)
+      recevoir(r.page)
+      return partiDeLAssaut
+    } catch (e) {
+      showToast({ kind: 'error', message: motifDe(e) })
+      relire()
+      return false
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const avecLeToast = (contenu: React.ReactNode) => (
     <>
       {contenu}
@@ -283,6 +334,7 @@ export function CabinetApp() {
         onMusee={versLaCarte}
         onEpreuveFinie={apresLEpreuve}
         onRelire={relire}
+        onAbandonner={abandonnerDepuisLEpreuve}
       />,
     )
   }

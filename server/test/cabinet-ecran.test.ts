@@ -4813,3 +4813,121 @@ test('le choix des cartes ne donne deux lignes à une description que si l’éc
   const css = readFileSync(path.join(client, 'styles.css'), 'utf8')
   assert.match(css, /@media \(min-width: 412px\) and \(min-height: 800px\) \{\s*\.cab-tv-choix \{ --choix-lignes: 2; \}\s*\.cab-tv-choix\[data-lignes='une'\] \{ --choix-lignes: 1; \}\s*\}/)
 })
+
+// ── 21. S'en aller d'un gardien ───────────────────────────────────────────
+//
+// « Dans le cabinet si au milieu du boss on veut partir on peut pas, on est obligé d'abandonner les épreuves jusqu'à que tous
+// les cœurs soient épuisés » (le retour du 16 novembre 2026). Entre deux assauts, l'annonce du gardien prenait tout l'écran, sans
+// la carte ni son menu : « Assaut suivant », et rien d'autre. En plein assaut, « Quitter ? » ne rendait que cette annonce.
+
+/** Une traversée devant son gardien, un premier assaut conclu sans l'abattre : la page telle que le serveur la rend. */
+async function devantLeGardienEntreDeuxAssauts() {
+  const { tracerLaCarte, etatDeLaTraversee } = await import('../../shared/cabinet/traversee')
+  const { vueDeLaTraversee } = await import('../src/core/cabinet/vue')
+  let x = 7
+  const hasard = () => ((x = (x * 16807) % 2147483647) / 2147483647)
+  const depart = { v: VERSION_DE_LA_TRAVERSEE, jour: '2026-11-16', actes: tracerLaCarte(hasard, ['lg:renard', 'lg:sphinx', 'lg:dragon'], { epingle: ['Rome'], frise: ['Rome'] }) }
+  const gestes: { geste: Record<string, unknown>; faitLe: number }[] = []
+  const jouerAuPli = (geste: Record<string, unknown>) => {
+    gestes.push({ geste, faitLe: gestes.length + 1 })
+    return etatDeLaTraversee(depart, gestes as never)
+  }
+  let e = jouerAuPli({ quoi: 'cartes', cartes: ['cagnotte', 'pourboire', 'coup-d-oeil'] })
+  let p = 0
+  // Jusqu'au premier assaut, chaque épreuve sans faute ; l'assaut, une étoile par manche : il reste debout, les cœurs aussi.
+  while (!(e.ou.sorte === 'gardien' && e.ou.partie === null)) {
+    if (e.ameliorations > 0) {
+      e = jouerAuPli({ quoi: 'ameliorer', carte: e.cartes.find(c => c.niveau < 2)!.cle })
+      continue
+    }
+    const ici = depart.actes[e.acte].etapes
+    const suivantes = ici.find(s => s.id === e.position)!.suivantes
+    const etape = ici.find(s => s.id === (suivantes.find(id => ici.find(s => s.id === id)?.sorte === 'epreuve') ?? suivantes[0]))!
+    if (etape.sorte === 'coffre' || etape.sorte === 'marchand') {
+      e = jouerAuPli({ quoi: 'aller', etape: etape.id })
+      continue
+    }
+    const partie = `essai-${++p}`
+    jouerAuPli({ quoi: 'epreuve', etape: etape.id, partie, ...(etape.choix && { theme: 0 }) })
+    const etoiles = etape.sorte === 'gardien' ? 1 : 3
+    e = jouerAuPli({ quoi: 'conclure', partie, manches: [etoiles, etoiles, etoiles].map(n => ({ etoiles: n, misee: false })) })
+  }
+  assert.equal(e.ignores, 0)
+  assert.equal(e.fin, null)
+  const tr = { id: 'traversee-devant-le-gardien', profileId: 'p', depart, gestes, etat: e, commenceeLe: 0 }
+  const traversee = vueDeLaTraversee(tr as never, null, Date.UTC(2026, 10, 16, 12))
+  return { page: { maintenant: traversee.maintenant, traversee, possedes: [], defis: defisTenus([]) }, derniere: `essai-${p}` }
+}
+
+test('entre deux assauts, l’annonce du gardien porte sa sortie : l’accueil, la traversée qui attend, et « Abandonner la traversée », confirmé', async () => {
+  const { page, derniere } = await devantLeGardienEntreDeuxAssauts()
+  assert.equal(page.traversee.ou.sorte, 'gardien')
+  assert.ok(page.traversee.assauts >= 1)
+  // Le bilan de l'assaut déjà lu, comme la page le retient le temps de l'onglet : reste l'annonce.
+  const avant = (globalThis as { sessionStorage?: unknown }).sessionStorage
+  Object.assign(globalThis, { sessionStorage: { getItem: () => JSON.stringify([`bilan:${derniere}`]), setItem: rien } })
+  let html: string
+  try {
+    html = await rendu('views/cabinet/Traversee', 'Traversee', { page, busy: false, onCommencer: rien, onGeste: async () => null, onRegles: rien, onReprendre: rien })
+  } finally {
+    Object.assign(globalThis, { sessionStorage: avant })
+  }
+  assert.match(html, /class="cab-tv-ecran cab-tv-ecran-gardien"/, 'l’annonce du gardien')
+  assert.match(texte(html), /Assaut suivant/)
+  // En haut à gauche, comme partout : partir sans rien perdre, la traversée l'attend devant son gardien.
+  assert.match(html, /<div class="cab-tv-colonne cab-tv-annonce"><a class="lien-discret jour-sortie" href="\/">.*?Accueil<\/a>/)
+  // Sous l'appel, un lien discret au rouge de ce qui coûte — un bouton, jamais un lien qui partirait sans confirmer.
+  assert.match(
+    html,
+    /<div class="cab-tv-pied">.*?Assaut suivant<\/button><button type="button" class="cab-tv-lien cab-tv-danger cab-tv-abandon">Abandonner la traversée<\/button><\/div>/,
+  )
+  // La confirmation, la même que celle du menu de la carte : ce qu'il perd, « Continuer » en bouton plein.
+  const traversee = source('views/cabinet/Traversee.tsx')
+  assert.match(traversee, /message: 'Elle s’arrête ici, son or avec elle : tu repartiras de l’acte I, avec des gardiens neufs\.'/)
+  assert.equal(traversee.match(/confirmDialog\(\{ \.\.\.ABANDONNER_LA_TRAVERSEE, prudent: true \}\)/g)?.length, 2, 'le menu de la carte et l’annonce du gardien')
+  assert.match(traversee, /onAbandonner=\{\(\) => void abandonner\(\)\}/)
+  const css = readFileSync(path.join(client, 'styles.css'), 'utf8')
+  assert.match(css, /\.cab-tv-abandon \{ justify-self: center; min-height: 40px; font-size: 1\.0625rem;/)
+})
+
+test('en plein assaut, « Quitter ? » propose aussi de s’en aller : ce que chaque geste fait, et seulement quand il change quelque chose', async () => {
+  const { messageDuQuitter, sEnAllerSePropose } = await import(url('views/cabinet/Partie.tsx'))
+  const assaut = (o: { perdue?: boolean; fin?: 'vaincu' | 'perdue'; gardien?: boolean; phase?: string } = {}) => ({
+    origine: 'traversee',
+    phase: o.phase ?? 'pause',
+    traversee: {
+      coeurs: 3,
+      coeursMax: 4,
+      or: 40,
+      ...(o.gardien !== false && { gardien: { cle: 'lg:renard', pv: 4, pvMax: 6, assaut: 2 } }),
+      manches: [],
+      ...(o.fin && { fin: o.fin }),
+      siTuQuittes: { coeurs: 2, perdue: o.perdue ?? false },
+      acte: 0,
+    },
+  })
+  assert.equal(sEnAllerSePropose(assaut()), true)
+  assert.equal(sEnAllerSePropose(assaut({ phase: 'jouer' })), true)
+  assert.equal(sEnAllerSePropose(assaut({ gardien: false })), false, 'une épreuve : quitter rend la carte et son menu')
+  assert.equal(sEnAllerSePropose(assaut({ perdue: true })), false, 'quitter perdrait déjà la traversée : rien à proposer de plus')
+  assert.equal(sEnAllerSePropose(assaut({ fin: 'vaincu' })), false, 'le gardien à terre')
+  assert.equal(sEnAllerSePropose(assaut({ phase: 'finie' })), false)
+  assert.equal(sEnAllerSePropose({ origine: 'libre', phase: 'jouer' }), false)
+  assert.deepEqual(messageDuQuitter(assaut(), { pauseMs: 10_000, sEnAller: true }), {
+    titre: 'Quitter l’épreuve ?',
+    message:
+      'Les manches qui restent comptent ratées : tu perdrais 2 cœurs. Quitter te ramène devant le gardien ; abandonner finit la traversée, son or avec elle. Le chrono t’attend 10 secondes au plus, la manche cachée.',
+  })
+  // Sans elle, la phrase d'avant, mot pour mot.
+  assert.equal(messageDuQuitter(assaut(), { pauseMs: 10_000 }).message, 'Les manches qui restent comptent ratées : tu perdrais 2 cœurs. Le chrono t’attend 10 secondes au plus, la manche cachée.')
+  // La page : trois gestes, « Continuer » en plein, et l'intention part avec l'assaut qu'elle quitte, au rang de la traversée.
+  const partie = source('views/cabinet/Partie.tsx')
+  assert.match(partie, /if \(onAbandonner && sEnAllerSePropose\(vueRef\.current\)\) \{/)
+  assert.match(partie, /alternative: \{ label: 'Abandonner la traversée', danger: true \}/)
+  assert.match(partie, /choix\?\.geste === 'alternative' && avant\.phase !== 'finie' && \(await onAbandonner\(avant\.id\)\)/)
+  const app = source('views/CabinetApp.tsx')
+  assert.match(app, /api\.cabinet\.enRoute\(t\.id, t\.rang, \{ quoi: 'abandonner', partie \}\)/)
+  assert.match(app, /onAbandonner=\{abandonnerDepuisLEpreuve\}/)
+  // L'entrée de l'assaut se quitte après la garde de sa manche, jamais en même temps.
+  assert.match(app, /if \(!gardeDansLEntree\(window\.history\.state\)\) return quitter\(\)/)
+})

@@ -12,7 +12,8 @@ import { GerbeDeJuste } from '../components/Gerbe'
 import { NicheALaRevelation } from '../components/NicheReagit'
 import { nicheRetientSonSouffle } from '../niche'
 import { rareEnCampagne, reactionDuSolo } from '../../../shared/niche'
-import { promptDialog } from '../components/Dialog'
+import { SignalerLaQuestion } from '../components/SignalerLaQuestion'
+import type { QuestionSignalee } from '../../../shared/signalement'
 import { espacesFines } from '../format'
 import { showToast } from '../state'
 import { answersSizeClass, questionSizeClass } from '../games/quiz/questionSize'
@@ -34,7 +35,7 @@ import {
   type ReponseDuSujet,
   type SentierDeSujet,
 } from '../../../shared/sentiersDeSujets'
-import { NOM_NIVEAU, SIGNALEMENT_MAX, type CorrectionDeCampagne, type QuestionDeCampagne } from '../../../shared/campagne'
+import { NOM_NIVEAU, QUESTION_A_LA_MARCHE, type CorrectionDeCampagne, type QuestionDeCampagne } from '../../../shared/campagne'
 
 // Les parcours de thème (`shared/sentiersDeSujets.ts` — « les sentiers à
 // thème » jusqu'au 12 octobre 2026) : un thème, une époque ou un fil rouge,
@@ -320,24 +321,23 @@ export function JeuDuParcours({ depart, onRetour }: { depart: EtapeAJouer; onRet
     setEcran({ ...ecran, question: r.epreuve.question, reponse: null, choix: null })
   }
 
-  const signaler = async (serie: string, index: number) => {
-    const texte = await promptDialog({
-      title: 'Signaler une erreur',
-      message: 'Dis en une phrase ce qui ne va pas : l’administrateur relit chaque signalement, et peut retirer la question de la campagne.',
-      input: { value: '', placeholder: 'La réponse B est juste aussi…', maxLength: SIGNALEMENT_MAX },
-      confirmLabel: 'Envoyer',
-    })
-    if (!texte) return
+  // « Signaler une erreur » : la même feuille que la série et le quiz du jour, en plusieurs points d'un coup.
+  const [aSignaler, setASignaler] = useState<{ serie: string; index: number; question: QuestionSignalee } | null>(null)
+  const signaler = async (serie: string, index: number, texte: string) => {
     try {
       await api.campagne.signaler(serie, index, texte)
-      showToast({ kind: 'info', message: 'Merci : c’est envoyé' })
     } catch (e) {
-      showToast({ kind: 'error', message: motifDe(e) })
+      // Le motif se dit dans la feuille, qui reste ouverte avec ce qu'il a corrigé.
+      throw new Error(motifDe(e))
     }
+    setASignaler(null)
+    showToast({ kind: 'info', message: 'Merci : c’est envoyé' })
   }
 
   if (ecran.e === 'epreuve') {
+    const { question: q, reponse: r } = ecran
     return (
+      <>
       <EcranDeLEtape
         ecran={ecran}
         busy={busy}
@@ -348,8 +348,20 @@ export function JeuDuParcours({ depart, onRetour }: { depart: EtapeAJouer; onRet
           onRetour()
           showToast({ kind: 'info', message: 'L’étape t’attend : reprends-la quand tu veux' })
         }}
-        onSignaler={() => void signaler(ecran.epreuve.id, ecran.question.index)}
+        onSignaler={() => {
+          if (!r) return
+          setASignaler({
+            serie: ecran.epreuve.id,
+            index: q.index,
+            // Telle qu'il l'a lue : ses réponses dans l'ordre de l'étape, la bonne que sa réponse a dite.
+            question: { texte: q.texte, reponses: q.reponses, bonne: r.bonne, anecdote: r.anecdote, categorie: q.categorie, marche: QUESTION_A_LA_MARCHE[q.niveau] },
+          })
+        }}
       />
+      {aSignaler && (
+        <SignalerLaQuestion question={aSignaler.question} onEnvoyer={texte => signaler(aSignaler.serie, aSignaler.index, texte)} onFermer={() => setASignaler(null)} />
+      )}
+      </>
     )
   }
   const e = ecran.reponse.epreuve

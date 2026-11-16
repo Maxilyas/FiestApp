@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { aLaDemande, useALaDemande, type ALaDemande } from '../../aLaDemande'
 import { api, motifDe, refusDuServeur } from '../../api'
 import { serverNow } from '../../clock'
-import { confirmDialog, fermerLeDialogue, promptDialog } from '../../components/Dialog'
+import { choixDialog, confirmDialog, fermerLeDialogue, promptDialog } from '../../components/Dialog'
 import { Etoiles } from '../../components/Etoiles'
 import { GerbeDeJuste } from '../../components/Gerbe'
 import { Icon, type IconName } from '../../components/Icon'
@@ -302,7 +302,7 @@ function ceQuOnEmporte(vue: Pick<VueDeLaPartie, 'origine'>, s: { total: number; 
  */
 export function messageDuQuitter(
   vue: Pick<VueDeLaPartie, 'origine'> & Partial<Pick<VueDeLaPartie, 'siTuQuittes' | 'traversee'>>,
-  o: { pauseMs?: number; refus?: string } = {},
+  o: { pauseMs?: number; refus?: string; sEnAller?: boolean } = {},
 ): { titre: string; message: string } {
   // Une épreuve : les manches qui restent comptent ratées — quitter ne fuit pas ses cœurs, et la vue dit combien.
   const epreuve = vue.origine === 'traversee' ? (vue.traversee?.siTuQuittes ?? null) : undefined
@@ -323,8 +323,19 @@ export function messageDuQuitter(
         ? 'La porte compte les étoiles déjà gagnées : sans assez d’étoiles, elle reste fermée et la montée perd un cœur.'
         : `La partie compte avec les étoiles déjà gagnées, et ${vue.origine === 'chasse' ? 'ta chasse est utilisée' : 'cette partie de la visite est faite'}.`
   const chrono = o.pauseMs !== undefined && o.pauseMs > 0 ? ` Le chrono t’attend ${secondesAuPlus(o.pauseMs)} au plus, la manche cachée.` : o.refus ? ` ${o.refus}.` : ''
-  return { titre: vue.origine === 'libre' ? 'Quitter cette partie ?' : vue.origine === 'traversee' ? 'Quitter l’épreuve ?' : 'Quitter ?', message: compte + chrono }
+  // Contre un gardien, quitter l'assaut ramène devant lui : la confirmation dit aussi l'autre geste, et ce qu'il emporte.
+  const partir = o.sEnAller && vue.origine === 'traversee' ? ' Quitter te ramène devant le gardien ; abandonner finit la traversée, son or avec elle.' : ''
+  return { titre: vue.origine === 'libre' ? 'Quitter cette partie ?' : vue.origine === 'traversee' ? 'Quitter l’épreuve ?' : 'Quitter ?', message: compte + partir + chrono }
 }
+
+/**
+ * S'en aller de la traversée se propose-t-il à « Quitter ? » ? Contre un gardien seulement — quitter une épreuve rend la
+ * carte et son menu, quitter un assaut rendait son annonce, sans autre sortie (le retour du 16 novembre 2026) —, et tant que
+ * l'assaut joue encore : le gardien à terre ou le dernier cœur parti, il n'y a plus rien à fuir, et quand quitter ferait déjà
+ * tomber le dernier cœur, abandonner n'y changerait rien — la traversée serait perdue de même (le serveur le décide).
+ */
+export const sEnAllerSePropose = (vue: Pick<VueDeLaPartie, 'origine' | 'phase'> & Partial<Pick<VueDeLaPartie, 'traversee'>>): boolean =>
+  vue.origine === 'traversee' && vue.phase !== 'finie' && vue.traversee?.gardien !== undefined && vue.traversee.fin === undefined && !vue.traversee.siTuQuittes.perdue
 
 /** Ce qui reste de pause, en secondes entières vers le haut : arrondies, 300 ms se lisaient « 0 secondes », et une seule « 1 secondes ». */
 function secondesAuPlus(ms: number): string {
@@ -1006,7 +1017,14 @@ export function Partie({
   onFinie,
   onRejouer,
   onRetenter,
+  onAbandonner,
 }: {
+  /**
+   * S'en aller de la traversée en plein assaut d'un gardien, d'un geste (`sEnAllerSePropose`) : l'intention part au serveur,
+   * qui quitte l'assaut, le conclut et décide — abandonnée, ou perdue si le dernier cœur tombe. Vrai : elle est finie, la
+   * carte a pris le relais ; faux : rien n'a bougé, la partie reprend.
+   */
+  onAbandonner?: (partie: string) => Promise<boolean>
   depart: VueDeLaPartie
   relue: VueDeLaPartie | null
   /** L'œuvre à dorer a déjà son cadre (`dejaDoree`) : la vue ne le dit pas, la page le lit de ses salles. */
@@ -1208,6 +1226,25 @@ export function Partie({
           setBusy(false)
         }
       }
+      // Contre un gardien, un troisième geste : s'en aller pour de bon. « Continuer » reste le bouton plein, le seul qu'on touche
+      // sans y penser ; les deux autres en contour, chacun dit ce qu'il fait.
+      if (onAbandonner && sEnAllerSePropose(vueRef.current)) {
+        const q = messageDuQuitter(vueRef.current, { pauseMs, refus, sEnAller: true })
+        const choix = await choixDialog({
+          title: q.titre,
+          message: q.message,
+          confirmLabel: 'Quitter la partie',
+          cancelLabel: 'Continuer',
+          prudent: true,
+          alternative: { label: 'Abandonner la traversée', danger: true },
+        })
+        if (!monte.current) return 'parti'
+        const avant = vueRef.current
+        if (choix?.geste === 'alternative' && avant.phase !== 'finie' && (await onAbandonner(avant.id))) return 'parti'
+        if (choix?.geste === 'confirmer' && vueRef.current.phase !== 'finie') await jouer({ quoi: 'quitter' })
+        else if (vueRef.current.phase === 'pause') await jouer({ quoi: 'reprendre', manche: vueRef.current.manche })
+        return vueRef.current.phase === 'finie' ? 'parti' : 'reste'
+      }
       const { titre, message } = messageDuQuitter(vueRef.current, { pauseMs, refus })
       // « Quitter la partie » : la tête porte déjà un « Quitter », et Camille ne savait lequel toucher (la tablée du 25 octobre 2026).
       // Prudente : « Continuer », le geste qu'on attend, est le bouton plein ; celui qui perd la partie, un contour rouge — sous une
@@ -1224,7 +1261,7 @@ export function Partie({
       enQuestion.current = false
       setQuestion(false)
     }
-  }, [ranger, jouer])
+  }, [ranger, jouer, onAbandonner])
 
   // Une pause sans question : « Continuer » sous le voile la reprend.
   const reprendre = () => {

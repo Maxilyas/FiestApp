@@ -2072,6 +2072,14 @@ export class CabinetStore {
         if (rang !== tr.etat.rang) return { passe: lecture(), pourquoi: GESTE_PASSE_EN_ROUTE }
         const geste = lireUnGesteDeLaTraversee(brut)
         if (!geste) throw new Error(ILLISIBLE_EN_ROUTE)
+        if (geste.quoi === 'abandonner' && geste.partie !== undefined) {
+          const parti = await this.partirDeLEpreuve(profileId, tr, partie, geste.partie, t)
+          if (parti === 'devance') {
+            if (essai > 0) throw new Error(GESTE_CROISE)
+            continue
+          }
+          return parti === 'passe' ? { passe: lecture(), pourquoi: GESTE_PASSE_EN_ROUTE } : { lecture: parti }
+        }
         const etape = geste.quoi === 'aller' ? etapeDe(tr.depart, geste.etape) : null
         if (etape && (etape.sorte === 'epreuve' || etape.sorte === 'gardien')) {
           const theme = geste.quoi === 'aller' ? geste.theme : undefined
@@ -2088,6 +2096,41 @@ export class CabinetStore {
         if (essai > 0) throw new Error(GESTE_CROISE)
       }
     })
+  }
+
+  /**
+   * S'en aller en pleine épreuve, d'un geste — d'un gardien surtout : entre deux assauts, son annonce ne rendait ni la carte ni
+   * son menu, et il fallait quitter ses assauts un à un jusqu'au dernier cœur (le retour du 16 novembre 2026). L'épreuve nommée
+   * se quitte comme « Quitter » la quitte — ses manches qui restent comptées ratées, la manche ouverte comprise : rien ne se
+   * voit sans se payer —, se conclut comme toute épreuve finie (`aJour`), puis la traversée s'abandonne. Ce que vaut
+   * l'épuisement de ses cœurs, ni plus ni moins : l'or perdu avec elle, aucun gardien, aucun légendaire ; et le dernier cœur
+   * tombé à la conclusion, elle est perdue, pas abandonnée — une défaite acquise ne s'esquive pas. Trois lots, dans l'ordre
+   * des gestes qu'ils écrivent : coupé entre deux, le joueur retrouve son gardien, l'épreuve conclue, et s'en va encore sans
+   * rien payer deux fois. `passe` : elle ne joue plus cette épreuve-là — finie et conclue entre-temps, ou une autre —, rien ne
+   * bouge ; `devance` : un autre serveur a écrit la partie d'abord, rien d'écrit.
+   */
+  private async partirDeLEpreuve(
+    profileId: string,
+    tr: TraverseeGardee,
+    partie: PartieGardee | null,
+    visee: string,
+    t: number,
+  ): Promise<LectureDeLaTraversee | 'passe' | 'devance'> {
+    if (partieEnCours(tr.etat) !== visee) return 'passe'
+    if (partie && partie.id === visee && !partie.etat.fin) {
+      const quittee = await this.ecrireUnGeste(profileId, partie, { quoi: 'quitter' }, partie.etat.rang, t)
+      if ('devance' in quittee) return 'devance'
+      if ('refus' in quittee) throw new Error(quittee.refus)
+    }
+    const { traversee: conclue } = await this.aJour(profileId, t)
+    if (!conclue || conclue.id !== tr.id) return 'passe'
+    // Perdue à la conclusion : la défaite telle qu'elle est tombée, sans abandon par-dessus.
+    if (conclue.etat.fin) return this.lectureDeLaTraversee(profileId, conclue, null, this.maintenant())
+    const issue = await this.ecrireUnGesteDeTraversee(profileId, conclue, { quoi: 'abandonner' }, t)
+    // L'épreuve déjà quittée et conclue : on ne recommence pas le tout — la page relue le propose encore, sans rien d'autre à payer.
+    if ('devance' in issue) throw new Error(GESTE_CROISE)
+    if ('refus' in issue) throw new Error(issue.refus)
+    return this.lectureDeLaTraversee(profileId, issue.traversee, null, this.maintenant())
   }
 
   /**

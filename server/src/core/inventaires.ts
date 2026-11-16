@@ -1619,17 +1619,24 @@ export const INVENTAIRES: readonly Inventaire[] = [
   // parcours demande pour se monter deux fois (cent vingt-cinq, des faciles
   // surtout : un lot de complément a ajouté celles que la relecture avait
   // retirées, les familles reposant toutes les mêmes faits simples).
+  // L'équitation a perdu ses courses le 16 novembre 2026 (le choix du
+  // propriétaire : « enlever des questions sur les courses dans le thème
+  // équitation ») : sa famille « Courses hippiques », qui pesait 26, est
+  // partie, et ses 26 se sont répartis sur les cinq autres à proportion de
+  // leurs poids (24, 22, 20, 20 et 18 sont devenus 30, 28, 25, 25 et 22) :
+  // l'équitation compte donc cinq lots, et la commande des deux thèmes onze —
+  // toujours cent trente questions chacun, aucune famille au-delà d'un lot.
   {
     categorie: 'Sport',
     sousTheme: 'equitation',
     perimetre:
-      "Le cheval monté ou attelé, comme sport et comme art : les disciplines équestres — dressage, saut d'obstacles, concours complet, endurance, voltige, attelage, polo, horse-ball, western —, leurs épreuves, leurs cavaliers et leurs chevaux célèbres ; les courses hippiques — galop, trot, obstacles, grands prix, jockeys, paris — ; le vocabulaire du cavalier — allures, aides, harnachement, soins — ; les races, les robes et l'hippologie ; les écoles et les traditions équestres. Une épreuve équestre des Jeux olympiques se range ici, pas en olympisme. Le cheval sauvage, sa biologie et son évolution → Nature (mammiferes) ; le cheval de guerre et de trait dans l'histoire (Bucéphale, la cavalerie) → Histoire ; un film, un roman, un tableau → leur catégorie ; une expression française (monter sur ses grands chevaux) → Culture générale (francais).",
+      "Le cheval monté ou attelé, comme sport et comme art : les disciplines équestres — dressage, saut d'obstacles, concours complet, endurance, voltige, attelage, polo, horse-ball, western —, leurs épreuves, leurs cavaliers et leurs chevaux célèbres ; le vocabulaire du cavalier — allures, aides, harnachement, soins — ; les races, les robes et l'hippologie ; les écoles et les traditions équestres. LES COURSES HIPPIQUES NE S'ÉCRIVENT PLUS ICI (le choix du propriétaire du 16 novembre 2026) : ni le turf — courses de plat, d'obstacles ou de trot attelé, hippodromes, grandes épreuves (Prix de l'Arc de Triomphe, Prix d'Amérique, Derby, Grand National, Kentucky Derby, Melbourne Cup…) —, ni les jockeys et les drivers, ni les paris (PMU, tiercé, quarté, quinté+), ni les chevaux de course célèbres (Seabiscuit, Secretariat, Red Rum, Phar Lap…), ni les mots des hippodromes (paddock, yearling, outsider, photo-finish), ni le sulky : ni dans l'intitulé, ni en réponse, ni en leurre qui en fasse le sujet. Le pur-sang anglais n'est ici que comme race, avec ses trois étalons fondateurs ; le trot et le galop n'y sont que des allures. Une épreuve équestre des Jeux olympiques se range ici, pas en olympisme. Le cheval sauvage, sa biologie et son évolution → Nature (mammiferes) ; le cheval de guerre et de trait dans l'histoire (Bucéphale, la cavalerie) → Histoire ; un film, un roman, un tableau → leur catégorie ; une expression française (monter sur ses grands chevaux) → Culture générale (francais).",
     prudence:
-      "Les palmarès bougent chaque année : ni « dernier vainqueur », ni « le plus titré » d'un cavalier ou d'un jockey encore en activité, ni record de gains — un fait daté dans l'intitulé (« En 1988, quel cheval… »), ou une carrière finie. Les hauteurs, les distances et les barèmes changent d'un niveau d'épreuve à l'autre : nomme le niveau, ou tiens-toi au principe. Les règles des paris ont changé plusieurs fois : tiens-toi à leur histoire (le tiercé en 1954, le quinté+ en 1989). L'équitation a quitté le pentathlon moderne après les Jeux de 2024 : ne la demande pas au présent. Un cheval « blanc » est presque toujours un gris : ne fais pas d'une robe blanche une bonne réponse. Rien sur le dopage ni sur une affaire de maltraitance.",
+      "Les palmarès bougent chaque année : ni « dernier vainqueur », ni « le plus titré » d'un cavalier encore en activité, ni record de gains — un fait daté dans l'intitulé (« En 1988, quel cheval… »), ou une carrière finie. Les hauteurs, les distances et les barèmes changent d'un niveau d'épreuve à l'autre : nomme le niveau, ou tiens-toi au principe. L'équitation a quitté le pentathlon moderne après les Jeux de 2024 : ne la demande pas au présent. Un cheval « blanc » est presque toujours un gris : ne fais pas d'une robe blanche une bonne réponse. Rien sur le dopage ni sur une affaire de maltraitance.",
     familles: [
       {
         nom: 'Dressage, saut d’obstacles et concours complet',
-        poids: 24,
+        poids: 30,
         sujets: [
           "le saut d'obstacles (oxer, vertical, rivière, triple, barrage, sans-faute)|saut d obstacles|oxer|barrage|sans faute|riviere",
           'le dressage (reprise, piaffer, passage, pirouette, appuyer, changement de pied)|dressage|reprise|piaffer|pirouette|changement de pied',
@@ -1649,7 +1656,7 @@ export const INVENTAIRES: readonly Inventaire[] = [
       },
       {
         nom: 'Cavaliers et chevaux de légende',
-        poids: 22,
+        poids: 28,
         sujets: [
           "Pierre Jonquères d'Oriola|jonqueres|oriola",
           'Pierre Durand et Jappeloup|pierre durand|jappeloup',
@@ -1675,36 +1682,8 @@ export const INVENTAIRES: readonly Inventaire[] = [
         ],
       },
       {
-        nom: 'Courses hippiques',
-        poids: 26,
-        sujets: [
-          "le Prix de l'Arc de Triomphe et Longchamp|arc de triomphe|longchamp",
-          "le Prix d'Amérique et Vincennes|prix d amerique|vincennes",
-          'le Prix de Diane, le Prix du Jockey Club et Chantilly|prix de diane|jockey club|chantilly',
-          'le Grand Steeple-Chase de Paris et Auteuil|steeple|auteuil',
-          "le Derby d'Epsom et Royal Ascot|epsom|ascot",
-          'le Grand National, Aintree et Red Rum|grand national|aintree|red rum',
-          'le Kentucky Derby, la Triple Couronne américaine et Secretariat|kentucky|triple couronne|secretariat',
-          'la Melbourne Cup, la Dubaï World Cup et le Palio de Sienne|melbourne cup|dubai world cup|palio',
-          'le plat, le trot attelé, le trot monté et les obstacles (haies, steeple, cross)|trot attele|trot monte|haies|course de plat',
-          'le sulky et le driver|sulky|driver',
-          'le pur-sang anglais et ses trois étalons fondateurs (Eclipse)|pur sang anglais|etalons fondateurs|eclipse|godolphin|darley|byerley',
-          'le trotteur français|trotteur francais',
-          'Ourasi, Bellino II, Idéal du Gazeau, Roquépine et Gélinotte|ourasi|bellino|ideal du gazeau|roquepine|gelinotte',
-          'Sea Bird, Trêve, Zarkava, Frankel et Enable|sea bird|treve|zarkava|frankel|enable',
-          'Seabiscuit et Phar Lap|seabiscuit|phar lap',
-          'Yves Saint-Martin, Freddy Head et Olivier Peslier|saint martin|freddy head|peslier',
-          'Lester Piggott, Frankie Dettori et Christophe Soumillon|piggott|dettori|soumillon',
-          'André Fabre, Jean-René Gougeon et Jean-Michel Bazire|andre fabre|gougeon|bazire',
-          'le PMU, le tiercé, le quarté et le quinté+|pmu|tierce|quarte|quinte',
-          'la casaque, la toque, la pesée, le handicap et la photo-finish|casaque|toque|pesee|handicap|photo finish',
-          'les hippodromes français (Deauville, Cagnes-sur-Mer, Pau, Enghien)|hippodrome|deauville|cagnes|enghien',
-          'les mots du turf (yearling, outsider, favori, encolure, dead-heat)|yearling|outsider|favori|dead heat|turf',
-        ],
-      },
-      {
         nom: 'Allures, aides et harnachement',
-        poids: 20,
+        poids: 25,
         sujets: [
           'les trois allures (le pas, le trot, le galop) et leurs temps|allure|allures|trot|galop',
           "l'amble et le tölt|amble|tolt",
@@ -1714,7 +1693,7 @@ export const INVENTAIRES: readonly Inventaire[] = [
           'le filet, le mors, la bride, les rênes, le licol et la longe|filet|mors|bride|renes|licol|longe',
           'les étriers et les étrivières|etrier|etriviere',
           'la bombe, les bottes, la cravache et les éperons|bombe|cravache|eperon',
-          'le manège, la carrière, le paddock, le box et la stalle|manege|carriere|paddock|stalle',
+          'le manège, la carrière, le box et la stalle|manege|carriere|stalle',
           'les figures de manège (volte, doubler, diagonale, serpentine)|volte|doubler|diagonale|serpentine',
           'le pansage (étrille, bouchon, cure-pied)|pansage|etrille|cure pied',
           'le maréchal-ferrant, le sellier et le palefrenier|marechal ferrant|sellier|palefrenier|ferrure',
@@ -1726,9 +1705,10 @@ export const INVENTAIRES: readonly Inventaire[] = [
       },
       {
         nom: 'Races, robes et hippologie',
-        poids: 20,
+        poids: 25,
         sujets: [
           'le pur-sang arabe|pur sang arabe|cheval arabe',
+          'le pur-sang anglais, comme race, et ses trois étalons fondateurs (Darley Arabian, Godolphin Arabian, Byerley Turk)|pur sang anglais|etalons fondateurs|darley|godolphin|byerley',
           "le selle français et l'anglo-arabe|selle francais|anglo arabe",
           'le lipizzan, le pure race espagnole et le lusitanien|lipizzan|pure race espagnole|andalou|lusitanien',
           'le frison et le hanovrien|frison|hanovrien',
@@ -1751,7 +1731,7 @@ export const INVENTAIRES: readonly Inventaire[] = [
       },
       {
         nom: 'Autres disciplines, écoles et traditions',
-        poids: 18,
+        poids: 22,
         sujets: [
           'le polo (chukkas, maillets, Argentine)|polo|chukka|maillet',
           'le horse-ball|horse ball',

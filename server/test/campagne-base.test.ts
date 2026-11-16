@@ -229,9 +229,13 @@ import { sansAccent } from '../../shared/homonymes'
  * de plus d'un fait que la base pose déjà, liée à ses sœurs (`faceDe`) :
  * 83 faits, 76 questions écrites, 3 retirées à la relecture (deux années
  * possibles chacune), une redite des premiers jeux Pokémon au recoupement —
- * 73 rangées, 28 794.
+ * 73 rangées, 28 794. Le 16 novembre 2026, les courses hippiques sont sorties
+ * de l'équitation (le choix du propriétaire : « enlever des questions sur les
+ * courses dans le thème équitation ») : 25 retirées, 28 769 — le plancher n'a
+ * pas baissé pour autant, un lot d'équitation sans courses les a remplacées
+ * le même jour : 30 écrites, 30 rangées, 28 799.
  */
-const AU_MOINS = 28794
+const AU_MOINS = 28799
 
 const { questions, refusees } = lireLaBase()
 

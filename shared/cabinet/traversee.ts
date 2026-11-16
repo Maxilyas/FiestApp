@@ -787,7 +787,13 @@ export type GesteDeLaTraversee =
   | { quoi: 'acheter'; article: 'coeur' }
   | { quoi: 'acheter'; article: 'amelioration'; carte: CleDeCarte }
   | { quoi: 'legendaire'; gardien: string }
-  | { quoi: 'abandonner' }
+  /**
+   * `partie` : en pleine épreuve, celle qu'il quitte pour s'en aller — le seul départ d'un gardien en un geste (« si au milieu du
+   * boss on veut partir on peut pas », le 16 novembre 2026 : il fallait quitter ses assauts un à un jusqu'au dernier cœur). Le
+   * magasin la quitte d'abord, ses manches qui restent comptées ratées comme « Quitter », la conclut, puis l'abandon s'écrit — nu :
+   * le journal ne garde que le fait. Sans elle, une épreuve en cours le refuse (`EPREUVE_EN_COURS`), comme avant.
+   */
+  | { quoi: 'abandonner'; partie?: string }
   /**
    * Rendue par l'administrateur (« Rendre une traversée bloquée », le pendant de « Libérer une épreuve » des sentiers) :
    * elle s'arrête là où elle en est, l'épreuve en cours comprise, sans rien conclure — ni or, ni cœurs, ni défi de plus.
@@ -1573,8 +1579,10 @@ export function lireUnGesteDeLaTraversee(brut: unknown, duServeur = false): Gest
     }
     case 'legendaire':
       return gardienDeLaTraversee(g.gardien) ? { quoi: 'legendaire', gardien: g.gardien as string } : null
+    // L'épreuve qu'il quitte en s'en allant, si elle se nomme : un identifiant, ou tout le geste se refuse.
     case 'abandonner':
-      return { quoi: 'abandonner' }
+      if (g.partie === undefined) return { quoi: 'abandonner' }
+      return unId(g.partie) ? { quoi: 'abandonner', partie: g.partie } : null
     case 'epreuve': {
       const theme = unThemeChoisi(g.theme)
       return duServeur && chaine(g.etape) && ID_D_ETAPE.test(g.etape) && unId(g.partie) && theme ? { quoi: 'epreuve', etape: g.etape, partie: g.partie, ...theme } : null

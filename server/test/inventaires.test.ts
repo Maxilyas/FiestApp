@@ -234,7 +234,8 @@ test('ce qui manque : un sujet sans question, une question, nommé dans sa famil
 // Sport et son inventaire. Leurs poids font cent trente — à peu près ce qu'un
 // thème neuf demande pour monter deux fois son parcours : chaque famille
 // reçoit son poids en questions, tient dans un lot, et les douze s'écrivent
-// d'une seule vague.
+// d'une seule vague. L'équitation a perdu sa famille des courses hippiques le
+// 16 novembre 2026 (le choix du propriétaire) : cinq familles, donc onze lots.
 test('l’équitation et la plongée : un inventaire chacune, en Sport ; cent trente questions, chaque famille son poids, une seule vague', () => {
   for (const cle of ['equitation', 'plongee']) {
     const theme = sujetParCle(cle)!
@@ -249,11 +250,18 @@ test('l’équitation et la plongée : un inventaire chacune, en Sport ; cent tr
   // Ce que chacune laisse à ses voisins se lit dans son périmètre : le plongeon reste aux Jeux, le cheval sauvage à la nature.
   assert.match(inventaireDe('Sport', 'plongee')!.perimetre, /plongeon[^;]*→ Sport \(olympisme\)/)
   assert.match(inventaireDe('Sport', 'equitation')!.perimetre, /cheval sauvage[^;]*→ Nature \(mammiferes\)/)
+  // Les courses hippiques ne s'écrivent plus en équitation : ni famille, ni sujet de turf, et le périmètre le dit.
+  const equitation = inventaireDe('Sport', 'equitation')!
+  assert.equal(equitation.familles.length, 5)
+  assert.equal(equitation.familles.some(f => /course/i.test(f.nom)), false)
+  assert.match(equitation.perimetre, /LES COURSES HIPPIQUES NE S'ÉCRIVENT PLUS ICI/)
+  const sujets = equitation.familles.flatMap(f => f.sujets).join('\n')
+  assert.doesNotMatch(sujets, /hippodrome|jockey|tierc|PMU|Kentucky|Grand National|Melbourne Cup|sulky/i)
   const commandes = new Map<Categorie, QuotaDEcriture[]>()
   for (const cle of ['equitation', 'plongee']) for (const [c, lignes] of commandeDeLInventaire(sujetParCle(cle)!, 130)) commandes.set(c, [...(commandes.get(c) ?? []), ...lignes])
   const vagues = planDeLaGeneration([], { nom: 'ep', questions: 0, commandes })
   assert.equal(vagues.length, 1, 'deux familles d’un sous-thème se partagent une vague')
-  assert.equal(vagues[0].lots.length, 12)
+  assert.equal(vagues[0].lots.length, 11)
   assert.equal(vagues[0].lots.reduce((s, l) => s + l.quotas.reduce((t, q) => t + q.n, 0), 0), 260)
 })
 

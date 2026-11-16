@@ -13148,6 +13148,8 @@ button.cab-tv-carte { cursor: pointer; }
 .cab-tv-stats b { color: var(--cab-tv-or-clair); font-size: 1.3rem; font-variant-numeric: lining-nums tabular-nums; }
 .cab-tv-menu { display: grid; gap: 10px; }
 .cab-tv-danger { color: #ffb0b6; }
+/* « Abandonner la traversée », sous l'appel d'un gardien entre deux assauts : centré, souligné de son rouge, plus bas que l'appel. */
+.cab-tv-abandon { justify-self: center; min-height: 40px; font-size: 1.0625rem; text-decoration-color: rgba(255, 176, 182, 0.45); }
 /* Les feuilles de la traversée — tes cartes, le menu, « Comment ça marche ? » — sont de la même nuit que la carte : leur fond, leur
    encre et leurs bords se reprennent ici, sans quoi l'encre claire de la carte s'écrivait sur le fond pâle d'un thème clair. */
 .cab-tv-feuille {
