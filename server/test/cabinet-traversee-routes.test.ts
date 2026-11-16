@@ -17,6 +17,7 @@ import { lireLeDepart } from '../../shared/cabinet/lecture'
 import {
   CHOISIS_TROIS_CARTES,
   EPREUVE_EN_COURS,
+  ILLISIBLE_EN_ROUTE,
   PAS_PAR_LA,
   VERSION_DE_LA_TRAVERSEE,
   etatDeLaTraversee,
@@ -235,6 +236,104 @@ test('le gardien à terre avant la dernière manche : l’épreuve se quitte et 
   // Le « quitter » de la page, arrivé après : la partie est finie, il est passé — rien ne se joue deux fois.
   const tardif = await jouer(b, cookie, partie, { quoi: 'quitter' })
   assert.equal(tardif.status, 409)
+})
+
+test('s’en aller en plein assaut d’un gardien, d’un geste : l’assaut quitté comme « Quitter », conclu, puis la traversée abandonnée — rien de plus, rien deux fois', async () => {
+  // Le retour du 16 novembre 2026 : « Dans le cabinet si au milieu du boss on veut partir on peut pas, on est obligé d'abandonner
+  // les épreuves jusqu'à que tous les cœurs soient épuisés. »
+  const cookie = await unProfil()
+  const depart = traverseeALaMain(await idDe(cookie), ['lg:renard', 'lg:sphinx', 'lg:dragon'], e => e.ou.sorte === 'marchand')
+  const gardien = depart.actes[0].etapes.find(s => s.sorte === 'gardien')!.id
+  const devant = ok(await laPage(cookie), 'la page').traversee!
+  const entree = ok(await geste(cookie, devant, { quoi: 'aller', etape: gardien }), 'l’assaut').traversee!
+  let partie = entree.partie! as VueDeLaPartie
+  // Une manche parfaite, puis la deuxième ouverte, sa question sous les yeux : elle se paiera comme les autres.
+  partie = await jouerUnEclair(b, cookie, partie, 0)
+  partie = ok(await jouer(b, cookie, partie, { quoi: 'ouvrir', manche: 1 }), 'la deuxième manche')
+  const coute = partie.traversee!.siTuQuittes
+  assert.deepEqual(coute, { coeurs: 2, perdue: false }, '« Quitter » coûterait les deux manches qui restent')
+  // Sans dire quelle épreuve il quitte — une page d'avant —, le refus d'avant : rien ne part.
+  const nu = await geste(cookie, entree, { quoi: 'abandonner' })
+  assert.equal(nu.status, 400)
+  assert.equal(nu.corps.error, EPREUVE_EN_COURS)
+  // Une autre épreuve que la sienne : passé, rien ne bouge.
+  const autre = await geste(cookie, entree, { quoi: 'abandonner', partie: 'une-autre-partie' })
+  assert.equal(autre.status, 409)
+  assert.equal(autre.corps.error, GESTE_PASSE_EN_ROUTE)
+  assert.equal(autre.corps.page?.traversee?.partie?.id, partie.id, 'l’assaut continue')
+  // Une épreuve qui ne se nomme pas d'un identifiant : illisible, tout le geste se refuse.
+  const casse = await geste(cookie, entree, { quoi: 'abandonner', partie: 42 })
+  assert.equal(casse.status, 400)
+  assert.equal(casse.corps.error, ILLISIBLE_EN_ROUTE)
+  const gestesAvant = enBase(b.fichier, db => (db.prepare('SELECT COUNT(*) AS n FROM cabinet_traversee_gestes WHERE traversee_id = ?').get(entree.id) as { n: number }).n)
+
+  const finie = ok(await geste(cookie, entree, { quoi: 'abandonner', partie: partie.id }), 's’en aller').traversee!
+  assert.equal(finie.fin?.issue, 'abandonnee')
+  assert.equal(finie.partie, undefined, 'plus rien à reprendre')
+  assert.equal(finie.derniere?.partie, partie.id, 'l’assaut conclu d’abord, son bilan à lire')
+  assert.equal(finie.derniere?.coeurs, coute.coeurs, 'ce que « Quitter » aurait coûté, pas un cœur de plus ni de moins')
+  assert.equal(finie.derniere?.manches[1].coeurs, 1, 'la manche ouverte, vue, se paie')
+  assert.equal(finie.coeurs, entree.coeurs - coute.coeurs)
+  assert.equal(finie.derniere?.vaincu, false)
+  assert.deepEqual(finie.vaincus, [], 'aucun gardien de plus')
+  assert.equal(finie.fin?.legendaire, undefined, 'aucun légendaire')
+  // Au journal : la conclusion, quittée, puis l'abandon nu — le fait, pas l'intention.
+  const ecrits = enBase(b.fichier, db =>
+    (db.prepare('SELECT geste FROM cabinet_traversee_gestes WHERE traversee_id = ? AND rang > ? ORDER BY rang').all(entree.id, gestesAvant) as { geste: string }[]).map(r => JSON.parse(r.geste) as GesteDeLaTraversee),
+  )
+  assert.deepEqual(
+    ecrits.map(g => g.quoi),
+    ['conclure', 'abandonner'],
+  )
+  assert.equal((ecrits[0] as { quittee?: true }).quittee, true, 'le QG le lit comme un « Quitter ? »')
+  assert.deepEqual(ecrits[1], { quoi: 'abandonner' })
+  // L'assaut est fini : sa partie ne se rejoue pas.
+  assert.equal((await jouer(b, cookie, partie, { quoi: 'repondre', manche: 1, reponse: { eclair: { reponses: [true, true, true, true, true] } } })).status, 409)
+  // Le double toucher, la page d'avant : passés, sans rien écrire.
+  for (const g of [{ quoi: 'abandonner', partie: partie.id }, { quoi: 'abandonner' }]) {
+    const encore = await geste(cookie, entree, g)
+    assert.equal(encore.status, 409, JSON.stringify(g))
+    assert.equal(encore.corps.page?.traversee?.fin?.issue, 'abandonnee')
+  }
+  assert.equal(enBase(b.fichier, db => (db.prepare('SELECT COUNT(*) AS n FROM cabinet_traversee_gestes WHERE traversee_id = ?').get(entree.id) as { n: number }).n), gestesAvant + 2)
+  assert.equal(ok(await laPage(cookie), 'relue').traversee!.coeurs, finie.coeurs, 'rien payé deux fois')
+})
+
+test('s’en aller d’un assaut déjà fini ne coûte rien de plus, et d’un dernier cœur, la traversée est perdue : une défaite acquise ne s’esquive pas', async () => {
+  const cookie = await unProfil()
+  const depart = traverseeALaMain(await idDe(cookie), ['lg:renard', 'lg:sphinx', 'lg:dragon'], e => e.ou.sorte === 'marchand')
+  const gardien = depart.actes[0].etapes.find(s => s.sorte === 'gardien')!.id
+  let t = ok(await laPage(cookie), 'la page').traversee!
+  // Un assaut quitté par la page — « Quitter », sa partie finie, pas encore conclue — puis l'abandon qui le visait : passé, la
+  // conclusion seule a coûté ses cœurs, une fois.
+  const entree = ok(await geste(cookie, t, { quoi: 'aller', etape: gardien }), 'le premier assaut').traversee!
+  const premier = entree.partie! as VueDeLaPartie
+  const cout = premier.traversee!.siTuQuittes.coeurs
+  ok(await jouer(b, cookie, premier, { quoi: 'quitter' }), 'quitter')
+  const tardif = await geste(cookie, entree, { quoi: 'abandonner', partie: premier.id })
+  assert.equal(tardif.status, 409)
+  assert.equal(tardif.corps.error, GESTE_PASSE_EN_ROUTE)
+  t = tardif.corps.page!.traversee!
+  assert.equal(t.fin ?? null, null, 'la traversée continue : il s’en ira de l’annonce, s’il veut')
+  assert.equal(t.coeurs, entree.coeurs - cout, 'l’assaut payé une fois')
+  assert.deepEqual(t.ou, { sorte: 'gardien', etape: gardien, partie: null })
+  // Les assauts suivants, jusqu'à celui dont « Quitter » ferait tomber le dernier cœur.
+  for (let n = 0; ; n++) {
+    assert.ok(n < 10, 'le dernier cœur arrive')
+    const assaut = ok(await geste(cookie, t, { quoi: 'aller', etape: gardien }), 'un assaut').traversee!
+    const p = assaut.partie! as VueDeLaPartie
+    if (p.traversee!.siTuQuittes.perdue) {
+      const finie = ok(await geste(cookie, assaut, { quoi: 'abandonner', partie: p.id }), 's’en aller').traversee!
+      assert.equal(finie.fin?.issue, 'perdue', 'perdue, comme « Quitter » l’aurait perdue — pas abandonnée')
+      assert.equal(finie.coeurs, 0)
+      assert.equal(finie.derniere?.perdue, true)
+      const gestes = enBase(b.fichier, db => (db.prepare('SELECT geste FROM cabinet_traversee_gestes WHERE traversee_id = ? ORDER BY rang DESC LIMIT 1').get(assaut.id) as { geste: string }).geste)
+      assert.equal(JSON.parse(gestes).quoi, 'conclure', 'aucun abandon écrit par-dessus la défaite')
+      return
+    }
+    ok(await jouer(b, cookie, p, { quoi: 'quitter' }), 'quitter')
+    t = ok(await laPage(cookie), 'conclu').traversee!
+  }
 })
 
 test('au bout des trois actes, le légendaire choisi se range sur son étagère', async () => {

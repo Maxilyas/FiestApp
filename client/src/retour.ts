@@ -43,6 +43,13 @@ export const marqueDeLaGarde = (aSaQuestion: boolean): true | string => (aSaQues
 /** L'entrée porte-t-elle cette garde-là — et non celle d'un autre montage ? */
 export const porteLaGarde = (etat: unknown, marque: true | string): boolean => (etat as Record<string, unknown> | null)?.[GARDE] === marque
 
+/**
+ * L'entrée porte-t-elle une garde, quelle qu'elle soit ? Une page qui recule elle-même sous une garde qui va se lever attend
+ * qu'elle l'ait fait : croisés, les deux reculs pouvaient n'en faire qu'un, et laisser une entrée morte (le Cabinet, qui s'en va
+ * en plein assaut).
+ */
+export const gardeDansLEntree = (etat: unknown): boolean => (etat as Record<string, unknown> | null)?.[GARDE] !== undefined
+
 /** Combien de gardes tiennent en ce moment : StrictMode monte deux fois, et la dernière seule retire l'entrée gardée. */
 let demandes = 0
 

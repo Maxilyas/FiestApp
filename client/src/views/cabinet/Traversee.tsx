@@ -596,6 +596,14 @@ export interface PropsDeLaTraversee {
 
 type Feuilles = 'cartes' | 'menu' | null
 
+/** « Abandonner la traversée ? », où qu'on le demande : ce qu'il perd, puis renoncer en bouton plein (`prudent`). */
+const ABANDONNER_LA_TRAVERSEE = {
+  title: 'Abandonner la traversée ?',
+  message: 'Elle s’arrête ici, son or avec elle : tu repartiras de l’acte I, avec des gardiens neufs.',
+  confirmLabel: 'Abandonner',
+  cancelLabel: 'Continuer',
+} as const
+
 /**
  * Ce que la page a déjà montré d'une traversée — un bilan lu, un coffre ouvert —,
  * le temps de l'onglet (`sessionStorage`, sous try/catch : un stockage refusé ne
@@ -682,6 +690,12 @@ export function Traversee({ page, busy, onCommencer, onGeste, onRegles, onRepren
   const geste = async (g: Record<string, unknown>) => {
     if (busy) return null
     return onGeste(g)
+  }
+
+  /** L'abandonner, confirmé : du menu de la carte, et de l'annonce de son gardien entre deux assauts, qui n'avait aucune sortie. */
+  const abandonner = async () => {
+    const oui = await confirmDialog({ ...ABANDONNER_LA_TRAVERSEE, prudent: true })
+    if (oui) await geste({ quoi: 'abandonner' })
   }
 
   /** « Y aller » : la comète part ; une épreuve et son gardien s'annoncent à l'arrivée, le coffre et le marchand s'ouvrent. */
@@ -778,7 +792,17 @@ export function Traversee({ page, busy, onCommencer, onGeste, onRegles, onRepren
       />
     )
   else if (t.ou.sorte === 'gardien' && t.ou.partie === null)
-    plein = <AnnonceDuGardien t={t} etape={t.ou.etape} busy={busy} onAffronter={() => void geste({ quoi: 'aller', etape: t.ou.sorte === 'gardien' ? t.ou.etape : '' })} />
+    // Entre deux assauts, ni la carte ni son menu : l'annonce porte la sortie — l'accueil, la traversée qui attend, et l'abandon.
+    // Sans elle, il fallait quitter ses assauts un à un jusqu'au dernier cœur pour s'en aller (le retour du 16 novembre 2026).
+    plein = (
+      <AnnonceDuGardien
+        t={t}
+        etape={t.ou.etape}
+        busy={busy}
+        onAffronter={() => void geste({ quoi: 'aller', etape: t.ou.sorte === 'gardien' ? t.ou.etape : '' })}
+        onAbandonner={() => void abandonner()}
+      />
+    )
 
   /** Renoncer à l'annonce : la comète revient où il était, rien n'est joué. */
   function retourALaCarte(etape: string) {
@@ -839,13 +863,7 @@ export function Traversee({ page, busy, onCommencer, onGeste, onRegles, onRepren
               type="button"
               className="btn btn-block cab-tv-danger"
               {...toucher(async () => {
-                const oui = await confirmDialog({
-                  title: 'Abandonner la traversée ?',
-                  message: 'Elle s’arrête ici : tu repartiras de l’acte I, avec des gardiens neufs.',
-                  confirmLabel: 'Abandonner',
-                  cancelLabel: 'Continuer',
-                  prudent: true,
-                })
+                const oui = await confirmDialog({ ...ABANDONNER_LA_TRAVERSEE, prudent: true })
                 setFeuille(null)
                 if (oui) await geste({ quoi: 'abandonner' })
               })}
@@ -1342,12 +1360,15 @@ function AnnonceDuGardien({
   busy,
   onAffronter,
   onRetour,
+  onAbandonner,
 }: {
   t: VueDeLaTraversee
   etape: string
   busy: boolean
   onAffronter: () => void
   onRetour?: () => void
+  /** Entre deux assauts : la carte ne se rouvre plus, l'annonce porte la sortie. */
+  onAbandonner?: () => void
 }) {
   const a = acteDe(etape)
   const g = t.actes[a].gardien
@@ -1360,7 +1381,8 @@ function AnnonceDuGardien({
   return (
     <div className="cab-tv-ecran cab-tv-ecran-gardien">
       <div className="cab-tv-colonne cab-tv-annonce">
-        {onRetour && <Sortie vers="La carte" href="/cabinet" onClick={onRetour} />}
+        {/* Arrivé de la carte, il y retourne ; entre deux assauts, à l'accueil — la traversée l'attend devant son gardien. */}
+        {onRetour ? <Sortie vers="La carte" href="/cabinet" onClick={onRetour} /> : onAbandonner && <Sortie />}
         <p className="cab-tv-sur">{`Le gardien de l’${ACTES[a].court.replace('Acte ', 'acte ')}`}</p>
         <div className="cab-tv-portrait">
           <img src={imageDuGardien(g, true)} alt="" />
@@ -1386,6 +1408,13 @@ function AnnonceDuGardien({
         <button type="button" className="cab-tv-cta" aria-disabled={busy || undefined} {...toucher(() => !busy && onAffronter())}>
           {t.assauts > 0 ? 'Assaut suivant' : `Affronter ${leGardien(g)}`}
         </button>
+        {/* Un lien discret, au rouge de ce qui coûte, sous l'appel : on le trouve sans défiler, et sa confirmation le garde d'un
+            pouce qui glisse (« Continuer » en bouton plein). */}
+        {onAbandonner && (
+          <button type="button" className="cab-tv-lien cab-tv-danger cab-tv-abandon" aria-disabled={busy || undefined} {...toucher(() => !busy && onAbandonner())}>
+            Abandonner la traversée
+          </button>
+        )}
       </div>
     </div>
   )
