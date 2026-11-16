@@ -407,7 +407,6 @@ test('aucune règle ne cherche une carte qui s’améliore sous sa seule clé : 
     'shared/codex.ts',
     'server/src/core/campagne.ts',
     'server/src/expedition.ts',
-    'server/scripts/calibrage-rencontres.ts',
     'client/src/views/ExpeditionApp.tsx',
     'client/src/views/RencontresDExpedition.tsx',
   ]
