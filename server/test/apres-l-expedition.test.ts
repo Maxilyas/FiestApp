@@ -14,7 +14,8 @@
 // jamais ces parties.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Database from 'better-sqlite3'
@@ -271,7 +272,11 @@ test('une expédition d’avant et ses réponses se lisent comme avant : expéri
 
 test('l’expédition restée en route ne bloque ni ne fausse rien : aucune reprise, aucun départ refusé, aucune partie en cours comptée', async () => {
   const horloge = { t: EN_OCTOBRE }
-  const banc = await demarrer({ horlogeDuJour: () => horloge.t, baseDeLaCampagne: baseDEssai(40, { categories: ['Histoire', 'Sciences'] }) })
+  // Un client minimal tient lieu de construit : la redirection de `/expedition` n'existe que là où le serveur sert des pages, et
+  // `npm test` passe avant le build — sans lui, l'épreuve passait ici et rougissait en CI, où `client/dist` n'existe pas encore.
+  const dist = mkdtempSync(path.join(tmpdir(), 'quizz-dist-'))
+  writeFileSync(path.join(dist, 'index.html'), '<!doctype html><html><head><title>FiestApp</title></head><body></body></html>')
+  const banc = await demarrer({ horlogeDuJour: () => horloge.t, baseDeLaCampagne: baseDEssai(40, { categories: ['Histoire', 'Sciences'] }), clientDist: dist })
   try {
     const admin = await connexionAnimateur(banc.url)
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
