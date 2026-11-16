@@ -159,8 +159,14 @@ import {
   type VueDeLaRencontre,
 } from './rencontres'
 
+// Les cadrages du détail et la catégorie de ses tableaux vivent avec le Détail
+// du Cabinet, qui les lit encore quand l'Expédition s'en va : elle les y
+// emprunte, et les redonne à ses lecteurs d'avant.
+import { CADRAGES_DU_DETAIL, CATEGORIE_DU_DETAIL } from './cabinet/jeux/detail'
+
 export { EXPEDITION_EN_PRODUCTION } from './jokers'
 export { RENCONTRES_EN_PRODUCTION } from './rencontres'
+export { CADRAGES_DU_DETAIL, CATEGORIE_DU_DETAIL }
 
 export const ACTES = 3
 export const ETAGES = 6
@@ -690,13 +696,12 @@ export function instantDuMot(n: number, depuis: number, arret?: number): number 
  * image en suspend le compte, comme celui d'un dévoilement. Trouvé dans la
  * première moitié de ses cadrages, il vaut deux crans (`cransDeLaForme`). La
  * question ne nomme jamais le tableau : son intitulé de la base le ferait.
- * Des choix de produit (`docs/reference/baremes.md`).
+ * Des choix de produit (`docs/reference/baremes.md`). Les cadrages et la
+ * catégorie des tableaux — la carte la pose sur l'escale d'un détail — sont
+ * ceux du Détail du Cabinet (`shared/cabinet/jeux/detail.ts`).
  */
-export const CADRAGES_DU_DETAIL = 4
 export const MS_PAR_CADRAGE = 5000
 export const QUESTION_DU_DETAIL = 'Qui a peint ce tableau ?'
-/** La catégorie de ses tableaux : la carte la pose sur l'escale d'un détail. */
-export const CATEGORIE_DU_DETAIL = 'Arts & lettres'
 
 /** Combien de cadrages d'un détail se montrent à l'instant `t` — l'heure du serveur : le premier dès `depuis`, sans la pause d'Arrêt sur image. */
 export function cadragesMontres(depuis: number, t: number, arret?: number): number {

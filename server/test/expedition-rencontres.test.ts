@@ -26,6 +26,7 @@ import {
 } from '../../shared/expedition'
 import {
   CARTES_DES_RENCONTRES,
+  FAMILLES_DE_CARTES,
   COURAGE_DE_LA_RENAISSANCE,
   COURAGE_D_UN_CAMPEMENT,
   COURAGE_D_UNE_SOURCE,
@@ -53,6 +54,19 @@ import {
   type ContexteDUneCarte,
 } from '../../shared/rencontres'
 import { JOKERS_DES_LEGENDAIRES, LEGENDAIRES_A_JOKER } from '../../shared/jokers'
+import { CARTES_DES_RENCONTRES_FIGEES, FAMILLES_DES_RENCONTRES } from './cartes-des-rencontres'
+
+// ── L'instantané du catalogue ───────────────────────────────────────────────
+
+test('l’instantané du catalogue que le Cabinet relit est fidèle aux rencontres : chaque carte, chaque famille', () => {
+  // `cabinet-catalogue.test.ts` compare les œuvres à cet instantané, plus aux rencontres, qui partiront avec l'Expédition :
+  // tant qu'elles existent, il ne s'en écarte de rien — carte pour carte, dans l'ordre, et famille pour famille.
+  assert.deepEqual(
+    [...CARTES_DES_RENCONTRES_FIGEES],
+    CARTES_DES_RENCONTRES.map(c => ({ cle: c.cle, nom: c.nom, famille: c.famille, rarete: c.rarete, ...(c.legendaire && { legendaire: c.legendaire }) })),
+  )
+  assert.deepEqual(FAMILLES_DES_RENCONTRES, Object.fromEntries(Object.entries(FAMILLES_DE_CARTES).map(([cle, f]) => [cle, { nom: f.nom, devise: f.devise }])))
+})
 
 // ── Les règles ──────────────────────────────────────────────────────────────
 

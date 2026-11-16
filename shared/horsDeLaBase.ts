@@ -20,12 +20,21 @@
 // préfixe de plus ne change donc pas le texte de la lecture, ni la version
 // des tranches gardées (`VERSION_DES_TRANCHES`) : aucun réveil ne relit tout.
 //
-// N'importe que trois constantes : le journal des réponses le lit sans tirer
+// N'importe que deux constantes : le journal des réponses le lit sans tirer
 // le Cabinet.
 
-import { PREFIXE_DU_REBUS } from './curiosites'
 import { PREFIXE_DE_LA_FRISE } from './frise'
 import { PREFIXE_DU_CABINET } from './cabinet/pieces'
+
+/**
+ * Le préfixe de l'identifiant d'un rébus de l'Expédition (la version 12)
+ * dans le journal des réponses (`campagne_reponses.reserve_id`) : il n'est
+ * pas une question de la base — le carnet ne le reprend pas, la mesure ne le
+ * lit pas. Il vit ici, et non avec les curiosités qui le réexportent : des
+ * réponses de la production le portent, et le carnet comme le signalement
+ * doivent encore l'écarter quand l'Expédition s'en va.
+ */
+export const PREFIXE_DU_REBUS = 'rebus:'
 
 /**
  * Les préfixes de ce qui n'est pas une question de la base. Un préfixe neuf

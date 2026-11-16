@@ -9,6 +9,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   LEGENDAIRES,
+  LEGENDAIRES_DE_L_EXPEDITION,
   cleDeLExpedition,
   estUneVoieDExpedition,
   legendaireDeLExpedition,
@@ -33,6 +34,12 @@ test('chaque légendaire qui a son joker se gagne aussi au bout de l’expéditi
   assert.equal(legendaireDeLExpedition('expedition:kraken')?.key, 'lg:kraken')
   assert.equal(legendaireDeLExpedition('expedition:inconnu'), undefined)
   assert.equal(legendaireDeLExpedition('saison:noel'), undefined)
+})
+
+test('la liste figée des légendaires de l’expédition est celle de ses jokers, dans le même ordre', () => {
+  // Figée dans `shared/legendaires.ts` pour survivre aux jokers : tant qu'ils existent, elle ne s'en écarte de rien. Le lot qui
+  // les retirera n'aura qu'à retirer cette épreuve ; `legendaires.test.ts` garde ensuite la liste elle-même.
+  assert.deepEqual([...LEGENDAIRES_DE_L_EXPEDITION], [...LEGENDAIRES_A_JOKER])
 })
 
 test('vingt-trois jokers de légendaires, un par légendaire, aucun pour un Divin ; chacun dit ce qu’il fait', () => {

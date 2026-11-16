@@ -107,6 +107,21 @@ export interface DetailRevele {
 /** Ce que demande la pièce d'un Détail, au journal et au cartel. */
 export const QUESTION_DU_TABLEAU = 'Quel est ce tableau ?'
 
+/**
+ * Les cadrages livrés de chaque tableau, du détail au tableau entier — les
+ * fichiers `server/content/details/<QID>-<1..4>.webp` : le serveur écarte un
+ * tableau qui n'a pas tous les siens (`tableauxDuDetail`). Nés avec
+ * l'Expédition, qui les a fait découper, ils vivent ici pour lui survivre ;
+ * le barème en compte autant (`ETOILES_AU_CADRAGE`, `cabinet-jeux-images.test.ts`).
+ */
+export const CADRAGES_DU_DETAIL = 4
+
+/**
+ * La catégorie de tous les tableaux : celle que la pièce d'un Détail porte,
+ * et que les missions « catégorie » lisent (`tirerUnDetail`).
+ */
+export const CATEGORIE_DU_DETAIL = 'Arts & lettres'
+
 /** Les cadrages d'un tableau : autant que le barème en compte, du détail au tableau entier — les quatre images livrées. */
 const CADRAGES = ETOILES_AU_CADRAGE.length
 

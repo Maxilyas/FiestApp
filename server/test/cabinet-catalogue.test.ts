@@ -7,18 +7,20 @@
 // les importer : la page du musée ne doit pas tirer les 4 782 lignes de
 // `shared/rencontres.ts`. Une copie dérive sans bruit — une carte peinte de
 // plus, un nom retouché, une rareté changée —, d'où ce test, qui relit chaque
-// table contre sa source. Et ce qui se gèle (le jeu de chaque œuvre, les
+// table contre sa source, figée (`cartes-des-rencontres.ts`, que
+// `expedition-rencontres.test.ts` compare aux rencontres tant qu'elles
+// existent ; les légendaires à joker, `LEGENDAIRES_DE_L_EXPEDITION`, de même
+// dans `expedition-legendaires.test.ts`). Et ce qui se gèle (le jeu de chaque œuvre, les
 // œuvres de départ) s'écrit ici en entier : le changer est un choix de produit,
 // qui se dit en changeant aussi ce test (invariant 22, `baremes.md`).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
-import { CARTES_DES_RENCONTRES, FAMILLES_DE_CARTES, type FamilleDeCartes } from '../../shared/rencontres'
-import { LEGENDAIRES_A_JOKER } from '../../shared/jokers'
-import { legendaire } from '../../shared/legendaires'
+import { CARTES_DES_RENCONTRES_FIGEES as CARTES_DES_RENCONTRES, FAMILLES_DES_RENCONTRES as FAMILLES_DE_CARTES } from './cartes-des-rencontres'
+import { LEGENDAIRES_DE_L_EXPEDITION as LEGENDAIRES_A_JOKER, legendaire } from '../../shared/legendaires'
 import { SAISONS, cleDeSaison } from '../../shared/saisons'
 import { DIVINS } from '../../shared/divins'
-import { OEUVRES, OEUVRES_DE_DEPART, JEU_DE_L_OEUVRE, RARETES, oeuvre, estUneOeuvre, oeuvresDeLaSalle } from '../../shared/cabinet/oeuvres'
+import { OEUVRES, OEUVRES_DE_DEPART, JEU_DE_L_OEUVRE, RARETES, oeuvre, estUneOeuvre, oeuvresDeLaSalle, type FamilleDeCartes } from '../../shared/cabinet/oeuvres'
 import {
   SALLES,
   GARDIENS,

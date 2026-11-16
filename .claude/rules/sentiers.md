@@ -4,7 +4,7 @@ paths:
   - "server/src/core/{campagne,repriseDesPortraits,jumelles}.ts"
   - "server/src/campagne.ts"
   - "client/src/views/{Sentiers,Parcours}.tsx"
-  - "client/src/components/AdminCampagne.tsx"
+  - "client/src/components/{AdminCampagne,Balise}.tsx"
   - "client/src/components/melanges.ts"
   - "client/src/iconeDuSujet.ts"
   - "server/scripts/{calibrage-sentiers,rendu-sentiers}.ts"

@@ -79,12 +79,10 @@ export interface Rebus {
   lecture: string
 }
 
-/**
- * Le préfixe de l'identifiant d'un rébus dans le journal des réponses
- * (`campagne_reponses.reserve_id`) : il n'est pas une question de la base —
- * le carnet ne le reprend pas, la mesure ne le lit pas.
- */
-export const PREFIXE_DU_REBUS = 'rebus:'
+// Le préfixe de l'identifiant d'un rébus dans le journal des réponses vit
+// avec ce qui n'est pas une question de la base (`shared/horsDeLaBase.ts`) :
+// le carnet et le signalement le lisent encore quand l'Expédition s'en va.
+export { PREFIXE_DU_REBUS } from './horsDeLaBase'
 
 export const EMOJIS_D_UN_REBUS_MIN = 2
 export const EMOJIS_D_UN_REBUS_MAX = 4

@@ -6,7 +6,6 @@ import { deplieePourLeCabinet, vuesDuCabinet } from '../../../shared/cabinet/vue
 import { bitDuMode } from '../../../shared/campagne'
 import { horsDeLaBase } from '../../../shared/horsDeLaBase'
 import { jourDe } from '../../../shared/jour'
-import { CARTES_DU_SECOND_ESSAI } from '../../../shared/rencontres'
 import { apresUnPassage, type SuiviDeRevision } from '../../../shared/revision'
 import { QUESTIONS_D_UNE_TRANCHE, type CalculEnTranches } from '../../../shared/tranches'
 import { questionsDuTableau } from './details'
@@ -379,6 +378,20 @@ interface QuestionAuCarnet {
   /** Son suivi replié ; undefined : à replier. */
   suivi?: SuiviDeRevision | null
 }
+
+/**
+ * Les cartes qui donnaient un second essai à l'Expédition (la version 14) :
+ * Parade et Second souffle jouées sur la question, Bastion et Cuirasse
+ * posés. La colonne `joker` d'une réponse retrouvée au second essai porte
+ * l'une d'elles, et le carnet la tient pour ratée — sa première réponse était
+ * fausse, le journal des gestes l'a gardée, le carnet ne lit que les réponses
+ * (le détail, v15). Figée ici, et non lue des rencontres : des réponses de la
+ * production portent ces clés, et l'Expédition partie, la liste doit encore
+ * les lire. Le carnet en mémoire (`ESSAIS`) et en SQL
+ * (`CampagneStore.suivisDeLaBase`) la partagent ; le Cabinet n'écrit jamais
+ * une clé de carte dans `joker` (`cabinet-pouvoirs.test.ts`).
+ */
+export const CARTES_DU_SECOND_ESSAI: readonly string[] = ['parade', 'second-souffle', 'bastion', 'cuirasse']
 
 /** Les cartes du second essai : leur réponse juste compte pour ratée au carnet (`suivisDe`). */
 const ESSAIS = new Set(CARTES_DU_SECOND_ESSAI)

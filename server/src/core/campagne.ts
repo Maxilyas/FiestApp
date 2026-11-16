@@ -18,6 +18,7 @@ import { preparationDe } from './preparees'
 import { QUESTIONS_D_UNE_TRANCHE, dUneTraite, type CalculEnTranches } from '../../../shared/tranches'
 import { enFond, sousLeNom, suivre } from './gels'
 import {
+  CARTES_DU_SECOND_ESSAI,
   DECLENCHEURS_DES_TRANCHES,
   FENETRE_DES_RECENTES_MS,
   JournalDesReponses,
@@ -418,7 +419,6 @@ import {
   CLAIRVOYANCE_SUR_LA_QUESTION,
   FIOLES_MAX,
   pouvoirsQuiEffacent,
-  CARTES_DU_SECOND_ESSAI,
   VERSION_DE_LA_QUESTION_AU_CENTRE,
   VERSION_DES_COUPS_DE_POUCE,
   VERSION_DES_CURIOSITES,

@@ -6,7 +6,7 @@
 // leur seule fête (la décision du propriétaire, le 24 octobre 2026).
 //
 // Les vingt-trois gardiens sont exactement les légendaires à joker
-// (`LEGENDAIRES_A_JOKER`, `shared/jokers.ts`) : un gardien réveillé, c'est le
+// (`LEGENDAIRES_DE_L_EXPEDITION`, `shared/legendaires.ts`) : un gardien réveillé, c'est le
 // légendaire gagné, et sa carte-bonus, la plus forte de sa famille. Jamais un
 // Divin, ni un légendaire sans joker (invariant 21). Un gardien porte le
 // pouvoir de la salle qu'il garde, pas celui de la famille de sa carte dans

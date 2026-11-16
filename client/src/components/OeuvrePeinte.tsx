@@ -4,9 +4,10 @@ import { CARTES_PEINTES } from './cartes-peintes'
 import { espacesFines } from '../format'
 import { GEMME_MAUDITE, gemme } from '../gemmes'
 import type { RareteDeTheme } from '../../../shared/themes'
-// Des types seulement : ils s'effacent à la compilation, et la page qui montre
-// une œuvre ne télécharge pas les règles des rencontres (`cartes-peintes.test.ts`).
-import type { CarteDeRencontre, FamilleDeCartes } from '../../../shared/rencontres'
+// Des types seulement, ceux des œuvres du Cabinet : ils s'effacent à la
+// compilation, et la page qui montre une œuvre ne télécharge ni les œuvres ni
+// les règles des rencontres (`cartes-peintes.test.ts`).
+import type { FamilleDeCartes, RareteDeCarte } from '../../../shared/cabinet/oeuvres'
 
 // L'œuvre peinte : la carte dessinée de l'Expédition (`CarteDessinee`,
 // `views/RencontresDExpedition.tsx`), sortie d'elle le 25 octobre 2026 pour le
@@ -36,13 +37,19 @@ export type FamilleDOeuvre = FamilleDeCartes | 'vestibule'
  * nom, sa famille ou sa salle, sa rareté, et le légendaire qu'elle montre à
  * la place d'une peinture — une carte de légendaire, un gardien.
  */
-export type OeuvreMontree = Pick<CarteDeRencontre, 'cle' | 'nom' | 'rarete' | 'legendaire'> & { famille: FamilleDOeuvre }
+export interface OeuvreMontree {
+  cle: string
+  nom: string
+  rarete: RareteDeCarte
+  /** Le légendaire qui la donne (`lg:phenix`) : une carte de légendaire, un gardien. */
+  legendaire?: string
+  famille: FamilleDOeuvre
+}
 
 /**
- * Les raretés d'une carte des rencontres — celles d'une œuvre du Cabinet en
- * sont, sans la légendaire, qui est aux gardiens —, lues en type seulement :
- * effacé à la compilation, il ne fait pas télécharger les règles des
- * rencontres à la page qui montre une œuvre.
+ * Les raretés d'une carte peinte — celles d'une œuvre du Cabinet, et la
+ * légendaire, qui est aux gardiens —, lues en type seulement : effacé à la
+ * compilation, il ne fait rien télécharger à la page qui montre une œuvre.
  */
 export type RareteDOeuvre = OeuvreMontree['rarete']
 

@@ -52,7 +52,6 @@ import {
 import { CATEGORIES } from '../../shared/categories'
 import { NIVEAUX } from '../../shared/campagne'
 import { sujetParCle, estRemplace } from '../../shared/sujets'
-import { CATEGORIE_DU_DETAIL } from '../../shared/expedition'
 import {
   DUREES_DES_JEUX,
   ECART_DES_ANNEES_DE_LA_FRISE,
@@ -72,6 +71,8 @@ import { JEUX, justeDeLaPiece } from '../../shared/cabinet/jeux/regle'
 import { GESTE_A_JUGER } from '../../shared/cabinet/jeux/outils'
 import { vuesDuCabinet } from '../../shared/cabinet/vues'
 import {
+  CADRAGES_DU_DETAIL,
+  CATEGORIE_DU_DETAIL,
   QUESTION_DU_TABLEAU,
   REGLE_DU_DETAIL,
   adresseDUnCadrage,
@@ -144,6 +145,9 @@ test('le Détail : chaque pas en arrière vaut une étoile de moins, juste au de
   const t = unDetail()
   const cadrages = ETOILES_AU_CADRAGE.length
   assert.deepEqual([...ETOILES_AU_CADRAGE], [3, 2, 1, 0], 'au 1er cadrage ★★★, au 2e ★★, au 3e ★, au tableau entier rien')
+  // Le barème compte les cadrages livrés de chaque tableau, ceux que le serveur exige : un de plus d'un côté seul, la
+  // manche demanderait une image qui n'existe pas, ou ne montrerait jamais le tableau entier.
+  assert.equal(cadrages, CADRAGES_DU_DETAIL)
   for (let pas = 0; pas < cadrages; pas++) {
     const e = reculer(t, pas)
     const vu = REGLE_DU_DETAIL.montrer(t, e)

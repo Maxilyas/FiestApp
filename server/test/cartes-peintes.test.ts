@@ -18,7 +18,9 @@ import { fileURLToPath } from 'node:url'
 import React from 'react'
 import { demarrer } from './banc'
 import { importsStatiques } from './chemin-des-imports'
-import { CARTES_DES_RENCONTRES, carteDeRencontre } from '../../shared/rencontres'
+import { OEUVRES } from '../../shared/cabinet/oeuvres'
+// La carte dessinée de l'Expédition seule le lit encore : ses épreuves partiront avec `RencontresDExpedition.tsx`.
+import { carteDeRencontre } from '../../shared/rencontres'
 
 Object.assign(globalThis, { React, window: { location: { pathname: '/expedition', search: '', hash: '' } } })
 
@@ -58,7 +60,9 @@ const poidsMax = (taille: '480' | '240') => (taille === '480' ? 40_000 : 14_000)
 
 test('chaque carte sans légendaire a son illustration, en deux tailles, sous son empreinte', async () => {
   const table = await peintes()
-  const aPeindre = CARTES_DES_RENCONTRES.filter(c => !c.legendaire).map(c => c.cle)
+  // Le catalogue des cartes peintes est celui des œuvres du Cabinet, que la chaîne peint (`server/scripts/anime/cartes.ts`) et que
+  // `cabinet-catalogue.test.ts` tient égal aux cartes sans légendaire des rencontres, figées.
+  const aPeindre = OEUVRES.map(c => c.cle)
   // Toutes, et elles seules : une carte de plus au catalogue sans sa peinture rougirait ici. Celle d'un légendaire est son médaillon.
   assert.deepEqual(Object.keys(table).sort(), [...aPeindre].sort())
   for (const [cle, paire] of Object.entries(table)) {

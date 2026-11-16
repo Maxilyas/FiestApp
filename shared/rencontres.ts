@@ -19,6 +19,7 @@
 // c'est vraiment le jeu maintenant », `RENCONTRES_EN_PRODUCTION`). Ses
 // chiffres se mesurent au calibrage (`server/scripts/calibrage-rencontres.ts`).
 
+import type { FamilleDeCartes, RareteDeCarte } from './cabinet/oeuvres'
 import type { Niveau } from './campagne'
 import type { FormeDEscale, ThemeDEscale } from './expedition'
 import { EFFACE } from './jokers'
@@ -409,12 +410,12 @@ export function raretesDeLOffre(v: number, acte: number, quelle: 'rencontre' | '
  */
 export type MomentDUneCarte = 'preparation' | 'reflexe' | 'pouvoir' | 'route'
 
-/**
- * Les familles — les six de la proposition, puis le Sophiste et le Téméraire
- * (la version 9) —, et les neutres : avant le codex, les deux légendaires de
- * l'équipée choisissaient les siennes.
- */
-export type FamilleDeCartes = 'erudit' | 'flambeur' | 'metamorphe' | 'elan' | 'rempart' | 'devin' | 'sophiste' | 'temeraire' | 'neutre'
+// Les familles — les six de la proposition, puis le Sophiste et le Téméraire
+// (la version 9) —, et les neutres : avant le codex, les deux légendaires de
+// l'équipée choisissaient les siennes. Leur type, et celui de la rareté d'une
+// carte, vivent avec les œuvres du Cabinet (`shared/cabinet/oeuvres.ts`), que
+// la page qui montre une œuvre lit sans les rencontres.
+export type { FamilleDeCartes }
 
 export interface CarteDeRencontre {
   /** La clé d'un joker d'avant quand la carte en vient (`renaissance`, `coup-d-oeil`) : un légendaire garde la sienne. */
@@ -429,7 +430,7 @@ export interface CarteDeRencontre {
    * entre la rare et la légendaire, la carte autour de laquelle un paquet se
    * construit. Une maudite est forte et coûte.
    */
-  rarete: 'commun' | 'rare' | 'epique' | 'maudit' | 'legendaire'
+  rarete: RareteDeCarte
   /**
    * Une phrase, qui commence par ce qu'elle fait — en mots de tous les jours :
    * « l'adversaire perd », « bouclier », « pari ». « Je veux que ce soit très
@@ -2685,13 +2686,12 @@ const EN_FAMILLES: Readonly<Record<string, CarteEnQuestion>> = {
 /** Les cartes qui donnent un second essai sur la question où on les joue (v14) : Parade, Second souffle. Cuirasse et Bastion, posées, le donnent à leurs erreurs. */
 const ESSAI_SUR_LA_QUESTION: ReadonlySet<string> = new Set(['parade', 'second-souffle'])
 
-/**
- * Toutes les cartes qui donnent un second essai (v14), par leur clé : la
- * colonne `joker` d'une réponse retrouvée au second essai porte l'une
- * d'elles (`jokerQuiAide`), et le carnet la tient pour ratée — sa première
- * réponse était fausse (`suivisDe`, le détail, v15).
- */
-export const CARTES_DU_SECOND_ESSAI: readonly string[] = [...ESSAI_SUR_LA_QUESTION, 'bastion', 'cuirasse']
+// Toutes les cartes qui donnent un second essai (v14) — celles-ci, Bastion et
+// Cuirasse — se lisent au carnet, figées (`CARTES_DU_SECOND_ESSAI`,
+// `server/src/core/journalDesReponses.ts`) : la colonne `joker` d'une réponse
+// retrouvée au second essai porte l'une d'elles (`jokerQuiAide`), et des
+// réponses de la production les portent encore. Une carte d'essai de plus la
+// rejoint là (`expedition-detail.test.ts` la relit).
 
 /**
  * Une question où un second essai laisse encore à choisir (v14) : jamais un

@@ -1,6 +1,7 @@
-// Les cartes peintes de l'Expédition : l'illustration de chacune des cartes
-// sans légendaire (`CARTES_DES_RENCONTRES`, `shared/rencontres.ts`) — celle
-// d'un légendaire est son médaillon peint. « Les cartes c'est des rectangles
+// Les cartes peintes de l'Expédition, devenues les œuvres du Cabinet de
+// curiosités : l'illustration de chacune des cartes sans légendaire
+// (`OEUVRES`, `shared/cabinet/oeuvres.ts` — la copie des rencontres, qui
+// partiront avec l'Expédition) — celle d'un légendaire est son médaillon peint. « Les cartes c'est des rectangles
 // pas très jolis, ça serait pas possible de faire de vraies cartes ? Ça
 // rajouterait à l'immersion » (le propriétaire, le 18 octobre 2026) ; puis
 // « Go tout faire avec tes recommandations, cependant je n'ai que 7.4 € pour
@@ -31,7 +32,7 @@ import { spawnSync } from 'node:child_process'
 import path from 'node:path'
 import { coutDUneImage, coutEstime, formatDe, generer, lancerLot, lireLot, type Rendu } from './gemini'
 import { dansLaPage, deDataUrl, pagePixels } from './pixels'
-import { CARTES_DES_RENCONTRES, type FamilleDeCartes } from '../../../shared/rencontres'
+import { OEUVRES, type FamilleDeCartes } from '../../../shared/cabinet/oeuvres'
 import { CARTES_PEINTES } from '../../../client/src/components/cartes-peintes'
 
 const args = process.argv.slice(2)
@@ -220,7 +221,8 @@ interface Travail {
   consigne: string
 }
 
-const A_PEINDRE = CARTES_DES_RENCONTRES.filter(c => !c.legendaire)
+// Les œuvres, chacune avec la famille de sa carte : le Vestibule expose les neutres, et leur palette.
+const A_PEINDRE = OEUVRES.map(o => ({ cle: o.cle, rarete: o.rarete, famille: (o.salle === 'vestibule' ? 'neutre' : o.salle) as FamilleDeCartes }))
 // Chaque carte sans légendaire a son sujet, et rien de plus.
 for (const c of A_PEINDRE) if (!SUJETS[c.cle]) throw new Error(`${c.cle} : pas de sujet à peindre`)
 for (const cle of Object.keys(SUJETS)) if (!A_PEINDRE.some(c => c.cle === cle)) throw new Error(`${cle} : aucune carte de ce nom`)
@@ -228,7 +230,7 @@ for (const cle of Object.keys(SUJETS)) if (!A_PEINDRE.some(c => c.cle === cle)) 
 const TRAVAUX: Travail[] = A_PEINDRE.map(c => ({
   nom: c.cle,
   consigne:
-    `${STYLE}\n\nThe subject: ${SUJETS[c.cle]}.\n\nDominant palette: ${PALETTE[c.famille]}. ${RARETE[c.rarete as 'commun' | 'rare' | 'epique' | 'maudit']}\n\n` +
+    `${STYLE}\n\nThe subject: ${SUJETS[c.cle]}.\n\nDominant palette: ${PALETTE[c.famille]}. ${RARETE[c.rarete]}\n\n` +
     'Output one landscape image (4:3 aspect ratio).',
 }))
 
@@ -449,7 +451,7 @@ function livrer() {
   writeFileSync(
     path.join(depot, 'client/src/components/cartes-peintes.ts'),
     "// Les cartes peintes de l'Expédition : l'illustration de chaque carte sans\n" +
-      '// légendaire (`shared/rencontres.ts`) ; celle d’un légendaire est son\n' +
+      '// légendaire (`shared/cabinet/oeuvres.ts`) ; celle d’un légendaire est son\n' +
       '// médaillon. Leurs fichiers vivent dans `client/public/cartes`.\n//\n' +
       '// Écrit par `server/scripts/anime/cartes.ts --livrer` : on ne le retouche\n' +
       "// pas à la main, on relance la chaîne. Chaque fichier est nommé par son\n" +

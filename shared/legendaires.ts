@@ -57,7 +57,7 @@
 import { clePalier } from './hautsfaits'
 import { portrait } from './branches'
 import { formeDeCompagnon } from './compagnons'
-import { EXPEDITION_REMPLACEE, LEGENDAIRES_A_JOKER, voieDeLExpeditionDite } from './jokers'
+import { EXPEDITION_REMPLACEE, voieDeLExpeditionDite } from './jokers'
 import { CABINET_EN_PRODUCTION } from './cabinet/ouverture'
 import type { CleDeSaison } from './saisons'
 
@@ -96,8 +96,45 @@ export const cleDeLExpedition = (legendaireCle: string) => `expedition:${legenda
 export const estUneVoieDExpedition = (c: Condition): boolean => !('toutes' in c) && c.hautFait.startsWith('expedition:')
 
 /**
+ * Les vingt-trois légendaires qui ont une voie d'expédition — ceux qui
+ * avaient leur joker (`LEGENDAIRES_A_JOKER`, `shared/jokers.ts`), dans son
+ * ordre. Figés ici, écrits en dur : une ligne `expedition:<clé>` rangée sur un
+ * profil — la production en tient, `expedition:sphinx` — donne son légendaire
+ * tant que la voie existe, et l'Expédition partie, la liste dérivée de ses
+ * jokers partirait avec elle, et le légendaire, le titre et l'avatar porté
+ * avec lui (invariant 22). Elle ne se raccourcit jamais ;
+ * `expedition-legendaires.test.ts` la compare à celle des jokers tant qu'ils
+ * existent, `legendaires.test.ts` la garde ensuite.
+ */
+export const LEGENDAIRES_DE_L_EXPEDITION: readonly string[] = [
+  'lg:phenix',
+  'lg:salamandre',
+  'lg:scarabee',
+  'lg:coq',
+  'lg:ouroboros',
+  'lg:chouette',
+  'lg:sphinx',
+  'lg:oracle',
+  'lg:janus',
+  'lg:serpent',
+  'lg:lion',
+  'lg:tigre',
+  'lg:chimere',
+  'lg:comete',
+  'lg:renard',
+  'lg:dragon',
+  'lg:bouquet',
+  'lg:citrouille',
+  'lg:sapin',
+  'lg:kraken',
+  'lg:fantome',
+  'lg:trou-noir',
+  'lg:chauve-souris',
+]
+
+/**
  * Depuis le 17 octobre 2026, chaque légendaire qui a son joker
- * (`shared/jokers.ts`) se gagne aussi au bout de l'Expédition — gardé parmi
+ * (`LEGENDAIRES_DE_L_EXPEDITION`) se gagne aussi au bout de l'Expédition — gardé parmi
  * les trois gardiens vaincus : une voie de plus (`aussi`), qui lit la ligne
  * `expedition:…` rangée sur le profil, comme une saison. Ceux de saison
  * aussi, depuis le 18 octobre 2026 : ils ne gardent l'acte 3 que d'une
@@ -109,7 +146,7 @@ export const estUneVoieDExpedition = (c: Condition): boolean => !('toutes' in c)
  * elle ne se montre pas (`voiesMontrees`) — et compte toujours.
  */
 const avecLExpedition = (legendaires: Legendaire[]): Legendaire[] =>
-  legendaires.map(l => (LEGENDAIRES_A_JOKER.includes(l.key) ? { ...l, aussi: [...(l.aussi ?? []), { hautFait: cleDeLExpedition(l.key), fois: 1 }] } : l))
+  legendaires.map(l => (LEGENDAIRES_DE_L_EXPEDITION.includes(l.key) ? { ...l, aussi: [...(l.aussi ?? []), { hautFait: cleDeLExpedition(l.key), fois: 1 }] } : l))
 
 /**
  * Les vingt gardiens du Cabinet qui ne sont pas de saison : les deux de chaque

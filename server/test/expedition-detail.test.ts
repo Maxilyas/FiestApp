@@ -16,10 +16,10 @@ import { baseDEssai, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { BaseDeLaCampagne, lireLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
 import { demandeLePeintre, detailsDeLaBase, fichierDuCadrage, tableauxDuDetail, type DetailDeLaBase } from '../src/core/details'
 import { detailPourUneEscale } from '../src/core/campagne'
+import { CARTES_DU_SECOND_ESSAI } from '../src/core/journalDesReponses'
 import { NIVEAU_MAX, codexDuNiveau } from '../../shared/codex'
 import {
   CRANS_D_UNE_QUESTION_DURE,
-  CARTES_DU_SECOND_ESSAI,
   VERSION_DES_FAMILLES,
   PARADE_DE_LA_RARETE,
   SOIN_DU_DETAIL,
