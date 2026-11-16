@@ -14,7 +14,9 @@ import { rareEnCampagne, reactionDuSolo } from '../../../shared/niche'
 import { Dessin } from '../components/Avatar'
 import { Balise } from '../components/Balise'
 import { LUEUR, lueur } from '../components/Atlas'
-import { confirmDialog, promptDialog, type DialogOptions } from '../components/Dialog'
+import { confirmDialog, type DialogOptions } from '../components/Dialog'
+import { SignalerLaQuestion } from '../components/SignalerLaQuestion'
+import type { QuestionSignalee } from '../../../shared/signalement'
 import { espacesFines } from '../format'
 import { showToast } from '../state'
 import { answersSizeClass, questionSizeClass } from '../games/quiz/questionSize'
@@ -22,7 +24,7 @@ import { toucher } from '../toucher'
 import { BRANCHES, branche as brancheDe, deLaBranche, nomDansLaPhrase, ouvertsDansLaBranche, prochainDansLaBranche, type Branche, type CleDeBranche } from '../../../shared/branches'
 import { SOUS_THEMES } from '../../../shared/sousThemes'
 import { chapitreDuPalier, chapitresDe } from '../../../shared/chapitres'
-import { NOM_NIVEAU, SIGNALEMENT_MAX, type CorrectionDeCampagne, type QuestionDeCampagne } from '../../../shared/campagne'
+import { NOM_NIVEAU, QUESTION_A_LA_MARCHE, type CorrectionDeCampagne, type QuestionDeCampagne } from '../../../shared/campagne'
 import { MAITRES_DU_CABINET } from '../../../shared/fonds'
 import { THEMES } from '../../../shared/themes'
 import { aPorterDesTrophees, objetsAPorter, partsDeLXp, tropheesTombes, xpDesTrophees } from '../../../shared/gains'
@@ -323,20 +325,17 @@ export function Sentiers({ onglets, onSerie }: { onglets: ReactNode; onSerie: ()
     }
   }
 
-  const signaler = async (epreuve: string, index: number) => {
-    const texte = await promptDialog({
-      title: 'Signaler une erreur',
-      message: 'Dis en une phrase ce qui ne va pas : l’administrateur relit chaque signalement, et peut retirer la question de la campagne.',
-      input: { value: '', placeholder: 'La réponse B est juste aussi…', maxLength: SIGNALEMENT_MAX },
-      confirmLabel: 'Envoyer',
-    })
-    if (!texte) return
+  // « Signaler une erreur » : la même feuille que la série et le quiz du jour, en plusieurs points d'un coup.
+  const [aSignaler, setASignaler] = useState<{ epreuve: string; index: number; question: QuestionSignalee } | null>(null)
+  const signaler = async (epreuve: string, index: number, texte: string) => {
     try {
       await api.campagne.signaler(epreuve, index, texte)
-      showToast({ kind: 'info', message: 'Merci : c’est envoyé' })
     } catch (e) {
-      showToast({ kind: 'error', message: motifDe(e) })
+      // Le motif se dit dans la feuille, qui reste ouverte avec ce qu'il a corrigé.
+      throw new Error(motifDe(e))
     }
+    setASignaler(null)
+    showToast({ kind: 'info', message: 'Merci : c’est envoyé' })
   }
 
   if (ecran.e === 'chargement') return <SentiersEnChemin onglets={onglets} />
@@ -351,7 +350,9 @@ export function Sentiers({ onglets, onSerie }: { onglets: ReactNode; onSerie: ()
   }
 
   if (ecran.e === 'epreuve') {
+    const { question: q, reponse: r } = ecran
     return (
+      <>
       <EcranDEpreuve
         ecran={ecran}
         vies={etat.vies}
@@ -364,8 +365,20 @@ export function Sentiers({ onglets, onSerie }: { onglets: ReactNode; onSerie: ()
           showToast({ kind: 'info', message: 'L’épreuve t’attend : son palier la reprend' })
         }}
         onQuitter={() => void abandonner()}
-        onSignaler={() => void signaler(ecran.epreuve.id, ecran.question.index)}
+        onSignaler={() => {
+          if (!r) return
+          setASignaler({
+            epreuve: ecran.epreuve.id,
+            index: q.index,
+            // Telle qu'il l'a lue : ses réponses dans l'ordre de l'épreuve, la bonne que sa réponse a dite.
+            question: { texte: q.texte, reponses: q.reponses, bonne: r.bonne, anecdote: r.anecdote, categorie: q.categorie, marche: QUESTION_A_LA_MARCHE[q.niveau] },
+          })
+        }}
       />
+      {aSignaler && (
+        <SignalerLaQuestion question={aSignaler.question} onEnvoyer={texte => signaler(aSignaler.epreuve, aSignaler.index, texte)} onFermer={() => setASignaler(null)} />
+      )}
+      </>
     )
   }
 

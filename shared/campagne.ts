@@ -80,6 +80,14 @@ export const NOM_NIVEAU: Record<Niveau, string> = {
 }
 
 /**
+ * La marche d'une question, accordée à « une question » : « trop dure pour une
+ * facile », « pour une experte » (`QuestionSignalee.marche`). Ici, pas dans
+ * une page : la série, les sentiers et les parcours signalent par la même
+ * feuille et doivent la dire pareil.
+ */
+export const QUESTION_A_LA_MARCHE: Record<Niveau, string> = { facile: 'facile', moyen: 'moyenne', difficile: 'difficile', expert: 'experte' }
+
+/**
  * Sous ce nombre de réponses, une question du quiz du jour n'a pas de
  * difficulté mesurée : trois joueurs ne disent rien de la France entière.
  */
