@@ -236,10 +236,20 @@ Pour agrandir la base (un lot, sa relecture, son rangement — ou des milliers d
   qu'à décrire des questions déjà écrites, pas la base de la campagne. Le
   juge, lui, ne refuse pas une question de courses que quelqu'un écrirait
   quand même sous `equitation` : la consigne et l'inventaire sont la seule
-  barrière. Et la base repasse sous son plancher d'après (`AU_MOINS`, 28 794
-  au 12 novembre) tant que des questions d'équitation sans courses n'ont pas
-  remplacé les 25 retirées : le thème n'a alors que 32 faciles, 41 moyennes
-  et 26 difficiles, pour 42, 48 et 30 au « monter deux fois ».
+  barrière. Un lot de trente les a remplacées le même jour
+  (`consigne Sport equitation:30`, sa section « CE LOT EN PARTICULIER » :
+  aucune course, les difficultés qui manquaient au parcours, d'abord les
+  vingt et un sujets de l'inventaire restés sans question) : trente
+  rangées, zéro refus, 138 questions d'équitation — 44 faciles, 51 moyennes
+  et 34 difficiles, pour 42, 48 et 30 au « monter deux fois » —, la base à
+  28 799. Ce qu'on en a appris : le relecteur, qui ne lit que la fiche et
+  répond de mémoire, a confirmé un palmarès faux qu'on lui avait pourtant
+  nommé (le « bronze » d'Astier Nicolas à Rio, qui est l'argent) ; un coup
+  d'œil sur le lot, puis l'article de Wikipédia en français de chaque nom
+  propre, en ont trouvé trois — avec « le » Kür, qui est féminin, et le
+  cheval « monté » du ski-joëring, que le skieur mène aux longues rênes. Une
+  réponse se corrige à la main dans le lot avant `ranger` : `appliquer` n'y
+  touche jamais.
 - **Quatre licences étoffées, quatre univers ouverts** (le 10 novembre
   2026, « des thèmes que les gens ont envie de tester ») : Harry Potter,
   Star Wars, Marvel et le Seigneur des anneaux, 80 de plus chacun
