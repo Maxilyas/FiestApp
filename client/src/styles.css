@@ -12075,6 +12075,11 @@ span.sentiers-admin-legende { background: none; white-space: nowrap; }
 .cab-feuille { font-size: 1.0625rem; }
 .cab-feuille .carte-corps { gap: 16px; }
 .cab-feuille .glossaire > summary { font-size: 1.0625rem; }
+/* « Signaler une erreur », la feuille à points de toutes les vues solo (`SignalerLaQuestion`) : ses réponses, son anecdote et ses
+   pastilles s'écrivent de 14 à 15 px ailleurs ; ici, à dix-sept, comme le reste de la page. */
+.cab-feuille .signaler-reponse,
+.cab-feuille .signaler-anecdote,
+.cab-feuille .signaler-pastille { font-size: 1.0625rem; }
 
 /* La visite du jour : une case par partie — sa vignette, son jeu, ce qu'elle met en jeu sans le nommer, « Jouer ». */
 .cab-cases { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; list-style: none; }

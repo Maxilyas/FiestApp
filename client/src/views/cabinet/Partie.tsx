@@ -2,12 +2,13 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { aLaDemande, useALaDemande, type ALaDemande } from '../../aLaDemande'
 import { api, motifDe, refusDuServeur } from '../../api'
 import { serverNow } from '../../clock'
-import { choixDialog, confirmDialog, fermerLeDialogue, promptDialog } from '../../components/Dialog'
+import { choixDialog, confirmDialog, fermerLeDialogue } from '../../components/Dialog'
 import { Etoiles } from '../../components/Etoiles'
 import { GerbeDeJuste } from '../../components/Gerbe'
 import { Icon, type IconName } from '../../components/Icon'
 import { NicheALaRevelation } from '../../components/NicheReagit'
 import { Sortie } from '../../components/Pieces'
+import { SignalerLaQuestion } from '../../components/SignalerLaQuestion'
 import { TimerBar } from '../../components/TimerBar'
 import { rendreLeFocus } from '../../focus'
 import { espacesFines } from '../../format'
@@ -16,7 +17,7 @@ import { nicheRelacheSonSouffle, nicheRetientSonSouffle } from '../../niche'
 import { useGardeRetour, type IssueDuRetour } from '../../retour'
 import { showToast } from '../../state'
 import { toucher } from '../../toucher'
-import { SIGNALEMENT_MAX } from '../../../../shared/campagne'
+import type { QuestionSignalee } from '../../../../shared/signalement'
 import { gesteAccepte } from '../../../../shared/console'
 import { reactionDuSolo, type ReactionALaRevelation } from '../../../../shared/niche'
 import { ETOILES_D_UNE_JUSTE, ETOILES_D_UNE_PARTIE, ETOILES_PAR_MANCHE, MANCHES_PAR_PARTIE } from '../../../../shared/cabinet/bareme'
@@ -773,6 +774,33 @@ export function titreDeLaRevelation(r: Pick<RevelationVue, 'misee' | 'corps'>, n
 const ceQuOnSignale = (positions: readonly number[], i: number) => (positions.length === 1 ? 'cette question' : i === 0 ? 'la première question' : 'la question du pari')
 
 /**
+ * La question que « Signaler une erreur » ouvre dans la feuille à points (`SignalerLaQuestion`), la i-ième des pièces
+ * signalables de la révélation — rien que ce que la révélation vient de montrer (invariant 1) : la feuille ne demande aucun
+ * champ de plus à la vue. Seuls le Pari, le Mot mystère et le Filet posent une question de la base (`signalables`) :
+ * - le Pari, ses questions dans l'ordre de ses pièces — la première, puis celle du pari —, chacune ses réponses telles qu'il
+ *   les a lues ; « Le savais-tu ? » n'est que celui de la question qui a tranché, la dernière : l'autre n'a pas d'anecdote
+ *   montrée, et la feuille n'en propose pas ;
+ * - le Mot et le Filet, sur leur seule réponse, telle que la révélation l'écrit (« Vilnius », « 1 845 km ») : ses leurres ne
+ *   sont jamais partis au téléphone, et leur pièce au journal n'en garde pas davantage — une réponse seule, la bonne. Une
+ *   bonne réponse fausse s'y dit par « Autre », comme le Détail au QG.
+ * Ni catégorie ni marche : la révélation ne les porte pas, la feuille propose la liste.
+ * Null : rien à ouvrir — un jeu hors de la base, ou une pièce sans question montrée.
+ */
+export function questionASignaler(r: Pick<RevelationVue, 'corps'>, i: number): QuestionSignalee | null {
+  const c = r.corps
+  if (c.jeu === 'pari') {
+    const q = c.questions[i]
+    if (!q) return null
+    return { texte: q.texte, reponses: q.reponses, bonne: q.bonne, anecdote: i === c.questions.length - 1 ? c.savais : null, categorie: null }
+  }
+  if (c.jeu === 'mot' || c.jeu === 'filet') {
+    if (i !== 0) return null
+    return { texte: c.texte, reponses: [c.reponse], bonne: 0, anecdote: c.savais, categorie: null }
+  }
+  return null
+}
+
+/**
  * La révélation d'une manche (§ 3.0) : ses étoiles et pourquoi elles
  * diffèrent (« +4 : mise gagnée »), un titre qui dit ce qui s'est passé — le
  * `h2` de l'écran, pour tous les jeux —, le
@@ -780,7 +808,17 @@ const ceQuOnSignale = (positions: readonly number[], i: number) => (positions.le
  * seules questions de la base. La niche et la gerbe la fêtent, chacune ce
  * qu'elle sait (`ceQueFeteLaRevelation`).
  */
-export function RevelationDeLaManche({ vue, revelation: r, ecran, onSignaler }: { vue: VueDeLaPartie; revelation: RevelationVue; ecran: EcranEfface; onSignaler: (position: number) => void }) {
+export function RevelationDeLaManche({
+  vue,
+  revelation: r,
+  ecran,
+  onSignaler,
+}: {
+  vue: VueDeLaPartie
+  revelation: RevelationVue
+  ecran: EcranEfface
+  onSignaler: (position: number, question: QuestionSignalee) => void
+}) {
   const m = vue.manches[r.manche]
   const etoiles = m?.etoiles ?? 0
   const fete = ceQueFeteLaRevelation(m?.naturel ?? 0, etoiles)
@@ -811,11 +849,16 @@ export function RevelationDeLaManche({ vue, revelation: r, ecran, onSignaler }: 
           </span>
         </p>
       )}
-      {r.signalables.map((position, i) => (
-        <button key={position} type="button" className="lien-signaler link-inline small" {...toucher(() => onSignaler(position))}>
-          {`Signaler une erreur dans ${ceQuOnSignale(r.signalables, i)}`}
-        </button>
-      ))}
+      {r.signalables.map((position, i) => {
+        const question = questionASignaler(r, i)
+        return (
+          question && (
+            <button key={position} type="button" className="lien-signaler link-inline small" aria-haspopup="dialog" {...toucher(() => onSignaler(position, question))}>
+              {`Signaler une erreur dans ${ceQuOnSignale(r.signalables, i)}`}
+            </button>
+          )
+        )
+      })}
     </>
   )
 }
@@ -887,7 +930,7 @@ export interface PropsDeLEcran {
   onReprendre?: () => void
   onSuivante: () => void
   onMiser: (oui: boolean) => void
-  onSignaler: (position: number) => void
+  onSignaler: (position: number, question: QuestionSignalee) => void
   onMusee: () => void
 }
 
@@ -1302,21 +1345,25 @@ export function Partie({
     if (vueRef.current.phase !== 'avant' && vueRef.current.phase !== 'revele') setMiser(null)
   }
 
-  const signaler = async (position: number) => {
-    const texte = await promptDialog({
-      title: 'Signaler une erreur',
-      message: 'Dis en une phrase ce qui ne va pas : l’administrateur relit chaque signalement, et peut retirer la question de la campagne.',
-      input: { value: '', placeholder: 'La réponse B est juste aussi…', maxLength: SIGNALEMENT_MAX },
-      confirmLabel: 'Envoyer',
-    })
-    if (!texte) return
+  // « Signaler une erreur » : la même feuille à points que la série, le quiz du jour et les sentiers ; la phrase qu'elle compose
+  // part à la route de la série, à la position de la pièce, comme la phrase libre d'avant.
+  const [aSignaler, setASignaler] = useState<{ partie: string; position: number; question: QuestionSignalee } | null>(null)
+  const signaler = async (partie: string, position: number, texte: string) => {
     try {
-      await api.campagne.signaler(vue.id, position, texte)
-      showToast({ kind: 'info', message: 'Merci : c’est envoyé' })
+      await api.campagne.signaler(partie, position, texte)
     } catch (e) {
-      showToast({ kind: 'error', message: motifDe(e) })
+      // Le motif se dit dans la feuille, qui reste ouverte avec ce qu'il a corrigé.
+      throw new Error(motifDe(e))
     }
+    setASignaler(null)
+    showToast({ kind: 'info', message: 'Merci : c’est envoyé' })
   }
+  // La feuille ne vit que sur la révélation qui l'a ouverte : la vue passée ailleurs — un autre onglet a ouvert la manche
+  // suivante —, elle se ferme plutôt que de rester par-dessus une manche dont le chrono court.
+  const revelee = vue.phase === 'revele' || vue.phase === 'finie' ? vue.revelation?.manche : undefined
+  useEffect(() => {
+    setASignaler(null)
+  }, [vue.id, revelee])
 
   // Le bilan : la dernière manche révélée d'abord (« Voir le bilan ») ; quittée ou close, tout de suite. Une épreuve n'en a pas : son
   // butin se dit sur la carte, qui la conclut.
@@ -1347,24 +1394,34 @@ export function Partie({
     return <LeBilan vue={vue} ecran={pret} onMusee={onMusee} onRejouer={onRejouer} onRetenter={onRetenter} />
   }
   return (
-    <EcranDeLaPartie
-      vue={vue}
-      ecran={ecran}
-      local={valeur}
-      setLocal={setLocal}
-      chrono={chronoMontre(vue, serverNow())}
-      busy={busy}
-      miser={miser}
-      cadreDejaDore={cadreDejaDore}
-      garde={garde}
-      gardeDeLEcran={gardeDeLEcran}
-      onGeste={agir}
-      onQuitter={() => void demanderAQuitter()}
-      onReprendre={vue.phase === 'pause' && !question ? reprendre : undefined}
-      onSuivante={suivante}
-      onMiser={oui => void decider(oui)}
-      onSignaler={position => void signaler(position)}
-      onMusee={onMusee}
-    />
+    <>
+      <EcranDeLaPartie
+        vue={vue}
+        ecran={ecran}
+        local={valeur}
+        setLocal={setLocal}
+        chrono={chronoMontre(vue, serverNow())}
+        busy={busy}
+        miser={miser}
+        cadreDejaDore={cadreDejaDore}
+        garde={garde}
+        gardeDeLEcran={gardeDeLEcran}
+        onGeste={agir}
+        onQuitter={() => void demanderAQuitter()}
+        onReprendre={vue.phase === 'pause' && !question ? reprendre : undefined}
+        onSuivante={suivante}
+        onMiser={oui => void decider(oui)}
+        onSignaler={(position, q) => setASignaler({ partie: vue.id, position, question: q })}
+        onMusee={onMusee}
+      />
+      {aSignaler && (
+        <SignalerLaQuestion
+          className="cab-feuille"
+          question={aSignaler.question}
+          onEnvoyer={texte => signaler(aSignaler.partie, aSignaler.position, texte)}
+          onFermer={() => setASignaler(null)}
+        />
+      )}
+    </>
   )
 }
