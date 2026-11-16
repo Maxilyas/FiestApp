@@ -4,11 +4,10 @@
 // lettres présentes dans la réponse […] comme un pendu » ; le propriétaire :
 // « Jusqu'à deux mots, 12 lettres », trois cartes, une escale sur cinq. La
 // forme à composer — ses cases, ses tuiles, sa réponse jugée au serveur — et
-// L'initiale, Le repère, La lettre : les règles, le pli, les routes, l'écran.
+// L'initiale, Le repère, La lettre : les règles, le pli, les routes (l'écran est
+// parti avec la page de l'Expédition, le 16 novembre 2026).
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
-import React from 'react'
 import Database from 'better-sqlite3'
 import { demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { BaseDeLaCampagne, lireLaBase, lireQuestionDeLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
@@ -55,9 +54,7 @@ import {
   type GesteDExpedition,
   type VueDeLExpedition,
 } from '../../shared/expedition'
-import { Journal, depart, pieces, rendre, rien, texte, type Composant } from './expedition-journal'
-
-Object.assign(globalThis, { React, window: { location: { pathname: '/expedition', search: '', hash: '' } } })
+import { Journal, depart } from './expedition-journal'
 
 const V = VERSION_DES_COUPS_DE_POUCE
 const COUPS_DE_POUCE = ['repere', 'lettre', 'initiale']
@@ -353,20 +350,20 @@ function dansLaMain(cle: string, preparer?: (j: Journal) => void): Journal {
   throw new Error(`aucune graine ne met ${cle} dans une main où elle se joue`)
 }
 
-test('chaque coup de pouce, levé, promet ce que le serveur fait — rien de plus contre l’adversaire —, joué, il vise la question et rejoint la défausse', async () => {
-  const { apercuALaMise, changementDeLaCarte } = await pieces()
+// Levé, chaque coup de pouce promettait ce que le serveur fait : la page qui le promettait est partie avec son code le
+// 16 novembre 2026. Reste le pli : une aide, pas un cran de plus — la vue d'avant et d'après le disent.
+test('chaque coup de pouce, joué, vise la question et rejoint la défausse — rien de plus contre l’adversaire', () => {
   for (const cle of COUPS_DE_POUCE) {
     const j = dansLaMain(cle)
     const avant = j.vue()
     assert.equal(avant.refus[cle], null, `${cle} se joue ici`)
-    const promis = changementDeLaCarte(avant, 10, 'Histoire', cle)!
-    assert.deepEqual(promis.avant, apercuALaMise(avant, 10, 'Histoire'))
     let e = j.jouer(cle)
     assert.ok(e.rencontre!.tour.surLaQuestion.includes(cle) && e.cycle!.defausse.includes(cle), `${cle} : sur la question, puis à la défausse`)
-    assert.deepEqual(promis.apres, apercuALaMise(j.vue(), 10, 'Histoire'))
-    assert.equal(promis.apres.juste.brises, promis.avant.juste.brises, `${cle} : une aide, pas un cran de plus`)
+    const apres = j.vue()
+    assert.ok(avant.apercu && apres.apercu, `${cle} : la vue annonce ce que fera la réponse`)
+    assert.equal(apres.apercu.juste.brises, avant.apercu.juste.brises, `${cle} : une aide, pas un cran de plus`)
     e = j.repondre(true)
-    assert.equal(e.coup!.brises, promis.apres.juste.brises, `${cle} : les crans promis`)
+    assert.equal(e.coup!.brises, apres.apercu.juste.brises, `${cle} : les crans annoncés`)
   }
 })
 
@@ -660,44 +657,4 @@ test('par les routes : chaque coup de pouce souffle ce que le serveur calcule �
   assert.equal(q.composer!.tuiles.length, gardee.tuiles!.length - 1)
   const rep = await poster(c, `/api/expedition/${v.id}/reponse`, { position: q.index, choix: g.lettres })
   assert.equal(rep.corps.juste, true)
-})
-
-// ── L'écran ─────────────────────────────────────────────────────────────────
-
-/** La page, chargée par son adresse : le typage du serveur ne lit pas le JSX du client. */
-const page = (): Promise<{ ComposerLaReponse: Composant; LaBonneReponse: Composant }> => import(new URL('../../client/src/views/ExpeditionApp.tsx', import.meta.url).href)
-
-test('à l’écran : ses cases mot par mot, l’article devant, les signes et les lettres posées d’office, ses tuiles dessous ; la révélation dit ce qu’il a composé', async () => {
-  const { ComposerLaReponse, LaBonneReponse } = await page()
-  // « La Sainte-Barbe », L'initiale jouée : l'article devant, le trait d'union posé, le S en tête.
-  const composer = questionAComposer('g', 0, { reponses: ['La Sainte-Barbe'], bonne: 0, ...tuilesDe(gabaritDe('La Sainte-Barbe')!.lettres, graine('barbe')) }, 0, ['initiale'])!
-  const html = await rendre(ComposerLaReponse, { composer, busy: false, onValider: rien })
-  const t = texte(html)
-  assert.match(html, /<span class="exp-article">La<\/span>/)
-  assert.equal((html.match(/class="exp-case[" ]/g) ?? []).length, gabaritDe('La Sainte-Barbe')!.lettres.length, 'une case par lettre')
-  assert.match(html, /<span class="exp-signe" aria-hidden="true">-<\/span>/)
-  assert.match(html, /class="exp-case exp-case-posee"[^>]*aria-label="Lettre 1 : S, posée d’office"/)
-  assert.equal((html.match(/class="exp-tuile"/g) ?? []).length, composer.tuiles.length)
-  assert.match(t, /Effacer/)
-  assert.match(t, new RegExp(`Encore ${gabaritDe('La Sainte-Barbe')!.lettres.length - 1} lettres`), 'Valider attend que tout soit plein')
-  // La révélation : ce qu'il a composé, dans ses cases, et ce qu'il fallait composer.
-  const lu = (x: string) => texte(x).trim()
-  const question = { reponses: [], composer: questionAComposer('g', 0, { reponses: ['Victor Hugo'], bonne: 0, ...tuilesDe('VICTORHUGO', graine('v')) }, 0, [])! }
-  assert.equal(lu(await rendre(LaBonneReponse, { question, reponse: { bonne: 0, juste: false, bonneReponse: 'Victor Hugo' }, choix: 0, composee: 'VICTORHUGE' })), 'Tu as composé VICTOR HUGE — c’était Victor Hugo')
-  assert.equal(lu(await rendre(LaBonneReponse, { question, reponse: { bonne: 0, juste: true, bonneReponse: 'Victor Hugo' }, choix: 0, composee: 'VICTORHUGO' })), 'La bonne réponse : Victor Hugo')
-  // Une case vide a une largeur, pas seulement une base : sans, son mot tombait à zéro dans sa rangée, et toutes ses cases avec — elles
-  // n'existaient qu'au balisage (le rendu en 360 × 640, le 19 octobre 2026).
-  const regle = /\.exp-case \{([^}]*)\}/.exec(readFileSync(new URL('../../client/src/styles.css', import.meta.url), 'utf8'))?.[1] ?? ''
-  assert.match(regle, /(?:^|;)\s*width: \d+px/, `.exp-case {${regle}}`)
-})
-
-test('les règles de la version 11 disent la forme à composer et les coups de pouce ; celles de la version 10 n’en disent rien', async () => {
-  const { FeuilleDesRegles } = (await pieces()) as unknown as { FeuilleDesRegles: Composant }
-  const regles = async (v: number) => texte(await rendre(FeuilleDesRegles, { rencontres: true, v, codex: codexDuNiveau(1, [], [], v), ascension: 0, onFermer: rien }))
-  const onze = await regles(V)
-  assert.match(onze, /À composer : pas de choix — touche ses lettres dans l’ordre de la réponse\. Trois sont de trop : les cartes qui effacent les retirent\./)
-  assert.match(onze, /Les coups de pouce te soufflent la réponse/)
-  assert.match(onze, /deux à six choix, à composer, ou/)
-  const dix = await regles(VERSION_DE_LA_QUESTION_AU_CENTRE)
-  assert.doesNotMatch(dix, /À composer|coups de pouce/)
 })

@@ -34,7 +34,6 @@ const TITRES: Record<AccountPage, string> = {
   boutique: 'La boutique',
   campagne: 'La campagne',
   duels: 'Les duels',
-  expedition: 'L’Expédition',
   cabinet: 'Le Cabinet de curiosités',
   collectionneurs: TITRE_DES_COLLECTIONNEURS,
 }

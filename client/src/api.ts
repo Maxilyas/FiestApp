@@ -18,8 +18,6 @@ import type {
 } from '../../shared/campagne'
 import type { AdminDesSentiers, EpreuveDeSentier, EtatDesSentiers, FinDEpreuve, Melange, ReponseDEpreuve } from '../../shared/sentiers'
 import type { EtatDuCarnet, FaitAppris } from '../../shared/revision'
-import type { ApresUnGeste, ArticleDeLEchoppe, GesteAvecSesCartes, GesteDExpedition, PageDeLExpedition, ReponseDExpedition, VueDeLExpedition } from '../../shared/expedition'
-import type { CleDeFiole } from '../../shared/rencontres'
 // Des types seulement : la page du Cabinet ne télécharge ni le pli ni les règles des jeux, elle lit la vue du serveur.
 import type { Cartel, MursDuCabinet, PageDeLaTraversee, PageDuCabinet, VueDeLaPartie } from '../../shared/cabinet/vues'
 import type { DemandeLue } from '../../shared/cabinet/musee'
@@ -220,19 +218,6 @@ export interface Activation {
 /** L'adresse à envoyer : le jeton voyage dans le fragment, que le navigateur garde pour lui. */
 export const activationUrl = (token: string) => `${window.location.origin}/activer#t=${token}`
 
-/**
- * Un geste de l'expédition, avec le rang qu'il croit suivre : un double toucher ne joue pas deux fois. Il emmène les cartes
- * jouées sur place avant lui (`GesteAvecSesCartes`) : le rang est alors celui de la première.
- */
-const gesteDExpedition = (id: string, rang: number, geste: GesteDExpedition, cartes: readonly string[] = [], position?: number) => {
-  const corps: GesteAvecSesCartes = {
-    rang,
-    geste,
-    ...(cartes.length > 0 && { avant: cartes.map(joker => ({ quoi: 'jouer' as const, joker, ...(position !== undefined && { position }) })) }),
-  }
-  return req<ApresUnGeste>(`/api/expedition/${encodeURIComponent(id)}/geste`, { method: 'POST', body: JSON.stringify(corps) })
-}
-
 /** Ce qu'un geste du Cabinet rend : la partie d'après — ou, le geste passé, celle d'à présent et pourquoi. */
 export interface ApresUnGesteDuCabinet {
   partie: VueDeLaPartie
@@ -289,32 +274,6 @@ async function gesteDeTraversee(id: string, rang: number, geste: Record<string, 
     }
   })
   return passe === undefined ? { page } : { page, passe }
-}
-
-/**
- * Les mots d'un dévoilement de l'expédition, à mesure que le serveur les
- * dit : une réponse qui s'écrit mot à mot, un par ligne — jamais l'intitulé
- * entier d'avance (invariant 1). `recevoir` reçoit à chaque fois tous les
- * mots dits ; la promesse se tient au dernier, ou à l'abandon (`signal`).
- */
-async function lireLeDevoilement(id: string, position: number, recevoir: (mots: string[]) => void, signal: AbortSignal): Promise<void> {
-  const r = await fetch(`/api/expedition/${encodeURIComponent(id)}/devoilement?position=${position}`, { signal, cache: 'no-store' })
-  if (!r.ok || !r.body) throw new Error('Le texte ne se dévoile pas : recharge la page')
-  const lecteur = r.body.getReader()
-  const decodeur = new TextDecoder()
-  const mots: string[] = []
-  let reste = ''
-  for (;;) {
-    const { value, done } = await lecteur.read()
-    if (done) return
-    reste += decodeur.decode(value, { stream: true })
-    const lignes = reste.split('\n')
-    reste = lignes.pop() ?? ''
-    if (lignes.length > 0) {
-      mots.push(...lignes)
-      recevoir([...mots])
-    }
-  }
 }
 
 export const api = {
@@ -694,47 +653,6 @@ export const api = {
         req<EtatDesSentiers & { fin?: FinDEpreuve }>(`/api/campagne/epreuve/${encodeURIComponent(epreuve)}/abandon`, { method: 'POST' }),
       acheterVies: (nombre: number) => req<EtatDesSentiers>('/api/campagne/vies', { method: 'POST', body: JSON.stringify({ nombre }) }),
     },
-  },
-  /**
-   * L'Expédition (`shared/expedition.ts`) : sa page, partir avec son équipée,
-   * un geste — qui porte le rang qu'il croit suivre —, une réponse — avec la
-   * position de sa question ; deux réponses sous Double chance —, l'abandon.
-   * Une partie d'un autre mode : sa correction et ses signalements passent par
-   * celles de la série.
-   */
-  expedition: {
-    page: () => req<PageDeLExpedition>(DEPART.expedition),
-    /**
-     * Partir avec son équipée — et, là où elles s'ouvrent (partout, depuis qu'elles sont le jeu), aux rencontres, avec son style, sa
-     * catégorie fétiche, le dos de son paquet et son cran de l'Ascension ; `questionAuCentre`, en version 10, là où la page la dit
-     * ouverte (`PageDeLExpedition.prochaine.questionAuCentre`).
-     */
-    partir: (equipee: readonly string[], plus: { rencontres?: true; questionAuCentre?: true; style?: string; fetiche?: string; dos?: string; ascension?: number } = {}) =>
-      req<VueDeLExpedition>('/api/expedition', { method: 'POST', body: JSON.stringify({ equipee, ...plus }) }),
-    avancer: (id: string, rang: number, vers: string) => gesteDExpedition(id, rang, { quoi: 'avancer', vers }),
-    /** En rencontre : sa mise dite, il voit la question qui attend (`position`) — les cartes jouées sur place avec lui. */
-    voir: (id: string, rang: number, mise: number, position?: number, cartes: readonly string[] = []) =>
-      gesteDExpedition(id, rang, { quoi: 'voir', mise, ...(position !== undefined && { position }) }, cartes, position),
-    /** Un joker : sur la question qui attend (`position` : un joker périmé est refusé), sur la carte, ou posé — les cartes jouées sur place avant lui. */
-    jouer: (id: string, rang: number, joker: string, plus: { position?: number; categorie?: string; montre?: number } = {}, cartes: readonly string[] = []) =>
-      gesteDExpedition(id, rang, { quoi: 'jouer', joker, ...plus }, cartes, plus.position),
-    /** Ce qu'il prend d'une offre : ses jokers, et le talisman ou la fiole qui en prend la place. */
-    prendre: (id: string, rang: number, jokers: readonly string[], talisman?: string, fiole?: CleDeFiole) =>
-      gesteDExpedition(id, rang, { quoi: 'prendre', jokers: [...jokers], ...(talisman !== undefined && { talisman }), ...(fiole !== undefined && { fiole }) }),
-    /** Une fiole bue — pendant une question, sur celle qui attend (`position`), comme une carte jouée sur elle ; les cartes jouées sur place avant elle. */
-    boire: (id: string, rang: number, fiole: CleDeFiole, position?: number, cartes: readonly string[] = []) =>
-      gesteDExpedition(id, rang, { quoi: 'boire', fiole, ...(position !== undefined && { position }) }, cartes, position),
-    /** Au campement : une vie — ou, `retirer`, ce joker ôté de son paquet ; `ameliorer`, cette carte améliorée (le jeu complet). */
-    camper: (id: string, rang: number, choix: { retirer?: string; ameliorer?: string } = {}) =>
-      gesteDExpedition(id, rang, { quoi: 'camper', ...(choix.retirer !== undefined && { retirer: choix.retirer }), ...(choix.ameliorer !== undefined && { ameliorer: choix.ameliorer }) }),
-    /** À l'échoppe : un article contre des écus — le joker de l'étal, ou celui qu'on retire. */
-    acheter: (id: string, rang: number, article: ArticleDeLEchoppe, joker?: string) => gesteDExpedition(id, rang, { quoi: 'acheter', article, ...(joker !== undefined && { joker }) }),
-    garder: (id: string, rang: number, legendaire: string) => gesteDExpedition(id, rang, { quoi: 'garder', legendaire }),
-    /** Une réponse : un choix, deux sous Double chance — ou, à composer (v11), ses lettres dans l'ordre de ses cases. */
-    repondre: (id: string, position: number, choix: number | readonly number[] | string) =>
-      req<ReponseDExpedition>(`/api/expedition/${encodeURIComponent(id)}/reponse`, { method: 'POST', body: JSON.stringify({ position, choix }) }),
-    abandonner: (id: string) => req<ApresUnGeste>(`/api/expedition/${encodeURIComponent(id)}/abandon`, { method: 'POST' }),
-    devoilement: lireLeDevoilement,
   },
   /**
    * Le Cabinet de curiosités (`shared/cabinet/vues.ts`) : sa traversée,
@@ -1171,8 +1089,7 @@ export interface CorrectionDuJour {
  * la mesure la plus rapide l'emporte (`shared/clock.ts`). Toute réponse dont
  * la page tient un chrono passe par elle — le quiz du jour, et le Cabinet de
  * curiosités, qui mesurera chacune des siennes ici : sans mesure, le chrono
- * lirait `serverNow()` à l'heure du téléphone (invariant 6). L'Expédition,
- * dont aucune réponse ne porte l'heure, n'est pas son modèle ; le QG, dont
+ * lirait `serverNow()` à l'heure du téléphone (invariant 6). Le QG, dont
  * les pages portent `maintenant` sans rien chronométrer, n'y passe pas.
  * Une réponse préchargée le dit (`prechargee`) : son `adresse` la fait lire
  * dans le préchargement.

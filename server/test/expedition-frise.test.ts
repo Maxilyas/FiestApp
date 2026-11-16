@@ -4,7 +4,7 @@
 // « je te laisse continuer les étapes et appliquer tes recommandations ».
 // Quatre événements de la base, rangés du plus ancien au plus récent : leur
 // ligne, le choix de la frise, le générateur, les cartes, le pli, les routes,
-// l'écran.
+// « Mes réponses ».
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -54,7 +54,7 @@ import {
   type DepartDExpedition,
   type VueDeLExpedition,
 } from '../../shared/expedition'
-import { Journal, depart, pieces, rendre, rien, texte, type Composant } from './expedition-journal'
+import { Journal, depart, rendre, texte, type Composant } from './expedition-journal'
 
 Object.assign(globalThis, { React, window: { location: { pathname: '/expedition', search: '', hash: '' } } })
 
@@ -313,10 +313,9 @@ async function partirALaFrise(cookie: string, carte = 'coup-d-oeil'): Promise<Vu
 
 const geste = (cookie: string, v: VueDeLExpedition, g: unknown) => poster(cookie, `/api/expedition/${v.id}/geste`, { rang: v.rang + 1, geste: g })
 
-/** La page, chargée par son adresse : le typage du serveur ne lit pas le JSX du client. */
-const page = (): Promise<{ Escale: Composant; PoserLaFrise: Composant }> => import(new URL('../../client/src/views/ExpeditionApp.tsx', import.meta.url).href)
-
-test('par les routes et à l’écran : une frise — ses événements dans un ordre qui n’est pas le bon, sans années ; datée par Coup d’œil ; rangée, deux crans ; ratée, l’ordre gardé et corrigé ; ni mesure, ni carnet, ni signalement', async () => {
+// L'écran de l'escale est parti avec la page de l'Expédition le 16 novembre 2026 : reste ce que le serveur fait, et
+// « Mes réponses » (`SerieCorrigee`, `FriseRangee`), qui vivent encore.
+test('par les routes : une frise — ses événements dans un ordre qui n’est pas le bon, sans années ; datée par Coup d’œil ; rangée, deux crans ; ratée, l’ordre gardé et corrigé ; ni mesure, ni carnet, ni signalement', async () => {
   const c = await inscrireProfil(banc.url, 'historien', 'Historien')
   let v = await partirALaFrise(c)
   assert.equal(v.cartes!.v, VERSION_DU_DETAIL)
@@ -339,15 +338,6 @@ test('par les routes et à l’écran : une frise — ses événements dans un o
   const datees = v.question!.frise!.annees.flatMap((a, i) => (a === null ? [] : [i]))
   assert.equal(datees.length, 1)
   assert.equal(v.question!.frise!.annees[datees[0]], gardee.frise!.annees[gardee.frise!.montre[datees[0]]])
-  // L'écran : ses places, ses cartes, l'année datée sous la sienne, « Valider » qui attend les quatre.
-  const { Escale, PoserLaFrise } = await page()
-  const html = await rendre(Escale, { vue: v, avant: null, question: v.question, reponse: null, choix: null, busy: false, erreur: '', onRepondre: rien, onJouer: rien, onSuite: rien, onPartir: rien, onSignaler: rien })
-  assert.match(texte(html), /Le plus ancien.*Le plus récent/)
-  // Ce qu'on lit : l'apostrophe droite rendue courbe, les espaces fines ordinaires (`texte`).
-  for (const e of v.question!.frise!.evenements) assert.ok(texte(html).includes(e.replace(/'/g, '’').replace(/[\s  ]+/g, ' ')), e)
-  assert.match(texte(html), new RegExp(`${v.question!.frise!.annees[datees[0]]}`))
-  assert.match(texte(html), /Encore 4 événements/)
-  assert.match(await rendre(PoserLaFrise, { frise: v.question!.frise, busy: false, onValider: rien }), /aria-disabled="true"[^>]*>Encore 4 événements/)
   // Un ordre qui n'en est pas un : refusé, rien ne compte.
   const bancal = await poster(c, `/api/expedition/${v.id}/reponse`, { position: q.index, choix: [0, 0, 1, 2] })
   assert.equal(bancal.status, 400)
@@ -358,9 +348,6 @@ test('par les routes et à l’écran : une frise — ses événements dans un o
   assert.equal(juste.corps.juste, true)
   assert.equal(juste.corps.coup.brises, CRANS_D_UNE_QUESTION_DURE)
   assert.deepEqual(juste.corps.frise, { evenements: gardee.reponses, annees: gardee.frise!.annees })
-  const revele = texte(await rendre(Escale, { vue: juste.corps.expedition, avant: v, question: v.question, reponse: juste.corps, choix: 0, busy: false, erreur: '', onRepondre: rien, onJouer: rien, onSuite: rien, onPartir: rien, onSignaler: rien }))
-  assert.ok(revele.indexOf(String(gardee.frise!.annees[0])) < revele.indexOf(String(gardee.frise!.annees[3])), 'rangée, la plus ancienne d’abord')
-  assert.doesNotMatch(revele, /Signaler une erreur/, 'une frise ne se signale pas')
   // La suivante — une autre frise, l'adversaire tombé, sa carte laissée : ratée, l'ordre qu'il a donné, gardé.
   v = juste.corps.expedition
   if (v.offre) v = (await geste(c, v, { quoi: 'prendre', jokers: [] })).corps.expedition
@@ -417,12 +404,4 @@ test('Échange sur une frise : une autre frise, d’autres événements — l’
   const juste = await poster(c, `/api/expedition/${v.id}/reponse`, { position: q2.index, choix: bonOrdre(autre.frise!.montre) })
   assert.equal(juste.status, 200, juste.corps.error)
   assert.equal(juste.corps.juste, true)
-})
-
-test('à l’écran : les règles de la version 13 disent la frise ; celles de la version 12 n’en disent rien', async () => {
-  const { FeuilleDesRegles } = (await pieces()) as unknown as { FeuilleDesRegles: Composant }
-  const regles = async (v: number) => texte(await rendre(FeuilleDesRegles, { rencontres: true, v, codex: codexDuNiveau(1, [], [], v), ascension: 0, onFermer: rien }))
-  assert.match(await regles(V), /Une frise : quatre événements à remettre dans l’ordre, du plus ancien au plus récent — juste en entier\. Les cartes qui effacent en datent, deux au plus\./)
-  assert.match(await regles(V), /sur une frise, ou quand/)
-  assert.doesNotMatch(await regles(VERSION_DES_CURIOSITES), /frise/i)
 })

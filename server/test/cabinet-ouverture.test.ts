@@ -31,7 +31,7 @@ import { modeDeLaSource } from '../../shared/pannes'
 import { PAGES_EN_MAINTENANCE, PAGES_FERMABLES } from '../../shared/maintenance'
 import { EXPEDITION_EN_PRODUCTION, EXPEDITION_REMPLACEE } from '../../shared/jokers'
 import { cleDeLExpedition, estUneVoieDExpedition, legendaire, legendairesDebloques, voiesMontrees } from '../../shared/legendaires'
-import { DEPART_FERME, type PageDeLExpedition, type VueDeLExpedition } from '../../shared/expedition'
+import type { VueDeLExpedition } from '../../shared/expedition'
 import { cheminDeLaLuciole } from '../../shared/compagnons'
 import type { PageDeLaTraversee, PageDuCabinet } from '../../shared/cabinet/vues'
 
@@ -256,11 +256,12 @@ test('effacée, l’Expédition ne répond plus : chacune de ses routes dit 404,
   try {
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa')
     const tom = await inscrireProfil(banc.url, 'tom', 'Tom')
-    // Gardée au banc : Léa part, et la page de l'Expédition se sert.
+    // Gardée au banc : Léa part. Sa page, elle, est partie avec son code le 16 novembre 2026 : sans la redirection, son adresse
+    // n'est plus celle d'une page du client — inconnue, comme toute adresse réservée qui ne mène nulle part.
     const partie = await posterAu(banc, lea, '/api/expedition')
     assert.equal(partie.status, 200, partie.corps.error)
     const v: VueDeLExpedition = partie.corps
-    assert.equal((await fetch(`${banc.url}/expedition`, { redirect: 'manual' })).status, 200)
+    assert.equal((await fetch(`${banc.url}/expedition`, { redirect: 'manual' })).status, 404)
 
     // La mise en ligne qui l'efface : le même disque, et le serveur relit son drapeau en démarrant.
     await banc.redemarrer({ reglages: { expeditionRemplacee: true } })
@@ -343,59 +344,22 @@ async function rendu(fichier: string, composant: string, props: object, pathname
   return renderToStaticMarkup(React.createElement(module[composant], props))
 }
 
-/** Ce qu'un rendu dit, sans ses balises ni ses espaces fines (`espacesFines`). */
-const texte = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/[  ⁠]/g, ' ').replace(/\s+/g, ' ')
-
-test('remplacée, l’accueil n’a plus le bouton de l’Expédition : le Cabinet de curiosités prend sa place', async () => {
+test('l’accueil n’a plus de bouton pour l’Expédition : le Cabinet de curiosités a pris sa place', async () => {
+  // Son bouton et la prop qui le rouvrait (`remplacee`) sont partis avec sa page, le 16 novembre 2026 : plus rien ne mène à
+  // `/expedition`, quels que soient les drapeaux.
   const accueil = (props: object) => rendu('components/AccueilDesRoles', 'AccueilJouer', { enCours: [], onRejoindre: () => {}, lendemain: null, ...props })
-  // Le départ ouvert : les deux, l'un après l'autre (`navigation.test.ts`).
-  assert.match(await accueil({ remplacee: false, cabinet: true }), /href="\/expedition".*href="\/cabinet"/)
-  // Remplacée : l'Expédition s'en va, le Cabinet est à sa place — sous les duels, avant « Entre amis ».
-  const apres = await accueil({ remplacee: true, cabinet: true })
-  assert.doesNotMatch(apres, /href="\/expedition"|L’Expédition/)
-  assert.match(apres, /Les duels.*href="\/cabinet".*Le Cabinet de curiosités.*id="jouer-amis"/)
-  // Là où le serveur ferme le Cabinet, ni l'un ni l'autre : le départ de l'Expédition est fermé partout.
-  assert.doesNotMatch(await accueil({ remplacee: true, cabinet: false }), /href="\/expedition"|href="\/cabinet"/)
+  const ouvert = await accueil({ cabinet: true })
+  assert.doesNotMatch(ouvert, /href="\/expedition"|L’Expédition/)
+  // Le Cabinet est à sa place — sous les duels, avant « Entre amis ».
+  assert.match(ouvert, /Les duels.*href="\/cabinet".*Le Cabinet de curiosités.*id="jouer-amis"/)
+  // Là où le serveur ferme le Cabinet, ni l'un ni l'autre.
+  assert.doesNotMatch(await accueil({ cabinet: false }), /href="\/expedition"|href="\/cabinet"/)
+  // D'office, le bouton du Cabinet ne compte qu'une ligne de plus à sa section.
+  assert.match(ouvert, /aria-labelledby="jouer-seul" style="--jouer-part:5"/)
 })
 
-test('remplacée, la page de l’Expédition ne propose plus « Partir » : elle dit le Cabinet et y mène — celle en route se reprend', async () => {
-  const rien = () => {}
-  const depart = (page: PageDeLExpedition) => rendu('views/ExpeditionApp', 'Depart', { page, busy: false, erreur: '', onPartir: rien, onReprendre: rien, onAbandonner: rien }, '/expedition')
-  const prochaine: PageDeLExpedition['prochaine'] = { numero: 7, gardiens: ['lg:kraken', 'lg:dragon', 'lg:oracle'], aLui: [], invite: 'lg:lion', equipables: [], rencontres: true }
-
-  const ouvert = await depart({ expedition: null, prochaine, passeport: [] })
-  assert.match(ouvert, /Partir<\/button>/)
-  assert.doesNotMatch(ouvert, /href="\/cabinet"/)
-
-  const ferme = await depart({ expedition: null, prochaine, passeport: ['animaux'], departFerme: 'cabinet' })
-  assert.doesNotMatch(ferme, /Partir<\/button>/, 'plus de départ à proposer')
-  assert.doesNotMatch(texte(ferme), /Ce qui t’attend|part avec toi|Ton codex|Ton paquet/, 'ni gardiens annoncés, ni équipe, ni codex : il ne partira pas')
-  assert.ok(texte(ferme).includes(texte(DEPART_FERME)), 'la phrase du refus, la même')
-  assert.match(ferme, /<a class="btn btn-primary btn-big btn-block" href="\/cabinet">.*Le Cabinet de curiosités<\/a>/)
-  assert.match(texte(ferme), /Ton passeport/, 'ses tampons restent à lui')
-
-  // Une expédition en route se reprend, ou s'abandonne : le départ fermé ne la touche pas.
-  const vue = { id: 'x', numero: 7, acte: 0, rang: 3, issue: 'en-route', gardiens: prochaine.gardiens.map(cle => ({ cle, vaincu: false })), vies: 3, justes: 2, courage: 41, equipee: [], invite: 'lg:lion' } as unknown as VueDeLExpedition
-  const enRoute = await depart({ expedition: vue, prochaine, passeport: [], departFerme: 'cabinet' })
-  assert.match(enRoute, /Reprendre<\/button>/)
-  assert.match(enRoute, /Abandonner cette expédition<\/button>/)
-
-  // Sa fin ne propose plus « Une autre expédition » : elle mène au Cabinet.
-  const vaincus = ['lg:kraken', 'lg:dragon', 'lg:oracle'].map(cle => ({ cle, vaincu: true }))
-  const finie = { id: 'x', numero: 7, acte: 3, gardiens: vaincus, carte: null, ici: null, trace: [], permises: [], vies: 2, justes: 24, issue: 'au-bout', moyen: false, rang: 30 }
-  const fin = (departFerme: boolean) =>
-    rendu(
-      'views/ExpeditionApp',
-      'FinDeLExpedition',
-      { fin: { e: 'fin', vue: finie, tombe: {}, correction: null }, gains: { xp: 0, justes: 24, tampons: [] }, erreur: '', onCorrection: rien, onAutre: rien, departFerme },
-      '/expedition',
-    )
-  assert.match(await fin(false), /Une autre expédition<\/button>/)
-  const finFermee = await fin(true)
-  assert.doesNotMatch(finFermee, /Une autre expédition/)
-  assert.match(finFermee, /<a class="btn btn-primary btn-big btn-block" href="\/cabinet">.*Le Cabinet de curiosités<\/a>/)
-  assert.match(finFermee, /Mes réponses<\/button>/)
-})
+// La page de l'Expédition, son départ fermé qui menait au Cabinet et sa fin, est partie avec son code le 16 novembre 2026 :
+// `/expedition` y mène directement (plus haut).
 
 // ── Pas de migration (la décision du propriétaire du 25 octobre 2026) ──────
 

@@ -4,11 +4,10 @@
 // Deux styles qui jouent autrement : le Sophiste sème le doute — l'adversaire
 // perd des points à chaque question, juste ou fausse —, le Téméraire paie en
 // courage et frappe d'autant plus qu'il en a perdu. Chaque carte dans le pli ;
-// levée, elle annonce ce que le serveur fait ; une expédition d'avant n'en tire
-// aucune. Par les routes — le départ en version 9 — : `expedition-styles.test.ts`.
+// une expédition d'avant n'en tire aucune. Par les routes — le départ en
+// version 9 — : `expedition-styles.test.ts`.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import React from 'react'
 import {
   BOUCLIER_DE_L_OBJECTION,
   CARTES_DES_RENCONTRES,
@@ -42,9 +41,7 @@ import {
   type CoupDeRencontre,
   type VueDeLaRencontre,
 } from '../../shared/rencontres'
-import { Journal, avecEnMain, depart, pieces, rendre, rien, texte, type Composant } from './expedition-journal'
-
-Object.assign(globalThis, { React, window: { location: { pathname: '/expedition', search: '', hash: '' } } })
+import { Journal, avecEnMain, depart } from './expedition-journal'
 
 /** Les cartes venues avec les huit familles. */
 const HUIT: readonly CarteDeRencontre[] = CARTES_DES_RENCONTRES.filter(c => c.depuis === VERSION_DES_HUIT_FAMILLES)
@@ -91,15 +88,15 @@ test('seize cartes, deux familles de huit — trois communes, trois rares, deux 
   }
 })
 
-// ── Chaque carte, levée puis jouée ──────────────────────────────────────────
+// ── Chaque carte, jouée ─────────────────────────────────────────────────────
+// Levée, chacune annonçait à l'écran ce que le serveur fait : la page est partie avec son code le 16 novembre 2026.
 
 /** Zizanie double un doute : la Rumeur, que le Sophiste a de départ, jouée d'abord dans la même main. */
 const SCENARIO: Record<string, { autre: { style: 'sophiste' }; main: (j: Journal) => boolean; avant: (j: Journal) => void }> = {
   zizanie: { autre: { style: 'sophiste' }, main: j => !!j.etat().rencontre?.main.includes('rumeur'), avant: j => void j.jouer('rumeur') },
 }
 
-test(`chaque carte des huit familles, levée, annonce ce que le serveur fait : ${HUIT.length} cartes`, async () => {
-  const { apercuALaMise, changementDeLaCarte } = await pieces()
+test(`chaque carte des huit familles se joue dans le pli : ${HUIT.length} cartes`, () => {
   for (const c of HUIT) {
     const s = SCENARIO[c.cle]
     const j = avecEnMain(c.cle, s?.main, s?.autre)
@@ -109,12 +106,8 @@ test(`chaque carte des huit familles, levée, annonce ce que le serveur fait : $
     const avant = j.vue()
     assert.equal(avant.v, VERSION_DES_HUIT_FAMILLES)
     assert.equal(avant.refus[c.cle], null, `${c.cle} se joue ici`)
-    const promis = changementDeLaCarte(avant, 10, 'Histoire', c.cle)
-    assert.ok(promis, `${c.cle} promet quelque chose`)
-    assert.deepEqual(promis.avant, apercuALaMise(avant, 10, 'Histoire'))
     const e = j.jouer(c.cle)
     assert.ok(e.rencontre!.tour.jouees.includes(c.cle), `${c.cle} jouée`)
-    assert.deepEqual(promis.apres, apercuALaMise(j.vue(), 10, 'Histoire'), `${c.cle} : la carte levée annonçait ce que le serveur a fait`)
   }
 })
 
@@ -251,53 +244,15 @@ test('Adrénaline rend du courage à chaque bonne réponse ; Berserk : de ce que
   assert.deepEqual([e.coup?.perdu, e.coup?.brises, e.rencontre!.sceaux], [frappe, moitie, sceaux - moitie])
 })
 
-// ── À l'écran ───────────────────────────────────────────────────────────────
+// ── Après une erreur ────────────────────────────────────────────────────────
+// Le doute à l'écran — sa pastille, l'aperçu, l'en-tête de la révélation, le verdict, les règles — est parti avec la page
+// de l'Expédition le 16 novembre 2026. Reste ce que la vue du pli dit après l'erreur : le doute compté, et perdu.
 
-/** Les pièces de la page qu'il faut ici en plus de celles du journal. */
-type PiecesDuDoute = {
-  Adversaire: Composant
-  adversaireALaRevelation: (avant: VueDeLaRencontre, coup: CoupDeRencontre | null | undefined, apres: VueDeLaRencontre | null | undefined) => { sceaux: number; doute: number }
-  Apercu: Composant
-  FeuilleDesRegles: Composant
-  verdictDeLaRencontre: (c: CoupDeRencontre, adversaire: string, finie: boolean) => { titre: string; lignes: string[] }
-  ceQueLaCarteAFait: (cle: string) => string | null
-}
-
-test('le doute à l’écran : sa pastille sous l’adversaire, l’aperçu des deux côtés, l’en-tête de la révélation, le verdict ; ce que Fougue a coûté ; les règles d’une expédition des huit familles', async () => {
-  const p = (await pieces()) as unknown as PiecesDuDoute
+test('après une erreur, la vue dit ce que le doute lui a pris', () => {
   const j = auSophiste(['rumeur'])
   j.jouer('rumeur')
   j.voir()
   const r: VueDeLaRencontre = j.vue()
-  const adversaire = await rendre(p.Adversaire, { r, gardien: '', acte: 0 })
-  assert.match(adversaire, /<span class="exp-doute">.*Doute 2<\/span>/)
-  assert.match(adversaire, /il doute\s: il perdra 2 à cette question, juste ou fausse/)
-  const apercu = texte(await rendre(p.Apercu, { a: r.apercu }))
-  assert.match(apercu, new RegExp(`Si tu as juste Il perd ${2 + SAVOIR_DES_MARCHES.facile} dont 2 de son doute`))
-  assert.match(apercu, /son doute : il perd 2/)
-  // Une erreur : à la révélation, l'en-tête dit ce que le pli lui a laissé — le doute compté, et perdu. Lu de la vue d'avant
-  // seule, il gardait ses points d'avant le doute et sa pastille.
-  const e = j.repondre(false)
-  const apres = j.vue()
-  const revele = p.adversaireALaRevelation(r, e.coup, apres)
-  assert.deepEqual(revele, { sceaux: r.sceaux - 2, doute: 0 })
-  assert.equal(revele.sceaux, apres.sceaux)
-  const enTete = await rendre(p.Adversaire, { r, gardien: '', acte: 0, ...revele, compact: true })
-  assert.match(enTete, new RegExp(`<b>${r.sceaux - 2} points</b>`))
-  assert.doesNotMatch(enTete, /exp-doute/)
-  const verdict = p.verdictDeLaRencontre({ juste: true, brises: 6, frappe: 0, absorbee: 0, perdu: 0, mise: 0, doute: 2 }, 'Le Scribe', false)
-  assert.deepEqual([verdict.titre, verdict.lignes[0]], ['Juste ! Le Scribe perd 8', 'Dont 2 de son doute'])
-  const tombe = p.verdictDeLaRencontre({ juste: false, brises: 0, frappe: 0, absorbee: 0, perdu: 0, mise: -10, doute: 1, victoire: { ecus: 6, courage: 0 } }, 'Le Scribe', false)
-  assert.equal(tombe.titre, 'Raté… mais son doute fait tomber Le Scribe !')
-  assert.ok(!tombe.lignes.some(l => /quand même/.test(l)), tombe.lignes.join(' · '))
-  assert.equal(p.ceQueLaCarteAFait('fougue'), `« Fougue » t’a coûté ${COURAGE_DE_LA_FOUGUE} de courage`)
-  // Les règles : le doute et le courage qu'on paie, les huit styles — rien de tout ça pour une expédition partie en version 8.
-  const regles = (v: number) => rendre(p.FeuilleDesRegles, { rencontres: true, parQuestion: CARTES_DES_ACTES, codex: { regles: [] }, v, onFermer: rien })
-  const neuves = texte(await regles(VERSION_DES_HUIT_FAMILLES))
-  assert.match(neuves, /Un adversaire qui doute perd autant de points à cette question, juste ou fausse, puis il ne doute plus\. Tombé de son doute, il ne t’attaque pas\./)
-  assert.match(neuves, /Une carte qui se paie en courage ne se joue pas s’il ne t’en reste pas plus que son prix\./)
-  assert.match(neuves, /Le Sophiste — « Je sème le doute »/)
-  assert.match(neuves, /Le Téméraire — « Je joue avec le feu »/)
-  const avant = texte(await regles(VERSION_DU_JEU_COMPLET))
-  assert.doesNotMatch(avant, /doute|Sophiste|Téméraire/)
+  j.repondre(false)
+  assert.equal(j.vue().sceaux, r.sceaux - 2, 'ses points, le doute compté')
 })

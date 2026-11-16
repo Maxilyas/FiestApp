@@ -3,7 +3,7 @@
 // testeur : « des trucs bonus sur le chemin qui te filent des récompenses
 // cool » ; le propriétaire : le rébus à composer, cent plats écrits pour
 // elles, la récompense au choix, une par acte. Le générateur, les rébus et
-// les plats livrés, le pli et sa récompense, les routes, l'écran.
+// les plats livrés, le pli et sa récompense, les routes, « Mes réponses ».
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -25,7 +25,7 @@ import {
   type DepartDExpedition,
   type VueDeLExpedition,
 } from '../../shared/expedition'
-import { Journal, carte, depart, pieces, rendre, rien, texte, type Composant } from './expedition-journal'
+import { Journal, carte, depart, rendre, type Composant } from './expedition-journal'
 
 Object.assign(globalThis, { React, window: { location: { pathname: '/expedition', search: '', hash: '' } } })
 
@@ -263,19 +263,13 @@ async function partirAuxCuriosites(cookie: string): Promise<VueDeLExpedition> {
 
 const geste = (cookie: string, v: VueDeLExpedition, g: unknown) => poster(cookie, `/api/expedition/${v.id}/geste`, { rang: v.rang + 1, geste: g })
 
-/** La page, chargée par son adresse : le typage du serveur ne lit pas le JSX du client. */
-const page = (): Promise<{ CarteDeLActe: Composant; Escale: Composant }> => import(new URL('../../client/src/views/ExpeditionApp.tsx', import.meta.url).href)
-
-test('par les routes et à l’écran : un rébus, ses emojis et ses cases sans sa réponse ; un plat de la liste ; trouvée, la récompense ; un rébus ne mesure rien, n’entre pas au carnet, ne se signale pas', async () => {
+// L'écran de l'Expédition — le plan, l'escale, sa révélation — est parti avec sa page le 16 novembre 2026 : reste ce que le
+// serveur fait, et « Mes réponses » (`SerieCorrigee`), qui vit encore.
+test('par les routes : un rébus, ses emojis et ses cases sans sa réponse ; un plat de la liste ; trouvée, la récompense ; un rébus ne mesure rien, n’entre pas au carnet, ne se signale pas', async () => {
   const c = await inscrireProfil(banc.url, 'curieux', 'Curieux')
   let v = await partirAuxCuriosites(c)
   // La préproduction part au détail (v15), qui garde la frise et les curiosités.
   assert.equal(v.cartes!.v, VERSION_DU_DETAIL)
-  const { CarteDeLActe, Escale } = await page()
-  // Sur le plan : « Curiosité », son nom, ce qu'elle rapporte.
-  const plan = texte(await rendre(CarteDeLActe, { vue: v, carte: v.carte!, busy: false, erreur: '', onAvancer: rien, onAbandonner: rien, onPartir: rien, onJouer: rien }))
-  assert.match(plan, /Curiosité/)
-  assert.match(plan, /Le rébus/)
   // Le premier rébus : ses emojis et ses cases, jamais sa réponse (invariant 1).
   v = (await geste(c, v, { quoi: 'avancer', vers: v.carte!.depart[0] })).corps.expedition
   const q = v.question!
@@ -290,11 +284,6 @@ test('par les routes et à l’écran : un rébus, ses emojis et ses cases sans 
   assert.ok(!JSON.stringify(v).includes(JSON.stringify(rebus.reponse)), 'sa réponse ne part pas')
   assert.ok(!JSON.stringify(v).includes(rebus.lecture), 'ni comment il se lit')
   assert.equal(v.rencontre, undefined, 'sans adversaire')
-  // À l'écran : son en-tête, ce qu'elle rapporte, ses emojis en grand, une case chacun.
-  const html = await rendre(Escale, { vue: v, avant: null, question: q, reponse: null, choix: null, busy: false, erreur: '', onRepondre: rien, onJouer: rien, onSuite: rien, onPartir: rien, onSignaler: rien })
-  assert.match(texte(html), /Curiosité · Le rébus/)
-  assert.match(texte(html), /Une curiosité : trouvée, une carte rare au choix ; ratée, rien de perdu\./)
-  assert.match(html, new RegExp(`<p class="exp-rebus">${emojisDe(rebus.emojis)!.map(x => `<span>${x}</span>`).join('')}</p>`))
   // Raté : rien de perdu ; ce qu'il fallait composer ; la réponse garde sa forme — elle ne mesure rien.
   const g = gabaritDe(rebus.reponse)!
   const fausse = g.lettres[0] === 'Z' ? `Y${g.lettres.slice(1)}` : `Z${g.lettres.slice(1)}`
@@ -307,11 +296,6 @@ test('par les routes et à l’écran : un rébus, ses emojis et ses cases sans 
   assert.equal(rate.corps.expedition.courage, v.courage, 'pas une once de courage')
   const ligne = base(db => db.prepare('SELECT reserve_id, choix, forme FROM campagne_reponses WHERE serie_id = ? AND position = ?').get(v.id, q.index)) as Record<string, unknown>
   assert.deepEqual(ligne, { reserve_id: gardee.id, choix: -1, forme: 'lettres' })
-  const revele = texte(
-    await rendre(Escale, { vue: rate.corps.expedition, avant: v, question: q, reponse: rate.corps, choix: -1, composee: fausse, busy: false, erreur: '', onRepondre: rien, onJouer: rien, onSuite: rien, onPartir: rien, onSignaler: rien }),
-  )
-  assert.match(revele, /Raté… une curiosité ne coûte rien/)
-  assert.doesNotMatch(revele, /Signaler une erreur/, 'un rébus ne se signale pas')
   // Il n'entre pas au carnet, et ne se signale pas.
   const carnet = (await lire(c, '/api/campagne/carnet')).corps
   assert.deepEqual([carnet.aRevoir, carnet.demain, carnet.plusTard], [0, 0, 0])
@@ -333,12 +317,6 @@ test('par les routes et à l’écran : un rébus, ses emojis et ses cases sans 
   const offre = trouve.corps.expedition.offre
   assert.equal(offre?.curiosite, true)
   assert.ok(offre.jokers.length > 0 && offre.jokers.every((x: string) => carteDeRencontre(x)?.rarete === 'rare'), offre.jokers.join(', '))
-  const bienVu = texte(
-    await rendre(Escale, { vue: trouve.corps.expedition, avant: v, question: p, reponse: trouve.corps, choix: plat.bonne, busy: false, erreur: '', onRepondre: rien, onJouer: rien, onSuite: rien, onPartir: rien, onSignaler: rien }),
-  )
-  // Son expérience suit le verdict, après sa ponctuation : « Ta récompense t'attend +10 XP » se lisait comme dix points de récompense.
-  assert.match(bienVu, /Bien vu, ta récompense t’attend ! \+\d+ XP/)
-  assert.match(bienVu, /Choisir ta récompense/)
   v = trouve.corps.expedition
   v = (await geste(c, v, { quoi: 'prendre', jokers: [offre.jokers[0]] })).corps.expedition
   assert.ok(v.cartes!.paquet.includes(offre.jokers[0]))
@@ -357,12 +335,4 @@ test('par les routes et à l’écran : un rébus, ses emojis et ses cases sans 
   const mesReponses = (await rendre(SerieCorrigee, { correction })).split('<li').slice(1)
   assert.match(mesReponses[q.index], new RegExp(`<p class="corrige-rebus">${rebus.emojis}</p>`))
   assert.doesNotMatch(mesReponses[p.index], /corrige-rebus/)
-})
-
-test('à l’écran : les règles de la version 12 disent la curiosité, ce qu’elle rapporte à son niveau ; celles de la version 11 n’en disent rien', async () => {
-  const { FeuilleDesRegles } = (await pieces()) as unknown as { FeuilleDesRegles: Composant }
-  const regles = async (v: number, niveau: number) => texte(await rendre(FeuilleDesRegles, { rencontres: true, v, codex: codexDuNiveau(niveau, [], [], v), ascension: 0, onFermer: rien }))
-  assert.match(await regles(V, 1), /Une curiosité, une par acte : d’où vient un plat, ou un rébus en emojis à composer — sans adversaire ni cartes\. Trouvée, une carte rare au choix ; ratée, rien de perdu\./)
-  assert.match(await regles(V, NIVEAU_MAX), /Trouvée, une carte rare, une fiole ou un talisman au choix/)
-  assert.doesNotMatch(await regles(VERSION_DES_COUPS_DE_POUCE, NIVEAU_MAX), /curiosité/i)
 })

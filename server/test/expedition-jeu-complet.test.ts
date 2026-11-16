@@ -5,13 +5,11 @@
 // famille, des neutres de plus, l'épique dans les offres. Puis, le même jour :
 // « on joue toute les cartes à tous les tours car ça coûte pas beaucoup
 // d'énergie et du coup y'a aucune réflexion » — deux d'énergie à l'acte 1.
-// Chaque carte neuve dans le pli ; levée, elle annonce ce que le serveur fait ;
-// une expédition d'avant se rejoue à ses règles d'alors. Par les routes — le
-// départ en version 8, l'énergie que la vue dit — :
-// `expedition-rencontres-routes.test.ts`.
+// Chaque carte neuve dans le pli ; une expédition d'avant se rejoue à ses
+// règles d'alors. Par les routes — le départ en version 8, l'énergie que la vue
+// dit — : `expedition-rencontres-routes.test.ts`.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import React from 'react'
 import { ENERGIE_EN_ASCENSION, NIVEAU_MAX, codexDuNiveau, energieDesActesALAscension, energieDuTour, offreDuCodex } from '../../shared/codex'
 import {
   BOUCLIER_DE_LA_CUIRASSE,
@@ -60,9 +58,7 @@ import {
   type FamilleDeCartes,
 } from '../../shared/rencontres'
 import { PRIX_DE_L_ECHOPPE, prixDeLArticle } from '../../shared/expedition'
-import { Journal, avecEnMain, depart, enMain, pieces, rendre, rien, texte } from './expedition-journal'
-
-Object.assign(globalThis, { React, window: { location: { pathname: '/expedition', search: '', hash: '' } } })
+import { Journal, avecEnMain, depart, enMain } from './expedition-journal'
 
 /** Les cartes venues avec le jeu complet. */
 const NEUVES: readonly CarteDeRencontre[] = CARTES_DES_RENCONTRES.filter(c => c.depuis === VERSION_DU_JEU_COMPLET)
@@ -157,24 +153,19 @@ test('une expédition d’avant le jeu complet se rejoue telle qu’elle s’est
   }
 })
 
-// ── Chaque carte, levée puis jouée ──────────────────────────────────────────
+// ── Chaque carte, jouée ─────────────────────────────────────────────────────
+// Levée, chacune annonçait à l'écran ce que le serveur fait : la page est partie avec son code le 16 novembre 2026.
 
-test(`chaque carte du jeu complet, levée, annonce ce que le serveur fait : ${NEUVES.length} cartes`, async () => {
-  const { apercuALaMise, changementDeLaCarte } = await pieces()
+test(`chaque carte du jeu complet se joue dans le pli : ${NEUVES.length} cartes`, () => {
   for (const c of NEUVES) {
     const j = avecEnMain(c.cle)
     // Une carte de pendant la question se joue la question vue, son pari dit.
     if (c.moment === 'reflexe') j.voir(10)
-    const avant = j.vue()
-    assert.equal(avant.refus[c.cle], null, `${c.cle} se joue ici`)
-    const promis = changementDeLaCarte(avant, 10, 'Histoire', c.cle)
-    assert.ok(promis, `${c.cle} promet quelque chose`)
-    assert.deepEqual(promis.avant, apercuALaMise(avant, 10, 'Histoire'))
+    assert.equal(j.vue().refus[c.cle], null, `${c.cle} se joue ici`)
     const position = j.etat().enAttente
     const e = j.jouer(c.cle)
     assert.ok(e.rencontre!.tour.jouees.includes(c.cle), `${c.cle} jouée`)
     if (CHANGENT_DE_QUESTION.has(c.cle)) assert.notEqual(e.enAttente, position, `${c.cle} : une autre question`)
-    assert.deepEqual(promis.apres, apercuALaMise(j.vue(), 10, 'Histoire'), `${c.cle} : la carte levée annonçait ce que le serveur a fait`)
   }
 })
 
@@ -471,29 +462,16 @@ test('les cartes qui tirent et qui donnent de l’énergie : Sprint, Méditation
   assert.equal(p.repondre(true).coup?.brises, SAVOIR_DES_MARCHES.facile + 5, 'le pari rapporte 5 : il perd 5 de plus')
 })
 
-// ── À l'écran ───────────────────────────────────────────────────────────────
+// ── L'aperçu ────────────────────────────────────────────────────────────────
+// L'écran — la gemme d'une épique, la carte levée, les tuiles de l'aperçu, les règles — est parti avec la page de
+// l'Expédition le 16 novembre 2026. Reste ce que l'aperçu du serveur porte, qu'il disait.
 
-test('à l’écran : l’épique porte la gemme de l’album, la maudite son rouge à elle ; Panacée dit « une fois par expédition » ; l’aperçu dit les écus et le courage des cartes ; les règles, l’énergie de chaque acte', async () => {
-  const p = await pieces()
-  assert.deepEqual(p.gemmeDeLaCarte(carteDeRencontre('genie')!), { '--gemme': '#b77bff' })
-  assert.deepEqual(p.gemmeDeLaCarte(carteDeRencontre('surmenage')!), { '--gemme': '#d4506e' }, 'une maudite qui ressemblerait à une épique se prendrait pour une récompense')
-  const panacee = texte(await rendre(p.CarteLevee, { cle: 'panacee', onReposer: rien }))
-  assert.match(panacee, /épique/)
-  assert.match(panacee, /une fois par expédition/)
-  assert.match(texte(await rendre(p.CarteLevee, { cle: 'second-souffle', onReposer: rien })), /une fois par rencontre/)
+test('l’aperçu porte les écus et le courage des cartes — et rien sans elles', () => {
   const tour = (jouees: string[]) => ({ charge: 0, garde: 0, mise: 0, jouees })
   const de = (jouees: string[]) =>
     apercuDuTour({ v: VERSION_DU_JEU_COMPLET, tour: tour(jouees), pouvoirs: [], sceaux: 22, frappe: 7, savoir: SAVOIR_DES_MARCHES.facile, question: { reponses: 4, forme: 'quatre', categorie: 'Histoire' } })
   const a = de(['pourboire', 'pansement'])
   assert.deepEqual([a.juste.ecusDesCartes, a.juste.courage], [ECUS_DU_POURBOIRE, COURAGE_DU_PANSEMENT])
-  const tuiles = texte(await rendre(p.Apercu, { a }))
-  assert.match(tuiles, new RegExp(`\\+${ECUS_DU_POURBOIRE} écus de tes cartes`))
-  assert.match(tuiles, new RegExp(`\\+${COURAGE_DU_PANSEMENT} de courage`))
   const nu = de([])
   assert.deepEqual([nu.juste.ecusDesCartes, nu.juste.courage], [undefined, undefined], 'sans elles, la ligne ne se dit pas')
-  assert.equal(p.energieDite([2, 3, 3]), '2 d’énergie à l’acte 1, 3 ensuite')
-  assert.equal(p.energieDite([3, 3, 3]), '3 d’énergie')
-  const regles = texte(await rendre(p.FeuilleDesRegles, { rencontres: true, parQuestion: [3, 4, 5], energie: [2, 3, 3], onFermer: rien }))
-  assert.match(regles, /Tu en as 2 à chaque question de l’acte 1, 3 ensuite\./)
-  assert.match(texte(await rendre(p.FeuilleDesRegles, { rencontres: true, parQuestion: [3, 4, 5], energie: [3, 3, 3], onFermer: rien })), /Tu en as 3 à chaque question\./)
 })

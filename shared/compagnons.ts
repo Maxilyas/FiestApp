@@ -292,8 +292,7 @@ export const avecLui = (c: Compagnon) => (c.le === 'la' ? 'avec elle' : 'avec lu
  * page qui n'y répond pas, comme la voie de ses gardiens dans l'album
  * (`voiesMontrees`). L'expédition, elle, se tait quand l'album la tait
  * (`voieDeLExpeditionDite`, son départ fermé : `EXPEDITION_REMPLACEE`) — le
- * Cabinet ouvert seulement : sans lui, elle reste la seule à dire, comme dans
- * la galerie (`venuesDeLaLuciole`). Écrite en dur, elle se serait dite au refus
+ * Cabinet ouvert seulement : sans lui, elle reste la seule à dire. Écrite en dur, elle se serait dite au refus
  * le jour où l'album la tait. `cabinet` et `remplacee` forcent les drapeaux.
  */
 export const cheminDeLaLuciole = (cabinet: boolean = CABINET_EN_PRODUCTION, remplacee: boolean = EXPEDITION_REMPLACEE): string =>

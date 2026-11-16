@@ -154,8 +154,10 @@ export const lieuxDuLegendaire = (l: Legendaire, cabinet: boolean = CABINET_EN_P
  * traversée » : deux pages qui n'existent plus, et un texte que rien
  * n'atteignait. Elle est partie le 10 novembre 2026. Un compagnon qui se
  * gagnerait écrit ici sa voie avant de porter `gagne` :
- * `album-des-avatars.test.ts` le réclame. La galerie des compagnons garde son
- * propre chemin pour lui (`venuesDeLaLuciole`, `GalerieDesCompagnons.tsx`).
+ * `album-des-avatars.test.ts` le réclame. La galerie des compagnons et « Tes
+ * compagnons » n'ont plus le leur : leurs branches d'un compagnon gagné, que
+ * plus rien n'atteignait, sont parties avec la page de l'Expédition, le
+ * 16 novembre 2026.
  */
 const SA_VENUE: readonly LieuDAvatar[] = ['boutique']
 

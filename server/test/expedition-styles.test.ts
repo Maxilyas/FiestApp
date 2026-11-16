@@ -4,10 +4,10 @@
 // choisir de style de jeu. » Une famille se choisit au départ : ses deux
 // cartes partent dans le paquet, chaque récompense en propose une, et le codex
 // ouvre la variété d'abord — trois styles au niveau 1, un de plus à chacun des
-// trois suivants. Le calcul, le pli, les routes, la page.
+// trois suivants. Le calcul, le pli, les routes (la page est partie avec son
+// code, le 16 novembre 2026).
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
-import React from 'react'
 import Database from 'better-sqlite3'
 import { demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { BaseDeLaCampagne, lireQuestionDeLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
@@ -43,8 +43,6 @@ import {
   type QuestionPosee,
   type VueDeLExpedition,
 } from '../../shared/expedition'
-
-Object.assign(globalThis, { React, window: { location: { pathname: '/expedition', search: '', hash: '' } } })
 
 const famille = (cle: string) => carteDeRencontre(cle)!.famille
 
@@ -389,91 +387,4 @@ test('au niveau 6, les huit styles : le Téméraire part avec Fougue et Cicatric
   assert.deepEqual([d.v, d.style], [VERSION_DES_HUIT_FAMILLES, 'temeraire'])
   assert.ok(v.cartes?.paquet.includes('fougue') && v.cartes.paquet.includes('cicatrices'))
   assert.equal(v.cartes?.paquet.filter(cle => cle === 'concentration').length, 2, 'à la place de deux Concentrations')
-})
-
-// ── La page ─────────────────────────────────────────────────────────────────
-
-type Composant = (props: Record<string, unknown>) => React.ReactNode
-const rien = () => {}
-
-async function rendre(composant: Composant, props: Record<string, unknown>): Promise<string> {
-  const { renderToStaticMarkup } = await import('react-dom/server')
-  return renderToStaticMarkup(React.createElement(composant, props))
-}
-
-/** Ce qu'on lit à l'écran : le texte seul, ses espaces fines rendues ordinaires. */
-const texte = (html: string) =>
-  html
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&#x27;/g, '’')
-    .replace(/&amp;/g, '&')
-    .replace(/[\s  ]+/g, ' ')
-
-/** Le départ tel que la page le sert, au niveau dit — et, retenu sur le téléphone, ce style. */
-async function leDepart(niveau: number, retenu?: string): Promise<string> {
-  const { Depart } = (await import(new URL('../../client/src/views/ExpeditionApp.tsx', import.meta.url).href)) as { Depart: Composant }
-  Object.assign(globalThis, { localStorage: { getItem: (cle: string) => (cle === 'quizz.expedition.style' ? (retenu ?? null) : null), setItem: rien } })
-  const prochaine: PageDeLExpedition['prochaine'] = {
-    numero: 7,
-    gardiens: ['lg:kraken', 'lg:dragon', 'lg:oracle'],
-    aLui: [],
-    invite: 'lg:lion',
-    equipables: [],
-    rencontres: true,
-    codex: { renommee: NIVEAUX[niveau - 1], ...codexDuNiveau(niveau, []), ascension: 0 },
-  }
-  return rendre(Depart, { page: { expedition: null, prochaine, passeport: [] }, busy: false, erreur: '', onPartir: rien, onReprendre: rien, onAbandonner: rien })
-}
-
-/** Les pastilles des styles : leur nom et si elles sont choisies. */
-const pastilles = (html: string) =>
-  [...(/<div class="exp-styles"[^>]*>([\s\S]*?)<\/div>/.exec(html)?.[1] ?? '').matchAll(/<button[^>]*aria-checked="(true|false)"[^>]*>([\s\S]*?)<\/button>/g)].map(m => [texte(m[2]).trim(), m[1]])
-
-test('le départ propose ses styles en pastilles — rien de retenu, le premier — et dit celui qui partira : sa devise, sa façon de gagner, ses deux cartes, le prochain à s’ouvrir', async () => {
-  const html = await leDepart(1)
-  assert.match(html, /<h2 class="label" id="exp-style-titre">Ton style<\/h2>/)
-  assert.deepEqual(pastilles(html), [
-    ['Rempart', 'true'],
-    ['Érudit', 'false'],
-    ['Devin', 'false'],
-  ])
-  const lu = texte(html)
-  assert.match(lu, /Le Rempart · « Je tiens bon » Il gagne en tenant, à coups de boucliers et de courage\./)
-  assert.match(lu, /Tu pars avec Parade et Pansement, à la place de deux Prudences ; chaque récompense propose une carte de ton style\./)
-  assert.match(lu, /Le Flambeur s’ouvre au niveau 2\./)
-  assert.doesNotMatch(lu, /Ta catégorie fétiche/, 'elle est à l’Érudit')
-  assert.match(html, /exp-voir-le-paquet" aria-haspopup="dialog">Ton paquet · 11 cartes/, 'les deux de son style à la place de deux de base, et la carte de l’invité')
-  // Le style se dit avant le paquet qu'il fait.
-  assert.ok(html.indexOf('exp-style-titre') < html.indexOf('exp-voir-le-paquet'))
-  // L'Érudit retenu : il est choisi, et sa catégorie fétiche se choisit avec lui.
-  const erudit = await leDepart(1, 'erudit')
-  assert.deepEqual(pastilles(erudit)[1], ['Érudit', 'true'])
-  assert.match(texte(erudit), /Tu pars avec Plume et Savoir-faire, à la place de deux Concentrations[\s\S]*Ta catégorie fétiche : aucune Choisir/)
-  // Un style que son codex n'ouvre pas encore — retenu pour un autre profil — : le premier des siens.
-  assert.deepEqual(pastilles(await leDepart(1, 'metamorphe'))[0], ['Rempart', 'true'])
-  // Au niveau 4, les six de « Ton style » ; le Sophiste s'annonce au 5. Au niveau 6, les huit, et plus rien à attendre.
-  const quatre = await leDepart(4)
-  assert.equal(pastilles(quatre).length, 6)
-  assert.match(texte(quatre), /Le Sophiste s’ouvre au niveau 5\./)
-  const six = await leDepart(6)
-  assert.deepEqual(
-    pastilles(six).map(([nom]) => nom),
-    ['Rempart', 'Érudit', 'Devin', 'Flambeur', 'Élan', 'Métamorphe', 'Sophiste', 'Téméraire'],
-  )
-  assert.doesNotMatch(texte(six), /s’ouvre au niveau/)
-})
-
-test('les règles disent les styles : le choix du départ, la récompense de son style, chacun et sa façon de gagner — fermé, son niveau', async () => {
-  const { FeuilleDesRegles } = (await import(new URL('../../client/src/views/RencontresDExpedition.tsx', import.meta.url).href)) as { FeuilleDesRegles: Composant }
-  const lu = texte(await rendre(FeuilleDesRegles, { rencontres: true, parQuestion: [3, 4, 5], codex: { regles: ['fetiche'], styles: stylesDuNiveau(1) }, onFermer: rien }))
-  assert.match(lu, /Ton style Au départ, choisis ton style : une famille de cartes\. Deux de ses cartes partent dans ton paquet, à la place de deux cartes de base\./)
-  assert.match(lu, /Chaque récompense propose une carte de ton style, une que tu n’as pas encore s’il en reste ; les deux autres viennent de partout\./)
-  assert.match(lu, /Ton style ne fait pas tout : un paquet qui ne fait qu’attaquer tombe vite\. Prends aussi de quoi te protéger\./)
-  assert.match(lu, /Le Devin — « Je lis les signes » : il efface les mauvaises réponses avant de choisir\. Le Flambeur/, 'ouvert : sans niveau')
-  assert.match(lu, /Le Flambeur — « Je parie sur moi » : il gagne des écus et les parie ; ses gains frappent aussi\. Il s’ouvre au niveau 2 d’explorateur\./)
-  assert.match(lu, /Le Métamorphe — « Je change la question » : six choix pour frapper plus, un vrai ou faux pour risquer moins\. Il s’ouvre au niveau 4 d’explorateur\./)
-  assert.match(lu, /Une des trois est de ton style/)
-  assert.doesNotMatch(lu, /sceaux|Charge|Garde|inspiration/, 'les mots de l’écran')
-  // Avant le codex — aux règles d'avant —, pas de style.
-  assert.doesNotMatch(texte(await rendre(FeuilleDesRegles, { rencontres: true, parQuestion: [3, 4, 5], onFermer: rien })), /Ton style/)
 })

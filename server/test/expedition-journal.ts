@@ -1,12 +1,12 @@
 // Un journal d'expédition écrit comme le serveur l'écrit — ses gestes, puis ce
 // que le pli demande de tirer —, sur des plans faits à la main : de quoi jouer
-// une carte dans le vrai pli, et la lever dans les vraies pièces de la page.
+// une carte dans le vrai pli.
 // Le jeu complet (`expedition-jeu-complet.test.ts`) et les cartes améliorées
 // (`expedition-ameliorations.test.ts`) s'en servent ; ce n'est pas un fichier
 // de tests (`*.test.ts`) : `npm test` ne le lance pas seul.
 import React from 'react'
 import { NIVEAU_MAX, codexDuNiveau } from '../../shared/codex'
-import { VERSION_DU_JEU_COMPLET, ameliorer, carteDeRencontre, formeDeLaCarte, type ApercuDuTour, type CarteDeRencontre, type VueDeLaRencontre } from '../../shared/rencontres'
+import { VERSION_DU_JEU_COMPLET, ameliorer, carteDeRencontre, formeDeLaCarte, type VueDeLaRencontre } from '../../shared/rencontres'
 import {
   GARDIEN,
   pliDeLExpedition,
@@ -237,23 +237,9 @@ export const enMain = (j: Journal, cle: string) => !!j.etat().rencontre?.main.in
 
 // ── La page ─────────────────────────────────────────────────────────────────
 
+// Les pièces de la page de l'Expédition sont parties avec elle le 16 novembre 2026 : il ne reste qu'à rendre
+// ce qui vit encore — « Mes réponses » (`SerieCorrigee`), qui relit une expédition jouée.
 export type Composant = (props: Record<string, unknown>) => React.ReactNode
-export interface Pieces {
-  CarteLevee: Composant
-  CarteDessinee: Composant
-  RangeeDeCartes: Composant
-  AvantApres: Composant
-  FeuilleDuCodex: Composant
-  Apercu: Composant
-  FeuilleDesRegles: Composant
-  apercuALaMise: (r: VueDeLaRencontre, mise: number, fetiche: string | undefined, avec?: string) => ApercuDuTour | undefined
-  changementDeLaCarte: (r: VueDeLaRencontre, mise: number, fetiche: string | undefined, cle: string) => { avant: ApercuDuTour; apres: ApercuDuTour } | null
-  comptesDesCartes: (cles: readonly string[]) => { cle: string; nom: string; n: number }[]
-  gemmeDeLaCarte: (c: CarteDeRencontre) => Record<string, string>
-  energieDite: (energie: readonly number[]) => string
-}
-/** Les pièces des rencontres, chargées par leur adresse : le typage du serveur ne lit pas le JSX du client. */
-export const pieces = (): Promise<Pieces> => import(new URL('../../client/src/views/RencontresDExpedition.tsx', import.meta.url).href)
 
 export const rien = () => {}
 

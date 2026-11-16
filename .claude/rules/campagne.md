@@ -418,7 +418,7 @@ paths:
   ou finit (`expeditionChange`, `partirEnExpedition` et
   `recompenserLExpedition`, où passe toute fin, écrite : en mémoire, sous le
   verrou du profil, pour la seule ligne « Ton expédition t'attend » de sa
-  page ; ce qui y tombe se dit au journal sans faire tomber le geste), et la
+  page, qui ne la montre plus depuis le 16 novembre 2026 ; ce qui y tombe se dit au journal sans faire tomber le geste), et la
   base prête — à la fin du préchauffage du réveil, et quand elle vient de
   changer : les dépôts de la routine du matin publiés, une question corrigée,
   reclassée ou retirée au QG (`baseRenouvelee`, appelé par `prechauffer` et

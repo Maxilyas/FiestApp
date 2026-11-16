@@ -101,9 +101,8 @@ const INTACTES = [
   // L'accueil et le carrefour du profil partagent leur hauteur entre leurs lignes.
   '.player-shell.accueil',
   '.player-shell.profil-carrefour',
-  // Le QG et l'Expédition ont leurs marges à eux.
+  // Le QG a ses marges à lui (l'Expédition aussi, jusqu'à sa page partie avec son code le 16 novembre 2026).
   '.player-shell.qg',
-  '.player-shell.expedition',
   // Le verdict d'un duel tient déjà son halo dans `::before`.
   '.player-shell.duels-verdict',
   // Un formulaire posé dans une autre page ne prend pas l'écran.
@@ -111,7 +110,7 @@ const INTACTES = [
   '.porte-ecran .join',
 ]
 /** Les classes qui font d'une coquille une intacte, d'où qu'elle soit rendue. */
-const MARQUES_DES_INTACTES = ['accueil', 'profil-carrefour', 'qg', 'expedition', 'duels-verdict', 'cab-nom']
+const MARQUES_DES_INTACTES = ['accueil', 'profil-carrefour', 'qg', 'duels-verdict', 'cab-nom']
 
 /**
  * Chaque coquille que le client rend : ses classes, lues dans ses `className` — un texte, ou chaque texte d'une

@@ -12,7 +12,6 @@
 // aller-retour à la base.
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
-import React from 'react'
 import Database from 'better-sqlite3'
 import { Sqlite3Client } from '@libsql/client/sqlite3'
 import { demarrer, ecrire, inscrireProfil, patienter, type Banc } from './banc'
@@ -37,13 +36,6 @@ import { ATTENDENT_LE_SERVEUR, escalesPermises, jouerSurPlace, seJoueSurPlace, v
 import { Journal, avecEnMain, avecEnMainAmelioree, carteDeLaForge, depart, enMain } from './expedition-journal'
 
 ProfileStore.tirageEclat = () => false
-
-Object.assign(globalThis, { React, window: { location: { pathname: '/expedition', search: '', hash: '' } } })
-
-/** La page, chargée par son adresse : le typage du serveur ne lit pas le JSX du client. */
-const laPage = (): Promise<{
-  avecLesCartesSurPlace: (vue: VueDeLExpedition, sur: { id: string; rang: number; cartes: string[] } | null) => { vue: VueDeLExpedition; cartes: string[] }
-}> => import(new URL('../../client/src/views/ExpeditionApp.tsx', import.meta.url).href)
 
 // ── Le calcul : chaque carte, puis des expéditions entières ─────────────────
 
@@ -321,12 +313,7 @@ test('par les routes : la vue que la page prédit est celle que le serveur rend 
     autres.push(cle)
   }
   assert.ok(autres.length > 0, 'au moins une carte de plus se joue sur place')
-  // La page les rejoue sur la vue du serveur tant qu'elle n'a pas bougé — « ← Partir » puis « Reprendre » les retrouve —, et les
-  // oublie dès qu'un geste est passé sans elles.
-  const { avecLesCartesSurPlace } = await laPage()
-  const base: VueDeLExpedition = seule.corps.expedition
-  assert.deepEqual(avecLesCartesSurPlace(base, { id: v.id, rang: base.rang, cartes: autres }), { vue: x, cartes: autres })
-  assert.deepEqual(avecLesCartesSurPlace(base, { id: v.id, rang: base.rang - 1, cartes: autres }), { vue: base, cartes: [] })
+  // Ce que la page en gardait d'un écran à l'autre (`avecLesCartesSurPlace`) est parti avec elle le 16 novembre 2026.
   const mise = MISES.find(m => x.rencontre!.mises?.[m] === null)!
   const avant = journalDe(v.id).length
   const lot = await mesurer(() =>

@@ -19,7 +19,6 @@ import { THEMES, themeGagne } from '../../shared/themes'
 import { LEGENDAIRES, PREFIXES_DES_VOIES_RANGEES, estUneVoieRangee, partiesDe, voiesDe } from '../../shared/legendaires'
 import { HAUTS_FAITS_DE_CARRIERE, HAUTS_FAITS_REGAGNABLES, clePalier, hautFait, type HautFaitVu } from '../../shared/hautsfaits'
 import { SEUILS_DU_LAURIER } from '../../shared/jour'
-import { voieDeLExpeditionDite } from '../../shared/jokers'
 import { CONFETTIS_D_UN_RANG } from '../../shared/cabinet/bareme'
 import { NOMS_DES_DEFIS, PHRASES_DES_DEFIS } from '../../shared/cabinet/sceaux'
 import { CARTES_PEINTES } from '../../client/src/components/cartes-peintes'
@@ -412,9 +411,8 @@ test('le Cabinet fermé ici, la fiche de L’Explorateur ne mène nulle part —
   assert.equal(ouJouer('cabinet:defi:parade', 'cabinet', false), undefined, 'ni un défi')
   assert.deepEqual(ouJouer('cabinet:defi:parade', 'cabinet'), { nom: 'Aller au Cabinet', href: '/cabinet' })
   assert.deepEqual(ouJouer('hf:alpiniste', 'campagne', false), { nom: 'Jouer une série', href: '/campagne' })
-  // Le Globe-trotter ne se tamponne qu'en expédition : « Jouer une série » ne l'a jamais avancé. Effacée — le drapeau du
-  // code, d'office —, la fiche de son détenteur ne mène nulle part ; là où elle répondrait, à son départ.
-  assert.equal(ouJouer('hf:globe-trotter', 'campagne', true, false), undefined)
-  assert.deepEqual(ouJouer('hf:globe-trotter', 'campagne', true, true), { nom: 'Partir en expédition', href: '/expedition' })
-  assert.deepEqual(ouJouer('hf:globe-trotter', 'campagne'), voieDeLExpeditionDite() ? { nom: 'Partir en expédition', href: '/expedition' } : undefined)
+  // Le Globe-trotter ne se tamponnait qu'en expédition : « Jouer une série » ne l'a jamais avancé. L'Expédition effacée, sa
+  // page partie avec son code, la fiche de son détenteur ne mène nulle part — ni au Cabinet, ni à une série.
+  assert.equal(ouJouer('hf:globe-trotter', 'campagne'), undefined)
+  assert.equal(ouJouer('hf:globe-trotter', 'campagne', false), undefined)
 })

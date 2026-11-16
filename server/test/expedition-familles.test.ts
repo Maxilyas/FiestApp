@@ -6,12 +6,12 @@
 // « Oui, sur sa réponse », « Oui » pour la fétiche, et six styles. Les cartes
 // reprises et retouchées à leur version, leurs refus, le second essai et ce
 // qui revient dans le pli, puis par les routes — l'essai écrit au journal des
-// gestes, sans bonne réponse — et à l'écran. Une expédition de la version 13
+// gestes, sans bonne réponse (l'écran est parti avec la page de l'Expédition, le
+// 16 novembre 2026). Une expédition de la version 13
 // se rejoue à ses règles : `expedition-question-au-centre.test.ts` et les
 // suivants.
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
-import React from 'react'
 import Database from 'better-sqlite3'
 import { baseDEssai, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { ECHELLE_DES_FAMILLES, EXPLOITS, NIVEAU_MAX, codexDuNiveau, niveauDuStyle, ouvertureDe, stylesDuNiveau } from '../../shared/codex'
@@ -51,9 +51,7 @@ import {
   type QuestionDuTour,
 } from '../../shared/rencontres'
 import { pliDeLExpedition, refusDUneCarte, reponsesEffacees, secondEssaiEnAttente, type DepartDExpedition, type VueDeLExpedition } from '../../shared/expedition'
-import { Journal, depart, pieces, rendre, rien, texte, type Composant } from './expedition-journal'
-
-Object.assign(globalThis, { React, window: { location: { pathname: '/expedition', search: '', hash: '' } } })
+import { Journal, depart } from './expedition-journal'
 
 const V = VERSION_DES_FAMILLES
 
@@ -696,7 +694,9 @@ test('les cartes du pari servent sans parier : Banco et Doubler la mise frappent
   assert.equal(cransDesPouvoirs({ pouvoirs: ['pactole'], v: VERSION_DE_LA_FRISE }), 0)
 })
 
-// ── La carte levée tient sa promesse ────────────────────────────────────────
+// ── La carte jouée tient l'annonce du serveur ───────────────────────────────
+// Levée, chaque carte promettait à l'écran ce que le pli fait de sa bonne réponse : la page est partie avec son code le
+// 16 novembre 2026. Reste que l'aperçu de la vue du serveur, la carte jouée, dit les crans que la bonne réponse prend.
 
 /** Ce qu'il faut à une carte pour se jouer : sa réponse qui se compose, une erreur juste avant. */
 const POUR_SE_JOUER: Readonly<Record<string, (j: Journal) => void>> = {
@@ -704,23 +704,18 @@ const POUR_SE_JOUER: Readonly<Record<string, (j: Journal) => void>> = {
   'contre-attaque': j => void j.repondre(false),
 }
 
-test('chaque carte des familles, levée, promet ce que le pli fait de sa bonne réponse', async () => {
-  const { apercuALaMise, changementDeLaCarte } = await pieces()
-  // Leçon et la Bibliothèque changent de question : l'aperçu d'une autre question ne se promet pas. Celles du pari se jouent à
+test('chaque carte des familles, jouée, fait de sa bonne réponse ce que la vue annonce', () => {
+  // Leçon et la Bibliothèque changent de question : l'aperçu d'une autre question ne s'annonce pas. Celles du pari se jouent à
   // l'annonce : leur test à elles.
   for (const cle of [...REPRISES, ...RETOUCHEES].filter(c => c !== 'lecon' && c !== 'bibliotheque' && c !== 'pactole' && !DU_PARI.includes(c))) {
     const j = dansLaMain(cle, POUR_SE_JOUER[cle])
-    const avant = j.vue()
-    assert.equal(avant.refus[cle], null, `${cle} se joue ici`)
-    const promis = changementDeLaCarte(avant, 0, 'Histoire', cle)
-    const avantLaCarte = apercuALaMise(avant, 0, 'Histoire')!
+    assert.equal(j.vue().refus[cle], null, `${cle} se joue ici`)
     j.jouer(cle)
-    const apres = apercuALaMise(j.vue(), 0, 'Histoire')!
-    if (promis) assert.deepEqual(promis.apres.juste.brises, apres.juste.brises, `${cle} : ce qu’elle promet, juste`)
-    else assert.deepEqual(apres.juste.brises, avantLaCarte.juste.brises, `${cle} : ne changeant rien, elle ne promet rien`)
+    const apres = j.vue().apercu
+    assert.ok(apres, `${cle} : la vue annonce ce que fera la réponse`)
     const e = j.repondre(true)
-    assert.equal(e.coup!.brises, Math.min(apres.juste.brises, e.coup!.brises + (e.rencontre?.sceaux ?? 0)), `${cle} : les crans promis`)
-    if (!e.coup!.victoire) assert.equal(e.coup!.brises, apres.juste.brises, `${cle} : les crans promis`)
+    assert.equal(e.coup!.brises, Math.min(apres.juste.brises, e.coup!.brises + (e.rencontre?.sceaux ?? 0)), `${cle} : les crans annoncés`)
+    if (!e.coup!.victoire) assert.equal(e.coup!.brises, apres.juste.brises, `${cle} : les crans annoncés`)
   }
 })
 
@@ -806,10 +801,6 @@ test('par les routes : ratée sous Parade, l’essai s’écrit au journal des g
   assert.equal((v.question as unknown as { bonne?: number }).bonne, undefined, 'sans sa bonne réponse')
   assert.deepEqual(v.question!.effacees, [fausse], 'sa réponse ratée ne se propose plus')
   assert.equal(v.rencontre!.essai, 'parade')
-  // À l'écran : ce qui s'est passé, et ce qu'il fait maintenant — la réponse ratée éteinte.
-  const { Escale } = await page()
-  const html = await rendre(Escale, { vue: v, avant: null, question: v.question, reponse: null, choix: null, busy: false, erreur: '', onRepondre: rien, onJouer: rien, onSuite: rien, onPartir: rien, onSignaler: rien })
-  assert.match(texte(html), /Raté — Parade efface ta réponse : réponds encore\./)
   const ecrits = base(db => db.prepare('SELECT geste FROM expedition_gestes WHERE serie_id = ? ORDER BY rang').all(v.id) as { geste: string }[]).map(g => JSON.parse(g.geste))
   assert.deepEqual(ecrits.at(-1), { quoi: 'essai', position: q.index, choix: fausse })
   assert.equal(base(db => db.prepare('SELECT COUNT(*) AS n FROM campagne_reponses WHERE serie_id = ?').get(v.id) as { n: number }).n, 0, 'aucune réponse écrite')
@@ -824,28 +815,4 @@ test('par les routes : ratée sous Parade, l’essai s’écrit au journal des g
   assert.equal(juste.corps.bonne, gardee.bonne)
   const ligne = base(db => db.prepare('SELECT choix, juste, joker FROM campagne_reponses WHERE serie_id = ? AND position = ?').get(v.id, q.index)) as Record<string, unknown>
   assert.deepEqual(ligne, { choix: gardee.bonne, juste: 1, joker: 'parade' })
-})
-
-// ── À l'écran ───────────────────────────────────────────────────────────────
-
-/** La page, chargée par son adresse : le typage du serveur ne lit pas le JSX du client. */
-const page = (): Promise<{ Escale: Composant }> => import(new URL('../../client/src/views/ExpeditionApp.tsx', import.meta.url).href)
-
-test('à l’écran : « Tu réponds encore » à l’aperçu, les règles et la façon de répondre de chaque style — la version 13 n’en dit rien', async () => {
-  const { Apercu, FeuilleDesRegles } = (await pieces()) as unknown as { Apercu: Composant; FeuilleDesRegles: Composant }
-  const j = dansLaMain('parade')
-  j.jouer('parade')
-  const apercu = texte(await rendre(Apercu, { a: j.vue().apercu }))
-  assert.match(apercu, /Si tu te trompes Tu réponds encore/)
-  assert.match(apercu, /raté encore, tu perds \d+/)
-  const regles = async (v: number) => texte(await rendre(FeuilleDesRegles, { rencontres: true, v, codex: codexDuNiveau(NIVEAU_MAX, [], [], v), ascension: 0, onFermer: rien }))
-  const v14 = await regles(V)
-  assert.match(v14, /Un second essai — les cartes du Rempart : ratée, ta réponse s’efface, rien n’est jugé, et tu réponds encore\. Jamais sur un vrai ou faux\./)
-  for (const s of STYLES_DES_FAMILLES) assert.ok(v14.includes(jeuDuStyle(s, V)!.replace(/^./, x => x.toLowerCase())), s)
-  assert.doesNotMatch(await regles(VERSION_DE_LA_FRISE), /second essai/i)
-  // Posés, Troisième œil et Inarrêtable ne tiennent que jusqu'à la prochaine erreur : la ligne le dit, pas « toute la rencontre ».
-  const { ceQueLaCarteAFait } = (await pieces()) as unknown as { ceQueLaCarteAFait: (cle: string, v?: number) => string | null }
-  assert.equal(ceQueLaCarteAFait('troisieme-oeil', V), '« Troisième œil » souffle jusqu’à ta prochaine erreur')
-  assert.equal(ceQueLaCarteAFait('inarretable', V), '« Inarrêtable » pardonne ta prochaine erreur')
-  assert.equal(ceQueLaCarteAFait('inarretable', VERSION_DE_LA_FRISE), '« Inarrêtable » agit pour toute la rencontre')
 })

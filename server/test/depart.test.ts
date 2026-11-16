@@ -73,8 +73,12 @@ test('chaque page dit ce qu’elle demandera dès son code arrivé — avec les 
   for (const c of ['/profil', '/boutique']) assert.deepEqual(de(c), ['/api/auth/me', '/api/joueur/moi'], c)
   assert.deepEqual(de('/jour'), ['/api/jour', '/api/joueur/moi?leger'])
   assert.deepEqual(de('/campagne'), ['/api/campagne', '/api/joueur/moi?leger'])
-  // L'expédition en route, sinon la prochaine — demandée par tout visiteur : un invité reçoit un refus, la page le lit.
-  assert.deepEqual(de('/expedition'), ['/api/expedition', '/api/joueur/moi?leger'])
+  // L'Expédition n'a plus de page depuis le 16 novembre 2026 : son adresse, réservée, ne se lit plus, et ne précharge rien —
+  // le serveur la renvoie au Cabinet avant même de servir une page.
+  assert.ok(RESERVED_SLUGS.has('expedition'))
+  assert.deepEqual(parseRoute('/expedition'), { kind: 'unknown' })
+  assert.deepEqual(de('/expedition'), [])
+  assert.ok(!('expedition' in DEPART), 'plus de donnée de départ pour elle')
   assert.deepEqual(de('/edit'), ['/api/quizzes', '/api/auth/me', '/api/joueur/theme'])
   for (const c of ['/banc/souvenir', '/banc/stats']) assert.deepEqual(de(c), ['/s/banc/recap.json', '/api/auth/me', '/api/joueur/theme'], c)
   assert.deepEqual(de('/banc/bilan'), ['/s/banc/bilan.json', '/api/auth/me', '/api/joueur/theme'])
@@ -97,7 +101,7 @@ test('chaque page dit ce qu’elle demandera dès son code arrivé — avec les 
   // Le préchargement ne sert que si l'adresse est la même, lettre pour
   // lettre : la page les prend au même module.
   const api = source('api.ts')
-  for (const cle of ['console', 'moi', 'moiAccueil', 'moiLeger', 'missions', 'jour', 'campagne', 'sentiers', 'carnet', 'sujets', 'quiz', 'expedition', 'cabinet']) {
+  for (const cle of ['console', 'moi', 'moiAccueil', 'moiLeger', 'missions', 'jour', 'campagne', 'sentiers', 'carnet', 'sujets', 'quiz', 'cabinet']) {
     assert.match(api, new RegExp(`DEPART\\.${cle}\\b`), `api.ts demande DEPART.${cle}`)
   }
   // L'accueil demande ses missions à son ouverture, quel que soit le visiteur

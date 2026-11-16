@@ -9,11 +9,11 @@
 // question à l'autre, sa défausse rendue à l'acte suivant ; le pari seul
 // avant la question. Les règles et le pli, puis les routes — le drapeau qui
 // l'ouvre en préproduction seulement, la question gardée tant qu'il parie —,
-// puis l'écran. Les versions d'avant se rejouent à leurs règles :
-// `expedition-rencontres.test.ts` et les autres.
+// puis l'écran, parti avec la page de l'Expédition le 16 novembre 2026. Les
+// versions d'avant se rejouent à leurs règles : `expedition-rencontres.test.ts`
+// et les autres.
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
-import React from 'react'
 import Database from 'better-sqlite3'
 import { baseDEssai, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { questionAuCentreOuverte } from '../src/expedition'
@@ -66,9 +66,7 @@ import {
   type VueDeLaRencontre,
 } from '../../shared/rencontres'
 import { GARDIEN, refusDUneCarte, type DepartDExpedition, type FormeDEscale, type VueDeLExpedition } from '../../shared/expedition'
-import { Journal, depart, pieces, rien, texte, type Composant } from './expedition-journal'
-
-Object.assign(globalThis, { React, window: { location: { pathname: '/expedition', search: '', hash: '' } } })
+import { Journal, depart } from './expedition-journal'
 
 const V = VERSION_DE_LA_QUESTION_AU_CENTRE
 
@@ -348,30 +346,21 @@ function dansLaMain(cle: string, plus: Partial<DepartDExpedition> = {}, preparer
   throw new Error(`aucune graine ne met ${cle} dans une main où elle se joue`)
 }
 
-test(`chaque carte de la question au centre, levée, promet ce que le serveur fait — et sa bonne réponse prend les crans promis : ${EN_QUESTION.filter(c => c.moment !== 'route').length} cartes`, async () => {
-  const { apercuALaMise, changementDeLaCarte } = await pieces()
+// Levée, chaque carte promettait à l'écran ce que le serveur fait : la page qui le promettait est partie avec son code le
+// 16 novembre 2026. Reste que chacune se joue dans le pli, et y va où elle doit.
+test(`chaque carte de la question au centre se joue dans le pli — ses pouvoirs, sinon sa défausse : ${EN_QUESTION.filter(c => c.moment !== 'route').length} cartes`, () => {
   for (const c of EN_QUESTION.filter(x => x.moment !== 'route')) {
     // Arrêt sur image se joue sur un dévoilement, la Prédiction sur une année ou un nombre.
     const preparer = c.cle === 'arret-sur-image' ? (k: Journal) => k.poser({ forme: 'devoilement', mots: 10 }) : c.cle === 'prediction' ? (k: Journal) => k.poser({ nombre: true }) : undefined
     const j = dansLaMain(c.cle, {}, preparer)
-    const avant = j.vue()
-    assert.equal(avant.refus[c.cle], null, `${c.cle} se joue ici`)
-    const promis = changementDeLaCarte(avant, 10, 'Histoire', c.cle)
-    assert.ok(promis, `${c.cle} promet quelque chose`)
-    assert.deepEqual(promis.avant, apercuALaMise(avant, 10, 'Histoire'))
+    assert.equal(j.vue().refus[c.cle], null, `${c.cle} se joue ici`)
     let e = c.cle === 'prediction' ? j.geste({ quoi: 'jouer', joker: c.cle, position: j.etat().enAttente!, montre: 1 }) : j.jouer(c.cle)
     assert.ok(e.rencontre!.tour.jouees.includes(c.cle), `${c.cle} jouée`)
     assert.ok(c.moment === 'pouvoir' ? e.rencontre!.pouvoirs.includes(c.cle) : e.cycle!.defausse.includes(c.cle), `${c.cle} : ses pouvoirs, sinon sa défausse`)
-    assert.deepEqual(promis.apres, apercuALaMise(j.vue(), 10, 'Histoire'), `${c.cle} : la carte levée annonçait ce que le serveur a fait`)
     // Une carte du pari se joue à l'annonce : la question se voit ensuite, le pari dit.
     if (estDuPari(c.cle)) e = j.voir(10)
     e = j.repondre(true)
-    if (c.cle === 'passe-muraille') {
-      assert.equal(e.coup!.traversee, true, 'ni trouvée ni ratée')
-      continue
-    }
-    assert.equal(e.coup!.brises, promis.apres.juste.brises, `${c.cle} : les crans promis`)
-    assert.equal(e.coup!.mise, promis.apres.juste.ecus, `${c.cle} : le pari promis`)
+    if (c.cle === 'passe-muraille') assert.equal(e.coup!.traversee, true, 'ni trouvée ni ratée')
   }
 })
 
@@ -547,104 +536,4 @@ test('sans le drapeau, la page ne la propose pas, et le départ qui la demande r
   assert.equal(r.status, 200, r.corps.error)
   assert.equal(r.corps.cartes.v, VERSION_DES_HUIT_FAMILLES)
   assert.equal(r.corps.cartes.main, undefined)
-})
-
-// ── L'écran ─────────────────────────────────────────────────────────────────
-
-const JARGON = /sceau|\bCharge\b|\bGarde\b|inspiration|✦/i
-
-interface PiecesEnQuestion {
-  Adversaire: Composant
-  MainDeRencontre: Composant
-  CarteLevee: Composant
-  AvantApres: Composant
-  FeuilleDesRegles: Composant
-  VersionDesCartes: React.Context<number>
-}
-const piecesEnQuestion = async () => (await pieces()) as unknown as PiecesEnQuestion
-
-/** Une pièce rendue à la version 10, comme `ExpeditionApp` la pose (`VersionDesCartes`). */
-async function rendreEnQuestion(composant: Composant, props: Record<string, unknown>): Promise<string> {
-  const { renderToStaticMarkup } = await import('react-dom/server')
-  const { VersionDesCartes } = await piecesEnQuestion()
-  return renderToStaticMarkup(React.createElement(VersionDesCartes.Provider, { value: V }, React.createElement(composant, props)))
-}
-
-/** Les crans d'un adversaire rendus : pleins, et ceux qui palpitent. */
-const crans = (html: string) => ({ pleins: (html.match(/exp-cran-plein/g) ?? []).length, vises: (html.match(/exp-cran-vise/g) ?? []).length })
-
-test('à l’écran, l’adversaire en crans : ceux qu’une bonne réponse prendrait palpitent — une Concentration en fait palpiter un de plus —, son attaque cartes comptées, éteinte sous Sursis', async () => {
-  const { Adversaire } = await piecesEnQuestion()
-  const j = new Journal(enQuestion('ecran:crans', 1))
-  j.avancer('e00')
-  const r: VueDeLaRencontre = j.vue()
-  let html = await rendreEnQuestion(Adversaire, { r, gardien: 'lg:kraken', acte: 0, compact: true })
-  assert.deepEqual(crans(html), { pleins: CRANS_DES_RENCONTRES.question[0], vises: 1 })
-  assert.match(texte(html), new RegExp(`${CRANS_DES_RENCONTRES.question[0]} crans`))
-  assert.doesNotMatch(texte(html), JARGON)
-  assert.match(html, /aria-label="[^"]*une bonne réponse lui en prend 1[^"]*"/)
-  // Les deux crans palpitent sous Concentration : une bonne réponse le ferait tomber.
-  const avec = (cle: string) => ({ ...r, ...{ charge: cle === 'concentration' ? 1 : 0, jouees: [cle] }, apercu: undefined })
-  const deCartes = await pieces()
-  html = await rendreEnQuestion(Adversaire, { r: avec('concentration'), apercu: deCartes.apercuALaMise(avec('concentration'), 0, 'Histoire'), gardien: 'lg:kraken', acte: 0, compact: true })
-  assert.deepEqual(crans(html), { pleins: CRANS_DES_RENCONTRES.question[0], vises: CRANS_DES_RENCONTRES.question[0] })
-  assert.match(html, /une bonne réponse le fait tomber/)
-  html = await rendreEnQuestion(Adversaire, { r: avec('sursis'), apercu: deCartes.apercuALaMise(avec('sursis'), 0, 'Histoire'), gardien: 'lg:kraken', acte: 0, compact: true })
-  assert.match(html, /exp-attaque exp-attaque-moindre/)
-  assert.match(html, /son attaque\s*:\s*0"/u)
-  // À la révélation, ce qu'il lui reste seulement : plus rien ne palpite.
-  html = await rendreEnQuestion(Adversaire, { r, sceaux: 1, gardien: 'lg:kraken', acte: 0, compact: true })
-  assert.deepEqual(crans(html), { pleins: 1, vises: 0 })
-})
-
-test('à l’écran, la main : sans énergie ni coût au coin ; à l’annonce, celles du pari d’abord, le reste éteint pour la question ; la question vue, toutes ; vide, elle dit d’où viennent les cartes', async () => {
-  const { MainDeRencontre, CarteLevee } = await piecesEnQuestion()
-  const refus = Object.fromEntries(['banco', 'concentration', 'coup-d-oeil'].map(cle => [cle, estDuPari(cle) ? null : 'Elle se joue la question sous les yeux : vois-la d’abord']))
-  const pile = { compte: 5, mot: 'pioche', dit: 'Ta pioche : 5 cartes', onOuvrir: rien }
-  let html = await rendreEnQuestion(MainDeRencontre, { cles: ['concentration', 'banco', 'coup-d-oeil'], refus, busy: false, pile, phase: 'preparation', onJouer: rien })
-  assert.doesNotMatch(html, /exp-energie|exp-vc-cout/, 'ni orbe, ni coût')
-  const maintenant = html.indexOf('Maintenant')
-  const pendant = html.indexOf('Pendant la question')
-  assert.ok(maintenant >= 0 && pendant > maintenant, 'le pari d’abord, puis le reste')
-  assert.ok(html.indexOf('data-carte="banco"') < pendant && html.indexOf('data-carte="concentration"') > pendant)
-  assert.equal((html.match(/exp-face-eteinte/g) ?? []).length, 2)
-  html = await rendreEnQuestion(MainDeRencontre, { cles: ['concentration', 'coup-d-oeil'], refus: { concentration: null, 'coup-d-oeil': null }, busy: false, pile, phase: 'question', onJouer: rien })
-  assert.doesNotMatch(html, /Maintenant|Pendant la question/)
-  assert.equal((html.match(/data-carte=/g) ?? []).length, 2)
-  html = await rendreEnQuestion(MainDeRencontre, { cles: [], refus: {}, busy: false, pile, phase: 'question', onJouer: rien })
-  assert.match(texte(html), /Ta main est vide : une carte y vient après chaque question/)
-  // Levée : ce qu'elle fait, quand, et rien de l'énergie.
-  html = await rendreEnQuestion(CarteLevee, { cle: 'concentration', refus: null, busy: false, changement: null, onJouer: rien, onReposer: rien })
-  assert.match(texte(html), /l’adversaire perd un cran de plus/)
-  assert.match(texte(html), /La question sous les yeux/)
-  assert.doesNotMatch(texte(html), /énergie/)
-  assert.doesNotMatch(texte(html), JARGON)
-  // L'amélioration, avant et après (au campement, à l'échoppe) : ses phrases à la version 10, ni coût ni « gratuite ».
-  const { AvantApres } = await piecesEnQuestion()
-  const avantApres = texte(await rendreEnQuestion(AvantApres, { cle: 'concentration' }))
-  assert.match(avantApres, /l’adversaire perd un cran de plus\..*la question vue.*deux sur une question difficile/)
-  assert.doesNotMatch(avantApres, /énergie|gratuite/i)
-})
-
-test('les règles de la question au centre : la question d’abord, les crans, une carte par question, la main de l’acte et sa défausse ; le pari et ses cartes ; cinq styles ; ni énergie, ni bouclier', async () => {
-  const { FeuilleDesRegles } = await piecesEnQuestion()
-  const codex = codexDuNiveau(NIVEAU_MAX, [], [], V)
-  const t = texte(await rendreEnQuestion(FeuilleDesRegles, { rencontres: true, v: V, codex: { ...codex, regles: codex.regles, styles: codex.styles }, ascension: 0, onFermer: rien }))
-  for (const attendu of [
-    'La question d’abord',
-    'l’adversaire perd un cran',
-    'Une carte par question',
-    `Ta main tire ${MAIN_A_L_OUVERTURE_DE_L_ACTE} cartes à l’ouverture de chaque acte`,
-    'revient à l’acte suivant',
-    'Les cartes du pari',
-    'Ses crans rayés, qui palpitent',
-  ]) {
-    assert.ok(t.includes(attendu), `« ${attendu} »`)
-  }
-  for (const s of STYLES_EN_QUESTION) assert.ok(t.includes(FAMILLES_DE_CARTES[s].nom), FAMILLES_DE_CARTES[s].nom)
-  assert.doesNotMatch(t, JARGON)
-  assert.doesNotMatch(t, /énergie|bouclier/i)
-  assert.doesNotMatch(t, /Le Sophiste|Le Téméraire|Le Rempart/)
-  // Chaque cran, au milieu de sa phrase : « Cran 1 : les élites… ».
-  for (const c of ASCENSION_EN_QUESTION) assert.ok(t.includes(`Cran ${c.cran} : ${c.regle.charAt(0).toLowerCase()}${c.regle.slice(1)}.`), `le cran ${c.cran} : « ${c.regle} »`)
 })

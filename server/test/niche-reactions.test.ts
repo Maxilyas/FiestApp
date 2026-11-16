@@ -234,7 +234,7 @@ test('chaque écran de révélation la dit à la niche, et chaque réponse lui f
     'views/CampagneApp.tsx': { revelations: 1, souffles: 1 },
     'views/Sentiers.tsx': { revelations: 1, souffles: 1 },
     'views/Parcours.tsx': { revelations: 1, souffles: 1 },
-    'views/ExpeditionApp.tsx': { revelations: 1, souffles: 1 },
+    // L'Expédition a quitté la liste le 16 novembre 2026 : sa page est partie avec son code.
     // Le Cabinet : le cadre d'une manche révèle pour tous ses jeux, et retient le souffle au geste qui peut trancher la manche — une
     // réponse, touchée ou partie d'elle-même à l'échéance, les étoiles gardées du Pari, chaque essai du Mot mystère (que la page
     // ne sait pas juste) —, relâché quand l'essai revient sans verdict. Ses jeux n'en disent rien : ils envoient leurs gestes par

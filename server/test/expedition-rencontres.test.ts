@@ -51,6 +51,13 @@ import {
   paquetDesRencontres,
   raretesDeLOffre,
   refusDeLaCarte,
+  VERSION_DE_LA_QUESTION_AU_CENTRE,
+  VERSION_DES_COUPS_DE_POUCE,
+  VERSION_DES_FAMILLES,
+  ameliorer,
+  carteALaVersion,
+  seJoueEnQuestion,
+  type CarteDeRencontre,
   type ContexteDUneCarte,
 } from '../../shared/rencontres'
 import { JOKERS_DES_LEGENDAIRES, LEGENDAIRES_A_JOKER } from '../../shared/jokers'
@@ -554,4 +561,60 @@ test('les pouvoirs et les cartes des familles : Le trésor, Bibliothèque, Contr
   const vue = vueDeLaRencontre(ec.depart, e, ec.questions)!
   assert.equal(vue.annonce?.chance, undefined)
   assert.deepEqual(vue.pouvoirs, ['echolocation'])
+})
+
+// ── Les mots des cartes ─────────────────────────────────────────────────────
+// Venues de `expedition-rencontres-ecran.test.ts` le 16 novembre 2026, quand la
+// page de l'Expédition est partie avec son code : elles ne lisent que le
+// catalogue de `shared/rencontres.ts`, qui reste tant que le serveur la sert.
+
+/** Les mots du code, jamais ceux de l'écran — l'inspiration non plus : l'écran disait « énergie » (« l'histoire de l'inspiration n'est pas du tout claire »). */
+const JARGON = /sceau|\bCharge\b|\bGarde\b|inspiration|✦/i
+
+/** Une phrase coupée comme le navigateur la coupe : aux espaces, en lignes de `n` signes au plus. */
+function lignes(phrase: string, n: number): string[] {
+  const out: string[] = []
+  for (const mot of phrase.split(' ')) {
+    const derniere = out.at(-1)
+    if (derniere !== undefined && derniere.length + 1 + mot.length <= n) out[out.length - 1] = `${derniere} ${mot}`
+    else out.push(mot)
+  }
+  return out
+}
+
+/**
+ * Chaque carte telle que le codex la joue, telle qu'une expédition d'avant le
+ * codex la montre encore, quand il l'a retouchée — et améliorée (le jeu
+ * complet), quand elle s'améliore ; et telle que la question au centre la joue
+ * (v10), améliorée comprise, quand elle y est encore ; et telle que les
+ * familles la jouent (v14) — les reprises, que la version 10 avait retirées,
+ * comprises.
+ */
+const TOUTES_LES_VERSIONS: CarteDeRencontre[] = CARTES_DES_RENCONTRES.flatMap(c => [
+  c,
+  ...(c.avantLeCodex ? [{ ...c, ...c.avantLeCodex }] : []),
+  ...(c.amelioration ? [carteDeRencontre(ameliorer(c.cle))!] : []),
+  ...[c.cle, ...(c.amelioration ? [ameliorer(c.cle)] : [])].filter(cle => seJoueEnQuestion(cle)).map(cle => carteALaVersion(cle, VERSION_DE_LA_QUESTION_AU_CENTRE)!),
+  // Les coups de pouce (v11), nés dans la question au centre : à leur version seulement — leur exemplaire « + » aussi.
+  ...[c.cle, ameliorer(c.cle)]
+    .filter(cle => !seJoueEnQuestion(cle) && seJoueEnQuestion(cle, VERSION_DES_COUPS_DE_POUCE))
+    .map(cle => carteALaVersion(cle, VERSION_DES_COUPS_DE_POUCE)!),
+  // Les familles (v14) : leurs mots à elles — le résumé de Cuirasse, « 1ʳᵉ erreur : 2ᵉ essai », se coupait en trois lignes.
+  ...[c.cle, ameliorer(c.cle)].flatMap(cle => carteALaVersion(cle, VERSION_DES_FAMILLES) ?? []),
+])
+
+test('chaque carte se résume en deux lignes de neuf signes, et son chiffre tient dans son médaillon', () => {
+  // « 2 questions » ne tenait pas : « questions » coupé, la carte disait « 2 questio… ». Le résumé se dit à l'oreille, et dans les lignes d'une offre.
+  for (const c of TOUTES_LES_VERSIONS) {
+    const l = lignes(c.resume, 9)
+    assert.ok(l.length <= 2 && l.every(x => x.length <= 9), `${c.cle} : « ${c.resume} » se coupe en ${l.map(x => `« ${x} »`).join(', ')}`)
+    // Le chiffre de la main : quelques signes, sans un mot (« trop de détails écrits en dessous de chaque icône »).
+    if (c.valeur !== undefined) assert.match(c.valeur, /^[+×]?\d+(,\d)?( s)?$/, `${c.cle} : « ${c.valeur} »`)
+  }
+})
+
+test('les cartes parlent la langue de tout le monde : ni sceaux, ni Charge, ni Garde, ni inspiration', () => {
+  for (const c of TOUTES_LES_VERSIONS) {
+    for (const t of [c.effet, c.resume]) assert.doesNotMatch(t, JARGON, `${c.cle} : « ${t} »`)
+  }
 })

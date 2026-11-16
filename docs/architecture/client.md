@@ -134,7 +134,6 @@ Viennent ainsi la fin de soirée, la carte d'un joueur et ses gestes, la barre d
 | `/jour` | `/api/jour`, `/api/joueur/moi?leger` |
 | `/campagne` | `/api/campagne`, `/api/joueur/moi?leger` — et, d'après le fragment, `/api/campagne/sentiers`, ou `/api/campagne/carnet` et `/api/campagne/sujets` |
 | `/duels` | `/api/duels`, `/api/joueur/moi?leger` |
-| `/expedition` | `/api/expedition`, `/api/joueur/moi?leger` |
 | `/cabinet` | `/api/cabinet`, `/api/joueur/moi?leger` — le même, quel que soit l'écran que dit le fragment |
 | `/edit` | `/api/quizzes`, `/api/auth/me`, `/api/joueur/theme` |
 | `/<espace>` | `/s/<espace>/entree.json` |

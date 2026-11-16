@@ -2,14 +2,13 @@
 // le 19 octobre 2026 : « Est-ce que l'on pourrait pas aussi avoir un système
 // d'amélioration des cartes ? » — la forge de Slay the Spire : au campement, à
 // l'échoppe, et dans les offres des actes 2 et 3, une carte de son paquet
-// devient sa version « + ». Chaque améliorée, levée, annonce ce que le serveur
-// fait, et fait plus que sa carte ; aucune règle ne cherche une carte qui
-// s'améliore sous sa seule clé. Par les routes — le campement, l'échoppe,
+// devient sa version « + ». Chaque améliorée se joue dans le pli et fait plus
+// que sa carte ; aucune règle ne cherche une carte qui s'améliore sous sa seule
+// clé. Son écran est parti avec la page de l'Expédition, le 16 novembre 2026. Par les routes — le campement, l'échoppe,
 // Double chance+ — : `expedition-rencontres-routes.test.ts`.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import React from 'react'
 import { NIVEAU_MAX, codexDuNiveau, offreDuCodex } from '../../shared/codex'
 import {
   BOUCLIER_DE_LA_CUIRASSE_PLUS,
@@ -54,9 +53,7 @@ import {
   type ContexteDUneCarte,
 } from '../../shared/rencontres'
 import { GARDIEN, PRIX_DE_L_ECHOPPE, prixDeLArticle, refusDeLAchat, type CarteDUnActe, type DepartDExpedition, type EtatDeLExpedition } from '../../shared/expedition'
-import { Journal, avecEnMainAmelioree, carte, depart, pieces, rendre, rien, texte } from './expedition-journal'
-
-Object.assign(globalThis, { React, window: { location: { pathname: '/expedition', search: '', hash: '' } } })
+import { Journal, avecEnMainAmelioree, carte, depart } from './expedition-journal'
 
 /** Les cartes qui s'améliorent, et leur exemplaire amélioré. */
 const AMELIORABLES: readonly CarteDeRencontre[] = CARTES_DES_RENCONTRES.filter(c => c.amelioration)
@@ -207,8 +204,9 @@ const MAIN_POUR_SE_JOUER: Record<string, { autre: Partial<DepartDExpedition>; ma
   zizanie: { autre: { style: 'sophiste' }, main: j => !!j.etat().rencontre?.main.includes('rumeur') },
 }
 
-test(`chaque carte améliorée, levée, annonce ce que le serveur fait : ${AMELIORABLES.length} cartes`, async () => {
-  const { apercuALaMise, changementDeLaCarte } = await pieces()
+// Levée, chaque carte améliorée annonçait ce que le serveur fait : la page qui l'annonçait est partie avec son code le
+// 16 novembre 2026 ; reste qu'elle se joue dans le pli.
+test(`chaque carte améliorée se joue dans le pli : ${AMELIORABLES.length} cartes`, () => {
   for (const c of AMELIORABLES) {
     const p = ameliorer(c.cle)
     const besoin = MAIN_POUR_SE_JOUER[c.cle]
@@ -216,16 +214,11 @@ test(`chaque carte améliorée, levée, annonce ce que le serveur fait : ${AMELI
     POUR_SE_JOUER[c.cle]?.(j)
     // Une carte de pendant la question se joue la question vue, son pari dit.
     if (c.moment === 'reflexe') j.voir(10)
-    const avant = j.vue()
-    assert.equal(avant.refus[p], null, `${p} se joue ici`)
-    const promis = changementDeLaCarte(avant, 10, 'Histoire', p)
-    assert.ok(promis, `${p} promet quelque chose`)
-    assert.deepEqual(promis.avant, apercuALaMise(avant, 10, 'Histoire'))
+    assert.equal(j.vue().refus[p], null, `${p} se joue ici`)
     const position = j.etat().enAttente
     const e = j.jouer(p)
     assert.ok(e.rencontre!.tour.jouees.includes(p), `${p} jouée`)
     if (changeDeQuestion(p)) assert.notEqual(e.enAttente, position, `${p} : une autre question`)
-    assert.deepEqual(promis.apres, apercuALaMise(j.vue(), 10, 'Histoire'), `${p} : la carte levée annonçait ce que le serveur a fait`)
   }
 })
 
@@ -407,8 +400,6 @@ test('aucune règle ne cherche une carte qui s’améliore sous sa seule clé : 
     'shared/codex.ts',
     'server/src/core/campagne.ts',
     'server/src/expedition.ts',
-    'client/src/views/ExpeditionApp.tsx',
-    'client/src/views/RencontresDExpedition.tsx',
   ]
   for (const f of fichiers) {
     const source = readFileSync(new URL(`../../${f}`, import.meta.url), 'utf8')
@@ -416,57 +407,4 @@ test('aucune règle ne cherche une carte qui s’améliore sous sa seule clé : 
       assert.ok(!cles.has(m[2]), `${f} : « ${m[0]} » — un exemplaire amélioré n’y serait pas vu ; parmi(…, '${m[2]}') le voit`)
     }
   }
-})
-
-// ── À l'écran ───────────────────────────────────────────────────────────────
-
-test('à l’écran : la carte améliorée porte son « + » vert et son nom « + », la même peinture que sa carte ; levée, ce qu’elle a gagné', async () => {
-  const { CarteDessinee, CarteLevee, comptesDesCartes } = await pieces()
-  const base = await rendre(CarteDessinee, { c: carteDeRencontre('concentration'), taille: 'main' })
-  const plus = await rendre(CarteDessinee, { c: carteDeRencontre('concentration+'), taille: 'main' })
-  assert.match(plus, /class="exp-vc exp-vc-main exp-vc-amelioree"/)
-  assert.match(plus, /<b class="exp-vc-ameliore">\+<\/b>/)
-  assert.doesNotMatch(base, /exp-vc-ameliore/)
-  const peinture = (html: string) => /<img class="exp-vc-peinture" src="([^"]+)"/.exec(html)?.[1]
-  assert.ok(peinture(base) && peinture(base) === peinture(plus), 'la peinture de sa carte')
-  assert.match(plus, />\+6</, 'son chiffre amélioré')
-  const levee = texte(await rendre(CarteLevee, { cle: 'concentration+', onReposer: rien }))
-  assert.match(levee, /Concentration\+/)
-  assert.match(levee, /améliorée : \+6 au lieu de \+4/)
-  // Au codex, une carte dit ce que l'amélioration lui donnerait ; une maudite, rien.
-  assert.match(texte(await rendre(CarteLevee, { cle: 'prudence', avecAmelioration: true, onReposer: rien })), /Améliorée : bouclier 8 au lieu de 5/)
-  assert.doesNotMatch(texte(await rendre(CarteLevee, { cle: 'surmenage', avecAmelioration: true, onReposer: rien })), /Améliorée/)
-  // Dans un tas, l'exemplaire amélioré suit sa carte.
-  assert.deepEqual(
-    comptesDesCartes(['prudence+', 'concentration', 'prudence', 'echange']).map(x => x.cle),
-    ['concentration', 'prudence', 'prudence+', 'echange'],
-  )
-})
-
-test('avant de choisir : la carte et son amélioration côte à côte, ce que fait chacune et ce qu’elle y gagne ; les règles du jeu complet le disent, celles d’avant non', async () => {
-  const { AvantApres, FeuilleDesRegles } = await pieces()
-  const html = await rendre(AvantApres, { cle: 'prudence' })
-  assert.deepEqual([...html.matchAll(/class="exp-vc exp-vc-rangee[^"]*"/g)].length, 2)
-  assert.match(html, /exp-vc-amelioree/)
-  // Chacune sa phrase entière, son coût et son moment : « 5 › 8 » et « Bouclier 8 au lieu de 5 » seuls ne disaient ni ce que fait
-  // la carte, ni ce que fera son amélioration (un retour du 19 octobre 2026).
-  const dit = texte(html)
-  assert.match(dit, /Prudence : Bouclier 5 : si tu te trompes, il pare 5 de l’attaque\. 1 d’énergie · avant la question/)
-  assert.match(dit, /Prudence\+ : Bouclier 8 : si tu te trompes, il pare 8 de l’attaque\. 1 d’énergie · avant la question/)
-  assert.match(dit, /Bouclier 8 au lieu de 5/)
-  // Moins chère : la même phrase, et ce qu'elle coûte dessous.
-  const gratuite = texte(await rendre(AvantApres, { cle: 'coup-d-oeil' }))
-  assert.match(gratuite, /Coup d’œil : Efface une mauvaise réponse\. 1 d’énergie · pendant la question/)
-  assert.match(gratuite, /Coup d’œil\+ : Efface une mauvaise réponse\. gratuite · pendant la question/)
-  // Elle revient : « une fois par rencontre » sous sa carte, plus sous l'améliorée.
-  const revient = texte(await rendre(AvantApres, { cle: 'echange' }))
-  assert.match(revient, /Échange : Change de question : une autre, posée par le même adversaire\. gratuite · pendant la question · une fois par rencontre/)
-  assert.match(revient, /Échange\+ : Change de question : une autre, posée par le même adversaire\. gratuite · pendant la question Plus seulement une fois par rencontre/)
-  assert.equal(await rendre(AvantApres, { cle: 'surmenage' }), '', 'une maudite ne s’améliore pas')
-  const regles = (v: number) => rendre(FeuilleDesRegles, { rencontres: true, v, onFermer: rien })
-  const neuves = texte(await regles(VERSION_DU_JEU_COMPLET))
-  assert.match(neuves, /Tes cartes améliorées/)
-  assert.match(neuves, new RegExp(`L’échoppe en améliore une, ${PRIX_DE_L_ECHOPPE.ameliorer} écus`))
-  assert.match(neuves, /une sur 4 à l’acte 2, une sur 2 à l’acte 3/)
-  assert.doesNotMatch(texte(await regles(VERSION_DU_CODEX)), /améliorée/)
 })

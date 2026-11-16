@@ -121,25 +121,8 @@ test('au Cabinet, l’écho du doigt ne suit pas le lien venu sous lui : le prem
   assert.match(page, /document\.removeEventListener\('click', arreterLEcho, true\)/)
 })
 
-test('« Effacer » et « Valider » des formes qui se posent passent par toucher — la forme à composer, la frise, et celles à venir', () => {
-  const source = readFileSync(client('views/ExpeditionApp.tsx'), 'utf8').replaceAll('=>', '⇒')
-  const rangees = source
-    .split('className="exp-composer-gestes"')
-    .slice(1)
-    .map(r => r.slice(0, r.indexOf('</div>')))
-  assert.ok(rangees.length >= 2, 'la forme à composer et la frise')
-  for (const r of rangees) {
-    const balises = r
-      .split('<button')
-      .slice(1)
-      .map(b => b.slice(0, b.indexOf('>')))
-    assert.ok(balises.length > 0, 'une rangée de gestes sans bouton')
-    for (const b of balises) {
-      assert.doesNotMatch(b, /onClick=/, 'un geste qui répond au click seul : l’écho d’une carte posée y tombe')
-      assert.match(b, /toucher\(/, 'un geste sans toucher')
-    }
-  }
-})
+// « Effacer » et « Valider » des formes qui se posaient — la forme à composer, la frise de l'Expédition — passaient par toucher :
+// leur page est partie avec son code le 16 novembre 2026. Les gestes du Cabinet, dont sa Frise, ont leur épreuve ci-dessous.
 
 test('au Cabinet, chaque geste d’une partie passe par toucher : une réponse, le choix du Pari, la carte-bonus, la suite, le bilan', () => {
   // Une réponse touchée change l'écran au lever du doigt : « Garder » et « Parier » prennent la place des réponses, « Manche

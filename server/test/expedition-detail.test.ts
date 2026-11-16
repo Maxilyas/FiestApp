@@ -6,7 +6,7 @@
 // serveur jusqu'au tableau entier, et son peintre à trouver ; des
 // adversaires plus durs ; l'Élan qui aide et revient ; la question retrouvée
 // au second essai qui entre au carnet. Les règles pures, le contenu livré, le
-// générateur, les cartes, le pli, puis les routes et l'écran.
+// générateur, les cartes, le pli, puis les routes et « Mes réponses ».
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -55,7 +55,7 @@ import {
   type DepartDExpedition,
   type VueDeLExpedition,
 } from '../../shared/expedition'
-import { Journal, depart, pieces, rendre, rien, texte, type Composant } from './expedition-journal'
+import { Journal, depart, rendre, texte, type Composant } from './expedition-journal'
 
 Object.assign(globalThis, { React, window: { location: { pathname: '/expedition', search: '', hash: '' } } })
 
@@ -238,7 +238,7 @@ test('l’Élan de la version 15 : Foulée efface une réponse et revient, le Ry
   assert.equal(refusDeLaCarte(vf, 'foulee'), 'Pas sur un vrai ou faux : elle répondrait à ta place')
 })
 
-test('les cartes plus rares aident à gagner : jouée sur la question, une rare pare la moitié de l’attaque d’une erreur, une épique toute ; le soin rend la moitié — la version 14 garde les siens ; les règles le disent', async () => {
+test('les cartes plus rares aident à gagner : jouée sur la question, une rare pare la moitié de l’attaque d’une erreur, une épique toute ; le soin rend la moitié — la version 14 garde les siens', () => {
   const [commune, rare, epique] = ['coup-d-oeil', 'lecon', 'vision']
   assert.deepEqual([commune, rare, epique].map(cle => carteALaVersion(cle, V)?.rarete), ['commun', 'rare', 'epique'])
   const attaque = (jouees: string[], v: number, frappe = 9) => attaqueEnQuestion({ frappe, tour: { jouees, surLaQuestion: [] }, pouvoirs: [], v })
@@ -255,10 +255,7 @@ test('les cartes plus rares aident à gagner : jouée sur la question, une rare 
   assert.equal(SOIN_DU_DETAIL, 0.5)
   assert.equal(soinALaVersion(15, V), 8)
   assert.equal(soinALaVersion(15, VERSION_DES_FAMILLES), 15)
-  const { FeuilleDesRegles } = (await pieces()) as unknown as { FeuilleDesRegles: Composant }
-  const regles = async (v: number) => texte(await rendre(FeuilleDesRegles, { rencontres: true, v, codex: codexDuNiveau(NIVEAU_MAX, [], [], v), ascension: 0, onFermer: rien }))
-  assert.match(await regles(V), /Une carte rare jouée sur la question pare la moitié de son attaque si tu te trompes, une épique toute\./)
-  assert.doesNotMatch(await regles(VERSION_DES_FAMILLES), /carte rare jouée/)
+  // Ses règles, que la page disait, sont parties avec elle le 16 novembre 2026.
 })
 
 /**
@@ -356,10 +353,9 @@ async function partirAuDetail(cookie: string): Promise<VueDeLExpedition> {
 
 const geste = (cookie: string, v: VueDeLExpedition, g: unknown) => poster(cookie, `/api/expedition/${v.id}/geste`, { rang: v.rang + 1, geste: g })
 
-/** La page, chargée par son adresse : le typage du serveur ne lit pas le JSX du client. */
-const page = (): Promise<{ Escale: Composant }> => import(new URL('../../client/src/views/ExpeditionApp.tsx', import.meta.url).href)
-
-test('par les routes et à l’écran : un détail — ni le tableau ni son intitulé avant le verdict ; chaque cadrage à son heure, pas avant ; reconnu tôt, deux crans ; le tableau entier à la révélation ; raté, au carnet ; « Mes réponses »', async () => {
+// L'écran de l'escale est parti avec la page de l'Expédition le 16 novembre 2026 : reste ce que le serveur sert, et
+// « Mes réponses » (`SerieCorrigee`), qui vit encore.
+test('par les routes : un détail — ni le tableau ni son intitulé avant le verdict ; chaque cadrage à son heure, pas avant ; reconnu tôt, deux crans ; le tableau entier à la révélation ; raté, au carnet ; « Mes réponses »', async () => {
   const c = await inscrireProfil(banc.url, 'amatrice', 'Amatrice')
   let v = await partirAuDetail(c)
   v = (await geste(c, v, { quoi: 'avancer', vers: v.carte!.depart[0] })).corps.expedition
@@ -394,14 +390,6 @@ test('par les routes et à l’écran : un détail — ni le tableau ni son inti
   assert.equal(alheure.status, 200)
   assert.ok(alheure.octets.equals(readFileSync(fichierDuCadrage(qid, 2))))
   for (const k of [0, 5]) assert.equal((await image(c, `/api/expedition/${v.id}/detail/${position}/${k}`)).status, 400, `cadrage ${k}`)
-  // L'écran : le tableau du moment, ses quatre pas, la question du détail — jamais le titre.
-  const { Escale } = await page()
-  const props = (vue: VueDeLExpedition, reponse: unknown = null) => ({ vue, avant: reponse ? v : null, question: v.question, reponse, choix: null, busy: false, erreur: '', onRepondre: rien, onJouer: rien, onSuite: rien, onPartir: rien, onSignaler: rien })
-  const html = await rendre(Escale, props(v))
-  assert.match(html, /class="exp-detail"/)
-  assert.match(html, /aria-valuemax="4"/)
-  assert.match(texte(html), /Qui a peint ce tableau/)
-  assert.ok(!texte(html).includes(titre))
   // Reconnu au deuxième cadrage : deux crans, et le tableau nommé.
   const laBase = PAR_ID.get(gardee.id)!
   const juste = await poster(c, `/api/expedition/${v.id}/reponse`, { position, choix: q.reponses.indexOf(laBase.reponses[laBase.bonne]) })
@@ -412,9 +400,6 @@ test('par les routes et à l’écran : un détail — ni le tableau ni son inti
   const ligne = base(db => db.prepare('SELECT reserve_id, forme FROM campagne_reponses WHERE serie_id = ? AND position = ?').get(v.id, position)) as Record<string, unknown>
   assert.deepEqual(ligne, { reserve_id: gardee.id, forme: 'detail' }, 'sa question de la base, à sa forme')
   assert.equal((await image(c, `/api/expedition/${v.id}/detail/${position}/4`)).status, 200, 'répondue, le tableau entier')
-  const revele = await rendre(Escale, props(juste.corps.expedition, juste.corps))
-  assert.match(revele, /class="tableau-entier"/)
-  assert.ok(texte(revele).includes(titre.replace(/'/g, '’')), 'nommé à la révélation')
   // Le suivant : un autre tableau — raté, il entre au carnet.
   v = juste.corps.expedition
   for (let n = 0; n < 6 && v.rencontre && v.question; n++) {
