@@ -40,6 +40,7 @@ import {
   legendaire,
   legendaireDeLExpedition,
   legendairesDebloques,
+  legendairesOuvertsPar,
   partiesDe,
   voiesDe,
   voiesMontrees,
@@ -125,6 +126,13 @@ test('la voie de l’Expédition effacée donne toujours son légendaire : vingt
   }
   // Rien d'autre n'a de voie d'expédition.
   for (const l of LEGENDAIRES) assert.equal(voiesDe(l).some(estUneVoieDExpedition), LEGENDAIRES_DE_L_EXPEDITION.includes(l.key), l.key)
+  // Une ligne rangée l'ouvre et l'annonce une fois (reprise d'`expedition-legendaires.test.ts`, parti avec l'Expédition) : le
+  // profil qui la tient déjà par sa première voie n'a rien de neuf à se faire annoncer. Elles ne s'écrivent plus, mais une
+  // base de préproduction ou de développement en garde, et le recalcul relit ce qu'elles ouvrent.
+  const ligne = new Map([['expedition:kraken', 1]])
+  assert.deepEqual(legendairesOuvertsPar(['expedition:kraken'], ligne), ['lg:kraken'])
+  assert.deepEqual(legendairesOuvertsPar(['expedition:kraken'], new Map([['hf:lanterne-rouge', 3], ['expedition:kraken', 1]])), [], 'déjà à lui par sa première voie')
+  assert.ok(!legendairesDebloques(new Map([['expedition:inconnu', 1]])).length, 'une ligne qui ne désigne aucun légendaire n’en ouvre aucun')
 })
 
 // ── 2. Sur un vrai serveur ────────────────────────────────────────────────

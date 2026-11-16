@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url'
 import Database from 'better-sqlite3'
 import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { ProfileStore } from '../src/auth/profiles'
+import { compositionDite, gabaritDe } from '../../shared/lettres'
 
 ProfileStore.tirageEclat = () => false
 
@@ -446,6 +447,47 @@ test('une base neuve n’a pas de table des gestes, et un profil s’y supprime 
     assert.deepEqual(base(banc, db => db.prepare("SELECT name FROM sqlite_master WHERE name = 'expedition_gestes'").all()), [])
     const supprime = await poster(banc, admin, `/api/admin/profils/${id}`, {}, 'DELETE')
     assert.deepEqual([supprime.status, supprime.corps], [200, { ok: true, salon: null }])
+  } finally {
+    await banc.close()
+  }
+})
+
+// Reprise d'`expedition-coups-de-pouce.test.ts` et d'`expedition-frise.test.ts`, partis avec l'Expédition : leurs épreuves par les
+// routes relisaient la correction d'une question à composer et d'une frise, trouvées comme ratées. `corriger` (`CampagneStore`)
+// les redit encore ; l'épreuve d'au-dessus ne lisait que des réponses ratées pour ces deux formes. Ici, les lignes comme la
+// production les garde : la composition dans `composee`, l'ordre rendu en rangs du temps.
+test('la correction d’une expédition d’avant redit une composition et une frise, trouvées comme ratées', async () => {
+  const banc = await demarrer({ baseDeLaCampagne: baseDEssai(40, { categories: ['Histoire', 'Sciences'] }) })
+  try {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const id = base(banc, db => (db.prepare('SELECT id FROM profiles WHERE login = ?').get('lea') as { id: string }).id)
+    const lettres = (i: number, bonne: string) => ({ ...question(i), reponses: [bonne], bonne: 0, forme: 'lettres', tuiles: ['V', 'I', 'C', 'T', 'O', 'R', 'H', 'U', 'G', 'E', 'X', 'Z', 'Q'], enTrop: [10, 11, 12], niveau: 'moyen' })
+    const frise = (i: number) => ({ ...question(i), id: 'frise:essai010+essai012+essai014+essai016', reponses: ['Le premier', 'Le deuxième', 'Le troisième', 'Le dernier'], forme: 'frise', frise: { annees: [1492, 1789, 1889, 1969], montre: [2, 0, 3, 1] } })
+    const lignes = [
+      { q: lettres(30, 'Victor Hugo'), choix: 0, juste: 1, composee: 'VICTORHUGO' },
+      { q: lettres(31, 'Victor Hugo'), choix: -1, juste: 0, composee: 'VICTORHUGE' },
+      { q: frise(32), choix: 0, juste: 1, composee: '0123' },
+      { q: frise(33), choix: -1, juste: 0, composee: '3210' },
+    ]
+    base(banc, db => {
+      db.prepare(
+        `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, issue, expedition, bilan) VALUES ('exp-formes', ?, ?, ?, 0, 2, ?, ?, 'expedition', 'abandonnee', ?, NULL)`,
+      ).run(id, JSON.stringify(lignes.map(l => l.q)), lignes.length, EN_OCTOBRE, EN_OCTOBRE + 10 * MINUTE, DEPART)
+      const reponse = db.prepare(`INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, forme, composee) VALUES ('exp-formes', ?, ?, ?, ?, ?, ?, ?)`)
+      lignes.forEach((l, i) => reponse.run(i, l.q.id, l.choix, l.juste, EN_OCTOBRE + (i + 1) * MINUTE, l.q.forme, l.composee))
+    })
+    await banc.redemarrer()
+
+    const correction = (await lire(banc, lea, '/api/campagne/serie/exp-formes/correction')).corps
+    const [composeeJuste, composeeRatee, friseJuste, friseRatee] = correction
+    const commun = (i: number) => ({ texte: lignes[i].q.texte, niveau: lignes[i].q.niveau, anecdote: lignes[i].q.anecdote })
+    // Trouvée : sa bonne réponse seule, jamais les choix qui ne se sont pas montrés ; ratée, ce qu'il avait composé, dans ses cases.
+    assert.deepEqual(composeeJuste, { ...commun(0), reponses: ['Victor Hugo'], bonne: 0, choix: 0, juste: true, composee: 'VICTORHUGO' })
+    assert.deepEqual(composeeRatee, { ...commun(1), reponses: ['Victor Hugo', compositionDite(gabaritDe('Victor Hugo')!.mots, 'VICTORHUGE')], bonne: 0, choix: 1, juste: false, composee: 'VICTORHUGE' })
+    assert.equal(composeeRatee.reponses[1], 'VICTOR HUGE')
+    // Une frise : ses événements dans l'ordre du temps et chaque année ; ratée seulement, l'ordre qu'il avait donné.
+    assert.deepEqual(friseJuste, { ...commun(2), reponses: ['Le premier', 'Le deuxième', 'Le troisième', 'Le dernier'], bonne: 0, choix: 0, juste: true, frise: { annees: [1492, 1789, 1889, 1969] } })
+    assert.deepEqual(friseRatee, { ...commun(3), reponses: ['Le premier', 'Le deuxième', 'Le troisième', 'Le dernier'], bonne: 0, choix: 1, juste: false, frise: { annees: [1492, 1789, 1889, 1969], sienne: [3, 2, 1, 0] } })
   } finally {
     await banc.close()
   }
