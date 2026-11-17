@@ -334,15 +334,22 @@ test('la loge, sur l’avatar : sa carte collée en tête, ses finitions en past
   assert.match(source('styles.css'), /\.loge-collante \{ position: sticky; top: 0;/)
 })
 
-test('la loge, sur le thème : ses thèmes, deux liens vers ce qu’il n’a pas — sa gerbe a son panneau', async () => {
+test('la loge, sur le thème : ses thèmes et sa plaque en deux onglets, deux liens vers ce qu’il n’a pas — sa gerbe a son panneau', async () => {
   const html = await laLoge('theme')
   assert.doesNotMatch(html, /Mes gerbes|gerbes-choix/, 'la gerbe a son panneau')
-  // Ce qui s'achète à la boutique, ce qui se gagne dans la collection : pas sur l'écran où l'on choisit.
-  assert.match(html, /<a class="link-inline lien-boutique" href="\/boutique"><svg[^>]*>.*?<\/svg>\d+ autres à la boutique<\/a>/)
-  // Ce qui se gagne : le lien de toutes les pièces de la loge.
-  assert.match(html, /<a class="loge-a-gagner" href="#collection-themes">5 thèmes à gagner\s:\soù\s\?<svg/)
-  // Seulement ceux qu'il a, dans leurs cartes : les autres se montrent dans la collection.
-  assert.equal(html.match(/<button type="button" class="theme-vitrine/g)?.length, complet.boutique.possedes.length)
+  // Sa plaque se découvre sans défiler (le propriétaire, le 17 novembre 2026 : « la plaque des thèmes qui est caché tout
+  // en bas et donc impossible pour des utilisateurs de savoir que ça existe ») : deux onglets tout en haut de la pièce,
+  // avant toute vignette — « Mes thèmes » et leur compte, ouvert d'office, puis « Ma plaque » et son échantillon.
+  const onglets = [...html.matchAll(/<button id="loge-theme-(\w+)" type="button" role="tab" aria-selected="(true|false)"[^>]*tabindex="(-1|0)"/g)].map(m => `${m[1]}${m[2] === 'true' ? '*' : ''}${m[3]}`)
+  assert.deepEqual(onglets, ['themes*0', 'plaque-1'])
+  assert.match(html, /<div class="onglets loge-theme-onglets" role="tablist" aria-label="Thème ou plaque">/)
+  assert.ok(html.indexOf('loge-theme-onglets') < html.indexOf('loge-vignettes'), 'les onglets avant les vignettes')
+  assert.match(html, /Mes thèmes<span class="loge-theme-compte"><span class="sr-only">, <\/span>2<\/span>/)
+  assert.match(html, /<span class="loge-plaque-echantillon[^"]*" aria-hidden="true">(<span class="plaque-motif" aria-hidden="true"><\/span>)?<\/span>Ma plaque<span class="sr-only">, /)
+  // Ce qui s'achète au rayon des thèmes de la boutique, ce qui se gagne dans la collection : sur une ligne, au pied.
+  assert.match(html, /<div class="loge-pied"><a class="loge-a-gagner loge-vers-boutique" href="\/boutique#themes"><svg[^>]*>.*?<\/svg>\d+ à la boutique<\/a><a class="loge-a-gagner" href="#collection-themes">5 thèmes à gagner\s:\soù\s\?<svg/)
+  // Seulement ceux qu'il a, dans leurs vignettes : les autres se montrent dans la collection.
+  assert.equal(html.match(/<button type="button" class="loge-vignette loge-theme-case/g)?.length, complet.boutique.possedes.length)
 })
 
 // « Les gerbes, à améliorer » (le 10 octobre 2026) : celles à gagner étaient

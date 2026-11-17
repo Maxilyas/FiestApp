@@ -170,7 +170,7 @@ try {
   await photo('3a-loge-essai-deux')
   await page.click('#loge-theme')
   await page.waitForSelector('.loge-panneau .mes-themes')
-  await page.click('.loge-panneau .theme-vitrine[aria-label^="Océan"]')
+  await page.click('.loge-panneau .loge-theme-case[aria-label^="Océan"]')
   // Le thème essayé habille la page : sa feuille chargée, la racine le porte.
   await page.waitForSelector('html[data-theme="ocean"]', { state: 'attached' })
   await photo('4a-loge-essai-theme')
@@ -194,7 +194,7 @@ try {
   await photo('1-profil-nouveau')
   await page.click('.profil-boutons .gros-bouton:has-text("M’habiller")')
   await page.waitForSelector('#loge-theme[aria-selected="true"]')
-  await page.waitForSelector('.loge-panneau .theme-vitrine.neuve')
+  await page.waitForSelector('.loge-panneau .loge-theme-case.neuve')
   await photo('1-loge-nouveau')
   // Regardé : plus rien à compter, la barre s'éteint.
   await page.waitForSelector('.menu-barre .menu-compteur', { state: 'detached' })

@@ -1046,17 +1046,15 @@ h3 > .icon {
   --p-motif: linear-gradient(118deg, transparent 47%, var(--p-trait) 47% 50%, transparent 50%) 0 0 / 46px 100%, linear-gradient(62deg, transparent 48%, var(--p-trait) 48% 50.5%, transparent 50.5%) 18px 0 / 64px 100%;
 }
 
-/* Là où elle se choisit (la loge, pièce « Thème » : `MaPlaque`) et là où
-   elle se vend (la fiche d'un thème : `LigneDePlaque`) : sa propre ligne,
-   telle qu'un classement la montrerait. Elle n'entre pas en glissant — on la
-   regarde, on ne la découvre pas. */
-.ma-plaque,
+/* Là où elle se choisit (la loge, onglet « Ma plaque » de la pièce « Thème »)
+   et là où elle se vend (la fiche d'un thème) : sa propre ligne, telle qu'un
+   classement la montrerait (`LigneDePlaque`). Elle n'entre pas en glissant —
+   on la regarde, on ne la découvre pas. Les choix de la loge étaient chacun
+   une ligne entière (`.plaque-choix`) jusqu'au 17 novembre 2026 : ils sont
+   devenus des vignettes, leurs échantillons dans la section de la loge
+   (`.loge-plaque-echantillon`). */
 .presentoir-plaque { display: flex; flex-direction: column; gap: 6px; }
-.ma-plaque .leaderboard { margin-top: 2px; }
-.lb-row.plaque-choix,
 .lb-row.plaque-apercu { min-height: 44px; animation: none; }
-.plaque-choix-nom { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 0.82rem; font-weight: 600; }
-.plaque-choix-nom .icon { flex: none; width: 14px; height: 14px; }
 
 /* ── Écran commun ───────────────────────────────── */
 /* L'écran commun se lit à la hauteur de l'écran : 16 px en 768, 22,5 en
@@ -9738,13 +9736,7 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
    voit d'un coup d'œil, sous la carte qui l'essaie. */
 .loge-panneau .finitions { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
 .loge-panneau .finition-btn { padding: 10px 4px; }
-.loge-panneau .vitrine-themes { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.loge-panneau .theme-vitrine-pied { padding: 6px 8px 8px; }
-.loge-panneau .theme-vitrine-pied b { font-size: 0.95rem; }
-.loge-panneau .theme-vitrine-prix { font-size: var(--t-label); }
 .loge-panneau .style-liste button { min-height: 48px; }
-/* La page entière essaie le thème : sa fiche n'en redit pas l'aperçu en grand. */
-.loge-panneau .detail-theme .detail-apercu { display: none; }
 /* La barre de l'essai couvre le menu, à sa place et à sa hauteur : la page
    ne saute pas, et l'on choisit avant de partir. Sa hauteur est celle du
    menu, comptée comme lui — ses rangées de 58 px, son filet, et son pied : six
@@ -9782,12 +9774,10 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .finition-btn.porte::after { content: '✓'; position: absolute; top: -4px; right: -4px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; line-height: 1; box-shadow: 0 0 0 2px var(--bg); }
 .case-avatar.neuve::before,
 .finition-btn.neuve::before,
-.vitrine-option.neuve::before,
-.theme-vitrine.neuve::before { content: ''; position: absolute; top: 3px; left: 3px; z-index: 1; width: 9px; height: 9px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--bg); }
+.vitrine-option.neuve::before { content: ''; position: absolute; top: 3px; left: 3px; z-index: 1; width: 9px; height: 9px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--bg); }
 .vitrine-option[aria-disabled='true'] { opacity: 0.45; cursor: default; }
 .titre-etat { font-family: var(--sans); font-style: normal; font-size: var(--t-label); font-weight: 600; letter-spacing: 0.03em; color: var(--muted); }
 .titre-choix.porte { border-color: var(--edge-strong); }
-.theme-vitrine.theme-essaye { box-shadow: 0 0 0 2px var(--accent), 0 6px 22px rgba(var(--accent-rgb), 0.35); }
 
 /* ── La loge, sur l'avatar : la maquette 1 (sa grille) et la 3 (ses finitions)
    Les gemmes de l'album de « Ma collection » — les offerts, puis chaque
@@ -9951,6 +9941,55 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 /* Ses chemins, sur une ligne quand ils y tiennent : chacun garde sa cible de 44 px. */
 .loge-pied { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0 18px; }
 .loge-vers-boutique .icon { width: 15px; height: 15px; }
+
+/* La pièce « Thème » : « Mes thèmes · Ma plaque » en deux onglets, tout en
+   haut (`MesThemes`, `OngletsDuTheme` — le 17 novembre 2026). Sa plaque
+   vivait sous ses thèmes, à 1180 px du haut en 360 × 640 : personne ne la
+   trouvait. Les onglets tiennent lieu de titre à l'œil — ils disent déjà
+   « Mes thèmes » et leur compte — : le titre de l'en-tête reste au lecteur
+   d'écran, caché comme `.sr-only`, et son absolu ne prend pas l'écart de la
+   colonne. */
+.mes-themes { display: flex; flex-direction: column; gap: var(--loge-bloc); }
+.mes-themes .loge-entete { gap: 3px; }
+.mes-themes .loge-entete-titre { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+/* Le cadre des onglets de l'application (`.onglets`), sans sa marge : deux segments de 44 px, cibles de doigt entières. */
+.onglets.loge-theme-onglets { flex-wrap: nowrap; padding: 0; }
+.loge-theme-onglets .onglet { position: relative; gap: 7px; min-height: 44px; font-weight: 600; }
+/* Sur l'or pâle, le texte s'écrit à l'or de survol (règle `css.md`) — son compte aussi. */
+.loge-theme-onglets .onglet.actif { color: var(--accent-text-hover); }
+.loge-theme-compte { color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
+.loge-theme-onglets .onglet.actif .loge-theme-compte { color: inherit; }
+/* Du neuf dans l'autre onglet : le point rouge des pièces et des gemmes, sur son épaule. */
+.loge-theme-neuf { position: absolute; top: 5px; right: 12px; width: 9px; height: 9px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--surface); }
+.loge-theme-vue { display: flex; flex-direction: column; gap: var(--loge-bloc); }
+/* Un thème : le haut de son aperçu, comme sa tuile à la boutique (`.article-image`) ; son nom, la gemme de sa rareté devant. */
+.loge-theme-case .loge-vignette-image { display: block; background: var(--surface-strong); }
+.loge-theme-case .loge-vignette-image img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.loge-theme-case .article-gemme { display: inline-block; margin: 0 6px 0 2px; vertical-align: 0.05em; }
+/* L'échantillon d'une plaque (`EchantillonDePlaque`) : un bout de sa ligne. Ce n'est pas une ligne `.lb-row` — la règle
+   des plaques ne le peint pas : il lit lui-même les jetons que sa classe lui donne (`--p-bg`, `--p-ink`, `--p-trait`,
+   `--p-motif`), en dur, quel que soit le thème de celui qui regarde. Sans plaque, la ligne de tous : le sol et l'encre
+   de la page. Son motif, comme sur la ligne, est une pièce après le prénom, jamais un fond sous lui. */
+.loge-plaque-echantillon { display: flex; align-items: center; gap: 6px; width: 100%; height: 100%; box-sizing: border-box; padding: 0 0 0 8px; border: 1px solid var(--edge-strong); border-radius: inherit; background: var(--surface); color: var(--ink); overflow: hidden; }
+.loge-plaque-echantillon.plaque { border-color: var(--p-trait); background: var(--p-bg); color: var(--p-ink); }
+/* Un nom long passe à la ligne, coupé à ses syllabes là où le téléphone sait le faire : « L'Horloge astronomique »
+   laissait son « e » seul sur une troisième ligne. */
+.loge-plaque-texte { flex: 0 1 auto; min-width: 0; font-size: 0.78rem; font-weight: 700; line-height: 1.15; text-align: left; overflow-wrap: break-word; hyphens: auto; }
+.loge-plaque-echantillon > .plaque-motif { display: block; flex: 1 1 0; min-width: 0; align-self: stretch; background: linear-gradient(90deg, var(--p-bg), transparent 30%, transparent 70%, var(--p-bg)), var(--p-motif); opacity: 0.85; }
+/* Les plaques, plus basses que les thèmes : une petite plaque, son nom dedans — sur deux lignes, « Comme mon thème »
+   y tient. */
+.loge-plaques { --loge-vignette: 44px; }
+/* Dans l'onglet : l'échantillon en petit, son motif seul, sans fondu — il n'a pas la place d'un prénom. */
+.loge-theme-onglets .loge-plaque-echantillon { flex: none; width: 28px; height: 18px; padding: 0; border-radius: 5px; }
+.loge-theme-onglets .loge-plaque-echantillon > .plaque-motif { background: var(--p-motif); }
+@media (max-height: 759px) {
+  /* Le petit téléphone : la consigne des thèmes se tait à l'œil — la barre de l'essai dit ce qu'un toucher a fait, et le
+     lecteur d'écran la lit —, leur aperçu perd quatre pixels : deux rangées et le pied tiennent au-dessus du menu en
+     360 × 640, sa niche au coin (21 px dessous avec elles). Celle de la plaque reste : elle seule dit que les autres la
+     voient. */
+  .mes-themes:has(.loge-themes) .loge-entete-consigne { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .loge-themes { --loge-vignette: 60px; }
+}
 
 /* ── La loge, à la hauteur d'un téléphone ────────────────────────────────
    Ses deux pas (les variables de `.loge-page`, en tête de la section) : rien
@@ -12872,21 +12911,7 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .gemme-neuf { position: absolute; top: 3px; left: calc(50% + 5px); width: 9px; height: 9px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--bg); }
 .gemme-legende { margin: -2px 0 0; font-size: 0.88rem; color: var(--muted); }
 .gemme-legende b { color: var(--ink); }
-.mes-themes { display: flex; flex-direction: column; gap: 12px; }
-/* La fiche suit sa carte, de toute la largeur : `dense` finit la rangée
-   avec la carte d'après et pose la fiche juste dessous. */
-.vitrine-themes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; grid-auto-flow: dense; }
-.theme-vitrine { position: relative; display: flex; flex-direction: column; padding: 0; border: 1px solid color-mix(in srgb, var(--gemme) 40%, transparent); border-radius: var(--radius); background: var(--surface); color: inherit; font: inherit; text-align: left; overflow: hidden; cursor: pointer; transition: box-shadow 0.2s ease; }
-.theme-vitrine:hover, .theme-vitrine.ouverte { box-shadow: 0 0 0 1px var(--gemme), 0 6px 22px color-mix(in srgb, var(--gemme) 30%, transparent); }
-.theme-porte { box-shadow: 0 0 0 2px var(--gemme), 0 6px 22px color-mix(in srgb, var(--gemme) 30%, transparent); }
-.theme-vitrine-image { display: block; aspect-ratio: 4 / 5; max-width: 100%; overflow: hidden; background: var(--bg); }
-.theme-vitrine-image img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
-.theme-vitrine-pied { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px 10px; }
-.theme-vitrine-pied b { font-family: var(--serif); font-size: 1.1rem; font-weight: 600; line-height: 1.15; }
-.theme-vitrine-prix { font-size: 0.85rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: tabular-nums; }
-/* Trop cher : l'aperçu s'éteint, et ce qui manque se lit à la place du prix. */
-.theme-cher .theme-vitrine-image { filter: saturate(0.5) brightness(0.75); }
-.theme-cher .theme-vitrine-prix { color: var(--muted); }
+/* La fiche d'un thème, dans l'album de « Ma collection » : de toute la largeur, sous sa rangée. */
 .theme-fiche { grid-column: 1 / -1; }
 /* Le thème qu'on vient d'acheter : sa carte a quitté le rayon, on dit où il est passé. */
 .theme-achete { margin: 0; text-align: center; border-color: var(--accent); }
@@ -14737,7 +14762,7 @@ body.avec-niche .duels-fermer { right: auto; left: 12px; }
 .objet-dessin .sablier-plein { color: inherit; }
 .coeur-de-vie { fill: currentColor; }
 .objet-nom { font-size: 0.9rem; font-weight: 700; line-height: 1.2; }
-@media (prefers-reduced-motion: reduce) { .gemme i, .theme-vitrine { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .gemme i { transition: none; } }
 
 /* La barre de l'essai, juste au-dessus du menu, tant qu'il y a de quoi
    acheter : la vignette de ce qu'on essaie, son nom, la croix qui le retire,

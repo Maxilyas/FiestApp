@@ -333,7 +333,8 @@ test('dans chaque pièce, un toucher essaie : rien ne s’enregistre avant « Po
   const APPARENCE = source('components/Apparence.tsx')
   assert.match(APPARENCE, /onClick=\{\(\) => essayer\(\{ gerbe: AUCUNE_GERBE \}\)\}/)
   assert.match(APPARENCE, /montrer\(g\.key\)\s*essayer\(\{ gerbe: g\.key \}\)/)
-  assert.match(source('components/Boutique.tsx'), /setOuvert\(o => \(o === cle \? null : cle\)\)\s*essayer\(\{ theme: cle === 'velours' \? null : cle \}\)/)
+  assert.match(source('components/Boutique.tsx'), /const toucher = \(cle: string\) => essayer\(\{ theme: cle === 'velours' \? null : cle \}\)/)
+  assert.match(source('components/MaPlaque.tsx'), /onClick=\{\(\) => essayer\(\{ plaque: c\.cle \}\)\}/)
   // Rien ne s'enregistre d'un toucher dans ces grilles — pas même la version, rare ou d'origine, d'un avatar éclaté :
   // elle s'essaie sur la carte de la loge, et « Porter » la garde avec le reste.
   assert.deepEqual([...APPARENCE.matchAll(/\benregistrer\(/g)].length, 0)
@@ -416,9 +417,15 @@ test('la loge dit la pièce qui a du nouveau, à l’œil et à l’oreille', as
       .map(b => b.slice(0, b.indexOf('"')))
   assert.deepEqual(pastilles(loge), ['theme'])
   assert.match(loge, /Thème<span class="sr-only">, du nouveau<\/span>/)
-  // Ouvert sur le thème, plus rien : la pastille d'une pièce s'éteint dès qu'on la regarde.
+  // Ouvert sur le thème, plus rien sur la rangée : la pastille d'une pièce s'éteint dès qu'on la regarde.
   const surLeTheme = await rendu('components/PanneauxDuProfil', 'PanneauLoge', { profil: SANS_IVOIRE, piece: 'theme', onPiece: () => {}, busy: false, enregistrer: async () => true })
-  assert.doesNotMatch(surLeTheme, /loge-neuf|du nouveau/)
+  assert.deepEqual(pastilles(surLeTheme), [])
+  assert.doesNotMatch(surLeTheme, /loge-neuf|Thème<span class="sr-only">, du nouveau/)
+  // Le rouge se suit jusqu'à sa case : la vignette d'Ivoire, et l'onglet de sa plaque, venue avec lui — la plaque d'un
+  // thème neuf est neuve aussi, et l'onglet le dit tant qu'on n'y est pas.
+  assert.match(surLeTheme, /<button type="button" class="loge-vignette loge-theme-case neuve"[^>]*aria-label="Ivoire, offert, nouveau">/)
+  assert.match(surLeTheme, /<button id="loge-theme-plaque"[^>]*>.*?<span class="loge-theme-neuf" aria-hidden="true"><\/span><span class="sr-only">, du nouveau<\/span><\/button>/)
+  assert.doesNotMatch(surLeTheme, /<button id="loge-theme-themes"[^>]*>(?:(?!<\/button>).)*loge-theme-neuf/, 'pas sur l’onglet qu’on regarde')
 
   // « M'habiller » et « Profil » le comptent aussi, avant qu'on entre dans la loge — et la loge s'ouvre sur le thème.
   const panneaux = await import(url('components/PanneauxDuProfil.tsx'))
@@ -842,6 +849,9 @@ test('la loge se resserre par ses mesures : des variables posées sur sa page, �
     '--loge-pastille': '30px',
     '--loge-case': '72px',
     '--loge-gemme': '8px',
+    // Les vignettes des cinq autres pièces (le 17 novembre 2026) : leur aperçu et leur écart, les mêmes à toutes les tailles.
+    '--loge-vignette': '64px',
+    '--loge-entre-vignettes': '8px',
   }
   assert.deepEqual(grand, D_AVANT)
   assert.match(corpsDe(avant, '.loge-page'), /gap: 14px;/, 'la tête de la page garde son écart : avec un compagnon, la carte commence sous sa niche')

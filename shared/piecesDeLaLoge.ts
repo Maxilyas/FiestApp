@@ -16,7 +16,9 @@ export const PIECES_DE_LA_LOGE: readonly { id: PieceDeLaLoge; nom: string; group
   { id: 'titre', nom: 'Titre', groupe: 'salle', qui: 'Sous ton prénom, sur ta carte.' },
   { id: 'vitrine', nom: 'Vitrine', groupe: 'salle', qui: 'Trois trophées, sur ta carte.' },
   { id: 'fond', nom: 'Fond', groupe: 'salle', qui: 'Derrière ta carte : rien d’autre ne change.' },
-  { id: 'theme', nom: 'Thème', groupe: 'moi', qui: 'Toi seul le vois : il habille tes pages.' },
+  // Le thème, lui seul le voit ; sa plaque, que la pièce range avec lui, les autres la voient aux classements : la ligne
+  // disait « Toi seul le vois » au-dessus de l'onglet « Ma plaque » (le 17 novembre 2026).
+  { id: 'theme', nom: 'Thème', groupe: 'moi', qui: 'Toi seul vois ton thème ; les autres, ta plaque.' },
   { id: 'gerbe', nom: 'Gerbe', groupe: 'moi', qui: 'Toi seul la vois, à tes bonnes réponses.' },
 ]
 

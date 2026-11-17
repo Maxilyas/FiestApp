@@ -245,9 +245,9 @@ const JEANNE = {
 const laBoutique = (profil: typeof JEANNE = JEANNE) => rendu('components/Boutique', 'RayonDesThemes', { profil, onOuvrir: () => {} })
 const mesThemes = (profil: typeof JEANNE = JEANNE) => rendu('components/Boutique', 'MesThemes', { profil, essai: {}, essayer: () => {}, busy: false, enregistrer: () => {} })
 
-/** Les cartes d'une vitrine — les tuiles du rayon, à la boutique —, et ce que chacune dit d'elle à l'oreille. */
+/** Les cases d'une grille de thèmes — les vignettes de la loge, les tuiles du rayon à la boutique —, et ce que chacune dit d'elle à l'oreille. */
 const casesDe = (html: string) =>
-  [...html.matchAll(/<button\b[^>]*class="(?:theme-vitrine|article-boutique article-theme)[^"]*"[^>]*>/g)].map(m => ({
+  [...html.matchAll(/<button\b[^>]*class="(?:loge-vignette loge-theme-case|article-boutique article-theme)[^"]*"[^>]*>/g)].map(m => ({
     balise: m[0],
     nom: /aria-label="([^"]*)"/.exec(m[0])?.[1],
   }))
@@ -258,20 +258,32 @@ test('dans la boutique, toucher un thème ouvre sa fiche : aucun ne se porte ni 
   // « Mes avatars » — dans la loge, le toucher l'essaie aussi, sans rien
   // enregistrer ; « Porter », dans sa barre, le garde. À la boutique, sa
   // tuile ouvre son présentoir, où il s'essaie et s'achète.
-  for (const [html, ouvre] of [
-    [await laBoutique(), /aria-haspopup="dialog"/],
-    [await mesThemes(), /aria-expanded="false"/],
-  ] as const) {
+  {
+    const html = await laBoutique()
     const cases = casesDe(html)
     assert.ok(cases.length > 0, 'une vitrine')
     for (const { balise } of cases) {
-      // Un bouton qui ouvre — sa feuille, ou sa fiche dépliée —, pas un
-      // interrupteur ; et un thème pas encore à lui se touche aussi : sa fiche
-      // dit ce qui manque.
-      assert.match(balise, ouvre, balise)
+      // Un bouton qui ouvre sa feuille, pas un interrupteur ; et un thème pas
+      // encore à lui se touche aussi : sa feuille dit ce qui manque.
+      assert.match(balise, /aria-haspopup="dialog"/, balise)
       assert.doesNotMatch(balise, /aria-pressed|disabled/, balise)
     }
-    assert.doesNotMatch(html, /id="detail-theme"|role="dialog"/, 'aucune fiche avant le premier toucher')
+    assert.doesNotMatch(html, /role="dialog"/, 'aucune feuille avant le premier toucher')
+  }
+  {
+    // Dans la loge, depuis le 17 novembre 2026, une case comme celle d'un
+    // avatar : un interrupteur dont l'état est ce que la page montre — pas ce
+    // qu'il porte, sa coche le dit —, et rien ne s'y déplie : la fiche ouverte
+    // sous la case poussait les suivantes sous le doigt. Une seule pressée.
+    const html = await mesThemes()
+    const cases = casesDe(html)
+    assert.ok(cases.length > 0, 'une grille')
+    for (const { balise } of cases) {
+      assert.match(balise, /aria-pressed="(true|false)"/, balise)
+      assert.doesNotMatch(balise, /aria-expanded|aria-haspopup|disabled/, balise)
+    }
+    assert.equal(cases.filter(c => /aria-pressed="true"/.test(c.balise)).length, 1, 'le thème que la page montre')
+    assert.doesNotMatch(html, /detail-theme|role="dialog"/, 'aucune fiche dans la loge')
   }
   // L'insécable de `espacesFines` devant les deux-points : ce qu'un toucher
   // fait, dans la loge — et plus l'ancien geste, qui renvoyait à la fiche.
@@ -280,15 +292,15 @@ test('dans la boutique, toucher un thème ouvre sa fiche : aucun ne se porte ni 
   // Le geste lui-même : une carte ouvre sa fiche, une gemme change de
   // rareté ; rien d'autre n'enregistre, et la boutique ne porte rien.
   const source = readFileSync(new URL('../../client/src/components/Boutique.tsx', import.meta.url), 'utf8')
-  // Dans la loge, le toucher ouvre la fiche et essaie le thème — Velours
-  // s'écrit null, comme le serveur le range — sans rien enregistrer.
+  // Dans la loge, le toucher essaie le thème — Velours s'écrit null, comme
+  // le serveur le range — sans rien enregistrer ni rien ouvrir.
   const mes = source.slice(source.indexOf('export function MesThemes'), source.indexOf('export function DetailTheme'))
-  assert.match(mes, /const toucher = \(cle: string\) => \{\s*setOuvert\(o => \(o === cle \? null : cle\)\)\s*essayer\(\{ theme: cle === 'velours' \? null : cle \}\)\s*\}/)
-  assert.doesNotMatch(mes, /\benregistrer\(|onPorter=/)
-  // La tuile de la boutique et la carte de la loge : un seul geste chacune, celui qu'on leur passe.
+  assert.match(mes, /const toucher = \(cle: string\) => essayer\(\{ theme: cle === 'velours' \? null : cle \}\)/)
+  assert.doesNotMatch(mes, /\benregistrer\(|onPorter=|<DetailTheme/)
+  // La tuile de la boutique et la case de la loge : un seul geste chacune, celui qu'on leur passe.
   for (const [debut, fin] of [
-    ['function TuileDeTheme', 'function CarteDeTheme'],
-    ['function CarteDeTheme', 'export function RayonDesThemes'],
+    ['function TuileDeTheme', 'function CaseDeTheme'],
+    ['function CaseDeTheme', 'export function RayonDesThemes'],
   ]) {
     const piece = source.slice(source.indexOf(debut), source.indexOf(fin))
     assert.deepEqual(
@@ -323,8 +335,12 @@ test('le thème porté se lit dans le profil que chaque enregistrement rend, pas
   // Après Ivoire, la boutique croyait encore Velours porté : toucher Velours
   // ne faisait plus rien, jusqu'au rechargement de la page.
   const noms = async (html: Promise<string>) => casesDe(await html).map(c => c.nom)
-  assert.deepEqual(await noms(mesThemes()), ['Ivoire, porté', 'Velours, à toi', 'Neige, à toi'])
-  assert.deepEqual(await noms(mesThemes({ ...JEANNE, theme: null })), ['Velours, porté', 'Ivoire, à toi', 'Neige, à toi'])
+  // Dans la loge, celui qu'il porte en tête, avec sa coche (`porte`), pressé : la page le montre.
+  const portes = async (html: Promise<string>) => casesDe(await html).filter(c => /class="[^"]*\bporte\b[^"]*"[^>]*aria-pressed="true"/.test(c.balise)).map(c => c.nom)
+  assert.deepEqual(await noms(mesThemes()), ['Ivoire, offert', 'Velours, offert', 'Neige, rare'])
+  assert.deepEqual(await portes(mesThemes()), ['Ivoire, offert'])
+  assert.deepEqual(await noms(mesThemes({ ...JEANNE, theme: null })), ['Velours, offert', 'Ivoire, offert', 'Neige, rare'])
+  assert.deepEqual(await portes(mesThemes({ ...JEANNE, theme: null })), ['Velours, offert'])
   // La boutique ne vend que ce qu'elle n'a pas — toutes les raretés à la
   // suite —, et dit de chacun ce qui manque à ses 420 confettis.
   const enVente = await noms(laBoutique())

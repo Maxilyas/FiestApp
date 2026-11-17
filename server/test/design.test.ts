@@ -359,12 +359,13 @@ test('la pastille des nouveautés se lit dans le rouge des messages, sur « Prof
     '.menu-compteur',
     '.loge-neuf',
     '.gemme-neuf',
-    '.theme-vitrine.neuve::before',
+    '.loge-vignette.neuve::before',
     '.finition-choix.neuve .finition-teinte::before',
     '.bordure-choix.neuve .bordure-apercu::before',
   ])
     assert.equal(rougeDe(s), rouge, `${s} : le rouge des messages`)
-  assert.match(CSS, /\.case-avatar\.neuve::before,\s*\.finition-btn\.neuve::before,\s*\.vitrine-option\.neuve::before,\s*\.theme-vitrine\.neuve::before \{/)
+  // Les vignettes des pièces de la loge — les thèmes depuis le 17 novembre 2026 — ont leur règle (`.loge-vignette.neuve`).
+  assert.match(CSS, /\.case-avatar\.neuve::before,\s*\.finition-btn\.neuve::before,\s*\.vitrine-option\.neuve::before \{/)
   // Sur l'épaule de la gemme, sans pousser son nom.
   assert.match(regle('.gemme'), /position:\s*relative/)
   assert.match(regle('.gemme-neuf'), /position:\s*absolute/)
