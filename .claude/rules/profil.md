@@ -406,62 +406,86 @@ paths:
   barre d'accueil, elle montait six pixels plus haut que lui
   (`ENCOCHE=47`). Une cible d'avant reste sous 44 px, que ce resserrement
   n'a pas touchée : « Version rare », sur la carte (30 px) — un titre de la
-  pièce « Titre » en faisait 34 jusqu'au 17 novembre 2026, ses pastilles 44
+  pièce « Titre » en faisait 34 jusqu'au 17 novembre 2026, ses cellules 44
   depuis (le piège suivant).
 - **Les cinq pièces d'après l'avatar parlent sa langue : un en-tête d'une
-  ligne, des vignettes, un pied** (le 17 novembre 2026 ; le propriétaire :
-  « je trouve l'onglet titre, vitrine, fond, thème et gerbe pas pratique et
-  peu lisible. Soit on est obligé de Scroll trop mais aussi la présentation
-  ne donne pas trop envie. Aussi il y a dans theme, la plaque des thèmes qui
-  est caché tout en bas »). Chacune posait une carte, son titre en grand,
+  ligne, des vignettes, un pied — et pas une phrase de plus** (le
+  17 novembre 2026 ; le propriétaire : « je trouve l'onglet titre, vitrine,
+  fond, thème et gerbe pas pratique et peu lisible. Soit on est obligé de
+  Scroll trop mais aussi la présentation ne donne pas trop envie. Aussi il y
+  a dans theme, la plaque des thèmes qui est caché tout en bas », puis, sur
+  la première refonte : « pas besoin de mettre du texte à chaque fois, ça
+  doit être compréhensible et intuitif. Ça fait perdre de la place pour
+  rien. Ça vaut pour tous »). Chacune posait une carte, son titre en grand,
   son icône et une phrase de deux ou trois lignes — 110 px avant la première
   chose à toucher —, puis de grosses cases à trois par rangée (un fond
   127 px, une gerbe 145, un thème 175), ou une ligne de 65 px par trophée ;
   la plaque, sous tous les thèmes, une ligne de classement entière par
-  choix. **La structure, que `rendu-loge.ts` lit** : `EnteteDeLaPiece`
-  (`LigneDeCollection.tsx` — un `h3` en petites capitales, `.loge-entete-titre`,
-  son compte en or, une consigne d'une ligne au plus), puis un conteneur
-  `.loge-vignettes` dont les enfants directs sont les choix — un bouton, ou
-  le `li` qui le tient —, puis `PiedDeLaPiece` (`VersLaBoutique` à côté
-  d'`AGagner`, sur une ligne). Une vignette (`.loge-vignette`, le bloc « Les
-  pièces de la loge, en vignettes » de `styles.css` : `--loge-colonnes`,
-  `--loge-vignette`, `--loge-entre-vignettes`) dit son état comme une case
-  d'avatar — le cadre d'or (`selected`), son halo (`essaye`), la coche
-  (`porte`), le point rouge (`neuve`) — et plus par un mot écrit sous elle :
-  « porté », « d'office », « ouvert » se disent à l'oreille (`aria-label`,
-  `.sr-only`), avec ce qui a quitté l'œil — la règle d'un trophée
-  (`aria-describedby`), « d'office ». Pièce par pièce : **Titre**, des
-  pastilles de 44 px (`.loge-titres`, une rangée qui passe à la ligne : un
-  titre est un mot, de largeur qui varie), l'emoji de ce qui l'a ouvert devant
-  son nom en italique (`emojiDUnTitre`, `Apparence.tsx` : le trophée, celui
-  du sentier d'un maître — `EMOJI_DES_MAITRES` —, 👑 un champion du mois, 🃏
-  un défi du Cabinet) ; **Vitrine**, des médailles à quatre par rangée
-  (`.loge-medailles`), l'emoji dans son rond, le liseré du métal d'une piste,
-  son rang sur la carte en pastille d'or, « Les plus durs » le premier `li` ;
-  **Fond**, une petite carte (`fond-apercu carte-fond`, le Velours au halo
-  de la carte d'office), trois par rangée ; **Thème**, deux onglets
-  (`OngletsDuTheme` : « Mes thèmes », d'office, et « Ma plaque », son
-  échantillon dessus — règle `themes.md`), un thème en vignette
+  choix ; et la ligne de l'œil sous la rangée (`QuiLaVoit`) redisait où
+  chaque pièce se voit. **La structure, que `rendu-loge.ts` lit** :
+  `EnteteDeLaPiece` (`LigneDeCollection.tsx` — un `h3` en petites capitales,
+  `.loge-entete-titre`, son compte en or ; sa `consigne` n'a plus de lecteur
+  dans la loge, et n'en reprend pas), puis un conteneur `.loge-vignettes`
+  dont les enfants directs sont les choix — un bouton, ou le `li` qui le
+  tient —, puis `PiedDeLaPiece` (`VersLaBoutique` à côté d'`AGagner`, sur
+  une ligne, chacun seulement s'il a quelque chose à dire). **Une seule
+  règle d'état pour les cinq** (`classesDeLaVignette`, `ceQueDitLaVignette`,
+  `LigneDeCollection.tsx`) : le cadre d'or (`selected`), ce que la carte
+  montre ; son halo (`essaye`), montré sans être porté ; la coche (`porte`),
+  dès qu'il le porte ; le point rouge (`neuve`) — et à l'oreille « , à
+  l'essai », « , porté », « , nouveau ». Deux jeux d'aides divergeaient le
+  premier jour (au Fond, le Velours porté avait son cadre sans sa coche, et
+  « porté » ne se disait plus dans l'état d'arrivée) ; la grille des avatars
+  garde la sienne (`ceQueDitLaCase`). Aucun mot d'état n'est écrit sous une
+  vignette, ni aucune consigne : ce qui a quitté l'œil se dit à l'oreille
+  (`aria-label`, `.sr-only`, et la règle d'un trophée par `aria-describedby`
+  vers un bloc `hidden` **hors du bouton** — dedans, elle entrait dans son
+  nom et se lisait deux fois). Pièce par pièce : **Titre**, du texte aligné
+  sans bulle ni cadre ni fond (`.loge-titres`, `.loge-titre`,
+  `.loge-titre-nom`), sur deux colonnes, chaque cellule de 44 px où le nom
+  passe sur deux lignes sans faire grandir la rangée, sans filet entre les
+  rangées (essayé : il redessinait une grille) ; l'emoji de ce qui l'a ouvert
+  devant son nom en italique (`emojiDUnTitre`, `Apparence.tsx` : le trophée,
+  celui du sentier d'un maître — `EMOJI_DES_MAITRES` —, 👑 un champion du
+  mois, 🃏 un défi du Cabinet) ; montré, à l'or derrière un trait d'or ;
+  porté, sa coche après lui (« ça prend trop de place, c'est brouillon […]
+  ne pas mettre les sortes de bulles autour des titres », le propriétaire,
+  sur des pastilles de 44 px : une colonne faisait défiler le vétéran de
+  2020 px, deux de 917) ; **Vitrine**, « Sur ta carte », ses trois places
+  numérotées (`.loge-emplacements`, `.loge-emplacement`, `.vide`,
+  `.d-office` — une ✨ au lieu du numéro —, `.vient` quand une place se
+  remplit), où l'on voit ce qu'un toucher fait (« Pour la vitrine est ce que
+  l'on sait sur quoi on clique ? », le propriétaire) : un trophée touché
+  prend la première place libre, une place pleine touchée se vide ; trois
+  boutons fixes, rangés par numéro — vidée, la place reste sous le doigt et
+  le focus avec ; puis les médailles à quatre par rangée (`.loge-medailles`),
+  l'emoji dans son rond, le liseré du métal d'une piste, son rang en pastille
+  d'or au coin haut droit, la coche au coin haut gauche, « Les plus durs » le
+  premier `li` ; pas de « N trophées à gagner » (compté comme l'album, il
+  disait 277 à côté des « 78 titres à gagner » de la pièce voisine, qui mène
+  au même album) ; **Fond**, une petite carte (`fond-apercu carte-fond`, le
+  Velours au halo de la carte d'office), trois par rangée ; **Thème**, deux
+  onglets (`OngletsDuTheme` : « Mes thèmes », d'office, et « Ma plaque », son
+  échantillon et un œil dessus — règle `themes.md`), un thème en vignette
   (`CaseDeTheme` : le haut de son aperçu, sa gemme, son nom), sans fiche
-  dessous, et la ligne de l'œil qui dit les deux (« Toi seul vois ton
-  thème ; les autres, ta plaque. ») ; **Gerbe**, un bouquet de ses trois
-  premières particules à une seule taille de police, l'éventail par
-  `transform` (`.gerbe-bouquet`, règle `css.md`), quatre par rangée. Mesuré
-  ce jour-là (`rendu-loge.ts`, `SEULEMENT=pieces,pleines` — `pleines`, un
-  vétéran, `PLEIN` : soixante et un titres, quarante-deux trophées, tout le
-  reste —, `--pieces=theme` pour quelques pièces), l'habituée et son loup :
-  aucune pièce ne défile plus, à aucune taille — sa vitrine défilait de
-  202 px en 360 × 640, ses thèmes de 549 —, le pied le plus bas celui de
-  « Thème » et de « Ma plaque », à 7 px du menu en 360 × 640. Le vétéran, en
-  360 × 640 puis 412 × 915 : 8 titres entiers puis 23 (4 et 23 avant), 8
-  trophées puis 16 (2 et 5), 6 fonds puis 12, 6 thèmes puis 12, 6 plaques
-  puis 18, 8 gerbes puis 20 ; sa vitrine défile de 1124 px en 360 × 640
-  (3536 avant), ses titres de 1104 (1734). Les titres d'un grand téléphone
-  n'y gagnent rien : leurs 44 px coûtent ce que l'en-tête rend. **Ce qui la
-  casserait** : un choix qui ne serait pas un enfant direct de
-  `.loge-vignettes` (le script ne le compterait pas), une consigne sur deux
-  lignes, un mot d'état écrit dans la vignette, une ligne de plus au-dessus
-  des onglets du thème — 7 px y suffisent en 360 × 640.
+  dessous ; **Gerbe**, un bouquet de ses trois premières particules à une
+  seule taille de police, l'éventail par `transform` (`.gerbe-bouquet`,
+  règle `css.md`), quatre par rangée. Mesuré ce jour-là (`rendu-loge.ts`,
+  `SEULEMENT=pieces,pleines` — `pleines`, un vétéran, `PLEIN` : soixante et
+  un titres, quarante-deux trophées, tout le reste —, `--pieces=titre` pour
+  quelques pièces), l'habituée et son loup : aucune des cinq ne défile plus,
+  à aucune taille — sa vitrine défilait de 202 px en 360 × 640, ses thèmes
+  de 549 —, le pied le plus bas celui de « Thème », 28 px au-dessus du menu
+  en 360 × 640 ; la ligne de l'œil partie, la pièce « Avatar » y a gagné
+  ses 21 px (ses gemmes finissent à 551, 24 px au-dessus du menu). Le
+  vétéran, en 360 × 640 puis 412 × 915 : 12 titres entiers puis 24 (4 et 23
+  avant), 8 trophées puis 16 (2 et 5), 6 fonds puis 15, 6 thèmes puis 12, 9
+  plaques puis 21, 12 gerbes puis 20 ; en 360 × 640, sa vitrine défile de
+  961 px (3536 avant), ses titres de 917 (1734). **Ce qui la casserait** :
+  un choix qui ne serait pas un enfant direct de `.loge-vignettes` (le
+  script ne le compterait pas), une phrase qui revient au-dessus d'une
+  grille ou sous une vignette, une bulle autour d'un titre, une ligne de
+  plus au-dessus des onglets du thème.
 - **La pastille de « Profil » ne refait pas la page.** `GET
   /api/joueur/nouveautes` lit ce que la loge compte et rien d'autre
   (`ProfileStore.ceQueLaLogeLit`, le type `CeQueLaLogeLit` de

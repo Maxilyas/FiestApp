@@ -280,7 +280,7 @@ const hauteurUtile = (hauteur: number) => hauteur - (encoche ? Math.max(0, encoc
 const CIBLE = 44
 /**
  * Une cible d'avant, plus basse, que ce resserrement n'a pas touchée — « Version rare », sur la carte : elle ne descend
- * pas davantage. Un titre de la pièce « Titre » en faisait 34 jusqu'au 17 novembre 2026, ses pastilles 44 depuis.
+ * pas davantage. Un titre de la pièce « Titre » en faisait 34 jusqu'au 17 novembre 2026, ses cellules de texte 44 depuis.
  */
 const D_AVANT: Record<string, number> = { 'la version': 30 }
 
