@@ -2,17 +2,16 @@
 // `CampagneStore` (la conception du Cabinet, D12 — `docs/architecture/decisions.md`).
 //
 // Le magasin de la campagne fait près de onze mille lignes, et ses pièges se paient
-// sans un bruit : une réponse écrite sans `vuAilleurs`, l'expédition en route
-// reposait comme jamais vue la question qu'il venait de voir ; sans
+// sans un bruit : sans
 // `reponseEcrite`, une lecture du journal partie avant elle passait pour
 // fraîche ; sans `crediter`, la bonne réponse ne payait son expérience qu'à la
 // suivante. Le Cabinet ne l'importe donc pas : il reçoit cette porte
 // (`CampagneStore.porte()`), des fermetures sur ses privés, où le rituel d'une
 // réponse tient en une fonction (`ecrireDesReponses`). Et la campagne ne
 // connaît du Cabinet que trois crochets, déclarés ici : ce qu'il ajoute à son
-// réveil et à ses paliers, et l'expédition qui part ou finit — pour la seule
-// ligne « Ton expédition t'attend » de sa page, en mémoire. Rien ne s'en
-// rapporte : la migration des œuvres, que ce crochet devait porter, le
+// réveil et à ses paliers, et la base prête (`baseRenouvelee`). Un autre, parti
+// le 16 novembre 2026 avec l'Expédition, disait à sa page qu'une expédition
+// partait ou finissait ; rien ne s'en rapportait — la migration des œuvres, le
 // propriétaire l'a abandonnée le 25 octobre 2026 (chacun commence son musée à
 // zéro). Ce fichier n'importe que des types : le Cabinet le lit sans tirer la
 // campagne.
@@ -56,8 +55,8 @@ export interface PorteDeLaCampagne {
    */
   lireAvecLeJournal(lot: InStatement[]): Promise<{ lus: ResultSet[]; journal: JournalDesReponses }>
   /**
-   * Le rituel d'une réponse de campagne, dans l'ordre de `repondre` : prévenir
-   * l'expédition en route (`vuAilleurs`), le lot — et au bout, à la fin d'une
+   * Le rituel d'une réponse de campagne, dans l'ordre de `repondre` : le lot
+   * — et au bout, à la fin d'une
    * partie qui a des justes, les lectures de son expérience —, la réponse
    * écrite numérotée (`reponseEcrite`) ; puis, à la fin seulement et si le lot
    * l'a écrite (`FinDUnePartie.ecrite`), son expérience créditée une fois pour
@@ -195,7 +194,7 @@ export type ChampsDuCabinet = keyof typeof RIEN_DU_CABINET
 /**
  * Ce que le Cabinet tire de ses lectures pour les paliers : ses champs, jamais
  * un de ceux que la campagne compte. Rendus par erreur, un `justes` ou des
- * `tampons` changeraient en silence Le Marathonien ou le Globe-trotter de tout
+ * `expertes` changeraient en silence Le Marathonien ou L'Érudit de tout
  * le monde : le typage les refuse, et `statsDe` étale ses comptes par-dessus.
  */
 export type StatsDuCabinet = Partial<Pick<StatsDeCampagne, ChampsDuCabinet>> & { readonly [K in Exclude<keyof StatsDeCampagne, ChampsDuCabinet>]?: never }
@@ -211,16 +210,3 @@ export interface StatsEnPlus {
   lire(lus: readonly ResultSet[]): StatsDuCabinet
 }
 
-/**
- * L'expédition d'un profil part (son identifiant) ou finit (null) — menée au
- * bout, perdue, abandonnée —, écrite : le Cabinet le dit sur sa page (« Ton
- * expédition t'attend : la finir »), qu'il lit au lot froid de son musée, une
- * fois par réveil. Sans ce mot, une expédition finie gardait la ligne jusqu'au
- * redémarrage, et, le départ fermé, elle menait à `/expedition`, qui renvoie au
- * Cabinet. En mémoire seulement : appelé sous le verrou du profil, qui garde
- * aussi le lot froid du musée, il n'écrit rien, ne lit rien, ne rend pas de
- * promesse ; ce qui y tombe se dit au journal sans faire tomber le geste, déjà
- * écrit. L'autre serveur d'une mise en ligne ne l'apprend pas : son musée le
- * relira au réveil suivant.
- */
-export type ExpeditionQuiChange = (profileId: string, enRoute: string | null) => void

@@ -38,9 +38,9 @@ export const ATTENTE_D_UN_ESSAI_MS = 600
 
 /**
  * L'adresse du n-ième essai d'un cadrage : la première telle quelle, puis une
- * neuve à chaque essai (`?essai=n`, que la route ignore), comme le détail de
- * l'Expédition (`TableauDuDetail.tsx`) — la même `src` ne relance pas une
- * balise d'image.
+ * neuve à chaque essai (`?essai=n`, que la route ignore), comme le faisait le
+ * détail de l'Expédition (`TableauDuDetail.tsx`) — la même `src` ne relance
+ * pas une balise d'image.
  */
 export const adresseDeLEssai = (adresse: string, n: number) => (n === 0 ? adresse : `${adresse}?essai=${n}`)
 

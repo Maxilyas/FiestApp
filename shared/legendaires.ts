@@ -57,7 +57,6 @@
 import { clePalier } from './hautsfaits'
 import { portrait } from './branches'
 import { formeDeCompagnon } from './compagnons'
-import { EXPEDITION_REMPLACEE, LEGENDAIRES_A_JOKER, voieDeLExpeditionDite } from './jokers'
 import { CABINET_EN_PRODUCTION } from './cabinet/ouverture'
 import type { CleDeSaison } from './saisons'
 
@@ -96,20 +95,55 @@ export const cleDeLExpedition = (legendaireCle: string) => `expedition:${legenda
 export const estUneVoieDExpedition = (c: Condition): boolean => !('toutes' in c) && c.hautFait.startsWith('expedition:')
 
 /**
+ * Les vingt-trois légendaires qui ont une voie d'expédition — ceux qui
+ * avaient leur joker dans l'Expédition, dans l'ordre de son catalogue. Figés
+ * ici, écrits en dur : une ligne `expedition:<clé>` rangée sur un profil — la
+ * production en tient, `expedition:sphinx` — donne son légendaire tant que la
+ * voie existe, et la liste, dérivée des jokers jusqu'au 16 novembre 2026,
+ * serait partie avec eux, et le légendaire, le titre et l'avatar porté avec
+ * lui (invariant 22). Elle ne se raccourcit jamais : `legendaires.test.ts` la
+ * garde.
+ */
+export const LEGENDAIRES_DE_L_EXPEDITION: readonly string[] = [
+  'lg:phenix',
+  'lg:salamandre',
+  'lg:scarabee',
+  'lg:coq',
+  'lg:ouroboros',
+  'lg:chouette',
+  'lg:sphinx',
+  'lg:oracle',
+  'lg:janus',
+  'lg:serpent',
+  'lg:lion',
+  'lg:tigre',
+  'lg:chimere',
+  'lg:comete',
+  'lg:renard',
+  'lg:dragon',
+  'lg:bouquet',
+  'lg:citrouille',
+  'lg:sapin',
+  'lg:kraken',
+  'lg:fantome',
+  'lg:trou-noir',
+  'lg:chauve-souris',
+]
+
+/**
  * Depuis le 17 octobre 2026, chaque légendaire qui a son joker
- * (`shared/jokers.ts`) se gagne aussi au bout de l'Expédition — gardé parmi
+ * (`LEGENDAIRES_DE_L_EXPEDITION`) se gagne aussi au bout de l'Expédition — gardé parmi
  * les trois gardiens vaincus : une voie de plus (`aussi`), qui lit la ligne
  * `expedition:…` rangée sur le profil, comme une saison. Ceux de saison
  * aussi, depuis le 18 octobre 2026 : ils ne gardent l'acte 3 que d'une
  * expédition partie à leur saison (`gardiensDe`), la voie ne s'ouvre donc
  * qu'à elle. Une voie de plus ne reprend rien à personne (invariant 22) ; ce
  * qu'elle change aux Divins se lit dans `server/src/core/divins.ts`.
- * L'expédition fermée en production (`EXPEDITION_EN_PRODUCTION`), ou son départ
- * fermé quand le Cabinet de curiosités prend sa place (`EXPEDITION_REMPLACEE`),
- * elle ne se montre pas (`voiesMontrees`) — et compte toujours.
+ * L'Expédition partie, elle ne se montre plus (`voiesMontrees`) — et compte
+ * toujours, pour qui tient sa ligne.
  */
 const avecLExpedition = (legendaires: Legendaire[]): Legendaire[] =>
-  legendaires.map(l => (LEGENDAIRES_A_JOKER.includes(l.key) ? { ...l, aussi: [...(l.aussi ?? []), { hautFait: cleDeLExpedition(l.key), fois: 1 }] } : l))
+  legendaires.map(l => (LEGENDAIRES_DE_L_EXPEDITION.includes(l.key) ? { ...l, aussi: [...(l.aussi ?? []), { hautFait: cleDeLExpedition(l.key), fois: 1 }] } : l))
 
 /**
  * Les vingt gardiens du Cabinet qui ne sont pas de saison : les deux de chaque
@@ -182,11 +216,29 @@ const avecLeCabinet = (legendaires: Legendaire[]): Legendaire[] =>
  */
 export const PREFIXES_DES_VOIES_RANGEES = ['saison:', 'expedition:', 'cabinet:', 'timbre:'] as const
 
-/** Une clé rangée qui n'est pas un trophée : une saison, une voie de l'Expédition ou du Cabinet, un timbre. */
-export const estUneVoieRangee = (cle: string): boolean => PREFIXES_DES_VOIES_RANGEES.some(p => cle.startsWith(p))
+/**
+ * Les tombes muettes : les paliers d'un trophée parti du catalogue, dont des
+ * lignes peuvent rester rangées. Le Globe-trotter (`hf:globe-trotter:<n>`, les
+ * tampons du passeport de l'Expédition, du 18 octobre au 16 novembre 2026) :
+ * aucun profil de la production n'en tenait un palier le jour de son retrait,
+ * mais une base de préproduction ou de développement peut en garder. Sans son
+ * catalogue, la ligne se lisait à moitié — sur l'étagère, dans la vitrine
+ * d'office et au compte des badges, sous l'emoji et le nom qu'elle porte, mais
+ * dans aucune page de l'album, sans titre à porter, sans rien rapporter
+ * (`apres-l-expedition.test.ts`). Elle se tait donc partout où une voie rangée
+ * se tait, comme les épreuves de maître du Cabinet (`cabinet:maitrise:`,
+ * `shared/cabinet/sceaux.ts`), sans quitter la base. Un trophée de plus qui
+ * part y ajoute son préfixe, deux-points compris.
+ */
+export const PREFIXES_DES_TROPHEES_PARTIS = ['hf:globe-trotter:'] as const
+
+const PREFIXES_QUI_SE_TAISENT: readonly string[] = [...PREFIXES_DES_VOIES_RANGEES, ...PREFIXES_DES_TROPHEES_PARTIS]
+
+/** Une clé rangée qui n'est pas un trophée : une saison, une voie de l'Expédition ou du Cabinet, un timbre — ou ce qui reste d'un trophée parti. */
+export const estUneVoieRangee = (cle: string): boolean => PREFIXES_QUI_SE_TAISENT.some(p => cle.startsWith(p))
 
 /** La même règle en SQL : `badge NOT LIKE 'saison:%' AND …`. */
-export const sqlHorsDesVoiesRangees = (colonne: string): string => PREFIXES_DES_VOIES_RANGEES.map(p => `${colonne} NOT LIKE '${p}%'`).join(' AND ')
+export const sqlHorsDesVoiesRangees = (colonne: string): string => PREFIXES_QUI_SE_TAISENT.map(p => `${colonne} NOT LIKE '${p}%'`).join(' AND ')
 
 export const LEGENDAIRES: Legendaire[] = avecLeCabinet(avecLExpedition([
   {
@@ -474,23 +526,19 @@ export function voiesDe(l: Legendaire): readonly Condition[] {
 }
 
 /**
- * Les voies qu'on montre : toutes — sauf celle de l'Expédition quand elle est
- * fermée en production (`EXPEDITION_EN_PRODUCTION`, ouverte depuis ses
- * jokers) ou que son départ a laissé place au Cabinet (`EXPEDITION_REMPLACEE`,
- * partout : on ne garde plus de gardien au bout d'une expédition qu'on ne peut
- * plus commencer), et celle du Cabinet quand il est fermé en production
- * (`CABINET_EN_PRODUCTION`, ouvert depuis le 31 octobre 2026 : elle se dit
- * donc partout) : l'album mènerait à une page qui n'y répond pas. Un drapeau
- * du code ne sait pas la préproduction, qui la taisait aussi jusqu'à
- * l'ouverture. Tue, une voie compte quand même : qui garde ou gagne un
- * légendaire l'a (`legendairesDebloques`). `cabinet` et `remplacee` forcent
- * les deux drapeaux, pour lire l'album sous l'un et l'autre. La voie de
- * l'Expédition se décide par `voieDeLExpeditionDite` (`shared/jokers.ts`), que
- * le chemin de la luciole lit aussi : l'un ne la tait pas sans l'autre.
+ * Les voies qu'on montre : toutes — sauf celle de l'Expédition, qui ne se
+ * propose plus jamais (le mode a laissé place au Cabinet le 31 octobre 2026,
+ * et son code a quitté le dépôt le 16 novembre : on ne garde plus de gardien
+ * au bout d'une expédition qu'on ne peut plus commencer), et celle du Cabinet
+ * quand il est fermé en production (`CABINET_EN_PRODUCTION`, ouvert depuis le
+ * 31 octobre 2026 : elle se dit donc partout) : l'album mènerait à une page
+ * qui n'y répond pas. Un drapeau du code ne sait pas la préproduction, qui la
+ * taisait aussi jusqu'à l'ouverture. Tue, une voie compte quand même : qui a
+ * gardé ou gagne un légendaire l'a (`legendairesDebloques`, invariant 22).
+ * `cabinet` force son drapeau, pour lire l'album sous l'un et l'autre.
  */
-export function voiesMontrees(l: Legendaire, cabinet: boolean = CABINET_EN_PRODUCTION, remplacee: boolean = EXPEDITION_REMPLACEE): readonly Condition[] {
-  const expedition = voieDeLExpeditionDite(remplacee)
-  return voiesDe(l).filter(v => (expedition || !estUneVoieDExpedition(v)) && (cabinet || !estUneVoieDuCabinet(v)))
+export function voiesMontrees(l: Legendaire, cabinet: boolean = CABINET_EN_PRODUCTION): readonly Condition[] {
+  return voiesDe(l).filter(v => !estUneVoieDExpedition(v) && (cabinet || !estUneVoieDuCabinet(v)))
 }
 
 /** Le haut fait de sa première voie, si elle n'en demande qu'un : ce qu'une ligne en dit d'un mot. Null pour la Chimère. */

@@ -16,8 +16,7 @@ import { fileURLToPath } from 'node:url'
 import Database from 'better-sqlite3'
 import { baseDEssai, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { lireQuestionDeLaBase } from '../src/core/baseCampagne'
-import { PREFIXES_HORS_DE_LA_BASE, REFUS_DU_SIGNALEMENT, horsDeLaBase, refusDuSignalement, sqlDansLaBase } from '../../shared/horsDeLaBase'
-import { PREFIXE_DU_REBUS } from '../../shared/curiosites'
+import { PREFIXES_HORS_DE_LA_BASE, PREFIXE_DU_REBUS, REFUS_DU_SIGNALEMENT, horsDeLaBase, refusDuSignalement, sqlDansLaBase } from '../../shared/horsDeLaBase'
 import { PREFIXE_DE_LA_FRISE } from '../../shared/frise'
 import {
   PREFIXE_DU_CABINET,
@@ -48,6 +47,9 @@ const DE_LA_BASE = ['adcmb60c', 'essai000', 'rebus000', 'frise123', 'cabinet1', 
 
 test('une seule liste : le rébus, la frise et le Cabinet, chacun sa phrase au signalement — celles d’avant mot pour mot', () => {
   assert.deepEqual([...PREFIXES_HORS_DE_LA_BASE], [PREFIXE_DU_REBUS, PREFIXE_DE_LA_FRISE, PREFIXE_DU_CABINET])
+  // Leur texte même : des réponses de la production les portent — les rébus et les frises de l'Expédition aussi, qui
+  // n'en écrira plus. Changé, un préfixe laisserait les siennes entrer au carnet.
+  assert.deepEqual([...PREFIXES_HORS_DE_LA_BASE], ['rebus:', 'frise:', 'cab:'])
   assert.deepEqual(Object.keys(REFUS_DU_SIGNALEMENT).sort(), [...PREFIXES_HORS_DE_LA_BASE].sort(), 'chaque préfixe a sa phrase, et rien qu’eux')
   assert.equal(REFUS_DU_SIGNALEMENT[PREFIXE_DU_REBUS], 'Un rébus ne se signale pas : seules les questions de la campagne le peuvent')
   assert.equal(REFUS_DU_SIGNALEMENT[PREFIXE_DE_LA_FRISE], 'Une frise ne se signale pas : seules les questions de la campagne le peuvent')

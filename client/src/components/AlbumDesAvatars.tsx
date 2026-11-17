@@ -108,7 +108,9 @@ function ceQueDitLaCase(a: AvatarDeLAlbum, aLui: boolean, porte: boolean, cabine
  * portant — partout : rien à ouvrir de plus que « Mon avatar », que sa fiche
  * cite déjà. Un gardien du Cabinet mène au Cabinet, sa traversée : il menait à
  * la salle qu'il gardait (`#salle-rempart`), que la page n'a plus depuis le
- * soir du 31 octobre 2026.
+ * soir du 31 octobre 2026. Une étape en expédition n'a plus d'écran : la page
+ * de l'Expédition est partie avec son code, et l'étape se passe comme une
+ * soirée — la voie qui suit, s'il en reste une, garde son chemin.
  */
 function ouAller(cle: string, voies: EtapeDUneVoie[][]): { nom: string; href: string } | null {
   for (const e of voies.flat()) {
@@ -116,7 +118,6 @@ function ouAller(cle: string, voies: EtapeDUneVoie[][]): { nom: string; href: st
     if (e.lieu === 'jour') return { nom: 'Jouer le quiz du jour', href: '/jour' }
     if (e.lieu === 'campagne') return { nom: 'Aller à la campagne', href: '/campagne' }
     if (e.lieu === 'sentiers') return { nom: 'Aller au sentier', href: `/campagne#sentier-${portrait(cle)?.branche ?? ''}` }
-    if (e.lieu === 'expedition') return { nom: 'Partir en expédition', href: '/expedition' }
     if (e.lieu === 'cabinet') return { nom: 'Aller au Cabinet', href: '/cabinet' }
     if (e.lieu === 'boutique') {
       // La vitrine s'ouvre sur lui : les deux autres se font glisser.

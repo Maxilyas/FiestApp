@@ -36,6 +36,7 @@ import { baseDEssai } from './banc'
 import { CampagneStore } from '../src/core/campagne'
 import { tableauxDuDetail } from '../src/core/details'
 import {
+  CARTES_DU_SECOND_ESSAI,
   FENETRE_DES_RECENTES_MS,
   JournalDesReponses,
   VERSION_DES_TRANCHES,
@@ -900,4 +901,21 @@ test('le carnet ne garde que ce qui suit la dernière erreur ; une réponse arri
   journal.appliquer({ reponses: [reponseDuJournal({ n: 7, question: 'q2', juste: false, le: MAINTENANT - 5 * JOUR_MS })], jusqua: 7, aSuivre: false })
   assert.equal(journal.carnetDe('p', semaine, MAINTENANT), null, 'son carnet se relit de la base')
   assert.equal(journal.carnetDe('autre', semaine, MAINTENANT)?.size, 1, 'les autres gardent le leur')
+})
+
+test('les cartes du second essai de l’Expédition restent figées : une réponse juste qu’elles ont aidée reste ratée au carnet', () => {
+  // Des réponses de la production portent ces clés dans `joker` : la liste vit hors des rencontres, et l'Expédition partie,
+  // une carte qui en manquerait laisserait sa question passer pour apprise — ou sortir du carnet sans un mot.
+  assert.deepEqual([...CARTES_DU_SECOND_ESSAI], ['parade', 'second-souffle', 'bastion', 'cuirasse'])
+  const journal = new JournalDesReponses(() => MAINTENANT)
+  const semaine = semaineDe(jourDe(MAINTENANT))
+  journal.appliquer({
+    // Et une bonne réponse aidée d'un indice, qui, elle, ne retrouve rien.
+    reponses: [...CARTES_DU_SECOND_ESSAI, 'coup-d-oeil'].map((joker, i) =>
+      reponseDuJournal({ n: i + 1, question: `q${i}`, juste: true, aidee: true, joker, mode: 'expedition', le: MAINTENANT - 2 * JOUR_MS }),
+    ),
+    jusqua: CARTES_DU_SECOND_ESSAI.length + 1,
+    aSuivre: false,
+  })
+  assert.deepEqual([...journal.carnetDe('p', semaine, MAINTENANT)!.keys()].sort(), ['q0', 'q1', 'q2', 'q3'])
 })

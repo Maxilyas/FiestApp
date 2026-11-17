@@ -5,10 +5,11 @@
 // d'octobre à janvier (le choix du propriétaire, sur la maquette des fêtes).
 // Des jours joués au quiz du jour pendant la période, ou une soirée ces
 // jours-là (une soirée qui compte, à deux au moins) : l'une des deux suffit.
-// Depuis le 18 octobre 2026, pour les trois premières, une troisième : le
-// garder au bout d'une expédition partie ces jours-là, qui le met en gardien
-// de l'acte 3 (`calendrierDesExpeditions`, `shared/expedition.ts`) — et une
-// œuvre gagnée au Cabinet de curiosités pendant la fête (`AUTRES_GARDIENS`).
+// Du 18 au 31 octobre 2026, pour les trois premières, une troisième : le
+// garder au bout d'une expédition partie ces jours-là, qui le mettait en
+// gardien de l'acte 3 — l'Expédition est partie, sa ligne rangée donne
+// toujours son légendaire (`expedition:<clé>`, `shared/legendaires.ts`) — ; et
+// une œuvre gagnée au Cabinet de curiosités pendant la fête (`AUTRES_GARDIENS`).
 // Les cinq venues ensuite n'ont ni joker ni gardien : elles se fêtent au quiz
 // du jour et en soirée.
 //

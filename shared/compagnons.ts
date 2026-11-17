@@ -33,8 +33,6 @@
 
 import type { Rarete } from './badges'
 import type { ReglageDesOrnements } from './ornements'
-import { CABINET_EN_PRODUCTION } from './cabinet/ouverture'
-import { EXPEDITION_REMPLACEE, voieDeLExpeditionDite } from './jokers'
 
 /** Le prix d'un compagnon, à sa première forme : un objet qui se mérite. */
 export const PRIX_D_UN_COMPAGNON = 1000
@@ -66,13 +64,13 @@ export const NOM_D_UN_COMPAGNON_MAX = 16
 
 export type CleDeCompagnon = 'loup' | 'chat' | 'tortue' | 'luciole' | 'panda'
 
-/**
- * Où se gagne un compagnon qui ne s'achète pas : la luciole l'était, au bout
- * d'une expédition, jusqu'au 31 octobre 2026 (l'Expédition effacée, elle
- * s'achète). Aucun aujourd'hui ; d'autres viendront peut-être sur ce modèle, un
- * par mode, chacun son exploit (`retours/2026-10-16/compagnon/principe.md`, § 5).
- */
-export type LieuDuCompagnon = 'expedition'
+// Aucun compagnon ne se gagne : tous s'achètent. La luciole se gagnait au bout
+// d'une expédition jusqu'au 31 octobre 2026 (« que certains hauts faits
+// récompensent de nouveaux compagnons, comme la luciole », le propriétaire, le
+// 18 octobre) ; d'autres viendront peut-être sur ce modèle, un par mode, chacun
+// son exploit (`retours/2026-10-16/compagnon/principe.md`, § 5) — ce qui la
+// disait gagnée (`Compagnon.gagne`, son lieu, son chemin en mots) est parti
+// avec l'Expédition, le 16 novembre 2026.
 
 export interface FormeDeCompagnon {
   /** `cp:loup-adulte` : un avatar dessiné, porté à la place de l'emoji comme un légendaire. */
@@ -120,23 +118,13 @@ export interface Compagnon {
    * sa gemme — la luciole, jusqu'à sa luciole-aurore (le 20 octobre 2026).
    */
   lumiere?: FormeDeCompagnon
-  /**
-   * Où il se gagne, s'il ne s'achète pas — absent, il est en boutique. La
-   * luciole rejoignait qui mène une expédition au bout (le souhait du
-   * propriétaire, le 18 octobre 2026 : « que certains hauts faits
-   * récompensent de nouveaux compagnons, comme la luciole »), et ne se
-   * montrait que dans « Ma collection » ; l'Expédition effacée, elle est en
-   * boutique depuis le 31 octobre 2026.
-   */
-  gagne?: LieuDuCompagnon
 }
 
 /**
- * Un compagnon, ses quatre formes et sa lumière, dans l'ordre, et où il se
- * gagne s'il ne s'achète pas : `[clé, nom, pronom, emoji, phrase, [id, nom,
- * légende][], [id, nom, légende] | null, lieu ?]`.
+ * Un compagnon, ses quatre formes et sa lumière, dans l'ordre : `[clé, nom,
+ * pronom, emoji, phrase, [id, nom, légende][], [id, nom, légende] | null]`.
  */
-const CATALOGUE: [CleDeCompagnon, string, 'le' | 'la', string, string, [string, string, string][], [string, string, string] | null, LieuDuCompagnon?][] = [
+const CATALOGUE: [CleDeCompagnon, string, 'le' | 'la', string, string, [string, string, string][], [string, string, string] | null][] = [
   [
     'loup',
     'Le Loup',
@@ -221,7 +209,7 @@ const CATALOGUE: [CleDeCompagnon, string, 'le' | 'la', string, string, [string, 
 ]
 
 /** Les cinq compagnons, tous en boutique, dans l'ordre de ses rayons : la luciole, venue de l'Expédition, puis le panda roux. */
-export const COMPAGNONS: readonly Compagnon[] = CATALOGUE.map(([key, nom, le, emoji, phrase, formes, lumiere, gagne]) => {
+export const COMPAGNONS: readonly Compagnon[] = CATALOGUE.map(([key, nom, le, emoji, phrase, formes, lumiere]) => {
   const c: Compagnon = {
     key,
     nom,
@@ -238,17 +226,17 @@ export const COMPAGNONS: readonly Compagnon[] = CATALOGUE.map(([key, nom, le, em
     })),
   }
   if (lumiere) c.lumiere = { key: `cp:${key}-${lumiere[0]}`, compagnon: key, rang: 3, nom: lumiere[1], legende: lumiere[2], rarete: 'legendaire', metamorphose: true }
-  if (gagne) c.gagne = gagne
   return c
 })
 
 /**
  * Ceux que la boutique vend — les cinq, la luciole comprise depuis le 31
  * octobre 2026 : son rayon, l'achat, le coffre et « À la une » ne
- * connaissent qu'eux — un compagnon qui se gagnerait ailleurs ne s'y
- * montrerait même pas en silhouette.
+ * connaissent qu'eux. Tous aujourd'hui ; la liste reste à part du catalogue :
+ * un compagnon qui se gagnerait ailleurs — la luciole l'était, au bout d'une
+ * expédition — ne s'y montrerait même pas en silhouette.
  */
-export const COMPAGNONS_DE_LA_BOUTIQUE: readonly Compagnon[] = COMPAGNONS.filter(c => !c.gagne)
+export const COMPAGNONS_DE_LA_BOUTIQUE: readonly Compagnon[] = COMPAGNONS
 
 /** Le compagnon qu'offre la première salle complète du Cabinet (et qu'amenait la Première traversée de l'Expédition) : la luciole. */
 export const COMPAGNON_DE_L_EXPEDITION: CleDeCompagnon = 'luciole'
@@ -281,31 +269,14 @@ export function compagnonDe(f: FormeDeCompagnon): Compagnon {
 export const avecLui = (c: Compagnon) => (c.le === 'la' ? 'avec elle' : 'avec lui')
 
 /**
- * Ce qui amenait la luciole, en mots, tant qu'elle se gagnait : la Première
- * traversée, et depuis le 25 octobre 2026 la première salle complète du
- * Cabinet de curiosités. Elle s'achète depuis le 31 octobre 2026, et plus
- * aucun compagnon ne se gagne (`Compagnon.gagne`) : ce chemin ne se dit plus à
- * personne, et ne vaudrait que pour un compagnon qui se gagnerait — à
- * réécrire alors, la page du Cabinet n'ayant plus de salle à compléter.
- * Le Cabinet fermé en production (`CABINET_EN_PRODUCTION`, ouvert depuis le
- * 31 octobre 2026), sa voie ne se dirait pas : elle enverrait chercher une
- * page qui n'y répond pas, comme la voie de ses gardiens dans l'album
- * (`voiesMontrees`). L'expédition, elle, se tait quand l'album la tait
- * (`voieDeLExpeditionDite`, son départ fermé : `EXPEDITION_REMPLACEE`) — le
- * Cabinet ouvert seulement : sans lui, elle reste la seule à dire, comme dans
- * la galerie (`venuesDeLaLuciole`). Écrite en dur, elle se serait dite au refus
- * le jour où l'album la tait. `cabinet` et `remplacee` forcent les drapeaux.
- */
-export const cheminDeLaLuciole = (cabinet: boolean = CABINET_EN_PRODUCTION, remplacee: boolean = EXPEDITION_REMPLACEE): string =>
-  [!cabinet || voieDeLExpeditionDite(remplacee) ? 'mène une expédition au bout' : '', cabinet ? 'complète une salle du Cabinet' : ''].filter(Boolean).join(', ou ')
-
-/**
  * Le refus fait à qui règle, porte ou installe un compagnon qu'il n'a pas :
- * où l'obtenir — la boutique, la luciole comprise depuis le 31 octobre 2026 ;
- * un compagnon qui se gagnerait, son chemin.
+ * où l'obtenir — la boutique, la luciole comprise depuis le 31 octobre 2026.
+ * Tant qu'elle se gagnait — au bout d'une expédition, puis à la première
+ * salle complète du Cabinet —, ce refus disait son chemin ; plus aucun
+ * compagnon ne se gagne, et ce chemin est parti avec l'Expédition, le 16
+ * novembre 2026.
  */
-export const pourLAvoir = (c: Compagnon, cabinet: boolean = CABINET_EN_PRODUCTION, remplacee: boolean = EXPEDITION_REMPLACEE): string =>
-  c.gagne === 'expedition' ? `${c.nom} se gagne d’abord : ${cheminDeLaLuciole(cabinet, remplacee)}` : `${c.nom} s’achète d’abord, à la boutique`
+export const pourLAvoir = (c: Compagnon): string => `${c.nom} s’achète d’abord, à la boutique`
 
 /** Le rang de la plus haute forme que ces bonnes réponses, données avec lui, font atteindre. */
 export function rangAtteint(justes: number): number {

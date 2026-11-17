@@ -1,18 +1,14 @@
 // La forme à composer (l'étape 3 de « La question au centre », le 19 octobre
-// 2026) : la question sans ses choix, et la réponse à composer en touchant
-// des tuiles — ses lettres, mélangées, et trois de trop. « Soit un indice,
-// soit ça te donne des lettres présentes dans la réponse […] comme un pendu.
-// Je pense ça donnerait plus de variété dans la manière de répondre » (un
-// testeur, le même jour). Pas de clavier : il pousserait les boutons hors de
-// l'écran.
+// 2026, née avec l'Expédition) : la réponse se compose lettre à lettre, sans
+// ses choix. « Soit un indice, soit ça te donne des lettres présentes dans la
+// réponse […] comme un pendu » (un testeur, le même jour). Le brief :
+// `retours/2026-10-19/les-coups-de-pouce.md`.
 //
 // Ici, ce qui ne dépend que du texte d'une réponse : si elle se compose, ses
-// cases, ses lettres, ses tuiles. Le serveur seul tire les tuiles et juge
-// (invariant 1) : la page ne reçoit que les cases et les tuiles, jamais leur
-// ordre. Le brief : `retours/2026-10-19/les-coups-de-pouce.md`.
-
-/** Les lettres de trop parmi les tuiles : de quoi hésiter sans noyer la réponse. Un choix de produit. */
-export const LETTRES_EN_TROP = 3
+// cases, ses lettres, ce qu'on en a composé. Le Mot mystère du Cabinet le
+// lit. Le 16 novembre 2026, les tuiles et la lecture d'une composition
+// envoyée (`tuilesDe`, `lireUneComposition`), que seule l'Expédition appelait,
+// sont parties avec elle : plus aucun lecteur que leurs épreuves.
 
 /**
  * Une réponse de deux mots au plus, de quatre à douze lettres (le choix du
@@ -119,58 +115,8 @@ export function seCompose(q: { texte: string; reponses: readonly string[]; bonne
   return q.reponses.length > 2 && gabaritDe(q.reponses[q.bonne] ?? '') !== null && !PARLE_DE_SES_CHOIX.test(q.texte)
 }
 
-/**
- * Les lettres qu'on pioche pour les tuiles de trop : les plus courantes du
- * français. Une lettre rare — un W, un K — se devinerait de trop.
- */
-const LETTRES_COURANTES = 'EASITNRULODCMPVGBFHQ'
-
-/**
- * Les tuiles d'une réponse à composer : ses lettres et `LETTRES_EN_TROP` de
- * trop — des lettres courantes qu'elle n'a pas : une qu'elle a ne tromperait
- * personne —, mélangées, et le rang de celles de trop, que le serveur seul
- * garde (invariant 1). Jamais ses lettres dans l'ordre : quatre lettres
- * distinctes s'y rangeaient une fois sur vingt-quatre, et la réponse se lisait
- * entre les tuiles. `hasard` : celui du tirage (`Math.random`, au serveur), ou
- * celui d'une graine — les tests, le calibrage.
- */
-export function tuilesDe(lettres: string, hasard: () => number): { tuiles: string[]; enTrop: number[] } {
-  const libres = [...LETTRES_COURANTES].filter(l => !lettres.includes(l))
-  const deTrop: string[] = []
-  while (deTrop.length < LETTRES_EN_TROP && libres.length > 0) deTrop.push(libres.splice(Math.floor(hasard() * libres.length), 1)[0])
-  const toutes = [...lettres, ...deTrop]
-  let ordre = toutes.map((_, i) => i)
-  for (let essai = 0; essai < 8; essai++) {
-    ordre = toutes.map((_, i) => i)
-    for (let i = ordre.length - 1; i > 0; i--) {
-      const j = Math.floor(hasard() * (i + 1))
-      ;[ordre[i], ordre[j]] = [ordre[j], ordre[i]]
-    }
-    if (ordre.filter(i => i < lettres.length).map(i => toutes[i]).join('') !== lettres) break
-  }
-  return { tuiles: ordre.map(i => toutes[i]), enTrop: ordre.flatMap((i, k) => (i >= lettres.length ? [k] : [])) }
-}
-
 /** Ce qu'il a composé, dans ses cases — ses mots séparés, ses signes à leur place : « VICTOR HUGO », « SAINT-EXUPERY ». */
 export function compositionDite(mots: readonly (readonly CaseAComposer[])[], lettres: string): string {
   let k = 0
   return mots.map(mot => mot.map(c => (c === null ? (lettres[k++] ?? '') : c)).join('')).join(' ')
-}
-
-/** Ce qu'un téléphone envoie pour une réponse composée : ses lettres, dans l'ordre des cases. Null : ce n'en est pas une. */
-export function lireUneComposition(brut: unknown, longueur: number): string | null {
-  return typeof brut === 'string' && brut.length === longueur && /^[A-Z]+$/.test(brut) ? brut : null
-}
-
-/**
- * Les signes d'une réponse, mot par mot, sans son article — ses lettres en
- * capitales sans accents, et ses chiffres : ce que L'initiale et La lettre en
- * disent sur une question à choix (« Elle commence par S »). Les signes posés
- * d'office ne comptent pas.
- */
-export function signesDe(reponse: string): string[] {
-  return sonArticle(reponse)
-    .reste.split(' ')
-    .map(mot => [...mot].map(s => (/\d/.test(s) ? s : (enCapitales(s) ?? ''))).join(''))
-    .filter(Boolean)
 }

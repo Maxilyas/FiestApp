@@ -8,10 +8,10 @@
 // route va au bout, une partie commencée se finit.
 //
 // Puis l'effacement de l'Expédition (le choix du propriétaire du 31 octobre
-// 2026) : sous son drapeau (`EXPEDITION_REMPLACEE`, que l'option
-// `expeditionRemplacee` du serveur force au banc), aucune de ses routes ne
-// répond — 404 —, `/expedition` mène au Cabinet, la page du Cabinet ne dit plus
-// « Ton expédition t'attend », l'accueil perd son bouton, l'album tait sa voie.
+// 2026, son code retiré du dépôt le 16 novembre) : sans drapeau ni option,
+// aucune de ses adresses ne répond — 404 —, `/expedition` mène au Cabinet, la
+// page du Cabinet ne dit plus « Ton expédition t'attend », l'accueil n'a plus
+// son bouton, l'album tait sa voie.
 // Et ce que la décision du propriétaire du 25 octobre 2026 — pas de migration
 // — a retiré : plus rien ne se rapporte de l'Expédition au Cabinet.
 import { after, test } from 'node:test'
@@ -22,17 +22,14 @@ import path from 'node:path'
 import React from 'react'
 import { connexionAnimateur, demarrer, ecrire, inscrireProfil, patienter, type Banc } from './banc'
 import { DIX_HEURES, aLaMain, baseDuCabinet, bancDuCabinet, commencer, dossierDEssai, fermerLesMagasins, jouer, laPage, lire, magasinDEssai, ok, poster, type BancDuCabinet } from './cabinet-banc'
-import type { QuizServerOptions } from '../src/server'
 import { CABINET_FERME } from '../src/cabinet'
 import { BALISE_DU_CABINET_FERME } from '../src/core/page'
 import { PORTES_DES_PAGES } from '../src/maintenance'
 import { CABINET_EN_PRODUCTION, cabinetOuvert } from '../../shared/cabinet/ouverture'
 import { modeDeLaSource } from '../../shared/pannes'
 import { PAGES_EN_MAINTENANCE, PAGES_FERMABLES } from '../../shared/maintenance'
-import { EXPEDITION_EN_PRODUCTION, EXPEDITION_REMPLACEE } from '../../shared/jokers'
-import { cleDeLExpedition, estUneVoieDExpedition, legendaire, legendairesDebloques, voiesMontrees } from '../../shared/legendaires'
-import { DEPART_FERME, type PageDeLExpedition, type VueDeLExpedition } from '../../shared/expedition'
-import { cheminDeLaLuciole } from '../../shared/compagnons'
+import { cleDeLExpedition, estUneVoieDExpedition, legendaire, legendairesDebloques, voiesDe, voiesMontrees } from '../../shared/legendaires'
+import { compagnon, pourLAvoir } from '../../shared/compagnons'
 import type { PageDeLaTraversee, PageDuCabinet } from '../../shared/cabinet/vues'
 
 after(fermerLesMagasins)
@@ -216,67 +213,44 @@ const lireDu = (banc: Banc, cookie: string, chemin: string) =>
 const posterAu = (banc: Banc, cookie: string, chemin: string, corps: unknown = {}) =>
   ecrire(banc.url, chemin, corps, cookie).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
 
-/** Le pas vers une question : le premier étage n'en pose que, et une source relirait le carnet. */
-const versUneQuestion = (v: VueDeLExpedition) => v.permises.find(id => v.carte?.escales.find(e => e.id === id)?.sorte === 'question') ?? v.permises[0]
-
-test('le banc garde l’Expédition à ses tests ; sans l’option, le serveur suit le drapeau du code', async () => {
-  // Les fichiers qui partent en expédition tournent encore : le banc pose l'option à faux (`banc.ts`). Sans elle, ce que
-  // dit le drapeau — effacée depuis le 31 octobre 2026 (le choix du propriétaire), partout : ses routes répondent 404.
-  // La garde du banc se lit aussi dans son lancement — l'option à faux, avant les réglages de l'épreuve, qui gardent le
-  // dernier mot (celles d'ici l'effacent, ou la rendent au drapeau).
+test('le banc ne force plus rien de l’Expédition : son option a quitté le serveur avec son code', () => {
+  // Jusqu'au 16 novembre 2026, le banc posait `expeditionRemplacee: false` pour que les fichiers qui partaient en
+  // expédition tournent encore. Son code parti, plus aucun réglage ne la rouvre : ni option du serveur, ni drapeau.
   const lancement = readFileSync(new URL('./banc.ts', import.meta.url), 'utf8').match(/createQuizServer\(\{[^}]*\}\)/)?.[0] ?? ''
-  assert.match(lancement, /expeditionRemplacee: false,[^}]*\.\.\.reglages \}\)$/, lancement)
-  const essais: [string, Partial<QuizServerOptions>][] = [
-    ['le banc', {}],
-    ['le drapeau du code', { expeditionRemplacee: undefined }],
-  ]
-  for (const [quoi, reglages] of essais) {
-    const banc = await demarrer({ baseDeLaCampagne: baseDuCabinet(), ...reglages })
-    try {
-      const lea = await inscrireProfil(banc.url, 'lea', 'Léa')
-      const effacee = quoi === 'le drapeau du code' && EXPEDITION_REMPLACEE
-      const depart = await posterAu(banc, lea, '/api/expedition')
-      assert.equal(depart.status, effacee ? 404 : 200, quoi)
-      const page = await lireDu(banc, lea, '/api/expedition')
-      assert.equal(page.status, effacee ? 404 : 200, quoi)
-      assert.equal(page.corps.departFerme, undefined, quoi)
-    } finally {
-      await banc.close()
-    }
-  }
+  assert.match(lancement, /\.\.\.reglages \}\)$/, lancement)
+  assert.doesNotMatch(lancement, /expedition|rencontres|questionAuCentre/i, lancement)
+  const serveur = readFileSync(new URL('../src/server.ts', import.meta.url), 'utf8')
+  assert.doesNotMatch(serveur, /expeditionRemplacee|EXPEDITION_REMPLACEE|questionAuCentre/, 'aucun drapeau de l’Expédition dans le serveur')
 })
 
-test('effacée, l’Expédition ne répond plus : chacune de ses routes dit 404, et `/expedition` mène au Cabinet', async () => {
+test('l’Expédition ne répond plus : chacune de ses adresses dit 404, et `/expedition` mène au Cabinet, sans drapeau', async () => {
   // Le choix du propriétaire du 31 octobre 2026 : « l'Expédition doit être effacée et plus accessible, uniquement le
-  // Cabinet visible ». Jusque-là, son seul départ se fermait et une expédition en route se finissait par ses autres
-  // routes ; désormais aucune n'est montée — une expédition en route ne se finit pas, ce qu'elle avait donné reste.
+  // Cabinet visible ». Son code a quitté le dépôt le 16 novembre : plus aucune de ses routes n'existe — une expédition
+  // restée en route ne se finit pas, ce qu'elle avait donné reste (`apres-l-expedition.test.ts`).
   const dist = mkdtempSync(path.join(tmpdir(), 'quizz-dist-'))
   writeFileSync(path.join(dist, 'index.html'), PAGE)
   const banc = await demarrer({ baseDeLaCampagne: baseDuCabinet(), horlogeDuJour: () => DIX_HEURES, clientDist: dist })
   try {
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa')
     const tom = await inscrireProfil(banc.url, 'tom', 'Tom')
-    // Gardée au banc : Léa part, et la page de l'Expédition se sert.
-    const partie = await posterAu(banc, lea, '/api/expedition')
-    assert.equal(partie.status, 200, partie.corps.error)
-    const v: VueDeLExpedition = partie.corps
-    assert.equal((await fetch(`${banc.url}/expedition`, { redirect: 'manual' })).status, 200)
 
-    // La mise en ligne qui l'efface : le même disque, et le serveur relit son drapeau en démarrant.
-    await banc.redemarrer({ reglages: { expeditionRemplacee: true } })
-
-    // Chacune de ses routes, à qui en a une en route comme aux autres : « introuvable », jamais « Connexion requise » —
-    // la porte des animateurs, plus bas, les aurait prises pour les siennes.
+    // Chacune de ses adresses d'avant, à tous : « introuvable », jamais « Connexion requise » — la porte des animateurs,
+    // plus bas, les aurait prises pour les siennes.
     for (const [quoi, r] of [
       ['le départ, de Léa', await posterAu(banc, lea, '/api/expedition')],
       ['le départ, de Tom', await posterAu(banc, tom, '/api/expedition')],
       ['la page', await lireDu(banc, lea, '/api/expedition')],
-      ['un pas', await posterAu(banc, lea, `/api/expedition/${v.id}/geste`, { rang: v.rang + 1, geste: { quoi: 'avancer', vers: versUneQuestion(v) } })],
-      ['une réponse', await posterAu(banc, lea, `/api/expedition/${v.id}/reponse`, { position: 0, choix: 0 })],
-      ['l’abandon', await posterAu(banc, lea, `/api/expedition/${v.id}/abandon`)],
+      ['un pas', await posterAu(banc, lea, '/api/expedition/une-expedition/geste', { rang: 1, geste: { quoi: 'avancer', vers: '1-0' } })],
+      ['une réponse', await posterAu(banc, lea, '/api/expedition/une-expedition/reponse', { position: 0, choix: 0 })],
+      ['l’abandon', await posterAu(banc, lea, '/api/expedition/une-expedition/abandon')],
+      ['un cadrage', await lireDu(banc, lea, '/api/expedition/une-expedition/detail/0/1')],
+      ['un dévoilement', await lireDu(banc, lea, '/api/expedition/une-expedition/devoilement?position=0')],
     ] as const) {
       assert.deepEqual([r.status, r.corps.error], [404, 'Introuvable'], quoi)
     }
+    // Aucune de ses routes dans le serveur : la seule ligne qui les nomme est celle qui répond 404 à toutes.
+    const sources = readFileSync(new URL('../src/api.ts', import.meta.url), 'utf8')
+    assert.deepEqual(sources.match(/['"`]\/api\/expedition[^'"`]*['"`]/g), ["'/api/expedition'"])
     // Son adresse, d'un favori ou d'un vieux lien, mène au Cabinet qui l'a remplacée.
     for (const chemin of ['/expedition', '/expedition/']) {
       const r = await fetch(`${banc.url}${chemin}`, { redirect: 'manual' })
@@ -290,49 +264,45 @@ test('effacée, l’Expédition ne répond plus : chacune de ses routes dit 404,
   }
 })
 
-test('la page du Cabinet suit l’expédition qui part et qui finit — effacée, elle n’en dit plus rien', async () => {
-  // Le musée gardé en mémoire lit l'expédition en route au lot froid, une fois par réveil : sans rien qui le lui dise,
-  // une expédition finie laissait la ligne « Ton expédition t'attend : la finir » jusqu'au redémarrage. La campagne le
-  // lui dit (`expeditionChange`), en mémoire, sous le verrou du profil, sans un aller-retour. Effacée (le 31 octobre
-  // 2026), l'Expédition n'a plus de route ni de page : la ligne mènerait à `/expedition`, qui renvoie au Cabinet — une
-  // boucle. Elle se tait, l'expédition en route ou non (`ReglagesDuCabinet.expeditionEffacee`).
+test('la page du Cabinet ne dit plus rien d’une expédition, même restée en route dans la base', async () => {
+  // Le musée lisait l'expédition en route à son lot froid, pour une ligne « Ton expédition t'attend : la finir » qui,
+  // l'Expédition effacée, aurait mené à `/expedition`, qui renvoie au Cabinet — une boucle. La lecture, le crochet qui
+  // la tenait à jour (`expeditionChange`) et le champ de la page sont partis avec elle : le lot froid en lit une de moins.
   const banc = await demarrer({ baseDeLaCampagne: baseDuCabinet(), horlogeDuJour: () => DIX_HEURES })
   try {
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa')
-    const page = async () => ((await lireDu(banc, lea, '/api/cabinet')).corps as PageDuCabinet).expedition
-    assert.equal(await page(), null, 'rien en route : le musée se garde')
-    // Partie (gardée au banc) : la page chaude le sait aussitôt, et l'oublie quand elle finit.
-    const partie = await posterAu(banc, lea, '/api/expedition')
-    assert.equal(partie.status, 200, partie.corps.error)
-    assert.equal(await page(), 'en-route', 'partie après la page : la mémoire le sait')
-    assert.equal((await posterAu(banc, lea, `/api/expedition/${partie.corps.id}/abandon`)).status, 200)
-    assert.equal(await page(), null, 'finie, la ligne s’éteint — sans attendre le réveil suivant')
-
-    // Une autre en route, puis la mise en ligne qui efface l'Expédition : relue à froid, la page n'en dit plus rien.
-    assert.equal((await posterAu(banc, lea, '/api/expedition')).status, 200)
-    assert.equal(await page(), 'en-route')
-    await banc.redemarrer({ reglages: { expeditionRemplacee: true } })
-    assert.equal(await page(), null, 'effacée : rien ne mène à une page qui n’existe plus')
+    const id = (await lireDu(banc, lea, '/api/joueur/moi?leger')).corps.profile.id as string
+    const page = async () => (await lireDu(banc, lea, '/api/cabinet')).corps as PageDuCabinet
+    assert.equal('expedition' in (await page()), false, 'rien en route : pas un mot')
+    // Une expédition restée en route, comme la production en garde une : relue à froid, la page n'en dit toujours rien.
+    aLaMain(
+      banc.quizDbUrl.replace(/^file:/, ''),
+      `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode) VALUES ('exp-en-route', '${id}', '[]', 0, 3, 0, ${DIX_HEURES - 1000}, NULL, 'expedition')`,
+    )
+    await banc.redemarrer()
+    const froide = await page()
+    assert.equal('expedition' in froide, false)
+    assert.equal(JSON.stringify(froide).includes('exp-en-route'), false, 'ni son identifiant, nulle part')
     assert.equal((await lireDu(banc, lea, '/api/expedition')).status, 404)
   } finally {
     await banc.close()
   }
 })
 
-test('remplacée, l’album tait la voie de l’Expédition — et un légendaire gardé là-bas reste à lui', () => {
+test('l’album tait la voie de l’Expédition, toujours — et un légendaire gardé là-bas reste à lui', () => {
   const kraken = legendaire('lg:kraken')!
-  const dite = (remplacee: boolean) => voiesMontrees(kraken, true, remplacee).some(estUneVoieDExpedition)
-  assert.equal(dite(false), EXPEDITION_EN_PRODUCTION, 'son départ ouvert, l’album la dit')
-  assert.equal(dite(true), false, 'remplacée, il la tait : elle mènerait à un départ qui se refuse')
-  assert.equal(voiesMontrees(kraken).some(estUneVoieDExpedition), EXPEDITION_EN_PRODUCTION && !EXPEDITION_REMPLACEE, 'les drapeaux du code, d’office')
-  // Les autres voies ne bougent pas avec elle, celle du Cabinet comprise.
-  const autres = (remplacee: boolean) => voiesMontrees(kraken, true, remplacee).filter(v => !estUneVoieDExpedition(v))
-  assert.deepEqual(autres(true), autres(false))
+  for (const cabinet of [true, false]) assert.equal(voiesMontrees(kraken, cabinet).some(estUneVoieDExpedition), false, 'elle mènerait à un mode qui n’existe plus')
+  assert.equal(voiesMontrees(kraken).some(estUneVoieDExpedition), false, 'd’office non plus')
+  // Les autres voies ne bougent pas avec elle, celle du Cabinet comprise : ce que l'album montre, c'est tout sauf elle.
+  assert.deepEqual(
+    voiesMontrees(kraken, true),
+    voiesDe(kraken).filter(v => !estUneVoieDExpedition(v)),
+  )
+  assert.ok(voiesDe(kraken).some(estUneVoieDExpedition), 'sa voie existe toujours : elle compte pour qui la tient')
   // Une voie tue n'est qu'un texte : rangée, elle donne toujours son légendaire (invariant 22).
   assert.ok(legendairesDebloques(new Map([[cleDeLExpedition('lg:kraken'), 1]])).includes('lg:kraken'))
-  // La luciole suit la même règle : chaque refus qui dit où l'avoir (`pourLAvoir`, l'achat refusé) tait l'expédition
-  // quand l'album la tait — sans quoi il enverrait au départ fermé qu'aucune page ne propose plus.
-  for (const remplacee of [false, true]) assert.equal(cheminDeLaLuciole(true, remplacee).includes('expédition'), dite(remplacee), `remplacée : ${remplacee}`)
+  // La luciole de même : chaque refus qui dit où l'avoir envoie à la boutique, jamais à une expédition.
+  assert.doesNotMatch(pourLAvoir(compagnon('luciole')!), /exp[ée]dition/i)
 })
 
 /** Un composant du client, rendu en HTML : son JSX est compilé pour un `React` global, posé avant d'importer le premier. */
@@ -343,59 +313,22 @@ async function rendu(fichier: string, composant: string, props: object, pathname
   return renderToStaticMarkup(React.createElement(module[composant], props))
 }
 
-/** Ce qu'un rendu dit, sans ses balises ni ses espaces fines (`espacesFines`). */
-const texte = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/[  ⁠]/g, ' ').replace(/\s+/g, ' ')
-
-test('remplacée, l’accueil n’a plus le bouton de l’Expédition : le Cabinet de curiosités prend sa place', async () => {
+test('l’accueil n’a plus de bouton pour l’Expédition : le Cabinet de curiosités a pris sa place', async () => {
+  // Son bouton et la prop qui le rouvrait (`remplacee`) sont partis avec sa page, le 16 novembre 2026 : plus rien ne mène à
+  // `/expedition`, quels que soient les drapeaux.
   const accueil = (props: object) => rendu('components/AccueilDesRoles', 'AccueilJouer', { enCours: [], onRejoindre: () => {}, lendemain: null, ...props })
-  // Le départ ouvert : les deux, l'un après l'autre (`navigation.test.ts`).
-  assert.match(await accueil({ remplacee: false, cabinet: true }), /href="\/expedition".*href="\/cabinet"/)
-  // Remplacée : l'Expédition s'en va, le Cabinet est à sa place — sous les duels, avant « Entre amis ».
-  const apres = await accueil({ remplacee: true, cabinet: true })
-  assert.doesNotMatch(apres, /href="\/expedition"|L’Expédition/)
-  assert.match(apres, /Les duels.*href="\/cabinet".*Le Cabinet de curiosités.*id="jouer-amis"/)
-  // Là où le serveur ferme le Cabinet, ni l'un ni l'autre : le départ de l'Expédition est fermé partout.
-  assert.doesNotMatch(await accueil({ remplacee: true, cabinet: false }), /href="\/expedition"|href="\/cabinet"/)
+  const ouvert = await accueil({ cabinet: true })
+  assert.doesNotMatch(ouvert, /href="\/expedition"|L’Expédition/)
+  // Le Cabinet est à sa place — sous les duels, avant « Entre amis ».
+  assert.match(ouvert, /Les duels.*href="\/cabinet".*Le Cabinet de curiosités.*id="jouer-amis"/)
+  // Là où le serveur ferme le Cabinet, ni l'un ni l'autre.
+  assert.doesNotMatch(await accueil({ cabinet: false }), /href="\/expedition"|href="\/cabinet"/)
+  // D'office, le bouton du Cabinet ne compte qu'une ligne de plus à sa section.
+  assert.match(ouvert, /aria-labelledby="jouer-seul" style="--jouer-part:5"/)
 })
 
-test('remplacée, la page de l’Expédition ne propose plus « Partir » : elle dit le Cabinet et y mène — celle en route se reprend', async () => {
-  const rien = () => {}
-  const depart = (page: PageDeLExpedition) => rendu('views/ExpeditionApp', 'Depart', { page, busy: false, erreur: '', onPartir: rien, onReprendre: rien, onAbandonner: rien }, '/expedition')
-  const prochaine: PageDeLExpedition['prochaine'] = { numero: 7, gardiens: ['lg:kraken', 'lg:dragon', 'lg:oracle'], aLui: [], invite: 'lg:lion', equipables: [], rencontres: true }
-
-  const ouvert = await depart({ expedition: null, prochaine, passeport: [] })
-  assert.match(ouvert, /Partir<\/button>/)
-  assert.doesNotMatch(ouvert, /href="\/cabinet"/)
-
-  const ferme = await depart({ expedition: null, prochaine, passeport: ['animaux'], departFerme: 'cabinet' })
-  assert.doesNotMatch(ferme, /Partir<\/button>/, 'plus de départ à proposer')
-  assert.doesNotMatch(texte(ferme), /Ce qui t’attend|part avec toi|Ton codex|Ton paquet/, 'ni gardiens annoncés, ni équipe, ni codex : il ne partira pas')
-  assert.ok(texte(ferme).includes(texte(DEPART_FERME)), 'la phrase du refus, la même')
-  assert.match(ferme, /<a class="btn btn-primary btn-big btn-block" href="\/cabinet">.*Le Cabinet de curiosités<\/a>/)
-  assert.match(texte(ferme), /Ton passeport/, 'ses tampons restent à lui')
-
-  // Une expédition en route se reprend, ou s'abandonne : le départ fermé ne la touche pas.
-  const vue = { id: 'x', numero: 7, acte: 0, rang: 3, issue: 'en-route', gardiens: prochaine.gardiens.map(cle => ({ cle, vaincu: false })), vies: 3, justes: 2, courage: 41, equipee: [], invite: 'lg:lion' } as unknown as VueDeLExpedition
-  const enRoute = await depart({ expedition: vue, prochaine, passeport: [], departFerme: 'cabinet' })
-  assert.match(enRoute, /Reprendre<\/button>/)
-  assert.match(enRoute, /Abandonner cette expédition<\/button>/)
-
-  // Sa fin ne propose plus « Une autre expédition » : elle mène au Cabinet.
-  const vaincus = ['lg:kraken', 'lg:dragon', 'lg:oracle'].map(cle => ({ cle, vaincu: true }))
-  const finie = { id: 'x', numero: 7, acte: 3, gardiens: vaincus, carte: null, ici: null, trace: [], permises: [], vies: 2, justes: 24, issue: 'au-bout', moyen: false, rang: 30 }
-  const fin = (departFerme: boolean) =>
-    rendu(
-      'views/ExpeditionApp',
-      'FinDeLExpedition',
-      { fin: { e: 'fin', vue: finie, tombe: {}, correction: null }, gains: { xp: 0, justes: 24, tampons: [] }, erreur: '', onCorrection: rien, onAutre: rien, departFerme },
-      '/expedition',
-    )
-  assert.match(await fin(false), /Une autre expédition<\/button>/)
-  const finFermee = await fin(true)
-  assert.doesNotMatch(finFermee, /Une autre expédition/)
-  assert.match(finFermee, /<a class="btn btn-primary btn-big btn-block" href="\/cabinet">.*Le Cabinet de curiosités<\/a>/)
-  assert.match(finFermee, /Mes réponses<\/button>/)
-})
+// La page de l'Expédition, son départ fermé qui menait au Cabinet et sa fin, est partie avec son code le 16 novembre 2026 :
+// `/expedition` y mène directement (plus haut).
 
 // ── Pas de migration (la décision du propriétaire du 25 octobre 2026) ──────
 

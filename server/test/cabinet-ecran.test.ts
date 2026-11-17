@@ -221,7 +221,7 @@ test('la page ne télécharge ni les règles de l’Expédition, ni celles qui j
   assert.ok(jeux.length >= 4, jeux.join(', '))
   // Ni l'annonce d'un gardien qui s'éveille, rare, et ce qu'elle fait venir (`Ouverts.tsx`) : elle aussi vient à la demande. Ni la
   // carte en 3D de la traversée, et three.js avec elle : elle ne s'importe qu'en type, comme la tour avant elle.
-  for (const f of ['views/RencontresDExpedition.tsx', 'views/ExpeditionApp.tsx', 'socket.ts', ...jeux, 'views/cabinet/Bilan.tsx', 'views/cabinet/Reveil.tsx', 'views/cabinet/TraverseeEn3D.ts', 'components/Gains.tsx', 'components/Ouverts.tsx', 'components/TableauEntier.tsx']) {
+  for (const f of ['socket.ts', ...jeux, 'views/cabinet/Bilan.tsx', 'views/cabinet/Reveil.tsx', 'views/cabinet/TraverseeEn3D.ts', 'components/Gains.tsx', 'components/Ouverts.tsx', 'components/TableauEntier.tsx']) {
     assert.ok(!chemin.has(path.join(client, f)), `${f} ne part pas avec le Cabinet`)
   }
   // Ni les rencontres (4 782 lignes), ni les règles qui jugent une partie : la page lit la vue du serveur.
@@ -300,7 +300,7 @@ test('le musée : ce qu’il possède en deux chiffres, le prochain gardien, et 
   sansJargon(html, 'le musée')
 })
 
-test('le musée dit la partie qui l’attend, l’expédition en route et sa fête — et aucune œuvre rapportée', async () => {
+test('le musée dit la partie qui l’attend et sa fête — ni l’expédition en route, ni une œuvre rapportée', async () => {
   // La bienvenue s'est tue avec le musée d'avant ; la traversée a son écran-titre.
   assert.doesNotMatch(texte(await musee(neuf)), /Bienvenue au Cabinet/)
   assert.doesNotMatch(source('views/CabinetApp.tsx'), /bienvenue/i)
@@ -318,14 +318,17 @@ test('le musée dit la partie qui l’attend, l’expédition en route et sa fê
   const t = texte(await musee(enCours))
   assert.match(t, new RegExp(`Ta partie ${JEUX.pari.a} t’attend`))
   assert.ok(t.indexOf('t’attend') < t.indexOf('Les salles'))
-  // L'expédition en route, la fête du moment et son gardien au musée.
+  // La fête du moment et son gardien au musée. L'expédition en route, que le serveur dit encore, ne s'y dit plus : sa page est
+  // partie avec son code le 16 novembre 2026, et `/expedition` mène au Cabinet — la ligne ramenait ici.
   const toutes = {
     ...neuf,
     expedition: 'en-route' as const,
     fete: { cle: 'halloween' as const, nom: 'Halloween', gardien: { legendaire: 'lg:citrouille', dit: 'Gagne une œuvre, et la Citrouille se réveillera.' } },
   }
-  const tout = texte(await musee(toutes))
-  assert.match(tout, /Ton expédition t’attend : la finir/)
+  const html = await musee(toutes)
+  const tout = texte(html)
+  assert.doesNotMatch(tout, /expédition/i)
+  assert.doesNotMatch(html, /href="\/expedition"/)
   assert.match(tout, /Halloween .*Gagne une œuvre, et la Citrouille se réveillera\./)
 })
 

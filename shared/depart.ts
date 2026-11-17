@@ -42,8 +42,6 @@ export const DEPART = {
   duels: '/api/duels',
   /** Le classement des collectionneurs : sa place à chaque catégorie, les têtes, ses amis, les Divins. */
   collectionneurs: '/api/collectionneurs',
-  /** L'expédition en route, sinon la prochaine et ses gardiens. */
-  expedition: '/api/expedition',
   /**
    * La traversée du Cabinet — la dernière, en route ou finie, et la partie de
    * son épreuve : sa réponse remesure l'heure (`avecLHeure`) et se dit
@@ -119,8 +117,6 @@ export function donneesDeDepart(route: Route): string[] {
       // Elle ne lit pas le profil : le thème seul, que `confirmerTheme` demande.
       case 'collectionneurs':
         return [DEPART.collectionneurs, DEPART.theme]
-      case 'expedition':
-        return [DEPART.expedition, DEPART.moiLeger]
       case 'cabinet':
         return [DEPART.cabinet, DEPART.moiLeger]
       case 'edit':

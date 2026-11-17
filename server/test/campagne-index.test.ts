@@ -16,11 +16,12 @@
 // telle que le magasin l'a envoyée (le gabarit de `duels-index.test.ts`).
 //
 // La partie en cours de chaque mode se cherche de même : la révision laissée,
-// la rencontre du dé, l'épreuve d'un sentier, l'étape d'un parcours,
-// l'expédition en route. Triées par leur date, elles partaient elles aussi de
-// l'index du profil et, sans partie en cours — le cas ordinaire —, relisaient
-// toutes ses parties à chaque accueil, page de la campagne ou des sentiers,
-// dé, carnet, parcours ou Expédition (la relecture du lot A1 du Cabinet).
+// la rencontre du dé, l'épreuve d'un sentier, l'étape d'un parcours — et
+// l'expédition en route, jusqu'à son départ le 16 novembre 2026. Triées par
+// leur date, elles partaient elles aussi de l'index du profil et, sans partie
+// en cours — le cas ordinaire —, relisaient toutes ses parties à chaque accueil,
+// page de la campagne ou des sentiers, dé, carnet ou parcours (la relecture du
+// lot A1 du Cabinet).
 // Puis toute recherche d'une partie d'un profil et d'un mode triée par sa
 // date, avec ou sans `finie_le` — le défi de l'accueil, sa tentative, celle
 // d'un duel, les dernières rencontres —, sans statistiques et sous des
@@ -181,7 +182,7 @@ test('les lectures des séries ne parcourent que les séries — par le profil e
   }
 })
 
-test('la partie en cours d’un mode se cherche par le profil et le mode — l’accueil, la campagne, le dé, le carnet, les sentiers, les parcours, l’Expédition', async () => {
+test('la partie en cours d’un mode se cherche par le profil et le mode — l’accueil, la campagne, le dé, le carnet, les sentiers, les parcours', async () => {
   const banc = await demarrer({ baseDeLaCampagne: baseDEssai(12 * CATEGORIES.length, { categories: [...CATEGORIES] }) })
   const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
   // Ce que le serveur demande, seul : pas ce que le magasin de l'épreuve d'avant a lu.
@@ -200,16 +201,17 @@ test('la partie en cours d’un mode se cherche par le profil et le mode — l�
     await lire('/api/campagne/carnet')
     await lire('/api/campagne/sentiers')
     await lire('/api/campagne/sujets')
-    await lire('/api/expedition')
     const de = await ecrire(banc.url, '/api/campagne/rencontre', {}, lea)
     assert.equal(de.status, 200, ((await de.json()) as { error?: string }).error)
 
-    // Les deux rencontres — l'accueil, le dé —, les trois sous-requêtes de
-    // l'Expédition, la série, la révision, l'épreuve, le parcours : sans elles
-    // toutes, le test ne dirait rien.
-    assert.ok(enCours.size >= 9, `${enCours.size} recherches seulement :\n${[...enCours.keys()].map(s => s.replace(/\s+/g, ' ')).join('\n')}`)
+    // Les deux rencontres — l'accueil, le dé —, la série, la révision,
+    // l'épreuve, le parcours : sans elles toutes, le test ne dirait rien. Les
+    // trois sous-requêtes de l'Expédition, qui cherchait la sienne de même,
+    // sont parties avec elle le 16 novembre 2026 — neuf recherches jusque-là.
+    assert.ok(enCours.size >= 6, `${enCours.size} recherches seulement :\n${[...enCours.keys()].map(s => s.replace(/\s+/g, ' ')).join('\n')}`)
     const modes = new Set([...enCours.keys()].map(modeCherche))
-    for (const mode of ['serie', 'revision', 'rencontre', 'sentier', 'sujet', 'expedition']) {
+    assert.ok(!modes.has('expedition'), 'plus rien ne cherche une expédition en route')
+    for (const mode of ['serie', 'revision', 'rencontre', 'sentier', 'sujet']) {
       assert.ok(modes.has(mode), `la partie en cours du mode ${mode} jamais cherchée :\n${[...enCours.keys()].map(s => s.replace(/\s+/g, ' ')).join('\n')}`)
     }
     for (const [sql, args] of enCours) {

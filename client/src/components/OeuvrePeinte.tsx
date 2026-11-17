@@ -1,23 +1,22 @@
-import type { CSSProperties, ReactNode } from 'react'
+import type { CSSProperties } from 'react'
 import { Dessin } from './Avatar'
 import { CARTES_PEINTES } from './cartes-peintes'
-import { espacesFines } from '../format'
 import { GEMME_MAUDITE, gemme } from '../gemmes'
 import type { RareteDeTheme } from '../../../shared/themes'
-// Des types seulement : ils s'effacent à la compilation, et la page qui montre
-// une œuvre ne télécharge pas les règles des rencontres (`cartes-peintes.test.ts`).
-import type { CarteDeRencontre, FamilleDeCartes } from '../../../shared/rencontres'
+// Des types seulement, ceux des œuvres du Cabinet : ils s'effacent à la
+// compilation, et la page qui montre une œuvre ne télécharge ni les œuvres ni
+// les règles des rencontres (`cartes-peintes.test.ts`).
+import type { FamilleDeCartes, RareteDeCarte } from '../../../shared/cabinet/oeuvres'
 
-// L'œuvre peinte : la carte dessinée de l'Expédition (`CarteDessinee`,
-// `views/RencontresDExpedition.tsx`), sortie d'elle le 25 octobre 2026 pour le
+// L'œuvre peinte : la carte dessinée de l'Expédition (`CarteDessinee`, dans
+// `RencontresDExpedition.tsx`), sortie d'elle le 25 octobre 2026 pour le
 // Cabinet de curiosités, dont les œuvres sont ces mêmes cartes peintes. Le
-// cadre, sa fenêtre, sa peinture, son nom et sa gemme vivent ici seulement ;
-// l'Expédition y ajoute ce qu'elle joue — l'orbe du coût, le chiffre, la
-// phrase, le « + » d'une carte améliorée —, et `RencontresDExpedition.tsx`,
-// qui tire tout `shared/rencontres.ts`, le codex et l'expédition, ne part pas
-// avec la page qui ne fait que montrer une œuvre. Ses classes restent celles de
-// la carte (`exp-vc-*`, la section « Les rencontres » de `styles.css`) : un
-// cadre retouché l'est des deux côtés.
+// cadre, sa fenêtre, sa peinture, son nom et sa gemme vivent ici seulement.
+// L'Expédition y ajoutait ce qu'elle jouait — l'orbe du coût, le chiffre, la
+// phrase, le « + » d'une carte améliorée — ; sa page partie avec son code le
+// 16 novembre 2026, ces pièces sont parties avec elle. Ses classes restent
+// celles de la carte (`exp-vc-*`, la section « Les rencontres » de
+// `styles.css`) : les renommer est un lot à part.
 
 /**
  * Où l'œuvre se range, ce qui fait sa teinte : la famille de sa carte, ou la
@@ -36,13 +35,19 @@ export type FamilleDOeuvre = FamilleDeCartes | 'vestibule'
  * nom, sa famille ou sa salle, sa rareté, et le légendaire qu'elle montre à
  * la place d'une peinture — une carte de légendaire, un gardien.
  */
-export type OeuvreMontree = Pick<CarteDeRencontre, 'cle' | 'nom' | 'rarete' | 'legendaire'> & { famille: FamilleDOeuvre }
+export interface OeuvreMontree {
+  cle: string
+  nom: string
+  rarete: RareteDeCarte
+  /** Le légendaire qui la donne (`lg:phenix`) : une carte de légendaire, un gardien. */
+  legendaire?: string
+  famille: FamilleDOeuvre
+}
 
 /**
- * Les raretés d'une carte des rencontres — celles d'une œuvre du Cabinet en
- * sont, sans la légendaire, qui est aux gardiens —, lues en type seulement :
- * effacé à la compilation, il ne fait pas télécharger les règles des
- * rencontres à la page qui montre une œuvre.
+ * Les raretés d'une carte peinte — celles d'une œuvre du Cabinet, et la
+ * légendaire, qui est aux gardiens —, lues en type seulement : effacé à la
+ * compilation, il ne fait rien télécharger à la page qui montre une œuvre.
  */
 export type RareteDOeuvre = OeuvreMontree['rarete']
 
@@ -116,49 +121,19 @@ export function VisageDuLegendaire({ cle }: { cle: string }) {
  * rajouterait à l'immersion », le propriétaire, le 18 octobre 2026) : son
  * cadre à la couleur de sa rareté, son illustration sur la teinte de sa
  * famille — sa peinture, sinon le médaillon du légendaire qu'elle montre —,
- * son nom dans un bandeau, la gemme de sa rareté ; levée, sa rareté dite et sa
- * phrase. Dessinée seulement : le bouton qui la porte dit ce qu'elle est à
- * l'oreille, cadre doré compris — sauf levée, où elle est le contenu même de
- * la fenêtre.
- *
- * Ce que l'Expédition y ajoute garde sa place dans la carte : l'orbe du coût
- * au coin (`coin`), le dessin d'une carte sans peinture (`repli`), son
- * chiffre en médaillon sous l'illustration (`valeur`), sa phrase levée
- * (`texte`), puis ce que `children` ajoute, et après la gemme, ce qui se pose
- * à son coin bas (`marque`).
+ * son nom dans un bandeau, la gemme de sa rareté ; levée, sa rareté dite.
+ * Dessinée seulement : le bouton qui la porte dit ce qu'elle est à l'oreille,
+ * cadre doré compris — sauf levée, où elle est le contenu même de la fenêtre.
  */
 export function OeuvrePeinte({
   oeuvre,
   taille,
   doree,
-  classe,
-  coin,
-  repli,
-  valeur,
-  texte,
-  nombre,
-  marque,
-  children,
 }: {
   oeuvre: OeuvreMontree
   taille: TailleDOeuvre
   /** Son cadre est doré : un second cadre d'or, et levée, « cadre doré » à l'oreille. */
   doree?: boolean
-  /** Une classe de plus sur le cadre : `exp-vc-amelioree`. */
-  classe?: string
-  /** Au coin, avant tout : l'orbe du coût d'une carte des rencontres. */
-  coin?: ReactNode
-  /** Son dessin quand elle n'a ni peinture ni légendaire. */
-  repli?: ReactNode
-  /** Son chiffre, en médaillon sous l'illustration — hors levée, où sa phrase le dit. */
-  valeur?: string
-  /** Sa phrase, levée. */
-  texte?: string
-  /** Dans un tas, combien il en a : « ×4 ». */
-  nombre?: number
-  /** Au coin bas, après la gemme : le « + » d'une carte améliorée. */
-  marque?: ReactNode
-  children?: ReactNode
 }) {
   const style = {
     ...gemmeDeLaRarete(oeuvre.rarete),
@@ -172,11 +147,10 @@ export function OeuvrePeinte({
   const levee = taille === 'levee'
   return (
     <span
-      className={`exp-vc exp-vc-${taille}` + (oeuvre.legendaire ? ' exp-vc-du-legendaire' : '') + (doree ? ' exp-vc-doree' : '') + (classe ? ` ${classe}` : '')}
+      className={`exp-vc exp-vc-${taille}` + (oeuvre.legendaire ? ' exp-vc-du-legendaire' : '') + (doree ? ' exp-vc-doree' : '')}
       style={style}
       aria-hidden={levee ? undefined : true}
     >
-      {coin}
       {levee && oeuvre.rarete !== 'commun' && <span className="exp-vc-rarete-dite">{RARETE_DITE[oeuvre.rarete]}</span>}
       <span className="exp-vc-art">
         {peinture ? (
@@ -188,20 +162,13 @@ export function OeuvrePeinte({
             decoding="async"
             {...(levee && { style: { backgroundImage: `url(${peinture[1]})` } })}
           />
-        ) : oeuvre.legendaire ? (
-          <VisageDuLegendaire cle={oeuvre.legendaire} />
         ) : (
-          repli
+          oeuvre.legendaire && <VisageDuLegendaire cle={oeuvre.legendaire} />
         )}
       </span>
-      {!levee && valeur && <b className="exp-vc-valeur">{valeur}</b>}
       {taille !== 'main' && <b className={'exp-vc-nom' + (taille === 'rangee' && serre(oeuvre.nom) ? ' exp-vc-nom-serre' : '')}>{oeuvre.nom}</b>}
       {levee && doree && <span className="sr-only">, cadre doré</span>}
-      {levee && texte !== undefined && <span className="exp-vc-texte">{espacesFines(texte)}</span>}
-      {children}
       <span className="exp-vc-gemme" />
-      {nombre !== undefined && nombre > 1 && <b className="exp-vc-nombre">{`×${nombre}`}</b>}
-      {marque}
     </span>
   )
 }

@@ -7,7 +7,9 @@
 // Une copie légère plutôt qu'un import : la page du musée ne doit pas tirer
 // les 4 782 lignes de `shared/rencontres.ts`, qui partira avec l'Expédition.
 // `cabinet-catalogue.test.ts` relit chaque nom, chaque famille et chaque
-// rareté contre le catalogue des rencontres, et chaque peinture.
+// rareté contre le catalogue des rencontres, figé
+// (`server/test/cartes-des-rencontres.ts`), et chaque peinture ; la chaîne
+// des peintures peint ce qui est ici (`server/scripts/anime/cartes.ts`).
 //
 // Deux tables se gèlent (invariant 22) : les œuvres de départ, que tout profil
 // possède par règle, et le jeu de chaque œuvre. Une œuvre entrée chez un
@@ -18,6 +20,22 @@ import type { CleDeSalle } from './salles'
 
 /** La rareté d'une œuvre — jamais légendaire : un légendaire est un gardien. */
 export type Rarete = 'commun' | 'rare' | 'maudit' | 'epique'
+
+/**
+ * La rareté d'une carte peinte telle que l'œuvre peinte la montre
+ * (`client/src/components/OeuvrePeinte.tsx`) : celle d'une œuvre, ou la
+ * légendaire d'un gardien. Née avec les cartes des rencontres, qui la
+ * lisent d'ici : la page qui montre une œuvre n'a pas à les connaître.
+ */
+export type RareteDeCarte = Rarete | 'legendaire'
+
+/**
+ * La famille d'une carte peinte : celle de la salle qui l'expose, et pour
+ * le Vestibule, les neutres — le nom qu'elle portait dans les rencontres de
+ * l'Expédition, qui la lisent d'ici. La teinte de l'œuvre peinte et la
+ * palette de la chaîne des peintures s'y rangent.
+ */
+export type FamilleDeCartes = Exclude<CleDeSalle, 'vestibule'> | 'neutre'
 
 /** Les raretés, de la plus courante à la plus rare ; la maudite, forte, a la place d'une rare. */
 export const RARETES: readonly Rarete[] = ['commun', 'rare', 'maudit', 'epique']

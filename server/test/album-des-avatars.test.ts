@@ -27,7 +27,7 @@ import { GARDIENS_DES_ACTES, GARDIENS_DE_LA_TRAVERSEE, GARDIEN_D_HALLOWEEN } fro
 import { DIVINS } from '../../shared/divins'
 import { BRANCHES, PORTRAITS } from '../../shared/branches'
 import { AVATARS, COLLECTION } from '../../shared/avatars'
-import { COMPAGNONS, FORMES_DES_COMPAGNONS, METAMORPHOSES } from '../../shared/compagnons'
+import { COMPAGNONS, COMPAGNONS_DE_LA_BOUTIQUE, FORMES_DES_COMPAGNONS, METAMORPHOSES } from '../../shared/compagnons'
 import { hautFait, type HautFaitVu } from '../../shared/hautsfaits'
 import { importsStatiques } from './chemin-des-imports'
 
@@ -574,11 +574,12 @@ test('la luciole, le Cabinet ouvert ou fermé : en boutique, comme les autres �
   assert.equal(dit('cp:luciole-constellation'), 'en boutique, puis à 500 bonnes réponses avec elle')
   assert.equal(dit('cp:luciole-aurore'), 'en boutique, puis à 500 bonnes réponses avec elle et par l’Éclat')
   assert.equal(dit('cp:loup-louveteau'), 'en boutique')
-  // Plus aucun compagnon ne se gagne (`Compagnon.gagne`) : l'album gardait pour un tel compagnon une voie prête, que rien
-  // n'atteignait — « Complète une salle de ton musée », « En expédition : la Première traversée » —, deux pages qui
-  // n'existent plus. Elle est partie le 10 novembre 2026 ; un compagnon qui se gagnerait écrit sa voie dans l'album
-  // (`shared/album.ts`) avant de porter `gagne`, sans quoi sa fiche dirait « En boutique ».
-  assert.ok(COMPAGNONS.every(c => !c.gagne), 'un compagnon qui se gagne : sa voie est à écrire dans l’album')
+  // Plus aucun compagnon ne se gagne : l'album gardait pour un tel compagnon une voie prête, que rien n'atteignait —
+  // « Complète une salle de ton musée », « En expédition : la Première traversée » —, deux pages qui n'existent plus.
+  // Elle est partie le 10 novembre 2026, et ce qui disait un compagnon gagné (`Compagnon.gagne`) le 16, avec
+  // l'Expédition : tous se vendent, et un compagnon qui se gagnerait écrirait d'abord sa voie dans l'album
+  // (`shared/album.ts`), sans quoi sa fiche dirait « En boutique ».
+  assert.deepEqual(COMPAGNONS_DE_LA_BOUTIQUE, COMPAGNONS, 'un compagnon hors de la boutique : sa voie est à écrire dans l’album')
   const album = readFileSync(new URL('../../shared/album.ts', import.meta.url), 'utf8')
   assert.doesNotMatch(album, /Complète une salle de ton musée|compléter une salle`|la Première traversée'/, 'une voie du musée ou de l’Expédition, que rien n’atteint')
 })

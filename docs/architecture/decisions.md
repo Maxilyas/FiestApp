@@ -1387,7 +1387,9 @@ Le détail : [les duels](../produit/les-duels.md).
 
 ## L'Expédition
 
-Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, `retours/2026-10-17/expedition.md`. **L'Expédition est effacée depuis le 31 octobre 2026** — le Cabinet de curiosités l'a remplacée (`EXPEDITION_REMPLACEE` ; « Deux drapeaux », dans la section du Cabinet) : aucune de ses routes n'est montée, et seul le banc des tests la joue encore. Ces fiches, prises du 17 au 20 octobre 2026, disent pourquoi son code est fait comme il l'est ; leurs « conséquences » valaient tant qu'elle se jouait.
+Le brief de la V1 : `retours/2026-10-17/expedition.md` ; ce qu'elle était et ce qu'il en reste : [l'historique](../contribuer/historique.md). **L'Expédition est effacée depuis le 31 octobre 2026** — le Cabinet de curiosités l'a remplacée (`EXPEDITION_REMPLACEE` ; « Deux drapeaux », dans la section du Cabinet) : aucune de ses routes n'est montée. Ces fiches, prises du 17 au 20 octobre 2026, disent pourquoi son code était fait comme il l'était ; leurs « conséquences » valaient tant qu'elle se jouait.
+
+**Son code quitte le dépôt depuis le 16 novembre 2026**, lot par lot (le propriétaire : « c'est carrément quelque chose qui n'existe plus. S'il reste des choses il faut les supprimer ») : un fichier que ces fiches citent sans son chemin — `calibrage-rencontres.ts`, `rendu-expedition.ts`, puis, avec le serveur et les modules partagés, `expedition.ts`, `src/expedition.ts`, `rencontres.ts`, `codex.ts`, `jokers.ts`, `curiosites.ts`, `core/curiosites.ts`, le contenu `curiosites/` et les épreuves `expedition*.test.ts` et `codex.test.ts` — n'existe plus ; l'historique de git le garde. Sa règle d'agent (`expedition.md`) et sa page produit (`l-expedition.md`) sont parties avec, le même jour : ce que la règle disait encore d'un code qui existe est passé dans `campagne.md` et `cabinet.md`, et le récit de ce qu'était le mode dans l'historique. Ce que des joueurs y ont gagné reste à eux : ses parties (`mode = 'expedition'`) et leurs réponses se lisent comme toute partie de la campagne — expérience, confettis, précision, écussons, carnet, compagnon, la voie rangée d'un légendaire —, aux nombres mesurés sur le code d'avant (`server/test/apres-l-expedition.test.ts`). Trois choix de ce retrait : la table de ses gestes (`expedition_gestes`) ne se crée plus et dort en production, sans migration — les gestes d'un profil supprimé y restent, sans lien vers lui ; l'expédition restée en route n'est ni close ni migrée — elle ne bloque rien, chaque mode cherchant sa partie en cours par son mode ; et le Globe-trotter, qu'aucun profil de la production ne tenait, quitte le catalogue — une ligne restée dans une autre base se tait partout (`PREFIXES_DES_TROPHEES_PARTIS`, `shared/legendaires.ts`), comme les épreuves de maître du Cabinet.
 
 ### Ce qu'on a gagné sert enfin, mais seulement en expédition
 **Contexte** : le propriétaire, le 17 octobre 2026 : « on fait que rajouter des choses mais on ne sait plus quoi choisir », et « les légendaires pourrait donner justement des pouvoirs pour aider à avancer ». Or un profil ne donnait aucun avantage de jeu (invariant 8) : en soirée, un niveau 30 et un invité arrivé ce soir jouent la même partie, et c'est ce qui laisse le chemin anonyme entier.
@@ -1396,7 +1398,7 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 **Conséquence** : aucune route d'un autre mode n'accepte un joker. Chaque légendaire qui a son joker reçoit une voie de plus (`aussi`, `expedition:<légendaire>`), qui ne reprend rien à personne (invariant 22) ; ceux de saison n'en ont pas : ils ne se gagnent qu'à leur saison, par elle seule.
 
-*Fichiers : `shared/expedition.ts`, `shared/jokers.ts`, `shared/legendaires.ts`, `CLAUDE.md`*
+*Fichiers : `expedition.ts`, `jokers.ts`, `shared/legendaires.ts`, `CLAUDE.md`*
 
 ### Une expédition est une partie d'un autre mode, et son état le pli de son journal
 **Contexte** : une expédition dure vingt à trente questions, se laisse et se reprend, et ses réponses doivent compter comme toutes les autres — l'expérience, les confettis, le carnet, « jamais vues d'abord ».
@@ -1405,7 +1407,7 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 **Conséquence** : un double toucher, un second onglet ne jouent pas deux fois (invariant 12, porté au solo) ; recharger ne retire rien ; une retouche du générateur ne déplace pas une escale sous les pieds de qui joue. Toute requête des parties filtre son mode : l'expédition n'est ni une série — ni record, ni Grande Série, ni L'Alpiniste —, et Le Marathonien la compte.
 
-*Fichiers : `shared/expedition.ts`, `server/src/core/campagne.ts`, `server/src/expedition.ts`, `server/test/expedition-pli.test.ts`, `server/test/expedition.test.ts`*
+*Fichiers : `expedition.ts`, `server/src/core/campagne.ts`, `src/expedition.ts`, `expedition-pli.test.ts`, `expedition.test.ts`*
 
 ### Une source est une révision : sa réponse ne mesure rien
 **Contexte** : une source de l'expédition repose une question du carnet, déjà ratée, réponse lue. Les révisions sont écartées de la mesure des difficultés, des écussons et de L'Érudit pour cette raison : comptées, elles feraient passer pour faciles les questions que tout le monde rate une fois, et trois expertes ratées exprès feraient L'Érudit.
@@ -1414,16 +1416,16 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 **Conséquence** : une source paie comme toute bonne réponse — un confetti, l'expérience, Le Marathonien —, et ne dit rien du savoir. Les premières réponses, que lit le modèle du savoir, n'en ont pas besoin : une question du carnet a toujours la sienne avant.
 
-*Fichiers : `server/src/core/campagne.ts`, `server/test/expedition.test.ts`*
+*Fichiers : `server/src/core/campagne.ts`, `expedition.test.ts`*
 
 ### L'expédition s'ouvre en production avec ses jokers
-**Contexte** : le brief découpe la V1 en quatre étapes, chacune sa PR. La simulation, puis le calibrage sur le vrai code (`server/scripts/calibrage-expedition.ts`), disent qu'au bout sans jokers le joueur moyen n'arrive que quatre fois sur cent : les jokers font le mode.
+**Contexte** : le brief découpe la V1 en quatre étapes, chacune sa PR. La simulation, puis le calibrage sur le vrai code (`calibrage-expedition.ts`), disent qu'au bout sans jokers le joueur moyen n'arrive que quatre fois sur cent : les jokers font le mode.
 
 **Décision** : jusqu'aux jokers, ses routes répondaient 404 en production — en ligne et sans `APP_ENV` (`EXPEDITION_EN_PRODUCTION`, `expeditionOuverte`) ; la préproduction, `npm run dev` et les tests la jouaient. Sa voie ne se montrait nulle part (`voiesMontrees`), et l'accueil n'avait pas son bouton. Les jokers venus (l'étape 2, le 17 octobre 2026), la constante l'ouvre : ses routes, le bouton « L’Expédition » de l'accueil d'un profil, sous les duels, et sa voie dans l'album.
 
 **Conséquence** : rien ne s'y est gagné en production avant que le mode soit entier. La refermer, c'est repasser la constante ; les légendaires gardés restent. La voie montrée, la phrase de l'album se dit voie par voie (`ouIlSeGagne`) : un seul mot pour tous ses lieux disait que la Chimère se gagnait « en soirée, au quiz du jour, en campagne ou en expédition », quand il lui faut les trois premiers ensemble, ou l'expédition.
 
-*Fichiers : `shared/jokers.ts`, `server/src/expedition.ts`, `shared/legendaires.ts`, `shared/album.ts`, `client/src/components/AccueilDesRoles.tsx`, `server/test/expedition-legendaires.test.ts`, `server/test/album-des-avatars.test.ts`*
+*Fichiers : `jokers.ts`, `src/expedition.ts`, `shared/legendaires.ts`, `shared/album.ts`, `client/src/components/AccueilDesRoles.tsx`, `expedition-legendaires.test.ts`, `server/test/album-des-avatars.test.ts`*
 
 ### La main se garde, la défausse revient à l'acte suivant
 **Contexte** : les maquettes tiraient deux jokers par question et jetaient ceux qu'on ne jouait pas : jouer ne coûtait rien, on jouait tout sans choisir, et un joker de carte, tiré devant une question, ne pouvait pas attendre la carte. Une défausse rendue dès le paquet vide laissait un seul Double chance repasser presque à chaque question : il portait le joueur moyen de 3 à 31 %, autant qu'une équipée entière.
@@ -1432,7 +1434,7 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 **Conséquence** : chaque joker sert une fois par acte, et le paquet qui s'épuise avant le gardien est la tension du mode ; un paquet court tire plus souvent ses meilleurs — d'où le campement qui retire un joker, et l'offre qu'on peut laisser. Recharger ne retire ni une main ni une offre.
 
-*Fichiers : `shared/expedition.ts`, `shared/jokers.ts`, `server/test/expedition-jokers.test.ts`*
+*Fichiers : `expedition.ts`, `jokers.ts`, `expedition-jokers.test.ts`*
 
 ### Un joker se joue en deux touchers, et une seule règle dit pourquoi pas
 **Contexte** : un joker joué ne se reprend pas. Sur la maquette 4, toucher sa carte le jouait : un toucher perdu sous les réponses coûtait le meilleur joker de l'acte. Et un joker qui ne se joue pas — un second sur la même question, Sagesse sur un vrai ou faux, le Commandement face au gardien — se refusait sans dire pourquoi.
@@ -1441,7 +1443,7 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 **Conséquence** : la page n'a aucune règle des jokers à recopier ; une règle changée vaut d'un coup pour le pli, le refus et l'écran.
 
-*Fichiers : `shared/expedition.ts`, `server/src/core/campagne.ts`, `client/src/views/ExpeditionApp.tsx`*
+*Fichiers : `expedition.ts`, `server/src/core/campagne.ts`, `ExpeditionApp.tsx`*
 
 ### Ce qu'un joker montre se calcule au serveur, et une réponse aidée ne mesure rien
 **Contexte** : Coup d'œil efface une mauvaise réponse, l'Énigme dit le siècle, l'Oracle dit « plus haut » : tous lisent la bonne réponse. Et une question trouvée avec deux réponses barrées n'a plus la difficulté qu'on mesure ; comptée, elle ferait passer pour faciles les questions où l'on joue ses jokers, et L'Érudit se gagnerait à coups de Double chance.
@@ -1450,7 +1452,7 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 **Conséquence** : elle paie comme toute bonne réponse — un confetti, l'expérience, Le Marathonien. Aucune route d'un autre mode n'accepte un joker (invariant 8). Une lecture neuve de `campagne_reponses` qui mesure un savoir écarte les réponses aidées.
 
-*Fichiers : `server/src/core/campagne.ts`, `shared/expedition.ts`, `shared/jokers.ts`, `server/test/expedition-mesure.test.ts`*
+*Fichiers : `server/src/core/campagne.ts`, `expedition.ts`, `jokers.ts`, `expedition-mesure.test.ts`*
 
 ### Une cible approchée, pas tenue
 **Contexte** : la cible retenue le 17 octobre 2026 — avec une équipée de deux, le joueur moyen au bout une fois sur trois, le fort huit fois sur dix — venait d'une simulation faite avant tout code. Le calibrage sur le vrai code, avec les jokers, la remesure : le joueur sait ou ne sait pas chaque question, et joue son meilleur joker quand il ne sait pas.
@@ -1459,7 +1461,7 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 **Conséquence** : les vraies expéditions diront le reste ; le calibrage se rejoue (`--garder` pour le joueur soigneux), et une règle changée ne vaut que pour les expéditions qui partent ensuite.
 
-*Fichiers : `server/scripts/calibrage-expedition.ts`, `shared/jokers.ts`, `docs/reference/baremes.md`*
+*Fichiers : `calibrage-expedition.ts`, `jokers.ts`, `docs/reference/baremes.md`*
 
 ### L'expédition en route vit en mémoire, et le tirage d'une escale ne bat plus la base
 **Contexte** : le propriétaire, le 17 octobre 2026 : « n'oublie pas le côté performance pour que ça soit rapide aussi niveau requête ». Une escale se jouait en trois allers-retours vers Turso l'un après l'autre — relire l'expédition, relire ce qu'il a vu, écrire —, une réponse en deux ou trois : 29 ms chacun sur une connexion gardée, 225 sur une connexion à rouvrir. Et le gardien battait les vingt-cinq mille questions de la base pour en prendre six : 15 ms de processeur, dix fois plus au dixième de cœur de l'hébergeur.
@@ -1468,7 +1470,7 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 **Conséquence** : partir coûte deux allers-retours, une escale, un joker ou une mauvaise réponse un, une bonne réponse deux, comme en série ; le gardien se tire en 0,1 ms. Une écriture neuve de l'expédition, ou une porte neuve qui écrit une réponse de campagne, tient la mémoire à jour — `expedition-charge.test.ts` compte.
 
-*Fichiers : `server/src/core/campagne.ts`, `server/test/expedition-charge.test.ts`, `server/test/expedition-tirage.test.ts`*
+*Fichiers : `server/src/core/campagne.ts`, `expedition-charge.test.ts`, `expedition-tirage.test.ts`*
 
 ### Les formes : le dévoilement s'écrit au fil des mots, et une autre forme ne mesure rien
 **Contexte** : l'étape 3 du brief pose quatre formes — quatre choix, vrai ou faux, six choix, dévoilement. Un dévoilement envoyé entier, même caché par la page, donnerait l'intitulé au téléphone d'avance (invariant 1), et une heure lue au téléphone dériverait (invariant 6). Une question à six choix, en vrai ou faux tiré d'une autre ou lue à mi-mot n'a plus la difficulté qu'on mesure.
@@ -1477,7 +1479,7 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 **Conséquence** : la page ne reçoit d'un dévoilement que son compte de mots, puis ses mots, un à un ; rouverte, la route redit d'un coup ceux déjà dits. Une forme que le thème ne sait pas prendre se pose à quatre choix. Ce qui compare une question jouée à la base la lit à sa forme — un signalement en vrai ou faux n'est pas une version d'avant.
 
-*Fichiers : `shared/expedition.ts`, `shared/jokers.ts`, `server/src/core/campagne.ts`, `server/src/expedition.ts`, `client/src/views/ExpeditionApp.tsx`, `server/test/expedition-formes.test.ts`*
+*Fichiers : `expedition.ts`, `jokers.ts`, `server/src/core/campagne.ts`, `src/expedition.ts`, `ExpeditionApp.tsx`, `expedition-formes.test.ts`*
 
 ### Les écus se comptent du journal, et l'inconnu ne part qu'une fois dévoilé
 **Contexte** : l'étape 4 du brief donne sa monnaie à l'expédition : une escale trouvée paie selon la chance qu'elle annonçait, un dévoilement d'autant plus qu'on répond tôt, et l'échoppe dépense. Un solde tenu dans une colonne aurait coûté une écriture de plus à chaque réponse, et pu s'écarter du pli ; un achat relu au prix du jour aurait changé, à chaque retouche du barème, le solde des expéditions en route. Et l'inconnu — un marchand, un piège, un légendaire de passage — n'en serait plus un si la carte, envoyée entière au téléphone, le disait.
@@ -1486,7 +1488,7 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 **Conséquence** : ni colonne ni écriture de plus — une réponse coûte ce qu'elle coûtait, un achat un geste. Un prix changé ne vaut que pour les achats à venir. Les écus meurent avec l'expédition, et le solde de confettis n'en sait rien. Un piège peut finir l'expédition d'un geste : le serveur la clôt alors comme une réponse, ses gains compris.
 
-*Fichiers : `shared/expedition.ts`, `shared/jokers.ts`, `server/src/core/campagne.ts`, `client/src/views/ExpeditionApp.tsx`, `server/test/expedition-ecus.test.ts`, `server/test/expedition-echoppe.test.ts`*
+*Fichiers : `expedition.ts`, `jokers.ts`, `server/src/core/campagne.ts`, `ExpeditionApp.tsx`, `expedition-ecus.test.ts`, `expedition-echoppe.test.ts`*
 
 ### Le passeport se relit du journal : un tampon par thème pointu trouvé
 **Contexte** : la refonte des sujets de la campagne porte l'onglet des thèmes à quatre-vingt-douze sujets ; le propriétaire, le 18 octobre 2026 : « Est-ce que l'on ne peut pas faire quelque chose avec tous ces thèmes ? », puis, parmi quatre propositions, « Idée 1 2 stp ». Un passeport tenu dans une table à part aurait coûté une écriture de plus à chaque réponse, et pu s'écarter du journal.
@@ -1495,7 +1497,7 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 **Conséquence** : pas un aller-retour de plus. Un tampon ne donne aucun avantage de jeu (invariant 8) ; le Globe-trotter paie ses paliers comme les autres pistes — un barème de plus, dit (`docs/reference/baremes.md`). Un sujet ajouté à l'onglet arrive de lui-même sur les cartes et au passeport ; l'or reste à quatre-vingt-douze.
 
-*Fichiers : `shared/expedition.ts`, `shared/hautsfaits.ts`, `server/src/core/campagne.ts`, `client/src/views/ExpeditionApp.tsx`, `server/test/expedition-passeport.test.ts`*
+*Fichiers : `expedition.ts`, `shared/hautsfaits.ts`, `server/src/core/campagne.ts`, `ExpeditionApp.tsx`, `expedition-passeport.test.ts`*
 
 ### La saison d'une fête : sa fête sur les cartes, son légendaire à l'acte 3
 **Contexte** : la Citrouille, le Sapin et le Bouquet final ne se gagnaient qu'au quiz du jour ou en soirée, à leur saison ; leurs jokers, eux, agissaient toute l'année. La seconde idée retenue le 18 octobre 2026 — Halloween à une semaine.
@@ -1504,7 +1506,7 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 **Conséquence** : partie à temps, l'expédition se finit quand on veut. Le banc et le smoke ferment le calendrier des expéditions comme celui des soirées : sans quoi chaque test d'expédition aurait sa Citrouille à l'acte 3 une semaine par an. Ce qu'une voie neuve change aux Divins se vérifie dans `core/divins.ts`, et ne s'écrit nulle part ailleurs (invariant 21).
 
-*Fichiers : `shared/expedition.ts`, `shared/legendaires.ts`, `shared/album.ts`, `server/src/core/saisons.ts`, `server/src/core/campagne.ts`, `server/test/expedition-saison.test.ts`*
+*Fichiers : `expedition.ts`, `shared/legendaires.ts`, `shared/album.ts`, `server/src/core/saisons.ts`, `server/src/core/campagne.ts`, `expedition-saison.test.ts`*
 
 ### La carte n'éclaire que l'escale où l'on est, et propose celles de devant
 **Contexte** : la carte d'un acte dessinait le tracé le plus sûr jusqu'au campement — une dizaine d'escales et leurs liens dorés, l'escale où l'on était perdue parmi elles —, et chaque escale portait son nom et sa chance. Le propriétaire, le 18 octobre 2026 : « il faudrait uniquement illuminer la node sur laquelle on est et pas tout le chemin. Une fois vaincu ça nous proposerait uniquement les nodes de devant que l'on peut atteindre », et « le système de carte un peu fouillon et pas trop compréhensible. C'est pas très pratique non plus ».
@@ -1513,7 +1515,7 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 **Conséquence** : rien ne change au serveur ni au pli — ils ne vérifiaient déjà que le pas suivant. Un pas coûte deux touchers au lieu d'un : on choisit ce qu'on fait, au lieu de suivre ce qui s'allume. La chance d'arriver au gardien et le butin d'un tracé ne se lisent plus sur la carte ; le calibrage suit toujours le plus sûr, que le panneau conseille pas à pas.
 
-*Fichiers : `client/src/views/ExpeditionApp.tsx`, `client/src/styles.css`, `server/scripts/rendu-expedition.ts`, `server/test/expedition-carte-ecran.test.ts`*
+*Fichiers : `ExpeditionApp.tsx`, `client/src/styles.css`, `rendu-expedition.ts`, `expedition-carte-ecran.test.ts`*
 
 ### L'acte en petit en haut, les escales et les jokers en vraies cartes en bas
 **Contexte** : le même jour, la carte ne s'allumait plus que là où l'on était, mais ses escales restaient des ronds posés sur une carte qui défilait, que le panneau collé en bas couvrait à moitié ; la main, une ligne de noms dans le panneau, et sous une question des tuiles. Le propriétaire : « Je n'aime pas le design de comment sont matérialisé les cartes, ça serait possible que ce soit de vrais cartes en bas ? […] Pareil ma main c'est pas ouf ». Entre deux maquettes, il a choisi « la carte en haut, en petit et épurée, pour voir où tu es », les choix en vraies cartes en bas ; et les jokers en vraies cartes, au cadre de leur rareté, qui se lèvent quand on les touche.
@@ -1522,7 +1524,7 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 **Conséquence** : la page ne défile plus jusqu'à l'escale où l'on est — seule la carte en grand défile, dans sa feuille. Le panneau a un budget : ce qui le grandit rapetisse l'acte en petit, au moins 170 pixels ; posée au bas du panneau, la main en prenait 90, et elle vit en tête. La chance et les gains d'une escale se lisent sur sa carte, sa marche et à qui est la chance dans sa description. Une rareté n'a qu'une couleur dans toute l'application, et le maudit prend le pourpre de l'épique. Rien ne change au serveur ni au pli.
 
-*Fichiers : `client/src/views/ExpeditionApp.tsx`, `client/src/styles.css`, `client/src/gemmes.ts`, `server/scripts/rendu-expedition.ts`, `server/test/expedition-carte-ecran.test.ts`*
+*Fichiers : `ExpeditionApp.tsx`, `client/src/styles.css`, `client/src/gemmes.ts`, `rendu-expedition.ts`, `expedition-carte-ecran.test.ts`*
 
 ### Un trophée que le serveur tait là où il ne se gagne pas
 **Contexte** : le codex promettait le trophée L'Explorateur, une piste au niveau d'explorateur. Ce niveau ne se voit qu'en préproduction, où les rencontres s'ouvrent ; la production ne le montre nulle part, et le propriétaire ne veut pas l'ouvrir avant une semaine de jeu (le 19 octobre 2026). Or l'album bâtit ses pistes d'un catalogue fixe, et le même code sert les deux environnements : un drapeau du code, comme `voiesMontrees`, l'aurait caché en préproduction aussi.
@@ -1531,7 +1533,7 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 **Conséquence** : la collection d'un joueur de la production ne compte pas trois trophées d'un niveau qu'il ne voit pas, et la préproduction le montre et le décerne. La renommée, elle, s'écrit partout : le jour où les rencontres s'ouvriront, chacun aura ses paliers à sa partie suivante. Un trophée réservé de plus prend le même champ et passe par le même drapeau du serveur.
 
-*Fichiers : `shared/hautsfaits.ts`, `shared/trophees.ts`, `server/src/core/campagne.ts`, `server/src/auth/profiles.ts`, `server/src/server.ts`, `server/test/expedition-codex.test.ts`, `server/test/trophees.test.ts`*
+*Fichiers : `shared/hautsfaits.ts`, `shared/trophees.ts`, `server/src/core/campagne.ts`, `server/src/auth/profiles.ts`, `server/src/server.ts`, `expedition-codex.test.ts`, `server/test/trophees.test.ts`*
 
 ### L'Ascension du codex : des crans qu'on choisit, ouverts par les victoires
 **Contexte** : au codex entier, le joueur fort allait au bout neuf fois sur dix, et plus rien ne restait à gagner pour qui gagne. Deux Ascensions étaient sur la table. Celle du brief de la V1 : un quatrième gardien, une seule vie, deux légendaires au bout, aucun ratée. Celle de la proposition du codex : des niveaux de difficulté après une première victoire. Le propriétaire a validé les recommandations du codex (« Go tout faire avec tes recommandations »), et veut attendre une semaine de jeu avant de durcir l'expédition de tous.
@@ -1540,7 +1542,7 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 **Conséquence** : mesuré au codex entier, le fort va au bout 93 fois sur cent sans cran, puis 88, 80, 75, 65 et 43 ; le moyen 56, puis 39, 23, 15, 7 et 0. Aux premiers chiffres, trois crans sur cinq ne retiraient presque rien au fort ; partir avec 30 de courage, rien du tout — le repos le remontait —, et ce cran est devenu une énergie de moins. Elle n'ouvre aucune carte et ne rapporte rien de plus que le cran suivant ; un cran de plus s'écrit dans `ASCENSION` et dans sa règle, et se mesure avant de se régler.
 
-*Fichiers : `shared/codex.ts`, `shared/expedition.ts`, `server/src/core/campagne.ts`, `server/src/expedition.ts`, `client/src/views/ExpeditionApp.tsx`, `client/src/views/RencontresDExpedition.tsx`, `server/scripts/calibrage-rencontres.ts`, `server/test/codex.test.ts`, `server/test/expedition-codex.test.ts`*
+*Fichiers : `codex.ts`, `expedition.ts`, `server/src/core/campagne.ts`, `src/expedition.ts`, `ExpeditionApp.tsx`, `RencontresDExpedition.tsx`, `calibrage-rencontres.ts`, `codex.test.ts`, `expedition-codex.test.ts`*
 
 ### Le jeu complet : une version du départ, et ce que chaque carte ajoute au verdict dit une seule fois
 **Contexte** : le prototype n'avait que deux cartes par famille ; le propriétaire, le 19 octobre 2026 : « Il n'y a vraiment pas beaucoup de rare / épique dans le jeu comme carte, cela donne pas beaucoup de diversité. Tu pourrais pas donner un jeu complet ? », puis « on joue toute les cartes à tous les tours car ça coûte pas beaucoup d'énergie et du coup y'a aucune réflexion ». Quarante-deux cartes de plus touchent au pli de toutes parts — des écus et du courage sur une bonne réponse, une attaque de plus, un pari rendu, une riposte, ce qu'une bonne réponse laisse à la question suivante, des formes qui paient autrement —, et la carte levée doit promettre ce que le serveur fera. Les expéditions parties se rejouent de leur journal à chaque lecture : une carte de plus dans les offres changerait les leurs.
@@ -1549,7 +1551,7 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 **Conséquence** : un test lève puis joue chacune des quarante-deux cartes, et compare la promesse de la page au pli. Une carte de plus s'écrit dans ces fonctions, jamais dans le pli seul ; une carte de plus au catalogue des offres monte la version. Le serveur ne lit que les versions qu'il connaît : la 8 oubliée dans `lireDepartDExpedition`, chaque départ du jeu complet se lisait illisible — un test des routes l'a trouvé. Une carte se mesure seule contre rien, ses offres isolées, avant d'entrer dans l'échelle : parmi soixante-cinq, une carte passait trop rarement pour qu'on lise ce qu'elle vaut. Mesurées ainsi, Représailles menait le joueur moyen au bout neuf fois sur dix, et la plupart des cartes à deux d'énergie ne valaient pas, à l'acte 1, Concentration et Prudence ensemble : retouchées avant la fusion, une version neuve n'ayant encore joué aucune expédition.
 
-*Fichiers : `shared/rencontres.ts`, `shared/expedition.ts`, `shared/codex.ts`, `server/src/core/campagne.ts`, `client/src/views/RencontresDExpedition.tsx`, `client/src/views/ExpeditionApp.tsx`, `client/src/gemmes.ts`, `server/scripts/anime/cartes.ts`, `server/scripts/calibrage-rencontres.ts`, `server/test/expedition-jeu-complet.test.ts`*
+*Fichiers : `rencontres.ts`, `expedition.ts`, `codex.ts`, `server/src/core/campagne.ts`, `RencontresDExpedition.tsx`, `ExpeditionApp.tsx`, `client/src/gemmes.ts`, `server/scripts/anime/cartes.ts`, `calibrage-rencontres.ts`, `expedition-jeu-complet.test.ts`*
 
 ### Les cartes améliorées : une clé « + », et une seule façon de reconnaître une carte
 **Contexte** : le propriétaire, le 19 octobre 2026 : « Est-ce que l'on pourrait pas aussi avoir un système d'amélioration des cartes ? ». Une carte améliorée vit dans tous les tas — le paquet, la main, la pioche, la défausse, les épuisées, les jouées, celles posées pour la rencontre —, et le pli, les refus, la carte levée et le serveur — la colonne `joker`, Double chance, ce qui vise la question — reconnaissaient chaque carte à sa clé, tas par tas. Rien n'est encore en production : le propriétaire teste seul la préproduction (« Ne prend pas en compte les joueurs »).
@@ -1558,7 +1560,7 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 **Conséquence** : le geste du journal ne change pas de forme — `jouer` porte la clé « + » —, et une carte améliorée se joue partout où sa carte se joue. Un test lève puis joue chacune des soixante et une, compare ce qu'elle annonce à ce que le pli fait, et vérifie qu'aucune ne fait moins que sa carte. Mesurées, six cents expéditions par case, elles rendent l'expédition plus facile : le joueur moyen va au bout 53 fois sur cent au niveau 1 et 89 au niveau 3, contre 47 et 66 au jeu complet d'avant elles ; le fort reste entre 95 et 99. Rien n'en est durci : la décision attend une semaine de jeu, comme celle du codex. Une carte de plus qui s'améliore prend son entrée dans `AMELIORATIONS` ; une amélioration retouchée une fois les rencontres ouvertes garderait ses chiffres d'avant, comme les cartes retouchées par le codex.
 
-*Fichiers : `shared/rencontres.ts`, `shared/expedition.ts`, `server/src/core/campagne.ts`, `client/src/views/RencontresDExpedition.tsx`, `client/src/views/ExpeditionApp.tsx`, `server/scripts/calibrage-rencontres.ts`, `server/test/expedition-ameliorations.test.ts`, `server/test/expedition-journal.ts`*
+*Fichiers : `rencontres.ts`, `expedition.ts`, `server/src/core/campagne.ts`, `RencontresDExpedition.tsx`, `ExpeditionApp.tsx`, `calibrage-rencontres.ts`, `expedition-ameliorations.test.ts`, `expedition-journal.ts`*
 
 ### Le plan fondu dans l'écran : ses escales se touchent sur place, plus de feuille
 **Contexte** : l'écran d'un acte montrait le plan en petit, un dessin sans un mot, et ses escales permises en cartes ; touché, le plan s'ouvrait en grand dans une feuille, la seule où une escale disait ce qu'elle cachait — un mélange, ses catégories. Le propriétaire, le 19 octobre 2026 : « est-ce que l'on pourrait pas avoir une fusion entre carte et l'interface, car là le zoom est séparé », et « lorsque l'on clique sur une des escales que l'on veut aller sans le mode carte, on ne peut pas voir le mélange ».
@@ -1567,7 +1569,7 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 **Conséquence** : une rangée d'escales fait une vingtaine de pixels en 360 × 640 : leur cible déborde de côté, où les voisines sont à quatre-vingts pixels. La ligne de l'escale touchée garde deux lignes, trois au plus, pour que le plan ne saute pas d'un toucher à l'autre. Les jokers de la production partagent l'écran : leur plan se touche de même.
 
-*Fichiers : `client/src/views/ExpeditionApp.tsx`, `client/src/views/RencontresDExpedition.tsx`, `client/src/styles.css`, `server/test/expedition-carte-ecran.test.ts`, `server/scripts/rendu-rencontres.ts`, `server/scripts/rendu-expedition.ts`*
+*Fichiers : `ExpeditionApp.tsx`, `RencontresDExpedition.tsx`, `client/src/styles.css`, `expedition-carte-ecran.test.ts`, `rendu-rencontres.ts`, `rendu-expedition.ts`*
 
 ### Les rencontres, le jeu : le départ ne les demande plus, et le drapeau reste
 **Contexte** : les rencontres étaient un prototype de la préproduction, que le départ proposait d'un interrupteur, « prototype » à côté, retenu sur le téléphone — coupées, l'expédition partait aux jokers. Le propriétaire, le 19 octobre 2026 : « je pense que l'on part sur ça donc ne plus demander ça, c'est vraiment le jeu maintenant ». Rien n'est encore déployé en production, où il teste seul.
@@ -1576,7 +1578,7 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 **Conséquence** : les jokers ne partent plus que d'un serveur aux rencontres fermées : leur rendu (`rendu-expedition.ts`) démarre le sien ainsi, et une expédition aux jokers déjà partie finit à ses règles. Le code des jokers reste — il rejoue les expéditions d'avant (invariant 14). La préparation coûte encore un aller-retour par carte jouée, en production comme ailleurs : la regrouper avec le pari, en un seul geste, reste à faire avant d'y inviter du monde.
 
-*Fichiers : `shared/rencontres.ts`, `server/src/server.ts`, `server/src/api.ts`, `server/src/expedition.ts`, `client/src/views/ExpeditionApp.tsx`, `client/src/views/RencontresDExpedition.tsx`, `server/scripts/rendu-expedition.ts`, `server/test/expedition-rencontres-routes.test.ts`, `server/test/expedition-codex.test.ts`*
+*Fichiers : `rencontres.ts`, `server/src/server.ts`, `server/src/api.ts`, `src/expedition.ts`, `ExpeditionApp.tsx`, `RencontresDExpedition.tsx`, `rendu-expedition.ts`, `expedition-rencontres-routes.test.ts`, `expedition-codex.test.ts`*
 
 ### Un style choisi au départ, et l'échelle qui ouvre la variété d'abord
 **Contexte** : « Pour les cartes il faut vraiment plus de gameplay différents. Quitte à rajouter des communes aussi. Là aujourd'hui j'ai l'impression de piocher tout le temps la même chose et de pas avoir à choisir de style de jeu » (le propriétaire, le 19 octobre 2026). Au niveau 1, les offres tiraient parmi huit cartes, presque toutes neutres ; les familles n'arrivaient qu'aux niveaux 5 à 10 ; le paquet de départ, huit cartes de base sur dix, était le même pour tous ; et seul le poids des familles dans les offres laissait deviner, après coup, quelle façon de gagner on jouait.
@@ -1585,7 +1587,7 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 **Conséquence** : mesuré (`calibrage-rencontres.ts --styles`), le style ne pèse rien sur qui choisit ses cartes — à dix points près du départ sans style —, mais suivi à la lettre, il sépare les familles : au niveau 10, le joueur moyen va au bout 94 fois sur cent avec le Rempart, 35 avec le Flambeur, 80 sans style. Les cartes qui ne font qu'attaquer valent moins que les boucliers ; les règles le disent (« un paquet qui ne fait qu'attaquer tombe vite »), et les aiguiser — une retouche de leurs chiffres, sous une version neuve du départ — attend la semaine de jeu. Le paquet d'un style se relit à chaque pli : changer ses cartes de départ changerait celui d'une expédition en route, et monte donc la version.
 
-*Fichiers : `shared/rencontres.ts`, `shared/codex.ts`, `shared/expedition.ts`, `server/src/core/campagne.ts`, `server/src/expedition.ts`, `client/src/views/ExpeditionApp.tsx`, `client/src/views/RencontresDExpedition.tsx`, `server/scripts/calibrage-rencontres.ts`, `server/test/expedition-styles.test.ts`*
+*Fichiers : `rencontres.ts`, `codex.ts`, `expedition.ts`, `server/src/core/campagne.ts`, `src/expedition.ts`, `ExpeditionApp.tsx`, `RencontresDExpedition.tsx`, `calibrage-rencontres.ts`, `expedition-styles.test.ts`*
 
 ### Les huit familles : le doute et le courage qu'on paie, chacun d'une seule règle
 **Contexte** : « Ton style » donnait six styles, qui gagnaient tous de la même façon — frapper plus fort sur une bonne réponse, ou se protéger d'une mauvaise. Le propriétaire, le même 19 octobre 2026 : « Pour les cartes il faut vraiment plus de gameplay différents. Quitte à rajouter des communes aussi. » Deux mécaniques neuves touchent au verdict : un dégât qui ne dépend pas de la réponse, et un prix payé en courage — et la carte levée doit promettre ce que le serveur fera.
@@ -1594,7 +1596,7 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 **Conséquence** : un dégât sûr vaut bien plus qu'un « +N si juste ». Aux premiers chiffres, le doute baissait de 1 par question et s'additionnait : mesurée seule, Insinuation menait le joueur moyen au bout neuf fois sur dix contre une sur deux. Il ne dure plus que sous Paranoïa, et ses chiffres partent du plus bas — 2, 1 par erreur, 1 par question —, pour six à huit points de plus par carte. Suivi à la lettre, le Téméraire est le style le plus risqué ; par qui choisit ses cartes, à dix points du départ sans style, comme les autres — parti avec deux cartes qui se paient, il laissait le joueur faible treize points derrière. L'en-tête de la révélation relisait les points de la vue d'avant moins les seuls points brisés, et gardait ce que le doute avait pris : une seule fonction relit désormais ce que la réponse a laissé (`adversaireALaRevelation`), et un test la rend. Les seize cartes se sont peintes au modèle Nano Banana 2, deux fois moins cher : 0,55 $.
 
-*Fichiers : `shared/rencontres.ts`, `shared/expedition.ts`, `shared/codex.ts`, `server/src/core/campagne.ts`, `client/src/views/RencontresDExpedition.tsx`, `client/src/views/ExpeditionApp.tsx`, `client/src/components/Onglets.tsx`, `server/scripts/anime/cartes.ts`, `server/scripts/anime/gemini.ts`, `server/scripts/calibrage-rencontres.ts`, `server/scripts/rendu-rencontres.ts`, `server/test/expedition-huit-familles.test.ts`*
+*Fichiers : `rencontres.ts`, `expedition.ts`, `codex.ts`, `server/src/core/campagne.ts`, `RencontresDExpedition.tsx`, `ExpeditionApp.tsx`, `client/src/components/Onglets.tsx`, `server/scripts/anime/cartes.ts`, `server/scripts/anime/gemini.ts`, `calibrage-rencontres.ts`, `rendu-rencontres.ts`, `expedition-huit-familles.test.ts`*
 
 ### Les cartes jouées sur place : la page applique la règle du pli, le serveur la rejoue en lot
 **Contexte** : la phase d'optimisation de l'Expédition (le 19 octobre 2026 : « On peut peut être partir sur une phase d'optimisation des performances alors sur ce mode de jeu. Que ce soit chargement des images / requêtes etc ? »). Mesurée par une expédition jouée de bout en bout par l'API, chaque question coûtait 4,5 requêtes : chaque carte de préparation partait seule, et attendait le réseau du téléphone — 165 ms en 4G — puis une écriture de Turso. Les réponses pesaient 1,3 Ko compressées et le serveur y passait 7 à 10 ms : c'étaient les allers-retours qui coûtaient, pas leur poids.
@@ -1603,7 +1605,7 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 **Conséquence** : 2,6 requêtes par question au lieu de 4,5 — « voir » et la réponse restent : la question ne part qu'une fois vue (invariant 1). Le journal ne change pas de format, aucune version du départ ne monte, et une expédition se rejoue comme avant. Mais la page applique une règle du serveur : une carte neuve qui touche la vue autrement que par ses chiffres doit l'y suivre, et `expedition-sur-place.test.ts` le garde — chaque carte jouée sur place, puis des expéditions entières au hasard, contre la vue que le pli rend ; il a trouvé L'écholocation, qui ôtait la chance de l'annonce sans le dire au calcul de la page. Les petites peintures du paquet se demandent d'avance, la grande d'une carte levée tout de suite, sur la petite.
 
-*Fichiers : `shared/expedition.ts`, `server/src/core/campagne.ts`, `server/src/expedition.ts`, `client/src/api.ts`, `client/src/views/ExpeditionApp.tsx`, `client/src/views/RencontresDExpedition.tsx`, `server/test/expedition-sur-place.test.ts`*
+*Fichiers : `expedition.ts`, `server/src/core/campagne.ts`, `src/expedition.ts`, `client/src/api.ts`, `ExpeditionApp.tsx`, `RencontresDExpedition.tsx`, `expedition-sur-place.test.ts`*
 
 ### La réponse à composer : des tuiles, et le serveur seul sait l'ordre
 **Contexte** : l'étape 3 de « La question au centre » (le 19 octobre 2026), après un testeur : « des lettres présentes dans la réponse […] comme un pendu ». Une question sans choix doit pourtant se répondre au téléphone, sans clavier — il pousserait les boutons hors de l'écran —, et sa réponse ne doit jamais partir avant le verdict (invariant 1). Le propriétaire : « Jusqu'à deux mots, 12 lettres ».
@@ -1612,16 +1614,16 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 **Conséquence** : la forme est plus dure — un sur dix de hasard au lieu d'un sur quatre (`chanceSelonLaForme`) — et rapporte deux crans, comme six choix : mesurées, les deux se compensent, et le joueur moyen va au bout comme en version 10. Une réponse composée ne mesure rien (`campagne_reponses.forme`), une aidée non plus (`campagne_reponses.joker`). Les trois coups de pouce lisent la bonne réponse : le serveur seul les calcule (`ceQueDitLInitiale`, `ceQueDitLaLettre`, `ceQueDitLeRepere`), et la vue les envoie en phrases (`pouces`). Le repère sans époque à dire efface, comme le Sphinx : ne dire que le domaine de la question, que l'escale dit déjà, le laissait mort six fois sur dix dans la main, et mesuré seul, il faisait perdre des points (`calibrage-rencontres.ts --cartes`). Une expédition de la version 10 finit à ses règles : ses cartes, gardées, n'ont aucune escale à composer, son codex figé aucune des trois cartes.
 
-*Fichiers : `shared/lettres.ts`, `shared/rencontres.ts`, `shared/expedition.ts`, `shared/codex.ts`, `server/src/core/campagne.ts`, `client/src/views/ExpeditionApp.tsx`, `client/src/views/RencontresDExpedition.tsx`, `server/scripts/calibrage-rencontres.ts`, `server/test/expedition-coups-de-pouce.test.ts`*
+*Fichiers : `shared/lettres.ts`, `rencontres.ts`, `expedition.ts`, `codex.ts`, `server/src/core/campagne.ts`, `ExpeditionApp.tsx`, `RencontresDExpedition.tsx`, `calibrage-rencontres.ts`, `expedition-coups-de-pouce.test.ts`*
 
 ### Les curiosités : tirées sur leur propre fil, et un rébus qui n'est pas une question de la base
 **Contexte** : l'étape 4 de « La question au centre » (le 19 octobre 2026), après le même testeur : « des trucs bonus sur le chemin qui te filent des récompenses cool » — l'origine d'un plat, « 4 images 1 mot ». Le propriétaire : le rébus à composer, cent plats écrits pour elle, une récompense au choix, une par acte. Une escale de plus au tirage des sortes (`POIDS_DES_ESCALES_DES_RENCONTRES`) aurait déplacé toutes les escales d'après sur chaque plan ; et un rébus n'a ni leurres, ni catégorie, ni difficulté mesurée : la base de la campagne n'en voudrait pas — `verifier` le refuserait, le carnet le reposerait, la mesure le lirait comme une question de culture.
 
-**Décision** : une version neuve du départ, la 12 (`VERSION_DES_CURIOSITES`). Le plan se fait comme en version 11, puis une de ses escales à question des étages 2 à 6 devient une curiosité, tirée sur son propre fil (`graine:curiosite:acte`, `poserLaCuriosite`) : aucune autre escale ne bouge. Le plat est une question de la base, prise parmi ceux qu'une liste tenue à la main retient (`server/content/curiosites/plats.json` : ce que les « D'où vient… ? » de la cuisine ne disent pas d'eux-mêmes — un fromage, une sauce, une marque, l'origine d'un nom — se décide à l'œil). Le rébus vit à part (`server/content/curiosites/rebus.json`, `server/src/core/curiosites.ts`) : sa question se fabrique au tirage, à composer, et sa réponse s'écrit au journal sous `rebus:<id>` avec la forme `lettres` — l'expérience et les confettis la comptent comme une autre, la mesure l'écarte par sa forme, le carnet par son identifiant, en SQL (`suivisDe`), et le signalement la refuse. La récompense est une offre à part (`offre.curiosite`) : des rares de son codex (`RARETES_D_UNE_CURIOSITE`), la fiole et le talisman à leur règle, une seule place à prendre, du hasard de la graine et du rang de l'offre ; ni L'horizon, ni les écus d'un coffre laissé.
+**Décision** : une version neuve du départ, la 12 (`VERSION_DES_CURIOSITES`). Le plan se fait comme en version 11, puis une de ses escales à question des étages 2 à 6 devient une curiosité, tirée sur son propre fil (`graine:curiosite:acte`, `poserLaCuriosite`) : aucune autre escale ne bouge. Le plat est une question de la base, prise parmi ceux qu'une liste tenue à la main retient (`curiosites/plats.json` : ce que les « D'où vient… ? » de la cuisine ne disent pas d'eux-mêmes — un fromage, une sauce, une marque, l'origine d'un nom — se décide à l'œil). Le rébus vit à part (`curiosites/rebus.json`, `core/curiosites.ts`) : sa question se fabrique au tirage, à composer, et sa réponse s'écrit au journal sous `rebus:<id>` avec la forme `lettres` — l'expérience et les confettis la comptent comme une autre, la mesure l'écarte par sa forme, le carnet par son identifiant, en SQL (`suivisDe`), et le signalement la refuse. La récompense est une offre à part (`offre.curiosite`) : des rares de son codex (`RARETES_D_UNE_CURIOSITE`), la fiole et le talisman à leur règle, une seule place à prendre, du hasard de la graine et du rang de l'offre ; ni L'horizon, ni les écus d'un coffre laissé.
 
 **Conséquence** : mesurée (`calibrage-rencontres.ts --version 12`), la curiosité fait gagner au joueur moyen quatre à six points d'aller au bout aux niveaux 1, 3 et 10 — un adversaire de moins sur les chemins qui passent par elle, une rare de plus en main —, et ne change presque rien au fort : le cadeau voulu. Un identifiant de `campagne_reponses` n'est plus toujours une question de la base : une lecture neuve qui joint la base, ou reprend une réponse pour la reposer, écarte `rebus:` (`PREFIXE_DU_REBUS`). Les rébus se relisent par un test, un à un — des emojis d'avant Unicode 13, sans drapeau, ni liant, ni couleur de peau, une réponse qui se compose —, et un rébus qui ne se pose pas est écarté au chargement (`refusDuRebus`). La liste des plats ne grandit pas d'elle-même : un plat neuf de la base n'est une curiosité qu'ajouté à la main.
 
-*Fichiers : `shared/curiosites.ts`, `shared/rencontres.ts`, `shared/expedition.ts`, `server/src/core/curiosites.ts`, `server/src/core/campagne.ts`, `server/content/curiosites/plats.json`, `server/content/curiosites/rebus.json`, `client/src/views/ExpeditionApp.tsx`, `client/src/views/RencontresDExpedition.tsx`, `client/src/components/SerieCorrigee.tsx`, `server/scripts/calibrage-rencontres.ts`, `server/test/expedition-curiosites.test.ts`*
+*Fichiers : `curiosites.ts`, `rencontres.ts`, `expedition.ts`, `core/curiosites.ts`, `server/src/core/campagne.ts`, `curiosites/plats.json`, `curiosites/rebus.json`, `ExpeditionApp.tsx`, `RencontresDExpedition.tsx`, `client/src/components/SerieCorrigee.tsx`, `calibrage-rencontres.ts`, `expedition-curiosites.test.ts`*
 
 ### La frise : des questions datées de la base, récrites en une ligne, et l'ordre du temps au serveur
 **Contexte** : l'étape 5 de « La question au centre » (le 20 octobre 2026), après le même testeur : « des événements à remettre dans l'ordre ». Le propriétaire, la nuit même : « je te laisse continuer les étapes et appliquer tes recommandations » — les choix qui suivent sont des recommandations, appliquées en son absence (le brief, `retours/2026-10-20/la-frise.md`). Une frise demande des événements sûrs de leur année : six cents écrits de mémoire, dates comprises, auraient demandé une relecture de chaque date ; et l'ordre du temps ne doit pas partir avant le verdict (invariant 1).
@@ -1630,7 +1632,7 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 **Conséquence** : la forme est plus dure — un sur vingt-quatre de hasard — et rapporte deux crans : mesurée (`calibrage-rencontres.ts --version 13`), elle ne déplace rien que le bruit de trois cents expéditions. Comme le rébus, une frise n'est pas une question de la base : la mesure l'écarte par sa forme, le carnet par son préfixe, en SQL, le signalement la refuse, et une lecture neuve de `campagne_reponses` qui joint la base écarte `frise:` (`PREFIXE_DE_LA_FRISE`). Une question retirée de la base emporte son événement ; une correction de fond, qui lui tire un identifiant neuf, le laisse à récrire. Une expédition de la version 12 finit à ses règles : ses plans, gardés, n'ont aucune frise. Le détail — un tableau reconnu d'un détail — attend ses images : le conteneur de travail ne joint pas `upload.wikimedia.org`.
 
-*Fichiers : `shared/frise.ts`, `shared/rencontres.ts`, `shared/expedition.ts`, `shared/campagne.ts`, `server/src/core/frises.ts`, `server/src/core/campagne.ts`, `server/content/frises/evenements.json`, `server/scripts/frises.ts`, `client/src/views/ExpeditionApp.tsx`, `client/src/views/RencontresDExpedition.tsx`, `client/src/components/FriseRangee.tsx`, `client/src/components/SerieCorrigee.tsx`, `server/scripts/calibrage-rencontres.ts`, `server/test/expedition-frise.test.ts`*
+*Fichiers : `shared/frise.ts`, `rencontres.ts`, `expedition.ts`, `shared/campagne.ts`, `server/src/core/frises.ts`, `server/src/core/campagne.ts`, `server/content/frises/evenements.json`, `server/scripts/frises.ts`, `ExpeditionApp.tsx`, `RencontresDExpedition.tsx`, `client/src/components/FriseRangee.tsx`, `client/src/components/SerieCorrigee.tsx`, `calibrage-rencontres.ts`, `expedition-frise.test.ts`*
 
 ### Les familles en façons de répondre : le second essai au journal des gestes, et chaque carte mesurée seule
 **Contexte** : l'étape 6 de « La question au centre » (le 20 octobre 2026). La version 10 avait traduit chaque carte en crans, et la plupart des familles y étaient devenues la même carte sous cinq conditions ; mesuré (`calibrage-rencontres.ts --styles --version 13`), choisir un style faisait aller le joueur moyen moins souvent au bout, jusqu'à vingt points de moins pour le Flambeur au niveau 10. Le propriétaire, le même matin, à chaque recommandation : le Rempart revient avec un second essai, le Flambeur mise la question sous les yeux, l'Érudit fait venir sa catégorie fétiche, six styles (`retours/2026-10-20/les-familles.md`). Un second essai répond deux fois à la même question, et la clé de `campagne_reponses` (`serie_id`, `position`) n'a de place que pour une réponse.
@@ -1639,7 +1641,7 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 **Conséquence** : une question trouvée au second essai n'entrait pas au carnet — une bonne réponse aidée n'y retrouve rien, et le carnet ne lit pas les gestes —, un écart au brief, qui l'y voulait retrouvée ou non ; la version 15 l'y fait entrer, par la carte de l'essai (plus bas, « Le détail »). Mesurer chaque carte seule a déplacé la moitié de leurs mots, en cinq passes : une carte qui frappe vaut peu dans une rencontre de deux à quatre crans, une aide qui revient beaucoup — et le joueur simulé doit jouer une carte comme on la jouerait (Inarrêtable, posé quand il savait, se mesurait mort). Les styles n'en sont plus qu'à huit points au plus du départ sans style, l'Élan mis à part, et l'expédition est devenue plus facile pour le joueur moyen : les crans des adversaires, intouchés, restent le levier. Ce que valent les cartes et les styles est dans le brief et dans les barèmes (`docs/reference/baremes.md`, « Les familles ») ; une expédition de la version 13 finit à ses règles — ses cartes gardent leurs mots, son codex figé ne nomme aucune reprise, le Rempart n'y est pas.
 
-*Fichiers : `shared/rencontres.ts`, `shared/expedition.ts`, `shared/codex.ts`, `server/src/core/campagne.ts`, `client/src/views/ExpeditionApp.tsx`, `client/src/views/RencontresDExpedition.tsx`, `server/scripts/calibrage-rencontres.ts`, `server/scripts/rendu-familles.ts`, `server/test/expedition-familles.test.ts`*
+*Fichiers : `rencontres.ts`, `expedition.ts`, `codex.ts`, `server/src/core/campagne.ts`, `ExpeditionApp.tsx`, `RencontresDExpedition.tsx`, `calibrage-rencontres.ts`, `rendu-familles.ts`, `expedition-familles.test.ts`*
 
 ### Le détail : une question de la base montrée en image, chaque cadrage servi à son heure — et un gardien expert
 **Contexte** : le 20 octobre 2026, le propriétaire, aux questions laissées par la version 14 : « Je veux quelque chose de bien plus difficile, aussi met un offset car tu as tendance à sous estimer la difficulté. Fait la forme du détail. Les autres suit tes recommandations » (`retours/2026-10-20/le-detail.md`). Les cent tableaux et leurs quatre cadrages étaient livrés hors de `client/public` (invariant 1) ; la version 14 menait le fort au bout presque toujours, le moyen plus d'une fois sur deux.
@@ -1648,7 +1650,7 @@ Le détail : [l'Expédition](../produit/l-expedition.md), et le brief de la V1, 
 
 **Conséquence** : la cible a changé en route — le propriétaire, relayé par la session qui avait lancé la version : « Je veux qu'avec les cartes plus rares, et du coup le fait de jouer, ça aide vraiment à gagner. Je suis d'accord pour avoir un faible pourcentage de victoire au début » ; les marches n'y suffisaient plus. Ce qui ne dépend pas des cartes s'est durci d'abord — le soin rendu à moitié (`SOIN_DU_DETAIL`) —, puis la rareté s'est fait sentir : **une rare jouée sur la question pare la moitié de l'attaque d'une erreur, une épique toute** (`PARADE_DE_LA_RARETE`). Des crans de plus à l'épique, deux réponses effacées, une épique jouée en plus de la carte de la question, plus d'épiques dans les offres : sans effet mesurable, retirés. Mesuré (`calibrage-rencontres.ts --version 15`, cinq cents expéditions par case), le faible, le moyen et le fort vont au bout 1, 6 et 30 fois sur cent au niveau 1, 3, 17 et 50 au 3, 4, 22 et 59 au 6 et au 10 ; sans prendre une carte, au niveau 10, 1, 5 et 26. Le niveau 3 reste un peu au-dessus de la cible, le fort du niveau 10 six à onze points en dessous : passé le niveau 3, une carte de plus aide moins — une par question, et le joueur en a déjà une qui sert. Cinq rares et épiques n'y valent pas encore clairement plus qu'une commune, à retoucher (le brief). Le joueur simulé doit prendre les cartes dans l'ordre de leur mesure à la version mesurée : avec l'ordre de la version 14, l'acte 3 « difficile en haut » semblait suffire, et le joueur remis à jour y allait au bout huit fois sur dix. Une expédition de la version 14 finit à ses règles : ses plans n'ont aucun détail, ses marches, son soin, son Élan restent les siens, et ses rares ne parent rien. Une lecture de `campagne_reponses` qui veut savoir si une question a été ratée lit aussi la colonne `joker` : une carte d'essai y dit une première réponse fausse.
 
-*Fichiers : `shared/expedition.ts`, `shared/rencontres.ts`, `shared/campagne.ts`, `server/src/core/details.ts`, `server/src/core/campagne.ts`, `server/src/expedition.ts`, `client/src/components/TableauDuDetail.tsx`, `client/src/components/TableauEntier.tsx`, `client/src/views/ExpeditionApp.tsx`, `client/src/views/RencontresDExpedition.tsx`, `server/scripts/calibrage-rencontres.ts`, `server/scripts/rendu-detail.ts`, `server/test/expedition-detail.test.ts`*
+*Fichiers : `expedition.ts`, `rencontres.ts`, `shared/campagne.ts`, `server/src/core/details.ts`, `server/src/core/campagne.ts`, `src/expedition.ts`, `TableauDuDetail.tsx`, `client/src/components/TableauEntier.tsx`, `ExpeditionApp.tsx`, `RencontresDExpedition.tsx`, `calibrage-rencontres.ts`, `rendu-detail.ts`, `expedition-detail.test.ts`*
 
 ## Le Cabinet de curiosités
 
@@ -1746,7 +1748,7 @@ Le détail : [le Cabinet de curiosités](../produit/le-cabinet.md), et la propos
 
 **Conséquence** : ni carnet, ni signalement, ni mesure pour un contenu `cab:`. Ce qu'une manche a révélé passe après ce qu'il n'a jamais vu, au Cabinet comme en série, à l'épreuve, au défi, au dé et en duel — comme une question qu'il aurait répondue. Une manche de l'Éclair n'est la première réponse d'aucune de ses questions : la mesure, le modèle du savoir et la chance des sentiers ne lisent que celles qu'il a données. `journal-des-reponses.test.ts` compare ce qu'il a vu au SQL d'avant, déplié, et ses premières réponses au SQL d'avant tel quel.
 
-*Fichiers : `shared/cabinet/pieces.ts`, `shared/cabinet/partie.ts`, `shared/cabinet/jeux/detail.ts`, `shared/frise.ts`, `shared/curiosites.ts`, `server/src/core/journalDesReponses.ts`, `server/src/core/details.ts`, `server/test/cabinet-hors-des-vues.test.ts`*
+*Fichiers : `shared/cabinet/pieces.ts`, `shared/cabinet/partie.ts`, `shared/cabinet/jeux/detail.ts`, `shared/frise.ts`, `curiosites.ts`, `server/src/core/journalDesReponses.ts`, `server/src/core/details.ts`, `server/test/cabinet-hors-des-vues.test.ts`*
 
 ### La colonne `joker` porte un pouvoir, jamais la clé d'une carte
 **Contexte** : une réponse aidée porte de quoi l'aider dans `campagne_reponses.joker`, que la mesure écarte. Or Bastion et Cuirasse sont aussi des cartes du second essai de l'Expédition : écrite en clé, une juste du Cabinet passerait pour ratée au carnet.
@@ -1755,7 +1757,7 @@ Le détail : [le Cabinet de curiosités](../produit/le-cabinet.md), et la propos
 
 **Conséquence** : le carnet et la mesure lisent juste sans connaître le Cabinet.
 
-*Fichiers : `shared/cabinet/pieces.ts`, `shared/rencontres.ts`*
+*Fichiers : `shared/cabinet/pieces.ts`, `rencontres.ts`*
 
 ### Trois tables neuves, et aucune lecture qui grandisse avec l'histoire
 **Contexte** : le quota de Turso compte les lignes parcourues — 333 millions lues au 22 octobre 2026. Une somme relue sur toutes les parties à chaque page grandirait avec chaque joueur fidèle.
@@ -1818,7 +1820,7 @@ Le détail : [le Cabinet de curiosités](../produit/le-cabinet.md), et la propos
 
 **Conséquence** : un rangement raté se rattrape à la page suivante ; un légendaire déjà à lui par une autre voie est un gardien réveillé, sans cérémonie. Les vingt-trois gardiens sont exactement les légendaires à joker, jamais un Divin (`cabinet-catalogue.test.ts`).
 
-*Fichiers : `shared/cabinet/salles.ts`, `shared/legendaires.ts`, `shared/jokers.ts`, `server/test/cabinet-catalogue.test.ts`*
+*Fichiers : `shared/cabinet/salles.ts`, `shared/legendaires.ts`, `jokers.ts`, `server/test/cabinet-catalogue.test.ts`*
 
 ### Le Cabinet vit hors de la campagne, derrière une porte étroite ; un module pur par jeu
 **Contexte** : `server/src/core/campagne.ts` fait près de onze mille lignes, et ses règles en chargent 170 Ko ; oublier une étape du rituel d'une réponse de campagne est un piège documenté.
@@ -1838,7 +1840,7 @@ Le détail : [le Cabinet de curiosités](../produit/le-cabinet.md), et la propos
 
 **Depuis le 31 octobre 2026** : les deux drapeaux sont à oui, et le second fait plus que ce titre ne dit. À la demande du propriétaire — « l'Expédition doit être effacée et plus accessible, uniquement le Cabinet visible » —, il ne ferme pas le seul départ : aucune route de l'Expédition n'est montée (`server/src/api.ts` : `/api/expedition` répond 404 à tous), `/expedition` renvoie au Cabinet, et une expédition en route ne se finit pas — ce qu'elle avait donné reste. Le refus du départ décrit ici (`DEPART_FERME`, `departFerme`) reste dans le code, sans serveur qui le prenne. Le banc garde le drapeau à non (`expeditionRemplacee: false`) : les fichiers qui partent en expédition tournent encore, et `cabinet-ouverture.test.ts` le passe à oui pour garder l'effacement.
 
-*Fichiers : `shared/cabinet/ouverture.ts`, `shared/jokers.ts`, `server/src/expedition.ts`, `server/test/banc.ts`*
+*Fichiers : `shared/cabinet/ouverture.ts`, `jokers.ts`, `src/expedition.ts`, `server/test/banc.ts`*
 
 ### Pas de migration : chacun commence son Cabinet à zéro
 **Contexte** : « les joueurs actuels ne perdent rien », disait la proposition : toute carte que leur codex de l'Expédition leur avait ouverte devait devenir une œuvre possédée, « Rapportée de l'Expédition ». La conception en faisait une passe de fond, une fois, sur l'union des codex figés de chaque départ — le codex d'aujourd'hui n'ouvre que 59 des 84 cartes, quand celui d'un joueur d'une version d'avant en ouvrait 81 —, puis chaque expédition finie rapportait encore ce qu'elle ouvrait, par un crochet de la campagne ; une version du Cabinet relirait les profils au démarrage, et la migration se mesurerait à blanc sur la production avant l'ouverture.

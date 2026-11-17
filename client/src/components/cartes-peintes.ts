@@ -1,5 +1,5 @@
 // Les cartes peintes de l'Expédition : l'illustration de chaque carte sans
-// légendaire (`shared/rencontres.ts`) ; celle d’un légendaire est son
+// légendaire (`shared/cabinet/oeuvres.ts`) ; celle d’un légendaire est son
 // médaillon. Leurs fichiers vivent dans `client/public/cartes`.
 //
 // Écrit par `server/scripts/anime/cartes.ts --livrer` : on ne le retouche

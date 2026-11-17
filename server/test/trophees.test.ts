@@ -19,7 +19,6 @@ import { THEMES, themeGagne } from '../../shared/themes'
 import { LEGENDAIRES, PREFIXES_DES_VOIES_RANGEES, estUneVoieRangee, partiesDe, voiesDe } from '../../shared/legendaires'
 import { HAUTS_FAITS_DE_CARRIERE, HAUTS_FAITS_REGAGNABLES, clePalier, hautFait, type HautFaitVu } from '../../shared/hautsfaits'
 import { SEUILS_DU_LAURIER } from '../../shared/jour'
-import { voieDeLExpeditionDite } from '../../shared/jokers'
 import { CONFETTIS_D_UN_RANG } from '../../shared/cabinet/bareme'
 import { NOMS_DES_DEFIS, PHRASES_DES_DEFIS } from '../../shared/cabinet/sceaux'
 import { CARTES_PEINTES } from '../../client/src/components/cartes-peintes'
@@ -155,37 +154,35 @@ const NEUF = {
   sentiers: {},
 }
 
-test('l’album compte tout ce qui se gagne par ce qu’on a fait : 253 trophées, une page par mode — et s’ouvre où l’on joue', () => {
+test('l’album compte tout ce qui se gagne par ce qu’on a fait : 250 trophées, une page par mode — et s’ouvre où l’on joue', () => {
   const pages = albumDesTrophees(NEUF as any)
   assert.deepEqual(
     pages.map(p => `${p.page} ${p.acquis}/${p.total}`),
     // La soirée : huit pistes de trois métaux, onze exploits, neuf coups du sort, vingt prix ;
-    // le quiz du jour : six pistes — La Plume depuis le 2 novembre 2026 —, six exploits, trois coups, douze pages ; la campagne : quatre pistes — le
-    // Globe-trotter, le passeport de l'expédition, depuis le 18 octobre 2026 —, cinq exploits ; les duels : six
+    // le quiz du jour : six pistes — La Plume depuis le 2 novembre 2026 —, six exploits, trois coups, douze pages ; la campagne : trois pistes — quatre,
+    // 253 trophées en tout, du 18 octobre au 16 novembre 2026, avec le Globe-trotter, le passeport de l'Expédition, parti
+    // avec elle —, cinq exploits ; les duels : six
     // ligues, six bordures serties ; les sentiers : trois pistes, deux exploits, douze maîtres ; le Cabinet, depuis le
     // 1er novembre 2026 : L'Explorateur, rangé en campagne jusque-là, et depuis le 4 ses six pistes de fond, ses dix
     // jeux de trois métaux et ses cinq exploits ; partout : douze écussons de trois métaux, le niveau et les Éclats.
-    ['soiree 0/64', 'jour 0/39', 'campagne 0/17', 'duels 0/12', 'sentiers 0/23', 'cabinet 0/56', 'partout 0/42'],
+    ['soiree 0/64', 'jour 0/39', 'campagne 0/14', 'duels 0/12', 'sentiers 0/23', 'cabinet 0/56', 'partout 0/42'],
   )
-  assert.deepEqual(compteDesTrophees(NEUF as any), { acquis: 0, total: 253 })
+  assert.deepEqual(compteDesTrophees(NEUF as any), { acquis: 0, total: 250 })
   // Les pistes du Cabinet ne se comptent que là où le serveur les cite — là où le Cabinet s'ouvre : un serveur où il est
   // fermé les tait, et sa collection ne compte pas ce qu'elle ne montre nulle part — ni ses exploits, qui n'ont de case
   // que là ; sans rien d'autre du Cabinet, sa page ne s'ouvre pas.
   const sansLui = { ...NEUF, hautsFaits: NEUF.hautsFaits.filter(h => !HAUTS_FAITS_DE_CARRIERE.some(x => x.auCabinet && x.key === h.key)) }
-  assert.deepEqual(compteDesTrophees(sansLui as any), { acquis: 0, total: 197 })
+  assert.deepEqual(compteDesTrophees(sansLui as any), { acquis: 0, total: 194 })
   assert.ok(!albumDesTrophees(sansLui as any).some(p => p.sections.some(s => s.cases.some(c => c.cle === 'hf:explorateur'))))
   assert.ok(!albumDesTrophees(sansLui as any).some(p => p.page === 'cabinet'), 'pas de page « Cabinet 0/0 »')
-  // Le Globe-trotter de même, là où l'Expédition est effacée : le serveur ne le cite plus qu'à ses détenteurs, et la
-  // collection des autres ne compte plus « 0 sur 3 » un passeport qu'aucune page ne tamponne. Les trois autres pistes de
-  // la campagne restent.
-  const sansPasseport = { ...NEUF, hautsFaits: NEUF.hautsFaits.filter(h => h.key !== 'hf:globe-trotter') }
-  assert.deepEqual(compteDesTrophees(sansPasseport as any), { acquis: 0, total: 250 })
-  const campagneSans = albumDesTrophees(sansPasseport as any).find(p => p.page === 'campagne')!
-  assert.equal(`${campagneSans.acquis}/${campagneSans.total}`, '0/14')
-  assert.deepEqual(campagneSans.sections[0].cases.map(c => c.cle), ['hf:alpiniste', 'hf:erudit', 'hf:marathonien'])
-  // Cité — à son détenteur, ou là où l'Expédition répond encore —, sa case reste, son bronze dessus.
-  const tenu = albumDesTrophees({ ...NEUF, hautsFaits: NEUF.hautsFaits.map(h => (h.key === 'hf:globe-trotter' ? { ...h, fois: 1, valeur: 12, prochain: 40 } : h)) } as any)
-  assert.equal(tenu.find(p => p.page === 'campagne')!.sections[0].cases.find(c => c.cle === 'hf:globe-trotter')?.metaux, 1)
+  // Le Globe-trotter a quitté le catalogue avec l'Expédition (le 16 novembre 2026) : plus aucune collection ne compte un
+  // passeport qu'aucune page ne tamponnait. Les trois autres pistes de la campagne restent.
+  assert.ok(!NEUF.hautsFaits.some(h => h.key === 'hf:globe-trotter'), 'le catalogue ne le connaît plus')
+  assert.deepEqual(pages.find(p => p.page === 'campagne')!.sections[0].cases.map(c => c.cle), ['hf:alpiniste', 'hf:erudit', 'hf:marathonien'])
+  // Même cité — par un serveur d'avant, le temps d'une mise en ligne —, il n'a plus de case, et le compte ne bouge pas.
+  const cite = { ...NEUF, hautsFaits: [...NEUF.hautsFaits, { ...NEUF.hautsFaits.find(h => h.key === 'hf:marathonien')!, key: 'hf:globe-trotter', fois: 1, valeur: 12, prochain: 40 }] }
+  assert.equal(albumDesTrophees(cite as any).find(p => p.page === 'campagne')!.sections[0].cases.find(c => c.cle === 'hf:globe-trotter'), undefined)
+  assert.deepEqual(compteDesTrophees(cite as any), { acquis: 0, total: 250 })
   // Cité, sa case compte des traversées gagnées — « 0 traversée » pour qui n'a pas encore gagné la première : elles
   // s'additionnent, comme les salles qu'il comptait du 26 octobre au 1er novembre 2026 ; le niveau d'explorateur,
   // qu'il comptait avant, n'en avait pas de zéro, d'où son « 0 » à part.
@@ -268,7 +265,7 @@ test('la page du Cabinet : ses pistes, ses dix jeux, ses exploits payés selon l
       ['defis', 5, 30],
     ],
   )
-  assert.deepEqual(compteDesTrophees(tient as any), { acquis: 5, total: 253 + 30 })
+  assert.deepEqual(compteDesTrophees(tient as any), { acquis: 5, total: 250 + 30 })
   // Les pistes : L'Explorateur d'abord, puis celles de fond ; leurs mots courts sous leur case.
   const [pistes, jeux, exploits, sesDefis] = page.sections
   assert.deepEqual(
@@ -412,9 +409,8 @@ test('le Cabinet fermé ici, la fiche de L’Explorateur ne mène nulle part —
   assert.equal(ouJouer('cabinet:defi:parade', 'cabinet', false), undefined, 'ni un défi')
   assert.deepEqual(ouJouer('cabinet:defi:parade', 'cabinet'), { nom: 'Aller au Cabinet', href: '/cabinet' })
   assert.deepEqual(ouJouer('hf:alpiniste', 'campagne', false), { nom: 'Jouer une série', href: '/campagne' })
-  // Le Globe-trotter ne se tamponne qu'en expédition : « Jouer une série » ne l'a jamais avancé. Effacée — le drapeau du
-  // code, d'office —, la fiche de son détenteur ne mène nulle part ; là où elle répondrait, à son départ.
-  assert.equal(ouJouer('hf:globe-trotter', 'campagne', true, false), undefined)
-  assert.deepEqual(ouJouer('hf:globe-trotter', 'campagne', true, true), { nom: 'Partir en expédition', href: '/expedition' })
-  assert.deepEqual(ouJouer('hf:globe-trotter', 'campagne'), voieDeLExpeditionDite() ? { nom: 'Partir en expédition', href: '/expedition' } : undefined)
+  // Le Globe-trotter, dont la fiche ne menait nulle part depuis le 10 novembre 2026, n'a plus de fiche : il a quitté le
+  // catalogue avec l'Expédition, et l'album ne lui fait plus de case (plus haut) — « Jouer une série » ne se lit sous rien
+  // qui ne s'avance en série.
+  assert.equal(hautFait('hf:globe-trotter'), undefined)
 })

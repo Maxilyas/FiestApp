@@ -3,7 +3,7 @@
 // mois, chacune son légendaire peint, sa gerbe, et un timbre par an dans le
 // carnet des fêtes (`shared/timbres.ts`), que les trois d'avant ont aussi.
 // Ni joker ni gardien pour les cinq neuves : le quiz du jour et la soirée les
-// ouvrent, rien d'autre (`cabinet-catalogue.test.ts`, `expedition-saison.test.ts`).
+// ouvrent, rien d'autre (`cabinet-catalogue.test.ts`).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
@@ -26,8 +26,7 @@ import {
 import { ProfileStore } from '../src/auth/profiles'
 import { calendrierDesSoirees, laureatsDeSaison } from '../src/core/saisons'
 import { SAISONS, bornesDe, paquesDe, periodeDu, periodeDuMillesime, saison } from '../../shared/saisons'
-import { LEGENDAIRES, legendairesDebloques } from '../../shared/legendaires'
-import { LEGENDAIRES_A_JOKER } from '../../shared/jokers'
+import { LEGENDAIRES, LEGENDAIRES_DE_L_EXPEDITION, legendairesDebloques } from '../../shared/legendaires'
 import { GERBES, gerbesOuvertes } from '../../shared/gerbes'
 import { carnetDesFetes, cleDuTimbre, compteDuCarnet, jourDit, periodeDite, timbreDe, timbresDe } from '../../shared/timbres'
 import { aPorterDesFetes } from '../../shared/gains'
@@ -110,7 +109,7 @@ test('chaque fête a son légendaire et sa gerbe, que sa saison ouvre ; les cinq
     assert.ok(s.jours >= 2 && s.periode && s.court && s.emoji, s.key)
   }
   for (const cle of ['lg:rose', 'lg:oeuf', 'lg:gramophone', 'lg:coquillage', 'lg:cartable']) {
-    assert.ok(!LEGENDAIRES_A_JOKER.includes(cle), cle)
+    assert.ok(!LEGENDAIRES_DE_L_EXPEDITION.includes(cle), cle)
     assert.equal(LEGENDAIRES.find(l => l.key === cle)?.aussi, undefined, `${cle} : sa saison seule`)
   }
   // Ouvert à la fin d'une partie, le légendaire d'une fête fait porter sa gerbe.

@@ -147,7 +147,7 @@ paths:
   répondu à temps —, jusqu'au rechargement. Sa première lecture attend le
   réveil (`lireAuDepart`), la console aussi (`currentMe`), puis l'échec se
   dit, « Réessayer » et « Rejoindre une soirée » dessous (`AvantLeProfil`) ;
-  le quiz du jour, la campagne, le salon, l'Expédition et le Cabinet le
+  le quiz du jour, la campagne, le salon et le Cabinet le
   disaient déjà, sans attendre (`accueil-au-reveil.test.ts`).
 - **Une clé du stockage du navigateur se lit et s'écrit sous try/catch**
   (comme `writeSafe`) : un stockage refusé au chargement d'un module rendait

@@ -512,8 +512,6 @@ export interface StatsDeCampagne extends EpreuvesDesJeux {
   etoiles: number
   /** Les sentiers validés en épreuve jusqu'au palier du Cartographe (`PALIER_DU_CARTOGRAPHE`), ou plus haut. */
   sentiersMenes: number
-  /** Les tampons de son passeport : les thèmes pointus de l'expédition trouvés, chacun une fois (`campagne_reponses.sujet`). */
-  tampons: number
   /**
    * Ses traversées gagnées au Cabinet de curiosités, que L'Explorateur compte
    * (le 1er novembre 2026). Le Cabinet les lit de ses traversées dans le lot
@@ -565,7 +563,7 @@ export const RIEN_DU_CABINET = {
 } as const satisfies Partial<StatsDeCampagne>
 
 /** Aucune campagne : un profil qui n'y a jamais joué, ou une carrière sans elle. */
-export const AUCUNE_CAMPAGNE: StatsDeCampagne = { record: 0, expertes: 0, justes: 0, paliersValides: 0, etoiles: 0, sentiersMenes: 0, tampons: 0, ...RIEN_DU_CABINET }
+export const AUCUNE_CAMPAGNE: StatsDeCampagne = { record: 0, expertes: 0, justes: 0, paliersValides: 0, etoiles: 0, sentiersMenes: 0, ...RIEN_DU_CABINET }
 
 /** Ce qu'un profil a accumulé sur toutes ses soirées : la fiche, et la base des hauts faits de carrière. */
 export interface Carriere {

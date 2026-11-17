@@ -484,3 +484,38 @@ test('le carnet, ses faits appris et une révision ne refont pas la table des qu
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+// Reprise d'`expedition-formes.test.ts` et d'`expedition-mesure.test.ts`, partis avec l'Expédition le 16 novembre 2026 : leurs
+// épreuves du carnet jouaient une expédition, mais ce qu'elles gardaient vit dans le journal des réponses — une bonne
+// réponse aidée (un joker) ou à la forme « vrai-faux » tirée d'une autre question ne prouve rien. Les parties de
+// l'Expédition se lisent encore et le Cabinet écrit des `joker` et des `forme` : les lignes sont écrites ici à la main,
+// aux colonnes de la production.
+test('au carnet, une bonne réponse aidée ou tirée en vrai ou faux ne retrouve rien ; une nue, si', async () => {
+  const horloge = { t: DEBUT }
+  const banc = await demarrer({ horlogeDuJour: () => horloge.t, baseDeLaCampagne: BASE })
+  try {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa')
+    const serie = (await poster(banc, lea, '/api/campagne/serie')).corps
+    const q0 = questions(banc, serie.id)[0]
+    await repondre(banc, lea, serie.id, 0, false)
+    horloge.t += JOUR
+    const aRevoir = async () => (await lire(banc, lea, '/api/campagne/carnet')).corps.aRevoir
+    assert.equal(await aRevoir(), 1, 'ratée, elle revient le lendemain')
+    const reprendre = (position: number, joker: string | null, forme: string | null) => {
+      const db = new Database(banc.quizDbUrl.replace(/^file:/, ''), { fileMustExist: true })
+      try {
+        db.prepare('INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le, joker, forme) VALUES (?, ?, ?, 0, 1, ?, ?, ?)').run(serie.id, position, q0.id, horloge.t, joker, forme)
+      } finally {
+        db.close()
+      }
+    }
+    reprendre(900, 'coup-d-oeil', null)
+    assert.equal(await aRevoir(), 1, 'trouvée sous un Coup d’œil, elle ne prouve rien : toujours à revoir')
+    reprendre(901, null, 'vrai-faux')
+    assert.equal(await aRevoir(), 1, 'trouvée en vrai ou faux tiré d’une autre, elle ne prouve rien non plus')
+    reprendre(902, null, null)
+    assert.equal(await aRevoir(), 0, 'trouvée nue, elle avance au rendez-vous suivant')
+  } finally {
+    await banc.close()
+  }
+})

@@ -42,7 +42,6 @@ import {
   LEGENDAIRES,
   LEGENDAIRE_DES_DEFIS,
   cleDuCabinet,
-  estUneVoieDExpedition,
   legendaire,
   legendaireDeLExpedition,
   legendaireDuCabinet,
@@ -154,8 +153,10 @@ export const lieuxDuLegendaire = (l: Legendaire, cabinet: boolean = CABINET_EN_P
  * traversée » : deux pages qui n'existent plus, et un texte que rien
  * n'atteignait. Elle est partie le 10 novembre 2026. Un compagnon qui se
  * gagnerait écrit ici sa voie avant de porter `gagne` :
- * `album-des-avatars.test.ts` le réclame. La galerie des compagnons garde son
- * propre chemin pour lui (`venuesDeLaLuciole`, `GalerieDesCompagnons.tsx`).
+ * `album-des-avatars.test.ts` le réclame. La galerie des compagnons et « Tes
+ * compagnons » n'ont plus le leur : leurs branches d'un compagnon gagné, que
+ * plus rien n'atteignait, sont parties avec la page de l'Expédition, le
+ * 16 novembre 2026.
  */
 const SA_VENUE: readonly LieuDAvatar[] = ['boutique']
 
@@ -515,16 +516,11 @@ export function voiesDeLAvatar(cle: string, p: ProfilDesVoies, cabinet: boolean 
   const l = legendaire(cle)!
   const s = l.saison && saison(l.saison)
   if (s) {
-    // Un légendaire de saison ne se gagne qu'à sa période : sa règle se dit en dates, sans jauge — gardé au bout d'une
-    // expédition partie ces jours-là aussi, qui le met en gardien de l'acte 3, quand sa voie se montre (`voiesMontrees`),
-    // et, le Cabinet ouvert, choisi au bout d'une traversée partie ces jours-là, s'il y garde un acte (`GARDE_A_SA_FETE`) :
-    // le Cabinet y range sa saison même, sans voie à lui.
-    const facons = [
-      `${s.jours} jours de quiz du jour`,
-      'une soirée ces jours-là',
-      ...(cabinet && l.key in GARDE_A_SA_FETE ? [GARDE_A_SA_FETE[l.key]] : []),
-      ...(voiesMontrees(l, cabinet).some(estUneVoieDExpedition) ? ['le garder au bout d’une expédition partie ces jours-là'] : []),
-    ]
+    // Un légendaire de saison ne se gagne qu'à sa période : sa règle se dit en dates, sans jauge — et, le Cabinet ouvert,
+    // choisi au bout d'une traversée partie ces jours-là, s'il y garde un acte (`GARDE_A_SA_FETE`) : le Cabinet y range sa
+    // saison même, sans voie à lui. Une expédition partie ces jours-là le mettait aussi en gardien de l'acte 3 : cette
+    // façon ne se dit plus, sa voie ne se montre plus (`voiesMontrees`).
+    const facons = [`${s.jours} jours de quiz du jour`, 'une soirée ces jours-là', ...(cabinet && l.key in GARDE_A_SA_FETE ? [GARDE_A_SA_FETE[l.key]] : [])]
     return [[{ lieu: 'saison', titre: `Pour ${s.nom}, ${s.periode}`, regle: dite(facons, 'ou', ','), tenue: p.legendaires.includes(l.key), progres: null }]]
   }
   const recompenses = recompensesDe(p.hautsFaits)

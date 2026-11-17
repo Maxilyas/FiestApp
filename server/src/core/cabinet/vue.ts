@@ -767,7 +767,6 @@ export function pageDuCabinet(l: LectureDuCabinet): PageDuCabinet {
     poussiere: soldeDe(m),
     enCours: l.enCours ? vueDeLaPartie(l.enCours) : null,
     fete: feteVue(l),
-    expedition: l.expeditionEnRoute ? 'en-route' : null,
     jeux: [...l.jeux],
     tour: tourVue(l.tour, m.record),
     // Champ par champ, comme le reste : ce que la dépense vient de réveiller, et rien d'autre.

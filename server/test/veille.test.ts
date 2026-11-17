@@ -10,7 +10,7 @@ import assert from 'node:assert/strict'
 import { patienter } from './banc'
 import { Veille, veille as veilleDuProcessus, type EvenementDeLaVeille } from '../src/core/veille'
 import { messagePourEcran } from '../src/core/http'
-import { lesModes, messageDePanne, messageDeRetour, modeDeLaSource, serviceDuTelephone, type PanneDUnMode } from '../../shared/pannes'
+import { MODES_SURVEILLES, lesModes, messageDePanne, messageDeRetour, modeDeLaSource, serviceDuTelephone, type PanneDUnMode } from '../../shared/pannes'
 
 const MIN = 60_000
 const sansInsecables = (s: string) => s.replace(/[  ]/g, ' ')
@@ -44,7 +44,6 @@ test('le mode d’une source : la route sous son modèle, ou le temps réel — 
     // Les réponses d'une série passent par une seule porte, qu'elle soit de la campagne, du défi ou d'un duel.
     ['POST /api/campagne/serie/:id/reponse', 'campagne'],
     ['POST /api/campagne/sentiers/epreuve', 'campagne'],
-    ['POST /api/expedition/:id/reponse', 'expedition'],
     // Le Cabinet de curiosités, sous son nom : sa page, son départ, ses gestes.
     ['GET /api/cabinet', 'cabinet'],
     ['POST /api/cabinet/partie', 'cabinet'],
@@ -64,6 +63,11 @@ test('le mode d’une source : la route sous son modèle, ou le temps réel — 
   for (const source of ['POST /api/jour/rappel', 'POST /api/jour/reserve', 'POST /api/campagne/base', 'GET /api/admin/qg', 'POST /api/auth/login', 'GET /api/quizzes', 'requête illisible']) {
     assert.equal(modeDeLaSource(source), null, source)
   }
+  // L'Expédition, partie le 16 novembre 2026 : ses adresses répondent 404 à tous, ce n'est plus un mode qu'on surveille.
+  for (const source of ['GET /api/expedition', 'POST /api/expedition/:id/reponse', 'POST /api/expedition/:id/geste']) {
+    assert.equal(modeDeLaSource(source), null, source)
+  }
+  assert.ok(!(MODES_SURVEILLES as readonly string[]).includes('expedition'))
 })
 
 test('une route qui échoue trois fois, plus souvent qu’elle ne réussit, fait tomber son mode — une seule fois, les modes tombés ensemble dans la même', async () => {
@@ -109,10 +113,10 @@ test('une route qui marche pour les autres, ou des échecs trop espacés, ne fon
     for (let i = 0; i < 4; i++) v.noter('POST /api/jour/repondre', true)
     for (let i = 0; i < 3; i++) v.noter('POST /api/jour/repondre', false)
     // Trois échecs en vingt minutes : la fenêtre n'en voit jamais plus de deux.
-    v.noter('POST /api/expedition/:id/geste', false)
-    v.noter('POST /api/expedition/:id/geste', false)
+    v.noter('POST /api/cabinet/partie/:id/geste', false)
+    v.noter('POST /api/cabinet/partie/:id/geste', false)
     avancer(11 * MIN)
-    v.noter('POST /api/expedition/:id/geste', false)
+    v.noter('POST /api/cabinet/partie/:id/geste', false)
     await laisserDire()
     assert.deepEqual([v.pannes(), dits], [[], []])
     // Ce qui n'est pas un mode ne compte pas, même en panne.
@@ -207,7 +211,7 @@ test('qui l’écoute ne la fait pas tomber, et seul le serveur qui l’écoute 
     assert.equal(dit.length, 1, 'l’échec de l’écouteur se dit au journal du serveur')
     // Un serveur d'avant, qui s'arrête après qu'un autre l'a prise, ne la fait pas taire.
     v.arreter(() => {})
-    for (let i = 0; i < 3; i++) v.noter('GET /api/expedition', false)
+    for (let i = 0; i < 3; i++) v.noter('GET /api/cabinet', false)
     await patienter(5)
     assert.equal(dit.length, 2, 'celui qui l’écoute l’entend toujours')
     v.arreter(casse)

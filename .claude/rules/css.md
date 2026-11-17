@@ -162,7 +162,7 @@ paths:
   dans le bloc ce qu'elle rend, ou rejoint celles qui gardent leur marge
   telle quelle — une question (sa marge porte « Réponse enregistrée »), le
   pied d'une partie du Cabinet (il reprend déjà la marge à son compte),
-  l'accueil et le carrefour du profil, le QG, l'Expédition, un formulaire
+  l'accueil et le carrefour du profil, le QG, un formulaire
   posé dans une autre page. Le départ d'une série, resserré le même jour sur
   un téléphone (16 px de marge, un écart de 12 puis de 10), le redit au
   ressort dans sa règle même, pas dans le bloc : sous les mêmes requêtes

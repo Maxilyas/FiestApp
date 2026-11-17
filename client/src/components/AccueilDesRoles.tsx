@@ -14,8 +14,6 @@ import type { DefiDAccueil } from '../../../shared/campagne'
 import { placeDuJour } from '../../../shared/course'
 import { DUELS_POUR_LA_RECOMPENSE, ligueParCle, type DuelsDAccueil } from '../../../shared/duels'
 import type { CabinetDAccueil } from '../../../shared/cabinet/vues'
-// Il n'importe rien, et l'en-tête de l'accueil le tire déjà par `shared/legendaires.ts` (`Identite.tsx`).
-import { EXPEDITION_EN_PRODUCTION, EXPEDITION_REMPLACEE } from '../../../shared/jokers'
 import type { AnnonceDeLAdministrateur, ProfilDAccueil } from '../../../shared/profil'
 import { saison } from '../../../shared/saisons'
 // Ses cartes n'importent que ce que l'accueil a déjà : l'en-tête tire `shared/profil.ts` (`Identite.tsx`).
@@ -269,8 +267,8 @@ const RIEN_DE_NOUVEAU: readonly PageALAffiche[] = []
 /**
  * L'accueil d'un profil : ce qu'on vient faire, en gros boutons — une soirée
  * où l'on joue déjà passe devant tout (« Revenir chez Hugo »), puis la
- * campagne, le quiz du jour, le défi de la semaine, les duels, l'Expédition,
- * le Cabinet de curiosités, créer un salon, rejoindre une soirée.
+ * campagne, le quiz du jour, le défi de la semaine, les duels, le Cabinet de
+ * curiosités, créer un salon, rejoindre une soirée.
  * Chacun ouvre sa page, qui en dit plus : un toucher de plus qu'une carte qui
  * montrait tout, mais un écran qu'on lit d'un coup d'œil.
  *
@@ -312,7 +310,6 @@ export function AccueilJouer({
   fete,
   etats = RIEN_DE_FERME,
   cabinet = cabinetIci(),
-  remplacee = EXPEDITION_REMPLACEE,
   nouvelles = RIEN_DE_NOUVEAU,
 }: {
   enCours: { nom: string; slug: string }[]
@@ -336,12 +333,6 @@ export function AccueilJouer({
   etats?: Partial<Record<PageEnMaintenance, BoutonDeLaPage>>
   /** Le Cabinet de curiosités répond-il sur ce serveur ? Le serveur le dit dans la page (`cabinetIci`) ; fermé, pas de bouton. */
   cabinet?: boolean
-  /**
-   * L'Expédition a-t-elle laissé place au Cabinet (`EXPEDITION_REMPLACEE`) ?
-   * Son départ est fermé partout, la préproduction comprise : un drapeau du
-   * code le sait. Une épreuve le force, pour lire l'accueil tel qu'il sera.
-   */
-  remplacee?: boolean
   /** Les pages à l'affiche où il n'est pas encore allé (`ceQueMontreLAccueil`) : « Nouveau » sur leur bouton. */
   nouvelles?: readonly PageALAffiche[]
 }) {
@@ -373,7 +364,6 @@ export function AccueilJouer({
   // ses jours comptés. Gagné, il redit sa ligne de toujours.
   const laFete = fete && !fete.timbre ? saison(fete.cle) : undefined
   const leJour = boutonDuJour({ joue: joueAujourdhui, serie: jour?.serie ?? 0, fete: laFete })
-  const avecLExpedition = EXPEDITION_EN_PRODUCTION && !remplacee
   // La part de hauteur de chaque section quand l'écran en a de reste : une par ligne, pour que toutes grandissent du même
   // pas ; les deux boutons d'« Entre amis », côte à côte, un peu plus d'une.
   const part = (lignes: number) => ({ '--jouer-part': lignes }) as CSSProperties
@@ -385,7 +375,7 @@ export function AccueilJouer({
       ))}
       {/* Deux sections, nommées : seul, et à plusieurs — quatre boutons de même
           poids ne disaient pas lesquels se jouent sans personne. Chacune sa carte, ses boutons en lignes dedans. */}
-      <section className="jouer-section" aria-labelledby="jouer-seul" style={part(4 + (avecLExpedition ? 1 : 0) + (cabinet ? 1 : 0))}>
+      <section className="jouer-section" aria-labelledby="jouer-seul" style={part(4 + (cabinet ? 1 : 0))}>
         <span className="label" id="jouer-seul">
           Seul
         </span>
@@ -447,14 +437,8 @@ export function AccueilJouer({
               href="/duels"
             />
           )}
-          {/* Avec ses jokers (le brief du 17 octobre 2026, l'étape 2) ; le drapeau la referme, son bouton avec.
-              Remplacée, son départ fermé : le bouton s'en va, et le Cabinet, juste dessous, prend sa place. Le QG ne la
-              ferme plus depuis le 1er novembre 2026 (`PAGES_EN_MAINTENANCE`) : il n'y a plus rien à fermer. */}
-          {avecLExpedition && (
-            <GrosBouton icone={<Icon name="flag" />} titre="L’Expédition" detail="Trois gardiens à vaincre" suite={[', un légendaire au bout']} href="/expedition" />
-          )}
           {/* Le musée à remplir, là où le serveur l'ouvre — la préproduction d'abord : une constante du code ne la
-              distingue pas de la production. Il prend la place de l'Expédition quand elle cède la sienne (`remplacee`). */}
+              distingue pas de la production. Il a pris la place de l'Expédition, effacée le 31 octobre 2026. */}
           {cabinet && (
             <GrosBouton
               icone={<Icon name="landmark" />}

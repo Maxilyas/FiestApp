@@ -4,11 +4,12 @@
 // vraies cartes ? Ça rajouterait à l'immersion » (le propriétaire, le 18
 // octobre 2026). Leurs fichiers, sous leur empreinte et d'un poids qu'un
 // téléphone porte ; la table qui les cite ; aucun fichier que plus personne ne
-// cite ; servis un an ; et la carte dessinée qui les montre. Puis l'œuvre
-// peinte (`client/src/components/OeuvrePeinte.tsx`, le 25 octobre 2026) : la
-// carte dessinée sortie de l'Expédition, pour que le Cabinet de curiosités
-// montre ses œuvres — ces mêmes peintures — sans télécharger les règles des
-// rencontres ; son cadre doré ; et l'Expédition qui la peint par elle.
+// cite ; servis un an. Puis l'œuvre peinte
+// (`client/src/components/OeuvrePeinte.tsx`, le 25 octobre 2026) : la carte
+// dessinée sortie de l'Expédition, pour que le Cabinet de curiosités montre ses
+// œuvres — ces mêmes peintures — sans télécharger les règles des rencontres ;
+// son cadre doré. La carte dessinée de l'Expédition, qui passait par elle, est
+// partie avec sa page le 16 novembre 2026, et ses épreuves avec elle.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
@@ -18,9 +19,9 @@ import { fileURLToPath } from 'node:url'
 import React from 'react'
 import { demarrer } from './banc'
 import { importsStatiques } from './chemin-des-imports'
-import { CARTES_DES_RENCONTRES, carteDeRencontre } from '../../shared/rencontres'
+import { OEUVRES } from '../../shared/cabinet/oeuvres'
 
-Object.assign(globalThis, { React, window: { location: { pathname: '/expedition', search: '', hash: '' } } })
+Object.assign(globalThis, { React, window: { location: { pathname: '/cabinet', search: '', hash: '' } } })
 
 const client = (fichier: string) => new URL(`../../client/src/${fichier}`, import.meta.url)
 
@@ -58,7 +59,9 @@ const poidsMax = (taille: '480' | '240') => (taille === '480' ? 40_000 : 14_000)
 
 test('chaque carte sans légendaire a son illustration, en deux tailles, sous son empreinte', async () => {
   const table = await peintes()
-  const aPeindre = CARTES_DES_RENCONTRES.filter(c => !c.legendaire).map(c => c.cle)
+  // Le catalogue des cartes peintes est celui des œuvres du Cabinet, que la chaîne peint (`server/scripts/anime/cartes.ts`) et que
+  // `cabinet-catalogue.test.ts` tient égal aux cartes sans légendaire des rencontres, figées.
+  const aPeindre = OEUVRES.map(c => c.cle)
   // Toutes, et elles seules : une carte de plus au catalogue sans sa peinture rougirait ici. Celle d'un légendaire est son médaillon.
   assert.deepEqual(Object.keys(table).sort(), [...aPeindre].sort())
   for (const [cle, paire] of Object.entries(table)) {
@@ -87,35 +90,20 @@ test('les cartes peintes sont toutes citées : une carte repeinte emporte l’an
   )
 })
 
-test('la carte dessinée montre sa peinture — la grande levée, la petite ailleurs ; une carte de légendaire garde son médaillon', async () => {
-  const table = await peintes()
-  const { CarteDessinee } = (await import(client('views/RencontresDExpedition.tsx').href)) as { CarteDessinee: (p: Record<string, unknown>) => React.ReactNode }
-  const { renderToStaticMarkup } = await import('react-dom/server')
-  const rendre = (cle: string, taille: string) => renderToStaticMarkup(React.createElement(CarteDessinee, { c: carteDeRencontre(cle), taille }))
-  assert.equal(art(rendre('concentration', 'main')), `<img class="exp-vc-peinture" src="${table.concentration[1]}" alt="" loading="lazy" decoding="async"/>`)
-  assert.match(art(rendre('concentration', 'rangee')), new RegExp(`src="${table.concentration[1]}"`))
-  assert.match(art(rendre('concentration', 'levee')), new RegExp(`src="${table.concentration[0]}"`))
-  // Le dessin d'avant ne s'y pose plus par-dessus.
-  assert.doesNotMatch(rendre('concentration', 'main'), /class="icon/)
-  assert.doesNotMatch(rendre('tresor', 'main'), /exp-vc-peinture/)
-  assert.match(rendre('tresor', 'main'), /exp-medaillon exp-visage-joker/)
-})
-
-test('l’œuvre peinte, pièce à part : sa peinture à ses deux tailles, le cadre de la carte dessinée ; un gardien, son médaillon', async () => {
+test('l’œuvre peinte, pièce à part : sa peinture à ses deux tailles, le cadre de la carte ; un gardien, son médaillon', async () => {
   const table = await peintes()
   const peindre = await rendu('components/OeuvrePeinte.tsx', 'OeuvrePeinte')
-  const dessiner = await rendu('views/RencontresDExpedition.tsx', 'CarteDessinee')
   const main = peindre({ oeuvre: BASTION, taille: 'main' })
   const levee = peindre({ oeuvre: BASTION, taille: 'levee' })
   assert.equal(art(main), `<img class="exp-vc-peinture" src="${table.bastion[1]}" alt="" loading="lazy" decoding="async"/>`)
   assert.match(art(peindre({ oeuvre: BASTION, taille: 'rangee' })), new RegExp(`src="${table.bastion[1]}"`))
   assert.match(art(levee), new RegExp(`src="${table.bastion[0]}" alt="" loading="eager"`))
-  // Le cadre de la carte de l'Expédition : la gemme de sa rareté, la teinte de sa famille — une œuvre gagnée au Cabinet se
-  // reconnaît pour la carte qu'on tenait en main.
+  // Le cadre de la carte : la gemme de sa rareté, la teinte de sa famille. (Le même que la carte dessinée de l'Expédition, partie
+  // avec sa page le 16 novembre 2026 : une œuvre gagnée au Cabinet se reconnaissait pour la carte qu'on tenait en main.)
   const cadre = (html: string) => /^<span class="exp-vc [^"]*" style="([^"]*)"/.exec(html)?.[1]
   assert.ok(cadre(main))
-  assert.equal(cadre(main), cadre(dessiner({ c: carteDeRencontre('bastion'), taille: 'main' })))
-  // Rien de ce que joue l'Expédition, qui l'ajoute elle-même : ni coût, ni chiffre, ni phrase.
+  assert.match(cadre(main)!, /--gemme:[^;]+;.*--famille:/)
+  // Rien de ce que jouait l'Expédition : ni coût, ni chiffre, ni phrase.
   assert.doesNotMatch(levee, /exp-vc-cout|exp-vc-valeur|exp-vc-texte|exp-vc-ameliore/)
   // En petit, dessinée seulement — le bouton qui la porte dit ce qu'elle est ; levée, son nom, sa rareté, et elle se lit.
   assert.match(main, /^<span class="exp-vc exp-vc-main" style="[^"]*" aria-hidden="true">/)
@@ -184,21 +172,23 @@ test('l’œuvre peinte ne télécharge rien de l’Expédition : ni ses règles
   // Le parcours voit bien le chemin : sinon ce test ne garderait rien.
   assert.ok(chemin.has(fichier('components/cartes-peintes.ts')), 'les peintures sont sur le chemin')
   assert.ok(chemin.has(fichier('components/Avatar.tsx')), 'le médaillon aussi')
-  // `RencontresDExpedition.tsx` tire tout `shared/rencontres.ts` (près de cinq mille lignes), le codex et l'expédition : la
-  // page du Cabinet n'en a que faire. Les dessins des légendaires viennent à la demande (règle `medaillons.md`).
-  for (const f of ['../../shared/rencontres.ts', '../../shared/codex.ts', '../../shared/expedition.ts', 'views/RencontresDExpedition.tsx', 'views/ExpeditionApp.tsx', 'components/Legendaire.tsx', 'components/Divin.tsx']) {
+  // `shared/rencontres.ts` (près de cinq mille lignes), le codex et l'expédition : la page du Cabinet n'en a que faire. Les dessins
+  // des légendaires viennent à la demande (règle `medaillons.md`).
+  for (const f of ['../../shared/rencontres.ts', '../../shared/codex.ts', '../../shared/expedition.ts', 'components/Legendaire.tsx', 'components/Divin.tsx']) {
     assert.ok(!chemin.has(fichier(f)), `${f} ne part pas avec l’œuvre peinte`)
   }
 })
 
-test('la carte dessinée de l’Expédition passe par l’œuvre peinte : son cadre et sa peinture ne se posent qu’à un endroit', () => {
-  // La source se lit sans l'imprimer : trois mille lignes dans un échec ne diraient rien de plus.
-  const rencontres = readFileSync(client('views/RencontresDExpedition.tsx'), 'utf8')
-  assert.ok(/<OeuvrePeinte\b/.test(rencontres), 'la carte dessinée pose l’œuvre peinte')
-  // Ce qui fait le cadre — la fenêtre, la peinture, le nom au bandeau, la rareté dite, la gemme — vit dans l'œuvre peinte :
-  // recopié ici, un cadre retouché d'un côté ne l'aurait plus été de l'autre.
-  const recopie = /['"`]exp-vc-(art|peinture|nom|rarete-dite|gemme)\b/.exec(rencontres)
-  assert.equal(recopie?.[0], undefined, 'le cadre ne se pose que dans l’œuvre peinte')
+test('le cadre de l’œuvre peinte ne se pose qu’à un endroit : aucune autre pièce du client ne le recopie', () => {
+  // Le cadre — la fenêtre, la peinture, le nom au bandeau, la rareté dite, la gemme — vit dans l'œuvre peinte : la carte dessinée
+  // de l'Expédition, partie avec sa page le 16 novembre 2026, passait par elle ; recopié ailleurs, un cadre retouché d'un côté ne
+  // l'aurait plus été de l'autre.
+  const racine = fileURLToPath(client(''))
+  const sources = (readdirSync(racine, { recursive: true }) as string[]).filter(f => /\.tsx?$/.test(f) && !f.endsWith('OeuvrePeinte.tsx'))
+  for (const f of sources) {
+    const recopie = /['"`]exp-vc-(art|peinture|nom|rarete-dite|gemme)\b/.exec(readFileSync(path.join(racine, f), 'utf8'))
+    assert.equal(recopie?.[0], undefined, `${f} : le cadre ne se pose que dans l’œuvre peinte`)
+  }
 })
 
 test('le serveur les sert pour un an, et une carte absente est un 404', async () => {

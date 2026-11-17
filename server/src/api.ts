@@ -5,7 +5,6 @@ import { dernieresFois } from './core/memoire'
 import { mountBaseDeLaCampagne, mountCampagne, mountCampagneAdmin } from './campagne'
 import { mountCollectionneurs } from './collectionneurs'
 import type { Collectionneurs } from './core/collectionneurs'
-import { expeditionOuverte, mountExpedition } from './expedition'
 import { mountCabinet } from './cabinet'
 import type { CabinetStore } from './core/cabinet/magasin'
 import { mountProfilsAdmin } from './profilsAdmin'
@@ -99,12 +98,6 @@ interface ApiDeps {
   campagne: CampagneStore
   /** Le classement des collectionneurs : le relevé de tous, en fond, et la fiche de chacun à sa visite. */
   collectionneurs: Collectionneurs
-  /** Les rencontres de l'expédition s'ouvrent sur ce serveur (`rencontresOuvertes`, calculé une fois au démarrage). */
-  rencontres: boolean
-  /** La question au centre de l'expédition (v10) s'offre au départ sur ce serveur (`questionAuCentreOuverte`, calculé de même). */
-  questionAuCentre: boolean
-  /** L'Expédition a laissé place au Cabinet : effacée, aucune de ses routes (`EXPEDITION_REMPLACEE`, lu de même — le banc la garde). */
-  expeditionRemplacee: boolean
   /** Le Cabinet de curiosités : son magasin, et s'il répond sur ce serveur (`cabinetOuvert`, calculé une fois au démarrage). */
   cabinet: { magasin: CabinetStore; ouvert: boolean }
   /** Les missions du jour et le coffre de la semaine, qui lisent les trois magasins. */
@@ -187,20 +180,11 @@ export function mountApi(app: Express, deps: ApiDeps) {
   mountCampagne(app, { campagne: deps.campagne, profiles: deps.profiles })
   // Le classement des collectionneurs, avec son profil aussi : la mémoire du relevé, et sa fiche de l'instant.
   mountCollectionneurs(app, { collectionneurs: deps.collectionneurs, profiles: deps.profiles })
-  // L'expédition, une partie de la campagne d'un autre mode : ouverte en production depuis ses jokers, tant que son drapeau l'ouvre.
-  // Ses rencontres sont le jeu partout depuis le 19 octobre 2026 — calculées une fois (`server.ts`).
-  // Remplacée par le Cabinet (`EXPEDITION_REMPLACEE`), l'Expédition n'a plus aucune route : effacée, pas seulement fermée au départ.
-  if (!deps.expeditionRemplacee) mountExpedition(app, {
-    campagne: deps.campagne,
-    profiles: deps.profiles,
-    ouverte: expeditionOuverte({ online: deps.online, env: deps.qg.env }),
-    rencontres: deps.rencontres,
-    questionAuCentre: deps.questionAuCentre,
-    remplacee: deps.expeditionRemplacee,
-  })
-  // Effacée, ses adresses répondent « introuvable » à tous — sans cela, la porte des animateurs, plus bas, les prenait
-  // pour les siennes et répondait « Connexion requise » à un joueur connecté à son profil.
-  else app.use('/api/expedition', (_req, res) => res.status(404).json({ error: 'Introuvable' }))
+  // L'Expédition, un mode d'avant (remplacée par le Cabinet le 31 octobre 2026, retirée du dépôt le 16 novembre) : ses
+  // adresses répondent « introuvable » à tous — une page gardée en cache, un favori. Sans cela, la porte des animateurs,
+  // plus bas, les prenait pour les siennes et répondait « Connexion requise » à un joueur connecté à son profil
+  // (`apres-l-expedition.test.ts`).
+  app.use('/api/expedition', (_req, res) => res.status(404).json({ error: 'Introuvable' }))
   // Le Cabinet de curiosités, qu'on joue seul avec son profil : en préproduction d'abord, ouvert en production depuis le
   // 31 octobre 2026 (`CABINET_EN_PRODUCTION`) — son drapeau refermé, chacune de ses routes y répondrait 404.
   mountCabinet(app, { cabinet: deps.cabinet.magasin, profiles: deps.profiles, ouvert: deps.cabinet.ouvert })

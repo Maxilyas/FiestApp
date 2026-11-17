@@ -6,8 +6,8 @@
 // `docs/architecture/decisions.md`) —, et le perdant s'oublie, relit, et
 // rend la vue de ce qui était déjà fait ou
 // le refus juste, en mots ; un rang en avance sur sa mémoire la lui fait
-// relire. Une écriture que la base refuse (un `RAISE(ABORT)`, le gabarit
-// d'`expedition-charge.test.ts`) ne laisse rien en mémoire : le même geste,
+// relire. Une écriture que la base refuse (un `RAISE(ABORT)`, le gabarit de
+// `miroir.test.ts`) ne laisse rien en mémoire : le même geste,
 // rejoué au même rang, passe une fois. La suppression d'un profil attend ce
 // qui est en route, et les tas d'une liste de jouables neuve se préparent une
 // étape par tour de boucle, jamais d'un bloc sous un départ : sur la base
@@ -21,7 +21,7 @@
 // crédité.
 //
 // Puis par les routes, chaque aller-retour compté sur le fichier `file:` qui
-// tient lieu de Turso (le gabarit d'`expedition-charge.test.ts`) : la page
+// tient lieu de Turso (le gabarit de `profil-charge.test.ts`) : la page
 // froide en coûte un, chaude aucun ; un départ un, deux si le journal n'est
 // pas frais ; un geste un, son verdict compris ; la fin, son lot et le rituel
 // de la campagne, que sa porte tient (`ecrireDesReponses` : l'expérience, les

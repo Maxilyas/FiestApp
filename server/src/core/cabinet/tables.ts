@@ -198,8 +198,8 @@ export function gesteEcrit(serie: string, rang: number, uid: string): { sql: str
 /**
  * Une partie du Cabinet, d'après ce qu'en dit sa colonne figée : sous
  * `json_valid` — `json_extract` sur un texte qui n'est pas du JSON lève une
- * erreur, et tout le lot tombait avec elle (le piège de l'Expédition, règle
- * `expedition.md`) ; seul notre code écrit la colonne, mais une ligne abîmée
+ * erreur, et tout le lot tombait avec elle (le piège qu'avait rencontré
+ * l'Expédition) ; seul notre code écrit la colonne, mais une ligne abîmée
  * ne doit pas fermer le Cabinet de son joueur.
  */
 export const champDuDepart = (champ: 'origine' | 'visite' | 'montee.n' | 'montee.etage') => `CASE WHEN json_valid(cabinet) THEN json_extract(cabinet, '$.${champ}') END`
@@ -270,10 +270,6 @@ export function lecturesDuMusee(profileId: string, minuit: number, avecLEtagere:
           },
         ]
       : []),
-    // L'expédition qui l'attend — la page dit « Ton expédition t'attend » —, par l'index du profil et du mode. Elle se lit
-    // tant que l'Expédition se lit : son départ fermé, celles en route finissent encore ; elle partira avec le code de
-    // l'Expédition, quand plus aucune ne sera en route depuis trente jours.
-    { sql: "SELECT id FROM campagne_series WHERE profile_id = ? AND mode = 'expedition' AND finie_le IS NULL LIMIT 1", args: [profileId] },
     // Le record de la tour, par la clé du profil : une ligne au plus.
     { sql: 'SELECT etage, etoiles FROM cabinet_records WHERE profile_id = ?', args: [profileId] },
   ]
@@ -299,7 +295,6 @@ export interface MuseeLuEnBase {
   partieIllisible: string | null
   /** Les voies de saison rangées sous `#cabinet` (`saison:halloween`). */
   saisonsSousLeCabinet: string[]
-  expeditionEnRoute: string | null
   record: RecordDeLaTour | null
 }
 
@@ -483,7 +478,7 @@ export function laPartieLue(ligne: Record<string, unknown> | undefined, gestes: 
 export function lireLeMusee(lus: readonly ResultSet[], avecLEtagere: boolean): MuseeLuEnBase {
   const [profils, oeuvres, parties, partie, gestes, ...suite] = lus
   const saisons = avecLEtagere ? suite.shift() : undefined
-  const [expedition, record] = suite
+  const [record] = suite
   const profil = laLigneDuProfil(profils.rows[0] as Record<string, unknown> | undefined)
   const enCours = profil?.partie ? laPartieLue(partie.rows[0] as Record<string, unknown> | undefined, gestes.rows as Record<string, unknown>[]) : null
   return {
@@ -493,7 +488,6 @@ export function lireLeMusee(lus: readonly ResultSet[], avecLEtagere: boolean): M
     enCours,
     partieIllisible: profil?.partie && !enCours ? profil.partie : null,
     saisonsSousLeCabinet: (saisons?.rows ?? []).flatMap(r => (VOIES_DE_SAISON.includes(String(r.badge)) ? [String(r.badge)] : [])),
-    expeditionEnRoute: texte(expedition?.rows[0]?.id),
     record: leRecord(record?.rows[0] as Record<string, unknown> | undefined),
   }
 }

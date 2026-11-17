@@ -50,8 +50,6 @@ import {
   rangAtteint,
   type CleDeCompagnon,
 } from '../../shared/compagnons'
-import { CABINET_EN_PRODUCTION } from '../../shared/cabinet/ouverture'
-import { EXPEDITION_REMPLACEE } from '../../shared/jokers'
 import { aLEclat, brilleChez } from '../../shared/profil'
 import { cibleEclat } from '../../shared/legendaires'
 import { ceQuIlAPorter, cibleDeLEclat, lignesDeLEssai } from '../../shared/loge'
@@ -75,14 +73,12 @@ test('cinq compagnons, tous en boutique, quatre formes chacun, la rareté qui mo
     COMPAGNONS_DE_LA_BOUTIQUE.map(c => c.key),
     ['loup', 'chat', 'tortue', 'luciole', 'panda'],
   )
-  assert.equal(compagnon('luciole')!.gagne, undefined)
-  // Où l'avoir : la boutique, pour chacun — la luciole comprise, sous chaque drapeau du Cabinet et de l'Expédition :
-  // un refus qui l'enverrait chercher au bout d'une expédition mènerait à une page qui n'existe plus.
+  // Plus rien ne la dit gagnée : le champ qui la sortait de la boutique (`Compagnon.gagne`) est parti avec l'Expédition.
+  assert.equal('gagne' in compagnon('luciole')!, false)
+  // Où l'avoir : la boutique, pour chacun — la luciole comprise, sans drapeau à lire : un refus qui l'enverrait
+  // chercher au bout d'une expédition mènerait à une page qui n'existe plus.
   assert.equal(pourLAvoir(compagnon('loup')!), 'Le Loup s’achète d’abord, à la boutique')
-  for (const cabinet of [false, true]) {
-    for (const remplacee of [false, true]) assert.equal(pourLAvoir(compagnon('luciole')!, cabinet, remplacee), 'La Luciole s’achète d’abord, à la boutique')
-  }
-  assert.equal(pourLAvoir(compagnon('luciole')!), pourLAvoir(compagnon('luciole')!, CABINET_EN_PRODUCTION, EXPEDITION_REMPLACEE), 'les drapeaux du code d’office')
+  assert.equal(pourLAvoir(compagnon('luciole')!), 'La Luciole s’achète d’abord, à la boutique')
   assert.equal(FORMES_DES_COMPAGNONS.length, 20)
   assert.equal(new Set(FORMES_DES_COMPAGNONS.map(f => f.key)).size, 20, 'une clé par forme')
   for (const c of COMPAGNONS) {

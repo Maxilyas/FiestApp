@@ -17,7 +17,7 @@ import { bestSample, clockOffset } from '../../shared/clock'
 import { XP, finitionsOuvertes, niveauPour, progression, xpDuNiveau } from '../../shared/profil'
 import { reviewFromDatabase, reviewFromServer, writeExport } from '../src/core/export'
 import { ProfileStore } from '../src/auth/profiles'
-import { calendrierDesExpeditions, calendrierDesSoirees, calendrierDuCabinet } from '../src/core/saisons'
+import { calendrierDesSoirees, calendrierDuCabinet } from '../src/core/saisons'
 import { appliquerLeChangement, type ChangementDeLaSalle } from '../../shared/salle'
 
 // L'Éclat se tire une chance sur quarante par soirée, et le premier fait
@@ -29,7 +29,6 @@ ProfileStore.tirageEclat = () => false
 // jour où il tourne. Ici, avant le premier serveur : `calendrier.test.ts`
 // vérifie que chacun y est fermé.
 calendrierDesSoirees.periodeDu = () => null
-calendrierDesExpeditions.periodeDu = () => null
 calendrierDuCabinet.periodeDu = () => null
 
 function fail(msg: string): never {

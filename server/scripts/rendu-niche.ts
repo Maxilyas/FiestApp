@@ -3,7 +3,7 @@
 // la collection, la boutique et ses compagnons, le quiz du jour — sa page, une
 // question, une révélation —, la campagne et ses onglets, les duels — la
 // carte du verdict d'un duel au dé, un duel classé face cachée, « Duel
-// envoyé » —, l'expédition, le Cabinet de curiosités — la traversée : son
+// envoyé » —, le Cabinet de curiosités — la traversée : son
 // écran-titre, ses gardiens, le choix des cartes, la carte et sa tête, une
 // épreuve et son bilan —, le salon, et une soirée — la salle d'attente, une
 // question, la révélation, le podium. Puis le repli quand la page défile. À
@@ -324,8 +324,8 @@ async function solo() {
   await jusquAuBout(page)
   await page.waitForSelector('.duels-envoye')
   await photo(page, '19d-duel-envoye')
-  await aller('/expedition', '.expedition')
-  await photo(page, '20-expedition', { attente: 1200 })
+  // La page de l'Expédition se photographiait ici (`20-expedition`) : son adresse mène au Cabinet depuis le 31 octobre
+  // 2026, et l'attendre aurait arrêté le script avant la traversée.
   // Le Cabinet de curiosités : la traversée — son écran-titre, ses gardiens, le choix des cartes, la carte et sa tête, qui
   // laissent leur coin à la niche (`body.avec-niche .cab-tv-hud`) —, puis une épreuve entrée au doigt : la tête d'une partie et
   // son chrono laissent le leur (`.cab-tete-partie .timer`), et son bilan sur la carte, une fois quittée.

@@ -36,6 +36,7 @@ import {
 import {
   LEGENDAIRES,
   LEGENDAIRES_DU_CABINET,
+  LEGENDAIRES_DE_L_EXPEDITION,
   cleDeLExpedition,
   cleDuCabinet,
   estUneVoieDExpedition,
@@ -47,7 +48,6 @@ import {
   LEGENDAIRE_DES_DEFIS,
 } from '../../shared/legendaires'
 import { saison } from '../../shared/saisons'
-import { LEGENDAIRES_A_JOKER } from '../../shared/jokers'
 
 // ── De quoi écrire une soirée ─────────────────────────────────────────────
 
@@ -363,14 +363,14 @@ test('chaque légendaire a sa légende, et se gagne par un haut fait qui existe'
     // son joker : les cinq des fêtes du 1er novembre 2026 n'en ont pas, et n'ont que leur saison.
     if (l.saison) {
       assert.ok(!('toutes' in l.condition), `${l.key} : une seule condition`)
-      const parLExpedition = LEGENDAIRES_A_JOKER.includes(l.key) ? [{ hautFait: cleDeLExpedition(l.key), fois: 1 }] : []
+      const parLExpedition = LEGENDAIRES_DE_L_EXPEDITION.includes(l.key) ? [{ hautFait: cleDeLExpedition(l.key), fois: 1 }] : []
       assert.deepEqual(l.aussi ?? [], parLExpedition, `${l.key} : sa saison, ou l’expédition partie à sa saison s’il a son joker`)
       assert.equal(!('toutes' in l.condition) && l.condition.hautFait, `saison:${l.saison}`, `${l.key} se gagne par sa saison`)
       assert.equal(saison(l.saison)?.legendaire, l.key, `${l.key} est celui de sa saison`)
       continue
     }
     // La voie de l'expédition lit une ligne rangée au bout de l'acte 3, pas un
-    // haut fait du catalogue : `expedition-legendaires.test.ts` la vérifie ;
+    // haut fait du catalogue : `legendaires.test.ts` la vérifie, figée ;
     // celle du Cabinet, une ligne rangée au réveil d'un gardien
     // (`cabinet-gardiens.test.ts`). Toute autre, un haut fait qui existe.
     for (const voie of voiesDe(l).filter(v => !estUneVoieDExpedition(v) && !estUneVoieDuCabinet(v))) {

@@ -7,20 +7,23 @@
 // s'achète à la boutique comme les autres compagnons : la boutique, le coffre
 // et « À la une » la proposent ; qui l'a la garde, et le Cabinet l'offre
 // toujours. Offerte, comme un compagnon du coffre, elle s'écrit à prix nul et
-// s'installe dans une niche vide, jamais à la place de celui qui y vit ; qui
-// avait déjà mené une expédition au bout la reçoit au démarrage (le banc
-// garde l'Expédition à ses tests). Sa métamorphose, la luciole-aurore,
-// s'ouvre comme celle des autres : sa forme ultime et l'Éclat.
+// s'installe dans une niche vide, jamais à la place de celui qui y vit. Qui
+// avait déjà mené une expédition au bout l'a reçue à un démarrage d'octobre —
+// ce rattrapage est parti avec le code de l'Expédition, le 16 novembre 2026.
+// Sa métamorphose, la luciole-aurore, s'ouvre comme celle des autres : sa
+// forme ultime et l'Éclat.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import Database from 'better-sqlite3'
 import { demarrer, ecrire, inscrireProfil, type Banc } from './banc'
+import { ProfileStore } from '../src/auth/profiles'
 import { BaseDeLaCampagne, lireQuestionDeLaBase, type QuestionDeLaBase } from '../src/core/baseCampagne'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import { CATEGORIES, type Categorie } from '../../shared/categories'
-import { GARDIEN, type VueDeLExpedition } from '../../shared/expedition'
-import { COMPAGNONS_DE_LA_BOUTIQUE, COMPAGNON_DE_L_EXPEDITION, cheminDeLaLuciole, compagnon, pourLAvoir } from '../../shared/compagnons'
-import { CABINET_EN_PRODUCTION } from '../../shared/cabinet/ouverture'
+import { COMPAGNONS_DE_LA_BOUTIQUE, COMPAGNON_DE_L_EXPEDITION, compagnon, pourLAvoir } from '../../shared/compagnons'
 import { aLaUne } from '../../shared/aLaUne'
 import { tirerLeCoffre } from '../../shared/tresor'
 import type { ObjetDuTresor } from '../../shared/coffre'
@@ -81,45 +84,29 @@ function confettis(banc: Banc, profileId: string, justes: number) {
   )
 }
 
-/** Les questions telles que l'expédition les garde, bonne réponse comprise : ce que seul le serveur sait. */
-function bonneDe(banc: Banc, id: string, index: number): { bonne: number } {
-  return enBase(banc, db => JSON.parse((db.prepare('SELECT questions FROM campagne_series WHERE id = ?').get(id) as { questions: string }).questions)[index])
-}
-
 /**
- * Une expédition jouée sans une faute jusqu'au bout de l'acte 3 : une offre
- * laissée, une vie au campement, sinon le gardien s'il est là, ou la
- * première escale permise qui pose une question (`expedition.test.ts`).
+ * Un magasin des profils à lui, sur une base jetable : la luciole offerte
+ * passe par `offrirUnCompagnon`, que seul le Cabinet appelle encore — au
+ * banc, il faudrait une salle complète pour y arriver
+ * (`cabinet-gardiens.test.ts` le joue par les routes).
  */
-async function allerAuBout(banc: Banc, cookie: string): Promise<VueDeLExpedition> {
-  const depart = await poster(banc, cookie, '/api/expedition')
-  assert.equal(depart.status, 200, depart.corps.error)
-  let v: VueDeLExpedition = depart.corps
-  for (let pas = 0; pas < 400 && v.issue === 'en-route'; pas++) {
-    if (v.question) {
-      const r = await poster(banc, cookie, `/api/expedition/${v.id}/reponse`, { position: v.question.index, choix: bonneDe(banc, v.id, v.question.index).bonne })
-      assert.equal(r.status, 200, r.corps.error)
-      v = r.corps.expedition
-      continue
-    }
-    const posent = (id: string) => ['question', 'elite', 'source'].includes(v.carte?.escales.find(e => e.id === id)?.sorte ?? '')
-    const vers = v.permises.includes(GARDIEN) ? GARDIEN : (v.permises.find(posent) ?? v.permises[0])
-    const geste = v.offre ? { quoi: 'prendre', jokers: [] } : v.campement ? { quoi: 'camper' } : { quoi: 'avancer', vers }
-    const r = await poster(banc, cookie, `/api/expedition/${v.id}/geste`, { rang: v.rang + 1, geste })
-    assert.equal(r.status, 200, r.corps.error)
-    v = r.corps.expedition
+async function profilsDEssai(): Promise<{ profils: ProfileStore; fichier: string; fermer: () => void }> {
+  const dossier = mkdtempSync(path.join(tmpdir(), 'quizz-luciole-'))
+  const fichier = path.join(dossier, 'profils.db')
+  const profils = new ProfileStore(`file:${fichier}`)
+  await profils.init()
+  return {
+    profils,
+    fichier,
+    fermer: () => {
+      profils.close()
+      rmSync(dossier, { recursive: true, force: true })
+    },
   }
-  assert.equal(v.issue, 'au-bout')
-  return v
 }
 
-/** Au bout, le premier gardien gardé : la fin. */
-async function garder(banc: Banc, cookie: string, v: VueDeLExpedition) {
-  const r = await poster(banc, cookie, `/api/expedition/${v.id}/geste`, { rang: v.rang + 1, geste: { quoi: 'garder', legendaire: v.gardiens[0].cle } })
-  assert.equal(r.status, 200, r.corps.error)
-  assert.equal(r.corps.expedition.issue, 'legendaire')
-  return r.corps
-}
+/** Dix heures, le 20 octobre 2026 : le jour où la luciole est venue. */
+const QUAND = Date.UTC(2026, 9, 20, 8)
 
 test('la luciole se vend, comme les autres : la boutique, le coffre et « À la une » la proposent', () => {
   // Elle ne se vendait pas tant que l'Expédition l'amenait ; effacée le 31 octobre 2026, la luciole n'aurait plus
@@ -148,15 +135,15 @@ test('la luciole se vend, comme les autres : la boutique, le coffre et « À la 
   assert.ok(tirages('loup').some(o => o.sorte === 'compagnon' && o.cle === 'loup'))
 })
 
-test('sa venue au Cabinet reste : la première salle complète l’offre, et chaque refus l’envoie à la boutique', () => {
-  // L'Expédition effacée (le 31 octobre 2026), le chemin du Cabinet est le seul qui se dise encore — le Cabinet ouvert ;
-  // mais la luciole s'achète, et ce que les refus disent est la boutique, comme pour les autres.
-  assert.equal(cheminDeLaLuciole(true, true), 'complète une salle du Cabinet')
-  assert.equal(cheminDeLaLuciole(), cheminDeLaLuciole(CABINET_EN_PRODUCTION))
+test('chaque refus l’envoie à la boutique : son chemin d’avant ne se dit plus', () => {
+  // La luciole s'achète, et ce que les refus disent est la boutique, comme pour les autres. Le chemin qui la disait
+  // gagnée — « mène une expédition au bout », « complète une salle du Cabinet » — est parti avec l'Expédition ; la
+  // première salle complète du Cabinet l'offre toujours (`cabinet-gardiens.test.ts`), sans que rien l'annonce d'avance.
   assert.equal(pourLAvoir(compagnon('luciole')!), 'La Luciole s’achète d’abord, à la boutique')
+  assert.equal(COMPAGNON_DE_L_EXPEDITION, 'luciole', 'sa clé reste : des lignes `profile_compagnons` la portent')
 })
 
-test('la Première traversée : une expédition menée au bout amène la luciole dans sa niche vide, à prix nul, une fois', async () => {
+test('elle s’achète à son prix, et chaque refus dit où l’avoir', async () => {
   const banc = await demarrer({ baseDeLaCampagne: BASE })
   try {
     // Elle s'achète, depuis le 31 octobre 2026, à son prix : 1000 confettis, comme les autres.
@@ -175,55 +162,65 @@ test('la Première traversée : une expédition menée au bout amène la luciole
     assert.equal(nom.corps.error, 'La Luciole s’achète d’abord, à la boutique')
     const avant = await moi(banc, lea)
     assert.equal(avant.niche, undefined, 'sans compagnon, pas de niche')
-
-    // Une expédition abandonnée ne l'amène pas.
-    const abandon = await poster(banc, lea, '/api/expedition')
-    assert.equal((await poster(banc, lea, `/api/expedition/${abandon.corps.id}/abandon`)).status, 200)
-    assert.equal((await moi(banc, lea)).compagnons, undefined)
-
-    const fin = await garder(banc, lea, await allerAuBout(banc, lea))
-    assert.equal(fin.compagnon, 'luciole', 'la fin l’annonce')
-    const apres = await moi(banc, lea)
-    assert.deepEqual(apres.compagnons, [{ compagnon: 'luciole', rang: 0 }])
-    assert.equal(apres.niche, 'luciole', 'sa niche était vide : elle s’y installe')
-    assert.notEqual(apres.legendaire, 'cp:luciole-ver', 'elle ne devient pas son avatar')
-    // Offerte, comme un compagnon du coffre : le solde ne la retranche pas, le QG ne la compte pas aux ventes (prix nul).
-    assert.equal(enBase(banc, db => (db.prepare(`SELECT prix FROM profile_compagnons WHERE profile_id = ? AND compagnon = 'luciole'`).get(id) as { prix: number }).prix), 0)
-    const sa = (await lire(banc, lea, '/api/joueur/niche')).corps
-    assert.equal(sa.niche.compagnon, 'luciole')
-    // Elle se règle comme les autres : son nom, à lui seul.
+    assert.equal(avant.compagnons, undefined)
+    // À elle, par l'achat : elle se règle comme les autres, son nom à lui seul.
+    confettis(banc, id, 1000)
+    assert.equal((await poster(banc, lea, '/api/joueur/compagnons', { compagnon: 'luciole' })).status, 200)
+    assert.equal((await lire(banc, lea, '/api/joueur/niche')).corps.niche.compagnon, 'luciole')
     const nommee = await ecrire(banc.url, '/api/joueur/compagnons/luciole', { nom: 'Lumi' }, lea, 'PUT').then(reponse)
     assert.equal(nommee.status, 200, nommee.corps.error)
     assert.deepEqual(nommee.corps.profile.compagnons, [{ compagnon: 'luciole', rang: 0, nom: 'Lumi' }])
-
-    // Une seconde expédition menée au bout ne l'amène pas deux fois.
-    const encore = await garder(banc, lea, await allerAuBout(banc, lea))
-    assert.equal(encore.compagnon, undefined)
-    assert.equal(enBase(banc, db => (db.prepare(`SELECT COUNT(*) AS n FROM profile_compagnons WHERE profile_id = ?`).get(id) as { n: number }).n), 1)
   } finally {
     await banc.close()
   }
 })
 
-test('celui qui vit dans sa niche la garde : la luciole attend son tour, et s’y installe d’un toucher', async () => {
-  const banc = await demarrer({ baseDeLaCampagne: BASE })
+test('offerte, elle arrive dans sa niche vide, à prix nul, une fois', async () => {
+  // Ce que faisait la Première traversée de l'Expédition, et que fait encore la première salle complète du Cabinet.
+  const { profils, fichier, fermer } = await profilsDEssai()
   try {
-    const tom = await inscrireProfil(banc.url, 'tom', 'Tom')
-    confettis(banc, idDe(banc, 'tom'), 1000)
-    assert.equal((await poster(banc, tom, '/api/joueur/compagnons', { compagnon: 'loup' })).status, 200)
-    const fin = await garder(banc, tom, await allerAuBout(banc, tom))
-    assert.equal(fin.compagnon, 'luciole')
-    const apres = await moi(banc, tom)
+    const { profile } = await profils.register({ login: 'lea', password: 'motdepasse1', name: 'Léa', avatar: '🦊' })
+    const id = profile.id
+    assert.equal(await profils.offrirUnCompagnon(id, COMPAGNON_DE_L_EXPEDITION, QUAND), true, 'neuve : la fin qui l’offre l’annonce')
+    const apres = profils.toPublic((await profils.byId(id))!)
+    assert.deepEqual(apres.compagnons, [{ compagnon: 'luciole', rang: 0 }])
+    assert.equal(apres.niche, 'luciole', 'sa niche était vide : elle s’y installe')
+    assert.notEqual(apres.legendaire, 'cp:luciole-ver', 'elle ne devient pas son avatar')
+    // Offerte, comme un compagnon du coffre : le solde ne la retranche pas, le QG ne la compte pas aux ventes (prix nul).
+    const ligne = () => {
+      const db = new Database(fichier)
+      try {
+        return db.prepare(`SELECT prix, created_at FROM profile_compagnons WHERE profile_id = ?`).all(id)
+      } finally {
+        db.close()
+      }
+    }
+    assert.deepEqual(ligne(), [{ prix: 0, created_at: QUAND }])
+    // Offerte une seconde fois, elle ne vient pas deux fois, et rien ne l'annonce.
+    assert.equal(await profils.offrirUnCompagnon(id, COMPAGNON_DE_L_EXPEDITION, QUAND + 1), false)
+    assert.deepEqual(ligne(), [{ prix: 0, created_at: QUAND }])
+  } finally {
+    fermer()
+  }
+})
+
+test('celui qui vit dans sa niche la garde : la luciole attend son tour, et s’y installe d’un toucher', async () => {
+  const { profils, fermer } = await profilsDEssai()
+  try {
+    const { profile } = await profils.register({ login: 'tom', password: 'motdepasse1', name: 'Tom', avatar: '🦊' })
+    const id = profile.id
+    assert.equal(await profils.offrirUnCompagnon(id, 'loup', QUAND), true)
+    assert.equal(await profils.offrirUnCompagnon(id, COMPAGNON_DE_L_EXPEDITION, QUAND + 1), true)
+    const apres = profils.toPublic((await profils.byId(id))!)
     assert.equal(apres.niche, 'loup', 'le loup garde sa niche : c’est lui qui grandit')
     assert.deepEqual(apres.compagnons, [
       { compagnon: 'loup', rang: 0 },
       { compagnon: 'luciole', rang: 0 },
     ])
-    const installee = await ecrire(banc.url, '/api/joueur/moi', { niche: 'luciole' }, tom, 'PUT').then(reponse)
-    assert.equal(installee.status, 200, installee.corps.error)
-    assert.equal(installee.corps.profile.niche, 'luciole')
+    const installee = profils.toPublic(await profils.update(id, { niche: 'luciole' }))
+    assert.equal(installee.niche, 'luciole')
   } finally {
-    await banc.close()
+    fermer()
   }
 })
 
@@ -264,28 +261,33 @@ test('sa luciole-aurore : à sa forme ultime, l’Éclat la lui ouvre — à por
   }
 })
 
-test('qui avait déjà mené une expédition au bout la reçoit au démarrage, datée de sa traversée — une fois', async () => {
+test('une expédition menée au bout avant la luciole ne redonne plus rien au démarrage : le rattrapage a eu lieu, sa luciole reste', async () => {
+  // Le rattrapage du 20 octobre 2026 (`premieres_traversees`, posé en production) offrait la luciole à qui avait déjà gardé
+  // un gardien. Il est parti avec l'Expédition : un démarrage ne lit plus les expéditions d'avant, et ne reprend rien.
   const banc = await demarrer({ baseDeLaCampagne: BASE })
   try {
     const zoe = await inscrireProfil(banc.url, 'zoe', 'Zoé')
     const id = idDe(banc, 'zoe')
-    await garder(banc, zoe, await allerAuBout(banc, zoe))
-    // Le serveur d'avant la luciole : ni elle, ni sa niche, ni le drapeau du rattrapage.
-    const finieLe = enBase(banc, db => {
-      db.prepare('DELETE FROM profile_compagnons WHERE profile_id = ?').run(id)
-      db.prepare('UPDATE profiles SET niche = NULL WHERE id = ?').run(id)
-      db.prepare(`DELETE FROM campagne_meta WHERE cle = 'premieres_traversees'`).run()
-      return (db.prepare(`SELECT finie_le FROM campagne_series WHERE profile_id = ? AND mode = 'expedition' AND issue = 'legendaire'`).get(id) as { finie_le: number }).finie_le
+    enBase(banc, db => {
+      db.prepare(
+        `INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, issue) VALUES ('exp-zoe', ?, '[]', 0, 3, 0, ?, ?, 'expedition', 'legendaire')`,
+      ).run(id, QUAND, QUAND + 1)
+      // Sa luciole, reçue à l'époque, datée de sa traversée.
+      db.prepare(`INSERT INTO profile_compagnons (profile_id, compagnon, prix, rang, created_at) VALUES (?, 'luciole', 0, 0, ?)`).run(id, QUAND + 1)
+      db.prepare(`UPDATE profiles SET niche = 'luciole' WHERE id = ?`).run(id)
     })
     await banc.redemarrer({ disqueEfface: true })
     const apres = await moi(banc, zoe)
     assert.deepEqual(apres.compagnons, [{ compagnon: 'luciole', rang: 0 }])
     assert.equal(apres.niche, 'luciole')
-    assert.equal(enBase(banc, db => (db.prepare(`SELECT created_at FROM profile_compagnons WHERE profile_id = ?`).get(id) as { created_at: number }).created_at), finieLe)
-    // Une fois : le démarrage suivant ne relit rien.
-    enBase(banc, db => db.prepare('DELETE FROM profile_compagnons WHERE profile_id = ?').run(id))
+    // Sans elle — une base d'essai restée avant le rattrapage —, le démarrage ne la donne plus : il n'écrit rien.
+    enBase(banc, db => {
+      db.prepare('DELETE FROM profile_compagnons WHERE profile_id = ?').run(id)
+      db.prepare('UPDATE profiles SET niche = NULL WHERE id = ?').run(id)
+    })
     await banc.redemarrer({ disqueEfface: true })
     assert.equal((await moi(banc, zoe)).compagnons, undefined)
+    assert.equal(enBase(banc, db => db.prepare(`SELECT 1 FROM campagne_meta WHERE cle = 'premieres_traversees'`).all().length), 0, 'plus de drapeau posé')
   } finally {
     await banc.close()
   }

@@ -28,9 +28,8 @@
 // est celle de tous les tableaux (`CATEGORIE_DU_DETAIL`, que l'Expédition pose
 // aussi) : les missions la lisent.
 import { tableauxDuDetail, type TableauDuDetail } from '../../details'
-import { CATEGORIE_DU_DETAIL } from '../../../../../shared/expedition'
 import { FENETRES_POUR_PROMETTRE_LE_DETAIL, TITRES_DU_DETAIL } from '../../../../../shared/cabinet/bareme'
-import { detailDUneFenetre, fenetresDuDetail, type DetailTire } from '../../../../../shared/cabinet/jeux/detail'
+import { CATEGORIE_DU_DETAIL, detailDUneFenetre, fenetresDuDetail, type DetailTire } from '../../../../../shared/cabinet/jeux/detail'
 import { auHasard } from '../../../../../shared/cabinet/jeux/outils'
 import { idDuTableau } from '../../../../../shared/cabinet/pieces'
 import { FENETRE_DU_CABINET_MS, type ContexteDuTirage, type Posees } from './communs'

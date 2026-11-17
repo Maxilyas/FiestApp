@@ -241,10 +241,8 @@ test('sur l’or pâle, un texte s’écrit au bronze du survol, sous chaque th�
     '.quoi-fil.active',
     '.parcours-icone',
     '.epreuve-rejeu',
-    '.exp-pastille-or',
-    '.exp-rarete-talisman',
-    '.exp-rarete-fiole',
-    '.exp-guide-icone',
+    // `.exp-pastille-or`, `.exp-rarete-talisman`, `.exp-rarete-fiole` et `.exp-guide-icone` en sont sortis le 16 novembre
+    // 2026 : leur page, celle de l'Expédition, est partie avec son code.
   ]
   const ecrivent = [...CSS.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/(?:^|\n)([^{}\n]+?) \{([^}]*)\}/g)]
     .filter(([, , corps]) => /background(?:-color)?: var\(--accent-soft\)/.test(corps) && /(?:^|;)\s*color: var\(--accent-text\)/.test(corps))

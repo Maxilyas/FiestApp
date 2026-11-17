@@ -1,10 +1,10 @@
 // Où le Cabinet de curiosités s'ouvre, et quels jeux y sont livrés. Construit
 // lot après lot en préproduction, il s'ouvre en production le 31 octobre 2026,
-// à la place de l'Expédition (`EXPEDITION_REMPLACEE`, `shared/jokers.ts`). Rien ne s'y rapporte de l'Expédition : chacun le commence à zéro
+// à la place de l'Expédition, retirée du dépôt le 16 novembre. Rien ne s'y rapporte de l'Expédition : chacun le commence à zéro
 // (« Pas de migration », `docs/architecture/decisions.md`).
 //
 // Une constante du code plutôt qu'une variable d'environnement, comme
-// l'Expédition l'a fait (`EXPEDITION_EN_PRODUCTION`, `shared/jokers.ts`). La
+// l'Expédition l'avait fait pour son ouverture. La
 // page ne la lit pas : une constante ne sait pas la préproduction, qui sert le
 // même code — c'est le serveur qui sait, et qui le lui dit.
 //

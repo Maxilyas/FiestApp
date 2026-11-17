@@ -20,7 +20,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { SERVEUR } from '../racine'
-import { CADRAGES_DU_DETAIL } from '../../../shared/expedition'
+import { CADRAGES_DU_DETAIL } from '../../../shared/cabinet/jeux/detail'
 import { sansAccent } from '../../../shared/homonymes'
 import type { QuestionDeLaBase } from './baseCampagne'
 import { enTranches } from './tourniquet'

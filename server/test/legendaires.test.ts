@@ -31,7 +31,21 @@ import {
 } from './banc'
 import { ProfileStore } from '../src/auth/profiles'
 import { divinsDebloques } from '../src/core/divins'
-import { LEGENDAIRES, legendairesDebloques, partiesDe, type Condition } from '../../shared/legendaires'
+import {
+  LEGENDAIRES,
+  LEGENDAIRES_DE_L_EXPEDITION,
+  cleDeLExpedition,
+  estUneVoieDExpedition,
+  estUneVoieRangee,
+  legendaire,
+  legendaireDeLExpedition,
+  legendairesDebloques,
+  legendairesOuvertsPar,
+  partiesDe,
+  voiesDe,
+  voiesMontrees,
+  type Condition,
+} from '../../shared/legendaires'
 import { clePalier } from '../../shared/hautsfaits'
 
 // Le hasard ne décide de rien ici : un Éclat n'a rien à faire dans ces comptes.
@@ -91,6 +105,34 @@ test('l’Arbre-Monde compte aussi les légendaires gardés d’avant', () => {
   assert.deepEqual(divinsDebloques(recompenses), [], 'onze légendaires ne font pas l’Arbre')
   const acquis = new Map<string, Condition>([['lg:tigre', { hautFait: 'hf:foudre', fois: 1 }]])
   assert.deepEqual(divinsDebloques(recompenses, acquis), ['dv:arbre'])
+})
+
+test('la voie de l’Expédition effacée donne toujours son légendaire : vingt-trois, figés, jamais montrés', () => {
+  // L'Expédition partie, les lignes `expedition:<clé>` qu'elle a rangées restent sur les profils — la production tient
+  // `expedition:sphinx`. La liste vit dans `shared/legendaires.ts`, écrite en dur, et ne se raccourcit jamais (invariant 22).
+  assert.deepEqual(
+    [...LEGENDAIRES_DE_L_EXPEDITION],
+    ['lg:phenix', 'lg:salamandre', 'lg:scarabee', 'lg:coq', 'lg:ouroboros', 'lg:chouette', 'lg:sphinx', 'lg:oracle', 'lg:janus', 'lg:serpent', 'lg:lion', 'lg:tigre', 'lg:chimere', 'lg:comete', 'lg:renard', 'lg:dragon', 'lg:bouquet', 'lg:citrouille', 'lg:sapin', 'lg:kraken', 'lg:fantome', 'lg:trou-noir', 'lg:chauve-souris'],
+  )
+  for (const cle of LEGENDAIRES_DE_L_EXPEDITION) {
+    const l = legendaire(cle)!
+    assert.ok(l, `${cle} : un légendaire qui existe`)
+    const voie = cleDeLExpedition(cle)
+    assert.ok(voie.startsWith('expedition:') && estUneVoieRangee(voie), voie)
+    assert.equal(legendaireDeLExpedition(voie), l)
+    // Sa ligne seule l'ouvre, et l'album ne la dit plus : on ne garde plus de gardien au bout d'une expédition.
+    assert.deepEqual(legendairesDebloques(new Map([[voie, 1]])), [cle], voie)
+    assert.equal(voiesMontrees(l).some(estUneVoieDExpedition), false, cle)
+  }
+  // Rien d'autre n'a de voie d'expédition.
+  for (const l of LEGENDAIRES) assert.equal(voiesDe(l).some(estUneVoieDExpedition), LEGENDAIRES_DE_L_EXPEDITION.includes(l.key), l.key)
+  // Une ligne rangée l'ouvre et l'annonce une fois (reprise d'`expedition-legendaires.test.ts`, parti avec l'Expédition) : le
+  // profil qui la tient déjà par sa première voie n'a rien de neuf à se faire annoncer. Elles ne s'écrivent plus, mais une
+  // base de préproduction ou de développement en garde, et le recalcul relit ce qu'elles ouvrent.
+  const ligne = new Map([['expedition:kraken', 1]])
+  assert.deepEqual(legendairesOuvertsPar(['expedition:kraken'], ligne), ['lg:kraken'])
+  assert.deepEqual(legendairesOuvertsPar(['expedition:kraken'], new Map([['hf:lanterne-rouge', 3], ['expedition:kraken', 1]])), [], 'déjà à lui par sa première voie')
+  assert.ok(!legendairesDebloques(new Map([['expedition:inconnu', 1]])).length, 'une ligne qui ne désigne aucun légendaire n’en ouvre aucun')
 })
 
 // ── 2. Sur un vrai serveur ────────────────────────────────────────────────
@@ -214,3 +256,34 @@ test('un légendaire gagné avant le durcissement reste à son porteur — et à
     assert.ok(!sans.legendaires.includes('lg:tigre'))
     assert.equal(sans.legendaire, null, 'et elle ne le porte plus')
   }))
+
+test('un légendaire gardé au bout d’une expédition reste à son porteur, l’Expédition effacée — il le porte toujours', async () => {
+  // Le serveur tel que la production le démarre : l'Expédition partie, aucune de ses routes. La ligne qu'elle avait
+  // rangée — `expedition:sphinx`, sous sa série, comme en production — donne encore le Sphinx, qui se porte.
+  const banc = await demarrer()
+  try {
+    const cookie = await inscrireProfil(banc.url, 'ines', 'Inès', '🦉')
+    const id = (await moi(banc, cookie)).id as string
+    assert.ok(!(await moi(banc, cookie)).legendaires.includes('lg:sphinx'))
+    const db = new Database(permanente(banc))
+    try {
+      db.prepare(
+        `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, ?, '#campagne:une-expedition', '', '🧭', 'Le Sphinx', 1)`,
+      ).run(id, cleDeLExpedition('lg:sphinx'))
+    } finally {
+      db.close()
+    }
+    await banc.redemarrer()
+    assert.ok((await moi(banc, cookie)).legendaires.includes('lg:sphinx'), 'il l’a gardé')
+    const porte = await ecrire(banc.url, '/api/joueur/moi', { legendaire: 'lg:sphinx' }, cookie, 'PUT')
+    assert.equal(porte.status, 200, 'et il le porte')
+    assert.equal((await moi(banc, cookie)).legendaire, 'lg:sphinx')
+    // Un redémarrage de plus ne lui reprend rien.
+    await banc.redemarrer()
+    const apres = await moi(banc, cookie)
+    assert.ok(apres.legendaires.includes('lg:sphinx'))
+    assert.equal(apres.legendaire, 'lg:sphinx')
+  } finally {
+    await banc.close()
+  }
+})

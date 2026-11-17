@@ -42,8 +42,7 @@ export function origineDeLAccueil(suite: string, depuisUneFin: boolean): Origine
   const sous = (page: string) => chemin === page || chemin.startsWith(`${page}/`)
   if (sous('/jour')) return 'jour'
   if (sous('/duels')) return 'duels'
-  // L'Expédition, partie de la campagne, y renvoyait aussi.
-  if (sous('/campagne') || sous('/expedition')) return 'campagne'
+  if (sous('/campagne')) return 'campagne'
   if (sous('/cabinet')) return 'cabinet'
   if (sous('/salon')) return 'salon'
   if (sous('/compte')) return 'compte'

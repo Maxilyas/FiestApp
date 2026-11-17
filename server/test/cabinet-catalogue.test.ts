@@ -3,22 +3,24 @@
 // sans jouer — les œuvres, les salles, les pouvoirs des cartes-bonus, les
 // gardiens, les identifiants, la carte de France, les chiffres.
 //
-// Le Cabinet recopie ce qu'il lit des rencontres de l'Expédition plutôt que de
-// les importer : la page du musée ne doit pas tirer les 4 782 lignes de
-// `shared/rencontres.ts`. Une copie dérive sans bruit — une carte peinte de
-// plus, un nom retouché, une rareté changée —, d'où ce test, qui relit chaque
-// table contre sa source. Et ce qui se gèle (le jeu de chaque œuvre, les
+// Le Cabinet a recopié ce qu'il lisait des rencontres de l'Expédition plutôt
+// que de les importer : la page du musée ne devait pas tirer les 4 782 lignes
+// de `shared/rencontres.ts`, parti avec elle le 16 novembre 2026. Une copie
+// dérive sans bruit — une carte peinte de plus, un nom retouché, une rareté
+// changée —, d'où ce test, qui relit chaque table contre sa source, figée ce
+// jour-là (`cartes-des-rencontres.ts`, comparé aux rencontres tant qu'elles
+// existaient ; les légendaires à joker, `LEGENDAIRES_DE_L_EXPEDITION`, que
+// `legendaires.test.ts` garde). Et ce qui se gèle (le jeu de chaque œuvre, les
 // œuvres de départ) s'écrit ici en entier : le changer est un choix de produit,
 // qui se dit en changeant aussi ce test (invariant 22, `baremes.md`).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
-import { CARTES_DES_RENCONTRES, FAMILLES_DE_CARTES, type FamilleDeCartes } from '../../shared/rencontres'
-import { LEGENDAIRES_A_JOKER } from '../../shared/jokers'
-import { legendaire } from '../../shared/legendaires'
+import { CARTES_DES_RENCONTRES_FIGEES as CARTES_DES_RENCONTRES, FAMILLES_DES_RENCONTRES as FAMILLES_DE_CARTES } from './cartes-des-rencontres'
+import { LEGENDAIRES_DE_L_EXPEDITION as LEGENDAIRES_A_JOKER, legendaire } from '../../shared/legendaires'
 import { SAISONS, cleDeSaison } from '../../shared/saisons'
 import { DIVINS } from '../../shared/divins'
-import { OEUVRES, OEUVRES_DE_DEPART, JEU_DE_L_OEUVRE, RARETES, oeuvre, estUneOeuvre, oeuvresDeLaSalle } from '../../shared/cabinet/oeuvres'
+import { OEUVRES, OEUVRES_DE_DEPART, JEU_DE_L_OEUVRE, RARETES, oeuvre, estUneOeuvre, oeuvresDeLaSalle, type FamilleDeCartes } from '../../shared/cabinet/oeuvres'
 import {
   SALLES,
   GARDIENS,
@@ -743,19 +745,23 @@ test('le serveur du Cabinet ne tire ni la campagne, ni le quiz du jour, ni les D
   assert.ok(vus.size >= 20, `${vus.size} modules relus`)
 })
 
-test('le journal, l’accueil et la page lisent le Cabinet sans tirer les rencontres', () => {
+test('le journal, l’accueil et la page lisent le Cabinet sans rien tirer — et rien n’y ramène un module de l’Expédition', () => {
   const dossier = new URL('../../shared/cabinet/', import.meta.url)
   // Leurs en-têtes le promettent : le journal des réponses lit `pieces.ts`, l'accueil et le serveur `ouverture.ts`,
   // tout le Cabinet `bareme.ts` — sans rien tirer. Un import de valeur de plus ferait tirer le Cabinet en silence.
   for (const f of ['bareme.ts', 'pieces.ts', 'ouverture.ts']) assert.deepEqual(importsDeValeurs(new URL(f, dossier)).map(u => u.pathname), [], `${f} : n’importe que des types`)
-  // Et rien du Cabinet, de proche en proche, ne tire `shared/rencontres.ts` : 4 782 lignes, qui partiront avec l'Expédition.
-  const rencontres = new URL('../rencontres.ts', dossier).href
+  // Et rien du Cabinet, de proche en proche, ne tirait `shared/rencontres.ts` — 4 782 lignes, parties avec l'Expédition le
+  // 16 novembre 2026, comme ses quatre autres modules partagés : aucun ne revient par un import du Cabinet, et tout module
+  // qu'il tire existe.
+  const partis = new Set(['expedition', 'rencontres', 'codex', 'jokers', 'curiosites'].map(m => new URL(`../${m}.ts`, dossier).href))
+  for (const href of partis) assert.ok(!existsSync(new URL(href)), `${href} : parti avec l’Expédition`)
   const vus = new Set<string>()
   const aVoir = readdirSync(dossier, { recursive: true, encoding: 'utf8' }).filter(f => f.endsWith('.ts')).map(f => new URL(f, dossier))
   for (let u = aVoir.pop(); u; u = aVoir.pop()) {
     if (vus.has(u.href)) continue
     vus.add(u.href)
-    assert.notEqual(u.href, rencontres, 'un module du Cabinet tire shared/rencontres.ts')
+    assert.ok(!partis.has(u.href), `un module du Cabinet tire ${u.pathname.split('/').pop()}, parti avec l’Expédition`)
+    assert.ok(existsSync(u), `${u.pathname} : tiré par le Cabinet, et introuvable`)
     aVoir.push(...importsDeValeurs(u))
   }
   assert.ok(vus.size >= 9, `${vus.size} modules relus`)

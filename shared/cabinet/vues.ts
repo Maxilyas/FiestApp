@@ -174,8 +174,6 @@ export interface PageDuCabinet {
   /** La partie ouverte, telle que le pli la dit à `maintenant`. */
   enCours: VueDeLaPartie | null
   fete: FeteVue | null
-  /** Une expédition l'attend encore : « Ton expédition t'attend : la finir ». */
-  expedition: 'en-route' | null
   /** Les jeux livrés : un cadre vide d'un autre jeu dit « bientôt ». */
   jeux: CleDeJeu[]
   /** La tour : la montée du jour, l'étage à jouer et ses portes, le record. */

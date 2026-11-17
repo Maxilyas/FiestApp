@@ -133,7 +133,7 @@ function Porte({ salle, veille }: { salle: SalleVue; veille: boolean }) {
   )
 }
 
-/** Une ligne qui se dit tant qu'elle vaut : sa fête, sa série, l'expédition qui l'attend. */
+/** Une ligne qui se dit tant qu'elle vaut : sa fête, sa série. */
 export function Bandeau({ icone, children, geste }: { icone: ReactNode; children: ReactNode; geste?: ReactNode }) {
   return (
     <div className="cab-bandeau" role="note">
@@ -179,14 +179,6 @@ export function Musee({ page, onReprendre }: { page: PageDuCabinet; onReprendre:
 
       {/* Une partie à la fois : celle qui l'attend passe devant tout, dans les mots du refus d'un second départ (`cadreDuDepart`). */}
       {enCours && <TaPartieTAttend jeu={enCours.jeu} onReprendre={onReprendre} />}
-      {/* Une expédition en route se finit à ses règles, sans rien rapporter au Cabinet (le choix du propriétaire du 25 octobre 2026). */}
-      {page.expedition === 'en-route' && (
-        <Bandeau icone={<Icon name="flag" />}>
-          <a className="cab-lien" href="/expedition">
-            {espacesFines('Ton expédition t’attend : la finir')}
-          </a>
-        </Bandeau>
-      )}
       {/* La fête ne se dit qu'avec ce qu'elle promet : son gardien réveillé, il ne restait que « Halloween » et une icône. */}
       {page.fete?.gardien && (
         <Bandeau

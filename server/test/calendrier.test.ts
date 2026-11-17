@@ -72,7 +72,7 @@ test('sous le banc, le calendrier du Cabinet est fermé', () => {
 })
 
 test('le banc et le smoke ferment chaque calendrier de core/saisons.ts', () => {
-  for (const connu of ['calendrierDesSoirees', 'calendrierDesExpeditions', 'calendrierDuCabinet']) {
+  for (const connu of ['calendrierDesSoirees', 'calendrierDuCabinet']) {
     assert.ok(CALENDRIERS.includes(connu), `${connu} parmi les calendriers lus : ${CALENDRIERS.join(', ')}`)
   }
   // Le smoke ne lance pas le banc : il ferme les siens à son début, une ligne

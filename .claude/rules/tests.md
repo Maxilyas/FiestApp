@@ -95,11 +95,11 @@ paths:
   close pendant Halloween, Noël ou le Nouvel An, elle ouvrait son légendaire
   de saison — la CI rougissait dix-neuf jours par an. `banc.ts` et
   `smoke.ts` ferment donc chaque calendrier de `core/saisons.ts` : celui des
-  soirées (`calendrierDesSoirees`), des expéditions — la fête sur les cartes,
-  son légendaire à l'acte 3 — et du Cabinet (`calendrierDuCabinet`, né le
-  25 octobre 2026, premier jour d'Halloween : la première œuvre gagnée
-  pendant la fête réveille son gardien). Un test qui date ses parties
-  lui-même rouvre le sien (`saisons.test.ts`, `expedition-saison.test.ts`) ;
+  soirées (`calendrierDesSoirees`) et celui du Cabinet (`calendrierDuCabinet`,
+  né le 25 octobre 2026, premier jour d'Halloween : la première œuvre gagnée
+  pendant la fête réveille son gardien ; celui des expéditions est parti avec
+  elles le 16 novembre 2026). Un test qui date ses parties
+  lui-même rouvre le sien (`saisons.test.ts`, `cabinet-saisons.test.ts`) ;
   un calendrier de plus — tout objet `{ periodeDu }` que le module exporte,
   quel que soit son nom — se ferme aux deux bouts, une ligne chacun, celle du
   smoke avant son premier serveur, ce que `calendrier.test.ts` vérifie — et
