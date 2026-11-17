@@ -453,16 +453,37 @@ paths:
   2020 px, deux de 917) ; **Vitrine**, « Sur ta carte », ses trois places
   numérotées (`.loge-emplacements`, `.loge-emplacement`, `.vide`,
   `.d-office` — une ✨ au lieu du numéro —, `.vient` quand une place se
-  remplit), où l'on voit ce qu'un toucher fait (« Pour la vitrine est ce que
-  l'on sait sur quoi on clique ? », le propriétaire) : un trophée touché
-  prend la première place libre, une place pleine touchée se vide ; trois
-  boutons fixes, rangés par numéro — vidée, la place reste sous le doigt et
-  le focus avec ; puis les médailles à quatre par rangée (`.loge-medailles`),
-  l'emoji dans son rond, le liseré du métal d'une piste, son rang en pastille
-  d'or au coin haut droit, la coche au coin haut gauche, « Les plus durs » le
-  premier `li` ; pas de « N trophées à gagner » (compté comme l'album, il
-  disait 277 à côté des « 78 titres à gagner » de la pièce voisine, qui mène
-  au même album) ; **Fond**, une petite carte (`fond-apercu carte-fond`, le
+  remplit), où l'on voit ce que le geste a fait (« Pour la vitrine est ce
+  que l'on sait sur quoi on clique ? », le propriétaire) — une place pleine
+  touchée se vide ; trois boutons fixes, rangés par numéro : vidée, la
+  place reste sous le doigt et le focus avec ; puis les médailles à quatre
+  par rangée (`.loge-medailles`), l'emoji dans son rond, le liseré du métal
+  d'une piste, son rang en pastille d'or au coin haut droit, la coche au
+  coin haut gauche, « Les plus durs » le premier `li`, qui choisit d'un
+  toucher la vitrine d'office. **On choisit par l'exploit** (« il faut que
+  je sache ce que font les trophées de manière élégante. Sinon on choisit
+  plus par l'exploit mais juste par l'icône et c'est nul », le propriétaire,
+  le même jour) : toucher une médaille ne la pose plus sur la carte, il
+  ouvre sa fiche sous sa rangée, comme l'album des trophées de « Ma
+  collection » (`MaVitrine` tient la fiche ouverte, `LaVitrine` rend sans
+  état, `FicheDeLaMedaille`, `.loge-fiche`, sa pointe sous la médaille,
+  `--loge-fiche-colonne`, et `grid-auto-flow: dense` pour que ses voisines
+  restent dans leur rangée) — la médaille en grand, son nom, son métal, sa
+  rareté sans chiffre (`PART_DES_JOUEURS`), ce qu'il a fallu en une phrase,
+  et un seul geste, le bouton d'or : « Sur ma carte », qui prend la première
+  place libre, ou « Retirer de ma carte » ; carte pleine, il s'éteint et
+  fait frémir les places et la vitrine de la carte collée, sans phrase. Une
+  fiche à la fois, retouchée elle se referme ; elle prend le focus sur son
+  nom (`useFiche`). La médaille est un bouton qui ouvre sa fiche
+  (`aria-expanded`, `aria-controls`, plus d'`aria-pressed`), son état et son
+  rang toujours dits ; la règle d'un trophée par `aria-describedby` ne vaut
+  plus que pour les places. Une fiche fait 180 px : en 360 × 640, la page
+  défile d'elle-même de 50 px pour amener le bouton à 7 px au-dessus du
+  menu ; rien ne bouge au-dessus d'elle (`ficheDeLaVitrine`, `rendu-loge.ts`,
+  qui sort en erreur sinon). Pas de « N trophées à gagner » (compté comme
+  l'album, il disait 277 à côté des « 78 titres à gagner » de la pièce
+  voisine, qui mène au même album) ;
+  **Fond**, une petite carte (`fond-apercu carte-fond`, le
   Velours au halo de la carte d'office), trois par rangée ; **Thème**, deux
   onglets (`OngletsDuTheme` : « Mes thèmes », d'office, et « Ma plaque », son
   échantillon et un œil dessus — règle `themes.md`), un thème en vignette
