@@ -29,9 +29,8 @@
 // le bandeau du service ; l'Ivoire. À chaque photo : où finissent la carte, la
 // rangée des pièces et chaque bloc d'avant la grille, combien
 // de rangées de la grille se voient entières et combien y auraient la place,
-// ce que la carte collée laisse à la grille une fois la page défilée, ce que
-// chaque phrase montre et tait, les cibles de doigt sous 44 px, les textes sous
-// 11 px, ce qui passe sous la niche.
+// ce que la carte collée laisse à la grille une fois la page défilée, les
+// cibles de doigt sous 44 px, les textes sous 11 px, ce qui passe sous la niche.
 //
 //   npm run build -w client
 //   cd server && npx tsx scripts/rendu-loge.ts ../export/loge
@@ -43,7 +42,7 @@
 // cas qui doit tenir, un bloc d'avant la grille passe sous le menu, à
 // n'importe quelle taille, si la grille montre moins de rangées entières
 // qu'attendu (`DOIT_TENIR`), si une cible de doigt descend sous 44 px ou un
-// texte sous 11 px, si l'essentiel d'une phrase est coupé, si quelque chose
+// texte sous 11 px, si quelque chose
 // passe sous la niche ou élargit la page, ou si la barre de l'essai monte plus
 // haut que le menu qu'elle couvre ou fait bouger la page.
 import { createRequire } from 'node:module'
@@ -111,7 +110,7 @@ const LES_PIECES: Record<PieceDeLaLoge, { avant: [nom: string, selecteur: string
 /**
  * Ce que la loge mesure, la page en haut : où commence ce qui couvre le bas de l'écran (le menu, ou la barre de
  * l'essai), où finissent sa tête, sa carte, la rangée des pièces, chaque bloc d'avant la grille, les
- * rangées de la grille, ce que chaque phrase montre, les cibles de doigt, les textes trop petits. En texte : `tsx` y
+ * rangées de la grille, les cibles de doigt, les textes trop petits. En texte : `tsx` y
  * glisserait des `__name` — et sans accent grave dedans, qui fermerait le gabarit.
  */
 const LA_LOGE = (piece: PieceDeLaLoge) => `(() => {
@@ -121,14 +120,6 @@ const LA_LOGE = (piece: PieceDeLaLoge) => `(() => {
     if (!el) return null
     const r = el.getBoundingClientRect()
     return r.width > 1 && r.height > 1 ? { haut: Math.round(r.top + scrollY), bas: Math.round(r.bottom + scrollY) } : null
-  }
-  // Les lignes d'un texte : ses boîtes de ligne, regroupées par leur haut.
-  const lignesDe = el => {
-    if (!el) return 0
-    const plage = document.createRange()
-    plage.selectNodeContents(el)
-    const hauts = [...plage.getClientRects()].filter(b => b.width > 1 && b.height > 1).map(b => b.top).sort((a, b) => a - b)
-    return hauts.reduce((n, h, i) => (i === 0 || h - hauts[i - 1] > 6 ? n + 1 : n), 0)
   }
   const menu = document.querySelector('.menu-barre')
   const essai = document.querySelector('.loge-barre')
@@ -201,23 +192,6 @@ const LA_LOGE = (piece: PieceDeLaLoge) => `(() => {
     ),
     pieces: boite('.loge-pieces'),
     avant: PIECE.avant.map(([nom, sel]) => ({ nom, ...boite(sel) })).filter(b => b.bas !== undefined),
-    // Ce qu'un réglage dit sous sa rangée, en deux temps : son essentiel — coupé au bout ? —, ceux de ses morceaux que
-    // la ligne montre, ceux qu'elle tait. Sur un grand écran, la phrase coule entière, sur ses lignes.
-    phrases: [...document.querySelectorAll('.loge-panneau .loge-bordure-phrase, .loge-panneau > .loge-bordures > p.muted')].map(p => {
-      const essentiel = p.querySelector('.loge-essentiel')
-      if (!essentiel) return { essentiel: [...p.textContent.trim()].slice(0, 40).join('') + '…', suite: '', tue: '', coupe: false, lignes: lignesDe(p) }
-      const suites = [...p.querySelectorAll('.loge-suite')]
-      const entiere = getComputedStyle(p).display !== 'flex'
-      const haut = essentiel.getBoundingClientRect().top
-      const montrees = entiere ? suites : suites.filter(s => Math.abs(s.getBoundingClientRect().top - haut) < 2)
-      return {
-        essentiel: essentiel.textContent,
-        suite: montrees.map(s => s.textContent).join(''),
-        tue: suites.filter(s => !montrees.includes(s)).map(s => s.textContent).join(''),
-        coupe: essentiel.scrollWidth > essentiel.clientWidth + 1,
-        lignes: entiere ? lignesDe(p) : 1,
-      }
-    }),
     rangees,
     place,
     gagner: boite('.loge-a-gagner'),
@@ -466,25 +440,16 @@ try {
     if (m.petits.length) jamais.push(`TEXTE SOUS 11 PX : ${m.petits.join(' ; ')}`)
     const sousLaNiche = (m.sousLaNiche as string[]).filter(x => x !== '(pas de niche)')
     if (sousLaNiche.length) jamais.push(`SOUS LA NICHE — ${sousLaNiche.join(' · ')}`)
-    // Ce qui doit tenir, dans les cas qui doivent tenir : ce qui précède la grille, ses rangées, l'essentiel d'une
-    // phrase — c'est ce qu'elle ajoute qui se tait, jamais lui.
+    // Ce qui doit tenir, dans les cas qui doivent tenir : ce qui précède la grille, ses rangées.
     const rates: string[] = []
     if (attendu !== null && dessous.length) rates.push(`AVANT LA GRILLE, SOUS ${sousQuoi} : ${dessous.map(b => `${b.nom} (${b.bas - m.pli} px)`).join(', ')}`)
     if (attendu !== null && entieres < Math.min(attendu, m.rangees.length)) rates.push(`${entieres} RANGÉE ENTIÈRE SUR ${m.rangees.length}, ${attendu} ATTENDUE${attendu > 1 ? 'S' : ''}`)
-    const dits: string[] = []
-    const coupees = (m.phrases as { essentiel: string; coupe: boolean }[]).filter(p => p.coupe)
-    if (coupees.length) (attendu !== null ? rates : dits).push(`L’ESSENTIEL D’UNE PHRASE EST COUPÉ AU BOUT : ${coupees.map(p => `« ${p.essentiel} »`).join(' ; ')}`)
     if (rates.length || jamais.length) rate++
     console.log(
       `${n} — pli ${m.pli} · la carte ${m.carte.haut}→${m.carte.bas} (${m.carte.bas - m.carte.haut} px${m.jaugeMontree ? '' : ', sa jauge tue'}) · les pièces →${m.pieces.bas} · ${m.avant.map((b: any) => `${b.nom} →${b.bas}`).join(' · ')} · avant la grille : ${fin > 0 ? `${fin} px SOUS ${sousQuoi}` : `${-fin} px de libre`} · la grille : ${entieres} rangée${entieres > 1 ? 's' : ''} entière${entieres > 1 ? 's' : ''} sur ${m.rangees.length}, la place de ${m.place}${premiere ? ` (la première ${premiere.haut}→${premiere.bas})` : ''} · sous la carte collée ${m.sousLaCarte} px · défile de ${m.defile} px${m.pied ? ` · le pied →${m.pied.bas}${m.pied.bas > m.pli ? ` (${m.pied.bas - m.pli} px sous ${sousQuoi})` : ''}` : ''}${m.bandeau ? ` · bandeau ${m.bandeau} px` : ''}`,
     )
-    if (m.phrases.length)
-      console.log(
-        `   phrases : ${m.phrases.map((p: any) => `« ${p.essentiel}${p.suite} »${p.coupe ? ' COUPÉE AU BOUT' : ''}${p.tue ? ` [tu : « ${p.tue.trim()} »]` : ''}${p.lignes > 1 ? ` (${p.lignes} lignes)` : ''}`).join(' ; ')}`,
-      )
     console.log(`   cibles : ${Object.entries(m.cibles as Record<string, { n: number; haut: number; large: number }>).map(([q, c]) => `${q} ${c.large}×${c.haut}${D_AVANT[q] && c.haut < CIBLE ? ' (d’avant)' : ''}`).join(' · ')}`)
     for (const r of [...jamais, ...rates]) console.log(`   ${r}`)
-    for (const r of dits) console.log(`   (dit, sans faire échouer) ${r}`)
     return m
   }
 
@@ -520,17 +485,6 @@ try {
         if (plusHaut > 0 || bouge) rate++
       } else {
         await mesurer(page, nom, 'avatar', ecran, n)
-        // La plus longue des phrases : la bordure du diamant, au nom de vingt-quatre lettres — son essentiel se lit entier.
-        if (cas.tout) {
-          await page.tap('.loge-bordures-rangee .bordure-choix[aria-label^="La Couronne de brillants"]')
-          await page.waitForSelector('.loge-barre')
-          const p = (await page.evaluate(`(() => {
-            const e = document.querySelector('.loge-bordures-rangee + .loge-a-suite .loge-essentiel')
-            return { texte: e.textContent, coupe: e.scrollWidth > e.clientWidth + 1 }
-          })()`)) as { texte: string; coupe: boolean }
-          console.log(`   la plus longue des bordures, à l’essai : « ${p.texte} »${p.coupe ? ' — COUPÉE AU BOUT' : ', entière'}`)
-          if (p.coupe) rate++
-        }
       }
       await ctx.close()
     }
@@ -599,7 +553,7 @@ try {
   }
 
   await avatar('essai', { cookie: lea, essai: true }, DEUX_ECRANS)
-  // Une tablette debout : au-dessus de 940 px de haut, les mesures d'avant — ses phrases entières, sa jauge.
+  // Une tablette debout : au-dessus de 940 px de haut, les mesures d'avant — sa jauge.
   if (!encoche) await avatar('tablette', { cookie: lea }, TABLETTE)
   await avatar('agrandi', { cookie: lea, texte: 130 }, PETIT)
 

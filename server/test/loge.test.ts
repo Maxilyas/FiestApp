@@ -13,7 +13,6 @@ import React from 'react'
 import { AUCUNE_GERBE, gerbe } from '../../shared/gerbes'
 import { HAUTS_FAITS_DE_CARRIERE, HAUTS_FAITS_REGAGNABLES, type HautFaitVu } from '../../shared/hautsfaits'
 import { LEGENDAIRES, estScellable, legendaire } from '../../shared/legendaires'
-import { LIGUES, NOM_DE_LA_BORDURE } from '../../shared/duels'
 import { brancheDe, portrait } from '../../shared/branches'
 import { fond } from '../../shared/fonds'
 import { NOM_FINITION, meilleureFinition } from '../../shared/profil'
@@ -918,60 +917,51 @@ test('la loge tient sur un écran, ou presque : rien n’y change de place, et c
   assert.match(loge, /<\/button><\/div><\/div><div class="loge-pieces"><div class="loge-groupes" aria-hidden="true">/)
   assert.match(loge, /<\/button><\/div><\/div><div class="loge-panneau" role="tabpanel"/)
 
-  /** La phrase d'un réglage telle qu'elle s'écrit : ses morceaux, l'essentiel d'abord — et rien hors d'eux. */
-  const morceaux = (html: string): string[] => {
-    const phrase = /<p class="muted small loge-bordure-phrase loge-a-suite">(.*?)<\/p>/.exec(html)?.[1]
-    assert.ok(phrase, 'la phrase du réglage est là')
-    const lus = [...phrase.matchAll(/<span class="(loge-essentiel|loge-suite)">(.*?)<\/span>/g)]
-    assert.equal(lus.map(m => m[0]).join(''), phrase, 'la phrase n’est faite que de ses morceaux')
-    assert.deepEqual(lus.map(m => m[1]), ['loge-essentiel', ...lus.slice(1).map(() => 'loge-suite')])
-    return lus.map(m => m[2])
+  // Ni la bordure ni le sceau ne disent de phrase sous leur rangée (le 17 novembre 2026 : « pas besoin de mettre du texte à
+  // chaque fois […] ça fait perdre de la place pour rien ») : leurs crans et leur sceau se lisent dans « Ma collection ».
+  const bordure = (bordures: { ligue: string; crans: number }[], essai: object = {}) =>
+    rendu('components/Apparence', 'MesBordures', { ...piece, essai, profil: { ...LEA, bordures, bordureChoisie: 'auto' } })
+  const sceau = (profil: object, essai: object = {}) => rendu('components/Apparence', 'MonSceau', { ...piece, essai, profil: { ...LEA, scelles: ['lg:phenix'], ...profil } })
+  const sansPhrase = (html: string) => {
+    assert.doesNotMatch(html, /<p[ >]/, 'aucune phrase sous la rangée')
+    assert.doesNotMatch(html, /loge-bordure-phrase|loge-a-suite|loge-essentiel|loge-suite/)
+    assert.doesNotMatch(html, /crans? sur 12|est scellé|n’a pas (encore )?(de|son) sceau|ton sceau reste à toi|Sans bordure : /)
   }
-  // Ce qu'un téléphone montre d'une phrase : son essentiel, qui tient sur une ligne de 320 px — quarante-six caractères au plus.
-  const ESSENTIEL_MAX = 46
-
-  // La bordure : son nom et ses crans, puis ce qui manque pour la sertir — la phrase d'avant, mot pour mot, coupée à sa jointure.
-  // Où gagner ses crans se dit comme partout (`ouSeGagnentSesCrans`, le 10 novembre 2026) : « ou plus haut », sauf tout en haut.
-  const bordure = async (bordures: { ligue: string; crans: number }[], essai: object = {}) =>
-    morceaux(await rendu('components/Apparence', 'MesBordures', { ...piece, essai, profil: { ...LEA, bordures, bordureChoisie: 'auto' } }))
-  assert.deepEqual(await bordure([{ ligue: 'or', crans: 7 }]), ['Les Feuilles d’or · 7 crans sur 12', ' : encore 5 victoires en ligue d’or ou plus haut pour la sertir.'])
-  assert.equal((await bordure([{ ligue: 'or', crans: 7 }])).join(''), 'Les Feuilles d’or · 7 crans sur 12 : encore 5 victoires en ligue d’or ou plus haut pour la sertir.')
-  assert.deepEqual(await bordure([{ ligue: 'bronze', crans: 1 }]), ['Le Rameau · 1 cran sur 12', ' : encore 11 victoires en ligue de bronze ou plus haut pour la sertir.'])
-  assert.deepEqual(await bordure([{ ligue: 'or', crans: 11 }]), ['Les Feuilles d’or · 11 crans sur 12', ' : encore 1 victoire en ligue d’or ou plus haut pour la sertir.'])
-  assert.deepEqual(await bordure([{ ligue: 'maitre', crans: 1 }], { bordure: 'maitre' }), ['Le Soleil noir · 1 cran sur 12', ' : encore 11 victoires en ligue des maîtres pour la sertir.'])
-  assert.deepEqual(await bordure([{ ligue: 'or', crans: 12 }]), ['Les Feuilles d’or · sertie', ', ses douze crans gagnés.'])
-  // Sa ligue atteinte sans un cran encore : choisie, elle dit ce qui lui manque ; « Auto », qu'il n'en porte aucune.
-  assert.deepEqual(await bordure([{ ligue: 'bronze', crans: 0 }], { bordure: 'bronze' }), ['Le Rameau · aucun cran encore', ' : encore 12 victoires en ligue de bronze ou plus haut pour la sertir.'])
-  assert.deepEqual(await bordure([{ ligue: 'bronze', crans: 0 }]), ['Auto : ta plus haute bordure', ', dès que tu y gagnes un duel.'])
-  assert.deepEqual(await bordure([{ ligue: 'or', crans: 7 }], { bordure: 'aucune' }), ['Sans bordure', ' : ton avatar et sa finition, rien autour.'])
-  // La plus longue qu'une ligue puisse écrire tient encore.
-  for (const l of LIGUES) {
-    for (const crans of [0, 1, 11, 12]) {
-      const [essentiel] = await bordure([{ ligue: l.cle, crans }], { bordure: l.cle })
-      assert.ok(essentiel.startsWith(NOM_DE_LA_BORDURE[l.cle]) && [...essentiel].length <= ESSENTIEL_MAX, `« ${essentiel} » tient sur une ligne`)
-    }
+  for (const [bordures, essai] of [
+    [[{ ligue: 'or', crans: 7 }], {}],
+    [[{ ligue: 'or', crans: 12 }], {}],
+    [[{ ligue: 'maitre', crans: 1 }], { bordure: 'maitre' }],
+    [[{ ligue: 'bronze', crans: 0 }], { bordure: 'bronze' }],
+    [[{ ligue: 'bronze', crans: 0 }], {}],
+    [[{ ligue: 'or', crans: 7 }], { bordure: 'aucune' }],
+  ] as const) {
+    const html = await bordure([...bordures], essai)
+    sansPhrase(html)
+    // La rangée, elle, reste : son petit titre et ses pastilles.
+    assert.match(html, /<span class="loge-sous-titre" id="loge-bordures-titre">Bordure<\/span>/)
+    assert.match(html, /<div class="[^"]*loge-bordures-rangee" role="group" aria-labelledby="loge-bordures-titre">/)
   }
-  // Sans duel classé, rien à régler : l'explication reste entière, son lien au bout — un nouveau venu la lit sur ses lignes.
+  // Sans duel classé, rien à régler : l'explication reste entière, son lien au bout — sans elle, la rangée serait vide.
   const sansDuel = await rendu('components/Apparence', 'MesBordures', { ...piece, profil: { ...LEA, bordures: undefined } })
   assert.match(sansDuel, /<p class="muted small">Ton premier duel classé ouvre la bordure de ta ligue ; chaque duel gagné dans la ligue, ou plus haut, y sertit un cran\. <a href="\/duels">Jouer un duel<\/a><\/p>/)
   assert.doesNotMatch(sansDuel, /loge-a-suite/)
 
-  // Le sceau : ce qu'il en est du légendaire montré, puis pourquoi.
-  const sceau = async (profil: object, essai: object = {}) => morceaux(await rendu('components/Apparence', 'MonSceau', { ...piece, essai, profil: { ...LEA, scelles: ['lg:phenix'], ...profil } }))
-  assert.deepEqual(await sceau({}), ['Le Phénix est scellé', ' : tu tiens l’exploit qui l’ouvre', ', pas seulement le Cabinet.'])
-  assert.equal((await sceau({})).join(''), 'Le Phénix est scellé : tu tiens l’exploit qui l’ouvre, pas seulement le Cabinet.')
+  // Le sceau : la rangée « Montré » / « Masqué » seule, quel que soit le légendaire montré ou le choix.
   const scellable = LEGENDAIRES.find(l => estScellable(l) && l.key !== 'lg:phenix')!
-  assert.deepEqual(await sceau({ legendaire: scellable.key }), [`${scellable.nom} n’a pas encore son sceau`, ' : il se gagne par son exploit', ', hors du Cabinet.'])
   const sansSceau = LEGENDAIRES.find(l => !estScellable(l))!
-  assert.deepEqual(await sceau({ legendaire: sansSceau.key }), [`${sansSceau.nom} n’a pas de sceau`, ' : il ne se gagne que d’une façon.'])
-  assert.deepEqual(await sceau({}, { sceau: false }), ['Masqué : ton sceau reste à toi', ', mais la salle ne le voit plus.'])
-  // Sous un emoji, ses scellés se comptent — un seul se dit au singulier : « Tes légendaire scellé porte », écrivait la phrase d'avant.
-  assert.deepEqual(await sceau({ legendaire: null }), ['Ton légendaire scellé', ' porte l’étoile du zénith', ', que toute la salle voit.'])
-  assert.deepEqual(await sceau({ legendaire: null, scelles: ['lg:phenix', 'lg:chouette'] }), ['Tes 2 légendaires scellés', ' portent l’étoile du zénith', ', que toute la salle voit.'])
-  // Le plus long des légendaires tient encore, scellé, à sceller ou sans sceau.
-  for (const l of LEGENDAIRES) {
-    const [essentiel] = await sceau({ legendaire: l.key, scelles: ['lg:phenix'] })
-    assert.ok(essentiel.startsWith(l.nom) && [...essentiel].length <= ESSENTIEL_MAX, `« ${essentiel} » tient sur une ligne`)
+  for (const [profil, essai] of [
+    [{}, {}],
+    [{ legendaire: scellable.key }, {}],
+    [{ legendaire: sansSceau.key }, {}],
+    [{}, { sceau: false }],
+    [{ legendaire: null }, {}],
+    [{ legendaire: null, scelles: ['lg:phenix', 'lg:chouette'] }, {}],
+  ] as const) {
+    const html = await sceau(profil, essai)
+    sansPhrase(html)
+    assert.match(html, /<span class="loge-sous-titre" id="loge-sceau-titre">Sceau<\/span>/)
+    assert.match(html, /Montré/)
+    assert.match(html, /Masqué/)
   }
   // Sans légendaire scellé, pas de sceau à régler : rien ne s'ajoute à qui débute.
   assert.equal(await rendu('components/Apparence', 'MonSceau', { ...piece, profil: LEA }), '')
@@ -1111,12 +1101,8 @@ test('la loge se resserre par ses mesures : des variables posées sur sa page, �
   assert.deepEqual(toutes.filter(r => /clip-path|width: 1px/.test(r.corps)).map(r => r.selecteurs.join(', ')), ['.loge-carte > .xp-mince'])
   assert.equal(telephone.regles.some(r => r.selecteurs.some(s => s.includes('xp-mince'))), false, 'un téléphone d’aujourd’hui garde la jauge de sa carte')
 
-  // La phrase d'un réglage, sur une ligne : l'essentiel, puis ceux de ses morceaux qui tiennent entiers — une rangée qui
-  // passe à la ligne, haute d'une ligne. Hors de ce pas, rien ne la règle : un grand écran la lit entière, sur ses lignes.
-  assert.match(corpsDe(telephone.regles, '.loge-a-suite'), /display: flex; flex-wrap: wrap; align-content: flex-start; height: 1\.3em; line-height: 1\.3; overflow: clip;/)
-  assert.match(corpsDe(telephone.regles, '.loge-essentiel'), /min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;/)
-  assert.match(corpsDe(telephone.regles, '.loge-suite'), /flex: none; white-space: pre;/)
-  const laPhrase = /\.loge-(a-suite|essentiel|suite)\b/
+  // Plus de phrase sous une rangée de la pièce « Avatar » (le 17 novembre 2026) : ses règles sont parties avec elle.
+  const laPhrase = /\.loge-(a-suite|essentiel|suite|bordure-phrase)\b/
   assert.equal(avant.some(r => r.selecteurs.some(s => laPhrase.test(s))), false)
   assert.equal(petit.regles.some(r => r.selecteurs.some(s => laPhrase.test(s))), false)
 
