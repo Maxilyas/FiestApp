@@ -22,10 +22,12 @@
 // qu'elle porte puis sur celle de ses neuf avatars communs ; Tom, qui vient de
 // créer son profil ; tout au plus long — les douze finitions du niveau 50, les
 // six bordures, un Éclat en réserve, sept pages d'avatars — ; chacune des cinq
-// autres pièces ; un essai en route, la barre « Annuler · Porter » à la place
+// autres pièces, et l'onglet « Ma plaque » de la pièce « Thème » — chaque
+// plaque essayée tour à tour au petit téléphone (`plaques`), sous l'Ivoire
+// aussi — ; un essai en route, la barre « Annuler · Porter » à la place
 // du menu ; une tablette, aux mesures d'avant ; le texte agrandi à 130 % ; sous
 // le bandeau du service ; l'Ivoire. À chaque photo : où finissent la carte, la
-// rangée des pièces, « qui le voit » et chaque bloc d'avant la grille, combien
+// rangée des pièces et chaque bloc d'avant la grille, combien
 // de rangées de la grille se voient entières et combien y auraient la place,
 // ce que la carte collée laisse à la grille une fois la page défilée, ce que
 // chaque phrase montre et tait, les cibles de doigt sous 44 px, les textes sous
@@ -34,7 +36,7 @@
 //   npm run build -w client
 //   cd server && npx tsx scripts/rendu-loge.ts ../export/loge
 //
-// `SEULEMENT=avatar,pieces` ne joue que ces cas ; `ENCOCHE=47` pose l'encoche
+// `SEULEMENT=avatar,pieces` ne joue que ces cas, `--pieces=theme` que ces pièces ; `ENCOCHE=47` pose l'encoche
 // d'un iPhone et sa barre d'accueil, en 390 × 844 ; `--client=<dossier>`, après
 // le dossier des photos, photographie un autre client construit — celui d'avant
 // une retouche, comme `mesure-pages.ts`. Le script sort en erreur si, dans un
@@ -54,8 +56,11 @@ import { ADMIN, connexionAnimateur, demarrer, ecrire, inscrireProfil } from '../
 import { ProfileStore, VERSION_BAREME } from '../src/auth/profiles'
 import { FINITIONS, xpDuNiveau } from '../../shared/profil'
 import { LIGUES } from '../../shared/duels'
-import { hautFait, palierDe, titreDePalier } from '../../shared/hautsfaits'
+import { FONDS } from '../../shared/fonds'
+import { GERBES } from '../../shared/gerbes'
+import { HAUTS_FAITS_DE_CARRIERE, HAUTS_FAITS_REGAGNABLES, clePalier, hautFait, palierDe, titreDePalier } from '../../shared/hautsfaits'
 import { PIECES_DE_LA_LOGE, type PieceDeLaLoge } from '../../shared/piecesDeLaLoge'
+import { THEMES } from '../../shared/themes'
 import { ecrireDesDuels } from './duelsDEssai'
 import { SOUS_LA_NICHE } from './a-l-ecran'
 
@@ -94,16 +99,18 @@ const LES_PIECES: Record<PieceDeLaLoge, { avant: [nom: string, selecteur: string
     cases: '.loge-grille > .loge-case',
     cible: 'un avatar',
   },
-  titre: { avant: [['« Mes titres »', '.loge-panneau > .card > h3'], ['sa phrase', '.loge-panneau > .card > h3 + p']], cases: '.titres > .titre-choix', cible: 'un titre' },
-  vitrine: { avant: [['« Mes trophées »', '.loge-panneau > .card > h3'], ['sa phrase', '.loge-panneau > .card > h3 + p']], cases: '.vitrine-choix > li', cible: 'un trophée' },
-  fond: { avant: [['« Mes fonds »', '.loge-panneau > .card > h3'], ['sa phrase', '.loge-panneau > .card > h3 + p']], cases: '.fonds-choix > .finition-btn', cible: 'un fond' },
-  theme: { avant: [['sa légende', '.mes-themes > .gemme-legende']], cases: '.vitrine-themes > .theme-vitrine', cible: 'un thème' },
-  gerbe: { avant: [['« Mes gerbes »', '.loge-panneau > .card > h3'], ['sa phrase', '.loge-panneau > .card > h3 + p']], cases: '.gerbes-choix > .finition-btn', cible: 'une gerbe' },
+  // Les cinq autres parlent la même langue depuis le 17 novembre 2026 : un en-tête d'une ligne (`EnteteDeLaPiece`), puis
+  // leurs vignettes, enfants directs de `.loge-vignettes` — un bouton, ou l'élément d'une liste qui le tient.
+  titre: { avant: [['l’en-tête', '.loge-panneau .loge-entete']], cases: '.loge-panneau .loge-vignettes > *', cible: 'un titre' },
+  vitrine: { avant: [['l’en-tête', '.loge-panneau .loge-entete']], cases: '.loge-panneau .loge-vignettes > *', cible: 'un trophée' },
+  fond: { avant: [['l’en-tête', '.loge-panneau .loge-entete']], cases: '.loge-panneau .loge-vignettes > *', cible: 'un fond' },
+  theme: { avant: [['l’en-tête', '.loge-panneau .loge-entete']], cases: '.loge-panneau .loge-vignettes > *', cible: 'un thème' },
+  gerbe: { avant: [['l’en-tête', '.loge-panneau .loge-entete']], cases: '.loge-panneau .loge-vignettes > *', cible: 'une gerbe' },
 }
 
 /**
  * Ce que la loge mesure, la page en haut : où commence ce qui couvre le bas de l'écran (le menu, ou la barre de
- * l'essai), où finissent sa tête, sa carte, la rangée des pièces et « qui le voit », chaque bloc d'avant la grille, les
+ * l'essai), où finissent sa tête, sa carte, la rangée des pièces, chaque bloc d'avant la grille, les
  * rangées de la grille, ce que chaque phrase montre, les cibles de doigt, les textes trop petits. En texte : `tsx` y
  * glisserait des `__name` — et sans accent grave dedans, qui fermerait le gabarit.
  */
@@ -152,6 +159,8 @@ const LA_LOGE = (piece: PieceDeLaLoge) => `(() => {
     'une gemme': '.gemmes-loge .gemme',
     [PIECE.cible]: PIECE.cases + ' button, ' + PIECE.cases + '[type=button]',
     'à gagner': '.loge-a-gagner',
+    // La pièce « Thème » : ses deux onglets, « Mes thèmes · Ma plaque ».
+    'un onglet': '.loge-theme-onglets [role=tab]',
     'l’Éclat': '.loge-reserve .btn',
     'la barre': '.loge-barre .btn',
   }
@@ -191,8 +200,6 @@ const LA_LOGE = (piece: PieceDeLaLoge) => `(() => {
       }),
     ),
     pieces: boite('.loge-pieces'),
-    qui: boite('.loge-qui'),
-    lignesDeQui: lignesDe(document.querySelector('.loge-qui')),
     avant: PIECE.avant.map(([nom, sel]) => ({ nom, ...boite(sel) })).filter(b => b.bas !== undefined),
     // Ce qu'un réglage dit sous sa rangée, en deux temps : son essentiel — coupé au bout ? —, ceux de ses morceaux que
     // la ligne montre, ceux qu'elle tait. Sur un grand écran, la phrase coule entière, sur ses lignes.
@@ -214,6 +221,8 @@ const LA_LOGE = (piece: PieceDeLaLoge) => `(() => {
     rangees,
     place,
     gagner: boite('.loge-a-gagner'),
+    // Le pied d'une pièce en vignettes : ses chemins vers la boutique et la collection.
+    pied: boite('.loge-panneau .loge-pied'),
     // La carte reste collée en haut : la page défilée, ce qu'elle laisse à la grille, entre elle et ce qui couvre le bas.
     sousLaCarte: carte ? pli - (carte.bas - carte.haut) : null,
     cibles,
@@ -225,6 +234,9 @@ const banc = await demarrer(autreClient ? { clientDist: path.resolve(autreClient
 const navigateur = await chromium.launch({ headless: true })
 const seulement = (process.env.SEULEMENT ?? '').split(',').filter(Boolean)
 const retenu = (nom: string) => !seulement.length || seulement.includes(nom)
+/** `--pieces=theme,gerbe` : dans les cas `pieces` et `pleines`, ces pièces seulement — une pièce qu'on retouche, regardée seule. */
+const piecesDemandees = (demandes.find(a => a.startsWith('--pieces='))?.slice('--pieces='.length) ?? '').split(',').filter(Boolean)
+const pieceRetenue = (id: PieceDeLaLoge) => !piecesDemandees.length || piecesDemandees.includes(id)
 const encoche = Number(process.env.ENCOCHE ?? 0)
 /** Une encoche ne se pose que sur un écran qui en a une : un iPhone d'aujourd'hui, pas le petit téléphone de référence. */
 const reels = (ecrans: Ecran[]): Ecran[] => (encoche ? [[390, 844]] : ecrans)
@@ -267,10 +279,10 @@ const hauteurUtile = (hauteur: number) => hauteur - (encoche ? Math.max(0, encoc
 /** La hauteur d'une cible de doigt, au moins — sa largeur se lit au rapport : une pastille a celle de son nom, depuis toujours. */
 const CIBLE = 44
 /**
- * Deux cibles d'avant, plus basses, que ce resserrement n'a pas touchées — « Version rare », sur la carte, et un titre
- * de la pièce « Titre » : elles ne descendent pas davantage.
+ * Une cible d'avant, plus basse, que ce resserrement n'a pas touchée — « Version rare », sur la carte : elle ne descend
+ * pas davantage. Un titre de la pièce « Titre » en faisait 34 jusqu'au 17 novembre 2026, ses cellules de texte 44 depuis.
  */
-const D_AVANT: Record<string, number> = { 'la version': 30, 'un titre': 34 }
+const D_AVANT: Record<string, number> = { 'la version': 30 }
 
 try {
   const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
@@ -325,6 +337,44 @@ try {
     essai?: boolean
     /** Le texte agrandi, en pour cent. */
     texte?: number
+    /** Un vétéran, pour les cinq autres pièces : la réponse du profil réécrite en route, chaque pièce pleine (`PLEIN`). */
+    plein?: boolean
+  }
+  /**
+   * Un vétéran des titres et de la vitrine : trente trophées de soirée, du quiz du jour et de la campagne, douze pistes
+   * de carrière à l'argent, trois sentiers menés au maître, deux champions du mois et deux défis du Cabinet tenus à l'Or —
+   * soixante et un titres, chacun sur l'étagère de sa carte. Les deux pièces le lisent : une seule fonction, qui ne
+   * fait rien de plus la seconde fois.
+   */
+  const unVeteran = (p: any) => {
+    const gagnes = new Set<string>([...HAUTS_FAITS_REGAGNABLES.slice(0, 30).map(h => h.key), ...HAUTS_FAITS_DE_CARRIERE.slice(0, 12).map(h => h.key)])
+    p.hautsFaits = p.hautsFaits.map((h: any) => (gagnes.has(h.key) ? { ...h, fois: h.famille === 'soiree' ? 1 : 2 } : h))
+    p.vitrine = p.hautsFaits
+      .filter((h: any) => gagnes.has(h.key))
+      .map((h: any) => ({ key: h.famille === 'soiree' ? h.key : clePalier(h.key, 2), emoji: h.emoji, title: h.title, fois: 1, dernier: 0, porteurs: 0, rarete: null }))
+    p.sentiers = { ...p.sentiers, foret: 13, monde: 13, stade: 13 }
+    p.titresDates = ['mois:2026-10', 'mois:2026-09']
+    p.titresDuCabinet = ['cabinet:defi:cagnotte:3', 'cabinet:defi:parade:3']
+  }
+  /**
+   * Ce qu'un vétéran a dans chaque pièce, écrit par-dessus la réponse du profil (le cas `pleines`) : des dizaines de
+   * titres et de trophées, tous les fonds, tous les thèmes, toutes les gerbes — ce que Léa, une habituée, n'a pas encore,
+   * et qui faisait défiler chaque pièce de plusieurs écrans. Mesuré sans faire échouer : une pièce pleine défile, par
+   * nature ; ce qui compte, c'est combien de vignettes se voient, et ce que coûte d'arriver jusqu'au bout.
+   */
+  const PLEIN: Record<Exclude<PieceDeLaLoge, 'avatar'>, (p: any) => void> = {
+    titre: unVeteran,
+    vitrine: unVeteran,
+    fond: p => {
+      p.fonds = FONDS.map(f => f.key)
+    },
+    // Les trente-cinq thèmes : ceux qui se vendent, ceux de saison, ceux qui se gagnent.
+    theme: p => {
+      p.boutique.possedes = THEMES.map(t => t.key)
+    },
+    gerbe: p => {
+      p.gerbes = GERBES.map(g => g.key)
+    },
   }
   const ouvrir = async (cas: Cas, [largeur, hauteur]: Ecran) => {
     const ctx = await navigateur.newContext({ viewport: { width: largeur, height: hauteur }, deviceScaleFactor: 2, isMobile: largeur < 600, hasTouch: true, reducedMotion: 'reduce' })
@@ -353,6 +403,15 @@ try {
         await route.fulfill({ response: reponse, json: j })
       })
     }
+    if (cas.plein) {
+      await page.route(/\/api\/joueur\/moi$/, async (route: any) => {
+        if (route.request().method() !== 'GET') return route.continue()
+        const reponse = await route.fetch()
+        const j = await reponse.json()
+        for (const remplir of Object.values(PLEIN)) remplir(j.profile)
+        await route.fulfill({ response: reponse, json: j })
+      })
+    }
     return { ctx, page }
   }
   /** La loge arrivée : ses panneaux venus à la demande, son réseau au repos, ses images, ses polices. */
@@ -365,11 +424,11 @@ try {
   }
   const ATTENDUS: Record<PieceDeLaLoge, string> = {
     avatar: '.loge-panneau .loge-page-avatars',
-    titre: '.loge-panneau .titres',
-    vitrine: '.loge-panneau .vitrine-choix',
-    fond: '.loge-panneau .fonds-choix',
-    theme: '.loge-panneau .mes-themes',
-    gerbe: '.loge-panneau .gerbes-choix',
+    titre: '.loge-panneau .loge-vignettes',
+    vitrine: '.loge-panneau .loge-vignettes',
+    fond: '.loge-panneau .loge-vignettes',
+    theme: '.loge-panneau .loge-vignettes',
+    gerbe: '.loge-panneau .loge-vignettes',
   }
   /** La photo de l'écran — et de la page entière si elle dépasse : le menu, fixe, se poserait au milieu, il s'efface. */
   const photographier = async (page: any, n: string, defile: number) => {
@@ -391,8 +450,8 @@ try {
     rapport[n] = m
     await photographier(page, n, m.defile)
     const sousQuoi = m.couvre === 'essai' ? 'LA BARRE' : m.couvre === 'menu' ? 'LE MENU' : 'L’ÉCRAN'
-    // Ce qui précède la grille : la carte, la rangée, « qui le voit », puis chaque bloc de la pièce.
-    const blocs: { nom: string; bas: number }[] = [{ nom: 'la carte', ...m.carte }, { nom: 'les pièces', ...m.pieces }, { nom: 'qui le voit', ...m.qui }, ...m.avant]
+    // Ce qui précède la grille : la carte, la rangée, puis chaque bloc de la pièce.
+    const blocs: { nom: string; bas: number }[] = [{ nom: 'la carte', ...m.carte }, { nom: 'les pièces', ...m.pieces }, ...m.avant]
     const fin = blocs[blocs.length - 1].bas - m.pli
     const entieres = (m.rangees as { bas: number }[]).filter(r => r.bas <= m.pli).length
     const premiere = m.rangees[0] as { haut: number; bas: number } | undefined
@@ -417,7 +476,7 @@ try {
     if (coupees.length) (attendu !== null ? rates : dits).push(`L’ESSENTIEL D’UNE PHRASE EST COUPÉ AU BOUT : ${coupees.map(p => `« ${p.essentiel} »`).join(' ; ')}`)
     if (rates.length || jamais.length) rate++
     console.log(
-      `${n} — pli ${m.pli} · la carte ${m.carte.haut}→${m.carte.bas} (${m.carte.bas - m.carte.haut} px${m.jaugeMontree ? '' : ', sa jauge tue'}) · les pièces →${m.pieces.bas} · qui →${m.qui.bas}${m.lignesDeQui > 1 ? ` (${m.lignesDeQui} lignes)` : ''} · ${m.avant.map((b: any) => `${b.nom} →${b.bas}`).join(' · ')} · avant la grille : ${fin > 0 ? `${fin} px SOUS ${sousQuoi}` : `${-fin} px de libre`} · la grille : ${entieres} rangée${entieres > 1 ? 's' : ''} entière${entieres > 1 ? 's' : ''} sur ${m.rangees.length}, la place de ${m.place}${premiere ? ` (la première ${premiere.haut}→${premiere.bas})` : ''} · sous la carte collée ${m.sousLaCarte} px · défile de ${m.defile} px${m.bandeau ? ` · bandeau ${m.bandeau} px` : ''}`,
+      `${n} — pli ${m.pli} · la carte ${m.carte.haut}→${m.carte.bas} (${m.carte.bas - m.carte.haut} px${m.jaugeMontree ? '' : ', sa jauge tue'}) · les pièces →${m.pieces.bas} · ${m.avant.map((b: any) => `${b.nom} →${b.bas}`).join(' · ')} · avant la grille : ${fin > 0 ? `${fin} px SOUS ${sousQuoi}` : `${-fin} px de libre`} · la grille : ${entieres} rangée${entieres > 1 ? 's' : ''} entière${entieres > 1 ? 's' : ''} sur ${m.rangees.length}, la place de ${m.place}${premiere ? ` (la première ${premiere.haut}→${premiere.bas})` : ''} · sous la carte collée ${m.sousLaCarte} px · défile de ${m.defile} px${m.pied ? ` · le pied →${m.pied.bas}${m.pied.bas > m.pli ? ` (${m.pied.bas - m.pli} px sous ${sousQuoi})` : ''}` : ''}${m.bandeau ? ` · bandeau ${m.bandeau} px` : ''}`,
     )
     if (m.phrases.length)
       console.log(
@@ -477,6 +536,22 @@ try {
     }
   }
 
+  /**
+   * L'onglet « Ma plaque » de la pièce « Thème », touché comme on y va : sa ligne de classement, puis ses plaques en
+   * vignettes — mesurées comme les thèmes (son en-tête avant elles, ses vignettes), et qui doivent tenir de même.
+   */
+  const plaque = async (page: any, nom: string, n: string, ecran: Ecran) => {
+    await page.tap('#loge-theme-plaque')
+    await page.waitForSelector('.loge-panneau .loge-plaques')
+    await page.waitForTimeout(300)
+    const m = await mesurer(page, nom, 'theme', ecran, n)
+    const ligne = (await page.evaluate(`(() => { const r = document.querySelector('.loge-panneau .plaque-apercu').getBoundingClientRect(); return { haut: Math.round(r.top + scrollY), bas: Math.round(r.bottom + scrollY) } })()`)) as { haut: number; bas: number }
+    console.log(`   sa ligne ${ligne.haut}→${ligne.bas}`)
+    // Revenue aux thèmes : la pièce suivante s'ouvre comme on la quitte.
+    await page.tap('#loge-theme-themes')
+    await page.waitForTimeout(200)
+  }
+
   // Léa sans compagnon d'abord : le haut de la page n'a pas de niche à contourner.
   await avatar('sans-niche', { cookie: lea }, TOUS_LES_ECRANS)
   await avatar('debutant', { cookie: tom }, TOUS_LES_ECRANS)
@@ -497,10 +572,27 @@ try {
       const { ctx, page } = await ouvrir({ cookie: lea }, ecran)
       await page.goto(`${banc.url}/profil#avatar`)
       await attendre(page, ATTENDUS.avatar)
-      for (const { id } of PIECES_DE_LA_LOGE.filter(p => p.id !== 'avatar')) {
+      for (const { id } of PIECES_DE_LA_LOGE.filter(p => p.id !== 'avatar' && pieceRetenue(p.id))) {
         await page.tap(`#loge-${id}`)
         await attendre(page, ATTENDUS[id])
         await mesurer(page, 'pieces', id, ecran, `${id}-${ecran[0]}x${ecran[1]}`)
+        if (id === 'theme') await plaque(page, 'pieces', `plaque-${ecran[0]}x${ecran[1]}`, ecran)
+      }
+      await ctx.close()
+    }
+  }
+
+  // Les mêmes, pleines : un vétéran (`PLEIN`), au petit téléphone et au grand.
+  if (retenu('pleines')) {
+    for (const ecran of reels([[360, 640], [412, 915]])) {
+      const { ctx, page } = await ouvrir({ cookie: lea, plein: true }, ecran)
+      await page.goto(`${banc.url}/profil#avatar`)
+      await attendre(page, ATTENDUS.avatar)
+      for (const { id } of PIECES_DE_LA_LOGE.filter(p => p.id !== 'avatar' && pieceRetenue(p.id))) {
+        await page.tap(`#loge-${id}`)
+        await attendre(page, ATTENDUS[id])
+        await mesurer(page, 'pleines', id, ecran, `plein-${id}-${ecran[0]}x${ecran[1]}`)
+        if (id === 'theme') await plaque(page, 'pleines', `plein-plaque-${ecran[0]}x${ecran[1]}`, ecran)
       }
       await ctx.close()
     }
@@ -520,10 +612,34 @@ try {
     await poser(null)
   }
 
+  /**
+   * La pièce « Thème » au petit téléphone, chaque plaque essayée tour à tour : un échantillon n'est pas une ligne de
+   * classement, il lit lui-même les couleurs de sa plaque — à regarder sous chacune, claire ou sombre, et sous le thème
+   * de celui qui regarde (`ivoire`, plus bas).
+   */
+  const plaquesEssayees = async (nom: string) => {
+    const ecran: Ecran = [360, 640]
+    const { ctx, page } = await ouvrir({ cookie: lea }, ecran)
+    await page.goto(`${banc.url}/profil#theme`)
+    await attendre(page, ATTENDUS.theme)
+    await mesurer(page, nom, 'theme', ecran, `${nom}-theme-360x640`)
+    await page.tap('#loge-theme-plaque')
+    await page.waitForSelector('.loge-panneau .loge-plaques')
+    for (const plaque of ['Ivoire', 'Océan', 'Neige', 'Aucune']) {
+      await page.tap(`.loge-plaques .loge-vignette[aria-label^="Plaque ${plaque}"]`)
+      await page.waitForSelector('.loge-barre')
+      await page.waitForTimeout(300)
+      await mesurer(page, nom, 'theme', ecran, `${nom}-plaque-${plaque.normalize('NFD').replace(/[^a-z]/gi, '').toLowerCase()}-360x640`)
+    }
+    await ctx.close()
+  }
+  if (retenu('plaques')) await plaquesEssayees('plaques')
+
   // L'Ivoire, en dernier : le thème se porte, et habillerait toutes les photos d'après.
   if (retenu('ivoire')) {
     await porte({ theme: 'ivoire' })
     await avatar('ivoire', { cookie: lea }, DEUX_ECRANS)
+    await plaquesEssayees('ivoire')
   }
 
   writeFileSync(path.join(sortie, 'mesures.json'), JSON.stringify(rapport, null, 2))

@@ -502,14 +502,17 @@ test('choisir un avatar, une finition, un fond ou sa vitrine ne fait plus tomber
 
   // La vitrine est une liste, et son ordre se dit à l'oreille.
   const trophees = source('components/Trophees.tsx')
-  assert.doesNotMatch(trophees, /<ul className="vitrine-choix[^"]*" role="group"/)
-  assert.doesNotMatch(trophees, /<span className="vitrine-rang" aria-hidden="true">/)
+  assert.doesNotMatch(trophees, /<ul className="loge-vignettes[^"]*" role="group"/)
+  assert.doesNotMatch(trophees, /<span className="loge-medaille-rang" aria-hidden="true">/)
   // Rien n'y part sous le doigt : « Les plus durs, d'office », qui ne
   // paraissait qu'une vitrine choisie et rendait le focus au titre, est une
-  // option de la liste, toujours là (`loge.test.ts` la rend dans les deux
-  // états) ; aucun bouton de la vitrine ne dépend de ce qu'elle montre.
+  // option de la liste, toujours là, son état par la règle de toutes les
+  // pièces (`loge.test.ts` la rend dans les deux états) ; aucun bouton de la
+  // liste ne dépend de ce qu'elle montre. Les places de la carte, au-dessus
+  // (le 17 novembre 2026), n'ont un bouton que pour vider une place prise : il
+  // part avec elle, et le focus avec — le toucher rend la place, c'est voulu.
   const vitrine = trophees.slice(trophees.indexOf('export function MaVitrine'), trophees.indexOf('export function UnProche'))
-  assert.match(vitrine, /<ul className="vitrine-choix vitrine-a-choisir" aria-label="Les trophées de ma carte">\s*<li>\s*<button\s+type="button"\s+className=\{'vitrine-option' \+ \(office\.montre/)
+  assert.match(vitrine, /<ul className="loge-vignettes loge-medailles" aria-labelledby="loge-vitrine-entete">\s*<li>\s*<button\s+type="button"\s+className=\{'loge-vignette loge-medaille' \+ classesDeLaVignette\(office\)\}/)
   assert.doesNotMatch(vitrine, /\{montree && \(/)
   // Dans la loge, une case d'avatar touchée n'ouvre plus rien et ne part pas :
   // elle s'essaie, et ses voisines restent où elles sont (`grille-avatars.test.ts`
@@ -534,9 +537,10 @@ test('silhouettes, fonds fermés, rideau et aurore : ce qui se lit sur son fond'
   // La silhouette d'un emoji de collection, claire sur sa case sombre (1,1:1 en noir).
   assert.match(regle('.silhouette'), /filter:\s*brightness\(0\) invert\(1\)/)
   assert.match(regle(":root[data-theme='ivoire'] .silhouette"), /filter:\s*brightness\(0\);/)
-  // Un fond fermé atténue son dessin, pas la règle qui l'ouvre (2,3:1).
-  assert.doesNotMatch(regle('.finition-btn:disabled'), /opacity/)
-  assert.match(regle('.finition-btn:disabled > :not(.muted)'), /opacity/)
+  // Une vignette fermée de la loge atténue son aperçu, pas la vignette entière : son nom, qui dit ce qu'elle est, reste
+  // lisible (2,3:1 sinon). Depuis le 17 novembre 2026, la vignette a remplacé la carte de `.finition-btn`.
+  assert.doesNotMatch(regle(".loge-vignette[aria-disabled='true']"), /opacity/)
+  assert.match(regle(".loge-vignette[aria-disabled='true'] .loge-vignette-image"), /opacity/)
   // Au théâtre, ce qui défile passe derrière le rideau.
   assert.match(regle('.carte-fond.fond-theatre:not(.fond-apercu)::before'), /z-index:\s*1/)
   // À l'aurore, la lueur verte derrière l'en-tête s'adoucit.

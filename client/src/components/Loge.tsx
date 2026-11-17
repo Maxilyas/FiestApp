@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type MutableRefObject } from 'react'
-import { CarteDeLaLoge, PiecesDeLaLoge, QuiLaVoit } from './LogeTete'
+import { CarteDeLaLoge, PiecesDeLaLoge } from './LogeTete'
 import { MaGerbe, MesAvatars, MesBordures, MesFinitions, MonFond, MonSceau, MonTitre } from './Apparence'
 import { MaVitrine } from './Trophees'
 import { MesThemes } from './Boutique'
@@ -311,7 +311,6 @@ export function Loge({
         />
       )}
       <PiecesDeLaLoge actif={piece} onChoisir={onPiece} neuves={new Set(PIECES_DE_LA_LOGE.filter(p => neufs[p.id].length > 0 && !regardees.has(p.id)).map(p => p.id))} />
-      <QuiLaVoit piece={piece} />
       <div className="loge-panneau" role="tabpanel" id="loge-panneau" aria-labelledby={`loge-${piece}`}>
         {piece === 'avatar' && (
           <>
@@ -322,12 +321,10 @@ export function Loge({
           </>
         )}
         {piece === 'titre' && <MonTitre {...props} />}
-        {piece === 'vitrine' && (
-          <>
-            <MaVitrine {...props} />
-            <p className="muted small center">Le reste de ta carte se remplit tout seul : tes légendaires, tes écussons, tes chiffres, tes prix.</p>
-          </>
-        )}
+        {/* La vitrine seule : « Le reste de ta carte se remplit tout seul. », dessous, est parti le 17 novembre 2026 — « pas
+            besoin de mettre du texte à chaque fois, ça doit être compréhensible et intuitif. Ça fait perdre de la place
+            pour rien » (le propriétaire) ; la carte, collée en haut, montre ce qu'elle remplit. */}
+        {piece === 'vitrine' && <MaVitrine {...props} />}
         {piece === 'fond' && <MonFond {...props} />}
         {piece === 'theme' && <MesThemes {...props} />}
         {piece === 'gerbe' && <MaGerbe {...props} />}

@@ -8,16 +8,20 @@ export type PieceDeLaLoge = 'avatar' | 'titre' | 'vitrine' | 'fond' | 'theme' | 
 
 /**
  * Les six pièces, dans l'ordre de leur rangée : ce que la salle voit d'abord,
- * puis ce que lui seul voit. `qui` le redit sous la rangée, en une ligne :
- * qui le voit, et où.
+ * puis ce que lui seul voit — les deux petits titres au-dessus de la rangée le
+ * disent. Une ligne sous la rangée le redisait pièce par pièce (« La salle le
+ * voit, à côté de ton prénom ») : retirée le 17 novembre 2026, « pas besoin de
+ * mettre du texte à chaque fois » — la carte en tête montre où chaque essai se
+ * pose. Seule la plaque, que la pièce « Thème » range sous « Toi seul » alors
+ * que les autres la voient, le dit sur son onglet, par un petit œil.
  */
-export const PIECES_DE_LA_LOGE: readonly { id: PieceDeLaLoge; nom: string; groupe: 'salle' | 'moi'; qui: string }[] = [
-  { id: 'avatar', nom: 'Avatar', groupe: 'salle', qui: 'La salle le voit, à côté de ton prénom.' },
-  { id: 'titre', nom: 'Titre', groupe: 'salle', qui: 'Sous ton prénom, sur ta carte.' },
-  { id: 'vitrine', nom: 'Vitrine', groupe: 'salle', qui: 'Trois trophées, sur ta carte.' },
-  { id: 'fond', nom: 'Fond', groupe: 'salle', qui: 'Derrière ta carte : rien d’autre ne change.' },
-  { id: 'theme', nom: 'Thème', groupe: 'moi', qui: 'Toi seul le vois : il habille tes pages.' },
-  { id: 'gerbe', nom: 'Gerbe', groupe: 'moi', qui: 'Toi seul la vois, à tes bonnes réponses.' },
+export const PIECES_DE_LA_LOGE: readonly { id: PieceDeLaLoge; nom: string; groupe: 'salle' | 'moi' }[] = [
+  { id: 'avatar', nom: 'Avatar', groupe: 'salle' },
+  { id: 'titre', nom: 'Titre', groupe: 'salle' },
+  { id: 'vitrine', nom: 'Vitrine', groupe: 'salle' },
+  { id: 'fond', nom: 'Fond', groupe: 'salle' },
+  { id: 'theme', nom: 'Thème', groupe: 'moi' },
+  { id: 'gerbe', nom: 'Gerbe', groupe: 'moi' },
 ]
 
 export function estUnePieceDeLaLoge(x: unknown): x is PieceDeLaLoge {

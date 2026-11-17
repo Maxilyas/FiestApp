@@ -2,12 +2,12 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
 import { Gemmes } from './Gemmes'
-import { AGagner } from './LigneDeCollection'
+import { AGagner, EnteteDeLaPiece, PiedDeLaPiece, VersLaBoutique, ceQueDitLaVignette, classesDeLaVignette } from './LigneDeCollection'
 import { PremierHautFait } from './Trophees'
 import { gemmeDAvatar } from '../gemmes'
 import { AVATARS, COLLECTION, COLLECTION_HAUTE } from '../../../shared/avatars'
 import { AUCUNE_BORDURE, CRANS_D_UNE_BORDURE, LIGUES, NOM_DE_LA_BORDURE, bordurePortee, ligueParCle, ouSeGagnentSesCrans, type BordureDeLigue, type ChoixDeBordure } from '../../../shared/duels'
-import { hautsFaitsGagnes } from '../../../shared/hautsfaits'
+import { hautFait, hautsFaitsGagnes } from '../../../shared/hautsfaits'
 import { recompensesDe } from '../../../shared/proches'
 import { estScellable, legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
@@ -20,14 +20,16 @@ import {
   sesPagesDeLAlbum,
   type RareteDAvatar,
 } from '../../../shared/album'
-import { brancheDe, deLaBranche, portrait as portraitDe } from '../../../shared/branches'
+import { brancheDe, deLaBranche, portrait as portraitDe, type CleDeBranche } from '../../../shared/branches'
 import { compagnonDe, formeDeCompagnon, nomDeLaForme } from '../../../shared/compagnons'
 import { FONDS, FONDS_EN_BOUTIQUE } from '../../../shared/fonds'
 import { AUCUNE_GERBE, GERBES } from '../../../shared/gerbes'
 import { avatarMontre, avatarsNeufs, avecLEssai, bordureNeuve, type Essai } from '../../../shared/loge'
 import { avatarDeLApercu } from '../../../shared/sonAvatar'
 import { GerbeDeJuste } from './Gerbe'
-import { cleDeMaitre, maitresDe, nomDuTitre } from '../../../shared/sentiers'
+import { brancheDuMaitre, cleDeMaitre, maitresDe, nomDuTitre } from '../../../shared/sentiers'
+import { moisDuChampion } from '../../../shared/jour'
+import { nomDuTitreDuDefi } from '../../../shared/cabinet/sceaux'
 import { FINITIONS, NOM_FINITION, brilleChez, clesQuiBrillent, eclatChez, meilleureFinition, type Finition, type FinitionChoisie, type PublicProfileDetail } from '../../../shared/profil'
 import { NOM_DE_LA_MATIERE, enMatiere, matieresATailler, peutSeTailler, type Matiere, type MatiereTaillee } from '../../../shared/matieres'
 import type { PropsDUnePiece } from './choix'
@@ -45,11 +47,6 @@ import type { PropsDUnePiece } from './choix'
 // chaque chose et comment la gagner (le souhait du propriétaire du 13
 // octobre 2026 : des finitions et des bordures qu'il n'avait pas s'y
 // mêlaient aux siennes).
-
-/** Ses classes : `selected`, ce que la carte montre ; `essaye`, à l'essai ; `porte`, porté sous un essai ; `neuve`. */
-function classesDeLaCase({ montre, porte, neuve }: { montre: boolean; porte: boolean; neuve?: boolean }): string {
-  return (montre ? ' selected' : '') + (montre && !porte ? ' essaye' : '') + (!montre && porte ? ' porte' : '') + (neuve ? ' neuve' : '')
-}
 
 /**
  * Les pages de la grille des avatars, celles de l'album de « Ma collection »
@@ -737,6 +734,41 @@ export function MonSceau({ profil, essai, essayer }: PropsDUnePiece) {
 }
 
 /**
+ * L'emoji d'un maître des sentiers, un par branche : le titre « Maître de la forêt » se reconnaît à sa forêt. Écrits
+ * ici, pour cette pièce seule — les sentiers se dessinent en portraits peints, qu'une pastille de titre ne porte pas —,
+ * et tous d'avant Unicode 13 (`emojis.test.ts`).
+ */
+const EMOJI_DES_MAITRES: Readonly<Record<CleDeBranche, string>> = {
+  monde: '🌍',
+  mythes: '🏛️',
+  oceans: '🌊',
+  espace: '🚀',
+  foret: '🌲',
+  ecran: '🎬',
+  scene: '🎭',
+  contes: '📖',
+  stade: '⚽',
+  brigade: '🍳',
+  arcade: '🎮',
+  carnaval: '🎉',
+}
+
+/**
+ * Ce qui représente un titre, devant son nom : l'emoji du trophée qui l'a ouvert (`hautFait`), celui du sentier d'un
+ * maître, la couronne d'un champion du mois, la carte d'un défi du Cabinet. L'œil lit d'où il vient sans qu'une
+ * phrase le dise — des dizaines de pastilles italiques se ressemblaient toutes (le souhait du propriétaire du
+ * 17 novembre 2026). Rien pour une clé qui ne dit rien : la pastille garde son nom seul.
+ */
+export function emojiDUnTitre(cle: string): string {
+  const h = hautFait(cle)
+  if (h) return h.emoji
+  const b = brancheDuMaitre(cle)
+  if (b) return EMOJI_DES_MAITRES[b.key]
+  if (moisDuChampion(cle)) return '👑'
+  return nomDuTitreDuDefi(cle) ? '🃏' : ''
+}
+
+/**
  * Son titre, sous son prénom : chaque haut fait gagné ouvre le sien — son
  * nom, « L'Oracle », « La Lanterne Rouge » —, et chaque palier de maître des
  * sentiers du savoir le sien (« Maître de la forêt »). Il s'écrit sur sa
@@ -744,6 +776,23 @@ export function MonSceau({ profil, essai, essayer }: PropsDUnePiece) {
  * comptent, sans se nommer : trente boutons fermés noyaient les siens — sauf
  * pour qui n'en a aucun, à qui la page dit comment gagner le premier. Touché,
  * un titre s'essaie sous son prénom, sur la carte de la loge.
+ *
+ * Du texte aligné, deux colonnes au téléphone, sans rien autour d'un titre (le
+ * propriétaire, le 17 novembre 2026, devant la première refonte : « Cela prend trop
+ * de place, c'est brouillon. Est ce qu'il n'y aurait pas moyen d'avoir quelque
+ * chose de plus épuré ? Quitte à sortir de la DA et ne pas mettre les sortes de
+ * bulles autour des titres ») : chaque titre, l'emoji de ce qui l'a ouvert puis son
+ * nom en italique, dans une cellule de 44 px — la cible du doigt — où le nom tient
+ * sur deux lignes sans que la rangée grandisse. Des pastilles encadrées, de largeur
+ * qui varie, faisaient une mosaïque irrégulière où l'œil cherchait chaque nom. Son
+ * état se dit sans bulle non plus, par la règle de toutes les pièces
+ * (`classesDeLaVignette`) : ce que la carte montre s'écrit à l'or, un trait d'or
+ * devant ; ce qu'il porte a sa coche d'or après le nom ; le neuf, le point rouge
+ * devant l'emoji — et à l'oreille, « à l'essai », « porté », « nouveau ». L'en-tête
+ * n'a plus de consigne (« Un trophée, un maître ou un défi en ouvre un. ») : « pas
+ * besoin de mettre du texte à chaque fois, ça doit être compréhensible et intuitif.
+ * Ça fait perdre de la place pour rien » (le propriétaire, le même jour) ; les
+ * emojis disent d'où vient chaque titre.
  */
 export function MonTitre({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   // Les maîtres d'abord : un sentier gravi jusqu'au bout se dit en premier ;
@@ -755,37 +804,37 @@ export function MonTitre({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   const aGagner = profil.hautsFaits.length - (gagnes.length - maitresDe(profil.sentiers ?? {}).length - dates.length - duCabinet.length)
   const porte = profil.titre ?? null
   const montre = essai.titre !== undefined ? essai.titre : porte
-  // Ce que chaque titre dit de lui, à l'oreille comme à l'œil : porté, à l'essai, nouveau.
-  const etat = (cle: string | null) => ({ montre: montre === cle, porte: porte === cle, neuve: cle !== null && neufs?.has(cle) })
-  const marque = (cle: string | null) => {
+  // Ce que chaque titre dit de lui, à l'œil comme à l'oreille : montré par la carte, porté, nouveau.
+  const etat = (cle: string | null): EtatDUneCase => ({ montre: montre === cle, porte: porte === cle, neuve: cle !== null && neufs?.has(cle) })
+  const ligne = (cle: string | null, nom: string) => {
     const e = etat(cle)
-    const mot = e.porte ? 'porté' : e.montre ? 'à l’essai' : e.neuve ? 'nouveau' : null
-    return mot && <span className="titre-etat">{mot}</span>
+    return (
+      <button key={cle ?? 'aucun'} type="button" className={'loge-titre' + classesDeLaVignette(e)} aria-pressed={e.montre} onClick={() => essayer({ titre: cle })}>
+        {/* Toujours là, même vide pour « Aucun » : les noms commencent tous au même endroit de leur colonne. */}
+        <span className="loge-titre-emoji" aria-hidden="true">
+          {cle === null ? '' : emojiDUnTitre(cle)}
+        </span>
+        <span className="loge-titre-nom">{nom}</span>
+        {ceQueDitLaVignette(e) && <span className="sr-only">{ceQueDitLaVignette(e)}</span>}
+      </button>
+    )
   }
-  // Sa pièce s'appelle « Titre » : la carte dit ce qu'elle range, ceux qu'il a.
+  // Sa pièce s'appelle « Titre » : l'en-tête dit ce qu'elle range, ceux qu'il a.
   return (
-    <section className="card">
-      <h3>
-        <Icon name="star" />
-        Mes titres {gagnes.length > 0 && <span className="muted small titre-compte">{`${gagnes.length} à toi`}</span>}
-      </h3>
-      {/* Où il s'écrit, la ligne de la pièce le dit ; ici, d'où viennent les autres. */}
-      <p className="muted small">Chaque trophée gagné ouvre le sien, chaque palier de maître des sentiers aussi, et chaque défi du Cabinet tenu à l’Or.</p>
-      <div className="titres" role="group" aria-label="Mon titre">
-        <button type="button" className={'titre-choix' + classesDeLaCase(etat(null))} aria-pressed={montre === null} onClick={() => essayer({ titre: null })}>
-          Aucun
-          {marque(null)}
-        </button>
-        {gagnes.map(cle => (
-          <button key={cle} type="button" className={'titre-choix' + classesDeLaCase(etat(cle))} aria-pressed={montre === cle} onClick={() => essayer({ titre: cle })}>
-            {nomDuTitre(cle)}
-            {marque(cle)}
-          </button>
-        ))}
+    <section className="loge-titres-piece">
+      <EnteteDeLaPiece id="loge-titre-entete" titre="Mes titres" compte={gagnes.length > 0 ? `${gagnes.length} à toi` : undefined} />
+      {/* Une grille de deux colonnes, des rangées régulières : chaque titre est un enfant direct, que `rendu-loge.ts` compte. */}
+      <div className="loge-vignettes loge-titres" role="group" aria-labelledby="loge-titre-entete">
+        {ligne(null, 'Aucun')}
+        {gagnes.map(cle => ligne(cle, nomDuTitre(cle) ?? cle))}
       </div>
       {gagnes.length === 0 && <PremierHautFait profil={profil} />}
       {/* Chaque trophée ouvre le sien : ceux qui restent se comptent, et l'album dit comment les gagner. */}
-      <AGagner n={aGagner} un="titre" plusieurs="titres" href="#collection-trophees" />
+      {aGagner > 0 && (
+        <PiedDeLaPiece>
+          <AGagner n={aGagner} un="titre" plusieurs="titres" href="#collection-trophees" />
+        </PiedDeLaPiece>
+      )}
     </section>
   )
 }
@@ -796,6 +845,13 @@ export function MonTitre({ profil, essai, essayer, neufs }: PropsDUnePiece) {
  * Ceux qu'il a seulement ; ceux qui restent à gagner se voient dans sa
  * collection, avec ce qu'il faut pour les ouvrir, et ceux des savoirs à la
  * boutique. Touché, un fond s'essaie derrière la carte de la loge.
+ *
+ * En vignettes, comme la pièce « Avatar » (le souhait du propriétaire du 17
+ * novembre 2026 : « pas pratique et peu lisible […] trop de scroll ») : le
+ * décor réel, en petite carte, son nom dessous. L'état ne s'écrit plus sous
+ * chaque case — « d'office », « porté », « ouvert » prenaient une ligne par
+ * case : le cadre d'or, le halo, la coche et le point rouge le disent à
+ * l'œil, `aria-label` à l'oreille.
  */
 export function MonFond({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   if (!profil.fonds) return null
@@ -804,53 +860,49 @@ export function MonFond({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   // Ceux des savoirs s'achètent : la boutique les montre, la collection dit où gagner les autres.
   const aLaBoutique = FONDS_EN_BOUTIQUE.filter(f => !profil.fonds!.includes(f.key)).length
   const reste = FONDS.filter(f => !profil.fonds!.includes(f.key) && !f.savoir).length
-  const etat = (cle: string | null, sinon: string) => (porte === cle ? 'porté' : montre === cle ? 'à l’essai' : cle && neufs?.has(cle) ? 'nouveau' : sinon)
-  return (
-    <section className="card">
-      <h3>
-        <Icon name="image" />
-        {/* Compté comme sa ligne de la collection : le Velours, à tout le monde, n'en est pas. */}
-        Mes fonds {profil.fonds.length > 0 && <span className="muted small titre-compte">{`${profil.fonds.length} à toi`}</span>}
-      </h3>
-      <p className="muted small">Touches-en un : ta carte, en haut, l’essaie aussitôt.</p>
-      <div className="finitions fonds-choix">
-        <button type="button" className={'finition-btn' + classesDeLaCase({ montre: !montre, porte: !porte })} aria-pressed={!montre} onClick={() => essayer({ fond: null })}>
-          <span className="fond-apercu" aria-hidden="true" />
-          <span className="finition-nom">Velours</span>
-          <span className="muted small">{etat(null, 'd’office')}</span>
+  const vignette = (cle: string | null, nom: string) => {
+    const etat = { montre: montre === cle, porte: porte === cle, neuve: cle !== null && !!neufs?.has(cle) }
+    return (
+      <li key={cle ?? 'velours'}>
+        <button type="button" className={'loge-vignette' + classesDeLaVignette(etat)} aria-pressed={etat.montre} aria-label={nom + ceQueDitLaVignette(etat)} onClick={() => essayer({ fond: cle })}>
+          <span className="loge-vignette-image" aria-hidden="true">
+            <span className={'fond-apercu' + (cle ? ` carte-fond fond-${cle}` : '')} />
+          </span>
+          <span className="loge-vignette-nom">{nom}</span>
         </button>
-        {FONDS.filter(f => profil.fonds!.includes(f.key)).map(f => (
-          <button
-            key={f.key}
-            type="button"
-            className={'finition-btn' + classesDeLaCase({ montre: montre === f.key, porte: porte === f.key, neuve: neufs?.has(f.key) })}
-            aria-pressed={montre === f.key}
-            onClick={() => essayer({ fond: f.key })}
-          >
-            <span className={`fond-apercu carte-fond fond-${f.key}`} aria-hidden="true" />
-            <span className="finition-nom">{f.nom}</span>
-            <span className="muted small">{etat(f.key, 'ouvert')}</span>
-          </button>
-        ))}
-      </div>
-      {aLaBoutique > 0 && (
-        <a className="link-inline lien-boutique" href="/boutique#fonds">
-          <Icon name="bag" />
-          {`${aLaBoutique} autre${aLaBoutique > 1 ? 's' : ''} à la boutique`}
-        </a>
+      </li>
+    )
+  }
+  return (
+    <>
+      {/* Compté comme sa ligne de la collection : le Velours, à tout le monde, n'en est pas. */}
+      <EnteteDeLaPiece id="loge-fonds" titre="Mes fonds" compte={profil.fonds.length > 0 ? `${profil.fonds.length} à toi` : undefined} />
+      <ul className="loge-vignettes loge-vignettes-fonds" aria-labelledby="loge-fonds">
+        {vignette(null, 'Velours')}
+        {FONDS.filter(f => profil.fonds!.includes(f.key)).map(f => vignette(f.key, f.nom))}
+      </ul>
+      {/* Sans fond à acheter, la boutique n'a rien à montrer à ce rayon : pas de lien vers un rayon vide. */}
+      {(aLaBoutique > 0 || reste > 0) && (
+        <PiedDeLaPiece>
+          {aLaBoutique > 0 && <VersLaBoutique n={aLaBoutique} href="/boutique#fonds" />}
+          <AGagner n={reste} un="fond" plusieurs="fonds" href="#collection-fonds" />
+        </PiedDeLaPiece>
       )}
-      <AGagner n={reste} un="fond" plusieurs="fonds" href="#collection-fonds" />
-    </section>
+    </>
   )
 }
 
 /**
  * Sa gerbe : ce qui éclate sur son téléphone à une bonne réponse, en soirée,
  * au quiz du jour et en campagne. Pour lui seul — ni la salle ni l'écran
- * commun n'en voient rien. Les confettis d'office, et « Aucune » pour qui
- * n'en veut pas ; celles qu'il a éclatent au toucher, et s'essaient.
- * Celles qui restent à gagner éclatent dans sa collection, pour qu'on sache
- * ce qu'on vise (`GerbesDeLaCollection`).
+ * commun n'en voient rien. « Aucune » d'abord, pour qui n'en veut pas ;
+ * celles qu'il a éclatent au toucher, et s'essaient. Celles qui restent à
+ * gagner éclatent dans sa collection, pour qu'on sache ce qu'on vise
+ * (`GerbesDeLaCollection`).
+ *
+ * Quatre par rangée au téléphone — vingt-cinq gerbes faisaient neuf rangées
+ * de 145 px, trois à trois : chacune en petit bouquet de ses trois premières
+ * particules, à une seule taille de police (règle `css.md`), le nom dessous.
  */
 export function MaGerbe({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   // L'aperçu : la gerbe qu'on vient de toucher éclate, une fois par toucher.
@@ -859,43 +911,50 @@ export function MaGerbe({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   // La gerbe portée se lit résolue : null, il n'en veut aucune.
   const porte = profil.gerbe ?? null
   const montre = essai.gerbe !== undefined ? (essai.gerbe === AUCUNE_GERBE ? null : essai.gerbe) : porte
-  const montrer = (cle: string) => setApercu(a => ({ cle, n: (a?.n ?? 0) + 1 }))
   const reste = GERBES.filter(g => !profil.gerbes!.includes(g.key)).length
-  const etat = (cle: string | null, sinon: string) => (porte === cle ? 'portée' : montre === cle ? 'à l’essai' : cle && neufs?.has(cle) ? 'nouvelle' : sinon)
-  return (
-    <section className="card">
-      <h3>
-        <Icon name="zap" />
-        Mes gerbes <span className="muted small titre-compte">{`${profil.gerbes.length} à toi`}</span>
-      </h3>
-      <p className="muted small">En soirée, au quiz du jour et en campagne. Touches-en une : elle éclate, et tu l’essaies.</p>
-      <div className="finitions gerbes-choix">
-        <button type="button" className={'finition-btn' + classesDeLaCase({ montre: !montre, porte: !porte })} aria-pressed={!montre} onClick={() => essayer({ gerbe: AUCUNE_GERBE })}>
-          <span className="gerbe-apercu" aria-hidden="true" />
-          <span className="finition-nom">Aucune</span>
-          <span className="muted small">{etat(null, 'sobre')}</span>
+  const vignette = (g: (typeof GERBES)[number] | null) => {
+    const cle = g ? g.key : null
+    const nom = g ? g.nom : 'Aucune'
+    const etat = { montre: montre === cle, porte: porte === cle, neuve: cle !== null && !!neufs?.has(cle) }
+    return (
+      <li key={cle ?? 'aucune'}>
+        <button
+          type="button"
+          className={'loge-vignette' + classesDeLaVignette(etat)}
+          aria-pressed={etat.montre}
+          aria-label={nom + ceQueDitLaVignette(etat, 'portée', 'nouvelle')}
+          onClick={() => {
+            if (g) setApercu(a => ({ cle: g.key, n: (a?.n ?? 0) + 1 }))
+            essayer({ gerbe: g ? g.key : AUCUNE_GERBE })
+          }}
+        >
+          <span className="loge-vignette-image" aria-hidden="true">
+            {g ? (
+              <span className="gerbe-bouquet">
+                {g.particules.slice(0, 3).map((p, i) => (
+                  <span key={i}>{p}</span>
+                ))}
+              </span>
+            ) : (
+              <span className="gerbe-aucune" />
+            )}
+          </span>
+          <span className="loge-vignette-nom">{nom}</span>
         </button>
-        {GERBES.filter(g => profil.gerbes!.includes(g.key)).map(g => (
-          <button
-            key={g.key}
-            type="button"
-            className={'finition-btn' + classesDeLaCase({ montre: montre === g.key, porte: porte === g.key, neuve: neufs?.has(g.key) })}
-            aria-pressed={montre === g.key}
-            onClick={() => {
-              montrer(g.key)
-              essayer({ gerbe: g.key })
-            }}
-          >
-            <span className="gerbe-apercu" aria-hidden="true">
-              {g.particules.slice(0, 3).join('')}
-            </span>
-            <span className="finition-nom">{g.nom}</span>
-            <span className="muted small">{etat(g.key, 'ouverte')}</span>
-          </button>
-        ))}
-      </div>
-      <AGagner n={reste} un="gerbe" plusieurs="gerbes" href="#collection-gerbes" />
+      </li>
+    )
+  }
+  return (
+    <>
+      <EnteteDeLaPiece id="loge-gerbes" titre="Mes gerbes" compte={`${profil.gerbes.length} à toi`} />
+      <ul className="loge-vignettes loge-vignettes-gerbes" aria-labelledby="loge-gerbes">
+        {vignette(null)}
+        {GERBES.filter(g => profil.gerbes!.includes(g.key)).map(g => vignette(g))}
+      </ul>
+      <PiedDeLaPiece>
+        <AGagner n={reste} un="gerbe" plusieurs="gerbes" href="#collection-gerbes" />
+      </PiedDeLaPiece>
       {apercu && <GerbeDeJuste key={apercu.n} cle={apercu.cle} />}
-    </section>
+    </>
   )
 }

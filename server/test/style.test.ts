@@ -314,7 +314,7 @@ test('chaque pièce de la loge finit par le même lien : « N à gagner : où ? 
   // Les six fonds et les six gerbes du trésor du coffre de la semaine comptés avec les autres ; les
   // douze fonds des savoirs, qui s'achètent, à la boutique — comme les thèmes : deux liens.
   assert.match(fond, /<a class="loge-a-gagner" href="#collection-fonds">13 fonds à gagner\s:\soù\s\?<svg/)
-  assert.match(fond, /<a class="link-inline lien-boutique" href="\/boutique#fonds"><svg[^>]*>.*?<\/svg>12 autres à la boutique<\/a>/)
+  assert.match(fond, /<a class="loge-a-gagner loge-vers-boutique" href="\/boutique#fonds"><svg[^>]*>.*?<\/svg>12 à la boutique<\/a>/)
   const gerbe = await rendu('components/Apparence', 'MaGerbe', { profil: MAYA, ...loge })
   // Et les huit des fêtes, du 1er novembre 2026.
   assert.match(gerbe, /<a class="loge-a-gagner" href="#collection-gerbes">23 gerbes à gagner\s:\soù\s\?<svg/)
@@ -326,8 +326,8 @@ test('chaque pièce de la loge finit par le même lien : « N à gagner : où ? 
   // mène à la boutique — celui des thèmes, à l'identique.
   const APPARENCE = source('components/Apparence.tsx')
   assert.doesNotMatch(APPARENCE, /AGagnerDansLaCollection|titre-choix ferme|lien-boutique" href=\{?[`"']#collection/)
-  assert.equal(APPARENCE.match(/lien-boutique/g)?.length, 1, 'un seul, celui du fond')
-  assert.match(APPARENCE, /<a className="link-inline lien-boutique" href="\/boutique#fonds">/)
+  assert.doesNotMatch(APPARENCE, /lien-boutique/, 'le lien de la boutique est la pièce commune (VersLaBoutique)')
+  assert.match(APPARENCE, /<VersLaBoutique n=\{aLaBoutique\} href="\/boutique#fonds" \/>/)
   assert.match(source('components/Boutique.tsx'), /<AGagner n=\{aGagner\} un="thème" plusieurs="thèmes" href="#collection-themes" \/>/)
   // Un seul composant, dans les pièces partagées de la collection.
   assert.match(source('components/LigneDeCollection.tsx'), /export function AGagner\(/)

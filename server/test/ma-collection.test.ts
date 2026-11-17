@@ -32,7 +32,7 @@ const source = (fichier: string) => readFileSync(new URL(`../../${fichier}`, imp
 
 /** Les cartes d'une vitrine de thèmes — les tuiles du rayon, à la boutique —, par ce que chacune dit d'elle à l'oreille. */
 const casesDe = (html: string) =>
-  [...html.matchAll(/<button\b[^>]*class="(?:theme-vitrine|article-boutique article-theme)[^"]*"[^>]*aria-label="([^"]*)"/g)].map(m => m[1])
+  [...html.matchAll(/<button\b[^>]*class="(?:article-boutique article-theme)[^"]*"[^>]*aria-label="([^"]*)"/g)].map(m => m[1])
 
 async function rendu(fichier: string, composant: string, props: object): Promise<string> {
   const module = await import(new URL(`../../client/src/${fichier}.tsx`, import.meta.url).href)
@@ -410,7 +410,7 @@ test('une ligne de la collection a son adresse : « Mon thème » y mène, sur l
   // thème en vignette à sa place du catalogue — en couleur ceux qu'elle a, en
   // gris les autres. Deux lignes de texte disaient ce qu'elle avait sans le
   // montrer, puis les cartes de la boutique prenaient quatre écrans.
-  assert.doesNotMatch(html, /À toi · \d|theme-a-gagner|class="theme-vitrine/)
+  assert.doesNotMatch(html, /À toi · \d|theme-a-gagner/)
   const pages = [
     ...html.matchAll(
       /<h4 class="album-rarete" style="([^"]+)"><i aria-hidden="true"><\/i>([^<]+) <span class="famille-compte">(\d+)\/(\d+)<\/span><\/h4><div class="album-themes" role="group" aria-label="([^"]+)">(.*?)<\/div>/g,
@@ -721,7 +721,8 @@ test('la vitrine d’une carte : une seule règle, que lisent le serveur, la car
   assert.match(source('shared/carte.ts'), /export function vitrineDeLaCarte\(/)
   assert.match(source('server/src/core/carte.ts'), /import \{ vitrineDeLaCarte, type CarteDeJoueur \} from '\.\.\/\.\.\/\.\.\/shared\/carte'/)
   assert.doesNotMatch(source('server/src/core/carte.ts'), /function vitrineDeLaCarte/)
-  assert.match(source('client/src/components/Trophees.tsx'), /const montres = vitrineDeLaCarte\(profil\.vitrine, choisie, recompenses\)/)
+  // La vitrine que la pièce montre — ses trois places, depuis le 17 novembre 2026 — lit la même règle, essai compris (`montree`).
+  assert.match(source('client/src/components/Trophees.tsx'), /const montres = vitrineDeLaCarte\(profil\.vitrine, montree, recompenses\)/)
   // La carte de la loge, sur la page du profil, la lit aussi — l'essai compris : le vestiaire la lisait par ses aperçus.
   assert.match(source('shared/loge.ts'), /return vitrineDeLaCarte\(profil\.vitrine, profil\.vitrineChoisie \?\? null, recompensesDe\(profil\.hautsFaits\)\)/)
   assert.match(source('client/src/components/Loge.tsx'), /vitrine=\{vitrineVue\(vu\)\}/)

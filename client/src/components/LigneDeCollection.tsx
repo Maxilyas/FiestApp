@@ -18,6 +18,83 @@ export function JaugeFine({ part }: { part: number }) {
 }
 
 /**
+ * L'en-tête d'une pièce de la loge, sur une seule ligne : ce qu'elle range
+ * (« Mes titres »), combien il en a, et, s'il le faut, une consigne courte
+ * dessous — comme les petits titres de la pièce « Avatar » (« Finition »,
+ * « Bordure »). Chaque pièce posait une carte, son titre en grand, son icône
+ * et une phrase de deux ou trois lignes : 110 px avant la première chose à
+ * toucher, quand les petits titres de la rangée disent déjà qui la voit
+ * (le souhait du propriétaire du 17 novembre 2026 : « pas pratique et peu
+ * lisible […] on est obligé de scroller trop »). `id` nomme le groupe que
+ * l'en-tête titre (`aria-labelledby`).
+ */
+export function EnteteDeLaPiece({ id, titre, compte, consigne, children }: { id: string; titre: string; compte?: string; consigne?: string; children?: ReactNode }) {
+  return (
+    <div className="loge-entete">
+      <h3 className="loge-entete-titre" id={id}>
+        {titre}
+        {compte && <span className="loge-entete-compte">{espacesFines(compte)}</span>}
+      </h3>
+      {children}
+      {consigne && <p className="loge-entete-consigne">{espacesFines(consigne)}</p>}
+    </div>
+  )
+}
+
+/** L'état d'une vignette de la loge, comme une case d'avatar : montrée par la carte (ou la page), portée, neuve. */
+export interface EtatDUneVignette {
+  montre: boolean
+  porte: boolean
+  neuve?: boolean
+}
+
+/**
+ * Ses classes, les mêmes dans les cinq pièces : `selected`, ce que la carte
+ * montre — le cadre d'or ; `essaye`, montré sans être porté — son halo ;
+ * `porte`, sa coche, qu'il soit montré ou non ; `neuve`, le point rouge. Deux
+ * jeux d'aides vivaient côte à côte le jour des vignettes : au Fond, le
+ * Velours porté gardait son cadre sans sa coche, quand le thème porté avait
+ * les deux (la relecture du 17 novembre 2026).
+ */
+export function classesDeLaVignette({ montre, porte, neuve }: EtatDUneVignette): string {
+  return (montre ? ' selected' : '') + (montre && !porte ? ' essaye' : '') + (porte ? ' porte' : '') + (neuve ? ' neuve' : '')
+}
+
+/**
+ * Ce qu'une vignette dit à l'oreille après son nom — tout ce que l'œil lit
+ * d'elle : `aria-pressed` dit qu'elle est montrée ; « à l'essai » si elle
+ * l'est sans être portée, « porté » chaque fois qu'il la porte, et le neuf.
+ * Le mot « porté » écrit sous chaque case était lu avec elle ; parti de
+ * l'œil, il ne se disait plus que quand la carte montrait autre chose — dans
+ * l'état d'arrivée, rien ne disait ce qu'il portait. La grille des avatars
+ * garde sa règle à elle (`ceQueDitLaCase`, `Apparence.tsx`) : elle n'a jamais
+ * écrit de mot sous ses cases, et « portée, activé » s'y disait deux fois.
+ */
+export function ceQueDitLaVignette({ montre, porte, neuve }: EtatDUneVignette, portee = 'porté', nouvelle = 'nouveau'): string {
+  return (montre && !porte ? ', à l’essai' : '') + (porte ? `, ${portee}` : '') + (neuve ? `, ${nouvelle}` : '')
+}
+
+/**
+ * Le pied d'une pièce de la loge : ses chemins vers ce qu'il n'a pas, sur une
+ * ligne quand ils y tiennent — la boutique pour ce qui s'achète, « Ma
+ * collection » pour ce qui se gagne. Chacun prenait sa ligne, centrée, l'un
+ * sous l'autre.
+ */
+export function PiedDeLaPiece({ children }: { children: ReactNode }) {
+  return <div className="loge-pied">{children}</div>
+}
+
+/** « 11 à la boutique », au pied d'une pièce de la loge : ce qui s'achète, son rayon. */
+export function VersLaBoutique({ n, href, icone = 'bag' }: { n: number; href: string; icone?: IconName }) {
+  return (
+    <a className="loge-a-gagner loge-vers-boutique" href={href}>
+      <Icon name={icone} />
+      {n > 0 ? espacesFines(`${n} à la boutique`) : 'La boutique'}
+    </a>
+  )
+}
+
+/**
  * « N à gagner : où ? », sous ce qu'un panneau de la loge laisse choisir :
  * la loge ne montre que ce qu'on a — des finitions et des bordures éteintes
  * s'y mêlaient à celles qu'on pouvait porter (le 13 octobre 2026) —, ce qui

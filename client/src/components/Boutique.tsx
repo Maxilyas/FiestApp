@@ -1,14 +1,15 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { gemme } from '../gemmes'
 import { Icon } from './Icon'
+import { ongletVise } from './Onglets'
 import { rendreLeFocus } from '../focus'
 import { espacesFines, formatNumber } from '../format'
-import { NOM_DE_RARETE, THEMES, enBoutique, prixDe, retourEnBoutique, type Theme } from '../../../shared/themes'
+import { NOM_DE_RARETE, THEMES, enBoutique, prixDe, retourEnBoutique, theme, type Theme } from '../../../shared/themes'
 import { enConfettis, themesEnRayon } from '../../../shared/rayons'
 import type { PublicProfileDetail } from '../../../shared/profil'
-import { AGagner } from './LigneDeCollection'
+import { AGagner, EnteteDeLaPiece, PiedDeLaPiece, VersLaBoutique, ceQueDitLaVignette, classesDeLaVignette, type EtatDUneVignette } from './LigneDeCollection'
 import { apercuDe } from '../apercus'
-import { MaPlaque } from './MaPlaque'
+import { EchantillonDePlaque, MaPlaque, plaquesDeLaLoge } from './MaPlaque'
 import type { PropsDUnePiece } from './choix'
 
 // Les thèmes : ce qui habille toutes ses pages — la soirée, son profil, ses
@@ -16,8 +17,9 @@ import type { PropsDUnePiece } from './choix'
 // (`shared/themes.ts`). Une bonne réponse, un confetti. La boutique ne montre
 // que ce qui reste à prendre, en tuiles serrées, trois par rangée sur un
 // téléphone, du moins cher au plus cher (`RayonDesThemes`, la refonte du
-// 10 novembre 2026) ; ce qu'on a se porte dans « Mon thème » (`MesThemes`),
-// en grandes cartes : l'écran d'une question sous chaque thème. « Ma
+// 10 novembre 2026) ; ce qu'on a se porte dans la pièce « Thème » de la
+// loge (`MesThemes`), en vignettes au même haut d'aperçu, et sa plaque à
+// côté, dans son onglet (le 17 novembre 2026). « Ma
 // collection » les montre tous, en vignettes rangées par rareté, ceux qui ne
 // se vendent pas compris, et la même fiche dit où les gagner.
 //
@@ -155,68 +157,34 @@ function TuileDeTheme({
 }
 
 /**
- * Une carte de thème, dans la loge : l'aperçu en grand, le nom, et dessous
- * ce qu'il est pour lui. Elle déplie sa fiche sous sa rangée — un bouton qui
- * déplie, pas un interrupteur : `aria-pressed` disait qu'un toucher le
- * portait.
+ * La case d'un thème, dans la loge : une vignette comme celles de ses autres
+ * pièces (`.loge-vignette`, la base commune du 17 novembre 2026) — le haut de
+ * son aperçu, comme la tuile de la boutique, puis son nom, la gemme de sa
+ * rareté devant. Elle dit son état comme une case d'avatar : le cadre d'or,
+ * le thème que la page montre ; le halo, à l'essai ; la coche, celui qu'il
+ * porte ; le point rouge, le neuf. Un interrupteur (`aria-pressed`, ce que la
+ * page montre), comme une case d'avatar : un toucher l'essaie et ne déplie
+ * plus rien. Une grande carte (175 px de haut, l'aperçu entier) la précédait,
+ * qui dépliait sa fiche sous sa rangée : quatre thèmes faisaient défiler la
+ * pièce de 550 px en 360 × 640.
  */
-function CarteDeTheme({
-  t,
-  etat,
-  solde,
-  ouvert = false,
-  essaye = false,
-  neuf = false,
-  onToucher,
-}: {
-  t: Theme
-  etat: EtatDuTheme
-  solde: number
-  /** Sa fiche est dépliée sous elle. */
-  ouvert?: boolean
-  /** La page l'essaie. */
-  essaye?: boolean
-  /** Arrivé depuis son dernier passage. */
-  neuf?: boolean
-  onToucher: () => void
-}) {
+function CaseDeTheme({ t, etat, onToucher }: { t: Theme; etat: EtatDUneVignette; onToucher: () => void }) {
   const apercu = apercuDe(t.key)
-  const pied = essaye
-    ? 'À l’essai'
-    : etat === 'porte'
-      ? 'Porté'
-      : etat === 'a-toi'
-        ? neuf
-          ? 'Nouveau'
-          : NOM_DE_RARETE[t.rarete]
-        : etat === 'a-gagner'
-          ? 'Se gagne'
-          : etat === 'trop-cher'
-            ? `encore ${formatNumber(prixDe(t) - solde)}`
-            : enConfettis(prixDe(t))
   return (
     <button
       type="button"
-      className={
-        'theme-vitrine' +
-        (etat === 'trop-cher' ? ' theme-cher' : '') +
-        (etat === 'porte' ? ' theme-porte' : '') +
-        (essaye ? ' theme-essaye' : '') +
-        (neuf ? ' neuve' : '') +
-        (ouvert ? ' ouverte' : '')
-      }
+      className={'loge-vignette loge-theme-case' + classesDeLaVignette(etat)}
       style={gemme(t.rarete)}
-      aria-expanded={ouvert}
-      aria-controls={ouvert ? 'detail-theme' : undefined}
-      aria-label={nomDeLaCase(t, etat, solde) + (essaye ? ', à l’essai' : '') + (neuf ? ', nouveau' : '')}
+      aria-pressed={etat.montre}
+      aria-label={`${t.nom}, ${NOM_DE_RARETE[t.rarete].toLowerCase()}` + ceQueDitLaVignette(etat, 'porté', 'nouveau')}
       onClick={onToucher}
     >
-      <span className="theme-vitrine-image" aria-hidden="true">
+      <span className="loge-vignette-image" aria-hidden="true">
         {apercu && <img src={apercu} alt="" width={180} height={225} loading="lazy" decoding="async" />}
       </span>
-      <span className="theme-vitrine-pied">
-        <b>{t.nom}</b>
-        <span className="theme-vitrine-prix">{pied}</span>
+      <span className="loge-vignette-nom">
+        <i className="article-gemme" aria-hidden="true" />
+        {t.nom}
       </span>
     </button>
   )
@@ -277,67 +245,163 @@ export function RayonDesThemes({
   )
 }
 
+/** Les deux onglets de la pièce « Thème » : ses thèmes, que lui seul voit, et sa plaque, que les autres voient. */
+type VueDuTheme = 'themes' | 'plaque'
+
 /**
- * « Mes thèmes », la pièce « Thème » de la loge : seulement ceux qu'il a,
- * en grandes cartes, celui qu'il porte en tête. Toucher un thème
- * l'essaie — la page entière le porte, rien n'est enregistré — et ouvre sa
- * fiche ; « Porter », dans la barre de la loge, le garde. Un thème se portait
- * d'un toucher, enregistré : le doigt qui voulait le regarder habillait déjà
- * toute la page, pour de bon.
+ * « Mes thèmes · Ma plaque », tout en haut de la pièce « Thème » : sa plaque
+ * vivait sous ses thèmes, une ligne de classement entière par choix, et
+ * commençait à 1180 px en 360 × 640 pour une habituée — « caché tout en bas
+ * et donc impossible pour des utilisateurs de savoir que ça existe » (le
+ * propriétaire, le 17 novembre 2026). Deux onglets plutôt que deux boutons à
+ * `aria-pressed` : ce sont deux vues de la même pièce, l'une à la place de
+ * l'autre, au clavier comme la rangée des pièces et les gemmes des avatars
+ * (un seul arrêt de Tab, les flèches passent à l'autre, `ongletVise`).
+ * Chacun dit d'un coup d'œil ce qu'il garde : combien de thèmes, et
+ * l'échantillon de la plaque que la page montre ; le point rouge, du neuf
+ * qu'on n'a pas sous les yeux — une plaque vient avec chaque thème neuf.
+ */
+function OngletsDuTheme({
+  vue,
+  onVue,
+  themes,
+  plaque,
+  nomDeLaPlaque,
+  neufs,
+}: {
+  vue: VueDuTheme
+  onVue: (v: VueDuTheme) => void
+  themes: number
+  /** La plaque que la page montre, en échantillon ; null : sans plaque. */
+  plaque: string | null
+  nomDeLaPlaque: string
+  neufs: { themes: boolean; plaque: boolean }
+}) {
+  const liste = useRef<HTMLDivElement>(null)
+  const ordre: VueDuTheme[] = ['themes', 'plaque']
+  const touche = (e: KeyboardEvent, i: number) => {
+    const j = ongletVise(e.key, i, ordre.length)
+    if (j === null) return
+    e.preventDefault()
+    onVue(ordre[j])
+    liste.current?.querySelectorAll<HTMLElement>('[role="tab"]')[j]?.focus()
+  }
+  const onglet = (v: VueDuTheme, i: number, contenu: ReactNode, neuf: boolean) => (
+    <button
+      id={`loge-theme-${v}`}
+      type="button"
+      role="tab"
+      aria-selected={vue === v}
+      aria-controls={vue === v ? 'loge-theme-vue' : undefined}
+      tabIndex={vue === v ? 0 : -1}
+      className={'onglet' + (vue === v ? ' actif' : '')}
+      onClick={() => onVue(v)}
+      onKeyDown={e => touche(e, i)}
+    >
+      {contenu}
+      {neuf && vue !== v && (
+        <>
+          <span className="loge-theme-neuf" aria-hidden="true" />
+          <span className="sr-only">, du nouveau</span>
+        </>
+      )}
+    </button>
+  )
+  return (
+    <div ref={liste} className="onglets loge-theme-onglets" role="tablist" aria-label="Thème ou plaque">
+      {onglet(
+        'themes',
+        0,
+        <>
+          <Icon name="palette" />
+          Mes thèmes
+          <span className="loge-theme-compte">
+            <span className="sr-only">, </span>
+            {themes}
+          </span>
+        </>,
+        neufs.themes,
+      )}
+      {onglet(
+        'plaque',
+        1,
+        <>
+          <EchantillonDePlaque plaque={plaque} />
+          Ma plaque
+          {/* Le seul réglage du panneau « Toi seul » que les autres voient : un petit œil, sans phrase (le souhait du 17 novembre 2026). */}
+          <Icon name="eye" className="loge-theme-oeil" />
+          <span className="sr-only">{`, ${nomDeLaPlaque}, les autres la voient`}</span>
+        </>,
+        neufs.plaque,
+      )}
+    </div>
+  )
+}
+
+/**
+ * La pièce « Thème » de la loge, en deux onglets (`OngletsDuTheme`) : ses
+ * thèmes d'office, sa plaque à côté.
+ *
+ * Ses thèmes : seulement ceux qu'il a, en vignettes, trois par rangée, celui
+ * qu'il porte en tête. Toucher un thème l'essaie — la page entière le porte,
+ * rien n'est enregistré — ; « Porter », dans la barre de la loge, le garde.
+ * Un thème se portait d'un toucher, enregistré : le doigt qui voulait le
+ * regarder habillait déjà toute la page, pour de bon.
+ *
+ * La fiche d'un thème (`DetailTheme`) ne s'ouvre plus sous la case touchée :
+ * la page entière l'essaie déjà, la barre de l'essai dit son nom et sa
+ * rareté, et la fiche, glissée dans la grille, poussait les cases d'après
+ * sous le doigt qui en essayait une autre. Son humeur — la seule chose
+ * qu'elle disait encore ici — reste dans son présentoir à la boutique et sa
+ * fiche de « Ma collection » : le thème porté par toute la page la dit
+ * mieux qu'une phrase.
  */
 export function MesThemes({ profil, essai, essayer, neufs }: PropsDUnePiece) {
-  const [ouvert, setOuvert] = useState<string | null>(null)
+  // Revenu sur la pièce avec une plaque à l'essai et pas de thème : elle s'ouvre sur sa plaque, là où il en était.
+  const [vue, setVue] = useState<VueDuTheme>(() => (essai.plaque !== undefined && essai.theme === undefined ? 'plaque' : 'themes'))
+  const boutique = profil.boutique
+  if (!boutique) return null
   const porte = profil.theme ?? 'velours'
   // Le thème que la page porte : l'essai, sinon le sien.
   const montre = essai.theme !== undefined ? (essai.theme ?? 'velours') : porte
-  const detail = useFiche(ouvert, porte)
-  const boutique = profil.boutique
-  if (!boutique) return null
-  const { solde } = boutique.confettis
   const possedes = new Set(boutique.possedes)
   const siens = THEMES.filter(t => possedes.has(t.key)).sort((a, b) => Number(b.key === porte) - Number(a.key === porte))
-  const aVendre = THEMES.filter(t => !possedes.has(t.key) && enBoutique(t, boutique.jour)).length
+  const aVendre = themesEnRayon(boutique.possedes, boutique.jour).length
   const aGagner = THEMES.filter(t => t.gagne && !possedes.has(t.key)).length
-  const toucher = (cle: string) => {
-    setOuvert(o => (o === cle ? null : cle))
-    essayer({ theme: cle === 'velours' ? null : cle })
-  }
+  const plaques = plaquesDeLaLoge(profil, essai)
+  const toucher = (cle: string) => essayer({ theme: cle === 'velours' ? null : cle })
   return (
     <section className="mes-themes">
-      <p className="gemme-legende">
-        <b>
-          {siens.length} thème{siens.length > 1 ? 's' : ''}
-        </b>{' '}
-        {/* Ce qu'il habille, la ligne de la pièce le dit : ici, comment l'essayer. */}
-        · {espacesFines('de la soirée à tes quiz. Touches-en un : toute la page l’essaie.')}
-      </p>
-      <div className="vitrine-themes" role="group" aria-label="Mes thèmes">
-        {siens.map(t => {
-          const etat = etatDuTheme(t, porte, possedes, solde, boutique.jour)
-          const essaye = montre === t.key && t.key !== porte
-          return (
-            <Fragment key={t.key}>
-              <CarteDeTheme t={t} etat={etat} solde={solde} ouvert={ouvert === t.key} essaye={essaye} neuf={neufs?.has(t.key)} onToucher={() => toucher(t.key)} />
-              {ouvert === t.key && (
-                <div id="detail-theme" className="fiche-case theme-fiche" ref={detail}>
-                  <DetailTheme theme={t} etat={etat} solde={solde} dansLaLoge essaye={essaye} />
-                </div>
-              )}
-            </Fragment>
-          )
-        })}
+      {/* Les onglets tiennent lieu de titre à l'œil (`.mes-themes .loge-entete-titre`) : le lecteur d'écran le lit. */}
+      <EnteteDeLaPiece id="loge-theme-titre" titre={vue === 'themes' ? 'Mes thèmes' : 'Ma plaque'}>
+        <OngletsDuTheme
+          vue={vue}
+          onVue={setVue}
+          themes={siens.length}
+          plaque={plaques.vue}
+          nomDeLaPlaque={plaques.vue ? (theme(plaques.vue)?.nom ?? '') : 'sans plaque'}
+          neufs={{ themes: siens.some(t => neufs?.has(t.key)), plaque: plaques.choix.some(c => neufs?.has(c.cle)) }}
+        />
+      </EnteteDeLaPiece>
+      <div className="loge-theme-vue" role="tabpanel" id="loge-theme-vue" aria-labelledby={`loge-theme-${vue}`}>
+        {vue === 'themes' ? (
+          <ul className="loge-vignettes loge-themes" aria-label="Mes thèmes">
+            {siens.map(t => (
+              <li key={t.key}>
+                <CaseDeTheme t={t} etat={{ montre: montre === t.key, porte: porte === t.key, neuve: neufs?.has(t.key) }} onToucher={() => toucher(t.key)} />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <MaPlaque profil={profil} essai={essai} essayer={essayer} neufs={neufs} />
+        )}
       </div>
-      {/* Sa plaque, après ses thèmes : c'est d'eux qu'elle vient. */}
-      <MaPlaque profil={profil} essai={essai} essayer={essayer} />
-      {/* Ce qu'il n'a pas encore, en deux liens : la boutique pour ce qui
-          s'achète, la collection pour ce qui se gagne — et où. L'écran ne
-          montre que ce qu'on porte. */}
-      <a className="link-inline lien-boutique" href="/boutique">
-        <Icon name="palette" />
-        {aVendre > 0 ? `${aVendre} autre${aVendre > 1 ? 's' : ''} à la boutique` : 'La boutique'}
-      </a>
-      {/* Ceux qui ne se vendent pas : le lien de toutes les pièces de la loge, vers la collection. */}
-      <AGagner n={aGagner} un="thème" plusieurs="thèmes" href="#collection-themes" />
+      {/* Ce qu'il n'a pas encore, sur une ligne : la boutique pour ce qui s'achète — et la plaque qui vient avec —, la
+          collection pour ce qui se gagne, et où. La pièce ne montre que ce qu'il a. */}
+      <PiedDeLaPiece>
+        <VersLaBoutique n={aVendre} href="/boutique#themes" icone="palette" />
+        <AGagner n={aGagner} un="thème" plusieurs="thèmes" href="#collection-themes" />
+      </PiedDeLaPiece>
     </section>
   )
 }
@@ -356,8 +420,6 @@ export function DetailTheme({
   solde,
   busy = false,
   erreur,
-  dansLaLoge = false,
-  essaye = false,
   onPorter,
   onAcheter,
 }: {
@@ -368,10 +430,6 @@ export function DetailTheme({
   busy?: boolean
   /** Le refus d'un achat, dit là où l'on a touché. */
   erreur?: string
-  /** Ouverte dans la loge, où un toucher essaie : « Porter » est dans sa barre. */
-  dansLaLoge?: boolean
-  /** La page l'essaie. */
-  essaye?: boolean
   /** Le porter ; null : Velours, celui de toutes les soirées. */
   onPorter?: (cle: string | null) => void
   onAcheter?: (theme: Theme) => void
@@ -391,13 +449,7 @@ export function DetailTheme({
       )}
       <p className="muted small">{t.humeur}</p>
       {etat === 'porte' && <p className="muted small">C’est lui qui habille tes pages. L’écran commun garde le sien.</p>}
-      {etat === 'a-toi' && dansLaLoge && (
-        <p className="muted small">
-          {essaye ? espacesFines('À l’essai sur toute la page : « Porter », en bas, le garde. L’écran commun garde le sien.') : 'À toi : touche sa carte pour l’essayer.'}
-        </p>
-      )}
       {etat === 'a-toi' &&
-        !dansLaLoge &&
         (onPorter ? (
           <button
             type="button"

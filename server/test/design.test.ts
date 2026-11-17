@@ -234,7 +234,6 @@ test('sur l’or pâle, un texte s’écrit au bronze du survol, sous chaque th�
     '.corrige.ok .corrige-marque',
     '.onglet.actif',
     '.pause-bandeau',
-    '.titre-choix.selected',
     '.quoi-toutes.active, .quoi-case.active',
     '.quoi-tuile.active',
     '.quoi-epoque.active',
@@ -359,12 +358,16 @@ test('la pastille des nouveautés se lit dans le rouge des messages, sur « Prof
     '.menu-compteur',
     '.loge-neuf',
     '.gemme-neuf',
-    '.theme-vitrine.neuve::before',
+    // La case d'un avatar, et les vignettes des cinq autres pièces (le 17 novembre 2026) : les cases de fond, de gerbe,
+    // de trophée et de thème partageaient la règle de la case d'avatar ; elles ont la leur, du même rouge.
+    '.case-avatar.neuve::before',
+    '.loge-vignette.neuve::before',
+    // Le point de l'onglet « Ma plaque » (pièce « Thème »), sur l'épaule de l'onglet.
+    '.loge-theme-neuf',
     '.finition-choix.neuve .finition-teinte::before',
     '.bordure-choix.neuve .bordure-apercu::before',
   ])
     assert.equal(rougeDe(s), rouge, `${s} : le rouge des messages`)
-  assert.match(CSS, /\.case-avatar\.neuve::before,\s*\.finition-btn\.neuve::before,\s*\.vitrine-option\.neuve::before,\s*\.theme-vitrine\.neuve::before \{/)
   // Sur l'épaule de la gemme, sans pousser son nom.
   assert.match(regle('.gemme'), /position:\s*relative/)
   assert.match(regle('.gemme-neuf'), /position:\s*absolute/)
@@ -483,7 +486,7 @@ test('D21 · l’or du décor, les petites boîtes et le plus petit texte ont le
   assert.match(regle('.carte-fond.fond-theatre'), /border-color:\s*var\(--fond-or\)/)
   // Les petites boîtes de #58 et #59.
   assert.equal(VELOURS.get('--radius-xs'), '10px')
-  for (const sel of ['.fond-apercu', '.carte-beaux li', '.vitrine-choix li', '.soiree-date', '.vitrine-option']) {
+  for (const sel of ['.fond-apercu', '.carte-beaux li', '.soiree-date', '.loge-vignette-image']) {
     assert.match(regle(sel), /border-radius:\s*var\(--radius-xs\)/, `${sel} garde son rayon en dur`)
   }
   // Le plancher du texte : 11 px à la taille ordinaire, comme `.label`.

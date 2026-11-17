@@ -155,7 +155,7 @@ test('la barre dit ce qu’on essaie, pièce par pièce, dans l’ordre de la ra
     { piece: 'avatar', nom: legendaire('lg:dragon')!.nom, detail: 'Légendaire' },
     { piece: 'avatar', nom: `La plus belle · ${NOM_FINITION[meilleureFinition(14)]}`, detail: 'Finition' },
     { piece: 'titre', nom: '« Maître de la forêt »', detail: 'Titre' },
-    { piece: 'vitrine', nom: '2 hauts faits choisis', detail: 'Vitrine' },
+    { piece: 'vitrine', nom: '2 trophées choisis', detail: 'Vitrine' },
     { piece: 'fond', nom: fond('nuit')!.nom, detail: 'Fond de carte' },
     { piece: 'theme', nom: 'Océan', detail: 'Thème · Peu commune' },
     { piece: 'gerbe', nom: gerbe('etoiles')!.nom, detail: 'Gerbe' },
@@ -189,19 +189,20 @@ test('ce qui est nouveau : rien à la première visite, puis ce qui arrive depui
   assert.deepEqual(nouveautes(apres, regardee), { ...rienDeNeuf, avatar: ['eclat:🐸'], gerbe: ['petales'] })
 })
 
-test('la loge : sa carte en tête, six pièces sur une rangée — la salle d’abord, lui seul ensuite —, qui le voit, puis la pièce touchée', async () => {
-  const { espacesFines } = await import(url('format.ts'))
+test('la loge : sa carte en tête, six pièces sur une rangée — la salle d’abord, lui seul ensuite —, puis la pièce touchée', async () => {
   const contenus: Record<string, RegExp> = {
     // L'avatar : ses finitions en pastilles (la maquette 3), puis ses avatars aux gemmes de l'album.
     avatar: /<div class="loge-finitions">.*<div class="gemmes gemmes-loge" role="tablist" aria-label="Mes avatars, par rareté">/,
-    titre: /<h3><svg[^>]*>.*?<\/svg>Mes titres /,
+    // Titre et Vitrine parlent la langue des vignettes (le 17 novembre 2026) : un en-tête d'une ligne, puis leurs choix.
+    titre: /<h3 class="loge-entete-titre" id="loge-titre-entete">Mes titres<span class="loge-entete-compte">/,
     // Des trophées, le mot de l'album et des fins de partie.
-    vitrine: /<h3><svg[^>]*>.*?<\/svg>Mes trophées /,
-    fond: /<h3><svg[^>]*>.*?<\/svg>Mes fonds /,
+    vitrine: /<h3 class="loge-entete-titre" id="loge-vitrine-entete">Mes trophées<span class="loge-entete-compte">/,
+    // Les fonds et les gerbes, en vignettes : un en-tête d'une ligne (`EnteteDeLaPiece`), puis la grille.
+    fond: /<h3 class="loge-entete-titre" id="loge-fonds">Mes fonds.*<ul class="loge-vignettes loge-vignettes-fonds" aria-labelledby="loge-fonds">/,
     theme: /<section class="mes-themes">/,
-    gerbe: /<h3><svg[^>]*>.*?<\/svg>Mes gerbes /,
+    gerbe: /<h3 class="loge-entete-titre" id="loge-gerbes">Mes gerbes.*<ul class="loge-vignettes loge-vignettes-gerbes" aria-labelledby="loge-gerbes">/,
   }
-  for (const { id, qui } of PIECES_DE_LA_LOGE) {
+  for (const { id } of PIECES_DE_LA_LOGE) {
     const html = await rendu('components/PanneauxDuProfil', 'PanneauLoge', { profil: LEA, piece: id, onPiece: () => {}, busy: false, enregistrer: async () => true })
     // La carte en tête, collée pendant qu'on choisit : c'est elle qui change.
     // (React pose devant le préchargement de l'image du Phénix qu'elle porte.)
@@ -215,15 +216,16 @@ test('la loge : sa carte en tête, six pièces sur une rangée — la salle d’
       id,
     )
     assert.match(html, /<div class="loge-groupes" aria-hidden="true"><span>La salle voit<\/span><span>Toi seul<\/span><\/div><div class="loge-rangee" role="tablist" aria-label="Ce que je change">/)
-    // Qui le voit, l'œil devant ; puis le panneau de la pièce, et lui seul.
-    assert.match(html, new RegExp(`<p class="muted loge-qui"><svg[^>]*>.*?</svg>${espacesFines(qui)}</p>`), id)
+    // Plus de ligne « qui le voit » sous la rangée : les petits titres du groupe le disent déjà (le 17 novembre 2026 :
+    // « pas besoin de mettre du texte à chaque fois »). Le panneau de la pièce suit la rangée, et lui seul.
+    assert.doesNotMatch(html, /loge-qui/, id)
     assert.match(html, new RegExp(`<div class="loge-panneau" role="tabpanel" id="loge-panneau" aria-labelledby="loge-${id}">`), id)
     for (const [autre, contenu] of Object.entries(contenus)) assert.equal(contenu.test(html), autre === id, `${id} : ${autre}`)
     // Rien d'essayé : pas de barre, et la région qui dira l'essai, vide.
     assert.doesNotMatch(html, /loge-barre/, id)
     assert.match(html, /<p class="sr-only" role="status"><\/p>/, id)
   }
-  // Six pièces : deux groupes, et ce que chacun dit de qui le voit.
+  // Six pièces : deux groupes, ceux que dit la ligne des petits titres (« La salle voit », « Toi seul »).
   assert.deepEqual(
     PIECES_DE_LA_LOGE.map(p => `${p.groupe} › ${p.nom}`),
     ['salle › Avatar', 'salle › Titre', 'salle › Vitrine', 'salle › Fond', 'moi › Thème', 'moi › Gerbe'],
@@ -278,31 +280,38 @@ test('dans chaque pièce, un toucher essaie : rien ne s’enregistre avant « Po
     assert.ok(bouton, `${composant} : ${nom}`)
     bouton.props.onClick()
   }
-  await toucher('MonTitre', 'components/Apparence', /^L’Oracle/)
+  await toucher('MonTitre', 'components/Apparence', /L’Oracle/)
   await toucher('MonTitre', 'components/Apparence', /^Aucun/)
   await toucher('MonFond', 'components/Apparence', /^Nuit étoilée/)
   await toucher('MonFond', 'components/Apparence', /^Velours/)
   await toucher('MesFinitions', 'components/Apparence', /^Argent/)
   await toucher('MesFinitions', 'components/Apparence', /^Auto$/)
-  await toucher('MaVitrine', 'components/Trophees', /L’Oracle/)
+  // Une médaille, pas sa place sur la carte (« ✨🔮L’Oracle, 2ᵉ place, d’office », au-dessus) : la médaille commence par son emoji.
+  await toucher('MaVitrine', 'components/Trophees', /^🔮L’Oracle/)
   assert.deepEqual(essais, [{ titre: 'hf:oracle' }, { titre: null }, { fond: 'nuit' }, { fond: null }, { finition: 'argent' }, { finition: 'auto' }, { vitrine: ['hf:oracle'] }])
   assert.deepEqual(enregistres, [], 'rien n’est enregistré d’un toucher')
   // La vitrine essayée se poursuit dans l'ordre de la carte ; vidée, c'est celle d'office.
   essais.length = 0
-  await toucher('MaVitrine', 'components/Trophees', /Le Phénix/, { ...pieces, essai: { vitrine: ['hf:oracle'] } })
-  await toucher('MaVitrine', 'components/Trophees', /L’Oracle/, { ...pieces, essai: { vitrine: ['hf:oracle'] } })
+  await toucher('MaVitrine', 'components/Trophees', /^🔥Le Phénix/, { ...pieces, essai: { vitrine: ['hf:oracle'] } })
+  await toucher('MaVitrine', 'components/Trophees', /^🔮L’Oracle/, { ...pieces, essai: { vitrine: ['hf:oracle'] } })
   assert.deepEqual(essais, [{ vitrine: ['hf:oracle', 'hf:phenix'] }, { vitrine: null }])
   // La vitrine d'office est une option de la liste, en tête, dans les deux
   // états : un bouton qui ne paraissait qu'une vitrine choisie partait sous
   // le doigt qui le touchait, et le focus tombait sur la page.
-  const office = (html: string) => /<ul class="vitrine-choix vitrine-a-choisir" aria-label="Les trophées de ma carte"><li>(<button[^>]*>.*?<\/button>)<\/li>/.exec(html)?.[1]
+  const office = (html: string) => /<ul class="loge-vignettes loge-medailles" aria-labelledby="loge-vitrine-entete"><li>(<button[^>]*>.*?<\/button>)<\/li>/.exec(html)?.[1]
+  // Une médaille : l'emoji en grand dans un rond, son nom dessous — « d'office » et ce que la carte choisit se disent à
+  // l'oreille. Son état suit la règle de toutes les pièces (`classesDeLaVignette`, le 17 novembre 2026) : montrée et
+  // portée, le cadre d'or et la coche, « porté » à l'oreille — l'ancienne règle taisait la coche de ce qu'il portait
+  // quand la carte le montrait. Ce que la carte choisit se décrit hors du bouton, une seule fois (le bloc `hidden`).
+  const arrivee = await rendu('components/Trophees', 'MaVitrine', pieces)
   assert.equal(
-    office(await rendu('components/Trophees', 'MaVitrine', pieces)),
-    '<button type="button" class="vitrine-option selected" aria-pressed="true"><span class="hf-emoji" aria-hidden="true">✨</span><span class="hf-corps"><span class="hf-titre">Les plus durs, d’office</span><span class="muted small">Ta carte choisit tes 2 plus durs.</span></span></button>',
+    office(arrivee),
+    '<button type="button" class="loge-vignette loge-medaille selected porte" aria-pressed="true" aria-describedby="loge-vitrine-office"><span class="loge-vignette-image" aria-hidden="true"><span class="loge-medaille-emoji">✨</span></span><span class="loge-vignette-nom">Les plus durs<span class="sr-only">, d’office</span></span><span class="sr-only">, porté</span></button>',
   )
+  assert.match(arrivee, /<div hidden=""><span id="loge-vitrine-office">Ta carte choisit tes 2 plus durs\.<\/span>/)
   assert.equal(
     office(await rendu('components/Trophees', 'MaVitrine', { ...pieces, essai: { vitrine: ['hf:oracle'] } })),
-    '<button type="button" class="vitrine-option" aria-pressed="false"><span class="hf-emoji" aria-hidden="true">✨</span><span class="hf-corps"><span class="hf-titre">Les plus durs, d’office</span><span class="muted small">Ta carte choisit tes 2 plus durs.</span></span><span class="titre-etat">porté</span></button>',
+    '<button type="button" class="loge-vignette loge-medaille porte" aria-pressed="false" aria-describedby="loge-vitrine-office"><span class="loge-vignette-image" aria-hidden="true"><span class="loge-medaille-emoji">✨</span></span><span class="loge-vignette-nom">Les plus durs<span class="sr-only">, d’office</span></span><span class="sr-only">, porté</span></button>',
   )
   essais.length = 0
   await toucher('MaVitrine', 'components/Trophees', /^✨Les plus durs, d’office/, { ...pieces, essai: { vitrine: ['hf:oracle'] } })
@@ -310,11 +319,15 @@ test('dans chaque pièce, un toucher essaie : rien ne s’enregistre avant « Po
 
   // L'essai se lit dans chaque grille : ce que la carte montre, ce qu'il porte encore.
   const titres = await rendu('components/Apparence', 'MonTitre', { ...pieces, essai: { titre: 'hf:oracle' } })
-  assert.match(titres, /<button type="button" class="titre-choix porte" aria-pressed="false">Aucun<span class="titre-etat">porté<\/span><\/button>/)
-  assert.match(titres, /<button type="button" class="titre-choix selected essaye" aria-pressed="true">L’Oracle<span class="titre-etat">à l’essai<\/span><\/button>/)
+  // Un titre : l'emoji de ce qui l'a ouvert devant son nom, sans bulle, et son état dit par ses classes — la règle de toutes
+  // les pièces — puis à l'oreille : « porté » pour ce qu'il porte, « à l'essai » pour ce que la carte montre sans qu'il le porte.
+  assert.match(titres, /<button type="button" class="loge-titre porte" aria-pressed="false"><span class="loge-titre-emoji" aria-hidden="true"><\/span><span class="loge-titre-nom">Aucun<\/span><span class="sr-only">, porté<\/span><\/button>/)
+  const oracle = HAUTS_FAITS_REGAGNABLES.find(h => h.key === 'hf:oracle')!
+  assert.match(titres, new RegExp(`<button type="button" class="loge-titre selected essaye" aria-pressed="true"><span class="loge-titre-emoji" aria-hidden="true">${oracle.emoji}</span><span class="loge-titre-nom">L’Oracle</span><span class="sr-only">, à l’essai</span></button>`))
   const fonds = await rendu('components/Apparence', 'MonFond', { ...pieces, essai: { fond: 'nuit' } })
-  assert.match(fonds, /class="finition-btn porte" aria-pressed="false"><span class="fond-apercu" aria-hidden="true"><\/span><span class="finition-nom">Velours<\/span><span class="muted small">porté<\/span>/)
-  assert.match(fonds, /class="finition-btn selected essaye" aria-pressed="true"><span class="fond-apercu carte-fond fond-nuit" aria-hidden="true"><\/span><span class="finition-nom">Nuit étoilée<\/span><span class="muted small">à l’essai<\/span>/)
+  // Plus de mot d'état sous chaque vignette : la coche, le cadre et le halo le disent à l'œil, `aria-label` à l'oreille.
+  assert.match(fonds, /class="loge-vignette porte" aria-pressed="false" aria-label="Velours, porté"><span class="loge-vignette-image" aria-hidden="true"><span class="fond-apercu"><\/span><\/span><span class="loge-vignette-nom">Velours<\/span>/)
+  assert.match(fonds, /class="loge-vignette selected essaye" aria-pressed="true" aria-label="Nuit étoilée, à l’essai"><span class="loge-vignette-image" aria-hidden="true"><span class="fond-apercu carte-fond fond-nuit"><\/span><\/span><span class="loge-vignette-nom">Nuit étoilée<\/span>/)
 
   // Les avatars de même : chaque case essaie le sien — ce qui reste à gagner n'a pas de case, il se compte sous la grille.
   essais.length = 0
@@ -331,9 +344,11 @@ test('dans chaque pièce, un toucher essaie : rien ne s’enregistre avant « Po
 
   // Les grilles qui gardent un état — les gerbes, les thèmes — touchent de même.
   const APPARENCE = source('components/Apparence.tsx')
-  assert.match(APPARENCE, /onClick=\{\(\) => essayer\(\{ gerbe: AUCUNE_GERBE \}\)\}/)
-  assert.match(APPARENCE, /montrer\(g\.key\)\s*essayer\(\{ gerbe: g\.key \}\)/)
-  assert.match(source('components/Boutique.tsx'), /setOuvert\(o => \(o === cle \? null : cle\)\)\s*essayer\(\{ theme: cle === 'velours' \? null : cle \}\)/)
+  // Une gerbe, un seul geste : « Aucune » essaie le retrait, les autres éclatent puis s'essaient (elle a un état : pas d'appel direct).
+  assert.match(APPARENCE, /if \(g\) setApercu\(a => \(\{ cle: g\.key, n: \(a\?\.n \?\? 0\) \+ 1 \}\)\)\s*essayer\(\{ gerbe: g \? g\.key : AUCUNE_GERBE \}\)/)
+  // Un thème, une plaque : un toucher essaie, rien d'autre — plus de fiche qui s'ouvre sous la case (le 17 novembre 2026).
+  assert.match(source('components/Boutique.tsx'), /const toucher = \(cle: string\) => essayer\(\{ theme: cle === 'velours' \? null : cle \}\)/)
+  assert.match(source('components/MaPlaque.tsx'), /onClick=\{\(\) => essayer\(\{ plaque: c\.cle \}\)\}/)
   // Rien ne s'enregistre d'un toucher dans ces grilles — pas même la version, rare ou d'origine, d'un avatar éclaté :
   // elle s'essaie sur la carte de la loge, et « Porter » la garde avec le reste.
   assert.deepEqual([...APPARENCE.matchAll(/\benregistrer\(/g)].length, 0)
@@ -341,6 +356,149 @@ test('dans chaque pièce, un toucher essaie : rien ne s’enregistre avant « Po
   assert.doesNotMatch(source('components/Trophees.tsx'), /\benregistrer\(/)
   const boutique = source('components/Boutique.tsx')
   assert.doesNotMatch(boutique.slice(boutique.indexOf('export function MesThemes'), boutique.indexOf('export function DetailTheme')), /\benregistrer\(/)
+})
+
+// Titre et Vitrine (le 17 novembre 2026 ; le propriétaire : « je trouve l'onglet titre, vitrine […] pas pratique et peu
+// lisible. Soit on est obligé de scroller trop, mais aussi la présentation ne donne pas trop envie »). Puis, devant les
+// pastilles du matin : « l'onglet des titres ne me convient pas. Cela prend trop de place, c'est brouillon […] ne pas mettre
+// les sortes de bulles autour des titres » — du texte aligné en deux colonnes, l'emoji de ce qui l'a ouvert devant son nom ;
+// et « Pour la vitrine est ce que l'on sait sur quoi on clique ? » — ses trois places sur la carte, au-dessus des médailles.
+// L'état se dit par la règle de toutes les pièces (`classesDeLaVignette`) et, à l'oreille, par des mots ; plus de consigne :
+// « pas besoin de mettre du texte à chaque fois ».
+test('Titre : du texte aligné, sans bulle — l’emoji de ce qui l’a ouvert devant son nom, son état à l’oreille, « Aucun » d’abord', async () => {
+  const { emojiDUnTitre } = await import(url('components/Apparence.tsx'))
+  const oracle = HAUTS_FAITS_REGAGNABLES.find(h => h.key === 'hf:oracle')!
+  const habitue = HAUTS_FAITS_DE_CARRIERE.find(h => h.key === 'hf:habitue')!
+  // Chaque origine a le sien : un trophée de soirée, une piste de carrière, un maître des sentiers, un champion du mois, un défi du Cabinet.
+  assert.equal(emojiDUnTitre('hf:oracle'), oracle.emoji)
+  assert.equal(emojiDUnTitre('hf:habitue'), habitue.emoji)
+  assert.equal(emojiDUnTitre('maitre:foret'), '🌲')
+  assert.equal(emojiDUnTitre('mois:2026-10'), '👑')
+  assert.equal(emojiDUnTitre('cabinet:defi:cagnotte:3'), '🃏')
+  assert.equal(emojiDUnTitre('cabinet:defi:cagnotte:2'), '', 'un défi qui n’est pas à l’Or n’ouvre pas de titre : rien à dessiner')
+  assert.equal(emojiDUnTitre('n-importe-quoi'), '')
+
+  // Il porte L'Oracle — tombé depuis sa dernière visite — et essaie le maître de la forêt.
+  const profil = { ...LEA, titre: 'hf:oracle', sentiers: { foret: 13 }, titresDates: ['mois:2026-10'], titresDuCabinet: ['cabinet:defi:cagnotte:3'] }
+  const piece = { ...rien, essayer: () => {} }
+  const html = await rendu('components/Apparence', 'MonTitre', { ...piece, profil, essai: { titre: 'maitre:foret' }, neufs: new Set(['hf:oracle']) })
+  const titre = (nom: string) => new RegExp(`<button type="button" class="loge-titre[^"]*" aria-pressed="(?:true|false)"><span class="loge-titre-emoji" aria-hidden="true">([^<]*)</span><span class="loge-titre-nom">${nom}</span>`).exec(html)
+  assert.equal(titre('Aucun')![1], '', '« Aucun » n’a pas d’emoji, mais sa place : les noms s’alignent')
+  assert.equal(titre('Maître de la forêt')![1], '🌲')
+  assert.equal(titre('Champion d’octobre 2026')![1], '👑')
+  assert.equal(titre('Le Trésorier')![1], '🃏')
+  assert.equal(titre('L’Oracle')![1], oracle.emoji)
+  // L'ordre : « Aucun », les maîtres, les champions, le Cabinet, puis les trophées.
+  const ordre = ['Aucun', 'Maître de la forêt', 'Champion d’octobre 2026', 'Le Trésorier', 'L’Oracle'].map(n => html.indexOf(`<span class="loge-titre-nom">${n}</span>`))
+  assert.deepEqual([...ordre].sort((a, b) => a - b), ordre)
+  assert.ok(ordre.every(i => i >= 0))
+  // L'état, la règle de toutes les pièces : ce que la carte montre à l'essai (`selected essaye` — à l'or, son trait devant),
+  // ce qu'il porte (`porte` — sa coche), le neuf (`neuve` — le point rouge) ; à l'oreille, « à l'essai », « porté »,
+  // « nouveau » après le nom, jamais écrits à l'œil.
+  assert.match(html, /class="loge-titre selected essaye" aria-pressed="true"><span class="loge-titre-emoji" aria-hidden="true">🌲<\/span><span class="loge-titre-nom">Maître de la forêt<\/span><span class="sr-only">, à l’essai<\/span><\/button>/)
+  assert.match(html, /class="loge-titre porte neuve" aria-pressed="false"><span class="loge-titre-emoji" aria-hidden="true">[^<]+<\/span><span class="loge-titre-nom">L’Oracle<\/span><span class="sr-only">, porté, nouveau<\/span><\/button>/)
+  assert.doesNotMatch(html, /titre-etat|>porté<|>à l’essai<|>nouveau</, 'aucun mot d’état écrit à l’œil')
+  // Ni bulle ni cadre : plus de `.loge-vignette` sur un titre.
+  assert.doesNotMatch(html, /loge-vignette loge-titre|loge-vignette-nom/)
+  // L'en-tête dit ce qu'il range sur une ligne, et rien de plus : « pas besoin de mettre du texte à chaque fois ».
+  assert.match(html, /<div class="loge-entete"><h3 class="loge-entete-titre" id="loge-titre-entete">Mes titres<span class="loge-entete-compte">[^<]+<\/span><\/h3><\/div>/)
+  assert.doesNotMatch(html, /loge-entete-consigne/)
+  assert.match(html, /<div class="loge-vignettes loge-titres" role="group" aria-labelledby="loge-titre-entete">/)
+
+  // La feuille : deux colonnes de cellules de 44 px au moins, où un nom passe sur deux lignes sans que la rangée grandisse ;
+  // ni bordure ni fond autour d'un titre ; montré, à l'or et un trait devant ; porté, sa coche ; neuf, le point rouge.
+  const CSS = source('styles.css')
+  assert.match(CSS, /\.loge-vignettes\.loge-titres \{ --loge-colonnes: 2;/)
+  const regleDuTitre = /\n\.loge-titre \{([^}]*)\}/.exec(CSS)![1]
+  assert.match(regleDuTitre, /min-height: 44px;/)
+  assert.match(regleDuTitre, /border: 0;/)
+  assert.match(regleDuTitre, /background: none;/)
+  assert.match(CSS, /\.loge-titre-nom \{[^}]*-webkit-line-clamp: 2;/)
+  assert.match(CSS, /\.loge-titre\.selected \.loge-titre-nom \{ color: var\(--accent-text\); \}/)
+  assert.match(CSS, /\.loge-titre\.selected::before \{[^}]*width: 3px;[^}]*background: var\(--accent\);/)
+  assert.match(CSS, /\.loge-titre\.porte::after \{ content: '✓';[^}]*color: var\(--accent-text\);/)
+  assert.match(CSS, /\.loge-titre\.neuve \.loge-titre-emoji::before \{[^}]*background: #d93025;/)
+  // Rien d'avant : ni la pastille de 34 px, ni son mot d'état, ni la pastille encadrée du matin.
+  assert.doesNotMatch(CSS, /\.titre-choix|\.titre-etat|\.vitrine-option|\.vitrine-choix|\.vitrine-rang|\.loge-vignette\.loge-titre/)
+})
+
+test('Vitrine : ses trois places sur la carte, puis une médaille par trophée, son rang en pastille, ce qu’il a fallu à l’oreille — « Les plus durs » d’abord', async () => {
+  const foudre = HAUTS_FAITS_REGAGNABLES.find(h => h.key === 'hf:foudre')!
+  const oracle = HAUTS_FAITS_REGAGNABLES.find(h => h.key === 'hf:oracle')!
+  const habitue = HAUTS_FAITS_DE_CARRIERE.find(h => h.key === 'hf:habitue')!
+  const vus = hautsFaits({ 'hf:oracle': 1, 'hf:phenix': 1, 'hf:foudre': 1 }).map(h => (h.key === 'hf:habitue' ? { ...h, fois: 2 } : h))
+  const profil = {
+    ...LEA,
+    hautsFaits: vus,
+    vitrine: [badge('hf:oracle', oracle.emoji, oracle.title), badge('hf:phenix', '🔥', 'Le Phénix'), badge('hf:foudre', foudre.emoji, foudre.title), badge('hf:habitue:2', habitue.emoji, 'L’Habitué · Argent')],
+  }
+  const html = await rendu('components/Trophees', 'MaVitrine', { ...rien, essayer: () => {}, profil, essai: { vitrine: ['hf:phenix', 'hf:oracle', 'hf:habitue'] }, neufs: new Set(['hf:foudre']) })
+  // L'en-tête, seul : plus de consigne (« Jusqu'à 3 sur ta carte, dans l'ordre. ») — les trois places la montrent.
+  assert.match(html, /<div class="loge-entete"><h3 class="loge-entete-titre" id="loge-vitrine-entete">Mes trophées<span class="loge-entete-compte">[^<]+<\/span><\/h3><\/div>/)
+  // « Sur ta carte », juste dessous : trois places dans l'ordre de la carte — chacune l'emoji de son trophée, son nom à
+  // l'oreille, et un bouton qui la vide, ce qu'il a fallu en description.
+  assert.match(html, /<\/h3><\/div><ol class="loge-emplacements" aria-label="Sur ta carte">/)
+  const places = [...html.matchAll(/<li>(<button type="button" class="loge-emplacement[^"]*" aria-describedby="loge-vitrine-regle-([^"]+)">.*?<\/button>)<\/li>/g)].map(m => [m[2], m[1]])
+  assert.deepEqual(places.map(([cle]) => cle), ['hf:phenix', 'hf:oracle', 'hf:habitue'])
+  assert.match(places[0][1], /<span class="loge-emplacement-numero" aria-hidden="true">1<\/span><span class="loge-emplacement-emoji" aria-hidden="true">🔥<\/span><span class="sr-only">Le Phénix, 1ʳᵉ place : le retirer<\/span>/)
+  // L'Habitué · Argent s'y dit sans son métal, comme sur sa médaille.
+  assert.match(places[2][1], /<span class="sr-only">L’Habitué, 3ᵉ place : le retirer<\/span>/)
+  // Seule la place du dernier venu de l'essai s'allume : c'est elle que le doigt vient de remplir.
+  assert.deepEqual(places.map(([, b]) => /class="loge-emplacement vient"/.test(b)), [false, false, true])
+  // Le rang sur la carte, sur chaque médaille aussi : 1 pour le premier montré, 2, 3 — dit à l'oreille, « montré 1ᵉʳ ».
+  assert.match(html, /<span class="loge-vignette-nom">Le Phénix<\/span><span class="sr-only">, à l’essai<\/span><span class="loge-medaille-rang"><span class="sr-only">, montré <\/span>1<span class="sr-only">ᵉʳ<\/span><\/span>/)
+  assert.match(html, /<span class="loge-vignette-nom">L’Oracle<\/span><span class="sr-only">, à l’essai<\/span><span class="loge-medaille-rang"><span class="sr-only">, montré <\/span>2<span class="sr-only">ᵉ<\/span><\/span>/)
+  assert.match(html, /<span class="loge-medaille-rang"><span class="sr-only">, montré <\/span>3<span class="sr-only">ᵉ<\/span><\/span>/)
+  // Une liste, d'où le focus ne s'envole pas : un `<ul>` et ses `<li>`, nommée par son en-tête.
+  assert.match(html, /<\/ol><ul class="loge-vignettes loge-medailles" aria-labelledby="loge-vitrine-entete"><li><button[^>]*aria-describedby="loge-vitrine-office"/)
+  // Trois choisis : les autres sont éteints — pour le doigt et pour l'oreille — et le neuf garde son point.
+  assert.match(html, /class="loge-vignette loge-medaille neuve" aria-pressed="false" aria-disabled="true" aria-describedby="loge-vitrine-regle-hf:foudre"/)
+  assert.match(html, /<span class="loge-vignette-nom">La Foudre<\/span><span class="sr-only">, nouveau<\/span>/)
+  // L'état par la règle de toutes les pièces : montré sans être porté — la vitrine d'office est celle qu'il porte —, à l'essai.
+  // Une piste de carrière porte son métal en liseré, et son nom le dit encore à l'oreille.
+  assert.match(html, /class="loge-vignette loge-medaille loge-medaille-m2 selected essaye" aria-pressed="true"/)
+  assert.match(html, /<span class="loge-vignette-nom">L’Habitué<span class="sr-only"> · Argent<\/span><\/span>/)
+  // Ce qu'il a fallu n'est plus écrit sous chaque nom : il se lit à l'oreille, décrit hors du bouton — dans le bouton, il
+  // entrait dans son nom puis se relisait en description. Une seule fois chacun, dans un bloc `hidden`.
+  assert.match(html, new RegExp(`<div hidden=""><span id="loge-vitrine-office">[^<]+</span>.*<span id="loge-vitrine-regle-hf:oracle">${oracle.rule}</span>.*</div>`))
+  for (const bouton of html.match(/<button[^>]*>.*?<\/button>/g)!) assert.doesNotMatch(bouton, /id="loge-vitrine-(regle|office)/, 'aucune description dans un bouton')
+  assert.equal(html.match(/id="loge-vitrine-regle-hf:oracle"/g)!.length, 1)
+  assert.doesNotMatch(html, /class="muted small">/)
+  // Pas de « N trophées à gagner » sous la vitrine : compté comme l'album, il disait 277 à une habituée, à côté des
+  // « 78 titres à gagner » de la pièce « Titre », qui mène au même album (le 17 novembre 2026).
+  assert.doesNotMatch(html, /loge-a-gagner|trophées? à gagner/)
+
+  // D'office : ses trois plus durs dans les places, une ✨ au lieu du numéro, et rien à y faire — trois boutons éteints, qui
+  // restent : une place vidée garde le focus sous le doigt, les suivantes y remontent.
+  const office = await rendu('components/Trophees', 'MaVitrine', { ...rien, essayer: () => {}, profil, essai: {} })
+  const ol = /<ol class="loge-emplacements d-office" aria-label="Sur ta carte">(.*?)<\/ol>/.exec(office)![1]
+  assert.equal(ol.match(/<span class="loge-emplacement-numero" aria-hidden="true">✨<\/span>/g)!.length, 3)
+  assert.equal(ol.match(/<li><button type="button" class="loge-emplacement" aria-disabled="true">/g)!.length, 3)
+  assert.match(ol, /<span class="sr-only">[^<]+, 1ʳᵉ place, d’office<\/span>/)
+  // Une place vide : son numéro, en pointillé, « libre » à l'oreille.
+  const une = await rendu('components/Trophees', 'MaVitrine', { ...rien, essayer: () => {}, profil, essai: { vitrine: ['hf:oracle'] } })
+  assert.match(une, /<li><button type="button" class="loge-emplacement vide" aria-disabled="true"><span class="loge-emplacement-numero" aria-hidden="true">2<\/span><span class="sr-only">2ᵉ place, libre<\/span><\/button><\/li>/)
+  // Une place prise se touche pour la vider : l'essai perd ce trophée, rien d'autre.
+  const touches: object[] = []
+  const vider = elements(await arbre('components/Trophees', 'MaVitrine', { ...rien, essayer: (e: object) => touches.push(e), profil, essai: { vitrine: ['hf:phenix', 'hf:oracle'] } }))
+    .filter(e => e.type === 'button' && /loge-emplacement/.test(e.props.className))
+  assert.equal(vider.length, 3)
+  vider[0].props.onClick()
+  assert.equal(vider[2].props.onClick, undefined, 'une place vide n’a rien à faire')
+  assert.deepEqual(touches, [{ vitrine: ['hf:oracle'] }])
+
+  // La feuille : quatre par rangée, une médaille ronde, son rang en pastille d'or ; trois places côte à côte, chacune une
+  // cible de doigt, vides en pointillé ; et rien ne bouge pour qui demande moins de mouvement.
+  const CSS = source('styles.css')
+  assert.match(CSS, /\.loge-vignettes\.loge-medailles \{ --loge-colonnes: 4; \}/)
+  assert.match(CSS, /\.loge-medaille \.loge-vignette-image \{[^}]*border-radius: 50%;/)
+  assert.match(CSS, /\.loge-medaille-rang \{[^}]*background: var\(--accent\); color: var\(--on-accent\);/)
+  assert.match(CSS, /\.loge-emplacements \{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/)
+  assert.match(CSS, /\.loge-emplacement \{[^}]*min-height: 44px;/)
+  assert.match(CSS, /\.loge-emplacement\.vide \{[^}]*border-style: dashed;/)
+  assert.match(CSS, /@media \(prefers-reduced-motion: reduce\) \{\s*\.loge-emplacement\.vient,\s*[^{]*\{ animation: none; \}/)
+  // Le texte d'une médaille reste lisible : jamais sous l'étiquette.
+  assert.match(CSS, /\.loge-medaille \.loge-vignette-nom \{ font-size: 0\.75rem;/)
 })
 
 test('la barre : « Annuler » rend la tenue sans rien envoyer, « Porter » envoie tout l’essai d’un coup', async () => {
@@ -416,9 +574,15 @@ test('la loge dit la pièce qui a du nouveau, à l’œil et à l’oreille', as
       .map(b => b.slice(0, b.indexOf('"')))
   assert.deepEqual(pastilles(loge), ['theme'])
   assert.match(loge, /Thème<span class="sr-only">, du nouveau<\/span>/)
-  // Ouvert sur le thème, plus rien : la pastille d'une pièce s'éteint dès qu'on la regarde.
+  // Ouvert sur le thème, plus rien sur la rangée : la pastille d'une pièce s'éteint dès qu'on la regarde.
   const surLeTheme = await rendu('components/PanneauxDuProfil', 'PanneauLoge', { profil: SANS_IVOIRE, piece: 'theme', onPiece: () => {}, busy: false, enregistrer: async () => true })
-  assert.doesNotMatch(surLeTheme, /loge-neuf|du nouveau/)
+  assert.deepEqual(pastilles(surLeTheme), [])
+  assert.doesNotMatch(surLeTheme, /loge-neuf|Thème<span class="sr-only">, du nouveau/)
+  // Le rouge se suit jusqu'à sa case : la vignette d'Ivoire, et l'onglet de sa plaque, venue avec lui — la plaque d'un
+  // thème neuf est neuve aussi, et l'onglet le dit tant qu'on n'y est pas.
+  assert.match(surLeTheme, /<button type="button" class="loge-vignette loge-theme-case neuve"[^>]*aria-label="Ivoire, offert, nouveau">/)
+  assert.match(surLeTheme, /<button id="loge-theme-plaque"[^>]*>.*?<span class="loge-theme-neuf" aria-hidden="true"><\/span><span class="sr-only">, du nouveau<\/span><\/button>/)
+  assert.doesNotMatch(surLeTheme, /<button id="loge-theme-themes"[^>]*>(?:(?!<\/button>).)*loge-theme-neuf/, 'pas sur l’onglet qu’on regarde')
 
   // « M'habiller » et « Profil » le comptent aussi, avant qu'on entre dans la loge — et la loge s'ouvre sur le thème.
   const panneaux = await import(url('components/PanneauxDuProfil.tsx'))
@@ -731,14 +895,13 @@ function corpsDe(regles: Regles, selecteur: string): string {
 
 test('la loge tient sur un écran, ou presque : rien n’y change de place, et ce qu’un réglage dit sous sa rangée se dit en deux temps', async () => {
   const piece = { essai: {}, essayer: () => {}, busy: false }
-  // Rien n'a changé de place, rien ne s'est ajouté : sa carte, la rangée des pièces, qui le voit, puis — pour
+  // Rien n'a changé de place, rien ne s'est ajouté : sa carte, la rangée des pièces, puis — pour
   // « Avatar » — la finition, la bordure, le sceau, l'Éclat en réserve, les gemmes, leur grille et ce qui reste à gagner.
   const habituee = { ...LEA, bordures: [{ ligue: 'or' as const, crans: 7 }], bordureChoisie: 'auto' as const, scelles: ['lg:phenix'], eclatsEnReserve: 1 }
   const loge = await rendu('components/PanneauxDuProfil', 'PanneauLoge', { profil: habituee, piece: 'avatar', onPiece: () => {}, busy: false, enregistrer: async () => true })
   const ordre = [
     '<div class="loge-collante">',
     '<div class="loge-pieces">',
-    '<p class="muted loge-qui">',
     '<div class="loge-panneau"',
     '<span class="loge-sous-titre" id="loge-finitions-titre">Finition</span>',
     '<span class="loge-sous-titre" id="loge-bordures-titre">Bordure</span>',
@@ -751,10 +914,9 @@ test('la loge tient sur un écran, ou presque : rien n’y change de place, et c
   const places = ordre.map(bloc => loge.indexOf(bloc))
   assert.ok(places.every(p => p >= 0), `chaque bloc d’avant est là : ${ordre.filter((_, i) => places[i] < 0).join(', ')}`)
   assert.deepEqual(places, [...places].sort((a, b) => a - b), 'dans l’ordre d’avant')
-  // La loge n'a que ses blocs d'avant, l'un derrière l'autre : la carte, la rangée, qui le voit, le panneau.
+  // La loge n'a que ses blocs d'avant, l'un derrière l'autre : la carte, la rangée, le panneau — rien entre la rangée et lui.
   assert.match(loge, /<\/button><\/div><\/div><div class="loge-pieces"><div class="loge-groupes" aria-hidden="true">/)
-  assert.match(loge, /<\/button><\/div><\/div><p class="muted loge-qui">/)
-  assert.match(loge, /<\/p><div class="loge-panneau" role="tabpanel"/)
+  assert.match(loge, /<\/button><\/div><\/div><div class="loge-panneau" role="tabpanel"/)
 
   /** La phrase d'un réglage telle qu'elle s'écrit : ses morceaux, l'essentiel d'abord — et rien hors d'eux. */
   const morceaux = (html: string): string[] => {
@@ -842,6 +1004,9 @@ test('la loge se resserre par ses mesures : des variables posées sur sa page, �
     '--loge-pastille': '30px',
     '--loge-case': '72px',
     '--loge-gemme': '8px',
+    // Les vignettes de Titre, Vitrine, Fond, Thème et Gerbe (le 17 novembre 2026) : la hauteur de leur aperçu, leur écart.
+    '--loge-vignette': '64px',
+    '--loge-entre-vignettes': '8px',
   }
   assert.deepEqual(grand, D_AVANT)
   assert.match(corpsDe(avant, '.loge-page'), /gap: 14px;/, 'la tête de la page garde son écart : avec un compagnon, la carte commence sous sa niche')
@@ -978,4 +1143,20 @@ test('la loge se resserre par ses mesures : des variables posées sur sa page, �
   assert.match(corpsDe(feuille, '.menu-barre a'), /min-height: 58px;/)
   assert.match(corpsDe(feuille, '.loge-barre'), /min-height: calc\(59px \+ max\(6px, env\(safe-area-inset-bottom\)\)\);/)
   assert.match(corpsDe(feuille, '.loge-barre'), /box-sizing: border-box;/)
+})
+
+// Les pièces Fond et Gerbe, en vignettes (le 17 novembre 2026) : le bouquet d'une gerbe n'a qu'une taille de police
+// — l'éventail se fait par `transform` (règle `css.md` : chaque taille d'un emoji se met en forme à part) —, et la
+// gerbe se voit à quatre par rangée.
+test('la gerbe en vignettes : un bouquet à une seule taille de police, quatre par rangée', async () => {
+  const feuille = source('styles.css')
+  const corps = (sel: string) => new RegExp(`${sel.replace(/[.()>*]/g, '\\$&')}\\s*\\{([^}]*)\\}`).exec(feuille)?.[1] ?? ''
+  assert.match(corps('.gerbe-bouquet'), /font-size:\s*1\.3rem/)
+  assert.doesNotMatch(corps('.gerbe-bouquet > span'), /font-size/, 'une particule ne change jamais de taille de police')
+  assert.match(corps('.gerbe-bouquet > span:nth-child(1)'), /rotate\(-?\d+deg\) scale\(0\.\d+\)/)
+  assert.match(corps('.loge-vignettes-gerbes'), /--loge-colonnes:\s*4/)
+  // Trois particules au plus, les trois premières de la gerbe ; « Aucune » d'abord.
+  const html = await rendu('components/Apparence', 'MaGerbe', { profil: LEA, essai: {}, essayer: () => {}, neufs: undefined })
+  for (const bouquet of html.match(/<span class="gerbe-bouquet">.*?<\/span><\/span>/g) ?? []) assert.ok((bouquet.match(/<span>/g) ?? []).length <= 3)
+  assert.match(html, /<span class="gerbe-aucune"><\/span>/, '« Aucune » d’abord, un anneau en pointillé')
 })

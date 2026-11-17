@@ -218,7 +218,6 @@ test('dans les listes, la lumière reste mais se resserre et se fige ; moins de 
     '.av.lb-avatar:not(.av-sujet) .lu *',
     '.player-chip .lu *',
     '.leaderboard .lb-row:nth-child(n + 6) .lu *',
-    '.finitions .finition-btn:not(.selected):not(:hover) .lu *',
     '.grille-unique .case-avatar:not(.selected):not(.ouverte):not(:hover) .lu *',
   ]) {
     assert.ok(fige(s), `${s} ne bouge pas`)
@@ -229,9 +228,9 @@ test('dans les listes, la lumière reste mais se resserre et se fige ; moins de 
   const resserre = REGLES.find(r => selecteurs(r).includes('.av-lumiere .lu'))
   assert.match(resserre?.corps ?? '', /scale:\s*0\.\d+/)
   // Là où l'avatar est le sujet, toute sa place, et la page la lui réserve.
-  const entiere = REGLES.find(r => selecteurs(r).includes('.podium-avatar .lu') && selecteurs(r).includes('.finition-btn .lu'))
+  const entiere = REGLES.find(r => selecteurs(r).includes('.podium-avatar .lu'))
   assert.match(entiere?.corps ?? '', /scale:\s*1;/)
-  for (const s of ['.retour-avatar.av-lumiere', '.carte-avatar.av-lumiere', '.finition-btn .av-lumiere']) {
+  for (const s of ['.retour-avatar.av-lumiere', '.carte-avatar.av-lumiere']) {
     assert.ok(REGLES.some(r => selecteurs(r).includes(s) && /margin/.test(r.corps)), `${s} a sa marge`)
   }
   assert.match(CSS, /@media \(prefers-reduced-motion: reduce\) \{\s*\.lu \* \{ animation: none !important; \}/)

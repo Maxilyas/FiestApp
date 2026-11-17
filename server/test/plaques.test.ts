@@ -155,13 +155,68 @@ test('la loge : la plaque s’essaie comme le reste, et se compare à son choix'
   assert.equal(lignesDeLEssai({ plaque: AUCUNE_PLAQUE }, { niveau: 1 })[0].nom, 'Sans plaque')
   assert.equal(avecLEssai({ ...porte, finition: 'mat', niveau: 1 }, { plaque: 'ocean' }).plaqueChoisie, 'ocean')
 
-  // Elle se choisit sous ses thèmes, et la fiche d'un thème la montre à la boutique.
-  assert.match(lu('components/Boutique.tsx'), /<MaPlaque profil=\{profil\} essai=\{essai\} essayer=\{essayer\} \/>/)
+  // Elle se choisit dans la pièce de ses thèmes — son onglet, à côté d'eux, depuis le 17 novembre 2026 : sous eux, à
+  // 1180 px du haut, personne ne la trouvait —, et la fiche d'un thème la montre à la boutique.
+  const boutique = lu('components/Boutique.tsx')
+  assert.match(boutique, /<MaPlaque profil=\{profil\} essai=\{essai\} essayer=\{essayer\} neufs=\{neufs\} \/>/)
+  assert.match(boutique, /\{vue === 'themes' \? \([\s\S]*?\) : \(\s*<MaPlaque /)
   assert.match(lu('components/Presentoir.tsx'), /plaqueDuTheme\(t\.key\) && \([\s\S]{0,200}<LigneDePlaque profil=\{profil\} plaque=\{t\.key\} \/>/)
   // Un toucher essaie, rien ne s'enregistre d'ici.
   const piece = lu('components/MaPlaque.tsx')
   assert.match(piece, /onClick=\{\(\) => essayer\(\{ plaque: c\.cle \}\)\}/)
   assert.doesNotMatch(piece, /enregistrer|api\./)
+})
+
+test('l’onglet « Ma plaque » : sa ligne une fois, puis une petite plaque par choix, qui prend les couleurs de la sienne', async () => {
+  const React = (await import('react')).default
+  Object.assign(globalThis, { React })
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const { MaPlaque } = await import(new URL('components/MaPlaque.tsx', CLIENT).href)
+  const lea = {
+    name: 'Léa',
+    avatar: '🦊',
+    finition: 'mat',
+    legendaire: null,
+    eclats: [],
+    bordures: [],
+    theme: 'ocean',
+    plaqueChoisie: 'auto',
+    boutique: { confettis: { gagnes: 0, depenses: 0, solde: 0 }, possedes: ['velours', 'ivoire', 'ocean', 'neige'], porte: null, jour: '2026-11-17' },
+  }
+  const html = renderToStaticMarkup(React.createElement(MaPlaque, { profil: lea, essai: { plaque: 'neige' }, essayer: () => {}, neufs: new Set(['neige']) }))
+  // Sa ligne de classement une seule fois, sous la plaque que la page montre : une ligne entière par choix faisait
+  // commencer la plaque à 1180 px en 360 × 640.
+  assert.equal(html.match(/class="lb-row /g)?.length, 1)
+  assert.match(html, /^<div class="lb-row plaque-apercu plaque plaque-neige" role="img" aria-label="Ta ligne aux classements, sous la plaque Neige">/)
+  // Puis les choix en vignettes, dans l'ordre : d'office, aucune, puis une par thème à lui — Velours n'en a pas.
+  const vignettes = [...html.matchAll(/<button type="button" class="loge-vignette([^"]*)" aria-pressed="(true|false)" aria-label="([^"]+)">/g)].map(m => [m[3], m[2], m[1].trim()])
+  assert.deepEqual(vignettes, [
+    ['Plaque Comme mon thème, portée', 'false', 'porte'],
+    ['Plaque Aucune', 'false', ''],
+    ['Plaque Ivoire', 'false', ''],
+    ['Plaque Océan', 'false', ''],
+    // À l'essai, et neuve avec son thème : le rouge mène jusqu'à elle.
+    ['Plaque Neige, à l’essai, nouvelle', 'true', 'selected essaye neuve'],
+  ])
+  // Chaque vignette, un échantillon à ses couleurs : sa classe de plaque, qui lui donne ses jetons ; « Comme mon thème »
+  // suit le thème porté ; « Aucune », la ligne de tous.
+  const echantillons = [...html.matchAll(/<span class="loge-plaque-echantillon([^"]*)" aria-hidden="true"><span class="loge-plaque-texte">([^<]+)<\/span>/g)].map(m => [m[2], m[1].trim()])
+  assert.deepEqual(echantillons, [
+    ['Comme mon thème', 'plaque plaque-ocean'],
+    ['Aucune', ''],
+    ['Ivoire', 'plaque plaque-ivoire'],
+    ['Océan', 'plaque plaque-ocean'],
+    ['Neige', 'plaque plaque-neige'],
+  ])
+  // Ce n'est pas une ligne `.lb-row` : il lit lui-même les jetons de sa plaque, et son motif est une pièce après son nom.
+  assert.match(CSS, /\.loge-plaque-echantillon\.plaque \{[^}]*border-color: var\(--p-trait\);[^}]*background: var\(--p-bg\);[^}]*color: var\(--p-ink\);/)
+  assert.match(CSS, /\.loge-plaque-echantillon > \.plaque-motif \{[^}]*flex: 1 1 0[^}]*var\(--p-motif\)/)
+  // La pièce est sous « Toi seul », mais sa plaque est vue des autres : un petit œil sur l'onglet, dit à l'oreille, sans
+  // phrase — la ligne « qui le voit » est partie avec les autres (le 17 novembre 2026).
+  const { MesThemes } = await import(new URL('components/Boutique.tsx', CLIENT).href)
+  const onglets = renderToStaticMarkup(React.createElement(MesThemes, { profil: lea, essai: {}, essayer: () => {}, neufs: new Set() }))
+  assert.match(onglets, /Ma plaque<svg class="icon loge-theme-oeil"[^>]*>.*?<\/svg><span class="sr-only">, [^<]*, les autres la voient<\/span>/)
+  assert.doesNotMatch(onglets, /loge-entete-consigne|Toi seul vois/)
 })
 
 test('au banc : elle se choisit parmi ses thèmes, suit le thème porté, et part dans le classement', async () => {

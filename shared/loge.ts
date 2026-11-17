@@ -321,7 +321,9 @@ export function lignesDeLEssai(essai: Essai, profil: Pick<PublicProfileDetail, '
   }
   if (essai.vitrine !== undefined) {
     const v = essai.vitrine
-    lignes.push({ piece: 'vitrine', nom: v ? `${v.length} haut${v.length > 1 ? 's' : ''} fait${v.length > 1 ? 's' : ''} choisi${v.length > 1 ? 's' : ''}` : 'Les plus durs, d’office', detail: 'Vitrine' })
+    // « Trophée », le mot de l'écran (règle `recompenses.md`) : la barre disait « 2 hauts faits choisis » sous une pièce
+    // qui range « Mes trophées » (relevé au rendu, le 17 novembre 2026).
+    lignes.push({ piece: 'vitrine', nom: v ? `${v.length} trophée${v.length > 1 ? 's' : ''} choisi${v.length > 1 ? 's' : ''}` : 'Les plus durs, d’office', detail: 'Vitrine' })
   }
   if (essai.fond !== undefined) lignes.push({ piece: 'fond', nom: fond(essai.fond)?.nom ?? 'Velours', detail: 'Fond de carte' })
   if (essai.theme !== undefined) {

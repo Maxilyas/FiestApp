@@ -1046,17 +1046,15 @@ h3 > .icon {
   --p-motif: linear-gradient(118deg, transparent 47%, var(--p-trait) 47% 50%, transparent 50%) 0 0 / 46px 100%, linear-gradient(62deg, transparent 48%, var(--p-trait) 48% 50.5%, transparent 50.5%) 18px 0 / 64px 100%;
 }
 
-/* Là où elle se choisit (la loge, pièce « Thème » : `MaPlaque`) et là où
-   elle se vend (la fiche d'un thème : `LigneDePlaque`) : sa propre ligne,
-   telle qu'un classement la montrerait. Elle n'entre pas en glissant — on la
-   regarde, on ne la découvre pas. */
-.ma-plaque,
+/* Là où elle se choisit (la loge, onglet « Ma plaque » de la pièce « Thème »)
+   et là où elle se vend (la fiche d'un thème) : sa propre ligne, telle qu'un
+   classement la montrerait (`LigneDePlaque`). Elle n'entre pas en glissant —
+   on la regarde, on ne la découvre pas. Les choix de la loge étaient chacun
+   une ligne entière (`.plaque-choix`) jusqu'au 17 novembre 2026 : ils sont
+   devenus des vignettes, leurs échantillons dans la section de la loge
+   (`.loge-plaque-echantillon`). */
 .presentoir-plaque { display: flex; flex-direction: column; gap: 6px; }
-.ma-plaque .leaderboard { margin-top: 2px; }
-.lb-row.plaque-choix,
 .lb-row.plaque-apercu { min-height: 44px; animation: none; }
-.plaque-choix-nom { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 0.82rem; font-weight: 600; }
-.plaque-choix-nom .icon { flex: none; width: 14px; height: 14px; }
 
 /* ── Écran commun ───────────────────────────────── */
 /* L'écran commun se lit à la hauteur de l'écran : 16 px en 768, 22,5 en
@@ -4988,62 +4986,13 @@ h3 > .icon {
 .profil-lie { align-items: center; gap: 12px; margin-bottom: 10px; }
 .profil-lie p { margin: 2px 0 0; }
 
-.finitions {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
-  gap: 10px;
-}
-
-.finition-btn {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 12px 6px;
-  border: 1px solid var(--edge);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--ink);
-  font: inherit;
-  cursor: pointer;
-}
-
-.finition-btn .av { font-size: 1.7rem; }
-.finition-nom { font-size: 0.85rem; }
-.finition-btn:hover:not(:disabled) { border-color: var(--edge-strong); }
-.finition-btn.selected { border-color: var(--edge-strong); background: var(--accent-soft); }
-/* Un aperçu bouge quand on le porte ou qu'on le survole, pas avant : sous
-   un légendaire porté, les huit redessinaient chacun son médaillon et son
-   cercle, sans fin. Figé, il garde sa matière et ses couleurs. */
-.finitions .finition-btn:not(.selected):not(:hover) .av::before,
-.finitions .finition-btn:not(.selected):not(:hover) .av::after,
-.finitions .finition-btn:not(.selected):not(:hover) .lg *,
-.finitions .finition-btn:not(.selected):not(:hover) .pt *,
-.finitions .finition-btn:not(.selected):not(:hover) .lu * {
-  animation: none;
-}
-
-/* Une finition qu'on n'a pas encore : on la voit, on sait à quel niveau elle
-   s'ouvre, et elle ne se laisse pas prendre. Montrer ce qui vient donne envie
-   de revenir ; le cacher ne donnerait rien. */
-.finition-btn:disabled {
-  border-style: dashed;
-  cursor: not-allowed;
-}
-/* L'objet s'atténue, pas ce qu'il faut pour l'ouvrir : voilée avec lui, la
-   règle d'un fond fermé (« 10 victoires au quiz du jour ») tombait à 2,3:1
-   — c'est pourtant ce qu'on vient lire. Le pointillé dit « pas encore »,
-   comme aux écussons et aux prix. */
-.finition-btn:disabled > :not(.muted) { opacity: 0.45; }
-
 /* Sur la page profil, la grille d'emojis porte des avatars complets. */
 .emoji-grid .av { font-size: 1.5rem; }
 
 /* ── Les thèmes : la fiche d'un thème ───────────────────────────────────
-   La vitrine de la boutique et « Mes thèmes » ont leurs cartes plus bas
-   (« La boutique, sobre ») ; la fiche, elle, montre l'aperçu en grand : de
-   quoi voir le décor avant de choisir. */
+   La boutique a ses tuiles (`.article-boutique`) et la loge ses vignettes
+   (`.loge-vignette`), plus bas ; la fiche, elle, montre l'aperçu en grand :
+   de quoi voir le décor avant de choisir. */
 .detail-apercu {
   display: block;
   width: min(180px, 60%);
@@ -6385,10 +6334,6 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
   .bo .bo-reflet { display: none; }
 }
 
-/* Les halos débordent l'emoji : dans le choix des finitions, ils ont la
-   place de le faire sans mordre sur le nom. */
-.finition-btn .av { margin: 6px 0 8px; }
-
 /* Argent, sur l'Ivoire : un halo clair sur un fond clair ne se voyait pas.
    Il s'y assombrit, et prend un filet — sauf sur un fond de carte, nocturne. */
 :root[data-theme='ivoire'] .av-argent:where(:not(.carte-fond, .carte-fond *))::before {
@@ -6514,13 +6459,11 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .carte-loupe-avatar .lu,
 .bilan-avatar .lu,
 .retour-avatar .lu,
-.fin-avatar .lu,
-.finition-btn .lu { scale: 1; }
+.fin-avatar .lu { scale: 1; }
 .retour-avatar.av-lumiere { margin-block: 0.55em; }
 .carte-avatar.av-lumiere { margin: 0.6em 0.3em 0.3em 0.5em; }
 .fin-avatar.av-lumiere,
 .bilan-avatar.av-lumiere { margin: 0.4em 0.4em 0.4em 0.35em; }
-.finition-btn .av-lumiere { margin: 0.6em 0; }
 /* Resserrée, elle déborde encore un peu : le prénom de l'en-tête s'écarte. */
 .me-header .player-avatar.av-lumiere { margin-inline-end: 0.2em; }
 
@@ -9084,55 +9027,10 @@ span.case-avatar { cursor: default; }
 
 /* Trophées : ce que la carte montre, les médailles du jour, les plus
    proches, la collection de prix — ce qui manque en pointillé. */
-.vitrine-choix { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.vitrine-choix li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-xs); border: 1px solid var(--edge); background: var(--surface-faint); }
-.vitrine-choix .hf-corps { display: flex; flex-direction: column; }
 .proches { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
 
 /* Le titre qu'il porte, sous son prénom : sur sa page et sur sa carte. */
 .titre-porte { margin: 2px 0 6px; font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 1.05rem; color: var(--accent-text); }
-.titres { display: flex; flex-wrap: wrap; gap: 8px; }
-.titre-choix {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-height: 34px;
-  padding: 0 12px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--edge);
-  background: transparent;
-  color: var(--ink);
-  font-family: var(--serif);
-  font-style: italic;
-  font-weight: 500;
-  font-size: 1rem;
-  cursor: pointer;
-}
-.titre-choix.selected { background: var(--accent-soft); border-color: var(--edge-strong); color: var(--accent-text); }
-
-/* La vitrine qu'il choisit : chaque haut fait gagné, et l'ordre de la carte. */
-.vitrine-option {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 10px 12px;
-  border-radius: var(--radius-xs);
-  border: 1px solid var(--edge);
-  background: var(--surface-faint);
-  color: var(--ink);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-/* Le bouton porte le cadre : la ligne, elle, s'efface. */
-.vitrine-a-choisir li { padding: 0; border: 0; background: none; }
-.vitrine-option .hf-corps { flex: 1; display: flex; flex-direction: column; }
-.vitrine-option.selected { border-color: var(--edge-strong); background: var(--accent-soft); }
-.vitrine-option:disabled { opacity: 0.45; cursor: default; }
-.vitrine-rang { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 0.8rem; font-weight: 600; }
-
 /* ── Les pages du téléphone : l'en-tête d'une page, une feuille, des choix ──
    Les pièces de `components/Pieces.tsx`. Une feuille monte du bas, « Fermer »
    toujours en vue ; ses lignes ont la taille d'un pouce. */
@@ -9620,7 +9518,7 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
    visibles au-dessus du menu en 412 × 915, et 575 en 360 × 640. Ce qui tient
    se mesure au navigateur : `server/scripts/rendu-loge.ts`. */
 .loge-page {
-  /* Entre les blocs de la loge — sa carte, la rangée des pièces, « qui le voit », le panneau — et, dans la pièce
+  /* Entre les blocs de la loge — sa carte, la rangée des pièces, le panneau — et, dans la pièce
      « Avatar », entre les gemmes et leur grille. */
   --loge-ecart: 12px;
   /* Entre les blocs du panneau de la pièce ouverte : la finition, la bordure, le sceau, les avatars. */
@@ -9640,6 +9538,9 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
   --loge-pastille: 30px;
   --loge-case: 72px;
   --loge-gemme: 8px;
+  /* Les vignettes des pièces Titre, Vitrine, Fond, Thème et Gerbe : la hauteur de leur aperçu, leur écart. */
+  --loge-vignette: 64px;
+  --loge-entre-vignettes: 8px;
   gap: 14px;
 }
 .loge-tete { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
@@ -9728,20 +9629,8 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-rangee > .loge-pour-moi:nth-child(5)::before { content: ''; position: absolute; left: -3px; top: 6px; width: 1px; height: calc(var(--loge-rond) - 8px); background: var(--edge); }
 /* Le neuf se dit en rouge, comme sur « Profil » et « M'habiller » : un point d'or se perdait dans l'or de la pièce choisie. */
 .loge-neuf { position: absolute; top: -1px; right: -1px; width: 11px; height: 11px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--bg); }
-.loge-qui { display: flex; align-items: center; gap: 6px; margin: 0 2px; font-size: 0.82rem; line-height: 1.3; }
-.loge-qui .icon { flex: none; width: 13px; height: 13px; }
 .loge-panneau { display: flex; flex-direction: column; gap: var(--loge-bloc); }
-/* Dans la loge, les grilles se serrent — trois par rangée : ce qu'on a se
-   voit d'un coup d'œil, sous la carte qui l'essaie. */
-.loge-panneau .finitions { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
-.loge-panneau .finition-btn { padding: 10px 4px; }
-.loge-panneau .vitrine-themes { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.loge-panneau .theme-vitrine-pied { padding: 6px 8px 8px; }
-.loge-panneau .theme-vitrine-pied b { font-size: 0.95rem; }
-.loge-panneau .theme-vitrine-prix { font-size: var(--t-label); }
 .loge-panneau .style-liste button { min-height: 48px; }
-/* La page entière essaie le thème : sa fiche n'en redit pas l'aperçu en grand. */
-.loge-panneau .detail-theme .detail-apercu { display: none; }
 /* La barre de l'essai couvre le menu, à sa place et à sa hauteur : la page
    ne saute pas, et l'on choisit avant de partir. Sa hauteur est celle du
    menu, comptée comme lui — ses rangées de 58 px, son filet, et son pied : six
@@ -9771,20 +9660,9 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-barre-texte b { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; line-height: 1.2; }
 .loge-barre .btn { flex: none; min-height: 44px; padding: 0 16px; }
 /* Dans les grilles : ce que la carte montre, ce qu'il porte, ce qui est neuf. */
-.case-avatar.essaye,
-.finition-btn.essaye,
-.vitrine-option.essaye,
-.titre-choix.essaye { outline: 1.5px dashed var(--accent); outline-offset: 2px; }
-.case-avatar.porte::after,
-.finition-btn.porte::after { content: '✓'; position: absolute; top: -4px; right: -4px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; line-height: 1; box-shadow: 0 0 0 2px var(--bg); }
-.case-avatar.neuve::before,
-.finition-btn.neuve::before,
-.vitrine-option.neuve::before,
-.theme-vitrine.neuve::before { content: ''; position: absolute; top: 3px; left: 3px; z-index: 1; width: 9px; height: 9px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--bg); }
-.vitrine-option[aria-disabled='true'] { opacity: 0.45; cursor: default; }
-.titre-etat { font-family: var(--sans); font-style: normal; font-size: var(--t-label); font-weight: 600; letter-spacing: 0.03em; color: var(--muted); }
-.titre-choix.porte { border-color: var(--edge-strong); }
-.theme-vitrine.theme-essaye { box-shadow: 0 0 0 2px var(--accent), 0 6px 22px rgba(var(--accent-rgb), 0.35); }
+.case-avatar.essaye { outline: 1.5px dashed var(--accent); outline-offset: 2px; }
+.case-avatar.porte::after { content: '✓'; position: absolute; top: -4px; right: -4px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; line-height: 1; box-shadow: 0 0 0 2px var(--bg); }
+.case-avatar.neuve::before { content: ''; position: absolute; top: 3px; left: 3px; z-index: 1; width: 9px; height: 9px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--bg); }
 
 /* ── La loge, sur l'avatar : la maquette 1 (sa grille) et la 3 (ses finitions)
    Les gemmes de l'album de « Ma collection » — les offerts, puis chaque
@@ -9913,6 +9791,193 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-version-case[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: var(--surface); }
 .loge-version-dessin { display: grid; place-items: center; width: 64px; height: 64px; font-size: 2.6rem; }
 .loge-version-nom { font-size: var(--t-label); font-weight: 600; }
+
+/* ── Les pièces de la loge, en vignettes (le 17 novembre 2026) ───────────
+   Titre, vitrine, fond, thème et gerbe : chacune posait une carte, son titre
+   en grand, une phrase de deux ou trois lignes, puis de grosses cases à trois
+   par rangée — ou une ligne par trophée — : « pas pratique et peu lisible
+   […] on est obligé de scroller trop […] la présentation ne donne pas trop
+   envie » (le propriétaire, ce jour-là). Elles parlent désormais comme la
+   pièce « Avatar » : un en-tête d'une ligne (`EnteteDeLaPiece`), une grille
+   de vignettes — ce qu'on porte se voit avant son nom —, et un pied de liens
+   (`PiedDeLaPiece`). Une vignette dit son état comme une case d'avatar : le
+   cadre d'or, ce que la carte montre ; son halo, à l'essai ; la coche, ce
+   qu'il porte ; le point rouge, ce qui est neuf. */
+.loge-entete { display: flex; flex-direction: column; gap: 1px; }
+.loge-entete-titre { display: flex; align-items: baseline; gap: 8px; margin: 0; font-family: var(--sans); font-size: var(--t-label); font-weight: 600; letter-spacing: 0.12em; line-height: 1.3; text-transform: uppercase; color: var(--muted); }
+.loge-entete-compte { color: var(--accent-text); letter-spacing: 0.04em; text-transform: none; font-variant-numeric: lining-nums tabular-nums; }
+.loge-entete-consigne { margin: 0; font-size: 0.8rem; line-height: 1.3; color: var(--muted); }
+.loge-vignettes { display: grid; grid-template-columns: repeat(var(--loge-colonnes, 3), minmax(0, 1fr)); gap: var(--loge-entre-vignettes); margin: 0; padding: 0; list-style: none; }
+.loge-vignettes > li { display: flex; min-width: 0; }
+.loge-vignette { position: relative; display: flex; flex: 1; flex-direction: column; align-items: stretch; gap: 4px; min-width: 0; min-height: 44px; padding: 4px 4px 6px; border: 1px solid var(--edge); border-radius: 14px; background: var(--surface-faint); color: var(--ink); font: inherit; text-align: center; cursor: pointer; }
+.loge-vignette:hover { border-color: var(--edge-strong); }
+/* Ce qu'elle montre : un aperçu à sa hauteur, coupé à ses coins. */
+.loge-vignette-image { position: relative; display: grid; place-items: center; height: var(--loge-vignette); border-radius: var(--radius-xs); background: var(--surface); overflow: hidden; }
+.loge-vignette-nom { font-size: 0.78rem; font-weight: 600; line-height: 1.2; overflow-wrap: anywhere; }
+/* Montrée par la carte : le cadre d'or de la case d'avatar — un pixel de bordure de plus, un de marge de moins : rien
+   ne bouge sous le doigt. Sur l'or pâle, le texte s'écrit à l'or de survol (règle `css.md`). */
+.loge-vignette.selected { padding: 3px 3px 5px; border: 2px solid var(--accent); background: var(--accent-soft); }
+.loge-vignette.selected .loge-vignette-nom { color: var(--accent-text-hover); }
+.loge-vignette.essaye { box-shadow: 0 0 22px rgba(var(--accent-rgb), 0.35); }
+.loge-vignette.porte::after { content: '✓'; position: absolute; top: -5px; right: -5px; z-index: 2; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; line-height: 1; box-shadow: 0 0 0 2px var(--bg); }
+.loge-vignette.neuve::before { content: ''; position: absolute; top: 3px; left: 3px; z-index: 2; width: 9px; height: 9px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--bg); }
+/* Fermée, elle atténue son dessin, pas la règle qui l'ouvre (2,3:1 sinon — `petit-ecran.test.ts`). */
+.loge-vignette[aria-disabled='true'] { cursor: default; }
+.loge-vignette[aria-disabled='true'] .loge-vignette-image { opacity: 0.45; }
+/* Ses chemins, sur une ligne quand ils y tiennent : chacun garde sa cible de 44 px. */
+.loge-pied { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0 18px; }
+.loge-vers-boutique .icon { width: 15px; height: 15px; }
+/* Un fond : son décor réel, en petite carte qui remplit l'aperçu. Les décors à pseudo-éléments (nuit, kintsugi, cabinet,
+   théâtre) gardent leurs règles d'aperçu (`.fond-apercu.carte-fond…`, plus haut) : la hauteur n'est plus la leur, la
+   boîte les recadre. */
+.loge-vignettes-fonds { --loge-vignette: 56px; }
+.loge-vignette-image .fond-apercu { width: 100%; height: 100%; margin: 0; border: 0; border-radius: inherit; }
+/* Le Velours, sans décor : le halo d'or de la carte d'office (`.loge-carte`), ce que la carte montre vraiment quand il
+   le porte. Le fond de page seul en faisait une case vide, qu'on prenait pour une image pas encore arrivée. */
+.loge-vignette-image .fond-apercu:not(.carte-fond) { background: radial-gradient(90% 140% at 0% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%), var(--surface); }
+/* Une gerbe : ses trois premières particules en petit bouquet. Une seule taille de police pour tout le bouquet —
+   l'éventail se fait par `transform` (règle `css.md` : chaque taille d'un emoji se met en forme à part). Toutes dans la
+   même cellule, décalées et penchées ; seule celle du milieu reste droite et entière. */
+.loge-vignettes-gerbes { --loge-colonnes: 4; --loge-vignette: 44px; }
+.gerbe-bouquet { display: grid; place-items: center; font-size: 1.3rem; line-height: 1; }
+.gerbe-bouquet > span { grid-area: 1 / 1; }
+.gerbe-bouquet > span:nth-child(1) { transform: translate(-12px, 5px) rotate(-18deg) scale(0.82); }
+.gerbe-bouquet > span:nth-child(2) { transform: translate(12px, 5px) rotate(18deg) scale(0.82); }
+.gerbe-bouquet > span:nth-child(3) { transform: translateY(-6px); }
+.gerbe-bouquet > span:only-child { transform: none; }
+/* « Aucune » : un anneau en pointillé, ce qui n'éclate pas. */
+.gerbe-aucune { display: block; width: 28px; height: 28px; border: 2px dashed var(--muted); border-radius: 50%; }
+
+/* Titre et Vitrine (le 17 novembre 2026). Chaque pièce est une colonne de ses blocs : l'en-tête, ses choix, son pied. */
+.loge-titres-piece,
+.loge-vitrine-piece { display: flex; flex-direction: column; gap: var(--loge-serre); }
+
+/* Les titres : du texte aligné, sans bulle, sans cadre, sans fond — « Cela prend trop de place, c'est brouillon. Est ce
+   qu'il n'y aurait pas moyen d'avoir quelque chose de plus épuré ? Quitte à sortir de la DA et ne pas mettre les sortes
+   de bulles autour des titres » (le propriétaire, le 17 novembre 2026, devant les pastilles du matin : des pilules
+   encadrées de largeur qui varie, une mosaïque où l'œil cherchait chaque nom). Deux colonnes : une seule laissait la
+   moitié de chaque rangée vide pour des noms de quinze lettres et doublait la hauteur de la liste — celle d'un vétéran
+   défilait de 2020 px en 360 × 640, de 920 en deux (essayés le même jour, sans compagnon). Chaque cellule fait 44 px au
+   moins, la cible du doigt, et un nom
+   long y passe sur deux lignes sans que la rangée grandisse : les rangées restent régulières. Sans filet entre elles :
+   essayé, un trait d'or pâle sous chaque rangée redessinait une grille, et ces 44 px réguliers suffisent à l'œil. */
+.loge-vignettes.loge-titres { --loge-colonnes: 2; gap: 0 10px; }
+.loge-titre { position: relative; display: flex; align-items: center; gap: 7px; min-width: 0; min-height: 44px; padding: 2px 6px 2px 11px; border: 0; border-radius: 0; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.loge-titre-emoji { position: relative; flex: none; width: 1.25em; font-size: 0.95rem; line-height: 1; text-align: center; }
+.loge-titre-nom { flex: 0 1 auto; min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; font-family: var(--serif); font-size: 1.02rem; font-style: italic; font-weight: 500; line-height: 1.1; }
+/* Ce que la carte montre : son nom à l'or, un trait d'or devant lui — porté ou à l'essai, la carte le montre. */
+.loge-titre.selected .loge-titre-nom { color: var(--accent-text); }
+.loge-titre.selected::before { content: ''; position: absolute; top: 9px; bottom: 9px; left: 0; width: 3px; border-radius: 2px; background: var(--accent); }
+/* Ce qu'il porte : une petite coche d'or après son nom, qu'il le montre ou qu'il en essaie un autre. */
+.loge-titre.porte::after { content: '✓'; flex: none; font-size: 0.8rem; font-weight: 700; line-height: 1; color: var(--accent-text); }
+/* Le neuf : le point rouge des pièces, devant l'emoji. */
+.loge-titre.neuve .loge-titre-emoji::before { content: ''; position: absolute; top: -4px; left: -7px; width: 7px; height: 7px; border-radius: 50%; background: #d93025; }
+
+/* La vitrine : des médailles, quatre par rangée au téléphone. L'emoji du trophée en grand dans un rond, son nom dessous
+   sur deux lignes au plus, et, choisi, son rang sur la carte en pastille d'or au coin — là où la coche de ce qu'il
+   porte se pose sur une autre case : l'option d'office n'a pas de rang, un trophée pas de coche. */
+.loge-vignettes.loge-medailles { --loge-colonnes: 4; }
+.loge-medaille { gap: 3px; padding-inline: 3px; }
+.loge-medaille.selected { padding-inline: 2px; }
+.loge-medaille .loge-vignette-image { width: min(100%, var(--loge-vignette)); height: auto; aspect-ratio: 1; margin: 2px auto 0; border-radius: 50%; background: radial-gradient(circle at 32% 28%, rgba(var(--accent-rgb), 0.34), rgba(var(--accent-rgb), 0.07) 72%), var(--surface); box-shadow: inset 0 0 0 1.5px rgba(var(--accent-rgb), 0.5); }
+/* Le métal d'une piste de carrière en liseré : le bronze, l'argent, l'or — les mots des récompenses, rien d'autre. */
+.loge-medaille-m1 .loge-vignette-image { box-shadow: inset 0 0 0 2px var(--bronze-text); }
+.loge-medaille-m2 .loge-vignette-image { box-shadow: inset 0 0 0 2px var(--argent-text); }
+.loge-medaille-m3 .loge-vignette-image { box-shadow: inset 0 0 0 2px var(--or-text); }
+.loge-medaille-emoji { font-size: 1.9rem; line-height: 1; }
+.loge-medaille .loge-vignette-nom { font-size: 0.75rem; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+.loge-medaille-rang { position: absolute; top: -5px; right: -5px; z-index: 2; display: grid; place-items: center; min-width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 0.8rem; font-weight: 700; line-height: 1; box-shadow: 0 0 0 2px var(--bg); font-variant-numeric: lining-nums tabular-nums; }
+/* La coche de ce qu'il porte passe au coin d'en face : le rang tient le sien, et un trophée porté et montré a les deux. */
+.loge-vignette.loge-medaille.porte::after { right: auto; left: -5px; }
+
+/* « Sur ta carte » : ses trois places, côte à côte, sous l'en-tête — « Pour la vitrine est ce que l'on sait sur quoi on
+   clique ? » (le propriétaire, le 17 novembre 2026). Une médaille touchée allait sur la carte collée en haut, petite et
+   loin : c'est ici que la place se remplit sous les yeux, et qu'on la vide. Chacune son numéro en pastille d'or au coin,
+   comme le rang d'une médaille, et l'emoji du trophée, celui de sa médaille — son nom, coupé au tiers d'une rangée
+   (« Le San… »), alourdissait la place sans se lire : il ne se dit qu'à l'oreille ; vide, un pointillé et son numéro ;
+   d'office, une ✨ au lieu du numéro, son cadre sans or — la carte choisit, pas lui. */
+.loge-emplacements { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0 0 4px; padding: 6px 0 0; list-style: none; }
+.loge-emplacements > li { display: flex; min-width: 0; }
+.loge-emplacement { position: relative; display: flex; flex: 1; align-items: center; justify-content: center; min-width: 0; min-height: 44px; padding: 2px 8px; border: 1px solid var(--edge-strong); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+.loge-emplacement[aria-disabled='true'] { cursor: default; }
+.loge-emplacement-numero { position: absolute; top: -6px; left: -6px; z-index: 1; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; line-height: 1; box-shadow: 0 0 0 2px var(--bg); font-variant-numeric: lining-nums tabular-nums; }
+.loge-emplacement-emoji { font-size: 1.5rem; line-height: 1; }
+.loge-emplacement.vide { border-style: dashed; border-color: var(--edge-strong); background: none; }
+.loge-emplacement.vide .loge-emplacement-numero { position: static; background: none; box-shadow: none; color: var(--muted); font-size: 0.85rem; }
+.loge-emplacements.d-office .loge-emplacement { border-color: var(--edge); background: var(--surface-faint); }
+.loge-emplacements.d-office .loge-emplacement-numero { background: var(--bg); font-size: 0.7rem; box-shadow: 0 0 0 1px var(--edge-strong); }
+/* La place qui vient de se remplir s'allume en paraissant ; pleines, toutes frémissent tant qu'on appuie sur une médaille
+   éteinte — sans état dans la page : l'animation se repose à chaque appui. Rien ne bouge si le téléphone demande moins
+   de mouvement : la place se remplit quand même. */
+.loge-emplacement.vient { animation: loge-place-vient 420ms ease-out; }
+.loge-vitrine-piece:has(.loge-medaille[aria-disabled='true']:active) .loge-emplacement { animation: loge-places-pleines 360ms ease-in-out; }
+@keyframes loge-place-vient {
+  0% { transform: scale(0.88); box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.6); }
+  60% { transform: scale(1.04); box-shadow: 0 0 0 6px rgba(var(--accent-rgb), 0); }
+  100% { transform: none; }
+}
+@keyframes loge-places-pleines {
+  0%, 100% { transform: none; }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loge-emplacement.vient,
+  .loge-vitrine-piece:has(.loge-medaille[aria-disabled='true']:active) .loge-emplacement { animation: none; }
+}
+@media (max-height: 759px) {
+  /* Le petit téléphone : la médaille perd dix pixels — ses places, au-dessus, en prennent cinquante, et sans eux la
+     deuxième rangée d'un vétéran passait sous le menu en 360 × 640. */
+  .loge-vignettes.loge-medailles { --loge-vignette: 54px; }
+}
+
+/* La pièce « Thème » : « Mes thèmes · Ma plaque » en deux onglets, tout en
+   haut (`MesThemes`, `OngletsDuTheme` — le 17 novembre 2026). Sa plaque
+   vivait sous ses thèmes, à 1180 px du haut en 360 × 640 : personne ne la
+   trouvait. Les onglets tiennent lieu de titre à l'œil — ils disent déjà
+   « Mes thèmes » et leur compte — : le titre de l'en-tête reste au lecteur
+   d'écran, caché comme `.sr-only`, et son absolu ne prend pas l'écart de la
+   colonne. */
+.mes-themes { display: flex; flex-direction: column; gap: var(--loge-bloc); }
+.mes-themes .loge-entete { gap: 3px; }
+.mes-themes .loge-entete-titre { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+/* Le cadre des onglets de l'application (`.onglets`), sans sa marge : deux segments de 44 px, cibles de doigt entières. */
+.onglets.loge-theme-onglets { flex-wrap: nowrap; padding: 0; }
+.loge-theme-onglets .onglet { position: relative; gap: 7px; min-height: 44px; font-weight: 600; }
+/* Sur l'or pâle, le texte s'écrit à l'or de survol (règle `css.md`) — son compte aussi. */
+.loge-theme-onglets .onglet.actif { color: var(--accent-text-hover); }
+.loge-theme-compte { color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
+.loge-theme-onglets .onglet.actif .loge-theme-compte { color: inherit; }
+/* Du neuf dans l'autre onglet : le point rouge des pièces et des gemmes, sur son épaule. */
+/* L'œil de l'onglet « Ma plaque » : seul réglage de la pièce que les autres voient, dit sans phrase. */
+.loge-theme-oeil { flex: none; width: 14px; height: 14px; }
+.loge-theme-neuf { position: absolute; top: 5px; right: 12px; width: 9px; height: 9px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--surface); }
+.loge-theme-vue { display: flex; flex-direction: column; gap: var(--loge-bloc); }
+/* Un thème : le haut de son aperçu, comme sa tuile à la boutique (`.article-image`) ; son nom, la gemme de sa rareté devant. */
+.loge-theme-case .loge-vignette-image { display: block; background: var(--surface-strong); }
+.loge-theme-case .loge-vignette-image img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.loge-theme-case .article-gemme { display: inline-block; margin: 0 6px 0 2px; vertical-align: 0.05em; }
+/* L'échantillon d'une plaque (`EchantillonDePlaque`) : un bout de sa ligne. Ce n'est pas une ligne `.lb-row` — la règle
+   des plaques ne le peint pas : il lit lui-même les jetons que sa classe lui donne (`--p-bg`, `--p-ink`, `--p-trait`,
+   `--p-motif`), en dur, quel que soit le thème de celui qui regarde. Sans plaque, la ligne de tous : le sol et l'encre
+   de la page. Son motif, comme sur la ligne, est une pièce après le prénom, jamais un fond sous lui. */
+.loge-plaque-echantillon { display: flex; align-items: center; gap: 6px; width: 100%; height: 100%; box-sizing: border-box; padding: 0 0 0 8px; border: 1px solid var(--edge-strong); border-radius: inherit; background: var(--surface); color: var(--ink); overflow: hidden; }
+.loge-plaque-echantillon.plaque { border-color: var(--p-trait); background: var(--p-bg); color: var(--p-ink); }
+/* Un nom long passe à la ligne, coupé à ses syllabes là où le téléphone sait le faire : « L'Horloge astronomique »
+   laissait son « e » seul sur une troisième ligne. */
+.loge-plaque-texte { flex: 0 1 auto; min-width: 0; font-size: 0.78rem; font-weight: 700; line-height: 1.15; text-align: left; overflow-wrap: break-word; hyphens: auto; }
+.loge-plaque-echantillon > .plaque-motif { display: block; flex: 1 1 0; min-width: 0; align-self: stretch; background: linear-gradient(90deg, var(--p-bg), transparent 30%, transparent 70%, var(--p-bg)), var(--p-motif); opacity: 0.85; }
+/* Les plaques, plus basses que les thèmes : une petite plaque, son nom dedans — sur deux lignes, « Comme mon thème »
+   y tient. */
+.loge-plaques { --loge-vignette: 44px; }
+/* Dans l'onglet : l'échantillon en petit, son motif seul, sans fondu — il n'a pas la place d'un prénom. */
+.loge-theme-onglets .loge-plaque-echantillon { flex: none; width: 28px; height: 18px; padding: 0; border-radius: 5px; }
+.loge-theme-onglets .loge-plaque-echantillon > .plaque-motif { background: var(--p-motif); }
+@media (max-height: 759px) {
+  /* Le petit téléphone : l'aperçu des thèmes perd quatre pixels — deux rangées et le pied tiennent au-dessus du menu en
+     360 × 640, sa niche au coin. */
+  .loge-themes { --loge-vignette: 60px; }
+}
 
 /* ── La loge, à la hauteur d'un téléphone ────────────────────────────────
    Ses deux pas (les variables de `.loge-page`, en tête de la section) : rien
@@ -12834,26 +12899,10 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .gemme-neuf { position: absolute; top: 3px; left: calc(50% + 5px); width: 9px; height: 9px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--bg); }
 .gemme-legende { margin: -2px 0 0; font-size: 0.88rem; color: var(--muted); }
 .gemme-legende b { color: var(--ink); }
-.mes-themes { display: flex; flex-direction: column; gap: 12px; }
-/* La fiche suit sa carte, de toute la largeur : `dense` finit la rangée
-   avec la carte d'après et pose la fiche juste dessous. */
-.vitrine-themes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; grid-auto-flow: dense; }
-.theme-vitrine { position: relative; display: flex; flex-direction: column; padding: 0; border: 1px solid color-mix(in srgb, var(--gemme) 40%, transparent); border-radius: var(--radius); background: var(--surface); color: inherit; font: inherit; text-align: left; overflow: hidden; cursor: pointer; transition: box-shadow 0.2s ease; }
-.theme-vitrine:hover, .theme-vitrine.ouverte { box-shadow: 0 0 0 1px var(--gemme), 0 6px 22px color-mix(in srgb, var(--gemme) 30%, transparent); }
-.theme-porte { box-shadow: 0 0 0 2px var(--gemme), 0 6px 22px color-mix(in srgb, var(--gemme) 30%, transparent); }
-.theme-vitrine-image { display: block; aspect-ratio: 4 / 5; max-width: 100%; overflow: hidden; background: var(--bg); }
-.theme-vitrine-image img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
-.theme-vitrine-pied { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px 10px; }
-.theme-vitrine-pied b { font-family: var(--serif); font-size: 1.1rem; font-weight: 600; line-height: 1.15; }
-.theme-vitrine-prix { font-size: 0.85rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: tabular-nums; }
-/* Trop cher : l'aperçu s'éteint, et ce qui manque se lit à la place du prix. */
-.theme-cher .theme-vitrine-image { filter: saturate(0.5) brightness(0.75); }
-.theme-cher .theme-vitrine-prix { color: var(--muted); }
+/* La fiche d'un thème, dans l'album de « Ma collection » : de toute la largeur, sous sa rangée. */
 .theme-fiche { grid-column: 1 / -1; }
 /* Le thème qu'on vient d'acheter : sa carte a quitté le rayon, on dit où il est passé. */
 .theme-achete { margin: 0; text-align: center; border-color: var(--accent); }
-.lien-boutique { align-self: center; display: inline-flex; align-items: center; gap: 6px; text-align: center; }
-.lien-boutique .icon { flex: none; width: 15px; height: 15px; }
 /* Remontée sous sa tête : la rangée des rayons s'arrête 4 px sous la niche, et la troisième rangée de thèmes tient
    au-dessus du menu en 360 × 640 (`rendu-boutique.ts`). */
 .la-boutique { display: flex; flex-direction: column; gap: 18px; margin-top: -12px; }
@@ -14699,7 +14748,7 @@ body.avec-niche .duels-fermer { right: auto; left: 12px; }
 .objet-dessin .sablier-plein { color: inherit; }
 .coeur-de-vie { fill: currentColor; }
 .objet-nom { font-size: 0.9rem; font-weight: 700; line-height: 1.2; }
-@media (prefers-reduced-motion: reduce) { .gemme i, .theme-vitrine { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .gemme i { transition: none; } }
 
 /* La barre de l'essai, juste au-dessus du menu, tant qu'il y a de quoi
    acheter : la vignette de ce qu'on essaie, son nom, la croix qui le retire,
@@ -16658,13 +16707,9 @@ span.annonce-admin-merci { cursor: default; }
 @media (prefers-reduced-motion: reduce) {
   .gerbe { display: none; }
 }
-/* « Ma gerbe », dans « Mon thème » : ses particules en aperçu, comme une finition. */
+/* L'aperçu d'une gerbe dans la liste des gains (`Gains.tsx`) : ses trois premières particules, comme une finition.
+   La loge a ses bouquets (`.gerbe-bouquet`). */
 .gerbe-apercu { display: flex; align-items: center; justify-content: center; min-height: 2.2rem; font-size: 1.3rem; letter-spacing: 0.1em; }
-/* Une gerbe à gagner se touche — elle éclate, pour qu'on voie ce qu'on vise —
-   mais ne se porte pas : le pointillé et l'aperçu voilé d'une finition fermée,
-   sa règle lisible. */
-.finition-btn.gerbe-a-gagner { border-style: dashed; }
-.finition-btn.gerbe-a-gagner > :not(.muted) { opacity: 0.45; }
 
 /* ── Le haut de l'accueil d'un profil : « À la une » et les missions du jour ──
    (`HautDeLAccueil.tsx`, la maquette C du 14 octobre 2026) : un bandeau fin et
