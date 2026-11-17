@@ -9863,20 +9863,27 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 /* Titre et Vitrine (le 17 novembre 2026). Chaque pièce est une colonne de ses blocs : l'en-tête, ses choix, son pied. */
 .loge-titres-piece,
 .loge-vitrine-piece { display: flex; flex-direction: column; gap: var(--loge-serre); }
-.loge-reste-de-la-carte { margin: 0; }
 
-/* Les titres : des pastilles, pas une grille — un titre est un mot, de largeur qui varie, et deux tiennent sur une
-   rangée de 320 px. Hautes de 44 px : elles en faisaient 34, et « Aucun » comme le reste se touchait mal. Devant le
-   nom en italique, l'emoji de ce qui l'a ouvert (`emojiDUnTitre`) : la pastille dit d'où elle vient sans une phrase.
-   Son état est celui d'une case d'avatar — le cadre d'or, le halo, la coche, le point rouge — et non un mot dedans. */
-.loge-vignettes.loge-titres { display: flex; flex-wrap: wrap; gap: 4px 6px; }
-.loge-vignette.loge-titre { flex: none; flex-direction: row; align-items: center; gap: 5px; max-width: 100%; padding: 0 11px 0 8px; border-radius: var(--radius-pill); text-align: left; }
-/* Le cadre d'or prend un pixel de bordure de plus : un pixel de marge de moins, rien ne bouge sous le doigt. */
-.loge-vignette.loge-titre.selected { padding: 0 10px 0 7px; }
-.loge-titre-emoji { flex: none; font-size: 1.05rem; line-height: 1; }
-.loge-titre .loge-vignette-nom { font-family: var(--serif); font-style: italic; font-size: 0.98rem; font-weight: 500; line-height: 1.15; }
-/* Le point du neuf déborde sur le bord arrondi : au coin de la boîte, il flottait hors de la pastille. */
-.loge-vignette.loge-titre.neuve::before { top: -3px; left: 11px; }
+/* Les titres : du texte aligné, sans bulle, sans cadre, sans fond — « Cela prend trop de place, c'est brouillon. Est ce
+   qu'il n'y aurait pas moyen d'avoir quelque chose de plus épuré ? Quitte à sortir de la DA et ne pas mettre les sortes
+   de bulles autour des titres » (le propriétaire, le 17 novembre 2026, devant les pastilles du matin : des pilules
+   encadrées de largeur qui varie, une mosaïque où l'œil cherchait chaque nom). Deux colonnes : une seule laissait la
+   moitié de chaque rangée vide pour des noms de quinze lettres et doublait la hauteur de la liste — celle d'un vétéran
+   défilait de 2020 px en 360 × 640, de 920 en deux (essayés le même jour, sans compagnon). Chaque cellule fait 44 px au
+   moins, la cible du doigt, et un nom
+   long y passe sur deux lignes sans que la rangée grandisse : les rangées restent régulières. Sans filet entre elles :
+   essayé, un trait d'or pâle sous chaque rangée redessinait une grille, et ces 44 px réguliers suffisent à l'œil. */
+.loge-vignettes.loge-titres { --loge-colonnes: 2; gap: 0 10px; }
+.loge-titre { position: relative; display: flex; align-items: center; gap: 7px; min-width: 0; min-height: 44px; padding: 2px 6px 2px 11px; border: 0; border-radius: 0; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.loge-titre-emoji { position: relative; flex: none; width: 1.25em; font-size: 0.95rem; line-height: 1; text-align: center; }
+.loge-titre-nom { flex: 0 1 auto; min-width: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; font-family: var(--serif); font-size: 1.02rem; font-style: italic; font-weight: 500; line-height: 1.1; }
+/* Ce que la carte montre : son nom à l'or, un trait d'or devant lui — porté ou à l'essai, la carte le montre. */
+.loge-titre.selected .loge-titre-nom { color: var(--accent-text); }
+.loge-titre.selected::before { content: ''; position: absolute; top: 9px; bottom: 9px; left: 0; width: 3px; border-radius: 2px; background: var(--accent); }
+/* Ce qu'il porte : une petite coche d'or après son nom, qu'il le montre ou qu'il en essaie un autre. */
+.loge-titre.porte::after { content: '✓'; flex: none; font-size: 0.8rem; font-weight: 700; line-height: 1; color: var(--accent-text); }
+/* Le neuf : le point rouge des pièces, devant l'emoji. */
+.loge-titre.neuve .loge-titre-emoji::before { content: ''; position: absolute; top: -4px; left: -7px; width: 7px; height: 7px; border-radius: 50%; background: #d93025; }
 
 /* La vitrine : des médailles, quatre par rangée au téléphone. L'emoji du trophée en grand dans un rond, son nom dessous
    sur deux lignes au plus, et, choisi, son rang sur la carte en pastille d'or au coin — là où la coche de ce qu'il
@@ -9892,6 +9899,49 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-medaille-emoji { font-size: 1.9rem; line-height: 1; }
 .loge-medaille .loge-vignette-nom { font-size: 0.75rem; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
 .loge-medaille-rang { position: absolute; top: -5px; right: -5px; z-index: 2; display: grid; place-items: center; min-width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 0.8rem; font-weight: 700; line-height: 1; box-shadow: 0 0 0 2px var(--bg); font-variant-numeric: lining-nums tabular-nums; }
+/* La coche de ce qu'il porte passe au coin d'en face : le rang tient le sien, et un trophée porté et montré a les deux. */
+.loge-vignette.loge-medaille.porte::after { right: auto; left: -5px; }
+
+/* « Sur ta carte » : ses trois places, côte à côte, sous l'en-tête — « Pour la vitrine est ce que l'on sait sur quoi on
+   clique ? » (le propriétaire, le 17 novembre 2026). Une médaille touchée allait sur la carte collée en haut, petite et
+   loin : c'est ici que la place se remplit sous les yeux, et qu'on la vide. Chacune son numéro en pastille d'or au coin,
+   comme le rang d'une médaille, et l'emoji du trophée, celui de sa médaille — son nom, coupé au tiers d'une rangée
+   (« Le San… »), alourdissait la place sans se lire : il ne se dit qu'à l'oreille ; vide, un pointillé et son numéro ;
+   d'office, une ✨ au lieu du numéro, son cadre sans or — la carte choisit, pas lui. */
+.loge-emplacements { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0 0 4px; padding: 6px 0 0; list-style: none; }
+.loge-emplacements > li { display: flex; min-width: 0; }
+.loge-emplacement { position: relative; display: flex; flex: 1; align-items: center; justify-content: center; min-width: 0; min-height: 44px; padding: 2px 8px; border: 1px solid var(--edge-strong); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+.loge-emplacement[aria-disabled='true'] { cursor: default; }
+.loge-emplacement-numero { position: absolute; top: -6px; left: -6px; z-index: 1; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; line-height: 1; box-shadow: 0 0 0 2px var(--bg); font-variant-numeric: lining-nums tabular-nums; }
+.loge-emplacement-emoji { font-size: 1.5rem; line-height: 1; }
+.loge-emplacement.vide { border-style: dashed; border-color: var(--edge-strong); background: none; }
+.loge-emplacement.vide .loge-emplacement-numero { position: static; background: none; box-shadow: none; color: var(--muted); font-size: 0.85rem; }
+.loge-emplacements.d-office .loge-emplacement { border-color: var(--edge); background: var(--surface-faint); }
+.loge-emplacements.d-office .loge-emplacement-numero { background: var(--bg); font-size: 0.7rem; box-shadow: 0 0 0 1px var(--edge-strong); }
+/* La place qui vient de se remplir s'allume en paraissant ; pleines, toutes frémissent tant qu'on appuie sur une médaille
+   éteinte — sans état dans la page : l'animation se repose à chaque appui. Rien ne bouge si le téléphone demande moins
+   de mouvement : la place se remplit quand même. */
+.loge-emplacement.vient { animation: loge-place-vient 420ms ease-out; }
+.loge-vitrine-piece:has(.loge-medaille[aria-disabled='true']:active) .loge-emplacement { animation: loge-places-pleines 360ms ease-in-out; }
+@keyframes loge-place-vient {
+  0% { transform: scale(0.88); box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.6); }
+  60% { transform: scale(1.04); box-shadow: 0 0 0 6px rgba(var(--accent-rgb), 0); }
+  100% { transform: none; }
+}
+@keyframes loge-places-pleines {
+  0%, 100% { transform: none; }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loge-emplacement.vient,
+  .loge-vitrine-piece:has(.loge-medaille[aria-disabled='true']:active) .loge-emplacement { animation: none; }
+}
+@media (max-height: 759px) {
+  /* Le petit téléphone : la médaille perd dix pixels — ses places, au-dessus, en prennent cinquante, et sans eux la
+     deuxième rangée d'un vétéran passait sous le menu en 360 × 640. */
+  .loge-vignettes.loge-medailles { --loge-vignette: 54px; }
+}
 
 /* La pièce « Thème » : « Mes thèmes · Ma plaque » en deux onglets, tout en
    haut (`MesThemes`, `OngletsDuTheme` — le 17 novembre 2026). Sa plaque

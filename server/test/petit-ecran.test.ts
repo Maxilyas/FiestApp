@@ -506,10 +506,13 @@ test('choisir un avatar, une finition, un fond ou sa vitrine ne fait plus tomber
   assert.doesNotMatch(trophees, /<span className="loge-medaille-rang" aria-hidden="true">/)
   // Rien n'y part sous le doigt : « Les plus durs, d'office », qui ne
   // paraissait qu'une vitrine choisie et rendait le focus au titre, est une
-  // option de la liste, toujours là (`loge.test.ts` la rend dans les deux
-  // états) ; aucun bouton de la vitrine ne dépend de ce qu'elle montre.
+  // option de la liste, toujours là, son état par la règle de toutes les
+  // pièces (`loge.test.ts` la rend dans les deux états) ; aucun bouton de la
+  // liste ne dépend de ce qu'elle montre. Les places de la carte, au-dessus
+  // (le 17 novembre 2026), n'ont un bouton que pour vider une place prise : il
+  // part avec elle, et le focus avec — le toucher rend la place, c'est voulu.
   const vitrine = trophees.slice(trophees.indexOf('export function MaVitrine'), trophees.indexOf('export function UnProche'))
-  assert.match(vitrine, /<ul className="loge-vignettes loge-medailles" aria-labelledby="loge-vitrine-entete">\s*<li>\s*<button\s+type="button"\s+className=\{'loge-vignette loge-medaille' \+ \(office\.montre/)
+  assert.match(vitrine, /<ul className="loge-vignettes loge-medailles" aria-labelledby="loge-vitrine-entete">\s*<li>\s*<button\s+type="button"\s+className=\{'loge-vignette loge-medaille' \+ classesDeLaVignette\(office\)\}/)
   assert.doesNotMatch(vitrine, /\{montree && \(/)
   // Dans la loge, une case d'avatar touchée n'ouvre plus rien et ne part pas :
   // elle s'essaie, et ses voisines restent où elles sont (`grille-avatars.test.ts`

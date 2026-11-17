@@ -322,13 +322,10 @@ export function Loge({
           </>
         )}
         {piece === 'titre' && <MonTitre {...props} />}
-        {piece === 'vitrine' && (
-          <>
-            <MaVitrine {...props} />
-            {/* Une ligne : la phrase d'avant, qui énumérait ses légendaires, ses écussons, ses chiffres et ses prix, en prenait deux. */}
-            <p className="muted small center loge-reste-de-la-carte">Le reste de ta carte se remplit tout seul.</p>
-          </>
-        )}
+        {/* La vitrine seule : « Le reste de ta carte se remplit tout seul. », dessous, est parti le 17 novembre 2026 — « pas
+            besoin de mettre du texte à chaque fois, ça doit être compréhensible et intuitif. Ça fait perdre de la place
+            pour rien » (le propriétaire) ; la carte, collée en haut, montre ce qu'elle remplit. */}
+        {piece === 'vitrine' && <MaVitrine {...props} />}
         {piece === 'fond' && <MonFond {...props} />}
         {piece === 'theme' && <MesThemes {...props} />}
         {piece === 'gerbe' && <MaGerbe {...props} />}
