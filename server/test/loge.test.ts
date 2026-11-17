@@ -473,8 +473,9 @@ test('Vitrine : ses trois places sur la carte, puis une médaille par trophée, 
   // Seule la place du dernier venu de l'essai s'allume : c'est elle que le doigt vient de remplir.
   assert.deepEqual(places.map(([, b]) => /class="loge-emplacement vient"/.test(b)), [false, false, true])
   // Le rang sur la carte, sur chaque médaille aussi : 1 pour le premier montré, 2, 3 — dit à l'oreille, « montré 1ᵉʳ ».
-  assert.match(html, /<span class="loge-vignette-nom">Le Phénix<\/span><span class="sr-only">, à l’essai<\/span><span class="loge-medaille-rang"><span class="sr-only">, montré <\/span>1<span class="sr-only">ᵉʳ<\/span><\/span>/)
-  assert.match(html, /<span class="loge-vignette-nom">L’Oracle<\/span><span class="sr-only">, à l’essai<\/span><span class="loge-medaille-rang"><span class="sr-only">, montré <\/span>2<span class="sr-only">ᵉ<\/span><\/span>/)
+  // Le nom, sa rareté à l'oreille (la couleur de son anneau), puis son état et son rang.
+  assert.match(html, /<span class="loge-vignette-nom">Le Phénix<span class="sr-only">, [^<]+<\/span><\/span><span class="sr-only">, à l’essai<\/span><span class="loge-medaille-rang"><span class="sr-only">, montré <\/span>1<span class="sr-only">ᵉʳ<\/span><\/span>/)
+  assert.match(html, /<span class="loge-vignette-nom">L’Oracle<span class="sr-only">, [^<]+<\/span><\/span><span class="sr-only">, à l’essai<\/span><span class="loge-medaille-rang"><span class="sr-only">, montré <\/span>2<span class="sr-only">ᵉ<\/span><\/span>/)
   assert.match(html, /<span class="loge-medaille-rang"><span class="sr-only">, montré <\/span>3<span class="sr-only">ᵉ<\/span><\/span>/)
   // Une liste, d'où le focus ne s'envole pas : un `<ul>` et ses `<li>`, nommée par son en-tête.
   assert.match(html, /<\/ol><ul class="loge-vignettes loge-medailles" aria-labelledby="loge-vitrine-entete"><li><button[^>]*aria-describedby="loge-vitrine-office"/)
@@ -482,16 +483,23 @@ test('Vitrine : ses trois places sur la carte, puis une médaille par trophée, 
   // le bouton d'or de la fiche qui s'éteint — ; le neuf garde son point. Une médaille ouvre sa fiche comme une case de
   // l'album (`aria-expanded`) : plus d'`aria-pressed` sur un trophée — seule « Les plus durs », qui se choisit d'un
   // toucher, le garde —, et plus de description vers sa règle : sa fiche l'écrit à l'œil.
-  assert.match(html, /class="loge-vignette loge-medaille neuve" aria-expanded="false">/)
-  assert.match(html, /<span class="loge-vignette-nom">La Foudre<\/span><span class="sr-only">, nouveau<\/span>/)
+  assert.match(html, /class="loge-vignette loge-medaille loge-medaille-gemme loge-rarete-[a-z]+ neuve" style="--gemme:#[0-9a-f]{6}" aria-expanded="false">/)
+  assert.match(html, /<span class="loge-vignette-nom">La Foudre<span class="sr-only">, [^<]+<\/span><\/span><span class="sr-only">, nouveau<\/span>/)
   const medailles = /<ul class="loge-vignettes loge-medailles"[^>]*>(.*?)<\/ul>/.exec(html)![1]
   assert.equal(medailles.match(/aria-pressed=/g)!.length, 1, '« Les plus durs » seul se presse')
   assert.equal(medailles.match(/aria-expanded="false"/g)!.length, 4, 'chaque trophée ouvre sa fiche')
   assert.doesNotMatch(medailles, /aria-disabled|aria-describedby="loge-vitrine-regle/)
   // L'état par la règle de toutes les pièces : montré sans être porté — la vitrine d'office est celle qu'il porte —, à l'essai.
-  // Une piste de carrière porte son métal en liseré, et son nom le dit encore à l'oreille.
-  assert.match(html, /class="loge-vignette loge-medaille loge-medaille-m2 selected essaye" aria-expanded="false"/)
-  assert.match(html, /<span class="loge-vignette-nom">L’Habitué<span class="sr-only"> · Argent<\/span><\/span>/)
+  // Son anneau à la couleur de sa rareté (« que dans la vitrine, le cercle des trophées soit à la couleur de la rareté de
+  // ceux ci, ce qui permettrait de direct identifier ceux qui sont plus dur à obtenir », le propriétaire, le 17 novembre
+  // 2026) : la gemme de sa rareté mesurée, celle de l'album, dite aussi à l'oreille. Une piste de carrière garde son
+  // métal, en pastille au pied du rond — il tenait l'anneau —, et son nom le dit encore à l'oreille.
+  const rareteDeLHabitue = rareteMesuree('hf:habitue:2')!
+  assert.match(html, new RegExp(`class="loge-vignette loge-medaille loge-medaille-gemme loge-rarete-${rareteDeLHabitue} selected essaye" style="--gemme:#[0-9a-f]{6}" aria-expanded="false"`))
+  assert.match(html, new RegExp(`<span class="loge-vignette-image" aria-hidden="true"><span class="loge-medaille-emoji">[^<]+</span><i class="loge-medaille-metal loge-metal-2"></i></span><span class="loge-vignette-nom">L’Habitué<span class="sr-only"> · Argent</span><span class="sr-only">, ${NOM_RARETE[rareteDeLHabitue].toLowerCase()}</span></span>`))
+  // Chaque trophée que la part des joueurs mesure a son anneau ; « Les plus durs », lui, n'a pas de rareté à dire.
+  assert.equal(medailles.match(/loge-medaille-gemme/g)!.length, 4)
+  assert.doesNotMatch(medailles, /loge-medaille-m[123]/, 'le métal ne tient plus l’anneau')
   // Fiche fermée, ce qu'il a fallu n'est écrit nulle part à l'œil : le bloc `hidden` le décrit encore aux places de la
   // carte (dans un bouton, il entrait dans son nom puis se relisait en description). Une seule fois chacun.
   assert.match(html, new RegExp(`<div hidden=""><span id="loge-vitrine-office">[^<]+</span>.*<span id="loge-vitrine-regle-hf:oracle">${oracle.rule}</span>.*</div>`))
@@ -529,6 +537,11 @@ test('Vitrine : ses trois places sur la carte, puis une médaille par trophée, 
   const CSS = source('styles.css')
   assert.match(CSS, /\.loge-vignettes\.loge-medailles \{ --loge-colonnes: 4; grid-auto-flow: dense; \}/)
   assert.match(CSS, /\.loge-medaille \.loge-vignette-image \{[^}]*border-radius: 50%;/)
+  // L'anneau et le fond à la gemme de sa rareté ; la fiche de même ; le métal en pastille, à sa couleur.
+  assert.match(CSS, /\.loge-medaille-gemme \.loge-vignette-image \{[^}]*var\(--gemme\)[^}]*box-shadow: inset 0 0 0 2px var\(--gemme\);/)
+  assert.match(CSS, /\.loge-fiche-medaille \{[^}]*box-shadow: inset 0 0 0 2px var\(--gemme\);/)
+  for (const [n, metal] of [[1, 'bronze'], [2, 'argent'], [3, 'or']]) assert.match(CSS, new RegExp(`\\.loge-metal-${n} \\{ background: var\\(--${metal}-text\\); \\}`))
+  assert.doesNotMatch(CSS, /\.loge-(medaille|fiche)-m[123] /, 'le métal ne tient plus l’anneau')
   assert.match(CSS, /\.loge-medaille-rang \{[^}]*background: var\(--accent\); color: var\(--on-accent\);/)
   assert.match(CSS, /\.loge-emplacements \{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/)
   assert.match(CSS, /\.loge-emplacement \{[^}]*min-height: 44px;/)
@@ -562,13 +575,14 @@ test('Vitrine : une médaille ouvre sa fiche sous sa rangée — ce qu’il a fa
   assert.ok(rarete, 'une piste a sa rareté mesurée')
   assert.match(
     html,
-    /class="loge-vignette loge-medaille loge-medaille-m2 selected essaye" aria-expanded="true" aria-controls="loge-vitrine-fiche">.*?<\/button><\/li><li class="loge-fiche" style="--loge-fiche-colonne:0;--gemme:#[0-9a-f]{6}"><div id="loge-vitrine-fiche" class="loge-fiche-corps">/,
+    /class="loge-vignette loge-medaille loge-medaille-gemme loge-rarete-[a-z]+ selected essaye" style="--gemme:#[0-9a-f]{6}" aria-expanded="true" aria-controls="loge-vitrine-fiche">.*?<\/button><\/li><li class="loge-fiche" style="--loge-fiche-colonne:0;--gemme:#[0-9a-f]{6}"><div id="loge-vitrine-fiche" class="loge-fiche-corps">/,
   )
   assert.equal(html.match(/class="loge-fiche"/g)!.length, 1, 'une fiche à la fois')
   const fiche = /<li class="loge-fiche"[^>]*>(.*?)<\/li>/.exec(html)![1]
-  // La médaille en grand, son liseré d'argent ; son nom au serif — celui que l'album focalise à l'ouverture ; son métal
-  // et sa rareté sur une ligne d'étiquette, jamais un chiffre ; ce qu'il a fallu, une phrase ; puis le geste.
-  assert.match(fiche, new RegExp(`<span class="loge-fiche-medaille loge-fiche-m2" aria-hidden="true">${habitue.emoji}</span>`))
+  // La médaille en grand, l'anneau de sa rareté, comme dans la grille ; son nom au serif — celui que l'album focalise à
+  // l'ouverture ; son métal et sa rareté sur une ligne d'étiquette, jamais un chiffre ; ce qu'il a fallu, une phrase ; puis
+  // le geste.
+  assert.match(fiche, new RegExp(`<span class="loge-fiche-medaille" aria-hidden="true">${habitue.emoji}</span>`))
   assert.match(fiche, /<b class="galerie-detail-nom loge-fiche-nom">L’Habitué<\/b>/)
   assert.match(fiche, new RegExp(`<span class="loge-fiche-sous"><span class="metal-texte-2">Argent</span><span class="loge-fiche-rarete"><i aria-hidden="true"></i>${NOM_RARETE[rarete]}</span></span>`))
   assert.match(fiche, /<p class="loge-fiche-regle">10 soirées jouées\.<\/p>/)

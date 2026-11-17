@@ -9882,10 +9882,20 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-medaille { gap: 3px; padding-inline: 3px; }
 .loge-medaille.selected { padding-inline: 2px; }
 .loge-medaille .loge-vignette-image { width: min(100%, var(--loge-vignette)); height: auto; aspect-ratio: 1; margin: 2px auto 0; border-radius: 50%; background: radial-gradient(circle at 32% 28%, rgba(var(--accent-rgb), 0.34), rgba(var(--accent-rgb), 0.07) 72%), var(--surface); box-shadow: inset 0 0 0 1.5px rgba(var(--accent-rgb), 0.5); }
-/* Le métal d'une piste de carrière en liseré : le bronze, l'argent, l'or — les mots des récompenses, rien d'autre. */
-.loge-medaille-m1 .loge-vignette-image { box-shadow: inset 0 0 0 2px var(--bronze-text); }
-.loge-medaille-m2 .loge-vignette-image { box-shadow: inset 0 0 0 2px var(--argent-text); }
-.loge-medaille-m3 .loge-vignette-image { box-shadow: inset 0 0 0 2px var(--or-text); }
+/* L'anneau à la couleur de sa rareté — « que dans la vitrine, le cercle des trophées soit à la couleur de la rareté de
+   ceux ci, ce qui permettrait de direct identifier ceux qui sont plus dur à obtenir » (le propriétaire, le 17 novembre
+   2026) : la gemme de l'album (`--gemme`, posée par la page), son anneau et son fond teinté ; une épique et une
+   légendaire luisent un peu, ce qu'on vise d'un coup d'œil. Sans `color-mix` (un vieux téléphone), le fond tombe et
+   l'anneau reste. Un trophée que la part des joueurs ne mesure pas garde l'anneau d'or, plus haut. */
+.loge-medaille-gemme .loge-vignette-image { background: radial-gradient(circle at 32% 28%, color-mix(in srgb, var(--gemme) 36%, transparent), color-mix(in srgb, var(--gemme) 8%, transparent) 72%), var(--surface); box-shadow: inset 0 0 0 2px var(--gemme); }
+.loge-medaille-gemme.loge-rarete-epique .loge-vignette-image,
+.loge-medaille-gemme.loge-rarete-legendaire .loge-vignette-image { box-shadow: inset 0 0 0 2px var(--gemme), 0 0 12px color-mix(in srgb, var(--gemme) 45%, transparent); }
+/* Le métal d'une piste de carrière — le bronze, l'argent, l'or, les mots des récompenses — en pastille au pied du rond :
+   il en tenait l'anneau jusqu'à ce que la rareté le prenne. */
+.loge-medaille-metal { position: absolute; bottom: 6%; left: 50%; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--surface); }
+.loge-metal-1 { background: var(--bronze-text); }
+.loge-metal-2 { background: var(--argent-text); }
+.loge-metal-3 { background: var(--or-text); }
 .loge-medaille-emoji { font-size: 1.9rem; line-height: 1; }
 .loge-medaille .loge-vignette-nom { font-size: 0.75rem; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
 .loge-medaille-rang { position: absolute; top: -5px; right: -5px; z-index: 2; display: grid; place-items: center; min-width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 0.8rem; font-weight: 700; line-height: 1; box-shadow: 0 0 0 2px var(--bg); font-variant-numeric: lining-nums tabular-nums; }
@@ -9894,17 +9904,16 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 
 /* La fiche d'une médaille, sous sa rangée — « Pour la vitrine il faut que je sache ce que font les trophées de manière
    élégante. Sinon on choisit plus par l'exploit mais juste par l'icône et c'est nul » (le propriétaire, le 17 novembre
-   2026). Le geste de l'album de « Ma collection », à la mesure de la loge : la médaille en plus grand et son liseré, son
+   2026). Le geste de l'album de « Ma collection », à la mesure de la loge : la médaille en plus grand et l'anneau de sa rareté, son
    nom au serif de la carte, son métal et sa rareté en étiquette, ce qu'il a fallu en une phrase, puis le bouton d'or —
    rien de plus. Une pointe la rattache à sa médaille, dans la colonne de celle-ci (`--loge-fiche-colonne`, posée par
    la page, sur quatre colonnes) : sans elle, sous une rangée de quatre, on cherchait de qui elle parlait. */
 .loge-medailles > li.loge-fiche { grid-column: 1 / -1; padding-top: 2px; }
 .loge-fiche-corps { position: relative; flex: 1; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px 12px; min-width: 0; padding: 11px 12px 12px; border: 1px solid var(--edge-strong); border-radius: 14px; background: var(--surface-faint); }
 .loge-fiche-corps::before { content: ''; position: absolute; top: -8px; left: calc((100% - 3 * var(--loge-entre-vignettes)) / 4 * (var(--loge-fiche-colonne, 0) + 0.5) + var(--loge-entre-vignettes) * var(--loge-fiche-colonne, 0) - 8px); width: 16px; height: 8px; background: var(--edge-strong); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
-.loge-fiche-medaille { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; font-size: 2rem; line-height: 1; background: radial-gradient(circle at 32% 28%, rgba(var(--accent-rgb), 0.34), rgba(var(--accent-rgb), 0.07) 72%), var(--surface); box-shadow: inset 0 0 0 1.5px rgba(var(--accent-rgb), 0.5); }
-.loge-fiche-m1 { box-shadow: inset 0 0 0 2px var(--bronze-text); }
-.loge-fiche-m2 { box-shadow: inset 0 0 0 2px var(--argent-text); }
-.loge-fiche-m3 { box-shadow: inset 0 0 0 2px var(--or-text); }
+/* Sa médaille en grand, à l'anneau de sa rareté, comme dans la grille (la fiche pose `--gemme` ; un trophée sans rareté
+   mesurée, la gemme d'or de « offert »). Le fond d'or d'abord : sans `color-mix`, il reste. */
+.loge-fiche-medaille { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; font-size: 2rem; line-height: 1; background: radial-gradient(circle at 32% 28%, rgba(var(--accent-rgb), 0.34), rgba(var(--accent-rgb), 0.07) 72%), var(--surface); background: radial-gradient(circle at 32% 28%, color-mix(in srgb, var(--gemme) 36%, transparent), color-mix(in srgb, var(--gemme) 8%, transparent) 72%), var(--surface); box-shadow: inset 0 0 0 2px var(--gemme); }
 .loge-fiche-tete { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
 .loge-fiche-nom { font-size: 1.35rem; line-height: 1.1; }
 .loge-fiche-sous { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; font-size: var(--t-label); font-weight: 700; line-height: 1.3; letter-spacing: 0.14em; text-transform: uppercase; }
