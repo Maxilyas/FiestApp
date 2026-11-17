@@ -95,16 +95,18 @@ Chaque écran a son adresse et « ← », qui ramène d'où tu viens ; les adres
 
 ![La loge au téléphone : la carte de Léa en tête, « Version rare » à côté de son avatar, les six pièces sur une rangée, puis ses finitions — « +3 à gagner » au bout de la rangée — et sa bordure](../vitrine/captures/telephone-loge.jpg)
 
-« M'habiller » ouvre la loge : tout ce que tu portes, au même endroit. En tête, **ta carte**, collée en haut pendant que tu choisis — ton fond, ton avatar, ton titre (« Sans titre » sinon), ta vitrine, ta finition —, puis ta barre d'expérience et tes confettis (un petit téléphone les tait : « Tout sur le même écran », plus bas). Dessous, six pièces sur une rangée, et qui voit celle qui est ouverte :
+« M'habiller » ouvre la loge : tout ce que tu portes, au même endroit. En tête, **ta carte**, collée en haut pendant que tu choisis — ton fond, ton avatar, ton titre (« Sans titre » sinon), ta vitrine, ta finition —, puis ta barre d'expérience et tes confettis (un petit téléphone les tait : « Tout sur le même écran », plus bas). Dessous, six pièces sur une rangée, sous deux petits titres qui disent qui les voit — « La salle voit », « Toi seul » :
 
-| Pièce | Sous la rangée | Ce qu'on y choisit |
+| Pièce | Qui la voit | Ce qu'on y choisit |
 |---|---|---|
-| Avatar (`#avatar`) | « La salle le voit, à côté de ton prénom. » | ta finition, ta bordure de ligue, puis ton avatar |
-| Titre (`#titre`) | « Sous ton prénom, sur ta carte. » | « Aucun », ou un titre gagné |
-| Vitrine (`#vitrine`) | « Trois trophées, sur ta carte. » | « Les plus durs, d'office », ou un à trois trophées |
-| Fond (`#fond`) | « Derrière ta carte : rien d'autre ne change. » | « Velours », ou un fond gagné, acheté ou sorti du coffre |
-| Thème (`#theme`) | « Toi seul vois ton thème ; les autres, ta plaque. » | un de tes thèmes, ou ta plaque de nom (son onglet) |
-| Gerbe (`#gerbe`) | « Toi seul la vois, à tes bonnes réponses. » | « Aucune », ou une gerbe gagnée |
+| Avatar (`#avatar`) | la salle | ta finition, ta bordure de ligue, puis ton avatar |
+| Titre (`#titre`) | la salle, sous ton prénom | « Aucun », ou un titre gagné |
+| Vitrine (`#vitrine`) | la salle, sur ta carte | « Les plus durs, d'office », ou un à trois trophées |
+| Fond (`#fond`) | la salle, derrière ta carte | « Velours », ou un fond gagné, acheté ou sorti du coffre |
+| Thème (`#theme`) | toi seul — sa plaque, les autres (un œil sur son onglet) | un de tes thèmes, ou ta plaque de nom (son onglet) |
+| Gerbe (`#gerbe`) | toi seul, à tes bonnes réponses | « Aucune », ou une gerbe gagnée |
+
+Une ligne sous la rangée le redisait pour chaque pièce, l'œil devant (« Sous ton prénom, sur ta carte. ») ; elle est partie le 17 novembre 2026, avec les consignes des pièces : « pas besoin de mettre du texte à chaque fois, ça doit être compréhensible et intuitif. Ça fait perdre de la place pour rien. Ça vaut pour tous » (le propriétaire). Les deux petits titres le disent, et ta carte montre où chaque essai se pose.
 
 **Un toucher essaie, rien ne s'enregistre.** Ta carte montre l'essai (« Aperçu »), un thème habille toute la page, une gerbe éclate. Une barre prend la place du menu — ce que tu essaies, « Annuler », « Porter » — et « Porter » envoie tout l'essai d'un coup : le serveur vérifie chaque pièce avant d'écrire, tout passe ou rien, et un refus s'écrit dans la barre. Quitter la loge rend le thème que tu portais. Quand chaque toucher enregistrait, on portait ce qu'on voulait seulement regarder.
 
