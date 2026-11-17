@@ -4994,49 +4994,6 @@ h3 > .icon {
   gap: 10px;
 }
 
-.finition-btn {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 12px 6px;
-  border: 1px solid var(--edge);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--ink);
-  font: inherit;
-  cursor: pointer;
-}
-
-.finition-btn .av { font-size: 1.7rem; }
-.finition-nom { font-size: 0.85rem; }
-.finition-btn:hover:not(:disabled) { border-color: var(--edge-strong); }
-.finition-btn.selected { border-color: var(--edge-strong); background: var(--accent-soft); }
-/* Un aperçu bouge quand on le porte ou qu'on le survole, pas avant : sous
-   un légendaire porté, les huit redessinaient chacun son médaillon et son
-   cercle, sans fin. Figé, il garde sa matière et ses couleurs. */
-.finitions .finition-btn:not(.selected):not(:hover) .av::before,
-.finitions .finition-btn:not(.selected):not(:hover) .av::after,
-.finitions .finition-btn:not(.selected):not(:hover) .lg *,
-.finitions .finition-btn:not(.selected):not(:hover) .pt *,
-.finitions .finition-btn:not(.selected):not(:hover) .lu * {
-  animation: none;
-}
-
-/* Une finition qu'on n'a pas encore : on la voit, on sait à quel niveau elle
-   s'ouvre, et elle ne se laisse pas prendre. Montrer ce qui vient donne envie
-   de revenir ; le cacher ne donnerait rien. */
-.finition-btn:disabled {
-  border-style: dashed;
-  cursor: not-allowed;
-}
-/* L'objet s'atténue, pas ce qu'il faut pour l'ouvrir : voilée avec lui, la
-   règle d'un fond fermé (« 10 victoires au quiz du jour ») tombait à 2,3:1
-   — c'est pourtant ce qu'on vient lire. Le pointillé dit « pas encore »,
-   comme aux écussons et aux prix. */
-.finition-btn:disabled > :not(.muted) { opacity: 0.45; }
-
 /* Sur la page profil, la grille d'emojis porte des avatars complets. */
 .emoji-grid .av { font-size: 1.5rem; }
 
@@ -6385,10 +6342,6 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
   .bo .bo-reflet { display: none; }
 }
 
-/* Les halos débordent l'emoji : dans le choix des finitions, ils ont la
-   place de le faire sans mordre sur le nom. */
-.finition-btn .av { margin: 6px 0 8px; }
-
 /* Argent, sur l'Ivoire : un halo clair sur un fond clair ne se voyait pas.
    Il s'y assombrit, et prend un filet — sauf sur un fond de carte, nocturne. */
 :root[data-theme='ivoire'] .av-argent:where(:not(.carte-fond, .carte-fond *))::before {
@@ -6514,13 +6467,11 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 .carte-loupe-avatar .lu,
 .bilan-avatar .lu,
 .retour-avatar .lu,
-.fin-avatar .lu,
-.finition-btn .lu { scale: 1; }
+.fin-avatar .lu { scale: 1; }
 .retour-avatar.av-lumiere { margin-block: 0.55em; }
 .carte-avatar.av-lumiere { margin: 0.6em 0.3em 0.3em 0.5em; }
 .fin-avatar.av-lumiere,
 .bilan-avatar.av-lumiere { margin: 0.4em 0.4em 0.4em 0.35em; }
-.finition-btn .av-lumiere { margin: 0.6em 0; }
 /* Resserrée, elle déborde encore un peu : le prénom de l'en-tête s'écarte. */
 .me-header .player-avatar.av-lumiere { margin-inline-end: 0.2em; }
 
@@ -9737,7 +9688,6 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 /* Dans la loge, les grilles se serrent — trois par rangée : ce qu'on a se
    voit d'un coup d'œil, sous la carte qui l'essaie. */
 .loge-panneau .finitions { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
-.loge-panneau .finition-btn { padding: 10px 4px; }
 .loge-panneau .vitrine-themes { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .loge-panneau .theme-vitrine-pied { padding: 6px 8px 8px; }
 .loge-panneau .theme-vitrine-pied b { font-size: 0.95rem; }
@@ -9775,13 +9725,10 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-barre .btn { flex: none; min-height: 44px; padding: 0 16px; }
 /* Dans les grilles : ce que la carte montre, ce qu'il porte, ce qui est neuf. */
 .case-avatar.essaye,
-.finition-btn.essaye,
 .vitrine-option.essaye,
 .titre-choix.essaye { outline: 1.5px dashed var(--accent); outline-offset: 2px; }
-.case-avatar.porte::after,
-.finition-btn.porte::after { content: '✓'; position: absolute; top: -4px; right: -4px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; line-height: 1; box-shadow: 0 0 0 2px var(--bg); }
+.case-avatar.porte::after { content: '✓'; position: absolute; top: -4px; right: -4px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; line-height: 1; box-shadow: 0 0 0 2px var(--bg); }
 .case-avatar.neuve::before,
-.finition-btn.neuve::before,
 .vitrine-option.neuve::before,
 .theme-vitrine.neuve::before { content: ''; position: absolute; top: 3px; left: 3px; z-index: 1; width: 9px; height: 9px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--bg); }
 .vitrine-option[aria-disabled='true'] { opacity: 0.45; cursor: default; }
@@ -9947,10 +9894,29 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-vignette.essaye { box-shadow: 0 0 22px rgba(var(--accent-rgb), 0.35); }
 .loge-vignette.porte::after { content: '✓'; position: absolute; top: -5px; right: -5px; z-index: 2; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; line-height: 1; box-shadow: 0 0 0 2px var(--bg); }
 .loge-vignette.neuve::before { content: ''; position: absolute; top: 3px; left: 3px; z-index: 2; width: 9px; height: 9px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--bg); }
-.loge-vignette[aria-disabled='true'] { opacity: 0.45; cursor: default; }
+/* Fermée, elle atténue son dessin, pas la règle qui l'ouvre (2,3:1 sinon — `petit-ecran.test.ts`). */
+.loge-vignette[aria-disabled='true'] { cursor: default; }
+.loge-vignette[aria-disabled='true'] .loge-vignette-image { opacity: 0.45; }
 /* Ses chemins, sur une ligne quand ils y tiennent : chacun garde sa cible de 44 px. */
 .loge-pied { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0 18px; }
 .loge-vers-boutique .icon { width: 15px; height: 15px; }
+/* Un fond : son décor réel, en petite carte qui remplit l'aperçu. Les décors à pseudo-éléments (nuit, kintsugi, cabinet,
+   théâtre) gardent leurs règles d'aperçu (`.fond-apercu.carte-fond…`, plus haut) : la hauteur n'est plus la leur, la
+   boîte les recadre. Le Velours, sans classe de décor, garde le fond de page de l'aperçu. */
+.loge-vignette-image .fond-apercu { width: 100%; height: 100%; margin: 0; border: 0; border-radius: inherit; }
+/* Une gerbe : ses trois premières particules en petit bouquet. Une seule taille de police pour tout le bouquet —
+   l'éventail se fait par `transform` (règle `css.md` : chaque taille d'un emoji se met en forme à part). Toutes dans la
+   même cellule, décalées et penchées ; seule celle du milieu reste droite et entière. */
+.loge-vignettes-fonds { --loge-vignette: 56px; }
+.loge-vignettes-gerbes { --loge-colonnes: 4; --loge-vignette: 44px; }
+.gerbe-bouquet { display: grid; place-items: center; font-size: 1.3rem; line-height: 1; }
+.gerbe-bouquet > span { grid-area: 1 / 1; }
+.gerbe-bouquet > span:nth-child(1) { transform: translate(-12px, 5px) rotate(-18deg) scale(0.82); }
+.gerbe-bouquet > span:nth-child(2) { transform: translate(12px, 5px) rotate(18deg) scale(0.82); }
+.gerbe-bouquet > span:nth-child(3) { transform: translateY(-6px); }
+.gerbe-bouquet > span:only-child { transform: none; }
+/* « Aucune » : un anneau en pointillé, ce qui n'éclate pas. */
+.gerbe-aucune { display: block; width: 28px; height: 28px; border: 2px dashed var(--muted); border-radius: 50%; }
 
 /* ── La loge, à la hauteur d'un téléphone ────────────────────────────────
    Ses deux pas (les variables de `.loge-page`, en tête de la section) : rien
@@ -16698,11 +16664,6 @@ span.annonce-admin-merci { cursor: default; }
 }
 /* « Ma gerbe », dans « Mon thème » : ses particules en aperçu, comme une finition. */
 .gerbe-apercu { display: flex; align-items: center; justify-content: center; min-height: 2.2rem; font-size: 1.3rem; letter-spacing: 0.1em; }
-/* Une gerbe à gagner se touche — elle éclate, pour qu'on voie ce qu'on vise —
-   mais ne se porte pas : le pointillé et l'aperçu voilé d'une finition fermée,
-   sa règle lisible. */
-.finition-btn.gerbe-a-gagner { border-style: dashed; }
-.finition-btn.gerbe-a-gagner > :not(.muted) { opacity: 0.45; }
 
 /* ── Le haut de l'accueil d'un profil : « À la une » et les missions du jour ──
    (`HautDeLAccueil.tsx`, la maquette C du 14 octobre 2026) : un bandeau fin et

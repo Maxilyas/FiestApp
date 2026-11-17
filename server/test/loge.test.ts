@@ -197,9 +197,10 @@ test('la loge : sa carte en tête, six pièces sur une rangée — la salle d’
     titre: /<h3><svg[^>]*>.*?<\/svg>Mes titres /,
     // Des trophées, le mot de l'album et des fins de partie.
     vitrine: /<h3><svg[^>]*>.*?<\/svg>Mes trophées /,
-    fond: /<h3><svg[^>]*>.*?<\/svg>Mes fonds /,
+    // Les fonds et les gerbes, en vignettes : un en-tête d'une ligne (`EnteteDeLaPiece`), puis la grille.
+    fond: /<h3 class="loge-entete-titre" id="loge-fonds">Mes fonds.*<ul class="loge-vignettes loge-vignettes-fonds" aria-labelledby="loge-fonds">/,
     theme: /<section class="mes-themes">/,
-    gerbe: /<h3><svg[^>]*>.*?<\/svg>Mes gerbes /,
+    gerbe: /<h3 class="loge-entete-titre" id="loge-gerbes">Mes gerbes.*<ul class="loge-vignettes loge-vignettes-gerbes" aria-labelledby="loge-gerbes">/,
   }
   for (const { id, qui } of PIECES_DE_LA_LOGE) {
     const html = await rendu('components/PanneauxDuProfil', 'PanneauLoge', { profil: LEA, piece: id, onPiece: () => {}, busy: false, enregistrer: async () => true })
@@ -313,8 +314,9 @@ test('dans chaque pièce, un toucher essaie : rien ne s’enregistre avant « Po
   assert.match(titres, /<button type="button" class="titre-choix porte" aria-pressed="false">Aucun<span class="titre-etat">porté<\/span><\/button>/)
   assert.match(titres, /<button type="button" class="titre-choix selected essaye" aria-pressed="true">L’Oracle<span class="titre-etat">à l’essai<\/span><\/button>/)
   const fonds = await rendu('components/Apparence', 'MonFond', { ...pieces, essai: { fond: 'nuit' } })
-  assert.match(fonds, /class="finition-btn porte" aria-pressed="false"><span class="fond-apercu" aria-hidden="true"><\/span><span class="finition-nom">Velours<\/span><span class="muted small">porté<\/span>/)
-  assert.match(fonds, /class="finition-btn selected essaye" aria-pressed="true"><span class="fond-apercu carte-fond fond-nuit" aria-hidden="true"><\/span><span class="finition-nom">Nuit étoilée<\/span><span class="muted small">à l’essai<\/span>/)
+  // Plus de mot d'état sous chaque vignette : la coche, le cadre et le halo le disent à l'œil, `aria-label` à l'oreille.
+  assert.match(fonds, /class="loge-vignette porte" aria-pressed="false" aria-label="Velours, porté"><span class="loge-vignette-image" aria-hidden="true"><span class="fond-apercu"><\/span><\/span><span class="loge-vignette-nom">Velours<\/span>/)
+  assert.match(fonds, /class="loge-vignette selected essaye" aria-pressed="true" aria-label="Nuit étoilée"><span class="loge-vignette-image" aria-hidden="true"><span class="fond-apercu carte-fond fond-nuit"><\/span><\/span><span class="loge-vignette-nom">Nuit étoilée<\/span>/)
 
   // Les avatars de même : chaque case essaie le sien — ce qui reste à gagner n'a pas de case, il se compte sous la grille.
   essais.length = 0
@@ -331,8 +333,8 @@ test('dans chaque pièce, un toucher essaie : rien ne s’enregistre avant « Po
 
   // Les grilles qui gardent un état — les gerbes, les thèmes — touchent de même.
   const APPARENCE = source('components/Apparence.tsx')
-  assert.match(APPARENCE, /onClick=\{\(\) => essayer\(\{ gerbe: AUCUNE_GERBE \}\)\}/)
-  assert.match(APPARENCE, /montrer\(g\.key\)\s*essayer\(\{ gerbe: g\.key \}\)/)
+  // Une gerbe, un seul geste : « Aucune » essaie le retrait, les autres éclatent puis s'essaient (elle a un état : pas d'appel direct).
+  assert.match(APPARENCE, /if \(g\) setApercu\(a => \(\{ cle: g\.key, n: \(a\?\.n \?\? 0\) \+ 1 \}\)\)\s*essayer\(\{ gerbe: g \? g\.key : AUCUNE_GERBE \}\)/)
   assert.match(source('components/Boutique.tsx'), /setOuvert\(o => \(o === cle \? null : cle\)\)\s*essayer\(\{ theme: cle === 'velours' \? null : cle \}\)/)
   // Rien ne s'enregistre d'un toucher dans ces grilles — pas même la version, rare ou d'origine, d'un avatar éclaté :
   // elle s'essaie sur la carte de la loge, et « Porter » la garde avec le reste.
@@ -842,6 +844,9 @@ test('la loge se resserre par ses mesures : des variables posées sur sa page, �
     '--loge-pastille': '30px',
     '--loge-case': '72px',
     '--loge-gemme': '8px',
+    // Les vignettes des pièces Titre, Vitrine, Fond, Thème et Gerbe : posées une fois, sans pas de hauteur (la grille fait la hauteur).
+    '--loge-vignette': '64px',
+    '--loge-entre-vignettes': '8px',
   }
   assert.deepEqual(grand, D_AVANT)
   assert.match(corpsDe(avant, '.loge-page'), /gap: 14px;/, 'la tête de la page garde son écart : avec un compagnon, la carte commence sous sa niche')
@@ -978,4 +983,20 @@ test('la loge se resserre par ses mesures : des variables posées sur sa page, �
   assert.match(corpsDe(feuille, '.menu-barre a'), /min-height: 58px;/)
   assert.match(corpsDe(feuille, '.loge-barre'), /min-height: calc\(59px \+ max\(6px, env\(safe-area-inset-bottom\)\)\);/)
   assert.match(corpsDe(feuille, '.loge-barre'), /box-sizing: border-box;/)
+})
+
+// Les pièces Fond et Gerbe, en vignettes (le 17 novembre 2026) : le bouquet d'une gerbe n'a qu'une taille de police
+// — l'éventail se fait par `transform` (règle `css.md` : chaque taille d'un emoji se met en forme à part) —, et la
+// gerbe se voit à quatre par rangée.
+test('la gerbe en vignettes : un bouquet à une seule taille de police, quatre par rangée', async () => {
+  const feuille = source('styles.css')
+  const corps = (sel: string) => new RegExp(`${sel.replace(/[.()>*]/g, '\\$&')}\\s*\\{([^}]*)\\}`).exec(feuille)?.[1] ?? ''
+  assert.match(corps('.gerbe-bouquet'), /font-size:\s*1\.3rem/)
+  assert.doesNotMatch(corps('.gerbe-bouquet > span'), /font-size/, 'une particule ne change jamais de taille de police')
+  assert.match(corps('.gerbe-bouquet > span:nth-child(1)'), /rotate\(-?\d+deg\) scale\(0\.\d+\)/)
+  assert.match(corps('.loge-vignettes-gerbes'), /--loge-colonnes:\s*4/)
+  // Trois particules au plus, les trois premières de la gerbe ; « Aucune » d'abord.
+  const html = await rendu('components/Apparence', 'MaGerbe', { profil: LEA, essai: {}, essayer: () => {}, neufs: undefined })
+  for (const bouquet of html.match(/<span class="gerbe-bouquet">.*?<\/span><\/span>/g) ?? []) assert.ok((bouquet.match(/<span>/g) ?? []).length <= 3)
+  assert.match(html, /<span class="gerbe-aucune"><\/span>/, '« Aucune » d’abord, un anneau en pointillé')
 })

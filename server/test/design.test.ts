@@ -364,7 +364,7 @@ test('la pastille des nouveautés se lit dans le rouge des messages, sur « Prof
     '.bordure-choix.neuve .bordure-apercu::before',
   ])
     assert.equal(rougeDe(s), rouge, `${s} : le rouge des messages`)
-  assert.match(CSS, /\.case-avatar\.neuve::before,\s*\.finition-btn\.neuve::before,\s*\.vitrine-option\.neuve::before,\s*\.theme-vitrine\.neuve::before \{/)
+  assert.match(CSS, /\.case-avatar\.neuve::before,\s*\.vitrine-option\.neuve::before,\s*\.theme-vitrine\.neuve::before \{/)
   // Sur l'épaule de la gemme, sans pousser son nom.
   assert.match(regle('.gemme'), /position:\s*relative/)
   assert.match(regle('.gemme-neuf'), /position:\s*absolute/)

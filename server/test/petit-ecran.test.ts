@@ -535,8 +535,9 @@ test('silhouettes, fonds fermés, rideau et aurore : ce qui se lit sur son fond'
   assert.match(regle('.silhouette'), /filter:\s*brightness\(0\) invert\(1\)/)
   assert.match(regle(":root[data-theme='ivoire'] .silhouette"), /filter:\s*brightness\(0\);/)
   // Un fond fermé atténue son dessin, pas la règle qui l'ouvre (2,3:1).
-  assert.doesNotMatch(regle('.finition-btn:disabled'), /opacity/)
-  assert.match(regle('.finition-btn:disabled > :not(.muted)'), /opacity/)
+  // (Les cases de la loge, depuis le 17 novembre 2026 : la vignette fermée, plus la carte de `.finition-btn`.)
+  assert.doesNotMatch(regle(".loge-vignette[aria-disabled='true']"), /opacity/)
+  assert.match(regle(".loge-vignette[aria-disabled='true'] .loge-vignette-image"), /opacity/)
   // Au théâtre, ce qui défile passe derrière le rideau.
   assert.match(regle('.carte-fond.fond-theatre:not(.fond-apercu)::before'), /z-index:\s*1/)
   // À l'aurore, la lueur verte derrière l'en-tête s'adoucit.

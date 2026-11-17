@@ -142,7 +142,7 @@ const complet = {
 }
 
 /** Les titres des cartes d'un écran, dans l'ordre : ce qu'on y règle. */
-const cartes = (html: string) => [...html.matchAll(/<h3>(?:<svg[^>]*>.*?<\/svg>)?([^<]+)/g)].map(m => m[1].trim())
+const cartes = (html: string) => [...html.matchAll(/<h3(?: class="loge-entete-titre" id="[^"]*")?>(?:<svg[^>]*>.*?<\/svg>)?([^<]+)/g)].map(m => m[1].trim())
 
 // Le souhait du propriétaire du 12 octobre 2026 : « un bouton pour la loge…
 // comme ça le profil est épuré, un bouton pour s'habiller, collection,
@@ -307,7 +307,8 @@ test('chaque pièce qu’on porte a son panneau dans la loge : sa carte en tête
   assert.match(theme, /<div class="loge-panneau" role="tabpanel" id="loge-panneau" aria-labelledby="loge-theme"><section class="mes-themes">/)
   assert.doesNotMatch(theme, /gerbes-choix|Mes gerbes/, 'la gerbe a son panneau')
   const gerbe = await laLoge('gerbe')
-  assert.match(gerbe, /<div class="loge-panneau" role="tabpanel" id="loge-panneau" aria-labelledby="loge-gerbe"><section class="card"><h3>/)
+  // La gerbe, comme le fond, en vignettes : un en-tête d'une ligne, plus de carte (le souhait du 17 novembre 2026).
+  assert.match(gerbe, /<div class="loge-panneau" role="tabpanel" id="loge-panneau" aria-labelledby="loge-gerbe"><div class="loge-entete"><h3 class="loge-entete-titre" id="loge-gerbes">/)
   assert.deepEqual(cartes(gerbe), ['Mes gerbes'])
   assert.doesNotMatch(gerbe, /mes-themes|theme-vitrine/, 'les thèmes ont leur panneau')
   // Plus rien ne défile jusqu'à une partie : chaque page s'ouvre en haut.
@@ -354,15 +355,14 @@ test('la loge, sur le thème : ses thèmes, deux liens vers ce qu’il n’a pas
 // la gerbe touchée éclate et s'essaie : « Porter » la garde.
 test('la loge, sur la gerbe : les siennes seulement, « Aucune » se demande — celles à gagner éclatent dans la collection', async () => {
   const html = await laLoge('gerbe')
-  const gerbes = html.slice(html.indexOf('gerbes-choix'))
+  const gerbes = html.slice(html.indexOf('loge-vignettes-gerbes'))
   assert.doesNotMatch(gerbes, /<button[^>]*disabled=""/, 'aucune gerbe ne se ferme au doigt')
   assert.doesNotMatch(gerbes, /gerbe-a-gagner/)
-  assert.equal(gerbes.match(/class="finition-btn( selected)?"/g)?.length, 1 + complet.gerbes.length, 'Aucune, et les siennes')
+  assert.equal(gerbes.match(/class="loge-vignette( selected)?"/g)?.length, 1 + complet.gerbes.length, 'Aucune, et les siennes')
   const reste = GERBES.length - complet.gerbes.length
   assert.match(gerbes, new RegExp(`<a class="loge-a-gagner" href="#collection-gerbes">${reste} gerbes à gagner\\s:\\soù\\s\\?<svg`))
   const APPARENCE = source('components/Apparence.tsx')
-  assert.match(APPARENCE, /onClick=\{\(\) => essayer\(\{ gerbe: AUCUNE_GERBE \}\)\}/)
-  assert.match(APPARENCE, /montrer\(g\.key\)\s*essayer\(\{ gerbe: g\.key \}\)/)
+  assert.match(APPARENCE, /if \(g\) setApercu\(a => \(\{ cle: g\.key, n: \(a\?\.n \?\? 0\) \+ 1 \}\)\)\s*essayer\(\{ gerbe: g \? g\.key : AUCUNE_GERBE \}\)/)
   // Le fond et la finition de même : ce qu'il a, puis le chemin de la collection.
   const carte = await laLoge('fond')
   assert.match(carte, /<a class="loge-a-gagner" href="#collection-fonds">13 fonds à gagner\s:\soù\s\?<svg/)

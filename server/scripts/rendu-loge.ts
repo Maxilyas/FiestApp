@@ -54,6 +54,8 @@ import { ADMIN, connexionAnimateur, demarrer, ecrire, inscrireProfil } from '../
 import { ProfileStore, VERSION_BAREME } from '../src/auth/profiles'
 import { FINITIONS, xpDuNiveau } from '../../shared/profil'
 import { LIGUES } from '../../shared/duels'
+import { FONDS } from '../../shared/fonds'
+import { GERBES } from '../../shared/gerbes'
 import { hautFait, palierDe, titreDePalier } from '../../shared/hautsfaits'
 import { PIECES_DE_LA_LOGE, type PieceDeLaLoge } from '../../shared/piecesDeLaLoge'
 import { ecrireDesDuels } from './duelsDEssai'
@@ -339,9 +341,13 @@ try {
   const PLEIN: Record<Exclude<PieceDeLaLoge, 'avatar'>, (p: any) => void> = {
     titre: () => {},
     vitrine: () => {},
-    fond: () => {},
+    fond: p => {
+      p.fonds = FONDS.map(f => f.key)
+    },
     theme: () => {},
-    gerbe: () => {},
+    gerbe: p => {
+      p.gerbes = GERBES.map(g => g.key)
+    },
   }
   const ouvrir = async (cas: Cas, [largeur, hauteur]: Ecran) => {
     const ctx = await navigateur.newContext({ viewport: { width: largeur, height: hauteur }, deviceScaleFactor: 2, isMobile: largeur < 600, hasTouch: true, reducedMotion: 'reduce' })
