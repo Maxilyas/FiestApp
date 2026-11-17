@@ -18,6 +18,50 @@ export function JaugeFine({ part }: { part: number }) {
 }
 
 /**
+ * L'en-tête d'une pièce de la loge, sur une seule ligne : ce qu'elle range
+ * (« Mes titres »), combien il en a, et, s'il le faut, une consigne courte
+ * dessous — comme les petits titres de la pièce « Avatar » (« Finition »,
+ * « Bordure »). Chaque pièce posait une carte, son titre en grand, son icône
+ * et une phrase de deux ou trois lignes : 110 px avant la première chose à
+ * toucher, quand « qui le voit », juste au-dessus, dit déjà où elle se voit
+ * (le souhait du propriétaire du 17 novembre 2026 : « pas pratique et peu
+ * lisible […] on est obligé de scroller trop »). `id` nomme le groupe que
+ * l'en-tête titre (`aria-labelledby`).
+ */
+export function EnteteDeLaPiece({ id, titre, compte, consigne, children }: { id: string; titre: string; compte?: string; consigne?: string; children?: ReactNode }) {
+  return (
+    <div className="loge-entete">
+      <h3 className="loge-entete-titre" id={id}>
+        {titre}
+        {compte && <span className="loge-entete-compte">{espacesFines(compte)}</span>}
+      </h3>
+      {children}
+      {consigne && <p className="loge-entete-consigne">{espacesFines(consigne)}</p>}
+    </div>
+  )
+}
+
+/**
+ * Le pied d'une pièce de la loge : ses chemins vers ce qu'il n'a pas, sur une
+ * ligne quand ils y tiennent — la boutique pour ce qui s'achète, « Ma
+ * collection » pour ce qui se gagne. Chacun prenait sa ligne, centrée, l'un
+ * sous l'autre.
+ */
+export function PiedDeLaPiece({ children }: { children: ReactNode }) {
+  return <div className="loge-pied">{children}</div>
+}
+
+/** « 11 à la boutique », au pied d'une pièce de la loge : ce qui s'achète, son rayon. */
+export function VersLaBoutique({ n, href, icone = 'bag' }: { n: number; href: string; icone?: IconName }) {
+  return (
+    <a className="loge-a-gagner loge-vers-boutique" href={href}>
+      <Icon name={icone} />
+      {n > 0 ? espacesFines(`${n} à la boutique`) : 'La boutique'}
+    </a>
+  )
+}
+
+/**
  * « N à gagner : où ? », sous ce qu'un panneau de la loge laisse choisir :
  * la loge ne montre que ce qu'on a — des finitions et des bordures éteintes
  * s'y mêlaient à celles qu'on pouvait porter (le 13 octobre 2026) —, ce qui

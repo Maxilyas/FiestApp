@@ -94,11 +94,13 @@ const LES_PIECES: Record<PieceDeLaLoge, { avant: [nom: string, selecteur: string
     cases: '.loge-grille > .loge-case',
     cible: 'un avatar',
   },
-  titre: { avant: [['« Mes titres »', '.loge-panneau > .card > h3'], ['sa phrase', '.loge-panneau > .card > h3 + p']], cases: '.titres > .titre-choix', cible: 'un titre' },
-  vitrine: { avant: [['« Mes trophées »', '.loge-panneau > .card > h3'], ['sa phrase', '.loge-panneau > .card > h3 + p']], cases: '.vitrine-choix > li', cible: 'un trophée' },
-  fond: { avant: [['« Mes fonds »', '.loge-panneau > .card > h3'], ['sa phrase', '.loge-panneau > .card > h3 + p']], cases: '.fonds-choix > .finition-btn', cible: 'un fond' },
-  theme: { avant: [['sa légende', '.mes-themes > .gemme-legende']], cases: '.vitrine-themes > .theme-vitrine', cible: 'un thème' },
-  gerbe: { avant: [['« Mes gerbes »', '.loge-panneau > .card > h3'], ['sa phrase', '.loge-panneau > .card > h3 + p']], cases: '.gerbes-choix > .finition-btn', cible: 'une gerbe' },
+  // Les cinq autres parlent la même langue depuis le 17 novembre 2026 : un en-tête d'une ligne (`EnteteDeLaPiece`), puis
+  // leurs vignettes, enfants directs de `.loge-vignettes` — un bouton, ou l'élément d'une liste qui le tient.
+  titre: { avant: [['l’en-tête', '.loge-panneau .loge-entete']], cases: '.loge-panneau .loge-vignettes > *', cible: 'un titre' },
+  vitrine: { avant: [['l’en-tête', '.loge-panneau .loge-entete']], cases: '.loge-panneau .loge-vignettes > *', cible: 'un trophée' },
+  fond: { avant: [['l’en-tête', '.loge-panneau .loge-entete']], cases: '.loge-panneau .loge-vignettes > *', cible: 'un fond' },
+  theme: { avant: [['l’en-tête', '.loge-panneau .loge-entete']], cases: '.loge-panneau .loge-vignettes > *', cible: 'un thème' },
+  gerbe: { avant: [['l’en-tête', '.loge-panneau .loge-entete']], cases: '.loge-panneau .loge-vignettes > *', cible: 'une gerbe' },
 }
 
 /**
@@ -267,10 +269,10 @@ const hauteurUtile = (hauteur: number) => hauteur - (encoche ? Math.max(0, encoc
 /** La hauteur d'une cible de doigt, au moins — sa largeur se lit au rapport : une pastille a celle de son nom, depuis toujours. */
 const CIBLE = 44
 /**
- * Deux cibles d'avant, plus basses, que ce resserrement n'a pas touchées — « Version rare », sur la carte, et un titre
- * de la pièce « Titre » : elles ne descendent pas davantage.
+ * Une cible d'avant, plus basse, que ce resserrement n'a pas touchée — « Version rare », sur la carte : elle ne descend
+ * pas davantage. Un titre de la pièce « Titre » en faisait 34 jusqu'au 17 novembre 2026, ses pastilles 44 depuis.
  */
-const D_AVANT: Record<string, number> = { 'la version': 30, 'un titre': 34 }
+const D_AVANT: Record<string, number> = { 'la version': 30 }
 
 try {
   const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
@@ -325,6 +327,21 @@ try {
     essai?: boolean
     /** Le texte agrandi, en pour cent. */
     texte?: number
+    /** Un vétéran, pour les cinq autres pièces : la réponse du profil réécrite en route, chaque pièce pleine (`PLEIN`). */
+    plein?: boolean
+  }
+  /**
+   * Ce qu'un vétéran a dans chaque pièce, écrit par-dessus la réponse du profil (le cas `pleines`) : des dizaines de
+   * titres et de trophées, tous les fonds, tous les thèmes, toutes les gerbes — ce que Léa, une habituée, n'a pas encore,
+   * et qui faisait défiler chaque pièce de plusieurs écrans. Mesuré sans faire échouer : une pièce pleine défile, par
+   * nature ; ce qui compte, c'est combien de vignettes se voient, et ce que coûte d'arriver jusqu'au bout.
+   */
+  const PLEIN: Record<Exclude<PieceDeLaLoge, 'avatar'>, (p: any) => void> = {
+    titre: () => {},
+    vitrine: () => {},
+    fond: () => {},
+    theme: () => {},
+    gerbe: () => {},
   }
   const ouvrir = async (cas: Cas, [largeur, hauteur]: Ecran) => {
     const ctx = await navigateur.newContext({ viewport: { width: largeur, height: hauteur }, deviceScaleFactor: 2, isMobile: largeur < 600, hasTouch: true, reducedMotion: 'reduce' })
@@ -353,6 +370,15 @@ try {
         await route.fulfill({ response: reponse, json: j })
       })
     }
+    if (cas.plein) {
+      await page.route(/\/api\/joueur\/moi$/, async (route: any) => {
+        if (route.request().method() !== 'GET') return route.continue()
+        const reponse = await route.fetch()
+        const j = await reponse.json()
+        for (const remplir of Object.values(PLEIN)) remplir(j.profile)
+        await route.fulfill({ response: reponse, json: j })
+      })
+    }
     return { ctx, page }
   }
   /** La loge arrivée : ses panneaux venus à la demande, son réseau au repos, ses images, ses polices. */
@@ -365,11 +391,11 @@ try {
   }
   const ATTENDUS: Record<PieceDeLaLoge, string> = {
     avatar: '.loge-panneau .loge-page-avatars',
-    titre: '.loge-panneau .titres',
-    vitrine: '.loge-panneau .vitrine-choix',
-    fond: '.loge-panneau .fonds-choix',
-    theme: '.loge-panneau .mes-themes',
-    gerbe: '.loge-panneau .gerbes-choix',
+    titre: '.loge-panneau .loge-vignettes',
+    vitrine: '.loge-panneau .loge-vignettes',
+    fond: '.loge-panneau .loge-vignettes',
+    theme: '.loge-panneau .loge-vignettes',
+    gerbe: '.loge-panneau .loge-vignettes',
   }
   /** La photo de l'écran — et de la page entière si elle dépasse : le menu, fixe, se poserait au milieu, il s'efface. */
   const photographier = async (page: any, n: string, defile: number) => {
@@ -501,6 +527,21 @@ try {
         await page.tap(`#loge-${id}`)
         await attendre(page, ATTENDUS[id])
         await mesurer(page, 'pieces', id, ecran, `${id}-${ecran[0]}x${ecran[1]}`)
+      }
+      await ctx.close()
+    }
+  }
+
+  // Les mêmes, pleines : un vétéran (`PLEIN`), au petit téléphone et au grand.
+  if (retenu('pleines')) {
+    for (const ecran of reels([[360, 640], [412, 915]])) {
+      const { ctx, page } = await ouvrir({ cookie: lea, plein: true }, ecran)
+      await page.goto(`${banc.url}/profil#avatar`)
+      await attendre(page, ATTENDUS.avatar)
+      for (const { id } of PIECES_DE_LA_LOGE.filter(p => p.id !== 'avatar')) {
+        await page.tap(`#loge-${id}`)
+        await attendre(page, ATTENDUS[id])
+        await mesurer(page, 'pleines', id, ecran, `plein-${id}-${ecran[0]}x${ecran[1]}`)
       }
       await ctx.close()
     }

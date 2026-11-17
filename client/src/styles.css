@@ -9640,6 +9640,9 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
   --loge-pastille: 30px;
   --loge-case: 72px;
   --loge-gemme: 8px;
+  /* Les vignettes des pièces Titre, Vitrine, Fond, Thème et Gerbe : la hauteur de leur aperçu, leur écart. */
+  --loge-vignette: 64px;
+  --loge-entre-vignettes: 8px;
   gap: 14px;
 }
 .loge-tete { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
@@ -9913,6 +9916,41 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-version-case[aria-pressed='true'] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: var(--surface); }
 .loge-version-dessin { display: grid; place-items: center; width: 64px; height: 64px; font-size: 2.6rem; }
 .loge-version-nom { font-size: var(--t-label); font-weight: 600; }
+
+/* ── Les pièces de la loge, en vignettes (le 17 novembre 2026) ───────────
+   Titre, vitrine, fond, thème et gerbe : chacune posait une carte, son titre
+   en grand, une phrase de deux ou trois lignes, puis de grosses cases à trois
+   par rangée — ou une ligne par trophée — : « pas pratique et peu lisible
+   […] on est obligé de scroller trop […] la présentation ne donne pas trop
+   envie » (le propriétaire, ce jour-là). Elles parlent désormais comme la
+   pièce « Avatar » : un en-tête d'une ligne (`EnteteDeLaPiece`), une grille
+   de vignettes — ce qu'on porte se voit avant son nom —, et un pied de liens
+   (`PiedDeLaPiece`). Une vignette dit son état comme une case d'avatar : le
+   cadre d'or, ce que la carte montre ; son halo, à l'essai ; la coche, ce
+   qu'il porte ; le point rouge, ce qui est neuf. */
+.loge-entete { display: flex; flex-direction: column; gap: 1px; }
+.loge-entete-titre { display: flex; align-items: baseline; gap: 8px; margin: 0; font-family: var(--sans); font-size: var(--t-label); font-weight: 600; letter-spacing: 0.12em; line-height: 1.3; text-transform: uppercase; color: var(--muted); }
+.loge-entete-compte { color: var(--accent-text); letter-spacing: 0.04em; text-transform: none; font-variant-numeric: lining-nums tabular-nums; }
+.loge-entete-consigne { margin: 0; font-size: 0.8rem; line-height: 1.3; color: var(--muted); }
+.loge-vignettes { display: grid; grid-template-columns: repeat(var(--loge-colonnes, 3), minmax(0, 1fr)); gap: var(--loge-entre-vignettes); margin: 0; padding: 0; list-style: none; }
+.loge-vignettes > li { display: flex; min-width: 0; }
+.loge-vignette { position: relative; display: flex; flex: 1; flex-direction: column; align-items: stretch; gap: 4px; min-width: 0; min-height: 44px; padding: 4px 4px 6px; border: 1px solid var(--edge); border-radius: 14px; background: var(--surface-faint); color: var(--ink); font: inherit; text-align: center; cursor: pointer; }
+.loge-vignette:hover { border-color: var(--edge-strong); }
+/* Ce qu'elle montre : un aperçu à sa hauteur, coupé à ses coins. */
+.loge-vignette-image { position: relative; display: grid; place-items: center; height: var(--loge-vignette); border-radius: 10px; background: var(--surface); overflow: hidden; }
+.loge-vignette-nom { font-size: 0.78rem; font-weight: 600; line-height: 1.2; overflow-wrap: anywhere; }
+.loge-vignette-etat { font-size: var(--t-label); line-height: 1.2; color: var(--muted); }
+/* Montrée par la carte : le cadre d'or de la case d'avatar — un pixel de bordure de plus, un de marge de moins : rien
+   ne bouge sous le doigt. Sur l'or pâle, le texte s'écrit à l'or de survol (règle `css.md`). */
+.loge-vignette.selected { padding: 3px 3px 5px; border: 2px solid var(--accent); background: var(--accent-soft); }
+.loge-vignette.selected .loge-vignette-nom { color: var(--accent-text-hover); }
+.loge-vignette.essaye { box-shadow: 0 0 22px rgba(var(--accent-rgb), 0.35); }
+.loge-vignette.porte::after { content: '✓'; position: absolute; top: -5px; right: -5px; z-index: 2; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; line-height: 1; box-shadow: 0 0 0 2px var(--bg); }
+.loge-vignette.neuve::before { content: ''; position: absolute; top: 3px; left: 3px; z-index: 2; width: 9px; height: 9px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--bg); }
+.loge-vignette[aria-disabled='true'] { opacity: 0.45; cursor: default; }
+/* Ses chemins, sur une ligne quand ils y tiennent : chacun garde sa cible de 44 px. */
+.loge-pied { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0 18px; }
+.loge-vers-boutique .icon { width: 15px; height: 15px; }
 
 /* ── La loge, à la hauteur d'un téléphone ────────────────────────────────
    Ses deux pas (les variables de `.loge-page`, en tête de la section) : rien
