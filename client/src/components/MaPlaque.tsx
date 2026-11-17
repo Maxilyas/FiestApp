@@ -1,5 +1,4 @@
 import { Avatar } from './Avatar'
-import { Icon } from './Icon'
 import { NomLaure } from './Laurier'
 import { MotifDeLaPlaque, classeDeLaPlaque } from './Plaque'
 import { AUCUNE_PLAQUE, plaquePortee, plaquesOuvertes } from '../../../shared/plaques'
@@ -10,10 +9,10 @@ import { eclatChez, sceauVisible, type PublicProfileDetail } from '../../../shar
 import type { PropsDUnePiece } from './choix'
 
 // La plaque de son nom, là où elle se choisit et là où elle se vend : dans
-// la pièce « Thème » de la loge (`MaPlaque`), et sur la fiche d'un thème à
-// la boutique (`LigneDePlaque`). Partout, sa ligne telle qu'un classement la
-// montrerait — son avatar, son prénom, la plaque : on choisit ce qu'on voit,
-// pas un nom dans une liste.
+// la pièce « Thème » de la loge (`MaPlaque`, derrière l'onglet « Ma
+// plaque »), et sur la fiche d'un thème à la boutique (`LigneDePlaque`).
+// Sa ligne telle qu'un classement la montrerait — son avatar, son prénom, la
+// plaque : on choisit ce qu'on voit, pas un nom dans une liste.
 
 type SaLigne = Pick<PublicProfileDetail, 'name' | 'laurier' | 'avatar' | 'finition' | 'legendaire' | 'eclats' | 'eclatsEteints' | 'matieres' | 'matieresPortees' | 'scelles' | 'sceauMasque' | 'bordureChoisie' | 'bordures'>
 
@@ -39,12 +38,18 @@ function SonNom({ profil }: { profil: SaLigne }) {
 }
 
 /**
- * Sa ligne sous la plaque d'un thème, à regarder seulement : la fiche d'un
- * thème de la boutique dit ainsi ce que les autres verront de lui.
+ * Sa ligne sous une plaque, à regarder seulement : la fiche d'un thème de la
+ * boutique dit ainsi ce que les autres verront de lui, et la loge ce qu'ils
+ * voient avec la plaque qu'il essaie — sans plaque (`null`), la ligne de
+ * tous.
  */
-export function LigneDePlaque({ profil, plaque }: { profil: SaLigne; plaque: string }) {
+export function LigneDePlaque({ profil, plaque }: { profil: SaLigne; plaque: string | null }) {
   return (
-    <div className={'lb-row plaque-apercu' + classeDeLaPlaque(plaque)} role="img" aria-label={`Ta ligne aux classements, sous la plaque ${theme(plaque)?.nom ?? ''}`}>
+    <div
+      className={'lb-row plaque-apercu' + classeDeLaPlaque(plaque)}
+      role="img"
+      aria-label={plaque ? `Ta ligne aux classements, sous la plaque ${theme(plaque)?.nom ?? ''}` : 'Ta ligne aux classements, sans plaque'}
+    >
       <SonNom profil={profil} />
       <MotifDeLaPlaque plaque={plaque} />
     </div>
@@ -52,50 +57,113 @@ export function LigneDePlaque({ profil, plaque }: { profil: SaLigne; plaque: str
 }
 
 /**
- * « Ma plaque », sous ses thèmes : comme son thème — d'office —, aucune, ou
- * celle d'un thème qu'il possède, qu'il le porte ou non. On peut jouer sous
- * le Ciel du jour et se montrer en Kintsugi : chaque thème qu'on a garde une
- * raison d'être, même rangé. Un toucher l'essaie, « Porter » l'enregistre,
- * comme toute la loge.
+ * Les plaques de la loge, d'une seule lecture : ce qu'il a choisi, ce que la
+ * page montre (l'essai, sinon son choix), et chaque choix avec la plaque
+ * qu'il ferait voir. « Comme mon thème » suit le thème que la page porte :
+ * celui qu'il essaie, sinon le sien. L'onglet « Ma plaque » en montre
+ * l'échantillon, son panneau la liste : les deux lisent la même règle.
  */
-export function MaPlaque({ profil, essai, essayer }: Pick<PropsDUnePiece, 'profil' | 'essai' | 'essayer'>) {
+export function plaquesDeLaLoge(profil: PublicProfileDetail, essai: PropsDUnePiece['essai']) {
   const portee = profil.plaqueChoisie ?? 'auto'
   const montree = essai.plaque ?? portee
-  // « Comme mon thème » suit le thème que la page porte : celui qu'il essaie, sinon le sien.
   const themeMontre = essai.theme !== undefined ? essai.theme : (profil.theme ?? null)
   const choix: { cle: string; nom: string; vue: string | null }[] = [
     { cle: 'auto', nom: 'Comme mon thème', vue: plaquePortee('auto', themeMontre) },
     { cle: AUCUNE_PLAQUE, nom: 'Aucune', vue: null },
     ...plaquesOuvertes(profil.boutique?.possedes ?? []).map(k => ({ cle: k, nom: theme(k)?.nom ?? k, vue: k })),
   ]
+  // Une plaque choisie d'un thème qu'il n'a plus (un serveur qui en sait moins) : la règle du serveur la dit quand même.
+  const vue = choix.find(c => c.cle === montree)?.vue ?? plaquePortee(montree, themeMontre)
+  return { portee, montree, choix, vue }
+}
+
+/** L'état d'une vignette de la loge, comme une case d'avatar : montrée par la page, portée, neuve. */
+export interface EtatDUneVignette {
+  montre: boolean
+  porte: boolean
+  neuve?: boolean
+}
+
+/**
+ * Ses classes, celles des cases d'avatar (`.loge-vignette`, la base commune
+ * des pièces) : `selected`, ce que la page montre — le cadre d'or ; `essaye`,
+ * montré sans être porté — son halo ; `porte`, sa coche ; `neuve`, le point
+ * rouge.
+ */
+export function classesDeLaVignette({ montre, porte, neuve }: EtatDUneVignette): string {
+  return (montre ? ' selected' : '') + (montre && !porte ? ' essaye' : '') + (porte ? ' porte' : '') + (neuve ? ' neuve' : '')
+}
+
+/**
+ * Ce qu'une vignette dit à l'oreille après son nom : `aria-pressed` dit déjà
+ * qu'elle est montrée ; l'oreille apprend en plus si c'est un essai, ce qu'il
+ * porte quand la page en montre un autre, et ce qui est neuf.
+ */
+export function ceQueDitLaVignette({ montre, porte, neuve }: EtatDUneVignette, portee: string, nouvelle: string): string {
+  return (montre && !porte ? ', à l’essai' : '') + (porte && !montre ? `, ${portee}` : '') + (neuve ? `, ${nouvelle}` : '')
+}
+
+/**
+ * L'échantillon d'une plaque : un bout de sa ligne, à ses couleurs — son
+ * fond, son trait, un texte à son encre (son nom, dans la grille), son motif
+ * après lui. Ce n'est pas
+ * une ligne de classement (`.lb-row`) : la règle des plaques ne la peint pas,
+ * la classe de la plaque (`.plaque-<clé>`) ne lui donne que ses jetons
+ * (`--p-bg`, `--p-ink`, `--p-trait`, `--p-motif`), qu'elle lit elle-même
+ * (`.loge-plaque-echantillon`). Sans plaque, le sol et l'encre de la page :
+ * la ligne de tous.
+ */
+export function EchantillonDePlaque({ plaque, texte }: { plaque: string | null; texte?: string }) {
   return (
-    <div className="ma-plaque" role="group" aria-label="Ma plaque">
-      <h3 className="label">Ma plaque</h3>
-      <p className="muted small">Ta ligne aux classements du quiz du jour, du défi et des duels. Les autres la voient.</p>
-      <div className="leaderboard">
+    <span className={'loge-plaque-echantillon' + classeDeLaPlaque(plaque)} aria-hidden="true">
+      {texte && <span className="loge-plaque-texte">{texte}</span>}
+      <MotifDeLaPlaque plaque={plaque} />
+    </span>
+  )
+}
+
+/**
+ * « Ma plaque », le second onglet de la pièce « Thème » : sa ligne de
+ * classement une seule fois, sous la plaque que la page montre, puis chaque
+ * choix en vignette, une petite plaque qui porte son nom à son encre — son
+ * prénom, la ligne au-dessus le montre déjà ; son nom sous elle prenait une
+ * ligne de plus, deux pour « Comme mon thème » — : « Comme mon thème »,
+ * d'office, « Aucune », puis la
+ * plaque de chaque thème qu'il possède, qu'il le porte ou non : on peut jouer
+ * sous le Ciel du jour et se montrer en Kintsugi. Un toucher l'essaie,
+ * « Porter » l'enregistre, comme toute la loge. Une ligne entière par choix
+ * l'avait précédée (le 10 novembre 2026), sous les thèmes : 64 px chacune, et
+ * la plaque commençait à 1180 px en 360 × 640 — personne ne la trouvait (le
+ * propriétaire, le 17 novembre 2026 : « la plaque des thèmes qui est caché
+ * tout en bas et donc impossible pour des utilisateurs de savoir que ça
+ * existe »).
+ */
+export function MaPlaque({ profil, essai, essayer, neufs }: Pick<PropsDUnePiece, 'profil' | 'essai' | 'essayer' | 'neufs'>) {
+  const { portee, montree, choix, vue } = plaquesDeLaLoge(profil, essai)
+  return (
+    <>
+      <LigneDePlaque profil={profil} plaque={vue} />
+      <ul className="loge-vignettes loge-plaques" aria-label="Mes plaques">
         {choix.map(c => {
-          const choisie = montree === c.cle
-          const etat = portee === c.cle ? ', portée' : choisie ? ', à l’essai' : ''
+          // La plaque d'un thème neuf est neuve avec lui : le rouge mène jusqu'à elle.
+          const etat: EtatDUneVignette = { montre: montree === c.cle, porte: portee === c.cle, neuve: !!neufs?.has(c.cle) }
           return (
-            <button
-              key={c.cle}
-              type="button"
-              // « La mienne » : la ligne choisie prend l'anneau qui dit sa ligne dans un classement.
-              className={'lb-row lb-ouvrable plaque-choix' + (choisie ? ' me' : '') + classeDeLaPlaque(c.vue)}
-              aria-pressed={choisie}
-              aria-label={`Plaque : ${c.nom}${etat}`}
-              onClick={() => essayer({ plaque: c.cle })}
-            >
-              <SonNom profil={profil} />
-              <MotifDeLaPlaque plaque={c.vue} />
-              <span className="plaque-choix-nom">
-                {portee === c.cle && <Icon name="check" />}
-                {c.nom}
-              </span>
-            </button>
+            <li key={c.cle}>
+              <button
+                type="button"
+                className={'loge-vignette' + classesDeLaVignette(etat)}
+                aria-pressed={etat.montre}
+                aria-label={`Plaque ${c.nom}` + ceQueDitLaVignette(etat, 'portée', 'nouvelle')}
+                onClick={() => essayer({ plaque: c.cle })}
+              >
+                <span className="loge-vignette-image">
+                  <EchantillonDePlaque plaque={c.vue} texte={c.nom} />
+                </span>
+              </button>
+            </li>
           )
         })}
-      </div>
-    </div>
+      </ul>
+    </>
   )
 }

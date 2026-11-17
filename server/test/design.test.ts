@@ -358,12 +358,14 @@ test('la pastille des nouveautés se lit dans le rouge des messages, sur « Prof
     '.menu-compteur',
     '.loge-neuf',
     '.gemme-neuf',
-    '.theme-vitrine.neuve::before',
+    // La case d'un avatar, et les vignettes des cinq autres pièces (le 17 novembre 2026) : les cases de fond, de gerbe,
+    // de trophée et de thème partageaient la règle de la case d'avatar ; elles ont la leur, du même rouge.
+    '.case-avatar.neuve::before',
+    '.loge-vignette.neuve::before',
     '.finition-choix.neuve .finition-teinte::before',
     '.bordure-choix.neuve .bordure-apercu::before',
   ])
     assert.equal(rougeDe(s), rouge, `${s} : le rouge des messages`)
-  assert.match(CSS, /\.case-avatar\.neuve::before,\s*\.theme-vitrine\.neuve::before \{/)
   // Sur l'épaule de la gemme, sans pousser son nom.
   assert.match(regle('.gemme'), /position:\s*relative/)
   assert.match(regle('.gemme-neuf'), /position:\s*absolute/)
