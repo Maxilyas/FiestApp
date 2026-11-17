@@ -721,7 +721,8 @@ test('la vitrine d’une carte : une seule règle, que lisent le serveur, la car
   assert.match(source('shared/carte.ts'), /export function vitrineDeLaCarte\(/)
   assert.match(source('server/src/core/carte.ts'), /import \{ vitrineDeLaCarte, type CarteDeJoueur \} from '\.\.\/\.\.\/\.\.\/shared\/carte'/)
   assert.doesNotMatch(source('server/src/core/carte.ts'), /function vitrineDeLaCarte/)
-  assert.match(source('client/src/components/Trophees.tsx'), /const montres = vitrineDeLaCarte\(profil\.vitrine, choisie, recompenses\)/)
+  // La vitrine que la pièce montre — ses trois places, depuis le 17 novembre 2026 — lit la même règle, essai compris (`montree`).
+  assert.match(source('client/src/components/Trophees.tsx'), /const montres = vitrineDeLaCarte\(profil\.vitrine, montree, recompenses\)/)
   // La carte de la loge, sur la page du profil, la lit aussi — l'essai compris : le vestiaire la lisait par ses aperçus.
   assert.match(source('shared/loge.ts'), /return vitrineDeLaCarte\(profil\.vitrine, profil\.vitrineChoisie \?\? null, recompensesDe\(profil\.hautsFaits\)\)/)
   assert.match(source('client/src/components/Loge.tsx'), /vitrine=\{vitrineVue\(vu\)\}/)

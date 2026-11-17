@@ -155,7 +155,7 @@ test('la barre dit ce qu’on essaie, pièce par pièce, dans l’ordre de la ra
     { piece: 'avatar', nom: legendaire('lg:dragon')!.nom, detail: 'Légendaire' },
     { piece: 'avatar', nom: `La plus belle · ${NOM_FINITION[meilleureFinition(14)]}`, detail: 'Finition' },
     { piece: 'titre', nom: '« Maître de la forêt »', detail: 'Titre' },
-    { piece: 'vitrine', nom: '2 hauts faits choisis', detail: 'Vitrine' },
+    { piece: 'vitrine', nom: '2 trophées choisis', detail: 'Vitrine' },
     { piece: 'fond', nom: fond('nuit')!.nom, detail: 'Fond de carte' },
     { piece: 'theme', nom: 'Océan', detail: 'Thème · Peu commune' },
     { piece: 'gerbe', nom: gerbe('etoiles')!.nom, detail: 'Gerbe' },
@@ -464,11 +464,9 @@ test('Vitrine : ses trois places sur la carte, puis une médaille par trophée, 
   for (const bouton of html.match(/<button[^>]*>.*?<\/button>/g)!) assert.doesNotMatch(bouton, /id="loge-vitrine-(regle|office)/, 'aucune description dans un bouton')
   assert.equal(html.match(/id="loge-vitrine-regle-hf:oracle"/g)!.length, 1)
   assert.doesNotMatch(html, /class="muted small">/)
-  // Ce qui reste, compté comme l'album où mène le lien (`compteDesTrophees`) : ses prix, ses maîtres, ses ligues aussi —
-  // il comptait les hauts faits du catalogue qu'il n'avait pas.
-  const { compteDesTrophees } = await import('../../shared/trophees')
-  const tous = compteDesTrophees(profil as any)
-  assert.match(html, new RegExp(`<a class="loge-a-gagner" href="#collection-trophees">${tous.total - tous.acquis} trophées à gagner`))
+  // Pas de « N trophées à gagner » sous la vitrine : compté comme l'album, il disait 277 à une habituée, à côté des
+  // « 78 titres à gagner » de la pièce « Titre », qui mène au même album (le 17 novembre 2026).
+  assert.doesNotMatch(html, /loge-a-gagner|trophées? à gagner/)
 
   // D'office : ses trois plus durs dans les places, une ✨ au lieu du numéro, et rien à y faire — trois boutons éteints, qui
   // restent : une place vidée garde le focus sous le doigt, les suivantes y remontent.

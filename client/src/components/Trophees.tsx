@@ -1,4 +1,4 @@
-import { AGagner, EnteteDeLaPiece, PiedDeLaPiece, ceQueDitLaVignette, classesDeLaVignette } from './LigneDeCollection'
+import { EnteteDeLaPiece, ceQueDitLaVignette, classesDeLaVignette } from './LigneDeCollection'
 import { Legendaire } from './Legendaire'
 import { formatNumber } from '../format'
 import type { PropsDUnePiece } from './choix'
@@ -6,7 +6,6 @@ import { VITRINE_MAX, ceQuIlAFallu, cleRangee, hautFait, hautsFaitsGagnes, palie
 import { vitrineDeLaCarte } from '../../../shared/carte'
 import { hautFaitPrincipal, legendaire } from '../../../shared/legendaires'
 import { lePremierHautFait, recompensesDe, type Proche } from '../../../shared/proches'
-import { compteDesTrophees } from '../../../shared/trophees'
 import type { PublicProfileDetail } from '../../../shared/profil'
 
 // Les pièces des trophées que d'autres écrans reprennent : sa vitrine — ce
@@ -94,10 +93,6 @@ export function MaVitrine({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   // La vitrine d'office, par la règle de toutes les pièces : montrée par la carte, portée.
   const office = { montre: montree === null, porte: choisie === null }
   const plusDurs = Math.min(VITRINE_MAX, gagnes.length)
-  // Ce qui reste à gagner, compté comme l'album où mène le lien (`compteDesTrophees`) : ses prix, ses maîtres, ses
-  // ligues aussi. Il comptait les hauts faits du catalogue qu'il n'a pas, quand l'album en compte d'autres.
-  const tous = compteDesTrophees(profil)
-  const aGagner = tous.total - tous.acquis
   // Les trois places de la carte : chacune son trophée — la clé que la vitrine retient, pour le rendre —, d'office sans clé.
   const places = Array.from({ length: VITRINE_MAX }, (_, i) => {
     const cle = montree?.[i]
@@ -213,11 +208,10 @@ export function MaVitrine({ profil, essai, essayer, neufs }: PropsDUnePiece) {
             </span>
           ))}
         </div>
-        {aGagner > 0 && (
-          <PiedDeLaPiece>
-            <AGagner n={aGagner} un="trophée" plusieurs="trophées" href="#collection-trophees" />
-          </PiedDeLaPiece>
-        )}
+        {/* Pas de « N trophées à gagner » ici : compté comme l'album, il disait 277 à une habituée, à côté des
+            « 78 titres à gagner » de la pièce voisine, qui mène au même album — un chiffre qui étonne, et du texte de plus
+            (« pas besoin de mettre du texte à chaque fois », le propriétaire, le 17 novembre 2026). La vitrine d'avant
+            n'en avait pas. */}
       </section>
     )
   }
