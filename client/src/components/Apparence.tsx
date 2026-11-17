@@ -6,10 +6,10 @@ import { AGagner, EnteteDeLaPiece, PiedDeLaPiece, VersLaBoutique, ceQueDitLaVign
 import { PremierHautFait } from './Trophees'
 import { gemmeDAvatar } from '../gemmes'
 import { AVATARS, COLLECTION, COLLECTION_HAUTE } from '../../../shared/avatars'
-import { AUCUNE_BORDURE, CRANS_D_UNE_BORDURE, LIGUES, NOM_DE_LA_BORDURE, bordurePortee, ligueParCle, ouSeGagnentSesCrans, type BordureDeLigue, type ChoixDeBordure } from '../../../shared/duels'
+import { AUCUNE_BORDURE, LIGUES, NOM_DE_LA_BORDURE, bordurePortee, ligueParCle, type BordureDeLigue, type ChoixDeBordure } from '../../../shared/duels'
 import { hautFait, hautsFaitsGagnes } from '../../../shared/hautsfaits'
 import { recompensesDe } from '../../../shared/proches'
-import { estScellable, legendaire } from '../../../shared/legendaires'
+import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import {
   NOM_COURT_DE_RARETE_D_AVATAR,
@@ -553,46 +553,14 @@ export function MesFinitions({ profil, essai, essayer, neufs }: PropsDUnePiece) 
   )
 }
 
-/**
- * Ce qu'un réglage de l'avatar dit sous sa rangée — sa bordure, son sceau —,
- * en deux temps, comme la ligne d'un gros bouton de l'accueil (`GrosBouton`)
- * ou d'une collection (`LigneDeCollection`) : l'essentiel d'abord, puis ce que
- * la phrase ajoute, morceau par morceau, chacun avec sa ponctuation. Mis bout
- * à bout, c'est la phrase d'avant, mot pour mot.
+/*
+ * Ni la bordure ni le sceau ne disent de phrase sous leur rangée (le 17
+ * novembre 2026, le propriétaire : « pas besoin de mettre du texte à chaque
+ * fois, ça doit être compréhensible et intuitif. Ça fait perdre de la place
+ * pour rien », puis « tu peux aussi enlever les deux lignes de texte »). Ce
+ * qu'elles racontaient se lit encore dans « Ma collection » : la fiche d'une
+ * bordure dit ses crans, celle d'un légendaire son sceau.
  */
-type PhraseEnDeuxTemps = readonly [essentiel: string, ...suite: string[]]
-
-/**
- * La phrase d'un réglage, sous sa rangée. Sur un téléphone, la feuille ne
- * montre que les morceaux qui tiennent entiers sur une ligne (`.loge-a-suite`,
- * `styles.css`) : sur deux lignes, celles de la bordure et du sceau prenaient
- * 38 px avant la grille des avatars, qu'aucun téléphone ne montrait sans
- * défiler (le 10 novembre 2026). Le lecteur d'écran lit toujours la phrase
- * entière, un grand écran aussi ; ce qu'elle ajoute se relit dans « Ma
- * collection » — la fiche d'une bordure dit ses crans, celle d'un légendaire
- * son sceau.
- */
-function PhraseDuReglage({ phrase: [essentiel, ...suite] }: { phrase: PhraseEnDeuxTemps }) {
-  return (
-    <p className="muted small loge-bordure-phrase loge-a-suite">
-      <span className="loge-essentiel">{essentiel}</span>
-      {suite.map(morceau => (
-        <span key={morceau} className="loge-suite">
-          {morceau}
-        </span>
-      ))}
-    </p>
-  )
-}
-
-/** Ce qu'une bordure dit sous la rangée : son nom et ses crans, puis ce qui manque pour la sertir. */
-function phraseDeLaBordure(b: BordureDeLigue): PhraseEnDeuxTemps {
-  const nom = NOM_DE_LA_BORDURE[b.ligue]
-  if (b.crans >= CRANS_D_UNE_BORDURE) return [`${nom} · sertie`, ', ses douze crans gagnés.']
-  const reste = CRANS_D_UNE_BORDURE - b.crans
-  const crans = b.crans === 0 ? 'aucun cran encore' : `${b.crans} cran${b.crans > 1 ? 's' : ''} sur ${CRANS_D_UNE_BORDURE}`
-  return [`${nom} · ${crans}`, ` : encore ${reste} victoire${reste > 1 ? 's' : ''} ${ouSeGagnentSesCrans(b.ligue)} pour la sertir.`]
-}
 
 /**
  * Sa bordure de ligue, sous sa finition (la maquette des alliages, le 12
@@ -600,9 +568,7 @@ function phraseDeLaBordure(b: BordureDeLigue): PhraseEnDeuxTemps {
  * les bordures des ligues qu'il a atteintes en duel, chacune autour de son
  * avatar, dans le métal de sa finition, et ce qui reste compté au bout, qui
  * mène à leur ligne de « Ma collection » — les autres s'y montraient
- * éteintes, chacune sa cote, jusqu'au 13 octobre 2026. Dessous, ce que dit
- * celle que la carte montre : ses crans, et ce qui manque pour la sertir.
- * Rien n'y bouge.
+ * éteintes, chacune sa cote, jusqu'au 13 octobre 2026. Rien n'y bouge.
  */
 export function MesBordures({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   const vu = avecLEssai(profil, essai)
@@ -646,7 +612,6 @@ export function MesBordures({ profil, essai, essayer, neufs }: PropsDUnePiece) {
     )
   }
   const reste = LIGUES.length - bordures.length
-  const montreeVue = bordurePortee(montree, bordures)
   return (
     <div className="loge-bordures">
       <span className="loge-sous-titre" id="loge-bordures-titre">
@@ -659,15 +624,6 @@ export function MesBordures({ profil, essai, essayer, neufs }: PropsDUnePiece) {
         {bordures.map(b => pastille(b.ligue, ligueParCle(b.ligue).court, b, `${NOM_DE_LA_BORDURE[b.ligue]}, ${ligueParCle(b.ligue).nom.toLowerCase()}`))}
         <PastilleAGagner n={reste} nom={reste > 1 ? 'bordures' : 'bordure'} href="#collection-bordures" />
       </div>
-      <PhraseDuReglage
-        phrase={
-          montree === AUCUNE_BORDURE
-            ? ['Sans bordure', ' : ton avatar et sa finition, rien autour.']
-            : montreeVue
-              ? phraseDeLaBordure(montreeVue)
-              : ['Auto : ta plus haute bordure', ', dès que tu y gagnes un duel.']
-        }
-      />
     </div>
   )
 }
@@ -677,8 +633,7 @@ export function MesBordures({ profil, essai, essayer, neufs }: PropsDUnePiece) {
  * « Masqué » — chacun en petit avatar, l'étoile au sommet ou non. Il ne
  * paraît qu'à qui a déjà un légendaire scellé : rien à régler avant. Masqué,
  * le sceau reste à lui et compte partout ; seule la salle ne le voit plus,
- * comme la version d'origine d'un avatar éclaté. Dessous, ce que dit le
- * légendaire montré : scellé, ou ce qui lui manque.
+ * comme la version d'origine d'un avatar éclaté.
  */
 export function MonSceau({ profil, essai, essayer }: PropsDUnePiece) {
   const scelles = profil.scelles ?? []
@@ -707,18 +662,6 @@ export function MonSceau({ profil, essai, essayer }: PropsDUnePiece) {
       </button>
     )
   }
-  const l = vu.legendaire ? legendaire(vu.legendaire) : undefined
-  // En deux temps (`PhraseDuReglage`) : ce qu'il en est d'abord, pourquoi ensuite. Un seul scellé se dit au singulier —
-  // « Tes légendaire scellé porte », écrivait la phrase d'avant.
-  const phrase: PhraseEnDeuxTemps = !l
-    ? scelles.length > 1
-      ? [`Tes ${scelles.length} légendaires scellés`, ' portent l’étoile du zénith', ', que toute la salle voit.']
-      : ['Ton légendaire scellé', ' porte l’étoile du zénith', ', que toute la salle voit.']
-    : scelles.includes(l.key)
-      ? [`${l.nom} est scellé`, ' : tu tiens l’exploit qui l’ouvre', ', pas seulement le Cabinet.']
-      : estScellable(l)
-        ? [`${l.nom} n’a pas encore son sceau`, ' : il se gagne par son exploit', ', hors du Cabinet.']
-        : [`${l.nom} n’a pas de sceau`, ' : il ne se gagne que d’une façon.']
   return (
     <div className="loge-bordures">
       <span className="loge-sous-titre" id="loge-sceau-titre">
@@ -728,7 +671,6 @@ export function MonSceau({ profil, essai, essayer }: PropsDUnePiece) {
         {pastille(true, 'Montré')}
         {pastille(false, 'Masqué')}
       </div>
-      <PhraseDuReglage phrase={montre ? phrase : ['Masqué : ton sceau reste à toi', ', mais la salle ne le voit plus.']} />
     </div>
   )
 }
