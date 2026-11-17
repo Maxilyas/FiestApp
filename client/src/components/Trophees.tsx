@@ -1,4 +1,4 @@
-import { Icon } from './Icon'
+import { AGagner, EnteteDeLaPiece, PiedDeLaPiece } from './LigneDeCollection'
 import { Legendaire } from './Legendaire'
 import { formatNumber } from '../format'
 import type { PropsDUnePiece } from './choix'
@@ -44,6 +44,18 @@ export function laVitrine(profil: PublicProfileDetail) {
  * d'office est une option de la liste, en tête, comme « Aucun » parmi les
  * titres : un bouton qui ne paraissait qu'une vitrine choisie partait sous
  * le doigt qui le touchait, et le focus tombait sur la page.
+ *
+ * Des médailles, quatre par rangée au téléphone (le souhait du propriétaire du
+ * 17 novembre 2026 : « on est obligé de scroller trop […] la présentation ne
+ * donne pas trop envie ») : l'emoji du trophée en grand dans un rond, son nom
+ * dessous, et, choisi, son rang sur la carte en pastille d'or au coin. Une ligne
+ * de 65 px par trophée, deux lignes de texte chacun, en montrait deux avant de
+ * défiler. Le mot reste « trophée » : la médaille n'est que le dessin. Ce qu'il a
+ * fallu pour l'obtenir (`ceQuIlAFallu`) ne s'écrit plus sous chaque nom — il
+ * doublait la hauteur de la ligne — mais se lit toujours à l'oreille
+ * (`aria-describedby`) : sous une grille de quarante trophées, une ligne
+ * de règle pour le dernier touché serait restée loin du doigt, et l'album de
+ * « Ma collection » dit la règle de chacun.
  */
 export function MaVitrine({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   const { badgeDe, gagnes } = laVitrine(profil)
@@ -59,33 +71,35 @@ export function MaVitrine({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   // La vitrine d'office : montrée par la carte, et portée — ou à l'essai.
   const office = { montre: montree === null, porte: choisie === null }
   const plusDurs = Math.min(VITRINE_MAX, gagnes.length)
+  // Ce qui reste à gagner, compté comme le fait la pièce « Titre » : les trophées du catalogue qu'il n'a pas.
+  const aGagner = profil.hautsFaits.length - gagnes.length
 
   if (gagnes.length > 0) {
     return (
-      <section className="card">
-        {/* Sa pièce s'appelle « Vitrine » : la carte dit ce qu'elle range — des trophées, le mot de l'album et des fins de partie. */}
-        <h3>
-          <Icon name="award" />
-          Mes trophées <span className="muted small titre-compte">{`${gagnes.length} à toi`}</span>
-        </h3>
-        <p className="muted small">{`Touches-en jusqu’à ${VITRINE_MAX}, dans l’ordre où ta carte les montrera.`}</p>
+      <section className="loge-vitrine-piece">
+        {/* Sa pièce s'appelle « Vitrine » : l'en-tête dit ce qu'elle range, des trophées — le mot de l'album et des fins de partie. */}
+        <EnteteDeLaPiece id="loge-vitrine-entete" titre="Mes trophées" compte={`${gagnes.length} à toi`} consigne={`Jusqu’à ${VITRINE_MAX} sur ta carte, dans l’ordre.`} />
         {/* Une liste, pas un groupe : `role="group"` lui retirait ses éléments. */}
-        <ul className="vitrine-choix vitrine-a-choisir" aria-label="Les trophées de ma carte">
+        <ul className="loge-vignettes loge-medailles" aria-labelledby="loge-vitrine-entete">
           <li>
             <button
               type="button"
-              className={'vitrine-option' + (office.montre ? ' selected' : '') + (office.montre && !office.porte ? ' essaye' : '')}
+              className={'loge-vignette loge-medaille' + (office.montre ? ' selected' : '') + (office.montre && !office.porte ? ' essaye' : '') + (!office.montre && office.porte ? ' porte' : '')}
               aria-pressed={office.montre}
+              aria-describedby="loge-vitrine-office"
               onClick={() => essayer({ vitrine: null })}
             >
-              <span className="hf-emoji" aria-hidden="true">
-                ✨
+              <span className="loge-vignette-image" aria-hidden="true">
+                <span className="loge-medaille-emoji">✨</span>
               </span>
-              <span className="hf-corps">
-                <span className="hf-titre">Les plus durs, d’office</span>
-                <span className="muted small">{plusDurs > 1 ? `Ta carte choisit tes ${plusDurs} plus durs.` : 'Ta carte le montre d’office.'}</span>
+              {/* « Les plus durs, d'office » sur trois lignes dans une médaille : « d'office » se dit à l'oreille, et la consigne de la carte le dit à l'œil. */}
+              <span className="loge-vignette-nom">
+                Les plus durs<span className="sr-only">, d’office</span>
               </span>
-              {office.porte && !office.montre && <span className="titre-etat">porté</span>}
+              {office.porte && !office.montre && <span className="sr-only">, porté</span>}
+              <span id="loge-vitrine-office" className="sr-only">
+                {plusDurs > 1 ? `Ta carte choisit tes ${plusDurs} plus durs.` : 'Ta carte le montre d’office.'}
+              </span>
             </button>
           </li>
           {gagnes.map(cle => {
@@ -93,45 +107,56 @@ export function MaVitrine({ profil, essai, essayer, neufs }: PropsDUnePiece) {
             const rang = montree ? montree.indexOf(cle) : -1
             const pris = rang >= 0
             const neuf = neufs?.has(cle)
+            // Une piste de carrière se range à un métal, que la médaille porte en liseré (bronze, argent, or) ; son nom
+            // le dit encore à l'oreille : « Le Sans-Faute · Bronze » devenait « Le Sans-Faute · … » sur deux lignes.
+            const metal = palierDe(b.key)?.palier
+            const [nom, ...suite] = b.title.split(' · ')
             return (
               <li key={cle}>
                 <button
                   type="button"
-                  className={'vitrine-option' + (pris ? ' selected' : '') + (neuf ? ' neuve' : '')}
+                  className={'loge-vignette loge-medaille' + (metal ? ` loge-medaille-m${metal}` : '') + (pris ? ' selected' : '') + (neuf ? ' neuve' : '')}
                   aria-pressed={pris}
                   aria-disabled={(!pris && complet) || undefined}
+                  aria-describedby={`loge-vitrine-regle-${cle}`}
                   onClick={() => basculer(cle)}
                 >
-                  <span className="hf-emoji" aria-hidden="true">
-                    {b.emoji}
+                  <span className="loge-vignette-image" aria-hidden="true">
+                    <span className="loge-medaille-emoji">{b.emoji}</span>
                   </span>
-                  <span className="hf-corps">
-                    <span className="hf-titre">{b.title}</span>
-                    <span className="muted small">{ceQuIlAFallu(b.key)}</span>
+                  <span className="loge-vignette-nom">
+                    {nom}
+                    {suite.length > 0 && <span className="sr-only">{` · ${suite.join(' · ')}`}</span>}
                   </span>
+                  {neuf && <span className="sr-only">, nouveau</span>}
                   {/* Son rang sur la carte, dit aussi à l'oreille : il n'était qu'à l'œil. */}
                   {pris && (
-                    <span className="vitrine-rang">
+                    <span className="loge-medaille-rang">
                       <span className="sr-only">, montré </span>
                       {rang + 1}
                       <span className="sr-only">{rang === 0 ? 'ᵉʳ' : 'ᵉ'}</span>
                     </span>
                   )}
+                  <span id={`loge-vitrine-regle-${cle}`} className="sr-only">
+                    {ceQuIlAFallu(b.key)}
+                  </span>
                 </button>
               </li>
             )
           })}
         </ul>
+        {aGagner > 0 && (
+          <PiedDeLaPiece>
+            <AGagner n={aGagner} un="trophée" plusieurs="trophées" href="#collection-trophees" />
+          </PiedDeLaPiece>
+        )}
       </section>
     )
   }
 
   return (
-    <section className="card">
-      <h3>
-        <Icon name="award" />
-        Sur ta carte
-      </h3>
+    <section className="loge-vitrine-piece">
+      <EnteteDeLaPiece id="loge-vitrine-entete" titre="Sur ta carte" />
       <p className="muted small">
         {/* « À la fin de chaque soirée », disait-elle : faux pour qui joue seul — le quiz du jour et la
             campagne ont leurs hauts faits —, et il concluait que la vitrine n'était pas pour lui

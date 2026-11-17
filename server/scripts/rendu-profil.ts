@@ -119,8 +119,8 @@ try {
   // La loge, ouverte de son bouton, sur chaque pièce touchée sur sa rangée — et la collection, de son bouton.
   for (const [i, nom, piece, attente] of [
     ['2', 'loge avatar', null, '.loge-panneau .loge-page-avatars'],
-    ['3a', 'loge titre', '#loge-titre', '.loge-panneau .titres'],
-    ['3b', 'loge vitrine', '#loge-vitrine', '.loge-panneau .vitrine-choix'],
+    ['3a', 'loge titre', '#loge-titre', '.loge-panneau .loge-titres'],
+    ['3b', 'loge vitrine', '#loge-vitrine', '.loge-panneau .loge-medailles'],
     ['3c', 'loge fond', '#loge-fond', '.loge-panneau .fonds-choix'],
     ['4a', 'loge theme', '#loge-theme', '.loge-panneau .mes-themes'],
     ['4b', 'loge gerbe', '#loge-gerbe', '.loge-panneau .gerbes-choix'],
@@ -165,8 +165,8 @@ try {
   await page.waitForSelector('.loge-barre')
   await photo('2b-loge-essai-avatar')
   await page.click('#loge-titre')
-  await page.waitForSelector('.loge-panneau .titres')
-  await page.click('.loge-panneau .titre-choix:not(.selected) >> nth=0')
+  await page.waitForSelector('.loge-panneau .loge-titres')
+  await page.click('.loge-panneau .loge-titre:not(.selected) >> nth=0')
   await photo('3a-loge-essai-deux')
   await page.click('#loge-theme')
   await page.waitForSelector('.loge-panneau .mes-themes')

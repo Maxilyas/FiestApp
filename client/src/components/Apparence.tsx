@@ -2,12 +2,12 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
 import { Gemmes } from './Gemmes'
-import { AGagner } from './LigneDeCollection'
+import { AGagner, EnteteDeLaPiece, PiedDeLaPiece } from './LigneDeCollection'
 import { PremierHautFait } from './Trophees'
 import { gemmeDAvatar } from '../gemmes'
 import { AVATARS, COLLECTION, COLLECTION_HAUTE } from '../../../shared/avatars'
 import { AUCUNE_BORDURE, CRANS_D_UNE_BORDURE, LIGUES, NOM_DE_LA_BORDURE, bordurePortee, ligueParCle, ouSeGagnentSesCrans, type BordureDeLigue, type ChoixDeBordure } from '../../../shared/duels'
-import { hautsFaitsGagnes } from '../../../shared/hautsfaits'
+import { hautFait, hautsFaitsGagnes } from '../../../shared/hautsfaits'
 import { recompensesDe } from '../../../shared/proches'
 import { estScellable, legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
@@ -20,14 +20,16 @@ import {
   sesPagesDeLAlbum,
   type RareteDAvatar,
 } from '../../../shared/album'
-import { brancheDe, deLaBranche, portrait as portraitDe } from '../../../shared/branches'
+import { brancheDe, deLaBranche, portrait as portraitDe, type CleDeBranche } from '../../../shared/branches'
 import { compagnonDe, formeDeCompagnon, nomDeLaForme } from '../../../shared/compagnons'
 import { FONDS, FONDS_EN_BOUTIQUE } from '../../../shared/fonds'
 import { AUCUNE_GERBE, GERBES } from '../../../shared/gerbes'
 import { avatarMontre, avatarsNeufs, avecLEssai, bordureNeuve, type Essai } from '../../../shared/loge'
 import { avatarDeLApercu } from '../../../shared/sonAvatar'
 import { GerbeDeJuste } from './Gerbe'
-import { cleDeMaitre, maitresDe, nomDuTitre } from '../../../shared/sentiers'
+import { brancheDuMaitre, cleDeMaitre, maitresDe, nomDuTitre } from '../../../shared/sentiers'
+import { moisDuChampion } from '../../../shared/jour'
+import { nomDuTitreDuDefi } from '../../../shared/cabinet/sceaux'
 import { FINITIONS, NOM_FINITION, brilleChez, clesQuiBrillent, eclatChez, meilleureFinition, type Finition, type FinitionChoisie, type PublicProfileDetail } from '../../../shared/profil'
 import { NOM_DE_LA_MATIERE, enMatiere, matieresATailler, peutSeTailler, type Matiere, type MatiereTaillee } from '../../../shared/matieres'
 import type { PropsDUnePiece } from './choix'
@@ -737,6 +739,41 @@ export function MonSceau({ profil, essai, essayer }: PropsDUnePiece) {
 }
 
 /**
+ * L'emoji d'un maître des sentiers, un par branche : le titre « Maître de la forêt » se reconnaît à sa forêt. Écrits
+ * ici, pour cette pièce seule — les sentiers se dessinent en portraits peints, qu'une pastille de titre ne porte pas —,
+ * et tous d'avant Unicode 13 (`emojis.test.ts`).
+ */
+const EMOJI_DES_MAITRES: Readonly<Record<CleDeBranche, string>> = {
+  monde: '🌍',
+  mythes: '🏛️',
+  oceans: '🌊',
+  espace: '🚀',
+  foret: '🌲',
+  ecran: '🎬',
+  scene: '🎭',
+  contes: '📖',
+  stade: '⚽',
+  brigade: '🍳',
+  arcade: '🎮',
+  carnaval: '🎉',
+}
+
+/**
+ * Ce qui représente un titre, devant son nom : l'emoji du trophée qui l'a ouvert (`hautFait`), celui du sentier d'un
+ * maître, la couronne d'un champion du mois, la carte d'un défi du Cabinet. L'œil lit d'où il vient sans qu'une
+ * phrase le dise — des dizaines de pastilles italiques se ressemblaient toutes (le souhait du propriétaire du
+ * 17 novembre 2026). Rien pour une clé qui ne dit rien : la pastille garde son nom seul.
+ */
+export function emojiDUnTitre(cle: string): string {
+  const h = hautFait(cle)
+  if (h) return h.emoji
+  const b = brancheDuMaitre(cle)
+  if (b) return EMOJI_DES_MAITRES[b.key]
+  if (moisDuChampion(cle)) return '👑'
+  return nomDuTitreDuDefi(cle) ? '🃏' : ''
+}
+
+/**
  * Son titre, sous son prénom : chaque haut fait gagné ouvre le sien — son
  * nom, « L'Oracle », « La Lanterne Rouge » —, et chaque palier de maître des
  * sentiers du savoir le sien (« Maître de la forêt »). Il s'écrit sur sa
@@ -744,6 +781,14 @@ export function MonSceau({ profil, essai, essayer }: PropsDUnePiece) {
  * comptent, sans se nommer : trente boutons fermés noyaient les siens — sauf
  * pour qui n'en a aucun, à qui la page dit comment gagner le premier. Touché,
  * un titre s'essaie sous son prénom, sur la carte de la loge.
+ *
+ * Une pastille chacun, de 44 px de haut — elles en faisaient 34 —, l'emoji de ce
+ * qui l'a ouvert devant son nom en italique ; son état se dit comme celui d'une
+ * case d'avatar (le cadre d'or, le halo de l'essai, la coche de ce qu'il porte, le
+ * point rouge du neuf) et non par un mot écrit dans chacune, qui la
+ * rallongeait : à l'oreille, « porté » et « nouveau » restent. L'en-tête tient sur
+ * une ligne, sa consigne sur une : la phrase de trois lignes d'avant disait d'où
+ * viennent les titres, que les emojis disent maintenant.
  */
 export function MonTitre({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   // Les maîtres d'abord : un sentier gravi jusqu'au bout se dit en premier ;
@@ -755,37 +800,39 @@ export function MonTitre({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   const aGagner = profil.hautsFaits.length - (gagnes.length - maitresDe(profil.sentiers ?? {}).length - dates.length - duCabinet.length)
   const porte = profil.titre ?? null
   const montre = essai.titre !== undefined ? essai.titre : porte
-  // Ce que chaque titre dit de lui, à l'oreille comme à l'œil : porté, à l'essai, nouveau.
-  const etat = (cle: string | null) => ({ montre: montre === cle, porte: porte === cle, neuve: cle !== null && neufs?.has(cle) })
-  const marque = (cle: string | null) => {
+  // Ce que chaque titre dit de lui, à l'œil comme à l'oreille : montré par la carte, porté, nouveau.
+  const etat = (cle: string | null): EtatDUneCase => ({ montre: montre === cle, porte: porte === cle, neuve: cle !== null && neufs?.has(cle) })
+  const pastille = (cle: string | null, nom: string) => {
     const e = etat(cle)
-    const mot = e.porte ? 'porté' : e.montre ? 'à l’essai' : e.neuve ? 'nouveau' : null
-    return mot && <span className="titre-etat">{mot}</span>
+    const emoji = cle === null ? '' : emojiDUnTitre(cle)
+    return (
+      <button key={cle ?? 'aucun'} type="button" className={'loge-vignette loge-titre' + classesDeLaCase(e)} aria-pressed={e.montre} onClick={() => essayer({ titre: cle })}>
+        {emoji && (
+          <span className="loge-titre-emoji" aria-hidden="true">
+            {emoji}
+          </span>
+        )}
+        <span className="loge-vignette-nom">{nom}</span>
+        {(e.porte && !e.montre) || e.neuve ? <span className="sr-only">{ceQueDitLaCase(e)}</span> : null}
+      </button>
+    )
   }
-  // Sa pièce s'appelle « Titre » : la carte dit ce qu'elle range, ceux qu'il a.
+  // Sa pièce s'appelle « Titre » : l'en-tête dit ce qu'elle range, ceux qu'il a.
   return (
-    <section className="card">
-      <h3>
-        <Icon name="star" />
-        Mes titres {gagnes.length > 0 && <span className="muted small titre-compte">{`${gagnes.length} à toi`}</span>}
-      </h3>
-      {/* Où il s'écrit, la ligne de la pièce le dit ; ici, d'où viennent les autres. */}
-      <p className="muted small">Chaque trophée gagné ouvre le sien, chaque palier de maître des sentiers aussi, et chaque défi du Cabinet tenu à l’Or.</p>
-      <div className="titres" role="group" aria-label="Mon titre">
-        <button type="button" className={'titre-choix' + classesDeLaCase(etat(null))} aria-pressed={montre === null} onClick={() => essayer({ titre: null })}>
-          Aucun
-          {marque(null)}
-        </button>
-        {gagnes.map(cle => (
-          <button key={cle} type="button" className={'titre-choix' + classesDeLaCase(etat(cle))} aria-pressed={montre === cle} onClick={() => essayer({ titre: cle })}>
-            {nomDuTitre(cle)}
-            {marque(cle)}
-          </button>
-        ))}
+    <section className="loge-titres-piece">
+      <EnteteDeLaPiece id="loge-titre-entete" titre="Mes titres" compte={gagnes.length > 0 ? `${gagnes.length} à toi` : undefined} consigne="Un trophée, un maître ou un défi en ouvre un." />
+      {/* Des pastilles, pas une grille : un titre est un mot, de largeur qui varie, et deux tiennent sur une rangée. */}
+      <div className="loge-vignettes loge-titres" role="group" aria-labelledby="loge-titre-entete">
+        {pastille(null, 'Aucun')}
+        {gagnes.map(cle => pastille(cle, nomDuTitre(cle) ?? cle))}
       </div>
       {gagnes.length === 0 && <PremierHautFait profil={profil} />}
       {/* Chaque trophée ouvre le sien : ceux qui restent se comptent, et l'album dit comment les gagner. */}
-      <AGagner n={aGagner} un="titre" plusieurs="titres" href="#collection-trophees" />
+      {aGagner > 0 && (
+        <PiedDeLaPiece>
+          <AGagner n={aGagner} un="titre" plusieurs="titres" href="#collection-trophees" />
+        </PiedDeLaPiece>
+      )}
     </section>
   )
 }

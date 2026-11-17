@@ -325,7 +325,8 @@ export function Loge({
         {piece === 'vitrine' && (
           <>
             <MaVitrine {...props} />
-            <p className="muted small center">Le reste de ta carte se remplit tout seul : tes légendaires, tes écussons, tes chiffres, tes prix.</p>
+            {/* Une ligne : la phrase d'avant, qui énumérait ses légendaires, ses écussons, ses chiffres et ses prix, en prenait deux. */}
+            <p className="muted small center loge-reste-de-la-carte">Le reste de ta carte se remplit tout seul.</p>
           </>
         )}
         {piece === 'fond' && <MonFond {...props} />}
