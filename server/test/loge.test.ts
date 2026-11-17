@@ -17,6 +17,8 @@ import { LIGUES, NOM_DE_LA_BORDURE } from '../../shared/duels'
 import { brancheDe, portrait } from '../../shared/branches'
 import { fond } from '../../shared/fonds'
 import { NOM_FINITION, meilleureFinition } from '../../shared/profil'
+import { NOM_RARETE } from '../../shared/badges'
+import { rareteMesuree } from '../../shared/pistes'
 import { PIECES_DE_LA_LOGE, avecLEssai, carteAvecLEssai, ceQuIlAPorter, essaiVide, essayer, lignesDeLEssai, nouveautes, retenirLesVus, type Tenue, type VusDeLaLoge } from '../../shared/loge'
 import type { CarteDeJoueur } from '../../shared/carte'
 import { demarrer, ecrire, inscrireProfil } from './banc'
@@ -55,6 +57,15 @@ function texte(noeud: any): string {
   if (noeud === null || noeud === undefined || typeof noeud === 'boolean') return ''
   if (typeof noeud !== 'object') return String(noeud)
   return texte(noeud.props?.children)
+}
+
+/**
+ * La vitrine sans état (`LaVitrine` : `MaVitrine` ne tient que la fiche ouverte), sa fiche dépliée — un composant à
+ * elle, sans état non plus, que l'arbre ne rend pas de lui-même : ses gestes se touchent comme les autres.
+ */
+async function vitrineDepliee(props: object): Promise<any[]> {
+  const tout = elements(await arbre('components/Trophees', 'LaVitrine', props))
+  return tout.flatMap(e => (typeof e.type === 'function' && e.type.name === 'FicheDeLaMedaille' ? [e, ...elements(e.type(e.props))] : [e]))
 }
 
 /** Le catalogue des hauts faits tel que la page le reçoit : ceux de `fois` gagnés. */
@@ -286,15 +297,29 @@ test('dans chaque pièce, un toucher essaie : rien ne s’enregistre avant « Po
   await toucher('MonFond', 'components/Apparence', /^Velours/)
   await toucher('MesFinitions', 'components/Apparence', /^Argent/)
   await toucher('MesFinitions', 'components/Apparence', /^Auto$/)
-  // Une médaille, pas sa place sur la carte (« ✨🔮L’Oracle, 2ᵉ place, d’office », au-dessus) : la médaille commence par son emoji.
-  await toucher('MaVitrine', 'components/Trophees', /^🔮L’Oracle/)
+  // La vitrine : une médaille touchée ouvre sa fiche et n'essaie rien — on choisit par l'exploit (le propriétaire, le
+  // 17 novembre 2026 : « Sinon on choisit plus par l'exploit mais juste par l'icône et c'est nul ») — ; c'est le bouton
+  // d'or de sa fiche qui essaie. Une médaille, pas sa place sur la carte (« ✨🔮L’Oracle, 2ᵉ place, d’office »,
+  // au-dessus) : la médaille commence par son emoji. La vitrine sans état (`LaVitrine`), sa fiche dite ouverte.
+  const ouverts: string[] = []
+  const vitrine = { ...pieces, ouvert: null as string | null, onOuvrir: (cle: string) => ouverts.push(cle) }
+  const dansLaVitrine = async (nom: RegExp, props: object = vitrine) => {
+    const bouton = (await vitrineDepliee(props)).find(e => e.type === 'button' && nom.test(texte(e)))
+    assert.ok(bouton, `LaVitrine : ${nom}`)
+    bouton.props.onClick()
+  }
+  await dansLaVitrine(/^🔮L’Oracle/)
+  assert.deepEqual(ouverts, ['hf:oracle'], 'la médaille ouvre sa fiche')
+  assert.equal(essais.length, 6, 'la médaille touchée n’essaie rien')
+  await dansLaVitrine(/^Sur ma carte$/, { ...vitrine, ouvert: 'hf:oracle' })
   assert.deepEqual(essais, [{ titre: 'hf:oracle' }, { titre: null }, { fond: 'nuit' }, { fond: null }, { finition: 'argent' }, { finition: 'auto' }, { vitrine: ['hf:oracle'] }])
   assert.deepEqual(enregistres, [], 'rien n’est enregistré d’un toucher')
   // La vitrine essayée se poursuit dans l'ordre de la carte ; vidée, c'est celle d'office.
   essais.length = 0
-  await toucher('MaVitrine', 'components/Trophees', /^🔥Le Phénix/, { ...pieces, essai: { vitrine: ['hf:oracle'] } })
-  await toucher('MaVitrine', 'components/Trophees', /^🔮L’Oracle/, { ...pieces, essai: { vitrine: ['hf:oracle'] } })
+  await dansLaVitrine(/^Sur ma carte$/, { ...vitrine, essai: { vitrine: ['hf:oracle'] }, ouvert: 'hf:phenix' })
+  await dansLaVitrine(/^Retirer de ma carte$/, { ...vitrine, essai: { vitrine: ['hf:oracle'] }, ouvert: 'hf:oracle' })
   assert.deepEqual(essais, [{ vitrine: ['hf:oracle', 'hf:phenix'] }, { vitrine: null }])
+  assert.deepEqual(enregistres, [], 'rien n’est enregistré d’un toucher')
   // La vitrine d'office est une option de la liste, en tête, dans les deux
   // états : un bouton qui ne paraissait qu'une vitrine choisie partait sous
   // le doigt qui le touchait, et le focus tombait sur la page.
@@ -313,9 +338,12 @@ test('dans chaque pièce, un toucher essaie : rien ne s’enregistre avant « Po
     office(await rendu('components/Trophees', 'MaVitrine', { ...pieces, essai: { vitrine: ['hf:oracle'] } })),
     '<button type="button" class="loge-vignette loge-medaille porte" aria-pressed="false" aria-describedby="loge-vitrine-office"><span class="loge-vignette-image" aria-hidden="true"><span class="loge-medaille-emoji">✨</span></span><span class="loge-vignette-nom">Les plus durs<span class="sr-only">, d’office</span></span><span class="sr-only">, porté</span></button>',
   )
+  // « Les plus durs » n'a pas d'exploit à lire : il se choisit toujours d'un toucher, sans fiche.
   essais.length = 0
-  await toucher('MaVitrine', 'components/Trophees', /^✨Les plus durs, d’office/, { ...pieces, essai: { vitrine: ['hf:oracle'] } })
+  ouverts.length = 0
+  await dansLaVitrine(/^✨Les plus durs, d’office/, { ...vitrine, essai: { vitrine: ['hf:oracle'] } })
   assert.deepEqual(essais, [{ vitrine: null }])
+  assert.deepEqual(ouverts, [], '« Les plus durs » n’ouvre pas de fiche')
 
   // L'essai se lit dans chaque grille : ce que la carte montre, ce qu'il porte encore.
   const titres = await rendu('components/Apparence', 'MonTitre', { ...pieces, essai: { titre: 'hf:oracle' } })
@@ -451,16 +479,24 @@ test('Vitrine : ses trois places sur la carte, puis une médaille par trophée, 
   assert.match(html, /<span class="loge-medaille-rang"><span class="sr-only">, montré <\/span>3<span class="sr-only">ᵉ<\/span><\/span>/)
   // Une liste, d'où le focus ne s'envole pas : un `<ul>` et ses `<li>`, nommée par son en-tête.
   assert.match(html, /<\/ol><ul class="loge-vignettes loge-medailles" aria-labelledby="loge-vitrine-entete"><li><button[^>]*aria-describedby="loge-vitrine-office"/)
-  // Trois choisis : les autres sont éteints — pour le doigt et pour l'oreille — et le neuf garde son point.
-  assert.match(html, /class="loge-vignette loge-medaille neuve" aria-pressed="false" aria-disabled="true" aria-describedby="loge-vitrine-regle-hf:foudre"/)
+  // Trois choisis : les autres restent des boutons qui ouvrent leur fiche — on lit leur exploit même carte pleine, c'est
+  // le bouton d'or de la fiche qui s'éteint — ; le neuf garde son point. Une médaille ouvre sa fiche comme une case de
+  // l'album (`aria-expanded`) : plus d'`aria-pressed` sur un trophée — seule « Les plus durs », qui se choisit d'un
+  // toucher, le garde —, et plus de description vers sa règle : sa fiche l'écrit à l'œil.
+  assert.match(html, /class="loge-vignette loge-medaille neuve" aria-expanded="false">/)
   assert.match(html, /<span class="loge-vignette-nom">La Foudre<\/span><span class="sr-only">, nouveau<\/span>/)
+  const medailles = /<ul class="loge-vignettes loge-medailles"[^>]*>(.*?)<\/ul>/.exec(html)![1]
+  assert.equal(medailles.match(/aria-pressed=/g)!.length, 1, '« Les plus durs » seul se presse')
+  assert.equal(medailles.match(/aria-expanded="false"/g)!.length, 4, 'chaque trophée ouvre sa fiche')
+  assert.doesNotMatch(medailles, /aria-disabled|aria-describedby="loge-vitrine-regle/)
   // L'état par la règle de toutes les pièces : montré sans être porté — la vitrine d'office est celle qu'il porte —, à l'essai.
   // Une piste de carrière porte son métal en liseré, et son nom le dit encore à l'oreille.
-  assert.match(html, /class="loge-vignette loge-medaille loge-medaille-m2 selected essaye" aria-pressed="true"/)
+  assert.match(html, /class="loge-vignette loge-medaille loge-medaille-m2 selected essaye" aria-expanded="false"/)
   assert.match(html, /<span class="loge-vignette-nom">L’Habitué<span class="sr-only"> · Argent<\/span><\/span>/)
-  // Ce qu'il a fallu n'est plus écrit sous chaque nom : il se lit à l'oreille, décrit hors du bouton — dans le bouton, il
-  // entrait dans son nom puis se relisait en description. Une seule fois chacun, dans un bloc `hidden`.
+  // Fiche fermée, ce qu'il a fallu n'est écrit nulle part à l'œil : le bloc `hidden` le décrit encore aux places de la
+  // carte (dans un bouton, il entrait dans son nom puis se relisait en description). Une seule fois chacun.
   assert.match(html, new RegExp(`<div hidden=""><span id="loge-vitrine-office">[^<]+</span>.*<span id="loge-vitrine-regle-hf:oracle">${oracle.rule}</span>.*</div>`))
+  assert.doesNotMatch(html, /loge-fiche/, 'aucune fiche ouverte à l’arrivée')
   for (const bouton of html.match(/<button[^>]*>.*?<\/button>/g)!) assert.doesNotMatch(bouton, /id="loge-vitrine-(regle|office)/, 'aucune description dans un bouton')
   assert.equal(html.match(/id="loge-vitrine-regle-hf:oracle"/g)!.length, 1)
   assert.doesNotMatch(html, /class="muted small">/)
@@ -480,7 +516,8 @@ test('Vitrine : ses trois places sur la carte, puis une médaille par trophée, 
   assert.match(une, /<li><button type="button" class="loge-emplacement vide" aria-disabled="true"><span class="loge-emplacement-numero" aria-hidden="true">2<\/span><span class="sr-only">2ᵉ place, libre<\/span><\/button><\/li>/)
   // Une place prise se touche pour la vider : l'essai perd ce trophée, rien d'autre.
   const touches: object[] = []
-  const vider = elements(await arbre('components/Trophees', 'MaVitrine', { ...rien, essayer: (e: object) => touches.push(e), profil, essai: { vitrine: ['hf:phenix', 'hf:oracle'] } }))
+  // Sans fiche : rendre un trophée ne demande pas de relire son exploit.
+  const vider = (await vitrineDepliee({ ...rien, essayer: (e: object) => touches.push(e), profil, essai: { vitrine: ['hf:phenix', 'hf:oracle'] }, ouvert: null, onOuvrir: () => {} }))
     .filter(e => e.type === 'button' && /loge-emplacement/.test(e.props.className))
   assert.equal(vider.length, 3)
   vider[0].props.onClick()
@@ -488,9 +525,10 @@ test('Vitrine : ses trois places sur la carte, puis une médaille par trophée, 
   assert.deepEqual(touches, [{ vitrine: ['hf:oracle'] }])
 
   // La feuille : quatre par rangée, une médaille ronde, son rang en pastille d'or ; trois places côte à côte, chacune une
-  // cible de doigt, vides en pointillé ; et rien ne bouge pour qui demande moins de mouvement.
+  // cible de doigt, vides en pointillé ; et rien ne bouge pour qui demande moins de mouvement. `dense` : la fiche ouverte
+  // passe sous la rangée, les voisines de sa médaille restent dans la leur.
   const CSS = source('styles.css')
-  assert.match(CSS, /\.loge-vignettes\.loge-medailles \{ --loge-colonnes: 4; \}/)
+  assert.match(CSS, /\.loge-vignettes\.loge-medailles \{ --loge-colonnes: 4; grid-auto-flow: dense; \}/)
   assert.match(CSS, /\.loge-medaille \.loge-vignette-image \{[^}]*border-radius: 50%;/)
   assert.match(CSS, /\.loge-medaille-rang \{[^}]*background: var\(--accent\); color: var\(--on-accent\);/)
   assert.match(CSS, /\.loge-emplacements \{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/)
@@ -499,6 +537,80 @@ test('Vitrine : ses trois places sur la carte, puis une médaille par trophée, 
   assert.match(CSS, /@media \(prefers-reduced-motion: reduce\) \{\s*\.loge-emplacement\.vient,\s*[^{]*\{ animation: none; \}/)
   // Le texte d'une médaille reste lisible : jamais sous l'étiquette.
   assert.match(CSS, /\.loge-medaille \.loge-vignette-nom \{ font-size: 0\.75rem;/)
+})
+
+// « Pour la vitrine il faut que je sache ce que font les trophées de manière élégante. Sinon on choisit plus par l'exploit
+// mais juste par l'icône et c'est nul » (le propriétaire, le 17 novembre 2026). Une médaille touchée ouvre sa fiche sous
+// sa rangée, comme une case de l'album de « Ma collection » : la médaille en plus grand, son nom, son métal et sa rareté,
+// ce qu'il a fallu en une phrase, puis un seul geste, le bouton d'or. Pas un mot de plus.
+test('Vitrine : une médaille ouvre sa fiche sous sa rangée — ce qu’il a fallu, son métal, sa rareté, et « Sur ma carte »', async () => {
+  const foudre = HAUTS_FAITS_REGAGNABLES.find(h => h.key === 'hf:foudre')!
+  const oracle = HAUTS_FAITS_REGAGNABLES.find(h => h.key === 'hf:oracle')!
+  const habitue = HAUTS_FAITS_DE_CARRIERE.find(h => h.key === 'hf:habitue')!
+  const vus = hautsFaits({ 'hf:oracle': 1, 'hf:phenix': 1, 'hf:foudre': 1 }).map(h => (h.key === 'hf:habitue' ? { ...h, fois: 2 } : h))
+  const profil = {
+    ...LEA,
+    hautsFaits: vus,
+    vitrine: [badge('hf:oracle', oracle.emoji, oracle.title), badge('hf:phenix', '🔥', 'Le Phénix'), badge('hf:foudre', foudre.emoji, foudre.title), badge('hf:habitue:2', habitue.emoji, 'L’Habitué · Argent')],
+  }
+  const vitrine = (essai: object, ouvert: string) => rendu('components/Trophees', 'LaVitrine', { ...rien, essayer: () => {}, onOuvrir: () => {}, profil, essai, ouvert })
+
+  // L'Habitué, piste d'argent, sur la carte : sa médaille dit qu'elle est ouverte et ce qu'elle ouvre, et sa fiche la
+  // suit, dans la même liste — la grille la pose sous la rangée. Il est le quatrième trophée, la cinquième case après
+  // « Les plus durs » : la première colonne de la deuxième rangée, où vise la pointe.
+  const html = await vitrine({ vitrine: ['hf:phenix', 'hf:habitue'] }, 'hf:habitue')
+  const rarete = rareteMesuree('hf:habitue:2')!
+  assert.ok(rarete, 'une piste a sa rareté mesurée')
+  assert.match(
+    html,
+    /class="loge-vignette loge-medaille loge-medaille-m2 selected essaye" aria-expanded="true" aria-controls="loge-vitrine-fiche">.*?<\/button><\/li><li class="loge-fiche" style="--loge-fiche-colonne:0;--gemme:#[0-9a-f]{6}"><div id="loge-vitrine-fiche" class="loge-fiche-corps">/,
+  )
+  assert.equal(html.match(/class="loge-fiche"/g)!.length, 1, 'une fiche à la fois')
+  const fiche = /<li class="loge-fiche"[^>]*>(.*?)<\/li>/.exec(html)![1]
+  // La médaille en grand, son liseré d'argent ; son nom au serif — celui que l'album focalise à l'ouverture ; son métal
+  // et sa rareté sur une ligne d'étiquette, jamais un chiffre ; ce qu'il a fallu, une phrase ; puis le geste.
+  assert.match(fiche, new RegExp(`<span class="loge-fiche-medaille loge-fiche-m2" aria-hidden="true">${habitue.emoji}</span>`))
+  assert.match(fiche, /<b class="galerie-detail-nom loge-fiche-nom">L’Habitué<\/b>/)
+  assert.match(fiche, new RegExp(`<span class="loge-fiche-sous"><span class="metal-texte-2">Argent</span><span class="loge-fiche-rarete"><i aria-hidden="true"></i>${NOM_RARETE[rarete]}</span></span>`))
+  assert.match(fiche, /<p class="loge-fiche-regle">10 soirées jouées\.<\/p>/)
+  assert.doesNotMatch(fiche, /\d+ ?%|joueurs/, 'sa rareté se dit par son nom, sans chiffre inventé')
+  // Sur la carte : le bouton d'or la retire.
+  assert.match(fiche, /<button type="button" class="btn btn-primary loge-fiche-geste">.*Retirer de ma carte<\/button>/)
+  // Rien d'autre : ni consigne, ni ce qu'il ouvre, ni son expérience, ni lien.
+  assert.equal(fiche.match(/<button/g)!.length, 1)
+  assert.doesNotMatch(fiche, /<a |XP|Ce qu’il ouvre|Touche|muted/)
+
+  // Un exploit de soirée, pas sur la carte : pas de métal, sa rareté seule, « Sur ma carte ».
+  const sur = /<li class="loge-fiche"[^>]*>(.*?)<\/li>/.exec(await vitrine({ vitrine: ['hf:phenix'] }, 'hf:oracle'))![1]
+  assert.doesNotMatch(sur, /metal-texte/)
+  assert.match(sur, new RegExp(`<p class="loge-fiche-regle">${oracle.rule}\\.</p>`))
+  assert.match(sur, /<button type="button" class="btn btn-primary loge-fiche-geste">.*Sur ma carte<\/button>/)
+
+  // Carte pleine : le bouton d'un trophée qui n'y est pas s'éteint, sans une phrase à l'œil — l'oreille entend pourquoi ; et
+  // son toucher ne fait rien (les places frémissent : la feuille).
+  const touches: object[] = []
+  const pleine = { ...rien, essayer: (e: object) => touches.push(e), onOuvrir: () => {}, profil, essai: { vitrine: ['hf:phenix', 'hf:oracle', 'hf:habitue'] }, ouvert: 'hf:foudre' }
+  const eteint = /<li class="loge-fiche"[^>]*>(.*?)<\/li>/.exec(await rendu('components/Trophees', 'LaVitrine', pleine))![1]
+  assert.match(eteint, /<button type="button" class="btn btn-primary loge-fiche-geste" aria-disabled="true">.*Sur ma carte<span class="sr-only"> : tes trois places sont prises<\/span><\/button>/)
+  const geste = (await vitrineDepliee(pleine)).find(e => e.type === 'button' && /loge-fiche-geste/.test(e.props.className))
+  assert.equal(geste.props.onClick, undefined)
+  assert.deepEqual(touches, [])
+  // Retouchée, la fiche se referme ; une autre la déplace : `MaVitrine` bascule la clé, rien de plus.
+  const trophees = source('components/Trophees.tsx')
+  assert.match(trophees, /onOuvrir=\{cle => setOuvert\(o => \(o === cle \? null : cle\)\)\}/)
+  assert.match(trophees, /const fiche = useFiche\(ouvert, 'vitrine'\)/)
+
+  // La feuille : la fiche sur toute la largeur, sa pointe dans la colonne de sa médaille ; le bouton éteint à la manière
+  // d'un bouton d'or indisponible ; et, appuyé, il fait frémir les places — et la vitrine de la carte collée, qu'on voit
+  // toujours.
+  const CSS = source('styles.css')
+  assert.match(CSS, /\.loge-medailles > li\.loge-fiche \{ grid-column: 1 \/ -1;/)
+  assert.match(CSS, /\.loge-fiche-corps::before \{[^}]*var\(--loge-fiche-colonne, 0\)/)
+  assert.match(CSS, /\.loge-fiche-geste\[aria-disabled='true'\] \{[^}]*background: var\(--surface-strong\);/)
+  assert.match(CSS, /\.loge-vitrine-piece:has\(\.loge-fiche-geste\[aria-disabled='true'\]:active\) \.loge-emplacement,\s*\.loge:has\(\.loge-fiche-geste\[aria-disabled='true'\]:active\) \.loge-carte-vitrine \{ animation: loge-places-pleines/)
+  // Aucun texte sous l'étiquette : la ligne du métal et de la rareté est à `--t-label`, la phrase au-dessus.
+  assert.match(CSS, /\.loge-fiche-sous \{[^}]*font-size: var\(--t-label\);/)
+  assert.match(CSS, /\.loge-fiche-regle \{[^}]*font-size: 0\.92rem;/)
 })
 
 test('la barre : « Annuler » rend la tenue sans rien envoyer, « Porter » envoie tout l’essai d’un coup', async () => {

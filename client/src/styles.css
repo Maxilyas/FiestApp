@@ -9876,7 +9876,9 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 /* La vitrine : des médailles, quatre par rangée au téléphone. L'emoji du trophée en grand dans un rond, son nom dessous
    sur deux lignes au plus, et, choisi, son rang sur la carte en pastille d'or au coin — là où la coche de ce qu'il
    porte se pose sur une autre case : l'option d'office n'a pas de rang, un trophée pas de coche. */
-.loge-vignettes.loge-medailles { --loge-colonnes: 4; }
+/* `dense` : la fiche ouverte, sur toute la largeur juste après sa médaille, passe à la rangée suivante, et les voisines
+   de la médaille, venues après elle, reprennent leur place dans la sienne — rien ne bouge sous le doigt. */
+.loge-vignettes.loge-medailles { --loge-colonnes: 4; grid-auto-flow: dense; }
 .loge-medaille { gap: 3px; padding-inline: 3px; }
 .loge-medaille.selected { padding-inline: 2px; }
 .loge-medaille .loge-vignette-image { width: min(100%, var(--loge-vignette)); height: auto; aspect-ratio: 1; margin: 2px auto 0; border-radius: 50%; background: radial-gradient(circle at 32% 28%, rgba(var(--accent-rgb), 0.34), rgba(var(--accent-rgb), 0.07) 72%), var(--surface); box-shadow: inset 0 0 0 1.5px rgba(var(--accent-rgb), 0.5); }
@@ -9889,6 +9891,31 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-medaille-rang { position: absolute; top: -5px; right: -5px; z-index: 2; display: grid; place-items: center; min-width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 0.8rem; font-weight: 700; line-height: 1; box-shadow: 0 0 0 2px var(--bg); font-variant-numeric: lining-nums tabular-nums; }
 /* La coche de ce qu'il porte passe au coin d'en face : le rang tient le sien, et un trophée porté et montré a les deux. */
 .loge-vignette.loge-medaille.porte::after { right: auto; left: -5px; }
+
+/* La fiche d'une médaille, sous sa rangée — « Pour la vitrine il faut que je sache ce que font les trophées de manière
+   élégante. Sinon on choisit plus par l'exploit mais juste par l'icône et c'est nul » (le propriétaire, le 17 novembre
+   2026). Le geste de l'album de « Ma collection », à la mesure de la loge : la médaille en plus grand et son liseré, son
+   nom au serif de la carte, son métal et sa rareté en étiquette, ce qu'il a fallu en une phrase, puis le bouton d'or —
+   rien de plus. Une pointe la rattache à sa médaille, dans la colonne de celle-ci (`--loge-fiche-colonne`, posée par
+   la page, sur quatre colonnes) : sans elle, sous une rangée de quatre, on cherchait de qui elle parlait. */
+.loge-medailles > li.loge-fiche { grid-column: 1 / -1; padding-top: 2px; }
+.loge-fiche-corps { position: relative; flex: 1; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px 12px; min-width: 0; padding: 11px 12px 12px; border: 1px solid var(--edge-strong); border-radius: 14px; background: var(--surface-faint); }
+.loge-fiche-corps::before { content: ''; position: absolute; top: -8px; left: calc((100% - 3 * var(--loge-entre-vignettes)) / 4 * (var(--loge-fiche-colonne, 0) + 0.5) + var(--loge-entre-vignettes) * var(--loge-fiche-colonne, 0) - 8px); width: 16px; height: 8px; background: var(--edge-strong); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.loge-fiche-medaille { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; font-size: 2rem; line-height: 1; background: radial-gradient(circle at 32% 28%, rgba(var(--accent-rgb), 0.34), rgba(var(--accent-rgb), 0.07) 72%), var(--surface); box-shadow: inset 0 0 0 1.5px rgba(var(--accent-rgb), 0.5); }
+.loge-fiche-m1 { box-shadow: inset 0 0 0 2px var(--bronze-text); }
+.loge-fiche-m2 { box-shadow: inset 0 0 0 2px var(--argent-text); }
+.loge-fiche-m3 { box-shadow: inset 0 0 0 2px var(--or-text); }
+.loge-fiche-tete { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
+.loge-fiche-nom { font-size: 1.35rem; line-height: 1.1; }
+.loge-fiche-sous { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; font-size: var(--t-label); font-weight: 700; line-height: 1.3; letter-spacing: 0.14em; text-transform: uppercase; }
+/* Sa rareté, comme dans l'album : la gemme de sa couleur, son nom teinté d'elle. */
+.loge-fiche-rarete { display: inline-flex; align-items: center; gap: 7px; color: color-mix(in srgb, var(--gemme) 70%, var(--ink)); }
+.loge-fiche-rarete i { width: 8px; height: 8px; transform: rotate(45deg); border-radius: 2px; background: linear-gradient(135deg, color-mix(in srgb, var(--gemme) 30%, white), var(--gemme) 55%, color-mix(in srgb, var(--gemme) 60%, black)); box-shadow: 0 0 8px var(--gemme); }
+.loge-fiche-regle { grid-column: 1 / -1; margin: 0; font-size: 0.92rem; line-height: 1.35; }
+.loge-fiche-geste { grid-column: 1 / -1; }
+/* Éteint, carte pleine : l'état d'un bouton d'or indisponible (`.btn-primary:disabled`), sans `disabled`. */
+.loge-fiche-geste[aria-disabled='true'] { background: var(--surface-strong); border-color: var(--edge); color: var(--muted); cursor: not-allowed; }
+.loge-fiche-geste[aria-disabled='true']:active { transform: none; }
 
 /* « Sur ta carte » : ses trois places, côte à côte, sous l'en-tête — « Pour la vitrine est ce que l'on sait sur quoi on
    clique ? » (le propriétaire, le 17 novembre 2026). Une médaille touchée allait sur la carte collée en haut, petite et
@@ -9906,11 +9933,14 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-emplacement.vide .loge-emplacement-numero { position: static; background: none; box-shadow: none; color: var(--muted); font-size: 0.85rem; }
 .loge-emplacements.d-office .loge-emplacement { border-color: var(--edge); background: var(--surface-faint); }
 .loge-emplacements.d-office .loge-emplacement-numero { background: var(--bg); font-size: 0.7rem; box-shadow: 0 0 0 1px var(--edge-strong); }
-/* La place qui vient de se remplir s'allume en paraissant ; pleines, toutes frémissent tant qu'on appuie sur une médaille
-   éteinte — sans état dans la page : l'animation se repose à chaque appui. Rien ne bouge si le téléphone demande moins
-   de mouvement : la place se remplit quand même. */
+/* La place qui vient de se remplir s'allume en paraissant ; pleines, toutes frémissent tant qu'on appuie sur le bouton
+   éteint d'une fiche — sans état dans la page : l'animation se repose à chaque appui. Rien ne bouge si le téléphone
+   demande moins de mouvement : la place se remplit quand même. */
 .loge-emplacement.vient { animation: loge-place-vient 420ms ease-out; }
-.loge-vitrine-piece:has(.loge-medaille[aria-disabled='true']:active) .loge-emplacement { animation: loge-places-pleines 360ms ease-in-out; }
+/* La vitrine de la carte collée frémit avec elles : chez un vétéran, la fiche touchée est plusieurs rangées plus bas, et
+   les places ont défilé sous la carte — elle, on la voit toujours. */
+.loge-vitrine-piece:has(.loge-fiche-geste[aria-disabled='true']:active) .loge-emplacement,
+.loge:has(.loge-fiche-geste[aria-disabled='true']:active) .loge-carte-vitrine { animation: loge-places-pleines 360ms ease-in-out; }
 @keyframes loge-place-vient {
   0% { transform: scale(0.88); box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.6); }
   60% { transform: scale(1.04); box-shadow: 0 0 0 6px rgba(var(--accent-rgb), 0); }
@@ -9923,7 +9953,8 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 }
 @media (prefers-reduced-motion: reduce) {
   .loge-emplacement.vient,
-  .loge-vitrine-piece:has(.loge-medaille[aria-disabled='true']:active) .loge-emplacement { animation: none; }
+  .loge-vitrine-piece:has(.loge-fiche-geste[aria-disabled='true']:active) .loge-emplacement,
+  .loge:has(.loge-fiche-geste[aria-disabled='true']:active) .loge-carte-vitrine { animation: none; }
 }
 @media (max-height: 759px) {
   /* Le petit téléphone : la médaille perd dix pixels — ses places, au-dessus, en prennent cinquante, et sans eux la
