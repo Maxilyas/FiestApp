@@ -142,7 +142,8 @@ const complet = {
 }
 
 /** Les titres des cartes d'un écran, dans l'ordre : ce qu'on y règle. */
-const cartes = (html: string) => [...html.matchAll(/<h3(?: class="loge-entete-titre" id="[^"]*")?>(?:<svg[^>]*>.*?<\/svg>)?([^<]+)/g)].map(m => m[1].trim())
+// Le titre d'une carte (`<h3>`), ou d'une pièce de la loge en vignettes (`EnteteDeLaPiece` : `<h3 class="loge-entete-titre">`, son compte après).
+const cartes = (html: string) => [...html.matchAll(/<h3[^>]*>(?:<svg[^>]*>.*?<\/svg>)?([^<]+)/g)].map(m => m[1].trim())
 
 // Le souhait du propriétaire du 12 octobre 2026 : « un bouton pour la loge…
 // comme ça le profil est épuré, un bouton pour s'habiller, collection,
@@ -300,8 +301,8 @@ test('chaque pièce qu’on porte a son panneau dans la loge : sa carte en tête
     assert.match(html, /^(<link rel="preload"[^>]*\/>)*<div class="loge"><div class="loge-collante"><div class="loge-carte/, `${piece} : sa carte en tête, qui change sous ses yeux`)
     assert.deepEqual(cartes(html), titres, piece)
   }
-  // Le reste de la carte se remplit tout seul : la pièce de la vitrine le dit.
-  assert.match(await laLoge('vitrine'), /Le reste de ta carte se remplit tout seul : tes légendaires, tes écussons, tes chiffres, tes prix\./)
+  // Le reste de la carte se remplit tout seul : la pièce de la vitrine le dit, en une ligne.
+  assert.match(await laLoge('vitrine'), /Le reste de ta carte se remplit tout seul\./)
   // Le thème et la gerbe, chacun son panneau : le leur, rien d'autre.
   const theme = await laLoge('theme')
   assert.match(theme, /<div class="loge-panneau" role="tabpanel" id="loge-panneau" aria-labelledby="loge-theme"><section class="mes-themes">/)

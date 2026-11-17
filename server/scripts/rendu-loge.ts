@@ -56,7 +56,7 @@ import { FINITIONS, xpDuNiveau } from '../../shared/profil'
 import { LIGUES } from '../../shared/duels'
 import { FONDS } from '../../shared/fonds'
 import { GERBES } from '../../shared/gerbes'
-import { hautFait, palierDe, titreDePalier } from '../../shared/hautsfaits'
+import { HAUTS_FAITS_DE_CARRIERE, HAUTS_FAITS_REGAGNABLES, clePalier, hautFait, palierDe, titreDePalier } from '../../shared/hautsfaits'
 import { PIECES_DE_LA_LOGE, type PieceDeLaLoge } from '../../shared/piecesDeLaLoge'
 import { ecrireDesDuels } from './duelsDEssai'
 import { SOUS_LA_NICHE } from './a-l-ecran'
@@ -338,9 +338,25 @@ try {
    * et qui faisait défiler chaque pièce de plusieurs écrans. Mesuré sans faire échouer : une pièce pleine défile, par
    * nature ; ce qui compte, c'est combien de vignettes se voient, et ce que coûte d'arriver jusqu'au bout.
    */
+  /**
+   * Un vétéran des titres et de la vitrine : trente trophées de soirée, du quiz du jour et de la campagne, douze pistes
+   * de carrière à l'argent, trois sentiers menés au maître, deux champions du mois et deux défis du Cabinet tenus à l'Or —
+   * soixante et un titres, chacun sur l'étagère de sa carte. Les deux pièces le lisent : une seule fonction, qui ne
+   * fait rien de plus la seconde fois.
+   */
+  const unVeteran = (p: any) => {
+    const gagnes = new Set<string>([...HAUTS_FAITS_REGAGNABLES.slice(0, 30).map(h => h.key), ...HAUTS_FAITS_DE_CARRIERE.slice(0, 12).map(h => h.key)])
+    p.hautsFaits = p.hautsFaits.map((h: any) => (gagnes.has(h.key) ? { ...h, fois: h.famille === 'soiree' ? 1 : 2 } : h))
+    p.vitrine = p.hautsFaits
+      .filter((h: any) => gagnes.has(h.key))
+      .map((h: any) => ({ key: h.famille === 'soiree' ? h.key : clePalier(h.key, 2), emoji: h.emoji, title: h.title, fois: 1, dernier: 0, porteurs: 0, rarete: null }))
+    p.sentiers = { ...p.sentiers, foret: 13, monde: 13, stade: 13 }
+    p.titresDates = ['mois:2026-10', 'mois:2026-09']
+    p.titresDuCabinet = ['cabinet:defi:cagnotte:3', 'cabinet:defi:parade:3']
+  }
   const PLEIN: Record<Exclude<PieceDeLaLoge, 'avatar'>, (p: any) => void> = {
-    titre: () => {},
-    vitrine: () => {},
+    titre: unVeteran,
+    vitrine: unVeteran,
     fond: p => {
       p.fonds = FONDS.map(f => f.key)
     },

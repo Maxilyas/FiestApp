@@ -9035,55 +9035,10 @@ span.case-avatar { cursor: default; }
 
 /* Trophées : ce que la carte montre, les médailles du jour, les plus
    proches, la collection de prix — ce qui manque en pointillé. */
-.vitrine-choix { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.vitrine-choix li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-xs); border: 1px solid var(--edge); background: var(--surface-faint); }
-.vitrine-choix .hf-corps { display: flex; flex-direction: column; }
 .proches { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
 
 /* Le titre qu'il porte, sous son prénom : sur sa page et sur sa carte. */
 .titre-porte { margin: 2px 0 6px; font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 1.05rem; color: var(--accent-text); }
-.titres { display: flex; flex-wrap: wrap; gap: 8px; }
-.titre-choix {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-height: 34px;
-  padding: 0 12px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--edge);
-  background: transparent;
-  color: var(--ink);
-  font-family: var(--serif);
-  font-style: italic;
-  font-weight: 500;
-  font-size: 1rem;
-  cursor: pointer;
-}
-.titre-choix.selected { background: var(--accent-soft); border-color: var(--edge-strong); color: var(--accent-text); }
-
-/* La vitrine qu'il choisit : chaque haut fait gagné, et l'ordre de la carte. */
-.vitrine-option {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 10px 12px;
-  border-radius: var(--radius-xs);
-  border: 1px solid var(--edge);
-  background: var(--surface-faint);
-  color: var(--ink);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-/* Le bouton porte le cadre : la ligne, elle, s'efface. */
-.vitrine-a-choisir li { padding: 0; border: 0; background: none; }
-.vitrine-option .hf-corps { flex: 1; display: flex; flex-direction: column; }
-.vitrine-option.selected { border-color: var(--edge-strong); background: var(--accent-soft); }
-.vitrine-option:disabled { opacity: 0.45; cursor: default; }
-.vitrine-rang { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 0.8rem; font-weight: 600; }
-
 /* ── Les pages du téléphone : l'en-tête d'une page, une feuille, des choix ──
    Les pièces de `components/Pieces.tsx`. Une feuille monte du bas, « Fermer »
    toujours en vue ; ses lignes ont la taille d'un pouce. */
@@ -9724,16 +9679,10 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-barre-texte b { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; line-height: 1.2; }
 .loge-barre .btn { flex: none; min-height: 44px; padding: 0 16px; }
 /* Dans les grilles : ce que la carte montre, ce qu'il porte, ce qui est neuf. */
-.case-avatar.essaye,
-.vitrine-option.essaye,
-.titre-choix.essaye { outline: 1.5px dashed var(--accent); outline-offset: 2px; }
+.case-avatar.essaye { outline: 1.5px dashed var(--accent); outline-offset: 2px; }
 .case-avatar.porte::after { content: '✓'; position: absolute; top: -4px; right: -4px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: var(--t-label); font-weight: 700; line-height: 1; box-shadow: 0 0 0 2px var(--bg); }
 .case-avatar.neuve::before,
-.vitrine-option.neuve::before,
 .theme-vitrine.neuve::before { content: ''; position: absolute; top: 3px; left: 3px; z-index: 1; width: 9px; height: 9px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--bg); }
-.vitrine-option[aria-disabled='true'] { opacity: 0.45; cursor: default; }
-.titre-etat { font-family: var(--sans); font-style: normal; font-size: var(--t-label); font-weight: 600; letter-spacing: 0.03em; color: var(--muted); }
-.titre-choix.porte { border-color: var(--edge-strong); }
 .theme-vitrine.theme-essaye { box-shadow: 0 0 0 2px var(--accent), 0 6px 22px rgba(var(--accent-rgb), 0.35); }
 
 /* ── La loge, sur l'avatar : la maquette 1 (sa grille) et la 3 (ses finitions)
@@ -9917,6 +9866,39 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .gerbe-bouquet > span:only-child { transform: none; }
 /* « Aucune » : un anneau en pointillé, ce qui n'éclate pas. */
 .gerbe-aucune { display: block; width: 28px; height: 28px; border: 2px dashed var(--muted); border-radius: 50%; }
+
+/* Titre et Vitrine (le 17 novembre 2026). Chaque pièce est une colonne de ses blocs : l'en-tête, ses choix, son pied. */
+.loge-titres-piece,
+.loge-vitrine-piece { display: flex; flex-direction: column; gap: var(--loge-serre); }
+.loge-reste-de-la-carte { margin: 0; }
+
+/* Les titres : des pastilles, pas une grille — un titre est un mot, de largeur qui varie, et deux tiennent sur une
+   rangée de 320 px. Hautes de 44 px : elles en faisaient 34, et « Aucun » comme le reste se touchait mal. Devant le
+   nom en italique, l'emoji de ce qui l'a ouvert (`emojiDUnTitre`) : la pastille dit d'où elle vient sans une phrase.
+   Son état est celui d'une case d'avatar — le cadre d'or, le halo, la coche, le point rouge — et non un mot dedans. */
+.loge-vignettes.loge-titres { display: flex; flex-wrap: wrap; gap: 4px 6px; }
+.loge-vignette.loge-titre { flex: none; flex-direction: row; align-items: center; gap: 5px; max-width: 100%; padding: 0 11px 0 8px; border-radius: var(--radius-pill); text-align: left; }
+/* Le cadre d'or prend un pixel de bordure de plus : un pixel de marge de moins, rien ne bouge sous le doigt. */
+.loge-vignette.loge-titre.selected { padding: 0 10px 0 7px; }
+.loge-titre-emoji { flex: none; font-size: 1.05rem; line-height: 1; }
+.loge-titre .loge-vignette-nom { font-family: var(--serif); font-style: italic; font-size: 0.98rem; font-weight: 500; line-height: 1.15; }
+/* Le point du neuf déborde sur le bord arrondi : au coin de la boîte, il flottait hors de la pastille. */
+.loge-vignette.loge-titre.neuve::before { top: -3px; left: 11px; }
+
+/* La vitrine : des médailles, quatre par rangée au téléphone. L'emoji du trophée en grand dans un rond, son nom dessous
+   sur deux lignes au plus, et, choisi, son rang sur la carte en pastille d'or au coin — là où la coche de ce qu'il
+   porte se pose sur une autre case : l'option d'office n'a pas de rang, un trophée pas de coche. */
+.loge-vignettes.loge-medailles { --loge-colonnes: 4; }
+.loge-medaille { gap: 3px; padding-inline: 3px; }
+.loge-medaille.selected { padding-inline: 2px; }
+.loge-medaille .loge-vignette-image { width: min(100%, var(--loge-vignette)); height: auto; aspect-ratio: 1; margin: 2px auto 0; border-radius: 50%; background: radial-gradient(circle at 32% 28%, rgba(var(--accent-rgb), 0.34), rgba(var(--accent-rgb), 0.07) 72%), var(--surface); box-shadow: inset 0 0 0 1.5px rgba(var(--accent-rgb), 0.5); }
+/* Le métal d'une piste de carrière en liseré : le bronze, l'argent, l'or — les mots des récompenses, rien d'autre. */
+.loge-medaille-m1 .loge-vignette-image { box-shadow: inset 0 0 0 2px var(--bronze-text); }
+.loge-medaille-m2 .loge-vignette-image { box-shadow: inset 0 0 0 2px var(--argent-text); }
+.loge-medaille-m3 .loge-vignette-image { box-shadow: inset 0 0 0 2px var(--or-text); }
+.loge-medaille-emoji { font-size: 1.9rem; line-height: 1; }
+.loge-medaille .loge-vignette-nom { font-size: 0.75rem; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+.loge-medaille-rang { position: absolute; top: -5px; right: -5px; z-index: 2; display: grid; place-items: center; min-width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 0.8rem; font-weight: 700; line-height: 1; box-shadow: 0 0 0 2px var(--bg); font-variant-numeric: lining-nums tabular-nums; }
 
 /* ── La loge, à la hauteur d'un téléphone ────────────────────────────────
    Ses deux pas (les variables de `.loge-page`, en tête de la section) : rien
