@@ -6322,6 +6322,17 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
   /* Centré par des marges, comme la lumière : un `transform` se composerait avec la rotation des rayons. */
   margin: calc(var(--d) / -2) 0 0 calc(var(--d) / -2);
 }
+/* Là où un médaillon est agrandi de 1,3 — le podium, la carte d'un joueur,
+   son bilan (`.av-emoji > .lg`, plus haut) —, sa bordure grandit avec lui :
+   1,9 em × 1,3. Restée à la taille d'un emoji, elle passait tout entière
+   sous lui, et l'on ne voyait plus que le cercle de sa finition (« sur voir
+   ma carte, la finition passe au-dessus de la bordure », le propriétaire, le
+   17 novembre 2026). Le bandeau cranté d'avant y passait aux trois quarts
+   lui aussi : ses ornements seuls dépassaient. En attendant son dessin,
+   l'emoji qui tient la place garde la bordure à sa taille. */
+.podium-avatar:is(.av-legendaire, .av-portrait) .bo,
+.carte-avatar:is(.av-legendaire, .av-portrait) .bo,
+.bilan-avatar:is(.av-legendaire, .av-portrait) .bo { --d: 2.47em; }
 /* L'éclat qui fait le tour de l'argent, du diamant et des maîtres : un
    pinceau de lumière qui tourne dans un calque découpé à la forme du métal
    (`mask-image`, posée par `Bordure.tsx`). Le calque ne tourne pas — son
@@ -17816,7 +17827,7 @@ span.annonce-admin-merci { cursor: default; }
 .cl-pied .btn { flex: 1; justify-content: center; }
 
 /* Un avatar en grand garde la marge de sa bordure de ligue, qui déborde de lui (`--d: 1.9em`, règle `medaillons.md`) :
-   sans elle, le Fleuron de l'or mordait sur le prénom écrit dessous. */
+   sans elle, la bordure de l'or mordait sur le prénom écrit dessous. */
 .cl-vs-cote > .av,
 .cl-vitrine-tete > .av,
 .cl-sa-place > .av { margin: 0.45em; }
