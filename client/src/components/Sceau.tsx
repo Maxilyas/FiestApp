@@ -6,8 +6,9 @@ import { metalDeLaFinition, type Metal } from './metaux'
 // propriétaire le 9 novembre 2026, `retours/2026-11-09/sceau/`). Le légendaire
 // qu'on tient par sa voie d'origine — pas seulement par le raccourci du
 // Cabinet — la porte au sommet de son cercle : une étoile de navigation
-// taillée, sa pierre au cœur, dans le métal de la finition portée, celui que
-// la bordure de ligue prend déjà (`metaux.ts`). Sur une bordure, elle la
+// taillée, sa pierre au cœur, dans le métal de la finition portée, celui du
+// cercle de son médaillon (`metaux.ts`). Sur une bordure de ligue — au métal
+// de sa ligue depuis le 17 novembre 2026 —, elle garde le sien et la
 // couronne. Elle fait partie de la tenue : le haut du cercle était le seul
 // endroit libre — l'Éclat a son coin en bas, la gemme du niveau et le
 // compagnon les coins de la carte.

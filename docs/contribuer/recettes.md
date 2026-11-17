@@ -422,7 +422,7 @@ Ce sont des choix de produit (CLAUDE.md, « Ce qu'il ne faut pas faire ») : dis
 
 1. `shared/duels.ts` : sa clé dans `CleDeLigue`, sa ligne dans `LIGUES` (nom, nom court, cote de départ, confettis du lundi), le nom de sa bordure dans `NOM_DE_LA_BORDURE`.
 2. `client/src/components/Blason.tsx` : son emblème (`EMBLEMES`).
-3. `client/src/components/dessinDesBordures.ts` : le métal et le dessin de sa bordure (règle `.claude/rules/medaillons.md`).
+3. `client/src/components/dessinDesBordures.ts` : le dessin de sa bordure — sa feuille (`FEUILLES`), sa pierre (`PIERRES`), son insigne (`insigne`) —, et son métal dans `client/src/components/metaux.ts` (règle `.claude/rules/medaillons.md`).
 4. `client/src/styles.css` : ses couleurs (`.ligue-<clé>`, `--lueur` et `--ligue-vif`, dans les deux blocs).
 5. `client/src/views/Duels.tsx` : le cadran donne trente degrés à chaque ligue sur un demi-cercle (`angleDeLaCote`, `CadranDesLigues`) — une septième le déborde.
 6. Regarde le rendu : `server/scripts/rendu-bordures.ts` (six joueurs du bronze aux maîtres) et `server/scripts/rendu-duels.ts`, client construit d'abord (skill `regarder-le-rendu`).

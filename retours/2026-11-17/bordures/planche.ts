@@ -7,6 +7,11 @@
 //
 //   cd server && npx tsx ../retours/2026-11-17/bordures/planche.ts
 //
+// Au commit de la planche seulement (`67d72d9`) : sa colonne « Aujourd'hui »
+// et sa piste 1 lisent le dessin que l'application avait ce jour-là
+// (`svgDuCadre(ligue, crans, finition)`, `svgDesRayons`), et la parure
+// retenue l'a remplacé au commit suivant.
+//
 // Écrit `planche.html`, `planche-ivoire.html` (que git ignore : six mégaoctets
 // chacune, la feuille de l'application comprise — les peintures s'y lisent
 // dans `client/public`, par un chemin relatif) et leurs photos à côté d'elles,

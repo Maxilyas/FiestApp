@@ -422,13 +422,19 @@ export interface SemaineJouee {
 // ── Les bordures de ligue ───────────────────────────────────────────────────
 //
 // Le souhait du propriétaire du 12 octobre 2026, sur la maquette des
-// alliages : chaque ligue atteinte ouvre sa bordure crantée autour de
-// l'avatar — la ligue en donne la forme et la pierre, la finition le métal —,
-// et chaque duel gagné dans cette ligue ou plus haut en sertit un cran. Rien
+// alliages : chaque ligue atteinte ouvre sa bordure autour de l'avatar, et
+// chaque duel gagné dans cette ligue ou plus haut en sertit un cran. Rien
 // ne se tient à côté : comme la cote, les crans se relisent dans le journal
 // des duels (`releverLesDuels`), et ne font que monter — redescendre de ligue
 // ne reprend ni la bordure ni ses crans. Seul le choix de celle qu'on porte
 // s'enregistre (`profiles.bordure`).
+//
+// Son dessin a changé le 17 novembre 2026 (la planche de trois pistes,
+// `retours/2026-11-17/bordures/`, et le choix du propriétaire) : le bandeau
+// cranté des alliages — la ligue en donnait la forme, la finition le métal —
+// est devenu une parure, au métal de la ligue, où chaque cran est un brin de
+// feuilles (`client/src/components/dessinDesBordures.ts`). Les crans se
+// comptent comme avant ; trois noms ont suivi le dessin (`NOM_DE_LA_BORDURE`).
 //
 // « Ou plus haut » depuis le 10 novembre 2026 (le propriétaire : « comme on
 // ne peut pas redescendre dans certaines ligues, on ne peut pas compléter
@@ -436,9 +442,9 @@ export interface SemaineJouee {
 // elle s'était jouée — la règle du 12 octobre, deux jours avant la montée.
 // Depuis elle, cent points sous l'Or se traversent en six victoires au dé,
 // sept au mieux contre quelqu'un, et l'Argent, l'Or et la Platine atteints,
-// on n'y revient pas : le Moletage et le Perlé s'arrêtaient à six crans sur
-// douze pour tout le monde, et les Fleurons pour qui traversait l'Or trop
-// vite — sertis par huit joueurs sur dix qui gagnent quatre duels sur dix,
+// on n'y revient pas : les bordures du bronze et de l'argent s'arrêtaient à
+// six crans sur douze pour tout le monde, et celle de l'or pour qui la
+// traversait trop vite — sertie par huit joueurs sur dix qui gagnent quatre duels sur dix,
 // par un sur six qui en gagne six : plus on gagnait, moins on la finissait
 // (simulé au dé, avec `apresLeDuel`). Une victoire compte donc aussi pour les
 // ligues d'en dessous : qui gagne en Or aurait gagné en Bronze. Le Bronze se
@@ -469,11 +475,18 @@ export function ouSeGagnentSesCrans(ligue: CleDeLigue): string {
   return `en ${l.nom.toLowerCase()}${ligueSuivante(l) ? ' ou plus haut' : ''}`
 }
 
-/** Le nom de la bordure de chaque ligue, dans une phrase comme sur une pastille. */
+/**
+ * Le nom de la bordure de chaque ligue, dans une phrase comme sur une
+ * pastille — celui de ses feuilles. Jusqu'au 17 novembre 2026, les trois
+ * premières s'appelaient le Moletage, le Perlé et les Fleurons, du nom de
+ * leur bandeau cranté : la parure n'a plus ni dents, ni perles, ni fleurs de
+ * lys autour de l'avatar (« Le Laurier », lui, est au quiz du jour). Rien en
+ * base ne porte ces noms : une bordure se range par sa ligue.
+ */
 export const NOM_DE_LA_BORDURE: Record<CleDeLigue, string> = {
-  bronze: 'Le Moletage',
-  argent: 'Le Perlé',
-  or: 'Les Fleurons',
+  bronze: 'Le Rameau',
+  argent: 'L’Olivier',
+  or: 'Les Feuilles d’or',
   platine: 'Le Givre',
   diamant: 'La Couronne de brillants',
   maitre: 'Le Soleil noir',

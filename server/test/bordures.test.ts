@@ -1,10 +1,17 @@
 // Les bordures de ligue (le souhait du propriétaire du 12 octobre 2026, sur
 // la maquette des alliages : « Go pour implémenter ça ») : chaque ligue
-// atteinte en duel ouvre sa bordure crantée autour de l'avatar, chaque duel
-// gagné dans la ligue ou plus haut en sertit un cran, douze la sertissent. La
-// ligue donne la forme et la pierre, la finition le métal. Rien ne se tient à
-// côté : les crans se relisent dans le journal des duels, seul le choix
-// s'enregistre.
+// atteinte en duel ouvre sa bordure autour de l'avatar, chaque duel gagné
+// dans la ligue ou plus haut en sertit un cran, douze la sertissent. Rien ne
+// se tient à côté : les crans se relisent dans le journal des duels, seul le
+// choix s'enregistre.
+//
+// Son dessin, depuis le 17 novembre 2026 (la planche de trois pistes,
+// `retours/2026-11-17/bordures/`, « Mets en place tes recommandations ») :
+// une parure — un fil toujours entier, l'insigne de la ligue en bas, un brin
+// de feuilles par cran, du bas vers le haut des deux côtés —, au métal de sa
+// ligue. Le bandeau cranté d'avant prenait le métal de la finition et
+// dessinait en pointillé ce qui restait à gagner : quatorze bordures sur
+// dix-neuf, en production, étaient un coin de métal sur une roue fantôme.
 //
 // « Ou plus haut » depuis le 10 novembre 2026 (le propriétaire : « une
 // victoire compte aussi pour les ligues d'en dessous ») : comptée dans sa
@@ -110,7 +117,7 @@ test('un duel gagné sertit un cran de sa ligue et de celles d’en dessous ; ri
 
 test('une ligue gardée se sertit d’en haut : le bronze et l’argent, qu’on traverse en six victoires, ne restent plus à six crans', () => {
   // Rien que des victoires au dé : dix-sept points chacune sous l'Or, la sixième fait quitter le bronze — pour
-  // toujours, l'argent se garde. Comptées dans leur seule ligue, le Moletage s'arrêtait là, à six crans sur douze.
+  // toujours, l'argent se garde. Comptées dans leur seule ligue, la bordure du bronze s'arrêtait là, à six crans sur douze.
   const victoires = (n: number) => [...Array(n)].map((_, i) => auDe(i, 9, 8))
   assert.deepEqual(cransDe(victoires(6)), { bronze: 6, argent: 0 })
   // Les suivantes se jouent en argent, puis en or : elles comptent aussi pour le bronze, qui se sertit à la douzième.
@@ -181,37 +188,79 @@ test('la bordure portée : auto, la plus haute qui a un cran ; une ligue choisie
   assert.equal(choixDeBordure('maitre'), 'maitre')
 })
 
-// ── 2. Le dessin : la ligue donne la forme et la pierre, la finition le métal ──
+// ── 2. Le dessin : une parure qui pousse, au métal de sa ligue ────────────
 
 interface Dessins {
-  svgDuCadre(ligue: string, crans: number, finition: string): string
-  svgDesRayons(ligue: string, crans: number, finition: string): string | null
-  dessinDeBordure(ligue: string, crans: number, finition: string): { cadre: string; rayons: string | null }
+  ANGLES: readonly number[]
+  svgDuCadre(ligue: string, crans: number): string
+  svgDeLaSilhouette(ligue: string, crans: number): string | null
+  dessinDeBordure(ligue: string, crans: number): { cadre: string; silhouette: string | null }
 }
 
-test('chaque cran est une victoire : les rubis des Fleurons s’allument tous les trois, sertie elle s’illumine', async () => {
+const LES_LIGUES = ['bronze', 'argent', 'or', 'platine', 'diamant', 'maitre']
+
+test('chaque cran est une victoire : un brin de feuilles de plus, un bourgeon de moins ; sertie, elle s’illumine', async () => {
   const d: Dessins = await import(url('components/dessinDesBordures.ts'))
-  // Les quatre rubis : un tous les trois crans, celui de midi au douzième.
-  const rubis = (svg: string) => (svg.match(/<path d="([^"]*)" fill="#8f1028"/)?.[1].match(/M/g) ?? []).length
-  assert.deepEqual([2, 3, 8, 9, 12].map(n => rubis(d.svgDuCadre('or', n, 'or'))), [0, 1, 2, 3, 4])
-  // Un cran à gagner se dessine en pointillé ; sertie, plus aucun, et sa lueur s'allume.
-  assert.match(d.svgDuCadre('argent', 0, 'holo'), /stroke-dasharray/)
-  assert.match(d.svgDuCadre('argent', 11, 'holo'), /stroke-dasharray/)
-  assert.doesNotMatch(d.svgDuCadre('argent', 11, 'holo'), /filter="url\(#b\)"/)
-  assert.doesNotMatch(d.svgDuCadre('argent', 12, 'holo'), /stroke-dasharray/)
-  assert.match(d.svgDuCadre('argent', 12, 'holo'), /filter="url\(#b\)"/)
-  // La finition donne le métal ; en Mat, c'est celui de la ligue.
-  assert.notEqual(d.svgDuCadre('or', 12, 'or'), d.svgDuCadre('or', 12, 'argent'))
-  assert.equal(d.svgDuCadre('argent', 12, 'mat'), d.svgDuCadre('argent', 12, 'argent'))
-  assert.equal(d.svgDuCadre('platine', 12, 'mat').includes('#f2f6fa'), true, 'le Givre en Mat est de platine')
+  // Un cran à gagner est un bourgeon sur le fil, un cran gagné un brin de deux feuilles et sa pierre : jamais un
+  // pointillé — quatorze bordures sur dix-neuf, en production, étaient une roue fantôme.
+  const bourgeons = (svg: string) => (svg.match(/<path d="([^"]*)" fill="url\(#s\)" stroke="[^"]*" stroke-width="\.45"\/>/)?.[1].match(/M/g) ?? []).length
+  const feuilles = (svg: string) => (svg.match(/fill="url\(#m\)" stroke="[^"]*" stroke-width="0\.5" stroke-linejoin="round"\/>/g) ?? []).length
+  for (const n of [0, 1, 2, 7, 11, 12]) {
+    const svg = d.svgDuCadre('or', n)
+    assert.equal(bourgeons(svg), 12 - n, `${n} crans : ses bourgeons`)
+    assert.equal(feuilles(svg), n, `${n} crans : ses brins`)
+    assert.doesNotMatch(svg, /stroke-dasharray/, `${n} crans : aucun pointillé`)
+  }
+  // Le fil est toujours entier, de 59,8 à 62,6 : sans un duel gagné, la bordure est déjà un cadre, et son insigne dit la ligue.
+  for (const ligue of LES_LIGUES) assert.match(d.svgDuCadre(ligue, 0), /^<svg[^>]*><defs>.*<\/defs><g[^>]*>.*<\/g><path d="M37\.4 100a62\.6 62\.6[^"]*M40\.2 100a59\.8 59\.8[^"]*" fill-rule="evenodd" fill="url\(#m\)"/, ligue)
+  assert.ok(new Set(LES_LIGUES.map(l => d.svgDuCadre(l, 0))).size === LES_LIGUES.length, 'six insignes, six métaux')
+  // Sa lueur ne s'allume que sertie.
+  assert.doesNotMatch(d.svgDuCadre('argent', 11), /stroke-width="7" opacity="\.5" filter="url\(#b\)"/)
+  assert.match(d.svgDuCadre('argent', 12), /stroke-width="7" opacity="\.5" filter="url\(#b\)"/)
+  // Hors de ses bornes, un compte se ramène à ce qui se dessine.
+  assert.equal(d.svgDuCadre('or', 40), d.svgDuCadre('or', 12))
+  assert.equal(d.svgDuCadre('or', -3), d.svgDuCadre('or', 0))
   // Rien au milieu : l'emoji garde son halo, le médaillon son cercle.
-  assert.doesNotMatch(d.svgDuCadre('bronze', 12, 'or'), /<circle cx="100" cy="100" r="(5\d|[1-4]\d)(\.\d+)?" fill="(?!none)/)
-  // Seuls les maîtres ont des rayons, à part : ils tournent.
-  assert.equal(d.svgDesRayons('or', 12, 'or'), null)
-  assert.match(d.svgDesRayons('maitre', 12, 'or')!, /<path/)
-  // Une image par alliage et par nombre de crans, faite une fois pour la page.
-  assert.equal(d.dessinDeBordure('or', 7, 'or'), d.dessinDeBordure('or', 7, 'or'))
-  assert.match(d.dessinDeBordure('or', 7, 'or').cadre, /^data:image\/svg\+xml,/)
+  for (const ligue of LES_LIGUES) assert.doesNotMatch(d.svgDuCadre(ligue, 12), /<circle cx="100" cy="100" r="(5\d|[1-4]\d)(\.\d+)?" fill="(?!none)/, ligue)
+  // Une image par ligue et par nombre de crans, faite une fois pour la page.
+  assert.equal(d.dessinDeBordure('or', 7), d.dessinDeBordure('or', 7))
+  assert.match(d.dessinDeBordure('or', 7).cadre, /^data:image\/svg\+xml,/)
+})
+
+test('les crans montent du bas, des deux côtés à la fois : à chaque victoire, la bordure reste symétrique', async () => {
+  const d: Dessins = await import(url('components/dessinDesBordures.ts'))
+  // Douze places, toutes différentes, une tous les trente degrés.
+  assert.equal(d.ANGLES.length, 12)
+  assert.deepEqual([...d.ANGLES].sort((a, b) => a - b), [15, 45, 75, 105, 135, 165, 195, 225, 255, 285, 315, 345])
+  // Chaque paire se fait face, de part et d'autre de la verticale : la droite d'abord, sa jumelle ensuite.
+  for (let i = 0; i < 12; i += 2) assert.equal(d.ANGLES[i] + d.ANGLES[i + 1], 360, `les crans ${i + 1} et ${i + 2}`)
+  // Du bas (180°) vers le haut : sertis depuis midi dans le sens des aiguilles d'une montre, les premiers faisaient un
+  // coin de travers, et ce qui sort d'un médaillon couvrait le haut.
+  const duBas = d.ANGLES.filter((_, i) => i % 2 === 0).map(a => 180 - a)
+  assert.deepEqual(duBas, [...duBas].sort((a, b) => a - b))
+  assert.equal(d.ANGLES[0], 165)
+})
+
+test('le métal est celui de la ligue, quelle que soit la finition — et l’éclat ne suit que le métal', async () => {
+  const d: Dessins = await import(url('components/dessinDesBordures.ts'))
+  const { METAUX } = await import(url('components/metaux.ts'))
+  // Le bronze est de bronze, l'or des maîtres autour de leur émail noir : la finition n'entre plus dans le dessin.
+  for (const ligue of LES_LIGUES) {
+    const metal = METAUX[ligue === 'maitre' ? 'or' : ligue]
+    assert.ok(d.svgDuCadre(ligue, 12).includes(`stop-color="${metal.m[1]}"`), `${ligue} : son métal`)
+  }
+  assert.equal(d.svgDuCadre.length, 2, 'ni finition, ni alliage')
+  // Aucune couleur d'une finition irisée : en Holo, Prisme ou Aurore, le bandeau d'avant faisait un arc-en-ciel pastel.
+  for (const finition of ['holo', 'prisme', 'aurore']) for (const c of METAUX[finition].m) assert.ok(!d.svgDuCadre('bronze', 12).includes(c), `${finition} ${c}`)
+  // L'éclat qui fait le tour : l'argent et le diamant, comme avant, et les maîtres à la place de leurs rayons. Sa
+  // silhouette est le métal seul — ni ombre ni lueur : il ne passe pas entre les feuilles.
+  for (const ligue of ['bronze', 'or', 'platine']) assert.equal(d.svgDeLaSilhouette(ligue, 12), null, ligue)
+  for (const ligue of ['argent', 'diamant', 'maitre']) {
+    const silhouette = d.svgDeLaSilhouette(ligue, 12)!
+    assert.doesNotMatch(silhouette, /filter="url\(#[bo]\)"/, `${ligue} : ni ombre ni lueur`)
+    assert.equal(d.dessinDeBordure(ligue, 12).silhouette, `data:image/svg+xml,${encodeURIComponent(silhouette)}`)
+  }
+  assert.equal(d.dessinDeBordure('or', 12).silhouette, null)
 })
 
 // ── 3. Autour de l'avatar ─────────────────────────────────────────────────
@@ -249,8 +298,15 @@ test('la bordure vient avec son fichier, derrière l’avatar ; ce qui sort d’
   // Muette : l'oreille entend l'avatar, pas ses crans.
   assert.match(emoji, /<span class="bo bo-or" aria-hidden="true">/)
   assert.doesNotMatch(emoji, /<img(?![^>]*alt="")/, 'chaque image est décorative')
-  // Sertie, elle le dit à sa classe ; aux maîtres, ses rayons à part.
-  assert.match(await avatar({ finition: 'or', bordure: { ligue: 'maitre', crans: 12 } }), /class="bo bo-maitre bo-sertie" aria-hidden="true"><img class="bo-rayons"/)
+  // Sertie, elle le dit à sa classe. Aux maîtres, à l'argent et au diamant, son éclat : un calque découpé à la forme
+  // de son métal, et dedans le pinceau de lumière qui tourne — le masque, lui, ne tourne pas.
+  const maitre = await avatar({ finition: 'or', bordure: { ligue: 'maitre', crans: 12 } })
+  assert.match(maitre, /class="bo bo-maitre bo-sertie" aria-hidden="true"><img class="bo-cadre"[^>]*\/><i class="bo-reflet" style="[^"]*mask-image:url\(&quot;data:image\/svg\+xml,[^"]*&quot;\)"><i><\/i><\/i><\/span>/)
+  assert.doesNotMatch(emoji, /bo-reflet/, 'l’or n’a pas d’éclat')
+  // Le métal est celui de la ligue : la même bordure sous toutes les finitions.
+  const cadreDe = (html: string) => html.match(/class="bo-cadre" src="([^"]*)"/)?.[1]
+  assert.ok(cadreDe(emoji))
+  assert.equal(cadreDe(await avatar({ finition: 'holo', bordure: OR_3 })), cadreDe(emoji))
   // Le Phénix éclaté sort de son cadre par-dessus la bordure : son débord vit dans l'avatar, posé après elle.
   const phenix = await avatar({ legendaire: 'lg:phenix', finition: 'or', eclat: true, bordure: { ligue: 'or', crans: 12 } })
   assert.match(phenix, /lg-debord/)
@@ -295,14 +351,24 @@ test('sous une bordure, la lumière des finitions 15, 20 et 25 garde son atmosph
 })
 
 test('la bordure ne bouge que par ce que le navigateur compose, se fige dans les listes, s’arrête avec moins de mouvement', () => {
-  for (const calque of ['bo-rayons', 'bo-reflet']) {
-    const corps = CSS.match(new RegExp(`\\.${calque}\\s*\\{([^}]*)\\}`))?.[1] ?? ''
-    assert.match(corps, /animation:\s*av-tourne\b/, `${calque} tourne par rotate`)
-  }
   const regles = [...CSS.matchAll(/([^{}@]+)\{([^{}]*)\}/g)].map(([, sel, corps]) => ({ sel: sel.trim(), corps }))
-  const figee = regles.find(r => r.sel.split(',').some(s => s.trim() === '.av.lb-avatar:not(.av-sujet) .bo *'))
+  const regle = (selecteur: string) => regles.find(r => r.sel.split(',').some(s => s.trim() === selecteur))
+  // L'éclat : son pinceau tourne par `rotate`, dans un calque qui ne bouge pas — un masque qui tournerait avec lui
+  // ferait tourner la forme de la bordure.
+  assert.match(regle('.bo-reflet > i')?.corps ?? '', /animation:\s*av-tourne\b/, 'le pinceau tourne par rotate')
+  assert.doesNotMatch(regle('.bo-reflet')?.corps ?? 'animation', /animation|transform|rotate/, 'le calque masqué ne bouge pas')
+  assert.match(regle('.bo-reflet')?.corps ?? '', /mask:\s*center \/ 100% 100% no-repeat/)
+  // Plus de rayons à part : les flammes des maîtres sont leurs feuilles.
+  assert.doesNotMatch(CSS, /\.bo-rayons/)
+  const figee = regle('.av.lb-avatar:not(.av-sujet) .bo *')
   assert.ok(figee && /animation:\s*none/.test(figee.corps), 'figée dans une ligne de classement')
+  // Dans une liste et dans une puce, l'éclat s'en va tout entier : arrêté, il ne serait qu'une tache claire.
+  for (const s of ['.av.lb-avatar:not(.av-sujet) .bo-reflet', '.player-chip .bo-reflet']) assert.match(regle(s)?.corps ?? '', /display:\s*none/, s)
   assert.match(CSS, /\.bo \* \{ animation: none !important; \}/)
+  // Avec moins de mouvement aussi, dans la même requête que l'arrêt des animations.
+  assert.match(CSS, /@media \(prefers-reduced-motion: reduce\) \{\s*\.bo \* \{ animation: none !important; \}\s*\.bo \.bo-reflet \{ display: none; \}\s*\}/)
+  // Autour d'un fil, le filet du halo d'Or ferait un second cercle, plus grand qu'elle.
+  assert.match(regle('.av-bordure.av-or::before')?.corps ?? '', /box-shadow:\s*none/)
 })
 
 // ── 4. Le serveur : son choix, ses refus, et ce que les autres voient ─────

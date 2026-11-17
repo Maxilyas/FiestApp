@@ -235,10 +235,10 @@ jour a sa notification (règle `rappel-et-installation.md`).
   sa ligue **ou plus haut**, douze au plus (`releverLesDuels`, le cumul de la
   plus haute à la plus basse). Comptée dans la seule ligue où elle s'était
   jouée — la règle du 12 octobre, deux jours avant la montée —, une victoire
-  laissait le Moletage et le Perlé à six crans pour tout le monde : sous
+  laissait les bordures du bronze et de l'argent à six crans pour tout le monde : sous
   l'Or, cent points se traversent en six victoires au dé, sept au mieux
-  contre quelqu'un, et une ligue gardée ne se retrouve pas ; les Fleurons,
-  eux, échappaient à qui traversait l'Or trop vite — plus on gagnait, moins
+  contre quelqu'un, et une ligue gardée ne se retrouve pas ; celle de l'or,
+  elle, échappait à qui traversait l'Or trop vite — plus on gagnait, moins
   on la finissait. Une règle des ligues gardées, de la montée ou des crans
   se relit donc avec les bordures : toute bordure d'une ligue gardée doit
   rester finissable d'où l'on est (`bordures.test.ts` joue une carrière au

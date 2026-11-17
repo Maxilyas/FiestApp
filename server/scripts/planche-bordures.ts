@@ -1,6 +1,9 @@
-// La planche des bordures de ligue : chaque alliage — six ligues, douze
-// finitions —, rendu par les vrais composants (`Avatar.tsx`, `Bordure.tsx`,
-// `Lumiere.tsx`) sous la vraie feuille de style, puis photographié.
+// La planche des bordures de ligue : chaque parure sous chaque finition — six
+// ligues, douze finitions —, rendue par les vrais composants (`Avatar.tsx`,
+// `Bordure.tsx`, `Lumiere.tsx`) sous la vraie feuille de style, puis
+// photographiée. Le métal est celui de la ligue : d'une finition à l'autre,
+// la bordure ne change pas — c'est ce qui l'entoure qu'on regarde, le halo,
+// le cercle du médaillon, la lumière.
 //
 // En grand, comme sur la carte ; à la taille d'une ligne du classement des
 // duels et d'une pastille de la loge, où elle doit encore se reconnaître. Ses
@@ -82,19 +85,18 @@ const alliages = LIGUES.map(
   </div>`,
 ).join('')
 
-const crans = `<h2>Chaque cran est une victoire</h2>${(['or', 'maitre'] as const)
-  .map(
-    ligue => `<div class="ligne"><div class="nom">${NOM_DE_LA_BORDURE[ligue]}<small>finition Or</small></div>
-    ${[0, 1, 3, 6, 9, 11, 12].map(n => case_({ finition: 'or', bordure: { ligue, crans: n } }, 44, `${n} sur 12`)).join('')}</div>`,
-  )
-  .join('')}`
+const crans = `<h2>Chaque cran est une victoire</h2>${LIGUES.map(
+  l => `<div class="ligne"><div class="nom">${NOM_DE_LA_BORDURE[l.cle]}<small>finition Or</small></div>
+    ${[0, 1, 2, 3, 5, 8, 11, 12].map(n => case_({ finition: 'or', bordure: { ligue: l.cle, crans: n } }, 44, `${n} sur 12`)).join('')}</div>`,
+).join('')}`
 
 const ultime = PORTRAITS.filter(p => p.branche === 'mythes').at(-1)!.key
 const debords = `<h2>Ce qui déborde passe par-dessus</h2><div class="ligne">
     <div class="nom">Médaillons<small>la carte, le profil</small></div>
-    ${case_({ legendaire: 'lg:phenix', finition: 'or', eclat: true, bordure: { ligue: 'or', crans: 12 }, className: 'av-sujet' }, 64, 'Phénix éclaté · Fleurons')}
+    ${case_({ legendaire: 'lg:phenix', finition: 'or', eclat: true, bordure: { ligue: 'or', crans: 12 }, className: 'av-sujet' }, 64, 'Phénix éclaté · Feuilles d’or')}
     ${case_({ legendaire: ultime, finition: 'argent', bordure: { ligue: 'platine', crans: 9 }, className: 'av-sujet' }, 64, 'Portrait ultime · Givre')}
     ${case_({ legendaire: 'lg:kraken', finition: 'constellation', bordure: { ligue: 'maitre', crans: 12 }, className: 'av-sujet' }, 64, 'Kraken · Soleil noir')}
+    ${case_({ legendaire: 'lg:phenix', finition: 'or', sceau: true, bordure: { ligue: 'or', crans: 7 }, className: 'av-sujet' }, 64, 'Phénix scellé : son étoile')}
     ${case_({ legendaire: 'dv:seraphin', finition: 'constellation', bordure: { ligue: 'maitre', crans: 12 }, className: 'av-sujet' }, 64, 'Divin : aucune')}
   </div>
   <div class="ligne">
@@ -115,7 +117,7 @@ const listes = `<h2>En petit</h2><div class="ligne">
   </div>`
 
 const PLANCHES: [string, string][] = [
-  ['bordures', page('Les bordures de ligue', 'Six ligues, douze finitions : la ligue donne la forme et la pierre, la finition le métal', alliages + crans + debords + listes)],
+  ['bordures', page('Les bordures de ligue', 'Six ligues, douze finitions : une parure au métal de sa ligue, la finition autour d’elle', alliages + crans + debords + listes)],
   ['bordures-ivoire', page('Les bordures de ligue, en Ivoire', 'Le thème clair', alliages + listes, 'ivoire')],
 ]
 

@@ -5,8 +5,16 @@ bordures que l'on gagne via les duels. Je trouve parfois que ce n'est pas très
 joli avec l'avatar. Peux-tu me faire des propositions pour avoir quelque chose
 de vraiment joli ? Tu peux regarder sur la prod. »
 
-Une maquette, pas du code livré : rien de `client/` ne bouge tant qu'une piste
-n'est pas choisie.
+**Le choix**, le même jour, devant la planche : « Mets en place tes
+recommandations » — la parure, au métal de la ligue. Elle est dans
+`client/src/components/dessinDesBordures.ts` depuis le commit suivant ; trois
+bordures ont changé de nom avec leur dessin (le Rameau, l'Olivier, les
+Feuilles d'or).
+
+Ce dossier reste la maquette telle qu'elle a été montrée. `planche.ts` lisait
+le dessin de l'application pour sa colonne « Aujourd'hui » et sa piste 1
+(`svgDuCadre(ligue, crans, finition)`, `svgDesRayons`) : il ne se rejoue plus
+qu'au commit de la planche (`67d72d9`).
 
 ## Ce que la production montre
 
@@ -106,6 +114,8 @@ piste 1 ne règle que le premier des trois défauts.
   mieux que celui d'aujourd'hui (la loupe, au bas de chaque photo).
 
 ## Refaire la planche
+
+Au commit de la planche (`git checkout 67d72d9`) :
 
 ```bash
 cd server && npx tsx ../retours/2026-11-17/bordures/planche.ts

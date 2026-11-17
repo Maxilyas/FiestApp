@@ -6282,17 +6282,24 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 
 /* ── Les bordures de ligue ────────────────────────────────────────────────
 
-   La bordure crantée de sa ligue des duels (`Bordure.tsx`, la maquette des
-   alliages du 12 octobre 2026) : une image centrée sur l'avatar et
-   dimensionnée en `em`, comme la lumière des finitions — elle grandit avec
-   lui. Derrière l'emoji ou le médaillon (`.av-emoji`, au-dessus) : ce qui
-   sort d'un médaillon — des ailes, une lance — passe par-dessus elle, comme
-   par-dessus son anneau. Devant ce que la lumière pose derrière, posée
-   après elle. Ses rayons et son reflet ne bougent que par `rotate`.
+   La bordure de sa ligue des duels (`Bordure.tsx`, la parure du 17 novembre
+   2026 — un fil de métal, des feuilles qui poussent) : une image centrée sur
+   l'avatar et dimensionnée en `em`, comme la lumière des finitions — elle
+   grandit avec lui. Derrière l'emoji ou le médaillon (`.av-emoji`,
+   au-dessus) : ce qui sort d'un médaillon — des ailes, une lance — passe
+   par-dessus elle, comme par-dessus son anneau. Devant ce que la lumière
+   pose derrière, posée après elle. Son éclat ne bouge que par `rotate`.
 
-   1,9 em : le disque de l'avatar (1,12 em pour un médaillon) tient dans sa
-   sertissure, et ses ornements débordent de 0,45 em autour de l'emoji. */
+   1,9 em : le disque de l'avatar (1,12 em pour un médaillon) tient dans son
+   fil, ses feuilles débordent de 0,3 em autour de l'emoji, son insigne de
+   0,45 em vers le bas — la marge que les pages lui gardaient déjà, du temps
+   du bandeau cranté. */
 .av-bordure { isolation: isolate; }
+/* Le filet du halo d'Or, à 1,45 em — et celui de l'Argent sur l'Ivoire : sous
+   le bandeau d'avant, large, ils ne se voyaient pas ; autour d'un fil, ils
+   faisaient un second cercle, plus grand que la bordure. */
+.av-bordure.av-or::before,
+:root[data-theme='ivoire'] .av-bordure.av-argent:where(:not(.carte-fond, .carte-fond *))::before { box-shadow: none; }
 
 .bo {
   --d: 1.9em;
@@ -6315,18 +6322,33 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
   /* Centré par des marges, comme la lumière : un `transform` se composerait avec la rotation des rayons. */
   margin: calc(var(--d) / -2) 0 0 calc(var(--d) / -2);
 }
-/* Le Soleil noir : ses rayons tournent lentement, à part du cadre. */
-.bo-rayons { animation: av-tourne 120s linear infinite; }
-/* Le reflet du Perlé, qui fait le tour ; la vague de la Couronne, plus vive. */
+/* L'éclat qui fait le tour de l'argent, du diamant et des maîtres : un
+   pinceau de lumière qui tourne dans un calque découpé à la forme du métal
+   (`mask-image`, posée par `Bordure.tsx`). Le calque ne tourne pas — son
+   masque tournerait avec lui —, c'est son enfant qui tourne dedans. Découpé
+   en anneau, comme sous le bandeau d'avant, il serait passé aussi entre les
+   feuilles. */
 .bo-reflet {
+  -webkit-mask: center / 100% 100% no-repeat;
+  mask: center / 100% 100% no-repeat;
+  opacity: 0.6;
+}
+.bo-reflet > i {
+  position: absolute;
+  inset: 0;
   border-radius: 50%;
-  background: conic-gradient(rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.75) 14deg, rgba(255, 255, 255, 0) 34deg);
-  -webkit-mask: radial-gradient(closest-side, transparent 62%, #000 64%, #000 95%, transparent 97%);
-  mask: radial-gradient(closest-side, transparent 62%, #000 64%, #000 95%, transparent 97%);
-  opacity: 0.5;
+  background: conic-gradient(rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.9) 14deg, rgba(255, 255, 255, 0) 34deg);
   animation: av-tourne 6s linear infinite;
 }
-.bo-diamant .bo-reflet { opacity: 0.6; animation-duration: 3.4s; }
+/* La vague du diamant, plus vive ; l'or des maîtres, plus lent — il a pris la place de leurs rayons. */
+.bo-diamant .bo-reflet > i { animation-duration: 3.4s; }
+.bo-maitre .bo-reflet > i {
+  background: conic-gradient(rgba(255, 226, 150, 0), rgba(255, 240, 196, 0.95) 16deg, rgba(255, 226, 150, 0) 40deg);
+  animation-duration: 9s;
+}
+/* Dans une liste, où rien ne bouge, l'éclat arrêté ne serait qu'une tache claire : il s'en va, et son masque avec lui. */
+.av.lb-avatar:not(.av-sujet) .bo-reflet,
+.player-chip .bo-reflet { display: none; }
 
 /* Là où l'avatar est le sujet — sa carte, la loge, sa ligne en tête du
    profil —, la page réserve la place de la bordure : sans marge, elle
@@ -6341,13 +6363,15 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
    passait sous la bordure. */
 .marche-avatar.av-bordure { margin-block: 0.4em 0.3em; }
 /* Les puces de la salle d'attente, à l'écran commun : à 1,9 em, elle
-   débordait de la puce ; resserrée, l'emoji tient encore dans sa
-   sertissure, et elle s'écarte du bord arrondi. */
+   débordait de la puce ; resserrée, l'emoji tient encore dans son fil, et
+   elle s'écarte du bord arrondi. */
 .player-chip .bo { --d: 1.7em; }
 .player-chip .player-avatar.av-bordure { margin-inline-start: 0.12em; }
 
+/* Moins de mouvement : l'éclat s'en va avec sa rotation — arrêté, il resterait une tache claire sur deux feuilles. */
 @media (prefers-reduced-motion: reduce) {
   .bo * { animation: none !important; }
+  .bo .bo-reflet { display: none; }
 }
 
 /* Les halos débordent l'emoji : dans le choix des finitions, ils ont la
@@ -6494,8 +6518,8 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
    Le légendaire qu'on tient par sa voie d'origine, pas seulement par le
    raccourci du Cabinet (`Sceau.tsx`, la planche validée le 9 novembre 2026,
    `retours/2026-11-09/sceau/`) : une étoile taillée, centrée sur le sommet
-   du cercle du médaillon (1,12 em) — sur une bordure de ligue, sur le bord
-   de la bordure, qu'elle couronne. Devant tout, ce qui déborde compris
+   du cercle du médaillon (1,12 em) — sur une bordure de ligue, sur son fil,
+   qu'elle couronne. Devant tout, ce qui déborde compris
    (`.lu-avant` est à 2). Ses couleurs sont celles du métal de la finition,
    dans ses images : `--sc-lueur` n'est que celle de sa lumière. Là où
    l'avatar est le sujet, son halo respire, ses rayons tournent et une lueur
@@ -6532,8 +6556,10 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
   background: radial-gradient(circle, var(--sc-lueur) 0, transparent 68%);
   opacity: 0.7;
 }
+/* Sur une bordure de ligue, elle couronne son fil, juste au bord du médaillon
+   (0,34 em plus haut, du temps du bandeau cranté) — dans une liste aussi. */
 .av-bordure .sc {
-  top: -0.34em;
+  top: -0.02em;
   width: 0.9em;
   height: 0.9em;
   margin: -0.45em 0 0 -0.45em;
@@ -6556,8 +6582,6 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
   height: 1.15em;
   margin: -0.575em 0 0 -0.575em;
 }
-.av.lb-avatar:not(.av-sujet).av-bordure .sc,
-.player-chip .av-bordure .sc { top: -0.3em; }
 .av.lb-avatar:not(.av-sujet) :is(.sc-halo, .sc-rayons, .sc-tour),
 .player-chip :is(.sc-halo, .sc-rayons, .sc-tour),
 .av-en-ligne :is(.sc-halo, .sc-rayons, .sc-tour) { display: none; }

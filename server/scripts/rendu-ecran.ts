@@ -133,7 +133,7 @@ const MEDAILLONS_PORTES: Record<number, { cle: string; ligne: string; eclat?: bo
 /**
  * Leurs bordures de ligue, gagnées en duel, autour de ce qui déborde déjà le
  * plus : le Soleil noir des maîtres sous l'Astrolabe et le masque de Venise,
- * les Fleurons sertis autour du Phénix éclaté, la Couronne sous le Diamant
+ * les Feuilles d'or serties autour du Phénix éclaté, la Couronne sous le Diamant
  * et la danseuse — et Jean-Baptiste, sous Hélios : un Divin n'en prend
  * aucune. Elles se relisent quand chacun entre dans la salle.
  */
