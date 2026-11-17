@@ -47,10 +47,14 @@ export interface Pouvoir {
   actif: boolean
 }
 
-/** « au Pari et à la Réplique » : les jeux dont une manche a deux étapes, chacune son chrono (`JEUX[jeu].etapes`). */
+/**
+ * « au Filet, au Pari et à la Réplique » : les jeux dont une manche a deux étapes, chacune son chrono
+ * (`JEUX[jeu].etapes`) — le Filet depuis le 17 novembre 2026, son époque puis sa valeur. Une énumération : à trois,
+ * « et » entre chacun se lisait mal.
+ */
 const A_DEUX_ETAPES = CLES_DES_JEUX.filter(jeu => JEUX[jeu].etapes === 2)
   .map(jeu => JEUX[jeu].a)
-  .join(' et ')
+  .reduce((dit, a, i, tous) => (i === 0 ? a : `${dit}${i === tous.length - 1 ? ' et ' : ', '}${a}`), '')
 
 /** La règle de Protéger, prise au mot (`mancheProtegee`), et ce qu'elle a de plus au Pari — que l'annonce du Pari dit seule. */
 const PROTEGER = 'Ta première manche imparfaite où tu as répondu gagne des étoiles'
@@ -255,8 +259,9 @@ export function refusDuPouvoir(u: UsageDUnPouvoir): string | null {
       // L'étape, pas le jeu : le refus s'affiche sous « Éclairer · encore 2 », qui compte la partie — « Ce jeu n'a plus rien
       // à éclairer » s'y lisait comme une contradiction (la tablée du 26 octobre 2026). Au Pari et à la Réplique, la
       // question : « dans cette manche », au Pari, se lisait au moment de choisir entre garder et parier, quand la question
-      // du pari s'éclaire encore (la relecture du même jour).
-      if (u.aEclairer === false) return JEUX[u.jeu].etapes === 2 ? 'Plus rien à éclairer à cette question' : 'Plus rien à éclairer dans cette manche'
+      // du pari s'éclaire encore (la relecture du même jour). Le Filet a deux étapes lui aussi, mais Éclairer n'y sert qu'à
+      // la première — ses deux aides mènent à l'époque, la valeur n'a rien à souffler : plus rien à l'une, plus rien à la manche.
+      if (u.aEclairer === false) return JEUX[u.jeu].etapes === 2 && u.jeu !== 'filet' ? 'Plus rien à éclairer à cette question' : 'Plus rien à éclairer dans cette manche'
       return null
     case 'changer':
       if (!sertA('changer', u.jeu)) return `Changer ne sert pas ${JEUX[u.jeu].a}`

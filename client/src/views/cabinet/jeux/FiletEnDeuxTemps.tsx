@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from 'react'
+import { useEffect, useId, useRef, type ReactNode, type RefObject } from 'react'
 import { Etoiles } from '../../../components/Etoiles'
 import { Icon } from '../../../components/Icon'
 import { espacesFines, formatNumber } from '../../../format'
@@ -39,6 +39,13 @@ import type { JeuALEcran, PropsDUneManche } from '../Partie'
 // avant qu'il le prenne. Elle tient l'époque choisie et le curseur, et les envoie au lancer — ou d'elle-même à
 // l'échéance : l'époque seule vaut son étoile. Les étoiles se dessinent (`Etoiles`) ou se disent en mots, jamais en
 // signes recopiés : « moins un, une étoile », disait le lecteur d'écran d'Hugo.
+//
+// En deux étapes depuis le 17 novembre 2026 (`FiletEnDeuxTempsMontre.parEtape`, `MancheEnDeuxEtapes`) : « si tu choisis
+// la mauvaise époque, tu as automatiquement faux », le retour que le propriétaire rapportait — le curseur vivait dans
+// l'époque choisie. Une époque touchée est maintenant choisie pour de bon, comme une réponse du Quiz ou le mot de la
+// Réplique ; le serveur dit alors la bonne, et le second écran ouvre sa piste, à tous : son verdict en tête — la bonne,
+// une étoile de gagnée ; la mauvaise, laquelle c'était et ce qui reste à prendre —, puis la valeur à viser. Le chrono
+// repart à cet écran. Une manche tirée avant garde les écrans d'un seul lancer, plus bas.
 
 /** Ce que la page tient d'une manche : l'époque touchée et le curseur, posé au milieu d'elle dès qu'elle l'est. */
 export interface LocalDuFiletEnDeuxTemps {
@@ -67,6 +74,21 @@ export const etoilesEnMots = (n: number) => `${['aucune', 'une', 'deux', 'trois'
 
 /** Ce que ses aides payées ont pris jusqu'ici, en étoiles : le filet, la consigne et la phrase des aides le retirent. */
 export const etoilesPayees = (m: Pick<FiletEnDeuxTempsMontre, 'aides' | 'prixDUneAide'>) => m.aides.filter(a => a.prise === 'payee').length * m.prixDUneAide
+
+/** En deux étapes, l'époque une fois jouée : avait-il choisi la bonne ? Faux tant qu'elle ne l'est pas — la page ne le sait pas. */
+export const epoqueTrouvee = (m: Pick<FiletEnDeuxTempsMontre, 'choisie' | 'bonnes'>): boolean => m.choisie != null && (m.bonnes ?? []).includes(m.choisie)
+
+/**
+ * Ce que la manche vaudra, la valeur prise dans le petit anneau ou dans le grand, ses aides payées retirées. D'un seul
+ * lancer, trois et deux étoiles. En deux étapes, la piste ne s'ouvre qu'une fois l'époque jouée : l'étoile de la bonne
+ * époque y compte déjà, ou non — trois et deux avec elle, deux et une sans, aux chiffres que le tirage a figés.
+ */
+export function etoilesDesAnneaux(m: Pick<FiletEnDeuxTempsMontre, 'aides' | 'prixDUneAide' | 'parEtape' | 'choisie' | 'bonnes'>): { trois: number; deux: number } {
+  const payees = etoilesPayees(m)
+  if (!m.parEtape) return { trois: Math.max(0, 3 - payees), deux: Math.max(0, 2 - payees) }
+  const acquise = epoqueTrouvee(m) ? m.parEtape.epoque : 0
+  return { trois: Math.max(0, Math.min(3, acquise + m.parEtape.trois - payees)), deux: Math.max(0, Math.min(3, acquise + m.parEtape.deux - payees)) }
+}
 
 /**
  * Toucher une époque : le curseur s'y pose au milieu — le propriétaire, au matin du 9 novembre 2026, « elle devrait se
@@ -163,7 +185,8 @@ function Frise({
   m: Pick<FiletEnDeuxTempsMontre, 'tranches' | 'annee' | 'reperes' | 'retirees'>
   epoque: number | null
   onChoisir?: (i: number) => void
-  revele?: Pick<FiletEnDeuxTempsRevele, 'valeur' | 'bonnes' | 'lancer'>
+  /** `sienne` : l'époque qu'il avait choisie — celle de son lancer d'un seul geste, celle de la première étape en deux. */
+  revele?: Pick<FiletEnDeuxTempsRevele, 'valeur' | 'bonnes' | 'lancer'> & { sienne: number | null }
 }) {
   return (
     <div className={'cab-epoques' + (m.reperes.length > 0 || revele ? '' : ' cab-epoques-nue')}>
@@ -177,7 +200,7 @@ function Frise({
         {m.tranches.map((t, i) => {
           const retiree = m.retirees.includes(i)
           const bonne = revele?.bonnes.includes(i) === true
-          const choisie = revele ? revele.lancer?.epoque === i : false
+          const choisie = revele ? revele.sienne === i : false
           const dit = revele ? (bonne ? (choisie ? 'la bonne, ton choix' : 'la bonne') : choisie ? 'ton choix' : '') : ''
           const classes = ['cab-tranche', retiree && 'cab-tranche-retiree', bonne && 'cab-tranche-bonne', choisie && 'cab-tranche-choisie'].filter(Boolean).join(' ')
           return (
@@ -270,7 +293,18 @@ const repereDit = (m: Pick<FiletEnDeuxTempsMontre, 'annee' | 'unite'>, r: Repere
  * se replie sur ses bornes barrées. En frise de quatre cases jusqu'au 12 novembre 2026, deux repères piqués au-dessus et
  * redits en légende : « 1975 1999 » ne disait rien à personne, et la légende coûtait deux lignes.
  */
-function LesEpoques({ m, epoque, onChoisir }: { m: Pick<FiletEnDeuxTempsMontre, 'tranches' | 'annee' | 'unite' | 'reperes' | 'retirees'>; epoque: number | null; onChoisir: (i: number) => void }) {
+function LesEpoques({
+  m,
+  epoque,
+  onChoisir,
+  pourDeBon,
+}: {
+  m: Pick<FiletEnDeuxTempsMontre, 'tranches' | 'annee' | 'unite' | 'reperes' | 'retirees'>
+  epoque: number | null
+  onChoisir: (i: number) => void
+  /** En deux étapes, une époque touchée est jouée : un bouton qui agit, sans état pressé à dire. */
+  pourDeBon?: boolean
+}) {
   return (
     // Sans un seul repère — une grandeur dont l'unité n'en a pas, le plus souvent —, les lignes sont plus basses (`styles.css`).
     <div className={m.tranches.some((t, i) => !m.retirees.includes(i) && repereDe(m, t)) ? 'cab-epoques-liste' : 'cab-epoques-liste cab-epoques-nues'} role="group" aria-label={m.annee ? 'Quatre époques' : 'Quatre ordres de grandeur'}>
@@ -283,7 +317,7 @@ function LesEpoques({ m, epoque, onChoisir }: { m: Pick<FiletEnDeuxTempsMontre, 
             key={i}
             type="button"
             className={retiree ? 'cab-epoque cab-epoque-retiree' : 'cab-epoque'}
-            aria-pressed={epoque === i}
+            aria-pressed={pourDeBon ? undefined : epoque === i}
             aria-label={`De ${bornesALOreille(m, t)}${retiree ? ', retirée' : dit}`}
             aria-disabled={retiree || undefined}
             {...toucher(() => !retiree && onChoisir(i))}
@@ -308,9 +342,12 @@ function LesEpoques({ m, epoque, onChoisir }: { m: Pick<FiletEnDeuxTempsMontre, 
  * tête » (Claire, à la tablée du 9 novembre 2026). Une aide payée y retire son étoile, avant le lancer (Samir ne savait
  * pas si c'était « une étoile retirée de mon score, ou seulement le plafond qui baisse »). Des morceaux qui ne se coupent
  * pas ; sur une toute petite piste, les deux anneaux couvrent la même chose : un seul.
+ *
+ * En deux étapes, l'époque est jouée quand la piste s'ouvre : chaque anneau dit ce que la manche vaudra, l'étoile de la
+ * bonne époque comprise — trois et deux avec elle, deux et une sans (`etoilesDesAnneaux`).
  */
 function Couvre({ m, x, t }: { m: FiletEnDeuxTempsMontre; x: number; t: TrancheDuFilet }) {
-  const payees = etoilesPayees(m)
+  const vaut = etoilesDesAnneaux(m)
   const c = ceQueCouvreLeFilet(m, x, t.pas >= 1)
   const morceau = (r: { de: number; a: number }) => (r.de === r.a ? `pile sur ${borneDite(m, r.de)}` : `${borneDite(m, r.de)}–${borneDite(m, r.a)}`)
   const trois = m.annee ? `à ${ecartDit(m, m.anneaux.trois)}` : morceau(c.trois)
@@ -318,12 +355,12 @@ function Couvre({ m, x, t }: { m: FiletEnDeuxTempsMontre; x: number; t: TrancheD
   return (
     <p className="cab-filet-anneaux">
       <span className="cab-insecable">
-        <Etoiles n={Math.max(0, 3 - payees)} />
+        <Etoiles n={vaut.trois} />
         {espacesFines(trois)}
       </span>
       {deux !== trois && (
         <span className="cab-insecable">
-          <Etoiles n={Math.max(0, 2 - payees)} />
+          <Etoiles n={vaut.deux} />
           {espacesFines(deux)}
         </span>
       )}
@@ -338,7 +375,24 @@ function Couvre({ m, x, t }: { m: FiletEnDeuxTempsMontre; x: number; t: TrancheD
  * le filet prend ; les grands pas d'une graduation. Le doigt pose le curseur où il touche, et lui donne le focus : c'est
  * le curseur même du navigateur. `curseur` : où le focus se pose quand la piste s'ouvre.
  */
-function PisteDeLEpoque({ m, t, x, poser, busy, curseur }: { m: FiletEnDeuxTempsMontre; t: TrancheDuFilet; x: number; poser: (i: number) => void; busy: boolean; curseur: RefObject<HTMLInputElement | null> }) {
+function PisteDeLEpoque({
+  m,
+  t,
+  x,
+  poser,
+  busy,
+  curseur,
+  decritPar,
+}: {
+  m: FiletEnDeuxTempsMontre
+  t: TrancheDuFilet
+  x: number
+  poser: (i: number) => void
+  busy: boolean
+  curseur: RefObject<HTMLInputElement | null>
+  /** En deux étapes, le verdict de l'époque, que le curseur dit à l'oreille quand le focus s'y pose. */
+  decritPar?: string
+}) {
   const n = cransDe(t)
   const i = cranDe(t, x)
   const grand = cransDUnGrandPas(t)
@@ -403,6 +457,7 @@ function PisteDeLEpoque({ m, t, x, poser, busy, curseur }: { m: FiletEnDeuxTemps
             value={x}
             aria-label={m.annee ? 'L’année' : 'La valeur'}
             aria-valuetext={dire(m, x)}
+            aria-describedby={decritPar}
             onChange={e => !busy && poser(cranDe(t, e.currentTarget.valueAsNumber))}
           />
         </div>
@@ -441,7 +496,138 @@ function Indice({ m }: { m: Pick<FiletEnDeuxTempsMontre, 'indice'> }) {
   )
 }
 
-function MancheEnDeuxTemps({ montree: m, local: l, setLocal, garde, busy }: PropsDUneManche<FiletEnDeuxTempsMontre, LocalDuFiletEnDeuxTemps>) {
+/**
+ * Le verdict de l'époque, en tête du second écran d'une manche en deux étapes : la bonne — une étoile de gagnée —, ou
+ * laquelle c'était, et ce qui reste à prendre : c'est là que « la mauvaise époque » cessait d'être « automatiquement
+ * faux ». Un signe et des mots, jamais la seule couleur ; à l'oreille, il décrit le curseur, où le focus se pose
+ * (`id`, `aria-describedby`) : qui écoute l'entend en arrivant sur la piste, sans un arrêt de plus pour le Tab.
+ */
+function EpoqueJouee({ m, id }: { m: FiletEnDeuxTempsMontre & { piste: number }; id: string }) {
+  const trouvee = epoqueTrouvee(m)
+  const bonne = bornesDites(m, m.tranches[m.piste])
+  const reste = etoilesDesAnneaux(m).trois
+  const laBonne = m.annee ? 'La bonne époque' : 'Le bon ordre de grandeur'
+  const cEtait = <b>{bonne}</b>
+  // Deux lignes en 360 de large, pas trois : la sienne, il vient de la toucher — la redire (« Pas 1925 – 1949 : c'était… »)
+  // coûtait une ligne, et la révélation l'écrit dans sa case (le rendu du 17 novembre 2026).
+  return (
+    <p id={id} className={trouvee ? 'cab-filet-jouee cab-filet-jouee-bonne' : 'cab-filet-jouee'}>
+      <i aria-hidden="true">{trouvee ? '✓' : '✗'}</i>
+      {trouvee ? (
+        <span>
+          {`${laBonne}\u{a0}: `}
+          {cEtait}
+          {espacesFines(m.parEtape && etoilesPayees(m) === 0 ? `. ${m.parEtape.epoque > 1 ? `${etoilesEnMots(m.parEtape.epoque)} de gagnées` : 'Une étoile de gagnée'}.` : '.')}
+        </span>
+      ) : (
+        <span>
+          <span className="sr-only">{m.annee ? 'Pas la bonne époque. ' : 'Pas le bon ordre de grandeur. '}</span>
+          {m.choisie != null ? 'C’était ' : espacesFines('Le temps a filé : c’était ')}
+          {cEtait}
+          {espacesFines(reste > 0 ? `. Il reste ${etoilesEnMots(reste)} à prendre.` : '.')}
+        </span>
+      )}
+    </p>
+  )
+}
+
+/**
+ * Une manche en deux étapes (`parEtape`). D'abord l'époque : une ligne touchée est choisie pour de bon — le geste part
+ * au serveur, qui la juge et ouvre la seconde étape, son chrono neuf. Puis la valeur : la question en rappel, le verdict
+ * de l'époque, et la piste de la bonne — celle qu'il a choisie, s'il l'a trouvée —, le curseur en son milieu.
+ */
+function MancheEnDeuxEtapes({ montree: m, local: l, setLocal, envoyer, garde, busy }: PropsDUneManche<FiletEnDeuxTempsMontre, LocalDuFiletEnDeuxTemps>) {
+  const curseur = useRef<HTMLInputElement>(null)
+  const verdict = useId()
+  const vise = m.etape === 2 && m.piste !== undefined
+  // La piste qui s'ouvre donne le focus à son curseur, comme d'un seul lancer : il dit sa valeur, les flèches le
+  // déplacent, et le verdict de l'époque le décrit. Le cadre change d'écran avec l'étape et ne reprend le focus que
+  // s'il s'est perdu (`rendreLeFocus`) ; à la première étape, il pose le sien sur la question.
+  useEffect(() => {
+    if (vise) curseur.current?.focus({ preventScroll: true })
+  }, [vise])
+  const question = (
+    <h2 key="question" className={'quiz-question cab-question' + questionSizeClass(m.texte) + (vise ? ' cab-filet-rappel' : '')}>
+      {espacesFines(m.texte)}
+    </h2>
+  )
+  if (m.etape === 2 && m.piste !== undefined) {
+    const piste = m.piste
+    const t = m.tranches[piste]
+    const x = valeurVisee(m, l) ?? milieuDeLaTranche(t)
+    // Un cran se joue vite : deux touchers en font deux, sans la demi-seconde de garde — rien ne bouge sous le doigt.
+    const poser = (i: number) => !busy && setLocal({ epoque: piste, x: valeurAuCran(t, i) })
+    return (
+      <>
+        {question}
+        <EpoqueJouee m={{ ...m, piste }} id={verdict} />
+        <PisteDeLEpoque m={m} t={t} x={x} poser={poser} busy={busy} curseur={curseur} decritPar={verdict} />
+      </>
+    )
+  }
+  const choisir = (i: number) => !busy && garde() && envoyer({ quoi: 'epoque', choix: i })
+  const restent = m.retirees.length > 0 ? m.tranches.filter((_, i) => !m.retirees.includes(i)) : []
+  return <EcranDesEpoques m={m} question={question} epoque={null} onChoisir={choisir} restent={restent} pourDeBon />
+}
+
+/**
+ * L'écran des époques, le même d'un seul lancer et en deux étapes : la catégorie — ou l'indice pris à sa place —, la
+ * question, la consigne et ce que vaut la bonne, les quatre lignes ; ce qui reste après « Deux époques de moins », dit à
+ * l'oreille où le focus se pose.
+ */
+function EcranDesEpoques({
+  m,
+  question,
+  epoque,
+  onChoisir,
+  restent,
+  pourDeBon,
+  refDesEpoques,
+}: {
+  m: FiletEnDeuxTempsMontre
+  question: ReactNode
+  epoque: number | null
+  onChoisir: (i: number) => void
+  restent: readonly TrancheDuFilet[]
+  pourDeBon?: boolean
+  refDesEpoques?: RefObject<HTMLDivElement | null>
+}) {
+  const restentDit = restent.length > 0 ? `Il reste ${restent.map(u => `${borneDite(m, u.de)}–${borneDite(m, u.a)}`).join(' et ')}.` : null
+  const reste = useFocusQuandIlParait(restentDit)
+  const quoi = m.annee ? 'l’époque' : 'l’ordre de grandeur'
+  // La bonne époque vaut une étoile — le bon ordre de grandeur —, tant qu'une aide ne l'a pas prise.
+  const vaut = etoilesPayees(m) === 0 ? (m.annee ? ', la bonne vaut une étoile' : ', le bon vaut une étoile') : ''
+  return (
+    <>
+      {/* L'indice pris prend la place de la catégorie : il l'a lue en ouvrant la manche, et les deux ensemble poussaient la
+          quatrième époque sous le pied. */}
+      {!m.indice && <div className="cab-tete-question">{m.categorie && <span className="label quiz-categorie">{m.categorie}</span>}</div>}
+      {question}
+      <Indice m={m} />
+      <section className="cab-filet-etape" ref={refDesEpoques}>
+        <p className="cab-filet-consigne">
+          {`Choisis ${quoi}`}
+          {vaut && <span>{espacesFines(vaut)}</span>}
+        </p>
+        <LesEpoques m={m} epoque={epoque} onChoisir={onChoisir} pourDeBon={pourDeBon} />
+      </section>
+      {/* Ce qui reste, dit à l'oreille, où le focus se pose : à l'œil, les époques retirées se sont repliées. */}
+      {restentDit && (
+        <p ref={reste} className="sr-only cab-filet-restent" tabIndex={-1}>
+          {espacesFines(restentDit)}
+        </p>
+      )}
+    </>
+  )
+}
+
+/** Les deux Filets en deux temps sous un écran : la vue dit le sien (`parEtape`). Chacun son composant — appelés comme des fonctions, l'un aurait pris les crochets de l'autre. */
+function MancheEnDeuxTemps(p: PropsDUneManche<FiletEnDeuxTempsMontre, LocalDuFiletEnDeuxTemps>) {
+  return p.montree.parEtape ? <MancheEnDeuxEtapes {...p} /> : <MancheDUnSeulLancer {...p} />
+}
+
+/** Une manche tirée avant le 17 novembre 2026 : l'époque touchée ouvre sa piste, se change, et part avec le lancer. */
+function MancheDUnSeulLancer({ montree: m, local: l, setLocal, garde, busy }: PropsDUneManche<FiletEnDeuxTempsMontre, LocalDuFiletEnDeuxTemps>) {
   const vise = ecranDe(m, l) === 'valeur'
   // « Deux époques de moins » a pu retirer celle qu'il avait touchée : le choix revient à faire.
   const epoque = l.epoque !== null && !m.retirees.includes(l.epoque) ? l.epoque : null
@@ -450,8 +636,6 @@ function MancheEnDeuxTemps({ montree: m, local: l, setLocal, garde, busy }: Prop
   const poser = (i: number) => !busy && setLocal(poserAuCran(m, l, i))
   const rouvrir = () => !busy && garde() && setLocal(rouvrirLesEpoques(l))
   const restent = m.retirees.length > 0 ? m.tranches.filter((_, i) => !m.retirees.includes(i)) : []
-  const restentDit = restent.length > 0 ? `Il reste ${restent.map(u => `${borneDite(m, u.de)}–${borneDite(m, u.a)}`).join(' et ')}.` : null
-  const reste = useFocusQuandIlParait(restentDit)
   // D'un écran à l'autre, le focus suit : le curseur quand la piste s'ouvre — il dit sa valeur, et les flèches le
   // déplacent —, l'époque gardée quand les époques reviennent. Jamais à l'ouverture de la manche : le cadre y pose le sien.
   const curseur = useRef<HTMLInputElement>(null)
@@ -489,31 +673,26 @@ function MancheEnDeuxTemps({ montree: m, local: l, setLocal, garde, busy }: Prop
       </>
     )
   }
-  const quoi = m.annee ? 'l’époque' : 'l’ordre de grandeur'
-  // La bonne époque vaut une étoile — le bon ordre de grandeur —, tant qu'une aide ne l'a pas prise.
-  const vaut = etoilesPayees(m) === 0 ? (m.annee ? ', la bonne vaut une étoile' : ', le bon vaut une étoile') : ''
-  return (
-    <>
-      {/* L'indice pris prend la place de la catégorie : il l'a lue en ouvrant la manche, et les deux ensemble poussaient la
-          quatrième époque sous le pied. */}
-      {!m.indice && <div className="cab-tete-question">{m.categorie && <span className="label quiz-categorie">{m.categorie}</span>}</div>}
-      {question}
-      <Indice m={m} />
-      <section className="cab-filet-etape" ref={choisie}>
-        <p className="cab-filet-consigne">
-          {`Choisis ${quoi}`}
-          {vaut && <span>{espacesFines(vaut)}</span>}
-        </p>
-        <LesEpoques m={m} epoque={epoque} onChoisir={choisir} />
-      </section>
-      {/* Ce qui reste, dit à l'oreille, où le focus se pose : à l'œil, les époques retirées se sont repliées. */}
-      {restentDit && (
-        <p ref={reste} className="sr-only cab-filet-restent" tabIndex={-1}>
-          {espacesFines(restentDit)}
-        </p>
-      )}
-    </>
-  )
+  return <EcranDesEpoques m={m} question={question} epoque={epoque} onChoisir={choisir} restent={restent} refDesEpoques={choisie} />
+}
+
+/**
+ * Ce qui part au lancer, de ce que la page tient : d'un seul lancer, l'époque touchée et son curseur — rien tant qu'il
+ * est aux époques. En deux étapes, à la seconde seulement : la piste que le serveur a ouverte, et son curseur, en son
+ * milieu tant qu'il n'y a pas touché (`valeurVisee`).
+ */
+export function lancerDe(m: FiletEnDeuxTempsMontre, l: LocalDuFiletEnDeuxTemps): { epoque: number; x: number } | null {
+  if (m.parEtape) {
+    if (m.etape !== 2 || m.piste === undefined) return null
+    return { epoque: m.piste, x: valeurVisee(m, l) ?? milieuDeLaTranche(m.tranches[m.piste]) }
+  }
+  return l.epoque !== null && l.x !== null && !m.retirees.includes(l.epoque) ? { epoque: l.epoque, x: l.x } : null
+}
+
+/** En deux étapes, le curseur qu'il a posé sur la piste ouverte ; null tant qu'il n'y a pas touché — elle s'ouvre en son milieu. */
+function valeurVisee(m: Pick<FiletEnDeuxTempsMontre, 'tranches' | 'piste'>, l: LocalDuFiletEnDeuxTemps): number | null {
+  const t = m.piste === undefined ? undefined : m.tranches[m.piste]
+  return t && l.epoque === m.piste && l.x !== null && l.x >= t.de && l.x <= t.a ? l.x : null
 }
 
 /**
@@ -522,8 +701,8 @@ function MancheEnDeuxTemps({ montree: m, local: l, setLocal, garde, busy }: Prop
  * son rang, sinon elle se paie. Sous la piste, « Lancer le filet » : sous le pli, il ne se voyait qu'en défilant.
  */
 export function PiedEnDeuxTemps({ montree: m, local: l, envoyer, garde, busy, eclaire }: PropsDUneManche<FiletEnDeuxTempsMontre, LocalDuFiletEnDeuxTemps>) {
-  if (ecranDe(m, l) === 'valeur' && l.epoque !== null && l.x !== null) {
-    const lancer = { epoque: l.epoque, x: l.x }
+  const lancer = m.parEtape ? lancerDe(m, l) : ecranDe(m, l) === 'valeur' ? lancerDe(m, l) : null
+  if (lancer) {
     return (
       <button type="button" className="btn btn-primary btn-big btn-block cab-lancer" aria-disabled={busy || undefined} {...toucher(() => !busy && garde() && envoyer({ quoi: 'repondre', reponse: { filet: lancer } }))}>
         Lancer le filet
@@ -569,9 +748,13 @@ function RevelationEnDeuxTemps({ corps: r, fin }: { corps: FiletEnDeuxTempsRevel
     </span>
   )
   const pres = (n: number) => (r.annee ? `à ${ecartDit(r, n)} près` : `à ${n}\u{a0}% près`)
+  // En deux étapes, l'époque qu'il a choisie se lit à part du lancer : il vise dans la bonne, quelle qu'ait été la sienne.
+  const enDeuxEtapes = r.parEtape !== undefined
+  const sienne = enDeuxEtapes ? (r.choisie ?? null) : (r.lancer?.epoque ?? null)
+  const aJoue = r.lancer !== null || (enDeuxEtapes && sienne !== null)
   // Les repères de la bonne époque et de celle qu'il a choisie, pas les quatre : un par ligne pendant la manche, ils
   // feraient ici quatre lignes de légende sous une frise qui en porte déjà deux.
-  const concernees = [...r.bonnes, ...(r.lancer ? [r.lancer.epoque] : [])]
+  const concernees = [...r.bonnes, ...(sienne !== null ? [sienne] : [])]
   const montre = { ...r, reperes: r.reperes.filter(x => concernees.some(k => x.valeur >= r.tranches[k].de && x.valeur <= r.tranches[k].a)) }
   return (
     <section className="cab-filet-revele" aria-label="La frise">
@@ -582,9 +765,9 @@ function RevelationEnDeuxTemps({ corps: r, fin }: { corps: FiletEnDeuxTempsRevel
           {espacesFines(!r.lancer || r.ecart === null ? 'tu n’as pas lancé' : `tu visais ${dire(r, r.lancer.x)} · ${r.ecart === 0 ? 'pile dessus' : `${ecartDit(r, r.ecart)} d’écart`}`)}
         </span>
       </p>
-      <Frise m={montre} epoque={null} revele={r} />
+      <Frise m={montre} epoque={null} revele={{ ...r, sienne }} />
       <Legende m={montre} revele={r} />
-      {r.lancer && (
+      {aJoue && (
         <p className="cab-filet-juge">
           {critere(r.criteres.epoque, r.annee ? 'la bonne époque' : 'le bon ordre de grandeur')}
           {critere(r.criteres.deux, pres(r.anneaux.deux))}
@@ -592,13 +775,14 @@ function RevelationEnDeuxTemps({ corps: r, fin }: { corps: FiletEnDeuxTempsRevel
           {r.payees > 0 && <span>{espacesFines(`${r.aides.filter(a => !a.offerte).length > 1 ? 'tes aides' : 'ton aide'} : ${etoilesEnMots(r.payees)} en moins`)}</span>}
         </p>
       )}
-      {r.lancer && !r.criteres.epoque && r.avantLesAides >= 2 && (
+      {/* D'un seul lancer, la distance jugeait d'abord ; en deux étapes, l'époque et la valeur se comptent à part — une étoile par coche. */}
+      {!enDeuxEtapes && r.lancer && !r.criteres.epoque && r.avantLesAides >= 2 && (
         <p className="cab-ligne">{espacesFines(`La mauvaise ${r.annee ? 'époque' : 'tranche'}, mais si près de la réponse que la distance compte d’abord.`)}</p>
       )}
       {r.payees > 0 && r.etoiles === 0 && r.avantLesAides > 0 && (
         <p className="cab-ligne">{espacesFines(r.payees > 1 ? 'Tes aides ont pris tes étoiles ; ton cœur reste.' : 'Ton aide a pris ton étoile ; ton cœur reste.')}</p>
       )}
-      {!r.lancer && fin === 'jugee' && <p className="cab-ligne">{espacesFines('Le temps a filé avant que tu choisisses une époque : rien n’est parti.')}</p>}
+      {!aJoue && fin === 'jugee' && <p className="cab-ligne">{espacesFines('Le temps a filé avant que tu choisisses une époque : rien n’est parti.')}</p>}
       {r.indice && <p className="cab-ligne cab-filet-indice-dit">{espacesFines(`Indice : ${r.indice}`)}</p>}
     </section>
   )
@@ -609,14 +793,20 @@ export const FILET_EN_DEUX_TEMPS: JeuALEcran<FiletEnDeuxTempsMontre, FiletEnDeux
   localDe: () => ({ epoque: null, x: null }),
   // La question et ses tranches : « Changer » en pose d'autres ; une aide n'y change rien, l'époque touchée reste.
   cleDe: m => `${m.texte}|${m.tranches.map(t => `${t.de}-${t.a}`).join(',')}`,
-  // Ce qui est posé part à l'échéance, tel quel, les époques rouvertes ou non : l'époque seule vaut son étoile ; rien de touché, rien ne part.
-  aLEcheance: (m, l) => (l.epoque !== null && l.x !== null && !m.retirees.includes(l.epoque) ? { filet: { epoque: l.epoque, x: l.x } } : undefined),
+  // Ce qui est posé part à l'échéance, tel quel, les époques rouvertes ou non : l'époque seule vaut son étoile ; rien de
+  // touché, rien ne part. En deux étapes, rien à la première — le temps prend l'époque, et la valeur s'ouvre — ; à la
+  // seconde, le curseur où il est, au milieu s'il n'y a pas touché.
+  aLEcheance: (m, l) => {
+    const lancer = lancerDe(m, l)
+    return lancer ? { filet: lancer } : undefined
+  },
   // La carte qui éclaire offre une aide, celle qu'il touche : ses deux boutons le disent, la carte n'a pas le sien.
   tientEclairer: () => true,
   // Une époque touchée change l'écran — la piste à la place des époques, « Lancer le filet » à celle des aides —, et
   // « changer d'époque » le rend : un second toucher pressé tomberait sur ce qui vient sous le doigt, le cadre relance sa
-  // demi-seconde de garde. Un cran ne bouge rien ; une aide rend une vue neuve, que le cadre garde de lui-même.
-  sousEcranDe: (m, l) => `${ecranDe(m, l)}|${l.epoque}`,
+  // demi-seconde de garde. Un cran ne bouge rien ; une aide rend une vue neuve, que le cadre garde de lui-même. En deux
+  // étapes, l'écran change avec l'étape, que le cadre suit seul (`etapeDe`).
+  sousEcranDe: (m, l) => (m.parEtape ? '' : `${ecranDe(m, l)}|${l.epoque}`),
   Manche: MancheEnDeuxTemps,
   Pied: PiedEnDeuxTemps,
   Revelation: RevelationEnDeuxTemps,

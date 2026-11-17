@@ -79,9 +79,11 @@ test('au nouveau Filet, ce que le joueur sait suit l’acte de l’épreuve, et 
   // Français sait placer, seul à l'acte I, rapporte plus. Qui ne sait pas l'époque et prend l'indice touche la bonne : la manche, réussie, garde son
   // cœur, même quand l'aide en reprend l'étoile (`VerdictDUneManche.payees`).
   const traversee = ['--sections', 'traversee', '--traversees', '240', '--joueurs', 'moyen', '--filet', 'deux-temps']
-  const [avec, sans] = await Promise.all([calibrer(traversee), calibrer([...traversee, '--aides', 'jamais'])])
+  const dUnSeulLancer = ['--sections', 'traversee', '--traversees', '240', '--joueurs', 'moyen', '--filet', 'un-lancer', '--aides', 'jamais']
+  const [avec, sans, avant] = await Promise.all([calibrer(traversee), calibrer([...traversee, '--aides', 'jamais']), calibrer(dUnSeulLancer)])
   assert.equal(avec.code, 0, avec.erreurs)
   assert.equal(sans.code, 0, sans.erreurs)
+  assert.equal(avant.code, 0, avant.erreurs)
   const [i, ii, iii] = filetDeLaTraversee(sans.sortie)
   // L'acte I ne pose que ce que chaque Français sait placer, l'acte III que le panel de 25 à 49, rien de l'acte I : leur
   // écart dit que le joueur modèle sait selon l'acte. L'acte II, depuis le décalage du 12 novembre 2026, reprend tout le
@@ -96,11 +98,21 @@ test('au nouveau Filet, ce que le joueur sait suit l’acte de l’épreuve, et 
   filetDeLaTraversee(sans.sortie).forEach((x, k) => {
     assert.equal(x.payees, 0, `--aides jamais : aucune aide payée à l'acte ${k + 1}`)
     assert.ok(aides[k].payees > 0, `l'acte ${k + 1} : des aides payées`)
-    // Dix points de plus aux actes II et III. À l'acte I, depuis le décalage du 12 novembre 2026, ce que chaque Français sait
+    // Dix points de plus à l'acte III. À l'acte I, depuis le décalage du 12 novembre 2026, ce que chaque Français sait
     // placer se réussit déjà neuf fois sur dix sans aide : l'indice n'y a plus dix points à rendre, seulement ce qui reste.
-    const deMieux = k === 0 ? 0.03 : 0.1
+    // À l'acte II aussi depuis les deux étapes du 17 novembre 2026 : sans aide, une mauvaise époque n'y perd plus la
+    // manche — 92 réussies sur cent au lieu de 86 sur trois mille traversées —, et l'indice n'en rend plus que huit.
+    const deMieux = [0.03, 0.04, 0.1][k]
     assert.ok(aides[k].reussies > x.reussies + deMieux, `l'acte ${k + 1} : ${aides[k].reussies} réussies avec l'indice, ${x.reussies} sans`)
   })
+  // Ce que les deux étapes changent, sans aide payée, sur les mêmes joueurs et les mêmes questions (`--filet un-lancer`,
+  // la règle du 9 au 17 novembre 2026) : la mauvaise époque ne condamne plus la manche, et c'est à l'acte III, où l'on
+  // sait le moins, que le cœur se garde le plus souvent — 84 manches sur cent au lieu de 70 sur trois mille traversées.
+  // Qui sait l'époque gagne ce qu'il gagnait : l'acte I bouge à peine.
+  const [iAvant, , iiiAvant] = filetDeLaTraversee(avant.sortie)
+  assert.ok(iii.reussies > iiiAvant.reussies + 0.05, `l'acte III : ${iii.reussies} réussies en deux étapes, ${iiiAvant.reussies} d'un seul lancer`)
+  assert.ok(iii.etoiles > iiiAvant.etoiles, `l'acte III : ${iii.etoiles} étoiles en deux étapes, ${iiiAvant.etoiles} d'un seul lancer`)
+  assert.ok(Math.abs(i.etoiles - iAvant.etoiles) < 0.25, `l'acte I : ${i.etoiles} étoiles en deux étapes, ${iAvant.etoiles} d'un seul lancer`)
 })
 
 test('une question du Pari se répond au temps d’une question de série', async () => {

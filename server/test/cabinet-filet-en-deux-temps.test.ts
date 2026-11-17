@@ -76,7 +76,11 @@ const question = (o: Partial<QuestionTiree> = {}): QuestionTiree => ({
   ...o,
 })
 
-/** Un tirage d'essai, au hasard du tireur rejoué : à cette place, avec ces repères et cet indice. */
+/**
+ * Un tirage d'essai, au hasard du tireur rejoué : à cette place, avec ces repères et cet indice — et d'un seul lancer,
+ * comme il se tirait du 9 au 17 novembre 2026 (`parEtape` ôté) : sa règle juge encore les manches tirées alors, leur
+ * cartel et « Mes réponses », et ce fichier la garde. Les deux étapes ont le leur (`cabinet-filet-en-deux-etapes.test.ts`).
+ */
 function tirage(valeur: number, annee: boolean, place: number, o: { indice?: string | null; reperes?: RepereDuFilet[]; unite?: string; question?: Partial<QuestionTiree> } = {}): FiletEnDeuxTempsTire {
   const t = tirageEnDeuxTemps(
     {
@@ -92,7 +96,9 @@ function tirage(valeur: number, annee: boolean, place: number, o: { indice?: str
     hasardDe(`tirage:${valeur}:${place}`),
   )
   assert.ok(t, `${valeur} à la place ${place} : pas de tirage`)
-  return t
+  const dUnSeulLancer: FiletEnDeuxTempsTire = { ...t }
+  delete dUnSeulLancer.parEtape
+  return dUnSeulLancer
 }
 
 /** Un geste joué comme le pli le jouera : lu, puis `trancheLaManche` dit s'il va à `juger` ou à `apresLeGeste`. */
@@ -487,6 +493,10 @@ test('le Filet en deux temps : le tirage fige ses tranches, ses époques à reti
   // Pile sur une borne, une grandeur a deux bonnes tranches : l'aide retire les deux autres.
   assert.deepEqual(tirage(10000, false, 2).retirables, [0, 3])
   assert.equal(tirageEnDeuxTemps({ question: question(), valeur: 1962, annee: true, place: 0, anneeDuDepart: DEPART, reperes: [], indice: null }, hasardDe('x')), null, '1950–1974 n’est jamais la première')
+  // Depuis le 17 novembre 2026, il fige aussi ce que vaut chaque étape : c'est par là qu'il dit se jouer en deux.
+  const neuf = tirageEnDeuxTemps({ question: question(), valeur: 1962, annee: true, place: 2, anneeDuDepart: DEPART, reperes: [], indice: null }, hasardDe('x'))
+  assert.deepEqual(neuf?.parEtape, B.ETOILES_DES_ETAPES_DU_FILET)
+  assert.equal(a.parEtape, undefined, 'le tirage d’essai de ce fichier est d’un seul lancer')
 })
 
 // ── Le branchement ──────────────────────────────────────────────────────
@@ -771,6 +781,17 @@ async function unServeur() {
   return b
 }
 
+/**
+ * Une manche jouée par les routes, en deux étapes comme le serveur la tire : l'époque choisie pour de bon, puis la
+ * valeur visée dans la piste que la vue ouvre.
+ */
+async function enDeuxEtapes(b: Awaited<ReturnType<typeof unServeur>>, cookie: string, v: VueDeLaPartie, manche: 0 | 1 | 2, epoque: number, x: number): Promise<VueDeLaPartie> {
+  const visee = ok(await unGeste(b, cookie, v, { quoi: 'epoque', manche, choix: epoque }), 'l’époque')
+  const piste = (visee.enCours as FiletEnDeuxTempsMontre).piste
+  assert.ok(piste !== undefined, 'l’époque jouée, la vue ouvre une piste')
+  return ok(await unGeste(b, cookie, visee, { quoi: 'repondre', manche, reponse: { filet: { epoque: piste, x } } }), 'le lancer')
+}
+
 test('le Filet en deux temps par les routes : une partie libre se tire à l’acte I, et se joue en deux temps — l’époque, puis la valeur', async () => {
   const b = await unServeur()
   const lea = await inscrireProfil(b.banc.url, 'lea', 'Léa')
@@ -783,9 +804,12 @@ test('le Filet en deux temps par les routes : une partie libre se tire à l’ac
   const montree = v0.enCours as FiletEnDeuxTempsMontre
   assert.equal(montree.deuxTemps, true)
   assert.deepEqual(montree.tranches, tirages[0].tranches)
-  // Pile sur la valeur, dans la bonne époque : trois étoiles, sans aide.
+  // Le serveur tire en deux étapes : chaque tirage dit ce que vaut chacune, et la vue qu'une époque touchée est jouée.
+  assert.ok(tirages.every(x => x.parEtape !== undefined))
+  assert.deepEqual([montree.etape, montree.parEtape], [1, B.ETOILES_DES_ETAPES_DU_FILET])
+  // La bonne époque, puis pile sur la valeur : trois étoiles, sans aide.
   const t = tirages[0]
-  const revelee = ok(await unGeste(b, lea, v0, { quoi: 'repondre', manche: 0, reponse: { filet: { epoque: t.bonnes[0], x: t.valeur } } }), 'le lancer')
+  const revelee = await enDeuxEtapes(b, lea, v0, 0, t.bonnes[0], t.valeur)
   const corps = revelee.revelation?.corps as FiletEnDeuxTempsRevele
   assert.deepEqual([corps.valeur, corps.etoiles, corps.payees], [t.valeur, 3, 0])
 })
@@ -850,7 +874,7 @@ test('une épreuve du Filet à l’acte II se tire à l’acte II : l’acte de 
   )
   // Une aide payée, puis le lancer juste : deux étoiles, et la traversée lira l'aide payée.
   const aidee = ok(await unGeste(b, cookie, partie, { quoi: 'aide', manche: 0, aide: 'epoques' }), 'l’aide')
-  const revelee = ok(await unGeste(b, cookie, aidee, { quoi: 'repondre', manche: 0, reponse: { filet: { epoque: tirages[0].bonnes[0], x: tirages[0].valeur } } }), 'le lancer')
+  const revelee = await enDeuxEtapes(b, cookie, aidee, 0, tirages[0].bonnes[0], tirages[0].valeur)
   assert.deepEqual([(revelee.revelation?.corps as FiletEnDeuxTempsRevele).etoiles, (revelee.revelation?.corps as FiletEnDeuxTempsRevele).payees], [2, 1])
   // La note de la manche le dit : sans elle, deux étoiles pour un lancer pile dessus se lisaient comme un lancer à côté.
   assert.equal(revelee.manches[0].note, '−1 : ton aide')
@@ -901,14 +925,17 @@ test('par les routes : l’année placée sans aide revient en repère à soi à
   // La première manche placée pile, sans aide ; la deuxième pile aussi, « Deux époques de moins » payée ; la troisième à côté.
   let v = ok(await commencer(b, lou, { origine: 'libre', jeu: 'filet', carte: 'coup-d-oeil' }), 'commencer')
   const tirages = departEnBase(b.fichier, v.id).tirages as FiletEnDeuxTempsTire[]
-  const pile = (t: FiletEnDeuxTempsTire) => ({ filet: { epoque: t.bonnes[0], x: t.valeur } })
-  v = ok(await unGeste(b, lou, v, { quoi: 'repondre', manche: 0, reponse: pile(tirages[0]) }), 'la première, pile')
+  v = await enDeuxEtapes(b, lou, v, 0, tirages[0].bonnes[0], tirages[0].valeur)
   v = await ouvrirLaManche(b, lou, v, 1)
   v = ok(await unGeste(b, lou, v, { quoi: 'aide', manche: 1, aide: 'epoques' }), 'l’aide payée')
-  v = ok(await unGeste(b, lou, v, { quoi: 'repondre', manche: 1, reponse: pile(tirages[1]) }), 'la deuxième, pile et aidée')
+  v = await enDeuxEtapes(b, lou, v, 1, tirages[1].bonnes[0], tirages[1].valeur)
   v = await ouvrirLaManche(b, lou, v, 2)
-  const ailleurs = tirages[2].tranches.findIndex((_, k) => !tirages[2].bonnes.includes(k))
-  v = ok(await unGeste(b, lou, v, { quoi: 'repondre', manche: 2, reponse: { filet: { epoque: ailleurs, x: milieuDeLaTranche(tirages[2].tranches[ailleurs]) } } }), 'la troisième, à côté')
+  // La mauvaise époque, puis le bout de la bonne le plus loin de la réponse : douze ans au moins, hors des deux anneaux.
+  const t3 = tirages[2]
+  const ailleurs = t3.tranches.findIndex((_, k) => !t3.bonnes.includes(k))
+  const bonne = t3.tranches[t3.bonnes[0]]
+  v = await enDeuxEtapes(b, lou, v, 2, ailleurs, t3.valeur - bonne.de > bonne.a - t3.valeur ? bonne.de : bonne.a)
+  assert.equal((v.revelation?.corps as FiletEnDeuxTempsRevele).etoiles, 0, 'la troisième, à côté')
   const repere = (t: FiletEnDeuxTempsTire) => ({ valeur: t.valeur, texte: CONTENU.get(t.question.id)!.repere! })
   // La partie suivante : ses frises le montrent, marqué sien — jamais l'année qu'une aide lui a fait placer.
   const suite = ok(await commencer(b, lou, { origine: 'libre', jeu: 'filet', carte: 'coup-d-oeil' }), 'la partie suivante')

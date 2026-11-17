@@ -118,11 +118,12 @@ test('le registre : les dix règles, chacune sous sa clé, et un seul module d�
 test('ce que l’annonce dit des étapes d’un jeu est ce que sa règle joue', () => {
   // La page lit `JEUX` sans tirer les règles des jeux : leurs étapes s'y écrivent à la main, et Prendre son temps en dit
   // ses secondes — « par manche », ou « à chacune de ses deux questions » au Pari et à la Réplique (la tablée du
-  // 26 octobre 2026). Écrites de travers, l'annonce promettrait à l'Éclair dix secondes par affirmation.
+  // 26 octobre 2026). Écrites de travers, l'annonce promettrait à l'Éclair dix secondes par affirmation. Le Filet les a
+  // rejoints le 17 novembre 2026 : l'époque, puis la valeur, chacune son chrono.
   for (const jeu of CLES_DES_JEUX) assert.equal(JEUX[jeu].etapes, REGLES[jeu].etapes, jeu)
   assert.deepEqual(
     CLES_DES_JEUX.filter(j => JEUX[j].etapes === 2),
-    ['pari', 'replique'],
+    ['filet', 'pari', 'replique'],
   )
 })
 

@@ -190,6 +190,12 @@ function leFiletEnDeuxTemps(x: Brut, annee: number): FiletEnDeuxTempsTire | null
   )
   if (!reperes || !chaineOuNull(x.indice) || !entier(x.prixDUneAide, 0, 3)) return null
   if (x.annee && (!Number.isInteger(valeur) || tranches[tranches.length - 1].a > annee)) return null
+  // Ce que vaut chaque étape, si le tirage se joue en deux (depuis le 17 novembre 2026) : des étoiles, la valeur visée
+  // de plus près jamais moins payée — à leur forme, comme le reste. Absent : un tirage d'avant, d'un seul lancer.
+  const lu: unknown = x.parEtape
+  const etoile = (v: unknown): v is number => entier(v, 0, 3)
+  const pe = objet(lu) && etoile(lu.epoque) && etoile(lu.deux) && etoile(lu.trois) && lu.trois >= lu.deux ? { epoque: lu.epoque, deux: lu.deux, trois: lu.trois } : undefined
+  if (lu !== undefined && !pe) return null
   return {
     jeu: 'filet',
     deuxTemps: true,
@@ -204,6 +210,7 @@ function leFiletEnDeuxTemps(x: Brut, annee: number): FiletEnDeuxTempsTire | null
     reperes,
     indice: x.indice,
     prixDUneAide: x.prixDUneAide,
+    ...(pe && { parEtape: pe }),
   }
 }
 
@@ -523,6 +530,8 @@ export function lireUnGeste(brut: unknown, o: { duServeur?: boolean } = {}): Ges
       return unIndex(g.choix) ? { quoi: 'mot', manche, choix: g.choix } : null
     case 'aide':
       return parmi<CleDAideDuFilet>(g.aide, AIDES_DU_FILET) ? { quoi: 'aide', manche, aide: g.aide } : null
+    case 'epoque':
+      return unIndex(g.choix) ? { quoi: 'epoque', manche, choix: g.choix } : null
     case 'repondre': {
       if (!(g.auto === undefined || typeof g.auto === 'boolean')) return null
       const reponse = laReponse(g.reponse)

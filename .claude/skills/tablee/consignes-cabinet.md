@@ -43,16 +43,17 @@ dé qui dit ce que ton personnage sait (« Répondre comme ton personnage »).
   vrai retour à faire.
 - **Ce qui se vise se touche au doigt, là où tu vises** : `toucher` touche le
   centre d'un élément, et `--a` dit où, en pour cent de sa largeur puis de sa
-  hauteur — vise sur ta capture. Au Filet, deux écrans. Touche d'abord
-  l'époque — une ligne par époque, dont le nom commence par ses bornes,
-  « De 1950 à 1974 » (un ordre de grandeur pour une grandeur, « De 100 à
-  300 »), et dit le repère qu'elle porte ; les aides sont au pied de cet
-  écran-là — : l'écran de la valeur s'ouvre, le curseur en son milieu. Il se
-  pose où tu le touches : `toucher "L’année" --a 30%` le pose vers 30 % de la
-  piste de l'époque, à peu près (« La valeur » pour une grandeur) — l'écran
-  d'après dit la valeur, corrige aux crans ou aux flèches —, et « Lancer le
-  filet » l'envoie ; le bouton de l'époque choisie (« changer d’époque »)
-  rend les quatre époques. La carte de France aussi se vise : `toucher "La carte de France" --a 60%,55%` y plante
+  hauteur — vise sur ta capture. Au Filet, deux étapes, un écran et un chrono
+  chacune. Touche d'abord l'époque — une ligne par époque, dont le nom
+  commence par ses bornes, « De 1950 à 1974 » (un ordre de grandeur pour une
+  grandeur, « De 100 à 300 »), et dit le repère qu'elle porte ; les aides
+  sont au pied de cet écran-là. **Une époque touchée est jouée, pour de
+  bon** : l'écran de la valeur s'ouvre sur son verdict — la bonne, ou
+  laquelle c'était —, puis sur la piste de la bonne époque, le curseur en son
+  milieu. Il se pose où tu le touches : `toucher "L’année" --a 30%` le pose
+  vers 30 % de la piste, à peu près (« La valeur » pour une grandeur) —
+  l'écran d'après dit la valeur, corrige aux crans ou aux flèches —, et
+  « Lancer le filet » l'envoie. La carte de France aussi se vise : `toucher "La carte de France" --a 60%,55%` y plante
   l'épingle à 60 % de sa largeur et 55 % de sa hauteur. Une décimale s'écrit
   avec un point (`--a 12.5%`), et `--a` hors des guillemets. Un curseur ne se
   tape pas (`ecrire` le refuse). Au clavier, il s'atteint par Tab avant les
@@ -139,14 +140,16 @@ chaque réponse, deux règles, dans l'ordre — elles ne se discutent pas :
    | … sue : pile dessus | 11 | 10 | 10 |
    | … sue : à un quart d'époque, ou mieux | 12 | 12 | 12 |
 
-   Il sait l'époque : il la touche, puis le second dé — au plus le seuil
-   « pile dessus », il vise la valeur ; au plus le suivant, à quelques crans
-   d'elle, dans le quart d'époque ; au-delà, ailleurs dans la bonne époque,
-   loin d'elle. Il ne la sait pas : il prend une aide si ton personnage le
-   ferait — « Un indice », qu'il lit comme ton personnage le comprend, et il
-   touche l'époque qu'il désigne ; « Deux époques de moins », puis `de 2`
-   entre les deux qui restent —, ou il touche une époque au hasard (`de 4`),
-   et laisse le curseur au milieu.
+   Il sait l'époque : il la touche — elle est jouée —, puis le second dé — au
+   plus le seuil « pile dessus », il vise la valeur ; au plus le suivant, à
+   quelques crans d'elle, dans le quart d'époque ; au-delà, ailleurs dans la
+   bonne époque, loin d'elle. Il ne la sait pas : il prend une aide si ton
+   personnage le ferait — « Un indice », qu'il lit comme ton personnage le
+   comprend, et il touche l'époque qu'il désigne ; « Deux époques de moins »,
+   puis `de 2` entre les deux qui restent —, ou il touche une époque au
+   hasard (`de 4`). L'écran lui dit alors la bonne et ouvre sa piste : il y
+   vise comme ton personnage le ferait, la bonne époque sous les yeux — sans
+   idée, il laisse le curseur au milieu —, jamais à ta valeur.
 
    | Ce qu'il faut savoir, sans marche | Au plus |
    |---|---|
@@ -205,7 +208,8 @@ Quand il ne sait pas, il joue sans ce que tu sais :
 - **l'année d'un événement** (la Frise) : il l'estime comme ton personnage
   le ferait, à l'époque qu'il croit — jamais à ta valeur ; **au Filet**, ce
   que dit son tableau plus haut : l'époque au hasard ou désignée par une
-  aide, le curseur laissé au milieu ;
+  aide, puis, la bonne à l'écran, le curseur laissé au milieu s'il n'en a
+  aucune idée ;
 - **un lieu** (l'Épingle) : il sait la région, pas l'endroit — plante à une
   centaine de kilomètres de là où tu le sais ;
 - **une personne** (les Indices) : il demande un indice de plus ; au dernier,
