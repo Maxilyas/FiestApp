@@ -317,6 +317,34 @@ test('la bordure vient avec son fichier, derrière l’avatar ; ce qui sort d’
   assert.doesNotMatch(divin, /class="bo |av-bordure/)
 })
 
+test('là où un médaillon est agrandi — la carte, le podium, le bilan —, sa bordure grandit avec lui : elle ne passe pas dessous', () => {
+  // « Sur voir ma carte, la finition passe au-dessus de la bordure » (le propriétaire, le 17 novembre 2026) : sur sa
+  // carte, un médaillon est agrandi de 1,3 ; la bordure, restée à la taille d'un emoji, passait tout entière sous lui, et
+  // l'on ne voyait plus que le cercle de sa finition.
+  // `sel` en entier, à côté de ses sélecteurs : une virgule dans un `:is()` ne sépare pas deux sélecteurs.
+  const regles = [...CSS.matchAll(/([^{}@]+)\{([^{}]*)\}/g)].map(([, sel, corps]) => ({ sel: sel.replace(/\s+/g, ' ').trim(), sels: sel.split(',').map(s => s.trim()), corps }))
+  const em = (corps: string, propriete: string) => Number(corps.match(new RegExp(`${propriete}:\\s*([\\d.]+)em`))?.[1])
+  // Chaque écran qui agrandit un médaillon, et de combien.
+  const agrandis = new Map<string, number>()
+  for (const r of regles) for (const s of r.sels) {
+    const ecran = s.match(/^(\.[\w-]+) \.av-emoji > \.(?:lg|pt)$/)?.[1]
+    if (ecran && em(r.corps, 'font-size')) agrandis.set(ecran, em(r.corps, 'font-size'))
+  }
+  assert.deepEqual([...agrandis.keys()].sort(), ['.bilan-avatar', '.carte-avatar', '.podium-avatar'])
+  const taille = em(regles.find(r => r.sels.includes('.bo'))!.corps, '--d')
+  assert.equal(taille, 1.9)
+  for (const [ecran, facteur] of agrandis) {
+    // Un légendaire comme un portrait ou un compagnon : leurs deux classes, pas l'emoji qui tient la place en attendant.
+    const suit = regles.find(r => `, ${r.sel},`.includes(`, ${ecran}:is(.av-legendaire, .av-portrait) .bo,`))
+    assert.ok(suit, `${ecran} : sa bordure suit son médaillon`)
+    assert.ok(Math.abs(em(suit.corps, '--d') - taille * facteur) < 0.005, `${ecran} : ${taille} em × ${facteur}`)
+  }
+  // Agrandie, son insigne tient encore dans la plus petite illustration d'une carte (132 px, l'avatar à 58 px) : il
+  // descend à 92 du repère de 200, soit 0,46 de sa taille sous le centre.
+  const insigne = 0.46 * taille * 1.3 * 58
+  assert.ok(insigne <= 132 / 2, `l’insigne à ${insigne.toFixed(1)} px du centre, pour ${132 / 2}`)
+})
+
 test('une carte attend sa bordure avant de s’ouvrir, comme la lumière de sa finition', async () => {
   // La carte s'ouvrait sans l'attendre, et la bordure se posait ensuite sous les yeux.
   const { dessinsDeLaCarte } = await import(url('components/CarteJoueur.tsx'))
