@@ -22,10 +22,13 @@ paths:
   page, y tombe à 4,09:1 sous le Film noir, 4,26 sous la Forêt rousse,
   4,35 sous le Carnet (le rendu du Cabinet, le 25 octobre 2026) ;
   `design.test.ts` le mesure sous chaque thème, et tient la liste des
-  dix-neuf règles qui l'écrivent encore à l'or du texte hors du Cabinet
-  (`.pill-btn.active`, `.onglet.actif`, `.titre-choix.selected`, les
-  `.quoi-*.active`, `.exp-pastille-or`…) : chacune se corrige à son écran,
-  regardée, et en sort ; aucune n'y entre. La garde ne lit qu'une règle à
+  quatorze règles qui l'écrivent encore à l'or du texte hors du Cabinet
+  (`.pill-btn.active`, `.onglet.actif`, les `.quoi-*.active`,
+  `.parcours-icone`…) : chacune se corrige à son écran, regardée, et en
+  sort ; aucune n'y entre — `.titre-choix.selected` en est sortie le
+  17 novembre 2026, avec la pièce « Titre » de la loge en vignettes, et
+  l'onglet actif de sa pièce « Thème » écrit à l'or de survol
+  (`.loge-theme-onglets`). La garde ne lit qu'une règle à
   la fois : l'or pâle posé par l'une et le texte par une autre lui
   échappent — `.corrige-bonne` et sa légende (« La bonne réponse · la
   tienne »), relevées au Cabinet seulement. Aucun texte ne descend sous `--t-label` (0,6875 rem,

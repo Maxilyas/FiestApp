@@ -9841,12 +9841,15 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-vers-boutique .icon { width: 15px; height: 15px; }
 /* Un fond : son décor réel, en petite carte qui remplit l'aperçu. Les décors à pseudo-éléments (nuit, kintsugi, cabinet,
    théâtre) gardent leurs règles d'aperçu (`.fond-apercu.carte-fond…`, plus haut) : la hauteur n'est plus la leur, la
-   boîte les recadre. Le Velours, sans classe de décor, garde le fond de page de l'aperçu. */
+   boîte les recadre. */
+.loge-vignettes-fonds { --loge-vignette: 56px; }
 .loge-vignette-image .fond-apercu { width: 100%; height: 100%; margin: 0; border: 0; border-radius: inherit; }
+/* Le Velours, sans décor : le halo d'or de la carte d'office (`.loge-carte`), ce que la carte montre vraiment quand il
+   le porte. Le fond de page seul en faisait une case vide, qu'on prenait pour une image pas encore arrivée. */
+.loge-vignette-image .fond-apercu:not(.carte-fond) { background: radial-gradient(90% 140% at 0% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%), var(--surface); }
 /* Une gerbe : ses trois premières particules en petit bouquet. Une seule taille de police pour tout le bouquet —
    l'éventail se fait par `transform` (règle `css.md` : chaque taille d'un emoji se met en forme à part). Toutes dans la
    même cellule, décalées et penchées ; seule celle du milieu reste droite et entière. */
-.loge-vignettes-fonds { --loge-vignette: 56px; }
 .loge-vignettes-gerbes { --loge-colonnes: 4; --loge-vignette: 44px; }
 .gerbe-bouquet { display: grid; place-items: center; font-size: 1.3rem; line-height: 1; }
 .gerbe-bouquet > span { grid-area: 1 / 1; }
