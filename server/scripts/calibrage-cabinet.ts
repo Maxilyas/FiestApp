@@ -117,9 +117,12 @@
 // d'indice honnête — : d'office, il le prend, une étoile pour garder son cœur ;
 // `--aides jamais`, il n'en prend que d'Éclairer. Les vraies parties diront ce
 // que font les joueurs ; d'ici là, les deux bornent ce que le nouveau Filet
-// change.
+// change. En deux étapes depuis le 17 novembre 2026 : il choisit l'époque pour
+// de bon, puis vise dans la bonne — qui ne la savait pas laisse le curseur en
+// son milieu, une borne basse ; `--filet un-lancer` rejoue la règle du 9 au 17,
+// l'époque et la valeur d'un seul lancer, pour comparer.
 //
-//   npx tsx scripts/calibrage-cabinet.ts --sections traversee [--filet avant|deux-temps] [--aides sans-savoir|jamais]
+//   npx tsx scripts/calibrage-cabinet.ts --sections traversee [--filet avant|deux-temps|un-lancer] [--aides sans-savoir|jamais]
 import type { Niveau } from '../../shared/campagne'
 import type { Lieu, Fiche, Replique, FriseATheme } from '../../shared/cabinet/contenu'
 import type { ContenuTire } from '../../shared/cabinet/jeux/index'
@@ -129,7 +132,7 @@ import type { PariMontre, PariTire } from '../../shared/cabinet/jeux/pari'
 import type { EclairMontre, EclairTire } from '../../shared/cabinet/jeux/eclair'
 import type { MotMontre, MotTire } from '../../shared/cabinet/jeux/mot'
 import type { FiletMontre, FiletTire, TailleDuFilet } from '../../shared/cabinet/jeux/filet'
-import type { CleDAideDuFilet, FiletEnDeuxTempsMontre, FiletEnDeuxTempsTire, LancerEnDeuxTemps } from '../../shared/cabinet/jeux/filetEnDeuxTemps'
+import type { CleDAideDuFilet, FiletEnDeuxEtapesTire, FiletEnDeuxTempsMontre, FiletEnDeuxTempsTire, LancerEnDeuxTemps } from '../../shared/cabinet/jeux/filetEnDeuxTemps'
 import type { QuestionDeLaBase } from '../src/core/baseCampagne'
 import type { DetailMontre, DetailTire, TableauDuCabinet } from '../../shared/cabinet/jeux/detail'
 import type { FriseMontree, FriseTiree } from '../../shared/cabinet/jeux/frise'
@@ -210,8 +213,15 @@ const TRAVERSEES = entier('traversees', 600)
  * comparer deux règles sur les mêmes joueurs.
  */
 const FILET_DEMANDE = valeursDe('filet').at(-1)
-if (FILET_DEMANDE !== undefined && !['avant', 'avant-joue', 'deux-temps'].includes(FILET_DEMANDE)) arreter(`--filet : avant, avant-joue ou deux-temps, pas « ${FILET_DEMANDE} »`)
+if (FILET_DEMANDE !== undefined && !['avant', 'avant-joue', 'deux-temps', 'un-lancer'].includes(FILET_DEMANDE))
+  arreter(`--filet : avant, avant-joue, deux-temps ou un-lancer, pas « ${FILET_DEMANDE} »`)
 const FILET_JOUE = FILET_DEMANDE === 'avant-joue'
+/**
+ * `un-lancer` : le Filet en deux temps tel qu'il se jouait du 9 au 17 novembre 2026, l'époque et la valeur d'un seul
+ * lancer, le curseur tenu dans l'époque choisie — pour comparer aux deux étapes sur les mêmes joueurs et les mêmes
+ * questions. Ses tirages se font sans ce que vaut chaque étape (`parEtape`), et la règle les juge comme alors.
+ */
+const FILET_D_UN_SEUL_LANCER = FILET_DEMANDE === 'un-lancer'
 /**
  * Au nouveau Filet, qui ne sait pas l'époque prend l'indice — sinon « Deux époques de moins » —, une étoile pour garder
  * son cœur (`sans-savoir`, d'office) ; ou il n'en prend jamais, qu'offertes par Éclairer (`jamais`).
@@ -341,7 +351,7 @@ const R = await import('../../shared/cabinet/resume')
 const E = await import('../../shared/cabinet/exploits')
 const { JEUX_PRETS, FILET_EN_DEUX_TEMPS } = await import('../../shared/cabinet/ouverture')
 /** Le nouveau Filet, ou celui d'avant (`--filet`). */
-const DEUX_TEMPS = FILET_DEMANDE === undefined ? FILET_EN_DEUX_TEMPS : FILET_DEMANDE === 'deux-temps'
+const DEUX_TEMPS = FILET_DEMANDE === undefined ? FILET_EN_DEUX_TEMPS : FILET_DEMANDE === 'deux-temps' || FILET_D_UN_SEUL_LANCER
 const F2 = await import('../../shared/cabinet/jeux/filetEnDeuxTemps')
 // Le nouveau Filet se tire de vraies questions de la base : leurs valeurs, leurs tranches et leur indice comptent.
 const { lireLaBase } = await import('../src/core/baseCampagne')
@@ -574,6 +584,10 @@ const SECONDES = {
   filet: 14,
   // Le nouveau Filet : l'époque touchée, puis le curseur — deux gestes au lieu d'un ; l'indice pris se lit à part (`indiceLu`).
   filetEnDeuxTemps: 16,
+  // En deux étapes, les mêmes seize secondes en deux gestes, chacun sous son chrono : la question lue et l'époque choisie,
+  // puis le verdict de l'époque lu et le curseur posé.
+  filetEpoque: 10,
+  filetValeur: 6,
   detailRegard: 6,
   friseBase: 8,
   friseParVenu: 6,
@@ -755,6 +769,7 @@ function tirerLeNouveauFilet(n: number, r: Hasard, annee: number, acte: number):
           : F2.tirageEnDeuxTemps({ question: x.question, valeur: x.valeur, annee: x.annee, ...(x.unite !== undefined && { unite: x.unite }), place, anneeDuDepart: annee, reperes: [], indice: x.indice }, r)
       if (!t) continue
       valeurs.add(x.valeur)
+      if (FILET_D_UN_SEUL_LANCER) delete t.parEtape
       tirages.push(t)
     }
     if (tirages.length === n) return tirages
@@ -1542,9 +1557,14 @@ function mancheDuFiletEnDeuxTemps(p: Partie, m: Manche): void {
     p.manche.tirage,
     (): SavoirDuNouveauFilet => ({ epoque: p.oui(saitLEpoque(p.j, acte)), etoiles: (4 - rangSelonLaForce(classesSures(acte), p.j, p.r)) as 1 | 2 | 3 }),
   )
-  if (p.changer(m, !s.epoque, SECONDES.filetEnDeuxTemps)) return mancheDuFiletEnDeuxTemps(p, m)
-  let secondes = SECONDES.filetEnDeuxTemps
-  if (!s.epoque) {
+  const enDeuxEtapes = F2.seJoueEnDeuxEtapes(t)
+  // En deux étapes, l'échéance de l'époque passée pendant un geste — Changer, une aide — ne tranche rien : la page
+  // n'envoie rien, l'époque est perdue, et la valeur est ouverte. Plus rien de l'époque ne se joue alors.
+  const aLaValeur = () => p.vue<FiletEnDeuxTempsMontre>().etape === 2
+  if (p.changer(m, !s.epoque, enDeuxEtapes ? SECONDES.filetEpoque : SECONDES.filetEnDeuxTemps)) return mancheDuFiletEnDeuxTemps(p, m)
+  if (p.tranchee()) return
+  let secondes = enDeuxEtapes ? SECONDES.filetEpoque : SECONDES.filetEnDeuxTemps
+  if (!s.epoque && !aLaValeur()) {
     const aide: CleDAideDuFilet = p.vue<FiletEnDeuxTempsMontre>().aides.some(a => a.cle === 'indice') ? 'indice' : 'epoques'
     if (p.peut('eclairer')) p.eclairer(m, F2.AIDES_DU_FILET.indexOf(aide))
     else if (AIDES_DU_JOUEUR === 'sans-savoir') p.geste({ quoi: 'aide', manche: m, aide }, SECONDES.pouvoir)
@@ -1552,7 +1572,36 @@ function mancheDuFiletEnDeuxTemps(p: Partie, m: Manche): void {
     if (p.tranchee()) return
     if (p.vue<FiletEnDeuxTempsMontre>().indice !== null) secondes += SECONDES.indiceLu
   }
-  p.repondre(m, { filet: lancerDuNouveauFilet(t, p.vue<FiletEnDeuxTempsMontre>(), s, p.r) }, secondes, true)
+  if (!enDeuxEtapes) {
+    p.repondre(m, { filet: lancerDuNouveauFilet(t, p.vue<FiletEnDeuxTempsMontre>(), s, p.r) }, secondes, true)
+    return
+  }
+  // En deux étapes (le 17 novembre 2026) : l'époque d'abord, pour de bon — celle qu'il sait, sinon une au hasard parmi
+  // celles qui restent, la bonne si l'indice la lui a dite. Trop tard, la page n'envoie rien : l'époque est perdue, et
+  // la valeur s'ouvre quand même.
+  if (!aLaValeur()) {
+    const epoque = lancerDuNouveauFilet(t, p.vue<FiletEnDeuxTempsMontre>(), s, p.r).epoque
+    p.geste({ quoi: 'epoque', manche: m, choix: epoque }, secondes)
+    if (p.tranchee()) return
+  }
+  // Puis la valeur, dans la piste que l'écran ouvre — la bonne. Qui savait l'époque vise l'anneau que la loi lui donne ;
+  // qui ne la savait pas laisse le curseur où il se pose, en son milieu : une borne basse, la bonne époque sous les
+  // yeux en aiderait plus d'un. À l'échéance, la page envoie le curseur tel qu'il est.
+  const piste = p.vue<FiletEnDeuxTempsMontre>().piste ?? F2.pisteDeLaValeur(t, null)
+  p.repondre(m, { filet: { epoque: piste, x: viseeDuNouveauFilet(t, piste, s, p.r) } }, SECONDES.filetValeur, true)
+}
+
+/**
+ * Sa visée à la seconde étape, sur la piste ouverte : qui sait l'époque pose le curseur sur un cran qui lui vaut, avec
+ * elle, les étoiles que la loi lui donne ; qui ne la sait pas le laisse au milieu.
+ */
+function viseeDuNouveauFilet(t: FiletEnDeuxEtapesTire, piste: number, s: SavoirDuNouveauFilet, r: Hasard): number {
+  const tranche = t.tranches[piste]
+  if (!s.epoque) return F2.milieuDeLaTranche(tranche)
+  const crans = Array.from({ length: F2.cransDe(tranche) + 1 }, (_, i) => F2.valeurAuCran(tranche, i))
+  const vises = crans.filter(x => F2.etoilesEnDeuxEtapes(t, t.bonnes[0], x) === s.etoiles)
+  // Aucun cran dans cet anneau — un pas plus large que lui : le plus près de la réponse.
+  return vises.length > 0 ? auHasard(vises, r) : meilleurDes(crans, x => -Math.abs(x - t.valeur))
 }
 
 /**
@@ -1583,19 +1632,31 @@ function modeleDuNouveauFilet(j: Joueur, acte: number): ModeleDeManche {
   const sait = saitLEpoque(j, acte)
   const [trois, deux, une] = partsSelonLaForce(classesSures(acte), j)
   const auHasardJuste = 1 / BAREME.TRANCHES_DU_FILET
+  // En deux étapes, qui ne sait pas l'époque vise ensuite dans la bonne, le curseur laissé en son milieu : le petit
+  // anneau en couvre deux douzièmes, le grand deux quarts — et ce que la valeur rapporte s'ajoute à l'époque, trouvée
+  // ou non.
+  const E = BAREME.ETOILES_DES_ETAPES_DU_FILET
+  const pile = 2 / BAREME.ANNEAUX_DES_EPOQUES.trois
+  const pres = 2 / BAREME.ANNEAUX_DES_EPOQUES.deux - pile
+  const sansSavoir: [number, number][] = FILET_D_UN_SEUL_LANCER
+    ? [
+        [1, auHasardJuste],
+        [0, 1 - auHasardJuste],
+      ]
+    : [true, false].flatMap(trouvee =>
+        (
+          [
+            [E.trois, pile],
+            [E.deux, pres],
+            [0, 1 - pile - pres],
+          ] as const
+        ).map(([valeur, part]): [number, number] => [Math.min(3, (trouvee ? E.epoque : 0) + valeur), (trouvee ? auHasardJuste : 1 - auHasardJuste) * part]),
+      )
   return [
     { part: sait * trois, lancers: [[[3, 1]]] },
     { part: sait * deux, lancers: [[[2, 1]]] },
     { part: sait * une, lancers: [[[1, 1]]] },
-    {
-      part: 1 - sait,
-      lancers: [
-        [
-          [1, auHasardJuste],
-          [0, 1 - auHasardJuste],
-        ],
-      ],
-    },
+    { part: 1 - sait, lancers: [sansSavoir] },
   ]
 }
 

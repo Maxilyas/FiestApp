@@ -23,6 +23,7 @@ import {
   ESSAIS_DU_MOT,
   ETOILES_AU_CADRAGE,
   ETOILES_AUX_INDICES_DE_L_EPINGLE,
+  ETOILES_DES_ETAPES_DU_FILET,
   ETOILES_D_UNE_JUSTE,
   ETOILES_DE_LA_REPLIQUE,
   ETOILES_DU_FILET,
@@ -61,8 +62,8 @@ export interface DescriptionDUnJeu {
    */
   changeable: boolean
   /**
-   * Les étapes d'une manche, chacune son chrono : deux au Pari et à la
-   * Réplique, une ailleurs — l'Éclair n'en a qu'une pour ses cinq
+   * Les étapes d'une manche, chacune son chrono : deux au Filet, au Pari et à
+   * la Réplique, une ailleurs — l'Éclair n'en a qu'une pour ses cinq
    * affirmations. Prendre son temps en allonge chacune : la carte dit « par
    * manche » ou « à chacune de ses deux questions » (`forceDite`), et « à
    * chaque question » promettait à l'Éclair dix secondes par affirmation (la
@@ -189,15 +190,17 @@ const PARTS: Readonly<Record<number, string>> = { 2: 'une moitié', 3: 'un tiers
 const part = (n: number) => PARTS[n] ?? `un ${n}ᵉ`
 
 /**
- * Le Filet de l'annonce, celui qui se joue (`FILET_EN_DEUX_TEMPS`) : en deux temps, l'époque puis la valeur, et son
- * barème composé des anneaux — « la bonne époque ★ · à un quart d’époque près ★★ · à un douzième ★★★ » —, Éclairer qui
- * offre une aide ; sinon celui d'avant, trois filets. L'annonce promettait des filets à qui jouait des époques.
+ * Le Filet de l'annonce, celui qui se joue (`FILET_EN_DEUX_TEMPS`) : en deux étapes depuis le 17 novembre 2026, l'époque
+ * choisie pour de bon puis la valeur visée dans la bonne, et son barème composé de ce que vaut chaque étape et des
+ * anneaux — « la bonne époque ★ · puis la valeur : à un quart d’époque près +★ · à un douzième +★★ » : les étoiles de
+ * la valeur s'ajoutent, que l'époque ait été la bonne ou non —, Éclairer qui offre une aide ; sinon celui d'avant,
+ * trois filets. L'annonce promettait des filets à qui jouait des époques.
  */
 const LE_FILET: Pick<DescriptionDUnJeu, 'geste' | 'bareme' | 'eclairer'> = FILET_EN_DEUX_TEMPS
   ? {
-      geste: 'Choisis l’époque — ou l’ordre de grandeur —, puis vise la valeur : tout près, elle rapporte plus.',
-      bareme: `la bonne époque ${etoiles(1)} · à ${part(ANNEAUX_DES_EPOQUES.deux)} d’époque près ${etoiles(2)} · à ${part(ANNEAUX_DES_EPOQUES.trois)} ${etoiles(3)} — une grandeur, à ${ANNEAUX_DES_GRANDEURS.deux} et ${ANNEAUX_DES_GRANDEURS.trois} %`,
-      eclairer: 'offre une aide — l’indice d’abord —, sans étoile retirée',
+      geste: 'Deux étapes : choisis l’époque — ou l’ordre de grandeur —, puis vise la valeur dans la bonne, que l’écran te montre.',
+      bareme: `la bonne époque ${etoiles(ETOILES_DES_ETAPES_DU_FILET.epoque)} · puis la valeur : à ${part(ANNEAUX_DES_EPOQUES.deux)} d’époque près +${etoiles(ETOILES_DES_ETAPES_DU_FILET.deux)} · à ${part(ANNEAUX_DES_EPOQUES.trois)} +${etoiles(ETOILES_DES_ETAPES_DU_FILET.trois)} — une grandeur, à ${ANNEAUX_DES_GRANDEURS.deux} et ${ANNEAUX_DES_GRANDEURS.trois} %`,
+      eclairer: 'offre une aide pour l’époque — l’indice d’abord —, sans étoile retirée',
     }
   : {
       geste: 'Place ton curseur, puis choisis ton filet : petit, il rapporte plus.',
@@ -265,7 +268,8 @@ export const JEUX: Readonly<Record<CleDeJeu, DescriptionDUnJeu>> = {
     a: 'au Filet',
     ...LE_FILET,
     changeable: true,
-    etapes: 1,
+    // L'époque, puis la valeur, chacune son chrono (`REGLE_DES_FILETS`).
+    etapes: 2,
   },
   pari: {
     cle: 'pari',
@@ -344,8 +348,8 @@ export interface VerdictDUneManche {
 export interface RegleDuJeu<Tiree, Etat, Geste, Montree, Revelee> {
   cle: CleDeJeu
   /**
-   * Le Pari et la Réplique ont deux étapes, chacune son chrono. Leur état le
-   * dit au pli, qui tient les chronos (`shared/cabinet/partie.ts`) : `etape`
+   * Le Filet, le Pari et la Réplique ont deux étapes, chacune son chrono. Leur
+   * état le dit au pli, qui tient les chronos (`shared/cabinet/partie.ts`) : `etape`
    * (1 ou 2), et au Pari `auChoix` — juste à la première question, il garde
    * ou il parie, et aucun chrono ne court. L'échéance d'une étape, le pli la
    * joue comme la page : une réponse vide (`lireLeGeste({ quoi: 'repondre' })`)

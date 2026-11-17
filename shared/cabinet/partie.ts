@@ -320,6 +320,8 @@ export type GesteDuCabinet =
   | { quoi: 'mot'; manche: Manche; choix: number }
   /** Une aide du Filet en deux temps, payée d'une étoile : « Deux époques de moins », « Un indice ». Offerte, elle passe par Éclairer. */
   | { quoi: 'aide'; manche: Manche; aide: CleDAideDuFilet }
+  /** L'époque du Filet en deux étapes, choisie pour de bon : elle ouvre la seconde étape, la valeur à viser dans la bonne. */
+  | { quoi: 'epoque'; manche: Manche; choix: number }
   | { quoi: 'repondre'; manche: Manche; auto?: true; reponse?: ReponseDUnJeu }
   | { quoi: 'quitter' }
   | { quoi: 'clore'; pourquoi: 'lendemain' }

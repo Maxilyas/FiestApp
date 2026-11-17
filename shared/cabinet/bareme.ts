@@ -217,8 +217,8 @@ export const CHANGEMENTS_PAR_PARTIE: Readonly<Record<Force, number>> = { 1: 1, 2
 // ── Le chrono, à l'heure du serveur (invariant 6) ─────────────────────────
 
 /**
- * La durée de chaque jeu, en secondes : par manche, par étape au Pari et à la
- * Réplique, pour les cinq affirmations à l'Éclair, pour les cinq essais au Mot
+ * La durée de chaque jeu, en secondes : par manche, par étape au Filet, au Pari
+ * et à la Réplique, pour les cinq affirmations à l'Éclair, pour les cinq essais au Mot
  * mystère. « Prendre son temps » s'y ajoute. Figée au départ de chaque partie
  * (`DepartDUnePartie.chrono`), avec la grâce et la pause : relue ici à chaque
  * réveil, une durée changée aurait fait changer d'échéance une manche en
@@ -237,6 +237,9 @@ export const CHANGEMENTS_PAR_PARTIE: Readonly<Record<Force, number>> = { 1: 1, 2
  * lire — en production, du 10 au 12, quatre manches sur vingt et une allaient
  * jusqu'à l'échéance, dont les deux où l'indice avait été pris, quand le
  * lancer part en 19 s en médiane (`retours/2026-11-12/le-filet-en-deux-ecrans.md`).
+ * Depuis le 17 novembre 2026, ces 60 s valent pour chacune de ses deux étapes,
+ * l'époque puis la valeur, comme au Pari et à la Réplique : le temps mis à
+ * choisir l'époque n'est plus pris à celui de viser.
  */
 export const DUREES_DES_JEUX: Readonly<Record<CleDeJeu, number>> = {
   epingle: 60,
@@ -424,6 +427,15 @@ export const EPOQUES_DU_FILET: readonly (readonly [depuis: number, ans: number])
 export const ANNEAUX_DES_EPOQUES: Readonly<Record<'trois' | 'deux', number>> = { trois: 12, deux: 4 }
 /** … une grandeur, ★★★ à 6 % de la réponse, ★★ à 25 % — l'écart lu au dixième, tel que l'écran l'écrit. */
 export const ANNEAUX_DES_GRANDEURS: Readonly<Record<'trois' | 'deux', number>> = { trois: 6, deux: 25 }
+/**
+ * Le Filet en deux étapes (le 17 novembre 2026) : l'époque se choisit d'abord, pour de bon, et la bonne vaut tant ; puis
+ * la valeur se vise dans la bonne époque, que l'écran montre alors à tous — dans le grand anneau, tant de plus ; dans le
+ * petit, tant. Une étoile par chose réussie : la bonne époque, tout près, pile dedans. Jusque-là, un seul lancer portait
+ * l'époque et la valeur, le curseur tenu dans l'époque choisie : « si tu choisis la mauvaise époque, tu as
+ * automatiquement faux », le retour que le propriétaire rapportait. Figées au tirage (`FiletEnDeuxTempsTire.parEtape`) :
+ * un tirage d'avant, sans elles, se juge à sa règle — la distance d'abord, sinon la bonne époque.
+ */
+export const ETOILES_DES_ETAPES_DU_FILET: Readonly<Record<'epoque' | 'deux' | 'trois', number>> = { epoque: 1, deux: 1, trois: 2 }
 /** Le Filet en deux temps : les bornes des ordres de grandeur dans une décade — 1 et 3, puis 10, 30, 100, 300… */
 export const ORDRES_DE_GRANDEUR: readonly number[] = [1, 3]
 /** Le Filet en deux temps : la piste d'une tranche, régulière, en tant de crans au plus… */

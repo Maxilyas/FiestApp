@@ -51,7 +51,7 @@ import type { DetailTire } from '../../shared/cabinet/jeux/detail'
 import type { FriseTiree } from '../../shared/cabinet/jeux/frise'
 import type { MotMontre, MotRevele, MotTire } from '../../shared/cabinet/jeux/mot'
 import { REGLE_DU_FILET, type EtatDuFilet, type FiletMontre, type FiletRevele, type FiletTire } from '../../shared/cabinet/jeux/filet'
-import { placesPossibles, tirageEnDeuxTemps, type FiletEnDeuxTempsMontre, type FiletEnDeuxTempsRevele, type FiletEnDeuxTempsTire } from '../../shared/cabinet/jeux/filetEnDeuxTemps'
+import { epoqueDAbord, placesPossibles, tirageEnDeuxTemps, type FiletEnDeuxTempsMontre, type FiletEnDeuxTempsRevele, type FiletEnDeuxTempsTire } from '../../shared/cabinet/jeux/filetEnDeuxTemps'
 import { epingleTiree, zoneDEclairer, type EpingleMontree, type EpingleRevelee, type EpingleTiree } from '../../shared/cabinet/jeux/epingle'
 import type { IndicesMontres, IndicesReveles, IndicesTires } from '../../shared/cabinet/jeux/indices'
 import type { RepliqueMontreeAuMot, RepliqueRevelee, RepliqueTiree } from '../../shared/cabinet/jeux/replique'
@@ -361,9 +361,10 @@ test('le Filet en deux temps : ni la valeur, ni la bonne époque, ni les époque
   await b.banc.redemarrer()
   const t = tirages[0] as FiletEnDeuxTempsTire
   /** Ce que la manche garde jusqu'à son verdict : la valeur, la bonne époque, celles que l'aide retirerait, ses réponses, l'indice pas pris. */
-  const sansLeSecret = (x: unknown, ou: string, indicePris = false) => {
+  const sansLeSecret = (x: unknown, ou: string, indicePris = false, epoqueJouee = false) => {
     const s = texte(x)
-    assert.doesNotMatch(s, /"valeur"|"bonnes"|"retirables"|"reponses"|"reponse"|"lancer"/, `${ou} : un champ de la réponse`)
+    // La bonne époque part une fois la sienne jouée, pas avant (les deux étapes, le 17 novembre 2026) : elle est alors jugée.
+    assert.doesNotMatch(s, epoqueJouee ? /"valeur"|"retirables"|"reponses"|"reponse"|"lancer"/ : /"valeur"|"bonnes"|"piste"|"choisie"|"retirables"|"reponses"|"reponse"|"lancer"/, `${ou} : un champ de la réponse`)
     for (const r of t.question.reponses) assert.ok(!s.includes(`"${r}"`), `${ou} : « ${r} », une réponse de la question`)
     sansSaReponse(t.question, x, ou)
     if (!indicePris) assert.ok(!s.includes(t.indice!), `${ou} : l’indice avant d’être pris`)
@@ -383,8 +384,17 @@ test('le Filet en deux temps : ni la valeur, ni la bonne époque, ni les époque
   const eclairee = ok(await jouer(b, noa, aidee, { quoi: 'eclairer', manche: 0, affirmation: 1 }), 'éclairer')
   sansLeSecret(eclairee, 'éclairée', true)
   assert.equal((eclairee.enCours as FiletEnDeuxTempsMontre).indice, t.indice)
+  // Un lancer avant l'époque se refuse sans rien juger, dans les mêmes mots pour la bonne piste et pour une autre.
+  const mauvaise = t.tranches.findIndex((_, k) => !t.bonnes.includes(k) && !t.retirables.includes(k))
+  const refus = await Promise.all([t.bonnes[0], mauvaise].map(k => jouer(b, noa, eclairee, { quoi: 'repondre', manche: 0, reponse: { filet: { epoque: k, x: t.tranches[k].de } } })))
+  assert.deepEqual(refus.map(r => [r.status, texte(r.corps)]), [0, 1].map(() => [400, texte({ error: epoqueDAbord(t) })]), 'un lancer avant l’époque')
+  // L'époque choisie pour de bon : la vue dit alors la bonne et ouvre sa piste — toujours pas la valeur.
+  const visee = ok(await jouer(b, noa, eclairee, { quoi: 'epoque', manche: 0, choix: t.bonnes[0] }), 'l’époque')
+  sansLeSecret(visee, 'l’époque jouée', true, true)
+  const ouverte = visee.enCours as FiletEnDeuxTempsMontre
+  assert.deepEqual([ouverte.etape, ouverte.choisie, ouverte.bonnes, ouverte.piste], [2, t.bonnes[0], t.bonnes, t.bonnes[0]])
   // Le verdict : la révélation dit la valeur, et ce que l'aide payée a pris — l'offerte, rien.
-  const revelee = ok(await jouer(b, noa, eclairee, { quoi: 'repondre', manche: 0, reponse: { filet: { epoque: t.bonnes[0], x: t.valeur } } }), 'lancer')
+  const revelee = ok(await jouer(b, noa, visee, { quoi: 'repondre', manche: 0, reponse: { filet: { epoque: ouverte.piste!, x: t.valeur } } }), 'lancer')
   jamais(d, revelee, 'révélée')
   const corps = revelee.revelation?.corps as FiletEnDeuxTempsRevele
   assert.deepEqual([corps.valeur, corps.avantLesAides, corps.payees, corps.etoiles], [t.valeur, 3, 1, 2])

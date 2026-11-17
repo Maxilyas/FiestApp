@@ -16,7 +16,7 @@ import {
   type FiletEnDeuxTempsTire,
   type GesteDuFiletEnDeuxTemps,
 } from './filetEnDeuxTemps'
-import type { RegleDuJeu } from './regle'
+import type { RegleQuiTranche } from './outils'
 
 export type TirageDuFilet = FiletTire | FiletEnDeuxTempsTire
 export type EtatDUnFilet = EtatDuFilet | EtatDuFiletEnDeuxTemps
@@ -31,13 +31,18 @@ const A = REGLE_DU_FILET
 const N = EN_DEUX_TEMPS
 type Reponse<G> = G | 'expiree' | 'quittee'
 
-export const REGLE_DES_FILETS: RegleDuJeu<TirageDuFilet, EtatDUnFilet, GesteDUnFilet, MontreDUnFilet, ReveleDUnFilet> = {
+export const REGLE_DES_FILETS: RegleQuiTranche<TirageDuFilet, EtatDUnFilet, GesteDUnFilet, MontreDUnFilet, ReveleDUnFilet> = {
   cle: 'filet',
-  etapes: 1,
-  // Le même chrono pour les deux : le départ le fige sans tirage (`chronoDuDepart`).
-  dureeMs: etape => A.dureeMs(etape),
+  // Deux étapes depuis le 17 novembre 2026 — l'époque, puis la valeur, chacune son chrono (`filetEnDeuxTemps.ts`). Le
+  // départ fige les deux durées sans tirage (`chronoDuDepart`) ; un tirage d'avant, d'un seul lancer, n'ouvre jamais la
+  // seconde, et le Filet d'avant non plus.
+  etapes: 2,
+  // Le même chrono pour tous, à chaque étape.
+  dureeMs: etape => N.dureeMs(etape),
   ouvrir: t => (estEnDeuxTemps(t) ? N.ouvrir(t) : A.ouvrir(t)),
   lireLeGeste: (brut, t) => (estEnDeuxTemps(t) ? N.lireLeGeste(brut, t) : A.lireLeGeste(brut, t)),
+  // Au Filet d'avant, un seul geste, le lancer, qui tranche ; le nouveau le dit lui-même, étape par étape.
+  tranche: (t, e, g) => (estEnDeuxTemps(t) ? N.tranche(t, e as EtatDuFiletEnDeuxTemps, g as GesteDuFiletEnDeuxTemps) : g.quoi === 'repondre'),
   apresLeGeste: (t, e, g) =>
     estEnDeuxTemps(t) ? N.apresLeGeste(t, e as EtatDuFiletEnDeuxTemps, g as GesteDuFiletEnDeuxTemps) : A.apresLeGeste(t, e as EtatDuFilet, g as GesteDuFilet),
   juger: (t, e, r) =>

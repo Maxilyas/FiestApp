@@ -6,6 +6,10 @@
 // partie commencée avant le nouveau garde son écran. Un fichier à part de `cabinet-ecran.test.ts` et de
 // `cabinet-ecran-neufs.test.ts`, chacun sous la minute (règle `tests.md`). Sans navigateur : seul le premier rendu se lit ;
 // l'écran se regarde au téléphone par la skill `regarder-le-rendu`.
+//
+// En deux étapes depuis le 17 novembre 2026 (`parEtape`) : le serveur tire ainsi, et Léa joue ainsi — l'époque choisie
+// pour de bon, puis la valeur dans la piste que la vue ouvre. Les écrans d'un seul lancer restent, pour une manche tirée
+// avant : ils se rendent ici sur les mêmes vues, ce que le serveur y ajoute pour les deux étapes ôté (`dUnSeulLancer`).
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -88,25 +92,42 @@ let tirages: FiletEnDeuxTempsTire[] = []
 before(async () => {
   // De vraies questions de l'acte I, chacune son indice jugé : la partie libre tire à l'acte I.
   b = await bancDuCabinet({ filetEnDeuxTemps: true, baseDeLaCampagne: baseDuCabinet(8, vraiesQuestionsDuFilet(10, { avecIndice: true })) })
-  // Léa, Coup d'œil emporté : « Deux époques de moins » payée, l'indice offert, puis le lancer pile dessus ; à la deuxième
-  // manche, un lancer dans l'époque la plus loin ; la troisième laissée au temps, sans rien toucher.
+  // Léa, Coup d'œil emporté : « Deux époques de moins » payée, l'indice offert, la bonne époque, puis le lancer pile
+  // dessus ; à la deuxième manche, l'époque la plus loin de la bonne, puis le bout de la bonne le plus loin de la réponse ;
+  // la troisième laissée au temps, sans rien toucher — l'époque d'abord, puis la valeur.
   lea = await inscrireProfil(b.banc.url, 'lea', 'Léa')
   let v = (vues.manche = ok(await commencer(b, lea, { origine: 'libre', jeu: 'filet', carte: 'coup-d-oeil' }), 'le Filet'))
   tirages = departEnBase(b.fichier, v.id).tirages as FiletEnDeuxTempsTire[]
   const t0 = tirages[0]
   v = vues.aidee = ok(await jouer(b, lea, v, { quoi: 'aide', manche: 0, aide: 'epoques' }), 'deux époques de moins')
   v = vues.eclairee = ok(await jouer(b, lea, v, { quoi: 'eclairer', manche: 0, affirmation: AIDES_DU_FILET.indexOf('indice') }), 'l’indice offert')
-  v = vues.revelee = ok(await jouer(b, lea, v, { quoi: 'repondre', manche: 0, reponse: { filet: { epoque: t0.bonnes[0], x: t0.valeur } } }), 'le lancer')
-  v = await ouvrir(b, lea, v, 1)
+  v = vues.visee = ok(await jouer(b, lea, v, { quoi: 'epoque', manche: 0, choix: t0.bonnes[0] }), 'la bonne époque')
+  v = vues.revelee = ok(await jouer(b, lea, v, { quoi: 'repondre', manche: 0, reponse: { filet: { epoque: (v.enCours as FiletEnDeuxTempsMontre).piste!, x: t0.valeur } } }), 'le lancer')
+  v = vues.deuxieme = await ouvrir(b, lea, v, 1)
   const t1 = tirages[v.tirage ?? 1]
   const loin = t1.bonnes[0] <= 1 ? 3 : 0
-  v = vues.aCote = ok(await jouer(b, lea, v, { quoi: 'repondre', manche: 1, reponse: { filet: { epoque: loin, x: milieuDeLaTranche(t1.tranches[loin]) } } }), 'à côté')
+  v = vues.viseeACote = ok(await jouer(b, lea, v, { quoi: 'epoque', manche: 1, choix: loin }), 'la mauvaise époque')
+  const bonne = t1.tranches[(v.enCours as FiletEnDeuxTempsMontre).piste!]
+  const auBout = t1.valeur - bonne.de > bonne.a - t1.valeur ? bonne.de : bonne.a
+  v = vues.aCote = ok(await jouer(b, lea, v, { quoi: 'repondre', manche: 1, reponse: { filet: { epoque: (v.enCours as FiletEnDeuxTempsMontre).piste!, x: auBout } } }), 'à côté')
   v = vues.troisieme = await ouvrir(b, lea, v, 2)
-  b.horloge.t = v.chrono!.echeance + (v.chrono!.pauseResteMs ?? 0) + GRACE_D_UNE_MANCHE_MS + 1
-  vues.sansLancer = ok(await jouer(b, lea, v, { quoi: 'repondre', manche: 2, auto: true }), 'laissée au temps')
+  const apresLEcheance = (x: VueDeLaPartie) => x.chrono!.echeance + (x.chrono!.pauseResteMs ?? 0) + GRACE_D_UNE_MANCHE_MS + 1
+  // Le temps prend l'époque, pas la manche : la valeur s'ouvre, son chrono neuf — qu'elle laisse filer aussi.
+  b.horloge.t = apresLEcheance(v)
+  v = vues.epoquePerdue = ok(await jouer(b, lea, v, { quoi: 'repondre', manche: 2, auto: true }), 'l’époque laissée au temps')
+  b.horloge.t = apresLEcheance(v)
+  vues.sansLancer = ok(await jouer(b, lea, v, { quoi: 'repondre', manche: 2, auto: true }), 'la valeur laissée au temps')
 })
 after(() => b?.banc.close())
 after(fermerLesMagasins)
+
+/** Une manche telle qu'elle se montrait d'un seul lancer, du 9 au 17 novembre 2026 : ce que les deux étapes y ajoutent, ôté. */
+function dUnSeulLancer(m: FiletEnDeuxTempsMontre): FiletEnDeuxTempsMontre {
+  const { parEtape: _p, etape: _e, choisie: _c, bonnes: _b, piste: _i, ...avant } = m
+  return avant
+}
+/** … et la vue qui la porte. */
+const vueDUnSeulLancer = (v: VueDeLaPartie): VueDeLaPartie => ({ ...v, enCours: dUnSeulLancer(v.enCours as FiletEnDeuxTempsMontre) })
 
 /** Une partie à l'écran, sur la vue du serveur, par l'aiguillage que la page charge : ce que la page tient, ou celui qu'on donne. */
 async function laPartie(vue: VueDeLaPartie, plus: Record<string, unknown> = {}) {
@@ -165,9 +186,14 @@ test('l’écran des époques : la question, quatre lignes qui disent leurs born
   assert.match(corps, new RegExp(m.annee ? 'Choisis l’époque , la bonne vaut une étoile' : 'Choisis l’ordre de grandeur , le bon vaut une étoile'))
   const lignes = lignesDe(html)
   assert.equal(lignes.length, m.tranches.length)
+  // En deux étapes, une époque touchée est jouée : un bouton qui agit, sans état pressé. D'un seul lancer, elle se
+  // choisissait et se changeait — la même ligne disait alors si elle était pressée.
+  assert.deepEqual([m.etape, m.parEtape !== undefined], [1, true])
+  const dAvant = lignesDe(await laPartie(vueDUnSeulLancer(vues.manche)))
   m.tranches.forEach((u, k) => {
     const repere = repereDe(m, u)
-    assert.equal(attribut(lignes[k].attributs, 'aria-pressed'), 'false')
+    assert.equal(attribut(lignes[k].attributs, 'aria-pressed'), undefined)
+    assert.equal(attribut(dAvant[k].attributs, 'aria-pressed'), 'false')
     // Une grandeur dit son unité, sur sa ligne comme à l'oreille : « 10 – 30 ans », « De 10 à 30 ans ».
     assert.equal(lu(attribut(lignes[k].attributs, 'aria-label') ?? ''), lu(`De ${borne(m, u.de)} à ${dire(m, u.a)}${repere ? `, repère : ${repere}` : ''}`))
     assert.ok(texte(lignes[k].dedans).includes(texte(`${borne(m, u.de)} – ${dire(m, u.a)}`)), texte(lignes[k].dedans))
@@ -191,14 +217,16 @@ test('l’écran des époques : la question, quatre lignes qui disent leurs born
   assert.doesNotMatch(corps, /★/, 'les étoiles se dessinent ou se disent')
 })
 
-test('une époque touchée, l’écran de la valeur : l’époque choisie, le nombre entre ses deux crans, la piste et son repère, ce que le filet prend, « Lancer le filet » au pied', async () => {
+test('d’un seul lancer — une époque touchée, l’écran de la valeur : l’époque choisie, le nombre entre ses deux crans, la piste et son repère, ce que le filet prend, « Lancer le filet » au pied', async () => {
   const { choisirLEpoque, cransDUnGrandPas, FILET_EN_DEUX_TEMPS } = await lesEcrans()
-  const m = vues.manche.enCours as FiletEnDeuxTempsMontre
+  const m = dUnSeulLancer(vues.manche.enCours as FiletEnDeuxTempsMontre)
   const k = 1
   const u = m.tranches[k]
   const local = choisirLEpoque(m, FILET_EN_DEUX_TEMPS.localDe(m), k) as { epoque: number; x: number }
   assert.deepEqual(local, { epoque: k, x: milieuDeLaTranche(u) }, 'le milieu, d’emblée : « elle devrait se placer directement au milieu »')
-  const html = await laPartie(vues.manche, { local })
+  const html = await laPartie(vueDUnSeulLancer(vues.manche), { local })
+  // En deux étapes, ce que la page tient n'ouvre rien : l'époque se joue au serveur, et l'écran des époques reste.
+  assert.equal(lignesDe(await laPartie(vues.manche, { local })).length, m.tranches.length)
   // Un autre écran : la question en rappel, l'époque choisie et de quoi en changer — plus les quatre lignes, ni les aides.
   assert.match(html, /<h2 class="quiz-question cab-question[^"]* cab-filet-rappel"/)
   assert.equal(lignesDe(html).length, 0)
@@ -269,7 +297,7 @@ test('ce que la page tient : l’époque touchée garde la valeur qui y tient, u
   const pasDe = (u: TrancheDuFilet) => cransDUnGrandPas(u) * u.pas
   assert.deepEqual([pasDe({ de: 1925, a: 1949, pas: 1 }), pasDe({ de: 300, a: 1000, pas: 5 }), pasDe({ de: 100, a: 300, pas: 1 }), pasDe({ de: 1500, a: 1549, pas: 1 })], [5, 100, 50, 10])
   // À l'échéance : ce qui est posé part tel quel ; rien de touché, rien ; une époque que l'aide a retirée, rien non plus.
-  const m = { ...(vues.manche.enCours as FiletEnDeuxTempsMontre), ...annees }
+  const m = { ...dUnSeulLancer(vues.manche.enCours as FiletEnDeuxTempsMontre), ...annees }
   assert.equal(FILET_EN_DEUX_TEMPS.aLEcheance(m, rienDeTouche), undefined)
   assert.deepEqual(FILET_EN_DEUX_TEMPS.aLEcheance(m, au1937), { filet: { epoque: 1, x: 1937 } })
   assert.equal(FILET_EN_DEUX_TEMPS.aLEcheance({ ...m, retirees: [1, 3] }, au1937), undefined)
@@ -356,12 +384,101 @@ test('Éclairer offre l’indice : il paraît sous la question, le focus s’y p
   assert.ok(ici('class="quiz-question') < ici('cab-filet-indice') && ici('cab-filet-indice') < ici('class="cab-epoques-liste') && ici('class="cab-epoques-liste') < ici('class="cab-filet-aides"'))
   assert.doesNotMatch(html, /quiz-categorie/)
   assert.match(await laPartie(vues.manche), /quiz-categorie/)
-  // Sur l'écran de la valeur, il reste sous les yeux, entre l'époque choisie et le nombre.
+  // D'un seul lancer, sur l'écran de la valeur, il reste sous les yeux, entre l'époque choisie et le nombre.
   const { choisirLEpoque, FILET_EN_DEUX_TEMPS } = await lesEcrans()
   const libre = m.tranches.findIndex((_, i) => !m.retirees.includes(i))
-  const valeur = await laPartie(vues.eclairee, { local: choisirLEpoque(m, FILET_EN_DEUX_TEMPS.localDe(m), libre) })
+  const valeur = await laPartie(vueDUnSeulLancer(vues.eclairee), { local: choisirLEpoque(m, FILET_EN_DEUX_TEMPS.localDe(m), libre) })
   const la = (x: string) => valeur.indexOf(x)
   assert.ok(la('cab-filet-choisie') < la('cab-filet-indice') && la('cab-filet-indice') < la('cab-filet-valeur'))
+  // En deux étapes, il menait à l'époque : jouée, il n'a plus rien à dire, et l'écran de la valeur ne le redit pas.
+  assert.doesNotMatch(await laPartie(vues.visee), /cab-filet-indice/)
+})
+
+// ── La seconde étape ─────────────────────────────────────────────────────
+
+/** Le verdict de l'époque, en tête de l'écran de la valeur : ses classes, et ce qu'il écrit. */
+const verdictDeLEpoque = (html: string) => {
+  const m = /<p id="([^"]+)" class="(cab-filet-jouee[^"]*)">([\s\S]*?)<\/p>/.exec(html)
+  // `texte()` met une espace à la place de chaque balise : celle qui tombe devant un point n'est pas à l'écran.
+  return m ? { id: m[1], classes: m[2], dit: texte(m[3]).trim().replace(/ \./g, '.') } : null
+}
+const bornes = (m: FiletEnDeuxTempsMontre, k: number) => texte(`${borne(m, m.tranches[k].de)} – ${dire(m, m.tranches[k].a)}`)
+
+test('en deux étapes — l’époque jouée, l’écran de la valeur : son verdict en tête, la piste de la bonne, ce que la manche vaudra, « Lancer le filet » au pied', async () => {
+  const { FILET_EN_DEUX_TEMPS, etoilesDesAnneaux, epoqueTrouvee, lancerDe } = await lesEcrans()
+  // La bonne époque, « Deux époques de moins » payée avant : le verdict la dit, sans promettre l'étoile que l'aide a prise.
+  const m = vues.visee.enCours as FiletEnDeuxTempsMontre
+  const t = tirages[0]
+  assert.deepEqual([m.etape, m.choisie, m.bonnes, m.piste], [2, t.bonnes[0], t.bonnes, t.bonnes[0]])
+  const html = await laPartie(vues.visee)
+  const verdict = verdictDeLEpoque(html)
+  assert.ok(verdict, 'le verdict de l’époque')
+  assert.match(verdict.classes, /cab-filet-jouee-bonne/)
+  assert.equal(verdict.dit, `✓ ${m.annee ? 'La bonne époque' : 'Le bon ordre de grandeur'} : ${bornes(m, m.piste!)}.`)
+  // Un autre écran : la question en rappel, plus les quatre lignes, ni les aides, ni de quoi changer d'époque — elle est jouée.
+  assert.match(html, /<h2 class="quiz-question cab-question[^"]* cab-filet-rappel"/)
+  assert.equal(lignesDe(html).length, 0)
+  assert.doesNotMatch(html, /cab-filet-aides|cab-filet-consigne|cab-filet-choisie|cab-pouvoir/)
+  // La piste de la bonne époque, le curseur en son milieu ; ce qu'il a touché à l'écran d'avant n'y pèse rien.
+  const u = m.tranches[m.piste!]
+  const curseur = /<input type="range" class="cab-curseur"([^>]*)\/>/.exec(html)?.[1] ?? ''
+  assert.deepEqual(['min', 'max', 'step', 'value'].map(a => attribut(curseur, a)), [String(u.de), String(u.a), String(u.pas), String(milieuDeLaTranche(u))])
+  // Le verdict décrit le curseur, où le focus se pose à l'ouverture de la piste : qui écoute l'entend, sans un arrêt de plus.
+  assert.equal(attribut(curseur, 'aria-describedby'), verdict.id)
+  assert.doesNotMatch(await laPartie(vueDUnSeulLancer(vues.manche), { local: { epoque: 1, x: milieuDeLaTranche(m.tranches[1]) } }), /aria-describedby/)
+  // Ce que la manche vaudra : trois et deux étoiles avec la bonne époque, moins l'aide payée — deux et une.
+  assert.ok(epoqueTrouvee(m))
+  assert.deepEqual(etoilesDesAnneaux(m), { trois: 2, deux: 1 })
+  const anneaux = /<p class="cab-filet-anneaux">([\s\S]*?)<\/p>/.exec(html)?.[1] ?? ''
+  assert.match(anneaux, /aria-label="2 étoiles sur 3"/)
+  // « Lancer le filet », seul au pied : il envoie la piste ouverte et le curseur — au milieu tant qu'il n'y a pas touché.
+  assert.match(piedDe(html), /^<button type="button" class="btn btn-primary btn-big btn-block cab-lancer">Lancer le filet<\/button><\/div>/)
+  const rienDeTouche = FILET_EN_DEUX_TEMPS.localDe(m)
+  assert.deepEqual(lancerDe(m, rienDeTouche), { epoque: m.piste, x: milieuDeLaTranche(u) })
+  assert.deepEqual(FILET_EN_DEUX_TEMPS.aLEcheance(m, rienDeTouche), { filet: { epoque: m.piste, x: milieuDeLaTranche(u) } })
+  const pose = { epoque: m.piste!, x: valeurAuCran(u, 3) }
+  assert.deepEqual(FILET_EN_DEUX_TEMPS.aLEcheance(m, pose), { filet: pose })
+  assert.match(await laPartie(vues.visee, { local: pose }), new RegExp(`<output class="cab-filet-valeur" aria-live="off">${echapper(borne(m, pose.x))}`))
+  // Un curseur resté d'une autre piste ne part pas : le milieu de celle qui est ouverte.
+  assert.deepEqual(lancerDe(m, { epoque: (m.piste! + 1) % m.tranches.length, x: pose.x }), { epoque: m.piste, x: milieuDeLaTranche(u) })
+  // À la première étape, rien ne part à l'échéance : le temps prend l'époque, et la valeur s'ouvre.
+  const premiere = vues.manche.enCours as FiletEnDeuxTempsMontre
+  assert.equal(lancerDe(premiere, pose), null)
+  assert.equal(FILET_EN_DEUX_TEMPS.aLEcheance(premiere, pose), undefined)
+  // L'étape change l'écran, que le cadre suit seul : la page n'a rien à lui dire de plus.
+  assert.equal(FILET_EN_DEUX_TEMPS.sousEcranDe!(m, pose), '')
+  assert.doesNotMatch(texte(corpsDe(html)), /★/, 'les étoiles se dessinent ou se disent')
+})
+
+test('en deux étapes — la mauvaise époque n’est plus « automatiquement faux » : laquelle c’était, ce qui reste à prendre ; et l’époque que le temps a prise', async () => {
+  const { etoilesDesAnneaux, epoqueTrouvee } = await lesEcrans()
+  const m = vues.viseeACote.enCours as FiletEnDeuxTempsMontre
+  assert.ok(m.choisie != null && !m.bonnes!.includes(m.choisie) && m.bonnes!.includes(m.piste!), 'la piste de la bonne, pas de la sienne')
+  const html = await laPartie(vues.viseeACote)
+  const verdict = verdictDeLEpoque(html)
+  assert.ok(verdict && !/cab-filet-jouee-bonne/.test(verdict.classes))
+  // Un signe et des mots, jamais la seule couleur : à l'oreille, « pas la bonne », que la croix dit à l'œil.
+  const pasLaBonne = m.annee ? 'Pas la bonne époque.' : 'Pas le bon ordre de grandeur.'
+  assert.equal(verdict.dit, `✗ ${pasLaBonne} C’était ${bornes(m, m.piste!)}. Il reste deux étoiles à prendre.`)
+  // Deux étoiles dans le petit anneau, une dans le grand : ce que la valeur rapporte, l'époque ratée.
+  assert.ok(!epoqueTrouvee(m))
+  assert.deepEqual(etoilesDesAnneaux(m), { trois: 2, deux: 1 })
+  const anneaux = /<p class="cab-filet-anneaux">([\s\S]*?)<\/p>/.exec(html)?.[1] ?? ''
+  assert.match(anneaux, /aria-label="2 étoiles sur 3"/)
+  assert.match(anneaux, /aria-label="1 étoile sur 3"/)
+  const u = m.tranches[m.piste!]
+  assert.deepEqual(['min', 'max'].map(a => attribut(/<input type="range" class="cab-curseur"([^>]*)\/>/.exec(html)?.[1] ?? '', a)), [String(u.de), String(u.a)])
+  // La bonne époque sans aide : trois et deux — et le verdict dit l'étoile gagnée.
+  const trouvee = { ...m, choisie: m.piste! }
+  assert.deepEqual(etoilesDesAnneaux(trouvee), { trois: 3, deux: 2 })
+  assert.equal(verdictDeLEpoque(await laPartie({ ...vues.viseeACote, enCours: trouvee }))?.dit, `✓ ${m.annee ? 'La bonne époque' : 'Le bon ordre de grandeur'} : ${bornes(m, m.piste!)}. Une étoile de gagnée.`)
+  // Le temps a pris l'époque : la manche continue, la bonne à l'écran.
+  const perdue = vues.epoquePerdue.enCours as FiletEnDeuxTempsMontre
+  assert.deepEqual([vues.epoquePerdue.phase, perdue.etape, perdue.choisie], ['jouer', 2, null])
+  assert.equal(
+    verdictDeLEpoque(await laPartie(vues.epoquePerdue))?.dit,
+    `✗ ${perdue.annee ? 'Pas la bonne époque.' : 'Pas le bon ordre de grandeur.'} Le temps a filé : c’était ${bornes(perdue, perdue.piste!)}. Il reste deux étoiles à prendre.`,
+  )
 })
 
 // ── La révélation ────────────────────────────────────────────────────────
@@ -403,15 +520,28 @@ test('la révélation d’un lancer à côté, et d’une manche laissée au tem
   const juge = texte(/<p class="cab-filet-juge">([\s\S]*?)<\/p>/.exec(html)?.[1] ?? '')
   assert.match(juge, /✗ non, (la bonne époque|le bon ordre de grandeur)/)
   assert.match(texte(html), new RegExp(`tu visais ${echapper(texte(dire(r, r.lancer!.x)))} · [\\d  ,]+ (ans?|%) d’écart`))
-  const choisie = epoquesDe(html)[r.lancer!.epoque]
+  // En deux étapes, son choix est l'époque qu'il a jouée, pas la piste où il a visé ensuite — celle de la bonne.
+  assert.ok(r.choisie != null && r.choisie !== r.lancer!.epoque && r.bonnes.includes(r.lancer!.epoque))
+  const choisie = epoquesDe(html)[r.choisie]
   assert.match(choisie.classes, /cab-tranche-choisie/)
   assert.doesNotMatch(choisie.classes, /cab-tranche-bonne/)
   assert.match(attribut(choisie.attributs, 'aria-label') ?? '', /, ton choix$/)
   assert.match(attribut(epoquesDe(html)[r.bonnes[0]].attributs, 'aria-label') ?? '', /, la bonne$/)
+  // Plus de « la distance compte d'abord » : l'époque et la valeur se comptent à part.
+  assert.doesNotMatch(texte(html), /la distance compte d’abord/)
   // Laissée au temps : la réponse, et rien de ce qu'il aurait visé.
   const sans = texte(await laPartie(vues.sansLancer))
   assert.match(sans, /tu n’as pas lancé/)
   assert.doesNotMatch(sans, /tu visais|Ton lancer/)
+  // D'un seul lancer, la révélation d'une manche d'avant garde ses mots : son choix est l'époque de son lancer, et si près
+  // de la réponse de l'autre côté d'une borne, « la distance compte d'abord ».
+  const { FILET_EN_DEUX_TEMPS } = await lesEcrans()
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const { parEtape: _p, choisie: _c, ...corps } = r
+  const dAvant: FiletEnDeuxTempsRevele = { ...corps, lancer: { epoque: r.choisie, x: r.lancer!.x }, criteres: { epoque: false, deux: true, trois: false }, avantLesAides: 2, etoiles: 2 }
+  const avant = renderToStaticMarkup(React.createElement(FILET_EN_DEUX_TEMPS.Revelation, { corps: dAvant, fin: 'jugee' }))
+  assert.match(texte(avant), /La mauvaise (époque|tranche), mais si près de la réponse que la distance compte d’abord\./)
+  assert.match(epoquesDe(avant)[r.choisie].classes, /cab-tranche-choisie/)
 })
 
 // ── L'aiguillage, et ce que l'écran importe ──────────────────────────────
@@ -471,6 +601,6 @@ test('l’écran du Filet en deux temps : de sa règle des types et ce qui ne ju
   // `.cab-frise` est la Frise : la frise des époques a ses classes à elle (`.cab-epoques`), et la feuille les pose toutes.
   assert.doesNotMatch(s, /cab-frise/)
   const feuille = readFileSync(path.join(client, 'styles.css'), 'utf8')
-  for (const classe of new Set([...s.matchAll(/cab-(?:epoques?|tranche|filet-(?:anneau|trait|repere|aide|juge|oui|non|consigne|restent|etape|choisie|nombre|glissiere|drapeau|indice|rappel|prix))[a-z-]*/g)].map(m => m[0])))
+  for (const classe of new Set([...s.matchAll(/cab-(?:epoques?|tranche|filet-(?:anneau|trait|repere|aide|juge|jouee|oui|non|consigne|restent|etape|choisie|nombre|glissiere|drapeau|indice|rappel|prix))[a-z-]*/g)].map(m => m[0])))
     assert.match(feuille, new RegExp(`\\.${classe}\\b`), `.${classe} a sa règle`)
 })

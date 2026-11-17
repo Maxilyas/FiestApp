@@ -193,7 +193,8 @@ test('la rareté fait la force : une commune 1, une rare ou une maudite 2, une �
   assert.equal(forceDite('temps', 1, 'pari'), '+10 s à chacune de ses deux questions')
   assert.equal(ceQueFaitLaCarte('temps', 1, 'replique'), 'Prendre son temps : +10 s à chacune de ses deux questions')
   assert.equal(ceQueFaitLaCarte('temps', 1, 'mot'), 'Prendre son temps : +10 s par manche')
-  assert.equal(POUVOIRS.temps.dit, 'Du temps en plus à chaque manche — à chacune de ses deux questions au Pari et à la Réplique ; il ne compte que si tu t’en sers.')
+  assert.equal(POUVOIRS.temps.dit, 'Du temps en plus à chaque manche — à chacune de ses deux questions au Filet, au Pari et à la Réplique ; il ne compte que si tu t’en sers.')
+  assert.equal(forceDite('temps', 1, 'filet'), '+10 s à chacune de ses deux questions', 'l’époque, puis la valeur, depuis le 17 novembre 2026')
   // La mise dit son plafond et ce que vaut une manche misée imparfaite — le plafond lu du barème, jamais recopié.
   assert.equal(POUVOIRS.miser.dit, `Avant une manche, sans l’avoir vue : parfaite, elle rapporte des étoiles en plus, jusqu’à ${B.ETOILES_D_UNE_PARTIE} sur la partie ; sinon, elle ne vaut rien.`)
   assert.equal(forceDite('miser', 1), '+2 étoiles si la manche misée est parfaite')
@@ -465,14 +466,17 @@ test('dix jeux, chacun ses mots, son chrono et son barème dit', () => {
   assert.equal(JEUX.detail.bareme, 'au premier coup d’œil ★★★ · un pas ★★ · deux ★')
   // Le Filet dit celui qui se joue (`FILET_EN_DEUX_TEMPS`) : en deux temps depuis le 9 novembre 2026, la bonne époque puis ses
   // deux anneaux, en parts d'époque — un quart, un douzième, écrits en mots — et en pour cent d'une grandeur ; avant, ses trois filets.
+  // En deux étapes depuis le 17 : ce que la valeur rapporte s'ajoute, que l'époque ait été la bonne ou non — l'annonce le dit
+  // par ses « + », aux étoiles du barème.
   assert.equal(
     JEUX.filet.bareme,
     FILET_EN_DEUX_TEMPS
-      ? `la bonne époque ★ · à un quart d’époque près ★★ · à un douzième ★★★ — une grandeur, à ${B.ANNEAUX_DES_GRANDEURS.deux} et ${B.ANNEAUX_DES_GRANDEURS.trois} %`
+      ? `la bonne époque ★ · puis la valeur : à un quart d’époque près +★ · à un douzième +★★ — une grandeur, à ${B.ANNEAUX_DES_GRANDEURS.deux} et ${B.ANNEAUX_DES_GRANDEURS.trois} %`
       : `petit filet ${etoiles(B.ETOILES_DU_FILET.petit)} · moyen ${etoiles(B.ETOILES_DU_FILET.moyen)} · grand ${etoiles(B.ETOILES_DU_FILET.grand)}`,
   )
   assert.deepEqual([B.ANNEAUX_DES_EPOQUES.deux, B.ANNEAUX_DES_EPOQUES.trois], [4, 12], 'la phrase dit « un quart », « un douzième »')
-  if (FILET_EN_DEUX_TEMPS) assert.match(JEUX.filet.geste, /^Choisis l’époque/)
+  assert.deepEqual(B.ETOILES_DES_ETAPES_DU_FILET, { epoque: 1, deux: 1, trois: 2 }, 'une étoile par chose réussie : trois au plus')
+  if (FILET_EN_DEUX_TEMPS) assert.match(JEUX.filet.geste, /^Deux étapes : choisis l’époque/)
   // Ce qu'un pari perdu laisse se dit à l'annonce depuis le 12 novembre 2026 : une étoile, et plus de cœur perdu pour avoir tenté.
   assert.equal(JEUX.pari.bareme, `garder ${etoiles(B.ETOILES_DU_PARI.garder)} · parier et réussir ${etoiles(B.ETOILES_DU_PARI.parier)} · perdre le pari ${etoiles(B.ETOILES_DU_PARI.perdu)}`)
   assert.equal(JEUX.pari.bareme, 'garder ★★ · parier et réussir ★★★ · perdre le pari ★')

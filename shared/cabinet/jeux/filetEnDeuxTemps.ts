@@ -19,6 +19,16 @@
 //
 // Rien ne part au téléphone avant le verdict qui dise où est la réponse (invariant 1) : ni la valeur, ni la bonne
 // époque, ni les époques que l'aide retirerait ; l'indice, une fois pris.
+//
+// En deux étapes depuis le 17 novembre 2026 (`parEtape` ; la décision, « Le Filet en deux étapes », `decisions.md`) :
+// l'époque se choisit pour de bon — la bonne vaut une étoile —, puis l'écran dit la bonne à tous et la valeur s'y vise :
+// tout près, une étoile de plus ; pile dedans, deux. Jusque-là, un seul lancer portait les deux, le curseur tenu dans
+// l'époque choisie, et une mauvaise époque condamnait la manche — « si tu choisis la mauvaise époque, tu as
+// automatiquement faux », le retour que le propriétaire rapportait, qui demandait de « découper le jeu en deux parties,
+// trouver la tranche de l'époque puis la date exacte dedans ». Chaque étape a son chrono, comme à la Réplique : le
+// temps passé sur l'époque n'est pas pris à la valeur, et l'échéance de la première ne coûte que l'époque. La bonne
+// époque ne part qu'une fois la sienne choisie, ou perdue : elle est alors jugée (invariant 1). Un tirage sans
+// `parEtape` — une manche tirée avant — garde sa règle d'un seul lancer, ses écrans et sa révélation.
 
 import {
   ANNEAUX_DES_EPOQUES,
@@ -28,6 +38,7 @@ import {
   CRAN_LE_PLUS_FIN,
   DUREES_DES_JEUX,
   EPOQUES_DU_FILET,
+  ETOILES_DES_ETAPES_DU_FILET,
   ETOILES_D_UNE_AIDE,
   LETTRES_D_UN_MOT_DU_SUJET,
   ORDRES_DE_GRANDEUR,
@@ -45,8 +56,22 @@ import {
 import { CATEGORIES, type Categorie } from '../../categories'
 import { decimales, ecartEstimation } from '../../classement'
 import type { QuestionDuFilet } from '../contenu'
-import { GESTE_A_JUGER, SANS_REPONSE, auHasard, battre, champsDuGeste, estUnIndex, naturelDe, pieceDeLaQuestion, reponseEnvoyee, rienAEclairer, type QuestionTiree } from './outils'
-import { justeDeLaPiece, type RegleDuJeu, type VerdictDUneManche } from './regle'
+import {
+  GESTE_A_JUGER,
+  SANS_REPONSE,
+  auHasard,
+  battre,
+  champsDuGeste,
+  choixDe,
+  estUnIndex,
+  naturelDe,
+  pieceDeLaQuestion,
+  reponseEnvoyee,
+  rienAEclairer,
+  type QuestionTiree,
+  type RegleQuiTranche,
+} from './outils'
+import { justeDeLaPiece, type VerdictDUneManche } from './regle'
 
 // ── Ce qui se tire ────────────────────────────────────────────────────────
 
@@ -76,6 +101,16 @@ export type CleDAideDuFilet = 'epoques' | 'indice'
 /** Les deux aides, dans l'ordre où la page les montre : Éclairer en vise une par son rang (le champ `affirmation`, comme au Quiz). */
 export const AIDES_DU_FILET: readonly CleDAideDuFilet[] = ['epoques', 'indice']
 
+/**
+ * Ce que vaut chaque étape du Filet en deux étapes, en étoiles (`ETOILES_DES_ETAPES_DU_FILET`) : la bonne époque, puis
+ * la valeur visée dans le grand anneau (`deux`) ou dans le petit (`trois`) — l'une et l'autre s'ajoutent.
+ */
+export interface EtoilesParEtape {
+  epoque: number
+  deux: number
+  trois: number
+}
+
 /** La question de la base, sa valeur, et tout ce que le serveur a tiré au départ : il ne part jamais au téléphone. */
 export interface FiletEnDeuxTempsTire {
   jeu: 'filet'
@@ -98,7 +133,16 @@ export interface FiletEnDeuxTempsTire {
   indice: string | null
   /** Ce qu'une aide payée retire (`ETOILES_D_UNE_AIDE`), figé au départ. */
   prixDUneAide: number
+  /**
+   * Ce que vaut chaque étape, figé au départ : le tirage dit par là qu'il se joue en deux étapes — l'époque choisie pour
+   * de bon, puis la valeur visée dans la bonne. Absent : un tirage d'avant le 17 novembre 2026, jugé d'un seul lancer.
+   */
+  parEtape?: EtoilesParEtape
 }
+
+/** Un tirage qui se joue en deux étapes : il le dit lui-même, par ce que vaut chacune. */
+export type FiletEnDeuxEtapesTire = FiletEnDeuxTempsTire & { parEtape: EtoilesParEtape }
+export const seJoueEnDeuxEtapes = (t: FiletEnDeuxTempsTire): t is FiletEnDeuxEtapesTire => t.parEtape !== undefined
 
 /** Une aide prise : payée — une étoile de moins —, ou offerte par Éclairer. */
 export interface AidePrise {
@@ -106,19 +150,35 @@ export interface AidePrise {
   offerte: boolean
 }
 
-/** Ce que le serveur sait avant le lancer : les aides prises. L'époque touchée et le curseur, la page les tient. */
+/**
+ * Ce que le serveur sait avant le lancer : les aides prises, et, en deux étapes, où en est la manche — le pli y lit ses
+ * chronos (`etape`) — et l'époque qu'il a choisie. D'un seul lancer, l'époque touchée et le curseur, la page les tient.
+ */
 export interface EtatDuFiletEnDeuxTemps {
   aides: readonly AidePrise[]
+  /** En deux étapes : l'époque, puis la valeur. */
+  etape?: 1 | 2
+  /** En deux étapes : l'époque choisie, par son rang ; null tant qu'elle ne l'est pas, ou perdue à l'échéance. */
+  epoque?: number | null
 }
 
-/** Le lancer : l'époque choisie et la valeur visée dans sa piste. */
+/**
+ * Le lancer : la valeur visée, et la piste où vit son curseur — d'un seul lancer, celle de l'époque qu'il choisit ; en
+ * deux étapes, celle que l'écran lui ouvre, l'époque étant déjà jouée.
+ */
 export interface LancerEnDeuxTemps {
   epoque: number
   x: number
 }
 
-/** Le lancer — ou rien, l'envoi de l'échéance d'une page sans époque choisie —, ou une aide payée. */
-export type GesteDuFiletEnDeuxTemps = { quoi: 'repondre'; lancer: LancerEnDeuxTemps | null } | { quoi: 'aide'; aide: CleDAideDuFilet }
+/**
+ * Le lancer — ou rien, l'envoi de l'échéance d'une page qui n'a rien à envoyer —, une aide payée, ou, en deux étapes,
+ * l'époque choisie pour de bon.
+ */
+export type GesteDuFiletEnDeuxTemps =
+  | { quoi: 'repondre'; lancer: LancerEnDeuxTemps | null }
+  | { quoi: 'aide'; aide: CleDAideDuFilet }
+  | { quoi: 'epoque'; choix: number }
 
 /** Une aide, telle que la manche la montre : prise ou non, et comment. */
 export interface AideMontree {
@@ -144,6 +204,18 @@ export interface FiletEnDeuxTempsMontre {
   retirees: number[]
   /** L'indice, une fois pris ; null avant. */
   indice: string | null
+  /** En deux étapes : ce que vaut chacune — la page y lit qu'une époque touchée est choisie pour de bon. */
+  parEtape?: EtoilesParEtape
+  /** En deux étapes : l'époque, puis la valeur (`etapeDe`, le cadre change d'écran avec elle). */
+  etape?: 1 | 2
+  /**
+   * À la seconde étape seulement, l'époque une fois jouée : celle qu'il a choisie — null, le temps l'a prise —, la
+   * bonne — deux pour une grandeur pile sur une borne —, et celle dont la piste s'ouvre : la sienne si elle est bonne,
+   * sinon la bonne.
+   */
+  choisie?: number | null
+  bonnes?: number[]
+  piste?: number
 }
 
 export interface FiletEnDeuxTempsRevele {
@@ -168,7 +240,7 @@ export interface FiletEnDeuxTempsRevele {
   lancer: LancerEnDeuxTemps | null
   /** L'écart du lancer : en années, ou en pour cent de la réponse au dixième ; null sans lancer. */
   ecart: number | null
-  /** D'où viennent les étoiles : la bonne époque, ★★ à la distance, ★★★. */
+  /** D'où viennent les étoiles : la bonne époque, ★★ à la distance, ★★★ — en deux étapes, une étoile chacun. */
   criteres: { epoque: boolean; deux: boolean; trois: boolean }
   aides: AidePrise[]
   retirees: number[]
@@ -176,6 +248,9 @@ export interface FiletEnDeuxTempsRevele {
   reperes: RepereDuFilet[]
   texte: string
   savais: string | null
+  /** En deux étapes : ce que valait chacune, et l'époque qu'il avait choisie — null : le temps l'a prise, ou il n'en a pas choisi. */
+  parEtape?: EtoilesParEtape
+  choisie?: number | null
 }
 
 // ── Les époques et les ordres de grandeur ─────────────────────────────────
@@ -478,6 +553,7 @@ export function tirageEnDeuxTemps(
     reperes: o.reperes.map(r => ({ ...r })),
     indice: o.indice,
     prixDUneAide: ETOILES_D_UNE_AIDE,
+    parEtape: { ...ETOILES_DES_ETAPES_DU_FILET },
   }
 }
 
@@ -552,6 +628,24 @@ export function etoilesDuLancer(t: Pick<FiletEnDeuxTempsTire, 'annee' | 'valeur'
   return t.bonnes.includes(lancer.epoque) ? 1 : 0
 }
 
+/**
+ * Ce que vaut une manche en deux étapes, avant les aides : la bonne époque, et la valeur visée dans le grand anneau ou
+ * dans le petit — l'une et l'autre s'ajoutent. Une mauvaise époque ne prend rien à ce que la valeur rapporte : c'est
+ * tout l'objet de la découpe. `epoque` : celle qu'il a choisie, null s'il n'en a pas ; `x` : sa visée, null sans lancer.
+ */
+export function etoilesEnDeuxEtapes(t: Pick<FiletEnDeuxEtapesTire, 'annee' | 'valeur' | 'anneaux' | 'bonnes' | 'parEtape'>, epoque: number | null, x: number | null): 0 | 1 | 2 | 3 {
+  const deLEpoque = epoque !== null && t.bonnes.includes(epoque) ? t.parEtape.epoque : 0
+  const ecart = x === null ? null : ecartDuLancer(t, x)
+  const deLaValeur = ecart === null ? 0 : ecart <= t.anneaux.trois ? t.parEtape.trois : ecart <= t.anneaux.deux ? t.parEtape.deux : 0
+  return naturelDe(deLEpoque + deLaValeur)
+}
+
+/**
+ * La piste que la seconde étape ouvre : celle de l'époque qu'il a choisie si elle est bonne, sinon la bonne — pour une
+ * grandeur pile sur une borne, qui en a deux, celle où elle commence. La réponse y est toujours.
+ */
+export const pisteDeLaValeur = (t: Pick<FiletEnDeuxTempsTire, 'bonnes'>, epoque: number | null): number => (epoque !== null && t.bonnes.includes(epoque) ? epoque : t.bonnes[t.bonnes.length - 1])
+
 /** Ce que les aides payées coûtent : une étoile chacune — une aide offerte, rien. */
 const prixDesAides = (t: FiletEnDeuxTempsTire, e: EtatDuFiletEnDeuxTemps): number => e.aides.filter(a => !a.offerte).length * t.prixDUneAide
 
@@ -560,6 +654,11 @@ const prixDesAides = (t: FiletEnDeuxTempsTire, e: EtatDuFiletEnDeuxTemps): numbe
 export const AIDE_DEJA_PRISE = 'Cette aide a déjà servi dans cette manche'
 export const SANS_INDICE = 'Cette question n’a pas d’indice'
 export const CHOISIS_TON_AIDE = 'Choisis l’aide que ta carte t’offre'
+/** Les refus des deux étapes, dans les mots de la manche : une année a des époques, une grandeur des ordres de grandeur. */
+const laTranche = (t: Pick<FiletEnDeuxTempsTire, 'annee'>) => (t.annee ? 'l’époque' : 'l’ordre de grandeur')
+export const epoqueDAbord = (t: Pick<FiletEnDeuxTempsTire, 'annee'>) => `Choisis d’abord ${laTranche(t)}`
+export const epoqueJouee = (t: Pick<FiletEnDeuxTempsTire, 'annee'>) => (t.annee ? 'L’époque est jouée : vise l’année' : 'L’ordre de grandeur est joué : vise la valeur')
+export const epoqueRetiree = (t: Pick<FiletEnDeuxTempsTire, 'annee'>) => (t.annee ? 'Cette époque est retirée : choisis-en une autre' : 'Cet ordre de grandeur est retiré : choisis-en un autre')
 
 /** Les aides que la question propose : sans indice honnête — l'énoncé donne déjà l'époque —, l'autre seule. */
 const aidesProposees = (t: FiletEnDeuxTempsTire): CleDAideDuFilet[] => AIDES_DU_FILET.filter(a => a !== 'indice' || t.indice !== null)
@@ -580,13 +679,23 @@ const LETTRES_DES_AIDES: Readonly<Record<CleDAideDuFilet, string>> = { epoques: 
 /**
  * « 1962|2 », « 1962|2|Ie » : le curseur, l'époque, puis les aides dans l'ordre où il les a prises — le journal le
  * garde, la révélation le relit, et les siens ne se font qu'une année placée sans aide. Sans lancer, « .|.|e » s'il a
- * pris une aide ; sans rien, null.
+ * pris une aide ; sans rien, null. En deux étapes, l'époque est celle qu'il a choisie, et l'une vient sans l'autre :
+ * « .|2 », l'époque choisie et la valeur jamais visée ; « 1962|. », l'époque prise par le temps, puis la valeur.
  */
-function composeeDu(lancer: LancerEnDeuxTemps | null, aides: readonly AidePrise[]): string | null {
+function composeeDu(x: number | null, epoque: number | null, aides: readonly AidePrise[]): string | null {
   const dites = aides.map(a => (a.offerte ? LETTRES_DES_AIDES[a.cle].toUpperCase() : LETTRES_DES_AIDES[a.cle])).join('')
-  if (!lancer && !dites) return null
-  const tete = lancer ? `${lancer.x}|${lancer.epoque}` : `${SANS_REPONSE}|${SANS_REPONSE}`
+  if (x === null && epoque === null && !dites) return null
+  const tete = `${x ?? SANS_REPONSE}|${epoque ?? SANS_REPONSE}`
   return dites ? `${tete}|${dites}` : tete
+}
+
+/** Ce qu'une `composee` en deux étapes garde : la valeur visée et l'époque choisie, chacune ou null. */
+export function etapesDeLaComposee(composee: string | null | undefined): { x: number | null; epoque: number | null } {
+  const [x, epoque] = (composee ?? '').split('|')
+  const dit = (s: string | undefined): s is string => s !== undefined && s !== '' && s !== SANS_REPONSE
+  const n = Number(x)
+  const i = Number(epoque)
+  return { x: dit(x) && Number.isFinite(n) ? n : null, epoque: dit(epoque) && Number.isInteger(i) && i >= 0 && i < TRANCHES_DU_FILET ? i : null }
 }
 
 /** Le lancer d'une `composee`, écrite par `composeeDu` — jamais tapée par un humain : elle se relit telle que `String` l'a écrite. */
@@ -609,36 +718,84 @@ function titreDuVerdict(t: FiletEnDeuxTempsTire, lancer: LancerEnDeuxTemps | nul
   return 'À côté'
 }
 
+/** … et d'une manche en deux étapes : ce que la valeur a pris d'abord, sinon la bonne époque. */
+function titreEnDeuxEtapes(t: FiletEnDeuxTempsTire, lu: { x: number | null; epoque: number | null }, criteres: FiletEnDeuxTempsRevele['criteres']): string {
+  if (lu.x === null && lu.epoque === null) return 'Le temps a filé'
+  if (criteres.trois) return 'Pile dedans'
+  if (criteres.deux) return 'Tout près'
+  if (criteres.epoque) return t.annee ? 'La bonne époque' : 'Le bon ordre de grandeur'
+  return 'À côté'
+}
+
 // ── La règle ──────────────────────────────────────────────────────────────
 
-export const REGLE_DU_FILET_EN_DEUX_TEMPS: RegleDuJeu<FiletEnDeuxTempsTire, EtatDuFiletEnDeuxTemps, GesteDuFiletEnDeuxTemps, FiletEnDeuxTempsMontre, FiletEnDeuxTempsRevele> = {
+/**
+ * Le verdict d'une manche en deux étapes. La valeur ne se vise qu'à la seconde ; l'époque, le serveur la tient dès
+ * qu'elle est choisie : à l'échéance de la seconde étape, elle compte encore — ce qu'il savait déjà, comme le mot de la
+ * Réplique. Quitter laisse zéro, comme partout, et ce qu'il avait fait reste écrit.
+ */
+function jugerEnDeuxEtapes(t: FiletEnDeuxEtapesTire, e: EtatDuFiletEnDeuxTemps, reponse: GesteDuFiletEnDeuxTemps | 'expiree' | 'quittee'): VerdictDUneManche {
+  const epoque = e.epoque ?? null
+  const x = e.etape === 2 && typeof reponse === 'object' && reponse.quoi === 'repondre' && reponse.lancer ? reponse.lancer.x : null
+  const composee = composeeDu(x, epoque, e.aides)
+  if (reponse === 'quittee') return { naturel: 0, pieces: [{ juste: false, choix: null, composee }] }
+  const avant = etoilesEnDeuxEtapes(t, epoque, x)
+  // Comme d'un seul lancer : les aides ne prennent que ce que la manche valait, jamais un cœur.
+  const payees = Math.min(avant, prixDesAides(t, e))
+  const juste = justeDeLaPiece(avant, 'filet') === true
+  const verdict: VerdictDUneManche = { naturel: naturelDe(avant - payees), pieces: [{ juste, choix: choixDe(epoque !== null || x !== null, juste), composee }] }
+  return payees > 0 ? { ...verdict, payees } : verdict
+}
+
+export const REGLE_DU_FILET_EN_DEUX_TEMPS: RegleQuiTranche<FiletEnDeuxTempsTire, EtatDuFiletEnDeuxTemps, GesteDuFiletEnDeuxTemps, FiletEnDeuxTempsMontre, FiletEnDeuxTempsRevele> = {
   cle: 'filet',
-  etapes: 1,
-  // Soixante secondes depuis le 12 novembre 2026 (`DUREES_DES_JEUX`) : deux décisions et un indice à lire. À 45, une
-  // manche sur cinq allait jusqu'à l'échéance en production — les deux où l'indice avait été pris comprises.
+  // L'époque, puis la valeur, chacune son chrono depuis le 17 novembre 2026 ; un tirage d'avant n'ouvre jamais la seconde.
+  etapes: 2,
+  // Soixante secondes depuis le 12 novembre 2026 (`DUREES_DES_JEUX`) : à 45, une manche sur cinq allait jusqu'à
+  // l'échéance en production — les deux où l'indice avait été pris comprises. La même durée à chaque étape, comme à la
+  // Réplique : le chrono de la valeur part quand l'époque est jouée.
   dureeMs: () => DUREES_DES_JEUX.filet * 1000,
 
-  ouvrir: () => ({ aides: [] }),
+  ouvrir: t => (seJoueEnDeuxEtapes(t) ? { aides: [], etape: 1, epoque: null } : { aides: [] }),
 
   lireLeGeste(brut, t) {
     const g = champsDuGeste(brut)
     if (!g) return null
     if (g.quoi === 'aide') return (AIDES_DU_FILET as readonly unknown[]).includes(g.aide) ? { quoi: 'aide', aide: g.aide as CleDAideDuFilet } : null
+    // L'époque choisie pour de bon : un tirage d'avant n'a pas ce geste — son époque part avec le lancer.
+    if (g.quoi === 'epoque') return seJoueEnDeuxEtapes(t) && estUnIndex(g.choix, t.tranches.length) ? { quoi: 'epoque', choix: g.choix } : null
     if (g.quoi !== 'repondre') return null
     const r = reponseEnvoyee(g, 'filet')
     if (r === undefined) return { quoi: 'repondre', lancer: null }
     if (r === null) return null
     const { epoque, x } = r
     if (!estUnIndex(epoque, t.tranches.length) || typeof x !== 'number' || !Number.isFinite(x)) return null
-    // Le curseur vit dans la piste de l'époque choisie : la page ne peut pas en sortir.
+    // Le curseur vit dans la piste d'une époque : la page ne peut pas en sortir. Laquelle, la lecture ne le juge pas —
+    // en deux étapes, refuser ici une autre piste que la bonne dirait la bonne avant que l'époque soit jouée.
     if (x < t.tranches[epoque].de || x > t.tranches[epoque].a) return null
     return { quoi: 'repondre', lancer: { epoque, x } }
   },
 
-  // Une aide ne tranche pas ; seul le lancer — `repondre` — le fait : la règle commune suffit (`trancheLaManche`).
-  apresLeGeste: (t, e, g) => (g.quoi === 'aide' ? prendre(t, e, g.aide, false) : GESTE_A_JUGER),
+  // D'un seul lancer, `repondre` tranche toujours ; en deux étapes, à la seconde seulement — à la première, la réponse
+  // vide de l'échéance prend l'époque et ouvre la valeur.
+  tranche: (t, e, g) => g.quoi === 'repondre' && (!seJoueEnDeuxEtapes(t) || e.etape === 2),
+
+  apresLeGeste(t, e, g) {
+    if (!seJoueEnDeuxEtapes(t)) return g.quoi === 'aide' ? prendre(t, e, g.aide, false) : GESTE_A_JUGER
+    if (g.quoi === 'repondre') {
+      if (e.etape === 2) return GESTE_A_JUGER
+      // Un lancer avant l'époque : la page n'a pas encore de piste. Sans rien, c'est l'échéance de l'époque.
+      return g.lancer !== null ? epoqueDAbord(t) : { ...e, etape: 2, epoque: null }
+    }
+    // L'époque jouée, la bonne est à l'écran : ni une autre époque, ni une aide qui y menait.
+    if (e.etape === 2) return epoqueJouee(t)
+    if (g.quoi === 'aide') return prendre(t, e, g.aide, false)
+    if (prise(e, 'epoques') && t.retirables.includes(g.choix)) return epoqueRetiree(t)
+    return { ...e, etape: 2, epoque: g.choix }
+  },
 
   juger(t, e, reponse) {
+    if (seJoueEnDeuxEtapes(t)) return jugerEnDeuxEtapes(t, e, reponse)
     const lancer = typeof reponse === 'object' && reponse.quoi === 'repondre' ? reponse.lancer : null
     const avant = etoilesDuLancer(t, lancer)
     // Les aides ne prennent que ce que le lancer valait : ratée, la manche coûte son cœur comme toujours, et jamais
@@ -648,14 +805,15 @@ export const REGLE_DU_FILET_EN_DEUX_TEMPS: RegleDuJeu<FiletEnDeuxTempsTire, Etat
     const juste = justeDeLaPiece(avant, 'filet') === true
     const verdict: VerdictDUneManche = {
       naturel: naturelDe(avant - payees),
-      pieces: [{ juste, choix: lancer ? (juste ? 0 : -1) : null, composee: composeeDu(lancer, e.aides) }],
+      pieces: [{ juste, choix: lancer ? (juste ? 0 : -1) : null, composee: composeeDu(lancer ? lancer.x : null, lancer ? lancer.epoque : null, e.aides) }],
     }
     return payees > 0 ? { ...verdict, payees } : verdict
   },
 
   eclairer(t, e, _hasard, cible) {
     // Rien à souffler se dit d'abord, quelle que soit la cible : le pli y lit si Éclairer sert encore (`eclairerSertEncore`).
-    if (aidesProposees(t).every(a => prise(e, a))) return rienAEclairer('filet')
+    // L'époque jouée, il ne reste rien : les deux aides y menaient.
+    if (e.etape === 2 || aidesProposees(t).every(a => prise(e, a))) return rienAEclairer('filet')
     if (cible === undefined || !estUnIndex(cible, AIDES_DU_FILET.length)) return CHOISIS_TON_AIDE
     return prendre(t, e, AIDES_DU_FILET[cible], true)
   },
@@ -678,10 +836,53 @@ export const REGLE_DU_FILET_EN_DEUX_TEMPS: RegleDuJeu<FiletEnDeuxTempsTire, Etat
       prixDUneAide: t.prixDUneAide,
       retirees: prise(e, 'epoques') ? [...t.retirables] : [],
       indice: prise(e, 'indice') ? t.indice : null,
+      ...(seJoueEnDeuxEtapes(t) && {
+        parEtape: { ...t.parEtape },
+        etape: e.etape ?? 1,
+        // La bonne époque ne part qu'ici, l'époque jouée : elle est jugée, et la piste qui s'ouvre la dirait de toute façon.
+        ...(e.etape === 2 && { choisie: e.epoque ?? null, bonnes: [...t.bonnes], piste: pisteDeLaValeur(t, e.epoque ?? null) }),
+      }),
     }
   },
 
   reveler(t, e, v) {
+    if (seJoueEnDeuxEtapes(t)) {
+      const lu = etapesDeLaComposee(v.pieces[0]?.composee)
+      const ecart = lu.x === null ? null : ecartDuLancer(t, lu.x)
+      const criteres = {
+        epoque: lu.epoque !== null && t.bonnes.includes(lu.epoque),
+        deux: ecart !== null && ecart <= t.anneaux.deux,
+        trois: ecart !== null && ecart <= t.anneaux.trois,
+      }
+      const payees = v.payees ?? 0
+      return {
+        jeu: 'filet',
+        deuxTemps: true,
+        titre: titreEnDeuxEtapes(t, lu, criteres),
+        // Du verdict, jamais recompté : une manche quittée ne valait rien, quoi qu'il ait fait avant.
+        avantLesAides: naturelDe(v.naturel + payees),
+        payees,
+        etoiles: v.naturel,
+        valeur: t.valeur,
+        reponse: t.question.reponses[t.question.bonne],
+        annee: t.annee,
+        ...sonUnite(t),
+        tranches: t.tranches.map(x => ({ ...x })),
+        bonnes: [...t.bonnes],
+        anneaux: { ...t.anneaux },
+        lancer: lu.x === null ? null : { epoque: pisteDeLaValeur(t, lu.epoque), x: lu.x },
+        ecart,
+        criteres,
+        aides: e.aides.map(a => ({ ...a })),
+        retirees: prise(e, 'epoques') ? [...t.retirables] : [],
+        indice: prise(e, 'indice') ? t.indice : null,
+        reperes: t.reperes.map(r => ({ ...r })),
+        texte: t.question.texte,
+        savais: t.question.anecdote,
+        parEtape: { ...t.parEtape },
+        choisie: lu.epoque,
+      }
+    }
     const lancer = lancerDeLaComposee(v.pieces[0]?.composee)
     const avant = etoilesDuLancer(t, lancer)
     const ecart = lancer ? ecartDuLancer(t, lancer.x) : null

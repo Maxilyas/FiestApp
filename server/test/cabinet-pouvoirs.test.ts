@@ -214,10 +214,12 @@ test('le refus d’Éclairer nomme l’étape : au Pari et à la Réplique, la q
   replique.joue({ quoi: 'mot', manche: 0, choix: 0 }, MIDI + 4 * S)
   assert.deepEqual(pouvoirMaintenant(replique.depart, replique.etat, MIDI + 5 * S), { jouable: true }, '« Qui l’a dit ? », dans la même manche')
 
-  // Un jeu d'une seule étape a toute la manche pour elle : le refus le dit ainsi (le Filet, plus haut, par les routes).
+  // Un jeu d'une seule étape a toute la manche pour elle : le refus le dit ainsi (le Filet, plus haut, par les routes). Le
+  // Filet a deux étapes depuis le 17 novembre 2026, mais Éclairer n'y sert qu'à la première — ses aides mènent à l'époque,
+  // la valeur n'a rien à souffler : plus rien à l'une, c'est plus rien à la manche.
   for (const jeu of Object.keys(JEUX) as CleDeJeu[]) {
     const dit = refusDuPouvoir({ pouvoir: 'eclairer', force: 3, jeu, servi: 0, aEclairer: false })
-    assert.equal(dit, JEUX[jeu].etapes === 2 ? 'Plus rien à éclairer à cette question' : 'Plus rien à éclairer dans cette manche', jeu)
+    assert.equal(dit, JEUX[jeu].etapes === 2 && jeu !== 'filet' ? 'Plus rien à éclairer à cette question' : 'Plus rien à éclairer dans cette manche', jeu)
   }
 })
 
@@ -555,7 +557,7 @@ test('Prendre son temps dit où vont ses secondes : par manche à l’Éclair, �
   for (const jeu of Object.keys(JEUX) as CleDeJeu[]) {
     assert.match(ceQueFaitLaCarte('temps', 2, jeu), JEUX[jeu].etapes === 2 ? /\+20 s à chacune de ses deux questions$/ : /\+20 s par manche$/, jeu)
   }
-  assert.match(POUVOIRS.temps.dit, /à chaque manche — à chacune de ses deux questions au Pari et à la Réplique/)
+  assert.match(POUVOIRS.temps.dit, /à chaque manche — à chacune de ses deux questions au Filet, au Pari et à la Réplique/)
 })
 
 test('le bilan d’un double ne dit « sans cadre doré » que d’un cadre qui pouvait se dorer : déjà doré, il n’a rien perdu', () => {
