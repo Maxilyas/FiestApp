@@ -7,9 +7,9 @@ import { espacesFines, formatNumber } from '../format'
 import { NOM_DE_RARETE, THEMES, enBoutique, prixDe, retourEnBoutique, theme, type Theme } from '../../../shared/themes'
 import { enConfettis, themesEnRayon } from '../../../shared/rayons'
 import type { PublicProfileDetail } from '../../../shared/profil'
-import { AGagner, EnteteDeLaPiece, PiedDeLaPiece, VersLaBoutique } from './LigneDeCollection'
+import { AGagner, EnteteDeLaPiece, PiedDeLaPiece, VersLaBoutique, ceQueDitLaVignette, classesDeLaVignette, type EtatDUneVignette } from './LigneDeCollection'
 import { apercuDe } from '../apercus'
-import { EchantillonDePlaque, MaPlaque, ceQueDitLaVignette, classesDeLaVignette, plaquesDeLaLoge, type EtatDUneVignette } from './MaPlaque'
+import { EchantillonDePlaque, MaPlaque, plaquesDeLaLoge } from './MaPlaque'
 import type { PropsDUnePiece } from './choix'
 
 // Les thèmes : ce qui habille toutes ses pages — la soirée, son profil, ses

@@ -41,6 +41,39 @@ export function EnteteDeLaPiece({ id, titre, compte, consigne, children }: { id:
   )
 }
 
+/** L'état d'une vignette de la loge, comme une case d'avatar : montrée par la carte (ou la page), portée, neuve. */
+export interface EtatDUneVignette {
+  montre: boolean
+  porte: boolean
+  neuve?: boolean
+}
+
+/**
+ * Ses classes, les mêmes dans les cinq pièces : `selected`, ce que la carte
+ * montre — le cadre d'or ; `essaye`, montré sans être porté — son halo ;
+ * `porte`, sa coche, qu'il soit montré ou non ; `neuve`, le point rouge. Deux
+ * jeux d'aides vivaient côte à côte le jour des vignettes : au Fond, le
+ * Velours porté gardait son cadre sans sa coche, quand le thème porté avait
+ * les deux (la relecture du 17 novembre 2026).
+ */
+export function classesDeLaVignette({ montre, porte, neuve }: EtatDUneVignette): string {
+  return (montre ? ' selected' : '') + (montre && !porte ? ' essaye' : '') + (porte ? ' porte' : '') + (neuve ? ' neuve' : '')
+}
+
+/**
+ * Ce qu'une vignette dit à l'oreille après son nom — tout ce que l'œil lit
+ * d'elle : `aria-pressed` dit qu'elle est montrée ; « à l'essai » si elle
+ * l'est sans être portée, « porté » chaque fois qu'il la porte, et le neuf.
+ * Le mot « porté » écrit sous chaque case était lu avec elle ; parti de
+ * l'œil, il ne se disait plus que quand la carte montrait autre chose — dans
+ * l'état d'arrivée, rien ne disait ce qu'il portait. La grille des avatars
+ * garde sa règle à elle (`ceQueDitLaCase`, `Apparence.tsx`) : elle n'a jamais
+ * écrit de mot sous ses cases, et « portée, activé » s'y disait deux fois.
+ */
+export function ceQueDitLaVignette({ montre, porte, neuve }: EtatDUneVignette, portee = 'porté', nouvelle = 'nouveau'): string {
+  return (montre && !porte ? ', à l’essai' : '') + (porte ? `, ${portee}` : '') + (neuve ? `, ${nouvelle}` : '')
+}
+
 /**
  * Le pied d'une pièce de la loge : ses chemins vers ce qu'il n'a pas, sur une
  * ligne quand ils y tiennent — la boutique pour ce qui s'achète, « Ma

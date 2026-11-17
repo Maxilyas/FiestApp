@@ -6,6 +6,7 @@ import { theme } from '../../../shared/themes'
 import { bordurePortee } from '../../../shared/duels'
 import { cibleEclat } from '../../../shared/legendaires'
 import { eclatChez, sceauVisible, type PublicProfileDetail } from '../../../shared/profil'
+import { ceQueDitLaVignette, classesDeLaVignette, type EtatDUneVignette } from './LigneDeCollection'
 import type { PropsDUnePiece } from './choix'
 
 // La plaque de son nom, là où elle se choisit et là où elle se vend : dans
@@ -75,32 +76,6 @@ export function plaquesDeLaLoge(profil: PublicProfileDetail, essai: PropsDUnePie
   // Une plaque choisie d'un thème qu'il n'a plus (un serveur qui en sait moins) : la règle du serveur la dit quand même.
   const vue = choix.find(c => c.cle === montree)?.vue ?? plaquePortee(montree, themeMontre)
   return { portee, montree, choix, vue }
-}
-
-/** L'état d'une vignette de la loge, comme une case d'avatar : montrée par la page, portée, neuve. */
-export interface EtatDUneVignette {
-  montre: boolean
-  porte: boolean
-  neuve?: boolean
-}
-
-/**
- * Ses classes, celles des cases d'avatar (`.loge-vignette`, la base commune
- * des pièces) : `selected`, ce que la page montre — le cadre d'or ; `essaye`,
- * montré sans être porté — son halo ; `porte`, sa coche ; `neuve`, le point
- * rouge.
- */
-export function classesDeLaVignette({ montre, porte, neuve }: EtatDUneVignette): string {
-  return (montre ? ' selected' : '') + (montre && !porte ? ' essaye' : '') + (porte ? ' porte' : '') + (neuve ? ' neuve' : '')
-}
-
-/**
- * Ce qu'une vignette dit à l'oreille après son nom : `aria-pressed` dit déjà
- * qu'elle est montrée ; l'oreille apprend en plus si c'est un essai, ce qu'il
- * porte quand la page en montre un autre, et ce qui est neuf.
- */
-export function ceQueDitLaVignette({ montre, porte, neuve }: EtatDUneVignette, portee: string, nouvelle: string): string {
-  return (montre && !porte ? ', à l’essai' : '') + (porte && !montre ? `, ${portee}` : '') + (neuve ? `, ${nouvelle}` : '')
 }
 
 /**

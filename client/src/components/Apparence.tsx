@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
 import { Gemmes } from './Gemmes'
-import { AGagner, EnteteDeLaPiece, PiedDeLaPiece, VersLaBoutique } from './LigneDeCollection'
+import { AGagner, EnteteDeLaPiece, PiedDeLaPiece, VersLaBoutique, ceQueDitLaVignette, classesDeLaVignette } from './LigneDeCollection'
 import { PremierHautFait } from './Trophees'
 import { gemmeDAvatar } from '../gemmes'
 import { AVATARS, COLLECTION, COLLECTION_HAUTE } from '../../../shared/avatars'
@@ -47,11 +47,6 @@ import type { PropsDUnePiece } from './choix'
 // chaque chose et comment la gagner (le souhait du propriétaire du 13
 // octobre 2026 : des finitions et des bordures qu'il n'avait pas s'y
 // mêlaient aux siennes).
-
-/** Ses classes : `selected`, ce que la carte montre ; `essaye`, à l'essai ; `porte`, porté sous un essai ; `neuve`. */
-function classesDeLaCase({ montre, porte, neuve }: { montre: boolean; porte: boolean; neuve?: boolean }): string {
-  return (montre ? ' selected' : '') + (montre && !porte ? ' essaye' : '') + (!montre && porte ? ' porte' : '') + (neuve ? ' neuve' : '')
-}
 
 /**
  * Les pages de la grille des avatars, celles de l'album de « Ma collection »
@@ -806,14 +801,14 @@ export function MonTitre({ profil, essai, essayer, neufs }: PropsDUnePiece) {
     const e = etat(cle)
     const emoji = cle === null ? '' : emojiDUnTitre(cle)
     return (
-      <button key={cle ?? 'aucun'} type="button" className={'loge-vignette loge-titre' + classesDeLaCase(e)} aria-pressed={e.montre} onClick={() => essayer({ titre: cle })}>
+      <button key={cle ?? 'aucun'} type="button" className={'loge-vignette loge-titre' + classesDeLaVignette(e)} aria-pressed={e.montre} onClick={() => essayer({ titre: cle })}>
         {emoji && (
           <span className="loge-titre-emoji" aria-hidden="true">
             {emoji}
           </span>
         )}
         <span className="loge-vignette-nom">{nom}</span>
-        {(e.porte && !e.montre) || e.neuve ? <span className="sr-only">{ceQueDitLaCase(e)}</span> : null}
+        {ceQueDitLaVignette(e) && <span className="sr-only">{ceQueDitLaVignette(e)}</span>}
       </button>
     )
   }
@@ -862,7 +857,7 @@ export function MonFond({ profil, essai, essayer, neufs }: PropsDUnePiece) {
     const etat = { montre: montre === cle, porte: porte === cle, neuve: cle !== null && !!neufs?.has(cle) }
     return (
       <li key={cle ?? 'velours'}>
-        <button type="button" className={'loge-vignette' + classesDeLaCase(etat)} aria-pressed={etat.montre} aria-label={nom + ceQueDitLaCase(etat)} onClick={() => essayer({ fond: cle })}>
+        <button type="button" className={'loge-vignette' + classesDeLaVignette(etat)} aria-pressed={etat.montre} aria-label={nom + ceQueDitLaVignette(etat)} onClick={() => essayer({ fond: cle })}>
           <span className="loge-vignette-image" aria-hidden="true">
             <span className={'fond-apercu' + (cle ? ` carte-fond fond-${cle}` : '')} />
           </span>
@@ -915,9 +910,9 @@ export function MaGerbe({ profil, essai, essayer, neufs }: PropsDUnePiece) {
       <li key={cle ?? 'aucune'}>
         <button
           type="button"
-          className={'loge-vignette' + classesDeLaCase(etat)}
+          className={'loge-vignette' + classesDeLaVignette(etat)}
           aria-pressed={etat.montre}
-          aria-label={nom + ceQueDitLaCase(etat, 'portée', 'nouvelle')}
+          aria-label={nom + ceQueDitLaVignette(etat, 'portée', 'nouvelle')}
           onClick={() => {
             if (g) setApercu(a => ({ cle: g.key, n: (a?.n ?? 0) + 1 }))
             essayer({ gerbe: g ? g.key : AUCUNE_GERBE })
