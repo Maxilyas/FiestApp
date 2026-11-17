@@ -81,7 +81,8 @@ interface Props {
  * La bordure de ligue des duels (`Bordure.tsx`) se pose autour, derrière
  * l'emoji ou le médaillon — ce qui sort d'un médaillon passe par-dessus elle,
  * comme par-dessus son anneau — et devant la lumière d'une finition, dont
- * elle prend la place des anneaux. Jamais sous un Divin.
+ * elle prend la place des anneaux. Au métal de sa ligue : la finition ne la
+ * teint pas. Jamais sous un Divin.
  *
  * Les dessins arrivent à la demande (`medaillons.ts`) : le temps qu'ils
  * arrivent, c'est l'emoji qui tient la place. Les pages les font venir avant
@@ -166,7 +167,7 @@ export function Avatar({ avatar, finition, eclat, legendaire, className, grand, 
   const dedans = (
     <>
       {/* Derrière l'avatar : le débord d'un médaillon passe par-dessus elle. */}
-      {cadre && Bordure && <Bordure ligue={cadre.ligue} crans={cadre.crans} finition={finition ?? 'mat'} />}
+      {cadre && Bordure && <Bordure ligue={cadre.ligue} crans={cadre.crans} />}
       <span className="av-emoji">
         {divin && Divin ? (
           <Divin cle={divin} grand={grand} />

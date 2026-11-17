@@ -192,8 +192,8 @@ test('l’album du style : ce qu’il a en couleur, ce qui reste éteint — la 
   assert.match(finitions, /<div class="trophees-grille style-grille style-finitions">/)
   assert.doesNotMatch(finitions, /aria-pressed|Le porter/)
   const bordures = await rendu('components/AlbumDuStyle', 'AlbumDuStyle', { partie: 'bordures', profil: MAYA })
-  assert.match(bordures, /aria-label="Le Perlé, portée"><span class="trophee-medaillon" aria-hidden="true">.*?<span class="album-coche">/)
-  assert.match(bordures, /<span class="trophee-nom" aria-hidden="true">Le Perlé<\/span><span class="trophee-sous" aria-hidden="true">3\/12<\/span>/)
+  assert.match(bordures, /aria-label="L’Olivier, portée"><span class="trophee-medaillon" aria-hidden="true">.*?<span class="album-coche">/)
+  assert.match(bordures, /<span class="trophee-nom" aria-hidden="true">L’Olivier<\/span><span class="trophee-sous" aria-hidden="true">3\/12<\/span>/)
 
   // La fiche d'une finition à gagner : où il en est, et pas d'écran où aller — le niveau vient de tout ce qu'on joue.
   const fiche = async (partie: string, cle: string) => {
@@ -274,8 +274,8 @@ test('dans la loge, les finitions et les bordures qu’il n’a pas se comptent 
   assert.deepEqual([...bordures.matchAll(/<button type="button" class="finition-choix bordure-choix[^"]*"[^>]*aria-label="([^"]+)"/g)].map(m => m[1].split(',')[0]), [
     'Auto',
     'Sans bordure',
-    'Le Moletage',
-    'Le Perlé',
+    'Le Rameau',
+    'L’Olivier',
   ])
   assert.doesNotMatch(bordures, /bordure-fermee|href="\/duels"/)
   assert.match(
@@ -290,7 +290,7 @@ test('dans la loge, les finitions et les bordures qu’il n’a pas se comptent 
   // mis bout à bout, les mêmes mots ; un téléphone ne montre que les morceaux qui tiennent entiers sur une ligne.
   assert.match(
     bordures,
-    /<p class="muted small loge-bordure-phrase loge-a-suite"><span class="loge-essentiel">Le Perlé · 3 crans sur 12<\/span><span class="loge-suite"> : encore 9 victoires en ligue d’argent ou plus haut pour la sertir\.<\/span><\/p>/,
+    /<p class="muted small loge-bordure-phrase loge-a-suite"><span class="loge-essentiel">L’Olivier · 3 crans sur 12<\/span><span class="loge-suite"> : encore 9 victoires en ligue d’argent ou plus haut pour la sertir\.<\/span><\/p>/,
   )
   // Tout en haut, rien au-dessus : « en ligue des maîtres ».
   const maitre = await rendu('components/Apparence', 'MesBordures', { profil: { ...MAYA, bordures: LIGUES.map(l => ({ ligue: l.cle, crans: 1 })) }, ...loge })

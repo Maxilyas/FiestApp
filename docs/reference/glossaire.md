@@ -59,7 +59,7 @@ FiestApp nomme les choses comme l'application les montre : une **soirée**, la *
 | Bibliothèque en mémoire | La copie des quiz jouables de chaque espace que lit le moteur, relue après chaque écriture ; de deux relectures croisées, la dernière partie gagne | `derniereRelecture` |
 | Bilan | La soirée de chacun, question par question, et celle de toute la salle | `buildReview` (`server/src/core/review.ts`) |
 | Bonus de série | L'expérience versée dès qu'une partie commence : dix par jour de série, cent au plus | `xpDeSerie` |
-| Bordure de ligue | L'anneau cranté autour de l'avatar d'un profil, une par ligue atteinte, porté d'office ou choisi dans la loge | `BordureDeLigue` |
+| Bordure de ligue | La parure autour de l'avatar d'un profil, au métal de sa ligue — un fil, l'insigne de la ligue en bas, un brin de feuilles par cran —, une par ligue atteinte, portée d'office ou choisie dans la loge | `BordureDeLigue` |
 | Boutique | La page `/boutique`, où l'on dépense ses confettis, d'un seul tenant : quatre rayons à la suite, en grilles — « Thèmes », « Compagnons », « Fonds », « Objets » (le comptoir) — ; toucher un article ouvre son présentoir, ce qui s'y prête s'essaie avant de s'acheter, et son envie se suit en tête | `PanneauBoutique` || Branche | Une des douze familles de portraits, une par catégorie de questions, chacune son style peint | `BRANCHES` |
 | Brouillon | Ce que l'éditeur garde dans le navigateur tant que le serveur n'a pas enregistré, relu comme le serveur relit | `shared/brouillon.ts` |
 

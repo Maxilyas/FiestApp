@@ -448,10 +448,10 @@ const IMAGES = {
  * son image s'il en a une. `emoji` : il fait anneau autour d'un emoji, et
  * ne se pose pas autour d'un médaillon — le cercle du médaillon le remplace
  * (`Cercle.tsx`) : deux anneaux et un disque faisaient une cible. `anneau` :
- * il tombe là où passe une bordure de ligue (`Bordure.tsx`), qui le remplace
- * et prend sa matière — la bague de cristal, le limbe et l'anneau serti de
- * l'Astrolabe sous la bordure faisaient trois anneaux. L'atmosphère, elle,
- * reste : arcs-en-ciel, voiles, nébuleuse, étoile en orbite.
+ * il tombe là où passe une bordure de ligue (`Bordure.tsx`), qui le
+ * remplace — la bague de cristal, le limbe et l'anneau serti de l'Astrolabe
+ * sous la bordure faisaient trois anneaux. L'atmosphère, elle, reste :
+ * arcs-en-ciel, voiles, nébuleuse, étoile en orbite.
  */
 interface Calque {
   classe: string

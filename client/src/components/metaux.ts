@@ -1,8 +1,10 @@
 // Les métaux des finitions et des ligues, une seule palette : la bordure de
-// ligue s'y frappe (`dessinDesBordures.ts`), le sceau des légendaires aussi
-// (`Sceau.tsx`) — l'un et l'autre prennent le métal de la finition portée,
-// et appartiennent à la tenue. Un module sans React ni page, que Node lit
-// aussi (les planches, les tests).
+// ligue s'y frappe (`dessinDesBordures.ts`), au métal de sa ligue ; le sceau
+// des légendaires aussi (`Sceau.tsx`), au métal de la finition portée. Du
+// 12 octobre au 17 novembre 2026, la bordure prenait elle aussi celui de la
+// finition : en Holo, Prisme ou Aurore, un arc-en-ciel pastel où la ligue ne
+// se lisait plus. Un module sans React ni page, que Node lit aussi (les
+// planches, les tests).
 import type { Finition } from '../../../shared/profil'
 
 /** Un métal : son dégradé, du sombre au clair et retour, son filet, sa lueur. */
@@ -14,7 +16,7 @@ export interface Metal {
   etoiles?: boolean
 }
 
-/** Les métaux des finitions — Mat, c'est celui de la ligue —, et ceux des ligues. */
+/** Les métaux des ligues, que prennent leurs bordures — l'or pour les maîtres —, et ceux des finitions, que prend le sceau. */
 export const METAUX: Record<'bronze' | 'argent' | 'or' | 'platine' | 'diamant' | Exclude<Finition, 'mat' | 'argent' | 'or'>, Metal> = {
   bronze: { m: ['#4f2d14', '#d29660', '#86501f', '#f1c08c', '#5e3718'], bord: '#26150a', lueur: '#e9a86b' },
   argent: { m: ['#7c858f', '#f4f6f9', '#a3acb6', '#ffffff', '#858e98'], bord: '#2c3138', lueur: '#e8eef6' },

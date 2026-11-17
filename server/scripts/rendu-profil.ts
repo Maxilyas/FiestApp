@@ -211,7 +211,7 @@ try {
     ['fonds', 'fond-a-gagner', 'Nuit étoilée'],
     ['gerbes', 'gerbe-a-elle', 'La pluie d’étoiles'],
     ['finitions', 'finition-a-gagner', 'Prisme'],
-    ['bordures', 'bordure-a-gagner', 'Les Fleurons'],
+    ['bordures', 'bordure-a-gagner', 'Les Feuilles d’or'],
   ] as const) {
     await page.goto(`${banc.url}/profil#collection-${partie}`)
     await page.waitForSelector(`#collection-${partie}.trophee-ouvert`)
