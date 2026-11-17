@@ -457,8 +457,16 @@ paths:
   que l'on sait sur quoi on clique ? », le propriétaire) — une place pleine
   touchée se vide ; trois boutons fixes, rangés par numéro : vidée, la
   place reste sous le doigt et le focus avec ; puis les médailles à quatre
-  par rangée (`.loge-medailles`), l'emoji dans son rond, le liseré du métal
-  d'une piste, son rang en pastille d'or au coin haut droit, la coche au
+  par rangée (`.loge-medailles`), l'emoji dans son rond **à l'anneau de sa
+  rareté** — la gemme de l'album, mesurée sur la part des joueurs
+  (`rareteMesuree`, `.loge-medaille-gemme`, `--gemme` posée par la page ;
+  une épique et une légendaire luisent ; dite aussi à l'oreille, après son
+  nom) : « que dans la vitrine, le cercle des trophées soit à la couleur de
+  la rareté de ceux ci, ce qui permettrait de direct identifier ceux qui
+  sont plus dur à obtenir » (le propriétaire, le même jour) ; le métal d'une
+  piste, qui tenait l'anneau, en pastille au pied du rond
+  (`.loge-medaille-metal`, `.loge-metal-1` à `3`) ; la fiche reprend l'anneau
+  ; son rang en pastille d'or au coin haut droit, la coche au
   coin haut gauche, « Les plus durs » le premier `li`, qui choisit d'un
   toucher la vitrine d'office. **On choisit par l'exploit** (« il faut que
   je sache ce que font les trophées de manière élégante. Sinon on choisit

@@ -195,8 +195,14 @@ export function LaVitrine({ profil, essai, essayer, neufs, ouvert, onOuvrir, fic
             // La règle de toutes les pièces : montré par la carte (son rang), porté (dans la vitrine qu'il porte), neuf.
             // D'office, aucun n'est « montré » ici : ses places le disent, et « Les plus durs » est l'option choisie.
             const e = { montre: rang >= 0, porte: choisie?.includes(cle) ?? false, neuve: neufs?.has(cle) }
-            // Une piste de carrière se range à un métal, que la médaille porte en liseré (bronze, argent, or) ; son nom
-            // le dit encore à l'oreille : « Le Sans-Faute · Bronze » devenait « Le Sans-Faute · … » sur deux lignes.
+            // Son anneau à la couleur de sa rareté — la gemme de l'album, mesurée sur la part des joueurs qui l'ont
+            // (`rareteMesuree`) : « que dans la vitrine, le cercle des trophées soit à la couleur de la rareté de ceux ci,
+            // ce qui permettrait de direct identifier ceux qui sont plus dur à obtenir » (le propriétaire, le 17 novembre
+            // 2026). Un trophée qu'elle ne mesure pas garde l'anneau d'or de la loge.
+            const rarete = rareteMesuree(b.key)
+            // Une piste de carrière se range à un métal (bronze, argent, or) : il tenait l'anneau, la rareté le lui a
+            // pris ; il passe en pastille au pied du rond. Son nom le dit encore à l'oreille : « Le Sans-Faute ·
+            // Bronze » devenait « Le Sans-Faute · … » sur deux lignes.
             const metal = palierDe(b.key)?.palier
             const [nom, ...suite] = b.title.split(' · ')
             const estOuvert = ouvert === cle
@@ -206,17 +212,21 @@ export function LaVitrine({ profil, essai, essayer, neufs, ouvert, onOuvrir, fic
                     plus, il montre —, son état et son rang toujours dits après son nom. */}
                 <button
                   type="button"
-                  className={'loge-vignette loge-medaille' + (metal ? ` loge-medaille-m${metal}` : '') + classesDeLaVignette(e)}
+                  className={'loge-vignette loge-medaille' + (rarete ? ` loge-medaille-gemme loge-rarete-${rarete}` : '') + classesDeLaVignette(e)}
+                  style={rarete ? gemme(rarete) : undefined}
                   aria-expanded={estOuvert}
                   aria-controls={estOuvert ? 'loge-vitrine-fiche' : undefined}
                   onClick={() => onOuvrir(cle)}
                 >
                   <span className="loge-vignette-image" aria-hidden="true">
                     <span className="loge-medaille-emoji">{b.emoji}</span>
+                    {metal && <i className={`loge-medaille-metal loge-metal-${metal}`} />}
                   </span>
                   <span className="loge-vignette-nom">
                     {nom}
                     {suite.length > 0 && <span className="sr-only">{` · ${suite.join(' · ')}`}</span>}
+                    {/* La couleur de l'anneau, dite à l'oreille : l'œil la lit d'un coup, le lecteur d'écran l'entend. */}
+                    {rarete && <span className="sr-only">{`, ${NOM_RARETE[rarete].toLowerCase()}`}</span>}
                   </span>
                   {ceQueDitLaVignette(e) && <span className="sr-only">{ceQueDitLaVignette(e)}</span>}
                   {/* Son rang sur la carte, dit aussi à l'oreille : il n'était qu'à l'œil. */}
@@ -282,7 +292,7 @@ export function LaVitrine({ profil, essai, essayer, neufs, ouvert, onOuvrir, fic
 
 /**
  * La fiche d'une médaille, sous sa rangée : courte, comme le veut la loge —
- * la médaille en plus grand, son liseré de métal ; son nom au serif de la
+ * la médaille en plus grand, l'anneau de sa rareté ; son nom au serif de la
  * carte ; son métal et sa rareté sur une ligne d'étiquette ; ce qu'il a fallu,
  * en une phrase (`ceQuIlAFallu`) ; puis le bouton d'or, seul geste de la fiche.
  * Rien d'autre : ni ce qu'il ouvre, ni son expérience, ni le chemin où le
@@ -321,7 +331,8 @@ function FicheDeLaMedaille({
   return (
     <li className="loge-fiche" style={{ '--loge-fiche-colonne': colonne, ...gemme(rarete ?? 'offert') } as CSSProperties}>
       <div id="loge-vitrine-fiche" className="loge-fiche-corps" ref={fiche}>
-        <span className={'loge-fiche-medaille' + (metal ? ` loge-fiche-m${metal}` : '')} aria-hidden="true">
+        {/* L'anneau de sa rareté, comme dans la grille (`--gemme`, posée sur la fiche) ; son métal, la ligne d'étiquette le dit. */}
+        <span className="loge-fiche-medaille" aria-hidden="true">
           {badge.emoji}
         </span>
         <span className="loge-fiche-tete">
