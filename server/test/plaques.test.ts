@@ -211,9 +211,12 @@ test('l’onglet « Ma plaque » : sa ligne une fois, puis une petite plaque par
   // Ce n'est pas une ligne `.lb-row` : il lit lui-même les jetons de sa plaque, et son motif est une pièce après son nom.
   assert.match(CSS, /\.loge-plaque-echantillon\.plaque \{[^}]*border-color: var\(--p-trait\);[^}]*background: var\(--p-bg\);[^}]*color: var\(--p-ink\);/)
   assert.match(CSS, /\.loge-plaque-echantillon > \.plaque-motif \{[^}]*flex: 1 1 0[^}]*var\(--p-motif\)/)
-  // La ligne de l'œil dit les deux : le thème, lui seul ; sa plaque, les autres — elle disait « Toi seul le vois ».
-  const { PIECES_DE_LA_LOGE } = await import('../../shared/piecesDeLaLoge')
-  assert.match(PIECES_DE_LA_LOGE.find(p => p.id === 'theme')!.qui, /Toi seul vois ton thème.*les autres, ta plaque/)
+  // La pièce est sous « Toi seul », mais sa plaque est vue des autres : un petit œil sur l'onglet, dit à l'oreille, sans
+  // phrase — la ligne « qui le voit » est partie avec les autres (le 17 novembre 2026).
+  const { MesThemes } = await import(new URL('components/Boutique.tsx', CLIENT).href)
+  const onglets = renderToStaticMarkup(React.createElement(MesThemes, { profil: lea, essai: {}, essayer: () => {}, neufs: new Set() }))
+  assert.match(onglets, /Ma plaque<svg class="icon loge-theme-oeil"[^>]*>.*?<\/svg><span class="sr-only">, [^<]*, les autres la voient<\/span>/)
+  assert.doesNotMatch(onglets, /loge-entete-consigne|Toi seul vois/)
 })
 
 test('au banc : elle se choisit parmi ses thèmes, suit le thème porté, et part dans le classement', async () => {

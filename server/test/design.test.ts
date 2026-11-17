@@ -362,6 +362,8 @@ test('la pastille des nouveautés se lit dans le rouge des messages, sur « Prof
     // de trophée et de thème partageaient la règle de la case d'avatar ; elles ont la leur, du même rouge.
     '.case-avatar.neuve::before',
     '.loge-vignette.neuve::before',
+    // Le point de l'onglet « Ma plaque » (pièce « Thème »), sur l'épaule de l'onglet.
+    '.loge-theme-neuf',
     '.finition-choix.neuve .finition-teinte::before',
     '.bordure-choix.neuve .bordure-apercu::before',
   ])
@@ -484,7 +486,7 @@ test('D21 · l’or du décor, les petites boîtes et le plus petit texte ont le
   assert.match(regle('.carte-fond.fond-theatre'), /border-color:\s*var\(--fond-or\)/)
   // Les petites boîtes de #58 et #59.
   assert.equal(VELOURS.get('--radius-xs'), '10px')
-  for (const sel of ['.fond-apercu', '.carte-beaux li', '.soiree-date']) {
+  for (const sel of ['.fond-apercu', '.carte-beaux li', '.soiree-date', '.loge-vignette-image']) {
     assert.match(regle(sel), /border-radius:\s*var\(--radius-xs\)/, `${sel} garde son rayon en dur`)
   }
   // Le plancher du texte : 11 px à la taille ordinaire, comme `.label`.

@@ -32,7 +32,7 @@ const source = (fichier: string) => readFileSync(new URL(`../../${fichier}`, imp
 
 /** Les cartes d'une vitrine de thèmes — les tuiles du rayon, à la boutique —, par ce que chacune dit d'elle à l'oreille. */
 const casesDe = (html: string) =>
-  [...html.matchAll(/<button\b[^>]*class="(?:theme-vitrine|article-boutique article-theme)[^"]*"[^>]*aria-label="([^"]*)"/g)].map(m => m[1])
+  [...html.matchAll(/<button\b[^>]*class="(?:article-boutique article-theme)[^"]*"[^>]*aria-label="([^"]*)"/g)].map(m => m[1])
 
 async function rendu(fichier: string, composant: string, props: object): Promise<string> {
   const module = await import(new URL(`../../client/src/${fichier}.tsx`, import.meta.url).href)
@@ -410,7 +410,7 @@ test('une ligne de la collection a son adresse : « Mon thème » y mène, sur l
   // thème en vignette à sa place du catalogue — en couleur ceux qu'elle a, en
   // gris les autres. Deux lignes de texte disaient ce qu'elle avait sans le
   // montrer, puis les cartes de la boutique prenaient quatre écrans.
-  assert.doesNotMatch(html, /À toi · \d|theme-a-gagner|class="theme-vitrine/)
+  assert.doesNotMatch(html, /À toi · \d|theme-a-gagner/)
   const pages = [
     ...html.matchAll(
       /<h4 class="album-rarete" style="([^"]+)"><i aria-hidden="true"><\/i>([^<]+) <span class="famille-compte">(\d+)\/(\d+)<\/span><\/h4><div class="album-themes" role="group" aria-label="([^"]+)">(.*?)<\/div>/g,

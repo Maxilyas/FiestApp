@@ -4986,19 +4986,13 @@ h3 > .icon {
 .profil-lie { align-items: center; gap: 12px; margin-bottom: 10px; }
 .profil-lie p { margin: 2px 0 0; }
 
-.finitions {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
-  gap: 10px;
-}
-
 /* Sur la page profil, la grille d'emojis porte des avatars complets. */
 .emoji-grid .av { font-size: 1.5rem; }
 
 /* ── Les thèmes : la fiche d'un thème ───────────────────────────────────
-   La vitrine de la boutique et « Mes thèmes » ont leurs cartes plus bas
-   (« La boutique, sobre ») ; la fiche, elle, montre l'aperçu en grand : de
-   quoi voir le décor avant de choisir. */
+   La boutique a ses tuiles (`.article-boutique`) et la loge ses vignettes
+   (`.loge-vignette`), plus bas ; la fiche, elle, montre l'aperçu en grand :
+   de quoi voir le décor avant de choisir. */
 .detail-apercu {
   display: block;
   width: min(180px, 60%);
@@ -9524,7 +9518,7 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
    visibles au-dessus du menu en 412 × 915, et 575 en 360 × 640. Ce qui tient
    se mesure au navigateur : `server/scripts/rendu-loge.ts`. */
 .loge-page {
-  /* Entre les blocs de la loge — sa carte, la rangée des pièces, « qui le voit », le panneau — et, dans la pièce
+  /* Entre les blocs de la loge — sa carte, la rangée des pièces, le panneau — et, dans la pièce
      « Avatar », entre les gemmes et leur grille. */
   --loge-ecart: 12px;
   /* Entre les blocs du panneau de la pièce ouverte : la finition, la bordure, le sceau, les avatars. */
@@ -9635,12 +9629,7 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-rangee > .loge-pour-moi:nth-child(5)::before { content: ''; position: absolute; left: -3px; top: 6px; width: 1px; height: calc(var(--loge-rond) - 8px); background: var(--edge); }
 /* Le neuf se dit en rouge, comme sur « Profil » et « M'habiller » : un point d'or se perdait dans l'or de la pièce choisie. */
 .loge-neuf { position: absolute; top: -1px; right: -1px; width: 11px; height: 11px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--bg); }
-.loge-qui { display: flex; align-items: center; gap: 6px; margin: 0 2px; font-size: 0.82rem; line-height: 1.3; }
-.loge-qui .icon { flex: none; width: 13px; height: 13px; }
 .loge-panneau { display: flex; flex-direction: column; gap: var(--loge-bloc); }
-/* Dans la loge, les grilles se serrent — trois par rangée : ce qu'on a se
-   voit d'un coup d'œil, sous la carte qui l'essaie. */
-.loge-panneau .finitions { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
 .loge-panneau .style-liste button { min-height: 48px; }
 /* La barre de l'essai couvre le menu, à sa place et à sa hauteur : la page
    ne saute pas, et l'on choisit avant de partir. Sa hauteur est celle du
@@ -9823,9 +9812,8 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-vignette { position: relative; display: flex; flex: 1; flex-direction: column; align-items: stretch; gap: 4px; min-width: 0; min-height: 44px; padding: 4px 4px 6px; border: 1px solid var(--edge); border-radius: 14px; background: var(--surface-faint); color: var(--ink); font: inherit; text-align: center; cursor: pointer; }
 .loge-vignette:hover { border-color: var(--edge-strong); }
 /* Ce qu'elle montre : un aperçu à sa hauteur, coupé à ses coins. */
-.loge-vignette-image { position: relative; display: grid; place-items: center; height: var(--loge-vignette); border-radius: 10px; background: var(--surface); overflow: hidden; }
+.loge-vignette-image { position: relative; display: grid; place-items: center; height: var(--loge-vignette); border-radius: var(--radius-xs); background: var(--surface); overflow: hidden; }
 .loge-vignette-nom { font-size: 0.78rem; font-weight: 600; line-height: 1.2; overflow-wrap: anywhere; }
-.loge-vignette-etat { font-size: var(--t-label); line-height: 1.2; color: var(--muted); }
 /* Montrée par la carte : le cadre d'or de la case d'avatar — un pixel de bordure de plus, un de marge de moins : rien
    ne bouge sous le doigt. Sur l'or pâle, le texte s'écrit à l'or de survol (règle `css.md`). */
 .loge-vignette.selected { padding: 3px 3px 5px; border: 2px solid var(--accent); background: var(--accent-soft); }
@@ -9911,6 +9899,8 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-theme-compte { color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; }
 .loge-theme-onglets .onglet.actif .loge-theme-compte { color: inherit; }
 /* Du neuf dans l'autre onglet : le point rouge des pièces et des gemmes, sur son épaule. */
+/* L'œil de l'onglet « Ma plaque » : seul réglage de la pièce que les autres voient, dit sans phrase. */
+.loge-theme-oeil { flex: none; width: 14px; height: 14px; }
 .loge-theme-neuf { position: absolute; top: 5px; right: 12px; width: 9px; height: 9px; border-radius: 50%; background: #d93025; box-shadow: 0 0 0 2px var(--surface); }
 .loge-theme-vue { display: flex; flex-direction: column; gap: var(--loge-bloc); }
 /* Un thème : le haut de son aperçu, comme sa tuile à la boutique (`.article-image`) ; son nom, la gemme de sa rareté devant. */
@@ -9934,11 +9924,8 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 .loge-theme-onglets .loge-plaque-echantillon { flex: none; width: 28px; height: 18px; padding: 0; border-radius: 5px; }
 .loge-theme-onglets .loge-plaque-echantillon > .plaque-motif { background: var(--p-motif); }
 @media (max-height: 759px) {
-  /* Le petit téléphone : la consigne des thèmes se tait à l'œil — la barre de l'essai dit ce qu'un toucher a fait, et le
-     lecteur d'écran la lit —, leur aperçu perd quatre pixels : deux rangées et le pied tiennent au-dessus du menu en
-     360 × 640, sa niche au coin (21 px dessous avec elles). Celle de la plaque reste : elle seule dit que les autres la
-     voient. */
-  .mes-themes:has(.loge-themes) .loge-entete-consigne { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  /* Le petit téléphone : l'aperçu des thèmes perd quatre pixels — deux rangées et le pied tiennent au-dessus du menu en
+     360 × 640, sa niche au coin. */
   .loge-themes { --loge-vignette: 60px; }
 }
 
@@ -16670,7 +16657,8 @@ span.annonce-admin-merci { cursor: default; }
 @media (prefers-reduced-motion: reduce) {
   .gerbe { display: none; }
 }
-/* « Ma gerbe », dans « Mon thème » : ses particules en aperçu, comme une finition. */
+/* L'aperçu d'une gerbe dans la liste des gains (`Gains.tsx`) : ses trois premières particules, comme une finition.
+   La loge a ses bouquets (`.gerbe-bouquet`). */
 .gerbe-apercu { display: flex; align-items: center; justify-content: center; min-height: 2.2rem; font-size: 1.3rem; letter-spacing: 0.1em; }
 
 /* ── Le haut de l'accueil d'un profil : « À la une » et les missions du jour ──

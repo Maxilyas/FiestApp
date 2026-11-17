@@ -328,7 +328,9 @@ function OngletsDuTheme({
         <>
           <EchantillonDePlaque plaque={plaque} />
           Ma plaque
-          <span className="sr-only">{`, ${nomDeLaPlaque}`}</span>
+          {/* Le seul réglage du panneau « Toi seul » que les autres voient : un petit œil, sans phrase (le souhait du 17 novembre 2026). */}
+          <Icon name="eye" className="loge-theme-oeil" />
+          <span className="sr-only">{`, ${nomDeLaPlaque}, les autres la voient`}</span>
         </>,
         neufs.plaque,
       )}
@@ -371,11 +373,7 @@ export function MesThemes({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   return (
     <section className="mes-themes">
       {/* Les onglets tiennent lieu de titre à l'œil (`.mes-themes .loge-entete-titre`) : le lecteur d'écran le lit. */}
-      <EnteteDeLaPiece
-        id="loge-theme-titre"
-        titre={vue === 'themes' ? 'Mes thèmes' : 'Ma plaque'}
-        consigne={vue === 'themes' ? 'Touches-en un : toute la page l’essaie.' : 'Les autres la voient : quiz du jour, défi, duels.'}
-      >
+      <EnteteDeLaPiece id="loge-theme-titre" titre={vue === 'themes' ? 'Mes thèmes' : 'Ma plaque'}>
         <OngletsDuTheme
           vue={vue}
           onVue={setVue}
@@ -422,8 +420,6 @@ export function DetailTheme({
   solde,
   busy = false,
   erreur,
-  dansLaLoge = false,
-  essaye = false,
   onPorter,
   onAcheter,
 }: {
@@ -434,10 +430,6 @@ export function DetailTheme({
   busy?: boolean
   /** Le refus d'un achat, dit là où l'on a touché. */
   erreur?: string
-  /** Ouverte dans la loge, où un toucher essaie : « Porter » est dans sa barre. */
-  dansLaLoge?: boolean
-  /** La page l'essaie. */
-  essaye?: boolean
   /** Le porter ; null : Velours, celui de toutes les soirées. */
   onPorter?: (cle: string | null) => void
   onAcheter?: (theme: Theme) => void
@@ -457,13 +449,7 @@ export function DetailTheme({
       )}
       <p className="muted small">{t.humeur}</p>
       {etat === 'porte' && <p className="muted small">C’est lui qui habille tes pages. L’écran commun garde le sien.</p>}
-      {etat === 'a-toi' && dansLaLoge && (
-        <p className="muted small">
-          {essaye ? espacesFines('À l’essai sur toute la page : « Porter », en bas, le garde. L’écran commun garde le sien.') : 'À toi : touche sa carte pour l’essayer.'}
-        </p>
-      )}
       {etat === 'a-toi' &&
-        !dansLaLoge &&
         (onPorter ? (
           <button
             type="button"

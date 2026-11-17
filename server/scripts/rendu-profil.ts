@@ -121,9 +121,9 @@ try {
     ['2', 'loge avatar', null, '.loge-panneau .loge-page-avatars'],
     ['3a', 'loge titre', '#loge-titre', '.loge-panneau .loge-titres'],
     ['3b', 'loge vitrine', '#loge-vitrine', '.loge-panneau .loge-medailles'],
-    ['3c', 'loge fond', '#loge-fond', '.loge-panneau .fonds-choix'],
+    ['3c', 'loge fond', '#loge-fond', '.loge-panneau .loge-vignettes-fonds'],
     ['4a', 'loge theme', '#loge-theme', '.loge-panneau .mes-themes'],
-    ['4b', 'loge gerbe', '#loge-gerbe', '.loge-panneau .gerbes-choix'],
+    ['4b', 'loge gerbe', '#loge-gerbe', '.loge-panneau .loge-vignettes-gerbes'],
     ['5', 'Ma collection', 'collection', '.collection'],
   ] as const) {
     await page.goto(`${banc.url}/profil`)

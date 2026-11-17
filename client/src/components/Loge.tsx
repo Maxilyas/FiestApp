@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type MutableRefObject } from 'react'
-import { CarteDeLaLoge, PiecesDeLaLoge, QuiLaVoit } from './LogeTete'
+import { CarteDeLaLoge, PiecesDeLaLoge } from './LogeTete'
 import { MaGerbe, MesAvatars, MesBordures, MesFinitions, MonFond, MonSceau, MonTitre } from './Apparence'
 import { MaVitrine } from './Trophees'
 import { MesThemes } from './Boutique'
@@ -311,7 +311,6 @@ export function Loge({
         />
       )}
       <PiecesDeLaLoge actif={piece} onChoisir={onPiece} neuves={new Set(PIECES_DE_LA_LOGE.filter(p => neufs[p.id].length > 0 && !regardees.has(p.id)).map(p => p.id))} />
-      <QuiLaVoit piece={piece} />
       <div className="loge-panneau" role="tabpanel" id="loge-panneau" aria-labelledby={`loge-${piece}`}>
         {piece === 'avatar' && (
           <>

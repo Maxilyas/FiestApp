@@ -23,7 +23,7 @@ export function JaugeFine({ part }: { part: number }) {
  * dessous — comme les petits titres de la pièce « Avatar » (« Finition »,
  * « Bordure »). Chaque pièce posait une carte, son titre en grand, son icône
  * et une phrase de deux ou trois lignes : 110 px avant la première chose à
- * toucher, quand « qui le voit », juste au-dessus, dit déjà où elle se voit
+ * toucher, quand les petits titres de la rangée disent déjà qui la voit
  * (le souhait du propriétaire du 17 novembre 2026 : « pas pratique et peu
  * lisible […] on est obligé de scroller trop »). `id` nomme le groupe que
  * l'en-tête titre (`aria-labelledby`).

@@ -285,9 +285,9 @@ test('dans la boutique, toucher un thème ouvre sa fiche : aucun ne se porte ni 
     assert.equal(cases.filter(c => /aria-pressed="true"/.test(c.balise)).length, 1, 'le thème que la page montre')
     assert.doesNotMatch(html, /detail-theme|role="dialog"/, 'aucune fiche dans la loge')
   }
-  // L'insécable de `espacesFines` devant les deux-points : ce qu'un toucher
-  // fait, dans la loge — et plus l'ancien geste, qui renvoyait à la fiche.
-  assert.match(await mesThemes(), /Touches-en un : toute la page l’essaie\./)
+  // Plus de consigne sous le titre : une grille de vignettes se touche sans qu'on le dise (le 17 novembre 2026), et le
+  // geste ne renvoie plus à la fiche.
+  assert.doesNotMatch(await mesThemes(), /Touches-en un|loge-entete-consigne/)
   assert.doesNotMatch(await mesThemes(), /Touche un thème, puis« Le porter »/)
   // Le geste lui-même : une carte ouvre sa fiche, une gemme change de
   // rareté ; rien d'autre n'enregistre, et la boutique ne porte rien.
@@ -337,10 +337,11 @@ test('le thème porté se lit dans le profil que chaque enregistrement rend, pas
   const noms = async (html: Promise<string>) => casesDe(await html).map(c => c.nom)
   // Dans la loge, celui qu'il porte en tête, avec sa coche (`porte`), pressé : la page le montre.
   const portes = async (html: Promise<string>) => casesDe(await html).filter(c => /class="[^"]*\bporte\b[^"]*"[^>]*aria-pressed="true"/.test(c.balise)).map(c => c.nom)
-  assert.deepEqual(await noms(mesThemes()), ['Ivoire, offert', 'Velours, offert', 'Neige, rare'])
-  assert.deepEqual(await portes(mesThemes()), ['Ivoire, offert'])
-  assert.deepEqual(await noms(mesThemes({ ...JEANNE, theme: null })), ['Velours, offert', 'Ivoire, offert', 'Neige, rare'])
-  assert.deepEqual(await portes(mesThemes({ ...JEANNE, theme: null })), ['Velours, offert'])
+  // Et à l'oreille : « porté » se dit chaque fois qu'il porte, même montré (la règle des vignettes).
+  assert.deepEqual(await noms(mesThemes()), ['Ivoire, offert, porté', 'Velours, offert', 'Neige, rare'])
+  assert.deepEqual(await portes(mesThemes()), ['Ivoire, offert, porté'])
+  assert.deepEqual(await noms(mesThemes({ ...JEANNE, theme: null })), ['Velours, offert, porté', 'Ivoire, offert', 'Neige, rare'])
+  assert.deepEqual(await portes(mesThemes({ ...JEANNE, theme: null })), ['Velours, offert, porté'])
   // La boutique ne vend que ce qu'elle n'a pas — toutes les raretés à la
   // suite —, et dit de chacun ce qui manque à ses 420 confettis.
   const enVente = await noms(laBoutique())

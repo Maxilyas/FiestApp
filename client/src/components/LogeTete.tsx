@@ -186,17 +186,6 @@ export function PiecesDeLaLoge({ actif, onChoisir, neuves }: { actif: PieceDeLaL
   )
 }
 
-/** Qui voit la pièce ouverte, l'œil devant : sous la rangée. */
-export function QuiLaVoit({ piece }: { piece: PieceDeLaLoge }) {
-  const pieceDuPanneau = PIECES_DE_LA_LOGE.find(p => p.id === piece)!
-  return (
-    <p className="muted loge-qui">
-      <Icon name="eye" />
-      {espacesFines(pieceDuPanneau.qui)}
-    </p>
-  )
-}
-
 /**
  * La loge en attendant ses panneaux : sa carte — ce qu'il porte — et la
  * rangée de ses pièces, tout de suite, à la place exacte où la loge les
@@ -221,7 +210,6 @@ export function LogeEnChemin({
     <div className="loge">
       <CarteDeLaLoge vu={profil} vitrine={null} onOuvrir={onOuvrir} />
       <PiecesDeLaLoge actif={piece} onChoisir={onPiece} neuves={new Set()} />
-      <QuiLaVoit piece={piece} />
       <div className="loge-panneau" role="tabpanel" id="loge-panneau" aria-labelledby={`loge-${piece}`}>
         {attente}
       </div>

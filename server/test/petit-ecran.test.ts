@@ -534,8 +534,8 @@ test('silhouettes, fonds fermés, rideau et aurore : ce qui se lit sur son fond'
   // La silhouette d'un emoji de collection, claire sur sa case sombre (1,1:1 en noir).
   assert.match(regle('.silhouette'), /filter:\s*brightness\(0\) invert\(1\)/)
   assert.match(regle(":root[data-theme='ivoire'] .silhouette"), /filter:\s*brightness\(0\);/)
-  // Un fond fermé atténue son dessin, pas la règle qui l'ouvre (2,3:1).
-  // (Les cases de la loge, depuis le 17 novembre 2026 : la vignette fermée, plus la carte de `.finition-btn`.)
+  // Une vignette fermée de la loge atténue son aperçu, pas la vignette entière : son nom, qui dit ce qu'elle est, reste
+  // lisible (2,3:1 sinon). Depuis le 17 novembre 2026, la vignette a remplacé la carte de `.finition-btn`.
   assert.doesNotMatch(regle(".loge-vignette[aria-disabled='true']"), /opacity/)
   assert.match(regle(".loge-vignette[aria-disabled='true'] .loge-vignette-image"), /opacity/)
   // Au théâtre, ce qui défile passe derrière le rideau.

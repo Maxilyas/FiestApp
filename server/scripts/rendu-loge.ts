@@ -27,7 +27,7 @@
 // aussi — ; un essai en route, la barre « Annuler · Porter » à la place
 // du menu ; une tablette, aux mesures d'avant ; le texte agrandi à 130 % ; sous
 // le bandeau du service ; l'Ivoire. À chaque photo : où finissent la carte, la
-// rangée des pièces, « qui le voit » et chaque bloc d'avant la grille, combien
+// rangée des pièces et chaque bloc d'avant la grille, combien
 // de rangées de la grille se voient entières et combien y auraient la place,
 // ce que la carte collée laisse à la grille une fois la page défilée, ce que
 // chaque phrase montre et tait, les cibles de doigt sous 44 px, les textes sous
@@ -110,7 +110,7 @@ const LES_PIECES: Record<PieceDeLaLoge, { avant: [nom: string, selecteur: string
 
 /**
  * Ce que la loge mesure, la page en haut : où commence ce qui couvre le bas de l'écran (le menu, ou la barre de
- * l'essai), où finissent sa tête, sa carte, la rangée des pièces et « qui le voit », chaque bloc d'avant la grille, les
+ * l'essai), où finissent sa tête, sa carte, la rangée des pièces, chaque bloc d'avant la grille, les
  * rangées de la grille, ce que chaque phrase montre, les cibles de doigt, les textes trop petits. En texte : `tsx` y
  * glisserait des `__name` — et sans accent grave dedans, qui fermerait le gabarit.
  */
@@ -200,8 +200,6 @@ const LA_LOGE = (piece: PieceDeLaLoge) => `(() => {
       }),
     ),
     pieces: boite('.loge-pieces'),
-    qui: boite('.loge-qui'),
-    lignesDeQui: lignesDe(document.querySelector('.loge-qui')),
     avant: PIECE.avant.map(([nom, sel]) => ({ nom, ...boite(sel) })).filter(b => b.bas !== undefined),
     // Ce qu'un réglage dit sous sa rangée, en deux temps : son essentiel — coupé au bout ? —, ceux de ses morceaux que
     // la ligne montre, ceux qu'elle tait. Sur un grand écran, la phrase coule entière, sur ses lignes.
@@ -452,8 +450,8 @@ try {
     rapport[n] = m
     await photographier(page, n, m.defile)
     const sousQuoi = m.couvre === 'essai' ? 'LA BARRE' : m.couvre === 'menu' ? 'LE MENU' : 'L’ÉCRAN'
-    // Ce qui précède la grille : la carte, la rangée, « qui le voit », puis chaque bloc de la pièce.
-    const blocs: { nom: string; bas: number }[] = [{ nom: 'la carte', ...m.carte }, { nom: 'les pièces', ...m.pieces }, { nom: 'qui le voit', ...m.qui }, ...m.avant]
+    // Ce qui précède la grille : la carte, la rangée, puis chaque bloc de la pièce.
+    const blocs: { nom: string; bas: number }[] = [{ nom: 'la carte', ...m.carte }, { nom: 'les pièces', ...m.pieces }, ...m.avant]
     const fin = blocs[blocs.length - 1].bas - m.pli
     const entieres = (m.rangees as { bas: number }[]).filter(r => r.bas <= m.pli).length
     const premiere = m.rangees[0] as { haut: number; bas: number } | undefined
@@ -478,7 +476,7 @@ try {
     if (coupees.length) (attendu !== null ? rates : dits).push(`L’ESSENTIEL D’UNE PHRASE EST COUPÉ AU BOUT : ${coupees.map(p => `« ${p.essentiel} »`).join(' ; ')}`)
     if (rates.length || jamais.length) rate++
     console.log(
-      `${n} — pli ${m.pli} · la carte ${m.carte.haut}→${m.carte.bas} (${m.carte.bas - m.carte.haut} px${m.jaugeMontree ? '' : ', sa jauge tue'}) · les pièces →${m.pieces.bas} · qui →${m.qui.bas}${m.lignesDeQui > 1 ? ` (${m.lignesDeQui} lignes)` : ''} · ${m.avant.map((b: any) => `${b.nom} →${b.bas}`).join(' · ')} · avant la grille : ${fin > 0 ? `${fin} px SOUS ${sousQuoi}` : `${-fin} px de libre`} · la grille : ${entieres} rangée${entieres > 1 ? 's' : ''} entière${entieres > 1 ? 's' : ''} sur ${m.rangees.length}, la place de ${m.place}${premiere ? ` (la première ${premiere.haut}→${premiere.bas})` : ''} · sous la carte collée ${m.sousLaCarte} px · défile de ${m.defile} px${m.pied ? ` · le pied →${m.pied.bas}${m.pied.bas > m.pli ? ` (${m.pied.bas - m.pli} px sous ${sousQuoi})` : ''}` : ''}${m.bandeau ? ` · bandeau ${m.bandeau} px` : ''}`,
+      `${n} — pli ${m.pli} · la carte ${m.carte.haut}→${m.carte.bas} (${m.carte.bas - m.carte.haut} px${m.jaugeMontree ? '' : ', sa jauge tue'}) · les pièces →${m.pieces.bas} · ${m.avant.map((b: any) => `${b.nom} →${b.bas}`).join(' · ')} · avant la grille : ${fin > 0 ? `${fin} px SOUS ${sousQuoi}` : `${-fin} px de libre`} · la grille : ${entieres} rangée${entieres > 1 ? 's' : ''} entière${entieres > 1 ? 's' : ''} sur ${m.rangees.length}, la place de ${m.place}${premiere ? ` (la première ${premiere.haut}→${premiere.bas})` : ''} · sous la carte collée ${m.sousLaCarte} px · défile de ${m.defile} px${m.pied ? ` · le pied →${m.pied.bas}${m.pied.bas > m.pli ? ` (${m.pied.bas - m.pli} px sous ${sousQuoi})` : ''}` : ''}${m.bandeau ? ` · bandeau ${m.bandeau} px` : ''}`,
     )
     if (m.phrases.length)
       console.log(

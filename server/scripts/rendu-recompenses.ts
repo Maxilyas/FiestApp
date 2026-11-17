@@ -188,9 +188,9 @@ try {
 
   // 6. La gerbe : son choix dans « Ma gerbe », sa page, et l'éclat d'une bonne réponse.
   await page.goto(`${banc.url}/profil#gerbe`)
-  await page.waitForSelector('.gerbes-choix')
+  await page.waitForSelector('.loge-vignettes-gerbes')
   await photo('11-ma-gerbe', true)
-  await page.click('.gerbes-choix >> text=Les confettis')
+  await page.click('.loge-vignettes-gerbes [aria-label^="Les confettis"]')
   await page.waitForTimeout(250)
   await page.screenshot({ path: path.join(sortie, '12-gerbe-apercu.png') })
   console.log(path.join(sortie, '12-gerbe-apercu.png'))

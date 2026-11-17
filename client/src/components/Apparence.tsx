@@ -874,10 +874,13 @@ export function MonFond({ profil, essai, essayer, neufs }: PropsDUnePiece) {
         {vignette(null, 'Velours')}
         {FONDS.filter(f => profil.fonds!.includes(f.key)).map(f => vignette(f.key, f.nom))}
       </ul>
-      <PiedDeLaPiece>
-        <VersLaBoutique n={aLaBoutique} href="/boutique#fonds" />
-        <AGagner n={reste} un="fond" plusieurs="fonds" href="#collection-fonds" />
-      </PiedDeLaPiece>
+      {/* Sans fond à acheter, la boutique n'a rien à montrer à ce rayon : pas de lien vers un rayon vide. */}
+      {(aLaBoutique > 0 || reste > 0) && (
+        <PiedDeLaPiece>
+          {aLaBoutique > 0 && <VersLaBoutique n={aLaBoutique} href="/boutique#fonds" />}
+          <AGagner n={reste} un="fond" plusieurs="fonds" href="#collection-fonds" />
+        </PiedDeLaPiece>
+      )}
     </>
   )
 }

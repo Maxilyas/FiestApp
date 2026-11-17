@@ -189,8 +189,7 @@ test('ce qui est nouveau : rien à la première visite, puis ce qui arrive depui
   assert.deepEqual(nouveautes(apres, regardee), { ...rienDeNeuf, avatar: ['eclat:🐸'], gerbe: ['petales'] })
 })
 
-test('la loge : sa carte en tête, six pièces sur une rangée — la salle d’abord, lui seul ensuite —, qui le voit, puis la pièce touchée', async () => {
-  const { espacesFines } = await import(url('format.ts'))
+test('la loge : sa carte en tête, six pièces sur une rangée — la salle d’abord, lui seul ensuite —, puis la pièce touchée', async () => {
   const contenus: Record<string, RegExp> = {
     // L'avatar : ses finitions en pastilles (la maquette 3), puis ses avatars aux gemmes de l'album.
     avatar: /<div class="loge-finitions">.*<div class="gemmes gemmes-loge" role="tablist" aria-label="Mes avatars, par rareté">/,
@@ -203,7 +202,7 @@ test('la loge : sa carte en tête, six pièces sur une rangée — la salle d’
     theme: /<section class="mes-themes">/,
     gerbe: /<h3 class="loge-entete-titre" id="loge-gerbes">Mes gerbes.*<ul class="loge-vignettes loge-vignettes-gerbes" aria-labelledby="loge-gerbes">/,
   }
-  for (const { id, qui } of PIECES_DE_LA_LOGE) {
+  for (const { id } of PIECES_DE_LA_LOGE) {
     const html = await rendu('components/PanneauxDuProfil', 'PanneauLoge', { profil: LEA, piece: id, onPiece: () => {}, busy: false, enregistrer: async () => true })
     // La carte en tête, collée pendant qu'on choisit : c'est elle qui change.
     // (React pose devant le préchargement de l'image du Phénix qu'elle porte.)
@@ -217,15 +216,16 @@ test('la loge : sa carte en tête, six pièces sur une rangée — la salle d’
       id,
     )
     assert.match(html, /<div class="loge-groupes" aria-hidden="true"><span>La salle voit<\/span><span>Toi seul<\/span><\/div><div class="loge-rangee" role="tablist" aria-label="Ce que je change">/)
-    // Qui le voit, l'œil devant ; puis le panneau de la pièce, et lui seul.
-    assert.match(html, new RegExp(`<p class="muted loge-qui"><svg[^>]*>.*?</svg>${espacesFines(qui)}</p>`), id)
+    // Plus de ligne « qui le voit » sous la rangée : les petits titres du groupe le disent déjà (le 17 novembre 2026 :
+    // « pas besoin de mettre du texte à chaque fois »). Le panneau de la pièce suit la rangée, et lui seul.
+    assert.doesNotMatch(html, /loge-qui/, id)
     assert.match(html, new RegExp(`<div class="loge-panneau" role="tabpanel" id="loge-panneau" aria-labelledby="loge-${id}">`), id)
     for (const [autre, contenu] of Object.entries(contenus)) assert.equal(contenu.test(html), autre === id, `${id} : ${autre}`)
     // Rien d'essayé : pas de barre, et la région qui dira l'essai, vide.
     assert.doesNotMatch(html, /loge-barre/, id)
     assert.match(html, /<p class="sr-only" role="status"><\/p>/, id)
   }
-  // Six pièces : deux groupes, et ce que chacun dit de qui le voit.
+  // Six pièces : deux groupes, ceux que dit la ligne des petits titres (« La salle voit », « Toi seul »).
   assert.deepEqual(
     PIECES_DE_LA_LOGE.map(p => `${p.groupe} › ${p.nom}`),
     ['salle › Avatar', 'salle › Titre', 'salle › Vitrine', 'salle › Fond', 'moi › Thème', 'moi › Gerbe'],
@@ -320,7 +320,7 @@ test('dans chaque pièce, un toucher essaie : rien ne s’enregistre avant « Po
   const fonds = await rendu('components/Apparence', 'MonFond', { ...pieces, essai: { fond: 'nuit' } })
   // Plus de mot d'état sous chaque vignette : la coche, le cadre et le halo le disent à l'œil, `aria-label` à l'oreille.
   assert.match(fonds, /class="loge-vignette porte" aria-pressed="false" aria-label="Velours, porté"><span class="loge-vignette-image" aria-hidden="true"><span class="fond-apercu"><\/span><\/span><span class="loge-vignette-nom">Velours<\/span>/)
-  assert.match(fonds, /class="loge-vignette selected essaye" aria-pressed="true" aria-label="Nuit étoilée"><span class="loge-vignette-image" aria-hidden="true"><span class="fond-apercu carte-fond fond-nuit"><\/span><\/span><span class="loge-vignette-nom">Nuit étoilée<\/span>/)
+  assert.match(fonds, /class="loge-vignette selected essaye" aria-pressed="true" aria-label="Nuit étoilée, à l’essai"><span class="loge-vignette-image" aria-hidden="true"><span class="fond-apercu carte-fond fond-nuit"><\/span><\/span><span class="loge-vignette-nom">Nuit étoilée<\/span>/)
 
   // Les avatars de même : chaque case essaie le sien — ce qui reste à gagner n'a pas de case, il se compte sous la grille.
   essais.length = 0
@@ -835,14 +835,13 @@ function corpsDe(regles: Regles, selecteur: string): string {
 
 test('la loge tient sur un écran, ou presque : rien n’y change de place, et ce qu’un réglage dit sous sa rangée se dit en deux temps', async () => {
   const piece = { essai: {}, essayer: () => {}, busy: false }
-  // Rien n'a changé de place, rien ne s'est ajouté : sa carte, la rangée des pièces, qui le voit, puis — pour
+  // Rien n'a changé de place, rien ne s'est ajouté : sa carte, la rangée des pièces, puis — pour
   // « Avatar » — la finition, la bordure, le sceau, l'Éclat en réserve, les gemmes, leur grille et ce qui reste à gagner.
   const habituee = { ...LEA, bordures: [{ ligue: 'or' as const, crans: 7 }], bordureChoisie: 'auto' as const, scelles: ['lg:phenix'], eclatsEnReserve: 1 }
   const loge = await rendu('components/PanneauxDuProfil', 'PanneauLoge', { profil: habituee, piece: 'avatar', onPiece: () => {}, busy: false, enregistrer: async () => true })
   const ordre = [
     '<div class="loge-collante">',
     '<div class="loge-pieces">',
-    '<p class="muted loge-qui">',
     '<div class="loge-panneau"',
     '<span class="loge-sous-titre" id="loge-finitions-titre">Finition</span>',
     '<span class="loge-sous-titre" id="loge-bordures-titre">Bordure</span>',
@@ -855,10 +854,9 @@ test('la loge tient sur un écran, ou presque : rien n’y change de place, et c
   const places = ordre.map(bloc => loge.indexOf(bloc))
   assert.ok(places.every(p => p >= 0), `chaque bloc d’avant est là : ${ordre.filter((_, i) => places[i] < 0).join(', ')}`)
   assert.deepEqual(places, [...places].sort((a, b) => a - b), 'dans l’ordre d’avant')
-  // La loge n'a que ses blocs d'avant, l'un derrière l'autre : la carte, la rangée, qui le voit, le panneau.
+  // La loge n'a que ses blocs d'avant, l'un derrière l'autre : la carte, la rangée, le panneau — rien entre la rangée et lui.
   assert.match(loge, /<\/button><\/div><\/div><div class="loge-pieces"><div class="loge-groupes" aria-hidden="true">/)
-  assert.match(loge, /<\/button><\/div><\/div><p class="muted loge-qui">/)
-  assert.match(loge, /<\/p><div class="loge-panneau" role="tabpanel"/)
+  assert.match(loge, /<\/button><\/div><\/div><div class="loge-panneau" role="tabpanel"/)
 
   /** La phrase d'un réglage telle qu'elle s'écrit : ses morceaux, l'essentiel d'abord — et rien hors d'eux. */
   const morceaux = (html: string): string[] => {
