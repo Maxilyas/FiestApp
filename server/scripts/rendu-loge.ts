@@ -101,7 +101,8 @@ const LES_PIECES: Record<PieceDeLaLoge, { avant: [nom: string, selecteur: string
   // Les cinq autres parlent la même langue depuis le 17 novembre 2026 : un en-tête d'une ligne (`EnteteDeLaPiece`), puis
   // leurs vignettes, enfants directs de `.loge-vignettes` — un bouton, ou l'élément d'une liste qui le tient.
   titre: { avant: [['l’en-tête', '.loge-panneau .loge-entete']], cases: '.loge-panneau .loge-vignettes > *', cible: 'un titre' },
-  vitrine: { avant: [['l’en-tête', '.loge-panneau .loge-entete']], cases: '.loge-panneau .loge-vignettes > *', cible: 'un trophée' },
+  // La vitrine : ses médailles seulement — la fiche ouverte sous une rangée n'est pas un choix de plus (`ficheDeLaVitrine`).
+  vitrine: { avant: [['l’en-tête', '.loge-panneau .loge-entete']], cases: '.loge-panneau .loge-vignettes > :not(.loge-fiche)', cible: 'un trophée' },
   fond: { avant: [['l’en-tête', '.loge-panneau .loge-entete']], cases: '.loge-panneau .loge-vignettes > *', cible: 'un fond' },
   theme: { avant: [['l’en-tête', '.loge-panneau .loge-entete']], cases: '.loge-panneau .loge-vignettes > *', cible: 'un thème' },
   gerbe: { avant: [['l’en-tête', '.loge-panneau .loge-entete']], cases: '.loge-panneau .loge-vignettes > *', cible: 'une gerbe' },
@@ -506,6 +507,61 @@ try {
     await page.waitForTimeout(200)
   }
 
+  /**
+   * La vitrine, au doigt (le 17 novembre 2026 : « Pour la vitrine il faut que je sache ce que font les trophées de
+   * manière élégante. Sinon on choisit plus par l'exploit mais juste par l'icône et c'est nul », le propriétaire) : la
+   * deuxième médaille touchée ouvre sa fiche sous sa rangée — la médaille et ce qui est au-dessus ne doivent pas bouger
+   * —, son bouton d'or, « Sur ma carte », touché, puis la carte remplie médaille par médaille et une fiche rouverte —
+   * chez le vétéran, celle d'un trophée qui n'y tient plus, son bouton éteint. L'essai se défait ensuite (« Annuler ») :
+   * les pièces d'après se mesurent sous le menu.
+   */
+  const ficheDeLaVitrine = async (page: any, n: string) => {
+    const MEDAILLES = '.loge-medailles .loge-medaille[aria-expanded]'
+    const OU = `(sel, i) => { const e = document.querySelectorAll(sel)[i]; if (!e) return null; const r = e.getBoundingClientRect(); return { haut: Math.round(r.top + scrollY), bas: Math.round(r.bottom + scrollY), gauche: Math.round(r.left) } }`
+    const ou = (sel: string, i = 0) => page.evaluate(`(${OU})(${JSON.stringify(sel)}, ${i})`) as Promise<{ haut: number; bas: number; gauche: number } | null>
+    const compte = (await page.locator(MEDAILLES).count()) as number
+    if (compte < 2) return
+    const avant = { places: await ou('.loge-emplacements'), medaille: await ou(MEDAILLES, 1), voisine: await ou(MEDAILLES, 2) }
+    await page.locator(MEDAILLES).nth(1).tap()
+    await page.waitForSelector('.loge-fiche-corps')
+    await page.waitForTimeout(500)
+    const apres = { places: await ou('.loge-emplacements'), medaille: await ou(MEDAILLES, 1), voisine: await ou(MEDAILLES, 2), fiche: await ou('.loge-fiche-corps') }
+    const pli = (await page.evaluate(`Math.round((document.querySelector('.loge-barre') || document.querySelector('.menu-barre')).getBoundingClientRect().top + scrollY)`)) as number
+    const bouge = [['les places', avant.places, apres.places], ['la médaille touchée', avant.medaille, apres.medaille], ['sa voisine', avant.voisine, apres.voisine]]
+      .filter(([, a, b]: any) => a && b && (a.haut !== b.haut || a.gauche !== b.gauche))
+      .map(([nom, a, b]: any) => `${nom} (${b.haut - a.haut} px)`)
+    const f = apres.fiche!
+    console.log(
+      `   ${n} — la fiche ${f.haut}→${f.bas} (${f.bas - f.haut} px), ${f.haut >= apres.medaille!.bas ? 'sous la rangée' : 'PAS SOUS SA RANGÉE'}, ${f.bas <= pli ? `${pli - f.bas} px au-dessus du menu` : `${f.bas - pli} px sous le menu`} · la page a défilé de ${await page.evaluate('Math.round(scrollY)')} px${bouge.length ? ` · A BOUGÉ : ${bouge.join(', ')}` : ' · rien n’a bougé au-dessus'}`,
+    )
+    if (bouge.length || f.haut < apres.medaille!.bas) rate++
+    await page.screenshot({ path: path.join(sortie, `${n}-fiche.png`) })
+    await page.tap('.loge-fiche-geste')
+    await page.waitForSelector('.loge-barre')
+    await page.waitForTimeout(400)
+    await page.screenshot({ path: path.join(sortie, `${n}-sur-ma-carte.png`) })
+    // La carte remplie, médaille par médaille, par le bouton de chaque fiche.
+    for (let i = 0; i < compte && (await page.locator('.loge-emplacement.vide').count()) > 0; i++) {
+      if (i === 1) continue
+      await page.locator(MEDAILLES).nth(i).tap()
+      await page.waitForTimeout(250)
+      await page.tap('.loge-fiche-geste')
+      await page.waitForTimeout(250)
+    }
+    // Une fiche rouverte, carte pleine : un trophée qui n'y est pas — son bouton éteint —, sinon le dernier, « Retirer »
+    // (chez l'habituée, Le Sans-Faute : une piste, son métal sur la ligne de sa rareté).
+    const dehors = compte > 3 ? 4 : compte - 1
+    // Déjà ouverte — la dernière posée —, la retoucher la refermerait.
+    if ((await page.locator(MEDAILLES).nth(dehors).getAttribute('aria-expanded')) !== 'true') await page.locator(MEDAILLES).nth(dehors).tap()
+    await page.waitForTimeout(500)
+    const geste = (await page.evaluate(`(() => { const b = document.querySelector('.loge-fiche-geste'); return b.textContent + (b.getAttribute('aria-disabled') ? ' (éteint)' : '') })()`)) as string
+    console.log(`   ${n} — carte pleine, la fiche de la ${dehors + 1}ᵉ médaille : « ${geste} »`)
+    await page.screenshot({ path: path.join(sortie, `${n}-carte-pleine.png`) })
+    await page.locator('.loge-barre').getByRole('button', { name: 'Annuler' }).tap()
+    await page.waitForTimeout(300)
+    await page.evaluate('scrollTo(0, 0)')
+  }
+
   // Léa sans compagnon d'abord : le haut de la page n'a pas de niche à contourner.
   await avatar('sans-niche', { cookie: lea }, TOUS_LES_ECRANS)
   await avatar('debutant', { cookie: tom }, TOUS_LES_ECRANS)
@@ -531,6 +587,7 @@ try {
         await attendre(page, ATTENDUS[id])
         await mesurer(page, 'pieces', id, ecran, `${id}-${ecran[0]}x${ecran[1]}`)
         if (id === 'theme') await plaque(page, 'pieces', `plaque-${ecran[0]}x${ecran[1]}`, ecran)
+        if (id === 'vitrine') await ficheDeLaVitrine(page, `vitrine-${ecran[0]}x${ecran[1]}`)
       }
       await ctx.close()
     }
@@ -547,6 +604,7 @@ try {
         await attendre(page, ATTENDUS[id])
         await mesurer(page, 'pleines', id, ecran, `plein-${id}-${ecran[0]}x${ecran[1]}`)
         if (id === 'theme') await plaque(page, 'pleines', `plein-plaque-${ecran[0]}x${ecran[1]}`, ecran)
+        if (id === 'vitrine') await ficheDeLaVitrine(page, `plein-vitrine-${ecran[0]}x${ecran[1]}`)
       }
       await ctx.close()
     }
