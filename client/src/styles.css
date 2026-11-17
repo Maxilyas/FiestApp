@@ -12866,8 +12866,6 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .theme-fiche { grid-column: 1 / -1; }
 /* Le thème qu'on vient d'acheter : sa carte a quitté le rayon, on dit où il est passé. */
 .theme-achete { margin: 0; text-align: center; border-color: var(--accent); }
-.lien-boutique { align-self: center; display: inline-flex; align-items: center; gap: 6px; text-align: center; }
-.lien-boutique .icon { flex: none; width: 15px; height: 15px; }
 /* Remontée sous sa tête : la rangée des rayons s'arrête 4 px sous la niche, et la troisième rangée de thèmes tient
    au-dessus du menu en 360 × 640 (`rendu-boutique.ts`). */
 .la-boutique { display: flex; flex-direction: column; gap: 18px; margin-top: -12px; }
