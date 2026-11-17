@@ -88,7 +88,7 @@ test('« Mon titre » d’un débutant : le plus proche, avec sa jauge ; rien de
 
   // Un premier haut fait tombé — Le Lève-tôt — : son titre à porter, plus rien d'autre.
   const titre = await rendu('components/Apparence', 'MonTitre', { profil: profil(hautsFaits({ valeurs: { 'hf:alpiniste': 7 }, fois: { 'hf:leve-tot': 1 } })), ...rien })
-  assert.match(titre, /<span class="loge-vignette-nom">Le Lève-tôt<\/span><\/button>/)
+  assert.match(titre, /<span class="loge-titre-nom">Le Lève-tôt<\/span><\/button>/)
   assert.doesNotMatch(titre, /Le plus proche|Le plus simple/)
 })
 

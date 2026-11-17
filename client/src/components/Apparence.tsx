@@ -777,13 +777,22 @@ export function emojiDUnTitre(cle: string): string {
  * pour qui n'en a aucun, à qui la page dit comment gagner le premier. Touché,
  * un titre s'essaie sous son prénom, sur la carte de la loge.
  *
- * Une pastille chacun, de 44 px de haut — elles en faisaient 34 —, l'emoji de ce
- * qui l'a ouvert devant son nom en italique ; son état se dit comme celui d'une
- * case d'avatar (le cadre d'or, le halo de l'essai, la coche de ce qu'il porte, le
- * point rouge du neuf) et non par un mot écrit dans chacune, qui la
- * rallongeait : à l'oreille, « porté » et « nouveau » restent. L'en-tête tient sur
- * une ligne, sa consigne sur une : la phrase de trois lignes d'avant disait d'où
- * viennent les titres, que les emojis disent maintenant.
+ * Du texte aligné, deux colonnes au téléphone, sans rien autour d'un titre (le
+ * propriétaire, le 17 novembre 2026, devant la première refonte : « Cela prend trop
+ * de place, c'est brouillon. Est ce qu'il n'y aurait pas moyen d'avoir quelque
+ * chose de plus épuré ? Quitte à sortir de la DA et ne pas mettre les sortes de
+ * bulles autour des titres ») : chaque titre, l'emoji de ce qui l'a ouvert puis son
+ * nom en italique, dans une cellule de 44 px — la cible du doigt — où le nom tient
+ * sur deux lignes sans que la rangée grandisse. Des pastilles encadrées, de largeur
+ * qui varie, faisaient une mosaïque irrégulière où l'œil cherchait chaque nom. Son
+ * état se dit sans bulle non plus, par la règle de toutes les pièces
+ * (`classesDeLaVignette`) : ce que la carte montre s'écrit à l'or, un trait d'or
+ * devant ; ce qu'il porte a sa coche d'or après le nom ; le neuf, le point rouge
+ * devant l'emoji — et à l'oreille, « à l'essai », « porté », « nouveau ». L'en-tête
+ * n'a plus de consigne (« Un trophée, un maître ou un défi en ouvre un. ») : « pas
+ * besoin de mettre du texte à chaque fois, ça doit être compréhensible et intuitif.
+ * Ça fait perdre de la place pour rien » (le propriétaire, le même jour) ; les
+ * emojis disent d'où vient chaque titre.
  */
 export function MonTitre({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   // Les maîtres d'abord : un sentier gravi jusqu'au bout se dit en premier ;
@@ -797,17 +806,15 @@ export function MonTitre({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   const montre = essai.titre !== undefined ? essai.titre : porte
   // Ce que chaque titre dit de lui, à l'œil comme à l'oreille : montré par la carte, porté, nouveau.
   const etat = (cle: string | null): EtatDUneCase => ({ montre: montre === cle, porte: porte === cle, neuve: cle !== null && neufs?.has(cle) })
-  const pastille = (cle: string | null, nom: string) => {
+  const ligne = (cle: string | null, nom: string) => {
     const e = etat(cle)
-    const emoji = cle === null ? '' : emojiDUnTitre(cle)
     return (
-      <button key={cle ?? 'aucun'} type="button" className={'loge-vignette loge-titre' + classesDeLaVignette(e)} aria-pressed={e.montre} onClick={() => essayer({ titre: cle })}>
-        {emoji && (
-          <span className="loge-titre-emoji" aria-hidden="true">
-            {emoji}
-          </span>
-        )}
-        <span className="loge-vignette-nom">{nom}</span>
+      <button key={cle ?? 'aucun'} type="button" className={'loge-titre' + classesDeLaVignette(e)} aria-pressed={e.montre} onClick={() => essayer({ titre: cle })}>
+        {/* Toujours là, même vide pour « Aucun » : les noms commencent tous au même endroit de leur colonne. */}
+        <span className="loge-titre-emoji" aria-hidden="true">
+          {cle === null ? '' : emojiDUnTitre(cle)}
+        </span>
+        <span className="loge-titre-nom">{nom}</span>
         {ceQueDitLaVignette(e) && <span className="sr-only">{ceQueDitLaVignette(e)}</span>}
       </button>
     )
@@ -815,11 +822,11 @@ export function MonTitre({ profil, essai, essayer, neufs }: PropsDUnePiece) {
   // Sa pièce s'appelle « Titre » : l'en-tête dit ce qu'elle range, ceux qu'il a.
   return (
     <section className="loge-titres-piece">
-      <EnteteDeLaPiece id="loge-titre-entete" titre="Mes titres" compte={gagnes.length > 0 ? `${gagnes.length} à toi` : undefined} consigne="Un trophée, un maître ou un défi en ouvre un." />
-      {/* Des pastilles, pas une grille : un titre est un mot, de largeur qui varie, et deux tiennent sur une rangée. */}
+      <EnteteDeLaPiece id="loge-titre-entete" titre="Mes titres" compte={gagnes.length > 0 ? `${gagnes.length} à toi` : undefined} />
+      {/* Une grille de deux colonnes, des rangées régulières : chaque titre est un enfant direct, que `rendu-loge.ts` compte. */}
       <div className="loge-vignettes loge-titres" role="group" aria-labelledby="loge-titre-entete">
-        {pastille(null, 'Aucun')}
-        {gagnes.map(cle => pastille(cle, nomDuTitre(cle) ?? cle))}
+        {ligne(null, 'Aucun')}
+        {gagnes.map(cle => ligne(cle, nomDuTitre(cle) ?? cle))}
       </div>
       {gagnes.length === 0 && <PremierHautFait profil={profil} />}
       {/* Chaque trophée ouvre le sien : ceux qui restent se comptent, et l'album dit comment les gagner. */}

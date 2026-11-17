@@ -302,8 +302,12 @@ test('chaque pièce qu’on porte a son panneau dans la loge : sa carte en tête
     assert.match(html, /^(<link rel="preload"[^>]*\/>)*<div class="loge"><div class="loge-collante"><div class="loge-carte/, `${piece} : sa carte en tête, qui change sous ses yeux`)
     assert.deepEqual(cartes(html), titres, piece)
   }
-  // Le reste de la carte se remplit tout seul : la pièce de la vitrine le dit, en une ligne.
-  assert.match(await laLoge('vitrine'), /Le reste de ta carte se remplit tout seul\./)
+  // Le reste de la carte se remplit tout seul : la pièce de la vitrine le disait en une ligne, sous elle, jusqu'au
+  // 17 novembre 2026 — « pas besoin de mettre du texte à chaque fois, ça doit être compréhensible et intuitif. Ça fait
+  // perdre de la place pour rien » (le propriétaire). Le panneau finit avec la vitrine : rien ne s'y écrit plus après elle.
+  const vitrine = await laLoge('vitrine')
+  assert.doesNotMatch(vitrine, /Le reste de ta carte|loge-reste-de-la-carte/)
+  assert.match(vitrine, /<div class="loge-panneau" role="tabpanel" id="loge-panneau" aria-labelledby="loge-vitrine"><section class="loge-vitrine-piece">.*?<\/section><\/div>/)
   // Le thème et la gerbe, chacun son panneau : le leur, rien d'autre.
   const theme = await laLoge('theme')
   assert.match(theme, /<div class="loge-panneau" role="tabpanel" id="loge-panneau" aria-labelledby="loge-theme"><section class="mes-themes">/)
