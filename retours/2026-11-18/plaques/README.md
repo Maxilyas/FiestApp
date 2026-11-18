@@ -70,9 +70,24 @@ téléphone. Des totaux, sans un nom :
 - **La loge et la boutique montrent la vitrine** (`LigneDePlaque`) : la forme
   la plus entière, celle qu'on achète.
 
+## La grande plaque des duels : la maquette
+
+`duels/avant-apres.jpg`, posée sur les vrais écrans d'un duel (`rendu-duels.ts`,
+la feuille `duels/maquette.css` injectée par-dessus) : **le duel à relever**,
+chaque carte habillée de la plaque de son joueur — son fond, son double filet,
+son emblème en semis, le « ? » à son or —, et **le verdict**, chaque joueur sur
+son socle à ses couleurs, son nom sur sa plaque et son emblème. À valider avant
+de la coder : le serveur ne dit pas encore la plaque d'en face aux écrans d'un
+duel (`DuelEntreAmis`, `VerdictVu`).
+
+Relevé en la faisant : `.carte-plaque` est pris (la plaque du compagnon sur la
+carte d'un joueur, en absolu) — la classe de la maquette l'avait emprunté, et
+la carte d'en face sautait au coin de l'écran (le piège des modificateurs
+courts, règle `profil.md`).
+
 ## Ce qui reste
 
-- La grande plaque des duels, à maquetter.
+- La grande plaque des duels, à valider puis à coder.
 - La police du thème sur le prénom, et une richesse de la plaque selon la
   rareté du thème : proposées, pas encore décidées.
 - Ce que les emblèmes font au téléphone Android de la friture (un Redmi,
