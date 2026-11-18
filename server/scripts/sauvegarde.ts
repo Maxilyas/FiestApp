@@ -289,8 +289,13 @@ try {
   console.log('   Ce fichier contient les comptes (mots de passe hachés) : garde-le comme un secret.')
   // La page « Base et miroir » du QG dit à quand remonte la dernière sauvegarde (`qg_sauvegardes`) : rien ne le disait.
   // Un jeton en lecture seule n'empêche pas la sauvegarde — elle est faite —, seule sa ligne manque, et on le dit.
+  // La table, le serveur la crée à son démarrage (`santeDuServeur.ts`) : là, la note n'est qu'une ligne ajoutée, et
+  // un jeton qui ne peut que lire et ajouter à cette table suffit — celui de la sauvegarde automatique
+  // (`.github/workflows/sauvegarde.yml`). Un `CREATE TABLE IF NOT EXISTS` sans effet lui serait refusé : SQLite juge
+  // le droit de créer avant de regarder si la table existe.
+  const existe = tables.some(t => t.name === 'qg_sauvegardes')
   try {
-    await client.batch([TABLE_DES_SAUVEGARDES, noteDeLaSauvegarde(note)], 'write')
+    await client.batch(existe ? [noteDeLaSauvegarde(note)] : [TABLE_DES_SAUVEGARDES, noteDeLaSauvegarde(note)], 'write')
   } catch (e) {
     console.log(`   La page « Base et miroir » du QG ne la verra pas : ${e instanceof Error ? e.message : String(e)}`)
   }

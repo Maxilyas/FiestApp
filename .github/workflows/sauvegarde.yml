@@ -1,0 +1,168 @@
+# La sauvegarde automatique de la base permanente : chaque nuit, la commande
+# qu'on lançait à la main (`npm run sauvegarde`), son fichier compressé puis
+# chiffré, gardé trente jours parmi les fichiers de l'exécution. Sans elle,
+# seul l'historique de Turso protégeait les comptes, les quiz et les archives —
+# un jour sur l'offre gratuite, et il disparaît avec la base.
+#
+# Le dépôt est public : tout compte GitHub peut lire le journal d'une exécution
+# et télécharger ses fichiers. Rien n'en sort donc en clair — ni la base, qui
+# porte les mots de passe hachés, les empreintes de session, la clé privée du
+# rappel du soir et les abonnements des téléphones, ni ce que dit la commande,
+# qui nomme la base et compte les lignes de chaque table. Le fichier se chiffre
+# pour des clés publiques `age` ; la clé privée ne vient jamais ici, elle reste
+# chez qui restaure. Le jeton de la base, lui, ne vit que dans l'environnement
+# `sauvegarde`, que GitHub ne donne qu'à `main`, et ne peut que lire la base et
+# y noter la sauvegarde.
+#
+# La mise en place (les clés, le jeton, l'environnement), la restauration et
+# les pièges : docs/exploitation/exploiter.md, « La sauvegarde automatique ».
+# `server/test/sauvegarde-automatique.test.ts` garde ce que ce fichier promet.
+name: Sauvegarde
+
+on:
+  schedule:
+    # 2 h 23 UTC : 3 h 23 à Paris l'hiver, 4 h 23 l'été. Hors soirée — la
+    # commande lit la base table après table, pas d'un seul instantané —, et
+    # avant la routine du matin de 6 h 55. Pas à l'heure pile : GitHub y lance
+    # tout le monde, et part en retard.
+    - cron: '23 2 * * *'
+  # Avant une soirée, à la main, depuis l'onglet Actions — sur `main`.
+  workflow_dispatch:
+
+# Le jeton de l'exécution ne fait que lire le dépôt.
+permissions:
+  contents: read
+
+# Deux sauvegardes ne se lisent pas la base en même temps : la seconde attend.
+concurrency:
+  group: sauvegarde
+  cancel-in-progress: false
+
+defaults:
+  run:
+    # `bash` nommé, et non celui d'office : il ajoute `-o pipefail`, sans
+    # lequel un `gzip | age` qui échoue au milieu passerait pour réussi.
+    shell: bash
+
+jobs:
+  sauvegarder:
+    # Jamais depuis une autre branche : le code qui tient le jeton de la base
+    # est celui de `main`. L'environnement le redit du côté de GitHub — ses
+    # secrets ne vont qu'à `main` —, ceci n'est que le premier filet.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: sauvegarde
+    env:
+      # Les dates du fichier et de son en-tête, à l'heure de Paris.
+      TZ: Europe/Paris
+    steps:
+      # Chaque action tenue par l'empreinte de son code, pas par son étiquette :
+      # une étiquette se déplace, et ce qu'elle désignerait tournerait à côté du
+      # jeton de la base.
+      - name: Le code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          # Le jeton de l'exécution ne reste pas dans `.git/config`, à portée
+          # des étapes suivantes.
+          persist-credentials: false
+
+      # Sans cache : rien de ce qu'une autre exécution a rangé ne tourne ici.
+      - name: Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
+      # Les paquets du fichier de verrouillage, empreintes vérifiées, sans leurs
+      # scripts d'installation : ne tourne que ce que la sauvegarde charge (tsx,
+      # esbuild, le client libsql), pas les centaines d'autres.
+      - name: Les dépendances
+        run: npm ci --no-audit --no-fund --ignore-scripts
+
+      # Avant de lire la base : sans destinataire valable, rien ne pourrait
+      # sortir, et la lecture aurait coûté au quota de Turso pour rien.
+      - name: Les clés du chiffrement
+        id: cles
+        env:
+          DESTINATAIRES: ${{ vars.SAUVEGARDE_DESTINATAIRES }}
+        run: |
+          printf '%s\n' "$DESTINATAIRES" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e '/^$/d' > "$RUNNER_TEMP/destinataires.txt"
+          if [ ! -s "$RUNNER_TEMP/destinataires.txt" ]; then
+            echo "::error::La variable SAUVEGARDE_DESTINATAIRES de l'environnement « sauvegarde » est vide : mets-y la clé publique age (age1…), une par ligne."
+            exit 1
+          fi
+          if grep -qvE '^age1[0-9a-z]{58}$' "$RUNNER_TEMP/destinataires.txt"; then
+            echo "::error::SAUVEGARDE_DESTINATAIRES ne doit contenir que des clés publiques age (age1…, 62 caractères), une par ligne — jamais la clé privée (AGE-SECRET-KEY-…)."
+            exit 1
+          fi
+          echo "$(wc -l < "$RUNNER_TEMP/destinataires.txt") destinataire(s)."
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq age > /dev/null
+          age --version
+
+      - name: La sauvegarde
+        id: sauvegarde
+        env:
+          QUIZ_DB_URL: ${{ secrets.SAUVEGARDE_DB_URL }}
+          QUIZ_DB_TOKEN: ${{ secrets.SAUVEGARDE_DB_TOKEN }}
+        run: |
+          if [ -z "$QUIZ_DB_URL" ] || [ -z "$QUIZ_DB_TOKEN" ]; then
+            echo "::error::Les secrets SAUVEGARDE_DB_URL et SAUVEGARDE_DB_TOKEN de l'environnement « sauvegarde » doivent être posés."
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/clair"
+          # Ce que dit la commande — l'adresse de la base, ses tables et leurs
+          # lignes, une erreur — reste hors du journal public : il part chiffré
+          # avec la sauvegarde (`journal.txt`).
+          if npm run sauvegarde -- --out "$RUNNER_TEMP/clair/sql" > "$RUNNER_TEMP/clair/journal.txt" 2>&1; then
+            echo "Sauvegarde faite."
+          else
+            echo "::error::La sauvegarde a échoué. Son journal est dans les fichiers de l'exécution, chiffré (….journal.txt.gz.age)."
+            exit 1
+          fi
+
+      # Même après un échec : le journal qui dit pourquoi se chiffre aussi.
+      - name: Le chiffrement
+        id: chiffrement
+        if: always() && steps.cles.outcome == 'success'
+        env:
+          # Par l'environnement, jamais `${{ … }}` dans le script : rien de ce
+          # que GitHub y écrirait ne devient du code.
+          ISSUE_DE_LA_SAUVEGARDE: ${{ steps.sauvegarde.outcome }}
+        run: |
+          shopt -s nullglob
+          quand=$(date +%Y-%m-%d-%H%M%S)
+          mkdir -p "$RUNNER_TEMP/chiffre"
+          # Compresser avant de chiffrer : chiffré, plus rien ne se compresse.
+          # Puis vérifier l'en-tête de ce qui sort : un fichier sans lui ne
+          # quitte pas la machine.
+          chiffrer() {
+            gzip -9 -c "$1" | age -R "$RUNNER_TEMP/destinataires.txt" -o "$2"
+            [ "$(head -c 21 "$2")" = 'age-encryption.org/v1' ] || { echo "::error::$2 n'est pas chiffré."; rm -f "$2"; exit 1; }
+          }
+          sql=("$RUNNER_TEMP"/clair/sql/*.sql)
+          if [ "${#sql[@]}" -gt 1 ]; then echo "::error::Plusieurs fichiers SQL : un seul attendu."; exit 1; fi
+          if [ "${#sql[@]}" -eq 1 ]; then chiffrer "${sql[0]}" "$RUNNER_TEMP/chiffre/fiestapp-$quand.sql.gz.age"; fi
+          if [ -f "$RUNNER_TEMP/clair/journal.txt" ]; then chiffrer "$RUNNER_TEMP/clair/journal.txt" "$RUNNER_TEMP/chiffre/fiestapp-$quand.journal.txt.gz.age"; fi
+          if [ "$ISSUE_DE_LA_SAUVEGARDE" = success ] && [ "${#sql[@]}" -ne 1 ]; then
+            echo "::error::La sauvegarde dit avoir fini, sans fichier SQL."
+            exit 1
+          fi
+          rm -rf "$RUNNER_TEMP/clair"
+          chiffres=("$RUNNER_TEMP"/chiffre/*.age)
+          # Arrêtée avant d'écrire quoi que ce soit (un secret manquant) : rien à envoyer.
+          if [ "${#chiffres[@]}" -eq 0 ]; then echo "Rien à chiffrer."; exit 0; fi
+          echo "nom=sauvegarde-$quand" >> "$GITHUB_OUTPUT"
+          ls -l "$RUNNER_TEMP/chiffre"
+
+      # Seuls les fichiers chiffrés partent. Déjà chiffrés, ils ne se
+      # compressent plus : le zip de l'envoi les range tels quels.
+      - name: Les fichiers chiffrés
+        if: always() && steps.chiffrement.outcome == 'success' && steps.chiffrement.outputs.nom != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ steps.chiffrement.outputs.nom }}
+          path: ${{ runner.temp }}/chiffre/*.age
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
