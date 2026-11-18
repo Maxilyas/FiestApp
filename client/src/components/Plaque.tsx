@@ -1,44 +1,45 @@
-// La plaque de nom : la part d'un thème que les autres voient, aux
-// classements (`shared/plaques.ts`). Deux pièces, sans catalogue ni état : les
-// classes que la ligne prend, et son emblème. Les classements les importent,
-// le quiz du jour compris — rien ici ne tire `shared/themes.ts` : la clé seule
-// choisit la règle de la feuille (`.plaque-<clé>`, `styles.css`).
+import type { ReactNode } from 'react'
+
+// La plaque : la part d'un thème que les autres voient (`shared/plaques.ts`).
+// Sans catalogue ni état : la clé seule choisit la règle de la feuille
+// (`.plaque-<clé>`, `styles.css`), ses couleurs et son emblème — rien ici ne
+// tire `shared/themes.ts`, le quiz du jour l'importe.
 //
-// Depuis le 18 novembre 2026 (la maquette posée sur le vrai classement de la
-// production, `retours/2026-11-18/plaques/`), deux formes : partout, le
-// paraphe — la ligne de tous, un trait de plume sous le prénom et son
-// emblème — ; au podium, la vitrine — la ligne entière à ses couleurs. Dix
-// plaques entières sur les dix premières du mois faisaient une mosaïque.
+// Depuis le soir du 18 novembre 2026 (trois propositions reparties de zéro,
+// `retours/2026-11-18/plaques/trois-propositions/` : « L'écrin combiné au
+// podium est une bonne idée », le propriétaire), deux pièces : **l'écrin** —
+// l'avatar posé sur une tuile à ses couleurs, son emblème en filigrane —,
+// partout où un joueur se montre hors d'une soirée ; et, en tête d'un
+// classement, **le podium**, chacun sur sa marche à ses couleurs
+// (`PodiumDuClassement.tsx`). Le prénom, le niveau et le score restent ceux de
+// tous. Avant lui, la ligne entière à ses couleurs au podium et un trait sous
+// le prénom plus bas : une mosaïque là où l'œil arrive, et un trait qui disait
+// peu.
 
-/**
- * Les places du podium, où la plaque se montre entière — ex æquo compris : un
- * rang se lit par `shared/classement.ts`, tous ceux qui partagent le troisième
- * sont troisièmes (invariant 15). Un choix de produit (`baremes.md`).
- */
-export const PLACES_EN_VITRINE = 3
+/** La clé d'une plaque, si elle a la forme d'une clé de thème : une feuille d'un client d'avant ne connaît pas la sienne. */
+export function cleDeLaPlaque(plaque: string | null | undefined): string | null {
+  return plaque && /^[a-z]+$/.test(plaque) ? plaque : null
+}
 
-/** Sa plaque se montre entière : il est sur le podium. */
-export function enVitrine(rang: number | undefined): boolean {
-  return rang !== undefined && rang >= 1 && rang <= PLACES_EN_VITRINE
+/** Les classes qu'une plaque ajoute à ce qu'elle habille — rien sans plaque. */
+export function classeDeLaPlaque(plaque: string | null | undefined): string {
+  const cle = cleDeLaPlaque(plaque)
+  return cle ? ` plaque plaque-${cle}` : ''
 }
 
 /**
- * Les classes qu'une plaque ajoute à sa ligne — rien sans plaque ; `vitrine`
- * au podium, quand la ligne dit son rang. La clé vient du serveur ; elle
- * n'entre dans une classe que si elle a la forme d'une clé de thème : une
- * feuille d'un client d'avant qui ne la connaît pas laisse la ligne telle
- * qu'elle est.
+ * L'écrin d'un avatar : une tuile à ses couleurs, son double filet, son
+ * emblème en filigrane — sans plaque, la même place, vide : les avatars d'une
+ * liste restent alignés, et rien ne dit qu'il en manque une (l'absence, pas
+ * l'infériorité — invariant 8). Rien ne passe sous un texte.
  */
-export function classeDeLaPlaque(plaque: string | null | undefined, rang?: number): string {
-  if (!plaque || !/^[a-z]+$/.test(plaque)) return ''
-  return ` plaque plaque-${plaque}` + (enVitrine(rang) ? ' vitrine' : '')
+export function Ecrin({ plaque, petit, children }: { plaque?: string | null; petit?: boolean; children: ReactNode }) {
+  return <span className={'ecrin' + (petit ? ' ecrin-petit' : '') + classeDeLaPlaque(plaque)}>{children}</span>
 }
 
 /**
- * L'emblème d'une plaque, une pièce de la ligne juste après le prénom : il
- * cède avant lui, et pousse la suite au bout de la ligne. Jamais un fond sous
- * le texte — les fêlures du Kintsugi passaient sous les lignes et les
- * rendaient illisibles (le retour du 10 novembre 2026).
+ * L'emblème d'une plaque en pièce : au bout d'un nom écrit sur sa plaque, aux
+ * écrans d'un duel (`Duel.tsx`), et sur l'échantillon de la loge.
  */
 export function EmblemeDeLaPlaque({ plaque }: { plaque: string | null | undefined }) {
   return classeDeLaPlaque(plaque) ? <span className="plaque-embleme" aria-hidden="true" /> : null

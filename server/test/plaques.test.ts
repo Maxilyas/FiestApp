@@ -1,19 +1,20 @@
 // Les plaques de nom (le 10 novembre 2026, la maquette validée par le
-// propriétaire, `retours/2026-11-10/plaques/`) : la ligne d'un joueur dans
-// les classements, aux couleurs d'un thème qu'il possède. Un thème ne se
-// voyait que sur le téléphone de qui le porte — six de vendus en production,
-// pour seize compagnons — : la plaque est sa part visible. Ses règles sont
-// pures (`shared/plaques.ts`), ses couleurs celles de son thème. Depuis le
-// 18 novembre 2026 (`retours/2026-11-18/plaques/`), deux formes : le paraphe
-// partout — un trait de plume sous le prénom, son emblème après lui —, la
-// plaque entière au podium ; et rien ne passe jamais sous un texte. Et, le
-// même jour, la grande plaque des duels : à un contre un, chaque carte à la
-// plaque de son joueur, chacun sur son socle au verdict.
+// propriétaire, `retours/2026-11-10/plaques/`) : la part d'un thème que les
+// autres voient. Un thème ne se voyait que sur le téléphone de qui le porte —
+// six de vendus en production, pour seize compagnons. Ses règles sont pures
+// (`shared/plaques.ts`), ses couleurs celles de son thème. Depuis le soir du
+// 18 novembre 2026 (`retours/2026-11-18/plaques/trois-propositions/`), deux
+// pièces : l'écrin — l'avatar posé sur une tuile à ses couleurs, son emblème
+// en filigrane — partout où un joueur se montre hors d'une soirée ; le
+// podium — les trois premiers sur leur marche — en tête d'un classement. Et à
+// un contre un, la grande plaque des duels : chaque carte à la plaque de son
+// joueur, chacun sur son socle au verdict. Rien ne passe jamais sous un texte,
+// sauf le semis des cartes d'un duel, mesuré.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import Database from 'better-sqlite3'
-import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
+import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil, relireJusqua, type Banc } from './banc'
 import { contraste, teinte, themesDuClient } from './teintes'
 import { AUCUNE_PLAQUE, choixDePlaque, plaqueDuTheme, plaquePortee, plaquesOuvertes } from '../../shared/plaques'
 import { THEMES } from '../../shared/themes'
@@ -70,26 +71,71 @@ test('une plaque par thème, sauf Velours ; sans choix, celle du thème porté',
   assert.deepEqual(plaquesOuvertes(['velours', 'ivoire', 'ocean', 'kintsugi']), ['ivoire', 'ocean', 'kintsugi'])
 })
 
-test('la classe d’une plaque ne prend qu’une clé de thème, et sa vitrine au podium', async () => {
-  // Un composant du client : chargé par son adresse, le serveur ne compile pas de JSX.
-  const { classeDeLaPlaque, enVitrine, PLACES_EN_VITRINE } = (await import(new URL('components/Plaque.tsx', CLIENT).href)) as {
-    classeDeLaPlaque: (p: unknown, rang?: number) => string
-    enVitrine: (rang?: number) => boolean
-    PLACES_EN_VITRINE: number
+test('la classe d’une plaque ne prend qu’une clé de thème ; le podium, les trois premiers s’ils tiennent sur trois marches', async () => {
+  // Des composants du client : chargés par leur adresse, le serveur ne compile pas de JSX.
+  const { classeDeLaPlaque, cleDeLaPlaque } = (await import(new URL('components/Plaque.tsx', CLIENT).href)) as {
+    classeDeLaPlaque: (p: unknown) => string
+    cleDeLaPlaque: (p: unknown) => string | null
   }
   assert.equal(classeDeLaPlaque('kintsugi'), ' plaque plaque-kintsugi')
   assert.equal(classeDeLaPlaque(null), '')
   assert.equal(classeDeLaPlaque(undefined), '')
   // Ce qui n'a pas la forme d'une clé n'entre pas dans une classe.
-  for (const k of ['', 'a b', 'x"y', 'Kintsugi', 'plaque me', 'a-b']) assert.equal(classeDeLaPlaque(k), '', k)
+  for (const k of ['', 'a b', 'x"y', 'Kintsugi', 'plaque me', 'a-b']) {
+    assert.equal(classeDeLaPlaque(k), '', k)
+    assert.equal(cleDeLaPlaque(k), null, k)
+  }
 
-  // Le podium montre la plaque entière, ex æquo compris : tous ceux qui partagent le troisième rang sont troisièmes.
-  assert.equal(PLACES_EN_VITRINE, 3)
-  assert.equal(classeDeLaPlaque('kintsugi', 1), ' plaque plaque-kintsugi vitrine')
-  assert.equal(classeDeLaPlaque('kintsugi', 3), ' plaque plaque-kintsugi vitrine')
-  assert.equal(classeDeLaPlaque('kintsugi', 4), ' plaque plaque-kintsugi', 'hors du podium, le paraphe')
-  assert.equal(classeDeLaPlaque(null, 1), '', 'sans plaque, rien — même au podium')
-  for (const r of [undefined, 0, -1, 4, 12]) assert.equal(enVitrine(r), false, String(r))
+  const { surLePodium, PLACES_DU_PODIUM } = (await import(new URL('components/PodiumDuClassement.tsx', CLIENT).href)) as {
+    surLePodium: <T extends { rang: number }>(l: readonly T[]) => { podium: T[]; liste: T[] }
+    PLACES_DU_PODIUM: number
+  }
+  assert.equal(PLACES_DU_PODIUM, 3)
+  const lignes = (...rangs: number[]) => rangs.map((rang, i) => ({ id: `j${i}`, rang }))
+  const ids = (l: { id: string }[]) => l.map(x => x.id)
+  // Les trois premiers montent, la liste reprend à la quatrième place.
+  const cinq = surLePodium(lignes(1, 2, 3, 4, 5))
+  assert.deepEqual([ids(cinq.podium), ids(cinq.liste)], [['j0', 'j1', 'j2'], ['j3', 'j4']])
+  // Les ex æquo montent ensemble, tant qu'ils tiennent sur trois marches (invariant 15).
+  assert.deepEqual(ids(surLePodium(lignes(1, 1, 3, 4)).podium), ['j0', 'j1', 'j2'])
+  assert.deepEqual(ids(surLePodium(lignes(1, 2, 2, 4)).podium), ['j0', 'j1', 'j2'])
+  // Quatre ex æquo n'y tiendraient pas : pas de scène, la liste les garde tous.
+  assert.deepEqual(surLePodium(lignes(1, 2, 3, 3, 5)), { podium: [], liste: lignes(1, 2, 3, 3, 5) })
+  assert.deepEqual(surLePodium(lignes(1, 1, 1, 1)).podium, [])
+  // Pas de scène sous trois joueurs.
+  assert.deepEqual(surLePodium(lignes(1, 2)), { podium: [], liste: lignes(1, 2) })
+  assert.deepEqual(surLePodium([]), { podium: [], liste: [] })
+  // Trois joueurs : tout le podium, une liste vide.
+  assert.deepEqual(surLePodium(lignes(1, 2, 3)).liste, [])
+})
+
+test('l’écrin et le podium rendus : la tuile à ses couleurs ou sa place vide, les marches dans l’ordre du podium', async () => {
+  const React = (await import('react')).default
+  Object.assign(globalThis, { React })
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const { Ecrin } = await import(new URL('components/Plaque.tsx', CLIENT).href)
+  const { PodiumDuClassement } = await import(new URL('components/PodiumDuClassement.tsx', CLIENT).href)
+  const rendu = (el: unknown) => renderToStaticMarkup(el as never)
+  // L'écrin : sa plaque, ou sa place vide — l'absence, pas l'infériorité (invariant 8).
+  assert.equal(rendu(React.createElement(Ecrin, { plaque: 'kintsugi' }, '🦊')), '<span class="ecrin plaque plaque-kintsugi">🦊</span>')
+  assert.equal(rendu(React.createElement(Ecrin, { plaque: null }, '🦊')), '<span class="ecrin">🦊</span>')
+  assert.equal(rendu(React.createElement(Ecrin, { plaque: 'x y', petit: true }, '🦊')), '<span class="ecrin ecrin-petit">🦊</span>')
+
+  // Le podium : la deuxième à gauche, la première au milieu, la troisième à droite ; à ses couleurs, ou son métal.
+  const marche = (profileId: string, rang: number, plaque?: string, moi?: boolean) => ({ profileId, rang, plaque, moi, label: `La carte de ${profileId}, rang ${rang}`, visage: '🦊', nom: profileId, valeur: String(100 - rang) })
+  const html = rendu(React.createElement(PodiumDuClassement, { marches: [marche('lea', 1, 'kintsugi'), marche('tom', 2), marche('zoe', 2, 'ocean', true)], onOuvrir: () => {} }))
+  const ordre = [...html.matchAll(/<div role="listitem" class="([^"]+)" style="--metal:([^"]+)">/g)].map(m => [m[1], m[2]])
+  assert.deepEqual(ordre, [
+    ['pdc-marche pdc-2', 'var(--argent-text)'],
+    ['pdc-marche pdc-1 plaque plaque-kintsugi', 'var(--or-text)'],
+    // Deux ex æquo à la deuxième place montent à la même hauteur ; la sienne se cerne.
+    ['pdc-marche pdc-2 me plaque plaque-ocean', 'var(--argent-text)'],
+  ])
+  // Un toucher ouvre sa carte : le nom du bouton est celui de sa ligne.
+  assert.match(html, /<button type="button" class="pdc-joueur" aria-label="La carte de lea, rang 1"><span class="pdc-avatar">🦊<\/span><span class="pdc-nom">lea<\/span><span class="pdc-valeur">99<\/span><span class="pdc-socle"><b>1<\/b><\/span><\/button>/)
+  assert.match(html, /^<div class="podium-du-classement" role="list" aria-label="Le podium">/)
+  // Rien à monter : rien ne se dessine.
+  assert.equal(rendu(React.createElement(PodiumDuClassement, { marches: [] })), '')
 })
 
 test('la feuille : chaque plaque porte les couleurs de son thème, lisibles, et son motif', () => {
@@ -111,25 +157,12 @@ test('la feuille : chaque plaque porte les couleurs de son thème, lisibles, et 
       ['--p-trait', '--accent'],
     ]
     for (const [p, j] of paires) assert.equal(lue.get(p), teinte(jetons, j).toLowerCase(), `${cle} : ${p} est le ${j} de son thème`)
-    // Ce qui s'écrit sur la plaque se lit : le prénom, le rang, le score.
+    // Ce qui s'écrit sur la plaque se lit : un nom sur sa plaque aux écrans d'un duel, son rang sur sa marche.
     for (const p of ['--p-ink', '--p-muted', '--p-or']) {
       const c = contraste(lue.get(p)!, lue.get('--p-bg')!)
       assert.ok(c >= 4.5, `${cle} : ${p} sur son fond, ${c.toFixed(2)}:1`)
     }
   }
-
-  // La vitrine du podium est plus forte que la ligne d'un thème, « la mienne » comprise : les thèmes repeignent `.lb-row`
-  // et `.lb-row.me`.
-  assert.match(CSS, /:root body \.lb-row\.plaque\.vitrine:not\(\.team-row\) \{[^}]*background:[^;]*var\(--p-bg\);/)
-  for (const t of themesDuClient()) {
-    for (const m of t.css.matchAll(/^:root\[data-theme='[a-z]+'\] ([^{]*\.lb-row[^{]*)\{/gm)) {
-      const classes = (m[1].match(/\./g) ?? []).length
-      assert.ok(classes <= 2, `${t.cle} : « ${m[1].trim()} » resterait plus fort que la plaque`)
-    }
-  }
-  // Elle redit les jetons que la ligne lit : le rang, le prénom et le score suivent sans rien savoir.
-  const ligne = /:root body \.lb-row\.plaque\.vitrine:not\(\.team-row\) \{([^}]*)\}/.exec(CSS)![1]
-  for (const j of ['--ink: var(--p-ink)', '--muted: var(--p-muted)', '--accent-text: var(--p-or)']) assert.ok(ligne.includes(j), j)
 })
 
 test('chaque plaque a son emblème, en deux tons qui se lisent sur tout thème et sur elle-même', () => {
@@ -145,8 +178,9 @@ test('chaque plaque a son emblème, en deux tons qui se lisent sur tout thème e
   )
   assert.deepEqual([...tons.keys()].sort(), [...attendues].sort(), 'chaque plaque, ses deux tons et son emblème')
 
-  // Le clair se lit sur chaque thème sombre, le sombre sur chaque thème clair (3:1, ce qui n'est pas du texte) ; et sur
-  // sa propre plaque, au podium, le ton qui la contraste.
+  // Le clair se lit sur chaque thème sombre, le sombre sur chaque thème clair (3:1, ce qui n'est pas du texte) — ils
+  // suivaient le prénom sur le fond de celui qui regarde, jusqu'au soir du 18 novembre 2026 — ; et sur sa propre plaque,
+  // où l'écrin, la marche et la carte d'un duel le posent, le ton qui la contraste.
   const fonds = fondsDesThemes()
   const couleurs = couleursDesPlaques(CSS)
   const clairs = new Map(THEMES.map(t => [t.key, t.clair]))
@@ -156,40 +190,71 @@ test('chaque plaque a son emblème, en deux tons qui se lisent sur tout thème e
     const surElle = clairs.get(cle) ? sombre : clair
     assert.ok(auPire(surElle, [couleurs.get(cle)!.bg]) >= CONTRASTE_D_UN_EMBLEME, `${cle} : son emblème sur sa plaque`)
   }
-  // Le paraphe prend le sombre sous chaque thème clair du catalogue, et seulement sous eux.
-  const sousLeClair = /^:root:is\(([^)]+)\) \.lb-row\.plaque \{ --p-plume: var\(--p-sombre\); \}$/m.exec(bloc)
-  assert.ok(sousLeClair, 'la règle du paraphe sous un thème clair')
-  const listes = [...sousLeClair[1].matchAll(/\[data-theme='([a-z]+)'\]/g)].map(m => m[1]).sort()
-  assert.deepEqual(listes, THEMES.filter(t => t.clair).map(t => t.key).sort())
+  // Le trait sous le prénom est parti avec la ligne entière : plus rien ne le règle (`.plaque-apercu` est la ligne de la loge).
+  assert.ok(!/--p-plume|\.lb-row\.plaque(?![\w-])/.test(CSS), 'ni paraphe, ni ligne à la plaque')
 })
 
-test('le paraphe et l’emblème : des pièces de la ligne, jamais un fond sous le texte', () => {
+test('l’écrin et le podium : des images aux couleurs écrites dedans, jamais sous un texte — et chaque liste les pose', () => {
   // Ni masque, ni filtre, ni mouvement : dans une liste, rien ne garde un calque (règle css.md). Les emblèmes sont des
   // images, leurs couleurs écrites dedans ; leur bloc, écrit par son script, se lit à part (le test d'avant).
   const tout = CSS.slice(CSS.indexOf('/* ── Les plaques de nom'), CSS.indexOf('/* ── Écran commun'))
   const bloc = (tout.slice(0, tout.indexOf(DEBUT)) + tout.slice(tout.indexOf(FIN))).replace(/\/\*[\s\S]*?\*\//g, '')
   assert.ok(bloc.length > 1000, 'le bloc des plaques se trouve')
   assert.doesNotMatch(bloc, /mask|filter|animation:(?!\s*none)|transform/, 'ni masque, ni filtre, ni mouvement')
-  // Le paraphe : un trait sous le prénom, au ton que le fond laisse lire — hors du podium seulement.
-  assert.match(bloc, /\.lb-row\.plaque \{ --p-plume: var\(--p-clair\); \}/)
-  assert.match(bloc, /\.lb-row\.plaque:not\(\.vitrine\) > \.lb-name::after \{[^}]*border-bottom: 2px solid var\(--p-plume\);/)
-  // L'emblème : une pièce après le prénom, qui cède avant lui ; `--p-embleme` ne se lit que dans ses pièces.
-  assert.match(bloc, /\.lb-row\.plaque > \.plaque-embleme \{[^}]*flex: 0 1000 20px;[^}]*background: var\(--p-embleme\)/)
+  // L'emblème ne se pose qu'en filigrane, sous l'avatar d'un écrin — l'illustration d'une carte des collections en est
+  // un — et sous le rang d'une marche : jamais sous un prénom.
   assert.deepEqual(
     [...bloc.matchAll(/([^{}]+)\{[^}]*var\(--p-embleme\)/g)].map(m => m[1].trim()),
-    ['.lb-row.plaque > .plaque-embleme'],
-    'la ligne même ne prend jamais l’emblème en fond',
+    ['.ecrin.plaque::before', '.cl-carte-illu.plaque::before', '.pdc-marche.plaque .pdc-socle::before'],
   )
+  assert.match(bloc, /\.ecrin\.plaque::before \{[^}]*opacity: 0\.16;/)
+  // L'écrin a la même place avec ou sans plaque : les avatars d'une liste restent alignés.
+  assert.match(bloc, /\.ecrin \{[^}]*width: 42px; height: 42px;/)
+  // Sur deux étages, l'écrin prend la place de l'avatar.
+  assert.match(CSS, /\.lb-row:not\(\.team-row\) > :is\(\.lb-avatar, \.ecrin\) \{ grid-area: av; \}/)
 
-  // Les trois classements la posent de la même façon : la classe et le rang sur la ligne, l'emblème juste après le prénom.
+  // Chaque liste où un joueur se montre hors d'une soirée pose son avatar dans son écrin ; aucune ne colore plus sa ligne.
   for (const [fichier, n] of [
     ['views/JourApp.tsx', 1],
-    ['views/Defi.tsx', 2],
-    ['views/Duels.tsx', 1],
+    ['views/Defi.tsx', 1],
+    ['views/Duels.tsx', 6],
+    ['views/Joueurs.tsx', 1],
+    ['views/Collectionneurs.tsx', 1],
+    ['components/MaPlaque.tsx', 1],
   ] as const) {
     const source = lu(fichier)
-    assert.equal((source.match(/classeDeLaPlaque\(l\.plaque, l\.rang\)/g) ?? []).length, n, `${fichier} : la classe de la plaque et son rang sur sa ligne`)
-    assert.match(source, /<\/span>\s*<EmblemeDeLaPlaque plaque=\{l\.plaque\} \/>/, `${fichier} : l’emblème après le prénom`)
+    assert.equal((source.match(/<Ecrin (?:key=\{[^}]+\} )?plaque=\{/g) ?? []).length, n, `${fichier} : ${n} écrin(s)`)
+    assert.doesNotMatch(source, /classeDeLaPlaque\([^)]*,|lb-row[^'"]*' \+ classeDeLaPlaque/, `${fichier} : la ligne ne prend plus la plaque`)
+  }
+  // Les classements ont leur podium : le jour et le mois, le défi — de la semaine et entre amis —, les duels entiers.
+  assert.match(lu('views/JourApp.tsx'), /<PodiumDuJour lignes=\{surLePodium\(classement\.lignes\)\.podium\}/)
+  assert.match(lu('views/Defi.tsx'), /<ClassementDuDefi lignes=\{defi\.lignes\}/)
+  assert.match(lu('views/Duel.tsx'), /<ClassementDuDefi lignes=\{duel\.lignes\}/)
+  assert.match(lu('views/Duels.tsx'), /const \{ podium, liste \} = surLePodium\(classement\.lignes\)/)
+  // Les collections gardent leur podium en cartes : l'illustration de la carte est l'écrin.
+  assert.match(lu('views/Collectionneurs.tsx'), /className=\{'cl-carte-illu' \+ classeDeLaPlaque\(f\.plaque\)\}/)
+})
+
+test('le podium se lit : le rang à l’or de sa plaque sur sa marche, son filigrane et son reflet compris', () => {
+  const regle = (selecteur: string) => {
+    const m = new RegExp(`(?:^|\\n)${selecteur.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{([^}]*)\\}`).exec(CSS)
+    assert.ok(m, `la règle ${selecteur}`)
+    return m![1]
+  }
+  const socle = regle('.pdc-marche.plaque .pdc-socle')
+  const filigrane = Number(/opacity: (0\.\d+);/.exec(regle('.pdc-marche.plaque .pdc-socle::before'))?.[1])
+  const alpha = (rgb: string) => Number(new RegExp(`rgba\\(${rgb}, (0\\.\\d+)\\)`).exec(socle)?.[1] ?? 0)
+  assert.ok(filigrane > 0 && alpha('255, 255, 255') > 0 && alpha('0, 0, 0') > 0)
+  assert.match(regle('.pdc-marche.plaque .pdc-socle b'), /color: var\(--p-or\);/)
+  const tons = new Map([...CSS.matchAll(/\.plaque-([a-z]+) \{ --p-clair: (#[0-9a-f]{6}); --p-sombre: (#[0-9a-f]{6});/g)].map(m => [m[1], [m[2], m[3]]]))
+  const rgb = (h: string) => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16))
+  const melange = (a: string, b: string, t: number) => '#' + rgb(a).map((v, i) => Math.round(v + (rgb(b)[i] - v) * t).toString(16).padStart(2, '0')).join('')
+  for (const [cle, c] of couleursDesPlaques(CSS)) {
+    const [clair, sombre] = tons.get(cle) ?? assert.fail(`${cle} : ses deux tons`)
+    const fonds = [melange(c.bg, '#ffffff', alpha('255, 255, 255')), melange(c.bg, '#000000', alpha('0, 0, 0'))].flatMap(f => [f, melange(f, clair, filigrane), melange(f, sombre, filigrane)])
+    // Son rang s'écrit en grand (2 rem et plus) : 3:1, comme le score d'un duel.
+    const pire = Math.min(...fonds.map(f => contraste(c.or, f)))
+    assert.ok(pire >= 3, `${cle} : son rang sur sa marche, ${pire.toFixed(2)}:1`)
   }
 })
 
@@ -241,10 +306,10 @@ test('l’onglet « Ma plaque » : sa ligne une fois, puis une petite plaque par
     boutique: { confettis: { gagnes: 0, depenses: 0, solde: 0 }, possedes: ['velours', 'ivoire', 'ocean', 'neige'], porte: null, jour: '2026-11-17' },
   }
   const html = renderToStaticMarkup(React.createElement(MaPlaque, { profil: lea, essai: { plaque: 'neige' }, essayer: () => {}, neufs: new Set(['neige']) }))
-  // Sa ligne de classement une seule fois, sous la plaque que la page montre — sa forme du podium, la plus entière : une
-  // ligne entière par choix faisait commencer la plaque à 1180 px en 360 × 640.
+  // Sa ligne de classement une seule fois, son avatar dans l'écrin de la plaque que la page montre : une ligne entière
+  // par choix faisait commencer la plaque à 1180 px en 360 × 640.
   assert.equal(html.match(/class="lb-row /g)?.length, 1)
-  assert.match(html, /^<div class="lb-row plaque-apercu plaque plaque-neige vitrine" role="img" aria-label="Ta ligne aux classements, sous la plaque Neige">/)
+  assert.match(html, /^<div class="lb-row plaque-apercu" role="img" aria-label="Ta ligne aux classements, sous la plaque Neige"><span class="ecrin plaque plaque-neige"><span class="av lb-avatar">/)
   // Puis les choix en vignettes, dans l'ordre : d'office, aucune, puis une par thème à lui — Velours n'en a pas.
   const vignettes = [...html.matchAll(/<button type="button" class="loge-vignette([^"]*)" aria-pressed="(true|false)" aria-label="([^"]+)">/g)].map(m => [m[3], m[2], m[1].trim()])
   assert.deepEqual(vignettes, [
@@ -525,6 +590,29 @@ test('au banc : un duel classé dit la plaque de chacun — à sa carte, à la f
     // Chez Léa, la page du duel joué : Tom à la sienne, elle à la sienne.
     const chezLea = (await lire(banc, lea, `/api/campagne/duel/${code}`)).corps
     assert.deepEqual([chezLea.auteur.plaque, chezLea.contre.plaque], ['kintsugi', 'guinguette'])
+
+    // Partout où l'autre se montre hors d'une soirée, avec ce qu'il porte (`sonApparence`) : ses duels contre lui —
+    // l'onglet « En cours », l'historique —, le classement entier et sa place à portée, la recherche.
+    const duelsDeLea = (await lire(banc, lea, '/api/duels')).corps
+    assert.equal(duelsDeLea.contre.find((d: any) => d.code === code).contre.plaque, 'guinguette')
+    assert.deepEqual(
+      duelsDeLea.classement.lignes.map((l: any) => [l.nom, l.plaque]),
+      [
+        ['Tom', 'guinguette'],
+        ['Léa', 'kintsugi'],
+      ],
+    )
+    assert.equal(duelsDeLea.classement.aPortee[0].plaque, 'guinguette')
+    assert.deepEqual(
+      (await lire(banc, lea, '/api/duels/joueurs?q=tom')).corps.map((j: any) => [j.nom, j.plaque]),
+      [['Tom', 'guinguette']],
+    )
+    // Au classement des collections, posée à la lecture : son relevé gardé ne la porte pas.
+    const collections = await relireJusqua(
+      () => lire(banc, tom, '/api/collectionneurs').then(r => r.corps),
+      (c: any) => !c.enPreparation && c.fiches.some((f: any) => f.id === deLea),
+    )
+    assert.equal(collections.fiches.find((f: any) => f.id === deLea)?.plaque, 'kintsugi')
 
     // Masquée au quiz du jour, Léa ne se nomme plus chez Tom, sa plaque non plus ; chez elle, si.
     const admin = await connexionAnimateur(banc.url)

@@ -5,7 +5,8 @@ import { Feuille, Sortie } from '../components/Pieces'
 import { SerieCorrigee } from '../components/SerieCorrigee'
 import { Onglets, ongletVise } from '../components/Onglets'
 import { Avatar, Visage } from '../components/Avatar'
-import { EmblemeDeLaPlaque, classeDeLaPlaque } from '../components/Plaque'
+import { Ecrin } from '../components/Plaque'
+import { PodiumDuClassement, surLePodium } from '../components/PodiumDuClassement'
 import { NomLaure, texteDuLaurier } from '../components/Laurier'
 import { Rank } from '../components/Rank'
 import { BlasonDeLigue } from '../components/Blason'
@@ -250,6 +251,8 @@ export interface LigneEnCours {
   avatar: string
   /** Ce qu'il porte (`ceQuIlPorte`) : son légendaire, comme à l'onglet du classement. */
   apparence?: SonApparence
+  /** Sa plaque : son avatar dans son écrin (`Plaque.tsx`). Automate n'en a pas. */
+  plaque?: string
   ligue?: CleDeLigue
   quoi: string
   /** Le code de son duel, que la ligne ouvre ; absent : le duel au hasard laissé en route, qui se reprend. */
@@ -271,7 +274,7 @@ export function lignesEnCours(etat: Pick<EtatDesDuels, 'contre' | 'enCours'>, re
   // Ce qu'il porte, s'il porte quelque chose : sinon, la ligne n'en dit rien.
   const porte = (x: SonApparence) => {
     const apparence = ceQuIlPorte(x)
-    return apparence && { apparence }
+    return { ...(apparence && { apparence }), ...(x.plaque && { plaque: x.plaque }) }
   }
   const deSonDuel = (d: (typeof contre)[number], sorte: LigneEnCours['sorte']): LigneEnCours => ({
     cle: d.code,
@@ -328,7 +331,9 @@ function PanneauEnCours({ lignes, debutant, onOuvrir, onReprendre, onRegles }: {
       {lignes.map(l => (
         <li key={l.cle}>
           <button type="button" className={`duels-ligne-duel duels-${l.sorte}`} onClick={() => (l.code ? onOuvrir(l.code) : onReprendre())}>
-            <Anneau avatar={l.avatar} apparence={l.apparence} ligue={l.ligue} />
+            <Ecrin plaque={l.plaque}>
+              <Anneau avatar={l.avatar} apparence={l.apparence} ligue={l.ligue} />
+            </Ecrin>
             <span className="duels-ligne-texte">
               <b>{l.nom}</b>
               <span>{l.quoi}</span>
@@ -364,6 +369,8 @@ export interface LigneDHistoire {
   avatar: string
   /** Ce qu'il porte (`ceQuIlPorte`), comme partout sur la page. */
   apparence?: SonApparence
+  /** Sa plaque : son avatar dans son écrin. */
+  plaque?: string
   justes: number
   sesJustes: number
   ecart: number
@@ -382,6 +389,7 @@ export function ligneDHistoire(d: DuelDeLHistoire): LigneDHistoire {
     nom: d.contre.nom,
     avatar: d.contre.avatar,
     ...(apparence && { apparence }),
+    ...(d.contre.plaque && { plaque: d.contre.plaque }),
     justes: d.justes,
     sesJustes: d.sesJustes,
     ecart: d.ecart,
@@ -401,7 +409,7 @@ export function ligneDHistoire(d: DuelDeLHistoire): LigneDHistoire {
 export function histoireDesDuels(etat: Pick<EtatDesDuels, 'contre' | 'dernieres'>, n = 10): LigneDHistoire[] {
   const porte = (x: SonApparence) => {
     const apparence = ceQuIlPorte(x)
-    return apparence && { apparence }
+    return { ...(apparence && { apparence }), ...(x.plaque && { plaque: x.plaque }) }
   }
   const auHasard = etat.dernieres.flatMap((r): LigneDHistoire[] =>
     r.issue && r.ecart !== undefined
@@ -578,7 +586,9 @@ function FacesAFaces({ faces, onOuvrir }: { faces: BilanContre[]; onOuvrir: (pro
           const total = f.victoires + f.defaites + f.egalites
           const contenu = (
             <>
-              <Anneau avatar={f.contre.avatar} apparence={ceQuIlPorte(f.contre)} ligue={f.contre.ligue} petit />
+              <Ecrin plaque={f.contre.plaque} petit>
+                <Anneau avatar={f.contre.avatar} apparence={ceQuIlPorte(f.contre)} ligue={f.contre.ligue} petit />
+              </Ecrin>
               <span className="duels-rival-texte">
                 <b>{f.contre.nom}</b>
                 <span className="duels-rival-jauge" aria-hidden="true">
@@ -685,9 +695,11 @@ function ListeDesDuels({ duels, onOuvrir, onCorrection }: { duels: LigneDHistoir
               {issue}
             </span>
             <span className="sr-only">{`${motDeLIssue[issue]}, `}</span>
-            <span className="duels-joue-avatar" aria-hidden="true">
-              <Visage avatar={d.avatar} apparence={d.apparence} />
-            </span>
+            <Ecrin plaque={d.plaque} petit>
+              <span className="duels-joue-avatar" aria-hidden="true">
+                <Visage avatar={d.avatar} apparence={d.apparence} />
+              </span>
+            </Ecrin>
             <span className="duels-joue-texte">
               <span className="duels-joue-nom">{d.nom}</span>
               <span className="duels-joue-quand">{quandCourt(d.le, maintenant)}</span>
@@ -1004,7 +1016,9 @@ function Echelon({
         <span className="num duels-rang-place">{l.rang}</span>
         {/* Ce qu'il porte, sa bordure comprise, comme au classement entier : l'emoji seul y montrait
             l'écureuil d'en dessous à qui porte son légendaire (le retour du propriétaire du 13 octobre 2026). */}
-        <Avatar className="duels-rang-avatar" avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} sceau={l.sceau} eclat={l.eclat} bordure={l.bordure} />
+        <Ecrin plaque={l.plaque}>
+          <Avatar className="duels-rang-avatar" avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} sceau={l.sceau} eclat={l.eclat} bordure={l.bordure} />
+        </Ecrin>
         <span className="duels-echelon-texte">
           <b>{moi ? 'Toi' : l.nom}</b>
           <span>
@@ -1103,7 +1117,9 @@ function ClassementDeTous({
         <span className="duels-surtitre">Top 3</span>
         <span className="duels-podium-avatars" aria-hidden="true">
           {podium.map(l => (
-            <Anneau key={l.profileId} avatar={l.avatar} apparence={ceQuIlPorte(l)} ligue={l.ligue} petit />
+            <Ecrin key={l.profileId} plaque={l.plaque} petit>
+              <Anneau avatar={l.avatar} apparence={ceQuIlPorte(l)} ligue={l.ligue} petit />
+            </Ecrin>
           ))}
         </span>
         <span className="duels-tout-voir">Tout voir ›</span>
@@ -1122,7 +1138,7 @@ function ClassementDeTous({
 function entreAmis(amis: MesAmis, sienne?: LigneDesDuels) {
   const classes = amis.amis.flatMap((a): LigneDeRang[] =>
     a.rang !== undefined && a.cote !== undefined && a.ligue !== undefined
-      ? [{ profileId: a.profileId, nom: a.nom, avatar: a.avatar, ...ceQuIlPorte(a), ...(a.bordure && { bordure: a.bordure }), cote: a.cote, ligue: a.ligue, rang: 0 }]
+      ? [{ profileId: a.profileId, nom: a.nom, avatar: a.avatar, ...ceQuIlPorte(a), ...(a.bordure && { bordure: a.bordure }), ...(a.plaque && { plaque: a.plaque }), cote: a.cote, ligue: a.ligue, rang: 0 }]
       : [],
   )
   const lignes = classer([...classes, ...(sienne ? [{ ...sienne, progression: undefined }] : [])], l => l.cote, l => l.nom, l => l.profileId).map(({ item, rang }) => ({ ...item, rang }))
@@ -1309,22 +1325,29 @@ function FeuilleDesRegles({ ligue, onFermer }: { ligue: CleDeLigue; onFermer: ()
  * (le retour du propriétaire du 15 octobre 2026 : « on n'a pas d'indication
  * si on les combat ») : sa carte dit où en est le duel, et le rouvre.
  */
+/** Le nom d'une ligne du classement pour l'oreille, celui de sa marche au podium aussi : le rang, la ligue, la cote, les places depuis lundi et le duel en cours. */
+const nomDeLaLigne = (l: LigneDesDuels, enCours?: boolean) =>
+  `La carte ${deNom(l.nom)}${l.laurier ? `, ${texteDuLaurier(l.laurier)}` : ''} — rang ${l.rang}, ${ligueParCle(l.ligue).nom.toLowerCase()}, cote ${l.cote}${motDuMouvement(l.progression)}${enCours ? ', un duel en cours entre vous' : ''}`
+
+/** Son avatar tel qu'il le porte, sa bordure de ligue comprise : dans les lignes comme sur le podium. */
+const avatarDeLaLigne = (l: LigneDesDuels) => (
+  <Avatar className="lb-avatar" avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} sceau={l.sceau} eclat={l.eclat} bordure={l.bordure} />
+)
+
 function LigneDuClassement({ ligne: l, moi, enCours, onOuvrir }: { ligne: LigneDesDuels; moi: boolean; enCours?: boolean; onOuvrir: (profileId: string) => void }) {
-  const ligue = ligueParCle(l.ligue)
   return (
     <button
       type="button"
-      className={'lb-row lb-ouvrable duels-ligne' + (moi ? ' me' : '') + classeDeLaPlaque(l.plaque, l.rang)}
-      // Le nom du bouton remplace tout son contenu : le rang, la ligue, la cote, les places depuis lundi et le duel en cours doivent y être.
-      aria-label={`La carte ${deNom(l.nom)}${l.laurier ? `, ${texteDuLaurier(l.laurier)}` : ''} — rang ${l.rang}, ${ligue.nom.toLowerCase()}, cote ${l.cote}${motDuMouvement(l.progression)}${enCours ? ', un duel en cours entre vous' : ''}`}
+      className={'lb-row lb-ouvrable duels-ligne' + (moi ? ' me' : '')}
+      // Le nom du bouton remplace tout son contenu.
+      aria-label={nomDeLaLigne(l, enCours)}
       onClick={() => onOuvrir(l.profileId)}
     >
       <Rank n={l.rang} />
-      <Avatar className="lb-avatar" avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} sceau={l.sceau} eclat={l.eclat} bordure={l.bordure} />
+      <Ecrin plaque={l.plaque}>{avatarDeLaLigne(l)}</Ecrin>
       <span className="lb-name">
         <NomLaure nom={l.nom} laurier={l.laurier} />
       </span>
-      <EmblemeDeLaPlaque plaque={l.plaque} />
       {enCours && (
         <span className="duels-ligne-en-cours" aria-hidden="true">
           <Icon name="hourglass" />
@@ -1373,6 +1396,7 @@ export function FeuilleDuClassement({
   const sienne = classement.moi ?? classement.lignes.find(l => l.profileId === classement.sienne)
   const enCours = (l: LigneDesDuels) => duelEnRouteAvec(contre, l.profileId) !== undefined
   const unDuelEnCours = classement.lignes.some(enCours)
+  const { podium, liste } = surLePodium(classement.lignes)
   return (
     <Feuille titre="Le classement des duels" onFermer={onFermer}>
       {sienne ? (
@@ -1391,20 +1415,52 @@ export function FeuilleDuClassement({
       {classement.joueurs === 0 ? (
         <p className="muted small">Personne n’a encore joué de duel : la première place t’attend.</p>
       ) : (
-        <div className="leaderboard duels-classement">
-          {classement.lignes.map((l, i) => (
-            <Fragment key={l.profileId}>
-              {(i === 0 || classement.lignes[i - 1].ligue !== l.ligue) && <TitreDeLigue ligue={l.ligue} />}
-              <LigneDuClassement ligne={l} moi={l.profileId === classement.sienne} enCours={enCours(l)} onOuvrir={onOuvrir} />
-            </Fragment>
-          ))}
-          {classement.moi && (
-            <>
-              <p className="muted center small">…</p>
-              <LigneDuClassement ligne={classement.moi} moi onOuvrir={onOuvrir} />
-            </>
-          )}
-        </div>
+        <>
+          {/* Les trois premiers sur le podium, leur ligue à côté de leur cote ; dessous, les ligues reprennent — une
+              ligue dont tous sont montés sur le podium n'a plus de titre. */}
+          <PodiumDuClassement
+            marches={podium.map(l => ({
+              profileId: l.profileId,
+              rang: l.rang,
+              plaque: l.plaque,
+              moi: l.profileId === classement.sienne,
+              label: nomDeLaLigne(l, enCours(l)),
+              visage: avatarDeLaLigne(l),
+              // Le sablier de qui il affronte déjà, comme sur sa ligne : monté sur le podium, il ne le perd pas.
+              nom: (
+                <>
+                  <NomLaure nom={l.nom} laurier={l.laurier} />
+                  {enCours(l) && (
+                    <span className="duels-ligne-en-cours" aria-hidden="true">
+                      <Icon name="hourglass" />
+                    </span>
+                  )}
+                </>
+              ),
+              valeur: (
+                <>
+                  <BlasonDeLigue ligue={l.ligue} taille={18} decoratif />
+                  {l.cote}
+                </>
+              ),
+            }))}
+            onOuvrir={onOuvrir}
+          />
+          <div className="leaderboard duels-classement">
+            {liste.map((l, i) => (
+              <Fragment key={l.profileId}>
+                {(i === 0 || liste[i - 1].ligue !== l.ligue) && <TitreDeLigue ligue={l.ligue} />}
+                <LigneDuClassement ligne={l} moi={l.profileId === classement.sienne} enCours={enCours(l)} onOuvrir={onOuvrir} />
+              </Fragment>
+            ))}
+            {classement.moi && (
+              <>
+                <p className="muted center small">…</p>
+                <LigneDuClassement ligne={classement.moi} moi onOuvrir={onOuvrir} />
+              </>
+            )}
+          </div>
+        </>
       )}
       {/* Le sablier dit sous la liste, comme le point « en ligne » des amis : seulement s'il y en a un. */}
       {unDuelEnCours && (

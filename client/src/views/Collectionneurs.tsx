@@ -3,6 +3,7 @@ import { api, motifDe, UnauthorizedError } from '../api'
 import { TITRE_DES_COLLECTIONNEURS } from '../titres'
 import { Feuille, MenuBarre, PieceTete, Sortie } from '../components/Pieces'
 import { Avatar, Dessin } from '../components/Avatar'
+import { Ecrin, classeDeLaPlaque } from '../components/Plaque'
 import { useDessins } from '../components/medaillons'
 import { Icon } from '../components/Icon'
 import { BlasonDeLigue } from '../components/Blason'
@@ -378,7 +379,9 @@ function CarteDuPodium({ place: p, c, moi, premier, onOuvrir }: { place: PlaceLu
           <span>{p.rang}</span>
         </span>
         {f.ligue && <BlasonDeLigue ligue={f.ligue} taille={16} decoratif className="cl-carte-blason" />}
-        <span className="cl-carte-illu">
+        {/* Son avatar dans l'écrin de sa plaque, à la taille de la carte (`Plaque.tsx`) : le podium des collections a
+            ses cartes, il n'a pas de marches. */}
+        <span className={'cl-carte-illu' + classeDeLaPlaque(f.plaque)}>
           <SonAvatar f={f} className="cl-carte-av" />
         </span>
         <span className="cl-carte-nom">{nomDuJoueur(f, moi)}</span>
@@ -405,7 +408,9 @@ function Ligne({ place: p, c, moi, onOuvrir }: { place: PlaceLue; c: CategorieDe
         onClick={() => onOuvrir(f.id)}
       >
         <span className={'lb-rank' + (p.rang <= 3 ? ` rank-${p.rang}` : '')}>{p.rang}</span>
-        <SonAvatar f={f} className="lb-avatar" />
+        <Ecrin plaque={f.plaque}>
+          <SonAvatar f={f} className="lb-avatar" />
+        </Ecrin>
         <span className="cl-nom">
           <b>
             {nomDuJoueur(f, moi)}

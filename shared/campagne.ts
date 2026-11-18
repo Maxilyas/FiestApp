@@ -935,7 +935,7 @@ export interface DuelEntreAmis {
    * carte en prennent la couleur. Et ce qu'il porte, son légendaire comme au
    * classement (`SonApparence`).
    */
-  auteur: { nom: string; avatar: string; toi?: true; ligue?: CleDeLigue; plaque?: string } & SonApparence
+  auteur: { nom: string; avatar: string; toi?: true; ligue?: CleDeLigue } & SonApparence
   /** Ce qu'il fait jouer : un sujet, ou des catégories ; ni l'un ni l'autre : toutes. */
   sujet?: string
   categories?: string[]
@@ -948,11 +948,11 @@ export interface DuelEntreAmis {
   /**
    * Un duel classé (`shared/duels.ts`) : qui a été défié — `toi` quand c'est
    * lui qui regarde —, sa ligue et ce qu'il porte comme l'auteur, et, joué
-   * des deux côtés, ce qu'il a fait à sa cote. L'un et l'autre, la plaque de
-   * leur nom (`plaque`, la clé d'un thème, absente sans plaque) : leurs cartes
-   * s'en habillent, et leurs socles au verdict.
+   * des deux côtés, ce qu'il a fait à sa cote. L'un et l'autre, avec ce
+   * qu'ils portent, la plaque de leur nom (`SonApparence.plaque`) : leurs
+   * cartes s'en habillent, et leurs socles au verdict.
    */
-  contre?: { nom: string; avatar: string; toi?: true; ligue?: CleDeLigue; plaque?: string } & SonApparence
+  contre?: { nom: string; avatar: string; toi?: true; ligue?: CleDeLigue } & SonApparence
   ecart?: number
   /** Un duel classé qu'il n'a pas encore fini : ce qu'il met en jeu sur sa cote, contre la cote d'en face figée au lancement (`enjeuContre`). */
   enjeu?: EnjeuDuDuel
@@ -1025,6 +1025,13 @@ export interface SonApparence {
   eclat?: EclatPorte
   /** La bordure de ligue qu'il porte, là où ses duels sont lus avec lui (`bordurePortee`). */
   bordure?: BordureDeLigue
+  /**
+   * La plaque de son nom — la clé d'un thème, absente sans plaque
+   * (`ProfileStore.plaqueDe`) : son avatar se pose dans son écrin, partout où
+   * il se montre hors d'une soirée (`Plaque.tsx`). Jamais d'un masqué, ni
+   * d'Automate.
+   */
+  plaque?: string
 }
 
 export interface AmiDeCampagne extends SonApparence {
@@ -1110,8 +1117,6 @@ export const issueDeRencontre = (toi: number, lui: number): IssueDeRencontre => 
 export interface Adversaire extends SonApparence {
   nom: string
   avatar: string
-  /** La plaque de son nom, à la fin d'un duel classé joué le second : son socle au verdict. Jamais Automate. */
-  plaque?: string
   justes: number
   /**
    * Automate, l'adversaire simulé — quand il a affronté toutes les séries

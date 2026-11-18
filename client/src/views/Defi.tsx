@@ -3,7 +3,8 @@ import { api, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Sortie } from '../components/Pieces'
 import { Avatar, Nommes } from '../components/Avatar'
-import { EmblemeDeLaPlaque, classeDeLaPlaque } from '../components/Plaque'
+import { Ecrin } from '../components/Plaque'
+import { PodiumDuClassement, surLePodium } from '../components/PodiumDuClassement'
 import { Niveau } from '../components/Niveau'
 import { Laurier, NomLaure, texteDuLaurier } from '../components/Laurier'
 import { Rank } from '../components/Rank'
@@ -166,17 +167,7 @@ export function PageDuDefi({
           {defi.joueurs === 0 ? (
             <p className="muted small">Personne n’a encore relevé le défi : la première place t’attend.</p>
           ) : (
-            <div className="leaderboard">
-              {defi.lignes.map(l => (
-                <LigneDuDefiVue key={l.profileId} ligne={l} moi={l.profileId === defi.sienne} onOuvrir={ouvrir} />
-              ))}
-              {defi.moi && (
-                <>
-                  <p className="muted center small">…</p>
-                  <LigneDuDefiVue ligne={defi.moi} moi onOuvrir={ouvrir} />
-                </>
-              )}
-            </div>
+            <ClassementDuDefi lignes={defi.lignes} sienne={defi.sienne} moi={defi.moi} onOuvrir={ouvrir} />
           )}
         </section>
       )}
@@ -235,21 +226,28 @@ export function PageDuDefi({
   )
 }
 
+/** Ce que la ligne d'un défi dit pour l'oreille après le prénom — son laurier, son rang, son score : celui de sa marche au podium aussi. */
+const quoiDeLaLigne = (l: LigneDuDefi) => `${l.laurier ? `, ${texteDuLaurier(l.laurier)}` : ''} — rang ${l.rang}, ${bonnes(l.justes)}${l.enCours ? ', en cours' : ''}`
+
+/** Son avatar tel qu'il le porte, dans les lignes comme sur le podium. */
+const avatarDuDefi = (l: LigneDuDefi) => (
+  <Avatar className="lb-avatar" avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} sceau={l.sceau} eclat={l.eclat} bordure={l.bordure} />
+)
+
 /**
  * Une ligne du classement d'un défi — de la semaine, ou entre amis : sa place,
- * son avatar, son prénom et ses bonnes réponses. Avec `onOuvrir`, un bouton
- * qui ouvre sa carte.
+ * son avatar dans son écrin, son prénom et ses bonnes réponses. Avec
+ * `onOuvrir`, un bouton qui ouvre sa carte.
  */
 export function LigneDuDefiVue({ ligne: l, moi, onOuvrir }: { ligne: LigneDuDefi; moi: boolean; onOuvrir?: (profileId: string) => void }) {
   const contenu = (
     <>
       <Rank n={l.rang} />
-      <Avatar className="lb-avatar" avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} sceau={l.sceau} eclat={l.eclat} bordure={l.bordure} />
+      <Ecrin plaque={l.plaque}>{avatarDuDefi(l)}</Ecrin>
       <span className="lb-name">
         <NomLaure nom={l.nom} laurier={l.laurier} />
         {l.enCours && <span className="muted small"> · en cours</span>}
       </span>
-      <EmblemeDeLaPlaque plaque={l.plaque} />
       <Niveau niveau={l.niveau} />
       <span className="lb-score">
         {l.justes}
@@ -257,15 +255,56 @@ export function LigneDuDefiVue({ ligne: l, moi, onOuvrir }: { ligne: LigneDuDefi
       </span>
     </>
   )
-  const quoi = `${l.laurier ? `, ${texteDuLaurier(l.laurier)}` : ''} — rang ${l.rang}, ${bonnes(l.justes)}${l.enCours ? ', en cours' : ''}`
   return onOuvrir ? (
     // Le nom du bouton remplace tout son contenu : le rang et le score doivent y être, comme au classement du jour.
-    <button type="button" className={'lb-row lb-ouvrable' + (moi ? ' me' : '') + classeDeLaPlaque(l.plaque, l.rang)} aria-label={`La carte ${deNom(l.nom)}${quoi}`} onClick={() => onOuvrir(l.profileId)}>
+    <button type="button" className={'lb-row lb-ouvrable' + (moi ? ' me' : '')} aria-label={`La carte ${deNom(l.nom)}${quoiDeLaLigne(l)}`} onClick={() => onOuvrir(l.profileId)}>
       {contenu}
     </button>
   ) : (
-    <div className={'lb-row' + (moi ? ' me' : '') + classeDeLaPlaque(l.plaque, l.rang)} role="group" aria-label={`${l.nom}${quoi}`}>
+    <div className={'lb-row' + (moi ? ' me' : '')} role="group" aria-label={`${l.nom}${quoiDeLaLigne(l)}`}>
       {contenu}
     </div>
+  )
+}
+
+/**
+ * Le classement d'un défi — de la semaine, ou entre amis : les trois premiers
+ * sur le podium (`PodiumDuClassement`), puis la liste, et sa ligne au bout
+ * s'il est plus bas.
+ */
+export function ClassementDuDefi({ lignes, sienne, moi, onOuvrir }: { lignes: readonly LigneDuDefi[]; sienne?: string; moi?: LigneDuDefi; onOuvrir: (profileId: string) => void }) {
+  const { podium, liste } = surLePodium(lignes)
+  return (
+    <>
+      <PodiumDuClassement
+        marches={podium.map(l => ({
+          profileId: l.profileId,
+          rang: l.rang,
+          plaque: l.plaque,
+          moi: l.profileId === sienne,
+          label: `La carte ${deNom(l.nom)}${quoiDeLaLigne(l)}`,
+          visage: avatarDuDefi(l),
+          nom: <NomLaure nom={l.nom} laurier={l.laurier} />,
+          valeur: (
+            <>
+              {l.justes}
+              <span className="pdc-unite">{l.justes > 1 ? 'justes' : 'juste'}</span>
+            </>
+          ),
+        }))}
+        onOuvrir={onOuvrir}
+      />
+      <div className="leaderboard">
+        {liste.map(l => (
+          <LigneDuDefiVue key={l.profileId} ligne={l} moi={l.profileId === sienne} onOuvrir={onOuvrir} />
+        ))}
+        {moi && (
+          <>
+            <p className="muted center small">…</p>
+            <LigneDuDefiVue ligne={moi} moi onOuvrir={onOuvrir} />
+          </>
+        )}
+      </div>
+    </>
   )
 }

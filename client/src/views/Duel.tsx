@@ -36,7 +36,7 @@ import {
   type JoueurADefier,
   type SemaineDesDuels,
 } from '../../../shared/duels'
-import { LigneDuDefiVue } from './Defi'
+import { ClassementDuDefi } from './Defi'
 import { useCarteDUnProfil } from '../components/CarteDUnProfil'
 import { nomDuChoix } from '../../../shared/nomDuChoix'
 import { PAGE_DES_DUELS, adresseDuDuel } from './adressesDesDuels'
@@ -1131,17 +1131,7 @@ export function PageDuDuel({
         {duel.joueurs === 0 ? (
           <p className="muted small">Personne n’a encore répondu : la première place t’attend.</p>
         ) : (
-          <div className="leaderboard">
-            {duel.lignes.map(l => (
-              <LigneDuDefiVue key={l.profileId} ligne={l} moi={l.profileId === duel.sienne} onOuvrir={ouvrirLaCarte} />
-            ))}
-            {duel.moi && (
-              <>
-                <p className="muted center small">…</p>
-                <LigneDuDefiVue ligne={duel.moi} moi onOuvrir={ouvrirLaCarte} />
-              </>
-            )}
-          </div>
+          <ClassementDuDefi lignes={duel.lignes} sienne={duel.sienne} moi={duel.moi} onOuvrir={ouvrirLaCarte} />
         )}
       </section>
 

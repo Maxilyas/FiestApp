@@ -907,7 +907,7 @@ h3 > .icon {
     row-gap: 2px;
   }
   .lb-row:not(.team-row) > .lb-rank { grid-area: rang; }
-  .lb-row:not(.team-row) > .lb-avatar { grid-area: av; }
+  .lb-row:not(.team-row) > :is(.lb-avatar, .ecrin) { grid-area: av; }
   .lb-row:not(.team-row) > .lb-name { grid-area: nom; }
   .lb-row:not(.team-row) > .niveau { grid-area: niv; justify-self: end; }
   .lb-row:not(.team-row) > .lb-score { grid-area: pts; }
@@ -921,101 +921,110 @@ h3 > .icon {
   .lb-row > .guess-value { grid-area: val; }
 }
 
-/* ── Les plaques de nom ─────────────────────────── */
-/* La part d'un thème que les autres voient, aux classements du quiz du jour,
-   du défi et des duels (`shared/plaques.ts`). Deux formes depuis le
-   18 novembre 2026 (la maquette sur le vrai classement de la production,
-   `retours/2026-11-18/plaques/`) : toute ligne entière aux couleurs du thème,
-   c'était dix plaques sur les dix premières du mois — une mosaïque où le
-   regard sautait d'une ligne à l'autre, et un score de chaque couleur. Partout
-   désormais, **le paraphe** : la ligne reste celle de tous, un trait de plume
-   aux couleurs de la plaque souligne le prénom, son emblème le suit ; et **au
-   podium** (`vitrine`, le rang 3 au plus, ex æquo compris — `enVitrine`,
-   `Plaque.tsx`), la plaque entière, à gagner en jouant autant qu'en achetant. */
+/* ── Les plaques de nom : l'écrin et le podium ─────────────────────────── */
+/* La part d'un thème que les autres voient (`shared/plaques.ts`, `Plaque.tsx`).
+   Depuis le soir du 18 novembre 2026 (trois propositions reparties de zéro,
+   `retours/2026-11-18/plaques/trois-propositions/` — le propriétaire a retenu
+   l'écrin avec le podium) : partout où un joueur se montre hors d'une soirée,
+   son avatar est posé sur **son écrin**, une tuile à ses couleurs ; en tête
+   d'un classement, les trois premiers montent sur **le podium**, chacun sur
+   sa marche à ses couleurs. Le prénom, le niveau et le score restent ceux de
+   tous : avant, la ligne entière à ses couleurs au podium faisait une
+   mosaïque là où l'œil arrive, et le trait sous le prénom, plus bas, se lisait
+   comme un lien. Des images aux couleurs écrites dedans, ni masque, ni
+   filtre, ni mouvement : dans une liste, rien ne garde un calque (règle
+   `css.md`). */
 
-/* Le paraphe : sur la ligne de tous, au ton de la plaque que le fond de celui
-   qui regarde laisse lire — le clair sous un thème sombre, le sombre sous un
-   thème clair (`--p-plume`, le bloc des emblèmes). Une courbe sans dessin :
-   le bord d'une boîte arrondie, qui s'amincit à ses deux bouts. Le prénom ne
-   s'étire plus jusqu'au score : le trait n'a que sa longueur. */
-.lb-row.plaque { --p-plume: var(--p-clair); }
-.lb-row.plaque > .lb-name { flex: 0 1 auto; position: relative; padding-bottom: 6px; margin-bottom: -6px; }
-.lb-row.plaque:not(.vitrine) > .lb-name::after {
-  content: '';
-  position: absolute;
-  left: 1px;
-  right: 0;
-  bottom: 0;
-  height: 6px;
-  border-bottom: 2px solid var(--p-plume);
-  border-radius: 0 0 50% 50% / 0 0 100% 100%;
-}
-/* L'emblème suit le prénom, et cède avant lui : un prénom long le réduit à
-   rien — il rapetisse entier (`contain`), coupé il se lisait de travers. Il
-   pousse la suite au bout de la ligne, comme le prénom le faisait.
-   Une image aux couleurs écrites dedans — ni masque, ni filtre, ni dessin du
-   DOM : dans une liste, rien ne garde un calque ni ne se trace en
-   multi-échantillonnage (règle `css.md`). */
-.plaque-embleme { display: none; }
-.lb-row.plaque > .plaque-embleme {
-  display: block;
-  flex: 0 1000 20px;
-  min-width: 0;
-  height: 20px;
-  margin-right: auto;
-  background: var(--p-embleme) left center / contain no-repeat;
-}
-/* Sur deux étages, la ligne n'a plus de place à lui donner. */
-@container (max-width: 17rem) {
-  .lb-row.plaque > .plaque-embleme { display: none; }
-}
-
-/* La vitrine du podium : la ligne entière, un petit thème posé sur elle. Elle
-   redit les jetons que la ligne lit (`--ink`, `--muted`, `--accent-text`), et
-   le rang, le prénom et le score suivent sans rien savoir ; ses couleurs
-   s'écrivent en dur, celles de son thème (`plaques.test.ts`) : elle ne suit
-   jamais le thème de celui qui regarde. Un objet, plus haut que les autres
-   lignes : son relief, un reflet immobile, son emblème en grand. Plus forte
-   que la ligne d'un thème, « la mienne » comprise (`:root[data-theme]
-   .lb-row.me`) : les thèmes repeignent `.lb-row`, et la plaque d'un autre ne
-   se repeint pas. */
-:root body .lb-row.plaque.vitrine:not(.team-row) {
-  --ink: var(--p-ink);
-  --muted: var(--p-muted);
-  --accent-text: var(--p-or);
-  min-height: 58px;
-  background:
-    linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, 0.07) 47%, transparent 56%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.1)),
-    var(--p-bg);
+/* L'écrin : la même place pour tous — sans plaque, vide, et les avatars d'une
+   liste restent alignés. Il déborde un peu de la ligne (`margin-block`) : une
+   ligne y gagne 6 px, pas 14. */
+.ecrin { position: relative; display: grid; place-items: center; flex: none; width: 42px; height: 42px; margin-block: -5px; }
+.ecrin.plaque {
   border: 1px solid var(--p-trait);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 -1px 0 rgba(0, 0, 0, 0.25), 0 3px 8px rgba(0, 0, 0, 0.28);
-  color: var(--p-ink);
+  border-radius: 12px;
+  background: radial-gradient(70% 70% at 50% 32%, rgba(255, 255, 255, 0.12), transparent 70%), var(--p-bg);
+  box-shadow: inset 0 0 0 2px var(--p-bg), inset 0 0 0 3px color-mix(in srgb, var(--p-trait) 55%, transparent), 0 2px 5px rgba(0, 0, 0, 0.3);
 }
-/* La sienne : l'anneau du thème de celui qui regarde, autour de sa plaque —
-   le fond d'or pâle de `.lb-row.me` y céderait la place à sa plaque. */
-:root body .lb-row.plaque.vitrine.me:not(.team-row) {
-  box-shadow: 0 0 0 3px var(--edge-strong), inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+/* L'emblème en filigrane, sous l'avatar : le premier de l'écrin, aucun texte dessus. */
+.ecrin.plaque::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--p-embleme) 4px 4px / 12px 12px repeat; opacity: 0.16; pointer-events: none; }
+.ecrin > * { position: relative; }
+.ecrin-petit { width: 38px; height: 38px; margin-block: 0; }
+.ecrin-petit.plaque { border-radius: 10px; }
+.ecrin-petit.plaque::before { background-size: 10px 10px; }
+/* Autour d'un anneau des duels — un rond de 44 px, sa ligue au bord — ou d'un avatar plus grand : l'écrin le laisse tenir. */
+.ecrin:has(> .duels-anneau:not(.petit)), .duels-echelon-joueur > .ecrin { width: 52px; height: 52px; margin-block: 0; border-radius: 14px; }
+/* La carte d'un collectionneur, au podium des collections : son illustration est l'écrin, à sa taille. */
+.cl-carte-illu.plaque {
+  position: relative;
+  margin-inline: auto;
+  aspect-ratio: 1;
+  border: 1px solid var(--p-trait);
+  border-radius: 14px;
+  background: radial-gradient(70% 70% at 50% 32%, rgba(255, 255, 255, 0.12), transparent 70%), var(--p-bg);
+  box-shadow: inset 0 0 0 2px var(--p-bg), inset 0 0 0 3px color-mix(in srgb, var(--p-trait) 55%, transparent);
 }
-.lb-row.plaque.vitrine > .lb-name { padding-bottom: 0; margin-bottom: 0; font-size: 1.06rem; font-weight: 600; }
-.lb-row.plaque.vitrine > .plaque-embleme { flex-basis: 24px; height: 24px; }
-/* Là où elle se choisit et se vend (`LigneDePlaque`), sans rang ni score : la hauteur d'une ligne, la loge tient à
-   quelques pixels (règle `profil.md`). */
-:root body .lb-row.plaque.vitrine.plaque-apercu:not(.team-row) { min-height: 44px; }
+.cl-carte-illu.plaque::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--p-embleme) 5px 5px / 16px 16px repeat; opacity: 0.16; pointer-events: none; }
+.cl-carte-illu.plaque > * { position: relative; }
 
-/* La pastille de niveau prend les couleurs de la plaque, sans fond : peinte
-   par le thème de celui qui regarde, elle posait le chiffre de la plaque sur
-   le disque du thème — brun sur bleu nuit sous Le Ciel, pour une plaque
-   claire (le rendu du 10 novembre 2026). La pierre d'un niveau 30 garde la
-   sienne, qu'aucun thème ne repeint. */
-:root body .lb-row.plaque.vitrine .niveau:not(.pierre) {
-  background: transparent;
-  border: 1px solid var(--p-or);
-  color: var(--p-or);
-  font-weight: 600;
+/* Le podium : trois marches posées sur un sol, la liste juste dessous. Sans
+   plaque, une marche prend son métal (`--metal`, posé par la page), comme le
+   podium d'un quiz en soirée (`.marches`). */
+.podium-du-classement {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr) minmax(0, 1fr);
+  align-items: end;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 0 2px;
+  border-bottom: 2px solid color-mix(in srgb, var(--accent) 50%, transparent);
 }
-/* Une place perdue depuis lundi s'écrit à l'alerte du thème de celui qui regarde : sur une plaque, à son encre atténuée. */
-.lb-row.plaque.vitrine .duels-moins { color: var(--p-muted); }
+/* La liste juste sous le sol : 12 px, dans le fil d'une section comme dans la colonne du classement du jour — dont
+   l'écart (18 px) s'ajoutait aux marges, et laissait 40 px de vide sous le podium. */
+.podium-du-classement + .leaderboard { margin-top: 12px; }
+.classement-periode > .podium-du-classement + .leaderboard { margin-top: -6px; }
+.pdc-marche { min-width: 0; }
+.pdc-joueur { display: flex; flex-direction: column; align-items: center; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: center; cursor: pointer; }
+.pdc-joueur:where(div) { cursor: default; }
+.pdc-avatar { display: grid; place-items: center; height: 62px; margin-bottom: 4px; }
+.pdc-avatar .lb-avatar { font-size: 2.1rem; }
+.pdc-1 .pdc-avatar { height: 74px; }
+.pdc-1 .pdc-avatar .lb-avatar { font-size: 2.6rem; }
+.pdc-nom { max-width: 100%; overflow: hidden; color: var(--ink); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.pdc-nom > .duels-ligne-en-cours { margin-left: 4px; vertical-align: -2px; }
+.pdc-valeur { display: inline-flex; align-items: center; gap: 4px; margin-bottom: 8px; color: var(--accent-text); font-family: var(--serif); font-size: 1.15rem; line-height: 1.1; white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
+.pdc-valeur .blason { flex: none; }
+.pdc-unite { color: var(--muted); font-family: var(--sans); font-size: 0.8125rem; }
+.pdc-socle {
+  position: relative;
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  overflow: hidden;
+  border-top: 3px solid var(--metal);
+  border-radius: 12px 12px 0 0;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--metal) 26%, transparent), color-mix(in srgb, var(--metal) 4%, transparent));
+}
+.pdc-socle b { position: relative; color: var(--metal); font-family: var(--serif); font-size: 2.1rem; line-height: 1; font-variant-numeric: lining-nums; }
+.pdc-1 .pdc-socle { height: 96px; }
+.pdc-1 .pdc-socle b { font-size: 2.7rem; }
+.pdc-2 .pdc-socle { height: 72px; }
+.pdc-3 .pdc-socle { height: 56px; }
+/* À ses couleurs : son fond, son filet, son emblème en filigrane, son rang à son or — en grand, 3:1 sur chaque plaque,
+   son ombre et son filigrane compris (`plaques.test.ts`). L'ombre du bas à 18 % et le filigrane à 12 % de la maquette
+   tombaient à 2,85:1 sous le rang de l'Ivoire ; à 10 % l'un et l'autre, 3,51 au pire. */
+.pdc-marche.plaque .pdc-socle {
+  border: 1px solid var(--p-trait);
+  border-bottom: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(0, 0, 0, 0.1)), var(--p-bg);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+.pdc-marche.plaque .pdc-socle::before { content: ''; position: absolute; inset: 0; background: var(--p-embleme) 6px 6px / 22px 22px repeat; opacity: 0.1; pointer-events: none; }
+.pdc-marche.plaque .pdc-socle b { color: var(--p-or); }
+/* La sienne : son prénom à l'or du thème de celui qui regarde, sa marche cernée. */
+.pdc-marche.me .pdc-nom { color: var(--accent-text); }
+/* Cernée d'une ombre pleine, pas d'un `outline` : l'anneau du focus est le seul (`design.test.ts`). */
+.pdc-marche.me .pdc-socle { box-shadow: 0 0 0 2px var(--accent); }
+.pdc-marche.plaque.me .pdc-socle { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 0 2px var(--accent); }
 
 /* Les couleurs de chaque plaque : le fond, l'encre, l'encre atténuée, l'or du
    texte et le trait de son thème (`--bg`, `--ink`, `--muted`, `--accent-text`,
@@ -1092,14 +1101,12 @@ h3 > .icon {
 .plaque-ciel { --p-clair: #f6cd78; --p-sombre: #614e2a; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Ccircle fill=%22%23614e2a%22 stroke=%22%23614e2a%22 stroke-width=%222.2%22 cx=%2212%22 cy=%2212%22 r=%224.4%22/%3E%3Cpath fill=%22none%22 stroke=%22%23614e2a%22 stroke-width=%224.2%22 d=%22M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1%22/%3E%3Ccircle fill=%22%23f6cd78%22 cx=%2212%22 cy=%2212%22 r=%224.4%22/%3E%3Cpath fill=%22none%22 stroke=%22%23f6cd78%22 stroke-width=%222%22 d=%22M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1%22/%3E%3C/svg%3E"); }
 .plaque-heures { --p-clair: #c19a3e; --p-sombre: #1e4091; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22%231e4091%22 stroke=%22%231e4091%22 stroke-width=%222.2%22 d=%22M12 2.5c-2.3 3.2-2.3 6.4 0 9.6 2.3-3.2 2.3-6.4 0-9.6zM3.5 8.5c.2 3.9 3 5.9 6.3 5.1-.7-3.2-3.2-5.3-6.3-5.1zM20.5 8.5c-.2 3.9-3 5.9-6.3 5.1.7-3.2 3.2-5.3 6.3-5.1zM10.2 16.6 12 21.5l1.8-4.9z%22/%3E%3Crect fill=%22%231e4091%22 stroke=%22%231e4091%22 stroke-width=%222.2%22 x=%226.5%22 y=%2214%22 width=%2211%22 height=%222%22 rx=%221%22/%3E%3Cpath fill=%22%23c19a3e%22 d=%22M12 2.5c-2.3 3.2-2.3 6.4 0 9.6 2.3-3.2 2.3-6.4 0-9.6zM3.5 8.5c.2 3.9 3 5.9 6.3 5.1-.7-3.2-3.2-5.3-6.3-5.1zM20.5 8.5c-.2 3.9-3 5.9-6.3 5.1.7-3.2 3.2-5.3 6.3-5.1zM10.2 16.6 12 21.5l1.8-4.9z%22/%3E%3Crect fill=%22%23c19a3e%22 x=%226.5%22 y=%2214%22 width=%2211%22 height=%222%22 rx=%221%22/%3E%3C/svg%3E"); }
 .plaque-sommet { --p-clair: #f6b475; --p-sombre: #6a4928; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22%236a4928%22 stroke=%22%236a4928%22 stroke-width=%222.2%22 d=%22M2 20.5 9.2 8l4 6.6 2.6-3.8 6.2 9.7z%22/%3E%3Cpath fill=%22none%22 stroke=%22%236a4928%22 stroke-width=%223.5%22 d=%22M9.2 8V2.8%22/%3E%3Cpath fill=%22%236a4928%22 stroke=%22%236a4928%22 stroke-width=%222.2%22 d=%22M9.6 2.8h4.4l-1.3 1.5 1.3 1.5H9.6z%22/%3E%3Cpath fill=%22%23f6b475%22 d=%22M2 20.5 9.2 8l4 6.6 2.6-3.8 6.2 9.7z%22/%3E%3Cpath fill=%22none%22 stroke=%22%23f6b475%22 stroke-width=%221.3%22 d=%22M9.2 8V2.8%22/%3E%3Cpath fill=%22%23f6b475%22 d=%22M9.6 2.8h4.4l-1.3 1.5 1.3 1.5H9.6z%22/%3E%3C/svg%3E"); }
-/* Le paraphe se trace au ton clair de la plaque, et au sombre sous un thème clair (`clair` au catalogue). */
-:root:is([data-theme='ivoire'], [data-theme='cahier'], [data-theme='carnaval'], [data-theme='carnet'], [data-theme='cerisiers'], [data-theme='foret'], [data-theme='gameboy'], [data-theme='grimoire'], [data-theme='heros'], [data-theme='heures'], [data-theme='licorne'], [data-theme='olympe'], [data-theme='patisserie'], [data-theme='plage']) .lb-row.plaque { --p-plume: var(--p-sombre); }
 /* ── Fin des emblèmes des plaques ── */
 
 /* Là où elle se choisit (la loge, onglet « Ma plaque » de la pièce « Thème »)
-   et là où elle se vend (la fiche d'un thème) : sa propre ligne sous la plaque
-   du podium, sa forme entière (`LigneDePlaque`). Elle n'entre pas en glissant —
-   on la regarde, on ne la découvre pas. Les choix de la loge étaient chacun
+   et là où elle se vend (la fiche d'un thème) : sa propre ligne de classement,
+   son avatar dans l'écrin de la plaque montrée (`LigneDePlaque`). Elle n'entre
+   pas en glissant — on la regarde, on ne la découvre pas. Les choix de la loge étaient chacun
    une ligne entière (`.plaque-choix`) jusqu'au 17 novembre 2026 : ils sont
    devenus des vignettes, leurs échantillons dans la section de la loge
    (`.loge-plaque-echantillon`). */
@@ -4302,7 +4309,7 @@ h3 > .icon {
 :root[data-sans~='bordure'] :is(.lb-avatar, .player-chip) .bo { display: none !important; }
 :root[data-sans~='medaillon'] :is(.lb-avatar, .player-chip) :is(.lg, .pt, .dv, .sc) { display: none !important; }
 :root[data-sans~='gemme'] :is(.lb-avatar, .player-chip .av).av-eclat::after { display: none !important; }
-:root[data-sans~='motif'] .lb-row.plaque > .plaque-embleme { display: none !important; }
+:root[data-sans~='motif'] .ecrin.plaque::before { display: none !important; }
 
 /* Dans une phrase (`AvatarEnLigne`) — les vainqueurs du défi, le bilan,
    l'historique : un médaillon n'a pas de ligne de base, et se posait
@@ -10753,8 +10760,8 @@ button.duels-joue { cursor: pointer; }
 .duels-amis-sans { font-size: 0.8125rem; text-align: center; color: var(--muted); }
 .duels-podium { width: 100%; height: 52px; display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 0 14px; border: 1px solid rgba(var(--accent-rgb), 0.22); border-radius: 14px; background: none; color: var(--ink); font: inherit; cursor: pointer; }
 .duels-podium:hover { border-color: var(--edge-strong); }
-.duels-podium-avatars { display: flex; }
-.duels-podium-avatars .duels-anneau + .duels-anneau { margin-left: -6px; }
+/* Le Top 3 : trois petits écrins côte à côte — serrés l'un sous l'autre, ils cachaient chacun un bout du suivant. */
+.duels-podium-avatars { display: flex; gap: 6px; }
 .duels-tout-voir { margin-left: auto; color: var(--accent-text); font-size: 0.875rem; }
 /* Sous ses deux places, la liste choisie : ses pièces espacées d'un même pas, leurs marges d'ailleurs oubliées. */
 .duels-places-panneau { display: flex; flex-direction: column; gap: 14px; margin-top: 16px; }

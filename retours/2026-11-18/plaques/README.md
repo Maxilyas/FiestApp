@@ -225,10 +225,48 @@ filigrane de l'écrin, aux marches du podium et aux cartes d'un duel. À
 trancher en codant : le podium ne se dresse pas quand plus de trois joueurs se
 partagent les trois premières places (la liste les garde tous).
 
+## L'écrin et le podium : le code
+
+> « Tu as mon feu vert » — le propriétaire, le même soir.
+
+Codés sur tout l'inventaire, sauf ce qui dit « inchangé » : l'écrin
+(`Ecrin`, `client/src/components/Plaque.tsx`) partout où un joueur se montre
+hors d'une soirée, le podium (`PodiumDuClassement`, `surLePodium`) en tête du
+jour, du mois, du défi — de la semaine et entre amis — et du classement
+entier des duels. Le serveur envoie la plaque avec ce qu'un joueur porte
+(`SonApparence.plaque`, `sonApparence`), ce qui l'amène d'un coup aux amis, à
+la recherche, aux joueurs croisés, aux duels en cours et joués ; aux
+collections, elle se pose à la lecture (`avecSaPlaque`), le relevé gardé ne
+la portant pas. Le paraphe, la vitrine et l'emblème dans la ligne sont partis.
+
+Relevé en le faisant :
+
+- **Les collections avaient déjà leur podium**, en cartes à collectionner
+  encadrées par la ligue : il reste ; l'illustration de chaque carte y devient
+  l'écrin.
+- **Le rang d'une marche se lisait mal sous l'Ivoire** : l'ombre du bas à
+  18 % et le filigrane à 12 % de la maquette le faisaient tomber à 2,85:1 ; à
+  10 % l'un et l'autre, 3,51 au pire des trente-quatre plaques
+  (`plaques.test.ts` le mesure).
+- **40 px de vide sous le podium du jour** : la colonne du classement a son
+  écart (18 px), qui s'ajoutait aux marges.
+
+## Les deux autres demandes du même message
+
+- **« Quand deux personnes ont le même score il n'apparaît pas dans le
+  classement »** (les duels) : le classement entier les montrait bien tous
+  deux ; « À ta portée » non. Elle ne prenait que les cotes strictement
+  au-dessus de la sienne, puis son voisin suivant : classé avant lui par son
+  prénom, un ex æquo n'était ni l'un ni l'autre — de deux ex æquo, l'un
+  voyait l'autre, l'autre non ; deux ex æquo en tête ne se voyaient ni l'un
+  ni l'autre. Corrigé (`aSaPortee`, `autourDe`, `duels-place.test.ts`).
+- **Départager les ex æquo au temps de réaction**, au quiz du jour et au défi
+  de la semaine : une proposition, dans la réponse au propriétaire ; rien de
+  codé.
+
 ## Ce qui reste
 
-- L'écrin et le podium, retenus le soir du 18 novembre 2026 : à coder, sur l'inventaire ci-dessus.
-
+- Le départage au temps de réaction : à décider.
 - La police du thème sur le prénom, et une richesse de la plaque selon la
   rareté du thème : proposées, pas encore décidées.
 - Ce que les emblèmes font au téléphone Android de la friture (un Redmi,

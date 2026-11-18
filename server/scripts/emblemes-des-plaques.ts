@@ -1,12 +1,13 @@
 // Les emblèmes des plaques de nom (le choix du propriétaire du 18 novembre
-// 2026, `retours/2026-11-18/plaques/`) : un petit dessin par thème, qui suit
-// le prénom — sur toute ligne qui a une plaque, et en grand sur la plaque du
-// podium. Il se pose sur le fond de celui qui regarde, quel que soit son
-// thème, clair ou sombre : chaque emblème est dessiné en deux tons, le ton
-// clair de la plaque cerné de son ton sombre — sur un thème sombre, on lit le
-// clair ; sur un thème clair, le cerne. Les deux tons sont ceux de son thème
-// (son or, son trait), éclaircis ou assombris jusqu'à se lire à 3:1 sur le
-// fond de chaque thème, et sur sa propre plaque (`plaques.test.ts` le mesure).
+// 2026, `retours/2026-11-18/plaques/`) : un petit dessin par thème — en
+// filigrane dans l'écrin d'un avatar et sur sa marche du podium, en semis sur
+// sa carte d'un duel, au bout de son nom sur sa plaque. Chaque emblème est
+// dessiné en deux tons, le ton clair de la plaque cerné de son ton sombre :
+// dessinés d'abord pour suivre le prénom sur le fond de celui qui regarde, les
+// deux tons sont ceux de son thème (son or, son trait), éclaircis ou assombris
+// jusqu'à se lire à 3:1 sur le fond de chaque thème, et sur sa propre plaque
+// (`plaques.test.ts` le mesure) — l'emblème se lit encore là où l'écrin et le
+// podium l'ont posé, sur sa plaque.
 //
 // Des images en ligne, pas un dessin du DOM : un SVG du DOM se tracerait dans
 // le calque de sa ligne, en multi-échantillonnage — la friture du téléphone
@@ -133,21 +134,18 @@ export const auPire = (couleur: string, fonds: readonly string[]) => Math.min(..
  * sa surface posée dessus quand elle est translucide (`.lb-row`). Les thèmes
  * clairs d'un côté, les sombres de l'autre — le Velours compris.
  */
-export function fondsDesThemes(): { sombres: string[]; clairs: string[]; cleDesClairs: string[] } {
+export function fondsDesThemes(): { sombres: string[]; clairs: string[] } {
   const clair = new Map(THEMES.map(t => [t.key, t.clair]))
   const sombres: string[] = []
   const clairs: string[] = []
-  const cleDesClairs: string[] = []
   for (const t of themesDuClient()) {
     const bg = teinte(t.jetons, '--bg')
     const surface = t.jetons.get('--surface') ?? ''
     const fonds = [bg, /^rgba?\(/.test(surface) ? surFond(surface, bg) : /^#[0-9a-f]{6}$/i.test(surface) ? surface : bg]
-    if (clair.get(t.cle)) {
-      clairs.push(...fonds)
-      cleDesClairs.push(t.cle)
-    } else sombres.push(...fonds)
+    if (clair.get(t.cle)) clairs.push(...fonds)
+    else sombres.push(...fonds)
   }
-  return { sombres, clairs, cleDesClairs }
+  return { sombres, clairs }
 }
 
 /** Les cinq couleurs de chaque plaque, telles que la feuille les écrit (`.plaque-<clé>`). */
@@ -203,11 +201,7 @@ export function blocDesEmblemes(css: string): string {
     const svg = encodeURIComponent(enDeuxTons(dessin, clair, sombre)).replace(/%20/g, ' ').replace(/%3D/g, '=').replace(/%2F/g, '/').replace(/%3A/g, ':').replace(/%2C/g, ',')
     lignes.push(`.plaque-${t.key} { --p-clair: ${clair}; --p-sombre: ${sombre}; --p-embleme: url("data:image/svg+xml,${svg}"); }`)
   }
-  lignes.push(
-    '/* Le paraphe se trace au ton clair de la plaque, et au sombre sous un thème clair (`clair` au catalogue). */',
-    `:root:is(${fonds.cleDesClairs.map(k => `[data-theme='${k}']`).join(', ')}) .lb-row.plaque { --p-plume: var(--p-sombre); }`,
-    FIN,
-  )
+  lignes.push(FIN)
   return lignes.join('\n')
 }
 

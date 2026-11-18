@@ -4331,9 +4331,9 @@ export class CampagneStore {
     const [[p], t] = await Promise.all([this.profils ? this.profils.byIds([autre]) : Promise.resolve([null]), this.tentativeDuDuel(autre, duel.code)])
     if (!t) return null
     const nomme = p && this.profils && !this.masque?.(p.id)
-    // Ce qu'il porte avec : son légendaire sur la carte du verdict, pas l'emoji d'en dessous ; et sa plaque, son socle.
+    // Ce qu'il porte avec : son légendaire sur la carte du verdict, pas l'emoji d'en dessous ; et sa plaque, son socle (`sonApparence`).
     return nomme
-      ? { nom: p.name, avatar: this.profils!.avatarPorte(p), ...sonApparence(this.profils!, p), ...saPlaque(this.profils!, p), justes: t.justes, profileId: p.id }
+      ? { nom: p.name, avatar: this.profils!.avatarPorte(p), ...sonApparence(this.profils!, p), justes: t.justes, profileId: p.id }
       : { nom: 'Un joueur', avatar: '🎲', justes: t.justes }
   }
 
@@ -4661,8 +4661,6 @@ export class CampagneStore {
             // Ce qu'il porte : son légendaire sur sa carte, pas l'emoji d'en dessous. Sans sa bordure : l'anneau
             // de sa ligue la dit déjà, et la page ne la montre pas.
             ...(defieNomme && this.profils && sonApparence(this.profils, defie)),
-            // Sa plaque : sa carte s'en habille, et son nom s'y écrit.
-            ...(defieNomme && this.profils && saPlaque(this.profils, defie)),
           }
         : null
     // Le sien, ouvert : à qui il partira à sa dernière réponse — ou, joué
@@ -4698,7 +4696,6 @@ export class CampagneStore {
         ...(duel.auteur === profileId && { toi: true as const }),
         ...(nomme && saLigue(auteur.id)),
         ...(nomme && this.profils && sonApparence(this.profils, auteur)),
-        ...(nomme && this.profils && saPlaque(this.profils, auteur)),
       },
       ...(duel.sujet && { sujet: duel.sujet }),
       ...(duel.categories && duel.categories.length > 0 && { categories: duel.categories }),
@@ -9319,29 +9316,29 @@ export function sujetsDeLaQuestion(q: QuestionDeLaBase): readonly string[] {
 }
 
 /**
- * Ce qu'un joueur porte, sur une ligne d'ami, de recherche ou de défi reçu,
- * comme au classement (`SonApparence`) : l'emoji seul lui donnait deux
- * visages sur la même page.
+ * Ce qu'un joueur porte, sur une ligne d'ami, de recherche, de défi reçu, d'un
+ * duel en cours ou joué, comme au classement (`SonApparence`) : l'emoji seul
+ * lui donnait deux visages sur la même page. Et la plaque de son nom, de
+ * mémoire (`plaqueDe`) — son écrin partout où il se montre, sa carte et son
+ * socle aux écrans d'un duel (le choix du propriétaire du 18 novembre 2026,
+ * `retours/2026-11-18/plaques/`) ; rien sans plaque. Jamais d'un masqué : qui
+ * l'appelle ne le nomme pas non plus.
  */
-function sonApparence(p: Pick<ProfileStore, 'apparenceDe'>, x: ProfileRec, releve?: ReleveDesDuels): SonApparence {
+function sonApparence(p: Pick<ProfileStore, 'apparenceDe'> & Partial<Pick<ProfileStore, 'plaqueDe'>>, x: ProfileRec, releve?: ReleveDesDuels): SonApparence {
   const { finition, eclat, legendaire, sceau } = p.apparenceDe(x)
   // Sa bordure de ligue, quand ses duels sont lus avec lui — jamais sous un
   // Divin, qui a sa propre lumière.
   const bordure = legendaire && divin(legendaire) ? null : bordurePortee(x.bordure, releve?.bordures)
-  // Mat, c'est l'avatar sans rien autour : sa ligne n'a rien de plus à dire.
-  return { ...(finition !== 'mat' && { finition }), ...(legendaire && { legendaire }), ...(sceau && { sceau }), ...(eclat && { eclat }), ...(bordure && { bordure }) }
-}
-
-/**
- * La plaque de son nom, aux écrans d'un duel classé — sa carte du duel à
- * relever, son socle au verdict (le choix du propriétaire du 18 novembre
- * 2026, `retours/2026-11-18/plaques/duels/`) : de mémoire, comme aux
- * classements (`plaqueDe`) ; rien sans plaque. Jamais d'un masqué : qui le
- * pose ne le nomme pas non plus.
- */
-function saPlaque(p: Partial<Pick<ProfileStore, 'plaqueDe'>>, x: ProfileRec): { plaque?: string } {
   const plaque = p.plaqueDe?.(x)
-  return plaque ? { plaque } : {}
+  // Mat, c'est l'avatar sans rien autour : sa ligne n'a rien de plus à dire.
+  return {
+    ...(finition !== 'mat' && { finition }),
+    ...(legendaire && { legendaire }),
+    ...(sceau && { sceau }),
+    ...(eclat && { eclat }),
+    ...(bordure && { bordure }),
+    ...(plaque && { plaque }),
+  }
 }
 
 /** Les amis qu'une page désigne : des identifiants, pas plus qu'elle n'en montre — le reste ne désigne personne. */
