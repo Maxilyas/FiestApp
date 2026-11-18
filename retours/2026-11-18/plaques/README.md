@@ -151,9 +151,45 @@ podium au lieu de 64, 45 ailleurs au lieu de 48). Rien n'en est codé : à
 décider. La voie prudente, si le paraphe plaît : ne remplacer que la vitrine
 par la plaque du nom, et garder le paraphe plus bas.
 
+## Trois propositions, repartie de zéro
+
+> « Ça ne me plaît pas. Sans prendre en compte tout ce qu'on a fait avant,
+> qu'est-ce que toi tu aurais fait ? Montre-moi 3 propositions » — le
+> propriétaire, le soir du 18 novembre 2026, sur la contre-proposition.
+
+`trois-propositions/` (`1-signature.jpg`, `2-ecrin.jpg`, `3-podium.jpg` ;
+`maquette.css`), posées sur les vraies lignes du classement du mois d'un
+serveur jetable — quinze profils fictifs, portraits, scores —, sous le Velours
+et l'Ivoire. Aucune ne garde rien de ce qui précède : ni ligne pleine, ni
+trait, ni plaque autour du prénom, ni emblème dans la ligne.
+
+1. **La signature** : le prénom écrit dans la police de titre de son thème
+   (Yeseva One pour la Guinguette, Italiana pour le Kintsugi, Creepster pour
+   Halloween, Press Start 2P pour la Game Boy…), à l'encre de son thème
+   poussée jusqu'à 4,5:1 sur le fond de celui qui regarde. Rien d'autre ne
+   bouge, la ligne garde sa hauteur. C'est ce qui distingue le plus les
+   thèmes entre eux et qu'on n'avait jamais montré. Ce qu'elle coûte : une
+   police de plus par thème à l'écran (20 à 40 Ko chacune, chargées pour les
+   seuls thèmes montrés), des tailles réglées police par police (une échelle
+   chacune, mesurée à l'œil), et des polices de fantaisie moins lisibles en
+   petit — Creepster, Press Start 2P, l'Italiana très fine.
+2. **L'écrin** : l'avatar posé sur une petite tuile carrée aux couleurs de son
+   thème — son fond, un double filet, son emblème en filigrane. Le prénom, le
+   niveau et le score restent ceux de tous. Chaque thème se reconnaît à sa
+   tuile, comme une carte de collection ; rien ne passe sous un texte. Ce
+   qu'elle coûte : 10 px par ligne (54 au lieu de 44), et les thèmes vifs —
+   la Game Boy — ressortent fort.
+3. **Le podium** : les trois premiers sortent de la liste et montent sur une
+   scène, chacun sur sa marche à ses couleurs (son fond, son emblème en
+   filigrane, son rang à son or) ; la liste dessous reste sobre. Ce qu'elle
+   coûte : seuls les trois premiers montrent leur thème, 200 px de plus en tête
+   du classement, et rien pour le classement des duels, rangé par ligues.
+
+Rien n'en est codé : à décider. L'écrin et le podium se combinent.
+
 ## Ce qui reste
 
-- La contre-proposition ci-dessus, à décider.
+- La contre-proposition, puis les trois propositions ci-dessus : à décider.
 
 - La police du thème sur le prénom, et une richesse de la plaque selon la
   rareté du thème : proposées, pas encore décidées.
