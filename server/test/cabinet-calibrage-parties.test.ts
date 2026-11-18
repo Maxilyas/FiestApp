@@ -1,17 +1,17 @@
-// Le modèle du calibrage du Cabinet (`scripts/calibrage-cabinet.ts`), ses
-// parties et son musée : le tableau des jeux qui comptait sans les quatre
-// œuvres de départ (la tablée du 25 octobre 2026), le chasseur qui éveille son
-// gardien avant l'occasionnel, et le Détail qui reculait vers les étoiles en
-// moyenne au point de perdre la partie parfaite (la relecture du lendemain).
-// Coupé de `cabinet-calibrage-modele.test.ts` le 1er novembre 2026 : un seul
-// fichier en durait 117 s à huit fichiers à la fois sur quatre cœurs, sous les
-// deux minutes d'un fichier (règle `tests.md`). Le musée qui se remplit jour
-// après jour l'a rejoint le 9 novembre 2026, venu de `cabinet-calibrage.test.ts`,
-// qui venait de passer ces deux minutes sur une machine lente de la CI.
+// Le modèle du calibrage du Cabinet (`scripts/calibrage-cabinet.ts`) et ses
+// parties : le tableau des jeux qui comptait sans les quatre œuvres de départ
+// (la tablée du 25 octobre 2026), et le Détail qui reculait vers les étoiles
+// en moyenne au point de perdre la partie parfaite (la relecture du
+// lendemain). Coupé de `cabinet-calibrage-modele.test.ts` le 1er novembre
+// 2026 : un seul fichier en durait 117 s à huit fichiers à la fois sur quatre
+// cœurs, sous les deux minutes d'un fichier (règle `tests.md`). Le musée qui
+// se remplit, venu de `cabinet-calibrage.test.ts` le 9 novembre 2026, et le
+// chasseur l'ont quitté le 18 novembre 2026 pour `cabinet-calibrage-musee.test.ts` :
+// 25 s seul, il a passé ses deux minutes sur une machine lente de la CI, la
+// tranche entière y prenant 3 min 41 au lieu de 2 min 43.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { JEUX, CLES_DES_JEUX } from '../../shared/cabinet/jeux/regle'
-import { lireNombre } from '../../shared/nombres'
 import { calibrer, cases, enFraction, jeuxQuiVisent, ligneDuJeu, sectionDe } from './calibrage-du-cabinet'
 
 test('le tableau des jeux compte aussi les quatre œuvres de départ, que tout profil emporte', async () => {
@@ -31,38 +31,6 @@ test('le tableau des jeux compte aussi les quatre œuvres de départ, que tout p
     const marge = jeuxQuiVisent(sortie).includes(JEUX[jeu].nom) ? 0.01 : 0
     assert.ok(cinq >= six - marge && six >= sept - marge, `${JEUX[jeu].nom} : ${avec.join(' | ')}`)
   }
-})
-
-test('le chasseur chasse dans la salle du prochain gardien, et l’éveille plus tôt que l’occasionnel', async () => {
-  // L'occasionnel attendait son premier gardien au 36ᵉ jour au calibrage du 25 octobre 2026 : la visite remplissait
-  // les neuf salles à la fois. Une de ses cases vise chaque jour la salle du prochain gardien depuis le 26 (au 21ᵉ jour,
-  // sur quatre parcours d'un an) ; le même joueur, aux mêmes jours, qui y chasse aussi, l'éveille plus tôt encore.
-  // Ses cartes-bonus se choisissent sur cent parties, la mesure d'office : sur trente, le hasard de ces choix couvrait
-  // l'écart des deux, que la case de la visite vers le prochain gardien a resserré (le chasseur au 21,5ᵉ jour,
-  // l'occasionnel au 21ᵉ ; sur cent, au 15ᵉ et au 21ᵉ).
-  const { code, sortie, erreurs } = await calibrer(['--sections', 'musee', '--joueurs', 'occasionnel,chasseur', '--parcours', '2', '--jours', '80'])
-  assert.equal(code, 0, erreurs)
-  const premier = (joueur: string) => {
-    const bloc = sortie.slice(sortie.indexOf(`\n  ${joueur}\n`))
-    const m = /le premier gardien réveillé en jouant : (\S+) j/.exec(bloc)
-    assert.ok(m, `${joueur} :\n${sortie}`)
-    return lireNombre(m[1])!
-  }
-  assert.ok(premier('chasseur') < premier('occasionnel'), `le premier gardien : au ${premier('chasseur')}ᵉ jour au chasseur, au ${premier('occasionnel')}ᵉ à l'occasionnel`)
-})
-
-test('le musée se remplit jour après jour, par les règles du musée', async () => {
-  // Un joueur moyen qui arrive neuf et joue chaque jour : tout est à lui en moins d'un mois. Jusqu'au 25 octobre 2026,
-  // l'épreuve faisait arriver un explorateur avec soixante œuvres de l'Expédition : la migration s'est abandonnée
-  // (la décision du propriétaire, chacun commence à zéro), et chacun arrive neuf.
-  const { code, sortie, erreurs } = await calibrer(['--parties', '100', '--mesures', '20', '--parcours', '1', '--jours', '30', '--joueurs', 'moyen'])
-  assert.equal(code, 0, erreurs)
-  assert.match(sortie, /chacun arrive neuf : les 4 œuvres de départ, rien de l'Expédition/)
-  assert.doesNotMatch(sortie, /rapportées/)
-  const jours = /tout posséder : (\d+) j/.exec(sortie)
-  assert.ok(jours && lireNombre(jours[1])! <= 30, `tout posséder :\n${sortie}`)
-  assert.match(sortie, /par jour joué : \d+ parties/)
-  assert.match(sortie, /gardiens réveillés, semaine/)
 })
 
 // ── La relecture du 26 octobre 2026 ───────────────────────────────────────
