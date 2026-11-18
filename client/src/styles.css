@@ -4303,7 +4303,6 @@ h3 > .icon {
 :root[data-sans~='medaillon'] :is(.lb-avatar, .player-chip) :is(.lg, .pt, .dv, .sc) { display: none !important; }
 :root[data-sans~='gemme'] :is(.lb-avatar, .player-chip .av).av-eclat::after { display: none !important; }
 :root[data-sans~='motif'] .lb-row.plaque > .plaque-embleme { display: none !important; }
-:root[data-sans~='motif'] .lb-row.plaque > .lb-name::after { content: none !important; }
 
 /* Dans une phrase (`AvatarEnLigne`) — les vainqueurs du défi, le bilan,
    l'historique : un médaillon n'a pas de ligne de base, et se posait
