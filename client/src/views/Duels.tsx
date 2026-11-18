@@ -1064,12 +1064,14 @@ function ClassementDeTous({
   if (classement.joueurs === 0) return <p className="duels-vide">{espacesFines('Personne n’a encore joué de duel : la première place t’attend.')}</p>
   const aPortee = classement.aPortee ?? []
   const autour = classement.autour ?? []
-  const suivant = sienne && !classement.enTete ? autour[autour.findIndex(l => l.profileId === sienne.profileId) + 1] : undefined
+  const vises = new Set(aPortee.map(l => l.profileId))
+  // Celui qui le suit, jamais un ex æquo déjà à sa portée : le serveur ne l'envoie plus, une page d'avant si.
+  const apres = sienne && !classement.enTete ? autour[autour.findIndex(l => l.profileId === sienne.profileId) + 1] : undefined
+  const suivant = apres && !vises.has(apres.profileId) ? apres : undefined
   // De haut en bas : ceux qu'il va chercher, le plus haut d'abord, lui, et celui qui le suit — en tête, lui puis ceux qui le talonnent.
   // Personne au-dessus de sa cote : ceux qui le suivent, le plus proche d'abord — en tête, ou pas encore classé au-dessus de tous.
   const auDessous = classement.enTete || (aPortee[0] !== undefined && aPortee[0].cote < maCote.cote)
   const echelle = auDessous ? [...(sienne ? [sienne] : []), ...aPortee] : [...[...aPortee].reverse(), ...(sienne ? [sienne] : []), ...(suivant ? [suivant] : [])]
-  const vises = new Set(aPortee.map(l => l.profileId))
   const enCours = (profileId: string) => duelEnRouteAvec(contre, profileId)?.code
   return (
     <>

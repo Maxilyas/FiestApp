@@ -849,9 +849,10 @@ export interface ClassementDesDuels {
   /** Qui regarde, s'il est classé : sa ligne se distingue. */
   sienne?: string
   /**
-   * Sa ligne entre ses deux voisins — celui juste devant, celui juste
-   * derrière, s'ils existent : l'onglet du classement les montre, même
-   * au-delà des lignes qu'on envoie.
+   * Sa ligne entre ses deux voisins — celui juste devant, et derrière le
+   * premier dont la cote est plus basse, s'ils existent : l'onglet du
+   * classement les montre, même au-delà des lignes qu'on envoie. Un ex æquo
+   * n'est pas derrière lui : il est à sa portée (`aPortee`).
    */
   autour?: LigneDesDuels[]
   /**
@@ -861,13 +862,14 @@ export interface ClassementDesDuels {
    */
   progression?: number
   /**
-   * Ceux qu'il peut aller chercher, le plus proche d'abord : les joueurs
-   * juste au-dessus de sa cote (`JOUEURS_A_PORTEE`) — classé ou pas, de sa
-   * cote à lui. En tête, personne au-dessus : ceux qui le talonnent
-   * (`enTete`). L'onglet les montre avec ce qu'il gagnerait, et « Défier ».
+   * Ceux qu'il peut aller chercher, le plus proche d'abord : les joueurs à
+   * sa cote ou juste au-dessus (`JOUEURS_A_PORTEE`) — classé ou pas, de sa
+   * cote à lui ; un ex æquo y est, un duel gagné le fait passer devant. Seul
+   * en tête, personne à sa hauteur : ceux qui le talonnent (`enTete`).
+   * L'onglet les montre avec ce qu'il gagnerait, et « Défier ».
    */
   aPortee?: LigneDesDuels[]
-  /** En tête du classement : `aPortee` dit ceux qui le talonnent. */
+  /** Seul en tête du classement : `aPortee` dit ceux qui le talonnent. */
   enTete?: true
 }
 
