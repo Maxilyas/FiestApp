@@ -6,7 +6,7 @@
 // 2026 : un seul fichier en durait 117 s à huit fichiers à la fois sur quatre
 // cœurs, sous les deux minutes d'un fichier (règle `tests.md`). Le musée qui
 // se remplit, venu de `cabinet-calibrage.test.ts` le 9 novembre 2026, et le
-// chasseur l'ont quitté le 18 novembre 2026 pour `cabinet-calibrage-musee.test.ts` :
+// chasseur l'ont quitté le 18 novembre 2026 pour `cabinet-calibrer-le-musee.test.ts` :
 // 25 s seul, il a passé ses deux minutes sur une machine lente de la CI, la
 // tranche entière y prenant 3 min 41 au lieu de 2 min 43.
 import { test } from 'node:test'

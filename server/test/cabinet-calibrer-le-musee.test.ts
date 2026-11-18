@@ -3,7 +3,11 @@
 // du 25 octobre 2026), et le musée qui se remplit jour après jour. Coupé de
 // `cabinet-calibrage-parties.test.ts` le 18 novembre 2026, sans rien changer à
 // ses épreuves : 25 s seul, ce fichier a passé les deux minutes d'un fichier
-// sur une machine lente de la CI (règle `tests.md`).
+// sur une machine lente de la CI (règle `tests.md`). Son nom le range après
+// `cabinet-calibrage.test.ts`, pas avant : la CI répartit les fichiers par leur
+// rang, et nommé `cabinet-calibrage-musee`, il décalait le plus lourd des
+// calibrages (51 à 75 s) dans la tranche de `cabinet-calibrage-cartes`, lancés
+// ensemble — celui-ci a passé ses deux minutes à son tour, le même jour.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { lireNombre } from '../../shared/nombres'

@@ -16,7 +16,7 @@
 // déduit ensuite comme le joueur moyen, dès le deuxième (la tablée du
 // 26 octobre 2026). Le modèle lui-même, corrigé après les tablées :
 // `cabinet-calibrage-modele.test.ts`, `cabinet-calibrage-cartes.test.ts`,
-// `cabinet-calibrage-parties.test.ts` et `cabinet-calibrage-musee.test.ts`.
+// `cabinet-calibrage-parties.test.ts` et `cabinet-calibrer-le-musee.test.ts`.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
