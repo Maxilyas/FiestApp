@@ -1136,7 +1136,7 @@ Les sauvegardes de la base permanente (`npm run sauvegarde`), une ligne chacune 
 
 - **Colonnes clés** : `faite_le`, `tables`, `lignes` (celles copiées), `octets` (la taille du fichier SQL), `duree_ms`.
 - **Espace** : non — la base est la même pour tous.
-- **Écrite par** : `server/scripts/sauvegarde.ts`, à la fin d'une sauvegarde réussie ; un jeton en lecture seule ne l'écrit pas, la sauvegarde est faite quand même.
+- **Écrite par** : `server/scripts/sauvegarde.ts`, à la fin d'une sauvegarde réussie — à la main, ou chaque nuit par `.github/workflows/sauvegarde.yml`. La table, `SanteDuServeur` la crée au démarrage ; le script ne la crée que si elle manque, sinon il n'y ajoute qu'une ligne : un jeton qui ne peut que tout lire et ajouter à cette table (`-p all:data_read -p qg_sauvegardes:data_add`) suffit — un `CREATE TABLE IF NOT EXISTS`, même sans effet, lui serait refusé. Un jeton en lecture seule ne l'écrit pas, la sauvegarde est faite quand même.
 - **Lue par** : `SanteDuServeur.sauvegardes`, les dix dernières par leur index (`idx_qg_sauvegardes_le`), à l'ouverture de la page.
 - **Effacée par** : rien — une ligne par sauvegarde, quelques dizaines par an.
 

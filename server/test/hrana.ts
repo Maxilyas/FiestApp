@@ -58,12 +58,23 @@ export interface FauxTurso {
    * soient parties.
    */
   retenir(): () => void
+  /** Les instructions que les droits du jeton ont refusées, leur texte tel quel. */
+  refusees: string[]
   fermer(): Promise<void>
 }
 
-export async function fauxTursoHrana(fichier: string): Promise<FauxTurso> {
+/**
+ * Ce que le jeton laisse faire, à la façon des droits fins de Turso
+ * (`turso db tokens create … -p all:data_read -p <table>:data_add`) : pour
+ * une instruction, son texte et si elle ne fait que lire, rend `true` si elle
+ * passe. Refusée, elle échoue comme une erreur de la base.
+ */
+export type DroitsDuJeton = (sql: string, lecture: boolean) => boolean
+
+export async function fauxTursoHrana(fichier: string, { droits }: { droits?: DroitsDuJeton } = {}): Promise<FauxTurso> {
   const db = new Database(fichier)
   const corps: unknown[] = []
+  const refusees: string[] = []
   let enVol = 0
   let auPlus = 0
   let retardMs = 0
@@ -79,6 +90,10 @@ export async function fauxTursoHrana(fichier: string): Promise<FauxTurso> {
       args = nommes
     }
     const s = db.prepare(sql)
+    if (droits && !droits(sql, s.reader)) {
+      refusees.push(sql)
+      throw Object.assign(new Error('non autorisé par ce jeton'), { code: 'SQLITE_AUTH' })
+    }
     if (s.reader) {
       const cols = s.columns().map(c => ({ name: c.name, decltype: c.type }))
       const lignes = (Array.isArray(args) ? s.raw(true).safeIntegers(true).all(...args) : s.raw(true).safeIntegers(true).all(args)) as unknown[][]
@@ -180,6 +195,7 @@ export async function fauxTursoHrana(fichier: string): Promise<FauxTurso> {
   return {
     adresse: `http://127.0.0.1:${(serveur.address() as AddressInfo).port}`,
     corps,
+    refusees,
     enVolAuPlus: () => auPlus,
     enVol: () => enVol,
     retarder: ms => {
