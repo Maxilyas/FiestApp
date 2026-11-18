@@ -6,17 +6,20 @@
 // pures (`shared/plaques.ts`), ses couleurs celles de son thème. Depuis le
 // 18 novembre 2026 (`retours/2026-11-18/plaques/`), deux formes : le paraphe
 // partout — un trait de plume sous le prénom, son emblème après lui —, la
-// plaque entière au podium ; et rien ne passe jamais sous un texte.
+// plaque entière au podium ; et rien ne passe jamais sous un texte. Et, le
+// même jour, la grande plaque des duels : à un contre un, chaque carte à la
+// plaque de son joueur, chacun sur son socle au verdict.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import Database from 'better-sqlite3'
-import { demarrer, ecrire, inscrireProfil, type Banc } from './banc'
+import { baseDEssai, connexionAnimateur, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { contraste, teinte, themesDuClient } from './teintes'
 import { AUCUNE_PLAQUE, choixDePlaque, plaqueDuTheme, plaquePortee, plaquesOuvertes } from '../../shared/plaques'
 import { THEMES } from '../../shared/themes'
 import { avecLEssai, essayer, lignesDeLEssai } from '../../shared/loge'
 import { jourDe } from '../../shared/jour'
+import { CATEGORIES } from '../../shared/categories'
 import { CONTRASTE_D_UN_EMBLEME, DEBUT, EMBLEMES, FIN, auPire, couleursDesPlaques, feuilleAJour, fondsDesThemes } from '../scripts/emblemes-des-plaques'
 
 const CLIENT = new URL('../../client/src/', import.meta.url)
@@ -25,6 +28,8 @@ const CSS = lu('styles.css')
 
 const lire = (banc: Banc, cookie: string, chemin: string) =>
   fetch(`${banc.url}${chemin}`, { headers: { Cookie: cookie } }).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
+const poster = (banc: Banc, cookie: string, chemin: string, corps: unknown = {}) =>
+  ecrire(banc.url, chemin, corps, cookie).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
 
 function base<T>(banc: Banc, fn: (db: Database.Database) => T): T {
   const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
@@ -341,6 +346,196 @@ test('au banc : elle se choisit parmi ses thèmes, suit le thème porté, et par
     assert.equal((await profil()).plaque, 'kintsugi')
     assert.equal((await porter({ plaque: null })).status, 200)
     assert.equal((await profil()).plaque, null, 'sous le Velours, pas de plaque')
+  } finally {
+    await banc.close()
+  }
+})
+
+// ── La grande plaque des duels ────────────────────────────────────────────
+
+test('la grande plaque des duels : chaque carte à la plaque de son joueur, chacun sur son socle, son nom sur sa plaque', async () => {
+  const React = (await import('react')).default
+  Object.assign(globalThis, { React })
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  // Les écrans d'un duel lisent leur adresse en se chargeant : un navigateur de façade le temps de l'import, comme
+  // `duels-page.test.ts`, rendu ensuite — les autres épreuves du fichier n'en ont pas.
+  const avant = { window: (globalThis as any).window, document: (globalThis as any).document }
+  Object.assign(globalThis, {
+    window: { location: { pathname: '/duels', search: '', hash: '', origin: 'http://banc', host: 'banc' }, addEventListener: () => {} },
+    document: { addEventListener: () => {}, visibilityState: 'visible', hidden: false },
+  })
+  const { DuelFaceCachee, VerdictDuDuel } = await import(new URL('views/Duel.tsx', CLIENT).href).finally(() => Object.assign(globalThis, avant))
+  const EMBLEME = '<span class="plaque-embleme" aria-hidden="true"></span>'
+
+  // Le duel que Léa a lancé, chez Tom : la carte d'en face à la plaque de Léa, son nom écrit dessus ; la sienne à la sienne.
+  const recu = {
+    code: 'K7M2QX',
+    auteur: { nom: 'Léa', avatar: '🦊', plaque: 'kintsugi' },
+    contre: { nom: 'Tom', avatar: '🐻', toi: true, ligue: 'argent', plaque: 'guinguette' },
+    categories: ['Histoire'],
+    minutesRestantes: 600,
+    tentative: null,
+    joueurs: 0,
+    lignes: [],
+  }
+  const cartes = (duel: object) => renderToStaticMarkup(React.createElement(DuelFaceCachee, { duel, busy: false, erreur: '', onRelever() {}, onRetour() {} }))
+  const habillees = cartes(recu)
+  assert.match(habillees, /<span class="duels-carte duels-carte-dos plaque plaque-kintsugi"><span class="duels-balaye"><\/span>/)
+  assert.match(habillees, new RegExp(`<span class="duels-carte-son-nom">Léa${EMBLEME}</span>`))
+  assert.match(habillees, /<span class="duels-carte duels-carte-toi ligue-argent plaque plaque-guinguette">/)
+  // Sans plaque — un invité qui n'en porte pas, un masqué, une page d'avant —, la carte d'avant, au caractère près.
+  const nues = cartes({ ...recu, auteur: { nom: 'Léa', avatar: '🦊' }, contre: { ...recu.contre, plaque: undefined } })
+  assert.match(nues, /<span class="duels-carte duels-carte-dos"><span class="duels-balaye"><\/span>/)
+  assert.match(nues, /<span class="duels-carte-son-nom">Léa<\/span>/)
+  assert.doesNotMatch(nues, /plaque/)
+  // Ce qui n'a pas la forme d'une clé n'entre pas dans une classe.
+  assert.doesNotMatch(cartes({ ...recu, auteur: { ...recu.auteur, plaque: 'a b' }, contre: { ...recu.contre, plaque: 'x"y' } }), /plaque/)
+
+  // Au verdict, chacun sur son socle : la colonne de chacun à sa plaque, son nom dessus, son emblème au bout.
+  const verdict = {
+    quoi: 'Histoire',
+    toi: { avatar: '🐻', justes: 7, plaque: 'guinguette' },
+    lui: { nom: 'Léa', avatar: '🦊', justes: 6, plaque: 'kintsugi' },
+    ecart: 17,
+    apres: { cote: 1119, ligue: 'argent', rang: 3 },
+    semaine: { duels: 1, ligue: 'argent', confettis: 0, minutesRestantes: 600 },
+  }
+  const carte = (v: object) => renderToStaticMarkup(React.createElement(VerdictDuDuel, { verdict: v, dos: 'Léa a joué', aRetourner: false, onFermer() {} }))
+  const socles = carte(verdict)
+  assert.match(
+    socles,
+    new RegExp(`<span class="duels-face-joueur plaque plaque-guinguette"><span class="duels-face-avatar toi">🐻</span><span class="num duels-face-score devant">7</span><span class="duels-face-nom">Toi${EMBLEME}</span></span>`),
+  )
+  assert.match(
+    socles,
+    new RegExp(`<span class="duels-face-joueur plaque plaque-kintsugi"><span class="duels-face-avatar">🦊</span><span class="num duels-face-score">6</span><span class="duels-face-nom">Léa${EMBLEME}</span></span>`),
+  )
+  // Automate n'a pas de plaque : son côté reste celui de tous, le sien monte seul sur son socle.
+  const contreAutomate = carte({ ...verdict, lui: { nom: 'Automate', avatar: '🤖', justes: 6 } })
+  assert.match(contreAutomate, /<span class="duels-face-joueur plaque plaque-guinguette">/)
+  assert.match(contreAutomate, /<span class="duels-face-joueur"><span class="duels-face-avatar">🤖<\/span><span class="num duels-face-score">6<\/span><span class="duels-face-nom">Automate<\/span><\/span>/)
+  assert.doesNotMatch(carte({ ...verdict, toi: { avatar: '🐻', justes: 7 }, lui: { nom: 'Léa', avatar: '🦊', justes: 6 } }), /plaque/)
+
+  // Les deux écrans de la campagne la passent : la page d'un duel lit celle de chacun, la fin d'une partie la sienne et
+  // celle d'en face.
+  const duel = lu('views/Duel.tsx')
+  assert.match(duel, /toi: \{ avatar: moi\.avatar, justes: t\.justes, apparence: ceQuIlPorte\(moi\), \.\.\.\(moi\.plaque && \{ plaque: moi\.plaque \}\) \}/)
+  assert.match(duel, /\.\.\.\(enFace\.plaque && \{ plaque: enFace\.plaque \}\)/)
+  const campagne = lu('views/CampagneApp.tsx')
+  assert.match(campagne, /\.\.\.\(profil\?\.plaque && \{ plaque: profil\.plaque \}\)/)
+  assert.match(campagne, /\.\.\.\(adversaire\.plaque && \{ plaque: adversaire\.plaque \}\)/)
+})
+
+test('la grande plaque des duels se lit sur tout ce qu’elle pose : le semis, le reflet, le socle', () => {
+  const debut = CSS.indexOf('/* La grande plaque des duels')
+  const bloc = CSS.slice(debut, CSS.indexOf('/* L\'accueil, quand un duel', debut))
+  assert.ok(debut > 0 && bloc.length > 1000, 'le bloc de la grande plaque se trouve')
+  const regles = bloc.replace(/\/\*[\s\S]*?\*\//g, '')
+  // Ni masque, ni filtre, ni mouvement : des images aux couleurs écrites dedans (règle css.md).
+  assert.doesNotMatch(regles, /mask|filter|animation|transform/)
+  // `.carte-plaque` est la plaque du compagnon sur la carte d'un joueur, en absolu : la maquette l'avait empruntée.
+  assert.doesNotMatch(regles, /carte-plaque/)
+  const regle = (selecteur: string) => {
+    const m = new RegExp(`(?:^|\\n)${selecteur.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{([^}]*)\\}`).exec(regles)
+    assert.ok(m, `la règle ${selecteur}`)
+    return m![1]
+  }
+  const alpha = (corps: string, rgb: string) => Number(new RegExp(`rgba\\(${rgb}, (0\\.\\d+)\\)`).exec(corps)?.[1] ?? 0)
+
+  // Le semis : le premier de la carte, peint sous ce qu'elle porte ; la case, qui écrit en petit, a son sol plein.
+  const semis = regle('.duels-carte.plaque::before')
+  assert.match(semis, /background: var\(--p-embleme\)/)
+  const dosage = Number(/opacity: (0\.\d+);/.exec(semis)?.[1])
+  assert.match(regle('.duels-carte.plaque .duels-carte-case'), /background: var\(--p-bg\);[^]*color: var\(--p-muted\);/)
+  const reflet = alpha(regle('.duels-carte.plaque'), '255, 255, 255')
+  const plaqueDuNom = regle('.duels-carte.plaque .duels-carte-son-nom,\n.duels-face-joueur.plaque > .duels-face-nom')
+  const socle = regle('.duels-face-joueur.plaque')
+  assert.ok(dosage > 0 && reflet > 0, `${dosage} · ${reflet}`)
+
+  const tons = new Map([...CSS.matchAll(/\.plaque-([a-z]+) \{ --p-clair: (#[0-9a-f]{6}); --p-sombre: (#[0-9a-f]{6});/g)].map(m => [m[1], [m[2], m[3]]]))
+  const rgb = (h: string) => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16))
+  const melange = (a: string, b: string, t: number) => '#' + rgb(a).map((v, i) => Math.round(v + (rgb(b)[i] - v) * t).toString(16).padStart(2, '0')).join('')
+  const auPireSur = (couleur: string, fonds: string[]) => Math.min(...fonds.map(f => contraste(couleur, f)))
+  const plaques = couleursDesPlaques(CSS)
+  assert.equal(plaques.size, THEMES.length - 1)
+  for (const [cle, c] of plaques) {
+    const [clair, sombre] = tons.get(cle) ?? assert.fail(`${cle} : ses deux tons`)
+    // La carte : son reflet en haut, le semis de ses deux tons par-dessus. L'encre y écrit « Toi » ; l'or, le « ? », le
+    // sablier, le cadenas et son score — en grand : 3:1 (WCAG, un texte large).
+    const carte = [c.bg, melange(c.bg, '#ffffff', reflet)].flatMap(f => [f, melange(f, clair, dosage), melange(f, sombre, dosage)])
+    assert.ok(auPireSur(c.ink, carte) >= 4.5, `${cle} : l’encre sur la carte, ${auPireSur(c.ink, carte).toFixed(2)}`)
+    assert.ok(auPireSur(c.or, carte) >= 3, `${cle} : l’or sur la carte, ${auPireSur(c.or, carte).toFixed(2)}`)
+    // Le score joué de sa carte, à l'or, sur la case teintée d'or.
+    assert.ok(contraste(c.or, melange(c.bg, c.or, 0.1)) >= 3, `${cle} : son score joué`)
+    // La plaque du nom : son reflet en haut, son ombre en bas.
+    const nom = [melange(c.bg, '#ffffff', alpha(plaqueDuNom, '255, 255, 255')), melange(c.bg, '#000000', alpha(plaqueDuNom, '0, 0, 0'))]
+    assert.ok(auPireSur(c.ink, nom) >= 4.5, `${cle} : le nom sur sa plaque, ${auPireSur(c.ink, nom).toFixed(2)}`)
+    // Le socle : les deux scores, en grand.
+    const fondDuSocle = [melange(c.bg, '#ffffff', alpha(socle, '255, 255, 255')), melange(c.bg, '#000000', alpha(socle, '0, 0, 0'))]
+    for (const [quoi, couleur] of [
+      ['l’encre atténuée', c.muted],
+      ['l’or', c.or],
+    ] as const)
+      assert.ok(auPireSur(couleur, fondDuSocle) >= 3, `${cle} : ${quoi} du score sur le socle, ${auPireSur(couleur, fondDuSocle).toFixed(2)}`)
+  }
+})
+
+test('au banc : un duel classé dit la plaque de chacun — à sa carte, à la fin, au verdict —, jamais celle d’un masqué', async () => {
+  const banc = await demarrer({ baseDeLaCampagne: baseDEssai(12 * CATEGORIES.length, { categories: [...CATEGORIES] }) })
+  try {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
+    const tom = await inscrireProfil(banc.url, 'tom', 'Tom', '🐻')
+    const [deLea, deTom] = base(banc, db => ['lea', 'tom'].map(login => (db.prepare('SELECT id FROM profiles WHERE login = ?').get(login) as { id: string }).id))
+    base(banc, db => {
+      const achat = db.prepare('INSERT INTO profile_achats (profile_id, theme, prix, created_at) VALUES (?, ?, 0, 1)')
+      achat.run(deLea, 'kintsugi')
+      achat.run(deTom, 'guinguette')
+    })
+    assert.equal((await ecrire(banc.url, '/api/joueur/moi', { plaque: 'kintsugi' }, lea, 'PUT')).status, 200)
+    assert.equal((await ecrire(banc.url, '/api/joueur/moi', { plaque: 'guinguette' }, tom, 'PUT')).status, 200)
+    /** Une tentative jouée jusqu'au bout : `justes` bonnes réponses, puis des fautes. */
+    const jouer = async (cookie: string, serie: string, justes: number) => {
+      const qs = base(banc, db => JSON.parse((db.prepare('SELECT questions FROM campagne_series WHERE id = ?').get(serie) as { questions: string }).questions)) as { bonne: number; reponses: string[] }[]
+      let derniere: any = null
+      for (let i = 0; i < qs.length; i++) {
+        const r = await poster(banc, cookie, `/api/campagne/serie/${serie}/reponse`, { index: i, choix: i < justes ? qs[i].bonne : (qs[i].bonne + 1) % qs[i].reponses.length })
+        assert.equal(r.status, 200, r.corps.error)
+        derniere = r.corps
+        if (r.corps.finie) break
+      }
+      return derniere
+    }
+
+    // Léa défie Tom et joue : chez Tom, la carte d'en face à la plaque de Léa, la sienne à la sienne.
+    const lance = await poster(banc, lea, '/api/campagne/duel', { adversaire: deTom })
+    assert.equal(lance.status, 200, lance.corps.error)
+    const code: string = lance.corps.code
+    await jouer(lea, lance.corps.serie.id, 4)
+    const chezTom = (await lire(banc, tom, `/api/campagne/duel/${code}`)).corps
+    assert.equal(chezTom.auteur.plaque, 'kintsugi')
+    assert.equal(chezTom.contre.plaque, 'guinguette')
+    assert.equal(chezTom.contre.toi, true)
+
+    // Tom le relève et gagne : sa fin dit Léa avec sa plaque — son socle au verdict.
+    const tentative = await poster(banc, tom, `/api/campagne/duel/${code}`)
+    assert.equal(tentative.status, 200, tentative.corps.error)
+    const fin = await jouer(tom, tentative.corps.id, 6)
+    assert.equal(fin.finie, true)
+    assert.deepEqual([fin.contre.nom, fin.contre.plaque], ['Léa', 'kintsugi'])
+    // Chez Léa, la page du duel joué : Tom à la sienne, elle à la sienne.
+    const chezLea = (await lire(banc, lea, `/api/campagne/duel/${code}`)).corps
+    assert.deepEqual([chezLea.auteur.plaque, chezLea.contre.plaque], ['kintsugi', 'guinguette'])
+
+    // Masquée au quiz du jour, Léa ne se nomme plus chez Tom, sa plaque non plus ; chez elle, si.
+    const admin = await connexionAnimateur(banc.url)
+    assert.equal((await ecrire(banc.url, '/api/admin/jour/masquer', { profileId: deLea, masque: true }, admin)).status, 200)
+    const masquee = (await lire(banc, tom, `/api/campagne/duel/${code}`)).corps.auteur
+    assert.equal(masquee.nom, 'Un joueur')
+    assert.ok(!('plaque' in masquee), JSON.stringify(masquee))
+    assert.equal((await lire(banc, lea, `/api/campagne/duel/${code}`)).corps.auteur.plaque, 'kintsugi')
+    // Sans plaque, rien : absente plutôt que nulle.
+    assert.equal((await ecrire(banc.url, '/api/joueur/moi', { plaque: AUCUNE_PLAQUE }, tom, 'PUT')).status, 200)
+    assert.ok(!('plaque' in (await lire(banc, lea, `/api/campagne/duel/${code}`)).corps.contre))
   } finally {
     await banc.close()
   }

@@ -164,7 +164,7 @@ test('un duel reçu : sa carte face cachée — son score écrit nulle part avan
   assert.match(html, /<p class="duels-surtitre or">Duel classé · Histoire<\/p>/)
   assert.match(
     html,
-    /<span class="duels-carte-nom"><span aria-hidden="true">🐻<\/span><span>Tom<\/span><\/span><span class="num duels-carte-mystere" aria-hidden="true">\?<\/span><span class="duels-carte-sceau" role="img" aria-label="Score caché">/,
+    /<span class="duels-carte-nom"><span aria-hidden="true">🐻<\/span><span class="duels-carte-son-nom">Tom<\/span><\/span><span class="num duels-carte-mystere" aria-hidden="true">\?<\/span><span class="duels-carte-sceau" role="img" aria-label="Score caché">/,
   )
   assert.doesNotMatch(html, />7</, 'son score n’est écrit nulle part')
   assert.match(html, /<span class="duels-carte duels-carte-toi ligue-argent">.*<span class="duels-carte-case">à jouer<\/span>/)

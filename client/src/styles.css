@@ -10938,6 +10938,76 @@ button.duels-joue { cursor: pointer; }
 .duels-semaine.sous-la-carte { margin-top: 30px; }
 .duels-semaine.sous-la-carte .duels-losanges i { width: 8px; height: 8px; }
 
+/* La grande plaque des duels (le 18 novembre 2026, la maquette posée sur les
+   vrais écrans d'un duel, `retours/2026-11-18/plaques/duels/`) : à un contre
+   un, la place qu'un classement n'a pas. Au duel à relever, chaque carte
+   s'habille de la plaque de son joueur — son fond, un double filet, son
+   emblème en semis, le « ? » à son or — ; au verdict, chacun monte sur son
+   socle à ses couleurs. Le nom s'écrit sur sa plaque, son emblème au bout :
+   il cède avant le prénom, coupé avec lui. Sans plaque, rien ne change —
+   un invité, Automate, un masqué n'en portent pas (invariant 8). Ses couleurs
+   sont celles de son thème, en dur (`.plaque-<clé>`) : la plaque d'en face ne
+   suit jamais le thème de celui qui regarde. Pas `.carte-plaque` : la plaque
+   du compagnon sur la carte d'un joueur, en absolu — empruntée par la
+   maquette, la carte d'en face sautait au coin de l'écran. */
+.duels-carte.plaque {
+  border-color: var(--p-trait);
+  background: radial-gradient(120% 80% at 50% 0%, rgba(255, 255, 255, 0.1), transparent 60%), var(--p-bg);
+  box-shadow: inset 0 0 0 calc(3 * var(--u)) var(--p-bg), inset 0 0 0 calc(4 * var(--u)) var(--p-trait), 0 18px 40px color-mix(in srgb, var(--backdrop) 70%, transparent);
+  color: var(--p-ink);
+}
+/* L'emblème en semis : une image aux couleurs écrites dedans, ni masque ni filtre (règle `css.md`). Le premier de la
+   carte, peint sous ce qu'elle porte — en dernier, il passait par-dessus. À 8 %, l'encre de chaque plaque y garde 4,5:1
+   et son or 3:1, qui n'écrit qu'en grand ; à 10 %, l'encre atténuée de quatre plaques tombait sous 4,5 : la case, qui
+   l'écrit en petit, a son sol plein (`plaques.test.ts` relit les trois sur chaque plaque). */
+.duels-carte.plaque::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--p-embleme) calc(8 * var(--u)) calc(8 * var(--u)) / calc(30 * var(--u)) calc(30 * var(--u)) repeat;
+  opacity: 0.08;
+  pointer-events: none;
+}
+.duels-carte.plaque :is(.duels-carte-mystere, .duels-carte-sceau) { color: var(--p-or); }
+.duels-carte.plaque .duels-carte-mystere { text-shadow: 0 0 22px color-mix(in srgb, var(--p-or) 45%, transparent); }
+.duels-carte.plaque .duels-carte-case { border-color: color-mix(in srgb, var(--p-trait) 70%, transparent); background: var(--p-bg); color: var(--p-muted); }
+.duels-carte.plaque .duels-carte-case.joue { border-color: var(--p-or); background: linear-gradient(color-mix(in srgb, var(--p-or) 10%, transparent), color-mix(in srgb, var(--p-or) 10%, transparent)), var(--p-bg); }
+.duels-carte.plaque .duels-carte-case.joue b { color: var(--p-or); }
+/* Au verdict, le socle : la colonne de chacun, son score à l'or de sa plaque. */
+/* Deux socles côte à côte : le trait du milieu disparaît entre eux, un écart les sépare. */
+.duels-face-joueur.plaque {
+  margin: 0 3px;
+  padding: 8px 6px 10px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(0, 0, 0, 0.12)), var(--p-bg);
+  box-shadow: inset 0 0 0 1px var(--p-trait), inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+.duels-face-joueur.plaque > .duels-face-score { color: var(--p-muted); }
+.duels-face-joueur.plaque > .duels-face-score.devant { color: var(--p-or); }
+/* Le nom sur sa plaque : la carte d'en face, le socle du verdict. */
+.duels-carte.plaque .duels-carte-son-nom,
+.duels-face-joueur.plaque > .duels-face-nom {
+  max-width: 100%;
+  padding: 3px 9px;
+  border: 1px solid var(--p-trait);
+  border-radius: 9px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(0, 0, 0, 0.1)), var(--p-bg);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 2px 6px rgba(0, 0, 0, 0.3);
+  color: var(--p-ink);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.duels-face-joueur.plaque > .duels-face-nom { margin-top: 6px; font-size: 0.8125rem; }
+:is(.duels-carte-son-nom, .duels-face-nom) > .plaque-embleme {
+  display: inline-block;
+  width: 1.15em;
+  height: 1.15em;
+  margin-left: 0.35em;
+  vertical-align: -0.22em;
+  background: var(--p-embleme) center / contain no-repeat;
+}
+
 /* L'accueil, quand un duel qu'il a lancé vient d'être joué (A4) : la tuile
    des duels s'allume et luit, son résultat compté en rouge ; une bannière
    tombe en haut, une fois par résultat, et repart d'elle-même. */

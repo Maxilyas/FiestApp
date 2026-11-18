@@ -102,7 +102,9 @@ jour a sa notification (règle `rappel-et-installation.md`).
   `views/Duel.tsx` — les pièces (`Anneau`, `SemaineEnLosanges`,
   `VerdictDuDuel`, `DuelEnvoye`, la feuille du dé `FeuilleDuDe` et ce qui la
   mène jusqu'au tirage, `LeDe` — la feuille du choix à sa place), la
-  page d'un duel (`PageDuDuel`, `DuelFaceCachee`) et le défi d'avant
+  page d'un duel (`PageDuDuel`, `DuelFaceCachee` — chaque carte à la plaque de
+  son joueur, chacun sur son socle au verdict : la grande plaque des duels,
+  règle `themes.md`) et le défi d'avant
   (`FinDuDuel`, `EnvoyerAuxAmis`, `MesDuels`) ; `views/LancerUnDefi.tsx` — la
   préparation (`/duels#defier`, `#defier-<id>`) ; `views/Joueurs.tsx` — la
   recherche et `LigneDeJoueur` ; `views/Amis.tsx` — la feuille des amis ;

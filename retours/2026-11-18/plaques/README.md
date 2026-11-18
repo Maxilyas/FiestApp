@@ -50,8 +50,9 @@ téléphone. Des totaux, sans un nom :
   emblème en grand — au rang 3 au plus, ex æquo compris
   (`PLACES_EN_VITRINE`). Achetée, elle ne se montre en grand qu'en montant :
   elle se gagne aussi en jouant.
-- **La grande plaque dans les duels** : à maquetter sur les vrais duels avant
-  de la coder.
+- **La grande plaque dans les duels** : maquettée sur les vrais duels, puis
+  codée telle quelle (« Code la grande plaque des duels comme dans la
+  maquette »).
 
 ## Ce qui en est fait
 
@@ -76,9 +77,30 @@ téléphone. Des totaux, sans un nom :
 la feuille `duels/maquette.css` injectée par-dessus) : **le duel à relever**,
 chaque carte habillée de la plaque de son joueur — son fond, son double filet,
 son emblème en semis, le « ? » à son or —, et **le verdict**, chaque joueur sur
-son socle à ses couleurs, son nom sur sa plaque et son emblème. À valider avant
-de la coder : le serveur ne dit pas encore la plaque d'en face aux écrans d'un
-duel (`DuelEntreAmis`, `VerdictVu`).
+son socle à ses couleurs, son nom sur sa plaque et son emblème.
+
+## La grande plaque des duels : le code
+
+`duels/le-code.jpg` : les mêmes écrans, photographiés sur le code (`PLAQUES=1
+npx tsx scripts/rendu-duels.ts`, Léa en Kintsugi, Tom en Guinguette) — chez
+Léa qui attend, chez Tom qui le reçoit, la victoire de Tom, la défaite de Léa.
+
+- **Le serveur dit la plaque des deux joueurs** d'un duel classé
+  (`DuelEntreAmis.auteur`, `.contre`) et celle d'en face à la fin d'une partie
+  (`Adversaire.plaque`) : `saPlaque`, `core/campagne.ts`, de mémoire comme aux
+  classements ; jamais d'un masqué — qui ne se nomme pas ne montre pas sa
+  plaque —, ni d'Automate.
+- **Les deux écrans la posent** (`DuelFaceCachee`, `VerdictDuDuel`) par la
+  classe des classements (`classeDeLaPlaque`) et la même pièce d'emblème ;
+  sans plaque, la carte d'avant au caractère près.
+- **Relevé en le faisant** : le semis de la maquette (`::after`, à 8 %) se
+  peignait par-dessus tout ce que la carte porte — positionné et dernier, il
+  passait devant ses pièces, positionnées elles aussi : il est devenu le
+  premier (`::before`). Et chaque texte se mesure sur ce qu'il y a vraiment
+  dessous, semis, reflet et dégradés compris : à 10 %, l'encre atténuée de
+  quatre plaques tombait sous 4,5:1 ; à 8 %, seule la case « à jouer », qui
+  l'écrit en petit, en avait besoin — elle a pris un sol plein
+  (`plaques.test.ts` mesure les trente-quatre).
 
 Relevé en la faisant : `.carte-plaque` est pris (la plaque du compagnon sur la
 carte d'un joueur, en absolu) — la classe de la maquette l'avait emprunté, et
@@ -87,7 +109,6 @@ courts, règle `profil.md`).
 
 ## Ce qui reste
 
-- La grande plaque des duels, à valider puis à coder.
 - La police du thème sur le prénom, et une richesse de la plaque selon la
   rareté du thème : proposées, pas encore décidées.
 - Ce que les emblèmes font au téléphone Android de la friture (un Redmi,

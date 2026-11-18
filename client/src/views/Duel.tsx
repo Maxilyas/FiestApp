@@ -41,6 +41,7 @@ import { useCarteDUnProfil } from '../components/CarteDUnProfil'
 import { nomDuChoix } from '../../../shared/nomDuChoix'
 import { PAGE_DES_DUELS, adresseDuDuel } from './adressesDesDuels'
 import { JetonsDeLEnjeu, ceQuIlPorte, ecartSigne, type ContreEnJeu } from './Rencontre'
+import { EmblemeDeLaPlaque, classeDeLaPlaque } from '../components/Plaque'
 
 export { ADRESSE_DU_LANCEMENT, adresseDuDuel } from './adressesDesDuels'
 
@@ -151,9 +152,9 @@ function GestesDuBas({ children }: { children: ReactNode }) {
 export interface VerdictVu {
   /** Sur quoi : « Cinéma » — le surtitre. */
   quoi: string
-  /** Les deux avatars, chacun avec ce qu'il porte (`ceQuIlPorte`). */
-  toi: { avatar: string; justes: number; apparence?: SonApparence }
-  lui: { nom: string; avatar: string; justes: number; ligue?: CleDeLigue; apparence?: SonApparence }
+  /** Les deux avatars, chacun avec ce qu'il porte (`ceQuIlPorte`), et la plaque de son nom, son socle (`plaque`). */
+  toi: { avatar: string; justes: number; apparence?: SonApparence; plaque?: string }
+  lui: { nom: string; avatar: string; justes: number; ligue?: CleDeLigue; apparence?: SonApparence; plaque?: string }
   /** Ce qu'il a fait à sa cote ; absent : un duel qui ne compte pas. */
   ecart?: number
   /** Sa cote d'après, sa ligue, sa place au classement des duels. */
@@ -255,20 +256,28 @@ export function VerdictDuDuel({
               {v.apres && <BlasonDeLigue ligue={v.apres.ligue} taille={18} decoratif className="duels-face-blason" />}
               <span className="num duels-face-titre">{TITRE_DU_VERDICT[issue]}</span>
               <span className="duels-face-scores">
-                <span className="duels-face-joueur">
+                {/* Chacun sur son socle, aux couleurs de sa plaque, son nom écrit dessus (la grande plaque des duels, le
+                    18 novembre 2026) : à un contre un, la place qu'un classement n'a pas. */}
+                <span className={'duels-face-joueur' + classeDeLaPlaque(v.toi.plaque)}>
                   <span className="duels-face-avatar toi">
                     <Visage avatar={v.toi.avatar} apparence={v.toi.apparence} />
                   </span>
                   <span className={'num duels-face-score' + (v.toi.justes >= v.lui.justes ? ' devant' : '')}>{v.toi.justes}</span>
-                  <span className="duels-face-nom">Toi</span>
+                  <span className="duels-face-nom">
+                    Toi
+                    <EmblemeDeLaPlaque plaque={v.toi.plaque} />
+                  </span>
                 </span>
                 <span className="duels-face-trait" />
-                <span className="duels-face-joueur">
+                <span className={'duels-face-joueur' + classeDeLaPlaque(v.lui.plaque)}>
                   <span className={'duels-face-avatar' + (v.lui.ligue ? ` ligue-${v.lui.ligue}` : '')}>
                     <Visage avatar={v.lui.avatar} apparence={v.lui.apparence} />
                   </span>
                   <span className={'num duels-face-score' + (v.lui.justes >= v.toi.justes ? ' devant' : '')}>{v.lui.justes}</span>
-                  <span className="duels-face-nom">{v.lui.nom}</span>
+                  <span className="duels-face-nom">
+                    {v.lui.nom}
+                    <EmblemeDeLaPlaque plaque={v.lui.plaque} />
+                  </span>
                 </span>
               </span>
               {v.ecart !== undefined && (
@@ -683,13 +692,18 @@ export function DuelFaceCachee({
       <p className="duels-surtitre or">{`Duel classé · ${surQuoi(duel)}`}</p>
       <div className="duels-cartes">
         <span className="duels-carte-flotte">
-          <span className="duels-carte duels-carte-dos">
+          {/* Chaque carte s'habille de la plaque de son joueur (le 18 novembre 2026) : son fond, son filet, son emblème
+              en semis ; le nom d'en face écrit sur sa plaque. */}
+          <span className={'duels-carte duels-carte-dos' + classeDeLaPlaque(enFace.plaque)}>
             <span className="duels-balaye" />
             <span className="duels-carte-nom">
               <span aria-hidden="true">
                 <Visage avatar={enFace.avatar} apparence={ceQuIlPorte(enFace)} />
               </span>
-              <span>{enFace.nom}</span>
+              <span className="duels-carte-son-nom">
+                {enFace.nom}
+                <EmblemeDeLaPlaque plaque={enFace.plaque} />
+              </span>
             </span>
             {cache ? (
               <span className="num duels-carte-mystere" aria-hidden="true">
@@ -707,7 +721,7 @@ export function DuelFaceCachee({
             )}
           </span>
         </span>
-        <span className={'duels-carte duels-carte-toi' + (moi.ligue ? ` ligue-${moi.ligue}` : '')}>
+        <span className={'duels-carte duels-carte-toi' + (moi.ligue ? ` ligue-${moi.ligue}` : '') + classeDeLaPlaque(moi.plaque)}>
           <span className="duels-carte-avatar" aria-hidden="true">
             <Visage avatar={moi.avatar} apparence={ceQuIlPorte(moi)} />
           </span>
@@ -1010,8 +1024,15 @@ export function PageDuDuel({
         <VerdictDuDuel
           verdict={{
             quoi: surQuoi(duel),
-            toi: { avatar: moi.avatar, justes: t.justes, apparence: ceQuIlPorte(moi) },
-            lui: { nom: enFace.nom, avatar: enFace.avatar, justes: duel.aBattre, apparence: ceQuIlPorte(enFace), ...(enFace.ligue && { ligue: enFace.ligue }) },
+            toi: { avatar: moi.avatar, justes: t.justes, apparence: ceQuIlPorte(moi), ...(moi.plaque && { plaque: moi.plaque }) },
+            lui: {
+              nom: enFace.nom,
+              avatar: enFace.avatar,
+              justes: duel.aBattre,
+              apparence: ceQuIlPorte(enFace),
+              ...(enFace.ligue && { ligue: enFace.ligue }),
+              ...(enFace.plaque && { plaque: enFace.plaque }),
+            },
             ecart: duel.ecart,
             ...(duel.apres && { apres: duel.apres, semaine: duel.apres.semaine }),
           }}
