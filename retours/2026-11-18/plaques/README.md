@@ -107,7 +107,53 @@ carte d'un joueur, en absolu) — la classe de la maquette l'avait emprunté, et
 la carte d'en face sautait au coin de l'écran (le piège des modificateurs
 courts, règle `profil.md`).
 
+## L'avis demandé, et une contre-proposition
+
+> « Donne-moi un avis honnête sur le design de la plaque et comment ça
+> s'intègre dans le quiz du jour, défi de la semaine etc. Est-ce qu'il n'y a
+> pas mieux à faire ? » — le propriétaire, le soir du 18 novembre 2026.
+
+Relu sur les captures de la copie de la production (le mois, le défi, le
+classement des duels) :
+
+- **La vitrine du podium est le maillon faible.** Trois lignes pleines de
+  trois thèmes, c'est encore une mosaïque, là où l'œil arrive. La plus claire
+  attire le regard quel que soit son rang (une plaque d'Ivoire troisième
+  éclipse le premier), le score change de couleur à chaque ligne, et un
+  premier sans plaque paraît moins bien servi que son dauphin. Au classement
+  des duels, rangé par ligues, elle distingue trois lignes sans rapport avec
+  ce rangement — chacune seule en tête de sa ligue.
+- **Le paraphe est discret, mais il dit peu.** Sept plaques sur dix tracent un
+  trait jaune ou orangé ; sous un thème clair, presque toutes le même trait
+  brun. Souligné, un prénom se lit comme un lien. Et l'emblème est une petite
+  icône de plus derrière le prénom, après le laurier et avant le niveau, qui
+  rapetisse jusqu'à la tache sur une ligne serrée.
+- **Trois dessins pour un seul objet** : ligne pleine, trait, carte habillée.
+  La boutique promet la ligne pleine (« les autres te verront ainsi »), que
+  trois joueurs seulement voient.
+- **La grande plaque des duels tient** : à un contre un, elle a la place.
+
+La contre-proposition, `contre-proposition/` (`mois.jpg`, `duels.jpg`,
+`ivoire.jpg` ; `maquette.css`, posée sur les vraies lignes d'un serveur
+jetable — quinze profils fictifs, portraits, ligues, scores du mois) :
+**la plaque du nom, une seule forme partout** — celle des duels. Le prénom
+s'écrit sur sa petite plaque, à ses vraies couleurs (son fond, son filet, son
+encre) ; la ligne, le rang, le niveau et le score restent ceux de tous. Au
+podium, la même, gravée : son double filet, et son emblème quand la ligne a
+la place. Plus d'emblème dans le corps de la liste.
+
+Ce qu'elle coûte, mesuré sur la maquette : le corps de la liste est plus
+présent qu'avec le paraphe — une colonne de petites plaques, les sombres
+ressortant sous un thème clair et les claires sous un thème sombre — ; le
+prénom perd une douzaine de pixels (une lettre sur la ligne la plus serrée :
+« Béréni… » devient « Bérén… ») ; les lignes, elles, raccourcissent (49 px au
+podium au lieu de 64, 45 ailleurs au lieu de 48). Rien n'en est codé : à
+décider. La voie prudente, si le paraphe plaît : ne remplacer que la vitrine
+par la plaque du nom, et garder le paraphe plus bas.
+
 ## Ce qui reste
+
+- La contre-proposition ci-dessus, à décider.
 
 - La police du thème sur le prénom, et une richesse de la plaque selon la
   rareté du thème : proposées, pas encore décidées.
