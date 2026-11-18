@@ -187,9 +187,47 @@ trait, ni plaque autour du prénom, ni emblème dans la ligne.
 
 Rien n'en est codé : à décider. L'écrin et le podium se combinent.
 
+## L'écrin et le podium, partout où un joueur se montre
+
+> « L'écrin combiné au podium est une bonne idée. Comment on fait pour les
+> duels / classement des duels ? J'ai peut-être oublié autre part. » — le
+> propriétaire, le même soir.
+
+**Les duels** (`trois-propositions/4-duels.jpg`, vus par une joueuse classée
+7ᵉ) : à l'onglet « Classement », chaque avatar « à ta portée » dans son écrin,
+et le « Top 3 » en trois petits écrins ; la feuille du classement entier
+s'ouvre sur le podium, puis les ligues dessous, chaque ligne dans son écrin
+— une ligue dont tous les joueurs sont montés sur le podium perd son titre.
+Les écrans d'un duel (le duel à relever, le verdict) gardent la grande plaque
+codée le même jour : la carte habillée est un écrin en grand, le socle du
+verdict une marche du podium.
+
+**L'inventaire** — où la plaque se montre aujourd'hui, et où des joueurs
+paraissent sans elle :
+
+| Où | Aujourd'hui | Avec l'écrin et le podium |
+|---|---|---|
+| Quiz du jour : le jour, le mois | paraphe, vitrine | podium, écrin sur chaque ligne |
+| Défi de la semaine (et le défi entre amis d'avant, même ligne) | paraphe, vitrine | podium, écrin |
+| Duels : le classement entier | paraphe, vitrine | podium, puis les ligues, écrin |
+| Duels : « à ta portée », « Top 3 », « Entre amis » | rien | écrin |
+| Duels : « En cours », « Historique », les face-à-face | rien | écrin |
+| Le classement des collectionneurs | rien | podium, écrin |
+| Les amis, la recherche, les joueurs croisés | rien | écrin |
+| La page d'un duel : la carte, le verdict | la grande plaque | inchangée |
+| La loge (« Ma plaque »), la fiche d'un thème à la boutique | une ligne en vitrine | sa ligne dans son écrin, et sa marche du podium |
+| La carte d'un joueur | rien | rien : elle a son fond de carte |
+| En soirée, l'écran commun, la télé, un invité anonyme | rien | rien (invariant 8) |
+
+Ce qui part : le paraphe, la vitrine et l'emblème dans la ligne. Ce qui
+reste : les couleurs de chaque plaque et ses emblèmes, qui servent au
+filigrane de l'écrin, aux marches du podium et aux cartes d'un duel. À
+trancher en codant : le podium ne se dresse pas quand plus de trois joueurs se
+partagent les trois premières places (la liste les garde tous).
+
 ## Ce qui reste
 
-- La contre-proposition, puis les trois propositions ci-dessus : à décider.
+- L'écrin et le podium, retenus le soir du 18 novembre 2026 : à coder, sur l'inventaire ci-dessus.
 
 - La police du thème sur le prénom, et une richesse de la plaque selon la
   rareté du thème : proposées, pas encore décidées.
