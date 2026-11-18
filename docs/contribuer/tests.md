@@ -434,7 +434,7 @@ Plus de trois cents fichiers au 26 octobre 2026, quelque trois mille épreuves ;
 - `server/test/fonds-des-savoirs.test.ts` — les fonds des savoirs : l'achat, ses refus, le QG, la suppression.
 - `server/test/gerbes.test.ts` — les gerbes.
 - `server/test/heros.test.ts` — les pages phares.
-- `server/test/plaques.test.ts` — les plaques de nom, la ligne d'un joueur aux couleurs d'un thème qu'il possède : ses règles pures (`shared/plaques.ts` — une par thème sauf Velours, sans choix celle du thème porté), la feuille (chaque plaque aux jetons de son thème, lisible à 4,5:1, un motif chacune, plus forte que la ligne d'un thème), le motif en pièce de la ligne et jamais en fond, l'essai dans la loge, puis au banc : la choisir parmi ses thèmes, ses refus, et sa clé sur la ligne du classement du jour.
+- `server/test/plaques.test.ts` — les plaques de nom, la ligne d'un joueur aux couleurs d'un thème qu'il possède : ses règles pures (`shared/plaques.ts` — une par thème sauf Velours, sans choix celle du thème porté), la vitrine au podium (le rang 3 au plus, ex æquo compris), la feuille (chaque plaque aux jetons de son thème, lisible à 4,5:1, plus forte que la ligne d'un thème), les emblèmes à jour de leur script et leurs deux tons lisibles à 3:1 sur chaque thème et sur leur plaque, le paraphe et l'emblème en pièces de la ligne, jamais en fond, l'essai dans la loge, puis au banc : la choisir parmi ses thèmes, ses refus, et sa clé sur la ligne du classement du jour.
 - `server/test/themes.test.ts` — les thèmes et leurs confettis.
 
 ### Les missions du jour et le coffre de la semaine

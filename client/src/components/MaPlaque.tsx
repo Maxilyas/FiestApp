@@ -1,6 +1,6 @@
 import { Avatar } from './Avatar'
 import { NomLaure } from './Laurier'
-import { MotifDeLaPlaque, classeDeLaPlaque } from './Plaque'
+import { EmblemeDeLaPlaque, classeDeLaPlaque } from './Plaque'
 import { AUCUNE_PLAQUE, plaquePortee, plaquesOuvertes } from '../../../shared/plaques'
 import { theme } from '../../../shared/themes'
 import { bordurePortee } from '../../../shared/duels'
@@ -12,8 +12,9 @@ import type { PropsDUnePiece } from './choix'
 // La plaque de son nom, là où elle se choisit et là où elle se vend : dans
 // la pièce « Thème » de la loge (`MaPlaque`, derrière l'onglet « Ma
 // plaque »), et sur la fiche d'un thème à la boutique (`LigneDePlaque`).
-// Sa ligne telle qu'un classement la montrerait — son avatar, son prénom, la
-// plaque : on choisit ce qu'on voit, pas un nom dans une liste.
+// Sa ligne telle que le podium la montre — son avatar, son prénom, la plaque
+// entière et son emblème : on choisit ce qu'on voit, pas un nom dans une
+// liste. Hors du podium, les autres en voient le paraphe (`Plaque.tsx`).
 
 type SaLigne = Pick<PublicProfileDetail, 'name' | 'laurier' | 'avatar' | 'finition' | 'legendaire' | 'eclats' | 'eclatsEteints' | 'matieres' | 'matieresPortees' | 'scelles' | 'sceauMasque' | 'bordureChoisie' | 'bordures'>
 
@@ -41,18 +42,18 @@ function SonNom({ profil }: { profil: SaLigne }) {
 /**
  * Sa ligne sous une plaque, à regarder seulement : la fiche d'un thème de la
  * boutique dit ainsi ce que les autres verront de lui, et la loge ce qu'ils
- * voient avec la plaque qu'il essaie — sans plaque (`null`), la ligne de
- * tous.
+ * voient avec la plaque qu'il essaie — sa forme du podium, la plus entière
+ * (`vitrine`) ; sans plaque (`null`), la ligne de tous.
  */
 export function LigneDePlaque({ profil, plaque }: { profil: SaLigne; plaque: string | null }) {
   return (
     <div
-      className={'lb-row plaque-apercu' + classeDeLaPlaque(plaque)}
+      className={'lb-row plaque-apercu' + classeDeLaPlaque(plaque, 1)}
       role="img"
       aria-label={plaque ? `Ta ligne aux classements, sous la plaque ${theme(plaque)?.nom ?? ''}` : 'Ta ligne aux classements, sans plaque'}
     >
       <SonNom profil={profil} />
-      <MotifDeLaPlaque plaque={plaque} />
+      <EmblemeDeLaPlaque plaque={plaque} />
     </div>
   )
 }
@@ -79,12 +80,12 @@ export function plaquesDeLaLoge(profil: PublicProfileDetail, essai: PropsDUnePie
 }
 
 /**
- * L'échantillon d'une plaque : un bout de sa ligne, à ses couleurs — son
- * fond, son trait, un texte à son encre (son nom, dans la grille), son motif
- * après lui. Ce n'est pas
+ * L'échantillon d'une plaque : un bout de sa plaque du podium, à ses couleurs
+ * — son fond, son trait, un texte à son encre (son nom, dans la grille), son
+ * emblème après lui. Ce n'est pas
  * une ligne de classement (`.lb-row`) : la règle des plaques ne la peint pas,
  * la classe de la plaque (`.plaque-<clé>`) ne lui donne que ses jetons
- * (`--p-bg`, `--p-ink`, `--p-trait`, `--p-motif`), qu'elle lit elle-même
+ * (`--p-bg`, `--p-ink`, `--p-trait`, `--p-embleme`), qu'elle lit elle-même
  * (`.loge-plaque-echantillon`). Sans plaque, le sol et l'encre de la page :
  * la ligne de tous.
  */
@@ -92,7 +93,7 @@ export function EchantillonDePlaque({ plaque, texte }: { plaque: string | null; 
   return (
     <span className={'loge-plaque-echantillon' + classeDeLaPlaque(plaque)} aria-hidden="true">
       {texte && <span className="loge-plaque-texte">{texte}</span>}
-      <MotifDeLaPlaque plaque={plaque} />
+      <EmblemeDeLaPlaque plaque={plaque} />
     </span>
   )
 }
@@ -100,7 +101,7 @@ export function EchantillonDePlaque({ plaque, texte }: { plaque: string | null; 
 /**
  * « Ma plaque », le second onglet de la pièce « Thème » : sa ligne de
  * classement une seule fois, sous la plaque que la page montre, puis chaque
- * choix en vignette, une petite plaque qui porte son nom à son encre — son
+ * choix en vignette, une petite plaque qui porte son nom à son encre, et son emblème — son
  * prénom, la ligne au-dessus le montre déjà ; son nom sous elle prenait une
  * ligne de plus, deux pour « Comme mon thème » — : « Comme mon thème »,
  * d'office, « Aucune », puis la

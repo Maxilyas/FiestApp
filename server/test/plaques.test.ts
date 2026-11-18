@@ -3,8 +3,10 @@
 // les classements, aux couleurs d'un thème qu'il possède. Un thème ne se
 // voyait que sur le téléphone de qui le porte — six de vendus en production,
 // pour seize compagnons — : la plaque est sa part visible. Ses règles sont
-// pures (`shared/plaques.ts`), ses couleurs celles de son thème, et son motif
-// ne passe jamais sous un texte.
+// pures (`shared/plaques.ts`), ses couleurs celles de son thème. Depuis le
+// 18 novembre 2026 (`retours/2026-11-18/plaques/`), deux formes : le paraphe
+// partout — un trait de plume sous le prénom, son emblème après lui —, la
+// plaque entière au podium ; et rien ne passe jamais sous un texte.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -15,6 +17,7 @@ import { AUCUNE_PLAQUE, choixDePlaque, plaqueDuTheme, plaquePortee, plaquesOuver
 import { THEMES } from '../../shared/themes'
 import { avecLEssai, essayer, lignesDeLEssai } from '../../shared/loge'
 import { jourDe } from '../../shared/jour'
+import { CONTRASTE_D_UN_EMBLEME, DEBUT, EMBLEMES, FIN, auPire, couleursDesPlaques, feuilleAJour, fondsDesThemes } from '../scripts/emblemes-des-plaques'
 
 const CLIENT = new URL('../../client/src/', import.meta.url)
 const lu = (chemin: string) => readFileSync(new URL(chemin, CLIENT), 'utf8')
@@ -62,14 +65,26 @@ test('une plaque par thème, sauf Velours ; sans choix, celle du thème porté',
   assert.deepEqual(plaquesOuvertes(['velours', 'ivoire', 'ocean', 'kintsugi']), ['ivoire', 'ocean', 'kintsugi'])
 })
 
-test('la classe d’une plaque ne prend qu’une clé de thème', async () => {
+test('la classe d’une plaque ne prend qu’une clé de thème, et sa vitrine au podium', async () => {
   // Un composant du client : chargé par son adresse, le serveur ne compile pas de JSX.
-  const { classeDeLaPlaque } = (await import(new URL('components/Plaque.tsx', CLIENT).href)) as { classeDeLaPlaque: (p: unknown) => string }
+  const { classeDeLaPlaque, enVitrine, PLACES_EN_VITRINE } = (await import(new URL('components/Plaque.tsx', CLIENT).href)) as {
+    classeDeLaPlaque: (p: unknown, rang?: number) => string
+    enVitrine: (rang?: number) => boolean
+    PLACES_EN_VITRINE: number
+  }
   assert.equal(classeDeLaPlaque('kintsugi'), ' plaque plaque-kintsugi')
   assert.equal(classeDeLaPlaque(null), '')
   assert.equal(classeDeLaPlaque(undefined), '')
   // Ce qui n'a pas la forme d'une clé n'entre pas dans une classe.
   for (const k of ['', 'a b', 'x"y', 'Kintsugi', 'plaque me', 'a-b']) assert.equal(classeDeLaPlaque(k), '', k)
+
+  // Le podium montre la plaque entière, ex æquo compris : tous ceux qui partagent le troisième rang sont troisièmes.
+  assert.equal(PLACES_EN_VITRINE, 3)
+  assert.equal(classeDeLaPlaque('kintsugi', 1), ' plaque plaque-kintsugi vitrine')
+  assert.equal(classeDeLaPlaque('kintsugi', 3), ' plaque plaque-kintsugi vitrine')
+  assert.equal(classeDeLaPlaque('kintsugi', 4), ' plaque plaque-kintsugi', 'hors du podium, le paraphe')
+  assert.equal(classeDeLaPlaque(null, 1), '', 'sans plaque, rien — même au podium')
+  for (const r of [undefined, 0, -1, 4, 12]) assert.equal(enVitrine(r), false, String(r))
 })
 
 test('la feuille : chaque plaque porte les couleurs de son thème, lisibles, et son motif', () => {
@@ -98,12 +113,9 @@ test('la feuille : chaque plaque porte les couleurs de son thème, lisibles, et 
     }
   }
 
-  // Chaque plaque a un motif, et un seul.
-  const motifs = [...CSS.matchAll(/^((?:\.plaque-[a-z]+,?\s*)+)\{\s*--p-motif:/gm)].flatMap(m => [...m[1].matchAll(/\.plaque-([a-z]+)/g)].map(x => x[1]))
-  assert.deepEqual([...motifs].sort(), [...attendues].sort(), 'chaque plaque a son motif, une fois')
-
-  // Plus forte que la ligne d'un thème, « la mienne » comprise : les thèmes repeignent `.lb-row` et `.lb-row.me`.
-  assert.match(CSS, /:root body \.lb-row\.plaque:not\(\.team-row\) \{[^}]*background: var\(--p-bg\)/)
+  // La vitrine du podium est plus forte que la ligne d'un thème, « la mienne » comprise : les thèmes repeignent `.lb-row`
+  // et `.lb-row.me`.
+  assert.match(CSS, /:root body \.lb-row\.plaque\.vitrine:not\(\.team-row\) \{[^}]*background:[^;]*var\(--p-bg\);/)
   for (const t of themesDuClient()) {
     for (const m of t.css.matchAll(/^:root\[data-theme='[a-z]+'\] ([^{]*\.lb-row[^{]*)\{/gm)) {
       const classes = (m[1].match(/\./g) ?? []).length
@@ -111,28 +123,68 @@ test('la feuille : chaque plaque porte les couleurs de son thème, lisibles, et 
     }
   }
   // Elle redit les jetons que la ligne lit : le rang, le prénom et le score suivent sans rien savoir.
-  const ligne = /:root body \.lb-row\.plaque:not\(\.team-row\) \{([^}]*)\}/.exec(CSS)![1]
+  const ligne = /:root body \.lb-row\.plaque\.vitrine:not\(\.team-row\) \{([^}]*)\}/.exec(CSS)![1]
   for (const j of ['--ink: var(--p-ink)', '--muted: var(--p-muted)', '--accent-text: var(--p-or)']) assert.ok(ligne.includes(j), j)
 })
 
-test('le motif est une pièce de la ligne, jamais un fond sous le texte', () => {
-  // Fondu par un dégradé, pas par un masque : dans une liste, rien ne garde un calque (règle css.md).
-  const bloc = CSS.slice(CSS.indexOf('/* ── Les plaques de nom'), CSS.indexOf('/* ── Écran commun'))
-  assert.ok(bloc.length > 1000, 'le bloc des plaques se trouve')
-  assert.doesNotMatch(bloc.replace(/\/\*[\s\S]*?\*\//g, ''), /mask|filter|animation:(?!\s*none)|transform/, 'ni masque, ni filtre, ni mouvement')
-  assert.match(bloc, /\.lb-row\.plaque > \.plaque-motif \{[^}]*flex: 1 1 0[^}]*background:[^;]*var\(--p-motif\)/)
-  // Le fond d'une plaque est uni : `--p-motif` ne se lit que dans la pièce du motif.
-  assert.equal((bloc.replace(/\/\*[\s\S]*?\*\//g, '').match(/var\(--p-motif\)/g) ?? []).length, 1)
+test('chaque plaque a son emblème, en deux tons qui se lisent sur tout thème et sur elle-même', () => {
+  // Écrits par leur script, jamais à la main : la feuille est celle qu'il écrirait.
+  assert.equal(feuilleAJour(CSS), CSS, 'npx tsx scripts/emblemes-des-plaques.ts --ecrire')
+  const bloc = CSS.slice(CSS.indexOf(DEBUT), CSS.indexOf(FIN))
+  const attendues = THEMES.filter(t => t.key !== 'velours').map(t => t.key)
+  assert.deepEqual(Object.keys(EMBLEMES).sort(), [...attendues].sort(), 'un dessin par plaque, et aucun pour un thème qui n’existe pas')
+  const tons = new Map(
+    [...bloc.matchAll(/^\.plaque-([a-z]+) \{ --p-clair: (#[0-9a-f]{6}); --p-sombre: (#[0-9a-f]{6}); --p-embleme: url\("data:image\/svg\+xml,[^"]+"\); \}$/gm)].map(
+      m => [m[1], { clair: m[2], sombre: m[3] }] as const,
+    ),
+  )
+  assert.deepEqual([...tons.keys()].sort(), [...attendues].sort(), 'chaque plaque, ses deux tons et son emblème')
 
-  // Les trois classements la posent de la même façon : la classe sur la ligne, le motif juste après le prénom.
+  // Le clair se lit sur chaque thème sombre, le sombre sur chaque thème clair (3:1, ce qui n'est pas du texte) ; et sur
+  // sa propre plaque, au podium, le ton qui la contraste.
+  const fonds = fondsDesThemes()
+  const couleurs = couleursDesPlaques(CSS)
+  const clairs = new Map(THEMES.map(t => [t.key, t.clair]))
+  for (const [cle, { clair, sombre }] of tons) {
+    assert.ok(auPire(clair, fonds.sombres) >= CONTRASTE_D_UN_EMBLEME, `${cle} : son clair sur les thèmes sombres`)
+    assert.ok(auPire(sombre, fonds.clairs) >= CONTRASTE_D_UN_EMBLEME, `${cle} : son sombre sur les thèmes clairs`)
+    const surElle = clairs.get(cle) ? sombre : clair
+    assert.ok(auPire(surElle, [couleurs.get(cle)!.bg]) >= CONTRASTE_D_UN_EMBLEME, `${cle} : son emblème sur sa plaque`)
+  }
+  // Le paraphe prend le sombre sous chaque thème clair du catalogue, et seulement sous eux.
+  const sousLeClair = /^:root:is\(([^)]+)\) \.lb-row\.plaque \{ --p-plume: var\(--p-sombre\); \}$/m.exec(bloc)
+  assert.ok(sousLeClair, 'la règle du paraphe sous un thème clair')
+  const listes = [...sousLeClair[1].matchAll(/\[data-theme='([a-z]+)'\]/g)].map(m => m[1]).sort()
+  assert.deepEqual(listes, THEMES.filter(t => t.clair).map(t => t.key).sort())
+})
+
+test('le paraphe et l’emblème : des pièces de la ligne, jamais un fond sous le texte', () => {
+  // Ni masque, ni filtre, ni mouvement : dans une liste, rien ne garde un calque (règle css.md). Les emblèmes sont des
+  // images, leurs couleurs écrites dedans ; leur bloc, écrit par son script, se lit à part (le test d'avant).
+  const tout = CSS.slice(CSS.indexOf('/* ── Les plaques de nom'), CSS.indexOf('/* ── Écran commun'))
+  const bloc = (tout.slice(0, tout.indexOf(DEBUT)) + tout.slice(tout.indexOf(FIN))).replace(/\/\*[\s\S]*?\*\//g, '')
+  assert.ok(bloc.length > 1000, 'le bloc des plaques se trouve')
+  assert.doesNotMatch(bloc, /mask|filter|animation:(?!\s*none)|transform/, 'ni masque, ni filtre, ni mouvement')
+  // Le paraphe : un trait sous le prénom, au ton que le fond laisse lire — hors du podium seulement.
+  assert.match(bloc, /\.lb-row\.plaque \{ --p-plume: var\(--p-clair\); \}/)
+  assert.match(bloc, /\.lb-row\.plaque:not\(\.vitrine\) > \.lb-name::after \{[^}]*border-bottom: 2px solid var\(--p-plume\);/)
+  // L'emblème : une pièce après le prénom, qui cède avant lui ; `--p-embleme` ne se lit que dans ses pièces.
+  assert.match(bloc, /\.lb-row\.plaque > \.plaque-embleme \{[^}]*flex: 0 1000 20px;[^}]*background: var\(--p-embleme\)/)
+  assert.deepEqual(
+    [...bloc.matchAll(/([^{}]+)\{[^}]*var\(--p-embleme\)/g)].map(m => m[1].trim()),
+    ['.lb-row.plaque > .plaque-embleme'],
+    'la ligne même ne prend jamais l’emblème en fond',
+  )
+
+  // Les trois classements la posent de la même façon : la classe et le rang sur la ligne, l'emblème juste après le prénom.
   for (const [fichier, n] of [
     ['views/JourApp.tsx', 1],
     ['views/Defi.tsx', 2],
     ['views/Duels.tsx', 1],
   ] as const) {
     const source = lu(fichier)
-    assert.equal((source.match(/classeDeLaPlaque\(l\.plaque\)/g) ?? []).length, n, `${fichier} : la classe de la plaque sur sa ligne`)
-    assert.match(source, /<\/span>\s*<MotifDeLaPlaque plaque=\{l\.plaque\} \/>/, `${fichier} : le motif après le prénom`)
+    assert.equal((source.match(/classeDeLaPlaque\(l\.plaque, l\.rang\)/g) ?? []).length, n, `${fichier} : la classe de la plaque et son rang sur sa ligne`)
+    assert.match(source, /<\/span>\s*<EmblemeDeLaPlaque plaque=\{l\.plaque\} \/>/, `${fichier} : l’emblème après le prénom`)
   }
 })
 
@@ -184,10 +236,10 @@ test('l’onglet « Ma plaque » : sa ligne une fois, puis une petite plaque par
     boutique: { confettis: { gagnes: 0, depenses: 0, solde: 0 }, possedes: ['velours', 'ivoire', 'ocean', 'neige'], porte: null, jour: '2026-11-17' },
   }
   const html = renderToStaticMarkup(React.createElement(MaPlaque, { profil: lea, essai: { plaque: 'neige' }, essayer: () => {}, neufs: new Set(['neige']) }))
-  // Sa ligne de classement une seule fois, sous la plaque que la page montre : une ligne entière par choix faisait
-  // commencer la plaque à 1180 px en 360 × 640.
+  // Sa ligne de classement une seule fois, sous la plaque que la page montre — sa forme du podium, la plus entière : une
+  // ligne entière par choix faisait commencer la plaque à 1180 px en 360 × 640.
   assert.equal(html.match(/class="lb-row /g)?.length, 1)
-  assert.match(html, /^<div class="lb-row plaque-apercu plaque plaque-neige" role="img" aria-label="Ta ligne aux classements, sous la plaque Neige">/)
+  assert.match(html, /^<div class="lb-row plaque-apercu plaque plaque-neige vitrine" role="img" aria-label="Ta ligne aux classements, sous la plaque Neige">/)
   // Puis les choix en vignettes, dans l'ordre : d'office, aucune, puis une par thème à lui — Velours n'en a pas.
   const vignettes = [...html.matchAll(/<button type="button" class="loge-vignette([^"]*)" aria-pressed="(true|false)" aria-label="([^"]+)">/g)].map(m => [m[3], m[2], m[1].trim()])
   assert.deepEqual(vignettes, [
@@ -208,9 +260,9 @@ test('l’onglet « Ma plaque » : sa ligne une fois, puis une petite plaque par
     ['Océan', 'plaque plaque-ocean'],
     ['Neige', 'plaque plaque-neige'],
   ])
-  // Ce n'est pas une ligne `.lb-row` : il lit lui-même les jetons de sa plaque, et son motif est une pièce après son nom.
-  assert.match(CSS, /\.loge-plaque-echantillon\.plaque \{[^}]*border-color: var\(--p-trait\);[^}]*background: var\(--p-bg\);[^}]*color: var\(--p-ink\);/)
-  assert.match(CSS, /\.loge-plaque-echantillon > \.plaque-motif \{[^}]*flex: 1 1 0[^}]*var\(--p-motif\)/)
+  // Ce n'est pas une ligne `.lb-row` : il lit lui-même les jetons de sa plaque, et son emblème est une pièce après son nom.
+  assert.match(CSS, /\.loge-plaque-echantillon\.plaque \{[^}]*border-color: var\(--p-trait\);[^}]*background:[^;]*var\(--p-bg\);[^}]*color: var\(--p-ink\);/)
+  assert.match(CSS, /\.loge-plaque-echantillon > \.plaque-embleme \{[^}]*var\(--p-embleme\)/)
   // La pièce est sous « Toi seul », mais sa plaque est vue des autres : un petit œil sur l'onglet, dit à l'oreille, sans
   // phrase — la ligne « qui le voit » est partie avec les autres (le 17 novembre 2026).
   const { MesThemes } = await import(new URL('components/Boutique.tsx', CLIENT).href)

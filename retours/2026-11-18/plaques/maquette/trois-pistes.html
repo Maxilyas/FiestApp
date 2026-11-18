@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Plaques — trois pistes</title>
+<style>
+@font-face { font-family: 'Cormorant Garamond'; font-weight: 600; src: url('../../../../client/public/fonts/cormorant-garamond-600.woff2') format('woff2'); }
+@font-face { font-family: 'Figtree'; font-weight: 300 900; src: url('../../../../client/public/fonts/figtree-variable.woff2') format('woff2'); }
+* { box-sizing: border-box; }
+body { margin: 0; background: #0e0b0a; font-family: Figtree, sans-serif; }
+.planche { display: grid; grid-template-columns: repeat(4, 360px); gap: 18px; padding: 18px; }
+.tel {
+  --serif: 'Cormorant Garamond', Georgia, serif;
+  --bg: #1a1412; --ink: #f3ece2; --muted: #a89b8a; --accent: #d9b56a; --accent-text: #d9b56a;
+  --surface: rgba(255,255,255,.035); --edge: rgba(217,181,106,.22); --edge-strong: rgba(217,181,106,.55); --accent-soft: rgba(217,181,106,.12);
+  background: var(--bg); color: var(--ink); padding: 18px 20px 20px; border-radius: 18px;
+}
+.tel.ivoire {
+  --bg: #f9f5ec; --ink: #2a201b; --muted: #7a6b5a; --accent: #ac8536; --accent-text: #836420;
+  --surface: #fffdf8; --edge: rgba(172,133,54,.25); --edge-strong: rgba(172,133,54,.6); --accent-soft: rgba(172,133,54,.14);
+}
+.titre { font: 600 0.68rem/1.2 Figtree; letter-spacing: .18em; text-transform: uppercase; color: var(--accent-text); margin: 0 0 4px; }
+.sous { font-size: .8rem; color: var(--muted); margin: 0 0 12px; line-height: 1.3; }
+.lb { display: flex; flex-direction: column; gap: 6px; }
+.row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 12px; background: var(--surface); border: 1px solid transparent; min-height: 44px; }
+.rank { width: 1.7em; flex: none; text-align: center; font: 600 1.3rem/1 var(--serif); color: var(--muted); font-variant-numeric: lining-nums tabular-nums; }
+.r1 .rank { color: var(--accent-text); } .r2 .rank, .r3 .rank { color: var(--ink); }
+.av { font-size: 1.2rem; line-height: 1; flex: none; }
+.nom { flex: 1; min-width: 0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.niv { display: inline-flex; align-items: center; justify-content: center; min-width: 1.5em; height: 1.5em; padding: 0 .35em; border-radius: 99px; border: 1px solid var(--edge-strong); background: var(--accent-soft); color: var(--accent-text); font-size: .75rem; font-weight: 600; flex: none; }
+.pts { font: 600 1.35rem/1 var(--serif); color: var(--accent-text); font-variant-numeric: lining-nums tabular-nums; flex: none; }
+.me { background: var(--accent-soft); border-color: var(--edge-strong); }
+
+/* Les couleurs de chaque plaque (celles de styles.css) et un emblème dessiné par thème. */
+.p-kintsugi { --p-bg:#121110; --p-ink:#f5efe3; --p-muted:#c2b8a6; --p-or:#e0b54a; --p-trait:#d4a73a;
+  --p-emb: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 24'%3E%3Cpath d='M1 3 L7 9 L5 13 L12 15 L10 21 M7 9 L13 7 L18 11 M12 15 L19 14 L27 20' fill='none' stroke='%23e0b54a' stroke-width='1.5' stroke-linejoin='round' stroke-linecap='round'/%3E%3C/svg%3E"); }
+.p-guinguette { --p-bg:#14213d; --p-ink:#fdf6e3; --p-muted:#b8c0d4; --p-or:#ffd166; --p-trait:#ffcb47;
+  --p-emb: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 24'%3E%3Cpath d='M1 5 Q14 15 27 5' fill='none' stroke='%23b8c0d4' stroke-width='.8'/%3E%3Cg fill='%23ffd166'%3E%3Ccircle cx='6' cy='10.5' r='2.2'/%3E%3Ccircle cx='14' cy='12.6' r='2.2' fill='%23ff8fa3'/%3E%3Ccircle cx='22' cy='10.5' r='2.2' fill='%238fe3ff'/%3E%3C/g%3E%3C/svg%3E"); }
+.p-ivoire { --p-bg:#f9f5ec; --p-ink:#2a201b; --p-muted:#7a6b5a; --p-or:#836420; --p-trait:#ac8536;
+  --p-emb: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 24'%3E%3Cg fill='none' stroke='%23ac8536' stroke-width='1.2'%3E%3Cpath d='M14 4 L20 12 L14 20 L8 12 Z'/%3E%3Cpath d='M2 12 H7 M21 12 H26'/%3E%3C/g%3E%3Ccircle cx='14' cy='12' r='1.6' fill='%23ac8536'/%3E%3C/svg%3E"); }
+.p-gameboy { --p-bg:#9bbc0f; --p-ink:#0f380f; --p-muted:#1e4a1e; --p-or:#0f380f; --p-trait:#0f380f;
+  --p-emb: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 24' shape-rendering='crispEdges'%3E%3Cg fill='%230f380f'%3E%3Crect x='8' y='6' width='4' height='2'/%3E%3Crect x='16' y='6' width='4' height='2'/%3E%3Crect x='6' y='8' width='16' height='4'/%3E%3Crect x='8' y='12' width='12' height='2'/%3E%3Crect x='10' y='14' width='8' height='2'/%3E%3Crect x='12' y='16' width='4' height='2'/%3E%3C/g%3E%3C/svg%3E"); }
+.p-patisserie { --p-bg:#fff7f0; --p-ink:#4a2c2a; --p-muted:#7a5a52; --p-or:#b0305a; --p-trait:#f7a8b8;
+  --p-emb: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 24'%3E%3Cg stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M4 8 l3 -2' stroke='%23f27a9b'/%3E%3Cpath d='M11 15 l3 2' stroke='%237fd1b9'/%3E%3Cpath d='M17 6 l1 3.5' stroke='%23f2c14e'/%3E%3Cpath d='M22 15 l3 -1.5' stroke='%23b0305a'/%3E%3Cpath d='M6 18 l2.5 1' stroke='%23f2c14e'/%3E%3C/g%3E%3C/svg%3E"); }
+.p-neon { --p-bg:#0b0616; --p-ink:#f7f2ff; --p-muted:#b0a3d4; --p-or:#ff7ce8; --p-trait:#ff3fd8;
+  --p-emb: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 24'%3E%3Cpath d='M16 2 L9 13 H14 L11 22 L19 10 H14 Z' fill='none' stroke='%23ff3fd8' stroke-width='3.2' stroke-linejoin='round' opacity='.35'/%3E%3Cpath d='M16 2 L9 13 H14 L11 22 L19 10 H14 Z' fill='none' stroke='%23ffc8f5' stroke-width='1.2' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+.p-carnet { --p-bg:#e8d9ba; --p-ink:#2b2118; --p-muted:#5a4a36; --p-or:#9a3522; --p-trait:#b5452f;
+  --p-emb: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 24'%3E%3Cpath d='M2 16 C6 10 9 20 13 14 S20 9 26 15' fill='none' stroke='%23b5452f' stroke-width='1.4' stroke-linecap='round'/%3E%3Cpath d='M3 19.5 H25' stroke='%235a4a36' stroke-width='.6' opacity='.6'/%3E%3C/svg%3E"); }
+.p-ocean { --p-bg:#03202b; --p-ink:#e8fbff; --p-muted:#8fc3cf; --p-or:#5ff2da; --p-trait:#3ff0d0;
+  --p-emb: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 24'%3E%3Cg fill='none' stroke='%233ff0d0' stroke-width='1.4' stroke-linecap='round'%3E%3Cpath d='M2 10 q3 -4 6 0 t6 0 t6 0 t6 0'/%3E%3Cpath d='M2 16 q3 -4 6 0 t6 0 t6 0 t6 0' opacity='.55'/%3E%3C/g%3E%3C/svg%3E"); }
+
+/* ── Aujourd'hui : toute la ligne, le motif au milieu ── */
+.actuel .row.pl { background: var(--p-bg); border-color: var(--p-trait); color: var(--p-ink); --ink: var(--p-ink); --muted: var(--p-muted); --accent-text: var(--p-or); }
+.actuel .row.pl .niv { background: transparent; border-color: var(--p-or); color: var(--p-or); }
+.actuel .row.pl .nom { flex: 0 1 auto; }
+.actuel .row.pl .motif { flex: 1 1 0; align-self: stretch; margin-block: -8px; opacity: .85; background: linear-gradient(90deg, var(--p-bg), transparent 30%, transparent 70%, var(--p-bg)), var(--p-old); }
+.actuel .row.pl.me { box-shadow: 0 0 0 3px var(--edge-strong); }
+.actuel .p-ivoire, .actuel .p-guinguette, .actuel .p-patisserie { --p-old: radial-gradient(circle, var(--p-trait) 1.3px, transparent 1.8px) 0 0 / 11px 11px; }
+.actuel .p-gameboy, .actuel .p-neon { --p-old: linear-gradient(var(--p-trait) 1px, transparent 1px) 0 0 / 12px 12px, linear-gradient(90deg, var(--p-trait) 1px, transparent 1px) 0 0 / 12px 12px; }
+.actuel .p-carnet { --p-old: repeating-linear-gradient(115deg, var(--p-trait) 0 2px, transparent 2px 10px); }
+.actuel .p-ocean { --p-old: radial-gradient(circle at 50% 120%, transparent 9px, var(--p-trait) 9px 10.5px, transparent 10.5px) 0 0 / 22px 15px; }
+.actuel .p-kintsugi { --p-old: linear-gradient(118deg, transparent 47%, var(--p-trait) 47% 50%, transparent 50%) 0 0 / 46px 100%, linear-gradient(62deg, transparent 48%, var(--p-trait) 48% 50.5%, transparent 50.5%) 18px 0 / 64px 100%; }
+.motif { display: none; } .actuel .row.pl .motif { display: block; }
+
+/* ── A. Le cartouche : la plaque porte le prénom, le score reste à tous ── */
+.cartouche { display: flex; align-items: center; gap: 7px; min-width: 0; flex: 0 1 auto; margin-right: auto; }
+.A .row.pl .cartouche {
+  padding: 5px 8px 5px 7px; margin-block: -3px; border-radius: 9px;
+  background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(0,0,0,.08)), var(--p-bg);
+  border: 1px solid var(--p-trait); color: var(--p-ink);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 1px 2px rgba(0,0,0,.25);
+}
+.A .row.pl .cartouche .nom { color: var(--p-ink); }
+.emb { display: none; width: 22px; height: 18px; flex: none; background: var(--p-emb) center / contain no-repeat; }
+.A .row.pl .emb, .B .row.pl .emb { display: block; }
+
+/* ── B. Le liseré et l'emblème : rien que le bord et un dessin ── */
+.B .row.pl {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--p-trait) 16%, transparent), transparent 62%), var(--surface);
+  box-shadow: inset 3px 0 0 var(--p-trait);
+  border-radius: 6px 12px 12px 6px;
+}
+.B .row.pl.me { background: linear-gradient(90deg, color-mix(in srgb, var(--p-trait) 16%, transparent), transparent 62%), var(--accent-soft); }
+.B .row .nom { flex: 0 1 auto; }
+.B .row .cartouche { margin-right: auto; }
+
+/* ── C. La plaque gravée : toute la ligne, mais un objet, en sourdine ── */
+.C .row.pl {
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.10)), var(--p-bg);
+  border-color: color-mix(in srgb, var(--p-trait) 70%, transparent); color: var(--p-ink);
+  --ink: var(--p-ink); --muted: var(--p-muted); --accent-text: var(--p-or);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), inset 0 -1px 0 rgba(0,0,0,.18);
+  position: relative; padding-left: 16px; padding-right: 16px;
+}
+.C .row.pl::before, .C .row.pl::after { content: ''; position: absolute; top: 50%; width: 4px; height: 4px; margin-top: -2px; border-radius: 50%; background: var(--p-trait); opacity: .7; box-shadow: inset 0 -1px 0 rgba(0,0,0,.35); }
+.C .row.pl::before { left: 5px; } .C .row.pl::after { right: 5px; }
+.C .row.pl .niv { background: transparent; border-color: var(--p-or); color: var(--p-or); }
+.C .row.pl .nom { flex: 0 1 auto; }
+.C .row.pl .frise { flex: 1 1 0; align-self: stretch; margin-block: -8px; background: var(--p-emb) center / 26px 22px no-repeat; opacity: .9; }
+.frise { display: none; } .C .row.pl .frise { display: block; }
+.C .row.pl.me { outline: 2px solid var(--edge-strong); outline-offset: 2px; }
+/* Le score et le rang restent à l'encre de la plaque ; les pastilles de niveau aussi. */
+</style>
+</head>
+<body>
+<div class="planche" id="planche"></div>
+<script>
+const J = [
+  ['Camille','🦉','kintsugi',1820,12], ['Hugo','🐻','guinguette',1690,8], ['Léa','🦊','ivoire',1540,15,true],
+  ['Noé','🐸','gameboy',1410,4], ['Zoé','🐱','patisserie',1300,9], ['Maximilien','🐼','neon',1180,22],
+  ['Inès','🐙',null,990,3], ['Tom','🐶','carnet',870,6], ['Sacha','🦁','ocean',720,11],
+]
+const PANNEAUX = [
+  ['actuel', 'Aujourd’hui', 'Toute la ligne aux couleurs du thème, un motif en dégradé au milieu.'],
+  ['A', 'A · Le cartouche', 'La plaque porte l’avatar et le prénom ; le rang et le score restent à tous.'],
+  ['B', 'B · Le liseré et l’emblème', 'Un bord, un voile léger et un petit dessin : presque rien.'],
+  ['C', 'C · La plaque gravée', 'Toute la ligne, mais un objet : relief, rivets, un seul dessin.'],
+]
+const planche = document.getElementById('planche')
+for (const theme of ['', 'ivoire']) for (const [cle, titre, sous] of PANNEAUX) {
+  const tel = document.createElement('div')
+  tel.className = `tel ${cle} ${theme}`
+  let h = `<p class="titre">${titre}${theme ? ' · sous l’Ivoire' : ' · sous le Velours'}</p><p class="sous">${sous}</p><div class="lb">`
+  J.forEach(([nom, av, p, pts, niv, me], i) => {
+    h += `<div class="row r${i + 1}${p ? ' pl p-' + p : ''}${me ? ' me' : ''}"><span class="rank">${i + 1}</span>`
+    h += `<span class="cartouche"><span class="av">${av}</span><span class="nom">${nom}</span><span class="emb"></span></span>`
+    h += `<span class="motif"></span><span class="frise"></span><span class="niv">${niv}</span><span class="pts">${pts}</span></div>`
+  })
+  tel.innerHTML = h + '</div>'
+  planche.appendChild(tel)
+}
+</script>
+</body>
+</html>
