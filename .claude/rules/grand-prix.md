@@ -54,7 +54,11 @@ maquette et les décisions du propriétaire : `retours/2026-11-19/grand-prix/`.
   pas (`taitA`, `legendairesVisibles`, `shared/album.ts`). Un avatar de plus
   pour les Grands Prix est un légendaire `secret` de plus, peint par la chaîne
   (`server/scripts/anime/legendaires.ts`, skill `peindre`) ; jamais un prix hors de la liste,
-  que le serveur refuse.
+  que le serveur refuse. **Pégase sort tout entier de son cercle**, ordinaire
+  comme éclaté (`entier` dans la chaîne, qui livre `artPerso` — la créature
+  ordinaire dans le cadre large de la rare —, `.lg-entier` dans
+  `Legendaire.tsx`) : les autres légendaires ne débordent qu'éclatés, par le
+  haut ; dans une liste, il reste dans son disque comme eux.
 - **Le code ne connaît personne** : le fantôme, le jour, le mot sont au QG.
   Le dépôt est public — ni le nom ni la date d'un vrai joueur dans le code,
   les tests, les rendus ou la documentation : Léa, Nina, Hugo.

@@ -88,7 +88,8 @@ test('les fichiers peints sont tous cités : un médaillon repeint emporte l’a
   const { IMAGES } = await import(url('components/legendaires-peints.ts'))
   const { BADGES } = await import(url('components/divins-peints.ts'))
   const cites = new Set<string>()
-  for (const i of Object.values<any>(IMAGES)) for (const f of [...i.art, ...i.rare, ...i.rarePerso, i.perso]) cites.add(f)
+  // `artPerso` : la créature ordinaire dans le cadre large, de qui sort tout entier de son cercle (Pégase).
+  for (const i of Object.values<any>(IMAGES)) for (const f of [...i.art, ...i.rare, ...i.rarePerso, i.perso, ...(i.artPerso ?? [])]) cites.add(f)
   for (const paire of Object.values<string[]>(BADGES)) for (const f of paire) cites.add(f)
   const presents = readdirSync(PUBLICS).map(f => `/medaillons/${f}`)
   assert.deepEqual(
@@ -184,6 +185,24 @@ test('éclaté : sa version rare sous le prisme, ses paillettes, sa gerbe — et
   )
   assert.ok(html.indexOf('lg-debord') > html.indexOf('lg-disque'))
   assert.ok(html.indexOf('lg-gerbe') < html.indexOf('lg-carte'), 'la gerbe est derrière la carte')
+})
+
+test('Pégase sort tout entier de son cercle, ordinaire comme éclaté — verrouillé, il reste sa silhouette', async () => {
+  // « Est-ce que l'avatar peut sortir du cercle qui l'enferme et qu'on voit toute l'image ? » (le propriétaire, le
+  // 19 novembre 2026) : sa créature ordinaire, détourée dans le cadre large, passe l'anneau de tous côtés.
+  const ordinaire = await legendaire({ cle: 'lg:pegase' })
+  assert.match(ordinaire, /class="lg lg-eclat lg-pegase lg-entier"/)
+  assert.match(ordinaire, /<span class="lg-debord" style="--lg-forme:url\(\/medaillons\/pegase-art-perso-256\.[0-9a-f]{10}\.webp\)">/)
+  assert.doesNotMatch(ordinaire, /lg-gerbe|lg-paillettes|-rare-/, 'ordinaire : ni gerbe, ni paillettes, ni version rare')
+  const eclate = await legendaire({ cle: 'lg:pegase-couronne', eclat: true, grand: true })
+  assert.match(eclate, /lg-entier/)
+  assert.match(eclate, /<span class="lg-debord" style="--lg-forme:url\(\/medaillons\/pegase-couronne-rare-perso-512\./)
+  const verrouille = await legendaire({ cle: 'lg:pegase', verrouille: true })
+  assert.doesNotMatch(verrouille, /lg-entier|lg-debord/)
+  // Les autres ne débordent qu'éclatés.
+  assert.doesNotMatch(await legendaire({ cle: 'lg:licorne' }), /lg-entier|lg-debord/)
+  // Sa feuille : tous les côtés, pas seulement le haut.
+  assert.match(CSS, /\.lg-entier \.lg-debord \{[^}]*linear-gradient\(transparent 5%, #000 9%, #000 91%, transparent 95%\)/)
 })
 
 /** Les calques de la pellicule, dans l'ordre, entre deux repères du rendu. */

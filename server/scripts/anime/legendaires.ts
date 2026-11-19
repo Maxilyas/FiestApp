@@ -164,6 +164,14 @@ interface LegendairePeint {
    * lui, comme pour tout autre.
    */
   depuis?: string
+  /**
+   * Il sort tout entier de son cercle, ordinaire comme éclaté — ailes, pattes
+   * et queue —, au lieu de ne déborder qu'éclaté et par le haut (« est-ce que
+   * l'avatar peut sortir du cercle qui l'enferme et qu'on voit toute
+   * l'image ? », le propriétaire, pour Pégase, le 19 novembre 2026). Sa
+   * créature ordinaire se détoure aussi dans le cadre large (`art-perso`).
+   */
+  entier?: true
 }
 
 export const LEGENDAIRES_PEINTS: LegendairePeint[] = [
@@ -587,10 +595,12 @@ export const LEGENDAIRES_PEINTS: LegendairePeint[] = [
     rare: 'Pegasus becomes an amethyst Pegasus — a coat of polished amethyst gemstone, deep violet and translucent at the edges, glowing from within like lit crystal, with faceted silver highlights; wings of polished silver feathers edged with pale lilac; a mane and tail of silver and pale lilac constellations; the fence of stars turned silver; a deep indigo and violet night with silver stars.',
     garde: 'the winged horse — its head, its body, its four legs, its two wings, its constellation mane and its constellation tail',
     retirer: 'the fence of stars and its pillars beneath it, the trail of stardust, the Milky Way, the stars and the night sky',
+    entier: true,
   },
   {
     id: 'pegase-couronne',
     depuis: 'pegase',
+    entier: true,
     sujet:
       // Une couronne flottant au-dessus des oreilles tombait hors du disque
       // (`DISQUE_LEGENDAIRE`, 84 % de l'illustration) : le médaillon montrait
@@ -873,6 +883,12 @@ try {
     poser(`${l.id}-rare-256`, r.disque[256])
     poser(`${l.id}-rare-perso-512`, r.perso[512])
     poser(`${l.id}-rare-perso-256`, r.perso[256])
+    // Tout entier hors du cercle : sa créature ordinaire, dans le cadre large de la rare, à la même place.
+    if (l.entier) {
+      const e = await dansLaPage<any>(page, 'assembler', { image: enDataUrl(image), decoupe: d.plein, ...a, disque: DISQUE_LEGENDAIRE, cadre: CADRE_DEBORD, tailles: [512, 256], qualite: 0.84 })
+      poser(`${l.id}-art-perso-512`, e.perso[512])
+      poser(`${l.id}-art-perso-256`, e.perso[256])
+    }
     const doute = d.bordFaux || d.transparents < 0.2 || !(a.ecart < 35)
     console.log(`  ${doute ? '⚠ ' : ''}${l.id} : ${(d.transparents * 100).toFixed(0)} % transparent, aligné ×${a.s.toFixed(3)}, écart ${a.ecart.toFixed(0)}`)
   }
@@ -916,7 +932,7 @@ try {
 // que la table la cite ; et le ménage ne retire que ce que plus aucune entrée
 // ne cite — l'image d'avant un repeint, un médaillon sorti du catalogue —,
 // jamais les fichiers d'une entrée gardée.
-type ImagesLivrees = { art: [string, string]; rare: [string, string]; perso: string; rarePerso: [string, string] }
+type ImagesLivrees = { art: [string, string]; rare: [string, string]; perso: string; rarePerso: [string, string]; artPerso?: [string, string] }
 
 function livrer(app: string) {
   const publics = path.join(depot, 'client/public/medaillons')
@@ -948,16 +964,16 @@ function livrer(app: string) {
   const lignes: string[] = []
   for (const l of LEGENDAIRES_PEINTS) {
     const cle = `lg:${l.id}`
-    const noms = ['art-512', 'art-256', 'rare-512', 'rare-256', 'perso-256', 'rare-perso-512', 'rare-perso-256'].map(v => `${l.id}-${v}`)
+    const noms = ['art-512', 'art-256', 'rare-512', 'rare-256', 'perso-256', 'rare-perso-512', 'rare-perso-256', ...(l.entier ? ['art-perso-512', 'art-perso-256'] : [])].map(v => `${l.id}-${v}`)
     let i: ImagesLivrees
     if (dansApp(cle, noms)) {
       const paire = (v: string): [string, string] => [poser(`${l.id}-${v}-512`), poser(`${l.id}-${v}-256`)]
-      i = { art: paire('art'), rare: paire('rare'), perso: poser(`${l.id}-perso-256`), rarePerso: paire('rare-perso') }
+      i = { art: paire('art'), rare: paire('rare'), perso: poser(`${l.id}-perso-256`), rarePerso: paire('rare-perso'), ...(l.entier && { artPerso: paire('art-perso') }) }
       livres.push(cle)
     } else if (LIVRES_LEGENDAIRES[cle]) {
       const a: ImagesLivrees = LIVRES_LEGENDAIRES[cle]
       const paire = (p: [string, string]): [string, string] => [garder(p[0]), garder(p[1])]
-      i = { art: paire(a.art), rare: paire(a.rare), perso: garder(a.perso), rarePerso: paire(a.rarePerso) }
+      i = { art: paire(a.art), rare: paire(a.rare), perso: garder(a.perso), rarePerso: paire(a.rarePerso), ...(a.artPerso && { artPerso: paire(a.artPerso) }) }
       gardes.push(cle)
     } else {
       console.log(`  ${cle} : ni ses fichiers dans app/, ni une entrée à garder — pas livré`)
@@ -969,6 +985,7 @@ function livrer(app: string) {
         `    rare: ['${i.rare[0]}', '${i.rare[1]}'],\n` +
         `    perso: '${i.perso}',\n` +
         `    rarePerso: ['${i.rarePerso[0]}', '${i.rarePerso[1]}'],\n` +
+        (i.artPerso ? `    artPerso: ['${i.artPerso[0]}', '${i.artPerso[1]}'],\n` : '') +
         `  },`,
     )
   }
@@ -1001,7 +1018,8 @@ function livrer(app: string) {
       `  /** L'illustration, sur le carré du disque. */\n  art: [string, string]\n` +
       `  /** Sa version rare, éclatée : la même pose, ses couleurs rares. */\n  rare: [string, string]\n` +
       `  /** La créature seule, détourée : sa forme fait la silhouette d'un légendaire à gagner. */\n  perso: string\n` +
-      `  /** La créature rare, dans un cadre plus large (−20 → 120 du disque) : ce qui sort du cadre d'un éclaté. */\n  rarePerso: [string, string]\n}\n\n` +
+      `  /** La créature rare, dans un cadre plus large (−20 → 120 du disque) : ce qui sort du cadre d'un éclaté. */\n  rarePerso: [string, string]\n` +
+      `  /** La créature ordinaire dans le même cadre large, pour qui sort tout entier de son cercle (Pégase). */\n  artPerso?: [string, string]\n}\n\n` +
       `export const IMAGES: Record<string, ImagesDeLegendaire> = {\n${lignes.join('\n')}\n}\n`,
   )
   writeFileSync(

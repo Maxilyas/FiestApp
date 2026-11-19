@@ -15,6 +15,8 @@ export interface ImagesDeLegendaire {
   perso: string
   /** La créature rare, dans un cadre plus large (−20 → 120 du disque) : ce qui sort du cadre d'un éclaté. */
   rarePerso: [string, string]
+  /** La créature ordinaire dans le même cadre large, pour qui sort tout entier de son cercle (Pégase). */
+  artPerso?: [string, string]
 }
 
 export const IMAGES: Record<string, ImagesDeLegendaire> = {
@@ -215,11 +217,13 @@ export const IMAGES: Record<string, ImagesDeLegendaire> = {
     rare: ['/medaillons/pegase-rare-512.c11f0d9d25.webp', '/medaillons/pegase-rare-256.1403bed324.webp'],
     perso: '/medaillons/pegase-perso-256.0b887cdc74.webp',
     rarePerso: ['/medaillons/pegase-rare-perso-512.db3d923ce7.webp', '/medaillons/pegase-rare-perso-256.dbeb881e18.webp'],
+    artPerso: ['/medaillons/pegase-art-perso-512.67b9040936.webp', '/medaillons/pegase-art-perso-256.ba8920dc53.webp'],
   },
   'lg:pegase-couronne': {
     art: ['/medaillons/pegase-couronne-art-512.f839266469.webp', '/medaillons/pegase-couronne-art-256.3ca5d99736.webp'],
     rare: ['/medaillons/pegase-couronne-rare-512.bc00e0e1d4.webp', '/medaillons/pegase-couronne-rare-256.8978002c14.webp'],
     perso: '/medaillons/pegase-couronne-perso-256.7a9dce0c69.webp',
     rarePerso: ['/medaillons/pegase-couronne-rare-perso-512.5a5ff672e1.webp', '/medaillons/pegase-couronne-rare-perso-256.d9a7000daf.webp'],
+    artPerso: ['/medaillons/pegase-couronne-art-perso-512.fe684d868b.webp', '/medaillons/pegase-couronne-art-perso-256.0717be6fc8.webp'],
   },
 }

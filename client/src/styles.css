@@ -5472,6 +5472,22 @@ body.avec-bandeau .niche { transition: top 0.32s cubic-bezier(0.3, 0.7, 0.3, 1),
 }
 .lg-debord img,
 .lg-debord > svg { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; }
+/* Celui qui sort tout entier de son cercle — Pégase, ordinaire comme éclaté (`lg-entier`, `artPerso`) : ses ailes, ses
+   pattes et sa queue passent l'anneau de tous les côtés, pas seulement par le haut. Le même cadre, la même forme ; seul
+   le bord de l'image peinte s'estompe encore, à peine. */
+.lg-entier .lg-debord {
+  -webkit-mask:
+    var(--lg-forme, none) 0 0 / 100% 100% no-repeat,
+    radial-gradient(circle closest-side at 50% 50%, transparent 0 68%, #000 69.5%),
+    linear-gradient(transparent 5%, #000 9%, #000 91%, transparent 95%),
+    linear-gradient(90deg, transparent 5%, #000 9%, #000 91%, transparent 95%);
+  -webkit-mask-composite: source-in, source-in, source-in;
+  mask:
+    var(--lg-forme, none) 0 0 / 100% 100% no-repeat intersect,
+    radial-gradient(circle closest-side at 50% 50%, transparent 0 68%, #000 69.5%) intersect,
+    linear-gradient(transparent 5%, #000 9%, #000 91%, transparent 95%) intersect,
+    linear-gradient(90deg, transparent 5%, #000 9%, #000 91%, transparent 95%);
+}
 
 @keyframes lg-paillettes {
   0%, 100% { opacity: 0; }

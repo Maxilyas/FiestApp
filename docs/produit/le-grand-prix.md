@@ -18,7 +18,7 @@ Né le 19 novembre 2026, pour un anniversaire de début décembre : le propriét
 
 - **Le flot** : la rosette du concours hippique, à la couleur de son ruban — bleu nuit, bordeaux, vert sapin, violet, rose —, l'avatar du fantôme en son cœur, tel qu'il le portait ce jour-là. Un par Grand Prix, rangé dans « Ma collection », au carnet des fêtes (« Tes Grands Prix ») ; il compte comme un timbre, au compte de la collection et à sa valeur.
 - **Le flot d'honneur**, d'or, pour la personne fêtée, rangé le matin.
-- **Un avatar en plus**, au choix du QG : **Pégase**, un cheval d'étoiles peint, pour qui bat le fantôme, et **Pégase couronné** pour la personne fêtée, le matin. Des légendaires **secrets** : ni case ni silhouette dans l'album à qui ne les a pas, rien dans la loge ; seuls ceux qui les ont les voient.
+- **Un avatar en plus**, au choix du QG : **Pégase**, un cheval d'étoiles peint, pour qui bat le fantôme, et **Pégase couronné** pour la personne fêtée, le matin. Des légendaires **secrets** : ni case ni silhouette dans l'album à qui ne les a pas, rien dans la loge ; seuls ceux qui les ont les voient. Pégase **sort tout entier de son cercle** — ailes, pattes et queue —, quand les autres légendaires n'en débordent qu'éclatés, et par le haut ; dans une liste, il reste dans son disque comme eux.
 
 ## Sur l'accueil
 

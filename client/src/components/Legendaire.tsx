@@ -214,6 +214,10 @@ export function Legendaire({ cle, verrouille, finition, eclat, grand, className 
   const cercle = !!finition && !verrouille
   const fond = (eclate ? FONDS_ECLAT : FONDS)[cle]
   if (!l || !images || !fond) return null
+  // Pégase sort tout entier de son cercle, ordinaire comme éclaté (`artPerso`, livré pour lui seul) ; les autres ne
+  // débordent qu'éclatés, et par le haut. Verrouillé, il reste sa silhouette dans le disque.
+  const entier = !!images.artPerso && !verrouille
+  const debord = eclate ? images.rarePerso : entier ? images.artPerso : null
   // `useId` rend des deux-points, que `url(#…)` n'aime pas. La clé du
   // légendaire et ce qui change ses dégradés — sa version, éclatée ou non, la
   // finition de son cercle — entrent dans l'identifiant : deux racines React
@@ -228,6 +232,7 @@ export function Legendaire({ cle, verrouille, finition, eclat, grand, className 
   const classes = ['lg', `lg-${l.ton}`, `lg-${cle.slice(3)}`]
   if (verrouille) classes.push('lg-verrou')
   if (eclate) classes.push('lg-eclate')
+  if (entier) classes.push('lg-entier')
   if (matiere) classes.push('lg-matiere')
   if (grand && !verrouille) classes.push('lg-touche-libre')
   if (className) classes.push(className)
@@ -330,16 +335,16 @@ export function Legendaire({ cle, verrouille, finition, eclat, grand, className 
             </>
           )}
         </span>
-        {eclate && (
+        {debord && (
           // La créature détourée donne sa forme au cadre (`--lg-forme`) : la
           // pellicule, posée par-dessus, ne se voit que sur elle.
-          <span className="lg-debord" style={{ '--lg-forme': `url(${images.rarePerso[taille]})` } as CSSProperties}>
+          <span className="lg-debord" style={{ '--lg-forme': `url(${debord[taille]})` } as CSSProperties}>
             {matiere ? (
-              <EnMatiere src={images.rarePerso[taille]} matiere={matiere} id={id('matiere-debord')} />
+              <EnMatiere src={debord[taille]} matiere={matiere} id={id('matiere-debord')} />
             ) : (
-              <img src={images.rarePerso[taille]} alt="" decoding="async" draggable={false} />
+              <img src={debord[taille]} alt="" decoding="async" draggable={false} />
             )}
-            <Pellicule eclate matiere={!!matiere} />
+            <Pellicule eclate={eclate} matiere={!!matiere} />
           </span>
         )}
       </span>
