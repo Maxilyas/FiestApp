@@ -6,12 +6,13 @@ Né le 19 novembre 2026, pour un anniversaire de début décembre : le propriét
 
 ## La course
 
-- **Le départ** (`/grand-prix`) : le fantôme, son flot, ce qu'on gagne ; ceux qui l'ont déjà battu, dans l'ordre d'arrivée.
-- **Dix obstacles**, un QCM chacun : la moitié du quiz du jour du fantôme — la question telle qu'il l'a lue —, la moitié de sa campagne. Vingt secondes chacun (un obstacle du quiz du jour garde la durée de son jour). Le chrono part quand l'obstacle se montre, à l'horloge du serveur.
-- **Le fantôme saute** à son vrai temps — mesuré au quiz du jour ; en campagne, qui ne garde pas les temps, un temps tiré de ses temps du jour au même verdict, plus lent quand il se trompe. On le voit sauter, jamais ce qu'il a répondu : ça, c'est à la révélation.
+- **Le départ** (`/grand-prix`) : le fantôme, son flot, ce qu'on gagne, **son terrain** ; ceux qui l'ont déjà battu, dans l'ordre d'arrivée.
+- **Son terrain** : les thèmes de la campagne où le fantôme a passé le plus de temps — trois au plus, choisis au QG, les trois plus joués d'office. On le bat chez lui : le Grand Prix est fait pour mettre la personne fêtée en valeur. Chaque thème se montre au départ avec ses réponses et sa part de bonnes (« 240 réponses · 85 % de bonnes »). Le quiz du jour n'y entre pas : le propriétaire l'a écarté — tout le monde l'a joué le même jour, et ce n'est pas là qu'on est chez soi.
+- **Dix obstacles**, un QCM chacun, tirés de ses vraies réponses en campagne sur son terrain — la question telle qu'il l'a lue —, les thèmes à tour de rôle (4, 3 et 3 sur trois thèmes). Vingt secondes chacun ; le nom du thème au-dessus de la question. Le chrono part quand l'obstacle se montre, à l'horloge du serveur.
+- **Le fantôme saute** à son rythme : la campagne ne garde pas les temps, il saute donc à un temps tiré de ses temps du quiz du jour au même verdict — la seule chose qu'on en garde —, plus lent quand il se trompe. On le voit sauter, jamais ce qu'il a répondu : ça, c'est à la révélation.
 - **Le barème du concours hippique** : une barre — une mauvaise réponse — ou un refus — l'obstacle laissé au temps — coûtent **4 points**. Le moins de points gagne ; à égalité, le temps cumulé départage. Battre le fantôme, c'est moins de points, ou autant et plus vite.
 - **La révélation** de chaque obstacle : la bonne réponse, la sienne, celle du fantôme, l'anecdote. **L'arrivée** : les deux colonnes, le flot gagné, et « Où ça s'est joué » — la grille des dix obstacles, les siens et ceux du fantôme.
-- **On recourt autant qu'on veut**, un parcours neuf à chaque fois — les questions pas encore courues d'abord. Le flot tombe à la première victoire, une fois.
+- **On recourt autant qu'on veut**, un parcours neuf à chaque fois — les questions pas encore courues d'abord, et celles qu'on a déjà jouées soi-même en campagne en dernier : sur un thème qu'on partage avec le fantôme, on ne court pas sur ses propres réponses. Le flot tombe à la première victoire, une fois.
 - **Ni expérience ni confettis** : le Grand Prix ne donne aucun avantage de jeu (invariant 8). La personne fêtée court aussi contre son propre fantôme, si elle veut.
 
 ## Ce qu'on gagne
@@ -30,8 +31,8 @@ Ce jour-là, le Grand Prix prend la place de l'affiche d'une nouveauté, couché
 
 ## Comment c'est construit
 
-- `shared/grandPrix.ts` — les règles pures : le score d'une course (`scoreDe`, `bat`, `valeurDeLaCourse`), le tirage d'un parcours (`tirerLeParcours`), le rythme du fantôme (`tirerUnRythme`), les flots (`flotDe`, `flotsDe`), les vues.
-- `server/src/core/grandPrix.ts` — le magasin (`GrandPrixStore`) : programmer et figer le vivier, ouvrir le jour (l'avatar du fantôme figé, le flot d'honneur rangé), la course — le chrono à l'horloge du serveur (`servie_le`), un refus relevé à la lecture suivante, une réponse renvoyée qui rend la même révélation —, le bilan du fantôme, le carnet. Les tables : `grand_prix`, `grand_prix_questions`, `grand_prix_courses`, `grand_prix_reponses` ([la base](../reference/base-de-donnees.md#grand_prix)). Les routes : [l'API](../reference/api-http.md#le-grand-prix).
+- `shared/grandPrix.ts` — les règles pures : le score d'une course (`scoreDe`, `bat`, `valeurDeLaCourse`), le tirage d'un parcours (`tirerLeParcours` : les thèmes à tour de rôle, le jamais couru d'abord, le déjà vu en dernier), le rythme du fantôme (`tirerUnRythme`), les flots (`flotDe`, `flotsDe`), les vues.
+- `server/src/core/grandPrix.ts` — le magasin (`GrandPrixStore`) : les thèmes d'un fantôme (`themesDuFantome`), programmer et figer le vivier de son terrain, ouvrir le jour (l'avatar du fantôme figé, le flot d'honneur rangé), la course — le chrono à l'horloge du serveur (`servie_le`), un refus relevé à la lecture suivante, une réponse renvoyée qui rend la même révélation —, le bilan du fantôme, le carnet. Les tables : `grand_prix`, `grand_prix_questions`, `grand_prix_courses`, `grand_prix_reponses` ([la base](../reference/base-de-donnees.md#grand_prix)). Les routes : [l'API](../reference/api-http.md#le-grand-prix).
 - Ce qu'il fait tomber se range comme une voie (`#grand-prix:<id>`, les préfixes `flot:` et `grandprix:` de `PREFIXES_DES_VOIES_RANGEES`) : ni trophée ni étagère.
 - `client/src/views/GrandPrixApp.tsx`, `client/src/components/GrandPrix.tsx` — la page, les chevaux en constellations, l'obstacle, le flot ; `QgGrandPrix.tsx` au QG.
 - `server/test/grand-prix.test.ts` ; `server/scripts/rendu-grand-prix.ts` photographie chaque écran.

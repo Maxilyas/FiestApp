@@ -29,21 +29,39 @@ const banc = await demarrer({ horlogeDuJour: () => horloge.t + (Date.now() - lan
 const navigateur = await chromium.launch({ headless: true })
 ProfileStore.tirageEclat = () => false
 
-/** Des questions vraisemblables, pour que la photo se lise comme une course. */
-const QUESTIONS: [string, string[], number, string, string][] = [
-  ['Quel héros dompte Pégase grâce à une bride d’or offerte par Athéna ?', ['Persée', 'Bellérophon', 'Thésée', 'Jason'], 1, 'Mythes et légendes', 'Bellérophon passe la bride d’or à Pégase endormi près de la source de Pirène.'],
-  ['Quel cheval, plus petit que ses obstacles, devient champion olympique en 1988 ?', ['Jappeloup', 'Milton', 'Baloubet', 'Galoubet'], 0, 'Sport', 'Jappeloup mesurait 1,58 m au garrot.'],
-  ['Dans quelle ville se tiennent les Jeux olympiques de 2004 ?', ['Sydney', 'Pékin', 'Athènes', 'Londres'], 2, 'Sport', 'Les Jeux revenaient dans leur pays d’origine.'],
-  ['Quel peintre a signé « La Nuit étoilée » ?', ['Monet', 'Van Gogh', 'Cézanne', 'Gauguin'], 1, 'Arts', 'Peinte depuis sa chambre de Saint-Rémy-de-Provence, en 1889.'],
-  ['Quel est le nom de la licorne de la constellation de la Licorne ?', ['Monoceros', 'Pegasus', 'Draco', 'Lyra'], 0, 'Sciences', 'Monoceros, discrète, entre Orion et le Petit Chien.'],
-  ['Dans « Le Roi lion », comment s’appelle le père de Simba ?', ['Scar', 'Mufasa', 'Rafiki', 'Zazu'], 1, 'Cinéma', 'Mufasa vient du nom d’un roi du Kenya.'],
-  ['Quel mot anglais signifie « cheval » ?', ['Horse', 'House', 'Hose', 'Hoarse'], 0, 'Langues', null as unknown as string],
-  ['Combien de pattes a une araignée ?', ['Six', 'Huit', 'Dix', 'Douze'], 1, 'Nature', 'Huit pattes, et souvent huit yeux.'],
-  ['Quelle déesse grecque est née de l’écume de la mer ?', ['Héra', 'Athéna', 'Aphrodite', 'Artémis'], 2, 'Mythes et légendes', 'Botticelli l’a peinte sur sa coquille.'],
-  ['Quelle planète est surnommée la planète rouge ?', ['Vénus', 'Jupiter', 'Mars', 'Saturne'], 2, 'Sciences', 'Sa poussière est riche en oxyde de fer.'],
-  ['Qui a écrit « Le Petit Prince » ?', ['Saint-Exupéry', 'Camus', 'Prévert', 'Pagnol'], 0, 'Littérature', 'Publié à New York en 1943.'],
-  ['Quel est le plus long fleuve de France ?', ['La Seine', 'Le Rhône', 'La Loire', 'La Garonne'], 2, 'Géographie', 'Un peu plus de mille kilomètres.'],
-]
+/** Des questions vraisemblables sur son terrain, pour que la photo se lise comme une course : texte, réponses, bonne, anecdote. */
+const SON_TERRAIN: Record<string, [string, string[], number, string | null][]> = {
+  disney: [
+    ['Dans « Le Roi lion », comment s’appelle le père de Simba ?', ['Scar', 'Mufasa', 'Rafiki', 'Zazu'], 1, 'Mufasa vient du nom d’un roi du Kenya.'],
+    ['Quel est le nom du bonhomme de neige de « La Reine des neiges » ?', ['Olaf', 'Sven', 'Kristoff', 'Hans'], 0, 'Il rêve de connaître l’été.'],
+    ['Dans « Aladdin », comment s’appelle le singe d’Aladdin ?', ['Rajah', 'Iago', 'Abu', 'Pascal'], 2, null],
+    ['Quel Pixar suit un rat qui rêve d’être chef ?', ['Ratatouille', 'Là-haut', 'Cars', 'Coco'], 0, 'Rémy cuisine à Paris, chez Gusteau.'],
+    ['Dans « Hercule », quel cheval ailé accompagne le héros ?', ['Pégase', 'Maximus', 'Khan', 'Achille'], 0, 'Zeus le façonne à partir d’un nuage.'],
+    ['Quelle princesse Disney a un raton laveur pour ami ?', ['Mulan', 'Pocahontas', 'Raiponce', 'Belle'], 1, 'Il s’appelle Meeko.'],
+    ['Dans « La Petite Sirène », comment s’appelle le crabe ?', ['Polochon', 'Sébastien', 'Eurêka', 'Flotsam'], 1, null],
+    ['Dans « Raiponce », comment s’appelle le cheval du palais ?', ['Maximus', 'Philippe', 'Samson', 'Frou-Frou'], 0, 'Il traque Flynn Rider avant de devenir son allié.'],
+  ],
+  equitation: [
+    ['Quel cheval, plus petit que ses obstacles, devient champion olympique en 1988 ?', ['Jappeloup', 'Milton', 'Baloubet', 'Galoubet'], 0, 'Jappeloup mesurait 1,58 m au garrot.'],
+    ['Comment appelle-t-on l’allure à trois temps du cheval ?', ['Le pas', 'Le trot', 'Le galop', 'L’amble'], 2, null],
+    ['Quelle discipline juge les figures d’un cheval sur un rectangle de sable ?', ['Le saut d’obstacles', 'Le dressage', 'Le cross', 'L’attelage'], 1, 'On l’appelle aussi « la danse des chevaux ».'],
+    ['Comment s’appelle l’obstacle fait de deux barres parallèles ?', ['Un vertical', 'Un oxer', 'Une rivière', 'Un mur'], 1, null],
+    ['Quelle partie du cheval mesure-t-on pour donner sa taille ?', ['Le garrot', 'La croupe', 'Le chanfrein', 'Le boulet'], 0, 'Un poney ne dépasse pas 1,48 m au garrot.'],
+    ['Combien de points coûte une barre tombée en saut d’obstacles ?', ['Une', 'Deux', 'Quatre', 'Huit'], 2, 'Quatre points : comme au Grand Prix.'],
+    ['Quelle école d’équitation française a pour emblème le Cadre noir ?', ['Saumur', 'Chantilly', 'Versailles', 'Pau'], 0, null],
+    ['Comment appelle-t-on un cheval de couleur blanche à peau noire ?', ['Un alezan', 'Un gris', 'Un bai', 'Un pie'], 1, 'Un « cheval blanc » est presque toujours un gris.'],
+  ],
+  'mythes-legendes': [
+    ['Quel héros dompte Pégase grâce à une bride d’or offerte par Athéna ?', ['Persée', 'Bellérophon', 'Thésée', 'Jason'], 1, 'Bellérophon passe la bride d’or à Pégase endormi près de la source de Pirène.'],
+    ['Quelle déesse grecque est née de l’écume de la mer ?', ['Héra', 'Athéna', 'Aphrodite', 'Artémis'], 2, 'Botticelli l’a peinte sur sa coquille.'],
+    ['Du sang de quelle créature Pégase est-il né ?', ['L’Hydre', 'Méduse', 'La Chimère', 'Le Minotaure'], 1, 'Persée venait de lui trancher la tête.'],
+    ['Qui garde les Enfers à trois têtes ?', ['Cerbère', 'Typhon', 'Charon', 'Orthos'], 0, null],
+    ['Quel roi transforme en or tout ce qu’il touche ?', ['Crésus', 'Midas', 'Minos', 'Priam'], 1, 'Même son pain devient or.'],
+    ['Quelle créature mi-femme mi-oiseau charme les marins de son chant ?', ['La sirène', 'La harpie', 'La gorgone', 'La nymphe'], 0, 'Ulysse se fait attacher au mât pour l’entendre.'],
+    ['Quel titan porte le ciel sur ses épaules ?', ['Cronos', 'Prométhée', 'Atlas', 'Hypérion'], 2, null],
+    ['Dans quelle ville se trouve le labyrinthe du Minotaure ?', ['Athènes', 'Knossos', 'Sparte', 'Delphes'], 1, 'Dédale l’a construit pour le roi Minos.'],
+  ],
+}
 
 try {
   const admin = await connexionAnimateur(banc.url)
@@ -55,19 +73,24 @@ try {
   const id = (login: string) => (db.prepare('SELECT id FROM profiles WHERE login = ?').get(login) as { id: string }).id
   const ids: Record<string, string> = { lea: id('lea'), nina: id('nina'), hugo: id('hugo') }
   const leaId = ids.lea
-  // Trois jours de quiz du jour : elle rate une question sur trois, plus lente quand elle se trompe.
+  // Ses temps du quiz du jour, d'où se tire son rythme : plus lente quand elle se trompe.
   const tirage = db.prepare('INSERT INTO jour_tirages (jour, questions, annulees, tire_le) VALUES (?, ?, ?, ?)')
   const reponse = db.prepare('INSERT INTO jour_reponses (profile_id, jour, question, choix, ms, juste, points, repondue_le) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
   for (const [j, jour] of ['2026-12-01', '2026-12-02', '2026-12-03'].entries()) {
-    const questions = Array.from({ length: 10 }, (_, i) => {
-      const [texte, reponses, bonne, categorie, anecdote] = QUESTIONS[(j * 10 + i) % QUESTIONS.length]
-      return { reserveId: `r-${j}-${i}`, texte: j * 10 + i < QUESTIONS.length ? texte : `${texte.slice(0, -2)} (${j}-${i}) ?`, reponses, bonne, categorie, duree: 20, lectureMs: 2500, anecdote }
-    })
+    const questions = Array.from({ length: 10 }, (_, i) => ({ reserveId: `r-${j}-${i}`, texte: `Question du jour ${j}-${i} ?`, reponses: ['A', 'B', 'C', 'D'], bonne: 1, categorie: 'Histoire', duree: 20 }))
     tirage.run(jour, JSON.stringify(questions), '[]', horloge.t - 5 * 86_400_000)
-    questions.forEach((q, i) => {
+    questions.forEach((_, i) => {
       const juste = i % 3 !== 1
-      reponse.run(leaId, jour, i, juste ? q.bonne : (q.bonne + 1) % 4, juste ? 4200 + i * 300 : 7300, juste ? 1 : 0, juste ? 150 : 0, horloge.t - 4 * 86_400_000)
+      reponse.run(leaId, jour, i, juste ? 1 : 2, juste ? 4200 + i * 300 : 7300, juste ? 1 : 0, juste ? 150 : 0, horloge.t - 4 * 86_400_000)
     })
+  }
+  // Son terrain : des séries de campagne sur Disney, l'équitation, mythes et légendes — elle rate une question sur quatre.
+  const serie = db.prepare('INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, sujet) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+  const rep = db.prepare('INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le) VALUES (?, ?, ?, ?, ?, ?)')
+  for (const [theme, liste] of Object.entries(SON_TERRAIN)) {
+    const questions = liste.map(([texte, reponses, bonne, anecdote], i) => ({ id: `${theme}-${i}`, texte, reponses, bonne, categorie: 'Culture générale', anecdote, niveau: 'facile' }))
+    serie.run(`serie-${theme}`, leaId, JSON.stringify(questions), questions.length, 3, 6, horloge.t - 3 * 86_400_000, horloge.t - 3 * 86_400_000 + 60_000, 'serie', theme)
+    questions.forEach((q, i) => rep.run(`serie-${theme}`, i, q.id, i % 4 === 1 ? (q.bonne + 1) % 4 : q.bonne, i % 4 === 1 ? 0 : 1, horloge.t - 3 * 86_400_000))
   }
   db.close()
 
@@ -184,12 +207,21 @@ try {
   await q.goto(`${banc.url}/admin#grand-prix`)
   await q.waitForSelector('#grand-prix-liste')
   await photo(q, '14-qg')
+  // Nina n'a joué aucun thème : le QG le dit. Léa a son terrain, et le choix de ses thèmes.
   await q.locator('.champ-recherche input').fill('nin')
   await q.waitForSelector('.maintenance-testeurs-liste button')
   await q.locator('.maintenance-testeurs-liste button').first().tap()
   await q.waitForSelector('.gp-qg-fantome .muted')
   await q.waitForTimeout(500)
-  await photo(q, '15-qg-fantome-choisi')
+  await photo(q, '15-qg-fantome-sans-terrain')
+  await q.locator('.gp-qg-fantome button').first().tap()
+  await q.locator('.champ-recherche input').fill('lé')
+  await q.waitForSelector('.maintenance-testeurs-liste button')
+  await q.locator('.maintenance-testeurs-liste button').first().tap()
+  await q.waitForSelector('.gp-qg-terrain')
+  await q.waitForTimeout(500)
+  await q.locator('.gp-qg-terrain').scrollIntoViewIfNeeded()
+  await photo(q, '15b-qg-son-terrain')
   const ordi = await navigateur.newContext({ viewport: { width: 1366, height: 768 } })
   const [nomA, valeurA] = admin.split('=')
   await ordi.addCookies([{ name: nomA, value: valeurA, url: banc.url }])

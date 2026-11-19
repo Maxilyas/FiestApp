@@ -12,6 +12,7 @@
 
 import { Avatar } from './Avatar'
 import { Feuille } from './Pieces'
+import { espacesFines } from '../format'
 import { RUBANS, RUBAN_D_HONNEUR, type CleDeRuban, type FantomeVu } from '../../../shared/grandPrix'
 
 /** Les étoiles d'un cheval au saut, dans un repère de 120 × 72 : ses articulations. */
@@ -195,7 +196,7 @@ export function BandeauDuGrandPrix({ gp }: { gp: import('../../../shared/grandPr
           ? `Toute la bande court contre ton fantôme${gp.vainqueurs > 0 ? ` : ${gp.vainqueurs} t’${gp.vainqueurs > 1 ? 'ont' : 'a'} battu` : ''}.`
           : gp.battu
             ? `Tu as battu ${gp.fantome.nom} : son flot est à toi.`
-            : `Bats le fantôme de ${gp.fantome.nom}, gagne son flot.`}
+            : `Bats le fantôme de ${gp.fantome.nom}${gp.terrain.length > 0 ? ` sur son terrain : ${terrainDit(gp.terrain)}` : ''}.`}
       </p>
       <div className="affiche-gestes">
         <a className="affiche-aller" href="/grand-prix">
@@ -206,6 +207,12 @@ export function BandeauDuGrandPrix({ gp }: { gp: import('../../../shared/grandPr
       </div>
     </section>
   )
+}
+
+/** Ses thèmes en une phrase : « Disney, l'équitation et mythes et légendes ». */
+export const terrainDit = (terrain: readonly { nom: string }[]): string => {
+  const noms = terrain.map(t => t.nom)
+  return noms.length <= 1 ? (noms[0] ?? '') : `${noms.slice(0, -1).join(', ')} et ${noms[noms.length - 1]}`
 }
 
 /** La carte de la fêtée vue, sur ce téléphone, pour ce Grand Prix : elle ne se redit pas à chaque accueil de sa journée. */
@@ -272,7 +279,11 @@ export function FeteDuGrandPrix({ gp, onFermer }: { gp: import('../../../shared/
           )}
         </div>
       </div>
-      <p className="gp-fete-texte">Aujourd’hui, ton fantôme rejoue tes vraies réponses, à ton rythme, et toute la bande court contre lui. Qui le bat gagne ton flot — toi aussi, tu peux courir.</p>
+      <p className="gp-fete-texte">
+        {espacesFines(
+          `Aujourd’hui, toute la bande court contre ton fantôme${gp.terrain.length > 0 ? ` sur ton terrain — ${terrainDit(gp.terrain)} —` : ''} : il rejoue tes vraies réponses, à ton rythme. Qui le bat gagne ton flot — toi aussi, tu peux courir.`,
+        )}
+      </p>
     </Feuille>
   )
 }

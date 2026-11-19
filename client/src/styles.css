@@ -18530,6 +18530,13 @@ span.annonce-admin-merci { cursor: default; }
 .gp-regles li { display: flex; align-items: center; gap: 10px; }
 .gp-regles .icon { color: var(--accent-text); flex: none; }
 
+/* Son terrain : ses thèmes, une ligne chacun — l'emblème du sujet, son nom, ce qu'il y a fait. */
+.gp-terrain { padding: 4px 0 8px; }
+.gp-terrain h2 { margin: 0; padding: 8px 12px 4px; font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 1.125rem; color: var(--accent-text); }
+.gp-terrain ul { list-style: none; margin: 0; padding: 0 12px; display: flex; flex-direction: column; gap: 6px; }
+.gp-terrain li { display: flex; align-items: center; gap: 10px; }
+.gp-terrain-icone { width: 32px; height: 32px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(var(--accent-rgb), 0.14); color: var(--accent-text); }
+.gp-terrain-nom { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
 .gp-vainqueurs { padding: 4px 0 8px; }
 .gp-vainqueurs h2 { margin: 0; padding: 8px 12px 4px; font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 1.125rem; color: var(--accent-text); }
 .gp-vainqueurs ol { list-style: none; margin: 0; padding: 0; }
@@ -18695,6 +18702,9 @@ button.gp-reponse:hover:not(:disabled) { border-color: var(--accent); }
 .gp-qg-jour { max-width: 220px; }
 .gp-qg-ruban { display: inline-flex; align-items: center; gap: 6px; }
 .gp-qg-pastille { width: 12px; height: 12px; border-radius: 50%; flex: none; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35); }
+/* Son terrain : chaque thème, son nom et le temps qu'il y a passé ; trois cochés au plus. */
+.gp-qg-theme { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; text-align: left; }
+.gp-qg-theme[aria-disabled='true'] { opacity: 0.45; }
 
 /* La feuille de la fêtée : sa nuit est un objet peint, qu'aucun thème ne repeint — comme la course. */
 .gp-fete { position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px 14px 16px; border-radius: 18px; background: var(--gp-nuit, #0d1128); border: 1px solid rgba(217, 181, 106, 0.6); color: #f3ece2; text-align: center; }

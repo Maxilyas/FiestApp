@@ -215,16 +215,19 @@ export function tirerUnRythme(
 /**
  * Les obstacles d'une course neuve, en rangs du vivier : dix questions que ce
  * coureur n'a pas encore courues dans ce Grand Prix — « un parcours neuf à
- * chaque départ » : rejouées, il connaîtrait les réponses —, moitié du quiz du
- * jour (le vrai temps du fantôme) quand le vivier le permet. Vivier épuisé,
- * les moins récemment courues reviennent, celles de la course d'avant en
- * dernier.
+ * chaque départ » : rejouées, il connaîtrait les réponses —, et d'abord celles
+ * qu'il n'a jamais vues en campagne (`dejaVues` : un duel sur le même thème
+ * lui en aurait montré), prises tour à tour dans chaque thème du terrain (4,
+ * 3, 3 sur trois thèmes) : le fantôme se bat sur chacun, pas seulement sur
+ * celui où il a le plus joué. Vivier épuisé, les déjà vues, puis les moins
+ * récemment courues reviennent, celles de la course d'avant en dernier.
  */
 export function tirerLeParcours(
-  vivier: readonly { rang: number; source: 'jour' | 'campagne' }[],
+  vivier: readonly { rang: number; theme?: string | null }[],
   dejaCourues: ReadonlyMap<number, number>,
   aleatoire: () => number,
   combien = OBSTACLES_DU_GRAND_PRIX,
+  dejaVues: ReadonlySet<number> = new Set(),
 ): number[] {
   const melanger = <T>(xs: T[]): T[] => {
     const a = [...xs]
@@ -234,10 +237,6 @@ export function tirerLeParcours(
     }
     return a
   }
-  const neuves = vivier.filter(q => !dejaCourues.has(q.rang))
-  const duJour = melanger(neuves.filter(q => q.source === 'jour'))
-  const deCampagne = melanger(neuves.filter(q => q.source === 'campagne'))
-  const moitie = Math.ceil(combien / 2)
   const pris: number[] = []
   const prendre = (xs: { rang: number }[], n: number) => {
     for (const q of xs) {
@@ -248,9 +247,21 @@ export function tirerLeParcours(
       }
     }
   }
-  prendre(duJour, moitie)
-  prendre(deCampagne, combien - pris.length)
-  prendre(duJour, combien - pris.length)
+  // Une file par thème, chacune mélangée, les thèmes dans un ordre tiré : la première file donne la quatrième.
+  const tourATour = (xs: readonly { rang: number; theme?: string | null }[]) => {
+    const parTheme = new Map<string, { rang: number }[]>()
+    for (const q of xs) parTheme.set(q.theme ?? '', [...(parTheme.get(q.theme ?? '') ?? []), q])
+    const files = melanger([...parTheme.values()].map(f => melanger(f)))
+    while (pris.length < combien && files.some(f => f.length > 0)) {
+      for (const f of files) {
+        const q = f.shift()
+        if (q && pris.length < combien && !pris.includes(q.rang)) pris.push(q.rang)
+      }
+    }
+  }
+  const neuves = vivier.filter(x => !dejaCourues.has(x.rang))
+  tourATour(neuves.filter(x => !dejaVues.has(x.rang)))
+  tourATour(neuves.filter(x => dejaVues.has(x.rang)))
   if (pris.length < combien) {
     // Les plus anciennes d'abord : l'ordre dans lequel il les a courues.
     const revues = melanger(vivier.filter(q => dejaCourues.has(q.rang))).sort((a, b) => (dejaCourues.get(a.rang) ?? 0) - (dejaCourues.get(b.rang) ?? 0))
@@ -268,6 +279,34 @@ export interface FantomeVu extends ApparenceDeLAvatar {
   avatar: string
 }
 
+/**
+ * Un thème de son terrain — un sujet ou une rubrique de la campagne
+ * (`shared/sujets.ts`) —, tel qu'il était le jour où le QG l'a choisi : les
+ * réponses qu'il y a données en le choisissant, et sa part de bonnes.
+ */
+export interface ThemeDuTerrain {
+  /** La clé du sujet ou de la rubrique : « disney », « arts-lettres/peinture ». */
+  cle: string
+  nom: string
+  /** Ses réponses aux QCM des parties qu'il a jouées sur ce thème — le temps qu'il y a passé. */
+  reponses: number
+  /** Sa part de bonnes réponses, en pour cent. */
+  pourcent: number
+}
+
+/**
+ * Le terrain : les thèmes où il a passé le plus de temps, trois au plus —
+ * « je préférerais que ce soit là où elle a passé le plus de temps […] c'est
+ * juste que si tu vas loin tu fais plus de fautes » (le propriétaire, le
+ * 19 novembre 2026, contre ses trois meilleures parts, qu'on avait d'abord
+ * proposées). Le QG les propose dans cet ordre, les trois premiers cochés.
+ * Le Grand Prix le met en valeur sur ce qu'il aime.
+ */
+export const THEMES_DU_TERRAIN = 3
+
+/** Il faut au moins un parcours entier, et un peu de choix : deux parcours, sur son terrain. */
+export const QUESTIONS_POUR_COURIR = OBSTACLES_DU_GRAND_PRIX * 2
+
 export interface GrandPrixVu {
   id: string
   titre: string
@@ -277,6 +316,8 @@ export interface GrandPrixVu {
   fantome: FantomeVu
   /** L'avatar peint qu'on gagne en plus du flot (`lg:pegase`), ou null. */
   prix: string | null
+  /** Son terrain : les thèmes où il se bat. */
+  terrain: ThemeDuTerrain[]
 }
 
 /** Un obstacle servi : la question, sans sa bonne réponse ni son anecdote (invariant 1). */
@@ -404,6 +445,8 @@ export interface GrandPrixDAccueil {
   nomDuPrixFete: string | null
   /** L'avatar en plus que gagnent les autres. */
   prix: string | null
+  /** Son terrain : la fêtée lit où on la défie, les autres où la battre. */
+  terrain: ThemeDuTerrain[]
 }
 
 /** Un flot de « Tes Grands Prix », au carnet des fêtes de « Ma collection » : le Grand Prix — l'avatar du fantôme tel qu'il le portait ce jour-là —, et sa course. */
@@ -431,6 +474,7 @@ export interface GrandPrixAuQg {
   mot: string | null
   prix: string | null
   prixFete: string | null
+  terrain: ThemeDuTerrain[]
   vivier: { jour: number; campagne: number }
   coureurs: number
   departs: number
@@ -446,12 +490,15 @@ export interface PageDesGrandsPrix {
   rubans: { cle: CleDeRuban; nom: string; rond: string; pli: string }[]
 }
 
-/** Ce que le QG lit d'un fantôme avant de le programmer : de quoi courir. */
+/**
+ * Ce que le QG lit d'un fantôme avant de le programmer : ses thèmes, du plus
+ * joué au moins joué — chacun ses réponses à rejouer —, et le terrain
+ * d'office, ses trois premiers.
+ */
 export interface ApercuDuFantome {
   id: string
   nom: string
-  jour: number
-  campagne: number
-  pret: boolean
+  themes: ThemeDuTerrain[]
+  parDefaut: string[]
 }
 

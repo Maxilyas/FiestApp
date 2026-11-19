@@ -21,8 +21,8 @@ maquette et les décisions du propriétaire : `retours/2026-11-19/grand-prix/`.
 - `shared/grandPrix.ts` — les règles pures : le score (`scoreDe` — une barre
   ou un refus, `PENALITE_D_UNE_BARRE` ; le chrono d'un saut plafonné à
   l'obstacle), qui bat qui (`bat`, `valeurDeLaCourse` : moins de points, puis
-  moins de temps), le parcours (`tirerLeParcours` : la moitié du quiz du jour,
-  le jamais couru d'abord), le rythme du fantôme en campagne (`tirerUnRythme`),
+  moins de temps), le parcours (`tirerLeParcours` : les thèmes à tour de rôle,
+  le jamais couru d'abord, le déjà vu en dernier), le rythme du fantôme (`tirerUnRythme`),
   les clés rangées (`cleDuFlot`, `flotDe`, `flotsDe`, `cleDuPrix`), les vues
 - `server/src/core/grandPrix.ts` — `GrandPrixStore` : programmer (le vivier
   figé, `grand_prix_questions`), ouvrir le jour (`ouvrirLeJour` : l'avatar du
@@ -34,6 +34,18 @@ maquette et les décisions du propriétaire : `retours/2026-11-19/grand-prix/`.
 
 ## Les pièges
 
+- **Le fantôme court sur son terrain, et rien du quiz du jour** : les thèmes
+  de campagne où il a passé le plus de temps (`themesDuFantome`, par
+  `campagne_series.sujet`), trois au plus (`THEMES_DU_TERRAIN`), cochés au QG
+  — le propriétaire l'a voulu ainsi le 19 novembre 2026 : « là où elle a passé
+  le plus de temps », pour la mettre en valeur, pas ses meilleures catégories
+  au pourcentage, où l'on joue peu. Le quiz du jour, que tout le monde a joué
+  le même jour, n'en donne que ses temps (`tirerUnRythme`). Le vivier se
+  partage à parts égales entre les thèmes, et chaque question garde son thème
+  et sa question de la réserve (`theme`, `reserveId`, dans le JSON de
+  `grand_prix_questions`) : le thème s'écrit au-dessus de l'obstacle, et ce
+  qu'un coureur a déjà joué en campagne passe en dernier (`dejaVuesPar`) —
+  sans quoi un habitué des mêmes thèmes courait sur ses propres réponses.
 - **Le chrono est au serveur, et l'expiration se lit** : un obstacle se date
   quand il se montre (`servie_le`, posé par `depart` et `suivante`, jamais
   pendant une révélation) ; une réponse se mesure à `maintenant - servie_le`,

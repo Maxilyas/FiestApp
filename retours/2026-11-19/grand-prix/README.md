@@ -65,3 +65,26 @@ flot, l'affiche du jour suffit » (le propriétaire, le 19 novembre 2026).
   qu'un jour, et un flot manqué ne se rattrape pas. L'avatar en plus compte
   comme tout avatar, à sa rareté.
 - **L'affiche du jour suffit** sur l'accueil : aucune ligne de plus.
+
+## Le terrain du fantôme
+
+« Il faut écarter le quiz du jour et j'aurais aimé qu'on combatte [la
+joueuse] sur ses thèmes ou catégories de prédilection […] Le but c'est de la
+mettre en valeur ! », puis, à la proposition de ses trois meilleures
+catégories au pourcentage : « Je préférerais que ça soit sur là où elle a
+passé le plus de temps […] c'est sûrement là où elle est la meilleure, c'est
+juste que si tu vas loin tu fais plus de fautes » (le propriétaire, le
+19 novembre 2026).
+
+- **Le quiz du jour sort du vivier** : tout le monde l'a joué le même jour,
+  et ce n'est pas là qu'on est chez soi. On n'en garde que ses temps, pour
+  le rythme du fantôme en campagne, qui n'en mesure pas.
+- **Son terrain : les thèmes où il a passé le plus de temps** — compté en
+  réponses de campagne par thème choisi (`campagne_series.sujet`), pas en
+  justesse : au pourcentage, une catégorie peu jouée passait devant celles
+  où il a passé des heures, et une longue série y fait plus de fautes sans
+  qu'on y soit moins bon. Trois thèmes au plus, les trois plus joués cochés
+  d'office au QG ; l'administrateur en coche d'autres parmi les siens.
+- **Chaque course les prend à tour de rôle** (4, 3 et 3), et ce qu'un
+  coureur a déjà joué en campagne passe en dernier : sur un thème partagé,
+  on ne court pas sur ses propres réponses.

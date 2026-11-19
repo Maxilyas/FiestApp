@@ -1063,7 +1063,7 @@ cadre doré.
 
 Un Grand Prix : un fantôme, un jour, et ce que le QG en a dit.
 
-- **Colonnes clés** : `id` (la clé), `fantome` (le profil dont le fantôme court), `jour` (indexé ; un seul Grand Prix par jour), `titre`, `ruban` (la couleur du flot, `RUBANS`), `mot` (pour la personne fêtée seule), `prix` et `prix_fete` (un avatar de `PRIX_DES_GRANDS_PRIX`, ou rien), `apparence` (l'avatar du fantôme figé le jour venu : un flot garde le visage de son jour), `cree_le`, `modifie_le`, `retire_le`.
+- **Colonnes clés** : `id` (la clé), `fantome` (le profil dont le fantôme court), `jour` (indexé ; un seul Grand Prix par jour), `titre`, `ruban` (la couleur du flot, `RUBANS`), `mot` (pour la personne fêtée seule), `prix` et `prix_fete` (un avatar de `PRIX_DES_GRANDS_PRIX`, ou rien), `apparence` (l'avatar du fantôme figé le jour venu : un flot garde le visage de son jour), `terrain` (le JSON de ses thèmes, trois au plus, avec leurs comptes du jour où le QG les a choisis — `ThemeDuTerrain` : clé, nom, réponses, part de bonnes), `cree_le`, `modifie_le`, `retire_le`.
 - **Espace** : non.
 - **Écrite par** : `GrandPrixStore.programmer` (le QG ; reprogrammé tant que son jour n'est pas venu), `retirer` (avant son jour seulement : `retire_le`), `ouvrirLeJour` (`apparence`, une fois).
 - **Lue par** : `GrandPrixStore`, tout entière au démarrage, puis de mémoire.
@@ -1071,11 +1071,11 @@ Un Grand Prix : un fantôme, un jour, et ce que le QG en a dit.
 
 ### `grand_prix_questions`
 
-Le vivier du fantôme, figé à la programmation : chaque question telle qu'il l'a lue, et sa réponse — rien ne se relit au quiz du jour ni à la campagne le jour de la course.
+Le vivier du fantôme, figé à la programmation : chaque question de son terrain telle qu'il l'a lue en campagne, et sa réponse — rien ne se relit à la campagne le jour de la course. Le quiz du jour n'y entre plus (le 19 novembre 2026) : on n'en garde que ses temps, pour son rythme.
 
-- **Colonnes clés** : `grand_prix_id` et `rang` (la clé), `source` (`jour` ou `campagne`), `question` (le JSON de la question, sa bonne réponse comprise — elle ne part au téléphone qu'à la révélation), `choix`, `juste`, `ms` (le temps qu'il a mis, ou NULL), `mesure` (`reelle` : son temps mesuré au quiz du jour ; `rythme` : un temps tiré de ses temps du jour au même verdict, pour la campagne qui n'en garde pas).
+- **Colonnes clés** : `grand_prix_id` et `rang` (la clé), `source` (`campagne` ; `jour` reste lisible), `question` (le JSON de la question, sa bonne réponse comprise — elle ne part au téléphone qu'à la révélation —, avec `theme`, le thème du terrain d'où elle vient, et `reserveId`, la question de la réserve, pour reconnaître celles qu'un coureur a déjà jouées), `choix`, `juste`, `ms` (le temps qu'il a mis), `mesure` (`rythme` : un temps tiré de ses temps du quiz du jour au même verdict, la campagne n'en gardant pas ; `reelle` reste lisible).
 - **Espace** : non.
-- **Écrite par** : `GrandPrixStore.programmer`, d'un lot (300 questions au plus par source), réécrite à chaque reprogrammation.
+- **Écrite par** : `GrandPrixStore.programmer`, d'un lot (600 questions au plus, à parts égales entre les thèmes), réécrite à chaque reprogrammation.
 - **Lue par** : `GrandPrixStore` (le parcours d'une course, chaque révélation).
 - **Effacée par** : la reprogrammation d'un Grand Prix pas encore couru, qui la réécrit.
 

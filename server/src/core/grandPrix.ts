@@ -27,8 +27,11 @@ import { apparenceDeLAvatar, type ApparenceDeLAvatar } from '../../../shared/pro
 import { tronquer } from '../../../shared/avatars'
 import { sqlDansLaBase } from '../../../shared/horsDeLaBase'
 import { PRIX_DES_GRANDS_PRIX, legendaire } from '../../../shared/legendaires'
+import { sujetParCle } from '../../../shared/sujets'
 import {
+  THEMES_DU_TERRAIN,
   DUREE_D_UN_OBSTACLE_S,
+  QUESTIONS_POUR_COURIR,
   MOT_DU_GRAND_PRIX_MAX,
   OBSTACLES_DU_GRAND_PRIX,
   RUBAN_PAR_DEFAUT,
@@ -44,6 +47,7 @@ import {
   tirerLeParcours,
   tirerUnRythme,
   type BilanDuFantome,
+  type ThemeDuTerrain,
   type CleDeRuban,
   type CourseVue,
   type EtatDuGrandPrix,
@@ -63,12 +67,14 @@ import {
 } from '../../../shared/grandPrix'
 
 /**
- * Ce qu'un vivier garde de chaque source, au plus : trois cents questions du
- * quiz du jour (son vrai temps) et trois cents de la campagne (son rythme).
- * Soixante parcours neufs pour un même coureur — les essais sont illimités,
- * pas l'envie de recourir —, et une lecture de six cents lignes au réveil.
+ * Ce qu'un vivier garde au plus : six cents questions de campagne, partagées
+ * à parts égales entre les thèmes du terrain (deux cents chacun sur trois). Soixante parcours neufs pour un même coureur — les essais sont
+ * illimités, pas l'envie de recourir —, et une lecture de six cents lignes au
+ * réveil. Le quiz du jour n'en est plus (le 19 novembre 2026) : tout le monde
+ * a joué les mêmes questions le même jour, et les habitués en avaient vu la
+ * correction.
  */
-export const QUESTIONS_DU_VIVIER_PAR_SOURCE = 300
+export const QUESTIONS_DU_VIVIER = 600
 
 /** Les tenus en échec que le bilan de la fêtée nomme : les plus obstinés. */
 const TENUS_MONTRES = 3
@@ -95,6 +101,8 @@ export interface GrandPrixRec {
   prixFete: string | null
   /** L'avatar du fantôme le jour de sa course, figé au premier passage du jour : le flot le garde pour toujours. */
   apparence: (ApparenceDeLAvatar & { nom: string; avatar: string }) | null
+  /** Son terrain, figé à la programmation — ses comptes du jour où le QG l'a choisi. */
+  terrain: ThemeDuTerrain[]
   creeLe: number
   modifieLe: number
   retireLe: number | null
@@ -108,6 +116,10 @@ export interface QuestionDuVivier {
   reponses: string[]
   bonne: number
   categorie: string | null
+  /** Le thème du terrain d'où elle vient : la partie où le fantôme l'a jouée l'avait choisi. */
+  theme: string | null
+  /** Son identifiant dans la base de la campagne : ce qu'un coureur y a déjà vu passe après. */
+  reserveId: string | null
   anecdote: string | null
   duree: number
   fantome: Saut & { mesure: 'reelle' | 'rythme' }
@@ -153,10 +165,11 @@ export interface DemandeDeGrandPrix {
   mot?: unknown
   prix?: unknown
   prixFete?: unknown
+  /** Les clés des thèmes de son terrain ; absent, ses trois plus joués. */
+  terrain?: unknown
 }
 
-/** Il faut au moins un parcours entier, et un peu de choix : deux parcours. */
-export const QUESTIONS_POUR_COURIR = OBSTACLES_DU_GRAND_PRIX * 2
+export { QUESTIONS_POUR_COURIR }
 
 const n = (v: unknown) => Number(v ?? 0)
 const nOuNull = (v: unknown) => (v === null || v === undefined ? null : Number(v))
@@ -183,10 +196,24 @@ function grandPrixDe(r: Row): GrandPrixRec {
     prix: texteOuNull(r.prix),
     prixFete: texteOuNull(r.prix_fete),
     apparence: lireJson(r.apparence, null),
+    terrain: terrainLu(r.terrain),
     creeLe: n(r.cree_le),
     modifieLe: n(r.modifie_le),
     retireLe: nOuNull(r.retire_le),
   }
+}
+
+/** Un terrain relu de la base : des thèmes, chacun une fois ; illisible, aucun. */
+function terrainLu(v: unknown): ThemeDuTerrain[] {
+  const lu = lireJson<unknown>(v, [])
+  if (!Array.isArray(lu)) return []
+  const vus = new Set<string>()
+  return lu.flatMap(x => {
+    const t = x && typeof x === 'object' ? (x as Record<string, unknown>) : null
+    if (!t || typeof t.cle !== 'string' || vus.has(t.cle)) return []
+    vus.add(t.cle)
+    return [{ cle: t.cle, nom: typeof t.nom === 'string' ? t.nom : (sujetParCle(t.cle)?.nom ?? t.cle), reponses: n(t.reponses), pourcent: n(t.pourcent) }]
+  })
 }
 
 function courseDe(r: Row): CourseRec {
@@ -212,7 +239,7 @@ function sautDe(r: Row): SautRec {
 }
 
 /** Une question figée lisible : un QCM de deux à quatre réponses, sa bonne réponse parmi elles. */
-function questionLisible(v: unknown): { texte: string; reponses: string[]; bonne: number; categorie: string | null; anecdote: string | null; duree: number } | null {
+function questionLisible(v: unknown): { texte: string; reponses: string[]; bonne: number; categorie: string | null; theme: string | null; reserveId: string | null; anecdote: string | null; duree: number } | null {
   const q = typeof v === 'string' ? lireJson<Record<string, unknown> | null>(v, null) : null
   if (!q || typeof q.texte !== 'string' || !Array.isArray(q.reponses)) return null
   const reponses = q.reponses.filter((x): x is string => typeof x === 'string')
@@ -227,6 +254,8 @@ function questionLisible(v: unknown): { texte: string; reponses: string[]; bonne
     reponses,
     bonne,
     categorie: typeof q.categorie === 'string' ? q.categorie : null,
+    theme: typeof q.theme === 'string' ? q.theme : null,
+    reserveId: typeof q.reserveId === 'string' ? q.reserveId : null,
     anecdote: typeof q.anecdote === 'string' && q.anecdote.trim() ? q.anecdote : null,
     duree: Number.isFinite(duree) && duree >= 5 && duree <= 120 ? Math.round(duree) : DUREE_D_UN_OBSTACLE_S,
   }
@@ -240,6 +269,8 @@ export class GrandPrixStore {
   private grandsPrix = new Map<string, GrandPrixRec>()
   /** Le vivier de chaque Grand Prix, lu une fois : six cents lignes au plus. */
   private viviers = new Map<string, Promise<QuestionDuVivier[]>>()
+  /** Ce que chaque coureur a déjà vu du vivier en campagne, par Grand Prix : lu à son premier départ. */
+  private vues = new Map<string, Promise<Set<number>>>()
   /** Le bilan de chaque Grand Prix, gardé un instant : l'accueil de chacun le lit. */
   private bilans = new Map<string, { le: number; lignes: Promise<LigneDuBilan[]> }>()
   /** Les fêtées déjà honorées dans ce processus : `ranger` est idempotent, mais chaque accueil ne réécrit pas. */
@@ -270,6 +301,7 @@ export class GrandPrixStore {
            prix       TEXT,
            prix_fete  TEXT,
            apparence  TEXT,
+           terrain    TEXT,
            cree_le    INTEGER NOT NULL,
            modifie_le INTEGER NOT NULL,
            retire_le  INTEGER
@@ -397,7 +429,7 @@ export class GrandPrixStore {
   }
 
   private async grandPrixVu(g: GrandPrixRec): Promise<GrandPrixVu> {
-    return { id: g.id, titre: g.titre, jour: g.jour, ruban: g.ruban, fantome: await this.fantomeVu(g), prix: g.prix }
+    return { id: g.id, titre: g.titre, jour: g.jour, ruban: g.ruban, fantome: await this.fantomeVu(g), prix: g.prix, terrain: g.terrain }
   }
 
   // ── Le vivier ──────────────────────────────────────────────────────────
@@ -422,80 +454,104 @@ export class GrandPrixStore {
   }
 
   /**
-   * Le vivier d'un fantôme, lu dans ses journaux : ses vraies réponses du
-   * quiz du jour — figées comme il les a lues, son vrai temps — et de la
-   * campagne — la version jouée, gardée dans sa série, son rythme tiré de ses
-   * temps du jour. Seulement des QCM nus : ni joker, ni forme d'un jeu, ni
-   * question revue au carnet ; ni le défi de la semaine ni un duel encore
-   * ouvert, dont les réponses courent encore ; ni une question retirée.
-   * Une lecture lourde, faite une fois, à la programmation.
+   * Les parties de campagne d'un fantôme qui comptent pour son terrain : celles
+   * qu'il a jouées sur un thème choisi, de tous les modes qui en posent — la
+   * série, l'épreuve, le parcours, la rencontre, le duel, le défi —, leurs
+   * QCM nus : ni joker, ni forme d'un jeu, ni question revue au carnet ; ni le
+   * défi de la semaine ni un duel encore ouvert, dont les réponses courent
+   * encore ; ni une question retirée.
    */
-  async lireLeFantome(profileId: string): Promise<{ jour: QuestionDuVivier[]; campagne: QuestionDuVivier[] }> {
-    const aujourdhui = this.aujourdhui()
-    const [duJour, deCampagne] = await this.client.batch(
+  private static readonly PARTIES_DU_TERRAIN = `campagne_series s JOIN campagne_reponses r ON r.serie_id = s.id
+    WHERE s.profile_id = ? AND s.sujet IS NOT NULL AND s.mode IN ('serie', 'sentier', 'sujet', 'rencontre', 'duel', 'defi')
+      AND r.joker IS NULL AND r.forme IS NULL AND r.composee IS NULL
+      AND r.choix IS NOT NULL AND r.choix >= 0
+      AND ${sqlDansLaBase('r.reserve_id')}
+      AND NOT EXISTS (SELECT 1 FROM campagne_retraits x WHERE x.question_id = r.reserve_id)
+      AND (s.mode <> 'defi' OR EXISTS (SELECT 1 FROM campagne_defis d WHERE d.semaine = s.semaine AND d.clos_le IS NOT NULL))
+      AND (s.mode <> 'duel' OR EXISTS (SELECT 1 FROM campagne_duels d WHERE d.code = s.duel AND d.clos_le IS NOT NULL))`
+
+  /**
+   * Ses thèmes, du plus joué au moins joué : les réponses qu'il a données en
+   * les choisissant — le temps qu'il y a passé —, et sa part de bonnes. Un
+   * thème que le catalogue ne connaît plus ne se propose pas.
+   */
+  async themesDuFantome(profileId: string): Promise<ThemeDuTerrain[]> {
+    const res = await this.client.execute({
+      sql: `SELECT s.sujet AS cle, COUNT(*) AS reponses, SUM(r.juste) AS justes FROM ${GrandPrixStore.PARTIES_DU_TERRAIN} GROUP BY s.sujet`,
+      args: [profileId],
+    })
+    return res.rows
+      .flatMap(r => {
+        const sujet = sujetParCle(r.cle)
+        const reponses = n(r.reponses)
+        return sujet && reponses > 0 ? [{ cle: sujet.cle, nom: sujet.nom, reponses, pourcent: Math.round((100 * n(r.justes)) / reponses) }] : []
+      })
+      .sort((a, b) => b.reponses - a.reponses || a.nom.localeCompare(b.nom))
+  }
+
+  /**
+   * Le vivier d'un fantôme sur son terrain : ses vraies réponses de campagne,
+   * dans les parties qu'il a jouées sur ces thèmes — la version jouée, gardée
+   * dans sa série —, à parts égales entre eux. Son temps se tire de ses vrais
+   * temps du quiz du jour, juste ou faux à part (`tirerUnRythme`) : la
+   * campagne n'a pas de chrono. Plus une question du quiz du jour (le
+   * 19 novembre 2026) : tout le monde y joue les mêmes, le même jour, et les
+   * habitués en avaient vu la correction. Une lecture lourde, faite une fois,
+   * à la programmation.
+   */
+  async lireLeFantome(profileId: string, themes: readonly string[]): Promise<QuestionDuVivier[]> {
+    if (themes.length === 0) return []
+    const marques = themes.map(() => '?').join(', ')
+    const [sesTemps, deCampagne] = await this.client.batch(
       [
         {
-          sql: `SELECT r.choix, r.ms, r.juste, json_extract(t.questions, '$[' || r.question || ']') AS vue
-                FROM jour_reponses r JOIN jour_tirages t ON t.jour = r.jour
-                WHERE r.profile_id = ? AND r.jour < ?
-                  AND NOT EXISTS (SELECT 1 FROM json_each(t.annulees) a WHERE a.value = r.question)
-                  AND NOT EXISTS (SELECT 1 FROM jour_reserve j
-                                  WHERE j.id = json_extract(t.questions, '$[' || r.question || '].reserveId') AND j.retiree_le IS NOT NULL)
-                ORDER BY r.jour DESC, r.question
-                LIMIT 1000`,
-          args: [profileId, aujourdhui],
+          sql: `SELECT ms, juste FROM jour_reponses WHERE profile_id = ? AND choix IS NOT NULL AND choix >= 0 AND ms IS NOT NULL ORDER BY jour DESC LIMIT 1000`,
+          args: [profileId],
         },
         {
-          sql: `SELECT r.choix, r.juste, json_extract(s.questions, '$[' || r.position || ']') AS vue
-                FROM campagne_series s JOIN campagne_reponses r ON r.serie_id = s.id
-                WHERE s.profile_id = ? AND s.mode IN ('serie', 'sentier', 'sujet', 'rencontre', 'duel', 'defi')
-                  AND r.joker IS NULL AND r.forme IS NULL AND r.composee IS NULL
-                  AND r.choix IS NOT NULL AND r.choix >= 0
-                  AND ${sqlDansLaBase('r.reserve_id')}
-                  AND NOT EXISTS (SELECT 1 FROM campagne_retraits x WHERE x.question_id = r.reserve_id)
-                  AND (s.mode <> 'defi' OR EXISTS (SELECT 1 FROM campagne_defis d WHERE d.semaine = s.semaine AND d.clos_le IS NOT NULL))
-                  AND (s.mode <> 'duel' OR EXISTS (SELECT 1 FROM campagne_duels d WHERE d.code = s.duel AND d.clos_le IS NOT NULL))
+          sql: `SELECT s.sujet AS theme, r.reserve_id, r.choix, r.juste, json_extract(s.questions, '$[' || r.position || ']') AS vue
+                FROM ${GrandPrixStore.PARTIES_DU_TERRAIN} AND s.sujet IN (${marques})
                 ORDER BY random()
-                LIMIT 1500`,
-          args: [profileId],
+                LIMIT 3000`,
+          args: [profileId, ...themes],
         },
       ],
       'read',
     )
-    const vus = new Set<string>()
-    const unique = (texte: string) => {
-      const cle = texte.trim().toLowerCase()
-      if (vus.has(cle)) return false
-      vus.add(cle)
-      return true
-    }
-    // Ses vrais temps du jour, juste et faux à part : le rythme de la campagne s'y tire.
+    // Ses vrais temps du jour, juste et faux à part : son rythme s'y tire. Au-delà d'un obstacle, un « trop tard » d'alors.
     const temps = { justes: [] as number[], faux: [] as number[] }
-    const jour: QuestionDuVivier[] = []
-    for (const r of duJour.rows) {
-      const q = questionLisible(r.vue)
-      if (!q || !unique(q.texte)) continue
-      const choix = nOuNull(r.choix)
-      const ms = nOuNull(r.ms)
-      // Une réponse hors du temps de la question, marge comprise, était déjà un « trop tard » : un refus.
-      const aTemps = choix !== null && choix >= 0 && choix < q.reponses.length && ms !== null && ms <= q.duree * 1000 + GRACE_MS
-      const saut: Saut = aTemps ? { choix, juste: choix === q.bonne, ms } : { choix: null, juste: false, ms: null }
-      if (aTemps && ms !== null) (saut.juste ? temps.justes : temps.faux).push(ms)
-      if (jour.length < QUESTIONS_DU_VIVIER_PAR_SOURCE) jour.push({ rang: 0, source: 'jour', ...q, fantome: { ...saut, mesure: 'reelle' } })
+    for (const r of sesTemps.rows) {
+      const ms = n(r.ms)
+      if (ms > 0 && ms <= DUREE_D_UN_OBSTACLE_S * 1000 + GRACE_MS) (n(r.juste) === 1 ? temps.justes : temps.faux).push(ms)
     }
-    const campagne: QuestionDuVivier[] = []
+    const parTheme = Math.ceil(QUESTIONS_DU_VIVIER / themes.length)
+    const comptes = new Map<string, number>()
+    const vus = new Set<string>()
+    const vivier: QuestionDuVivier[] = []
     for (const r of deCampagne.rows) {
-      if (campagne.length >= QUESTIONS_DU_VIVIER_PAR_SOURCE) break
+      const theme = String(r.theme)
+      if ((comptes.get(theme) ?? 0) >= parTheme) continue
       const q = questionLisible(r.vue)
-      if (!q || !unique(q.texte)) continue
+      if (!q) continue
+      const cle = q.texte.trim().toLowerCase()
+      if (vus.has(cle)) continue
       const choix = n(r.choix)
       if (choix < 0 || choix >= q.reponses.length) continue
+      vus.add(cle)
+      comptes.set(theme, (comptes.get(theme) ?? 0) + 1)
       const juste = choix === q.bonne
-      // La campagne n'a pas de chrono : son temps est tiré de sa façon de répondre au quiz du jour.
-      const ms = Math.min(tirerUnRythme(temps, juste, this.aleatoire), q.duree * 1000)
-      campagne.push({ rang: 0, source: 'campagne', ...q, duree: DUREE_D_UN_OBSTACLE_S, fantome: { choix, juste, ms, mesure: 'rythme' } })
+      const ms = Math.min(tirerUnRythme(temps, juste, this.aleatoire), DUREE_D_UN_OBSTACLE_S * 1000)
+      vivier.push({
+        rang: 0,
+        source: 'campagne',
+        ...q,
+        theme,
+        reserveId: texteOuNull(r.reserve_id),
+        duree: DUREE_D_UN_OBSTACLE_S,
+        fantome: { choix, juste, ms, mesure: 'rythme' },
+      })
     }
-    return { jour, campagne }
+    return vivier
   }
 
   // ── Le QG ──────────────────────────────────────────────────────────────
@@ -503,8 +559,8 @@ export class GrandPrixStore {
   async apercuDuFantome(profileId: string): Promise<ApercuDuFantome | null> {
     const p = await this.deps.profiles.byId(profileId)
     if (!p) return null
-    const { jour, campagne } = await this.lireLeFantome(profileId)
-    return { id: p.id, nom: p.name, jour: jour.length, campagne: campagne.length, pret: jour.length + campagne.length >= QUESTIONS_POUR_COURIR }
+    const themes = await this.themesDuFantome(profileId)
+    return { id: p.id, nom: p.name, themes, parDefaut: themes.slice(0, THEMES_DU_TERRAIN).map(t => t.cle) }
   }
 
   async auQg(): Promise<GrandPrixAuQg[]> {
@@ -542,6 +598,7 @@ export class GrandPrixStore {
         mot: g.mot,
         prix: g.prix,
         prixFete: g.prixFete,
+        terrain: g.terrain,
         vivier: { jour: v('jour'), campagne: v('campagne') },
         coureurs: n(c?.coureurs),
         departs: n(c?.departs),
@@ -576,10 +633,20 @@ export class GrandPrixStore {
     const prix = typeof demande.prix === 'string' && demande.prix ? demande.prix : null
     const prixFete = typeof demande.prixFete === 'string' && demande.prixFete ? demande.prixFete : null
     for (const x of [prix, prixFete]) if (x !== null && !PRIX_DES_GRANDS_PRIX.includes(x)) throw new Error('Cet avatar ne se met pas en jeu.')
-    const { jour: duJour, campagne } = await this.lireLeFantome(p.id)
-    const vivier = [...duJour, ...campagne]
+    // Son terrain : les thèmes que le QG a cochés parmi les siens, sinon ses trois plus joués.
+    const sesThemes = await this.themesDuFantome(p.id)
+    const demandes = Array.isArray(demande.terrain) ? [...new Set(demande.terrain.filter((x): x is string => typeof x === 'string'))] : null
+    if (demandes && demandes.length === 0) throw new Error('Choisis au moins un thème de son terrain.')
+    if (demandes && demandes.length > THEMES_DU_TERRAIN) throw new Error(`Son terrain tient en ${THEMES_DU_TERRAIN} thèmes au plus.`)
+    const terrain = demandes ? sesThemes.filter(t => demandes.includes(t.cle)) : sesThemes.slice(0, THEMES_DU_TERRAIN)
+    if (demandes && terrain.length < demandes.length) throw new Error(`${p.name} n’a pas joué l’un de ces thèmes : choisis parmi les siens.`)
+    if (terrain.length === 0) throw new Error(`${p.name} n’a encore joué aucun thème en campagne : il lui faut un terrain pour courir.`)
+    const vivier = await this.lireLeFantome(
+      p.id,
+      terrain.map(t => t.cle),
+    )
     if (vivier.length < QUESTIONS_POUR_COURIR) {
-      throw new Error(`${p.name} n’a pas encore assez joué pour courir : ${vivier.length} réponses sur les ${QUESTIONS_POUR_COURIR} qu’il faut.`)
+      throw new Error(`${p.name} n’a pas assez joué sur ce terrain pour courir : ${vivier.length} questions sur les ${QUESTIONS_POUR_COURIR} qu’il faut. Ajoute un thème.`)
     }
     const g: GrandPrixRec = {
       id: id ?? randomUUID(),
@@ -591,6 +658,7 @@ export class GrandPrixStore {
       prix,
       prixFete,
       apparence: null,
+      terrain,
       creeLe: avant?.creeLe ?? now,
       modifieLe: now,
       retireLe: null,
@@ -598,12 +666,12 @@ export class GrandPrixStore {
     await this.client.batch(
       [
         {
-          sql: `INSERT INTO grand_prix (id, fantome, jour, titre, ruban, mot, prix, prix_fete, apparence, cree_le, modifie_le, retire_le)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL)
+          sql: `INSERT INTO grand_prix (id, fantome, jour, titre, ruban, mot, prix, prix_fete, apparence, terrain, cree_le, modifie_le, retire_le)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, NULL)
                 ON CONFLICT(id) DO UPDATE SET fantome = excluded.fantome, jour = excluded.jour, titre = excluded.titre,
                   ruban = excluded.ruban, mot = excluded.mot, prix = excluded.prix, prix_fete = excluded.prix_fete,
-                  apparence = NULL, modifie_le = excluded.modifie_le`,
-          args: [g.id, g.fantome, g.jour, g.titre, g.ruban, g.mot, g.prix, g.prixFete, g.creeLe, g.modifieLe],
+                  apparence = NULL, terrain = excluded.terrain, modifie_le = excluded.modifie_le`,
+          args: [g.id, g.fantome, g.jour, g.titre, g.ruban, g.mot, g.prix, g.prixFete, JSON.stringify(g.terrain), g.creeLe, g.modifieLe],
         },
         { sql: 'DELETE FROM grand_prix_questions WHERE grand_prix_id = ?', args: [g.id] },
         ...vivier.map((q, rang) => ({
@@ -612,7 +680,7 @@ export class GrandPrixStore {
             g.id,
             rang,
             q.source,
-            JSON.stringify({ texte: q.texte, reponses: q.reponses, bonne: q.bonne, categorie: q.categorie, anecdote: q.anecdote, duree: q.duree }),
+            JSON.stringify({ texte: q.texte, reponses: q.reponses, bonne: q.bonne, categorie: q.categorie, theme: q.theme, reserveId: q.reserveId, anecdote: q.anecdote, duree: q.duree }),
             q.fantome.choix,
             q.fantome.juste ? 1 : 0,
             q.fantome.ms,
@@ -701,6 +769,7 @@ export class GrandPrixStore {
       // Son nom, pour la feuille de la fêtée : l'accueil ne télécharge pas le catalogue des légendaires.
       nomDuPrixFete: fete && g.prixFete ? (legendaire(g.prixFete)?.nom ?? null) : null,
       prix: g.prix,
+      terrain: g.terrain,
     }
   }
 
@@ -733,11 +802,16 @@ export class GrandPrixStore {
       position: c.position,
       texte: q.texte,
       reponses: q.reponses,
-      categorie: q.categorie,
+      categorie: this.nomAuDessus(q),
       duree: q.duree,
       echeance: (c.servieLe ?? this.maintenant()) + q.duree * 1000,
       fantomeMs: q.fantome.choix === null || q.fantome.ms === null ? null : Math.min(q.fantome.ms, q.duree * 1000),
     }
+  }
+
+  /** Ce que l'obstacle dit au-dessus de sa question : son thème — « Disney » —, sinon sa catégorie. */
+  private nomAuDessus(q: QuestionDuVivier): string | null {
+    return (q.theme && sujetParCle(q.theme)?.nom) || q.categorie
   }
 
   private sautVu(s: Saut, q: QuestionDuVivier): SautVu {
@@ -751,7 +825,7 @@ export class GrandPrixStore {
       reponses: q.reponses,
       bonne: q.bonne,
       anecdote: q.anecdote,
-      categorie: q.categorie,
+      categorie: this.nomAuDessus(q),
       toi: this.sautVu(toi, q),
       fantome: this.sautVu(q.fantome, q),
     }
@@ -966,7 +1040,9 @@ export class GrandPrixStore {
       // Ce qu'il a déjà couru, et dans quel ordre : le parcours neuf les évite, puis les reprend les plus anciennes d'abord.
       const dejaCourues = new Map<number, number>()
       courses.forEach((c, i) => c.obstacles.forEach(r => dejaCourues.set(r, i)))
-      const obstacles = tirerLeParcours(vivierListe, dejaCourues, this.aleatoire)
+      // Ce qu'il a déjà vu en campagne passe après : une base qui se tait ne l'empêche pas de courir.
+      const dejaVues = await this.dejaVuesPar(g, profileId, vivierListe).catch(() => new Set<number>())
+      const obstacles = tirerLeParcours(vivierListe, dejaCourues, this.aleatoire, OBSTACLES_DU_GRAND_PRIX, dejaVues)
       const now = this.maintenant()
       const c: CourseRec = {
         id: randomUUID(),
@@ -990,6 +1066,30 @@ export class GrandPrixStore {
       })
       return this.etatDe(g, profileId, [...courses, c], c, [], vivier, null, !!essai)
     })
+  }
+
+  /**
+   * Ce que ce coureur a déjà vu du vivier en campagne — une série, un duel sur
+   * le même thème contre le fantôme lui-même — : son parcours le prend en
+   * dernier. Lu une fois par coureur et par Grand Prix, à son premier départ.
+   */
+  private dejaVuesPar(g: GrandPrixRec, profileId: string, vivier: readonly QuestionDuVivier[]): Promise<Set<number>> {
+    const cle = `${g.id}|${profileId}`
+    let v = this.vues.get(cle)
+    if (!v) {
+      const rangs = new Map<string, number[]>()
+      for (const q of vivier) if (q.reserveId) rangs.set(q.reserveId, [...(rangs.get(q.reserveId) ?? []), q.rang])
+      v = this.client
+        .execute({
+          sql: `SELECT DISTINCT r.reserve_id FROM campagne_series s JOIN campagne_reponses r ON r.serie_id = s.id
+                WHERE s.profile_id = ? AND r.reserve_id IN (SELECT json_extract(question, '$.reserveId') FROM grand_prix_questions WHERE grand_prix_id = ?)`,
+          args: [profileId, g.id],
+        })
+        .then(res => new Set(res.rows.flatMap(r => rangs.get(String(r.reserve_id)) ?? [])))
+      v.catch(() => this.vues.delete(cle))
+      this.vues.set(cle, v)
+    }
+    return v
   }
 
   private async course(profileId: string, courseId: string): Promise<{ g: GrandPrixRec; c: CourseRec; sauts: SautRec[]; vivier: Map<number, QuestionDuVivier>; courses: CourseRec[] }> {

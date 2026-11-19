@@ -20,6 +20,9 @@ import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { Sortie } from '../components/Pieces'
 import { ChevalDEtoiles, CielDuGrandPrix, Flot, Obstacle } from '../components/GrandPrix'
+import { iconeDuSujet } from '../iconeDuSujet'
+import { formatNumber } from '../format'
+import { sujetParCle } from '../../../shared/sujets'
 import { gesteAccepte } from '../../../shared/console'
 import { legendaire } from '../../../shared/legendaires'
 import {
@@ -30,6 +33,7 @@ import {
   type EtatDuGrandPrix,
   type RevelationDObstacle,
   type ScoreDeCourse,
+  type ThemeDuTerrain,
 } from '../../../shared/grandPrix'
 
 /**
@@ -249,6 +253,8 @@ function Depart({ etat, enRoute, onPartir, refus, essai }: { etat: EtatDuGrandPr
 
       {fete && etat.bilan && <BilanDuFantome etat={etat} />}
 
+      {g.terrain.length > 0 && <Terrain terrain={g.terrain} fete={!!fete} nom={nom} />}
+
       <section className="gp-carte gp-gain" aria-label="Ce qu’on gagne">
         <Flot ruban={g.ruban} honneur={!!fete} fantome={g.fantome} nom={fete ? 'Ton flot d’honneur' : `Le flot du ${g.titre}`} taille={52} />
         <span className="gp-gain-texte">
@@ -312,6 +318,36 @@ function Depart({ etat, enRoute, onPartir, refus, essai }: { etat: EtatDuGrandPr
         <span className="muted small">Essais illimités · un parcours neuf à chaque départ</span>
       </footer>
     </div>
+  )
+}
+
+/**
+ * Son terrain : les thèmes où il a passé le plus de temps en campagne, et ce
+ * qu'il y a fait — le Grand Prix le met en valeur sur ce qu'il aime (le
+ * souhait du propriétaire, le 19 novembre 2026). Chaque course y tire ses
+ * obstacles, à tour de rôle.
+ */
+function Terrain({ terrain, fete, nom }: { terrain: readonly ThemeDuTerrain[]; fete: boolean; nom: string }) {
+  return (
+    <section className="gp-carte gp-terrain" aria-labelledby="gp-terrain">
+      <h2 id="gp-terrain">{fete ? 'Sur ton terrain' : `Sur le terrain de ${nom}`}</h2>
+      <ul>
+        {terrain.map(t => {
+          const sujet = sujetParCle(t.cle)
+          return (
+            <li key={t.cle}>
+              <span className="gp-terrain-icone" aria-hidden="true">
+                <Icon name={sujet ? iconeDuSujet(sujet) : 'star'} />
+              </span>
+              <span className="gp-terrain-nom">
+                <b>{t.nom}</b>
+                <span className="muted small">{`${formatNumber(t.reponses)} réponses · ${t.pourcent} % de bonnes`}</span>
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }
 

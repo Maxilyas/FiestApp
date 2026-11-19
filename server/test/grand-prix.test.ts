@@ -25,6 +25,7 @@ import {
 } from '../../shared/grandPrix'
 import { legendairesVisibles, PRIX_DES_GRANDS_PRIX, PREFIXES_DES_VOIES_RANGEES } from '../../shared/legendaires'
 import { suiteFixe } from '../../shared/hasard'
+import { sujetParCle } from '../../shared/sujets'
 
 ProfileStore.tirageEclat = () => false
 
@@ -51,16 +52,17 @@ test('battre, c’est moins de points, ou autant et plus vite — une égalité 
   assert.ok(valeurDeLaCourse({ points: 4, tempsMs: 1_000 }) > valeurDeLaCourse({ points: 4, tempsMs: 2_000 }))
 })
 
-test('un parcours neuf : dix obstacles jamais courus, moitié du quiz du jour, puis les plus anciens quand le vivier s’épuise', () => {
-  const vivier = [
-    ...Array.from({ length: 12 }, (_, i) => ({ rang: i, source: 'jour' as const })),
-    ...Array.from({ length: 12 }, (_, i) => ({ rang: 12 + i, source: 'campagne' as const })),
-  ]
+test('un parcours neuf : dix obstacles jamais courus, tour à tour sur chaque thème du terrain, ce que le coureur a déjà vu en dernier', () => {
+  // Trois thèmes, huit questions chacun : Disney, l'équitation, mythes et légendes.
+  const themes = ['disney', 'equitation', 'mythes-legendes']
+  const vivier = themes.flatMap((theme, t) => Array.from({ length: 8 }, (_, i) => ({ rang: t * 8 + i, theme })))
+  const themeDe = (r: number) => themes[Math.floor(r / 8)]
   const a = suiteFixe(7)
   const premier = tirerLeParcours(vivier, new Map(), a)
   assert.equal(premier.length, OBSTACLES_DU_GRAND_PRIX)
   assert.equal(new Set(premier).size, OBSTACLES_DU_GRAND_PRIX)
-  assert.equal(premier.filter(r => r < 12).length, 5, 'moitié du quiz du jour : le vrai temps du fantôme')
+  const parTheme = themes.map(t => premier.filter(r => themeDe(r) === t).length).sort()
+  assert.deepEqual(parTheme, [3, 3, 4], 'chaque thème de son terrain, à tour de rôle')
   const deja = new Map(premier.map(r => [r, 0]))
   const second = tirerLeParcours(vivier, deja, a)
   assert.equal(second.filter(r => deja.has(r)).length, 0, 'un parcours neuf ne reprend rien de la course d’avant')
@@ -71,6 +73,14 @@ test('un parcours neuf : dix obstacles jamais courus, moitié du quiz du jour, p
   const reprises = troisieme.filter(r => deja.has(r))
   assert.equal(reprises.length, 6)
   assert.ok(reprises.every(r => deja.get(r) === 0), 'les plus anciennes d’abord')
+  // Ce qu'il a déjà vu en campagne — un duel sur Disney contre le fantôme — passe après ce qu'il n'a jamais vu.
+  const vues = new Set(vivier.filter(q => q.theme === 'disney').map(q => q.rang))
+  const neuf = tirerLeParcours(vivier, new Map(), suiteFixe(3), OBSTACLES_DU_GRAND_PRIX, vues)
+  assert.equal(neuf.filter(r => vues.has(r)).length, 0, 'seize jamais vues suffisent à dix obstacles')
+  const presqueTout = new Set(vivier.filter(q => q.rang !== 0 && q.rang !== 9).map(q => q.rang))
+  const avecDesVues = tirerLeParcours(vivier, new Map(), suiteFixe(3), OBSTACLES_DU_GRAND_PRIX, presqueTout)
+  assert.ok(avecDesVues.includes(0) && avecDesVues.includes(9), 'les deux jamais vues d’abord, puis les vues')
+  assert.equal(new Set(avecDesVues).size, OBSTACLES_DU_GRAND_PRIX)
 })
 
 test('le rythme du fantôme se tire de ses vrais temps du même verdict', () => {
@@ -114,47 +124,73 @@ function base(banc: Banc) {
 
 /**
  * Le passé de la fêtée, écrit dans ses journaux : trois jours de quiz du jour
- * (une question sur trois ratée, sept secondes ; les autres en cinq ; un
- * refus le dernier jour) et une série de campagne de dix QCM.
+ * — ses temps seulement, d'où se tire son rythme : cinq secondes quand elle
+ * sait, sept quand elle se trompe — et des séries de campagne sur ses thèmes :
+ * Disney deux fois (huit justes sur dix), l'équitation (sept), mythes et
+ * légendes (aucune : son fantôme y fait tomber chaque barre, à chaque course),
+ * et l'anglais, cinq questions seulement.
  */
+const SES_THEMES: [string, number, number][] = [
+  ['disney', 10, 8],
+  ['disney', 10, 8],
+  ['equitation', 10, 7],
+  ['mythes-legendes', 10, 0],
+  ['anglais', 5, 4],
+]
+
 function ecrireSonPasse(banc: Banc, fantome: string) {
   const db = base(banc)
   try {
     const tirage = db.prepare('INSERT INTO jour_tirages (jour, questions, annulees, tire_le) VALUES (?, ?, ?, ?)')
     const reponse = db.prepare('INSERT INTO jour_reponses (profile_id, jour, question, choix, ms, juste, points, repondue_le) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
     for (const [j, jour] of JOURS_D_AVANT.entries()) {
-      const questions = Array.from({ length: 10 }, (_, i) => ({
-        reserveId: `r-${j}-${i}`,
-        texte: `Question du jour ${j}-${i} ?`,
-        reponses: ['A', 'B', 'C', 'D'],
-        bonne: i % 4,
-        categorie: 'Histoire',
-        duree: 20,
-        lectureMs: 2000,
-        anecdote: `L’anecdote ${j}-${i}.`,
-      }))
+      const questions = Array.from({ length: 10 }, (_, i) => ({ reserveId: `r-${j}-${i}`, texte: `Question du jour ${j}-${i} ?`, reponses: ['A', 'B', 'C', 'D'], bonne: i % 4, categorie: 'Histoire', duree: 20 }))
       tirage.run(jour, JSON.stringify(questions), '[]', DEBUT - 5 * 86_400_000)
       questions.forEach((q, i) => {
-        const refus = j === 2 && i === 9
-        const juste = !refus && i % 3 !== 0
-        const choix = refus ? null : juste ? q.bonne : (q.bonne + 1) % 4
-        reponse.run(fantome, jour, i, choix, refus ? null : juste ? 5000 : 7000, juste ? 1 : 0, juste ? 150 : 0, DEBUT - 4 * 86_400_000)
+        const juste = i % 3 !== 0
+        reponse.run(fantome, jour, i, juste ? q.bonne : (q.bonne + 1) % 4, juste ? 5000 : 7000, juste ? 1 : 0, juste ? 150 : 0, DEBUT - 4 * 86_400_000)
       })
     }
-    const questions = Array.from({ length: 10 }, (_, i) => ({ id: `c${i}`, texte: `Question de campagne ${i} ?`, reponses: ['W', 'X', 'Y', 'Z'], bonne: 2, categorie: 'Sciences', anecdote: null, niveau: 'facile' }))
-    db.prepare('INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
-      'serie-1',
-      fantome,
-      JSON.stringify(questions),
-      10,
-      3,
-      8,
-      DEBUT - 3 * 86_400_000,
-      DEBUT - 3 * 86_400_000 + 60_000,
-      'serie',
-    )
+    const serie = db.prepare('INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, sujet) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
     const rep = db.prepare('INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le) VALUES (?, ?, ?, ?, ?, ?)')
-    questions.forEach((_, i) => rep.run('serie-1', i, `cq${i}`, i < 8 ? 2 : 0, i < 8 ? 1 : 0, DEBUT - 3 * 86_400_000))
+    SES_THEMES.forEach(([theme, combien, justes], k) => {
+      const id = `serie-${k}`
+      const questions = Array.from({ length: combien }, (_, i) => ({ id: `${theme}-${k}-${i}`, texte: `${theme} ${k}-${i} : laquelle ?`, reponses: ['W', 'X', 'Y', 'Z'], bonne: 2, categorie: 'Culture générale', anecdote: `Le savais-tu, ${k}-${i} ?`, niveau: 'facile' }))
+      serie.run(id, fantome, JSON.stringify(questions), combien, 3, justes, DEBUT - 3 * 86_400_000, DEBUT - 3 * 86_400_000 + 60_000, 'serie', theme)
+      questions.forEach((q, i) => rep.run(id, i, q.id, i < justes ? 2 : 0, i < justes ? 1 : 0, DEBUT - 3 * 86_400_000))
+    })
+  } finally {
+    db.close()
+  }
+}
+
+/** Une série de Nina sur Disney, qui lui a montré une question du vivier : son parcours la prend en dernier. */
+function ninaAVuUneQuestion(banc: Banc, nina: string, reserveId: string) {
+  const db = base(banc)
+  try {
+    db.prepare('INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, sujet) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
+      'serie-de-nina',
+      nina,
+      JSON.stringify([{ id: reserveId, texte: 'Déjà vue ?', reponses: ['W', 'X', 'Y', 'Z'], bonne: 2, categorie: 'Culture générale', anecdote: null, niveau: 'facile' }]),
+      1,
+      3,
+      1,
+      DEBUT - 2 * 86_400_000,
+      DEBUT - 2 * 86_400_000 + 60_000,
+      'serie',
+      'disney',
+    )
+    db.prepare('INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le) VALUES (?, ?, ?, ?, ?, ?)').run('serie-de-nina', 0, reserveId, 2, 1, DEBUT - 2 * 86_400_000)
+  } finally {
+    db.close()
+  }
+}
+
+/** Le rang dans le vivier d'une question de la base. */
+function rangDe(banc: Banc, grandPrix: string, reserveId: string): number {
+  const db = base(banc)
+  try {
+    return (db.prepare("SELECT rang FROM grand_prix_questions WHERE grand_prix_id = ? AND json_extract(question, '$.reserveId') = ?").get(grandPrix, reserveId) as { rang: number }).rang
   } finally {
     db.close()
   }
@@ -201,15 +237,26 @@ test('le Grand Prix, de la programmation au flot : le fantôme rejoue, le chrono
     const hugo = await inscrireProfil(banc.url, 'hugo', 'Hugo', '🐼')
     const leaId = idDuProfil(banc, 'lea')
 
-    // Sans passé, pas de fantôme : il n'a pas de quoi courir.
+    // Sans thème joué en campagne, pas de terrain, pas de fantôme.
     const tropTot = await poster(banc, admin, '/api/admin/grand-prix', { fantome: idDuProfil(banc, 'hugo'), jour: JOUR })
     assert.equal(tropTot.status, 400)
-    assert.match(tropTot.corps.error, /assez joué/)
+    assert.match(tropTot.corps.error, /aucun thème/)
 
+    // Ses thèmes, du plus joué au moins joué ; les trois premiers, son terrain d'office.
     ecrireSonPasse(banc, leaId)
     const apercu = await lire(banc, admin, `/api/admin/grand-prix/fantome/${leaId}`)
     assert.equal(apercu.status, 200)
-    assert.deepEqual([apercu.corps.jour, apercu.corps.campagne, apercu.corps.pret], [30, 10, true])
+    assert.deepEqual(
+      apercu.corps.themes.map((t: any) => [t.cle, t.reponses, t.pourcent]),
+      [['disney', 20, 80], ...[['equitation', 10, 70], ['mythes-legendes', 10, 0]].sort((a, b) => String(sujetParCle(a[0])!.nom).localeCompare(String(sujetParCle(b[0])!.nom))), ['anglais', 5, 80]],
+    )
+    assert.deepEqual([...apercu.corps.parDefaut].sort(), ['disney', 'equitation', 'mythes-legendes'])
+    // Un terrain trop maigre, un thème qu'elle n'a pas joué, quatre thèmes : refusés en clair.
+    const maigre = await poster(banc, admin, '/api/admin/grand-prix', { fantome: leaId, jour: JOUR, terrain: ['anglais'] })
+    assert.equal(maigre.status, 400)
+    assert.match(maigre.corps.error, /Ajoute un thème/)
+    assert.equal((await poster(banc, admin, '/api/admin/grand-prix', { fantome: leaId, jour: JOUR, terrain: ['harry-potter'] })).status, 400)
+    assert.equal((await poster(banc, admin, '/api/admin/grand-prix', { fantome: leaId, jour: JOUR, terrain: ['disney', 'equitation', 'mythes-legendes', 'anglais'] })).status, 400)
 
     // Un avatar qui ne se met pas en jeu est refusé en clair.
     const mauvais = await poster(banc, admin, '/api/admin/grand-prix', { fantome: leaId, jour: JOUR, prix: 'lg:phenix' })
@@ -226,7 +273,11 @@ test('le Grand Prix, de la programmation au flot : le fantôme rejoue, le chrono
     })
     assert.equal(programme.status, 200, JSON.stringify(programme.corps))
     const gp = programme.corps.grandsPrix[0]
-    assert.deepEqual([gp.titre, gp.ruban, gp.vivier.jour, gp.vivier.campagne], ['Le Grand Prix de Léa', 'violet', 30, 10])
+    assert.deepEqual([gp.titre, gp.ruban, gp.vivier.jour, gp.vivier.campagne], ['Le Grand Prix de Léa', 'violet', 0, 40], 'plus une question du quiz du jour : tout le monde les a vues')
+    assert.deepEqual(gp.terrain.map((t: any) => t.cle).sort(), ['disney', 'equitation', 'mythes-legendes'])
+    // Nina a déjà vu une question de Disney, dans une série à elle : son parcours la prend en dernier.
+    ninaAVuUneQuestion(banc, idDuProfil(banc, 'nina'), 'disney-0-3')
+    const dejaVue = rangDe(banc, gp.id, 'disney-0-3')
     // Un seul Grand Prix par jour.
     assert.equal((await poster(banc, admin, '/api/admin/grand-prix', { fantome: leaId, jour: JOUR })).status, 400)
 
@@ -235,6 +286,7 @@ test('le Grand Prix, de la programmation au flot : le fantôme rejoue, le chrono
     assert.equal(avant.status, 200)
     assert.equal(avant.corps.grandPrix.titre, 'Le Grand Prix de Léa')
     assert.equal(avant.corps.grandPrix.fantome.nom, 'Léa')
+    assert.deepEqual(avant.corps.grandPrix.terrain.map((t: any) => t.nom).sort(), ['disney', 'equitation', 'mythes-legendes'].map(c => sujetParCle(c)!.nom).sort())
     assert.deepEqual([avant.corps.course, avant.corps.departs, avant.corps.vainqueurs.length, avant.corps.bilan, avant.corps.fete], [null, 0, 0, null, null])
 
     // Le départ sert le premier obstacle : sa question, son échéance, le temps du fantôme — jamais sa bonne réponse.
@@ -244,6 +296,9 @@ test('le Grand Prix, de la programmation au flot : le fantôme rejoue, le chrono
     assert.equal(etat.course.obstacle.echeance, horloge.t + 20_000)
     assert.ok(!JSON.stringify(etat).includes('"bonne"'), 'invariant 1 : la bonne réponse n’arrive qu’avec la révélation')
     assert.ok(!JSON.stringify(etat).includes('anecdote'))
+    // Au-dessus de sa question, son thème — « Disney et Pixar » —, pas sa catégorie.
+    assert.ok(['disney', 'equitation', 'mythes-legendes'].map(c => sujetParCle(c)!.nom).includes(etat.course.obstacle.categorie), etat.course.obstacle.categorie)
+    assert.ok(!obstaclesDe(banc, course).includes(dejaVue), 'ce qu’il a déjà vu en campagne passe après')
     // Un second départ reprend la course en route, il ne la double pas.
     assert.equal((await poster(banc, nina, '/api/grand-prix/depart')).corps.course.id, course)
 
@@ -264,7 +319,7 @@ test('le Grand Prix, de la programmation au flot : le fantôme rejoue, le chrono
     }
     assert.equal(etat.course.finie, true)
     assert.deepEqual(etat.course.toi, { points: 0, tempsMs: 10_000, barres: 0, sautes: 10 })
-    assert.ok(etat.course.fantome.points > 0, 'le fantôme fait tomber des barres : il ratait une question sur trois')
+    assert.ok(etat.course.fantome.points >= 3 * PENALITE_D_UNE_BARRE, 'le fantôme fait tomber ses barres de mythes et légendes : trois obstacles au moins par thème')
     assert.deepEqual(etat.course.fin, { battu: true, rang: 1, flot: true, prix: 'lg:pegase' })
     // Une réponse renvoyée — l'accusé perdu en route — rend la même révélation, sans rien réécrire ni repayer.
     const renvoi = await poster(banc, nina, `/api/grand-prix/course/${course}/reponse`, { position: 9, choix: 0 })

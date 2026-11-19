@@ -864,7 +864,7 @@ export const api = {
     /** Les Grands Prix programmés, ce qu'on peut y mettre en jeu ; un fantôme et de quoi il court ; programmer, retirer. */
     grandsPrix: () => req<PageDesGrandsPrix>('/api/admin/grand-prix'),
     fantome: (profileId: string) => req<ApercuDuFantome>(`/api/admin/grand-prix/fantome/${encodeURIComponent(profileId)}`),
-    programmer: (demande: { id?: string; fantome: string; jour: string; titre: string; ruban: string; mot: string; prix: string | null; prixFete: string | null }) =>
+    programmer: (demande: { id?: string; fantome: string; jour: string; titre: string; ruban: string; mot: string; prix: string | null; prixFete: string | null; terrain?: string[] }) =>
       req<PageDesGrandsPrix>('/api/admin/grand-prix', { method: 'POST', body: JSON.stringify(demande) }),
     retirerLeGrandPrix: (id: string) => req<PageDesGrandsPrix>(`/api/admin/grand-prix/${encodeURIComponent(id)}`, { method: 'DELETE' }),
     /** Les affiches des nouveautés posées, chacune avec ce qu'elle a fait. */

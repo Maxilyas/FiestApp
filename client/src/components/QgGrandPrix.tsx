@@ -11,7 +11,9 @@ import { jourEnToutesLettres } from '../../../shared/jour'
 import type { ProfilDAdministration } from '../../../shared/profil'
 import {
   MOT_DU_GRAND_PRIX_MAX,
+  QUESTIONS_POUR_COURIR,
   RUBAN_PAR_DEFAUT,
+  THEMES_DU_TERRAIN,
   TITRE_DU_GRAND_PRIX_MAX,
   type ApercuDuFantome,
   type CleDeRuban,
@@ -41,13 +43,19 @@ function depuis(g: GrandPrixAuQg | null) {
     mot: g?.mot ?? '',
     prix: g?.prix ?? null,
     prixFete: g?.prixFete ?? null,
+    /** Les thèmes cochés ; null tant que rien n'est choisi — ses trois plus joués, une fois lus. */
+    terrain: g ? g.terrain.map(t => t.cle) : (null as string[] | null),
   }
 }
 
+/** Les thèmes qu'on propose : ceux où il a assez joué pour qu'un parcours s'y tienne, et les cochés. */
+const REPONSES_POUR_PROPOSER = 10
+
 /**
  * Le Grand Prix au QG (`/admin#grand-prix`, sous « Animer ») — le jour d'un
- * joueur : on choisit son fantôme, le jour où il court, la couleur de son
- * flot, l'avatar en plus que gagnent ceux qui le battent et celui que la
+ * joueur : on choisit son fantôme, son terrain — les thèmes où il a passé le
+ * plus de temps, trois au plus, les trois premiers cochés —, le jour où il
+ * court, la couleur de son flot, l'avatar en plus que gagnent ceux qui le battent et celui que la
  * personne fêtée reçoit le matin, et un mot pour elle. Le vivier se fige à
  * l'enregistrement : le fantôme ne rejoue que ce qu'il a joué jusque-là.
  * Puis la liste : « Essayer » le court comme un joueur, hors classement et
@@ -100,7 +108,12 @@ export function QgGrandPrix() {
     if (!idDuFantome) return
     let perime = false
     api.admin.fantome(idDuFantome).then(
-      a => !perime && setApercu(a),
+      a => {
+        if (perime) return
+        setApercu(a)
+        // Ses trois plus joués, cochés d'office — sauf un terrain déjà choisi (un Grand Prix qu'on reprend).
+        setForm(f => (f.terrain === null ? { ...f, terrain: a.parDefaut } : f))
+      },
       e => !perime && showToast({ kind: 'error', message: motifDe(e) }),
     )
     return () => {
@@ -112,13 +125,23 @@ export function QgGrandPrix() {
   if (!page) return <p className="serif-note">Chargement…</p>
 
   const aujourdhui = page.aujourdhui
-  const prete = !!form.fantome && /^\d{4}-\d{2}-\d{2}$/.test(form.jour) && form.jour >= aujourdhui && apercu?.pret === true
+  const terrain = form.terrain ?? []
+  const choisis = (apercu?.themes ?? []).filter(t => terrain.includes(t.cle))
+  // Ce que le vivier aurait, à peu près : deux cents au plus par thème — le serveur compte les doublons et tranche.
+  const aCourir = choisis.reduce((n, t) => n + Math.min(t.reponses, 200), 0)
+  const prete = !!form.fantome && /^\d{4}-\d{2}-\d{2}$/.test(form.jour) && form.jour >= aujourdhui && choisis.length > 0 && aCourir >= QUESTIONS_POUR_COURIR
+  const basculer = (cle: string) =>
+    setForm(f => {
+      const t = f.terrain ?? []
+      if (t.includes(cle)) return { ...f, terrain: t.filter(x => x !== cle) }
+      return t.length >= THEMES_DU_TERRAIN ? f : { ...f, terrain: [...t, cle] }
+    })
   const dejaCeJour = page.grandsPrix.find(g => g.jour === form.jour && g.id !== form.id)
   const nomDuPrix = (cle: string | null) => (cle ? (page.prix.find(p => p.cle === cle)?.nom ?? cle) : null)
   const titreDOffice = form.fantome ? `Le Grand Prix de ${form.fantome.nom}` : 'Le Grand Prix de…'
 
   const choisirLeFantome = (p: ProfilDAdministration) => {
-    setForm(f => ({ ...f, fantome: { id: p.id, nom: p.nom, vu: { id: p.id, nom: p.nom, avatar: p.avatar } } }))
+    setForm(f => ({ ...f, fantome: { id: p.id, nom: p.nom, vu: { id: p.id, nom: p.nom, avatar: p.avatar } }, terrain: null }))
     setCherche('')
     setTrouves(null)
   }
@@ -128,9 +151,9 @@ export function QgGrandPrix() {
     const ok = await confirmDialog({
       title: form.id ? 'Enregistrer ce Grand Prix ?' : 'Programmer ce Grand Prix ?',
       message: espacesFines(
-        `Le ${jourEnToutesLettres(form.jour)}, chaque profil courra contre le fantôme de ${form.fantome.nom}, et le verra sur son accueil. Son vivier se fige maintenant : ${
-          apercu ? `${nQuestions(apercu.jour + apercu.campagne)}` : 'ses réponses'
-        }.${form.prix ? ` Qui le bat gagne son flot et ${nomDuPrix(form.prix)}.` : ' Qui le bat gagne son flot.'}`,
+        `Le ${jourEnToutesLettres(form.jour)}, chaque profil courra contre le fantôme de ${form.fantome.nom} sur son terrain — ${choisis
+          .map(t => t.nom)
+          .join(', ')} —, et le verra sur son accueil. Ses réponses s’y figent maintenant.${form.prix ? ` Qui le bat gagne son flot et ${nomDuPrix(form.prix)}.` : ' Qui le bat gagne son flot.'}`,
       ),
       confirmLabel: form.id ? 'Enregistrer' : 'Programmer',
     })
@@ -146,6 +169,7 @@ export function QgGrandPrix() {
         mot: form.mot,
         prix: form.prix,
         prixFete: form.prixFete,
+        terrain,
       })
       setPage(p)
       setForm(depuis(null))
@@ -188,7 +212,7 @@ export function QgGrandPrix() {
     <>
       <p className="muted small">
         {espacesFines(
-          'Le jour d’un joueur : tout le monde court dix obstacles contre son fantôme — ses vraies réponses du quiz du jour et de la campagne, rejouées à son rythme. Une barre ou un refus coûtent 4 points, le temps départage. Qui le bat gagne son flot, à son avatar ; la personne fêtée reçoit le sien le matin, en or. Ni expérience ni confettis.',
+          'Le jour d’un joueur : tout le monde court dix obstacles contre son fantôme, sur son terrain — les thèmes où il a passé le plus de temps en campagne, ses vraies réponses rejouées à son rythme. Une barre ou un refus coûtent 4 points, le temps départage. Qui le bat gagne son flot, à son avatar ; la personne fêtée reçoit le sien le matin, en or. Ni expérience ni confettis.',
         )}
       </p>
 
@@ -218,9 +242,7 @@ export function QgGrandPrix() {
               <span className="muted small">
                 {' · '}
                 {apercu
-                  ? espacesFines(
-                      `${nQuestions(apercu.jour)} du quiz du jour, ${nQuestions(apercu.campagne)} de la campagne${apercu.pret ? '' : ' — pas encore assez pour courir (20 au moins)'}`,
-                    )
+                  ? espacesFines(apercu.themes.length > 0 ? `${apercu.themes.length} thème${apercu.themes.length > 1 ? 's' : ''} joué${apercu.themes.length > 1 ? 's' : ''} en campagne` : 'aucun thème joué en campagne : pas de terrain où courir')
                   : 'ce qu’il a joué…'}
               </span>
             </span>
@@ -259,6 +281,43 @@ export function QgGrandPrix() {
                   </li>
                 ))}
               </ul>
+            )}
+          </>
+        )}
+
+        {form.fantome && apercu && apercu.themes.length > 0 && (
+          <>
+            <span className="label" id="grand-prix-terrain">
+              Son terrain
+            </span>
+            <p className="muted small">
+              {espacesFines(
+                `Les thèmes où ${form.fantome.nom} a passé le plus de temps en campagne, ${THEMES_DU_TERRAIN} au plus : chaque course en tire ses dix obstacles, à tour de rôle.`,
+              )}
+            </p>
+            <div className="annonce-sortes gp-qg-terrain" role="group" aria-labelledby="grand-prix-terrain">
+              {apercu.themes
+                .filter(t => t.reponses >= REPONSES_POUR_PROPOSER || terrain.includes(t.cle))
+                .map(t => {
+                  const coche = terrain.includes(t.cle)
+                  const plein = !coche && terrain.length >= THEMES_DU_TERRAIN
+                  return (
+                    <button
+                      key={t.cle}
+                      type="button"
+                      aria-pressed={coche}
+                      aria-disabled={plein || undefined}
+                      className={'annonce-sorte gp-qg-theme' + (coche ? ' actif' : '')}
+                      onClick={() => basculer(t.cle)}
+                    >
+                      <b>{espacesFines(t.nom)}</b>
+                      <span className="muted small">{`${formatNumber(t.reponses)} réponses · ${t.pourcent} %`}</span>
+                    </button>
+                  )
+                })}
+            </div>
+            {choisis.length > 0 && aCourir < QUESTIONS_POUR_COURIR && (
+              <p className="muted small">{espacesFines(`${nQuestions(aCourir)} à courir : il en faut ${QUESTIONS_POUR_COURIR} au moins. Ajoute un thème.`)}</p>
             )}
           </>
         )}
@@ -365,7 +424,9 @@ export function QgGrandPrix() {
                     <span className="muted small">
                       {espacesFines(`le ${jourEnToutesLettres(g.jour)} · le fantôme de `)}
                       <PrenomDuJoueur id={g.fantome?.id} nom={g.fantome?.nom ?? '?'} />
-                      {espacesFines(` · ${nQuestions(g.vivier.jour + g.vivier.campagne)} dans son vivier`)}
+                      {espacesFines(
+                        ` · ${g.terrain.length > 0 ? `sur ${g.terrain.map(t => t.nom).join(', ')} · ` : ''}${nQuestions(g.vivier.jour + g.vivier.campagne)} dans son vivier`,
+                      )}
                     </span>
                     <span className="small">
                       {espacesFines(

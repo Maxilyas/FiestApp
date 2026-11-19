@@ -203,15 +203,15 @@ test('chaque route de l’administration qui change quelque chose se note avec s
       'mettre à l’affiche',
     )
     ok(await faire(banc, admin, '/api/admin/affiches/affiche-du-journal', undefined, 'DELETE'), 'retirer l’affiche')
-    // Un Grand Prix contre le fantôme de Léa — trois jours de son quiz du jour écrits dans ses journaux —,
-    // essayé avec son profil par l'administrateur, puis retiré avant son jour.
+    // Un Grand Prix contre le fantôme de Léa — deux séries de campagne sur Disney écrites dans ses journaux, son
+    // terrain —, essayé avec son profil par l'administrateur, puis retiré avant son jour.
     const passe = new Database(banc.quizDbUrl.replace(/^file:/, ''))
-    for (const [j, jourDuPasse] of ['2026-01-05', '2026-01-06', '2026-01-07'].entries()) {
-      const questions = Array.from({ length: 10 }, (_, i) => ({ reserveId: `gp-${j}-${i}`, texte: `Question ${j}-${i} ?`, reponses: ['A', 'B', 'C', 'D'], bonne: 1, categorie: 'Histoire', duree: 20, lectureMs: 2000 }))
-      passe.prepare('INSERT INTO jour_tirages (jour, questions, annulees, tire_le) VALUES (?, ?, ?, ?)').run(jourDuPasse, JSON.stringify(questions), '[]', Date.now() - 30 * 24 * H)
-      for (let i = 0; i < 10; i++) {
-        passe.prepare('INSERT INTO jour_reponses (profile_id, jour, question, choix, ms, juste, points, repondue_le) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(idLea, jourDuPasse, i, 1, 5000, 1, 150, Date.now() - 30 * 24 * H)
-      }
+    for (const k of [0, 1]) {
+      const questions = Array.from({ length: 12 }, (_, i) => ({ id: `gp-${k}-${i}`, texte: `Disney ${k}-${i} ?`, reponses: ['A', 'B', 'C', 'D'], bonne: 1, categorie: 'Cinéma & séries', anecdote: null, niveau: 'facile' }))
+      passe
+        .prepare('INSERT INTO campagne_series (id, profile_id, questions, position, vies, justes, commencee_le, finie_le, mode, sujet) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .run(`gp-serie-${k}`, idLea, JSON.stringify(questions), 12, 3, 12, Date.now() - 30 * 24 * H, Date.now() - 30 * 24 * H + 60_000, 'serie', 'disney')
+      questions.forEach((q, i) => passe.prepare('INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le) VALUES (?, ?, ?, ?, ?, ?)').run(`gp-serie-${k}`, i, q.id, 1, 1, Date.now() - 30 * 24 * H))
     }
     passe.close()
     const jourDuGrandPrix = jourDe(Date.now() + horloge.decalage + 2 * 24 * H)
