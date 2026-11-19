@@ -226,9 +226,9 @@ export function PanneauBoutique({
 
   // Le thème essayé habille toute la page ; le compagnon essayé passe dans la niche. Quitter la page rend tout.
   useEffect(() => {
-    if (essai.theme) void essayerTheme(essai.theme)
+    if (essai.theme) void essayerTheme(essai.theme, profil.camp ?? null)
     else finirLEssai()
-  }, [essai.theme])
+  }, [essai.theme, profil.camp])
   useEffect(() => essayerNiche(essai.compagnon ?? null), [essai.compagnon])
   useEffect(
     () => () => {

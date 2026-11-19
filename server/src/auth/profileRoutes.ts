@@ -547,7 +547,8 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     wrap(async (req, res) => {
       noStore(res)
       const me = await current(req)
-      res.json({ theme: me ? profiles.themePorte(me) : null })
+      // Son camp avec : sous les Deux Bannières, la page se teinte de lui dès le démarrage.
+      res.json({ theme: me ? profiles.themePorte(me) : null, camp: me?.camp ?? null })
     }),
   )
 
@@ -788,6 +789,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
         niche: req.body?.niche,
         sceau: req.body?.sceau,
         plaque: req.body?.plaque,
+        camp: req.body?.camp,
       })
       // Sa finition et son légendaire se lisent en mémoire à chaque
       // instantané, mais rien ne le renvoyait : c'était la veille suivante

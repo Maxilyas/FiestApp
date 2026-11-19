@@ -341,8 +341,8 @@ export function ProfilApp() {
   // Le thème de son profil habille sa page, une fois le profil lu : celui
   // retenu au démarrage attend le verdict. Sans profil, Velours.
   useEffect(() => {
-    if (!chargement) void porterTheme(profil?.theme)
-  }, [chargement, profil?.theme])
+    if (!chargement) void porterTheme(profil?.theme, profil?.camp)
+  }, [chargement, profil?.theme, profil?.camp])
   // Sa gerbe aussi : choisie ici, elle éclate à sa prochaine bonne réponse.
   useEffect(() => {
     if (!chargement) porterGerbe(profil?.gerbe)

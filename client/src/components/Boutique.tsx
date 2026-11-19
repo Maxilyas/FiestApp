@@ -4,7 +4,8 @@ import { Icon } from './Icon'
 import { ongletVise } from './Onglets'
 import { rendreLeFocus } from '../focus'
 import { espacesFines, formatNumber } from '../format'
-import { NOM_DE_RARETE, THEMES, enBoutique, prixDe, retourEnBoutique, theme, type Theme } from '../../../shared/themes'
+import { NOM_DE_RARETE, THEMES, campDuTheme, enBoutique, prixDe, retourEnBoutique, theme, type Theme } from '../../../shared/themes'
+import { nomDeLaPlaque } from '../../../shared/plaques'
 import { enConfettis, themesEnRayon } from '../../../shared/rayons'
 import type { PublicProfileDetail } from '../../../shared/profil'
 import { AGagner, EnteteDeLaPiece, PiedDeLaPiece, VersLaBoutique, ceQueDitLaVignette, classesDeLaVignette, type EtatDUneVignette } from './LigneDeCollection'
@@ -339,6 +340,48 @@ function OngletsDuTheme({
 }
 
 /**
+ * Son camp, sous un thème qui en a deux (les Deux Bannières, le choix du
+ * propriétaire du 19 novembre 2026 : « l'option choisir son camp ») : une
+ * rangée de deux, chacun son emblème et son nom, au-dessus de ses thèmes —
+ * seulement quand le thème que la page montre en a. Un toucher l'essaie, la
+ * page entière se teinte de lui et sa plaque le porte ; « Porter » le garde,
+ * comme le reste de la loge. Sans phrase : l'emblème et le nom suffisent (le
+ * propriétaire, le 17 novembre 2026 — pas de texte qui explique).
+ */
+function ChoixDuCamp({
+  profil,
+  essai,
+  essayer,
+  montre,
+}: Pick<PropsDUnePiece, 'profil' | 'essai' | 'essayer'> & {
+  /** Le thème que la page montre : l'essai, sinon le sien. */
+  montre: string
+}) {
+  const t = theme(montre)
+  if (!t?.camps) return null
+  const porte = campDuTheme(t, profil.camp)?.key
+  const vu = campDuTheme(t, essai.camp !== undefined ? essai.camp : profil.camp)?.key
+  return (
+    <div className="loge-camps" role="radiogroup" aria-label="Ton camp">
+      {t.camps.map(c => (
+        <button
+          key={c.key}
+          type="button"
+          role="radio"
+          aria-checked={vu === c.key}
+          className={'loge-camp' + (vu === c.key ? ' selected' : '') + (vu === c.key && porte !== c.key ? ' essaye' : '')}
+          onClick={() => essayer({ camp: c.key })}
+        >
+          <EchantillonDePlaque plaque={`${t.key}-${c.key}`} />
+          <span className="loge-camp-nom">{c.nom}</span>
+          <span className="sr-only">{`, ${c.long}` + (porte === c.key ? ', porté' : '')}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/**
  * La pièce « Thème » de la loge, en deux onglets (`OngletsDuTheme`) : ses
  * thèmes d'office, sa plaque à côté.
  *
@@ -379,11 +422,12 @@ export function MesThemes({ profil, essai, essayer, neufs }: PropsDUnePiece) {
           onVue={setVue}
           themes={siens.length}
           plaque={plaques.vue}
-          nomDeLaPlaque={plaques.vue ? (theme(plaques.vue)?.nom ?? '') : 'sans plaque'}
+          nomDeLaPlaque={plaques.vue ? nomDeLaPlaque(plaques.vue) : 'sans plaque'}
           neufs={{ themes: siens.some(t => neufs?.has(t.key)), plaque: plaques.choix.some(c => neufs?.has(c.cle)) }}
         />
       </EnteteDeLaPiece>
       <div className="loge-theme-vue" role="tabpanel" id="loge-theme-vue" aria-labelledby={`loge-theme-${vue}`}>
+        {vue === 'themes' && <ChoixDuCamp profil={profil} essai={essai} essayer={essayer} montre={montre} />}
         {vue === 'themes' ? (
           <ul className="loge-vignettes loge-themes" aria-label="Mes thèmes">
             {siens.map(t => (

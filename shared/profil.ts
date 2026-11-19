@@ -964,13 +964,21 @@ export interface PublicProfile {
    */
   theme?: string | null
   /**
+   * Son camp, sous un thème qui en a deux (les Deux Bannières,
+   * `Theme.camps`) : null, le premier, d'office. Toujours dit, même sous un
+   * autre thème — sa plaque des Deux Bannières le porte aussi. Absent d'un
+   * serveur d'avant.
+   */
+  camp?: string | null
+  /**
    * La gerbe qui éclate sur son téléphone à une bonne réponse
    * (`shared/gerbes.ts`), s'il en porte une. Pour lui seul, comme le thème.
    */
   gerbe?: string | null
   /**
    * La plaque de son nom dans les classements (`shared/plaques.ts`) : la clé
-   * du thème dont sa ligne prend les couleurs, celle que les autres voient ;
+   * du thème dont sa ligne prend les couleurs, celle que les autres voient —
+   * suivie de son camp sous un thème à deux camps (`bannieres-royaume`) ;
    * null sans plaque. Absente d'un serveur d'avant.
    */
   plaque?: string | null

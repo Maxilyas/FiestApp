@@ -974,9 +974,13 @@ h3 > .icon {
 .cl-carte-illu.plaque::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--p-embleme) 5px 5px / 16px 16px repeat; opacity: 0.16; pointer-events: none; }
 .cl-carte-illu.plaque > * { position: relative; }
 
-/* Le podium : trois marches posées sur un sol, la liste juste dessous. Sans
-   plaque, une marche prend son métal (`--metal`, posé par la page), comme le
-   podium d'un quiz en soirée (`.marches`). */
+/* Le podium : trois marches posées sur un sol, la liste juste dessous —
+   chacune une peinture de son thème, le gagnant debout dessus (le choix du
+   propriétaire du 19 novembre 2026, `retours/2026-11-19/podium-peint/` : « un
+   vrai décor de podium détaillé […] je veux que ce soit encore plus beau »
+   pour les thèmes durs à obtenir). Sans plaque, la marche de la maison, le
+   Velours : personne n'y a l'air d'avoir moins. Les peintures sont écrites
+   dans le bloc de la chaîne (`--marche-peinte`, `decors.ts --livrer`). */
 .podium-du-classement {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr) minmax(0, 1fr);
@@ -991,48 +995,74 @@ h3 > .icon {
 .podium-du-classement + .leaderboard { margin-top: 12px; }
 .classement-periode > .podium-du-classement + .leaderboard { margin-top: -6px; }
 .pdc-marche { min-width: 0; }
+/* De haut en bas : son prénom, son score, lui debout, sa marche — comme on monte sur un podium. */
 .pdc-joueur { display: flex; flex-direction: column; align-items: center; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: center; cursor: pointer; }
 .pdc-joueur:where(div) { cursor: default; }
-.pdc-avatar { display: grid; place-items: center; height: 62px; margin-bottom: 4px; }
-.pdc-avatar .lb-avatar { font-size: 2.1rem; }
-.pdc-1 .pdc-avatar { height: 74px; }
-.pdc-1 .pdc-avatar .lb-avatar { font-size: 2.6rem; }
 .pdc-nom { max-width: 100%; overflow: hidden; color: var(--ink); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .pdc-nom > .duels-ligne-en-cours { margin-left: 4px; vertical-align: -2px; }
-.pdc-valeur { display: inline-flex; align-items: center; gap: 4px; margin-bottom: 8px; color: var(--accent-text); font-family: var(--serif); font-size: 1.15rem; line-height: 1.1; white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
+.pdc-valeur { display: inline-flex; align-items: center; gap: 4px; color: var(--accent-text); font-family: var(--serif); font-size: 1.15rem; line-height: 1.1; white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
 .pdc-valeur .blason { flex: none; }
 .pdc-unite { color: var(--muted); font-family: var(--sans); font-size: 0.8125rem; }
-.pdc-socle {
-  position: relative;
+/* Lui, les pieds sur le dessus de sa marche : devant ce qui est posé sur ses coins, qui monte derrière lui. Sa case
+   est au moins aussi haute que ce décor — 37,23 % de la largeur de la marche, plus un peu d'air : un pourcent de
+   remplissage se compte sur la largeur, que la case prend entière (`::before`, dans la même cellule que lui) —, et il
+   ne touche jamais le score, même sur une tablette où la marche du premier fait près de 200 points. */
+.pdc-avatar { position: relative; z-index: 1; display: grid; place-items: end center; align-self: stretch; min-height: 50px; margin-bottom: -2px; }
+.pdc-avatar::before { content: ''; padding-top: 39%; }
+.pdc-avatar::before, .pdc-avatar > * { grid-area: 1 / 1; }
+.pdc-avatar .lb-avatar { font-size: 2.1rem; }
+.pdc-1 .pdc-avatar { min-height: 60px; }
+.pdc-1 .pdc-avatar .lb-avatar { font-size: 2.6rem; }
+/* Ses proportions, pas sa hauteur : 96, 72 et 56 points sur un téléphone de 360 de large, et sur une tablette, où la
+   marche s'élargit, elle grandit avec — à hauteur fixe, le sol y coupait le médaillon de la troisième. */
+.pdc-socle { position: relative; align-self: stretch; container-type: inline-size; }
+.pdc-1 .pdc-socle { aspect-ratio: 112 / 96; }
+.pdc-2 .pdc-socle { aspect-ratio: 100 / 72; }
+.pdc-3 .pdc-socle { aspect-ratio: 100 / 56; }
+/* La peinture, posée par le gabarit (`server/scripts/anime/gabarit-marche.ts`), jamais par ce qu'une image a peint :
+   sa face avant fait 94 % de sa largeur — la marche, ici —, son dessus est à 35 % de sa largeur depuis son haut. Elle
+   déborde donc de 3,19 % de chaque côté (0,03 / 0,94), et monte de 37,23 % de la largeur de la marche (0,35 / 0,94) :
+   en marge, que le pourcent compte toujours sur la largeur. Le sol coupe sa face : on ne voit jamais son pied. */
+.pdc-socle::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: -3.19%;
+  bottom: 0;
+  left: -3.19%;
+  margin-top: -37.23%;
+  background: var(--marche-peinte) top center / 100% auto no-repeat;
+  pointer-events: none;
+}
+/* Son rang : une pièce d'or, d'argent ou de bronze sertie au milieu du médaillon peint — 24 % de la largeur sous le
+   dessus, et un peu moins large que lui (26 %) : sa monture peinte reste autour. La marche dit son thème, la pièce sa
+   place ; son encre se lit sur tout son métal, du plus clair au plus sombre (`plaques.test.ts`). */
+.pdc-socle b {
+  position: absolute;
+  top: 0;
+  left: 50%;
   display: grid;
   place-items: center;
-  align-self: stretch;
-  overflow: hidden;
-  border-top: 3px solid var(--metal);
-  border-radius: 12px 12px 0 0;
-  background: linear-gradient(to bottom, color-mix(in srgb, var(--metal) 26%, transparent), color-mix(in srgb, var(--metal) 4%, transparent));
+  width: 20%;
+  aspect-ratio: 1;
+  margin: 14% 0 0 -10%;
+  border-radius: 50%;
+  color: var(--piece-encre);
+  background: radial-gradient(circle at 34% 28%, var(--piece-clair), var(--piece-sombre) 82%);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+  font-family: var(--serif);
+  font-size: 14.5cqw;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: lining-nums;
 }
-.pdc-socle b { position: relative; color: var(--metal); font-family: var(--serif); font-size: 2.1rem; line-height: 1; font-variant-numeric: lining-nums; }
-.pdc-1 .pdc-socle { height: 96px; }
-.pdc-1 .pdc-socle b { font-size: 2.7rem; }
-.pdc-2 .pdc-socle { height: 72px; }
-.pdc-3 .pdc-socle { height: 56px; }
-/* À ses couleurs : son fond, son filet, son emblème en filigrane, son rang à son or — en grand, 3:1 sur chaque plaque,
-   son ombre et son filigrane compris (`plaques.test.ts`). L'ombre du bas à 18 % et le filigrane à 12 % de la maquette
-   tombaient à 2,85:1 sous le rang de l'Ivoire ; à 10 % l'un et l'autre, 3,51 au pire. */
-.pdc-marche.plaque .pdc-socle {
-  border: 1px solid var(--p-trait);
-  border-bottom: 0;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(0, 0, 0, 0.1)), var(--p-bg);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
-}
-.pdc-marche.plaque .pdc-socle::before { content: ''; position: absolute; inset: 0; background: var(--p-embleme) 6px 6px / 22px 22px repeat; opacity: 0.1; pointer-events: none; }
-.pdc-marche.plaque .pdc-socle b { color: var(--p-or); }
-/* La sienne : son prénom à l'or du thème de celui qui regarde, sa marche cernée. */
+/* Ses trois métaux, écrits en dur : une pièce ne suit pas le thème de celui qui regarde. Son bord le plus sombre garde
+   4,5:1 sous son encre — le bronze à #94542a tombait à 2,9. */
+.pdc-1 { --piece-clair: #f7df8f; --piece-sombre: #b48420; --piece-encre: #241800; }
+.pdc-2 { --piece-clair: #f2f4f7; --piece-sombre: #98a0ac; --piece-encre: #262b33; }
+.pdc-3 { --piece-clair: #f0b583; --piece-sombre: #b8784a; --piece-encre: #1c0c02; }
+/* La sienne : son prénom à l'or du thème de celui qui regarde — sa marche est sa peinture, rien ne la cerne. */
 .pdc-marche.me .pdc-nom { color: var(--accent-text); }
-/* Cernée d'une ombre pleine, pas d'un `outline` : l'anneau du focus est le seul (`design.test.ts`). */
-.pdc-marche.me .pdc-socle { box-shadow: 0 0 0 2px var(--accent); }
-.pdc-marche.plaque.me .pdc-socle { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 0 2px var(--accent); }
 
 /* Les couleurs de chaque plaque : le fond, l'encre, l'encre atténuée, l'or du
    texte et le trait de son thème (`--bg`, `--ink`, `--muted`, `--accent-text`,
@@ -1066,6 +1096,8 @@ h3 > .icon {
 .plaque-aurore { --p-bg: #06141f; --p-ink: #eafff7; --p-muted: #9cc4b8; --p-or: #6bffc2; --p-trait: #4dffb5; }
 .plaque-kintsugi { --p-bg: #121110; --p-ink: #f5efe3; --p-muted: #c2b8a6; --p-or: #e0b54a; --p-trait: #d4a73a; }
 .plaque-theatre { --p-bg: #1c0508; --p-ink: #fff4e6; --p-muted: #d9b3a6; --p-or: #efc35c; --p-trait: #e0b34a; }
+.plaque-bannieres-clans { --p-bg: #140c0b; --p-ink: #f8eee4; --p-muted: #d4beac; --p-or: #f59a5c; --p-trait: #f0843f; }
+.plaque-bannieres-royaume { --p-bg: #0b1122; --p-ink: #f4f2ec; --p-muted: #bec8dd; --p-or: #efc265; --p-trait: #e3b04b; }
 .plaque-babel { --p-bg: #15110d; --p-ink: #f2e9d8; --p-muted: #bba98d; --p-or: #dbb75e; --p-trait: #c9a14a; }
 .plaque-horloge { --p-bg: #0a1024; --p-ink: #f5efe0; --p-muted: #b4b9cc; --p-or: #e4c06a; --p-trait: #d9b45c; }
 .plaque-ciel { --p-bg: #0e1430; --p-ink: #f6f3ff; --p-muted: #b9bfdc; --p-or: #f6cd78; --p-trait: #f3c46a; }
@@ -1104,6 +1136,8 @@ h3 > .icon {
 .plaque-aurore { --p-clair: #6bffc2; --p-sombre: #1c5c41; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22none%22 stroke=%22%231c5c41%22 stroke-width=%224%22 d=%22M2 7.5q5-5 10 0t10 0%22/%3E%3Cpath fill=%22%231c5c41%22 stroke=%22%231c5c41%22 stroke-width=%222.2%22 d=%22M12 9.5 7.6 16.6h2.8L8 21h8l-2.4-4.4h2.8z%22/%3E%3Cpath fill=%22none%22 stroke=%22%236bffc2%22 stroke-width=%221.8%22 d=%22M2 7.5q5-5 10 0t10 0%22/%3E%3Cpath fill=%22%236bffc2%22 d=%22M12 9.5 7.6 16.6h2.8L8 21h8l-2.4-4.4h2.8z%22/%3E%3C/svg%3E"); }
 .plaque-kintsugi { --p-clair: #e0b54a; --p-sombre: #5d491a; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22none%22 stroke=%22%235d491a%22 stroke-width=%224.1%22 d=%22M3 4 9 10 7 14 13 16 11 21M9 10 15 8 20 12M13 16 19 15 22 19%22/%3E%3Cpath fill=%22none%22 stroke=%22%23e0b54a%22 stroke-width=%221.9%22 d=%22M3 4 9 10 7 14 13 16 11 21M9 10 15 8 20 12M13 16 19 15 22 19%22/%3E%3C/svg%3E"); }
 .plaque-theatre { --p-clair: #efc35c; --p-sombre: #5a481e; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22%235a481e%22 stroke=%22%235a481e%22 stroke-width=%222.2%22 fill-rule=%22evenodd%22 d=%22M5 4c4.2-1.6 9.8-1.6 14 0 .3 8.4-2.2 15.4-7 16.6C7.2 19.4 4.7 12.4 5 4zM7.9 8.6c.6-1.2 2.6-1.2 3.2 0-.6.6-2.6.6-3.2 0zM12.9 8.6c.6-1.2 2.6-1.2 3.2 0-.6.6-2.6.6-3.2 0zM8.8 13c1.9 2.3 4.5 2.3 6.4 0-1.9 1-4.5 1-6.4 0z%22/%3E%3Cpath fill=%22%23efc35c%22 fill-rule=%22evenodd%22 d=%22M5 4c4.2-1.6 9.8-1.6 14 0 .3 8.4-2.2 15.4-7 16.6C7.2 19.4 4.7 12.4 5 4zM7.9 8.6c.6-1.2 2.6-1.2 3.2 0-.6.6-2.6.6-3.2 0zM12.9 8.6c.6-1.2 2.6-1.2 3.2 0-.6.6-2.6.6-3.2 0zM8.8 13c1.9 2.3 4.5 2.3 6.4 0-1.9 1-4.5 1-6.4 0z%22/%3E%3C/svg%3E"); }
+.plaque-bannieres-clans { --p-clair: #f59a5c; --p-sombre: #733f1e; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22%23733f1e%22 stroke=%22%23733f1e%22 stroke-width=%222.2%22 d=%22M11.7,23.2C11.6,23.1 11.4,22.9 11.3,22.8C11,22.4 10.9,22.3 10.6,22.3C10.3,22.3 10.2,22.2 9.9,21.9C9.7,21.5 9.6,21.4 9.3,21.5C9,21.5 8.9,21.5 8.7,21.0C8.5,20.5 8.2,20.2 8,20.0C7.7,19.8 7.6,19.6 7.6,19.4C7.6,19.1 7.5,19.1 6.8,19.3C6.2,19.5 5.4,19.5 4.9,19.3C4.6,19.2 4.6,19.2 4.4,19.3C3.9,19.6 2.8,18.9 2.7,18.3C2.6,18.1 2.6,18 2.4,18.0C2,17.9 1.5,16.8 1.2,15.5C0.9,14.3 1.3,12.2 1.9,10.9C2.6,9.6 3.3,9.4 3,10.6C2.5,13.5 3.7,16.6 5.5,16.7C6,16.8 6,16.7 5.7,15.8C5.7,15.5 5.6,15.2 5.5,15.2C5.5,15.1 5.5,15 5.4,15.0C5.2,14.9 5.1,14.7 5.2,14.4C5.2,14 5.2,13.9 4.9,13.9C4.5,13.9 4.4,13.6 4.6,13.0C4.7,12.6 4.7,12.6 4.6,12.4C4.4,12.1 4.4,12 4.6,11.7C4.7,11.4 4.7,11.4 4.6,11.2C4.5,10.9 4.6,10.7 4.8,10.5C5.3,10.1 5.6,9.7 5.6,9.3C5.6,9.1 5.6,9 5.8,8.7C6.2,8.3 6.1,7.9 5.4,7.5C5.2,7.4 5.1,7.3 5.1,7.1C5.1,6.8 4.9,6.7 4.7,6.7C4.2,6.7 4,6.2 4.3,5.9C4.4,5.7 4.4,5.7 4.3,5.6C4.3,5.3 4.3,5.1 4.3,5.0C4.4,4.9 4.4,4.7 4.4,4.6C4.4,4.3 4.5,4.2 4.7,4.1C4.9,4 4.9,3.9 4.7,3.7C4.6,3.6 4.5,3.4 4.4,3.2C4.2,2.9 4,2.8 3.8,2.8C3.6,2.8 3.4,2.6 3.3,2.2C2.9,0.8 3.1,0.4 4,1.1C4.3,1.4 4.6,1.5 5.1,1.7C5.8,2 6.4,2.3 6.7,2.5C7,2.6 7.2,2.8 7.2,2.8C7.3,2.8 7.5,2.9 7.7,3.2C8.1,3.7 8.2,3.7 8.9,2.8C9,2.7 9,2.6 9.3,2.6C9.7,2.6 10.1,2.3 10.3,1.9C10.4,1.6 10.6,1.5 10.8,1.6C11.1,1.6 11.3,1.5 11.5,1.1C11.8,0.4 12.1,0.5 12.6,1.3C12.8,1.6 12.9,1.7 13.1,1.8C13.2,1.9 13.4,2 13.6,2.1C13.8,2.3 13.8,2.3 14,2.3C14.4,2.3 14.4,2.3 14.6,2.6C14.7,2.7 14.8,2.8 14.9,2.9C15,2.9 15.2,3 15.3,3.1C15.8,3.7 15.9,3.7 16.3,3.2C16.5,2.9 16.6,2.8 16.8,2.7C16.9,2.7 17.1,2.6 17.2,2.5C17.4,2.4 18.3,2 18.7,1.8C19.1,1.7 19.7,1.4 20.1,1.1C20.6,0.7 20.9,0.8 20.8,1.4C20.8,2.2 20.5,2.7 20.2,2.7C20,2.7 19.8,2.9 19.8,3.0C19.8,3.1 19.7,3.3 19.6,3.5C19.3,3.9 19.3,4.6 19.5,4.8C20.3,5.5 19.9,6.9 18.7,7.5C17.8,7.9 17.8,8.1 18.3,9.0C18.4,9.2 18.4,9.2 18.4,9.7C18.3,10.3 18.4,10.3 18.8,10.4C19.2,10.5 19.4,10.7 19.3,11.1C19.3,11.4 19.4,11.6 19.4,11.8C19.6,12.1 19.6,12.2 19.4,12.4C19.3,12.6 19.3,12.7 19.4,13.1C19.6,13.7 19.5,13.9 19.1,13.9C18.8,13.9 18.8,14 18.8,14.4C18.8,14.8 18.8,14.9 18.5,15.0C18.5,15 18.4,15.3 18.3,15.6C18.2,15.9 18.1,16.2 18.1,16.3C17.7,17.1 19.1,16.8 19.8,15.9C21,14.6 21.3,12.7 20.9,10.4C20.7,9.7 21.3,9.6 21.7,10.3C23,12.2 23.2,15.3 22.2,17.3C22.1,17.6 21.9,17.7 21.6,17.7C21.3,17.7 21.3,17.7 20.6,18.3C19.4,19.5 18.8,19.6 17.1,19.3C16.3,19.1 16.3,19.1 16.3,19.5C16.3,19.8 16.3,19.9 16,20.0C15.7,20.3 15.4,20.6 15.3,21.0C15.2,21.4 15.1,21.4 14.8,21.4C14.6,21.4 14.6,21.5 14.2,21.9C13.8,22.3 13.5,22.5 13.2,22.5C13,22.5 12.8,22.6 12.6,22.8C12.2,23.4 11.9,23.5 11.7,23.2zM14.2,12.4C14.2,12.3 14.1,12.2 14,12.1C13.5,11.3 14,10.9 14.7,11.6C14.9,11.8 15.9,11.9 16.2,11.7C16.5,11.5 16.6,10.8 16.4,10.1C16.3,9.8 16.3,9.6 16.5,9.4C16.8,9 16.8,8.9 16.5,9.1C16.5,9.2 16.3,9.2 16.1,9.3C15.8,9.3 15.7,9.3 15.5,9.5C15.4,9.6 15.2,9.7 15,9.8C14.8,9.9 14.5,10.2 14.4,10.5C14.3,10.7 14.2,10.9 14,11.0C13.7,11.2 13.7,11.3 13.7,11.4C13.7,11.5 13.6,11.6 13.6,11.7C13.5,11.8 13.6,12 13.9,12.3C14.1,12.5 14.2,12.5 14.2,12.4zM9.4,11.5C9.5,11.3 9.6,11.3 9.8,11.3C10.2,11.3 10.3,11.1 10,10.9C9.8,10.8 9.7,10.6 9.5,10.5C9.4,10.3 9.3,10.1 9.2,10.1C8.8,10 8.8,10 8.7,9.9C8.6,9.6 8.3,9.4 7.9,9.3C7.6,9.3 7.6,9.3 7.6,9.8C7.6,10 7.6,10.4 7.5,10.6C7.3,11.5 7.4,11.6 8.4,11.7C8.8,11.7 9.1,11.7 9.2,11.7C9.3,11.7 9.3,11.7 9.4,11.5z%22/%3E%3Cpath fill=%22%23f59a5c%22 d=%22M11.7,23.2C11.6,23.1 11.4,22.9 11.3,22.8C11,22.4 10.9,22.3 10.6,22.3C10.3,22.3 10.2,22.2 9.9,21.9C9.7,21.5 9.6,21.4 9.3,21.5C9,21.5 8.9,21.5 8.7,21.0C8.5,20.5 8.2,20.2 8,20.0C7.7,19.8 7.6,19.6 7.6,19.4C7.6,19.1 7.5,19.1 6.8,19.3C6.2,19.5 5.4,19.5 4.9,19.3C4.6,19.2 4.6,19.2 4.4,19.3C3.9,19.6 2.8,18.9 2.7,18.3C2.6,18.1 2.6,18 2.4,18.0C2,17.9 1.5,16.8 1.2,15.5C0.9,14.3 1.3,12.2 1.9,10.9C2.6,9.6 3.3,9.4 3,10.6C2.5,13.5 3.7,16.6 5.5,16.7C6,16.8 6,16.7 5.7,15.8C5.7,15.5 5.6,15.2 5.5,15.2C5.5,15.1 5.5,15 5.4,15.0C5.2,14.9 5.1,14.7 5.2,14.4C5.2,14 5.2,13.9 4.9,13.9C4.5,13.9 4.4,13.6 4.6,13.0C4.7,12.6 4.7,12.6 4.6,12.4C4.4,12.1 4.4,12 4.6,11.7C4.7,11.4 4.7,11.4 4.6,11.2C4.5,10.9 4.6,10.7 4.8,10.5C5.3,10.1 5.6,9.7 5.6,9.3C5.6,9.1 5.6,9 5.8,8.7C6.2,8.3 6.1,7.9 5.4,7.5C5.2,7.4 5.1,7.3 5.1,7.1C5.1,6.8 4.9,6.7 4.7,6.7C4.2,6.7 4,6.2 4.3,5.9C4.4,5.7 4.4,5.7 4.3,5.6C4.3,5.3 4.3,5.1 4.3,5.0C4.4,4.9 4.4,4.7 4.4,4.6C4.4,4.3 4.5,4.2 4.7,4.1C4.9,4 4.9,3.9 4.7,3.7C4.6,3.6 4.5,3.4 4.4,3.2C4.2,2.9 4,2.8 3.8,2.8C3.6,2.8 3.4,2.6 3.3,2.2C2.9,0.8 3.1,0.4 4,1.1C4.3,1.4 4.6,1.5 5.1,1.7C5.8,2 6.4,2.3 6.7,2.5C7,2.6 7.2,2.8 7.2,2.8C7.3,2.8 7.5,2.9 7.7,3.2C8.1,3.7 8.2,3.7 8.9,2.8C9,2.7 9,2.6 9.3,2.6C9.7,2.6 10.1,2.3 10.3,1.9C10.4,1.6 10.6,1.5 10.8,1.6C11.1,1.6 11.3,1.5 11.5,1.1C11.8,0.4 12.1,0.5 12.6,1.3C12.8,1.6 12.9,1.7 13.1,1.8C13.2,1.9 13.4,2 13.6,2.1C13.8,2.3 13.8,2.3 14,2.3C14.4,2.3 14.4,2.3 14.6,2.6C14.7,2.7 14.8,2.8 14.9,2.9C15,2.9 15.2,3 15.3,3.1C15.8,3.7 15.9,3.7 16.3,3.2C16.5,2.9 16.6,2.8 16.8,2.7C16.9,2.7 17.1,2.6 17.2,2.5C17.4,2.4 18.3,2 18.7,1.8C19.1,1.7 19.7,1.4 20.1,1.1C20.6,0.7 20.9,0.8 20.8,1.4C20.8,2.2 20.5,2.7 20.2,2.7C20,2.7 19.8,2.9 19.8,3.0C19.8,3.1 19.7,3.3 19.6,3.5C19.3,3.9 19.3,4.6 19.5,4.8C20.3,5.5 19.9,6.9 18.7,7.5C17.8,7.9 17.8,8.1 18.3,9.0C18.4,9.2 18.4,9.2 18.4,9.7C18.3,10.3 18.4,10.3 18.8,10.4C19.2,10.5 19.4,10.7 19.3,11.1C19.3,11.4 19.4,11.6 19.4,11.8C19.6,12.1 19.6,12.2 19.4,12.4C19.3,12.6 19.3,12.7 19.4,13.1C19.6,13.7 19.5,13.9 19.1,13.9C18.8,13.9 18.8,14 18.8,14.4C18.8,14.8 18.8,14.9 18.5,15.0C18.5,15 18.4,15.3 18.3,15.6C18.2,15.9 18.1,16.2 18.1,16.3C17.7,17.1 19.1,16.8 19.8,15.9C21,14.6 21.3,12.7 20.9,10.4C20.7,9.7 21.3,9.6 21.7,10.3C23,12.2 23.2,15.3 22.2,17.3C22.1,17.6 21.9,17.7 21.6,17.7C21.3,17.7 21.3,17.7 20.6,18.3C19.4,19.5 18.8,19.6 17.1,19.3C16.3,19.1 16.3,19.1 16.3,19.5C16.3,19.8 16.3,19.9 16,20.0C15.7,20.3 15.4,20.6 15.3,21.0C15.2,21.4 15.1,21.4 14.8,21.4C14.6,21.4 14.6,21.5 14.2,21.9C13.8,22.3 13.5,22.5 13.2,22.5C13,22.5 12.8,22.6 12.6,22.8C12.2,23.4 11.9,23.5 11.7,23.2zM14.2,12.4C14.2,12.3 14.1,12.2 14,12.1C13.5,11.3 14,10.9 14.7,11.6C14.9,11.8 15.9,11.9 16.2,11.7C16.5,11.5 16.6,10.8 16.4,10.1C16.3,9.8 16.3,9.6 16.5,9.4C16.8,9 16.8,8.9 16.5,9.1C16.5,9.2 16.3,9.2 16.1,9.3C15.8,9.3 15.7,9.3 15.5,9.5C15.4,9.6 15.2,9.7 15,9.8C14.8,9.9 14.5,10.2 14.4,10.5C14.3,10.7 14.2,10.9 14,11.0C13.7,11.2 13.7,11.3 13.7,11.4C13.7,11.5 13.6,11.6 13.6,11.7C13.5,11.8 13.6,12 13.9,12.3C14.1,12.5 14.2,12.5 14.2,12.4zM9.4,11.5C9.5,11.3 9.6,11.3 9.8,11.3C10.2,11.3 10.3,11.1 10,10.9C9.8,10.8 9.7,10.6 9.5,10.5C9.4,10.3 9.3,10.1 9.2,10.1C8.8,10 8.8,10 8.7,9.9C8.6,9.6 8.3,9.4 7.9,9.3C7.6,9.3 7.6,9.3 7.6,9.8C7.6,10 7.6,10.4 7.5,10.6C7.3,11.5 7.4,11.6 8.4,11.7C8.8,11.7 9.1,11.7 9.2,11.7C9.3,11.7 9.3,11.7 9.4,11.5z%22/%3E%3C/svg%3E"); }
+.plaque-bannieres-royaume { --p-clair: #efc265; --p-sombre: #644d21; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22%23644d21%22 stroke=%22%23644d21%22 stroke-width=%222.2%22 d=%22M15.4,23.2C15.3,23.1 15.2,23 15.1,22.7C15,22.3 14.9,22.3 14.6,22.3C14.5,22.4 14.4,22.4 14.3,22.4C14.2,22.3 14,22.4 13.9,22.6C13.5,23.1 13.2,22.2 13.5,21.5C13.8,21 13.6,20.8 13.1,20.9C12.6,21.1 12.8,20.2 13.3,19.9C13.9,19.7 14.3,19.6 14.7,19.8C15.1,20 15.4,19.9 15.5,19.3C15.6,18.7 15.5,18.4 14.9,18.2C14.4,18 14.4,18 14.1,18.3C13.8,18.7 13.1,18.9 12.9,18.6C12.8,18.5 12.9,18.5 13,18.2C13.3,17.9 13.3,17.6 13.1,17.0C13,16.7 12.9,16.2 12.9,15.9C12.9,15.5 12.7,15.4 12.2,15.6C11.6,15.9 11.5,16.3 11.9,16.9C12.1,17.2 12.1,17.4 11.8,17.8C11.5,18.2 11.5,18.4 11.6,18.7C11.6,18.8 11.4,18.9 11.1,18.9C10.8,18.9 10.8,18.9 10.5,19.3C10.3,19.7 10,19.7 9.9,19.3C9.7,18.9 9.6,19 9.3,19.6C9.1,20.2 9,20.3 8.7,20.4C8.4,20.5 8.2,20.4 8.3,20.1C8.4,19.6 8,19.4 7.7,19.8C7.5,20.1 7.5,20.1 7.2,20.2C7,20.2 7,20.2 6.8,20.4C6.6,20.6 6.6,20.6 6.4,20.5C6.2,20.4 6.1,19.8 6.2,19.4C6.3,19.1 6.3,19.1 5.7,18.8C5.6,18.7 5.6,18.7 5.4,18.8C5.1,19 5,18.9 5,18.6C5,18.2 5.2,17.9 5.6,17.7C6.1,17.4 6.2,16.9 5.8,16.8C5.4,16.8 5.5,16.5 5.8,16.3C6.2,16.2 6.3,16.2 6.8,16.3C7.4,16.4 7.5,16.5 7.7,16.9C7.9,17.3 8.2,17.4 8.7,17.1C9.3,16.9 9.4,16.6 9.2,16.2C9.2,16 9.1,15.8 9.1,15.8C9,15.5 8.9,15.5 8.6,15.5C8.1,15.5 7.7,15.3 7.6,14.9C7.5,14.5 7.6,14.3 8,14.4C8.4,14.6 8.6,14.5 9.2,13.9C9.8,13.2 10.2,13.1 11.3,13.1C12.2,13.1 12.3,12.8 11.4,12.4C11,12.2 10.7,12 10.4,11.7C10.2,11.5 10.1,11.5 10,11.8C9.9,12.1 9.8,12.1 9.4,11.9C9.2,11.8 9.1,11.9 8.9,12.1C8.5,12.5 8.3,12.5 8.2,12.1C8.1,11.7 7.9,11.8 7.8,12.2C7.6,13 7.2,13.4 6.8,13.4C6.8,13.3 6.8,13.3 6.8,13.1C6.7,12.6 6.5,12.5 6.3,12.9C6.1,13.1 5.8,13.3 5.7,13.3C5.6,13.3 5.5,13.5 5.4,13.6C5.3,14.3 4.7,13.8 4.7,12.9C4.7,12.5 4.7,12.4 4.3,12.2C4.1,12.1 4,12.1 3.8,12.2C3.2,12.7 3.3,11.6 3.9,11.1C4.5,10.6 4.5,10.2 4,10.2C3.9,10.2 3.7,10.1 3.8,9.9C3.9,9.6 4.3,9.5 4.9,9.5C5.4,9.5 5.5,9.6 5.8,9.9C6.2,10.3 6.4,10.4 7.1,10.0C8,9.5 8,9.4 7.7,9.1C7.5,8.9 7.5,8.8 7.7,8.7C8.1,8.7 8.1,8.4 7.9,8.3C7.8,8.2 7.7,8.2 7.5,8.4C7.3,8.5 7.1,8.4 7,7.9C7,7.6 6.9,7.5 6.7,7.4C6.2,7.3 6.1,7.1 6.3,6.9C6.7,6.5 6.6,6.4 6,6.4C5.4,6.3 5.1,6.3 4.9,6.0C4.6,5.8 4.7,5.6 5,5.6C5.2,5.6 5.3,5.5 5.4,5.3C5.5,5 5.4,4.9 5,4.9C4.7,4.9 4.5,4.9 4.3,4.7C4.2,4.5 4.1,4.5 3.9,4.5C3.2,4.7 3.5,3.9 4.2,3.6C4.7,3.3 4.7,3.3 4.7,2.9C4.7,2.5 4.7,2.5 4.3,2.3C4.2,2.2 4.2,2.1 4.3,2.0C4.6,1.7 5,1.8 5.6,2.0C6.3,2.4 6.5,2.3 6.3,1.8C6.2,1.5 6.3,1.4 6.4,1.4C7.1,1.4 7.7,2.6 7.4,3.3C7.2,3.9 7.4,4.3 8.5,5.3C9.3,6.1 9.5,6.2 9.6,5.8C9.7,5.5 9.8,5.4 10.1,5.6C10.5,5.9 11.4,5.9 11.5,5.6C11.7,5.4 11.5,5.3 11.2,5.4C10.7,5.6 10.6,5.5 10.5,5.1C10.5,4.5 10.5,4.5 9.8,4.5C8.8,4.5 8.3,4.1 8.5,3.4C8.6,2.8 9.3,2.6 9.3,3.1C9.3,3.5 9.5,3.8 9.9,3.8C10.3,3.8 10.3,3.7 10.2,3.4C10,3.2 10,3 9.9,2.5C9.9,2 10,1.9 10.4,1.8C11.1,1.6 11.1,1.6 11.4,1.4C11.7,1.1 12,1 12.8,1.0C13.5,1 13.7,1 13.9,0.8C14.2,0.6 14.4,0.6 14.5,1.0C14.6,1.3 14.8,1.4 14.9,1.4C15.1,1.4 15.3,1.5 15.3,1.8C15.4,1.9 15.5,2.2 15.6,2.3C15.7,2.5 15.9,2.8 15.9,3.0C16.1,3.4 16.2,3.6 16.4,3.7C16.7,3.8 16.6,4.3 16.3,4.3C16,4.3 15.9,6.2 16.2,6.7C16.4,7.1 16.3,7.2 15.8,7.2C15.5,7.1 15.5,7.1 15.3,7.8C15.1,8.6 15.1,8.7 15.2,9.2C15.4,9.6 15.3,9.6 14.9,9.6C14.4,9.5 14.4,9.6 14.6,10.3C14.8,11.1 15,11.4 15.6,12.1C15.8,12.3 16.1,12.7 16.2,12.9C16.7,13.8 17.2,14.1 17.8,14.1C19,14.1 19.4,12.3 18.3,12.0C17.9,11.9 17.6,12.2 17.7,12.6C17.7,12.9 17.4,13 17.1,12.7C16.8,12.5 16.7,12 16.9,11.5C17,11.1 17,11.1 16.7,10.9C16,10.4 15.8,9.8 15.9,9.1C16,8.4 16.3,8.3 16.5,8.8C16.6,9.3 17,9.6 17.3,9.6C17.5,9.7 17.5,9.5 17.3,9.1C16.7,8 16.5,6.7 16.9,5.6C17.1,5.1 17.1,5.1 17,4.8C17,4.3 17,4 17.3,3.4C17.6,2.7 17.6,2.4 17.4,2.3C17.1,2 17.4,1.8 17.8,1.8C18.1,1.9 18.3,2 18.4,2.2C18.8,2.7 19.5,1.9 19.3,1.1C19.2,0.6 19.8,0.8 20.1,1.4C20.4,1.8 20.4,2.3 20.2,2.8C20.2,3.1 20.2,3.1 20.2,3.4C20.5,4.3 20,5 18.8,5.5C18,5.8 17.8,6.1 17.8,7.0C17.8,7.8 18,8.2 18.3,7.7C18.4,7.6 18.6,7.4 19,7.1C19.3,6.8 19.4,6.6 19.4,6.2C19.4,5.8 19.7,5.7 20,6.2C20.4,6.8 20.3,7.5 19.7,8.1C19,8.9 18.8,9.8 19.5,9.2C19.9,8.9 20.4,8.8 20.5,9.0C20.6,9.1 20.5,9.1 20.3,9.5C20,9.8 20,10.3 20.2,11.2C20.3,12 20.3,13 20.2,13.4C19.8,14.9 18.4,15.7 17,15.2C16.7,15.1 16.6,15.1 16.5,15.3C16.2,16.2 16.8,16.8 17.5,16.4C18,16.1 18.2,16.5 18.1,17.2C18,17.6 18.2,17.9 18.6,18.1C18.8,18.2 18.8,18.4 18.6,18.6C18.3,18.9 18.2,19 18.2,19.3C18.2,19.9 18.1,20 17.9,19.9C17.5,19.7 17.4,19.9 17.5,20.2C17.8,20.9 17.7,21.7 17.4,22.0C17.3,22 17.1,22 17.1,21.8C17,21.7 16.9,21.6 16.8,21.6C16.7,21.6 16.6,21.7 16.5,22.0C16.5,22.3 16.5,22.3 16.2,22.6C16,22.8 16,22.8 15.9,23.0C15.9,23.3 15.7,23.4 15.4,23.2z%22/%3E%3Cpath fill=%22%23efc265%22 d=%22M15.4,23.2C15.3,23.1 15.2,23 15.1,22.7C15,22.3 14.9,22.3 14.6,22.3C14.5,22.4 14.4,22.4 14.3,22.4C14.2,22.3 14,22.4 13.9,22.6C13.5,23.1 13.2,22.2 13.5,21.5C13.8,21 13.6,20.8 13.1,20.9C12.6,21.1 12.8,20.2 13.3,19.9C13.9,19.7 14.3,19.6 14.7,19.8C15.1,20 15.4,19.9 15.5,19.3C15.6,18.7 15.5,18.4 14.9,18.2C14.4,18 14.4,18 14.1,18.3C13.8,18.7 13.1,18.9 12.9,18.6C12.8,18.5 12.9,18.5 13,18.2C13.3,17.9 13.3,17.6 13.1,17.0C13,16.7 12.9,16.2 12.9,15.9C12.9,15.5 12.7,15.4 12.2,15.6C11.6,15.9 11.5,16.3 11.9,16.9C12.1,17.2 12.1,17.4 11.8,17.8C11.5,18.2 11.5,18.4 11.6,18.7C11.6,18.8 11.4,18.9 11.1,18.9C10.8,18.9 10.8,18.9 10.5,19.3C10.3,19.7 10,19.7 9.9,19.3C9.7,18.9 9.6,19 9.3,19.6C9.1,20.2 9,20.3 8.7,20.4C8.4,20.5 8.2,20.4 8.3,20.1C8.4,19.6 8,19.4 7.7,19.8C7.5,20.1 7.5,20.1 7.2,20.2C7,20.2 7,20.2 6.8,20.4C6.6,20.6 6.6,20.6 6.4,20.5C6.2,20.4 6.1,19.8 6.2,19.4C6.3,19.1 6.3,19.1 5.7,18.8C5.6,18.7 5.6,18.7 5.4,18.8C5.1,19 5,18.9 5,18.6C5,18.2 5.2,17.9 5.6,17.7C6.1,17.4 6.2,16.9 5.8,16.8C5.4,16.8 5.5,16.5 5.8,16.3C6.2,16.2 6.3,16.2 6.8,16.3C7.4,16.4 7.5,16.5 7.7,16.9C7.9,17.3 8.2,17.4 8.7,17.1C9.3,16.9 9.4,16.6 9.2,16.2C9.2,16 9.1,15.8 9.1,15.8C9,15.5 8.9,15.5 8.6,15.5C8.1,15.5 7.7,15.3 7.6,14.9C7.5,14.5 7.6,14.3 8,14.4C8.4,14.6 8.6,14.5 9.2,13.9C9.8,13.2 10.2,13.1 11.3,13.1C12.2,13.1 12.3,12.8 11.4,12.4C11,12.2 10.7,12 10.4,11.7C10.2,11.5 10.1,11.5 10,11.8C9.9,12.1 9.8,12.1 9.4,11.9C9.2,11.8 9.1,11.9 8.9,12.1C8.5,12.5 8.3,12.5 8.2,12.1C8.1,11.7 7.9,11.8 7.8,12.2C7.6,13 7.2,13.4 6.8,13.4C6.8,13.3 6.8,13.3 6.8,13.1C6.7,12.6 6.5,12.5 6.3,12.9C6.1,13.1 5.8,13.3 5.7,13.3C5.6,13.3 5.5,13.5 5.4,13.6C5.3,14.3 4.7,13.8 4.7,12.9C4.7,12.5 4.7,12.4 4.3,12.2C4.1,12.1 4,12.1 3.8,12.2C3.2,12.7 3.3,11.6 3.9,11.1C4.5,10.6 4.5,10.2 4,10.2C3.9,10.2 3.7,10.1 3.8,9.9C3.9,9.6 4.3,9.5 4.9,9.5C5.4,9.5 5.5,9.6 5.8,9.9C6.2,10.3 6.4,10.4 7.1,10.0C8,9.5 8,9.4 7.7,9.1C7.5,8.9 7.5,8.8 7.7,8.7C8.1,8.7 8.1,8.4 7.9,8.3C7.8,8.2 7.7,8.2 7.5,8.4C7.3,8.5 7.1,8.4 7,7.9C7,7.6 6.9,7.5 6.7,7.4C6.2,7.3 6.1,7.1 6.3,6.9C6.7,6.5 6.6,6.4 6,6.4C5.4,6.3 5.1,6.3 4.9,6.0C4.6,5.8 4.7,5.6 5,5.6C5.2,5.6 5.3,5.5 5.4,5.3C5.5,5 5.4,4.9 5,4.9C4.7,4.9 4.5,4.9 4.3,4.7C4.2,4.5 4.1,4.5 3.9,4.5C3.2,4.7 3.5,3.9 4.2,3.6C4.7,3.3 4.7,3.3 4.7,2.9C4.7,2.5 4.7,2.5 4.3,2.3C4.2,2.2 4.2,2.1 4.3,2.0C4.6,1.7 5,1.8 5.6,2.0C6.3,2.4 6.5,2.3 6.3,1.8C6.2,1.5 6.3,1.4 6.4,1.4C7.1,1.4 7.7,2.6 7.4,3.3C7.2,3.9 7.4,4.3 8.5,5.3C9.3,6.1 9.5,6.2 9.6,5.8C9.7,5.5 9.8,5.4 10.1,5.6C10.5,5.9 11.4,5.9 11.5,5.6C11.7,5.4 11.5,5.3 11.2,5.4C10.7,5.6 10.6,5.5 10.5,5.1C10.5,4.5 10.5,4.5 9.8,4.5C8.8,4.5 8.3,4.1 8.5,3.4C8.6,2.8 9.3,2.6 9.3,3.1C9.3,3.5 9.5,3.8 9.9,3.8C10.3,3.8 10.3,3.7 10.2,3.4C10,3.2 10,3 9.9,2.5C9.9,2 10,1.9 10.4,1.8C11.1,1.6 11.1,1.6 11.4,1.4C11.7,1.1 12,1 12.8,1.0C13.5,1 13.7,1 13.9,0.8C14.2,0.6 14.4,0.6 14.5,1.0C14.6,1.3 14.8,1.4 14.9,1.4C15.1,1.4 15.3,1.5 15.3,1.8C15.4,1.9 15.5,2.2 15.6,2.3C15.7,2.5 15.9,2.8 15.9,3.0C16.1,3.4 16.2,3.6 16.4,3.7C16.7,3.8 16.6,4.3 16.3,4.3C16,4.3 15.9,6.2 16.2,6.7C16.4,7.1 16.3,7.2 15.8,7.2C15.5,7.1 15.5,7.1 15.3,7.8C15.1,8.6 15.1,8.7 15.2,9.2C15.4,9.6 15.3,9.6 14.9,9.6C14.4,9.5 14.4,9.6 14.6,10.3C14.8,11.1 15,11.4 15.6,12.1C15.8,12.3 16.1,12.7 16.2,12.9C16.7,13.8 17.2,14.1 17.8,14.1C19,14.1 19.4,12.3 18.3,12.0C17.9,11.9 17.6,12.2 17.7,12.6C17.7,12.9 17.4,13 17.1,12.7C16.8,12.5 16.7,12 16.9,11.5C17,11.1 17,11.1 16.7,10.9C16,10.4 15.8,9.8 15.9,9.1C16,8.4 16.3,8.3 16.5,8.8C16.6,9.3 17,9.6 17.3,9.6C17.5,9.7 17.5,9.5 17.3,9.1C16.7,8 16.5,6.7 16.9,5.6C17.1,5.1 17.1,5.1 17,4.8C17,4.3 17,4 17.3,3.4C17.6,2.7 17.6,2.4 17.4,2.3C17.1,2 17.4,1.8 17.8,1.8C18.1,1.9 18.3,2 18.4,2.2C18.8,2.7 19.5,1.9 19.3,1.1C19.2,0.6 19.8,0.8 20.1,1.4C20.4,1.8 20.4,2.3 20.2,2.8C20.2,3.1 20.2,3.1 20.2,3.4C20.5,4.3 20,5 18.8,5.5C18,5.8 17.8,6.1 17.8,7.0C17.8,7.8 18,8.2 18.3,7.7C18.4,7.6 18.6,7.4 19,7.1C19.3,6.8 19.4,6.6 19.4,6.2C19.4,5.8 19.7,5.7 20,6.2C20.4,6.8 20.3,7.5 19.7,8.1C19,8.9 18.8,9.8 19.5,9.2C19.9,8.9 20.4,8.8 20.5,9.0C20.6,9.1 20.5,9.1 20.3,9.5C20,9.8 20,10.3 20.2,11.2C20.3,12 20.3,13 20.2,13.4C19.8,14.9 18.4,15.7 17,15.2C16.7,15.1 16.6,15.1 16.5,15.3C16.2,16.2 16.8,16.8 17.5,16.4C18,16.1 18.2,16.5 18.1,17.2C18,17.6 18.2,17.9 18.6,18.1C18.8,18.2 18.8,18.4 18.6,18.6C18.3,18.9 18.2,19 18.2,19.3C18.2,19.9 18.1,20 17.9,19.9C17.5,19.7 17.4,19.9 17.5,20.2C17.8,20.9 17.7,21.7 17.4,22.0C17.3,22 17.1,22 17.1,21.8C17,21.7 16.9,21.6 16.8,21.6C16.7,21.6 16.6,21.7 16.5,22.0C16.5,22.3 16.5,22.3 16.2,22.6C16,22.8 16,22.8 15.9,23.0C15.9,23.3 15.7,23.4 15.4,23.2z%22/%3E%3C/svg%3E"); }
 .plaque-babel { --p-clair: #dbb75e; --p-sombre: #604d24; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Cpath fill=%22%23604d24%22 stroke=%22%23604d24%22 stroke-width=%222.2%22 d=%22M2 6c4-1 7 0 9.3 1.6V20C9 18.5 6 18 2 19z%22/%3E%3Cpath fill=%22%23604d24%22 stroke=%22%23604d24%22 stroke-width=%222.2%22 d=%22M22 6c-4-1-7 0-9.3 1.6V20c2.3-1.5 5.3-2 9.3-1z%22/%3E%3Cpath fill=%22%23dbb75e%22 d=%22M2 6c4-1 7 0 9.3 1.6V20C9 18.5 6 18 2 19z%22/%3E%3Cpath fill=%22%23dbb75e%22 d=%22M22 6c-4-1-7 0-9.3 1.6V20c2.3-1.5 5.3-2 9.3-1z%22/%3E%3C/svg%3E"); }
 .plaque-horloge { --p-clair: #e4c06a; --p-sombre: #5f4f28; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Ccircle fill=%22none%22 stroke=%22%235f4f28%22 stroke-width=%224%22 cx=%2212%22 cy=%2212%22 r=%228.5%22/%3E%3Cpath fill=%22none%22 stroke=%22%235f4f28%22 stroke-width=%224%22 d=%22M12 7v5l3.5 2.5%22/%3E%3Ccircle fill=%22none%22 stroke=%22%23e4c06a%22 stroke-width=%221.8%22 cx=%2212%22 cy=%2212%22 r=%228.5%22/%3E%3Cpath fill=%22none%22 stroke=%22%23e4c06a%22 stroke-width=%221.8%22 d=%22M12 7v5l3.5 2.5%22/%3E%3C/svg%3E"); }
 .plaque-ciel { --p-clair: #f6cd78; --p-sombre: #614e2a; --p-embleme: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%22-1 -1 26 26%22 stroke-linejoin=%22round%22 stroke-linecap=%22round%22%3E%3Ccircle fill=%22%23614e2a%22 stroke=%22%23614e2a%22 stroke-width=%222.2%22 cx=%2212%22 cy=%2212%22 r=%224.4%22/%3E%3Cpath fill=%22none%22 stroke=%22%23614e2a%22 stroke-width=%224.2%22 d=%22M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1%22/%3E%3Ccircle fill=%22%23f6cd78%22 cx=%2212%22 cy=%2212%22 r=%224.4%22/%3E%3Cpath fill=%22none%22 stroke=%22%23f6cd78%22 stroke-width=%222%22 d=%22M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1%22/%3E%3C/svg%3E"); }
@@ -4835,6 +4869,43 @@ h3 > .icon {
 .carte-fond.fond-epices { --fond-peint: url(/decors/fond-epices-720.0af27890fb.webp); }
 .carte-fond.fond-table-de-jeux { --fond-peint: url(/decors/fond-table-de-jeux-720.1c5b3b3a0d.webp); }
 .carte-fond.fond-annees-folles { --fond-peint: url(/decors/fond-annees-folles-720.2efc802b5c.webp); }
+.podium-du-classement { --marche-peinte: url(/decors/marche-velours-360.6e069c85f7.webp); }
+.pdc-marche.plaque-ivoire { --marche-peinte: url(/decors/marche-ivoire-360.ff289c747e.webp); }
+.pdc-marche.plaque-cahier { --marche-peinte: url(/decors/marche-cahier-360.1bf08fbad3.webp); }
+.pdc-marche.plaque-carnet { --marche-peinte: url(/decors/marche-carnet-360.05734ec20b.webp); }
+.pdc-marche.plaque-guinguette { --marche-peinte: url(/decors/marche-guinguette-360.2ce31c6144.webp); }
+.pdc-marche.plaque-pyjama { --marche-peinte: url(/decors/marche-pyjama-360.7834cadcb2.webp); }
+.pdc-marche.plaque-stade { --marche-peinte: url(/decors/marche-stade-360.35c59bde5c.webp); }
+.pdc-marche.plaque-jungle { --marche-peinte: url(/decors/marche-jungle-360.26d66428f9.webp); }
+.pdc-marche.plaque-ocean { --marche-peinte: url(/decors/marche-ocean-360.a65bcf8da9.webp); }
+.pdc-marche.plaque-patisserie { --marche-peinte: url(/decors/marche-patisserie-360.95fe2dab82.webp); }
+.pdc-marche.plaque-gameboy { --marche-peinte: url(/decors/marche-gameboy-360.b74cae4470.webp); }
+.pdc-marche.plaque-foret { --marche-peinte: url(/decors/marche-foret-360.cae4d19411.webp); }
+.pdc-marche.plaque-carnaval { --marche-peinte: url(/decors/marche-carnaval-360.aff4035b10.webp); }
+.pdc-marche.plaque-plage { --marche-peinte: url(/decors/marche-plage-360.9cfebb2cbf.webp); }
+.pdc-marche.plaque-licorne { --marche-peinte: url(/decors/marche-licorne-360.3e8b758b4e.webp); }
+.pdc-marche.plaque-heros { --marche-peinte: url(/decors/marche-heros-360.9ce9022d5b.webp); }
+.pdc-marche.plaque-grimoire { --marche-peinte: url(/decors/marche-grimoire-360.5fa1f5f6cb.webp); }
+.pdc-marche.plaque-filmnoir { --marche-peinte: url(/decors/marche-filmnoir-360.ef340684c8.webp); }
+.pdc-marche.plaque-disco { --marche-peinte: url(/decors/marche-disco-360.067b66471d.webp); }
+.pdc-marche.plaque-halloween { --marche-peinte: url(/decors/marche-halloween-360.9e2d15d01e.webp); }
+.pdc-marche.plaque-neige { --marche-peinte: url(/decors/marche-neige-360.85f793ae81.webp); }
+.pdc-marche.plaque-cerisiers { --marche-peinte: url(/decors/marche-cerisiers-360.d14f171258.webp); }
+.pdc-marche.plaque-neon { --marche-peinte: url(/decors/marche-neon-360.661ab48091.webp); }
+.pdc-marche.plaque-olympe { --marche-peinte: url(/decors/marche-olympe-360.8d565e57df.webp); }
+.pdc-marche.plaque-braises { --marche-peinte: url(/decors/marche-braises-360.cd3799d451.webp); }
+.pdc-marche.plaque-cosmos { --marche-peinte: url(/decors/marche-cosmos-360.2c2cb834cb.webp); }
+.pdc-marche.plaque-feudartifice { --marche-peinte: url(/decors/marche-feudartifice-360.56c8f3cc5a.webp); }
+.pdc-marche.plaque-aurore { --marche-peinte: url(/decors/marche-aurore-360.1e5f5adec9.webp); }
+.pdc-marche.plaque-kintsugi { --marche-peinte: url(/decors/marche-kintsugi-360.1c9f217a2e.webp); }
+.pdc-marche.plaque-theatre { --marche-peinte: url(/decors/marche-theatre-360.8781897ba0.webp); }
+.pdc-marche.plaque-bannieres-clans { --marche-peinte: url(/decors/marche-bannieres-clans-360.e1c881b38a.webp); }
+.pdc-marche.plaque-bannieres-royaume { --marche-peinte: url(/decors/marche-bannieres-royaume-360.8af19245b5.webp); }
+.pdc-marche.plaque-babel { --marche-peinte: url(/decors/marche-babel-360.b33fd838ba.webp); }
+.pdc-marche.plaque-horloge { --marche-peinte: url(/decors/marche-horloge-360.3688562533.webp); }
+.pdc-marche.plaque-ciel { --marche-peinte: url(/decors/marche-ciel-360.e86004c412.webp); }
+.pdc-marche.plaque-heures { --marche-peinte: url(/decors/marche-heures-360.5e5c537d69.webp); }
+.pdc-marche.plaque-sommet { --marche-peinte: url(/decors/marche-sommet-360.d6eeea1b21.webp); }
 /* ── Fin des décors peints ── */
 .carte-fond.fond-triomphe,
 .carte-fond.fond-cadran,
@@ -10096,6 +10167,16 @@ button.identite-ligne:hover .identite-oeil { border-color: var(--accent); }
 /* Dans l'onglet : l'échantillon en petit, son emblème seul au milieu — il n'a pas la place d'un prénom. */
 .loge-theme-onglets .loge-plaque-echantillon { flex: none; width: 28px; height: 18px; padding: 0; border-radius: 5px; }
 .loge-theme-onglets .loge-plaque-echantillon > .plaque-embleme { width: 14px; height: 14px; margin: auto; }
+/* Son camp, sous un thème qui en a deux (`ChoixDuCamp`, les Deux Bannières) : deux boutons côte à côte au-dessus de ses
+   thèmes, l'emblème de la plaque du camp et son nom — rien d'autre à lire. Le camp que la page montre a son cadre d'or ;
+   essayé sans être porté, son pointillé, comme une vignette à l'essai. */
+.loge-camps { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 var(--loge-bloc, 10px); }
+.loge-camp { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 4px 10px 4px 5px; border: 1px solid var(--edge); border-radius: var(--radius-xs); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+.loge-camp .loge-plaque-echantillon { flex: none; width: 38px; height: 32px; padding: 0; border-radius: 6px; }
+.loge-camp .loge-plaque-echantillon > .plaque-embleme { width: 24px; height: 24px; margin: auto; }
+.loge-camp-nom { font-weight: 700; font-size: 0.92rem; line-height: 1.15; text-align: left; }
+.loge-camp.selected { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.loge-camp.essaye { border-style: dashed; }
 @media (max-height: 759px) {
   /* Le petit téléphone : l'aperçu des thèmes perd quatre pixels — deux rangées et le pied tiennent au-dessus du menu en
      360 × 640, sa niche au coin. */

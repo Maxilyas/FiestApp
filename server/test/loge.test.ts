@@ -654,7 +654,7 @@ test('la barre : « Annuler » rend la tenue sans rien envoyer, « Porter » env
   const LOGE = source('components/Loge.tsx')
   assert.match(
     LOGE,
-    /const porter = async \(\): Promise<boolean> => \{\s*if \(essaiVide\(essai\)\) return true\s*if \(busy \|\| !\(await enregistrer\(essai\)\)\) return false[\s\S]*?if \(essai\.theme !== undefined\) finirLEssai\(true\)\s*setEssai\(\{\}\)\s*return true\s*\}/,
+    /const porter = async \(\): Promise<boolean> => \{\s*if \(essaiVide\(essai\)\) return true\s*if \(busy \|\| !\(await enregistrer\(essai\)\)\) return false[\s\S]*?if \(essai\.theme !== undefined \|\| essai\.camp !== undefined\) finirLEssai\(true\)\s*setEssai\(\{\}\)\s*return true\s*\}/,
   )
   assert.match(LOGE, /onAnnuler=\{\(\) => setEssai\(\{\}\)\}/)
   // La loge quittée — « ← », le retour du téléphone — rend la page à son thème.

@@ -130,9 +130,9 @@ test('le compte de la collection : trois familles, leurs lignes, un total — ce
     // le 14 octobre 2026, les douze fonds des savoirs de la boutique depuis
     // le 15, les huit gerbes des fêtes depuis le 1er novembre, et les cinq
     // finitions du 30 au 50 le même jour.
-    ['style', '9/103', ['themes 3/35', 'fonds 1/25', 'gerbes 2/25', 'finitions 3/12', 'bordures 0/6']],
+    ['style', '9/104', ['themes 3/36', 'fonds 1/25', 'gerbes 2/25', 'finitions 3/12', 'bordures 0/6']],
   ])
-  assert.deepEqual(total, { acquis: 25, total: 422 })
+  assert.deepEqual(total, { acquis: 25, total: 423 })
   assert.deepEqual(
     compteDeLaCollection({ ...LEA, bordures: [{ ligue: 'bronze', crans: 12 }, { ligue: 'argent', crans: 3 }] } as any)
       .familles.find(f => f.famille === 'style')!
@@ -225,9 +225,9 @@ test('les trophées se rangent par où ils se gagnent : une page par mode, ses p
 test('la collection : son total, trois familles, une ligne par collection — repliées, sans rien à porter', async () => {
   lieu.hash = ''
   const html = await rendu('components/Collection', 'MaCollection', { profil: LEA })
-  assert.match(html, /<p class="collection-total"><b>25<\/b> sur 422<\/p>/)
+  assert.match(html, /<p class="collection-total"><b>25<\/b> sur 423<\/p>/)
   const familles = [...html.matchAll(/<h2 id="famille-\w+">([^<]+)<span class="collection-compte">([^<]+)<\/span><\/h2>/g)].map(m => `${m[1].trim()} ${m[2]}`)
-  assert.deepEqual(familles, ['Avatars 9 sur 173', 'Trophées 7 sur 146', 'Style 9 sur 103'])
+  assert.deepEqual(familles, ['Avatars 9 sur 173', 'Trophées 7 sur 146', 'Style 9 sur 104'])
   const lignes = [...html.matchAll(/<span class="trophee-texte"><b>([^<]+)<\/b>/g)].map(m => m[1])
   assert.deepEqual(lignes, [
     // Trois lignes — le savoir, les légendaires et les Divins, les emojis —
@@ -287,7 +287,7 @@ test('la collection en lignes : chaque ligne dit l’essentiel puis ses suites, 
   // La tête ne garde que le total et sa jauge : ses trois lignes d'explication prenaient 56 px au-dessus des listes — elles
   // se lisent dessous, une fois les huit lignes vues.
   const tete = html.slice(html.indexOf('<div class="collection-tete">'), html.indexOf('<section class="collection-famille"'))
-  assert.match(tete, /^<div class="collection-tete"><p class="collection-total"><b>26<\/b> sur 432<\/p><span class="jauge-fine" aria-hidden="true"><span style="width:\d+%"><\/span><\/span><\/div>$/)
+  assert.match(tete, /^<div class="collection-tete"><p class="collection-total"><b>26<\/b> sur 433<\/p><span class="jauge-fine" aria-hidden="true"><span style="width:\d+%"><\/span><\/span><\/div>$/)
   const note = html.indexOf('<p class="muted small collection-note">Touche une ligne')
   assert.ok(note > html.lastIndexOf('</section>'), 'la note, sous la dernière famille')
 })
@@ -337,7 +337,7 @@ test('le carnet des fêtes : sa ligne avec les trophées, une page par année, c
     { partie: 'trophees', acquis: 7, total: 146 },
     { partie: 'timbres', acquis: 1, total: 10 },
   ])
-  assert.deepEqual(compteDeLaCollection(AVEC_LE_CARNET as any).total, { acquis: 26, total: 432 })
+  assert.deepEqual(compteDeLaCollection(AVEC_LE_CARNET as any).total, { acquis: 26, total: 433 })
 
   lieu.hash = '#collection-timbres'
   const html = await rendu('components/Collection', 'MaCollection', { profil: AVEC_LE_CARNET })
@@ -424,7 +424,7 @@ test('une ligne de la collection a son adresse : « Mon thème » y mène, sur l
   }))
   assert.deepEqual(
     pages.map(p => `${p.nom} ${p.compte}`),
-    ['Offert 2/2', 'Commune 0/5', 'Peu commune 0/7', 'Rare 0/8', 'Épique 0/5', 'Légendaire 1/8'],
+    ['Offert 2/2', 'Commune 0/5', 'Peu commune 0/7', 'Rare 0/8', 'Épique 0/5', 'Légendaire 1/9'],
   )
   const possedes = new Set(LEA.boutique.possedes)
   for (const [i, r] of RARETES_DE_THEME.entries()) {

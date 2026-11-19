@@ -1,7 +1,7 @@
 import { Avatar } from './Avatar'
 import { NomLaure } from './Laurier'
 import { Ecrin, EmblemeDeLaPlaque, classeDeLaPlaque } from './Plaque'
-import { AUCUNE_PLAQUE, plaquePortee, plaquesOuvertes } from '../../../shared/plaques'
+import { AUCUNE_PLAQUE, nomDeLaPlaque, plaqueAvecSonCamp, plaquePortee, plaquesOuvertes } from '../../../shared/plaques'
 import { theme } from '../../../shared/themes'
 import { bordurePortee } from '../../../shared/duels'
 import { cibleEclat } from '../../../shared/legendaires'
@@ -51,7 +51,7 @@ export function LigneDePlaque({ profil, plaque }: { profil: SaLigne; plaque: str
     <div
       className="lb-row plaque-apercu"
       role="img"
-      aria-label={plaque ? `Ta ligne aux classements, sous la plaque ${theme(plaque)?.nom ?? ''}` : 'Ta ligne aux classements, sans plaque'}
+      aria-label={plaque ? `Ta ligne aux classements, sous la plaque ${nomDeLaPlaque(plaque)}` : 'Ta ligne aux classements, sans plaque'}
     >
       <SonNom profil={profil} plaque={plaque} />
     </div>
@@ -69,13 +69,16 @@ export function plaquesDeLaLoge(profil: PublicProfileDetail, essai: PropsDUnePie
   const portee = profil.plaqueChoisie ?? 'auto'
   const montree = essai.plaque ?? portee
   const themeMontre = essai.theme !== undefined ? essai.theme : (profil.theme ?? null)
+  // La plaque des Deux Bannières porte son camp — l'essayé, sinon le sien —, comme le serveur la dit aux autres.
+  const campMontre = essai.camp !== undefined ? essai.camp : (profil.camp ?? null)
+  const avecSonCamp = (p: string | null) => plaqueAvecSonCamp(p, campMontre)
   const choix: { cle: string; nom: string; vue: string | null }[] = [
-    { cle: 'auto', nom: 'Comme mon thème', vue: plaquePortee('auto', themeMontre) },
+    { cle: 'auto', nom: 'Comme mon thème', vue: avecSonCamp(plaquePortee('auto', themeMontre)) },
     { cle: AUCUNE_PLAQUE, nom: 'Aucune', vue: null },
-    ...plaquesOuvertes(profil.boutique?.possedes ?? []).map(k => ({ cle: k, nom: theme(k)?.nom ?? k, vue: k })),
+    ...plaquesOuvertes(profil.boutique?.possedes ?? []).map(k => ({ cle: k, nom: theme(k)?.nom ?? k, vue: avecSonCamp(k) })),
   ]
   // Une plaque choisie d'un thème qu'il n'a plus (un serveur qui en sait moins) : la règle du serveur la dit quand même.
-  const vue = choix.find(c => c.cle === montree)?.vue ?? plaquePortee(montree, themeMontre)
+  const vue = choix.find(c => c.cle === montree)?.vue ?? avecSonCamp(plaquePortee(montree, themeMontre))
   return { portee, montree, choix, vue }
 }
 

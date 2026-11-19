@@ -102,7 +102,7 @@ export function CabinetApp() {
         const moi = await api.joueur.moiLeger()
         if (!vivant) return
         // Le thème de son profil habille la page, sa gerbe éclate à ses bonnes réponses, son compagnon dans sa niche.
-        void porterTheme(moi.profile?.theme)
+        void porterTheme(moi.profile?.theme, moi.profile?.camp)
         porterGerbe(moi.profile?.gerbe)
         porterNiche(moi.profile)
         // Le niveau d'où part la page : un gain dit la montée qu'il a faite en s'y comparant.

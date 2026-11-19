@@ -1,0 +1,303 @@
+/* ── Les Deux Bannières · Légendaire ──
+   La frontière au crépuscule : les Clans de la Braise d'un côté du gouffre,
+   le Royaume d'Azur de l'autre — deux factions d'un monde de légende, tout
+   entières inventées (le choix du propriétaire du 19 novembre 2026,
+   `retours/2026-11-19/deux-bannieres/` : le thème de son jeu préféré, ni
+   nom, ni blason, ni race d'un jeu existant). On porte un camp
+   (`Theme.camps`, `shared/themes.ts`) : les Clans d'office, sur la racine ;
+   le Royaume sous `data-camp`, que `themeJoueur.ts` pose avec le thème.
+   Chaque camp a sa nuit, son or et sa plaque — sa marche du podium, son
+   emblème : les autres voient de quel camp il est.
+
+   L'un des thèmes peints (`server/scripts/anime/decors.ts`, le groupe
+   `bannieres`) : la frontière, ses blasons repeints aux deux emblèmes
+   choisis. Le décor tient en deux couches fixes — le tableau sous son voile,
+   peints ensemble (`html::before`), et les braises qui montent
+   (`body::after`), braises ou poussière d'or selon le camp —, qui ne
+   captent jamais un doigt et ne bougent que par `transform`. Le voile est
+   épais en haut, où s'écrivent l'en-tête et la question ; le texte posé sur
+   la page garde un halo de nuit. `design.test.ts` en mesure les contrastes,
+   pour chaque camp.
+
+   Rien n'y peint une carte à fond : chaque règle qui la toucherait s'en
+   écarte (`:where(:not(.carte-fond, .carte-fond *))`), et son décor reste
+   nocturne sous tous les thèmes (`fonds.test.ts`). */
+
+@font-face {
+  font-family: 'Cinzel';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/themes/cinzel.woff2') format('woff2');
+}
+
+/* Les Clans de la Braise, d'office : la nuit d'un camp de guerre, l'orange des braseros. */
+:root[data-theme='bannieres'] {
+  --bg: #140c0b;
+  --bg-halo: #2e130e;
+  --bg-raised: #1d1210;
+  --ink: #f8eee4;
+  --muted: #d4beac;
+  --accent: #f0843f;
+  --accent-rgb: 240, 132, 63;
+  --accent-hover: #f59c62;
+  --accent-text: #f59a5c;
+  --accent-text-hover: #f8b384;
+  --focus: #f8b384;
+  --on-accent: #1c0b04;
+  --alert: #ff8f80;
+  --alert-rgb: 255, 143, 128;
+  --alert-hover: #ffa89c;
+  --on-alert: #140c0b;
+  /* Des surfaces de cuir sombre, presque opaques : sous un décor peint, un
+     voile translucide laissait passer le tableau sous le texte. */
+  --surface: rgba(32, 18, 15, 0.92);
+  --surface-faint: rgba(26, 15, 13, 0.88);
+  --surface-strong: rgba(255, 200, 160, 0.08);
+  --track: rgba(255, 200, 160, 0.16);
+  --edge: rgba(240, 132, 63, 0.34);
+  --edge-strong: rgba(240, 132, 63, 0.7);
+  --accent-soft: rgba(240, 132, 63, 0.14);
+  --scroll-thumb: rgba(240, 132, 63, 0.38);
+  --backdrop: rgba(8, 4, 3, 0.78);
+  --shape-0: #ff8f73;
+  --shape-1: #f2c14e;
+  --shape-2: #8fb8ff;
+  --shape-3: #8fdcb0;
+  --bronze-text: #e6a676;
+  --argent-text: #d8d2cc;
+  --anneau-legendaire: #e0935a;
+  --anneau-divin: #a99ad6;
+  --anneau-collection: #7fbf95;
+  --anneau-collection-haut: #7fa6dd;
+  color-scheme: dark;
+}
+
+/* Le Royaume d'Azur : la nuit bleue de ses tours, l'or de ses dômes. */
+:root[data-theme='bannieres'][data-camp='royaume'] {
+  --bg: #0b1122;
+  --bg-halo: #172a52;
+  --bg-raised: #111a31;
+  --ink: #f4f2ec;
+  --muted: #bec8dd;
+  --accent: #e3b04b;
+  --accent-rgb: 227, 176, 75;
+  --accent-hover: #edc46e;
+  --accent-text: #efc265;
+  --accent-text-hover: #f6d68e;
+  --focus: #f6d68e;
+  --on-accent: #1a1006;
+  --on-alert: #0b1122;
+  --surface: rgba(17, 26, 49, 0.92);
+  --surface-faint: rgba(14, 22, 42, 0.88);
+  --surface-strong: rgba(210, 225, 255, 0.08);
+  --track: rgba(210, 225, 255, 0.16);
+  --edge: rgba(227, 176, 75, 0.32);
+  --edge-strong: rgba(227, 176, 75, 0.7);
+  --accent-soft: rgba(227, 176, 75, 0.14);
+  --scroll-thumb: rgba(227, 176, 75, 0.38);
+  --backdrop: rgba(4, 6, 14, 0.78);
+}
+
+/* ── Décors peints : écrit par `server/scripts/anime/decors.ts --livrer`, on ne le retouche pas à la main ── */
+:root[data-theme='bannieres'] {
+  --decor-frontiere: url(/decors/bannieres-frontiere-720.5c645fcc72.webp);
+}
+/* ── Fin des décors peints ── */
+
+:root[data-theme='bannieres'] {
+  /* Cinzel, gravée, pour les grands titres et la question seulement (plus bas) : large, elle faisait passer les titres
+     des gros boutons de l'accueil sur deux lignes, et « Créer un salon » sous le menu. */
+  --bannieres-gravee: 'Cinzel', Georgia, serif;
+  --radius: 12px;
+  font-synthesis: none;
+  /* La boîte du tableau, au rapport de son image (720 × 1290) : elle couvre
+     l'écran, calée en haut. */
+  --bannieres-l: max(100vw, calc(100vh * 720 / 1290));
+  --bannieres-h: max(calc(100vw * 1290 / 720), 100vh);
+  /* Le voile, de la nuit du camp : épais en haut, plus léger en bas où le pont et ses torches se montrent — assez
+     pour que le château blanc et les braseros ne passent pas sous les lignes posées à même la page. */
+  --bannieres-voile: linear-gradient(180deg, rgba(20, 12, 11, 0.82) 0%, rgba(20, 12, 11, 0.72) 38%, rgba(20, 12, 11, 0.64) 70%, rgba(20, 12, 11, 0.48) 100%);
+  /* Ce qui monte du gouffre : des braises, chez les Clans. */
+  --bannieres-braises: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='300' viewBox='0 0 180 300'><circle cx='17' cy='272' r='6.3' fill='%23ff6a1a' opacity='.1'/><circle cx='17' cy='272' r='2.1' fill='%23ff6a1a' opacity='0.63'/><circle cx='94' cy='276' r='6.3' fill='%23ffb02e' opacity='.1'/><circle cx='94' cy='276' r='2.1' fill='%23ffb02e' opacity='0.61'/><circle cx='72' cy='61' r='4.8' fill='%23ffb02e' opacity='.1'/><circle cx='72' cy='61' r='1.6' fill='%23ffb02e' opacity='0.68'/><circle cx='74' cy='61' r='4.8' fill='%23ffb02e' opacity='.1'/><circle cx='74' cy='61' r='1.6' fill='%23ffb02e' opacity='0.56'/><circle cx='164' cy='109' r='3.6' fill='%23ff6a1a' opacity='.1'/><circle cx='164' cy='109' r='1.2' fill='%23ff6a1a' opacity='0.60'/><circle cx='122' cy='204' r='3.6' fill='%23ffd58a' opacity='.1'/><circle cx='122' cy='204' r='1.2' fill='%23ffd58a' opacity='0.87'/><circle cx='112' cy='14' r='6.3' fill='%23ff6a1a' opacity='.1'/><circle cx='112' cy='14' r='2.1' fill='%23ff6a1a' opacity='0.84'/><circle cx='107' cy='231' r='4.8' fill='%23ffd58a' opacity='.1'/><circle cx='107' cy='231' r='1.6' fill='%23ffd58a' opacity='0.78'/><circle cx='134' cy='87' r='4.8' fill='%23ffd58a' opacity='.1'/><circle cx='134' cy='87' r='1.6' fill='%23ffd58a' opacity='0.64'/><circle cx='145' cy='61' r='4.8' fill='%23ff6a1a' opacity='.1'/><circle cx='145' cy='61' r='1.6' fill='%23ff6a1a' opacity='0.63'/><circle cx='40' cy='258' r='6.3' fill='%23ff6a1a' opacity='.1'/><circle cx='40' cy='258' r='2.1' fill='%23ff6a1a' opacity='0.83'/><circle cx='7' cy='238' r='6.3' fill='%23ffb02e' opacity='.1'/><circle cx='7' cy='238' r='2.1' fill='%23ffb02e' opacity='0.60'/><circle cx='128' cy='262' r='4.8' fill='%23ffb02e' opacity='.1'/><circle cx='128' cy='262' r='1.6' fill='%23ffb02e' opacity='0.72'/><circle cx='144' cy='99' r='3.6' fill='%23ff6a1a' opacity='.1'/><circle cx='144' cy='99' r='1.2' fill='%23ff6a1a' opacity='0.59'/><circle cx='125' cy='198' r='3.6' fill='%23ffb02e' opacity='.1'/><circle cx='125' cy='198' r='1.2' fill='%23ffb02e' opacity='0.82'/><circle cx='173' cy='140' r='4.8' fill='%23ff6a1a' opacity='.1'/><circle cx='173' cy='140' r='1.6' fill='%23ff6a1a' opacity='0.66'/></svg>");
+  /* Le bas du gros bouton, son métal dans l'ombre. */
+  --bannieres-or-sombre: #b45a22;
+  /* Le liseré des deux bannières : la braise, l'or, l'azur. */
+  --bannieres-liseret: linear-gradient(90deg, #c8361e, #e3b04b 50%, #2f6fd1);
+}
+
+:root[data-theme='bannieres'][data-camp='royaume'] {
+  --bannieres-voile: linear-gradient(180deg, rgba(11, 17, 34, 0.82) 0%, rgba(11, 17, 34, 0.72) 38%, rgba(11, 17, 34, 0.64) 70%, rgba(11, 17, 34, 0.48) 100%);
+  --bannieres-or-sombre: #a8741f;
+  /* Chez le Royaume, une poussière d'or et d'azur. */
+  --bannieres-braises: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='300' viewBox='0 0 180 300'><circle cx='109' cy='156' r='3.6' fill='%23fff4d6' opacity='.1'/><circle cx='109' cy='156' r='1.2' fill='%23fff4d6' opacity='0.73'/><circle cx='83' cy='163' r='3.6' fill='%23fff4d6' opacity='.1'/><circle cx='83' cy='163' r='1.2' fill='%23fff4d6' opacity='0.58'/><circle cx='85' cy='221' r='4.8' fill='%23f6d68e' opacity='.1'/><circle cx='85' cy='221' r='1.6' fill='%23f6d68e' opacity='0.58'/><circle cx='135' cy='237' r='3.6' fill='%23fff4d6' opacity='.1'/><circle cx='135' cy='237' r='1.2' fill='%23fff4d6' opacity='0.62'/><circle cx='172' cy='146' r='3.6' fill='%23f6d68e' opacity='.1'/><circle cx='172' cy='146' r='1.2' fill='%23f6d68e' opacity='0.60'/><circle cx='116' cy='152' r='3.6' fill='%23a9c8ff' opacity='.1'/><circle cx='116' cy='152' r='1.2' fill='%23a9c8ff' opacity='0.63'/><circle cx='126' cy='40' r='6.3' fill='%23a9c8ff' opacity='.1'/><circle cx='126' cy='40' r='2.1' fill='%23a9c8ff' opacity='0.93'/><circle cx='45' cy='10' r='6.3' fill='%23a9c8ff' opacity='.1'/><circle cx='45' cy='10' r='2.1' fill='%23a9c8ff' opacity='0.81'/><circle cx='169' cy='26' r='6.3' fill='%23fff4d6' opacity='.1'/><circle cx='169' cy='26' r='2.1' fill='%23fff4d6' opacity='0.79'/><circle cx='70' cy='113' r='6.3' fill='%23a9c8ff' opacity='.1'/><circle cx='70' cy='113' r='2.1' fill='%23a9c8ff' opacity='0.68'/><circle cx='12' cy='149' r='3.6' fill='%23fff4d6' opacity='.1'/><circle cx='12' cy='149' r='1.2' fill='%23fff4d6' opacity='0.58'/><circle cx='81' cy='274' r='6.3' fill='%23a9c8ff' opacity='.1'/><circle cx='81' cy='274' r='2.1' fill='%23a9c8ff' opacity='0.60'/></svg>");
+}
+
+:root[data-theme='bannieres'] body {
+  background-color: var(--bg);
+}
+
+/* Le tableau et son voile, peints ensemble sur une seule couche à la taille de l'écran. */
+:root[data-theme='bannieres']::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    var(--bannieres-voile) 0 0 / 100% 100% no-repeat,
+    var(--decor-frontiere) 50% 0 / var(--bannieres-l) var(--bannieres-h) no-repeat;
+}
+
+/* Les braises qui montent du gouffre : un motif qui glisse d'un pas vers le haut, et recommence. */
+:root[data-theme='bannieres'] body::after {
+  content: '';
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: calc(100% + 300px);
+  background-image: var(--bannieres-braises);
+  background-size: 180px 300px;
+  background-repeat: repeat;
+  animation: bannieres-braises 14s linear infinite;
+}
+
+:root[data-theme='bannieres'] #root {
+  position: relative;
+  z-index: 1;
+}
+
+/* Le texte posé sur la page, hors des cartes, garde un halo de nuit : les
+   tours et les braseros passent sous lui. */
+:root[data-theme='bannieres'] .label:where(:not(.carte-fond, .carte-fond *)),
+:root[data-theme='bannieres'] .muted:where(:not(.carte-fond, .carte-fond *)),
+:root[data-theme='bannieres'] .small:where(:not(.carte-fond, .carte-fond *)),
+:root[data-theme='bannieres'] h1,
+:root[data-theme='bannieres'] h2,
+:root[data-theme='bannieres'] h3:where(:not(.carte-fond, .carte-fond *)),
+:root[data-theme='bannieres'] .identite-nom:where(:not(.carte-fond, .carte-fond *)),
+:root[data-theme='bannieres'] .xp-mince-texte:where(:not(.carte-fond, .carte-fond *)),
+:root[data-theme='bannieres'] .glossaire > summary:where(:not(.carte-fond, .carte-fond *)),
+:root[data-theme='bannieres'] .compagnon-vitrine-nom:where(:not(.carte-fond, .carte-fond *)),
+:root[data-theme='bannieres'] .rang-des-compagnons .article-prix:where(:not(.carte-fond, .carte-fond *)),
+:root[data-theme='bannieres'] .quiz-question,
+:root[data-theme='bannieres'] .timer-seconds {
+  text-shadow: 0 1px 2px rgba(6, 4, 4, 0.9), 0 0 10px rgba(6, 4, 4, 0.8), 0 0 20px rgba(6, 4, 4, 0.55);
+}
+
+/* Le Cabinet pose ses lignes à même la page : sa colonne prend le sol de la nuit, le tableau reste de chaque côté. */
+:root[data-theme='bannieres'] .cab-page {
+  background: var(--bg);
+}
+
+/* Les cartes, les réponses, les onglets : du cuir sombre, un double filet, et
+   le liseré des deux bannières à leur sommet. */
+:root[data-theme='bannieres'] .card:where(:not(.carte-fond, .carte-fond *)),
+:root[data-theme='bannieres'] .ans-btn:not(.correct):not(.chosen),
+:root[data-theme='bannieres'] .onglets {
+  background:
+    var(--bannieres-liseret) 0 0 / 100% 2px no-repeat,
+    linear-gradient(180deg, var(--surface), var(--surface-faint));
+  border: 1px solid var(--edge);
+  box-shadow: inset 0 0 0 3px rgba(0, 0, 0, 0.28), inset 0 0 0 4px rgba(var(--accent-rgb), 0.18), 0 10px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* La réponse choisie, le gros bouton du moment et la pastille du niveau : la
+   lueur du camp sur un sol plein, pas sur le tableau. */
+:root[data-theme='bannieres'] .ans-btn.chosen,
+:root[data-theme='bannieres'] .gros-principal {
+  background: radial-gradient(120% 160% at 0% 0%, rgba(var(--accent-rgb), 0.26), rgba(var(--accent-rgb), 0.06) 65%), var(--bg-raised);
+}
+
+:root[data-theme='bannieres'] .ans-btn.chosen {
+  border: 1.5px solid var(--accent);
+}
+
+:root[data-theme='bannieres'] .niveau:where(:not(.carte-fond, .carte-fond *)) {
+  background: linear-gradient(rgba(var(--accent-rgb), 0.14), rgba(var(--accent-rgb), 0.14)), var(--bg-raised);
+}
+
+:root[data-theme='bannieres'] .ans-btn {
+  font-weight: 600;
+}
+
+/* Le gros bouton d'or : un métal battu, son reflet en haut, son ombre en bas. */
+:root[data-theme='bannieres'] .btn-primary {
+  background: linear-gradient(180deg, var(--accent-hover), var(--accent) 55%, var(--bannieres-or-sombre));
+  border: 1px solid var(--accent-text-hover);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -2px 0 rgba(0, 0, 0, 0.3), 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+
+/* Les grands titres et la question, en capitales gravées. */
+:root[data-theme='bannieres'] h1,
+:root[data-theme='bannieres'] h2,
+:root[data-theme='bannieres'] .quiz-question {
+  font-family: var(--bannieres-gravee);
+}
+
+:root[data-theme='bannieres'] .quiz-question {
+  font-weight: 700;
+  font-size: 26px;
+  line-height: 1.18;
+}
+
+:root[data-theme='bannieres'] h1,
+:root[data-theme='bannieres'] h2,
+:root[data-theme='bannieres'] h3 {
+  font-weight: 700;
+}
+
+:root[data-theme='bannieres'] h1,
+:root[data-theme='bannieres'] h2 {
+  color: var(--accent-text-hover);
+}
+
+/* Les surtitres, espacés comme sur un étendard. */
+:root[data-theme='bannieres'] .label {
+  font-weight: 600;
+  letter-spacing: 0.2em;
+}
+
+:root[data-theme='bannieres'] .timer-seconds {
+  color: var(--accent-text);
+}
+
+/* La barre du temps et celle de l'expérience : d'une bannière à l'autre. */
+:root[data-theme='bannieres'] .timer-fill,
+:root[data-theme='bannieres'] .xp-fill {
+  background: var(--bannieres-liseret);
+}
+
+:root[data-theme='bannieres'] .result-banner .big,
+:root[data-theme='bannieres'] .fin-xp {
+  background: linear-gradient(100deg, var(--accent), var(--accent-text-hover) 55%, #ffffff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* La barre du menu porte le liseré des deux bannières. */
+:root[data-theme='bannieres'] .menu-barre {
+  background:
+    var(--bannieres-liseret) 0 0 / 100% 2px no-repeat,
+    var(--bg-raised);
+}
+
+@keyframes bannieres-braises {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-300px);
+  }
+}
+
+/* Moins de mouvement, demandé par le système : les braises s'arrêtent, le tableau reste. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme='bannieres'] body::after {
+    animation: none !important;
+  }
+}

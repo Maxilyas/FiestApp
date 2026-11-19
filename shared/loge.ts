@@ -23,7 +23,7 @@ import { NOM_FINITION, clesQuiBrillent, eclatChez, meilleureFinition, sceauVisib
 import { NOM_DE_LA_MATIERE, type Matiere } from './matieres'
 import { recompensesDe } from './proches'
 import { cleDeMaitre, maitresDe, nomDuTitre } from './sentiers'
-import { NOM_DE_RARETE, theme } from './themes'
+import { NOM_DE_RARETE, THEMES, campDuTheme, theme } from './themes'
 import { AUCUNE_PLAQUE } from './plaques'
 import { AUCUNE_BORDURE, CRANS_D_UNE_BORDURE, NOM_DE_LA_BORDURE, bordurePortee, type ChoixDeBordure } from './duels'
 import { PIECES_DE_LA_LOGE, type PieceDeLaLoge, type VusDeLaLoge } from './piecesDeLaLoge'
@@ -63,6 +63,8 @@ export interface Essai {
   sceau?: boolean
   /** La plaque de son nom aux classements (`shared/plaques.ts`) : `auto` — celle de son thème —, `aucune`, ou la clé d'un thème à lui. */
   plaque?: string
+  /** Son camp sous un thème qui en a deux (`Theme.camps`) : il teinte la page, et sa plaque des Deux Bannières. */
+  camp?: string | null
 }
 
 /**
@@ -70,7 +72,7 @@ export interface Essai {
  * qu'il a éteints : la version qu'il montre de chacun.
  */
 export type Tenue = Pick<PublicProfileDetail, 'avatar' | 'legendaire' | 'finitionChoisie' | 'titre' | 'vitrineChoisie' | 'fond' | 'theme' | 'gerbe' | 'bordureChoisie'> &
-  Partial<Pick<PublicProfileDetail, 'eclats' | 'eclatsEteints' | 'matieres' | 'matieresPortees' | 'scelles' | 'sceauMasque' | 'plaqueChoisie'>>
+  Partial<Pick<PublicProfileDetail, 'eclats' | 'eclatsEteints' | 'matieres' | 'matieresPortees' | 'scelles' | 'sceauMasque' | 'plaqueChoisie' | 'camp'>>
 
 /** L'avatar que la carte montre : l'emoji essayé ôte le légendaire, comme au serveur. */
 export function avatarMontre(porte: Pick<Tenue, 'avatar' | 'legendaire'>, essai: Essai): { avatar: string; legendaire: string | null } {
@@ -123,6 +125,11 @@ export function essayer(essai: Essai, piece: Essai, porte: Tenue): Essai {
   if (suivant.gerbe !== undefined && (suivant.gerbe === AUCUNE_GERBE ? null : suivant.gerbe) === (porte.gerbe ?? null)) delete suivant.gerbe
   // La plaque se compare à son choix, pas à celle qu'on voit : « comme mon thème » et le thème lui-même sont deux choix.
   if (suivant.plaque !== undefined && suivant.plaque === (porte.plaqueChoisie ?? 'auto')) delete suivant.plaque
+  // Le camp se compare à celui qu'il porte, le premier d'office : choisir les Clans sans en avoir choisi aucun, c'est le même.
+  if (suivant.camp !== undefined) {
+    const t = THEMES.find(x => x.camps?.some(c => c.key === suivant.camp))
+    if (campDuTheme(t, suivant.camp)?.key === campDuTheme(t, porte.camp)?.key) delete suivant.camp
+  }
   // La version d'un avatar éclaté suit l'avatar montré : en essayer un autre
   // la laisse — « Porter » aurait réglé un avatar qu'on ne voit plus. Celle
   // qu'il montre déjà sort de l'essai.
@@ -188,6 +195,7 @@ export function avecLEssai<P extends Tenue & Pick<PublicProfileDetail, 'finition
   if (essai.theme !== undefined) vu.theme = essai.theme
   if (essai.gerbe !== undefined) vu.gerbe = essai.gerbe === AUCUNE_GERBE ? null : essai.gerbe
   if (essai.plaque !== undefined) vu.plaqueChoisie = essai.plaque
+  if (essai.camp !== undefined) vu.camp = essai.camp
   if (essai.eclat) {
     const eteints = new Set(profil.eclatsEteints ?? [])
     if (essai.eclat.brille) eteints.delete(essai.eclat.cle)
@@ -334,6 +342,10 @@ export function lignesDeLEssai(essai: Essai, profil: Pick<PublicProfileDetail, '
   if (essai.plaque !== undefined) {
     const p = essai.plaque
     lignes.push({ piece: 'theme', nom: p === 'auto' ? 'Comme ton thème' : p === AUCUNE_PLAQUE ? 'Sans plaque' : (theme(p)?.nom ?? 'Velours'), detail: 'Plaque' })
+  }
+  if (essai.camp) {
+    const c = THEMES.flatMap(t => t.camps ?? []).find(x => x.key === essai.camp)
+    if (c) lignes.push({ piece: 'theme', nom: c.long, detail: 'Camp' })
   }
   if (essai.gerbe !== undefined) {
     lignes.push({ piece: 'gerbe', nom: essai.gerbe === AUCUNE_GERBE ? 'Aucune gerbe' : (gerbe(essai.gerbe)?.nom ?? 'Les confettis'), detail: 'Gerbe' })

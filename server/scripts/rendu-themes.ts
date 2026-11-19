@@ -5,6 +5,9 @@
 //
 //   npm run build -w client && cd server && npx tsx scripts/rendu-themes.ts horloge ciel [--fond=triomphe]
 //
+// Un thème à deux camps se photographie sous chacun : `CAMP=royaume` le fait
+// porter (les Deux Bannières), et le nom des photos le dit.
+//
 // Les photos vont dans le dossier `SORTIE` (par défaut ../export/rendus).
 import { createRequire } from 'node:module'
 import { spawnSync } from 'node:child_process'
@@ -24,6 +27,7 @@ const option = (nom: string) => args.find(a => a.startsWith(`--${nom}=`))?.slice
 const ecrans = (option('ecrans') ?? 'accueil,profil,question').split(',')
 const fond = option('fond')
 const heures = (process.env.HEURES ?? '').split(',').filter(Boolean)
+const camp = process.env.CAMP
 const date = process.env.DATE ?? '2026-10-05'
 const sortie = path.resolve(process.env.SORTIE ?? path.resolve(SERVEUR, '../export/rendus'))
 mkdirSync(sortie, { recursive: true })
@@ -125,7 +129,7 @@ try {
 
   const themes = THEMES.filter(t => voulus.includes(t.key))
   for (const t of themes) {
-    const r = await ecrire(url, '/api/joueur/moi', { theme: t.key === 'velours' ? null : t.key }, profil, 'PUT')
+    const r = await ecrire(url, '/api/joueur/moi', { theme: t.key === 'velours' ? null : t.key, ...(camp && { camp }) }, profil, 'PUT')
     if (!r.ok) throw new Error(`Camille ne porte pas ${t.key} (${r.status})`)
     for (const heure of heures.length ? heures : ['']) {
       if (heure) await telephone.clock.setFixedTime(new Date(`${date}T${heure}:00+02:00`))
@@ -147,7 +151,7 @@ try {
         }
         await telephone.evaluate('document.fonts.ready')
         await patienter(Number(process.env.ATTENTE ?? 1200))
-        const fichier = path.join(sortie, `${t.key}-${ecran}${heure ? '-' + heure.replace(':', 'h') : ''}${fond ? '-' + fond : ''}.png`)
+        const fichier = path.join(sortie, `${t.key}${camp ? '-' + camp : ''}-${ecran}${heure ? '-' + heure.replace(':', 'h') : ''}${fond ? '-' + fond : ''}.png`)
         await telephone.screenshot({ path: fichier, fullPage: process.env.PLEIN === '1' })
         console.log(fichier)
         if (args.includes('--contraste')) await mesurerContraste(telephone)

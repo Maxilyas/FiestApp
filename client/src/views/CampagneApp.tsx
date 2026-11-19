@@ -438,7 +438,7 @@ export function CampagneApp() {
       const moi = await api.joueur.moiLeger()
       if (!vivant) return
       // Le thème de son profil habille sa page, comme le quiz du jour.
-      void porterTheme(moi.profile?.theme)
+      void porterTheme(moi.profile?.theme, moi.profile?.camp)
       porterGerbe(moi.profile?.gerbe)
       porterNiche(moi.profile)
       if (!moi.profile) return setEcran({ e: 'anonyme' })
