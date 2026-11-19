@@ -388,6 +388,15 @@ Le détail : [les données](../architecture/donnees.md).
 
 *Fichiers : `server/src/quizDuJour.ts`, `server/src/campagne.ts`, `server/src/index.ts`*
 
+### La sauvegarde de chaque nuit : sur GitHub, chiffrée, par un jeton qui ne fait que lire
+**Contexte** : la base permanente ne se sauvegardait qu'à la main (`npm run sauvegarde`), et l'historique de Turso ne remonte qu'un jour sur l'offre gratuite. Il fallait l'automatiser sans rien payer (« la sécurité avant tout », le propriétaire, le 18 novembre 2026). Les tâches planifiées de Render sont payantes ; le serveur lui-même a un disque qui s'efface à chaque réveil et un dixième de cœur que la lecture de toute la base gèlerait ; un PC ne sauvegarde que s'il est allumé. GitHub Actions est gratuit pour ce dépôt — mais il est public : tout compte GitHub lit le journal d'une exécution et télécharge ses fichiers, et la base porte les mots de passe hachés, les empreintes de session, la clé privée du rappel du soir et les abonnements des téléphones.
+
+**Décision** : une tâche planifiée de GitHub (`.github/workflows/sauvegarde.yml`), chaque nuit et à la main, qui lance la même commande. Le fichier part compressé puis chiffré pour des clés publiques `age` — la clé privée ne va jamais sur GitHub —, gardé trente jours ; ce que la commande dit, qui nomme la base, part chiffré avec lui. Le jeton vit dans un environnement que GitHub ne donne qu'à `main`, n'est lu que par l'étape de la sauvegarde, et ne peut que lire la base et ajouter une ligne à `qg_sauvegardes` (droits fins de Turso) : la note ne crée plus la table quand elle existe. À côté de lui, rien qu'on n'a choisi : les actions de GitHub par l'empreinte de leur code, les paquets du fichier de verrouillage sans leurs scripts d'installation, aucun cache. Un chiffrement à clé publique plutôt qu'une phrase de passe dans les secrets : un compte GitHub compromis n'ouvre rien.
+
+**Conséquence** : la règle « Sauvegarde ancienne » du QG devient le filet de la tâche — une semaine sans note, elle sonne. Ce qui reste public : l'heure d'une exécution, sa durée, son issue et la taille du fichier chiffré. Chaque sauvegarde lit la base à peu près deux fois au quota de Turso. Perdre la clé privée, c'est perdre toutes les sauvegardes : elle se garde en deux endroits, et une seconde paire peut servir de secours. Au-delà de trente jours, il ne reste que les copies faites chez soi.
+
+*Fichiers : `.github/workflows/sauvegarde.yml`, `server/scripts/sauvegarde.ts`, `server/test/sauvegarde-automatique.test.ts`, `server/test/hrana.ts`*
+
 ## Les comptes, la sécurité et le QG
 
 Le détail : [la sécurité](../architecture/securite.md).
